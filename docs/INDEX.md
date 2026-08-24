@@ -85,11 +85,11 @@ docs/
 
 ## Plans
 
-| Folder                             | Contains                                                       |
-| ---------------------------------- | -------------------------------------------------------------- |
-| [`plans/active/`](plans/active/)   | Roadmaps and overhauls currently in flight                     |
-| [`plans/archive/`](plans/archive/) | Completed or superseded plans (historical, do not act on them) |
-| [`plans/audits/`](plans/audits/)   | Snapshots from past multi-agent codebase audits                |
+| Folder                                   | Contains                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| [`plans/active/`](plans/active/)         | Roadmaps and overhauls currently in flight                                   |
+| [`plans/HISTORIE.md`](plans/HISTORIE.md) | Index of all completed and superseded plans; full text via the listed commit |
+| [`plans/audits/`](plans/audits/)         | Snapshots from past multi-agent codebase audits                              |
 
 See [`plans/README.md`](plans/README.md) for the plan workflow (when to start one, when to archive, naming conventions).
 
@@ -114,7 +114,7 @@ Each service has its own `README.md` (and increasingly its own `CLAUDE.md`). See
 | Cloudflared tunnel     | `services/cloudflared/`        |
 | Sandbox                | `services/sandbox/`            |
 
-> Some service READMEs are still being written as part of the [DX overhaul](plans/archive/2026-05_dx-overhaul.md), Stage 9.
+> Some service READMEs are still being written as part of the DX overhaul (2026-05, see [plan history](plans/HISTORIE.md)), Stage 9.
 
 ---
 

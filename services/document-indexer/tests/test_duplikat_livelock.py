@@ -71,7 +71,6 @@ def _indexer(db):
     # was die Pipeline danach macht, prueft dieser Test nicht.
     idx.analyzer = None
     idx._embedding_client = None
-    idx._qdrant_manager = None
     idx.graph_store = None
     return idx
 

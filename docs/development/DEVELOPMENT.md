@@ -354,7 +354,6 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 ### RAG Not Working
 
 ```bash
-curl http://localhost:6333/collections/documents  # Check Qdrant
 docker compose logs document-indexer              # Check indexer
 docker compose logs embedding-service             # Check embeddings
 ```

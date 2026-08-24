@@ -93,7 +93,7 @@ if docker compose exec -T n8n sh -c '
     fi
     n8n import:workflow --separate --input='"$TEMPLATE_DIR_CONTAINER"; then
     log_success "Agent-Vorlagen importiert (deaktiviert, Namen mit »[Vorlage]«)"
-    log_info "Nach dem Import im n8n-Editor: Ollama-/Qdrant-Credentials setzen (siehe Sticky Notes in den Workflows)"
+    log_info "Nach dem Import im n8n-Editor: Ollama-Credentials setzen (siehe Sticky Notes in den Workflows)"
 else
     log_error "n8n import:workflow fehlgeschlagen — Details: docker compose logs n8n"
     exit 1

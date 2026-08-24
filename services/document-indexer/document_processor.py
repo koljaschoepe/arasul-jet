@@ -10,6 +10,7 @@ import hashlib
 import logging
 import os
 import shutil
+import uuid
 from collections import OrderedDict
 from io import BytesIO
 from typing import Dict, List, Optional, Any
@@ -25,7 +26,7 @@ from entity_extractor import extract_from_document
 
 from config import (
     PARENT_CHUNK_SIZE, CHILD_CHUNK_SIZE, CHILD_CHUNK_OVERLAP,
-    ENABLE_AI_ANALYSIS, EMBEDDING_MODEL, CHUNK_CONTEXT_MODE, EMBEDDING_ENABLED
+    ENABLE_AI_ANALYSIS, CHUNK_CONTEXT_MODE
 )
 
 logger = logging.getLogger(__name__)
@@ -420,17 +421,14 @@ def run_indexing_pipeline(
     content_hash: str,
     db,
     analyzer,
-    embedding_client,
-    qdrant_manager,
     graph_store,
-    enable_similarity: bool,
     skip_if_unchanged: bool = False,
     anreichern: bool = True
 ) -> Optional[int]:
     """
     Shared indexing pipeline for both new and existing documents.
 
-    Performs: parse -> AI analysis -> chunk -> embed -> upsert -> post-process.
+    Performs: parse -> AI analysis -> chunk -> Textlayer -> post-process.
 
     Args:
         doc_id: Document UUID
@@ -439,10 +437,7 @@ def run_indexing_pipeline(
         content_hash: Content hash string
         db: DatabaseManager instance
         analyzer: DocumentAnalyzer instance
-        embedding_client: EmbeddingClient instance
-        qdrant_manager: QdrantManager instance
         graph_store: GraphStore instance or None
-        enable_similarity: Whether to calculate similarity scores
         skip_if_unchanged: Wenn True, wird ein bereits vollstaendig indexiertes
             Dokument mit identischem content_hash uebersprungen (Hash-Gate,
             Plan 012 Phase F Schritt 17). Default False, damit ein
@@ -558,7 +553,7 @@ def run_indexing_pipeline(
     # Kategorie steht an der Dokumentzeile und wird unten nachgetragen, und von
     # dort liest sie auch das Backend.
     index_stats = {}
-    chunk_count = _index_to_qdrant(
+    chunk_count = schreibe_textlayer(
         doc_id=doc_id,
         text=text,
         metadata={
@@ -570,8 +565,6 @@ def run_indexing_pipeline(
             **space_info
         },
         db=db,
-        embedding_client=embedding_client,
-        qdrant_manager=qdrant_manager,
         stats=index_stats
     )
 
@@ -581,15 +574,12 @@ def run_indexing_pipeline(
     # knowledge base is incomplete and should be re-indexed. Previously this was
     # silently reported as fully 'indexed'.
     if chunk_count and chunk_count > 0:
-        final_status = 'partial' if index_stats.get('skipped_chunks', 0) > 0 else 'indexed'
-        db.update_document_status(doc_id, final_status, chunk_count=chunk_count)
-        db.update_document(doc_id, {'embedding_model': EMBEDDING_MODEL})
+        # Frueher gab es hier 'partial': einzelne Chunks konnten am Einbetten
+        # scheitern, waehrend andere durchkamen. Ohne Vektorzweig (24.08.2026)
+        # gibt es diesen Fall nicht mehr — geschrieben wird der Textlayer, und
+        # der geht ganz oder gar nicht.
+        db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
     else:
-        # Clean up any partial vectors that may have been upserted
-        try:
-            qdrant_manager.delete_document_vectors(doc_id)
-        except Exception as cleanup_err:
-            logger.warning(f"Failed to clean up vectors for {doc_id}: {cleanup_err}")
         db.update_document_status(
             doc_id, 'failed',
             'No chunks created \u2014 document may be empty or unparseable'
@@ -623,10 +613,6 @@ def run_indexing_pipeline(
     elif anreichern:
         reichere_an(doc_id, text, filename, metadata.get('title'), db, analyzer)
 
-    # Calculate similarity if enabled
-    if enable_similarity:
-        qdrant_manager.calculate_similarities(doc_id, db)
-
     # Knowledge Graph: extract entities and relations
     if graph_store:
         try:
@@ -648,42 +634,56 @@ def run_indexing_pipeline(
     return chunk_count
 
 
-def _index_to_qdrant(
+def chunk_id_fuer(doc_id: str, chunk_global_index: int) -> str:
+    """Deterministische UUID fuer einen Kind-Chunk.
+
+    Stand bis zum 24.08.2026 in `qdrant_manager.py`. Sie gehoerte nie dorthin:
+    die ID ist der Primaerschluessel der Zeile in `document_chunks`, also des
+    Textlayers, und wurde von Qdrant nur mitbenutzt. Beim Ausbau von Qdrant ist
+    sie deshalb hierher gewandert — unveraendert, damit bestehende Zeilen
+    weiter getroffen werden.
+    """
+    return str(uuid.UUID(
+        hashlib.md5(f"{doc_id}:{chunk_global_index}".encode()).hexdigest()
+    ))
+
+
+def schreibe_textlayer(
     doc_id: str,
     text: str,
     metadata: Dict[str, Any],
     db,
-    embedding_client,
-    qdrant_manager,
     stats: Optional[Dict[str, int]] = None
 ) -> int:
     """
-    Chunk, embed, and upsert document text into Qdrant.
+    Den Text eines Dokuments zerlegen und als Textlayer nach PostgreSQL
+    schreiben.
 
-    Uses the Parent-Document Retriever pattern:
-    - Parent chunks (large) stored in PostgreSQL for rich LLM context
-    - Child chunks (small) embedded and stored in Qdrant for precise retrieval
+    Hiess bis zum 24.08.2026 `_index_to_qdrant` und tat zweierlei: sie schrieb
+    den Textlayer nach Postgres UND Vektoren nach Qdrant. Der Qdrant-Zweig lag
+    seit Plan 021 Schritt 8 hinter einem Schalter, der auf dem Geraet auf
+    `false` stand — er lief also seit Monaten nicht mehr. Mit dem Ausbau von
+    Qdrant am 24.08.2026 ist er ersatzlos entfallen.
+
+    Geblieben ist das Muster des Parent-Document-Retrievers, weil der
+    agentische Pfad es nutzt: grosse Eltern-Chunks fuer den Zusammenhang,
+    kleine Kind-Chunks fuer die genaue Fundstelle. Beide liegen in Postgres.
 
     Args:
-        doc_id: Document UUID
-        text: Full document text
-        metadata: Document metadata
-        db: DatabaseManager instance
-        embedding_client: EmbeddingClient instance
-        qdrant_manager: QdrantManager instance
-        stats: Optional out-dict. If provided, it is populated with
-            'skipped_chunks' and 'total_children' so the caller can decide
-            whether the document was fully or only partially indexed (P6-17).
-            Passing a dict keeps the int return value unchanged, so existing
-            callers (e.g. enhanced_indexer) stay backward-compatible.
+        doc_id: Dokument-UUID
+        text: der vollstaendige Text
+        metadata: Metadaten des Dokuments
+        db: DatabaseManager
+        stats: optionales Ausgabe-Dict; wird mit 'skipped_chunks' (immer 0) und
+            'total_children' gefuellt, damit der Aufrufer den Status setzen
+            kann.
 
     Returns:
-        Number of child chunks indexed
+        Zahl der geschriebenen Kind-Chunks
     """
     db.update_document_status(doc_id, 'processing')
 
     try:
-        # Hierarchical chunking
         parent_chunks = chunk_text_hierarchical(
             text, PARENT_CHUNK_SIZE, CHILD_CHUNK_SIZE, CHILD_CHUNK_OVERLAP
         )
@@ -691,10 +691,9 @@ def _index_to_qdrant(
             logger.warning(f"No chunks generated for document {doc_id}")
             return 0
 
-        # Filter out tiny child chunks — headers, page numbers, etc. produce
-        # poor embeddings and add noise to retrieval. Compute the kept children
-        # per parent WITHOUT mutating yet, so we can fall back if the filter
-        # would wipe everything.
+        # Winzige Kind-Chunks aussortieren — Ueberschriften, Seitenzahlen. Erst
+        # rechnen, dann anwenden, damit ein kurzes Dokument nicht komplett
+        # wegfiltert.
         kept_by_parent = [
             [c for c in parent.children if c.word_count >= MIN_CHILD_WORDS]
             for parent in parent_chunks
@@ -707,17 +706,14 @@ def _index_to_qdrant(
                     new_parents.append(parent)
             parent_chunks = new_parents
         else:
-            # Every chunk is below the threshold → the document is simply short
-            # (a brief note), not noise. Keep the original chunks so a short but
-            # non-empty document still indexes as one small chunk instead of
-            # failing with "No chunks created" (QA-Sweep: kurze Notizen wurden
-            # fälschlich als „Index fehlgeschlagen" markiert).
+            # Alles unter der Schwelle heisst: das Dokument ist kurz, nicht
+            # rauschig. Eine kurze Notiz wurde sonst faelschlich als
+            # „Index fehlgeschlagen" gefuehrt.
             logger.info(
                 f"Document {doc_id}: all chunks below {MIN_CHILD_WORDS} words — "
                 f"short document, indexing as-is"
             )
 
-        # Re-index global child indices after filtering
         global_idx = 0
         for parent in parent_chunks:
             for child in parent.children:
@@ -731,55 +727,35 @@ def _index_to_qdrant(
             f"{total_children} child chunks to index"
         )
 
-        # Plan 012 Phase F Schritt 17 — delete-before-upsert.
-        #
-        # Die Point-IDs sind deterministisch: md5(f"{doc_id}:{global_index}").
-        # Ein Re-Index ueberschreibt damit zwar 0..N-1, laesst aber N..M einer
-        # frueheren, laengeren Fassung als "Zombie-Chunks" stehen — sie tauchen
-        # weiter in der Suche auf, obwohl der Text sie nicht mehr hergibt.
-        # Postgres ist bereits sauber (save_chunks/save_parent_chunks loeschen
-        # vorher); nur Qdrant leckte. Deshalb hier ERST alle Vektoren des
-        # Dokuments loeschen, DANN neu einfuegen.
-        #
-        # Bewusst an dieser Stelle: die 0-Chunk-Faelle sind oben schon per
-        # `return 0` abgefangen, es wird also nie geloescht, ohne dass gleich
-        # neue Chunks folgen.
-        # Plan 021: bei abgeschaltetem Embedding ist Qdrant i. d. R. gar nicht
-        # erreichbar — dann das Vektor-Löschen überspringen (spart einen sicher
-        # scheiternden Netzaufruf + Warn-Spam pro Dokument).
-        if EMBEDDING_ENABLED:
-            try:
-                qdrant_manager.delete_document_vectors(doc_id)
-            except Exception as del_err:
-                # Nicht abbrechen: der Upsert danach stellt zumindest die aktuellen
-                # Chunks korrekt her. Aber sichtbar machen — es koennen Zombies
-                # zurueckbleiben.
-                logger.warning(
-                    f"Alte Vektoren von {doc_id} nicht geloescht "
-                    f"(moegliche Zombie-Chunks): {del_err}"
-                )
-
-        # Save parent chunks to PostgreSQL and get their DB IDs
+        # Eltern-Chunks nach PostgreSQL, mit ihren DB-IDs zurueck
         parent_id_map = db.save_parent_chunks(doc_id, parent_chunks)
 
-        # Generate embeddings and Qdrant points for child chunks
-        batch_size = 10
-        all_points = []
         chunk_records = []
         domain_texts = []
 
         for parent in parent_chunks:
             parent_db_id = parent_id_map.get(parent.parent_index)
 
-            # Contextualized texts for embedding
-            contextualized_texts = []
             for child in parent.children:
-                ctx = contextualize_chunk(
+                # Der Zusammenhang wird weiterhin gebildet: er steht im
+                # Protokoll und dient der Nachvollziehbarkeit der Zerlegung.
+                # Gespeichert wird der Originaltext, wie zuvor auch.
+                contextualize_chunk(
                     child.text, doc_title, parent.text,
                     child.global_index, total_children,
                     section_header=getattr(child, 'section_header', '')
                 )
-                contextualized_texts.append(ctx)
+                chunk_records.append({
+                    'id': chunk_id_fuer(doc_id, child.global_index),
+                    'chunk_index': child.global_index,
+                    'child_index': child.child_index,
+                    'parent_chunk_id': parent_db_id,
+                    'text': child.text,
+                    'char_start': child.char_start,
+                    'char_end': child.char_end,
+                    'word_count': child.word_count,
+                })
+                domain_texts.append(child.text)
 
             if parent.children:
                 logger.info(
@@ -787,123 +763,21 @@ def _index_to_qdrant(
                     f"parent {parent.parent_index + 1}/{len(parent_chunks)} "
                     f"(mode={CHUNK_CONTEXT_MODE})"
                 )
-            # Original texts for payload storage
-            original_texts = [child.text for child in parent.children]
 
-            for i in range(0, len(contextualized_texts), batch_size):
-                batch_ctx_texts = contextualized_texts[i:i + batch_size]
-                batch_orig_texts = original_texts[i:i + batch_size]
-                batch_children = parent.children[i:i + batch_size]
-                if EMBEDDING_ENABLED:
-                    embeddings = embedding_client.get_batch_embeddings(
-                        batch_ctx_texts
-                    )
-                else:
-                    # Plan 021 (klassisches RAG aus): kein Embedding-Aufruf —
-                    # nur der Textlayer (document_chunks) wird geschrieben.
-                    embeddings = [None] * len(batch_children)
-
-                for child, orig_text, embedding in zip(
-                    batch_children, batch_orig_texts, embeddings
-                ):
-                    if embedding is None:
-                        if EMBEDDING_ENABLED:
-                            logger.warning(
-                                f"Failed to get embedding for child chunk "
-                                f"{child.global_index} "
-                                f"(parent {parent.parent_index})"
-                            )
-                            continue
-                        # Embedding bewusst aus (Plan 021): den Textlayer
-                        # trotzdem aufzeichnen (kein Qdrant-Point), damit der
-                        # agentische Pfad document_chunks weiter lesen kann.
-                        chunk_records.append({
-                            'id': qdrant_manager.get_chunk_id(
-                                doc_id, child.global_index
-                            ),
-                            'chunk_index': child.global_index,
-                            'child_index': child.child_index,
-                            'parent_chunk_id': parent_db_id,
-                            'text': orig_text,
-                            'char_start': child.char_start,
-                            'char_end': child.char_end,
-                            'word_count': child.word_count,
-                        })
-                        domain_texts.append(orig_text)
-                        continue
-
-                    point = qdrant_manager.build_point(
-                        doc_id=doc_id,
-                        chunk_global_index=child.global_index,
-                        child_index=child.child_index,
-                        parent_db_id=parent_db_id,
-                        parent_index=parent.parent_index,
-                        total_children=total_children,
-                        original_text=orig_text,
-                        embedding=embedding,
-                        metadata=metadata
-                    )
-                    all_points.append(point)
-
-                    # Record for database
-                    chunk_id = qdrant_manager.get_chunk_id(
-                        doc_id, child.global_index
-                    )
-                    chunk_records.append({
-                        'id': chunk_id,
-                        'chunk_index': child.global_index,
-                        'child_index': child.child_index,
-                        'parent_chunk_id': parent_db_id,
-                        'text': orig_text,
-                        'char_start': child.char_start,
-                        'char_end': child.char_end,
-                        'word_count': child.word_count,
-                    })
-
-                    domain_texts.append(orig_text)
-
-        # Validate embedding completeness — detect silent failures.
-        # Plan 021: bei bewusst abgeschaltetem Embedding sind 0 Qdrant-Points
-        # ERWARTET (nur Textlayer) — dann ist das KEIN Fehler, sondern der
-        # agentische Normalfall; die Vollständigkeits-/Abbruch-Prüfung entfällt.
-        skipped_chunks = total_children - len(all_points)
-        # P6-17: expose skip stats to the caller so a partial index is recorded
-        # as status 'partial' (searchable but flagged), not silently 'indexed'.
+        # Ohne Vektorzweig kann kein Chunk mehr am Einbetten scheitern. Der
+        # Schluessel bleibt im Dict, weil der Aufrufer ihn liest.
         if stats is not None:
-            stats['skipped_chunks'] = 0 if not EMBEDDING_ENABLED else skipped_chunks
+            stats['skipped_chunks'] = 0
             stats['total_children'] = total_children
-        if EMBEDDING_ENABLED and skipped_chunks > 0:
-            skip_pct = (skipped_chunks / total_children * 100) if total_children else 0
-            logger.error(
-                f"Document {doc_id}: {skipped_chunks}/{total_children} chunks "
-                f"({skip_pct:.0f}%) failed to embed — document partially indexed"
-            )
-            if len(all_points) == 0:
-                logger.error(f"Document {doc_id}: ALL chunks failed — aborting indexing")
-                return 0
 
-        # Upsert to Qdrant in batches to prevent OOM on large documents
-        UPSERT_BATCH_SIZE = 100
-        total_points = len(all_points)
-        for i in range(0, total_points, UPSERT_BATCH_SIZE):
-            batch = all_points[i:i + UPSERT_BATCH_SIZE]
-            qdrant_manager.upsert_points(batch)
-        all_points.clear()  # Free memory immediately
-        if total_points:
-            logger.info(
-                f"Indexed {total_points} child chunks for document "
-                f"{doc_id} (dense + sparse)"
-            )
-        elif not EMBEDDING_ENABLED:
-            logger.info(
-                f"Textlayer-only indexed {len(chunk_records)} chunks for "
-                f"document {doc_id} (Embedding aus — kein Qdrant)"
-            )
-
-        # Save child chunk records to PostgreSQL (Textlayer — auch ohne Embedding).
+        # Kind-Chunks nach PostgreSQL — das ist der Textlayer, aus dem der
+        # agentische Pfad liest.
         db.save_chunks(doc_id, chunk_records)
+        logger.info(
+            f"Textlayer: {len(chunk_records)} Chunks fuer Dokument {doc_id} "
+            f"geschrieben"
+        )
 
-        # Update domain dictionary for spell correction
         if domain_texts:
             try:
                 update_domain_dictionary(domain_texts)
@@ -912,26 +786,15 @@ def _index_to_qdrant(
                     f"Domain dictionary update failed (non-critical): {e}"
                 )
 
-        # „chunk_count" fürs Status-Flag: mit Embedding = Qdrant-Points; ohne
-        # Embedding = die geschriebenen Textchunks (sonst würde ein rein
-        # textindexiertes Dokument fälschlich als „failed" gelten).
-        return total_points if EMBEDDING_ENABLED else len(chunk_records)
+        return len(chunk_records)
 
     except Exception as e:
         logger.error(
             f"Indexing error for {doc_id}: {e}", exc_info=True
         )
-        # Rollback: remove any partially upserted vectors from Qdrant
-        try:
-            qdrant_manager.delete_document_vectors(doc_id)
-            logger.info(f"Rolled back partial vectors for {doc_id}")
-        except Exception as cleanup_err:
-            logger.warning(
-                f"Failed to rollback vectors for {doc_id}: {cleanup_err}"
-            )
-        # P4.5: also drop the parent_chunks rows we already saved at L569.
-        # Without this, repeated index attempts grow orphan parent rows in
-        # Postgres while the document never reaches a successful state.
+        # Die schon geschriebenen parent_chunks-Zeilen zuruecknehmen. Ohne das
+        # waechst bei wiederholten Versuchen ein Friedhof verwaister Zeilen,
+        # waehrend das Dokument nie fertig wird.
         try:
             removed = db.delete_parent_chunks(doc_id)
             if removed:

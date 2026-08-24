@@ -150,7 +150,7 @@ src/features/*/
 
 ### Conftest
 
-`tests/unit/conftest.py` mockt 30+ Module (torch, numpy, qdrant_client, docker, etc.) damit Unit-Tests ohne Container-Dependencies laufen.
+`tests/unit/conftest.py` mockt 30+ Module (torch, numpy, docker, etc.) damit Unit-Tests ohne Container-Dependencies laufen.
 
 ### Per-Service Tests
 

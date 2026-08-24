@@ -11,7 +11,7 @@
  * sprengt den Kontext eines 7B-Modells, lange bevor sie ihm nützt.
  *
  * SICHERHEITSGRENZE (Zusatz gegenüber dem Plan). Das Backend hängt im internen
- * Netz und erreicht Postgres, MinIO, Qdrant und den Docker-Proxy. Ein Werkzeug,
+ * Netz und erreicht Postgres, MinIO und den Docker-Proxy. Ein Werkzeug,
  * das eine beliebige Adresse abruft, wäre damit ein Weg, aus einem Flow heraus
  * genau diese Dienste anzusprechen — der Flow müsste dafür nur
  * `http://postgres-db:5432` als "Webseite" angeben. Das hat nichts mit dem

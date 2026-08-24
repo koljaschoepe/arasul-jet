@@ -11,10 +11,8 @@ const os = require('os');
 const path = require('path');
 
 jest.mock('../../src/utils/logger');
-jest.mock('../../src/services/rag/ragCore');
 jest.mock('../../src/services/flows/documentText');
 
-const ragCore = require('../../src/services/rag/ragCore');
 const documentText = require('../../src/services/flows/documentText');
 const {
   DateienLesenTool,
@@ -23,7 +21,6 @@ const {
   DateienAnhaengenTool,
 } = require('../../src/services/flows/tools/dateien');
 const { DateiSuchenTool } = require('../../src/services/flows/tools/suche');
-const RagSucheTool = require('../../src/services/flows/tools/rag');
 const TerminalTool = require('../../src/services/flows/tools/terminal');
 const { buildTools, implementedTools } = require('../../src/services/flows/toolRegistry');
 
@@ -347,146 +344,6 @@ describe('dateien_anhaengen', () => {
   });
 });
 
-describe('rag_suche', () => {
-  const tool = new RagSucheTool();
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    ragCore.getEmbedding.mockResolvedValue([0.1, 0.2]);
-    ragCore.hybridSearch.mockResolvedValue([
-      { payload: { document_name: 'Handbuch', text: 'Die Antwort steht hier.' } },
-    ]);
-  });
-
-  it('meldet eine leere Frage als Fehler', async () => {
-    expect(await tool.execute({ frage: '  ' }, {})).toMatch(/^Fehler:/);
-  });
-
-  // Standard (Plan 021): agentic RAG — ohne dateiname KEINE Vektor-Suche.
-  describe('Standard: agentic RAG (Vektor-Suche aus)', () => {
-    const alt = process.env.RAG_VEKTOR_SUCHE;
-    beforeEach(() => {
-      delete process.env.RAG_VEKTOR_SUCHE;
-    });
-    afterEach(() => {
-      if (alt === undefined) {
-        delete process.env.RAG_VEKTOR_SUCHE;
-      } else {
-        process.env.RAG_VEKTOR_SUCHE = alt;
-      }
-    });
-
-    it('ohne dateiname: keine Vektor-Suche, verweist auf dateien_suchen/dateiname', async () => {
-      const out = await tool.execute({ frage: 'Wie geht das?' }, {});
-      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
-      expect(ragCore.getEmbedding).not.toHaveBeenCalled();
-      expect(out).toMatch(/dateien_suchen/);
-      expect(out).toMatch(/dateiname/);
-    });
-  });
-
-  // Der Vektor-Zweig bleibt hinter dem Flag erreichbar, bis Schritt 8 ihn entfernt.
-  describe('Vektor-Suche (Flag RAG_VEKTOR_SUCHE=true)', () => {
-    const alt = process.env.RAG_VEKTOR_SUCHE;
-    beforeEach(() => {
-      process.env.RAG_VEKTOR_SUCHE = 'true';
-    });
-    afterEach(() => {
-      if (alt === undefined) {
-        delete process.env.RAG_VEKTOR_SUCHE;
-      } else {
-        process.env.RAG_VEKTOR_SUCHE = alt;
-      }
-    });
-
-    it('gibt Fundstellen mit Quelle zurück', async () => {
-      const out = await tool.execute({ frage: 'Wie geht das?' }, {});
-      expect(out).toContain('[Handbuch]');
-      expect(out).toContain('Die Antwort steht hier.');
-    });
-
-    it('schneidet die Suche auf die übergebenen Sammlungen zu', async () => {
-      await tool.execute({ frage: 'X' }, { spaceIds: ['s1'] });
-      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, ['s1']);
-    });
-
-    it('sucht ohne Zuschnitt über alles (spaceIds = null)', async () => {
-      await tool.execute({ frage: 'X' }, { spaceIds: [] });
-      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, null);
-    });
-
-    it('deckelt die Trefferzahl, damit das Modell sich nicht selbst flutet', async () => {
-      await tool.execute({ frage: 'X', anzahl: 500 }, {});
-      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 15, null);
-    });
-
-    it('fällt bei unsinniger Trefferzahl auf den Standard zurück', async () => {
-      await tool.execute({ frage: 'X', anzahl: -3 }, {});
-      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, null);
-    });
-
-    it('gibt bei leerem Ergebnis eine klare Meldung statt eines Fehlers', async () => {
-      ragCore.hybridSearch.mockResolvedValue([]);
-      expect(await tool.execute({ frage: 'X' }, {})).toMatch(/Nichts gefunden/i);
-    });
-
-    it('bricht den Lauf nicht ab, wenn die Suche ausfällt', async () => {
-      ragCore.getEmbedding.mockRejectedValue(new Error('Embedding-Dienst weg'));
-      const out = await tool.execute({ frage: 'X' }, {});
-      expect(out).toMatch(/nicht moeglich/i);
-      expect(out).toContain('Embedding-Dienst weg');
-    });
-  });
-
-  // F-07: benannte Datei → gezielt lesen statt projektweit suchen (flag-unabhängig).
-  describe('mit dateiname (F-07)', () => {
-    it('liest gezielt die genannte Datei statt projektweiter Suche', async () => {
-      documentText.ladeDokumentText.mockResolvedValue({
-        gefunden: true,
-        titel: 'Quartalsbericht',
-        text: 'NASHORN-4242 ist die Kennung aus dieser Datei.',
-        gekuerzt: false,
-      });
-      const out = await tool.execute(
-        { frage: 'Worum geht es?', dateiname: 'bericht.pdf' },
-        { spaceIds: ['s1'] }
-      );
-      // Gezielt gelesen, NICHT die Vektor-Suche benutzt (keine Fehl-Zuordnung).
-      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
-      expect(out).toContain('bericht.pdf');
-      expect(out).toContain('NASHORN-4242');
-      // Space-Zuschnitt wird durchgereicht (Isolation / Namenskollisionen).
-      expect(documentText.ladeDokumentText).toHaveBeenCalledWith(
-        expect.objectContaining({ filename: 'bericht.pdf', spaceIds: ['s1'] })
-      );
-    });
-
-    it('meldet klar, wenn die genannte Datei nicht gefunden/indexiert ist', async () => {
-      documentText.ladeDokumentText.mockResolvedValue({
-        gefunden: false,
-        titel: null,
-        text: '',
-        gekuerzt: false,
-      });
-      const out = await tool.execute({ frage: 'X', dateiname: 'fehlt.pdf' }, {});
-      expect(out).toMatch(/nicht gefunden|nicht.*indiziert|nicht.*indexiert/i);
-      expect(out).toContain('fehlt.pdf');
-      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
-    });
-
-    it('markiert eine Kürzung des Dateiinhalts ehrlich', async () => {
-      documentText.ladeDokumentText.mockResolvedValue({
-        gefunden: true,
-        titel: null,
-        text: 'Anfang…',
-        gekuerzt: true,
-      });
-      const out = await tool.execute({ frage: 'X', dateiname: 'gross.pdf' }, {});
-      expect(out).toMatch(/gek(ü|u)rzt/i);
-    });
-  });
-});
-
 describe('dateien_suchen', () => {
   const tool = new DateiSuchenTool();
   let suchbaum, sub;
@@ -601,12 +458,12 @@ describe('dateien_suchen', () => {
 
 describe('Werkzeug-Registry', () => {
   it('baut genau die deklarierten Werkzeuge', () => {
-    const tools = buildTools(['dateien_lesen', 'rag_suche']);
-    expect(tools.map(t => t.name)).toEqual(['dateien_lesen', 'rag_suche']);
+    const tools = buildTools(['dateien_lesen', 'web_suche']);
+    expect(tools.map(t => t.name)).toEqual(['dateien_lesen', 'web_suche']);
   });
 
   it('entfernt Duplikate', () => {
-    expect(buildTools(['rag_suche', 'rag_suche'])).toHaveLength(1);
+    expect(buildTools(['web_suche', 'web_suche'])).toHaveLength(1);
   });
 
   it('gibt für eine leere Liste nichts zurück (keine Werkzeuge = keine Rechte)', () => {
@@ -633,7 +490,6 @@ describe('Werkzeug-Registry', () => {
         'dateien_anhaengen',
         'dateien_suchen',
         'symbol_suche',
-        'rag_suche',
         'terminal',
         'web_suche',
         'web_lesen',
@@ -673,8 +529,8 @@ describe('Werkzeug-Registry', () => {
     });
 
     it('laesst die uebrigen Werkzeuge unberuehrt', () => {
-      const t = buildTools(['rag_suche', 'web_lesen'], { betriebsart: 'autonom' });
-      expect(namen(t)).toEqual(['rag_suche', 'web_lesen']);
+      const t = buildTools(['dateien_lesen', 'web_lesen'], { betriebsart: 'autonom' });
+      expect(namen(t)).toEqual(['dateien_lesen', 'web_lesen']);
     });
   });
 });

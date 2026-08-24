@@ -17,7 +17,6 @@ Traefik /n8n → n8n (n8nio/n8n 2.29.10 + Arasul-Custom-Nodes)
                  │                          └─ führt Code-Nodes (JS/Python) aus
                  ├─ PostgreSQL (Schema "n8n")
                  ├─ Ollama  http://llm-service:11434  (Agent-LLM: qwen3:8b)
-                 └─ Qdrant  http://qdrant:6333        (Vector Store Tool)
 
 Gemeinsames Volume n8n-agent-workspace → /data/agent-workspace
 (in n8n UND n8n-runners gemountet)
@@ -46,7 +45,7 @@ Gemeinsames Volume n8n-agent-workspace → /data/agent-workspace
 | `N8N_RESTRICT_FILE_ACCESS_TO=/data/agent-workspace`                                                                                                      | n8n         | Datei-Nodes können nur den Agent-Workspace lesen/schreiben.                                                                                                                                                                                                                                                                       |
 | `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES=true`                                                                                                                | n8n         | Eigene n8n-Config/Key-Dateien tabu.                                                                                                                                                                                                                                                                                               |
 | `N8N_SSRF_PROTECTION_ENABLED=true` (ab 2.12)                                                                                                             | n8n         | HTTP-Nodes können keine RFC1918-/Loopback-/Link-Local-Adressen anfragen (inkl. DNS-Rebinding- und Redirect-Schutz).                                                                                                                                                                                                               |
-| `N8N_SSRF_ALLOWED_HOSTNAMES=llm-service,qdrant,dashboard-backend,minio,embedding-service,document-indexer`                                               | n8n         | Interne Dienste, die Workflows legitim brauchen. **postgres-db ist bewusst nicht freigegeben.** Allowlist schlägt Blocklist.                                                                                                                                                                                                      |
+| `N8N_SSRF_ALLOWED_HOSTNAMES=llm-service,dashboard-backend,minio,embedding-service,document-indexer`                                                      | n8n         | Interne Dienste, die Workflows legitim brauchen. **postgres-db ist bewusst nicht freigegeben.** Allowlist schlägt Blocklist.                                                                                                                                                                                                      |
 | `NODES_EXCLUDE` executeCommand+ssh                                                                                                                       | n8n         | Shell-äquivalente Nodes bleiben zusätzlich zum 2.x-Default-Disable ausgeschlossen.                                                                                                                                                                                                                                                |
 | `N8N_DISABLED_MODULES=mcp`                                                                                                                               | n8n         | Der instanzweite MCP-**Server** (Workflows als MCP-Tools nach außen) ist hart abgeschaltet. Der MCP-**Client**-Tool-Node in Agenten funktioniert weiter (§6).                                                                                                                                                                     |
 | Telemetrie aus                                                                                                                                           | n8n         | `N8N_DIAGNOSTICS_ENABLED=false`, `N8N_VERSION_NOTIFICATIONS_ENABLED=false`, `N8N_TEMPLATES_ENABLED=false` — keine Calls zu n8n.io/api.n8n.io (GDPR, Offline-Fähigkeit).                                                                                                                                                           |
@@ -135,13 +134,10 @@ Agent — RAG`) und den nötigen Credential-Schritten:
 [`services/n8n/templates/agents/README.md`](../../services/n8n/templates/agents/README.md).
 Beide kommen **deaktiviert** an; nach CLI-Import den Editor neu laden.
 
-**RAG-Vorlage — Embedding-Kompatibilität:** Das Qdrant-Tool findet nur
-dann Sinnvolles, wenn die Collection mit demselben Embedding-Modell
-befüllt wurde, das der Workflow nutzt (Vorlage: `bge-m3` via Ollama,
-1024-dim). Die Plattform-Collection des Dokument-Indexers wird vom
-separaten embedding-service (BGE-M3) befüllt — gleiche Modellfamilie, aber
-vor produktiver Nutzung mit einer Score-Stichprobe verifizieren, sonst
-eigene Collection über den Insert-Mode des Qdrant-Nodes aufbauen.
+**RAG-Vorlage:** Sie setzte auf Qdrant, das am 24.08.2026 ausgebaut wurde. Die
+Vorlage funktioniert in dieser Form nicht mehr; wer sie braucht, baut sie auf
+den Textlayer in PostgreSQL um oder bringt eine eigene Vektordatenbank mit und
+lizenziert sie selbst.
 
 ## 6. MCP-Client gegen interne Server
 

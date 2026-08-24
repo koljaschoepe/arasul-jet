@@ -72,35 +72,6 @@
 
 ---
 
-## `ai_memories`
-
-| Column                   | Type                     | Nullable | Default             |
-| ------------------------ | ------------------------ | -------- | ------------------- |
-| `id`                     | uuid                     | ⛔       | `gen_random_uuid()` |
-| `type`                   | character varying        | ⛔       |                     |
-| `content`                | text                     | ⛔       |                     |
-| `source_conversation_id` | bigint                   | ✅       |                     |
-| `qdrant_point_id`        | uuid                     | ✅       |                     |
-| `importance`             | numeric                  | ✅       | `0.5`               |
-| `created_at`             | timestamp with time zone | ✅       | `now()`             |
-| `updated_at`             | timestamp with time zone | ✅       | `now()`             |
-| `is_active`              | boolean                  | ✅       | `true`              |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `source_conversation_id` → `chat_conversations.id`
-
-**Indexes:**
-
-- `ai_memories_pkey` — `CREATE UNIQUE INDEX ai_memories_pkey ON public.ai_memories USING btree (id)`
-- `idx_ai_memories_active` — `CREATE INDEX idx_ai_memories_active ON public.ai_memories USING btree (is_active) WHERE (is_active = true)`
-- `idx_ai_memories_created` — `CREATE INDEX idx_ai_memories_created ON public.ai_memories USING btree (created_at DESC)`
-- `idx_ai_memories_type` — `CREATE INDEX idx_ai_memories_type ON public.ai_memories USING btree (type)`
-
----
-
 ## `alert_history`
 
 > History of all fired alerts
@@ -555,7 +526,6 @@
 | `cta`             | text                     | ✅       |                                            |
 | `hashtags`        | ARRAY                    | ✅       |                                            |
 | `full_script`     | text                     | ⛔       |                                            |
-| `qdrant_point_id` | text                     | ✅       |                                            |
 | `approved_by`     | text                     | ✅       | `'telegram'::text`                         |
 | `approval_at`     | timestamp with time zone | ✅       |                                            |
 | `render_queue_id` | integer                  | ✅       |                                            |
@@ -998,7 +968,7 @@ Assistenten-Antwort (Liste, Ein-/Ausgaben gekürzt):
 
 ## `document_chunks`
 
-> Tracking of document chunks indexed in Qdrant
+> Tracking of document chunks in the text layer
 
 | Column            | Type                     | Nullable | Default |
 | ----------------- | ------------------------ | -------- | ------- |

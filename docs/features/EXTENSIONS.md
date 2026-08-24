@@ -132,7 +132,7 @@ der indexierte Text genau dieser Datei zurück, auch aus PDF oder DOCX. Das ist
 derselbe Weg, den das Flow-Werkzeug `rag_suche` seit Plan 021, Schritt 8 geht.
 Ohne Dateinamen bräuchte es die Vektorsuche, und die läuft auf einem
 gewöhnlichen Gerät nicht — der Aufruf sagt das dann und nennt den Weg. Vorher
-lief er unbedingt in Qdrant und war damit für jede Erweiterung tot, obwohl auf
+lief er unbedingt in Qdrant (bis zum Ausbau am 24.08.2026) und war damit für jede Erweiterung tot, obwohl auf
 dem Orin 2171 Dokumente mit 37 487 Abschnitten im Textlayer liegen.
 
 `arasul-bruecke.js` ist **unsere** Datei, kein Nutzerinhalt. Sie zieht deshalb
@@ -224,7 +224,7 @@ reicht:
 | Stufe      | UI-Bezeichnung               | Bedeutung                                       |
 | ---------- | ---------------------------- | ----------------------------------------------- |
 | `internet` | Nur Internet                 | Kein Zugriff auf Datenbank, Speicher oder RAG   |
-| `internal` | Interne Dienste              | Zusätzlich LLM, Qdrant, Datenbank, Speicher     |
+| `internal` | Interne Dienste              | Zusätzlich LLM, Datenbank, Speicher             |
 | `full`     | Voller Systemzugriff (Admin) | Plattform-Repo (rw) + Docker-Socket — nur Admin |
 
 ## Sicherheit beim Import

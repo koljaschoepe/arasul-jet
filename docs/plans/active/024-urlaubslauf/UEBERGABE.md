@@ -1,6 +1,6 @@
 # Übergabe zu Plan 024
 
-**Stand: 24.08.2026, 14:50.** Diese Seite trägt nur, was seit dem Abschluss von
+**Stand: 24.08.2026, 18:30.** Diese Seite trägt nur, was seit dem Abschluss von
 023 dazugekommen ist. Alles Ältere steht in
 [`docs/plans/done/023-feature-audit/UEBERGABE.md`](../../done/023-feature-audit/UEBERGABE.md)
 — besonders die **acht Fallen**, die dort einen halben Tag gekostet haben. Sie
@@ -32,16 +32,16 @@ weiter — die Null ist also gemessen und nicht blind.
 Die Liste stammt aus der Firmensicht `plans/aktiv/2026-08-24-urlaubslauf.md` im
 Steuer-Repo. Was in diesem Repo lag, ist am 24.08.2026 erledigt.
 
-| #   | Was                                           | Stand                                                                                                                                          |
-| --- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| V1  | 023 abschließen, 024 anlegen                  | **fertig.** 023 in `done/`, 024 ist der eine Faden                                                                                             |
-| V2  | Plan 024 mit Aufgabendatei                    | **fertig bis Phase 4** (#694). Bewusst nicht weiter: der Phasenschnitt ist ein Vorschlag, und Aufgaben für den 07.09. wären am 30.08. veraltet |
-| V3  | Ablaufskript bauen und trocken laufen lassen  | **fertig** (#692). `scripts/util/phasenlauf.mjs` plus `scripts/test/phasenlauf-test.mjs`, 24 Prüfpunkte, läuft bei jedem `run-tests.sh` mit    |
-| V4  | Rollback-Gleichlauf zwischen git und Abbild   | **fertig** (#691)                                                                                                                              |
-| V5  | Zielbild ausformulieren                       | gehört ins Steuer-Repo, nicht hierher                                                                                                          |
-| V6  | Issue 602, `services/mcp-remote-bash` löschen | **fertig** (#693)                                                                                                                              |
-| V7  | G4-Ergebnis ablesen                           | **offen**, geht erst nach 24.08. 21:43                                                                                                         |
-| V8  | G7 abnehmen und festschreiben                 | **offen**, frühestens 30.08.                                                                                                                   |
+| #   | Was                                           | Stand                                                                                                                                                                                   |
+| --- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V1  | 023 abschließen, 024 anlegen                  | **fertig.** 023 in `done/`, 024 ist der eine Faden                                                                                                                                      |
+| V2  | Plan 024 mit Aufgabendatei                    | **fertig, alle fünfzehn Phasen.** 30 Aufgaben. Die frühere Begrenzung auf Phase 4 hätte den Lauf ab dem 03.09. in eine leere Liste laufen lassen — zehn von fünfzehn Tagen ohne Aufgabe |
+| V3  | Ablaufskript bauen und trocken laufen lassen  | **fertig** (#692). `scripts/util/phasenlauf.mjs` plus `scripts/test/phasenlauf-test.mjs`, 24 Prüfpunkte, läuft bei jedem `run-tests.sh` mit                                             |
+| V4  | Rollback-Gleichlauf zwischen git und Abbild   | **fertig** (#691)                                                                                                                                                                       |
+| V5  | Zielbild ausformulieren                       | gehört ins Steuer-Repo, nicht hierher                                                                                                                                                   |
+| V6  | Issue 602, `services/mcp-remote-bash` löschen | **fertig** (#693)                                                                                                                                                                       |
+| V7  | G4-Ergebnis ablesen                           | **offen.** Die Lauscher sind am 24.08. gegen 17:15 neu gestartet worden, das Ergebnis liegt also frühestens am **25.08. gegen 17:15** vor                                               |
+| V8  | G7 abnehmen und festschreiben                 | **offen**, frühestens 30.08.                                                                                                                                                            |
 
 ## 2b. Welche Gates die Abnahme-Reihe misst — und welche nicht
 
@@ -216,6 +216,65 @@ trägt.
 
 ---
 
+## 2e. Qdrant ist ausgebaut (24.08.2026, PR #695)
+
+Der grösste Eingriff dieses Tages, und er berührt den Lauf an mehreren Stellen.
+
+**Der Befund.** Plan 021 Schritt 8 hatte klassisches Vektor-RAG durch
+agentisches ersetzt. Qdrant lief seitdem nicht mehr — aber der Code stand noch,
+und **drei Features fielen still durch, statt ihren Ausfall zu melden**:
+
+| Feature                                       | Zustand vor dem Ausbau                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------------------ |
+| `POST /api/documents/search`                  | leere Trefferliste, kein Fehler                                                |
+| KI-Gedächtnis, fliesst in jeden System-Prompt | speicherte nichts; `ai_memories`: **0 Zeilen** über die gesamte Gerätelaufzeit |
+| Agenten-Werkzeug `rag_suche`                  | Verbindungsfehler                                                              |
+
+Das ist G2-Stoff: eine Aktion, die schweigend nichts tut, ist schlechter als
+eine, die scheitert.
+
+**Was nicht verloren geht.** Kein heute funktionierendes Feature. Der
+agentische Pfad (`dateien_suchen`, `symbol_suche`, benanntes Datei-Lesen,
+`web_suche`) berührt Qdrant an keiner Stelle; der Volltext aller 1217 Dokumente
+liegt als 37 638 Chunks in `document_chunks` und ist unangetastet.
+
+**Was sich für den Lauf ändert:**
+
+- `embedding-service` trägt **kein** Compose-Profil mehr. Er wird von sieben
+  Stellen gebraucht, darunter die OpenAI-kompatible `/v1/embeddings`. Wer ihn
+  auf dem Gerät stoppt, bricht das Wissensraum-Routing.
+- `scripts/test/dr-drill.sh` startet nur noch `postgres-db` und `minio`. Der
+  Drill ist danach **noch nicht wieder gefahren worden** — das ist der erste
+  Punkt für Phase 6 (`P6-G6-01`).
+- Migration **162** löscht `ai_memories`, dreizehn `rag_*`-Spalten in
+  `system_settings` und `documents.qdrant_cleanup_pending`.
+- `services/document-indexer/indexer.py` war toter Code (niemand importierte
+  sie, Einstieg ist `api_server.py`) und ist weg. **`scripts/test/toter-code.sh`
+  hatte sie nicht gefunden, weil der Prüfer nur JS/TS kennt.** Eine Lücke, die
+  offen bleibt.
+
+**Eine Rücknahme in eigener Sache:** `/api/memory/context-stats` war beim Ausbau
+mitgegangen, obwohl der Endpunkt `compaction_log` und `llm_jobs` liest und mit
+dem KI-Gedächtnis nie zu tun hatte. Er steht wieder, in `routes/ai/profil.js`.
+
+**Nicht angefasst:** die `QDRANT_*`-Variablen in `.env.example` und
+`.env.template`. Der Zugriff auf `.env*` war in der Sitzung gesperrt. Sie sind
+ungenutzt und brechen nichts.
+
+## 2f. Die Plan-Historie ist eingedampft (24.08.2026)
+
+`docs/plans/` ging von 94 Dateien mit 57 474 Zeilen auf 12 mit 4913. Achtzig
+abgeschlossene Plandateien sind aus dem Arbeitsbaum genommen;
+[`docs/plans/HISTORIE.md`](../../HISTORIE.md) führt jede mit dem Commit, unter
+dem ihr Volltext steht:
+
+```bash
+git show <commit>:docs/plans/done/<datei>
+```
+
+Die Übergabe von 023 ist geblieben. **Wer im Lauf einen alten Plan sucht und
+ihn nicht findet, hat ihn nicht verloren — er steht in der Historie.**
+
 ## 3. Was der Trockenlauf gleich gefunden hat
 
 Erwähnenswert, weil es die Mechanik rechtfertigt: `phasenlauf-test.mjs` hat beim
@@ -235,12 +294,14 @@ und beide hat kein Mensch gefunden, sondern ein Test mit Attrappen.
 
 Unverändert aus 023, plus eines:
 
-| Thema                                             | Warum offen                                                                                                                                                                                               |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tailscale-Schlüssel läuft **22.11.2026** ab       | nur in der Konsole abschaltbar, nicht auf dem Gerät                                                                                                                                                       |
-| E2, serielle Warteschlange                        | Umbau am Herzstück des Chats                                                                                                                                                                              |
-| Der n8n-Knoten „Arasul LLM" umgeht die GPU-Sperre | drei Wege, alle ändern eine ausgelieferte Integration                                                                                                                                                     |
-| **Phase 5 des Laufs steht leer**                  | n8n fällt aus dem Auslieferungsumfang (W-2026-08-173), aber solange es ohne Profil im Standardstack steht, läuft es mit. Ob Phase 5 wegfällt, entscheidet Kolja. Der Widerspruch steht in der Firmensicht |
+| Thema                                                                                        | Warum offen                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tailscale-Schlüssel läuft **22.11.2026** ab                                                  | nur in der Konsole abschaltbar, nicht auf dem Gerät                                                                                                                                                                                                                                                                                    |
+| E2, serielle Warteschlange                                                                   | Umbau am Herzstück des Chats                                                                                                                                                                                                                                                                                                           |
+| Der n8n-Knoten „Arasul LLM" umgeht die GPU-Sperre                                            | drei Wege, alle ändern eine ausgelieferte Integration                                                                                                                                                                                                                                                                                  |
+| **Issue 686 (n8n hinter ein Profil) blockiert laut eigener Beschreibung den ersten Verkauf** | Die Vertragsanlage `drittlizenzen.md` führt n8n bereits als „nicht Bestandteil der Lieferung". Das ist unwahr, solange n8n ohne Profil startet — §444 BGB. Kolja hat am 24.08.2026 entschieden: **erst nach dem Urlaubslauf**, also nach dem 12.09. Das Risiko ist genannt, die Entscheidung steht                                     |
+| Das Gerät fährt im **Entwicklungsmodus**                                                     | `arasul-platform.service` ist weder aktiv noch installiert, die Dienste laufen aus `/home/arasul/arasul/arasul-jet` statt `/opt/arasul`. Der G7-Beleg entsteht damit auf einem Gerät, das **nicht so startet wie ein Kundengerät**. Das gehört in die Formulierung des Gates, sonst belegt der Beleg etwas anderes als sein Titel sagt |
+| Semantische Suche über Dokumente gibt es nicht mehr                                          | Kolja hat am 24.08.2026 „ersatzlos, der Agent sucht" gewählt. Falls ein Kunde danach fragt: der Text liegt vollständig in Postgres, ein GIN-Index auf `document_chunks.chunk_text` wäre der kurze Weg zurück                                                                                                                           |
 
 ## 5. Die eine Regel, die über allem steht
 

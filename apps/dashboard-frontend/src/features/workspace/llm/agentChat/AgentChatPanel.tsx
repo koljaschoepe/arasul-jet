@@ -302,10 +302,8 @@ export default function AgentChatPanel() {
         const id = await ensureChat();
         sendMessage(id, msg, {
           agent: true,
-          useRAG: false,
           useThinking: model?.supports_thinking === true,
           selectedSpaces: scopeActive && chatScope ? chatScope.spaceIds : [],
-          matchedSpaces: [],
           messages: messagesRef.current,
           model: selectedModel || undefined,
           alsDatei: dateiModus || SPEICHER_ABSICHT.test(msg),
@@ -438,10 +436,8 @@ export default function AgentChatPanel() {
         // frühere Client-RAG-Vorlauf (strikter Zitier-Modus, verweigerte
         // Erstell-Aufgaben) entfällt; Anhänge liegen als Projektdatei bereit.
         agent: !file || anhaenge.length > 0,
-        useRAG: false,
         useThinking: model?.supports_thinking === true,
         selectedSpaces: scopeActive && chatScope ? chatScope.spaceIds : [],
-        matchedSpaces: [],
         messages: messagesRef.current,
         model: selectedModel || undefined,
         file: anhaenge.length > 0 ? undefined : file || undefined,

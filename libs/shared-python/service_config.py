@@ -40,12 +40,6 @@ class ServiceConfig:
             port=int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
         )
 
-        # Qdrant Vector Database
-        self.qdrant = ServiceEndpoint(
-            host=os.getenv('QDRANT_HOST', 'qdrant'),
-            port=int(os.getenv('QDRANT_PORT', '6333'))
-        )
-
         # Metrics Collector
         self.metrics = ServiceEndpoint(
             host=os.getenv('METRICS_COLLECTOR_HOST', 'metrics-collector'),

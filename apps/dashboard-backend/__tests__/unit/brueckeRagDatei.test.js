@@ -25,22 +25,16 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 jest.mock('../../src/database', () => ({ query: jest.fn(), transaction: jest.fn() }));
 jest.mock('../../src/services/flows/documentText', () => ({ ladeDokumentText: jest.fn() }));
-jest.mock('../../src/services/rag/ragCore', () => ({
-  getEmbedding: jest.fn(),
-  hybridSearch: jest.fn(),
-}));
-
 const { ladeDokumentText } = require('../../src/services/flows/documentText');
-const ragCore = require('../../src/services/rag/ragCore');
 const brueckeService = require('../../src/services/extensions/brueckeService');
-const { NotFoundError, ServiceUnavailableError } = require('../../src/utils/errors');
+const { NotFoundError, ValidationError } = require('../../src/utils/errors');
 
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
 describe('bruecke rag', () => {
-  it('liest mit dateiname den Textlayer, ohne Qdrant anzufassen', async () => {
+  it('liest mit dateiname den Textlayer', async () => {
     ladeDokumentText.mockResolvedValue({
       gefunden: true,
       text: 'Grundpauschale 41.780 Euro',
@@ -55,8 +49,6 @@ describe('bruecke rag', () => {
 
     expect(treffer[0].quelle).toBe('vertrag.md');
     expect(treffer[0].text).toContain('41.780');
-    expect(ragCore.getEmbedding).not.toHaveBeenCalled();
-    expect(ragCore.hybridSearch).not.toHaveBeenCalled();
   });
 
   it('sagt es, wenn die Datei nicht indexiert ist', async () => {
@@ -67,9 +59,12 @@ describe('bruecke rag', () => {
   });
 
   it('ohne dateiname erklaert der Fehler den Weg, statt Qdrant zu nennen', async () => {
-    ragCore.getEmbedding.mockRejectedValue(new Error('getaddrinfo EAI_AGAIN qdrant'));
-    await expect(brueckeService.ragSuche({ frage: 'x' })).rejects.toThrow(ServiceUnavailableError);
+    // Seit dem Qdrant-Ausbau am 24.08.2026 gibt es keinen Vektor-Zweig mehr,
+    // in den dieser Aufruf laufen koennte. Der Fehler kommt daher sofort und
+    // ist eine Eingabesache, kein Dienstausfall.
+    await expect(brueckeService.ragSuche({ frage: 'x' })).rejects.toThrow(ValidationError);
     await expect(brueckeService.ragSuche({ frage: 'x' })).rejects.toThrow(/dateiname/);
+    await expect(brueckeService.ragSuche({ frage: 'x' })).rejects.toThrow(/dateien_suchen/);
   });
 
   it('eine leere Frage bleibt ein Eingabefehler', async () => {

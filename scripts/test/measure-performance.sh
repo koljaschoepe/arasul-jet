@@ -263,7 +263,7 @@ echo ""
 printf "  ${BOLD}%-30s %10s${NC}\n" "Directory" "Size"
 echo "  $(printf '%.0s─' {1..42})"
 
-for dir in data/postgres data/minio data/qdrant data/ollama data/backups logs; do
+for dir in data/postgres data/minio data/ollama data/backups logs; do
   if [ -d "$dir" ]; then
     size=$(du -sh "$dir" 2>/dev/null | awk '{print $1}')
     printf "  %-30s %10s\n" "$dir" "$size"

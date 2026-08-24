@@ -1,10 +1,15 @@
 /**
  * Document Service — Orchestration Layer
- * Coordinates DB, MinIO, and Qdrant operations for document lifecycle management.
+ * Coordinates DB and MinIO operations for document lifecycle management.
+ *
+ * Qdrant ist am 24.08.2026 ausgebaut worden. Was hier frueher an Vektoren
+ * nachgepflegt wurde (Loeschen, Verschieben, Stapelbetrieb), entfaellt
+ * ersatzlos: der Volltext der Dokumente liegt in Postgres, gesucht wird
+ * agentisch.
  *
  * Responsibilities:
- * - Document deletion flow (MinIO + DB + Qdrant)
- * - Document move flow (DB + Qdrant payload update)
+ * - Document deletion flow (MinIO + DB)
+ * - Document move flow (DB)
  * - Batch operations (delete, move, reindex)
  * - Orphan cleanup logic
  * - Statistics gathering
@@ -16,19 +21,18 @@ const pool = require('../../database');
 const services = require('../../config/services');
 const { ValidationError } = require('../../utils/errors');
 const minioService = require('./minioService');
-const qdrantService = require('./qdrantService');
 
 const DOCUMENT_INDEXER_HOST = services.documentIndexer.host;
 const DOCUMENT_INDEXER_PORT = services.documentIndexer.port;
 
 /**
  * Delete a single document: DB soft-delete first, then best-effort cleanup of
- * MinIO file + Qdrant vectors.
+ * MinIO file.
  *
  * Ordering is deliberate and load-bearing: the DB soft-delete commits BEFORE
  * any physical bytes are removed. If cleanup then fails, the row stays
  * soft-deleted (recoverable) — we never end up with the file gone but the row
- * present as a zombie. MinIO and Qdrant failures are non-critical (logged,
+ * present as a zombie. MinIO failures are non-critical (logged,
  * not thrown).
  * @param {string} documentId - Document ID
  * @param {string} filePath - MinIO file path
@@ -49,70 +53,21 @@ async function deleteDocument(documentId, filePath) {
 
   // Post-commit cleanup: remove the physical MinIO object (non-critical).
   await minioService.removeObject(filePath);
-
-  // Post-commit cleanup: remove Qdrant vectors (non-critical, with retry).
-  const qdrantSuccess = await qdrantService.deleteDocumentVectors(documentId);
-  // Ist Qdrant als abgeschaltet vermerkt, gibt es dort auch nichts nachzuholen:
-  // ohne laufenden Dienst wurden nie Vektoren geschrieben. Ein Vermerk je
-  // Dokument waere reines Rauschen (Plan 023 G4).
-  if (!qdrantSuccess && !qdrantService.istAbgeschaltet()) {
-    // Mark for later cleanup if Qdrant delete fails
-    try {
-      await pool.query(`UPDATE documents SET qdrant_cleanup_pending = true WHERE id = $1`, [
-        documentId,
-      ]);
-    } catch (err) {
-      // Pre-migration installs may not have qdrant_cleanup_pending yet; that
-      // case is fine to swallow. Anything else is a real DB error and must
-      // surface so the deletion isn't silently incomplete. The row is already
-      // soft-deleted at this point, so surfacing is safe (no zombie).
-      const isMissingColumn = err.code === '42703';
-      if (!isMissingColumn) {
-        logger.error(`Failed to mark document ${documentId} for Qdrant cleanup: ${err.message}`, {
-          documentId,
-          code: err.code,
-        });
-        throw err;
-      }
-      logger.warn(`qdrant_cleanup_pending column missing, skipping cleanup mark for ${documentId}`);
-    }
-  }
 }
 
 /**
- * Move a document to a new space: DB update + Qdrant payload sync.
+ * Move a document to a new space.
  * @param {string} documentId - Document ID
  * @param {string|null} oldSpaceId - Current space ID
  * @param {string|null} newSpaceId - Target space ID (null for unassigned)
  * @returns {Promise<void>}
  */
 async function moveDocument(documentId, oldSpaceId, newSpaceId) {
-  // Get new space details for Qdrant payload
-  let newSpaceName = '';
-  let newSpaceSlug = '';
-  if (newSpaceId) {
-    const spaceDetails = await pool.query('SELECT name, slug FROM knowledge_spaces WHERE id = $1', [
-      newSpaceId,
-    ]);
-    if (spaceDetails.rows.length > 0) {
-      newSpaceName = spaceDetails.rows[0].name;
-      newSpaceSlug = spaceDetails.rows[0].slug;
-    }
-  }
-
   // Update document's space in DB
   await pool.query(`UPDATE documents SET space_id = $1, updated_at = NOW() WHERE id = $2`, [
     newSpaceId,
     documentId,
   ]);
-
-  // Update Qdrant payloads for all chunks of this document
-  await qdrantService.updateDocumentSpacePayload(
-    documentId,
-    newSpaceId,
-    newSpaceName,
-    newSpaceSlug
-  );
 
   // Update statistics for both old and new spaces (non-critical)
   await updateSpaceStatistics(oldSpaceId);
@@ -148,9 +103,6 @@ async function batchDelete(ids) {
       if (doc.file_path && minioService.isValidMinioPath(doc.file_path)) {
         await minioService.removeObject(doc.file_path);
       }
-
-      // Delete from Qdrant
-      await qdrantService.deleteDocumentVectorsSimple(id);
 
       deleted++;
     } catch (err) {
@@ -209,29 +161,6 @@ async function batchMove(ids, newSpaceId) {
      RETURNING id`,
     [newSpaceId, ids]
   );
-
-  // Get new space details for Qdrant payload
-  let newSpaceName = '';
-  let newSpaceSlug = '';
-  if (newSpaceId) {
-    const spaceDetails = await pool.query('SELECT name, slug FROM knowledge_spaces WHERE id = $1', [
-      newSpaceId,
-    ]);
-    if (spaceDetails.rows.length > 0) {
-      newSpaceName = spaceDetails.rows[0].name;
-      newSpaceSlug = spaceDetails.rows[0].slug;
-    }
-  }
-
-  // Update Qdrant payloads for all moved documents (non-critical)
-  const movedIds = result.rows.map(r => r.id);
-  for (const docId of movedIds) {
-    try {
-      await qdrantService.updateDocumentSpacePayload(docId, newSpaceId, newSpaceName, newSpaceSlug);
-    } catch (e) {
-      logger.warn(`Batch move: Failed to update Qdrant for doc ${docId}: ${e.message}`);
-    }
-  }
 
   // Update space statistics for old and new spaces (non-critical)
   const spaceIdsToUpdate = new Set(oldSpaceIds.rows.map(r => r.space_id));

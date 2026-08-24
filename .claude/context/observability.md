@@ -43,13 +43,13 @@ const ollama = circuitBreakers.get('ollama');
 const result = await ollama.execute(() => axios.post(`${LLM_URL}/api/generate`, body));
 ```
 
-Pre-registered: `ollama` (threshold 3), `qdrant` (5), `embedding` (5),
+Pre-registered: `ollama` (threshold 3), `embedding` (5),
 `minio` (5), all with 30 s reset timeout. State is exposed at
 `GET /api/system/circuit-breakers` (and inside the platform's healthcheck JSON).
 
 When a breaker is open, `.execute()` throws synchronously without calling
 the inner function — surface that as `ServiceUnavailableError` with the
-right `code` (`OLLAMA_DOWN`, `QDRANT_DOWN`, etc.) so the frontend can
+right `code` (`OLLAMA_DOWN`, `EMBEDDING_DOWN`, etc.) so the frontend can
 dispatch on it.
 
 ## Error localization (frontend)

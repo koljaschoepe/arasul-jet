@@ -239,10 +239,8 @@ interface MessageCallbacks {
 }
 
 interface SendMessageOptions {
-  useRAG?: boolean;
   useThinking?: boolean;
   selectedSpaces?: string[];
-  matchedSpaces?: string[];
   messages?: ChatMessage[];
   model?: string;
   file?: File;
@@ -1128,10 +1126,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   const sendMessage = useCallback(
     async (chatId: string, input: string, options: SendMessageOptions = {}) => {
       const {
-        useRAG = false,
         useThinking = true,
         selectedSpaces = [],
-        matchedSpaces = [],
         messages = [],
         model,
         file,
@@ -1146,11 +1142,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       sendLockRef.current.add(chatId);
 
       const userMessage = input.trim();
-      const isRAG = useRAG && !file; // file uploads use their own pipeline
       const isFileUpload = !!file;
       // Agent-Modus (Standard): Werkzeugschleife im Backend. Bilder laufen dort
       // automatisch auf dem Vision-Pfad weiter; RAG- und Datei-Pipeline bleiben eigen.
-      const isAgent = options.agent !== false && !isRAG && !isFileUpload;
+      const isAgent = options.agent !== false && !isFileUpload;
       const effectiveModel = model !== undefined ? model : selectedModelRef.current;
       // Ein-Ordner-Modell: der Anhang liegt bereits im Projektordner — er hängt
       // als klickbare Projektdatei-Karte an der Nutzer-Nachricht.
@@ -1210,7 +1205,6 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         thinkingCollapsed: false,
         hasThinking: false,
         status: 'streaming',
-        ...(isRAG ? { sources: [], sourcesCollapsed: true } : {}),
       };
 
       // Backend-Verlauf (chatPayload weiter unten): aus der übergebenen
@@ -1263,7 +1257,6 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       let thinkingStartMs: number | null = null;
       try {
         let streamError = false;
-        let ragSources: DocumentSource[] = [];
 
         // Build endpoint and payload
         let endpoint: string;
@@ -1281,23 +1274,6 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             method: 'POST',
             headers: { ...getAuthHeaders() }, // No Content-Type — browser sets multipart boundary
             body: formData,
-            signal: abortController.signal,
-          };
-        } else if (isRAG) {
-          endpoint = `${API_BASE}/rag/query`;
-          fetchOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({
-              query: userMessage,
-              top_k: 10,
-              thinking: useThinking,
-              conversation_id: chatId,
-              model: effectiveModel || undefined,
-              ...(selectedSpaces.length > 0
-                ? { space_ids: selectedSpaces, auto_routing: false }
-                : { auto_routing: true }),
-            }),
             signal: abortController.signal,
           };
         } else {
@@ -1519,43 +1495,6 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   return prev;
                 });
                 break;
-              }
-
-              // RAG-specific events: combined rag_metadata (single re-render)
-              if (isRAG && data.type === 'rag_metadata') {
-                ragSources = data.sources || [];
-                updateMessages(chatId, prev => {
-                  const u = [...prev];
-                  const cur = u[assistantMessageIndex];
-                  if (cur) {
-                    u[assistantMessageIndex] = {
-                      ...cur,
-                      sources: ragSources,
-                      sourcesCollapsed: ragSources.length > 0,
-                      matchedSpaces: data.matchedSpaces || matchedSpaces,
-                    };
-                  }
-                  return u;
-                });
-              }
-
-              // Legacy: individual RAG events (backwards compat for reconnect)
-              if (isRAG && data.type === 'sources' && data.sources) {
-                ragSources = data.sources;
-                updateMessages(chatId, prev => {
-                  const u = [...prev];
-                  const cur = u[assistantMessageIndex];
-                  if (cur) {
-                    u[assistantMessageIndex] = {
-                      ...cur,
-                      sources: ragSources,
-                      sourcesCollapsed: ragSources.length > 0,
-                      // Legacy fallback: matchedSpaces from options are plain IDs, wrap as MatchedSpace
-                      matchedSpaces: matchedSpaces.map(id => ({ name: id })),
-                    };
-                  }
-                  return u;
-                });
               }
 
               if (data.type === 'compaction') {
@@ -1832,14 +1771,12 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         }
 
         if (!streamError && !fullResponse && !fullThinking) {
-          throw new Error(
-            isRAG ? 'Keine Antwort vom RAG-System erhalten' : 'Keine Antwort vom LLM erhalten'
-          );
+          throw new Error('Keine Antwort vom LLM erhalten');
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') return;
         if (streamDone) return; // Ignore post-done errors (e.g. timeout after successful stream)
-        console.error(`${isRAG ? 'RAG' : 'Chat'} error:`, err);
+        console.error('Chat error:', err);
 
         // Cancel orphaned backend job to free GPU resources
         if (currentJobId) {
@@ -1848,8 +1785,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         updateError(
           chatId,
-          (err instanceof Error ? err.message : null) ||
-            (isRAG ? 'Fehler bei der RAG-Anfrage.' : 'Fehler beim Senden der Nachricht.')
+          (err instanceof Error ? err.message : null) || 'Fehler beim Senden der Nachricht.'
         );
         updateIsLoading(chatId, false);
         // Plan 016: nur die (gescheiterte) Streaming-Antwort aus dem LIVE-Zustand

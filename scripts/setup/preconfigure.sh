@@ -330,7 +330,6 @@ log_step 3 "Verzeichnisstruktur erstellen"
 DIRS=(
   "${PROJECT_ROOT}/data/postgres"
   "${PROJECT_ROOT}/data/minio"
-  "${PROJECT_ROOT}/data/qdrant"
   "${PROJECT_ROOT}/data/n8n"
   "${PROJECT_ROOT}/data/ollama"
   "${PROJECT_ROOT}/data/backups"

@@ -13,12 +13,6 @@ Gefunden beim Import einer echten 1-GB-Kundenablage (2026-08-18). Fuenf von
   contain NUL (0x00) characters") — Postgres nimmt in ``text`` alles ausser
   0x00 an, der Parser lieferte sie mit.
 
-Dazu der dritte Fall: ``calculate_similarities`` haengt an
-``ENABLE_SIMILARITY``, nicht am Embedding-Flag. Mit abgeschaltetem Vektor-Zweig
-(``INDEXER_EMBEDDING_ENABLED=false``) ist ``QdrantManager.client`` ``None``, und
-die Methode lief pro Dokument in ein „'NoneType' object has no attribute
-'scroll'".
-
 Die Tests stubben die schweren Geschwister-Module, damit sie ohne PyMuPDF,
 spacy & Co. laufen.
 """
@@ -68,10 +62,7 @@ def _pipeline(text_return, filename='beispiel.md'):
             content_hash='hash',
             db=db,
             analyzer=None,
-            embedding_client=None,
-            qdrant_manager=None,
             graph_store=None,
-            enable_similarity=False,
         )
     finally:
         dp.parse_document = original_parse
@@ -141,51 +132,3 @@ def test_nicht_parsebares_dokument_bleibt_failed():
     ergebnis, db = _pipeline(None, filename='kaputt.pdf')
     assert db.calls == [('failed', 'Failed to parse document')]
     assert ergebnis is None
-
-
-# --- Similarity ohne Qdrant ---------------------------------------------------
-def _echtes_qdrant_manager_modul():
-    """Laedt qdrant_manager.py unter EIGENEM Modulnamen.
-
-    Ein anderes Testmodul legt einen Stub unter `qdrant_manager` ab; ein
-    schlichtes `import qdrant_manager` haette hier also je nach Reihenfolge das
-    Attrappen-Objekt geliefert und nichts Echtes geprueft. Die Datei direkt zu
-    laden laesst sys.modules unberuehrt.
-    """
-    import importlib.util
-
-    pfad = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        'qdrant_manager.py',
-    )
-    spec = importlib.util.spec_from_file_location('qdrant_manager_echt', pfad)
-    modul = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(modul)
-    return modul
-
-
-def test_calculate_similarities_steigt_ohne_client_still_aus():
-    qdrant_manager = _echtes_qdrant_manager_modul()
-
-    # Nicht ueber __init__ bauen: der wuerde bei aktivem Flag eine echte
-    # Verbindung versuchen. Hier zaehlt nur der Zustand „kein Client".
-    manager = qdrant_manager.QdrantManager.__new__(qdrant_manager.QdrantManager)
-    manager.client = None
-    manager.collection = 'documents'
-
-    class _DBZaehler:
-        def __init__(self):
-            self.aufrufe = 0
-
-        def get_document(self, doc_id):
-            self.aufrufe += 1
-            return {'id': doc_id}
-
-    db = _DBZaehler()
-    assert manager.calculate_similarities('doc-1', db) is None
-    # Der Rueckgabewert allein beweist nichts: die Methode faengt intern JEDES
-    # Exception ab und liefert auch im Fehlerfall None. Gemessen wird deshalb,
-    # dass ohne Client gar nichts erst anlaeuft — vorher wurde hier bereits
-    # get_document gerufen und danach self.client.scroll (-> AttributeError im
-    # Log, ein Eintrag pro Dokument).
-    assert db.aufrufe == 0

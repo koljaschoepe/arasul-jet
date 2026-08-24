@@ -1,6 +1,6 @@
 # Backup System
 
-Automated backup service for PostgreSQL, MinIO, Qdrant, n8n workflows, and flow
+Automated backup service for PostgreSQL, MinIO, n8n workflows, and flow
 definitions.
 
 ## Overview
@@ -23,14 +23,14 @@ definitions.
         │           │           │           │           │
         ▼           ▼           ▼           ▼           ▼
    ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-   │PostgreSQL│ │  MinIO  │ │ Qdrant  │ │   n8n   │ │ Flows  │
+   │PostgreSQL│ │  MinIO  │ │   n8n   │ │ Flows   │
    │pg_dump  │ │mc mirror│ │snapshot │ │ export  │ │ tar.gz  │
    └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
         │           │           │           │           │
         ▼           ▼           ▼           ▼           ▼
    ┌─────────────────────────────────────────────────────────────┐
    │                    /data/backups/                           │
-   │ postgres/ │ minio/ │ qdrant/ │ n8n/ │ flows/ │ weekly/    │
+   │ postgres/ │ minio/ │ n8n/ │ flows/ │ weekly/              │
    └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -72,24 +72,6 @@ tar -czf /backups/minio/documents_$(date +%Y%m%d_%H%M%S).tar.gz \
 - File: `/backups/minio/documents_YYYYMMDD_HHMMSS.tar.gz`
 - Latest: `/backups/minio/documents_latest.tar.gz` (symlink)
 
-### 3. Qdrant Vectors
-
-**Method:** Qdrant Snapshot API
-
-```bash
-# Create snapshot
-curl -X POST http://qdrant:6333/snapshots
-
-# Download and compress
-tar -czf /backups/qdrant/qdrant_$(date +%Y%m%d_%H%M%S).tar.gz \
-  /qdrant/snapshots/
-```
-
-**Output:**
-
-- File: `/backups/qdrant/qdrant_YYYYMMDD_HHMMSS.tar.gz`
-- Latest: `/backups/qdrant/qdrant_latest.tar.gz` (symlink)
-
 ### 4. n8n Workflows
 
 **Method:** n8n CLI export
@@ -107,7 +89,7 @@ n8n export:workflow --all \
 ### 5. Flows
 
 Flow definitions (Plan 011) are Markdown files under `data/flows/` — they are
-**not** stored in Postgres, MinIO or Qdrant. They are user-authored and
+**not** stored in Postgres or MinIO. They are user-authored and
 reproducible from nowhere else, so a device loss without this archive would
 silently take every self-built flow with it. The directory is mounted
 read-only into the backup service at `FLOWS_BACKUP_DIR` (default
@@ -127,7 +109,7 @@ tar -tzf /backups/flows/flows_$(date +%Y%m%d_%H%M%S).tar.gz   # verify
 - Latest: `/backups/flows/flows_latest.tar.gz` (symlink)
 - Weekly: `/backups/flows/weekly/` (Sundays), Monthly: `/backups/flows/monthly/` (1st of month)
 
-Retention follows the same daily / weekly / monthly rules as MinIO and Qdrant.
+Retention follows the same daily / weekly / monthly rules as MinIO.
 If backup encryption is enabled, the archive is encrypted in place after
 verification (same `encrypt_file` step as the other components).
 
@@ -148,10 +130,6 @@ on a perfectly healthy box. The report field `flows_status` is `true`,
 │   ├── documents_20240124_020030.tar.gz
 │   ├── documents_20240125_020028.tar.gz
 │   └── documents_latest.tar.gz → documents_20240125_020028.tar.gz
-├── qdrant/
-│   ├── qdrant_20240124_020045.tar.gz
-│   ├── qdrant_20240125_020042.tar.gz
-│   └── qdrant_latest.tar.gz → qdrant_20240125_020042.tar.gz
 ├── n8n/
 │   ├── workflows_20240124_020100.json
 │   ├── workflows_20240125_020058.json
@@ -166,10 +144,7 @@ on a perfectly healthy box. The report field `flows_status` is `true`,
 │   ├── 2024_W03/
 │   │   ├── postgres/
 │   │   ├── minio/
-│   │   ├── qdrant/
-│   │   └── n8n/
-│   └── 2024_W04/
-├── backup_report.json
+│   │   ├── backup_report.json
 └── backup.log
 ```
 
@@ -285,27 +260,6 @@ tar -xzf /data/backups/minio/documents_latest.tar.gz -C /tmp/
 mc mirror /tmp/documents_backup/ minio/documents/
 ```
 
-### Restore Qdrant
-
-```bash
-# Stop Qdrant
-docker compose stop qdrant
-
-# Extract snapshot
-tar -xzf /data/backups/qdrant/qdrant_latest.tar.gz -C /tmp/
-
-# Copy to Qdrant storage
-cp /tmp/snapshots/* /path/to/qdrant/storage/snapshots/
-
-# Restore via API
-curl -X POST http://localhost:6333/collections/documents/snapshots/recover \
-  -H 'Content-Type: application/json' \
-  -d '{"location": "/snapshots/snapshot_name"}'
-
-# Start Qdrant
-docker compose start qdrant
-```
-
 ### Restore n8n Workflows
 
 ```bash
@@ -347,12 +301,6 @@ After each backup, a report is generated at `/backups/backup_report.json`:
       "size_bytes": 104857600,
       "duration_seconds": 45
     },
-    "qdrant": {
-      "status": "success",
-      "file": "qdrant_20240124_020045.tar.gz",
-      "size_bytes": 52428800,
-      "duration_seconds": 20
-    },
     "n8n": {
       "status": "success",
       "file": "workflows_20240124_020100.json",
@@ -364,7 +312,6 @@ After each backup, a report is generated at `/backups/backup_report.json`:
     "total_size_bytes": 173015040,
     "postgres_backups": 30,
     "minio_backups": 30,
-    "qdrant_backups": 30,
     "n8n_backups": 30,
     "weekly_snapshots": 4,
     "retention_days": 30,
@@ -398,8 +345,6 @@ gzip -t /data/backups/postgres/arasul_db_latest.sql.gz && echo "OK"
 # Verify MinIO backup
 tar -tzf /data/backups/minio/documents_latest.tar.gz > /dev/null && echo "OK"
 
-# Verify Qdrant backup
-tar -tzf /data/backups/qdrant/qdrant_latest.tar.gz > /dev/null && echo "OK"
 
 # Verify n8n backup (JSON validity)
 jq . /data/backups/n8n/workflows_latest.json > /dev/null && echo "OK"

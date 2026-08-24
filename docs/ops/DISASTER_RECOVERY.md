@@ -51,7 +51,7 @@ docker exec postgres-db psql -U arasul -d arasul_db -c "SELECT count(*) FROM use
 # Oder spezifisches Backup
 ./scripts/recovery/restore-from-backup.sh 2026-03-14_02-00
 
-# Nur Datenbank wiederherstellen (MinIO/Qdrant intakt)
+# Nur Datenbank wiederherstellen (MinIO intakt)
 ./scripts/recovery/restore-from-backup.sh --db-only
 ```
 
@@ -247,7 +247,6 @@ docker exec dashboard-backend nslookup dns.google
 # Interne Service-Kommunikation prüfen
 docker exec dashboard-backend curl -sf http://llm-service:11436/api/tags
 docker exec dashboard-backend curl -sf http://embedding-service:11435/health
-docker exec dashboard-backend curl -sf http://qdrant:6333/collections
 docker exec dashboard-backend curl -sf http://metrics-collector:9100/health
 
 # Reverse-Proxy Status
@@ -261,7 +260,7 @@ docker exec reverse-proxy traefik healthcheck
 | Intervall     | Aktion                                 | Automatisch? |
 | ------------- | -------------------------------------- | ------------ |
 | Alle 4h       | DB-Cleanup (`run_all_cleanups()`)      | Ja           |
-| Täglich 02:00 | Full Backup (DB + MinIO + Qdrant)      | Ja           |
+| Täglich 02:00 | Full Backup (DB + MinIO)               | Ja           |
 | Alle 10s      | Self-Healing Check                     | Ja           |
 | Alle 30s      | Docker-Watchdog                        | Ja (systemd) |
 | Alle 30s      | Deadman-Switch für Self-Healing        | Ja (systemd) |

@@ -624,7 +624,7 @@ pull_images() {
     local delay=5
     local pull_output=""
     while [ $attempt -le $max_retries ]; do
-        if pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy qdrant 2>&1); then
+        if pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy 2>&1); then
             log_success "Base images pulled"
             return 0
         fi
@@ -965,12 +965,6 @@ start_services() {
         log_warning "MinIO may not be ready yet - continuing with caution"
     fi
 
-    # Layer 1b: Vector store (RAG). No GPU, no depends_on — start alongside data stores.
-    # Use the compose-defined healthcheck (the qdrant image ships perl, not curl).
-    docker compose up -d qdrant
-    log_info "Waiting for Qdrant..."
-    wait_for_healthy qdrant 60 || true
-
     # Layer 2: Monitoring
     docker compose up -d metrics-collector
     wait_for_healthy metrics-collector 30 || true
@@ -993,7 +987,7 @@ start_services() {
     dash_port=${dash_port:-80}
     wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${dash_port}/api/health" || true
 
-    # Layer 6: RAG document indexer (needs embedding-service, qdrant and the backend)
+    # Layer 6: Document indexer (needs the backend; writes the text layer)
     docker compose up -d document-indexer
     log_info "Waiting for Document-Indexer..."
     wait_for_healthy document-indexer 90 "docker compose exec -T document-indexer curl -sf http://localhost:9102/health" || true

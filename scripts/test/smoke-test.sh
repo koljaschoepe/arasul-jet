@@ -80,7 +80,6 @@ echo ""
 echo -e "${BOLD}KI-Services:${NC}"
 check "LLM-Service (Ollama)" docker compose exec -T llm-service ollama list
 check "Embedding-Service" curl -sf --max-time 10 http://localhost:11435/health
-check_optional "Qdrant Vector DB" curl -sf --max-time 5 http://localhost:6333/healthz
 echo ""
 
 # Network

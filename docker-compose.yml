@@ -3,7 +3,7 @@
 name: arasul-platform
 # Startup Order (enforced by depends_on in each compose file):
 #   1. postgres-db, minio          (compose.core.yaml)
-#   2. qdrant, llm-service,        (compose.ai.yaml)
+#   2. llm-service,                (compose.ai.yaml)
 #      embedding-service
 #   3. metrics-collector            (compose.monitoring.yaml)
 #   4. reverse-proxy                (compose.core.yaml)

@@ -214,7 +214,7 @@ try {
 
   merke(e.faehigkeiten.length === 7, `sieben Faehigkeiten freigegeben (${e.faehigkeiten.join(', ')})`);
   merke(e.llm.ok && /paris/i.test(e.llm.wert || ''), `llm: „${String(e.llm.wert || e.llm.fehler).trim().slice(0, 60)}"`);
-  // `rag` sucht ueber Qdrant, und Qdrant liegt seit Plan 021 Schritt 8 im
+  // `rag` suchte ueber Qdrant; der Dienst ist am 24.08.2026 ausgebaut worden, und
   // Profil `classic-rag` und laeuft auf einem normalen Geraet nicht. Das ist
   // eine Entscheidung, kein Defekt — die Abnahme darf deswegen nicht dauerhaft
   // rot stehen. Rot ist sie erst, wenn `rag` aus einem ANDEREN Grund scheitert

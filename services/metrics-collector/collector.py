@@ -360,37 +360,6 @@ class MetricsCollector:
 
         return None
 
-    def collect_qdrant_stats(self) -> Optional[list]:
-        """Query Qdrant collections endpoint; returns list of (name, dict) or None on failure."""
-        import urllib.request
-        try:
-            host = os.getenv('QDRANT_HOST', 'qdrant')
-            port = os.getenv('QDRANT_PORT', '6333')
-            url = f"http://{host}:{port}/collections"
-            with urllib.request.urlopen(url, timeout=5) as resp:
-                data = json.loads(resp.read().decode())
-            collections = data.get('result', {}).get('collections', [])
-            out = []
-            for c in collections:
-                name = c.get('name')
-                if not name:
-                    continue
-                try:
-                    with urllib.request.urlopen(f"{url}/{name}", timeout=5) as resp:
-                        detail = json.loads(resp.read().decode()).get('result', {})
-                    out.append((name, {
-                        'vectors_count': detail.get('vectors_count'),
-                        'indexed_vectors_count': detail.get('indexed_vectors_count'),
-                        'points_count': detail.get('points_count'),
-                        'segments_count': detail.get('segments_count'),
-                        'status': detail.get('status'),
-                    }))
-                except Exception as e:
-                    logger.debug(f"qdrant detail fetch failed for {name}: {e}")
-            return out
-        except Exception as e:
-            logger.debug(f"qdrant collections fetch failed: {e}")
-            return None
 
     def collect_minio_stats(self) -> Optional[list]:
         """Approximate bucket usage via psutil disk usage of the minio data volume,
@@ -1069,7 +1038,7 @@ async def collect_metrics_loop():
     gpu_counter = 0
     storage_wear_counter = 0
     infra_counter = 0
-    # Infra probes (pg_stat / qdrant / minio) are expensive enough to run
+    # Infra probes (pg_stat / minio) are expensive enough to run
     # every 5 minutes, not every 5 seconds like live metrics.
     INFRA_INTERVAL_SECONDS = int(os.getenv('INFRA_METRICS_INTERVAL', '300'))
 
@@ -1128,15 +1097,6 @@ async def collect_metrics_loop():
                     logger.debug(f"pg_stat snapshot: {n_tables} rows")
                 except Exception as e:
                     logger.debug(f"pg_stat probe errored: {e}")
-                try:
-                    qd = await loop.run_in_executor(None, collector.collect_qdrant_stats)
-                    if qd:
-                        for name, payload in qd:
-                            await loop.run_in_executor(
-                                None, db_writer.write_infra_metric,
-                                'qdrant_collection', name, payload)
-                except Exception as e:
-                    logger.debug(f"qdrant probe errored: {e}")
                 try:
                     mn = await loop.run_in_executor(None, collector.collect_minio_stats)
                     if mn:

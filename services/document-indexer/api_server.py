@@ -24,7 +24,6 @@ from enhanced_indexer import get_indexer, EnhancedDocumentIndexer
 from decompound_service import decompound_text, CHARSPLIT_AVAILABLE
 from bm25_index import get_bm25_index
 from spell_corrector import correct_query, SYMSPELL_AVAILABLE
-from sparse_encoder import compute_sparse_vector, STEMMER_AVAILABLE
 from entity_extractor import extract_entities, extract_from_document, SPACY_AVAILABLE
 from graph_refiner import get_refiner
 import gpu_vorrang
@@ -74,20 +73,10 @@ def health():
             checks['database'] = 'ok'
         except Exception:
             checks['database'] = 'error'
-        # Check if Qdrant is reachable. Plan 021 (Schritt 8): ist der Vektor-Zweig
-        # abgeschaltet, ist Qdrant bewusst nicht da — dann NICHT prüfen (sonst
-        # meldet der Indexer dauerhaft 'degraded' und die Selbstheilung würde ein
-        # absichtlich abgeschaltetes Qdrant „reparieren" wollen).
-        if not config.EMBEDDING_ENABLED:
-            checks['qdrant'] = 'disabled'
-        else:
-            try:
-                idx.qdrant_client.get_collections()
-                checks['qdrant'] = 'ok'
-            except Exception:
-                checks['qdrant'] = 'error'
-
-        has_errors = checks.get('database') == 'error' or checks.get('qdrant') == 'error'
+        # Qdrant ist am 24.08.2026 ausgebaut worden; es gibt hier nichts mehr
+        # zu pruefen. Die Datenbank traegt den Textlayer und ist damit die
+        # einzige Abhaengigkeit, die den Dienst als angeschlagen ausweisen kann.
+        has_errors = checks.get('database') == 'error'
         checks['status'] = 'degraded' if has_errors else 'healthy'
         # Always return 200 when indexer is running — Docker should not restart for transient dep failures
         # Self-healing agent uses /status for detailed checks
@@ -404,71 +393,6 @@ def trigger_scan():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/search', methods=['POST'])
-def semantic_search():
-    """
-    Perform semantic search across documents
-    Request body: { "query": "search text", "top_k": 10 }
-    """
-    idx = get_safe_indexer()
-    if idx is None:
-        return jsonify({'error': 'Indexer not initialized'}), 503
-
-    try:
-        data = request.get_json()
-        query = data.get('query')
-        top_k = data.get('top_k', 10)
-
-        if not query:
-            return jsonify({'error': 'Query is required'}), 400
-
-        # Get query embedding
-        query_embedding = idx.get_embedding(query)
-        if query_embedding is None:
-            return jsonify({'error': 'Failed to generate embedding'}), 500
-
-        # Search Qdrant (using named "dense" vector).
-        # `client.search()` gab es bis qdrant-client 1.18; ab 1.19 ist nur noch
-        # `query_points()` da. Der Rueckgabewert ist kein Trefferarray mehr,
-        # sondern ein Objekt mit `.points` — deshalb das `.points` unten.
-        antwort = idx.qdrant_client.query_points(
-            collection_name=os.getenv('QDRANT_COLLECTION_NAME', 'documents'),
-            query=query_embedding,
-            using="dense",
-            limit=top_k,
-            with_payload=True
-        )
-        results = antwort.points
-
-        # Format results
-        search_results = []
-        seen_docs = set()
-
-        for result in results:
-            doc_id = result.payload.get('document_id')
-            if doc_id and doc_id not in seen_docs:
-                seen_docs.add(doc_id)
-                search_results.append({
-                    'document_id': doc_id,
-                    'document_name': result.payload.get('document_name'),
-                    'title': result.payload.get('title'),
-                    'category': result.payload.get('category'),
-                    'chunk_index': result.payload.get('chunk_index'),
-                    'text_preview': result.payload.get('text', '')[:300],
-                    'score': result.score
-                })
-
-        return jsonify({
-            'query': query,
-            'results': search_results,
-            'total': len(search_results)
-        })
-
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-
 @app.route('/decompound', methods=['POST'])
 def decompound():
     """
@@ -521,33 +445,6 @@ def spellcheck():
 
     except Exception as e:
         logger.error(f"Spellcheck error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/sparse-encode', methods=['POST'])
-def sparse_encode():
-    """
-    Encode text into a sparse BM25 vector for Qdrant hybrid search.
-    Request body: { "text": "search query text" }
-    Response: { "indices": [...], "values": [...], "available": true }
-    """
-    try:
-        data = request.get_json()
-        text = data.get('text', '')
-
-        if not text:
-            return jsonify({'error': 'text is required'}), 400
-
-        indices, values = compute_sparse_vector(text)
-
-        return jsonify({
-            'indices': indices,
-            'values': values,
-            'available': STEMMER_AVAILABLE
-        })
-
-    except Exception as e:
-        logger.error(f"Sparse encode error: {e}")
         return jsonify({'error': str(e)}), 500
 
 

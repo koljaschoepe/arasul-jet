@@ -20,7 +20,6 @@ const SERVICE_NAMES = {
   'metrics-collector': 'Metrics Collector',
   'self-healing-agent': 'Self-Healing Agent',
   'reverse-proxy': 'Reverse Proxy (Traefik)',
-  qdrant: 'Qdrant Vector DB',
   'document-indexer': 'Document Indexer',
 };
 

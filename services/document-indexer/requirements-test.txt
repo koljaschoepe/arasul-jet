@@ -1,5 +1,5 @@
 # Nur was die Tests wirklich brauchen. Die schweren Laufzeit-Abhaengigkeiten
-# (PyMuPDF, pdfplumber, spacy, qdrant-client, psycopg2) stubben die Tests
+# (PyMuPDF, pdfplumber, spacy, psycopg2) stubben die Tests
 # selbst — siehe tests/conftest.py.
 #
 # MUSS zur Version in requirements.txt passen — sonst pruefen die Tests

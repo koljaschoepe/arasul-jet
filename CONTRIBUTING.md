@@ -177,7 +177,7 @@ The non-negotiables live in `CLAUDE.md` files at every level. Read these before 
 - **Database rules:** [`services/postgres/CLAUDE.md`](services/postgres/CLAUDE.md) — append-only migrations, idempotent SQL, `IF NOT EXISTS`, no `DROP` without an explicit fallback
 - **Service rules:** [`services/CLAUDE.md`](services/CLAUDE.md) — every service has a `Dockerfile`, `README.md`, entry point, tests
 
-> Stages 4–5 of the [DX overhaul](docs/plans/archive/2026-05_dx-overhaul.md) introduce these subfolder `CLAUDE.md` files. On branches where they're missing, the root `CLAUDE.md` is authoritative.
+> Stages 4–5 of the DX overhaul (2026-05, see [plan history](docs/plans/HISTORIE.md)) introduce these subfolder `CLAUDE.md` files. On branches where they're missing, the root `CLAUDE.md` is authoritative.
 
 ### Documentation must follow code
 

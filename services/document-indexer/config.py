@@ -31,15 +31,9 @@ MINIO_ROOT_USER = os.getenv('MINIO_ROOT_USER', 'arasul_minio_admin')
 MINIO_ROOT_PASSWORD = os.getenv('MINIO_ROOT_PASSWORD', '')
 MINIO_BUCKET = os.getenv('DOCUMENT_INDEXER_MINIO_BUCKET', 'documents')
 
-# --- Qdrant ---
-QDRANT_HOST = os.getenv('QDRANT_HOST', 'qdrant')
-QDRANT_PORT = int(os.getenv('QDRANT_PORT', '6333'))
-QDRANT_COLLECTION = os.getenv('QDRANT_COLLECTION_NAME', 'documents')
-
 # --- Embedding Service ---
 EMBEDDING_HOST = os.getenv('EMBEDDING_SERVICE_HOST', 'embedding-service')
 EMBEDDING_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
-EMBEDDING_VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '1024'))
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-m3')
 
 # Plan 021 (agentic RAG): Ist der klassische Vektor-Zweig (Embedding + Qdrant)
@@ -47,10 +41,6 @@ EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-m3')
 # der agentische Pfad (ladeDokumentText / rag_suche dateiname) liest diesen
 # unabhängig von Embeddings. Default TRUE = unverändertes Verhalten; wird beim
 # Ausbau des klassischen RAG (Container-Abschaltung) auf false gesetzt.
-EMBEDDING_ENABLED = os.getenv('INDEXER_EMBEDDING_ENABLED', 'true').strip().lower() not in (
-    'false', '0', 'no', 'off'
-)
-
 # --- Chunking ---
 CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
@@ -117,9 +107,8 @@ MAX_FILE_SIZE_MB = int(os.getenv('DOCUMENT_MAX_SIZE_MB', '100'))
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 # --- AI Features ---
+
 ENABLE_AI_ANALYSIS = os.getenv('DOCUMENT_INDEXER_ENABLE_AI', 'true').lower() == 'true'
-ENABLE_SIMILARITY = os.getenv('DOCUMENT_INDEXER_ENABLE_SIMILARITY', 'true').lower() == 'true'
-SIMILARITY_THRESHOLD = float(os.getenv('DOCUMENT_INDEXER_SIMILARITY_THRESHOLD', '0.8'))
 ENABLE_KNOWLEDGE_GRAPH = os.getenv('DOCUMENT_INDEXER_ENABLE_KG', 'true').lower() == 'true'
 
 # --- Contextual Chunking (Phase 2) ---

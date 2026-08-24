@@ -125,7 +125,7 @@ router.use('/models', require('./ai/models'));
 // verlässt.
 router.use('/modelle-extern', require('./ai/externeModelle'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
-router.use('/memory', require('./ai/memory'));
+router.use('/memory', require('./ai/profil'));
 router.use('/spaces', require('./ai/spaces'));
 router.use('/projects', require('./ai/projects'));
 router.use('/knowledge-graph', require('./ai/knowledgeGraph'));

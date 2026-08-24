@@ -241,7 +241,3 @@ def create_metrics_client(timeout: float = 5.0) -> ServiceClient:
     return ServiceClient(services.metrics.url, timeout=timeout)
 
 
-def create_qdrant_client(timeout: float = 30.0) -> ServiceClient:
-    """Create client for Qdrant"""
-    from .service_config import services
-    return ServiceClient(services.qdrant.url, timeout=timeout)

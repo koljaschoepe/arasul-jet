@@ -3,7 +3,7 @@ Conftest for unit tests.
 
 Pre-populates sys.modules with mock modules for dependencies that are only
 available inside Docker containers (PyPDF2, psutil, psycopg2, docker,
-sentence_transformers, torch, numpy, qdrant_client, minio, etc.).
+sentence_transformers, torch, numpy, minio, etc.).
 
 This allows unit tests to run on the host machine without installing
 all service-specific dependencies.
@@ -40,10 +40,6 @@ _MODULES_TO_MOCK = [
     'PIL.Image',
     'markdown',
     # Qdrant / Minio
-    'qdrant_client',
-    'qdrant_client.models',
-    'qdrant_client.http',
-    'qdrant_client.http.models',
     'minio',
     'minio.error',
     # Self-healing dependencies
@@ -78,16 +74,6 @@ if hasattr(sys.modules.get('psycopg2', None), 'pool'):
         pool_mod.SimpleConnectionPool = MagicMock
         pool_mod.ThreadedConnectionPool = MagicMock
 
-# Special setup for qdrant_client.models - needs model classes
-qdrant_models = sys.modules.get('qdrant_client.models')
-if qdrant_models:
-    qdrant_models.VectorParams = MagicMock
-    qdrant_models.Distance = MagicMock()
-    qdrant_models.Distance.COSINE = 'Cosine'
-    qdrant_models.PointStruct = MagicMock
-    qdrant_models.Filter = MagicMock
-    qdrant_models.FieldCondition = MagicMock
-    qdrant_models.MatchValue = MagicMock
 
 # Special setup for sentence_transformers
 st_mod = sys.modules.get('sentence_transformers')

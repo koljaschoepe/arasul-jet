@@ -188,13 +188,6 @@ docker compose ps document-indexer
 docker compose logs --tail=20 document-indexer
 ```
 
-**Schritt 3: Qdrant pruefen**
-
-```bash
-docker compose ps qdrant
-docker compose logs --tail=20 qdrant
-```
-
 **Schritt 4: Alle indexieren**
 
 ```bash
@@ -309,7 +302,7 @@ cat data/backups/backup.log
 
 ```bash
 ls -la data/backups/
-# Unterverzeichnisse: postgres/, minio/, qdrant/, weekly/
+# Unterverzeichnisse: postgres/, minio/, weekly/
 ```
 
 ---

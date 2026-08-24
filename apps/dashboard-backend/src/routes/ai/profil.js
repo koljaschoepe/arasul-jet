@@ -1,6 +1,14 @@
 /**
- * Memory API Routes
- * Endpoints for AI memory management (profile, memories, stats).
+ * Firmenprofil-Endpunkte.
+ *
+ * Hieß bis zum 24.08.2026 `memory.js` und trug neben dem Profil auch das
+ * KI-Gedächtnis (`/list`, `/search`, `/stats`, CRUD). Das Gedächtnis lag in
+ * Qdrant und ist mit dem Qdrant-Ausbau gestrichen worden — es hatte über die
+ * gesamte Gerätelaufzeit 0 Einträge und meldete seinen Ausfall nicht.
+ *
+ * Das Präfix bleibt `/api/memory`, weil der Einrichtungsassistent und die
+ * Einstellungsseite im Frontend darauf zeigen und eine öffentliche URL nicht
+ * ohne Grund wandert. Die Datei heißt nach dem, was sie tut.
  */
 
 const express = require('express');
@@ -8,37 +16,27 @@ const router = express.Router();
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { validateBody } = require('../../middleware/validate');
-const { ValidationError } = require('../../utils/errors');
-const {
-  UpdateProfileBody,
-  CreateProfileBody,
-  UpdateMemoryBody,
-  DeleteAllBody,
-} = require('../../schemas/memory');
-const memoryService = require('../../services/memory/memoryService');
+const { UpdateProfileBody, CreateProfileBody } = require('../../schemas/memory');
+const profilService = require('../../services/memory/profilService');
 const database = require('../../database');
 
-// All routes require authentication
+// Alle Routen brauchen eine Anmeldung
 router.use(requireAuth);
 
-// ============================================================================
-// Profile Endpoints
-// ============================================================================
-
 /**
- * GET /api/memory/profile - Get AI profile YAML
+ * GET /api/memory/profile - Firmenprofil als YAML holen
  */
 router.get(
   '/profile',
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const profile = await memoryService.getProfile();
+    const profile = await profilService.getProfile();
     res.json({ profile: profile || null });
   })
 );
 
 /**
- * PUT /api/memory/profile - Update AI profile YAML
+ * PUT /api/memory/profile - Firmenprofil überschreiben
  */
 router.put(
   '/profile',
@@ -46,7 +44,7 @@ router.put(
   validateBody(UpdateProfileBody),
   asyncHandler(async (req, res) => {
     const { profile } = req.body;
-    await memoryService.updateProfile(profile);
+    await profilService.updateProfile(profile);
     const { invalidateProfileCache } = require('../../services/llm/systemPromptBuilder');
     invalidateProfileCache();
     res.json({ success: true });
@@ -54,7 +52,7 @@ router.put(
 );
 
 /**
- * POST /api/memory/profile - Create profile from wizard data
+ * POST /api/memory/profile - Profil aus den Angaben des Assistenten bauen
  */
 router.post(
   '/profile',
@@ -63,7 +61,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { companyName, industry, teamSize, products, preferences } = req.body;
 
-    const profileYaml = memoryService.generateProfileYaml({
+    const profileYaml = profilService.generateProfileYaml({
       firma: companyName,
       branche: industry || '',
       teamgroesse: teamSize || '',
@@ -71,7 +69,7 @@ router.post(
       praeferenzen: preferences || {},
     });
 
-    await memoryService.updateProfile(profileYaml);
+    await profilService.updateProfile(profileYaml);
     const { invalidateProfileCache } = require('../../services/llm/systemPromptBuilder');
     invalidateProfileCache();
     res.json({ success: true, profile: profileYaml });
@@ -79,81 +77,14 @@ router.post(
 );
 
 // ============================================================================
-// Memory CRUD Endpoints
+// Kontext-Statistik
 // ============================================================================
-
-/**
- * GET /api/memory/list - List all memories (paginated)
- */
-router.get(
-  '/list',
-  asyncHandler(async (req, res) => {
-    const type = req.query.type || null;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const offset = parseInt(req.query.offset) || 0;
-
-    const { memories, total } = await memoryService.getAllMemories({ type, limit, offset });
-    res.json({ memories, total, limit, offset });
-  })
-);
-
-/**
- * GET /api/memory/search - Semantic memory search
- */
-router.get(
-  '/search',
-  asyncHandler(async (req, res) => {
-    const q = req.query.q;
-    if (!q) {
-      throw new ValidationError('Query parameter q is required');
-    }
-    const limit = Math.min(parseInt(req.query.limit) || 10, 20);
-
-    const memories = await memoryService.searchRelevantMemories(q, limit, 0.3);
-    res.json({ memories });
-  })
-);
-
-/**
- * DELETE /api/memory/:id - Delete a single memory
- */
-router.delete(
-  '/:id',
-  asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    await memoryService.deleteMemory(id);
-    res.json({ success: true });
-  })
-);
-
-/**
- * PUT /api/memory/:id - Update a memory's content
- */
-router.put(
-  '/:id',
-  validateBody(UpdateMemoryBody),
-  asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const { content } = req.body;
-    await memoryService.updateMemory(id, content);
-    res.json({ success: true });
-  })
-);
-
-// ============================================================================
-// Stats & Admin Endpoints
-// ============================================================================
-
-/**
- * GET /api/memory/stats - Memory statistics
- */
-router.get(
-  '/stats',
-  asyncHandler(async (req, res) => {
-    const stats = await memoryService.getMemoryStats();
-    res.json(stats);
-  })
-);
+//
+// Liegt hier, weil sie unter `/api/memory/context-stats` erreichbar ist und
+// eine oeffentliche URL nicht ohne Grund wandert. Mit dem KI-Gedaechtnis hatte
+// sie nie etwas zu tun: sie liest `compaction_log` und `llm_jobs`, also die
+// Verdichtung von Gespraechen und den Tokenverbrauch. Beim Qdrant-Ausbau am
+// 24.08.2026 ist sie zuerst versehentlich mitgegangen und wurde zurueckgeholt.
 
 /**
  * GET /api/memory/context-stats - Context management statistics
@@ -251,46 +182,6 @@ router.get(
       recentCompactions: recentResult.rows,
       dailyActivity: dailyResult.rows,
     });
-  })
-);
-
-/**
- * POST /api/memory/reindex - Reindex all memories into Qdrant
- */
-router.post(
-  '/reindex',
-  asyncHandler(async (req, res) => {
-    const count = await memoryService.reindexMemories();
-    res.json({ success: true, indexed: count });
-  })
-);
-
-/**
- * POST /api/memory/export - Export all memories as JSON
- */
-router.post(
-  '/export',
-  asyncHandler(async (req, res) => {
-    const { memories } = await memoryService.getAllMemories({ limit: 1000 });
-    const profile = await memoryService.getProfile();
-
-    res.json({
-      exportedAt: new Date().toISOString(),
-      profile: profile || null,
-      memories,
-    });
-  })
-);
-
-/**
- * DELETE /api/memory/all - Delete all memories (requires confirmation)
- */
-router.delete(
-  '/all',
-  validateBody(DeleteAllBody),
-  asyncHandler(async (req, res) => {
-    await memoryService.deleteAllMemories();
-    res.json({ success: true });
   })
 );
 

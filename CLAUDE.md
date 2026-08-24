@@ -20,11 +20,15 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                               └─ Docker-Proxy → Self-Healing, Metrics, Backup
 ```
 
-**Läuft NICHT von selbst:** `qdrant` und `embedding-service`. Plan 021, Schritt
-8 hat das klassische Vektor-RAG durch agentisches ersetzt (grep, Symbolsuche,
-benanntes Datei-Lesen). Beide liegen im Compose-Profil `classic-rag` und starten
-nur auf Zuruf. Wer eine Doku findet, die sie als Teil des laufenden Geräts
-nennt, hat eine veraltete Doku gefunden — nachsehen mit `docker compose ps`.
+**Es gibt kein Vektor-RAG mehr.** Plan 021, Schritt 8 hatte es durch
+agentisches ersetzt (grep, Symbolsuche, benanntes Datei-Lesen); am 24.08.2026
+ist `qdrant` samt Code ausgebaut worden, weil drei Features still durchfielen,
+statt zu melden, dass sie nichts tun. Gesucht wird über den Textlayer in
+Postgres (`document_chunks`) und die Werkzeuge des Agenten. `embedding-service`
+läuft weiter und ohne Profil: die OpenAI-kompatible `/v1/embeddings` und das
+Wissensraum-Routing brauchen ihn. Wer eine Doku findet, die Qdrant als Teil des
+Geräts nennt, hat eine veraltete Doku gefunden — nachsehen mit
+`docker compose ps`.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -54,7 +58,9 @@ nennt, hat eine veraltete Doku gefunden — nachsehen mit `docker compose ps`.
 7. **Lockfile strategy: root-only.** This is an npm-workspaces monorepo with
    exactly **one** lockfile — `/package-lock.json`. Never add a per-workspace
    `package-lock.json` (they drift from the root lock and break `npm ci` on
-   `main` — see the 2026-05-05 incident, `docs/plans/archive/2026-07-02_dependabot-hardening.md`).
+   `main` — see the 2026-05-05 incident, festgehalten im Plan
+   „Dependabot + Lock-File Hardening" vom 02.07.2026, nachzulesen ueber
+   [`docs/plans/HISTORIE.md`](docs/plans/HISTORIE.md)).
    Install with `npm ci` from the repo root; Dockerfiles install via
    `npm ci --workspace=<name> --include-workspace-root`. CI's **Lockfile drift
    guard** fails any PR whose root lock is out of sync. **Dependabot is off**
@@ -86,7 +92,8 @@ review checklist, etc.) live under `.claude/context/`.
 ## Woran gerade gearbeitet wird
 
 **Der laufende Plan ist [`docs/plans/active/024-urlaubslauf/plan.md`](docs/plans/active/024-urlaubslauf/plan.md).**
-Vierzehn Phasen vom 30.08. bis 12.09.2026, je einmal täglich ausgelöst, dazwischen
+Fünfzehn Phasen (0 bis 14) vom 30.08. bis 12.09.2026, je einmal täglich
+ausgelöst, dazwischen
 ohne Eingriff. Zwei Stränge je Phase: Gates und Zielbild; wo sie sich berühren,
 gewinnt der Gate-Strang. Der Stand jeder Phase steht in der Tabelle oben im Plan
 selbst, nicht hier.
