@@ -5050,6 +5050,37 @@ Docker-Build. Ein Build sättigt alle CPU-Kerne, und genau das war der Fall vom
 
 ---
 
+## Fuellen die Protokolle die Platte? (24.08.2026, nachgerechnet, nein)
+
+Die Vision nennt fuenf Jahre unbeaufsichtigten Betrieb, und `setup-logrotate.sh`
+liegt im Repo, ist aber nirgends eingerichtet: weder ein Job in
+`/etc/cron.hourly/` noch etwas in `/etc/logrotate.d/`. Das klang nach einem
+Befund und ist keiner.
+
+**Container-Protokolle rotiert Docker selbst.** In `compose.app.yaml` steht
+`max-size: 50m, max-file: 10`, und am Container bestaetigt:
+`json-file max-file=10 max-size=50m`. Deckel je Dienst also 500 MB, gemessen
+belegt sind 478 MB fuer alle fuenfzehn zusammen.
+
+**Der einzige Kandidat ist `logs/traefik-access.log`**, denn Traefik rotiert
+nicht von selbst. Gemessen statt geschaetzt:
+
+|                 |                                         |
+| --------------- | --------------------------------------- |
+| Zeitraum        | 09.06.2026 bis 24.08.2026, also 76 Tage |
+| Groesse         | 59 MB, 64 584 Zeilen                    |
+| Zuwachs         | 0,78 MB pro Tag                         |
+| in fuenf Jahren | rund 1,4 GB                             |
+
+Frei sind 1,3 TB. Selbst zehnfache Last beim Kunden bliebe unter 15 GB. Es
+wird also nichts eingerichtet, was niemand braucht.
+
+**Was diese Zahl NICHT sagt:** auf diesem Geraet sind fast alle Zeilen interne
+Healthchecks. Ein Kundengeraet mit vielen Nutzern schreibt anderes Zeug, und
+die 0,78 MB sind dann eine Untergrenze, keine Vorhersage.
+
+---
+
 ## Zwei KI-Dienste rufen nach draußen (23.08.2026, offen)
 
 Das ist der schwerste Befund des Tages. Gate G4 heißt „Daten bleiben auf dem
