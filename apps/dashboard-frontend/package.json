@@ -44,7 +44,7 @@
     "lowlight": "^3.3.0",
     "lucide-react": "^0.577.0",
     "mermaid": "^11.17.0",
-    "pdfjs-dist": "^4.10.38",
+    "pdfjs-dist": "^6.2.108",
     "radix-ui": "^1.4.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
