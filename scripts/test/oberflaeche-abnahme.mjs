@@ -62,9 +62,17 @@ const OHNE_EIGENEN_TEXT = new Set(['Automationen ueber die Adresse']);
  * Verstoss. Plan 023 H4 haelt das ausdruecklich fest: „Der CSP-Verstoss beim
  * Einbetten bleibt vorerst offen, er ist folgenlos." Der Editor laeuft.
  */
+// Gebunden wird an die QUELLE, nicht an die Ansicht. Am 24.08.2026 hat diese
+// Zeile eine Stunde gekostet: der Verstoss stand als bekannt drin, aber unter
+// `ansicht: 'Automation'`. n8n laedt im iframe asynchron weiter, die Meldung
+// traf erst nach dem naechsten Klick ein und landete im Fenster von
+// „Einstellungen". Dort war sie nicht hinterlegt, also rot — mal ja, mal nein,
+// je nach Timing. Die Spur fuehrte zuerst zu Vite 8 und zu pdfjs, beide
+// unschuldig. Der Ort der Meldung (`m.location().url`) sagt eindeutig, wer sie
+// ausgeloest hat, und der aendert sich nicht mit dem, was gerade sichtbar ist.
 const BEKANNTE_MELDUNGEN = [
   {
-    ansicht: 'Automation',
+    quelle: /\/n8n\//,
     muster: /import\.meta\.resolve|data:text\/javascript/i,
     grund: 'n8n prueft import.meta.resolve mit einem data:-Baustein (Plan 023 H4, bekannt)',
   },
@@ -88,10 +96,12 @@ const seite = await ctx.newPage();
 let fehlerFenster = [];
 seite.on('console', m => {
   if (m.type() === 'error') {
-    fehlerFenster.push(m.text().slice(0, 160));
+    fehlerFenster.push({ text: m.text().slice(0, 160), ort: m.location()?.url ?? '' });
   }
 });
-seite.on('pageerror', e => fehlerFenster.push(`pageerror: ${String(e.message).slice(0, 160)}`));
+seite.on('pageerror', e =>
+  fehlerFenster.push({ text: `pageerror: ${String(e.message).slice(0, 160)}`, ort: '' })
+);
 
 // Die Konsole sagt bei einer fehlgeschlagenen Anfrage nur "Failed to load
 // resource: 503" und verschweigt, WELCHE. Damit ist ein rotes Feld nicht
@@ -152,14 +162,16 @@ try {
         `${mass.scrollWidth} gegen ${mass.clientWidth}`
       );
       pruefe(`${breite} px, „${name}" zeichnet etwas`, mass.text > 40, `${mass.text} Zeichen`);
-      const bekannt = BEKANNTE_MELDUNGEN.filter(b => b.ansicht === name);
-      const unerwartet = fehlerFenster.filter(t => !bekannt.some(b => b.muster.test(t)));
+      const passt = (b, f) =>
+        b.muster.test(f.text) && (b.quelle ? b.quelle.test(f.ort) : b.ansicht === name);
+      const unerwartet = fehlerFenster.filter(f => !BEKANNTE_MELDUNGEN.some(b => passt(b, f)));
       const erklaert = fehlerFenster.length - unerwartet.length;
+      const bekannt = BEKANNTE_MELDUNGEN.filter(b => fehlerFenster.some(f => passt(b, f)));
       pruefe(
         `${breite} px, „${name}" ohne unerklaerte Konsolenfehler`,
         unerwartet.length === 0,
         unerwartet.length
-          ? `${unerwartet.slice(0, 2).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
+          ? `${unerwartet.slice(0, 2).map(f => f.text).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
           : erklaert
             ? `${erklaert} bekannte: ${bekannt[0].grund}`
             : 'keine'
@@ -193,14 +205,16 @@ try {
     } else {
       pruefe(`„${name}" zeichnet etwas`, mass.text > 40, `${mass.text} Zeichen`);
     }
+    // Hier zaehlt nur das Muster: diese Ansichten werden einzeln angesteuert,
+    // eine Ansichts-Bindung gibt es nicht.
     const unerwartet = fehlerFenster.filter(
-      t => !BEKANNTE_MELDUNGEN.some(b => b.muster.test(t))
+      f => !BEKANNTE_MELDUNGEN.some(b => b.muster.test(f.text))
     );
     pruefe(
       `„${name}" ohne unerklaerte Konsolenfehler`,
       unerwartet.length === 0,
       unerwartet.length
-        ? `${unerwartet.slice(0, 2).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
+        ? `${unerwartet.slice(0, 2).map(f => f.text).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
         : 'keine'
     );
   }
