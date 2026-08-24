@@ -82,11 +82,26 @@ describe('z.record braucht zwei Argumente (Zod 4)', () => {
     }
   });
 
-  test('das leere Objekt allein haette den Fehler nie gezeigt', () => {
-    // Festgehalten, damit niemand den Test oben durch einen mit `{}` ersetzt.
-    const z = require('zod');
-    const kaputt = z.object({ werte: z.record(z.unknown()).optional() });
-    expect(kaputt.safeParse({ werte: {} }).success).toBe(true);
-    expect(() => kaputt.safeParse({ werte: { a: 1 } })).toThrow(/_zod/);
+  test('ein gefuelltes Objekt wird auch inhaltlich geprueft', () => {
+    // Frueher stand hier ein Test, der das kaputte Schema selbst nachbaute und
+    // den Absturz erwartete (`toThrow(/_zod/)`). Er hat seinen Zweck erfuellt
+    // und ist am 24.08.2026 abgelaufen: zod 4.4.3 nimmt `z.record` mit einem
+    // Argument an, und zwar mit derselben Bedeutung wie mit zweien. Am
+    // Wegwerf-Projekt nachgemessen, beide Formen gegeneinander:
+    //
+    //   ein Argument     {"a":"text"}   akzeptiert
+    //   ein Argument     {"a":42}       abgelehnt
+    //   zwei Argumente   {"a":"text"}   akzeptiert
+    //   zwei Argumente   {"a":42}       abgelehnt
+    //
+    // Ein Test, der einen behobenen Fehler festhaelt, blockiert nur noch das
+    // Update, das ihn behoben hat. Was bleibt, ist das eigentliche Ziel: ein
+    // GEFUELLTES Objekt muss ankommen UND inhaltlich geprueft werden. Ein
+    // leeres allein haette den urspruenglichen Fehler nie gezeigt, deshalb
+    // steht hier beides.
+    const s = require('../../src/schemas/extensions');
+    expect(() => s.BrueckeNetzBody.parse({ url: 'https://example.com/', kopf: {} })).not.toThrow();
+    expect(() => s.BrueckeNetzBody.parse({ url: 'https://example.com/', kopf: { 'x-a': 'b' } })).not.toThrow();
+    expect(() => s.BrueckeNetzBody.parse({ url: 'https://example.com/', kopf: { 'x-a': 42 } })).toThrow();
   });
 });
