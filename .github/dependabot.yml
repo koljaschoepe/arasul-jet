@@ -44,6 +44,20 @@ updates:
         patterns:
           - 'recharts'
           - 'mermaid'
+      # tiptap gehoert zusammen. Am 24.08.2026 lagen drei einzelne PRs offen
+      # (@tiptap/core, @tiptap/react, @tiptap/extension-character-count, alle
+      # 3.30.1 auf 3.30.2), und alle drei waren rot mit demselben Fehler:
+      #
+      #   SlashCommands.tsx(32,49): error TS2339: Property 'setParagraph'
+      #   does not exist on type 'ChainedCommands'.
+      #
+      # Die Befehle kommen aus `starter-kit`. Wird ein Paket allein
+      # angehoben, passen die Typen der Kette nicht mehr zusammen. Einzeln
+      # koennen diese PRs also gar nicht gruen werden — sie liefen jede Woche
+      # neu auf und blieben liegen.
+      tiptap:
+        patterns:
+          - '@tiptap/*'
 
   # n8n Custom Nodes
   - package-ecosystem: 'npm'
