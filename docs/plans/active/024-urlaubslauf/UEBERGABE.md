@@ -1,6 +1,6 @@
 # Übergabe zu Plan 024
 
-**Stand: 24.08.2026, 22:00.** Diese Seite trägt nur, was seit dem Abschluss von
+**Stand: 24.08.2026, 22:15.** Diese Seite trägt nur, was seit dem Abschluss von
 023 dazugekommen ist. Alles Ältere steht in
 [`docs/plans/done/023-feature-audit/UEBERGABE.md`](../../done/023-feature-audit/UEBERGABE.md)
 — besonders die **acht Fallen**, die dort einen halben Tag gekostet haben. Sie
@@ -297,6 +297,30 @@ war am **23.08. um 17:01**, achtundzwanzig Stunden vor dem Ausbau, und
 „seither keiner mehr". Dazu erst **5 von 7** geforderten Tagen Laufzeit
 (letzter Neustart 19.08. 17:29). Kein Dienst musste von selbst neu starten.
 Das ist der bekannte Stand für den 30.08., kein neuer Befund.
+
+**Ein Fehler ist dabei live aufgefallen und behoben worden (#696).** Die erste
+Endpunkt-Messung meldete `GET /api/gdpr/categories` mit **500**:
+
+```
+relation "ai_memories" does not exist
+GDPR-Export: Kategorie "ki_erinnerungen" nicht lesbar
+```
+
+Migration 162 löscht `ai_memories`, und drei Stellen fragten sie weiter ab —
+darunter der **Datenexport nach Art. 15 DSGVO** und die Tabellenliste des
+**Werksresets**, der als nächstes denselben Fehler gehabt hätte.
+
+Die Ursache ist eine Sucheigenschaft, keine Unachtsamkeit im Einzelfall: der
+Ausbau suchte nach `qdrant`, aber die DSGVO-Route nennt Qdrant nirgends — sie
+nennt nur `ai_memories`. **Wer eine Tabelle löscht, sucht nach dem
+Tabellennamen, nicht nach dem Dienst, der sie einmal befüllt hat.** Danach
+gegengeprobt: von 93 Tabellen auf dem Gerät fasst keine Backend-Datei eine an,
+die es nicht gibt.
+
+Gefunden hat ihn `scripts/test/endpunkte-live.py`, **nicht** die 2675
+Unit-Tests. Ein Test mit nachgebildeter Datenbank kann eine fehlende Tabelle
+nicht bemerken. Das ist genau die Begründung, die in Aufgabe `P1-G1-02` steht —
+sie hat sich am ersten Tag bezahlt gemacht.
 
 **Zwei Dinge, die CI gefangen hat und die sonst auf dem Gerät gelandet wären:**
 
