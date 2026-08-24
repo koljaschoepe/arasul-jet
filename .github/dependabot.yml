@@ -36,6 +36,15 @@ updates:
         patterns:
           - 'jest*'
           - 'supertest'
+      # vitest und seine Zusatzpakete muessen dieselbe Hauptversion tragen.
+      # Am 24.08.2026 lag ein PR fuer `@vitest/coverage-v8` 3.2.4 auf 4.1.11
+      # offen, waehrend `vitest` bei 3.2.4 blieb. Im Protokoll steht dann
+      # `RUN v3.2.4`, und der Lauf scheitert — einzeln kann dieser PR nicht
+      # gruen werden. Dieselbe Klasse wie bei tiptap, siehe dort.
+      vitest:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
       react:
         patterns:
           - 'react*'
