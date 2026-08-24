@@ -106,6 +106,31 @@ elif [ "$PREV_SHA" = "$NEW_SHA" ]; then
   ALLES_BAUEN=1
 fi
 log "Deploy $PREV_SHA → $NEW_SHA (in $DEPLOY_DIR)"
+
+# Der Stand, aus dem die LAUFENDEN Images gebaut wurden — der HEAD des Geraets,
+# bevor dieser Deploy etwas auscheckt. Nicht dasselbe wie PREV_SHA.
+#
+# PREV_SHA kommt von GitHub und beantwortet die Frage „was hat sich seit dem
+# letzten Push geaendert, also welche Services muessen gebaut werden". Fuer den
+# Rollback ist das die falsche Zahl, und am 24.08.2026 ist der Unterschied
+# eingetreten: zwei Deploys scheiterten hintereinander. Der erste rollte auf
+# den knip-Stand zurueck, Images und git gleich. Beim zweiten sagte GitHub als
+# BEFORE den flask-cors-Commit — auf dem GERAET lief aber weiter knip. Der
+# Rollback setzte git auf flask-cors und die Images auf knip zurueck:
+#
+#   git log -1  →  a3a1436b  (flask-cors)
+#   Image       →  9a5b272e  (der Stand davor)
+#
+# Danach behauptet das Geraet einen Stand, den es nicht faehrt. Der naechste
+# Deploy baut nur, was sich seit PREV geaendert hat — ein Dienst, der nicht
+# angefasst wird, bleibt dann dauerhaft auf einem alten Abbild, ohne dass es
+# irgendwo auffaellt.
+#
+# Nebengewinn: GERAET_SHA liegt garantiert lokal vor, PREV_SHA nicht
+# unbedingt. Auf einem Geraet mit Loechern in der Historie (siehe den Kommentar
+# an rollback()) scheiterte `git reset --hard "$PREV_SHA"` genau daran.
+GERAET_SHA="$(git rev-parse HEAD)"
+
 if ! git fetch --quiet "$SRC" "$NEW_SHA"; then
   err "git fetch aus _work-Checkout fehlgeschlagen"; exit 1
 fi
@@ -266,17 +291,20 @@ rollback() {
   if ! "${COMPOSE[@]}" up -d --no-build "${SERVICES[@]}" 2>&1 | tail -5; then
     misslungen+=("Container starten")
   fi
-  if ! git reset --hard "$PREV_SHA"; then
-    misslungen+=("git reset auf $PREV_SHA")
+  # Auf GERAET_SHA, nicht auf PREV_SHA: git muss auf den Stand zeigen, aus dem
+  # die gerade zurueckgetaggten Images gebaut wurden. Siehe die Begruendung an
+  # der Stelle, wo GERAET_SHA gesetzt wird.
+  if ! git reset --hard "$GERAET_SHA"; then
+    misslungen+=("git reset auf $GERAET_SHA")
   fi
 
   if [ "${#misslungen[@]}" -eq 0 ]; then
-    err "Rollback auf $PREV_SHA abgeschlossen. Produktivstand wiederhergestellt."
-    summary "❌ **Deploy fehlgeschlagen** → automatischer Rollback auf \`${PREV_SHA:0:7}\`."
+    err "Rollback auf $GERAET_SHA abgeschlossen. Produktivstand wiederhergestellt."
+    summary "❌ **Deploy fehlgeschlagen** → automatischer Rollback auf \`${GERAET_SHA:0:7}\`."
   else
     err "Rollback UNVOLLSTAENDIG. Nicht geklappt: ${misslungen[*]}"
     err "Das Geraet steht NICHT auf dem Produktivstand. Bitte von Hand nachsehen."
-    summary "❌ **Deploy fehlgeschlagen**, und der Rollback auf \`${PREV_SHA:0:7}\` ist UNVOLLSTAENDIG: ${misslungen[*]}"
+    summary "❌ **Deploy fehlgeschlagen**, und der Rollback auf \`${GERAET_SHA:0:7}\` ist UNVOLLSTAENDIG: ${misslungen[*]}"
   fi
   exit 1
 }
