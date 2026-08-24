@@ -12,6 +12,11 @@ on:
 
 jobs:
   claude-review:
+    # Dependabot ist seit dem 24.08.2026 abgeschaltet (`.github/dependabot.yml`
+    # entfernt). Dieser Schutz bleibt trotzdem stehen: er kostet nichts und
+    # greift sofort, falls die Datei je zurueckkommt. Erscheint hier ein
+    # Dependabot-PR, hat jemand sie wieder angelegt.
+    #
     # Dependabot-ausgelöste Läufe erhalten aus Sicherheitsgründen KEINE
     # regulären Actions-Secrets (Dependabot hat einen eigenen Secret-Store).
     # Ohne CLAUDE_CODE_OAUTH_TOKEN würde die Action zwangsläufig scheitern und

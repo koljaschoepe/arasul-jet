@@ -126,8 +126,11 @@ work gets forgotten and how `main` breaks (see the 2026-05-05 lockfile incident)
 - **Sweep on sight.** Whenever you open the PR list, resolve anything
   merged-but-open, superseded, or gone stale (rebase & merge, or close with a
   one-line reason) right then — don't let the queue rot.
-- **Dependabot:** triage in buckets, not one-by-one drive-bys. Close no-ops and
-  breaking majors with a reason; batch-verify the safe ones on the device.
+- **No dependency bots.** `.github/dependabot.yml` was removed on 24.08.2026:
+  16 watched directories could open up to 54 PRs, and on that single day 28 of
+  them were merged by hand. Dependencies now move only inside a plan with a gate
+  reference — pulled deliberately (`npm outdated`, `pip list --outdated`), never
+  pushed at you. Do not re-add the file without a decision.
 
 ---
 
@@ -191,21 +194,27 @@ The non-negotiables live in `CLAUDE.md` files at every level. Read these before 
 ## 8. Slash command catalog
 
 Slash commands live in [`.claude/skills/`](.claude/skills/). The project runs
-on exactly **four** commands plus a nightly run — everything else is a
-Bash/Makefile alias or a model-suggested skill, not a slash command.
+on exactly **four** commands — everything else is a Bash/Makefile alias or a
+model-suggested skill, not a slash command. **Nothing runs on a timer.**
 
-| Command                  | Purpose                                                                                                                                                                                 |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/plan [freitext]`       | Deep interview → designed HTML plan page (`docs/plans/active/NNN-<slug>.html`) → comment/revision loop → approved. No execution. Empty args pull the top roadmap theme.                 |
-| `/work [NNN\|--nightly]` | Executes the next approved plan fully autonomously: branch → build → tests → review → PR → auto-merge → Jetson deploy → live verify → plan page becomes the execution report (`done/`). |
-| `/audit [scope]`         | Multi-agent scan (security/reliability/perf/frontend/full) → verified findings page in `docs/plans/audits/` → new theme cards on the roadmap. Read-only.                                |
-| `/status`                | Compact terminal situation report: roadmap gates, plan queue, PR hygiene flags, CI/deploy state, live Jetson health, recommended next command. Read-only.                               |
+| Command                  | Purpose                                                                                                                                                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/plan [freitext]`       | Collects the impulses from the steering repo (n impulses → 1 plan here), deep interview → designed HTML plan page (`docs/plans/active/NNN-<slug>.html`) → comment/revision loop → approved. No execution.                         |
+| `/work [NNN\|--autonom]` | Executes the next approved plan fully autonomously: branch → build → tests → review → PR → auto-merge → Jetson deploy → live verify → plan page becomes the execution report (`done/`). One merge per plan phase, never per task. |
+| `/audit [scope]`         | Multi-agent scan (security/reliability/perf/frontend/full) → verified findings page in `docs/plans/audits/` → new theme cards on the roadmap. Read-only.                                                                          |
+| `/status`                | Compact terminal situation report: roadmap gates, plan queue, PR hygiene flags, CI/deploy state, live Jetson health, recommended next command. Read-only.                                                                         |
 
-The theme store feeding `/plan` is [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html).
-The **nightly run** (`scripts/util/nightly-run.sh` + launchd template
-`scripts/util/com.arasul.nightly.plist`) executes `/work --nightly` on the Mac:
-up to 3 approved plans, then Dependabot bucket-triage + PR sweep, Telegram
-summary in the morning.
+The theme store feeding `/plan` is [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html);
+the impulses come from the steering repo (`../roadmap/arasul-jet.md`,
+`../plans/`, `../company/follow-ups.md`).
+
+A **long autonomous run** is started by hand:
+`./scripts/util/autonom-run.sh` runs `/work --autonom` on the Mac (default 5 h,
+`ARASUL_LAUF_STUNDEN=30` for a run spanning a day or more), works the approved
+plans phase by phase, sweeps the PR queue and sends one Telegram summary at the
+end. **There is no scheduled run.** The launchd template that used to sit next
+to it (02:30) was deleted on 24.08.2026 — it had never been installed, yet the
+handover page listed it as something that keeps running without a session.
 
 **Bookkeeping exception to the PR-only flow:** plan/roadmap/audit bookkeeping
 commits (`docs(plans): …`, touching only `docs/plans/**`) go straight to

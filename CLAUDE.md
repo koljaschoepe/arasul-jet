@@ -56,9 +56,10 @@ nennt, hat eine veraltete Doku gefunden — nachsehen mit `docker compose ps`.
    `package-lock.json` (they drift from the root lock and break `npm ci` on
    `main` — see the 2026-05-05 incident, `docs/plans/archive/2026-07-02_dependabot-hardening.md`).
    Install with `npm ci` from the repo root; Dockerfiles install via
-   `npm ci --workspace=<name> --include-workspace-root`. Dependabot has a
-   single npm entry at `/`, and CI's **Lockfile drift guard** fails any PR
-   whose root lock is out of sync.
+   `npm ci --workspace=<name> --include-workspace-root`. CI's **Lockfile drift
+   guard** fails any PR whose root lock is out of sync. **Dependabot is off**
+   since 24.08.2026 (`.github/dependabot.yml` removed) — dependencies move only
+   inside a plan with a gate reference, never by a bot's PR.
 8. **PR hygiene** — keep the queue clean: one active PR per work-stream (finish
    what's open before starting the next related change), always merge/close with
    `--delete-branch` (no branch outlives its PR), and sweep stale/merged/superseded
@@ -119,7 +120,16 @@ das Gate wurde am 19.08.2026 auf Geräte-Isolation umdefiniert.
 zu einer Planseite), `/work` (autonome Ausführung bis zum Live-Verify auf dem
 Jetson), `/audit` (Scan zu Befunden), `/status` (Lagebild). Sie liegen als
 Skills unter `.claude/skills/`, nicht als Befehle unter `.claude/commands/` —
-den Ordner gibt es nicht. Nightly: `scripts/util/nightly-run.sh`.
+den Ordner gibt es nicht.
+
+**Nichts in diesem Repo läuft nach Uhrzeit.** Ein langer autonomer Lauf wird
+von Hand gestartet: `./scripts/util/autonom-run.sh` (führt `/work --autonom`
+aus, Voreinstellung fünf Stunden, `ARASUL_LAUF_STUNDEN=30` für einen Lauf über
+einen Tag hinaus). Er arbeitet freigegebene Pläne ab und mergt **einmal je
+Plan-Phase**, nicht je Aufgabe — am 24.08.2026 waren es sonst elf Deploys in
+66 Minuten. Impulse kommen aus dem Steuer-Repo, der Plan entsteht hier: mehrere
+Impulse von dort können ein Plan hier werden, und `/plan` hält im
+Entscheidungs-Log fest, welche eingeflossen sind und welche nicht.
 
 ## Quick reference
 

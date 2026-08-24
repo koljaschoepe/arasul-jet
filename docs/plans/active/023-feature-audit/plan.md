@@ -712,17 +712,17 @@ Elf Tests, acht davon gehen gegen den Stand davor rot.
 Am Gerät gemessen, angemeldet als `pruefer` über `https://arasul.tail746d9b.ts.net`,
 Stand `510ababc`, 15 Container, keiner ungesund.
 
-| Abnahme                                               | Ergebnis                                                                                                                  |
+| Abnahme | Ergebnis |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| Der Erst-Start erscheint nach dem Löschen des Merkers | ja                                                                                                                        |
-| Jeder Schritt nennt in Worten, der wievielte er ist   | „SCHRITT 1 VON 3" bis „SCHRITT 3 VON 3"                                                                                   |
-| Jeder Schritt nennt sein Ergebnis                     | drei Mal „Danach: …"                                                                                                      |
-| Jeder Schritt kündigt den nächsten mit Namen an       | „Als Nächstes: Ein KI-Coder ohne Konto", „Als Nächstes: Claude einmal anmelden (optional)", „Das war der letzte Schritt." |
-| Der Fokus liegt beim Öffnen im Dialog                 | ja, auf dem Dialog selbst                                                                                                 |
-| Das erste Shift+Tab bleibt im Dialog                  | ja, landet auf „Weiter"                                                                                                   |
-| „Zurück" von Schritt 2 auf 1 verliert den Fokus nicht | ja, Fokus bleibt im Dialog                                                                                                |
-| Beschreibung enthält Fortschritt und Inhalt           | „Schritt 1 von 3                                                                                                          | Arasul ist das Grundgerüst …" |
-| Konsolenfehler                                        | keine                                                                                                                     |
+| Der Erst-Start erscheint nach dem Löschen des Merkers | ja |
+| Jeder Schritt nennt in Worten, der wievielte er ist | „SCHRITT 1 VON 3" bis „SCHRITT 3 VON 3" |
+| Jeder Schritt nennt sein Ergebnis | drei Mal „Danach: …" |
+| Jeder Schritt kündigt den nächsten mit Namen an | „Als Nächstes: Ein KI-Coder ohne Konto", „Als Nächstes: Claude einmal anmelden (optional)", „Das war der letzte Schritt." |
+| Der Fokus liegt beim Öffnen im Dialog | ja, auf dem Dialog selbst |
+| Das erste Shift+Tab bleibt im Dialog | ja, landet auf „Weiter" |
+| „Zurück" von Schritt 2 auf 1 verliert den Fokus nicht | ja, Fokus bleibt im Dialog |
+| Beschreibung enthält Fortschritt und Inhalt | „Schritt 1 von 3 | Arasul ist das Grundgerüst …" |
+| Konsolenfehler | keine |
 
 Drei der vier Fehler, die diese Abnahme prüft, hat kein Testlauf gefunden,
 sondern die Review: das erste Shift+Tab, der Knopf „Zurück", der sich selbst
@@ -4744,8 +4744,8 @@ einem laufenden Gerät auf, holt sich echte Ids aus den Listen-Endpunkten und
 ist rot bei jedem 5xx. Ein 4xx ist grün: eine fehlende Pflichtangabe ist eine
 Antwort, kein Absturz. Was sie nicht messen kann, steht am Ende **mit Grund**
 statt als stilles Grün. Stand nach den Fixes, live gegen den Orin: 190 von
-195 gemessen, keiner rot. Sie läuft nächtlich (`scripts/util/nightly-run.sh`)
-und ausdrücklich nicht in der CI — sie braucht ein Gerät mit echter Datenbank,
+195 gemessen, keiner rot. Sie läuft in jedem autonomen Lauf
+(`scripts/util/autonom-run.sh`, Handstart) und ausdrücklich nicht in der CI — sie braucht ein Gerät mit echter Datenbank,
 und genau daran sind die fünf Fehler jahrelang vorbeigekommen.
 
 ## Der Wachhund wollte das Gerät neu starten, wegen eines Deploys (23.08.2026)

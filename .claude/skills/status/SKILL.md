@@ -18,11 +18,13 @@ to run. Gather everything in parallel, degrade gracefully per source
    gates done/total, top 2–3 open themes by priority.
 2. **Plan queue** — `#plan-meta` of every `docs/plans/active/*.html`:
    count per status (in-review / approved / in-progress / blocked); name the
-   approved ones (that's what `/work` and tonight's nightly will pick up);
+   approved ones (that's what `/work` or a hand-started autonomous run picks
+   up — nothing starts on its own);
    flag blocked ones with their one-line reason.
 3. **PRs** — `gh pr list --state open --json number,title,isDraft,autoMergeRequest,createdAt,headRefName`:
    count, and flag hygiene candidates per CONTRIBUTING (merged-but-open,
-   stale > 7 days, Dependabot pile-up worth a bucket-triage).
+   stale > 7 days). Dependabot is off since 24.08.2026 — a bot PR appearing in
+   this list means someone re-added `.github/dependabot.yml`; say so.
 4. **CI / Deploy** — `gh run list --limit 5 --json workflowName,conclusion,headBranch,updatedAt`:
    last `CI Summary` on main, last `deploy` run result.
 5. **Jetson live** — over Tailscale, short timeouts (≤5s, `|| true`):
@@ -45,7 +47,7 @@ Nächster Schritt: /<command> <warum in 5 worten>
 
 „Nächster Schritt“ picks exactly one: blocked plan or red deploy → that first;
 approved plans waiting → `/work`; empty approved queue → `/plan`; PR pile-up →
-nightly chores hint; all quiet → say so.
+suggest the sweep; all quiet → say so.
 
 ## Failure modes (don't)
 

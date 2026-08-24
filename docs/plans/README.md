@@ -30,7 +30,8 @@ This folder is the single source of truth for roadmaps, phase plans, and histori
 2. `/work` — executes the top approved plan autonomously: branch → build →
    tests → `code-reviewer` → PR → auto-merge → Jetson deploy → live verify →
    the plan page becomes its own execution report (§9) and moves to `done/`.
-   The nightly run (`scripts/util/nightly-run.sh`) does the same unattended.
+   `scripts/util/autonom-run.sh` does the same unattended for hours or days —
+   started by hand, one merge per plan phase.
 
 Plan pages are self-contained HTML (template: `.claude/templates/plan-page.html`);
 their machine state lives in the embedded `#plan-meta` JSON. Don't create

@@ -1,7 +1,7 @@
 ---
 name: plan
-description: Deep interview → beautifully designed HTML plan page (docs/plans/active/) → comment/revision loop → approved. Execution happens later via /work. Without arguments, proposes the top open theme from the roadmap.
-argument-hint: '<freitext topic> — or empty to pull the next roadmap theme'
+description: Collect impulses from the steering repo → deep interview → beautifully designed HTML plan page (docs/plans/active/) → comment/revision loop → approved. Execution happens later via /work. Without arguments, proposes the top open impulse.
+argument-hint: '<freitext topic> — or empty to pull the next impulse from the steering repo'
 disable-model-invocation: true
 ---
 
@@ -18,6 +18,9 @@ Key files:
   the structural contract shared with `/work`).
 - Roadmap / theme store: `docs/plans/ROADMAP.html` (machine state in
   `#roadmap-meta` JSON).
+- Impulse sources in the steering repo (sibling folder, read-only from here):
+  `../roadmap/arasul-jet.md`, `../plans/aktiv/`, `../plans/offen/`,
+  `../company/follow-ups.md`, plus open GitHub issues carrying `@claude`.
 - Output: `docs/plans/active/NNN-<slug>.html`.
 
 All user-facing content (page text, summaries, questions) is **German**.
@@ -29,23 +32,55 @@ A bare free-text "I stopped because X, what now?" is forbidden. Two legal moves:
 `AskUserQuestion` with concrete, mutually exclusive options (recommended first,
 `preview` where there is something concrete to compare).
 
-## Phase 0 — Topic
+## Phase 0 — Collect impulses, then fix the topic
 
-- `$ARGUMENTS` given → that is the topic.
-- Empty → parse `#roadmap-meta` in `docs/plans/ROADMAP.html`, pick the top
-  `open` theme by priority (P0 > P1 > P2, then listed order) and confirm it via
-  `AskUserQuestion` (option A: top theme (Recommended); B/C: the next two; D
-  handled by the built-in "Other").
+**Where the work comes from.** Goals and impulses are decided in the steering
+repo (`Arasul-GmbH/arasul-os`, the parent folder of this checkout); _how_ they
+get built is decided here. That is rule 7 of the steering repo, and it has a
+consequence for this command: **several impulses from up there may become ONE
+plan down here.** The mapping is n:1, never 1:1 by reflex — two impulses that
+touch the same service, the same gate or the same migration belong in one plan,
+because they will be built, merged, deployed and verified together.
+
+1. Read what exists, in this order, and skip silently what is not reachable
+   (the folder is absent when this skill runs inside a GitHub Action):
+
+   ```bash
+   sed -n 1,200p ../roadmap/arasul-jet.md          # what this repo must do, by when
+   ls ../plans/aktiv/ ../plans/offen/               # what is planned up there
+   grep -n 'arasul-jet' ../company/follow-ups.md    # promises with a date
+   gh issue list --search '@claude in:body' --state open --limit 20
+   ```
+
+   Also read the local theme store `#roadmap-meta` in `docs/plans/ROADMAP.html`
+   and the seven sales gates on that page — every impulse needs a gate or
+   milestone reference. **An impulse without one is an idea, not a task**; say
+   so and leave it where it is.
+
+2. `$ARGUMENTS` given → that is the topic. Still run step 1 and offer the
+   impulses that belong with it, so they land in the same plan.
+
+3. Empty → propose the grouping via `AskUserQuestion`: option A is the
+   recommended bundle (which impulses become this one plan, and why they belong
+   together), B/C the alternative cuts. Never pick the bundle silently — the cut
+   decides what one deploy will contain.
+
+4. Whatever the outcome, §8 of the page records **which impulses were folded in
+   and which were deliberately left out**. Six weeks later nobody remembers
+   whether an impulse was rejected or forgotten.
 
 ## Phase 1 — Interview (the heart of this command)
 
 The user explicitly wants **thorough** interviews: every material decision must
-be asked, so `/work` and the nightly run never have to guess. Hard rules:
+be asked, so an autonomous `/work` run — which may last one to two days without
+anyone watching — never has to guess. Hard rules:
 
 - `AskUserQuestion` only — never free-text questions.
-- **Minimum 8 questions across at least 3 rounds.** Continue with further
-  rounds until no materially ambiguous decision remains. Err on the side of one
-  round too many.
+- **Minimum 8 questions across at least 3 rounds, no upper limit.** Standing
+  instruction (24.08.2026): challenge until nothing material is ambiguous, even
+  if that takes ten rounds. Contradict in the first sentence, and never rate
+  anything without a number. A round too many costs minutes; a wrong assumption
+  costs a two-day autonomous run.
 - **The page never asks.** A question the user must answer belongs in
   `AskUserQuestion`, here in chat — never parked in the HTML, which the user
   cannot answer in (explicit instruction, 2026-07-17). If a question surfaces
@@ -62,6 +97,10 @@ be asked, so `/work` and the nightly run never have to guess. Hard rules:
   RAG, auth?), architecture approach (backend/frontend/DB shape), UX decisions
   if any surface changes, data/migration strategy, verification expectations on
   the Jetson, rollout/rollback concerns.
+- **Phase cut is an interview question, not a writing decision.** `/work` merges
+  and deploys once per phase (see its merge-cadence rule), so the phases of §4
+  are the deploy units. Ask how the work should be cut, and keep each phase
+  small enough to verify in one go on the device.
 - Bake in the platform's standing rules — never offer options that violate
   them: backend `asyncHandler` + custom errors; frontend `useApi` + TypeScript +
   theme tokens; migrations idempotent & sequential (next = highest NNN in
@@ -141,7 +180,7 @@ keep scope, different approach / re-plan).
 
 ## Phase 5 — Persist the approved plan
 
-Approved plans must be visible to the nightly run, so they live on `main`:
+Approved plans must be visible to an autonomous run, so they live on `main`:
 
 1. Set `#plan-meta` `status: "approved"` + `approved: "<date>"`.
 2. Commit **only** the plan page + ROADMAP.html directly on `main`:
@@ -151,12 +190,18 @@ Approved plans must be visible to the nightly run, so they live on `main`:
    PR-only rule (see CONTRIBUTING §8). If the push is rejected (protection),
    fall back to a micro-PR with `gh pr merge --auto --squash --delete-branch`.
    Never commit unrelated working-tree changes.
-3. Tell the user: plan NNN is approved and queued — `/work` (or tonight's
-   nightly run) will execute it.
+3. Tell the user: plan NNN is approved and queued, and name the command that
+   starts it — `/work NNN` interactively, or
+   `./scripts/util/autonom-run.sh` for a long unattended run
+   (`ARASUL_LAUF_STUNDEN=30` for one that spans a day or more). **Nothing starts
+   by itself**: this repo has no scheduled run, by decision of 24.08.2026.
 
 ## Failure modes (don't)
 
 - Fewer than 8 questions, fewer than 3 rounds, or free-text questions.
+- Turning every impulse from the steering repo into its own plan by reflex, or
+  folding impulses in without recording the cut in §8.
+- Writing a plan for an impulse with no gate or milestone reference.
 - **Parking a question in the page instead of asking it.** The user cannot
   answer inside the HTML. An unanswered question means the interview is not
   finished — go back and ask.

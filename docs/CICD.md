@@ -16,7 +16,7 @@
 ├─ 3 Plan-Seite  docs/plans/active/NNN-<slug>.html
 ├─ 4 Kommentar-/Revisions-Schleife → Freigabe  ← DEIN EINZIGER MANUELLER GATE
 │
-/work   (manuell oder nachts via scripts/util/nightly-run.sh)
+/work   (interaktiv, oder lang via scripts/util/autonom-run.sh — Handstart)
 │
 ├─ 5 Branch  NNN-<slug>  +  autonome Ausführung
 ├─ 6 code-reviewer  (Critical-Findings = harter Stop)
@@ -57,15 +57,15 @@ scripts/deploy/deploy-local.sh
 
 ## Komponenten
 
-| Datei / Ort                                     | Rolle                                                                                           |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `.claude/skills/plan/` + `.claude/skills/work/` | Plan-Seite (Interview → Freigabe) bzw. Ausführung (Branch → PR → Deploy → Live-Verify → Report) |
-| `scripts/util/nightly-run.sh`                   | Nightly: `/work --nightly` — bis 3 Pläne + Dependabot/PR-Chores, Report                         |
-| `.github/workflows/deploy.yml`                  | Deploy-Trigger (push→main), self-hosted                                                         |
-| `scripts/deploy/deploy-local.sh`                | Deploy-Logik + Healthcheck + Rollback                                                           |
-| `.github/workflows/test.yml`                    | CI (unverändert), liefert den Required-Check                                                    |
-| Runner-Dienst auf dem Jetson                    | `~/actions-runner/`, systemd `actions.runner.*.service`                                         |
-| GitHub Branch-Protection `main`                 | Required Check „CI Summary", Auto-Merge aktiv                                                   |
+| Datei / Ort                                     | Rolle                                                                                                                                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.claude/skills/plan/` + `.claude/skills/work/` | Plan-Seite (Interview → Freigabe) bzw. Ausführung (Branch → PR → Deploy → Live-Verify → Report)                                                                                                              |
+| `scripts/util/autonom-run.sh`                   | Handstart, langer Lauf: `/work --autonom` — freigegebene Pläne, ein Merge je Phase, PR-Sweep, Telegram-Bericht. Keine Zeitsteuerung                                                                          |
+| `.github/workflows/deploy.yml`                  | Deploy-Trigger (push→main), self-hosted                                                                                                                                                                      |
+| `scripts/deploy/deploy-local.sh`                | Deploy-Logik + Healthcheck + Rollback                                                                                                                                                                        |
+| `.github/workflows/test.yml`                    | CI (unverändert), liefert den Required-Check                                                                                                                                                                 |
+| Runner-Dienst auf dem Jetson                    | `~/actions-runner/`, systemd `actions.runner.*.service`                                                                                                                                                      |
+| GitHub Branch-Protection `main`                 | **existiert nicht** (am 24.08.2026 geprüft: kein Ruleset). Auto-Merge wartet auf „CI Summary", aber nichts erzwingt es — bewusste Entscheidung, siehe `docs/plans/active/023-feature-audit/UEBERGABE.md` §2c |
 
 ## Betrieb / Runbook
 

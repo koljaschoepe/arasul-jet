@@ -22,8 +22,9 @@ The whole development loop runs on **four commands** (see `CONTRIBUTING.md` §8)
 `/plan` (interview → HTML plan page → approval) → `/work` (autonomous
 execution to a live-verified deploy) · `/audit` (multi-agent scan → findings
 page → roadmap themes) · `/status` (terminal situation report). The theme
-store is `docs/plans/ROADMAP.html`; the nightly run is
-`scripts/util/nightly-run.sh`.
+store is `docs/plans/ROADMAP.html`, the impulses behind it come from the
+steering repo. A long unattended run is started by hand with
+`scripts/util/autonom-run.sh`; nothing in this repo runs on a timer.
 
 ## When to add what
 

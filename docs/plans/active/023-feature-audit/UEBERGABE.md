@@ -17,7 +17,7 @@ braucht, holt sie aus der Live-Quelle: die Befehle stehen jeweils daneben.
 | Derselbe Lauscher auf `searxng` als Kanarienvogel | `logs/ausgang-searxng.log`                        | dasselbe                                        |
 | Die Healthcheck-Luftmessung, 2 h                  | `logs/health-dauer.log`                           | dasselbe                                        |
 | Der Dauerlauf für G7                              | das Gerät selbst                                  | alles außer einem Neustart des Geräts           |
-| Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | **läuft NICHT**, siehe unten                      | ist nicht eingerichtet                          |
+| Zeitgesteuerte Läufe                              | **gibt es nicht mehr**, siehe unten               | abgeschaltet am 24.08.2026                      |
 | Wiederherstellungs-Drill, **sonntags 04:00**      | `backup-service` auf dem Gerät                    | alles                                           |
 
 **Stand der Nacht auf den 24.08.2026, 03:40:** neunundzwanzig PRs (#610 bis
@@ -44,23 +44,33 @@ sonst misst der Lauscher wieder nichts (siehe Abschnitt 2).
 Der G7-Zähler läuft neu ab dem 23.08. 17:01, also ist **G7 frühestens am
 30.08.2026 erfüllbar** — Einzelheiten im Plan.
 
-**Der nächtliche Lauf ist nicht eingerichtet.** Am 24.08.2026 nachgesehen:
-`launchctl list | grep arasul` ist leer, in `~/Library/LaunchAgents/` liegt
-nichts, und es gibt keine `~/logs/claude/nightly-*.log`. Diese Seite hat ihn
-bis heute als etwas geführt, das ohne Sitzung weiterläuft.
+**Zeitsteuerung ist abgeschafft, entschieden am 24.08.2026.** Vorher stand hier
+ein nächtlicher Lauf als etwas, das ohne Sitzung weiterläuft. Er lief nie:
+`launchctl list | grep arasul` leer, `~/Library/LaunchAgents/` nicht vorhanden,
+keine einzige `~/logs/claude/nightly-*.log`. Eine Vorlage, die niemand
+installiert hat, ist keine Mechanik, sondern eine Behauptung — und ihr Pfad
+zeigte zusätzlich auf `~/Documents/dev/ara/arasul-jet`, einen Ordner, den es
+**gibt**, mit einem Stand von PR #393. Wer sie so installiert hätte, hätte einen
+Lauf bekommen, der auf einem sechs Tage alten Stand arbeitet und dort committet.
 
-Schlimmer als das Fehlen war der Pfad darin: die plist zeigte auf
-`~/Documents/dev/ara/arasul-jet`. Diesen Ordner **gibt es**, mit einem Stand
-von PR #393, also über zweihundert PRs alt. Wer sie so installiert hätte,
-hätte einen nächtlichen Lauf bekommen, der auf einem sechs Tage alten Stand
-arbeitet und dort committet. Ein falscher Pfad wäre aufgefallen; ein falscher,
-der existiert, fällt nicht auf. Die plist trägt jetzt `__REPO__` als
-Platzhalter, der beim Einrichten ersetzt wird (Anleitung im Kopf von
-`nightly-run.sh`).
+`com.arasul.nightly.plist` ist gelöscht. `nightly-run.sh` heißt jetzt
+`scripts/util/autonom-run.sh` und ist reiner Handstart:
 
-**Eingerichtet wird er hier bewusst nicht.** Ein Job, der nachts Claude Code
-headless startet, Pläne abarbeitet und PRs merged, ist eine Entscheidung für
-Kolja und nicht für eine Sitzung.
+```bash
+./scripts/util/autonom-run.sh                                   # fünf Stunden
+ARASUL_LAUF_STUNDEN=30 ARASUL_MAX_TURNS=2000 ./scripts/util/autonom-run.sh
+```
+
+Er führt `/work --autonom` aus, arbeitet freigegebene Pläne ab und mergt
+**einmal je Plan-Phase**, nicht je Aufgabe. Der Grund steht in Zahlen: am
+24.08.2026 liefen zwischen 09:39 und 10:45 **elf Deploys in 66 Minuten**, weil
+jede Aufgabe ihren eigenen Merge bekam. Das Gerät war die Stunde über mit
+Deployen beschäftigt statt mit Verifizieren.
+
+**Gestartet wird von Hand, und erst wenn ein freigegebener Plan existiert.** Der
+Weg ist: Impuls im Steuer-Repo → `/plan` macht daraus hier einen Plan (mehrere
+Impulse dürfen ein Plan werden) → Freigabe → `/work` oder ein langer autonomer
+Lauf. Nichts sucht sich selbst Arbeit.
 
 **Was NICHT weiterläuft:** der `/loop`-Wecker und alle Hintergrundbefehle
 dieser Sitzung. Sie sterben mit dem Chat. Das ist kein Verlust — alles, was
@@ -103,10 +113,23 @@ Null belastbar.
 
 ---
 
-## 2b. Die Dependabot-Warteschlange, Stand 24.08.2026 mittags
+## 2b. Dependabot ist abgeschaltet — was davor noch aufgeräumt wurde
 
-Sechs PRs lagen offen, alle ohne Sicherheitsdruck. Fünf sind erledigt, einer
-bleibt bewusst liegen. Jeder trägt seine Diagnose am PR, nicht hier.
+**Entscheidung vom 24.08.2026: `.github/dependabot.yml` ist gelöscht.** Die
+Datei beobachtete 16 Verzeichnisse und durfte damit bis zu 54 PRs gleichzeitig
+offen halten; an diesem einen Tag wurden 28 davon von Hand gemergt. Die
+Sicherheitswarnungen des Repos sind ebenfalls aus (`gh api
+repos/Arasul-GmbH/arasul-jet/vulnerability-alerts` → 404) und bleiben es. Das
+ist der bewusste Preis: **es gibt jetzt kein Signal über bekannte Lücken.**
+Abhängigkeiten wandern nur noch innerhalb eines Plans mit Gate-Bezug, gezogen
+statt geschoben (`npm outdated`, `pip list --outdated`).
+
+Wer die Datei wieder anlegt, hebt diese Entscheidung auf und sollte das
+begründen. `#672` (vitest 3 → 4) bleibt als letzter Bot-PR offen liegen; er wird
+nicht mehr rebased.
+
+Davor lagen sechs PRs offen, alle ohne Sicherheitsdruck. Fünf sind erledigt,
+einer bleibt bewusst liegen. Jeder trägt seine Diagnose am PR, nicht hier.
 
 | PR                    | Was daraus wurde                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

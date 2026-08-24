@@ -1,7 +1,7 @@
 ---
 name: work
-description: Execute the next approved plan page fully autonomously — branch → build → tests → review → PR → auto-merge → Jetson deploy → live verify → turn the plan page into an execution report. `--nightly` runs unattended (no questions, Telegram report, plus repo chores).
-argument-hint: '[NNN | slug | --nightly] — empty picks the top approved plan'
+description: Execute the next approved plan page fully autonomously — branch → build → tests → review → PR → auto-merge → Jetson deploy → live verify → turn the plan page into an execution report. `--autonom` runs unattended for hours or days (no questions, Telegram report, PR sweep).
+argument-hint: '[NNN | slug | --autonom] — empty picks the top approved plan'
 disable-model-invocation: true
 ---
 
@@ -13,16 +13,18 @@ There are **no human gates** in this command: once started, it runs to a
 deployed, live-verified result on the Jetson — or to an honestly reported
 blocked state. All user-facing output (report, PR body, Telegram) is German.
 
-**Nightly mode** (`--nightly` in `$ARGUMENTS`): identical pipeline, plus the
-rules in the last section — never ask, hold what you can't verify, process up
-to 3 plans then chores, Telegram summary at the end.
+**Autonomous mode** (`--autonom` in `$ARGUMENTS`): identical pipeline, plus the
+rules in the last section — never ask, hold what you can't verify, work through
+the approved plans, Telegram summary at the end. Such a run may last one to two
+days; it is always started by hand (`scripts/util/autonom-run.sh`), never by a
+timer. There is no scheduled run in this repo — decision of 24.08.2026.
 
 ## Blocker protocol
 
 Free-text half-stops are forbidden. Resolve autonomously with the safe,
 in-plan-intent default first. If that fails: interactive mode →
 `AskUserQuestion` with concrete options (retry-alternative / descope / let CI
-arbitrate / hand back branch). Nightly mode → never ask: mark the plan
+arbitrate / hand back branch). Autonomous mode → never ask: mark the plan
 `blocked` with a §9 note explaining exactly what is needed, continue with the
 next item, include it in the Telegram report.
 
@@ -31,7 +33,7 @@ next item, include it in the Telegram report.
 - `$ARGUMENTS` names a plan (NNN or slug) → use it (must be `approved`).
 - Otherwise: parse `#plan-meta` of every `docs/plans/active/*.html`; pick the
   `approved` plan with the highest priority (P0 > P1 > P2), ties → lowest NNN.
-- No approved plan → say so (or Telegram in nightly) and stop. Never execute a
+- No approved plan → say so (or Telegram in autonomous mode) and stop. Never execute a
   `draft`/`in-review` plan.
 
 Read the whole plan page once. §4 steps, §5 criteria, §6 verification and §8
@@ -42,7 +44,7 @@ Plan …“ block (from the page's "Alle kopieren"), or answers to the plan's
 "Offene Fragen", fold them into the contract before starting and record them
 in §8. Notes that arrive mid-run are folded in the same way. If an open
 question is still unanswered and materially affects execution: interactive →
-`AskUserQuestion`; nightly → skip this plan (report why), never guess.
+`AskUserQuestion`; autonomous → skip this plan (report why), never guess.
 
 ## Phase 2 — Branch
 
@@ -72,9 +74,29 @@ plan, continue on it. Set `#plan-meta` `status: "in-progress"` and `branch`.
 
 `git status --short && git diff --stat`, then spawn `code-reviewer`
 (Agent tool). Auto-fix **Critical** findings only (smallest edit), re-review
-once. Second pass still Critical → Blocker protocol (interactive: ask; nightly:
-mark blocked, park the branch, move on). Warnings/Suggestions are never
+once. Second pass still Critical → Blocker protocol (interactive: ask;
+autonomous: mark blocked, park the branch, move on). Warnings/Suggestions are never
 auto-fixed — they go verbatim into the PR body.
+
+## Merge cadence — one merge per plan phase (hard rule)
+
+Every push to `main` triggers `deploy.yml` on the Jetson. On 24.08.2026 that
+meant **eleven deploys in 66 minutes** (09:39 → 10:45), because every task got
+its own merge. The device spent the hour deploying instead of being verified,
+and the one real failure that day took 17 minutes on its own.
+
+So: **a plan phase is the merge unit, not a task.**
+
+- Work all tasks of one phase on ONE branch. Commit per task (Phase 5 rules),
+  push, but open **one** PR for the phase.
+- Merge that PR once, watch the one deploy, then run the full Phase 7 live
+  verification for the whole phase and evaluate before starting the next phase.
+- A phase that grows past ~10 files or touches two unrelated services is two
+  phases — split it in the plan, not in the merge.
+- Exceptions, single-merge allowed: a fix for a red `main`, a security fix, or a
+  docs-only bookkeeping commit (deploy-skipped anyway).
+- Never merge a second phase while the previous deploy or its verification is
+  still running. One device, one state at a time.
 
 ## Phase 5 — Ship
 
@@ -90,7 +112,8 @@ auto-fixed — they go verbatim into the PR body.
    chars, body = why + plan ref), HEREDOC, standard co-author trailer. Hooks
    fail → fix, new commit (never `--no-verify`, never amend a hooked commit).
 4. Push; `gh pr create` (title = commit subject; body = §1 summary, §5
-   criteria, review Warnings/Suggestions); then
+   criteria, review Warnings/Suggestions) — **one PR per plan phase**, see the
+   merge-cadence rule above; then
    `gh pr merge --auto --squash --delete-branch` (if CI already finished:
    plain `gh pr merge --squash --delete-branch`).
 
@@ -137,29 +160,36 @@ The plan's §6 defines what to verify; drive it for real:
 5. Commit these bookkeeping changes directly on `main`
    (`docs(plans): report NNN-<slug>`) — deploy-skipped, sanctioned exception;
    push rejected → micro-PR fallback with auto-merge.
-6. Interactive: send the finished report page (`SendUserFile`,
-   `display: "render"`) + ≤6-line German summary. Nightly: it goes into the
-   Telegram summary instead.
+6. Interactive: open the finished report page + ≤6-line German summary.
+   Autonomous: it goes into the Telegram summary instead.
 
-## Nightly mode specifics (`--nightly`)
+## Autonomous mode specifics (`--autonom`)
+
+Started by hand only — `scripts/util/autonom-run.sh` (default 5 h, longer via
+`ARASUL_LAUF_STUNDEN`). Nothing in this repo starts a run on a schedule.
 
 - **Never `AskUserQuestion`.** Park-and-report instead.
-- Process up to **3** approved plans, strictly serial (one device, one deploy
-  at a time; deploy concurrency group already enforces this).
-- **Hold what you can't verify at night**: major runtime bumps
+- Work the approved plans strictly serial, phase by phase, honouring the
+  merge-cadence rule (one device, one deploy at a time — the deploy concurrency
+  group enforces the rest).
+- **Before the first merge**, check the three CI gates exist and are green on
+  the PR: `CI Summary`, `Docker build · document-indexer`, `Lockfile drift
+guard`. `main` has no ruleset, so these are the only thing between a red
+  build and the Orin — the reasoning is in `UEBERGABE.md` §2c. A missing check
+  is not a passed check.
+- **Hold what you can't verify unattended**: major runtime bumps
   (transformers / sentence-transformers / protobuf / qdrant — RAG regressions
   are invisible to smoke tests), API-contract changes whose UX can't be driven,
   legal/policy content (§203, DSGVO), and anything flipping CI from advisory to
   blocking (breaks auto-merge — standing constraint). Leave the PR open with a
   German comment instead of merging.
-- **Chores after the plans** (also when zero plans are approved):
-  - Dependabot triage in buckets: consolidate safe patch/minor bumps into one
-    branch off the root lockfile (`npm ci` from root), test, one PR,
-    auto-merge; comment-and-hold majors/runtime-risky per the hold list.
-  - PR sweep per CONTRIBUTING: close/resolve merged-but-open, superseded,
-    stale PRs — always `--delete-branch`.
+- **Chores after the plans** (also when zero plans are approved): PR sweep per
+  CONTRIBUTING — close/resolve merged-but-open, superseded, stale PRs, always
+  `--delete-branch`. **No dependency triage**: Dependabot was switched off on
+  24.08.2026 (`.github/dependabot.yml` removed), dependencies move only inside
+  a plan that has a gate reference.
 - Finish with one Telegram summary via `scripts/util/telegram-notify.sh
-"<msg>" "Nightly"`: per plan „✅/⛔ NNN <titel> — PR #, verifiziert/blockiert
+"<msg>" "Autonom"`: per plan „✅/⛔ NNN <titel> — PR #, verifiziert/blockiert
   weil …“, chores in one line, device end state. Keep it ≤10 lines.
 
 ## Failure modes (don't)
@@ -169,4 +199,6 @@ The plan's §6 defines what to verify; drive it for real:
 - Skipping `code-reviewer`, auto-fixing Warnings, or >1 critical-fix retry.
 - Declaring success without the Phase 7 live verification on the device.
 - Leaving the plan page untouched after execution (the report IS the deliverable).
-- Nightly: asking questions, merging hold-list items, parallel deploys.
+- Autonomous: asking questions, merging hold-list items, parallel deploys.
+- **One merge per task instead of per phase** — that is the 66-minute hour.
+- Installing a timer (launchd, cron, GitHub `schedule:`) for an autonomous run.
