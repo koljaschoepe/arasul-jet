@@ -148,8 +148,7 @@ eigene Collection über den Insert-Mode des Qdrant-Nodes aufbauen.
 Der instanzweite MCP-Server von n8n ist abgeschaltet
 (`N8N_DISABLED_MODULES=mcp`) — niemand kann die Appliance-Workflows von
 außen als MCP-Tools ansprechen. Umgekehrt dürfen Agent-Workflows aber als
-**MCP-Client** interne MCP-Server nutzen (MCP-Client-Tool-Node), z. B.
-den `mcp-remote-bash`-Service oder künftige interne Tool-Server. Regeln:
+**MCP-Client** interne MCP-Server nutzen (MCP-Client-Tool-Node). Regeln:
 
 - Nur `http://<service>:<port>`-Adressen im Docker-Netz; der Ziel-Hostname
   muss ggf. in `N8N_SSRF_ALLOWED_HOSTNAMES` aufgenommen werden.

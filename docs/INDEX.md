@@ -112,7 +112,6 @@ Each service has its own `README.md` (and increasingly its own `CLAUDE.md`). See
 | Backup service         | `services/backup-service/`     |
 | n8n workflows          | `services/n8n/`                |
 | Cloudflared tunnel     | `services/cloudflared/`        |
-| MCP remote bash        | `services/mcp-remote-bash/`    |
 | Sandbox                | `services/sandbox/`            |
 
 > Some service READMEs are still being written as part of the [DX overhaul](plans/archive/2026-05_dx-overhaul.md), Stage 9.
