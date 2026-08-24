@@ -18,7 +18,7 @@ braucht, holt sie aus der Live-Quelle: die Befehle stehen jeweils daneben.
 | Die Healthcheck-Luftmessung, 2 h                  | `logs/health-dauer.log`                           | dasselbe                                        |
 | Der Dauerlauf für G7                              | das Gerät selbst                                  | alles außer einem Neustart des Geräts           |
 | Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | **läuft NICHT**, siehe unten                      | ist nicht eingerichtet                          |
-| Nächtlicher Wiederherstellungs-Drill              | `backup-service` auf dem Gerät                    | alles                                           |
+| Wiederherstellungs-Drill, **sonntags 04:00**      | `backup-service` auf dem Gerät                    | alles                                           |
 
 **Stand der Nacht auf den 24.08.2026, 03:40:** neunundzwanzig PRs (#610 bis
 #638), alle gemergt, `main` grün, keine PR offen. Alle dreizehn Abnahmen grün (201
@@ -306,7 +306,7 @@ wurde. Dazu eine zerstörende Abnahme, die vom Arbeitsrechner aus auf das
 Produktionsgerät zielte, und ein „Fabrikzustand", der das Konto des
 Arbeitsgeräts trug.
 
-## 6. Sechs Fallen, die einen halben Tag gekostet haben
+## 6. Sieben Fallen, die einen halben Tag gekostet haben
 
 Sie stehen in den Kommentaren der jeweiligen Skripte, aber wer neu anfängt,
 sollte sie kennen.
@@ -337,11 +337,18 @@ sollte sie kennen.
    Anleitung des Skripts. Dasselbe gilt für Tests: der Wartungsfenster-Test
    wurde erst geglaubt, nachdem die Bedingung testweise auf `if False` stand
    und er fehlschlug.
-5. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
+5. **Eine Abnahme-Ausgabe abschneiden heisst, den Befund wegwerfen.** Zweimal
+   am 24.08.2026 passiert: einmal ein roter Jest-Lauf unter `--silent`, einmal
+   `72 von 73` in der Oberflächen-Abnahme mit `tail -4`. Beide Male war der
+   Folgelauf grün, und beide Male ist die Stelle unwiederbringlich weg. Der
+   Oberflächen-Fall steht offen: **nach dem tiptap-Deploy war einer von drei
+   Läufen 72 von 73, welcher Punkt, ist unbekannt.** Wer das nächste Mal etwas
+   Rotes sieht, schreibt zuerst die ganze Ausgabe in eine Datei.
+6. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
    Am 23.08. gaben fünf Endpunkte auf jedem Gerät HTTP 500, alle von grünen
    Tests gedeckt. Deshalb `endpunkte-live.py`, und deshalb läuft jede Abnahme
    gegen echtes Blech.
-6. **Eine Abhängigkeit, die niemand neu baut, ist nicht geprüft — sie ist
+7. **Eine Abhängigkeit, die niemand neu baut, ist nicht geprüft — sie ist
    ungeprüft.** Am 24.08. scheiterten zwei Deploys hintereinander an
    `x document-indexer ist unhealthy`, ohne Ursache im Lauf-Log. Sie stand die
    ganze Zeit im Container-Log, aber der Rollback ersetzt den Container, und

@@ -408,13 +408,12 @@ See [REMOTE_MAINTENANCE.md](./ops/REMOTE_MAINTENANCE.md) for detailed remote acc
 
 ## Metrics
 
-| Variable                 | Default                       | Description              |
-| ------------------------ | ----------------------------- | ------------------------ |
-| METRICS_COLLECTOR_HOST   | metrics-collector             | Collector hostname       |
-| METRICS_INTERVAL_LIVE    | 5                             | Live update interval (s) |
-| METRICS_INTERVAL_PERSIST | 30                            | DB persist interval (s)  |
-| METRICS_RETENTION_DAYS   | 7                             | Data retention (days)    |
-| METRICS_URL              | http://metrics-collector:9100 | Metrics collector URL    |
+| Variable                 | Default           | Description              |
+| ------------------------ | ----------------- | ------------------------ |
+| METRICS_COLLECTOR_HOST   | metrics-collector | Collector hostname       |
+| METRICS_INTERVAL_LIVE    | 5                 | Live update interval (s) |
+| METRICS_INTERVAL_PERSIST | 30                | DB persist interval (s)  |
+| METRICS_RETENTION_DAYS   | 7                 | Data retention (days)    |
 
 ---
 
@@ -454,12 +453,13 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 | TEMP_RESTART_CELSIUS        | 85      | Temperature restart (self-healing)               |
 
 **Auto-detected defaults by device:**
-| Device | CPU warn/crit | RAM warn/crit | Temp warn/crit |
-|--------|---------------|---------------|----------------|
-| Jetson AGX Orin | 75/90 | 75/90 | 65/80 |
-| Jetson Orin Nano | 70/85 | 70/85 | 60/75 |
-| Jetson Nano | 65/80 | 65/80 | 55/70 |
-| Generic Linux | 80/95 | 80/95 | 70/85 |
+
+| Device           | CPU warn/crit | RAM warn/crit | Temp warn/crit |
+| ---------------- | ------------- | ------------- | -------------- |
+| Jetson AGX Orin  | 75/90         | 75/90         | 65/80          |
+| Jetson Orin Nano | 70/85         | 70/85         | 60/75          |
+| Jetson Nano      | 65/80         | 65/80         | 55/70          |
+| Generic Linux    | 80/95         | 80/95         | 70/85          |
 
 ---
 
