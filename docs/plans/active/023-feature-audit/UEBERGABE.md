@@ -1,6 +1,6 @@
 # Übergabe: was gerade läuft, was offen ist, wo man weitermacht
 
-**Stand: 23.08.2026, 21:20.** Diese Seite ist für die nächste Sitzung
+**Stand: 24.08.2026, 11:50.** Diese Seite ist für die nächste Sitzung
 geschrieben, nicht für den Rückblick. Wer sie liest, soll ohne Chatverlauf
 weiterarbeiten können.
 
@@ -30,6 +30,11 @@ Prüfpunkte), 192 Endpunkte ohne Serverfehler.
 | -------------------------------------------------------------- | ---------------------------------------------------- | ------------- |
 | Verhindert `OLLAMA_NO_CLOUD=1` die Verbindung nach ollama.com? | `scripts/test/ausgang-lauscher.sh stand llm-service` | 24.08. abends |
 | Läuft das Gerät jetzt ohne Selbstheilungs-Eingriff durch?      | `bash scripts/test/dauerlauf-bericht.sh`             | fortlaufend   |
+
+**Zwischenstand 24.08. 11:44:** bei `llm-service` steht die letzte Zeile auf
+**00:23:42**, seitdem elf Stunden nichts. Der Kanarienvogel auf `searxng`
+zählte in derselben Minute noch (11:44:43), der Lauscher lebt also. Der Lauf
+endet 24.08. 21:43; bis dahin ist es ein starker Zwischenstand, kein Ergebnis.
 
 Beim Lauscher gilt: **keine neue Zeile nach 01:22 heißt, der Schalter wirkt.**
 Steht dort eine, war er der falsche, und `OLLAMA_CLOUD_BASE_URL` ist der
@@ -183,6 +188,7 @@ gesucht wurde und wo nicht.
 | Git auf dem Gerät | jeder Deploy hinterließ einen Commit ohne Eltern; Historie geheilt, Rollback funktioniert wieder               |
 | Wissensgraph      | `related/:name` hatte drei rekursive Zweige und hat **nie** funktioniert                                       |
 | Modelle           | über einen Link hinzufügen und wieder entfernen, mit Abnahme                                                   |
+| Indexer           | seit #671 startete jeder **Neubau** mit `ImportError`; gemerkt hat es niemand, weil er nicht neu gebaut wurde  |
 | Neustart-Kette    | ein einziger hängender Dienst reichte für einen Geräteneustart; siehe unten                                    |
 | Wartungsfenster   | die Selbstheilung startete Dienste **mitten im Deploy** neu, gegen den Deploy                                  |
 | Prüfstand         | die Selbstheilung des Produktstacks heilte in den Prüfstand hinein (311 Ereignisse in sieben Tagen)            |
@@ -215,7 +221,7 @@ wurde. Dazu eine zerstörende Abnahme, die vom Arbeitsrechner aus auf das
 Produktionsgerät zielte, und ein „Fabrikzustand", der das Konto des
 Arbeitsgeräts trug.
 
-## 6. Fünf Fallen, die einen halben Tag gekostet haben
+## 6. Sechs Fallen, die einen halben Tag gekostet haben
 
 Sie stehen in den Kommentaren der jeweiligen Skripte, aber wer neu anfängt,
 sollte sie kennen.
@@ -250,6 +256,30 @@ sollte sie kennen.
    Am 23.08. gaben fünf Endpunkte auf jedem Gerät HTTP 500, alle von grünen
    Tests gedeckt. Deshalb `endpunkte-live.py`, und deshalb läuft jede Abnahme
    gegen echtes Blech.
+6. **Eine Abhängigkeit, die niemand neu baut, ist nicht geprüft — sie ist
+   ungeprüft.** Am 24.08. scheiterten zwei Deploys hintereinander an
+   `x document-indexer ist unhealthy`, ohne Ursache im Lauf-Log. Sie stand die
+   ganze Zeit im Container-Log, aber der Rollback ersetzt den Container, und
+   sein Log geht mit ihm. Der Weg zum Befund war ein eigener Beobachter am
+   Gerät im 2s-Takt (`docker inspect` auf Status, Health, `StartedAt`) und ein
+   dritter, absichtlich herbeigeführter Fehlschlag:
+
+   ```
+   11:29:26 restarting unhealthy StartedAt 09:29:22
+   11:29:30 restarting unhealthy StartedAt 09:29:26
+   ```
+
+   Crash-Loop, kein langsamer Start. Ursache: `#671` hob `qdrant-client` auf
+   `>=1.19.0` an, wo `NamedVector` nicht mehr existiert. Der Dienst wurde
+   seither nicht neu gebaut, also lief das alte Image weiter (**1.16.2** im
+   Container, **1.19.0** im Neubau, beides am Gerät gemessen). Die CI konnte es
+   nicht sehen: der Indexer fehlte in der Docker-Matrix, und seine Requirements
+   werden im pytest-Job bewusst nicht installiert.
+
+   Drei PRs, jeder für eine Ebene: `#685` repariert den Code, `#687` gibt dem
+   Deploy bei Fehlschlag Logs und Neustartzähler mit, `#688` baut den Indexer in
+   der CI und startet ihn (`python3 -c "import api_server"`, ohne Netz). Bauen
+   allein hätte es nicht gefunden — das Image baut sauber.
 
 ---
 
