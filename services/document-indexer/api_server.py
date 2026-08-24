@@ -414,13 +414,18 @@ def semantic_search():
         if query_embedding is None:
             return jsonify({'error': 'Failed to generate embedding'}), 500
 
-        # Search Qdrant (using named "dense" vector)
-        results = idx.qdrant_client.search(
+        # Search Qdrant (using named "dense" vector).
+        # `client.search()` gab es bis qdrant-client 1.18; ab 1.19 ist nur noch
+        # `query_points()` da. Der Rueckgabewert ist kein Trefferarray mehr,
+        # sondern ein Objekt mit `.points` — deshalb das `.points` unten.
+        antwort = idx.qdrant_client.query_points(
             collection_name=os.getenv('QDRANT_COLLECTION_NAME', 'documents'),
-            query_vector=("dense", query_embedding),
+            query=query_embedding,
+            using="dense",
             limit=top_k,
             with_payload=True
         )
+        results = antwort.points
 
         # Format results
         search_results = []
