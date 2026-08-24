@@ -301,6 +301,33 @@ fi
 health_of() { docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}nohealth{{end}}' "$1" 2>/dev/null || echo "missing"; }
 running_of() { docker inspect --format '{{.State.Status}}' "$1" 2>/dev/null || echo "missing"; }
 
+# Warum es diese Funktion gibt: bis zum 24.08.2026 meldete der Deploy bei einem
+# Fehlschlag nur `x <name> ist unhealthy` und rollte zurueck. An diesem Morgen
+# scheiterten zwei Deploys hintereinander, und aus dem Lauf-Log war die Ursache
+# nicht zu erkennen. Sie stand die ganze Zeit im Container-Log — nur ersetzt der
+# Rollback den Container, und sein Log verschwindet mit ihm. Die Ursache liess
+# sich erst mit einem eigenen Beobachter am Geraet einkreisen, eine halbe Stunde
+# spaeter. Alles, was dieser Block ausgibt, war zum Zeitpunkt des Fehlschlags da.
+diagnose() {
+  local cname="$1" neustarts
+  neustarts="$(docker inspect "$cname" --format '{{.RestartCount}}' 2>/dev/null || echo '?')"
+  err "Diagnose $cname — Status: $(running_of "$cname"), Health: $(health_of "$cname"), Neustarts: $neustarts"
+  # Ein Dienst, der mehrfach neu gestartet wurde, ist nicht langsam, sondern
+  # tot: er stirbt, die Restart-Policy hebt ihn auf, er stirbt wieder. Das ist
+  # ein anderer Fehler als "braucht laenger als der Timeout" und verdient einen
+  # anderen Satz, sonst sucht der naechste an der falschen Stelle.
+  case "$neustarts" in
+    ''|*[!0-9]*) : ;;
+    *) [ "$neustarts" -gt 1 ] && err "  Crash-Loop: der Dienst kommt gar nicht hoch." ;;
+  esac
+  err "  Letzte Health-Pruefungen:"
+  docker inspect "$cname" \
+    --format '{{range .State.Health.Log}}    {{.Start}} exit={{.ExitCode}} {{.Output}}{{end}}' \
+    2>/dev/null | tail -c 800 >&2 || true
+  err "  Letzte 40 Zeilen aus dem Container-Log:"
+  docker logs --tail 40 "$cname" 2>&1 | sed 's/^/    /' >&2 || true
+}
+
 for s in "${SERVICES[@]}"; do
   cname="$s"   # container_name == servicename fuer alle Produkt-Services
   log "Healthcheck: $cname (Timeout ${HEALTH_TIMEOUT}s)"
@@ -314,13 +341,13 @@ for s in "${SERVICES[@]}"; do
         # Kein Healthcheck definiert: 15s stabil laufen lassen als Ersatzsignal
         [ "$(running_of "$cname")" = "running" ] && sleep 15 && [ "$(running_of "$cname")" = "running" ] && { status="running"; break; }
         ;;
-      unhealthy) err "$cname ist unhealthy"; rollback ;;
+      unhealthy) err "$cname ist unhealthy"; diagnose "$cname"; rollback ;;
       missing) err "$cname existiert nicht"; rollback ;;
     esac
     wartung_an   # Herzschlag: der Healthcheck darf laenger dauern als der Deckel
     sleep 5
   done
-  [ -z "$status" ] && { err "$cname wurde nicht rechtzeitig healthy"; rollback; }
+  [ -z "$status" ] && { err "$cname wurde nicht rechtzeitig healthy"; diagnose "$cname"; rollback; }
   ok "$cname: $status"
 done
 
