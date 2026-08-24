@@ -136,9 +136,21 @@ Kolja greift während des Laufs nicht ein, deshalb hält der Lauf sich selbst an
    Tagesseite geschrieben, die Aufgabe übersprungen, der Lauf geht weiter.
 4. **Nichts wird von Hand in `#roadmap-meta` geschrieben.** Der Gate-Stand
    entsteht aus der Messung, und nur aus der vollen Reihe am Phasenende.
-5. **Kein Branch-Schutz auf `main`.** Koljas Entscheidung vom 24.08.2026; der
-   Widerspruch steht in der Firmensicht. Praktisch heißt das: jeder Push nach
-   `main` geht auf den Orin, und der Lauf trägt die Folgen selbst.
+5. **`main` ist seit dem 24.08.2026, 20:13 geschützt.** Das Ruleset heißt
+   „main geschuetzt" und verlangt vier Dinge: einen Pull Request, grüne
+   Statuschecks, kein Force-Push, keine Löschung. **Das kehrt die frühere
+   Regel um** — bis dahin galt „kein Branch-Schutz, jeder Push geht auf den
+   Orin", und der Lauf sollte die Folgen selbst tragen.
+
+   Praktisch für den Lauf: **ein direkter Push auf `main` schlägt fehl**
+   (`push declined due to repository rule violations`). Jede Änderung geht
+   über einen PR, dessen CI grün sein muss, bevor gemergt wird. Der Deploy
+   hängt weiter am Merge — er entfällt also nicht, er kommt nur einen Schritt
+   später. Nachsehen mit:
+
+   ```bash
+   gh api repos/koljaschoepe/arasul-jet/rulesets
+   ```
 
 ## Die Mechanik
 

@@ -1,6 +1,6 @@
 # Übergabe zu Plan 024
 
-**Stand: 24.08.2026, 22:00.** Diese Seite trägt nur, was seit dem Abschluss von
+**Stand: 24.08.2026, 22:15.** Diese Seite trägt nur, was seit dem Abschluss von
 023 dazugekommen ist. Alles Ältere steht in
 [`docs/plans/done/023-feature-audit/UEBERGABE.md`](../../done/023-feature-audit/UEBERGABE.md)
 — besonders die **acht Fallen**, die dort einen halben Tag gekostet haben. Sie
@@ -298,6 +298,30 @@ war am **23.08. um 17:01**, achtundzwanzig Stunden vor dem Ausbau, und
 (letzter Neustart 19.08. 17:29). Kein Dienst musste von selbst neu starten.
 Das ist der bekannte Stand für den 30.08., kein neuer Befund.
 
+**Ein Fehler ist dabei live aufgefallen und behoben worden (#696).** Die erste
+Endpunkt-Messung meldete `GET /api/gdpr/categories` mit **500**:
+
+```
+relation "ai_memories" does not exist
+GDPR-Export: Kategorie "ki_erinnerungen" nicht lesbar
+```
+
+Migration 162 löscht `ai_memories`, und drei Stellen fragten sie weiter ab —
+darunter der **Datenexport nach Art. 15 DSGVO** und die Tabellenliste des
+**Werksresets**, der als nächstes denselben Fehler gehabt hätte.
+
+Die Ursache ist eine Sucheigenschaft, keine Unachtsamkeit im Einzelfall: der
+Ausbau suchte nach `qdrant`, aber die DSGVO-Route nennt Qdrant nirgends — sie
+nennt nur `ai_memories`. **Wer eine Tabelle löscht, sucht nach dem
+Tabellennamen, nicht nach dem Dienst, der sie einmal befüllt hat.** Danach
+gegengeprobt: von 93 Tabellen auf dem Gerät fasst keine Backend-Datei eine an,
+die es nicht gibt.
+
+Gefunden hat ihn `scripts/test/endpunkte-live.py`, **nicht** die 2675
+Unit-Tests. Ein Test mit nachgebildeter Datenbank kann eine fehlende Tabelle
+nicht bemerken. Das ist genau die Begründung, die in Aufgabe `P1-G1-02` steht —
+sie hat sich am ersten Tag bezahlt gemacht.
+
 **Zwei Dinge, die CI gefangen hat und die sonst auf dem Gerät gelandet wären:**
 
 1. Die **Docker-Startprobe** des Indexers (aus #688) schlug fehl:
@@ -322,6 +346,81 @@ cat data/backups/restore_drill_report.json
 
 Er stellt in einen **Sidecar-Postgres** wieder her. Die Aufgabe `P6-G6-01`
 meint diesen, nicht `dr-drill.sh`.
+
+## 2h. `main` ist seit dem 24.08.2026, 20:13 geschützt
+
+Aufgefallen, weil ein Push abgelehnt wurde:
+
+```
+! [remote rejected] main -> main (push declined due to repository rule violations)
+```
+
+Das Ruleset heißt **„main geschuetzt"**, ist `active` und verlangt
+`pull_request`, `required_status_checks`, `non_fast_forward` und `deletion`.
+Angelegt am 24.08.2026 um 20:13, also während dieser Sitzung.
+
+**Das kehrt Regel 5 des Plans um.** Dort stand bis heute „Kein Branch-Schutz
+auf `main`… jeder Push nach `main` geht auf den Orin, und der Lauf trägt die
+Folgen selbst". Der Plan ist entsprechend geändert.
+
+**Was das für den Lauf heißt:** ein Agent, der direkt auf `main` pusht, läuft
+in einen Fehlschlag. Jede Änderung braucht einen PR mit grüner CI. Der Deploy
+hängt weiter am Merge — er entfällt nicht, er kommt einen Schritt später. Die
+gemessenen 43 s Median gelten weiter für den Deploy selbst; dazu kommt jetzt
+die CI-Zeit, am 24.08. rund fünf bis sieben Minuten.
+
+## 2i. Der Doku-PR blockierte lautlos — und der Workflow hatte es vorhergesagt
+
+Direkt nach dem Einschalten des Rulesets: PR #697 ändert **nur** Markdown und
+ließ sich nicht mergen.
+
+```
+mergeable: MERGEABLE   state: BLOCKED
+gelaufene Checks: nur claude-review
+```
+
+Das Ruleset verlangt **`CI Summary`**. `test.yml` läuft bei reiner Doku aber gar
+nicht — `paths-ignore` schließt `**/*.md`, `docs/**`, `.claude/**` und `LICENSE`
+aus. Der Pflicht-Check kommt also nie, und der PR wartet ewig.
+
+**Der Kopf von `test.yml` hat genau das vorhergesagt**, wörtlich:
+
+> „WER BRANCH-SCHUTZ EINSCHALTET, muss das vorher einmal echt ausprobieren:
+> einen PR aufmachen, der nur eine .md-Datei ändert, und nachsehen, ob der
+> Merge-Knopf freigegeben wird. Ein falscher Griff fällt hier nicht auf, er
+> blockiert lautlos."
+
+Die Annahme daneben ist damit **widerlegt**: dort steht, GitHub lasse einen
+Pflicht-Check, dessen ganzer Workflow durch `paths-ignore` übersprungen wurde,
+automatisch durchgehen. Bei der klassischen Branch Protection stimmt das; ein
+**Ruleset** wartet auf einen Check, der nie kommt.
+
+**Die Lücke ist geschlossen** mit `.github/workflows/doku-summary.yml`: er läuft
+genau dann, wenn `test.yml` nicht läuft (die Pfadlisten sind komplementär und
+werden gegeneinander geprüft), und meldet einen Check desselben Namens.
+
+**Für den Urlaubslauf ist das keine Kleinigkeit.** Jede Tagesseite ist eine
+reine Doku-Änderung. Ohne diesen Gegenpart hätte der Lauf ab Phase 0 keinen
+einzigen seiner eigenen Berichte mergen können.
+
+**Der gemischte Fall ist gemessen, aber nur zur Hälfte beantwortet.** PR #697
+ändert Doku **und** Code und löst damit beide Workflows aus. Ergebnis:
+
+```
+pass   CI Summary        (aus test.yml)
+pass   CI Summary        (aus doku-summary.yml)
+```
+
+Zwei Checks gleichen Namens, beide grün. Damit ist belegt, dass **beide
+erscheinen** — nicht aber, was passiert, wenn der echte rot ist und der leere
+grün. Beide waren grün, das unterscheidet die beiden Lesarten nicht.
+
+**Ungeprüft bleibt also der gefährliche Fall:** ob ein grüner leerer Check einen
+roten echten verdecken kann. Wer das wissen muss, prüft es mit einem PR, der
+Doku ändert **und** einen Test absichtlich brechen lässt. Bis dahin gilt: **kein
+Vertrauen darauf, dass ein grünes `CI Summary` bei einem gemischten PR etwas
+über die Tests aussagt** — im Zweifel `gh pr checks` lesen, dort steht jeder
+Job einzeln.
 
 ## 3. Was der Trockenlauf gleich gefunden hat
 
