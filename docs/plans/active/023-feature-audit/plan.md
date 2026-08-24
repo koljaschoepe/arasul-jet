@@ -4912,6 +4912,48 @@ Dreimal angesetzt, derselbe Vorgang:
 | 00:32, Nachlauf 60 s      | 00:32:54 bis 00:33:05 + 60 s | **3**, ab 00:34:17          |
 | ab 24.08., Nachlauf 300 s | noch nicht gemessen          | offen                       |
 
+**Und dann war die ganze Diagnose falsch.** Der dritte Versuch mit 300
+Sekunden Nachlauf endete wieder mit zwei Eingriffen, elf Sekunden nach
+Fensterschluss. Erst der Blick in das n8n-Protokoll hat gezeigt, warum:
+
+```
+01:53:38 Received SIGTERM. Shutting down...
+```
+
+n8n wird beim Pruefstand-Start nicht "unter Last kurz ungesund" — er wird
+**gestoppt**. Mit `docker events` beim vierten Versuch belegt:
+
+```
+1787530964 kill n8n-runners     (02:22:44)
+1787530965 stop n8n-runners
+1787530965 die  n8n-runners
+1787530965 kill n8n
+1787530965 stop n8n
+1787530965 die  n8n
+```
+
+Der Neustart durch die Selbstheilung kam um 02:23:04, also **zwanzig Sekunden
+danach**. Sie hat nicht zu frueh eingegriffen, sondern richtig gehandelt: sie
+hat repariert, was der Pruefstand kaputt gemacht hat. Das Wartungsfenster hat
+diese Heilung zweimal um Minuten verzoegert.
+
+**Der eigentliche Befund lautet damit: `pruefstand.sh hoch` faehrt Dienste des
+Produktionsstacks herunter.** Das trifft die Zusicherung der sieben
+Trennungen, und es trifft jede zerstoerende Abnahme, die auf dem Pruefstand
+laufen soll (G5, Werksreset). Die Ursache ist NICHT geklaert: alle
+`container_name` tragen den Praefix, `--remove-orphans` steht nirgends, und
+die Projekte heissen verschieden (`arasul-platform` gegen
+`arasul-pruefstand`). Naechster Schritt ist ein Lauf mit vollstaendigem
+`docker events`, um den Ausloeser zu sehen statt ihn zu erraten.
+
+**Ein zweiter, kleinerer Fehler steckt in meinem eigenen Nachlauf.** Beim
+vierten Versuch hat der Agent das Fenster nie gesehen: der ganze Lauf dauerte
+27 Sekunden, das Fenster davon nur wenige, und der Takt betraegt zehn. Der
+Nachlauf startet aber nur, wenn das Fenster vorher gemeldet wurde — kurze
+Wartungen sind damit ungeschuetzt. Behoben ist das noch nicht; es waere ein
+Eingriff in die Selbstheilung, und solange der Pruefstand Dienste stoppt,
+waere er ohnehin nur Symptombehandlung.
+
 **Die mittlere Zeile stand hier zuerst mit einer Null.** Ich hatte um 00:34
 gemessen und den Erfolg gemeldet; der erste Eingriff kam um 00:34:17, zwoelf
 Sekunden nach Ablauf des Nachlaufs, und loeste die Kaskade um 00:41 und 00:42
