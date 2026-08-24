@@ -14,11 +14,11 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/koljaschope/Documents/dev/ara/arasul-jet/scripts/util/nightly-run.sh</string>
+    <string>__REPO__/scripts/util/nightly-run.sh</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Users/koljaschope/Documents/dev/ara/arasul-jet</string>
+  <string>__REPO__</string>
 
   <key>StartCalendarInterval</key>
   <dict>
