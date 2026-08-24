@@ -1,6 +1,6 @@
 # Übergabe: was gerade läuft, was offen ist, wo man weitermacht
 
-**Stand: 24.08.2026, 11:50.** Diese Seite ist für die nächste Sitzung
+**Stand: 24.08.2026, 12:45.** Diese Seite ist für die nächste Sitzung
 geschrieben, nicht für den Rückblick. Wer sie liest, soll ohne Chatverlauf
 weiterarbeiten können.
 
@@ -100,6 +100,27 @@ Deshalb läuft derselbe Lauscher zusätzlich auf `searxng`, das nachweislich
 nach draußen spricht. Stand 23.08. 22:45: **1035 Zeilen bei searxng, null bei
 `llm-service`**, in derselben Zeit, mit derselben Mechanik. Erst das macht die
 Null belastbar.
+
+---
+
+## 2b. Die Dependabot-Warteschlange, Stand 24.08.2026 mittags
+
+Sechs PRs lagen offen, alle ohne Sicherheitsdruck. Fünf sind erledigt, einer
+bleibt bewusst liegen. Jeder trägt seine Diagnose am PR, nicht hier.
+
+| PR                    | Was daraus wurde                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #650 pdfjs-dist 4 → 6 | migriert und gemergt. `PDFDocumentProxy.destroy` gibt es nicht mehr (nur `cleanup`), `isEvalSupported` auch nicht, `page.render` nimmt jetzt `canvas`. Die CSP-Sorge der Vordiagnose war unbegründet: in v6 steht weder `eval(` noch `new Function`                                                                                                                                                                                          |
+| #674 uuid 9 → 14      | **ersetzt durch #690**: uuid ist ab v10 ESM-only und bricht Jest. Das Backend nutzte an zwei Stellen nur `v4`, das kommt jetzt aus `node:crypto`. Eine Abhängigkeit weniger, 62 Lock-Zeilen weniger, dieser PR kommt nicht wieder                                                                                                                                                                                                            |
+| #675 vite 6 → 8       | gemergt, deployt, Oberfläche 73/73                                                                                                                                                                                                                                                                                                                                                                                                           |
+| #682 radix-ui         | gemergt, deployt, Oberfläche 73/73                                                                                                                                                                                                                                                                                                                                                                                                           |
+| #664 tiptap-Gruppe    | gelöst nach fünf Ansätzen. Es war eine Auflösung, kein Konflikt: mehrere Kopien von `@tiptap/core`, die Wurzel-Kopie blieb zurück. `overrides` greifen dort nicht — npm meldet die Kopie selbst als `invalid` und lässt sie stehen. Sie zu entfernen bricht zwei Testdateien, weil das gehoistete `tiptap-markdown` von der Wurzel aus auflöst. Eine Zeile in der Wurzel-`package.json` macht daraus **eine** Kopie, 546 Lock-Zeilen weniger |
+| #672 vitest 3 → 4     | **bleibt offen.** Der Typfehler ist behoben und liegt im Branch. Dahinter steckt dasselbe Auflösungsmuster: npm legt `@vitest/coverage-v8` in den Workspace, `vitest` läuft aus der Wurzel und findet es nicht. Lokal reproduziert. Der Ausweg wäre wieder eine Wurzel-Deklaration — für ein Testwerkzeug, das ein einziger Workspace benutzt, und ohne belegten Nutzen von vitest 4. 3.2.4 läuft, 1175 Tests grün                           |
+
+Das Muster hinter #664 und #672 ist dasselbe und wird wiederkommen: **npm-Workspaces
+heben ein Paket in die Wurzel, seine Abhängigkeit aber nicht.** Wer das nächste
+Mal ein `Cannot find package X imported from node_modules/Y` sieht, sucht nicht
+im Paket, sondern im Lockfile nach der Ebene.
 
 ---
 
