@@ -39,10 +39,15 @@ name: CI (nur Doku)
 # gleichnamigen Checks muessen bestehen (sicher), oder einer genuegt (dann
 # koennte der leere einen roten Testlauf verdecken, und das waere schlimm).
 #
-# Der PR, der diese Datei einbringt, ist selbst so ein gemischter Fall: er
-# aendert diesen Workflow (Code-Pfad) und die Uebergabe (Doku-Pfad). Das
-# Ergebnis steht in der Uebergabe zu Plan 024 unter „2i". Wer hier weiterbaut,
-# liest es dort nach, statt zu raten.
+# Am 24.08.2026 an PR #697 gemessen (er aendert diesen Workflow und die
+# Uebergabe, ist also gemischt): es erscheinen WIRKLICH zwei Checks namens
+# „CI Summary", beide gruen. Damit ist belegt, dass beide laufen — nicht, was
+# bei einem roten echten und einem gruenen leeren passiert. Der gefaehrliche
+# Fall bleibt ungeprueft; wer ihn braucht, bricht in einem gemischten PR
+# absichtlich einen Test.
+#
+# Bis dahin: ein gruenes „CI Summary" bei einem gemischten PR sagt nichts
+# ueber die Tests. `gh pr checks` lesen, dort steht jeder Job einzeln.
 
 on:
   pull_request:

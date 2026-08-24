@@ -403,12 +403,24 @@ werden gegeneinander geprüft), und meldet einen Check desselben Namens.
 reine Doku-Änderung. Ohne diesen Gegenpart hätte der Lauf ab Phase 0 keinen
 einzigen seiner eigenen Berichte mergen können.
 
-**Eine Frage bleibt offen**, und sie steht auch im Kopf des neuen Workflows: ein
-PR, der Doku **und** Code ändert, löst beide Workflows aus — dann gibt es zwei
-Checks namens `CI Summary`. Ob GitHub dann beide verlangt (sicher) oder einer
-genügt (dann könnte der leere einen roten Testlauf verdecken), ist ungeprüft.
-Der PR, der den Workflow einbringt, ist selbst so ein gemischter Fall; sein
-Ergebnis steht unten.
+**Der gemischte Fall ist gemessen, aber nur zur Hälfte beantwortet.** PR #697
+ändert Doku **und** Code und löst damit beide Workflows aus. Ergebnis:
+
+```
+pass   CI Summary        (aus test.yml)
+pass   CI Summary        (aus doku-summary.yml)
+```
+
+Zwei Checks gleichen Namens, beide grün. Damit ist belegt, dass **beide
+erscheinen** — nicht aber, was passiert, wenn der echte rot ist und der leere
+grün. Beide waren grün, das unterscheidet die beiden Lesarten nicht.
+
+**Ungeprüft bleibt also der gefährliche Fall:** ob ein grüner leerer Check einen
+roten echten verdecken kann. Wer das wissen muss, prüft es mit einem PR, der
+Doku ändert **und** einen Test absichtlich brechen lässt. Bis dahin gilt: **kein
+Vertrauen darauf, dass ein grünes `CI Summary` bei einem gemischten PR etwas
+über die Tests aussagt** — im Zweifel `gh pr checks` lesen, dort steht jeder
+Job einzeln.
 
 ## 3. Was der Trockenlauf gleich gefunden hat
 
