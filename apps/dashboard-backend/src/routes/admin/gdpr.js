@@ -116,7 +116,6 @@ router.get(
       messagesResult,
       attachmentsResult,
       documentsResult,
-      memoriesResult,
       loginHistoryResult,
       sessionsResult,
       auditResult,
@@ -186,17 +185,10 @@ router.get(
           [userId, req.user.username]
         ),
 
-      // 6. KI-Erinnerungen. Die Tabelle hat KEINE Nutzerspalte — auf dieser
-      //    Box gehören sie allen. Sie hier wegzulassen wäre die schlechtere
-      //    Auskunft, also stehen sie vollständig drin, mit Hinweis.
-      () =>
-        hole(
-          'ki_erinnerungen',
-          `SELECT id, type, content, importance, source_conversation_id, created_at, updated_at
-         FROM ai_memories WHERE is_active = TRUE
-         ORDER BY created_at DESC`,
-          []
-        ),
+      // 6. KI-Erinnerungen gab es hier bis zum 24.08.2026. Die Tabelle
+      //    `ai_memories` lag in Qdrant gespiegelt, hatte ueber die gesamte
+      //    Geraetelaufzeit 0 Zeilen und ist mit Migration 162 entfallen. Es
+      //    gibt also keine Kategorie mehr, die hier fehlen koennte.
 
       // 7. Login history (last 500)
       () =>
@@ -307,9 +299,6 @@ router.get(
       documents: block('dokumente', documentsResult, {
         note: 'Document files are stored in MinIO, this export contains metadata only.',
       }),
-      aiMemories: block('ki_erinnerungen', memoriesResult, {
-        note: 'Diese Box führt KI-Erinnerungen ohne Nutzerbindung, der Export enthält daher alle aktiven Einträge.',
-      }),
       loginHistory: block('anmeldungen', loginHistoryResult),
       activeSessions: {
         count: sessionsResult.rows.length,
@@ -404,25 +393,23 @@ router.get(
 
     // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
     // Zahlen als die Auskunft. `documents.uploaded_by` enthält einen Namen,
-    // keine Id; `ai_memories` hat gar keine Nutzerspalte.
-    const [chatCount, docCount, memoryCount, auditCount, spaceCount, projektCount] =
-      await Promise.all([
-        db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
-        db.query(
-          `SELECT count(*) FROM documents
+    // keine Id.
+    const [chatCount, docCount, auditCount, spaceCount, projektCount] = await Promise.all([
+      db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
+      db.query(
+        `SELECT count(*) FROM documents
             WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL`,
-          [userId, req.user.username]
-        ),
-        db.query('SELECT count(*) FROM ai_memories WHERE is_active = TRUE'),
-        db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
-        // Dieselbe Bedingung wie im Export und in der Loeschung.
-        db.query(
-          `SELECT count(*) FROM knowledge_spaces
+        [userId, req.user.username]
+      ),
+      db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
+      // Dieselbe Bedingung wie im Export und in der Loeschung.
+      db.query(
+        `SELECT count(*) FROM knowledge_spaces
             WHERE owner_id = $1 OR project_id IN (SELECT id FROM projects)`,
-          [userId]
-        ),
-        db.query('SELECT count(*) FROM projects'),
-      ]);
+        [userId]
+      ),
+      db.query('SELECT count(*) FROM projects'),
+    ]);
 
     res.json({
       categories: [
@@ -436,12 +423,6 @@ router.get(
           name: 'Dokumente',
           description: 'Hochgeladene Dateien (Metadaten)',
           count: parseInt(docCount.rows[0].count),
-        },
-        {
-          name: 'KI-Erinnerungen',
-          description:
-            'Vom KI-Assistenten gespeicherte Informationen (boxweit, ohne Nutzerbindung)',
-          count: parseInt(memoryCount.rows[0].count),
         },
         {
           name: 'Aktivitätsprotokoll',

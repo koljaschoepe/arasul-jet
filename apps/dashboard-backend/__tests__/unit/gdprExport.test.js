@@ -74,7 +74,6 @@ describe('GET /api/gdpr/export', () => {
       'messages',
       'attachments',
       'documents',
-      'aiMemories',
       'loginHistory',
       'activeSessions',
       'activityLog',
@@ -103,7 +102,7 @@ describe('GET /api/gdpr/export', () => {
 
     await request(buildApp()).get('/api/gdpr/export');
 
-    expect(db.query.mock.calls.length).toBeGreaterThanOrEqual(12);
+    expect(db.query.mock.calls.length).toBeGreaterThanOrEqual(11);
     expect(hoechstwert).toBeLessThanOrEqual(3);
   });
 
@@ -184,9 +183,11 @@ describe('GET /api/gdpr/categories', () => {
     expect(res.status).toBe(200);
     const dokumente = db.query.mock.calls.find(c => c[0].includes('FROM documents'));
     expect(dokumente[1]).toEqual([42, 'kolja']);
-    // ai_memories hat keine Nutzerspalte — danach darf nicht gefiltert werden.
-    const memories = db.query.mock.calls.find(c => c[0].includes('FROM ai_memories'));
-    expect(memories[0]).not.toContain('user_id');
+    // Die Kategorie „KI-Erinnerungen" ist am 24.08.2026 entfallen: `ai_memories`
+    // lag in Qdrant gespiegelt und ist mit Migration 162 geloescht. Die Route
+    // fragte die Tabelle danach weiter ab und antwortete auf dem Orin mit 500
+    // — gefunden von scripts/test/endpunkte-live.py, nicht von einem Unit-Test.
+    expect(db.query.mock.calls.some(c => c[0].includes('ai_memories'))).toBe(false);
   });
 
   test('nennt dieselben Kategorien, die der Export auch liefert', async () => {

@@ -25,7 +25,6 @@
 
 /** Nutzerinhalte. Weg bei Stufe 1 und Stufe 2. */
 const INHALTE = [
-  ['public.ai_memories', 'Gemerkte Notizen der KI'],
   ['public.chat_attachments', 'Anhänge an Chatnachrichten'],
   ['public.chat_conversations', 'Chatverläufe'],
   ['public.chat_messages', 'Chatnachrichten'],

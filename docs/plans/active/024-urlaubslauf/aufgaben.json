@@ -23,7 +23,6 @@
     "versuche": 0,
     "notiz": "Der Beleg ist am 12.09. zwoelf Tage alt. Das gehoert dazugeschrieben, nicht verschwiegen. Zusatz vom 24.08.2026: das Geraet faehrt im Entwicklungsmodus (arasul-platform.service ist weder aktiv noch installiert, die Dienste laufen aus dem Arbeitsverzeichnis). Der Beleg gilt fuer diesen Zustand, nicht fuer den Auslieferungsstand. Das gehoert in die Formulierung."
   },
-
   {
     "id": "P1-G1-01",
     "phase": 1,
@@ -60,7 +59,6 @@
     "versuche": 0,
     "notiz": "Reine Bestandsaufnahme. Migration 089 nennt owner_id und space_members. Erst zaehlen, dann bauen."
   },
-
   {
     "id": "P2-G3-01",
     "phase": 2,
@@ -97,7 +95,6 @@
     "versuche": 0,
     "notiz": "Verweigert wird im Backend. Eine Sichtbarkeitsregel im Frontend ist kein Rechtekonzept. Der Befehl stand hier bis zum 24.08.2026 als `npx jest --config apps/dashboard-backend/jest.config.js` — diese Datei gibt es nicht, der Aufruf brach ab."
   },
-
   {
     "id": "P3-G2-01",
     "phase": 3,
@@ -122,7 +119,6 @@
     "versuche": 0,
     "notiz": "Schreiben ist der Fall, der Daten zerstoert. Lesen war Phase 2."
   },
-
   {
     "id": "P4-G1-01",
     "phase": 4,
@@ -147,7 +143,6 @@
     "versuche": 0,
     "notiz": "Das Skript gibt es noch nicht, es entsteht in dieser Aufgabe. Es gehoert danach in abnahmen.sh."
   },
-
   {
     "id": "P5-G7-01",
     "phase": 5,
@@ -172,18 +167,17 @@
     "versuche": 0,
     "notiz": "Naechste Migrationsnummer ist die hoechste auf der Platte plus eins, nicht abschreiben. Die harte Bedingung des Plans gilt: die Rolle blendet aus, aber sie entscheidet nichts. Verweigert wird in der Route."
   },
-
   {
     "id": "P6-G6-01",
     "phase": 6,
     "strang": "gate",
     "titel": "G6: der Wiederherstellungsdrill deckt alle Tabellen, nicht nur elf",
-    "abnahme": "bash scripts/test/dr-drill.sh",
+    "abnahme": "ssh jetson 'docker exec backup-service /usr/local/bin/restore-drill.sh' && ssh jetson 'cat /home/arasul/arasul/arasul-jet/data/backups/restore_drill_report.json'",
     "bedingung": "Drill gruen, und der Schemavergleich nennt die Zahl der geprueften Tabellen",
     "deckel_minuten": 120,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Am 24.08.2026 gemessen: `Drill OK in 49s (verified=11, flows=ok)`. Elf kritische Tabellen von 206. Das ist ein Anfang, kein Beleg fuer G6. Der Drill startet seit dem Qdrant-Ausbau nur noch postgres-db und minio."
+    "notiz": "Am 24.08.2026 nach dem Qdrant-Ausbau gemessen: status ok, 11 kritische Tabellen von 206, 52 s. Elf ist ein Anfang, kein Beleg fuer G6. ACHTUNG: scripts/test/dr-drill.sh ist ein ANDERES Skript und DESTRUKTIV — es verlangt die Eingabe DESTROY und stellt die Produktionsdatenbank wieder her. Gemeint ist restore-drill.sh im backup-service, der in einen Sidecar-Postgres wiederherstellt."
   },
   {
     "id": "P6-J14-02",
@@ -197,7 +191,6 @@
     "versuche": 0,
     "notiz": "Theme-Token statt Hex-Werte, jeder Aufruf ueber useApi. Eine neue Ansicht ohne Eintrag in der Abnahme ist nicht abgenommen."
   },
-
   {
     "id": "P7-G1-02",
     "phase": 7,
@@ -222,7 +215,6 @@
     "versuche": 0,
     "notiz": "403 aus der Route, nicht ein ausgeblendeter Knopf. Ein vergessenes if waere sonst ein Datenleck statt eines Schoenheitsfehlers."
   },
-
   {
     "id": "P8-G4-01",
     "phase": 8,
@@ -247,7 +239,6 @@
     "versuche": 0,
     "notiz": "Baut auf dem Skript aus Phase 4 auf, statt ein zweites daneben zu stellen."
   },
-
   {
     "id": "P9-NACH-01",
     "phase": 9,
@@ -272,7 +263,6 @@
     "versuche": 0,
     "notiz": "ACHTUNG: K4 gehoert nach `ara-kit`, nicht hierher. Dieser Lauf kann dort nicht bauen. Was von hier aus geht, ist die Gegenseite zu beschreiben: welche Endpunkte, welche Schluessel, welche Fehlerfaelle. Wer hier anfaengt, ein Ausrollwerkzeug zu bauen, hat den Plan missverstanden."
   },
-
   {
     "id": "P10-NACH-01",
     "phase": 10,
@@ -297,7 +287,6 @@
     "versuche": 0,
     "notiz": "Eine Beschreibung, die nie gegen das Geraet lief, ist eine Behauptung. Nur lesende Aufrufe und die geprueften Negativ-Eingaben."
   },
-
   {
     "id": "P11-NACH-01",
     "phase": 11,
@@ -322,7 +311,6 @@
     "versuche": 0,
     "notiz": "Die Doku-Seite selbst gehoert nach `ara-kit`. Was hierher gehoert, ist der Beleg, dass die dreizehn Endpunkte in `routes/external/` sich so verhalten, wie sie beschrieben werden. D9-Positivpfad bleibt aussen vor: er braucht Koljas Schluessel, und der wird NIE erfragt."
   },
-
   {
     "id": "P12-ALL-01",
     "phase": 12,
@@ -347,7 +335,6 @@
     "versuche": 0,
     "notiz": "ACHTUNG: `#roadmap-meta` liegt in der Roadmap-Seite des Steuer-Repos, nicht hier. Dieser Lauf schreibt es NICHT. Er legt die gemessene Tabelle so ab, dass sie von dort uebernommen werden kann. Nichts von Hand schaetzen: nur was in dieser Phase gemessen wurde."
   },
-
   {
     "id": "P13-FIX-01",
     "phase": 13,
@@ -360,7 +347,6 @@
     "versuche": 0,
     "notiz": "Wenn Phase 12 nichts gefunden hat, faellt diese Phase aus. Das ist ein gutes Ergebnis und kein Grund, Arbeit zu erfinden."
   },
-
   {
     "id": "P14-BERICHT-01",
     "phase": 14,
