@@ -43,6 +43,34 @@ Steuer-Repo. Was in diesem Repo lag, ist am 24.08.2026 erledigt.
 | V7  | G4-Ergebnis ablesen                           | **offen**, geht erst nach 24.08. 21:43                                                                                                         |
 | V8  | G7 abnehmen und festschreiben                 | **offen**, frühestens 30.08.                                                                                                                   |
 
+## 2b. Welche Gates die Abnahme-Reihe misst — und welche nicht
+
+Am 24.08.2026 nachgesehen, weil es für den Lauf entscheidend ist:
+`scripts/test/abnahmen.sh` führt **dreizehn** Abnahmen aus (`ALLE=(...)` in
+Zeile 24). Darin sind `rueckmeldung` und `oberflaeche`, also G2 und G3.
+
+**Drei Gates laufen dort nicht mit:**
+
+| Gate | Messverfahren                                  | wird von `abnahmen.sh` gemessen     |
+| ---- | ---------------------------------------------- | ----------------------------------- |
+| G1   | die Reihe selbst                               | ja                                  |
+| G2   | `rueckmeldung-abnahme.mjs`                     | ja, als Teil der Reihe              |
+| G3   | `oberflaeche-abnahme.mjs`                      | ja, als Teil der Reihe              |
+| G4   | `souveraenitaet-abnahme.sh` + Ausgang-Lauscher | **nein**                            |
+| G6   | Wiederherstellungs-Drill im `backup-service`   | **nein**, läuft sonntags von selbst |
+| G7   | `dauerlauf-bericht.sh`                         | **nein**                            |
+
+Das ist kein Fehler der Reihe: `souveraenitaet` braucht eine SSH-Verbindung und
+misst, während parallel gearbeitet wird; der Drill läuft im Container. Aber es
+hat eine Folge für einen unbeaufsichtigten Lauf: **wer nur die volle Reihe
+fährt, misst G4, G6 und G7 nie.** Die Aufgabendatei muss sie einzeln nennen,
+sonst steht am 12.09. ein Gate auf einem Beleg vom 30.08.
+
+In `aufgaben.json` ist G7 als `P0-G7-01` drin. G4 und G6 gehören in die Phasen,
+die noch nicht gefüllt sind (nach dem Vorschlag 8 und 6).
+
+---
+
 ## 3. Was der Trockenlauf gleich gefunden hat
 
 Erwähnenswert, weil es die Mechanik rechtfertigt: `phasenlauf-test.mjs` hat beim
