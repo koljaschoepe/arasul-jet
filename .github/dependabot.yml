@@ -21,6 +21,27 @@ updates:
       - 'npm'
     commit-message:
       prefix: 'chore(deps)'
+    ignore:
+      # Express 5 ist eine Migration, kein Update. Am 24.08.2026 geprueft:
+      # `path-to-regexp` v8 verlangt benannte Wildcards, und im Backend gibt
+      # es drei Stellen, die das betrifft:
+      #
+      #   routes/extensions.js:236   '/:id/app/t/:token/*'
+      #   routes/extensions.js:252   '/:id/app/*'
+      #   routes/ai/models.js:344    '/katalog/*'
+      #
+      # Der Testlauf bricht dort mit
+      # `TypeError: Missing parameter name at index 19`. Die drei Pfade waeren
+      # zu benennen (`*splat`) und ihre Auswertung von `req.params[0]` auf
+      # `req.params.splat` umzustellen — dazu kommen die uebrigen Aenderungen
+      # von Express 5, die kein Test hier abdeckt.
+      #
+      # Express 4.22.1 ist aktuell und gepflegt. Ein Framework-Major kurz vor
+      # der Abnahmefaehigkeit bringt Risiko ohne Gegenwert; wer ihn spaeter
+      # will, findet oben, wo er anfaengt. Bis dahin kommt der PR nicht jede
+      # Woche wieder.
+      - dependency-name: 'express'
+        update-types: ['version-update:semver-major']
     groups:
       express:
         patterns:
