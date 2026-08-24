@@ -9,9 +9,22 @@
 #      see .claude/skills/work/SKILL.md, "Nightly mode specifics").
 #   4. Logs to ~/logs/claude/nightly-<date>.log; Telegram on hard failure.
 #
-# Install (macOS, launchd — runs at 02:30 if the Mac is awake/plugged in):
-#   cp scripts/util/com.arasul.nightly.plist ~/Library/LaunchAgents/
+# Install (macOS, launchd — runs at 02:30 if the Mac is awake/plugged in).
+# Der Pfad wird beim Einrichten eingesetzt, er steht NICHT in der plist:
+#   sed "s|__REPO__|$(pwd)|g" scripts/util/com.arasul.nightly.plist \
+#     > ~/Library/LaunchAgents/com.arasul.nightly.plist
 #   launchctl load ~/Library/LaunchAgents/com.arasul.nightly.plist
+#
+# Warum als Platzhalter: bis zum 24.08.2026 stand dort ein fester Pfad
+# (~/Documents/dev/ara/arasul-jet). Das Repo ist inzwischen umgezogen, der
+# alte Ordner liegt aber noch da — mit einem Stand von PR #393, also ueber
+# zweihundert PRs alt. Wer die plist so installiert haette, haette einen
+# naechtlichen Lauf bekommen, der auf einem sechs Tage alten Stand arbeitet
+# und dort committet. Ein falscher Pfad waere aufgefallen; ein falscher, der
+# existiert, faellt nicht auf.
+#
+# Nachsehen, ob er ueberhaupt laeuft:
+#   launchctl list | grep arasul
 # Uninstall:
 #   launchctl unload ~/Library/LaunchAgents/com.arasul.nightly.plist
 # Manual test run:

@@ -17,7 +17,7 @@ braucht, holt sie aus der Live-Quelle: die Befehle stehen jeweils daneben.
 | Derselbe Lauscher auf `searxng` als Kanarienvogel | `logs/ausgang-searxng.log`                        | dasselbe                                        |
 | Die Healthcheck-Luftmessung, 2 h                  | `logs/health-dauer.log`                           | dasselbe                                        |
 | Der Dauerlauf für G7                              | das Gerät selbst                                  | alles außer einem Neustart des Geräts           |
-| Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | launchd auf dem Mac, 02:30                        | Chat-Ende                                       |
+| Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | **läuft NICHT**, siehe unten                      | ist nicht eingerichtet                          |
 | Nächtlicher Wiederherstellungs-Drill              | `backup-service` auf dem Gerät                    | alles                                           |
 
 **Stand der Nacht auf den 24.08.2026, 03:40:** neunundzwanzig PRs (#610 bis
@@ -38,6 +38,24 @@ sonst misst der Lauscher wieder nichts (siehe Abschnitt 2).
 
 Der G7-Zähler läuft neu ab dem 23.08. 17:01, also ist **G7 frühestens am
 30.08.2026 erfüllbar** — Einzelheiten im Plan.
+
+**Der nächtliche Lauf ist nicht eingerichtet.** Am 24.08.2026 nachgesehen:
+`launchctl list | grep arasul` ist leer, in `~/Library/LaunchAgents/` liegt
+nichts, und es gibt keine `~/logs/claude/nightly-*.log`. Diese Seite hat ihn
+bis heute als etwas geführt, das ohne Sitzung weiterläuft.
+
+Schlimmer als das Fehlen war der Pfad darin: die plist zeigte auf
+`~/Documents/dev/ara/arasul-jet`. Diesen Ordner **gibt es**, mit einem Stand
+von PR #393, also über zweihundert PRs alt. Wer sie so installiert hätte,
+hätte einen nächtlichen Lauf bekommen, der auf einem sechs Tage alten Stand
+arbeitet und dort committet. Ein falscher Pfad wäre aufgefallen; ein falscher,
+der existiert, fällt nicht auf. Die plist trägt jetzt `__REPO__` als
+Platzhalter, der beim Einrichten ersetzt wird (Anleitung im Kopf von
+`nightly-run.sh`).
+
+**Eingerichtet wird er hier bewusst nicht.** Ein Job, der nachts Claude Code
+headless startet, Pläne abarbeitet und PRs merged, ist eine Entscheidung für
+Kolja und nicht für eine Sitzung.
 
 **Was NICHT weiterläuft:** der `/loop`-Wecker und alle Hintergrundbefehle
 dieser Sitzung. Sie sterben mit dem Chat. Das ist kein Verlust — alles, was
