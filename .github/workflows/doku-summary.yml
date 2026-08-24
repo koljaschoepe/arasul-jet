@@ -1,0 +1,76 @@
+name: CI (nur Doku)
+
+# Der Gegenpart zu `test.yml`, und der Grund steht dort im Kopf:
+#
+#   „WER BRANCH-SCHUTZ EINSCHALTET, muss das vorher einmal echt ausprobieren:
+#    einen PR aufmachen, der nur eine .md-Datei aendert, und nachsehen, ob der
+#    Merge-Knopf freigegeben wird. Ein falscher Griff faellt hier nicht auf, er
+#    blockiert lautlos."
+#
+# Am 24.08.2026 um 20:13 ist das Ruleset „main geschuetzt" eingeschaltet worden,
+# mit „CI Summary" als Pflicht-Check. Der erste reine Doku-PR danach (#697) war
+# die Probe — und er blockierte:
+#
+#     mergeable: MERGEABLE, state: BLOCKED
+#     gelaufene Checks: nur claude-review
+#
+# Damit ist die Annahme im Kopf von `test.yml` widerlegt: GitHub laesst einen
+# Pflicht-Check, dessen Workflow durch `paths-ignore` uebersprungen wurde, NICHT
+# automatisch durchgehen, wenn die Pflicht aus einem Ruleset kommt. Bei der
+# klassischen Branch Protection war das noch so; ein Ruleset wartet auf einen
+# Check, der nie kommt.
+#
+# Dieser Workflow schliesst die Luecke: er laeuft genau dann, wenn `test.yml`
+# NICHT laeuft (die Pfadlisten sind zueinander komplementaer), und meldet einen
+# Check desselben Namens. Ein Doku-PR bekommt damit sein „CI Summary", ohne
+# dass irgendetwas gebaut oder getestet wird — es gibt ja nichts zu bauen.
+#
+# WER DIE PFADE IN test.yml AENDERT, aendert sie hier mit. Stehen beide Listen
+# nicht mehr auf Deckung, blockiert entweder ein Doku-PR wieder lautlos (Pfad
+# fehlt hier), oder ein Code-PR bekommt sein „CI Summary" geschenkt, ohne dass
+# ein Test lief (Pfad fehlt dort). Der zweite Fall ist der gefaehrlichere.
+#
+# EIN FALL IST HIER OFFEN, und er gehoert benannt statt uebergangen: ein PR, der
+# Doku UND Code aendert, loest BEIDE Workflows aus, weil `paths` schon bei einer
+# passenden Datei greift. Dann gibt es zwei Checks namens „CI Summary" — den
+# echten aus test.yml und den leeren von hier.
+#
+# Die Frage ist, was GitHub dann verlangt. Zwei Lesarten sind denkbar: alle
+# gleichnamigen Checks muessen bestehen (sicher), oder einer genuegt (dann
+# koennte der leere einen roten Testlauf verdecken, und das waere schlimm).
+#
+# Der PR, der diese Datei einbringt, ist selbst so ein gemischter Fall: er
+# aendert diesen Workflow (Code-Pfad) und die Uebergabe (Doku-Pfad). Das
+# Ergebnis steht in der Uebergabe zu Plan 024 unter „2i". Wer hier weiterbaut,
+# liest es dort nach, statt zu raten.
+
+on:
+  pull_request:
+    branches: [main]
+    paths: &nur_doku
+      - '**/*.md'
+      - 'docs/**'
+      - '.claude/**'
+      - 'LICENSE'
+  push:
+    branches: [main]
+    paths: *nur_doku
+
+permissions:
+  contents: read
+
+jobs:
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Nur Dokumentation
+        run: |
+          echo "Dieser PR aendert ausschliesslich Dokumentation."
+          echo "Es gibt nichts zu bauen und nichts zu testen."
+          echo
+          echo "Die inhaltlichen Waechter fuer Doku laufen trotzdem, nur"
+          echo "woanders: scripts/test/anleitungen.py prueft jeden Link und"
+          echo "jeden Pfad in README und CLAUDE.md, und er laeuft in"
+          echo "run-tests.sh und im Guards-Job von test.yml mit, sobald"
+          echo "wieder Code im Spiel ist."

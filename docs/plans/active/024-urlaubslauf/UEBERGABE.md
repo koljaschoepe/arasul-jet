@@ -369,6 +369,47 @@ hängt weiter am Merge — er entfällt nicht, er kommt einen Schritt später. D
 gemessenen 43 s Median gelten weiter für den Deploy selbst; dazu kommt jetzt
 die CI-Zeit, am 24.08. rund fünf bis sieben Minuten.
 
+## 2i. Der Doku-PR blockierte lautlos — und der Workflow hatte es vorhergesagt
+
+Direkt nach dem Einschalten des Rulesets: PR #697 ändert **nur** Markdown und
+ließ sich nicht mergen.
+
+```
+mergeable: MERGEABLE   state: BLOCKED
+gelaufene Checks: nur claude-review
+```
+
+Das Ruleset verlangt **`CI Summary`**. `test.yml` läuft bei reiner Doku aber gar
+nicht — `paths-ignore` schließt `**/*.md`, `docs/**`, `.claude/**` und `LICENSE`
+aus. Der Pflicht-Check kommt also nie, und der PR wartet ewig.
+
+**Der Kopf von `test.yml` hat genau das vorhergesagt**, wörtlich:
+
+> „WER BRANCH-SCHUTZ EINSCHALTET, muss das vorher einmal echt ausprobieren:
+> einen PR aufmachen, der nur eine .md-Datei ändert, und nachsehen, ob der
+> Merge-Knopf freigegeben wird. Ein falscher Griff fällt hier nicht auf, er
+> blockiert lautlos."
+
+Die Annahme daneben ist damit **widerlegt**: dort steht, GitHub lasse einen
+Pflicht-Check, dessen ganzer Workflow durch `paths-ignore` übersprungen wurde,
+automatisch durchgehen. Bei der klassischen Branch Protection stimmt das; ein
+**Ruleset** wartet auf einen Check, der nie kommt.
+
+**Die Lücke ist geschlossen** mit `.github/workflows/doku-summary.yml`: er läuft
+genau dann, wenn `test.yml` nicht läuft (die Pfadlisten sind komplementär und
+werden gegeneinander geprüft), und meldet einen Check desselben Namens.
+
+**Für den Urlaubslauf ist das keine Kleinigkeit.** Jede Tagesseite ist eine
+reine Doku-Änderung. Ohne diesen Gegenpart hätte der Lauf ab Phase 0 keinen
+einzigen seiner eigenen Berichte mergen können.
+
+**Eine Frage bleibt offen**, und sie steht auch im Kopf des neuen Workflows: ein
+PR, der Doku **und** Code ändert, löst beide Workflows aus — dann gibt es zwei
+Checks namens `CI Summary`. Ob GitHub dann beide verlangt (sicher) oder einer
+genügt (dann könnte der leere einen roten Testlauf verdecken), ist ungeprüft.
+Der PR, der den Workflow einbringt, ist selbst so ein gemischter Fall; sein
+Ergebnis steht unten.
+
 ## 3. Was der Trockenlauf gleich gefunden hat
 
 Erwähnenswert, weil es die Mechanik rechtfertigt: `phasenlauf-test.mjs` hat beim
