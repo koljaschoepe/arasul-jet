@@ -36,23 +36,40 @@ const pruefe = (was, ok, detail = '') => {
 /**
  * Wartet auf eine Rueckmeldung und gibt ihren Text zurueck.
  *
- * Rueckmeldungen sind `role="alert"` im Toast-Container. Vor jeder Aktion
- * werden die vorhandenen gezaehlt, sonst zaehlte eine alte, noch stehende
- * Meldung als Beleg fuer die neue Aktion.
+ * Rueckmeldungen sind `role="alert"` im Toast-Container. Verglichen werden die
+ * TEXTE vor der Aktion, nicht ihre Anzahl.
+ *
+ * Die Anzahl war falsch, und zwar auf eine Art, die nur manchmal auffiel: ein
+ * Toast verschwindet nach ein paar Sekunden von selbst. Stand vor der Aktion
+ * noch einer und lief er ab, waehrend der neue erschien, blieb die Anzahl bei
+ * eins — `alle.length > vorher` wurde nie wahr, und die Abnahme meldete „keine
+ * Rueckmeldung", obwohl eine da war. Am 24.08.2026 zweimal hintereinander
+ * gesehen, jedes Mal an einer anderen Stelle: erst „Ordner anlegen", im
+ * naechsten Lauf „Ordner loeschen". Ein Messfehler, der wandert, sieht aus wie
+ * ein Produktfehler, der wandert.
+ *
+ * Ein Text, der vorher nicht da war, ist ein neuer Toast — unabhaengig davon,
+ * wie viele daneben stehen oder verschwinden.
  */
-async function rueckmeldung(seite, vorher, zeitlimitMs = 12000) {
+async function rueckmeldung(seite, vorherTexte, zeitlimitMs = 12000) {
   const bis = Date.now() + zeitlimitMs;
+  const alt = new Set(vorherTexte);
   while (Date.now() < bis) {
     const alle = await seite.locator('.toast-container [role="alert"]').allInnerTexts();
-    if (alle.length > vorher) {
-      return alle[alle.length - 1].replace(/\s+/g, ' ').trim();
+    const neu = alle.map(t => t.replace(/\s+/g, ' ').trim()).find(t => t && !alt.has(t));
+    if (neu) {
+      return neu;
     }
     await seite.waitForTimeout(300);
   }
   return null;
 }
 
-const zaehleMeldungen = seite => seite.locator('.toast-container [role="alert"]').count();
+/** Die Texte, die JETZT stehen. Alles Spaetere daneben ist neu. */
+const meldungsTexte = async seite =>
+  (await seite.locator('.toast-container [role="alert"]').allInnerTexts()).map(t =>
+    t.replace(/\s+/g, ' ').trim()
+  );
 
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
@@ -75,7 +92,7 @@ try {
   await seite.waitForTimeout(5000);
 
   // --- 1. Ordner anlegen ----------------------------------------------------
-  let vorher = await zaehleMeldungen(seite);
+  let vorher = await meldungsTexte(seite);
   await seite.locator('[aria-label="Neuer Ordner"]').first().click();
   const name = seite.locator('input[aria-label="Name"]');
   await name.waitFor({ state: 'visible', timeout: 10000 });
@@ -119,7 +136,7 @@ try {
     dialogText.replace(/\s+/g, ' ').slice(0, 110)
   );
 
-  vorher = await zaehleMeldungen(seite);
+  vorher = await meldungsTexte(seite);
   await seite.getByRole('button', { name: /^Löschen$/ }).last().click();
   const m2 = await rueckmeldung(seite, vorher);
   pruefe('Ordner loeschen meldet sich', Boolean(m2), m2 || 'keine Rueckmeldung');
@@ -137,7 +154,7 @@ try {
   const schalterDa = (await schalter.count()) > 0;
   pruefe(`der Schalter fuer „${APP}" ist da`, schalterDa, warAn ? 'stand an' : 'stand aus');
   if (schalterDa) {
-    vorher = await zaehleMeldungen(seite);
+    vorher = await meldungsTexte(seite);
     await schalter.click();
     // Ausschalten fragt nach, wenn Tabs offen sind (H5). Beides ist erlaubt;
     // gemessen wird, dass eine Rueckmeldung KOMMT.
