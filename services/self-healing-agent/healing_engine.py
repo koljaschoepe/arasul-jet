@@ -282,10 +282,14 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         """
         try:
             with open(WARTUNGSDATEI, encoding='utf-8') as datei:
-                teile = datei.readline().split(None, 1)
+                teile = datei.readline().split()
         except OSError:
             return 'Grund nicht lesbar'
-        return teile[1].strip() if len(teile) > 1 else 'ohne Grund'
+        # Das erste Feld ist der Zeitstempel, `ende=` gehoert nicht zum Grund.
+        # Ohne diese Zeile stand im Protokoll "Wartung eben beendet (deploy
+        # 0e7fdeb ende=1787532690)" — richtig, aber unnoetig laut (24.08.2026).
+        grund = ' '.join(t for t in teile[1:] if not t.startswith('ende='))
+        return grund or 'ohne Grund'
 
     def check_service_health(self) -> Dict[str, Dict]:
         """Check health of all services"""
