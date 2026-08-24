@@ -124,6 +124,70 @@ im Paket, sondern im Lockfile nach der Ebene.
 
 ---
 
+## 2c. Drei Fragen für den autonomen Lauf, mit Belegen
+
+Für einen Plan, der nächste Woche unbeaufsichtigt läuft, sind das die drei
+Zahlen, an denen er hängt. Alle drei am 24.08.2026 nachgemessen.
+
+### Haben G2, G3 und G5 ein Messverfahren?
+
+Zwei von dreien ja, und zwar ausdrücklich als Gate-Messung gebaut:
+
+| Gate                | Messverfahren                                                                                                                       | Umfang                                                                                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G2 Aktions-Feedback | `scripts/test/rueckmeldung-abnahme.mjs` — Kopfzeile: „Gate G2"                                                                      | führt echte Aktionen in drei Bereichen aus und prüft nach jeder die sichtbare Rückmeldung; dazu J5 (zerstörende Aktion fragt vorher und nennt die Folge). 7 Prüfpunkte                         |
+| G3 UI-Konsistenz    | `scripts/test/oberflaeche-abnahme.mjs` — Kopfzeile: „Gate G3", plus die CI-Wächter `bausteine.py`, `einheiten.py`, `modellnamen.py` | sechs Ansichten mal drei Breiten, je drei Fragen (rollt waagerecht, zeichnet überhaupt, Konsolenfehler). 73 Prüfpunkte. Die Wächter decken die Quelltext-Seite ab, die Abnahme die gezeichnete |
+| G5 DSGVO            | **keines.** `docs/legal/` hat fünf Unterlagen (AVV-Vorlage, Datenschutz n8n, Drittland-Konnektoren, n8n-Lizenz, README)             | das Gate heißt „dokumentiert", der Maßstab ist Vollständigkeit, nicht ein Lauf. Was fehlt, ist eine Liste, was vollständig heißt                                                               |
+
+Wer also sagt, diese Gates hätten kein Verfahren, hat bei G2 und G3 nicht
+nachgesehen. Bei G5 stimmt es.
+
+### Verhindert ein täglich mergender Lauf G7 strukturell?
+
+**Nein, nicht mehr.** Die Sorge war richtig, bevor das Wartungsfenster gebaut
+war (#614, #637): die Selbstheilung griff mitten in Deploys ein. Am 24.08.2026
+gemessen, nachdem seit 09:39 **sieben Deploys** hintereinander liefen:
+
+```
+letzter Selbstheilungs-Eingriff überhaupt:  24.08. 02:44
+letzter FEHLGESCHLAGENER Eingriff:          23.08. 17:01
+Eingriffe während der sieben Deploys:       null
+```
+
+Dazu kommt die Zählweise: G7 zählt ab dem letzten **fehlgeschlagenen** Versuch,
+nicht ab jedem Eingriff. Die n8n-Neustarts der Nacht (01:59 bis 02:44) sind
+alle mit `service_recovery_verified` beendet und setzen nichts zurück.
+
+Wer das Gegenteil behauptet, soll die Ereignistabelle zeigen:
+
+```bash
+docker exec postgres-db psql -U arasul -d arasul_db -c \
+  "SELECT timestamp, severity, service_name, event_type FROM self_healing_events
+   WHERE timestamp > NOW() - INTERVAL '20 hours' ORDER BY timestamp DESC;"
+```
+
+### Welche Pflichtprüfungen vor einem unbeaufsichtigten Lauf?
+
+`arasul-jet` hat weder Branch-Schutz noch Rulesets, und `deploy.yml` rollt jeden
+Push nach `main` auf den Orin. Das ist **Koljas ausdrückliche Entscheidung** und
+bleibt seine. Wenn ein Lauf ohne Aufsicht täglich mergt, ändert sich aber der
+Preis eines Fehlers, und dann wären drei Prüfungen Pflicht:
+
+1. **CI Summary** — sie fasst alle übrigen zusammen; ohne sie ist jede einzelne
+   umgehbar.
+2. **Docker build · document-indexer** — seit dem 24.08. mit Startprobe (#688).
+   Vorher lief genau hier ein Fehler drei Tage unentdeckt, bis er zwei Deploys
+   zerlegte.
+3. **Lockfile drift guard** — der einzige Wächter über der Ein-Lockfile-Regel.
+
+Was NICHT reicht: „alles grün abwarten". Der Deploy-Rollback funktioniert und
+hat am 24.08. dreimal sauber zurückgerollt, aber er lässt `git` und Image auf
+verschiedenen Ständen zurück (das Gerät stand auf `a3a1436b`, das Image auf dem
+Stand davor). Für einen unbeaufsichtigten Lauf gehört das geprüft, bevor er
+startet.
+
+---
+
 ## 3. Was bei Kolja liegt, nicht bei der nächsten Sitzung
 
 **Neu am 24.08.2026, mit Frist: der Tailscale-Schlüssel des Arbeitsgeräts läuft
