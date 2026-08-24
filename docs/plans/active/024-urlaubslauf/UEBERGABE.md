@@ -96,9 +96,36 @@ Damit ist die Aufgabe, die der Phasenvorschlag auf Phase 8 legt, erledigt,
 bevor der Lauf beginnt.
 
 **Der Rest, der dabei auffiel.** `embedding-service` läuft auf dem Arbeitsgerät
-seit **23.08. 16:21** (`RestartCount=0`) — obwohl er im Compose unter
-`profiles: ['classic-rag']` steht und `CLAUDE.md` sagt, er laufe nicht von
-selbst. Für `qdrant` stimmt die Aussage, für ihn nicht.
+seit **23.08. 16:21** (`RestartCount=0`), obwohl er im Compose unter
+`profiles: ['classic-rag']` steht.
+
+**`CLAUDE.md` hat trotzdem recht, und das ist nachgemessen.** Der Satz dort
+lautet „läuft NICHT von selbst" — er tut es auch nicht. Gefragt wurde Docker
+selbst, ohne irgendetwas zu starten:
+
+```
+docker compose config --services
+  → backup-service dashboard-backend dashboard-frontend docker-proxy
+    document-indexer llm-service metrics-collector minio n8n n8n-runners
+    postgres-db reverse-proxy searxng self-healing-agent          (14, ohne ihn)
+
+docker compose --profile classic-rag config --services
+  → dieselben plus embedding-service und qdrant                   (16)
+```
+
+`docker compose config` ist genau die Auflösung, die `up -d` benutzt. Ein
+blankes `up -d` startet ihn also **nicht** — er wurde am 23.08. ausdrücklich
+mit `--profile classic-rag` gestartet und seither nicht gestoppt. Das ist die
+Handlung eines Menschen, kein Versagen des Mechanismus.
+
+**Warum das über diesen Ordner hinausgeht:** der gesamte technische Beleg
+dafür, dass eine Komponente nicht ausgeliefert wird, ist das Wort `profiles:`
+in einer Compose-Datei. An dieser Aussage hängt eine Zusage in einer
+Vertragsanlage. Die Messung oben zeigt: der Beleg trägt.
+
+Dieselbe Messung sagt aber auch, dass **`n8n` und `n8n-runners` in der blanken
+Liste stehen** — sie werden heute ausgeliefert und gestartet. Wer sie hinter
+ein Profil legt, kann sich auf denselben Mechanismus verlassen.
 
 Er ist damit auch der Grund für eine der sechs Außenverbindungen oben
 (cloudfront, also huggingface). Die Abnahme führt ihn korrekt als deklariertes
@@ -110,9 +137,11 @@ Ziel, das Gate bleibt grün — aber:
 
 **Nicht gestoppt.** Ein laufender Dienst auf dem Produktionsgerät wird nicht
 nebenbei angehalten; wer ihn am 23.08. gestartet hat, hatte einen Grund, und
-der steht nirgends. Entweder er wird gestoppt und `CLAUDE.md` behält recht,
-oder er bleibt und der Satz dort wird richtiggestellt. Beides ist eine
-Entscheidung, keine Aufgabe.
+der steht nirgends. Ein Zustand, dessen Grund nirgends steht, wird
+aufgeschrieben und nicht weggeräumt.
+
+Zu entscheiden bleibt nur, ob er vor dem 30.08. aus soll — sonst misst Phase 0
+auf einem Gerät, auf dem ein Dienst läuft, den ein Kundengerät nicht hätte.
 
 ---
 
