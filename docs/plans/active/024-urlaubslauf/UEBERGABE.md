@@ -347,6 +347,28 @@ cat data/backups/restore_drill_report.json
 Er stellt in einen **Sidecar-Postgres** wieder her. Die Aufgabe `P6-G6-01`
 meint diesen, nicht `dr-drill.sh`.
 
+## 2h. `main` ist seit dem 24.08.2026, 20:13 geschützt
+
+Aufgefallen, weil ein Push abgelehnt wurde:
+
+```
+! [remote rejected] main -> main (push declined due to repository rule violations)
+```
+
+Das Ruleset heißt **„main geschuetzt"**, ist `active` und verlangt
+`pull_request`, `required_status_checks`, `non_fast_forward` und `deletion`.
+Angelegt am 24.08.2026 um 20:13, also während dieser Sitzung.
+
+**Das kehrt Regel 5 des Plans um.** Dort stand bis heute „Kein Branch-Schutz
+auf `main`… jeder Push nach `main` geht auf den Orin, und der Lauf trägt die
+Folgen selbst". Der Plan ist entsprechend geändert.
+
+**Was das für den Lauf heißt:** ein Agent, der direkt auf `main` pusht, läuft
+in einen Fehlschlag. Jede Änderung braucht einen PR mit grüner CI. Der Deploy
+hängt weiter am Merge — er entfällt nicht, er kommt einen Schritt später. Die
+gemessenen 43 s Median gelten weiter für den Deploy selbst; dazu kommt jetzt
+die CI-Zeit, am 24.08. rund fünf bis sieben Minuten.
+
 ## 3. Was der Trockenlauf gleich gefunden hat
 
 Erwähnenswert, weil es die Mechanik rechtfertigt: `phasenlauf-test.mjs` hat beim
