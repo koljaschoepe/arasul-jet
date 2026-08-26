@@ -120,7 +120,7 @@ Runtime details, troubleshooting, hardening: [`docs/ops/DEPLOYMENT.md`](docs/ops
 
 ## Status & support
 
-- **License:** Proprietary — see [`LICENSE`](LICENSE).
+- **License:** source-available — the code is public to read, running it requires an Arasul license; see [`LICENSE`](LICENSE).
 - **Bug reports / issues:** include `docker compose ps`, the failing `docker compose logs <service>`, and reproduction steps.
 
 ---

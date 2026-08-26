@@ -1,14 +1,36 @@
-Copyright (c) 2026 Arasul. All rights reserved.
+Arasul Source-Available License
 
-This software and its associated documentation files (the "Software") are
-proprietary and confidential. Unauthorized copying, modification,
-distribution, public performance, or public display of the Software, in
-whole or in part, by any means, is strictly prohibited.
+Copyright (c) 2026 Arasul. Alle Rechte vorbehalten.
 
-The Software is licensed to authorized end-customers exclusively as part of
-a purchased Arasul appliance, subject to the terms of the customer agreement
-or end-user license agreement (EULA) accompanying that appliance. No other
-rights or licenses are granted, expressly or by implication, by estoppel or
-otherwise.
+Der Quelltext ist einsehbar, die Nutzung braucht eine Lizenz.
 
-For licensing inquiries, please contact the Arasul team.
+1. Einsehen. Jeder darf dieses Repository lesen, klonen, durchsuchen und
+   den Quelltext zum Verständnis, zur Prüfung und zur Bewertung nutzen.
+
+2. Nutzung. Das Betreiben der Software, ganz oder in Teilen, auf einem
+   Arasul-Gerät oder anderswo, im Unternehmen, für Kunden oder öffentlich,
+   setzt eine gültige Lizenz von Arasul voraus. Die Lizenz kommt mit dem
+   Gerät oder mit einem Vertrag; deren Bedingungen gehen diesem Text vor.
+
+3. Weitergabe. Kopieren, Verändern und Weitergeben des Quelltexts oder
+   daraus gebauter Artefakte an Dritte, mit oder ohne Änderungen, ist ohne
+   schriftliche Erlaubnis von Arasul nicht gestattet. Ausgenommen sind
+   Auszüge in Fehlerberichten, Prüfungen und Besprechungen dieses
+   Repositorys.
+
+4. Beiträge. Wer Änderungen einreicht, räumt Arasul daran ein einfaches,
+   unwiderrufliches, weltweites Nutzungsrecht ein, einschließlich des
+   Rechts, sie unter dieser oder einer anderen Lizenz zu verwenden.
+
+5. Keine weiteren Rechte. Außer den unter 1 genannten werden keine Rechte
+   eingeräumt, weder ausdrücklich noch stillschweigend. Marken von Arasul
+   sind nicht Teil dieser Lizenz.
+
+6. Gewährleistung. Die Software wird ohne Gewähr bereitgestellt. Soweit
+   gesetzlich zulässig, haftet Arasul nicht für Schäden aus der Nutzung des
+   Quelltexts außerhalb eines Lizenzvertrags.
+
+Das Ara-Kit, mit dem Apps für Arasul gebaut werden, liegt in einem eigenen
+Repository unter Apache 2.0. Diese Lizenz gilt nur für dieses Repository.
+
+Lizenzanfragen: https://arasul.de
