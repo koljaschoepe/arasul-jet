@@ -49,8 +49,7 @@ als neutrale Alphas, Akzent nur für Primäraktionen/Aktivzustände.
 > **Regel „eine Flächenfarbe" (Plan 003 · Cursor-Shell 3.1):** Grundflächen =
 > `--background` (`bg-background`), erhabene Elemente = `--card` (`bg-card`).
 > Jede großflächige Grundfläche einer Workspace-gehosteten Ansicht (Mitte,
-> Sidebar, rechte Spalte, Extensions/Store inkl. Detailseite,
-> n8n-Wrapper) trägt denselben
+> Sidebar, rechte Spalte, Store inkl. Detailseite) trägt denselben
 > Hintergrund `bg-background`; Trennung zwischen Flächen erfolgt **nur** über
 > Borders (`bg-border`/`border-border`), nicht über eine zweite Flächenfarbe.
 > `--card` ist reserviert für _erhabene_ Elemente **innerhalb** einer Fläche:

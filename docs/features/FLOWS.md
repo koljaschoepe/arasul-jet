@@ -82,8 +82,6 @@ beim Speichern abgewiesen.
   Dokumente abschnittsweise statt in einem riesigen Schreibvorgang.
 - `symbol_suche` findet Definitionen und Verwendungen in Quelltext innerhalb
   der erlaubten Ordner.
-- `web_suche` nutzt den lokalen SearXNG-Container (kein externer Schlüssel),
-  `web_lesen` liefert bereinigten Text (kein Browser, keine Screenshots).
 - `subagent` verlangt `rollen` und umgekehrt: eine Rolle darf nie mehr
   Werkzeuge haben als der Flow selbst.
 - `frage_nutzer` gibt es nur in der Betriebsart `rueckfragen` (unten).
@@ -212,11 +210,12 @@ Prompt; eine gelöschte Vorlage wird still übersprungen.
 - **HTTP direkt.** `POST /api/v1/external/flows/:name/run` (API-Key mit Scope
   `flow:run`, Body `{ args?, wait_for_result?, timeout_seconds? }`) startet
   einen Flow und gibt das Ergebnis zurück (oder `202` mit der Lauf-ID bei
-  `wait_for_result: false`). So triggert n8n einen Flow und liest die Antwort.
-- **Zeitpläne über n8n.** Wiederkehrende Starts (Cron) baut man als
-  n8n-Workflow (Schedule-Trigger, dann HTTP-Request auf die Trigger-URL). Der
-  frühere eingebaute Zeitplan-Mechanismus (`flow_schedules`) wurde am
-  2026-07-28 ersatzlos entfernt (Migration 123).
+  `wait_for_result: false`). So triggert ein Fremdsystem einen Flow und liest
+  die Antwort.
+- **Zeitpläne.** Wiederkehrende Starts (Cron) kommen von außen über dieselbe
+  Trigger-URL; seit Phase B5 (26.08.2026) gibt es dafür kein n8n mehr auf dem
+  Gerät. Der frühere eingebaute Zeitplan-Mechanismus (`flow_schedules`) wurde
+  am 2026-07-28 ersatzlos entfernt (Migration 123).
 
 ## Zwei Betriebsarten (Plan 023 I2)
 
@@ -241,18 +240,6 @@ erste ist die Empfehlung, immer ein Freitext), beantwortet wird sie mit
 `FLOW_RUECKFRAGE_TIMEOUT_MS` die erste Empfehlung, und der Lauf schreibt das
 mit. Das Warten kostet keine GPU: die Sperre umschließt einen einzelnen
 Modellaufruf, nicht den ganzen Lauf.
-
-## Beispiele als Startpunkt
-
-Ab Werk liegt **kein** Flow auf dem Gerät (Plan 023, Entscheidung E6). Das
-Backend liefert eine Vorlage als Angebot mit: `recherche` (Subagenten
-`sucher` / `leser` / `pruefer` / `synthese` über `web_suche` und
-`web_lesen`). Sie liegt tracked im Backend-Image
-(`services/flows/beispiele/recherche.md`) und wird über
-`GET /api/flows/beispiele` und `GET /api/flows/beispiele/:name` gelesen;
-angelegt wird sie erst durch `POST /api/flows`. Die früheren Vorlagen
-`dokument-zusammenfassen`, `wissen`, `angebot`, `erweiterung` und `execute`
-brauchten Wissensbasis, Projekte oder Sandbox und sind mit B4 gefallen.
 
 ## Verwandte Dokumentation
 

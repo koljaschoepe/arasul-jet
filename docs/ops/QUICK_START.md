@@ -63,12 +63,11 @@ Werkspasswort, das Ihnen jemand mitteilen muesste.
 
 Nach der Ersteinrichtung koennen Sie sofort:
 
-| Funktion          | Beschreibung                                    |
-| ----------------- | ----------------------------------------------- |
-| **Chat**          | KI-Assistent fuer Fragen und Analysen           |
-| **Dokumente**     | Dateien hochladen und mit KI durchsuchen (RAG)  |
-| **Automation**    | n8n-Workflows bauen und Ablaeufe automatisieren |
-| **Einstellungen** | System konfigurieren und anpassen               |
+| Funktion          | Beschreibung                                   |
+| ----------------- | ---------------------------------------------- |
+| **Chat**          | KI-Assistent fuer Fragen und Analysen          |
+| **Dokumente**     | Dateien hochladen und mit KI durchsuchen (RAG) |
+| **Einstellungen** | System konfigurieren und anpassen              |
 
 ---
 

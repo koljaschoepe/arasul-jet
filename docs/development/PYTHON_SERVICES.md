@@ -169,7 +169,7 @@ None besides the backend that calls it.
 | ----------- | ---------- | ---------------------------------------------------- |
 | GPU         | >95%       | Reset GPU session via LLM-Service                    |
 | CPU         | >90%       | Clear LLM cache via LLM-Service                      |
-| RAM         | >90%       | Pause n8n workflows                                  |
+| RAM         | >90%       | Event only (no stoppable service since B5)           |
 | Temperature | >83C (avg) | Throttle (with hysteresis, re-arm at 78C)            |
 | Temperature | >85C (avg) | Restart LLM service (with hysteresis, re-arm at 78C) |
 | Disk        | >75%       | Warning logged                                       |
@@ -189,7 +189,6 @@ None besides the backend that calls it.
 
 - **LLM-Service** (port 11436): `/api/cache/clear`, `/api/session/reset`
 - **Metrics-Collector** (port 9100): System metrics
-- **n8n** (port 5678): Workflow pause/resume
 - **Docker socket:** Container restart via Docker SDK
 - **PostgreSQL:** Event logging (`self_healing_events`, `service_failures`, `reboot_events`, `recovery_actions`)
 
@@ -289,13 +288,11 @@ Dashboard Backend (Node.js)
     │       └── Ollama :11434 (inference)
     ├── Embedding-Service :11435
     ├── Document-Indexer :9102 (stateless, no downstream)
-    ├── SearXNG :8080 (web search for flows)
     └── Metrics-Collector :9100
 
 Self-Healing-Agent
     ├── LLM-Service :11436 (cache/session mgmt)
     ├── Metrics-Collector :9100 (system metrics)
-    ├── n8n :5678 (workflow control)
     ├── Docker socket (container restart)
     └── PostgreSQL :5432 (event logging)
 ```

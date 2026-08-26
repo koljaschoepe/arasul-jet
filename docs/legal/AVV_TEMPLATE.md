@@ -31,8 +31,8 @@ nach Art. 28 DSGVO
 ## § 2 Gegenstand und Dauer
 
 (1) Gegenstand der Verarbeitung ist die Bereitstellung und der Betrieb der
-Arasul Edge-AI-Appliance, einschließlich der lokalen LLM-Inferenz, Dokumenten-
-Indexierung, Workflow-Engine (n8n) und Workspaces (isolierte Arbeitsumgebungen).
+Arasul Edge-AI-Appliance, einschließlich der lokalen LLM-Inferenz,
+Text-Extraktion und Flows.
 
 (2) Die Verarbeitung erfolgt **lokal auf der beim Auftraggeber installierten
 Hardware**. Eine Übertragung personenbezogener Daten an den Auftragnehmer
@@ -49,8 +49,8 @@ die Bereitstellung der Arasul-Appliance.
 Der Auftragnehmer verarbeitet personenbezogene Daten ausschließlich zu folgenden Zwecken:
 
 - Betrieb der KI-Inferenz, Embeddings, RAG-Anfragen
-- Speicherung von Chat-Verläufen, Workflow-Definitionen, n8n-Credentials
-- Verarbeitung eingehender und ausgehender Nachrichten (Webhooks, Workflow-Aufrufe)
+- Speicherung von Chat-Verläufen und Flow-Definitionen
+- Verarbeitung eingehender Aufrufe der externen API (Flow-Starts)
 - Telemetrie für Self-Healing, Backup und Monitoring (lokal, kein Versand)
 - Remote-Wartung und Software-Updates (nur auf ausdrückliche Anforderung des Auftraggebers)
 
@@ -121,9 +121,8 @@ sind unverzüglich schriftlich (E-Mail genügt) zu bestätigen.
 
 (4) ist verantwortlich für die Erstellung des Verzeichnisses von
 Verarbeitungstätigkeiten (Art. 30 DSGVO) bezüglich der über die Appliance
-verarbeiteten Daten. Der Auftragnehmer stellt hierzu die in
-`docs/legal/DATENSCHUTZ_N8N.md` und der Produktdokumentation enthaltenen
-Informationen bereit.
+verarbeiteten Daten. Der Auftragnehmer stellt hierzu die in der
+Produktdokumentation enthaltenen Informationen bereit.
 
 ---
 
@@ -139,11 +138,11 @@ bedarf der vorherigen schriftlichen Genehmigung durch den Auftraggeber.
 | -------------- | ------------------------------------- | ---------------- | --------------- |
 | _(keine)_      | Lokale Verarbeitung auf der Appliance | DE               | n/a             |
 
-(3) Bei zusätzlich vom Auftraggeber freigegebenen Konnektoren (z.B. Microsoft
-Teams, Slack, Lexware) handelt es sich nicht um Subunternehmer des Auftrag-
+(3) Bei Fremdsystemen, die der Auftraggeber selbst über die externe API an
+die Appliance anbindet, handelt es sich nicht um Subunternehmer des Auftrag-
 nehmers, sondern um eigene Auftragsverarbeitungsverhältnisse zwischen
-Auftraggeber und dem jeweiligen SaaS-Anbieter. Der Auftraggeber schließt mit
-diesen Anbietern eigenständig AVVs ab; siehe `DRITTLAND_KONNEKTOREN.md`.
+Auftraggeber und dem jeweiligen Anbieter. Der Auftraggeber schließt mit
+diesen Anbietern eigenständig AVVs ab.
 
 (4) Eine Änderung dieser Liste wird dem Auftraggeber **mindestens 30 Tage
 im Voraus** in Textform angezeigt; der Auftraggeber hat ein außerordentliches
@@ -158,9 +157,9 @@ Auftragnehmer findet **nicht statt**. Sollten Updates oder Wartung über vom
 Auftragnehmer bereitgestellte Cloud-Dienste erfolgen, wird der Auftraggeber
 vorab informiert; er kann den Cloud-Bezug jederzeit deaktivieren.
 
-Konnektoren, die der Auftraggeber selbst in n8n einrichtet (Microsoft, Google,
-Slack, Stripe, …), übertragen Daten an den jeweiligen Anbieter. Diese
-Übermittlungen liegen außerhalb dieses AVV; siehe `DRITTLAND_KONNEKTOREN.md`.
+Fremdsysteme, die der Auftraggeber selbst über die externe API an die
+Appliance anbindet, übertragen Daten an den jeweiligen Anbieter. Diese
+Übermittlungen liegen außerhalb dieses AVV.
 
 ---
 
@@ -180,7 +179,7 @@ Kurzfassung:
   workflow_entity / credentials_entity / user), Übertragungskontrolle (TLS
   ≥1.2 für jede ausgehende Verbindung, valide CA-signierte Zertifikate).
 - **Verfügbarkeit:** Tägliche, mit AES-256 verschlüsselte Sicherung von
-  Datenbank, Objektspeicher, n8n-Abläufen und Flow-Definitionen um 02:00 UTC,
+  Datenbank und Flow-Definitionen um 02:00 UTC,
   Aufbewahrung 30 Tage täglich, 12 Wochen wöchentlich, 60 Monate monatlich.
   Wöchentlicher automatischer Wiederherstellungstest, der die Sicherung in einen
   eigenen Datenbankcontainer einspielt und die Inhalte zählt.
@@ -189,9 +188,7 @@ Kurzfassung:
   (`no-new-privileges`, `cap_drop=ALL`).
 - **Wiederherstellbarkeit:** Wochen- und Monats-Snapshots mit der oben
   genannten Aufbewahrung, fortlaufende WAL-Archivierung für die
-  Wiederherstellung auf einen Zeitpunkt, und ein Escrow des
-  n8n-Verschlüsselungsschlüssels neben der Sicherung, ohne den sich
-  Zugangsdaten aus einem Datenbankabzug nicht wiederherstellen ließen.
+  Wiederherstellung auf einen Zeitpunkt.
 - **Verfahren regelmäßiger Überprüfung:** wöchentlicher automatischer
   Wiederherstellungstest mit Protokoll, Audit-Log-Reviews.
 

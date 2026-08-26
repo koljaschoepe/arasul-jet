@@ -198,7 +198,6 @@ After bootstrap completes, you should see:
 [SUCCESS] Arasul Platform bootstrap completed!
 
 Dashboard URL: https://arasul.local
-n8n URL:       https://arasul.local/n8n
 ```
 
 Run health checks:
@@ -253,10 +252,6 @@ DISK_CRITICAL_PERCENT=95
 ```
 
 Apply changes: `./arasul restart`. Full reference: [`ENVIRONMENT_VARIABLES.md`](../ENVIRONMENT_VARIABLES.md).
-
-### Configure n8n
-
-Browse to `https://<host>/n8n` and log in with the credentials in `.env`.
 
 ### Day-to-day commands
 

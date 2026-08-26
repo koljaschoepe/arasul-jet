@@ -101,7 +101,6 @@ RAM_LIMIT_LLM=92G
 RAM_LIMIT_EMBEDDING=8G
 RAM_LIMIT_BACKEND=2G
 RAM_LIMIT_FRONTEND=1G
-RAM_LIMIT_N8N=2G
 RAM_LIMIT_METRICS=512M
 RAM_LIMIT_SELF_HEALING=512M
 RAM_LIMIT_TELEGRAM=256M
@@ -145,7 +144,6 @@ RAM_LIMIT_LLM=38G
 RAM_LIMIT_EMBEDDING=6G
 RAM_LIMIT_BACKEND=2G
 RAM_LIMIT_FRONTEND=1G
-RAM_LIMIT_N8N=2G
 RAM_LIMIT_METRICS=512M
 RAM_LIMIT_SELF_HEALING=512M
 RAM_LIMIT_TELEGRAM=256M
@@ -262,7 +260,6 @@ LLM_CONTEXT_LENGTH=1024
 LLM_GPU_LAYERS=99
 
 # Disable optional services
-DISABLE_N8N=true
 DISABLE_TELEGRAM=true
 
 # Recommended Models
@@ -441,15 +438,8 @@ docker exec llm-service ollama list
 
 ## Service Scaling
 
-For low-memory devices, disable optional services:
-
-```bash
-# In .env
-DISABLE_N8N=true
-
-# Start without optional services
-docker compose up -d --scale n8n=0
-```
+For low-memory devices, keep the optional profile `tunnel` off and lower
+`RAM_LIMIT_*` in `.env` (see the profiles above).
 
 ## JetPack Requirements
 

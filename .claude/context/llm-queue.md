@@ -39,7 +39,7 @@ req.on('close', () => subscription.unsubscribe());
 
 - **Never POST to `/api/generate` or `/api/chat` on the Ollama side directly
   from a route or service.** Always go through `llmQueueService.enqueue()`.
-  This includes RAG, Telegram, n8n, and the OpenAI-compat shim.
+  This includes the flows and the OpenAI-compat shim.
 - **Quick-check first**: call `ollamaReadiness.quickCheck()` (or rely on
   the circuit-breaker via `circuitBreakers.get('ollama')`) before enqueuing
   long jobs. If it returns "down", throw `ServiceUnavailableError('Ollama')`

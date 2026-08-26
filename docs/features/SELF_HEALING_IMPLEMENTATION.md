@@ -44,7 +44,7 @@ Die Self-Healing Engine ist **vollständig implementiert** und produktionsreif. 
 | Trigger     | Action              | Zeile        | Cooldown |
 | ----------- | ------------------- | ------------ | -------- |
 | CPU > 90%   | LLM Cache Clear     | 321, 408-430 | 5 min    |
-| RAM > 90%   | n8n Restart         | 384, 433-454 | 5 min    |
+| RAM > 90%   | nur Meldung (B5)    | 384, 433-454 | 5 min    |
 | GPU > 95%   | GPU Session Reset   | 343, 457-478 | 5 min    |
 | Temp > 83°C | GPU Throttling      | 365, 511-533 | 5 min    |
 | Temp > 85°C | LLM Service Restart | 481-509      | 10 min   |

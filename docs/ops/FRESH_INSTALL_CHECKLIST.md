@@ -54,7 +54,7 @@
 - [ ] Layer 1: `postgres-db` healthy.
 
 - [ ] `llm-service`, `embedding-service` healthy (Modell-Laden kann dauern).
-- [ ] `reverse-proxy`, `dashboard-backend`, `dashboard-frontend`, `n8n`, `self-healing-agent` healthy.
+- [ ] `reverse-proxy`, `dashboard-backend`, `dashboard-frontend`, `self-healing-agent` healthy.
 
 ## 6. Admin & Sicherheit
 

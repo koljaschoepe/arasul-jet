@@ -88,7 +88,6 @@
 | metrics_temperature | timestamp (PK), value (0-150)                                       |
 | metrics_disk        | timestamp (PK), used, free, percent                                 |
 | system_snapshots    | id, timestamp, status, cpu, ram, gpu, temperature, services (JSONB) |
-| workflow_activity   | id, workflow_name, status, duration_ms                              |
 
 ### Self-Healing (001, 003)
 

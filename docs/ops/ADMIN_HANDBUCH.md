@@ -12,7 +12,7 @@
 3. [Chat / KI-Assistent](#3-chat--ki-assistent)
 4. [Dokumente & RAG](#4-dokumente--rag)
 5. [Workspace](#5-workspace)
-6. [Automation (n8n)](#6-automation)
+6. [Automation](#6-automation)
 7. [Einstellungen](#7-einstellungen)
 8. [Services-Verwaltung](#8-services-verwaltung)
 9. [Datensicherung](#9-datensicherung)
@@ -28,7 +28,6 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 
 - **Lokale KI:** Alle Daten bleiben auf dem Geraet - keine Cloud erforderlich
 - **Chat-Assistent:** Fragen stellen, Texte analysieren, Aufgaben loesen
-- **Automation (n8n):** Workflows bauen und Abläufe automatisieren
 - **Automatische Sicherung:** Taegliche Backups aller Daten
 - **Offline-faehig:** Funktioniert ohne Internetverbindung
 
@@ -55,8 +54,7 @@ getrennt wird nur durch feine Linien.
 > und D2 fest.
 
 - **Activity Bar (ganz links):** schmale Icon-Leiste mit der Ansicht
-  **Modelle**, darunter die aktivierten Kern-Apps (Automation/n8n), ganz
-  unten **Einstellungen** (inkl. System-Status).
+  **Modelle**, ganz unten **Einstellungen** (inkl. System-Status).
 - **Sidebar (links):** zeigt die gewaehlte Ansicht: Modell-Filter oder die
   Bereiche der Einstellungen. Ohne Auswahl bleibt sie leer. Ein erneuter
   Klick auf die aktive Ansicht klappt sie ein (auch `Strg/⌘ + B`).
@@ -74,8 +72,8 @@ getrennt wird nur durch feine Linien.
   **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
   die aktuell im RAM geladenen Modelle mit **Entladen**, das **Standardmodell**
   und **In den RAM laden** mit Live-Statusmeldungen. Der Erweiterungs-Store
-  mit dem An/Aus-Schalter der Kern-Apps ist mit B3 gefallen; n8n laesst sich
-  bis D1 nur ueber `PUT /api/workspace-apps/n8n` ein- und ausblenden.
+  mit dem An/Aus-Schalter der Kern-Apps ist mit B3 gefallen, die Kern-Apps
+  selbst (zuletzt n8n) mit B5.
 - Die Workspace-Shell ist die einzige Ansicht: `/` landet nach dem Login
   immer auf `/workspace`.
 
@@ -87,8 +85,6 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 
 - **System-Status:** RAM, Swap, Speicherplatz, Temperatur (mit Verlauf) sowie
   ein Dienste-Health-Widget mit Ampel-Anzeige (gruen/gelb/rot)
-- **Automatisierungen:** die letzten n8n-Workflow-Laeufe mit Status und
-  Zeitpunkt; „n8n oeffnen" springt direkt in den Automation-Tab
 - **Chat starten/Dokument hochladen/Projekt oeffnen** sind als Aktions-Kacheln
   entfallen; Chat, Upload und Projekte gibt es seit B2 nicht mehr in der
   Oberflaeche.
@@ -142,11 +138,13 @@ Netzwerkmodus, kein Wissensbereich mehr.
 
 <a id="6-automation"></a>
 
-## 6. Automation (n8n)
+## 6. Automation
 
-Öffnen Sie **Automation** in der Activity Bar, um Workflows zu bauen.
-
-Details: [docs/integrations/N8N.md](../integrations/N8N.md).
+Die Workflow-Engine n8n ist mit Phase B5 des Umbaus (26.08.2026) vollstaendig
+entfernt: Container, Datenbankschema, der Automation-Tab und die
+Plattform-Apps (Migration 164). Wiederkehrende Ablaeufe laufen im Zielbild
+ueber Flows (Abschnitt „Flows" in [FLOWS.md](../features/FLOWS.md)); den
+externen Ausloeser dafuer gibt es weiter (`POST /api/v1/external/flows/:name/run`).
 
 ---
 
@@ -200,7 +198,7 @@ Auswirkung kennen.
 
 ### Sicherheit
 
-- **Passwort aendern:** Unter Einstellungen > Sicherheit (Dashboard- und n8n-Passwort)
+- **Passwort aendern:** Unter Einstellungen > Sicherheit (Dashboard-Passwort)
 - **Passwort vergessen:** Es gibt bewusst keinen Self-Service-Reset. Ein ausgesperrter
   Administrator setzt das Passwort per Operator-CLI zurueck: `scripts/security/reset-password.sh`
 - **Abmelden / Von allen Geraeten abmelden:** beide mit Sicherheitsabfrage
@@ -239,7 +237,7 @@ Das System ueberwacht alle Dienste automatisch:
 
 Das System erstellt automatisch taegliche Backups um 02:00 Uhr:
 
-- **PostgreSQL-Datenbank:** Alle Einstellungen, Chats, Benutzer, n8n-Workflows
+- **PostgreSQL-Datenbank:** Alle Einstellungen, Chats, Benutzer, Flow-Laeufe
 - **Flows:** Die Flow-Definitionen unter `data/flows/`
 
 ### Manuelles Backup
@@ -278,10 +276,10 @@ ssh -p 2222 arasul@<jetson-ip>
 Zwei Stufen. Beide sind endgueltig, es gibt kein Rueckgaengig. Was hier
 verschwindet, steht danach nur noch in einer Sicherung (Abschnitt 9).
 
-| Stufe                 | Weg                                                                   | Bleibt                                        |
-| --------------------- | --------------------------------------------------------------------- | --------------------------------------------- |
-| Inhalte zuruecksetzen | Chats samt Anhaengen, Modell-Auftraege, Flow-Laeufe, n8n-Laeufe       | Zugang, Flows, Einstellungen, Modelle         |
-| Auslieferungszustand  | zusaetzlich Zugangsdaten, Flows, n8n-Workflows, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen) |
+| Stufe                 | Weg                                                    | Bleibt                                        |
+| --------------------- | ------------------------------------------------------ | --------------------------------------------- |
+| Inhalte zuruecksetzen | Chats samt Anhaengen, Modell-Auftraege, Flow-Laeufe    | Zugang, Flows, Einstellungen, Modelle         |
+| Auslieferungszustand  | zusaetzlich Zugangsdaten, Flows, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen) |
 
 Optional laesst sich zusaetzlich ankreuzen, dass auch die heruntergeladenen
 Modelle geloescht werden. Ohne Modell kann das Geraet bis zum naechsten Download
