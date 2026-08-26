@@ -15,17 +15,6 @@ const PasswordChangeBody = z
   .strict();
 
 // PUT /company-context
-const CompanyContextBody = z
-  .object({
-    content: z
-      .string({ error: 'Inhalt ist erforderlich' })
-      .trim()
-      .min(1, 'Inhalt ist erforderlich')
-      .max(1000000, 'Inhalt ist zu lang'),
-  })
-  .strict();
-
 module.exports = {
   PasswordChangeBody,
-  CompanyContextBody,
 };

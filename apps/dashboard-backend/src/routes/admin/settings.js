@@ -21,10 +21,9 @@ const {
   UnauthorizedError,
   ServiceUnavailableError,
 } = require('../../utils/errors');
-const { getEmbedding } = require('../../services/embeddingService');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { validateBody } = require('../../middleware/validate');
-const { PasswordChangeBody, CompanyContextBody } = require('../../schemas/admin-settings');
+const { PasswordChangeBody } = require('../../schemas/admin-settings');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
 const execFilePromise = util.promisify(execFile);
@@ -43,24 +42,6 @@ const ALLOWED_RESTART_SERVICES = [
 
 // Rate limiter for password changes (3 attempts per 15 minutes)
 const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000);
-
-/**
- * Compute and persist the company-context embedding out of the request path.
- * The embedding is only stored for potential future use, so computing it
- * inline would delay every save by an embedding round-trip. This runs
- * fire-and-forget; failures are logged, never surfaced to the caller.
- * The `content` guard prevents a slow embedding from overwriting a newer save.
- */
-async function updateCompanyContextEmbedding(content) {
-  const embedding = await getEmbedding(content);
-  if (!embedding) {
-    return;
-  }
-  await db.query(
-    `UPDATE company_context SET content_embedding = $1 WHERE id = 1 AND content = $2`,
-    [JSON.stringify(embedding), content]
-  );
-}
 
 /**
  * Verify current dashboard password for security
@@ -336,106 +317,6 @@ router.get(
 
     res.json({
       requirements: PASSWORD_REQUIREMENTS,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-// =============================================================================
-// COMPANY CONTEXT (RAG 2.0)
-// =============================================================================
-
-/**
- * GET /api/settings/company-context
- * Get the company context used in RAG queries
- */
-router.get(
-  '/company-context',
-  requireAuth,
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    const result = await db.query(`
-        SELECT content, updated_at, updated_by
-        FROM company_context
-        WHERE id = 1
-    `);
-
-    if (result.rows.length === 0) {
-      // Return default template if not set
-      return res.json({
-        content: `# Unternehmensprofil
-
-**Firma:** [Firmenname]
-**Branche:** [Branche]
-
-## Hauptprodukte/Dienstleistungen
-- [Produkt 1]
-- [Produkt 2]
-
-## Kunden
-- [Kundensegment 1]
-- [Kundensegment 2]
-
----
-*Diese Informationen werden bei jeder RAG-Anfrage als Hintergrundkontext bereitgestellt.*`,
-        updated_at: null,
-        updated_by: null,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    res.json({
-      content: result.rows[0].content,
-      updated_at: result.rows[0].updated_at,
-      updated_by: result.rows[0].updated_by,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * PUT /api/settings/company-context
- * Update the company context
- */
-router.put(
-  '/company-context',
-  requireAuth,
-  requireAdmin,
-  validateBody(CompanyContextBody),
-  asyncHandler(async (req, res) => {
-    // Content is already trimmed + non-empty (CompanyContextBody).
-    const { content } = req.body;
-
-    // Upsert the company context. The embedding is computed fire-and-forget
-    // below so the save is not delayed by an embedding round-trip.
-    const result = await db.query(
-      `
-        INSERT INTO company_context (id, content, updated_at, updated_by)
-        VALUES (1, $1, NOW(), $2)
-        ON CONFLICT (id) DO UPDATE SET
-            content = $1,
-            updated_at = NOW(),
-            updated_by = $2
-        RETURNING content, updated_at, updated_by
-    `,
-      [content, req.user.id]
-    );
-
-    logger.info(`Company context updated by user ${req.user.username}`);
-
-    // Invalidate system prompt cache
-    const { invalidateCompanyContextCache } = require('../../services/llm/systemPromptBuilder');
-    invalidateCompanyContextCache();
-
-    // Fire-and-forget embedding update (for potential future use). Do not await.
-    updateCompanyContextEmbedding(content).catch(error => {
-      logger.warn(`Company context embedding update failed: ${error.message}`);
-    });
-
-    res.json({
-      content: result.rows[0].content,
-      updated_at: result.rows[0].updated_at,
-      message: 'Unternehmenskontext erfolgreich gespeichert',
       timestamp: new Date().toISOString(),
     });
   })

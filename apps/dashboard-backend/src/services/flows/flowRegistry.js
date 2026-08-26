@@ -1,16 +1,12 @@
 /**
- * Flow-Registry (Plan 011, Schritt 4 · Plan 014, Phase 1).
+ * Flow-Registry (Plan 011, Schritt 4).
  *
- * Flows haben zwei Heimaten:
- *
- *  1. GLOBAL: `data/flows/` (im Container `/arasul/flows`) — eigenes
- *     Docker-Volume, damit Flows einen Rebuild überleben und ins Backup
- *     wandern; bewusst getrennt vom Nutzer-Workspace, damit ein Flow mit
- *     Schreibrecht seine eigene Definition nicht überschreiben kann (§8).
- *  2. PROJEKTGEBUNDEN (Plan 014): `<projektordner>/flows/*.md` — der Flow
- *     existiert nur für sein Projekt, taucht nur dort im Chat auf und kommt
- *     als normale Datei mit einer Projekt-Vorlage mit. Alle Funktionen hier
- *     nehmen dafür ein optionales `{ projektId }`.
+ * Flows liegen unter `data/flows/` (im Container `/arasul/flows`) — eigenes
+ * Docker-Volume, damit Flows einen Rebuild überleben und ins Backup wandern;
+ * bewusst getrennt vom Nutzer-Workspace, damit ein Flow mit Schreibrecht
+ * seine eigene Definition nicht überschreiben kann (§8). Die zweite Heimat,
+ * projektgebundene Flows (Plan 014), ist mit den Projekten in Phase B4
+ * (26.08.2026) gefallen.
  *
  * Zwischenspeicher: Der Cache wird pro Datei über mtime+size invalidiert. Damit
  * ist eine von Hand editierte Datei sofort wirksam, ohne dass wir bei jedem
@@ -26,12 +22,7 @@ const { FLOW_NAME_RE } = require('../../schemas/flows');
 
 const FLOWS_DIR = process.env.FLOWS_DIR || '/arasul/flows';
 
-/** Unterordner im Projektordner, in dem projektgebundene Flows liegen. */
-const PROJEKT_FLOWS_ORDNER = 'flows';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** cacheKey (projektId:name) → { flow, mtimeMs, size } */
+/** name → { flow, mtimeMs, size } */
 const cache = new Map();
 
 /** Macht die temporären Schreibdateien pro Aufruf eindeutig (siehe `saveFlow`). */
@@ -52,51 +43,25 @@ function assertSafeName(name) {
   return n;
 }
 
-/**
- * Verzeichnis für einen Kontext: global (kein projektId) oder der
- * `flows/`-Ordner des Projekts. Die Projekt-ID wird hart geprüft — sie wird
- * Teil eines Pfads.
- */
-function dirFor(projektId) {
-  if (!projektId) {
-    return FLOWS_DIR;
-  }
-  const id = String(projektId);
-  if (!UUID_RE.test(id)) {
-    throw new ValidationError(`Ungültige Projekt-ID "${projektId}"`);
-  }
-  // Gleicher Wurzelpfad wie ablageService.projektOrdner — bewusst ohne
-  // DB-Prüfung hier: die Routen validieren die Projekt-ID, und ein nicht
-  // existierender Ordner ergibt schlicht "nicht gefunden"/leere Liste.
-  const ablageDir = process.env.PROJECT_GIT_DIR || '/arasul/projects';
-  return path.join(ablageDir, id, PROJEKT_FLOWS_ORDNER);
-}
-
-function cacheKey(name, projektId) {
-  return `${projektId || ''}:${name}`;
-}
-
-function fileFor(name, projektId = null) {
-  return path.join(dirFor(projektId), `${assertSafeName(name)}.md`);
+function fileFor(name) {
+  return path.join(FLOWS_DIR, `${assertSafeName(name)}.md`);
 }
 
 /** Legt das Flow-Verzeichnis an, falls es fehlt (frisches Gerät, leeres Volume). */
-async function ensureDir(projektId = null) {
-  await fs.mkdir(dirFor(projektId), { recursive: true });
+async function ensureDir() {
+  await fs.mkdir(FLOWS_DIR, { recursive: true });
 }
 
 /**
  * Lädt einen Flow von der Platte — mit Cache über mtime+size.
  * @param {string} name
- * @param {{ projektId?: string|null }} [opts] - mit projektId: der Flow aus
- *   dem `flows/`-Ordner dieses Projekts, sonst der globale.
  * @returns {Promise<object>} Validierte Flow-Definition.
  * @throws {NotFoundError} wenn die Datei fehlt.
  */
-async function loadFlow(name, { projektId = null } = {}) {
+async function loadFlow(name) {
   const safe = assertSafeName(name);
-  const file = fileFor(safe, projektId);
-  const key = cacheKey(safe, projektId);
+  const file = fileFor(safe);
+  const key = safe;
 
   let stat;
   try {
@@ -126,17 +91,12 @@ async function loadFlow(name, { projektId = null } = {}) {
  * und der Nutzer sieht, welcher Flow klemmt (statt eines leeren Menüs).
  * @returns {Promise<{flows: object[], fehlerhaft: {name:string, fehler:string}[]}>}
  */
-async function listFlows({ projektId = null } = {}) {
-  // Nur das GLOBALE Verzeichnis wird bei Bedarf angelegt. Der `flows/`-Ordner
-  // eines Projekts entsteht erst, wenn wirklich ein Projekt-Flow gespeichert
-  // wird — sonst bekäme jedes Projekt beim bloßen Auflisten einen Leerordner.
-  if (!projektId) {
-    await ensureDir();
-  }
+async function listFlows() {
+  await ensureDir();
 
   let entries;
   try {
-    entries = await fs.readdir(dirFor(projektId), { withFileTypes: true });
+    entries = await fs.readdir(FLOWS_DIR, { withFileTypes: true });
   } catch (err) {
     if (err.code === 'ENOENT') {
       return { flows: [], fehlerhaft: [] };
@@ -153,7 +113,7 @@ async function listFlows({ projektId = null } = {}) {
   const fehlerhaft = [];
   for (const name of names) {
     try {
-      flows.push(await loadFlow(name, { projektId }));
+      flows.push(await loadFlow(name));
     } catch (err) {
       fehlerhaft.push({ name, fehler: err.message });
       logger.warn(`Flow "${name}" ist fehlerhaft und wird übersprungen: ${err.message}`);
@@ -174,9 +134,8 @@ async function listFlows({ projektId = null } = {}) {
  */
 async function saveFlow(definition, opts = {}) {
   const safe = assertSafeName(definition && definition.name);
-  const projektId = opts.projektId || null;
-  await ensureDir(projektId);
-  const file = fileFor(safe, projektId);
+  await ensureDir();
+  const file = fileFor(safe);
 
   const exists = await fs
     .access(file)
@@ -213,10 +172,8 @@ async function saveFlow(definition, opts = {}) {
     throw err;
   }
 
-  cache.delete(cacheKey(safe, projektId));
-  logger.info(
-    `Flow "${safe}" gespeichert (${exists ? 'geändert' : 'neu'}${projektId ? `, Projekt ${projektId}` : ''})`
-  );
+  cache.delete(safe);
+  logger.info(`Flow "${safe}" gespeichert (${exists ? 'geändert' : 'neu'})`);
   return verified;
 }
 
@@ -225,18 +182,18 @@ async function saveFlow(definition, opts = {}) {
  * @param {string} name
  * @throws {NotFoundError} wenn es ihn nicht gibt.
  */
-async function deleteFlow(name, { projektId = null } = {}) {
+async function deleteFlow(name) {
   const safe = assertSafeName(name);
   try {
-    await fs.unlink(fileFor(safe, projektId));
+    await fs.unlink(fileFor(safe));
   } catch (err) {
     if (err.code === 'ENOENT') {
       throw new NotFoundError(`Flow "${safe}" nicht gefunden`);
     }
     throw err;
   }
-  cache.delete(cacheKey(safe, projektId));
-  logger.info(`Flow "${safe}" gelöscht${projektId ? ` (Projekt ${projektId})` : ''}`);
+  cache.delete(safe);
+  logger.info(`Flow "${safe}" gelöscht`);
 }
 
 /** Nur für Tests: Cache leeren. */
@@ -253,5 +210,4 @@ module.exports = {
   clearCache,
   assertSafeName,
   FLOWS_DIR,
-  PROJEKT_FLOWS_ORDNER,
 };

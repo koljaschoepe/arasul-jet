@@ -35,8 +35,8 @@ describe('Beispiel-Vorlagen', () => {
   });
 
   it('liefert ein einzelnes Beispiel als fertige Definition', async () => {
-    const definition = await ladeBeispiel('wissen');
-    expect(definition.name).toBe('wissen');
+    const definition = await ladeBeispiel('recherche');
+    expect(definition.name).toBe('recherche');
     expect(definition.werkzeuge.length).toBeGreaterThan(0);
   });
 
@@ -61,7 +61,7 @@ describe('Der Katalog legt nichts an', () => {
     const spione = SCHREIBENDE.map(name => jest.spyOn(fsp, name));
 
     await listeBeispiele();
-    await ladeBeispiel('wissen');
+    await ladeBeispiel('recherche');
     await ladeBeispiel('gibtsnicht');
 
     for (const spion of spione) {
@@ -73,10 +73,10 @@ describe('Der Katalog legt nichts an', () => {
   it('liest fuer ein einzelnes Beispiel nur dessen Datei', async () => {
     const spion = jest.spyOn(fsp, 'readFile');
 
-    await ladeBeispiel('wissen');
+    await ladeBeispiel('recherche');
 
     expect(spion).toHaveBeenCalledTimes(1);
-    expect(spion.mock.calls[0][0]).toMatch(/wissen\.md$/);
+    expect(spion.mock.calls[0][0]).toMatch(/recherche\.md$/);
     spion.mockRestore();
   });
 

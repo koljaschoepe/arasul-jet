@@ -276,10 +276,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
           if (sql.includes('information_schema.columns')) {
             return { rows: [{ column_name: 'setup_completed', column_default: 'false' }] };
           }
-          if (sql.includes('pg_namespace')) {
-            // Zwei Erweiterungen haben sich eigene Tabellen angelegt.
-            return { rows: [{ nspname: 'ext_beispiel_app' }, { nspname: 'ext_notiz' }] };
-          }
           return { rowCount: 1 };
         }),
       })
@@ -292,26 +288,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     docker.restartContainer.mockResolvedValue(true);
     minio.listAllObjects.mockResolvedValue([]);
     require('../../src/middleware/auth').clearUserCache.mockClear();
-  });
-
-  test('Auslieferung raeumt die Schemata der Erweiterungen mit ab', async () => {
-    // Die eigenen Tabellen einer Erweiterung liegen je Erweiterung in einem
-    // Schema `ext_<slug>`, nicht in `public` oder `arasul`. `tabellen.js` kann
-    // sie nicht auffuehren, weil sie zur Laufzeit entstehen — und bis zum
-    // 23.08.2026 blieben sie nach einem Werksreset stehen, mit den Daten des
-    // Kunden darin.
-    await werksreset.ausfuehren({ stufe: 'auslieferung', bestaetigung: 'orin-vorfuehrer' });
-
-    const drops = clientAbfragen.filter(q => q.includes('DROP SCHEMA'));
-    expect(drops.some(q => q.includes('ext_beispiel_app'))).toBe(true);
-    expect(drops.some(q => q.includes('ext_notiz'))).toBe(true);
-  });
-
-  test('Inhalte-Stufe laesst die Erweiterungs-Schemata stehen', async () => {
-    // Stufe 1 raeumt Nutzerinhalte, nicht die Einrichtung des Geraets.
-    await werksreset.ausfuehren({ stufe: 'inhalte', bestaetigung: 'orin-vorfuehrer' });
-
-    expect(clientAbfragen.filter(q => q.includes('DROP SCHEMA'))).toHaveLength(0);
   });
 
   test('Auslieferung entwertet das Erstpasswort und setzt n8n neu auf', async () => {
@@ -340,10 +316,9 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     // Minute lang durch, gegen eine Datenbank ohne einen Administrator.
     expect(require('../../src/middleware/auth').clearUserCache).toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/flows');
-    expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/extensions');
   });
 
-  test('Inhalte lässt Passwort, n8n, Flows und Erweiterungen in Ruhe', async () => {
+  test('Inhalte lässt Passwort, n8n und Flows in Ruhe', async () => {
     const bericht = await werksreset.ausfuehren({
       stufe: 'inhalte',
       bestaetigung: 'orin-vorfuehrer',
@@ -355,7 +330,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     expect(docker.restartContainer).not.toHaveBeenCalled();
     expect(require('../../src/middleware/auth').clearUserCache).not.toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).not.toContain('/arasul/flows');
-    expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/projects');
   });
 
   test('ein nicht erreichbarer Nachbardienst nimmt den Reset nicht zurück', async () => {

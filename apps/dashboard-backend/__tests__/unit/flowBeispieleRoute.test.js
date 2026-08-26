@@ -43,7 +43,7 @@ test('listet die mitgelieferten Beispiele ohne ihren Inhalt', async () => {
   const res = await request(app()).get('/api/flows/beispiele').expect(200);
 
   const namen = res.body.data.map(b => b.name);
-  expect(namen).toContain('wissen');
+  expect(namen).toContain('recherche');
   for (const beispiel of res.body.data) {
     expect(beispiel.beschreibung.length).toBeGreaterThan(5);
     // Die Liste ist eine Liste. Der Inhalt kommt erst auf Anfrage.
@@ -52,13 +52,13 @@ test('listet die mitgelieferten Beispiele ohne ihren Inhalt', async () => {
 });
 
 test('liefert ein Beispiel in derselben Form wie einen geladenen Flow', async () => {
-  const res = await request(app()).get('/api/flows/beispiele/wissen').expect(200);
+  const res = await request(app()).get('/api/flows/beispiele/recherche').expect(200);
 
   // `prompt`, nicht `systemPrompt`: sonst fuellt fromDefinition() ein leeres
   // Formular und niemand sieht, warum.
   expect(res.body.data.prompt.length).toBeGreaterThan(20);
   expect(res.body.data.systemPrompt).toBeUndefined();
-  expect(res.body.data.name).toBe('wissen');
+  expect(res.body.data.name).toBe('recherche');
 });
 
 test('ein unbekanntes Beispiel ist ein 404 und kein Flow-Name', async () => {

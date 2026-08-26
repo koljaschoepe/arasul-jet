@@ -1,6 +1,6 @@
 /**
  * LLM Job Processor
- * Handles chat + RAG job preparation, then delegates streaming to llmOllamaStream.
+ * Handles chat job preparation, then delegates streaming to llmOllamaStream.
  *
  * Extracted from llmQueueService.js to reduce file size.
  * All functions receive a `ctx` object with dependencies and service references.
@@ -143,31 +143,19 @@ async function processChatJob(ctx, job) {
   const { messages, temperature, max_tokens, thinking, images } = requestData;
 
   // Plan 023 D9: ein externes Cloud-Modell rechnet nicht auf diesem Gerät.
-  // Die Abzweigung steht GANZ vorn, vor dem Agent-Modus und vor allem, was
-  // Speicher, GPU-Sperre oder Lebenszyklus anfasst: nichts davon gilt für ein
-  // Modell, das anderswo läuft. Der Agent-Modus bleibt vorerst lokal, weil
-  // die Werkzeugschleife auf Ollamas Format für Werkzeugaufrufe gebaut ist;
-  // extern gewählt, antwortet das Modell hier ohne Werkzeuge.
+  // Die Abzweigung steht GANZ vorn, vor allem, was Speicher, GPU-Sperre oder
+  // Lebenszyklus anfasst: nichts davon gilt für ein Modell, das anderswo läuft.
   const { istExtern } = require('./extern/providerRegistry');
   if (istExtern(requested_model)) {
     const { externenChatFahren } = require('./extern/externerChat');
     const { buildSystemPrompt: baueSystemPrompt } = require('./systemPromptBuilder');
-    const externerSystemPrompt = await baueSystemPrompt(database, job.conversation_id);
+    const externerSystemPrompt = await baueSystemPrompt();
     await externenChatFahren(ctx, job, {
       nachrichten: (messages || []).filter(m => m && m.role !== 'system'),
       systemPrompt: externerSystemPrompt,
       temperatur: temperature,
       maxTokens: max_tokens,
     });
-    return;
-  }
-
-  // Agent-Modus (2026-07-28): Text-Nachrichten laufen als Werkzeug-Lauf.
-  // Bild-Nachrichten bleiben auf dem Vision-Pfad unten (die Agent-Schleife
-  // spricht /api/chat ohne Bild-Unterstützung).
-  if (requestData.agent && !(images && images.length > 0)) {
-    const { processAgentChatJob } = require('./chatAgentRunner');
-    await processAgentChatJob(ctx, job);
     return;
   }
 
@@ -210,39 +198,17 @@ async function processChatJob(ctx, job) {
     });
   }
 
-  // Build layered system prompt (global base + AI profile + company context + project prompt)
   const { buildSystemPrompt } = require('./systemPromptBuilder');
-  const systemPrompt = await buildSystemPrompt(database, job.conversation_id);
+  const systemPrompt = await buildSystemPrompt();
 
-  // Context Management: Build optimized prompt within token budget
-  const contextBudgetManager = require('../context/contextBudgetManager');
-  const optimized = await contextBudgetManager.buildOptimizedPrompt({
-    messages,
-    systemPrompt,
-    model: requested_model,
-    conversationId: job.conversation_id,
-    userId: null,
-  });
-
-  logger.info(`[JOB ${jobId}] Context budget: ${JSON.stringify(optimized.tokenBreakdown)}`);
-
-  // Send context debug info to frontend
-  service.notifySubscribers(jobId, {
-    type: 'context_info',
-    tokenBreakdown: optimized.tokenBreakdown,
-  });
-
-  // Notify frontend about compaction if it happened
-  if (optimized.compactionResult) {
-    service.notifySubscribers(jobId, {
-      type: 'compaction',
-      tokensBefore: optimized.compactionResult.tokensBefore,
-      tokensAfter: optimized.compactionResult.tokensAfter,
-      messagesCompacted: optimized.tokenBreakdown.messagesDropped,
-    });
-  }
-
-  const prompt = optimized.prompt;
+  // Der Verlauf geht als Ganzes an das Modell. Bis Phase B4 (26.08.2026)
+  // stand hier ein Kontext-Haushalt mit Fensterung und Verdichtung
+  // (compaction_log); er ist mit dem Memory gefallen. Was ueber `num_ctx`
+  // hinausgeht, kuerzt Ollama selbst am Anfang des Prompts.
+  const prompt = (messages || [])
+    .filter(m => m && m.role !== 'system')
+    .map(m => `${m.role}: ${m.content}`)
+    .join('\n');
 
   // Vision handling — three paths:
   //   1. Primary supports vision → images pass through unchanged.
@@ -251,7 +217,7 @@ async function processChatJob(ctx, job) {
   //      addendum, and continue streaming the primary with no images.
   //   3. Primary is text-only AND no fallback installed → warn, drop images.
   let visionImages = null;
-  let augmentedSystemPrompt = optimized.systemPrompt;
+  let augmentedSystemPrompt = systemPrompt;
 
   if (images && Array.isArray(images) && images.length > 0) {
     let supportsVision = false;
@@ -332,7 +298,7 @@ async function processChatJob(ctx, job) {
     max_tokens,
     requested_model,
     augmentedSystemPrompt,
-    optimized.numCtx,
+    null,
     visionImages
   );
 }

@@ -185,24 +185,11 @@ describe('Flows-Routen', () => {
       const nach = Object.fromEntries(res.body.data.map(w => [w.name, w.verfuegbar]));
       // Alle Werkzeuge des Plans sind gebaut (Schritte 6–11).
       expect(nach.dateien_lesen).toBe(true);
-      expect(nach.terminal).toBe(true);
       expect(nach.web_suche).toBe(true);
       expect(nach.web_lesen).toBe(true);
       expect(nach.subagent).toBe(true);
     });
 
-    test('listet die Wissensbasen ohne die unsichtbaren Workspace-Räume', async () => {
-      db.query.mockResolvedValueOnce({ rows: [{ id: 1, name: 'Allgemein', slug: 'allgemein' }] });
-      const res = await auth(request(app).get('/api/flows/sammlungen'));
-      expect(res.status).toBe(200);
-      expect(res.body.data).toHaveLength(1);
-      // Nicht der LETZTE Aufruf — danach schreibt die Audit-Middleware noch.
-      const abfragen = db.query.mock.calls.map(c => String(c[0]));
-      expect(abfragen.some(q => /is_workspace = FALSE/.test(q))).toBe(true);
-    });
-  });
-
-  describe('Ändern und Löschen', () => {
     test('ändert einen bestehenden Flow', async () => {
       await auth(request(app).post('/api/flows')).send(NEU);
       const res = await auth(request(app).put('/api/flows/notiz')).send({
@@ -316,9 +303,7 @@ describe('Flows-Routen', () => {
     test('speichert und liefert das ausgabe-Objekt (Datei-Roundtrip)', async () => {
       const res = await auth(request(app).post('/api/flows')).send({
         ...NEU,
-        argumente: [
-          { name: 'kunde', typ: 'ordner', beschreibung: 'Kundenordner', pflicht: true },
-        ],
+        ordner: ['/arasul/flows/arbeit'],
         ausgabe: {
           format: 'pdf',
           dateiname: 'bericht-{{datum}}',
@@ -341,10 +326,9 @@ describe('Flows-Routen', () => {
         tonalitaet: 'formell',
         gliederung: ['Zusammenfassung', 'Details'],
       });
-      expect(geladen.body.data.argumente[0].typ).toBe('ordner');
     });
 
-    test('lehnt ein Dokument-Format ohne Zielordner und ohne ordner-Argument ab', async () => {
+    test('lehnt ein Dokument-Format ohne Zielordner ab', async () => {
       const res = await auth(request(app).post('/api/flows')).send({
         ...NEU,
         ausgabe: { format: 'pdf' },
@@ -352,13 +336,12 @@ describe('Flows-Routen', () => {
       expect(res.status).toBe(400);
     });
 
-    test('ordner-Argument ersetzt die Ordner-Pflicht der Datei-Werkzeuge', async () => {
+    test('Datei-Werkzeuge ohne erlaubten Ordner werden abgewiesen', async () => {
       const res = await auth(request(app).post('/api/flows')).send({
         ...NEU,
         werkzeuge: ['dateien_schreiben'],
-        argumente: [{ name: 'ziel', typ: 'ordner', pflicht: true }],
       });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(400);
     });
   });
 

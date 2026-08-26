@@ -21,29 +21,20 @@ const VALID_TOOLS = [
   'dateien_anhaengen',
   'dateien_suchen',
   'symbol_suche',
-  'rag_suche',
   'web_suche',
   'web_lesen',
   'subagent',
-  // Plan 014, Phase 5: stellt ZUGFeRD-Rechnungen mit lückenlosem Nummernkreis
-  // aus — alle Summen rechnet Code, nie das Modell.
-  'rechnung_erstellen',
   // Plan 023 I3: EINE Rückfrage an den Nutzer, mit bis zu vier Optionen. Nur
   // wirksam in der Betriebsart `rueckfragen`; in `autonom` legt die Registry
   // es gar nicht erst in den Kasten (siehe `betriebsart` unten).
   'frage_nutzer',
 ];
 
-// Argumenttypen. Jeder Typ entspricht einer eigenen Eingabehilfe im Chat und —
-// wichtiger — einer anderen Art, Kontext zu beschaffen: `datei` lädt genau eine
-// Datei, `wissensbasis` scopet die RAG-Suche auf genau eine Sammlung. Das ist
-// der Hebel für Kontext-Sparsamkeit (§3 des Plans).
-//
-// `ordner` (Flows-Umbau 2026-08-02): der Kundenordner-Fall. Der Wert ist ein
-// `projekt://…`-Pfad; der ERSTE ordner-Argumentwert eines Laufs wird zum
-// Arbeitsverzeichnis (dort liegt der Kontext, dorthin schreibt der Flow seine
-// Enddateien) — genau wie `ordner_ziel` beim externen Trigger.
-const ARG_TYPES = ['freitext', 'datei', 'auswahl', 'wissensbasis', 'ordner'];
+// Argumenttypen. Bis Phase B4 (26.08.2026) gab es dazu `datei` (ein Dokument
+// aus der Wissensbasis), `wissensbasis` (ein Wissensraum) und `ordner` (ein
+// `projekt://`-Pfad); alle drei sind mit Dokumenten, Wissensraeumen und
+// Projekten gefallen.
+const ARG_TYPES = ['freitext', 'auswahl'];
 
 // Flow- und Argumentnamen sind bewusst eng: Kleinbuchstaben, Ziffern, Bindestrich.
 // Der Flow-Name wird zum Dateinamen UND zum Slash-Befehl — alles andere wäre
@@ -448,28 +439,22 @@ const FlowDefinition = z
       'dateien_suchen',
       'symbol_suche',
     ];
-    // Ein Argument vom Typ `ordner` liefert das Arbeitsverzeichnis erst beim
-    // Start (Kundenordner-Fall) — dann darf die Ordner-Liste hier leer sein.
-    const hatOrdnerArgument = flow.argumente.some(a => a.typ === 'ordner');
     const usesFiles = flow.werkzeuge.some(t => needsFolder.includes(t));
-    if (usesFiles && flow.ordner.length === 0 && !hatOrdnerArgument) {
+    if (usesFiles && flow.ordner.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['ordner'],
-        message:
-          'Der Flow nutzt Datei- oder Terminal-Werkzeuge, hat aber keinen erlaubten Ordner ("ordner") und kein Argument vom Typ "ordner"',
+        message: 'Der Flow nutzt Datei-Werkzeuge, hat aber keinen erlaubten Ordner ("ordner")',
       });
     }
 
-    // Ein Ausgabe-Dokument braucht ein Ziel: einen deklarierten Ordner oder ein
-    // ordner-Argument, das beim Start den Zielordner liefert.
+    // Ein Ausgabe-Dokument braucht ein Ziel: einen deklarierten Ordner.
     const erzeugtDokument = flow.ausgabe && flow.ausgabe.format && flow.ausgabe.format !== 'keins';
-    if (erzeugtDokument && flow.ordner.length === 0 && !hatOrdnerArgument) {
+    if (erzeugtDokument && flow.ordner.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['ausgabe'],
-        message:
-          'Der Flow erzeugt ein Dokument, hat aber weder einen erlaubten Ordner noch ein Argument vom Typ "ordner" als Ziel',
+        message: 'Der Flow erzeugt ein Dokument, hat aber keinen erlaubten Ordner als Ziel',
       });
     }
 
@@ -606,39 +591,6 @@ const FlowAntwortBody = z
  */
 const WiederholenBody = z.object({}).strict();
 
-/**
- * Ziel-Ordner eines Laufs (Ziel-Ordner-Konzept, 2026-07-28). Erlaubt sind NUR
- * `projekt://`-Formen — `projekt://aktiv[/unter/ordner]` oder
- * `projekt://<uuid>[/unter/ordner]` — damit ein Aufrufer (insbesondere per
- * API-Key von außen) keine beliebigen Gerätepfade als Arbeitsverzeichnis
- * öffnen kann. Die Auflösung in echte Pfade macht runFlow.resolveOrdnerListe.
- */
-const ProjektOrdnerZiel = z
-  .string()
-  .trim()
-  .min(1)
-  .max(500)
-  .refine(
-    v =>
-      v.startsWith('projekt://') &&
-      !v.slice('projekt://'.length).split('/').includes('..') &&
-      !v.slice('projekt://'.length).startsWith('/'),
-    {
-      message:
-        'Ziel-Ordner muss die Form projekt://aktiv[/pfad] oder projekt://<uuid>[/pfad] haben',
-    }
-  );
-
-/**
- * Projekt-Bezug eines projektgebundenen Flows (Plan 014, Phase 1): die UUID
- * des Projekts, in dessen `flows/`-Ordner der Flow liegt. Fehlt das Feld,
- * ist der globale Flow gemeint.
- */
-const FlowProjektId = z.uuid('Ungültige Projekt-ID');
-
-/** Query der Flow-Einzelrouten (`?projekt=<uuid>` = projektgebundener Flow). */
-const FlowProjektQuery = z.object({ projekt: FlowProjektId.optional() }).strict();
-
 /** Einen Lauf starten (Plan 011, Schritt 12). */
 const StartRunBody = z
   .object({
@@ -647,12 +599,6 @@ const StartRunBody = z
     // Runner prüft sie gegen die Deklaration des Flows.
     args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
     conversation_id: z.coerce.number().int().positive().nullish(),
-    // Ziel-Ordner des Laufs: wird zum Arbeitsverzeichnis (Enddateien landen
-    // dort). NUR projekt://-Formen — nie rohe Gerätepfade von außen.
-    ordner_ziel: ProjektOrdnerZiel.optional(),
-    // Projektgebundener Flow: der Flow wird im `flows/`-Ordner dieses Projekts
-    // gesucht statt im globalen Verzeichnis.
-    projekt: FlowProjektId.nullish(),
   })
   .strict();
 
@@ -689,9 +635,6 @@ module.exports = {
   WiederholenBody,
   ListRunsQuery,
   StartRunBody,
-  ProjektOrdnerZiel,
-  FlowProjektId,
-  FlowProjektQuery,
   VALID_TOOLS,
   ARG_TYPES,
   AUSGABE_FORMATE,

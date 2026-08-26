@@ -7,7 +7,7 @@
  *   2. Argumente prüfen und einsetzen — Pflichtfelder, Auswahllisten, Standards;
  *      die Platzhalter im Prompt werden ersetzt.
  *   3. Werkzeuge zusammenstellen — GENAU die, die der Flow deklariert.
- *   4. Kontext bauen: erlaubte Ordner (Datei-Werkzeuge), Wissensraum (RAG).
+ *   4. Kontext bauen: die erlaubten Ordner der Datei-Werkzeuge.
  *   5. Modell auflösen: das im Flow genannte, sonst das Standardmodell.
  *   6. Lauf anlegen, die Werkzeug-Schleife treiben, jeden Schritt mitschreiben,
  *      Lauf abschließen. Die Grenzen des Flows (Runden, Zeitlimit) greifen hier.
@@ -25,104 +25,24 @@ const { runFlowLoop } = require('./toolLoop');
 const { executeSteps } = require('./stepExecutor');
 const { fillPlaceholders } = require('./flowFile');
 const changeTracker = require('./changeTracker');
-const { ladeDokumentText } = require('./documentText');
 const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
 const pruefungService = require('./pruefung');
 const { RunLimits } = require('./limits');
-const projectService = require('../rag/projectService');
 const modelService = require('../llm/modelService');
 const logger = require('../../utils/logger');
 const { ValidationError } = require('../../utils/errors');
 
 /**
- * Platzhalter in `ordner`: zeigt auf die Projektablage des AKTIVEN Projekts.
- * So arbeitet ein Flow immer dort, wo auch Explorer und Sandbox arbeiten,
- * ohne dass der Autor eine UUID in die Flow-Datei schreiben müsste.
- *
- * Erweiterte Formen (Ziel-Ordner-Konzept, 2026-07-28):
- *   projekt://aktiv                → Ablage-Wurzel des aktiven Projekts
- *   projekt://aktiv/kunden/mueller → Unterordner darin (wird angelegt)
- *   projekt://<uuid>[/unterordner] → Ablage eines BESTIMMTEN Projekts
- */
-const PROJEKT_ORDNER_TOKEN = 'projekt://aktiv';
-const PROJEKT_PREFIX = 'projekt://';
-
-/**
- * Löst ein `projekt://…`-Token in den echten Ablage-Pfad auf (legt ihn an).
- * Liefert neben dem Pfad auch Projekt-ID und Unterpfad — daraus baut die
- * Änderungs-Übersicht später klickbare Ablage-Ziele.
- */
-async function resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner }) {
-  const rest = eintrag.slice(PROJEKT_PREFIX.length);
-  const [kopf, ...teile] = rest.split('/');
-  const unterpfad = teile.join('/');
-
-  if (!kopf) {
-    throw new ValidationError(`Ungültiger Ordner "${eintrag}"`);
-  }
-  if (unterpfad.split('/').includes('..') || path.isAbsolute(unterpfad)) {
-    throw new ValidationError(`Ungültiger Ordner "${eintrag}": Pfad muss relativ und ohne .. sein`);
-  }
-  // `kopf` ist entweder „aktiv" oder eine Projekt-UUID. Ohne diese Prüfung
-  // ginge ein nicht-UUID-Kopf (aus einem von Hand geschriebenen Flow) roh an
-  // Postgres → 22P02 → 500 statt eines sauberen 4xx (QA-Sweep-Befund).
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (kopf !== 'aktiv' && !UUID_RE.test(kopf)) {
-    throw new ValidationError(`Ungültiger Ordner "${eintrag}": Projekt-Kennung erwartet`);
-  }
-
-  const projectId = kopf === 'aktiv' ? await getActiveProjectId() : kopf;
-  const basis = await projektOrdner(projectId);
-  if (!unterpfad) {
-    return { pfad: basis, projectId, unterpfad: '' };
-  }
-  const ziel = path.join(basis, unterpfad);
-  // path.join hat '..' bereits abgewiesen; der Gurt hier fängt Restfälle.
-  if (!ziel.startsWith(basis + path.sep)) {
-    throw new ValidationError(`Ungültiger Ordner "${eintrag}"`);
-  }
-  await fs.mkdir(ziel, { recursive: true });
-  return { pfad: ziel, projectId, unterpfad };
-}
-
-/**
- * Löst alle `projekt://…`-Einträge in echte Ablage-Pfade auf (legt sie an).
- * `meta` (optional, Array) sammelt je Projekt-Ordner {pfad, projectId,
- * unterpfad} — für die klickbare Änderungs-Übersicht.
- */
-async function resolveOrdnerListe(ordner = [], deps = {}, meta = null) {
-  const {
-    getActiveProjectId = projectService.getActiveProjectId,
-    projektOrdner = require('../projects/ablageService').projektOrdner,
-  } = deps;
-  const out = [];
-  for (const eintrag of ordner) {
-    if (eintrag.startsWith(PROJEKT_PREFIX)) {
-      const info = await resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner });
-      out.push(info.pfad);
-      if (Array.isArray(meta)) {
-        meta.push(info);
-      }
-    } else {
-      out.push(eintrag);
-    }
-  }
-  return out;
-}
-
-/**
  * Prüft die Argumente gegen die Deklaration und liefert die einzusetzenden
- * Werte plus die Wissensräume, auf die die RAG-Suche zu scopen ist.
+ * Werte.
  *
  * @param {object[]} declared - flow.argumente
  * @param {object} provided - name → Wert (vom Aufrufer)
- * @returns {{ werte: object, spaceIds: string[] }}
+ * @returns {{ werte: object }}
  * @throws {ValidationError} bei fehlendem Pflichtargument oder ungültiger Auswahl.
  */
 function resolveArguments(declared = [], provided = {}) {
   const werte = {};
-  const spaceIds = [];
-  let ordnerArg = null;
 
   for (const arg of declared) {
     let wert = provided[arg.name];
@@ -142,27 +62,10 @@ function resolveArguments(declared = [], provided = {}) {
         `Argument "${arg.name}": "${wert}" ist keine der erlaubten Auswahlen (${arg.optionen.join(', ')})`
       );
     }
-    if (arg.typ === 'wissensbasis') {
-      spaceIds.push(wert);
-    }
-    // Kundenordner-Fall: Ein ordner-Argument MUSS eine projekt://-Form sein —
-    // dieselbe Grenze wie beim externen `ordner_ziel` (keine rohen Gerätepfade
-    // aus Nutzereingaben). Der ERSTE ordner-Wert wird zum Arbeitsverzeichnis.
-    if (arg.typ === 'ordner') {
-      const rest = wert.startsWith(PROJEKT_PREFIX) ? wert.slice(PROJEKT_PREFIX.length) : null;
-      if (rest == null || rest.split('/').includes('..') || rest.startsWith('/')) {
-        throw new ValidationError(
-          `Argument "${arg.name}": Ordner muss die Form projekt://aktiv[/pfad] oder projekt://<projekt-id>[/pfad] haben`
-        );
-      }
-      if (ordnerArg == null) {
-        ordnerArg = wert;
-      }
-    }
     werte[arg.name] = wert;
   }
 
-  return { werte, spaceIds, ordnerArg };
+  return { werte };
 }
 
 /** Baut aus den Argumentwerten die konkrete Nutzer-Eingabe für das Modell. */
@@ -173,40 +76,6 @@ function buildUserInput(declared = [], werte = {}) {
   return zeilen.length > 0
     ? `Angaben:\n${zeilen.join('\n')}`
     : 'Bitte die beschriebene Aufgabe ausführen.';
-}
-
-/**
- * Speist den Inhalt der `datei`-Argumente in die Nutzer-Eingabe ein (Schritt 18).
- *
- * Ein `datei`-Argument liefert nur den Dateinamen — für „fasse dieses Dokument
- * zusammen" braucht das Modell den Inhalt. Der wird hier aus dem indexierten
- * Text geladen und als klar abgegrenzter Block angehängt. Ein nicht gefundenes
- * Dokument wird ehrlich vermerkt, damit das Modell nicht rät.
- *
- * @returns {Promise<string>} Die Nutzer-Eingabe, ggf. um Dokument-Blöcke ergänzt.
- */
-async function anreichernMitDateien(userInput, declared = [], werte = {}, loadDocText) {
-  const dateiArgs = declared.filter(a => a.typ === 'datei' && werte[a.name] != null);
-  if (dateiArgs.length === 0) {
-    return userInput;
-  }
-  const bloecke = [];
-  for (const arg of dateiArgs) {
-    const name = werte[arg.name];
-    const doc = await loadDocText({ filename: name });
-    if (doc.gefunden) {
-      const gekuerzt = doc.gekuerzt ? ' (gekürzt)' : '';
-      bloecke.push(
-        `--- Inhalt der Datei "${name}"${gekuerzt} ---\n${doc.text}\n--- Ende der Datei ---`
-      );
-    } else {
-      bloecke.push(
-        `--- Datei "${name}" ---\nHinweis: Der Inhalt konnte nicht geladen werden ` +
-          `(nicht in der Wissensbasis indexiert). Bitte weise darauf hin, statt zu raten.\n--- Ende ---`
-      );
-    }
-  }
-  return `${userInput}\n\n${bloecke.join('\n\n')}`;
 }
 
 /**
@@ -230,17 +99,11 @@ async function runFlow(
     onEvent,
     existingRunId = null,
     signal,
-    ordnerZiel = null,
     // „Ab Fehler wiederholen": Ausgaben erfolgreicher Schritte eines alten
     // Laufs (Schritt-Index → Ausgabe) — nur der deterministische Executor
     // wertet sie aus; der modellgetriebene Pfad ignoriert sie.
     vorabErgebnisse = null,
     vorabQuelleLaufId = null,
-    // Projektgebundener Flow (Plan 014, Phase 1): der Flow liegt im
-    // `flows/`-Ordner dieses Projekts. Zusätzlich wird `projekt://aktiv` und
-    // der RAG-Scope dann auf DIESES Projekt bezogen — ein Projekt-Flow
-    // arbeitet in seinem Projekt, egal welches gerade aktiv ist.
-    projektId = null,
   },
   deps = {}
 ) {
@@ -250,59 +113,20 @@ async function runFlow(
     makeTools = buildTools,
     runLoop = runFlowLoop,
     tracker = changeTracker,
-    loadDocText = ladeDokumentText,
     resolveModel = () => modelService.getDefaultModel(),
     pruefe = pruefungService.pruefeUndKorrigiere,
   } = deps;
 
-  const geladen = await loadFlow(flowName, { projektId });
+  const geladen = await loadFlow(flowName);
 
-  // Für Projekt-Flows zeigt `projekt://aktiv` auf das EIGENE Projekt (nicht
-  // auf das gerade aktive) — der Flow gehört zu seinem Projekt.
-  const ordnerDeps = projektId ? { ...deps, getActiveProjectId: async () => projektId } : deps;
+  const { werte } = resolveArguments(geladen.argumente, args);
 
-  // Argumente FRÜH auflösen — ein Argument vom Typ `ordner` (Kundenordner)
-  // bestimmt das Arbeitsverzeichnis des Laufs, noch bevor die Ordner-Liste
-  // aufgelöst wird.
-  const { werte, spaceIds: argSpaceIds, ordnerArg } = resolveArguments(geladen.argumente, args);
-
-  // `projekt://…` in echte Ablage-Pfade auflösen — ab hier arbeitet der ganze
-  // Lauf (Werkzeuge, Sandbox, Änderungs-Übersicht) mit realen Ordnern.
-  // Ein pro Lauf mitgegebener Ziel-Ordner wird zum ARBEITSVERZEICHNIS (erster
-  // Eintrag) — dort landen die Enddateien; die im Flow deklarierten Ordner
-  // bleiben erlaubt. Rangfolge: explizites `ordnerZiel` (HTTP-Trigger) vor dem
-  // ordner-Argument des Nutzers. Nur `projekt://…`-Formen sind zugelassen
-  // (Routen-Schema bzw. resolveArguments erzwingen das), damit ein Aufrufer
-  // keine beliebigen Gerätepfade öffnen kann.
-  const effektivesZiel = ordnerZiel || ordnerArg || null;
-  const ordnerListe = effektivesZiel ? [effektivesZiel, ...geladen.ordner] : geladen.ordner;
-  // Je aufgelöstem Projekt-Ordner {pfad, projectId, unterpfad} — die
-  // Änderungs-Übersicht macht damit Dateien in der Ablage klickbar.
-  const projektOrdnerMeta = [];
-  let aufgeloesteOrdner = await resolveOrdnerListe(ordnerListe, ordnerDeps, projektOrdnerMeta);
-  // Plan 022 — Zielordner-Bindung härten: bleibt sonst KEIN Arbeitsordner übrig
-  // (kein explizites Ziel, kein Kundenordner-Argument, kein im Flow deklarierter
-  // Ordner), fällt der Lauf auf das AKTIVE Projekt zurück, damit Ergebnisse einen
-  // festen Platz haben. Scheitert das (z. B. kein aktives Projekt), bleibt es
-  // beim bisherigen Verhalten (kein Arbeitsordner) statt den Lauf zu kippen.
-  if (aufgeloesteOrdner.length === 0 && !effektivesZiel) {
-    try {
-      const fallbackMeta = [];
-      aufgeloesteOrdner = await resolveOrdnerListe(
-        [PROJEKT_ORDNER_TOKEN],
-        ordnerDeps,
-        fallbackMeta
-      );
-      projektOrdnerMeta.push(...fallbackMeta);
-    } catch (err) {
-      logger.warn(
-        `Flow "${flowName}": aktives Projekt als Zielordner nicht verfügbar: ${err.message}`
-      );
-    }
-  }
+  // Die Ordner des Laufs sind GENAU die im Flow deklarierten. Bis Phase B4
+  // (26.08.2026) loeste der Runner hier `projekt://…`-Formen in die
+  // Projektablage auf; Projekte sind mit den Wissensraeumen gefallen.
   const flow = {
     ...geladen,
-    ordner: aufgeloesteOrdner,
+    ordner: [...geladen.ordner],
   };
 
   // Ausgabe-Vorgaben (Sprache, Tonalität, Länge, Gliederung, Stilvorlage) an
@@ -324,26 +148,9 @@ async function runFlow(
     }
   }
 
-  // 1. Platzhalter ersetzen (Argumente wurden oben schon aufgelöst). Ein
-  //    `datei`-Argument reichert die Nutzer-Eingabe zusätzlich um den
-  //    Dokument-Inhalt an (Schritt 18).
-  // Batch 2: Ohne explizite `wissensbasis`-Argumente scopt der Flow seine
-  // RAG-Suche auf das AKTIVE Projekt (statt zuvor auf die gesamte Wissensbasis) —
-  // Agenten arbeiten damit standardmäßig nur im aktiven Projekt. Explizit
-  // gewählte Wissensräume haben Vorrang.
-  let spaceIds = argSpaceIds;
-  if (spaceIds.length === 0) {
-    // Projekt-Flows scopen auf IHR Projekt; globale Flows aufs aktive.
-    const scopeProjectId = projektId || (await projectService.getActiveProjectId());
-    spaceIds = await projectService.getProjectSpaceIds(scopeProjectId);
-  }
+  // 1. Platzhalter ersetzen (Argumente wurden oben schon aufgelöst).
   const filledPrompt = fillPlaceholders(flow.systemPrompt, werte);
-  const userInput = await anreichernMitDateien(
-    buildUserInput(flow.argumente, werte),
-    flow.argumente,
-    werte,
-    loadDocText
-  );
+  const userInput = buildUserInput(flow.argumente, werte);
 
   // 2. Modell.
   const model = flow.modell || (await resolveModel());
@@ -355,25 +162,17 @@ async function runFlow(
   const tools = makeTools(flow.werkzeuge, { betriebsart: flow.betriebsart });
 
   // 4. Kontext für die Werkzeuge (die Basis, die auch Rollen für IHRE Werkzeuge
-  //    erben). Bewusst getrennt gehalten: `roleContextBase` sind die Ordner/
-  //    Wissensraum/Container-Angaben, `context` ist dieselbe Basis plus die
-  //    Lauf-weiten Subagent-Daten (Rollen, Grenzen, Tiefe).
-  const roleContextBase = { userId, roots: flow.ordner, spaceIds, slug: flowName };
-
-  // Projekt-Bezug fürs Rechnungs-Werkzeug (Plan 014, Phase 5): das Projekt des
-  // Arbeitsverzeichnisses (erster aufgelöster projekt://-Ordner) — bei
-  // Projekt-Flows deckungsgleich mit projektId. Dazu der Ablage-relative
-  // Unterpfad, damit die Rechnung unter ihrem Ablage-Pfad registriert wird.
-  const arbeitsMeta = projektOrdnerMeta.find(m => m.pfad === flow.ordner[0]) || null;
-  roleContextBase.projektId = projektId || arbeitsMeta?.projectId || null;
-  roleContextBase.projektUnterpfad = arbeitsMeta?.unterpfad || '';
+  //    erben). Bewusst getrennt gehalten: `roleContextBase` sind die
+  //    Ordner-Angaben, `context` ist dieselbe Basis plus die Lauf-weiten
+  //    Subagent-Daten (Rollen, Grenzen, Tiefe).
+  const roleContextBase = { userId, roots: flow.ordner, slug: flowName };
 
   // 5. Lauf anlegen — ODER einen bereits angelegten weiterverwenden. Der
   //    Lauf-Verwalter (Schritt 12) legt den Lauf VOR dem Start an, damit seine
   //    ID sofort streambar ist, und reicht ihn hier herein.
   const run = existingRunId
     ? { id: existingRunId }
-    : await store.createRun({ userId, flowName, arguments: werte, conversationId, projektId });
+    : await store.createRun({ userId, flowName, arguments: werte, conversationId });
 
   // Zähler und offene Schritte (weiter unten von `weiter` und dem stepRecorder
   // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.
@@ -496,7 +295,7 @@ async function runFlow(
   // 5b. Änderungs-Übersicht (Schritt 16): Nur wenn der Flow überhaupt Dateien
   //     verändern KANN (Schreib-Werkzeug oder Terminal), einen Abzug der Ordner
   //     VOR dem Lauf ziehen. Die Differenz zum Abzug NACH dem Lauf ist die
-  //     Übersicht. Read-only-Flows (nur RAG/Web) tun das nie — kein Aufwand.
+  //     Übersicht. Read-only-Flows (nur Web) tun das nie — kein Aufwand.
   //
   //     GRENZE, ehrlich benannt: Der Abzug-Vergleich nimmt an, dass NUR dieser
   //     Lauf die Ordner verändert. Griffe ein zweiter Lauf GLEICHZEITIG in
@@ -505,10 +304,9 @@ async function runFlow(
   //     Flow arbeitet in seinem eigenen Ordner), aber es ist ein anderer
   //     Fehlerfall als der TOCTOU-Schutz der Datei-Werkzeuge — hier nicht gelöst.
   const erzeugtDokument = DOKUMENT_FORMATE.has(flow.ausgabe?.format);
-  // Werkzeuge, die Dateien in die Ablage schreiben — ihre Ergebnisse sollen als
-  // klickbare Artefakte in der Änderungs-Übersicht auftauchen. `rechnung_erstellen`
-  // legt die ausgestellte ZUGFeRD-PDF ab (Plan 014, Phase 5).
-  const SCHREIBENDE_WERKZEUGE = ['dateien_schreiben', 'rechnung_erstellen'];
+  // Werkzeuge, die Dateien schreiben — ihre Ergebnisse sollen in der
+  // Änderungs-Übersicht auftauchen.
+  const SCHREIBENDE_WERKZEUGE = ['dateien_schreiben'];
   const verfolgtAenderungen =
     erzeugtDokument ||
     (Array.isArray(flow.werkzeuge) && flow.werkzeuge.some(w => SCHREIBENDE_WERKZEUGE.includes(w)));
@@ -526,33 +324,6 @@ async function runFlow(
   // Abschluss-Pfaden (Fehler wie Erfolg) genau einmal gerufen. Wirft nie: eine
   // gescheiterte Übersicht darf einen sonst gelungenen Lauf nicht kippen.
   const aenderungenAbschliessen = async () => {
-    // Ein-Ordner-Modell: Flow-Schreibzugriffe sofort in den Wissens-Spiegel
-    // übernehmen. Ein projektgebundener Lauf (projektId) oder ein Lauf mit
-    // projekt://<uuid>-Zielen schreibt evtl. in ein ANDERES Projekt als das
-    // gerade aktive — dann muss dessen Wissensraum aktualisiert werden, nicht
-    // nur der des aktiven Projekts (QA-Sweep-Befund). Union aller tatsächlich
-    // beschriebenen Projekte triggern (Trigger ist idempotent/günstig).
-    try {
-      const zuSyncen = new Set();
-      const aktivesProjekt = await projectService.getActiveProjectId();
-      if (aktivesProjekt) {
-        zuSyncen.add(aktivesProjekt);
-      }
-      if (projektId) {
-        zuSyncen.add(projektId);
-      }
-      for (const m of projektOrdnerMeta) {
-        if (m && m.projectId) {
-          zuSyncen.add(m.projectId);
-        }
-      }
-      const sync = require('../projects/ordnerSyncService');
-      for (const pid of zuSyncen) {
-        sync.trigger(pid);
-      }
-    } catch (err) {
-      logger.warn(`Flow "${flowName}": Ordner-Sync-Trigger fehlgeschlagen: ${err.message}`);
-    }
     if (!startAbzug) {
       return;
     }
@@ -560,20 +331,8 @@ async function runFlow(
       const endAbzug = await tracker.snapshot(flow.ordner);
       const roh = tracker.berechneAenderungen(startAbzug, endAbzug, flow.ordner || []);
       const abgeschnitten = roh.abgeschnitten;
-      // Ablage-Dateien klickbar machen: liegt der Ordner der Datei in einer
-      // Projektablage, bekommt der Eintrag `projekt` (Projekt-ID + Ablage-
-      // Pfad). Die internen Felder root/rel (Gerätepfade) werden gestrichen.
-      const aenderungen = roh.aenderungen.map(eintrag => {
-        const { root, rel, ...rest } = eintrag;
-        const m = projektOrdnerMeta.find(x => x.pfad === root);
-        if (!m || !m.projectId || rel == null) {
-          return rest;
-        }
-        return {
-          ...rest,
-          projekt: { projectId: m.projectId, pfad: m.unterpfad ? `${m.unterpfad}/${rel}` : rel },
-        };
-      });
+      // Die internen Felder root/rel (Gerätepfade) werden gestrichen.
+      const aenderungen = roh.aenderungen.map(({ root: _root, rel: _rel, ...rest }) => rest);
       // Die Kürzung nicht still verschlucken (der Deckel greift erst bei sehr
       // vielen Datei-Änderungen, z. B. `npm install`): wenigstens im Log ehrlich
       // benennen, damit ein „nur 300 gelistet" nicht als vollständig missverstanden wird.
@@ -797,7 +556,4 @@ module.exports = {
   runFlow,
   resolveArguments,
   buildUserInput,
-  anreichernMitDateien,
-  resolveOrdnerListe,
-  PROJEKT_ORDNER_TOKEN,
 };

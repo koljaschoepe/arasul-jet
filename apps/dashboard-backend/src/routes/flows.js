@@ -14,7 +14,6 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const pool = require('../database');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
@@ -28,10 +27,8 @@ const {
   WiederholenBody,
   ListRunsQuery,
   StartRunBody,
-  FlowProjektQuery,
   VALID_TOOLS,
 } = require('../schemas/flows');
-const projectService = require('../services/rag/projectService');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { llmLimiter, uploadLimiter } = require('../middleware/rateLimit');
 const { mitNamensReparatur } = require('../utils/uploadName');
@@ -84,34 +81,17 @@ function fromApi(name, body) {
   return { ...rest, name, systemPrompt: prompt };
 }
 
-// GET /api/flows — alle Flows auflisten: die globalen plus die
-// projektgebundenen aus den `flows/`-Ordnern aller Projekte (Plan 014,
-// Phase 1). Jeder Eintrag trägt `projekt` (null = global), damit das Frontend
-// gruppieren und das Chat-Menü nach aktivem Projekt filtern kann.
-// Fehlerhafte Dateien lassen die Liste NICHT scheitern, sondern werden separat
-// gemeldet: ein kaputter Flow darf nicht das ganze Slash-Menü lahmlegen.
+// GET /api/flows — alle Flows auflisten. Fehlerhafte Dateien lassen die Liste
+// NICHT scheitern, sondern werden separat gemeldet: ein kaputter Flow darf
+// nicht die ganze Liste lahmlegen.
 router.get(
   '/',
   requireAuth,
   asyncHandler(async (req, res) => {
     const { flows, fehlerhaft } = await registry.listFlows();
-    const data = flows.map(f => ({ ...toApi(f), projekt: null }));
-    const alleFehler = [...fehlerhaft];
-
-    const projekte = await projectService.listProjects();
-    for (const p of projekte) {
-      const projektErgebnis = await registry.listFlows({ projektId: p.id });
-      for (const f of projektErgebnis.flows) {
-        data.push({ ...toApi(f), projekt: { id: p.id, name: p.name } });
-      }
-      for (const fehler of projektErgebnis.fehlerhaft) {
-        alleFehler.push({ ...fehler, projekt: { id: p.id, name: p.name } });
-      }
-    }
-
     res.json({
-      data,
-      fehlerhaft: alleFehler,
+      data: flows.map(toApi),
+      fehlerhaft,
       timestamp: new Date().toISOString(),
     });
   })
@@ -134,23 +114,6 @@ router.get(
       data: VALID_TOOLS.map(name => ({ name, verfuegbar: nutzbar.has(name) })),
       timestamp: new Date().toISOString(),
     });
-  })
-);
-
-// GET /api/flows/sammlungen — die auswählbaren Wissensbasen.
-// Braucht der Argumenttyp `wissensbasis`. Workspace-interne Räume
-// (is_workspace = TRUE) sind unsichtbar und deshalb ausgeblendet.
-router.get(
-  '/sammlungen',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const result = await pool.query(
-      `SELECT id, name, slug, description
-         FROM knowledge_spaces
-        WHERE is_workspace = FALSE
-        ORDER BY name ASC`
-    );
-    res.json({ data: result.rows, timestamp: new Date().toISOString() });
   })
 );
 
@@ -273,8 +236,7 @@ router.post(
     // erst asynchron als gescheiterter Lauf zurück — der Aufrufer soll ihn aber
     // sofort als 400/404 sehen. loadFlow wirft NotFound, resolveArguments wirft
     // ValidationError; beide werden zu einer sauberen Fehlerantwort.
-    const projektId = req.body.projekt ?? null;
-    const flow = await registry.loadFlow(req.body.flow, { projektId });
+    const flow = await registry.loadFlow(req.body.flow);
     resolveArguments(flow.argumente, req.body.args);
 
     const { runId } = await flowRunner.starten({
@@ -282,8 +244,6 @@ router.post(
       args: req.body.args,
       userId: req.user.id,
       conversationId: req.body.conversation_id ?? null,
-      ordnerZiel: req.body.ordner_ziel ?? null,
-      projektId,
     });
     res.status(202).json({ data: { runId }, timestamp: new Date().toISOString() });
   })
@@ -473,9 +433,7 @@ router.post(
         `Nur fehlgeschlagene Läufe lassen sich wiederholen (Status: ${alt.status})`
       );
     }
-    // Ein projektgebundener Lauf sucht seinen Flow wieder im selben Projekt.
-    const altProjektId = alt.projekt_id ?? null;
-    const flow = await registry.loadFlow(alt.flow_name, { projektId: altProjektId });
+    const flow = await registry.loadFlow(alt.flow_name);
     if (!Array.isArray(flow.schritte) || flow.schritte.length === 0) {
       throw new ValidationError(
         'Wiederholen ab Fehler gibt es nur für Flows mit deklarierter Schritt-Kette'
@@ -495,7 +453,6 @@ router.post(
       conversationId: alt.conversation_id ?? null,
       vorabErgebnisse,
       vorabQuelleLaufId: Number(alt.id),
-      projektId: altProjektId,
     });
     res.status(202).json({
       data: { runId, uebernommeneSchritte: vorabErgebnisse.size },
@@ -504,14 +461,13 @@ router.post(
   })
 );
 
-// GET /api/flows/:name — einen Flow laden (`?projekt=<uuid>` = projektgebunden).
+// GET /api/flows/:name — einen Flow laden.
 router.get(
   '/:name',
   requireAuth,
   validateParams(FlowNameParams),
-  validateQuery(FlowProjektQuery),
   asyncHandler(async (req, res) => {
-    const flow = await registry.loadFlow(req.params.name, { projektId: req.query.projekt });
+    const flow = await registry.loadFlow(req.params.name);
     res.json({ data: toApi(flow), timestamp: new Date().toISOString() });
   })
 );
@@ -523,9 +479,8 @@ router.get(
   '/:name/datei',
   requireAuth,
   validateParams(FlowNameParams),
-  validateQuery(FlowProjektQuery),
   asyncHandler(async (req, res) => {
-    const flow = await registry.loadFlow(req.params.name, { projektId: req.query.projekt });
+    const flow = await registry.loadFlow(req.params.name);
     res.type('text/markdown').send(serializeFlowFile(flow));
   })
 );
@@ -553,12 +508,10 @@ router.put(
   '/:name',
   requireAuth,
   validateParams(FlowNameParams),
-  validateQuery(FlowProjektQuery),
   validateBody(SaveFlowBody),
   asyncHandler(async (req, res) => {
-    const projektId = req.query.projekt ?? null;
     // Wirft 404, wenn es den Flow nicht gibt — kein stilles Anlegen.
-    const bestehend = await registry.loadFlow(req.params.name, { projektId });
+    const bestehend = await registry.loadFlow(req.params.name);
     // Nur tatsächlich gesetzte Felder übernehmen. Zod führt optionale Schlüssel
     // auch dann im Ergebnis, wenn sie im Body fehlten — dann stehen sie auf
     // `undefined` und würden beim Zusammenführen den Bestandswert überschreiben.
@@ -568,7 +521,6 @@ router.put(
     const zusammengefuehrt = { ...toApi(bestehend), ...gesetzt };
     const saved = await registry.saveFlow(fromApi(req.params.name, zusammengefuehrt), {
       overwrite: true,
-      projektId,
     });
     res.json({ data: toApi(saved), timestamp: new Date().toISOString() });
   })
@@ -579,9 +531,8 @@ router.delete(
   '/:name',
   requireAuth,
   validateParams(FlowNameParams),
-  validateQuery(FlowProjektQuery),
   asyncHandler(async (req, res) => {
-    await registry.deleteFlow(req.params.name, { projektId: req.query.projekt });
+    await registry.deleteFlow(req.params.name);
     res.json({ deleted: true, timestamp: new Date().toISOString() });
   })
 );

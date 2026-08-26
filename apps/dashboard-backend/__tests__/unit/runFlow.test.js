@@ -11,36 +11,12 @@
  */
 
 jest.mock('axios');
-/**
- * Ein Flow-Lauf stoesst am Ende den Ordner-Abgleich an. Der ist entprellt und
- * feuert 500 ms später, also regelmäßig erst, wenn diese Datei längst durch
- * ist. Der Rückruf läuft dann in einer abgebauten Umgebung, wirft dort und
- * fällt der Testdatei zur Last, die gerade dran ist. Hier interessiert nur,
- * DASS angestoßen wird, nicht was der Abgleich tut.
- */
-jest.mock('../../src/services/projects/ordnerSyncService', () => ({
-  trigger: jest.fn(),
-  stoppe: jest.fn(),
-}));
 jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
-
-// Batch 2: runFlow scopt die RAG-Suche ohne `wissensbasis`-Argument auf das
-// aktive Projekt. Fest gemockt, damit die Orchestrierungs-Tests nicht die echte
-// DB anfassen; leere Räume ⇒ unverändertes Verhalten (spaceIds bleiben leer).
-jest.mock('../../src/services/rag/projectService', () => ({
-  getActiveProjectId: jest.fn().mockResolvedValue('proj-test'),
-  getProjectSpaceIds: jest.fn().mockResolvedValue([]),
-}));
 
 const axios = require('axios');
 const { runFlowLoop } = require('../../src/services/flows/toolLoop');
 const { withGpuLock, _gpuMutex } = require('../../src/services/flows/gpuQueue');
-const {
-  runFlow,
-  resolveArguments,
-  buildUserInput,
-  anreichernMitDateien,
-} = require('../../src/services/flows/runFlow');
+const { runFlow, resolveArguments, buildUserInput } = require('../../src/services/flows/runFlow');
 
 /** Ein Werkzeug-Doppel im BaseTool-Stil. */
 function fakeTool(name, fn) {
@@ -243,7 +219,7 @@ describe('GPU-Sperre', () => {
 describe('resolveArguments', () => {
   const decl = [
     { name: 'thema', typ: 'freitext', pflicht: true },
-    { name: 'raum', typ: 'wissensbasis', pflicht: false },
+    { name: 'raum', typ: 'freitext', pflicht: false },
     { name: 'stil', typ: 'auswahl', optionen: ['kurz', 'lang'], pflicht: false, standard: 'kurz' },
   ];
 
@@ -258,11 +234,6 @@ describe('resolveArguments', () => {
 
   it('weist eine ungültige Auswahl ab', () => {
     expect(() => resolveArguments(decl, { thema: 'x', stil: 'mittel' })).toThrow(/erlaubten Auswahlen/);
-  });
-
-  it('sammelt Wissensbasis-Argumente in spaceIds', () => {
-    const { spaceIds } = resolveArguments(decl, { thema: 'x', raum: 'vertraege' });
-    expect(spaceIds).toEqual(['vertraege']);
   });
 
   it('lässt einen fehlenden optionalen Platzhalter unersetzt', () => {
@@ -302,7 +273,6 @@ describe('runFlow — Orchestrierung', () => {
         berechneAenderungen: jest.fn(() => ({ aenderungen: [], abgeschnitten: false })),
       },
       resolveModel: jest.fn(async () => 'default-model'),
-      loadDocText: jest.fn(async () => ({ gefunden: false, titel: null, text: '', gekuerzt: false })),
       ...overrides,
     };
   }
@@ -322,18 +292,6 @@ describe('runFlow — Orchestrierung', () => {
       expect.objectContaining({ runId: 42, status: 'fertig', result: 'R' })
     );
     expect(run.status).toBe('fertig');
-  });
-
-  /**
-   * Am Ende eines Laufs muss der Ordner-Abgleich des Projekts angestoßen
-   * werden, sonst sieht der Nutzer die Dateien, die der Flow geschrieben hat,
-   * erst beim nächsten Takt. Der Dienst ist in dieser Datei gemockt; ohne
-   * diese Zusage prüfte danach niemand mehr, dass es überhaupt passiert.
-   */
-  it('stößt am Ende den Ordner-Abgleich des Projekts an', async () => {
-    const sync = require('../../src/services/projects/ordnerSyncService');
-    await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, makeDeps());
-    expect(sync.trigger).toHaveBeenCalledWith('proj-test');
   });
 
   it('nimmt das Modell des Flows, sonst das Standardmodell', async () => {
@@ -383,55 +341,6 @@ describe('runFlow — Orchestrierung', () => {
     // Zwei Schritte begonnen UND zwei abgeschlossen — keiner verwaist.
     expect(echterStore.startStep).toHaveBeenCalledTimes(2);
     expect(echterStore.finishStep).toHaveBeenCalledTimes(2);
-  });
-
-  it('speist den Inhalt eines datei-Arguments in die Nutzer-Eingabe ein', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        werkzeuge: [],
-        argumente: [{ name: 'datei', typ: 'datei', pflicht: true, beschreibung: 'Dokument' }],
-        systemPrompt: 'Fasse das Dokument zusammen.',
-      })),
-      loadDocText: jest.fn(async () => ({
-        gefunden: true,
-        titel: 'Vertrag',
-        text: 'GEHEIMER VERTRAGSTEXT',
-        gekuerzt: false,
-      })),
-    });
-    await runFlow({ flowName: 'zusammenfassen', args: { datei: 'vertrag.pdf' }, userId: 1 }, deps);
-    expect(deps.loadDocText).toHaveBeenCalledWith({ filename: 'vertrag.pdf' });
-    const userInput = deps.runLoop.mock.calls[0][0].userInput;
-    expect(userInput).toMatch(/Inhalt der Datei "vertrag.pdf"/);
-    expect(userInput).toMatch(/GEHEIMER VERTRAGSTEXT/);
-  });
-
-  it('vermerkt ehrlich, wenn der Dateiinhalt nicht geladen werden kann', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        werkzeuge: [],
-        argumente: [{ name: 'datei', typ: 'datei', pflicht: true }],
-        systemPrompt: 'Fasse zusammen.',
-      })),
-      // loadDocText liefert standardmäßig gefunden:false
-    });
-    await runFlow({ flowName: 'zusammenfassen', args: { datei: 'weg.pdf' }, userId: 1 }, deps);
-    const userInput = deps.runLoop.mock.calls[0][0].userInput;
-    expect(userInput).toMatch(/nicht in der Wissensbasis indexiert/);
-  });
-
-  it('scopet die RAG-Suche auf das Wissensbasis-Argument', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        argumente: [{ name: 'raum', typ: 'wissensbasis', pflicht: true }],
-        systemPrompt: 'Suche in {{raum}}.',
-      })),
-    });
-    await runFlow({ flowName: 'wissen', args: { raum: 'handbuch' }, userId: 1 }, deps);
-    expect(deps.runLoop.mock.calls[0][0].context.spaceIds).toEqual(['handbuch']);
   });
 
   it('verdrahtet den Subagent-Kontext: Rollen, Grenzen, Tiefe 0, Basis-Ordner', async () => {
@@ -509,20 +418,6 @@ describe('runFlow — Orchestrierung', () => {
     await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps);
     expect(deps.tracker.snapshot).not.toHaveBeenCalled();
     expect(deps.store.saveChanges).not.toHaveBeenCalled();
-  });
-
-  it('verfolgt Datei-Änderungen auch für rechnung_erstellen (Plan 014, Phase 5)', async () => {
-    // Die ausgestellte ZUGFeRD-PDF soll als klickbares Artefakt erscheinen.
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        werkzeuge: ['rechnung_erstellen'],
-        ordner: ['/arbeit'],
-      })),
-    });
-    deps.tracker.berechneAenderungen.mockReturnValue({ aenderungen: [], abgeschnitten: false });
-    await runFlow({ flowName: 'rechnung', args: { thema: 'x' }, userId: 1 }, deps);
-    expect(deps.tracker.snapshot).toHaveBeenCalledTimes(2);
   });
 
   it('zieht Abzüge vor/nach dem Lauf und speichert die Änderungen (Schreib-Werkzeug)', async () => {
@@ -616,23 +511,5 @@ describe('buildUserInput', () => {
   });
   it('gibt einen Standard-Auslöser, wenn keine Argumente gesetzt sind', () => {
     expect(buildUserInput([], {})).toMatch(/Bitte die beschriebene Aufgabe/);
-  });
-});
-
-describe('anreichernMitDateien', () => {
-  it('lässt die Eingabe unverändert, wenn kein datei-Argument gesetzt ist', async () => {
-    const load = jest.fn();
-    const decl = [{ name: 'thema', typ: 'freitext' }];
-    const out = await anreichernMitDateien('Angaben:\nThema: KI', decl, { thema: 'KI' }, load);
-    expect(out).toBe('Angaben:\nThema: KI');
-    expect(load).not.toHaveBeenCalled();
-  });
-
-  it('hängt den Dokument-Block an und markiert eine Kürzung', async () => {
-    const load = jest.fn(async () => ({ gefunden: true, text: 'Inhalt', gekuerzt: true }));
-    const decl = [{ name: 'datei', typ: 'datei' }];
-    const out = await anreichernMitDateien('Angaben:\nDatei: a.pdf', decl, { datei: 'a.pdf' }, load);
-    expect(out).toMatch(/Inhalt der Datei "a.pdf" \(gekürzt\)/);
-    expect(out).toMatch(/Inhalt\n--- Ende der Datei ---/);
   });
 });

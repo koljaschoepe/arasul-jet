@@ -165,18 +165,17 @@ name: a
 werkzeuge: [subagent]
 rollen:
   - name: r
-    werkzeuge: [terminal]
+    werkzeuge: [web_lesen]
     ergebnis: {felder: [f]}
     prompt: P
 ---
 X`,
-      /terminal.*nicht/is
+      /web_lesen.*nicht/is
     );
   });
 
   it('verlangt einen Ordner, wenn Datei- oder Terminal-Werkzeuge genutzt werden', () => {
     bad('---\nname: a\nwerkzeuge: [dateien_schreiben]\n---\nX', /ordner/i);
-    bad('---\nname: a\nwerkzeuge: [terminal]\n---\nX', /ordner/i);
   });
 
   it('weist einen leeren Ergebnis-Vertrag ab (Kontext-Sperre darf nicht fehlen)', () => {
@@ -276,8 +275,8 @@ Antwort aus {{q}}.
   });
 
   it('weist einen werkzeug-Schritt mit nicht freigegebenem Werkzeug ab', () => {
-    const bad = KETTE.replace('werkzeug: web_suche', 'werkzeug: terminal');
-    expect(() => parseFlowFile(bad)).toThrow(/terminal/);
+    const bad = KETTE.replace('werkzeug: web_suche', 'werkzeug: web_lesen');
+    expect(() => parseFlowFile(bad)).toThrow(/web_lesen/);
   });
 
   it('weist einen subagent-Schritt ohne Auftrag ab', () => {
@@ -324,62 +323,5 @@ describe('Betriebsart (Plan 023 I2)', () => {
   it('liest die Betriebsart wieder ein', () => {
     const text = serializeFlowFile({ ...basis, betriebsart: 'rueckfragen' });
     expect(parseFlowFile(text).betriebsart).toBe('rueckfragen');
-  });
-});
-
-/**
- * Plan 023 I4: die Angebots-Vorlage, nachgebaut nach dem Muster aus dem
- * Entwicklungsordner (zwei Phasen, Kundendaten lesen, Ergebnis als Dokument).
- *
- * Sie ist der Beleg, dass die vereinfachte Oberflaeche einen echten Ablauf
- * traegt: drei Schritte, zwei Rollen, eine Rueckfrage mit Optionen.
- */
-describe('Beispiel-Flow "angebot" (Plan 023 I4)', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const datei = path.join(
-    __dirname,
-    '../../src/services/flows/beispiele/angebot.md'
-  );
-  const flow = parseFlowFile(fs.readFileSync(datei, 'utf8'));
-
-  it('laeuft mit Rueckfragen, nicht autonom', () => {
-    expect(flow.betriebsart).toBe('rueckfragen');
-    expect(flow.werkzeuge).toContain('frage_nutzer');
-  });
-
-  it('hat die drei Schritte des Musters', () => {
-    expect(flow.schritte.map(s => `${s.name}:${s.typ}`)).toEqual([
-      'unterlagen:subagent',
-      'umfang:werkzeug',
-      'schreiben:subagent',
-    ]);
-  });
-
-  it('stellt die Rueckfrage mit hoechstens vier Optionen', () => {
-    const frage = flow.schritte[1];
-    expect(frage.werkzeug).toBe('frage_nutzer');
-    expect(Array.isArray(frage.parameter.optionen)).toBe(true);
-    expect(frage.parameter.optionen.length).toBeLessThanOrEqual(4);
-    expect(frage.parameter.frage).toMatch(/\?/);
-  });
-
-  it('reicht die Antwort an den schreibenden Schritt weiter', () => {
-    // Ohne den Platzhalter waere die Rueckfrage Zierde: gefragt, gehoert,
-    // nicht benutzt.
-    expect(flow.schritte[2].auftrag).toContain('{{umfang}}');
-    expect(flow.schritte[2].auftrag).toContain('{{unterlagen}}');
-  });
-
-  it('erfindet keine Preise: der Autor bekommt es ausdruecklich gesagt', () => {
-    const autor = flow.rollen.find(r => r.name === 'autor');
-    expect(autor.prompt).toMatch(/Erfinde KEINE Preise/);
-    expect(autor.prompt).toMatch(/\[offene Stelle\]/);
-  });
-
-  it('schreibt in den Kundenordner, nicht in die Antwort', () => {
-    const autor = flow.rollen.find(r => r.name === 'autor');
-    expect(autor.werkzeuge).toEqual(['dateien_schreiben']);
-    expect(flow.schritte[2].auftrag).toContain('{{kunde}}/angebot.md');
   });
 });

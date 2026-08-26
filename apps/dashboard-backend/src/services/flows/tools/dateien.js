@@ -49,20 +49,10 @@ function relUnter(base, file) {
 /**
  * Ordnet eine (bereits sicher aufgelöste) Datei ihrem Snapshot-Wurzelordner zu
  * und liefert den relativen Pfad — Grundlage für die Undo-Sicherung (Plan 022).
- *
- * Bevorzugt `context.snapshotRoot` (der Projekt-Wurzelordner), damit ein auf
- * einen Unterordner gebundener Agent-Lauf denselben Undo-Stapel/Schlüssel nutzt
- * wie der Editor. Fällt sonst auf den enthaltenden erlaubten Ordner zurück.
- * Liefert null, wenn die Datei zu keinem gehört (nach pathSafe unwahrscheinlich).
+ * Der Wurzelordner ist der enthaltende erlaubte Ordner. Liefert null, wenn die
+ * Datei zu keinem gehört (nach pathSafe unwahrscheinlich).
  */
-function schnappZiel(roots, file, context) {
-  const base = context && context.snapshotRoot;
-  if (base) {
-    const rel = relUnter(base, file);
-    if (rel) {
-      return { root: base, rel };
-    }
-  }
+function schnappZiel(roots, file) {
   for (const r of roots || []) {
     const rel = relUnter(r, file);
     if (rel) {
@@ -219,13 +209,10 @@ class DateienLesenTool extends BaseTool {
     }
     // Binärdateien (PDF/DOCX/Bilder …) nicht roh ins Modell kippen — das
     // sprengt den Kontext mit Byte-Salat und das Modell erstickt daran.
-    // Stattdessen ein Hinweis, der zum richtigen Werkzeug führt: der INHALT
-    // solcher Dokumente steht über die Wissenssuche bereit.
     if (buf.subarray(0, 8000).includes(0)) {
       return (
         `Hinweis: "${pfad}" ist eine Binärdatei (z. B. PDF/DOCX/Bild) und kann nicht als ` +
-        'Text gelesen werden. Nutze rag_suche mit einer inhaltlichen Frage, um den INHALT ' +
-        'dieses Dokuments aus dem Wissen zu holen.'
+        'Text gelesen werden.'
       );
     }
     // Mehrbyte-Zeichen kann am Fenster-Anfang/-Ende zerschnitten werden; der
@@ -356,7 +343,7 @@ class DateienSchreibenTool extends BaseTool {
       // irreführenden Leer-Kopie), neue Dateien nur den „löschen"-Marker. Die
       // Existenz zählt (nicht die Größe): eine bestehende leere Datei wird als
       // Leer-Inhalt gesichert, nicht als „neu".
-      const zuordnung = schnappZiel(roots, file, context);
+      const zuordnung = schnappZiel(roots, file);
       if (zuordnung && (!existierteVorher || stat.size <= snapshotService.MAX_SNAPSHOT_BYTES)) {
         const altInhalt = existierteVorher ? await handle.readFile('utf8') : null;
         await snapshotService.sichereVorher(zuordnung.root, zuordnung.rel, {

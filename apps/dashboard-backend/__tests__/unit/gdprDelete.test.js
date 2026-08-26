@@ -158,7 +158,6 @@ describe('DELETE /api/gdpr/me', () => {
     expect(res.body.message).toMatch(/Zugang selbst bleibt bestehen/);
     // Die Daten sind trotzdem weg …
     expect(queryCalls.some(c => c.sql.includes('DELETE FROM chat_conversations'))).toBe(true);
-    expect(queryCalls.some(c => c.sql.includes('DELETE FROM documents'))).toBe(true);
     // … nur die Zugangs-Zeile nicht.
     expect(queryCalls.some(c => c.sql.includes('DELETE FROM admin_users'))).toBe(false);
     expect(res.body.summary.admin_users).toBe(0);
@@ -193,7 +192,6 @@ describe('DELETE /api/gdpr/me', () => {
 
     // Anonymisierungs-Updates auf Compliance-Tabellen
     expect(sqls.some(s => s.includes('UPDATE audit_logs SET user_id = NULL'))).toBe(true);
-    expect(sqls.some(s => s.includes('UPDATE rag_query_log SET user_id = NULL'))).toBe(true);
     // Bis zum 23.08.2026 stand hier `SET username = NULL`. Die Spalte ist
     // NOT NULL, und der Test hat damit festgehalten, was am Geraet IMMER
     // scheiterte. Ein Test, der eine Zusage prueft, die es nicht gibt,
@@ -264,87 +262,6 @@ describe('DELETE /api/gdpr/me — was wirklich gelöscht wird (Plan 023 J4)', ()
       .send({ confirm: 'LOESCHEN-BESTAETIGT' });
     return { res, queryCalls, sqls: queryCalls.map(c => c.sql) };
   }
-
-  test('Dokumente werden ueber BEIDE Spalten geloescht, nicht nur ueber die Id', async () => {
-    // `uploaded_by` ist character varying und enthaelt einen NAMEN
-    // ('admin', 'ordner-sync', 'nightrun'). Der alte Vergleich mit der
-    // numerischen Id traf nie und meldete trotzdem Erfolg.
-    const { queryCalls } = await loeschen();
-    const del = queryCalls.find(c => c.sql.startsWith('DELETE FROM documents'));
-    expect(del).toBeDefined();
-    expect(del.sql).toContain('owner_id = $1');
-    expect(del.sql).toContain('uploaded_by = $2');
-    expect(del.params).toEqual([42, 'kolja']);
-  });
-
-  test('die Dateipfade werden VOR dem Loeschen eingesammelt', async () => {
-    // Danach weiss niemand mehr, welche MinIO-Objekte zu raeumen sind, und
-    // "Metadaten weg, Bytes da" ist keine Loeschung.
-    const { sqls } = await loeschen();
-    const idxSelect = sqls.findIndex(s => s.includes('SELECT file_path FROM documents'));
-    const idxDelete = sqls.findIndex(s => s.startsWith('DELETE FROM documents'));
-    expect(idxSelect).toBeGreaterThanOrEqual(0);
-    expect(idxSelect).toBeLessThan(idxDelete);
-  });
-
-  test('Wissensraeume und Projekte werden geloescht', async () => {
-    // Der Kommentar zaehlte sie auf, der Code loeschte sie nicht.
-    const { sqls } = await loeschen();
-    expect(sqls.some(s => s.includes('DELETE FROM knowledge_spaces'))).toBe(true);
-    expect(sqls.some(s => s.includes('DELETE FROM projects'))).toBe(true);
-  });
-
-  /**
-   * Am 23.08.2026 auf dem Pruefstand: der Raum "Allgemein" traegt
-   * `owner_id = NULL` und haengt an einem Projekt. Der Filter auf `owner_id`
-   * liess ihn stehen, und weil `knowledge_spaces_project_id_fkey` auf RESTRICT
-   * steht, scheiterte eine Zeile spaeter die ganze Transaktion:
-   *
-   *   update or delete on table "projects" violates foreign key constraint
-   *   "knowledge_spaces_project_id_fkey"
-   *
-   * Die Loeschung nach Art. 17 war damit auf einem GEWOEHNLICHEN Geraet
-   * unmoeglich, nicht in einem Sonderfall.
-   */
-  test('auch ein Wissensraum OHNE Besitzer am Projekt wird geloescht', async () => {
-    const { sqls } = await loeschen();
-    const zeile = sqls.find(s => s.includes('DELETE FROM knowledge_spaces'));
-    expect(zeile).toBeDefined();
-    expect(zeile).toMatch(/project_id IN \(SELECT id FROM projects\)/);
-  });
-
-  test('die Wissensraeume gehen VOR den Projekten', async () => {
-    // Andersherum steht der Fremdschluessel im Weg.
-    const { sqls } = await loeschen();
-    const idxRaum = sqls.findIndex(s => s.includes('DELETE FROM knowledge_spaces'));
-    const idxProjekt = sqls.findIndex(s => s.startsWith('DELETE FROM projects'));
-    expect(idxRaum).toBeGreaterThanOrEqual(0);
-    expect(idxRaum).toBeLessThan(idxProjekt);
-  });
-
-  test('die Projekt-Ids werden VOR dem Loeschen eingesammelt', async () => {
-    // Sonst bleiben die Ablage-Ordner des Kunden auf der Platte stehen.
-    const { sqls } = await loeschen();
-    const idxSelect = sqls.findIndex(s => s.includes('SELECT id FROM projects'));
-    const idxDelete = sqls.findIndex(s => s.startsWith('DELETE FROM projects'));
-    expect(idxSelect).toBeGreaterThanOrEqual(0);
-    expect(idxSelect).toBeLessThan(idxDelete);
-  });
-
-  test('Chunks gehen vor den Dokumenten', async () => {
-    const { sqls } = await loeschen();
-    const idxChunks = sqls.findIndex(s => s.includes('DELETE FROM document_chunks'));
-    const idxDocs = sqls.findIndex(s => s.startsWith('DELETE FROM documents'));
-    expect(idxChunks).toBeGreaterThanOrEqual(0);
-    expect(idxChunks).toBeLessThan(idxDocs);
-  });
-
-  test('die Antwort zaehlt auch die Bytes, nicht nur die Zeilen', async () => {
-    const { res } = await loeschen();
-    expect(res.body.summary).toHaveProperty('minio_objekte');
-    expect(res.body.summary).toHaveProperty('minio_offen');
-    expect(res.body.summary).toHaveProperty('projekt_ordner');
-  });
 
   /**
    * `login_attempts.username` ist NOT NULL. Ein `SET username = NULL` liess die

@@ -1,5 +1,4 @@
 const { z } = require('zod');
-const { ProjektOrdnerZiel, FlowProjektId } = require('./flows');
 
 // POST /llm/chat
 const ExternalLlmChatBody = z
@@ -25,13 +24,6 @@ const ExternalFlowRunBody = z
     args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
     wait_for_result: z.boolean().optional(),
     timeout_seconds: z.number().int().positive().max(1800).optional(),
-    // Ziel-Ordner des Laufs (z. B. der Kundenordner): NUR projekt://-Formen,
-    // damit externe Aufrufer keine rohen Gerätepfade öffnen können.
-    ordner_ziel: ProjektOrdnerZiel.optional(),
-    // Projektgebundener Flow (Plan 014, Phase 4): der Flow wird im
-    // flows/-Ordner dieses Projekts gesucht — so ruft der n8n-Mail-Workflow
-    // den /antwort-Flow im isolierten Kundenservice-Projekt auf.
-    projekt: FlowProjektId.optional(),
   })
   .strict();
 

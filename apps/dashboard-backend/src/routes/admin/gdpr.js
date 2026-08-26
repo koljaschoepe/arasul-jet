@@ -115,13 +115,10 @@ router.get(
       chatsResult,
       messagesResult,
       attachmentsResult,
-      documentsResult,
       loginHistoryResult,
       sessionsResult,
       auditResult,
       securityAuditResult,
-      spacesResult,
-      projekteResult,
     ] = await nacheinander([
       // 1. User profile
       () =>
@@ -169,26 +166,9 @@ router.get(
           [userId]
         ),
 
-      // 5. Dokumente. Zwei Spalten, weil die Ablage zwei Wege kennt:
-      //    `owner_id` (Migration 089, numerische Id) und `uploaded_by`, das
-      //    einen NAMEN enthält ('admin', 'ordner-sync', 'nightrun') und keine
-      //    Id. Die alte Abfrage verglich `uploaded_by` mit der Id — das trifft
-      //    nie und lieferte still eine leere Liste.
-      () =>
-        hole(
-          'dokumente',
-          `SELECT id, title, filename, original_filename, mime_type, file_size, status,
-                uploaded_at, updated_at, category_id, chunk_count, uploaded_by, owner_id
-         FROM documents
-         WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL
-         ORDER BY uploaded_at DESC`,
-          [userId, req.user.username]
-        ),
-
-      // 6. KI-Erinnerungen gab es hier bis zum 24.08.2026. Die Tabelle
-      //    `ai_memories` lag in Qdrant gespiegelt, hatte ueber die gesamte
-      //    Geraetelaufzeit 0 Zeilen und ist mit Migration 162 entfallen. Es
-      //    gibt also keine Kategorie mehr, die hier fehlen koennte.
+      // 5. und 6. Dokumente und KI-Erinnerungen gab es hier bis Phase B4
+      //    (26.08.2026); Dokumente, Wissensraeume und Projekte sind mit ihren
+      //    Tabellen gefallen, `ai_memories` schon mit Migration 162.
 
       // 7. Login history (last 500)
       () =>
@@ -230,41 +210,6 @@ router.get(
          ORDER BY timestamp DESC`,
           [userId]
         ),
-
-      // 11. Wissensräume. `created_by` gibt es nicht; die Spalte heißt seit
-      //     Migration 089 `owner_id`.
-      () =>
-        hole(
-          'wissensraeume',
-          // Dieselbe Bedingung wie in der Loeschung (Art. 17), und aus
-          // demselben Grund: `owner_id` ist im Normalfall NULL. Ein ueber die
-          // Oberflaeche angelegter Raum haengt an einem Projekt, nicht an
-          // einem Nutzer. Am 23.08.2026 auf dem Pruefstand gemessen: der Raum
-          // lag in der Datenbank, die Auskunft nach Art. 15 meldete null.
-          //
-          // Auskunft und Loeschung duerfen sich nicht widersprechen. Wenn die
-          // Loeschung ihn entfernt, muss die Auskunft ihn zeigen; sonst
-          // erfaehrt der Betroffene nicht, was ueber ihn gespeichert ist.
-          `SELECT id, name, slug, description, document_count, created_at, updated_at
-         FROM knowledge_spaces
-        WHERE owner_id = $1
-           OR project_id IN (SELECT id FROM projects)
-         ORDER BY created_at DESC`,
-          [userId]
-        ),
-
-      // 12. Projekte. Die Doku führt sie seit jeher als Kategorie, der Export
-      //     lieferte sie nie. Eine Besitzerspalte gibt es nicht: Migration 089
-      //     hatte `projects.owner_id` angelegt, 104 hat die damalige Tabelle
-      //     gedroppt und 118 sie ohne Besitzer neu aufgebaut. Also boxweit mit
-      //     Hinweis, wie bei den KI-Erinnerungen.
-      () =>
-        hole(
-          'projekte',
-          `SELECT id, name, slug, description, is_default, created_at, updated_at
-         FROM projects ORDER BY created_at DESC`,
-          []
-        ),
     ]);
 
     const exportData = {
@@ -294,10 +239,7 @@ router.get(
             : undefined,
       }),
       attachments: block('anhaenge', attachmentsResult, {
-        note: 'File contents are stored in MinIO, this export contains metadata only. Request file export separately if needed.',
-      }),
-      documents: block('dokumente', documentsResult, {
-        note: 'Document files are stored in MinIO, this export contains metadata only.',
+        note: 'Dieser Export enthaelt nur die Metadaten der Anhaenge.',
       }),
       loginHistory: block('anmeldungen', loginHistoryResult),
       activeSessions: {
@@ -315,10 +257,6 @@ router.get(
             : undefined,
       }),
       securityEvents: block('sicherheitsereignisse', securityAuditResult),
-      knowledgeSpaces: block('wissensraeume', spacesResult),
-      projects: block('projekte', projekteResult, {
-        note: 'Projekte sind auf dieser Box nicht nutzergebunden, der Export enthält daher alle.',
-      }),
     };
 
     const filename = `arasul-gdpr-export-${req.user.username}-${new Date().toISOString().split('T')[0]}.json`;
@@ -392,23 +330,10 @@ router.get(
     const userId = req.user.id;
 
     // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
-    // Zahlen als die Auskunft. `documents.uploaded_by` enthält einen Namen,
-    // keine Id.
-    const [chatCount, docCount, auditCount, spaceCount, projektCount] = await Promise.all([
+    // Zahlen als die Auskunft.
+    const [chatCount, auditCount] = await Promise.all([
       db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
-      db.query(
-        `SELECT count(*) FROM documents
-            WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL`,
-        [userId, req.user.username]
-      ),
       db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
-      // Dieselbe Bedingung wie im Export und in der Loeschung.
-      db.query(
-        `SELECT count(*) FROM knowledge_spaces
-            WHERE owner_id = $1 OR project_id IN (SELECT id FROM projects)`,
-        [userId]
-      ),
-      db.query('SELECT count(*) FROM projects'),
     ]);
 
     res.json({
@@ -420,11 +345,6 @@ router.get(
           count: parseInt(chatCount.rows[0].count),
         },
         {
-          name: 'Dokumente',
-          description: 'Hochgeladene Dateien (Metadaten)',
-          count: parseInt(docCount.rows[0].count),
-        },
-        {
           name: 'Aktivitätsprotokoll',
           description: 'API-Zugriffe und Aktionen',
           count: parseInt(auditCount.rows[0].count),
@@ -433,16 +353,6 @@ router.get(
         {
           name: 'Sicherheitsereignisse',
           description: 'Passwortänderungen, Konfigurationsänderungen',
-        },
-        {
-          name: 'Wissensräume',
-          description: 'Selbst angelegte Wissensräume',
-          count: parseInt(spaceCount.rows[0].count),
-        },
-        {
-          name: 'Projekte',
-          description: 'Projekte auf dieser Box (ohne Nutzerbindung)',
-          count: parseInt(projektCount.rows[0].count),
         },
       ],
       timestamp: new Date().toISOString(),
@@ -458,32 +368,21 @@ router.get(
  * versehentliche Trigger via XSS, Mistypes oder fremde Browser-Sessions.
  *
  * Was passiert:
- *   - Persönliche Inhalte werden gelöscht: Chats samt Anhängen, Dokumente
- *     (Metadaten UND die Dateien in MinIO), Wissensräume, Projekte samt
- *     Ablage-Ordnern auf der Platte.
+ *   - Persönliche Inhalte werden gelöscht: Chats samt Anhängen. (Dokumente,
+ *     Wissensräume und Projekte gab es bis Phase B4, 26.08.2026.)
  *   - Aktive Sessions des Users werden invalidiert.
  *   - Compliance-Trails (audit_logs, api_audit_logs, login_attempts) werden
  *     anonymisiert (user_id/username → NULL) statt gelöscht — DSGVO Art. 17 (3) (b)
  *     erlaubt das, wenn rechtliche Aufbewahrungspflichten greifen.
- *   - rag_query_log: user_id → NULL (Plaintext ist seit Phase 5.2 schon
- *     anonymisiert).
  *   - admin_users: Eigene Row wird gelöscht — ABER nur wenn nicht letzter
  *     Admin (sonst wäre die Box gemauert; Single-Box-Appliance).
  *
- * DREI FEHLER, GEFUNDEN AM 22.08.2026 (Plan 023 J4):
+ * GEFUNDEN AM 22.08.2026 (Plan 023 J4): der Letzter-Admin-Schutz machte die
+ * Löschung auf einem Kundengerät UNMÖGLICH: mit einem Zugang je Gerät
+ * (Entscheidung E1) ist der Antragsteller immer der letzte Admin. Art. 17
+ * lief damit in einen 403.
  *
- *  1. `DELETE FROM documents WHERE uploaded_by = $1` mit der Id. `uploaded_by`
- *     ist `character varying` und enthält einen NAMEN ('admin', 'ordner-sync',
- *     'nightrun'). Der Vergleich traf nie, die Antwort meldete `documents: 0`
- *     und sah aus wie die Wahrheit. Dieselbe Verwechslung war in der Auskunft
- *     (Art. 15) am 19.08. behoben worden, hier stand sie noch.
- *  2. Wissensräume und Projekte wurden gar nicht gelöscht, obwohl der
- *     Kommentar oben sie aufzählte.
- *  3. Der Letzter-Admin-Schutz machte die Löschung auf einem Kundengerät
- *     UNMÖGLICH: mit einem Zugang je Gerät (Entscheidung E1) ist der
- *     Antragsteller immer der letzte Admin. Art. 17 lief damit in einen 403.
- *
- * Zu (3): die Daten werden jetzt IMMER gelöscht. Nur die Zugangs-Zeile bleibt
+ * Die Daten werden deshalb IMMER gelöscht. Nur die Zugangs-Zeile bleibt
  * stehen, wenn es die letzte ist, und die Antwort sagt das ausdrücklich. Ein
  * gemauertes Gerät wäre die schlechtere Antwort auf einen Löschantrag; ob der
  * Benutzername selbst noch stehen bleiben darf, ist eine Rechtsfrage und keine
@@ -524,11 +423,6 @@ router.delete(
     // Transaktion ist der User nur ausgeloggt (Account bleibt) — sicheres Fail.
     await blacklistAllUserTokens(userId);
 
-    // Was nach der Transaktion von der Platte muss. Innerhalb der Transaktion
-    // gesammelt, danach geräumt: ein Rollback darf keine Datei kosten.
-    let minioPfade = [];
-    let projektIds = [];
-
     const summary = await db.transaction(async client => {
       const counts = {};
 
@@ -565,65 +459,8 @@ router.delete(
         userId,
       ]);
 
-      // 2) Dokumente. ZWEI Spalten, wie in der Auskunft (Art. 15): `owner_id`
-      //    trägt die numerische Id, `uploaded_by` einen NAMEN. Die alte
-      //    Abfrage verglich `uploaded_by` mit der Id — sie traf nie und
-      //    meldete `documents: 0`, als wäre das die Wahrheit.
-      //
-      //    Die Dateipfade werden VOR dem Löschen eingesammelt: nach dem
-      //    DELETE weiß niemand mehr, welche MinIO-Objekte zu räumen sind, und
-      //    "Metadaten weg, Bytes da" ist keine Löschung.
-      const dateien = await client.query(
-        `SELECT file_path FROM documents
-          WHERE (owner_id = $1 OR uploaded_by = $2) AND file_path IS NOT NULL`,
-        [userId, username]
-      );
-      minioPfade = dateien.rows.map(r => r.file_path).filter(Boolean);
-
-      await del(
-        'document_chunks',
-        `DELETE FROM document_chunks
-          WHERE document_id IN (
-            SELECT id FROM documents WHERE owner_id = $1 OR uploaded_by = $2
-          )`,
-        [userId, username]
-      );
-      await del('documents', `DELETE FROM documents WHERE owner_id = $1 OR uploaded_by = $2`, [
-        userId,
-        username,
-      ]);
-
-      // 2b) Wissensräume. `knowledge_spaces.owner_id` gibt es (die alte
-      //     Behauptung "kein user_id-Feld" stimmte nicht).
-      //
-      //     Aber `owner_id` allein reicht nicht, und das ist der Normalfall,
-      //     nicht der Sonderfall. Am 23.08.2026 auf dem Prüfstand: der Raum
-      //     „Allgemein" trägt `owner_id = NULL` und hängt an einem Projekt.
-      //     Der Filter ließ ihn stehen, und weil
-      //     `knowledge_spaces_project_id_fkey` auf RESTRICT steht, scheiterte
-      //     eine Zeile später die ganze Transaktion:
-      //
-      //       update or delete on table "projects" violates foreign key
-      //       constraint "knowledge_spaces_project_id_fkey"
-      //
-      //     Die Löschung nach Art. 17 war damit auf einem gewöhnlichen Gerät
-      //     unmöglich. Mit einem Zugang je Gerät (E1) gehören alle Projekte
-      //     diesem Zugang, also auch die Räume an ihnen.
-      await del(
-        'knowledge_spaces',
-        `DELETE FROM knowledge_spaces
-          WHERE owner_id = $1
-             OR project_id IN (SELECT id FROM projects)`,
-        [userId]
-      );
-
-      // 2c) Projekte. Die Tabelle hat KEINE Besitzerspalte: mit einem Zugang je
-      //     Gerät (E1) gehören alle Projekte diesem Zugang. Ihre Ablage-Ordner
-      //     werden nach der Transaktion von der Platte geräumt — sonst stünden
-      //     die Dateien des Kunden nach seiner Löschung weiter da.
-      const projekte = await client.query(`SELECT id FROM projects`);
-      projektIds = projekte.rows.map(r => r.id);
-      await del('projects', `DELETE FROM projects`);
+      // 2) Dokumente, Wissensräume und Projekte standen hier bis Phase B4
+      //    (26.08.2026); ihre Tabellen sind mit Migration 163 gefallen.
 
       // 3) Aktive Sessions invalidieren
       await del('active_sessions', `DELETE FROM active_sessions WHERE user_id = $1`, [userId]);
@@ -658,10 +495,6 @@ router.delete(
         username,
         ANONYM,
       ]);
-      await anon('rag_query_log', `UPDATE rag_query_log SET user_id = NULL WHERE user_id = $1`, [
-        userId,
-      ]);
-
       // 5) admin_users — eigene Row löschen (Single-Box-Schutz oben hat
       //    Zeile bleibt beim letzten Admin stehen, siehe oben.
       if (letzterAdmin) {
@@ -672,37 +505,6 @@ router.delete(
 
       return counts;
     });
-
-    // Nach dem Commit: die Bytes. Best effort und einzeln protokolliert — ein
-    // nicht löschbares Objekt darf die schon vollzogene Löschung nicht
-    // zurückdrehen, aber es darf auch nicht verschwiegen werden.
-    const minioService = require('../../services/documents/minioService');
-    let dateienGeloescht = 0;
-    for (const pfad of minioPfade) {
-      try {
-        await minioService.removeObject(pfad);
-        dateienGeloescht += 1;
-      } catch (err) {
-        logger.error(`[gdpr-delete] MinIO-Objekt "${pfad}" blieb liegen: ${err.message}`);
-      }
-    }
-    summary.minio_objekte = dateienGeloescht;
-    summary.minio_offen = minioPfade.length - dateienGeloescht;
-
-    const fsp = require('fs/promises');
-    const path = require('path');
-    // Derselbe Ordner wie in ablageService/gitSyncService, siehe deren Kopf.
-    const ABLAGE_DIR = process.env.PROJECT_GIT_DIR || '/arasul/projects';
-    let ordnerGeloescht = 0;
-    for (const id of projektIds) {
-      try {
-        await fsp.rm(path.join(ABLAGE_DIR, String(id)), { recursive: true, force: true });
-        ordnerGeloescht += 1;
-      } catch (err) {
-        logger.error(`[gdpr-delete] Projektordner "${id}" blieb liegen: ${err.message}`);
-      }
-    }
-    summary.projekt_ordner = ordnerGeloescht;
 
     logSecurityEvent({
       userId: null,

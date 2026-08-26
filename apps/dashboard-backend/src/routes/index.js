@@ -5,7 +5,7 @@
  * Routes are organized into subdirectories by domain:
  *   system/    - Services, metrics, logs, database
  *   admin/     - Settings, audit, updates, self-healing
- *   ai/        - Models, embeddings, memory, spaces
+ *   ai/        - Models, embeddings
  *   store/     - App store, unified store, workflows, workspaces
  *   external/  - External API, events, alerts
  *
@@ -26,10 +26,7 @@ const { metricsLimiter, llmLimiter, tailscaleLimiter } = require('../middleware/
 const API_ROUTE_GROUPS = [
   { prefix: '/auth', group: 'core' },
   { prefix: '/chats', group: 'core' },
-  { prefix: '/documents', group: 'core' },
-  { prefix: '/document-analysis', group: 'core' },
   { prefix: '/llm', group: 'core' },
-  { prefix: '/rag', group: 'core' },
   { prefix: '/system', group: 'system' },
   { prefix: '/services', group: 'system' },
   { prefix: '/metrics', group: 'system' },
@@ -48,12 +45,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/models', group: 'ai' },
   { prefix: '/modelle-extern', group: 'ai' },
   { prefix: '/embeddings', group: 'ai' },
-  { prefix: '/memory', group: 'ai' },
-  { prefix: '/spaces', group: 'ai' },
-  { prefix: '/projects', group: 'ai' },
-  { prefix: '/knowledge-graph', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
-  { prefix: '/git', group: 'ai' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/workflows', group: 'store' },
@@ -90,10 +82,7 @@ router.get('/_meta', (req, res) => {
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
 router.use('/chats', require('./chats'));
-router.use('/documents', require('./documents'));
-router.use('/document-analysis', require('./documentAnalysis'));
 router.use('/llm', llmLimiter, require('./llm'));
-router.use('/rag', require('./rag'));
 router.use('/docs', require('./docs'));
 
 // --- System ---
@@ -122,12 +111,7 @@ router.use('/models', require('./ai/models'));
 // verlässt.
 router.use('/modelle-extern', require('./ai/externeModelle'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
-router.use('/memory', require('./ai/profil'));
-router.use('/spaces', require('./ai/spaces'));
-router.use('/projects', require('./ai/projects'));
-router.use('/knowledge-graph', require('./ai/knowledgeGraph'));
 router.use('/flows', require('./flows'));
-router.use('/git', require('./git'));
 
 // --- Store ---
 router.use('/apps', require('./store/appstore'));
