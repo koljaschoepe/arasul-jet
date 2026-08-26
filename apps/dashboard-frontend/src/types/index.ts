@@ -15,7 +15,7 @@
 
 // --- Model Lifecycle ---
 
-export interface LoadedModelInfo {
+interface LoadedModelInfo {
   id: string;
   ollamaName: string;
   name: string;
@@ -51,7 +51,7 @@ export interface MemoryBudget {
 // dashboard shell in App.tsx; kept here so both agree on one precise type
 // instead of an index-signature grab bag.
 
-export interface MetricsDisk {
+interface MetricsDisk {
   used: number;
   free: number;
   percent: number;
@@ -70,9 +70,3 @@ export interface Metrics {
     online?: boolean;
   };
 }
-
-// --- API ---
-
-// ApiError is defined in hooks/useApi.ts (extends Error with .status/.code/.details).
-// Re-exported here so consumers can import it from the central types module.
-export type { ApiError } from '../hooks/useApi';

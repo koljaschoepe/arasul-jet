@@ -59,5 +59,3 @@ export function useSchmalesFenster(grenze: number = SCHMAL_AB_PX): boolean {
 
   return schmal;
 }
-
-export default useSchmalesFenster;

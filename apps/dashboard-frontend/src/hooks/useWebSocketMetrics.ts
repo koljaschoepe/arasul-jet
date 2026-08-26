@@ -16,8 +16,6 @@ const WS_BASE = import.meta.env.VITE_WS_URL || `${WS_PROTOCOL}//${window.locatio
 
 const MAX_RECONNECT_ATTEMPTS = 10;
 
-export type { Metrics } from '../types';
-
 interface UseWebSocketMetricsReturn {
   metrics: Metrics | null;
   wsConnected: boolean;

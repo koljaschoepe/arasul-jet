@@ -1,8 +1,9 @@
 /**
  * SidebarHost — Ansichts-Mapping (Plan 012 Phase B, Schritt 6).
  * Die aktive Activity-Bar-Ansicht (`activeView`) bestimmt den Inhalt der
- * linken Sidebar. Seit B2 gibt es keinen Datei-Explorer mehr: ohne gewählte
- * Ansicht bleibt die Spalte leer.
+ * linken Sidebar. Seit B2 gibt es keinen Datei-Explorer mehr, seit B3 keine
+ * Erweiterungs- und keine Flow-Ansicht: ohne gewählte Ansicht bleibt die
+ * Spalte leer.
  */
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -10,16 +11,10 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ActivityView } from '@/stores/workspaceStore';
 import { SidebarHost } from '../SidebarHost';
 
-// Ansichten mit Datenanbindung (useFlows / useStoreCatalog) hier isolieren —
-// dieser Test prüft nur das Ansichts-Mapping, nicht deren Innenleben.
-vi.mock('../sidebar/FlowsPanel', () => ({
-  FlowsPanel: () => <div data-testid="flows-panel" />,
-}));
+// Ansichten mit Datenanbindung (useStoreCatalog) hier isolieren — dieser
+// Test prüft nur das Ansichts-Mapping, nicht deren Innenleben.
 vi.mock('../sidebar/ModelsPanel', () => ({
   ModelsPanel: () => <div data-testid="models-panel" />,
-}));
-vi.mock('../sidebar/ExtensionsPanel', () => ({
-  ExtensionsPanel: () => <div data-testid="extensions-panel" />,
 }));
 vi.mock('../sidebar/SettingsPanel', () => ({
   SettingsPanel: () => <div data-testid="settings-panel" />,
@@ -42,18 +37,6 @@ describe('SidebarHost, Ansichts-Mapping', () => {
     reset('models');
     render(<SidebarHost />);
     expect(screen.getByTestId('models-panel')).toBeInTheDocument();
-  });
-
-  it('extensions → Erweiterungs-Ansicht', () => {
-    reset('extensions');
-    render(<SidebarHost />);
-    expect(screen.getByTestId('extensions-panel')).toBeInTheDocument();
-  });
-
-  it('flows → Flow-Ansicht', () => {
-    reset('flows');
-    render(<SidebarHost />);
-    expect(screen.getByTestId('flows-panel')).toBeInTheDocument();
   });
 
   it('settings → Bereiche der Einstellungen', () => {

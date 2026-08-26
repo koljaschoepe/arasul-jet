@@ -8,6 +8,10 @@
     "tw-animate-css",
     "@arasul/shared-schemas",
     "@testing-library/dom",
-    "eslint-plugin-react"
-  ]
+    "eslint-plugin-react",
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "eslint-plugin-jsx-a11y"
+  ],
+  "ignoreBinaries": ["eslint"]
 }

@@ -1,16 +1,15 @@
 /**
  * Integration-Tests der Store-Ansicht (Full-Width-Kartenlayout).
  *
- *   - Zwei Reiter (Modelle/Erweiterungen) über dem Raster.
  *   - „Modelle" (StoreModelsGrid): Katalog-Modelle als Karten mit Status/Laden.
- *   - „Erweiterungen" (StoreExtensionsGrid): Workspace-Apps als Karten mit
- *     An/Aus-Schalter (PUT /workspace-apps/:id).
  *   - Karte → Detailseite (StoreDetailPage) mit „← Zurück" zurück ins Raster.
+ *
+ * Der Reiter „Erweiterungen" ist mit Phase B3 (26.08.2026) gefallen.
  *
  * Getestet wird der Pfad /store mit echten Datenhooks (React Query) über einem
  * gemockten useApi.
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { Mock } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -80,32 +79,15 @@ const sampleModels = [
   },
 ];
 
-const sampleWorkspaceApps = [
-  {
-    id: 'n8n',
-    name: 'n8n',
-    description: 'Workflow-Automatisierung',
-    tab: 'automationen',
-    enabled: true,
-  },
-  {
-    id: 'database',
-    name: 'Datenbank',
-    description: 'Tabellen',
-    tab: 'database',
-    enabled: true,
-  },
-];
-
 // ---- Helpers ----
 
-function renderStore(route = '/store', bereich: 'models' | 'extensions' = 'models') {
+function renderStore(route = '/store') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[route]}>
         <Routes>
-          <Route path="/store/*" element={<Store bereich={bereich} />} />
+          <Route path="/store/*" element={<Store />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -119,11 +101,8 @@ function setupDefaultApiResponses() {
       return Promise.resolve({ loaded_model: { model_id: 'qwen3-14b', ram_usage_mb: 14000 } });
     }
     if (path.startsWith('/models/default')) return Promise.resolve({ default_model: 'qwen3-14b' });
-    if (path.startsWith('/workspace-apps')) return Promise.resolve({ apps: sampleWorkspaceApps });
-    if (path.startsWith('/apps')) return Promise.resolve({ apps: [] });
     return Promise.resolve({});
   });
-  (mockApi.put as Mock).mockResolvedValue({});
 }
 
 // ---- Tests ----
@@ -131,21 +110,10 @@ function setupDefaultApiResponses() {
 describe('Store integration (Full-Width-Kartenlayout)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // storeTab lebt global im extensionStore (Plan 012 Phase B) — pro Test auf
-    // den Default-Reiter zurücksetzen, sonst leckt er zwischen Tests.
-    useExtensionStore.setState({ selected: null, storeTab: 'models' });
+    // Die Auswahl lebt global im extensionStore — pro Test leeren, sonst leckt
+    // sie zwischen Tests.
+    useExtensionStore.setState({ selected: null });
     setupDefaultApiResponses();
-  });
-
-  // Plan 023 B7: aus dem einen Tab sind zwei geworden, der Bereich kommt als
-  // Eigenschaft herein statt aus einem Zustand nebenan.
-  it('beide Bereiche zeigen ihr eigenes Raster', async () => {
-    const { unmount } = renderStore('/store', 'models');
-    expect(await screen.findByTestId('store-models-grid')).toBeInTheDocument();
-    unmount();
-
-    renderStore('/store', 'extensions');
-    expect(await screen.findByTestId('store-extensions-grid')).toBeInTheDocument();
   });
 
   it('Bereich „Modelle": Kartenraster mit Katalog-Modellen', async () => {
@@ -153,13 +121,6 @@ describe('Store integration (Full-Width-Kartenlayout)', () => {
     expect(await screen.findByTestId('store-models-grid')).toBeInTheDocument();
     expect(await screen.findByTestId('model-card-qwen3-14b')).toBeInTheDocument();
     expect(screen.getByTestId('model-card-llama3-8b')).toBeInTheDocument();
-  });
-
-  it('Bereich „Erweiterungen": Kartenraster mit Workspace-Apps', async () => {
-    renderStore('/store', 'extensions');
-    expect(await screen.findByTestId('store-extensions-grid')).toBeInTheDocument();
-    expect(await screen.findByTestId('ext-card-n8n')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-card-database')).toBeInTheDocument();
   });
 
   it('Klick auf eine Modell-Karte öffnet die Detailseite; „← Zurück" führt zurück', async () => {
@@ -175,18 +136,5 @@ describe('Store integration (Full-Width-Kartenlayout)', () => {
     const btn = await screen.findByTestId('model-download-llama3-8b');
     fireEvent.click(btn);
     expect(startDownload).toHaveBeenCalledWith('llama3-8b', 'Llama 3 8B');
-  });
-
-  it('der Erweiterungs-Schalter kippt über PUT /workspace-apps/:id', async () => {
-    renderStore('/store', 'extensions');
-    const toggle = await screen.findByRole('switch', { name: 'n8n deaktivieren' });
-    fireEvent.click(toggle);
-    await waitFor(() =>
-      expect(mockApi.put).toHaveBeenCalledWith(
-        '/workspace-apps/n8n',
-        { enabled: false },
-        { showError: false }
-      )
-    );
   });
 });

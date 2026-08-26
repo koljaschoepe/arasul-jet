@@ -85,32 +85,3 @@ export function SkeletonList({
     </div>
   );
 }
-
-function SkeletonDocumentItem() {
-  return (
-    <div className="flex items-center gap-3 py-3 px-4" aria-hidden="true">
-      <Skeleton width="24px" height="24px" borderRadius="4px" />
-      <div className="flex-1 flex flex-col gap-1">
-        <Skeleton height="1rem" width="70%" />
-        <Skeleton height="0.75rem" width="40%" />
-      </div>
-      <Skeleton width="60px" height="1.5rem" borderRadius="4px" />
-    </div>
-  );
-}
-
-export function SkeletonDocumentList({ count = 5 }: { count?: number }) {
-  return (
-    <div
-      className="flex flex-col divide-y divide-border"
-      aria-label="Lade Dokumente..."
-      role="status"
-    >
-      {Array(count)
-        .fill(0)
-        .map((_, i) => (
-          <SkeletonDocumentItem key={i} />
-        ))}
-    </div>
-  );
-}

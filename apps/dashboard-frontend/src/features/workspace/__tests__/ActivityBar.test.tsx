@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ActivityBar } from '../ActivityBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useExtensionStore } from '@/stores/extensionStore';
 
 // App-Gating deterministisch mocken (echte Datenbasis: GET /workspace-apps)
 const enabledApps = new Set<string>();
@@ -15,18 +14,6 @@ vi.mock('@/hooks/useWorkspaceApps', () => ({
   }),
 }));
 
-// Installierte Erweiterungs-Pakete mocken (echte Datenbasis: GET /extensions)
-interface MockExtension {
-  id: string;
-  name: string;
-  type: string;
-  enabled: boolean;
-}
-const installedExtensions: MockExtension[] = [];
-vi.mock('@/hooks/useExtensions', () => ({
-  useExtensions: () => ({ extensions: installedExtensions, isLoading: false }),
-}));
-
 function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
@@ -35,85 +22,49 @@ function resetStore() {
     sidebarVisible: true,
     rightPanelVisible: true,
   });
-  useExtensionStore.setState({ storeTab: 'models', selected: null });
 }
 
-describe('ActivityBar, feste Spalte: Modelle · Erweiterungen · Flows + Zahnrad', () => {
+describe('ActivityBar, feste Spalte: Modelle + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
     enabledApps.clear();
-    installedExtensions.length = 0;
   });
 
-  it('zeigt die drei Ansichten und das Einstellungen-Zahnrad', () => {
+  it('zeigt die Ansicht Modelle und das Einstellungen-Zahnrad', () => {
     render(<ActivityBar />);
-    for (const label of ['Modelle', 'Erweiterungen', 'Flows', 'Einstellungen']) {
+    for (const label of ['Modelle', 'Einstellungen']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
-    // »Dateien« (Explorer) ist mit B2 gefallen, »Suche« schon davor.
-    expect(screen.queryByLabelText('Dateien')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Suche')).not.toBeInTheDocument();
+    // »Dateien« (Explorer) ist mit B2 gefallen, »Erweiterungen« und »Flows«
+    // mit B3, »Suche« schon davor.
+    for (const label of ['Dateien', 'Suche', 'Erweiterungen', 'Flows']) {
+      expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+    }
     // Automation ist kein fester Bereich — nur als aktivierte Erweiterung
     expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
   });
 
-  it('Flows wählt die Ansicht und zieht die Sidebar auf', () => {
+  it('Modelle wählt die Ansicht, zieht die Sidebar auf und öffnet den Modelle-Tab', () => {
     useWorkspaceStore.setState({ sidebarVisible: false });
-    render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Flows'));
-    const s = useWorkspaceStore.getState();
-    expect(s.activeView).toBe('flows');
-    expect(s.sidebarVisible).toBe(true);
-  });
-
-  it('die aktive Ansicht (offen) klappt die Sidebar wieder ein', () => {
-    useWorkspaceStore.setState({ activeView: 'flows', sidebarVisible: true });
-    render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Flows'));
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
-  });
-
-  it('Modelle öffnet den eigenen Modelle-Tab', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Modelle'));
     const s = useWorkspaceStore.getState();
     expect(s.activeView).toBe('models');
+    expect(s.sidebarVisible).toBe(true);
     expect(s.activeTabId).toBe('modelle');
-    expect(useExtensionStore.getState().storeTab).toBe('models');
   });
 
-  it('Erweiterungen öffnet den eigenen Erweiterungen-Tab', () => {
+  it('die aktive Ansicht (offen) klappt die Sidebar wieder ein', () => {
+    useWorkspaceStore.setState({ activeView: 'models', sidebarVisible: true });
     render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Erweiterungen'));
-    const s = useWorkspaceStore.getState();
-    expect(s.activeView).toBe('extensions');
-    expect(s.activeTabId).toBe('erweiterungen');
-    expect(useExtensionStore.getState().storeTab).toBe('extensions');
+    fireEvent.click(screen.getByLabelText('Modelle'));
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
   });
 
   it('Einstellungen öffnet den Einstellungen-Tab', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Einstellungen'));
     expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
-  });
-
-  it('aktivierte App-Erweiterungen bekommen einen eigenen Eintrag, der ihren Tab öffnet', () => {
-    installedExtensions.push(
-      { id: 'meine-app', name: 'Meine App', type: 'app', enabled: true },
-      { id: 'aus-geschaltet', name: 'Aus', type: 'app', enabled: false },
-      { id: 'werkzeug', name: 'Werkzeug', type: 'tool', enabled: true }
-    );
-    render(<ActivityBar />);
-
-    // Nur aktivierte App-Erweiterungen — deaktivierte und flow/tool-Pakete nicht.
-    expect(screen.queryByLabelText('Aus')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Werkzeug')).not.toBeInTheDocument();
-
-    const btn = screen.getByLabelText('Meine App');
-    fireEvent.click(btn);
-    const s = useWorkspaceStore.getState();
-    expect(s.activeTabId).toBe('extension:meine-app');
-    expect(s.tabs.some(t => t.type === 'extension' && t.extensionId === 'meine-app')).toBe(true);
   });
 
   it('n8n (Automation) erscheint NUR wenn die Erweiterung aktiviert ist und öffnet den Automationen-Tab', () => {

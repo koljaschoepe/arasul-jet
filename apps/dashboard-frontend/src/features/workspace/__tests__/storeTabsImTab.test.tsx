@@ -1,5 +1,6 @@
 /**
- * Modelle und Erweiterungen als eigene Tabs, durch den echten Weg (Plan 023 B7).
+ * Der Modelle-Tab durch den echten Weg (Plan 023 B7; seit B3 ist er der
+ * einzige Store-Tab).
  *
  * Beim Aufteilen des einen „Extensions"-Tabs in zwei ist genau hier ein Fehler
  * entstanden, den die anderen Tests nicht sehen konnten: `routeFor` bekam den
@@ -8,8 +9,7 @@
  * Tab blieb dauerhaft leer.
  *
  * Aufgefallen ist das im Review, nicht im Testlauf, weil sämtliche Store-Tests
- * `<Store bereich=… />` direkt rendern und die Verdrahtung dazwischen
- * überspringen. Dieser Test geht deshalb durch `FeatureTabHost`, also durch
+ * `<Store />` direkt rendern und die Verdrahtung dazwischen überspringen. Dieser Test geht deshalb durch `FeatureTabHost`, also durch
  * dieselbe Kette wie die Anwendung.
  */
 
@@ -17,7 +17,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 vi.mock('@/features/store', () => ({
-  default: ({ bereich }: { bereich: string }) => <div data-testid="store-bereich">{bereich}</div>,
+  default: () => <div data-testid="store-bereich">models</div>,
 }));
 
 import { FeatureTabHost } from '../TabContent';
@@ -44,13 +44,4 @@ async function zeige(tab: WorkspaceTab, adresse: string) {
 test('der Modelle-Tab rendert das Modell-Raster, nicht die Bruecke', async () => {
   const tab = { id: 'modelle', type: 'modelle', title: 'Modelle' } as WorkspaceTab;
   await expect(zeige(tab, '/workspace/modelle')).resolves.toBe('models');
-});
-
-test('der Erweiterungen-Tab rendert das Erweiterungs-Raster', async () => {
-  const tab = {
-    id: 'erweiterungen',
-    type: 'erweiterungen',
-    title: 'Erweiterungen',
-  } as WorkspaceTab;
-  await expect(zeige(tab, '/workspace/erweiterungen')).resolves.toBe('extensions');
 });

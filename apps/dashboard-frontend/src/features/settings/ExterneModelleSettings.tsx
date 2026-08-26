@@ -227,5 +227,3 @@ export function ExterneModelleSettings() {
     </div>
   );
 }
-
-export default ExterneModelleSettings;

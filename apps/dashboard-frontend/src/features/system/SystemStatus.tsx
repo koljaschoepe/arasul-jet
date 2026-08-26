@@ -385,5 +385,3 @@ export function SystemStatus(): React.JSX.Element {
     />
   );
 }
-
-export default SystemStatus;

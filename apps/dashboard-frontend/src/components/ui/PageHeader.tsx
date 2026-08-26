@@ -50,5 +50,3 @@ export function PageHeader({ title, icon, description, action }: PageHeaderProps
     </div>
   );
 }
-
-export default PageHeader;

@@ -176,5 +176,3 @@ export function FilterBar<Id extends string>({
     </>
   );
 }
-
-export default FilterBar;

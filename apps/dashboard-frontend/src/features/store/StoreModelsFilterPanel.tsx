@@ -67,5 +67,3 @@ export function StoreModelsFilterPanel() {
     </div>
   );
 }
-
-export default StoreModelsFilterPanel;

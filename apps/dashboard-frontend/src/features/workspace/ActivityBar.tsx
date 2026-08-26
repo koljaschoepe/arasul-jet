@@ -1,11 +1,8 @@
 import React from 'react';
-import { Cpu, Blocks, Waypoints, Workflow, Puzzle, Settings } from 'lucide-react';
+import { Cpu, Workflow, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ActivityView, WorkspaceTabSpec } from '@/stores/workspaceStore';
-import { useExtensionStore } from '@/stores/extensionStore';
-import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
-import { useExtensions } from '@/hooks/useExtensions';
 
 interface ActivityButtonProps {
   label: string;
@@ -39,12 +36,11 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
 
 /**
  * Die festen Sidebar-Ansichten (Plan 012 Phase B) in Anzeige-Reihenfolge.
- * »Dateien« ist mit B2 gefallen (kein Explorer mehr).
+ * »Dateien« ist mit B2 gefallen (kein Explorer mehr), »Erweiterungen« und
+ * »Flows« mit B3 (kein Erweiterungs-Store, kein Flow-Editor mehr).
  */
 const VIEW_ENTRIES: Array<{ view: ActivityView; label: string; icon: React.ReactNode }> = [
   { view: 'models', label: 'Modelle', icon: <Cpu className="h-[18px] w-[18px]" /> },
-  { view: 'extensions', label: 'Erweiterungen', icon: <Blocks className="h-[18px] w-[18px]" /> },
-  { view: 'flows', label: 'Flows', icon: <Waypoints className="h-[18px] w-[18px]" /> },
 ];
 
 /**
@@ -74,12 +70,10 @@ const APP_ENTRIES: Array<{
  * Dadurch bleibt jede Ansicht erreichbar, auch wenn die Sidebar eingeklappt
  * ist.
  *
- * Oben die festen Ansichten (Modelle · Erweiterungen · Flows),
- * darunter die aktivierten App-Erweiterungen, unten das Einstellungen-Zahnrad.
- * Ein Klick auf eine Ansicht wählt sie und zieht die Sidebar auf; erneuter Klick
- * auf die aktive Ansicht klappt sie wieder ein (VS-Code-Semantik, `selectView`).
- * »Modelle«/»Erweiterungen« aktivieren zusätzlich den passenden Reiter im Store
- * und öffnen dessen Mitte-Tab.
+ * Oben die feste Ansicht »Modelle«, darunter die aktivierten Kern-Apps, unten
+ * das Einstellungen-Zahnrad. Ein Klick auf eine Ansicht wählt sie und zieht die
+ * Sidebar auf; erneuter Klick auf die aktive Ansicht klappt sie wieder ein
+ * (VS-Code-Semantik, `selectView`). »Modelle« öffnet zusätzlich den Mitte-Tab.
  */
 export function ActivityBar() {
   const activeView = useWorkspaceStore(s => s.activeView);
@@ -87,31 +81,15 @@ export function ActivityBar() {
   const selectView = useWorkspaceStore(s => s.selectView);
   const openTab = useWorkspaceStore(s => s.openTab);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
-  const setStoreTab = useExtensionStore(s => s.setStoreTab);
-  const setFlowTarget = useFlowEditorStore(s => s.setEditTarget);
   const { isAppEnabled } = useWorkspaceApps();
-  const { extensions } = useExtensions();
 
   const apps = APP_ENTRIES.filter(a => isAppEnabled(a.appId));
-  // Aktivierte App-Erweiterungen (selbst gebaute/importierte Pakete) bekommen
-  // je einen eigenen Eintrag — ein Klick öffnet ihren Erweiterungs-Mitte-Tab.
-  // Deaktivierte oder flow/tool-Pakete tauchen hier nicht auf.
-  const appExtensions = extensions.filter(e => e.enabled && e.type === 'app');
 
   const handleView = (view: ActivityView) => {
     selectView(view);
-    // Jede Ansicht zeigt ihren Inhalt auch in der Mitte: Modelle und
-    // Erweiterungen in je einem eigenen Tab (Plan 023 B7), Flows auf ihrer
-    // Startseite (Anlegen + Übersicht).
+    // Jede Ansicht zeigt ihren Inhalt auch in der Mitte.
     if (view === 'models') {
-      setStoreTab('models');
       openTab({ type: 'modelle' });
-    } else if (view === 'extensions') {
-      setStoreTab('extensions');
-      openTab({ type: 'erweiterungen' });
-    } else if (view === 'flows') {
-      setFlowTarget(null, 'overview');
-      openTab({ type: 'flow' });
     }
   };
 
@@ -131,9 +109,7 @@ export function ActivityBar() {
         </ActivityButton>
       ))}
 
-      {apps.length + appExtensions.length > 0 && (
-        <div className="my-1 h-px w-6 shrink-0 bg-border" aria-hidden="true" />
-      )}
+      {apps.length > 0 && <div className="my-1 h-px w-6 shrink-0 bg-border" aria-hidden="true" />}
       {apps.map(a => (
         <ActivityButton
           key={a.appId}
@@ -142,16 +118,6 @@ export function ActivityBar() {
           onClick={() => openTab(a.spec)}
         >
           {a.icon}
-        </ActivityButton>
-      ))}
-      {appExtensions.map(e => (
-        <ActivityButton
-          key={e.id}
-          label={e.name}
-          active={activeTabId === `extension:${e.id}`}
-          onClick={() => openTab({ type: 'extension', extensionId: e.id, title: e.name })}
-        >
-          <Puzzle className="h-[18px] w-[18px]" />
         </ActivityButton>
       ))}
 

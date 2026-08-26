@@ -62,7 +62,7 @@ describe('useWorkspaceApps, setAppEnabled schließt Tabs deaktivierter Apps', ()
   it('Deaktivieren schließt den offenen Tab der App, andere Tabs bleiben', async () => {
     seedTabs(
       [
-        { id: 'erweiterungen', type: 'erweiterungen', title: 'Erweiterungen' },
+        { id: 'settings', type: 'settings', title: 'Einstellungen' },
         { id: 'automationen', type: 'automationen', title: 'Automationen' },
       ],
       'automationen'
@@ -73,8 +73,8 @@ describe('useWorkspaceApps, setAppEnabled schließt Tabs deaktivierter Apps', ()
     await act(() => result.current.setAppEnabled('n8n', false));
 
     const state = useWorkspaceStore.getState();
-    expect(state.tabs.map(t => t.id)).toEqual(['erweiterungen']);
-    expect(state.activeTabId).toBe('erweiterungen');
+    expect(state.tabs.map(t => t.id)).toEqual(['settings']);
+    expect(state.activeTabId).toBe('settings');
   });
 
   it('Aktivieren schließt keine Tabs', async () => {

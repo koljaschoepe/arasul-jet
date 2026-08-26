@@ -109,16 +109,10 @@ export function isModelActive(model: CatalogModel, loadedModelId: string | null)
   );
 }
 
-/** Container-App ist installiert (läuft, gestoppt oder im Fehlerzustand) — nur
- *  `status === 'available'` bedeutet „noch nicht installiert". */
-export function isAppInstalled(app: CatalogApp): boolean {
-  return app.status === 'running' || app.status === 'installed' || app.status === 'error';
-}
-
 export const STORE_MODELS_KEY = ['store', 'models'] as const;
 export const STORE_MODEL_STATUS_KEY = ['store', 'model-status'] as const;
 export const STORE_MODEL_DEFAULT_KEY = ['store', 'model-default'] as const;
-export const STORE_APPS_KEY = ['store', 'apps'] as const;
+const STORE_APPS_KEY = ['store', 'apps'] as const;
 
 export function useStoreCatalog() {
   const api = useApi();

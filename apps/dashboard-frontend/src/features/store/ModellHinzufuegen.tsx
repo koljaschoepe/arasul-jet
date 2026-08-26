@@ -200,5 +200,3 @@ export function ModellHinzufuegen({ onHinzugefuegt }: { onHinzugefuegt?: () => v
     </div>
   );
 }
-
-export default ModellHinzufuegen;

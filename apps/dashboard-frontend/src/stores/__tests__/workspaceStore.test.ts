@@ -8,10 +8,11 @@ import {
 } from '../workspaceStore';
 
 /**
- * Der Store nach B2: Tabs, Sidebar-Ansicht, Sichtbarkeit der beiden
+ * Der Store nach B3: Tabs, Sidebar-Ansicht, Sichtbarkeit der beiden
  * Seitenspalten. Terminal-Sessions, Chat-Scope, Dirty-Register und die Tabs
- * für Dokumente, Projektdateien und Projekte sind gefallen; die Migration auf
- * v7 wirft alte Reste davon weg, ohne die verbliebenen Tabs zu verlieren.
+ * für Dokumente, Projektdateien und Projekte sind mit B2 gefallen, die Tabs
+ * `erweiterungen`, `flow` und `extension` mit B3; die Migration auf v8 wirft
+ * alte Reste davon weg, ohne die verbliebenen Tabs zu verlieren.
  */
 
 function reset() {
@@ -45,25 +46,15 @@ describe('workspaceStore, Tabs', () => {
     expect(useWorkspaceStore.getState().activeTabId).toBe('modelle');
   });
 
-  it('eine App-Erweiterung ist ein eigener Tab je Id (kein Singleton)', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'extension', extensionId: 'a', title: 'A' });
-    s.openTab({ type: 'extension', extensionId: 'b', title: 'B' });
-    s.openTab({ type: 'extension', extensionId: 'a', title: 'A' });
-    const tabs = useWorkspaceStore.getState().tabs;
-    expect(tabs.map(t => t.id)).toEqual(['extension:a', 'extension:b']);
-    expect(useWorkspaceStore.getState().activeTabId).toBe('extension:a');
-  });
-
   it('schließt den aktiven Tab und aktiviert den Nachbarn', () => {
     const s = useWorkspaceStore.getState();
     s.openTab({ type: 'settings' });
     s.openTab({ type: 'modelle' });
-    s.openTab({ type: 'flow' });
+    s.openTab({ type: 'automationen' });
     s.activateTab('modelle');
     s.closeTab('modelle');
-    expect(useWorkspaceStore.getState().activeTabId).toBe('flow');
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings', 'flow']);
+    expect(useWorkspaceStore.getState().activeTabId).toBe('automationen');
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings', 'automationen']);
   });
 
   it('schließt den letzten Tab → kein aktiver Tab', () => {
@@ -85,33 +76,33 @@ describe('workspaceStore, Tabs', () => {
     const s = useWorkspaceStore.getState();
     s.openTab({ type: 'settings' });
     s.openTab({ type: 'modelle' });
-    s.openTab({ type: 'flow' });
+    s.openTab({ type: 'automationen' });
     s.moveTab(0, 2);
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
       'modelle',
-      'flow',
+      'automationen',
       'settings',
     ]);
     s.moveTab(5, 0);
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
       'modelle',
-      'flow',
+      'automationen',
       'settings',
     ]);
   });
 
-  it('der Flow-Editor ist ein Singleton-Tab mit Default-Titel', () => {
+  it('jeder Tab-Typ ist ein Singleton mit Default-Titel', () => {
     const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'flow' });
-    s.openTab({ type: 'flow' });
+    s.openTab({ type: 'automationen' });
+    s.openTab({ type: 'automationen' });
     expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
-    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('Neuer Flow');
+    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('Automationen');
   });
 
   it('updateTabTitle ändert den Titel', () => {
     const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'flow' });
-    s.updateTabTitle('flow', 'angebot');
+    s.openTab({ type: 'automationen' });
+    s.updateTabTitle('automationen', 'angebot');
     expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('angebot');
   });
 
@@ -120,7 +111,7 @@ describe('workspaceStore, Tabs', () => {
     const raw = localStorage.getItem('arasul_workspace');
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw as string) as { state: { tabs: unknown[] }; version: number };
-    expect(parsed.version).toBe(7);
+    expect(parsed.version).toBe(8);
     expect(parsed.state.tabs).toHaveLength(1);
   });
 });
@@ -147,27 +138,27 @@ describe('workspaceStore, Sidebar + rechte Spalte', () => {
 
   it('selectView wählt eine Ansicht und zieht die Sidebar auf', () => {
     useWorkspaceStore.setState({ sidebarVisible: false });
-    useWorkspaceStore.getState().selectView('flows');
-    expect(useWorkspaceStore.getState().activeView).toBe('flows');
+    useWorkspaceStore.getState().selectView('models');
+    expect(useWorkspaceStore.getState().activeView).toBe('models');
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
   });
 
   it('selectView auf die aktive Ansicht bei offener Sidebar klappt ein (VS-Code)', () => {
-    useWorkspaceStore.setState({ activeView: 'flows', sidebarVisible: true });
-    useWorkspaceStore.getState().selectView('flows');
+    useWorkspaceStore.setState({ activeView: 'models', sidebarVisible: true });
+    useWorkspaceStore.getState().selectView('models');
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
-    expect(useWorkspaceStore.getState().activeView).toBe('flows');
+    expect(useWorkspaceStore.getState().activeView).toBe('models');
   });
 
   it('setActiveView setzt nur die Ansicht, ohne die Sidebar zu schalten', () => {
     useWorkspaceStore.setState({ sidebarVisible: false });
-    useWorkspaceStore.getState().setActiveView('models');
-    expect(useWorkspaceStore.getState().activeView).toBe('models');
+    useWorkspaceStore.getState().setActiveView('settings');
+    expect(useWorkspaceStore.getState().activeView).toBe('settings');
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
   });
 });
 
-describe('workspaceStore, Migration auf v7', () => {
+describe('workspaceStore, Migration auf v8', () => {
   beforeEach(reset);
 
   async function migriere(state: Record<string, unknown>, version: number) {
@@ -184,9 +175,9 @@ describe('workspaceStore, Migration auf v7', () => {
           { id: 'projektdatei:p:a.md', type: 'projektdatei', title: 'a.md', projectId: 'p' },
           { id: 'document:1', type: 'document', title: 'Doku' },
           { id: 'projekte', type: 'projekte', title: 'Projekte' },
-          { id: 'flow', type: 'flow', title: 'angebot' },
+          { id: 'modelle', type: 'modelle', title: 'Modelle' },
         ],
-        activeTabId: 'flow',
+        activeTabId: 'modelle',
         activeView: 'files',
         sidebarVisible: true,
         rightPanelVisible: true,
@@ -196,8 +187,8 @@ describe('workspaceStore, Migration auf v7', () => {
       },
       6
     );
-    expect(s.tabs.map(t => t.id)).toEqual(['settings', 'flow']);
-    expect(s.activeTabId).toBe('flow');
+    expect(s.tabs.map(t => t.id)).toEqual(['settings', 'modelle']);
+    expect(s.activeTabId).toBe('modelle');
     // 'files' gibt es nicht mehr → keine Ansicht.
     expect(s.activeView).toBeNull();
     expect(s.rightPanelVisible).toBe(true);
@@ -205,18 +196,50 @@ describe('workspaceStore, Migration auf v7', () => {
     expect('rightPanelMode' in s).toBe(false);
   });
 
-  it('der alte store-Tab wird zu erweiterungen umgeschrieben (Plan 023 B7)', async () => {
+  it('der alte store-Tab wird zu modelle umgeschrieben, ohne ein Duplikat zu erzeugen', async () => {
     const s = await migriere(
       {
-        tabs: [{ id: 'store', type: 'store', title: 'Extensions' }],
+        tabs: [
+          { id: 'store', type: 'store', title: 'Extensions' },
+          { id: 'modelle', type: 'modelle', title: 'Modelle' },
+        ],
         activeTabId: 'store',
         activeView: 'extensions',
       },
       6
     );
-    expect(s.tabs.map(t => t.id)).toEqual(['erweiterungen']);
-    expect(s.activeTabId).toBe('erweiterungen');
-    expect(s.activeView).toBe('extensions');
+    expect(s.tabs.map(t => t.id)).toEqual(['modelle']);
+    expect(s.activeTabId).toBe('modelle');
+    // 'extensions' gibt es seit B3 nicht mehr → keine Ansicht.
+    expect(s.activeView).toBeNull();
+  });
+
+  it('v7: die Tabs erweiterungen, flow und extension fallen, die Flow-Ansicht auch', async () => {
+    const s = await migriere(
+      {
+        tabs: [
+          { id: 'erweiterungen', type: 'erweiterungen', title: 'Erweiterungen' },
+          { id: 'flow', type: 'flow', title: 'angebot' },
+          {
+            id: 'extension:meine-app',
+            type: 'extension',
+            title: 'Meine App',
+            extensionId: 'meine-app',
+          },
+          { id: 'automationen', type: 'automationen', title: 'Automationen' },
+        ],
+        activeTabId: 'flow',
+        activeView: 'flows',
+        sidebarVisible: false,
+        rightPanelVisible: true,
+      },
+      7
+    );
+    expect(s.tabs.map(t => t.id)).toEqual(['automationen']);
+    expect(s.activeTabId).toBe('automationen');
+    expect(s.activeView).toBeNull();
+    expect(s.sidebarVisible).toBe(false);
+    expect('extensionId' in (s.tabs[0] ?? {})).toBe(false);
   });
 
   it('v3: zwei Flächen (Chat/Terminal) falten sich zur Sichtbarkeit der rechten Spalte', async () => {
@@ -233,14 +256,14 @@ describe('workspaceStore, Migration auf v7', () => {
     expect(s.rightPanelVisible).toBe(false);
   });
 
-  it('schreibt den migrierten Stand als version 7 zurück', async () => {
+  it('schreibt den migrierten Stand als version 8 zurück', async () => {
     await migriere({ tabs: [{ id: 'settings', type: 'settings', title: 'E' }] }, 6);
     useWorkspaceStore.getState().toggleSidebar();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') as string) as {
       version: number;
       state: Record<string, unknown>;
     };
-    expect(parsed.version).toBe(7);
+    expect(parsed.version).toBe(8);
     expect(Object.keys(parsed.state).sort()).toEqual(
       ['activeTabId', 'activeView', 'rightPanelVisible', 'sidebarVisible', 'tabs'].sort()
     );
@@ -252,26 +275,31 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
     const specs: WorkspaceTabSpec[] = [
       { type: 'settings' },
       { type: 'modelle' },
-      { type: 'erweiterungen' },
       { type: 'automationen' },
-      { type: 'flow' },
-      { type: 'extension', extensionId: 'meine-app' },
     ];
     for (const spec of specs) {
-      const tab = { id: tabId(spec), type: spec.type, title: 'x', extensionId: spec.extensionId };
+      const tab = { id: tabId(spec), type: spec.type, title: 'x' };
       const zurueck = pathToTabSpec(tabToPath(tab).replace(/^\/workspace/, ''));
-      expect(zurueck).toEqual(
-        spec.extensionId ? { type: spec.type, extensionId: spec.extensionId } : { type: spec.type }
-      );
+      expect(zurueck).toEqual({ type: spec.type });
     }
   });
 
-  it('der alte /store-Pfad landet bei den Erweiterungen', () => {
-    expect(pathToTabSpec('/store')).toEqual({ type: 'erweiterungen' });
+  it('der alte /store-Pfad landet bei den Modellen', () => {
+    expect(pathToTabSpec('/store')).toEqual({ type: 'modelle' });
   });
 
-  it('die gefallenen Pfade (Terminal, Dokumente, Projektdateien, Projekte) ergeben null', () => {
-    for (const p of ['/terminal', '/doc/1', '/pfile/p/a.md', '/kunden', '/projekte', '/projekt']) {
+  it('die gefallenen Pfade (Terminal, Dokumente, Projekte, Flow, Erweiterungen) ergeben null', () => {
+    for (const p of [
+      '/terminal',
+      '/doc/1',
+      '/pfile/p/a.md',
+      '/kunden',
+      '/projekte',
+      '/projekt',
+      '/flow',
+      '/erweiterungen',
+      '/ext/meine-app',
+    ]) {
       expect(pathToTabSpec(p)).toBeNull();
     }
   });

@@ -41,5 +41,3 @@ export function FacetGroup<T extends string>({
     </div>
   );
 }
-
-export default FacetGroup;

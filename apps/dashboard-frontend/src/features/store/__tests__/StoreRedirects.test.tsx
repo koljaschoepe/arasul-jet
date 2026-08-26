@@ -1,8 +1,9 @@
 /**
  * Store — Full-Width-Layout + Deep-Link-Redirects.
- * Zwei Reiter (Modelle/Erweiterungen) über dem Kartenraster; alte Unter-Tab-
- * Links /store/models und /store/apps (auch mit ?highlight=…) leiten auf /store
- * um und setzen dabei die Auswahl im Extension-Store (öffnet die Detailseite).
+ * Der alte Unter-Tab-Link /store/models (auch mit ?highlight=…) leitet auf
+ * /store um und setzt dabei die Auswahl im Extension-Store (öffnet die
+ * Detailseite). /store/apps gibt es seit Phase B3 nicht mehr; der Pfad landet
+ * wie jeder unbekannte auf /store.
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -10,15 +11,12 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useExtensionStore } from '@/stores/extensionStore';
 import Store from '../Store';
 
-// Raster + Detail stubben — hier interessieren Redirect + Reiter-Umschaltung.
+// Raster + Detail stubben — hier interessiert der Redirect.
 vi.mock('../StoreDetailPage', () => ({
   StoreDetailPage: () => <div data-testid="detail" />,
 }));
 vi.mock('../StoreModelsGrid', () => ({
   StoreModelsGrid: () => <div data-testid="models-grid" />,
-}));
-vi.mock('../StoreExtensionsGrid', () => ({
-  StoreExtensionsGrid: () => <div data-testid="extensions-grid" />,
 }));
 
 function Probe() {
@@ -26,11 +24,11 @@ function Probe() {
   return <div data-testid="loc">{location.pathname}</div>;
 }
 
-function renderAt(path: string, bereich: 'models' | 'extensions' = 'models') {
+function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/store/*" element={<Store bereich={bereich} />} />
+        <Route path="/store/*" element={<Store />} />
       </Routes>
       <Probe />
     </MemoryRouter>
@@ -39,9 +37,7 @@ function renderAt(path: string, bereich: 'models' | 'extensions' = 'models') {
 
 describe('Store, Full-Width + Redirects', () => {
   beforeEach(() => {
-    // storeTab lebt jetzt global im extensionStore (Plan 012 Phase B) — pro Test
-    // auf den Default-Reiter zurücksetzen, sonst leckt er zwischen Tests.
-    useExtensionStore.setState({ selected: null, storeTab: 'models' });
+    useExtensionStore.setState({ selected: null });
   });
 
   it('/store/models?highlight=llama3 → Auswahl Modell + Redirect auf /store', async () => {
@@ -50,10 +46,10 @@ describe('Store, Full-Width + Redirects', () => {
     expect(useExtensionStore.getState().selected).toEqual({ kind: 'model', id: 'llama3' });
   });
 
-  it('/store/apps?highlight=n8n → Auswahl App + Redirect auf /store', async () => {
+  it('/store/apps?highlight=n8n (gefallener Reiter) leitet ohne Auswahl auf /store um', async () => {
     renderAt('/store/apps?highlight=n8n');
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
-    expect(useExtensionStore.getState().selected).toEqual({ kind: 'app', id: 'n8n' });
+    expect(useExtensionStore.getState().selected).toBeNull();
   });
 
   it('unbekannter Unterpfad leitet auf /store um', async () => {
@@ -61,26 +57,16 @@ describe('Store, Full-Width + Redirects', () => {
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
   });
 
-  // Plan 023 B7: welches Raster in der Mitte steht, sagt seit dem Aufteilen der
-  // Tabs der Tab selbst, nicht mehr ein Zustand nebenan. Der Bereich kommt
-  // deshalb als Eigenschaft herein.
-  it('Bereich „Modelle" zeigt das Modell-Raster', () => {
-    renderAt('/store', 'models');
+  it('ohne Auswahl steht das Modell-Raster, nicht die Detailseite', () => {
+    renderAt('/store');
     expect(screen.getByTestId('models-grid')).toBeInTheDocument();
-    expect(screen.queryByTestId('extensions-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('detail')).not.toBeInTheDocument();
   });
 
-  it('Bereich „Erweiterungen" zeigt das Erweiterungs-Raster', () => {
-    renderAt('/store', 'extensions');
-    expect(screen.getByTestId('extensions-grid')).toBeInTheDocument();
+  it('mit Auswahl steht die Detailseite', () => {
+    useExtensionStore.setState({ selected: { kind: 'model', id: 'llama3' } });
+    renderAt('/store');
+    expect(screen.getByTestId('detail')).toBeInTheDocument();
     expect(screen.queryByTestId('models-grid')).not.toBeInTheDocument();
-  });
-
-  it('der Bereich stellt zugleich den Filter in der Sidebar', () => {
-    // Ohne das stuende beim Wechsel auf den Modelle-Tab noch der
-    // Erweiterungs-Filter daneben.
-    renderAt('/store', 'extensions');
-    expect(useExtensionStore.getState().storeTab).toBe('extensions');
   });
 });

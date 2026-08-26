@@ -11,7 +11,7 @@ import idleUrl from '@/assets/mascot/idle.png';
 import winkUrl from '@/assets/mascot/wink.png';
 import { cn } from '@/lib/utils';
 
-export type MascotState = 'idle' | 'thinking';
+type MascotState = 'idle' | 'thinking';
 
 interface MascotProps {
   state?: MascotState;
@@ -56,5 +56,3 @@ export function Mascot({ state = 'idle', className, label }: MascotProps) {
     </span>
   );
 }
-
-export default Mascot;

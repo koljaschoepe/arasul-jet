@@ -33,7 +33,7 @@ export function zuGb(mb: number): string {
  * Modelle nach einer Ruhezeit von selbst; das ist kein Fehler und darf nicht
  * wie einer aussehen.
  */
-export type Modellzustand = 'geladen' | 'bereit' | 'keins';
+type Modellzustand = 'geladen' | 'bereit' | 'keins';
 
 export interface Modellage {
   zustand: Modellzustand;

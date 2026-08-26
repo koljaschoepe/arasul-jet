@@ -53,5 +53,3 @@ export function Checkbox({
     </span>
   );
 }
-
-export default Checkbox;

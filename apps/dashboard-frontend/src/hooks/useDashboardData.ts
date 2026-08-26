@@ -49,22 +49,22 @@ interface ServiceStatus {
   status: string;
 }
 
-export interface Services {
+interface Services {
   llm: ServiceStatus;
   embeddings: ServiceStatus;
 }
 
-export interface SystemInfo {
+interface SystemInfo {
   uptime_seconds: number;
   version: string;
   hostname: string;
 }
 
-export interface NetworkInfo {
+interface NetworkInfo {
   internet_reachable: boolean;
 }
 
-export interface RunningApp {
+interface RunningApp {
   id: string;
   name: string;
   description: string;
@@ -75,7 +75,7 @@ export interface RunningApp {
   ports?: { external?: number };
 }
 
-export interface ThresholdPair {
+interface ThresholdPair {
   warning: number;
   critical: number;
 }
