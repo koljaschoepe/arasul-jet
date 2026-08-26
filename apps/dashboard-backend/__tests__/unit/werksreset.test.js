@@ -77,20 +77,18 @@ describe('Klassifikation', () => {
     }
   });
 
-  test('Stufe "inhalte" fasst weder Zugangsdaten noch Erweiterungen an', () => {
+  test('Stufe "inhalte" fasst weder Zugangsdaten noch Anbieter-Schluessel an', () => {
     const namen = werksreset.tabellenFuer('inhalte').map(t => t.name);
     expect(namen).not.toContain('public.admin_users');
-    expect(namen).not.toContain('arasul.extensions');
-    expect(namen).not.toContain('arasul.user_external_credentials');
+    expect(namen).not.toContain('arasul.externe_modell_anbieter');
     expect(namen).toContain('public.chat_messages');
-    expect(namen).toContain('arasul.projects');
+    expect(namen).toContain('arasul.flow_runs');
   });
 
   test('Stufe "auslieferung" nimmt sie mit', () => {
     const namen = werksreset.tabellenFuer('auslieferung').map(t => t.name);
     expect(namen).toContain('public.admin_users');
-    expect(namen).toContain('arasul.extensions');
-    expect(namen).toContain('arasul.user_external_credentials');
+    expect(namen).toContain('arasul.externe_modell_anbieter');
     expect(namen).toContain('public.chat_messages');
   });
 

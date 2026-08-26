@@ -1,6 +1,10 @@
 /**
  * Werksreset, Plan 023 B5: welche Tabelle wann geleert wird.
  *
+ * Phase B4 (26.08.2026) hat 30 Tabellen mit Migration 163 entfernt; sie
+ * stehen hier nicht mehr, der Waechter werksreset-tabellen.py liest die
+ * DROP-Zeilen mit.
+ *
  * Diese Datei ist bewusst nur Daten. Sie ist die eine Stelle, an der steht, was
  * ein Werksreset anfasst, und sie ist so geschrieben, dass ein Mensch sie in
  * einem Zug lesen und gegenprüfen kann.
@@ -28,34 +32,10 @@ const INHALTE = [
   ['public.chat_attachments', 'Anhänge an Chatnachrichten'],
   ['public.chat_conversations', 'Chatverläufe'],
   ['public.chat_messages', 'Chatnachrichten'],
-  ['public.claude_terminal_queries', 'Terminal-Anfragen'],
-  ['public.claude_terminal_sessions', 'Terminal-Sitzungen'],
-  ['public.compaction_log', 'Protokoll der Kontextverdichtung'],
-  ['public.document_access_log', 'Wer hat welches Dokument gelesen'],
-  ['public.document_chunks', 'Dokumentabschnitte für die Suche'],
-  ['public.document_parent_chunks', 'Übergeordnete Dokumentabschnitte'],
-  ['public.document_processing_queue', 'Warteschlange der Dokumentverarbeitung'],
-  ['public.document_similarities', 'Errechnete Ähnlichkeiten zwischen Dokumenten'],
-  ['public.documents', 'Dokumente'],
-  ['public.kg_entities', 'Wissensgraph, Begriffe'],
-  ['public.kg_entity_documents', 'Wissensgraph, Zuordnung zu Dokumenten'],
-  ['public.kg_relations', 'Wissensgraph, Beziehungen'],
-  ['public.knowledge_spaces', 'Wissensräume'],
   ['public.llm_jobs', 'Aufträge an die Sprachmodelle'],
-  ['public.rag_query_log', 'Protokoll der Wissensabfragen'],
-  ['public.sandbox_projects', 'Sandboxes'],
-  ['public.sandbox_terminal_sessions', 'Sandbox-Terminalsitzungen'],
-  ['public.space_members', 'Mitglieder von Wissensräumen'],
   ['public.workflow_activity', 'Läufe der n8n-Workflows'],
   ['arasul.flow_run_steps', 'Einzelschritte der Flow-Läufe'],
   ['arasul.flow_runs', 'Flow-Läufe'],
-  ['arasul.pinned_documents', 'Angeheftete Dokumente'],
-  ['arasul.project_git', 'Git-Kopplung je Projekt'],
-  ['arasul.projects', 'Projekte'],
-  ['arasul.rechnungsnummern', 'Vergebene Rechnungsnummern'],
-  ['arasul.rechnungsnummern_zaehler', 'Zählerstand der Rechnungsnummern'],
-  ['arasul.sandbox_project_connections', 'Verbindung Sandbox zu Projekt'],
-  ['arasul.sandbox_session_titles', 'Titel der Sandbox-Sitzungen'],
 ];
 
 /** Einrichtung des Geräts. Weg nur bei Stufe 2. */
@@ -74,7 +54,6 @@ const AUSLIEFERUNG = [
   ['public.audit_log_health', 'Selbstprüfung des Prüfprotokolls'],
   ['public.audit_logs', 'Prüfprotokoll'],
   ['public.bot_audit_log', 'Prüfprotokoll der Bots'],
-  ['public.company_context', 'Firmenprofil für die KI'],
   ['public.component_updates', 'Aktualisierungsstand der Bestandteile'],
   ['public.llm_model_switches', 'Wechsel des aktiven Modells'],
   ['public.login_attempts', 'Anmeldeversuche'],
@@ -105,12 +84,8 @@ const AUSLIEFERUNG = [
   ['public.update_files', 'Dateien aus Aktualisierungen'],
   ['public.update_rollbacks', 'Zurückgenommene Aktualisierungen'],
   ['public.update_state_snapshots', 'Zustand vor einer Aktualisierung'],
-  ['arasul.extensions', 'Erweiterungen'],
   ['arasul.externe_modell_anbieter', 'Zugänge zu externen Modellen, verschlüsselt hinterlegt'],
   ['arasul.n8n_audit_log', 'Prüfprotokoll der n8n-Kopplung'],
-  ['arasul.user_external_credentials', 'Hinterlegte Zugangsdaten zu fremden Diensten'],
-  ['public.extension_tabellen', 'Register der Tabellen, die Erweiterungen sich angelegt haben'],
-  ['public.extension_zeitplaene', 'Zeitpläne der Erweiterungen'],
 ];
 
 /**
@@ -135,7 +110,6 @@ const BLEIBT = [
   ['public.alert_thresholds', 'Werksschwellen für Warnungen, kommen aus den Migrationen'],
   ['public.alert_settings', 'Werksvorgabe für Warnungen'],
   ['public.alert_quiet_hours', 'Werksvorgabe für Ruhezeiten'],
-  ['public.document_categories', 'Werkskategorien für Dokumente'],
   ['public.n8n_allowed_external_domains', 'Werksliste erlaubter Ziele für n8n'],
   ['arasul.platform_apps', 'Werksliste der Plattform-Anwendungen'],
   ['arasul.geraet', 'Merker über den Werksreset hinweg, er muss ihn gerade überleben'],
