@@ -208,8 +208,9 @@ geändert und nicht gelöscht, ihre Prüfsumme steht im Migrationsbuch; so hat e
 `102_drop_telegram.sql` vorgemacht, und `103`, `111`, `123`, `133`, `162`
 haben es genauso gehalten. Was fällt, sind **Tabellen**, per neuer Migration
 in B4 und B5. Deshalb stehen die 12 826 Zeilen unter `services/postgres/init/`
-nicht in der Summe oben. Ob die 162 Dateien für ein Neugerät zu einem
-Grundschema zusammengelegt werden, ist eine Frage an den Überordner (unten).
+nicht in der Summe oben. Ob die 163 Dateien (`000` bis `162`) für ein
+Neugerät zu einem Grundschema zusammengelegt werden, ist eine Frage an den
+Überordner (unten).
 
 Die Einordnung folgt `services/werksreset/tabellen.js`, das jede Tabelle
 kennt; der Wächter `werksreset-tabellen.py` prüft die Vollständigkeit.
@@ -380,8 +381,10 @@ die gestrichenen Endpunkte verlassen `docs/api/API_REFERENCE.md`.
 4. **Loki und Promtail.** Kein Backend-Code liest Loki; `logs.js` liest
    Docker direkt. Hier als „bleibt (Betrieb)" geführt. Wenn niemand Loki
    abfragt, sind es 82 Zeilen Compose und 181 Zeilen Config ohne Leser.
-5. **Grundschema statt 162 Migrationen.** Auf einem Neugerät laufen alle 162
-   Dateien, davon 2 457 Zeilen Telegram, das seit 102 weg ist. Ein
+5. **Grundschema statt 163 Migrationen.** Auf einem Neugerät laufen alle 163
+   `.sql`-Dateien, davon 2 457 Zeilen Telegram, das seit 102 weg ist, und
+   dazu `108a_n8n_default_disabled_fresh.sh`, das nur beim ersten
+   Postgres-Init läuft und mit n8n fällt. Ein
    zusammengelegtes `001_grundschema.sql` für Neugeräte bräuchte einen Weg,
    Altgeräte (Orin) nicht zweimal migrieren zu lassen. Nicht Teil von B4,
    aber eine Frage, die B4 stellen wird.
@@ -394,3 +397,7 @@ die gestrichenen Endpunkte verlassen `docs/api/API_REFERENCE.md`.
    messen; ein committetes Skript mit dieser Liste würde beides mit derselben
    Regel zählen. Es wäre aber Code ohne Wächter, und Regel 1 sagt: kein toter
    Code.
+8. **Wo solche Listen liegen.** `docs/plans/README.md` kennt `active/`,
+   `done/`, `archive/`, `audits/`; diese Datei liegt daneben, weil die Phase
+   „Liste in `docs/plans/`" verlangt. Wenn B2 bis B6 je eine Messung ablegen,
+   sollte der Ort vorher feststehen (Vorschlag: `docs/plans/audits/`, datiert).
