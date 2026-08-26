@@ -1,32 +1,30 @@
 """
-Document parsers for different file formats
-Supports PDF, DOCX, TXT, Markdown, HTML/XML, CSV/JSON/Log, and YAML tables
+Parser je Dateiformat und der gemeinsame Einstieg `parse_document`.
 
-MEDIUM-PRIORITY-FIX 3.3: Added streaming PDF parser for memory-efficient processing
-OCR-INTEGRATION: Added automatic OCR fallback for scanned PDFs
-PDF-UPGRADE: Replaced PyPDF2 with PyMuPDF (fitz) for better text extraction
-              and pdfplumber for table extraction
+Unterstuetzt PDF (PyMuPDF fuer Text, pdfplumber fuer Tabellen, OCR-Rueckfall
+fuer Bild-PDFs), DOCX, TXT, Markdown, HTML/XML, CSV/JSON/Log, YAML-Tabellen
+und Bilder (OCR).
+
+Seit Phase B4 (26.08.2026) liegt hier auch das, was vorher in
+`document_processor.py` stand und die Extraktion braucht: `PARSERS`,
+`strip_nul` und `parse_document`. Der Rest jenes Moduls (Chunking,
+Textlayer, Anreicherung) ist mit dem Hintergrund-Indexer gefallen.
 """
 
 import gc
 import logging
+import os
 from io import BytesIO
-from typing import IO, Generator, Optional, Tuple
+from typing import IO, Generator, Optional
 
-import fitz  # PyMuPDF - superior text extraction with layout preservation
-import pdfplumber  # table extraction from PDFs
+import fitz  # PyMuPDF: Textextraktion mit Layouterhalt
+import pdfplumber  # Tabellen aus PDFs
 from docx import Document
-import markdown
 import yaml
 
 # OCR service for scanned document support
 try:
-    from ocr_service import (
-        get_available_ocr_engine,
-        parse_pdf_with_ocr_fallback,
-        is_pdf_searchable,
-        OCRResult
-    )
+    from ocr_service import parse_pdf_with_ocr_fallback
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
@@ -76,34 +74,6 @@ def _format_tables_from_page(page) -> str:
 
     except Exception as e:
         logger.debug(f"Table extraction failed: {e}")
-        return ""
-
-
-def _extract_tables_from_page(pdf_path_or_bytes, page_num: int) -> str:
-    """
-    Extract tables from a specific PDF page using pdfplumber.
-
-    NOTE: This opens the whole PDF on every call. When processing multiple
-    pages, open the document once with ``pdfplumber.open`` and call
-    ``_format_tables_from_page`` per page instead.
-
-    Args:
-        pdf_path_or_bytes: PDF file bytes for pdfplumber
-        page_num: Zero-based page index
-
-    Returns:
-        Pipe-delimited text representation of all tables found on the page,
-        or empty string if no tables found
-    """
-    try:
-        with pdfplumber.open(BytesIO(pdf_path_or_bytes)) as pdf:
-            if page_num >= len(pdf.pages):
-                return ""
-
-            return _format_tables_from_page(pdf.pages[page_num])
-
-    except Exception as e:
-        logger.debug(f"Table extraction failed for page {page_num}: {e}")
         return ""
 
 
@@ -557,3 +527,92 @@ def parse_yaml_table(file_obj: IO[bytes]) -> str:
     except Exception as e:
         logger.error(f"Error parsing YAML table: {e}")
         raise
+
+
+# ---------------------------------------------------------------------------
+# Gemeinsamer Einstieg
+# ---------------------------------------------------------------------------
+
+STREAMING_PDF_THRESHOLD = 50  # ab so vielen Seiten seitenweise parsen
+
+
+def parse_pdf_smart(file_obj: IO[bytes]) -> str:
+    """Grosse PDFs (> STREAMING_PDF_THRESHOLD Seiten) seitenweise, um Speicher zu sparen."""
+    page_count = get_pdf_page_count(file_obj)
+    if page_count > STREAMING_PDF_THRESHOLD:
+        logger.info(f"Large PDF ({page_count} pages), using streaming parser")
+        return "\n\n".join(parse_pdf_streaming(file_obj))
+    return parse_pdf(file_obj)
+
+
+# Parser je Dateiendung
+PARSERS = {
+    '.pdf': parse_pdf_smart,
+    '.txt': parse_txt,
+    '.md': parse_markdown,
+    '.markdown': parse_markdown,
+    '.docx': parse_docx,
+    '.yaml': parse_yaml_table,
+    '.yml': parse_yaml_table,
+    # Markup -> Klartext
+    '.html': parse_html,
+    '.htm': parse_html,
+    '.xml': parse_html,
+    # Textbasierte Datenformate
+    '.csv': parse_txt,
+    '.json': parse_txt,
+    '.log': parse_txt,
+    # Bilder (OCR)
+    '.png': parse_image,
+    '.jpg': parse_image,
+    '.jpeg': parse_image,
+    '.tiff': parse_image,
+    '.tif': parse_image,
+    '.bmp': parse_image,
+    '.webp': parse_image,
+}
+
+
+def strip_nul(text: str) -> str:
+    """
+    Entfernt NUL-Bytes (0x00) aus extrahiertem Text.
+
+    Manche PDFs liefern beim Extrahieren NUL-Bytes mit (fehlerhafte
+    Font-/Encoding-Tabellen). Frueher scheiterte daran der Schreibversuch in
+    Postgres; heute schreibt der Indexer nichts mehr, aber das Backend legt
+    den Text weiter in seiner Datenbank ab. Hier laufen alle Parser zusammen,
+    also wird hier bereinigt.
+    """
+    if not text:
+        return text
+    if '\x00' not in text:
+        return text
+    bereinigt = text.replace('\x00', '')
+    logger.warning(
+        f"{len(text) - len(bereinigt)} NUL-Byte(s) aus extrahiertem Text entfernt"
+    )
+    return bereinigt
+
+
+def parse_document(data: bytes, filename: str) -> Optional[str]:
+    """
+    Dokument parsen und Text liefern.
+
+    Rueckgabe-Vertrag (der Aufrufer unterscheidet die beiden Faelle):
+      None  -> nicht parsebar (unbekannter Typ oder Parser-Fehler)
+      ''    -> sauber geparst, aber ohne Textinhalt (z. B. Logo ohne Schrift)
+    """
+    _, ext = os.path.splitext(filename.lower())
+
+    if ext not in PARSERS:
+        logger.warning(f"Unsupported file type: {ext}")
+        return None
+
+    try:
+        parser = PARSERS[ext]
+        text = strip_nul(parser(BytesIO(data)))
+        logger.debug(f"Parsed {filename}: {len(text)} characters")
+        return text
+    except Exception as e:  # noqa: BLE001 - Vertrag: None statt Ausnahme
+        logger.error(f"Parse error for {filename}: {e}")
+        return None

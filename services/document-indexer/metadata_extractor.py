@@ -1,13 +1,15 @@
 """
-Metadata Extractor for Document Intelligence System
-Extracts comprehensive metadata from PDF, DOCX, and Markdown files
+Metadaten aus PDF, DOCX, Markdown und Text: Titel, Seitenzahl, Sprache.
+
+Liefert das Beiwerk fuer die Antwort von /extract-text. Fehler in einem
+Teilschritt werden geloggt und lassen die Voreinstellungen stehen.
 """
 
 import os
 import re
 import logging
 from io import BytesIO
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 import fitz  # PyMuPDF
@@ -283,38 +285,3 @@ def detect_language(text: str) -> str:
     else:
         # Default to German for this system
         return 'de'
-
-
-def extract_key_topics(text: str, max_topics: int = 10) -> List[str]:
-    """
-    Extract key topics/keywords from text using simple TF analysis
-    For more sophisticated extraction, use the LLM categorizer
-    """
-    # Remove common stopwords
-    stopwords = {
-        'de': {'und', 'der', 'die', 'das', 'ist', 'ein', 'eine', 'für', 'mit', 'auf',
-               'werden', 'wird', 'kann', 'auch', 'nicht', 'sind', 'haben', 'oder', 'von',
-               'zu', 'an', 'bei', 'nach', 'aus', 'wenn', 'als', 'wie', 'so', 'es'},
-        'en': {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-               'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
-               'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-               'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'this', 'that'}
-    }
-
-    # Tokenize and count words
-    words = re.findall(r'\b[a-zäöüß]{4,}\b', text.lower())
-
-    # Filter stopwords
-    all_stopwords = stopwords['de'] | stopwords['en']
-    words = [w for w in words if w not in all_stopwords]
-
-    # Count frequency
-    word_freq = {}
-    for word in words:
-        word_freq[word] = word_freq.get(word, 0) + 1
-
-    # Get top words
-    sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
-    topics = [word for word, _ in sorted_words[:max_topics]]
-
-    return topics
