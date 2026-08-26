@@ -64,7 +64,6 @@ ID_QUELLEN = [
     ('/api/documents/', '/api/documents', 'documents', 'id'),
     ('/api/knowledge-graph/document/', '/api/documents', 'documents', 'id'),
     ('/api/extensions/', '/api/extensions', 'data', 'id'),
-    ('/api/flows/beispiele/', '/api/flows', 'data', 'name'),
     ('/api/flows/', '/api/flows', 'data', 'name'),
     ('/api/projects/', '/api/projects', 'data', 'id'),
     ('/api/git/', '/api/projects', 'data', 'id'),

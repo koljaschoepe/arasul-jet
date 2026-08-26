@@ -1,27 +1,5 @@
 const { z } = require('zod');
 
-// POST /webhook/n8n
-const N8nWebhookBody = z
-  .object({
-    workflow_id: z
-      .union([z.string(), z.number()], {
-        error: 'Missing required fields: workflow_id, status',
-      })
-      .refine(v => (typeof v === 'string' ? v.length > 0 : true), {
-        message: 'Missing required fields: workflow_id, status',
-      }),
-    workflow_name: z.string().max(500).optional().nullable(),
-    execution_id: z.union([z.string(), z.number()]).optional().nullable(),
-    status: z
-      .string({ error: 'Missing required fields: workflow_id, status' })
-      .trim()
-      .min(1, 'Missing required fields: workflow_id, status')
-      .max(100),
-    error: z.string().max(10000).optional().nullable(),
-    duration_ms: z.number().optional().nullable(),
-  })
-  .passthrough();
-
 // POST /webhook/self-healing
 const SelfHealingWebhookBody = z
   .object({
@@ -81,7 +59,6 @@ const TestNotificationBody = z
   .strict();
 
 module.exports = {
-  N8nWebhookBody,
   SelfHealingWebhookBody,
   ManualEventBody,
   UpdateNotificationSettingsBody,

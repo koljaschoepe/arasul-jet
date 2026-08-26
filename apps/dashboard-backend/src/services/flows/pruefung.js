@@ -15,7 +15,7 @@
  *
  * Statt Rückfragen gilt das ANNAHMEN-PROTOKOLL (Nutzer-Entscheidung §8):
  * Annahmen aus der Prüfrunde + verbliebene [offene Stellen] werden strukturiert
- * am Lauf gespeichert und im Ergebnis sichtbar gemacht — auch bei n8n-Starts.
+ * am Lauf gespeichert und im Ergebnis sichtbar gemacht — auch bei externen Starts.
  *
  * Jede Einzelprüfung erscheint im Laufprotokoll (Schritt „pruefung"); die
  * Korrekturrunde als eigener Modell-Schritt („korrektur"). Der Prüfschritt

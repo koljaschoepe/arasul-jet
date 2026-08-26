@@ -19,9 +19,6 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
 
-// Featured apps (always recommended)
-const FEATURED_APPS = ['n8n', 'terminal'];
-
 // Model recommendations based on LLM RAM allocation
 const MODEL_RECOMMENDATIONS = {
   // 80GB+ LLM RAM (Thor 128GB)
@@ -97,21 +94,13 @@ router.get(
       appsError = true;
     }
 
-    // Mark featured apps and get top 3
-    const recommendedApps = allApps
-      .map(app => ({
-        ...app,
-        featured: FEATURED_APPS.includes(app.id),
-      }))
-      .filter(app => FEATURED_APPS.includes(app.id) || app.featured)
-      .slice(0, 4);
-
-    // If we don't have enough featured apps, fill with first available
+    // Empfohlen ist, was das Manifest als `featured` fuehrt; bis Phase B5
+    // (26.08.2026) stand hier eine feste Liste (n8n, terminal), beide sind weg.
+    const recommendedApps = allApps.filter(app => app.featured).slice(0, 4);
     if (recommendedApps.length < 4) {
-      const remaining = allApps
-        .filter(a => !FEATURED_APPS.includes(a.id))
-        .slice(0, 4 - recommendedApps.length);
-      recommendedApps.push(...remaining);
+      recommendedApps.push(
+        ...allApps.filter(a => !a.featured).slice(0, 4 - recommendedApps.length)
+      );
     }
 
     res.json({

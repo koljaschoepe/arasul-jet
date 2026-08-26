@@ -106,7 +106,6 @@ function mockHealthyServices() {
   dockerService.getAllServicesStatus.mockResolvedValue({
     llm: { status: 'healthy' },
     embedding: { status: 'healthy' },
-    n8n: { status: 'healthy' },
     postgres: { status: 'healthy' },
     self_healing: { status: 'healthy' }
   });
@@ -146,7 +145,6 @@ describe('System Routes', () => {
       expect(response.body).toHaveProperty('status', 'OK');
       expect(response.body).toHaveProperty('llm', 'healthy');
       expect(response.body).toHaveProperty('embeddings', 'healthy');
-      expect(response.body).toHaveProperty('n8n', 'healthy');
       expect(response.body).toHaveProperty('postgres', 'healthy');
       expect(response.body).toHaveProperty('self_healing_active', true);
       expect(response.body).toHaveProperty('warnings');
@@ -183,8 +181,7 @@ describe('System Routes', () => {
       dockerService.getAllServicesStatus.mockResolvedValue({
         llm: { status: 'exited' },
         embedding: { status: 'healthy' },
-        n8n: { status: 'healthy' },
-        postgres: { status: 'healthy' },
+            postgres: { status: 'healthy' },
         self_healing: { status: 'healthy' }
       });
       mockNormalMetrics();
@@ -201,8 +198,7 @@ describe('System Routes', () => {
       dockerService.getAllServicesStatus.mockResolvedValue({
         llm: { status: 'restarting' },
         embedding: { status: 'healthy' },
-        n8n: { status: 'healthy' },
-        postgres: { status: 'healthy' },
+            postgres: { status: 'healthy' },
         self_healing: { status: 'healthy' }
       });
       mockNormalMetrics();
@@ -246,8 +242,7 @@ describe('System Routes', () => {
       dockerService.getAllServicesStatus.mockResolvedValue({
         llm: { status: 'healthy' },
         embedding: { status: 'healthy' },
-        n8n: { status: 'healthy' },
-        postgres: { status: 'healthy' },
+            postgres: { status: 'healthy' },
         self_healing: { status: 'exited' }
       });
       mockNormalMetrics();
@@ -337,9 +332,6 @@ describe('System Routes', () => {
         return {};
       });
 
-      // n8n health check succeeds
-      axios.get.mockResolvedValue({ data: { status: 'ok' } });
-
       const response = await request(app).get('/api/system/network');
 
       expect(response.status).toBe(200);
@@ -347,7 +339,6 @@ describe('System Routes', () => {
       expect(Array.isArray(response.body.ip_addresses)).toBe(true);
       expect(response.body).toHaveProperty('mdns', 'arasul.local');
       expect(response.body).toHaveProperty('internet_reachable');
-      expect(response.body).toHaveProperty('n8n_webhook_reachable');
       expect(response.body).toHaveProperty('timestamp');
     });
 
@@ -369,21 +360,6 @@ describe('System Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.internet_reachable).toBe(false);
-    });
-
-    test('should report n8n_webhook_reachable false when n8n is unreachable', async () => {
-      childProcess.execFile.mockImplementation((...allArgs) => {
-        const cb = typeof allArgs[allArgs.length - 1] === 'function' ? allArgs[allArgs.length - 1] : null;
-        if (cb) cb(null, { stdout: '', stderr: '' });
-        return {};
-      });
-
-      axios.get.mockRejectedValue(new Error('ECONNREFUSED'));
-
-      const response = await request(app).get('/api/system/network');
-
-      expect(response.status).toBe(200);
-      expect(response.body.n8n_webhook_reachable).toBe(false);
     });
 
     test('should use execFile (not exec) for ping to prevent shell injection', async () => {

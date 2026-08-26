@@ -98,7 +98,7 @@ describe('executeSteps', () => {
         {
           name: 'w',
           typ: 'werkzeug',
-          werkzeug: 'web_suche',
+          werkzeug: 'dateien_suchen',
           parameter: { q: '{{thema}}' },
           iterationen: 1,
         },
@@ -119,7 +119,7 @@ describe('executeSteps', () => {
       SubagentToolClass: makeFakeSubagent(jest.fn()),
     });
 
-    expect(recordWerkzeug).toHaveBeenCalledWith({ werkzeug: 'web_suche', params: { q: 'Y' } });
+    expect(recordWerkzeug).toHaveBeenCalledWith({ werkzeug: 'dateien_suchen', params: { q: 'Y' } });
   });
 
   test('Iteration wiederholt den Schritt und reicht {{vorher}} weiter', async () => {
@@ -229,7 +229,7 @@ describe('executeSteps', () => {
 
     const flow = {
       schritte: [
-        { name: 'w', typ: 'werkzeug', werkzeug: 'web_suche', parameter: { q: 'x' }, iterationen: 1 },
+        { name: 'w', typ: 'werkzeug', werkzeug: 'dateien_suchen', parameter: { q: 'x' }, iterationen: 1 },
       ],
       systemPrompt: 'B',
       grenzen,
@@ -282,7 +282,7 @@ describe('executeSteps', () => {
 describe('berechneVorabErgebnisse', () => {
   const schritte = [
     { name: 'a', typ: 'subagent', rolle: 'sucher', auftrag: 'x', iterationen: 1 },
-    { name: 'b', typ: 'werkzeug', werkzeug: 'web_suche', parameter: {}, iterationen: 1 },
+    { name: 'b', typ: 'werkzeug', werkzeug: 'dateien_suchen', parameter: {}, iterationen: 1 },
     { name: 'c', typ: 'subagent', rolle: 'leser', auftrag: 'y', iterationen: 1 },
   ];
 
@@ -299,7 +299,7 @@ describe('berechneVorabErgebnisse', () => {
   test('übernimmt nur die Schritte VOR dem ersten Fehler, mit ihren Ausgaben', () => {
     const vorab = berechneVorabErgebnisse(schritte, [
       alt('subagent', 'sucher', 'fertig', 'F1'),
-      alt('werkzeug', 'web_suche', 'fehler', 'Fehler: kaputt'),
+      alt('werkzeug', 'dateien_suchen', 'fehler', 'Fehler: kaputt'),
     ]);
     expect([...vorab.entries()]).toEqual([[0, 'F1']]);
   });
@@ -307,8 +307,8 @@ describe('berechneVorabErgebnisse', () => {
   test('Kind-Schritte (parent_step_id) zählen nicht als Ketten-Schritte', () => {
     const vorab = berechneVorabErgebnisse(schritte, [
       alt('subagent', 'sucher', 'fertig', 'F1'),
-      alt('werkzeug', 'web_lesen', 'fertig', 'roh', { parent_step_id: 1 }),
-      alt('werkzeug', 'web_suche', 'fertig', 'F2'),
+      alt('werkzeug', 'dateien_lesen', 'fertig', 'roh', { parent_step_id: 1 }),
+      alt('werkzeug', 'dateien_suchen', 'fertig', 'F2'),
     ]);
     expect([...vorab.entries()]).toEqual([
       [0, 'F1'],
@@ -341,11 +341,11 @@ describe('berechneVorabErgebnisse', () => {
   test('ein im Altlauf bereits übernommener Schritt zählt als EIN Eintrag', () => {
     const mitIter = [
       { name: 'a', typ: 'subagent', rolle: 'r', auftrag: 'x', iterationen: 3 },
-      { name: 'b', typ: 'werkzeug', werkzeug: 'web_suche', parameter: {}, iterationen: 1 },
+      { name: 'b', typ: 'werkzeug', werkzeug: 'dateien_suchen', parameter: {}, iterationen: 1 },
     ];
     const vorab = berechneVorabErgebnisse(mitIter, [
       alt('subagent', 'r', 'fertig', 'ALT', { input: { uebernommen: true, hinweis: 'x' } }),
-      alt('werkzeug', 'web_suche', 'fertig', 'F2'),
+      alt('werkzeug', 'dateien_suchen', 'fertig', 'F2'),
     ]);
     expect([...vorab.entries()]).toEqual([
       [0, 'ALT'],

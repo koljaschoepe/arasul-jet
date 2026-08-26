@@ -70,7 +70,7 @@ const metricsLimiter = createLimiter('Metrics', 1000, 20, 'Metrics request rate 
   skipSuccessfulRequests: true,
 });
 
-/** n8n Webhook rate limiter - 100 requests per minute */
+/** Webhook rate limiter (self-healing agent) - 100 requests per minute */
 const webhookLimiter = createLimiter('Webhook', 60 * 1000, 100, 'Webhook rate limit exceeded');
 
 /**

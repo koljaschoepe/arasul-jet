@@ -10,14 +10,7 @@ const fs = require('fs');
  * This allows all existing code to keep using process.env.VAR unchanged.
  */
 function resolveSecrets() {
-  const vars = [
-    'POSTGRES_PASSWORD',
-    'JWT_SECRET',
-    'ADMIN_PASSWORD',
-    'N8N_ENCRYPTION_KEY',
-    'N8N_OWNER_EMAIL',
-    'N8N_OWNER_PASSWORD',
-  ];
+  const vars = ['POSTGRES_PASSWORD', 'JWT_SECRET', 'ADMIN_PASSWORD'];
 
   for (const name of vars) {
     const filePath = process.env[`${name}_FILE`];

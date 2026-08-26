@@ -12,10 +12,8 @@
  * - POST /api/apps/:id/start
  * - POST /api/apps/:id/stop
  * - POST /api/apps/:id/restart
- * - POST /api/apps/sync
  * - GET /api/apps/:id/config
  * - POST /api/apps/:id/config
- * - GET /api/apps/:id/n8n-credentials
  */
 
 const request = require('supertest');
@@ -48,10 +46,8 @@ jest.mock('../../src/services/app/appService', () => ({
   stopApp: jest.fn(),
   restartApp: jest.fn(),
   recreateAppWithConfig: jest.fn(),
-  syncSystemApps: jest.fn(),
   getAppConfig: jest.fn(),
-  setAppConfig: jest.fn(),
-  getN8nCredentials: jest.fn()
+  setAppConfig: jest.fn()
 }));
 
 const db = require('../../src/database');
@@ -86,7 +82,7 @@ describe('AppStore Routes', () => {
 
     test('should return all apps', async () => {
       const mockApps = [
-        { id: 'n8n', name: 'n8n', category: 'automation', status: 'running' },
+        { id: 'beispiel-app', name: 'beispiel-app', category: 'automation', status: 'running' },
         { id: 'terminal', name: 'Terminal', category: 'tools', status: 'running' }
       ];
       appService.getAllApps.mockResolvedValue(mockApps);
@@ -176,15 +172,15 @@ describe('AppStore Routes', () => {
   describe('GET /api/apps/:id', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .get('/api/apps/n8n');
+        .get('/api/apps/beispiel-app');
 
       expect(response.status).toBe(401);
     });
 
     test('should return app details', async () => {
       const mockApp = {
-        id: 'n8n',
-        name: 'n8n',
+        id: 'beispiel-app',
+        name: 'beispiel-app',
         description: 'Workflow automation',
         category: 'automation',
         status: 'running',
@@ -193,12 +189,12 @@ describe('AppStore Routes', () => {
       appService.getApp.mockResolvedValue(mockApp);
 
       const response = await request(app)
-        .get('/api/apps/n8n')
+        .get('/api/apps/beispiel-app')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('app');
-      expect(response.body.app.id).toBe('n8n');
+      expect(response.body.app.id).toBe('beispiel-app');
       expect(response.body).toHaveProperty('timestamp');
     });
 
@@ -219,24 +215,24 @@ describe('AppStore Routes', () => {
   describe('GET /api/apps/:id/logs', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .get('/api/apps/n8n/logs');
+        .get('/api/apps/beispiel-app/logs');
 
       expect(response.status).toBe(401);
     });
 
     test('should return app logs', async () => {
       const mockLogs = [
-        '2026-01-22 10:00:00 INFO Starting n8n...',
-        '2026-01-22 10:00:01 INFO n8n ready on port 5678'
+        '2026-01-22 10:00:00 INFO Starting app...',
+        '2026-01-22 10:00:01 INFO app ready'
       ];
       appService.getAppLogs.mockResolvedValue(mockLogs);
 
       const response = await request(app)
-        .get('/api/apps/n8n/logs')
+        .get('/api/apps/beispiel-app/logs')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('appId', 'n8n');
+      expect(response.body).toHaveProperty('appId', 'beispiel-app');
       expect(response.body).toHaveProperty('logs');
       expect(response.body).toHaveProperty('timestamp');
     });
@@ -245,11 +241,11 @@ describe('AppStore Routes', () => {
       appService.getAppLogs.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/apps/n8n/logs?tail=50')
+        .get('/api/apps/beispiel-app/logs?tail=50')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
-      expect(appService.getAppLogs).toHaveBeenCalledWith('n8n', 50);
+      expect(appService.getAppLogs).toHaveBeenCalledWith('beispiel-app', 50);
     });
   });
 
@@ -259,7 +255,7 @@ describe('AppStore Routes', () => {
   describe('GET /api/apps/:id/events', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .get('/api/apps/n8n/events');
+        .get('/api/apps/beispiel-app/events');
 
       expect(response.status).toBe(401);
     });
@@ -272,11 +268,11 @@ describe('AppStore Routes', () => {
       appService.getAppEvents.mockResolvedValue(mockEvents);
 
       const response = await request(app)
-        .get('/api/apps/n8n/events')
+        .get('/api/apps/beispiel-app/events')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('appId', 'n8n');
+      expect(response.body).toHaveProperty('appId', 'beispiel-app');
       expect(response.body).toHaveProperty('events');
       expect(response.body).toHaveProperty('timestamp');
     });
@@ -288,7 +284,7 @@ describe('AppStore Routes', () => {
   describe('POST /api/apps/:id/install', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/install');
+        .post('/api/apps/beispiel-app/install');
 
       expect(response.status).toBe(401);
     });
@@ -296,13 +292,13 @@ describe('AppStore Routes', () => {
     test('should install app', async () => {
       const mockResult = {
         success: true,
-        appId: 'n8n',
+        appId: 'beispiel-app',
         status: 'installed'
       };
       appService.installApp.mockResolvedValue(mockResult);
 
       const response = await request(app)
-        .post('/api/apps/n8n/install')
+        .post('/api/apps/beispiel-app/install')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ config: { port: 5678 } });
 
@@ -317,12 +313,12 @@ describe('AppStore Routes', () => {
       const config = { port: 5678, debug: true };
 
       const response = await request(app)
-        .post('/api/apps/n8n/install')
+        .post('/api/apps/beispiel-app/install')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ config });
 
       expect(response.status).toBe(201);
-      expect(appService.installApp).toHaveBeenCalledWith('n8n', config);
+      expect(appService.installApp).toHaveBeenCalledWith('beispiel-app', config);
     });
   });
 
@@ -332,7 +328,7 @@ describe('AppStore Routes', () => {
   describe('POST /api/apps/:id/uninstall', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/uninstall');
+        .post('/api/apps/beispiel-app/uninstall');
 
       expect(response.status).toBe(401);
     });
@@ -340,13 +336,13 @@ describe('AppStore Routes', () => {
     test('should uninstall app', async () => {
       const mockResult = {
         success: true,
-        appId: 'n8n',
+        appId: 'beispiel-app',
         status: 'uninstalled'
       };
       appService.uninstallApp.mockResolvedValue(mockResult);
 
       const response = await request(app)
-        .post('/api/apps/n8n/uninstall')
+        .post('/api/apps/beispiel-app/uninstall')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -357,12 +353,12 @@ describe('AppStore Routes', () => {
       appService.uninstallApp.mockResolvedValue({ success: true });
 
       const response = await request(app)
-        .post('/api/apps/n8n/uninstall')
+        .post('/api/apps/beispiel-app/uninstall')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ removeVolumes: true });
 
       expect(response.status).toBe(200);
-      expect(appService.uninstallApp).toHaveBeenCalledWith('n8n', true);
+      expect(appService.uninstallApp).toHaveBeenCalledWith('beispiel-app', true);
     });
   });
 
@@ -372,7 +368,7 @@ describe('AppStore Routes', () => {
   describe('POST /api/apps/:id/start', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/start');
+        .post('/api/apps/beispiel-app/start');
 
       expect(response.status).toBe(401);
     });
@@ -380,13 +376,13 @@ describe('AppStore Routes', () => {
     test('should start app', async () => {
       const mockResult = {
         success: true,
-        appId: 'n8n',
+        appId: 'beispiel-app',
         status: 'running'
       };
       appService.startApp.mockResolvedValue(mockResult);
 
       const response = await request(app)
-        .post('/api/apps/n8n/start')
+        .post('/api/apps/beispiel-app/start')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -401,7 +397,7 @@ describe('AppStore Routes', () => {
   describe('POST /api/apps/:id/stop', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/stop');
+        .post('/api/apps/beispiel-app/stop');
 
       expect(response.status).toBe(401);
     });
@@ -409,13 +405,13 @@ describe('AppStore Routes', () => {
     test('should stop app', async () => {
       const mockResult = {
         success: true,
-        appId: 'n8n',
+        appId: 'beispiel-app',
         status: 'stopped'
       };
       appService.stopApp.mockResolvedValue(mockResult);
 
       const response = await request(app)
-        .post('/api/apps/n8n/stop')
+        .post('/api/apps/beispiel-app/stop')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -429,7 +425,7 @@ describe('AppStore Routes', () => {
   describe('POST /api/apps/:id/restart', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/restart');
+        .post('/api/apps/beispiel-app/restart');
 
       expect(response.status).toBe(401);
     });
@@ -437,13 +433,13 @@ describe('AppStore Routes', () => {
     test('should restart app', async () => {
       const mockResult = {
         success: true,
-        appId: 'n8n',
+        appId: 'beispiel-app',
         status: 'running'
       };
       appService.restartApp.mockResolvedValue(mockResult);
 
       const response = await request(app)
-        .post('/api/apps/n8n/restart')
+        .post('/api/apps/beispiel-app/restart')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -454,7 +450,7 @@ describe('AppStore Routes', () => {
       appService.recreateAppWithConfig.mockResolvedValue({ success: true });
 
       const response = await request(app)
-        .post('/api/apps/n8n/restart')
+        .post('/api/apps/beispiel-app/restart')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ applyConfig: true });
 
@@ -464,37 +460,12 @@ describe('AppStore Routes', () => {
   });
 
   // ============================================================================
-  // POST /api/apps/sync
-  // ============================================================================
-  describe('POST /api/apps/sync', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/sync');
-
-      expect(response.status).toBe(401);
-    });
-
-    test('should sync system apps', async () => {
-      appService.syncSystemApps.mockResolvedValue();
-
-      const response = await request(app)
-        .post('/api/apps/sync')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body).toHaveProperty('timestamp');
-    });
-  });
-
-  // ============================================================================
   // GET /api/apps/:id/config
   // ============================================================================
   describe('GET /api/apps/:id/config', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .get('/api/apps/n8n/config');
+        .get('/api/apps/beispiel-app/config');
 
       expect(response.status).toBe(401);
     });
@@ -508,7 +479,7 @@ describe('AppStore Routes', () => {
       appService.getAppConfig.mockResolvedValue(mockConfig);
 
       const response = await request(app)
-        .get('/api/apps/n8n/config')
+        .get('/api/apps/beispiel-app/config')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -523,7 +494,7 @@ describe('AppStore Routes', () => {
   describe('POST /api/apps/:id/config', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/config')
+        .post('/api/apps/beispiel-app/config')
         .send({ config: { port: 5678 } });
 
       expect(response.status).toBe(401);
@@ -533,7 +504,7 @@ describe('AppStore Routes', () => {
       appService.setAppConfig.mockResolvedValue();
 
       const response = await request(app)
-        .post('/api/apps/n8n/config')
+        .post('/api/apps/beispiel-app/config')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ config: { port: 5679, debug: true } });
 
@@ -545,7 +516,7 @@ describe('AppStore Routes', () => {
 
     test('should return 400 if config is missing', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/config')
+        .post('/api/apps/beispiel-app/config')
         .set('Authorization', `Bearer ${authToken}`)
         .send({});
 
@@ -555,7 +526,7 @@ describe('AppStore Routes', () => {
 
     test('should return 400 if config is not an object', async () => {
       const response = await request(app)
-        .post('/api/apps/n8n/config')
+        .post('/api/apps/beispiel-app/config')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ config: 'invalid' });
 
@@ -563,34 +534,4 @@ describe('AppStore Routes', () => {
     });
   });
 
-  // ============================================================================
-  // GET /api/apps/:id/n8n-credentials
-  // ============================================================================
-  describe('GET /api/apps/:id/n8n-credentials', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/n8n/n8n-credentials');
-
-      expect(response.status).toBe(401);
-    });
-
-    test('should return n8n credentials', async () => {
-      const mockCredentials = {
-        ssh_host: 'localhost',
-        ssh_port: 22,
-        ssh_user: 'arasul',
-        connection_string: 'ssh://arasul@localhost:22'
-      };
-      appService.getN8nCredentials.mockResolvedValue(mockCredentials);
-
-      const response = await request(app)
-        .get('/api/apps/n8n/n8n-credentials')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('appId', 'n8n');
-      expect(response.body).toHaveProperty('credentials');
-      expect(response.body).toHaveProperty('timestamp');
-    });
-  });
 });

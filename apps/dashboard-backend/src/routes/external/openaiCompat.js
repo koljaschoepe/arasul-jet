@@ -3,8 +3,7 @@
  *
  * Drop-in replacement for OpenAI's `/v1/chat/completions`, `/v1/embeddings`,
  * and `/v1/models` endpoints — backed by Arasul's local LLM and embedding
- * services. Designed so n8n's "OpenAI Chat Model" node, the official OpenAI
- * SDKs, and any third-party tooling that points at a configurable base URL
+ * services. Designed so the official OpenAI SDKs and any third-party tooling that points at a configurable base URL
  * can talk to the local stack without custom plumbing.
  *
  * Mounted at /v1 (parallel to /api), authentication is via API key
@@ -92,7 +91,7 @@ function newEmbeddingId() {
   return `embd-${crypto.randomBytes(12).toString('hex')}`;
 }
 
-// Rough token estimate so n8n's UI shows non-zero usage without us round-
+// Rough token estimate so clients show non-zero usage without us round-
 // tripping a tokenizer. ≈4 chars per token tracks BPE close enough for a
 // dashboard counter; downstream metering should ignore these and use job
 // records when available.
@@ -133,7 +132,7 @@ router.post(
       stream = false,
     } = req.body;
 
-    // Phase 4.1: fail fast when Ollama is dead so n8n nodes get a clean
+    // Phase 4.1: fail fast when Ollama is dead so clients get a clean
     // 503 instead of waiting for the queue's model-load timeout.
     const health = await ollamaReadiness.quickCheck(2000);
     if (!health.ready) {

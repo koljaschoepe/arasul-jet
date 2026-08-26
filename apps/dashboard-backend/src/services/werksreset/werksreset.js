@@ -150,7 +150,6 @@ async function vorschau({ stufe, modelleLoeschen = false } = {}) {
     tabellen: mitZahlen,
     zeilenGesamt: mitZahlen.reduce((s, t) => s + (t.zeilen ?? 0), 0),
     ordner: ordnerStand,
-    n8nWirdGeleert: stufe === 'auslieferung',
     unbekannteTabellen: unbekannt,
     durchfuehrbar: unbekannt.length === 0,
   };
@@ -295,11 +294,6 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
   const geleert = await db.transaction(async client => {
     const ergebnis = await leereTabellen(client, tabellen);
     if (stufe === 'auslieferung') {
-      // n8n legt sein Schema beim Start selbst an. Ein leeres Schema ist der
-      // ehrliche Auslieferungszustand: keine Workflows, keine Zugangsdaten,
-      // kein Konto. Der Neustart des Containers passiert nach der Transaktion.
-      await client.query('DROP SCHEMA IF EXISTS n8n CASCADE');
-      await client.query('CREATE SCHEMA n8n');
       await werkseinstellungen(client);
       // Der Merker, ohne den bootstrap.js beim naechsten Start wieder einen
       // Administrator aus ADMIN_PASSWORD anlegt. Das Entwerten in der .env
@@ -328,7 +322,7 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
     }
   }
 
-  const nebenwirkungen = await raeumeUmsysteme({ stufe, modelleLoeschen });
+  const nebenwirkungen = await raeumeUmsysteme({ modelleLoeschen });
 
   if (stufe === 'auslieferung') {
     // `admin_users` ist leer, aber `requireAuth` haelt jede Identitaet bis zu
@@ -390,20 +384,13 @@ async function pruefeEntwertung() {
 
 /**
  * Alles, was nicht in der Datenbank und nicht im Dateisystem des Backends liegt:
- * n8n und Modelle. Jeder Punkt einzeln abgesichert, ein
- * nicht erreichbarer Nachbardienst darf den Reset nicht zurücknehmen; er ist zu
- * diesem Zeitpunkt schon geschehen.
+ * seit Phase B5 (26.08.2026) nur noch die Modelle; bis dahin stand hier auch
+ * der n8n-Neustart nach dem Leeren seines Schemas. Jeder Punkt einzeln
+ * abgesichert, ein nicht erreichbarer Nachbardienst darf den Reset nicht
+ * zurücknehmen; er ist zu diesem Zeitpunkt schon geschehen.
  */
-async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
+async function raeumeUmsysteme({ modelleLoeschen }) {
   const ergebnis = {};
-
-  if (stufe === 'auslieferung') {
-    ergebnis.n8n = await stillEntfernen('n8n', async () => {
-      const docker = require('../core/docker');
-      await docker.restartContainer('n8n');
-      return { neugestartet: true };
-    });
-  }
 
   if (modelleLoeschen) {
     ergebnis.modelle = await stillEntfernen('Modelle', () => loescheAlleModelle());

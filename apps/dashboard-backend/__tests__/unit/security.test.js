@@ -213,7 +213,7 @@ const createSecureApp = () => {
     const { serviceName } = req.body;
 
     // Whitelist of allowed services
-    const allowedServices = ['llm-service', 'embedding-service', 'n8n'];
+    const allowedServices = ['llm-service', 'embedding-service', 'document-indexer'];
 
     if (!serviceName || !allowedServices.includes(serviceName)) {
       return res
@@ -514,7 +514,7 @@ describe('Security Tests', () => {
     });
 
     it('Accepts whitelisted service names', async () => {
-      const allowedServices = ['llm-service', 'embedding-service', 'n8n'];
+      const allowedServices = ['llm-service', 'embedding-service', 'document-indexer'];
 
       for (const service of allowedServices) {
         await request(app)

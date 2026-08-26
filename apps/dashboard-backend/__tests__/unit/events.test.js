@@ -7,7 +7,6 @@
  * - GET /api/events/settings
  * - PUT /api/events/settings
  * - POST /api/events/test
- * - POST /api/events/webhook/n8n
  * - POST /api/events/webhook/self-healing
  * - POST /api/events/manual
  * - GET /api/events/service-status
@@ -76,7 +75,6 @@ jest.mock('../../src/middleware/auth', () => {
 // Mock service dependencies
 jest.mock('../../src/services/core/eventListenerService', () => ({
   getStats: jest.fn(),
-  handleWorkflowEvent: jest.fn(),
   handleSelfHealingEvent: jest.fn()
 }));
 
@@ -263,76 +261,6 @@ describe('Events Routes', () => {
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('eventId', 99);
       expect(response.body).toHaveProperty('timestamp');
-    });
-  });
-
-  // ============================================================================
-  // POST /api/events/webhook/n8n
-  // ============================================================================
-  describe('POST /api/events/webhook/n8n', () => {
-    test('should return 401 when webhook secret is not configured', async () => {
-      delete process.env.N8N_WEBHOOK_SECRET;
-
-      const response = await request(app)
-        .post('/api/events/webhook/n8n')
-        .send({ workflow_id: 'wf-1', status: 'success' });
-
-      expect(response.status).toBe(401);
-    });
-
-    test('should return 400 if workflow_id is missing', async () => {
-      process.env.N8N_WEBHOOK_SECRET = 'test-secret';
-      eventListenerService.handleWorkflowEvent.mockResolvedValue({ success: true });
-
-      const response = await request(app)
-        .post('/api/events/webhook/n8n')
-        .set('X-Webhook-Secret', 'test-secret')
-        .send({ status: 'success' });
-
-      expect(response.status).toBe(400);
-
-      delete process.env.N8N_WEBHOOK_SECRET;
-    });
-
-    test('should return 400 if status is missing', async () => {
-      process.env.N8N_WEBHOOK_SECRET = 'test-secret';
-      eventListenerService.handleWorkflowEvent.mockResolvedValue({ success: true });
-
-      const response = await request(app)
-        .post('/api/events/webhook/n8n')
-        .set('X-Webhook-Secret', 'test-secret')
-        .send({ workflow_id: 'wf-1' });
-
-      expect(response.status).toBe(400);
-
-      delete process.env.N8N_WEBHOOK_SECRET;
-    });
-
-    test('should return 401 if webhook secret is wrong', async () => {
-      process.env.N8N_WEBHOOK_SECRET = 'correct-secret';
-
-      const response = await request(app)
-        .post('/api/events/webhook/n8n')
-        .set('X-Webhook-Secret', 'wrong-secret')
-        .send({ workflow_id: 'wf-1', status: 'success' });
-
-      expect(response.status).toBe(401);
-
-      delete process.env.N8N_WEBHOOK_SECRET;
-    });
-
-    test('should accept webhook with correct secret header', async () => {
-      process.env.N8N_WEBHOOK_SECRET = 'correct-secret';
-      eventListenerService.handleWorkflowEvent.mockResolvedValue({ success: true });
-
-      const response = await request(app)
-        .post('/api/events/webhook/n8n')
-        .set('X-Webhook-Secret', 'correct-secret')
-        .send({ workflow_id: 'wf-1', status: 'success' });
-
-      expect(response.status).toBe(200);
-
-      delete process.env.N8N_WEBHOOK_SECRET;
     });
   });
 

@@ -76,11 +76,11 @@ describe('Container Service', () => {
   describe('startApp()', () => {
     test('starts stopped app successfully', async () => {
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'installed', container_name: 'n8n' }] }) // Get installation
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'installed', container_name: 'beispiel-app' }] }) // Get installation
         .mockResolvedValueOnce({ rows: [] }) // Update status to starting
         .mockResolvedValueOnce({ rows: [] }); // Update status to running
 
-      const result = await containerService.startApp('n8n');
+      const result = await containerService.startApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(mockContainer.start).toHaveBeenCalled();
@@ -88,10 +88,10 @@ describe('Container Service', () => {
 
     test('returns success if app is already running', async () => {
       db.query.mockResolvedValueOnce({
-        rows: [{ app_id: 'n8n', status: 'running', container_name: 'n8n' }],
+        rows: [{ app_id: 'beispiel-app', status: 'running', container_name: 'beispiel-app' }],
       });
 
-      const result = await containerService.startApp('n8n');
+      const result = await containerService.startApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('läuft bereits');
@@ -108,7 +108,7 @@ describe('Container Service', () => {
 
     test('handles already-started container (304)', async () => {
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'installed', container_name: 'n8n' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'installed', container_name: 'beispiel-app' }] })
         .mockResolvedValueOnce({ rows: [] }) // Update to starting
         .mockResolvedValueOnce({ rows: [] }); // Update to running
 
@@ -116,20 +116,20 @@ describe('Container Service', () => {
       error304.statusCode = 304;
       mockContainer.start.mockRejectedValueOnce(error304);
 
-      const result = await containerService.startApp('n8n');
+      const result = await containerService.startApp('beispiel-app');
 
       expect(result.success).toBe(true);
     });
 
     test('sets status to error on start failure', async () => {
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'installed', container_name: 'n8n' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'installed', container_name: 'beispiel-app' }] })
         .mockResolvedValueOnce({ rows: [] }) // Update to starting
         .mockResolvedValueOnce({ rows: [] }); // Update to error
 
       mockContainer.start.mockRejectedValueOnce(new Error('Container start failed'));
 
-      await expect(containerService.startApp('n8n')).rejects.toThrow('Container start failed');
+      await expect(containerService.startApp('beispiel-app')).rejects.toThrow('Container start failed');
 
       // Verify error status was written
       expect(db.query).toHaveBeenCalledWith(
@@ -140,14 +140,14 @@ describe('Container Service', () => {
 
     test('handles builtin apps without docker', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'n8n': { builtin: true },
+        'beispiel-app': { builtin: true },
       });
 
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'installed' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'installed' }] })
         .mockResolvedValueOnce({ rows: [] }); // Update status
 
-      const result = await containerService.startApp('n8n');
+      const result = await containerService.startApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('aktiviert');
@@ -168,13 +168,13 @@ describe('Container Service', () => {
   describe('stopApp()', () => {
     test('stops running app successfully', async () => {
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'running', container_name: 'n8n' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'running', container_name: 'beispiel-app' }] })
         .mockResolvedValueOnce({ rows: [] }) // Update to stopping
         .mockResolvedValueOnce({ rows: [] }); // Update to installed
 
       mockContainer.inspect.mockResolvedValue({ State: { Running: true } });
 
-      const result = await containerService.stopApp('n8n');
+      const result = await containerService.stopApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(mockContainer.stop).toHaveBeenCalledWith({ t: 10 });
@@ -182,12 +182,12 @@ describe('Container Service', () => {
 
     test('returns success if app is already stopped', async () => {
       db.query.mockResolvedValueOnce({
-        rows: [{ app_id: 'n8n', status: 'installed', container_name: 'n8n' }],
+        rows: [{ app_id: 'beispiel-app', status: 'installed', container_name: 'beispiel-app' }],
       });
 
       mockContainer.inspect.mockResolvedValue({ State: { Running: false } });
 
-      const result = await containerService.stopApp('n8n');
+      const result = await containerService.stopApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('bereits gestoppt');
@@ -201,21 +201,21 @@ describe('Container Service', () => {
 
     test('checks dependencies before stopping', async () => {
       db.query.mockResolvedValueOnce({
-        rows: [{ app_id: 'n8n', status: 'running', container_name: 'n8n' }],
+        rows: [{ app_id: 'beispiel-app', status: 'running', container_name: 'beispiel-app' }],
       });
 
       mockContainer.inspect.mockResolvedValue({ State: { Running: true } });
       mockContainer.stop.mockResolvedValue({});
       db.query.mockResolvedValue({ rows: [] }); // For remaining queries
 
-      await containerService.stopApp('n8n');
+      await containerService.stopApp('beispiel-app');
 
-      expect(installService.checkDependencies).toHaveBeenCalledWith('n8n');
+      expect(installService.checkDependencies).toHaveBeenCalledWith('beispiel-app');
     });
 
     test('handles already-stopped container (304)', async () => {
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'running', container_name: 'n8n' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'running', container_name: 'beispiel-app' }] })
         .mockResolvedValueOnce({ rows: [] }) // Update to stopping
         .mockResolvedValueOnce({ rows: [] }); // Update to installed
 
@@ -224,21 +224,21 @@ describe('Container Service', () => {
       error304.statusCode = 304;
       mockContainer.stop.mockRejectedValueOnce(error304);
 
-      const result = await containerService.stopApp('n8n');
+      const result = await containerService.stopApp('beispiel-app');
 
       expect(result.success).toBe(true);
     });
 
     test('handles builtin apps without docker', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'n8n': { builtin: true },
+        'beispiel-app': { builtin: true },
       });
 
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'running' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'running' }] })
         .mockResolvedValueOnce({ rows: [] }); // Update status
 
-      const result = await containerService.stopApp('n8n');
+      const result = await containerService.stopApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('deaktiviert');
@@ -251,12 +251,12 @@ describe('Container Service', () => {
   describe('restartApp()', () => {
     test('restarts app successfully', async () => {
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'running', container_name: 'n8n' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'running', container_name: 'beispiel-app' }] })
         .mockResolvedValueOnce({ rows: [] }); // Update status
 
       mockContainer.restart.mockResolvedValue({});
 
-      const result = await containerService.restartApp('n8n');
+      const result = await containerService.restartApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(mockContainer.restart).toHaveBeenCalledWith({ t: 10 });
@@ -272,14 +272,14 @@ describe('Container Service', () => {
 
     test('handles builtin apps', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'n8n': { builtin: true },
+        'beispiel-app': { builtin: true },
       });
 
       db.query.mockResolvedValueOnce({
-        rows: [{ app_id: 'n8n', status: 'running' }],
+        rows: [{ app_id: 'beispiel-app', status: 'running' }],
       });
 
-      const result = await containerService.restartApp('n8n');
+      const result = await containerService.restartApp('beispiel-app');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('Built-in');
@@ -287,12 +287,12 @@ describe('Container Service', () => {
 
     test('sets error status on restart failure', async () => {
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'running', container_name: 'n8n' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'beispiel-app', status: 'running', container_name: 'beispiel-app' }] })
         .mockResolvedValueOnce({ rows: [] }); // Update to error
 
       mockContainer.restart.mockRejectedValueOnce(new Error('Restart failed'));
 
-      await expect(containerService.restartApp('n8n')).rejects.toThrow('Restart failed');
+      await expect(containerService.restartApp('beispiel-app')).rejects.toThrow('Restart failed');
 
       expect(db.query).toHaveBeenCalledWith(
         expect.stringContaining("status = 'error'"),
@@ -307,13 +307,13 @@ describe('Container Service', () => {
   describe('getAppLogs()', () => {
     test('returns container logs', async () => {
       db.query.mockResolvedValueOnce({
-        rows: [{ container_name: 'n8n' }],
+        rows: [{ container_name: 'beispiel-app' }],
       });
 
       const logBuffer = Buffer.from('2026-03-01T00:00:00Z Log line 1\n2026-03-01T00:00:01Z Log line 2');
       mockContainer.logs.mockResolvedValue(logBuffer);
 
-      const logs = await containerService.getAppLogs('n8n', 50);
+      const logs = await containerService.getAppLogs('beispiel-app', 50);
 
       expect(mockContainer.logs).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -335,12 +335,12 @@ describe('Container Service', () => {
 
     test('returns info message for builtin apps', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'n8n': { builtin: true },
+        'beispiel-app': { builtin: true },
       });
 
-      db.query.mockResolvedValueOnce({ rows: [{ container_name: 'n8n' }] });
+      db.query.mockResolvedValueOnce({ rows: [{ container_name: 'beispiel-app' }] });
 
-      const logs = await containerService.getAppLogs('n8n');
+      const logs = await containerService.getAppLogs('beispiel-app');
 
       expect(logs).toContain('Built-in App');
       expect(logs).toContain('dashboard-backend');
@@ -356,7 +356,7 @@ describe('Container Service', () => {
   // =====================================================
   describe('App ID Validation', () => {
     test('accepts valid app IDs', async () => {
-      const validIds = ['n8n', 'telegram-bot', 'code-server', 'my_app_123'];
+      const validIds = ['beispiel-app', 'telegram-bot', 'code-server', 'my_app_123'];
 
       for (const id of validIds) {
         db.query.mockResolvedValueOnce({ rows: [] }); // Not installed

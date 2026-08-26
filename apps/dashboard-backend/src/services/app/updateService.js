@@ -289,7 +289,6 @@ class UpdateService {
       // Stop services in reverse dependency order
       const stopOrder = [
         'self-healing-agent',
-        'n8n',
         'dashboard-frontend',
         'dashboard-backend',
         'reverse-proxy',

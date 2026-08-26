@@ -65,7 +65,7 @@ describe('startStep', () => {
     // Schritte dieselbe Nummer.
     const db = fakeDb({ rows: [{ id: 20, position: 3, kind: 'werkzeug' }] });
     const step = await runStore.startStep(
-      { runId: 9, kind: 'werkzeug', name: 'web_suche', input: { q: 'x' } },
+      { runId: 9, kind: 'werkzeug', name: 'dateien_suchen', input: { q: 'x' } },
       { db }
     );
     expect(step.position).toBe(3);
@@ -73,7 +73,7 @@ describe('startStep', () => {
     expect(sql).toMatch(/COALESCE\(MAX\(position\) \+ 1, 0\)/);
     expect(params).not.toContain(3); // Position ist NICHT unter den Parametern
     expect(params[1]).toBe('werkzeug');
-    expect(params[2]).toBe('web_suche');
+    expect(params[2]).toBe('dateien_suchen');
   });
 });
 

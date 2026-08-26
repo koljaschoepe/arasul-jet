@@ -32,10 +32,10 @@ describe('textToolCalls', () => {
 
   test('parst die JSON-Variante im tool_call-Tag', () => {
     const content =
-      'Kurz vorweg.\n<tool_call>\n{"name": "web_suche", "arguments": {"query": "Eichen"}}\n</tool_call>';
+      'Kurz vorweg.\n<tool_call>\n{"name": "dateien_suchen", "arguments": {"query": "Eichen"}}\n</tool_call>';
     const { calls, rest } = parseTextToolCalls(content);
     expect(calls).toHaveLength(1);
-    expect(calls[0].function).toEqual({ name: 'web_suche', arguments: { query: 'Eichen' } });
+    expect(calls[0].function).toEqual({ name: 'dateien_suchen', arguments: { query: 'Eichen' } });
     expect(rest).toBe('Kurz vorweg.');
   });
 

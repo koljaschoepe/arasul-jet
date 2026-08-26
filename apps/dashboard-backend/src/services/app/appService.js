@@ -7,8 +7,8 @@
  * Sub-services:
  *   manifestService  - Manifest loading, caching, app/category listing
  *   containerService - Docker container lifecycle, config building, image management
- *   installService   - App install/uninstall, dependency checks, system sync
- *   configService    - App configuration, Claude auth, n8n credentials, event logging
+ *   installService   - App install/uninstall, dependency checks
+ *   configService    - App configuration, event logging
  */
 
 const manifestService = require('./manifestService');

@@ -35,7 +35,7 @@ jest.mock('fs', () => ({
 
 jest.mock('../../src/utils/envManager', () => ({ updateEnvVariable: jest.fn() }));
 
-jest.mock('../../src/services/core/docker', () => ({ restartContainer: jest.fn() }));
+jest.mock('axios', () => ({ get: jest.fn(), delete: jest.fn() }));
 
 jest.mock('../../src/middleware/auth', () => ({
   clearUserCache: jest.fn(),
@@ -245,12 +245,13 @@ describe('werkseinstellungen', () => {
  * Der teuerste Fehler waere ein Werksreset, der wie einer aussieht und keiner
  * ist. Zwei Wege dorthin sind hier abgesichert: das alte Passwort ueberlebt,
  * weil bootstrap.js es beim naechsten Start aus der .env wieder einsetzt, und
- * n8n behaelt seine Workflows, weil nur die eigene Datenbank geleert wurde.
+ * bis Phase B5 behielt n8n seine Workflows, weil nur die eigene Datenbank
+ * geleert wurde.
  */
 describe('ausfuehren, ganzer Durchlauf', () => {
   const fs = require('fs');
   const envManager = require('../../src/utils/envManager');
-  const docker = require('../../src/services/core/docker');
+  const axios = require('axios');
 
   let clientAbfragen;
 
@@ -277,11 +278,10 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     fs.promises.readFile.mockResolvedValue('ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\n');
     fs.promises.rm.mockResolvedValue(undefined);
     envManager.updateEnvVariable.mockResolvedValue(true);
-    docker.restartContainer.mockResolvedValue(true);
     require('../../src/middleware/auth').clearUserCache.mockClear();
   });
 
-  test('Auslieferung entwertet das Erstpasswort und setzt n8n neu auf', async () => {
+  test('Auslieferung entwertet das Erstpasswort und setzt den Merker', async () => {
     const bericht = await werksreset.ausfuehren({
       stufe: 'auslieferung',
       bestaetigung: 'orin-vorfuehrer',
@@ -296,12 +296,9 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     expect(envManager.updateEnvVariable.mock.invocationCallOrder[0]).toBeLessThan(
       db.transaction.mock.invocationCallOrder[0]
     );
-    expect(clientAbfragen).toContain('DROP SCHEMA IF EXISTS n8n CASCADE');
     // Der Merker, ohne den bootstrap.js beim naechsten Start den alten Zugang
     // aus dem Docker-Secret wieder anlegt.
     expect(clientAbfragen.some(s => /INSERT INTO arasul\.geraet/.test(s))).toBe(true);
-    expect(clientAbfragen).toContain('CREATE SCHEMA n8n');
-    expect(docker.restartContainer).toHaveBeenCalledWith('n8n');
     // admin_users ist leer, aber requireAuth haelt Identitaeten bis zu 60 s im
     // Speicher. Ohne das Leeren kaeme die ausloesende Sitzung danach noch eine
     // Minute lang durch, gegen eine Datenbank ohne einen Administrator.
@@ -309,33 +306,33 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/flows');
   });
 
-  test('Inhalte lässt Passwort, n8n und Flows in Ruhe', async () => {
+  test('Inhalte lässt Passwort und Flows in Ruhe', async () => {
     const bericht = await werksreset.ausfuehren({
       stufe: 'inhalte',
       bestaetigung: 'orin-vorfuehrer',
     });
 
     expect(envManager.updateEnvVariable).not.toHaveBeenCalled();
-    expect(clientAbfragen.some(s => s.includes('DROP SCHEMA'))).toBe(false);
     expect(clientAbfragen.some(s => /arasul\.geraet/.test(s))).toBe(false);
-    expect(docker.restartContainer).not.toHaveBeenCalled();
     expect(require('../../src/middleware/auth').clearUserCache).not.toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).not.toContain('/arasul/flows');
   });
 
   test('ein nicht erreichbarer Nachbardienst nimmt den Reset nicht zurück', async () => {
     // Der Fall hing bis zum 24.08.2026 an Qdrant, bis zum 26.08.2026 an
-    // MinIO. Beide sind ausgebaut, die Frage bleibt dieselbe: die Datenbank
-    // ist zu diesem Zeitpunkt geleert, und ein toter Nachbardienst darf das
-    // nicht zurücknehmen — er wird gemeldet, nicht verschwiegen.
-    docker.restartContainer.mockRejectedValue(new Error('n8n antwortet nicht'));
+    // MinIO und n8n. Alle drei sind ausgebaut, die Frage bleibt dieselbe: die
+    // Datenbank ist zu diesem Zeitpunkt geleert, und ein toter Nachbardienst
+    // darf das nicht zurücknehmen — er wird gemeldet, nicht verschwiegen.
+    // Übrig ist Ollama, das die Modelle von der Platte nimmt.
+    axios.get.mockRejectedValue(new Error('Ollama antwortet nicht'));
 
     const bericht = await werksreset.ausfuehren({
       stufe: 'auslieferung',
+      modelleLoeschen: true,
       bestaetigung: 'orin-vorfuehrer',
     });
 
-    expect(bericht.n8n).toEqual({ ok: false, fehler: 'n8n antwortet nicht' });
+    expect(bericht.modelle).toEqual({ ok: false, fehler: 'Ollama antwortet nicht' });
     expect(bericht.zeilenGesamt).toBeGreaterThan(0);
   });
 });

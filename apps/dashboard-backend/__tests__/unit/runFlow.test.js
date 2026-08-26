@@ -52,10 +52,10 @@ describe('runFlowLoop — Ablauf', () => {
   });
 
   it('führt einen Werkzeug-Aufruf aus und reicht das Ergebnis ans Modell zurück', async () => {
-    const tool = fakeTool('web_suche', async () => 'Treffer A');
+    const tool = fakeTool('dateien_suchen', async () => 'Treffer A');
     axios.post
       .mockResolvedValueOnce(
-        antwort({ toolCalls: [{ function: { name: 'web_suche', arguments: { q: 'x' } } }] })
+        antwort({ toolCalls: [{ function: { name: 'dateien_suchen', arguments: { q: 'x' } } }] })
       )
       .mockResolvedValueOnce(antwort({ content: 'Zusammengefasst.' }));
 
@@ -114,10 +114,10 @@ describe('runFlowLoop — Ablauf', () => {
 
 describe('runFlowLoop — Grenzen', () => {
   it('bricht nach der Runden-Obergrenze ab (truncated)', async () => {
-    const tool = fakeTool('web_suche');
+    const tool = fakeTool('dateien_suchen');
     // Immer ein Werkzeug-Aufruf → die Schleife läuft, bis die Runden aus sind.
     axios.post.mockResolvedValue(
-      antwort({ toolCalls: [{ function: { name: 'web_suche', arguments: {} } }] })
+      antwort({ toolCalls: [{ function: { name: 'dateien_suchen', arguments: {} } }] })
     );
     const r = await runFlowLoop({
       model: 'm', systemPrompt: 's', userInput: 'u', tools: [tool], maxRunden: 3,
@@ -139,9 +139,9 @@ describe('runFlowLoop — Grenzen', () => {
   });
 
   it('bricht ab, wenn das Zeitlimit vor der nächsten Runde überschritten ist', async () => {
-    const tool = fakeTool('web_suche');
+    const tool = fakeTool('dateien_suchen');
     axios.post.mockResolvedValue(
-      antwort({ toolCalls: [{ function: { name: 'web_suche', arguments: {} } }] })
+      antwort({ toolCalls: [{ function: { name: 'dateien_suchen', arguments: {} } }] })
     );
     // Zeit springt nach dem ersten Aufruf über die Frist.
     let t = 1000;
@@ -246,7 +246,7 @@ describe('runFlow — Orchestrierung', () => {
   const baseFlow = {
     systemPrompt: 'Fasse {{thema}} zusammen.',
     argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
-    werkzeuge: ['web_suche'],
+    werkzeuge: ['dateien_suchen'],
     ordner: [],
     grenzen: { werkzeug_runden: 5, zeitlimit_s: 300, max_aufrufe: 20 },
   };
@@ -264,7 +264,7 @@ describe('runFlow — Orchestrierung', () => {
     return {
       store,
       loadFlow: jest.fn(async () => ({ ...baseFlow })),
-      makeTools: jest.fn(() => [fakeTool('web_suche')]),
+      makeTools: jest.fn(() => [fakeTool('dateien_suchen')]),
       runLoop: jest.fn(async () => ({ result: 'R', runden: 1 })),
       // Änderungs-Verfolgung standardmäßig gemockt — kein echter Ordner-Abzug im
       // Unit-Test. Einzeltests überschreiben `berechneAenderungen` bei Bedarf.
@@ -309,7 +309,7 @@ describe('runFlow — Orchestrierung', () => {
     // Der Schritt-Speicher schlüsselt offene Schritte nach Werkzeugnamen. Das ist
     // nur richtig, weil die Schleife die Aufrufe strikt nacheinander abarbeitet
     // (start→execute→result, dann der nächste). Dieser Test hält genau das fest:
-    // zwei `web_suche` in einer Runde ergeben zwei sauber abgeschlossene Schritte.
+    // zwei `dateien_suchen` in einer Runde ergeben zwei sauber abgeschlossene Schritte.
     const echterStore = {
       createRun: jest.fn(async () => ({ id: 1 })),
       startStep: jest.fn(async () => ({ id: Math.floor(Math.random() * 1e6) })),
@@ -324,8 +324,8 @@ describe('runFlow — Orchestrierung', () => {
       .mockResolvedValueOnce(
         antwort({
           toolCalls: [
-            { function: { name: 'web_suche', arguments: { q: 'a' } } },
-            { function: { name: 'web_suche', arguments: { q: 'b' } } },
+            { function: { name: 'dateien_suchen', arguments: { q: 'a' } } },
+            { function: { name: 'dateien_suchen', arguments: { q: 'b' } } },
           ],
         })
       )
@@ -333,7 +333,7 @@ describe('runFlow — Orchestrierung', () => {
 
     const deps = makeDeps({
       store: echterStore,
-      makeTools: () => [fakeTool('web_suche', async () => 'treffer')],
+      makeTools: () => [fakeTool('dateien_suchen', async () => 'treffer')],
       runLoop: realLoop, // die ECHTE Schleife, nicht das Mock
     });
     await runFlow({ flowName: 'wissen', args: { thema: 'x' }, userId: 1 }, deps);
@@ -413,7 +413,7 @@ describe('runFlow — Orchestrierung', () => {
   });
 
   it('verfolgt KEINE Datei-Änderungen für einen Flow ohne Schreib-Werkzeug', async () => {
-    // baseFlow hat nur web_suche — kein Abzug, kein saveChanges.
+    // baseFlow hat nur dateien_suchen — kein Abzug, kein saveChanges.
     const deps = makeDeps();
     await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps);
     expect(deps.tracker.snapshot).not.toHaveBeenCalled();

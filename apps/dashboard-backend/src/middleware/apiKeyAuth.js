@@ -1,6 +1,6 @@
 /**
  * API Key Authentication Middleware
- * Provides authentication for external apps (n8n, workflows, etc.)
+ * Provides authentication for external apps and automations
  *
  * API Key format: aras_<random32chars>
  * Header: X-API-Key: aras_abc12345...

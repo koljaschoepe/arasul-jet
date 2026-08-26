@@ -617,16 +617,6 @@ if (alsServerGestartet) {
       } catch (err) {
         logger.warn(`Database cleanup failed (non-critical): ${err.message}`);
       }
-      // Also clean up old n8n workflow activity records (7 day retention)
-      try {
-        const n8nLogger = require('./services/n8nLogger');
-        const deleted = await n8nLogger.cleanupOldRecords(7);
-        if (deleted > 0) {
-          logger.info(`n8n workflow cleanup: ${deleted} old records removed`);
-        }
-      } catch (err) {
-        logger.warn(`n8n workflow cleanup failed (non-critical): ${err.message}`);
-      }
     };
     // Initial cleanup after 60s delay (let migrations finish)
     const dbCleanupTimeout = setTimeout(runDbCleanup, 60 * 1000);

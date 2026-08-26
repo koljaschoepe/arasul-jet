@@ -19,7 +19,6 @@ const {
 } = require('./tools/dateien');
 const { DateiSuchenTool } = require('./tools/suche');
 const { SymbolSuchenTool } = require('./tools/symbolIndex');
-const { WebSucheTool, WebLesenTool } = require('./tools/web');
 const SubagentTool = require('./subagent');
 const FrageNutzerTool = require('./tools/frage');
 const BaseTool = require('../../tools/baseTool');
@@ -57,8 +56,6 @@ const FACTORIES = {
   dateien_anhaengen: () => new DateienAnhaengenTool(),
   dateien_suchen: () => new DateiSuchenTool(),
   symbol_suche: () => new SymbolSuchenTool(),
-  web_suche: () => new WebSucheTool(),
-  web_lesen: () => new WebLesenTool(),
   subagent: () => new SubagentTool(),
   frage_nutzer: () => new FrageNutzerTool(),
 };

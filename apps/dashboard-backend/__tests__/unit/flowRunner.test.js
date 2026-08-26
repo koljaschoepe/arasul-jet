@@ -87,7 +87,7 @@ describe('starten', () => {
     const abmelden = flowRunner.abonnieren(8, e => gesehen.push(e));
     expect(typeof abmelden).toBe('function');
 
-    onEvent({ type: 'tool_start', tool: 'web_suche' });
+    onEvent({ type: 'tool_start', tool: 'dateien_suchen' });
     onEvent({ type: 'text', content: 'hallo' });
     expect(gesehen.map(e => e.type)).toEqual(['tool_start', 'text']);
 

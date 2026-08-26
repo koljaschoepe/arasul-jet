@@ -185,8 +185,8 @@ describe('Flows-Routen', () => {
       const nach = Object.fromEntries(res.body.data.map(w => [w.name, w.verfuegbar]));
       // Alle Werkzeuge des Plans sind gebaut (Schritte 6–11).
       expect(nach.dateien_lesen).toBe(true);
-      expect(nach.web_suche).toBe(true);
-      expect(nach.web_lesen).toBe(true);
+      expect(nach.dateien_suchen).toBe(true);
+      expect(nach.dateien_lesen).toBe(true);
       expect(nach.subagent).toBe(true);
     });
 
@@ -213,11 +213,11 @@ describe('Flows-Routen', () => {
         prompt: 'Recherchiere {{thema}}.',
         argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
         ordner: ['/arasul/sandbox/projects/demo'],
-        werkzeuge: ['web_suche', 'subagent', 'dateien_schreiben'],
+        werkzeuge: ['dateien_suchen', 'subagent', 'dateien_schreiben'],
         rollen: [
           {
             name: 'leser',
-            werkzeuge: ['web_suche'],
+            werkzeuge: ['dateien_suchen'],
             ergebnis: { felder: ['fakten'], max_zeichen: 1200 },
             prompt: 'Lies und verdichte.',
           },
@@ -234,7 +234,7 @@ describe('Flows-Routen', () => {
       expect(res.body.data.prompt).toBe('Recherchiere gründlich {{thema}}.');
 
       // Alles andere muss unverändert dastehen.
-      expect(res.body.data.werkzeuge).toEqual(['web_suche', 'subagent', 'dateien_schreiben']);
+      expect(res.body.data.werkzeuge).toEqual(['dateien_suchen', 'subagent', 'dateien_schreiben']);
       expect(res.body.data.rollen).toHaveLength(1);
       expect(res.body.data.rollen[0].name).toBe('leser');
       expect(res.body.data.argumente).toHaveLength(1);
@@ -249,7 +249,7 @@ describe('Flows-Routen', () => {
       // Und auch auf der Platte, nicht nur in der Antwort.
       const datei = fs.readFileSync(path.join(TMP_FLOWS, 'voll.md'), 'utf8');
       expect(datei).toContain('leser');
-      expect(datei).toContain('web_suche');
+      expect(datei).toContain('dateien_suchen');
     });
 
     test('ein Feld lässt sich weiterhin gezielt leeren', async () => {
@@ -431,12 +431,12 @@ describe('Flows-Routen', () => {
     test('lädt einen Lauf samt Schritten', async () => {
       mitLaeufen({
         runRows: [{ id: 3, flow_name: 'recherche', status: 'laeuft' }],
-        stepRows: [{ id: 9, position: 0, kind: 'werkzeug', name: 'web_suche' }],
+        stepRows: [{ id: 9, position: 0, kind: 'werkzeug', name: 'dateien_suchen' }],
       });
       const res = await auth(request(app).get('/api/flows/laeufe/3'));
       expect(res.status).toBe(200);
       expect(res.body.data.steps).toHaveLength(1);
-      expect(res.body.data.steps[0].name).toBe('web_suche');
+      expect(res.body.data.steps[0].name).toBe('dateien_suchen');
     });
 
     test('ein fremder/unbekannter Lauf gibt 404', async () => {
@@ -473,18 +473,19 @@ describe('Flows-Routen', () => {
     const KETTE = {
       name: 'kette',
       prompt: 'Fasse zusammen.',
-      werkzeuge: ['subagent', 'web_suche'],
+      ordner: ['/arasul/sandbox/projects/demo'],
+      werkzeuge: ['subagent', 'dateien_suchen'],
       rollen: [
         {
           name: 'sucher',
-          werkzeuge: ['web_suche'],
+          werkzeuge: ['dateien_suchen'],
           ergebnis: { felder: ['fazit'] },
           prompt: 'Suche.',
         },
       ],
       schritte: [
         { name: 'suchen', typ: 'subagent', rolle: 'sucher', auftrag: 'Suche.' },
-        { name: 'nachschlagen', typ: 'werkzeug', werkzeug: 'web_suche', parameter: { suchbegriff: 'x' } },
+        { name: 'nachschlagen', typ: 'werkzeug', werkzeug: 'dateien_suchen', parameter: { suchbegriff: 'x' } },
       ],
     };
 
@@ -511,7 +512,7 @@ describe('Flows-Routen', () => {
         steps: [
           // Schritt 1 (subagent/sucher) gelang, Schritt 2 (werkzeug) scheiterte.
           { id: 1, position: 0, kind: 'subagent', name: 'sucher', status: 'fertig', output: 'F1', parent_step_id: null, input: {} },
-          { id: 2, position: 1, kind: 'werkzeug', name: 'web_suche', status: 'fehler', output: 'Fehler: kaputt', parent_step_id: null, input: {} },
+          { id: 2, position: 1, kind: 'werkzeug', name: 'dateien_suchen', status: 'fehler', output: 'Fehler: kaputt', parent_step_id: null, input: {} },
         ],
       });
       const spy = jest.spyOn(flowRunner, 'starten').mockResolvedValue({ runId: 99 });

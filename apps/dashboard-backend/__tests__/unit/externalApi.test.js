@@ -390,7 +390,7 @@ describe('External API Routes', () => {
         .post('/api/v1/external/api-keys')
         .set('Authorization', `Bearer ${jwtToken}`)
         .send({
-          name: 'N8N Integration',
+          name: 'Automation',
           description: 'For workflow automation',
           rate_limit_per_minute: 100,
           allowed_endpoints: ['llm:chat']

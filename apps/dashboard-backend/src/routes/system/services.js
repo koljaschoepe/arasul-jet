@@ -31,7 +31,6 @@ const ALLOWED_SERVICES = [
   'reverse-proxy',
   'dashboard-backend',
   'dashboard-frontend',
-  'n8n',
   'self-healing-agent',
   'backup-service',
 ];
@@ -69,9 +68,6 @@ router.get(
       embeddings: {
         status: services.embedding?.status || 'unknown',
         load: gpuUtilization,
-      },
-      n8n: {
-        status: services.n8n?.status || 'unknown',
       },
       postgres: {
         status: services.postgres?.status || 'unknown',

@@ -455,12 +455,12 @@ describe('dateien_suchen', () => {
 
 describe('Werkzeug-Registry', () => {
   it('baut genau die deklarierten Werkzeuge', () => {
-    const tools = buildTools(['dateien_lesen', 'web_suche']);
-    expect(tools.map(t => t.name)).toEqual(['dateien_lesen', 'web_suche']);
+    const tools = buildTools(['dateien_lesen', 'dateien_suchen']);
+    expect(tools.map(t => t.name)).toEqual(['dateien_lesen', 'dateien_suchen']);
   });
 
   it('entfernt Duplikate', () => {
-    expect(buildTools(['web_suche', 'web_suche'])).toHaveLength(1);
+    expect(buildTools(['dateien_suchen', 'dateien_suchen'])).toHaveLength(1);
   });
 
   it('gibt für eine leere Liste nichts zurück (keine Werkzeuge = keine Rechte)', () => {
@@ -482,8 +482,6 @@ describe('Werkzeug-Registry', () => {
         'dateien_anhaengen',
         'dateien_suchen',
         'symbol_suche',
-        'web_suche',
-        'web_lesen',
         'subagent',
         // Plan 023 I3: EINE Rueckfrage an den Nutzer. Nur wirksam in der
         // Betriebsart `rueckfragen` — siehe die Tests darunter.
@@ -518,8 +516,8 @@ describe('Werkzeug-Registry', () => {
     });
 
     it('laesst die uebrigen Werkzeuge unberuehrt', () => {
-      const t = buildTools(['dateien_lesen', 'web_lesen'], { betriebsart: 'autonom' });
-      expect(namen(t)).toEqual(['dateien_lesen', 'web_lesen']);
+      const t = buildTools(['dateien_lesen', 'dateien_suchen'], { betriebsart: 'autonom' });
+      expect(namen(t)).toEqual(['dateien_lesen', 'dateien_suchen']);
     });
   });
 });

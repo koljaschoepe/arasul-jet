@@ -133,23 +133,15 @@ async function bootstrap() {
     await ensureAdminUser();
   }
 
-  // Step 4: Reconcile optionale App-Container (z. B. n8n) an den gespeicherten
-  // Aktivierungszustand. Lizenzsauber: n8n läuft nur, wenn die Extension aktiv
-  // ist — ist sie deaktiviert (Default für frische Boxen), wird der Container
-  // gestoppt. Best-effort, blockiert den Boot nie.
-  try {
-    const appLifecycle = require('./services/app/appLifecycleService');
-    await appLifecycle.reconcileApps();
-  } catch (error) {
-    logger.error(`Bootstrap: App-Container-Reconcile error: ${error.message}`);
-  }
+  // Step 4 ist entfallen (Phase B5, 26.08.2026): der Start glich hier den
+  // n8n-Container an den Schalter in `platform_apps` an. Beides ist weg.
 
   // Step 5 ist entfallen (Plan 023 B4, Entscheidung E6): der Start legte hier
-  // fünf Beispiel-Flows im Flow-Ordner an. Ab Werk ist nichts enthalten. Die
-  // Vorlagen gibt es weiter, aber als Angebot im Anlege-Dialog
-  // (`services/flows/beispielKatalog.js`, `GET /api/flows/beispiele`), nicht
-  // als Lieferumfang. Ohne diese Streichung stellt ein Werksreset den
-  // Auslieferungszustand her und der nächste Start macht ihn wieder kaputt.
+  // fünf Beispiel-Flows im Flow-Ordner an. Ab Werk ist nichts enthalten. Der
+  // Beispiel-Katalog (`GET /api/flows/beispiele`) ist mit Phase B5 gefallen:
+  // das letzte Beispiel brauchte die Web-Werkzeuge, die mit SearXNG gingen.
+  // Ohne diese Streichung stellt ein Werksreset den Auslieferungszustand her
+  // und der nächste Start macht ihn wieder kaputt.
 }
 
 /**

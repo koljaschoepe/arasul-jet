@@ -6,7 +6,7 @@
  *   system/    - Services, metrics, logs, database
  *   admin/     - Settings, audit, updates, self-healing
  *   ai/        - Models, embeddings
- *   store/     - App store, unified store, workflows, workspaces
+ *   store/     - App store, unified store
  *   external/  - External API, events, alerts
  *
  * Core routes (auth, chats, llm) stay at the top level.
@@ -47,8 +47,6 @@ const API_ROUTE_GROUPS = [
   { prefix: '/flows', group: 'ai' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/store', group: 'store' },
-  { prefix: '/workflows', group: 'store' },
-  { prefix: '/automations', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
   { prefix: '/events', group: 'external' },
   { prefix: '/alerts', group: 'external' },
@@ -110,10 +108,7 @@ router.use('/flows', require('./flows'));
 
 // --- Store ---
 router.use('/apps', require('./store/appstore'));
-router.use('/workspace-apps', require('./workspaceApps'));
 router.use('/store', require('./store/store'));
-router.use('/workflows', require('./store/workflows'));
-router.use('/automations', require('./automations'));
 
 // --- External ---
 router.use('/v1/external', require('./external/externalApi'));
