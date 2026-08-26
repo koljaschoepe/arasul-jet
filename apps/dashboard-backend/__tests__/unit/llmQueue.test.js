@@ -41,9 +41,8 @@ function createMockModelService() {
 
 function createMockJobService() {
   return {
-    createJob: jest.fn().mockResolvedValue({ jobId: 'job-123', messageId: 456 }),
+    createJob: jest.fn().mockResolvedValue({ jobId: 'job-123' }),
     cleanupStaleJobs: jest.fn().mockResolvedValue(0),
-    recoverOrphanedMessages: jest.fn().mockResolvedValue(0),
     errorJob: jest.fn().mockResolvedValue(true),
     cancelJob: jest.fn().mockResolvedValue(true),
     getJob: jest.fn(),
@@ -202,7 +201,7 @@ describe('LLMQueueService', () => {
       const result = await service.enqueue(1, 'chat', { messages: [] });
 
       expect(result).toHaveProperty('jobId', 'job-123');
-      expect(result).toHaveProperty('messageId', 456);
+      expect(result).not.toHaveProperty('messageId');
       expect(result).toHaveProperty('queuePosition', 1);
       expect(result).toHaveProperty('model', 'llama3:8b');
       expect(mockJobService.createJob).toHaveBeenCalledWith(1, 'chat', { messages: [] });
@@ -306,21 +305,19 @@ describe('LLMQueueService', () => {
         rows: [
           {
             id: 'job-1',
-            conversation_id: 1,
+            user_id: 1,
             job_type: 'chat',
             status: 'streaming',
             queue_position: 0,
             requested_model: 'llama3:8b',
-            chat_title: 'Test Chat',
           },
           {
             id: 'job-2',
-            conversation_id: 2,
+            user_id: 2,
             job_type: 'chat',
             status: 'pending',
             queue_position: 1,
             requested_model: 'llama3:8b',
-            chat_title: 'Other Chat',
           },
         ],
       });

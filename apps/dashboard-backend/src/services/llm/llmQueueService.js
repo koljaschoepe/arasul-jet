@@ -204,8 +204,7 @@ function createLLMQueueService(deps = {}) {
 
       logger.info('LLM Queue Service: Initializing...');
 
-      // 1. Recover orphaned messages, then cleanup stale jobs
-      await llmJobService.recoverOrphanedMessages();
+      // 1. Auftraege ohne Prozess schliessen
       await llmJobService.cleanupStaleJobs();
 
       // 2. Recalculate queue positions for pending jobs
@@ -233,13 +232,13 @@ function createLLMQueueService(deps = {}) {
 
     /**
      * Add a job to the queue
-     * @param {number} conversationId - Chat conversation ID
+     * @param {number|null} userId - Besitzer des Auftrags (admin_users.id)
      * @param {string} jobType - 'chat'
      * @param {object} requestData - Original request parameters
      * @param {object} options - Optional: model, modelSequence, priority, maxWaitSeconds
-     * @returns {Promise<{jobId: string, messageId: number, queuePosition: number, model: string}>}
+     * @returns {Promise<{jobId: string, queuePosition: number, model: string}>}
      */
-    async enqueue(conversationId, jobType, requestData, options = {}) {
+    async enqueue(userId, jobType, requestData, options = {}) {
       const {
         model = null,
         modelSequence = null,
@@ -269,7 +268,7 @@ function createLLMQueueService(deps = {}) {
       // The queue-size check MUST run inside the lock together with the insert,
       // otherwise concurrent enqueues can all read the same pre-insert COUNT and
       // blow past MAX_QUEUE_SIZE.
-      const { jobId, messageId, queuePosition } = await this.enqueueMutex.withLock(async () => {
+      const { jobId, queuePosition } = await this.enqueueMutex.withLock(async () => {
         // Check queue size limit (atomic with the insert below)
         const queueCount = await database.query(
           `SELECT COUNT(*) as cnt FROM llm_jobs WHERE status = 'pending'`
@@ -285,11 +284,7 @@ function createLLMQueueService(deps = {}) {
         const queuePos = posResult.rows[0].pos;
 
         // Create job in database
-        const { jobId: jId, messageId: mId } = await llmJobService.createJob(
-          conversationId,
-          jobType,
-          requestData
-        );
+        const { jobId: jId } = await llmJobService.createJob(userId, jobType, requestData);
 
         // Update with queue info and model data
         await database.query(
@@ -306,7 +301,6 @@ function createLLMQueueService(deps = {}) {
         // irreführend (bei leerer Queue kam z. B. 71 heraus).
         return {
           jobId: jId,
-          messageId: mId,
           queuePosition: parseInt(queueCount.rows[0].cnt) + 1,
         };
       });
@@ -316,7 +310,7 @@ function createLLMQueueService(deps = {}) {
       // Start processing if queue was empty
       setImmediate(() => this.processNext());
 
-      return { jobId, messageId, queuePosition, model: resolvedModel };
+      return { jobId, queuePosition, model: resolvedModel };
     }
 
     /**
@@ -708,10 +702,9 @@ function createLLMQueueService(deps = {}) {
      */
     async getQueueStatus() {
       const result = await database.query(`
-                SELECT j.id, j.conversation_id, j.job_type, j.status, j.queue_position,
-                       j.queued_at, j.started_at, j.requested_model, c.title as chat_title
+                SELECT j.id, j.user_id, j.job_type, j.status, j.queue_position,
+                       j.queued_at, j.started_at, j.requested_model
                 FROM llm_jobs j
-                JOIN chat_conversations c ON j.conversation_id = c.id
                 WHERE j.status IN ('pending', 'streaming')
                 ORDER BY
                     CASE WHEN j.status = 'streaming' THEN 0 ELSE 1 END,
@@ -836,12 +829,10 @@ function createLLMQueueService(deps = {}) {
       // wenn eine Testdatei ihre Aufräumarbeit längst hinter sich hat (R30).
       this.timeoutInterval = setInterval(async () => {
         try {
-          // First: try to recover orphaned messages periodically
-          await llmJobService.recoverOrphanedMessages();
-
-          // Then: find timed-out jobs and try to recover before marking as error
+          // Abgelaufene Auftraege schliessen. Der Teiltext bleibt in
+          // `llm_jobs.content` stehen, bis cleanup_old_llm_jobs() ihn wegraeumt.
           const timedOutCandidates = await database.query(`
-                        SELECT j.id, j.status as old_status, j.content, j.thinking, j.sources, j.matched_spaces, j.message_id
+                        SELECT j.id, j.status as old_status
                         FROM llm_jobs j
                         WHERE (
                           (j.status = 'pending' AND j.queued_at < NOW() - INTERVAL '30 minutes')
@@ -870,53 +861,13 @@ function createLLMQueueService(deps = {}) {
           if (timedOutJobs.rows.length > 0) {
             logger.warn(`Found ${timedOutJobs.rows.length} timed-out jobs`);
             for (const row of timedOutJobs.rows) {
-              // Try to recover content before marking as error
-              if (row.message_id && (row.content || row.thinking)) {
-                try {
-                  await database.query(
-                    `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5 AND status = 'streaming'`,
-                    [
-                      row.content || '',
-                      row.thinking,
-                      row.sources,
-                      row.matched_spaces,
-                      row.message_id,
-                    ]
-                  );
-                  await database.query(
-                    `UPDATE llm_jobs SET status = 'completed', completed_at = NOW(),
-                     error_message = 'Auto-recovered from timeout' WHERE id = $1`,
-                    [row.id]
-                  );
-                  logger.info(`Recovered timed-out job ${row.id} with content`);
-                } catch (recoverErr) {
-                  logger.error(`Failed to recover timed-out job ${row.id}: ${recoverErr.message}`);
-                  await database.query(
-                    `UPDATE llm_jobs SET status = 'error', error_message = $2, completed_at = NOW() WHERE id = $1`,
-                    [
-                      row.id,
-                      row.old_status === 'pending'
-                        ? 'Job timed out in queue (30 minutes)'
-                        : 'Job timed out during streaming (10 minutes without update)',
-                    ]
-                  );
-                }
-              } else {
-                // No content to recover — mark as error
-                await database.query(
-                  `UPDATE llm_jobs SET status = 'error',
-                   error_message = CASE WHEN $2 = 'pending' THEN 'Job timed out in queue (30 minutes)'
-                   ELSE 'Job timed out during streaming (10 minutes without update)' END,
-                   completed_at = NOW() WHERE id = $1`,
-                  [row.id, row.old_status]
-                );
-                if (row.message_id) {
-                  await database.query(
-                    `UPDATE chat_messages SET status = 'error' WHERE id = $1 AND status = 'streaming'`,
-                    [row.message_id]
-                  );
-                }
-              }
+              await database.query(
+                `UPDATE llm_jobs SET status = 'error',
+                 error_message = CASE WHEN $2 = 'pending' THEN 'Job timed out in queue (30 minutes)'
+                 ELSE 'Job timed out during streaming (10 minutes without update)' END,
+                 completed_at = NOW() WHERE id = $1`,
+                [row.id, row.old_status]
+              );
 
               // Plan 023 E1: Grund und Kennung, und zwar auf Deutsch. Diese
               // beiden Saetze waren die einzigen Abbruchmeldungen des Produkts

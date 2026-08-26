@@ -508,7 +508,7 @@ describe('Flows-Routen', () => {
     test('startet einen neuen Lauf und übernimmt die erfolgreichen Schritte', async () => {
       await auth(request(app).post('/api/flows')).send(KETTE);
       mitAltlauf({
-        run: { id: 3, flow_name: 'kette', status: 'fehler', arguments: {}, conversation_id: null },
+        run: { id: 3, flow_name: 'kette', status: 'fehler', arguments: {} },
         steps: [
           // Schritt 1 (subagent/sucher) gelang, Schritt 2 (werkzeug) scheiterte.
           { id: 1, position: 0, kind: 'subagent', name: 'sucher', status: 'fertig', output: 'F1', parent_step_id: null, input: {} },
@@ -532,7 +532,7 @@ describe('Flows-Routen', () => {
     test('ein nicht fehlgeschlagener Lauf wird mit 400 abgewiesen', async () => {
       await auth(request(app).post('/api/flows')).send(KETTE);
       mitAltlauf({
-        run: { id: 3, flow_name: 'kette', status: 'fertig', arguments: {}, conversation_id: null },
+        run: { id: 3, flow_name: 'kette', status: 'fertig', arguments: {} },
       });
       const spy = jest.spyOn(flowRunner, 'starten');
 
@@ -544,7 +544,7 @@ describe('Flows-Routen', () => {
     test('ein Flow OHNE Schritt-Kette wird mit 400 abgewiesen', async () => {
       await auth(request(app).post('/api/flows')).send(NEU); // 'notiz' hat keine schritte
       mitAltlauf({
-        run: { id: 4, flow_name: 'notiz', status: 'fehler', arguments: {}, conversation_id: null },
+        run: { id: 4, flow_name: 'notiz', status: 'fehler', arguments: {} },
       });
       const spy = jest.spyOn(flowRunner, 'starten');
 

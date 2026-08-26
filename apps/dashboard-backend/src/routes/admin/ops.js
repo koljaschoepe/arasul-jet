@@ -122,8 +122,6 @@ router.get(
           COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
                     WHERE relname = 'app_events'), 0)         AS app_events,
           COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
-                    WHERE relname = 'chat_messages'), 0)      AS chat_messages,
-          COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
                     WHERE relname = 'self_healing_events'), 0) AS self_healing_events
       `
         )
@@ -223,7 +221,6 @@ router.get(
       },
       retention_counts: {
         app_events: retention.app_events ?? null,
-        chat_messages: retention.chat_messages ?? null,
         self_healing_events: retention.self_healing_events ?? null,
       },
       timestamp: new Date().toISOString(),

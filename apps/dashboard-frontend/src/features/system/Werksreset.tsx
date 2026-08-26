@@ -58,7 +58,6 @@ interface Bericht {
   zeilenGesamt: number;
   dauerMs: number;
   tabellen: Record<string, number>;
-  objektspeicher?: Nebenwirkung;
   modelle?: Nebenwirkung;
   ordner?: { pfad: string; fehler?: string }[];
 }
@@ -70,7 +69,6 @@ interface Bericht {
  * pauschal Erfolg melden.
  */
 const FOLGE: Record<string, string> = {
-  objektspeicher: 'Die Dateien liegen noch im Objektspeicher, obwohl ihre Eintraege weg sind.',
   modelle: 'Die Modelle liegen noch auf der Platte.',
 };
 

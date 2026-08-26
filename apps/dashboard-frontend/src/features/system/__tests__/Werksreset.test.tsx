@@ -31,7 +31,7 @@ const VORSCHAU = {
   modelleLoeschen: false,
   geraetename: 'orin-vorfuehrer',
   tabellen: [
-    { name: 'public.chat_messages', zweck: 'Chatnachrichten', zeilen: 412 },
+    { name: 'public.llm_jobs', zweck: 'Aufträge an die Sprachmodelle', zeilen: 412 },
     { name: 'public.documents', zweck: 'Dokumente', zeilen: 0 },
   ],
   zeilenGesamt: 412,
@@ -82,7 +82,7 @@ test('zeigt vorher, was verschwindet, und zählt leere Bereiche nicht mit', asyn
   await nutzer.click(screen.getByRole('button', { name: /Vorschau anzeigen/i }));
 
   expect(await screen.findByText(/412 Zeilen in 1 Tabellen/)).toBeInTheDocument();
-  expect(screen.getByText('Chatnachrichten')).toBeInTheDocument();
+  expect(screen.getByText('Aufträge an die Sprachmodelle')).toBeInTheDocument();
   expect(screen.queryByText('Dokumente')).not.toBeInTheDocument();
 });
 

@@ -73,6 +73,21 @@ const upload = multer(
 );
 
 /**
+ * Jeder Auftrag braucht einen eindeutigen Besitzer. `req.apiKey.userId` ist der
+ * Schlüssel-Ersteller (api_keys.created_by) — er kann NULL sein, wenn dieser
+ * Nutzer gelöscht wurde (ON DELETE SET NULL). Dann NICHT still auf Admin (1)
+ * ausweichen: sonst liest ein verwaister Schlüssel fremde Aufträge und Läufe.
+ * Bis Phase B6 wich `/llm/chat` genau so aus; seit `llm_jobs.user_id` (165)
+ * gilt für Aufträge dieselbe Regel wie für Flow-Läufe.
+ */
+function besitzerOderAbweisen(apiKey) {
+  if (!apiKey.userId) {
+    throw new ForbiddenError('API-Schlüssel ohne gültigen Besitzer, bitte neu erstellen');
+  }
+  return apiKey.userId;
+}
+
+/**
  * POST /api/v1/external/llm/chat - LLM chat via queue (for automations)
  *
  * Request body:
@@ -121,19 +136,7 @@ router.post(
       timeout_seconds = 300,
     } = req.body;
 
-    // Create a temporary conversation for this request
-    // USER-FIX: Use API key owner's user_id instead of hardcoded 1
-    const apiKeyUserId = req.apiKey.userId || 1;
-    const conversationResult = await require('../../database').query(
-      `
-        INSERT INTO chat_conversations (title, user_id, created_at)
-        VALUES ($1, $2, NOW())
-        RETURNING id
-    `,
-      [`External API: ${req.apiKey.name} - ${new Date().toISOString()}`, apiKeyUserId]
-    );
-
-    const conversationId = conversationResult.rows[0].id;
+    const userId = besitzerOderAbweisen(req.apiKey);
 
     // Convert simple prompt to messages format
     const messages = [{ role: 'user', content: prompt }];
@@ -141,11 +144,10 @@ router.post(
     // Enqueue the job
     const {
       jobId,
-      messageId,
       queuePosition,
       model: resolvedModel,
     } = await llmQueueService.enqueue(
-      conversationId,
+      userId,
       'chat',
       { messages, temperature, max_tokens, thinking },
       { model, priority: 0 }
@@ -160,7 +162,6 @@ router.post(
       return res.json({
         success: true,
         job_id: jobId,
-        message_id: messageId,
         queue_position: queuePosition,
         model: resolvedModel,
         status: 'pending',
@@ -210,7 +211,7 @@ router.get(
     // null-guard: req.apiKey.userId can be NULL when the original key creator was
     // deleted (api_keys.created_by ON DELETE SET NULL). Without this guard,
     // null !== null is false → two orphan-keyed requests could read each
-    // other's jobs.
+    // other's jobs. `job.user_id` steht seit Migration 165 am Auftrag selbst.
     if (!job || !req.apiKey.userId || job.user_id !== req.apiKey.userId) {
       throw new NotFoundError('Job not found');
     }
@@ -506,18 +507,12 @@ router.post(
       ? `Document: "${filename}"\n\nExtracted text:\n---\n${truncatedText}\n---\n\nUser request: ${prompt}`
       : `Document: "${filename}"\n\nExtracted text:\n---\n${truncatedText}\n---\n\nPlease analyze this document and summarize the key contents.`;
 
-    // 3. Create temp conversation and enqueue LLM job
-    const apiKeyUserId = req.apiKey.userId || 1;
-    const conversationResult = await require('../../database').query(
-      `INSERT INTO chat_conversations (title, user_id, created_at)
-       VALUES ($1, $2, NOW()) RETURNING id`,
-      [`External API Document: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
-    );
-    const conversationId = conversationResult.rows[0].id;
+    // 3. Enqueue LLM job
+    const userId = besitzerOderAbweisen(req.apiKey);
 
     const messages = [{ role: 'user', content: analysisPrompt }];
     const { jobId, model: resolvedModel } = await llmQueueService.enqueue(
-      conversationId,
+      userId,
       'chat',
       {
         messages,
@@ -637,17 +632,11 @@ ${schemaStr}
 Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
 
     // 3. Enqueue LLM job
-    const apiKeyUserId = req.apiKey.userId || 1;
-    const conversationResult = await require('../../database').query(
-      `INSERT INTO chat_conversations (title, user_id, created_at)
-       VALUES ($1, $2, NOW()) RETURNING id`,
-      [`External API Structured: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
-    );
-    const conversationId = conversationResult.rows[0].id;
+    const userId = besitzerOderAbweisen(req.apiKey);
 
     const messages = [{ role: 'user', content: structuredPrompt }];
     const { jobId, model: resolvedModel } = await llmQueueService.enqueue(
-      conversationId,
+      userId,
       'chat',
       {
         messages,
@@ -813,27 +802,14 @@ router.post(
     const args = req.body.args || {};
     const waitForResult = req.body.wait_for_result !== false;
 
-    // Läufe brauchen einen eindeutigen Besitzer. `req.apiKey.userId` ist der
-    // Schlüssel-Ersteller (api_keys.created_by) — es kann NULL sein, wenn dieser
-    // Nutzer gelöscht wurde (ON DELETE SET NULL). Dann NICHT still auf Admin (1)
-    // ausweichen: sonst liest/schreibt ein verwaister Schlüssel fremde Läufe
-    // (gleiche Klasse wie der Job-Guard oben). Owner-loser Schlüssel → ablehnen.
-    if (!req.apiKey.userId) {
-      throw new ForbiddenError('API-Schlüssel ohne gültigen Besitzer, bitte neu erstellen');
-    }
-    const userId = req.apiKey.userId;
+    const userId = besitzerOderAbweisen(req.apiKey);
 
     // FRÜH prüfen, solange der Request da ist: Flow existiert (→ 404) und die
     // Argumente passen (→ 400). Sonst käme der Fehler erst als toter Lauf.
     const flow = await flowRegistry.loadFlow(flowName);
     resolveArguments(flow.argumente, args);
 
-    const { runId } = await flowRunner.starten({
-      flowName,
-      args,
-      userId,
-      conversationId: null,
-    });
+    const { runId } = await flowRunner.starten({ flowName, args, userId });
 
     logger.info(
       `[External API] Flow "${flowName}" gestartet (Lauf ${runId}) von ${req.apiKey.name}`

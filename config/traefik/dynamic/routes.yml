@@ -40,15 +40,12 @@ http:
     # Für die Stream-Pfade gilt deshalb ein eigener Router ohne buffering;
     # den Request-Größenschutz übernimmt dort das Express-JSON-Limit.
     #
-    # Die KI-Brücke gehört seit dem 23.08.2026 dazu. Ihr `POST .../bruecke/llm`
-    # streamt genauso, stand aber am allgemeinen `/api`-Router und damit hinter
-    # `body-limit`. Auf dem Orin gemessen: direkt am Backend kam
-    # `{"delta":"Paris"}` und `{"done":true}` an, über Traefik brach die
-    # Verbindung sofort ab und das Backend meldete „socket hang up" —
-    # die App zeigte nur „Fehler: LLM nicht erreichbar". Der Pfad enthält die
-    # Erweiterungs-ID, deshalb `Path` mit benanntem Muster statt `PathPrefix`.
+    # Bis Phase B6 (26.08.2026) standen hier auch `/api/llm` (der Chat-Strom
+    # der Oberfläche), `/api/rag`, `/api/document-analysis` und die KI-Brücke
+    # der Erweiterungen; alle vier sind mit ihren Routen gefallen. Übrig ist
+    # der Ereignis-Strom der Flow-Läufe.
     dashboard-api-stream:
-      rule: 'PathPrefix(`/api/llm`) || PathPrefix(`/api/rag`) || PathPrefix(`/api/document-analysis`) || PathPrefix(`/api/flows/laeufe`) || Path(`/api/extensions/{id:[^/]+}/bruecke/llm`)'
+      rule: 'PathPrefix(`/api/flows/laeufe`)'
       service: dashboard-backend-service
       priority: 15
       middlewares:

@@ -70,9 +70,7 @@ describe('GET /api/gdpr/export', () => {
     expect(res.status).toBe(200);
     for (const schluessel of [
       'profile',
-      'conversations',
-      'messages',
-      'attachments',
+      'flowRuns',
       'loginHistory',
       'activeSessions',
       'activityLog',
@@ -99,7 +97,7 @@ describe('GET /api/gdpr/export', () => {
 
     await request(buildApp()).get('/api/gdpr/export');
 
-    expect(db.query.mock.calls.length).toBeGreaterThanOrEqual(8);
+    expect(db.query.mock.calls.length).toBeGreaterThanOrEqual(6);
     expect(hoechstwert).toBeLessThanOrEqual(3);
   });
 
@@ -107,21 +105,19 @@ describe('GET /api/gdpr/export', () => {
     await request(buildApp()).get('/api/gdpr/export');
     const sql = allesSql();
 
-    // Der konkrete 500er vom 19.08.2026.
-    expect(sql).toContain('preferred_model');
-    expect(sql).not.toMatch(/\bm\.model\b/);
-    expect(sql).not.toMatch(/\bm\.token_count\b/);
-    expect(sql).not.toMatch(/\bm\.duration_ms\b/);
-    // Anhänge heißen filename/mime_type, nicht file_name/file_type.
-    expect(sql).not.toMatch(/\ba\.file_name\b/);
-    expect(sql).not.toMatch(/\ba\.file_type\b/);
+    // Die Chat-Tabellen sind mit Phase B6 (26.08.2026, Migration 165) weg;
+    // der konkrete 500er vom 19.08.2026 (`preferred_model`) kann nicht
+    // wiederkommen, weil die Abfrage nicht mehr existiert.
+    expect(sql).not.toContain('chat_');
     // knowledge_spaces.created_by gibt es seit Migration 089 nicht mehr.
     expect(sql).not.toContain('created_by');
+    // Die verbliebenen Nutzerdaten: Flow-Laeufe mit Argumenten und Ergebnis.
+    expect(sql).toContain('FROM flow_runs');
   });
 
   test('eine gescheiterte Kategorie wird gemeldet, nicht als leer ausgegeben', async () => {
     db.query.mockImplementation(async sql => {
-      if (sql.includes('FROM chat_attachments')) {
+      if (sql.includes('FROM flow_runs')) {
         throw new Error('column "file_type" does not exist');
       }
       return { rows: [] };
@@ -130,12 +126,12 @@ describe('GET /api/gdpr/export', () => {
     const res = await request(buildApp()).get('/api/gdpr/export');
 
     expect(res.status).toBe(200);
-    expect(res.body.attachments.unvollstaendig).toMatch(/file_type/);
+    expect(res.body.flowRuns.unvollstaendig).toMatch(/file_type/);
     expect(res.body._meta.unvollstaendig).toEqual([
-      { kategorie: 'anhaenge', grund: 'column "file_type" does not exist' },
+      { kategorie: 'laeufe', grund: 'column "file_type" does not exist' },
     ]);
     // Eine intakte Kategorie bleibt sauber.
-    expect(res.body.conversations.unvollstaendig).toBeUndefined();
+    expect(res.body.loginHistory.unvollstaendig).toBeUndefined();
   });
 });
 
@@ -149,9 +145,11 @@ describe('GET /api/gdpr/categories', () => {
     const res = await request(buildApp()).get('/api/gdpr/categories');
     const namen = res.body.categories.map(k => k.name);
 
-    expect(namen).toContain('Chat-Konversationen');
+    expect(namen).toContain('Flow-Läufe');
     expect(namen).toContain('Aktivitätsprotokoll');
-    // Dokumente, Wissensräume und Projekte sind mit Phase B4 (26.08.2026) weg.
+    // Dokumente, Wissensräume und Projekte sind mit Phase B4 (26.08.2026) weg,
+    // die Chats mit B6.
+    expect(namen).not.toContain('Chat-Konversationen');
     expect(namen).not.toContain('Dokumente');
     expect(namen).not.toContain('Wissensräume');
   });

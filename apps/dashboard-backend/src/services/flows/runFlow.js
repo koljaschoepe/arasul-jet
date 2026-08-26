@@ -85,7 +85,6 @@ function buildUserInput(declared = [], werte = {}) {
  * @param {string} p.flowName
  * @param {object} [p.args] - Argumentwerte (name → Wert).
  * @param {number} p.userId
- * @param {number|null} [p.conversationId]
  * @param {(evt:object)=>void} [p.onEvent] - Live-Ereignisse (Schritt 12 hängt sich hier ein).
  * @param {object} [deps] - Für Tests austauschbar.
  * @returns {Promise<object>} Der abgeschlossene Lauf (aus runStore).
@@ -95,7 +94,6 @@ async function runFlow(
     flowName,
     args = {},
     userId,
-    conversationId = null,
     onEvent,
     existingRunId = null,
     signal,
@@ -172,7 +170,7 @@ async function runFlow(
   //    ID sofort streambar ist, und reicht ihn hier herein.
   const run = existingRunId
     ? { id: existingRunId }
-    : await store.createRun({ userId, flowName, arguments: werte, conversationId });
+    : await store.createRun({ userId, flowName, arguments: werte });
 
   // Zähler und offene Schritte (weiter unten von `weiter` und dem stepRecorder
   // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.

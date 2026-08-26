@@ -32,19 +32,15 @@ const ENDZUSTAENDE = new Set(['fertig', 'fehler', 'abgebrochen']);
  * @param {number} p.userId
  * @param {string} p.flowName
  * @param {object} [p.arguments]
- * @param {number|null} [p.conversationId]
  * @param {object} [deps]
  * @returns {Promise<object>} Die angelegte Lauf-Zeile.
  */
-async function createRun(
-  { userId, flowName, arguments: args = {}, conversationId = null },
-  { db = database } = {}
-) {
+async function createRun({ userId, flowName, arguments: args = {} }, { db = database } = {}) {
   const { rows } = await db.query(
-    `INSERT INTO flow_runs (user_id, flow_name, arguments, conversation_id)
-     VALUES ($1, $2, $3::jsonb, $4)
+    `INSERT INTO flow_runs (user_id, flow_name, arguments)
+     VALUES ($1, $2, $3::jsonb)
      RETURNING *`,
-    [userId, flowName, JSON.stringify(args || {}), conversationId]
+    [userId, flowName, JSON.stringify(args || {})]
   );
   return rows[0];
 }
@@ -278,15 +274,11 @@ async function getRun({ runId, userId, includeRaw = false }, { db = database } =
 
 /** Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht). */
 async function listRuns(
-  { userId, limit = 50, conversationId = null, status = null, flowName = null },
+  { userId, limit = 50, status = null, flowName = null },
   { db = database } = {}
 ) {
   const params = [userId];
   let filter = '';
-  if (conversationId != null) {
-    params.push(conversationId);
-    filter += `AND conversation_id = $${params.length} `;
-  }
   if (status != null) {
     params.push(status);
     filter += `AND status = $${params.length} `;
@@ -297,7 +289,7 @@ async function listRuns(
   }
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(
-    `SELECT id, flow_name, conversation_id, status, steps_used, created_at, finished_at, arguments
+    `SELECT id, flow_name, status, steps_used, created_at, finished_at, arguments
        FROM flow_runs
       WHERE user_id = $1 ${filter}
       ORDER BY id DESC

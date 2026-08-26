@@ -1,6 +1,9 @@
 /**
  * LLM Job Service Unit Tests
  * Uses Factory Pattern with Dependency Injection for true unit test isolation
+ *
+ * Seit Phase B6 (26.08.2026) ist ein Auftrag zustandslos: kein Chat, keine
+ * Platzhalter-Nachricht, keine Transaktion. Die Antwort steht am Auftrag.
  */
 
 const { createLLMJobService } = require('../../src/services/llm/llmJobService');
@@ -9,17 +12,11 @@ describe('LLMJobService (DI)', () => {
     let service;
     let mockDatabase;
     let mockLogger;
-    let mockClient;
 
     beforeEach(() => {
-        // Fresh mocks for each test
-        mockClient = {
-            query: jest.fn()
-        };
-
         mockDatabase = {
             query: jest.fn(),
-            transaction: jest.fn(async (callback) => callback(mockClient))
+            transaction: jest.fn(),
         };
 
         mockLogger = {
@@ -29,7 +26,6 @@ describe('LLMJobService (DI)', () => {
             debug: jest.fn()
         };
 
-        // Create fresh service instance with injected dependencies
         service = createLLMJobService({
             database: mockDatabase,
             logger: mockLogger
@@ -37,7 +33,6 @@ describe('LLMJobService (DI)', () => {
     });
 
     afterEach(() => {
-        // Reset service state
         if (service._resetForTesting) {
             service._resetForTesting();
         }
@@ -47,19 +42,17 @@ describe('LLMJobService (DI)', () => {
     // createJob
     // =====================================================
     describe('createJob()', () => {
-        test('should create job and placeholder message in transaction', async () => {
-            mockClient.query
-                .mockResolvedValueOnce({ rows: [{ id: 'job-uuid-123' }] })  // Insert job
-                .mockResolvedValueOnce({ rows: [{ id: 456 }] })              // Insert message
-                .mockResolvedValueOnce({ rows: [] });                        // Update job
+        test('legt den Auftrag mit Besitzer an, ohne Nachricht und ohne Transaktion', async () => {
+            mockDatabase.query.mockResolvedValueOnce({ rows: [{ id: 'job-uuid-123' }] });
 
             const result = await service.createJob(1, 'chat', {
                 messages: [{ role: 'user', content: 'Hello' }]
             });
 
-            expect(result.jobId).toBe('job-uuid-123');
-            expect(result.messageId).toBe(456);
-            expect(mockClient.query).toHaveBeenCalledTimes(3);
+            expect(result).toEqual({ jobId: 'job-uuid-123' });
+            expect(mockDatabase.query).toHaveBeenCalledTimes(1);
+            expect(mockDatabase.transaction).not.toHaveBeenCalled();
+            expect(mockDatabase.query.mock.calls[0][0]).not.toContain('chat_');
             expect(mockLogger.info).toHaveBeenCalledWith(
                 expect.stringContaining('Created LLM job job-uuid-123')
             );
@@ -67,18 +60,22 @@ describe('LLMJobService (DI)', () => {
 
         test('should pass request data as JSON', async () => {
             const requestData = { messages: [{ role: 'user', content: 'Test' }], model: 'llama3:8b' };
+            mockDatabase.query.mockResolvedValueOnce({ rows: [{ id: 'job-1' }] });
 
-            mockClient.query
-                .mockResolvedValueOnce({ rows: [{ id: 'job-1' }] })
-                .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-                .mockResolvedValueOnce({ rows: [] });
+            await service.createJob(7, 'chat', requestData);
 
-            await service.createJob(1, 'rag', requestData);
-
-            expect(mockClient.query).toHaveBeenCalledWith(
-                expect.stringContaining('INSERT INTO llm_jobs'),
-                [1, 'rag', JSON.stringify(requestData)]
+            expect(mockDatabase.query).toHaveBeenCalledWith(
+                expect.stringContaining('INSERT INTO llm_jobs (user_id'),
+                [7, 'chat', JSON.stringify(requestData)]
             );
+        });
+
+        test('ein verwaister Schluessel darf einen Auftrag ohne Besitzer anlegen (NULL)', async () => {
+            mockDatabase.query.mockResolvedValueOnce({ rows: [{ id: 'job-2' }] });
+
+            await service.createJob(null, 'chat', {});
+
+            expect(mockDatabase.query.mock.calls[0][1][0]).toBeNull();
         });
     });
 
@@ -89,7 +86,7 @@ describe('LLMJobService (DI)', () => {
         test('should append content delta', async () => {
             mockDatabase.query.mockResolvedValueOnce({ rows: [] });
 
-            await service.updateJobContent('job-123', 'new content', null, null);
+            await service.updateJobContent('job-123', 'new content', null);
 
             expect(mockDatabase.query).toHaveBeenCalledWith(
                 expect.stringContaining('content = content ||'),
@@ -100,7 +97,7 @@ describe('LLMJobService (DI)', () => {
         test('should append thinking delta with COALESCE', async () => {
             mockDatabase.query.mockResolvedValueOnce({ rows: [] });
 
-            await service.updateJobContent('job-123', null, 'thinking...', null);
+            await service.updateJobContent('job-123', null, 'thinking...');
 
             expect(mockDatabase.query).toHaveBeenCalledWith(
                 expect.stringContaining('thinking = COALESCE'),
@@ -108,43 +105,35 @@ describe('LLMJobService (DI)', () => {
             );
         });
 
-        test('should replace sources (not append)', async () => {
+        test('should update both fields at once', async () => {
             mockDatabase.query.mockResolvedValueOnce({ rows: [] });
-            const sources = [{ title: 'Doc 1', score: 0.9 }];
 
-            await service.updateJobContent('job-123', null, null, sources);
+            await service.updateJobContent('job-123', 'content', 'thinking');
 
-            expect(mockDatabase.query).toHaveBeenCalledWith(
-                expect.stringContaining('sources ='),
-                expect.arrayContaining(['job-123', JSON.stringify(sources)])
-            );
-        });
-
-        test('should update multiple fields at once', async () => {
-            mockDatabase.query.mockResolvedValueOnce({ rows: [] });
-            const sources = [{ title: 'Test', score: 0.8 }];
-
-            await service.updateJobContent('job-123', 'content', 'thinking', sources);
-
-            // Should be single query with all fields
             expect(mockDatabase.query).toHaveBeenCalledTimes(1);
-            const [query, params] = mockDatabase.query.mock.calls[0];
+            const [query] = mockDatabase.query.mock.calls[0];
             expect(query).toContain('content = content ||');
             expect(query).toContain('thinking = COALESCE');
-            expect(query).toContain('sources =');
         });
 
         test('should not query if no deltas provided', async () => {
-            await service.updateJobContent('job-123', null, null, null);
+            await service.updateJobContent('job-123', null, null);
 
             expect(mockDatabase.query).not.toHaveBeenCalled();
         });
 
         test('should not query with empty string content', async () => {
-            await service.updateJobContent('job-123', '', '', null);
+            await service.updateJobContent('job-123', '', '');
 
-            // Empty strings are falsy, so no update should occur
             expect(mockDatabase.query).not.toHaveBeenCalled();
+        });
+
+        test('wiederholt eine gescheiterte Schreibung und gibt danach auf', async () => {
+            mockDatabase.query.mockRejectedValue(new Error('lock'));
+
+            await expect(service.updateJobContent('job-123', 'x', null)).rejects.toThrow('lock');
+            expect(mockDatabase.query).toHaveBeenCalledTimes(3);
+            expect(mockLogger.warn).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -152,52 +141,43 @@ describe('LLMJobService (DI)', () => {
     // completeJob
     // =====================================================
     describe('completeJob()', () => {
-        test('should finalize job and message in transaction', async () => {
-            mockClient.query
-                .mockResolvedValueOnce({
-                    rows: [{
-                        content: 'final content',
-                        thinking: 'reasoning',
-                        sources: JSON.stringify([{ title: 'Source' }]),
-                        message_id: 456
-                    }]
-                })
-                .mockResolvedValueOnce({ rows: [] })  // Update message
-                .mockResolvedValueOnce({ rows: [] }); // Update job
+        test('setzt nur den Status; die Antwort bleibt am Auftrag', async () => {
+            mockDatabase.query.mockResolvedValueOnce({
+                rows: [{ content_length: 13, thinking_length: 9 }]
+            });
 
-            await service.completeJob('job-123');
+            const ok = await service.completeJob('job-123');
 
-            expect(mockClient.query).toHaveBeenCalledTimes(3);
-            expect(mockClient.query).toHaveBeenCalledWith(
+            expect(ok).toBe(true);
+            expect(mockDatabase.query).toHaveBeenCalledTimes(1);
+            expect(mockDatabase.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'completed'"),
-                expect.arrayContaining(['job-123'])
+                ['job-123']
             );
-            expect(mockLogger.info).toHaveBeenCalledWith('[JOB job-123] Message 456 persisted: 13 chars, 9 thinking chars, 1 sources');
+            expect(mockDatabase.query.mock.calls[0][0]).not.toContain('chat_messages');
+            expect(mockLogger.info).toHaveBeenCalledWith(
+                '[JOB job-123] completed: 13 chars, 9 thinking chars'
+            );
         });
 
         test('should handle job not found gracefully', async () => {
-            mockClient.query.mockResolvedValueOnce({ rows: [] });
+            mockDatabase.query.mockResolvedValueOnce({ rows: [] });
 
-            await service.completeJob('nonexistent');
+            const ok = await service.completeJob('nonexistent');
 
+            expect(ok).toBe(false);
             expect(mockLogger.warn).toHaveBeenCalledWith(
                 '[JOB nonexistent] Not found during completion'
             );
-            // Should not attempt to update message
-            expect(mockClient.query).toHaveBeenCalledTimes(1);
         });
 
         test('should clean up active streams', async () => {
-            // Register a stream first
-            const abortController = new AbortController();
-            service.registerStream('job-123', abortController);
+            service.registerStream('job-123', new AbortController());
             expect(service.isStreamActive('job-123')).toBe(true);
 
-            mockClient.query
-                .mockResolvedValueOnce({
-                    rows: [{ content: 'done', thinking: null, sources: null, message_id: 1 }]
-                })
-                .mockResolvedValue({ rows: [] });
+            mockDatabase.query.mockResolvedValueOnce({
+                rows: [{ content_length: 4, thinking_length: null }]
+            });
 
             await service.completeJob('job-123');
 
@@ -210,37 +190,24 @@ describe('LLMJobService (DI)', () => {
     // =====================================================
     describe('errorJob()', () => {
         test('should mark job as errored with message', async () => {
-            mockClient.query.mockResolvedValue({ rows: [] });
+            mockDatabase.query.mockResolvedValue({ rows: [] });
 
             await service.errorJob('job-123', 'Connection timeout');
 
-            expect(mockDatabase.transaction).toHaveBeenCalled();
-            expect(mockClient.query).toHaveBeenCalledWith(
+            expect(mockDatabase.transaction).not.toHaveBeenCalled();
+            expect(mockDatabase.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'error'"),
-                expect.arrayContaining(['job-123', 'Connection timeout'])
+                ['job-123', 'Connection timeout']
             );
             expect(mockLogger.error).toHaveBeenCalledWith(
                 'LLM job job-123 errored: Connection timeout'
             );
         });
 
-        test('should update associated message status', async () => {
-            mockClient.query.mockResolvedValue({ rows: [] });
-
-            await service.errorJob('job-123', 'Error');
-
-            // Second call should update messages (inside transaction)
-            expect(mockClient.query).toHaveBeenCalledWith(
-                expect.stringContaining('chat_messages'),
-                expect.arrayContaining(['job-123'])
-            );
-        });
-
         test('should clean up active streams', async () => {
-            const abortController = new AbortController();
-            service.registerStream('job-123', abortController);
+            service.registerStream('job-123', new AbortController());
 
-            mockClient.query.mockResolvedValue({ rows: [] });
+            mockDatabase.query.mockResolvedValue({ rows: [] });
             await service.errorJob('job-123', 'Error');
 
             expect(service.isStreamActive('job-123')).toBe(false);
@@ -251,9 +218,10 @@ describe('LLMJobService (DI)', () => {
     // getJob
     // =====================================================
     describe('getJob()', () => {
-        test('should return job details', async () => {
+        test('should return job details including the owner', async () => {
             const mockJob = {
                 id: 'job-123',
+                user_id: 4,
                 status: 'streaming',
                 content: 'partial',
                 queue_position: 1
@@ -263,6 +231,7 @@ describe('LLMJobService (DI)', () => {
             const result = await service.getJob('job-123');
 
             expect(result).toEqual(mockJob);
+            expect(mockDatabase.query.mock.calls[0][0]).not.toContain('JOIN');
         });
 
         test('should return null for non-existent job', async () => {
@@ -275,39 +244,17 @@ describe('LLMJobService (DI)', () => {
     });
 
     // =====================================================
-    // getActiveJobsForConversation
-    // =====================================================
-    describe('getActiveJobsForConversation()', () => {
-        test('should return active jobs for conversation', async () => {
-            const mockJobs = [
-                { id: 'job-1', status: 'streaming' },
-                { id: 'job-2', status: 'pending' }
-            ];
-            mockDatabase.query.mockResolvedValueOnce({ rows: mockJobs });
-
-            const result = await service.getActiveJobsForConversation(1);
-
-            expect(result).toHaveLength(2);
-            expect(mockDatabase.query).toHaveBeenCalledWith(
-                expect.stringContaining("status IN ('pending', 'streaming')"),
-                [1]
-            );
-        });
-    });
-
-    // =====================================================
     // cancelJob
     // =====================================================
     describe('cancelJob()', () => {
-        test('should cancel job and update message', async () => {
-            mockClient.query.mockResolvedValue({ rows: [] });
+        test('should cancel only a non-terminal job', async () => {
+            mockDatabase.query.mockResolvedValue({ rows: [] });
 
             await service.cancelJob('job-123');
 
-            expect(mockDatabase.transaction).toHaveBeenCalled();
-            expect(mockClient.query).toHaveBeenCalledWith(
-                expect.stringContaining("status = 'cancelled'"),
-                expect.arrayContaining(['job-123'])
+            expect(mockDatabase.query).toHaveBeenCalledWith(
+                expect.stringContaining("status IN ('pending', 'streaming')"),
+                ['job-123']
             );
             expect(mockLogger.info).toHaveBeenCalledWith('Cancelled LLM job job-123');
         });
@@ -317,7 +264,7 @@ describe('LLMJobService (DI)', () => {
             const abortSpy = jest.spyOn(abortController, 'abort');
             service.registerStream('job-123', abortController);
 
-            mockClient.query.mockResolvedValue({ rows: [] });
+            mockDatabase.query.mockResolvedValue({ rows: [] });
             await service.cancelJob('job-123');
 
             expect(abortSpy).toHaveBeenCalled();
@@ -325,12 +272,9 @@ describe('LLMJobService (DI)', () => {
         });
 
         test('should handle non-existent stream gracefully', async () => {
-            mockClient.query.mockResolvedValue({ rows: [] });
+            mockDatabase.query.mockResolvedValue({ rows: [] });
 
-            // Should not throw
-            await service.cancelJob('nonexistent');
-
-            expect(mockDatabase.transaction).toHaveBeenCalled();
+            await expect(service.cancelJob('nonexistent')).resolves.toBeUndefined();
         });
     });
 
@@ -363,9 +307,6 @@ describe('LLMJobService (DI)', () => {
             service.registerStream('job-2', new AbortController());
             service.registerStream('job-3', new AbortController());
 
-            expect(service.isStreamActive('job-1')).toBe(true);
-            expect(service.isStreamActive('job-2')).toBe(true);
-            expect(service.isStreamActive('job-3')).toBe(true);
             expect(service._getActiveStreamsCount()).toBe(3);
         });
     });
@@ -374,7 +315,7 @@ describe('LLMJobService (DI)', () => {
     // cleanupStaleJobs
     // =====================================================
     describe('cleanupStaleJobs()', () => {
-        test('should clean up stale jobs older than 10 minutes', async () => {
+        test('should mark stale jobs older than 10 minutes as error', async () => {
             mockDatabase.query
                 .mockResolvedValueOnce({ rows: [{ id: 'stale-1' }, { id: 'stale-2' }] })
                 .mockResolvedValue({ rows: [] });
@@ -382,9 +323,11 @@ describe('LLMJobService (DI)', () => {
             const count = await service.cleanupStaleJobs();
 
             expect(count).toBe(2);
-            expect(mockLogger.info).toHaveBeenCalledWith(
-                expect.stringContaining('Stale job cleanup: 0 recovered, 2 marked as error')
+            expect(mockDatabase.query).toHaveBeenCalledWith(
+                expect.stringContaining("status = 'error'"),
+                ['stale-1']
             );
+            expect(mockLogger.info).toHaveBeenCalledWith('Stale job cleanup: 2 marked as error');
         });
 
         test('should return 0 if no stale jobs', async () => {
@@ -396,17 +339,15 @@ describe('LLMJobService (DI)', () => {
             expect(mockLogger.info).not.toHaveBeenCalled();
         });
 
-        test('should update job status to error for stale jobs without content', async () => {
+        test('vergisst den Strom eines veralteten Auftrags', async () => {
+            service.registerStream('stale-1', new AbortController());
             mockDatabase.query
                 .mockResolvedValueOnce({ rows: [{ id: 'stale-1' }] })
                 .mockResolvedValue({ rows: [] });
 
             await service.cleanupStaleJobs();
 
-            expect(mockDatabase.query).toHaveBeenCalledWith(
-                expect.stringContaining("status = 'error'"),
-                expect.arrayContaining(['stale-1'])
-            );
+            expect(service.isStreamActive('stale-1')).toBe(false);
         });
     });
 
@@ -414,10 +355,7 @@ describe('LLMJobService (DI)', () => {
     // cleanupOldJobs
     // =====================================================
     describe('cleanupOldJobs()', () => {
-        test('should delete completed jobs older than 1 hour', async () => {
-            // First query: pre-cleanup recovery check (unrecovered messages)
-            mockDatabase.query.mockResolvedValueOnce({ rows: [] });
-            // Second query: DELETE old jobs
+        test('should delete completed jobs older than 1 hour, in one query', async () => {
             mockDatabase.query.mockResolvedValueOnce({
                 rows: [{ id: 'old-1' }, { id: 'old-2' }, { id: 'old-3' }]
             });
@@ -425,47 +363,10 @@ describe('LLMJobService (DI)', () => {
             const count = await service.cleanupOldJobs();
 
             expect(count).toBe(3);
+            expect(mockDatabase.query).toHaveBeenCalledTimes(1);
             expect(mockDatabase.query).toHaveBeenCalledWith(
                 expect.stringContaining('DELETE FROM llm_jobs')
             );
-        });
-    });
-
-    // =====================================================
-    // getStats
-    // =====================================================
-    describe('getStats()', () => {
-        test('should return job statistics', async () => {
-            mockDatabase.query.mockResolvedValueOnce({
-                rows: [{
-                    active_jobs: '2',
-                    pending_jobs: '5',
-                    completed_last_hour: '10',
-                    errors_last_hour: '1'
-                }]
-            });
-
-            const stats = await service.getStats();
-
-            expect(stats.active_jobs).toBe('2');
-            expect(stats.pending_jobs).toBe('5');
-            expect(stats.completed_last_hour).toBe('10');
-            expect(stats.errors_last_hour).toBe('1');
-            expect(stats.activeStreamsInMemory).toBeDefined();
-            expect(stats.timestamp).toBeDefined();
-        });
-
-        test('should include in-memory stream count', async () => {
-            service.registerStream('job-1', new AbortController());
-            service.registerStream('job-2', new AbortController());
-
-            mockDatabase.query.mockResolvedValueOnce({
-                rows: [{ active_jobs: '2', pending_jobs: '0', completed_last_hour: '0', errors_last_hour: '0' }]
-            });
-
-            const stats = await service.getStats();
-
-            expect(stats.activeStreamsInMemory).toBe(2);
         });
     });
 

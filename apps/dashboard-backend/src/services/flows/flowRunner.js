@@ -46,7 +46,7 @@ const NACHLAUF_MS = 30 * 1000;
 /**
  * Startet einen Flow-Lauf LOSGELÖST vom Request.
  *
- * @param {object} p - siehe runFlow: flowName, args, userId, conversationId.
+ * @param {object} p - siehe runFlow: flowName, args, userId.
  * @param {object} [deps] - für Tests austauschbar (`run` = runFlow).
  * @returns {Promise<{runId:number}>} die ID des angelegten Laufs.
  */
@@ -55,7 +55,6 @@ async function starten(
     flowName,
     args = {},
     userId,
-    conversationId = null,
     // „Ab Fehler wiederholen": übernommene Schritt-Ausgaben eines alten Laufs
     // (siehe stepExecutor.berechneVorabErgebnisse) — nur durchgereicht.
     vorabErgebnisse = null,
@@ -71,7 +70,6 @@ async function starten(
     userId,
     flowName,
     arguments: args,
-    conversationId,
   });
   // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
   // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem
@@ -103,7 +101,6 @@ async function starten(
       flowName,
       args,
       userId,
-      conversationId,
       onEvent,
       existingRunId: runId,
       signal: controller.signal,

@@ -9,7 +9,9 @@
  *   store/     - App store, unified store
  *   external/  - External API, events, alerts
  *
- * Core routes (auth, chats, llm) stay at the top level.
+ * Core routes (auth, docs) stay at the top level. Der Oberflaechen-Chat
+ * (/chats, /llm) ist mit Phase B6 (26.08.2026) gefallen; Sprachmodell-Auftraege
+ * laufen nur noch ueber /v1/external und die OpenAI-kompatible /v1.
  */
 
 const { versionFuerAnzeige } = require('../utils/version');
@@ -25,8 +27,6 @@ const { metricsLimiter, llmLimiter, tailscaleLimiter } = require('../middleware/
 // Kept deliberately flat: contract is just "what's here", not "what this service can do".
 const API_ROUTE_GROUPS = [
   { prefix: '/auth', group: 'core' },
-  { prefix: '/chats', group: 'core' },
-  { prefix: '/llm', group: 'core' },
   { prefix: '/system', group: 'system' },
   { prefix: '/services', group: 'system' },
   { prefix: '/metrics', group: 'system' },
@@ -78,8 +78,6 @@ router.get('/_meta', (req, res) => {
 
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
-router.use('/chats', require('./chats'));
-router.use('/llm', llmLimiter, require('./llm'));
 router.use('/docs', require('./docs'));
 
 // --- System ---

@@ -344,9 +344,9 @@ describe('runMigrations', () => {
     }
 
     test('meldet doppelt liegende Tabellen und wendet nichts an', async () => {
-      const result = await laufMit([{ table_name: 'admin_users' }, { table_name: 'chat_messages' }]);
+      const result = await laufMit([{ table_name: 'admin_users' }, { table_name: 'llm_jobs' }]);
 
-      expect(result.schatten).toEqual(['admin_users', 'chat_messages']);
+      expect(result.schatten).toEqual(['admin_users', 'llm_jobs']);
       expect(result.applied).toBe(0);
       // Kein BEGIN: auf einer verdeckten Datenbank wird nicht weitergebaut.
       const sql = mockClient.query.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : ''));
@@ -376,14 +376,14 @@ describe('runMigrations', () => {
         {}, // SQL
         {}, // INSERT ins Buch
         {}, // COMMIT
-        { rows: [{ table_name: 'chat_messages' }] }, // schattentabellen (nachher)
+        { rows: [{ table_name: 'llm_jobs' }] }, // schattentabellen (nachher)
       ];
 
       const result = await runMigrations(mockPool);
 
       expect(result.applied).toBe(1);
       expect(result.failed).toBeNull();
-      expect(result.schatten).toEqual(['chat_messages']);
+      expect(result.schatten).toEqual(['llm_jobs']);
     });
   });
 });
