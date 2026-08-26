@@ -1,26 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import {
-  Eye,
-  EyeOff,
-  Check,
-  X,
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Lock,
-  Monitor,
-  HardDrive,
-  Zap,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Eye, EyeOff, Check, X, AlertCircle, AlertTriangle, Info, Lock, Zap } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import useConfirm from '../../hooks/useConfirm';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
-import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
 import { Section } from '@/components/ui/Section';
 import { cn } from '@/lib/utils';
 
@@ -44,13 +30,6 @@ interface ShowPasswordFields {
   confirm: boolean;
 }
 
-type ServiceId = 'dashboard' | 'minio';
-
-const SERVICES: FilterBarItem<ServiceId>[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: Monitor },
-  { id: 'minio', label: 'MinIO', icon: HardDrive },
-];
-
 interface PasswordManagementProps {
   /**
    * Meldet nach oben, ob im Formular etwas steht, das noch nicht abgeschickt
@@ -64,23 +43,21 @@ interface PasswordManagementProps {
 
 function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
   const api = useApi();
-  const { confirm, ConfirmDialog } = useConfirm();
   const { logout } = useAuth();
   const toast = useToast();
-  const [activeService, setActiveService] = useState<ServiceId>('dashboard');
-  const [passwords, setPasswords] = useState<Record<ServiceId, PasswordFields>>({
-    dashboard: { current: '', new: '', confirm: '' },
-    minio: { current: '', new: '', confirm: '' },
+  // Seit Phase B4 (26.08.2026) gibt es nur noch das Dashboard-Passwort; der
+  // MinIO-Reiter ist mit dem Objektspeicher gefallen.
+  const [passwords, setPasswords] = useState<PasswordFields>({
+    current: '',
+    new: '',
+    confirm: '',
   });
-  const [showPasswords, setShowPasswords] = useState<Record<ServiceId, ShowPasswordFields>>({
-    dashboard: { current: false, new: false, confirm: false },
-    minio: { current: false, new: false, confirm: false },
+  const [showPasswords, setShowPasswords] = useState<ShowPasswordFields>({
+    current: false,
+    new: false,
+    confirm: false,
   });
-  // Beide Dienste zusammen: ein halb ausgefuelltes MinIO-Formular ist auch dann
-  // ungespeichert, wenn gerade der Dashboard-Reiter offen ist.
-  const etwasEingetippt = Object.values(passwords).some(felder =>
-    Object.values(felder).some(wert => wert.length > 0)
-  );
+  const etwasEingetippt = Object.values(passwords).some(wert => wert.length > 0);
   useEffect(() => {
     onDirtyChange?.(etwasEingetippt);
   }, [etwasEingetippt, onDirtyChange]);
@@ -106,7 +83,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
 
   useEffect(() => {
     validatePassword();
-  }, [passwords, activeService]);
+  }, [passwords]);
 
   const fetchPasswordRequirements = async () => {
     try {
@@ -121,8 +98,8 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
   };
 
   const validatePassword = () => {
-    const newPass = passwords[activeService].new;
-    const confirmPass = passwords[activeService].confirm;
+    const newPass = passwords.new;
+    const confirmPass = passwords.confirm;
 
     if (!requirements) return;
 
@@ -138,55 +115,20 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
     });
   };
 
-  const handleInputChange = (service: ServiceId, field: keyof PasswordFields, value: string) => {
-    setPasswords(prev => ({
-      ...prev,
-      [service]: { ...prev[service], [field]: value },
-    }));
+  const handleInputChange = (field: keyof PasswordFields, value: string) => {
+    setPasswords(prev => ({ ...prev, [field]: value }));
     setMessage(null);
   };
 
-  const togglePasswordVisibility = (service: ServiceId, field: keyof ShowPasswordFields) => {
-    setShowPasswords(prev => ({
-      ...prev,
-      [service]: { ...prev[service], [field]: !prev[service][field] },
-    }));
+  const togglePasswordVisibility = (field: keyof ShowPasswordFields) => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handleServiceSwitch = useCallback(
-    async (newService: ServiceId) => {
-      const current = passwords[activeService];
-      const hasInput = current.current || current.new || current.confirm;
-
-      if (hasInput) {
-        const confirmed = await confirm({
-          title: 'Ungespeicherte Eingaben',
-          message: 'Die eingegebenen Passwörter gehen beim Wechsel verloren. Fortfahren?',
-          confirmText: 'Fortfahren',
-          confirmVariant: 'warning',
-        });
-        if (!confirmed) return;
-      }
-
-      setPasswords(prev => ({
-        ...prev,
-        [activeService]: { current: '', new: '', confirm: '' },
-      }));
-      setActiveService(newService);
-      setMessage(null);
-    },
-    [activeService, passwords, confirm]
-  );
-
-  const isFormValid = () => {
-    const current = passwords[activeService];
-    return (
-      current.current &&
-      current.new &&
-      current.confirm &&
-      Object.values(validations).every(v => v === true)
-    );
-  };
+  const isFormValid = () =>
+    passwords.current &&
+    passwords.new &&
+    passwords.confirm &&
+    Object.values(validations).every(v => v === true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,33 +146,28 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
 
     try {
       const data = await api.post<{ message?: string }>(
-        `/settings/password/${activeService}`,
+        '/settings/password/dashboard',
         {
-          currentPassword: passwords[activeService].current,
-          newPassword: passwords[activeService].new,
+          currentPassword: passwords.current,
+          newPassword: passwords.new,
         },
         { showError: false }
       );
 
       toast.success(data.message || 'Passwort erfolgreich geändert');
 
-      setPasswords(prev => ({
-        ...prev,
-        [activeService]: { current: '', new: '', confirm: '' },
-      }));
+      setPasswords({ current: '', new: '', confirm: '' });
 
-      if (activeService === 'dashboard') {
-        // P2.1.5: previous code did setTimeout + localStorage.removeItem +
-        // location.href, which kept the just-changed-from token valid for its
-        // full TTL because no /auth/logout was called. Properly blacklist the
-        // token server-side now and clear React Query cache + cookies via
-        // AuthContext.logout().
-        setTimeout(() => {
-          logout().finally(() => {
-            window.location.href = '/';
-          });
-        }, 2000);
-      }
+      // P2.1.5: previous code did setTimeout + localStorage.removeItem +
+      // location.href, which kept the just-changed-from token valid for its
+      // full TTL because no /auth/logout was called. Properly blacklist the
+      // token server-side now and clear React Query cache + cookies via
+      // AuthContext.logout().
+      setTimeout(() => {
+        logout().finally(() => {
+          window.location.href = '/';
+        });
+      }, 2000);
     } catch (error: unknown) {
       const err = error as { message?: string };
       setMessage({
@@ -252,9 +189,9 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
       <Label>{label}</Label>
       <div className="relative">
         <Input
-          type={showPasswords[activeService][field] ? 'text' : 'password'}
-          value={passwords[activeService][field]}
-          onChange={e => handleInputChange(activeService, field, e.target.value)}
+          type={showPasswords[field] ? 'text' : 'password'}
+          value={passwords[field]}
+          onChange={e => handleInputChange(field, e.target.value)}
           placeholder={placeholder}
           required
           // Mirror the backend limit (PasswordChangeBody: .max(500)) so the
@@ -271,16 +208,10 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
           variant="ghost"
           size="icon"
           className="absolute right-1 top-1/2 -translate-y-1/2 size-8"
-          onClick={() => togglePasswordVisibility(activeService, field)}
-          aria-label={
-            showPasswords[activeService][field] ? 'Passwort verbergen' : 'Passwort anzeigen'
-          }
+          onClick={() => togglePasswordVisibility(field)}
+          aria-label={showPasswords[field] ? 'Passwort verbergen' : 'Passwort anzeigen'}
         >
-          {showPasswords[activeService][field] ? (
-            <EyeOff className="size-4" />
-          ) : (
-            <Eye className="size-4" />
-          )}
+          {showPasswords[field] ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </Button>
       </div>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
@@ -293,191 +224,159 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
     // ueber seine Trennlinie. In einem div waere er versteckt und traege sie
     // auch dann, wenn er der letzte auf der Seite ist.
     <>
-      {ConfirmDialog}
-
       <Section
         title="Passwortverwaltung"
         icon={<Lock />}
-        description="Ändere die Passwörter für Dashboard und MinIO"
+        description="Ändere das Passwort für das Dashboard"
       >
-        <FilterBar
-          items={SERVICES}
-          active={activeService}
-          onChange={handleServiceSwitch}
-          label="Dienst für den Passwortwechsel"
-          panelClassName="pt-6"
-        >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {renderPasswordField(
-              'current',
-              // P2.1.6: previous code hardcoded "Dashboard-Passwort" labels even
-              // for MinIO. The hint text branched correctly but label/placeholder
-              // misled MinIO password-change flows.
-              activeService === 'dashboard'
-                ? 'Aktuelles Dashboard-Passwort'
-                : 'Aktuelles Dashboard-Admin-Passwort',
-              activeService === 'dashboard'
-                ? 'Dashboard-Passwort eingeben'
-                : 'Dashboard-Admin-Passwort eingeben',
-              activeService === 'dashboard'
-                ? 'Zur Sicherheit wird dein aktuelles Passwort benötigt'
-                : 'Zur Bestätigung wird dein Dashboard-Admin-Passwort benötigt'
-            )}
-            {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
-            {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {renderPasswordField(
+            'current',
+            'Aktuelles Dashboard-Passwort',
+            'Dashboard-Passwort eingeben',
+            'Zur Sicherheit wird dein aktuelles Passwort benötigt'
+          )}
+          {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
+          {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
 
-            {/* Password Requirements */}
-            {requirements && passwords[activeService].new && (
-              <div className="border-l-2 border-primary/30 pl-4 space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
-                <ul className="space-y-1">
+          {/* Password Requirements */}
+          {requirements && passwords.new && (
+            <div className="border-l-2 border-primary/30 pl-4 space-y-2">
+              <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
+              <ul className="space-y-1">
+                <li
+                  className={cn(
+                    'flex items-center gap-2 text-xs',
+                    validations.minLength ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {validations.minLength ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <X className="size-3.5" />
+                  )}
+                  Mindestens {requirements.minLength} Zeichen
+                </li>
+                {requirements.requireUppercase && (
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.minLength ? 'text-primary' : 'text-muted-foreground'
+                      validations.uppercase ? 'text-primary' : 'text-muted-foreground'
                     )}
                   >
-                    {validations.minLength ? (
+                    {validations.uppercase ? (
                       <Check className="size-3.5" />
                     ) : (
                       <X className="size-3.5" />
                     )}
-                    Mindestens {requirements.minLength} Zeichen
+                    Mindestens ein Großbuchstabe
                   </li>
-                  {requirements.requireUppercase && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.uppercase ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                    >
-                      {validations.uppercase ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens ein Großbuchstabe
-                    </li>
-                  )}
-                  {requirements.requireLowercase && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.lowercase ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                    >
-                      {validations.lowercase ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens ein Kleinbuchstabe
-                    </li>
-                  )}
-                  {requirements.requireNumbers && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.number ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                    >
-                      {validations.number ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens eine Zahl
-                    </li>
-                  )}
-                  {requirements.requireSpecialChars && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.special ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                    >
-                      {validations.special ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens ein Sonderzeichen
-                    </li>
-                  )}
+                )}
+                {requirements.requireLowercase && (
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.match ? 'text-primary' : 'text-muted-foreground'
+                      validations.lowercase ? 'text-primary' : 'text-muted-foreground'
                     )}
                   >
-                    {validations.match ? (
+                    {validations.lowercase ? (
                       <Check className="size-3.5" />
                     ) : (
                       <X className="size-3.5" />
                     )}
-                    Passwörter stimmen überein
+                    Mindestens ein Kleinbuchstabe
                   </li>
-                </ul>
-              </div>
-            )}
-
-            {/* Message */}
-            {message && (
-              <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-                <AlertCircle className="size-4" />
-                <AlertDescription>{message.text}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Submit Button */}
-            <div className="flex justify-end">
-              <Button type="submit" loading={loading} disabled={!isFormValid()}>
-                Passwort ändern
-              </Button>
+                )}
+                {requirements.requireNumbers && (
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.number ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
+                    {validations.number ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
+                    Mindestens eine Zahl
+                  </li>
+                )}
+                {requirements.requireSpecialChars && (
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.special ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
+                    {validations.special ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
+                    Mindestens ein Sonderzeichen
+                  </li>
+                )}
+                <li
+                  className={cn(
+                    'flex items-center gap-2 text-xs',
+                    validations.match ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                  Passwörter stimmen überein
+                </li>
+              </ul>
             </div>
+          )}
 
-            {/* Es gibt bewusst kein Zuruecksetzen per Mail: dafuer braeuchte das
+          {/* Message */}
+          {message && (
+            <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
+              <AlertCircle className="size-4" />
+              <AlertDescription>{message.text}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Submit Button */}
+          <div className="flex justify-end">
+            <Button type="submit" loading={loading} disabled={!isFormValid()}>
+              Passwort ändern
+            </Button>
+          </div>
+
+          {/* Es gibt bewusst kein Zuruecksetzen per Mail: dafuer braeuchte das
                 Geraet einen Postausgang nach draussen. Der Weg fuehrt deshalb
                 ueber das Geraet selbst. Bis Plan 023 C6 stand hier nur der
                 nackte Pfad „scripts/security/reset-password.sh", ohne zu sagen,
                 auf welchem Rechner und in welchem Ordner (Befund F-22). */}
-            <div className="flex items-start gap-2 text-xs text-muted-foreground">
-              <Info className="size-3.5 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p>
-                  Passwort vergessen? Dann hilft nur der Zugang zum Gerät selbst, über SSH oder mit
-                  Tastatur und Bildschirm. Das ist Absicht: ein Zurücksetzen per Mail bräuchte einen
-                  Weg nach draußen.
-                </p>
-                <p>
-                  Melde dich am Gerät an, wechsle in den Ordner, in den Arasul installiert wurde,
-                  und starte dort:
-                </p>
-                <code className="block w-fit rounded bg-muted px-1.5 py-1 font-mono text-foreground">
-                  ./scripts/security/reset-password.sh dein-benutzername
-                </code>
-                <p>
-                  Ohne Benutzernamen nimmt das Skript <code className="font-mono">admin</code>. Es
-                  setzt das Passwort direkt in der Datenbank neu und fragt vorher nach.
-                </p>
-              </div>
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <Info className="size-3.5 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p>
+                Passwort vergessen? Dann hilft nur der Zugang zum Gerät selbst, über SSH oder mit
+                Tastatur und Bildschirm. Das ist Absicht: ein Zurücksetzen per Mail bräuchte einen
+                Weg nach draußen.
+              </p>
+              <p>
+                Melde dich am Gerät an, wechsle in den Ordner, in den Arasul installiert wurde, und
+                starte dort:
+              </p>
+              <code className="block w-fit rounded bg-muted px-1.5 py-1 font-mono text-foreground">
+                ./scripts/security/reset-password.sh dein-benutzername
+              </code>
+              <p>
+                Ohne Benutzernamen nimmt das Skript <code className="font-mono">admin</code>. Es
+                setzt das Passwort direkt in der Datenbank neu und fragt vorher nach.
+              </p>
             </div>
+          </div>
 
-            {activeService === 'dashboard' && (
-              <p className="text-xs text-muted-foreground">
-                <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des
-                Dashboard-Passworts wirst du automatisch abgemeldet.
-              </p>
-            )}
-
-            {activeService === 'minio' && (
-              <p className="text-xs text-muted-foreground">
-                <Info className="size-3.5 inline" /> Der MinIO-Service wird nach der
-                Passwortänderung automatisch neu gestartet.
-              </p>
-            )}
-          </form>
-        </FilterBar>
+          <p className="text-xs text-muted-foreground">
+            <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Dashboard-Passworts
+            wirst du automatisch abgemeldet.
+          </p>
+        </form>
 
         {/* n8n info */}
         <div className="mt-6 pt-6 border-t border-border">

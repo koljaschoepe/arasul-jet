@@ -6,7 +6,6 @@ import {
   AlertCircle,
   X,
   Database,
-  HardDrive,
   Bot,
   Sparkles,
   Zap,
@@ -51,7 +50,6 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
 
 const SERVICE_INFO: Record<string, { icon: LucideIcon; displayName: string }> = {
   'postgres-db': { icon: Database, displayName: 'PostgreSQL' },
-  minio: { icon: HardDrive, displayName: 'MinIO' },
   'llm-service': { icon: Bot, displayName: 'LLM Service' },
   'embedding-service': { icon: Sparkles, displayName: 'Embeddings' },
   n8n: { icon: Zap, displayName: 'n8n' },
