@@ -22,9 +22,7 @@ Internet/LAN
     ├─→ Dashboard Frontend (/)
     ├─→ Dashboard Backend API (/api)
     ├─→ LLM Service (/models)
-    ├─→ Embeddings (/embeddings)
-    ├─→ n8n (/n8n)
-    └─→ Webhooks (/webhook)
+    └─→ Embeddings (/embeddings)
 ```
 
 ## Configuration Files
@@ -51,8 +49,6 @@ HTTP routers and services:
 - **metrics-api**: `/api/metrics` → dashboard-backend:3001
 - **llm-direct**: `/models` → llm-service:11434
 - **embeddings-direct**: `/embeddings` → embedding-service:11435
-- **n8n**: `/n8n` → n8n:5678
-- **n8n-webhooks**: `/webhook` → n8n:5678
 
 #### `dynamic/middlewares.yml`
 
@@ -60,7 +56,6 @@ Rate limiting and security:
 
 **Rate Limits:**
 
-- n8n Webhooks: 100 req/min
 - LLM API: 10 req/s
 - Metrics API: 20 req/s
 - Auth API: 5 req/min (brute force prevention)
@@ -87,7 +82,6 @@ Rate limiting and security:
 WebSocket support:
 
 - Dashboard metrics live-stream: `/api/metrics/live-stream`
-- n8n WebSocket connections
 - Automatic upgrade handling
 
 ## Routing Priority
@@ -96,9 +90,9 @@ Routes are matched by priority (higher = first):
 
 | Priority | Route            | Path                                                       |
 | -------- | ---------------- | ---------------------------------------------------------- |
-| 50       | WebSocket routes | `/api/metrics/live-stream`, `/n8n/*` (with Upgrade header) |
-| 25       | AI services      | `/models`, `/embeddings`, `/webhook`                       |
-| 20       | Auth & n8n       | `/api/auth`, `/n8n`                                        |
+| 50       | WebSocket routes | `/api/metrics/live-stream` (with Upgrade header)           |
+| 25       | AI services      | `/models`, `/embeddings`                                   |
+| 20       | Auth             | `/api/auth`                                                |
 | 15       | Metrics API      | `/api/metrics`                                             |
 | 10       | General API      | `/api`                                                     |
 | 1        | Frontend         | `/`                                                        |
@@ -215,7 +209,6 @@ Traefik automatically upgrades HTTP connections to WebSocket when:
 ### Tested Routes:
 
 - **Dashboard Metrics**: `wss://arasul.local/api/metrics/live-stream`
-- **n8n**: `wss://arasul.local/n8n/...`
 
 ### Configuration:
 
@@ -239,7 +232,6 @@ All backend services have health checks:
 | Dashboard Frontend | `/`           | 30s      | 3s      |
 | LLM Service        | `/health`     | 30s      | 5s      |
 | Embeddings         | `/health`     | 30s      | 5s      |
-| n8n                | `/healthz`    | 30s      | 3s      |
 
 Unhealthy backends are automatically removed from load balancing.
 

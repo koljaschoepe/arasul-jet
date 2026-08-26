@@ -25,7 +25,6 @@ config/
 │   └── public_update_key.pem # Public key for update verification
 └── app/                       # Application-specific configuration
     ├── dashboard.json        # Dashboard configuration
-    ├── n8n.json             # n8n configuration
     └── system.json          # System configuration
 
 ## Configuration Files

@@ -127,21 +127,6 @@ http:
         - websecure
       tls: {}
 
-    # n8n Workflow Engine
-    # Layer 1: dashboard session via forward-auth (only logged-in dashboard users reach n8n at all)
-    # Layer 2: n8n's own user management (governs workflow ownership inside n8n)
-    n8n:
-      rule: 'PathPrefix(`/n8n`)'
-      service: n8n-service
-      priority: 100
-      middlewares:
-        - forward-auth
-        - strip-n8n-prefix
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
     # Dashboard Frontend Static Files
     dashboard-static:
       rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'
@@ -149,44 +134,6 @@ http:
       priority: 65
       middlewares:
         - compress
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # n8n healthz (public — the embedded n8n editor polls its own heartbeat continuously;
-    # forward-auth here floods the browser console with 401s once the dashboard session
-    # expires while the n8n tab stays open. The endpoint only reports liveness, no data.)
-    n8n-healthz:
-      rule: 'Path(`/n8n/healthz`)'
-      service: n8n-service
-      priority: 110
-      middlewares:
-        - strip-n8n-prefix
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # n8n favicon (public — browsers fetch favicons on the login screen before any session cookie exists,
-    # so forward-auth here would just produce 401 noise. security-headers added for hygiene.)
-    n8n-favicon:
-      rule: 'Path(`/favicon.ico`)'
-      service: n8n-service
-      priority: 85
-      middlewares:
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # n8n Webhooks (with rate limiting)
-    n8n-webhooks:
-      rule: 'PathPrefix(`/webhook`)'
-      service: n8n-service
-      priority: 25
-      middlewares:
-        - rate-limit-n8n
-        - security-headers
       entryPoints:
         - websecure
       tls: {}
@@ -260,13 +207,3 @@ http:
           path: /health
           interval: 30s
           timeout: 5s
-
-    # n8n
-    n8n-service:
-      loadBalancer:
-        servers:
-          - url: 'http://n8n:5678'
-        healthCheck:
-          path: /healthz
-          interval: 30s
-          timeout: 3s
