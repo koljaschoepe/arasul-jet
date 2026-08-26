@@ -22,32 +22,27 @@ Single Page Application (SPA) for the Arasul Platform dashboard.
 src/
 ├── App.tsx               # Main application
 ├── index.css             # Tailwind + CSS variables + shadcn
-├── features/             # Feature modules (barrel exports)
-│   ├── chat/             # Multi-conversation AI chat
-│   ├── documents/        # Document upload & RAG management
+├── features/             # Feature modules
+│   ├── workspace/        # Shell: ActivityBar, Sidebar, Tabs, rechte Spalte (leer seit B2), StatusBar
+│   ├── flows/            # Flow-Editor-Tab, Flow-Dashboard, Läufe
 │   ├── settings/         # System configuration
 │   ├── store/            # App & model marketplace
-│   ├── telegram/         # Telegram bot integration
-│   ├── datentabellen/    # Spreadsheet editor
-│   ├── claude/           # Claude Code terminal
-│   ├── system/           # Login, setup wizard, updates
-│   └── database/         # Database overview
+│   └── system/           # Login, setup wizard, updates
 ├── components/
-│   ├── layout/           # Sidebar, ScrollArea
 │   ├── ui/               # Modal, Skeleton, LoadingSpinner, etc.
-│   │   └── shadcn/       # shadcn/ui components (22)
-│   └── editor/           # MarkdownEditor, MermaidDiagram, GridEditor
+│   │   └── shadcn/       # shadcn/ui components
+│   └── mascot/           # Das Maskottchen
 ├── contexts/             # React contexts
 │   ├── AuthContext.tsx    # Authentication state
-│   ├── ChatContext.tsx    # Global chat/streaming state
 │   ├── DownloadContext.tsx# Model download tracking
-│   └── ToastContext.tsx   # Toast notifications (sonner)
+│   ├── ActivationContext.tsx # Model activation
+│   └── ToastContext.tsx   # Toast notifications
 ├── hooks/
 │   ├── useApi.ts          # REST API hook (fetch-based)
 │   ├── useWebSocketMetrics.ts # Real-time metrics
-│   ├── useTokenBatching.ts    # Streaming token batching
-│   ├── useConfirm.ts      # Confirmation dialogs
+│   ├── useConfirm.tsx     # Confirmation dialogs
 │   └── useTheme.ts        # Dark/light theme toggle
+├── stores/               # zustand (workspaceStore, extensionStore, flowEditorStore)
 ├── config/
 │   └── api.ts             # API base URL, auth headers
 ├── lib/

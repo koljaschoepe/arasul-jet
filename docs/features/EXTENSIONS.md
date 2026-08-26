@@ -89,16 +89,16 @@ jeden direkten Unterordner:
 Die Oberfläche lädt die Erweiterungs-Liste alle 20 s nach — neue Karten und
 Seitenleisten-Einträge erscheinen ohne Reload.
 
-## Werkstatt-Panel — Erweiterungen verwalten (Plan 017 Schritt 7)
+## Werkstatt-Inventar — Erweiterungen verwalten (Plan 017 Schritt 7)
 
-Werkstatt-Sandboxes zeigen über dem Terminal ein auf-/zuklappbares **Panel**
-(löst die alte „Werkstatt-Leiste" mit Freitext-Ordnerfeld + Rocket-Button ab).
-Datenquelle ist das Werkstatt-Inventar
-(`GET /api/extensions/werkstatt/inventar?projekt=<slug>`): jede erkannte
-Erweiterung mit ruhigem Status-Punkt — **● live · ○ bereit · ○ erkannt ·
-▲ abgelehnt** (mit Grund, z. B. kaputte `manifest.json`). Pro Zeile:
-**Live schalten · Zurücknehmen · Rollback · Öffnen · Herunterladen** (lucide
-Blocks/Package, kein Rocket/Hammer).
+Das Werkstatt-Panel der Oberfläche (über dem Terminal der Werkstatt-Sandbox)
+ist mit Phase B2 am 26.08.2026 gefallen, zusammen mit Terminal und Sandbox-
+Ansichten. Die Datenquelle läuft weiter: das Werkstatt-Inventar
+(`GET /api/extensions/werkstatt/inventar?projekt=<slug>`) kennt jede erkannte
+Erweiterung mit Status **live · bereit · erkannt · abgelehnt** (mit Grund,
+z. B. kaputte `manifest.json`); Live schalten, Zurücknehmen und Rollback
+laufen über die Endpunkte unter `/api/extensions`. Wie das im Zielbild
+bedient wird, entscheidet Phase C.
 
 **Freigabe-Dialog:** Schaltet man eine Erweiterung mit deklarierten
 Brücken-Fähigkeiten live, erscheint einmalig „Diese Erweiterung darf: …" —

@@ -42,76 +42,47 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 | Web-Oberflaeche | `https://<hostname>.local` |
 | SSH-Zugang      | `ssh -p 2222 arasul@<ip>`  |
 
-### Workspace (IDE-Oberflaeche)
+### Workspace (Oberflaeche)
 
-Die Standard-Oberflaeche nach der Anmeldung ist der **Workspace**, aufgebaut
-wie eine Entwicklungsumgebung (Cursor/VS-Code-Raster), in drei Themes
-(Schwarz · Dunkel · Hell). Das Theme wird ausschliesslich unter **Einstellungen →
-Erscheinungsbild** gewaehlt (der fruehere Ansichtsmodus-Umschalter oben links
-ist entfallen). Alle Flaechen (Sidebar, Mitte, rechtes Panel) teilen denselben
-Hintergrund; getrennt wird nur durch feine Linien.
+Die Standard-Oberflaeche nach der Anmeldung ist der **Workspace**, ein
+Dreispalten-Raster in drei Themes (Schwarz · Dunkel · Hell). Das Theme wird
+ausschliesslich unter **Einstellungen → Erscheinungsbild** gewaehlt. Alle
+Flaechen (Sidebar, Mitte, rechte Spalte) teilen denselben Hintergrund;
+getrennt wird nur durch feine Linien.
 
-- **Activity Bar (ganz links):** schmale Icon-Leiste mit einer **festen
-  Drei-Bereiche-Navigation**, **Chat** (Kommandozentrale, rechtes Panel),
-  **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n), darunter
-  **Extensions**, ganz unten **Einstellungen** (inkl. System-Status).
-  Chat und Terminal wohnen im rechten Panel, der Explorer in der Sidebar.
-- - **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab, **Dashboard**
-    zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
-    Dateien als Baum; Upload per Drag & Drop oder Kontextmenue, Indexierung
-    startet automatisch, Suchfeld filtert den Baum). **Extensions** zeigt links
-    eine Verwaltung mit **nur den installierten/aktiven** Apps und KI-Modellen, mit Filter
-    **Alle · Sprachmodelle · Apps** und Suchfeld; gestoebert und
-    installiert wird im Katalog in der Mitte. Bei **Automation (n8n)** bleibt der
-    Explorer stehen (n8n oeffnet als Tab im Hauptbereich). Der Auf-/Zu-Zustand
-    bleibt ueber ein Neuladen erhalten.
-- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Extensions-Detail, Dokumente,
-  Automation, Editor-Dateien, …), schliessbar, werden nach einem Neuladen
-  wiederhergestellt. Chat und Terminal erscheinen nie als Tab.
-- **Rechtes Panel (eine Flaeche mit Umschalter [Chat | Terminal]):** oben
-  waehlt ein Segment-Schalter zwischen **Chat** und **Terminal**; der aktive
-  Modus fuellt die ganze Flaeche (kein geteiltes Fenster mehr).
-  - **Chat:** Fragen ans eigene Unternehmenswissen; Antworten kommen mit
-    klickbaren Quellen (Dateinamen vollstaendig lesbar). Oben in der
-    Statuszeile lebt das **Maskottchen** und zeigt sofort „denkt nach …";
-    laufende Antworten streamen, ein aufklappbarer **Denkprozess** ist sichtbar,
-    wenn das Modell ihn liefert. Dateien in den Chat ziehen erzeugt **Anhang-
-    Chips** ueber dem Eingabefeld (mit Entfernen); Dateien/Ordner aus dem
-    Explorer grenzen die Suche ein.
-  - **Terminal:** Projekt-Terminals (Modi: Isoliert = DSGVO-Testumgebung ohne
-    Netzzugriff, Intern = Zugriff auf das lokale LLM, Infrastruktur =
-    Vollzugriff, nur Admins). Quick-Launch bietet oben den **lokalen Coder
-    (empfohlen, kein Login)** und darunter `/claude`, `/codex` (+ „Codex
-    anmelden" per Geraete-Code), `/gemini` (Erststart installiert das jeweilige
-    CLI). Claude einmalig per **KI-Zugang → „Mit Claude anmelden"** anmelden
-    (eigener OAuth-Handshake, kopierbare URL), danach ist `claude` in jeder
-    Sandbox ohne erneuten Login angemeldet.
-  - Der Wechsel zwischen Chat und Terminal unterbricht **nichts**: ein
-    laufender Chat-Stream und eine laufende Terminal-Sitzung laufen im
-    Hintergrund weiter; der zuletzt genutzte Modus wird nach einem Neuladen
-    wiederhergestellt.
+> **Stand 26.08.2026 (Phase B2 des Umbaus):** Datei-Explorer, Editor,
+> Agent-Chat, Terminal und Sandbox-Ansichten sind aus der Oberflaeche
+> entfernt. Die linke Spalte ist ohne gewaehlte Ansicht leer, die rechte
+> Spalte ganz. Was dort kuenftig steht, legen die Phasen D1 und D2 fest.
+
+- **Activity Bar (ganz links):** schmale Icon-Leiste mit den Ansichten
+  **Modelle · Erweiterungen · Flows**, darunter die aktivierten
+  App-Erweiterungen (z. B. Automation/n8n), ganz unten **Einstellungen**
+  (inkl. System-Status).
+- **Sidebar (links):** zeigt die gewaehlte Ansicht: Modell-Filter,
+  Erweiterungs-Suche, Flow-Liste oder die Bereiche der Einstellungen. Ohne
+  Auswahl bleibt sie leer. Ein erneuter Klick auf die aktive Ansicht klappt
+  sie ein (auch `Strg/⌘ + B`).
+- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Modelle, Erweiterungen,
+  Flow-Editor, Automation, Einstellungen), schliessbar, werden nach einem
+  Neuladen wiederhergestellt.
+- **Rechte Spalte:** leer, ein- und ausblendbar.
 - **Layout-Schalter (oben rechts, neben Einstellungen):** **zwei** Symbole
-  blenden die Sidebar und das rechte Panel unabhaengig ein/aus (mit Tooltip).
-- **Statusleiste (unten):** aktive Terminal-Session, Systemstatus sowie das
-  aktuell geladene KI-Modell samt belegtem KI-RAM (aus der tatsaechlichen
-  Ollama-Auslastung, Details im Tooltip).
-- **Extensions (Verwaltung + Katalog):** links die **installierten/aktiven**
-  Eintraege (Filter Alle · Sprachmodelle · Apps), in der Mitte der durchsuchbare
-  **Store** mit **zwei Reitern (Modelle · Erweiterungen)**; ein Klick oeffnet
-  die Detailseite mit allen Aktionen, KI-Modelle installieren/aktivieren,
+  blenden die Sidebar und die rechte Spalte unabhaengig ein/aus.
+- **Statusleiste (unten):** Verbindung und Version, das aktuell geladene
+  KI-Modell samt belegtem KI-RAM (klickbar: Standardmodell waehlen), laufende
+  Modell-Downloads.
+- **Modelle und Erweiterungen:** in der Mitte der durchsuchbare **Store** mit
+  zwei eigenen Tabs (Modelle · Erweiterungen); ein Klick oeffnet die
+  Detailseite mit allen Aktionen, KI-Modelle installieren/aktivieren,
   Plattform-Apps (n8n) ein-/ausblenden. Ueber dem Modell-Raster steht ein
   **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
-  die aktuell im RAM geladenen Modelle mit **Entladen** (der Chip zeigt
-  „entlaedt …", bis das Modell wirklich draussen ist), das **Standardmodell**
-  fuer neue Chats und **In den RAM laden** mit Live-Statusmeldungen waehrend
-  des Ladens. Die Detailseite hat zusaetzlich **Aus RAM entladen**. **Automation**
-  oeffnet n8n direkt als Tab. Deaktivieren
+  die aktuell im RAM geladenen Modelle mit **Entladen**, das **Standardmodell**
+  und **In den RAM laden** mit Live-Statusmeldungen. Deaktivieren einer App
   wirkt sofort (ohne Neuladen): das Symbol verschwindet aus der Activity Bar
-  und offene Tabs der App werden geschlossen. (Alte Deep-Links auf die
-  frueheren Unter-Tabs `/store/models` und `/store/apps` leiten automatisch um.)
+  und offene Tabs der App werden geschlossen.
 - Die Workspace-Shell ist die einzige Ansicht: `/` landet nach dem Login
-  immer auf `/workspace` (es gibt keine klassische Sidebar-Ansicht und keinen
-  Umschalter mehr).
+  immer auf `/workspace`.
 
 ---
 
@@ -138,64 +109,21 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 
 ## 3. Chat / KI-Assistent
 
-### Chat starten
-
-1. Klicken Sie auf **"Chat"** in der Navigation
-2. Ein neuer Chat wird automatisch erstellt
-3. Geben Sie Ihre Frage oder Aufgabe ein
-4. Die KI antwortet in Echtzeit (Streaming)
-
-### Funktionen
-
-- **Neuer Chat:** Erstellt eine neue Konversation
-- **Chat-Tabs:** Mehrere Chats parallel oeffnen
-- **Modell-Auswahl:** Verschiedene KI-Modelle fuer verschiedene Aufgaben
-- **RAG-Modus:** Aktivieren, um Antworten auf Basis Ihrer Dokumente zu erhalten
-- **Chat-Verlauf:** Alle Chats werden gespeichert und sind durchsuchbar
-
-### Tipps
-
-- Formulieren Sie Fragen moeglichst konkret
-- Nutzen Sie den RAG-Modus, wenn Sie Fragen zu Ihren eigenen Dokumenten haben
-- Groessere Modelle liefern bessere Ergebnisse, sind aber langsamer
+Der Agent-Chat der Oberflaeche ist am 26.08.2026 (Phase B2 des Umbaus)
+entfernt worden. Die Endpunkte `/api/chats` und `/api/llm/chat` laufen bis
+Phase B4 bzw. B6 weiter, ohne Oberflaeche; die externe API bleibt
+(siehe [API_REFERENCE.md](../api/API_REFERENCE.md)). Wie KI-Antworten im
+Zielbild ueber Flows laufen, legt Phase D4 fest.
 
 ---
 
 ## 4. Dokumente & RAG
 
-### Dokumente hochladen
-
-1. Navigieren Sie zu **"Dokumente"**
-2. Klicken Sie auf **"Hochladen"**
-3. Waehlen Sie eine oder mehrere Dateien aus
-4. Die Dateien werden automatisch indexiert
-
-### Unterstuetzte Formate
-
-| Format | Beschreibung     |
-| ------ | ---------------- |
-| PDF    | PDF-Dokumente    |
-| TXT    | Textdateien      |
-| DOCX   | Word-Dokumente   |
-| MD     | Markdown-Dateien |
-| CSV    | Tabellen         |
-
-### RAG-Suche (Retrieval Augmented Generation)
-
-RAG ermoeglicht es der KI, Ihre Dokumente als Wissensquelle zu nutzen:
-
-1. Laden Sie relevante Dokumente hoch
-2. Aktivieren Sie **RAG** im Chat
-3. Stellen Sie Fragen zu Ihren Dokumenten
-4. Die KI zitiert die relevanten Stellen
-
-### Spaces (Dokumenten-Raeume)
-
-Organisieren Sie Dokumente in thematischen Raeumen:
-
-- Erstellen Sie Spaces fuer verschiedene Projekte oder Themen
-- Weisen Sie Dokumente einem Space zu
-- Im Chat koennen Sie gezielt in einem Space suchen
+Dokumenten-Upload und Wissensraeume haben seit dem 26.08.2026 (Phase B2)
+keine Oberflaeche mehr; der Datei-Explorer, ueber den hochgeladen wurde, ist
+entfernt. Die Endpunkte unter `/api/documents` und `/api/spaces` laufen bis
+Phase B3/B4 weiter. Es gibt kein Vektor-RAG; gesucht wird ueber den
+Textlayer in PostgreSQL.
 
 ---
 
@@ -203,9 +131,10 @@ Organisieren Sie Dokumente in thematischen Raeumen:
 
 ## 5. Workspace
 
-Ein **Workspace** ist die zentrale Arbeitsumgebung: ein Ordner plus ein
-Container mit einem Besitzer und einem **Netzwerkmodus** („Was darf dieser
-Workspace?"):
+Ein **Workspace** (Sandbox) ist im Backend ein Ordner plus ein Container mit
+einem Besitzer und einem **Netzwerkmodus** („Was darf dieser Workspace?").
+Seit dem 26.08.2026 (Phase B2) gibt es dafuer keine Oberflaeche mehr (kein
+Terminal, kein Projekt-Umschalter); die Routen laufen bis B4 weiter:
 
 | Modus              | Zugriff                                        |
 | ------------------ | ---------------------------------------------- |

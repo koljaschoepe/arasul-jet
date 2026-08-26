@@ -340,40 +340,39 @@ apps/dashboard-backend/
 
 ```
 apps/dashboard-frontend/
-├── src/App.tsx               # Routes, WebSocket, Auth context (/ always → /workspace)
-├── src/features/             # Feature modules with barrel exports (index.ts)
-│   ├── chat/                 # Chat command center (live tool steps)
-│   ├── documents/            # DocumentManager, SpaceModal, Badges
-│   ├── sandbox/              # CreateProjectDialog, workspace + network-mode UI
+├── src/App.tsx               # Routes, Auth context (/ always → /workspace)
+├── src/features/             # Feature modules
+│   ├── flows/                # Flow-Editor-Tab, Flow-Dashboard, Läufe (RunCard, RunStep)
 │   ├── settings/             # Settings, GeneralSettings, AIProfileSettings, System-Status
 │   ├── store/                # Store (Modelle · Erweiterungen tabs)
 │   ├── system/               # SetupWizard, UpdatePage, Login
-│   └── workspace/            # IDE-Shell: ActivityBar (Chat · Wissen · Automation),
-│                             #   Explorer (Ordnerbaum), Tabs, TipTap editor, KI-Panel
+│   └── workspace/            # Shell: ActivityBar (Modelle · Erweiterungen · Flows),
+│                             #   Sidebar, Tabs, rechte Spalte (leer seit B2), StatusBar
 ├── src/components/
-│   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState
-│   └── editor/               # MarkdownEditor, MermaidDiagram, GridEditor/
-├── src/contexts/             # AuthContext, DownloadContext, ToastContext
-├── src/stores/               # zustand (workspaceStore: Tabs/Panels/Chat-Scope)
-├── src/hooks/                # useApi, useConfirm, useTokenBatching
+│   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState, Baustein-Set
+│   └── mascot/               # Das Maskottchen
+├── src/contexts/             # AuthContext, DownloadContext, ToastContext, ActivationContext
+├── src/stores/               # zustand (workspaceStore: Tabs, Sidebar-Ansicht, Spalten)
+├── src/hooks/                # useApi, useConfirm, useFlowRun, useStoreCatalog
 └── src/__tests__/            # Test files
 ```
 
 **Workspace-Shell:** `/` landet immer auf `/workspace` (kein Feature-Flag mehr).
-Die Shell ist eine IDE-artige Oberfläche mit einer festen drei-Bereiche-ActivityBar
-— **Chat · Wissen · Automation** — plus **Extensions** und **Einstellungen**
-(System-Status liegt unter Einstellungen → System). Editierbare Markdown-/Text-
-Dateien öffnen direkt in einem Inline-TipTap-Editor (keine Read-only-Vorschau mehr).
-Ordnerbaum = `knowledge_spaces.parent_id` (Migration 098); Kontextdateien pro
-Ordner werden serverseitig in den Prompt injiziert.
+Die Shell ist ein Dreispalten-Raster mit einer immer sichtbaren ActivityBar
+— **Modelle · Erweiterungen · Flows** — plus den aktivierten
+App-Erweiterungen und **Einstellungen** (System-Status liegt unter
+Einstellungen → System). Seit Phase B2 (26.08.2026) sind Editor,
+Datei-Explorer, Agent-Chat, Terminal und Sandbox-Ansichten aus der
+Oberfläche gefallen; die linke Spalte ist ohne gewählte Ansicht leer, die
+rechte Spalte ganz. Das Raster bleibt, die Phasen D1 und D2 füllen die
+Spalten neu.
 
-**Workspace (Plan 008):** Ein **Workspace** ist die Entität `sandbox_projects`
-— ein `host_path`-Ordner + Container mit einem Netzwerkmodus (»Was darf dieser
-Workspace?«: **Abgeschottet** = isoliert, Internet ja/Plattform nein, Default ·
-**Am System** = interner Zugriff auf DB/MinIO/Textlayer · **Voller Zugriff** =
-Infrastruktur, nur Admin) und einem Besitzer. Jeder Workspace besitzt genau einen
-unsichtbaren Wissensraum, in den geschriebene Dateien automatisch indiziert
-werden. Details: [`docs/features/WORKSPACE.md`](features/WORKSPACE.md).
+**Workspace (Backend, Plan 008):** Ein **Workspace** ist die Entität
+`sandbox_projects` — ein `host_path`-Ordner + Container mit einem
+Netzwerkmodus (`isolated` · `internal` · `infrastructure`, letzterer nur
+Admin) und einem Besitzer. Die Routen und Dienste dazu laufen weiter, bis B4
+und B5 sie streichen; eine Oberfläche dafür gibt es seit B2 nicht mehr.
+Details: [`docs/features/WORKSPACE.md`](features/WORKSPACE.md).
 
 Die path-gejailte Tool-Loop-Grundlage dafür liegt in
 `apps/dashboard-backend/src/services/flows/` (`toolLoop.js`, `pathSafe.js`,

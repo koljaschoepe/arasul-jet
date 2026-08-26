@@ -28,22 +28,20 @@ apps/dashboard-frontend/src/
   App.tsx                    # Root component, routes, providers, lazy loading
   index.css                  # Tailwind v4 config, CSS variables, design tokens
 
-  features/                  # Feature modules (each with barrel export index.ts)
-    workspace/               # IDE-Shell: ActivityBar (Chat · Wissen · Automation), Explorer, Tabs, TipTap editor
-    documents/               # DocumentManager, SpaceModal, Badges
-    sandbox/                 # CreateProjectDialog, workspace + network-mode UI
+  features/                  # Feature modules
+    workspace/               # Shell: ActivityBar (Modelle · Erweiterungen · Flows), Sidebar, Tabs, rechte Spalte (leer)
+    flows/                   # Flow-Editor-Tab, Flow-Dashboard, Läufe
     settings/                # Settings, GeneralSettings, AIProfileSettings, System-Status
     store/                   # Store (Modelle · Erweiterungen tabs)
     system/                  # SetupWizard, UpdatePage, SelfHealingEvents, Login
 
   components/
-    layout/                  # Sidebar (with ScrollArea)
-    ui/                      # Modal, Skeleton, LoadingSpinner, EmptyState, ErrorBoundary, ConfirmIconButton
-    ui/shadcn/               # 19 shadcn components (alert, badge, button, card, dialog, dropdown-menu, input, label, popover, radio-group, scroll-area, select, separator, skeleton, switch, table, tabs, textarea, tooltip)
-    editor/                  # MarkdownEditor, MermaidDiagram, GridEditor/
+    ui/                      # Modal, Skeleton, LoadingSpinner, EmptyState, ErrorBoundary, Baustein-Set
+    ui/shadcn/               # shadcn components (alert, badge, button, card, dialog, input, label, popover, …)
+    mascot/                  # Das Maskottchen
 
   hooks/                     # Reusable hooks (useApi, useTheme, useFetchData, ...)
-  contexts/                  # AuthContext, ChatContext, DownloadContext, ToastContext
+  contexts/                  # AuthContext, DownloadContext, ToastContext, ActivationContext
   config/                    # api.ts (API_BASE, getAuthHeaders), branding.ts
   lib/                       # utils.ts (cn helper)
   utils/                     # csrf.ts, token.ts
@@ -327,19 +325,6 @@ function MyComponent() {
 }
 ```
 
-### `useTokenBatching()` -- Streaming Token Optimization
-
-Batches LLM streaming tokens to reduce React re-renders. Used internally by ChatContext.
-
-```tsx
-import useTokenBatching from '@/hooks/useTokenBatching';
-
-const { tokenBatchRef, addTokenToBatch, flushTokenBatch, resetTokenBatch } = useTokenBatching(
-  setMessages,
-  16
-);
-```
-
 ### `useWebSocketMetrics()` -- Real-time Metrics
 
 WebSocket connection with exponential backoff and HTTP polling fallback.
@@ -382,27 +367,6 @@ toast.clear(); // Remove all
 ```
 
 Provider: `<ToastProvider>` wraps entire app. Max 5 toasts visible.
-
-### `ChatContext` -- Global Chat State
-
-```tsx
-import { useChatContext } from '@/contexts/ChatContext';
-
-const {
-  installedModels,
-  selectedModel,
-  setSelectedModel,
-  spaces,
-  sendMessage,
-  cancelJob,
-  activeJobIds,
-  globalQueue,
-  loadModels,
-  loadSpaces,
-} = useChatContext();
-```
-
-Manages: streaming jobs, model selection, RAG spaces, message callbacks. Persists across route changes.
 
 ### `DownloadContext` -- Model Downloads
 
