@@ -1,7 +1,6 @@
 # Cloudflare Tunnel Service
 #
-# Ermöglicht OAuth2 und Webhook-Zugriff von externen Diensten
-# ohne Ports am Jetson zu öffnen.
+# Macht das Dashboard von aussen erreichbar, ohne Ports am Jetson zu oeffnen.
 #
 # Verwendung:
 #   docker compose -f docker-compose.yml -f services/cloudflared/docker-compose.override.yml up -d cloudflared
@@ -11,7 +10,7 @@
 #   - Domain bei Cloudflare
 #   - CLOUDFLARE_TUNNEL_TOKEN in .env
 #
-# Setup-Anleitung: docs/N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md
+# Setup-Anleitung: README.md in diesem Ordner
 
 services:
   cloudflared:
@@ -58,7 +57,7 @@ services:
 
     labels:
       - 'com.arasul.service=cloudflared'
-      - 'com.arasul.description=Cloudflare Tunnel for OAuth and Webhooks'
+      - 'com.arasul.description=Cloudflare Tunnel for remote access'
 
 networks:
   arasul-frontend:

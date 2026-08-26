@@ -191,7 +191,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         recover" und eskalierte — vier Runden lang, obwohl n8n danach lief.
         """
         container = MagicMock()
-        container.name = 'n8n'
+        container.name = 'dashboard-backend'
         container.restart.side_effect = Exception(
             "('Connection aborted.', RemoteDisconnected('Remote end closed connection'))"
         )
@@ -202,7 +202,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         self.engine.is_in_cooldown = MagicMock(return_value=False)
         self.engine.log_event = MagicMock()
 
-        self.engine.handle_category_a_service_down('n8n', container)
+        self.engine.handle_category_a_service_down('dashboard-backend', container)
 
         typen = [c.args[0] for c in self.engine.log_event.call_args_list]
         self.assertIn('service_recovery_verified', typen)
@@ -211,7 +211,7 @@ class TestSelfHealingEngine(unittest.TestCase):
     def test_verbindungsabriss_und_dienst_bleibt_weg(self):
         """Laeuft er danach NICHT, bleibt es ein Fehlschlag."""
         container = MagicMock()
-        container.name = 'n8n'
+        container.name = 'dashboard-backend'
         container.restart.side_effect = Exception("('Connection aborted.', RemoteDisconnected())")
         danach = MagicMock()
         danach.status = 'exited'
@@ -220,7 +220,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         self.engine.is_in_cooldown = MagicMock(return_value=False)
         self.engine.log_event = MagicMock()
 
-        self.engine.handle_category_a_service_down('n8n', container)
+        self.engine.handle_category_a_service_down('dashboard-backend', container)
 
         typen = [c.args[0] for c in self.engine.log_event.call_args_list]
         self.assertIn('service_recovery_failed', typen)
@@ -228,13 +228,13 @@ class TestSelfHealingEngine(unittest.TestCase):
     def test_anderer_fehler_wird_nicht_nachgesehen(self):
         """Ein echter Fehler bleibt ein Fehler, ohne Nachschau."""
         container = MagicMock()
-        container.name = 'n8n'
+        container.name = 'dashboard-backend'
         container.restart.side_effect = Exception('image not found')
         self.engine.get_failure_count = MagicMock(return_value=1)
         self.engine.is_in_cooldown = MagicMock(return_value=False)
         self.engine.log_event = MagicMock()
 
-        self.engine.handle_category_a_service_down('n8n', container)
+        self.engine.handle_category_a_service_down('dashboard-backend', container)
 
         typen = [c.args[0] for c in self.engine.log_event.call_args_list]
         self.assertIn('service_recovery_failed', typen)
@@ -305,7 +305,7 @@ class TestSelfHealingEngine(unittest.TestCase):
              patch.object(self.engine, 'handle_category_c_critical',
                           side_effect=c_merkt_sich_die_zeit) as mock_cat_c:
             for _ in range(20):
-                self.engine.handle_category_a_service_down('n8n', container)
+                self.engine.handle_category_a_service_down('dashboard-backend', container)
 
         eskalationen = [
             aufruf for aufruf in mock_log.call_args_list
@@ -331,7 +331,7 @@ class TestSelfHealingEngine(unittest.TestCase):
              patch.object(self.engine, 'log_event') as mock_log, \
              patch.object(self.engine, 'record_recovery_action'), \
              patch.object(self.engine, 'handle_category_c_critical') as mock_cat_c:
-            self.engine.handle_category_a_service_down('n8n', container)
+            self.engine.handle_category_a_service_down('dashboard-backend', container)
 
         eskalationen = [
             aufruf for aufruf in mock_log.call_args_list
@@ -470,7 +470,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         Fehler des Tages gewesen.
         """
         container = MagicMock()
-        dienste = {'n8n': {'status': 'running', 'health': 'unhealthy', 'container': container}}
+        dienste = {'dashboard-backend': {'status': 'running', 'health': 'unhealthy', 'container': container}}
 
         with patch.object(self.engine, 'get_metrics', return_value=None), \
              patch.object(self.engine, 'check_disk_usage'), \
@@ -485,7 +485,7 @@ class TestSelfHealingEngine(unittest.TestCase):
 
             with patch.object(self.engine, 'wartung_laeuft', return_value=False):
                 self.engine.run_healing_cycle()
-            mock_a.assert_called_once_with('n8n', container)
+            mock_a.assert_called_once_with('dashboard-backend', container)
 
     def test_handle_category_a_deploy_is_not_an_outage(self):
         """Ein laufender Deploy darf keinen CRITICAL-Fehlalarm erzeugen."""
@@ -537,7 +537,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 999
         # Budget bereits aufgebraucht
         self.engine.nachschau_frist = time.time() - 1
-        self.assertFalse(self.engine._laeuft_wieder('n8n'))
+        self.assertFalse(self.engine._laeuft_wieder('dashboard-backend'))
 
     def test_ohne_budget_laeuft_die_nachschau_wie_bisher(self):
         """Ohne gesetzte Frist (z. B. direkter Aufruf) bleibt es beim Alten."""
@@ -548,7 +548,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         danach = MagicMock()
         danach.status = 'running'
         self.mock_client.containers.get.return_value = danach
-        self.assertTrue(self.engine._laeuft_wieder('n8n'))
+        self.assertTrue(self.engine._laeuft_wieder('dashboard-backend'))
 
     def test_handle_category_b_cpu_overload(self):
         """Test Category B: CPU Overload"""
@@ -559,58 +559,14 @@ class TestSelfHealingEngine(unittest.TestCase):
             mock_clear.assert_called_once()
 
     def test_handle_category_b_ram_overload(self):
-        """Test Category B: RAM Overload"""
+        """Kategorie B, RAM-Ueberlast: seit B5 nur gemeldet, kein Dienst wird angehalten."""
         metrics = {'cpu': 50, 'ram': 95, 'gpu': 0, 'temperature': 60}
 
-        with patch.object(self.engine, 'pause_n8n_workflows') as mock_pause:
+        with patch.object(self.engine, 'log_event') as mock_log:
             self.engine.handle_category_b_overload(metrics)
-            mock_pause.assert_called_once()
-
-    def test_pause_n8n_skips_already_stopped(self):
-        """P6-13: never claim ownership of an n8n that is already stopped."""
-        container = MagicMock()
-        container.status = 'exited'
-        self.mock_client.containers.get.return_value = container
-        result = self.engine.pause_n8n_workflows()
-        self.assertFalse(result)               # did not claim ownership
-        container.stop.assert_not_called()     # no-op stop avoided
-
-    def test_pause_n8n_stops_running(self):
-        """P6-13: stop a running n8n and claim ownership for later restart."""
-        container = MagicMock()
-        container.status = 'running'
-        self.mock_client.containers.get.return_value = container
-        result = self.engine.pause_n8n_workflows()
-        self.assertTrue(result)
-        container.stop.assert_called_once()
-
-    def test_handle_category_b_ram_relief_restarts_n8n(self):
-        """P6-13: n8n is auto-restarted once RAM recovers after an overload stop."""
-        with patch.object(self.engine, 'pause_n8n_workflows', return_value=True), \
-             patch.object(self.engine, 'resume_n8n_workflows', return_value=True) as mock_resume:
-            # 1. RAM overload → n8n stopped, resume-flag set
-            self.engine.handle_category_b_overload(
-                {'cpu': 50, 'ram': 95, 'gpu': 0, 'temperature': 60}
-            )
-            self.assertTrue(getattr(self.engine, '_n8n_stopped_for_ram', False))
-
-            # 2. RAM recovers — restart requires 3 consecutive sub-threshold cycles
-            relief = {'cpu': 50, 'ram': 50, 'gpu': 0, 'temperature': 60}
-            self.engine.handle_category_b_overload(relief)
-            self.engine.handle_category_b_overload(relief)
-            mock_resume.assert_not_called()  # only 2 cycles so far
-            self.engine.handle_category_b_overload(relief)
-            mock_resume.assert_called_once()  # 3rd cycle triggers the restart
-            self.assertFalse(getattr(self.engine, '_n8n_stopped_for_ram', True))
-
-    def test_handle_category_b_ram_no_restart_if_not_stopped_by_us(self):
-        """P6-13: never start an n8n that self-healing did not itself stop."""
-        with patch.object(self.engine, 'resume_n8n_workflows') as mock_resume:
-            # RAM is fine and we never stopped n8n → no restart attempt
-            self.engine.handle_category_b_overload(
-                {'cpu': 50, 'ram': 50, 'gpu': 0, 'temperature': 60}
-            )
-            mock_resume.assert_not_called()
+        typen = [c.args[0] for c in mock_log.call_args_list]
+        self.assertIn('ram_overload', typen)
+        self.mock_client.containers.get.return_value.stop.assert_not_called()
 
     def test_handle_category_b_gpu_overload(self):
         """Category B: hohe GPU-Last allein loest NICHTS aus.

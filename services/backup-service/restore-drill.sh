@@ -55,13 +55,13 @@ CRITICAL_TABLES=(
 )
 
 # Was der Kunde selbst gebaut hat. Diese sechs oben sind das Geraet; die hier
-# sind seine Arbeit: Automationen, Zugaenge, Flow-Laeufe, eigene Erweiterungen
-# und deren Zeitplaene.
+# sind seine Arbeit: die Flow-Laeufe. (Bis Phase B5 am 26.08.2026 standen hier
+# auch die n8n-Automationen und -Zugaenge, bis B4 die Erweiterungen; beides
+# ist ausgebaut.)
 #
-# Warum sie nicht einfach in die Liste oben gehoeren: sie liegen in eigenen
-# Schemata (`n8n`, `arasul`), und ein Geraet, das n8n nie gestartet hat, hat das
-# Schema gar nicht. Eine feste Liste wuerde dort rot, ohne dass etwas kaputt
-# ist.
+# Warum sie nicht einfach in die Liste oben gehoeren: sie liegen in einem
+# eigenen Schema (`arasul`), das erst Migration 090 anlegt. Eine feste Liste
+# wuerde auf einer aelteren Datenbank rot, ohne dass etwas kaputt ist.
 #
 # Deshalb entscheidet die SICHERUNG selbst, was geprueft wird: was im Abzug
 # steht, muss nach dem Zurueckspielen auch da sein. Das ist die Frage, die G6
@@ -73,11 +73,7 @@ CRITICAL_TABLES=(
 # bestanden — und der Kunde haette nach dem Zurueckspielen keine einzige
 # Automation mehr.
 KUNDENTABELLEN=(
-    n8n.workflow_entity
-    n8n.credentials_entity
     arasul.flow_runs
-    arasul.extensions
-    public.extension_zeitplaene
 )
 
 DRY_RUN=false

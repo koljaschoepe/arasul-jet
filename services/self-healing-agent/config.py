@@ -36,7 +36,6 @@ REBOOT_ENABLED = os.getenv('SELF_HEALING_REBOOT_ENABLED', 'false').lower() == 't
 # Service URLs
 METRICS_COLLECTOR_URL = f"http://{os.getenv('METRICS_COLLECTOR_HOST', 'metrics-collector')}:9100"
 LLM_SERVICE_URL = f"http://{os.getenv('LLM_SERVICE_HOST', 'llm-service')}:{os.getenv('LLM_SERVICE_MANAGEMENT_PORT', '11436')}"
-N8N_URL = f"http://{os.getenv('N8N_HOST', 'n8n')}:5678"
 
 # Disk thresholds
 DISK_WARNING = int(os.getenv('DISK_WARNING_PERCENT', '75'))
@@ -72,7 +71,6 @@ REBOOT_COOLDOWN_MINUTES = int(os.getenv('REBOOT_COOLDOWN_MINUTES', '30'))
 # abgeschaltetes embedding als „down" behandeln und neu starten.
 APPLICATION_SERVICES = [
     'llm-service',
-    'n8n',
     'dashboard-backend',
     'dashboard-frontend'
 ]

@@ -92,11 +92,11 @@ System-level emergency.
 
 ## Monitored Services
 
-| Category    | Services                                                                   |
-| ----------- | -------------------------------------------------------------------------- |
-| System      | postgres-db, reverse-proxy, metrics-collector                              |
-| Application | llm-service, embedding-service, n8n, dashboard-backend, dashboard-frontend |
-| Self        | document-indexer                                                           |
+| Category    | Services                                                              |
+| ----------- | --------------------------------------------------------------------- |
+| System      | postgres-db, reverse-proxy, metrics-collector                         |
+| Application | llm-service, embedding-service, dashboard-backend, dashboard-frontend |
+| Self        | document-indexer                                                      |
 
 ## Environment Variables
 

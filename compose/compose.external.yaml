@@ -45,7 +45,7 @@ services:
           memory: 64M
     labels:
       - 'com.arasul.service=cloudflared'
-      - 'com.arasul.description=Cloudflare Tunnel for OAuth and Webhooks'
+      - 'com.arasul.description=Cloudflare Tunnel for remote access'
     logging:
       driver: json-file
       options:

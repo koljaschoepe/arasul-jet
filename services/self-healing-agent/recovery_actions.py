@@ -96,68 +96,6 @@ class RecoveryActionsMixin:
             logger.error(f"Failed to apply GPU throttling: {e}")
             return False
 
-    def pause_n8n_workflows(self) -> bool:
-        """
-        Reduce n8n RAM by stopping the container (graceful shutdown).
-
-        P5.5: previous implementation called `container.restart()` despite the
-        method name claiming "pause", which killed in-flight workflows and
-        caused an endless restart cycle if RAM stayed structurally over budget.
-        The honest fix is either a real n8n PATCH /workflows/:id { active: false }
-        per workflow, or — until the n8n API plumbing exists — a graceful stop.
-        Stop is reversible (start() resumes); restart is destructive to running
-        workflows. Caller is `recovery_actions.handle_high_ram` which already
-        backs off, so a stopped n8n won't ping-pong.
-        """
-        try:
-            container = self.docker_client.containers.get('n8n')
-            # Only claim ownership if we actually transition a *running* n8n to
-            # stopped. docker's stop() on an already-stopped container is a silent
-            # no-op that would otherwise let us falsely record "we stopped it" and
-            # later auto-restart an n8n an operator (or a Category-A restart)
-            # deliberately took down. reload() refreshes the cached status.
-            container.reload()
-            if container.status != 'running':
-                logger.info(
-                    f"n8n is not running (status={container.status}) — nothing to "
-                    "stop; not claiming ownership for auto-restart"
-                )
-                return False
-            logger.warning(
-                "RAM overload: stopping running n8n container (graceful) — will be "
-                "auto-restarted once RAM recovers (see resume_n8n_workflows)"
-            )
-            container.stop(timeout=30)
-            logger.info("n8n stopped to free RAM")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to stop n8n: {e}")
-            return False
-
-    def resume_n8n_workflows(self) -> bool:
-        """
-        Restart n8n after RAM has recovered — the counterpart to
-        pause_n8n_workflows.
-
-        P6-13: pause_n8n_workflows stops n8n to free RAM but the previous
-        implementation never restarted it, so a single RAM spike left workflow
-        automation permanently dead until an operator manually intervened —
-        exactly the kind of silent, unattended-operation failure this platform
-        must avoid. The caller (handle_category_b_overload) only invokes this
-        for an n8n that self-healing itself stopped, and only after RAM has been
-        comfortably back under budget for several cycles (hysteresis), so it
-        cannot ping-pong.
-        """
-        try:
-            logger.info("RAM recovered: restarting previously-stopped n8n container")
-            container = self.docker_client.containers.get('n8n')
-            container.start()
-            logger.info("n8n restarted after RAM relief")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to restart n8n: {e}")
-            return False
-
     def hard_restart_application_services(self) -> bool:
         """Hard restart all application services"""
         logger.critical("Performing hard restart of application services")
