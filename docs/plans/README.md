@@ -11,7 +11,7 @@ This folder is the single source of truth for roadmaps, phase plans, and histori
 | `done/`        | Executed plans — each page carries its §9 execution report (PR, deploy, live-verify evidence). `/work` moves pages here.                                            | Historical context only — never act on the contents.                  |
 | `archive/`     | Plans manually superseded or abandoned. Each file has an `> **Archived YYYY-MM-DD**` header at the top explaining its status.                                       | Historical context only — never act on the contents.                  |
 | `audits/`      | Findings pages from `/audit` runs (`audit-YYYY-MM-DD-<scope>.html`) plus older multi-agent audit folders (read-only history).                                       | When you want to know what the codebase looked like at a given point. |
-| `2026-08-26-loeschliste-b1.md` | Löschliste aus Phase B1 des Überordner-Plans: jede Feature-Mappe, Route, Service, Migration, Container und jedes Abnahmeskript mit „bleibt“, „fällt“, „wird ersetzt“ und Zeilenzahl. | Vor jeder Rückbau-Phase B2 bis B6.                                    |
+| `audits/2026-08-26-loeschliste-b1.md` | Löschliste aus Phase B1 des Überordner-Plans: jede Feature-Mappe, Route, Service, Migration, Container und jedes Abnahmeskript mit „bleibt“, „fällt“, „wird ersetzt“ und Zeilenzahl. Die Messungen der Phasen B2 bis B6 liegen daneben als `audits/2026-MM-DD-messung-<phase>.md`, gezählt mit `scripts/test/zeilen.py`. | Vor jeder Rückbau-Phase B2 bis B6.                                    |
 
 ## Naming conventions
 

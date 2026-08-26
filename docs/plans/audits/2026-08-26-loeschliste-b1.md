@@ -90,7 +90,7 @@ bleibt dreispaltig mit leeren Spalten, bis D1 sie neu füllt.
 | `KISettings.tsx`, `sections.tsx`, `Settings.tsx`            | 320    | wird ersetzt |
 | `PasswordManagement.tsx`, `PrivacySettings.tsx`, `SecuritySettings.tsx`, `GeneralSettings.tsx` | 1 089 | bleibt |
 | `RemoteAccessSettings.tsx`, `sitzungUeberFernzugriff.ts`    | 1 082  | bleibt (offen, siehe unten) |
-| `ExterneModelleSettings.tsx`                                | 231    | bleibt (offen, siehe unten) |
+| `ExterneModelleSettings.tsx`                                | 231    | wird ersetzt (Entscheidung zu Frage 3: kein Settings-Bereich, Wahl je Flow in D4) |
 | `validationIssues.ts`                                       | 26     | bleibt       |
 | `__tests__/`                                                | 1 699  | wird ersetzt |
 
@@ -142,7 +142,7 @@ Die Spalte „Endpunkte" zählt `router.<verb>(`-Aufrufe in der Datei.
 | `admin/gdpr.js`                      | 740    | 4         | wird ersetzt | Auskunft und Löschung auf das neue Datenmodell                                            |
 | `admin/audit.js`, `update.js`, `selfhealing.js`, `license.js`, `backup.js`, `ops.js`, `werksreset.js` | 1 729 | 27 | bleibt | Betrieb, Lizenz                                                              |
 | `ai/models.js`                       | 997    | 21        | wird ersetzt | C8: Kurzliste, Download nur daraus                                                        |
-| `ai/externeModelle.js`               | 126    | 6         | bleibt       | offen, siehe unten                                                                        |
+| `ai/externeModelle.js`               | 126    | 6         | wird ersetzt | Frage 3: lokal oder extern mit API-Key je Flow (D4), kein eigener Bereich                |
 | `ai/embeddings.js`                   | 75     | 1         | bleibt       | `/v1/embeddings` für App-Backends                                                         |
 | `ai/profil.js`                       | 188    | 4         | fällt        | Memory                                                                                    |
 | `ai/spaces.js`                       | 1 005  | 16        | fällt        | Wissensräume                                                                              |
@@ -188,9 +188,9 @@ Die Spalte „Endpunkte" zählt `router.<verb>(`-Aufrufe in der Datei.
 | `app/appLifecycleService.js`, `appService.js`, `configService.js`, `containerService.js`, `installService.js`, `manifestService.js` | 2 204 | wird ersetzt | C3/C5: Container-App mit `app.json`, Deploy-Endpunkt                 |
 | `core/eventListenerService.js`                                                                      | 712    | wird ersetzt | n8n-Ereignisse raus, Docker- und Boot-Ereignisse bleiben                                |
 | `werksreset/`                                                                                       | 715    | wird ersetzt | Tabellenliste auf das neue Datenmodell                                                  |
-| `documents/minioService.js`                                                                         | 272    | wird ersetzt | nur noch Zwischenablage der Extraktion (offen, ob MinIO bleibt)                         |
+| `documents/minioService.js`                                                                         | 272    | fällt        | Frage 1: MinIO fällt, die Extraktion reicht die Datei direkt weiter                     |
 | `llm/` Engine (`llmQueueService`, `llmJobService`, `llmJobProcessor`, `llmOllamaStream`, `modelService`, `modelLifecycleService`, `modelDownloadHelpers`, `modelSyncHelpers`, `modellQuelle`, `modelProfile`, `ollamaReadiness`, `unloadRegistry`, `engineGateway`, `AsyncMutex`) | 6 720 | bleibt | Warteschlange, Modelle, Idle-Unload |
-| `llm/extern/`                                                                                       | 1 053  | bleibt       | offen, siehe unten                                                                      |
+| `llm/extern/`                                                                                       | 1 053  | wird ersetzt | Frage 3: der Anbieter-Aufruf bleibt, die Einstellungsfläche nicht (D4)                  |
 | `app/licenseService.js`, `updateService.js`, `updateSignatureService.js`                            | 1 438  | bleibt       | Lizenz, Updates                                                                         |
 | `alertEngine.js`                                                                                    | 818    | bleibt       | Betrieb                                                                                 |
 | `network/tailscaleService.js`                                                                       | 581    | bleibt       | offen, siehe unten                                                                      |
@@ -244,7 +244,7 @@ Das sind 37 Tabellen. Dazu fallen die zugehörigen Funktionen und Views
 | -------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------- |
 | `app_installations`, `app_configurations`, `app_dependencies`, `app_events`      | 013         | Tabelle `apps` mit Manifest (C3)                                                 |
 | `arasul.flow_runs`, `arasul.flow_run_steps`                                      | 112, 119, 124 | Flow-Engine v2 (C6), `flow_settings` kommt dazu                                |
-| `chat_conversations`, `chat_messages`                                            | 005         | nur noch Träger der externen API `/llm/chat`; B6 entscheidet, ob sie das brauchen |
+| `chat_conversations`, `chat_messages`                                            | 005         | Frage 6: fallen, sobald B6 `/llm/chat` zustandslos macht                        |
 | `admin_users`                                                                    | 002, 068    | bleibt, `role` wird `admin` oder `mitarbeiter` (C1); `app_members` (C2) kommt dazu |
 
 ### Tabellen, die bleiben
@@ -292,18 +292,18 @@ dazu das Sandbox-Image, das der Backend zur Laufzeit startet.
 | `llm-service`                | `compose.ai.yaml`         | 97                 | bleibt       | Ollama                                                                         |
 | `embedding-service`          | `compose.ai.yaml`         | 62                 | bleibt       | `/v1/embeddings`                                                               |
 | `postgres-db`                | `compose.core.yaml`       | 41 + 5             | bleibt       |                                                                                |
-| `minio`                      | `compose.core.yaml`       | 37 + 7             | bleibt       | offen, siehe unten: nach den Dokumenten bleibt nur die Extraktions-Zwischenablage |
+| `minio`                      | `compose.core.yaml`       | 37 + 7             | fällt        | Frage 1: samt `init-minio-buckets.sh` und MinIO-Passwortwechsel in `settings.js` |
 | `docker-proxy`               | `compose.core.yaml`       | 52                 | bleibt       | Self-Healing, App-Container (C5)                                               |
 | `reverse-proxy`              | `compose.core.yaml`       | 47                 | bleibt       | Traefik; Forward-Auth (C4), `/apps/<id>/` (C3)                                 |
 | `cloudflared`                | `compose.external.yaml`   | 50                 | bleibt       | Profil `tunnel`, Fernzugriff (offen, siehe unten)                              |
 | `metrics-collector`          | `compose.monitoring.yaml` | 46 + 5             | bleibt       | Betrieb                                                                        |
 | `self-healing-agent`         | `compose.monitoring.yaml` | 70 + 5             | bleibt       | Betrieb                                                                        |
-| `loki`, `promtail`           | `compose.monitoring.yaml` | 38 und 44          | bleibt       | Betrieb; kein Backend-Code liest Loki, `logs.js` geht über Docker (offen)      |
+| `loki`, `promtail`           | `compose.monitoring.yaml` | 38 und 44          | fällt        | Frage 4: kein Leser, `logs.js` geht über Docker                                |
 
 `config/`: `searxng/` (53) fällt; `traefik/` (1 173) wird ersetzt (n8n-Routen
 raus, App-Routen und Forward-Auth rein); `appstore/` (87) wird ersetzt;
-`loki/`, `promtail/`, `platforms/`, `postgres/`, `apparmor/`, `logrotate.d/`,
-`secrets/`, `udev/` bleiben.
+`loki/`, `promtail/` (181) fallen mit ihren Containern (Frage 4); `platforms/`,
+`postgres/`, `apparmor/`, `logrotate.d/`, `secrets/`, `udev/` bleiben.
 
 `services/n8n/` (4 047 Zeilen: drei Custom-Nodes, Vorlagen, Dockerfile) fällt
 mit dem Container. Dazu 19 Skripte außerhalb von `scripts/test` und `scripts/util`, die n8n
@@ -364,6 +364,24 @@ CI-Wächter unter `scripts/test/*.py` (`bausteine`, `modellnamen`, `einheiten`,
 die gestrichenen Endpunkte verlassen `docs/api/API_REFERENCE.md`.
 
 ## Offen (Entscheidung beim Überordner)
+
+Am 26.08.2026 vom Überordner entschieden (Phase B2, `PHASE.md`); die Urteile
+in den Tabellen oben sind nachgezogen, gelöscht wird in der Phase, zu der
+das Stück gehört, nicht in B2:
+
+| Frage | Entscheidung                                                                                                                                  |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | MinIO **fällt**.                                                                                                                              |
+| 2     | Fernzugriff **bleibt** bis D5.                                                                                                                |
+| 3     | Externe Cloud-Modelle sind kein eigener Bereich mehr, sondern **werden ersetzt**: kein Settings-Bereich, stattdessen je Flow in der Admin-Flow-Ansicht wählbar lokal oder extern mit API-Key (D4). |
+| 4     | Loki und Promtail **fallen**.                                                                                                                 |
+| 5     | Stellt B4.                                                                                                                                    |
+| 6     | Die Chat-Tabellen **fallen** mit dem zustandslosen `/llm/chat` in B6.                                                                        |
+| 7     | Ja: der Zähler ist `scripts/test/zeilen.py`, mit Selbsttest im Wächter-Selbsttest, und die Messregel der Phasen B2 bis B6.                    |
+| 8     | Messungen liegen datiert unter `docs/plans/audits/`; diese Liste ist dorthin umgezogen.                                                       |
+
+Die Fragen im Wortlaut der ersten Fassung:
+
 
 1. **MinIO.** Nach den Dokumenten nutzt nur noch `extractionService` den
    Speicher, als Zwischenablage für `/document/extract`. Ein Container für
