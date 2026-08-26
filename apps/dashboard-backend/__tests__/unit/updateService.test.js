@@ -413,7 +413,6 @@ describe('UpdateService', () => {
         llm: { status: 'healthy' },
         embeddings: { status: 'healthy' },
         postgres: { status: 'healthy' },
-        minio: { status: 'healthy' },
         dashboard_backend: { status: 'healthy' },
       });
 
@@ -427,7 +426,6 @@ describe('UpdateService', () => {
         llm: { status: 'unhealthy' },
         embeddings: { status: 'healthy' },
         postgres: { status: 'healthy' },
-        minio: { status: 'healthy' },
         dashboard_backend: { status: 'healthy' },
       });
 
@@ -440,7 +438,6 @@ describe('UpdateService', () => {
       dockerService.getAllServicesStatus.mockResolvedValue({
         llm: { status: 'healthy' },
         // postgres missing
-        minio: { status: 'healthy' },
       });
 
       const result = await updateService.checkAllServicesHealthy();

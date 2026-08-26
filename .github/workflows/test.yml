@@ -236,7 +236,7 @@ jobs:
           SMOKE: ${{ matrix.image.smoke }}
         # Ohne Netz und ohne Secrets: geprueft wird ausschliesslich, ob der
         # Prozess seine Importe aufloest. Alles, was danach kommt (Datenbank,
-        # MinIO), gehoert nicht hierher und wuerde nur falsche Alarme erzeugen.
+        # Modelldienst), gehoert nicht hierher und wuerde nur falsche Alarme erzeugen.
         run: docker run --rm --network none "$BILD" python3 -c "$SMOKE"
 
   # ----------------------------------------------------------------------------
@@ -390,9 +390,6 @@ jobs:
 
       - name: Anleitungen zeigen nichts, was es nicht gibt (Plan 023 K3)
         run: python3 scripts/test/anleitungen.py
-
-      - name: Geruest-Regeln (Plan 023 H2)
-        run: python3 scripts/test/geruest-regeln.py
 
       - name: Stiller Tod (Zuweisungen, die ein Skript wortlos beenden)
         run: python3 scripts/test/stiller-tod.py --wurzel .

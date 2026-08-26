@@ -1,14 +1,13 @@
 /**
  * System Prompt Builder
- * Builds a layered system prompt from 3 sources:
- *   1. Global base (hardcoded German default)
- *   2. AI profile (YAML from MinIO/DB via profilService)
- *   3. Company context (from company_context table)
+ *
+ * Bis Phase B4 (26.08.2026) lagen hier drei Schichten: die Basis, das
+ * KI-Profil (Memory) und der Unternehmenskontext (company_context). Die
+ * beiden hinteren sind mit Memory und Wissensraeumen gefallen; geblieben ist
+ * die Basis, die der Betreiber ueber system_settings.llm_base_system_prompt
+ * ueberschreiben kann.
  */
 
-const yaml = require('js-yaml');
-const profilService = require('../memory/profilService');
-const logger = require('../../utils/logger');
 const systemSettings = require('../system-settings/systemSettingsService');
 
 /**
@@ -49,8 +48,7 @@ const systemSettings = require('../system-settings/systemSettingsService');
 const PRODUKT_BESCHREIBUNG =
   'Du läufst auf einem Arasul-Gerät: einem Rechner mit NVIDIA-Jetson-Prozessor, der beim Nutzer vor Ort steht. ' +
   'Deine Antworten entstehen auf diesem Gerät, nicht in einer Cloud. ' +
-  'Das Gerät bietet einen Chat mit Zugriff auf die Dateien des Nutzers, ein Browser-Terminal mit einem Coding-Agenten, ' +
-  'Abläufe zum Automatisieren und einen Katalog von Sprachmodellen, die der Nutzer selbst herunterlädt. ' +
+  'Das Gerät bietet Abläufe zum Automatisieren und einen Katalog von Sprachmodellen, die der Nutzer selbst herunterlädt. ' +
   'Einzelne Werkzeuge gehen ins Internet, etwa die Websuche; das tun sie nur, wenn du sie benutzt. ' +
   'Wenn jemand fragt, was Arasul ist oder kann, ist das gemeint. Erfinde nichts dazu.';
 
@@ -68,220 +66,22 @@ function getBasePrompt() {
 }
 
 /**
- * Sanitize user-supplied prompt content to mitigate prompt injection.
- * Strips common injection patterns and wraps content in clear delimiters.
- * @param {string} content - Raw user-supplied content
- * @param {string} label - Section label for the delimiter
- * @returns {string} Sanitized and delimited content
- */
-function sanitizePromptContent(content, label) {
-  if (!content || !content.trim()) {
-    return '';
-  }
-
-  let sanitized = content;
-
-  // Strip common prompt injection patterns (case-insensitive)
-  const injectionPatterns = [
-    /ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules?)/gi,
-    /disregard\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?)/gi,
-    /forget\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?)/gi,
-    /you\s+are\s+now\s+(?:a\s+)?(?:new|different)\s+(?:AI|assistant|bot)/gi,
-    /new\s+instructions?:\s*/gi,
-    /system\s*:\s*/gi,
-    /\[SYSTEM\]/gi,
-    /<<\s*SYS\s*>>/gi,
-    /<\/?system>/gi,
-  ];
-
-  for (const pattern of injectionPatterns) {
-    if (pattern.test(sanitized)) {
-      logger.warn(`[SystemPrompt] Stripped injection pattern from ${label}: ${pattern}`);
-      sanitized = sanitized.replace(pattern, '[entfernt]');
-    }
-  }
-
-  // Truncate excessively long content (max 5000 chars for company context,
-  // 6000 for folder context files, 2000 for project prompt)
-  const maxLen = label === 'Unternehmenskontext' ? 5000 : label === 'Ordner-Kontext' ? 6000 : 2000;
-  if (sanitized.length > maxLen) {
-    logger.warn(`[SystemPrompt] Truncated ${label} from ${sanitized.length} to ${maxLen} chars`);
-    sanitized = sanitized.slice(0, maxLen) + '\n[... gekuerzt]';
-  }
-
-  return sanitized;
-}
-
-// Simple TTL cache for profile and company context
-const cache = {
-  profile: { value: undefined, expiresAt: 0 },
-  companyContext: { value: undefined, expiresAt: 0 },
-};
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Invalidate cached profile (call on profile update)
- */
-function invalidateProfileCache() {
-  cache.profile.expiresAt = 0;
-}
-
-/**
- * Invalidate cached company context (call on context update)
- */
-function invalidateCompanyContextCache() {
-  cache.companyContext.expiresAt = 0;
-}
-
-/**
- * Format a YAML profile string into a readable system prompt section.
- * @param {string} yamlString - Raw YAML from profilService
- * @returns {string|null} Formatted section or null
- */
-function formatProfile(yamlString) {
-  if (!yamlString || !yamlString.trim()) {
-    return null;
-  }
-
-  try {
-    const data = yaml.load(yamlString);
-    if (!data || typeof data !== 'object') {
-      return null;
-    }
-
-    const lines = ['## KI-Profil'];
-    if (data.firma) {
-      lines.push(`- Firma: ${data.firma}`);
-    }
-    if (data.branche) {
-      lines.push(`- Branche: ${data.branche}`);
-    }
-    if (data.sprache) {
-      lines.push(`- Sprache: ${data.sprache}`);
-    }
-    if (data.mitarbeiter) {
-      lines.push(`- Mitarbeiter: ${data.mitarbeiter}`);
-    }
-    if (data.produkte && Array.isArray(data.produkte) && data.produkte.length > 0) {
-      lines.push(`- Produkte: ${data.produkte.join(', ')}`);
-    }
-    if (data.praeferenzen && typeof data.praeferenzen === 'object') {
-      if (data.praeferenzen.antwortlaenge) {
-        lines.push(`- Antwortlaenge: ${data.praeferenzen.antwortlaenge}`);
-      }
-      if (data.praeferenzen.formalitaet) {
-        lines.push(`- Formalitaet: ${data.praeferenzen.formalitaet}`);
-      }
-    }
-
-    // Only return if we have more than just the header
-    return lines.length > 1 ? lines.join('\n') : null;
-  } catch (err) {
-    logger.debug(`[SystemPrompt] Could not parse profile YAML: ${err.message}`);
-    return null;
-  }
-}
-
-/**
- * Load company context from DB (with cache).
- * @param {Object} database - Database instance
+ * Der Systemprompt fuer den Chat-Pfad.
+ *
+ * Hier stand bis zum 23.08.2026 eine `## Tools`-Schicht, sechs Systemwerkzeuge
+ * im Format `[TOOL: name param=wert]`, die niemand ausfuehrte; der Marker
+ * stand woertlich in der Antwort. Einem Modell Faehigkeiten zu versprechen,
+ * die niemand ausfuehrt, ist schlimmer als keine Faehigkeiten.
+ *
  * @returns {Promise<string>}
  */
-async function loadCompanyContext(database) {
-  const now = Date.now();
-  if (cache.companyContext.expiresAt > now && cache.companyContext.value !== undefined) {
-    return cache.companyContext.value;
-  }
-
-  try {
-    const result = await database.query('SELECT content FROM company_context WHERE id = 1');
-    const content = result.rows.length > 0 && result.rows[0].content ? result.rows[0].content : '';
-    cache.companyContext = { value: content, expiresAt: now + CACHE_TTL_MS };
-    return content;
-  } catch (err) {
-    logger.warn(`[SystemPrompt] Could not fetch company context: ${err.message}`);
-    return '';
-  }
-}
-
-/**
- * Load AI profile (with cache).
- * @returns {Promise<string|null>}
- */
-async function loadProfile() {
-  const now = Date.now();
-  if (cache.profile.expiresAt > now && cache.profile.value !== undefined) {
-    return cache.profile.value;
-  }
-
-  try {
-    const yaml = await profilService.getProfile();
-    cache.profile = { value: yaml, expiresAt: now + CACHE_TTL_MS };
-    return yaml;
-  } catch (err) {
-    logger.debug(`[SystemPrompt] Could not load profile: ${err.message}`);
-    cache.profile = { value: null, expiresAt: now + CACHE_TTL_MS };
-    return null;
-  }
-}
-
-/**
- * Build the combined system prompt from all layers.
- * @param {Object} database - Database instance
- * @param {string|null} conversationId - Current conversation ID (reserved; kept
- *   for signature stability with existing callers).
- * @param {Object} [options] - Options
- * @returns {Promise<string>} Combined system prompt
- */
-async function buildSystemPrompt(database, conversationId) {
-  const parts = [getBasePrompt()];
-
-  // Layer 2: AI Profile
-  const profileYaml = await loadProfile();
-  const profileSection = formatProfile(profileYaml);
-  if (profileSection) {
-    parts.push(profileSection);
-  }
-
-  // Layer 3: Company Context (sanitized — user-editable content)
-  const companyContext = await loadCompanyContext(database);
-  if (companyContext) {
-    const sanitized = sanitizePromptContent(companyContext, 'Unternehmenskontext');
-    if (sanitized) {
-      parts.push(`## Unternehmenskontext\n${sanitized}`);
-    }
-  }
-
-  // Hier stand bis zum 23.08.2026 eine vierte Schicht: `## Tools`, sechs
-  // Systemwerkzeuge im Format `[TOOL: name param=wert]`, aus
-  // `src/tools/toolRegistry`. Der Text ging ins Modell, und dann geschah
-  // nichts: `processToolCalls`, `parseToolCalls` und `execute` dieser
-  // Registry werden im ganzen Backend von KEINER Stelle aufgerufen, auch von
-  // keinem Test. Der Marker wurde also weder ausgefuehrt noch entfernt — er
-  // stand woertlich in der Antwort.
-  //
-  // Wen das traf: den Weg OHNE Agent-Modus, also `POST
-  // /api/v1/external/llm/chat` (n8n, Automationen) und Bild-Nachrichten. Der
-  // Chat selbst laeuft seit dem 28.07.2026 als Agent und hat seine eigenen,
-  // wirklich ausgefuehrten Werkzeuge aus `services/flows/toolRegistry`.
-  //
-  // Einem Modell Faehigkeiten zu versprechen, die niemand ausfuehrt, ist
-  // schlimmer als keine Faehigkeiten: es antwortet, es habe nachgesehen.
-
-  return parts.join('\n\n');
+async function buildSystemPrompt() {
+  return getBasePrompt();
 }
 
 module.exports = {
   buildSystemPrompt,
-  formatProfile,
-  sanitizePromptContent,
-  invalidateProfileCache,
-  invalidateCompanyContextCache,
   GLOBAL_BASE_PROMPT,
   PRODUKT_BESCHREIBUNG,
   getBasePrompt,
-  // Exposed for testing
-  _cache: cache,
-  _loadCompanyContext: loadCompanyContext,
-  _loadProfile: loadProfile,
 };

@@ -398,44 +398,6 @@ pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
 
-# --- geruest-regeln.py ------------------------------------------------------
-# Der Waechter, der Werkstatt und Backend zusammenhaelt (Plan 023 H2). Er
-# existiert wegen eines echten Falls: drei neue Faehigkeiten hatten Routen,
-# Dienste und Tests, standen aber nicht in der Liste des Backends, und niemand
-# konnte sie deklarieren.
-GR="$TMP/geruest"
-mkdir -p "$GR/apps/dashboard-backend/src/services/extensions" "$GR/services/sandbox"
-JS_DATEI="$GR/apps/dashboard-backend/src/services/extensions/extensionPackage.js"
-SH_DATEI="$GR/services/sandbox/erweiterung.sh"
-
-schreibe_geruest() {
-  printf "const BRUECKE_FAEHIGKEITEN = [%s];\n" "$1" > "$JS_DATEI"
-  {
-    printf "ID_MUSTER='^[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$'\n"
-    printf 'TYPEN="app flow tool"\n'
-    printf 'FAEHIGKEITEN="%s"\n' "$2"
-  } > "$SH_DATEI"
-}
-
-schreibe_geruest "'llm', 'rag'" "llm rag"
-pruefe "Geruest-Regeln: gleiche Listen sind gruen" 0 \
-  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
-
-schreibe_geruest "'llm', 'rag', 'netz'" "llm rag"
-pruefe "Geruest-Regeln: eine Faehigkeit nur im Backend ist rot" 1 \
-  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
-
-schreibe_geruest "'llm', 'rag'" "llm rag zauberei"
-pruefe "Geruest-Regeln: eine Faehigkeit nur in der Werkstatt ist rot" 1 \
-  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
-
-# Das Id-Muster wird ueber sein VERHALTEN verglichen, nicht ueber den Text:
-# beide Seiten schreiben denselben Ausdruck in verschiedenen Dialekten.
-schreibe_geruest "'llm'" "llm"
-printf "ID_MUSTER='^[a-zA-Z0-9-]+$'\n" >> "$SH_DATEI"
-sed -i.bak "1d" "$SH_DATEI" && rm -f "$SH_DATEI.bak"
-pruefe "Geruest-Regeln: ein zu weites Id-Muster ist rot" 1 \
-  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
 # --- endpunkte.py -----------------------------------------------------------
 # Der Waechter aus Plan 023 K1: meldet ein Endpunkt ohne Zeile in der Doku.
 # Beide Richtungen muessen greifen, wie bei der Durchreichung: ein NEUER
@@ -477,45 +439,6 @@ printf 'GET /api/foo/gibtsnicht\n' > "$EP/scripts/test/endpunkte-luecke.txt"
 pruefe "Endpunkte: ein veralteter Eintrag in der Schuldenliste ist rot" 1 \
   python3 "$WURZEL/scripts/test/endpunkte.py" --wurzel "$EP"
 rm -f "$EP/scripts/test/endpunkte-luecke.txt"
-
-# --- paket-vergleich.py -----------------------------------------------------
-# Das Messwerkzeug fuer H3: "dieselbe Anwendung, einmal ueber ara-kit und
-# einmal im Terminal gebaut, ergibt dasselbe Paket". Ohne ein Werkzeug, das
-# "dasselbe" entscheidet, ist die Abnahme eine Meinung.
-PV="$TMP/paket"
-mkdir -p "$PV/a" "$PV/b"
-printf '<h1>Hallo</h1>\n' > "$PV/a/index.html"
-printf '<h1>Hallo</h1>\n' > "$PV/b/index.html"
-printf '{"id":"x","name":"X","type":"app","entry":"index.html","version":"1.0.0","faehigkeiten":["llm","rag"]}\n' > "$PV/a/manifest.json"
-# B: andere Reihenfolge der Schluessel, andere Reihenfolge der Faehigkeiten,
-# andere Fassung. Nichts davon macht ein anderes Paket.
-printf '{"faehigkeiten":["rag","llm"],"version":"2.0.0","entry":"index.html","type":"app","name":"X","id":"x"}\n' > "$PV/b/manifest.json"
-pruefe "Paket-Vergleich: Reihenfolge und Fassung machen kein anderes Paket" 0 \
-  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
-
-pruefe "Paket-Vergleich: mit --streng zaehlt die Fassung" 1 \
-  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b" --streng
-
-printf '<h1>Anders</h1>\n' > "$PV/b/index.html"
-printf '{"faehigkeiten":["rag","llm"],"version":"1.0.0","entry":"index.html","type":"app","name":"X","id":"x"}\n' > "$PV/b/manifest.json"
-pruefe "Paket-Vergleich: anderer Dateiinhalt ist ein anderes Paket" 1 \
-  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
-
-printf '<h1>Hallo</h1>\n' > "$PV/b/index.html"
-printf 'extra\n' > "$PV/b/dazu.js"
-pruefe "Paket-Vergleich: eine zusaetzliche Datei ist ein anderes Paket" 1 \
-  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
-
-rm -f "$PV/b/dazu.js"
-printf 'x\n' > "$PV/b/.DS_Store"
-pruefe "Paket-Vergleich: auch ein Artefakt zaehlt, wird aber benannt" 1 \
-  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
-rm -f "$PV/b/.DS_Store"
-
-# Ein Archiv gegen einen Ordner: der Weg, den ara-kit nehmen wird.
-( cd "$PV/a" && COPYFILE_DISABLE=1 tar -czf "$PV/a.tar.gz" . )
-pruefe "Paket-Vergleich: Archiv gegen Ordner" 0 \
-  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a.tar.gz" "$PV/b"
 
 # --- durchreichung.py -------------------------------------------------------
 # Der Waechter, der prueft, ob eine dokumentierte Stellschraube den Container

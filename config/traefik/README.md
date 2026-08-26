@@ -21,8 +21,6 @@ Internet/LAN
   Traefik
     ├─→ Dashboard Frontend (/)
     ├─→ Dashboard Backend API (/api)
-    ├─→ MinIO Console (/minio)
-    ├─→ MinIO S3 API (/minio-api)
     ├─→ LLM Service (/models)
     ├─→ Embeddings (/embeddings)
     ├─→ n8n (/n8n)
@@ -51,8 +49,6 @@ HTTP routers and services:
 - **dashboard-api**: `/api` → dashboard-backend:3001
 - **auth-api**: `/api/auth` → dashboard-backend:3001 (stricter rate limit)
 - **metrics-api**: `/api/metrics` → dashboard-backend:3001
-- **minio-console**: `/minio` → minio:9001
-- **minio-api**: `/minio-api` → minio:9000
 - **llm-direct**: `/models` → llm-service:11434
 - **embeddings-direct**: `/embeddings` → embedding-service:11435
 - **n8n**: `/n8n` → n8n:5678
@@ -101,7 +97,6 @@ Routes are matched by priority (higher = first):
 | Priority | Route            | Path                                                       |
 | -------- | ---------------- | ---------------------------------------------------------- |
 | 50       | WebSocket routes | `/api/metrics/live-stream`, `/n8n/*` (with Upgrade header) |
-| 30       | MinIO routes     | `/minio`, `/minio-api`                                     |
 | 25       | AI services      | `/models`, `/embeddings`, `/webhook`                       |
 | 20       | Auth & n8n       | `/api/auth`, `/n8n`                                        |
 | 15       | Metrics API      | `/api/metrics`                                             |
@@ -238,15 +233,13 @@ dashboard-websocket:
 
 All backend services have health checks:
 
-| Service            | Path                 | Interval | Timeout |
-| ------------------ | -------------------- | -------- | ------- |
-| Dashboard Backend  | `/api/health`        | 10s      | 2s      |
-| Dashboard Frontend | `/`                  | 30s      | 3s      |
-| MinIO Console      | `/`                  | 30s      | 3s      |
-| MinIO API          | `/minio/health/live` | 30s      | 3s      |
-| LLM Service        | `/health`            | 30s      | 5s      |
-| Embeddings         | `/health`            | 30s      | 5s      |
-| n8n                | `/healthz`           | 30s      | 3s      |
+| Service            | Path          | Interval | Timeout |
+| ------------------ | ------------- | -------- | ------- |
+| Dashboard Backend  | `/api/health` | 10s      | 2s      |
+| Dashboard Frontend | `/`           | 30s      | 3s      |
+| LLM Service        | `/health`     | 30s      | 5s      |
+| Embeddings         | `/health`     | 30s      | 5s      |
+| n8n                | `/healthz`    | 30s      | 3s      |
 
 Unhealthy backends are automatically removed from load balancing.
 
@@ -343,9 +336,6 @@ curl -I https://arasul.local/
 
 # Dashboard API
 curl -I https://arasul.local/api/system/status
-
-# MinIO console
-curl -I https://arasul.local/minio/
 
 # LLM service
 curl -I https://arasul.local/models/api/version

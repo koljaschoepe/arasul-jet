@@ -27,22 +27,5 @@ http:
         - websecure
       tls: {}
 
-    # Sandbox Terminal WebSocket
-    # Auth handled entirely by the backend's upgrade handler (JWT from query param / cookie / header).
-    # forward-auth REMOVED: it blocks WebSocket upgrades because Traefik's forwardAuth
-    # only forwards Authorization + Cookie headers to /api/auth/verify, but the browser's
-    # WebSocket constructor cannot set custom headers — the token comes via query param,
-    # which forward-auth doesn't propagate. The backend verifies JWT before calling
-    # sandboxTerminalWss.handleUpgrade(), so security is maintained.
-    sandbox-terminal-websocket:
-      rule: 'PathPrefix(`/api/sandbox/terminal/ws`) && Headers(`Upgrade`, `websocket`)'
-      service: dashboard-backend-service
-      priority: 50
-      middlewares:
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
   # Note: Services are already defined in routes.yml
   # WebSocket support is automatic when Connection: Upgrade header is present

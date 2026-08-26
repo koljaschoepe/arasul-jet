@@ -39,7 +39,6 @@ const {
 const flowRegistry = require('../../services/flows/flowRegistry');
 const flowRunner = require('../../services/flows/flowRunner');
 const flowRunStore = require('../../services/flows/runStore');
-const projectService = require('../../services/rag/projectService');
 const { resolveArguments } = require('../../services/flows/runFlow');
 
 // Multer for document upload endpoints (50MB limit)
@@ -776,12 +775,9 @@ router.get(
   requireApiKey,
   requireEndpoint('flow:run'),
   asyncHandler(async (req, res) => {
-    const zeile = (f, projekt = null) => ({
+    const zeile = f => ({
       name: f.name,
       beschreibung: f.beschreibung || '',
-      // Projektgebundene Flows (Plan 014, Phase 4): beim Start als
-      // body.projekt mitgeben. null = globaler Flow.
-      projekt,
       argumente: (f.argumente || []).map(a => ({
         name: a.name,
         typ: a.typ,
@@ -790,17 +786,10 @@ router.get(
     });
 
     const { flows } = await flowRegistry.listFlows();
-    const alle = flows.map(f => zeile(f));
-    for (const p of await projectService.listProjects()) {
-      const projektErgebnis = await flowRegistry.listFlows({ projektId: p.id });
-      for (const f of projektErgebnis.flows) {
-        alle.push(zeile(f, { id: p.id, name: p.name }));
-      }
-    }
 
     res.json({
       success: true,
-      flows: alle,
+      flows: flows.map(zeile),
       timestamp: new Date().toISOString(),
     });
   })
@@ -836,8 +825,7 @@ router.post(
 
     // FRÜH prüfen, solange der Request da ist: Flow existiert (→ 404) und die
     // Argumente passen (→ 400). Sonst käme der Fehler erst als toter Lauf.
-    const projektId = req.body.projekt ?? null;
-    const flow = await flowRegistry.loadFlow(flowName, { projektId });
+    const flow = await flowRegistry.loadFlow(flowName);
     resolveArguments(flow.argumente, args);
 
     const { runId } = await flowRunner.starten({
@@ -845,8 +833,6 @@ router.post(
       args,
       userId,
       conversationId: null,
-      ordnerZiel: req.body.ordner_ziel ?? null,
-      projektId,
     });
 
     logger.info(

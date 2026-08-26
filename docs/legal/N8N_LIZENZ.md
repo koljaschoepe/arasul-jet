@@ -126,7 +126,7 @@ Our setup, precisely:
    dependencies.
 2. n8n (community edition, currently pinned to 2.29.10) is pre-installed
    on the device as one of several open-source components (alongside
-   PostgreSQL, MinIO, Ollama, etc.). Each customer device runs its own,
+   PostgreSQL, Ollama, etc.). Each customer device runs its own,
    single-tenant n8n instance, used exclusively for that customer's own
    internal workflows.
 3. We do not charge for n8n separately, we do not offer n8n as a hosted

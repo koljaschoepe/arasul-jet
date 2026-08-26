@@ -27,7 +27,7 @@ The editor is at `/n8n/`. There is **one** wall — the Arasul dashboard login �
 
 This is a single-tenant appliance: all dashboard admins share one n8n workspace. n8n's own user management is not surfaced; the security boundary is entirely the dashboard session (forward-auth). Webhooks (`/webhook/*`) stay deliberately public for external triggers.
 
-Implication: an unauth visitor cannot even reach `/n8n/` — they see the dashboard login. This is intentional and matches how `/minio` is gated.
+Implication: an unauth visitor cannot even reach `/n8n/` — they see the dashboard login. This is intentional (bis Phase B4 galt dasselbe für die MinIO-Konsole unter `/minio`; die gibt es nicht mehr).
 
 ---
 

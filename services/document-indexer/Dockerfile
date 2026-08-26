@@ -3,17 +3,14 @@ FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
 
-# Install system dependencies for document processing.
-# poppler-utils: pdf2image rasterisiert Bild-PDFs für die OCR.
-# tesseract-ocr (+ deu/eng): lokale OCR-Engine (Plan 019 · Phase 4) — kein
-# separater Sidecar-Container mehr nötig. Beide sind auf arm64 (Jetson) via apt
-# verfügbar.
+# Systempakete fuer die Textextraktion.
+# poppler-utils: pdf2image rasterisiert Bild-PDFs fuer die OCR.
+# tesseract-ocr (+ deu/eng): lokale OCR-Engine, kein Sidecar-Container.
+# libmupdf-dev: Laufzeitbibliothek fuer PyMuPDF.
+# curl: fuer den Healthcheck unten.
+# Alle auf arm64 (Jetson) via apt verfuegbar.
 RUN apt-get update && apt-get install -y \
-    wget \
     curl \
-    libmagic1 \
-    libpq-dev \
-    gcc \
     libmupdf-dev \
     poppler-utils \
     tesseract-ocr \
@@ -21,38 +18,28 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Requirements zuerst, damit der pip-Layer im Cache bleibt
 COPY services/document-indexer/requirements.txt .
 
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download spaCy German model for Knowledge Graph NER
-RUN python -m spacy download de_core_news_lg || \
-    python -m spacy download de_core_news_sm || \
-    echo "WARNING: No spaCy German model available - entity extraction disabled"
-
-# Create non-root user
+# Nutzer ohne Root-Rechte
 RUN useradd -m -u 1000 -s /bin/bash indexer
 
-# Copy shared logging module
+# Gemeinsames Logging-Modul
 COPY libs/shared-python/structured_logging.py ./
 
-# Copy application code
+# Anwendungscode
 COPY services/document-indexer/*.py ./
 
-# Create directories for BM25 index persistence
-RUN mkdir -p /data/bm25_index && \
-    chown -R indexer:indexer /app /data
+RUN chown -R indexer:indexer /app
 
-# Expose API port
 EXPOSE 9102
 
 USER indexer
 
-# Health check via API
+# Healthcheck ueber die API
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:9102/health || exit 1
 
-# Run the API server (which starts the indexer in background)
 CMD ["python3", "-u", "api_server.py"]

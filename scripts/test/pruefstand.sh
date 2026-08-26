@@ -60,7 +60,7 @@ fi
 
 PROJEKT="arasul-pruefstand"
 UMGEBUNG="compose/pruefstand.vars"
-DIENSTE=(postgres-db minio dashboard-backend dashboard-frontend reverse-proxy n8n)
+DIENSTE=(postgres-db dashboard-backend dashboard-frontend reverse-proxy n8n)
 
 # Dieselbe docker-compose.yml wie im Normalbetrieb, nur mit eigener Umgebung
 # und eigenem Projektnamen. Eine eigene Dateiliste waere ein zweiter Ort, der

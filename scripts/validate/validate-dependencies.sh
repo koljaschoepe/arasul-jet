@@ -87,7 +87,6 @@ echo ""
 # CRITICAL: reverse-proxy must start BEFORE dashboard services (not after)
 EXPECTED_ORDER=(
     "postgres-db"
-    "minio"
     "metrics-collector"
     "llm-service"
     "embedding-service"
@@ -152,14 +151,6 @@ else
     CHECKS=$((CHECKS + 1))
 fi
 
-# MinIO should have no dependencies
-if docker compose -f "$COMPOSE_FILE" config | grep -A 20 "^  minio:" | grep -q "depends_on:"; then
-    log_warning "minio should not depend on other services"
-else
-    log_success "minio has no dependencies (correct)"
-    CHECKS=$((CHECKS + 1))
-fi
-
 # Metrics collector must depend on postgres-db
 if docker compose -f "$COMPOSE_FILE" config | grep -A 30 "^  metrics-collector:" | sed -n '/depends_on:/,/^  [a-z]/p' | grep -q "postgres-db:"; then
     log_success "metrics-collector depends on postgres-db"
@@ -168,9 +159,9 @@ else
     log_error "metrics-collector must depend on postgres-db"
 fi
 
-# Dashboard backend must depend on postgres and minio (core data services)
+# Dashboard backend must depend on postgres (core data service)
 # Note: AI services (llm, embedding) are NOT required deps - backend handles their absence gracefully
-REQUIRED_BACKEND_DEPS=("postgres-db" "minio")
+REQUIRED_BACKEND_DEPS=("postgres-db")
 for dep in "${REQUIRED_BACKEND_DEPS[@]}"; do
     if docker compose -f "$COMPOSE_FILE" config | grep -A 50 "^  dashboard-backend:" | sed -n '/depends_on:/,/^  [a-z]/p' | grep -q "$dep:"; then
         log_success "dashboard-backend depends on $dep"
@@ -181,7 +172,7 @@ for dep in "${REQUIRED_BACKEND_DEPS[@]}"; do
 done
 
 # Reverse proxy must depend on core infrastructure
-REQUIRED_PROXY_DEPS=("postgres-db" "minio")
+REQUIRED_PROXY_DEPS=("postgres-db")
 for dep in "${REQUIRED_PROXY_DEPS[@]}"; do
     SERVICE_DEF=$(docker compose -f "$COMPOSE_FILE" config | sed -n "/^  reverse-proxy:/,/^  [a-z-]/p")
     if echo "$SERVICE_DEF" | sed -n '/^    depends_on:/,/^    [a-z]/p' | grep -q "^      $dep:"; then

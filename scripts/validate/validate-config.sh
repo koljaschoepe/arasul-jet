@@ -164,23 +164,6 @@ validate_number "POSTGRES_MAX_CONNECTIONS" 10 1000
 echo ""
 
 ###############################################################################
-# MINIO CONFIGURATION
-###############################################################################
-
-log_info "Validating MinIO Configuration..."
-
-validate_required_var "MINIO_HOST"
-validate_hostname "MINIO_HOST"
-validate_required_var "MINIO_PORT"
-validate_port "MINIO_PORT"
-validate_required_var "MINIO_ROOT_USER"
-validate_required_var "MINIO_ROOT_PASSWORD"
-check_password_strength "MINIO_ROOT_PASSWORD"
-validate_boolean "MINIO_BROWSER"
-
-echo ""
-
-###############################################################################
 # LLM SERVICE CONFIGURATION
 ###############################################################################
 

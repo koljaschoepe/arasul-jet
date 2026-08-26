@@ -102,7 +102,7 @@ async function getSsdStatus() {
  * `backupEnabled` stand auf `ssdStatus.mounted`, also auf "haengt eine externe
  * Platte dran". Auf dem Orin gemessen: keine Platte angesteckt, Antwort
  * `backupEnabled: false` — und gleichzeitig 38 Postgres-Sicherungen, 37 fuer
- * MinIO, 328 WAL-Segmente, 4,9 GB, letzte Sicherung drei Stunden alt, und eine
+ * 328 WAL-Segmente, 4,9 GB, letzte Sicherung drei Stunden alt, und eine
  * Wiederherstellungsprobe derselben Nacht mit sechs geprueften Tabellen.
  *
  * Das Geraet sichert also, und der Endpunkt sagte das Gegenteil. Wer eine

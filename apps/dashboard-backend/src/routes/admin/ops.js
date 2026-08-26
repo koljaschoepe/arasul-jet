@@ -31,7 +31,6 @@ async function readBackupReport() {
       ageHours,
       stale: ageHours > 48,
       postgresBackups: report.postgres_backups ?? null,
-      minioBackups: report.minio_backups ?? null,
       walSegments: report.wal_segments ?? null,
       totalSize: report.total_size || null,
     };

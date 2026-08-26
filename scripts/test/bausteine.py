@@ -79,18 +79,11 @@ AUSNAHMEN = {
     # Einstellungsseite, und PageHeader dafuer aufzubohren hiesse, einen
     # Baustein fuer einen einzigen Aufrufer zu verbiegen.
     'src/features/store/StoreDetailPage.tsx': 'feste Kopfleiste mit Zurueck-Knopf, andere Form',
-    # Vier handgebaute Dialoge, alle aelter als die vierte Regel. Sie stehen
-    # hier, damit die Regel ab heute NEUE Faelle verhindert; die vier selbst
-    # sind eine eigene Aufgabe im Plan 023, Abschnitt am Ende von C4. Jeder
-    # Eintrag nennt, was ihm fehlt.
-    'src/features/workspace/OnboardingWizard.tsx': 'Fokusfalle von Hand, in C4 repariert, gehoert trotzdem auf Modal',
-    'src/features/sandbox/KiZugangDialog.tsx': 'aria-modal ohne Tabulatorfalle, Hintergrund ist ein Knopf, derselbe Fehler wie vor C4',
-    'src/features/workspace/QuickOpen.tsx': 'aria-modal ohne Tabulatorfalle',
-    'src/features/flows/ArgumentPicker.tsx': 'role=dialog ohne aria-modal, immerhin keine falsche Zusage',
-    # Zwei Stellen, aber ein Dialog: derselbe Editor einmal im Ladezustand und
-    # einmal fertig. Die fertige Fassung hat eine Tabulatorfalle, die ladende
-    # nicht; dort ist aber auch nichts zu fokussieren.
-    'src/components/editor/tiptap/TipTapEditor.tsx': 'eigener Editor-Dialog mit eigener Tabulatorfalle, Ladezustand ohne',
+    # Bis Phase B4 (26.08.2026) standen hier vier handgebaute Dialoge aus der
+    # Zeit vor der vierten Regel (OnboardingWizard, KiZugangDialog, QuickOpen,
+    # TipTapEditor) und der ArgumentPicker der Flows. Alle fuenf Dateien sind
+    # mit B2 bis B4 gefallen; ein Eintrag fuer eine Datei, die es nicht gibt,
+    # haelt den Waechter gruen, ohne etwas zu pruefen.
 }
 
 REGELN = [

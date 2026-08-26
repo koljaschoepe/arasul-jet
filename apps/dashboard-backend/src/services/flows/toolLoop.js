@@ -122,7 +122,7 @@ async function callOllama({ model, messages, tools, think = false }) {
  * @param {import('../../tools/baseTool')[]} args.tools - Fertige Werkzeug-Instanzen.
  * @param {number} args.maxRunden - Obergrenze der Werkzeug-Runden (grenzen.werkzeug_runden).
  * @param {number} args.zeitlimitS - Gesamt-Zeitlimit in Sekunden (grenzen.zeitlimit_s).
- * @param {object} args.context - Wird an jedes Werkzeug durchgereicht (roots, containerId, cwd, spaceIds, onChange, …).
+ * @param {object} args.context - Wird an jedes Werkzeug durchgereicht (roots, onChange, …).
  * @param {(evt:object)=>void} [args.onEvent] - Ereignis-Senke. Formen:
  *   {type:'tool_start', tool, params} · {type:'tool_result', tool, result} ·
  *   {type:'text', content} · {type:'done', result, truncated?} · {type:'error', message}

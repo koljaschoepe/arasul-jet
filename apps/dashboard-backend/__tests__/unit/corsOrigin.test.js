@@ -99,37 +99,3 @@ describe('isAllowedOrigin', () => {
     });
   });
 });
-
-describe('brueckeCorsOptionen (23.08.2026)', () => {
-  const { brueckeCorsOptionen } = require('../../src/utils/corsOrigin');
-
-  it('erlaubt den opaken Origin auf den Bruecken-Routen', () => {
-    const o = brueckeCorsOptionen('null', '/api/extensions/beispiel-app/bruecke/info');
-    expect(o).not.toBeNull();
-    expect(o.origin).toBe('null');
-  });
-
-  it('gibt einem opaken Origin NIE Cookies mit', () => {
-    // Der Rahmen weist sich mit seinem Bruecken-Token aus, nicht mit einer
-    // Sitzung. `credentials: true` waere hier die eigentliche Oeffnung.
-    const o = brueckeCorsOptionen('null', '/api/extensions/x/bruecke/llm');
-    expect(o.credentials).toBe(false);
-  });
-
-  it('greift nur unterhalb von /bruecke', () => {
-    expect(brueckeCorsOptionen('null', '/api/extensions/x/app/t/abc/datei.js')).toBeNull();
-    expect(brueckeCorsOptionen('null', '/api/health')).toBeNull();
-    expect(brueckeCorsOptionen('null', '/api/admin/settings')).toBeNull();
-  });
-
-  it('faellt nicht auf einen aehnlich benannten Pfad herein', () => {
-    expect(brueckeCorsOptionen('null', '/api/extensions/x/bruecke-fake/info')).toBeNull();
-    expect(brueckeCorsOptionen('null', '/api/extensionsX/y/bruecke/info')).toBeNull();
-  });
-
-  it('gilt nur fuer woertlich „null", nicht fuer eine echte Herkunft', () => {
-    expect(brueckeCorsOptionen('https://boese.example', '/api/extensions/x/bruecke/info')).toBeNull();
-    expect(brueckeCorsOptionen(undefined, '/api/extensions/x/bruecke/info')).toBeNull();
-    expect(brueckeCorsOptionen('null', undefined)).toBeNull();
-  });
-});

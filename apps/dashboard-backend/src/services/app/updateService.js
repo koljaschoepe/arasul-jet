@@ -678,7 +678,7 @@ class UpdateService {
       const services = await dockerService.getAllServicesStatus();
 
       // Critical services that must be healthy
-      const criticalServices = ['llm', 'embeddings', 'postgres', 'minio', 'dashboard_backend'];
+      const criticalServices = ['llm', 'embeddings', 'postgres', 'dashboard_backend'];
 
       for (const serviceName of criticalServices) {
         const service = services[serviceName];

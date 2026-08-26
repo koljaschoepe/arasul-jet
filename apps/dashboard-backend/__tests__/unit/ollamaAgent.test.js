@@ -26,7 +26,6 @@ const { ollamaAgent, OLLAMA_AGENT_TIMEOUT_MS } = require('../../src/services/llm
 const QUELLEN = [
   'src/services/llm/llmOllamaStream.js',
   'src/services/llm/llmJobProcessor.js',
-  'src/services/extensions/brueckeService.js',
 ];
 
 describe('Agent zum Modelldienst', () => {

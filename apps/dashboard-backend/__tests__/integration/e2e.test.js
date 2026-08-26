@@ -4,8 +4,6 @@
  * Tests for complete user flows and cross-service communication:
  * - Authentication Flow: Login → Token → Protected Request → Logout
  * - LLM Chat Pipeline: Request → Queue → Process → Stream → Complete
- * - RAG Query Pipeline: Query → Embedding → Vector Search → LLM → Response
- * - Document Pipeline: Upload → MinIO → Indexer → Qdrant → Status
  * - Multi-Conversation: Create → Chat → Switch → Continue
  */
 
@@ -31,7 +29,6 @@ jest.mock('../../src/database', () => {
 
 jest.mock('axios');
 jest.mock('bcrypt');
-jest.mock('minio');
 
 const db = require('../../src/database');
 const axios = require('axios');
@@ -134,23 +131,6 @@ const createTestApp = () => {
       [req.params.id]
     );
     res.json(result.rows);
-  });
-
-  // Documents routes
-  app.get('/api/documents', authMiddleware, async (req, res) => {
-    const result = await db.query('SELECT * FROM documents WHERE deleted_at IS NULL');
-    res.json(result.rows);
-  });
-
-  app.get('/api/documents/:id', authMiddleware, async (req, res) => {
-    const result = await db.query(
-      'SELECT * FROM documents WHERE id = $1 AND deleted_at IS NULL',
-      [req.params.id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-    res.json(result.rows[0]);
   });
 
   // Health check
@@ -382,71 +362,6 @@ describe('E2E Integration Tests', () => {
   // =====================================================
   // Document Flow E2E
   // =====================================================
-  describe('Document Flow', () => {
-    it('List Documents -> Get Document -> Check Status', async () => {
-      // Step 1: List all documents
-      db.query.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 1,
-            filename: 'doc1.pdf',
-            status: 'indexed',
-            file_size: 102400,
-            chunk_count: 10
-          },
-          {
-            id: 2,
-            filename: 'doc2.docx',
-            status: 'processing',
-            file_size: 51200,
-            chunk_count: null
-          }
-        ]
-      });
-
-      const listResponse = await request(app)
-        .get('/api/documents')
-        .set('Authorization', `Bearer ${testToken}`)
-        .expect(200);
-
-      expect(listResponse.body).toHaveLength(2);
-      expect(listResponse.body[0].status).toBe('indexed');
-      expect(listResponse.body[1].status).toBe('processing');
-
-      // Step 2: Get specific document
-      db.query.mockResolvedValueOnce({
-        rows: [{
-          id: 1,
-          filename: 'doc1.pdf',
-          status: 'indexed',
-          file_size: 102400,
-          chunk_count: 10,
-          indexed_at: new Date()
-        }]
-      });
-
-      const docResponse = await request(app)
-        .get('/api/documents/1')
-        .set('Authorization', `Bearer ${testToken}`)
-        .expect(200);
-
-      expect(docResponse.body.filename).toBe('doc1.pdf');
-      expect(docResponse.body.status).toBe('indexed');
-    });
-
-    it('Document not found -> 404', async () => {
-      db.query.mockResolvedValueOnce({ rows: [] });
-
-      await request(app)
-        .get('/api/documents/999')
-        .set('Authorization', `Bearer ${testToken}`)
-        .expect(404);
-    });
-  });
-
-  // =====================================================
-  // Health Check Flow
-  // =====================================================
   describe('Health Check Flow', () => {
     it('Health endpoint returns healthy status', async () => {
       const response = await request(app)
@@ -592,31 +507,6 @@ describe('E2E Integration Tests', () => {
       expect(axios.post).toBeDefined();
     });
   });
-
-  // =====================================================
-  // Pagination Flow
-  // =====================================================
-  describe('Pagination Flow', () => {
-    it('Documents pagination works correctly', async () => {
-      // Mock paginated documents
-      const allDocs = Array.from({ length: 25 }, (_, i) => ({
-        id: i + 1,
-        filename: `doc${i + 1}.pdf`,
-        status: 'indexed'
-      }));
-
-      db.query.mockResolvedValueOnce({
-        rows: allDocs.slice(0, 10)
-      });
-
-      const page1Response = await request(app)
-        .get('/api/documents')
-        .set('Authorization', `Bearer ${testToken}`)
-        .expect(200);
-
-      expect(page1Response.body).toHaveLength(10);
-    });
-  });
 });
 
 describe('LLM Chat Pipeline Simulation', () => {
@@ -647,96 +537,5 @@ describe('LLM Chat Pipeline Simulation', () => {
     expect(getPosition('job-2')).toBe(2);
     expect(getPosition('job-3')).toBe(3);
     expect(getPosition('job-4')).toBe(-1);
-  });
-});
-
-describe('RAG Query Pipeline Simulation', () => {
-  it('Simulates query -> embed -> search -> response', async () => {
-    const query = 'How does authentication work?';
-
-    // Step 1: Generate embedding
-    const mockEmbedding = new Array(768).fill(0.1);
-
-    // Step 2: Vector search results
-    const searchResults = [
-      { score: 0.95, text: 'Authentication uses JWT tokens...' },
-      { score: 0.89, text: 'Login endpoint validates credentials...' },
-      { score: 0.82, text: 'Sessions are stored in PostgreSQL...' }
-    ];
-
-    // Step 3: Build context from results
-    const context = searchResults.map(r => r.text).join('\n\n');
-
-    // Step 4: Final response would include sources
-    const response = {
-      answer: 'Authentication in the system works using JWT tokens...',
-      sources: searchResults.map(r => ({
-        text: r.text,
-        score: r.score
-      }))
-    };
-
-    expect(response.sources).toHaveLength(3);
-    expect(response.sources[0].score).toBe(0.95);
-  });
-
-  it('Space-based filtering', async () => {
-    const spaces = [
-      { id: 'space-1', name: 'Technical Docs', description: 'Technical documentation' },
-      { id: 'space-2', name: 'User Guides', description: 'End user guides and tutorials' }
-    ];
-
-    const query = 'How to configure the system?';
-
-    // Simulate space routing based on query
-    const matchedSpace = spaces.find(s =>
-      s.description.toLowerCase().includes('technical') ||
-      s.description.toLowerCase().includes('configuration')
-    );
-
-    // Technical query should match technical docs space
-    expect(matchedSpace?.name).toBe('Technical Docs');
-  });
-});
-
-describe('Document Pipeline Simulation', () => {
-  it('Simulates upload -> index -> status update', async () => {
-    const document = {
-      id: 1,
-      filename: 'test.pdf',
-      status: 'uploaded',
-      file_path: 'documents/test.pdf'
-    };
-
-    // Step 1: Upload
-    expect(document.status).toBe('uploaded');
-
-    // Step 2: Processing
-    document.status = 'processing';
-    expect(document.status).toBe('processing');
-
-    // Step 3: Indexing complete
-    document.status = 'indexed';
-    document.chunk_count = 15;
-    document.indexed_at = new Date();
-
-    expect(document.status).toBe('indexed');
-    expect(document.chunk_count).toBe(15);
-  });
-
-  it('Failed document handling', async () => {
-    const document = {
-      id: 1,
-      filename: 'corrupt.pdf',
-      status: 'uploaded'
-    };
-
-    // Processing fails
-    document.status = 'failed';
-    document.processing_error = 'Unable to parse PDF: corrupt file';
-    document.retry_count = 1;
-
-    expect(document.status).toBe('failed');
-    expect(document.retry_count).toBe(1);
   });
 });

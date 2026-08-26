@@ -2,7 +2,7 @@
  * PasswordManagement Component Tests
  *
  * Tests für PasswordManagement:
- * - Service-Selektor (Dashboard + MinIO; n8n verwaltet Passwörter selbst)
+ * - Nur das Dashboard-Passwort (MinIO ist seit Phase B4 weg; n8n verwaltet Passwörter selbst)
  * - Formular-Rendering
  * - Password-Validierung
  * - Toggle-Sichtbarkeit
@@ -110,7 +110,7 @@ describe('PasswordManagement Component', () => {
     test('rendert Beschreibung', async () => {
       renderPasswordManagement();
 
-      expect(screen.getByText(/Ändere die Passwörter für Dashboard und MinIO/)).toBeInTheDocument();
+      expect(screen.getByText(/Ändere das Passwort für das Dashboard/)).toBeInTheDocument();
     });
 
     test('zeigt Lock-Icon', async () => {
@@ -172,35 +172,17 @@ describe('PasswordManagement Component', () => {
   });
 
   // =====================================================
-  // Service Selector
+  // Nur ein Dienst
   // =====================================================
-  describe('Service Selector', () => {
-    test('zeigt Dashboard- und MinIO-Tabs sowie n8n-Hinweis', async () => {
+  describe('Nur ein Dienst', () => {
+    test('zeigt keinen Dienst-Selektor mehr, aber den n8n-Hinweis', async () => {
       renderPasswordManagement();
 
-      const tabs = screen.getAllByRole('tab');
-      expect(tabs).toHaveLength(2);
-      expect(screen.getByRole('tab', { name: /Dashboard/ })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /MinIO/ })).toBeInTheDocument();
-      // n8n is not a password-tab; it manages its own credentials (info section).
+      // Seit Phase B4 gibt es nur das Dashboard-Passwort: keine Tabs, kein MinIO.
+      expect(screen.queryAllByRole('tab')).toHaveLength(0);
+      expect(screen.queryByText(/MinIO/)).not.toBeInTheDocument();
+      // n8n ist kein Passwort-Tab, es verwaltet seine Konten selbst (Hinweis).
       expect(screen.getByText('n8n-Passwort')).toBeInTheDocument();
-    });
-
-    test('Dashboard ist standardmäßig aktiv', async () => {
-      renderPasswordManagement();
-
-      const dashboardButton = screen.getByRole('tab', { name: /Dashboard/ });
-      expect(dashboardButton).toHaveAttribute('aria-selected', 'true');
-    });
-
-    test('wechselt zu MinIO bei Click', async () => {
-      const user = userEvent.setup();
-      renderPasswordManagement();
-
-      await user.click(screen.getByRole('tab', { name: /MinIO/ }));
-
-      const minioButton = screen.getByRole('tab', { name: /MinIO/ });
-      expect(minioButton).toHaveAttribute('aria-selected', 'true');
     });
 
     test('zeigt n8n-Hinweis-Sektion mit Link zu n8n', async () => {
@@ -212,16 +194,6 @@ describe('PasswordManagement Component', () => {
       ).toBeInTheDocument();
       const n8nLink = screen.getByRole('link', { name: 'n8n' });
       expect(n8nLink).toHaveAttribute('href', '/n8n');
-    });
-
-    test('zeigt Service-Icons', async () => {
-      renderPasswordManagement();
-
-      const tabs = screen.getAllByRole('tab');
-      expect(tabs).toHaveLength(2);
-      tabs.forEach(tab => {
-        expect(tab.querySelector('svg')).toBeInTheDocument();
-      });
     });
   });
 
@@ -402,17 +374,6 @@ describe('PasswordManagement Component', () => {
       ).toBeInTheDocument();
     });
 
-    test('zeigt MinIO-Neustart Info bei MinIO Auswahl', async () => {
-      const user = userEvent.setup();
-      renderPasswordManagement();
-
-      await user.click(screen.getByRole('tab', { name: /MinIO/ }));
-
-      expect(
-        screen.getByText(/MinIO-Service wird nach der Passwortänderung automatisch neu gestartet/)
-      ).toBeInTheDocument();
-    });
-
     test('zeigt Hinweis dass n8n Passwörter selbst verwaltet', async () => {
       renderPasswordManagement();
 
@@ -497,21 +458,6 @@ describe('PasswordManagement Component', () => {
       await waitFor(() => {
         expect(screen.getByText('Aktuelles Passwort ist falsch')).toBeInTheDocument();
       });
-    });
-  });
-
-  // =====================================================
-  // Service Switch Clears Message
-  // =====================================================
-  describe('Service Switch', () => {
-    test('löscht Nachricht bei Service-Wechsel', async () => {
-      const user = userEvent.setup();
-      renderPasswordManagement();
-
-      await user.click(screen.getByRole('tab', { name: /MinIO/ }));
-
-      // Message should be cleared (no error message visible)
-      expect(screen.queryByText('Fehler beim Ändern des Passworts')).not.toBeInTheDocument();
     });
   });
 

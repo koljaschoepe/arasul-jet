@@ -6,10 +6,10 @@
  * Erweiterung, kein n8n-Workflow. Ein Gerät, das ausgeliefert wird, zeigt leere
  * Listen mit einem Einstieg, keine fremden Einträge.
  *
- * Weg wären die fünf damit trotzdem falsch. Zwei davon, `erweiterung` und
- * `execute`, treiben den Erweiterungs-Baukasten, und der ist der Grund, warum
- * jemand das Gerät kauft. Ein leerer Flow-Ordner ohne jeden Startpunkt hätte
- * die Entscheidung wörtlich genommen und den Zweck verfehlt.
+ * Weg wären die Beispiele damit trotzdem falsch: ein leerer Flow-Ordner ohne
+ * jeden Startpunkt hätte die Entscheidung wörtlich genommen und den Zweck
+ * verfehlt. (`erweiterung` und `execute`, die Bau-Flows des
+ * Erweiterungs-Baukastens, sind mit ihm in Phase B4 gefallen.)
  *
  * Deshalb: nichts wird angelegt, alles wird angeboten. Die Vorlagen liegen
  * weiter tracked im Abbild und stehen im Anlege-Dialog als Startpunkt bereit.

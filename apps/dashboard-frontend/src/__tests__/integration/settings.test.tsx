@@ -239,16 +239,15 @@ describe('Settings integration', () => {
     expect(handleLogout).toHaveBeenCalled();
   });
 
-  it('shows password change form with service tabs', async () => {
+  it('shows password change form and n8n hint', async () => {
     const user = userEvent.setup();
     renderSettings();
 
     await user.click(screen.getByTestId('settings-open-security'));
 
     await waitFor(() => {
-      // Password management service tabs
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('MinIO')).toBeInTheDocument();
+      // Passwortverwaltung: nur noch das Dashboard-Passwort, n8n als Hinweis
+      expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
       expect(screen.getByText('n8n')).toBeInTheDocument();
     });
   });

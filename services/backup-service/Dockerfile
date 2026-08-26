@@ -11,13 +11,7 @@ RUN apk add --no-cache \
     # `openssl enc -aes-256-cbc`. Ohne dieses Paket griff encrypt_file still in
     # den Warnzweig und sicherte weiter im Klartext, waehrend der Bericht
     # "encrypted" meldete.
-    openssl \
-    # S3-Client fuer die MinIO-Sicherung. Der Backup-Dienst spricht MinIO damit
-    # direkt ueber das Backend-Netz an, statt sich per `docker exec` in den
-    # MinIO-Container zu haengen und das Ergebnis per `docker cp` herauszuholen
-    # — letzteres blockiert der Socket-Proxy, weshalb die Dokument-Sicherung
-    # ueber einen Monat lang still leere Archive erzeugt hat.
-    minio-client
+    openssl
 
 # Backup volume mount inside the container — keep in sync with the volume
 # mount target in compose/compose.monitoring.yaml. The drill scripts default

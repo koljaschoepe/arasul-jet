@@ -2,12 +2,13 @@
 # =============================================================================
 # Arasul Platform - Restore Script
 # =============================================================================
-# Restores PostgreSQL database and/or MinIO documents from backup
+# Restores PostgreSQL database, n8n workflows and/or config from backup
+# (MinIO-Zweig am 26.08.2026 entfallen, Phase B4 des Rueckbaus: der
+# Objektspeicher ist weg; aeltere documents_*.tar.gz haben kein Ziel mehr)
 #
 # Usage:
 #   ./restore.sh --postgres <backup_file>    # Restore PostgreSQL only
-#   ./restore.sh --minio <backup_file>       # Restore MinIO only
-#   ./restore.sh --all --date YYYYMMDD       # Restore both from specific date
+#   ./restore.sh --all --date YYYYMMDD       # Restore everything from specific date
 #   ./restore.sh --latest                    # Restore from latest backups
 #   ./restore.sh --list                      # List available backups
 # =============================================================================
@@ -25,11 +26,6 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 POSTGRES_HOST=${POSTGRES_HOST:-postgres-db}
 POSTGRES_USER=${POSTGRES_USER:-arasul}
 POSTGRES_DB=${POSTGRES_DB:-arasul_db}
-
-# MinIO settings
-MINIO_ROOT_USER=${MINIO_ROOT_USER:-arasul}
-MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-}
-MINIO_BUCKET=${MINIO_BUCKET:-documents}
 
 # Colors for output
 RED='\033[0;31m'
@@ -61,14 +57,6 @@ list_backups() {
         ls -lh "${BACKUP_DIR}/postgres/"*.sql.gz | awk '{print $9, "(" $5 ")"}'
     else
         echo "  No PostgreSQL backups found"
-    fi
-
-    echo ""
-    echo "=== Available MinIO Backups ==="
-    if ls "${BACKUP_DIR}/minio/"*.tar.gz* 1>/dev/null 2>&1; then
-        ls -lh "${BACKUP_DIR}/minio/"*.tar.gz* | awk '{print $9, "(" $5 ")"}'
-    else
-        echo "  No MinIO backups found"
     fi
 
 
@@ -182,77 +170,6 @@ restore_postgres() {
     else
         log "ERROR" "PostgreSQL restore failed"
         log "WARN" "You can restore the pre-restore backup from: $pre_restore_backup"
-        return 1
-    fi
-}
-
-# Restore MinIO documents
-restore_minio() {
-    local backup_file="$1"
-
-    # Validate backup file
-    if [[ ! -f "$backup_file" ]]; then
-        log "ERROR" "Backup file not found: $backup_file"
-        exit 1
-    fi
-
-    if [[ ! "$backup_file" =~ \.tar\.gz$ ]]; then
-        log "ERROR" "Invalid backup file format. Expected .tar.gz"
-        exit 1
-    fi
-
-    # Verify backup integrity
-    log "INFO" "Verifying backup integrity..."
-    if ! tar -tzf "$backup_file" >/dev/null 2>&1; then
-        log "ERROR" "Backup file is corrupted"
-        exit 1
-    fi
-
-    local file_count=$(tar -tzf "$backup_file" 2>/dev/null | wc -l)
-    log "INFO" "Backup contains ${file_count} files"
-
-    confirm "This will restore documents to MinIO. Existing files with same names will be overwritten!"
-
-    # Check if minio container is running
-    if ! docker ps --format '{{.Names}}' | grep -q "^minio$"; then
-        log "ERROR" "MinIO container is not running"
-        exit 1
-    fi
-
-    log "INFO" "Starting MinIO restore from: $backup_file"
-
-    # Extract to temp directory
-    local temp_dir=$(mktemp -d)
-    tar -xzf "$backup_file" -C "$temp_dir"
-
-    # Find the extracted directory (handle different backup structures)
-    local source_dir=$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d | head -1)
-    if [[ -z "$source_dir" ]]; then
-        source_dir="$temp_dir"
-    fi
-
-    # Configure mc and restore
-    log "INFO" "Copying files to MinIO..."
-    docker exec minio mc alias set local "http://localhost:9000" \
-        "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}" 2>/dev/null
-
-    # Copy files into container and then to MinIO
-    docker cp "${source_dir}/." "minio:/tmp/restore_${MINIO_BUCKET}"
-
-    if docker exec minio mc mirror \
-        --overwrite \
-        "/tmp/restore_${MINIO_BUCKET}" \
-        "local/${MINIO_BUCKET}" 2>/dev/null; then
-
-        # Cleanup
-        docker exec minio rm -rf "/tmp/restore_${MINIO_BUCKET}" 2>/dev/null || true
-        rm -rf "$temp_dir"
-
-        log "INFO" "MinIO restore completed successfully"
-        return 0
-    else
-        rm -rf "$temp_dir"
-        log "ERROR" "MinIO restore failed"
         return 1
     fi
 }
@@ -408,9 +325,6 @@ find_backup_by_date() {
         postgres)
             file=$(ls "${BACKUP_DIR}/postgres/arasul_db_${date}"*.sql.gz* 2>/dev/null | head -1 || true)
             ;;
-        minio)
-            file=$(ls "${BACKUP_DIR}/minio/documents_${date}"*.tar.gz* 2>/dev/null | head -1 || true)
-            ;;
         n8n)
             file=$(ls "${BACKUP_DIR}/n8n/workflows_${date}"*.json* 2>/dev/null | head -1 || true)
             ;;
@@ -428,7 +342,6 @@ usage() {
     echo ""
     echo "Usage:"
     echo "  $0 --postgres <backup_file>    Restore PostgreSQL from specific backup"
-    echo "  $0 --minio <backup_file>       Restore MinIO from specific backup"
     echo "  $0 --n8n <backup_file>         Restore n8n workflows from specific backup"
     echo "  $0 --config <backup_file>      Restore platform config (.env, certs)"
     echo "  $0 --all --date YYYYMMDD       Restore everything from specific date"
@@ -476,15 +389,6 @@ main() {
             restore_postgres "$2"
             ;;
 
-        --minio)
-            if [[ -z "${2:-}" ]]; then
-                log "ERROR" "Please specify a backup file"
-                usage
-                exit 1
-            fi
-            restore_minio "$2"
-            ;;
-
         --n8n)
             if [[ -z "${2:-}" ]]; then
                 log "ERROR" "Please specify a backup file"
@@ -506,7 +410,6 @@ main() {
         --latest)
             log "INFO" "Restoring from latest backups..."
             local pg_latest="${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz"
-            local minio_latest="${BACKUP_DIR}/minio/documents_latest.tar.gz"
             local n8n_latest="${BACKUP_DIR}/n8n/workflows_latest.json"
             local config_latest="${BACKUP_DIR}/config/config_latest.tar.gz"
 
@@ -514,12 +417,6 @@ main() {
                 restore_postgres "$(readlink -f "$pg_latest")"
             else
                 log "WARN" "No latest PostgreSQL backup found"
-            fi
-
-            if [[ -L "$minio_latest" ]]; then
-                restore_minio "$(readlink -f "$minio_latest")"
-            else
-                log "WARN" "No latest MinIO backup found"
             fi
 
             if [[ -L "$n8n_latest" ]]; then
@@ -546,7 +443,6 @@ main() {
             log "INFO" "Restoring from date: $date"
 
             local pg_backup=$(find_backup_by_date "postgres" "$date")
-            local minio_backup=$(find_backup_by_date "minio" "$date")
             local n8n_backup=$(find_backup_by_date "n8n" "$date")
             local config_backup=$(find_backup_by_date "config" "$date")
 
@@ -554,12 +450,6 @@ main() {
                 restore_postgres "$pg_backup"
             else
                 log "WARN" "No PostgreSQL backup found for date: $date"
-            fi
-
-            if [[ -n "$minio_backup" ]]; then
-                restore_minio "$minio_backup"
-            else
-                log "WARN" "No MinIO backup found for date: $date"
             fi
 
             if [[ -n "$n8n_backup" ]]; then

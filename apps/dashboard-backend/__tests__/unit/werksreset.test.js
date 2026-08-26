@@ -37,11 +37,6 @@ jest.mock('../../src/utils/envManager', () => ({ updateEnvVariable: jest.fn() })
 
 jest.mock('../../src/services/core/docker', () => ({ restartContainer: jest.fn() }));
 
-jest.mock('../../src/services/documents/minioService', () => ({
-  listAllObjects: jest.fn(),
-  removeObject: jest.fn(),
-}));
-
 jest.mock('../../src/middleware/auth', () => ({
   clearUserCache: jest.fn(),
   optionalAuth: (req, res, next) => next(),
@@ -82,20 +77,18 @@ describe('Klassifikation', () => {
     }
   });
 
-  test('Stufe "inhalte" fasst weder Zugangsdaten noch Erweiterungen an', () => {
+  test('Stufe "inhalte" fasst weder Zugangsdaten noch Anbieter-Schluessel an', () => {
     const namen = werksreset.tabellenFuer('inhalte').map(t => t.name);
     expect(namen).not.toContain('public.admin_users');
-    expect(namen).not.toContain('arasul.extensions');
-    expect(namen).not.toContain('arasul.user_external_credentials');
+    expect(namen).not.toContain('arasul.externe_modell_anbieter');
     expect(namen).toContain('public.chat_messages');
-    expect(namen).toContain('arasul.projects');
+    expect(namen).toContain('arasul.flow_runs');
   });
 
   test('Stufe "auslieferung" nimmt sie mit', () => {
     const namen = werksreset.tabellenFuer('auslieferung').map(t => t.name);
     expect(namen).toContain('public.admin_users');
-    expect(namen).toContain('arasul.extensions');
-    expect(namen).toContain('arasul.user_external_credentials');
+    expect(namen).toContain('arasul.externe_modell_anbieter');
     expect(namen).toContain('public.chat_messages');
   });
 
@@ -258,7 +251,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
   const fs = require('fs');
   const envManager = require('../../src/utils/envManager');
   const docker = require('../../src/services/core/docker');
-  const minio = require('../../src/services/documents/minioService');
 
   let clientAbfragen;
 
@@ -276,10 +268,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
           if (sql.includes('information_schema.columns')) {
             return { rows: [{ column_name: 'setup_completed', column_default: 'false' }] };
           }
-          if (sql.includes('pg_namespace')) {
-            // Zwei Erweiterungen haben sich eigene Tabellen angelegt.
-            return { rows: [{ nspname: 'ext_beispiel_app' }, { nspname: 'ext_notiz' }] };
-          }
           return { rowCount: 1 };
         }),
       })
@@ -290,28 +278,7 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     fs.promises.rm.mockResolvedValue(undefined);
     envManager.updateEnvVariable.mockResolvedValue(true);
     docker.restartContainer.mockResolvedValue(true);
-    minio.listAllObjects.mockResolvedValue([]);
     require('../../src/middleware/auth').clearUserCache.mockClear();
-  });
-
-  test('Auslieferung raeumt die Schemata der Erweiterungen mit ab', async () => {
-    // Die eigenen Tabellen einer Erweiterung liegen je Erweiterung in einem
-    // Schema `ext_<slug>`, nicht in `public` oder `arasul`. `tabellen.js` kann
-    // sie nicht auffuehren, weil sie zur Laufzeit entstehen — und bis zum
-    // 23.08.2026 blieben sie nach einem Werksreset stehen, mit den Daten des
-    // Kunden darin.
-    await werksreset.ausfuehren({ stufe: 'auslieferung', bestaetigung: 'orin-vorfuehrer' });
-
-    const drops = clientAbfragen.filter(q => q.includes('DROP SCHEMA'));
-    expect(drops.some(q => q.includes('ext_beispiel_app'))).toBe(true);
-    expect(drops.some(q => q.includes('ext_notiz'))).toBe(true);
-  });
-
-  test('Inhalte-Stufe laesst die Erweiterungs-Schemata stehen', async () => {
-    // Stufe 1 raeumt Nutzerinhalte, nicht die Einrichtung des Geraets.
-    await werksreset.ausfuehren({ stufe: 'inhalte', bestaetigung: 'orin-vorfuehrer' });
-
-    expect(clientAbfragen.filter(q => q.includes('DROP SCHEMA'))).toHaveLength(0);
   });
 
   test('Auslieferung entwertet das Erstpasswort und setzt n8n neu auf', async () => {
@@ -340,10 +307,9 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     // Minute lang durch, gegen eine Datenbank ohne einen Administrator.
     expect(require('../../src/middleware/auth').clearUserCache).toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/flows');
-    expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/extensions');
   });
 
-  test('Inhalte lässt Passwort, n8n, Flows und Erweiterungen in Ruhe', async () => {
+  test('Inhalte lässt Passwort, n8n und Flows in Ruhe', async () => {
     const bericht = await werksreset.ausfuehren({
       stufe: 'inhalte',
       bestaetigung: 'orin-vorfuehrer',
@@ -355,49 +321,22 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     expect(docker.restartContainer).not.toHaveBeenCalled();
     expect(require('../../src/middleware/auth').clearUserCache).not.toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).not.toContain('/arasul/flows');
-    expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/projects');
   });
 
   test('ein nicht erreichbarer Nachbardienst nimmt den Reset nicht zurück', async () => {
-    // Der Fall hing bis zum 24.08.2026 an Qdrant. Qdrant ist ausgebaut, die
-    // Frage bleibt dieselbe: die Datenbank ist zu diesem Zeitpunkt geleert,
-    // und ein toter Nachbardienst darf das nicht zurücknehmen — er wird
-    // gemeldet, nicht verschwiegen.
-    minio.listAllObjects.mockRejectedValue(new Error('MinIO antwortet nicht'));
+    // Der Fall hing bis zum 24.08.2026 an Qdrant, bis zum 26.08.2026 an
+    // MinIO. Beide sind ausgebaut, die Frage bleibt dieselbe: die Datenbank
+    // ist zu diesem Zeitpunkt geleert, und ein toter Nachbardienst darf das
+    // nicht zurücknehmen — er wird gemeldet, nicht verschwiegen.
+    docker.restartContainer.mockRejectedValue(new Error('n8n antwortet nicht'));
 
     const bericht = await werksreset.ausfuehren({
-      stufe: 'inhalte',
+      stufe: 'auslieferung',
       bestaetigung: 'orin-vorfuehrer',
     });
 
-    expect(bericht.objektspeicher).toEqual({ ok: false, fehler: 'MinIO antwortet nicht' });
+    expect(bericht.n8n).toEqual({ ok: false, fehler: 'n8n antwortet nicht' });
     expect(bericht.zeilenGesamt).toBeGreaterThan(0);
-  });
-});
-
-describe('Objektspeicher', () => {
-  const fs = require('fs');
-  const minio = require('../../src/services/documents/minioService');
-
-  test('loescht die Pfade, die listAllObjects liefert, nicht deren .name', async () => {
-    db.query.mockReset();
-    db.transaction.mockReset();
-    tabellenInDerDatenbank(ALLE);
-    db.transaction.mockImplementation(async r => r({ query: jest.fn().mockResolvedValue({ rowCount: 1 }) }));
-    fs.promises.readdir.mockResolvedValue([]);
-    fs.promises.readFile.mockResolvedValue('ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\n');
-    // Der echte Dienst liefert ein Set von Zeichenketten.
-    minio.listAllObjects.mockResolvedValue(new Set(['2026/rechnung.pdf', '2026/angebot.pdf']));
-    minio.removeObject.mockResolvedValue(undefined);
-
-    const bericht = await werksreset.ausfuehren({
-      stufe: 'inhalte',
-      bestaetigung: 'orin-vorfuehrer',
-    });
-
-    expect(minio.removeObject).toHaveBeenCalledWith('2026/rechnung.pdf');
-    expect(minio.removeObject).toHaveBeenCalledWith('2026/angebot.pdf');
-    expect(bericht.objektspeicher).toEqual({ ok: true, entfernt: 2 });
   });
 });
 
@@ -507,28 +446,3 @@ describe('Entwertung nachlesen', () => {
   });
 });
 
-describe('Nachbarsysteme ohne Bestand', () => {
-  const fs = require('fs');
-  const minio = require('../../src/services/documents/minioService');
-
-  test('ein fehlender Dokumenten-Eimer ist kein Fehlschlag', async () => {
-    db.query.mockReset();
-    db.transaction.mockReset();
-    tabellenInDerDatenbank(ALLE);
-    db.transaction.mockResolvedValue({ 'public.documents': 0 });
-    fs.promises.readdir.mockResolvedValue([]);
-    const fehler = new Error('S3Error: The specified bucket does not exist');
-    fehler.code = 'NoSuchBucket';
-    minio.listAllObjects.mockRejectedValue(fehler);
-
-    const bericht = await werksreset.ausfuehren({
-      stufe: 'inhalte',
-      bestaetigung: 'orin-vorfuehrer',
-    });
-
-    expect(bericht.objektspeicher).toEqual({
-      ok: true,
-      uebersprungen: 'kein Dokumenten-Eimer vorhanden',
-    });
-  });
-});

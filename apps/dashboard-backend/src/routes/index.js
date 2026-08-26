@@ -5,11 +5,11 @@
  * Routes are organized into subdirectories by domain:
  *   system/    - Services, metrics, logs, database
  *   admin/     - Settings, audit, updates, self-healing
- *   ai/        - Models, embeddings, memory, spaces
+ *   ai/        - Models, embeddings
  *   store/     - App store, unified store, workflows, workspaces
- *   external/  - External API, Claude terminal, events, alerts
+ *   external/  - External API, events, alerts
  *
- * Core routes (auth, chats, documents, llm, rag) stay at the top level.
+ * Core routes (auth, chats, llm) stay at the top level.
  */
 
 const { versionFuerAnzeige } = require('../utils/version');
@@ -26,10 +26,7 @@ const { metricsLimiter, llmLimiter, tailscaleLimiter } = require('../middleware/
 const API_ROUTE_GROUPS = [
   { prefix: '/auth', group: 'core' },
   { prefix: '/chats', group: 'core' },
-  { prefix: '/documents', group: 'core' },
-  { prefix: '/document-analysis', group: 'core' },
   { prefix: '/llm', group: 'core' },
-  { prefix: '/rag', group: 'core' },
   { prefix: '/system', group: 'system' },
   { prefix: '/services', group: 'system' },
   { prefix: '/metrics', group: 'system' },
@@ -46,22 +43,13 @@ const API_ROUTE_GROUPS = [
   { prefix: '/ops', group: 'admin' },
   { prefix: '/werksreset', group: 'admin' },
   { prefix: '/models', group: 'ai' },
-  { prefix: '/modelle-extern', group: 'ai' },
   { prefix: '/embeddings', group: 'ai' },
-  { prefix: '/memory', group: 'ai' },
-  { prefix: '/spaces', group: 'ai' },
-  { prefix: '/projects', group: 'ai' },
-  { prefix: '/knowledge-graph', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
-  { prefix: '/git', group: 'ai' },
   { prefix: '/apps', group: 'store' },
-  { prefix: '/extensions', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/workflows', group: 'store' },
   { prefix: '/automations', group: 'store' },
-  { prefix: '/sandbox', group: 'sandbox' },
   { prefix: '/v1/external', group: 'external' },
-  { prefix: '/claude-terminal', group: 'external' },
   { prefix: '/events', group: 'external' },
   { prefix: '/alerts', group: 'external' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
@@ -93,10 +81,7 @@ router.get('/_meta', (req, res) => {
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
 router.use('/chats', require('./chats'));
-router.use('/documents', require('./documents'));
-router.use('/document-analysis', require('./documentAnalysis'));
 router.use('/llm', llmLimiter, require('./llm'));
-router.use('/rag', require('./rag'));
 router.use('/docs', require('./docs'));
 
 // --- System ---
@@ -120,32 +105,18 @@ router.use('/werksreset', require('./admin/werksreset'));
 
 // --- AI ---
 router.use('/models', require('./ai/models'));
-// Plan 023 D9: externe Cloud-Modelle. Eigener Prefix statt eines Unterpfads
-// von /models, damit an der Adresse ablesbar bleibt, wann etwas das Gerät
-// verlässt.
-router.use('/modelle-extern', require('./ai/externeModelle'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
-router.use('/memory', require('./ai/profil'));
-router.use('/spaces', require('./ai/spaces'));
-router.use('/projects', require('./ai/projects'));
-router.use('/knowledge-graph', require('./ai/knowledgeGraph'));
 router.use('/flows', require('./flows'));
-router.use('/git', require('./git'));
 
 // --- Store ---
 router.use('/apps', require('./store/appstore'));
 router.use('/workspace-apps', require('./workspaceApps'));
-router.use('/extensions', require('./extensions'));
 router.use('/store', require('./store/store'));
 router.use('/workflows', require('./store/workflows'));
 router.use('/automations', require('./automations'));
 
-// --- Sandbox ---
-router.use('/sandbox', require('./sandbox'));
-
 // --- External ---
 router.use('/v1/external', require('./external/externalApi'));
-router.use('/claude-terminal', require('./external/claudeTerminal'));
 router.use('/events', require('./external/events'));
 router.use('/alerts', require('./external/alerts'));
 

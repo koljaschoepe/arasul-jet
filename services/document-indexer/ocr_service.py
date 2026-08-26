@@ -1,23 +1,21 @@
 """
-OCR Service for Document Indexer
-Automatically detects and uses available OCR engines (Tesseract, PaddleOCR)
+OCR fuer den Document Indexer: lokales Tesseract im Image.
+
+Seit Phase B4 (26.08.2026) gibt es nur noch diese eine Engine. Die HTTP-
+Sidecars (PaddleOCR, Tesseract-Container) waren seit Plan 019 ein Rueckfall,
+den niemand mehr betrieb; mit ihnen ist auch `requests` gefallen.
 """
 
 import io
 import logging
 import os
-from typing import IO, Optional, List, Tuple
+from typing import IO, Optional, Tuple
 from dataclasses import dataclass
 
-import requests
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# Lokale Tesseract-Engine (Plan 019 · Phase 4): im Indexer-Image installiert
-# (tesseract-ocr + poppler-utils), damit OCR NICHT von separaten, oft nicht
-# laufenden Sidecar-Containern abhängt. Wird bevorzugt; die HTTP-Engines bleiben
-# optionaler Fallback.
 try:
     import pytesseract
 
@@ -26,47 +24,16 @@ except ImportError:  # pragma: no cover - nur ohne installiertes pytesseract
     pytesseract = None
     _HAS_PYTESSERACT = False
 
-# Sprachen für die lokale OCR (Debian-Pakete tesseract-ocr-deu/-eng).
+# Sprachen fuer die lokale OCR (Debian-Pakete tesseract-ocr-deu/-eng).
 OCR_LANGS = os.getenv('OCR_LANGS', 'deu+eng')
 
-
-def _local_tesseract_available() -> bool:
-    """True, wenn pytesseract importierbar UND das tesseract-Binary da ist."""
-    if not _HAS_PYTESSERACT:
-        return False
-    try:
-        pytesseract.get_tesseract_version()
-        return True
-    except Exception:  # pragma: no cover - Binary fehlt/kaputt
-        return False
-
-# OCR Engine configuration
-OCR_ENGINES = {
-    'paddleocr': {
-        'host': os.getenv('PADDLEOCR_HOST', 'paddleocr'),
-        'port': int(os.getenv('PADDLEOCR_PORT', '8086')),
-        'priority': 1,  # Higher priority (better quality)
-        'endpoint': '/ocr'
-    },
-    'tesseract': {
-        'host': os.getenv('TESSERACT_HOST', 'tesseract'),
-        'port': int(os.getenv('TESSERACT_PORT', '8085')),
-        'priority': 2,  # Lower priority (fallback)
-        'endpoint': '/ocr'
-    }
-}
-
-# Minimum text length to consider PDF as having extractable text
+# Ab dieser Textlaenge gilt ein PDF als durchsuchbar (kein OCR noetig).
 MIN_TEXT_LENGTH = 50
-
-# Cache for available OCR engine (checked once at startup)
-_available_engine: Optional[str] = None
-_engine_checked: bool = False
 
 
 @dataclass
 class OCRResult:
-    """Result from OCR processing"""
+    """Ergebnis eines OCR-Laufs."""
     text: str
     engine: str
     confidence: float = 0.0
@@ -74,271 +41,76 @@ class OCRResult:
     error: Optional[str] = None
 
 
-def check_ocr_engine_available(engine_name: str) -> bool:
-    """
-    Check if a specific OCR engine is available.
-
-    Args:
-        engine_name: Name of the engine ('tesseract' or 'paddleocr')
-
-    Returns:
-        True if engine is available and responding
-    """
-    if engine_name not in OCR_ENGINES:
-        return False
-
-    config = OCR_ENGINES[engine_name]
-    url = f"http://{config['host']}:{config['port']}/health"
-
-    try:
-        response = requests.get(url, timeout=5)
-        available = response.status_code == 200
-        logger.debug(f"OCR engine '{engine_name}' health check: {'OK' if available else 'FAILED'}")
-        return available
-    except requests.RequestException as e:
-        logger.debug(f"OCR engine '{engine_name}' not available: {e}")
-        return False
-
-
 def get_available_ocr_engine() -> Optional[str]:
     """
-    Get the best available OCR engine.
-    Checks engines in priority order and returns the first available one.
-    Result is cached for performance.
+    'local', wenn pytesseract importierbar UND das tesseract-Binary da ist,
+    sonst None.
 
-    Returns:
-        Name of available engine or None if no engine is available
+    Bei JEDEM Aufruf frisch geprueft, nicht gecacht: so erholt sich der Dienst,
+    falls das Binary beim allerersten Aufruf noch nicht bereit war. Die
+    Pruefung ist billig und OCR ist kein Hot-Path.
     """
-    global _available_engine, _engine_checked
-
-    # Lokale Tesseract-Engine bevorzugen — im Image installiert, kein Netz nötig.
-    # BEI JEDEM Aufruf frisch prüfen (nicht cachen): so erholt sich der Indexer,
-    # falls das Binary beim allerersten Aufruf (langsamer Boot) noch nicht bereit
-    # war — die Prüfung ist billig und OCR ist kein Hot-Path.
-    if _local_tesseract_available():
+    if not _HAS_PYTESSERACT:
+        return None
+    try:
+        pytesseract.get_tesseract_version()
         return 'local'
-
-    # Return cached result if already checked (nur für die HTTP-Sidecars).
-    if _engine_checked:
-        return _available_engine
-
-    # Sort engines by priority
-    sorted_engines = sorted(
-        OCR_ENGINES.items(),
-        key=lambda x: x[1]['priority']
-    )
-
-    for engine_name, config in sorted_engines:
-        if check_ocr_engine_available(engine_name):
-            _available_engine = engine_name
-            _engine_checked = True
-            logger.info(f"Using OCR engine: {engine_name}")
-            return engine_name
-
-    _engine_checked = True
-    logger.warning("No OCR engine available")
-    return None
+    except Exception:  # pragma: no cover - Binary fehlt/kaputt
+        return None
 
 
-def reset_ocr_cache():
-    """Reset the OCR engine cache (useful for testing or after container restart)"""
-    global _available_engine, _engine_checked
-    _available_engine = None
-    _engine_checked = False
-
-
-def ocr_image(image_data: bytes, engine: Optional[str] = None) -> OCRResult:
-    """
-    Perform OCR on an image using the specified or best available engine.
-
-    Args:
-        image_data: Image data as bytes (PNG, JPEG, etc.)
-        engine: Specific engine to use, or None for auto-detection
-
-    Returns:
-        OCRResult with extracted text
-    """
-    # Get engine to use
-    if engine is None:
-        engine = get_available_ocr_engine()
-
-    if engine is None:
-        return OCRResult(
-            text="",
-            engine="none",
-            success=False,
-            error="No OCR engine available"
-        )
-
-    # Lokale Engine: direkt via pytesseract, ohne HTTP.
-    if engine == 'local':
-        try:
-            img = Image.open(io.BytesIO(image_data))
-            text = pytesseract.image_to_string(img, lang=OCR_LANGS)
-            logger.debug(f"OCR (local tesseract) ok: {len(text)} chars")
-            return OCRResult(text=text, engine='local', confidence=0.0, success=True)
-        except Exception as e:  # noqa: BLE001 - Fehler sichtbar zurückgeben, nicht schlucken
-            error_msg = f"local tesseract error: {e}"
-            logger.error(error_msg)
-            return OCRResult(text="", engine='local', success=False, error=error_msg)
-
-    config = OCR_ENGINES[engine]
-    url = f"http://{config['host']}:{config['port']}{config['endpoint']}"
-
+def ocr_image(image_data: bytes) -> OCRResult:
+    """OCR auf einem Bild (PNG, JPEG, ...)."""
+    if get_available_ocr_engine() is None:
+        return OCRResult(text="", engine="none", success=False,
+                         error="No OCR engine available")
     try:
-        # Send image to OCR service
-        files = {'image': ('image.png', image_data, 'image/png')}
-        response = requests.post(url, files=files, timeout=60)
-
-        if response.status_code == 200:
-            result = response.json()
-            text = result.get('text', '')
-            confidence = result.get('confidence', 0.0)
-
-            logger.debug(f"OCR successful with {engine}: {len(text)} chars, confidence: {confidence}")
-            return OCRResult(
-                text=text,
-                engine=engine,
-                confidence=confidence,
-                success=True
-            )
-        else:
-            error_msg = f"OCR request failed: {response.status_code}"
-            logger.warning(error_msg)
-            return OCRResult(
-                text="",
-                engine=engine,
-                success=False,
-                error=error_msg
-            )
-
-    except requests.RequestException as e:
-        error_msg = f"OCR request error: {str(e)}"
+        img = Image.open(io.BytesIO(image_data))
+        text = pytesseract.image_to_string(img, lang=OCR_LANGS)
+        logger.debug(f"OCR (local tesseract) ok: {len(text)} chars")
+        return OCRResult(text=text, engine='local', confidence=0.0, success=True)
+    except Exception as e:  # noqa: BLE001 - Fehler sichtbar zurueckgeben, nicht schlucken
+        error_msg = f"local tesseract error: {e}"
         logger.error(error_msg)
-        return OCRResult(
-            text="",
-            engine=engine,
-            success=False,
-            error=error_msg
-        )
-
-
-def pdf_page_to_image(pdf_reader, page_num: int, dpi: int = 150) -> Optional[bytes]:
-    """
-    Convert a PDF page to an image for OCR.
-
-    Note: This requires pdf2image which uses poppler.
-    Falls back to None if conversion fails.
-
-    Args:
-        pdf_reader: PDF reader object
-        page_num: Page number (0-indexed)
-        dpi: Resolution for rendering
-
-    Returns:
-        Image data as bytes, or None if conversion fails
-    """
-    try:
-        # Try using pdf2image if available
-        from pdf2image import convert_from_bytes
-
-        # Get the original PDF bytes
-        # This is a workaround since PyPDF2 doesn't expose the raw page data easily
-        # In production, we'd pass the original file bytes
-        logger.debug(f"Converting PDF page {page_num} to image (DPI: {dpi})")
-
-        # For now, return None - this would need the original PDF bytes
-        # which should be passed from the caller
-        return None
-
-    except ImportError:
-        logger.debug("pdf2image not available, OCR for PDFs disabled")
-        return None
-    except Exception as e:
-        logger.warning(f"Failed to convert PDF page to image: {e}")
-        return None
+        return OCRResult(text="", engine='local', success=False, error=error_msg)
 
 
 def ocr_pdf_page(pdf_bytes: bytes, page_num: int, dpi: int = 150) -> OCRResult:
-    """
-    Perform OCR on a specific PDF page.
-
-    Args:
-        pdf_bytes: Full PDF file as bytes
-        page_num: Page number (0-indexed)
-        dpi: Resolution for rendering
-
-    Returns:
-        OCRResult with extracted text
-    """
+    """OCR auf einer einzelnen PDF-Seite (0-basiert), gerastert ueber pdf2image/poppler."""
     try:
         from pdf2image import convert_from_bytes
 
-        # Convert specific page to image
         images = convert_from_bytes(
             pdf_bytes,
-            first_page=page_num + 1,  # pdf2image uses 1-indexed pages
+            first_page=page_num + 1,  # pdf2image zaehlt ab 1
             last_page=page_num + 1,
             dpi=dpi
         )
-
         if not images:
-            return OCRResult(
-                text="",
-                engine="none",
-                success=False,
-                error="Failed to convert PDF page to image"
-            )
+            return OCRResult(text="", engine="none", success=False,
+                             error="Failed to convert PDF page to image")
 
-        # Convert PIL Image to bytes
         img_buffer = io.BytesIO()
         images[0].save(img_buffer, format='PNG')
-        img_bytes = img_buffer.getvalue()
-
-        # Perform OCR
-        return ocr_image(img_bytes)
+        return ocr_image(img_buffer.getvalue())
 
     except ImportError:
-        return OCRResult(
-            text="",
-            engine="none",
-            success=False,
-            error="pdf2image not installed"
-        )
-    except Exception as e:
-        return OCRResult(
-            text="",
-            engine="none",
-            success=False,
-            error=str(e)
-        )
+        return OCRResult(text="", engine="none", success=False,
+                         error="pdf2image not installed")
+    except Exception as e:  # noqa: BLE001
+        return OCRResult(text="", engine="none", success=False, error=str(e))
 
 
 def ocr_pdf_full(pdf_bytes: bytes, max_pages: int = 100) -> OCRResult:
-    """
-    Perform OCR on an entire PDF document.
-
-    Args:
-        pdf_bytes: Full PDF file as bytes
-        max_pages: Maximum number of pages to process
-
-    Returns:
-        OCRResult with combined text from all pages
-    """
+    """OCR ueber ein ganzes PDF, hoechstens `max_pages` Seiten."""
     engine = get_available_ocr_engine()
     if engine is None:
-        return OCRResult(
-            text="",
-            engine="none",
-            success=False,
-            error="No OCR engine available"
-        )
+        return OCRResult(text="", engine="none", success=False,
+                         error="No OCR engine available")
 
     try:
-        from pdf2image import convert_from_bytes
         import fitz  # PyMuPDF
 
-        # Get page count
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         total_pages = min(len(doc), max_pages)
         doc.close()
@@ -354,14 +126,13 @@ def ocr_pdf_full(pdf_bytes: bytes, max_pages: int = 100) -> OCRResult:
                 all_text.append(f"--- Page {page_num + 1} ---\n{result.text}")
                 successful_pages += 1
 
-            # Log progress every 10 pages
             if (page_num + 1) % 10 == 0:
                 logger.debug(f"OCR progress: {page_num + 1}/{total_pages} pages")
 
         combined_text = "\n\n".join(all_text)
-
-        logger.info(f"OCR completed: {successful_pages}/{total_pages} pages extracted, {len(combined_text)} chars")
-
+        logger.info(
+            f"OCR completed: {successful_pages}/{total_pages} pages extracted, {len(combined_text)} chars"
+        )
         return OCRResult(
             text=combined_text,
             engine=engine,
@@ -369,42 +140,21 @@ def ocr_pdf_full(pdf_bytes: bytes, max_pages: int = 100) -> OCRResult:
             confidence=successful_pages / total_pages if total_pages > 0 else 0
         )
 
-    except ImportError:
-        return OCRResult(
-            text="",
-            engine="none",
-            success=False,
-            error="pdf2image not installed - install with: pip install pdf2image"
-        )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"OCR PDF error: {e}")
-        return OCRResult(
-            text="",
-            engine=engine or "none",
-            success=False,
-            error=str(e)
-        )
+        return OCRResult(text="", engine=engine, success=False, error=str(e))
 
 
 def is_pdf_searchable(text: str) -> bool:
-    """
-    Check if extracted PDF text indicates the PDF is searchable.
-
-    Args:
-        text: Text extracted from PDF using standard methods
-
-    Returns:
-        True if PDF appears to have extractable text
-    """
+    """True, wenn der per Textlayer extrahierte Text nach echtem Inhalt aussieht."""
     if not text:
         return False
 
-    # Strip whitespace and check length
     clean_text = text.strip()
     if len(clean_text) < MIN_TEXT_LENGTH:
         return False
 
-    # Check if text has meaningful content (not just numbers/symbols)
+    # Nicht nur Zahlen und Symbole
     alpha_chars = sum(1 for c in clean_text if c.isalpha())
     if alpha_chars < MIN_TEXT_LENGTH // 2:
         return False
@@ -414,17 +164,12 @@ def is_pdf_searchable(text: str) -> bool:
 
 def parse_pdf_with_ocr_fallback(file_obj: IO[bytes]) -> Tuple[str, bool]:
     """
-    Parse PDF with automatic OCR fallback for scanned documents.
+    PDF parsen; ist kein Textlayer da, OCR versuchen.
 
-    Args:
-        file_obj: File object containing PDF data
-
-    Returns:
-        Tuple of (extracted_text, used_ocr)
+    Rueckgabe: (Text, ocr_verwendet)
     """
     import fitz  # PyMuPDF
 
-    # First, try standard text extraction using PyMuPDF
     file_obj.seek(0)
     pdf_bytes = file_obj.read()
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -438,38 +183,31 @@ def parse_pdf_with_ocr_fallback(file_obj: IO[bytes]) -> Tuple[str, bool]:
     doc.close()
     standard_text = "\n\n".join(text_parts).strip()
 
-    # Check if we got meaningful text
     if is_pdf_searchable(standard_text):
         logger.debug("PDF has extractable text, skipping OCR")
         return standard_text, False
 
-    # Try OCR if available
     engine = get_available_ocr_engine()
     if engine is None:
-        # Sichtbar melden (Plan 019 · Phase 4): eine Bild-PDF ohne OCR-Engine
-        # würde sonst still als „leer indexiert" durchgehen.
+        # Sichtbar melden: eine Bild-PDF ohne OCR-Engine wuerde sonst still
+        # als leer durchgehen.
         logger.warning(
             "PDF ist bildbasiert (kein durchsuchbarer Text) und es ist KEINE "
-            "OCR-Engine verfügbar — Inhalt bleibt leer."
+            "OCR-Engine verfuegbar; Inhalt bleibt leer."
         )
         return standard_text, False
 
     logger.info("PDF appears to be scanned, attempting OCR...")
-
-    # Read full PDF bytes for OCR
-    file_obj.seek(0)
-    pdf_bytes = file_obj.read()
-
     ocr_result = ocr_pdf_full(pdf_bytes)
 
     if ocr_result.success and ocr_result.text.strip():
         logger.info(f"OCR successful ({ocr_result.engine}): {len(ocr_result.text)} chars extracted")
         return ocr_result.text, True
-    else:
-        # Nicht mehr still verschlucken: eine Bild-PDF, deren OCR nichts liefert,
-        # ist ein echter Fehlerfall (sichtbar im Indexer-Log).
-        logger.error(
-            "OCR einer bildbasierten PDF lieferte keinen Text "
-            f"(engine={ocr_result.engine}, error={ocr_result.error})"
-        )
-        return standard_text, False
+
+    # Nicht still verschlucken: eine Bild-PDF, deren OCR nichts liefert, ist
+    # ein echter Fehlerfall und gehoert ins Log.
+    logger.error(
+        "OCR einer bildbasierten PDF lieferte keinen Text "
+        f"(engine={ocr_result.engine}, error={ocr_result.error})"
+    )
+    return standard_text, False

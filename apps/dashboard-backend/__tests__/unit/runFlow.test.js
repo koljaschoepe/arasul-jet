@@ -11,36 +11,12 @@
  */
 
 jest.mock('axios');
-/**
- * Ein Flow-Lauf stoesst am Ende den Ordner-Abgleich an. Der ist entprellt und
- * feuert 500 ms später, also regelmäßig erst, wenn diese Datei längst durch
- * ist. Der Rückruf läuft dann in einer abgebauten Umgebung, wirft dort und
- * fällt der Testdatei zur Last, die gerade dran ist. Hier interessiert nur,
- * DASS angestoßen wird, nicht was der Abgleich tut.
- */
-jest.mock('../../src/services/projects/ordnerSyncService', () => ({
-  trigger: jest.fn(),
-  stoppe: jest.fn(),
-}));
 jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
-
-// Batch 2: runFlow scopt die RAG-Suche ohne `wissensbasis`-Argument auf das
-// aktive Projekt. Fest gemockt, damit die Orchestrierungs-Tests nicht die echte
-// DB anfassen; leere Räume ⇒ unverändertes Verhalten (spaceIds bleiben leer).
-jest.mock('../../src/services/rag/projectService', () => ({
-  getActiveProjectId: jest.fn().mockResolvedValue('proj-test'),
-  getProjectSpaceIds: jest.fn().mockResolvedValue([]),
-}));
 
 const axios = require('axios');
 const { runFlowLoop } = require('../../src/services/flows/toolLoop');
 const { withGpuLock, _gpuMutex } = require('../../src/services/flows/gpuQueue');
-const {
-  runFlow,
-  resolveArguments,
-  buildUserInput,
-  anreichernMitDateien,
-} = require('../../src/services/flows/runFlow');
+const { runFlow, resolveArguments, buildUserInput } = require('../../src/services/flows/runFlow');
 
 /** Ein Werkzeug-Doppel im BaseTool-Stil. */
 function fakeTool(name, fn) {
@@ -243,7 +219,7 @@ describe('GPU-Sperre', () => {
 describe('resolveArguments', () => {
   const decl = [
     { name: 'thema', typ: 'freitext', pflicht: true },
-    { name: 'raum', typ: 'wissensbasis', pflicht: false },
+    { name: 'raum', typ: 'freitext', pflicht: false },
     { name: 'stil', typ: 'auswahl', optionen: ['kurz', 'lang'], pflicht: false, standard: 'kurz' },
   ];
 
@@ -258,11 +234,6 @@ describe('resolveArguments', () => {
 
   it('weist eine ungültige Auswahl ab', () => {
     expect(() => resolveArguments(decl, { thema: 'x', stil: 'mittel' })).toThrow(/erlaubten Auswahlen/);
-  });
-
-  it('sammelt Wissensbasis-Argumente in spaceIds', () => {
-    const { spaceIds } = resolveArguments(decl, { thema: 'x', raum: 'vertraege' });
-    expect(spaceIds).toEqual(['vertraege']);
   });
 
   it('lässt einen fehlenden optionalen Platzhalter unersetzt', () => {
@@ -295,7 +266,6 @@ describe('runFlow — Orchestrierung', () => {
       loadFlow: jest.fn(async () => ({ ...baseFlow })),
       makeTools: jest.fn(() => [fakeTool('web_suche')]),
       runLoop: jest.fn(async () => ({ result: 'R', runden: 1 })),
-      ensureSandbox: jest.fn(async () => ({ containerId: 'c1', cwd: '/w' })),
       // Änderungs-Verfolgung standardmäßig gemockt — kein echter Ordner-Abzug im
       // Unit-Test. Einzeltests überschreiben `berechneAenderungen` bei Bedarf.
       tracker: {
@@ -303,7 +273,6 @@ describe('runFlow — Orchestrierung', () => {
         berechneAenderungen: jest.fn(() => ({ aenderungen: [], abgeschnitten: false })),
       },
       resolveModel: jest.fn(async () => 'default-model'),
-      loadDocText: jest.fn(async () => ({ gefunden: false, titel: null, text: '', gekuerzt: false })),
       ...overrides,
     };
   }
@@ -325,18 +294,6 @@ describe('runFlow — Orchestrierung', () => {
     expect(run.status).toBe('fertig');
   });
 
-  /**
-   * Am Ende eines Laufs muss der Ordner-Abgleich des Projekts angestoßen
-   * werden, sonst sieht der Nutzer die Dateien, die der Flow geschrieben hat,
-   * erst beim nächsten Takt. Der Dienst ist in dieser Datei gemockt; ohne
-   * diese Zusage prüfte danach niemand mehr, dass es überhaupt passiert.
-   */
-  it('stößt am Ende den Ordner-Abgleich des Projekts an', async () => {
-    const sync = require('../../src/services/projects/ordnerSyncService');
-    await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, makeDeps());
-    expect(sync.trigger).toHaveBeenCalledWith('proj-test');
-  });
-
   it('nimmt das Modell des Flows, sonst das Standardmodell', async () => {
     const deps = makeDeps();
     await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps);
@@ -346,32 +303,6 @@ describe('runFlow — Orchestrierung', () => {
     await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps2);
     expect(deps2.runLoop.mock.calls[0][0].model).toBe('llama-spezial');
     expect(deps2.resolveModel).not.toHaveBeenCalled();
-  });
-
-  it('baut den Sandbox-Container NUR, wenn der Flow Terminal deklariert', async () => {
-    const ohne = makeDeps();
-    await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, ohne);
-    expect(ohne.ensureSandbox).not.toHaveBeenCalled();
-
-    const mit = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/arbeit'] })),
-    });
-    await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, mit);
-    expect(mit.ensureSandbox).toHaveBeenCalledWith(['/arbeit']);
-    // containerId/cwd landen im Kontext für die Schleife.
-    expect(mit.runLoop.mock.calls[0][0].context).toMatchObject({ containerId: 'c1', cwd: '/w' });
-  });
-
-  it('startet trotzdem, wenn die Sandbox nicht verfügbar ist (kein harter Abbruch)', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
-      ensureSandbox: jest.fn(async () => { throw new Error('Image fehlt'); }),
-    });
-    const run = await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps);
-    expect(deps.runLoop).toHaveBeenCalled(); // Lauf lief
-    expect(run.status).toBe('fertig');
-    // Ohne Container kein containerId im Kontext.
-    expect(deps.runLoop.mock.calls[0][0].context.containerId).toBeUndefined();
   });
 
   it('schreibt zwei gleichnamige Werkzeug-Aufrufe in EINER Runde korrekt mit', async () => {
@@ -410,55 +341,6 @@ describe('runFlow — Orchestrierung', () => {
     // Zwei Schritte begonnen UND zwei abgeschlossen — keiner verwaist.
     expect(echterStore.startStep).toHaveBeenCalledTimes(2);
     expect(echterStore.finishStep).toHaveBeenCalledTimes(2);
-  });
-
-  it('speist den Inhalt eines datei-Arguments in die Nutzer-Eingabe ein', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        werkzeuge: [],
-        argumente: [{ name: 'datei', typ: 'datei', pflicht: true, beschreibung: 'Dokument' }],
-        systemPrompt: 'Fasse das Dokument zusammen.',
-      })),
-      loadDocText: jest.fn(async () => ({
-        gefunden: true,
-        titel: 'Vertrag',
-        text: 'GEHEIMER VERTRAGSTEXT',
-        gekuerzt: false,
-      })),
-    });
-    await runFlow({ flowName: 'zusammenfassen', args: { datei: 'vertrag.pdf' }, userId: 1 }, deps);
-    expect(deps.loadDocText).toHaveBeenCalledWith({ filename: 'vertrag.pdf' });
-    const userInput = deps.runLoop.mock.calls[0][0].userInput;
-    expect(userInput).toMatch(/Inhalt der Datei "vertrag.pdf"/);
-    expect(userInput).toMatch(/GEHEIMER VERTRAGSTEXT/);
-  });
-
-  it('vermerkt ehrlich, wenn der Dateiinhalt nicht geladen werden kann', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        werkzeuge: [],
-        argumente: [{ name: 'datei', typ: 'datei', pflicht: true }],
-        systemPrompt: 'Fasse zusammen.',
-      })),
-      // loadDocText liefert standardmäßig gefunden:false
-    });
-    await runFlow({ flowName: 'zusammenfassen', args: { datei: 'weg.pdf' }, userId: 1 }, deps);
-    const userInput = deps.runLoop.mock.calls[0][0].userInput;
-    expect(userInput).toMatch(/nicht in der Wissensbasis indexiert/);
-  });
-
-  it('scopet die RAG-Suche auf das Wissensbasis-Argument', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        argumente: [{ name: 'raum', typ: 'wissensbasis', pflicht: true }],
-        systemPrompt: 'Suche in {{raum}}.',
-      })),
-    });
-    await runFlow({ flowName: 'wissen', args: { raum: 'handbuch' }, userId: 1 }, deps);
-    expect(deps.runLoop.mock.calls[0][0].context.spaceIds).toEqual(['handbuch']);
   });
 
   it('verdrahtet den Subagent-Kontext: Rollen, Grenzen, Tiefe 0, Basis-Ordner', async () => {
@@ -538,20 +420,6 @@ describe('runFlow — Orchestrierung', () => {
     expect(deps.store.saveChanges).not.toHaveBeenCalled();
   });
 
-  it('verfolgt Datei-Änderungen auch für rechnung_erstellen (Plan 014, Phase 5)', async () => {
-    // Die ausgestellte ZUGFeRD-PDF soll als klickbares Artefakt erscheinen.
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({
-        ...baseFlow,
-        werkzeuge: ['rechnung_erstellen'],
-        ordner: ['/arbeit'],
-      })),
-    });
-    deps.tracker.berechneAenderungen.mockReturnValue({ aenderungen: [], abgeschnitten: false });
-    await runFlow({ flowName: 'rechnung', args: { thema: 'x' }, userId: 1 }, deps);
-    expect(deps.tracker.snapshot).toHaveBeenCalledTimes(2);
-  });
-
   it('zieht Abzüge vor/nach dem Lauf und speichert die Änderungen (Schreib-Werkzeug)', async () => {
     const aenderungen = [{ pfad: 'a.txt', art: 'neu', vorher: null, nachher: 'hi', gekuerzt: false }];
     const deps = makeDeps({
@@ -579,7 +447,7 @@ describe('runFlow — Orchestrierung', () => {
 
   it('meldet keine leere Änderungs-Liste live, speichert sie aber (leer)', async () => {
     const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
+      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['dateien_schreiben'], ordner: ['/a'] })),
     });
     const evts = [];
     await runFlow(
@@ -593,7 +461,7 @@ describe('runFlow — Orchestrierung', () => {
   it('speichert die Änderungen auch, wenn der Lauf mit Fehler endet', async () => {
     const aenderungen = [{ pfad: 'x', art: 'geloescht', vorher: 'alt', nachher: null }];
     const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
+      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['dateien_schreiben'], ordner: ['/a'] })),
       runLoop: jest.fn(async () => {
         throw new Error('Modell weg');
       }),
@@ -608,7 +476,7 @@ describe('runFlow — Orchestrierung', () => {
 
   it('lässt den Lauf nicht scheitern, wenn die Änderungs-Übersicht wirft', async () => {
     const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
+      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['dateien_schreiben'], ordner: ['/a'] })),
     });
     // Zweiter Abzug (Ende) wirft — der Lauf ist trotzdem 'fertig'.
     deps.tracker.snapshot
@@ -643,82 +511,5 @@ describe('buildUserInput', () => {
   });
   it('gibt einen Standard-Auslöser, wenn keine Argumente gesetzt sind', () => {
     expect(buildUserInput([], {})).toMatch(/Bitte die beschriebene Aufgabe/);
-  });
-});
-
-describe('anreichernMitDateien', () => {
-  it('lässt die Eingabe unverändert, wenn kein datei-Argument gesetzt ist', async () => {
-    const load = jest.fn();
-    const decl = [{ name: 'thema', typ: 'freitext' }];
-    const out = await anreichernMitDateien('Angaben:\nThema: KI', decl, { thema: 'KI' }, load);
-    expect(out).toBe('Angaben:\nThema: KI');
-    expect(load).not.toHaveBeenCalled();
-  });
-
-  it('hängt den Dokument-Block an und markiert eine Kürzung', async () => {
-    const load = jest.fn(async () => ({ gefunden: true, text: 'Inhalt', gekuerzt: true }));
-    const decl = [{ name: 'datei', typ: 'datei' }];
-    const out = await anreichernMitDateien('Angaben:\nDatei: a.pdf', decl, { datei: 'a.pdf' }, load);
-    expect(out).toMatch(/Inhalt der Datei "a.pdf" \(gekürzt\)/);
-    expect(out).toMatch(/Inhalt\n--- Ende der Datei ---/);
-  });
-});
-
-describe('Werkstatt-Vorlagen (Plan 023 I5, 22.08.2026)', () => {
-  const os = require('os');
-  const fsSync = require('fs');
-  const pathMod = require('path');
-
-  /**
-   * `seedWerkstattTemplates` legt ANLEITUNG.md und die Beispiele in JEDEN
-   * frisch angelegten Sandbox-Ordner. Die Werkstatt entsteht aber nicht ueber
-   * `createProject`, sondern als `ordner` der Bau-Flows, und blieb deshalb
-   * leer. Der `erweiterung`-Flow verbrauchte auf dem Orin vier seiner zwanzig
-   * Runden damit, die ANLEITUNG zu suchen, die sein Prompt als Erstes zu lesen
-   * verlangt.
-   *
-   * Geprueft wird die Auswahl, nicht das Kopieren selbst: nur die kanonische
-   * Werkstatt bekommt die Vorlagen, jeder andere Flow-Ordner nicht.
-   */
-  function ladeMitSandboxDir(sandboxDir, seed) {
-    jest.resetModules();
-    jest.doMock('../../src/services/sandbox/sandboxShared', () => ({
-      SANDBOX_DATA_DIR: sandboxDir,
-    }));
-    jest.doMock('../../src/services/sandbox/sandboxService', () => ({
-      seedWerkstattTemplates: seed,
-    }));
-    return require('../../src/services/flows/runFlow');
-  }
-
-  test('nur der Werkstatt-Ordner wird ausgesaet', async () => {
-    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'werkstatt-'));
-    const seed = jest.fn();
-    const { _werkstattVorlagenSaeen } = ladeMitSandboxDir(wurzel, seed);
-    if (!_werkstattVorlagenSaeen) return; // nicht exportiert: Test entfaellt
-
-    const werkstatt = pathMod.join(wurzel, 'werkstatt');
-    fsSync.mkdirSync(werkstatt, { recursive: true });
-    await _werkstattVorlagenSaeen(werkstatt, 'erweiterung');
-    expect(seed).toHaveBeenCalledWith(werkstatt);
-
-    seed.mockClear();
-    const anderer = pathMod.join(wurzel, 'kunden');
-    fsSync.mkdirSync(anderer, { recursive: true });
-    await _werkstattVorlagenSaeen(anderer, 'newsletter');
-    expect(seed).not.toHaveBeenCalled();
-  });
-
-  test('eine schon ausgesaete Werkstatt wird nicht noch einmal angefasst', async () => {
-    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'werkstatt2-'));
-    const seed = jest.fn();
-    const { _werkstattVorlagenSaeen } = ladeMitSandboxDir(wurzel, seed);
-    if (!_werkstattVorlagenSaeen) return;
-
-    const werkstatt = pathMod.join(wurzel, 'werkstatt');
-    fsSync.mkdirSync(werkstatt, { recursive: true });
-    fsSync.writeFileSync(pathMod.join(werkstatt, 'ANLEITUNG.md'), '# schon da');
-    await _werkstattVorlagenSaeen(werkstatt, 'erweiterung');
-    expect(seed).not.toHaveBeenCalled();
   });
 });

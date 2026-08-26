@@ -10,14 +10,13 @@
 | --------------------- | ---------------------------------------------------- | ------- |
 | `llm-service/`        | Ollama runtime + management API (GPU)                | Py + sh |
 | `embedding-service/`  | BGE-M3 embeddings (GPU)                              | Python  |
-| `document-indexer/`   | Ingest pipeline (parse → chunk → embed → store)      | Python  |
+| `document-indexer/`   | Text extraction (`/extract-text`, multipart, no DB)  | Python  |
 | `self-healing-agent/` | Watches services, restarts/recovers, optional reboot | Python  |
 | `metrics-collector/`  | CPU/RAM/GPU/temperature → Postgres                   | Python  |
 | `backup-service/`     | Scheduled `pg_dump` + restore-drill                  | Bash    |
 | `n8n/`                | Workflow engine + custom nodes                       | TS/n8n  |
 | `postgres/`           | DB image, migrations — **see `postgres/CLAUDE.md`**  | SQL     |
 | `cloudflared/`        | Cloudflare tunnel client                             | config  |
-| `sandbox/`            | Per-user execution sandbox                           | config  |
 
 ## Service standard
 

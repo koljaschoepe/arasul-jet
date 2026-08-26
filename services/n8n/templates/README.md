@@ -1,240 +1,52 @@
-# n8n Workflow Templates for Arasul Platform
+# n8n-Vorlagen für die Arasul-Plattform
 
-This directory contains pre-configured n8n workflow templates and HTTP request configurations for easy integration with Arasul services.
+Zwei Verzeichnisse, beide read-only nach `/custom-templates` in den
+n8n-Container gemountet (`compose/compose.app.yaml`):
 
-## Available Templates
+| Verzeichnis   | Inhalt                                                                                                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agents/`     | First-Boot-Vorlagen für Agent-Workflows (Tools Agent + Ollama), Import über `scripts/util/n8n-import-templates.sh`. Details: [`agents/README.md`](agents/README.md)                |
+| `smoketests/` | Drei Referenz-Workflows für HTTP-Egress, OAuth2 und eingehende Webhooks, nach jedem n8n-Image-Bump von Hand laufen lassen. Details: [`smoketests/README.md`](smoketests/README.md) |
 
-### 1. LLM Chat Workflow
-**File**: `llm-chat-workflow.json`
+Die früheren Beispiele hier (LLM-Chat-Workflow, Dokument-Embedding-Pipeline
+über MinIO, Telemetrie-Reporting) lagen nie als Dateien in diesem Verzeichnis;
+mit Phase B4 des Rückbaus (26.08.2026) ist MinIO ausgebaut, die Beschreibung
+dazu ist gestrichen.
 
-A basic workflow that demonstrates:
-- Webhook trigger for incoming requests
-- Arasul LLM node for chat completion
-- Response formatting
+## Interne Dienste aus einem Workflow erreichen
 
-**Usage**:
-1. Import workflow via n8n UI
-2. Configure Arasul LLM credentials
-3. Activate workflow
-4. Send POST request to webhook URL with `{"message": "Your prompt"}`
+n8n darf per `N8N_SSRF_ALLOWED_HOSTNAMES` genau vier interne Hostnamen
+anfragen: `llm-service`, `dashboard-backend`, `embedding-service`,
+`document-indexer` (`postgres-db` bewusst nicht, siehe
+[`docs/integrations/N8N_AGENTS.md`](../../../docs/integrations/N8N_AGENTS.md)).
 
-### 2. Document Embedding Pipeline
-**File**: `document-embedding-pipeline.json`
-
-An advanced workflow for document processing:
-- Webhook/Schedule trigger
-- MinIO file retrieval
-- Text extraction
-- Batch embedding generation
-- Store embeddings in PostgreSQL
-
-**Usage**:
-1. Import workflow
-2. Configure MinIO S3 credentials
-3. Configure Arasul Embeddings credentials
-4. Set PostgreSQL connection
-5. Trigger workflow
-
-### 3. Telemetry Reporting
-**File**: `telemetry-reporting.json`
-
-Workflow for sending custom telemetry to Dashboard API:
-- Schedule trigger (every hour)
-- Collect workflow execution stats
-- Send to Dashboard Backend `/api/telemetry/workflow`
-
-## HTTP Request Templates
-
-### Dashboard API - System Status
-```json
-{
-  "method": "GET",
-  "url": "http://dashboard-backend:3001/api/system/status",
-  "authentication": "headerAuth",
-  "headers": {
-    "Authorization": "Bearer {{$credentials.jwt}}"
-  }
-}
-```
-
-### Dashboard API - Report Workflow Execution
-```json
-{
-  "method": "POST",
-  "url": "http://dashboard-backend:3001/api/telemetry/workflow",
-  "authentication": "headerAuth",
-  "headers": {
-    "Authorization": "Bearer {{$credentials.jwt}}",
-    "Content-Type": "application/json"
-  },
-  "body": {
-    "workflow_name": "{{$workflow.name}}",
-    "execution_id": "{{$execution.id}}",
-    "status": "{{$execution.status}}",
-    "duration_ms": "{{$execution.duration}}",
-    "error": "{{$execution.error}}"
-  }
-}
-```
-
-### MinIO - List Objects
-```json
-{
-  "method": "GET",
-  "url": "http://minio:9000/documents/",
-  "authentication": "s3",
-  "awsService": "s3",
-  "region": "us-east-1"
-}
-```
-
-### LLM Service - Direct API Call
 ```json
 {
   "method": "POST",
   "url": "http://llm-service:11434/api/chat",
-  "headers": {
-    "Content-Type": "application/json"
-  },
   "body": {
-    "model": "llama2",
-    "messages": [
-      {
-        "role": "user",
-        "content": "{{$json.prompt}}"
-      }
-    ],
-    "stream": false,
-    "options": {
-      "temperature": 0.8,
-      "num_predict": 512
-    }
+    "model": "qwen3:8b",
+    "messages": [{ "role": "user", "content": "{{$json.prompt}}" }],
+    "stream": false
   }
 }
 ```
 
-### Embeddings Service - Generate Embedding
 ```json
 {
   "method": "POST",
   "url": "http://embedding-service:11435/embed",
-  "headers": {
-    "Content-Type": "application/json"
-  },
-  "body": {
-    "text": "{{$json.text}}",
-    "normalize": true
-  }
+  "body": { "text": "{{$json.text}}", "normalize": true }
 }
 ```
 
-## Credential Setup
+Flows der Plattform startet ein Workflow über die externe API
+(`POST /api/v1/external/flows/:name/run` mit API-Key, siehe
+[`docs/features/FLOWS.md`](../../../docs/features/FLOWS.md)).
 
-### Arasul LLM API
-1. Go to n8n UI → Credentials → Add Credential
-2. Select "Arasul LLM API"
-3. Configure:
-   - Host: `llm-service`
-   - Port: `11434`
-   - Use HTTPS: `false`
-   - API Key: (leave empty for internal use)
+## Fehlersuche
 
-### Arasul Embeddings API
-1. Go to n8n UI → Credentials → Add Credential
-2. Select "Arasul Embeddings API"
-3. Configure:
-   - Host: `embedding-service`
-   - Port: `11435`
-   - Use HTTPS: `false`
-   - API Key: (leave empty for internal use)
-
-### MinIO S3
-1. Go to n8n UI → Credentials → Add Credential
-2. Select "AWS S3"
-3. Configure:
-   - Access Key ID: `${MINIO_ROOT_USER}`
-   - Secret Access Key: `${MINIO_ROOT_PASSWORD}`
-   - Region: `us-east-1`
-   - Custom Endpoints: `true`
-   - Endpoint: `http://minio:9000`
-   - Force Path Style: `true`
-   - SSL: `false`
-
-Or import from `credentials/minio-s3.json`.
-
-### Dashboard API (JWT)
-1. Go to n8n UI → Credentials → Add Credential
-2. Select "Header Auth"
-3. Configure:
-   - Name: `Authorization`
-   - Value: `Bearer <your-jwt-token>`
-
-## Workflow Execution Logging
-
-All workflows automatically log execution data to PostgreSQL `workflow_activity` table when using the Dashboard API telemetry endpoint.
-
-**Logged Fields**:
-- `workflow_name`: Name of the workflow
-- `status`: success/error
-- `timestamp`: Execution start time
-- `duration_ms`: Execution duration
-- `error`: Error message (if failed)
-
-**Example n8n Function Node**:
-```javascript
-// Log workflow execution to Dashboard API
-const executionData = {
-  workflow_name: $workflow.name,
-  execution_id: $execution.id,
-  status: $execution.mode === 'manual' ? 'success' : $execution.status,
-  duration_ms: Date.now() - new Date($execution.startedAt).getTime(),
-  error: $execution.error || null
-};
-
-return {
-  json: executionData
-};
-```
-
-Then connect to HTTP Request node targeting:
-`POST http://dashboard-backend:3001/api/telemetry/workflow`
-
-## Best Practices
-
-1. **Use Custom Nodes**: Prefer Arasul custom nodes over direct HTTP requests for better error handling
-2. **Batch Processing**: For embeddings, use batch operations (max 50 texts per batch)
-3. **Error Handling**: Always enable "Continue On Fail" for robust workflows
-4. **Credentials**: Never hardcode credentials - use n8n credential system
-5. **Logging**: Add telemetry reporting to important workflows
-6. **MinIO Paths**: Always use bucket-prefixed paths (`/documents/file.pdf`)
-7. **LLM Limits**: Respect rate limits (10 req/s via Traefik)
-
-## Troubleshooting
-
-### LLM Node Returns Empty Response
-- Check if model is loaded: `GET http://llm-service:11434/api/tags`
-- Verify GPU is available: Dashboard → System → AI Services
-- Check LLM service logs: `docker logs llm-service`
-
-### Embeddings Timeout
-- Reduce batch size (default: 10)
-- Check embedding service health: `GET http://embedding-service:11435/health`
-- Verify text length (max 512 tokens)
-
-### MinIO Connection Failed
-- Verify credentials match `.env` file
-- Check MinIO is running: `docker ps | grep minio`
-- Test connection: `curl http://minio:9000/minio/health/live`
-
-### Workflow Not Logging to PostgreSQL
-- Verify Dashboard Backend is reachable
-- Check JWT token is valid
-- Ensure `/api/telemetry/workflow` endpoint exists
-- Check PostgreSQL `workflow_activity` table exists
-
-## Support
-
-For more information, see:
-- Arasul Platform Documentation: `/docs/README.md`
-- n8n Documentation: https://docs.n8n.io
-- PRD Section §21: Workflow Integration
+- LLM antwortet leer: `GET http://llm-service:11434/api/tags` zeigt die
+  geladenen Modelle; `docker logs llm-service`.
+- Embedding-Timeout: kleinere Batches, `GET http://embedding-service:11435/health`.
+- Weitere Fälle: [`docs/integrations/N8N.md`](../../../docs/integrations/N8N.md), Abschnitt 7.

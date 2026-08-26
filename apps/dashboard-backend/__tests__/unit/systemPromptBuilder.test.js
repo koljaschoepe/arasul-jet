@@ -1,13 +1,12 @@
 /**
  * Unit tests for SystemPromptBuilder
  *
- * Tests the layered system prompt construction:
- * Layer 1: Global base (always present)
- * Layer 2: AI profile (from profilService)
- * Layer 3: Company context (from DB)
+ * Seit Phase B4 (26.08.2026) gibt es nur noch die Basis-Schicht: die
+ * eingebaute Vorgabe, die der Betreiber ueber
+ * system_settings.llm_base_system_prompt ueberschreiben kann. KI-Profil und
+ * Unternehmenskontext sind mit Memory und Wissensraeumen gefallen.
  */
 
-// Mock dependencies before requiring the module
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
   initialize: jest.fn().mockResolvedValue(true),
@@ -21,253 +20,38 @@ jest.mock('../../src/utils/logger', () => ({
   debug: jest.fn(),
 }));
 
-jest.mock('../../src/services/memory/profilService', () => ({
-  getProfile: jest.fn(),
-  updateProfile: jest.fn(),
-  generateProfileYaml: jest.fn(),
+jest.mock('../../src/services/system-settings/systemSettingsService', () => ({
+  get: jest.fn(),
+  getNumber: jest.fn(),
+  load: jest.fn(),
 }));
 
-const profilService = require('../../src/services/memory/profilService');
-
+const systemSettings = require('../../src/services/system-settings/systemSettingsService');
 const {
   buildSystemPrompt,
-  formatProfile,
-  invalidateProfileCache,
-  invalidateCompanyContextCache,
+  getBasePrompt,
   GLOBAL_BASE_PROMPT,
-  _cache,
 } = require('../../src/services/llm/systemPromptBuilder');
-
-// Mock database passed as parameter
-const mockDatabase = {
-  query: jest.fn(),
-};
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // Reset caches
-  _cache.profile.expiresAt = 0;
-  _cache.companyContext.expiresAt = 0;
-  _cache.profile.value = undefined;
-  _cache.companyContext.value = undefined;
+  systemSettings.get.mockReturnValue(null);
 });
 
 describe('SystemPromptBuilder', () => {
-  describe('buildSystemPrompt', () => {
-    it('should return only global base when no layers are configured', async () => {
-      profilService.getProfile.mockResolvedValue(null);
-      mockDatabase.query.mockResolvedValue({ rows: [] });
-
-      const result = await buildSystemPrompt(mockDatabase, null);
-
-      expect(result).toBe(GLOBAL_BASE_PROMPT);
-    });
-
-    it('should combine global base + AI profile', async () => {
-      profilService.getProfile.mockResolvedValue(
-        'firma: "TestCorp"\nbranche: "IT & Software"\nsprache: "de"\n'
-      );
-      mockDatabase.query.mockResolvedValue({ rows: [] });
-
-      const result = await buildSystemPrompt(mockDatabase, null);
-
-      expect(result).toContain(GLOBAL_BASE_PROMPT);
-      expect(result).toContain('## KI-Profil');
-      expect(result).toContain('TestCorp');
-      expect(result).toContain('IT & Software');
-    });
-
-    it('should combine global base + company context', async () => {
-      profilService.getProfile.mockResolvedValue(null);
-      mockDatabase.query
-        .mockResolvedValueOnce({ rows: [{ content: 'Wir sind eine Beratungsfirma.' }] }) // company context
-        .mockResolvedValue({ rows: [] }); // project prompt
-
-      const result = await buildSystemPrompt(mockDatabase, 'conv-123');
-
-      expect(result).toContain(GLOBAL_BASE_PROMPT);
-      expect(result).toContain('## Unternehmenskontext');
-      expect(result).toContain('Wir sind eine Beratungsfirma.');
-      expect(result).not.toContain('## Projektanweisungen');
-    });
-
-    it('should combine all 3 layers', async () => {
-      profilService.getProfile.mockResolvedValue(
-        'firma: "ACME"\nbranche: "Handel"\nsprache: "de"\n'
-      );
-      mockDatabase.query.mockResolvedValueOnce({ rows: [{ content: 'Firmenkontext hier.' }] }); // company context
-
-      const result = await buildSystemPrompt(mockDatabase, 'conv-456');
-
-      expect(result).toContain(GLOBAL_BASE_PROMPT);
-      expect(result).toContain('## KI-Profil');
-      expect(result).toContain('ACME');
-      expect(result).toContain('## Unternehmenskontext');
-      expect(result).toContain('Firmenkontext hier.');
-
-      // Verify order: base, profile, context
-      const baseIdx = result.indexOf(GLOBAL_BASE_PROMPT);
-      const profileIdx = result.indexOf('## KI-Profil');
-      const contextIdx = result.indexOf('## Unternehmenskontext');
-      expect(baseIdx).toBeLessThan(profileIdx);
-      expect(profileIdx).toBeLessThan(contextIdx);
-    });
-
-    it('should skip empty profile', async () => {
-      profilService.getProfile.mockResolvedValue('');
-      mockDatabase.query.mockResolvedValue({ rows: [] });
-
-      const result = await buildSystemPrompt(mockDatabase, null);
-
-      expect(result).toBe(GLOBAL_BASE_PROMPT);
-      expect(result).not.toContain('## KI-Profil');
-    });
-
-    it('should skip empty company context', async () => {
-      profilService.getProfile.mockResolvedValue(null);
-      mockDatabase.query
-        .mockResolvedValueOnce({ rows: [{ content: '' }] }) // empty company context
-        .mockResolvedValue({ rows: [] });
-
-      const result = await buildSystemPrompt(mockDatabase, 'conv-789');
-
-      expect(result).not.toContain('## Unternehmenskontext');
-    });
-
-    it('should handle YAML parsing errors gracefully', async () => {
-      profilService.getProfile.mockResolvedValue('{{invalid yaml:::');
-      mockDatabase.query.mockResolvedValue({ rows: [] });
-
-      const result = await buildSystemPrompt(mockDatabase, null);
-
-      // Should still work, just without profile
-      expect(result).toContain(GLOBAL_BASE_PROMPT);
-      expect(result).not.toContain('## KI-Profil');
-    });
-
-    it('should handle DB errors gracefully (fallback to global base)', async () => {
-      profilService.getProfile.mockRejectedValue(new Error('MinIO unavailable'));
-      mockDatabase.query.mockRejectedValue(new Error('DB connection lost'));
-
-      const result = await buildSystemPrompt(mockDatabase, 'conv-err');
-
-      expect(result).toBe(GLOBAL_BASE_PROMPT);
-    });
-
-    it('should not include project prompt without conversationId', async () => {
-      profilService.getProfile.mockResolvedValue(null);
-      mockDatabase.query.mockResolvedValue({ rows: [] });
-
-      const result = await buildSystemPrompt(mockDatabase, null);
-
-      expect(result).not.toContain('## Projektanweisungen');
-      // Only 1 DB call (company context), no project prompt query
-      expect(mockDatabase.query).toHaveBeenCalledTimes(1);
-    });
+  it('liefert die eingebaute Basis, wenn nichts ueberschrieben ist', async () => {
+    const result = await buildSystemPrompt();
+    expect(result).toBe(GLOBAL_BASE_PROMPT);
   });
 
-  describe('formatProfile', () => {
-    it('should format a complete YAML profile', () => {
-      const yaml = `firma: "TestCorp"
-branche: "IT & Software"
-sprache: "de"
-mitarbeiter: 20
-produkte:
-  - Webentwicklung
-  - Cloud-Hosting
-praeferenzen:
-  antwortlaenge: "kurz"
-  formalitaet: "formell"
-`;
-
-      const result = formatProfile(yaml);
-
-      expect(result).toContain('## KI-Profil');
-      expect(result).toContain('Firma: TestCorp');
-      expect(result).toContain('Branche: IT & Software');
-      expect(result).toContain('Sprache: de');
-      expect(result).toContain('Mitarbeiter: 20');
-      expect(result).toContain('Produkte: Webentwicklung, Cloud-Hosting');
-      expect(result).toContain('Antwortlaenge: kurz');
-      expect(result).toContain('Formalitaet: formell');
-    });
-
-    it('should return null for empty string', () => {
-      expect(formatProfile('')).toBeNull();
-      expect(formatProfile(null)).toBeNull();
-      expect(formatProfile(undefined)).toBeNull();
-    });
-
-    it('should return null for whitespace-only string', () => {
-      expect(formatProfile('   \n  ')).toBeNull();
-    });
-
-    it('should handle minimal profile', () => {
-      const result = formatProfile('firma: "Mini Corp"\n');
-
-      expect(result).toContain('## KI-Profil');
-      expect(result).toContain('Firma: Mini Corp');
-    });
-
-    it('should return null for invalid YAML', () => {
-      const result = formatProfile('{{not valid yaml');
-      expect(result).toBeNull();
-    });
-
-    it('should return null if YAML parses to non-object', () => {
-      const result = formatProfile('just a string');
-      expect(result).toBeNull();
-    });
+  it('nimmt die Vorgabe aus system_settings, wenn sie gesetzt ist', async () => {
+    systemSettings.get.mockReturnValue('  Du bist knapp.  ');
+    expect(getBasePrompt()).toBe('Du bist knapp.');
+    expect(await buildSystemPrompt()).toBe('Du bist knapp.');
   });
 
-  describe('caching', () => {
-    it('should cache profile across calls', async () => {
-      profilService.getProfile.mockResolvedValue('firma: "Cached"\n');
-      mockDatabase.query.mockResolvedValue({ rows: [] });
-
-      await buildSystemPrompt(mockDatabase, null);
-      await buildSystemPrompt(mockDatabase, null);
-
-      // getProfile should only be called once (second call uses cache)
-      expect(profilService.getProfile).toHaveBeenCalledTimes(1);
-    });
-
-    it('should cache company context across calls', async () => {
-      profilService.getProfile.mockResolvedValue(null);
-      mockDatabase.query.mockResolvedValue({ rows: [{ content: 'Cached context' }] });
-
-      await buildSystemPrompt(mockDatabase, null);
-      await buildSystemPrompt(mockDatabase, null);
-
-      // company_context query should only be called once
-      expect(mockDatabase.query).toHaveBeenCalledTimes(1);
-    });
-
-    it('should invalidate profile cache', async () => {
-      profilService.getProfile.mockResolvedValue('firma: "V1"\n');
-      mockDatabase.query.mockResolvedValue({ rows: [] });
-
-      await buildSystemPrompt(mockDatabase, null);
-      invalidateProfileCache();
-
-      profilService.getProfile.mockResolvedValue('firma: "V2"\n');
-      const result = await buildSystemPrompt(mockDatabase, null);
-
-      expect(profilService.getProfile).toHaveBeenCalledTimes(2);
-      expect(result).toContain('V2');
-    });
-
-    it('should invalidate company context cache', async () => {
-      profilService.getProfile.mockResolvedValue(null);
-      mockDatabase.query.mockResolvedValue({ rows: [{ content: 'V1' }] });
-
-      await buildSystemPrompt(mockDatabase, null);
-      invalidateCompanyContextCache();
-
-      mockDatabase.query.mockResolvedValue({ rows: [{ content: 'V2' }] });
-      const result = await buildSystemPrompt(mockDatabase, null);
-
-      expect(result).toContain('V2');
-    });
+  it('faellt bei leerer Vorgabe auf die eingebaute Basis zurueck', () => {
+    systemSettings.get.mockReturnValue('   ');
+    expect(getBasePrompt()).toBe(GLOBAL_BASE_PROMPT);
   });
 });

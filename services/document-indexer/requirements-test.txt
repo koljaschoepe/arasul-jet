@@ -1,9 +1,11 @@
-# Nur was die Tests wirklich brauchen. Die schweren Laufzeit-Abhaengigkeiten
-# (PyMuPDF, pdfplumber, spacy, psycopg2) stubben die Tests
-# selbst — siehe tests/conftest.py.
+# Nur was die Tests wirklich brauchen. Die schweren Parser-Abhaengigkeiten
+# (PyMuPDF, pdfplumber, python-docx, pytesseract) stubben die Tests selbst,
+# siehe tests/conftest.py.
 #
-# MUSS zur Version in requirements.txt passen — sonst pruefen die Tests
-# eine andere PyYAML-Version als die, die im Container laeuft.
-# PyYAML ist die Ausnahme: `parse_yaml_table` gegen eine Attrappe zu testen
-# wuerde nur die Attrappe pruefen. Reines Python, wenige Kilobyte.
+# MUSS zu den Versionen in requirements.txt passen, sonst pruefen die Tests
+# andere Pakete als die, die im Container laufen.
+# PyYAML: `parse_yaml_table` gegen eine Attrappe zu testen wuerde nur die
+# Attrappe pruefen. Flask: die API-Tests fahren den echten Test-Client.
 PyYAML==6.0.3
+flask==3.1.3
+flask-cors==6.0.5

@@ -107,7 +107,6 @@ function mockHealthyServices() {
     llm: { status: 'healthy' },
     embedding: { status: 'healthy' },
     n8n: { status: 'healthy' },
-    minio: { status: 'healthy' },
     postgres: { status: 'healthy' },
     self_healing: { status: 'healthy' }
   });
@@ -148,7 +147,6 @@ describe('System Routes', () => {
       expect(response.body).toHaveProperty('llm', 'healthy');
       expect(response.body).toHaveProperty('embeddings', 'healthy');
       expect(response.body).toHaveProperty('n8n', 'healthy');
-      expect(response.body).toHaveProperty('minio', 'healthy');
       expect(response.body).toHaveProperty('postgres', 'healthy');
       expect(response.body).toHaveProperty('self_healing_active', true);
       expect(response.body).toHaveProperty('warnings');
@@ -186,7 +184,6 @@ describe('System Routes', () => {
         llm: { status: 'exited' },
         embedding: { status: 'healthy' },
         n8n: { status: 'healthy' },
-        minio: { status: 'healthy' },
         postgres: { status: 'healthy' },
         self_healing: { status: 'healthy' }
       });
@@ -205,7 +202,6 @@ describe('System Routes', () => {
         llm: { status: 'restarting' },
         embedding: { status: 'healthy' },
         n8n: { status: 'healthy' },
-        minio: { status: 'healthy' },
         postgres: { status: 'healthy' },
         self_healing: { status: 'healthy' }
       });
@@ -251,7 +247,6 @@ describe('System Routes', () => {
         llm: { status: 'healthy' },
         embedding: { status: 'healthy' },
         n8n: { status: 'healthy' },
-        minio: { status: 'healthy' },
         postgres: { status: 'healthy' },
         self_healing: { status: 'exited' }
       });

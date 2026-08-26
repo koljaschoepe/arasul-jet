@@ -1,7 +1,7 @@
 /**
  * Eine kaputte Id in der Adresse ist eine Eingabe, kein Geraetefehler.
  *
- * Gefunden am 23.08.2026 an `DELETE /api/sandbox/projects/:id`: acht Routen
+ * Gefunden am 23.08.2026 an einer Loesch-Route der Sandbox (seit B4 weg): acht Routen
  * dort nehmen `:id` ohne Pruefung, die Spalte ist `uuid`, und Postgres wirft
  * `22P02`. Der Fehlerpfad kannte den Code nicht, also kam HTTP 500 zurueck —
  * mit der rohen Postgres-Meldung, in der die eingegebene Zeichenkette stand.

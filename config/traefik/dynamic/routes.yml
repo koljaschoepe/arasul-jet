@@ -99,49 +99,6 @@ http:
         - websecure
       tls: {}
 
-    # Avatar Pipeline Media — public, no auth
-    # Exposes only avatarpipeline-staging bucket for Instagram/TikTok video_url
-    # Path: /media/avatarpipeline-staging/<file> → MinIO /avatarpipeline-staging/<file>
-    avatar-media:
-      rule: 'PathPrefix(`/media/avatarpipeline-staging`)'
-      service: minio-api-service
-      priority: 80
-      middlewares:
-        - strip-media-prefix
-        - minio-headers
-        - rate-limit-api
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # MinIO Console (requires dashboard login)
-    minio-console:
-      rule: 'PathPrefix(`/minio`)'
-      service: minio-console-service
-      priority: 100
-      middlewares:
-        - forward-auth
-        - minio-headers
-        - rate-limit-api
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # MinIO S3 API (requires dashboard login)
-    minio-api:
-      rule: 'PathPrefix(`/minio-api`)'
-      service: minio-api-service
-      priority: 30
-      middlewares:
-        - forward-auth
-        - strip-minio-api-prefix
-        - security-headers
-        - cors-headers
-        - rate-limit-api
-      entryPoints:
-        - websecure
-      tls: {}
-
     # LLM Service Direct Access (requires dashboard login)
     llm-direct:
       rule: 'PathPrefix(`/models`)'
@@ -282,26 +239,6 @@ http:
           flushInterval: 1ms
         passHostHeader: true
         serversTransport: sse-transport
-
-    # MinIO Console
-    minio-console-service:
-      loadBalancer:
-        servers:
-          - url: 'http://minio:9001'
-        healthCheck:
-          path: /
-          interval: 30s
-          timeout: 3s
-
-    # MinIO S3 API
-    minio-api-service:
-      loadBalancer:
-        servers:
-          - url: 'http://minio:9000'
-        healthCheck:
-          path: /minio/health/live
-          interval: 30s
-          timeout: 3s
 
     # LLM Service (Ollama on port 11434)
     llm-service:

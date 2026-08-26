@@ -37,14 +37,14 @@ const ENDZUSTAENDE = new Set(['fertig', 'fehler', 'abgebrochen']);
  * @returns {Promise<object>} Die angelegte Lauf-Zeile.
  */
 async function createRun(
-  { userId, flowName, arguments: args = {}, conversationId = null, projektId = null },
+  { userId, flowName, arguments: args = {}, conversationId = null },
   { db = database } = {}
 ) {
   const { rows } = await db.query(
-    `INSERT INTO flow_runs (user_id, flow_name, arguments, conversation_id, projekt_id)
-     VALUES ($1, $2, $3::jsonb, $4, $5)
+    `INSERT INTO flow_runs (user_id, flow_name, arguments, conversation_id)
+     VALUES ($1, $2, $3::jsonb, $4)
      RETURNING *`,
-    [userId, flowName, JSON.stringify(args || {}), conversationId, projektId]
+    [userId, flowName, JSON.stringify(args || {}), conversationId]
   );
   return rows[0];
 }

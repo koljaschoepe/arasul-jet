@@ -56,14 +56,10 @@ async function starten(
     args = {},
     userId,
     conversationId = null,
-    ordnerZiel = null,
     // „Ab Fehler wiederholen": übernommene Schritt-Ausgaben eines alten Laufs
     // (siehe stepExecutor.berechneVorabErgebnisse) — nur durchgereicht.
     vorabErgebnisse = null,
     vorabQuelleLaufId = null,
-    // Projektgebundener Flow (Plan 014, Phase 1): der Flow liegt im
-    // `flows/`-Ordner dieses Projekts, nicht im globalen Verzeichnis.
-    projektId = null,
   },
   deps = {}
 ) {
@@ -76,7 +72,6 @@ async function starten(
     flowName,
     arguments: args,
     conversationId,
-    projektId,
   });
   // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
   // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem
@@ -112,10 +107,8 @@ async function starten(
       onEvent,
       existingRunId: runId,
       signal: controller.signal,
-      ordnerZiel,
       vorabErgebnisse,
       vorabQuelleLaufId,
-      projektId,
     },
     {}
   )

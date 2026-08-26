@@ -33,7 +33,7 @@
       bricht bei **fehlendem** `ADMIN_PASSWORD` mit klarer Fehlermeldung ab — **nicht**
       mit „unbound variable".
 - [ ] ⚠️ **Regressionsschutz — Verzeichnisse angelegt.** Nach `create_directories` existieren
-      `data/appstore/manifests`, `data/ssh-keys`, `data/sandbox/projects` (Bind-Mount-Quellen;
+      `data/appstore/manifests`, `data/ssh-keys` (Bind-Mount-Quellen;
       sonst legt Docker sie root-owned an und Services können nicht schreiben).
 
 ## 3. TLS / Zertifikat
@@ -51,7 +51,7 @@
 
 ## 5. Service-Start (`start_services`)
 
-- [ ] Layer 1: `postgres-db`, `minio` healthy.
+- [ ] Layer 1: `postgres-db` healthy.
 
 - [ ] `llm-service`, `embedding-service` healthy (Modell-Laden kann dauern).
 - [ ] `reverse-proxy`, `dashboard-backend`, `dashboard-frontend`, `n8n`, `self-healing-agent` healthy.
@@ -86,7 +86,7 @@
 ## 9. Backup (nach dem ersten geplanten Lauf)
 
 - [ ] `backup-service` läuft; nach dem ersten Zyklus existieren Backups unter
-      `data/backups/postgres/` **und** `data/backups/minio/`.
+      `data/backups/postgres/` **und** `data/backups/flows/`.
 
 ---
 

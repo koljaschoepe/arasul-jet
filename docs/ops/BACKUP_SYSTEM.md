@@ -1,7 +1,9 @@
 # Backup System
 
-Automated backup service for PostgreSQL, MinIO, n8n workflows, and flow
-definitions.
+Automated backup service for PostgreSQL (which holds the n8n workflow and
+credential data) and the flow definitions under `data/flows/`. Bis zum
+26.08.2026 sicherte der Dienst zusaetzlich MinIO; mit Phase B4 des Rueckbaus
+ist der Objektspeicher weg, kein Dienst schreibt mehr hinein.
 
 ## Overview
 
@@ -10,7 +12,7 @@ definitions.
 | Image     | alpine:3.19                    |
 | Container | backup-service                 |
 | Schedule  | 02:00 UTC daily (configurable) |
-| Retention | 30 days (configurable)         |
+| Retention | 7 days (configurable)          |
 | Storage   | `/data/backups/`               |
 
 ## Architecture
@@ -20,17 +22,17 @@ definitions.
 │                      BACKUP SERVICE                             │
 │                    (Alpine + crond)                             │
 └─────────────────────────────────────────────────────────────────┘
-        │           │           │           │           │
-        ▼           ▼           ▼           ▼           ▼
-   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-   │PostgreSQL│ │  MinIO  │ │   n8n   │ │ Flows   │
-   │pg_dump  │ │mc mirror│ │snapshot │ │ export  │ │ tar.gz  │
-   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
-        │           │           │           │           │
-        ▼           ▼           ▼           ▼           ▼
+        │                              │
+        ▼                              ▼
+   ┌─────────┐                    ┌─────────┐
+   │PostgreSQL│                   │ Flows   │
+   │pg_dump  │                    │ tar.gz  │
+   └────┬────┘                    └────┬────┘
+        │                              │
+        ▼                              ▼
    ┌─────────────────────────────────────────────────────────────┐
    │                    /data/backups/                           │
-   │ postgres/ │ minio/ │ n8n/ │ flows/ │ weekly/              │
+   │      postgres/ │ escrow/ │ flows/ │ wal-archive/            │
    └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -38,7 +40,9 @@ definitions.
 
 ### 1. PostgreSQL Database
 
-**Method:** `pg_dump` with gzip compression
+**Method:** `pg_dump` with gzip compression. n8n persists workflows and
+credentials in this same database, so the dump covers them too; the
+credentials stay encrypted with the n8n encryption key (see below).
 
 ```bash
 pg_dump -h postgres-db -U arasul -d arasul_db \
@@ -50,6 +54,8 @@ pg_dump -h postgres-db -U arasul -d arasul_db \
 
 - File: `/backups/postgres/arasul_db_YYYYMMDD_HHMMSS.sql.gz`
 - Latest: `/backups/postgres/arasul_db_latest.sql.gz` (symlink)
+- Weekly: `/backups/postgres/weekly/` (Sundays), Monthly:
+  `/backups/postgres/monthly/` (1st of month)
 
 **Verification:**
 
@@ -57,39 +63,25 @@ pg_dump -h postgres-db -U arasul -d arasul_db \
 gzip -t /backups/postgres/arasul_db_latest.sql.gz
 ```
 
-### 2. MinIO Documents
+### 2. n8n Encryption-Key Escrow
 
-**Method:** `mc mirror` to local filesystem, then tar.gz
-
-```bash
-mc mirror minio/documents /tmp/documents_backup/
-tar -czf /backups/minio/documents_$(date +%Y%m%d_%H%M%S).tar.gz \
-  -C /tmp documents_backup/
-```
+The Postgres dump above contains n8n's encrypted credentials, but they are
+useless without the n8n encryption key. If `BACKUP_ENCRYPT=true` and the key
+file is present, `backup.sh` copies `/run/secrets/n8n_encryption_key`
+alongside the dump and encrypts it too; otherwise it only logs a warning that
+the key must be backed up out-of-band.
 
 **Output:**
 
-- File: `/backups/minio/documents_YYYYMMDD_HHMMSS.tar.gz`
-- Latest: `/backups/minio/documents_latest.tar.gz` (symlink)
+- File: `/backups/escrow/n8n_encryption_key_YYYYMMDD_HHMMSS`
+- Latest: `/backups/escrow/n8n_encryption_key_latest` (symlink)
+- Fingerprint: `/backups/escrow/n8n_encryption_key_YYYYMMDD_HHMMSS.sha256`
+  (plaintext, so an operator can verify a restore without decrypting)
 
-### 4. n8n Workflows
-
-**Method:** n8n CLI export
-
-```bash
-n8n export:workflow --all \
-  --output=/backups/n8n/workflows_$(date +%Y%m%d_%H%M%S).json
-```
-
-**Output:**
-
-- File: `/backups/n8n/workflows_YYYYMMDD_HHMMSS.json`
-- Latest: `/backups/n8n/workflows_latest.json` (symlink)
-
-### 5. Flows
+### 3. Flows
 
 Flow definitions (Plan 011) are Markdown files under `data/flows/` — they are
-**not** stored in Postgres or MinIO. They are user-authored and
+**not** stored in Postgres. They are user-authored and
 reproducible from nowhere else, so a device loss without this archive would
 silently take every self-built flow with it. The directory is mounted
 read-only into the backup service at `FLOWS_BACKUP_DIR` (default
@@ -109,7 +101,7 @@ tar -tzf /backups/flows/flows_$(date +%Y%m%d_%H%M%S).tar.gz   # verify
 - Latest: `/backups/flows/flows_latest.tar.gz` (symlink)
 - Weekly: `/backups/flows/weekly/` (Sundays), Monthly: `/backups/flows/monthly/` (1st of month)
 
-Retention follows the same daily / weekly / monthly rules as MinIO.
+Retention follows the same daily / weekly / monthly rules as PostgreSQL.
 If backup encryption is enabled, the archive is encrypted in place after
 verification (same `encrypt_file` step as the other components).
 
@@ -118,6 +110,13 @@ such mount, and failing there would make the healthcheck report a broken backup
 on a perfectly healthy box. The report field `flows_status` is `true`,
 `false` or `skipped` accordingly.
 
+### 4. WAL Archive
+
+If WAL segments are being shipped into `/backups/wal` (Postgres
+`archive_mode`), `backup.sh` bundles them into a dated tar.gz under
+`/backups/wal-archive/` for point-in-time recovery, and prunes both the
+archive and the raw segments once they age past the daily retention window.
+
 ## Directory Structure
 
 ```
@@ -125,26 +124,21 @@ on a perfectly healthy box. The report field `flows_status` is `true`,
 ├── postgres/
 │   ├── arasul_db_20240124_020015.sql.gz
 │   ├── arasul_db_20240125_020012.sql.gz
-│   └── arasul_db_latest.sql.gz → arasul_db_20240125_020012.sql.gz
-├── minio/
-│   ├── documents_20240124_020030.tar.gz
-│   ├── documents_20240125_020028.tar.gz
-│   └── documents_latest.tar.gz → documents_20240125_020028.tar.gz
-├── n8n/
-│   ├── workflows_20240124_020100.json
-│   ├── workflows_20240125_020058.json
-│   └── workflows_latest.json → workflows_20240125_020058.json
+│   ├── arasul_db_latest.sql.gz → arasul_db_20240125_020012.sql.gz
+│   ├── weekly/
+│   └── monthly/
+├── escrow/
+│   ├── n8n_encryption_key_20240124_020015
+│   ├── n8n_encryption_key_20240124_020015.sha256
+│   └── n8n_encryption_key_latest → n8n_encryption_key_20240124_020015
 ├── flows/
 │   ├── flows_20240124_020110.tar.gz
 │   ├── flows_20240125_020108.tar.gz
 │   ├── flows_latest.tar.gz → flows_20240125_020108.tar.gz
 │   ├── weekly/
 │   └── monthly/
-├── weekly/
-│   ├── 2024_W03/
-│   │   ├── postgres/
-│   │   ├── minio/
-│   │   ├── backup_report.json
+├── wal-archive/
+├── backup_report.json
 └── backup.log
 ```
 
@@ -152,20 +146,28 @@ on a perfectly healthy box. The report field `flows_status` is `true`,
 
 ### Environment Variables
 
-| Variable                | Default       | Description                              |
-| ----------------------- | ------------- | ---------------------------------------- |
-| BACKUP_SCHEDULE         | `0 2 * * *`   | Cron schedule (02:00 UTC daily)          |
-| BACKUP_RETENTION_DAYS   | 30            | Days to keep daily backups               |
-| BACKUP_RETENTION_WEEKLY | 12            | Weeks to keep weekly snapshots           |
-| POSTGRES_HOST           | postgres-db   | PostgreSQL host                          |
-| POSTGRES_USER           | arasul        | PostgreSQL user                          |
-| POSTGRES_PASSWORD       | (required)    | PostgreSQL password                      |
-| POSTGRES_DB             | arasul_db     | Database name                            |
-| MINIO_HOST              | minio         | MinIO host                               |
-| MINIO_ROOT_USER         | (required)    | MinIO access key                         |
-| MINIO_ROOT_PASSWORD     | (required)    | MinIO secret key                         |
-| FLOWS_BACKUP_DIR        | /arasul/flows | Source dir of the flow files (read-only) |
-| TZ                      | Europe/Berlin | Timezone                                 |
+| Variable                        | Default                            | Description                                |
+| ------------------------------- | ---------------------------------- | ------------------------------------------ |
+| BACKUP_SCHEDULE                 | `0 2 * * *`                        | Cron schedule (02:00 UTC daily)            |
+| BACKUP_RETENTION_DAYS           | 7                                  | Days to keep daily backups                 |
+| BACKUP_WEEKLY_RETENTION_WEEKS   | 12 (52 in the script default)      | Weeks to keep weekly snapshots             |
+| BACKUP_MONTHLY_RETENTION_MONTHS | 60                                 | Months to keep monthly snapshots           |
+| BACKUP_ENCRYPT                  | false                              | Encrypt backups with AES-256-CBC (openssl) |
+| BACKUP_ENCRYPT_KEY_FILE         | /run/secrets/backup_encryption_key | Key file used when BACKUP_ENCRYPT=true     |
+| N8N_ENCRYPTION_KEY_FILE         | /run/secrets/n8n_encryption_key    | Key escrowed alongside the Postgres dump   |
+| POSTGRES_HOST                   | postgres-db                        | PostgreSQL host                            |
+| POSTGRES_USER                   | arasul                             | PostgreSQL user                            |
+| POSTGRES_PASSWORD               | (required, via Docker secret)      | PostgreSQL password                        |
+| POSTGRES_DB                     | arasul_db                          | Database name                              |
+| FLOWS_BACKUP_DIR                | /arasul/flows                      | Source dir of the flow files (read-only)   |
+| TZ                              | Europe/Berlin                      | Timezone                                   |
+
+Production backups run automatically via cron inside the `backup-service`
+container (`/usr/local/bin/backup.sh`, i.e.
+[`services/backup-service/backup.sh`](../../services/backup-service/backup.sh)).
+`scripts/backup/backup.sh` below is a separate, host-run CLI variant with its
+own `--type`/`--component` flags; its MinIO branch was removed on 26.08.2026
+along with the object store itself.
 
 ### Cron Schedule Examples
 
@@ -187,20 +189,26 @@ BACKUP_SCHEDULE="0 0,12 * * *"
 
 ### Daily Backups
 
-- Kept for `BACKUP_RETENTION_DAYS` (default: 30)
+- Kept for `BACKUP_RETENTION_DAYS` (default: 7)
 - Oldest backups deleted automatically
 - Latest symlinks always point to most recent
 
-### Weekly Snapshots
+### Weekly and Monthly Snapshots
 
-- Created every Sunday (or on --weekly flag)
-- Stored in `/backups/weekly/YYYY_WNUM/`
-- Kept for `BACKUP_RETENTION_WEEKLY` weeks (default: 12)
-- Full copy of all components
+- Postgres and flows each get their own `weekly/` (Sundays) and `monthly/`
+  (1st of month) subdirectory
+- Kept for `BACKUP_WEEKLY_RETENTION_WEEKS` / `BACKUP_MONTHLY_RETENTION_MONTHS`
 
 ## Manual Execution
 
-### Full Backup
+### Production Backup
+
+```bash
+# Run the scheduled backup immediately, inside the running container
+docker exec backup-service /usr/local/bin/backup.sh
+```
+
+### Host-Run CLI Variant
 
 ```bash
 # Run full backup immediately
@@ -210,28 +218,11 @@ BACKUP_SCHEDULE="0 0,12 * * *"
 ./scripts/backup/backup.sh --type full
 ```
 
-### Incremental Backup
-
-```bash
-# Only backup changed files (MinIO)
-./scripts/backup/backup.sh --type incremental
-```
-
-### Weekly Snapshot
-
-```bash
-# Force weekly snapshot
-./scripts/backup/backup.sh --weekly
-```
-
 ### Single Component
 
 ```bash
 # Backup only PostgreSQL
 ./scripts/backup/backup.sh --component postgres
-
-# Backup only MinIO
-./scripts/backup/backup.sh --component minio
 ```
 
 ## Restore Procedures
@@ -250,23 +241,21 @@ gunzip -c /data/backups/postgres/arasul_db_latest.sql.gz | \
 docker compose start dashboard-backend n8n
 ```
 
-### Restore MinIO
+### Restore n8n Workflows and Credentials
+
+n8n's workflows and credentials live in the same PostgreSQL database, so the
+Postgres restore above already brings them back. Credentials stay encrypted
+with the n8n encryption key; if that key was rotated or lost, restore it from
+the escrow **before** starting n8n:
 
 ```bash
-# Extract backup
-tar -xzf /data/backups/minio/documents_latest.tar.gz -C /tmp/
-
-# Upload to MinIO
-mc mirror /tmp/documents_backup/ minio/documents/
+# Restore the escrowed key (matches the sha256 fingerprint next to it)
+cp /data/backups/escrow/n8n_encryption_key_latest /run/secrets/n8n_encryption_key
 ```
 
-### Restore n8n Workflows
-
-```bash
-# Import workflows
-docker exec n8n n8n import:workflow \
-  --input=/backups/n8n/workflows_latest.json
-```
+`scripts/backup/restore.sh --n8n <file>` still exists for the older
+`n8n export:workflow` JSON format, but `backup.sh` no longer produces such
+files: workflows are covered by the Postgres dump instead.
 
 ### Restore Flows
 
@@ -284,42 +273,27 @@ After each backup, a report is generated at `/backups/backup_report.json`:
 
 ```json
 {
-  "timestamp": "2024-01-24T02:01:30.000Z",
-  "backup_type": "full",
+  "timestamp": "2026-08-26T02:01:30+02:00",
   "status": "completed",
-  "duration_seconds": 90,
-  "components": {
-    "postgres": {
-      "status": "success",
-      "file": "arasul_db_20240124_020015.sql.gz",
-      "size_bytes": 15728640,
-      "duration_seconds": 15
-    },
-    "minio": {
-      "status": "success",
-      "file": "documents_20240124_020030.tar.gz",
-      "size_bytes": 104857600,
-      "duration_seconds": 45
-    },
-    "n8n": {
-      "status": "success",
-      "file": "workflows_20240124_020100.json",
-      "size_bytes": 102400,
-      "duration_seconds": 5
-    }
-  },
-  "statistics": {
-    "total_size_bytes": 173015040,
-    "postgres_backups": 30,
-    "minio_backups": 30,
-    "n8n_backups": 30,
-    "weekly_snapshots": 4,
-    "retention_days": 30,
-    "retention_weekly": 12
-  },
-  "errors": []
+  "postgres_backups": 7,
+  "postgres_weekly": 3,
+  "postgres_monthly": 2,
+  "flows_status": "true",
+  "flows_backups": 7,
+  "retention_days": 7,
+  "weekly_retention_weeks": 52,
+  "monthly_retention_months": 60,
+  "encrypted": "false",
+  "encryption_requested": "false",
+  "postgres_size": "48M",
+  "wal_size": "0",
+  "wal_segments": 0,
+  "total_size": "52M"
 }
 ```
+
+`status` is `partial_failure` (not `completed`) if any backed-up component
+failed. `flows_status` is `true`, `false` or `skipped` (see above).
 
 ## Monitoring
 
@@ -341,13 +315,6 @@ ls -la /data/backups/postgres/ | tail -5
 ```bash
 # Verify PostgreSQL backup
 gzip -t /data/backups/postgres/arasul_db_latest.sql.gz && echo "OK"
-
-# Verify MinIO backup
-tar -tzf /data/backups/minio/documents_latest.tar.gz > /dev/null && echo "OK"
-
-
-# Verify n8n backup (JSON validity)
-jq . /data/backups/n8n/workflows_latest.json > /dev/null && echo "OK"
 
 # Verify flows backup
 tar -tzf /data/backups/flows/flows_latest.tar.gz > /dev/null && echo "OK"
@@ -402,16 +369,6 @@ docker exec postgres-db pg_isready -U arasul
 docker exec backup-service env | grep POSTGRES
 ```
 
-### MinIO Backup Fails
-
-```bash
-# Test MinIO connection
-docker exec backup-service mc ls minio/
-
-# Check bucket exists
-docker exec backup-service mc ls minio/documents/
-```
-
 ### Insufficient Disk Space
 
 ```bash
@@ -437,20 +394,17 @@ find /data/backups/postgres -name "*.sql.gz" -mtime +7 -delete
 4. **Test Restores** - Regularly test restore procedures
 5. **Audit Access** - Log backup/restore operations
 
-### Encryption Example
+### Encryption
 
-```bash
-# Encrypt backup
-gpg --symmetric --cipher-algo AES256 \
-  /data/backups/postgres/arasul_db_latest.sql.gz
-
-# Decrypt backup
-gpg --decrypt arasul_db_latest.sql.gz.gpg > arasul_db.sql.gz
-```
+`BACKUP_ENCRYPT=true` makes `backup.sh` encrypt every archive in place with
+`openssl enc -aes-256-cbc -pbkdf2` against `BACKUP_ENCRYPT_KEY_FILE`. Older
+archives created with the previous GPG-based flow decrypt via
+`gpg --decrypt` and `BACKUP_ENCRYPTION_KEY_FILE`; `scripts/backup/restore.sh`
+detects which of the two a given file is by its magic bytes, not its
+extension.
 
 ## Related Documentation
 
 - [PostgreSQL Service](../../services/postgres/README.md)
-- [MinIO Service](../features/MINIO_SERVICE.md)
 - [n8n Service](../../services/n8n/README.md)
 - [Disaster Recovery](DISASTER_RECOVERY.md)

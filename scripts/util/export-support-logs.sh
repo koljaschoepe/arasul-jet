@@ -139,7 +139,6 @@ while IFS= read -r service; do
         -e 's/Bearer [A-Za-z0-9._-]+/Bearer ***REDACTED***/g' \
         -e 's/JWT_SECRET=[^ ]*/JWT_SECRET=***REDACTED***/g' \
         -e 's/POSTGRES_PASSWORD=[^ ]*/POSTGRES_PASSWORD=***REDACTED***/g' \
-        -e 's/MINIO_ROOT_PASSWORD=[^ ]*/MINIO_ROOT_PASSWORD=***REDACTED***/g' \
         -e 's/ADMIN_PASSWORD=[^ ]*/ADMIN_PASSWORD=***REDACTED***/g' \
         -e 's/NGROK_AUTHTOKEN=[^ ]*/NGROK_AUTHTOKEN=***REDACTED***/g' \
         -e 's/CLOUDFLARE_TUNNEL_TOKEN=[^ ]*/CLOUDFLARE_TUNNEL_TOKEN=***REDACTED***/g' \

@@ -13,7 +13,7 @@
 # Voraussetzung: ein SSH-Tunnel auf das Geraet.
 #   ssh -f -N -L 8443:localhost:443 jetson
 #   bash scripts/test/abnahmen.sh              alle
-#   bash scripts/test/abnahmen.sh csp bruecke  nur diese
+#   bash scripts/test/abnahmen.sh csp fernzugriff  nur diese
 #
 # Rueckgabe 0, wenn jede Abnahme gruen war, sonst 1.
 # =============================================================================
@@ -24,8 +24,9 @@ cd "$WURZEL"
 # Phase B2 (26.08.2026): chat, terminal, dokument, modell und rueckfrage sind
 # aus der Reihe gefallen. Sie massen den Agent-Chat, das Terminal und den
 # Datei-Explorer, und die gibt es in der Oberflaeche nicht mehr. D4 schneidet
-# Rueckfrage und Modellwahl je Flow neu.
-ALLE=(csp fernzugriff erweiterung bruecke paket modell-link rueckmeldung oberflaeche)
+# Rueckfrage und Modellwahl je Flow neu. Phase B4: erweiterung, bruecke und
+# paket sind mit dem Erweiterungs-Baukasten gefallen.
+ALLE=(csp fernzugriff modell-link rueckmeldung oberflaeche)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 

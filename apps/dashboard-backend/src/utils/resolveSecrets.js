@@ -13,8 +13,6 @@ function resolveSecrets() {
   const vars = [
     'POSTGRES_PASSWORD',
     'JWT_SECRET',
-    'MINIO_ROOT_USER',
-    'MINIO_ROOT_PASSWORD',
     'ADMIN_PASSWORD',
     'N8N_ENCRYPTION_KEY',
     'N8N_OWNER_EMAIL',

@@ -727,34 +727,6 @@ async function checkImageExists(image) {
 }
 
 /**
- * Build a Docker image from a context directory
- * @param {string} imageName - Target image name (e.g., 'arasul-sandbox:latest')
- * @param {string} contextPath - Path to build context directory containing Dockerfile
- */
-async function buildImage(imageName, contextPath) {
-  const [repo, tag] = imageName.includes(':') ? imageName.split(':') : [imageName, 'latest'];
-
-  logger.info(`Building Docker image ${repo}:${tag} from ${contextPath}`);
-
-  const stream = await docker.buildImage(
-    { context: contextPath, src: ['.'] },
-    { t: `${repo}:${tag}` }
-  );
-
-  await new Promise((resolve, reject) => {
-    docker.modem.followProgress(stream, (err, res) => {
-      if (err) {
-        logger.error(`Image build failed for ${repo}:${tag}: ${err.message}`);
-        reject(err);
-      } else {
-        logger.info(`Image ${repo}:${tag} built successfully`);
-        resolve(res);
-      }
-    });
-  });
-}
-
-/**
  * Get container status
  */
 async function getContainerStatus(containerName) {
@@ -887,7 +859,6 @@ module.exports = {
   pullImage,
   pullImageWithProgress,
   checkImageExists,
-  buildImage,
   getAppLogs,
   buildContainerConfig,
   buildEnvironment,

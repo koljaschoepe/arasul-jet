@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-// POST /password/dashboard, /password/minio, /password/n8n — shape only
+// POST /password/dashboard, /password/n8n — shape only
 const PasswordChangeBody = z
   .object({
     currentPassword: z
@@ -15,17 +15,6 @@ const PasswordChangeBody = z
   .strict();
 
 // PUT /company-context
-const CompanyContextBody = z
-  .object({
-    content: z
-      .string({ error: 'Inhalt ist erforderlich' })
-      .trim()
-      .min(1, 'Inhalt ist erforderlich')
-      .max(1000000, 'Inhalt ist zu lang'),
-  })
-  .strict();
-
 module.exports = {
   PasswordChangeBody,
-  CompanyContextBody,
 };

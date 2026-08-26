@@ -3,8 +3,6 @@ set -e
 
 # Resolve Docker secrets (_FILE env vars → regular env vars)
 [ -f "$POSTGRES_PASSWORD_FILE" ] && POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
-[ -f "$MINIO_ROOT_USER_FILE" ] && MINIO_ROOT_USER=$(cat "$MINIO_ROOT_USER_FILE")
-[ -f "$MINIO_ROOT_PASSWORD_FILE" ] && MINIO_ROOT_PASSWORD=$(cat "$MINIO_ROOT_PASSWORD_FILE")
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DAY_OF_WEEK=$(date +%u) # 1=Monday, 7=Sunday
@@ -122,74 +120,13 @@ if [ "$DAY_OF_MONTH" = "01" ]; then
     echo "[$TIMESTAMP] Monthly PostgreSQL snapshot saved"
 fi
 
-# MinIO backup — direkt ueber das Backend-Netz mit `mc`.
-#
-# Frueher lief das ueber `docker exec minio mc mirror` plus `docker cp`. Das war
-# aus zwei Gruenden fragil und ist auf dem Geraet ueber einen Monat lang still
-# gescheitert: `docker cp` wird vom Socket-Proxy geblockt, und der Umweg haengt
-# davon ab, welche Werkzeuge zufaellig im fremden MinIO-Image liegen (`tar` etwa
-# gibt es dort nicht). Jetzt spricht der Backup-Dienst MinIO als ganz normaler
-# S3-Client an — kein Docker noetig, keine Annahmen ueber fremde Images.
-mkdir -p /backups/minio /backups/minio/weekly
-MINIO_OK=true
-MINIO_TMP=/tmp/minio_backup_$TIMESTAMP
-mkdir -p "$MINIO_TMP"
-# Zugangsdaten ueber die Umgebung, nicht als Argument — sonst stuenden sie in
-# /proc/<pid>/cmdline.
-export MC_HOST_arasul="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@${MINIO_HOST:-minio}:9000"
-# Alpine liefert den MinIO-Client als `mcli` aus, nicht als `mc` — der Name `mc`
-# ist dort von GNU Midnight Commander belegt. Andere Distributionen und die
-# offiziellen Binaries heissen `mc`. Beide Namen akzeptieren, statt sich auf
-# einen festzulegen und beim naechsten Basis-Image wieder aufzulaufen.
-MC_BIN=$(command -v mcli || command -v mc || true)
-if [ -z "$MC_BIN" ]; then
-    echo "[$TIMESTAMP] [ERROR] Kein MinIO-Client im Image (weder mcli noch mc) — Dokumente werden NICHT gesichert"
-    MINIO_OK=false
-    BACKUP_OK=false
-elif ! "$MC_BIN" mirror --overwrite --quiet arasul/documents "$MINIO_TMP" >/dev/null 2>&1; then
-    echo "[$TIMESTAMP] [ERROR] MinIO mirror failed (MinIO erreichbar? Zugangsdaten?) — Dokumente werden NICHT gesichert"
-    MINIO_OK=false
-    BACKUP_OK=false
-fi
-MINIO_FILES=$(find "$MINIO_TMP" -type f 2>/dev/null | wc -l)
-if tar -czf /backups/minio/documents_$TIMESTAMP.tar.gz -C /tmp "minio_backup_$TIMESTAMP" 2>/dev/null; then
-    if tar -tzf /backups/minio/documents_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
-        if [ "$MINIO_OK" = true ]; then
-            echo "[$TIMESTAMP] MinIO backup completed and verified (${MINIO_FILES} Dateien)"
-        else
-            echo "[$TIMESTAMP] [ERROR] MinIO archive written, but the mirror failed — content is INCOMPLETE"
-        fi
-    else
-        echo "[$TIMESTAMP] [ERROR] MinIO backup archive corrupt (tar integrity check failed)"
-        MINIO_OK=false
-        BACKUP_OK=false
-    fi
-else
-    echo "[$TIMESTAMP] [ERROR] MinIO backup archive creation failed"
-    MINIO_OK=false
-    BACKUP_OK=false
-fi
-encrypt_file /backups/minio/documents_$TIMESTAMP.tar.gz
-ln -sf documents_$TIMESTAMP.tar.gz /backups/minio/documents_latest.tar.gz
-rm -rf "$MINIO_TMP"
-
-# Weekly snapshot for MinIO
-if [ "$DAY_OF_WEEK" = "7" ]; then
-    cp /backups/minio/documents_$TIMESTAMP.tar.gz /backups/minio/weekly/
-    echo "[$TIMESTAMP] Weekly MinIO snapshot saved"
-fi
-
-# Monthly snapshot for MinIO
-if [ "$DAY_OF_MONTH" = "01" ]; then
-    mkdir -p /backups/minio/monthly
-    cp /backups/minio/documents_$TIMESTAMP.tar.gz /backups/minio/monthly/
-    echo "[$TIMESTAMP] Monthly MinIO snapshot saved"
-fi
-
+# Bis zum 26.08.2026 stand hier die MinIO-Sicherung (Phase B4 des Rueckbaus:
+# der Objektspeicher ist weg, kein Dienst schreibt mehr hinein). Kritisch ist
+# seitdem nur noch Postgres; ein Ausfall dort setzt BACKUP_OK auf false.
 
 # Flow definitions (Plan 011): Markdown files under data/flows, mounted here
 # read-only. They are small but USER-AUTHORED and reproducible from nowhere else
-# — Postgres/MinIO/Qdrant do not contain them. A device loss without this would
+# — Postgres does not contain them. A device loss without this would
 # silently take every self-built flow with it.
 #
 # A missing directory is a WARNING, not a failure: older deployments have no
@@ -247,7 +184,6 @@ fi
 if [ "$BACKUP_OK" = true ]; then
     # Cleanup: daily backups (short retention)
     find /backups/postgres -maxdepth 1 -name "*.sql.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/minio -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/flows -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
 
     # WAL archive cleanup: keep only retention period worth
@@ -275,12 +211,10 @@ if [ "$BACKUP_OK" = true ]; then
 
     # Cleanup: weekly backups (longer retention)
     find /backups/postgres/weekly -name "*.sql.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/minio/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/flows/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
 
     # Cleanup: monthly backups (5-year retention)
     find /backups/postgres/monthly -name "*.sql.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/minio/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/flows/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     echo "[$TIMESTAMP] Cleanup completed (daily: ${RETENTION_DAYS}d, weekly: ${WEEKLY_RETENTION_WEEKS}w, monthly: ${MONTHLY_RETENTION_MONTHS}mo)"
 else
@@ -289,7 +223,6 @@ fi
 
 # Calculate backup sizes
 PG_SIZE=$(du -sh /backups/postgres/ 2>/dev/null | cut -f1 || echo "0")
-MINIO_SIZE=$(du -sh /backups/minio/ 2>/dev/null | cut -f1 || echo "0")
 WAL_SIZE=$(du -sh /backups/wal/ 2>/dev/null | cut -f1 || echo "0")
 TOTAL_SIZE=$(du -sh /backups/ 2>/dev/null | cut -f1 || echo "0")
 
@@ -311,10 +244,6 @@ cat > /backups/backup_report.json << EOF
   "postgres_backups": $(ls /backups/postgres/*.sql.gz 2>/dev/null | grep -v latest | wc -l),
   "postgres_weekly": $(ls /backups/postgres/weekly/*.sql.gz 2>/dev/null | wc -l),
   "postgres_monthly": $(ls /backups/postgres/monthly/*.sql.gz 2>/dev/null | wc -l),
-  "minio_backups": $(ls /backups/minio/*.tar.gz 2>/dev/null | grep -v latest | wc -l),
-  "minio_weekly": $(ls /backups/minio/weekly/*.tar.gz 2>/dev/null | wc -l),
-  "minio_monthly": $(ls /backups/minio/monthly/*.tar.gz 2>/dev/null | wc -l),
-  "minio_status": "$MINIO_OK",
   "flows_status": "$FLOWS_OK",
   "flows_backups": $(find /backups/flows -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
   "retention_days": $RETENTION_DAYS,
@@ -323,7 +252,6 @@ cat > /backups/backup_report.json << EOF
   "encrypted": "$([ "$BACKUP_ENCRYPT" = "true" ] && [ "$VERSCHLUESSELUNG_ERFOLGT" = true ] && echo true || echo false)",
   "encryption_requested": "$BACKUP_ENCRYPT",
   "postgres_size": "$PG_SIZE",
-  "minio_size": "$MINIO_SIZE",
   "wal_size": "$WAL_SIZE",
   "wal_segments": $WAL_COUNT,
   "total_size": "$TOTAL_SIZE"

@@ -40,8 +40,10 @@ describe('Produktbeschreibung im Basisprompt', () => {
     expect(GLOBAL_BASE_PROMPT).toContain(PRODUKT_BESCHREIBUNG);
   });
 
-  test('nennt das Geraet, seine Herkunft und die vier Flaechen', () => {
-    for (const wort of ['Arasul-Gerät', 'NVIDIA-Jetson', 'Chat', 'Terminal', 'Abläufe', 'Sprachmodellen']) {
+  test('nennt das Geraet, seine Herkunft und die beiden Flaechen', () => {
+    // Chat und Terminal standen hier bis Phase B4 (26.08.2026); beide sind
+    // aus der Oberflaeche gefallen, und ein Satz ueber sie waere erfunden.
+    for (const wort of ['Arasul-Gerät', 'NVIDIA-Jetson', 'Abläufe', 'Sprachmodellen']) {
       expect(PRODUKT_BESCHREIBUNG).toContain(wort);
     }
   });

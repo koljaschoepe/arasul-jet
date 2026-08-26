@@ -6,12 +6,7 @@ require('dotenv').config();
 require('./utils/resolveSecrets')();
 
 // Validate required environment variables at startup
-const REQUIRED_ENV_VARS = [
-  'POSTGRES_PASSWORD',
-  'JWT_SECRET',
-  'MINIO_ROOT_USER',
-  'MINIO_ROOT_PASSWORD',
-];
+const REQUIRED_ENV_VARS = ['POSTGRES_PASSWORD', 'JWT_SECRET'];
 const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
 if (missingVars.length > 0) {
   // Use stderr directly since logger may not be initialized yet
@@ -30,7 +25,6 @@ if (process.env.NODE_ENV === 'production') {
   const secretChecks = [
     { name: 'JWT_SECRET', minLen: 32 },
     { name: 'POSTGRES_PASSWORD', minLen: 16 },
-    { name: 'MINIO_ROOT_PASSWORD', minLen: 16 },
   ];
   const weakSecrets = secretChecks.filter(({ name, minLen }) => {
     const val = process.env[name] || '';
@@ -125,7 +119,7 @@ app.use((req, res, next) => {
 // SEC-007 FIX: Restrict CORS to specific origins + allow local/tailnet access.
 // Origin-matching rules live in utils/corsOrigin.js as a pure, unit-tested
 // function (LAN via RFC-1918 + *.local, remote via Tailscale CGNAT + *.ts.net).
-const { isAllowedOrigin, brueckeCorsOptionen } = require('./utils/corsOrigin');
+const { isAllowedOrigin } = require('./utils/corsOrigin');
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -152,13 +146,7 @@ const corsOptions = {
   maxAge: 86400, // 24 hours
 };
 
-// Die enge Ausnahme fuer den opaken Origin der KI-Bruecke steht als reine
-// Funktion in `utils/corsOrigin.js`, mit Begruendung und eigenen Tests.
-app.use(
-  cors((req, callback) =>
-    callback(null, brueckeCorsOptionen(req.headers.origin, req.path) || corsOptions)
-  )
-);
+app.use(cors(corsOptions));
 
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
@@ -245,17 +233,6 @@ app.get('/api/health', async (req, res) => {
     checks.embeddings = { status: 'unreachable' };
   }
 
-  // MinIO
-  try {
-    await axios.get(
-      `http://${process.env.MINIO_HOST || 'minio'}:${process.env.MINIO_PORT || '9000'}/minio/health/live`,
-      { timeout: 3000 }
-    );
-    checks.minio = { status: 'ok' };
-  } catch {
-    checks.minio = { status: 'unreachable' };
-  }
-
   const allOk = Object.values(checks).every(c => c.status === 'ok');
   const hasCritical = checks.database?.status === 'error';
 
@@ -281,11 +258,9 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // HIGH-001 FIX: WebSocket server for live metrics streaming
-// Use noServer to keep upgrade handling explicit per path.
+// Use noServer to keep upgrade handling explicit per path. Bis Phase B4
+// (26.08.2026) lief hier ein zweiter Server fuer das Sandbox-Terminal.
 const wss = new WebSocket.Server({ noServer: true });
-
-// Sandbox terminal WebSocket server (interactive terminal sessions)
-const sandboxTerminalWss = new WebSocket.Server({ noServer: true });
 
 const axios = require('axios');
 // TIMEOUT-002: Global safety-net timeout (prevents hanging requests if per-call timeout is missing)
@@ -504,29 +479,6 @@ async function gracefulShutdown(signal) {
   } catch (e) {
     /* ignore */
   }
-  // Stop sandbox idle checker and cleanup terminal sessions
-  try {
-    const sandboxService = require('./services/sandbox/sandboxService');
-    sandboxService.stopIdleChecker();
-  } catch (e) {
-    /* ignore */
-  }
-  try {
-    const terminalService = require('./services/sandbox/terminalService');
-    await terminalService.cleanupAllSessions();
-  } catch (e) {
-    /* ignore */
-  }
-  // Close sandbox terminal WebSocket server
-  try {
-    sandboxTerminalWss.clients.forEach(client => {
-      client.close(1001, 'Server shutting down');
-    });
-    sandboxTerminalWss.close();
-  } catch (e) {
-    /* ignore */
-  }
-
   // 5. Close database pool
   try {
     await pool.close();
@@ -560,13 +512,12 @@ if (alsServerGestartet) {
     }
 
     // Central upgrade handler - routes WebSocket connections by path
-    // Prevents dual-WSS conflict where two servers corrupt each other's upgrades
     const MAX_WS_CONNECTIONS = 100;
     server.on('upgrade', (request, socket, head) => {
       const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
       // Connection limit guard — prevent resource exhaustion
-      const totalConnections = wss.clients.size + sandboxTerminalWss.clients.size;
+      const totalConnections = wss.clients.size;
       if (totalConnections >= MAX_WS_CONNECTIONS) {
         logger.warn(
           `WebSocket connection limit reached (${totalConnections}/${MAX_WS_CONNECTIONS}), rejecting upgrade`
@@ -610,128 +561,10 @@ if (alsServerGestartet) {
             socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
             socket.destroy();
           });
-      } else if (pathname === '/api/sandbox/terminal/ws') {
-        // Auth-Reihenfolge (2026-07-31):
-        // 1. Einmal-Ticket aus der Query (?ticket=…). Der Browser kann auf der
-        //    WS-Verbindung keinen Authorization-Header setzen; das Ticket wurde
-        //    zuvor per Bearer geholt (POST /terminal/ticket) und ist kurzlebig +
-        //    einmalig — daher (anders als ein JWT) unbedenklich in der URL.
-        //    So hängt das Terminal NICHT mehr am httpOnly-Session-Cookie, das
-        //    bei LAN-IP/SameSite fehlen oder vor dem Bearer-Token ablaufen kann.
-        // 2. Fallback: httpOnly-Session-Cookie oder Bearer-Header (Alt-Clients).
-        const wsTicketService = require('./services/sandbox/wsTicketService');
-        const sandboxUrl = new URL(request.url, 'http://localhost');
-        const sandboxTicket = sandboxUrl.searchParams.get('ticket');
-        const ticketUserId = sandboxTicket ? wsTicketService.consume(sandboxTicket) : null;
-
-        const akzeptiere = userId => {
-          request.userId = userId;
-          sandboxTerminalWss.handleUpgrade(request, socket, head, ws => {
-            sandboxTerminalWss.emit('connection', ws, request);
-          });
-        };
-        const verweigere = grund => {
-          logger.warn(`Sandbox Terminal WebSocket upgrade rejected: ${grund}`);
-          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-          socket.destroy();
-        };
-
-        if (ticketUserId != null) {
-          akzeptiere(ticketUserId);
-          return;
-        }
-
-        const { verifyToken: verifySandboxToken } = require('./utils/jwt');
-        const sandboxAuthHeader = request.headers['authorization'];
-        const sandboxCookieHeader = request.headers['cookie'];
-        let sandboxToken = null;
-        if (sandboxAuthHeader && sandboxAuthHeader.startsWith('Bearer ')) {
-          sandboxToken = sandboxAuthHeader.slice(7);
-        }
-        if (!sandboxToken && sandboxCookieHeader) {
-          const sandboxMatch = sandboxCookieHeader.match(/arasul_session=([^;]+)/);
-          if (sandboxMatch) {
-            sandboxToken = sandboxMatch[1];
-          }
-        }
-        if (!sandboxToken) {
-          verweigere('no auth token or ticket');
-          return;
-        }
-        verifySandboxToken(sandboxToken)
-          .then(decoded => akzeptiere(decoded.userId))
-          .catch(err => verweigere(err.message));
       } else {
         socket.destroy();
       }
     });
-
-    // Sandbox Terminal WebSocket connection handler
-    sandboxTerminalWss.on('connection', (ws, request) => {
-      // WS-001: Heartbeat to detect dead half-open connections. Without this a
-      // silently-dropped client leaves its Docker exec + tmux session and DB row
-      // alive forever. Mirrors the metrics WSS heartbeat pattern above.
-      ws.isAlive = true;
-      ws.on('pong', () => {
-        ws.isAlive = true;
-      });
-
-      const terminalService = require('./services/sandbox/terminalService');
-      const url = new URL(request.url, `http://${request.headers.host}`);
-      const projectId = url.searchParams.get('projectId');
-      const sessionType = url.searchParams.get('type') || 'shell';
-      const command = url.searchParams.get('command') || undefined;
-      const cols = parseInt(url.searchParams.get('cols') || '120');
-      const rows = parseInt(url.searchParams.get('rows') || '30');
-      // Per-session tmux name: lets several terminals in the SAME project be
-      // independent persistent shells instead of mirroring one screen. Defaults
-      // to 'main' in the service when absent (backwards-compatible).
-      const tmuxName = url.searchParams.get('terminal') || undefined;
-
-      if (!projectId) {
-        ws.send(JSON.stringify({ type: 'error', message: 'projectId parameter required' }));
-        ws.close(1008, 'Missing projectId');
-        return;
-      }
-
-      terminalService
-        .createSession(projectId, ws, {
-          sessionType,
-          command,
-          cols,
-          rows,
-          tmuxName,
-          userId: request.userId,
-        })
-        .catch(err => {
-          logger.error(`Sandbox terminal session failed: ${err.message}`);
-          try {
-            ws.send(JSON.stringify({ type: 'error', message: err.message }));
-            ws.close(1011, 'Session creation failed');
-          } catch (e) {
-            /* ignore */
-          }
-        });
-    });
-
-    // WS-001: Heartbeat interval — terminate unresponsive sandbox terminal clients
-    // so their Docker exec/tmux session and DB row get reaped (mirrors metrics WSS).
-    const sandboxTerminalHeartbeat = setInterval(() => {
-      sandboxTerminalWss.clients.forEach(ws => {
-        if (ws.isAlive === false) {
-          logger.debug('Terminating dead sandbox terminal WebSocket connection');
-          return ws.terminate();
-        }
-        ws.isAlive = false;
-        ws.ping();
-      });
-    }, 15000);
-    globalIntervals.push(sandboxTerminalHeartbeat);
-    sandboxTerminalWss.on('close', () => {
-      clearInterval(sandboxTerminalHeartbeat);
-    });
-
-    logger.info(`Sandbox Terminal WebSocket ready at ws://0.0.0.0:${PORT}/api/sandbox/terminal/ws`);
 
     // Initialize Ollama Readiness Service (handles waiting for Ollama + periodic sync)
     try {
@@ -827,37 +660,6 @@ if (alsServerGestartet) {
       logger.info('Event Listener Service initialized successfully');
     } catch (err) {
       logger.error(`Failed to initialize Event Listener Service: ${err.message}`);
-    }
-
-    // Ein-Ordner-Modell: Projektordner ↔ Wissensraum-Abgleich (materialisiert
-    // Altbestand aus MinIO auf die Platte, dann Intervall-Takt Platte → DB).
-    try {
-      require('./services/projects/ordnerSyncService').starte();
-    } catch (err) {
-      logger.error(`Ordner-Sync konnte nicht starten: ${err.message}`);
-    }
-
-    // Sandbox-Container, die niemand mehr benutzt, nach einer halben Stunde
-    // anhalten. Startet hier statt beim Laden des Moduls, siehe sandboxService.
-    try {
-      require('./services/sandbox/sandboxIdleChecker').startIdleChecker();
-    } catch (err) {
-      logger.error(`Sandbox-Leerlaufprüfer konnte nicht starten: ${err.message}`);
-    }
-
-    // Werkstatt-Watcher: neue/geänderte manifest.json in Erweiterungs-
-    // Werkstätten automatisch registrieren („Automatisch live", 2026-07-29).
-    try {
-      require('./services/extensions/werkstattWatcher').starte();
-    } catch (err) {
-      logger.error(`Werkstatt-Watcher konnte nicht starten: ${err.message}`);
-    }
-
-    // Zeitpläne von Erweiterungen (Plan 023 H1): nächtliche Flow-Läufe.
-    try {
-      require('./services/extensions/zeitplanService').starte();
-    } catch (err) {
-      logger.error(`Erweiterungs-Zeitpläne konnten nicht starten: ${err.message}`);
     }
 
     // Startup readiness summary

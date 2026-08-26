@@ -68,7 +68,6 @@ Die Self-Healing Engine ist **vollständig implementiert** und produktionsreif. 
 
 - 3+ Service Failures in 10min
 - Database Lost
-- MinIO Corruption
 - Disk > 95%
 
 **Akzeptanzkriterien**: ✅ Alle erfüllt

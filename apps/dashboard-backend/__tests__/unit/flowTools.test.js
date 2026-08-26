@@ -1,5 +1,5 @@
 /**
- * Flow-Werkzeuge für Dateien und Wissensbasis (Plan 011, Schritt 6).
+ * Flow-Werkzeuge für Dateien (Plan 011, Schritt 6).
  *
  * Die Datei-Werkzeuge arbeiten gegen einen echten temporären Baum — bei einem
  * Werkzeug, dessen ganze Aufgabe der kontrollierte Dateizugriff ist, würde ein
@@ -11,9 +11,7 @@ const os = require('os');
 const path = require('path');
 
 jest.mock('../../src/utils/logger');
-jest.mock('../../src/services/flows/documentText');
 
-const documentText = require('../../src/services/flows/documentText');
 const {
   DateienLesenTool,
   DateienSchreibenTool,
@@ -21,7 +19,6 @@ const {
   DateienAnhaengenTool,
 } = require('../../src/services/flows/tools/dateien');
 const { DateiSuchenTool } = require('../../src/services/flows/tools/suche');
-const TerminalTool = require('../../src/services/flows/tools/terminal');
 const { buildTools, implementedTools } = require('../../src/services/flows/toolRegistry');
 
 let base, arbeit, zweit, aussen;
@@ -470,11 +467,6 @@ describe('Werkzeug-Registry', () => {
     expect(buildTools([])).toEqual([]);
   });
 
-  it('liefert für "terminal" das echte Werkzeug, keinen Platzhalter mehr', () => {
-    const [tool] = buildTools(['terminal']);
-    expect(tool).toBeInstanceOf(TerminalTool);
-  });
-
   it('liefert für "subagent" das echte Werkzeug', () => {
     const SubagentTool = require('../../src/services/flows/subagent');
     const [tool] = buildTools(['subagent']);
@@ -490,12 +482,9 @@ describe('Werkzeug-Registry', () => {
         'dateien_anhaengen',
         'dateien_suchen',
         'symbol_suche',
-        'terminal',
         'web_suche',
         'web_lesen',
         'subagent',
-        // Plan 014, Phase 5: ZUGFeRD-Rechnungen mit Code-Summen.
-        'rechnung_erstellen',
         // Plan 023 I3: EINE Rueckfrage an den Nutzer. Nur wirksam in der
         // Betriebsart `rueckfragen` — siehe die Tests darunter.
         'frage_nutzer',

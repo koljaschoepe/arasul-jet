@@ -8,27 +8,30 @@
 
 Root `docker-compose.yml` includes 6 files from `compose/`:
 
-| File                      | Purpose                                          |
-| ------------------------- | ------------------------------------------------ |
-| `compose.secrets.yaml`    | Docker secrets (passwords, keys as files)        |
-| `compose.core.yaml`       | PostgreSQL, MinIO, Traefik, docker-proxy         |
-| `compose.ai.yaml`         | LLM (Ollama), embedding-service, doc-indexer     |
-| `compose.app.yaml`        | Dashboard backend/frontend, n8n                  |
-| `compose.monitoring.yaml` | Metrics, self-healing, backup, loki, promtail    |
-| `compose.external.yaml`   | Cloudflare tunnel (optional, `--profile tunnel`) |
+| File                      | Purpose                                               |
+| ------------------------- | ----------------------------------------------------- |
+| `compose.secrets.yaml`    | Docker secrets (passwords, keys as files)             |
+| `compose.core.yaml`       | PostgreSQL, Traefik, docker-proxy                     |
+| `compose.ai.yaml`         | LLM (Ollama), embedding-service, doc-indexer, searxng |
+| `compose.app.yaml`        | Dashboard backend/frontend, n8n, n8n-runners          |
+| `compose.monitoring.yaml` | Metrics, self-healing, backup                         |
+| `compose.external.yaml`   | Cloudflare tunnel (optional, `--profile tunnel`)      |
 
 **File locations**: `compose/*.yaml` (relative paths inside reference `../services/`, `../config/`, etc.)
 
 **Startup order** (enforced by `depends_on` with `condition: service_healthy`):
 
-1. `postgres-db`, `minio` (core)
-2. `llm-service`, `embedding-service` (AI)
+1. `postgres-db` (core)
+2. `llm-service`, `embedding-service`, `searxng` (AI)
 3. `metrics-collector` (monitoring)
-4. `reverse-proxy` (Traefik, waits for postgres + minio)
+4. `reverse-proxy` (Traefik, waits for postgres)
 5. `dashboard-backend`, `dashboard-frontend`, `n8n` (app)
-6. `document-indexer` (waits for all AI services)
+6. `document-indexer` (stateless text extraction)
 7. `self-healing-agent`, `backup-service` (monitoring)
-8. `loki`, `promtail` (optional, `--profile monitoring`)
+
+MinIO, Loki und Promtail sind am 26.08.2026 (Phase B4 des Rückbaus)
+entfallen; `--profile monitoring` gibt es nicht mehr, Logs kommen aus
+`docker compose logs`.
 
 ## Networks (3 isolated bridge networks)
 
@@ -81,7 +84,7 @@ All config under `config/traefik/`:
 | `dynamic/routes.yml`      | HTTP routers and service definitions (priority 1-110)   |
 | `dynamic/middlewares.yml` | Rate limits, auth, CORS, security headers, strip-prefix |
 | `dynamic/tls.yml`         | Self-signed cert, TLS 1.2+ with strong cipher suites    |
-| `dynamic/websockets.yml`  | WebSocket routers for metrics, n8n, claude-terminal     |
+| `dynamic/websockets.yml`  | WebSocket routers for metrics live-stream and n8n       |
 
 **Entrypoints**:
 
@@ -98,12 +101,12 @@ All config under `config/traefik/`:
 
 | Priority | Router                                      | Rule                                 |
 | -------- | ------------------------------------------- | ------------------------------------ |
-| 100      | minio-console, n8n                          | `/minio`, `/n8n`                     |
+| 110      | n8n-healthz                                 | `/n8n/healthz`                       |
+| 100      | n8n                                         | `/n8n`                               |
 | 85       | n8n-favicon                                 | `/favicon.ico`                       |
 | 65       | dashboard-static                            | `/static/js`, `/static/css`, etc.    |
 | 50       | all websocket routers                       | WS upgrade header match              |
 | 35       | traefik-dashboard                           | `/api/traefik`, `/dashboard`         |
-| 30       | minio-api                                   | `/minio-api`                         |
 | 25       | llm-direct, embeddings-direct, n8n-webhooks | `/models`, `/embeddings`, `/webhook` |
 | 20       | auth-api                                    | `/api/auth`                          |
 | 15       | metrics-api                                 | `/api/metrics`                       |
@@ -121,24 +124,22 @@ All config under `config/traefik/`:
 
 ## Key Service Ports (internal Docker network)
 
-| Service            | Port(s)       | Protocol          | Health Check Endpoint                          |
-| ------------------ | ------------- | ----------------- | ---------------------------------------------- |
-| postgres-db        | 5432          | PostgreSQL        | `pg_isready -U ${POSTGRES_USER}`               |
-| minio              | 9000 / 9001   | S3 / Console      | `curl http://localhost:9000/minio/health/live` |
-| docker-proxy       | 2375          | Docker API        | (service_started)                              |
-| reverse-proxy      | 80, 443, 8080 | HTTP/S            | `wget http://localhost:8080/ping`              |
-| llm-service        | 11434 / 11436 | Ollama / Mgmt API | `/healthcheck.sh` (bash)                       |
-| embedding-service  | 11435         | HTTP              | `curl http://localhost:11435/health`           |
-| document-indexer   | 9102          | HTTP              | `curl http://localhost:9102/health`            |
-| dashboard-backend  | 3001          | HTTP              | `node` inline check on `/api/health`           |
-| dashboard-frontend | 3000          | HTTP (nginx)      | `test -f /usr/share/nginx/html/index.html`     |
-| n8n                | 5678          | HTTP              | `wget http://localhost:5678/healthz`           |
-| metrics-collector  | 9100          | HTTP              | `curl http://localhost:9100/health`            |
-| self-healing-agent | 9200          | HTTP              | `python3 /app/heartbeat.py --test`             |
-| backup-service     | --            | --                | `test -f /backups/backup_report.json`          |
-| loki               | 3100          | HTTP              | `wget http://localhost:3100/ready`             |
-| promtail           | 9080          | HTTP              | TCP check on port 9080                         |
-| cloudflared        | --            | Tunnel            | `pgrep -x cloudflared`                         |
+| Service            | Port(s)       | Protocol          | Health Check Endpoint                           |
+| ------------------ | ------------- | ----------------- | ----------------------------------------------- |
+| postgres-db        | 5432          | PostgreSQL        | `pg_isready -U ${POSTGRES_USER}`                |
+| docker-proxy       | 2375          | Docker API        | (service_started)                               |
+| reverse-proxy      | 80, 443, 8080 | HTTP/S            | `wget http://localhost:8080/ping`               |
+| llm-service        | 11434 / 11436 | Ollama / Mgmt API | `/healthcheck.sh` (bash)                        |
+| embedding-service  | 11435         | HTTP              | `curl http://localhost:11435/health`            |
+| document-indexer   | 9102          | HTTP              | `curl http://localhost:9102/health`             |
+| dashboard-backend  | 3001          | HTTP              | `node` inline check on `/api/health`            |
+| dashboard-frontend | 3000          | HTTP (nginx)      | `test -f /usr/share/nginx/html/index.html`      |
+| n8n                | 5678          | HTTP              | `wget http://localhost:5678/healthz`            |
+| metrics-collector  | 9100          | HTTP              | `curl http://localhost:9100/health`             |
+| self-healing-agent | 9200          | HTTP              | `python3 /app/heartbeat.py --test`              |
+| backup-service     | --            | --                | `test -f /backups/backup_report.json`           |
+| searxng            | 8080          | HTTP              | python `urllib` GET on `http://127.0.0.1:8080/` |
+| cloudflared        | --            | Tunnel            | `pgrep -x cloudflared`                          |
 
 ## Volumes (named + host mounts)
 
@@ -147,15 +148,12 @@ All config under `config/traefik/`:
 | Volume                     | Used By             | Content                     |
 | -------------------------- | ------------------- | --------------------------- |
 | `arasul-postgres`          | postgres-db         | Database data               |
-| `arasul-minio`             | minio               | Object storage              |
 | `arasul-llm-models`        | llm-service         | Ollama model files          |
 | `arasul-embeddings-models` | embedding-service   | Sentence transformer models |
 | `arasul-n8n`               | n8n                 | Workflow data               |
-| `arasul-bm25-index`        | document-indexer    | BM25 search index           |
 | `arasul-metrics`           | metrics-collector   | Metrics cache               |
 | `arasul-wal`               | postgres-db, backup | WAL archive for backups     |
-| `arasul-logs`              | promtail            | Application logs            |
-| `arasul-loki`              | loki                | Log aggregation data        |
+| `n8n-agent-workspace`      | n8n, n8n-runners    | Agent workspace of n8n      |
 
 ### Key Host Mounts
 
@@ -176,14 +174,12 @@ All config under `config/traefik/`:
 
 Defined in `compose/compose.secrets.yaml`. Secret files stored in `config/secrets/`:
 
-| Secret                | File Path                            | Used By              |
-| --------------------- | ------------------------------------ | -------------------- |
-| `postgres_password`   | `config/secrets/postgres_password`   | postgres-db, backend |
-| `jwt_secret`          | `config/secrets/jwt_secret`          | backend              |
-| `minio_root_user`     | `config/secrets/minio_root_user`     | minio, backend       |
-| `minio_root_password` | `config/secrets/minio_root_password` | minio, backend       |
-| `n8n_encryption_key`  | `config/secrets/n8n_encryption_key`  | n8n                  |
-| `admin_password`      | `config/secrets/admin_password`      | backend              |
+| Secret               | File Path                           | Used By              |
+| -------------------- | ----------------------------------- | -------------------- |
+| `postgres_password`  | `config/secrets/postgres_password`  | postgres-db, backend |
+| `jwt_secret`         | `config/secrets/jwt_secret`         | backend              |
+| `n8n_encryption_key` | `config/secrets/n8n_encryption_key` | n8n                  |
+| `admin_password`     | `config/secrets/admin_password`     | backend              |
 
 Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment variables (e.g., `POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password`). Backend uses `resolveSecrets.js` to read these.
 
@@ -197,7 +193,7 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
   - `reverse-proxy`: `NET_BIND_SERVICE`, `DAC_READ_SEARCH`
   - `dashboard-frontend`: `NET_BIND_SERVICE`, `CHOWN`, `SETUID`, `SETGID` (nginx)
   - `self-healing-agent`: `SYS_ADMIN`, `SYS_BOOT`, `SYS_NICE`
-- **Read-only filesystems**: `reverse-proxy`, `dashboard-frontend`, `docker-proxy`, `loki`, `promtail` (with tmpfs for writable paths)
+- **Read-only filesystems**: `reverse-proxy`, `dashboard-frontend` (with tmpfs for writable paths)
 - **Docker socket proxy** (`tecnativa/docker-socket-proxy`): restricts Docker API access. Explicitly allows `CONTAINERS`, `IMAGES`, `INFO`, `NETWORKS`, `VOLUMES`, `EXEC`, `SYSTEM`, `BUILD`, `POST`. Explicitly denies `AUTH`, `SECRETS`, `SWARM`, `NODES`, `PLUGINS`, `SERVICES`.
 
 ### Network Isolation
@@ -211,7 +207,6 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
 | Service            | Method           | Interval | Timeout | Start Period | Retries |
 | ------------------ | ---------------- | -------- | ------- | ------------ | ------- |
 | postgres-db        | `pg_isready`     | 10s      | 2s      | --           | 3       |
-| minio              | `curl` HTTP      | 10s      | 1s      | --           | 3       |
 | reverse-proxy      | `wget` HTTP      | 10s      | 3s      | 30s          | 3       |
 | llm-service        | bash script      | 30s      | 5s      | 300s         | 3       |
 | embedding-service  | `curl` HTTP      | 30s      | 5s      | 300s         | 3       |
@@ -222,8 +217,6 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
 | metrics-collector  | `curl` HTTP      | 10s      | 1s      | --           | 3       |
 | self-healing-agent | python heartbeat | 30s      | 3s      | 10s          | 3       |
 | backup-service     | file existence   | 60s      | 5s      | 120s         | 3       |
-| loki               | `wget` HTTP      | 30s      | 5s      | 30s          | 3       |
-| promtail           | TCP check        | 30s      | 5s      | 10s          | 3       |
 | cloudflared        | `pgrep`          | 30s      | 10s     | 15s          | 3       |
 
 **Note**: AI services (llm-service, embedding-service) have 300s start period because model loading on Jetson can be slow.
@@ -235,17 +228,15 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
 | `RAM_LIMIT_LLM`              | 32G     | llm-service        |
 | `RAM_LIMIT_EMBEDDING`        | 12G     | embedding-service  |
 | `RAM_LIMIT_POSTGRES`         | 4G      | postgres-db        |
-| `RAM_LIMIT_MINIO`            | 4G      | minio              |
 | `RAM_LIMIT_N8N`              | 2G      | n8n                |
 | `RAM_LIMIT_DOCUMENT_INDEXER` | 2G      | document-indexer   |
 | `RAM_LIMIT_BACKEND`          | 1G      | dashboard-backend  |
 | `RAM_LIMIT_REVERSE_PROXY`    | 512M    | reverse-proxy      |
 | `RAM_LIMIT_METRICS`          | 512M    | metrics-collector  |
 | `RAM_LIMIT_SELF_HEALING`     | 512M    | self-healing-agent |
-| `RAM_LIMIT_LOKI`             | 512M    | loki               |
+| `RAM_LIMIT_SEARXNG`          | 512M    | searxng            |
 | `RAM_LIMIT_FRONTEND`         | 256M    | dashboard-frontend |
 | `RAM_LIMIT_BACKUP`           | 256M    | backup-service     |
-| `RAM_LIMIT_PROMTAIL`         | 256M    | promtail           |
 | `RAM_LIMIT_DOCKER_PROXY`     | 128M    | docker-proxy       |
 | `RAM_LIMIT_CLOUDFLARED`      | 128M    | cloudflared        |
 | `CPU_LIMIT_LLM`              | 8       | llm-service        |
@@ -264,7 +255,7 @@ logging:
     max-file: '10'
 ```
 
-Exceptions: backup-service, loki, promtail use smaller limits (`10m`, `3-5` files).
+Exceptions: backup-service and cloudflared use smaller limits (`10m`, `3-5` files).
 
 Traefik writes structured JSON logs to `logs/traefik.log` and access logs (errors + slow requests only) to `logs/traefik-access.log`.
 
@@ -339,7 +330,6 @@ docker compose up -d
 
 # Start with optional profiles
 docker compose --profile tunnel up -d            # + Cloudflare tunnel
-docker compose --profile monitoring up -d        # + Loki/Promtail
 
 # Rebuild a single service after code changes
 docker compose up -d --build dashboard-backend
@@ -372,8 +362,6 @@ docker compose build --no-cache llm-service
 - **Traefik dynamic**: `config/traefik/dynamic/*.yml`
 - **Secrets**: `config/secrets/` (not committed to git)
 - **PostgreSQL config**: `config/postgres/postgresql.conf`
-- **Loki config**: `config/loki/local-config.yaml`
-- **Promtail config**: `config/promtail/config.yaml`
 - **LLM Dockerfile**: `services/llm-service/Dockerfile`
 - **Embedding Dockerfile**: `services/embedding-service/Dockerfile`
 - **Bootstrap script**: `./arasul bootstrap` (generates secrets, certs, htpasswd hashes)

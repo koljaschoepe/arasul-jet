@@ -50,9 +50,6 @@ docker exec postgres-db psql -U arasul -d arasul_db -c "SELECT count(*) FROM use
 
 # Oder spezifisches Backup
 ./scripts/recovery/restore-from-backup.sh 2026-03-14_02-00
-
-# Nur Datenbank wiederherstellen (MinIO intakt)
-./scripts/recovery/restore-from-backup.sh --db-only
 ```
 
 **Recovery mit WAL (Point-in-Time Recovery)**:
@@ -260,7 +257,7 @@ docker exec reverse-proxy traefik healthcheck
 | Intervall     | Aktion                                 | Automatisch? |
 | ------------- | -------------------------------------- | ------------ |
 | Alle 4h       | DB-Cleanup (`run_all_cleanups()`)      | Ja           |
-| Täglich 02:00 | Full Backup (DB + MinIO)               | Ja           |
+| Täglich 02:00 | Full Backup (DB + Flows)               | Ja           |
 | Alle 10s      | Self-Healing Check                     | Ja           |
 | Alle 30s      | Docker-Watchdog                        | Ja (systemd) |
 | Alle 30s      | Deadman-Switch für Self-Healing        | Ja (systemd) |

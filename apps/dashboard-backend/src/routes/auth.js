@@ -435,7 +435,7 @@ router.get(
 );
 
 // POST /api/auth/refresh-cookie - Re-sync the session cookie from the Bearer token.
-// Forward-auth (n8n, MinIO, Traefik dashboard) only receives Cookie/Authorization on the
+// Forward-auth (n8n, Traefik dashboard) only receives Cookie/Authorization on the
 // request. Plain <a href> navigations never carry the Authorization header, so if the
 // browser's cookie jar is missing the session cookie (e.g. user logged in under a
 // different hostname like arasul.local vs the IP), the navigation lands on 401. The

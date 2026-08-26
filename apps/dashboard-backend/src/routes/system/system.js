@@ -123,7 +123,6 @@ router.get(
       llm: services.llm?.status || 'unknown',
       embeddings: services.embedding?.status || 'unknown',
       n8n: services.n8n?.status || 'unknown',
-      minio: services.minio?.status || 'unknown',
       postgres: services.postgres?.status || 'unknown',
       self_healing_active: services.self_healing?.status === 'healthy',
       gpu_available: gpu.available,

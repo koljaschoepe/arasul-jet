@@ -7,7 +7,7 @@
  * Zwei Stufen:
  *
  *   `inhalte`      Alles, was der Nutzer erzeugt hat, ist weg. Die Einrichtung
- *                  bleibt: Zugang, Erweiterungen, Flows, Einstellungen, Modelle.
+ *                  bleibt: Zugang, Flows, Einstellungen, Modelle.
  *   `auslieferung` Zusätzlich die ganze Einrichtung. Danach läuft beim nächsten
  *                  Aufruf wieder die Ersteinrichtung, so wie bei einem neuen Gerät.
  *
@@ -40,15 +40,8 @@ const STUFEN = ['inhalte', 'auslieferung'];
 
 /** Ordner, deren INHALT geleert wird. Der Ordner selbst bleibt, er ist ein Mountpunkt. */
 const ORDNER = {
-  inhalte: [
-    [process.env.PROJECTS_DIR || '/arasul/projects', 'Projektablage'],
-    [process.env.SANDBOX_PROJECTS_DIR || '/arasul/sandbox/projects', 'Sandbox-Arbeitsordner'],
-  ],
-  auslieferung: [
-    [process.env.FLOWS_DIR || '/arasul/flows', 'Flow-Definitionen'],
-    [process.env.EXTENSIONS_DIR || '/arasul/extensions', 'Erweiterungs-Pakete'],
-    [process.env.EXTENSIONS_DATA_DIR || '/arasul/extensions-data', 'Daten der Erweiterungen'],
-  ],
+  inhalte: [],
+  auslieferung: [[process.env.FLOWS_DIR || '/arasul/flows', 'Flow-Definitionen']],
 };
 
 /** Tabellennamen `schema.tabelle` sicher in einen SQL-Bezeichner übersetzen. */
@@ -307,27 +300,6 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
       // kein Konto. Der Neustart des Containers passiert nach der Transaktion.
       await client.query('DROP SCHEMA IF EXISTS n8n CASCADE');
       await client.query('CREATE SCHEMA n8n');
-      // Die eigenen Tabellen einer Erweiterung liegen NICHT in `public` oder
-      // `arasul`, sondern je Erweiterung in einem Schema `ext_<slug>` (siehe
-      // tabellenService). `unbekannteTabellen()` sieht sie deshalb nie, und
-      // `tabellen.js` kann sie nicht auffuehren: sie entstehen zur Laufzeit.
-      //
-      // Bis zum 23.08.2026 blieben sie nach einem Werksreset stehen, mit den
-      // Daten des Kunden darin. Ein Auslieferungszustand mit Kundendaten ist
-      // keiner, und genau das behauptet der Reset.
-      const extAbfrage = await client.query(
-        "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'ext\\_%'"
-      );
-      // `?? []`, damit eine Antwort ohne `rows` nicht die ganze Transaktion
-      // reisst. Ein Werksreset, der an dieser Stelle abbricht, laesst das
-      // Geraet in einem halben Zustand zurueck.
-      const extSchemata = extAbfrage?.rows ?? [];
-      for (const { nspname } of extSchemata) {
-        await client.query(`DROP SCHEMA IF EXISTS ${escapeIdentifier(nspname)} CASCADE`);
-      }
-      if (extSchemata.length) {
-        logger.warn(`[werksreset] ${extSchemata.length} Erweiterungs-Schema(ta) entfernt`);
-      }
       await werkseinstellungen(client);
       // Der Merker, ohne den bootstrap.js beim naechsten Start wieder einen
       // Administrator aus ADMIN_PASSWORD anlegt. Das Entwerten in der .env
@@ -418,41 +390,12 @@ async function pruefeEntwertung() {
 
 /**
  * Alles, was nicht in der Datenbank und nicht im Dateisystem des Backends liegt:
- * Objektspeicher, Vektoren, n8n, Modelle. Jeder Punkt einzeln abgesichert, ein
+ * n8n und Modelle. Jeder Punkt einzeln abgesichert, ein
  * nicht erreichbarer Nachbardienst darf den Reset nicht zurücknehmen; er ist zu
  * diesem Zeitpunkt schon geschehen.
  */
 async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
   const ergebnis = {};
-
-  ergebnis.objektspeicher = await stillEntfernen('Objektspeicher', async () => {
-    const minio = require('../documents/minioService');
-    // Ein fehlender Eimer ist kein Fehlschlag: ihn legt die Dokumenten-Pipeline
-    // beim ersten Hochladen an. Wo nie eine Datei lag, ist auch nichts zu
-    // raeumen. In der Abnahme vom 19.08.2026 stand dafuer ein rotes
-    // "The specified bucket does not exist" im Bericht, das nichts bedeutete.
-    const fehlt = err =>
-      err?.code === 'NoSuchBucket' || /bucket does not exist/i.test(err?.message || '');
-    // listAllObjects liefert ein Set von PFADEN, keine Objekte. Ein
-    // `objekt.name` waere hier undefined und der Objektspeicher bliebe voll,
-    // ohne dass es jemand merkt.
-    let pfade;
-    try {
-      pfade = [...(await minio.listAllObjects())];
-    } catch (err) {
-      if (fehlt(err)) {
-        return { uebersprungen: 'kein Dokumenten-Eimer vorhanden' };
-      }
-      throw err;
-    }
-    // Ein Aufruf je Datei laesst den Reset bei einem gefuellten Dokumentenspeicher
-    // in die Minuten laufen. In Stapeln bleibt er in Sekunden.
-    const STAPEL = 20;
-    for (let i = 0; i < pfade.length; i += STAPEL) {
-      await Promise.all(pfade.slice(i, i + STAPEL).map(pfad => minio.removeObject(pfad)));
-    }
-    return { entfernt: pfade.length };
-  });
 
   if (stufe === 'auslieferung') {
     ergebnis.n8n = await stillEntfernen('n8n', async () => {

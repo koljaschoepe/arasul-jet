@@ -26,7 +26,7 @@ fi
 # Create data directories
 echo "Creating data directories..."
 mkdir -p "$DATA_DIR"/{data,logs,config,cache,updates}
-mkdir -p "$DATA_DIR/data"/{postgres,minio,models,n8n}
+mkdir -p "$DATA_DIR/data"/{postgres,models,n8n}
 mkdir -p "$DATA_DIR/logs/service"
 
 # Set ownership

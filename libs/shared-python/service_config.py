@@ -52,13 +52,6 @@ class ServiceConfig:
             port=int(os.getenv('POSTGRES_PORT', '5432'))
         )
 
-        # MinIO
-        self.minio = ServiceEndpoint(
-            host=os.getenv('MINIO_HOST', 'minio'),
-            port=int(os.getenv('MINIO_PORT', '9000'))
-        )
-        self.minio_console_port = int(os.getenv('MINIO_CONSOLE_PORT', '9001'))
-
         # Document Indexer
         self.document_indexer = ServiceEndpoint(
             host=os.getenv('DOCUMENT_INDEXER_HOST', 'document-indexer'),
@@ -87,11 +80,6 @@ class ServiceConfig:
     def llm_management_url(self) -> str:
         """Get LLM management API URL"""
         return f"http://{self.llm.host}:{self.llm_management_port}"
-
-    @property
-    def minio_console_url(self) -> str:
-        """Get MinIO console URL"""
-        return f"http://{self.minio.host}:{self.minio_console_port}"
 
 
 # Global singleton instance

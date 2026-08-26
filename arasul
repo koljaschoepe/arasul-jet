@@ -530,32 +530,24 @@ create_directories() {
     mkdir -p logs/{service,}
     # These are all bind-mount sources in compose.app/monitoring. Create them here
     # so they are owned by the setup user; otherwise Docker auto-creates them
-    # root-owned on first `up`, breaking writes from services (e.g. the sandbox
-    # service, which mkdir's project dirs as a non-root user).
+    # root-owned on first `up`, breaking writes from services running as uid 1000.
     #   updates/backups        → compose.app + compose.monitoring
     #   appstore/manifests     → compose.app (dashboard-backend, ro)
     #   ssh-keys               → compose.app (dashboard-backend, ro)
-    #   sandbox/projects       → compose.app (dashboard-backend, rw — the writer)
     #   skills                 → compose.app (dashboard-backend, rw — the writer)
     #                            + compose.monitoring (backup-service, ro)
     # WICHTIG: Diese Verzeichnisse muessen VOR dem ersten `docker compose up`
     # existieren. Legt Docker eine fehlende Bind-Quelle selbst an, gehoert sie
     # root — und der als uid 1000 laufende Backend-Container kann nicht hinein
     # schreiben (EACCES). Genau das ist bei data/skills passiert.
-    mkdir -p data/{postgres,minio,models,n8n,updates,backups}
+    mkdir -p data/{postgres,models,n8n,updates,backups}
     mkdir -p data/appstore/manifests
     mkdir -p data/ssh-keys
-    mkdir -p data/sandbox/projects
     mkdir -p data/skills
-    # Am 23.08.2026 nachgetragen: genau der oben beschriebene Fall war erneut
-    # eingetreten. data/extensions-data gehoerte root, und jede Erweiterung
-    # bekam bei ihrem ersten Schreibversuch
-    # "EACCES: permission denied, mkdir /arasul/extensions-data/<id>".
-    # Die Faehigkeit "eigene Dateiablage" war damit auf jedem Geraet tot.
-    # scripts/test/datenordner.py vergleicht diese Liste jetzt mit den
-    # Bind-Quellen in compose/, damit die Falle nicht ein drittes Mal zuschlaegt.
-    mkdir -p data/extensions
-    mkdir -p data/extensions-data
+    # Am 23.08.2026 nachgetragen, nachdem derselbe Fall ein zweites Mal
+    # eingetreten war: scripts/test/datenordner.py vergleicht diese Liste mit
+    # den Bind-Quellen in compose/, damit die Falle nicht ein drittes Mal
+    # zuschlaegt.
     mkdir -p data/flows
     mkdir -p data/projects
     mkdir -p cache
@@ -624,7 +616,7 @@ pull_images() {
     local delay=5
     local pull_output=""
     while [ $attempt -le $max_retries ]; do
-        if pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy 2>&1); then
+        if pull_output=$(docker compose pull postgres-db n8n reverse-proxy 2>&1); then
             log_success "Base images pulled"
             return 0
         fi
@@ -670,18 +662,6 @@ build_images() {
     }
 
     log_success "Custom images built"
-
-    # Sandbox-Image: kein compose-Service, sondern ein Image, das das Backend
-    # bei Bedarf startet (Workspace-Terminals, Terminalbefehle von Skills).
-    # Weil es in keiner compose-Datei steht, wurde es bisher nie gebaut und
-    # fehlte auf jedem frisch aufgesetzten Geraet. Nicht-fatal: Die Plattform
-    # laeuft auch ohne, nur Terminal-Funktionen fehlen dann.
-    log_info "Building sandbox image (arasul-sandbox:latest)..."
-    if docker build -t arasul-sandbox:latest "${SCRIPT_DIR}/services/sandbox" > /dev/null 2>&1; then
-        log_success "Sandbox image built"
-    else
-        log_warning "Sandbox-Image konnte nicht gebaut werden — Terminal-Funktionen bleiben deaktiviert"
-    fi
 }
 
 # Initialize database
@@ -706,66 +686,6 @@ init_database() {
     done
 
     log_success "Database initialized"
-}
-
-# Initialize MinIO buckets (with retry)
-init_minio_buckets() {
-    log_info "Initializing MinIO buckets..."
-
-    local MAX_RETRIES=3
-    local RETRY_DELAY=10
-
-    # Check if MinIO is running
-    if ! docker compose ps minio | grep -q "Up"; then
-        log_error "MinIO is not running - cannot create buckets"
-        log_error "MinIO buckets are required for platform operation (documents, backups)"
-        return 1
-    fi
-
-    # Check if initialization script exists
-    if [ ! -f "./scripts/util/init-minio-buckets.sh" ]; then
-        log_error "MinIO initialization script not found: ./scripts/util/init-minio-buckets.sh"
-        return 1
-    fi
-
-    # Retry loop for bucket initialization
-    local attempt=1
-    while [ $attempt -le $MAX_RETRIES ]; do
-        log_info "MinIO bucket initialization (Versuch ${attempt}/${MAX_RETRIES})..."
-
-        # Copy script to container
-        if ! docker cp ./scripts/util/init-minio-buckets.sh minio:/tmp/init-minio-buckets.sh; then
-            log_error "Failed to copy initialization script to MinIO container"
-            return 1
-        fi
-
-        # Execute script in container - capture exit code properly
-        # NOTE: "local var=$?" always returns 0 because local is a command.
-        # Use "cmd || exit_code=$?" pattern instead.
-        local exit_code=0
-        docker compose exec -T minio sh /tmp/init-minio-buckets.sh || exit_code=$?
-
-        # Clean up
-        docker compose exec -T minio rm -f /tmp/init-minio-buckets.sh 2>/dev/null || true
-
-        if [ $exit_code -eq 0 ]; then
-            log_success "MinIO buckets initialized successfully"
-            return 0
-        fi
-
-        if [ $attempt -lt $MAX_RETRIES ]; then
-            log_warning "MinIO bucket initialization failed (Versuch ${attempt}/${MAX_RETRIES})"
-            log_info "Warte ${RETRY_DELAY}s vor erneutem Versuch..."
-            sleep $RETRY_DELAY
-        fi
-
-        attempt=$((attempt + 1))
-    done
-
-    log_error "MinIO bucket initialization failed after ${MAX_RETRIES} attempts"
-    log_error "MinIO buckets are CRITICAL for platform operation (document storage, backups)"
-    log_error "Please check MinIO service: docker compose logs minio"
-    return 1
 }
 
 # Setup secrets directory and Basic Auth for proxied services
@@ -959,12 +879,6 @@ start_services() {
     log_info "Waiting for PostgreSQL..."
     wait_for_healthy postgres-db 60 "docker compose exec -T postgres-db pg_isready -U arasul" || true
 
-    docker compose up -d minio
-    log_info "Waiting for MinIO..."
-    if ! wait_for_healthy minio 60 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live"; then
-        log_warning "MinIO may not be ready yet - continuing with caution"
-    fi
-
     # Layer 2: Monitoring
     docker compose up -d metrics-collector
     wait_for_healthy metrics-collector 30 || true
@@ -1087,25 +1001,6 @@ run_smoke_tests() {
     else
         log_error "PostgreSQL: FAILED"
         failed=1
-    fi
-
-    # Test MinIO
-    log_info "Testing MinIO..."
-    if docker compose exec -T minio curl -f http://localhost:9000/minio/health/live &> /dev/null; then
-        log_success "MinIO: OK"
-
-        # Test MinIO buckets
-        log_info "Checking MinIO buckets..."
-        BUCKET_COUNT=$(docker compose exec -T minio mc ls local 2>/dev/null | wc -l || echo "0")
-        if [ "$BUCKET_COUNT" -gt 0 ]; then
-            log_success "MinIO Buckets: $BUCKET_COUNT buckets found"
-        else
-            log_warning "MinIO Buckets: No buckets found (will be created on first use)"
-            warnings=1
-        fi
-    else
-        log_warning "MinIO: Not responding (may still be initializing)"
-        warnings=1
     fi
 
     # Test LLM Service
@@ -1489,18 +1384,8 @@ cmd_bootstrap() {
     # 11. Services starten
     start_services
 
-    # 12. Warten auf Stabilisierung (MinIO muss bereit sein fuer Bucket-Init)
-    log_info "Warte auf Service-Stabilisierung..."
-    if ! wait_for_healthy minio 120 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live"; then
-        log_warning "MinIO may not be ready yet - continuing with caution"
-    fi
-
-    # 13. MinIO-Buckets erstellen
-    if ! init_minio_buckets; then
-        log_error "MinIO bucket initialization failed"
-        # Don't exit - log error but continue (non-fatal for bootstrap)
-        log_warning "MinIO buckets can be created manually later"
-    fi
+    # 12. MinIO-Buckets gab es hier bis zum 26.08.2026 (Phase B4 des
+    # Rueckbaus); der Objektspeicher ist weg, es gibt nichts mehr anzulegen.
 
     # 13b. --- Hook (Plan 001, Schritt 9): n8n-Agent-Vorlagen (optional) ------
     # Importiert die Agent-Workflow-Vorlagen und provisioniert qwen3:8b.

@@ -66,7 +66,6 @@ echo ""
 # Core infrastructure
 echo -e "${BOLD}Infrastruktur:${NC}"
 check "PostgreSQL erreichbar" docker compose exec -T postgres-db pg_isready -U arasul
-check "MinIO Health" curl -sf http://localhost:9000/minio/health/live
 check "Traefik Health" curl -sf --max-time 5 http://localhost:8080/ping
 echo ""
 
