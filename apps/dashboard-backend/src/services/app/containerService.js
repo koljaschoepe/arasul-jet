@@ -446,6 +446,13 @@ async function getAppLogs(appId, tail = 100) {
     // Convert buffer to string
     return logs.toString('utf8');
   } catch (error) {
+    // Die Zeile in app_installations sagt "installiert", Docker kennt den
+    // Container nicht: eine App, deren Container ausserhalb des Stores
+    // verschwunden ist (am 26.08.2026 auf dem Orin: minio, n8n, telegram-bot
+    // nach B4/B5). Das ist eine Antwort, kein Absturz, also 404 statt 500.
+    if (error.statusCode === 404) {
+      throw new NotFoundError(`Container der App ${appId} ist nicht vorhanden`);
+    }
     logger.error(`Error getting logs for ${appId}: ${error.message}`);
     throw error;
   }

@@ -333,6 +333,20 @@ describe('Container Service', () => {
       );
     });
 
+    test('ein verschwundener Container ist ein 404, kein Serverfehler', async () => {
+      // Am 26.08.2026 live gemessen: app_installations kannte minio noch,
+      // Docker nicht mehr. GET /api/apps/minio/logs antwortete mit 500.
+      db.query.mockResolvedValueOnce({ rows: [{ container_name: 'minio' }] });
+      const weg = new Error('(HTTP code 404) no such container');
+      weg.statusCode = 404;
+      mockContainer.logs.mockRejectedValueOnce(weg);
+
+      await expect(containerService.getAppLogs('minio')).rejects.toMatchObject({
+        statusCode: 404,
+        message: expect.stringContaining('nicht vorhanden'),
+      });
+    });
+
     test('returns info message for builtin apps', async () => {
       manifestService.loadManifests.mockResolvedValue({
         'beispiel-app': { builtin: true },
