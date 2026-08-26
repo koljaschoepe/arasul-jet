@@ -43,8 +43,8 @@ const ollama = circuitBreakers.get('ollama');
 const result = await ollama.execute(() => axios.post(`${LLM_URL}/api/generate`, body));
 ```
 
-Pre-registered: `ollama` (threshold 3), `embedding` (5),
-`minio` (5), all with 30 s reset timeout. State is exposed at
+Pre-registered: `ollama` (threshold 3) and `embedding` (5), both with 30 s
+reset timeout. State is exposed at
 `GET /api/system/circuit-breakers` (and inside the platform's healthcheck JSON).
 
 When a breaker is open, `.execute()` throws synchronously without calling
@@ -90,7 +90,7 @@ in the same PR.
 
 - Service crashes / unhealthy state → `services/self-healing-agent/`
   attempts recovery; outcomes land in `self_healing_events`.
-- `alertEngine.js` (backend) → Telegram on configured thresholds.
+- `alertEngine.js` (backend) → Webhook on configured thresholds.
 - New auto-recoverable failure mode → register a category handler in
   `services/self-healing-agent/category_handlers.py`.
 

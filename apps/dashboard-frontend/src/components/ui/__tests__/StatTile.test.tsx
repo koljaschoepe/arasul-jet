@@ -25,7 +25,7 @@ describe('StatTile', () => {
   });
 
   it('bleibt auf der Dichte-Skala, nicht auf Tailwinds Voreinstellung', () => {
-    // Der Systemstatus ist eine normierte Ansicht; DESIGN_SYSTEM.md schreibt
+    // Der Systemstatus ist eine normierte Ansicht; DESIGN.md schreibt
     // dort p-ui-3 als Karten-Innenabstand vor. Die Kachel steht unmittelbar
     // neben Flächen, die dieser Skala folgen.
     const { container } = render(<StatTile label="Temperatur" value="47" unit="°C" />);

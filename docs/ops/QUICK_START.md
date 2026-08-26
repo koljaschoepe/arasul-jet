@@ -63,11 +63,10 @@ Werkspasswort, das Ihnen jemand mitteilen muesste.
 
 Nach der Ersteinrichtung koennen Sie sofort:
 
-| Funktion          | Beschreibung                                   |
-| ----------------- | ---------------------------------------------- |
-| **Chat**          | KI-Assistent fuer Fragen und Analysen          |
-| **Dokumente**     | Dateien hochladen und mit KI durchsuchen (RAG) |
-| **Einstellungen** | System konfigurieren und anpassen              |
+| Funktion          | Beschreibung                                             |
+| ----------------- | -------------------------------------------------------- |
+| **Modelle**       | KI-Modelle aus dem Katalog laden und als Standard setzen |
+| **Einstellungen** | System konfigurieren, Fernzugriff, Updates, Sicherung    |
 
 ---
 

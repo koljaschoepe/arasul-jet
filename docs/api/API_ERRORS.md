@@ -196,7 +196,7 @@ Returned when API rate limits are exceeded.
 ```
 
 **Limit**: 10 requests per second
-**Endpoints**: `/api/llm/*`, `/api/embeddings/*`
+**Endpoints**: `/api/v1/external/llm/*`, `/api/embeddings`
 **Solution**: Reduce request frequency or implement client-side queueing
 
 ---
@@ -253,7 +253,7 @@ nicht 500:
 
 Vorher warf Postgres `22P02`, der Fehlerpfad kannte den Code nicht, und der
 Aufrufer bekam HTTP 500 mit der rohen Datenbankmeldung samt seiner eigenen
-Eingabe zurueck. Gefunden an `DELETE /api/sandbox/projects/:id`. Fuer den
+Eingabe zurueck. Gefunden an einer inzwischen entfernten Route. Fuer den
 Betreiber ist das der Unterschied zwischen "ich habe mich vertippt" und "das
 Geraet ist kaputt".
 

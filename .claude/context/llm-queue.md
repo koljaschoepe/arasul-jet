@@ -10,13 +10,13 @@
 services/llm/
   llmQueueService.js   FIFO + priority queue. EventEmitter. Single-stream guard.
   llmJobService.js     CRUD on llm_jobs (the persistent backing table).
-  llmJobProcessor.js   processChatJob() / processRAGJob() / onJobComplete().
+  llmJobProcessor.js   processChatJob(): Bilder, Modellwahl, Uebergabe an den Strom.
   llmOllamaStream.js   The actual SSE pump from Ollama → DB → subscribers.
   AsyncMutex.js        Used for the enqueue critical section.
   ollamaReadiness.js   quickCheck() — circuit-breaker-aware health probe.
   modelService.js      Model catalog + capability lookups.
   modelLifecycleService.js Resident-model eviction + hot-swap.
-  systemPromptBuilder.js   Per-conversation system prompt assembly.
+  systemPromptBuilder.js   System prompt assembly (Firmenprofil + Basis-Prompt).
   queryComplexityAnalyzer.js  Classifier for routing simple/complex queries.
 ```
 
@@ -24,13 +24,13 @@ services/llm/
 
 ```javascript
 const { jobId, queuePosition } = await llmQueueService.enqueue(
-  conversationId,
-  jobType, // 'chat' | 'rag'
-  requestData, // { prompt, model, sources?, ... }
+  userId, // Besitzer des Auftrags: der Ersteller des API-Schluessels
+  jobType, // 'chat'
+  requestData, // { prompt, model, images?, ... }
   { priority: 0, maxWaitSeconds: 120 }
 );
 
-// Subscribe to the job's stream — same on the chat route and RAG route
+// Subscribe to the job's stream — the external API and the OpenAI shim do the same
 const subscription = llmQueueService.subscribe(jobId, ssePusher);
 req.on('close', () => subscription.unsubscribe());
 ```
@@ -54,8 +54,9 @@ req.on('close', () => subscription.unsubscribe());
   subscription's `unsubscribe()`. The processor checks the subscriber count
   and stops the underlying axios stream when it hits zero.
 - **Persist before stream**: every job becomes a row in `llm_jobs`
-  (see Mig 006/008) before the queue starts pumping tokens. The job row
-  is the source of truth for resume-after-tab-switch.
+  (see Mig 006/008, owner since 165) before the queue starts pumping tokens.
+  The job row is the source of truth; `cleanup_old_llm_jobs()` removes it an
+  hour after it ends.
 
 ## SSE — the platform pattern
 
@@ -93,8 +94,7 @@ frame yourself before closing if something goes wrong mid-stream.
 
 ## When you change LLM/queue code
 
-- New `jobType` → also touch `processJob()` switch in `llmJobProcessor.js`,
-  the schema in `schemas/llm.js`, and the API doc.
+- New `jobType` → also touch `llmJobProcessor.js` and the API doc.
 - New job-state transition → update Mig 006/008 view if affected, plus
   `llm_jobs.status` enum if you added a value.
 - A new model capability → add to `modelService.js` + Mig `0XX_*.sql` for

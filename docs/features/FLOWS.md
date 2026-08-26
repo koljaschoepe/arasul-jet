@@ -1,14 +1,8 @@
 # Flows
 
-> **Stand 26.08.2026, Phase B4 des Umbaus:** Die Oberfläche zu Flows ist mit
-> B2 (Slash-Menü im Chat) und B3 (Flow-Editor, Flow-Übersicht, Flow-Zentrale,
-> Lauf-Detailansicht) aus dem Frontend gefallen. Mit B4 sind die
-> Argumenttypen `datei`, `wissensbasis` und `ordner`, die Werkzeuge
-> `rag_suche`, `terminal` und `rechnung_erstellen`, projektgebundene Flows
-> und die `projekt://`-Ordner gegangen, weil Wissensbasis, Projekte und
-> Sandbox nicht mehr existieren. Diese Seite beschreibt, was die Engine heute
-> tut; bedient wird sie über die API. Wie Läufe im Zielbild gelesen werden,
-> legt D4 fest.
+> Diese Seite beschreibt, was die Flow-Engine tut. Bedient wird sie über die
+> API; eine Oberfläche dafür gibt es seit dem Umbau vom 26.08.2026 nicht. Wie
+> Läufe im Zielbild gelesen werden, legt Phase D4 des Überordner-Plans fest.
 
 Ein **Flow** ist eine vorkonfigurierte Aufgabe, die das lokale Modell mit
 Werkzeugen ausführt. Technisch ist ein Flow eine Markdown-Datei mit
@@ -21,21 +15,21 @@ auf die Platte kommt.
 
 ```yaml
 ---
-name: recherche
-beschreibung: Recherchiert ein Thema im Web und fasst es zusammen.
+name: zusammenfassung
+beschreibung: Liest die Dateien im Arbeitsordner und fasst sie zu einem Thema zusammen.
 modell: gemma4:26b-q4 # optional, sonst das Standardmodell
 argumente:
   - name: thema
     typ: freitext # freitext | auswahl
-    beschreibung: Das zu recherchierende Thema
+    beschreibung: Das Thema, unter dem zusammengefasst wird
     pflicht: true
 ordner: [/arasul/flows/arbeit/demo] # absolute Pfade im Backend-Container; der ERSTE ist das Arbeitsverzeichnis
-werkzeuge: [web_suche, web_lesen, subagent]
+werkzeuge: [dateien_lesen, dateien_suchen, subagent]
 rollen:
   - name: leser
-    werkzeuge: [web_lesen] # nie mehr als der Flow selbst darf
+    werkzeuge: [dateien_lesen] # nie mehr als der Flow selbst darf
     ergebnis: { felder: [fakten], max_zeichen: 2000 }
-    prompt: Lies die Seite und gib nur die belegten Fakten zurück.
+    prompt: Lies die Datei und gib nur die belegten Fakten zurück.
 grenzen:
   max_aufrufe: 20 # Subagent-Aufrufe über ALLE Ebenen
   zeitlimit_s: 900
@@ -63,8 +57,8 @@ Dateiname).
 ### Werkzeuge
 
 `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`,
-`dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `web_suche`,
-`web_lesen`, `subagent`, `frage_nutzer`. Ein Flow bekommt **genau** die
+`dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `subagent`,
+`frage_nutzer`. Ein Flow bekommt **genau** die
 deklarierten Werkzeuge; ein unbekannter Name ist ein Schreibfehler und wird
 beim Speichern abgewiesen.
 
@@ -90,7 +84,7 @@ beim Speichern abgewiesen.
 
 Eine Rolle liefert ihr Ergebnis **ausschließlich** in den unter `ergebnis.felder`
 deklarierten Feldern, hart auf `max_zeichen` gekappt. Die Rohdaten (ganze
-Seiteninhalte, Dateitexte) stehen nur im Lauf-Protokoll, erreichen aber nie den
+Dateitexte) stehen nur im Lauf-Protokoll, erreichen aber nie den
 Orchestrator-Kontext. Das ist der Hebel, mit dem ein kleines lokales Modell wie
 ein großes wirkt: gezielt wenig Kontext statt „alles ins Modell".
 
@@ -104,10 +98,10 @@ die lädt `?raw=1` nach).
 **`runden` je Rolle.** Eine Rolle erbt ohne eigene Angabe die
 `werkzeug_runden` des Flows, und zwar bei **jeder** Delegation. Mit
 `runden: <1..20>` bekommt sie ein eigenes, kleineres Budget; größer als das
-des Flows wird es nie. Am 22.08.2026 auf dem Orin gemessen: die Rolle
-`sucher` des `recherche`-Flows erbte zwölf Runden und rief `web_suche`
-26-mal auf, obwohl ihr Prompt drei bis fünf URLs verlangt. Eine Rolle, die
-genau eine Suche machen soll, bekommt `runden: 1`.
+des Flows wird es nie. Am 22.08.2026 auf dem Orin gemessen: eine Such-Rolle
+erbte zwölf Runden und rief ihr Suchwerkzeug 26-mal auf, obwohl ihr Prompt
+drei bis fünf Treffer verlangte. Eine Rolle, die genau eine Suche machen
+soll, bekommt `runden: 1`.
 
 ### Schritt-Kette (deterministische Orchestrierung)
 
@@ -120,12 +114,12 @@ schritte:
   - name: suchen # eindeutiger Schrittname (dient zugleich als {{platzhalter}})
     typ: subagent # an eine deklarierte Rolle delegieren
     rolle: sucher
-    auftrag: Finde relevante Seiten zum Thema {{thema}}.
+    auftrag: Finde die Dateien zum Thema {{thema}}.
   - name: lesen
     typ: subagent
     rolle: leser
     auftrag: |
-      Lies die genannten Seiten und gib die Fakten samt Quelle zurück:
+      Lies die genannten Dateien und gib die Fakten samt Fundstelle zurück:
       {{suchen}} # die Ausgabe des Schritts „suchen"
     iterationen: 1 # Schritt bis zu N-mal wiederholen (Standard 1)
   - name: aufraeumen
@@ -213,9 +207,7 @@ Prompt; eine gelöschte Vorlage wird still übersprungen.
   `wait_for_result: false`). So triggert ein Fremdsystem einen Flow und liest
   die Antwort.
 - **Zeitpläne.** Wiederkehrende Starts (Cron) kommen von außen über dieselbe
-  Trigger-URL; seit Phase B5 (26.08.2026) gibt es dafür kein n8n mehr auf dem
-  Gerät. Der frühere eingebaute Zeitplan-Mechanismus (`flow_schedules`) wurde
-  am 2026-07-28 ersatzlos entfernt (Migration 123).
+  Trigger-URL; das Gerät hat keinen eigenen Zeitplaner.
 
 ## Zwei Betriebsarten (Plan 023 I2)
 

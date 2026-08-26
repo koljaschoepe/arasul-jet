@@ -18,19 +18,15 @@ src/
   features/        Domain-organized UI. One folder per top-level route.
     settings/  store/  system/
     workspace/     Die Shell (Dreispalten-Raster, **immer aktiv** — `/` landet
-                   nach Login stets auf `/workspace`; es gibt keinen Fallback-Flag
-                   mehr). Seit Phase B2 (26.08.2026) sind Editor, Datei-Explorer,
-                   Agent-Chat, Terminal und Sandbox aus der Oberfläche gefallen,
-                   seit Phase B3 auch Flow-Editor, Erweiterungs-Store und der Tab
-                   einer installierten Erweiterung; die linke Spalte ist ohne
-                   gewählte Ansicht leer, die rechte Spalte ganz. Das Raster
-                   bleibt, D1/D2 füllen die Spalten neu.
+                   nach Login stets auf `/workspace`). Die linke Spalte ist
+                   ohne gewählte Ansicht leer, die rechte Spalte ganz; das
+                   Zielbild (links Apps, Mitte Dashboard oder App, rechts
+                   Notizen) füllen D1/D2 des Überordner-Plans.
                    WorkspaceMenuBar (Marke + **zwei** Layout-Toggles [Sidebar,
                    rechte Spalte] + Settings oben rechts), ActivityBar (eigene,
                    **immer sichtbare** schmale Spalte ganz links — außerhalb des
                    einklappbaren Panels — mit der Ansicht **Modelle** und dem
-                   Einstellungen-Zahnrad unten — Plan 012 Phase B; die
-                   Kern-App-Einträge, zuletzt n8n, sind mit Phase B5 gefallen),
+                   Einstellungen-Zahnrad unten),
                    SidebarHost
                    (Sidebar), Tab-Bar/-Content (Mitte), RightPanel (rechts,
                    leer), StatusBar (Modell + KI-RAM). Feature-Tabs laufen je in
@@ -38,10 +34,9 @@ src/
                    Cross-Feature-Links übersetzt die TabBridge in Tab-Öffnungen.
                    • **Tab-Typen** — `settings`, `modelle`
                      (`stores/workspaceStore.ts`, v9). Jeder Typ ist ein
-                     Singleton, `tabId()` ist der Typ. Alte Stände mit
-                     `erweiterungen`/`flow`/`extension` (v7) und `automationen`
-                     (v8) fallen in der Migration, ein alter `store`-Tab wird
-                     zu `modelle`.
+                     Singleton, `tabId()` ist der Typ. Unbekannte Typen aus
+                     alten Ständen (v7/v8) fallen in der Store-Migration, ein
+                     alter `store`-Tab wird zu `modelle`.
                    • **RightPanel** — leere Fläche mit Schließen-Knopf; die Shell
                      versteckt sie per `data-shell-hidden` (nie unmounten).
                      Zustand im Store: `rightPanelVisible`.
@@ -49,8 +44,7 @@ src/
                      Activity-Bar-Ansicht (`activeView`, Store): models → Modell-
                      Filter, settings → Bereiche der Einstellungen
                      (`features/workspace/sidebar/*Panel.tsx`); `null` (kein
-                     Klick, alte Werte wie 'files'/'extensions'/'flows') → leere
-                     Spalte. Die Bar wählt die Ansicht, `sidebarVisible` steuert
+                     Klick, unbekannte alte Werte) → leere Spalte. Die Bar wählt die Ansicht, `sidebarVisible` steuert
                      nur das Auf/Zu (⌘B / erneuter Klick).
                    • **Modelle** — EIN Mitte-Tab (`modelle`, innerer Pfad
                      `/store`), Full-Width-Kartenraster (StoreModelsGrid); ein
@@ -60,17 +54,14 @@ src/
                      Sidebar (StoreModelsFilterPanel), das Raster liest sie aus
                      dem `storeFilterStore` (Plan 012 Phase C); die Auswahl
                      (Karte oder Deep-Link `/store/models?highlight=…`) läuft
-                     über den ephemeren `extensionStore` (`kind:'model'`). Der
-                     alte `/store/apps`-Link landet wie jeder unbekannte Pfad
-                     auf dem Raster.
-                   • **Kern-Apps** — gibt es seit Phase B5 nicht mehr
-                     (`useWorkspaceApps`, `/workspace-apps`, Tabelle
-                     `platform_apps` sind weg); D1 baut die App-Liste auf dem
-                     App-Modell aus C3 neu.
+                     über den ephemeren `extensionStore` (`kind:'model'`). Ein
+                     unbekannter Pfad landet auf dem Raster.
+                   • **Apps** — die App-Liste der linken Spalte baut D1 auf dem
+                     App-Modell aus C3; heute gibt es keine.
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung
                      nur über Borders. `--card` bleibt erhabenen Elementen
-                     vorbehalten (siehe DESIGN_SYSTEM.md, Regel „eine
+                     vorbehalten (siehe DESIGN.md, Regel „eine
                      Flächenfarbe").
   components/
     ui/            App-wide primitives (Modal, ErrorBoundary, …). Darunter das
@@ -82,7 +73,7 @@ src/
                    Einstieg) und AuthCard (Rahmen der beiden Seiten vor der
                    Anmeldung, C3). Eine neue Seite baut auf diesen sieben auf,
                    statt die Klassenkette erneut zu schreiben; Festlegungen in
-                   `docs/development/DESIGN_SYSTEM.md`, Abschnitt
+                   `docs/development/DESIGN.md`, Abschnitt
                    „Das gemeinsame Baustein-Set".
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
     mascot/        Das Maskottchen.
@@ -196,7 +187,7 @@ Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via
 
 | You changed…                          | Also update                                                                                                                |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| A theme token / new color/radius/font | `docs/development/DESIGN_SYSTEM.md`                                                                                        |
+| A theme token / new color/radius/font | `docs/development/DESIGN.md`                                                                                               |
 | A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                               |
 | Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                      |
 | Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |

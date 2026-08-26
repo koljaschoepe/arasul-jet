@@ -11,7 +11,7 @@
 2. [Web-Oberflaeche nicht erreichbar](#2-web-oberflaeche-nicht-erreichbar)
 3. [Login funktioniert nicht](#3-login-funktioniert-nicht)
 4. [KI antwortet nicht](#4-ki-antwortet-nicht)
-5. [Dokumente werden nicht indexiert](#5-dokumente-werden-nicht-indexiert)
+5. [Text-Extraktion schlaegt fehl](#5-text-extraktion-schlaegt-fehl)
 6. [Speicherplatz voll](#6-speicherplatz-voll)
 7. [System ist langsam](#7-system-ist-langsam)
 8. [Backup/Restore Probleme](#8-backuprestore-probleme)
@@ -166,33 +166,31 @@ tegrastats
 
 ---
 
-## 5. Dokumente werden nicht indexiert
+## 5. Text-Extraktion schlaegt fehl
 
 ### Symptom
 
-Hochgeladene Dokumente erscheinen nicht in der RAG-Suche.
+`POST /api/v1/external/document/extract` (oder `document/analyze`) antwortet mit
+503 oder liefert leeren Text.
 
 ### Loesung
 
-**Schritt 1: Embedding-Service pruefen**
-
-```bash
-docker compose ps embedding-service
-docker compose logs --tail=20 embedding-service
-```
-
-**Schritt 2: Document-Indexer pruefen**
+**Schritt 1: Document-Indexer pruefen**
 
 ```bash
 docker compose ps document-indexer
 docker compose logs --tail=20 document-indexer
+curl -s http://localhost:9102/health
 ```
 
-**Schritt 4: Alle indexieren**
+**Schritt 2: Neu starten**
 
 ```bash
-docker compose restart document-indexer embedding-service
+docker compose restart document-indexer
 ```
+
+Bildbasierte PDFs laufen durch Tesseract-OCR (`OCR_LANGS`, Standard `deu+eng`);
+eine leere Antwort bei einem Scan heisst meist: Sprache nicht installiert.
 
 ---
 

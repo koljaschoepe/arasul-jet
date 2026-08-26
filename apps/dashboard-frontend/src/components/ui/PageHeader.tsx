@@ -5,7 +5,7 @@
  * Klassenkette trugen und trotzdem auseinanderliefen: `ServicesSettings` und
  * `UpdatePage` setzen `text-xl`, die sechs Einstellungsbereiche `text-2xl`.
  * Verbindlich ist `text-2xl`, denn die Typografie-Tabelle in
- * `docs/development/DESIGN_SYSTEM.md` gibt für den Seiten-Titel 1.5rem an.
+ * `docs/development/DESIGN.md` gibt für den Seiten-Titel 1.5rem an.
  *
  * Das optionale Symbol gibt es, seit der Werksreset auf diesen Baustein
  * gezogen wurde: dort stand ein Warnzeichen neben dem Titel, und auf einer

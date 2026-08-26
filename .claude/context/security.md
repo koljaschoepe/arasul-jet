@@ -104,7 +104,7 @@ Services lesen via `_FILE` Pattern:
 ```
 
 **Startup gate** (`src/index.js`): refuses to boot in production if
-`JWT_SECRET < 32`, `POSTGRES_PASSWORD < 16`, `MINIO_ROOT_PASSWORD < 16`,
+`JWT_SECRET < 32`, `POSTGRES_PASSWORD < 16`,
 or any contains `dev|test|default|example|changeme|password`.
 
 ---
@@ -123,20 +123,11 @@ db.query('SELECT * FROM users WHERE id = $1', [userId]);
 
 ### File Upload Security
 
-```javascript
-// src/routes/documents.js
-const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-
-function sanitizeFilename(filename) {
-  // Removes: ../, ./, /, <>"'|?*\x00-\x1F, leading dots
-  // Truncates to 200 chars
-}
-
-function isValidMinioPath(filePath) {
-  // Checks for: .., ./, leading /, \, null bytes
-}
-```
+Der einzige Upload ist die Extraktion über die externe API
+(`routes/external/externalApi.js`, `document/extract`): multipart im Speicher,
+Groesse nach `DOCUMENT_MAX_SIZE_MB`, die Datei geht direkt an den
+`document-indexer` und wird nirgends abgelegt. Dateinamen aus der Anfrage
+werden nie als Pfad benutzt.
 
 ### ORDER BY Injection Prevention
 
@@ -168,7 +159,7 @@ const SENSITIVE_FIELDS = ['password', 'token', 'api_key', 'secret', 'bot_token',
 ## Container hardening
 
 `no-new-privileges`, `cap_drop: [ALL]` + selective `cap_add`, read-only
-root FS where possible (Traefik / Frontend / Loki / Promtail), tmpfs
+root FS where possible (Traefik / Frontend), tmpfs
 `noexec,nosuid` for `/tmp`, Docker socket proxy (tecnativa) for
 controlled Docker API access, non-root users everywhere, no privileged
 containers.

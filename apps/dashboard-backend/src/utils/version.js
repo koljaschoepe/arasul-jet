@@ -20,8 +20,10 @@
  *   'unknown' schrieben, nehmen jetzt denselben Wert wie die uebrigen
  *   Schreiber derselben Spalte.
  *
- * Sobald die Auslieferung versioniert ist (Ziel J3 im Steuer-Repo, Frist
- * 15.09.2026), setzt der Bau `SYSTEM_VERSION`, und beide liefern dieselbe Zahl.
+ * Sobald die Auslieferung versioniert ist, setzt der Bau `SYSTEM_VERSION`,
+ * und beide liefern dieselbe Zahl. Bis dahin ist die Vergleichszahl `0.0.0`
+ * (Phase B7 des Umbaus, 26.08.2026): ein Geraet ohne Version ist aelter als
+ * jede Fassung, die je ausgeliefert wird.
  */
 
 /** Was ein Mensch liest. Ohne gesetzte Version die Wahrheit ueber die Reife. */
@@ -33,17 +35,16 @@ function versionFuerAnzeige() {
 /**
  * Was verglichen und protokolliert wird. Bleibt eine Zahl.
  *
- * Der Rueckfall ist bewusst weiter '1.0.0' und nicht '0.0.0', obwohl '0.0.0'
- * ehrlicher waere. `updateService.checkForUpdates` vergleicht diesen Wert mit
- * der angebotenen Fassung; ein Wechsel auf '0.0.0' wuerde auf jedem Geraet
- * ohne gesetzte Version plötzlich jede Fassung als neuer gelten lassen. Das
- * ist eine Aenderung am Aktualisierungsverhalten und gehoert zu Ziel J3, nicht
- * in einen Schritt ueber Beschriftungen. Bis dahin luegt nur noch die
- * Vergleichszahl, und die liest kein Mensch.
+ * Der Rueckfall war bis Phase B7 '1.0.0', aus Vorsicht: `updateService`
+ * vergleicht diesen Wert mit der angebotenen Fassung, und mit '0.0.0' gilt
+ * auf einem Geraet ohne gesetzte Version jede Fassung als neuer. Genau das
+ * stimmt aber: eine Vorserie hat keine Fassung, jede ausgelieferte ist neuer.
+ * Die Kehrseite steht in `validateManifest`: ein Paket mit `min_version`
+ * ueber 0.0.0 lehnt ein Vorseriengeraet ab, bis `SYSTEM_VERSION` gesetzt ist.
  */
 function versionFuerVergleich() {
   const gesetzt = process.env.SYSTEM_VERSION;
-  return gesetzt && gesetzt.trim() ? gesetzt.trim() : '1.0.0';
+  return gesetzt && gesetzt.trim() ? gesetzt.trim() : '0.0.0';
 }
 
 module.exports = { versionFuerAnzeige, versionFuerVergleich };

@@ -21,7 +21,7 @@ Development workflows, patterns, API usage, and debugging for the Arasul Platfor
 | Database schema     | `docs/api/DATABASE_SCHEMA.md`, add migration     |
 | New env variable    | `docs/ENVIRONMENT_VARIABLES.md`, `.env.template` |
 | Architecture change | `docs/ARCHITECTURE.md`                           |
-| Frontend component  | Follow `docs/development/DESIGN_SYSTEM.md`       |
+| Frontend component  | Follow `docs/development/DESIGN.md`              |
 
 ---
 
@@ -184,10 +184,9 @@ api.get('/endpoint', { raw: true }); // Raw Response (for blobs, SSE)
 
 ### Design System
 
-- Primary: `var(--primary-color)` (#45ADFF)
-- Background: `var(--bg-dark)` (#101923) / `var(--bg-card)` (#1A2330)
-- Never use hardcoded hex in JSX - always use CSS variables
-- Full reference: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
+- Colors only through tokens (`bg-background`, `bg-card`, `text-muted-foreground`, `bg-primary`)
+- Never use hardcoded hex in JSX or CSS — the values live in `src/index.css`
+- Rules, palette, density scale, building blocks: [DESIGN.md](DESIGN.md)
 
 ### Component Structure
 
@@ -285,9 +284,9 @@ curl -H "Authorization: Bearer <token>" -H "Accept: text/event-stream" \
 
 ### LLM (externe API)
 
-Den Oberflächen-Chat (`/api/llm/chat`, `/api/chats`) gibt es seit Phase B6
-(26.08.2026) nicht mehr. Aufträge an das Sprachmodell laufen über die externe
-API mit API-Schlüssel, siehe `docs/api/API_REFERENCE.md`, Abschnitt External API.
+Aufträge an das Sprachmodell laufen über die externe API mit API-Schlüssel,
+siehe `docs/api/API_REFERENCE.md`, Abschnitt External API; die Oberfläche hat
+keinen eigenen Chat.
 
 | Method | Path                              | Auth    | Description             |
 | ------ | --------------------------------- | ------- | ----------------------- |
@@ -353,11 +352,11 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 # Ensure runtime: nvidia in docker-compose.yml
 ```
 
-### RAG Not Working
+### Text Extraction Not Working
 
 ```bash
-docker compose logs document-indexer              # Check indexer
-docker compose logs embedding-service             # Check embeddings
+docker compose logs document-indexer              # POST /extract-text
+curl -s http://localhost:9102/health
 ```
 
 ### Traefik Routing Issues
@@ -396,7 +395,7 @@ See [`docs/ops/TROUBLESHOOTING.md`](../ops/TROUBLESHOOTING.md).
 1. Create in appropriate `apps/dashboard-frontend/src/features/` directory
 2. Export from barrel file (`index.js`)
 3. Add route in `App.js` if needed
-4. Follow [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) guidelines
+4. Follow [DESIGN.md](DESIGN.md) guidelines
 
 ---
 
@@ -418,6 +417,6 @@ Kein separater "Skalierungscode" noetig. `git pull && docker compose up -d --bui
 
 - [API_REFERENCE.md](../api/API_REFERENCE.md) - Full endpoint reference
 - [API_ERRORS.md](../api/API_ERRORS.md) - Error codes & handling
-- [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) - Frontend design guidelines
+- [DESIGN.md](DESIGN.md) - Frontend design guidelines
 - [DATABASE_SCHEMA.md](../api/DATABASE_SCHEMA.md) - Database tables
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture

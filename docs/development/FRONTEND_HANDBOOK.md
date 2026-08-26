@@ -414,8 +414,7 @@ import ErrorBoundary, { RouteErrorBoundary, ComponentErrorBoundary } from '@/com
 ### shadcn/ui Components
 
 All shadcn components are in `@/components/ui/shadcn/`. Import directly.
-Es gibt genau die dreizehn Bausteine, die dort liegen (Stand Phase B5,
-26.08.2026); `tabs`, `separator`, `skeleton`, `dropdown-menu`, `tooltip` und
+Es gibt genau die dreizehn Bausteine, die dort liegen (Stand 26.08.2026); `tabs`, `separator`, `skeleton`, `dropdown-menu`, `tooltip` und
 `table` sind nicht installiert. Wer einen braucht, holt ihn mit
 `npx shadcn@latest add <name>`, nicht von Hand:
 

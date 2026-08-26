@@ -7,7 +7,7 @@
  * 1. Kein Icon. Ein Herz neben "Arbeitsspeicher" trägt nichts bei, was die
  *    Beschriftung nicht schon sagt, kostet aber ein Drittel der Kachelbreite.
  * Abstände und Schriftgrößen kommen aus der Dichte-Skala (`*-ui-*`), nicht
- * aus der Tailwind-Voreinstellung. `docs/development/DESIGN_SYSTEM.md` schreibt
+ * aus der Tailwind-Voreinstellung. `docs/development/DESIGN.md` schreibt
  * sie für normierte Ansichten vor, und der Systemstatus ist eine davon; er
  * stammt aus der entfernten Dashboard-Startseite. Der abgelöste `StatCard`
  * folgte ihr, und die Kachel steht unmittelbar neben Flächen, die es weiter

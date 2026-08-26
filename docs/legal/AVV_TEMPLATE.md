@@ -48,8 +48,8 @@ die Bereitstellung der Arasul-Appliance.
 
 Der Auftragnehmer verarbeitet personenbezogene Daten ausschließlich zu folgenden Zwecken:
 
-- Betrieb der KI-Inferenz, Embeddings, RAG-Anfragen
-- Speicherung von Chat-Verläufen und Flow-Definitionen
+- Betrieb der KI-Inferenz und Embeddings
+- Speicherung von Flow-Definitionen und Flow-Läufen
 - Verarbeitung eingehender Aufrufe der externen API (Flow-Starts)
 - Telemetrie für Self-Healing, Backup und Monitoring (lokal, kein Versand)
 - Remote-Wartung und Software-Updates (nur auf ausdrückliche Anforderung des Auftraggebers)
@@ -61,8 +61,8 @@ Der Auftragnehmer verarbeitet personenbezogene Daten ausschließlich zu folgende
 **Art der personenbezogenen Daten:**
 
 - Stammdaten (Name, Kontaktdaten, Berufs-/Tätigkeitsdaten)
-- Kommunikationsinhalte (Chats mit dem KI-Assistenten)
-- Dokumenteninhalte (vom Auftraggeber hochgeladene Dokumente, RAG-Index)
+- Eingaben und Ergebnisse von Flow-Läufen
+- Dokumenteninhalte (zur Text-Extraktion übergebene Dateien; sie werden nicht gespeichert)
 - Authentifizierungsdaten (Hash der Passwörter, JWT-Token, Bot-Tokens, OAuth-Tokens)
 - Nutzungsdaten (Zeitpunkt, Modell, Tokenanzahl, Workflow-Ausführungen)
 

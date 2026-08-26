@@ -1,6 +1,6 @@
 {
   "name": "arasul-dashboard-backend",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Arasul Platform Dashboard Backend API",
   "main": "src/index.js",
   "scripts": {

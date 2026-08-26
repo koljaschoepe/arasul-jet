@@ -34,38 +34,45 @@ docs/
 
 ## Development
 
-| Document                                                       | Topic                                            |
-| -------------------------------------------------------------- | ------------------------------------------------ |
-| [`development/ONBOARDING.md`](development/ONBOARDING.md)       | 30-min cold-clone-to-first-PR walkthrough        |
-| [`development/DEVELOPMENT.md`](development/DEVELOPMENT.md)     | Backend + frontend patterns, debugging, hooks    |
-| [`development/TESTING.md`](development/TESTING.md)             | Jest + Vitest + pytest workflows, coverage       |
-| [`development/DESIGN_SYSTEM.md`](development/DESIGN_SYSTEM.md) | Frontend design tokens, theming, mandatory rules |
+| Document                                                               | Topic                                                   |
+| ---------------------------------------------------------------------- | ------------------------------------------------------- |
+| [`development/ONBOARDING.md`](development/ONBOARDING.md)               | 30-min cold-clone-to-first-PR walkthrough               |
+| [`development/DEVELOPMENT.md`](development/DEVELOPMENT.md)             | Backend + frontend patterns, debugging, hooks           |
+| [`development/TESTING.md`](development/TESTING.md)                     | Jest + Vitest + pytest workflows, coverage              |
+| [`development/DESIGN.md`](development/DESIGN.md)                       | Das Design: Palette, Themes, Maße, Baustein-Set, Regeln |
+| [`development/FRONTEND_HANDBOOK.md`](development/FRONTEND_HANDBOOK.md) | Frontend patterns, folder layout, testing               |
+| [`development/PYTHON_SERVICES.md`](development/PYTHON_SERVICES.md)     | LLM service, embedding service, document indexer        |
+| [`CICD.md`](CICD.md)                                                   | CI checks, deploy workflow, local deploy script         |
 
 ---
 
 ## API reference
 
-| Document                                           | Topic                                             |
-| -------------------------------------------------- | ------------------------------------------------- |
-| [`api/API_REFERENCE.md`](api/API_REFERENCE.md)     | REST endpoint catalog, request/response shapes    |
-| [`api/API_ERRORS.md`](api/API_ERRORS.md)           | Error code catalog and client handling            |
-| [`api/DATABASE_SCHEMA.md`](api/DATABASE_SCHEMA.md) | Postgres tables, relationships, migration history |
+| Document                                             | Topic                                              |
+| ---------------------------------------------------- | -------------------------------------------------- |
+| [`api/API_REFERENCE.md`](api/API_REFERENCE.md)       | REST endpoint catalog, request/response shapes     |
+| [`api/API_ERRORS.md`](api/API_ERRORS.md)             | Error code catalog and client handling             |
+| [`api/DATABASE_SCHEMA.md`](api/DATABASE_SCHEMA.md)   | Postgres tables, relationships, migration history  |
+| [`api/DATABASE_DOMAINS.md`](api/DATABASE_DOMAINS.md) | Tables grouped by domain, retention, key functions |
 
 ---
 
 ## Operations
 
-| Document                                                 | Topic                                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                 | Install (interactive / factory / non-interactive), pre-shipping checklist, hardening |
-| [`ops/QUICK_START.md`](ops/QUICK_START.md)               | Customer quick start (German, end-user-facing)                                       |
-| [`ops/ADMIN_HANDBUCH.md`](ops/ADMIN_HANDBUCH.md)         | Operator handbook (German, 12 chapters)                                              |
-| [`ops/TROUBLESHOOTING.md`](ops/TROUBLESHOOTING.md)       | Symptom-to-fix lookup                                                                |
-| [`ops/UPDATE_SYSTEM.md`](ops/UPDATE_SYSTEM.md)           | OTA / package update mechanism                                                       |
-| [`ops/REMOTE_MAINTENANCE.md`](ops/REMOTE_MAINTENANCE.md) | SSH, Cloudflared, VPN setup                                                          |
-| [`ops/LOGGING.md`](ops/LOGGING.md)                       | Logger configuration, log paths, rotation                                            |
-| [`ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md)           | Automated backup engine                                                              |
-| [`ops/DISASTER_RECOVERY.md`](ops/DISASTER_RECOVERY.md)   | DR runbooks, restore procedures                                                      |
+| Document                                                           | Topic                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (interactive / factory / non-interactive), pre-shipping checklist, hardening |
+| [`ops/QUICK_START.md`](ops/QUICK_START.md)                         | Customer quick start (German, end-user-facing)                                       |
+| [`ops/ADMIN_HANDBUCH.md`](ops/ADMIN_HANDBUCH.md)                   | Operator handbook (German, 8 chapters)                                               |
+| [`ops/TROUBLESHOOTING.md`](ops/TROUBLESHOOTING.md)                 | Symptom-to-fix lookup                                                                |
+| [`ops/UPDATE_SYSTEM.md`](ops/UPDATE_SYSTEM.md)                     | OTA / package update mechanism                                                       |
+| [`ops/REMOTE_MAINTENANCE.md`](ops/REMOTE_MAINTENANCE.md)           | SSH, Cloudflared, VPN setup                                                          |
+| [`ops/LOGGING.md`](ops/LOGGING.md)                                 | Logger configuration, log paths, rotation                                            |
+| [`ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md)                     | Automated backup engine                                                              |
+| [`ops/DISASTER_RECOVERY.md`](ops/DISASTER_RECOVERY.md)             | DR runbooks, restore procedures                                                      |
+| [`ops/INFRASTRUCTURE.md`](ops/INFRASTRUCTURE.md)                   | Containers, networks, volumes, startup order                                         |
+| [`ops/FRESH_INSTALL_CHECKLIST.md`](ops/FRESH_INSTALL_CHECKLIST.md) | Checklist for a fresh device                                                         |
+| [`legal/`](legal/README.md)                                        | AVV template, privacy modules (German)                                               |
 
 ---
 
@@ -74,7 +81,6 @@ docs/
 | Document                                                                             | Topic                                                              |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | [`features/FLOWS.md`](features/FLOWS.md)                                             | Flows: Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger |
-| [`features/WORKSPACE.md`](features/WORKSPACE.md)                                     | Workspace: was nach Phase B4 davon bleibt                          |
 | [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                                    |
 | [`features/PLATFORM_COMPATIBILITY.md`](features/PLATFORM_COMPATIBILITY.md)           | Multi-device support, GPU error handling                           |
 

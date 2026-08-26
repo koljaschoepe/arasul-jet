@@ -40,7 +40,7 @@ For operators deploying to a customer appliance, see [`docs/ops/DEPLOYMENT.md`](
   - `docs/<slug>` — docs-only
   - `chore/<slug>` — tooling, configuration, dependencies
   - `test/<slug>` — test-only
-- Examples: `feat/telegram-multi-bot`, `fix/rag-cite-parser`, `refactor/llm-queue-single-stream`, `docs/onboarding-rewrite`.
+- Examples: `feat/app-manifest`, `fix/flow-run-stream`, `refactor/llm-queue-single-stream`, `docs/onboarding-rewrite`.
 - Keep branches short-lived (≤ 1 week); rebase frequently against `main`.
 
 ---
@@ -58,8 +58,8 @@ For operators deploying to a customer appliance, see [`docs/ops/DEPLOYMENT.md`](
 Examples:
 
 ```
-feat(backend): add /api/projects/:id/archive endpoint
-fix(rag): handle empty PDF chunks in indexer pipeline
+feat(backend): add /api/apps/:id/logs endpoint
+fix(indexer): handle empty PDF pages in text extraction
 refactor(llm-queue): collapse to single in-flight stream
 docs(onboarding): document the SSH-to-Jetson dev workflow
 chore(claude): introduce .claude/agents/ scaffold
@@ -72,11 +72,11 @@ Use a HEREDOC when the message has multiple paragraphs:
 
 ```bash
 git commit -m "$(cat <<'EOF'
-feat(backend): add /api/projects/:id/archive endpoint
+feat(backend): add /api/apps/:id/logs endpoint
 
-Soft-deletes the project and cascades to its documents and
-chats via the existing trigger. Required for the upcoming
-admin "archive view" UI work.
+Reads the container log through the docker proxy and answers
+404 when the container is gone instead of crashing. Required
+for the app overview in the admin area.
 
 Co-Authored-By: ...
 EOF

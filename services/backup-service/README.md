@@ -1,6 +1,6 @@
 # Backup Service
 
-Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpine container, dumps PostgreSQL, archives the flow definitions and the WAL segments, and stores the bundle on a mounted volume. (MinIO backups ended on 26.08.2026 with phase B4 of the Rueckbau — the object store is gone.)
+Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpine container, dumps PostgreSQL, archives the flow definitions and the WAL segments, and stores the bundle on a mounted volume.
 
 ## Overview
 

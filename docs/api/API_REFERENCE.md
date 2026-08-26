@@ -363,30 +363,13 @@ Erlaubte Dienste (Stand: 2026-08-26, Quelle:
 `embedding-service`, `document-indexer`, `reverse-proxy`, `dashboard-backend`,
 `dashboard-frontend`, `self-healing-agent`, `backup-service`.
 
-### AI Chat (LLM) und Chat Conversations — ENTFERNT (Phase B6, 26.08.2026)
-
-`/api/llm/*` (Chat-Strom der Oberfläche, Warteschlange, Läufe) und
-`/api/chats/*` (Konversationen, Nachrichten, Export) sind mit Phase B6 des
-Rückbaus gefallen; der Oberflächen-Chat selbst war schon mit B2 weg. Die
-Tabellen `chat_conversations`, `chat_messages` und `chat_attachments` entfernt
-Migration 165. Aufträge an das Sprachmodell (`llm_jobs`) gibt es weiter, sie
-tragen ihren Besitzer selbst (`user_id`) und laufen nur noch über die
-[externe API](#external-api-for-external-automations) (`/api/v1/external/llm/*`)
-und die OpenAI-kompatible `/v1/chat/completions`. Ein Auftrag lebt eine Stunde
-nach seinem Ende (`cleanup_old_llm_jobs()`), dann ist er weg; wer die Antwort
-behalten will, holt sie ab.
-
 ### Einstellungen für die Generierung
 
-`GET`/`PATCH /api/rag/settings` sind am 26.08.2026 (Phase B4) mit dem
-Präfix `/api/rag` gefallen; die Suchrouten darunter waren schon am 24.08.2026
-mit Qdrant gegangen. Die Spalten `llm_num_ctx_default`,
-`llm_keep_alive_seconds`, `llm_num_predict_default` und
-`llm_base_system_prompt` in `system_settings` liest das Backend weiter
-(`services/system-settings/systemSettingsService.js`,
+Die Spalten `llm_num_ctx_default`, `llm_keep_alive_seconds`,
+`llm_num_predict_default` und `llm_base_system_prompt` in `system_settings`
+liest das Backend (`services/system-settings/systemSettingsService.js`,
 `services/llm/llmOllamaStream.js`); eine Route oder Oberfläche dafür gibt es
-bis zu den D-Phasen nicht. Die dreizehn `rag_`-Spalten sind mit Migration 162
-entfallen.
+bis zu den D-Phasen des Überordner-Plans nicht.
 
 ---
 
@@ -1178,7 +1161,7 @@ All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
   "tier": "professional",
   "customer": "Muster GmbH",
   "expiresAt": "2027-01-01T00:00:00.000Z",
-  "features": ["rag", "backup"],
+  "features": ["externalApi", "customModels"],
   "hardwareFingerprint": "sha256:abc...",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
@@ -1217,7 +1200,7 @@ All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
 
 ```json
 {
-  "feature": "rag",
+  "feature": "externalApi",
   "allowed": true,
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
@@ -1238,7 +1221,7 @@ All endpoints require authentication. `export` and `categories` additionally req
 
 **GET /api/gdpr/export:**
 
-Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, conversations, messages, attachments (metadata), login history, active sessions, activity log, security events. Limited to the 10,000 most recent messages and 1,000 most recent audit entries. Dokumente, KI-Erinnerungen, Wissensräume und Projekte sind seit Phase B4 (26.08.2026) keine Kategorien mehr; ihre Tabellen sind mit Migration 163 gefallen.
+Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, flow runs (arguments and result), login history, active sessions, activity log, security events. Limited to the 1,000 most recent audit entries. Aufträge an das Sprachmodell (`llm_jobs`) leben eine Stunde und sind keine Auskunftskategorie.
 
 Scheitert eine Kategorie, steht der Grund in ihrem Block als `unvollstaendig`
 (Zeichenkette) und zusätzlich in `_meta.unvollstaendig` (Liste aus
@@ -1302,9 +1285,7 @@ DSGVO Art. 17 right to erasure. Löscht Chats samt Anhängen, die aktiven Sessio
   "ok": true,
   "message": "Account und alle persönlichen Daten wurden gelöscht.",
   "summary": {
-    "chat_attachments": 5,
-    "chat_messages": 1500,
-    "chat_conversations": 42,
+    "flow_runs": 12,
     "active_sessions": 2,
     "anon_audit_logs": 100,
     "anon_api_audit_logs": 900,
@@ -1473,7 +1454,6 @@ Single consolidated endpoint that aggregates backup status, restore-drill status
   },
   "retention_counts": {
     "app_events": 1250,
-    "chat_messages": 8500,
     "self_healing_events": 120
   },
   "timestamp": "2026-01-15T10:00:00.000Z"
@@ -1511,7 +1491,7 @@ sonst eine Vollständigkeit, die er nicht hat.
   "stufe": "auslieferung",
   "modelleLoeschen": false,
   "geraetename": "arasul",
-  "tabellen": [{ "name": "public.chat_messages", "zweck": "Chatnachrichten", "zeilen": 412 }],
+  "tabellen": [{ "name": "arasul.flow_runs", "zweck": "Flow-Läufe", "zeilen": 412 }],
   "zeilenGesamt": 412,
   "ordner": [{ "pfad": "/arasul/flows", "zweck": "Flow-Definitionen", "eintraege": 8 }],
   "unbekannteTabellen": [],
@@ -1559,18 +1539,6 @@ Ergebnis für die Modelle (falls `modelleLoeschen`), dazu die Dauer.
 
 ### Flows
 
-**Beispiele (Plan 023 B4).** Ab Werk liegt kein Flow auf dem Gerät. Die
-mitgelieferte Vorlage (`recherche`) wird nicht angelegt, sondern angeboten:
-
-| Method | Endpoint                     | Auth | Description                                 |
-| ------ | ---------------------------- | ---- | ------------------------------------------- |
-| GET    | `/api/flows/beispiele`       | User | Namen und Beschreibungen der Startpunkte    |
-| GET    | `/api/flows/beispiele/:name` | User | Eine Vorlage in derselben Form wie ein Flow |
-
-Die Einzelabfrage liefert `prompt`, nicht `systemPrompt`, damit das Formular im
-Frontend sich aus Vorlage und geladenem Flow mit demselben Code füllt. Ein
-unbekannter Name ist ein `404 NOT_FOUND`. Beide Routen legen nichts an.
-
 Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
 | Method | Endpoint                            | Description                                                                                                                             |
@@ -1615,9 +1583,8 @@ weiter und das Protokoll benennt das.
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
 (`{ flow, args, conversation_id? }`) starts the run **server-side**
 and returns its `runId` at once — the run keeps going regardless of the client.
-Das Arbeitsverzeichnis ist der erste im Flow deklarierte `ordner`; die
-früheren Felder `ordner_ziel` und `projekt` (Projektablage, projektgebundene
-Flows) sind mit Phase B4 (26.08.2026) gefallen und ergeben `400`. The client
+Das Arbeitsverzeichnis ist der erste im Flow deklarierte `ordner`; unbekannte
+Felder im Body ergeben `400`. The client
 then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
 `EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
 with the stored run+steps first (so a **reconnecting** client sees everything up
@@ -1642,7 +1609,7 @@ first failed step. `400` if the run is not failed or the flow has no step chain;
 `404` if the run is unknown/foreign. Response: `202 { runId, uebernommeneSchritte }`.
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
-> `werkzeuge`, `beispiele`, `vorlagen`) is a reserved segment: a flow named
+> `werkzeuge`, `vorlagen`) is a reserved segment: a flow named
 > exactly `laeufe` could not be fetched via `GET /:name`.
 >
 > The former preview endpoints `POST /api/flows/vorschau` and
@@ -1679,33 +1646,33 @@ Bounded in count and per-file preview length; `null` (column) means not tracked
 
 `:name` and the `name` field are restricted to lowercase letters, digits and hyphens (1–50 chars), and must start and end with a letter or digit — the name becomes both the filename and the `/name` slash command in chat.
 
-**File format** (`data/flows/recherche.md`) — the YAML head declares what the flow needs and may do, the Markdown body is the prompt and carries `{{argument}}` placeholders. Every placeholder must have a matching entry in `argumente`, otherwise the file is rejected.
+**File format** (`data/flows/zusammenfassung.md`) — the YAML head declares what the flow needs and may do, the Markdown body is the prompt and carries `{{argument}}` placeholders. Every placeholder must have a matching entry in `argumente`, otherwise the file is rejected.
 
 ```yaml
 ---
-name: recherche
-beschreibung: Recherchiert ein Thema im Web und fasst es zusammen.
+name: zusammenfassung
+beschreibung: Liest die Dateien im Arbeitsordner und fasst sie zu einem Thema zusammen.
 modell: gemma4:26b-q4 # optional, sonst das Standardmodell
 argumente:
   - name: thema
     typ: freitext # freitext | auswahl
-    beschreibung: Das zu recherchierende Thema
+    beschreibung: Das Thema, unter dem zusammengefasst wird
     pflicht: true
     # optionen: [...]   # nur bei typ=auswahl (pflicht dort)
     # standard: "..."   # schließt pflicht=true aus
 ordner: [/arasul/flows/arbeit/demo] # absolute Pfade im Backend-Container; der ERSTE ist das Arbeitsverzeichnis
-werkzeuge: [web_suche, web_lesen, subagent]
+werkzeuge: [dateien_lesen, dateien_suchen, subagent]
 rollen:
   - name: leser
-    beschreibung: Liest eine Seite und extrahiert Fakten
-    werkzeuge: [web_lesen] # nie mehr als der Flow selbst darf
+    beschreibung: Liest eine Datei und extrahiert Fakten
+    werkzeuge: [dateien_lesen] # nie mehr als der Flow selbst darf
     ergebnis: { felder: [fakten], max_zeichen: 2000 }
-    prompt: Lies die Seite und gib nur die belegten Fakten zurück.
+    prompt: Lies die Datei und gib nur die belegten Fakten zurück.
 schritte: # optional (B7): deterministische, fest geordnete Kette
   - name: lesen # Schrittname = {{platzhalter}} für spätere Schritte
     typ: subagent # subagent (Rolle) | werkzeug (direkter Werkzeug-Aufruf)
     rolle: leser
-    auftrag: Lies die gefundenen Seiten. # Vorlage: {{argument}}, {{schritt}}, {{vorher}}
+    auftrag: Lies die gefundenen Dateien. # Vorlage: {{argument}}, {{schritt}}, {{vorher}}
     iterationen: 1 # Schritt bis zu N-mal wiederholen (1–10, default 1)
     # wiederhole_ueber: gliederung  # optional: Schleife über eine LISTE (s. u.)
     # modell: qwen3:32b            # optional: Modell nur für diesen Schritt
@@ -1730,7 +1697,7 @@ Recherchiere gründlich zum Thema {{thema}}.
 
 **Style templates (`/api/flows/vorlagen`).** Uploaded files live in `FLOWS_DIR/vorlagen/` (same volume as the flows, included in backups). For `.pdf`/`.docx` the text is extracted **at upload time** via the Document Indexer (`POST /extract-text`, multipart) and stored as a `<name>.extrahiert.txt` sidecar — a template whose text cannot be read is rejected with `400`, and runs never depend on the indexer. At run time the template text (capped at 8 000 chars) is injected into the prompt as a clearly delimited style/structure block; a missing template is silently skipped (the run must not fail because a template was deleted).
 
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `web_suche`, `web_lesen`, `subagent`, `frage_nutzer` (nur in `betriebsart: rueckfragen`). Declaring `rollen` requires `subagent` and vice versa; `dateien_*` and `symbol_suche` require at least one entry in `ordner`. `rag_suche`, `terminal` and `rechnung_erstellen` fell with phase B4 (26.08.2026) together with the knowledge base, the sandbox container and the invoice flow; a flow declaring them is rejected. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `subagent`, `frage_nutzer` (nur in `betriebsart: rueckfragen`). Declaring `rollen` requires `subagent` and vice versa; `dateien_*` and `symbol_suche` require at least one entry in `ordner`.08.2026) together with the knowledge base, the sandbox container and the invoice flow; a flow declaring them is rejected. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
 
 The optional `schritte` array (B7) makes orchestration deterministic: each step is either `typ: subagent` (delegates to a declared `rolle` with an `auftrag` template) or `typ: werkzeug` (calls one tool directly with `parameter`). Steps run in fixed order; a step's output is threaded into later steps as `{{stepname}}` (and `{{vorher}}` across `iterationen`), then the body prompt synthesizes the final answer. A `subagent` step requires the `subagent` tool and a matching role; a `werkzeug` step may only use a tool the flow itself declares. Empty `schritte` → the flow stays model-driven.
 
@@ -1742,7 +1709,7 @@ The optional `schritte` array (B7) makes orchestration deterministic: each step 
 {
   "data": [
     { "name": "dateien_lesen", "verfuegbar": true },
-    { "name": "web_suche", "verfuegbar": true }
+    { "name": "dateien_suchen", "verfuegbar": true }
   ],
   "timestamp": "2026-07-21T10:00:00.000Z"
 }
@@ -1752,28 +1719,28 @@ A flow may declare a tool that is not built yet — the definition stays valid a
 
 **Folders and paths.** A flow may declare several folders in `ordner`; the **first one is the working directory**. Relative paths in the file tools resolve against it, deliberately not against whichever folder happens to contain a matching file — otherwise the same path would write to different places depending on what exists. Another declared folder is addressed by its full path. Every access is symlink-checked, so a symlink pointing out of the allowed folders is rejected even though the link itself sits inside one.
 
-**GET /api/flows Response** — a single unparsable file must not break the slash menu, so it is skipped and reported in `fehlerhaft` instead of failing the request. In the API the Markdown body is called `prompt`.
+**GET /api/flows Response** — a single unparsable file must not break the list, so it is skipped and reported in `fehlerhaft` instead of failing the request. In the API the Markdown body is called `prompt`.
 
 ```json
 {
   "data": [
     {
-      "name": "recherche",
-      "beschreibung": "Recherchiert ein Thema im Web und fasst es zusammen.",
+      "name": "zusammenfassung",
+      "beschreibung": "Liest die Dateien im Arbeitsordner und fasst sie zu einem Thema zusammen.",
       "argumente": [{ "name": "thema", "typ": "freitext", "beschreibung": "", "pflicht": true }],
-      "ordner": [],
-      "werkzeuge": ["web_suche", "web_lesen", "subagent"],
+      "ordner": ["/arasul/flows/arbeit/demo"],
+      "werkzeuge": ["dateien_lesen", "dateien_suchen", "subagent"],
       "rollen": [
         {
           "name": "leser",
           "beschreibung": "",
-          "werkzeuge": ["web_lesen"],
+          "werkzeuge": ["dateien_lesen"],
           "ergebnis": { "felder": ["fakten"], "max_zeichen": 2000 },
-          "prompt": "Lies die Seite und gib nur die belegten Fakten zurück."
+          "prompt": "Lies die Datei und gib nur die belegten Fakten zurück."
         }
       ],
       "grenzen": { "max_aufrufe": 20, "zeitlimit_s": 900, "werkzeug_runden": 10, "max_tiefe": 2 },
-      "prompt": "Recherchiere gründlich zum Thema {{thema}}."
+      "prompt": "Fasse die Dateien zum Thema {{thema}} zusammen."
     }
   ],
   "fehlerhaft": [{ "name": "kaputt", "fehler": "Flow ist ungültig (werkzeuge.0): ..." }],
@@ -1785,11 +1752,12 @@ A flow may declare a tool that is not built yet — the definition stays valid a
 
 ```json
 {
-  "name": "recherche",
-  "beschreibung": "Recherchiert ein Thema im Web und fasst es zusammen.",
+  "name": "zusammenfassung",
+  "beschreibung": "Liest die Dateien im Arbeitsordner und fasst sie zu einem Thema zusammen.",
   "argumente": [{ "name": "thema", "typ": "freitext", "pflicht": true }],
-  "werkzeuge": ["web_suche", "web_lesen"],
-  "prompt": "Recherchiere gründlich zum Thema {{thema}}."
+  "ordner": ["/arasul/flows/arbeit/demo"],
+  "werkzeuge": ["dateien_lesen", "dateien_suchen"],
+  "prompt": "Fasse die Dateien zum Thema {{thema}} zusammen."
 }
 ```
 
@@ -1816,14 +1784,13 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 | GET    | `/api/v1/external/llm/queue`      | API Key | Get queue status            |
 | GET    | `/api/v1/external/models`         | API Key | Get available models        |
 
-`/llm/chat` ist zustandslos (Phase B6, 26.08.2026): jeder Aufruf ist ein
-eigener Auftrag mit genau der Vorgeschichte, die im `prompt` steht. Es gibt
-keine Konversation, an die sich ein zweiter Aufruf anschließen könnte; wer
-einen Verlauf will, führt ihn selbst und schickt ihn mit. Der Auftrag gehört
-dem Ersteller des API-Schlüssels; ein Schlüssel, dessen Ersteller gelöscht
-wurde, bekommt `403 FORBIDDEN` und muss neu erstellt werden (bis B6 wich er
-still auf den ersten Administrator aus). `GET /llm/job/:jobId` liefert nur
-eigene Aufträge, eine Stunde nach ihrem Ende sind sie weg.
+`/llm/chat` ist zustandslos: jeder Aufruf ist ein eigener Auftrag mit genau
+der Vorgeschichte, die im `prompt` steht. Es gibt keine Konversation, an die
+sich ein zweiter Aufruf anschließen könnte; wer einen Verlauf will, führt ihn
+selbst und schickt ihn mit. Der Auftrag gehört dem Ersteller des
+API-Schlüssels; ein Schlüssel, dessen Ersteller gelöscht wurde, bekommt
+`403 FORBIDDEN` und muss neu erstellt werden. `GET /llm/job/:jobId` liefert
+nur eigene Aufträge, eine Stunde nach ihrem Ende sind sie weg.
 
 ### Flows (Plan 013, B8)
 
@@ -1837,16 +1804,12 @@ scope is `flow:run` (included in the default endpoint set for new keys).
 | GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `annahmen`) |
 
 **POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
-Die früheren Felder `ordner_ziel` und `projekt` (Projektablage,
-projektgebundene Flows) sind mit Phase B4 (26.08.2026) gefallen.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
 state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
 are owned by the API key's creator; an orphaned key (creator deleted) gets
-`403 FORBIDDEN`. This
-is the per-flow HTTP trigger (the Flow-Zentrale that surfaced it left the UI with
-phase B3 on 2026-08-26). The former named-event
-endpoint (`events/:name`) was removed with flow scheduling on 2026-07-28.
+`403 FORBIDDEN`. This is the per-flow HTTP trigger; there is no scheduler on
+the device, recurring starts come from outside through this endpoint.
 
 **POST /api/v1/external/llm/chat:**
 

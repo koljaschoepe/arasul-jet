@@ -34,28 +34,18 @@
 | -------- | -------------------------------------------------------------------------------------------------------------- |
 | llm_jobs | id (UUID), user_id, job_type, status, content, thinking, request_data, queue_position, priority, abbruch_grund |
 
-> **Chat — ENTFERNT (Migration 165, 2026-08-26).** Phase B6 hat
-> `chat_conversations`, `chat_messages` und `chat_attachments` (005, 041, 046,
-> 059, 066, 127, 128, 155) gestrichen; der Oberflächen-Chat war seit B2 weg.
-> Ein Auftrag an das Sprachmodell trägt seinen Besitzer selbst (`user_id`) und
-> lebt eine Stunde nach seinem Ende; er entsteht nur noch über die externe
-> API und die OpenAI-kompatible `/v1`.
+> Ein Auftrag an das Sprachmodell trägt seinen Besitzer selbst (`user_id`,
+> der Ersteller des API-Schlüssels) und lebt eine Stunde nach seinem Ende
+> (`cleanup_old_llm_jobs()`); er entsteht über die externe API und die
+> OpenAI-kompatible `/v1`.
 
-### Documents, RAG, Memory, Workspaces — ENTFERNT (Migration 163, 2026-08-26)
+### Flows und Schnittstelle (Schema `arasul` für die Läufe)
 
-> Phase B4 des Rückbaus hat die Domänen **AI Memory / Compaction** (`ai_memories`,
-> `compaction_log`), **Documents** (`documents`, `document_chunks`,
-> `document_parent_chunks`, `document_categories`, `document_similarities`,
-> `document_processing_queue`, `document_access_log`), **RAG / Knowledge**
-> (`knowledge_spaces`, `company_context`, `kg_entities`, `kg_entity_documents`,
-> `kg_relations`, `space_members`, `rag_query_log`), **Workspaces**
-> (`sandbox_projects`, `sandbox_terminal_sessions`, `user_external_credentials`,
-> `claude_terminal_*`), Projekte (`arasul.projects`, `project_git`,
-> `rechnungsnummern*`) und den Erweiterungs-Baukasten (`arasul.extensions`,
-> `extension_*`, Schemata `ext_<slug>`) gestrichen. Die chat-gruppierende
-> `projects`-Tabelle war schon in Plan 008 (Migration 104) gefallen. Es gibt
-> keine Dokumente, keine Wissensräume und keinen Workspace als
-> Datenbank-Entität mehr; Flows arbeiten in den Ordnern, die sie deklarieren.
+| Table                 | Key Columns                                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| arasul.flow_runs      | id, user_id, flow_name, arguments (JSONB), status, result, error, steps_used, changes, annahmen |
+| arasul.flow_run_steps | id, run_id → flow_runs (ON DELETE CASCADE), position, kind, name, input, output, status, modell |
+| api_keys              | id, key_hash, key_prefix, name, created_by, expires_at, is_active, allowed_endpoints            |
 
 ### Models (011, 029, 030, 035)
 
@@ -106,10 +96,10 @@
 
 ### Audit (017, 021)
 
-| Table          | Key Columns                                                                                                                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| api_audit_logs | id, timestamp, user_id, action_type, target_endpoint, response_status, duration_ms, ip_address                                                                                               |
-| bot_audit_log  | id, timestamp, user_id, chat_id, command, message_text, response_time_ms (legacy — table retained by migration 017; no longer written to after the Telegram feature was removed in Plan 008) |
+| Table          | Key Columns                                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| api_audit_logs | id, timestamp, user_id, action_type, target_endpoint, response_status, duration_ms, ip_address                                                             |
+| bot_audit_log  | id, timestamp, user_id, chat_id, command, message_text, response_time_ms (legacy, seit Plan 008 ohne Schreiber; fällt mit der nächsten Schema-Bereinigung) |
 
 ### Settings (031, 038)
 
@@ -123,7 +113,6 @@ These tables enforce a single row via `CHECK (id = 1)`:
 
 - **alert_settings** -- Global alert enable/disable + webhook
 - **system_settings** -- Setup wizard state, company name, AI profile
-- **company_context** -- Global company context for RAG queries
 
 ## Key SQL Patterns
 
@@ -138,8 +127,7 @@ INSERT INTO ... ON CONFLICT (key) DO NOTHING;
 
 ### Soft Deletes
 
-Keine mehr: `chat_conversations` (mit `deleted_at`) ist seit Migration 165 weg.
-`flow_runs` und `llm_jobs` werden hart gelöscht (Werksreset, DSGVO-Löschung,
+Keine. `flow_runs` und `llm_jobs` werden hart gelöscht (Werksreset, DSGVO-Löschung,
 `cleanup_old_llm_jobs()`).
 
 ### JSONB for Flexible Data
@@ -150,7 +138,6 @@ Used extensively: `llm_jobs.request_data`, `self_healing_events.metadata`, `flow
 
 Created with `DO $$ BEGIN CREATE TYPE ... EXCEPTION WHEN duplicate_object THEN null; END $$;`
 
-- `document_status`: pending, processing, indexed, failed, deleted
 - `app_status`: available, installing, installed, running, stopping, etc.
 - `alert_metric_type`: cpu, ram, disk, temperature
 - `alert_severity`: warning, critical
@@ -166,9 +153,6 @@ Created with `DO $$ BEGIN CREATE TYPE ... EXCEPTION WHEN duplicate_object THEN n
 | `is_setup_completed()`        | Check if setup wizard has been completed                                       |
 | `cleanup_old_metrics()`       | Delete metrics older than 7 days                                               |
 | `cleanup_expired_auth_data()` | Clear expired tokens, sessions, old login attempts                             |
-| `get_document_statistics()`   | Aggregate document counts by status and category                               |
-| `find_similar_documents()`    | Find documents by pre-computed similarity scores                               |
-| `update_space_statistics()`   | Recalculate knowledge space document/chunk counts                              |
 | `is_in_quiet_hours()`         | Check if current time is in alert quiet hours                                  |
 | `can_fire_alert(type)`        | Rate-limit check for alert cooldown                                            |
 
@@ -180,11 +164,9 @@ All enforced by `run_all_cleanups()`:
 | ------------------------------- | ---------------- |
 | Metrics (CPU/RAM/GPU/Disk/Temp) | 7 days           |
 | System snapshots                | 7 days           |
-| Workflow activity               | 7 days           |
 | Login attempts                  | 7 days           |
 | Self-healing events             | 30 days          |
 | Service restarts                | 30 days          |
-| Document access logs            | 30 days          |
 | App store events                | 30 days          |
 | Notification events             | 30 days          |
 | Bot audit logs                  | 90 days          |
@@ -196,10 +178,8 @@ All enforced by `run_all_cleanups()`:
 ## Migration Template
 
 ```sql
--- Migration 053: [Feature Name]
--- [Brief description]
-
-BEGIN;
+-- 0NN_feature_name.sql — Phase X: [reason]
+-- Kein BEGIN/COMMIT: der Runner huellt jede Migration selbst in eine Transaktion.
 
 -- Use IF NOT EXISTS for all CREATE statements
 CREATE TABLE IF NOT EXISTS new_table (
@@ -237,8 +217,6 @@ ON CONFLICT DO NOTHING;
 -- Grant permissions
 GRANT ALL PRIVILEGES ON new_table TO arasul;
 GRANT ALL PRIVILEGES ON SEQUENCE new_table_id_seq TO arasul;
-
-COMMIT;
 ```
 
 ## Database Access

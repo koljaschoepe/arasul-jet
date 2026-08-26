@@ -16,30 +16,14 @@ migrations always backward-compatible, no rewrites — only incremental change.
 
 ---
 
-## 1. Service Overview (14 Services)
+## 1. Service Overview (12 Services)
 
-**MinIO, Loki und Promtail gibt es nicht mehr.** Phase B4 des Rückbaus
-(26.08.2026) hat alle drei ausgebaut: Die Text-Extraktion reicht Dateien
-jetzt per multipart direkt an den document-indexer, ein Objektspeicher wird
-dafür nicht mehr gebraucht; die zentrale Log-Aggregation ist entfallen, jeder
-Dienst schreibt weiter nach stdout/stderr, `docker compose logs` bleibt der
-Weg zu den Logs.
-
-**Qdrant gibt es ebenfalls nicht mehr.** Plan 021, Schritt 8 hatte das
-klassische Vektor-RAG durch agentisches ersetzt; am 24.08.2026 ist der Dienst
-samt Code ausgebaut worden, weil drei Features still durchfielen, statt ihren
-Ausfall zu melden (Migration `162_qdrant_ausbau.sql` nennt die Zahlen).
-
-**Den Textlayer (`document_chunks`, `documents`, Wissensräume) gibt es
-ebenfalls nicht mehr.** Migration `163` hat die dazugehörigen Tabellen mit
-Phase B4 entfernt. `document-indexer` ist seither ein reiner
-Extraktionsdienst: `GET /health` und `POST /extract-text` (multipart, Feld
-`file`) liefern PDF/DOCX/OCR-Text auf Anfrage, ohne eigene Datenbank, ohne
-MinIO, ohne Embedding, ohne LLM, ohne GPU, ohne Scan-Zyklus, ohne BM25, ohne
-Chunks.
-
-`embedding-service` läuft weiter ohne Profil: die OpenAI-kompatible
-`/v1/embeddings` (`GET /api/embeddings` reicht seine Auskunft durch) braucht ihn.
+Zwölf Container. `document-indexer` ist ein zustandsloser Extraktionsdienst
+(`GET /health`, `POST /extract-text`): PDF/DOCX/OCR-Text auf Anfrage, ohne
+Datenbank, ohne GPU. `embedding-service` läuft ohne Profil, weil die
+OpenAI-kompatible `/v1/embeddings` (`GET /api/embeddings` reicht seine
+Auskunft durch) ihn braucht. Logs kommen aus `docker compose logs`; es gibt
+keine zentrale Log-Aggregation und keinen Objektspeicher.
 
 | #   | Service            | Port         | Technology          | Entry Point           | Purpose                         |
 | --- | ------------------ | ------------ | ------------------- | --------------------- | ------------------------------- |
@@ -217,22 +201,22 @@ Critical dependency chain (enforced via Docker Compose `depends_on` with `condit
 
 ## 6. Data Flows
 
-### Chat Request Flow
+### LLM Request Flow (externe API)
 
 ```
-User → Frontend → Backend → LLM Service → Backend → Frontend → User
-          │                      │
-          │                      └── PostgreSQL (store message)
-          │
-          └── WebSocket (metrics stream)
+Client ──X-API-Key──> Backend (llmQueueService, eine GPU-Sperre) → LLM Service → Backend → Client
+                          │
+                          └── PostgreSQL (llm_jobs: Besitzer, Stand, Antwort; eine Stunde nach Ende weg)
 ```
+
+Flows laufen denselben Weg, mit Werkzeugen dazwischen (`apps/dashboard-backend/src/services/flows/`);
+ihre Läufe und Schritte stehen in `flow_runs` und `flow_run_steps`.
 
 ### Document Text Extraction
 
-Es gibt kein Dokumenten-Upload, keine Ablage und keine Wissensbasis mehr
-(Phase B4, 26.08.2026, Migration `163`). `document-indexer` ist ein
-zustandsloser Extraktionsdienst: der Aufrufer schickt eine Datei per
-multipart, der Dienst parst sie synchron und gibt den Text zurück.
+`document-indexer` ist ein zustandsloser Extraktionsdienst: der Aufrufer
+schickt eine Datei per multipart, der Dienst parst sie synchron und gibt den
+Text zurück. Nichts wird abgelegt.
 
 ```
 Client
@@ -246,8 +230,7 @@ Client
        Text (Response)
 ```
 
-Keine Datenbank, kein Objektspeicher, kein Hintergrund-Scan, kein Embedding.
-Details zu den beiden verbliebenen Endpunkten (`GET /health`,
+Details zu den beiden Endpunkten (`GET /health`,
 `POST /extract-text`) stehen in
 [`docs/development/PYTHON_SERVICES.md`](development/PYTHON_SERVICES.md).
 
@@ -285,14 +268,14 @@ apps/dashboard-backend/
 │   ├── system/               # system, services, metrics, logs, database, tailscale
 │   ├── admin/                # settings, audit, update, selfhealing, backup, gdpr, werksreset
 │   ├── ai/                   # models, embeddings
-│   ├── store/                # appstore, store, workflows
+│   ├── store/                # appstore, store
 │   └── external/             # externalApi, openaiCompat, events, alerts
 ├── src/middleware/
 │   ├── auth.js               # JWT validation
 │   ├── audit.js              # Request logging
 │   ├── errorHandler.js       # asyncHandler + error middleware
 │   └── rateLimit.js          # Per-user rate limiting
-├── src/services/             # Business logic (llm/, chat/, core/, app/, auth/, network/,
+├── src/services/             # Business logic (llm/, core/, app/, auth/, network/,
 │                             #   system-settings/, werksreset/, medien/, documents/ = Extraktion,
 │                             #   flows/ = Tool-Loop: toolLoop, pathSafe, gpuQueue, tools/)
 └── src/utils/
@@ -311,36 +294,28 @@ apps/dashboard-frontend/
 │   ├── store/                # Store (Modelle: Raster + Detailseite)
 │   ├── system/               # SetupWizard, UpdatePage, Login
 │   └── workspace/            # Shell: ActivityBar (Modelle), Sidebar, Tabs,
-│                             #   rechte Spalte (leer seit B2), StatusBar
+│                             #   rechte Spalte (leer), StatusBar
 ├── src/components/
 │   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState, Baustein-Set
 │   └── mascot/               # Das Maskottchen
 ├── src/contexts/             # AuthContext, DownloadContext, ToastContext, ActivationContext
 ├── src/stores/               # zustand (workspaceStore: Tabs, Sidebar-Ansicht, Spalten)
-├── src/hooks/                # useApi, useConfirm, useStoreCatalog, useWorkspaceApps
+├── src/hooks/                # useApi, useConfirm, useStoreCatalog, useTheme
 └── src/__tests__/            # Test files
 ```
 
-**Workspace-Shell:** `/` landet immer auf `/workspace` (kein Feature-Flag mehr).
-Die Shell ist ein Dreispalten-Raster mit einer immer sichtbaren ActivityBar
-— **Modelle** und **Einstellungen**
-(System-Status liegt unter Einstellungen → System). Seit Phase B2
-(26.08.2026) sind Editor, Datei-Explorer, Agent-Chat, Terminal und
-Sandbox-Ansichten aus der Oberfläche gefallen, seit B3 auch Flow-Editor,
-Erweiterungs-Store und der Tab einer installierten Erweiterung; die linke
-Spalte ist ohne gewählte Ansicht leer, die rechte Spalte ganz. Das Raster
-bleibt, die Phasen D1 und D2 füllen die Spalten neu.
-
-**Workspace (Backend):** Die Entität `sandbox_projects` (Ordner plus
-Container mit Netzwerkmodus und Besitzer, Plan 008) ist mit Phase B4
-(26.08.2026) samt Routen, Diensten und Tabellen gefallen; was unter dem Namen
-bleibt, steht in [`docs/features/WORKSPACE.md`](features/WORKSPACE.md).
+**Die Shell:** `/` landet immer auf `/workspace`. Die Shell ist ein
+Dreispalten-Raster mit einer immer sichtbaren ActivityBar (**Modelle** und
+**Einstellungen**; System-Status liegt unter Einstellungen → System). Die linke
+Spalte ist ohne gewählte Ansicht leer, die rechte Spalte ganz; das Zielbild
+(links Apps, Mitte Dashboard oder App, rechts Notizen) füllen die Phasen D1
+und D2 des Überordner-Plans.
 
 Die path-gejailte Tool-Loop-Grundlage der Flows liegt in
 `apps/dashboard-backend/src/services/flows/` (`toolLoop.js`, `pathSafe.js`,
 `gpuQueue.js`, `stepExecutor.js`, `scheduler.js`, `tools/`) und baut auf
-Ollama-Function-Calling auf. **Flows** (Chat-Slash-Befehle, Markdown-Dateien
-unter `data/flows/`) ersetzen die früheren Agenten — Details:
+Ollama-Function-Calling auf. **Flows** sind Markdown-Dateien unter
+`data/flows/`, gestartet über die API — Details:
 [`docs/features/FLOWS.md`](features/FLOWS.md).
 
 ### AI Services (Python)
@@ -368,7 +343,7 @@ services/postgres/init/
 ├── 001_init_schema.sql       # metrics, metric_history
 ├── 002_auth_schema.sql       # admin_users, sessions
 ├── ...
-└── 163_rueckbau_b4.sql       # Phase B4: Tabellen der gestrichenen Bereiche
+└── 166_rueckbau_b7.sql       # Phase B7: cleanup_old_metrics() ohne workflow_activity
 # Next migration: highest NNN on disk + 1
 ```
 
