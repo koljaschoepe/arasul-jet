@@ -79,20 +79,6 @@ async function installApp(appId, config = {}) {
 
   // Built-in apps run inside dashboard-backend, no container needed
   if (manifest.builtin) {
-    // If builtin app needs a Docker image built (e.g., terminal sandbox)
-    if (manifest.docker?.buildRequired && manifest.docker?.buildContext) {
-      const imageName = manifest.docker.image;
-      const imageExists = await containerService.checkImageExists(imageName);
-      if (!imageExists) {
-        logger.info(`Building image ${imageName} for builtin app ${appId}`);
-        const buildContext = '/arasul/sandbox-build';
-        await containerService.buildImage(imageName, buildContext);
-        logger.info(`Image ${imageName} built successfully for ${appId}`);
-      } else {
-        logger.info(`Image ${imageName} already exists for ${appId}`);
-      }
-    }
-
     await db.query(
       `
         INSERT INTO app_installations (app_id, status, version, container_name, app_type)
@@ -278,21 +264,6 @@ async function installAppWithProgress(appId, config, onProgress) {
       percent: 100,
       message: 'Built-in App wird aktiviert',
     });
-    if (manifest.docker?.buildRequired && manifest.docker?.buildContext) {
-      const imageName = manifest.docker.image;
-      const imageExists = await containerService.checkImageExists(imageName);
-      if (!imageExists) {
-        onProgress({
-          phase: 'build',
-          status: 'building',
-          percent: 50,
-          message: `Image ${imageName} wird gebaut...`,
-        });
-        const buildContext = '/arasul/sandbox-build';
-        await containerService.buildImage(imageName, buildContext);
-      }
-    }
-
     await db.query(
       `INSERT INTO app_installations (app_id, status, version, container_name, app_type)
        VALUES ($1, 'running', $2, $3, $4)

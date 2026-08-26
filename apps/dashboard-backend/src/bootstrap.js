@@ -150,53 +150,6 @@ async function bootstrap() {
   // (`services/flows/beispielKatalog.js`, `GET /api/flows/beispiele`), nicht
   // als Lieferumfang. Ohne diese Streichung stellt ein Werksreset den
   // Auslieferungszustand her und der nächste Start macht ihn wieder kaputt.
-
-  // Step 6: Verwaiste Terminal-Sitzungen schließen (Plan 017 Schritt 1).
-  // Nach einem Backend-Neustart ist jede WebSocket-Verbindung tot — 'active'-
-  // Zeilen aus der Vorgänger-Instanz sind Geister. Erst die vorhandene
-  // SQL-Funktion (Container nicht mehr running), dann der Rest (Container
-  // läuft zwar noch, aber niemand ist verbunden). Best-effort.
-  try {
-    await db.query('SELECT cleanup_stale_sandbox_sessions()');
-    const orphaned = await db.query(
-      `UPDATE sandbox_terminal_sessions SET status = 'closed', ended_at = NOW()
-       WHERE status = 'active'`
-    );
-    if (orphaned.rowCount > 0) {
-      logger.info(`Bootstrap: ${orphaned.rowCount} verwaiste Terminal-Sitzung(en) geschlossen`);
-    }
-  } catch (error) {
-    logger.error(`Bootstrap: Terminal-Sitzungs-Cleanup error: ${error.message}`);
-  }
-
-  // Step 7: Sandbox-Container an Workspace-Projekte koppeln (Plan 018:
-  // Projekt-Vereinheitlichung). Nach der Umstellung leitet das Terminal seinen
-  // Container aus dem aktiven Workspace-Projekt ab — jeder bisher eigenständige
-  // Container braucht daher eine 1:1-Kopplung. Idempotent + best-effort.
-  try {
-    const { backfillProjectLinks } = require('./services/sandbox/sandboxBackfill');
-    await backfillProjectLinks();
-  } catch (error) {
-    logger.error(`Bootstrap: Sandbox-Projekt-Backfill error: ${error.message}`);
-  }
-
-  // Step 8: Bruecken-Bibliothek in der kanonischen Werkstatt nachziehen
-  // (23.08.2026). Die Vorlagen werden sonst nur EINMAL ausgesaet und danach nie
-  // ueberschrieben; eine Werkstatt, die es schon gibt, bekaeme neue
-  // Bruecken-Faehigkeiten nie zu sehen. Hier, weil der Start der einzige
-  // Zeitpunkt ist, den jedes Geraet durchlaeuft — ein Flow in genau diesem
-  // Ordner ist keiner.
-  try {
-    const path = require('path');
-    const { SANDBOX_DATA_DIR } = require('./services/sandbox/sandboxShared');
-    const { aktualisiereBrueckeClient } = require('./services/sandbox/sandboxService');
-    const werkstatt = path.join(SANDBOX_DATA_DIR, 'werkstatt');
-    if (require('fs').existsSync(werkstatt)) {
-      aktualisiereBrueckeClient(werkstatt);
-    }
-  } catch (error) {
-    logger.warn(`Bootstrap: Bruecken-Client nicht nachgezogen: ${error.message}`);
-  }
 }
 
 /**

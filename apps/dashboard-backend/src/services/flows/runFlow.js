@@ -7,9 +7,7 @@
  *   2. Argumente prüfen und einsetzen — Pflichtfelder, Auswahllisten, Standards;
  *      die Platzhalter im Prompt werden ersetzt.
  *   3. Werkzeuge zusammenstellen — GENAU die, die der Flow deklariert.
- *   4. Kontext bauen: erlaubte Ordner (Datei-Werkzeuge), Wissensraum (RAG),
- *      Sandbox-Container (Terminal). Der Runner ist die einzige Stelle, die den
- *      Container-Namen kennt — die Werkzeuge bekommen ihn nur durchgereicht.
+ *   4. Kontext bauen: erlaubte Ordner (Datei-Werkzeuge), Wissensraum (RAG).
  *   5. Modell auflösen: das im Flow genannte, sonst das Standardmodell.
  *   6. Lauf anlegen, die Werkzeug-Schleife treiben, jeden Schritt mitschreiben,
  *      Lauf abschließen. Die Grenzen des Flows (Runden, Zeitlimit) greifen hier.
@@ -26,7 +24,6 @@ const { buildTools } = require('./toolRegistry');
 const { runFlowLoop } = require('./toolLoop');
 const { executeSteps } = require('./stepExecutor');
 const { fillPlaceholders } = require('./flowFile');
-const { ensureFlowSandbox } = require('./sandboxResolve');
 const changeTracker = require('./changeTracker');
 const { ladeDokumentText } = require('./documentText');
 const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
@@ -122,56 +119,6 @@ async function resolveOrdnerListe(ordner = [], deps = {}, meta = null) {
  * @returns {{ werte: object, spaceIds: string[] }}
  * @throws {ValidationError} bei fehlendem Pflichtargument oder ungültiger Auswahl.
  */
-/**
- * Die kanonische Werkstatt bekommt ihre Vorlagen (Plan 023 I5, 22.08.2026).
- *
- * `seedWerkstattTemplates` legt ANLEITUNG.md und die drei Beispiele in JEDEN
- * frisch angelegten Sandbox-Ordner. Die Werkstatt entsteht aber nicht ueber
- * `createProject`, sondern als `ordner` der Bau-Flows `/erweiterung` und
- * `/execute`. Sie blieb deshalb leer.
- *
- * Gemessen: der `erweiterung`-Flow verbrauchte auf dem Orin vier seiner zwanzig
- * Werkzeug-Runden allein damit, die ANLEITUNG zu suchen, die sein eigener
- * Prompt als Erstes zu lesen verlangt. Ein Kunde, der die Werkstatt im
- * Terminal oeffnet, fand einen leeren Ordner ohne jeden Hinweis.
- *
- * Nicht beim Start ausgesaet, sondern wenn der Ordner wirklich entsteht: ein
- * Geraet ab Werk zeigt leere Listen (Entscheidung E6), und ein Ordner, den
- * niemand angefordert hat, waere ein Eintrag zu viel.
- *
- * Best effort in beide Richtungen: vorhandene Dateien werden nicht
- * ueberschrieben, und ein Fehlschlag bremst keinen Lauf.
- *
- * @param {string} ordner Absoluter Pfad des gerade angelegten Flow-Ordners
- * @param {string} flowName Nur fuer die Protokollzeile
- */
-async function werkstattVorlagenSaeen(ordner, flowName) {
-  const { SANDBOX_DATA_DIR } = require('../sandbox/sandboxShared');
-  const werkstatt = path.join(SANDBOX_DATA_DIR, 'werkstatt');
-  if (path.resolve(ordner) !== path.resolve(werkstatt)) {
-    return;
-  }
-  const sandboxService = require('../sandbox/sandboxService');
-  let schonDa = true;
-  try {
-    await fs.access(path.join(ordner, 'ANLEITUNG.md'));
-  } catch {
-    schonDa = false;
-  }
-  try {
-    if (schonDa) {
-      // Die Vorlagen bleiben, wie der Nutzer sie hat. NUR die Bruecken-Bibliothek
-      // zieht nach — sonst startet jede hier neu gebaute App mit einer Fassung,
-      // die neuere Faehigkeiten nicht kennt (Fund vom 23.08.2026).
-      sandboxService.aktualisiereBrueckeClient(ordner);
-      return;
-    }
-    sandboxService.seedWerkstattTemplates(ordner);
-  } catch (err) {
-    logger.warn(`Flow "${flowName}": Werkstatt-Vorlagen nicht ausgesaet: ${err.message}`);
-  }
-}
-
 function resolveArguments(declared = [], provided = {}) {
   const werte = {};
   const spaceIds = [];
@@ -302,7 +249,6 @@ async function runFlow(
     store = runStore,
     makeTools = buildTools,
     runLoop = runFlowLoop,
-    ensureSandbox = ensureFlowSandbox,
     tracker = changeTracker,
     loadDocText = ladeDokumentText,
     resolveModel = () => modelService.getDefaultModel(),
@@ -373,7 +319,6 @@ async function runFlow(
   for (const o of flow.ordner) {
     try {
       await fs.mkdir(o, { recursive: true });
-      await werkstattVorlagenSaeen(o, flowName);
     } catch (err) {
       logger.warn(`Flow "${flowName}": Ordner "${o}" nicht anlegbar: ${err.message}`);
     }
@@ -422,22 +367,6 @@ async function runFlow(
   const arbeitsMeta = projektOrdnerMeta.find(m => m.pfad === flow.ordner[0]) || null;
   roleContextBase.projektId = projektId || arbeitsMeta?.projectId || null;
   roleContextBase.projektUnterpfad = arbeitsMeta?.unterpfad || '';
-
-  // Terminal braucht einen Sandbox-Container. Nur aufbauen, wenn der Flow das
-  // Werkzeug auch deklariert — sonst kein Container für einen Flow, der ihn
-  // gar nicht nutzt.
-  if (flow.werkzeuge.includes('terminal')) {
-    try {
-      const sandbox = await ensureSandbox(flow.ordner);
-      roleContextBase.containerId = sandbox.containerId;
-      roleContextBase.cwd = sandbox.cwd;
-      roleContextBase.timeoutS = flow.grenzen.zeitlimit_s;
-    } catch (err) {
-      // Kein Container? Der Lauf startet trotzdem; das Terminal-Werkzeug meldet
-      // dann pro Aufruf eine klare Ursache, statt dass der ganze Flow scheitert.
-      logger.warn(`Flow "${flowName}": Sandbox nicht verfügbar: ${err.message}`);
-    }
-  }
 
   // 5. Lauf anlegen — ODER einen bereits angelegten weiterverwenden. Der
   //    Lauf-Verwalter (Schritt 12) legt den Lauf VOR dem Start an, damit seine
@@ -570,8 +499,8 @@ async function runFlow(
   //     Übersicht. Read-only-Flows (nur RAG/Web) tun das nie — kein Aufwand.
   //
   //     GRENZE, ehrlich benannt: Der Abzug-Vergleich nimmt an, dass NUR dieser
-  //     Lauf die Ordner verändert. Griffe ein zweiter Lauf oder eine manuelle
-  //     Terminal-Aktion GLEICHZEITIG in denselben Ordner, schriebe die Differenz
+  //     Lauf die Ordner verändert. Griffe ein zweiter Lauf GLEICHZEITIG in
+  //     denselben Ordner, schriebe die Differenz
   //     dessen Änderungen fälschlich diesem Lauf zu. In der Praxis selten (ein
   //     Flow arbeitet in seinem eigenen Ordner), aber es ist ein anderer
   //     Fehlerfall als der TOCTOU-Schutz der Datei-Werkzeuge — hier nicht gelöst.
@@ -579,7 +508,7 @@ async function runFlow(
   // Werkzeuge, die Dateien in die Ablage schreiben — ihre Ergebnisse sollen als
   // klickbare Artefakte in der Änderungs-Übersicht auftauchen. `rechnung_erstellen`
   // legt die ausgestellte ZUGFeRD-PDF ab (Plan 014, Phase 5).
-  const SCHREIBENDE_WERKZEUGE = ['dateien_schreiben', 'terminal', 'rechnung_erstellen'];
+  const SCHREIBENDE_WERKZEUGE = ['dateien_schreiben', 'rechnung_erstellen'];
   const verfolgtAenderungen =
     erzeugtDokument ||
     (Array.isArray(flow.werkzeuge) && flow.werkzeuge.some(w => SCHREIBENDE_WERKZEUGE.includes(w)));
@@ -865,9 +794,6 @@ async function runFlow(
 }
 
 module.exports = {
-  // Nur fuer Tests: die Auswahl, WELCHER Ordner die Werkstatt-Vorlagen
-  // bekommt. Das Kopieren selbst gehoert dem sandboxService.
-  _werkstattVorlagenSaeen: werkstattVorlagenSaeen,
   runFlow,
   resolveArguments,
   buildUserInput,

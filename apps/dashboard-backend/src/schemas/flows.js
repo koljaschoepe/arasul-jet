@@ -24,7 +24,6 @@ const VALID_TOOLS = [
   'rag_suche',
   'web_suche',
   'web_lesen',
-  'terminal',
   'subagent',
   // Plan 014, Phase 5: stellt ZUGFeRD-Rechnungen mit lückenlosem Nummernkreis
   // aus — alle Summen rechnet Code, nie das Modell.
@@ -448,7 +447,6 @@ const FlowDefinition = z
       'dateien_anhaengen',
       'dateien_suchen',
       'symbol_suche',
-      'terminal',
     ];
     // Ein Argument vom Typ `ordner` liefert das Arbeitsverzeichnis erst beim
     // Start (Kundenordner-Fall) — dann darf die Ordner-Liste hier leer sein.

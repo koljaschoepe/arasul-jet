@@ -530,12 +530,10 @@ create_directories() {
     mkdir -p logs/{service,}
     # These are all bind-mount sources in compose.app/monitoring. Create them here
     # so they are owned by the setup user; otherwise Docker auto-creates them
-    # root-owned on first `up`, breaking writes from services (e.g. the sandbox
-    # service, which mkdir's project dirs as a non-root user).
+    # root-owned on first `up`, breaking writes from services running as uid 1000.
     #   updates/backups        → compose.app + compose.monitoring
     #   appstore/manifests     → compose.app (dashboard-backend, ro)
     #   ssh-keys               → compose.app (dashboard-backend, ro)
-    #   sandbox/projects       → compose.app (dashboard-backend, rw — the writer)
     #   skills                 → compose.app (dashboard-backend, rw — the writer)
     #                            + compose.monitoring (backup-service, ro)
     # WICHTIG: Diese Verzeichnisse muessen VOR dem ersten `docker compose up`
@@ -545,17 +543,11 @@ create_directories() {
     mkdir -p data/{postgres,minio,models,n8n,updates,backups}
     mkdir -p data/appstore/manifests
     mkdir -p data/ssh-keys
-    mkdir -p data/sandbox/projects
     mkdir -p data/skills
-    # Am 23.08.2026 nachgetragen: genau der oben beschriebene Fall war erneut
-    # eingetreten. data/extensions-data gehoerte root, und jede Erweiterung
-    # bekam bei ihrem ersten Schreibversuch
-    # "EACCES: permission denied, mkdir /arasul/extensions-data/<id>".
-    # Die Faehigkeit "eigene Dateiablage" war damit auf jedem Geraet tot.
-    # scripts/test/datenordner.py vergleicht diese Liste jetzt mit den
-    # Bind-Quellen in compose/, damit die Falle nicht ein drittes Mal zuschlaegt.
-    mkdir -p data/extensions
-    mkdir -p data/extensions-data
+    # Am 23.08.2026 nachgetragen, nachdem derselbe Fall ein zweites Mal
+    # eingetreten war: scripts/test/datenordner.py vergleicht diese Liste mit
+    # den Bind-Quellen in compose/, damit die Falle nicht ein drittes Mal
+    # zuschlaegt.
     mkdir -p data/flows
     mkdir -p data/projects
     mkdir -p cache
@@ -670,18 +662,6 @@ build_images() {
     }
 
     log_success "Custom images built"
-
-    # Sandbox-Image: kein compose-Service, sondern ein Image, das das Backend
-    # bei Bedarf startet (Workspace-Terminals, Terminalbefehle von Skills).
-    # Weil es in keiner compose-Datei steht, wurde es bisher nie gebaut und
-    # fehlte auf jedem frisch aufgesetzten Geraet. Nicht-fatal: Die Plattform
-    # laeuft auch ohne, nur Terminal-Funktionen fehlen dann.
-    log_info "Building sandbox image (arasul-sandbox:latest)..."
-    if docker build -t arasul-sandbox:latest "${SCRIPT_DIR}/services/sandbox" > /dev/null 2>&1; then
-        log_success "Sandbox image built"
-    else
-        log_warning "Sandbox-Image konnte nicht gebaut werden — Terminal-Funktionen bleiben deaktiviert"
-    fi
 }
 
 # Initialize database

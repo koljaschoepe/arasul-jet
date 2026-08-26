@@ -82,11 +82,6 @@ services:
       # und hier hinterlegt; fehlt er, degradiert das Live-Schalten sichtbar.
       N8N_URL: ${N8N_URL:-http://n8n:5678}
       N8N_API_KEY: ${N8N_API_KEY:-}
-      EXTENSIONS_APP_TOKEN_TTL_MS: ${EXTENSIONS_APP_TOKEN_TTL_MS:-}
-      EXTENSIONS_NETZ_TIMEOUT_MS: ${EXTENSIONS_NETZ_TIMEOUT_MS:-}
-      EXTENSIONS_NETZ_MAX_ANTWORT: ${EXTENSIONS_NETZ_MAX_ANTWORT:-}
-      EXTENSIONS_ZEITPLAN_TAKT_MS: ${EXTENSIONS_ZEITPLAN_TAKT_MS:-}
-      EXTENSIONS_ZEITPLAN_NACHHOLEN_MIN: ${EXTENSIONS_ZEITPLAN_NACHHOLEN_MIN:-}
       # Plan 023 J3: wo die eingehaengten Datentraeger IM Container liegen.
       EXTERNE_MEDIEN_DIR: ${EXTERNE_MEDIEN_DIR:-/arasul/medien}
       DOCUMENT_INDEXER_HOST: ${DOCUMENT_INDEXER_HOST:-document-indexer}
@@ -144,22 +139,11 @@ services:
       - ${DATA_PATH:-../data}/appstore/manifests:/arasul/appstore/manifests:ro
       - ${DATA_PATH:-../data}/ssh-keys:/arasul/ssh-keys:ro
       - ../services/postgres/init:/arasul/migrations:ro
-      - ${DATA_PATH:-../data}/sandbox/projects:/arasul/sandbox/projects
-      - ../services/sandbox:/arasul/sandbox-build:ro
       # Flow-Definitionen (Plan 011): bewusst ein eigener Pfad, getrennt vom
       # Nutzer-Workspace — ein Flow mit Schreibrecht kann seine eigene
       # Definition damit nicht ueberschreiben. Schreibbar, weil der Anlege-
       # Dialog hier Dateien erzeugt; ueberlebt Rebuilds und wandert ins Backup.
       - ${DATA_PATH:-../data}/flows:/arasul/flows
-      # Erweiterungs-Pakete (Plan 012 Phase E): je ein Ordner mit manifest.json
-      # + Assets. Schreibbar (paketieren/importieren erzeugt hier Ordner),
-      # ueberlebt Rebuilds und wandert ins Backup.
-      - ${DATA_PATH:-../data}/extensions:/arasul/extensions
-      # KI-Bruecke, Faehigkeit "dateien" (Plan 017 Schritt 2): eigener Datentopf
-      # je live geschalteter Erweiterung (/arasul/extensions-data/<id>). Bewusst
-      # GETRENNT von /arasul/projects — eine Erweiterung darf NIE quer auf
-      # Kundendaten anderer Projekte zugreifen. Schreibbar, ueberlebt Rebuilds.
-      - ${DATA_PATH:-../data}/extensions-data:/arasul/extensions-data
       # Projektablage: ein echter Geraete-Ordner je Projekt (/arasul/projects/
       # <uuid>) — Datei-API des Explorers, Arbeitsverzeichnis fuer Flows,
       # Mount fuer Sandboxes. Auch der Git-Sync-Checkout (PROJECT_GIT_DIR)

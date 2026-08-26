@@ -69,7 +69,7 @@ argumente:
     typ: auswahl
     optionen: [kurz, lang]
     standard: kurz
-ordner: [/arasul/sandbox/projects/demo]
+ordner: [/arasul/flows/demo]
 werkzeuge: [web_suche, web_lesen, subagent, dateien_schreiben]
 rollen:
   - name: leser

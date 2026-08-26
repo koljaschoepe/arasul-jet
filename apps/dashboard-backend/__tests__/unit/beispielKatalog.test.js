@@ -34,14 +34,6 @@ describe('Beispiel-Vorlagen', () => {
     }
   });
 
-  it('enthält die beiden Flows, die den Erweiterungs-Baukasten treiben', async () => {
-    // Ohne die zwei hätte E6 wörtlich genommen den Zweck des Geräts getroffen:
-    // der Baukasten ist der Grund, warum jemand es kauft.
-    const namen = (await listeBeispiele()).map(b => b.name);
-    expect(namen).toContain('erweiterung');
-    expect(namen).toContain('execute');
-  });
-
   it('liefert ein einzelnes Beispiel als fertige Definition', async () => {
     const definition = await ladeBeispiel('wissen');
     expect(definition.name).toBe('wissen');

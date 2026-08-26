@@ -7,9 +7,9 @@
  *   admin/     - Settings, audit, updates, self-healing
  *   ai/        - Models, embeddings, memory, spaces
  *   store/     - App store, unified store, workflows, workspaces
- *   external/  - External API, Claude terminal, events, alerts
+ *   external/  - External API, events, alerts
  *
- * Core routes (auth, chats, documents, llm, rag) stay at the top level.
+ * Core routes (auth, chats, llm) stay at the top level.
  */
 
 const { versionFuerAnzeige } = require('../utils/version');
@@ -55,13 +55,10 @@ const API_ROUTE_GROUPS = [
   { prefix: '/flows', group: 'ai' },
   { prefix: '/git', group: 'ai' },
   { prefix: '/apps', group: 'store' },
-  { prefix: '/extensions', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/workflows', group: 'store' },
   { prefix: '/automations', group: 'store' },
-  { prefix: '/sandbox', group: 'sandbox' },
   { prefix: '/v1/external', group: 'external' },
-  { prefix: '/claude-terminal', group: 'external' },
   { prefix: '/events', group: 'external' },
   { prefix: '/alerts', group: 'external' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
@@ -135,17 +132,12 @@ router.use('/git', require('./git'));
 // --- Store ---
 router.use('/apps', require('./store/appstore'));
 router.use('/workspace-apps', require('./workspaceApps'));
-router.use('/extensions', require('./extensions'));
 router.use('/store', require('./store/store'));
 router.use('/workflows', require('./store/workflows'));
 router.use('/automations', require('./automations'));
 
-// --- Sandbox ---
-router.use('/sandbox', require('./sandbox'));
-
 // --- External ---
 router.use('/v1/external', require('./external/externalApi'));
-router.use('/claude-terminal', require('./external/claudeTerminal'));
 router.use('/events', require('./external/events'));
 router.use('/alerts', require('./external/alerts'));
 

@@ -43,7 +43,6 @@ test('listet die mitgelieferten Beispiele ohne ihren Inhalt', async () => {
   const res = await request(app()).get('/api/flows/beispiele').expect(200);
 
   const namen = res.body.data.map(b => b.name);
-  expect(namen).toContain('erweiterung');
   expect(namen).toContain('wissen');
   for (const beispiel of res.body.data) {
     expect(beispiel.beschreibung.length).toBeGreaterThan(5);

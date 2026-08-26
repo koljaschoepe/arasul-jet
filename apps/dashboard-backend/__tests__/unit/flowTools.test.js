@@ -21,7 +21,6 @@ const {
   DateienAnhaengenTool,
 } = require('../../src/services/flows/tools/dateien');
 const { DateiSuchenTool } = require('../../src/services/flows/tools/suche');
-const TerminalTool = require('../../src/services/flows/tools/terminal');
 const { buildTools, implementedTools } = require('../../src/services/flows/toolRegistry');
 
 let base, arbeit, zweit, aussen;
@@ -470,11 +469,6 @@ describe('Werkzeug-Registry', () => {
     expect(buildTools([])).toEqual([]);
   });
 
-  it('liefert für "terminal" das echte Werkzeug, keinen Platzhalter mehr', () => {
-    const [tool] = buildTools(['terminal']);
-    expect(tool).toBeInstanceOf(TerminalTool);
-  });
-
   it('liefert für "subagent" das echte Werkzeug', () => {
     const SubagentTool = require('../../src/services/flows/subagent');
     const [tool] = buildTools(['subagent']);
@@ -490,7 +484,6 @@ describe('Werkzeug-Registry', () => {
         'dateien_anhaengen',
         'dateien_suchen',
         'symbol_suche',
-        'terminal',
         'web_suche',
         'web_lesen',
         'subagent',

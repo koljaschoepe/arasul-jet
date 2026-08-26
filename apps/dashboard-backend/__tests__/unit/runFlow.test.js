@@ -295,7 +295,6 @@ describe('runFlow — Orchestrierung', () => {
       loadFlow: jest.fn(async () => ({ ...baseFlow })),
       makeTools: jest.fn(() => [fakeTool('web_suche')]),
       runLoop: jest.fn(async () => ({ result: 'R', runden: 1 })),
-      ensureSandbox: jest.fn(async () => ({ containerId: 'c1', cwd: '/w' })),
       // Änderungs-Verfolgung standardmäßig gemockt — kein echter Ordner-Abzug im
       // Unit-Test. Einzeltests überschreiben `berechneAenderungen` bei Bedarf.
       tracker: {
@@ -346,32 +345,6 @@ describe('runFlow — Orchestrierung', () => {
     await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps2);
     expect(deps2.runLoop.mock.calls[0][0].model).toBe('llama-spezial');
     expect(deps2.resolveModel).not.toHaveBeenCalled();
-  });
-
-  it('baut den Sandbox-Container NUR, wenn der Flow Terminal deklariert', async () => {
-    const ohne = makeDeps();
-    await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, ohne);
-    expect(ohne.ensureSandbox).not.toHaveBeenCalled();
-
-    const mit = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/arbeit'] })),
-    });
-    await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, mit);
-    expect(mit.ensureSandbox).toHaveBeenCalledWith(['/arbeit']);
-    // containerId/cwd landen im Kontext für die Schleife.
-    expect(mit.runLoop.mock.calls[0][0].context).toMatchObject({ containerId: 'c1', cwd: '/w' });
-  });
-
-  it('startet trotzdem, wenn die Sandbox nicht verfügbar ist (kein harter Abbruch)', async () => {
-    const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
-      ensureSandbox: jest.fn(async () => { throw new Error('Image fehlt'); }),
-    });
-    const run = await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps);
-    expect(deps.runLoop).toHaveBeenCalled(); // Lauf lief
-    expect(run.status).toBe('fertig');
-    // Ohne Container kein containerId im Kontext.
-    expect(deps.runLoop.mock.calls[0][0].context.containerId).toBeUndefined();
   });
 
   it('schreibt zwei gleichnamige Werkzeug-Aufrufe in EINER Runde korrekt mit', async () => {
@@ -579,7 +552,7 @@ describe('runFlow — Orchestrierung', () => {
 
   it('meldet keine leere Änderungs-Liste live, speichert sie aber (leer)', async () => {
     const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
+      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['dateien_schreiben'], ordner: ['/a'] })),
     });
     const evts = [];
     await runFlow(
@@ -593,7 +566,7 @@ describe('runFlow — Orchestrierung', () => {
   it('speichert die Änderungen auch, wenn der Lauf mit Fehler endet', async () => {
     const aenderungen = [{ pfad: 'x', art: 'geloescht', vorher: 'alt', nachher: null }];
     const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
+      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['dateien_schreiben'], ordner: ['/a'] })),
       runLoop: jest.fn(async () => {
         throw new Error('Modell weg');
       }),
@@ -608,7 +581,7 @@ describe('runFlow — Orchestrierung', () => {
 
   it('lässt den Lauf nicht scheitern, wenn die Änderungs-Übersicht wirft', async () => {
     const deps = makeDeps({
-      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['terminal'], ordner: ['/a'] })),
+      loadFlow: jest.fn(async () => ({ ...baseFlow, werkzeuge: ['dateien_schreiben'], ordner: ['/a'] })),
     });
     // Zweiter Abzug (Ende) wirft — der Lauf ist trotzdem 'fertig'.
     deps.tracker.snapshot
@@ -661,64 +634,5 @@ describe('anreichernMitDateien', () => {
     const out = await anreichernMitDateien('Angaben:\nDatei: a.pdf', decl, { datei: 'a.pdf' }, load);
     expect(out).toMatch(/Inhalt der Datei "a.pdf" \(gekürzt\)/);
     expect(out).toMatch(/Inhalt\n--- Ende der Datei ---/);
-  });
-});
-
-describe('Werkstatt-Vorlagen (Plan 023 I5, 22.08.2026)', () => {
-  const os = require('os');
-  const fsSync = require('fs');
-  const pathMod = require('path');
-
-  /**
-   * `seedWerkstattTemplates` legt ANLEITUNG.md und die Beispiele in JEDEN
-   * frisch angelegten Sandbox-Ordner. Die Werkstatt entsteht aber nicht ueber
-   * `createProject`, sondern als `ordner` der Bau-Flows, und blieb deshalb
-   * leer. Der `erweiterung`-Flow verbrauchte auf dem Orin vier seiner zwanzig
-   * Runden damit, die ANLEITUNG zu suchen, die sein Prompt als Erstes zu lesen
-   * verlangt.
-   *
-   * Geprueft wird die Auswahl, nicht das Kopieren selbst: nur die kanonische
-   * Werkstatt bekommt die Vorlagen, jeder andere Flow-Ordner nicht.
-   */
-  function ladeMitSandboxDir(sandboxDir, seed) {
-    jest.resetModules();
-    jest.doMock('../../src/services/sandbox/sandboxShared', () => ({
-      SANDBOX_DATA_DIR: sandboxDir,
-    }));
-    jest.doMock('../../src/services/sandbox/sandboxService', () => ({
-      seedWerkstattTemplates: seed,
-    }));
-    return require('../../src/services/flows/runFlow');
-  }
-
-  test('nur der Werkstatt-Ordner wird ausgesaet', async () => {
-    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'werkstatt-'));
-    const seed = jest.fn();
-    const { _werkstattVorlagenSaeen } = ladeMitSandboxDir(wurzel, seed);
-    if (!_werkstattVorlagenSaeen) return; // nicht exportiert: Test entfaellt
-
-    const werkstatt = pathMod.join(wurzel, 'werkstatt');
-    fsSync.mkdirSync(werkstatt, { recursive: true });
-    await _werkstattVorlagenSaeen(werkstatt, 'erweiterung');
-    expect(seed).toHaveBeenCalledWith(werkstatt);
-
-    seed.mockClear();
-    const anderer = pathMod.join(wurzel, 'kunden');
-    fsSync.mkdirSync(anderer, { recursive: true });
-    await _werkstattVorlagenSaeen(anderer, 'newsletter');
-    expect(seed).not.toHaveBeenCalled();
-  });
-
-  test('eine schon ausgesaete Werkstatt wird nicht noch einmal angefasst', async () => {
-    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'werkstatt2-'));
-    const seed = jest.fn();
-    const { _werkstattVorlagenSaeen } = ladeMitSandboxDir(wurzel, seed);
-    if (!_werkstattVorlagenSaeen) return;
-
-    const werkstatt = pathMod.join(wurzel, 'werkstatt');
-    fsSync.mkdirSync(werkstatt, { recursive: true });
-    fsSync.writeFileSync(pathMod.join(werkstatt, 'ANLEITUNG.md'), '# schon da');
-    await _werkstattVorlagenSaeen(werkstatt, 'erweiterung');
-    expect(seed).not.toHaveBeenCalled();
   });
 });

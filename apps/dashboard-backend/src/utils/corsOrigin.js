@@ -64,37 +64,4 @@ function isAllowedOrigin(origin, allowedOrigins = []) {
   );
 }
 
-/**
- * Der opake Origin der KI-Bruecke (Fund vom 23.08.2026).
- *
- * Der iframe einer App-Erweiterung laeuft ohne `allow-same-origin`; sein
- * `fetch` schickt woertlich `Origin: null`. `isAllowedOrigin` kennt nur echte
- * Herkuenfte und lehnt das ab — und weil der globale CORS-Waechter VOR dem
- * Router laeuft, beantwortete er schon den Vorabflug mit 403. Der Router kam
- * nie dran, im Browser stand nur `net::ERR_FAILED`, und keine App konnte die
- * Bruecke je benutzen.
- *
- * Die Ausnahme ist absichtlich eng: nur woertlich `null`, nur unterhalb von
- * `/api/extensions/:id/bruecke`, und OHNE `credentials`. Ein opaker Origin
- * bekommt hier nie ein Cookie; er weist sich mit seinem Bruecken-Token im
- * `Authorization`-Kopf aus, und genau darauf ist die Bruecke gebaut.
- *
- * Liefert die CORS-Optionen fuer diesen Fall — oder `null`, wenn der
- * allgemeine Waechter zustaendig bleibt.
- */
-const _brueckePfad = /^\/api\/extensions\/[^/]+\/bruecke(\/|$)/;
-
-function brueckeCorsOptionen(origin, pfad) {
-  if (origin !== 'null' || typeof pfad !== 'string' || !_brueckePfad.test(pfad)) {
-    return null;
-  }
-  return {
-    origin: 'null',
-    credentials: false,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    maxAge: 600,
-  };
-}
-
-module.exports = { isAllowedOrigin, brueckeCorsOptionen };
+module.exports = { isAllowedOrigin };

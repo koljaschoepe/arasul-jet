@@ -120,7 +120,7 @@ const errorHandler = (err, req, res, next) => {
     logger.warn(`${req.method} ${req.originalUrl}: FK violation`, errorContext);
   } else if (err.code === '22P02') {
     // PostgreSQL: der Text passt nicht zum Spaltentyp, praktisch immer eine
-    // kaputte Id in der Adresse (23.08.2026 an `DELETE /api/sandbox/projects/:id`
+    // kaputte Id in der Adresse (23.08.2026 an einer Loesch-Route der Sandbox
     // gefunden). Ohne diesen Zweig kam HTTP 500 zurueck — der Betreiber liest
     // "das Geraet ist kaputt", obwohl die Eingabe falsch war. Und die Antwort
     // trug die rohe Postgres-Meldung samt der eingegebenen Zeichenkette.
