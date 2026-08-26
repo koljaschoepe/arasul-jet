@@ -9,13 +9,6 @@ const LLM_SERVICE_PORT = process.env.LLM_SERVICE_PORT || process.env.LLM_PORT ||
 const LLM_MANAGEMENT_PORT =
   process.env.LLM_SERVICE_MANAGEMENT_PORT || process.env.LLM_MANAGEMENT_PORT || '11436';
 
-// vLLM Engine (Plan 021, Schritt 2) — Platzhalter-Endpunkt. Der Container wird
-// erst in Schritt 7 real angebunden (Start/Stop-on-idle über den GPU-Lock).
-// Auf dem Orin ist die aktive Engine Ollama, dieser Eintrag bleibt bis dahin
-// ungenutzt. vLLM spricht OpenAI-kompatibel unter /v1/*.
-const VLLM_SERVICE_HOST = process.env.VLLM_SERVICE_HOST || 'vllm';
-const VLLM_SERVICE_PORT = process.env.VLLM_SERVICE_PORT || '8000';
-
 // Embedding Service
 const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';
 const EMBEDDING_SERVICE_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
@@ -59,15 +52,6 @@ const services = {
     chatEndpoint: `http://${LLM_SERVICE_HOST}:${LLM_SERVICE_PORT}/api/chat`,
     generateEndpoint: `http://${LLM_SERVICE_HOST}:${LLM_SERVICE_PORT}/api/generate`,
     psEndpoint: `http://${LLM_SERVICE_HOST}:${LLM_SERVICE_PORT}/api/ps`,
-  },
-
-  // vLLM Engine (Plan 021) — Platzhalter bis Schritt 7
-  vllm: {
-    host: VLLM_SERVICE_HOST,
-    port: VLLM_SERVICE_PORT,
-    url: `http://${VLLM_SERVICE_HOST}:${VLLM_SERVICE_PORT}`,
-    modelsEndpoint: `http://${VLLM_SERVICE_HOST}:${VLLM_SERVICE_PORT}/v1/models`,
-    chatEndpoint: `http://${VLLM_SERVICE_HOST}:${VLLM_SERVICE_PORT}/v1/chat/completions`,
   },
 
   // Embedding Service

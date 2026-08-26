@@ -150,24 +150,32 @@ pruefe 'J1: Anmeldung mit dem neuen Passwort' \
 
 # --- J4: erst Daten anlegen ---------------------------------------------------
 # Ohne diesen Abschnitt loeschte die Abnahme NICHTS und war trotzdem gruen.
-# Auf einem frischen Pruefstand gibt es keine Chats und keine Wissensraeume;
+# Auf einem frischen Pruefstand gibt es nichts, was ein Nutzer angelegt hat;
 # "alle Kategorien leer" war danach kein Beweis, sondern eine Selbstaussage
 # (23.08.2026). Eine Loeschung, die nichts zu loeschen hat, gelingt immer.
-CHAT_ID=$(curl -sk -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
-  -d '{"title":"Abnahme-Chat"}' "$BASIS/api/chats" |
+#
+# Bis Phase B6 (26.08.2026) legte die Abnahme einen Chat und einen Wissensraum
+# an. Beides ist ausgebaut; was ein Nutzer heute hinterlaesst, sind seine
+# Flow-Laeufe. Gestartet wird der erste Flow ohne Pflicht-Argument; der Lauf
+# darf dabei scheitern, er muss nur in der Auskunft stehen und danach weg sein.
+FLOW=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/flows" |
   python3 -c 'import sys,json
-try: print(json.load(sys.stdin)["chat"]["id"])
+try:
+    for f in json.load(sys.stdin).get("data", []):
+        if not any(a.get("pflicht") for a in f.get("argumente", [])):
+            print(f["name"]); break
+except Exception: pass' 2>/dev/null)
+LAUF_ID=""
+if [ -n "$FLOW" ]; then
+  LAUF_ID=$(curl -sk -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+    -d "{\"flow\":\"$FLOW\",\"args\":{}}" "$BASIS/api/flows/laeufe" |
+    python3 -c 'import sys,json
+try: print(json.load(sys.stdin)["data"]["runId"])
 except Exception: print("")' 2>/dev/null)
-if [ -n "$CHAT_ID" ]; then
-  curl -sk -o /dev/null -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
-    -d '{"role":"user","content":"Diese Nachricht muss die Loeschung entfernen."}' \
-    "$BASIS/api/chats/$CHAT_ID/messages"
 fi
-curl -sk -o /dev/null -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
-  -d '{"name":"Abnahme-Raum","description":"Wissensraum der Abnahme"}' "$BASIS/api/spaces"
 
 pruefe 'J4: es gibt ueberhaupt etwas zu loeschen' \
-  "$([ -n "$CHAT_ID" ] && echo ja || echo nein)" "Chat $CHAT_ID"
+  "$([ -n "$LAUF_ID" ] && echo ja || echo nein)" "Flow ${FLOW:-keiner ohne Pflicht-Argument}, Lauf $LAUF_ID"
 
 # --- J4: vorher ein Export ----------------------------------------------------
 VORHER=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/gdpr/export")

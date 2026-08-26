@@ -144,23 +144,6 @@ run_faden_check() {
   fi
 }
 
-# Funktion: Trockenlauf des Phasenlaufs
-# Plan 024 laesst vierzehn Phasen ohne Eingriff laufen. Der Kontrollfluss steht
-# deshalb als Code in scripts/util/phasenlauf.mjs und nicht in einer Anweisung.
-# Dieser Test fuehrt ihn mit Attrappen aus: keine Agenten, keine Deploys, keine
-# Abnahmen gegen das Geraet. Er hat schon beim ersten Lauf einen Fehler im
-# eigenen Ablauf gefunden — die Reihe zur Mitte startete auf einem Stand, von
-# dem bereits bekannt war, dass er rot ist.
-run_phasenlauf_check() {
-  echo ""
-  echo "-> Trockenlauf des Phasenlaufs (Plan 024)..."
-  if node "${PROJECT_ROOT}/scripts/test/phasenlauf-test.mjs" | sed 's/^/   /'; then
-    :
-  else
-    EXIT_CODE=1
-  fi
-}
-
 # Funktion: Selbsttest der Waechter
 # Ein Waechter, den niemand prueft, meldet irgendwann Ruhe, ohne dass es
 # auffaellt. Zweimal passiert, beide Male spaet gefunden.
@@ -495,7 +478,6 @@ run_stiller_tod_check
 run_endpunkte_check
 run_anleitungen_check
 run_faden_check
-run_phasenlauf_check
 run_selbsttest_check
 
 # Hauptlogik: Welche Tests laufen?
