@@ -1,10 +1,8 @@
 # Document Indexer
 
-Textextraktion aus hochgeladenen Dateien. Der Name ist historisch: bis zur
-Phase B4 des Rückbaus (26.08.2026) hat dieser Dienst Dokumente aus MinIO
-gelesen, zerlegt, eingebettet und in Postgres abgelegt. Das alles ist
-gefallen. Was bleibt, ist ein zustandsloser HTTP-Dienst, dem das Backend
-eine Datei schickt und der Text zurückgibt.
+Textextraktion auf Anfrage. Der Name ist historisch; heute ist es ein
+zustandsloser HTTP-Dienst, dem das Backend eine Datei schickt und der Text
+zurückgibt. Nichts wird abgelegt.
 
 | Eigenschaft | Wert                                      |
 | ----------- | ----------------------------------------- |
@@ -35,8 +33,7 @@ war, nicht, ob das Tesseract-Binary läuft.
 
 ### `POST /extract-text`
 
-`multipart/form-data`, Feld `file`. Ein JSON-Body wird nicht mehr
-angenommen (der frühere Zweig mit `minio_path` ist mit MinIO gefallen).
+`multipart/form-data`, Feld `file`. Ein JSON-Body wird nicht angenommen.
 
 ```bash
 curl -F file=@angebot.pdf http://document-indexer:9102/extract-text
