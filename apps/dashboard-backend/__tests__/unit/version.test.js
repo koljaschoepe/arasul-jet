@@ -35,12 +35,12 @@ describe('Version', () => {
     expect(versionFuerAnzeige()).toBe('Vorserie');
   });
 
-  // Bewusst getrennt: die Vergleichszahl bleibt, was sie war. Ein Wechsel auf
-  // 0.0.0 wuerde auf jedem Geraet ohne gesetzte Version jede angebotene Fassung
-  // als neuer gelten lassen, und das ist eine Aenderung am
-  // Aktualisierungsverhalten, nicht an einer Beschriftung.
-  it('laesst die Vergleichszahl unveraendert, damit die Aktualisierung gleich rechnet', () => {
+  // Seit Phase B7 (26.08.2026) ist auch die Vergleichszahl ehrlich: eine
+  // Vorserie hat keine Fassung, jede ausgelieferte Fassung ist neuer. Sie
+  // bleibt eine Zahl, weil `updateService.compareVersions` X.Y.Z verlangt.
+  it('vergleicht ohne gesetzte Version als 0.0.0, damit jede Fassung neuer ist', () => {
     delete process.env.SYSTEM_VERSION;
-    expect(versionFuerVergleich()).toBe('1.0.0');
+    expect(versionFuerVergleich()).toBe('0.0.0');
+    expect(versionFuerVergleich()).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });
