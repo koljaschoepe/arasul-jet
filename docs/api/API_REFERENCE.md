@@ -56,7 +56,7 @@ Stand: 2026-08-20. Quelle: `apps/dashboard-backend/src/utils/version.js`.
   "version": "Vorserie",
   "node": "v22.x.x",
   "uptimeSeconds": 12345,
-  "routes": { "core": ["..."], "sandbox": ["..."], "system": ["..."], "...": [] },
+  "routes": { "core": ["..."], "flows": ["..."], "system": ["..."], "...": [] },
   "errorCodes": ["VALIDATION_ERROR", "UNAUTHORIZED", "..."],
   "timestamp": "2026-..."
 }
@@ -137,7 +137,7 @@ Changes the current user's own password. All existing sessions are invalidated a
 
 **POST /api/auth/refresh-cookie:**
 
-Re-syncs the `arasul_session` HttpOnly cookie from the current Bearer token. The frontend calls this right before navigating to a Traefik forward-auth-gated app (n8n, MinIO, Claude Code) when the user may have logged in under a different hostname and the cookie is missing for the current origin.
+Re-syncs the `arasul_session` HttpOnly cookie from the current Bearer token. The frontend calls this right before navigating to a Traefik forward-auth-gated app (n8n) when the user may have logged in under a different hostname and the cookie is missing for the current origin.
 
 ```json
 // Response
@@ -161,7 +161,7 @@ Mints a fresh CSRF token, sets it as the non-HttpOnly `arasul_csrf` cookie (4 h,
 
 **GET /api/auth/verify:**
 
-Used by Traefik forward-auth middleware to protect routes like n8n and Claude Code terminal.
+Used by Traefik forward-auth middleware to protect routes like n8n.
 Returns user info headers on success:
 
 - `X-User-Id`: User ID
@@ -345,10 +345,9 @@ nicht gibt, `503`, wenn der Dienst nicht erreichbar ist.
 
 **GET /api/services/embedding/info:**
 
-Auth: erforderlich. Reicht die Auskunft des Embedding-Dienstes durch. Achtung:
-der Dienst läuft seit Plan 021 nicht mehr von selbst (Compose-Profil
-`classic-rag`), auf einem Standardgerät antwortet dieser Endpunkt deshalb mit
-`503`.
+Auth: erforderlich. Reicht die Auskunft des Embedding-Dienstes durch. Der
+Dienst läuft seit dem 24.08.2026 wieder ohne Compose-Profil; ist er nicht
+erreichbar, antwortet der Endpunkt mit `503`.
 
 **POST /api/services/restart/:serviceName:**
 
@@ -358,9 +357,9 @@ Positivliste stehen (sonst `403`), je Dienst ist höchstens ein Neustart in
 Neustart als gescheitert (`503`). Jeder Versuch, auch der gescheiterte, landet
 als `manual_restart` in `self_healing_events`.
 
-Erlaubte Dienste (Stand: 2026-08-23, Quelle:
+Erlaubte Dienste (Stand: 2026-08-26, Quelle:
 `apps/dashboard-backend/src/routes/system/services.js`, `ALLOWED_SERVICES`):
-`postgres-db`, `minio`, `metrics-collector`, `llm-service`,
+`postgres-db`, `metrics-collector`, `llm-service`,
 `embedding-service`, `document-indexer`, `reverse-proxy`, `dashboard-backend`,
 `dashboard-frontend`, `n8n`, `self-healing-agent`, `backup-service`.
 
@@ -404,77 +403,50 @@ der Endpunkt bis Plan 021 Schritt 7 mit `503 SERVICE_UNAVAILABLE`.
   "message": "Your question here",
   "conversation_id": "uuid", // optional
   "model": "gemma4:26b-q4", // optional
-  "system_prompt": "...", // optional
-  "agent": true, // optional: Agent-Modus (Werkzeugschleife) — Standard im Workspace-Chat
-  "datei_modus": false, // optional: Antwort ausdrücklich als Ablage-Datei erzeugen
-  "ablage_ziel": "kunden/mueller" // optional: relativer Ziel-Ordner in der Projektablage
+  "system_prompt": "..." // optional
 }
 ```
 
 Response: Server-Sent Events (SSE) stream
 
-**Agent-Modus / Orchestrator (2026-07-28, erweitert 2026-07-29):** Mit
-`agent: true` läuft die Nachricht als Werkzeug-Lauf (Ollama function calling):
-das Modell kann `rag_suche`, `dateien_lesen|schreiben|suchen` (Projektordner
-des aktiven Projekts), `web_suche`, `web_lesen`, `terminal` (projektbeschränkt
-im Flow-Sandbox-Container, lazy bereitgestellt) und `subagent` mit den Rollen
-`rechercheur`, `autor` (schreibt Dateien), `pruefer` (kontrolliert),
-`entwickler` (schreibt UND testet Code per Terminal) selbst aufrufen.
-
-Der Runner erzwingt ein **Orchestrator-Protokoll**: die Ordnerstruktur des
-Projekts steht IMMER im Systemkontext; bei erkennbar komplexen Aufträgen
-(Datei-Modus, Erstell-/Recherche-Verben, lange Nachricht) läuft zuerst ein
-stiller **Plan-Schritt** (`agent_step` mit `kind: 'plan'`), und bevor eine
-Antwort mit erstellten Dateien als fertig gilt, prüft die `pruefer`-Rolle das
-Ergebnis — bei Mängeln bekommt das Modell genau eine Korrektur-Schleife.
-
-Es gibt **kein praktisches Zeitlimit** (Notbremsen: 64 Runden / 24 h) — der
-Lauf wird über `DELETE /api/llm/jobs/:jobId` abgebrochen (Stop-Knopf im Chat);
-der Abbruch reißt den laufenden Modell-Stream und alle Subagenten sofort mit
-ab, Teiltext und Schritte bleiben an der Nachricht erhalten (`done`-Frame
-trägt dann `cancelled: true`).
-
-Antwort-Token streamen wie bisher (`response`); zusätzlich kommen
-`agent_step`-Frames (`{phase: 'start'|'end', step}`) und `agent_datei`-Frames
-für geschriebene Dateien. Schritte und Datei-Verweise werden an der
-Nachricht persistiert (`chat_messages.schritte` / `.datei`, Migrationen 127/128).
-Bild-Nachrichten und Modelle ohne Tool-Unterstützung fallen automatisch auf den
-klassischen Stream zurück (`warning`-Code `AGENT_TOOLS_UNSUPPORTED`).
+**Kein Agent-Modus mehr (Phase B4, 26.08.2026).** Die Felder `agent`,
+`datei_modus`, `ablage_ziel` und `space_ids` sind mit dem Chat-Agenten, der
+Projektablage und den Wissensräumen gefallen; ein Body mit diesen Feldern ist
+ein `400 VALIDATION_ERROR`. Der Systemprompt besteht nur noch aus der
+Basis-Schicht (`llm_base_system_prompt` oder der eingebaute Text); KI-Profil
+und Unternehmenskontext gibt es nicht mehr. Ein Lauf wird über
+`DELETE /api/llm/jobs/:jobId` abgebrochen, der Teiltext bleibt an der
+Nachricht erhalten (`done`-Frame mit `cancelled: true`).
 
 **SSE frame catalogue** (selected — full list in `services/llm/llmJobProcessor.js`):
 
-| `type`                                            | `code`                         | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `job_started`                                     | —                              | Job entered the queue with an id.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `status`                                          | `VISION_PROCESSING`            | (P6) Image is being captioned by a vision model before primary stream starts. Payload: `vision_via`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `warning`                                         | `THINKING_NOT_SUPPORTED`       | Requested think-mode but model lacks support; disabled silently.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `warning`                                         | `AGENT_TOOLS_UNSUPPORTED`      | Agent-Modus angefragt, Modell kann kein Tool-Calling — Antwort ohne Werkzeuge.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `warning`                                         | `VISION_FALLBACK_ACTIVE`       | (P6) Image was captioned by a vision model; primary streams with caption injected. Payload: `vision_via`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `warning`                                         | `VISION_FALLBACK_SKIPPED`      | (P6) Vision fallback returned no caption; primary streams without image context.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `warning`                                         | `NO_VISION_FALLBACK_AVAILABLE` | (P6) Primary is text-only and no vision model is installed; images dropped.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `context_info`                                    | —                              | Token-budget breakdown for the request.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `compaction`                                      | —                              | Older messages were summarized to fit context budget.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `agent_step`                                      | —                              | Agent-Werkzeugschritt: `{phase: 'start'\|'end', step: {id, kind, name, input, output, status, parent_step_id, task_index}}` — `parent_step_id` hängt Helfer-Kinder als Baum unter ihren Subagent-Schritt (Agent-UX 2026-08-02); `task_index` ordnet Schritte der obersten Ebene der gerade aktiven Aufgabe (Todo) zu → gruppierte Cursor-Darstellung (Plan 019).                                                                                                                                                                                                                                                                                          |
-| `agent_datei`                                     | —                              | Vom Agenten geänderte Ablage-Datei: `{datei: {art, project_id, pfad, name, aenderung?}}` — `aenderung: 'neu'\|'geaendert'\|'geloescht'` aus dem Platten-Snapshot-Diff (gelöschte Dateien werden seit 2026-08-02 mitgemeldet).                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `thinking` / `thinking_end` / `response` / `done` | —                              | Streaming content frames. Der `done`-Frame trägt `performance: {tokens, tokens_per_second}` — Tokens/Sekunde des ganzen Laufs (auch für Agent-Läufe über alle Werkzeug-Runden summiert, Plan 022); das Frontend zeigt sie am Abschluss. **Agent-Läufe ergänzen seit Plan 023 D7 drei Felder:** `prompt_tokens` (Vorlauf der ersten Runde, also Systemprompt, Werkzeugbeschreibungen, Zusatzkontext und Verlauf), `prompt_tokens_total` (Vorlauf aller Runden summiert, wächst mit jeder Werkzeugrunde) und `prompt_ms` (Dauer dieser ersten Vorverarbeitung in Millisekunden, also die Wartezeit vor dem ersten Wort). Das Frontend liest sie noch nicht. |
+| `type`                                            | `code`                         | Meaning                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `job_started`                                     | —                              | Job entered the queue with an id.                                                                                                                                                                                                                                                                                                          |
+| `status`                                          | `VISION_PROCESSING`            | (P6) Image is being captioned by a vision model before primary stream starts. Payload: `vision_via`.                                                                                                                                                                                                                                       |
+| `warning`                                         | `THINKING_NOT_SUPPORTED`       | Requested think-mode but model lacks support; disabled silently.                                                                                                                                                                                                                                                                           |
+| `warning`                                         | `VISION_FALLBACK_ACTIVE`       | (P6) Image was captioned by a vision model; primary streams with caption injected. Payload: `vision_via`.                                                                                                                                                                                                                                  |
+| `warning`                                         | `VISION_FALLBACK_SKIPPED`      | (P6) Vision fallback returned no caption; primary streams without image context.                                                                                                                                                                                                                                                           |
+| `warning`                                         | `NO_VISION_FALLBACK_AVAILABLE` | (P6) Primary is text-only and no vision model is installed; images dropped.                                                                                                                                                                                                                                                                |
+| `thinking` / `thinking_end` / `response` / `done` | —                              | Streaming content frames. Der `done`-Frame trägt `performance: {tokens, tokens_per_second}` (Tokens/Sekunde des ganzen Laufs, Plan 022), `prompt_tokens`, `prompt_tokens_total` und `prompt_ms` (Plan 023 D7: Vorlauf der ersten Runde, Vorlauf gesamt, Dauer bis zum ersten Wort). Das Frontend liest die drei Vorlauf-Felder noch nicht. |
 
 ### Chat Conversations
 
-| Method | Endpoint                                   | Description                                              |
-| ------ | ------------------------------------------ | -------------------------------------------------------- |
-| GET    | `/api/chats`                               | List all conversations                                   |
-| POST   | `/api/chats`                               | Create new conversation                                  |
-| GET    | `/api/chats/:id`                           | Get conversation details                                 |
-| PATCH  | `/api/chats/:id`                           | Update title                                             |
-| DELETE | `/api/chats/:id`                           | Soft delete conversation                                 |
-| GET    | `/api/chats/:id/messages`                  | Get messages                                             |
-| POST   | `/api/chats/:id/messages`                  | Add message                                              |
-| PUT    | `/api/chats/:id/messages/:messageId/datei` | Datei-Verweis an Nachricht hängen                        |
-| GET    | `/api/chats/:id/export`                    | Export chat (JSON/Markdown)                              |
-| PATCH  | `/api/chats/:id/settings`                  | Einstellungen eines Chats (Modell, Wissensraum, Projekt) |
-| GET    | `/api/chats/:id/jobs`                      | Die Läufe dieses Chats (`llm_jobs`), für die Nachschau   |
-| GET    | `/api/chats/recent`                        | Die zuletzt benutzten Chats, für die Schnellauswahl      |
-| GET    | `/api/chats/search?q=…`                    | Volltextsuche über Titel und Nachrichten                 |
+| Method | Endpoint                                   | Description                                            |
+| ------ | ------------------------------------------ | ------------------------------------------------------ |
+| GET    | `/api/chats`                               | List all conversations                                 |
+| POST   | `/api/chats`                               | Create new conversation                                |
+| GET    | `/api/chats/:id`                           | Get conversation details                               |
+| PATCH  | `/api/chats/:id`                           | Update title                                           |
+| DELETE | `/api/chats/:id`                           | Soft delete conversation                               |
+| GET    | `/api/chats/:id/messages`                  | Get messages                                           |
+| POST   | `/api/chats/:id/messages`                  | Add message                                            |
+| PUT    | `/api/chats/:id/messages/:messageId/datei` | Datei-Verweis an Nachricht hängen                      |
+| GET    | `/api/chats/:id/export`                    | Export chat (JSON/Markdown)                            |
+| PATCH  | `/api/chats/:id/settings`                  | Einstellungen eines Chats (`preferred_model`)          |
+| GET    | `/api/chats/:id/jobs`                      | Die Läufe dieses Chats (`llm_jobs`), für die Nachschau |
+| GET    | `/api/chats/recent`                        | Die zuletzt benutzten Chats, für die Schnellauswahl    |
+| GET    | `/api/chats/search?q=…`                    | Volltextsuche über Titel und Nachrichten               |
 
 **POST /api/chats:**
 
@@ -508,17 +480,18 @@ klassischen Stream zurück (`warning`-Code `AGENT_TOOLS_UNSUPPORTED`).
 }
 ```
 
-`datei` (optional, Form wie beim PUT unten): Chat-Anhänge landen im
-Ein-Ordner-Modell zuerst per `POST /api/projects/:id/dateien/upload` im
-Projektordner; die Nutzer-Nachricht trägt den Verweis dann direkt beim
-Anlegen als klickbare Projektdatei-Karte.
+`datei` (optional, Form wie beim PUT unten): ein gespeicherter Datei-Verweis
+an der Nachricht (Spalte `chat_messages.datei`, Migration 127). Die
+Projektablage, auf die `art: "projektdatei"` zeigte, ist mit Phase B4
+(26.08.2026) gefallen; das Feld bleibt bis B6 im Schema, ein Verweis führt
+aber ins Leere.
 
 **PUT /api/chats/:id/messages/:messageId/datei:**
 
-Hängt den Verweis auf eine in der Projektablage gespeicherte Datei an eine
-Nachricht (Karte „gespeicherte Datei" im Chat; Spalte `chat_messages.datei`,
-Migration 127). Die Datei selbst wird vorher über
-`PUT /api/projects/:id/dateien/inhalt` geschrieben.
+Hängt einen Datei-Verweis an eine Nachricht (Spalte `chat_messages.datei`,
+Migration 127). Bis Phase B4 zeigte er auf eine Datei der Projektablage
+(`PUT /api/projects/:id/dateien/inhalt`); diese Routen gibt es nicht mehr,
+die Route bleibt bis B6 stehen.
 
 ```json
 {
@@ -581,118 +554,17 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 
 ### Einstellungen für die Generierung
 
-Das Präfix heißt weiter `/api/rag`, weil die Einstellungsseite darauf zeigt.
-Die Suchrouten (`/query`, `/status`, `/metrics`, `/fix-space-ids`) sind am
-24.08.2026 mit Qdrant entfallen; gesucht wird über den Textlayer und die
-Werkzeuge des Agenten.
+`GET`/`PATCH /api/rag/settings` sind am 26.08.2026 (Phase B4) mit dem
+Präfix `/api/rag` gefallen; die Suchrouten darunter waren schon am 24.08.2026
+mit Qdrant gegangen. Die Spalten `llm_num_ctx_default`,
+`llm_keep_alive_seconds`, `llm_num_predict_default` und
+`llm_base_system_prompt` in `system_settings` liest das Backend weiter
+(`services/system-settings/systemSettingsService.js`,
+`services/llm/llmOllamaStream.js`); eine Route oder Oberfläche dafür gibt es
+bis zu den D-Phasen nicht. Die dreizehn `rag_`-Spalten sind mit Migration 162
+entfallen.
 
-| Method | Endpoint            | Description                  |
-| ------ | ------------------- | ---------------------------- |
-| GET    | `/api/rag/settings` | Current LLM tunables (admin) |
-| PATCH  | `/api/rag/settings` | Update LLM tunables (admin)  |
-
-**GET /api/rag/settings** (admin only) — returns the raw `system_settings`
-values for every RAG/LLM tunable as `{ "data": { ... } }`. A `null` value means
-"use the built-in/env default". Backs the Settings → "Sprachmodell" admin tab.
-
-**PATCH /api/rag/settings** (admin only) — updates any subset of the tunables and
-`systemSettings.reload()`s the in-memory cache so the change takes effect
-immediately (no restart). Body validated by `UpdateRagSettingsBody` (`.strict()`;
-unknown keys → `400 VALIDATION_ERROR`). Sending `""` for `llm_base_system_prompt`
-resets it to `NULL` (built-in default). Bounds:
-
-| Field                     | Type   | Range / notes                        |
-| ------------------------- | ------ | ------------------------------------ |
-| `llm_num_ctx_default`     | int    | 512–131072, nullable                 |
-| `llm_keep_alive_seconds`  | int    | 0–86400                              |
-| `llm_num_predict_default` | int    | 64–16384                             |
-| `llm_base_system_prompt`  | string | ≤4000 chars, nullable (`""` → reset) |
-
-Die dreizehn Felder mit `rag_`-Präfix sind am 24.08.2026 mit Qdrant entfallen
-(Migration 162). Da das Schema `.strict()` ist, beantwortet der Endpunkt sie
-heute mit `400 VALIDATION_ERROR`.
-
-Response: the fresh full settings row as `{ "data": { ... } }`.
-
-### Document Analysis (Chat Upload + OCR)
-
-| Method | Endpoint                         | Description                               |
-| ------ | -------------------------------- | ----------------------------------------- |
-| POST   | `/api/document-analysis/analyze` | Upload + OCR extract + LLM analysis (SSE) |
-| POST   | `/api/document-analysis/extract` | Pure text extraction without LLM (JSON)   |
-
-**POST /api/document-analysis/analyze:**
-
-Upload a document, extract text (OCR if needed), and analyze with the LLM. Returns SSE stream.
-
-Request: `multipart/form-data`
-
-| Field             | Type   | Required | Description                                 |
-| ----------------- | ------ | -------- | ------------------------------------------- |
-| `file`            | File   | Yes      | PDF, DOCX, TXT, MD, PNG, JPG, TIFF, BMP     |
-| `conversation_id` | number | Yes      | Chat conversation ID                        |
-| `prompt`          | string | No       | Custom analysis prompt (default: summarize) |
-| `model`           | string | No       | Model to use (default: system default)      |
-| `temperature`     | number | No       | Sampling temperature (default: 0.7)         |
-
-SSE events: `job_started`, `thinking`, `response`, `done` (same format as `/api/llm/chat`).
-
-**POST /api/document-analysis/extract:**
-
-Pure text extraction without LLM. Used by n8n and internal tools.
-
-Request: `multipart/form-data` with `file` field.
-
-```json
-// Response:
-{
-  "text": "Extracted document text...",
-  "filename": "invoice.pdf",
-  "metadata": {
-    "char_count": 4521,
-    "word_count": 812,
-    "ocr_used": true,
-    "language": "deu"
-  }
-}
-```
-
-### Documents (Data Tab)
-
-| Method | Endpoint                          | Description                                                                                                                                                  |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/api/documents`                  | List all documents                                                                                                                                           |
-| POST   | `/api/documents/upload`           | Upload document (multipart)                                                                                                                                  |
-| GET    | `/api/documents/:id`              | Get document details                                                                                                                                         |
-| DELETE | `/api/documents/:id`              | Delete document                                                                                                                                              |
-| GET    | `/api/documents/:id/content`      | Get file content (text files)                                                                                                                                |
-| PUT    | `/api/documents/:id/content`      | Update file content                                                                                                                                          |
-| PATCH  | `/api/documents/:id`              | Einzelne Felder ändern (Titel, Kategorie, Wissensraum)                                                                                                       |
-| GET    | `/api/documents/:id/download`     | Die Originaldatei herunterladen (`Content-Disposition: attachment`)                                                                                          |
-| GET    | `/api/documents/:id/similar`      | Ähnliche Dokumente über die Vektor-Nachbarschaft. **Liefert heute nichts**: die Vektorsuche ist seit Plan 021, Schritt 8 abgeschaltet (siehe G5 in Plan 023) |
-| POST   | `/api/documents/:id/reindex`      | Ein Dokument neu indexieren (setzt `status='pending'`, der Indexer holt es)                                                                                  |
-| PUT    | `/api/documents/:id/move`         | Ein Dokument in einen anderen Wissensraum verschieben                                                                                                        |
-| GET    | `/api/documents/categories`       | Die Kategorien, in die der Indexer einordnet                                                                                                                 |
-| GET    | `/api/documents/statistics`       | Zahlen über den Bestand (je Status, je Kategorie, Chunks)                                                                                                    |
-| GET    | `/api/documents/storage`          | Belegter Platz in MinIO, mit dem Deckel aus `checkBucketQuota`                                                                                               |
-| POST   | `/api/documents/create-markdown`  | Eine Markdown-Datei anlegen, ohne Upload (`{title, content, space_id?}`)                                                                                     |
-| POST   | `/api/documents/batch/delete`     | Mehrere Dokumente auf einmal löschen (`{ids}`)                                                                                                               |
-| POST   | `/api/documents/batch/move`       | Mehrere Dokumente auf einmal verschieben (`{ids, space_id}`)                                                                                                 |
-| POST   | `/api/documents/batch/reindex`    | Mehrere Dokumente auf einmal neu indexieren (`{ids}`)                                                                                                        |
-| POST   | `/api/documents/cleanup-orphaned` | Zeilen ohne Datei in MinIO aufräumen. Wartungsweg, kein Alltagsknopf                                                                                         |
-
-Editierbare Endungen (GET/PUT `/content`): Text/Markup (`.md`, `.markdown`,
-`.txt`, `.yaml`, `.yml`, `.html`, `.htm`) **plus Quelltext** (Plan 013, B10:
-`.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.json`, `.css`, `.sh`, `.sql`, `.go`,
-`.rs`, `.rb`, `.php`, `.java`, `.c`/`.h`/`.cpp`, `.toml`, `.ini`, `.xml`, … —
-siehe `CODE_EXTENSIONS` in `routes/documents.js`). HTML öffnet als gerenderte
-Vorschau mit Code-Umschalter (Plan 012 Batch 3); Quelltext öffnet farbig im
-CodeMirror-6-Editor (Syntaxfarben, editierbar); andere Typen liefern `400`.
-
-**POST /api/documents/upload:**
-
-- Content-Type: `multipart/form-data`
-- Field: `file` (PDF, TXT, DOCX, Markdown, or YAML)
+---
 
 ### Embeddings
 
@@ -876,87 +748,6 @@ antwortete auf jedem Gerät mit `500`. Stand: 2026-08-23, Quelle:
 }
 ```
 
-### Claude Terminal
-
-| Method | Endpoint                       | Description                   | Rate Limit |
-| ------ | ------------------------------ | ----------------------------- | ---------- |
-| POST   | `/api/claude-terminal/query`   | Execute query (SSE streaming) | 5/min      |
-| GET    | `/api/claude-terminal/status`  | Terminal service status       | -          |
-| GET    | `/api/claude-terminal/history` | User's query history          | -          |
-| GET    | `/api/claude-terminal/context` | Current system context        | -          |
-| DELETE | `/api/claude-terminal/history` | Clear query history           | -          |
-
-**POST /api/claude-terminal/query:**
-
-```json
-{
-  "query": "What is the current system status?",
-  "includeContext": true,
-  "timeout": 60000
-}
-```
-
-Response: SSE stream with events:
-
-```
-data: {"type": "start", "queryId": 123, "model": "gemma4:26b-q4"}
-data: {"type": "content", "content": "The system is..."}
-data: {"type": "complete", "totalTokens": 150, "responseTimeMs": 2500}
-data: {"done": true, "status": "completed"}
-```
-
-**GET /api/claude-terminal/status:**
-
-```json
-{
-  "service": "claude-terminal",
-  "available": true,
-  "llm": {
-    "available": true,
-    "models": ["gemma4:26b-q4"],
-    "error": null
-  },
-  "config": {
-    "defaultModel": "gemma4:26b-q4",
-    "defaultTimeout": 60000,
-    "maxQueryLength": 5000,
-    "rateLimit": "5 requests per minute"
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/claude-terminal/history:**
-
-```json
-{
-  "queries": [
-    {
-      "id": 1,
-      "query": "What is the system status?",
-      "response": "The system is running...",
-      "model_used": "gemma4:26b-q4",
-      "tokens_used": 150,
-      "response_time_ms": 2500,
-      "status": "completed",
-      "error_message": null,
-      "created_at": "2026-01-15T10:00:00.000Z"
-    }
-  ],
-  "total": 10,
-  "limit": 20,
-  "offset": 0,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**Notes:**
-
-- Context includes system metrics, service status, and recent logs
-- Sessions expire after 30 minutes of inactivity
-- Max query length: 5000 characters
-- Timeout: 60 seconds (max 120 seconds)
-
 ### Events (Notifications)
 
 | Method | Endpoint                           | Auth   | Description                       |
@@ -1024,245 +815,11 @@ Only accepts requests from localhost or Docker network IPs.
 }
 ```
 
-### Projects (Batch 2)
-
-Die oberste Ebene über den Ordnern: ein Projekt bündelt mehrere
-`knowledge_spaces`. Das **aktive Projekt** (`system_settings.active_project_id`,
-app-weit/Einzel-Admin) scopt Explorer, Suche und Flows/Agenten.
-
-| Method | Endpoint                            | Description                                                                                                                                                                                                                                                    |
-| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/projects`                     | Alle Projekte mit Ordner-Zähler (`{data:[…]}`, inkl. `vorlage_id/-version`)                                                                                                                                                                                    |
-| GET    | `/api/projects/active`              | Aktives Projekt + seine `space_ids` (`{data:{project, space_ids}}`)                                                                                                                                                                                            |
-| PUT    | `/api/projects/active`              | Aktives Projekt setzen (`{project_id}`)                                                                                                                                                                                                                        |
-| GET    | `/api/projects/vorlagen`            | Vorlagen-Galerie (Plan 014): `{data:[{id, name, beschreibung, icon, color, version}]}`                                                                                                                                                                         |
-| GET    | `/api/projects/:id/kunden`          | Kundenübersicht des CRM-Pakets (Plan 014 Phase 3): je `Kunden/<Ordner>`-Unterordner ein Eintrag mit Steckbrief-Feldern (`firma, status, letzter_kontakt, ansprechpartner, email, telefon, webseite, branche, steckbrief_pfad`) — direkt von der Platte gelesen |
-| GET    | `/api/projects/:id/vorlagen-update` | Vorlagen-Update-Stand (Plan 014 Phase 6): `{update, vorlage_id, projekt_version, neue_version, neuerungen:[{pfad}]}` — Neuerungen = Vorlagen-Dateien, die im Projekt fehlen                                                                                    |
-| POST   | `/api/projects/:id/vorlagen-update` | Ausgewählte Neuerungen übernehmen (`{pfade:[…]}`) — ADDITIV (wx, überschreibt nie); Version steigt nur bei Voll-Übernahme                                                                                                                                      |
-| POST   | `/api/projects`                     | Projekt anlegen (`{name, description?, icon?, color?, vorlage?}`)                                                                                                                                                                                              |
-| PUT    | `/api/projects/:id`                 | Projekt aktualisieren                                                                                                                                                                                                                                          |
-| DELETE | `/api/projects/:id`                 | Projekt löschen (403 beim Standard-Projekt, 409 solange es Ordner enthält)                                                                                                                                                                                     |
-
-> Neue Top-Level-Ordner landen im aktiven Projekt; Unterordner erben das Projekt
-> ihres Elternordners. `PUT /api/spaces/:id` mit `project_id` verschiebt einen
-> Ordner samt Unterbaum in ein anderes Projekt.
-
-> **Vorlagen-Galerie (Plan 014, Phase 1):** `POST /api/projects` mit
-> `vorlage: <id>` (z. B. `kunden-auftraege`) kopiert Ordnerstruktur,
-> Wissens-Dateien und projektgebundene Flows der Vorlage in den frischen
-> Projektordner (`wx` — vorhandene Dateien werden nie überschrieben) und setzt
-> `projects.vorlage_id/-version`. Eine unbekannte Vorlage → 404, bevor ein
-> Projekt entsteht. Die Vorlagen liegen versioniert im Backend-Image unter
-> `apps/dashboard-backend/src/services/projects/vorlagen/`.
-
-#### Projektablage (Datei-API)
-
-Jedes Projekt besitzt einen echten Geräte-Ordner `data/projects/<uuid>`
-(Container: `/arasul/projects/<uuid>`, Compose-Mount in
-`compose/compose.app.yaml`) — derselbe Ordner, in dem auch der
-Git-Sync-Checkout (`PROJECT_GIT_DIR`) liegt. Er ist seit dem
-**Ein-Ordner-Modell (2026-07-29)** die EINZIGE Wahrheit: Explorer, Flows
-(`ordner`-Wert `projekt://aktiv`), Chat-Agent und Sandboxes (Mount
-`/workspace/projekt`) arbeiten im selben Baum. Jeder Zugriff läuft
-symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
-`.git`, `node_modules` u. Ä. werden beim Auflisten ausgeblendet.
-
-| Method | Endpoint                                     | Description                                                                                                                                                  |
-| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/api/projects/:id/dateien`                  | Der EINE Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`, s. u.)                                                                                   |
-| GET    | `/api/projects/:id/dateien/ebene?ordner=…`   | Die direkten Kinder EINES Ordners, ohne Budget ueber den Baum (Plan 023 G1; `ordner` leer oder fehlend = Wurzel)                                             |
-| GET    | `/api/projects/:id/dateien/suche?q=…`        | Rekursive Namenssuche über die KOMPLETTE Ablage (min. 2 Zeichen; flache Trefferliste `{eintraege, gekuerzt}`, max. 200 Treffer)                              |
-| GET    | `/api/projects/:id/dateien/inhalt?pfad=…`    | Datei-Inhalt für den Editor (Text, max. 1 MB; Binär/zu groß → Kennzeichen statt Inhalt)                                                                      |
-| PUT    | `/api/projects/:id/dateien/inhalt`           | Textdatei schreiben (`{pfad, inhalt}`; legt Zwischenordner an; sichert vorher einen Undo-Snapshot)                                                           |
-| GET    | `/api/projects/:id/dateien/versionen?pfad=…` | Undo-Verlauf einer Datei (Plan 022): `{data: {pfad, anzahl, letzte?, vorherInhalt}}` — `anzahl` Undo-Stufen, `vorherInhalt` = Text-Vorher-Stand für den Diff |
-| POST   | `/api/projects/:id/dateien/undo`             | Macht den jüngsten Schreibschritt einer Datei rückgängig (`{pfad}`; mehrstufig aufrufbar). Gemeinsamer Snapshot-Stapel mit den Agent-Datei-Werkzeugen        |
-| POST   | `/api/projects/:id/dateien/ordner`           | Ordner anlegen (`{pfad}`, verschachtelt erlaubt)                                                                                                             |
-| DELETE | `/api/projects/:id/dateien?pfad=…`           | Datei oder Ordner (rekursiv) löschen — nie die Wurzel oder `.git`                                                                                            |
-| POST   | `/api/projects/:id/dateien/verschieben`      | Umbenennen/Verschieben innerhalb des Projektordners (`{von, nach}`)                                                                                          |
-| POST   | `/api/projects/:id/dateien/upload`           | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                                                                                    |
-| GET    | `/api/projects/:id/dateien/download?pfad=…`  | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`)                                                                    |
-| GET    | `/api/projects/:id/dateien/vorschau?pfad=…`  | Inline-Vorschau einer Datei (PDF/Bild) gestreamt, `Content-Disposition: inline`, Range-fähig, `nosniff`, bis 50 MB (Plan 019)                                |
-
-> **Ein-Ordner-Modell — Auto-Indexierung statt manueller Übernahme:** Die
-> frühere Route `POST …/dateien/uebernehmen` ist ENTFERNT. Ein Sync-Dienst
-> (`services/projects/ordnerSyncService.js`, Takt `ORDNER_SYNC_INTERVAL_MS`,
-> Standard 20 s, plus Sofort-Trigger nach jeder Datei-Operation) spiegelt den
-> Projektordner automatisch: jeder Unterordner wird eine
-> `knowledge_spaces`-Zeile, jede indexierbare Datei (`.pdf .docx .txt .md
-.markdown .csv .json .html .htm .xml .yaml .yml .log`, ≤ 50 MB) eine
-> `documents`-Zeile (`status='pending'` → Document-Indexer → Textlayer).
-> Umbenennen/Verschieben wird per Inhalts-Hash erkannt und kostet keine
-> Neu-Indexierung; gelöschte Dateien räumen Dokument, MinIO-Objekt und
-> Vektoren ab. Altbestand (nur in MinIO) wird beim Boot auf die Platte
-> **materialisiert**. Die Baum-Einträge tragen deshalb zusätzlich:
-> Dateien `dokument: {id, status}` (wenn im Wissen gespiegelt), Ordner
-> `space_id` (ihr Wissensraum-Spiegel, z. B. für „Mit Ordner chatten").
-> Inhaltsgleiche Dateien an zwei Pfaden: nur die erste bekommt einen
-> Index-Eintrag (content_hash-Schutz). **Lösch-Sicherung:** Dokumente/Räume
-> werden nur entfernt, wenn der Baum vollständig gelesen wurde und die
-> Marker-Datei `.arasul` im Projektordner liegt (sie entsteht erst, wenn
-> Platte und DB übereinstimmen) — ein leerer/fremder Ordner (nicht
-> gemountetes Volume) löst nie Massen-Löschungen aus.
-> **Git-gekoppelte Projekte sind vom Auto-Index AUSGENOMMEN** (2026-07-30):
-> ihr Ordner trägt einen kompletten Repo-Checkout — hunderte Repo-Dateien
-> würden Stunden GPU-Zeit für KI-Analysen verbrennen und den RAG-Index
-> vergiften. Der Coding-Agent arbeitet auf Repos über Datei-Werkzeuge und
-> Terminal, nicht über RAG; der Explorer zeigt den Baum weiterhin direkt
-> von der Platte.
-
-### Git-Sync (Plan 013, B9)
-
-Koppelt ein Projekt an EIN GitHub-Repo und gleicht den container-lokalen
-Projekt-Checkout zwei-wegig ab (commit → fetch → merge → push). Der Personal
-Access Token wird AES-256-GCM-verschlüsselt gespeichert (`project_git`,
-`utils/tokenCrypto`) und nie zurückgegeben — nur die letzten vier Zeichen
-(`pat_last4`) erscheinen zur Anzeige.
-
-| Method | Endpoint                          | Description                                                                                                                                 |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/git/:projectId`             | Kopplungs-/Sync-Status (`{data: link\|null}`)                                                                                               |
-| GET    | `/api/git/:projectId/aenderungen` | Was ist anders als auf GitHub? Ohne Netz, verglichen mit dem zuletzt geholten Stand                                                         |
-| POST   | `/api/git/:projectId/connect`     | Repo koppeln (`{repo_url, branch?, pat?}`); prüft Erreichbarkeit per `ls-remote`. Derselbe Aufruf mit anderem `branch` ist der Zweigwechsel |
-| POST   | `/api/git/:projectId/sync`        | Zwei-Wege-Sync; **409 CONFLICT** mit `details.conflicts:[…]` bei Merge-Konflikt                                                             |
-| DELETE | `/api/git/:projectId`             | Kopplung lösen (verschlüsselter PAT und `.git` werden entfernt, die Dateien bleiben)                                                        |
-
-> Nur HTTPS-Remotes auf `github.com`. Ein leerer `pat` beim erneuten Connect lässt
-> einen bereits gespeicherten Token unverändert (Repo/Branch ändern ohne Neueingabe).
-> `last_status`: `neu` · `verbunden` · `synchronisiert` · `konflikt` · `fehler`.
-
-### Knowledge Spaces
-
-| Method | Endpoint                       | Description                                                                                |
-| ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/spaces`                  | List knowledge spaces des aktiven Projekts                                                 |
-| GET    | `/api/spaces/tree`             | Explorer-Aggregat des **aktiven Projekts**: Ordner (mit `parent_id`) + Dokumente           |
-| GET    | `/api/spaces/:id`              | Get space details with documents                                                           |
-| POST   | `/api/spaces`                  | Create knowledge space (optional `parent_id` für Unterordner)                              |
-| PUT    | `/api/spaces/:id`              | Update knowledge space (`parent_id` = Verschieben, Zyklus-Schutz)                          |
-| DELETE | `/api/spaces/:id`              | Delete space (409 bei Unterordnern; moves docs to default, Kontextdatei wird soft-deleted) |
-| POST   | `/api/spaces/:id/regenerate`   | Trigger context regeneration                                                               |
-| POST   | `/api/spaces/route`            | Find relevant spaces for query                                                             |
-| GET    | `/api/spaces/:id/context-file` | Kontextdatei des Ordners lesen (`{document, content}` oder nulls)                          |
-| PUT    | `/api/spaces/:id/context-file` | Kontextdatei anlegen/aktualisieren (`{content}`, max. 50.000)                              |
-| DELETE | `/api/spaces/:id/context-file` | Kontextdatei löschen (Soft-Delete)                                                         |
-| GET    | `/api/spaces/active-workspace` | Aktiver Top-Level-Ordner + Teilbaum-IDs (`{active_workspace, subtree_ids}`)                |
-| PUT    | `/api/spaces/active-workspace` | Aktiven Ordner setzen (`{space_id}`; `null` hebt die Bindung auf)                          |
-| GET    | `/api/spaces/pins`             | Angeheftete Dokumente/Unterordner (`{pins}`)                                               |
-| POST   | `/api/spaces/pins`             | Dokument ODER Unterordner anheften (`{document_id}` **oder** `{space_id}`, idempotent)     |
-| DELETE | `/api/spaces/pins/:pinId`      | Anheftung entfernen                                                                        |
-
-> **Aktives Projekt = Suchgrenze (Batch 2):** Der RAG-Scope von `POST
-/api/rag/query` ist das aktive Projekt — alle seine Ordner-`space_ids`. Ein
-> optionaler `space_ids`-Fokus (»Mit Ordner chatten«) grenzt INNERHALB des
-> Projekts ein; angeheftete Dokumente/Unterordner (`pinned_documents`) sind
-> zusätzlich immer im Kontext. Kein projektübergreifendes Auto-Routing mehr; der
-> Client muss den Scope nicht mitsenden. Der frühere „aktive Ordner"
-> (`active_workspace_space_id`, Plan 012) ist damit abgelöst.
-
-> **Ordnerbaum & Kontextdateien (Plan `ide-workspace-shell`):** Spaces bilden
-> über `parent_id` einen verschachtelten Ordnerbaum (Workspace-Explorer).
-> Die Kontextdatei eines Ordners (`documents.is_context_file = TRUE`,
-> Status `context`) wird nicht indexiert und nicht in Dokumentlisten
-> geführt; bei RAG-Anfragen mit explizitem `space_ids`-Scope wird sie
-> sanitisiert als Prompt-Ebene »Ordner-Kontext« injiziert (max. 3 Dateien
-> pro Anfrage, 5-Minuten-Cache mit Invalidierung beim Speichern).
-
-**GET /api/spaces:**
-
-```json
-{
-  "spaces": [
-    {
-      "id": 1,
-      "name": "Allgemein",
-      "slug": "allgemein",
-      "description": "Allgemeine Dokumente",
-      "icon": "folder",
-      "color": "#6366f1",
-      "is_default": true,
-      "is_system": true,
-      "sort_order": 0,
-      "actual_document_count": 5,
-      "indexed_document_count": 5
-    }
-  ],
-  "total": 1,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**POST /api/spaces:**
-
-```json
-{
-  "name": "Technische Dokumentation",
-  "description": "API-Dokumentation, Architektur-Diagramme",
-  "icon": "book",
-  "color": "#22c55e"
-}
-```
-
-**PUT /api/spaces/:id:**
-
-```json
-{
-  "name": "Updated Name",
-  "description": "Updated description",
-  "icon": "star",
-  "color": "#f59e0b",
-  "sort_order": 5
-}
-```
-
-**POST /api/spaces/route:**
-
-Find relevant spaces for a RAG query using embedding similarity.
-
-```json
-{
-  "query": "How do I configure the API?",
-  "top_k": 3,
-  "threshold": 0.5
-}
-```
-
-Response:
-
-```json
-{
-  "query": "How do I configure the API?",
-  "spaces": [
-    {
-      "id": 2,
-      "name": "Technische Dokumentation",
-      "slug": "tech-docs",
-      "description": "API-Dokumentation...",
-      "score": 0.85
-    }
-  ],
-  "method": "embedding_similarity",
-  "threshold": 0.5,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**Notes:**
-
-- System spaces cannot be deleted
-- Documents are moved to default space when deleting; the folder's context
-  file (`is_context_file = TRUE`) is **not** moved but soft-deleted with the
-  space (it belongs to the folder, not to the documents) — `moved_documents`
-  counts only regular documents
-- Space statistics (`actual_document_count`, `indexed_document_count`) and the
-  document list of `GET /api/spaces/:id` exclude context files
-- Space descriptions are embedded for semantic routing
-
 ### Settings / Passwords
 
 | Method | Endpoint                              | Description               | Rate Limit |
 | ------ | ------------------------------------- | ------------------------- | ---------- |
 | POST   | `/api/settings/password/dashboard`    | Change Dashboard password | 3/15min    |
-| POST   | `/api/settings/password/minio`        | Change MinIO password     | 3/15min    |
 | POST   | `/api/settings/password/n8n`          | Change n8n password       | 3/15min    |
 | GET    | `/api/settings/password-requirements` | Get password rules        | -          |
 
@@ -1415,11 +972,11 @@ Server-Sent Events. Query: `service`, `lines` (Standard 50, höchstens 1000).
 Schickt zuerst die letzten Zeilen, danach jede neue. Ein Keepalive alle
 15 Sekunden hält den Traefik-Leerlauf offen.
 
-Bekannte Dienstnamen (Stand: 2026-08-23, Quelle:
+Bekannte Dienstnamen (Stand: 2026-08-26, Quelle:
 `apps/dashboard-backend/src/routes/system/logs.js`, `LOG_FILES`): `system`,
 `self_healing`, `update`, `traefik`, `traefik-access`, `metrics-collector`,
 `dashboard-backend`, `dashboard-frontend`, `llm-service`, `embedding-service`,
-`n8n`, `self-healing-agent`, `postgres-db`, `minio`. Ein anderer Name ist ein
+`n8n`, `self-healing-agent`, `postgres-db`. Ein anderer Name ist ein
 `VALIDATION_ERROR`, ein fehlendes Protokoll ein `404`.
 
 ### Database
@@ -1467,142 +1024,11 @@ verschwinden aus ActivityBar/Tab-Angebot, die Dienste laufen weiter.
 | GET    | `/api/workspace-apps`     | Manifest (id, name, description, tab, `type`, `accessTier`) + `enabled` |
 | PUT    | `/api/workspace-apps/:id` | App an-/abschalten — Body `{ "enabled": boolean }`                      |
 
-Seit Plan 012 Phase E tragen die kuratierten Kern-Apps dieselbe Taxonomie wie
-selbst gebaute Erweiterungen: `type` (`app` | `flow` | `tool`) und `accessTier`
-(`internet` | `internal` | `full`). Der Erweiterungen-Reiter, der beide
-Quellen über dieselben Facetten filterte, ist mit Phase B3 (26.08.2026) aus
-der Oberfläche gefallen; der Schalter hat bis D1 keine Oberfläche.
-
-### Extensions (Erweiterungs-Baukasten)
-
-Eine Erweiterung ist ein **Ordner-Paket**: `manifest.json` (Pflichtfelder `id`,
-`name`, `type`, `accessTier`, `version`, `entry`, `arasulExtensionVersion: 1`)
-plus Assets. Pakete liegen unter `EXTENSIONS_DIR` (Default `/arasul/extensions`),
-das Register ist die Tabelle `extensions`. Der Ablauf: in einer
-Erweiterungs-Werkstatt bauen → paketieren → herunterladen → anderswo
-importieren → forken. Alle Routen erfordern Authentifizierung.
-
-| Method | Endpoint                                            | Description                                                                                |
-| ------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/extensions`                                   | Installierte Erweiterungen                                                                 |
-| POST   | `/api/extensions/bauen`                             | Ordner einer Sandbox paketieren + registrieren                                             |
-| POST   | `/api/extensions/import`                            | Paket-Archiv (`.tar.gz`) hochladen und installieren                                        |
-| GET    | `/api/extensions/werkstatt/inventar?projekt=<slug>` | Werkstatt-Inventar (erkannt/registriert/live/abgelehnt + Rollback-Verfügbarkeit)           |
-| GET    | `/api/extensions/werkstatt/status`                  | Sicht des Watchers: was er übernommen und was er mit welchem Grund abgelehnt hat           |
-| GET    | `/api/extensions/:id/download`                      | Paket als `.tar.gz` herunterladen                                                          |
-| GET    | `/api/extensions/:id/app`                           | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
-| GET    | `/api/extensions/:id/app/*`                         | Einzelne Datei aus dem Paket (Assets)                                                      |
-| POST   | `/api/extensions/:id/app-token`                     | Kurzlebiger Lese-Token für die Paket-Dateien dieser Erweiterung                            |
-| GET    | `/api/extensions/:id/app/t/:token`                  | Startdatei mit Token im Pfad (der Weg, den der iframe nimmt)                               |
-| GET    | `/api/extensions/:id/app/t/:token/*`                | Einzelne Paket-Datei mit Token im Pfad                                                     |
-| GET    | `/api/extensions/:id/flow-status`                   | n8n-Live-Status einer `flow`-Erweiterung (aktiv/importiert/erreichbar + letzter Lauf)      |
-| POST   | `/api/extensions/:id/rollback`                      | Genau einen Schritt zurück auf den vor dem letzten Überschreiben gesicherten Stand         |
-| POST   | `/api/extensions/:id/fork`                          | Kopie als neue Werkstatt-Sandbox anlegen                                                   |
-| PUT    | `/api/extensions/:id`                               | Aktivieren/deaktivieren — Body `{ "enabled": boolean, "faehigkeitenFreigeben"?: boolean }` |
-| DELETE | `/api/extensions/:id`                               | Deinstallieren (Register-Eintrag + Paket-Ordner)                                           |
-
-Jedes Überschreiben (Bauen, Import, Watcher-Update) sichert vorher den aktuellen
-Stand als genau EINEN Rollback-Punkt (Plan 017 Schritt 4); `POST
-/api/extensions/:id/rollback` stellt ihn wieder her. Das Werkstatt-Inventar
-(`GET /api/extensions/werkstatt/inventar?projekt=<slug>`) ist die eine
-Datenquelle für das Werkstatt-Panel: erkannte Ordner mit Status
-(`erkannt`/`registriert`/`live`/`abgelehnt` + Grund), Typ, Fähigkeiten, Version
-und Rollback-Verfügbarkeit.
-
-Eine `flow`-Erweiterung wird beim Aktivieren als n8n-Workflow importiert und
-aktiviert (Plan 017 Schritt 3); Deaktivieren pausiert ihn, Deinstallieren räumt
-ihn ab. `GET /api/extensions/:id/flow-status` liefert den n8n-Live-Status; fehlt
-`N8N_API_KEY` oder ist n8n nicht erreichbar, degradiert das Live-Schalten
-sichtbar (klare Fehlermeldung) statt zu brechen.
-
-`GET /api/extensions/:id/app` (und `/app/*`) liefert die Oberfläche einer
-`app`-Erweiterung, damit sie „in der Mitte" (wie n8n) in einem Sandbox-iframe
-läuft. Nur für `type = 'app'`; jeder Pfad ist symlink-sicher im Paket-Ordner
-eingesperrt. Die Antwort trägt `Content-Security-Policy: sandbox …` — das
-ausgelieferte Nutzer-HTML bekommt einen eigenen, opaken Origin und kommt nicht
-an Dashboard-Cookies oder die API. Eine **deaktivierte** Erweiterung wird nicht
-ausgeliefert (`403`, seit 19.08.2026) — vorher bediente ein schon offener Tab
-die App weiter, obwohl der Schalter im Katalog aus war.
-
-Der iframe nimmt seit dem 23.08.2026 den Weg `GET /api/extensions/:id/app/t/:token[/*]`.
-Grund: das Cookie trägt hier nicht. `arasul_session` ist `SameSite=Strict`, und
-jede Unteranfrage aus einem Dokument mit opakem Origin zählt als cross-site.
-Nur die Startdatei kam an, weil ihr Abruf eine Navigation des Elternfensters
-ist. Jede **Unterdatei** bekam `401` und obendrein
-`ERR_BLOCKED_BY_RESPONSE.NotSameOrigin` — gemessen an `arasul-bruecke.js`, das
-damit in keiner App je geladen hat. Die angemeldete Dashboard-Seite holt sich
-über `POST /api/extensions/:id/app-token` einen kurzlebigen Token (15 min,
-`EXTENSIONS_APP_TOKEN_TTL_MS`) und baut ihn in die Adresse des Rahmens ein;
-relative Verweise im App-HTML erben den Präfix von selbst. Der Token öffnet
-ausschließlich die Dateien **genau dieser** Erweiterung und ist bewusst vom
-Brücken-Token getrennt: die Brücke lässt sich abschalten, die Auslieferung
-nicht. Diese Antworten tragen `Cross-Origin-Resource-Policy: cross-origin` —
-ohne das blockiert der Browser sie für den opaken Rahmen, egal wie gültig der
-Token ist. Der Cookie-Weg bleibt für das direkte Öffnen der Startdatei.
-
-#### KI-Brücke (Plan 017 Schritt 2)
-
-Eine live geschaltete `app`-Erweiterung läuft im abgeriegelten iframe (opaker
-Origin). Über die **KI-Brücke** nutzt sie kontrolliert die lokale Basis. Ablauf:
-Die App deklariert im Manifest `faehigkeiten` (Teilmenge von
-`["llm","rag","dateien","flows"]`); der Admin gibt sie beim Live-Schalten frei
-(`PUT /api/extensions/:id` mit `faehigkeitenFreigeben: true`). Fehlt die
-Freigabe, antwortet das Aktivieren mit `400` (`details.freigabe_erforderlich`).
-
-| Method | Endpoint                                        | Zweck                                                                                                                                        |
-| ------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/extensions/:id/bruecke/token`             | Brücken-Token ausstellen (authentifizierte Dashboard-Seite); deaktivierte Erweiterung → `200 { token: null }` statt Fehler                   |
-| GET    | `/api/extensions/:id/bruecke/info`              | `{ id, name, faehigkeiten }` (wirksame Fähigkeiten)                                                                                          |
-| POST   | `/api/extensions/:id/bruecke/llm`               | Fähigkeit `llm` — gestreamte Antwort (SSE)                                                                                                   |
-| POST   | `/api/extensions/:id/bruecke/rag`               | Fähigkeit `rag` — mit `dateiname` der indexierte Text genau dieser Datei, ohne ihn die Vektorsuche (Profil `classic-rag`, aus) `{ treffer }` |
-| POST   | `/api/extensions/:id/bruecke/dateien`           | Fähigkeit `dateien` — eigener Datentopf (list/read/write)                                                                                    |
-| POST   | `/api/extensions/:id/bruecke/netz`              | Fähigkeit `netz` — Aufruf an ein im Manifest deklariertes Ziel (Plan 023 H1). Nur https, keine Umleitungen, keine Adresse im eigenen Netz    |
-| POST   | `/api/extensions/:id/bruecke/tabellen`          | Fähigkeit `tabellen` — eigene Tabellen im Schema `ext_<slug>` (Plan 023 H1). Die Erweiterung schickt nie SQL                                 |
-| POST   | `/api/extensions/:id/bruecke/zeitplan`          | Fähigkeit `zeitplan` — nächtliche Flow-Läufe (Plan 023 H1), `HH:MM` in Gerätezeit                                                            |
-| GET    | `/api/extensions/:id/bruecke/flows`             | Fähigkeit `flows` — verfügbare Flows                                                                                                         |
-| POST   | `/api/extensions/:id/bruecke/flows/:name/run`   | Fähigkeit `flows` — Flow starten (`202 { runId }`)                                                                                           |
-| GET    | `/api/extensions/:id/bruecke/flows/runs/:runId` | Fähigkeit `flows` — Lauf-Status/Ergebnis                                                                                                     |
-
-Der Token (kurzlebig, In-Memory, Standard 15 min) wird der App per postMessage
-gereicht und als `Authorization: Bearer …` gesendet. Das Backend prüft bei
-JEDEM Aufruf: Notaus-Flag (`EXTENSIONS_BRUECKE_ENABLED`, sonst `503`), Token
-gültig/nicht abgelaufen/zur Erweiterung passend (`401`), Erweiterung aktiviert
-und Fähigkeit freigegeben (`403`). CORS ist nur auf den Brücken-Routen für den
-opaken Origin (`null`) geöffnet. `dateien` schreibt/liest ausschließlich im
-eigenen Ordner `/arasul/extensions-data/<id>` — nie in der Projektablage.
-Client-SDK: `services/sandbox/dev-templates/arasul-bruecke.js`.
-
-`POST /api/extensions/bauen` — Body:
-
-```json
-{ "slug": "meine-werkstatt", "subfolder": "meine-app", "overwrite": false }
-```
-
-`subfolder` ist relativ zum Sandbox-Ordner (`.` = die Sandbox selbst) und darf
-nicht aus ihr ausbrechen. Antwort (201):
-
-```json
-{
-  "data": {
-    "id": "meine-app",
-    "name": "Meine App",
-    "description": "…",
-    "type": "app",
-    "accessTier": "internet",
-    "version": "0.1.0",
-    "source": "built",
-    "enabled": false,
-    "manifest": { "entry": "index.html" },
-    "installedAt": "2026-07-23T22:00:00.000Z"
-  },
-  "timestamp": "2026-07-23T22:00:00.000Z"
-}
-```
-
-`POST /api/extensions/import` ist ein multipart-Upload (Feld `file`, optional
-`overwrite`). Einem Archiv wird nichts geglaubt: Symlinks, Hardlinks, absolute
-Pfade und `..`-Ausbrüche führen zur Abweisung; Obergrenzen sind 2000 Einträge
-und 64 MB entpackt.
+Die kuratierten Kern-Apps tragen seit Plan 012 Phase E die Felder `type`
+(`app` | `flow` | `tool`) und `accessTier` (`internet` | `internal` | `full`).
+Der Erweiterungen-Reiter ist mit Phase B3 (26.08.2026) aus der Oberfläche
+gefallen, der Erweiterungs-Baukasten selbst mit B4; der Schalter hat bis D1
+keine Oberfläche.
 
 ### Store
 
@@ -1753,222 +1179,6 @@ auch die externen Cloud-Modelle, sofern ein Anbieter eingeschaltet ist. Sie
 tragen `"extern": true`, eine Id mit dem Praefix `extern:<anbieter>/<modell>`
 und `ram_required_gb: 0`, weil sie auf diesem Geraet keinen Speicher belegen.
 Ist kein Anbieter eingeschaltet, kommt nichts dazu.
-
-### Externe Cloud-Modelle (Plan 023 D9)
-
-Ein Cloud-Modell dazuschalten, um damit Anwendungen zu bauen, die danach lokal
-laufen. Ab Werk ist nichts eingeschaltet. Der Schluessel wird AES-256-GCM
-verschluesselt gespeichert (`utils/tokenCrypto`, Schluessel aus `JWT_SECRET`)
-und **nie** zurueckgegeben; angezeigt werden die letzten vier Zeichen.
-
-| Method | Endpoint                                 | Description                                    |
-| ------ | ---------------------------------------- | ---------------------------------------------- |
-| GET    | `/api/modelle-extern`                    | Stand aller Anbieter, auch der ohne Schluessel |
-| GET    | `/api/modelle-extern/modelle`            | Die heute waehlbaren externen Modelle          |
-| PUT    | `/api/modelle-extern/:anbieter`          | Schluessel hinterlegen oder ersetzen           |
-| DELETE | `/api/modelle-extern/:anbieter`          | Schluessel entfernen                           |
-| POST   | `/api/modelle-extern/:anbieter/pruefen`  | Schluessel gegen den Anbieter pruefen          |
-| POST   | `/api/modelle-extern/:anbieter/schalten` | Anbieter ein- oder ausschalten                 |
-
-`:anbieter` ist `anthropic` oder `openai`. Die Modellliste kommt vom Anbieter
-selbst (`GET /v1/models`), nicht aus einer Liste im Code; ohne Schluessel gibt
-es niemanden zu fragen, und die Liste bleibt leer.
-
-**Jede Anfrage an ein externes Modell steht im Pruefprotokoll**
-(`api_audit_logs`) mit `action_type = "externes_modell"`. Festgehalten wird,
-WAS wohin ging (Anbieter, Modell, Zeichenzahl, Tokenzahlen), nicht der Text.
-
-**GET /api/modelle-extern:**
-
-```json
-{
-  "data": [
-    {
-      "anbieter": "anthropic",
-      "name": "Anthropic",
-      "schluessel_hinweis": "beginnt mit sk-ant-",
-      "schluessel_hinterlegt": true,
-      "schluessel_endet_auf": "ab12",
-      "aktiv": false,
-      "zuletzt_geprueft_am": "2026-08-22T09:00:00.000Z",
-      "letzter_fehler": null
-    }
-  ]
-}
-```
-
-**GET /api/models/catalog:**
-
-```json
-{
-  "models": [
-    {
-      "id": "qwen3:7b-q8",
-      "name": "Qwen 3 7B",
-      "description": "Schnelles Allzweck-Modell",
-      "size_bytes": 8589934592,
-      "ram_required_gb": 10,
-      "category": "small",
-      "context_window": 32768,
-      "capabilities": ["chat", "code"],
-      "recommended_for": ["chat", "quick-tasks"],
-      "jetson_tested": true,
-      "is_installed": true,
-      "is_loaded": false,
-      "is_default": true,
-      "task": "text",
-      "is_task_default": true,
-      "parameter_label": "8.2B",
-      "quantization": "Q4_K_M",
-      "license": "apache-2.0",
-      "profile_read_at": "2026-08-20T21:00:00Z",
-      "measured_tps": "14.3",
-      "measured_runs": "12"
-    }
-  ],
-  "timestamp": "2026-01-07T12:00:00Z"
-}
-```
-
-`task` und `is_task_default` kommen aus Plan 023 D5: wofür das Modell
-vorgesehen ist, und ob es für diese Aufgabe voreingestellt ist. Je Aufgabe gibt
-es höchstens eines, von der Datenbank erzwungen.
-
-Die sechs Felder danach kommen aus Plan 023 D2. Die ersten vier liest der
-Modell-Abgleich aus Ollamas `/api/show`, also aus den Gewichten; sie sind
-`null`, solange das Modell nicht auf dem Gerät liegt. `measured_tps` ist der
-Median der Ausgabegeschwindigkeit auf DIESEM Gerät, `measured_runs` die Zahl
-der Messungen dahinter. Beide kommen als Zeichenkette, weil Postgres `numeric`
-so ausliefert.
-
-**GET /api/models/status:**
-
-```json
-{
-  "loaded_model": "gemma4:26b-q4",
-  "ram_used_gb": 20,
-  "pending_by_model": {
-    "qwen3:7b-q8": 2,
-    "qwen3:32b-q4": 1
-  },
-  "total_pending": 3,
-  "timestamp": "2026-01-07T12:00:00Z"
-}
-```
-
-`/unload` und `/deactivate` tun seit Plan 023 D3 dasselbe und laufen durch
-denselben Helfer. Bis dahin löste nur `/unload` die Katalog-Kennung auf den
-Ollama-Namen auf; `/deactivate` reichte sie roh durch und entlud dadurch nichts,
-meldete aber „wurde entladen". Beide nehmen die **Katalog-Kennung**
-(`qwen3:7b-q8`), nicht den Ollama-Namen.
-
-**GET /api/models/memory-budget:**
-
-```json
-{
-  "totalBudgetMb": 32768,
-  "usedMb": 15872,
-  "availableMb": 14848,
-  "safetyBufferMb": 2048,
-  "loadedModels": [
-    { "id": "gemma4:e4b-q4", "ollamaName": "gemma4:e4b", "name": "Gemma 4 Kompakt", "ramMb": 15872 }
-  ],
-  "installedModel": { "id": "gemma4:e4b-q4", "name": "Gemma 4 Kompakt" },
-  "installedCount": 11,
-  "lastSwitch": {
-    "model": "Gemma 4 Kompakt",
-    "reason": "auto_unload_adaptive_idle",
-    "at": "2026-08-21T00:00:00Z"
-  },
-  "canLoadMore": true
-}
-```
-
-`lastSwitch` kommt aus Plan 023 D3 und nennt die letzte **automatische
-Entladung** der vergangenen zwei Stunden aus `llm_model_switches`; älter erklärt
-nichts mehr, was gerade zu sehen ist. Bewusst nur Entladungen: das Laden erklärt
-sich von selbst, das Modell steht danach in der Leiste. `model` ist der Anzeigename aus dem Katalog, nicht die Kennung: die
-Ableitung aus `gemma4:e4b-q4` ergäbe „Gemma 4" statt „Gemma 4 Kompakt", und das
-wäre derselbe Namensbruch, den D1 beseitigt hat. `reason` bleibt die rohe
-Kennung; übersetzt wird sie im Frontend (`utils/modellZustand.ts`). Bekannte
-Kennungen: `auto_unload_adaptive_idle|normal|peak` (Arasul hat entladen, weil
-das Modell länger ungenutzt war) und `auto_unload_ollama_keepalive` (Ollama hat
-es selbst entladen, bevor Arasul dazu kam). Für den Nutzer ist beides dasselbe,
-deshalb tragen beide dasselbe Präfix und werden gleich übersetzt.
-
-Was ein Mensch selbst ausgelöst hat, erscheint hier **nicht**: der Knopf im
-Dashboard, das Löschen eines Modells und das Verdrängen für ein anderes laufen
-alle durch `modelService.unloadModel` und werden dort in
-`services/llm/unloadRegistry.js` gemerkt, damit der Vergleich sie nicht für
-eine Entladung wegen Ruhe hält.
-
-**POST /api/models/download:**
-
-```json
-{
-  "model_id": "qwen3:7b-q8"
-}
-```
-
-> OCR-Engines (`model_type = "ocr"`, z. B. `tesseract:latest`, `paddleocr:latest`)
-> sind keine Ollama-Modelle — sie werden vom Dokument-Indexer verwaltet. Ein
-> `download` für ein OCR-Modell wird mit `400 VALIDATION_ERROR` abgelehnt, und
-> das Modell-Raster im Store blendet OCR-Einträge aus.
-
-Response: SSE stream with progress events.
-
-Die Form unten stand bis zum 21.08.2026 falsch hier: dokumentiert waren
-`type`, `percent`, `downloaded_gb` und `total_gb`, gesendet werden andere
-Felder. Nachgetragen aus `routes/ai/models.js`.
-
-```
-data: {"status": "starting", "model_id": "qwen3:7b-q8", "progress": 0}
-data: {"progress": 45, "status": "pulling …", "model_id": "qwen3:7b-q8", "bytes_completed": 3600000000, "bytes_total": 8000000000}
-data: {"done": true, "success": true, "model_id": "qwen3:7b-q8"}
-```
-
-`bytes_completed` und `bytes_total` kommen aus Plan 023 D3 und stehen erst da,
-sobald Ollama das Manifest aufgelöst hat und Daten fließen; davor sind sie
-`null`. Sie werden zusätzlich in `llm_installed_models` geschrieben, damit der
-Stand ein Neuladen der Seite überlebt.
-
-**POST /api/models/:id/activate:**
-Loads model into RAM. Only one model can be loaded at a time.
-
-```json
-{
-  "success": true,
-  "model_id": "qwen3:7b-q8",
-  "ram_used_gb": 10,
-  "timestamp": "2026-01-07T12:00:00Z"
-}
-```
-
-**POST /api/llm/chat (with model selection):**
-
-```json
-{
-  "messages": [...],
-  "conversation_id": 123,
-  "model": "qwen3:7b-q8",          // Optional: explicit model
-  "model_sequence": ["a", "b"],    // Optional: for workflows
-  "priority": 1                     // Optional: 0=normal, 1=high
-}
-```
-
-**Model Categories:**
-
-- `small` - Under 10GB RAM (7B models)
-- `medium` - 10-25GB RAM (14B models)
-- `large` - 25-45GB RAM (32B models)
-- `xlarge` - Over 45GB RAM (70B+ models)
-
-**Model Types:**
-
-- `llm` - Language models (chat, reasoning, code)
-- `ocr` - Text recognition (Tesseract, PaddleOCR)
-- `vision` - Image analysis
-- `audio` - Speech processing
 
 ### Store (Unified)
 
@@ -2295,13 +1505,7 @@ All endpoints require authentication. `export` and `categories` additionally req
 
 **GET /api/gdpr/export:**
 
-Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, conversations, messages, attachments (metadata), documents (metadata), AI memories, login history, active sessions, activity log, security events, knowledge spaces, and projects. Limited to the 10,000 most recent messages and 1,000 most recent audit entries.
-
-Zwei Kategorien sind auf dieser Box **nicht nutzergebunden** und werden deshalb
-vollständig ausgegeben, jeweils mit `note`: KI-Erinnerungen (`ai_memories` hat
-keine Nutzerspalte) und Projekte (`projects` ebenso). Dokumente werden über
-`owner_id` **oder** `uploaded_by` gefunden — `uploaded_by` enthält einen Namen,
-keine Id.
+Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, conversations, messages, attachments (metadata), login history, active sessions, activity log, security events. Limited to the 10,000 most recent messages and 1,000 most recent audit entries. Dokumente, KI-Erinnerungen, Wissensräume und Projekte sind seit Phase B4 (26.08.2026) keine Kategorien mehr; ihre Tabellen sind mit Migration 163 gefallen.
 
 Scheitert eine Kategorie, steht der Grund in ihrem Block als `unvollstaendig`
 (Zeichenkette) und zusätzlich in `_meta.unvollstaendig` (Liste aus
@@ -2322,15 +1526,11 @@ vorher verschluckte ein `.catch` jeden Fehler).
   "profile": { "id": 1, "username": "admin", "email": "...", "created_at": "..." },
   "conversations": { "count": 42, "data": [...] },
   "messages": { "count": 1500, "data": [...] },
-  "attachments": { "count": 5, "note": "File contents stored in MinIO...", "data": [...] },
-  "documents": { "count": 10, "data": [...] },
-  "aiMemories": { "count": 25, "data": [...] },
+  "attachments": { "count": 5, "note": "Dieser Export enthaelt nur die Metadaten der Anhaenge.", "data": [...] },
   "loginHistory": { "count": 100, "data": [...] },
   "activeSessions": { "count": 2, "data": [...] },
   "activityLog": { "count": 1000, "data": [...] },
-  "securityEvents": { "count": 15, "data": [...] },
-  "knowledgeSpaces": { "count": 3, "data": [...] },
-  "projects": { "count": 4, "data": [...] }
+  "securityEvents": { "count": 15, "data": [...] }
 }
 ```
 
@@ -2341,12 +1541,6 @@ vorher verschluckte ein `.catch` jeden Fehler).
   "categories": [
     { "name": "Profil", "description": "Benutzername, E-Mail, Erstelldatum", "count": 1 },
     { "name": "Chat-Konversationen", "description": "Alle Gespräche mit der KI", "count": 42 },
-    { "name": "Dokumente", "description": "Hochgeladene Dateien (Metadaten)", "count": 10 },
-    {
-      "name": "KI-Erinnerungen",
-      "description": "Vom KI-Assistenten gespeicherte Informationen",
-      "count": 25
-    },
     { "name": "Aktivitätsprotokoll", "description": "API-Zugriffe und Aktionen", "count": 1000 },
     { "name": "Anmeldehistorie", "description": "Login-Versuche und Sessions" },
     {
@@ -2360,11 +1554,9 @@ vorher verschluckte ein `.catch` jeden Fehler).
 
 **DELETE /api/gdpr/me:**
 
-DSGVO Art. 17 right to erasure. Löscht Chats samt Anhängen, Dokumente (Metadaten **und** die Dateien in MinIO), Wissensräume, Projekte samt Ablage-Ordnern auf der Platte, und die Zugangs-Zeile. Compliance-Trails (audit logs, login history) werden anonymisiert (user_id auf NULL) statt gelöscht, wie Art. 17(3)(b) es erlaubt.
+DSGVO Art. 17 right to erasure. Löscht Chats samt Anhängen, die aktiven Sessions und die Zugangs-Zeile. Compliance-Trails (audit logs, login history) werden anonymisiert (user_id auf NULL) statt gelöscht, wie Art. 17(3)(b) es erlaubt.
 
 **Der letzte Admin (Plan 023 J4):** seine Daten werden gelöscht, seine Zugangs-Zeile bleibt stehen. Sonst wäre das Gerät unbedienbar, und mit einem Zugang je Gerät (Entscheidung E1) wäre Art. 17 grundsätzlich unerreichbar. Die Antwort trägt dann `zugangBleibt: true` und sagt es im `message`-Feld.
-
-Dokumente werden über **beide** Spalten gelöscht: `owner_id` (numerische Id) und `uploaded_by` (ein NAME). Bis zum 22.08.2026 verglich die Löschung `uploaded_by` mit der Id, traf nie und meldete trotzdem Erfolg.
 
 ```json
 // Request — confirmation token is mandatory
@@ -2380,15 +1572,11 @@ Dokumente werden über **beide** Spalten gelöscht: `owner_id` (numerische Id) u
     "chat_attachments": 5,
     "chat_messages": 1500,
     "chat_conversations": 42,
-    "documents": 10,
     "active_sessions": 2,
     "anon_audit_logs": 100,
     "anon_api_audit_logs": 900,
     "anon_login_attempts": 50,
-    "admin_users": 1,
-    "minio_objekte": 10,
-    "minio_offen": 0,
-    "projekt_ordner": 3
+    "admin_users": 1
   },
   "zugangBleibt": false,
   "timestamp": "2026-01-15T10:00:00.000Z"
@@ -2399,7 +1587,6 @@ Dokumente werden über **beide** Spalten gelöscht: `owner_id` (numerische Id) u
 
 - Session cookie (`arasul_session`) is cleared on successful account deletion
 - The confirmation token must be the exact string `LOESCHEN-BESTAETIGT`
-- MinIO file contents are not deleted immediately; object storage cleanup is a follow-up step
 
 ---
 
@@ -2518,7 +1705,6 @@ Single consolidated endpoint that aggregates backup status, restore-drill status
     "ageHours": 2,
     "stale": false,
     "postgresBackups": 3,
-    "minioBackups": 2,
     "walSegments": 12,
     "totalSize": "4.2 GB"
   },
@@ -2569,7 +1755,7 @@ Single consolidated endpoint that aggregates backup status, restore-drill status
 
 Setzt das Gerät zurück. Zwei Stufen: `inhalte` löscht alles, was der Nutzer
 erzeugt hat, und lässt die Einrichtung stehen; `auslieferung` löscht zusätzlich
-die Einrichtung selbst (Zugangsdaten, Erweiterungen, Flows, n8n-Workflows,
+die Einrichtung selbst (Zugangsdaten, Flows, n8n-Workflows,
 hinterlegte Fremdzugänge, Protokolle, Messwerte), danach läuft wieder die
 Ersteinrichtung. `modelleLoeschen` entfernt zusätzlich alle Modelle aus Ollama.
 
@@ -2639,345 +1825,10 @@ Ergebnis für Objektspeicher, Vektoren, n8n und Modelle, dazu die Dauer.
 
 ---
 
-### Memory (AI)
-
-Manages the AI assistant's persistent memory profile and individual memory entries. All routes require authentication.
-
-| Method | Endpoint                    | Description                              |
-| ------ | --------------------------- | ---------------------------------------- |
-| GET    | `/api/memory/profile`       | Get AI profile YAML                      |
-| PUT    | `/api/memory/profile`       | Update AI profile YAML                   |
-| POST   | `/api/memory/profile`       | Create profile from wizard data          |
-| GET    | `/api/memory/context-stats` | Context compaction and token usage stats |
-
-Das KI-Gedächtnis (`/list`, `/search`, `/stats`, `/reindex`, `/export`,
-`/all`, `/:id`) ist am 24.08.2026 entfallen. Es lag in Qdrant und hatte über
-die gesamte Laufzeit des Geräts 0 Einträge, ohne das zu melden. Geblieben sind
-das Firmenprofil, das in jeden System-Prompt fließt, und die Kontext-Statistik,
-die `compaction_log` liest und mit dem Gedächtnis nie zu tun hatte.
-
-**GET /api/memory/profile Response:**
-
-```json
-{
-  "profile": "firma: Muster GmbH\nbranche: Software\n..."
-}
-```
-
-**PUT /api/memory/profile:**
-
-```json
-{
-  "profile": "firma: Neue GmbH\nbranche: Handel\n..."
-}
-```
-
-**POST /api/memory/profile (wizard):**
-
-```json
-// Request
-{
-  "companyName": "Muster GmbH",
-  "industry": "Software",
-  "teamSize": "10-50",
-  "products": ["Produkt A", "Produkt B"],
-  "preferences": { "language": "de" }
-}
-
-// Response
-{
-  "success": true,
-  "profile": "firma: Muster GmbH\n..."
-}
-```
-
-**GET /api/memory/list Query Parameters:**
-
-- `type`: Filter by memory type (optional)
-- `limit`: Max results (default: 50, max: 100)
-- `offset`: Pagination offset
-
-```json
-// Response
-{
-  "memories": [
-    {
-      "id": "uuid",
-      "key": "company_name",
-      "content": "Muster GmbH",
-      "memory_type": "fact",
-      "created_at": "2026-01-15T10:00:00.000Z",
-      "access_count": 5
-    }
-  ],
-  "total": 25,
-  "limit": 50,
-  "offset": 0
-}
-```
-
-**GET /api/memory/search Query Parameters:**
-
-- `q`: Search query (required)
-- `limit`: Max results (default: 10, max: 20)
-
-**GET /api/memory/context-stats Query Parameters:**
-
-- `days`: Number of days to include (default: 30, max: 90)
-
-```json
-// Response
-{
-  "period": "30d",
-  "compaction": {
-    "total": 12,
-    "avgCompression": 65,
-    "totalMemoriesExtracted": 48,
-    "avgTokensBefore": 8000,
-    "avgTokensAfter": 2800,
-    "avgDurationMs": 1500,
-    "totalMessagesCompacted": 240
-  },
-  "tokens": {
-    "totalJobs": 500,
-    "avgPromptTokens": 3200,
-    "avgCompletionTokens": 450,
-    "avgContextWindow": 3650
-  },
-  "recentCompactions": [...],
-  "dailyActivity": [...]
-}
-```
-
-**DELETE /api/memory/all:**
-
-```json
-// Request
-{
-  "confirm": true
-}
-```
-
----
-
-### Company Context (RAG)
-
-Global company context injected into every RAG query as background context.
-Both routes require **admin** privileges (`requireAuth` + `requireAdmin`).
-
-| Method | Endpoint                        | Description                           |
-| ------ | ------------------------------- | ------------------------------------- |
-| GET    | `/api/settings/company-context` | Get the company context (Markdown)    |
-| PUT    | `/api/settings/company-context` | Update the company context (Markdown) |
-
-**GET /api/settings/company-context Response:**
-
-If no context has been saved yet, a default Markdown template is returned with
-`updated_at` and `updated_by` set to `null`.
-
-```json
-{
-  "content": "# Unternehmensprofil\n\n**Firma:** [Firmenname]\n...",
-  "updated_at": null,
-  "updated_by": null,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**PUT /api/settings/company-context:**
-
-```json
-// Request — content is trimmed and must be non-empty
-{
-  "content": "# Unternehmensprofil\n\n**Firma:** Muster GmbH\n..."
-}
-
-// Response
-{
-  "content": "# Unternehmensprofil\n\n**Firma:** Muster GmbH\n...",
-  "updated_at": "2026-01-15T10:00:00.000Z",
-  "message": "Unternehmenskontext erfolgreich gespeichert",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-The content embedding is computed asynchronously (fire-and-forget) after the
-response is sent, so saves are not delayed by an embedding round-trip.
-
----
-
-### Knowledge Graph
-
-Graph-based entity and relation queries backed by the `kg_entities` / `kg_relations` tables. Populated by the document-indexer service during indexing. All routes require authentication.
-
-| Method | Endpoint                             | Description                                  |
-| ------ | ------------------------------------ | -------------------------------------------- |
-| GET    | `/api/knowledge-graph/entities`      | Search or list entities                      |
-| GET    | `/api/knowledge-graph/related/:name` | Traverse graph from a named entity           |
-| GET    | `/api/knowledge-graph/document/:id`  | Get entities and relations for a document    |
-| GET    | `/api/knowledge-graph/connections`   | Find shortest path between two entities      |
-| GET    | `/api/knowledge-graph/stats`         | Graph statistics overview                    |
-| POST   | `/api/knowledge-graph/query`         | Free-text → graph-enriched context (for n8n) |
-| POST   | `/api/knowledge-graph/refine`        | Trigger LLM-based entity/relation refinement |
-| GET    | `/api/knowledge-graph/refine/status` | Get refinement status                        |
-
-**GET /api/knowledge-graph/entities Query Parameters:**
-
-- `search`: Name pattern (ILIKE, max 200 chars)
-- `type`: Entity type filter — one of `Person`, `Organisation`, `Produkt`, `Technologie`, `Prozess`, `Konzept`, `Ort`, `Dokument`
-- `limit`: Max results (default: 50, max: 200)
-
-```json
-// Response
-{
-  "entities": [
-    {
-      "id": "uuid",
-      "name": "Muster GmbH",
-      "type": "Organisation",
-      "mention_count": 15,
-      "created_at": "2026-01-10T08:00:00.000Z"
-    }
-  ],
-  "total": 1
-}
-```
-
-**GET /api/knowledge-graph/related/:entityName Query Parameters:**
-
-- `depth`: Traversal depth (default: 2, max: 4)
-- `limit`: Max results (default: 20, max: 100)
-
-```json
-// Response
-{
-  "entity": "Muster GmbH",
-  "related": [
-    {
-      "name": "Max Mustermann",
-      "type": "Person",
-      "distance": 1,
-      "relation": "MITARBEITER_VON"
-    }
-  ],
-  "total": 5
-}
-```
-
-**GET /api/knowledge-graph/document/:documentId Response:**
-
-```json
-{
-  "document": { "id": "uuid", "filename": "bericht.pdf", "title": "Jahresbericht" },
-  "entities": [{ "id": "uuid", "name": "Muster GmbH", "type": "Organisation", "mention_count": 8 }],
-  "relations": [
-    {
-      "source_name": "Muster GmbH",
-      "source_type": "Organisation",
-      "relation_type": "ENTWICKELT",
-      "target_name": "Produkt A",
-      "target_type": "Produkt",
-      "context": "Muster GmbH hat Produkt A entwickelt..."
-    }
-  ]
-}
-```
-
-**GET /api/knowledge-graph/connections Query Parameters:**
-
-- `entity1`: First entity name (required)
-- `entity2`: Second entity name (required)
-- `maxDepth`: Max search depth (default: 4, max: 4)
-
-```json
-// Response
-{
-  "from": "Muster GmbH",
-  "to": "Produkt A",
-  "paths": [
-    {
-      "nodes": ["Muster GmbH", "Max Mustermann", "Produkt A"],
-      "relations": ["MITARBEITER_VON", "ENTWICKELT"]
-    }
-  ],
-  "found": true
-}
-```
-
-**GET /api/knowledge-graph/stats Response:**
-
-```json
-{
-  "entities": 1250,
-  "relations": 3400,
-  "documents": 85,
-  "entity_types": {
-    "Person": 320,
-    "Organisation": 180,
-    "Produkt": 95
-  },
-  "relation_types": {
-    "MITARBEITER_VON": 280,
-    "ENTWICKELT": 95
-  },
-  "top_entities": [{ "name": "Muster GmbH", "type": "Organisation", "mention_count": 145 }]
-}
-```
-
-**POST /api/knowledge-graph/query:**
-
-Free-text question → graph-enriched context for n8n workflows. Extracts entities from the question via the document-indexer service, traverses the graph, and optionally returns linked documents.
-
-```json
-// Request
-{
-  "question": "Wer arbeitet bei Muster GmbH an Produkt A?",
-  "include_documents": true,   // optional, default: true
-  "max_depth": 2,              // optional, default: 2, max: 4
-  "max_entities": 5            // optional, default: 5, max: 10
-}
-
-// Response
-{
-  "question": "Wer arbeitet bei Muster GmbH an Produkt A?",
-  "entities": [
-    { "name": "Muster GmbH", "type": "Organisation" }
-  ],
-  "graph_relations": [
-    {
-      "source": "Muster GmbH",
-      "source_type": "Organisation",
-      "target": "Max Mustermann",
-      "target_type": "Person",
-      "relation": "MITARBEITER_VON",
-      "distance": 1
-    }
-  ],
-  "graph_context": "Wissensverknüpfungen:\n- Muster GmbH → mitarbeiter von → Max Mustermann (Person)\n",
-  "linked_documents": [
-    { "id": "uuid", "filename": "team.pdf", "title": "Teamübersicht", "entity_name": "muster gmbh" }
-  ]
-}
-```
-
-**POST /api/knowledge-graph/refine:**
-
-Triggers LLM-based entity resolution and relation refinement in the document-indexer service (background task). Returns `409` if refinement is already running.
-
-```json
-// Response
-{
-  "started": true,
-  "message": "Refinement started"
-}
-```
-
----
-
 ### Flows
 
-**Beispiele (Plan 023 B4).** Ab Werk liegt kein Flow auf dem Gerät. Die fünf
-mitgelieferten Vorlagen werden nicht angelegt, sondern angeboten:
+**Beispiele (Plan 023 B4).** Ab Werk liegt kein Flow auf dem Gerät. Die
+mitgelieferte Vorlage (`recherche`) wird nicht angelegt, sondern angeboten:
 
 | Method | Endpoint                     | Auth | Description                                 |
 | ------ | ---------------------------- | ---- | ------------------------------------------- |
@@ -2992,17 +1843,16 @@ Flows are Markdown files with YAML front matter under `data/flows/` (container p
 
 | Method | Endpoint                            | Description                                                                                                                             |
 | ------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/flows`                        | List all flows — global **plus** project-bound (each entry carries `projekt: null \| {id, name}`); broken files reported separately     |
+| GET    | `/api/flows`                        | List all flows; broken files reported separately                                                                                        |
 | GET    | `/api/flows/werkzeuge`              | Tool names a flow may declare, each with `verfuegbar`                                                                                   |
-| GET    | `/api/flows/sammlungen`             | Selectable knowledge spaces (for `typ: wissensbasis`)                                                                                   |
-| GET    | `/api/flows/:name`                  | Get a single flow (`?projekt=<uuid>` = project-bound flow)                                                                              |
-| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`; `?projekt=` wie oben)                                                                       |
+| GET    | `/api/flows/:name`                  | Get a single flow                                                                                                                       |
+| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`)                                                                                             |
 | GET    | `/api/flows/vorlagen`               | List uploaded style templates (`{ name, groesse, hochgeladen }`)                                                                        |
 | POST   | `/api/flows/vorlagen`               | Upload a style template (multipart field `datei`; .docx/.pdf/.md/.txt/.html, 20 MB)                                                     |
 | DELETE | `/api/flows/vorlagen/:name`         | Delete a style template                                                                                                                 |
-| POST   | `/api/flows`                        | Create a **global** flow (409 if the name exists)                                                                                       |
-| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist; `?projekt=` wie oben)                                                                |
-| DELETE | `/api/flows/:name`                  | Delete a flow (`?projekt=` wie oben)                                                                                                    |
+| POST   | `/api/flows`                        | Create a flow (409 if the name exists)                                                                                                  |
+| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist)                                                                                      |
+| DELETE | `/api/flows/:name`                  | Delete a flow                                                                                                                           |
 | GET    | `/api/flows/laeufe`                 | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter); rows include the run's `arguments` (JSON) |
 | POST   | `/api/flows/laeufe`                 | Start a run detached; returns `202 { runId }` immediately                                                                               |
 | GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                                                |
@@ -3018,32 +1868,6 @@ external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
 (`flow_schedules`, `/flows/zeitplaene`, external `events/:name`) was removed on
 2026-07-28; there is no schedule mechanism anymore.
 
-**ZUGFeRD-Rechnungen (Plan 014, Phase 5).** Das Flow-Werkzeug
-`rechnung_erstellen` stellt echte E-Rechnungen aus: Das Modell liefert NUR
-strukturierte Positionen (JSON-Array mit Netto-Einzelpreisen); Netto/USt/Brutto
-rechnet Code in ganzen Cent (`services/flows/rechnung/summen.js`). Der
-Verkäufer kommt aus dem `Firmenprofil.md` des Projekts. Nach der eingebauten
-Validierung (Pflichtangaben §14 UStG, Summen-Querprüfung, Probe-XML) wird die
-nächste Nummer des lückenlosen Kreises (`RE-<jahr>-<lfd>`, Migration 132:
-`rechnungsnummern` + `rechnungsnummern_zaehler`) **transaktional** gezogen —
-scheitert die Erzeugung, rollt alles zurück (keine Lücke). Ausgabe: PDF/A-3b
-mit eingebettetem EN-16931-XML (Factur-X BASIC, pure Node: pdfkit +
-node-zugferd; extern per Mustang validiert). Ausgestellte Rechnungen sind
-schreibgeschützt (Datei 0444 + `ablageService.pruefeRechnungsschutz` blockt
-Ändern/Verschieben/Löschen, auch über Eltern-Ordner). Die Vorlage „Interne
-Finanzen" bringt den passenden `/rechnung`-Flow mit.
-
-**Projektgebundene Flows (Plan 014, Phase 1).** Neben dem globalen Verzeichnis
-(`data/flows/`) hat jedes Projekt eine zweite Flow-Heimat:
-`<projektordner>/flows/*.md`. Diese Flows kommen als normale Dateien mit einer
-Projekt-Vorlage mit, erscheinen im Chat **nur im aktiven Projekt** und in der
-Flow-Übersicht gruppiert nach Global/Projekt. Der `flows/`-Ordner auf der
-obersten Projektebene ist vom Ordner-Sync/Wissens-Index ausgenommen (nur dort —
-tiefere Ordner namens `flows` bleiben normales Wissen). Ein Lauf eines
-Projekt-Flows merkt sich sein Projekt (`flow_runs.projekt_id`); `projekt://aktiv`
-und der RAG-Scope zeigen bei einem Projekt-Flow auf **sein** Projekt, egal
-welches gerade aktiv ist.
-
 **Prüfschritt & Annahmen-Protokoll (Plan 014, Phase 2).** Bei Dokument-Flows
 (`ausgabe.format ≠ keins`) steht zwischen Entwurf und Ausgabe ein fester
 Prüfschritt: deterministische Checks (Platzhalter-Reste, offene `[Stellen]`,
@@ -3057,14 +1881,11 @@ wirft nie — scheitert die Prüfrunde selbst, läuft der Entwurf unverändert
 weiter und das Protokoll benennt das.
 
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
-(`{ flow, args, conversation_id?, ordner_ziel?, projekt? }` — `projekt` = UUID
-für einen projektgebundenen Flow) starts the run **server-side**
+(`{ flow, args, conversation_id? }`) starts the run **server-side**
 and returns its `runId` at once — the run keeps going regardless of the client.
-`ordner_ziel` (optional, auch am externen Trigger) lenkt das Arbeitsverzeichnis
-des Laufs auf einen Projektablage-Ordner: `projekt://aktiv[/unter/ordner]` oder
-`projekt://<projekt-uuid>[/unter/ordner]` — nur diese Formen, nie rohe
-Gerätepfade. Der Ordner wird angelegt, die im Flow deklarierten `ordner` bleiben
-zusätzlich erlaubt. The client
+Das Arbeitsverzeichnis ist der erste im Flow deklarierte `ordner`; die
+früheren Felder `ordner_ziel` und `projekt` (Projektablage, projektgebundene
+Flows) sind mit Phase B4 (26.08.2026) gefallen und ergeben `400`. The client
 then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
 `EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
 with the stored run+steps first (so a **reconnecting** client sees everything up
@@ -3089,7 +1910,7 @@ first failed step. `400` if the run is not failed or the flow has no step chain;
 `404` if the run is unknown/foreign. Response: `202 { runId, uebernommeneSchritte }`.
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
-> `werkzeuge`, `sammlungen`, `vorlagen`) is a reserved segment: a flow named
+> `werkzeuge`, `beispiele`, `vorlagen`) is a reserved segment: a flow named
 > exactly `laeufe` could not be fetched via `GET /:name`.
 >
 > The former preview endpoints `POST /api/flows/vorschau` and
@@ -3115,13 +1936,10 @@ how runs are read in the target picture.
 
 **File changes overview (Plan 011, Schritt 16).** A flow writes and deletes
 files without confirmation, so every run that _can_ change files (declares
-`dateien_schreiben` or `terminal`, or a document-producing `ausgabe`) is
+a writing `dateien_*` tool or a document-producing `ausgabe`) is
 snapshotted before and after; the diff is
 stored on `flow_runs.changes` and returned inside the run object
-(`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis, projekt? }]`).
-`projekt` (`{ projectId, pfad }`) is present when the file lives in a project's
-Ablage — the run UI uses it to open the artifact directly in the editor
-(ablage-relative path, device paths are never exposed).
+(`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis }]`).
 A finishing run also emits it live as an `aenderungen` frame so the open run card
 shows it without a refetch; on reconnect it arrives inside the `verlauf` run.
 Bounded in count and per-file preview length; `null` (column) means not tracked
@@ -3138,13 +1956,13 @@ beschreibung: Recherchiert ein Thema im Web und fasst es zusammen.
 modell: gemma4:26b-q4 # optional, sonst das Standardmodell
 argumente:
   - name: thema
-    typ: freitext # freitext | datei | auswahl | wissensbasis | ordner
+    typ: freitext # freitext | auswahl
     beschreibung: Das zu recherchierende Thema
     pflicht: true
     # optionen: [...]   # nur bei typ=auswahl (pflicht dort)
     # standard: "..."   # schließt pflicht=true aus
-ordner: [/arasul/sandbox/projects/demo] # der ERSTE ist das Arbeitsverzeichnis
-werkzeuge: [web_suche, web_lesen, subagent] # + rechnung_erstellen (Plan 014 Phase 5)
+ordner: [/arasul/flows/arbeit/demo] # absolute Pfade im Backend-Container; der ERSTE ist das Arbeitsverzeichnis
+werkzeuge: [web_suche, web_lesen, subagent]
 rollen:
   - name: leser
     beschreibung: Liest eine Seite und extrahiert Fakten
@@ -3178,11 +1996,9 @@ Recherchiere gründlich zum Thema {{thema}}.
 
 **Output (`ausgabe`, 2026-08-02).** Declares what a run produces. Before the run, the runner appends plain-language writing instructions to the system prompt (language, tonality, length band — `kurz` ≈ 300–600 words, `mittel` ≈ 800–2000, `ausfuehrlich` ≥ 2500, a concrete `wortzahl` wins —, the `gliederung` section list, and the extracted text of the `vorlage` as a style/structure reference). With a document format (`markdown|pdf|docx`) the model is additionally required to return the **complete document content as Markdown** as its final answer; after a successful run the runner renders that Markdown (pdfkit for PDF, the pure-JS `docx` package for Word) and writes it collision-free into the working directory (`fix.pdf`, `fix-2.pdf`, …). The write is recorded as a `dokument_ausgabe` step and shows up in the run's file-changes overview; a failed document render marks the run `fehler`. Filename pattern placeholders: `{{argument}}` and `{{datum}}` (YYYY-MM-DD).
 
-**`ordner` argument — the customer-folder case (2026-08-02).** An argument of `typ: ordner` is picked via a folder picker in chat; its value must be a `projekt://…` form (validated at run start, device paths are rejected). The **first** `ordner` argument value becomes the run's working directory — exactly like `ordner_ziel` on the external trigger (an explicit `ordner_ziel` wins). A flow with an `ordner` argument satisfies the "file tools need a folder" rule without declaring static `ordner` entries.
+**Style templates (`/api/flows/vorlagen`).** Uploaded files live in `FLOWS_DIR/vorlagen/` (same volume as the flows, included in backups). For `.pdf`/`.docx` the text is extracted **at upload time** via the Document Indexer (`POST /extract-text`, multipart) and stored as a `<name>.extrahiert.txt` sidecar — a template whose text cannot be read is rejected with `400`, and runs never depend on the indexer. At run time the template text (capped at 8 000 chars) is injected into the prompt as a clearly delimited style/structure block; a missing template is silently skipped (the run must not fail because a template was deleted).
 
-**Style templates (`/api/flows/vorlagen`).** Uploaded files live in `FLOWS_DIR/vorlagen/` (same volume as the flows, included in backups). For `.pdf`/`.docx` the text is extracted **at upload time** via the Document Indexer and stored as a `<name>.extrahiert.txt` sidecar — a template whose text cannot be read is rejected with `400`, and runs never depend on the indexer. At run time the template text (capped at 8 000 chars) is injected into the prompt as a clearly delimited style/structure block; a missing template is silently skipped (the run must not fail because a template was deleted).
-
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner` **or an argument of `typ: ordner`**. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `web_suche`, `web_lesen`, `subagent`, `frage_nutzer` (nur in `betriebsart: rueckfragen`). Declaring `rollen` requires `subagent` and vice versa; `dateien_*` and `symbol_suche` require at least one entry in `ordner`. `rag_suche`, `terminal` and `rechnung_erstellen` fell with phase B4 (26.08.2026) together with the knowledge base, the sandbox container and the invoice flow; a flow declaring them is rejected. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
 
 The optional `schritte` array (B7) makes orchestration deterministic: each step is either `typ: subagent` (delegates to a declared `rolle` with an `auftrag` template) or `typ: werkzeug` (calls one tool directly with `parameter`). Steps run in fixed order; a step's output is threaded into later steps as `{{stepname}}` (and `{{vorher}}` across `iterationen`), then the body prompt synthesizes the final answer. A `subagent` step requires the `subagent` tool and a matching role; a `werkzeug` step may only use a tool the flow itself declares. Empty `schritte` → the flow stays model-driven.
 
@@ -3194,15 +2010,13 @@ The optional `schritte` array (B7) makes orchestration deterministic: each step 
 {
   "data": [
     { "name": "dateien_lesen", "verfuegbar": true },
-    { "name": "terminal", "verfuegbar": true }
+    { "name": "web_suche", "verfuegbar": true }
   ],
   "timestamp": "2026-07-21T10:00:00.000Z"
 }
 ```
 
-A flow may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the flow runs. As of Plan 011 Step 18 **all seven tools are built**, so every entry currently reports `verfuegbar: true`.
-
-**`datei` argument — content injection.** An argument of `typ: datei` yields the picked document's **filename**. Because document originals live in MinIO and are not reachable as files, the runner loads that document's indexed text (reassembled from `document_chunks`, or the stored `summary` if not yet chunked) and appends it to the model's user input inside `--- Inhalt der Datei "…" ---` markers, capped at 16 000 characters. A flow like `dokument-zusammenfassen` therefore needs no file tools — the argument delivers the content. If the document is unknown or not indexed, the runner appends an honest note instead so the model does not invent content.
+A flow may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the flow runs. Every tool in the list above is built, so each entry currently reports `verfuegbar: true`.
 
 **Folders and paths.** A flow may declare several folders in `ordner`; the **first one is the working directory**. Relative paths in the file tools resolve against it, deliberately not against whichever folder happens to contain a matching file — otherwise the same path would write to different places depending on what exists. Another declared folder is addressed by its full path. Every access is symlink-checked, so a symlink pointing out of the allowed folders is rejected even though the link itself sits inside one.
 
@@ -3255,204 +2069,6 @@ A flow may declare a tool that is not built yet — the definition stays valid a
 
 ---
 
-### Sandbox
-
-Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
-
-| Method | Endpoint                                                | Description                                                                                                                                           |
-| ------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/sandbox/projects`                                 | List all sandbox projects (device-wide; incl. `presence` + `created_by`)                                                                              |
-| POST   | `/api/sandbox/projects`                                 | Create a new sandbox project                                                                                                                          |
-| POST   | `/api/sandbox/projects/ensure`                          | Plan 018: Container zum aktiven Workspace-Projekt nachschlagen/anlegen+koppeln (Body `{project_id}`; `201` bei Neuanlage, `200` sonst; Netz „intern") |
-| GET    | `/api/sandbox/projects/:id`                             | Get project details                                                                                                                                   |
-| PUT    | `/api/sandbox/projects/:id`                             | Update project name/description                                                                                                                       |
-| DELETE | `/api/sandbox/projects/:id`                             | Archive a project                                                                                                                                     |
-| POST   | `/api/sandbox/projects/:id/start`                       | Start the project container                                                                                                                           |
-| POST   | `/api/sandbox/projects/:id/stop`                        | Stop the project container                                                                                                                            |
-| POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                                                                                                                 |
-| GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                                                                                                             |
-| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project (incl. `titles` + `presence`)                                                                                    |
-| PUT    | `/api/sandbox/projects/:id/sitzungen/:tmux/titel`       | Rename a session (server-side, device-wide; key project + tmux name)                                                                                  |
-| GET    | `/api/sandbox/projects/:id/verbindungen`                | List project connections (env + MCP; values never returned, only `hatWert`)                                                                           |
-| POST   | `/api/sandbox/projects/:id/verbindungen`                | Create a connection (`kind` env/mcp; value stored AES-256-GCM)                                                                                        |
-| PUT    | `/api/sandbox/projects/:id/verbindungen/:connId`        | Update a connection's value/config (name + kind stay)                                                                                                 |
-| DELETE | `/api/sandbox/projects/:id/verbindungen/:connId`        | Delete a connection                                                                                                                                   |
-| POST   | `/api/sandbox/terminal/ticket`                          | Issue a short-lived single-use ticket for the terminal WS                                                                                             |
-| POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted                                                                                            |
-| GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user                                                                                              |
-| DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                                                                                                           |
-| GET    | `/api/sandbox/claude-auth`                              | Central KI access status (mode, no secret)                                                                                                            |
-| PUT    | `/api/sandbox/claude-auth`                              | Set central token/API-key, apply to all sandboxes                                                                                                     |
-| DELETE | `/api/sandbox/claude-auth`                              | Remove central KI access                                                                                                                              |
-| POST   | `/api/sandbox/claude-auth/oauth/start`                  | Begin the backend OAuth-PKCE handshake → authorize URL                                                                                                |
-| POST   | `/api/sandbox/claude-auth/oauth/complete`               | Exchange the pasted code for tokens, inject into sandboxes                                                                                            |
-| POST   | `/api/sandbox/claude-auth/oauth/refresh`                | Refresh the access token via the stored refresh token                                                                                                 |
-| POST   | `/api/sandbox/claude-auth/test`                         | Live-check the stored access against the Anthropic API → `{ valid, status, mode, message }`                                                           |
-| GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                                                                                                            |
-
-#### Terminal-WebSocket-Auth (2026-07-31)
-
-Die Browser-`WebSocket`-API kann keinen `Authorization`-Header setzen. Statt die
-Terminal-WS allein am httpOnly-Cookie `arasul_session` hängen zu lassen (das bei
-LAN-IP/SameSite fehlen oder vor dem Bearer-Token ablaufen kann), holt der Client
-über `POST /api/sandbox/terminal/ticket` (Bearer-authentifiziert wie jeder andere
-Aufruf) ein **kurzlebiges Einmal-Ticket** und hängt es als `?ticket=…` an die
-WS-URL. Der Upgrade-Handler verbraucht das Ticket (30 s gültig, genau einmal,
-an einen Nutzer gebunden → anders als ein JWT unbedenklich in der URL) und fällt
-sonst auf Cookie/Bearer zurück. Details: `services/sandbox/wsTicketService.js`.
-
-#### Claude-Login persistence (Plan 008, Schritt 14)
-
-A one-time Claude Code login in a sandbox terminal is made to survive a
-`docker compose up -d --build` (container rebuild). The login files the CLI
-stores in the container (`~/.claude/.credentials.json`, and `~/.claude.json` if
-present) are captured, **encrypted per user** (AES-256-GCM via
-`utils/tokenCrypto.js`, key from `JWT_SECRET`) into `user_external_credentials`,
-and automatically restored into the container on its next start (best-effort —
-a restore failure never blocks the terminal). All three routes are
-cookie/session auth (`requireAuth`), owner-or-admin scoped by `:workspace`.
-
-**POST /api/sandbox/projects/:workspace/claude-login/capture** — reads the
-container's current Claude login and stores it encrypted for the calling user.
-Returns `{ captured: boolean, files?: string[] }`. `captured:false` (still 200)
-means no login was present yet — call it after logging in inside the terminal.
-
-**GET /api/sandbox/projects/:workspace/claude-login/status** — `{ stored: boolean }`
-for the calling user (credentials are per-user, the workspace is auth context).
-
-**DELETE /api/sandbox/projects/:workspace/claude-login** — `{ deleted: boolean }`.
-
-> **Device-verify:** the actual capture/restore into `arasul-sandbox:latest`
-> depends on the device-local sandbox image and can only be confirmed on the
-> Jetson (login → rebuild → still logged in). The encrypt/decrypt round-trip and
-> the docker-exec plumbing are unit-tested.
-
-#### Zentraler KI-Zugang & OAuth-Login (Plan 013 / 015)
-
-One central Claude access is stored **encrypted per user** (same
-`user_external_credentials` vault, provider `claude-central`) and injected into
-**every** sandbox as an env var — no per-terminal login. `GET/PUT/DELETE
-/api/sandbox/claude-auth` manage a manually-pasted `token` (→
-`CLAUDE_CODE_OAUTH_TOKEN`) or `apikey` (→ `ANTHROPIC_API_KEY`); the secret is
-never returned, only `{ configured, mode, expiresAt? }`.
-
-The **OAuth-PKCE handshake** (Plan 015, Phase 3) replaces the broken interactive
-`claude /login` link. The backend builds the OAuth 2.0 + PKCE flow itself
-(`services/sandbox/claudeOauthService.js`) so it controls `client_id`,
-`redirect_uri`, `scope` and `code_challenge` (S256) — dodging the CLI's
-malformed-URL bugs (#29983/#43996/#45340):
-
-- **POST `/oauth/start`** → `{ authorizeUrl, state }`. The `code_verifier` stays
-  server-side (in-memory, 15-min TTL); the URL carries the self-generated
-  `code_challenge`. Shown in the dashboard as a copyable field.
-- **POST `/oauth/complete`** `{ code, state? }` — accepts the pasted `code#state`
-  (or plain code + state), verifies state (CSRF), exchanges the code for
-  access+refresh tokens **exactly once** per attempt (browser-like headers,
-  console→platform host + JSON→form fallbacks, aborts immediately on 429 to
-  avoid burning a single-use code), stores the `oauth` bundle, and injects the
-  access token into all running sandboxes. Returns `{ configured, mode:'oauth',
-expiresAt, applied_to }`.
-- **POST `/oauth/refresh`** — renews the access token via the stored refresh
-  token (keeps the old refresh token if Anthropic returns none) and re-injects.
-
-`ANTHROPIC_API_KEY` must **not** be set in the sandbox env when an OAuth/abo
-token is used (it silently outranks the token and routes to metered API
-billing). See `docs/features/WORKSPACE.md`.
-
-**GET /api/sandbox/projects Query Parameters:**
-
-- `status`: Filter by project status
-- `search`: Search in project name
-
-**POST /api/sandbox/projects:**
-
-```json
-{
-  "name": "Mein Projekt",
-  "description": "Optionale Beschreibung",
-  "baseImage": "ubuntu:22.04", // optional
-  "network_mode": "isolated", // optional: isolated | internal | infrastructure
-  "workspaceType": "standard", // optional: standard | erweiterungs-werkstatt
-  "project_id": "uuid" // optional: Projektablage anschließen (null = trennen)
-}
-```
-
-**`network_mode` values** — die drei Zugriffs-Stufen aus Plan 012 Phase E
-Schritt 14 (also accepted on PUT `/api/sandbox/projects/:id`):
-
-| Value            | UI-Bezeichnung               | Network                       | Extra mounts                                         | Who                                        |
-| ---------------- | ---------------------------- | ----------------------------- | ---------------------------------------------------- | ------------------------------------------ |
-| `isolated`       | Nur Internet                 | Docker bridge (Internet only) | —                                                    | every user (default)                       |
-| `internal`       | Interne Dienste              | Backend network (LLM, DB, …)  | —                                                    | every user                                 |
-| `infrastructure` | Voller Systemzugriff (Admin) | Backend network               | Platform repo rw (`/workspace/repo`) + docker socket | **admin role only** (else `403 FORBIDDEN`) |
-
-**`workspaceType`** (Plan 012 Phase E Schritt 13): `standard` legt einen leeren
-Workspace-Ordner an; `erweiterungs-werkstatt` bestückt ihn beim Anlegen mit den
-Vorlagen aus `services/sandbox/dev-templates/` (`ANLEITUNG.md`, `beispiel-app`,
-`beispiel-flow`, `beispiel-tool`) — die Bau-Flows `/erweiterung` und `/execute`
-arbeiten darin.
-
-**`project_id`** (Migration 125, also accepted on PUT
-`/api/sandbox/projects/:id`): schließt die Sandbox an ein Wissensraum-Projekt
-an — dessen **Projektablage** (`data/projects/<uuid>`) wird beim
-Container-Start rw als `/workspace/projekt` gemountet, was der Agent dort baut
-liegt sofort im Explorer. `null` trennt den Anschluss; ein gelöschtes Projekt
-kappt nur die Verbindung (`ON DELETE SET NULL`), die Sandbox bleibt.
-
-Creating or switching a project to `infrastructure` is audit-logged on the backend (warn level). Container hardening (CapDrop ALL, no-new-privileges) applies to all modes; docker socket access works via the docker group GID (`GroupAdd`), not via extra capabilities.
-
-```json
-// Response (201)
-{
-  "project": {
-    "id": "uuid",
-    "name": "Mein Projekt",
-    "description": "...",
-    "status": "stopped",
-    "created_at": "2026-01-15T10:00:00.000Z"
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/sandbox/projects/:id/status Response:**
-
-```json
-{
-  "status": {
-    "containerId": "abc123",
-    "state": "running",
-    "startedAt": "2026-01-15T10:00:00.000Z",
-    "ports": {}
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/sandbox/projects/:id/sessions Query Parameters:**
-
-- `all`: Include completed sessions (`true`/`false`, default: `false`)
-
-**Terminal WebSocket:**
-
-The terminal WebSocket upgrade is handled by the main `index.js` server. Clients connect to `ws://<host>/api/sandbox/terminal/ws?projectId=<id>` and receive a full PTY session inside the running container. Auth is read from the `arasul_session` cookie or a `Bearer` header (never the query string — it would leak into access logs).
-
-**Query parameters:**
-
-- `projectId` (required): target sandbox project
-- `type`: session type — `shell` (default), `custom`, `claude-code`, `codex`
-- `command`: command for `type=custom` (allowlist `[A-Za-z0-9_.-/ ]`, max 200)
-- `cols`, `rows`: initial terminal size
-- `terminal`: tmux session name inside the container (`[A-Za-z0-9_-]`, max 40; default `main`). Distinct names allow **several independent terminal sessions in the same project** — reusing a name reattaches to that persistent shell; different names give separate shells rather than mirroring one screen.
-
-**Notes:**
-
-- Each user can only access their own projects
-- Container start/stop/commit operations call the Docker API via `sandboxService`
-- Deleted projects are soft-archived, not hard-deleted
-
----
-
 ## External API (for n8n, Workflows, Automations)
 
 **Base Path:** `/api/v1/external`
@@ -3473,20 +2089,15 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 Trigger flows from n8n or your own automations with an API key. The endpoint
 scope is `flow:run` (included in the default endpoint set for new keys).
 
-| Method | Endpoint                           | Auth    | Description                                                                                           |
-| ------ | ---------------------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| GET    | `/api/v1/external/flows`           | API Key | List available flows — global **and** project-bound; each entry carries `projekt: null \| {id, name}` |
-| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default                                                           |
-| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `annahmen`)                                                         |
+| Method | Endpoint                           | Auth    | Description                                   |
+| ------ | ---------------------------------- | ------- | --------------------------------------------- |
+| GET    | `/api/v1/external/flows`           | API Key | List available flows                          |
+| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default   |
+| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `annahmen`) |
 
-**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "ordner_ziel"?: "projekt://aktiv/kunden/mueller", "projekt"?: "<uuid>" }`.
-`ordner_ziel` lenkt das Arbeitsverzeichnis des Laufs (Enddateien) auf einen
-Projektablage-Ordner — nur `projekt://…`-Formen sind zulässig.
-`projekt` (Plan 014, Phase 4) startet einen PROJEKTGEBUNDENEN Flow aus dem
-`flows/`-Ordner dieses Projekts — so ruft der n8n-Mail-Workflow den
-`/antwort`-Flow des Kundenservice-Projekts auf (Beispiel:
-[docs/integrations/N8N.md §6b](../integrations/N8N.md)); `projekt://aktiv` und
-der RAG-Scope zeigen dann auf DIESES Projekt.
+**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
+Die früheren Felder `ordner_ziel` und `projekt` (Projektablage,
+projektgebundene Flows) sind mit Phase B4 (26.08.2026) gefallen.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
 state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs

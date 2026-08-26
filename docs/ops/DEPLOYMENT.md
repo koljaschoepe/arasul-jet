@@ -199,7 +199,6 @@ After bootstrap completes, you should see:
 
 Dashboard URL: https://arasul.local
 n8n URL:       https://arasul.local/n8n
-MinIO Console: http://localhost:9001
 ```
 
 Run health checks:
@@ -214,25 +213,12 @@ docker compose exec -T embedding-service curl -s http://localhost:11435/health
 
 > Self-signed TLS certificates produce a browser warning on first access — expected. Click through.
 
-### The sandbox image
+### Das Sandbox-Image gibt es nicht mehr
 
-`arasul-sandbox:latest` is the odd one out: it appears in no compose file,
-because nothing keeps a container of it running. The backend starts containers
-from it on demand — for workspace terminals, and for terminal commands issued
-by skills. Consequently `docker compose build` never touches it and
-`docker compose config --images` never lists it.
-
-All three install paths now build or ship it explicitly (`./arasul bootstrap`,
-`scripts/deploy/deploy-local.sh`, `scripts/deploy/create-factory-image.sh`).
-Verify it is present:
-
-```bash
-docker image inspect arasul-sandbox:latest >/dev/null && echo present
-docker build -t arasul-sandbox:latest services/sandbox   # rebuild by hand
-```
-
-A missing image never breaks the platform — only terminal features stop
-working, and they report the missing image as the cause.
+Bis Phase B4 (26.08.2026) bauten `./arasul bootstrap`, `deploy-local.sh` und
+`create-factory-image.sh` zusätzlich `arasul-sandbox:latest`, ein Image ohne
+Compose-Dienst für Workspace-Terminals. Sandbox und Terminal sind ausgebaut,
+`docker compose config --images` ist wieder die vollständige Liste.
 
 If a model is not yet pulled (skipped during bootstrap):
 

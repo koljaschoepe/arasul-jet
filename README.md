@@ -8,7 +8,7 @@
 > `1.0.0` because the update service compares against it; changing that value
 > would make every offered build look newer on a device without a set version.
 
-Arasul is a commercial edge-AI box: customers buy a physical Jetson appliance that runs chat, RAG, document analysis, and workflow automation entirely **locally** — no cloud calls, no data leakage, designed for **5 years of unattended operation**.
+Arasul is a commercial edge-AI box: customers buy a physical Jetson appliance that runs chat, document analysis, flows, and workflow automation entirely **locally** — no cloud calls, no data leakage, designed for **5 years of unattended operation**.
 
 ---
 
@@ -31,23 +31,25 @@ Arasul is a commercial edge-AI box: customers buy a physical Jetson appliance th
 Internet (443) → Traefik → Dashboard frontend (React 19 SPA)
                          → Dashboard backend  (Express API :3001)
                               ├─ PostgreSQL 16
-                              ├─ MinIO (S3 storage)
                               ├─ LLM service (Ollama, GPU)
-                              ├─ Document indexer (text layer)
+                              ├─ Document indexer (text extraction only)
                               ├─ n8n (workflows)
                               ├─ SearXNG (web search for agents)
                               └─ Self-healing + metrics + backup
 ```
 
-**There is no vector RAG any more.** Plan 021 (step 8) replaced it with
-agentic RAG — grep, symbol search, and reading named files. On 24.08.2026
-`qdrant` was removed along with its code, because three features were failing
-silently instead of reporting that they did nothing. Search now goes through the
-text layer in Postgres (`document_chunks`) and the agent's own tools.
-`embedding-service` keeps running and carries no profile: the OpenAI-compatible
-`/v1/embeddings` endpoint and knowledge-space routing both need it. Anything
-that claims Qdrant is part of the running box is out of date; verify with
-`docker compose ps`.
+**There is no RAG and no knowledge base any more.** Plan 021 (step 8) replaced
+vector RAG with an agentic approach; on 24.08.2026 `qdrant` was removed along
+with its code, because three features were failing silently instead of
+reporting that they did nothing. On 26.08.2026 (phase B4 of the teardown)
+documents, knowledge spaces, projects and the Postgres text layer
+(`document_chunks`) followed, together with MinIO, Loki, Promtail, the sandbox,
+the terminal and the extension toolkit (migration 163). The document indexer
+now only extracts text on request (`POST /extract-text`); flows work with their
+file tools inside the folders they declare. `embedding-service` keeps running
+and carries no profile: the OpenAI-compatible `/v1/embeddings` endpoint needs
+it. Anything that claims Qdrant, MinIO or knowledge spaces are part of the
+running box is out of date; verify with `docker compose ps`.
 
 Full topology, ports, startup order: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

@@ -36,55 +36,21 @@
 | chat_messages      | id, conversation_id, role, content, thinking, sources, job_id, status                                            |
 | llm_jobs           | id (UUID), conversation_id, job_type, status, content, thinking, sources, request_data, queue_position, priority |
 
-### AI Memory / Compaction (042, 041)
+### Documents, RAG, Memory, Workspaces — ENTFERNT (Migration 163, 2026-08-26)
 
-> The chat-grouping `projects` table was dropped in Plan 008 (migration 104).
-> "Project" now means the container **workspace** (`sandbox_projects`) — see the
-> Workspaces domain below.
-
-| Table          | Key Columns                                                                             |
-| -------------- | --------------------------------------------------------------------------------------- |
-| ai_memories    | id (UUID), type (fact/decision/preference), content, importance, is_active              |
-| compaction_log | id, conversation_id, messages_compacted, tokens_before, tokens_after, compression_ratio |
-
-### Documents (009, 016, 039, 052)
-
-| Table                     | Key Columns                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------------- |
-| documents                 | id (UUID), filename, file_path, content_hash, status (enum), space_id, summary, chunk_count |
-| document_chunks           | id (UUID), document_id, chunk_index, chunk_text, parent_chunk_id                            |
-| document_parent_chunks    | id (UUID), document_id, parent_index, chunk_text, token_count                               |
-| document_categories       | id, name, color, icon, is_system                                                            |
-| document_similarities     | id, document_id_1, document_id_2, similarity_score                                          |
-| document_processing_queue | id, document_id, task_type, priority, status                                                |
-| document_access_log       | id, document_id, access_type, query_text                                                    |
-
-### RAG / Knowledge (016, 044)
-
-| Table               | Key Columns                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------- |
-| knowledge_spaces    | id (UUID), name, slug, description, auto_summary, auto_topics, document_count, is_default, is_workspace |
-| company_context     | id=1 (singleton), content (Markdown), updated_at                                                        |
-| kg_entities         | id, name, entity_type, properties (JSONB), mention_count                                                |
-| kg_entity_documents | entity_id, document_id, mention_count (composite PK)                                                    |
-| kg_relations        | id, source_entity_id, target_entity_id, relation_type, weight                                           |
-
-### Workspaces (100, 105, 106, 107)
-
-> A **workspace** (`sandbox_projects`) is the only "project" entity: a `host_path`
-> folder + a container, with a `network_mode` (`isolated` / `internal` /
-> `infrastructure`) and an owner.
-
-| Table                     | Key Columns                                                                                                                                         |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| sandbox_projects          | id, user_id, name, host_path, container_name, network_mode, space_id (→ knowledge_spaces), agent_run_token_hash, agent_run_token_set_at             |
-| user_external_credentials | id, user_id (→ admin_users), provider (e.g. 'claude'), encrypted_credentials (BYTEA, AES-256-GCM), created_at, updated_at (unique user_id+provider) |
-
-Each workspace owns exactly one invisible `knowledge_spaces` row (`is_workspace = TRUE`,
-linked via `sandbox_projects.space_id`) so files written in the workspace are
-auto-indexed for RAG. `agent_run_token_hash` / `agent_run_token_set_at`
-(Migration 105) are **unused since Plan 011**; the columns remain in place
-because dropping them would be a separate, more invasive change without benefit.
+> Phase B4 des Rückbaus hat die Domänen **AI Memory / Compaction** (`ai_memories`,
+> `compaction_log`), **Documents** (`documents`, `document_chunks`,
+> `document_parent_chunks`, `document_categories`, `document_similarities`,
+> `document_processing_queue`, `document_access_log`), **RAG / Knowledge**
+> (`knowledge_spaces`, `company_context`, `kg_entities`, `kg_entity_documents`,
+> `kg_relations`, `space_members`, `rag_query_log`), **Workspaces**
+> (`sandbox_projects`, `sandbox_terminal_sessions`, `user_external_credentials`,
+> `claude_terminal_*`), Projekte (`arasul.projects`, `project_git`,
+> `rechnungsnummern*`) und den Erweiterungs-Baukasten (`arasul.extensions`,
+> `extension_*`, Schemata `ext_<slug>`) gestrichen. Die chat-gruppierende
+> `projects`-Tabelle war schon in Plan 008 (Migration 104) gefallen. Es gibt
+> keine Dokumente, keine Wissensräume und keinen Workspace als
+> Datenbank-Entität mehr; Flows arbeiten in den Ordnern, die sie deklarieren.
 
 ### Models (011, 029, 030, 035)
 
@@ -168,11 +134,11 @@ INSERT INTO ... ON CONFLICT (key) DO NOTHING;
 
 ### Soft Deletes
 
-`documents`, `chat_conversations` use `deleted_at TIMESTAMPTZ` columns. Filter with `WHERE deleted_at IS NULL`.
+`chat_conversations` uses a `deleted_at TIMESTAMPTZ` column. Filter with `WHERE deleted_at IS NULL`.
 
 ### JSONB for Flexible Data
 
-Used extensively: `llm_jobs.request_data`, `self_healing_events.metadata`, `kg_entities.properties`, `knowledge_spaces.auto_topics`.
+Used extensively: `llm_jobs.request_data`, `self_healing_events.metadata`, `flow_runs.changes`.
 
 ### Enums
 

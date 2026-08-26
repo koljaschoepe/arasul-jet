@@ -29,7 +29,9 @@ Flask APIs (except metrics-collector which uses aiohttp). Each service has a
 | DELETE | `/api/models/delete` | Delete a model                           |
 | POST   | `/api/cache/clear`   | Clear LLM cache (used by self-healing)   |
 | POST   | `/api/session/reset` | Reset LLM session (used by self-healing) |
+| POST   | `/api/gpu/recover`   | GPU recovery (used by self-healing)      |
 | GET    | `/api/stats`         | GPU/memory statistics                    |
+| GET    | `/api/info`          | Service and Ollama version info          |
 
 ### Key Details
 
@@ -45,71 +47,35 @@ Flask APIs (except metrics-collector which uses aiohttp). Each service has a
 
 **Port:** 9102 (`DOCUMENT_INDEXER_API_PORT`)
 **Framework:** Flask + flask_cors
-**Role:** Document ingestion, indexing, search, and entity extraction
+**Role:** Stateless text extraction on request (since Phase B4, 26.08.2026)
 
 ### Endpoints
 
-| Method | Path                      | Purpose                                |
-| ------ | ------------------------- | -------------------------------------- |
-| GET    | `/health`                 | Health check (reports DB status)       |
-| GET    | `/status`                 | Detailed status for self-healing agent |
-| GET    | `/statistics`             | Indexing statistics                    |
-| GET    | `/documents`              | List all documents                     |
-| GET    | `/documents/<id>`         | Get single document                    |
-| DELETE | `/documents/<id>`         | Delete document                        |
-| POST   | `/documents/<id>/reindex` | Reindex a document                     |
-| GET    | `/documents/<id>/similar` | Find similar documents                 |
-| GET    | `/categories`             | List document categories               |
-| POST   | `/scan`                   | Trigger MinIO scan                     |
-| POST   | `/extract-entities`       | Extract entities from text             |
-| POST   | `/extract-document`       | Extract entities from a document       |
-| POST   | `/bm25/search`            | BM25 keyword search                    |
-| POST   | `/bm25/rebuild`           | Rebuild BM25 index                     |
-| GET    | `/bm25/status`            | BM25 index status                      |
-| POST   | `/refine-graph`           | Trigger knowledge graph refinement     |
-| GET    | `/refine-graph/status`    | Graph refinement status                |
-| POST   | `/decompound`             | German compound word splitting         |
-| POST   | `/spellcheck`             | Spell correction                       |
+| Method | Path            | Purpose                                                       |
+| ------ | --------------- | ------------------------------------------------------------- |
+| GET    | `/health`       | Service availability                                          |
+| POST   | `/extract-text` | multipart field `file` → `{ text, pages, title, ... }` (sync) |
 
 ### Pipeline
 
 ```
-MinIO scan → parse (PDF/DOCX/images) → chunk → Textlayer in PostgreSQL
+POST /extract-text (multipart) → parse (PDF/DOCX/image) → OCR if needed → text in the response
 ```
 
-- **Chunking:** Hierarchical strategy (2000-char parent chunks, 400-char child chunks)
-- **OCR:** local Tesseract (poppler for image-PDFs). Applies to image-PDFs **and**
-  standalone image uploads — `.png/.jpg/.jpeg/.tiff/.tif/.bmp/.webp` are indexed
-  via `document_processor.PARSERS → parse_image` (QA-Sweep 2026-08-15). The
-  backend allow-list `ordnerSyncService.INDEXIERBAR` must stay in sync with
-  `PARSERS`, or a document row is created that the indexer can't parse.
-- **NER:** spaCy `de_core_news_lg` (German, lazy-loaded, ~880MB)
-- **BM25:** Keyword search with German stemming via `sparse_encoder.py`
-- **Spell correction:** SymSpellPy (optional)
-- **Compound splitting:** CharSplit for German compound words (optional)
+- **Parsers:** `document_parsers.py` (PDF via pdfplumber/poppler, DOCX, plain
+  text, images), `metadata_extractor.py` (title, page count)
+- **OCR:** local Tesseract (`ocr_service.py`) for image-PDFs and standalone
+  images (`.png/.jpg/.jpeg/.tiff/.tif/.bmp/.webp`)
+- **No state:** no database, no object store, no embedding, no LLM, no GPU, no
+  background scan. Everything that indexed, chunked, searched (BM25), extracted
+  entities or refined a knowledge graph fell with the documents, knowledge
+  spaces and the text layer (Migration 163). Callers: the backend's
+  `services/documents/extractionService.js` (external extraction API, flow
+  style templates at upload time).
 
 ### Dependencies
 
-- PostgreSQL (document metadata, chunks)
-- MinIO (document file storage)
-- Embedding-Service (text embedding)
-- LLM-Service (entity extraction, graph refinement)
-
-### Key Modules
-
-| File                    | Purpose                                     |
-| ----------------------- | ------------------------------------------- |
-| `api_server.py`         | Flask API entry point                       |
-| `enhanced_indexer.py`   | Main indexing pipeline                      |
-| `indexer.py`            | Base indexer with MinIO scanning            |
-| `database.py`           | PostgreSQL operations                       |
-| `ocr_service.py`        | PaddleOCR + Tesseract                       |
-| `entity_extractor.py`   | spaCy NER                                   |
-| `bm25_index.py`         | BM25 keyword index                          |
-| `sparse_encoder.py`     | Sparse vector encoding with German stemming |
-| `spell_corrector.py`    | SymSpellPy spell correction                 |
-| `decompound_service.py` | German compound word splitting              |
-| `graph_refiner.py`      | Knowledge graph refinement                  |
+None besides the backend that calls it.
 
 ---
 
@@ -121,11 +87,13 @@ MinIO scan → parse (PDF/DOCX/images) → chunk → Textlayer in PostgreSQL
 
 ### Endpoints
 
-| Method | Path      | Purpose                     |
-| ------ | --------- | --------------------------- |
-| GET    | `/health` | Service health + model info |
-| POST   | `/embed`  | Generate text embeddings    |
-| POST   | `/rerank` | 2-stage document reranking  |
+| Method | Path           | Purpose                     |
+| ------ | -------------- | --------------------------- |
+| GET    | `/health`      | Service health + model info |
+| GET    | `/info`        | Model and device info       |
+| POST   | `/embed`       | Generate text embeddings    |
+| POST   | `/embed/batch` | Batch embeddings            |
+| POST   | `/rerank`      | 2-stage document reranking  |
 
 ### Key Details
 
@@ -283,7 +251,7 @@ session.mount('http://', HTTPAdapter(max_retries=retry))
 
 ### Lazy Model Loading
 
-Heavy models (spaCy, rerankers) are loaded on first use, not at startup:
+Heavy models (the rerankers of the embedding service) are loaded on first use, not at startup:
 
 ```python
 _model = None
@@ -320,10 +288,8 @@ Dashboard Backend (Node.js)
     ├── LLM-Service :11436 (management)
     │       └── Ollama :11434 (inference)
     ├── Embedding-Service :11435
-    ├── Document-Indexer :9102
-    │       ├── Embedding-Service :11435
-    │       ├── LLM-Service :11436
-    │       └── MinIO :9000
+    ├── Document-Indexer :9102 (stateless, no downstream)
+    ├── SearXNG :8080 (web search for flows)
     └── Metrics-Collector :9100
 
 Self-Healing-Agent

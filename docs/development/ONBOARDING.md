@@ -209,7 +209,7 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 | Adding a DB field    | `services/postgres/init/` (next migration number)                             |
 | Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                                    |
 | Debugging n8n flow   | `services/n8n/` + dashboard n8n page                                          |
-| Touching workspaces  | `apps/dashboard-backend/src/services/sandbox/` + `routes/sandbox.js`          |
+| Touching flows       | `apps/dashboard-backend/src/services/flows/` + `routes/flows.js`              |
 | Changing design      | `docs/development/DESIGN_SYSTEM.md` + `apps/dashboard-frontend/src/index.css` |
 
 ### Reading guide per domain
@@ -218,7 +218,6 @@ Before editing in a domain, glance at the matching context file:
 
 - `.claude/context/backend.md` — Express routes, services, middleware
 - `.claude/context/n8n-workflow.md` — n8n workflow engine + custom nodes
-- `.claude/context/rag.md` — RAG pipeline (chunk → embed → retrieve)
 - `.claude/context/llm-queue.md` — LLM service queue + concurrency
 - `.claude/context/security.md` — Auth, RBAC, audit logs
 - `.claude/context/observability.md` — Metrics, logs, alerts
@@ -245,7 +244,6 @@ Before editing in a domain, glance at the matching context file:
 | `relation does not exist` on DB query             | Migration not run — `docker compose restart postgres-db`.               |
 | LLM stream hangs                                  | Ollama model not pulled — check `docker compose logs llm-service`.      |
 | `useApi` returns `unknown` types                  | Intentional — narrow with `as` at use-site or supply `get<T>()` a type. |
-| Sandbox container won't start                     | Check `sandboxService.js` logs for nvidia runtime errors.               |
 | `401 Unauthorized` in dev                         | Token expired — clear localStorage if auto-refresh fails.               |
 | Jest "did not exit one second after the test run" | Pre-existing; tests pass — safe to ignore.                              |
 

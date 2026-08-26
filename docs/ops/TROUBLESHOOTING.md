@@ -302,7 +302,7 @@ cat data/backups/backup.log
 
 ```bash
 ls -la data/backups/
-# Unterverzeichnisse: postgres/, minio/, weekly/
+# Unterverzeichnisse: postgres/, n8n/, weekly/ (Host-Skript); der Container-Dienst schreibt postgres/, flows/, escrow/, wal-archive/
 ```
 
 ---

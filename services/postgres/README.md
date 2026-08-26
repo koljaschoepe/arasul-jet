@@ -24,9 +24,11 @@ postgres/
     ├── 005_chat_schema.sql       # Chat conversations
     ├── 006_llm_jobs_schema.sql   # LLM job queue
     ├── 007_add_sources_to_messages.sql # RAG sources
-    ├── 008_llm_queue_schema.sql  # Queue optimization
-    └── 009_documents_schema.sql  # Document metadata
+    └── 008_llm_queue_schema.sql  # Queue optimization
 ```
+
+Migration 009 added the document/chunk tables; they were removed again by
+migration 163 (Phase B4, 26.08.2026), see below.
 
 ## Schema Overview
 
@@ -122,22 +124,6 @@ llm_jobs (
 
 llm_queue (
   id, job_id, priority, created_at, started_at
-)
-```
-
-### Documents (009)
-
-```sql
-documents (
-  id, filename, original_name, mime_type,
-  size_bytes, minio_path, status,
-  chunk_count, error_message,
-  created_at, updated_at, indexed_at
-)
-
-document_chunks (
-  id, document_id, chunk_index, content,
-  embedding_id, created_at
 )
 ```
 

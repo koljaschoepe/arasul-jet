@@ -25,9 +25,7 @@ src/
 │   ├── auth.js           # JWT login, logout, token validation
 │   ├── chats.js          # Multi-conversation chat management
 │   ├── llm.js            # LLM chat with queue support & SSE streaming
-│   ├── rag.js            # RAG queries with vector search
-│   ├── documents.js      # Document upload/management/deletion
-│   ├── settings.js       # Password management (Dashboard/MinIO/n8n)
+│   ├── settings.js       # Password management (Dashboard/n8n)
 │   ├── metrics.js        # Live & historical metrics
 │   ├── services.js       # Container status & health
 │   ├── system.js         # System info & network status
@@ -39,7 +37,6 @@ src/
 │   ├── database.js       # Database health & pool metrics
 │   ├── docs.js           # OpenAPI/Swagger documentation
 │   ├── models.js         # LLM model management (catalog, download, activate)
-│   ├── spaces.js         # Knowledge spaces (RAG 2.0)
 │   ├── appstore.js       # App marketplace CRUD
 │   ├── workspaces.js     # Claude workspaces CRUD
 │   ├── alerts.js         # Alert configuration & thresholds
@@ -48,7 +45,6 @@ src/
 │   ├── telegram.js       # Telegram bot configuration
 │   ├── telegramApp.js    # Telegram app (15 endpoints, Zero-Config)
 │   ├── telegramBots.js   # Bot CRUD, Webhook, Commands (23 endpoints)
-│   ├── claudeTerminal.js # /api/claude-terminal — Ollama-backed LLM assistant
 │   ├── externalApi.js    # External API for n8n/automations
 │   └── index.js          # Route registration
 ├── middleware/           # 5 middleware components
@@ -123,8 +119,6 @@ src/
 | POST   | `/api/chats/:id/messages` | Add message to chat           |
 | PATCH  | `/api/chats/:id`          | Update chat title             |
 | DELETE | `/api/chats/:id`          | Soft delete chat              |
-| POST   | `/api/rag/query`          | RAG query (SSE streaming)     |
-| GET    | `/api/rag/status`         | Qdrant collection info        |
 
 ### Models (Auth Required)
 
@@ -141,28 +135,6 @@ src/
 | POST   | `/api/models/default`             | Set default model              |
 | GET    | `/api/models/default`             | Get default model              |
 | POST   | `/api/models/sync`                | Sync with Ollama               |
-
-### Knowledge Spaces (Auth Required)
-
-| Method | Path                        | Description                |
-| ------ | --------------------------- | -------------------------- |
-| GET    | `/api/spaces`               | List all spaces with stats |
-| POST   | `/api/spaces`               | Create new space           |
-| GET    | `/api/spaces/:id`           | Get space details          |
-| PUT    | `/api/spaces/:id`           | Update space               |
-| DELETE | `/api/spaces/:id`           | Delete space               |
-| POST   | `/api/spaces/:id/route`     | Route query to space       |
-| GET    | `/api/spaces/:id/documents` | Documents in space         |
-
-### Documents (Auth Required)
-
-| Method | Path                         | Description                 |
-| ------ | ---------------------------- | --------------------------- |
-| GET    | `/api/documents`             | List all documents          |
-| POST   | `/api/documents/upload`      | Upload document (multipart) |
-| DELETE | `/api/documents/:id`         | Delete document             |
-| GET    | `/api/documents/:id/status`  | Indexing status             |
-| POST   | `/api/documents/:id/reindex` | Force reindex               |
 
 ### Alerts (Auth Required)
 
@@ -240,24 +212,15 @@ src/
 | GET    | `/api/events/subscriptions` | Event subscriptions |
 | POST   | `/api/events/subscriptions` | Subscribe to events |
 
-### Claude Terminal (Auth Required)
-
-| Method | Path                    | Description   |
-| ------ | ----------------------- | ------------- |
-| POST   | `/api/terminal/query`   | Execute query |
-| GET    | `/api/terminal/history` | Query history |
-| DELETE | `/api/terminal/history` | Clear history |
-
 ### External API (API Key Auth)
 
-| Method | Path                       | Description         |
-| ------ | -------------------------- | ------------------- |
-| POST   | `/api/external/llm/chat`   | LLM chat (for n8n)  |
-| POST   | `/api/external/embeddings` | Generate embeddings |
-| GET    | `/api/external/models`     | Available models    |
-| GET    | `/api/api-keys`            | List API keys       |
-| POST   | `/api/api-keys`            | Create API key      |
-| DELETE | `/api/api-keys/:id`        | Revoke API key      |
+| Method | Path                     | Description        |
+| ------ | ------------------------ | ------------------ |
+| POST   | `/api/external/llm/chat` | LLM chat (for n8n) |
+| GET    | `/api/external/models`   | Available models   |
+| GET    | `/api/api-keys`          | List API keys      |
+| POST   | `/api/api-keys`          | Create API key     |
+| DELETE | `/api/api-keys/:id`      | Revoke API key     |
 
 ### Services & Operations (Auth Required)
 
@@ -282,7 +245,6 @@ src/
 | Method | Path                                  | Description               |
 | ------ | ------------------------------------- | ------------------------- |
 | POST   | `/api/settings/password/dashboard`    | Change Dashboard password |
-| POST   | `/api/settings/password/minio`        | Change MinIO password     |
 | POST   | `/api/settings/password/n8n`          | Change n8n password       |
 | GET    | `/api/settings/password-requirements` | Password rules            |
 
@@ -303,7 +265,7 @@ src/
 - Auto-reconnection handled by frontend
 - Fallback to HTTP polling on failure
 
-### SSE Streaming (LLM & RAG)
+### SSE Streaming (LLM)
 
 - LLM responses stream via Server-Sent Events
 - Supports thinking blocks (`<think>` tags)
@@ -411,12 +373,6 @@ src/
 | LLM_MANAGEMENT_PORT    | 11436             | LLM management API port     |
 | EMBEDDING_SERVICE_HOST | embedding-service | Embedding host              |
 | EMBEDDING_SERVICE_PORT | 11435             | Embedding port              |
-| QDRANT_HOST            | qdrant            | Vector DB host              |
-| QDRANT_PORT            | 6333              | Vector DB port              |
-| MINIO_HOST             | minio             | Object storage host         |
-| MINIO_PORT             | 9000              | Object storage port         |
-| MINIO_ROOT_USER        | (required)        | MinIO access key            |
-| MINIO_ROOT_PASSWORD    | (required)        | MinIO secret key            |
 | ALLOWED_ORIGINS        | (empty)           | CORS allowed origins        |
 | LOG_LEVEL              | info              | Winston log level           |
 
@@ -506,7 +462,6 @@ const { ValidationError, NotFoundError, ForbiddenError } = require('../utils/err
 - dockerode (4.0.2) - Docker API client
 - axios (1.6.2) - HTTP client
 - multer (1.4.5) - File uploads
-- minio (7.1.3) - MinIO S3 client
 - winston (3.11.0) - Logging
 - express-rate-limit (7.1.5) - Rate limiting
 - uuid (9.0.1) - UUID generation
@@ -536,8 +491,7 @@ curl http://localhost:3001/api/health
   "database": "connected",
   "services": {
     "llm": "available",
-    "embedding": "available",
-    "qdrant": "available"
+    "embedding": "available"
   }
 }
 ```

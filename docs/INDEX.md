@@ -71,15 +71,13 @@ docs/
 
 ## Features
 
-| Document                                                                             | Topic                                                                 |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| [`features/FLOWS.md`](features/FLOWS.md)                                             | Flows: Chat-Slash-Befehle, Argumente, Werkzeuge, Subagenten, Auslöser |
-| [`features/EXTENSIONS.md`](features/EXTENSIONS.md)                                   | Erweiterungs-Baukasten: Werkstatt, Paketformat, Fork/Download/Install |
-| [`features/WORKSPACE.md`](features/WORKSPACE.md)                                     | Workspace: Netzwerkmodi, Wissensraum, Claude-Login                    |
-| [`features/MINIO_SERVICE.md`](features/MINIO_SERVICE.md)                             | S3-compatible object storage                                          |
-| [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                                       |
-| [`features/PLATFORM_COMPATIBILITY.md`](features/PLATFORM_COMPATIBILITY.md)           | Multi-device support, GPU error handling                              |
-| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations                            |
+| Document                                                                             | Topic                                                              |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| [`features/FLOWS.md`](features/FLOWS.md)                                             | Flows: Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger |
+| [`features/WORKSPACE.md`](features/WORKSPACE.md)                                     | Workspace: was nach Phase B4 davon bleibt                          |
+| [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                                    |
+| [`features/PLATFORM_COMPATIBILITY.md`](features/PLATFORM_COMPATIBILITY.md)           | Multi-device support, GPU error handling                           |
+| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations                         |
 
 ---
 
@@ -99,20 +97,19 @@ See [`plans/README.md`](plans/README.md) for the plan workflow (when to start on
 
 Each service has its own `README.md` (and increasingly its own `CLAUDE.md`). See:
 
-| Service                | Path                           |
-| ---------------------- | ------------------------------ |
-| Dashboard backend      | `apps/dashboard-backend/`      |
-| Dashboard frontend     | `apps/dashboard-frontend/`     |
-| LLM service (Ollama)   | `services/llm-service/`        |
-| Embedding service      | `services/embedding-service/`  |
-| Document indexer (RAG) | `services/document-indexer/`   |
-| PostgreSQL             | `services/postgres/`           |
-| Metrics collector      | `services/metrics-collector/`  |
-| Self-healing agent     | `services/self-healing-agent/` |
-| Backup service         | `services/backup-service/`     |
-| n8n workflows          | `services/n8n/`                |
-| Cloudflared tunnel     | `services/cloudflared/`        |
-| Sandbox                | `services/sandbox/`            |
+| Service              | Path                           |
+| -------------------- | ------------------------------ |
+| Dashboard backend    | `apps/dashboard-backend/`      |
+| Dashboard frontend   | `apps/dashboard-frontend/`     |
+| LLM service (Ollama) | `services/llm-service/`        |
+| Embedding service    | `services/embedding-service/`  |
+| Document indexer     | `services/document-indexer/`   |
+| PostgreSQL           | `services/postgres/`           |
+| Metrics collector    | `services/metrics-collector/`  |
+| Self-healing agent   | `services/self-healing-agent/` |
+| Backup service       | `services/backup-service/`     |
+| n8n workflows        | `services/n8n/`                |
+| Cloudflared tunnel   | `services/cloudflared/`        |
 
 > Some service READMEs are still being written as part of the DX overhaul (2026-05, see [plan history](plans/HISTORIE.md)), Stage 9.
 

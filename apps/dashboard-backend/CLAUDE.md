@@ -18,7 +18,7 @@ Entry: `src/index.js` → `src/server.js` → `src/routes/index.js`.
 ```
 src/
   routes/        HTTP layer — thin. Validate, authorize, delegate. No business logic.
-    <domain>/    Sub-router per domain (sandbox/, system/, ai/, store/, ...).
+    <domain>/    Sub-router per domain (system/, admin/, ai/, store/, external/).
   services/      Business logic. Routes call services; services call db/external.
     <domain>/    One folder per domain that has multiple cooperating modules.
   middleware/    Cross-cutting: auth, csrf, rateLimit, validate, errorHandler, audit.
@@ -90,17 +90,17 @@ get typed, trimmed, defaulted data.
 
 `middleware/rateLimit.js` exports ready-made limiters; use them, don't roll your own:
 
-| Limiter                          | Use for                                          | Window / max |
-| -------------------------------- | ------------------------------------------------ | ------------ |
-| `loginLimiter`                   | `/auth/login`                                    | 15 min / 10  |
-| `generalAuthLimiter`             | other `/auth/*` (logout, change-password)        | 15 min / 30  |
-| `apiLimiter`                     | default, per-IP                                  | 1 min / 100  |
-| `llmLimiter`                     | `/llm/*`, `/rag/*` (expensive)                   | 1 sec / 10   |
-| `metricsLimiter`                 | high-frequency polling endpoints                 | 1 sec / 20   |
-| `webhookLimiter`                 | inbound webhooks + external agent-run (n8n, ...) | 1 min / 100  |
-| `uploadLimiter`                  | multipart uploads                                | 1 min / 20   |
-| `tailscaleLimiter`               | tailscale orchestration                          | (per-domain) |
-| `createUserRateLimiter(max, ms)` | user-scoped (after auth)                         | factory      |
+| Limiter                          | Use for                                         | Window / max |
+| -------------------------------- | ----------------------------------------------- | ------------ |
+| `loginLimiter`                   | `/auth/login`                                   | 15 min / 10  |
+| `generalAuthLimiter`             | other `/auth/*` (logout, change-password)       | 15 min / 30  |
+| `apiLimiter`                     | default, per-IP                                 | 1 min / 100  |
+| `llmLimiter`                     | `/llm/*`, `/embeddings`, `/flows/*` (expensive) | 1 sec / 10   |
+| `metricsLimiter`                 | high-frequency polling endpoints                | 1 sec / 20   |
+| `webhookLimiter`                 | inbound webhooks (n8n, ...)                     | 1 min / 100  |
+| `uploadLimiter`                  | multipart uploads                               | 1 min / 20   |
+| `tailscaleLimiter`               | tailscale orchestration                         | (per-domain) |
+| `createUserRateLimiter(max, ms)` | user-scoped (after auth)                        | factory      |
 
 Disable in tests via `RATE_LIMIT_ENABLED=false`.
 
@@ -113,7 +113,7 @@ this automatically on the client. `apiKeyAuth.js` is for `/api/external/*`.
 ### 6. Mount new route groups in `routes/index.js`
 
 Add the prefix to `API_ROUTE_GROUPS` so it surfaces in `GET /api/_meta`.
-Group choice (`core | system | admin | ai | store | external | sandbox`)
+Group choice (`core | system | admin | ai | store | external`)
 is documented at the top of `routes/index.js`.
 
 ### 7. SSE / WebSocket
@@ -140,7 +140,7 @@ is preferred so `errorHandler` keeps structured fields.
 - ❌ Returning bare strings or arrays at the top level — wrap in `{ data, ... }`
   so response shape is uniform.
 
-## Werkzeug-Schleife & Workspace (Plan 008 / 011)
+## Werkzeug-Schleife (Plan 008 / 011)
 
 Der Agenten- und Fluss-Layer ist mit Plan 011 entfernt; an seine Stelle treten
 **Flows** (Markdown-Dateien unter `data/flows/`, im Chat per `/name`
@@ -148,9 +148,9 @@ aufgerufen). Der Flow-Layer lebt vollständig in `services/flows/` und bringt
 seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 
 - `runFlow.js` — der Runner (Schritt 10): lädt den Flow, setzt Argumente ein,
-  stellt die Werkzeuge zusammen, baut den Kontext (Ordner, Wissensraum,
-  Sandbox-Container fürs Terminal) und treibt die Schleife; schreibt Lauf und
-  Schritte über `runStore.js` (Schritt 9) mit.
+  stellt die Werkzeuge zusammen, baut den Kontext (die im Flow deklarierten
+  erlaubten Ordner der Datei-Werkzeuge) und treibt die Schleife; schreibt Lauf
+  und Schritte über `runStore.js` (Schritt 9) mit.
 - `toolLoop.js` — die Ollama-Function-Calling-Schleife. Grenzen kommen PRO
   Flow (`grenzen.werkzeug_runden` / `zeitlimit_s`), nicht aus einer
   Umgebungsvariablen. Per-Aufruf-Timeout: `FLOW_LLM_TIMEOUT_MS`.
@@ -170,58 +170,28 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   (`streamFromOllama`) geht durch dieselbe `withGpuLock`. Nie treffen Chat und
   Flow zugleich auf die GPU (Nutzer-Entscheidung: strikt einer nach dem
   anderen, keine Priorisierung).
-- `gpuVorrang.js` — **der Indexer ist der eine Aufrufer, der diesen Mutex nicht
-  nehmen kann**: eigener Prozess, eigener Container, direkter Ollama-Aufruf. Am
-  22.08.2026 auf dem Orin gemessen, was das kostet: 35 Wechsel
-  `auto_unload_ollama_keepalive` in vierzig Minuten und Ladezeiten von 11 827
-  bis 60 066 ms, weil Ollama abwechselnd das Chat-Modell (22 GB) und das
-  Indexer-Modell (14 GB) hinauswirft. `withGpuLock` meldet deshalb an
-  `document-indexer` eine **Frist**, keinen Schalter: fällt das Backend aus,
-  läuft sie ab und der Indexer arbeitet weiter.
 - `pathSafe.js` — symlink-sichere Pfad-Sperre über mehrere erlaubte Ordner;
   schließt das TOCTOU-Fenster über Dateideskriptoren. **Jeder** Dateizugriff
   läuft hierdurch.
 - `flowFile.js` — Parser/Serializer für Markdown + YAML-Frontmatter, plus
   Platzhalter (`{{argument}}`).
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
-  `dateien` (lesen/schreiben getrennt), `rag`, `terminal`, `web`.
-
-## GitHub-Sync (Plan 013, B9)
-
-`services/git/` koppelt ein **Projekt** (`projects.id`) an EIN GitHub-Repo
-(`project_git`, 1:1) und gleicht einen container-lokalen Checkout unter
-`PROJECT_GIT_DIR/<project_id>` zwei-wegig ab:
-
-- `gitStore.js` — CRUD über `project_git`. Der PAT liegt AES-256-GCM-verschlüsselt
-  als `BYTEA` (`utils/tokenCrypto`, wie `user_external_credentials`); `SPALTEN`
-  gibt bewusst KEIN `pat_encrypted` nach außen, nur `pat_last4` zur Anzeige.
-- `gitSyncService.js` — die Fachlogik: `verbinde` (koppeln + `ls-remote`-Probe),
-  `synchronisiere` (commit → fetch → merge → push; Merge-Konflikt → `merge --abort`
-  - `ConflictError` mit `details.conflicts`), `trenne`. Git läuft über `execFile`
-    (Argument-Array, KEINE Shell); der PAT wird pro Aufruf als `http.extraHeader`
-    injiziert und landet NIE in `.git/config`. `run` (Git-Ausführung) + `store` sind
-    injizierbar → Fachlogik ohne echtes Git/Postgres testbar.
-- Kein neuer npm-Eintrag: das Git-CLI kommt per `apk add git` im Dockerfile
-  (Regel „minimalistisch/wartbar zuerst", Lockfile-root-only).
+  `dateien` (lesen/schreiben/bearbeiten/anhängen getrennt, plus `dateien_suchen`),
+  `symbol_suche`, `web` (`web_suche`, `web_lesen`) und `frage` (`frage_nutzer`,
+  nur in der Betriebsart `rueckfragen`). `subagent.js` liegt eine Ebene höher.
 
 Das alte `services/agents/`-Subsystem (`toolLoop`, `agentFile`,
 `workspaceIndexer`, `pathSafe`, `tools/`) war mit dem Fluss-Layer verwaist —
 kein Produktions-Aufrufer mehr, nur noch seine Tests — und ist mit dem
 Aufräum-Schritt am 2026-07-28 samt Tests entfernt.
 
-Weiterhin gültige Konventionen rund um den Workspace:
-
-- **RAG-Isolation:** Jeder Workspace besitzt genau einen unsichtbaren
-  Wissensraum (`sandbox_projects.space_id`, `knowledge_spaces.is_workspace =
-TRUE`). Ein Workspace ohne verknüpften Raum scopet auf nichts — niemals auf
-  alle Räume zurückfallen.
-- **Verschlüsselter externer Login:** Ein Claude-Login aus dem Sandbox-Terminal
-  wird pro Nutzer in `user_external_credentials` AES-256-GCM-verschlüsselt
-  (`utils/tokenCrypto.js`) abgelegt und beim Container-Start zurückgespielt.
-  Routen: `POST|GET|DELETE .../claude-login*` in `routes/sandbox.js`.
-- `sandbox_projects.agent_run_token_hash` / `_set_at` sind seit Plan 011
-  **ungenutzt** (die externe Agenten-Run-Route ist entfallen); die Spalten
-  stehen noch, ihr Entfernen wäre ein separater Eingriff ohne Nutzen.
+Der GitHub-Sync (`services/git/`, koppelte ein Projekt 1:1 an ein GitHub-Repo)
+und das gesamte Workspace-Bündel (Sandbox-Container, Sandbox-Terminal mit
+Claude-Login, ein unsichtbarer Wissensraum pro Workspace) sind mit Phase B4
+(26.08.2026) entfernt: die Routen `/api/sandbox`, `/api/claude-terminal`,
+`/api/git`, `/api/projects`, `/api/spaces` samt Diensten, und die zugehörigen
+Tabellen mit Migration 163. Ordner sind seither genau die im Flow deklarierten
+(`ordner`-Feld), ohne Bezug auf Projekt, Wissensraum oder Sandbox.
 
 ## Testing
 

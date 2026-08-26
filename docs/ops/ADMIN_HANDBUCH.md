@@ -28,9 +28,6 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 
 - **Lokale KI:** Alle Daten bleiben auf dem Geraet - keine Cloud erforderlich
 - **Chat-Assistent:** Fragen stellen, Texte analysieren, Aufgaben loesen
-- **Dokumenten-Analyse (RAG):** Eigene Dokumente hochladen und intelligent durchsuchen
-- - **Workspace:** Eigener Arbeitsordner samt Container, mit Netzwerkmodus und
-    automatisch indiziertem Wissensbereich
 - **Automation (n8n):** Workflows bauen und Abläufe automatisieren
 - **Automatische Sicherung:** Taegliche Backups aller Daten
 - **Offline-faehig:** Funktioniert ohne Internetverbindung
@@ -118,11 +115,14 @@ Zielbild ueber Flows laufen, legt Phase D4 fest.
 
 ## 4. Dokumente & RAG
 
-Dokumenten-Upload und Wissensraeume haben seit dem 26.08.2026 (Phase B2)
-keine Oberflaeche mehr; der Datei-Explorer, ueber den hochgeladen wurde, ist
-entfernt; B3 hat im Frontend nichts mehr davon vorgefunden. Die Endpunkte
-unter `/api/documents` und `/api/spaces` laufen bis Phase B4 weiter. Es gibt kein Vektor-RAG; gesucht wird ueber den
-Textlayer in PostgreSQL.
+Dokumenten-Upload, Wissensraeume und der Wissensgraph sind mit Phase B4 des
+Umbaus (26.08.2026) vollstaendig entfernt: Migration 163 hat die Tabellen
+(`documents`, `document_chunks`, `knowledge_spaces` u. a.) samt Endpunkten
+`/api/documents` und `/api/spaces` gestrichen. Es gab kein Vektor-RAG mehr
+(seit Plan 021), jetzt gibt es auch keinen Textlayer-Suchweg fuer eigene
+Dokumente mehr. Was bleibt, ist die externe Extraktions-API
+(`/api/v1/external/document/extract` u. a., siehe
+[API_REFERENCE.md](../api/API_REFERENCE.md)) fuer Drittsysteme.
 
 ---
 
@@ -130,21 +130,13 @@ Textlayer in PostgreSQL.
 
 ## 5. Workspace
 
-Ein **Workspace** (Sandbox) ist im Backend ein Ordner plus ein Container mit
-einem Besitzer und einem **Netzwerkmodus** („Was darf dieser Workspace?").
-Seit dem 26.08.2026 (Phase B2) gibt es dafuer keine Oberflaeche mehr (kein
-Terminal, kein Projekt-Umschalter); die Routen laufen bis B4 weiter:
-
-| Modus              | Zugriff                                        |
-| ------------------ | ---------------------------------------------- |
-| **Abgeschottet**   | Internet ja, Plattform nein (Standard)         |
-| **Am System**      | interne Dienste: Datenbank / MinIO / Textlayer |
-| **Voller Zugriff** | Infrastruktur, **nur Admins**                  |
-
-Jeder Workspace hat genau einen unsichtbaren Wissensbereich („Ordner"): dort
-geschriebene Dateien werden **automatisch indiziert** (kein manueller Upload).
-
-Details: [docs/features/WORKSPACE.md](../features/WORKSPACE.md).
+Der **Workspace** als Sandbox-Entitaet im Backend (Ordner plus Container,
+Besitzer, Netzwerkmodus, automatisch indizierter Wissensbereich) ist mit
+Phase B4 des Umbaus (26.08.2026) vollstaendig entfernt: Container,
+Terminal-WebSocket, KI-Zugang und die zugehoerigen Tabellen sind weg. Was
+„Workspace" seitdem meint, ist ausschliesslich die Oberflaechen-Shell (das
+Dreispalten-Raster aus Abschnitt 1): kein eigener Arbeitsordner, kein
+Netzwerkmodus, kein Wissensbereich mehr.
 
 ---
 
@@ -208,7 +200,7 @@ Auswirkung kennen.
 
 ### Sicherheit
 
-- **Passwort aendern:** Unter Einstellungen > Sicherheit (Dashboard- und MinIO-Passwort)
+- **Passwort aendern:** Unter Einstellungen > Sicherheit (Dashboard- und n8n-Passwort)
 - **Passwort vergessen:** Es gibt bewusst keinen Self-Service-Reset. Ein ausgesperrter
   Administrator setzt das Passwort per Operator-CLI zurueck: `scripts/security/reset-password.sh`
 - **Abmelden / Von allen Geraeten abmelden:** beide mit Sicherheitsabfrage
@@ -247,9 +239,8 @@ Das System ueberwacht alle Dienste automatisch:
 
 Das System erstellt automatisch taegliche Backups um 02:00 Uhr:
 
-- **PostgreSQL-Datenbank:** Alle Einstellungen, Chats, Benutzer
-- **Dokumente (MinIO):** Alle hochgeladenen Dateien
-- **Textlayer (PostgreSQL):** Der ausgelesene Text der Dokumente, in Abschnitten
+- **PostgreSQL-Datenbank:** Alle Einstellungen, Chats, Benutzer, n8n-Workflows
+- **Flows:** Die Flow-Definitionen unter `data/flows/`
 
 ### Manuelles Backup
 
@@ -287,14 +278,14 @@ ssh -p 2222 arasul@<jetson-ip>
 Zwei Stufen. Beide sind endgueltig, es gibt kein Rueckgaengig. Was hier
 verschwindet, steht danach nur noch in einer Sicherung (Abschnitt 9).
 
-| Stufe                 | Weg                                                                                                             | Bleibt                                               |
-| --------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Inhalte zuruecksetzen | Chats, Dokumente, Wissensraeume, Projekte, Sandboxes, Flow-Laeufe                                               | Zugang, Erweiterungen, Flows, Einstellungen, Modelle |
-| Auslieferungszustand  | zusaetzlich Zugangsdaten, Erweiterungen, Flows, n8n-Workflows, hinterlegte Fremdzugaenge, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen)        |
+| Stufe                 | Weg                                                                   | Bleibt                                        |
+| --------------------- | --------------------------------------------------------------------- | --------------------------------------------- |
+| Inhalte zuruecksetzen | Chats samt Anhaengen, Modell-Auftraege, Flow-Laeufe, n8n-Laeufe       | Zugang, Flows, Einstellungen, Modelle         |
+| Auslieferungszustand  | zusaetzlich Zugangsdaten, Flows, n8n-Workflows, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen) |
 
 Optional laesst sich zusaetzlich ankreuzen, dass auch die heruntergeladenen
 Modelle geloescht werden. Ohne Modell kann das Geraet bis zum naechsten Download
-weder antworten noch Dokumente durchsuchen.
+nicht antworten.
 
 **Ablauf**
 

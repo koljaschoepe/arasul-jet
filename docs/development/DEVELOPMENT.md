@@ -288,18 +288,17 @@ curl -H "Authorization: Bearer <token>" -H "Accept: text/event-stream" \
 | Method | Path             | Auth | Description         |
 | ------ | ---------------- | ---- | ------------------- |
 | POST   | `/api/llm/chat`  | Yes  | LLM inference (SSE) |
-| POST   | `/api/rag/query` | Yes  | RAG query (SSE)     |
 | GET    | `/api/chats`     | Yes  | List conversations  |
 | POST   | `/api/chats`     | Yes  | Create conversation |
 | GET    | `/api/llm/queue` | Yes  | Queue status        |
 
-### Documents
+### Flows
 
-| Method | Path                    | Auth | Description        |
-| ------ | ----------------------- | ---- | ------------------ |
-| POST   | `/api/documents/upload` | Yes  | Upload (multipart) |
-| GET    | `/api/documents`        | Yes  | List all           |
-| DELETE | `/api/documents/:id`    | Yes  | Delete             |
+| Method | Path                    | Auth | Description                   |
+| ------ | ----------------------- | ---- | ----------------------------- |
+| GET    | `/api/flows`            | Yes  | List flow definitions         |
+| POST   | `/api/flows/laeufe`     | Yes  | Start a run (`202 { runId }`) |
+| GET    | `/api/flows/laeufe/:id` | Yes  | Run with steps                |
 
 ### System & Monitoring
 

@@ -43,7 +43,6 @@ eine Route, deren Schema niemand exportiert hat. Sie laufen bei jedem
 | `einheiten.py`       | Eine Rechnung je Zählweise, keine zwei Zahlen für dasselbe                                                                                             |
 | `endpunkte.py`       | Jeder Endpunkt im Code hat eine Zeile in der Schnittstellendoku                                                                                        |
 | `gedankenstriche.py` | Keine Gedankenstriche als Trenner                                                                                                                      |
-| `geruest-regeln.py`  | Werkstatt und Backend kennen dieselben Fähigkeiten                                                                                                     |
 | `modellnamen.py`     | Modellnamen kommen aus der Live-Quelle, nicht aus dem Gedächtnis                                                                                       |
 | `plan-faden.py`      | Höchstens ein Plan unter `docs/plans/active/`                                                                                                          |
 | `toter-code.sh`      | Keine Datei ohne Importeur                                                                                                                             |

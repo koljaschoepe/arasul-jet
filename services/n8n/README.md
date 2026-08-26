@@ -214,7 +214,6 @@ n8n requires these services to be healthy:
 - `postgres-db` - Database storage
 - `llm-service` - LLM API access (for custom node)
 - `embedding-service` - Embedding API access (for custom node)
-- `minio` - S3 storage (optional)
 
 ## Workflow Templates
 
