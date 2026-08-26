@@ -6,7 +6,7 @@ This folder is the single source of truth for roadmaps, phase plans, and histori
 
 | Folder / file  | Contents                                                                                                                                                            | When to read it                                                       |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `ROADMAP.html` | The theme store: vision, the 7 DoD gates to Feld-1.0.0, open theme cards, done-history. Maintained by `/plan`, `/work`, `/audit`; machine state in `#roadmap-meta`. | When deciding what to plan next (`/plan` without args reads it).      |
+| `ROADMAP.html` | The theme store: vision, the eight Abnahmen (A1–A8, since 2026-08-26; formerly 7 gates), open theme cards, done-history. Maintained by `/plan`, `/work`, `/audit`; machine state in `#roadmap-meta`. | When deciding what to plan next (`/plan` without args reads it).      |
 | `active/`      | Plan pages currently in flight (`NNN-<slug>.html`, status in `#plan-meta`: in-review → approved → in-progress). Legacy `.md` plans remain until migrated.           | When you start a session and want to know what's in flight.           |
 | `done/`        | Executed plans — each page carries its §9 execution report (PR, deploy, live-verify evidence). `/work` moves pages here.                                            | Historical context only — never act on the contents.                  |
 | `archive/`     | Plans manually superseded or abandoned. Each file has an `> **Archived YYYY-MM-DD**` header at the top explaining its status.                                       | Historical context only — never act on the contents.                  |
@@ -73,7 +73,10 @@ These belong elsewhere, not here:
 
 ## Currently active plans
 
-A hand-maintained list here was a recurring source of drift. The authoritative,
-always-current list is the [`active/`](active/) directory itself — look there.
-The primary plan is `FIELD_1.0.0_MASTER_PLAN.md`, which supersedes the earlier
-active plans.
+**Since 2026-08-26 the running plan lives in the Überordner**
+(`arasul/roadmap/plans/aktiv/`, private), not here. It drives phases across all
+three repos and hands each worker a `PHASE.md`. [`active/`](active/) is
+therefore empty and `scripts/test/plan-faden.py` allows at most one plan there
+— a one-off `/work` job, never a second thread beside the Überordner. The eight
+Abnahmen (A1–A8) that replaced the seven gates live in `#roadmap-meta` of
+`ROADMAP.html`, all `open` until measured.

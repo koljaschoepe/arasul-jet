@@ -122,7 +122,7 @@ keep scope, different approach / re-plan).
 
 ## Phase 3 — Write the plan page
 
-0. **`docs/plans/active/` holds exactly one plan** — `scripts/test/plan-faden.py`
+0. **`docs/plans/active/` holds at most one plan** (normally none — the running plan is in the Überordner since 2026-08-26; a plan here is a one-off `/work` job) — `scripts/test/plan-faden.py`
    fails otherwise, and it runs in CI. If a plan is already there, it must first
    be moved: to `docs/plans/done/` if it is finished, or to
    `docs/plans/paused/` with a paragraph in that folder's `README.md` saying why
