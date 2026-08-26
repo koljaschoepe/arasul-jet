@@ -113,7 +113,7 @@
                   "",
                   "pm.test('Response has required fields', function () {",
                   "    const json = pm.response.json();",
-                  "    pm.expect(json).to.have.all.keys('status', 'llm', 'embeddings', 'n8n', 'postgres', 'self_healing_active', 'last_self_healing_event', 'warnings', 'criticals', 'timestamp');",
+                  "    pm.expect(json).to.have.all.keys('status', 'llm', 'embeddings', 'postgres', 'self_healing_active', 'gpu_available', 'last_self_healing_event', 'warnings', 'criticals', 'timestamp');",
                   "});",
                   "",
                   "pm.test('Status is valid', function () {",

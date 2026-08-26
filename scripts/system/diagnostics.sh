@@ -119,7 +119,7 @@ if [[ "${INCLUDE_LOGS}" == true ]]; then
   services=(
     dashboard-backend dashboard-frontend postgres-db
     llm-service embedding-service document-indexer
-    n8n self-healing-agent metrics-collector reverse-proxy docker-proxy
+    self-healing-agent metrics-collector reverse-proxy docker-proxy
   )
 
   for svc in "${services[@]}"; do

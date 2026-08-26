@@ -191,11 +191,6 @@ teardown() {
     echo "$result" | grep -q "EMBEDDING_USE_FP16=false"
 }
 
-@test "get_config_for_profile: minimal_4gb disables n8n" {
-    result=$(get_config_for_profile "minimal_memory")
-    echo "$result" | grep -q "DISABLE_N8N=true"
-}
-
 @test "get_config_for_profile: all profiles contain JETSON_PROFILE" {
     for profile in thor_128gb thor_64gb agx_orin_64gb agx_orin_32gb orin_nx_16gb; do
         result=$(get_config_for_profile "$profile")

@@ -27,10 +27,10 @@
 # Gegenprobe, bevor man einem leeren Protokoll glaubt (das kostet eine Minute
 # und haette am 23.08.2026 einen blinden Lauscher sofort entlarvt):
 #
-#   scripts/test/ausgang-lauscher.sh hoch searxng 1
-#   ssh jetson "docker exec dashboard-backend sh -c 'wget -qO- \
-#     \"http://searxng:8080/search?q=berlin&format=json\" >/dev/null'"
-#   scripts/test/ausgang-lauscher.sh stand searxng    # muss Treffer zeigen
+#   scripts/test/ausgang-lauscher.sh hoch embedding-service 1
+#   ssh jetson "docker exec embedding-service python3 -c 'import urllib.request; \
+#     urllib.request.urlopen(\"https://huggingface.co\", timeout=10)'"
+#   scripts/test/ausgang-lauscher.sh stand embedding-service    # muss Treffer zeigen
 #
 # `state connected` und nicht `state established`: eine halb geschlossene
 # Verbindung (CLOSE-WAIT) ist der Beweis, dass gesprochen WURDE. Genau daran

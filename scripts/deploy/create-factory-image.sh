@@ -106,7 +106,6 @@ data/postgres
 data/ollama
 data/backups
 data/uploads
-data/n8n
 logs
 cache
 updates

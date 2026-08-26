@@ -57,7 +57,6 @@ if [ -z "$VERSION" ] || [ ${#COMPONENTS[@]} -eq 0 ]; then
     echo "  - embedding-service   (Docker image)"
     echo "  - metrics-collector   (Docker image)"
     echo "  - self-healing-agent  (Docker image)"
-    echo "  - n8n                 (Custom nodes archive)"
     echo "  - postgres            (SQL migrations)"
     echo "  - all                 (All of the above)"
     exit 1
@@ -65,7 +64,7 @@ fi
 
 # Expand 'all' shortcut
 if [[ " ${COMPONENTS[*]} " =~ " all " ]]; then
-    COMPONENTS=(dashboard-backend dashboard-frontend llm-service embedding-service metrics-collector self-healing-agent n8n postgres)
+    COMPONENTS=(dashboard-backend dashboard-frontend llm-service embedding-service metrics-collector self-healing-agent postgres)
 fi
 
 # Get script directory
@@ -172,20 +171,6 @@ for component in "${COMPONENTS[@]}"; do
                 gzip > "$WORKSPACE/payload/images/self-healing-agent-$VERSION.tar.gz"
             add_component "self-healing-agent" "docker_image" "self-healing-agent" "images/self-healing-agent-$VERSION.tar.gz"
             echo "  Self-Healing Agent packaged"
-            ;;
-
-        "n8n")
-            if [ -d "$PROJECT_ROOT/services/n8n/custom-nodes/n8n-nodes-arasul-llm/dist" ]; then
-                tar -czf "$WORKSPACE/payload/n8n-custom-nodes-$VERSION.tar.gz" \
-                    -C "$PROJECT_ROOT/services/n8n" \
-                    custom-nodes/n8n-nodes-arasul-llm/dist \
-                    custom-nodes/n8n-nodes-arasul-embeddings/dist
-                add_component "n8n-custom-nodes" "archive" "n8n" "n8n-custom-nodes-$VERSION.tar.gz"
-                echo "  n8n Custom Nodes packaged"
-            else
-                echo "  WARNING: n8n custom nodes not built. Run: cd services/n8n/custom-nodes/n8n-nodes-arasul-llm && npm run build"
-                exit 1
-            fi
             ;;
 
         "postgres")

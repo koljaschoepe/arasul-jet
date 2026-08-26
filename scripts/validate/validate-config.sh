@@ -206,35 +206,6 @@ validate_number "EMBEDDING_MAX_INPUT_TOKENS" 128 8192
 echo ""
 
 ###############################################################################
-# N8N CONFIGURATION
-###############################################################################
-
-log_info "Validating n8n Configuration..."
-
-validate_required_var "N8N_HOST"
-validate_hostname "N8N_HOST"
-validate_required_var "N8N_PORT"
-validate_port "N8N_PORT"
-validate_boolean "N8N_BASIC_AUTH_ACTIVE"
-
-if [ "$N8N_BASIC_AUTH_ACTIVE" = "true" ]; then
-    validate_required_var "N8N_BASIC_AUTH_USER"
-    validate_required_var "N8N_BASIC_AUTH_PASSWORD"
-    check_password_strength "N8N_BASIC_AUTH_PASSWORD"
-fi
-
-validate_required_var "N8N_ENCRYPTION_KEY"
-if [ -n "$N8N_ENCRYPTION_KEY" ]; then
-    key_length=${#N8N_ENCRYPTION_KEY}
-    if [ "$key_length" -lt 32 ]; then
-        log_error "N8N_ENCRYPTION_KEY is too short (< 32 characters)"
-        ERRORS=$((ERRORS + 1))
-    fi
-fi
-
-echo ""
-
-###############################################################################
 # AUTHENTICATION CONFIGURATION
 ###############################################################################
 

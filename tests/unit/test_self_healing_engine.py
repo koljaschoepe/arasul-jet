@@ -94,7 +94,7 @@ class TestCategoryA_ServiceDown:
 
         # Mock Docker containers
         mock_containers = []
-        for service in ['llm-service', 'n8n', 'dashboard-backend']:
+        for service in ['llm-service', 'dashboard-frontend', 'dashboard-backend']:
             container = Mock()
             container.name = service
             container.status = "running"
@@ -143,7 +143,7 @@ class TestCategoryA_ServiceDown:
         """Test: check_service_health() erkennt gestoppte Services"""
 
         container = Mock()
-        container.name = "n8n"
+        container.name = "dashboard-frontend"
         container.status = "exited"
         container.attrs = {
             "State": {
@@ -158,10 +158,10 @@ class TestCategoryA_ServiceDown:
         result = mock_engine.check_service_health()
 
         # Assert
-        assert 'n8n' in result
+        assert 'dashboard-frontend' in result
         # No Health key in attrs, so health defaults to 'unknown'
-        assert result['n8n']['health'] == 'unknown'
-        assert result['n8n']['status'] == 'exited'
+        assert result['dashboard-frontend']['health'] == 'unknown'
+        assert result['dashboard-frontend']['status'] == 'exited'
 
     def test_handle_category_a_first_attempt_restart(self, mock_engine, mock_container):
         """Test: Erster Versuch → container.restart()"""
@@ -343,21 +343,6 @@ class TestCategoryB_Overload:
         mock_subprocess.assert_called()
         call_args = str(mock_subprocess.call_args)
         assert 'nvpmodel' in call_args
-
-    def test_pause_n8n_workflows_success(self, mock_engine):
-        """Test: pause_n8n_workflows() startet n8n Container neu um RAM freizugeben"""
-
-        # Mock Docker container
-        mock_container = Mock()
-        mock_engine.docker_client.containers.get.return_value = mock_container
-
-        # Execute
-        result = mock_engine.pause_n8n_workflows()
-
-        # Assert
-        assert result is True
-        mock_engine.docker_client.containers.get.assert_called_with('n8n')
-        mock_container.restart.assert_called_once()
 
     @patch('healing_engine.requests.get')
     def test_get_metrics_retrieves_system_metrics(self, mock_get, mock_engine):

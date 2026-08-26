@@ -49,32 +49,17 @@ const PFAD_ANSICHTEN = [
 // Der Automationen-Tab ist ein iframe. Sein Inhalt liegt in einem eigenen
 // Dokument, der Wirt hat deshalb null Zeichen Text. Das ist kein leerer Tab,
 // das ist die Bauweise.
-const OHNE_EIGENEN_TEXT = new Set(['Automationen ueber die Adresse']);
+const OHNE_EIGENEN_TEXT = new Set();
 
 /**
  * Bekannte, benannte Ausnahmen. Jede braucht einen Grund, sonst waere die
- * Abnahme nur noch eine Liste von Ausreden.
- *
- * n8n laedt einen `data:`-Baustein, um `import.meta.resolve` zu pruefen. Unsere
- * Richtlinie verbietet `data:` fuer Skripte, also meldet der Browser einen
- * Verstoss. Plan 023 H4 haelt das ausdruecklich fest: „Der CSP-Verstoss beim
- * Einbetten bleibt vorerst offen, er ist folgenlos." Der Editor laeuft.
+ * Abnahme nur noch eine Liste von Ausreden. Gebunden wird an die QUELLE
+ * (`m.location().url`), nicht an die Ansicht: eine Meldung, die asynchron
+ * eintrifft, landet sonst im Fenster der naechsten Ansicht. Seit Phase B5
+ * (26.08.2026) ist die Liste leer; der einzige Eintrag war der
+ * CSP-Verstoss des eingebetteten n8n.
  */
-// Gebunden wird an die QUELLE, nicht an die Ansicht. Am 24.08.2026 hat diese
-// Zeile eine Stunde gekostet: der Verstoss stand als bekannt drin, aber unter
-// `ansicht: 'Automation'`. n8n laedt im iframe asynchron weiter, die Meldung
-// traf erst nach dem naechsten Klick ein und landete im Fenster von
-// „Einstellungen". Dort war sie nicht hinterlegt, also rot — mal ja, mal nein,
-// je nach Timing. Die Spur fuehrte zuerst zu Vite 8 und zu pdfjs, beide
-// unschuldig. Der Ort der Meldung (`m.location().url`) sagt eindeutig, wer sie
-// ausgeloest hat, und der aendert sich nicht mit dem, was gerade sichtbar ist.
-const BEKANNTE_MELDUNGEN = [
-  {
-    quelle: /\/n8n\//,
-    muster: /import\.meta\.resolve|data:text\/javascript/i,
-    grund: 'n8n prueft import.meta.resolve mit einem data:-Baustein (Plan 023 H4, bekannt)',
-  },
-];
+const BEKANNTE_MELDUNGEN = [];
 
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {

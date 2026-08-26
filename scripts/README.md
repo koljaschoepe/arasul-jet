@@ -6,19 +6,19 @@ When in doubt: if a thing runs once and exits, it belongs here. If it runs conti
 
 ## Folder map
 
-| Folder      | Purpose                                                                                                     | Examples                                                                                 |
-| ----------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `backup/`   | Backup + verification (postgres, n8n, config). Pair with `services/backup-service/` for the scheduled side. | `backup.sh`, `restore.sh`, `verify-backup.sh`                                            |
-| `deploy/`   | Build deployment / factory images, ship update bundles, verify a deployed appliance.                        | `create-deployment-image.sh`, `factory-install.sh`, `verify-deployment.sh`               |
-| `docs/`     | Auto-generators for documentation kept in sync with the code.                                               | `generate-db-schema.sh`                                                                  |
-| `lib/`      | Shared bash helpers. Source these from other scripts; they aren't meant to be run directly.                 | `logging.sh`                                                                             |
-| `recovery/` | Disaster-recovery wrappers. Higher-level than `backup/` — re-stages a full appliance from a backup bundle.  | `restore-from-backup.sh`                                                                 |
-| `security/` | OS / SSH hardening, htpasswd, self-signed certs, vuln scans.                                                | `harden-os.sh`, `harden-ssh.sh`, `security-scan.sh`, `setup-firewall.sh`                 |
-| `setup/`    | First-boot setup helpers used by `./arasul bootstrap`.                                                      | `detect-platform.sh`, `factory-reset.sh`, `setup-tailscale.sh`, `preconfigure.sh`        |
-| `system/`   | Runtime system management — boot guards, watchdogs, ordered startup.                                        | `boot-guard.sh`, `deadman-switch.sh`, `docker-watchdog.sh`, `ordered-startup.sh`         |
-| `test/`     | Test runners + smoke / DR / integration / load tests.                                                       | `run-tests.sh`, `smoke-test.sh`, `dr-drill.sh`, `integration-test.sh`                    |
-| `util/`     | One-off utilities: notifications, OAuth tunnels, support-log export, MCP server bring-up.                   | `telegram-notify.sh`, `oauth-tunnel.sh`, `export-support-logs.sh`, `inject-context.sh`   |
-| `validate/` | Pre-flight validators for config, dependencies, traefik, file permissions, hooks.                           | `validate-permissions.sh`, `validate-traefik.sh`, `verify-dev-env.sh`, `verify-hooks.sh` |
+| Folder      | Purpose                                                                                                    | Examples                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `backup/`   | Backup + verification (postgres, config). Pair with `services/backup-service/` for the scheduled side.     | `backup.sh`, `restore.sh`, `verify-backup.sh`                                            |
+| `deploy/`   | Build deployment / factory images, ship update bundles, verify a deployed appliance.                       | `create-deployment-image.sh`, `factory-install.sh`, `verify-deployment.sh`               |
+| `docs/`     | Auto-generators for documentation kept in sync with the code.                                              | `generate-db-schema.sh`                                                                  |
+| `lib/`      | Shared bash helpers. Source these from other scripts; they aren't meant to be run directly.                | `logging.sh`                                                                             |
+| `recovery/` | Disaster-recovery wrappers. Higher-level than `backup/` — re-stages a full appliance from a backup bundle. | `restore-from-backup.sh`                                                                 |
+| `security/` | OS / SSH hardening, htpasswd, self-signed certs, vuln scans.                                               | `harden-os.sh`, `harden-ssh.sh`, `security-scan.sh`, `setup-firewall.sh`                 |
+| `setup/`    | First-boot setup helpers used by `./arasul bootstrap`.                                                     | `detect-platform.sh`, `factory-reset.sh`, `setup-tailscale.sh`, `preconfigure.sh`        |
+| `system/`   | Runtime system management — boot guards, watchdogs, ordered startup.                                       | `boot-guard.sh`, `deadman-switch.sh`, `docker-watchdog.sh`, `ordered-startup.sh`         |
+| `test/`     | Test runners + smoke / DR / integration / load tests.                                                      | `run-tests.sh`, `smoke-test.sh`, `dr-drill.sh`, `integration-test.sh`                    |
+| `util/`     | One-off utilities: notifications, support-log export, MCP server bring-up.                                 | `telegram-notify.sh`, `export-support-logs.sh`, `inject-context.sh`                      |
+| `validate/` | Pre-flight validators for config, dependencies, traefik, file permissions, hooks.                          | `validate-permissions.sh`, `validate-traefik.sh`, `verify-dev-env.sh`, `verify-hooks.sh` |
 
 The single root-level script is `interactive_setup.sh` — invoked by `./arasul bootstrap` and by `scripts/deploy/factory-install.sh`. It owns the user-facing first-boot wizard.
 

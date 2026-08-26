@@ -218,7 +218,6 @@ Docker Compose Hardening:
   [x] security_opt: no-new-privileges on all 15 containers
   [x] cap_drop: ALL on stateless containers (metrics, document-indexer, traefik, frontend)
   [x] read_only filesystem on frontend, traefik
-  [x] Internal-only ports: n8n (5678)
   [x] Network segmentation: 3 networks (frontend, backend, monitoring)
 
 OS Hardening Scripts:

@@ -218,18 +218,6 @@ else
   # Generate credentials
   ADMIN_PASSWORD=$(generate_password 16)
   JWT_SECRET=$(generate_secret 64)
-  # Preserve encryption key from previous install (re-generating breaks n8n credentials)
-  _prev_n8n_key=""
-  if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
-    _prev_n8n_key=$(cat "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" 2>/dev/null)
-  elif [ -f "$ENV_FILE" ]; then
-    # `|| true`: fehlt die Zeile in der .env, ist grep's Rueckgabewert 1, und
-    # mit `pipefail` plus `set -e` stirbt das Skript hier. Die Zeile darunter
-    # faengt den Leerfall laengst ab — sie kam nur nie dran.
-    _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- || true)
-  fi
-  N8N_ENCRYPTION_KEY=${_prev_n8n_key:-$(generate_secret 32)}
-  N8N_BASIC_AUTH_PASSWORD=$(generate_password 16)
   POSTGRES_PASSWORD=$(generate_secret 24)
 
   # Create .env from template or scratch
@@ -257,11 +245,6 @@ POSTGRES_DB=arasul_db
 POSTGRES_USER=arasul
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 DATABASE_URL=postgresql://arasul:${POSTGRES_PASSWORD}@postgres-db:5432/arasul_db
-
-# n8n
-N8N_BASIC_AUTH_USER=admin
-N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
-N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
 
 # Project
 COMPOSE_PROJECT_DIR=${PROJECT_ROOT}
@@ -324,7 +307,6 @@ log_step 3 "Verzeichnisstruktur erstellen"
 
 DIRS=(
   "${PROJECT_ROOT}/data/postgres"
-  "${PROJECT_ROOT}/data/n8n"
   "${PROJECT_ROOT}/data/ollama"
   "${PROJECT_ROOT}/data/backups"
   "${PROJECT_ROOT}/data/uploads"
@@ -443,7 +425,7 @@ if [ -f "$MIDDLEWARES_FILE" ] && grep -q "PLACEHOLDER" "$MIDDLEWARES_FILE" 2>/de
     # Save credentials file for admin reference
     CREDS_FILE="${PROJECT_ROOT}/config/.traefik-credentials"
     echo "# Traefik Basic Auth Credentials (generated $(date -Iseconds))" > "$CREDS_FILE"
-    echo "# Used for: Traefik Dashboard (/dashboard) and n8n (/n8n)" >> "$CREDS_FILE"
+    echo "# Used for: Traefik Dashboard (/dashboard)" >> "$CREDS_FILE"
     echo "TRAEFIK_USER=admin" >> "$CREDS_FILE"
     echo "TRAEFIK_PASSWORD=${ADMIN_PASSWORD}" >> "$CREDS_FILE"
     chmod 600 "$CREDS_FILE"

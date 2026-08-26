@@ -531,16 +531,6 @@ main() {
     # Secrets generieren
     JWT_SECRET=$(generate_secret 32)
     POSTGRES_PASSWORD=$(generate_password 24)
-    N8N_BASIC_AUTH_PASSWORD=$(generate_password 16)
-    # Preserve encryption keys from previous install (re-generating would make
-    # existing n8n credentials undecryptable)
-    local _prev_n8n_key=""
-    if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
-        _prev_n8n_key=$(cat "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" 2>/dev/null)
-    elif [ -f "${PROJECT_ROOT}/.env" ]; then
-        _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "${PROJECT_ROOT}/.env" 2>/dev/null | cut -d'=' -f2- || true)
-    fi
-    N8N_ENCRYPTION_KEY=${_prev_n8n_key:-$(generate_secret 32)}
 
     echo ""
     echo -e "  ${BOLD}Konfiguration:${NC}"
@@ -555,7 +545,6 @@ main() {
     echo -e "  ${BOLD}Generierte Secrets:${NC}"
     echo -e "    JWT-Secret:       ${GREEN}✓${NC} (${#JWT_SECRET} Zeichen)"
     echo -e "    DB-Passwort:      ${GREEN}✓${NC} (${#POSTGRES_PASSWORD} Zeichen)"
-    echo -e "    n8n-Schluessel:   ${GREEN}✓${NC} (${#N8N_ENCRYPTION_KEY} Zeichen)"
 
     if [ "$NON_INTERACTIVE" = false ]; then
         echo ""
@@ -600,7 +589,6 @@ ADMIN_HASH=${ADMIN_HASH}
 
 # --- Sicherheit (automatisch generiert) ---
 JWT_SECRET=${JWT_SECRET}
-N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
 
 # --- Datenbank ---
 POSTGRES_USER=arasul
@@ -611,13 +599,6 @@ POSTGRES_PORT=5432
 
 # --- Datenbank (erweitert) ---
 POSTGRES_MAX_CONNECTIONS=200
-
-# --- n8n Workflows ---
-N8N_BASIC_AUTH_USER=${ADMIN_USERNAME}
-N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
-N8N_HOST=n8n
-N8N_PORT=5678
-N8N_EXTERNAL_URL=https://${SETUP_HOSTNAME}.local/n8n
 
 # --- KI-Modell ---
 LLM_MODEL=${LLM_MODEL}
@@ -717,29 +698,6 @@ ENVEOF
     echo -n "$ADMIN_PASSWORD" > "$secrets_dir/admin_password"
     echo -n "$POSTGRES_PASSWORD" > "$secrets_dir/postgres_password"
     echo -n "$JWT_SECRET" > "$secrets_dir/jwt_secret"
-    echo -n "$N8N_ENCRYPTION_KEY" > "$secrets_dir/n8n_encryption_key"
-    # --- Hook (Plan 001, Schritt 9): n8n Task-Runner-Auth-Token --------------
-    # Gemeinsames Secret zwischen n8n (Task-Broker) und dem n8n-runners-
-    # Sidecar (compose.secrets.yaml). Nur erzeugen, wenn es fehlt — der Token
-    # ist nicht datentragend, aber ein Wechsel wuerde einen laufenden
-    # Runner-Sidecar bis zum Restart trennen. Bestandsgeraete bekommen ihn
-    # auch via ./arasul bootstrap (setup_secrets), ebenfalls idempotent.
-    if [ ! -s "$secrets_dir/n8n_runners_auth_token" ]; then
-        generate_secret 32 | tr -d '\n' > "$secrets_dir/n8n_runners_auth_token"
-    fi
-    # --------------------------------------------------------------------------
-    # --- Plan 007: fester n8n-Owner -------------------------------------------
-    # Zugangsdaten des einzigen n8n-Owners. services/n8n/entrypoint.sh legt ihn
-    # beim Start idempotent an; das Backend meldet ihn für die nahtlose Session
-    # an (GET /api/automations/session). Nur erzeugen, wenn fehlend. Das
-    # Passwort erfüllt n8ns Policy (>= 8 Zeichen, 1 Großbuchstabe, 1 Ziffer).
-    if [ ! -s "$secrets_dir/n8n_owner_email" ]; then
-        printf 'owner@arasul.local' > "$secrets_dir/n8n_owner_email"
-    fi
-    if [ ! -s "$secrets_dir/n8n_owner_password" ]; then
-        printf 'A1%s' "$(generate_secret 24 | tr -d '\n')" > "$secrets_dir/n8n_owner_password"
-    fi
-
     # --- Plan 023 S3: Schluessel fuer verschluesselte Sicherungen -------------
     # Ohne ihn laeuft backup.sh mit BACKUP_ENCRYPT=true in den Warnzweig und
     # sichert unverschluesselt weiter. Nur erzeugen, wenn fehlend: ein Wechsel

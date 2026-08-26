@@ -10,7 +10,7 @@
 # Phases:
 #   1. Infrastructure: postgres-db
 #   2. AI Services: llm-service, embedding-service
-#   3. Application: dashboard-backend, dashboard-frontend, n8n, reverse-proxy
+#   3. Application: dashboard-backend, dashboard-frontend, reverse-proxy
 #   4. Monitoring: metrics-collector, self-healing-agent, backup-service, document-indexer
 #
 # MinIO, Loki und Promtail sind am 26.08.2026 (Phase B4 des Rueckbaus) aus
@@ -39,7 +39,7 @@ mkdir -p "$LOG_DIR"
 # Phase definitions: space-separated service names
 PHASE1_SERVICES="postgres-db"
 PHASE2_SERVICES="llm-service embedding-service"
-PHASE3_SERVICES="dashboard-backend dashboard-frontend n8n reverse-proxy"
+PHASE3_SERVICES="dashboard-backend dashboard-frontend reverse-proxy"
 PHASE4_SERVICES="metrics-collector self-healing-agent backup-service document-indexer"
 
 # Resolve compose directory
