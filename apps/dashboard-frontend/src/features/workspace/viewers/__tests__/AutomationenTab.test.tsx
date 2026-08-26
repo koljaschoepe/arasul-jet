@@ -41,7 +41,7 @@ describe('AutomationenTab (Plan 023 H4)', () => {
     fireEvent.load(rahmen);
     await waitFor(() => expect(gleicheN8nAn).toHaveBeenCalled());
     // Schwarzes Arasul-Thema wird zu dunklem n8n.
-    expect(gleicheN8nAn.mock.calls.at(-1)?.[2]).toBe('dark');
+    expect(gleicheN8nAn.mock.calls[gleicheN8nAn.mock.calls.length - 1]?.[2]).toBe('dark');
   });
 
   it('zieht bei einem Themawechsel nach, ohne den Rahmen neu zu laden', async () => {
@@ -54,7 +54,7 @@ describe('AutomationenTab (Plan 023 H4)', () => {
     rerender(<AutomationenTab />);
 
     await waitFor(() => expect(gleicheN8nAn).toHaveBeenCalled());
-    expect(gleicheN8nAn.mock.calls.at(-1)?.[2]).toBe('light');
+    expect(gleicheN8nAn.mock.calls[gleicheN8nAn.mock.calls.length - 1]?.[2]).toBe('light');
     // Derselbe Rahmen: ein Neuladen wuerde einen offenen Workflow verlieren.
     expect(screen.getByTestId('n8n-frame').getAttribute('src')).toBe(schluessel);
   });

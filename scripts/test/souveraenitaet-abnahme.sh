@@ -139,8 +139,11 @@ if [ "${1:-}" = "alles" ]; then
   # Zeile meldete die Messung ihren eigenen Aufruf als Verstoss (23.08.2026).
   ERLAUBT="${ERLAUBT:+$ERLAUBT,}example.com"
 else
-  ARBEIT='node scripts/test/dokument-abnahme.mjs'
-  WAS='die Kernkette'
+  # Bis B2 lief hier die Dokument-Abnahme (hochladen, fragen, Quelle). Chat und
+  # Explorer sind gefallen; die Oberflaechen-Abnahme geht durch jede Ansicht
+  # und haelt das Geraet waehrend der Messung genauso beschaeftigt.
+  ARBEIT='node scripts/test/oberflaeche-abnahme.mjs'
+  WAS='die Oberflaechen-Abnahme'
 fi
 [ -n "$ERLAUBT" ] && echo "Erlaubte, deklarierte Ziele: $ERLAUBT" && echo ""
 $ARBEIT > /tmp/arasul-souv-kette-$$.log 2>&1

@@ -17,13 +17,6 @@ interface TestFlow {
 const flowsState = { flows: [] as TestFlow[], isLoading: false };
 vi.mock('@/hooks/useFlows', () => ({ useFlows: () => flowsState }));
 
-// Plan 018: FlowsPanel scopet auf das aktive Projekt — useActiveProject mocken,
-// damit der Panel nicht über useApi/Toast-Provider stolpert.
-const activeState = { activeId: null as string | null };
-vi.mock('@/features/workspace/useProjects', () => ({
-  useActiveProject: () => activeState,
-}));
-
 describe('FlowsPanel', () => {
   beforeEach(() => {
     flowsState.flows = [
@@ -31,7 +24,6 @@ describe('FlowsPanel', () => {
       { name: 'notiz', beschreibung: '' },
     ];
     flowsState.isLoading = false;
-    activeState.activeId = null;
     useWorkspaceStore.setState({ tabs: [], activeTabId: null });
     useFlowEditorStore.setState({ editName: 'irgendwas' });
   });
@@ -65,16 +57,17 @@ describe('FlowsPanel', () => {
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toContain('flow');
   });
 
-  it('scopet auf das aktive Projekt: globale + eigene Flows, fremde ausgeblendet (Plan 018)', () => {
+  it('zeigt alle Flows, global zuerst, dann je Projekt gruppiert (seit B2 ohne aktives Projekt)', () => {
     flowsState.flows = [
       { name: 'global-flow', beschreibung: 'global' },
-      { name: 'eigen', beschreibung: 'aktiv', projekt: { id: 'ws1', name: 'Aktiv' } },
-      { name: 'fremd', beschreibung: 'anderes', projekt: { id: 'ws2', name: 'Anderes' } },
+      { name: 'eigen', beschreibung: 'eins', projekt: { id: 'ws1', name: 'Eins' } },
+      { name: 'fremd', beschreibung: 'zwei', projekt: { id: 'ws2', name: 'Zwei' } },
     ];
-    activeState.activeId = 'ws1';
     render(<FlowsPanel />);
     expect(screen.getByText('/global-flow')).toBeInTheDocument();
     expect(screen.getByText('/eigen')).toBeInTheDocument();
-    expect(screen.queryByText('/fremd')).not.toBeInTheDocument();
+    expect(screen.getByText('/fremd')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-gruppe-ws1')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-gruppe-ws2')).toBeInTheDocument();
   });
 });
