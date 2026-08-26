@@ -1,5 +1,12 @@
 # Workspace
 
+> **Stand 26.08.2026, Phase B2 des Umbaus:** Diese Seite beschreibt das
+> Datenmodell und die Backend-Dienste. Die Oberfläche dazu (Datei-Explorer,
+> Editor, Agent-Chat-Panel, Terminal, Projekt-Umschalter, Werkstatt-Panel,
+> KI-Zugang-Dialog) ist aus dem Frontend entfernt; Routen, Tabellen und
+> Dienste laufen weiter, bis B3 bis B5 sie streichen. Absätze, die eine
+> Bedienung beschreiben, gelten seitdem nur noch für die API.
+
 Ein **Workspace** ist die einzige „Projekt"-Entität (`sandbox_projects`): ein
 Host-Ordner (`host_path`) plus ein Container, mit einem Besitzer, einem
 Typ und einer Zugriffs-Stufe.

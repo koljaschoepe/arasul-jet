@@ -1,5 +1,5 @@
 import React from 'react';
-import { Files, Cpu, Blocks, Waypoints, Workflow, Puzzle, Settings } from 'lucide-react';
+import { Cpu, Blocks, Waypoints, Workflow, Puzzle, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ActivityView, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useExtensionStore } from '@/stores/extensionStore';
@@ -18,7 +18,7 @@ interface ActivityButtonProps {
  * Icon-Button der Activity-Bar (~36px, Cursor-/VS-Code-Maß). Reiner
  * Darstellungs-Baustein — Zustand und Verhalten liegen in der ActivityBar.
  */
-export function ActivityButton({ label, onClick, active, children }: ActivityButtonProps) {
+function ActivityButton({ label, onClick, active, children }: ActivityButtonProps) {
   return (
     <button
       type="button"
@@ -37,9 +37,11 @@ export function ActivityButton({ label, onClick, active, children }: ActivityBut
   );
 }
 
-/** Die festen Sidebar-Ansichten (Plan 012 Phase B) in Anzeige-Reihenfolge. */
+/**
+ * Die festen Sidebar-Ansichten (Plan 012 Phase B) in Anzeige-Reihenfolge.
+ * »Dateien« ist mit B2 gefallen (kein Explorer mehr).
+ */
 const VIEW_ENTRIES: Array<{ view: ActivityView; label: string; icon: React.ReactNode }> = [
-  { view: 'files', label: 'Dateien', icon: <Files className="h-[18px] w-[18px]" /> },
   { view: 'models', label: 'Modelle', icon: <Cpu className="h-[18px] w-[18px]" /> },
   { view: 'extensions', label: 'Erweiterungen', icon: <Blocks className="h-[18px] w-[18px]" /> },
   { view: 'flows', label: 'Flows', icon: <Waypoints className="h-[18px] w-[18px]" /> },
@@ -69,10 +71,10 @@ const APP_ENTRIES: Array<{
 /**
  * Activity-Bar (Plan 012 Phase B, Schritt 5): eine eigene, **immer sichtbare**
  * schmale Spalte ganz links — außerhalb des einklappbaren Sidebar-Panels.
- * Dadurch bleibt »Dateien« (und jede andere Ansicht) erreichbar, auch wenn die
- * Sidebar eingeklappt ist (behebt den ⌘B-/»Dateien«-Bug).
+ * Dadurch bleibt jede Ansicht erreichbar, auch wenn die Sidebar eingeklappt
+ * ist.
  *
- * Oben die festen Ansichten (Dateien · Suche · Modelle · Erweiterungen · Flows),
+ * Oben die festen Ansichten (Modelle · Erweiterungen · Flows),
  * darunter die aktivierten App-Erweiterungen, unten das Einstellungen-Zahnrad.
  * Ein Klick auf eine Ansicht wählt sie und zieht die Sidebar auf; erneuter Klick
  * auf die aktive Ansicht klappt sie wieder ein (VS-Code-Semantik, `selectView`).

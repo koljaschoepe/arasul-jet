@@ -52,8 +52,6 @@ interface ApiOverrides {
   catalog?: CatalogModel[];
   loadedModelId?: string | null;
   defaultModelId?: string | null;
-  /** Name des aktiven Workspace-Projekts (StatusBar rechts). null = keins. */
-  activeProjectName?: string | null;
 }
 
 /**
@@ -66,7 +64,6 @@ function mockApi(overrides: ApiOverrides = {}) {
   const catalog = overrides.catalog ?? [];
   const loadedModelId = overrides.loadedModelId ?? null;
   const defaultModelId = overrides.defaultModelId ?? null;
-  const activeProjectName = overrides.activeProjectName ?? null;
   get.mockImplementation((path: string) => {
     switch (path) {
       case '/models/memory-budget':
@@ -79,12 +76,6 @@ function mockApi(overrides: ApiOverrides = {}) {
         });
       case '/models/default':
         return Promise.resolve({ default_model: defaultModelId });
-      case '/projects/active':
-        return Promise.resolve({
-          data: activeProjectName
-            ? { project: { id: 'p1', name: activeProjectName, slug: 'p1' }, space_ids: [] }
-            : { project: null, space_ids: [] },
-        });
       default:
         return Promise.resolve(health);
     }
@@ -111,11 +102,6 @@ function resetStore() {
     activeTabId: null,
     sidebarVisible: true,
     rightPanelVisible: true,
-    rightPanelMode: 'chat',
-    terminalSessions: [],
-    activeTerminalSessionId: null,
-    chatScope: null,
-    explorerRequest: null,
   });
 }
 
@@ -154,21 +140,6 @@ describe('StatusBar', () => {
 
     // Die Komponente setzt retry:1 (≈1s Backoff) — Timeout entsprechend höher
     expect(await screen.findByText('Getrennt', {}, { timeout: 5000 })).toBeInTheDocument();
-  });
-
-  it('zeigt den Namen des aktiven Workspace-Projekts (nicht den Shell-Titel)', async () => {
-    // Regressionsschutz: früher zeigte die Leiste den Terminal-Session-Titel
-    // (z. B. „Shell 1") statt des Projektnamens — irreführend bei mehreren
-    // oder umbenannten Shells. Jetzt kommt der Name aus /projects/active.
-    mockApi({ activeProjectName: 'Mein Projekt' });
-    useWorkspaceStore.setState({
-      terminalSessions: [{ id: 's1', projectId: 'p1', title: 'Shell 1' }],
-      activeTerminalSessionId: 's1',
-    });
-    renderStatusBar();
-
-    expect(await screen.findByText('Mein Projekt')).toBeInTheDocument();
-    expect(screen.queryByText('Shell 1')).not.toBeInTheDocument();
   });
 
   it('pollt /models/memory-budget mit geteiltem Query-Key', async () => {

@@ -12,29 +12,24 @@ import type { TabThemeControls } from './TabContent';
 import { ActivityBar } from './ActivityBar';
 import { SidebarHost } from './SidebarHost';
 import { RightPanel } from './RightPanel';
-import { QuickOpen } from './QuickOpen';
-import OnboardingWizard from './OnboardingWizard';
 
 /**
- * Cursor-Raster der IDE-Shell:
+ * Das Dreispalten-Raster der Shell:
  *
  *   MenuBar (oben, mit Layout-Toggles rechts)
- *   ActivityBar · Sidebar · Mitte (TabBar + Inhalt) · rechtes Panel
- *                                                     (Chat ⇄ Terminal, Segment-Kopf)
+ *   ActivityBar · Sidebar · Mitte (TabBar + Inhalt) · rechte Spalte
  *   StatusBar (unten)
  *
  * Der aktive Tab wird in der URL gespiegelt (/workspace/...), offene Tabs und
  * Panel-Layout persistieren in localStorage.
  *
- * Rechtes Panel: EINE Fläche mit zwei Modi (Chat/Terminal), gerendert vom
- * RightPanel — der frühere innere vertikale Split (Chat oben / Terminal unten)
- * samt eigener Layout-Persistenz entfällt. Der Modus lebt im Store
- * (rightPanelMode), die Sichtbarkeit in rightPanelVisible.
+ * Seit B2 (26.08.2026) sind die linke Spalte ohne gewählte Ansicht und die
+ * rechte Spalte leer: Datei-Explorer, Agent-Chat und Terminal sind aus der
+ * Oberfläche gefallen. Das Raster bleibt, D1 und D2 füllen die Spalten neu.
  *
- * Keep-alive: Sidebar und das rechte Panel werden beim Ausblenden NICHT
+ * Keep-alive: Sidebar und rechte Spalte werden beim Ausblenden NICHT
  * unmounted, sondern nur per CSS versteckt (Regel in index.css:
- * `[data-panel][data-shell-hidden='true'] { display:none }`). So überleben
- * Terminal-WebSocket-Sessions und Chat-Streams jeden Panel-Toggle. react-
+ * `[data-panel][data-shell-hidden='true'] { display:none }`). react-
  * resizable-panels setzt display:flex inline auf Panel-Wurzeln, daher läuft das
  * über ein Datenattribut + !important statt über das hidden-Attribut.
  *
@@ -44,8 +39,8 @@ import OnboardingWizard from './OnboardingWizard';
  * Öffnen `hideOthers()` (aria-hidden-Paket) auf und setzen `aria-hidden='true'`
  * auf fremde Geschwister-Elemente, um sie vor Screenreadern zu verbergen. Hing
  * die Versteck-Regel an `aria-hidden`, kollabierten Panels, sobald ein Dialog
- * (z. B. „Neuer Ordner") ein Panel als Nachbarn markierte. `aria-hidden` wird
- * für die A11y weiter gespiegelt, steuert aber die Darstellung nicht mehr.
+ * ein Panel als Nachbarn markierte. `aria-hidden` wird für die A11y weiter
+ * gespiegelt, steuert aber die Darstellung nicht mehr.
  */
 export default function WorkspaceShell(props: TabThemeControls) {
   const location = useLocation();
@@ -61,15 +56,6 @@ export default function WorkspaceShell(props: TabThemeControls) {
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
   useEffect(() => {
     const subPath = location.pathname.replace(/^\/workspace/, '');
-
-    // v2-Deep-Link /workspace/terminal: Terminal ist kein Tab mehr — Panel
-    // einblenden (gleiche Semantik wie die TerminalPanelBridge in TabContent);
-    // die URL normalisiert der Store→URL-Effekt auf den aktiven Tab.
-    if (subPath.split('/').filter(Boolean)[0] === 'terminal') {
-      useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
-      return;
-    }
-
     const spec = pathToTabSpec(subPath);
 
     // Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
@@ -96,9 +82,8 @@ export default function WorkspaceShell(props: TabThemeControls) {
         openTab(spec);
       }
     }
-    // Kein Default-Tab mehr: ohne passenden Deep-Link landet der Workspace auf
-    // seinem Leerzustand ("Kein Tab geöffnet") — das Chat-Panel rechts ist der
-    // Chat-first-Einstieg (Plan 008).
+    // Kein Default-Tab: ohne passenden Deep-Link landet der Workspace auf
+    // seinem Leerzustand ("Kein Tab geöffnet").
   }, [location.pathname, isTabTypeEnabled]);
 
   // Store → URL: aktiver Tab spiegelt sich im Pfad
@@ -106,7 +91,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
     // Frischen Stand lesen (nicht den Render-Snapshot): der URL→Store-Effekt
     // läuft im selben Commit direkt davor und kann bereits einen Tab geöffnet
     // haben — mit dem stale Snapshot würde ein Deep-Link auf leeren Store
-    // sonst sofort von einem Dashboard-Default-Tab überschrieben.
+    // sonst sofort überschrieben.
     const state = useWorkspaceStore.getState();
     const active = state.tabs.find(t => t.id === state.activeTabId);
     if (!active) {
@@ -131,35 +116,14 @@ export default function WorkspaceShell(props: TabThemeControls) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Browser-Reload/Schließen mit ungespeicherten Editor-Änderungen abfangen —
-  // die native „Seite verlassen?"-Warnung verhindert stillen Datenverlust
-  // (u. a. nach einem Deploy, wenn der Nutzer die Seite neu lädt).
-  const hatUngespeichertes = useWorkspaceStore(s => s.dirtyTabs.size > 0);
-  useEffect(() => {
-    if (!hatUngespeichertes) return;
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [hatUngespeichertes]);
-
-  // Das rechte Panel (Chat/Terminal) ist als Ganzes sichtbar oder nicht.
-  const rightVisible = rightPanelVisible;
-
   /**
    * Plan 023 F5: bei einem schmalen Fenster gibt es keine drei Spalten.
    *
-   * Am 22.08.2026 gemessen: bei 400 px Fenster bleiben dem rechten Panel 142 px,
-   * davon 118 px fuer das Terminal, also rund dreizehn Spalten. Die
-   * Mindestbreiten der drei Panels ergeben zusammen ueber 500 px; die
-   * Aufteilung kann sie also gar nicht einhalten und verteilt Reste.
-   *
-   * Darunter faellt der Dateibaum weg (die Aktivitaetsleiste bleibt, er ist
-   * einen Klick entfernt), die Mitte darf auf null schrumpfen, und das rechte
-   * Panel darf die ganze Breite nehmen. Der Nutzer kann weiter ziehen; nur die
-   * Grenzen sind andere.
+   * Am 22.08.2026 gemessen: die Mindestbreiten der drei Panels ergeben zusammen
+   * über 500 px; bei 400 px Fenster kann die Aufteilung sie gar nicht einhalten
+   * und verteilt Reste. Darunter fällt die Sidebar weg (die Aktivitätsleiste
+   * bleibt, sie ist einen Klick entfernt), die Mitte darf auf null schrumpfen,
+   * und die rechte Spalte darf die ganze Breite nehmen.
    */
   const schmal = useSchmalesFenster();
   const sidebarZeigen = sidebarVisible && !schmal;
@@ -168,7 +132,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
   // stabil (Panels bleiben wegen Keep-alive immer gemountet).
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'arasul-workspace-panels',
-    panelIds: ['explorer', 'main', 'llm'],
+    panelIds: ['sidebar', 'main', 'right'],
   });
 
   return (
@@ -176,11 +140,11 @@ export default function WorkspaceShell(props: TabThemeControls) {
       className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground"
       data-testid="workspace-shell"
     >
-      <WorkspaceMenuBar themeControls={props} />
+      <WorkspaceMenuBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Immer sichtbare Activity-Bar links, außerhalb des einklappbaren
-            Panels — so bleibt jede Ansicht (v. a. »Dateien«) erreichbar, auch
-            wenn die Sidebar zu ist (Plan 012 Phase B, Schritt 5). */}
+            Panels — so bleibt jede Ansicht erreichbar, auch wenn die Sidebar
+            zu ist (Plan 012 Phase B, Schritt 5). */}
         <ActivityBar />
         <Group
           orientation="horizontal"
@@ -189,7 +153,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
           onLayoutChanged={onLayoutChanged}
         >
           <Panel
-            id="explorer"
+            id="sidebar"
             defaultSize="18%"
             minSize="160px"
             maxSize="35%"
@@ -212,32 +176,23 @@ export default function WorkspaceShell(props: TabThemeControls) {
             </div>
           </Panel>
           <Separator
-            aria-hidden={!rightVisible}
-            data-shell-hidden={rightVisible ? 'false' : 'true'}
+            aria-hidden={!rightPanelVisible}
+            data-shell-hidden={rightPanelVisible ? 'false' : 'true'}
             className="w-px bg-border transition-colors hover:bg-primary/50"
           />
           <Panel
-            id="llm"
+            id="right"
             defaultSize="26%"
             minSize="220px"
-            // Plan 023 F5: bei einem schmalen Fenster darf das rechte Panel die
-            // ganze Breite nehmen. Mit dem festen Deckel von 45 Prozent blieben
-            // bei 400 px Fenster gemessen 142 px uebrig, davon 118 px fuer das
-            // Terminal, also rund dreizehn Spalten. Darin ist nichts mehr
-            // lesbar, und das ist genau die Klage aus F5.
             maxSize={schmal ? '100%' : '45%'}
-            aria-hidden={!rightVisible}
-            data-shell-hidden={rightVisible ? 'false' : 'true'}
+            aria-hidden={!rightPanelVisible}
+            data-shell-hidden={rightPanelVisible ? 'false' : 'true'}
           >
             <RightPanel />
           </Panel>
         </Group>
       </div>
       <StatusBar />
-      {/* Datei-Schnellsuche (Strg/⌘+P) — global im Workspace (Plan 022). */}
-      <QuickOpen />
-      {/* Geführter Erst-Start (erscheint einmal, localStorage-gated). */}
-      <OnboardingWizard />
     </div>
   );
 }

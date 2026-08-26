@@ -1,6 +1,6 @@
 /**
- * Tests: Radix-Dialoge kollabieren die Keep-alive-Panels NICHT mehr
- * (Plan 003 · Schritt 2 · Bug b — „Neuer Ordner" ließ Sidebar + Chat
+ * Tests: Radix-Dialoge kollabieren die Keep-alive-Panels NICHT
+ * (Plan 003 · Schritt 2 · Bug b — ein Dialog ließ Sidebar + rechtes Panel
  * verschwinden).
  *
  * URSACHE (im DOM verifiziert): Ein modaler Radix-Dialog ruft beim Öffnen
@@ -14,9 +14,9 @@
  * die Shell setzt. `aria-hidden` wird für die A11y weiter gespiegelt, steuert
  * aber die Darstellung nicht mehr.
  *
- * Seit dem Ein-Ordner-Modell laufen die Explorer-Dialoge über Modal/
- * ConfirmModal (beide Radix-basiert) direkt im ExplorerPanel — getestet wird
- * hier deshalb genau diese Dialog-Schicht neben der Shell.
+ * Der Explorer, dessen Dialoge den Fall ausgelöst hatten, ist mit B2
+ * gefallen; die Regel gilt für jeden Dialog neben der Shell, deshalb bleibt
+ * der Test mit Modal und ConfirmModal.
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -32,15 +32,7 @@ vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div /> }));
 vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
-vi.mock('../QuickOpen', () => ({ QuickOpen: () => null }));
 vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
-vi.mock('../explorer/ExplorerPanel', () => ({
-  ExplorerPanel: () => <div data-testid="mock-explorer" />,
-}));
-vi.mock('../llm/ChatPanel', () => ({ ChatPanel: () => <div data-testid="mock-chat" /> }));
-vi.mock('../terminal/TerminalPanel', () => ({
-  TerminalPanel: () => <div data-testid="mock-terminal" />,
-}));
 vi.mock('@/hooks/useWorkspaceApps', () => ({
   useWorkspaceApps: () => ({
     apps: [],
@@ -55,13 +47,9 @@ function resetStore() {
   useWorkspaceStore.setState({
     tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
     activeTabId: 'settings',
+    activeView: null,
     sidebarVisible: true,
     rightPanelVisible: true,
-    rightPanelMode: 'chat',
-    terminalSessions: [],
-    activeTerminalSessionId: null,
-    chatScope: null,
-    explorerRequest: null,
   });
 }
 
@@ -86,11 +74,11 @@ describe('Ursache: Radix hideOthers ↔ aria-hidden-Kopplung', () => {
     document.body.appendChild(orphan);
 
     render(
-      <Modal isOpen onClose={() => {}} title="Neuer Ordner" size="small">
+      <Modal isOpen onClose={() => {}} title="Neuer Eintrag" size="small">
         <p>Dialog-Inhalt</p>
       </Modal>
     );
-    await waitFor(() => expect(screen.getByText('Neuer Ordner')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Neuer Eintrag')).toBeInTheDocument());
 
     // hideOthers hat den Nachbarn vor Screenreadern verborgen …
     expect(orphan.getAttribute('aria-hidden')).toBe('true');
@@ -101,16 +89,16 @@ describe('Ursache: Radix hideOthers ↔ aria-hidden-Kopplung', () => {
   });
 });
 
-describe('Fix: offene Explorer-Dialoge lassen die Shell-Panels sichtbar', () => {
+describe('Fix: offene Dialoge lassen die Shell-Spalten sichtbar', () => {
   const cases: { name: string; dialog: React.ReactNode; open: RegExp | string }[] = [
     {
-      name: 'Name-Dialog (Neue Datei / Neuer Ordner / Umbenennen)',
+      name: 'Name-Dialog',
       dialog: (
-        <Modal isOpen onClose={() => {}} title="Neuer Ordner" size="small">
-          <p>Ordnername</p>
+        <Modal isOpen onClose={() => {}} title="Neuer Eintrag" size="small">
+          <p>Name</p>
         </Modal>
       ),
-      open: 'Neuer Ordner',
+      open: 'Neuer Eintrag',
     },
     {
       name: 'Bestätigungs-Dialog (Löschen)',
@@ -119,54 +107,44 @@ describe('Fix: offene Explorer-Dialoge lassen die Shell-Panels sichtbar', () => 
           isOpen
           onClose={() => {}}
           onConfirm={() => {}}
-          title="Datei löschen"
-          message="„notiz.md“ wirklich löschen?"
+          title="Eintrag löschen"
+          message="„notiz“ wirklich löschen?"
           confirmText="Löschen"
           confirmVariant="danger"
         />
       ),
-      open: 'Datei löschen',
+      open: 'Eintrag löschen',
     },
   ];
 
-  it.each(cases)(
-    '$name, Sidebar, Chat und rechtes Panel bleiben sichtbar',
-    async ({ dialog, open }) => {
-      render(
-        <>
-          <MemoryRouter initialEntries={['/workspace/settings']}>
-            <Routes>
-              <Route
-                path="/workspace/*"
-                element={
-                  <WorkspaceShell theme="dark" onToggleTheme={() => {}} onLogout={async () => {}} />
-                }
-              />
-            </Routes>
-          </MemoryRouter>
-          <ToastProvider>{dialog}</ToastProvider>
-        </>
-      );
+  it.each(cases)('$name, Sidebar und rechte Spalte bleiben sichtbar', async ({ dialog, open }) => {
+    render(
+      <>
+        <MemoryRouter initialEntries={['/workspace/settings']}>
+          <Routes>
+            <Route
+              path="/workspace/*"
+              element={
+                <WorkspaceShell theme="dark" onToggleTheme={() => {}} onLogout={async () => {}} />
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+        <ToastProvider>{dialog}</ToastProvider>
+      </>
+    );
 
-      // Dialog ist offen …
-      await waitFor(() => expect(screen.getByText(open)).toBeInTheDocument());
+    // Dialog ist offen …
+    await waitFor(() => expect(screen.getByText(open)).toBeInTheDocument());
 
-      // … und die sichtbaren Flächen bleiben es: data-shell-hidden ist nirgends
-      // fälschlich auf 'true' gekippt (der Bug ließ Sidebar + Chat verschwinden).
-      // Chat lebt seit Schritt 4 als [data-shell-surface] im RightPanel (kein
-      // eigenes react-resizable-panels-Panel mehr); Explorer + das rechte Panel
-      // (#llm) sind weiterhin echte Panels.
-      const explorer = document.querySelector<HTMLElement>('[data-panel]#explorer');
-      const llm = document.querySelector<HTMLElement>('[data-panel]#llm');
-      const chatSurface = document.querySelector<HTMLElement>('[data-shell-surface="chat"]');
+    // … und die sichtbaren Spalten bleiben es: data-shell-hidden ist nirgends
+    // fälschlich auf 'true' gekippt.
+    const sidebar = document.querySelector<HTMLElement>('[data-panel]#sidebar');
+    const rechts = document.querySelector<HTMLElement>('[data-panel]#right');
 
-      expect(explorer).not.toBeNull();
-      expect(llm).not.toBeNull();
-      expect(chatSurface).not.toBeNull();
-
-      expect(explorer).toHaveAttribute('data-shell-hidden', 'false');
-      expect(llm).toHaveAttribute('data-shell-hidden', 'false');
-      expect(chatSurface).toHaveAttribute('data-shell-hidden', 'false');
-    }
-  );
+    expect(sidebar).not.toBeNull();
+    expect(rechts).not.toBeNull();
+    expect(sidebar).toHaveAttribute('data-shell-hidden', 'false');
+    expect(rechts).toHaveAttribute('data-shell-hidden', 'false');
+  });
 });

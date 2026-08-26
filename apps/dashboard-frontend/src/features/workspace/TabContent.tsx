@@ -8,14 +8,9 @@ import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
-const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
-const ProjectFileTab = lazy(() => import('./viewers/ProjectFileTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
 const ExtensionAppTab = lazy(() => import('./viewers/ExtensionAppTab'));
 const FlowEditorTab = lazy(() => import('@/features/flows/FlowEditorTab'));
-const KundenUebersichtTab = lazy(() => import('./viewers/KundenUebersichtTab'));
-const ProjekteStartTab = lazy(() => import('./viewers/ProjekteStartTab'));
-const ProjektUebersichtTab = lazy(() => import('./viewers/ProjektUebersichtTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -29,36 +24,9 @@ interface TabContentProps {
 
 /**
  * Übersetzt Navigation auf einen fremden Legacy-Pfad (z. B. ein Link aus dem
- * Store auf `/`) in das Öffnen des passenden Workspace-Tabs und setzt den
- * MemoryRouter des Quell-Tabs zurück.
+ * Store auf `/settings`) in das Öffnen des passenden Workspace-Tabs und setzt
+ * den MemoryRouter des Quell-Tabs zurück.
  */
-/**
- * Legacy-Links auf /chat landen nicht mehr in einem Tab — der Chat lebt nur
- * noch im rechten KI-Panel. Diese Bridge blendet das Panel ein und setzt den
- * MemoryRouter des Quell-Tabs zurück.
- */
-function ChatPanelBridge({ resetTo }: { resetTo: string }) {
-  const navigate = useNavigate();
-  useEffect(() => {
-    useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'chat' });
-    navigate(resetTo, { replace: true });
-  }, []);
-  return null;
-}
-
-/**
- * Das Terminal ist kein Mitte-Tab mehr — Legacy-Links auf /terminal blenden
- * das Terminal-Panel ein und setzen den MemoryRouter des Quell-Tabs zurück.
- */
-function TerminalPanelBridge({ resetTo }: { resetTo: string }) {
-  const navigate = useNavigate();
-  useEffect(() => {
-    useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
-    navigate(resetTo, { replace: true });
-  }, []);
-  return null;
-}
-
 function TabBridge({
   makeSpec,
   resetTo,
@@ -89,44 +57,29 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/store';
     case 'automationen':
       return '/';
-    case 'document':
-      return '/';
-    case 'projektdatei':
-      return '/';
     case 'flow':
       return '/';
     case 'extension':
       // Direkt gerendert (kein FeatureTabHost), Wert wird nie genutzt.
-      return '/';
-    case 'kundenuebersicht':
-      return '/';
-    case 'projekte':
-      return '/';
-    case 'projektuebersicht':
       return '/';
   }
 }
 
 /** Welche Route-Keys gehören zum Tab selbst (statt zur Bridge)? */
 const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
-  document: new Set([]),
-  projektdatei: new Set([]),
   settings: new Set(['settings']),
   modelle: new Set(['store']),
   erweiterungen: new Set(['store']),
   automationen: new Set([]),
   flow: new Set([]),
   extension: new Set([]),
-  kundenuebersicht: new Set([]),
-  projekte: new Set([]),
-  projektuebersicht: new Set([]),
 };
 
 /**
  * Hostet einen Feature-Tab in einem eigenen MemoryRouter. Die Route-Tabelle
  * spiegelt die Legacy-Pfade: Routen des eigenen Features rendern das Feature,
  * fremde Pfade werden per TabBridge in Workspace-Tabs übersetzt. Dadurch
- * funktionieren Router-gekoppelte Features (Store, Chat, Datenbank) ohne
+ * funktionieren Router-gekoppelte Features (Store, Einstellungen) ohne
  * Eingriff in ihren Code als Tab.
  */
 export function FeatureTabHost({
@@ -148,10 +101,6 @@ export function FeatureTabHost({
   // die LEERE Memory-Location statt der Adresszeile. Der Deep-Link zum
   // Fernzugriff landete stumm auf „Allgemein". Am 19.08.2026 im Browser
   // gegengeprüft, vorher und nachher.
-  //
-  // Das galt schon vor dem Entfernen der Legacy-Shell (Plan 023 B1), fiel aber
-  // nicht auf, weil `/settings` damals an der Shell hing und dort ein echter
-  // BrowserRouter las. Risiko R15 war gegen diesen Weg geprüft worden.
   //
   // Nur beim ersten Rendern relevant: `initialEntries` liest der MemoryRouter
   // genau einmal. `resetTo` bleibt bewusst ohne Suchteil, damit ein Rücksprung
@@ -183,11 +132,6 @@ export function FeatureTabHost({
             { type: 'settings' }
           )}
         />
-        <Route path="/chat/*" element={<ChatPanelBridge resetTo={resetTo} />} />
-        {/* Dateiverwaltung lebt im Explorer — Legacy-Links auf /data setzen den
-            Quell-Tab nur auf seinen Startpfad zurück. */}
-        <Route path="/data" element={<Navigate to={resetTo} replace />} />
-        <Route path="/documents" element={<Navigate to="/data" replace />} />
         {/* Plan 023 B7: derselbe innere Pfad, zwei Tabs. Welcher Bereich
             gezeigt wird, entscheidet der Tab-Typ, nicht mehr ein Zustand
             nebenan. */}
@@ -202,8 +146,6 @@ export function FeatureTabHost({
             { type: tab.type === 'modelle' ? 'modelle' : 'erweiterungen' }
           )}
         />
-        <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
-        <Route path="/terminal" element={<TerminalPanelBridge resetTo={resetTo} />} />
         <Route path="*" element={<Navigate to={resetTo} replace />} />
       </Routes>
     </IsolatedMemoryRouter>
@@ -211,18 +153,6 @@ export function FeatureTabHost({
 }
 
 function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
-  if (tab.type === 'document') {
-    return <DocumentViewerTab documentId={tab.documentId ?? ''} tabId={tab.id} />;
-  }
-  if (tab.type === 'projektdatei') {
-    return (
-      <ProjectFileTab
-        projectId={tab.projectId ?? ''}
-        filePath={tab.filePath ?? ''}
-        tabId={tab.id}
-      />
-    );
-  }
   if (tab.type === 'automationen') {
     return <AutomationenTab />;
   }
@@ -232,35 +162,20 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   if (tab.type === 'flow') {
     return <FlowEditorTab />;
   }
-  if (tab.type === 'kundenuebersicht') {
-    return <KundenUebersichtTab />;
-  }
-  if (tab.type === 'projekte') {
-    return <ProjekteStartTab />;
-  }
-  if (tab.type === 'projektuebersicht') {
-    return <ProjektUebersichtTab />;
-  }
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }
 
 /**
- * Tab-Typen, die beim Wechsel gemountet bleiben. `automationen` wegen des
- * eingebetteten iframes; `flow`, damit ein halb ausgefülltes Editor-Formular
- * einen kurzen Tab-Wechsel (z. B. Blick in den Datei-Explorer) übersteht statt
- * unbemerkt verloren zu gehen. `projektdatei`/`document` aus DEMSELBEN Grund:
- * ihre Editoren halten den Entwurf lokal — ohne Keep-Alive verwarf ein kurzer
- * Tab-Wechsel jede ungespeicherte Änderung still (QA-Sweep-Befund). Keep-Alive
- * greift nur für tatsächlich geöffnete Tabs.
+ * Tab-Typen, die beim Wechsel gemountet bleiben. `automationen` und
+ * `extension` wegen des eingebetteten iframes; `flow`, damit ein halb
+ * ausgefülltes Editor-Formular einen kurzen Tab-Wechsel übersteht statt
+ * unbemerkt verloren zu gehen. Keep-Alive greift nur für tatsächlich
+ * geöffnete Tabs.
  */
 const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
   'automationen',
   'flow',
-  // App-Erweiterungen halten wie n8n ihren iframe-Zustand über Tab-Wechsel.
   'extension',
-  // Datei-Editoren: ungespeicherte Entwürfe überleben den Tab-Wechsel.
-  'projektdatei',
-  'document',
 ]);
 
 /**

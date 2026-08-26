@@ -16,40 +16,35 @@ Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`)
 ```
 src/
   features/        Domain-organized UI. One folder per top-level route.
-    documents/  sandbox/  settings/  store/  system/
-    workspace/     IDE-Shell (Cursor-Raster 3.1, **immer aktiv** — `/` landet
+    flows/  settings/  store/  system/
+    workspace/     Die Shell (Dreispalten-Raster, **immer aktiv** — `/` landet
                    nach Login stets auf `/workspace`; es gibt keinen Fallback-Flag
-                   mehr):
-                   WorkspaceMenuBar (Datei/Ansicht + Workspace-Switcher + **zwei**
-                   Layout-Toggles [Sidebar, rechtes Panel] + Settings oben rechts),
-                   ActivityBar (eigene, **immer sichtbare** schmale Spalte ganz
-                   links — außerhalb des einklappbaren Panels — mit vier Ansichten
-                   **Dateien · Modelle · Erweiterungen · Flows**, den
-                   aktivierten App-Erweiterungen und dem Einstellungen-Zahnrad
-                   unten — Plan 012 Phase B), SidebarHost (Sidebar),
-                   Tab-Bar/-Content (Mitte), RightPanel (rechts), StatusBar
-                   (Modell + KI-RAM). Feature-Tabs laufen je in einem eigenen
-                   IsolatedMemoryRouter (FeatureTabHost); Cross-Feature-Links
-                   übersetzt die TabBridge in Tab-Öffnungen (Chat/Terminal-Links
-                   in Panel-Umschaltungen). Menü→Panel-Aktionen laufen als
-                   Request über den workspaceStore.
-                   • **RightPanel** — EINE Fläche mit Segment-Umschalter
-                     [Chat | Terminal]; beide Seiten bleiben keep-alive gemountet
-                     (nie unmounten, nie als Mitte-Tab), die inaktive wird nur
-                     per `data-shell-hidden` versteckt. Zustand im Store:
-                     `rightPanelVisible` + `rightPanelMode` ('chat' | 'terminal').
+                   mehr). Seit Phase B2 (26.08.2026) sind Editor, Datei-Explorer,
+                   Agent-Chat, Terminal und Sandbox aus der Oberfläche gefallen;
+                   die linke Spalte ist ohne gewählte Ansicht leer, die rechte
+                   Spalte ganz. Das Raster bleibt, D1/D2 füllen die Spalten neu.
+                   WorkspaceMenuBar (Marke + **zwei** Layout-Toggles [Sidebar,
+                   rechte Spalte] + Settings oben rechts), ActivityBar (eigene,
+                   **immer sichtbare** schmale Spalte ganz links — außerhalb des
+                   einklappbaren Panels — mit drei Ansichten
+                   **Modelle · Erweiterungen · Flows**, den aktivierten
+                   App-Erweiterungen und dem Einstellungen-Zahnrad unten — Plan
+                   012 Phase B), SidebarHost (Sidebar), Tab-Bar/-Content (Mitte),
+                   RightPanel (rechts, leer), StatusBar (Modell + KI-RAM).
+                   Feature-Tabs laufen je in einem eigenen IsolatedMemoryRouter
+                   (FeatureTabHost); Cross-Feature-Links übersetzt die TabBridge
+                   in Tab-Öffnungen.
+                   • **RightPanel** — leere Fläche mit Schließen-Knopf; die Shell
+                     versteckt sie per `data-shell-hidden` (nie unmounten).
+                     Zustand im Store: `rightPanelVisible`.
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
-                     Activity-Bar-Ansicht (`activeView`, Store): files → Datei-
-                     Explorer, models → Modell-Filter, extensions → Erweiterungs-
-                     Suche, flows → Flow-Liste (`features/workspace/sidebar/*Panel.tsx`);
-                     jeder unbekannte/entfernte Wert (z. B. das alte 'search')
-                     fällt auf den Explorer zurück.
-                     Der Explorer bleibt beim Wechsel gemountet (nur `hidden`),
-                     damit sein Baum-Zustand erhält. Die Bar wählt die Ansicht,
-                     `sidebarVisible` steuert nur das Auf/Zu (⌘B / erneuter Klick).
-                     Der Auto-Collapse für App-Tabs (`sidebarRestore`/
-                     `syncSidebarForTab`) bleibt verdrahtet, `APP_TAB_TYPES` ist
-                     derzeit leer (n8n läuft als Mitte-Tab).
+                     Activity-Bar-Ansicht (`activeView`, Store): models → Modell-
+                     Filter, extensions → Erweiterungs-Suche, flows → Flow-Liste,
+                     settings → Bereiche der Einstellungen
+                     (`features/workspace/sidebar/*Panel.tsx`); `null` (kein
+                     Klick, alte Werte wie 'files'/'search') → leere Spalte.
+                     Die Bar wählt die Ansicht, `sidebarVisible` steuert nur das
+                     Auf/Zu (⌘B / erneuter Klick).
                    • **Flows-Zentrale** — der Flow-Editor ist EIN Mitte-Tab
                      (Singleton-Typ `flow`, kein Popup mehr; Plan 012 Phase D).
                      Welchen Flow er zeigt, steht im ephemeren `flowEditorStore`
@@ -57,8 +52,7 @@ src/
                      der Store-Tab seinen Inhalt aus dem `extensionStore` zieht.
                      Aufrufer setzen erst das Ziel, dann `openTab({type:'flow'})`:
                      die Sidebar-Ansicht »Flows« (`FlowsPanel`, klickbare Liste +
-                     »Neuer Flow«), `/flows` im Chat öffnet diese Übersicht,
-                     `/neuer-flow` einen leeren Editor-Tab. Der Editor
+                     »Neuer Flow«). Der Editor
                      (`features/flows/FlowEditorTab.tsx`) hält Formular + Vorschau;
                      die `MarkdownPreview` schaltet zwischen **Datei** (erzeugte
                      Markdown-Datei) und **Laufzeit-Prompt** (aufgelöster Prompt aus
@@ -115,11 +109,10 @@ src/
                    `docs/development/DESIGN_SYSTEM.md`, Abschnitt
                    „Das gemeinsame Baustein-Set".
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
-    layout/        Sidebar, navigation chrome.
-    editor/        Rich-text / code editors.
+    mascot/        Das Maskottchen.
   hooks/           Cross-feature hooks (useApi, useTheme, …).
-  contexts/        Global state (Auth, Toast, Chat, Download, Activation).
-  stores/          zustand stores (workspaceStore: Tabs, Panels, Chat-Scope).
+  contexts/        Global state (Auth, Toast, Download, Activation).
+  stores/          zustand stores (workspaceStore: Tabs, Sidebar-Ansicht, Spalten).
   lib/             queryClient, cn() helper.
   utils/           Pure utilities (csrf, formatting, sanitizeUrl, token).
   config/          api.ts (API_BASE, getAuthHeaders).
@@ -138,12 +131,12 @@ A component in `features/X/` must not be imported from `features/Y/`.
 
 ```typescript
 import { useApi } from '@/hooks/useApi';
-import type { Document } from '@/types/documents';
+import type { Flow } from '@/types/flows';
 
-function DocumentList() {
+function FlowList() {
   const api = useApi();
   const load = async () => {
-    const docs = await api.get<Document[]>('/documents');
+    const res = await api.get<{ flows: Flow[] }>('/flows');
     // ...
   };
 }
@@ -165,7 +158,7 @@ it as part of your task only when it's the file you need to edit.
 
 - **Server data** that you read across re-renders: `useQuery` /
   `useMutation` against `lib/queryClient.ts`. Cache key = the API path.
-- **Cross-page session state** (auth, toasts, active chat, downloads):
+- **Cross-page session state** (auth, toasts, downloads):
   one of the contexts in `src/contexts/`.
 - **Page-local state**: `useState` / `useReducer`. Don't reach for context.
 
@@ -193,7 +186,7 @@ lucide`. App-specific wrappers live in `components/ui/` (one level up).
 
 `App.tsx` lazy-loads every secondary route via `React.lazy(() => import(...))`
 inside a `<Suspense fallback={...}>` boundary. New top-level features should
-follow that pattern; the Login, Chat, and shell are eagerly imported.
+follow that pattern; the Login and the shell are eagerly imported.
 
 ### 7. Errors — wrap routes with `RouteErrorBoundary`, components with `ComponentErrorBoundary`
 

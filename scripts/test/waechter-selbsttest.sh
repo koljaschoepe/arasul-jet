@@ -642,6 +642,14 @@ pruefe "Anleitungen: make im Fliesstext zaehlt nicht" 0 \
   python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
 rm -f "$AN/Makefile"
 
+# --- zeilen.py --------------------------------------------------------------
+# Die Messregel der Rueckbau-Phasen (B2 bis B6). Ihr Selbsttest baut einen
+# Wegwerfbaum mit bekannten Zeilenzahlen; hier laeuft er mit, damit ein
+# Zaehler, der schleichend etwas anderes zaehlt, nicht erst beim Vergleich
+# zweier Messungen auffaellt.
+pruefe "Zeilen: der Zaehler besteht seinen Selbsttest" 0 \
+  python3 "$WURZEL/scripts/test/zeilen.py" --selbsttest
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

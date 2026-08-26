@@ -1,41 +1,9 @@
 import React from 'react';
-import {
-  FolderPlus,
-  Upload,
-  SquareTerminal,
-  Settings,
-  PanelLeft,
-  PanelRight,
-  ChevronDown,
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/shadcn/dropdown-menu';
+import { Settings, PanelLeft, PanelRight } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { Mascot } from '@/components/mascot/Mascot';
-import { WorkspaceSwitcher } from './WorkspaceSwitcher';
-import type { TabThemeControls } from './TabContent';
 
-interface WorkspaceMenuBarProps {
-  themeControls: TabThemeControls;
-}
-
-function MenuTriggerButton({ label }: { label: string }) {
-  return (
-    <DropdownMenuTrigger
-      className="flex h-6 items-center gap-0.5 rounded px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-      aria-label={`${label}-Menü`}
-    >
-      {label}
-      <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
-    </DropdownMenuTrigger>
-  );
-}
-
-/** Icon-Toggle für die zwei Layout-Flächen (Sidebar/rechtes Panel). */
+/** Icon-Toggle für die zwei Layout-Flächen (Sidebar/rechte Spalte). */
 function LayoutToggleButton({
   label,
   pressed,
@@ -66,22 +34,21 @@ function LayoutToggleButton({
 }
 
 /**
- * Schlanke Top-Menüleiste der IDE-Shell (à la Cursor, bewusst minimal):
- * links Marke + Datei-Menü, rechts die zwei Layout-Toggles
- * (Sidebar / rechtes Panel) neben den Einstellungen. Der Panel-Modus
- * (Chat/Terminal) wird im Panel selbst umgeschaltet. Das Theme
- * (Schwarz/Dunkel/Hell) wird ausschließlich in den Einstellungen →
- * Erscheinungsbild gesetzt (kein redundanter Ansichtsmodus-Umschalter mehr,
- * Plan 005 · Schritt 1).
+ * Schlanke Top-Menüleiste der Shell, bewusst minimal: links die Marke, rechts
+ * die zwei Layout-Toggles (Sidebar / rechte Spalte) neben den Einstellungen.
+ * Das Theme (Schwarz/Dunkel/Hell) wird ausschließlich in den Einstellungen →
+ * Erscheinungsbild gesetzt (Plan 005 · Schritt 1).
+ *
+ * Das Datei-Menü (Ordner anlegen, Terminal, Dokumente hochladen) und der
+ * Projekt-Umschalter sind mit B2 gefallen: Explorer, Terminal und Projekte
+ * gibt es in der Oberfläche nicht mehr.
  */
-export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
+export function WorkspaceMenuBar() {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
   const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
   const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
-  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
-  const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const selectView = useWorkspaceStore(s => s.selectView);
 
@@ -95,33 +62,8 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
         Arasul
       </span>
 
-      <DropdownMenu>
-        <MenuTriggerButton label="Datei" />
-        <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuItem onClick={() => requestExplorerAction('create-folder')}>
-            <FolderPlus className="h-4 w-4" aria-hidden="true" />
-            Neuer Ordner…
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setRightPanelMode('terminal')}>
-            <SquareTerminal className="h-4 w-4" aria-hidden="true" />
-            Neue Terminal-Umgebung…
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => requestExplorerAction('upload-files')}>
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            Dokumente hochladen…
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-
-      {/* Aktiver Ordner-Kontext (Plan 012): Chat + Suche binden hieran. */}
-      <WorkspaceSwitcher />
-
       <div className="flex-1" />
 
-      {/* Zwei Layout-Toggles: Sidebar + rechtes Panel. Der Panel-Modus
-          (Chat/Terminal) wird im Panel selbst gewechselt. */}
       <div className="flex items-center gap-0.5" role="group" aria-label="Layout">
         <LayoutToggleButton
           label={sidebarVisible ? 'Sidebar ausblenden' : 'Sidebar einblenden'}

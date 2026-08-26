@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Download, FolderKanban, ChevronsUpDown, Wifi } from 'lucide-react';
+import { Cpu, Download, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
 import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';
@@ -10,8 +10,6 @@ import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useExtensionStore } from '@/stores/extensionStore';
-import { useActiveProject } from '@/features/workspace/useProjects';
-import { GitSyncControl } from '@/features/workspace/GitSyncControl';
 import {
   isModelInstalled,
   isModelActive,
@@ -32,8 +30,9 @@ interface HealthResponse {
  * Schlanke Statusleiste am unteren Rand der IDE-Shell (Cursor-Maß: 24px):
  * links Verbindungs-/Health-Punkt + Plattform-Version (klickbar → was ist
  * verbunden?), mittig der Modellstatus (klickbar → heruntergeladenes Modell
- * wählen), rechts das aktive Workspace-Projekt (Plan 018). Die beiden Popover
- * laden ihre Detaildaten erst beim Öffnen (kein Dauer-Poll auf dem Jetson).
+ * wählen). Die beiden Popover laden ihre Detaildaten erst beim Öffnen (kein
+ * Dauer-Poll auf dem Jetson). Das aktive Projekt und die Git-Kopplung, die
+ * rechts standen, sind mit B2 gefallen.
  */
 export function StatusBar() {
   const api = useApi();
@@ -107,12 +106,6 @@ export function StatusBar() {
       setModelOpen(false);
     },
   });
-
-  // Rechts in der Leiste steht das aktive WORKSPACE-Projekt (Plan 018:
-  // ein aktives Projekt steuert Dateien + Flows + Terminal). Bewusst NICHT
-  // der Terminal-Session-Titel — der zeigt bei umbenannten/mehreren Shells
-  // „Shell 1" statt des Projektnamens und war irreführend.
-  const { activeProject } = useActiveProject();
 
   // Globales Download-Feedback: laufende Modell-Downloads sind sonst nur im
   // Store sichtbar — hier bleiben sie es überall, ein Klick springt hin.
@@ -330,16 +323,6 @@ export function StatusBar() {
       )}
 
       <div className="flex-1" />
-
-      {/* GitHub-Sync des aktiven Projekts (Plan 013, B9). */}
-      <GitSyncControl />
-
-      {activeProject && (
-        <span className="flex min-w-0 items-center gap-1.5" title="Aktives Projekt">
-          <FolderKanban className="h-3 w-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">{activeProject.name}</span>
-        </span>
-      )}
     </footer>
   );
 }

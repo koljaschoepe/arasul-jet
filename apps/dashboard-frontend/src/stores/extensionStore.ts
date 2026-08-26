@@ -6,7 +6,7 @@ import { create } from 'zustand';
  * die Auswahl; Store.tsx zeigt daraufhin statt des Rasters die StoreDetailPage,
  * „← Zurück" ruft clearSelection. Der Store ist außerdem der Kanal für die alten
  * Deep-Links /store/models|apps?highlight=… (HighlightRedirect). Ein schlanker,
- * NICHT persistierter Zustand — ephemer wie der chatScope, damit ein Reload
+ * NICHT persistierter Zustand — ephemer wie der flowEditorStore, damit ein Reload
  * immer im Leerzustand („nichts gewählt", d. h. Raster) startet.
  */
 

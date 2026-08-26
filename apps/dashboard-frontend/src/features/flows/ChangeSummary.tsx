@@ -10,9 +10,8 @@
  * passiert serverseitig (changeTracker.js).
  */
 import { useState } from 'react';
-import { ChevronRight, ExternalLink, FilePenLine, FilePlus2, FileX2 } from 'lucide-react';
+import { ChevronRight, FilePenLine, FilePlus2, FileX2 } from 'lucide-react';
 import type { FlowRunChange } from '@/hooks/useFlowRun';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 const ART_META: Record<
   FlowRunChange['art'],
@@ -66,23 +65,10 @@ export default function ChangeSummary({ changes }: { changes: FlowRunChange[] })
 
 function ChangeRow({ change }: { change: FlowRunChange }) {
   const [offen, setOffen] = useState(false);
-  const openTab = useWorkspaceStore(s => s.openTab);
   const meta = ART_META[change.art];
   const { Icon } = meta;
-
-  // Artefakt öffnen: liegt die Datei in einer Projektablage (Backend liefert
-  // `projekt`), öffnet ein Klick sie als Editor-Tab — der direkte Weg vom
-  // fertigen Lauf zum Ergebnis. Gelöschte Dateien haben kein Ziel mehr.
-  const ziel = change.art !== 'geloescht' ? change.projekt : null;
-  const oeffnen = ziel
-    ? () =>
-        openTab({
-          type: 'projektdatei',
-          projectId: ziel.projectId,
-          filePath: ziel.pfad,
-          title: ziel.pfad.split('/').pop() ?? ziel.pfad,
-        })
-    : null;
+  // Bis B2 öffnete ein Knopf die Datei im Editor; ohne Editor bleibt die
+  // Vorschau hier das Ergebnis.
 
   return (
     <div className="border-t border-border/60" data-testid="change-row">
@@ -101,18 +87,6 @@ function ChangeRow({ change }: { change: FlowRunChange }) {
           <span className="min-w-0 flex-1 truncate font-mono text-foreground">{change.pfad}</span>
           <span className={`shrink-0 ${meta.farbe}`}>{meta.label}</span>
         </button>
-        {oeffnen && (
-          <button
-            type="button"
-            onClick={oeffnen}
-            title="Im Editor öffnen"
-            aria-label={`${change.pfad} im Editor öffnen`}
-            data-testid="change-open"
-            className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground"
-          >
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-          </button>
-        )}
       </div>
 
       {offen && (

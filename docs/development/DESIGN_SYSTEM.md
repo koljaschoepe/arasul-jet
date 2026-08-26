@@ -48,15 +48,15 @@ als neutrale Alphas, Akzent nur für Primäraktionen/Aktivzustände.
 
 > **Regel „eine Flächenfarbe" (Plan 003 · Cursor-Shell 3.1):** Grundflächen =
 > `--background` (`bg-background`), erhabene Elemente = `--card` (`bg-card`).
-> Jede großflächige Grundfläche einer Workspace-gehosteten Ansicht (Editor-
-> Mitte, Sidebar, rechtes Panel, Extensions/Store inkl. Detailseite,
-> n8n-Wrapper, Chat, Terminal, Explorer) trägt denselben
+> Jede großflächige Grundfläche einer Workspace-gehosteten Ansicht (Mitte,
+> Sidebar, rechte Spalte, Extensions/Store inkl. Detailseite,
+> n8n-Wrapper) trägt denselben
 > Hintergrund `bg-background`; Trennung zwischen Flächen erfolgt **nur** über
 > Borders (`bg-border`/`border-border`), nicht über eine zweite Flächenfarbe.
 > `--card` ist reserviert für _erhabene_ Elemente **innerhalb** einer Fläche:
 > Karten/Kacheln (StatCards, Model-/Bot-Cards), Popover/Menüs/Dialoge/Overlays,
 > Chips, Eingabefelder und Tabellen-Kopfzeilen. Der aktive Tab teilt die
-> Flächenfarbe des Editors und hebt sich nur über Schriftstärke ab.
+> Flächenfarbe der Mitte und hebt sich nur über Schriftstärke ab.
 
 ---
 
@@ -84,13 +84,9 @@ Umschaltung: `data-theme="black|dark|light"` + Klassen `dark`/`light` auf `<html
 | `--primary-active`      | `#6e91b4`                | erbt Schwarz                   | `#2478B8`             |
 | `--ring`                | = `--primary`            | = `--primary`                  | = `--primary`         |
 | `--scrollbar-thumb`     | `rgba(228,228,228,0.14)` | erbt Schwarz                   | `rgba(16,16,16,0.18)` |
-| `--bg-terminal`         | `#0A0A0A`                | `#181818`                      | `#FFFFFF`             |
 
 Scrollbars: Track transparent, Thumb neutral (Hover `0.28` bzw. `0.32` Alpha),
 kein Gradient. Die `--primary-alpha-5…50`-Skala folgt je Theme dem Akzent.
-
-Terminal (xterm) koppelt an das App-Theme über `src/lib/terminalThemes.ts`
-(einzige sanktionierte Literal-Palette neben der Chart-Palette).
 
 ### Status-Farben (Nur bei semantischer Notwendigkeit)
 
@@ -243,7 +239,7 @@ den vier Stufen (`*-ui-1…4`). Karten-Padding = `p-ui-3` (14px), Abstand zwisch
 Karten = `gap-ui-2` (10px). Neue Workspace-Ansichten verwenden diese Skala statt
 der klassischen `--space-*`-Werte.
 
-**Cursor-Eichung (Plan 009):** Baum-/Listenzeilen (Explorer, Store-Facetten,
+**Cursor-Eichung (Plan 009):** Baum-/Listenzeilen (Flow-Liste, Store-Facetten,
 Tab-Leiste) nutzen die kompakte Zeilenhöhe `--spacing-ui-row` (~22px, Utility
 `h-ui-row`/`min-h-ui-row`) und UI-Chrome-Text `text-ui-sm` (13px) — angelehnt an
 Cursors Workbench-Maße (UI 13px, Tree-Row 22px). Die feine Trennlinie ist bereits
@@ -428,20 +424,17 @@ Formatierung, nicht wie Absicht.
 Die Workspace-Shell (`features/workspace/`, immer aktiv — `/` landet stets auf
 `/workspace`, kein Feature-Flag mehr)
 nutzt **dieselben Theme-Tokens** wie der Rest der App, aber IDE-typisch
-kompaktere Dichte: schmale Leisten (`h-9` für Tab-/Explorer-Header, `w-12`
-Activity-Bar), `text-xs` in Explorer/Tabs, enge Paddings (`px-3`, `py-0.5`).
+kompaktere Dichte: schmale Leisten (`h-9` für Tab-/Sidebar-Header, `w-12`
+Activity-Bar), `text-xs` in Sidebar/Tabs, enge Paddings (`px-3`, `py-0.5`).
 Keine neuen Farbwerte — ausschließlich `bg-background`, `bg-accent`,
 `border-border`, `text-muted-foreground` etc. Panels sind mit
 `react-resizable-panels` (Group/Panel/Separator) umgesetzt; der Separator ist
 `w-px bg-border` mit `hover:bg-primary`.
 
 Oberhalb von Activity-Bar und Panels sitzt die **WorkspaceMenuBar** (`h-9`,
-volle Breite, Cursor-minimal): links Marke + `Datei`/`Ansicht`-Dropdowns
-(shadcn `dropdown-menu`, `text-xs`-Trigger), rechts der Einstellungen-Button.
-Aktionen, die UI in anderen Panels öffnen (z. B. »Neuer Ordner…« → Explorer-
-Dialog), laufen als Request über den `workspaceStore`
-(`requestExplorerAction`), nicht über Cross-Component-Props. `⌘B`/`Ctrl+B`
-toggelt den Explorer.
+volle Breite, Cursor-minimal): links die Marke, rechts die zwei
+Layout-Toggles und der Einstellungen-Button. Das Datei-Menü ist mit B2
+gefallen. `⌘B`/`Ctrl+B` toggelt die Sidebar.
 
 ### Interaktions-States (verbindlich)
 
@@ -1086,8 +1079,8 @@ Theme automatisch.
 | Animationen/Keyframes    | CSS in feature-spezifischen `.css` Dateien                           |
 
 Farb-Literale (`#rrggbb`) in Komponenten sind verboten — die einzige legitime Ausnahme
-sind technische Paletten (z.B. Xterm-Farben in `TerminalTabs.tsx`, Chart-Palette im
-`@theme`-Block), die mit Kommentar markiert sind.
+sind technische Paletten (die Chart-Palette im `@theme`-Block), die mit
+Kommentar markiert sind.
 
 ---
 

@@ -25,7 +25,8 @@ const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
 const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
 
 /** Die Ansichten der Seitenleiste, ueber ihre Beschriftung angesteuert. */
-const ANSICHTEN = ['Dateien', 'Modelle', 'Erweiterungen', 'Flows', 'Automation', 'Einstellungen'];
+// »Dateien« ist mit B2 gefallen (kein Explorer mehr).
+const ANSICHTEN = ['Modelle', 'Erweiterungen', 'Flows', 'Automation', 'Einstellungen'];
 const BREITEN = [1024, 1280, 1600];
 
 /**
@@ -33,16 +34,13 @@ const BREITEN = [1024, 1280, 1600];
  * keiner Messung vorkamen. Sie werden ueber ihre Adresse angesteuert, so wie
  * ein Tab sie oeffnet (`tabToPath` in `stores/workspaceStore.ts`).
  *
- * Am 23.08.2026 nachgesehen: alle sechs zeichnen etwas, auch die leeren tragen
- * einen Text statt einer weissen Flaeche ("Noch keine Kunden. Lege im Chat mit
- * /neuer-kunde den ersten Kunden an"). Gemessen wird bei EINER Breite, nicht
- * bei dreien: es geht um "gibt es diese Ansicht ueberhaupt und bricht sie",
- * nicht um das Raster, das die sechs Hauptansichten schon abdecken.
+ * Am 23.08.2026 nachgesehen: alle zeichnen etwas, auch die leeren tragen
+ * einen Text statt einer weissen Flaeche. Gemessen wird bei EINER Breite,
+ * nicht bei dreien: es geht um "gibt es diese Ansicht ueberhaupt und bricht
+ * sie", nicht um das Raster, das die Hauptansichten schon abdecken.
  */
 const PFAD_ANSICHTEN = [
-  ['Kundenuebersicht', '/workspace/kunden'],
-  ['Projekte', '/workspace/projekte'],
-  ['Projektuebersicht', '/workspace/projekt'],
+  // Kundenuebersicht, Projekte und Projektuebersicht sind mit B2 gefallen.
   ['Flow-Editor', '/workspace/flow'],
   ['Modelle ueber die Adresse', '/workspace/modelle'],
   ['Automationen ueber die Adresse', '/workspace/automationen'],
@@ -122,8 +120,16 @@ function serverfehler() {
 
 try {
   await seite.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  const an = await anmeldenFallsNoetig(seite, ctx, { url: URL, benutzer: BENUTZER, passwort: PASSWORT });
-  pruefe('Anmeldung', an.angemeldet, an.angemeldet ? (an.neu ? 'neu' : 'Sitzung wiederverwendet') : an.grund);
+  const an = await anmeldenFallsNoetig(seite, ctx, {
+    url: URL,
+    benutzer: BENUTZER,
+    passwort: PASSWORT,
+  });
+  pruefe(
+    'Anmeldung',
+    an.angemeldet,
+    an.angemeldet ? (an.neu ? 'neu' : 'Sitzung wiederverwendet') : an.grund
+  );
   if (!an.angemeldet) {
     throw new Error('abbruch');
   }
@@ -171,7 +177,10 @@ try {
         `${breite} px, „${name}" ohne unerklaerte Konsolenfehler`,
         unerwartet.length === 0,
         unerwartet.length
-          ? `${unerwartet.slice(0, 2).map(f => f.text).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
+          ? `${unerwartet
+              .slice(0, 2)
+              .map(f => f.text)
+              .join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
           : erklaert
             ? `${erklaert} bekannte: ${bekannt[0].grund}`
             : 'keine'
@@ -183,7 +192,9 @@ try {
   for (const [name, pfad] of PFAD_ANSICHTEN) {
     fehlerFenster = [];
     antworten = [];
-    await seite.goto(`${URL}${pfad}`, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+    await seite
+      .goto(`${URL}${pfad}`, { waitUntil: 'domcontentloaded', timeout: 45000 })
+      .catch(() => {});
     await seite.waitForTimeout(4000);
 
     const mass = await seite.evaluate(() => ({
@@ -214,7 +225,10 @@ try {
       `„${name}" ohne unerklaerte Konsolenfehler`,
       unerwartet.length === 0,
       unerwartet.length
-        ? `${unerwartet.slice(0, 2).map(f => f.text).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
+        ? `${unerwartet
+            .slice(0, 2)
+            .map(f => f.text)
+            .join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
         : 'keine'
     );
   }

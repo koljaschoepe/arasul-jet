@@ -18,7 +18,6 @@ import { StoreModelsGrid } from '../store/StoreModelsGrid';
 import { StatusBar } from '../workspace/StatusBar';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { EMPTY_MODEL_FILTERS } from '../store/storeModelFilters';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 const get = vi.fn();
 const post = vi.fn();
@@ -127,7 +126,6 @@ describe('ein Zustand, ueberall gleich', () => {
     post.mockReset();
     routen();
     useStoreFilterStore.setState({ modelQuery: '', modelFilters: EMPTY_MODEL_FILTERS });
-    useWorkspaceStore.setState({ chatScope: null });
   });
 
   it('Raster und Statusleiste nennen dasselbe bereite Modell', async () => {

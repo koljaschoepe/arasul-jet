@@ -34,9 +34,6 @@ vi.mock('../features/workspace', () => ({
 vi.mock('../features/settings/Settings', () => ({
   default: () => <div data-testid="settings">Settings Component</div>,
 }));
-vi.mock('../features/sandbox', () => ({
-  default: () => <div data-testid="sandbox">SandboxApp Component</div>,
-}));
 
 interface MockUser {
   id: number;

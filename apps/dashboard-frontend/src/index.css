@@ -322,7 +322,6 @@
   --gradient-card: linear-gradient(135deg, #121212 0%, #161616 100%);
 
   /* Terminal Background */
-  --bg-terminal: #0A0A0A;
 
   /* Additional Background Colors for Components */
   --bg-input: var(--background);
@@ -441,7 +440,6 @@
   --gradient-card: linear-gradient(135deg, #181818 0%, #1c1c1c 100%);
 
   /* Terminal Background */
-  --bg-terminal: #181818;
 }
 
 /* ========================================
@@ -512,7 +510,6 @@
   --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFAFA 100%);
 
   /* Terminal Background */
-  --bg-terminal: #FFFFFF;
 
   /* Values that differ subtly from dark */
   --primary-muted: rgba(45, 143, 217, 0.12);

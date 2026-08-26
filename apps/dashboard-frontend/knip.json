@@ -13,7 +13,6 @@
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
-    "@tiptap/pm",
     "@arasul/shared-schemas",
     "@testing-library/dom",
     "eslint-plugin-react"

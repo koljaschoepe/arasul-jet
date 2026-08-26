@@ -6,11 +6,11 @@
  * (C6, D3, E2, E3, E4, H5, J5), jede an ihrer Ecke. Ob die Ecken zusammen ein
  * einheitliches Bild ergeben, hat bis zum 23.08.2026 niemand nachgesehen.
  *
- * Diese Abnahme fuehrt echte Aktionen in drei verschiedenen Bereichen aus und
- * prueft nach jeder, ob eine sichtbare Rueckmeldung kommt: Ordner anlegen,
- * Ordner loeschen, eine Erweiterung ein- und ausschalten. Zusaetzlich prueft
- * sie, was J5 verlangt: eine zerstoerende Aktion fragt vorher nach und nennt
- * die Folge.
+ * Diese Abnahme fuehrte bis B2 echte Aktionen in drei Bereichen aus: Ordner
+ * anlegen, Ordner loeschen (mit der Rueckfrage aus J5), eine Erweiterung ein-
+ * und ausschalten. Der Explorer ist mit B2 gefallen; geblieben ist der
+ * Schalter der Erweiterung. D6 schneidet die Abnahme auf die neue Oberflaeche
+ * neu.
  *
  * Sie raeumt hinter sich auf.
  *
@@ -24,7 +24,6 @@ import { anmeldenFallsNoetig, sitzungsZustand, hinweisWeg } from './anmeldung.mj
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
 const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
-const ORDNER = `abnahme-rueckmeldung-${Date.now().toString(36)}`;
 const APP = process.env.ARASUL_APP || 'Beispiel-App';
 
 const ergebnisse = [];
@@ -78,12 +77,19 @@ const ctx = await browser.newContext({
   ...(sitzungsZustand() ? { storageState: sitzungsZustand() } : {}),
 });
 const seite = await ctx.newPage();
-let ordnerDa = false;
 
 try {
   await seite.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  const an = await anmeldenFallsNoetig(seite, ctx, { url: URL, benutzer: BENUTZER, passwort: PASSWORT });
-  pruefe('Anmeldung', an.angemeldet, an.angemeldet ? (an.neu ? 'neu' : 'Sitzung wiederverwendet') : an.grund);
+  const an = await anmeldenFallsNoetig(seite, ctx, {
+    url: URL,
+    benutzer: BENUTZER,
+    passwort: PASSWORT,
+  });
+  pruefe(
+    'Anmeldung',
+    an.angemeldet,
+    an.angemeldet ? (an.neu ? 'neu' : 'Sitzung wiederverwendet') : an.grund
+  );
   if (!an.angemeldet) {
     throw new Error('abbruch');
   }
@@ -91,60 +97,12 @@ try {
   await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded' });
   await seite.waitForTimeout(5000);
 
-  // --- 1. Ordner anlegen ----------------------------------------------------
-  let vorher = await meldungsTexte(seite);
-  await seite.locator('[aria-label="Neuer Ordner"]').first().click();
-  const name = seite.locator('input[aria-label="Name"]');
-  await name.waitFor({ state: 'visible', timeout: 10000 });
-  await name.fill(ORDNER);
-  await seite.getByRole('button', { name: 'Anlegen' }).click();
-  const m1 = await rueckmeldung(seite, vorher);
-  ordnerDa = Boolean(m1);
-  pruefe('Ordner anlegen meldet sich', Boolean(m1), m1 || 'keine Rueckmeldung');
+  // Bis B2 standen hier zwei Schritte im Datei-Explorer (Ordner anlegen,
+  // Loeschen mit Rueckfrage). Der Explorer ist gefallen; was bleibt, ist der
+  // Schalter einer Erweiterung im Store.
+  let vorher;
 
-  // --- 2. Loeschen fragt vorher nach (J5) -----------------------------------
-  //
-  // IM DATEIBAUM suchen, nicht auf der ganzen Seite. Die Rueckmeldung von
-  // Schritt 1 lautet „<Ordnername> angelegt" und enthaelt den Namen selbst.
-  // `getByText(ORDNER).first()` traf deshalb den Toast, und ein Rechtsklick auf
-  // einen Toast oeffnet kein Kontextmenue: die Abnahme brach am 23.08.2026 mit
-  // „das Kontextmenue bietet Loeschen an" ab, obwohl am Geraet nichts fehlte.
-  //
-  // Ein selbst gebauter Wettlauf: die Meldung beim Anlegen gibt es erst seit
-  // #560, und sie hat die naechste Pruefung derselben Abnahme erschlagen.
-  const baum = seite.locator('[data-testid="explorer-tree"]');
-  await baum.waitFor({ state: 'visible', timeout: 15000 });
-  const eintrag = baum.getByText(ORDNER, { exact: false }).first();
-  await eintrag.waitFor({ state: 'visible', timeout: 15000 });
-  await eintrag.click({ button: 'right' });
-  const loeschen = seite.getByRole('menuitem').filter({ hasText: /Löschen|Loeschen/ }).first();
-  const kontextDa = (await loeschen.count()) > 0;
-  pruefe('das Kontextmenue bietet Loeschen an', kontextDa);
-  if (!kontextDa) {
-    throw new Error('abbruch');
-  }
-  await loeschen.click();
-
-  const dialogText = await seite
-    .locator('[role="dialog"]')
-    .last()
-    .innerText()
-    .catch(() => '');
-  pruefe(
-    'die zerstoerende Aktion fragt nach und nennt die Folge',
-    /wirklich l/i.test(dialogText) && /Inhalt geht verloren/i.test(dialogText),
-    dialogText.replace(/\s+/g, ' ').slice(0, 110)
-  );
-
-  vorher = await meldungsTexte(seite);
-  await seite.getByRole('button', { name: /^Löschen$/ }).last().click();
-  const m2 = await rueckmeldung(seite, vorher);
-  pruefe('Ordner loeschen meldet sich', Boolean(m2), m2 || 'keine Rueckmeldung');
-  if (m2) {
-    ordnerDa = false;
-  }
-
-  // --- 3. Eine Erweiterung schalten -----------------------------------------
+  // --- 1. Eine Erweiterung schalten -----------------------------------------
   await seite.goto(`${URL}/store`, { waitUntil: 'domcontentloaded' });
   await seite.waitForTimeout(4000);
   const aus = seite.locator(`[aria-label="${APP} deaktivieren"]`).first();
@@ -175,7 +133,11 @@ try {
       await zurueck.click();
       const d2 = seite.locator('[role="dialog"]').last();
       if (await d2.isVisible().catch(() => false)) {
-        await d2.getByRole('button').last().click().catch(() => {});
+        await d2
+          .getByRole('button')
+          .last()
+          .click()
+          .catch(() => {});
       }
       await seite.waitForTimeout(2000);
     }
@@ -185,9 +147,6 @@ try {
     pruefe('Durchlauf', false, `Abbruch: ${String(err.message).slice(0, 200)}`);
   }
 } finally {
-  if (ordnerDa) {
-    console.log(`\nHinweis: der Ordner „${ORDNER}" blieb liegen und muss von Hand weg.`);
-  }
   await browser.close();
 }
 

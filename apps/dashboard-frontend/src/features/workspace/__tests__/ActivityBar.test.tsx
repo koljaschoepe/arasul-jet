@@ -31,31 +31,27 @@ function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
     activeTabId: null,
-    activeView: 'files',
+    activeView: null,
     sidebarVisible: true,
     rightPanelVisible: true,
-    rightPanelMode: 'chat',
-    terminalSessions: [],
-    activeTerminalSessionId: null,
-    chatScope: null,
-    explorerRequest: null,
   });
   useExtensionStore.setState({ storeTab: 'models', selected: null });
 }
 
-describe('ActivityBar, feste Spalte: Dateien · Modelle · Erweiterungen · Flows + Zahnrad', () => {
+describe('ActivityBar, feste Spalte: Modelle · Erweiterungen · Flows + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
     enabledApps.clear();
     installedExtensions.length = 0;
   });
 
-  it('zeigt die vier Ansichten und das Einstellungen-Zahnrad (jetzt in der Bar)', () => {
+  it('zeigt die drei Ansichten und das Einstellungen-Zahnrad', () => {
     render(<ActivityBar />);
-    for (const label of ['Dateien', 'Modelle', 'Erweiterungen', 'Flows', 'Einstellungen']) {
+    for (const label of ['Modelle', 'Erweiterungen', 'Flows', 'Einstellungen']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
-    // Die frühere »Suche«-Ansicht ist entfernt.
+    // »Dateien« (Explorer) ist mit B2 gefallen, »Suche« schon davor.
+    expect(screen.queryByLabelText('Dateien')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Suche')).not.toBeInTheDocument();
     // Automation ist kein fester Bereich — nur als aktivierte Erweiterung
     expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
@@ -70,9 +66,10 @@ describe('ActivityBar, feste Spalte: Dateien · Modelle · Erweiterungen · Flow
     expect(s.sidebarVisible).toBe(true);
   });
 
-  it('Dateien (aktiv + offen) klappt die Sidebar wieder ein', () => {
+  it('die aktive Ansicht (offen) klappt die Sidebar wieder ein', () => {
+    useWorkspaceStore.setState({ activeView: 'flows', sidebarVisible: true });
     render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Dateien'));
+    fireEvent.click(screen.getByLabelText('Flows'));
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
   });
 

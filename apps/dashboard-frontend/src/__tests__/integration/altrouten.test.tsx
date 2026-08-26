@@ -37,10 +37,6 @@ describe('Alt-Routen zeigen in den Arbeitsbereich', () => {
   test.each([
     ['/settings', '/settings', '/settings', '/workspace/settings'],
     ['/store/modelle', '/store/*', '/store', '/workspace/store'],
-    ['/terminal', '/terminal', '/terminal', '/workspace/terminal'],
-    ['/sandbox', '/sandbox', '/terminal', '/workspace/terminal'],
-    ['/data', '/data', '', '/workspace'],
-    ['/documents', '/documents', '', '/workspace'],
   ])('%s landet auf %s', (start, von, ziel, erwartet) => {
     expect(leiteUm(start, von, ziel)).toBe(erwartet);
   });
@@ -52,7 +48,7 @@ describe('Alt-Routen zeigen in den Arbeitsbereich', () => {
   });
 
   test('Anker überlebt', () => {
-    expect(leiteUm('/terminal#unten', '/terminal', '/terminal')).toBe('/workspace/terminal#unten');
+    expect(leiteUm('/settings#unten', '/settings', '/settings')).toBe('/workspace/settings#unten');
   });
 });
 
