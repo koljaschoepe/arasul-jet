@@ -1,5 +1,13 @@
 # Flows
 
+> **Stand 26.08.2026, Phase B3 des Umbaus:** Flow-Editor, Flow-Übersicht
+> (Sidebar-Ansicht »Flows«), Flow-Zentrale mit „Jetzt ausführen" und die
+> Lauf-Detailansicht sind aus dem Frontend entfernt; das Slash-Menü im Chat
+> schon mit B2. Die Endpunkte unter `/api/flows` und die Markdown-Dateien
+> unter `data/flows/` laufen weiter, bis B4 sie neu schneidet; wie Läufe im
+> Zielbild gelesen werden, legt D4 fest. Absätze, die eine Bedienung
+> beschreiben, gelten seitdem nur noch für die API.
+
 Ein **Flow** ist eine vorkonfigurierte Aufgabe, die im Chat per `/name`
 aufgerufen wird — modelliert nach Claude Code. Technisch ist ein Flow eine
 Markdown-Datei mit YAML-Kopf unter `data/flows/` (im Container

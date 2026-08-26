@@ -16,81 +16,55 @@ Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`)
 ```
 src/
   features/        Domain-organized UI. One folder per top-level route.
-    flows/  settings/  store/  system/
+    settings/  store/  system/
     workspace/     Die Shell (Dreispalten-Raster, **immer aktiv** — `/` landet
                    nach Login stets auf `/workspace`; es gibt keinen Fallback-Flag
                    mehr). Seit Phase B2 (26.08.2026) sind Editor, Datei-Explorer,
-                   Agent-Chat, Terminal und Sandbox aus der Oberfläche gefallen;
-                   die linke Spalte ist ohne gewählte Ansicht leer, die rechte
-                   Spalte ganz. Das Raster bleibt, D1/D2 füllen die Spalten neu.
+                   Agent-Chat, Terminal und Sandbox aus der Oberfläche gefallen,
+                   seit Phase B3 auch Flow-Editor, Erweiterungs-Store und der Tab
+                   einer installierten Erweiterung; die linke Spalte ist ohne
+                   gewählte Ansicht leer, die rechte Spalte ganz. Das Raster
+                   bleibt, D1/D2 füllen die Spalten neu.
                    WorkspaceMenuBar (Marke + **zwei** Layout-Toggles [Sidebar,
                    rechte Spalte] + Settings oben rechts), ActivityBar (eigene,
                    **immer sichtbare** schmale Spalte ganz links — außerhalb des
-                   einklappbaren Panels — mit drei Ansichten
-                   **Modelle · Erweiterungen · Flows**, den aktivierten
-                   App-Erweiterungen und dem Einstellungen-Zahnrad unten — Plan
-                   012 Phase B), SidebarHost (Sidebar), Tab-Bar/-Content (Mitte),
-                   RightPanel (rechts, leer), StatusBar (Modell + KI-RAM).
-                   Feature-Tabs laufen je in einem eigenen IsolatedMemoryRouter
-                   (FeatureTabHost); Cross-Feature-Links übersetzt die TabBridge
-                   in Tab-Öffnungen.
+                   einklappbaren Panels — mit der Ansicht **Modelle**, den
+                   aktivierten Kern-Apps (n8n → Tab `automationen`) und dem
+                   Einstellungen-Zahnrad unten — Plan 012 Phase B), SidebarHost
+                   (Sidebar), Tab-Bar/-Content (Mitte), RightPanel (rechts,
+                   leer), StatusBar (Modell + KI-RAM). Feature-Tabs laufen je in
+                   einem eigenen IsolatedMemoryRouter (FeatureTabHost);
+                   Cross-Feature-Links übersetzt die TabBridge in Tab-Öffnungen.
+                   • **Tab-Typen** — `settings`, `modelle`, `automationen`
+                     (`stores/workspaceStore.ts`, v8). Jeder Typ ist ein
+                     Singleton, `tabId()` ist der Typ. Alte Stände mit
+                     `erweiterungen`/`flow`/`extension` fallen in der Migration,
+                     ein alter `store`-Tab wird zu `modelle`.
                    • **RightPanel** — leere Fläche mit Schließen-Knopf; die Shell
                      versteckt sie per `data-shell-hidden` (nie unmounten).
                      Zustand im Store: `rightPanelVisible`.
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
                      Activity-Bar-Ansicht (`activeView`, Store): models → Modell-
-                     Filter, extensions → Erweiterungs-Suche, flows → Flow-Liste,
-                     settings → Bereiche der Einstellungen
+                     Filter, settings → Bereiche der Einstellungen
                      (`features/workspace/sidebar/*Panel.tsx`); `null` (kein
-                     Klick, alte Werte wie 'files'/'search') → leere Spalte.
-                     Die Bar wählt die Ansicht, `sidebarVisible` steuert nur das
-                     Auf/Zu (⌘B / erneuter Klick).
-                   • **Flows-Zentrale** — der Flow-Editor ist EIN Mitte-Tab
-                     (Singleton-Typ `flow`, kein Popup mehr; Plan 012 Phase D).
-                     Welchen Flow er zeigt, steht im ephemeren `flowEditorStore`
-                     (`editName === null` legt an, ein Name bearbeitet) — genau wie
-                     der Store-Tab seinen Inhalt aus dem `extensionStore` zieht.
-                     Aufrufer setzen erst das Ziel, dann `openTab({type:'flow'})`:
-                     die Sidebar-Ansicht »Flows« (`FlowsPanel`, klickbare Liste +
-                     »Neuer Flow«). Der Editor
-                     (`features/flows/FlowEditorTab.tsx`) hält Formular + Vorschau;
-                     die `MarkdownPreview` schaltet zwischen **Datei** (erzeugte
-                     Markdown-Datei) und **Laufzeit-Prompt** (aufgelöster Prompt aus
-                     `POST /flows/vorschau-laufzeit`) um. Der Tab ist keep-alive,
-                     damit ein halb ausgefülltes Formular einen Tab-Wechsel überlebt.
-                   • **Erweiterungs-Baukasten** — selbst gebaute/importierte
-                     Pakete (Plan 012 Phase E). Datenquelle ist der eigene Hook
-                     `useExtensions` (`GET /extensions`), NICHT `useWorkspaceApps`
-                     (das bleibt den kuratierten Kern-Apps wie n8n vorbehalten).
-                     Beide Listen laufen durch dieselbe Filter-Logik
-                     (`storeExtensionFilters`, strukturell typisiert über
-                     `FilterableExtension`); die Sidebar »Erweiterungen« ist seit
-                     der Neuausrichtung eine reine Freitext-Suche über Name/
-                     Beschreibung (`extQuery`), keine Facetten-Checkboxen mehr (die
-                     Facetten-Helfer bleiben für die Logik erhalten). Auswahl läuft über den
-                     `extensionStore` mit `kind:'extension'` (Paket) vs.
-                     `kind:'app'` (Kern-App) vs. `kind:'builder'` (Baukasten-
-                     Einstieg) — bewusst getrennt, weil die Aktionen andere sind
-                     (Download/Fork/Entfernen nur beim Paket). Siehe
-                     `docs/features/EXTENSIONS.md`.
-                   • **Modelle und Erweiterungen** — seit Plan 023 B7 ZWEI
-                     eigene Mitte-Tabs (`modelle`, `erweiterungen`) statt eines
-                     Tabs namens „Extensions", der je nach Zustand das eine oder
-                     das andere zeigte. Welches Raster erscheint, sagt der Tab
-                     (`Store bereich="models"|"extensions"`), nicht mehr ein
-                     Zustand nebenan. Ein gespeicherter `store`-Tab aus der Zeit
-                     davor wird beim Laden auf `erweiterungen` umgeschrieben.
-                     Full-Width-Kartenraster (StoreModelsGrid /
-                     StoreExtensionsGrid); ein Klick auf eine
-                     Karte öffnet die Detailseite (StoreDetailPage) mit
-                     „← Zurück". Modelle = Katalog (Laden/Aktivieren), Erweiterungen
-                     = Workspace-Apps (An/Aus über `PUT /workspace-apps/:id`). Die
-                     Filter leben in der linken Sidebar (StoreModelsFilterPanel /
-                     StoreExtensionsFilterPanel), das Raster liest sie aus dem
-                     `storeFilterStore` (Plan 012 Phase C); Reiter + Auswahl laufen
-                     über den ephemeren extensionStore (`storeTab`), der
-                     „Eigene Erweiterung bauen"-Einstieg über `kind:'builder'`. Alte
-                     /store/models|apps-Deep-Links leiten um.
+                     Klick, alte Werte wie 'files'/'extensions'/'flows') → leere
+                     Spalte. Die Bar wählt die Ansicht, `sidebarVisible` steuert
+                     nur das Auf/Zu (⌘B / erneuter Klick).
+                   • **Modelle** — EIN Mitte-Tab (`modelle`, innerer Pfad
+                     `/store`), Full-Width-Kartenraster (StoreModelsGrid); ein
+                     Klick auf eine Karte öffnet die Detailseite (StoreDetailPage)
+                     mit „← Zurück". Katalog (Laden/Aktivieren/Standard/Löschen)
+                     aus `useStoreCatalog`. Die Filter leben in der linken
+                     Sidebar (StoreModelsFilterPanel), das Raster liest sie aus
+                     dem `storeFilterStore` (Plan 012 Phase C); die Auswahl
+                     (Karte oder Deep-Link `/store/models?highlight=…`) läuft
+                     über den ephemeren `extensionStore` (`kind:'model'`). Der
+                     alte `/store/apps`-Link landet wie jeder unbekannte Pfad
+                     auf dem Raster.
+                   • **Kern-Apps** — `useWorkspaceApps` (`GET /workspace-apps`)
+                     sagt der ActivityBar und der Shell, ob n8n sichtbar ist;
+                     der Schalter (`PUT /workspace-apps/:id`) hat seit B3 keine
+                     Oberfläche mehr, bis D1 die App-Liste baut.
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung
                      nur über Borders. `--card` bleibt erhabenen Elementen
@@ -210,6 +184,7 @@ cd apps/dashboard-frontend
 npm test                      # Vitest, src/__tests__/ + co-located *.test.tsx
 npm run test:ci               # with coverage
 npm run lint                  # ESLint (.ts/.tsx)
+npm run knip                  # toter Code: Dateien, Exporte, Abhängigkeiten (CI-Job „Dead code")
 ```
 
 Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via

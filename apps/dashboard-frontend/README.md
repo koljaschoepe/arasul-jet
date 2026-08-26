@@ -23,9 +23,8 @@ src/
 ├── index.css             # Tailwind + CSS variables + shadcn
 ├── features/             # Feature modules
 │   ├── workspace/        # Shell: ActivityBar, Sidebar, Tabs, rechte Spalte (leer seit B2), StatusBar
-│   ├── flows/            # Flow-Editor-Tab, Flow-Dashboard, Läufe
 │   ├── settings/         # System configuration
-│   ├── store/            # App & model marketplace
+│   ├── store/            # Model store (Raster + Detailseite)
 │   └── system/           # Login, setup wizard, updates
 ├── components/
 │   ├── ui/               # Modal, Skeleton, LoadingSpinner, etc.
@@ -41,7 +40,7 @@ src/
 │   ├── useWebSocketMetrics.ts # Real-time metrics
 │   ├── useConfirm.tsx     # Confirmation dialogs
 │   └── useTheme.ts        # Dark/light theme toggle
-├── stores/               # zustand (workspaceStore, extensionStore, flowEditorStore)
+├── stores/               # zustand (workspaceStore, extensionStore, storeFilterStore, settingsStore)
 ├── config/
 │   └── api.ts             # API base URL, auth headers
 ├── lib/

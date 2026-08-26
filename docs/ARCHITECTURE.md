@@ -342,30 +342,29 @@ apps/dashboard-backend/
 apps/dashboard-frontend/
 ├── src/App.tsx               # Routes, Auth context (/ always → /workspace)
 ├── src/features/             # Feature modules
-│   ├── flows/                # Flow-Editor-Tab, Flow-Dashboard, Läufe (RunCard, RunStep)
 │   ├── settings/             # Settings, GeneralSettings, AIProfileSettings, System-Status
-│   ├── store/                # Store (Modelle · Erweiterungen tabs)
+│   ├── store/                # Store (Modelle: Raster + Detailseite)
 │   ├── system/               # SetupWizard, UpdatePage, Login
-│   └── workspace/            # Shell: ActivityBar (Modelle · Erweiterungen · Flows),
-│                             #   Sidebar, Tabs, rechte Spalte (leer seit B2), StatusBar
+│   └── workspace/            # Shell: ActivityBar (Modelle), Sidebar, Tabs,
+│                             #   rechte Spalte (leer seit B2), StatusBar
 ├── src/components/
 │   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState, Baustein-Set
 │   └── mascot/               # Das Maskottchen
 ├── src/contexts/             # AuthContext, DownloadContext, ToastContext, ActivationContext
 ├── src/stores/               # zustand (workspaceStore: Tabs, Sidebar-Ansicht, Spalten)
-├── src/hooks/                # useApi, useConfirm, useFlowRun, useStoreCatalog
+├── src/hooks/                # useApi, useConfirm, useStoreCatalog, useWorkspaceApps
 └── src/__tests__/            # Test files
 ```
 
 **Workspace-Shell:** `/` landet immer auf `/workspace` (kein Feature-Flag mehr).
 Die Shell ist ein Dreispalten-Raster mit einer immer sichtbaren ActivityBar
-— **Modelle · Erweiterungen · Flows** — plus den aktivierten
-App-Erweiterungen und **Einstellungen** (System-Status liegt unter
-Einstellungen → System). Seit Phase B2 (26.08.2026) sind Editor,
-Datei-Explorer, Agent-Chat, Terminal und Sandbox-Ansichten aus der
-Oberfläche gefallen; die linke Spalte ist ohne gewählte Ansicht leer, die
-rechte Spalte ganz. Das Raster bleibt, die Phasen D1 und D2 füllen die
-Spalten neu.
+— **Modelle** — plus den aktivierten Kern-Apps (n8n) und **Einstellungen**
+(System-Status liegt unter Einstellungen → System). Seit Phase B2
+(26.08.2026) sind Editor, Datei-Explorer, Agent-Chat, Terminal und
+Sandbox-Ansichten aus der Oberfläche gefallen, seit B3 auch Flow-Editor,
+Erweiterungs-Store und der Tab einer installierten Erweiterung; die linke
+Spalte ist ohne gewählte Ansicht leer, die rechte Spalte ganz. Das Raster
+bleibt, die Phasen D1 und D2 füllen die Spalten neu.
 
 **Workspace (Backend, Plan 008):** Ein **Workspace** ist die Entität
 `sandbox_projects` — ein `host_path`-Ordner + Container mit einem
