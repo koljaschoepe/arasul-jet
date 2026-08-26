@@ -99,19 +99,6 @@ curl -X POST http://localhost:11435/embed \
   -d '{"text":"test"}'
 ```
 
-### Qdrant (6333)
-
-```bash
-# Check collections
-curl http://localhost:6333/collections
-
-# Check documents collection
-curl http://localhost:6333/collections/documents
-
-# Count vectors
-curl http://localhost:6333/collections/documents/points/count
-```
-
 ### Traefik (80/443)
 
 ```bash

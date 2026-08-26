@@ -2,9 +2,16 @@
 
 ## Vision
 
-Arasul is an autonomous Edge-AI platform for NVIDIA Jetson, sold to companies
-as a plug-&-play appliance: chat, document analysis, flows, and automation,
-running fully local and GDPR-compliant. Target: 5 years of unattended operation.
+**Arasul ist Standardsoftware, die auf einem Server im Unternehmen interne
+Apps hostet.** Die Apps baut ein Partner oder ein tech-affiner Mensch im
+Unternehmen mit dem **Ara-Kit** (offen, Apache 2.0, eigenes Repo) und rollt sie
+auf das Gerät, einen NVIDIA Jetson. Mitarbeiter melden sich mit E-Mail und
+Passwort an und sehen die Apps, die ein Admin ihnen freigegeben hat. Die Lizenz
+kauft drei Dinge: Anmelden und Zuweisen, die Flow-Engine mit
+Nachvollziehbarkeit, den Betrieb (Updates, Backup, Wiederherstellung,
+Wartung); dazu Freigaben als Plattformdienst. Alles läuft lokal und
+DSGVO-konform, Ziel: fünf Jahre unbeaufsichtigter Betrieb. Ein Wort für alles,
+was auf dem Gerät läuft: **App**.
 
 ## Architecture at a glance
 
@@ -17,27 +24,26 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                               └─ Docker-Proxy → Self-Healing, Metrics, Backup
 ```
 
-**Es gibt kein RAG und keine Wissensbasis mehr.** Plan 021, Schritt 8 hatte
-das Vektor-RAG durch agentisches ersetzt; am 24.08.2026 ist `qdrant` samt Code
-ausgebaut worden, weil drei Features still durchfielen, statt zu melden, dass
-sie nichts tun. Am 26.08.2026 (Phase B4 des Rückbaus) sind auch Dokumente,
-Wissensräume, Projekte und der Textlayer (`document_chunks`) gefallen, dazu
-MinIO, Loki, Promtail, Sandbox, Terminal und der Erweiterungs-Baukasten
-(Migration 163); mit Phase B5 (gleicher Tag) n8n samt Schema, SearXNG und
-die Plattform-Apps (Migration 164); mit Phase B6 (gleicher Tag) die Chat-Tabellen
-und `/api/chats`, `/api/llm` (Migration 165), `llm_jobs` ist zustandslos und
-gehört dem Ersteller des API-Schlüssels. Der `document-indexer` extrahiert nur noch Text auf Anfrage
+Zwölf Container, `docker compose ps` ist die Wahrheit. Das Backend ist der
+alte Express-Kern, radikal gekürzt (Phasen B1 bis B7 des Umbaus vom
+26.08.2026, Messungen unter `docs/plans/audits/`): keine Dokumente, kein RAG,
+kein Chat in der Oberfläche, kein Editor, kein Terminal, keine Sandbox, kein
+n8n, kein Erweiterungs-Baukasten. Was bleibt: Anmeldung, Modelle, Flows mit
+Läufen und Schritten, die externe API mit Schlüssel (`/api/v1/external`,
+OpenAI-kompatibel unter `/v1`), Betrieb (Updates, Backup, Selbstheilung,
+Werksreset, Fernzugriff). `llm_jobs` ist zustandslos und gehört dem Ersteller
+des API-Schlüssels; der `document-indexer` extrahiert Text auf Anfrage
 (`POST /extract-text`); Flows arbeiten mit ihren Datei-Werkzeugen in den im
-Flow deklarierten Ordnern. `embedding-service` läuft weiter und ohne Profil:
-die OpenAI-kompatible `/v1/embeddings` braucht ihn. Wer eine Doku findet, die
-Qdrant, MinIO, n8n oder Wissensräume als Teil des Geräts nennt, hat eine veraltete
-Doku gefunden — nachsehen mit `docker compose ps`.
+Flow deklarierten Ordnern; `embedding-service` läuft ohne Profil, weil die
+OpenAI-kompatible `/v1/embeddings` ihn braucht. Das App-Modell (Manifest
+`app.json`, Frontend unter `/apps/<id>/`, Backend als Container) kommt mit den
+C-Phasen, die neue Oberfläche mit den D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`                                    |
 | Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                     |
-| AI       | Ollama (LLM) + Text-Extraktion (Indexer)                          | `services/llm-service/`, `services/document-indexer/`         |
+| AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`         |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                 |
 | Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/` |
 | DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                     |
@@ -188,7 +194,7 @@ make logs s=dashboard-backend                      # Logs via Make
 | API reference          | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                 |
 | API errors             | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                       |
 | Database schema        | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                             |
-| Design system          | [docs/development/DESIGN.md](docs/development/DESIGN.md)                                                 |
+| Design                 | [docs/development/DESIGN.md](docs/development/DESIGN.md)                                                               |
 | Development            | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                     |
 | Onboarding             | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                       |
 | Testing                | [docs/development/TESTING.md](docs/development/TESTING.md)                                                             |
@@ -199,7 +205,6 @@ make logs s=dashboard-backend                      # Logs via Make
 | Troubleshooting        | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                             |
 | Backup & DR            | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md) |
 | Flows                  | [docs/features/FLOWS.md](docs/features/FLOWS.md) (Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger)         |
-| Workspace              | [docs/features/WORKSPACE.md](docs/features/WORKSPACE.md) (was nach Phase B4 davon bleibt)                              |
 | Legal / DSGVO          | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                    |
 | Full doc index         | [docs/INDEX.md](docs/INDEX.md)                                                                                         |
 | Contributing           | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                     |

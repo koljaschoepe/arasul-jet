@@ -1,14 +1,23 @@
 # Arasul Platform
 
-**Vorserie** · Autonomous edge-AI appliance for NVIDIA Jetson AGX Orin / Thor.
+**Vorserie** · Standard software that hosts a company's internal apps on a
+server in the building — an NVIDIA Jetson AGX Orin / Thor.
 
-> The device says **Vorserie**, not a version number, for as long as sales
-> gates remain open (`utils/version.js`, Plan 023 C6/F-19). A round 1.0.0 on a
-> product with zero closed gates is a claim, not a fact. `package.json` keeps
-> `1.0.0` because the update service compares against it; changing that value
-> would make every offered build look newer on a device without a set version.
+> The device says **Vorserie**, not a version number, until a build sets
+> `SYSTEM_VERSION` (`utils/version.js`). Without one, the version used for
+> update comparison is `0.0.0`: a pre-series device is older than any release
+> that will ever ship. `package.json` says `0.0.0` for the same reason; nothing
+> reads it.
 
-Arasul is a commercial edge-AI box: customers buy a physical Jetson appliance that runs chat, document analysis, flows, and workflow automation entirely **locally** — no cloud calls, no data leakage, designed for **5 years of unattended operation**.
+Arasul runs on the customer's Jetson and hosts **apps**: container apps with a
+manifest, built by a partner or a tech-savvy employee with the open
+**Ara-Kit** (Apache 2.0, separate repository) and rolled onto the device.
+Employees sign in with e-mail and password and see the apps an admin assigned
+to them. The license buys three things — sign-in and assignment, the flow
+engine with traceable runs, and operations (updates, backup, recovery,
+maintenance) — plus approvals as a platform service. Everything runs
+**locally**: no cloud calls, no data leakage, designed for **5 years of
+unattended operation**.
 
 ---
 
@@ -36,18 +45,16 @@ Internet (443) → Traefik → Dashboard frontend (React 19 SPA)
                               └─ Self-healing + metrics + backup
 ```
 
-**There is no RAG and no knowledge base any more.** Plan 021 (step 8) replaced
-vector RAG with an agentic approach; on 24.08.2026 `qdrant` was removed along
-with its code, because three features were failing silently instead of
-reporting that they did nothing. On 26.08.2026 (phase B4 of the teardown)
-documents, knowledge spaces, projects and the Postgres text layer
-(`document_chunks`) followed, together with MinIO, Loki, Promtail, the sandbox,
-the terminal and the extension toolkit (migration 163). The document indexer
-now only extracts text on request (`POST /extract-text`); flows work with their
-file tools inside the folders they declare. `embedding-service` keeps running
-and carries no profile: the OpenAI-compatible `/v1/embeddings` endpoint needs
-it. Anything that claims Qdrant, MinIO or knowledge spaces are part of the
-running box is out of date; verify with `docker compose ps`.
+Twelve containers; `docker compose ps` is the truth. The backend is the old
+Express core, cut down hard in the August 2026 rebuild: no documents, no RAG,
+no chat in the UI, no editor, terminal, sandbox, n8n or extension toolkit. What
+remains is sign-in, models, flows with runs and steps, the external API with
+keys (`/api/v1/external`, OpenAI-compatible under `/v1`) and operations. The
+document indexer extracts text on request (`POST /extract-text`); flows work
+with their file tools inside the folders they declare; `embedding-service`
+serves the OpenAI-compatible `/v1/embeddings`. The app model (manifest
+`app.json`, static frontend under `/apps/<id>/`, backend as a container) and
+the new UI are the next phases of the rebuild.
 
 Full topology, ports, startup order: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

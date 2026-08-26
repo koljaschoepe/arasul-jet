@@ -9,27 +9,32 @@
 
 1. [Systemuebersicht](#1-systemuebersicht)
 2. [Dashboard](#2-dashboard)
-3. [Chat / KI-Assistent](#3-chat--ki-assistent)
-4. [Dokumente & RAG](#4-dokumente--rag)
-5. [Workspace](#5-workspace)
-6. [Automation](#6-automation)
-7. [Einstellungen](#7-einstellungen)
-8. [Services-Verwaltung](#8-services-verwaltung)
-9. [Datensicherung](#9-datensicherung)
-10. [System-Updates](#10-system-updates)
-11. [Benutzerverwaltung](#11-benutzerverwaltung)
-12. [Netzwerk & Fernzugriff](#12-netzwerk--fernzugriff)
+3. [Einstellungen](#3-einstellungen)
+4. [Services-Verwaltung](#4-services-verwaltung)
+5. [Datensicherung](#5-datensicherung)
+6. [System-Updates](#6-system-updates)
+7. [Benutzerverwaltung](#7-benutzerverwaltung)
+8. [Netzwerk & Fernzugriff](#8-netzwerk--fernzugriff)
 
 ---
 
 ## 1. Systemuebersicht
 
-Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
+Arasul laeuft auf einem NVIDIA Jetson AGX Orin im Unternehmen und hostet dort
+interne Apps. Die Apps baut ein Partner oder ein technisch versierter Mensch im
+Unternehmen mit dem Ara-Kit und rollt sie auf das Geraet; Mitarbeiter melden
+sich mit E-Mail und Passwort an und sehen die Apps, die ein Admin ihnen
+freigegeben hat. Das Geraet bietet:
 
-- **Lokale KI:** Alle Daten bleiben auf dem Geraet - keine Cloud erforderlich
-- **Chat-Assistent:** Fragen stellen, Texte analysieren, Aufgaben loesen
+- **Lokale KI:** Sprachmodelle laufen auf dem Geraet, keine Cloud erforderlich
+- **Flows:** Agentenflows mit Werkzeugen und nachvollziehbaren Laeufen, Teil
+  einer App, gestartet ueber die API
 - **Automatische Sicherung:** Taegliche Backups aller Daten
 - **Offline-faehig:** Funktioniert ohne Internetverbindung
+
+Das App-Modell (Manifest, Zuweisung an Mitarbeiter, Freigaben) kommt mit den
+Phasen C und D des Umbaus vom 26.08.2026; bis dahin zeigt die Oberflaeche
+Modelle und Einstellungen.
 
 ### Zugriff
 
@@ -38,28 +43,23 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 | Web-Oberflaeche | `https://<hostname>.local` |
 | SSH-Zugang      | `ssh -p 2222 arasul@<ip>`  |
 
-### Workspace (Oberflaeche)
+### Die Oberflaeche
 
-Die Standard-Oberflaeche nach der Anmeldung ist der **Workspace**, ein
-Dreispalten-Raster in drei Themes (Schwarz · Dunkel · Hell). Das Theme wird
-ausschliesslich unter **Einstellungen → Erscheinungsbild** gewaehlt. Alle
-Flaechen (Sidebar, Mitte, rechte Spalte) teilen denselben Hintergrund;
-getrennt wird nur durch feine Linien.
-
-> **Stand 26.08.2026 (Phasen B2 und B3 des Umbaus):** Datei-Explorer,
-> Editor, Agent-Chat, Terminal und Sandbox-Ansichten (B2) sowie Flow-Editor,
-> Erweiterungs-Store und der Tab einer installierten Erweiterung (B3) sind
-> aus der Oberflaeche entfernt. Die linke Spalte ist ohne gewaehlte Ansicht
-> leer, die rechte Spalte ganz. Was dort kuenftig steht, legen die Phasen D1
-> und D2 fest.
+Die Oberflaeche nach der Anmeldung ist ein Dreispalten-Raster in drei Themes
+(Schwarz · Dunkel · Hell). Das Theme wird unter **Einstellungen →
+Erscheinungsbild** gewaehlt. Alle Flaechen (Sidebar, Mitte, rechte Spalte)
+teilen denselben Hintergrund; getrennt wird nur durch feine Linien. Im
+Zielbild stehen links die Apps, in der Mitte Dashboard oder App, rechts
+Notizen (Phasen D1 und D2); heute ist die linke Spalte ohne gewaehlte Ansicht
+leer, die rechte Spalte ganz.
 
 - **Activity Bar (ganz links):** schmale Icon-Leiste mit der Ansicht
   **Modelle**, ganz unten **Einstellungen** (inkl. System-Status).
 - **Sidebar (links):** zeigt die gewaehlte Ansicht: Modell-Filter oder die
   Bereiche der Einstellungen. Ohne Auswahl bleibt sie leer. Ein erneuter
   Klick auf die aktive Ansicht klappt sie ein (auch `Strg/⌘ + B`).
-- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Modelle, Automation,
-  Einstellungen), schliessbar, werden nach einem Neuladen wiederhergestellt.
+- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Modelle, Einstellungen),
+  schliessbar, werden nach einem Neuladen wiederhergestellt.
 - **Rechte Spalte:** leer, ein- und ausblendbar.
 - **Layout-Schalter (oben rechts, neben Einstellungen):** **zwei** Symbole
   blenden die Sidebar und die rechte Spalte unabhaengig ein/aus.
@@ -71,11 +71,9 @@ getrennt wird nur durch feine Linien.
   als Standard, loeschen). Ueber dem Modell-Raster steht ein
   **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
   die aktuell im RAM geladenen Modelle mit **Entladen**, das **Standardmodell**
-  und **In den RAM laden** mit Live-Statusmeldungen. Der Erweiterungs-Store
-  mit dem An/Aus-Schalter der Kern-Apps ist mit B3 gefallen, die Kern-Apps
-  selbst (zuletzt n8n) mit B5.
-- Die Workspace-Shell ist die einzige Ansicht: `/` landet nach dem Login
-  immer auf `/workspace`.
+  und **In den RAM laden** mit Live-Statusmeldungen.
+- Die Shell ist die einzige Ansicht: `/` landet nach dem Login immer auf
+  `/workspace`.
 
 ---
 
@@ -85,9 +83,6 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 
 - **System-Status:** RAM, Swap, Speicherplatz, Temperatur (mit Verlauf) sowie
   ein Dienste-Health-Widget mit Ampel-Anzeige (gruen/gelb/rot)
-- **Chat starten/Dokument hochladen/Projekt oeffnen** sind als Aktions-Kacheln
-  entfallen; Chat, Upload und Projekte gibt es seit B2 nicht mehr in der
-  Oberflaeche.
 
 ### Status-Farben
 
@@ -99,58 +94,7 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 
 ---
 
-## 3. Chat / KI-Assistent
-
-Der Agent-Chat der Oberflaeche ist am 26.08.2026 (Phase B2 des Umbaus)
-entfernt worden, seine Endpunkte `/api/chats` und `/api/llm/chat` samt den
-Chat-Tabellen mit Phase B6 am selben Tag. Was bleibt, ist die externe API
-mit API-Schluessel (`/api/v1/external/llm/chat`, zustandslos) und die
-OpenAI-kompatible `/v1/chat/completions`, siehe
-[API_REFERENCE.md](../api/API_REFERENCE.md). Wie KI-Antworten im Zielbild
-ueber Flows laufen, legt Phase D4 fest.
-
----
-
-## 4. Dokumente & RAG
-
-Dokumenten-Upload, Wissensraeume und der Wissensgraph sind mit Phase B4 des
-Umbaus (26.08.2026) vollstaendig entfernt: Migration 163 hat die Tabellen
-(`documents`, `document_chunks`, `knowledge_spaces` u. a.) samt Endpunkten
-`/api/documents` und `/api/spaces` gestrichen. Es gab kein Vektor-RAG mehr
-(seit Plan 021), jetzt gibt es auch keinen Textlayer-Suchweg fuer eigene
-Dokumente mehr. Was bleibt, ist die externe Extraktions-API
-(`/api/v1/external/document/extract` u. a., siehe
-[API_REFERENCE.md](../api/API_REFERENCE.md)) fuer Drittsysteme.
-
----
-
-<a id="5-workspace"></a>
-
-## 5. Workspace
-
-Der **Workspace** als Sandbox-Entitaet im Backend (Ordner plus Container,
-Besitzer, Netzwerkmodus, automatisch indizierter Wissensbereich) ist mit
-Phase B4 des Umbaus (26.08.2026) vollstaendig entfernt: Container,
-Terminal-WebSocket, KI-Zugang und die zugehoerigen Tabellen sind weg. Was
-„Workspace" seitdem meint, ist ausschliesslich die Oberflaechen-Shell (das
-Dreispalten-Raster aus Abschnitt 1): kein eigener Arbeitsordner, kein
-Netzwerkmodus, kein Wissensbereich mehr.
-
----
-
-<a id="6-automation"></a>
-
-## 6. Automation
-
-Die Workflow-Engine n8n ist mit Phase B5 des Umbaus (26.08.2026) vollstaendig
-entfernt: Container, Datenbankschema, der Automation-Tab und die
-Plattform-Apps (Migration 164). Wiederkehrende Ablaeufe laufen im Zielbild
-ueber Flows (Abschnitt „Flows" in [FLOWS.md](../features/FLOWS.md)); den
-externen Ausloeser dafuer gibt es weiter (`POST /api/v1/external/flows/:name/run`).
-
----
-
-## 7. Einstellungen
+## 3. Einstellungen
 
 Die Einstellungen sind in **6 Reiter** gegliedert (frueher 9, verwandte Bereiche
 wurden zusammengelegt, damit die Navigation uebersichtlich bleibt):
@@ -192,12 +136,6 @@ Auswirkung kennen.
 - **Basis-System-Prompt:** frei editierbarer Grundtext, der jedem KI-Kontext
   vorangestellt wird. **Feld leeren = eingebauter Standard-Prompt.**
 
-> **Agentic RAG (Plan 021):** Die frueheren Retrieval-/Rerank-/Space-Routing-Regler
-> sind entfernt, die Wissenssuche laeuft agentisch (die KI durchsucht die
-> Projektdateien selbst mit `dateien_suchen`/`symbol_suche`; den Inhalt einer
-> benannten PDF/DOCX holt sie ueber deren Textlayer). Es gibt daher keine
-> Vektor-Suche mehr zu justieren.
-
 ### Sicherheit
 
 - **Passwort aendern:** Unter Einstellungen > Sicherheit (Dashboard-Passwort)
@@ -208,7 +146,7 @@ Auswirkung kennen.
 
 ---
 
-## 8. Services-Verwaltung
+## 4. Services-Verwaltung
 
 ### Dienste anzeigen
 
@@ -233,13 +171,13 @@ Das System ueberwacht alle Dienste automatisch:
 
 ---
 
-## 9. Datensicherung
+## 5. Datensicherung
 
 ### Automatische Backups
 
 Das System erstellt automatisch taegliche Backups um 02:00 Uhr:
 
-- **PostgreSQL-Datenbank:** Alle Einstellungen, Chats, Benutzer, Flow-Laeufe
+- **PostgreSQL-Datenbank:** Alle Einstellungen, Benutzer, Flow-Laeufe
 - **Flows:** Die Flow-Definitionen unter `data/flows/`
 
 ### Manuelles Backup
@@ -271,16 +209,16 @@ ssh -p 2222 arasul@<jetson-ip>
 
 ---
 
-## 9a. Werksreset
+## 5a. Werksreset
 
 **Einstellungen → System → Werksreset**
 
 Zwei Stufen. Beide sind endgueltig, es gibt kein Rueckgaengig. Was hier
-verschwindet, steht danach nur noch in einer Sicherung (Abschnitt 9).
+verschwindet, steht danach nur noch in einer Sicherung (Abschnitt 5).
 
 | Stufe                 | Weg                                                    | Bleibt                                        |
 | --------------------- | ------------------------------------------------------ | --------------------------------------------- |
-| Inhalte zuruecksetzen | Chats samt Anhaengen, Modell-Auftraege, Flow-Laeufe    | Zugang, Flows, Einstellungen, Modelle         |
+| Inhalte zuruecksetzen | Modell-Auftraege, Flow-Laeufe                          | Zugang, Flows, Einstellungen, Modelle         |
 | Auslieferungszustand  | zusaetzlich Zugangsdaten, Flows, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen) |
 
 Optional laesst sich zusaetzlich ankreuzen, dass auch die heruntergeladenen
@@ -308,7 +246,7 @@ Vollstaendigkeit behauptet. In dem Fall gehoert die neue Tabelle in
 
 ---
 
-## 10. System-Updates
+## 6. System-Updates
 
 ### USB-Update einspielen
 
@@ -335,7 +273,7 @@ Unter **Einstellungen → System → Updates → Verlauf** sehen Sie:
 
 ---
 
-## 11. Benutzerverwaltung
+## 7. Benutzerverwaltung
 
 ### Passwort aendern
 
@@ -353,7 +291,7 @@ Unter **Einstellungen → System → Updates → Verlauf** sehen Sie:
 
 ---
 
-## 12. Netzwerk & Fernzugriff
+## 8. Netzwerk & Fernzugriff
 
 > **Denkmodell:** LAN-Zugriff ist der Auslieferungs-Standard, Fernzugriff ist
 > ein bewusstes Opt-in via Tailscale. In beiden Faellen erreichen Sie das Gerät

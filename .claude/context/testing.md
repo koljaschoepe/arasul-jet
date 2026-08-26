@@ -24,7 +24,7 @@
 
 `jest.setup.js` setzt:
 
-- Env-Vars für DB, Services, MinIO (alles localhost/test)
+- Env-Vars für DB und Services (alles localhost/test)
 - `RATE_LIMIT_ENABLED=false`
 - `LOG_LEVEL=error`
 - Global Timeout: 10s
@@ -71,11 +71,7 @@ db.query.mockImplementation(query => {
 __tests__/
   unit/           # Unit-Tests (mock alles)
     auth.test.js
-    documents.test.js
-    ...
-  integration/    # Integration-Tests (Service-übergreifend)
-    llm-pipeline.test.js
-    rag-pipeline.test.js
+    flows.test.js
     ...
   helpers/
     authMock.js   # Auth-Mock-Factory
@@ -111,7 +107,6 @@ createMockApi(overrides?)      // { get, post, put, patch, del, request }
 createMockToast()              // { success, error, warning, info }
 createMockAuth(overrides?)     // { user, isAuthenticated, login, logout }
 createMockDownloads(overrides?) // { activeDownloads, startDownload }
-createMockChatContext(overrides?) // Chat-State
 ```
 
 ### Vitest-spezifische Regeln

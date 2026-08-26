@@ -47,7 +47,7 @@ Flask APIs (except metrics-collector which uses aiohttp). Each service has a
 
 **Port:** 9102 (`DOCUMENT_INDEXER_API_PORT`)
 **Framework:** Flask + flask_cors
-**Role:** Stateless text extraction on request (since Phase B4, 26.08.2026)
+**Role:** Stateless text extraction on request
 
 ### Endpoints
 

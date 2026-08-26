@@ -42,18 +42,18 @@ Umschaltung über `useTheme` (`'black' | 'dark' | 'light'`, Voreinstellung
 `[data-theme='dark']` und `.light` überschreiben nur, was abweicht.
 Komponenten brauchen keine Theme-Zweige; wer Tokens benutzt, folgt dem Theme.
 
-| Token                | Schwarz (`:root`)        | Dunkel                 | Hell                  |
-| -------------------- | ------------------------ | ---------------------- | --------------------- |
-| `--background`       | `#0A0A0A`                | `#141414`              | `#F6F6F6`             |
-| `--card`             | `#121212`                | `#181818`              | `#FFFFFF`             |
-| `--popover`          | `#161616`                | `#1c1c1c`              | `#FFFFFF`             |
-| `--muted`            | `#161616`                | `#181818`              | `#ECECEC`             |
-| `--foreground`       | `#e6e6e6`                | erbt                   | `#1a1a1a`             |
-| `--muted-foreground` | `rgba(228,228,228,0.55)` | erbt                   | `#6b6b6b`             |
-| `--border`           | `rgba(228,228,228,0.08)` | erbt                   | `rgba(16,16,16,0.10)` |
-| `--accent` (Hover)   | `rgba(228,228,228,0.07)` | erbt                   | `rgba(16,16,16,0.05)` |
-| `--primary`          | `#81A1C1` (Graublau)     | erbt                   | `#2D8FD9` (Blau)      |
-| `--ring`             | = `--primary`            | = `--primary`          | = `--primary`         |
+| Token                | Schwarz (`:root`)        | Dunkel        | Hell                  |
+| -------------------- | ------------------------ | ------------- | --------------------- |
+| `--background`       | `#0A0A0A`                | `#141414`     | `#F6F6F6`             |
+| `--card`             | `#121212`                | `#181818`     | `#FFFFFF`             |
+| `--popover`          | `#161616`                | `#1c1c1c`     | `#FFFFFF`             |
+| `--muted`            | `#161616`                | `#181818`     | `#ECECEC`             |
+| `--foreground`       | `#e6e6e6`                | erbt          | `#1a1a1a`             |
+| `--muted-foreground` | `rgba(228,228,228,0.55)` | erbt          | `#6b6b6b`             |
+| `--border`           | `rgba(228,228,228,0.08)` | erbt          | `rgba(16,16,16,0.10)` |
+| `--accent` (Hover)   | `rgba(228,228,228,0.07)` | erbt          | `rgba(16,16,16,0.05)` |
+| `--primary`          | `#81A1C1` (Graublau)     | erbt          | `#2D8FD9` (Blau)      |
+| `--ring`             | = `--primary`            | = `--primary` | = `--primary`         |
 
 Eine Linienfarbe mit niedriger Alpha, keine zweite „dicke" Kante. Hover ist
 eine neutrale Alpha, kein eigener Farbton. Scrollbalken: Spur transparent,
@@ -109,9 +109,9 @@ blendet aus, das Backend entscheidet.
 
 ## Wo was steht
 
-| Frage                                | Ort                                                             |
-| ------------------------------------ | --------------------------------------------------------------- |
-| Wert eines Tokens                    | `apps/dashboard-frontend/src/index.css` (`@theme`, `:root`, Overrides) |
-| Neuer Token, neue Farbe, neuer Radius | dort ergänzen, hier nur, wenn es eine Regel ändert              |
-| Frontend-Konventionen                | [`apps/dashboard-frontend/CLAUDE.md`](../../apps/dashboard-frontend/CLAUDE.md) |
-| Wächter                              | `scripts/test/check-design-system.js`, `scripts/test/bausteine.py` |
+| Frage                                 | Ort                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------ |
+| Wert eines Tokens                     | `apps/dashboard-frontend/src/index.css` (`@theme`, `:root`, Overrides)         |
+| Neuer Token, neue Farbe, neuer Radius | dort ergänzen, hier nur, wenn es eine Regel ändert                             |
+| Frontend-Konventionen                 | [`apps/dashboard-frontend/CLAUDE.md`](../../apps/dashboard-frontend/CLAUDE.md) |
+| Wächter                               | `scripts/test/check-design-system.js`, `scripts/test/bausteine.py`             |

@@ -1,9 +1,7 @@
 # Backup System
 
 Automated backup service for PostgreSQL and the flow definitions under
-`data/flows/`. Bis zum 26.08.2026 sicherte der Dienst zusaetzlich MinIO
-(Phase B4) und hinterlegte den n8n-Schluessel neben dem Abzug (Phase B5);
-beide Dienste sind ausgebaut.
+`data/flows/`.
 
 ## Overview
 
@@ -144,8 +142,7 @@ Production backups run automatically via cron inside the `backup-service`
 container (`/usr/local/bin/backup.sh`, i.e.
 [`services/backup-service/backup.sh`](../../services/backup-service/backup.sh)).
 `scripts/backup/backup.sh` below is a separate, host-run CLI variant with its
-own `--type`/`--component` flags; its MinIO branch was removed on 26.08.2026
-along with the object store itself.
+own `--type`/`--component` flags.
 
 ### Cron Schedule Examples
 

@@ -39,7 +39,7 @@ PFLICHT = ['README.md', 'CLAUDE.md']
 # faellt ein abgeschalteter Dienst am wenigsten auf (23.08.2026). Fehlen sie,
 # ist das kein Fehler: der Waechter laeuft auch gegen einen Behelfsbaum im
 # Selbsttest, und dort gibt es sie nicht.
-ZUSAETZLICH = ['docs/features/WORKSPACE.md', 'docs/ARCHITECTURE.md']
+ZUSAETZLICH = ['docs/features/FLOWS.md', 'docs/ARCHITECTURE.md']
 DATEIEN = PFLICHT + ZUSAETZLICH
 
 # Verweise auf Stellen ausserhalb des Repos oder auf Anker sind kein Fund.

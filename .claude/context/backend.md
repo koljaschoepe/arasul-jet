@@ -11,7 +11,7 @@
 1. `dotenv.config()` + `resolveSecrets()` — Docker secrets from
    `/run/secrets/*` are hydrated into `process.env`.
 2. **Required-env gate** — refuses to start without
-   `POSTGRES_PASSWORD / JWT_SECRET / MINIO_ROOT_USER / MINIO_ROOT_PASSWORD`.
+   `POSTGRES_PASSWORD / JWT_SECRET`.
 3. **Production-only weak-secret gate** — `JWT_SECRET ≥ 32 chars`,
    `POSTGRES_PASSWORD ≥ 16`, no `dev|test|default|example|changeme|password`
    substrings. Refuses to start otherwise.
@@ -40,8 +40,7 @@
 | LLM (Ollama)     | `http://llm-service:11434`       | Inference                      |
 | LLM management   | `http://llm-service:11436`       | Pull/list/delete models        |
 | Embeddings       | `http://embedding-service:11435` | BGE-M3                         |
-| MinIO            | `http://minio:9000`              | Object storage                 |
-| Document indexer | `http://document-indexer:9102`   | Ingest pipeline                |
+| Document indexer | `http://document-indexer:9102`   | Text extraction on request     |
 | Docker proxy     | `tcp://docker-proxy:2375`        | Read-only socket via tecnativa |
 
 Always read URLs from `services.<name>.url`. Don't bake `http://*:port`
@@ -53,7 +52,6 @@ strings into routes — `services.js` owns timeouts and overrides too.
   `idle_in_transaction_session_timeout = 60 s`. Leak warning > 60 s.
 - One-shot: `db.query(sql, params)`. Transactions: `db.getClient()` +
   `BEGIN`/`COMMIT`/`ROLLBACK`/`release()` in a `try/finally`.
-- Second pool: `dataDatabase.js` for the user-data DB (`arasul_data_db`).
 
 ## Routes are mounted in `routes/index.js`
 
@@ -64,15 +62,15 @@ structure at runtime.
 
 ## Reference files for common patterns
 
-| Pattern           | File                                                   |
-| ----------------- | ------------------------------------------------------ |
-| Simple CRUD       | `routes/admin/settings.js`                             |
-| SSE streaming     | `routes/llm.js` + `utils/sseHelper.js`                 |
-| File upload       | `routes/documents.js`                                  |
-| WebSocket upgrade | `src/index.js` (search `'upgrade'`)                    |
-| Queue-based job   | `services/llm/llmQueueService.js`                      |
-| GDPR / audit      | `routes/admin/gdpr.js` + `utils/auditLog.js`           |
-| Circuit breaker   | `utils/retry.js` (see `circuitBreakers.get('ollama')`) |
+| Pattern           | File                                                           |
+| ----------------- | -------------------------------------------------------------- |
+| Simple CRUD       | `routes/admin/settings.js`                                     |
+| SSE streaming     | `routes/flows.js` (`laeufe/:id/stream`) + `utils/sseHelper.js` |
+| File upload       | `routes/external/externalApi.js` (`document/extract`)          |
+| WebSocket upgrade | `src/index.js` (search `'upgrade'`)                            |
+| Queue-based job   | `services/llm/llmQueueService.js`                              |
+| GDPR / audit      | `routes/admin/gdpr.js` + `utils/auditLog.js`                   |
+| Circuit breaker   | `utils/retry.js` (see `circuitBreakers.get('ollama')`)         |
 
 ## Things that have bitten us
 
@@ -83,5 +81,3 @@ structure at runtime.
 - **Unbounded `for`-loops over external services**: wrap in
   `circuitBreakers.get(...).execute(...)` so a single broken dependency
   can't take down the whole queue.
-- **Passing the wrong DB pool**: data tables live in `dataDatabase.js`,
-  not the main `db`. Mixing them silently corrupts schemas.

@@ -161,15 +161,13 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   `schritte` deklariert — sonst bleibt es beim modellgetriebenen `toolLoop`.
 - Flows werden über `POST /api/flows/laeufe` (Anmeldung) oder extern per
   HTTP-Trigger (`POST /api/v1/external/flows/:name/run`, API-Key mit Scope
-  `flow:run`) gestartet; der Slash-Befehl im Chat ist mit dem Chat gefallen. Der frühere Zeitplan-/Cron-Mechanismus (B8: `scheduler.js`,
-  `scheduleStore.js`, `cronExpr.js`, Tabelle `flow_schedules`, Routen
-  `/flows/zeitplaene`, externer `events/:name`-Endpunkt) ist am 2026-07-28
-  ersatzlos entfernt (Migration 123 droppt die Tabelle).
+  `flow:run`) gestartet. Einen Zeitplaner gibt es im Gerät nicht; Cron kommt
+  von außen über den Trigger.
 - `gpuQueue.js` — die **eine** GPU-Sperre für alles, was in DIESEM Prozess
   läuft: der Ollama-Aufruf in `services/llm/llmOllamaStream.js`
-  (`streamFromOllama`) geht durch dieselbe `withGpuLock`. Nie treffen Chat und
-  Flow zugleich auf die GPU (Nutzer-Entscheidung: strikt einer nach dem
-  anderen, keine Priorisierung).
+  (`streamFromOllama`) geht durch dieselbe `withGpuLock`. Nie treffen ein
+  Auftrag der externen API und ein Flow zugleich auf die GPU
+  (Nutzer-Entscheidung: strikt einer nach dem anderen, keine Priorisierung).
 - `pathSafe.js` — symlink-sichere Pfad-Sperre über mehrere erlaubte Ordner;
   schließt das TOCTOU-Fenster über Dateideskriptoren. **Jeder** Dateizugriff
   läuft hierdurch.
@@ -178,30 +176,15 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
   `dateien` (lesen/schreiben/bearbeiten/anhängen getrennt, plus `dateien_suchen`),
   `symbol_suche` und `frage` (`frage_nutzer`, nur in der Betriebsart
-  `rueckfragen`). `subagent.js` liegt eine Ebene höher. Die Web-Werkzeuge
-  (`web_suche`, `web_lesen`, über SearXNG) sind mit Phase B5 (26.08.2026)
-  gefallen.
+  `rueckfragen`). `subagent.js` liegt eine Ebene höher. Es gibt keine
+  Web-Werkzeuge; ein Flow arbeitet auf dem Gerät.
 
-Das alte `services/agents/`-Subsystem (`toolLoop`, `agentFile`,
-`workspaceIndexer`, `pathSafe`, `tools/`) war mit dem Fluss-Layer verwaist —
-kein Produktions-Aufrufer mehr, nur noch seine Tests — und ist mit dem
-Aufräum-Schritt am 2026-07-28 samt Tests entfernt.
-
-Der GitHub-Sync (`services/git/`, koppelte ein Projekt 1:1 an ein GitHub-Repo)
-und das gesamte Workspace-Bündel (Sandbox-Container, Sandbox-Terminal mit
-Claude-Login, ein unsichtbarer Wissensraum pro Workspace) sind mit Phase B4
-(26.08.2026) entfernt: die Routen `/api/sandbox`, `/api/claude-terminal`,
-`/api/git`, `/api/projects`, `/api/spaces` samt Diensten, und die zugehörigen
-Tabellen mit Migration 163. Ordner sind seither genau die im Flow deklarierten
-(`ordner`-Feld), ohne Bezug auf Projekt, Wissensraum oder Sandbox. Phase B5
-(gleicher Tag) nahm n8n (`/api/automations`, `/api/workflows`,
-`/api/workspace-apps`, `n8nLogger`, `appLifecycleService`, Migration 164)
-und SearXNG mit den Web-Werkzeugen der Flows. Phase B6 (gleicher Tag) nahm den
-Rest des Oberflächen-Chats: `/api/chats`, `/api/llm`, `services/chat/`, die
-Tabellen `chat_*` (Migration 165). `llm_jobs` ist seither zustandslos und
-trägt `user_id`; `llmQueueService.enqueue(userId, ...)` ist der einzige Weg
-zu einem Auftrag, aufgerufen von `routes/external/externalApi.js` und
-`openaiCompat.js`.
+Ordner sind genau die im Flow deklarierten (`ordner`-Feld); es gibt keinen
+Arbeitsbereich, kein Projekt und keinen Wissensraum daneben. Aufträge an das
+Sprachmodell (`llm_jobs`) sind zustandslos und tragen `user_id`;
+`llmQueueService.enqueue(userId, ...)` ist der einzige Weg zu einem Auftrag,
+aufgerufen von `routes/external/externalApi.js` und `openaiCompat.js`. Die
+Oberfläche hat keinen Chat.
 
 ## Testing
 

@@ -58,7 +58,7 @@ Concretely, this means:
 | **Dashboard UI**    | `apps/dashboard-frontend/`     | End users, admins       |
 | **HTTP API**        | `apps/dashboard-backend/`      | Frontend, integrations  |
 | **Database**        | `services/postgres/init/*.sql` | All backend services    |
-| **LLM / RAG**       | `services/llm-service/`        | Chat, agents, search    |
+| **LLM**             | `services/llm-service/`        | Flows, external API     |
 | **Ops / Self-heal** | `services/self-healing-agent/` | Autonomous recovery     |
 | **Setup / Boot**    | `./arasul`, `scripts/setup/`   | First-boot provisioning |
 
@@ -79,7 +79,7 @@ arasul-jet/
 │   ├── ops/                       deployment, troubleshooting, admin
 │   ├── features/                  per-service feature docs
 │   └── plans/                     active and archived roadmaps
-├── .claude/                       Claude Code workspace (commands, agents, hooks, context)
+├── .claude/                       Claude Code workspace (skills, agents, hooks, context)
 ├── CLAUDE.md                      AI-facing entry point + non-negotiables
 ├── README.md                      "what is this" + start-here
 └── CONTRIBUTING.md                workflow, conventions, slash-command catalog
@@ -202,13 +202,13 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 
 ### Entry Points by Task Type
 
-| Doing…               | Start reading at                                                              |
-| -------------------- | ----------------------------------------------------------------------------- |
-| Adding an API route  | `apps/dashboard-backend/src/routes/index.js`                                  |
-| Adding a UI page     | `apps/dashboard-frontend/src/App.tsx`                                         |
-| Adding a DB field    | `services/postgres/init/` (next migration number)                             |
-| Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                                    |
-| Touching flows       | `apps/dashboard-backend/src/services/flows/` + `routes/flows.js`              |
+| Doing…               | Start reading at                                                       |
+| -------------------- | ---------------------------------------------------------------------- |
+| Adding an API route  | `apps/dashboard-backend/src/routes/index.js`                           |
+| Adding a UI page     | `apps/dashboard-frontend/src/App.tsx`                                  |
+| Adding a DB field    | `services/postgres/init/` (next migration number)                      |
+| Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                             |
+| Touching flows       | `apps/dashboard-backend/src/services/flows/` + `routes/flows.js`       |
 | Changing design      | `docs/development/DESIGN.md` + `apps/dashboard-frontend/src/index.css` |
 
 ### Reading guide per domain
@@ -225,7 +225,7 @@ Before editing in a domain, glance at the matching context file:
 
 ### Your first PR checklist
 
-- [ ] Branch from `main` with a descriptive name (`feat/agent-tools`, `fix/rag-cite-parser`).
+- [ ] Branch from `main` with a descriptive name (`feat/app-manifest`, `fix/flow-run-stream`).
 - [ ] Implementation + at least one test covering the change.
 - [ ] `./scripts/test/run-tests.sh --all` passes locally.
 - [ ] Updated relevant docs if behavior or API changed.

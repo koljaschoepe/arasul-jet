@@ -29,9 +29,7 @@ Root `docker-compose.yml` includes 6 files from `compose/`:
 6. `document-indexer` (stateless text extraction)
 7. `self-healing-agent`, `backup-service` (monitoring)
 
-MinIO, Loki und Promtail sind am 26.08.2026 (Phase B4 des Rückbaus)
-entfallen; `--profile monitoring` gibt es nicht mehr, Logs kommen aus
-`docker compose logs`.
+Logs kommen aus `docker compose logs`; es gibt keine zentrale Log-Aggregation.
 
 ## Networks (3 isolated bridge networks)
 

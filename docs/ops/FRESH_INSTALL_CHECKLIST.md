@@ -76,10 +76,9 @@
 
 ## 8. Kernfunktionen im Browser (Smoke)
 
-- [ ] Login → Chat: eine LLM-Antwort kommt zurück.
-- [ ] Dokument hochladen → erscheint in der Dokumentenliste, wird indexiert (RAG).
-- [ ] Eine Wissens-Frage liefert eine Antwort mit Fundstellen (Agent liest den Textlayer,
-      `document-indexer` aktiv).
+- [ ] Login → Modelle: der Katalog erscheint, das Standardmodell ist geladen.
+- [ ] Externe API: `POST /api/v1/external/llm/chat` mit einem API-Schlüssel liefert eine Antwort.
+- [ ] `POST /api/v1/external/document/extract` mit einer PDF liefert Text (`document-indexer` aktiv).
 - [ ] Settings/Services-Seite: GPU-Last wird als echter Wert (nicht dauerhaft 0.0) angezeigt.
 - [ ] Keine roten Fehler in der Browser-Konsole auf den Kern-Seiten.
 

@@ -26,8 +26,7 @@ GDPR-relevant action — the log is what proves the export ever happened.
 - **PII boundary is the job row**: `llm_jobs.request_data`, `llm_jobs.content`
   and `llm_jobs.thinking` (and `flow_runs.arguments`/`result`) are user data.
   Anywhere those leave the row (logs, metrics, analytics, error-handler,
-  support bundle) they must be truncated, hashed, or omitted. The chat tables
-  that used to hold this boundary fell with Phase B6 (Migration 165).
+  support bundle) they must be truncated, hashed, or omitted.
 - **Logs are not a database**: don't `logger.info('user submitted: ' + body)`.
   The platform's logger ships to stdout → Docker → potentially a customer's
   log shipper. Treat it as untrusted disclosure.

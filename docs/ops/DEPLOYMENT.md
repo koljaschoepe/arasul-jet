@@ -212,13 +212,6 @@ docker compose exec -T embedding-service curl -s http://localhost:11435/health
 
 > Self-signed TLS certificates produce a browser warning on first access — expected. Click through.
 
-### Das Sandbox-Image gibt es nicht mehr
-
-Bis Phase B4 (26.08.2026) bauten `./arasul bootstrap`, `deploy-local.sh` und
-`create-factory-image.sh` zusätzlich `arasul-sandbox:latest`, ein Image ohne
-Compose-Dienst für Workspace-Terminals. Sandbox und Terminal sind ausgebaut,
-`docker compose config --images` ist wieder die vollständige Liste.
-
 If a model is not yet pulled (skipped during bootstrap):
 
 ```bash
