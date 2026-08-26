@@ -70,12 +70,6 @@ class ServiceConfig:
             port=int(os.getenv('SELF_HEALING_PORT', '9200'))
         )
 
-        # n8n
-        self.n8n = ServiceEndpoint(
-            host=os.getenv('N8N_HOST', 'n8n'),
-            port=int(os.getenv('N8N_PORT', '5678'))
-        )
-
     @property
     def llm_management_url(self) -> str:
         """Get LLM management API URL"""

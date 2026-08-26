@@ -21,8 +21,8 @@ const VALID_TOOLS = [
   'dateien_anhaengen',
   'dateien_suchen',
   'symbol_suche',
-  'web_suche',
-  'web_lesen',
+  // `web_suche` und `web_lesen` sind mit SearXNG in Phase B5 (26.08.2026)
+  // gefallen; ein Flow, der sie noch nennt, wird hier abgewiesen.
   'subagent',
   // Plan 023 I3: EINE Rückfrage an den Nutzer, mit bis zu vier Optionen. Nur
   // wirksam in der Betriebsart `rueckfragen`; in `autonom` legt die Registry
@@ -354,7 +354,7 @@ const FlowDefinition = z
     //
     // Die Voreinstellung ist Absicht: jeder vorhandene Flow bleibt genau so,
     // wie er war, und ein Flow, der ungefragt anhält, wäre für einen
-    // n8n-Start oder einen nächtlichen Lauf das Ende.
+    // externen Start oder einen nächtlichen Lauf das Ende.
     betriebsart: z.enum(['autonom', 'rueckfragen']).default('autonom'),
     ausgabe: FlowAusgabe.optional(),
     systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),

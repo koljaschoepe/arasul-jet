@@ -540,7 +540,7 @@ create_directories() {
     # existieren. Legt Docker eine fehlende Bind-Quelle selbst an, gehoert sie
     # root — und der als uid 1000 laufende Backend-Container kann nicht hinein
     # schreiben (EACCES). Genau das ist bei data/skills passiert.
-    mkdir -p data/{postgres,models,n8n,updates,backups}
+    mkdir -p data/{postgres,models,updates,backups}
     mkdir -p data/appstore/manifests
     mkdir -p data/ssh-keys
     mkdir -p data/skills
@@ -616,7 +616,7 @@ pull_images() {
     local delay=5
     local pull_output=""
     while [ $attempt -le $max_retries ]; do
-        if pull_output=$(docker compose pull postgres-db n8n reverse-proxy 2>&1); then
+        if pull_output=$(docker compose pull postgres-db reverse-proxy 2>&1); then
             log_success "Base images pulled"
             return 0
         fi
@@ -695,61 +695,9 @@ setup_secrets() {
     mkdir -p config/secrets
     chmod 700 config/secrets
 
-    # --- Hook (Plan 001, Schritt 9): n8n Task-Runner-Auth-Token -------------
-    # Gemeinsames Secret zwischen n8n (Task-Broker) und n8n-runners-Sidecar
-    # (compose.secrets.yaml: n8n_runners_auth_token). Idempotent: wird nur
-    # erzeugt, wenn es fehlt — Bestandsgeräte bekommen es so beim nächsten
-    # Bootstrap; Neuinstallationen bereits via interactive_setup.sh.
-    # Ohne diese Datei startet compose nicht (Secret-File muss existieren).
-    if [ ! -s config/secrets/n8n_runners_auth_token ]; then
-        openssl rand -hex 32 > config/secrets/n8n_runners_auth_token
-        chmod 600 config/secrets/n8n_runners_auth_token
-        log_success "n8n-Runner-Auth-Token generiert (config/secrets/n8n_runners_auth_token)"
-    fi
-    # -------------------------------------------------------------------------
-
-    # --- Plan 007: fester n8n-Owner ------------------------------------------
-    # Zugangsdaten des einzigen n8n-Owners. entrypoint.sh legt ihn beim Start
-    # idempotent an; das Backend meldet ihn für die nahtlose Session an.
-    # Idempotent: nur erzeugen, wenn fehlend. Das Passwort erfüllt n8ns Policy
-    # (>= 8 Zeichen, mind. 1 Großbuchstabe, mind. 1 Ziffer).
-    if [ ! -s config/secrets/n8n_owner_email ]; then
-        printf 'owner@arasul.local' > config/secrets/n8n_owner_email
-        chmod 600 config/secrets/n8n_owner_email
-        log_success "n8n-Owner-E-Mail gesetzt (config/secrets/n8n_owner_email)"
-    fi
-    if [ ! -s config/secrets/n8n_owner_password ]; then
-        printf 'A1%s' "$(openssl rand -hex 24)" > config/secrets/n8n_owner_password
-        chmod 600 config/secrets/n8n_owner_password
-        log_success "n8n-Owner-Passwort generiert (config/secrets/n8n_owner_password)"
-    fi
-    # -------------------------------------------------------------------------
-
-    # --- Plan 011, Schritt 8: SearXNG-Geheimnis ------------------------------
-    # Ohne gesetztes Geheimnis startet SearXNG nicht. Es traegt keine Daten und
-    # ist deshalb gefahrlos automatisch erzeugbar — aber je Geraet verschieden.
-    if ! grep -q '^SEARXNG_SECRET=' .env 2>/dev/null; then
-        printf '\nSEARXNG_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env
-        log_success "SearXNG-Geheimnis generiert (.env: SEARXNG_SECRET)"
-    fi
-    # -------------------------------------------------------------------------
-
-    # Credentials aus .env lesen (vom Interactive Setup generiert)
-    local n8n_user=$(grep "^N8N_BASIC_AUTH_USER=" .env | cut -d'=' -f2)
-    local n8n_pass=$(grep "^N8N_BASIC_AUTH_PASSWORD=" .env | cut -d'=' -f2)
-
-    if [ -z "$n8n_pass" ]; then
-        log_warning "N8N_BASIC_AUTH_PASSWORD nicht in .env - ueberspringe Traefik-Auth"
-        return 0
-    fi
-
-    # Store n8n password in secrets for reference
-    echo "$n8n_pass" > config/secrets/n8n_basic_auth_password
-    chmod 600 config/secrets/n8n_basic_auth_password
-
-    # Note: the Traefik dashboard and n8n are protected by forward-auth (dashboard
-    # session), not Traefik basicAuth — so there is no __BASIC_AUTH_HASH__ to
-    # generate here anymore.
+    # n8n-Owner, n8n-Runner-Token, n8n-Basic-Auth und das SearXNG-Geheimnis
+    # wurden hier bis zum 26.08.2026 (Phase B5 des Rueckbaus) erzeugt; die
+    # Dienste sind weg, es gibt nichts mehr anzulegen.
 
     log_success "Secrets konfiguriert"
 }
@@ -906,11 +854,7 @@ start_services() {
     log_info "Waiting for Document-Indexer..."
     wait_for_healthy document-indexer 90 "docker compose exec -T document-indexer curl -sf http://localhost:9102/health" || true
 
-    # Layer 7: Workflow engine
-    docker compose up -d n8n
-    wait_for_healthy n8n 60 || true
-
-    # Layer 8: Background agents
+    # Layer 7: Background agents
     docker compose up -d self-healing-agent
 
     log_success "All services started"
@@ -1048,15 +992,6 @@ run_smoke_tests() {
         failed=1
     fi
 
-    # Test n8n
-    log_info "Testing n8n..."
-    if docker compose exec -T n8n wget --spider -q http://localhost:5678/healthz 2>/dev/null; then
-        log_success "n8n: OK"
-    else
-        log_warning "n8n: Not responding (may still be initializing)"
-        warnings=1
-    fi
-
     # Test Self-Healing Agent
     log_info "Testing Self-Healing Agent..."
     if docker compose ps self-healing-agent | grep -q "Up"; then
@@ -1102,7 +1037,6 @@ show_completion_summary() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     echo -e "  Dashboard:    ${BLUE}https://${hostname:-arasul}.local${NC}"
-    echo -e "  n8n:          ${BLUE}https://${hostname:-arasul}.local/n8n${NC}"
 
     # Tailscale-Info anzeigen (wenn verbunden). Bevorzugt den MagicDNS-Namen
     # (https://<geraet>.<tailnet>.ts.net) — browser-vertrautes Schloss via
@@ -1387,19 +1321,6 @@ cmd_bootstrap() {
     # 12. MinIO-Buckets gab es hier bis zum 26.08.2026 (Phase B4 des
     # Rueckbaus); der Objektspeicher ist weg, es gibt nichts mehr anzulegen.
 
-    # 13b. --- Hook (Plan 001, Schritt 9): n8n-Agent-Vorlagen (optional) ------
-    # Importiert die Agent-Workflow-Vorlagen und provisioniert qwen3:8b.
-    # Bewusst non-fatal: eine Appliance ist auch ohne Agent-Vorlagen voll
-    # funktionsfaehig; das Skript ist idempotent und jederzeit nachholbar.
-    if [ -f "./scripts/util/n8n-import-templates.sh" ]; then
-        log_info "Importiere n8n-Agent-Vorlagen (optionaler Schritt)..."
-        if ! bash ./scripts/util/n8n-import-templates.sh; then
-            log_warning "n8n-Agent-Vorlagen nicht importiert — spaeter manuell:"
-            log_warning "  ./scripts/util/n8n-import-templates.sh"
-        fi
-    fi
-    # --------------------------------------------------------------------------
-
     # 14. Verify database schema is ready (migrations via docker-entrypoint-initdb.d)
     log_info "Verifying database schema..."
     local schema_ready=false
@@ -1618,10 +1539,6 @@ cmd_reload_config() {
     # Reload dashboard backend configuration (via HTTP endpoint)
     log_info "Reloading dashboard backend configuration..."
     curl -f -X POST http://localhost:3001/api/system/reload-config 2>/dev/null || log_warning "Dashboard backend reload failed"
-
-    # Reload n8n configuration (restart gracefully)
-    log_info "Reloading n8n configuration..."
-    docker compose exec n8n n8n restart 2>/dev/null || log_warning "n8n reload failed"
 
     log_success "Configuration reload complete"
     log_info "Note: Some changes require a full restart (database credentials, ports, etc.)"

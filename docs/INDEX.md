@@ -77,7 +77,6 @@ docs/
 | [`features/WORKSPACE.md`](features/WORKSPACE.md)                                     | Workspace: was nach Phase B4 davon bleibt                          |
 | [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                                    |
 | [`features/PLATFORM_COMPATIBILITY.md`](features/PLATFORM_COMPATIBILITY.md)           | Multi-device support, GPU error handling                           |
-| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations                         |
 
 ---
 
@@ -108,7 +107,6 @@ Each service has its own `README.md` (and increasingly its own `CLAUDE.md`). See
 | Metrics collector    | `services/metrics-collector/`  |
 | Self-healing agent   | `services/self-healing-agent/` |
 | Backup service       | `services/backup-service/`     |
-| n8n workflows        | `services/n8n/`                |
 | Cloudflared tunnel   | `services/cloudflared/`        |
 
 > Some service READMEs are still being written as part of the DX overhaul (2026-05, see [plan history](plans/HISTORIE.md)), Stage 9.

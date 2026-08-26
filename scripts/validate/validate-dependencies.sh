@@ -93,7 +93,6 @@ EXPECTED_ORDER=(
     "reverse-proxy"
     "dashboard-backend"
     "dashboard-frontend"
-    "n8n"
     "self-healing-agent"
 )
 

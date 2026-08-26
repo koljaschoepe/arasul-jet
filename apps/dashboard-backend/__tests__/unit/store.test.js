@@ -54,8 +54,8 @@ const MOCK_CATALOG = [
 ];
 
 const MOCK_APPS = [
-  { id: 'n8n', name: 'n8n', description: 'Workflow automation', category: 'automation' },
-  { id: 'terminal', name: 'Terminal', description: 'Shell access', category: 'tools' }
+  { id: 'beispiel-app', name: 'Beispiel-App', description: 'Workflow automation', category: 'automation' },
+  { id: 'zweite-app', name: 'Zweite App', description: 'Shell access', category: 'tools' }
 ];
 
 describe('Store Routes', () => {
@@ -150,7 +150,7 @@ describe('Store Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.apps.length).toBeGreaterThan(0);
-      expect(res.body.apps[0].id).toBe('n8n');
+      expect(res.body.apps[0].id).toBe('beispiel-app');
     });
 
     it('returns the search query in response', async () => {

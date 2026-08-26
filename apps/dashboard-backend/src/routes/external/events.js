@@ -24,7 +24,6 @@ const { NotFoundError, UnauthorizedError, ForbiddenError } = require('../../util
 const { webhookLimiter } = require('../../middleware/rateLimit');
 const { validateBody } = require('../../middleware/validate');
 const {
-  N8nWebhookBody,
   SelfHealingWebhookBody,
   ManualEventBody,
   UpdateNotificationSettingsBody,
@@ -205,50 +204,6 @@ router.post(
     res.json({
       success: true,
       eventId: result.eventId,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/events/webhook/n8n
- * Webhook endpoint for n8n workflow events
- * This endpoint accepts events from n8n workflows
- */
-router.post(
-  '/webhook/n8n',
-  webhookLimiter,
-  validateBody(N8nWebhookBody),
-  asyncHandler(async (req, res) => {
-    // SEC-FIX: Validate webhook secret (required for security)
-    // Without this, any request to this endpoint is accepted unauthenticated
-    const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      logger.warn('N8N_WEBHOOK_SECRET not configured - rejecting webhook request');
-      throw new UnauthorizedError(
-        'Webhook secret not configured. Set N8N_WEBHOOK_SECRET env variable.'
-      );
-    }
-    const providedSecret = req.headers['x-webhook-secret'] || req.query.secret;
-    if (!safeCompareSecret(providedSecret, webhookSecret)) {
-      logger.warn('Invalid n8n webhook secret');
-      throw new UnauthorizedError('Invalid webhook secret');
-    }
-
-    const { workflow_id, workflow_name, execution_id, status, error, duration_ms } = req.body;
-
-    const result = await eventListenerService.handleWorkflowEvent({
-      workflow_id,
-      workflow_name: workflow_name || `Workflow ${workflow_id}`,
-      execution_id,
-      status,
-      error,
-      duration_ms,
-    });
-
-    res.json({
-      received: true,
-      processed: result.success,
       timestamp: new Date().toISOString(),
     });
   })

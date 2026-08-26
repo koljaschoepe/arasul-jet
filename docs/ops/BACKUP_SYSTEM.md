@@ -1,9 +1,9 @@
 # Backup System
 
-Automated backup service for PostgreSQL (which holds the n8n workflow and
-credential data) and the flow definitions under `data/flows/`. Bis zum
-26.08.2026 sicherte der Dienst zusaetzlich MinIO; mit Phase B4 des Rueckbaus
-ist der Objektspeicher weg, kein Dienst schreibt mehr hinein.
+Automated backup service for PostgreSQL and the flow definitions under
+`data/flows/`. Bis zum 26.08.2026 sicherte der Dienst zusaetzlich MinIO
+(Phase B4) und hinterlegte den n8n-Schluessel neben dem Abzug (Phase B5);
+beide Dienste sind ausgebaut.
 
 ## Overview
 
@@ -40,9 +40,7 @@ ist der Objektspeicher weg, kein Dienst schreibt mehr hinein.
 
 ### 1. PostgreSQL Database
 
-**Method:** `pg_dump` with gzip compression. n8n persists workflows and
-credentials in this same database, so the dump covers them too; the
-credentials stay encrypted with the n8n encryption key (see below).
+**Method:** `pg_dump` with gzip compression.
 
 ```bash
 pg_dump -h postgres-db -U arasul -d arasul_db \
@@ -63,22 +61,7 @@ pg_dump -h postgres-db -U arasul -d arasul_db \
 gzip -t /backups/postgres/arasul_db_latest.sql.gz
 ```
 
-### 2. n8n Encryption-Key Escrow
-
-The Postgres dump above contains n8n's encrypted credentials, but they are
-useless without the n8n encryption key. If `BACKUP_ENCRYPT=true` and the key
-file is present, `backup.sh` copies `/run/secrets/n8n_encryption_key`
-alongside the dump and encrypts it too; otherwise it only logs a warning that
-the key must be backed up out-of-band.
-
-**Output:**
-
-- File: `/backups/escrow/n8n_encryption_key_YYYYMMDD_HHMMSS`
-- Latest: `/backups/escrow/n8n_encryption_key_latest` (symlink)
-- Fingerprint: `/backups/escrow/n8n_encryption_key_YYYYMMDD_HHMMSS.sha256`
-  (plaintext, so an operator can verify a restore without decrypting)
-
-### 3. Flows
+### 2. Flows
 
 Flow definitions (Plan 011) are Markdown files under `data/flows/` — they are
 **not** stored in Postgres. They are user-authored and
@@ -127,10 +110,6 @@ archive and the raw segments once they age past the daily retention window.
 │   ├── arasul_db_latest.sql.gz → arasul_db_20240125_020012.sql.gz
 │   ├── weekly/
 │   └── monthly/
-├── escrow/
-│   ├── n8n_encryption_key_20240124_020015
-│   ├── n8n_encryption_key_20240124_020015.sha256
-│   └── n8n_encryption_key_latest → n8n_encryption_key_20240124_020015
 ├── flows/
 │   ├── flows_20240124_020110.tar.gz
 │   ├── flows_20240125_020108.tar.gz
@@ -154,7 +133,6 @@ archive and the raw segments once they age past the daily retention window.
 | BACKUP_MONTHLY_RETENTION_MONTHS | 60                                 | Months to keep monthly snapshots           |
 | BACKUP_ENCRYPT                  | false                              | Encrypt backups with AES-256-CBC (openssl) |
 | BACKUP_ENCRYPT_KEY_FILE         | /run/secrets/backup_encryption_key | Key file used when BACKUP_ENCRYPT=true     |
-| N8N_ENCRYPTION_KEY_FILE         | /run/secrets/n8n_encryption_key    | Key escrowed alongside the Postgres dump   |
 | POSTGRES_HOST                   | postgres-db                        | PostgreSQL host                            |
 | POSTGRES_USER                   | arasul                             | PostgreSQL user                            |
 | POSTGRES_PASSWORD               | (required, via Docker secret)      | PostgreSQL password                        |
@@ -231,31 +209,15 @@ docker exec backup-service /usr/local/bin/backup.sh
 
 ```bash
 # Stop services that depend on database
-docker compose stop dashboard-backend n8n
+docker compose stop dashboard-backend
 
 # Restore from backup
 gunzip -c /data/backups/postgres/arasul_db_latest.sql.gz | \
   docker exec -i postgres-db psql -U arasul -d arasul_db
 
 # Restart services
-docker compose start dashboard-backend n8n
+docker compose start dashboard-backend
 ```
-
-### Restore n8n Workflows and Credentials
-
-n8n's workflows and credentials live in the same PostgreSQL database, so the
-Postgres restore above already brings them back. Credentials stay encrypted
-with the n8n encryption key; if that key was rotated or lost, restore it from
-the escrow **before** starting n8n:
-
-```bash
-# Restore the escrowed key (matches the sha256 fingerprint next to it)
-cp /data/backups/escrow/n8n_encryption_key_latest /run/secrets/n8n_encryption_key
-```
-
-`scripts/backup/restore.sh --n8n <file>` still exists for the older
-`n8n export:workflow` JSON format, but `backup.sh` no longer produces such
-files: workflows are covered by the Postgres dump instead.
 
 ### Restore Flows
 
@@ -406,5 +368,4 @@ extension.
 ## Related Documentation
 
 - [PostgreSQL Service](../../services/postgres/README.md)
-- [n8n Service](../../services/n8n/README.md)
 - [Disaster Recovery](DISASTER_RECOVERY.md)

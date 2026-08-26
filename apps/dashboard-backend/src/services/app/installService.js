@@ -511,37 +511,9 @@ async function checkDependencies(appId) {
   return { hasDependents: false, dependentApps: [] };
 }
 
-/**
- * Sync system apps status with actual Docker state
- */
-async function syncSystemApps() {
-  const containerService = require('./containerService');
-  const systemApps = ['n8n'];
-
-  for (const appId of systemApps) {
-    try {
-      const status = await containerService.getContainerStatus(appId);
-      const dbStatus = status?.Running ? 'running' : 'installed';
-
-      await db.query(
-        `
-                    UPDATE app_installations
-                    SET status = $1,
-                        started_at = CASE WHEN $1 = 'running' AND started_at IS NULL THEN NOW() ELSE started_at END
-                    WHERE app_id = $2
-                `,
-        [dbStatus, appId]
-      );
-    } catch (err) {
-      logger.debug(`Could not sync status for ${appId}: ${err.message}`);
-    }
-  }
-}
-
 module.exports = {
   installApp,
   installAppWithProgress,
   uninstallApp,
   checkDependencies,
-  syncSystemApps,
 };

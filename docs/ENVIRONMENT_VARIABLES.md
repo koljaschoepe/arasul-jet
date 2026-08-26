@@ -20,9 +20,9 @@ einem ausgelieferten Geraet nicht einstellbar. Die Liste steht in
 dazukommen. Wer eine davon braucht, ergaenzt eine Zeile in
 `compose/compose.app.yaml` und streicht sie dort aus der Liste.
 
-Geheimnisse sind die Ausnahme und richtig verdrahtet: `JWT_SECRET` und die
-beiden `N8N_OWNER_*` kommen als `<NAME>_FILE` aus `compose.secrets.yaml` und
-werden von `utils/resolveSecrets.js` beim Start eingelesen.
+Geheimnisse sind die Ausnahme und richtig verdrahtet: `JWT_SECRET` kommt als
+`JWT_SECRET_FILE` aus `compose.secrets.yaml` und wird von
+`utils/resolveSecrets.js` beim Start eingelesen.
 
 ---
 
@@ -43,17 +43,17 @@ werden von `utils/resolveSecrets.js` beim Start eingelesen.
 
 ## Authentication
 
-| Variable               | Default            | Description                                                                                                                                                                                                                                                            |
-| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ADMIN_USERNAME         | admin              | Dashboard admin username                                                                                                                                                                                                                                               |
-| ADMIN_PASSWORD         | (required)         | Dashboard admin password (redacted after bootstrap)                                                                                                                                                                                                                    |
-| ADMIN_EMAIL            | admin@arasul.local | Bootstrap admin email                                                                                                                                                                                                                                                  |
-| JWT_SECRET             | (required)         | JWT signing key (32+ chars)                                                                                                                                                                                                                                            |
-| JWT_EXPIRY             | 4h                 | Lebensdauer eines Tokens (`24h`, `4h`, `30m`, oder Sekunden als Zahl). Das Sitzungs-Cookie folgt diesem Wert seit dem 23.08.2026; vorher stand dort fest 4h, und nach vier Stunden brach bei `JWT_EXPIRY=24h` still der n8n-Rahmen, weil ein iframe nur das Cookie hat |
-| LOGIN_LOCKOUT_ATTEMPTS | 5                  | Failed attempts before lockout                                                                                                                                                                                                                                         |
-| LOGIN_LOCKOUT_MINUTES  | 15                 | Lockout duration                                                                                                                                                                                                                                                       |
-| FORCE_HTTPS            | false              | HTTPS erzwingen                                                                                                                                                                                                                                                        |
-| FORCE_SECURE_COOKIES   | false              | Secure-Flag für Cookies                                                                                                                                                                                                                                                |
+| Variable               | Default            | Description                                                                                                                                                                                                                                                                                |
+| ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ADMIN_USERNAME         | admin              | Dashboard admin username                                                                                                                                                                                                                                                                   |
+| ADMIN_PASSWORD         | (required)         | Dashboard admin password (redacted after bootstrap)                                                                                                                                                                                                                                        |
+| ADMIN_EMAIL            | admin@arasul.local | Bootstrap admin email                                                                                                                                                                                                                                                                      |
+| JWT_SECRET             | (required)         | JWT signing key (32+ chars)                                                                                                                                                                                                                                                                |
+| JWT_EXPIRY             | 4h                 | Lebensdauer eines Tokens (`24h`, `4h`, `30m`, oder Sekunden als Zahl). Das Sitzungs-Cookie folgt diesem Wert seit dem 23.08.2026; vorher stand dort fest 4h, und nach vier Stunden brach bei `JWT_EXPIRY=24h` still der damals eingebettete n8n-Rahmen, weil ein iframe nur das Cookie hat |
+| LOGIN_LOCKOUT_ATTEMPTS | 5                  | Failed attempts before lockout                                                                                                                                                                                                                                                             |
+| LOGIN_LOCKOUT_MINUTES  | 15                 | Lockout duration                                                                                                                                                                                                                                                                           |
+| FORCE_HTTPS            | false              | HTTPS erzwingen                                                                                                                                                                                                                                                                            |
+| FORCE_SECURE_COOKIES   | false              | Secure-Flag für Cookies                                                                                                                                                                                                                                                                    |
 
 ---
 
@@ -79,29 +79,29 @@ werden von `utils/resolveSecrets.js` beim Start eingelesen.
 
 > **Hinweis:** `LLM_HOST`, `LLM_PORT` und `LLM_MANAGEMENT_PORT` sind **deprecated**. Der interne Code verwendet `LLM_SERVICE_HOST`, `LLM_SERVICE_PORT` und `LLM_SERVICE_MANAGEMENT_PORT`. Die alten Namen werden noch als Fallback akzeptiert, sollten aber in neuen Konfigurationen nicht mehr verwendet werden.
 
-| Variable                    | Default           | Description                                                                                                                                                                                               |
-| --------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LLM_SERVICE_HOST            | llm-service       | Hostname des LLM-Service                                                                                                                                                                                  |
-| LLM_SERVICE_PORT            | 11434             | Port des LLM-Service                                                                                                                                                                                      |
-| LLM_SERVICE_MANAGEMENT_PORT | 11436             | Management-Port des LLM-Service                                                                                                                                                                           |
-| ARASUL_ENGINE               | (auto)            | Engine-Override (Plan 021): `ollama` oder `vllm`. Leer = automatische HAL-Auflösung (`config/platforms/<profil>.json` → `engine`, sonst `ollama`). Ungültige Werte werden ignoriert.                      |
-| PLATFORMS_DIR               | /config/platforms | Verzeichnis des HAL-Katalogs, aus dem das Engine-Gateway das `engine`-Feld liest (im Container gemountet via `../config:/config:ro`).                                                                     |
-| VLLM_SERVICE_HOST           | vllm              | Hostname des vLLM-Backends (Platzhalter bis Plan 021 Schritt 7; auf dem Orin ungenutzt)                                                                                                                   |
-| VLLM_SERVICE_PORT           | 8000              | Port des vLLM-Backends (OpenAI-kompatibel unter `/v1/*`; Platzhalter bis Plan 021 Schritt 7)                                                                                                              |
-| LLM_HOST                    | llm-service       | _(deprecated)_ Alias für `LLM_SERVICE_HOST`                                                                                                                                                               |
-| LLM_PORT                    | 11434             | _(deprecated)_ Alias für `LLM_SERVICE_PORT`                                                                                                                                                               |
-| LLM_MANAGEMENT_PORT         | 11436             | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT`                                                                                                                                                    |
-| LLM_MODEL                   | gemma4:26b-q4     | Default LLM model (Gemma 4, hardware-abhängig)                                                                                                                                                            |
-| LLM_MAX_TOKENS              | 2048              | Max response tokens                                                                                                                                                                                       |
-| LLM_CONTEXT_SIZE            | 4096              | Context window size                                                                                                                                                                                       |
-| LLM_MAX_RAM_GB              | 40                | Max RAM allocation (GB)                                                                                                                                                                                   |
-| LLM_GPU_LAYERS              | 33                | GPU layers                                                                                                                                                                                                |
-| LLM_KEEP_ALIVE_SECONDS      | 3600              | Seconds Ollama keeps a loaded model resident (default 1h after migration 094)                                                                                                                             |
-| OLLAMA_NUM_PARALLEL         | 2                 | Concurrent Ollama generation slots (1 on tight 32 GB Orin)                                                                                                                                                |
-| OLLAMA_KV_CACHE_TYPE        | q8_0              | KV-Cache-Quantisierung (seit Harness v2; vorher fest q4_0). q8_0 = halber f16-Speicher bei praktisch verlustfreier Qualität; auf knappen 32-GB-Orins via `.env` auf q4_0 zurückstellbar                   |
-| OLLAMA_CONTEXT_LENGTH       | 32768             | Default-Kontextfenster aller Ollama-Modelle. ≥32k nötig für n8n-Agent-Tool-Calling (Ollama truncated sonst still). Auf knappen 32-GB-Orins via `.env` absenkbar — siehe `docs/integrations/N8N_AGENTS.md` |
-| OLLAMA_STARTUP_TIMEOUT      | 120               | Ollama startup timeout (seconds)                                                                                                                                                                          |
-| MAX_STORED_MODELS           | 10                | Maximale Anzahl gespeicherter Modelle                                                                                                                                                                     |
+| Variable                    | Default           | Description                                                                                                                                                                             |
+| --------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM_SERVICE_HOST            | llm-service       | Hostname des LLM-Service                                                                                                                                                                |
+| LLM_SERVICE_PORT            | 11434             | Port des LLM-Service                                                                                                                                                                    |
+| LLM_SERVICE_MANAGEMENT_PORT | 11436             | Management-Port des LLM-Service                                                                                                                                                         |
+| ARASUL_ENGINE               | (auto)            | Engine-Override (Plan 021): `ollama` oder `vllm`. Leer = automatische HAL-Auflösung (`config/platforms/<profil>.json` → `engine`, sonst `ollama`). Ungültige Werte werden ignoriert.    |
+| PLATFORMS_DIR               | /config/platforms | Verzeichnis des HAL-Katalogs, aus dem das Engine-Gateway das `engine`-Feld liest (im Container gemountet via `../config:/config:ro`).                                                   |
+| VLLM_SERVICE_HOST           | vllm              | Hostname des vLLM-Backends (Platzhalter bis Plan 021 Schritt 7; auf dem Orin ungenutzt)                                                                                                 |
+| VLLM_SERVICE_PORT           | 8000              | Port des vLLM-Backends (OpenAI-kompatibel unter `/v1/*`; Platzhalter bis Plan 021 Schritt 7)                                                                                            |
+| LLM_HOST                    | llm-service       | _(deprecated)_ Alias für `LLM_SERVICE_HOST`                                                                                                                                             |
+| LLM_PORT                    | 11434             | _(deprecated)_ Alias für `LLM_SERVICE_PORT`                                                                                                                                             |
+| LLM_MANAGEMENT_PORT         | 11436             | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT`                                                                                                                                  |
+| LLM_MODEL                   | gemma4:26b-q4     | Default LLM model (Gemma 4, hardware-abhängig)                                                                                                                                          |
+| LLM_MAX_TOKENS              | 2048              | Max response tokens                                                                                                                                                                     |
+| LLM_CONTEXT_SIZE            | 4096              | Context window size                                                                                                                                                                     |
+| LLM_MAX_RAM_GB              | 40                | Max RAM allocation (GB)                                                                                                                                                                 |
+| LLM_GPU_LAYERS              | 33                | GPU layers                                                                                                                                                                              |
+| LLM_KEEP_ALIVE_SECONDS      | 3600              | Seconds Ollama keeps a loaded model resident (default 1h after migration 094)                                                                                                           |
+| OLLAMA_NUM_PARALLEL         | 2                 | Concurrent Ollama generation slots (1 on tight 32 GB Orin)                                                                                                                              |
+| OLLAMA_KV_CACHE_TYPE        | q8_0              | KV-Cache-Quantisierung (seit Harness v2; vorher fest q4_0). q8_0 = halber f16-Speicher bei praktisch verlustfreier Qualität; auf knappen 32-GB-Orins via `.env` auf q4_0 zurückstellbar |
+| OLLAMA_CONTEXT_LENGTH       | 32768             | Default-Kontextfenster aller Ollama-Modelle (≥32k, sonst kürzt Ollama Werkzeugaufrufe still). Auf knappen 32-GB-Orins via `.env` absenkbar                                              |
+| OLLAMA_STARTUP_TIMEOUT      | 120               | Ollama startup timeout (seconds)                                                                                                                                                        |
+| MAX_STORED_MODELS           | 10                | Maximale Anzahl gespeicherter Modelle                                                                                                                                                   |
 
 ---
 
@@ -169,32 +169,6 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ---
 
-## SearXNG (Web search for flows)
-
-Flows with the `web_suche` / `web_lesen` tools search through the platform's
-own SearXNG container — no third-party account, no API key, no queries tied to
-the device by an external provider. The service is deliberately **not** exposed
-via Traefik; only the backend reaches it on the internal network.
-
-| Variable             | Default             | Description                                                                                                                                                                         |
-| -------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SEARXNG_SECRET       | _(generated)_       | Session secret. SearXNG refuses to start without it. Created per device by `./arasul bootstrap` and by `deploy-local.sh`, appended to `.env`. Carries no data — safe to regenerate. |
-| SEARXNG_URL          | http://searxng:8080 | Where the backend reaches SearXNG. Rarely changed.                                                                                                                                  |
-| RAM_LIMIT_SEARXNG    | 512M                | Memory limit for the container.                                                                                                                                                     |
-| WEB_SUCHE_TIMEOUT_MS | 15000               | Timeout for a search query.                                                                                                                                                         |
-| WEB_LESEN_TIMEOUT_MS | 20000               | Timeout for fetching a single page.                                                                                                                                                 |
-
-Configuration lives in `config/searxng/settings.yml`. One setting there is
-load-bearing: `search.formats` **must** include `json`. SearXNG serves HTML
-only by default, and without `json` every tool call comes back as a 403 —
-with nothing in the logs that looks like a misconfiguration.
-
-`web_lesen` refuses private, loopback and link-local addresses, and re-checks
-after every redirect. The backend sits on the internal network, so without that
-check a "web page" of `http://postgres-db:5432` would be a way into the stack.
-
----
-
 ## Document Indexer
 
 | Variable                  | Default          | Description                                                                                                                                          |
@@ -216,74 +190,22 @@ check a "web page" of `http://postgres-db:5432` would be a way into the stack.
 
 ---
 
-## n8n (Workflow)
+## Cloudflare Tunnel (Fernzugriff ohne offene Ports)
 
-| Variable                | Default                          | Description                                                                                                                                                                                                                                                                                                                                   |
-| ----------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| N8N_HOST                | n8n                              | n8n hostname                                                                                                                                                                                                                                                                                                                                  |
-| N8N_PORT                | 5678                             | n8n port                                                                                                                                                                                                                                                                                                                                      |
-| N8N_BASIC_AUTH_USER     | (deprecated, unused)             | Legacy basic-auth user. n8n 2.x runs with `N8N_BASIC_AUTH_ACTIVE=false`; auth is the fixed owner + forward-auth (Plan 007). Kept only for backward-compat.                                                                                                                                                                                    |
-| N8N_BASIC_AUTH_PASSWORD | (deprecated, unused)             | Legacy basic-auth password — see above. Not required.                                                                                                                                                                                                                                                                                         |
-| N8N_ENCRYPTION_KEY      | (required)                       | Encryption key (32+ chars)                                                                                                                                                                                                                                                                                                                    |
-| N8N_OWNER_EMAIL         | via `n8n_owner_email` secret     | Fixed n8n owner e-mail (Plan 007). Resolved from the Docker secret; provisions the owner and drives `GET /api/automations/session`.                                                                                                                                                                                                           |
-| N8N_OWNER_PASSWORD      | via `n8n_owner_password` secret  | Fixed n8n owner password (Plan 007). Must satisfy n8n's policy (≥8 chars, ≥1 uppercase, ≥1 digit); auto-generated compliant.                                                                                                                                                                                                                  |
-| N8N_EXTERNAL_URL        | (optional)                       | Public HTTPS URL for OAuth callbacks                                                                                                                                                                                                                                                                                                          |
-| N8N_PROTOCOL            | https                            | Protocol (http/https)                                                                                                                                                                                                                                                                                                                         |
-| N8N_SECURE_COOKIE       | true                             | Secure cookies (true for HTTPS)                                                                                                                                                                                                                                                                                                               |
-| N8N_URL                 | http://n8n:5678                  | n8n service URL                                                                                                                                                                                                                                                                                                                               |
-| N8N_API_KEY             | (none)                           | n8n Public-API-Key. Genutzt vom Workflows-Tool und (Plan 017 Schritt 3) vom Flow-Deploy: Live-Schalten einer `flow`-Erweiterung importiert + aktiviert ihren `workflow.json` per n8n-API. In der n8n-Oberfläche erstellen und in der Host-`.env` hinterlegen; fehlt er, degradiert das Live-Schalten sichtbar (Status „n8n-API-Zugang fehlt") |
-| N8N_API_TIMEOUT_MS      | 10000                            | Timeout (ms) der n8n-API-Aufrufe des Flow-Deploys (`flowDeployService`)                                                                                                                                                                                                                                                                       |
-| N8N_WEBHOOK_SECRET      | (none)                           | n8n webhook verification secret                                                                                                                                                                                                                                                                                                               |
-| N8N_SSH_KEY_PATH        | /arasul/ssh-keys/n8n_private_key | SSH key for n8n access                                                                                                                                                                                                                                                                                                                        |
-| N8N_PROXY_HOPS          | 1                                | trust-proxy hop count behind Traefik                                                                                                                                                                                                                                                                                                          |
+Optional, Profil `tunnel` in `compose/compose.external.yaml`.
 
-### n8n 2.x — Task Runner & Agent-Härtung
-
-Gesetzt in `compose/compose.app.yaml` (n8n + n8n-runners) bzw.
-`compose/compose.secrets.yaml`; Hintergrund in
-[docs/integrations/N8N_AGENTS.md](integrations/N8N_AGENTS.md).
-
-| Variable                          | Default / Wert                                                   | Description                                                                                                                                                                                                                |
-| --------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| N8N_RUNNERS_MODE                  | external                                                         | Code-Nodes laufen im Sidecar `n8n-runners` statt im n8n-Prozess                                                                                                                                                            |
-| N8N_RUNNERS_BROKER_LISTEN_ADDRESS | 0.0.0.0                                                          | Task-Broker (Port 5679, nur Docker-Netz) für den Sidecar erreichbar machen                                                                                                                                                 |
-| N8N_RUNNERS_AUTH_TOKEN            | (Docker-Secret `n8n_runners_auth_token`)                         | Gemeinsames Auth-Token n8n ↔ Runner. Generiert von Setup/Bootstrap; nie in `.env` oder Compose eintragen                                                                                                                   |
-| N8N_RUNNERS_TASK_BROKER_URI       | http://n8n:5679                                                  | (n8n-runners) Adresse des Task-Brokers                                                                                                                                                                                     |
-| N8N_RUNNERS_LAUNCHER_LOG_LEVEL    | info                                                             | (n8n-runners) Log-Level des Launchers                                                                                                                                                                                      |
-| NODE_FUNCTION_ALLOW_BUILTIN       | crypto,fs,fs/promises,path                                       | (n8n-runners) Freigegebene Node-Builtins im JS-Runner — nötig für Datei-Ablage im Agent-Workspace. **Nicht als Env setzbar**: wirkt nur über `services/n8n/runners/n8n-task-runners.json` (→ `/etc/n8n-task-runners.json`) |
-| N8N_RESTRICT_FILE_ACCESS_TO       | /data/agent-workspace                                            | Einziger für Datei-Nodes erlaubter Pfad (Volume `n8n-agent-workspace`, in n8n **und** n8n-runners gemountet)                                                                                                               |
-| N8N_SSRF_PROTECTION_ENABLED       | true                                                             | SSRF-Schutz der HTTP-Nodes (ab n8n 2.12): blockt RFC1918/Loopback/Link-Local inkl. Redirect/DNS-Rebinding                                                                                                                  |
-| N8N_SSRF_ALLOWED_HOSTNAMES        | llm-service,dashboard-backend,embedding-service,document-indexer | Interne Hostnames, die trotz SSRF-Schutz erreichbar sind (Allowlist > Blocklist); postgres-db bewusst nicht                                                                                                                |
-| N8N_DISABLED_MODULES              | mcp                                                              | Instanzweiten MCP-Server abschalten (MCP-Client-Tool-Node bleibt nutzbar)                                                                                                                                                  |
-| N8N_TEMPLATES_ENABLED             | false                                                            | Kein Template-Store-Callout zu api.n8n.io (GDPR/offline)                                                                                                                                                                   |
-| N8N_AGENT_MODEL                   | qwen3:8b                                                         | (nur `scripts/util/n8n-import-templates.sh`) Default-Agent-Modell, das provisioniert wird                                                                                                                                  |
-| RAM_LIMIT_N8N_RUNNERS             | 1G                                                               | Memory-Limit des Runner-Sidecars                                                                                                                                                                                           |
-
----
-
-## Cloudflare Tunnel (OAuth Gateway)
-
-Required for Google OAuth and external webhook access from other devices.
-
-| Variable                | Default    | Description                                 |
-| ----------------------- | ---------- | ------------------------------------------- |
-| CLOUDFLARE_TUNNEL_TOKEN | (optional) | Tunnel token from Cloudflare Zero Trust     |
-| N8N_EXTERNAL_URL        | (optional) | Public URL, e.g., `https://n8n.example.com` |
-| RAM_LIMIT_CLOUDFLARED   | 128M       | Memory limit for cloudflared                |
+| Variable                | Default    | Description                             |
+| ----------------------- | ---------- | --------------------------------------- |
+| CLOUDFLARE_TUNNEL_TOKEN | (optional) | Tunnel token from Cloudflare Zero Trust |
+| RAM_LIMIT_CLOUDFLARED   | 128M       | Memory limit for cloudflared            |
 
 ### Setup
 
 1. Create tunnel at [Cloudflare Zero Trust](https://one.dash.cloudflare.com) → Networks → Tunnels
 2. Copy tunnel token (starts with `eyJ...`)
-3. Set environment variables:
-   ```bash
-   CLOUDFLARE_TUNNEL_TOKEN=eyJ...your-token
-   N8N_EXTERNAL_URL=https://n8n.yourdomain.com
-   ```
+3. Set `CLOUDFLARE_TUNNEL_TOKEN=eyJ...your-token` in `.env`
 4. Configure public hostname in Cloudflare dashboard: `http://reverse-proxy:80`
-5. Restart: `docker compose up -d cloudflared n8n`
-
-See [CUSTOMER_OAUTH_SETUP.md](./features/CUSTOMER_OAUTH_SETUP.md) for detailed instructions.
+5. Start: `docker compose --profile tunnel up -d cloudflared`
 
 ---
 
@@ -597,9 +519,7 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 | RAM_LIMIT_LLM              | 32G     | LLM service memory           |
 | RAM_LIMIT_EMBEDDING        | 12G     | Embedding service memory     |
 | RAM_LIMIT_POSTGRES         | 4G      | PostgreSQL database memory   |
-| RAM_LIMIT_N8N              | 2G      | n8n workflow engine memory   |
 | RAM_LIMIT_DOCUMENT_INDEXER | 2G      | Document indexer memory      |
-| RAM_LIMIT_SEARXNG          | 512M    | SearXNG web search memory    |
 | RAM_LIMIT_METRICS          | 512M    | Metrics collector memory     |
 | RAM_LIMIT_SELF_HEALING     | 512M    | Self-healing agent memory    |
 | RAM_LIMIT_REVERSE_PROXY    | 512M    | Traefik reverse proxy memory |
@@ -663,11 +583,6 @@ JWT_SECRET=<32+ character random string>
 
 # Database
 POSTGRES_PASSWORD=<secure password>
-
-# n8n
-N8N_BASIC_AUTH_USER=<username>
-N8N_BASIC_AUTH_PASSWORD=<secure password>
-N8N_ENCRYPTION_KEY=<32+ character random string>
 ```
 
 ## Example .env File
@@ -696,11 +611,6 @@ POSTGRES_DB=arasul_db
 LLM_MODEL=gemma4:26b-q4
 LLM_KEEP_ALIVE_SECONDS=3600
 
-# n8n
-N8N_BASIC_AUTH_USER=admin
-N8N_BASIC_AUTH_PASSWORD=YourN8nPassword123!
-N8N_ENCRYPTION_KEY=your-32-char-random-string-here-for-n8n
-
 # Self-Healing
 SELF_HEALING_ENABLED=true
 SELF_HEALING_REBOOT_ENABLED=false
@@ -722,7 +632,7 @@ Validates:
 - Port ranges valid
 - Password strength
 - Threshold ordering (WARNING < CLEANUP < CRITICAL < REBOOT)
-- Key lengths (JWT_SECRET, N8N_ENCRYPTION_KEY >= 32 chars)
+- Key lengths (JWT_SECRET >= 32 chars)
 
 ---
 
@@ -749,8 +659,6 @@ chmod 700 config/secrets
 # Create secret files (example)
 echo -n 'YourDBPassword123!' > config/secrets/postgres_password
 echo -n 'YourJWTSecret32chars!' > config/secrets/jwt_secret
-echo -n 'YourN8nEncryptionKey32chars!' > config/secrets/n8n_encryption_key
-openssl rand -hex 32 > config/secrets/n8n_runners_auth_token
 
 # Restrict permissions
 chmod 600 config/secrets/*
@@ -758,21 +666,10 @@ chmod 600 config/secrets/*
 
 ### Supported Secrets
 
-| Secret File              | Services                                                                              | Resolves To              |
-| ------------------------ | ------------------------------------------------------------------------------------- | ------------------------ |
-| `postgres_password`      | postgres-db, dashboard-backend, metrics-collector, self-healing-agent, backup-service | `POSTGRES_PASSWORD`      |
-| `jwt_secret`             | dashboard-backend                                                                     | `JWT_SECRET`             |
-| `n8n_encryption_key`     | n8n                                                                                   | `N8N_ENCRYPTION_KEY`     |
-| `n8n_runners_auth_token` | n8n (via entrypoint-Shim), n8n-runners (Launcher versteht `_FILE` nativ)              | `N8N_RUNNERS_AUTH_TOKEN` |
-| `n8n_owner_email`        | n8n (entrypoint provisioniert den Owner), dashboard-backend (Auto-Session)            | `N8N_OWNER_EMAIL`        |
-| `n8n_owner_password`     | n8n (entrypoint provisioniert den Owner), dashboard-backend (Auto-Session)            | `N8N_OWNER_PASSWORD`     |
-
-### Additional Backend Secrets
-
-The dashboard-backend resolver also supports these `_FILE` variables (add them to `docker-compose.secrets.yml` as needed):
-
-- `N8N_OWNER_EMAIL_FILE` → `N8N_OWNER_EMAIL` (Plan 007 — n8n Auto-Session)
-- `N8N_OWNER_PASSWORD_FILE` → `N8N_OWNER_PASSWORD` (Plan 007 — n8n Auto-Session)
+| Secret File         | Services                                                                              | Resolves To         |
+| ------------------- | ------------------------------------------------------------------------------------- | ------------------- |
+| `postgres_password` | postgres-db, dashboard-backend, metrics-collector, self-healing-agent, backup-service | `POSTGRES_PASSWORD` |
+| `jwt_secret`        | dashboard-backend                                                                     | `JWT_SECRET`        |
 
 ### Precedence
 

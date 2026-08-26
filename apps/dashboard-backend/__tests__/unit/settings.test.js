@@ -3,7 +3,6 @@
  *
  * Tests all settings endpoints:
  * - POST /api/settings/password/dashboard - Change dashboard password
- * - POST /api/settings/password/n8n       - Change n8n password
  * - GET  /api/settings/password-requirements - Get password requirements
  * - GET  /api/settings/company-context    - Get company context
  * - PUT  /api/settings/company-context    - Update company context
@@ -62,8 +61,7 @@ jest.mock('../../src/config/services', () => ({
   embedding: { url: 'http://localhost:11435', host: 'localhost', port: 11435 },
   qdrant: { url: 'http://localhost:6333', host: 'localhost', port: 6333 },
   documentIndexer: { url: 'http://localhost:9102', host: 'localhost', port: 9102 },
-  selfHealing: { url: 'http://localhost:9200', host: 'localhost', port: 9200 },
-  n8n: { url: 'http://localhost:5678', host: 'localhost', port: 5678 }
+  selfHealing: { url: 'http://localhost:9200', host: 'localhost', port: 9200 }
 }));
 
 const db = require('../../src/database');
@@ -183,35 +181,6 @@ describe('Settings Routes', () => {
 
       const res = await request(app)
         .post('/api/settings/password/dashboard')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: 'OldPass123!', newPassword: 'abc' });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty('error');
-    });
-  });
-
-  // ============================================================================
-  // POST /api/settings/password/n8n
-  // ============================================================================
-  describe('POST /api/settings/password/n8n', () => {
-    test('returns 400 when currentPassword is missing', async () => {
-      setupMocksWithAuth();
-
-      const res = await request(app)
-        .post('/api/settings/password/n8n')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ newPassword: 'ValidPass123' });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty('error');
-    });
-
-    test('returns 400 when new password fails complexity check', async () => {
-      setupMocksWithAuth();
-
-      const res = await request(app)
-        .post('/api/settings/password/n8n')
         .set('Authorization', `Bearer ${token}`)
         .send({ currentPassword: 'OldPass123!', newPassword: 'abc' });
 

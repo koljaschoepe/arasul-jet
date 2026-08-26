@@ -56,7 +56,7 @@ Concretely, this means:
 | Surface             | Lives in                       | Who cares               |
 | ------------------- | ------------------------------ | ----------------------- |
 | **Dashboard UI**    | `apps/dashboard-frontend/`     | End users, admins       |
-| **HTTP API**        | `apps/dashboard-backend/`      | Frontend, n8n, agents   |
+| **HTTP API**        | `apps/dashboard-backend/`      | Frontend, integrations  |
 | **Database**        | `services/postgres/init/*.sql` | All backend services    |
 | **LLM / RAG**       | `services/llm-service/`        | Chat, agents, search    |
 | **Ops / Self-heal** | `services/self-healing-agent/` | Autonomous recovery     |
@@ -208,7 +208,6 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 | Adding a UI page     | `apps/dashboard-frontend/src/App.tsx`                                         |
 | Adding a DB field    | `services/postgres/init/` (next migration number)                             |
 | Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                                    |
-| Debugging n8n flow   | `services/n8n/` + dashboard n8n page                                          |
 | Touching flows       | `apps/dashboard-backend/src/services/flows/` + `routes/flows.js`              |
 | Changing design      | `docs/development/DESIGN_SYSTEM.md` + `apps/dashboard-frontend/src/index.css` |
 
@@ -217,7 +216,6 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 Before editing in a domain, glance at the matching context file:
 
 - `.claude/context/backend.md` — Express routes, services, middleware
-- `.claude/context/n8n-workflow.md` — n8n workflow engine + custom nodes
 - `.claude/context/llm-queue.md` — LLM service queue + concurrency
 - `.claude/context/security.md` — Auth, RBAC, audit logs
 - `.claude/context/observability.md` — Metrics, logs, alerts

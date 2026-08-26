@@ -20,9 +20,9 @@ Backend sind Protokollzeilen aus der Zeit vor der Umstellung und werden mit der
 Zeit ohnehin deutsch. Eine Regel, die je nach vermuteter Sprache anders gilt,
 waere schwerer zu befolgen als eine, die ueberall gilt.
 
-Fuer ganze DOKUMENTE gilt das nicht: docs/integrations/N8N_OVERVIEW.md ist eine
-englische Kundenunterlage, dort ist der Gedankenstrich richtig gesetzt. Der
-Unterschied ist Prosa gegen Zeichenkette, nicht Deutsch gegen Englisch.
+Fuer ganze DOKUMENTE gilt das nicht: eine englische Kundenunterlage setzt den
+Gedankenstrich richtig. Der Unterschied ist Prosa gegen Zeichenkette, nicht
+Deutsch gegen Englisch.
 
 Seit dem 21.08.2026 auch die MIGRATIONEN unter services/postgres/init/. Sie
 tragen die Texte, die im Katalog auf jeder Modellkachel stehen, und zwei davon

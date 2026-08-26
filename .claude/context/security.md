@@ -72,11 +72,11 @@ are the canonical table in
 ("Pick the right rate limiter") — don't restate the numbers here, they drift.
 
 **Traefik-Level zusätzlich (edge, vor dem Backend):**
-| Route | Limit |
-|-------|-------|
-| Auth API | 30/min |
-| n8n Webhooks | 100/min |
-| LLM API | 10/sec |
+
+| Route       | Limit   |
+| ----------- | ------- |
+| Auth API    | 30/min  |
+| LLM API     | 10/sec  |
 | General API | 100/sec |
 
 **File:** `src/middleware/rateLimit.js`

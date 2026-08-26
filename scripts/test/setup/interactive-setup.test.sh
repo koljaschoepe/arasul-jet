@@ -45,7 +45,6 @@ teardown() {
 
 @test "security: no hardcoded dev secrets in script" {
     ! grep -q "arasul-dev-jwt-secret" "$SETUP_SCRIPT"
-    ! grep -q "arasul-dev-n8n-encryption" "$SETUP_SCRIPT"
 }
 
 @test "security: generates JWT_SECRET with 32 bytes" {
@@ -74,10 +73,6 @@ teardown() {
 
 @test "env generation: generates JWT_SECRET" {
     grep -q "JWT_SECRET=" "$SETUP_SCRIPT"
-}
-
-@test "env generation: generates N8N_ENCRYPTION_KEY" {
-    grep -q "N8N_ENCRYPTION_KEY=" "$SETUP_SCRIPT"
 }
 
 @test "env generation: sets SELF_HEALING_REBOOT_ENABLED" {

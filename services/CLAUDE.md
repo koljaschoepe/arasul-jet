@@ -14,7 +14,6 @@
 | `self-healing-agent/` | Watches services, restarts/recovers, optional reboot | Python  |
 | `metrics-collector/`  | CPU/RAM/GPU/temperature → Postgres                   | Python  |
 | `backup-service/`     | Scheduled `pg_dump` + restore-drill                  | Bash    |
-| `n8n/`                | Workflow engine + custom nodes                       | TS/n8n  |
 | `postgres/`           | DB image, migrations — **see `postgres/CLAUDE.md`**  | SQL     |
 | `cloudflared/`        | Cloudflare tunnel client                             | config  |
 

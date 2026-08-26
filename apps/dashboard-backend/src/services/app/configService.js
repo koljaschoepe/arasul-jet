@@ -1,6 +1,6 @@
 /**
  * Config Service
- * Manages app configuration, n8n credentials, and app event logging.
+ * Manages app configuration and app event logging.
  */
 
 const fs = require('fs').promises;
@@ -161,82 +161,6 @@ async function getConfigOverrides(appId) {
 }
 
 /**
- * Get n8n integration credentials for SSH access
- * Returns host IP, port, username, and private key for n8n SSH connection to host
- * @param {string} appId - App ID
- * @returns {Promise<Object>} n8n credentials object
- */
-async function getN8nCredentials(appId) {
-  const manifestService = require('./manifestService');
-  const manifests = await manifestService.loadManifests();
-  const manifest = manifests[appId];
-
-  if (!manifest) {
-    throw new NotFoundError(`App ${appId} nicht gefunden`);
-  }
-
-  if (!manifest.n8nIntegration?.enabled) {
-    // `throw new Error` wurde vom Fehlerbehandler zu HTTP 500 mit der Meldung
-    // "Internal server error" — der Anrufer erfuhr nicht, was los ist, und die
-    // Ueberwachung sah einen Serverfehler, wo eine ganz normale Auskunft
-    // faellig war. Am 23.08.2026 live gefunden: `GET
-    // /api/apps/minio/n8n-credentials` antwortete mit 500, und MinIO hat
-    // schlicht keine n8n-Anbindung.
-    throw new ValidationError(`App ${appId} unterstützt keine n8n-Integration`);
-  }
-
-  // Docker Gateway = Host IP from container perspective
-  // The gateway of the arasul-net network (172.30.0.1) points to the host
-  const hostIp = process.env.DOCKER_GATEWAY_IP || '172.30.0.1';
-  const sshPort = parseInt(process.env.SSH_PORT || '2222');
-  const sshUser = process.env.SSH_USER || 'arasul';
-
-  // Try to read the private key from shared volume
-  let privateKey = null;
-  try {
-    const keyPath = process.env.N8N_SSH_KEY_PATH || '/arasul/ssh-keys/n8n_private_key';
-    privateKey = await fs.readFile(keyPath, 'utf8');
-    privateKey = privateKey.trim();
-  } catch (err) {
-    logger.debug('Could not read n8n private key: ' + err.message);
-  }
-
-  return {
-    enabled: true,
-    type: 'ssh-key', // Changed to ssh-key
-    ssh: {
-      host: hostIp,
-      port: sshPort,
-      username: sshUser,
-      privateKey: privateKey,
-      passphrase: '', // No passphrase
-      hints: {
-        host: 'Docker Gateway IP - zeigt auf den Host aus Container-Sicht',
-        port: 'Standard SSH-Port',
-        username: 'System-Benutzer auf dem Arasul-Host',
-        privateKey: 'SSH Private Key für passwortlose Authentifizierung',
-      },
-    },
-    command: resolveEnvVars(manifest.n8nIntegration.command) || null,
-    workingDirectory:
-      resolveEnvVars(manifest.n8nIntegration.workingDirectory) ||
-      process.env.COMPOSE_PROJECT_DIR ||
-      '/opt/arasul',
-    instructions: [
-      'Öffne n8n (Port 5678 oder /n8n)',
-      'Gehe zu Credentials → Add Credential → SSH',
-      'Wähle "Private Key" als Authentifizierungsmethode',
-      'Kopiere Host, Port, Username und Private Key von oben',
-      'Passphrase leer lassen',
-      'Speichern und in einem Workflow verwenden',
-    ],
-    exampleCommand:
-      resolveEnvVars(manifest.n8nIntegration.exampleCommand) ||
-      `cd ${process.env.COMPOSE_PROJECT_DIR || '/opt/arasul'} && echo "Dein Prompt hier" | ${process.env.CLAUDE_CLI_PATH || 'claude'} -p --dangerously-skip-permissions`,
-  };
-}
-
-/**
  * Log an app event
  */
 async function logEvent(appId, eventType, message, details = null) {
@@ -278,7 +202,6 @@ module.exports = {
   getAppConfigRaw,
   setAppConfig,
   getConfigOverrides,
-  getN8nCredentials,
   logEvent,
   getAppEvents,
 };

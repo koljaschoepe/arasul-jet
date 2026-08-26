@@ -17,7 +17,6 @@ Flexible LLM service based on Ollama with Dashboard-managed model downloads, opt
 - **No Pre-loaded Models**: Fast startup (<30s), download on-demand
 - **Dashboard Integration**: Manage models via web interface
 - **Persistent Storage**: Models stored in Docker volume
-- **n8n Integration**: Direct access to Ollama API
 - **Self-Healing APIs**: Cache clear, session reset, GPU stats
 - **Multi-Model Support**: Run any Ollama-compatible model
 - **Jetson Optimization**: GPU memory handling for ARM64
@@ -212,23 +211,6 @@ curl http://localhost:11436/api/models
       "quantization": "Q8_0"
     }
   ]
-}
-```
-
-### Using in n8n
-
-```javascript
-// HTTP Request Node
-URL: http://llm-service:11434/api/generate
-Method: POST
-Body: {
-  "model": "qwen3:14b-q8",
-  "prompt": "Your prompt here",
-  "stream": false,
-  "options": {
-    "temperature": 0.7,
-    "num_ctx": 8192
-  }
 }
 ```
 

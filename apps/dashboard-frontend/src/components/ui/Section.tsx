@@ -11,7 +11,7 @@
  * Entwurf hatte eine Eigenschaft `divider`, die der letzte Abschnitt einer
  * Seite abschalten musste. Das ist eine Falle: wer einen Abschnitt anhängt,
  * muss daran denken, sie am alten letzten wieder einzuschalten. Genau so ist
- * die doppelte Linie zwischen „Über Arasul" und der n8n-Anleitung entstanden,
+ * die doppelte Linie zwischen „Über Arasul" und der damaligen n8n-Anleitung entstanden,
  * die dieser Plan gerade beseitigt hat. Jetzt trägt jeder Abschnitt seine
  * Linie, und `SectionList` nimmt sie dem letzten wieder ab. Eine Stelle,
  * die es entscheidet, und sie sieht die Reihenfolge.
@@ -71,7 +71,8 @@ interface SectionListProps {
  * Die Abstandsspalte einer Seite. `last-child` und ausdrücklich nicht
  * `last-of-type`: Die Linie fällt nur weg, wenn nach dem Abschnitt gar nichts
  * mehr kommt. Steht dahinter noch etwas, das kein Abschnitt ist, behält er sie.
- * In „Allgemein" folgt die n8n-Anleitung, und dort trennt genau diese Linie.
+ * Bis Phase B5 folgte in „Allgemein" die n8n-Anleitung, und dort trennte genau
+ * diese Linie.
  * Mit `last-of-type` wäre sie verschwunden, weil der Wähler nur auf die
  * Abschnitte untereinander sieht und nicht auf das, was danach steht.
  *

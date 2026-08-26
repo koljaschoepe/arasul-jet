@@ -24,8 +24,8 @@ import { DashboardCard } from './DashboardCard';
  * Aus der entfernten Dashboard-Startseite (Plan 008) in die System-
  * Einstellungen übernommen; die Datenbasis liefert weiterhin `useDashboardData`
  * (Live-Metriken via WebSocket, `/metrics/history?range=24h`,
- * `/system/thresholds`, …). Die frühere Automatisierungs-Kachel
- * (n8n-Läufe) war reines Dashboard-Chrome und entfällt hier.
+ * `/system/thresholds`, …). Die frühere Automatisierungs-Kachel war reines
+ * Dashboard-Chrome und entfällt hier.
  */
 
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));

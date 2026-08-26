@@ -9,7 +9,7 @@ import { create } from 'zustand';
  * persistierter Zustand, damit ein Reload immer im Leerzustand („nichts
  * gewählt", d. h. Raster) startet.
  *
- * Bis Phase B3 (26.08.2026) kannte die Auswahl auch `app` (Kern-App wie n8n),
+ * Bis Phase B3 (26.08.2026) kannte die Auswahl auch `app` (Kern-App, damals n8n),
  * `builder` (Erweiterungs-Baukasten) und `extension` (installiertes Paket) und
  * trug den aktiven Reiter des Stores. Der Erweiterungs-Store ist gefallen; es
  * bleibt das Modell.

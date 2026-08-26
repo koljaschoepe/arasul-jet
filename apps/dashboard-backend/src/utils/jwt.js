@@ -34,7 +34,7 @@ const JWT_EXPIRY = process.env.JWT_EXPIRY || '4h';
  * `4 * 60 * 60 * 1000`, mit dem Kommentar "matches JWT_EXPIRY" — auf dem Orin
  * steht `JWT_EXPIRY=24h`. Nach vier Stunden lief die Anwendung also weiter
  * (sie schickt den Token aus dem Speicher als `Authorization`), und nur der
- * n8n-Rahmen brach mit 401: ein iframe kann keinen Kopf setzen, es hat nur das
+ * eingebettete Rahmen brach mit 401: ein iframe kann keinen Kopf setzen, es hat nur das
  * Cookie. Der Nutzer sah eine leere Flaeche ohne Erklaerung.
  *
  * `jsonwebtoken` nimmt Sekunden als Zahl oder eine Zeichenkette wie `24h`.

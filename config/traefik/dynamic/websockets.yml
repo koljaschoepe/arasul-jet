@@ -14,18 +14,5 @@ http:
         - websecure
       tls: {}
 
-    # n8n WebSocket (protected by dashboard session auth)
-    n8n-websocket:
-      rule: 'PathPrefix(`/n8n/`) && Headers(`Upgrade`, `websocket`)'
-      service: n8n-service
-      priority: 50
-      middlewares:
-        - forward-auth
-        - strip-n8n-prefix
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
   # Note: Services are already defined in routes.yml
   # WebSocket support is automatic when Connection: Upgrade header is present

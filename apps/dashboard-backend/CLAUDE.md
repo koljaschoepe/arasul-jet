@@ -97,7 +97,7 @@ get typed, trimmed, defaulted data.
 | `apiLimiter`                     | default, per-IP                                 | 1 min / 100  |
 | `llmLimiter`                     | `/llm/*`, `/embeddings`, `/flows/*` (expensive) | 1 sec / 10   |
 | `metricsLimiter`                 | high-frequency polling endpoints                | 1 sec / 20   |
-| `webhookLimiter`                 | inbound webhooks (n8n, ...)                     | 1 min / 100  |
+| `webhookLimiter`                 | inbound webhooks (self-healing agent)           | 1 min / 100  |
 | `uploadLimiter`                  | multipart uploads                               | 1 min / 20   |
 | `tailscaleLimiter`               | tailscale orchestration                         | (per-domain) |
 | `createUserRateLimiter(max, ms)` | user-scoped (after auth)                        | factory      |
@@ -177,8 +177,10 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   Platzhalter (`{{argument}}`).
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
   `dateien` (lesen/schreiben/bearbeiten/anhängen getrennt, plus `dateien_suchen`),
-  `symbol_suche`, `web` (`web_suche`, `web_lesen`) und `frage` (`frage_nutzer`,
-  nur in der Betriebsart `rueckfragen`). `subagent.js` liegt eine Ebene höher.
+  `symbol_suche` und `frage` (`frage_nutzer`, nur in der Betriebsart
+  `rueckfragen`). `subagent.js` liegt eine Ebene höher. Die Web-Werkzeuge
+  (`web_suche`, `web_lesen`, über SearXNG) sind mit Phase B5 (26.08.2026)
+  gefallen.
 
 Das alte `services/agents/`-Subsystem (`toolLoop`, `agentFile`,
 `workspaceIndexer`, `pathSafe`, `tools/`) war mit dem Fluss-Layer verwaist —
@@ -191,7 +193,10 @@ Claude-Login, ein unsichtbarer Wissensraum pro Workspace) sind mit Phase B4
 (26.08.2026) entfernt: die Routen `/api/sandbox`, `/api/claude-terminal`,
 `/api/git`, `/api/projects`, `/api/spaces` samt Diensten, und die zugehörigen
 Tabellen mit Migration 163. Ordner sind seither genau die im Flow deklarierten
-(`ordner`-Feld), ohne Bezug auf Projekt, Wissensraum oder Sandbox.
+(`ordner`-Feld), ohne Bezug auf Projekt, Wissensraum oder Sandbox. Phase B5
+(gleicher Tag) nahm n8n (`/api/automations`, `/api/workflows`,
+`/api/workspace-apps`, `n8nLogger`, `appLifecycleService`, Migration 164)
+und SearXNG mit den Web-Werkzeugen der Flows.
 
 ## Testing
 

@@ -1,18 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ActivityBar } from '../ActivityBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-
-// App-Gating deterministisch mocken (echte Datenbasis: GET /workspace-apps)
-const enabledApps = new Set<string>();
-vi.mock('@/hooks/useWorkspaceApps', () => ({
-  useWorkspaceApps: () => ({
-    apps: [],
-    isLoading: false,
-    isAppEnabled: (id: string) => enabledApps.has(id),
-    setAppEnabled: vi.fn(),
-  }),
-}));
 
 function resetStore() {
   useWorkspaceStore.setState({
@@ -27,7 +16,6 @@ function resetStore() {
 describe('ActivityBar, feste Spalte: Modelle + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
-    enabledApps.clear();
   });
 
   it('zeigt die Ansicht Modelle und das Einstellungen-Zahnrad', () => {
@@ -40,7 +28,7 @@ describe('ActivityBar, feste Spalte: Modelle + Zahnrad', () => {
     for (const label of ['Dateien', 'Suche', 'Erweiterungen', 'Flows']) {
       expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     }
-    // Automation ist kein fester Bereich — nur als aktivierte Erweiterung
+    // »Automation« (n8n) ist mit B5 gefallen.
     expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
   });
 
@@ -65,17 +53,5 @@ describe('ActivityBar, feste Spalte: Modelle + Zahnrad', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Einstellungen'));
     expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
-  });
-
-  it('n8n (Automation) erscheint NUR wenn die Erweiterung aktiviert ist und öffnet den Automationen-Tab', () => {
-    const { rerender } = render(<ActivityBar />);
-    expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
-
-    enabledApps.add('n8n');
-    rerender(<ActivityBar />);
-    const btn = screen.getByLabelText('Automation');
-    expect(btn).toBeInTheDocument();
-    fireEvent.click(btn);
-    expect(useWorkspaceStore.getState().activeTabId).toBe('automationen');
   });
 });

@@ -41,22 +41,20 @@ Chunks.
 `embedding-service` läuft weiter ohne Profil: die OpenAI-kompatible
 `/v1/embeddings` (`GET /api/embeddings` reicht seine Auskunft durch) braucht ihn.
 
-| #   | Service            | Port         | Technology          | Entry Point           | Purpose                            |
-| --- | ------------------ | ------------ | ------------------- | --------------------- | ---------------------------------- |
-| 1   | dashboard-frontend | 3000         | React 19            | `src/App.tsx`         | Web UI                             |
-| 2   | dashboard-backend  | 3001         | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket         |
-| 3   | postgres-db        | 5432         | PostgreSQL 16       | `init/*.sql`          | Relational database                |
-| 4   | llm-service        | 11434, 11436 | Ollama + Flask      | `api_server.py`       | LLM inference                      |
-| 5   | embedding-service  | 11435        | Flask               | `embedding_server.py` | Text vectorization                 |
-| 6   | document-indexer   | 9102         | Flask               | `api_server.py`       | Text extraction on request         |
-| 7   | searxng            | 8080         | SearXNG             | -                     | Web search for Flows (Websuche)    |
-| 8   | metrics-collector  | 9100         | aiohttp             | `collector.py`        | System metrics                     |
-| 9   | self-healing-agent | 9200         | Python              | `healing_engine.py`   | Autonomous recovery                |
-| 10  | docker-proxy       | -            | Docker Socket Proxy | -                     | Secure Docker API access           |
-| 11  | n8n                | 5678         | n8n                 | -                     | Workflow automation                |
-| 12  | reverse-proxy      | 80/443       | Traefik             | `routes.yml`          | Reverse proxy + SSL                |
-| 13  | backup-service     | -            | Alpine + cron       | `backup.sh`           | Automated backups                  |
-| 14  | cloudflared        | -            | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional) |
+| #   | Service            | Port         | Technology          | Entry Point           | Purpose                         |
+| --- | ------------------ | ------------ | ------------------- | --------------------- | ------------------------------- |
+| 1   | dashboard-frontend | 3000         | React 19            | `src/App.tsx`         | Web UI                          |
+| 2   | dashboard-backend  | 3001         | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket      |
+| 3   | postgres-db        | 5432         | PostgreSQL 16       | `init/*.sql`          | Relational database             |
+| 4   | llm-service        | 11434, 11436 | Ollama + Flask      | `api_server.py`       | LLM inference                   |
+| 5   | embedding-service  | 11435        | Flask               | `embedding_server.py` | Text vectorization              |
+| 6   | document-indexer   | 9102         | Flask               | `api_server.py`       | Text extraction on request      |
+| 7   | metrics-collector  | 9100         | aiohttp             | `collector.py`        | System metrics                  |
+| 8   | self-healing-agent | 9200         | Python              | `healing_engine.py`   | Autonomous recovery             |
+| 9   | docker-proxy       | -            | Docker Socket Proxy | -                     | Secure Docker API access        |
+| 10  | reverse-proxy      | 80/443       | Traefik             | `routes.yml`          | Reverse proxy + SSL             |
+| 11  | backup-service     | -            | Alpine + cron       | `backup.sh`           | Automated backups               |
+| 12  | cloudflared        | -            | Cloudflare Tunnel   | -                     | Remote access tunnel (optional) |
 
 ### Host-Level Services
 
@@ -79,18 +77,18 @@ browser-trusted cert served by `tailscale serve` → Traefik:443.
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     APPLICATION INTERFACE                        │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │    Frontend     │  │     Backend     │  │     n8n         │  │
-│  │   (React SPA)   │  │  (Express API)  │  │  (Workflows)    │  │
-│  │   Port: 3000    │  │   Port: 3001    │  │   Port: 5678    │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
+│  ┌─────────────────┐  ┌─────────────────┐                       │
+│  │    Frontend     │  │     Backend     │                       │
+│  │   (React SPA)   │  │  (Express API)  │                       │
+│  │   Port: 3000    │  │   Port: 3001    │                       │
+│  └─────────────────┘  └─────────────────┘                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                         AI SERVICES                              │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │   LLM Service   │  │   Embedding     │  │    SearXNG      │  │
-│  │   (Ollama)      │  │   Service       │  │  (Websuche)     │  │
-│  │   Port: 11434   │  │   Port: 11435   │  │  Port: 8080     │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
+│  ┌─────────────────┐  ┌─────────────────┐                       │
+│  │   LLM Service   │  │   Embedding     │                       │
+│  │   (Ollama)      │  │   Service       │                       │
+│  │   Port: 11434   │  │   Port: 11435   │                       │
+│  └─────────────────┘  └─────────────────┘                       │
 │  ┌─────────────────┐                                            │
 │  │    Document     │                                            │
 │  │    Indexer      │                                            │
@@ -136,17 +134,17 @@ browser-trusted cert served by `tailscale serve` → Traefik:443.
         │                         │                         │
         │           arasul-net (172.30.0.0/24)              │
         │                         │                         │
-   ┌────▼────┐              ┌─────▼─────┐            ┌──────▼─────┐
-   │Frontend │              │  Backend  │            │    n8n     │
-   │ :3000   │─────────────▶│  :3001    │            │  :5678     │
-   └─────────┘   REST/WS    └─────┬─────┘            └────────────┘
+   ┌────▼────┐              ┌─────▼─────┐                  │
+   │Frontend │              │  Backend  │                  │
+   │ :3000   │─────────────▶│  :3001    │                  │
+   └─────────┘   REST/WS    └─────┬─────┘                  │
                                   │
-          ┌───────────────────────┼───────────────────────┐
-          │                       │                       │
-    ┌─────▼─────┐          ┌──────▼──────┐        ┌───────▼──────┐
-    │ PostgreSQL│          │ LLM Service │        │   SearXNG    │
-    │  :5432    │          │  :11434     │        │  :8080       │
-    └───────────┘          └─────────────┘        └──────────────┘
+          ┌───────────────────────┤
+          │                       │
+    ┌─────▼─────┐          ┌──────▼──────┐
+    │ PostgreSQL│          │ LLM Service │
+    │  :5432    │          │  :11434     │
+    └───────────┘          └─────────────┘
           │                       │
     ┌─────▼─────┐          ┌──────▼──────┐        ┌──────────────┐
     │ Metrics   │          │  Embedding  │        │ Doc-Indexer  │
@@ -172,11 +170,9 @@ browser-trusted cert served by `tailscale serve` → Traefik:443.
 | llm-service        | 11434, 11436  | -                    | HTTP       |
 | embedding-service  | 11435         | -                    | HTTP       |
 | document-indexer   | 9102          | -                    | HTTP       |
-| searxng            | 8080          | -                    | HTTP       |
 | metrics-collector  | 9100          | -                    | HTTP       |
 | self-healing-agent | 9200          | -                    | HTTP       |
 | docker-proxy       | 2375          | -                    | TCP        |
-| n8n                | 5678          | 5678                 | HTTP       |
 
 ---
 
@@ -189,7 +185,6 @@ Critical dependency chain (enforced via Docker Compose `depends_on` with `condit
 - **PostgreSQL** (5432) - Primary database
 - **docker-proxy** - Secure Docker socket access
 - **document-indexer** (9102) - reiner Extraktionsdienst (PDF/DOCX/OCR auf Anfrage), braucht weder Datenbank noch andere Dienste
-- **searxng** (8080, intern) - Meta-Suchmaschine für die Web-Recherche der Flows
 
 ### Tier 2: Core Dependents (Depends on: postgres-db)
 
@@ -203,10 +198,9 @@ Critical dependency chain (enforced via Docker Compose `depends_on` with `condit
 - **dashboard-backend** (3001) - Depends on: postgres-db, docker-proxy
 - **reverse-proxy** (80/443) - Depends on: postgres-db, docker-proxy
 
-### Tier 4: Frontend & Workflow
+### Tier 4: Frontend
 
 - **dashboard-frontend** (3000) - Depends on: dashboard-backend (healthy)
-- **n8n** (5678) - Depends on: postgres-db (healthy), llm-service (started)
 
 ### Tier 5: Self-Healing
 
@@ -262,12 +256,12 @@ Details zu den beiden verbliebenen Endpunkten (`GET /health`,
 ```
 Frontend ──HTTP──> Traefik ──HTTP──> Backend
                                        │
-                    ┌──────────────────┼──────────────────┐
-                    ▼                  ▼                  ▼
-              LLM-Service      Embedding-Service       SearXNG
-              (11434)          (11435)                 (8080)
-                    │                  │                  │
-                    └──────────────────┴──────────────────┘
+                    ┌──────────────────┤
+                    ▼                  ▼
+              LLM-Service      Embedding-Service
+              (11434)          (11435)
+                    │                  │
+                    └──────────────────┘
                                        │
                               Document-Indexer
                                    (9102)
@@ -289,8 +283,6 @@ apps/dashboard-backend/
 │   ├── llm.js                # /api/llm/chat (SSE), /queue, /jobs
 │   ├── chats.js              # /api/chats CRUD
 │   ├── flows.js              # /api/flows (Definitionen, Läufe, Vorlagen)
-│   ├── automations.js        # /api/automations (n8n-Sitzung)
-│   ├── workspaceApps.js      # /api/workspace-apps
 │   ├── docs.js               # /api/docs
 │   ├── system/               # system, services, metrics, logs, database, tailscale
 │   ├── admin/                # settings, audit, update, selfhealing, backup, gdpr, werksreset
@@ -333,7 +325,7 @@ apps/dashboard-frontend/
 
 **Workspace-Shell:** `/` landet immer auf `/workspace` (kein Feature-Flag mehr).
 Die Shell ist ein Dreispalten-Raster mit einer immer sichtbaren ActivityBar
-— **Modelle** — plus den aktivierten Kern-Apps (n8n) und **Einstellungen**
+— **Modelle** und **Einstellungen**
 (System-Status liegt unter Einstellungen → System). Seit Phase B2
 (26.08.2026) sind Editor, Datei-Explorer, Agent-Chat, Terminal und
 Sandbox-Ansichten aus der Oberfläche gefallen, seit B3 auch Flow-Editor,
@@ -402,7 +394,6 @@ services/postgres/init/
 | LLM Service       | 32 GB (fixed) |
 | Embedding Service | 8 GB (fixed)  |
 | PostgreSQL        | 8 GB (max)    |
-| n8n               | 2 GB (max)    |
 | Others            | Default       |
 
 ### GPU Requirements
@@ -417,18 +408,17 @@ services/postgres/init/
 
 ## 9. Health Checks
 
-| Service            | Health Check Command                             | Interval | Timeout | Retries | Start Period |
-| ------------------ | ------------------------------------------------ | -------- | ------- | ------- | ------------ |
-| postgres-db        | `pg_isready -U $USER -d $DB`                     | 10s      | 2s      | 3       | -            |
-| metrics-collector  | `curl -f http://localhost:9100/health`           | 10s      | 1s      | 3       | -            |
-| llm-service        | Custom script (model test)                       | 30s      | 5s      | 3       | 300s         |
-| embedding-service  | Custom script (vectorization test)               | 15s      | 3s      | 3       | 300s         |
-| dashboard-backend  | `curl -f http://localhost:3001/api/health`       | 10s      | 3s      | 3       | 10s          |
-| dashboard-frontend | `test -f /usr/share/nginx/html/index.html`       | 10s      | 1s      | 3       | 15s          |
-| n8n                | `wget --spider -q http://localhost:5678/healthz` | 15s      | 2s      | 3       | -            |
-| reverse-proxy      | `wget -q --spider http://localhost:8080/ping`    | 10s      | 3s      | 3       | 30s          |
-| self-healing-agent | `python3 /app/heartbeat.py --test`               | 30s      | 3s      | 3       | 10s          |
-| docker-proxy       | socket connectivity check                        | 10s      | 3s      | 3       | 5s           |
+| Service            | Health Check Command                          | Interval | Timeout | Retries | Start Period |
+| ------------------ | --------------------------------------------- | -------- | ------- | ------- | ------------ |
+| postgres-db        | `pg_isready -U $USER -d $DB`                  | 10s      | 2s      | 3       | -            |
+| metrics-collector  | `curl -f http://localhost:9100/health`        | 10s      | 1s      | 3       | -            |
+| llm-service        | Custom script (model test)                    | 30s      | 5s      | 3       | 300s         |
+| embedding-service  | Custom script (vectorization test)            | 15s      | 3s      | 3       | 300s         |
+| dashboard-backend  | `curl -f http://localhost:3001/api/health`    | 10s      | 3s      | 3       | 10s          |
+| dashboard-frontend | `test -f /usr/share/nginx/html/index.html`    | 10s      | 1s      | 3       | 15s          |
+| reverse-proxy      | `wget -q --spider http://localhost:8080/ping` | 10s      | 3s      | 3       | 30s          |
+| self-healing-agent | `python3 /app/heartbeat.py --test`            | 30s      | 3s      | 3       | 10s          |
+| docker-proxy       | socket connectivity check                     | 10s      | 3s      | 3       | 5s           |
 
 ### Validation
 
@@ -475,7 +465,6 @@ services/postgres/init/
 ADMIN_PASSWORD=<secure>
 JWT_SECRET=<32+ chars>
 POSTGRES_PASSWORD=<secure>
-N8N_ENCRYPTION_KEY=<32+ chars>
 ```
 
 Full reference: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)

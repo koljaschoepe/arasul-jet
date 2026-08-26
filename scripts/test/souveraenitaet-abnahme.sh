@@ -41,15 +41,11 @@ HOST="${ARASUL_SSH:-jetson}"
 ERLAUBT="${ARASUL_ERLAUBTE_ZIELE:-}"
 
 # Container, deren Weg nach draussen die FUNKTION ist und nicht ihr Gegenteil.
-# Bewusst als Liste von Containern und nicht von Zielen: eine Metasuche fragt
-# je Anfrage andere Suchmaschinen, eine Aufzaehlung waere am naechsten Tag
-# unvollstaendig. Am 23.08.2026 gemessen: `searxng` sprach in einem Lauf mit
-# fuenf verschiedenen Adressen, darunter `text-lb.esams.wikimedia.org`.
+# Bewusst als Liste von Containern und nicht von Zielen: ein Dienst, der
+# Modelle nachlaedt, spricht je Modell mit anderen Adressen, eine Aufzaehlung
+# waere am naechsten Tag unvollstaendig. (Bis Phase B5 am 26.08.2026 stand
+# hier auch `searxng`, die Websuche der Flows; sie ist ausgebaut.)
 #
-# Das macht das Gate nicht weicher, es macht es ehrlich: die Websuche IST eine
-# Verbindung nach draussen, und der Nutzer schaltet sie ein. Was dabei
-# hinausgeht, ist die Suchanfrage — die Frage danach gehoert in die
-# Datenschutz-Unterlagen, nicht in diese Messung.
 # `embedding-service` steht seit dem 23.08.2026 hier, und zwar als
 # ENTSCHEIDUNG von Kolja, nicht als Nachlaessigkeit: der Dienst laedt seine
 # Modelle von huggingface.co, und genau das soll er duerfen. Der Kunde soll
@@ -60,7 +56,7 @@ ERLAUBT="${ARASUL_ERLAUBTE_ZIELE:-}"
 # Was das NICHT heisst: dass Kundendaten hinausgehen. Was hinausgeht, ist der
 # Name eines Modells. Der Unterschied gehoert in die Datenschutz-Unterlagen,
 # und er steht dort.
-NACH_AUSSEN_ERLAUBT="${ARASUL_ERLAUBTE_CONTAINER:-searxng,embedding-service}"
+NACH_AUSSEN_ERLAUBT="${ARASUL_ERLAUBTE_CONTAINER:-embedding-service}"
 # Die Proben BLEIBEN nach dem Lauf liegen, wenn etwas nach draussen ging.
 # Am 23.08.2026 stand am Ende `llm-service 34.36.133.15|31|31`, und die Datei
 # war schon geloescht — die Frage "wann genau und auf welchem Port" liess sich

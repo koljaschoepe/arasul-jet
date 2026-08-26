@@ -60,8 +60,6 @@ tags:
     description: Log file access and streaming
   - name: Self-Healing
     description: Self-healing events and status
-  - name: Workflows
-    description: n8n workflow activity
   - name: Updates
     description: System update management
   - name: LLM
@@ -165,9 +163,6 @@ components:
         embeddings:
           type: string
           description: Embedding service status
-        n8n:
-          type: string
-          description: n8n service status
         postgres:
           type: string
           description: PostgreSQL service status
@@ -356,7 +351,6 @@ paths:
                 status: 'OK'
                 llm: 'healthy'
                 embeddings: 'healthy'
-                n8n: 'healthy'
                 postgres: 'healthy'
                 self_healing_active: true
                 last_self_healing_event: null

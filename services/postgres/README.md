@@ -72,11 +72,6 @@ self_healing_events (
   id, event_type, severity, description,
   action_taken, timestamp
 )
-
-workflow_activity (
-  id, workflow_name, status, timestamp,
-  duration_ms, error
-)
 ```
 
 ### Updates (004)
@@ -133,7 +128,6 @@ llm_queue (
 | ------------------- | --------------------- |
 | metrics\_\*         | 7 days                |
 | self_healing_events | 7 days                |
-| workflow_activity   | 7 days                |
 | chat_conversations  | Soft delete (30 days) |
 | update_events       | Permanent             |
 | admin_users         | Permanent             |

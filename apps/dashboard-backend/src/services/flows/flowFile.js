@@ -19,12 +19,12 @@
  *     - name: thema
  *       typ: freitext
  *       pflicht: true
- *   werkzeuge: [web_suche, web_lesen, subagent]
+ *   werkzeuge: [dateien_lesen, dateien_suchen, subagent]
  *   rollen:
  *     - name: leser
- *       werkzeuge: [web_lesen]
+ *       werkzeuge: [dateien_lesen]
  *       ergebnis: { felder: [fakten], max_zeichen: 2000 }
- *       prompt: Lies die Seite und gib nur die belegten Fakten zurück.
+ *       prompt: Lies die Datei und gib nur die belegten Fakten zurück.
  *   ---
  *   Recherchiere gründlich zum Thema {{thema}}.
  */
@@ -33,7 +33,7 @@ const yaml = require('js-yaml');
 const { ValidationError } = require('../../utils/errors');
 const { FlowDefinition } = require('../../schemas/flows');
 
-/** Platzhalter im Prompt: {{name}} — bewusst dieselbe Syntax wie in n8n-Templates. */
+/** Platzhalter im Prompt: {{name}}. */
 const PLACEHOLDER_RE = /\{\{\s*([a-z][a-z0-9_]{0,30})\s*\}\}/g;
 
 /**

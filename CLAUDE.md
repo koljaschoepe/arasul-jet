@@ -14,8 +14,6 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                               ├─ PostgreSQL 16 (migrations in services/postgres/init/)
                               ├─ Ollama / LLM-Service (:11434/:11436) [GPU]
                               ├─ Document-Indexer (:9102, nur Text-Extraktion)
-                              ├─ SearXNG (Web-Suche der Agenten)
-                              ├─ n8n Workflow Engine (:5678)
                               └─ Docker-Proxy → Self-Healing, Metrics, Backup
 ```
 
@@ -25,11 +23,12 @@ ausgebaut worden, weil drei Features still durchfielen, statt zu melden, dass
 sie nichts tun. Am 26.08.2026 (Phase B4 des Rückbaus) sind auch Dokumente,
 Wissensräume, Projekte und der Textlayer (`document_chunks`) gefallen, dazu
 MinIO, Loki, Promtail, Sandbox, Terminal und der Erweiterungs-Baukasten
-(Migration 163). Der `document-indexer` extrahiert nur noch Text auf Anfrage
+(Migration 163); mit Phase B5 (gleicher Tag) n8n samt Schema, SearXNG und
+die Plattform-Apps (Migration 164). Der `document-indexer` extrahiert nur noch Text auf Anfrage
 (`POST /extract-text`); Flows arbeiten mit ihren Datei-Werkzeugen in den im
 Flow deklarierten Ordnern. `embedding-service` läuft weiter und ohne Profil:
 die OpenAI-kompatible `/v1/embeddings` braucht ihn. Wer eine Doku findet, die
-Qdrant, MinIO oder Wissensräume als Teil des Geräts nennt, hat eine veraltete
+Qdrant, MinIO, n8n oder Wissensräume als Teil des Geräts nennt, hat eine veraltete
 Doku gefunden — nachsehen mit `docker compose ps`.
 
 | Layer    | Stack                                                             | Path                                                          |
@@ -88,8 +87,8 @@ folder. Read the closest one to where you're working:
 | Onboarding / first-time setup           | `docs/development/ONBOARDING.md`                |
 | Testing strategy across the platform    | `docs/development/TESTING.md`                   |
 
-Deeper-dive context packs (one-off topics — n8n custom nodes, security
-review checklist, etc.) live under `.claude/context/`.
+Deeper-dive context packs (one-off topics — LLM queue, security review
+checklist, etc.) live under `.claude/context/`.
 
 ## Woran gerade gearbeitet wird
 
@@ -181,25 +180,24 @@ make logs s=dashboard-backend                      # Logs via Make
 
 ## Documentation
 
-| Topic                  | File                                                                                                                                               |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architecture           | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                                                       |
-| API reference          | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                                             |
-| API errors             | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                                                   |
-| Database schema        | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                                                         |
-| Design system          | [docs/development/DESIGN_SYSTEM.md](docs/development/DESIGN_SYSTEM.md)                                                                             |
-| Development            | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                                                 |
-| Onboarding             | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                                                   |
-| Testing                | [docs/development/TESTING.md](docs/development/TESTING.md)                                                                                         |
-| Environment variables  | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                                                                                     |
-| Platform compatibility | [docs/features/PLATFORM_COMPATIBILITY.md](docs/features/PLATFORM_COMPATIBILITY.md)                                                                 |
-| Admin handbook         | [docs/ops/ADMIN_HANDBUCH.md](docs/ops/ADMIN_HANDBUCH.md) (DE)                                                                                      |
-| Deployment             | [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)                                                                                                   |
-| Troubleshooting        | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                                                         |
-| Backup & DR            | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md)                             |
-| Integrations (n8n)     | [docs/integrations/N8N.md](docs/integrations/N8N.md) (operator), [docs/integrations/N8N_OVERVIEW.md](docs/integrations/N8N_OVERVIEW.md) (customer) |
-| Flows                  | [docs/features/FLOWS.md](docs/features/FLOWS.md) (Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger)                                     |
-| Workspace              | [docs/features/WORKSPACE.md](docs/features/WORKSPACE.md) (was nach Phase B4 davon bleibt)                                                          |
-| Legal / DSGVO          | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                                                |
-| Full doc index         | [docs/INDEX.md](docs/INDEX.md)                                                                                                                     |
-| Contributing           | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                 |
+| Topic                  | File                                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Architecture           | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                           |
+| API reference          | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                 |
+| API errors             | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                       |
+| Database schema        | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                             |
+| Design system          | [docs/development/DESIGN_SYSTEM.md](docs/development/DESIGN_SYSTEM.md)                                                 |
+| Development            | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                     |
+| Onboarding             | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                       |
+| Testing                | [docs/development/TESTING.md](docs/development/TESTING.md)                                                             |
+| Environment variables  | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                                                         |
+| Platform compatibility | [docs/features/PLATFORM_COMPATIBILITY.md](docs/features/PLATFORM_COMPATIBILITY.md)                                     |
+| Admin handbook         | [docs/ops/ADMIN_HANDBUCH.md](docs/ops/ADMIN_HANDBUCH.md) (DE)                                                          |
+| Deployment             | [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)                                                                       |
+| Troubleshooting        | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                             |
+| Backup & DR            | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md) |
+| Flows                  | [docs/features/FLOWS.md](docs/features/FLOWS.md) (Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger)         |
+| Workspace              | [docs/features/WORKSPACE.md](docs/features/WORKSPACE.md) (was nach Phase B4 davon bleibt)                              |
+| Legal / DSGVO          | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                    |
+| Full doc index         | [docs/INDEX.md](docs/INDEX.md)                                                                                         |
+| Contributing           | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                     |

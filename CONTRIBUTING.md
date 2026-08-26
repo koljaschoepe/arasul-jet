@@ -52,7 +52,7 @@ For operators deploying to a customer appliance, see [`docs/ops/DEPLOYMENT.md`](
 ```
 
 - **type** (required): `feat | fix | docs | refactor | test | chore | ci | build | perf`.
-- **scope** (optional): the area of the codebase touched: `backend`, `frontend`, `db`, `llm`, `n8n`, `ops`, `claude`, etc.
+- **scope** (optional): the area of the codebase touched: `backend`, `frontend`, `db`, `llm`, `ops`, `claude`, etc.
 - **subject** (required): imperative, lowercase, no trailing period; ≤ 72 characters.
 
 Examples:

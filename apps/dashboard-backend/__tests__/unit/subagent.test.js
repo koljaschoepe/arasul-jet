@@ -133,7 +133,7 @@ describe('SubagentTool', () => {
     name: 'leser',
     prompt: 'Du liest Seiten.',
     modell: undefined,
-    werkzeuge: ['web_lesen'],
+    werkzeuge: ['dateien_lesen'],
     ergebnis: { felder: ['fakten', 'quelle'], max_zeichen: 2000 },
   };
 
@@ -156,7 +156,7 @@ describe('SubagentTool', () => {
       werkzeugRunden: 5,
       roleContextBase: { roots: ['/a'], spaceIds: null, userId: 1 },
       stepRecorder: makeStepRecorder(),
-      makeTools: jest.fn(() => [{ name: 'web_lesen' }]),
+      makeTools: jest.fn(() => [{ name: 'dateien_lesen' }]),
       // Die Rolle liefert brav JSON zurück.
       runLoop: jest.fn(async () => ({
         result: JSON.stringify({ fakten: 'Paris ist die Hauptstadt.', quelle: 'wiki' }),
@@ -215,7 +215,7 @@ describe('SubagentTool', () => {
   it('führt die Rolle mit IHREN Werkzeugen und dem Vertrags-Hinweis aus', async () => {
     const ctx = baseCtx();
     await tool.execute({ rolle: 'leser', auftrag: 'Lies example.org' }, ctx);
-    expect(ctx.makeTools).toHaveBeenCalledWith(['web_lesen']);
+    expect(ctx.makeTools).toHaveBeenCalledWith(['dateien_lesen']);
     const loopArg = ctx.runLoop.mock.calls[0][0];
     expect(loopArg.systemPrompt).toMatch(/Du liest Seiten/);
     expect(loopArg.systemPrompt).toMatch(/JSON-Objekt mit genau diesen Feldern: fakten, quelle/);
@@ -273,13 +273,13 @@ describe('SubagentTool', () => {
     // an den Orchestrator, MUSS aber im raw des Protokolls landen (§6).
     const roheSeite = 'GANZER SEITENINHALT den nur die Rolle sehen darf';
     const werkzeug = {
-      name: 'web_lesen',
-      toOllamaToolDefinition: () => ({ type: 'function', function: { name: 'web_lesen' } }),
+      name: 'dateien_lesen',
+      toOllamaToolDefinition: () => ({ type: 'function', function: { name: 'dateien_lesen' } }),
       execute: jest.fn(async () => roheSeite),
     };
     axios.post
       .mockResolvedValueOnce({
-        data: { message: { tool_calls: [{ function: { name: 'web_lesen', arguments: { adresse: 'x' } } }] } },
+        data: { message: { tool_calls: [{ function: { name: 'dateien_lesen', arguments: { adresse: 'x' } } }] } },
       })
       .mockResolvedValueOnce({
         data: { message: { content: JSON.stringify({ fakten: 'Kurzfazit', quelle: 'x' }) } },
@@ -302,7 +302,7 @@ describe('SubagentTool', () => {
     const subagentStart = anfaenge.find(a => a.kind === 'subagent');
     const kindStart = anfaenge.find(a => a.kind === 'werkzeug');
     expect(subagentStart).toMatchObject({ name: 'leser' });
-    expect(kindStart).toMatchObject({ name: 'web_lesen', parentStepId: 100 });
+    expect(kindStart).toMatchObject({ name: 'dateien_lesen', parentStepId: 100 });
 
     const enden = stepRecorder.abschliessen.mock.calls.map(c => c[0]);
     const subagentEnde = enden.find(e => e.rawOutput != null);
@@ -320,7 +320,7 @@ describe('SubagentTool — eigenes Rundenbudget je Rolle (Plan 023 I5)', () => {
 
   /**
    * Am 22.08.2026 auf dem Orin gemessen: die Rolle `sucher` des
-   * `recherche`-Flows erbte die zwoelf Runden des Flows und rief `web_suche`
+   * `recherche`-Flows erbte die zwoelf Runden des Flows und rief `dateien_suchen`
    * 26-mal auf, obwohl ihr Prompt drei bis fuenf URLs verlangt. Der Lauf lief
    * nach 1216 Sekunden ins Zeitlimit, ohne je eine Antwort zu schreiben.
    *
@@ -336,7 +336,7 @@ describe('SubagentTool — eigenes Rundenbudget je Rolle (Plan 023 I5)', () => {
       model: 'm',
       werkzeugRunden,
       roleContextBase: { roots: ['/a'], spaceIds: null, userId: 1 },
-      makeTools: jest.fn(() => [{ name: 'web_suche' }]),
+      makeTools: jest.fn(() => [{ name: 'dateien_suchen' }]),
       runLoop,
     };
   }
@@ -344,7 +344,7 @@ describe('SubagentTool — eigenes Rundenbudget je Rolle (Plan 023 I5)', () => {
   const basis = {
     name: 'sucher',
     prompt: 'Du suchst.',
-    werkzeuge: ['web_suche'],
+    werkzeuge: ['dateien_suchen'],
     ergebnis: { felder: ['treffer'], max_zeichen: 2000 },
   };
 

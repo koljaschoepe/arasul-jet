@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
 import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
-import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
@@ -51,30 +50,11 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
-  const { isTabTypeEnabled } = useWorkspaceApps();
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
   useEffect(() => {
     const subPath = location.pathname.replace(/^\/workspace/, '');
     const spec = pathToTabSpec(subPath);
-
-    // Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
-    // Deep-Link oder Browser-Zurück nicht (wieder).
-    if (spec && !isTabTypeEnabled(spec.type)) {
-      const state = useWorkspaceStore.getState();
-      const id = tabId(spec);
-      if (state.tabs.some(t => t.id === id)) {
-        // Während des App-Ladens durchgerutscht (fail-open) → wieder schließen;
-        // der Store→URL-Effekt springt zum Nachbarn.
-        state.closeTab(id);
-      } else {
-        const active = state.tabs.find(t => t.id === state.activeTabId);
-        if (active) {
-          navigate(tabToPath(active), { replace: true });
-        }
-      }
-      return;
-    }
 
     if (spec) {
       const id = tabId(spec);
@@ -84,7 +64,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
     }
     // Kein Default-Tab: ohne passenden Deep-Link landet der Workspace auf
     // seinem Leerzustand ("Kein Tab geöffnet").
-  }, [location.pathname, isTabTypeEnabled]);
+  }, [location.pathname]);
 
   // Store → URL: aktiver Tab spiegelt sich im Pfad
   useEffect(() => {

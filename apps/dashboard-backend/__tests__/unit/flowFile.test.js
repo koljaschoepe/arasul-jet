@@ -70,10 +70,10 @@ argumente:
     optionen: [kurz, lang]
     standard: kurz
 ordner: [/arasul/flows/demo]
-werkzeuge: [web_suche, web_lesen, subagent, dateien_schreiben]
+werkzeuge: [dateien_suchen, dateien_lesen, subagent, dateien_schreiben]
 rollen:
   - name: leser
-    werkzeuge: [web_lesen]
+    werkzeuge: [dateien_lesen]
     ergebnis:
       felder: [fakten, quellen]
       max_zeichen: 1500
@@ -165,12 +165,12 @@ name: a
 werkzeuge: [subagent]
 rollen:
   - name: r
-    werkzeuge: [web_lesen]
+    werkzeuge: [dateien_lesen]
     ergebnis: {felder: [f]}
     prompt: P
 ---
 X`,
-      /web_lesen.*nicht/is
+      /dateien_lesen.*nicht/is
     );
   });
 
@@ -203,10 +203,11 @@ argumente:
   - name: thema
     typ: freitext
     pflicht: true
-werkzeuge: [web_suche, subagent]
+ordner: [/arasul/flows/demo]
+werkzeuge: [dateien_suchen, subagent]
 rollen:
   - name: leser
-    werkzeuge: [web_suche]
+    werkzeuge: [dateien_suchen]
     ergebnis: {felder: [fakten], max_zeichen: 1200}
     prompt: Lies und verdichte.
 ---
@@ -240,10 +241,11 @@ name: kette
 argumente:
   - name: q
     typ: freitext
-werkzeuge: [subagent, web_suche]
+ordner: [/arasul/flows/demo]
+werkzeuge: [subagent, dateien_suchen]
 rollen:
   - name: sucher
-    werkzeuge: [web_suche]
+    werkzeuge: [dateien_suchen]
     ergebnis: { felder: [treffer] }
     prompt: Suche.
 schritte:
@@ -253,7 +255,7 @@ schritte:
     auftrag: Finde {{q}}.
   - name: s2
     typ: werkzeug
-    werkzeug: web_suche
+    werkzeug: dateien_suchen
     parameter: { query: "{{q}}" }
 ---
 Antwort aus {{q}}.
@@ -264,7 +266,7 @@ Antwort aus {{q}}.
     expect(flow.schritte).toHaveLength(2);
     expect(flow.schritte[0]).toMatchObject({ name: 's1', typ: 'subagent', rolle: 'sucher' });
     expect(flow.schritte[0].iterationen).toBe(1);
-    expect(flow.schritte[1]).toMatchObject({ name: 's2', typ: 'werkzeug', werkzeug: 'web_suche' });
+    expect(flow.schritte[1]).toMatchObject({ name: 's2', typ: 'werkzeug', werkzeug: 'dateien_suchen' });
     // Serialisierung nimmt die Schritte mit (Datei bleibt die Wahrheit).
     expect(serializeFlowFile(flow)).toContain('schritte:');
   });
@@ -275,8 +277,8 @@ Antwort aus {{q}}.
   });
 
   it('weist einen werkzeug-Schritt mit nicht freigegebenem Werkzeug ab', () => {
-    const bad = KETTE.replace('werkzeug: web_suche', 'werkzeug: web_lesen');
-    expect(() => parseFlowFile(bad)).toThrow(/web_lesen/);
+    const bad = KETTE.replace('werkzeug: dateien_suchen', 'werkzeug: dateien_lesen');
+    expect(() => parseFlowFile(bad)).toThrow(/dateien_lesen/);
   });
 
   it('weist einen subagent-Schritt ohne Auftrag ab', () => {

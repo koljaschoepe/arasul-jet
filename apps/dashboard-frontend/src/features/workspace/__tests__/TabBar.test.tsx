@@ -37,10 +37,10 @@ describe('TabBar', () => {
   });
 
   it('Mittelklick schließt den Tab', () => {
-    useWorkspaceStore.getState().openTab({ type: 'automationen' });
+    useWorkspaceStore.getState().openTab({ type: 'modelle' });
     render(<TabBar />);
     fireEvent(
-      screen.getByRole('tab', { name: /Automationen/ }),
+      screen.getByRole('tab', { name: /Modelle/ }),
       new MouseEvent('auxclick', { button: 1, bubbles: true })
     );
     expect(useWorkspaceStore.getState().tabs).toHaveLength(0);

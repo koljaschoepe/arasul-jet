@@ -24,18 +24,6 @@ vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
 vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
 
-// App-Gating deterministisch mocken (echte Datenbasis: GET /workspace-apps)
-const { disabledTabTypes } = vi.hoisted(() => ({ disabledTabTypes: new Set<string>() }));
-vi.mock('@/hooks/useWorkspaceApps', () => ({
-  useWorkspaceApps: () => ({
-    apps: [],
-    isLoading: false,
-    isAppEnabled: () => true,
-    isTabTypeEnabled: (type: string) => !disabledTabTypes.has(type),
-    setAppEnabled: vi.fn(),
-  }),
-}));
-
 function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
@@ -70,7 +58,6 @@ function renderShell(initialPath: string) {
 describe('WorkspaceShell, URL-Sync', () => {
   beforeEach(() => {
     resetStore();
-    disabledTabTypes.clear();
     localStorage.clear();
   });
 
@@ -92,48 +79,16 @@ describe('WorkspaceShell, URL-Sync', () => {
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings']);
   });
 
-  it('Gating: Deep-Link auf eine deaktivierte App öffnet den Tab nicht (Browser-Zurück-Szenario)', async () => {
-    disabledTabTypes.add('automationen');
+  it('der alte Automationen-Pfad öffnet nichts mehr (n8n ist mit B5 gefallen)', async () => {
     useWorkspaceStore.setState({
       tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
       activeTabId: 'settings',
     });
-
     renderShell('/workspace/automationen');
-
-    // Tab wird NICHT (wieder) geöffnet, URL springt zurück auf den aktiven Tab
     await waitFor(() =>
       expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/settings')
     );
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings']);
-  });
-
-  it('Gating: bereits offener Tab einer deaktivierten App wird geschlossen', async () => {
-    disabledTabTypes.add('automationen');
-    useWorkspaceStore.setState({
-      tabs: [
-        { id: 'settings', type: 'settings', title: 'Einstellungen' },
-        { id: 'automationen', type: 'automationen', title: 'Automationen' },
-      ],
-      activeTabId: 'automationen',
-    });
-
-    renderShell('/workspace/automationen');
-
-    await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings'])
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/settings')
-    );
-  });
-
-  it('aktivierte Apps öffnen per Deep-Link weiterhin ihren Tab', async () => {
-    renderShell('/workspace/automationen');
-    await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toContain('automationen')
-    );
-    expect(useWorkspaceStore.getState().activeTabId).toBe('automationen');
   });
 
   it('Farbregel (AC #8): die Mitte nutzt die Basis-Flächenfarbe bg-background, nicht bg-card', async () => {

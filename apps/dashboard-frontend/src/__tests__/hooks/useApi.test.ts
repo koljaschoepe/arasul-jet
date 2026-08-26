@@ -385,7 +385,7 @@ describe('useApi', () => {
       if (url === '/api/auth/csrf') {
         return Promise.resolve(mockRes(200, { csrfToken: 'fresh-token' }));
       }
-      if (url === '/api/workspace-apps/n8n') {
+      if (url === '/api/apps/erste/config') {
         putAttempts += 1;
         return Promise.resolve(
           putAttempts === 1
@@ -399,15 +399,15 @@ describe('useApi', () => {
     const { result } = renderHook(() => useApi());
     let data: unknown;
     await act(async () => {
-      data = await result.current.put('/workspace-apps/n8n', { enabled: false });
+      data = await result.current.put('/apps/erste/config', { enabled: false });
     });
 
     expect(data).toEqual({ ok: true });
     // Token re-minted exactly once, request retried exactly once (2 PUTs total).
     expect(callsTo('/api/auth/csrf').length).toBe(1);
-    expect(callsTo('/api/workspace-apps/n8n').length).toBe(2);
+    expect(callsTo('/api/apps/erste/config').length).toBe(2);
     // Retry carried the freshly-minted token.
-    expect(callsTo('/api/workspace-apps/n8n')[1]?.[1].headers['X-CSRF-Token']).toBe('fresh-token');
+    expect(callsTo('/api/apps/erste/config')[1]?.[1].headers['X-CSRF-Token']).toBe('fresh-token');
     // No error toast for a recovered request.
     expect(mockToast.error).not.toHaveBeenCalled();
   });
@@ -415,7 +415,7 @@ describe('useApi', () => {
   it('never refreshes/retries on 401 (real auth failure → logout)', async () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
     fetchMock.mockImplementation((url: string) => {
-      if (url === '/api/workspace-apps/n8n') {
+      if (url === '/api/apps/erste/config') {
         return Promise.resolve(mockRes(401, { message: 'Sitzung abgelaufen' }));
       }
       return Promise.resolve(mockRes(500, {}));
@@ -423,18 +423,18 @@ describe('useApi', () => {
 
     const { result } = renderHook(() => useApi());
     await act(async () => {
-      await expect(result.current.put('/workspace-apps/n8n', { enabled: false })).rejects.toThrow();
+      await expect(result.current.put('/apps/erste/config', { enabled: false })).rejects.toThrow();
     });
 
     expect(callsTo('/api/auth/csrf').length).toBe(0);
-    expect(callsTo('/api/workspace-apps/n8n').length).toBe(1);
+    expect(callsTo('/api/apps/erste/config').length).toBe(1);
     expect(mockLogout).toHaveBeenCalled();
   });
 
   it('does not retry on a genuine (non-CSRF) 403 FORBIDDEN', async () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
     fetchMock.mockImplementation((url: string) => {
-      if (url === '/api/workspace-apps/n8n') {
+      if (url === '/api/apps/erste/config') {
         return Promise.resolve(
           mockRes(403, { error: { code: 'FORBIDDEN', message: 'Access denied' } })
         );
@@ -444,13 +444,13 @@ describe('useApi', () => {
 
     const { result } = renderHook(() => useApi());
     await act(async () => {
-      await expect(result.current.put('/workspace-apps/n8n', { enabled: false })).rejects.toThrow(
+      await expect(result.current.put('/apps/erste/config', { enabled: false })).rejects.toThrow(
         'Access denied'
       );
     });
 
     expect(callsTo('/api/auth/csrf').length).toBe(0);
-    expect(callsTo('/api/workspace-apps/n8n').length).toBe(1);
+    expect(callsTo('/api/apps/erste/config').length).toBe(1);
   });
 
   it('dedupes the CSRF refresh across a concurrent double-toggle race', async () => {
@@ -460,7 +460,7 @@ describe('useApi', () => {
       if (url === '/api/auth/csrf') {
         return Promise.resolve(mockRes(200, { csrfToken: 'race-token' }));
       }
-      if (url === '/api/workspace-apps/n8n' || url === '/api/workspace-apps/database') {
+      if (url === '/api/apps/erste/config' || url === '/api/apps/zweite/config') {
         attempts[url] = (attempts[url] ?? 0) + 1;
         return Promise.resolve(
           attempts[url] === 1
@@ -475,16 +475,16 @@ describe('useApi', () => {
     let results: unknown[] = [];
     await act(async () => {
       results = await Promise.all([
-        result.current.put('/workspace-apps/n8n', { enabled: false }),
-        result.current.put('/workspace-apps/database', { enabled: false }),
+        result.current.put('/apps/erste/config', { enabled: false }),
+        result.current.put('/apps/zweite/config', { enabled: false }),
       ]);
     });
 
     expect(results).toEqual([{ ok: true }, { ok: true }]);
     // Both mutations 403'd concurrently but the token was re-minted only ONCE.
     expect(callsTo('/api/auth/csrf').length).toBe(1);
-    expect(callsTo('/api/workspace-apps/n8n').length).toBe(2);
-    expect(callsTo('/api/workspace-apps/database').length).toBe(2);
+    expect(callsTo('/api/apps/erste/config').length).toBe(2);
+    expect(callsTo('/api/apps/zweite/config').length).toBe(2);
   });
 
   it('sets error status and data on thrown error', async () => {

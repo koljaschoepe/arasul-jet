@@ -271,7 +271,7 @@
 
 ## `api_keys`
 
-> API keys for external app access (n8n, automations, etc.)
+> API keys for external app access (automations, integrations)
 
 | Column                  | Type                     | Nullable | Default                                    |
 | ----------------------- | ------------------------ | -------- | ------------------------------------------ |
@@ -1200,86 +1200,6 @@ trägt die Angabe nicht".
 
 ---
 
-## `n8n_allowed_external_domains`
-
-> Phase 1.7: Whitelist externer Domains, die n8n-Workflows kontaktieren dürfen. Leer = alles geblockt. Verwaltung über Settings → n8n-Integration.
-
-| Column        | Type                     | Nullable | Default                                    |
-| ------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`          | integer                  | ⛔       | `nextval('n8n_allowed_external_domains...` |
-| `domain`      | character varying        | ⛔       |                                            |
-| `description` | text                     | ✅       |                                            |
-| `added_by`    | integer                  | ✅       |                                            |
-| `added_at`    | timestamp with time zone | ⛔       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `added_by` → `admin_users.id`
-
-**Indexes:**
-
-- `n8n_allowed_external_domains_domain_key` — `CREATE UNIQUE INDEX n8n_allowed_external_domains_domain_key ON public.n8n_allowed_external_domains USING btree (domain)`
-- `n8n_allowed_external_domains_pkey` — `CREATE UNIQUE INDEX n8n_allowed_external_domains_pkey ON public.n8n_allowed_external_domains USING btree (id)`
-
----
-
-## `n8n_audit_log`
-
-> DSGVO Art-30 audit trail for n8n workflow/credential/user mutations. Phase-3 EXTERNAL_INTEGRATIONS plan. Pruned by run_all_cleanups()/cleanup_n8n_audit_log().
-
-| Column        | Type                     | Nullable | Default                                    |
-| ------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`          | bigint                   | ⛔       | `nextval('n8n_audit_log_id_seq'::regcl...` |
-| `occurred_at` | timestamp with time zone | ⛔       | `now()`                                    |
-| `table_name`  | text                     | ⛔       |                                            |
-| `action`      | text                     | ⛔       |                                            |
-| `row_id`      | text                     | ✅       |                                            |
-| `actor_id`    | text                     | ✅       |                                            |
-| `diff`        | jsonb                    | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `idx_n8n_audit_log_occurred_at` — `CREATE INDEX idx_n8n_audit_log_occurred_at ON arasul.n8n_audit_log USING btree (occurred_at DESC)`
-- `idx_n8n_audit_log_table_action` — `CREATE INDEX idx_n8n_audit_log_table_action ON arasul.n8n_audit_log USING btree (table_name, action)`
-- `n8n_audit_log_pkey` — `CREATE UNIQUE INDEX n8n_audit_log_pkey ON arasul.n8n_audit_log USING btree (id)`
-
----
-
-## `n8n_external_call_log`
-
-> Phase 1.7: Audit-Trail für jeden externen HTTP-Call aus n8n-Workflows. Beweispflicht für Kanzlei-DSB.
-
-| Column          | Type                     | Nullable | Default                                    |
-| --------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`            | bigint                   | ⛔       | `nextval('n8n_external_call_log_id_seq...` |
-| `workflow_id`   | character varying        | ✅       |                                            |
-| `workflow_name` | character varying        | ✅       |                                            |
-| `execution_id`  | character varying        | ✅       |                                            |
-| `target_url`    | text                     | ⛔       |                                            |
-| `target_host`   | character varying        | ⛔       |                                            |
-| `method`        | character varying        | ⛔       | `'GET'::character varying`                 |
-| `status_code`   | integer                  | ✅       |                                            |
-| `blocked`       | boolean                  | ⛔       | `false`                                    |
-| `block_reason`  | text                     | ✅       |                                            |
-| `duration_ms`   | integer                  | ✅       |                                            |
-| `created_at`    | timestamp with time zone | ⛔       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `idx_n8n_calls_blocked` — `CREATE INDEX idx_n8n_calls_blocked ON public.n8n_external_call_log USING btree (blocked, created_at DESC) WHERE (blocked = true)`
-- `idx_n8n_calls_created_at` — `CREATE INDEX idx_n8n_calls_created_at ON public.n8n_external_call_log USING btree (created_at DESC)`
-- `idx_n8n_calls_target_host` — `CREATE INDEX idx_n8n_calls_target_host ON public.n8n_external_call_log USING btree (target_host)`
-- `idx_n8n_calls_workflow` — `CREATE INDEX idx_n8n_calls_workflow ON public.n8n_external_call_log USING btree (workflow_id, created_at DESC)`
-- `n8n_external_call_log_pkey` — `CREATE UNIQUE INDEX n8n_external_call_log_pkey ON public.n8n_external_call_log USING btree (id)`
-
----
-
 ## `notification_events`
 
 > Stores all events that trigger notifications
@@ -1399,24 +1319,6 @@ trägt die Angabe nicht".
 - `idx_password_history_time` — `CREATE INDEX idx_password_history_time ON public.password_history USING btree (changed_at DESC)`
 - `idx_password_history_user` — `CREATE INDEX idx_password_history_user ON public.password_history USING btree (user_id)`
 - `password_history_pkey` — `CREATE UNIQUE INDEX password_history_pkey ON public.password_history USING btree (id)`
-
----
-
-## `platform_apps`
-
-> Kuratierte Plattform-Apps: pro App an/aus (`/api/workspace-apps`). v1-Seed: n8n, telegram, database. Der Extensions-Tab ist mit Phase B3 (26.08.2026) aus der Oberflaeche gefallen.
-
-| Column       | Type                     | Nullable | Default |
-| ------------ | ------------------------ | -------- | ------- |
-| `id`         | text                     | ⛔       |         |
-| `enabled`    | boolean                  | ⛔       | `false` |
-| `updated_at` | timestamp with time zone | ⛔       | `now()` |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `platform_apps_pkey` — `CREATE UNIQUE INDEX platform_apps_pkey ON arasul.platform_apps USING btree (id)`
 
 ---
 
@@ -2040,32 +1942,5 @@ von `utils/tokenCrypto.js` mit einem Schlüssel aus `JWT_SECRET`. Eine geleakte
 Zeile ohne `JWT_SECRET` ist wertlos. `schluessel_endet_auf` ist bewusst
 Klartext, damit die Oberfläche zeigen kann, WELCHER Schlüssel hinterlegt ist,
 ohne ihn zu entschlüsseln.
-
----
-
-## `workflow_activity`
-
-> n8n workflow execution history
-
-| Column          | Type                     | Nullable | Default                                    |
-| --------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`            | bigint                   | ⛔       | `nextval('workflow_activity_id_seq'::r...` |
-| `workflow_name` | text                     | ⛔       |                                            |
-| `status`        | text                     | ⛔       |                                            |
-| `timestamp`     | timestamp with time zone | ⛔       | `now()`                                    |
-| `duration_ms`   | integer                  | ✅       |                                            |
-| `error`         | text                     | ✅       |                                            |
-| `created_at`    | timestamp with time zone | ✅       | `now()`                                    |
-| `execution_id`  | text                     | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `idx_workflow_activity_execution_id` — `CREATE INDEX idx_workflow_activity_execution_id ON public.workflow_activity USING btree (execution_id) WHERE (execution_id IS NOT NULL)`
-- `idx_workflow_activity_status` — `CREATE INDEX idx_workflow_activity_status ON public.workflow_activity USING btree (status)`
-- `idx_workflow_activity_timestamp` — `CREATE INDEX idx_workflow_activity_timestamp ON public.workflow_activity USING btree ("timestamp" DESC)`
-- `idx_workflow_activity_workflow_name` — `CREATE INDEX idx_workflow_activity_workflow_name ON public.workflow_activity USING btree (workflow_name)`
-- `workflow_activity_pkey` — `CREATE UNIQUE INDEX workflow_activity_pkey ON public.workflow_activity USING btree (id)`
 
 ---

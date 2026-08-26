@@ -32,10 +32,6 @@ const DOCUMENT_INDEXER_PORT = process.env.DOCUMENT_INDEXER_API_PORT || '9102';
 const SELF_HEALING_HOST = process.env.SELF_HEALING_HOST || 'self-healing-agent';
 const SELF_HEALING_PORT = process.env.SELF_HEALING_PORT || '9200';
 
-// n8n Workflow Engine
-const N8N_HOST = process.env.N8N_HOST || 'n8n';
-const N8N_PORT = process.env.N8N_PORT || '5678';
-
 // TIMEOUT-002: Default timeouts per service type (ms)
 // Individual axios calls can override these, but this ensures nothing hangs forever
 const timeouts = {
@@ -46,7 +42,7 @@ const timeouts = {
   embedBatch: 120000, // Batch embedding
   generate: 600000, // LLM generation (streaming)
   pull: 3600000, // Model download (1h)
-  webhook: 10000, // External webhooks (n8n, etc.)
+  webhook: 10000, // External webhooks (self-healing agent)
   default: 30000, // Fallback for anything unspecified
 };
 
@@ -104,18 +100,6 @@ const services = {
     host: SELF_HEALING_HOST,
     port: SELF_HEALING_PORT,
     url: `http://${SELF_HEALING_HOST}:${SELF_HEALING_PORT}`,
-  },
-
-  // n8n
-  n8n: {
-    host: N8N_HOST,
-    port: N8N_PORT,
-    url: `http://${N8N_HOST}:${N8N_PORT}`,
-    // Fester Owner (Plan 007): hydratisiert von utils/resolveSecrets aus den
-    // Docker-Secrets n8n_owner_email / n8n_owner_password. Das Backend meldet
-    // diesen Owner bei n8n an (GET /api/automations/session).
-    ownerEmail: process.env.N8N_OWNER_EMAIL || '',
-    ownerPassword: process.env.N8N_OWNER_PASSWORD || '',
   },
 };
 

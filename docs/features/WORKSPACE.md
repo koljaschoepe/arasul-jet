@@ -1,6 +1,6 @@
 # Workspace
 
-> **Stand 26.08.2026, Phase B4 des Umbaus:** Der Workspace, wie ihn diese
+> **Stand 26.08.2026, Phase B5 des Umbaus:** Der Workspace, wie ihn diese
 > Seite bis B3 beschrieb (Sandbox-Container mit Netzwerkmodi, Terminal,
 > Projekte mit Projektablage und Ein-Ordner-Modell, Wissensräume, Git-Sync,
 > Erweiterungs-Werkstatt, KI-Zugang für Claude Code und Codex), ist
@@ -12,10 +12,9 @@
 
 ## Was heute unter dem Namen bleibt
 
-- **Workspace-Apps** (`GET /api/workspace-apps`, `PUT /api/workspace-apps/:id`,
-  Tabelle `platform_apps`): die kuratierten Kern-Apps (n8n, Telegram, Datenbank)
-  je App an- oder abschalten. Der Schalter hat bis D1 keine Oberfläche; die
-  Apps selbst gehören zu Phase B5.
+- **Workspace-Apps** gibt es seit B5 nicht mehr: `/api/workspace-apps`, die
+  Tabelle `platform_apps` (Migration 164) und n8n als letzte Kern-App sind
+  weg. Das App-Modell aus C3 ersetzt sie.
 - **Chat** (`/api/chats`, `/api/llm/chat`): bleibt bis B6, ohne Agent-Modus,
   ohne Datei-Ablage, ohne Wissensraum-Bindung. Die Spalten
   `chat_messages.datei` und `.schritte` (Migrationen 127/128) stehen noch,
@@ -28,6 +27,6 @@
 
 - [`FLOWS.md`](FLOWS.md)
 - [`../api/API_REFERENCE.md`](../api/API_REFERENCE.md), Abschnitte
-  **Workspace-Apps**, **Chat Conversations**, **Flows**
+  **Chat Conversations**, **Flows**
 - Die Geschichte des Workspace bis zum Rückbau steht in den abgeschlossenen
   Plänen 012 bis 019 (Übersicht in [`../plans/HISTORIE.md`](../plans/HISTORIE.md)).

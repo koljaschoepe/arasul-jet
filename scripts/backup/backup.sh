@@ -2,7 +2,7 @@
 # =============================================================================
 # Arasul Platform - Automated Backup Script
 # =============================================================================
-# Backs up PostgreSQL database, n8n workflows and config
+# Backs up PostgreSQL database and config
 # (MinIO-Sicherung am 26.08.2026 entfallen, Phase B4 des Rueckbaus: der
 # Objektspeicher ist weg; kritisch ist nur noch Postgres)
 # Supports retention policies and optional S3 upload
@@ -79,7 +79,6 @@ log() {
 # Create backup directories
 setup_directories() {
     mkdir -p "${BACKUP_DIR}/postgres"
-    mkdir -p "${BACKUP_DIR}/n8n"
     mkdir -p "${BACKUP_DIR}/weekly"
     touch "${LOG_FILE}"
 }
@@ -126,52 +125,6 @@ backup_postgres() {
     else
         log "ERROR" "PostgreSQL backup failed"
         return 1
-    fi
-}
-
-# Backup n8n workflows
-backup_n8n() {
-    log "INFO" "Starting n8n workflows backup..."
-
-    local backup_dir="${BACKUP_DIR}/n8n"
-    local backup_file="${BACKUP_DIR}/n8n/workflows_${TIMESTAMP}.json"
-    local backup_file_latest="${BACKUP_DIR}/n8n/workflows_latest.json"
-
-    mkdir -p "${backup_dir}"
-
-    # Check if n8n container is running
-    if ! docker ps --format '{{.Names}}' | grep -q "^n8n$"; then
-        log "WARN" "n8n container is not running, skipping backup"
-        return 1
-    fi
-
-    # Export all workflows using n8n CLI
-    log "INFO" "Exporting n8n workflows..."
-    if docker exec n8n n8n export:workflow --all --output=/tmp/workflows_export.json 2>/dev/null; then
-        # Copy from container to host
-        if docker cp "n8n:/tmp/workflows_export.json" "${backup_file}" 2>/dev/null; then
-            # Clean up temp file in container
-            docker exec n8n rm -f /tmp/workflows_export.json 2>/dev/null || true
-
-            local size=$(du -h "${backup_file}" | cut -f1)
-            local workflow_count=$(grep -c '"name"' "${backup_file}" 2>/dev/null || echo "?")
-            log "INFO" "n8n backup completed: ${backup_file} (${size}, ${workflow_count} workflows)"
-
-            # Create/update latest symlink
-            ln -sf "$(basename "${backup_file}")" "${backup_file_latest}"
-
-            echo "${backup_file}"
-            return 0
-        else
-            log "ERROR" "Failed to copy n8n workflows from container"
-            return 1
-        fi
-    else
-        log "WARN" "n8n export command failed (may have no workflows yet)"
-        # Create empty backup file to indicate backup was attempted
-        echo "[]" > "${backup_file}"
-        ln -sf "$(basename "${backup_file}")" "${backup_file_latest}"
-        return 0
     fi
 }
 
@@ -268,7 +221,6 @@ copy_to_usb() {
     local copied=0
     for latest_file in \
         "${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz" \
-        "${BACKUP_DIR}/n8n/workflows_latest.json" \
         "${BACKUP_DIR}/config/config_latest.tar.gz"; do
 
         if [[ -e "${latest_file}" ]]; then
@@ -306,11 +258,6 @@ create_weekly_backup() {
                "${weekly_dir}/postgres_W${week_number}.sql.gz"
         fi
 
-        if [[ -f "${BACKUP_DIR}/n8n/workflows_latest.json" ]]; then
-            cp "${BACKUP_DIR}/n8n/workflows_latest.json" \
-               "${weekly_dir}/n8n_W${week_number}.json"
-        fi
-
         if [[ -f "${BACKUP_DIR}/config/config_latest.tar.gz" ]]; then
             cp "${BACKUP_DIR}/config/config_latest.tar.gz" \
                "${weekly_dir}/config_W${week_number}.tar.gz"
@@ -333,15 +280,6 @@ cleanup_old_backups() {
         log "DEBUG" "Deleted old backup: $file"
     done < <(find "${BACKUP_DIR}/postgres" -name "arasul_db_*.sql.gz" \
         ! -name "arasul_db_latest.sql.gz" \
-        -type f -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
-
-    # Clean n8n workflow backups
-    while IFS= read -r -d '' file; do
-        rm -f "$file"
-        deleted_count=$((deleted_count + 1))
-        log "DEBUG" "Deleted old backup: $file"
-    done < <(find "${BACKUP_DIR}/n8n" -name "workflows_*.json" \
-        ! -name "workflows_latest.json" \
         -type f -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
 
     # Clean config backups
@@ -393,7 +331,6 @@ generate_report() {
     local report_file="${BACKUP_DIR}/backup_report.json"
 
     local postgres_count=$(find "${BACKUP_DIR}/postgres" -name "*.sql.gz*" -type f 2>/dev/null | wc -l)
-    local n8n_count=$(find "${BACKUP_DIR}/n8n" -name "*.json*" -type f 2>/dev/null | wc -l)
     local config_count=$(find "${BACKUP_DIR}/config" -name "config_*.tar.gz*" -type f 2>/dev/null | wc -l)
     local weekly_count=$(find "${BACKUP_DIR}/weekly" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
     local total_size=$(du -sh "${BACKUP_DIR}" 2>/dev/null | cut -f1)
@@ -405,7 +342,6 @@ generate_report() {
     "status": "completed",
     "statistics": {
         "postgres_backups": ${postgres_count},
-        "n8n_backups": ${n8n_count},
         "config_backups": ${config_count},
         "encryption_enabled": ${BACKUP_ENCRYPTION_ENABLED},
         "weekly_snapshots": ${weekly_count},
@@ -415,7 +351,6 @@ generate_report() {
     },
     "latest_backups": {
         "postgres": "$(readlink -f "${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz" 2>/dev/null || echo 'none')",
-        "n8n": "$(readlink -f "${BACKUP_DIR}/n8n/workflows_latest.json" 2>/dev/null || echo 'none')",
         "config": "$(readlink -f "${BACKUP_DIR}/config/config_latest.tar.gz" 2>/dev/null || echo 'none')"
     }
 }
@@ -432,7 +367,6 @@ main() {
 
     local start_time=$(date +%s)
     local postgres_success=false
-    local n8n_success=false
     local config_success=false
 
     # Setup
@@ -444,12 +378,6 @@ main() {
     if pg_file=$(backup_postgres); then
         postgres_success=true
         encrypt_file "${pg_file}" || true
-    fi
-
-    local n8n_file=""
-    if n8n_file=$(backup_n8n); then
-        n8n_success=true
-        encrypt_file "${n8n_file}" || true
     fi
 
     local config_file=""
@@ -481,7 +409,6 @@ main() {
     log "INFO" "=========================================="
     log "INFO" "Backup Complete (${duration}s)"
     log "INFO" "PostgreSQL: $([ "$postgres_success" = true ] && echo 'SUCCESS' || echo 'FAILED')"
-    log "INFO" "n8n: $([ "$n8n_success" = true ] && echo 'SUCCESS' || echo 'SKIPPED/FAILED')"
     log "INFO" "Config: $([ "$config_success" = true ] && echo 'SUCCESS' || echo 'FAILED')"
     if [[ "${BACKUP_ENCRYPTION_ENABLED}" == "true" ]]; then
         log "INFO" "Encryption: ENABLED (AES-256)"

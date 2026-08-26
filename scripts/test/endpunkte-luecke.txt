@@ -7,7 +7,7 @@
 # Am 22.08.2026 von 77 auf 35 gebracht: Dokumente, Chats, RAG, Modelle und die
 # Laufverwaltung. Am 23.08.2026 auf NULL: die restlichen 35 waren Betriebs- und
 # Wartungswege (Datenbank-Pool, Protokolle, Selbstheilung, Aktualisierung,
-# Dienste-Neustart, n8n-Workflow-Verwaltung). Sie sind nicht die Abnahme aus K1
+# Dienste-Neustart, damals auch n8n-Workflow-Verwaltung). Sie sind nicht die Abnahme aus K1
 # gewesen, aber ein Partner, der ein Geraet ueberwacht, braucht sie, und der
 # Aufwand war kleiner als die Begruendung, sie wegzulassen.
 #

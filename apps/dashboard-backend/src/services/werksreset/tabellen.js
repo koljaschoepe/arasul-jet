@@ -33,7 +33,6 @@ const INHALTE = [
   ['public.chat_conversations', 'Chatverläufe'],
   ['public.chat_messages', 'Chatnachrichten'],
   ['public.llm_jobs', 'Aufträge an die Sprachmodelle'],
-  ['public.workflow_activity', 'Läufe der n8n-Workflows'],
   ['arasul.flow_run_steps', 'Einzelschritte der Flow-Läufe'],
   ['arasul.flow_runs', 'Flow-Läufe'],
 ];
@@ -65,7 +64,6 @@ const AUSLIEFERUNG = [
   ['public.metrics_swap', 'Messwerte, Auslagerung'],
   ['public.metrics_temperature', 'Messwerte, Temperatur'],
   ['public.model_performance_metrics', 'Gemessenes Tempo der Modelle'],
-  ['public.n8n_external_call_log', 'Protokoll der ausgehenden n8n-Aufrufe'],
   ['public.notification_events', 'Benachrichtigungen'],
   ['public.notification_rate_limits', 'Bremse für Benachrichtigungen'],
   ['public.notification_settings', 'Eigene Benachrichtigungswege'],
@@ -85,7 +83,6 @@ const AUSLIEFERUNG = [
   ['public.update_rollbacks', 'Zurückgenommene Aktualisierungen'],
   ['public.update_state_snapshots', 'Zustand vor einer Aktualisierung'],
   ['arasul.externe_modell_anbieter', 'Zugänge zu externen Modellen, verschlüsselt hinterlegt'],
-  ['arasul.n8n_audit_log', 'Prüfprotokoll der n8n-Kopplung'],
 ];
 
 /**
@@ -110,8 +107,6 @@ const BLEIBT = [
   ['public.alert_thresholds', 'Werksschwellen für Warnungen, kommen aus den Migrationen'],
   ['public.alert_settings', 'Werksvorgabe für Warnungen'],
   ['public.alert_quiet_hours', 'Werksvorgabe für Ruhezeiten'],
-  ['public.n8n_allowed_external_domains', 'Werksliste erlaubter Ziele für n8n'],
-  ['arasul.platform_apps', 'Werksliste der Plattform-Anwendungen'],
   ['arasul.geraet', 'Merker über den Werksreset hinweg, er muss ihn gerade überleben'],
   ['public.system_settings', 'Einzelzeile mit id=1, wird zurückgesetzt statt gelöscht'],
 ];

@@ -33,8 +33,6 @@ Internet (443) → Traefik → Dashboard frontend (React 19 SPA)
                               ├─ PostgreSQL 16
                               ├─ LLM service (Ollama, GPU)
                               ├─ Document indexer (text extraction only)
-                              ├─ n8n (workflows)
-                              ├─ SearXNG (web search for agents)
                               └─ Self-healing + metrics + backup
 ```
 

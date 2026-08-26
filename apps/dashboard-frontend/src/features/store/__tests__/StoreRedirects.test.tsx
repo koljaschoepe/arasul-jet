@@ -46,8 +46,8 @@ describe('Store, Full-Width + Redirects', () => {
     expect(useExtensionStore.getState().selected).toEqual({ kind: 'model', id: 'llama3' });
   });
 
-  it('/store/apps?highlight=n8n (gefallener Reiter) leitet ohne Auswahl auf /store um', async () => {
-    renderAt('/store/apps?highlight=n8n');
+  it('/store/apps?highlight=irgendeine-app (gefallener Reiter) leitet ohne Auswahl auf /store um', async () => {
+    renderAt('/store/apps?highlight=irgendeine-app');
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
     expect(useExtensionStore.getState().selected).toBeNull();
   });

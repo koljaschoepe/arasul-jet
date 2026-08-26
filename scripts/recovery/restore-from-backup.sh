@@ -76,7 +76,7 @@ restore_postgres() {
 
     # Stop services that depend on the database
     log "Stopping dependent services..."
-    docker compose stop dashboard-backend n8n document-indexer self-healing-agent 2>/dev/null || true
+    docker compose stop dashboard-backend document-indexer self-healing-agent 2>/dev/null || true
 
     # Restore
     log "Dropping and recreating database..."

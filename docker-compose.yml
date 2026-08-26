@@ -4,18 +4,19 @@ name: arasul-platform
 # Startup Order (enforced by depends_on in each compose file):
 #   1. postgres-db, docker-proxy   (compose.core.yaml)
 #   2. llm-service,                (compose.ai.yaml)
-#      embedding-service, searxng,
+#      embedding-service,
 #      document-indexer
 #   3. metrics-collector            (compose.monitoring.yaml)
 #   4. reverse-proxy                (compose.core.yaml)
 #   5. dashboard-backend,           (compose.app.yaml)
-#      dashboard-frontend, n8n
+#      dashboard-frontend
 #   6. self-healing-agent,          (compose.monitoring.yaml)
 #      backup-service
 #
 # MinIO, Loki und Promtail sind am 26.08.2026 (Phase B4 des Rueckbaus)
 # entfallen: kein Dienst liest mehr aus dem Objektspeicher, die Log-Ansicht
-# liest Docker direkt.
+# liest Docker direkt. n8n, n8n-runners und SearXNG sind in Phase B5 (gleicher
+# Tag) gefallen; Automationen sind seither Sache der Flows.
 #
 # Usage:
 #   docker compose up -d                              # All services

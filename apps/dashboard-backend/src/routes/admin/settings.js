@@ -1,6 +1,6 @@
 /**
  * Settings API routes
- * Handles system settings including password management for Dashboard and n8n
+ * Handles system settings including password management for the Dashboard
  */
 
 const express = require('express');
@@ -30,7 +30,6 @@ const execFilePromise = util.promisify(execFile);
 
 // Whitelist of services allowed to be restarted (SECURITY: prevents command injection)
 const ALLOWED_RESTART_SERVICES = [
-  'n8n',
   'llm-service',
   'embedding-service',
   'dashboard-backend',
@@ -155,74 +154,6 @@ router.post(
       success: true,
       message: 'Dashboard password changed successfully',
       requireRelogin: true,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/settings/password/n8n
- * Change n8n basic auth password
- */
-router.post(
-  '/password/n8n',
-  requireAuth,
-  requireAdmin,
-  passwordChangeLimiter,
-  validateBody(PasswordChangeBody),
-  asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword } = req.body;
-
-    // Validate new password complexity
-    const validation = validatePasswordComplexity(newPassword);
-    if (!validation.valid) {
-      throw new ValidationError('Password does not meet complexity requirements');
-    }
-
-    // Verify current dashboard password for authorization
-    try {
-      await verifyCurrentDashboardPassword(req.user.id, currentPassword);
-    } catch (error) {
-      if (error.message === 'Current password is incorrect') {
-        throw new UnauthorizedError('Current password is incorrect');
-      }
-      throw error;
-    }
-
-    // Check if new password is different
-    if (newPassword === process.env.N8N_BASIC_AUTH_PASSWORD) {
-      throw new ValidationError('New password must be different from current password');
-    }
-
-    // Create backup before making changes
-    const envVorher = await backupEnvFile();
-
-    // Update .env file
-    try {
-      await updateEnvVariables({
-        N8N_BASIC_AUTH_PASSWORD: newPassword,
-      });
-    } catch (err) {
-      await envZurueckrollen(envVorher);
-      throw err;
-    }
-
-    // Restart n8n service to apply new password
-    await restartService('n8n');
-
-    logger.info(`n8n password changed successfully by ${req.user.username}`);
-
-    logSecurityEvent({
-      userId: req.user.id,
-      action: 'password_change',
-      details: { target: 'n8n' },
-      ipAddress: req.ip,
-      requestId: req.headers['x-request-id'],
-    });
-
-    res.json({
-      success: true,
-      message: 'n8n password changed successfully. Service restarted.',
       timestamp: new Date().toISOString(),
     });
   })

@@ -28,18 +28,20 @@ src/
                    WorkspaceMenuBar (Marke + **zwei** Layout-Toggles [Sidebar,
                    rechte Spalte] + Settings oben rechts), ActivityBar (eigene,
                    **immer sichtbare** schmale Spalte ganz links — außerhalb des
-                   einklappbaren Panels — mit der Ansicht **Modelle**, den
-                   aktivierten Kern-Apps (n8n → Tab `automationen`) und dem
-                   Einstellungen-Zahnrad unten — Plan 012 Phase B), SidebarHost
+                   einklappbaren Panels — mit der Ansicht **Modelle** und dem
+                   Einstellungen-Zahnrad unten — Plan 012 Phase B; die
+                   Kern-App-Einträge, zuletzt n8n, sind mit Phase B5 gefallen),
+                   SidebarHost
                    (Sidebar), Tab-Bar/-Content (Mitte), RightPanel (rechts,
                    leer), StatusBar (Modell + KI-RAM). Feature-Tabs laufen je in
                    einem eigenen IsolatedMemoryRouter (FeatureTabHost);
                    Cross-Feature-Links übersetzt die TabBridge in Tab-Öffnungen.
-                   • **Tab-Typen** — `settings`, `modelle`, `automationen`
-                     (`stores/workspaceStore.ts`, v8). Jeder Typ ist ein
+                   • **Tab-Typen** — `settings`, `modelle`
+                     (`stores/workspaceStore.ts`, v9). Jeder Typ ist ein
                      Singleton, `tabId()` ist der Typ. Alte Stände mit
-                     `erweiterungen`/`flow`/`extension` fallen in der Migration,
-                     ein alter `store`-Tab wird zu `modelle`.
+                     `erweiterungen`/`flow`/`extension` (v7) und `automationen`
+                     (v8) fallen in der Migration, ein alter `store`-Tab wird
+                     zu `modelle`.
                    • **RightPanel** — leere Fläche mit Schließen-Knopf; die Shell
                      versteckt sie per `data-shell-hidden` (nie unmounten).
                      Zustand im Store: `rightPanelVisible`.
@@ -61,10 +63,10 @@ src/
                      über den ephemeren `extensionStore` (`kind:'model'`). Der
                      alte `/store/apps`-Link landet wie jeder unbekannte Pfad
                      auf dem Raster.
-                   • **Kern-Apps** — `useWorkspaceApps` (`GET /workspace-apps`)
-                     sagt der ActivityBar und der Shell, ob n8n sichtbar ist;
-                     der Schalter (`PUT /workspace-apps/:id`) hat seit B3 keine
-                     Oberfläche mehr, bis D1 die App-Liste baut.
+                   • **Kern-Apps** — gibt es seit Phase B5 nicht mehr
+                     (`useWorkspaceApps`, `/workspace-apps`, Tabelle
+                     `platform_apps` sind weg); D1 baut die App-Liste auf dem
+                     App-Modell aus C3 neu.
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung
                      nur über Borders. `--card` bleibt erhabenen Elementen

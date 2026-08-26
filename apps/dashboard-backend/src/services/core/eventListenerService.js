@@ -1,6 +1,6 @@
 /**
  * Event Listener Service
- * Monitors Docker events, n8n workflows, and system boot for proactive notifications
+ * Monitors Docker events and system boot for proactive notifications
  */
 
 const db = require('../../database');
@@ -12,7 +12,6 @@ const { docker: dockerClient } = require('./docker');
 const SERVICE_NAMES = {
   'llm-service': 'LLM Service',
   'embedding-service': 'Embedding Service',
-  n8n: 'n8n Workflows',
   'postgres-db': 'PostgreSQL',
   'dashboard-backend': 'Dashboard Backend',
   'dashboard-frontend': 'Dashboard Frontend',
@@ -44,7 +43,6 @@ class EventListenerService {
     this.bootDetected = false;
     this.eventCounts = {
       docker: 0,
-      workflow: 0,
       boot: 0,
       selfHealing: 0,
     };
@@ -317,7 +315,7 @@ class EventListenerService {
 
     // Notify on start/stop for important services
     if (['start', 'stop', 'restart'].includes(action)) {
-      const importantServices = ['llm-service', 'n8n', 'postgres-db', 'dashboard-backend'];
+      const importantServices = ['llm-service', 'postgres-db', 'dashboard-backend'];
       return importantServices.includes(containerName);
     }
 
@@ -382,63 +380,6 @@ class EventListenerService {
       return 'recovery';
     }
     return 'status_change';
-  }
-
-  /**
-   * Handle n8n workflow event (called via webhook)
-   */
-  async handleWorkflowEvent(workflowData) {
-    try {
-      this.eventCounts.workflow++;
-
-      const { workflow_id, workflow_name, status, execution_id, error, duration_ms } = workflowData;
-
-      const severity = status === 'error' ? 'error' : status === 'success' ? 'info' : 'warning';
-      const category = status === 'error' ? 'failure' : 'completion';
-
-      const title =
-        status === 'error'
-          ? `Workflow fehlgeschlagen: ${workflow_name}`
-          : `Workflow abgeschlossen: ${workflow_name}`;
-
-      const message =
-        status === 'error'
-          ? `Der Workflow "${workflow_name}" ist mit einem Fehler beendet worden.`
-          : `Der Workflow "${workflow_name}" wurde erfolgreich ausgeführt.`;
-
-      await notificationService.queueNotification({
-        event_type: 'workflow_event',
-        event_category: category,
-        source_service: 'n8n',
-        severity,
-        title,
-        message,
-        metadata: {
-          workflow_id,
-          workflow_name,
-          execution_id,
-          status,
-          error,
-          duration_ms,
-        },
-      });
-
-      // Broadcast to WebSocket clients
-      this.broadcastEvent({
-        type: 'workflow_event',
-        workflow_name,
-        status,
-        severity,
-        timestamp: new Date().toISOString(),
-      });
-
-      logger.info(`Workflow event processed: ${workflow_name} - ${status}`);
-
-      return { success: true };
-    } catch (error) {
-      logger.error(`Failed to handle workflow event: ${error.message}`);
-      return { success: false, error: error.message };
-    }
   }
 
   /**

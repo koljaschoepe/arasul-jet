@@ -8,24 +8,24 @@
 
 Root `docker-compose.yml` includes 6 files from `compose/`:
 
-| File                      | Purpose                                               |
-| ------------------------- | ----------------------------------------------------- |
-| `compose.secrets.yaml`    | Docker secrets (passwords, keys as files)             |
-| `compose.core.yaml`       | PostgreSQL, Traefik, docker-proxy                     |
-| `compose.ai.yaml`         | LLM (Ollama), embedding-service, doc-indexer, searxng |
-| `compose.app.yaml`        | Dashboard backend/frontend, n8n, n8n-runners          |
-| `compose.monitoring.yaml` | Metrics, self-healing, backup                         |
-| `compose.external.yaml`   | Cloudflare tunnel (optional, `--profile tunnel`)      |
+| File                      | Purpose                                          |
+| ------------------------- | ------------------------------------------------ |
+| `compose.secrets.yaml`    | Docker secrets (passwords, keys as files)        |
+| `compose.core.yaml`       | PostgreSQL, Traefik, docker-proxy                |
+| `compose.ai.yaml`         | LLM (Ollama), embedding-service, doc-indexer     |
+| `compose.app.yaml`        | Dashboard backend/frontend                       |
+| `compose.monitoring.yaml` | Metrics, self-healing, backup                    |
+| `compose.external.yaml`   | Cloudflare tunnel (optional, `--profile tunnel`) |
 
 **File locations**: `compose/*.yaml` (relative paths inside reference `../services/`, `../config/`, etc.)
 
 **Startup order** (enforced by `depends_on` with `condition: service_healthy`):
 
 1. `postgres-db` (core)
-2. `llm-service`, `embedding-service`, `searxng` (AI)
+2. `llm-service`, `embedding-service` (AI)
 3. `metrics-collector` (monitoring)
 4. `reverse-proxy` (Traefik, waits for postgres)
-5. `dashboard-backend`, `dashboard-frontend`, `n8n` (app)
+5. `dashboard-backend`, `dashboard-frontend` (app)
 6. `document-indexer` (stateless text extraction)
 7. `self-healing-agent`, `backup-service` (monitoring)
 
@@ -35,11 +35,11 @@ entfallen; `--profile monitoring` gibt es nicht mehr, Logs kommen aus
 
 ## Networks (3 isolated bridge networks)
 
-| Network             | Subnet            | Purpose                                      |
-| ------------------- | ----------------- | -------------------------------------------- |
-| `arasul-frontend`   | `172.30.0.0/26`   | Traefik, frontend, cloudflared               |
-| `arasul-backend`    | `172.30.0.64/26`  | All internal services (DB, AI, backend, n8n) |
-| `arasul-monitoring` | `172.30.0.128/26` | Metrics, self-healing, logging               |
+| Network             | Subnet            | Purpose                                 |
+| ------------------- | ----------------- | --------------------------------------- |
+| `arasul-frontend`   | `172.30.0.0/26`   | Traefik, frontend, cloudflared          |
+| `arasul-backend`    | `172.30.0.64/26`  | All internal services (DB, AI, backend) |
+| `arasul-monitoring` | `172.30.0.128/26` | Metrics, self-healing, logging          |
 
 **Cross-network services**: `dashboard-backend` is on all three networks (frontend + backend + monitoring). `metrics-collector` and `self-healing-agent` are on backend + monitoring. `reverse-proxy` is on frontend + backend.
 
@@ -84,7 +84,7 @@ All config under `config/traefik/`:
 | `dynamic/routes.yml`      | HTTP routers and service definitions (priority 1-110)   |
 | `dynamic/middlewares.yml` | Rate limits, auth, CORS, security headers, strip-prefix |
 | `dynamic/tls.yml`         | Self-signed cert, TLS 1.2+ with strong cipher suites    |
-| `dynamic/websockets.yml`  | WebSocket routers for metrics live-stream and n8n       |
+| `dynamic/websockets.yml`  | WebSocket router for the metrics live-stream            |
 
 **Entrypoints**:
 
@@ -99,47 +99,41 @@ All config under `config/traefik/`:
 
 **Router priorities** (higher wins on overlap):
 
-| Priority | Router                                      | Rule                                 |
-| -------- | ------------------------------------------- | ------------------------------------ |
-| 110      | n8n-healthz                                 | `/n8n/healthz`                       |
-| 100      | n8n                                         | `/n8n`                               |
-| 85       | n8n-favicon                                 | `/favicon.ico`                       |
-| 65       | dashboard-static                            | `/static/js`, `/static/css`, etc.    |
-| 50       | all websocket routers                       | WS upgrade header match              |
-| 35       | traefik-dashboard                           | `/api/traefik`, `/dashboard`         |
-| 25       | llm-direct, embeddings-direct, n8n-webhooks | `/models`, `/embeddings`, `/webhook` |
-| 20       | auth-api                                    | `/api/auth`                          |
-| 15       | metrics-api                                 | `/api/metrics`                       |
-| 10       | dashboard-api                               | `/api`                               |
-| 1        | dashboard-frontend                          | `/` (catch-all)                      |
+| Priority | Router                        | Rule                              |
+| -------- | ----------------------------- | --------------------------------- |
+| 65       | dashboard-static              | `/static/js`, `/static/css`, etc. |
+| 50       | all websocket routers         | WS upgrade header match           |
+| 35       | traefik-dashboard             | `/api/traefik`, `/dashboard`      |
+| 25       | llm-direct, embeddings-direct | `/models`, `/embeddings`          |
+| 20       | auth-api                      | `/api/auth`                       |
+| 15       | metrics-api                   | `/api/metrics`                    |
+| 10       | dashboard-api                 | `/api`                            |
+| 1        | dashboard-frontend            | `/` (catch-all)                   |
 
 **Authentication middlewares**:
 
 - `forward-auth`: JWT verification via `http://dashboard-backend:3001/api/auth/verify` (cookie or Authorization header)
 - `basicAuth-traefik`: htpasswd hash for Traefik dashboard
-- `basicAuth-n8n`: htpasswd hash for n8n access (on top of n8n's own auth)
 - Hashes generated at bootstrap (`./arasul bootstrap`) or manually via `scripts/security/generate-htpasswd.sh`
 
 **SSE/streaming**: `serversTransports.sse-transport` with 600s timeout, `flushInterval: 1ms` on backend service. Compression middleware excludes `text/event-stream`.
 
 ## Key Service Ports (internal Docker network)
 
-| Service            | Port(s)       | Protocol          | Health Check Endpoint                           |
-| ------------------ | ------------- | ----------------- | ----------------------------------------------- |
-| postgres-db        | 5432          | PostgreSQL        | `pg_isready -U ${POSTGRES_USER}`                |
-| docker-proxy       | 2375          | Docker API        | (service_started)                               |
-| reverse-proxy      | 80, 443, 8080 | HTTP/S            | `wget http://localhost:8080/ping`               |
-| llm-service        | 11434 / 11436 | Ollama / Mgmt API | `/healthcheck.sh` (bash)                        |
-| embedding-service  | 11435         | HTTP              | `curl http://localhost:11435/health`            |
-| document-indexer   | 9102          | HTTP              | `curl http://localhost:9102/health`             |
-| dashboard-backend  | 3001          | HTTP              | `node` inline check on `/api/health`            |
-| dashboard-frontend | 3000          | HTTP (nginx)      | `test -f /usr/share/nginx/html/index.html`      |
-| n8n                | 5678          | HTTP              | `wget http://localhost:5678/healthz`            |
-| metrics-collector  | 9100          | HTTP              | `curl http://localhost:9100/health`             |
-| self-healing-agent | 9200          | HTTP              | `python3 /app/heartbeat.py --test`              |
-| backup-service     | --            | --                | `test -f /backups/backup_report.json`           |
-| searxng            | 8080          | HTTP              | python `urllib` GET on `http://127.0.0.1:8080/` |
-| cloudflared        | --            | Tunnel            | `pgrep -x cloudflared`                          |
+| Service            | Port(s)       | Protocol          | Health Check Endpoint                      |
+| ------------------ | ------------- | ----------------- | ------------------------------------------ |
+| postgres-db        | 5432          | PostgreSQL        | `pg_isready -U ${POSTGRES_USER}`           |
+| docker-proxy       | 2375          | Docker API        | (service_started)                          |
+| reverse-proxy      | 80, 443, 8080 | HTTP/S            | `wget http://localhost:8080/ping`          |
+| llm-service        | 11434 / 11436 | Ollama / Mgmt API | `/healthcheck.sh` (bash)                   |
+| embedding-service  | 11435         | HTTP              | `curl http://localhost:11435/health`       |
+| document-indexer   | 9102          | HTTP              | `curl http://localhost:9102/health`        |
+| dashboard-backend  | 3001          | HTTP              | `node` inline check on `/api/health`       |
+| dashboard-frontend | 3000          | HTTP (nginx)      | `test -f /usr/share/nginx/html/index.html` |
+| metrics-collector  | 9100          | HTTP              | `curl http://localhost:9100/health`        |
+| self-healing-agent | 9200          | HTTP              | `python3 /app/heartbeat.py --test`         |
+| backup-service     | --            | --                | `test -f /backups/backup_report.json`      |
+| cloudflared        | --            | Tunnel            | `pgrep -x cloudflared`                     |
 
 ## Volumes (named + host mounts)
 
@@ -150,10 +144,8 @@ All config under `config/traefik/`:
 | `arasul-postgres`          | postgres-db         | Database data               |
 | `arasul-llm-models`        | llm-service         | Ollama model files          |
 | `arasul-embeddings-models` | embedding-service   | Sentence transformer models |
-| `arasul-n8n`               | n8n                 | Workflow data               |
 | `arasul-metrics`           | metrics-collector   | Metrics cache               |
 | `arasul-wal`               | postgres-db, backup | WAL archive for backups     |
-| `n8n-agent-workspace`      | n8n, n8n-runners    | Agent workspace of n8n      |
 
 ### Key Host Mounts
 
@@ -174,12 +166,11 @@ All config under `config/traefik/`:
 
 Defined in `compose/compose.secrets.yaml`. Secret files stored in `config/secrets/`:
 
-| Secret               | File Path                           | Used By              |
-| -------------------- | ----------------------------------- | -------------------- |
-| `postgres_password`  | `config/secrets/postgres_password`  | postgres-db, backend |
-| `jwt_secret`         | `config/secrets/jwt_secret`         | backend              |
-| `n8n_encryption_key` | `config/secrets/n8n_encryption_key` | n8n                  |
-| `admin_password`     | `config/secrets/admin_password`     | backend              |
+| Secret              | File Path                          | Used By              |
+| ------------------- | ---------------------------------- | -------------------- |
+| `postgres_password` | `config/secrets/postgres_password` | postgres-db, backend |
+| `jwt_secret`        | `config/secrets/jwt_secret`        | backend              |
+| `admin_password`    | `config/secrets/admin_password`    | backend              |
 
 Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment variables (e.g., `POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password`). Backend uses `resolveSecrets.js` to read these.
 
@@ -213,7 +204,6 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
 | document-indexer   | `curl` HTTP      | 30s      | 5s      | 60s          | 3       |
 | dashboard-backend  | `node` inline    | 10s      | 3s      | 10s          | 3       |
 | dashboard-frontend | file existence   | 10s      | 1s      | 15s          | 3       |
-| n8n                | `wget` HTTP      | 15s      | 2s      | --           | 3       |
 | metrics-collector  | `curl` HTTP      | 10s      | 1s      | --           | 3       |
 | self-healing-agent | python heartbeat | 30s      | 3s      | 10s          | 3       |
 | backup-service     | file existence   | 60s      | 5s      | 120s         | 3       |
@@ -228,13 +218,11 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
 | `RAM_LIMIT_LLM`              | 32G     | llm-service        |
 | `RAM_LIMIT_EMBEDDING`        | 12G     | embedding-service  |
 | `RAM_LIMIT_POSTGRES`         | 4G      | postgres-db        |
-| `RAM_LIMIT_N8N`              | 2G      | n8n                |
 | `RAM_LIMIT_DOCUMENT_INDEXER` | 2G      | document-indexer   |
 | `RAM_LIMIT_BACKEND`          | 1G      | dashboard-backend  |
 | `RAM_LIMIT_REVERSE_PROXY`    | 512M    | reverse-proxy      |
 | `RAM_LIMIT_METRICS`          | 512M    | metrics-collector  |
 | `RAM_LIMIT_SELF_HEALING`     | 512M    | self-healing-agent |
-| `RAM_LIMIT_SEARXNG`          | 512M    | searxng            |
 | `RAM_LIMIT_FRONTEND`         | 256M    | dashboard-frontend |
 | `RAM_LIMIT_BACKUP`           | 256M    | backup-service     |
 | `RAM_LIMIT_DOCKER_PROXY`     | 128M    | docker-proxy       |

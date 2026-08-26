@@ -5,7 +5,6 @@ Arasul Platform Load Testing Suite
 Tests:
 - LLM Service: 30 parallel requests
 - Embedding Service: 50 parallel requests
-- n8n Workflows: 20 requests/second
 - Dashboard API: Various endpoints
 """
 
@@ -146,37 +145,6 @@ class LoadTester:
 
         return self._create_summary("Embedding Service", results)
 
-    async def test_n8n_webhooks(self, requests_per_second: int = 20, duration_seconds: int = 5) -> LoadTestSummary:
-        """Test n8n webhook throughput"""
-        print(f"\n🔗 Testing n8n Webhooks ({requests_per_second} req/s for {duration_seconds}s)...")
-
-        interval = 1.0 / requests_per_second
-        total_requests = requests_per_second * duration_seconds
-
-        async with aiohttp.ClientSession() as session:
-            results = []
-            start_time = time.time()
-
-            for i in range(total_requests):
-                # Send request
-                result = await self.make_request(
-                    session,
-                    'POST',
-                    '/n8n/webhook/test',
-                    json={'test_id': i, 'timestamp': time.time()},
-                    timeout=aiohttp.ClientTimeout(total=10)
-                )
-                results.append(result)
-
-                # Wait for next interval
-                elapsed = time.time() - start_time
-                expected_time = (i + 1) * interval
-                sleep_time = max(0, expected_time - elapsed)
-                if sleep_time > 0:
-                    await asyncio.sleep(sleep_time)
-
-        return self._create_summary("n8n Webhooks", results)
-
     async def test_dashboard_api(self, parallel_requests: int = 20) -> LoadTestSummary:
         """Test dashboard API endpoints"""
         print(f"\n📱 Testing Dashboard API ({parallel_requests} parallel requests)...")
@@ -298,11 +266,6 @@ async def run_all_tests(base_url: str, token: str = None):
 
         # Test LLM Service (most intensive)
         summary = await tester.test_llm_service(parallel_requests=30)
-        tester.print_summary(summary)
-        summaries.append(summary)
-
-        # Test n8n Webhooks
-        summary = await tester.test_n8n_webhooks(requests_per_second=20, duration_seconds=5)
         tester.print_summary(summary)
         summaries.append(summary)
 

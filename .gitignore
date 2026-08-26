@@ -51,7 +51,6 @@ __pycache__/
 
 # Docker volumes (local testing)
 postgres_data/
-n8n_data/
 
 # Temporary files
 *.tmp

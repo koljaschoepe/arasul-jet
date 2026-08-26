@@ -64,7 +64,6 @@ trap wartung_aus EXIT
 declare -A PATH2SVC=(
   ["apps/dashboard-backend/"]="dashboard-backend"
   ["apps/dashboard-frontend/"]="dashboard-frontend"
-  ["services/n8n/"]="n8n"
   ["services/llm-service/"]="llm-service"
   ["services/embedding-service/"]="embedding-service"
   ["services/document-indexer/"]="document-indexer"
@@ -139,10 +138,11 @@ ok "Working Tree auf $NEW_SHA"
 
 # --- 1b. Fehlende, auto-generierbare Docker-Secrets idempotent nachziehen ----
 # Neu eingefuehrte Secret-Dateien existieren auf Bestandsgeraeten noch nicht.
-# compose kann eine fehlende Bind-Quelle nicht mounten und der Deploy bricht ab
-# (Plan 007: n8n_owner_email/_password). Der automatisierte Deploy fuehrt kein
-# ./arasul bootstrap aus, deshalb hier die nicht datentragenden Secrets
-# idempotent erzeugen — bestehende Werte werden NIE ueberschrieben.
+# compose kann eine fehlende Bind-Quelle nicht mounten und der Deploy bricht ab.
+# Der automatisierte Deploy fuehrt kein ./arasul bootstrap aus, deshalb hier die
+# nicht datentragenden Secrets idempotent erzeugen — bestehende Werte werden
+# NIE ueberschrieben. (Bis Phase B5 am 26.08.2026 standen hier die n8n-Owner-
+# Zugangsdaten und das SearXNG-Geheimnis; beide Dienste sind weg.)
 # --- 1c. Neu eingefuehrte Bind-Mount-Quellen idempotent anlegen -------------
 # Gleiche Logik wie bei den Secrets oben: Ein Verzeichnis, das erst mit einem
 # neuen Release dazukommt, existiert auf Bestandsgeraeten noch nicht. Legt
@@ -154,23 +154,6 @@ mkdir -p "$DEPLOY_DIR/data/skills"
 
 SECRETS_DIR="$DEPLOY_DIR/config/secrets"
 mkdir -p "$SECRETS_DIR"; chmod 700 "$SECRETS_DIR" 2>/dev/null || true
-if [ ! -s "$SECRETS_DIR/n8n_owner_email" ]; then
-  printf 'owner@arasul.local' > "$SECRETS_DIR/n8n_owner_email"
-  chmod 600 "$SECRETS_DIR/n8n_owner_email"
-  ok "n8n-Owner-E-Mail-Secret erzeugt (config/secrets/n8n_owner_email)"
-fi
-# SearXNG startet ohne Geheimnis gar nicht. Es traegt keine Daten, ist also
-# gefahrlos automatisch erzeugbar — und je Geraet verschieden.
-if ! grep -q '^SEARXNG_SECRET=' "$DEPLOY_DIR/.env" 2>/dev/null; then
-  printf '\nSEARXNG_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$DEPLOY_DIR/.env"
-  ok "SEARXNG_SECRET in .env erzeugt"
-fi
-if [ ! -s "$SECRETS_DIR/n8n_owner_password" ]; then
-  # n8n-Policy: >= 8 Zeichen, mind. 1 Grossbuchstabe, mind. 1 Ziffer.
-  printf 'A1%s' "$(openssl rand -hex 24)" > "$SECRETS_DIR/n8n_owner_password"
-  chmod 600 "$SECRETS_DIR/n8n_owner_password"
-  ok "n8n-Owner-Passwort-Secret erzeugt (config/secrets/n8n_owner_password)"
-fi
 
 # --- 2. Geaenderte Dateien -> Services ---------------------------------------
 # Der Rueckgabewert von `git diff` wird ausgewertet. Ohne das schluckt
@@ -293,7 +276,12 @@ if [ "${#SERVICES[@]}" -gt 0 ]; then
 fi
 if [ "$INFRA_CHANGE" -eq 1 ]; then
   log "Infra-/Compose-Aenderung — wende Konfiguration auf gesamten Stack an (up -d, ohne Rebuild)"
-  "${COMPOSE[@]}" up -d --no-build || rollback
+  # --remove-orphans: ein Dienst, der aus der Compose-Datei verschwindet, laeuft
+  # sonst als Waise weiter. Phase B5 (26.08.2026) hat n8n, n8n-runners und
+  # searxng gestrichen; ohne diesen Schalter haetten sie am Geraet weitergelebt,
+  # und `docker ps` haette die Phase nicht bestanden. Betrifft nur Container
+  # dieses Compose-Projekts, nicht jetcam oder den Pruefstand.
+  "${COMPOSE[@]}" up -d --no-build --remove-orphans || rollback
 fi
 
 # --- 6. Healthcheck ----------------------------------------------------------

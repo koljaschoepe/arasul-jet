@@ -25,13 +25,12 @@ src/
 │   ├── auth.js           # JWT login, logout, token validation
 │   ├── chats.js          # Multi-conversation chat management
 │   ├── llm.js            # LLM chat with queue support & SSE streaming
-│   ├── settings.js       # Password management (Dashboard/n8n)
+│   ├── settings.js       # Password management (Dashboard)
 │   ├── metrics.js        # Live & historical metrics
 │   ├── services.js       # Container status & health
 │   ├── system.js         # System info & network status
 │   ├── selfhealing.js    # Self-healing event history
 │   ├── update.js         # System update management
-│   ├── workflows.js      # n8n workflow statistics
 │   ├── embeddings.js     # Text embedding service proxy
 │   ├── logs.js           # Log file retrieval & streaming
 │   ├── database.js       # Database health & pool metrics
@@ -45,7 +44,7 @@ src/
 │   ├── telegram.js       # Telegram bot configuration
 │   ├── telegramApp.js    # Telegram app (15 endpoints, Zero-Config)
 │   ├── telegramBots.js   # Bot CRUD, Webhook, Commands (23 endpoints)
-│   ├── externalApi.js    # External API for n8n/automations
+│   ├── externalApi.js    # External API for automations
 │   └── index.js          # Route registration
 ├── middleware/           # 5 middleware components
 │   ├── auth.js           # JWT authentication + token blacklist
@@ -66,7 +65,6 @@ src/
 │   ├── telegramWebSocketService.js    # NEW: WebSocket for Zero-Config
 │   ├── telegramWebhookService.js      # NEW: Bot webhook handling
 │   ├── contextInjectionService.js     # LLM context injection
-│   ├── n8nLogger.js      # Workflow logging
 │   ├── docker.js         # Docker container API
 │   ├── ollamaReadiness.js# Ollama health checks
 │   └── cryptoService.js  # Encryption utilities
@@ -214,13 +212,13 @@ src/
 
 ### External API (API Key Auth)
 
-| Method | Path                     | Description        |
-| ------ | ------------------------ | ------------------ |
-| POST   | `/api/external/llm/chat` | LLM chat (for n8n) |
-| GET    | `/api/external/models`   | Available models   |
-| GET    | `/api/api-keys`          | List API keys      |
-| POST   | `/api/api-keys`          | Create API key     |
-| DELETE | `/api/api-keys/:id`      | Revoke API key     |
+| Method | Path                     | Description                |
+| ------ | ------------------------ | -------------------------- |
+| POST   | `/api/external/llm/chat` | LLM chat (for automations) |
+| GET    | `/api/external/models`   | Available models           |
+| GET    | `/api/api-keys`          | List API keys              |
+| POST   | `/api/api-keys`          | Create API key             |
+| DELETE | `/api/api-keys/:id`      | Revoke API key             |
 
 ### Services & Operations (Auth Required)
 
@@ -229,7 +227,6 @@ src/
 | GET    | `/api/services`               | Status of all containers  |
 | GET    | `/api/services/ai`            | AI services with GPU load |
 | POST   | `/api/services/:name/restart` | Restart container         |
-| GET    | `/api/workflows/activity`     | n8n workflow stats        |
 | GET    | `/api/workflows/stats`        | Detailed statistics       |
 | GET    | `/api/selfhealing/events`     | Self-healing history      |
 | GET    | `/api/selfhealing/status`     | Current status            |
@@ -245,7 +242,6 @@ src/
 | Method | Path                                  | Description               |
 | ------ | ------------------------------------- | ------------------------- |
 | POST   | `/api/settings/password/dashboard`    | Change Dashboard password |
-| POST   | `/api/settings/password/n8n`          | Change n8n password       |
 | GET    | `/api/settings/password-requirements` | Password rules            |
 
 ### Documentation
@@ -329,7 +325,7 @@ src/
 ### Authentication
 
 - **JWT Tokens**: 24-hour expiry, blacklist on logout
-- **API Keys**: For external integrations (n8n, automations)
+- **API Keys**: For external integrations (automations)
 - **Session Tracking**: IP address, user-agent logged
 - **Account Lockout**: After consecutive failed attempts
 

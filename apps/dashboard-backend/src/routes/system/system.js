@@ -122,7 +122,6 @@ router.get(
       status,
       llm: services.llm?.status || 'unknown',
       embeddings: services.embedding?.status || 'unknown',
-      n8n: services.n8n?.status || 'unknown',
       postgres: services.postgres?.status || 'unknown',
       self_healing_active: services.self_healing?.status === 'healthy',
       gpu_available: gpu.available,
@@ -218,17 +217,6 @@ router.get(
       // Internet not reachable
     }
 
-    // Check if n8n webhook is reachable
-    let n8nWebhookReachable = false;
-    try {
-      await axios.get(`http://${process.env.N8N_HOST}:${process.env.N8N_PORT}/healthz`, {
-        timeout: 2000,
-      });
-      n8nWebhookReachable = true;
-    } catch {
-      // n8n not reachable
-    }
-
     // Real LAN name from MDNS_NAME (compose passes it through; defaults to
     // "arasul"). Avoids a hardcoded "arasul.local" that mismatches a custom
     // hostname and breaks the "one name" access story.
@@ -237,7 +225,6 @@ router.get(
       ip_addresses: ipAddresses,
       mdns: `${mdnsHostname}.local`,
       internet_reachable: internetReachable,
-      n8n_webhook_reachable: n8nWebhookReachable,
       timestamp: new Date().toISOString(),
     });
   })

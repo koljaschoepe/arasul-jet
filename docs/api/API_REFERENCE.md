@@ -137,7 +137,7 @@ Changes the current user's own password. All existing sessions are invalidated a
 
 **POST /api/auth/refresh-cookie:**
 
-Re-syncs the `arasul_session` HttpOnly cookie from the current Bearer token. The frontend calls this right before navigating to a Traefik forward-auth-gated app (n8n) when the user may have logged in under a different hostname and the cookie is missing for the current origin.
+Re-syncs the `arasul_session` HttpOnly cookie from the current Bearer token. The frontend calls this right before navigating to a Traefik forward-auth-gated route when the user may have logged in under a different hostname and the cookie is missing for the current origin.
 
 ```json
 // Response
@@ -161,7 +161,7 @@ Mints a fresh CSRF token, sets it as the non-HttpOnly `arasul_csrf` cookie (4 h,
 
 **GET /api/auth/verify:**
 
-Used by Traefik forward-auth middleware to protect routes like n8n.
+Used by Traefik forward-auth middleware to protect gated routes (the Traefik dashboard).
 Returns user info headers on success:
 
 - `X-User-Id`: User ID
@@ -361,7 +361,7 @@ Erlaubte Dienste (Stand: 2026-08-26, Quelle:
 `apps/dashboard-backend/src/routes/system/services.js`, `ALLOWED_SERVICES`):
 `postgres-db`, `metrics-collector`, `llm-service`,
 `embedding-service`, `document-indexer`, `reverse-proxy`, `dashboard-backend`,
-`dashboard-frontend`, `n8n`, `self-healing-agent`, `backup-service`.
+`dashboard-frontend`, `self-healing-agent`, `backup-service`.
 
 ### AI Chat (LLM)
 
@@ -580,61 +580,6 @@ entfallen.
 }
 ```
 
-### Workflows (n8n)
-
-| Method | Endpoint                   | Description                                        |
-| ------ | -------------------------- | -------------------------------------------------- |
-| GET    | `/api/workflows/activity`  | Workflow statistics                                |
-| GET    | `/api/workflows/active`    | Workflows mit einem Lauf in den letzten 24 Stunden |
-| GET    | `/api/workflows/history`   | Laufhistorie, filterbar und blätterbar             |
-| GET    | `/api/workflows/stats`     | Kennzahlen je Workflow über einen Zeitraum         |
-| GET    | `/api/workflows/list`      | Platzhalter, siehe unten                           |
-| POST   | `/api/workflows/execution` | Einen Lauf protokollieren (von n8n aus)            |
-| DELETE | `/api/workflows/cleanup`   | Alte Laufeinträge löschen                          |
-
-Alle sechs verlangen eine angemeldete Sitzung.
-
-**POST /api/workflows/execution:**
-
-Der Weg, auf dem ein n8n-Workflow seinen eigenen Lauf einträgt. Body:
-`workflow_name`, `execution_id`, `status`, `duration_ms`, `error`. Antwortet mit
-`201` und dem gespeicherten Satz.
-
-**GET /api/workflows/history:**
-
-Query: `workflow_name`, `status`, `limit` (Standard 100, höchstens 1000),
-`offset`. Antwortet mit `count`, `limit`, `offset` und `data`.
-
-**GET /api/workflows/stats:**
-
-Query: `workflow_name` (optional), `range` — erlaubt sind genau `1h`, `24h`
-(Standard), `7d`, `30d`. Alles andere ist ein `VALIDATION_ERROR`.
-
-**DELETE /api/workflows/cleanup:**
-
-Query: `days` (Standard 7, gestutzt auf 1 bis 365). Löscht Laufeinträge, die
-älter sind, und antwortet mit `deleted_count` und `days_kept`.
-
-**GET /api/workflows/list:**
-
-Gibt bewusst eine leere Liste zurück und verweist auf `/n8n`. Das Auflisten der
-Workflows selbst braucht einen n8n-API-Schlüssel, den das Gerät ab Werk nicht
-hat. Stand: 2026-08-23, Quelle:
-`apps/dashboard-backend/src/routes/store/workflows.js`.
-
-### Automations (n8n auto-session)
-
-| Method | Endpoint                   | Description                                                   |
-| ------ | -------------------------- | ------------------------------------------------------------- |
-| GET    | `/api/automations/session` | Logs the fixed n8n owner in and forwards n8n's session cookie |
-
-Requires an authenticated dashboard session (`requireAuth`). The backend logs
-the fixed n8n owner into n8n (`POST /rest/login`, credentials from the
-`n8n_owner_email` / `n8n_owner_password` Docker secrets) and forwards n8n's
-`Set-Cookie` (`n8n-auth`) verbatim, same-origin, so the `/n8n/` iframe loads
-already authenticated (Plan 007). Response: `{ "data": { "authenticated": true }, "timestamp": "…" }`.
-On n8n being unreachable or login failing, returns `503 SERVICE_UNAVAILABLE`.
-
 ### Self-Healing
 
 | Method | Endpoint                             | Description                                |
@@ -750,20 +695,19 @@ antwortete auf jedem Gerät mit `500`. Stand: 2026-08-23, Quelle:
 
 ### Events (Notifications)
 
-| Method | Endpoint                           | Auth   | Description                       |
-| ------ | ---------------------------------- | ------ | --------------------------------- |
-| GET    | `/api/events`                      | Yes    | Get recent notification events    |
-| GET    | `/api/events/stats`                | Yes    | Event and notification statistics |
-| GET    | `/api/events/settings`             | Yes    | User notification settings        |
-| PUT    | `/api/events/settings`             | Yes    | Update notification settings      |
-| POST   | `/api/events/test`                 | Yes    | Send test notification            |
-| POST   | `/api/events/webhook/n8n`          | Secret | n8n workflow webhook              |
-| POST   | `/api/events/webhook/self-healing` | IP     | Self-healing agent webhook        |
-| POST   | `/api/events/manual`               | Yes    | Create manual notification        |
-| GET    | `/api/events/service-status`       | Yes    | Service status cache              |
-| GET    | `/api/events/boot-history`         | Yes    | System boot history               |
-| DELETE | `/api/events/:id`                  | Yes    | Delete specific event             |
-| POST   | `/api/events/cleanup`              | Yes    | Cleanup old events                |
+| Method | Endpoint                           | Auth | Description                       |
+| ------ | ---------------------------------- | ---- | --------------------------------- |
+| GET    | `/api/events`                      | Yes  | Get recent notification events    |
+| GET    | `/api/events/stats`                | Yes  | Event and notification statistics |
+| GET    | `/api/events/settings`             | Yes  | User notification settings        |
+| PUT    | `/api/events/settings`             | Yes  | Update notification settings      |
+| POST   | `/api/events/test`                 | Yes  | Send test notification            |
+| POST   | `/api/events/webhook/self-healing` | IP   | Self-healing agent webhook        |
+| POST   | `/api/events/manual`               | Yes  | Create manual notification        |
+| GET    | `/api/events/service-status`       | Yes  | Service status cache              |
+| GET    | `/api/events/boot-history`         | Yes  | System boot history               |
+| DELETE | `/api/events/:id`                  | Yes  | Delete specific event             |
+| POST   | `/api/events/cleanup`              | Yes  | Cleanup old events                |
 
 **GET /api/events Query Parameters:**
 
@@ -782,21 +726,6 @@ antwortete auf jedem Gerät mit `500`. Stand: 2026-08-23, Quelle:
   "rate_limit_per_minute": 10,
   "quiet_hours_start": "22:00",
   "quiet_hours_end": "07:00"
-}
-```
-
-**POST /api/events/webhook/n8n:**
-
-Requires `X-Webhook-Secret` header or `secret` query param if `N8N_WEBHOOK_SECRET` is configured.
-
-```json
-{
-  "workflow_id": "workflow-123",
-  "workflow_name": "Backup Workflow",
-  "execution_id": "exec-456",
-  "status": "success",
-  "error": null,
-  "duration_ms": 5000
 }
 ```
 
@@ -820,7 +749,6 @@ Only accepts requests from localhost or Docker network IPs.
 | Method | Endpoint                              | Description               | Rate Limit |
 | ------ | ------------------------------------- | ------------------------- | ---------- |
 | POST   | `/api/settings/password/dashboard`    | Change Dashboard password | 3/15min    |
-| POST   | `/api/settings/password/n8n`          | Change n8n password       | 3/15min    |
 | GET    | `/api/settings/password-requirements` | Get password rules        | -          |
 
 **POST /api/settings/password/\*:**
@@ -976,7 +904,7 @@ Bekannte Dienstnamen (Stand: 2026-08-26, Quelle:
 `apps/dashboard-backend/src/routes/system/logs.js`, `LOG_FILES`): `system`,
 `self_healing`, `update`, `traefik`, `traefik-access`, `metrics-collector`,
 `dashboard-backend`, `dashboard-frontend`, `llm-service`, `embedding-service`,
-`n8n`, `self-healing-agent`, `postgres-db`. Ein anderer Name ist ein
+`self-healing-agent`, `postgres-db`. Ein anderer Name ist ein
 `VALIDATION_ERROR`, ein fehlendes Protokoll ein `404`.
 
 ### Database
@@ -1013,41 +941,22 @@ Braucht die Erweiterung `pg_stat_statements`. Fehlt sie, ist
 Fehler, sondern eine Auskunft. Sonst die zehn langsamsten Abfragen über
 100 ms Mittelwert, auf 200 Zeichen gekürzt.
 
-### Workspace-Apps
-
-Sichtbarkeit der kuratierten Kern-Apps (aktuell nur n8n) in der
-Workspace-Shell. Persistenz in `platform_apps`; deaktivierte Apps
-verschwinden aus ActivityBar/Tab-Angebot, die Dienste laufen weiter.
-
-| Method | Endpoint                  | Description                                                             |
-| ------ | ------------------------- | ----------------------------------------------------------------------- |
-| GET    | `/api/workspace-apps`     | Manifest (id, name, description, tab, `type`, `accessTier`) + `enabled` |
-| PUT    | `/api/workspace-apps/:id` | App an-/abschalten — Body `{ "enabled": boolean }`                      |
-
-Die kuratierten Kern-Apps tragen seit Plan 012 Phase E die Felder `type`
-(`app` | `flow` | `tool`) und `accessTier` (`internet` | `internal` | `full`).
-Der Erweiterungen-Reiter ist mit Phase B3 (26.08.2026) aus der Oberfläche
-gefallen, der Erweiterungs-Baukasten selbst mit B4; der Schalter hat bis D1
-keine Oberfläche.
-
 ### Store
 
-| Method | Endpoint                        | Description                                   |
-| ------ | ------------------------------- | --------------------------------------------- |
-| GET    | `/api/apps`                     | List all apps (installed + available)         |
-| GET    | `/api/apps/categories`          | List app categories                           |
-| GET    | `/api/apps/:id`                 | Get single app details                        |
-| GET    | `/api/apps/:id/logs`            | Get container logs                            |
-| GET    | `/api/apps/:id/events`          | Get app event history                         |
-| POST   | `/api/apps/:id/install`         | Install an app                                |
-| POST   | `/api/apps/:id/uninstall`       | Uninstall an app                              |
-| POST   | `/api/apps/:id/start`           | Start an installed app                        |
-| POST   | `/api/apps/:id/stop`            | Stop a running app                            |
-| POST   | `/api/apps/:id/restart`         | Restart an app                                |
-| POST   | `/api/apps/sync`                | Sync system apps status                       |
-| GET    | `/api/apps/:id/config`          | Konfiguration einer App, Geheimnisse maskiert |
-| POST   | `/api/apps/:id/config`          | Konfiguration einer App setzen                |
-| GET    | `/api/apps/:id/n8n-credentials` | Zugangsdaten, mit denen n8n diese App anstößt |
+| Method | Endpoint                  | Description                                   |
+| ------ | ------------------------- | --------------------------------------------- |
+| GET    | `/api/apps`               | List all apps (installed + available)         |
+| GET    | `/api/apps/categories`    | List app categories                           |
+| GET    | `/api/apps/:id`           | Get single app details                        |
+| GET    | `/api/apps/:id/logs`      | Get container logs                            |
+| GET    | `/api/apps/:id/events`    | Get app event history                         |
+| POST   | `/api/apps/:id/install`   | Install an app                                |
+| POST   | `/api/apps/:id/uninstall` | Uninstall an app                              |
+| POST   | `/api/apps/:id/start`     | Start an installed app                        |
+| POST   | `/api/apps/:id/stop`      | Stop a running app                            |
+| POST   | `/api/apps/:id/restart`   | Restart an app                                |
+| GET    | `/api/apps/:id/config`    | Konfiguration einer App, Geheimnisse maskiert |
+| POST   | `/api/apps/:id/config`    | Konfiguration einer App setzen                |
 
 **GET /api/apps/:id/config:** Geheimnisse kommen maskiert zurück. Wer den
 Klartext braucht, hat ihn selbst gesetzt.
@@ -1199,7 +1108,7 @@ Returns models recommended for the system's RAM capacity and featured apps.
     { "id": "gemma4:26b-q4", "name": "Qwen 3 14B", ... }
   ],
   "apps": [
-    { "id": "n8n", "name": "n8n", "featured": true, ... }
+    { "id": "beispiel-app", "name": "Beispiel-App", "featured": true, ... }
   ],
   "systemInfo": { "availableRamGB": 64 }
 }
@@ -1755,7 +1664,7 @@ Single consolidated endpoint that aggregates backup status, restore-drill status
 
 Setzt das Gerät zurück. Zwei Stufen: `inhalte` löscht alles, was der Nutzer
 erzeugt hat, und lässt die Einrichtung stehen; `auslieferung` löscht zusätzlich
-die Einrichtung selbst (Zugangsdaten, Flows, n8n-Workflows,
+die Einrichtung selbst (Zugangsdaten, Flows,
 hinterlegte Fremdzugänge, Protokolle, Messwerte), danach läuft wieder die
 Ersteinrichtung. `modelleLoeschen` entfernt zusätzlich alle Modelle aus Ollama.
 
@@ -1781,7 +1690,6 @@ sonst eine Vollständigkeit, die er nicht hat.
   "tabellen": [{ "name": "public.chat_messages", "zweck": "Chatnachrichten", "zeilen": 412 }],
   "zeilenGesamt": 412,
   "ordner": [{ "pfad": "/arasul/flows", "zweck": "Flow-Definitionen", "eintraege": 8 }],
-  "n8nWirdGeleert": true,
   "unbekannteTabellen": [],
   "durchfuehrbar": true
 }
@@ -1821,7 +1729,7 @@ ersatzweise `MDNS_NAME` oder der Hostname des Containers). Ein festes Wort wie
 Bei Abweichung: `400 VALIDATION_ERROR`.
 
 Die Antwort ist der Bericht: geleerte Tabellen mit Zeilenzahl, geleerte Ordner,
-Ergebnis für Objektspeicher, Vektoren, n8n und Modelle, dazu die Dauer.
+Ergebnis für die Modelle (falls `modelleLoeschen`), dazu die Dauer.
 
 ---
 
@@ -2069,7 +1977,7 @@ A flow may declare a tool that is not built yet — the definition stays valid a
 
 ---
 
-## External API (for n8n, Workflows, Automations)
+## External API (for external automations)
 
 **Base Path:** `/api/v1/external`
 
@@ -2086,7 +1994,7 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 
 ### Flows (Plan 013, B8)
 
-Trigger flows from n8n or your own automations with an API key. The endpoint
+Trigger flows from your own automations with an API key. The endpoint
 scope is `flow:run` (included in the default endpoint set for new keys).
 
 | Method | Endpoint                           | Auth    | Description                                   |
@@ -2223,8 +2131,8 @@ Request: `multipart/form-data` with `file` field only.
 
 ```json
 {
-  "name": "n8n-integration",
-  "description": "API key for n8n workflows",
+  "name": "erp-integration",
+  "description": "API key for the ERP automation",
   "rate_limit_per_minute": 60,
   "allowed_endpoints": ["llm:chat", "llm:status", "document:extract", "document:analyze"],
   "expires_at": "2025-12-31T23:59:59Z"
@@ -2296,7 +2204,6 @@ All responses include:
 | LLM API          | 10 req  | 1 sec  |
 | Metrics API      | 20 req  | 1 sec  |
 | Password Changes | 3 req   | 15 min |
-| n8n Webhooks     | 100 req | 1 min  |
 
 ---
 

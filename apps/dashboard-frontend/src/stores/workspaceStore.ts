@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Workspace-Store v8: offene Tabs, aktiver Tab, die Sidebar-Ansicht und die
+ * Workspace-Store v9: offene Tabs, aktiver Tab, die Sidebar-Ansicht und die
  * Sichtbarkeit der beiden Seitenspalten. Persistiert in localStorage, der
  * aktive Tab wird zusätzlich in der URL gespiegelt (siehe WorkspaceShell).
  *
@@ -14,12 +14,12 @@ import { persist } from 'zustand/middleware';
  * das Dirty-Register, die Explorer-Anfragen und die Tab-Typen für Dokumente,
  * Projektdateien und Projekte. Phase B3: Flow-Editor, Erweiterungs-Store und
  * der Tab einer installierten Erweiterung sind weg; damit gibt es keinen Tab
- * mehr, der eine Kennung (`extensionId`) trägt. Es bleiben Einstellungen,
- * Modelle und Automationen (n8n). Das rechte Panel hat keinen Modus, nur eine
+ * mehr, der eine Kennung (`extensionId`) trägt. Phase B5: der Automationen-Tab
+ * (n8n) ist weg. Es bleiben Einstellungen und Modelle. Das rechte Panel hat keinen Modus, nur eine
  * Sichtbarkeit; die Spalte bleibt leer, bis D2 sie füllt.
  */
 
-export type WorkspaceTabType = 'settings' | 'modelle' | 'automationen';
+export type WorkspaceTabType = 'settings' | 'modelle';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -35,7 +35,6 @@ export interface WorkspaceTab {
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   settings: 'Einstellungen',
   modelle: 'Modelle',
-  automationen: 'Automationen',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
@@ -61,8 +60,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
     // Zustand Modelle oder Erweiterungen. Seit B3 gibt es nur noch die Modelle.
     case 'store':
       return { type: 'modelle' };
-    case 'automationen':
-      return { type: 'automationen' };
     default:
       return null;
   }
@@ -116,7 +113,7 @@ interface PersistedWorkspaceState {
   rightPanelVisible: boolean;
 }
 
-/** Roh-Shape älterer persistierter Stände (v≤7). */
+/** Roh-Shape älterer persistierter Stände (v≤8). */
 interface PersistedLegacyState {
   tabs?: Array<{ id: string; type: string; title: string }>;
   activeTabId?: string | null;
@@ -128,15 +125,15 @@ interface PersistedLegacyState {
   // v3 (zwei unabhängige Flächen)
   chatVisible?: boolean;
   terminalVisible?: boolean;
-  // v4 bis v7
+  // v4 bis v8
   rightPanelVisible?: boolean;
 }
 
 /**
- * Migration auf v8. Ältere Stände kannten ein rechtes Panel mit Modus (Chat
+ * Migration auf v9. Ältere Stände kannten ein rechtes Panel mit Modus (Chat
  * oder Terminal), Terminal-Sessions, Tabs für Dokumente, Projektdateien und
- * Projekte (bis v6) sowie die Tabs `erweiterungen`, `flow` und `extension`
- * (v7). Davon bleibt nur, was es noch gibt: die Tabs der verbliebenen Typen,
+ * Projekte (bis v6), die Tabs `erweiterungen`, `flow` und `extension` (v7)
+ * und den Tab `automationen` (v8, n8n). Davon bleibt nur, was es noch gibt: die Tabs der verbliebenen Typen,
  * die Sidebar-Ansicht (ohne 'files'/'search'/'extensions'/'flows') und die
  * Sichtbarkeit der beiden Spalten. Ein Tab, der beim Aktualisieren
  * verschwindet, sieht aus wie ein Fehler; deshalb wird der alte `store`-Tab
@@ -265,7 +262,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'arasul_workspace',
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
       partialize: state => ({
         tabs: state.tabs,

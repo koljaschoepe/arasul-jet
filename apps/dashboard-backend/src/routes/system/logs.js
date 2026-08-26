@@ -30,7 +30,6 @@ const LOG_FILES = {
   'dashboard-frontend': path.join(LOG_DIR, 'service', 'dashboard-frontend.log'),
   'llm-service': path.join(LOG_DIR, 'service', 'llm-service.log'),
   'embedding-service': path.join(LOG_DIR, 'service', 'embedding-service.log'),
-  n8n: path.join(LOG_DIR, 'service', 'n8n.log'),
   'self-healing-agent': path.join(LOG_DIR, 'service', 'self-healing-agent.log'),
   'postgres-db': path.join(LOG_DIR, 'service', 'postgres-db.log'),
 };

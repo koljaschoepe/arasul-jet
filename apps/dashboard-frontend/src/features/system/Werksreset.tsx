@@ -43,7 +43,6 @@ interface Vorschau {
   tabellen: TabellenStand[];
   zeilenGesamt: number;
   ordner: OrdnerStand[];
-  n8nWirdGeleert: boolean;
   unbekannteTabellen: string[];
   durchfuehrbar: boolean;
 }
@@ -60,7 +59,6 @@ interface Bericht {
   dauerMs: number;
   tabellen: Record<string, number>;
   objektspeicher?: Nebenwirkung;
-  n8n?: Nebenwirkung;
   modelle?: Nebenwirkung;
   ordner?: { pfad: string; fehler?: string }[];
 }
@@ -72,7 +70,6 @@ interface Bericht {
  * pauschal Erfolg melden.
  */
 const FOLGE: Record<string, string> = {
-  n8n: 'n8n wurde nicht neu gestartet. Die Workflow-Oberflaeche bleibt bis zum naechsten Neustart des Dienstes leer oder fehlerhaft.',
   objektspeicher: 'Die Dateien liegen noch im Objektspeicher, obwohl ihre Eintraege weg sind.',
   modelle: 'Die Modelle liegen noch auf der Platte.',
 };
@@ -93,7 +90,7 @@ const STUFEN: { id: Stufe; titel: string; text: string }[] = [
   {
     id: 'auslieferung',
     titel: 'Auslieferungszustand',
-    text: 'Zusätzlich die gesamte Einrichtung: Zugangsdaten, Erweiterungen, Flows, n8n-Workflows, hinterlegte Zugänge zu fremden Diensten, Protokolle und Messwerte. Danach läuft wieder die Ersteinrichtung.',
+    text: 'Zusätzlich die gesamte Einrichtung: Zugangsdaten, Erweiterungen, Flows, hinterlegte Zugänge zu fremden Diensten, Protokolle und Messwerte. Danach läuft wieder die Ersteinrichtung.',
   },
 ];
 
@@ -131,7 +128,7 @@ export function Werksreset() {
     setLaeuft(true);
     try {
       // Der Standard von useApi sind 30 Sekunden. Der Reset raeumt Tabellen,
-      // Ordner, Objektspeicher, Vektoren und startet n8n neu; bei gefuelltem
+      // Ordner und auf Wunsch die Modelle; bei gefuelltem
       // Geraet reicht das nicht. Ein Abbruch im Browser wuerde den Reset nicht
       // stoppen, sondern nur eine Fehlermeldung ueber einen gelungenen Reset legen.
       const ergebnis = await api.post<Bericht>(
@@ -245,7 +242,6 @@ export function Werksreset() {
               <AlertDescription>
                 {vorschau.zeilenGesamt.toLocaleString('de-DE')} Zeilen in {betroffen.length}{' '}
                 Tabellen werden gelöscht
-                {vorschau.n8nWirdGeleert ? ', dazu alle n8n-Workflows' : ''}
                 {vorschau.modelleLoeschen ? ' und alle Modelle' : ''}.
               </AlertDescription>
             </Alert>

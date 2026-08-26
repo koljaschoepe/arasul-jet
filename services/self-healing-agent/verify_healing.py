@@ -141,8 +141,7 @@ def main():
         'handle_category_b_overload',
         'clear_llm_cache',
         'reset_gpu_session',
-        'throttle_gpu',
-        'pause_n8n_workflows'
+        'throttle_gpu'
     ]
 
     found, missing = verify_methods(healing_methods, category_b_methods)

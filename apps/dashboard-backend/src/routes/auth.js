@@ -435,7 +435,7 @@ router.get(
 );
 
 // POST /api/auth/refresh-cookie - Re-sync the session cookie from the Bearer token.
-// Forward-auth (n8n, Traefik dashboard) only receives Cookie/Authorization on the
+// Forward-auth (Traefik dashboard) only receives Cookie/Authorization on the
 // request. Plain <a href> navigations never carry the Authorization header, so if the
 // browser's cookie jar is missing the session cookie (e.g. user logged in under a
 // different hostname like arasul.local vs the IP), the navigation lands on 401. The
@@ -463,7 +463,7 @@ router.post(
 );
 
 // GET /api/auth/verify - Forward Auth endpoint for Traefik
-// Used to protect routes like n8n and Claude Code terminal
+// Used to protect the Traefik dashboard
 // Note: This endpoint intentionally returns 401 (not thrown errors) because
 // Traefik forward-auth interprets non-2xx as "deny access"
 router.get(

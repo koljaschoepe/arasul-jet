@@ -6,7 +6,7 @@
  *
  * Die Folge war leise und darum unangenehm: nach vier Stunden lief die
  * Anwendung weiter, weil sie den Token aus dem Speicher als `Authorization`
- * schickt. Nur der n8n-Rahmen brach mit 401 — ein iframe kann keinen Kopf
+ * schickt. Nur der eingebettete Rahmen brach mit 401 — ein iframe kann keinen Kopf
  * setzen, es hat nur das Cookie. Der Nutzer sah eine leere Flaeche ohne
  * Erklaerung, und nichts wies auf die abgelaufene Sitzung hin.
  *

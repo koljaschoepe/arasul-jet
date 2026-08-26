@@ -36,7 +36,6 @@ const VORSCHAU = {
   ],
   zeilenGesamt: 412,
   ordner: [],
-  n8nWirdGeleert: false,
   unbekannteTabellen: [],
   durchfuehrbar: true,
 };
@@ -126,7 +125,7 @@ test('meldet gescheiterte Teilschritte, statt Erfolg zu behaupten', async () => 
     zeilenGesamt: 90,
     dauerMs: 1200,
     tabellen: { a: 1 },
-    n8n: { ok: false, fehler: 'container not found' },
+    modelle: { ok: false, fehler: 'Ollama antwortet nicht' },
   });
   const nutzer = userEvent.setup();
   render(<Werksreset />);
@@ -136,8 +135,8 @@ test('meldet gescheiterte Teilschritte, statt Erfolg zu behaupten', async () => 
   await nutzer.click(screen.getByRole('button', { name: /jetzt ausführen/i }));
 
   expect(await screen.findByText(/1 Schritte sind nicht durchgelaufen/)).toBeInTheDocument();
-  expect(screen.getByText(/n8n wurde nicht neu gestartet/)).toBeInTheDocument();
-  expect(screen.getByText(/container not found/)).toBeInTheDocument();
+  expect(screen.getByText(/Die Modelle liegen noch auf der Platte/)).toBeInTheDocument();
+  expect(screen.getByText(/Ollama antwortet nicht/)).toBeInTheDocument();
   expect(screen.queryByText(/startet die Ersteinrichtung/)).not.toBeInTheDocument();
 });
 

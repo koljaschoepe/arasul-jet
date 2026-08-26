@@ -63,25 +63,6 @@ router.get(
 );
 
 /**
- * POST /api/apps/sync
- * Sync system apps status with Docker
- * ROUTE-001 FIX: Moved before /:id to prevent route shadowing
- */
-router.post(
-  '/sync',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    await appService.syncSystemApps();
-
-    res.json({
-      success: true,
-      message: 'Synchronisation abgeschlossen',
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
  * GET /api/apps/:id
  * Get single app details
  */
@@ -321,26 +302,6 @@ router.get(
 
     res.json({
       config,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * GET /api/apps/:id/n8n-credentials
- * Get n8n integration credentials (SSH credentials for host access)
- * Used to display connection info for triggering apps from n8n
- */
-router.get(
-  '/:id/n8n-credentials',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const credentials = await appService.getN8nCredentials(id);
-
-    res.json({
-      appId: id,
-      credentials,
       timestamp: new Date().toISOString(),
     });
   })

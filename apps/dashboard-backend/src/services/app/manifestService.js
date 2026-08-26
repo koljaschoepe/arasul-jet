@@ -138,7 +138,6 @@ async function getAllApps(filters = {}) {
       traefikRoute: manifest.traefik?.rule || null,
       hasCustomPage: manifest.hasCustomPage || false,
       customPageRoute: manifest.customPageRoute || null,
-      hasN8nIntegration: manifest.n8nIntegration?.enabled || false,
     };
 
     // Apply filters

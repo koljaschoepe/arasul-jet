@@ -25,18 +25,19 @@ tests/unit/test_self_healing_engine.py
 
 ### Category A: Service Down Recovery (6 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_check_service_health_all_healthy` | Alle Services healthy | `check_service_health()` |
-| `test_check_service_health_detects_unhealthy` | Unhealthy Detection | Health status parsing |
-| `test_check_service_health_detects_stopped` | Stopped Service Detection | Container status check |
-| `test_handle_category_a_first_attempt_restart` | Versuch 1 → restart() | `handle_category_a_service_down()` |
-| `test_handle_category_a_second_attempt_stop_start` | Versuch 2 → stop+start | Escalation logic |
-| `test_handle_category_a_third_attempt_escalates` | Versuch 3 → Category C | Failure counting |
-| `test_record_failure_stores_in_database` | Failure Persistence | `record_failure()` |
-| `test_get_failure_count_queries_database` | Failure Count | `get_failure_count()` |
+| Test                                               | Beschreibung              | Coverage                           |
+| -------------------------------------------------- | ------------------------- | ---------------------------------- |
+| `test_check_service_health_all_healthy`            | Alle Services healthy     | `check_service_health()`           |
+| `test_check_service_health_detects_unhealthy`      | Unhealthy Detection       | Health status parsing              |
+| `test_check_service_health_detects_stopped`        | Stopped Service Detection | Container status check             |
+| `test_handle_category_a_first_attempt_restart`     | Versuch 1 → restart()     | `handle_category_a_service_down()` |
+| `test_handle_category_a_second_attempt_stop_start` | Versuch 2 → stop+start    | Escalation logic                   |
+| `test_handle_category_a_third_attempt_escalates`   | Versuch 3 → Category C    | Failure counting                   |
+| `test_record_failure_stores_in_database`           | Failure Persistence       | `record_failure()`                 |
+| `test_get_failure_count_queries_database`          | Failure Count             | `get_failure_count()`              |
 
 **Abgedeckte Funktionen**:
+
 - `check_service_health()`
 - `handle_category_a_service_down()`
 - `record_failure()`
@@ -46,26 +47,25 @@ tests/unit/test_self_healing_engine.py
 
 ### Category B: Overload Recovery (11 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_clear_llm_cache_success` | Cache Clear API Success | `clear_llm_cache()` |
-| `test_clear_llm_cache_fallback_restart` | Fallback bei API Error | Error handling |
-| `test_reset_gpu_session_success` | GPU Session Reset API | `reset_gpu_session()` |
-| `test_throttle_gpu_success` | GPU Throttling via nvidia-smi | `throttle_gpu()` |
-| `test_pause_n8n_workflows_success` | n8n Workflow Pause | `pause_n8n_workflows()` |
-| `test_get_metrics_retrieves_system_metrics` | Metrics Collection | `get_metrics()` |
-| `test_handle_category_b_cpu_overload` | CPU > 90% → Cache Clear | `handle_category_b_overload()` |
-| `test_handle_category_b_ram_overload` | RAM > 90% → n8n Restart | RAM threshold logic |
-| `test_handle_category_b_gpu_overload` | GPU > 95% → Session Reset | GPU threshold logic |
-| `test_handle_category_b_temperature_overload` | Temp > 83°C → Throttle | Temperature threshold |
-| `test_is_in_cooldown_prevents_action_spam` | Cooldown Logic (5min) | `is_in_cooldown()` |
-| `test_cooldown_expired_allows_action` | Expired Cooldown | Cooldown expiration |
+| Test                                          | Beschreibung                      | Coverage                       |
+| --------------------------------------------- | --------------------------------- | ------------------------------ |
+| `test_clear_llm_cache_success`                | Cache Clear API Success           | `clear_llm_cache()`            |
+| `test_clear_llm_cache_fallback_restart`       | Fallback bei API Error            | Error handling                 |
+| `test_reset_gpu_session_success`              | GPU Session Reset API             | `reset_gpu_session()`          |
+| `test_throttle_gpu_success`                   | GPU Throttling via nvidia-smi     | `throttle_gpu()`               |
+| `test_get_metrics_retrieves_system_metrics`   | Metrics Collection                | `get_metrics()`                |
+| `test_handle_category_b_cpu_overload`         | CPU > 90% → Cache Clear           | `handle_category_b_overload()` |
+| `test_handle_category_b_ram_overload`         | RAM > 90% → nur Meldung (seit B5) | RAM threshold logic            |
+| `test_handle_category_b_gpu_overload`         | GPU > 95% → Session Reset         | GPU threshold logic            |
+| `test_handle_category_b_temperature_overload` | Temp > 83°C → Throttle            | Temperature threshold          |
+| `test_is_in_cooldown_prevents_action_spam`    | Cooldown Logic (5min)             | `is_in_cooldown()`             |
+| `test_cooldown_expired_allows_action`         | Expired Cooldown                  | Cooldown expiration            |
 
 **Abgedeckte Funktionen**:
+
 - `clear_llm_cache()`
 - `reset_gpu_session()`
 - `throttle_gpu()`
-- `pause_n8n_workflows()`
 - `get_metrics()`
 - `handle_category_b_overload()`
 - `is_in_cooldown()`
@@ -74,16 +74,17 @@ tests/unit/test_self_healing_engine.py
 
 ### Category C: Critical Recovery (6 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_hard_restart_application_services` | Hard Restart aller Services | `hard_restart_application_services()` |
-| `test_perform_disk_cleanup_success` | Docker System Prune | `perform_disk_cleanup()` |
-| `test_perform_db_vacuum_success` | PostgreSQL VACUUM | `perform_db_vacuum()` |
-| `test_perform_gpu_reset_success` | GPU Reset via nvidia-smi | `perform_gpu_reset()` |
-| `test_handle_category_c_executes_all_actions` | Alle Critical Actions | `handle_category_c_critical()` |
-| `test_get_critical_events_count` | Critical Event Counting | `get_critical_events_count()` |
+| Test                                          | Beschreibung                | Coverage                              |
+| --------------------------------------------- | --------------------------- | ------------------------------------- |
+| `test_hard_restart_application_services`      | Hard Restart aller Services | `hard_restart_application_services()` |
+| `test_perform_disk_cleanup_success`           | Docker System Prune         | `perform_disk_cleanup()`              |
+| `test_perform_db_vacuum_success`              | PostgreSQL VACUUM           | `perform_db_vacuum()`                 |
+| `test_perform_gpu_reset_success`              | GPU Reset via nvidia-smi    | `perform_gpu_reset()`                 |
+| `test_handle_category_c_executes_all_actions` | Alle Critical Actions       | `handle_category_c_critical()`        |
+| `test_get_critical_events_count`              | Critical Event Counting     | `get_critical_events_count()`         |
 
 **Abgedeckte Funktionen**:
+
 - `hard_restart_application_services()`
 - `perform_disk_cleanup()`
 - `perform_db_vacuum()`
@@ -95,16 +96,17 @@ tests/unit/test_self_healing_engine.py
 
 ### Category D: Reboot (6 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_perform_reboot_safety_checks_recent_reboots` | Reboot Loop Prevention | `perform_reboot_safety_checks()` |
-| `test_perform_reboot_safety_checks_disk_usage_ok` | Safety Check Pass | Safety logic |
-| `test_perform_reboot_safety_checks_disk_critical_allows` | Disk >97% Override | Critical disk logic |
-| `test_save_reboot_state_stores_system_state` | Pre-Reboot State Save | `save_reboot_state()` |
-| `test_handle_category_d_reboot_disabled_by_default` | Reboot Disabled Default | Opt-in behavior |
-| `test_handle_category_d_reboot_enabled` | Reboot Execution | `handle_category_d_reboot()` |
+| Test                                                     | Beschreibung            | Coverage                         |
+| -------------------------------------------------------- | ----------------------- | -------------------------------- |
+| `test_perform_reboot_safety_checks_recent_reboots`       | Reboot Loop Prevention  | `perform_reboot_safety_checks()` |
+| `test_perform_reboot_safety_checks_disk_usage_ok`        | Safety Check Pass       | Safety logic                     |
+| `test_perform_reboot_safety_checks_disk_critical_allows` | Disk >97% Override      | Critical disk logic              |
+| `test_save_reboot_state_stores_system_state`             | Pre-Reboot State Save   | `save_reboot_state()`            |
+| `test_handle_category_d_reboot_disabled_by_default`      | Reboot Disabled Default | Opt-in behavior                  |
+| `test_handle_category_d_reboot_enabled`                  | Reboot Execution        | `handle_category_d_reboot()`     |
 
 **Abgedeckte Funktionen**:
+
 - `perform_reboot_safety_checks()`
 - `save_reboot_state()`
 - `handle_category_d_reboot()`
@@ -113,16 +115,17 @@ tests/unit/test_self_healing_engine.py
 
 ### Utility Functions (7 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_log_event_stores_event` | Event Logging | `log_event()` |
+| Test                                        | Beschreibung            | Coverage                   |
+| ------------------------------------------- | ----------------------- | -------------------------- |
+| `test_log_event_stores_event`               | Event Logging           | `log_event()`              |
 | `test_record_recovery_action_stores_action` | Recovery Action Logging | `record_recovery_action()` |
-| `test_check_disk_usage_returns_metrics` | Disk Metrics | `check_disk_usage()` |
-| `test_check_disk_usage_logs_warning_at_80` | Disk Warning @ 80% | Warning threshold |
-| `test_update_heartbeat` | Heartbeat Update | `update_heartbeat()` |
-| `test_get_pool_stats_returns_stats` | Connection Pool Stats | `get_pool_stats()` |
+| `test_check_disk_usage_returns_metrics`     | Disk Metrics            | `check_disk_usage()`       |
+| `test_check_disk_usage_logs_warning_at_80`  | Disk Warning @ 80%      | Warning threshold          |
+| `test_update_heartbeat`                     | Heartbeat Update        | `update_heartbeat()`       |
+| `test_get_pool_stats_returns_stats`         | Connection Pool Stats   | `get_pool_stats()`         |
 
 **Abgedeckte Funktionen**:
+
 - `log_event()`
 - `record_recovery_action()`
 - `check_disk_usage()`
@@ -133,12 +136,13 @@ tests/unit/test_self_healing_engine.py
 
 ### Integration Tests (2 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_run_healing_cycle_executes_all_checks` | Full Healing Cycle | `run_healing_cycle()` |
-| `test_healing_cycle_handles_exception_gracefully` | Exception Handling | Error resilience |
+| Test                                              | Beschreibung       | Coverage              |
+| ------------------------------------------------- | ------------------ | --------------------- |
+| `test_run_healing_cycle_executes_all_checks`      | Full Healing Cycle | `run_healing_cycle()` |
+| `test_healing_cycle_handles_exception_gracefully` | Exception Handling | Error resilience      |
 
 **Abgedeckte Funktionen**:
+
 - `run_healing_cycle()`
 - Exception handling in main loop
 
@@ -154,12 +158,14 @@ pip3 install pytest pytest-cov pytest-mock
 ### Test Ausführung
 
 **Alle Tests:**
+
 ```bash
 cd /Users/koljaschope/Documents/dev/claude
 pytest tests/unit/test_self_healing_engine.py -v
 ```
 
 **Mit Coverage Report:**
+
 ```bash
 pytest tests/unit/test_self_healing_engine.py -v \
   --cov=services/self-healing-agent/healing_engine \
@@ -168,21 +174,25 @@ pytest tests/unit/test_self_healing_engine.py -v \
 ```
 
 **Nur Category A Tests:**
+
 ```bash
 pytest tests/unit/test_self_healing_engine.py::TestCategoryA_ServiceDown -v
 ```
 
 **Nur Category B Tests:**
+
 ```bash
 pytest tests/unit/test_self_healing_engine.py::TestCategoryB_Overload -v
 ```
 
 **Einzelner Test:**
+
 ```bash
 pytest tests/unit/test_self_healing_engine.py::TestCategoryA_ServiceDown::test_handle_category_a_first_attempt_restart -v
 ```
 
 **Mit Debug Output:**
+
 ```bash
 pytest tests/unit/test_self_healing_engine.py -v -s
 ```
@@ -201,6 +211,7 @@ xdg-open htmlcov/index.html  # Linux
 ### 1. Mocking Strategy
 
 **Alle externen Dependencies gemockt:**
+
 - ✅ Docker API (`docker.from_env()`)
 - ✅ PostgreSQL (`psycopg2.pool.ThreadedConnectionPool`)
 - ✅ HTTP Requests (`requests.get/post`)
@@ -208,6 +219,7 @@ xdg-open htmlcov/index.html  # Linux
 - ✅ System Metrics (`psutil.cpu_percent`, `psutil.disk_usage`)
 
 **Vorteile:**
+
 - Keine echten Docker Container nötig
 - Keine echte DB Connection nötig
 - Tests laufen isoliert und schnell
@@ -249,12 +261,14 @@ Tests sind in logische Klassen gruppiert:
 ### 4. Assertions
 
 **Jeder Test validiert:**
+
 - Return Values
 - Function Calls (via `assert_called_once()`, `assert_called()`)
 - Call Arguments (via `call_args`)
 - Side Effects (DB writes, container restarts)
 
 **Beispiel:**
+
 ```python
 def test_handle_category_a_first_attempt_restart(mock_engine, mock_container):
     mock_engine.get_failure_count = Mock(return_value=1)
@@ -305,6 +319,7 @@ TOTAL                                    1228    200    84%
 ```
 
 **Expected Coverage Breakdown:**
+
 - Category A Functions: ~90% (gut testbar, wenig externe Dependencies)
 - Category B Functions: ~85% (einige Edge Cases schwer zu simulieren)
 - Category C Functions: ~80% (subprocess Calls schwer zu testen)
@@ -312,6 +327,7 @@ TOTAL                                    1228    200    84%
 - Utility Functions: ~95% (einfache DB Operations)
 
 **Nicht abgedeckte Lines:**
+
 - Error handling für extreme Edge Cases
 - Cleanup code in finally blocks
 - Deprecated code paths
@@ -324,6 +340,7 @@ TOTAL                                    1228    200    84%
 **Ursache:** Python findet `healing_engine.py` nicht
 
 **Lösung:**
+
 ```bash
 # Option 1: Von Root ausführen
 cd /Users/koljaschope/Documents/dev/claude
@@ -351,6 +368,7 @@ pytest tests/unit/test_self_healing_engine.py -v
 **Ursache:** Echte Network/DB Calls werden gemacht statt Mocks
 
 **Lösung:**
+
 ```python
 # Verify alle requests sind gemockt
 @patch('healing_engine.requests.post')
@@ -367,6 +385,7 @@ def test_something(mock_docker, mock_post):
 **Ursache:** Mock wurde nicht wie erwartet aufgerufen
 
 **Debug:**
+
 ```python
 # Zeige alle Calls
 print(mock_object.call_args_list)
@@ -388,11 +407,13 @@ assert mock_object.call_count == 2
 **Wenn Tests nach healing_engine.py Änderungen fehlschlagen:**
 
 1. **Check welche Funktion geändert wurde**
+
    ```bash
    git diff services/self-healing-agent/healing_engine.py
    ```
 
 2. **Finde betroffene Tests**
+
    ```bash
    grep -n "def test_.*function_name" tests/unit/test_self_healing_engine.py
    ```
@@ -431,6 +452,7 @@ def test_new_function_behavior(self, mock_engine):
 **Wenn Coverage <80%:**
 
 1. **Identifiziere nicht getestete Lines**
+
    ```bash
    pytest tests/unit/test_self_healing_engine.py \
      --cov=services/self-healing-agent/healing_engine \
@@ -511,6 +533,7 @@ exit 0
 ## Performance Benchmarks
 
 **Typische Test-Laufzeiten:**
+
 - Single Test: ~0.05s
 - Category A (8 tests): ~0.4s
 - Category B (11 tests): ~0.6s
@@ -521,6 +544,7 @@ exit 0
 - **Total (40 tests): ~2.5s**
 
 **Optimierungen:**
+
 - Fixtures verwenden (Setup nur 1x)
 - Mocks statt echte Calls
 - Parallele Ausführung möglich: `pytest -n auto`

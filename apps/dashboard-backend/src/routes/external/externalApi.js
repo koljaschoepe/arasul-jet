@@ -1,6 +1,6 @@
 /**
  * External API Routes
- * Dedicated endpoints for external apps (n8n, workflows, automations)
+ * Dedicated endpoints for external apps and automations
  * Uses API key authentication instead of JWT
  *
  * Base path: /api/v1/external
@@ -73,7 +73,7 @@ const upload = multer(
 );
 
 /**
- * POST /api/v1/external/llm/chat - LLM chat via queue (for n8n, automations)
+ * POST /api/v1/external/llm/chat - LLM chat via queue (for automations)
  *
  * Request body:
  * {
@@ -761,14 +761,14 @@ async function waitForJobCompletion(jobId, timeoutMs, req) {
 // ────────────────────────────────────────────────────────────────────────────
 // Flow-Trigger (Plan 013, B8)
 //
-// Ein Flow lässt sich von außen (n8n, eigene Automationen) per API-Key starten —
+// Ein Flow lässt sich von außen (eigene Automationen) per API-Key starten —
 // zwei Wege: direkt („starte Flow X") oder über ein benanntes Ereignis („es ist
 // etwas passiert, feuere alle Auslöser, die darauf hören"). Beide gehen durch
 // denselben Runner wie der Chat; der Lauf erscheint dort als Karte.
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * GET /api/v1/external/flows - Verfügbare Flows auflisten (für Discovery in n8n).
+ * GET /api/v1/external/flows - Verfügbare Flows auflisten (Discovery für Aufrufer).
  */
 router.get(
   '/flows',
@@ -894,7 +894,7 @@ router.get(
       error: run.error || null,
       steps_used: run.steps_used ?? null,
       // Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2) — auch der
-      // n8n-Aufrufer sieht, welche Annahmen statt Rückfragen getroffen wurden.
+      // externe Aufrufer sieht, welche Annahmen statt Rückfragen getroffen wurden.
       annahmen: run.annahmen ?? null,
       timestamp: new Date().toISOString(),
     });

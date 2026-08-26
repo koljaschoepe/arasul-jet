@@ -2,7 +2,7 @@
 # =============================================================================
 # Arasul Platform - Restore Script
 # =============================================================================
-# Restores PostgreSQL database, n8n workflows and/or config from backup
+# Restores PostgreSQL database and/or config from backup
 # (MinIO-Zweig am 26.08.2026 entfallen, Phase B4 des Rueckbaus: der
 # Objektspeicher ist weg; aeltere documents_*.tar.gz haben kein Ziel mehr)
 #
@@ -59,14 +59,6 @@ list_backups() {
         echo "  No PostgreSQL backups found"
     fi
 
-
-    echo ""
-    echo "=== Available n8n Backups ==="
-    if ls "${BACKUP_DIR}/n8n/"*.json* 1>/dev/null 2>&1; then
-        ls -lh "${BACKUP_DIR}/n8n/"*.json* | awk '{print $9, "(" $5 ")"}'
-    else
-        echo "  No n8n backups found"
-    fi
 
     echo ""
     echo "=== Available Config Backups ==="
@@ -237,45 +229,6 @@ decrypt_if_needed() {
     return 0
 }
 
-# Restore n8n workflows
-restore_n8n() {
-    local backup_file="$1"
-
-    backup_file=$(decrypt_if_needed "${backup_file}") || exit 1
-
-    if [[ ! -f "$backup_file" ]]; then
-        log "ERROR" "Backup file not found: $backup_file"
-        exit 1
-    fi
-
-    if [[ ! "$backup_file" =~ \.json$ ]]; then
-        log "ERROR" "Invalid backup file format. Expected .json"
-        exit 1
-    fi
-
-    if ! docker ps --format '{{.Names}}' | grep -q "^n8n$"; then
-        log "ERROR" "n8n container is not running"
-        exit 1
-    fi
-
-    confirm "This will import workflows into n8n. Existing workflows with same IDs will be updated."
-
-    log "INFO" "Starting n8n workflow restore from: $backup_file"
-
-    # Copy backup into container
-    docker cp "$backup_file" "n8n:/tmp/workflows_restore.json"
-
-    if docker exec n8n n8n import:workflow --input=/tmp/workflows_restore.json 2>/dev/null; then
-        docker exec n8n rm -f /tmp/workflows_restore.json 2>/dev/null || true
-        log "INFO" "n8n workflow restore completed successfully"
-        return 0
-    else
-        docker exec n8n rm -f /tmp/workflows_restore.json 2>/dev/null || true
-        log "ERROR" "n8n workflow restore failed"
-        return 1
-    fi
-}
-
 # Restore platform configuration
 restore_config() {
     local backup_file="$1"
@@ -325,9 +278,6 @@ find_backup_by_date() {
         postgres)
             file=$(ls "${BACKUP_DIR}/postgres/arasul_db_${date}"*.sql.gz* 2>/dev/null | head -1 || true)
             ;;
-        n8n)
-            file=$(ls "${BACKUP_DIR}/n8n/workflows_${date}"*.json* 2>/dev/null | head -1 || true)
-            ;;
         config)
             file=$(ls "${BACKUP_DIR}/config/config_${date}"*.tar.gz* 2>/dev/null | head -1 || true)
             ;;
@@ -342,7 +292,6 @@ usage() {
     echo ""
     echo "Usage:"
     echo "  $0 --postgres <backup_file>    Restore PostgreSQL from specific backup"
-    echo "  $0 --n8n <backup_file>         Restore n8n workflows from specific backup"
     echo "  $0 --config <backup_file>      Restore platform config (.env, certs)"
     echo "  $0 --all --date YYYYMMDD       Restore everything from specific date"
     echo "  $0 --latest                    Restore from latest backups"
@@ -389,15 +338,6 @@ main() {
             restore_postgres "$2"
             ;;
 
-        --n8n)
-            if [[ -z "${2:-}" ]]; then
-                log "ERROR" "Please specify a backup file"
-                usage
-                exit 1
-            fi
-            restore_n8n "$2"
-            ;;
-
         --config)
             if [[ -z "${2:-}" ]]; then
                 log "ERROR" "Please specify a backup file"
@@ -410,19 +350,12 @@ main() {
         --latest)
             log "INFO" "Restoring from latest backups..."
             local pg_latest="${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz"
-            local n8n_latest="${BACKUP_DIR}/n8n/workflows_latest.json"
             local config_latest="${BACKUP_DIR}/config/config_latest.tar.gz"
 
             if [[ -L "$pg_latest" ]]; then
                 restore_postgres "$(readlink -f "$pg_latest")"
             else
                 log "WARN" "No latest PostgreSQL backup found"
-            fi
-
-            if [[ -L "$n8n_latest" ]]; then
-                restore_n8n "$(readlink -f "$n8n_latest")"
-            else
-                log "WARN" "No latest n8n backup found"
             fi
 
             if [[ -L "$config_latest" ]]; then
@@ -443,19 +376,12 @@ main() {
             log "INFO" "Restoring from date: $date"
 
             local pg_backup=$(find_backup_by_date "postgres" "$date")
-            local n8n_backup=$(find_backup_by_date "n8n" "$date")
             local config_backup=$(find_backup_by_date "config" "$date")
 
             if [[ -n "$pg_backup" ]]; then
                 restore_postgres "$pg_backup"
             else
                 log "WARN" "No PostgreSQL backup found for date: $date"
-            fi
-
-            if [[ -n "$n8n_backup" ]]; then
-                restore_n8n "$n8n_backup"
-            else
-                log "WARN" "No n8n backup found for date: $date"
             fi
 
             if [[ -n "$config_backup" ]]; then

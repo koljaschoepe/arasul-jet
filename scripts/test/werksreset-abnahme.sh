@@ -127,7 +127,6 @@ echo "== 8. Zustand direkt nach dem Reset =="
 pruefe "Chats" "0" "$(sql 'SELECT count(*) FROM chat_conversations')"
 pruefe "Administratoren" "0" "$(sql 'SELECT count(*) FROM admin_users')"
 pruefe "Erweiterungen" "0" "$(sql 'SELECT count(*) FROM arasul.extensions')"
-pruefe "n8n-Workflows" "0" "$(sql 'SELECT count(*) FROM n8n.workflow_entity' 2>/dev/null || echo 0)"
 pruefe "Ersteinrichtung faellig" "f" "$(sql 'SELECT setup_completed FROM system_settings')"
 pruefe "Modellkatalog bleibt" "t" "$(sql 'SELECT count(*) > 0 FROM llm_model_catalog')"
 # Das Migrationsbuch steht entweder in public oder in arasul, je nach Alter der

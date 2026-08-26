@@ -413,16 +413,29 @@ import ErrorBoundary, { RouteErrorBoundary, ComponentErrorBoundary } from '@/com
 
 ### shadcn/ui Components
 
-All shadcn components are in `@/components/ui/shadcn/`. Import directly:
+All shadcn components are in `@/components/ui/shadcn/`. Import directly.
+Es gibt genau die dreizehn Bausteine, die dort liegen (Stand Phase B5,
+26.08.2026); `tabs`, `separator`, `skeleton`, `dropdown-menu`, `tooltip` und
+`table` sind nicht installiert. Wer einen braucht, holt ihn mit
+`npx shadcn@latest add <name>`, nicht von Hand:
 
 ```tsx
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/shadcn/alert';
+import { Badge } from '@/components/ui/shadcn/badge';
 import { Button } from '@/components/ui/shadcn/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/shadcn/card';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/shadcn/context-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/shadcn/dialog';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/shadcn/tabs';
-import { Badge } from '@/components/ui/shadcn/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/shadcn/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
+import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import {
   Select,
   SelectContent,
@@ -430,33 +443,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/shadcn/select';
-import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
-import { Separator } from '@/components/ui/shadcn/separator';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/shadcn/alert';
 import { Textarea } from '@/components/ui/shadcn/textarea';
-import { Skeleton } from '@/components/ui/shadcn/skeleton';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/shadcn/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/shadcn/tooltip';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/shadcn/table';
 ```
 
 ### Custom Shared UI Components
