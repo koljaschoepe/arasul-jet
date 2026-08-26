@@ -158,20 +158,6 @@ http:
           Server: ''
           Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
 
-    # MinIO Headers for reverse proxy
-    minio-headers:
-      headers:
-        customRequestHeaders:
-          X-Forwarded-Proto: 'https'
-          X-Forwarded-For: ''
-          X-Real-IP: ''
-
-    strip-minio-api-prefix:
-      stripPrefix:
-        prefixes:
-          - '/minio-api'
-        forceSlash: false
-
     strip-models-prefix:
       stripPrefix:
         prefixes:
@@ -188,12 +174,6 @@ http:
       stripPrefix:
         prefixes:
           - '/n8n'
-        forceSlash: false
-
-    strip-media-prefix:
-      stripPrefix:
-        prefixes:
-          - '/media'
         forceSlash: false
 
     # Request Body Size Limit (50MB — prevents DoS via oversized uploads)

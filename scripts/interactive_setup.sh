@@ -531,8 +531,6 @@ main() {
     # Secrets generieren
     JWT_SECRET=$(generate_secret 32)
     POSTGRES_PASSWORD=$(generate_password 24)
-    MINIO_ROOT_USER="arasul"
-    MINIO_ROOT_PASSWORD=$(generate_password 24)
     N8N_BASIC_AUTH_PASSWORD=$(generate_password 16)
     # Preserve encryption keys from previous install (re-generating would make
     # existing n8n credentials undecryptable)
@@ -557,7 +555,6 @@ main() {
     echo -e "  ${BOLD}Generierte Secrets:${NC}"
     echo -e "    JWT-Secret:       ${GREEN}✓${NC} (${#JWT_SECRET} Zeichen)"
     echo -e "    DB-Passwort:      ${GREEN}✓${NC} (${#POSTGRES_PASSWORD} Zeichen)"
-    echo -e "    MinIO-Zugangsd.:  ${GREEN}✓${NC} (${#MINIO_ROOT_PASSWORD} Zeichen)"
     echo -e "    n8n-Schluessel:   ${GREEN}✓${NC} (${#N8N_ENCRYPTION_KEY} Zeichen)"
 
     if [ "$NON_INTERACTIVE" = false ]; then
@@ -615,13 +612,6 @@ POSTGRES_PORT=5432
 # --- Datenbank (erweitert) ---
 POSTGRES_MAX_CONNECTIONS=200
 
-# --- MinIO (S3-Speicher) ---
-MINIO_ROOT_USER=${MINIO_ROOT_USER}
-MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-MINIO_HOST=minio
-MINIO_PORT=9000
-MINIO_BROWSER=on
-
 # --- n8n Workflows ---
 N8N_BASIC_AUTH_USER=${ADMIN_USERNAME}
 N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
@@ -642,13 +632,9 @@ EMBEDDING_VECTOR_SIZE=1024
 EMBEDDING_MAX_INPUT_TOKENS=8192
 
 
-# --- Document Indexer ---
+# --- Document Indexer (nur noch Text-Extraktion, seit 26.08.2026) ---
 DOCUMENT_INDEXER_HOST=document-indexer
-DOCUMENT_INDEXER_PORT=9102
-DOCUMENT_INDEXER_INTERVAL=30
-DOCUMENT_INDEXER_CHUNK_SIZE=500
-DOCUMENT_INDEXER_CHUNK_OVERLAP=50
-DOCUMENT_INDEXER_MINIO_BUCKET=documents
+DOCUMENT_INDEXER_API_PORT=9102
 
 # --- Dashboard ---
 DASHBOARD_BACKEND_PORT=3001
@@ -731,8 +717,6 @@ ENVEOF
     echo -n "$ADMIN_PASSWORD" > "$secrets_dir/admin_password"
     echo -n "$POSTGRES_PASSWORD" > "$secrets_dir/postgres_password"
     echo -n "$JWT_SECRET" > "$secrets_dir/jwt_secret"
-    echo -n "$MINIO_ROOT_USER" > "$secrets_dir/minio_root_user"
-    echo -n "$MINIO_ROOT_PASSWORD" > "$secrets_dir/minio_root_password"
     echo -n "$N8N_ENCRYPTION_KEY" > "$secrets_dir/n8n_encryption_key"
     # --- Hook (Plan 001, Schritt 9): n8n Task-Runner-Auth-Token --------------
     # Gemeinsames Secret zwischen n8n (Task-Broker) und dem n8n-runners-

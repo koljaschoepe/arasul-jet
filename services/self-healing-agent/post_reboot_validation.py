@@ -48,7 +48,6 @@ CRITICAL_SERVICES = [
     'metrics-collector',
     'llm-service',
     'dashboard-backend',
-    'minio'
 ]
 
 

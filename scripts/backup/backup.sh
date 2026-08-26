@@ -2,7 +2,9 @@
 # =============================================================================
 # Arasul Platform - Automated Backup Script
 # =============================================================================
-# Backs up PostgreSQL database and MinIO documents bucket
+# Backs up PostgreSQL database, n8n workflows and config
+# (MinIO-Sicherung am 26.08.2026 entfallen, Phase B4 des Rueckbaus: der
+# Objektspeicher ist weg; kritisch ist nur noch Postgres)
 # Supports retention policies and optional S3 upload
 #
 # Usage: ./backup.sh [--type full|incremental] [--upload-s3]
@@ -34,13 +36,6 @@ BACKUP_USB_MOUNT=${BACKUP_USB_MOUNT:-/mnt/usb-backup}
 POSTGRES_HOST=${POSTGRES_HOST:-postgres-db}
 POSTGRES_USER=${POSTGRES_USER:-arasul}
 POSTGRES_DB=${POSTGRES_DB:-arasul_db}
-
-# MinIO settings
-MINIO_HOST=${MINIO_HOST:-minio}
-MINIO_PORT=${MINIO_PORT:-9000}
-MINIO_ROOT_USER=${MINIO_ROOT_USER:-arasul}
-MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-}
-MINIO_BUCKET=${MINIO_BUCKET:-documents}
 
 # Parse arguments
 BACKUP_TYPE="full"
@@ -84,7 +79,6 @@ log() {
 # Create backup directories
 setup_directories() {
     mkdir -p "${BACKUP_DIR}/postgres"
-    mkdir -p "${BACKUP_DIR}/minio"
     mkdir -p "${BACKUP_DIR}/n8n"
     mkdir -p "${BACKUP_DIR}/weekly"
     touch "${LOG_FILE}"
@@ -131,70 +125,6 @@ backup_postgres() {
         fi
     else
         log "ERROR" "PostgreSQL backup failed"
-        return 1
-    fi
-}
-
-# Backup MinIO documents bucket
-backup_minio() {
-    log "INFO" "Starting MinIO backup..."
-
-    local backup_dir="${BACKUP_DIR}/minio/documents_${TIMESTAMP}"
-    local backup_archive="${BACKUP_DIR}/minio/documents_${TIMESTAMP}.tar.gz"
-    local backup_archive_latest="${BACKUP_DIR}/minio/documents_latest.tar.gz"
-
-    # Check if minio container is running
-    if ! docker ps --format '{{.Names}}' | grep -q "^minio$"; then
-        log "ERROR" "MinIO container is not running"
-        return 1
-    fi
-
-    mkdir -p "${backup_dir}"
-
-    # Use mc (MinIO client) to mirror the bucket
-    # First, configure mc alias inside the minio container
-    if docker exec minio mc alias set local \
-        "http://localhost:9000" \
-        "${MINIO_ROOT_USER}" \
-        "${MINIO_ROOT_PASSWORD}" 2>/dev/null; then
-
-        # Mirror documents to a temp location inside container, then copy out
-        if docker exec minio mc mirror \
-            --overwrite \
-            "local/${MINIO_BUCKET}" \
-            "/tmp/backup_${MINIO_BUCKET}" 2>/dev/null; then
-
-            # Copy from container to host
-            docker cp "minio:/tmp/backup_${MINIO_BUCKET}/." "${backup_dir}/"
-
-            # Clean up temp in container
-            docker exec minio rm -rf "/tmp/backup_${MINIO_BUCKET}" 2>/dev/null || true
-
-            # Create compressed archive
-            if tar -czf "${backup_archive}" -C "${BACKUP_DIR}/minio" "documents_${TIMESTAMP}"; then
-                rm -rf "${backup_dir}"
-
-                local size=$(du -h "${backup_archive}" | cut -f1)
-                local file_count=$(tar -tzf "${backup_archive}" 2>/dev/null | wc -l)
-                log "INFO" "MinIO backup completed: ${backup_archive} (${size}, ${file_count} files)"
-
-                # Create/update latest symlink
-                ln -sf "$(basename "${backup_archive}")" "${backup_archive_latest}"
-
-                echo "${backup_archive}"
-                return 0
-            else
-                log "ERROR" "Failed to create MinIO backup archive"
-                rm -rf "${backup_dir}"
-                return 1
-            fi
-        else
-            log "ERROR" "MinIO mirror operation failed"
-            rm -rf "${backup_dir}"
-            return 1
-        fi
-    else
-        log "ERROR" "Failed to configure MinIO client"
         return 1
     fi
 }
@@ -338,7 +268,6 @@ copy_to_usb() {
     local copied=0
     for latest_file in \
         "${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz" \
-        "${BACKUP_DIR}/minio/documents_latest.tar.gz" \
         "${BACKUP_DIR}/n8n/workflows_latest.json" \
         "${BACKUP_DIR}/config/config_latest.tar.gz"; do
 
@@ -377,11 +306,6 @@ create_weekly_backup() {
                "${weekly_dir}/postgres_W${week_number}.sql.gz"
         fi
 
-        if [[ -f "${BACKUP_DIR}/minio/documents_latest.tar.gz" ]]; then
-            cp "${BACKUP_DIR}/minio/documents_latest.tar.gz" \
-               "${weekly_dir}/minio_W${week_number}.tar.gz"
-        fi
-
         if [[ -f "${BACKUP_DIR}/n8n/workflows_latest.json" ]]; then
             cp "${BACKUP_DIR}/n8n/workflows_latest.json" \
                "${weekly_dir}/n8n_W${week_number}.json"
@@ -409,15 +333,6 @@ cleanup_old_backups() {
         log "DEBUG" "Deleted old backup: $file"
     done < <(find "${BACKUP_DIR}/postgres" -name "arasul_db_*.sql.gz" \
         ! -name "arasul_db_latest.sql.gz" \
-        -type f -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
-
-    # Clean MinIO daily backups
-    while IFS= read -r -d '' file; do
-        rm -f "$file"
-        deleted_count=$((deleted_count + 1))
-        log "DEBUG" "Deleted old backup: $file"
-    done < <(find "${BACKUP_DIR}/minio" -name "documents_*.tar.gz" \
-        ! -name "documents_latest.tar.gz" \
         -type f -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
 
     # Clean n8n workflow backups
@@ -471,13 +386,6 @@ upload_to_s3() {
         log "INFO" "PostgreSQL backup uploaded to S3"
     fi
 
-    # Upload MinIO backup
-    if [[ -f "${BACKUP_DIR}/minio/documents_latest.tar.gz" ]]; then
-        aws s3 cp "${BACKUP_DIR}/minio/documents_latest.tar.gz" \
-            "s3://${AWS_S3_BUCKET}/minio/documents_${TIMESTAMP}.tar.gz" \
-            --quiet 2>/dev/null && \
-        log "INFO" "MinIO backup uploaded to S3"
-    fi
 }
 
 # Generate backup report
@@ -485,7 +393,6 @@ generate_report() {
     local report_file="${BACKUP_DIR}/backup_report.json"
 
     local postgres_count=$(find "${BACKUP_DIR}/postgres" -name "*.sql.gz*" -type f 2>/dev/null | wc -l)
-    local minio_count=$(find "${BACKUP_DIR}/minio" -name "*.tar.gz*" -type f 2>/dev/null | wc -l)
     local n8n_count=$(find "${BACKUP_DIR}/n8n" -name "*.json*" -type f 2>/dev/null | wc -l)
     local config_count=$(find "${BACKUP_DIR}/config" -name "config_*.tar.gz*" -type f 2>/dev/null | wc -l)
     local weekly_count=$(find "${BACKUP_DIR}/weekly" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
@@ -498,7 +405,6 @@ generate_report() {
     "status": "completed",
     "statistics": {
         "postgres_backups": ${postgres_count},
-        "minio_backups": ${minio_count},
         "n8n_backups": ${n8n_count},
         "config_backups": ${config_count},
         "encryption_enabled": ${BACKUP_ENCRYPTION_ENABLED},
@@ -509,7 +415,6 @@ generate_report() {
     },
     "latest_backups": {
         "postgres": "$(readlink -f "${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz" 2>/dev/null || echo 'none')",
-        "minio": "$(readlink -f "${BACKUP_DIR}/minio/documents_latest.tar.gz" 2>/dev/null || echo 'none')",
         "n8n": "$(readlink -f "${BACKUP_DIR}/n8n/workflows_latest.json" 2>/dev/null || echo 'none')",
         "config": "$(readlink -f "${BACKUP_DIR}/config/config_latest.tar.gz" 2>/dev/null || echo 'none')"
     }
@@ -527,7 +432,6 @@ main() {
 
     local start_time=$(date +%s)
     local postgres_success=false
-    local minio_success=false
     local n8n_success=false
     local config_success=false
 
@@ -540,12 +444,6 @@ main() {
     if pg_file=$(backup_postgres); then
         postgres_success=true
         encrypt_file "${pg_file}" || true
-    fi
-
-    local minio_file=""
-    if minio_file=$(backup_minio); then
-        minio_success=true
-        encrypt_file "${minio_file}" || true
     fi
 
     local n8n_file=""
@@ -583,7 +481,6 @@ main() {
     log "INFO" "=========================================="
     log "INFO" "Backup Complete (${duration}s)"
     log "INFO" "PostgreSQL: $([ "$postgres_success" = true ] && echo 'SUCCESS' || echo 'FAILED')"
-    log "INFO" "MinIO: $([ "$minio_success" = true ] && echo 'SUCCESS' || echo 'FAILED')"
     log "INFO" "n8n: $([ "$n8n_success" = true ] && echo 'SUCCESS' || echo 'SKIPPED/FAILED')"
     log "INFO" "Config: $([ "$config_success" = true ] && echo 'SUCCESS' || echo 'FAILED')"
     if [[ "${BACKUP_ENCRYPTION_ENABLED}" == "true" ]]; then
@@ -591,8 +488,9 @@ main() {
     fi
     log "INFO" "=========================================="
 
-    # Exit with error if critical backups failed (postgres and minio are critical)
-    if [[ "$postgres_success" != "true" ]] || [[ "$minio_success" != "true" ]]; then
+    # Exit with error if the critical backup failed (only postgres is critical
+    # since the MinIO backup ended on 26.08.2026)
+    if [[ "$postgres_success" != "true" ]]; then
         exit 1
     fi
 }

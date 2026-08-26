@@ -76,14 +76,6 @@ teardown() {
     grep -q "JWT_SECRET=" "$SETUP_SCRIPT"
 }
 
-@test "env generation: generates MINIO_ROOT_USER" {
-    grep -q "MINIO_ROOT_USER=" "$SETUP_SCRIPT"
-}
-
-@test "env generation: generates MINIO_ROOT_PASSWORD" {
-    grep -q "MINIO_ROOT_PASSWORD=" "$SETUP_SCRIPT"
-}
-
 @test "env generation: generates N8N_ENCRYPTION_KEY" {
     grep -q "N8N_ENCRYPTION_KEY=" "$SETUP_SCRIPT"
 }

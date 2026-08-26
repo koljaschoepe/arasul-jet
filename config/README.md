@@ -4,7 +4,7 @@ This directory contains configuration files for the Arasul Platform.
 
 ## Directory Structure
 
-```
+````
 config/
 ├── README.md                   # This file
 ├── .env.template              # Template for environment variables
@@ -22,7 +22,6 @@ config/
 │   ├── admin.hash            # Admin password hash
 │   ├── jwt_secret            # JWT secret key
 │   ├── postgres_password     # PostgreSQL password
-│   ├── minio_root_password   # MinIO root password
 │   └── public_update_key.pem # Public key for update verification
 └── app/                       # Application-specific configuration
     ├── dashboard.json        # Dashboard configuration
@@ -44,7 +43,6 @@ Sensitive configuration is stored in `config/secrets/` directory:
 - `admin.hash` - bcrypt hash of admin password
 - `jwt_secret` - Secret key for JWT token signing
 - `postgres_password` - PostgreSQL database password
-- `minio_root_password` - MinIO root password
 - `public_update_key.pem` - Public key for update package verification
 
 **Security**: This directory should have `700` permissions and is excluded from git.
@@ -66,7 +64,7 @@ nano .env
 
 # Run bootstrap to generate secrets
 ./arasul bootstrap
-```
+````
 
 ### Updating Configuration
 
@@ -129,7 +127,6 @@ See `.env.template` for complete list of environment variables and their descrip
 ### Categories
 
 - **Database** - PostgreSQL connection settings
-- **Storage** - MinIO object storage settings
 - **AI Services** - LLM and embedding service settings
 - **Authentication** - JWT and admin credentials
 - **Networking** - Ports, hostnames, URLs

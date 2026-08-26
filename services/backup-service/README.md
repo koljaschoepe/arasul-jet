@@ -1,6 +1,6 @@
 # Backup Service
 
-Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpine container, dumps PostgreSQL, syncs MinIO buckets, and stores the bundle on a mounted volume.
+Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpine container, dumps PostgreSQL, archives the flow definitions and the WAL segments, and stores the bundle on a mounted volume. (MinIO backups ended on 26.08.2026 with phase B4 of the Rueckbau — the object store is gone.)
 
 ## Overview
 
@@ -18,7 +18,7 @@ Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpin
 backup-service/
 ├── Dockerfile         Alpine + postgres-client + docker-cli + gzip/tar
 ├── entrypoint.sh      Container entry — installs cron jobs, tails the log
-├── backup.sh          Runs the actual backup (postgres + minio)
+├── backup.sh          Runs the actual backup (postgres + flows + WAL)
 └── restore-drill.sh   Periodic restore-drill (mounts the latest backup into a sidecar postgres and verifies SELECT 1)
 ```
 
@@ -26,8 +26,8 @@ backup-service/
 
 Production restores do **not** run from this container. Use one of:
 
-- `./scripts/backup/restore.sh` — full-featured CLI (`--postgres`, `--minio`, `--all --date`, `--latest`, `--list`).
-- `./scripts/recovery/restore-from-backup.sh` — simpler date-arg interface, restores all three stores.
+- `./scripts/backup/restore.sh` — full-featured CLI (`--postgres`, `--all --date`, `--latest`, `--list`).
+- `./scripts/recovery/restore-from-backup.sh` — simpler date-arg interface, restores Postgres from a dated backup.
 
 See [`docs/ops/BACKUP_SYSTEM.md`](../../docs/ops/BACKUP_SYSTEM.md) and [`docs/ops/DISASTER_RECOVERY.md`](../../docs/ops/DISASTER_RECOVERY.md) for the operator-side workflow.
 

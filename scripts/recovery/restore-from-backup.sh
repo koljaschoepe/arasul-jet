@@ -1,6 +1,8 @@
 #!/bin/bash
 # ARASUL PLATFORM - Restore from Backup
-# Restores PostgreSQL database and MinIO objects from backup.
+# Restores the PostgreSQL database from backup.
+# (MinIO-Wiederherstellung am 26.08.2026 entfallen, Phase B4 des Rueckbaus:
+# der Objektspeicher ist weg, alte minio_*.tar.gz haben kein Ziel mehr.)
 #
 # Usage:
 #   ./scripts/recovery/restore-from-backup.sh                     # Latest backup
@@ -8,7 +10,7 @@
 #   ./scripts/recovery/restore-from-backup.sh --list              # List available backups
 #
 # Prerequisites:
-#   - Docker containers must be running (at least postgres-db, minio)
+#   - Docker containers must be running (at least postgres-db)
 #   - Backup volume mounted at /backups/ (or BACKUP_DIR env var set)
 
 set -euo pipefail
@@ -43,11 +45,6 @@ list_backups() {
         ls -lh "$BACKUP_DIR"/postgres_*.sql.gz 2>/dev/null | awk '{print "  " $NF " (" $5 ")"}' || echo "  (none)"
         echo ""
 
-        # MinIO backups
-        echo -e "${BLUE}MinIO:${NC}"
-        ls -lh "$BACKUP_DIR"/minio_*.tar.gz 2>/dev/null | awk '{print "  " $NF " (" $5 ")"}' || echo "  (none)"
-        echo ""
-
         # WAL archives
         if [ -d "$BACKUP_DIR/../wal-archive" ]; then
             echo -e "${BLUE}WAL Archives:${NC}"
@@ -60,7 +57,7 @@ list_backups() {
 
 # Find backup file matching timestamp pattern
 find_backup() {
-    local type="$1"    # postgres, minio
+    local type="$1"    # postgres
     local timestamp="$2"
 
     if [ "$timestamp" = "latest" ]; then
@@ -96,34 +93,9 @@ restore_postgres() {
     log "PostgreSQL restore complete"
 }
 
-# Restore MinIO
-restore_minio() {
-    local backup_file="$1"
-    log "Restoring MinIO from: $(basename "$backup_file")"
-    warn "MinIO restore overwrites existing objects in the documents bucket"
-
-    # Extract to temp dir, then copy into MinIO container
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-
-    log "Extracting backup..."
-    tar -xzf "$backup_file" -C "$tmp_dir"
-
-    log "Copying to MinIO container..."
-    docker cp "$tmp_dir/." "${COMPOSE_PROJECT}-minio-1:/restore_tmp/"
-    docker exec "${COMPOSE_PROJECT}-minio-1" mc alias set local http://localhost:9000 "${MINIO_ROOT_USER:-arasul}" "${MINIO_ROOT_PASSWORD}" 2>/dev/null || true
-    docker exec "${COMPOSE_PROJECT}-minio-1" mc mirror /restore_tmp/ local/documents/ 2>/dev/null || true
-    docker exec "${COMPOSE_PROJECT}-minio-1" rm -rf /restore_tmp
-
-    rm -rf "$tmp_dir"
-    log "MinIO restore complete"
-}
-
 # Main
 main() {
     local timestamp="latest"
-    local restore_db=true
-    local restore_minio_flag=true
 
     # Parse arguments
     for arg in "$@"; do
@@ -132,25 +104,16 @@ main() {
                 list_backups
                 exit 0
                 ;;
-            --db-only)
-                restore_minio_flag=false
-                ;;
-            --no-db)
-                restore_db=false
-                ;;
             --help|-h)
                 echo "Usage: $0 [TIMESTAMP] [OPTIONS]"
                 echo ""
                 echo "Options:"
                 echo "  --list         List available backups"
-                echo "  --db-only      Restore only PostgreSQL"
-                echo "  --no-db        Skip PostgreSQL restore"
                 echo "  --help         Show this help"
                 echo ""
                 echo "Examples:"
                 echo "  $0                        # Restore latest backup"
                 echo "  $0 2026-03-14_02-00       # Restore specific backup"
-                echo "  $0 --db-only              # Restore only database"
                 exit 0
                 ;;
             *)
@@ -173,25 +136,13 @@ main() {
     local start_time=$SECONDS
 
     # PostgreSQL
-    if $restore_db; then
-        local pg_backup
-        pg_backup=$(find_backup "postgres" "$timestamp")
-        if [ -n "$pg_backup" ]; then
-            restore_postgres "$pg_backup"
-        else
-            warn "No PostgreSQL backup found for timestamp: $timestamp"
-        fi
-    fi
-
-    # MinIO
-    if $restore_minio_flag; then
-        local minio_backup
-        minio_backup=$(find_backup "minio" "$timestamp")
-        if [ -n "$minio_backup" ]; then
-            restore_minio "$minio_backup"
-        else
-            warn "No MinIO backup found for timestamp: $timestamp"
-        fi
+    local pg_backup
+    pg_backup=$(find_backup "postgres" "$timestamp")
+    if [ -n "$pg_backup" ]; then
+        restore_postgres "$pg_backup"
+    else
+        error "No PostgreSQL backup found for timestamp: $timestamp"
+        exit 1
     fi
 
     # Restart all services

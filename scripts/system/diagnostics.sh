@@ -117,7 +117,7 @@ if [[ "${INCLUDE_LOGS}" == true ]]; then
   mkdir -p "${DIAG_DIR}/logs"
 
   services=(
-    dashboard-backend dashboard-frontend postgres-db minio
+    dashboard-backend dashboard-frontend postgres-db
     llm-service embedding-service document-indexer
     n8n self-healing-agent metrics-collector reverse-proxy docker-proxy
   )

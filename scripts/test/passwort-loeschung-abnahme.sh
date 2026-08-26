@@ -21,10 +21,10 @@
 #        Projekte des Zugangs. Eine anschliessende Auskunft liefert leere
 #        Kategorien. Vorher ein Export, nachher ein Vergleich."
 #
-# Der MinIO-Teil von J1 ist der eigentliche Grund, warum es diese Abnahme gibt:
-# bis #504 hielt das Backend einen zwischengespeicherten Client mit dem ALTEN
-# Geheimnis fest, und jeder Dateizugriff scheiterte danach still mit
-# SignatureDoesNotMatch, bis jemand das Dashboard neu startete.
+# Bis zum 26.08.2026 pruefte diese Abnahme auch den MinIO-Passwortwechsel
+# (Fund #504: ein zwischengespeicherter Client mit dem alten Geheimnis). Mit
+# Phase B4 des Rueckbaus ist MinIO samt der Route
+# /api/settings/password/minio weg; J1 ist nur noch das Administrator-Passwort.
 # =============================================================================
 set -uo pipefail
 
@@ -68,8 +68,6 @@ BASIS="${ARASUL_PRUEFSTAND_URL:-https://localhost:8443}"
 NUTZER="${ARASUL_BENUTZER:-admin}"
 PASS_ALT="${ARASUL_PASSWORT:-2309}"
 PASS_NEU="${ARASUL_PASSWORT_NEU:-Pruefstand-2026!}"
-MINIO_ALT="${ARASUL_MINIO_PASSWORT:-}"
-MINIO_NEU="${ARASUL_MINIO_PASSWORT_NEU:-Pruefstand-Minio-2026!}"
 
 gruen=0
 rot=0
@@ -149,42 +147,6 @@ TOK=$(hole_token "$NUTZER" "$PASS_NEU")
 pruefe 'J1: Anmeldung mit dem neuen Passwort' \
   "$([ -n "$TOK" ] && echo ja || echo nein)"
 [ -z "$TOK" ] && { echo; echo "Ohne neuen Zugang geht nichts weiter."; exit 1; }
-
-# --- J1, Teil 2: MinIO, und der Dateizugriff DANACH --------------------------
-if [ -n "$MINIO_ALT" ]; then
-  # Die Drossel ist ABSICHT und in Zahlen bekannt: drei Wechsel je fuenfzehn
-  # Minuten und Zugang, geteilt ueber alle drei Passwort-Routen
-  # (`createUserRateLimiter(3, 15 * 60 * 1000)`). Die Fehlerfaelle davor
-  # verbrauchen sie: zu kurz, falsches altes, echter Wechsel. Der MinIO-Wechsel
-  # ist der vierte.
-  #
-  # Gewartet wird deshalb bis zu siebzehn Minuten. Das macht die Abnahme lang
-  # und ist richtig so: wer hier abkuerzt, misst den Begrenzer statt des
-  # Wechsels. Am 23.08.2026 meldete der erste Durchlauf HTTP 429 und sah aus
-  # wie ein Mangel.
-  echo "hinweis  J1: warte auf die Passwort-Drossel (bis zu 17 Minuten)"
-  ANTWORT=429
-  for versuch in $(seq 1 17); do
-    ANTWORT=$(curl -sk -o /dev/null -w '%{http_code}' -X POST \
-      -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
-      -d "{\"currentPassword\":\"$MINIO_ALT\",\"newPassword\":\"$MINIO_NEU\"}" \
-      "$BASIS/api/settings/password/minio")
-    [ "$ANTWORT" != "429" ] && break
-    sleep 60
-  done
-  pruefe 'J1: MinIO-Passwort geaendert' \
-    "$([ "$ANTWORT" = "200" ] && echo ja || echo nein)" "HTTP $ANTWORT"
-
-  # DER Punkt dieser Abnahme. Ohne #504 scheiterte hier jeder Dateizugriff mit
-  # SignatureDoesNotMatch, OHNE dass das Dashboard neu gestartet wurde.
-  sleep 8
-  ANTWORT=$(curl -sk -o /dev/null -w '%{http_code}' \
-    -H "authorization: Bearer $TOK" "$BASIS/api/documents?limit=1")
-  pruefe 'J1: Dateizugriff ueberlebt den MinIO-Wechsel OHNE Neustart' \
-    "$([ "$ANTWORT" = "200" ] && echo ja || echo nein)" "HTTP $ANTWORT"
-else
-  echo 'hinweis  J1: MinIO uebersprungen, ARASUL_MINIO_PASSWORT nicht gesetzt'
-fi
 
 # --- J4: erst Daten anlegen ---------------------------------------------------
 # Ohne diesen Abschnitt loeschte die Abnahme NICHTS und war trotzdem gruen.

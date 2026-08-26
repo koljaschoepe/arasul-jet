@@ -114,7 +114,6 @@ rsync -a --exclude-from=- "$PROJECT_ROOT/" "${STAGING}/project/" << 'EXCLUDE'
 node_modules
 deployment
 data/postgres
-data/minio
 data/ollama
 data/backups
 data/uploads

@@ -120,7 +120,7 @@ pass "All volumes destroyed"
 log "Step 5: Restoring from backup..."
 
 # Start infrastructure only
-docker compose up -d postgres-db minio 2>/dev/null
+docker compose up -d postgres-db 2>/dev/null
 log "  Waiting for infrastructure to be healthy..."
 sleep 15
 

@@ -67,7 +67,6 @@ Multiple failures or system-level issues.
 **Triggers:**
 
 - Database connection lost
-- MinIO corruption detected
 - 3+ service failures in 10 minutes
 
 **Actions:**
@@ -95,7 +94,7 @@ System-level emergency.
 
 | Category    | Services                                                                   |
 | ----------- | -------------------------------------------------------------------------- |
-| System      | postgres-db, minio, reverse-proxy, metrics-collector                       |
+| System      | postgres-db, reverse-proxy, metrics-collector                              |
 | Application | llm-service, embedding-service, n8n, dashboard-backend, dashboard-frontend |
 | Self        | document-indexer                                                           |
 

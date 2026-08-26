@@ -1,5 +1,5 @@
 # Arasul Platform - AI Services
-# LLM (Ollama), Embedding, Qdrant Vector DB, Document Indexer
+# LLM (Ollama), Embedding, Document Indexer (Text-Extraktion), SearXNG
 
 x-logging: &default-logging
   driver: json-file
@@ -173,7 +173,13 @@ services:
       start_period: 600s
     logging: *default-logging
 
-  # 4. Document Indexer - Automatic document indexing for RAG
+  # 4. Document Indexer - Text-Extraktion fuer die externe API
+  #
+  # Seit dem 26.08.2026 (Phase B4 des Rueckbaus) ist das kein Indexer mehr,
+  # nur der Name ist geblieben: der Dienst nimmt eine Datei per multipart auf
+  # /extract-text entgegen und gibt den Text zurueck. Kein MinIO, kein
+  # Postgres, keine Embeddings, kein Zyklus. Wer hier POSTGRES_* oder
+  # EMBEDDING_* sucht, sucht einen Stand vor B4.
   document-indexer:
     build:
       context: ..
@@ -186,55 +192,9 @@ services:
     networks:
       - arasul-backend
     environment:
-      MINIO_HOST: ${MINIO_HOST}
-      MINIO_PORT: ${MINIO_PORT}
-      # MINIO_ROOT_USER / MINIO_ROOT_PASSWORD resolved via Docker secrets (compose.secrets.yaml)
-      DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET}
-      EMBEDDING_SERVICE_HOST: ${EMBEDDING_SERVICE_HOST}
-      EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
-      LLM_SERVICE_HOST: ${LLM_SERVICE_HOST}
-      LLM_SERVICE_PORT: ${LLM_SERVICE_PORT}
-      LLM_MODEL: ${LLM_MODEL}
-      KG_REFINE_MODEL: ${KG_REFINE_MODEL:-${LLM_MODEL}}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_USER: ${POSTGRES_USER}
-      # POSTGRES_PASSWORD resolved via Docker secret (compose.secrets.yaml)
-      POSTGRES_DB: ${POSTGRES_DB}
-      DOCUMENT_INDEXER_INTERVAL: ${DOCUMENT_INDEXER_INTERVAL}
-      DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE: ${DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE:-10}
-      # Plan 023 G4: Pause, wenn im letzten Zyklus Arbeit liegen blieb. Der
-      # Deckel darueber haelt einen Zyklus ueberschaubar; danach dreissig
-      # Sekunden zu schlafen, obwohl noch neunzig Dokumente warten, war die
-      # eigentliche Wartezeit.
-      DOCUMENT_INDEXER_NACHBRENNER: ${DOCUMENT_INDEXER_NACHBRENNER:-2}
-      # Laenger als das haelt sich der Indexer nie zurueck, egal was das
-      # Backend meldet. Eine Zusage, die ihn eine Viertelstunde stilllegt,
-      # waere ein Ausfall und kein Vorrang (services/document-indexer/gpu_vorrang.py).
-      GPU_VORRANG_HOECHSTFRIST_S: ${GPU_VORRANG_HOECHSTFRIST_S:-120}
-      DOCUMENT_INDEXER_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHUNK_SIZE}
-      DOCUMENT_INDEXER_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHUNK_OVERLAP}
       DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}
-      DOCUMENT_INDEXER_ENABLE_AI: ${DOCUMENT_INDEXER_ENABLE_AI:-true}
-      DOCUMENT_INDEXER_ENABLE_SIMILARITY: ${DOCUMENT_INDEXER_ENABLE_SIMILARITY:-true}
-      DOCUMENT_INDEXER_SIMILARITY_THRESHOLD: ${DOCUMENT_INDEXER_SIMILARITY_THRESHOLD:-0.8}
       DOCUMENT_MAX_SIZE_MB: ${DOCUMENT_MAX_SIZE_MB:-100}
-      DOCUMENT_INDEXER_PARENT_CHUNK_SIZE: ${DOCUMENT_INDEXER_PARENT_CHUNK_SIZE:-2000}
-      DOCUMENT_INDEXER_CHILD_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHILD_CHUNK_SIZE:-150}
-      DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP:-30}
-      BM25_INDEX_PATH: /data/bm25_index
-    volumes:
-      - arasul-bm25-index:/data/bm25_index
-    depends_on:
-      postgres-db:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      # Der Indexer schreibt seit dem Qdrant-Ausbau (24.08.2026) reinen
-      # Textlayer nach PostgreSQL und braucht weder Vektordatenbank noch
-      # Embeddings. Deshalb hier keine weitere Abhaengigkeit.
-      # llm-service dependency removed — indexer retries AI analysis when LLM becomes available
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:9102/health']
       interval: 30s
@@ -334,4 +294,3 @@ services:
 volumes:
   arasul-llm-models:
   arasul-embeddings-models:
-  arasul-bm25-index:

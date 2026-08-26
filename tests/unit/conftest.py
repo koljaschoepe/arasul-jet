@@ -3,7 +3,7 @@ Conftest for unit tests.
 
 Pre-populates sys.modules with mock modules for dependencies that are only
 available inside Docker containers (PyPDF2, psutil, psycopg2, docker,
-sentence_transformers, torch, numpy, minio, etc.).
+sentence_transformers, torch, numpy, etc.).
 
 This allows unit tests to run on the host machine without installing
 all service-specific dependencies.
@@ -39,9 +39,6 @@ _MODULES_TO_MOCK = [
     'PIL',
     'PIL.Image',
     'markdown',
-    # Qdrant / Minio
-    'minio',
-    'minio.error',
     # Self-healing dependencies
     'psycopg2',
     'psycopg2.pool',

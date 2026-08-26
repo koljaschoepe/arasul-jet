@@ -129,13 +129,6 @@ if [ -f ".env" ]; then
     check_fail "POSTGRES_PASSWORD missing or too short"
   fi
 
-  # Check MinIO password
-  if [ -n "${MINIO_ROOT_PASSWORD:-}" ] && [ ${#MINIO_ROOT_PASSWORD} -ge 12 ]; then
-    check_pass "MINIO_ROOT_PASSWORD set and sufficient length"
-  else
-    check_fail "MINIO_ROOT_PASSWORD missing or too short"
-  fi
-
   # Check for PLACEHOLDER values
   if grep -q "PLACEHOLDER\|CHANGEME\|TODO\|FIXME" .env 2>/dev/null; then
     check_fail "Placeholder values found in .env"
@@ -253,7 +246,7 @@ fi
 section "4. Data & Backups"
 
 # Required directories
-REQUIRED_DIRS=("data/postgres" "data/minio" "data/ollama" "data/backups" "data/uploads" "logs" "updates")
+REQUIRED_DIRS=("data/postgres" "data/ollama" "data/backups" "data/uploads" "logs" "updates")
 MISSING_DIRS=0
 for dir in "${REQUIRED_DIRS[@]}"; do
   if [ ! -d "$dir" ]; then

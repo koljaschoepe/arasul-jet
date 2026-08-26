@@ -218,7 +218,6 @@ else
   # Generate credentials
   ADMIN_PASSWORD=$(generate_password 16)
   JWT_SECRET=$(generate_secret 64)
-  MINIO_ROOT_PASSWORD=$(generate_secret 24)
   # Preserve encryption key from previous install (re-generating breaks n8n credentials)
   _prev_n8n_key=""
   if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
@@ -258,10 +257,6 @@ POSTGRES_DB=arasul_db
 POSTGRES_USER=arasul
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 DATABASE_URL=postgresql://arasul:${POSTGRES_PASSWORD}@postgres-db:5432/arasul_db
-
-# MinIO
-MINIO_ROOT_USER=arasul
-MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 
 # n8n
 N8N_BASIC_AUTH_USER=admin
@@ -329,7 +324,6 @@ log_step 3 "Verzeichnisstruktur erstellen"
 
 DIRS=(
   "${PROJECT_ROOT}/data/postgres"
-  "${PROJECT_ROOT}/data/minio"
   "${PROJECT_ROOT}/data/n8n"
   "${PROJECT_ROOT}/data/ollama"
   "${PROJECT_ROOT}/data/backups"

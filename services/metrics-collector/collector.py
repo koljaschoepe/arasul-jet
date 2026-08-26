@@ -361,42 +361,6 @@ class MetricsCollector:
         return None
 
 
-    def collect_minio_stats(self) -> Optional[list]:
-        """Approximate bucket usage via psutil disk usage of the minio data volume,
-        if mounted into this container. Returns list of (bucket_name, dict) or None.
-        MinIO does not expose size-per-bucket without mc/admin keys we don't carry
-        here, so this is best-effort.
-        """
-        # Only run if /minio-data is mounted (opt-in via compose)
-        minio_root = os.getenv('MINIO_DATA_PATH', '/minio-data')
-        if not os.path.isdir(minio_root):
-            return None
-        try:
-            out = []
-            for entry in os.listdir(minio_root):
-                path = os.path.join(minio_root, entry)
-                if not os.path.isdir(path):
-                    continue
-                if entry.startswith('.'):
-                    continue
-                total_size = 0
-                file_count = 0
-                for root, _dirs, files in os.walk(path):
-                    for f in files:
-                        try:
-                            total_size += os.path.getsize(os.path.join(root, f))
-                            file_count += 1
-                        except OSError:
-                            pass
-                out.append((entry, {
-                    'bucket_size_bytes': total_size,
-                    'object_count': file_count,
-                }))
-            return out
-        except Exception as e:
-            logger.debug(f"minio stats failed: {e}")
-            return None
-
     def check_self_healing_health(self) -> Optional[Dict]:
         """Check self-healing agent heartbeat via HTTP endpoint"""
         import urllib.request
@@ -1038,7 +1002,7 @@ async def collect_metrics_loop():
     gpu_counter = 0
     storage_wear_counter = 0
     infra_counter = 0
-    # Infra probes (pg_stat / minio) are expensive enough to run
+    # Infra probes (pg_stat) are expensive enough to run
     # every 5 minutes, not every 5 seconds like live metrics.
     INFRA_INTERVAL_SECONDS = int(os.getenv('INFRA_METRICS_INTERVAL', '300'))
 
@@ -1086,7 +1050,7 @@ async def collect_metrics_loop():
                 await loop.run_in_executor(None, db_writer.cleanup_old_metrics)
                 cleanup_counter = 0
 
-            # Infrastructure metrics (pg_stat, Qdrant, MinIO) — expensive, so
+            # Infrastructure metrics (pg_stat) — expensive, so
             # run on a long interval. Each probe is best-effort; failures
             # never block the main loop.
             infra_counter += METRICS_INTERVAL_LIVE
@@ -1097,15 +1061,6 @@ async def collect_metrics_loop():
                     logger.debug(f"pg_stat snapshot: {n_tables} rows")
                 except Exception as e:
                     logger.debug(f"pg_stat probe errored: {e}")
-                try:
-                    mn = await loop.run_in_executor(None, collector.collect_minio_stats)
-                    if mn:
-                        for name, payload in mn:
-                            await loop.run_in_executor(
-                                None, db_writer.write_infra_metric,
-                                'minio_bucket', name, payload)
-                except Exception as e:
-                    logger.debug(f"minio probe errored: {e}")
 
             await asyncio.sleep(METRICS_INTERVAL_LIVE)
 

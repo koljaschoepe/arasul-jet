@@ -236,7 +236,7 @@ jobs:
           SMOKE: ${{ matrix.image.smoke }}
         # Ohne Netz und ohne Secrets: geprueft wird ausschliesslich, ob der
         # Prozess seine Importe aufloest. Alles, was danach kommt (Datenbank,
-        # MinIO), gehoert nicht hierher und wuerde nur falsche Alarme erzeugen.
+        # Modelldienst), gehoert nicht hierher und wuerde nur falsche Alarme erzeugen.
         run: docker run --rm --network none "$BILD" python3 -c "$SMOKE"
 
   # ----------------------------------------------------------------------------
