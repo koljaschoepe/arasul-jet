@@ -24,7 +24,6 @@ const { PullModelBody } = require('../../schemas/system-services');
 // Allowed services whitelist - only Arasul services can be restarted
 const ALLOWED_SERVICES = [
   'postgres-db',
-  'minio',
   'metrics-collector',
   'llm-service',
   'embedding-service',
@@ -73,9 +72,6 @@ router.get(
       },
       n8n: {
         status: services.n8n?.status || 'unknown',
-      },
-      minio: {
-        status: services.minio?.status || 'unknown',
       },
       postgres: {
         status: services.postgres?.status || 'unknown',

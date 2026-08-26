@@ -6,12 +6,7 @@ require('dotenv').config();
 require('./utils/resolveSecrets')();
 
 // Validate required environment variables at startup
-const REQUIRED_ENV_VARS = [
-  'POSTGRES_PASSWORD',
-  'JWT_SECRET',
-  'MINIO_ROOT_USER',
-  'MINIO_ROOT_PASSWORD',
-];
+const REQUIRED_ENV_VARS = ['POSTGRES_PASSWORD', 'JWT_SECRET'];
 const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
 if (missingVars.length > 0) {
   // Use stderr directly since logger may not be initialized yet
@@ -30,7 +25,6 @@ if (process.env.NODE_ENV === 'production') {
   const secretChecks = [
     { name: 'JWT_SECRET', minLen: 32 },
     { name: 'POSTGRES_PASSWORD', minLen: 16 },
-    { name: 'MINIO_ROOT_PASSWORD', minLen: 16 },
   ];
   const weakSecrets = secretChecks.filter(({ name, minLen }) => {
     const val = process.env[name] || '';
@@ -237,17 +231,6 @@ app.get('/api/health', async (req, res) => {
     checks.embeddings = { status: 'ok' };
   } catch {
     checks.embeddings = { status: 'unreachable' };
-  }
-
-  // MinIO
-  try {
-    await axios.get(
-      `http://${process.env.MINIO_HOST || 'minio'}:${process.env.MINIO_PORT || '9000'}/minio/health/live`,
-      { timeout: 3000 }
-    );
-    checks.minio = { status: 'ok' };
-  } catch {
-    checks.minio = { status: 'unreachable' };
   }
 
   const allOk = Object.values(checks).every(c => c.status === 'ok');

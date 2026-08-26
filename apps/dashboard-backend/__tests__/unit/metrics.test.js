@@ -44,7 +44,6 @@ jest.mock('../../src/config/services', () => ({
     llm: { url: 'http://localhost:11434', host: 'localhost', port: 11434 },
     embedding: { url: 'http://localhost:11435', host: 'localhost', port: 11435 },
     qdrant: { url: 'http://localhost:6333', host: 'localhost', port: 6333 },
-    minio: { url: 'http://localhost:9000', host: 'localhost', port: 9000 },
     documentIndexer: { url: 'http://localhost:9102', host: 'localhost', port: 9102 }
 }));
 

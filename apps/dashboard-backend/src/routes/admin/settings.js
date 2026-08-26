@@ -30,7 +30,6 @@ const execFilePromise = util.promisify(execFile);
 
 // Whitelist of services allowed to be restarted (SECURITY: prevents command injection)
 const ALLOWED_RESTART_SERVICES = [
-  'minio',
   'n8n',
   'llm-service',
   'embedding-service',
@@ -156,82 +155,6 @@ router.post(
       success: true,
       message: 'Dashboard password changed successfully',
       requireRelogin: true,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/settings/password/minio
- * Change MinIO root password
- */
-router.post(
-  '/password/minio',
-  requireAuth,
-  requireAdmin,
-  passwordChangeLimiter,
-  validateBody(PasswordChangeBody),
-  asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword } = req.body;
-
-    // Validate new password complexity
-    const validation = validatePasswordComplexity(newPassword);
-    if (!validation.valid) {
-      throw new ValidationError('Password does not meet complexity requirements');
-    }
-
-    // Verify current dashboard password for authorization
-    try {
-      await verifyCurrentDashboardPassword(req.user.id, currentPassword);
-    } catch (error) {
-      if (error.message === 'Current password is incorrect') {
-        throw new UnauthorizedError('Current password is incorrect');
-      }
-      throw error;
-    }
-
-    // Check if new password is different
-    if (newPassword === process.env.MINIO_ROOT_PASSWORD) {
-      throw new ValidationError('New password must be different from current password');
-    }
-
-    const envVorher = await backupEnvFile();
-
-    // Update .env file
-    try {
-      await updateEnvVariables({
-        MINIO_ROOT_PASSWORD: newPassword,
-      });
-    } catch (err) {
-      await envZurueckrollen(envVorher);
-      throw err;
-    }
-
-    // Restart MinIO service to apply new password
-    await restartService('minio');
-
-    // Plan 023 J1: das eigene Backend muss mit. Es läuft weiter, hält aber
-    // einen zwischengespeicherten MinIO-Client mit dem ALTEN Geheimnis. Ohne
-    // diese beiden Zeilen scheiterte danach jeder Datei-Zugriff mit
-    // `SignatureDoesNotMatch` — während die Antwort unten Erfolg meldete.
-    process.env.MINIO_ROOT_PASSWORD = newPassword;
-    require('../../services/documents/minioService').clientZuruecksetzen();
-
-    logger.info(`MinIO password changed successfully by ${req.user.username}`);
-
-    logSecurityEvent({
-      userId: req.user.id,
-      action: 'password_change',
-      details: { target: 'minio' },
-      ipAddress: req.ip,
-      requestId: req.headers['x-request-id'],
-    });
-
-    res.json({
-      success: true,
-      message:
-        'MinIO-Passwort geändert, der Dienst wurde neu gestartet. ' +
-        'Der Dateizugriff läuft ohne Neustart des Dashboards weiter.',
       timestamp: new Date().toISOString(),
     });
   })

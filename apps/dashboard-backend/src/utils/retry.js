@@ -293,7 +293,6 @@ const circuitBreakers = {
 // Pre-register circuit breakers for known services
 circuitBreakers.get('ollama', { failureThreshold: 3, timeout: 30000 });
 circuitBreakers.get('embedding', { failureThreshold: 5, timeout: 30000 });
-circuitBreakers.get('minio', { failureThreshold: 5, timeout: 30000 });
 
 module.exports = {
   retry,

@@ -168,9 +168,6 @@ components:
         n8n:
           type: string
           description: n8n service status
-        minio:
-          type: string
-          description: MinIO service status
         postgres:
           type: string
           description: PostgreSQL service status
@@ -360,7 +357,6 @@ paths:
                 llm: 'healthy'
                 embeddings: 'healthy'
                 n8n: 'healthy'
-                minio: 'healthy'
                 postgres: 'healthy'
                 self_healing_active: true
                 last_self_healing_event: null

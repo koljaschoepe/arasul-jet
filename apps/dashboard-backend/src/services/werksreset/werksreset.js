@@ -390,41 +390,12 @@ async function pruefeEntwertung() {
 
 /**
  * Alles, was nicht in der Datenbank und nicht im Dateisystem des Backends liegt:
- * Objektspeicher, Vektoren, n8n, Modelle. Jeder Punkt einzeln abgesichert, ein
+ * n8n und Modelle. Jeder Punkt einzeln abgesichert, ein
  * nicht erreichbarer Nachbardienst darf den Reset nicht zurücknehmen; er ist zu
  * diesem Zeitpunkt schon geschehen.
  */
 async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
   const ergebnis = {};
-
-  ergebnis.objektspeicher = await stillEntfernen('Objektspeicher', async () => {
-    const minio = require('../documents/minioService');
-    // Ein fehlender Eimer ist kein Fehlschlag: ihn legt die Dokumenten-Pipeline
-    // beim ersten Hochladen an. Wo nie eine Datei lag, ist auch nichts zu
-    // raeumen. In der Abnahme vom 19.08.2026 stand dafuer ein rotes
-    // "The specified bucket does not exist" im Bericht, das nichts bedeutete.
-    const fehlt = err =>
-      err?.code === 'NoSuchBucket' || /bucket does not exist/i.test(err?.message || '');
-    // listAllObjects liefert ein Set von PFADEN, keine Objekte. Ein
-    // `objekt.name` waere hier undefined und der Objektspeicher bliebe voll,
-    // ohne dass es jemand merkt.
-    let pfade;
-    try {
-      pfade = [...(await minio.listAllObjects())];
-    } catch (err) {
-      if (fehlt(err)) {
-        return { uebersprungen: 'kein Dokumenten-Eimer vorhanden' };
-      }
-      throw err;
-    }
-    // Ein Aufruf je Datei laesst den Reset bei einem gefuellten Dokumentenspeicher
-    // in die Minuten laufen. In Stapeln bleibt er in Sekunden.
-    const STAPEL = 20;
-    for (let i = 0; i < pfade.length; i += STAPEL) {
-      await Promise.all(pfade.slice(i, i + STAPEL).map(pfad => minio.removeObject(pfad)));
-    }
-    return { entfernt: pfade.length };
-  });
 
   if (stufe === 'auslieferung') {
     ergebnis.n8n = await stillEntfernen('n8n', async () => {

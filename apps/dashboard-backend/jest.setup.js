@@ -30,10 +30,6 @@ process.env.QDRANT_HOST = 'localhost';
 process.env.QDRANT_PORT = '6333';
 
 // Storage
-process.env.MINIO_HOST = 'localhost';
-process.env.MINIO_PORT = '9000';
-process.env.MINIO_ROOT_USER = 'test';
-process.env.MINIO_ROOT_PASSWORD = 'test-password';
 
 // Additional settings for tests
 process.env.LOG_LEVEL = 'error'; // Reduce log noise in tests

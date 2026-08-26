@@ -27,7 +27,6 @@ jest.mock('../../src/config/services', () => ({
   llm: { url: 'http://localhost:11434', host: 'localhost', port: 11434 },
   embedding: { url: 'http://localhost:11435', host: 'localhost', port: 11435 },
   qdrant: { url: 'http://localhost:6333', host: 'localhost', port: 6333 },
-  minio: { host: 'localhost', port: 9000, consolePort: 9001, endpoint: 'localhost:9000' },
   documentIndexer: { url: 'http://localhost:9102', host: 'localhost', port: 9102 },
   selfHealing: { url: 'http://localhost:9200', host: 'localhost', port: 9200 },
   n8n: {

@@ -24,11 +24,6 @@ const EMBEDDING_SERVICE_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
 const METRICS_COLLECTOR_HOST = process.env.METRICS_COLLECTOR_HOST || 'metrics-collector';
 const METRICS_COLLECTOR_PORT = '9100';
 
-// MinIO Object Storage
-const MINIO_HOST = process.env.MINIO_HOST || 'minio';
-const MINIO_PORT = parseInt(process.env.MINIO_PORT || '9000');
-const MINIO_CONSOLE_PORT = parseInt(process.env.MINIO_CONSOLE_PORT || '9001');
-
 // Document Indexer
 const DOCUMENT_INDEXER_HOST = process.env.DOCUMENT_INDEXER_HOST || 'document-indexer';
 const DOCUMENT_INDEXER_PORT = process.env.DOCUMENT_INDEXER_API_PORT || '9102';
@@ -95,14 +90,6 @@ const services = {
     url: `http://${METRICS_COLLECTOR_HOST}:${METRICS_COLLECTOR_PORT}`,
     metricsEndpoint: `http://${METRICS_COLLECTOR_HOST}:${METRICS_COLLECTOR_PORT}/metrics`,
     healthEndpoint: `http://${METRICS_COLLECTOR_HOST}:${METRICS_COLLECTOR_PORT}/health`,
-  },
-
-  // MinIO
-  minio: {
-    host: MINIO_HOST,
-    port: MINIO_PORT,
-    consolePort: MINIO_CONSOLE_PORT,
-    endpoint: `${MINIO_HOST}:${MINIO_PORT}`,
   },
 
   // Document Indexer

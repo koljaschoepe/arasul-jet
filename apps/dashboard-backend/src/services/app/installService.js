@@ -516,7 +516,7 @@ async function checkDependencies(appId) {
  */
 async function syncSystemApps() {
   const containerService = require('./containerService');
-  const systemApps = ['n8n', 'minio'];
+  const systemApps = ['n8n'];
 
   for (const appId of systemApps) {
     try {

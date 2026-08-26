@@ -33,7 +33,6 @@ const LOG_FILES = {
   n8n: path.join(LOG_DIR, 'service', 'n8n.log'),
   'self-healing-agent': path.join(LOG_DIR, 'service', 'self-healing-agent.log'),
   'postgres-db': path.join(LOG_DIR, 'service', 'postgres-db.log'),
-  minio: path.join(LOG_DIR, 'service', 'minio.log'),
 };
 
 // GET /api/logs - Read log file contents

@@ -13,7 +13,6 @@ const SERVICE_NAMES = {
   'llm-service': 'LLM Service',
   'embedding-service': 'Embedding Service',
   n8n: 'n8n Workflows',
-  minio: 'MinIO Storage',
   'postgres-db': 'PostgreSQL',
   'dashboard-backend': 'Dashboard Backend',
   'dashboard-frontend': 'Dashboard Frontend',

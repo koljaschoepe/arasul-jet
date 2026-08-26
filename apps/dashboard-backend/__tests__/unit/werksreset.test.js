@@ -37,11 +37,6 @@ jest.mock('../../src/utils/envManager', () => ({ updateEnvVariable: jest.fn() })
 
 jest.mock('../../src/services/core/docker', () => ({ restartContainer: jest.fn() }));
 
-jest.mock('../../src/services/documents/minioService', () => ({
-  listAllObjects: jest.fn(),
-  removeObject: jest.fn(),
-}));
-
 jest.mock('../../src/middleware/auth', () => ({
   clearUserCache: jest.fn(),
   optionalAuth: (req, res, next) => next(),
@@ -258,7 +253,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
   const fs = require('fs');
   const envManager = require('../../src/utils/envManager');
   const docker = require('../../src/services/core/docker');
-  const minio = require('../../src/services/documents/minioService');
 
   let clientAbfragen;
 
@@ -286,7 +280,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     fs.promises.rm.mockResolvedValue(undefined);
     envManager.updateEnvVariable.mockResolvedValue(true);
     docker.restartContainer.mockResolvedValue(true);
-    minio.listAllObjects.mockResolvedValue([]);
     require('../../src/middleware/auth').clearUserCache.mockClear();
   });
 
@@ -333,45 +326,19 @@ describe('ausfuehren, ganzer Durchlauf', () => {
   });
 
   test('ein nicht erreichbarer Nachbardienst nimmt den Reset nicht zurück', async () => {
-    // Der Fall hing bis zum 24.08.2026 an Qdrant. Qdrant ist ausgebaut, die
-    // Frage bleibt dieselbe: die Datenbank ist zu diesem Zeitpunkt geleert,
-    // und ein toter Nachbardienst darf das nicht zurücknehmen — er wird
-    // gemeldet, nicht verschwiegen.
-    minio.listAllObjects.mockRejectedValue(new Error('MinIO antwortet nicht'));
+    // Der Fall hing bis zum 24.08.2026 an Qdrant, bis zum 26.08.2026 an
+    // MinIO. Beide sind ausgebaut, die Frage bleibt dieselbe: die Datenbank
+    // ist zu diesem Zeitpunkt geleert, und ein toter Nachbardienst darf das
+    // nicht zurücknehmen — er wird gemeldet, nicht verschwiegen.
+    docker.restartContainer.mockRejectedValue(new Error('n8n antwortet nicht'));
 
     const bericht = await werksreset.ausfuehren({
-      stufe: 'inhalte',
+      stufe: 'auslieferung',
       bestaetigung: 'orin-vorfuehrer',
     });
 
-    expect(bericht.objektspeicher).toEqual({ ok: false, fehler: 'MinIO antwortet nicht' });
+    expect(bericht.n8n).toEqual({ ok: false, fehler: 'n8n antwortet nicht' });
     expect(bericht.zeilenGesamt).toBeGreaterThan(0);
-  });
-});
-
-describe('Objektspeicher', () => {
-  const fs = require('fs');
-  const minio = require('../../src/services/documents/minioService');
-
-  test('loescht die Pfade, die listAllObjects liefert, nicht deren .name', async () => {
-    db.query.mockReset();
-    db.transaction.mockReset();
-    tabellenInDerDatenbank(ALLE);
-    db.transaction.mockImplementation(async r => r({ query: jest.fn().mockResolvedValue({ rowCount: 1 }) }));
-    fs.promises.readdir.mockResolvedValue([]);
-    fs.promises.readFile.mockResolvedValue('ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\n');
-    // Der echte Dienst liefert ein Set von Zeichenketten.
-    minio.listAllObjects.mockResolvedValue(new Set(['2026/rechnung.pdf', '2026/angebot.pdf']));
-    minio.removeObject.mockResolvedValue(undefined);
-
-    const bericht = await werksreset.ausfuehren({
-      stufe: 'inhalte',
-      bestaetigung: 'orin-vorfuehrer',
-    });
-
-    expect(minio.removeObject).toHaveBeenCalledWith('2026/rechnung.pdf');
-    expect(minio.removeObject).toHaveBeenCalledWith('2026/angebot.pdf');
-    expect(bericht.objektspeicher).toEqual({ ok: true, entfernt: 2 });
   });
 });
 
@@ -481,28 +448,3 @@ describe('Entwertung nachlesen', () => {
   });
 });
 
-describe('Nachbarsysteme ohne Bestand', () => {
-  const fs = require('fs');
-  const minio = require('../../src/services/documents/minioService');
-
-  test('ein fehlender Dokumenten-Eimer ist kein Fehlschlag', async () => {
-    db.query.mockReset();
-    db.transaction.mockReset();
-    tabellenInDerDatenbank(ALLE);
-    db.transaction.mockResolvedValue({ 'public.documents': 0 });
-    fs.promises.readdir.mockResolvedValue([]);
-    const fehler = new Error('S3Error: The specified bucket does not exist');
-    fehler.code = 'NoSuchBucket';
-    minio.listAllObjects.mockRejectedValue(fehler);
-
-    const bericht = await werksreset.ausfuehren({
-      stufe: 'inhalte',
-      bestaetigung: 'orin-vorfuehrer',
-    });
-
-    expect(bericht.objektspeicher).toEqual({
-      ok: true,
-      uebersprungen: 'kein Dokumenten-Eimer vorhanden',
-    });
-  });
-});
