@@ -60,19 +60,16 @@ describe('LLMJobService (Legacy)', () => {
     });
 
     describe('createJob()', () => {
-        test('erstellt Job und Placeholder-Nachricht in Transaction', async () => {
-            mockDb._mockClient.query
-                .mockResolvedValueOnce({ rows: [{ id: 'job-123' }] })
-                .mockResolvedValueOnce({ rows: [{ id: 456 }] })
-                .mockResolvedValueOnce({ rows: [] });
+        test('erstellt den Auftrag mit Besitzer, ohne Platzhalter-Nachricht', async () => {
+            mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'job-123' }] });
 
             const result = await service.createJob(1, 'chat', {
                 messages: [{ role: 'user', content: 'Hello' }]
             });
 
-            expect(result.jobId).toBe('job-123');
-            expect(result.messageId).toBe(456);
-            expect(mockDb._mockClient.query).toHaveBeenCalledTimes(3);
+            expect(result).toEqual({ jobId: 'job-123' });
+            expect(mockDb.query).toHaveBeenCalledTimes(1);
+            expect(mockDb.transaction).not.toHaveBeenCalled();
         });
     });
 
@@ -99,50 +96,31 @@ describe('LLMJobService (Legacy)', () => {
             );
         });
 
-        test('aktualisiert Sources', async () => {
-            mockDb.query.mockResolvedValueOnce({ rows: [] });
-            const sources = [{ title: 'Doc 1', score: 0.9 }];
-
-            await service.updateJobContent('job-123', null, null, sources);
-
-            expect(mockDb.query).toHaveBeenCalledWith(
-                expect.stringContaining('sources ='),
-                expect.arrayContaining(['job-123', JSON.stringify(sources)])
-            );
-        });
-
         test('macht nichts wenn keine Deltas', async () => {
-            await service.updateJobContent('job-123', null, null, null);
+            await service.updateJobContent('job-123', null, null);
 
             expect(mockDb.query).not.toHaveBeenCalled();
         });
     });
 
     describe('completeJob()', () => {
-        test('finalisiert Job und Message', async () => {
-            mockDb._mockClient.query
-                .mockResolvedValueOnce({
-                    rows: [{
-                        content: 'final content',
-                        thinking: 'final thinking',
-                        sources: '[]',
-                        message_id: 456
-                    }]
-                })
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+        test('setzt den Auftrag auf completed, die Antwort bleibt am Auftrag', async () => {
+            mockDb.query.mockResolvedValueOnce({
+                rows: [{ content_length: 13, thinking_length: 14 }]
+            });
 
-            await service.completeJob('job-123');
+            const ok = await service.completeJob('job-123');
 
-            expect(mockDb._mockClient.query).toHaveBeenCalledTimes(3);
-            expect(mockDb._mockClient.query).toHaveBeenCalledWith(
+            expect(ok).toBe(true);
+            expect(mockDb.query).toHaveBeenCalledTimes(1);
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'completed'"),
-                expect.arrayContaining(['job-123'])
+                ['job-123']
             );
         });
 
         test('behandelt nicht gefundenen Job graceful', async () => {
-            mockDb._mockClient.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
             await service.completeJob('nonexistent');
 
@@ -158,8 +136,8 @@ describe('LLMJobService (Legacy)', () => {
 
             await service.errorJob('job-123', 'Connection timeout');
 
-            expect(mockDb.transaction).toHaveBeenCalled();
-            expect(mockDb._mockClient.query).toHaveBeenCalledWith(
+            expect(mockDb.transaction).not.toHaveBeenCalled();
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'error'"),
                 expect.arrayContaining(['job-123', 'Connection timeout'])
             );
@@ -186,15 +164,15 @@ describe('LLMJobService (Legacy)', () => {
     });
 
     describe('cancelJob()', () => {
-        test('cancelled Job und aktualisiert Message', async () => {
-            mockDb._mockClient.query.mockResolvedValue({ rows: [] });
+        test('setzt einen offenen Auftrag auf cancelled', async () => {
+            mockDb.query.mockResolvedValue({ rows: [] });
 
             await service.cancelJob('job-123');
 
-            expect(mockDb.transaction).toHaveBeenCalled();
-            expect(mockDb._mockClient.query).toHaveBeenCalledWith(
+            expect(mockDb.transaction).not.toHaveBeenCalled();
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'cancelled'"),
-                expect.arrayContaining(['job-123'])
+                ['job-123']
             );
         });
     });
@@ -209,7 +187,7 @@ describe('LLMJobService (Legacy)', () => {
 
             expect(count).toBe(2);
             expect(mockLogger.info).toHaveBeenCalledWith(
-                expect.stringContaining('Stale job cleanup: 0 recovered, 2 marked as error')
+                expect.stringContaining('Stale job cleanup: 2 marked as error')
             );
         });
 
@@ -245,24 +223,6 @@ describe('LLMJobService (Legacy)', () => {
         });
     });
 
-    describe('getStats()', () => {
-        test('gibt Job-Statistiken zurück', async () => {
-            mockDb.query.mockResolvedValueOnce({
-                rows: [{
-                    active_jobs: '2',
-                    pending_jobs: '5',
-                    completed_last_hour: '10',
-                    errors_last_hour: '1'
-                }]
-            });
-
-            const stats = await service.getStats();
-
-            expect(stats.active_jobs).toBe('2');
-            expect(stats.pending_jobs).toBe('5');
-            expect(stats.timestamp).toBeDefined();
-        });
-    });
 });
 
 // =====================================================
@@ -752,31 +712,22 @@ describe('Service Integration', () => {
     });
 
     test('Job-Flow: Create -> Stream -> Complete', async () => {
-        // Mock create
-        mockDb._mockClient.query
-            .mockResolvedValueOnce({ rows: [{ id: 'job-123' }] })
-            .mockResolvedValueOnce({ rows: [{ id: 456 }] })
-            .mockResolvedValueOnce({ rows: [] });
+        mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'job-123' }] });
 
         // Create job
-        const { jobId, messageId } = await llmJobService.createJob(1, 'chat', {});
+        const { jobId } = await llmJobService.createJob(1, 'chat', {});
         expect(jobId).toBe('job-123');
 
         // Simulate streaming updates
         mockDb.query.mockResolvedValue({ rows: [] });
-        await llmJobService.updateJobContent(jobId, 'Hello ', null, null);
-        await llmJobService.updateJobContent(jobId, 'World!', null, null);
+        await llmJobService.updateJobContent(jobId, 'Hello ', null);
+        await llmJobService.updateJobContent(jobId, 'World!', null);
 
-        // Complete job - need to reset mock client for new transaction
-        mockDb._mockClient.query
-            .mockResolvedValueOnce({
-                rows: [{ content: 'Hello World!', thinking: null, sources: null, message_id: 456 }]
-            })
-            .mockResolvedValue({ rows: [] });
-
+        // Complete job
+        mockDb.query.mockResolvedValueOnce({ rows: [{ content_length: 12, thinking_length: null }] });
         await llmJobService.completeJob(jobId);
 
-        expect(mockDb._mockClient.query).toHaveBeenCalledWith(
+        expect(mockDb.query).toHaveBeenCalledWith(
             expect.stringContaining("status = 'completed'"),
             expect.any(Array)
         );

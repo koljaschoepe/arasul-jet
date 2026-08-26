@@ -44,11 +44,11 @@ STROEME = {
     '/api/logs/stream',
 }
 
-# Dienste, die seit Plan 021 Schritt 8 nicht mehr von selbst laufen
-# (Compose-Profil `classic-rag`). Ihr 503 ist die richtige Antwort, kein Fehler.
-ERWARTET_503 = {
-    '/api/services/embedding/info': 'embedding-service laeuft nicht von selbst',
-}
+# Dienste, deren 503 die richtige Antwort waere. Seit dem 24.08.2026 leer:
+# `embedding-service` laeuft wieder ohne Profil (die OpenAI-kompatible
+# /v1/embeddings braucht ihn), sein 503 waere ein Befund. Wer hier etwas
+# eintraegt, schreibt den Grund daneben.
+ERWARTET_503 = {}
 
 # Woher eine echte Id kommt, mit der ein Pfad mit `:x` aufgerufen werden kann.
 # Praefix -> (Listen-Endpunkt, Schluessel der Liste, Schluessel der Id).
@@ -58,32 +58,29 @@ ERWARTET_503 = {
 # Pfad am Ende unter "nicht gemessen" — und zwar sichtbar, nicht als stilles
 # Gruen. Am 23.08.2026 gelernt: eine Pruefung, die von zufaellig vorhandenen
 # Daten abhaengt, misst den Zufall.
+#
+# Phase B6 (26.08.2026): die Quellen fuer Chats, Dokumente, Wissensgraph,
+# Erweiterungen, Projekte, Git, Wissensraeume, Sandbox und /api/llm/jobs sind
+# mit ihren Bereichen gefallen. Uebrig sind vier.
 ID_QUELLEN = [
     ('/api/apps/', '/api/apps', 'apps', 'id'),
-    ('/api/chats/', '/api/chats', 'chats', 'id'),
-    ('/api/documents/', '/api/documents', 'documents', 'id'),
-    ('/api/knowledge-graph/document/', '/api/documents', 'documents', 'id'),
-    ('/api/extensions/', '/api/extensions', 'data', 'id'),
+    ('/api/flows/laeufe/', '/api/flows/laeufe', 'data', 'id'),
     ('/api/flows/', '/api/flows', 'data', 'name'),
-    ('/api/projects/', '/api/projects', 'data', 'id'),
-    ('/api/git/', '/api/projects', 'data', 'id'),
-    ('/api/spaces/', '/api/spaces', 'spaces', 'id'),
-    ('/api/sandbox/projects/', '/api/sandbox/projects', 'projects', 'id'),
-    ('/api/llm/jobs/', '/api/llm/jobs', 'jobs', 'id'),
     ('/api/services/llm/models/', '/api/services/llm/models', 'models', 'name'),
-    # Am 23.08.2026 dazugekommen: diese drei standen vorher unter "nicht
-    # gemessen, keine Quelle hinterlegt". Sie HATTEN eine, es hatte nur niemand
-    # nachgesehen. Ein ungemessener Endpunkt ist keine Ruhe, sondern eine
-    # offene Frage.
+    # Am 23.08.2026 dazugekommen: stand vorher unter "nicht gemessen, keine
+    # Quelle hinterlegt". Es HATTE eine, es hatte nur niemand nachgesehen. Ein
+    # ungemessener Endpunkt ist keine Ruhe, sondern eine offene Frage.
     ('/api/models/', '/api/models/catalog', 'models', 'id'),
-    ('/api/knowledge-graph/related/', '/api/knowledge-graph/entities', 'entities', 'name'),
 ]
 
 # Pfade mit `:x`, die hier nicht gemessen werden, jeweils mit Grund.
 NICHT_MESSBAR = {
-    '/api/llm/jobs/:x/stream': 'endloser Strom',
     '/api/flows/laeufe/:x/stream': 'endloser Strom',
     '/api/license/check/:x': 'braucht einen Merkmalsnamen, keine Id aus einer Liste',
+    # Die externe API verlangt einen API-Schluessel, kein Keksglas. Ihr 401
+    # waere hier ein stilles Gruen; gemessen wird sie im PR-Text mit Schluessel.
+    '/api/v1/external/flows/runs/:x': 'braucht einen API-Schluessel, nicht die Anmeldung',
+    '/api/v1/external/llm/job/:x': 'braucht einen API-Schluessel, nicht die Anmeldung',
 }
 
 
@@ -148,11 +145,11 @@ FALSCHE_EINGABEN = [
      'kein HTTP, wird vor jeder Anfrage abgelehnt'),
     ('POST', '/api/services/llm/models/pull', {'model_name': ''},
      'leerer Modellname, Rumpfpruefung lehnt ab'),
-    ('POST', '/api/workflows/execution', {'workflow_name': ''},
-     'leerer Workflowname, Rumpfpruefung lehnt ab'),
+    ('POST', '/api/flows/laeufe', {'flow': 'gibt-es-nicht'},
+     'Flow gibt es nicht, faellt vor dem Anlegen des Laufs durch'),
     ('POST', '/api/apps/gibt-es-nicht/config', {'config': {}},
      'App gibt es nicht, faellt vor dem Schreiben durch'),
-    ('GET', '/api/projects/keine-uuid/dateien', None,
+    ('GET', '/api/flows/laeufe/keine-zahl', None,
      'kaputte Id in der Adresse'),
     ('GET', '/api/logs/search', None,
      'Pflichtangabe query fehlt'),

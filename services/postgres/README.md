@@ -93,44 +93,28 @@ update_rollbacks (id, original_update_event_id, backup_id, ...)
 component_updates (id, update_event_id, component_name, ...)
 ```
 
-### Chat (005)
-
-```sql
-chat_conversations (
-  id, title, created_at, updated_at,
-  deleted_at, message_count
-)
-
-chat_messages (
-  id, conversation_id, role, content,
-  thinking, sources, created_at
-)
-```
-
-Includes triggers for auto-updating `message_count`.
-
-### LLM Jobs (006, 008)
+### LLM Jobs (006, 008, 165)
 
 ```sql
 llm_jobs (
-  id, conversation_id, status, prompt,
-  response, error, created_at, updated_at
-)
-
-llm_queue (
-  id, job_id, priority, created_at, started_at
+  id, user_id, job_type, status, request_data,
+  content, thinking, error_message, queue_position,
+  priority, requested_model, created_at, completed_at
 )
 ```
 
+Die Chat-Tabellen (005) sind mit Phase B6 (26.08.2026, Migration 165) weg;
+ein Auftrag trägt seinen Besitzer selbst und lebt eine Stunde nach dem Ende.
+
 ## Data Retention
 
-| Table               | Retention             |
-| ------------------- | --------------------- |
-| metrics\_\*         | 7 days                |
-| self_healing_events | 7 days                |
-| chat_conversations  | Soft delete (30 days) |
-| update_events       | Permanent             |
-| admin_users         | Permanent             |
+| Table               | Retention        |
+| ------------------- | ---------------- |
+| metrics\_\*         | 7 days           |
+| self_healing_events | 7 days           |
+| llm_jobs            | 1 hour after end |
+| update_events       | Permanent        |
+| admin_users         | Permanent        |
 
 ## Connection Configuration
 
@@ -192,11 +176,8 @@ SELECT * FROM self_healing_events
 ORDER BY timestamp DESC
 LIMIT 20;
 
--- Chat statistics
-SELECT COUNT(*) as chats,
-       SUM(message_count) as messages
-FROM chat_conversations
-WHERE deleted_at IS NULL;
+-- Offene Auftraege an das Sprachmodell
+SELECT status, COUNT(*) FROM llm_jobs GROUP BY status;
 
 -- Connection count
 SELECT count(*) FROM pg_stat_activity;

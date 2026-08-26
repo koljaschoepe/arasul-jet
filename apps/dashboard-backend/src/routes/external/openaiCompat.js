@@ -26,7 +26,6 @@ const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
 const ollamaReadiness = require('../../services/llm/ollamaReadiness');
-const database = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ServiceUnavailableError } = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
@@ -155,18 +154,22 @@ router.post(
     const promptTokens = normalizedMessages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
     const max_tokens = maxTokensRaw || 2048;
 
-    const apiKeyUserId = req.apiKey.userId || 1;
-    const conversationResult = await database.query(
-      `INSERT INTO chat_conversations (title, user_id, created_at)
-       VALUES ($1, $2, NOW()) RETURNING id`,
-      [`OpenAI compat: ${req.apiKey.name} - ${new Date().toISOString()}`, apiKeyUserId]
-    );
-    const conversationId = conversationResult.rows[0].id;
+    // Ein verwaister Schlüssel (Ersteller gelöscht) bekommt keinen Auftrag —
+    // dieselbe Regel wie in externalApi.js, nur im OpenAI-Fehlerformat.
+    if (!req.apiKey.userId) {
+      return res.status(403).json({
+        error: {
+          message: 'API key has no valid owner, please create a new one',
+          type: 'permission_error',
+          code: 'insufficient_permissions',
+        },
+      });
+    }
 
     let jobInfo;
     try {
       jobInfo = await llmQueueService.enqueue(
-        conversationId,
+        req.apiKey.userId,
         'chat',
         { messages: normalizedMessages, temperature, max_tokens, thinking: false },
         { model: resolvedModel, priority: 0 }

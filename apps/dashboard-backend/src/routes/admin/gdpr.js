@@ -112,9 +112,7 @@ router.get(
 
     const [
       profileResult,
-      chatsResult,
-      messagesResult,
-      attachmentsResult,
+      laeufeResult,
       loginHistoryResult,
       sessionsResult,
       auditResult,
@@ -129,46 +127,20 @@ router.get(
           [userId]
         ),
 
-      // 2. Chat conversations
+      // 2. Flow-Laeufe: was der Nutzer selbst gestartet hat, mit Argumenten
+      //    und Ergebnis. Chats, Anhaenge, Dokumente und KI-Erinnerungen gab es
+      //    hier bis Phase B4 und B6 (26.08.2026); die Tabellen sind mit 163
+      //    und 165 gefallen. Auftraege an das Sprachmodell (`llm_jobs`) leben
+      //    eine Stunde und sind keine Auskunftskategorie.
       () =>
         hole(
-          'konversationen',
-          `SELECT id, title, preferred_model, created_at, updated_at, message_count
-         FROM chat_conversations WHERE user_id = $1
-         ORDER BY created_at DESC`,
+          'laeufe',
+          `SELECT id, flow_name, status, arguments, result, error, steps_used,
+                  created_at, finished_at
+             FROM flow_runs WHERE user_id = $1
+            ORDER BY created_at DESC LIMIT 1000`,
           [userId]
         ),
-
-      // 3. Chat messages (last 10000 to avoid huge exports)
-      () =>
-        hole(
-          'nachrichten',
-          `SELECT m.id, m.conversation_id, m.role, m.content, m.thinking, m.status, m.created_at
-         FROM chat_messages m
-         JOIN chat_conversations c ON c.id = m.conversation_id
-         WHERE c.user_id = $1
-         ORDER BY m.created_at DESC
-         LIMIT 10000`,
-          [userId]
-        ),
-
-      // 4. Chat attachments
-      () =>
-        hole(
-          'anhaenge',
-          `SELECT a.id, a.message_id, a.filename, a.original_filename, a.mime_type,
-                a.file_size, a.created_at
-         FROM chat_attachments a
-         JOIN chat_messages m ON m.id = a.message_id
-         JOIN chat_conversations c ON c.id = m.conversation_id
-         WHERE c.user_id = $1
-         ORDER BY a.created_at DESC`,
-          [userId]
-        ),
-
-      // 5. und 6. Dokumente und KI-Erinnerungen gab es hier bis Phase B4
-      //    (26.08.2026); Dokumente, Wissensraeume und Projekte sind mit ihren
-      //    Tabellen gefallen, `ai_memories` schon mit Migration 162.
 
       // 7. Login history (last 500)
       () =>
@@ -231,15 +203,9 @@ router.get(
         unvollstaendig,
       },
       profile: profileResult.rows[0] || null,
-      conversations: block('konversationen', chatsResult),
-      messages: block('nachrichten', messagesResult, {
+      flowRuns: block('laeufe', laeufeResult, {
         note:
-          messagesResult.rows.length >= 10000
-            ? 'Export limited to 10,000 most recent messages'
-            : undefined,
-      }),
-      attachments: block('anhaenge', attachmentsResult, {
-        note: 'Dieser Export enthaelt nur die Metadaten der Anhaenge.',
+          laeufeResult.rows.length >= 1000 ? 'Export limited to 1,000 most recent runs' : undefined,
       }),
       loginHistory: block('anmeldungen', loginHistoryResult),
       activeSessions: {
@@ -331,8 +297,8 @@ router.get(
 
     // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
     // Zahlen als die Auskunft.
-    const [chatCount, auditCount] = await Promise.all([
-      db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
+    const [laeufeCount, auditCount] = await Promise.all([
+      db.query('SELECT count(*) FROM flow_runs WHERE user_id = $1', [userId]),
       db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
     ]);
 
@@ -340,9 +306,9 @@ router.get(
       categories: [
         { name: 'Profil', description: 'Benutzername, E-Mail, Erstelldatum', count: 1 },
         {
-          name: 'Chat-Konversationen',
-          description: 'Alle Gespräche mit der KI',
-          count: parseInt(chatCount.rows[0].count),
+          name: 'Flow-Läufe',
+          description: 'Selbst gestartete Flows mit Argumenten und Ergebnis',
+          count: parseInt(laeufeCount.rows[0].count),
         },
         {
           name: 'Aktivitätsprotokoll',
@@ -368,8 +334,9 @@ router.get(
  * versehentliche Trigger via XSS, Mistypes oder fremde Browser-Sessions.
  *
  * Was passiert:
- *   - Persönliche Inhalte werden gelöscht: Chats samt Anhängen. (Dokumente,
- *     Wissensräume und Projekte gab es bis Phase B4, 26.08.2026.)
+ *   - Persönliche Inhalte: Chats samt Anhängen gab es bis Phase B6, Dokumente,
+ *     Wissensräume und Projekte bis Phase B4 (beide 26.08.2026). Übrig sind
+ *     die Flow-Läufe des Nutzers.
  *   - Aktive Sessions des Users werden invalidiert.
  *   - Compliance-Trails (audit_logs, api_audit_logs, login_attempts) werden
  *     anonymisiert (user_id/username → NULL) statt gelöscht — DSGVO Art. 17 (3) (b)
@@ -436,31 +403,11 @@ router.delete(
         counts[label] = result.rowCount || 0;
       };
 
-      // 1) Chat-Stack
-      await del(
-        'chat_attachments',
-        `DELETE FROM chat_attachments
-          WHERE message_id IN (
-            SELECT m.id FROM chat_messages m
-            JOIN chat_conversations c ON c.id = m.conversation_id
-            WHERE c.user_id = $1
-          )`,
-        [userId]
-      );
-      await del(
-        'chat_messages',
-        `DELETE FROM chat_messages
-          WHERE conversation_id IN (
-            SELECT id FROM chat_conversations WHERE user_id = $1
-          )`,
-        [userId]
-      );
-      await del('chat_conversations', `DELETE FROM chat_conversations WHERE user_id = $1`, [
-        userId,
-      ]);
-
-      // 2) Dokumente, Wissensräume und Projekte standen hier bis Phase B4
-      //    (26.08.2026); ihre Tabellen sind mit Migration 163 gefallen.
+      // 1) Flow-Läufe des Nutzers (die Schritte hängen per ON DELETE CASCADE
+      //    daran). Chats (bis B6) sowie Dokumente, Wissensräume und Projekte
+      //    (bis B4) standen hier bis zum 26.08.2026; ihre Tabellen sind mit
+      //    163 und 165 gefallen.
+      await del('flow_runs', `DELETE FROM flow_runs WHERE user_id = $1`, [userId]);
 
       // 3) Aktive Sessions invalidieren
       await del('active_sessions', `DELETE FROM active_sessions WHERE user_id = $1`, [userId]);

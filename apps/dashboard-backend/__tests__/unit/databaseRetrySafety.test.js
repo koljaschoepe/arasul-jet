@@ -30,14 +30,14 @@ describe('isStatementReadOnly', () => {
         '  select 1',
         'SELECT id, name FROM documents',
         'SHOW server_version',
-        'EXPLAIN SELECT * FROM chat_messages',
+        'EXPLAIN SELECT * FROM llm_jobs',
         '-- a comment\nSELECT * FROM t',
     ])('read-only: %s', (sql) => {
         expect(isStatementReadOnly(sql)).toBe(true);
     });
 
     test.each([
-        'INSERT INTO chat_messages (content) VALUES ($1)',
+        'INSERT INTO llm_jobs (content) VALUES ($1)',
         'UPDATE users SET last_login = NOW() WHERE id = $1',
         'DELETE FROM sessions WHERE id = $1',
         'SELECT record_login_attempt($1, $2)',          // function with side effects

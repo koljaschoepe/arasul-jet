@@ -102,10 +102,12 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 ## 3. Chat / KI-Assistent
 
 Der Agent-Chat der Oberflaeche ist am 26.08.2026 (Phase B2 des Umbaus)
-entfernt worden. Die Endpunkte `/api/chats` und `/api/llm/chat` laufen bis
-Phase B4 bzw. B6 weiter, ohne Oberflaeche; die externe API bleibt
-(siehe [API_REFERENCE.md](../api/API_REFERENCE.md)). Wie KI-Antworten im
-Zielbild ueber Flows laufen, legt Phase D4 fest.
+entfernt worden, seine Endpunkte `/api/chats` und `/api/llm/chat` samt den
+Chat-Tabellen mit Phase B6 am selben Tag. Was bleibt, ist die externe API
+mit API-Schluessel (`/api/v1/external/llm/chat`, zustandslos) und die
+OpenAI-kompatible `/v1/chat/completions`, siehe
+[API_REFERENCE.md](../api/API_REFERENCE.md). Wie KI-Antworten im Zielbild
+ueber Flows laufen, legt Phase D4 fest.
 
 ---
 

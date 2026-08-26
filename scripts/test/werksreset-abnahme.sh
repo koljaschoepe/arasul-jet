@@ -82,15 +82,18 @@ fi
 echo "  Administrator \"${NUTZER}\" angelegt"
 
 echo "== 3. Inhalte erzeugen, damit es etwas zu loeschen gibt =="
-docker exec "$BACKEND" sh -c 'mkdir -p /arasul/flows /arasul/extensions/abnahme-app &&
-    printf -- "---\nname: abnahme\nbeschreibung: Abnahme\n---\n\nText\n" > /arasul/flows/abnahme.md &&
-    printf "{\"id\":\"abnahme-app\",\"name\":\"Abnahme\"}" > /arasul/extensions/abnahme-app/manifest.json'
-sql "INSERT INTO chat_conversations (user_id, title) SELECT id, 'Abnahme' FROM admin_users LIMIT 1" >/dev/null
+# Bis Phase B6 (26.08.2026) lagen hier ein Chat und eine Erweiterung; beides
+# ist ausgebaut. Was ein Nutzer heute hinterlaesst: einen Flow-Lauf und einen
+# Auftrag an das Sprachmodell.
+docker exec "$BACKEND" sh -c 'mkdir -p /arasul/flows &&
+    printf -- "---\nname: abnahme\nbeschreibung: Abnahme\n---\n\nText\n" > /arasul/flows/abnahme.md'
+sql "INSERT INTO arasul.flow_runs (user_id, flow_name) SELECT id, 'abnahme' FROM admin_users LIMIT 1" >/dev/null
+sql "INSERT INTO llm_jobs (user_id, job_type, request_data) SELECT id, 'chat', '{}'::jsonb FROM admin_users LIMIT 1" >/dev/null
 sql "UPDATE system_settings SET hostname = 'pruefstand', setup_completed = true WHERE id = 1" >/dev/null
 
-chats_vorher=$(sql "SELECT count(*) > 0 FROM chat_conversations")
+laeufe_vorher=$(sql "SELECT count(*) > 0 FROM arasul.flow_runs")
 admins_vorher=$(sql "SELECT count(*) > 0 FROM admin_users")
-pruefe "Chats vor dem Reset vorhanden" "t" "$chats_vorher"
+pruefe "Flow-Laeufe vor dem Reset vorhanden" "t" "$laeufe_vorher"
 pruefe "Administrator vor dem Reset vorhanden" "t" "$admins_vorher"
 
 echo "== 4. Vorschau =="
@@ -107,7 +110,7 @@ code=$(curl -sk -o /dev/null -w '%{http_code}' -X POST "${BASIS}/werksreset" \
     -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' \
     -d '{"stufe":"auslieferung","bestaetigung":"falsch"}')
 pruefe "HTTP-Code bei falschem Namen" "400" "$code"
-pruefe "Chats danach unveraendert" "t" "$(sql 'SELECT count(*) > 0 FROM chat_conversations')"
+pruefe "Flow-Laeufe danach unveraendert" "t" "$(sql 'SELECT count(*) > 0 FROM arasul.flow_runs')"
 
 echo "== 6. Fehlende Stufe wird abgewiesen =="
 code=$(curl -sk -o /dev/null -w '%{http_code}' -X POST "${BASIS}/werksreset" \
@@ -124,9 +127,9 @@ zeilen=$(echo "$bericht" | python3 -c 'import sys,json; print(json.load(sys.stdi
 echo "  Bericht: ${zeilen} Zeilen entfernt, vollstaendig in /tmp/werksreset-bericht.json"
 
 echo "== 8. Zustand direkt nach dem Reset =="
-pruefe "Chats" "0" "$(sql 'SELECT count(*) FROM chat_conversations')"
+pruefe "Flow-Laeufe" "0" "$(sql 'SELECT count(*) FROM arasul.flow_runs')"
+pruefe "Auftraege" "0" "$(sql 'SELECT count(*) FROM llm_jobs')"
 pruefe "Administratoren" "0" "$(sql 'SELECT count(*) FROM admin_users')"
-pruefe "Erweiterungen" "0" "$(sql 'SELECT count(*) FROM arasul.extensions')"
 pruefe "Ersteinrichtung faellig" "f" "$(sql 'SELECT setup_completed FROM system_settings')"
 pruefe "Modellkatalog bleibt" "t" "$(sql 'SELECT count(*) > 0 FROM llm_model_catalog')"
 # Das Migrationsbuch steht entweder in public oder in arasul, je nach Alter der
@@ -136,7 +139,6 @@ buchort=$(sql "SELECT table_schema FROM information_schema.tables WHERE table_na
 pruefe "Migrationsbuch vorhanden" "t" "$([ -n "$buchort" ] && echo t || echo f)"
 pruefe "Migrationsbuch bleibt gefuellt" "t" "$(sql "SELECT count(*) > 0 FROM ${buchort:-public}.schema_migrations")"
 pruefe "Flow-Dateien" "0" "$(docker exec "$BACKEND" sh -c 'ls -A /arasul/flows | wc -l' | tr -d '[:space:]')"
-pruefe "Erweiterungs-Ordner" "0" "$(docker exec "$BACKEND" sh -c 'ls -A /arasul/extensions | wc -l' | tr -d '[:space:]')"
 # grep -c gibt bei null Treffern "0" aus UND endet mit 1. Ein `|| echo 0`
 # haengt dann eine zweite Null an und die Pruefung vergleicht "0" mit "0\n0".
 zaehle() { grep -c "$1" "$2" 2>/dev/null || true; }

@@ -45,16 +45,19 @@ DRILL_PASSWORD="drill-$(head -c 12 /dev/urandom | base64 | tr -d '/+=' | head -c
 # that is populated in production. The list is intentionally narrow — a drill
 # that demands every one of 85 tables is non-zero will flap on legitimately
 # unused features.
+#
+# Phase B6 (26.08.2026): chat_conversations, chat_messages (165) und documents,
+# document_chunks (163) sind gefallen. Was jedes Geraet ab dem ersten Start
+# fuellt: der Administrator, die Einstellungen, der Modellkatalog, die
+# Alarmschwellen.
 CRITICAL_TABLES=(
     admin_users
-    chat_conversations
-    chat_messages
-    documents
-    document_chunks
+    system_settings
+    llm_model_catalog
     alert_settings
 )
 
-# Was der Kunde selbst gebaut hat. Diese sechs oben sind das Geraet; die hier
+# Was der Kunde selbst gebaut hat. Diese vier oben sind das Geraet; die hier
 # sind seine Arbeit: die Flow-Laeufe. (Bis Phase B5 am 26.08.2026 standen hier
 # auch die n8n-Automationen und -Zugaenge, bis B4 die Erweiterungen; beides
 # ist ausgebaut.)

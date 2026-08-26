@@ -25,8 +25,12 @@ cd "$WURZEL"
 # aus der Reihe gefallen. Sie massen den Agent-Chat, das Terminal und den
 # Datei-Explorer, und die gibt es in der Oberflaeche nicht mehr. D4 schneidet
 # Rueckfrage und Modellwahl je Flow neu. Phase B4: erweiterung, bruecke und
-# paket sind mit dem Erweiterungs-Baukasten gefallen.
-ALLE=(csp fernzugriff modell-link rueckmeldung oberflaeche)
+# paket sind mit dem Erweiterungs-Baukasten gefallen. Phase B6: modell-link
+# (Modell per Link nachladen) ist weg, C8 erlaubt nur die Kurzliste; von den
+# dreizehn Abnahmen der Loeschliste bleiben diese vier. Was nicht im Browser
+# misst, steht daneben: endpunkte-live.py (jeder GET gegen das Geraet),
+# passwort-loeschung-abnahme.sh, werksreset-abnahme.sh, souveraenitaet-abnahme.sh.
+ALLE=(csp fernzugriff rueckmeldung oberflaeche)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 

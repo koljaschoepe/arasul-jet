@@ -20,56 +20,22 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var index_exports = {};
 __export(index_exports, {
-  ChatBody: () => ChatBody,
   ERROR_CODES: () => ERROR_CODES,
   ErrorBody: () => ErrorBody,
-  ErrorEnvelope: () => ErrorEnvelope,
-  PrioritizeJobBody: () => PrioritizeJobBody
+  ErrorEnvelope: () => ErrorEnvelope
 });
 module.exports = __toCommonJS(index_exports);
 
-// src/llm.ts
-var import_zod = require("zod");
-var PrioritizeJobBody = import_zod.z.object({
-  job_id: import_zod.z.string().trim().min(1).max(128)
-}).strict();
-var ChatBody = import_zod.z.object({
-  messages: import_zod.z.array(import_zod.z.record(import_zod.z.string(), import_zod.z.unknown()), {
-    error: "Messages array is required"
-  }),
-  conversation_id: import_zod.z.union([import_zod.z.string().min(1), import_zod.z.number().int().positive()], {
-    error: "conversation_id is required for chat streaming"
-  }),
-  temperature: import_zod.z.number().optional(),
-  max_tokens: import_zod.z.number().int().positive().optional(),
-  stream: import_zod.z.boolean().optional(),
-  thinking: import_zod.z.boolean().optional(),
-  model: import_zod.z.string().max(200).optional().nullable(),
-  model_sequence: import_zod.z.array(import_zod.z.string().max(200)).max(10).optional().nullable(),
-  priority: import_zod.z.number().int().min(0).max(10).optional(),
-  images: import_zod.z.array(import_zod.z.string()).max(5, "Maximal 5 Bilder pro Nachricht erlaubt").optional().nullable(),
-  // Agent-Modus (2026-07-28): Werkzeugschleife im Chat. `datei_modus` bittet
-  // den Agenten ausdrücklich um eine Datei; `ablage_ziel` ist ein relativer
-  // Zielordner in der Projektablage (per Drag & Drop gesetzt).
-  agent: import_zod.z.boolean().optional(),
-  datei_modus: import_zod.z.boolean().optional(),
-  // Ordner-Fokus („Mit Ordner chatten"-Drag): scopt die rag_suche des Agenten.
-  space_ids: import_zod.z.array(import_zod.z.string().max(100)).max(20).optional().nullable(),
-  ablage_ziel: import_zod.z.string().trim().max(500).refine((v) => !v.startsWith("/") && !v.split("/").includes(".."), {
-    message: "ablage_ziel muss relativ und ohne .. sein"
-  }).optional().nullable()
-}).strict();
-
 // src/errors.ts
-var import_zod2 = require("zod");
-var ErrorBody = import_zod2.z.object({
-  code: import_zod2.z.string().min(1),
-  message: import_zod2.z.string().min(1),
-  details: import_zod2.z.unknown().optional()
+var import_zod = require("zod");
+var ErrorBody = import_zod.z.object({
+  code: import_zod.z.string().min(1),
+  message: import_zod.z.string().min(1),
+  details: import_zod.z.unknown().optional()
 }).strict();
-var ErrorEnvelope = import_zod2.z.object({
+var ErrorEnvelope = import_zod.z.object({
   error: ErrorBody,
-  timestamp: import_zod2.z.string().min(1)
+  timestamp: import_zod.z.string().min(1)
 }).strict();
 var ERROR_CODES = [
   "INTERNAL_ERROR",
@@ -83,9 +49,7 @@ var ERROR_CODES = [
 ];
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  ChatBody,
   ERROR_CODES,
   ErrorBody,
-  ErrorEnvelope,
-  PrioritizeJobBody
+  ErrorEnvelope
 });

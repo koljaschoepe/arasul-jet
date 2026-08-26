@@ -157,7 +157,7 @@ describe('DELETE /api/gdpr/me', () => {
     expect(res.body.zugangBleibt).toBe(true);
     expect(res.body.message).toMatch(/Zugang selbst bleibt bestehen/);
     // Die Daten sind trotzdem weg …
-    expect(queryCalls.some(c => c.sql.includes('DELETE FROM chat_conversations'))).toBe(true);
+    expect(queryCalls.some(c => c.sql.includes('DELETE FROM flow_runs'))).toBe(true);
     // … nur die Zugangs-Zeile nicht.
     expect(queryCalls.some(c => c.sql.includes('DELETE FROM admin_users'))).toBe(false);
     expect(res.body.summary.admin_users).toBe(0);
@@ -179,16 +179,14 @@ describe('DELETE /api/gdpr/me', () => {
     expect(db.transaction).toHaveBeenCalledTimes(1);
 
     const sqls = queryCalls.map(c => c.sql);
-    // Reihenfolge: Kinder vor Parents
-    const idxAttachments = sqls.findIndex(s => s.includes('chat_attachments'));
-    const idxMessages = sqls.findIndex(s => s.includes('DELETE FROM chat_messages'));
-    const idxConvs = sqls.findIndex(s => s.includes('DELETE FROM chat_conversations'));
+    // Reihenfolge: Inhalte vor dem Zugang. Die Chat-Tabellen sind mit Phase
+    // B6 (26.08.2026) weg; die Flow-Laeufe sind die verbliebenen Inhalte.
+    const idxRuns = sqls.findIndex(s => s.includes('DELETE FROM flow_runs'));
     const idxAdminDelete = sqls.findIndex(s => s.includes('DELETE FROM admin_users'));
-    expect(idxAttachments).toBeGreaterThanOrEqual(0);
-    expect(idxAttachments).toBeLessThan(idxMessages);
-    expect(idxMessages).toBeLessThan(idxConvs);
+    expect(idxRuns).toBeGreaterThanOrEqual(0);
+    expect(sqls.some(s => s.includes('chat_'))).toBe(false);
     // admin_users zuletzt
-    expect(idxAdminDelete).toBeGreaterThan(idxConvs);
+    expect(idxAdminDelete).toBeGreaterThan(idxRuns);
 
     // Anonymisierungs-Updates auf Compliance-Tabellen
     expect(sqls.some(s => s.includes('UPDATE audit_logs SET user_id = NULL'))).toBe(true);

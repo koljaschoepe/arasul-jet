@@ -37,7 +37,7 @@ describe('createRun', () => {
   it('legt einen Lauf mit serialisierten Argumenten an', async () => {
     const db = fakeDb({ rows: [{ id: 7, status: 'laeuft' }] });
     const run = await runStore.createRun(
-      { userId: 1, flowName: 'recherche', arguments: { thema: 'x' }, conversationId: 5 },
+      { userId: 1, flowName: 'recherche', arguments: { thema: 'x' } },
       { db }
     );
     expect(run).toEqual({ id: 7, status: 'laeuft' });
@@ -46,15 +46,15 @@ describe('createRun', () => {
     expect(params[0]).toBe(1);
     expect(params[1]).toBe('recherche');
     expect(JSON.parse(params[2])).toEqual({ thema: 'x' });
-    expect(params[3]).toBe(5);
+    expect(params).toHaveLength(3);
   });
 
-  it('verträgt fehlende Argumente und fehlenden Chat-Kontext', async () => {
+  it('verträgt fehlende Argumente', async () => {
     const db = fakeDb({ rows: [{ id: 8 }] });
     await runStore.createRun({ userId: 1, flowName: 'notiz' }, { db });
     const { params } = db.calls[0];
     expect(JSON.parse(params[2])).toEqual({});
-    expect(params[3]).toBeNull();
+    expect(params).toHaveLength(3);
   });
 });
 
@@ -216,11 +216,4 @@ describe('listRuns', () => {
     expect(params[params.length - 1]).toBe(200); // hart gedeckelt
   });
 
-  it('filtert optional auf eine Unterhaltung', async () => {
-    const db = fakeDb({ rows: [] });
-    await runStore.listRuns({ userId: 1, conversationId: 5 }, { db });
-    const { sql, params } = db.calls[0];
-    expect(sql).toMatch(/conversation_id = \$2/);
-    expect(params[1]).toBe(5);
-  });
 });

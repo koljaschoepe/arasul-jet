@@ -23,10 +23,11 @@ GDPR-relevant action — the log is what proves the export ever happened.
   prompt for similarity/abuse analysis, never the prompt itself.
   Don't add a column that resurrects plaintext "for debugging" — Phase 5
   removed that and we are not bringing it back.
-- **PII boundary is the chat row**: `chat_messages.content` and
-  `chat_messages.thinking` are user data. Anywhere those leave the row
-  (logs, metrics, analytics, error-handler, support bundle) they must be
-  truncated, hashed, or omitted.
+- **PII boundary is the job row**: `llm_jobs.request_data`, `llm_jobs.content`
+  and `llm_jobs.thinking` (and `flow_runs.arguments`/`result`) are user data.
+  Anywhere those leave the row (logs, metrics, analytics, error-handler,
+  support bundle) they must be truncated, hashed, or omitted. The chat tables
+  that used to hold this boundary fell with Phase B6 (Migration 165).
 - **Logs are not a database**: don't `logger.info('user submitted: ' + body)`.
   The platform's logger ships to stdout → Docker → potentially a customer's
   log shipper. Treat it as untrusted disclosure.

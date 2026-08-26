@@ -81,7 +81,7 @@ describe('Klassifikation', () => {
     const namen = werksreset.tabellenFuer('inhalte').map(t => t.name);
     expect(namen).not.toContain('public.admin_users');
     expect(namen).not.toContain('arasul.externe_modell_anbieter');
-    expect(namen).toContain('public.chat_messages');
+    expect(namen).toContain('public.llm_jobs');
     expect(namen).toContain('arasul.flow_runs');
   });
 
@@ -89,7 +89,7 @@ describe('Klassifikation', () => {
     const namen = werksreset.tabellenFuer('auslieferung').map(t => t.name);
     expect(namen).toContain('public.admin_users');
     expect(namen).toContain('arasul.externe_modell_anbieter');
-    expect(namen).toContain('public.chat_messages');
+    expect(namen).toContain('public.llm_jobs');
   });
 
   test('Modelle nur auf ausdrücklichen Wunsch', () => {
@@ -200,7 +200,7 @@ describe('leereTabellen', () => {
     });
 
     await expect(
-      werksreset._leereTabellen(client, ['public.documents', 'public.chat_messages'])
+      werksreset._leereTabellen(client, ['public.llm_jobs', 'arasul.flow_runs'])
     ).rejects.toThrow(/lassen sich nicht leeren/);
   });
 });

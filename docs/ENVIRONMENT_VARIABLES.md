@@ -79,29 +79,25 @@ Geheimnisse sind die Ausnahme und richtig verdrahtet: `JWT_SECRET` kommt als
 
 > **Hinweis:** `LLM_HOST`, `LLM_PORT` und `LLM_MANAGEMENT_PORT` sind **deprecated**. Der interne Code verwendet `LLM_SERVICE_HOST`, `LLM_SERVICE_PORT` und `LLM_SERVICE_MANAGEMENT_PORT`. Die alten Namen werden noch als Fallback akzeptiert, sollten aber in neuen Konfigurationen nicht mehr verwendet werden.
 
-| Variable                    | Default           | Description                                                                                                                                                                             |
-| --------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LLM_SERVICE_HOST            | llm-service       | Hostname des LLM-Service                                                                                                                                                                |
-| LLM_SERVICE_PORT            | 11434             | Port des LLM-Service                                                                                                                                                                    |
-| LLM_SERVICE_MANAGEMENT_PORT | 11436             | Management-Port des LLM-Service                                                                                                                                                         |
-| ARASUL_ENGINE               | (auto)            | Engine-Override (Plan 021): `ollama` oder `vllm`. Leer = automatische HAL-Auflösung (`config/platforms/<profil>.json` → `engine`, sonst `ollama`). Ungültige Werte werden ignoriert.    |
-| PLATFORMS_DIR               | /config/platforms | Verzeichnis des HAL-Katalogs, aus dem das Engine-Gateway das `engine`-Feld liest (im Container gemountet via `../config:/config:ro`).                                                   |
-| VLLM_SERVICE_HOST           | vllm              | Hostname des vLLM-Backends (Platzhalter bis Plan 021 Schritt 7; auf dem Orin ungenutzt)                                                                                                 |
-| VLLM_SERVICE_PORT           | 8000              | Port des vLLM-Backends (OpenAI-kompatibel unter `/v1/*`; Platzhalter bis Plan 021 Schritt 7)                                                                                            |
-| LLM_HOST                    | llm-service       | _(deprecated)_ Alias für `LLM_SERVICE_HOST`                                                                                                                                             |
-| LLM_PORT                    | 11434             | _(deprecated)_ Alias für `LLM_SERVICE_PORT`                                                                                                                                             |
-| LLM_MANAGEMENT_PORT         | 11436             | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT`                                                                                                                                  |
-| LLM_MODEL                   | gemma4:26b-q4     | Default LLM model (Gemma 4, hardware-abhängig)                                                                                                                                          |
-| LLM_MAX_TOKENS              | 2048              | Max response tokens                                                                                                                                                                     |
-| LLM_CONTEXT_SIZE            | 4096              | Context window size                                                                                                                                                                     |
-| LLM_MAX_RAM_GB              | 40                | Max RAM allocation (GB)                                                                                                                                                                 |
-| LLM_GPU_LAYERS              | 33                | GPU layers                                                                                                                                                                              |
-| LLM_KEEP_ALIVE_SECONDS      | 3600              | Seconds Ollama keeps a loaded model resident (default 1h after migration 094)                                                                                                           |
-| OLLAMA_NUM_PARALLEL         | 2                 | Concurrent Ollama generation slots (1 on tight 32 GB Orin)                                                                                                                              |
-| OLLAMA_KV_CACHE_TYPE        | q8_0              | KV-Cache-Quantisierung (seit Harness v2; vorher fest q4_0). q8_0 = halber f16-Speicher bei praktisch verlustfreier Qualität; auf knappen 32-GB-Orins via `.env` auf q4_0 zurückstellbar |
-| OLLAMA_CONTEXT_LENGTH       | 32768             | Default-Kontextfenster aller Ollama-Modelle (≥32k, sonst kürzt Ollama Werkzeugaufrufe still). Auf knappen 32-GB-Orins via `.env` absenkbar                                              |
-| OLLAMA_STARTUP_TIMEOUT      | 120               | Ollama startup timeout (seconds)                                                                                                                                                        |
-| MAX_STORED_MODELS           | 10                | Maximale Anzahl gespeicherter Modelle                                                                                                                                                   |
+| Variable                    | Default       | Description                                                                                                                                                                             |
+| --------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM_SERVICE_HOST            | llm-service   | Hostname des LLM-Service                                                                                                                                                                |
+| LLM_SERVICE_PORT            | 11434         | Port des LLM-Service                                                                                                                                                                    |
+| LLM_SERVICE_MANAGEMENT_PORT | 11436         | Management-Port des LLM-Service                                                                                                                                                         |
+| LLM_HOST                    | llm-service   | _(deprecated)_ Alias für `LLM_SERVICE_HOST`                                                                                                                                             |
+| LLM_PORT                    | 11434         | _(deprecated)_ Alias für `LLM_SERVICE_PORT`                                                                                                                                             |
+| LLM_MANAGEMENT_PORT         | 11436         | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT`                                                                                                                                  |
+| LLM_MODEL                   | gemma4:26b-q4 | Default LLM model (Gemma 4, hardware-abhängig)                                                                                                                                          |
+| LLM_MAX_TOKENS              | 2048          | Max response tokens                                                                                                                                                                     |
+| LLM_CONTEXT_SIZE            | 4096          | Context window size                                                                                                                                                                     |
+| LLM_MAX_RAM_GB              | 40            | Max RAM allocation (GB)                                                                                                                                                                 |
+| LLM_GPU_LAYERS              | 33            | GPU layers                                                                                                                                                                              |
+| LLM_KEEP_ALIVE_SECONDS      | 3600          | Seconds Ollama keeps a loaded model resident (default 1h after migration 094)                                                                                                           |
+| OLLAMA_NUM_PARALLEL         | 2             | Concurrent Ollama generation slots (1 on tight 32 GB Orin)                                                                                                                              |
+| OLLAMA_KV_CACHE_TYPE        | q8_0          | KV-Cache-Quantisierung (seit Harness v2; vorher fest q4_0). q8_0 = halber f16-Speicher bei praktisch verlustfreier Qualität; auf knappen 32-GB-Orins via `.env` auf q4_0 zurückstellbar |
+| OLLAMA_CONTEXT_LENGTH       | 32768         | Default-Kontextfenster aller Ollama-Modelle (≥32k, sonst kürzt Ollama Werkzeugaufrufe still). Auf knappen 32-GB-Orins via `.env` absenkbar                                              |
+| OLLAMA_STARTUP_TIMEOUT      | 120           | Ollama startup timeout (seconds)                                                                                                                                                        |
+| MAX_STORED_MODELS           | 10            | Maximale Anzahl gespeicherter Modelle                                                                                                                                                   |
 
 ---
 
@@ -442,10 +438,11 @@ Modell-Aufruf:
 | AGENT_THINKING             | an      | `aus` schaltet den live gestreamten Gedankengang (Reasoning-Trace) global ab; wirkt nur bei Modellen, die denken können (qwen3 u. a., nicht Coder/Gemma)                                                                                                                  |
 | AGENT_MAX_SUBAGENTEN       | 60      | Obergrenze der Subagent-Aufrufe je Lauf (Plan 019 · Phase 5, aggressive Delegation). Höher = mehr kleine, in sich geschlossene Blöcke; Verschachtelung bleibt über maxTiefe (2) hart begrenzt                                                                             |
 
-> **GPU-Sperre:** Alle lokalen Modell-Aufrufe — Chat wie Flow — laufen durch
-> EINE gemeinsame Sperre (`services/flows/gpuQueue.js`); nie treffen zwei
-> zugleich auf die GPU (strikt einer nach dem anderen, keine Priorisierung).
-> Der Chat-Stream gibt sie spätestens nach `LLM_INACTIVITY_TIMEOUT_MS` (Default 600000) wieder frei, falls ein Stream hängt.
+> **GPU-Sperre:** Alle lokalen Modell-Aufrufe — externer Auftrag wie Flow —
+> laufen durch EINE gemeinsame Sperre (`services/flows/gpuQueue.js`); nie
+> treffen zwei zugleich auf die GPU (strikt einer nach dem anderen, keine
+> Priorisierung). Ein Auftrag gibt sie spätestens nach `LLM_INACTIVITY_TIMEOUT_MS`
+> (Default 600000) wieder frei, falls ein Strom hängt.
 
 > Die früheren `AGENT_LLM_TIMEOUT_MS` / `AGENT_MAX_ITERATIONS` gehörten zur
 > abgelösten Agenten-Werkzeugschleife (`services/agents/toolLoop.js`, jetzt

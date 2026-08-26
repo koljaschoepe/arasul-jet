@@ -182,13 +182,13 @@ describe('bootstrap', () => {
       applied: 5,
       skipped: 0,
       failed: null,
-      schatten: ['admin_users', 'chat_messages'],
+      schatten: ['admin_users', 'llm_jobs'],
     });
 
     await bootstrap();
 
     expect(adminZaehlungLief()).toBe(false);
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('admin_users, chat_messages'));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('admin_users, llm_jobs'));
   });
 
   test('legt keinen Administrator an, wenn der Migrationslauf abbricht', async () => {

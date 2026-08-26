@@ -174,7 +174,6 @@ router.get(
     const runs = await runStore.listRuns({
       userId: req.user.id,
       limit: req.query.limit,
-      conversationId: req.query.conversation_id ?? null,
       status: req.query.status ?? null,
       flowName: req.query.flow ?? null,
     });
@@ -206,7 +205,6 @@ router.post(
       flowName: req.body.flow,
       args: req.body.args,
       userId: req.user.id,
-      conversationId: req.body.conversation_id ?? null,
     });
     res.status(202).json({ data: { runId }, timestamp: new Date().toISOString() });
   })
@@ -413,7 +411,6 @@ router.post(
       flowName: alt.flow_name,
       args,
       userId: req.user.id,
-      conversationId: alt.conversation_id ?? null,
       vorabErgebnisse,
       vorabQuelleLaufId: Number(alt.id),
     });

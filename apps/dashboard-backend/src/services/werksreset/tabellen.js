@@ -29,9 +29,6 @@
 
 /** Nutzerinhalte. Weg bei Stufe 1 und Stufe 2. */
 const INHALTE = [
-  ['public.chat_attachments', 'Anhänge an Chatnachrichten'],
-  ['public.chat_conversations', 'Chatverläufe'],
-  ['public.chat_messages', 'Chatnachrichten'],
   ['public.llm_jobs', 'Aufträge an die Sprachmodelle'],
   ['arasul.flow_run_steps', 'Einzelschritte der Flow-Läufe'],
   ['arasul.flow_runs', 'Flow-Läufe'],

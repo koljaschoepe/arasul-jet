@@ -598,7 +598,6 @@ const StartRunBody = z
     // Argumentwerte als name→Wert. Werte kommen als Strings aus dem Chat; der
     // Runner prüft sie gegen die Deklaration des Flows.
     args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
-    conversation_id: z.coerce.number().int().positive().nullish(),
   })
   .strict();
 
@@ -606,7 +605,6 @@ const StartRunBody = z
 const ListRunsQuery = z
   .object({
     limit: z.coerce.number().int().min(1).max(200).default(50),
-    conversation_id: z.coerce.number().int().positive().optional(),
     // Optionaler Status-Filter, z. B. `?status=laeuft` für die „laufende Flows"-
     // Anzeige im Chat (Plan 013, B8).
     status: z.enum(['laeuft', 'fertig', 'fehler', 'abgebrochen']).optional(),
