@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genau ein Plan in docs/plans/active/.
+"""Hoechstens ein Plan in docs/plans/active/.
 
 Warum es diese Pruefung gibt: am 20.08.2026 lagen dort vier Eintraege, drei
 davon aus der Zeit vor dem laufenden Plan. `CLAUDE.md` nannte als "den einen
@@ -24,7 +24,13 @@ hergeleitet werden kann. Eine Zahl, die von Hand gepflegt werden muss, ist ab
 dem naechsten Zug falsch. Entweder sie wird geprueft, oder sie gehoert nicht
 in den Text.
 
-Rueckgabe: 0 wenn genau ein Plan dort liegt und jede Aufgabenzahl stimmt,
+Seit dem 26.08.2026 darf der Ordner leer sein. An diesem Tag hat der
+Ueberordner-Plan (`arasul/roadmap/plans/aktiv/`, nicht oeffentlich) den Plan
+024 abgeloest; was dieses Repo bis wann koennen muss, steht seither dort und
+nicht mehr hier. Ein leerer Ordner heisst: der Faden liegt im Ueberordner.
+Zwei Plaene heissen weiterhin: niemand weiss, welcher gilt.
+
+Rueckgabe: 0 wenn hoechstens ein Plan dort liegt und jede Aufgabenzahl stimmt,
 1 sonst.
 """
 import argparse
@@ -128,10 +134,9 @@ def main() -> int:
         return aufgabenzahlen(Path(args.pfad), gefunden[0])
 
     if not gefunden:
-        print('   Der Faden: KEINER. docs/plans/active/ ist leer.')
-        print('   Entweder ist nichts in Arbeit, dann gehoert das in das')
-        print('   Steuer-Repo, oder ein Plan wurde verschoben und nicht ersetzt.')
-        return 1
+        print('   Der Faden: keiner hier, docs/plans/active/ ist leer.')
+        print('   Der laufende Plan liegt im Ueberordner (arasul/roadmap/plans/aktiv/).')
+        return 0
 
     print(f'   Der Faden: {len(gefunden)} Plaene in docs/plans/active/')
     for eintrag in gefunden:

@@ -92,7 +92,7 @@ arasul-jet/
 - **Environment variables:** [`docs/ENVIRONMENT_VARIABLES.md`](docs/ENVIRONMENT_VARIABLES.md)
 - **Troubleshooting:** [`docs/ops/TROUBLESHOOTING.md`](docs/ops/TROUBLESHOOTING.md)
 - **Contribution workflow:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- **Laufender Plan:** [`docs/plans/active/`](docs/plans/active/) — genau einer, gehalten von `scripts/test/plan-faden.py`. Ruhende Pläne: [`docs/plans/paused/`](docs/plans/paused/README.md)
+- **Laufender Plan:** seit dem 26.08.2026 im Überordner (`arasul/roadmap/plans/aktiv/`, nicht öffentlich); [`docs/plans/active/`](docs/plans/active/) ist leer, höchstens ein Einzelauftrag darf dort liegen, gehalten von `scripts/test/plan-faden.py`. Ruhende Pläne: [`docs/plans/paused/`](docs/plans/paused/README.md)
 
 ---
 

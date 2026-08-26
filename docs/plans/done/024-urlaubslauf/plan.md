@@ -1,5 +1,13 @@
 # Plan 024, Urlaubslauf: fünfzehn autonome Phasen
 
+> **Abgelöst am 26.08.2026 durch den Überordner-Plan vom 26.08.2026**
+> (`arasul/roadmap/plans/aktiv/2026-08-26-umbau-standardsoftware.md`, nicht
+> öffentlich). Keine der fünfzehn Phasen ist gelaufen; der Urlaubslauf wurde
+> am selben Tag abgesagt. Die Gates G1 bis G7 sind durch die acht Abnahmen des
+> Überordner-Plans ersetzt, ihr Stand steht in `#roadmap-meta` von
+> `docs/plans/ROADMAP.html`. Diese Seite ist Geschichte, nichts hier ist eine
+> Aufgabe.
+
 > Grundlage: die Firmensicht `plans/aktiv/2026-08-24-urlaubslauf.md` im
 > Steuer-Repo. Sie trägt die Entscheidungen und die Widersprüche dazu. Diese
 > Seite hier sagt, **wie** im Repo gearbeitet wird.

@@ -13,13 +13,16 @@ achtzigmal so gross wie der Plan, an dem gearbeitet wurde. Sie kostete keinen
 Build und keinen Test, aber jeden Suchtreffer. Wer heute im Repo nach einem
 Begriff sucht, soll nicht durch Arbeit von vor fuenf Monaten waten.
 
-**Eine Datei ist geblieben:** die Uebergabe von Plan 023
-([`done/023-feature-audit/UEBERGABE.md`](done/023-feature-audit/UEBERGABE.md)).
-Dort stehen die acht Fallen, die einen halben Tag gekostet haben, und sie
-gelten weiter. `CLAUDE.md` verweist darauf.
+**Zwei Eintraege sind als Dateien geblieben:** die Uebergabe von Plan 023
+([`done/023-feature-audit/UEBERGABE.md`](done/023-feature-audit/UEBERGABE.md)),
+dort stehen die acht Fallen, die einen halben Tag gekostet haben, und sie
+gelten weiter; und Plan 024 ([`done/024-urlaubslauf/`](done/024-urlaubslauf/)),
+am 26.08.2026 abgeloest durch den Ueberordner-Plan vom selben Tag, bevor eine
+Phase gelaufen war. `CLAUDE.md` verweist auf beide.
 
-Ruhende Plaene stehen weiter unter [`paused/`](paused/README.md), der laufende
-unter [`active/`](active/).
+Ruhende Plaene stehen weiter unter [`paused/`](paused/README.md). Der laufende
+Plan liegt seit dem 26.08.2026 im Ueberordner (`arasul/roadmap/plans/aktiv/`),
+[`active/`](active/) ist deshalb leer.
 
 ## Abgeschlossen
 
@@ -47,6 +50,7 @@ Durchgezogen und abgenommen. Die Nummern sind fortlaufend, die Luecke bei 010 un
 | `019-chat-agent-ux-und-dateien.html`           | Plan 019 · Chat-Agent-UX auf Cursor-Niveau + große Dateien                                       | 2026-08-14 | `83672239` |    584 |
 | `022-frontend-chat-agent-power.html`           | Plan 022 · Frontend-Härtung & Coding-Agent mit voller Power                                      | 2026-08-18 | `425a1ae1` |    628 |
 | `023-feature-audit`                            | Plan 023, Feature-Audit Arasul Jet: Umsetzung                                                    | 2026-08-24 | `4837f70b` |   5356 |
+| `024-urlaubslauf/`                             | Plan 024, Urlaubslauf: fuenfzehn autonome Phasen — abgeloest 26.08.2026, liegt als Datei         | 2026-08-26 | liegt vor  |      — |
 | `bugfix-batch-live-audit-2026-07-07.md`        | Bugfix-Batch: Live-Audit-Befunde (2026-07-07)                                                    | 2026-07-07 | `43bd9001` |     60 |
 | `einheitlicher-zugriff-lan-tailscale.md`       | Einheitlicher Zugriff: LAN-Standard (arasul.local) + Remote via Tailscale-Name                   | 2026-07-07 | `08bd27ed` |    227 |
 | `frontend-ui-konsistenz-polish.md`             | Frontend UI — Konsistenz & Polish (Foundation-first)                                             | 2026-07-06 | `4c096557` |    178 |

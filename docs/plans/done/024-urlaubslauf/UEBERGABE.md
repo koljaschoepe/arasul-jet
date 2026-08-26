@@ -1,8 +1,12 @@
 # Übergabe zu Plan 024
 
+> **Abgelöst am 26.08.2026 durch den Überordner-Plan vom 26.08.2026.** Der
+> Abschnitt 1 (was auf dem Gerät ohne Sitzung weiterläuft: Ausgang-Lauscher,
+> Dauerlauf, Wiederherstellungs-Drill) gilt weiter, alles andere ist Geschichte.
+
 **Stand: 24.08.2026, 22:15.** Diese Seite trägt nur, was seit dem Abschluss von
 023 dazugekommen ist. Alles Ältere steht in
-[`docs/plans/done/023-feature-audit/UEBERGABE.md`](../../done/023-feature-audit/UEBERGABE.md)
+[`docs/plans/done/023-feature-audit/UEBERGABE.md`](../023-feature-audit/UEBERGABE.md)
 — besonders die **acht Fallen**, die dort einen halben Tag gekostet haben. Sie
 gelten weiter.
 

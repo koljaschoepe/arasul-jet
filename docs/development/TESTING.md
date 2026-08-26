@@ -45,7 +45,7 @@ eine Route, deren Schema niemand exportiert hat. Sie laufen bei jedem
 | `gedankenstriche.py` | Keine Gedankenstriche als Trenner                                                                                                                      |
 | `geruest-regeln.py`  | Werkstatt und Backend kennen dieselben Fähigkeiten                                                                                                     |
 | `modellnamen.py`     | Modellnamen kommen aus der Live-Quelle, nicht aus dem Gedächtnis                                                                                       |
-| `plan-faden.py`      | Genau ein Plan unter `docs/plans/active/`                                                                                                              |
+| `plan-faden.py`      | Höchstens ein Plan unter `docs/plans/active/`                                                                                                          |
 | `toter-code.sh`      | Keine Datei ohne Importeur                                                                                                                             |
 
 **Jeder Wächter hat einen Selbsttest.** `waechter-selbsttest.sh` baut einen

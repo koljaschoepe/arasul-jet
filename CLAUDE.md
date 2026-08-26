@@ -91,56 +91,56 @@ review checklist, etc.) live under `.claude/context/`.
 
 ## Woran gerade gearbeitet wird
 
-**Der laufende Plan ist [`docs/plans/active/024-urlaubslauf/plan.md`](docs/plans/active/024-urlaubslauf/plan.md).**
-Fünfzehn Phasen (0 bis 14) vom 30.08. bis 12.09.2026, je einmal täglich
-ausgelöst, dazwischen
-ohne Eingriff. Zwei Stränge je Phase: Gates und Zielbild; wo sie sich berühren,
-gewinnt der Gate-Strang. Der Stand jeder Phase steht in der Tabelle oben im Plan
-selbst, nicht hier.
+**Der laufende Plan liegt nicht in diesem Repo.** Seit dem 26.08.2026 steuert
+der Überordner-Plan `arasul/roadmap/plans/aktiv/2026-08-26-umbau-standardsoftware.md`
+(Steuer-Repo `Arasul-GmbH/arasul-os`, nicht öffentlich) die Arbeit an allen drei
+Repos. Er legt je Phase einen Worktree dieses Repos an und gibt dem Worker eine
+`PHASE.md` mit: was zu tun ist, woran es gemessen wird, wie hier gearbeitet
+wird. Wer eine `PHASE.md` im Wurzelverzeichnis findet, liest sie nach dieser
+Datei. Sie wird nie committet.
 
-Eine Aufgabe gilt erst als erledigt, wenn ihre Abnahme **live auf dem Orin**
-belegt ist, nicht wenn der Branch gemerged wurde.
-
-**Wer neu einsteigt, liest zuerst
-[`docs/plans/active/024-urlaubslauf/UEBERGABE.md`](docs/plans/active/024-urlaubslauf/UEBERGABE.md).**
-Eine Seite: was auf dem Gerät ohne Sitzung weiterläuft, wie weit die
-Vorbereitung ist, und was bei Kolja als Entscheidung liegt. Sie verweist für
-alles Ältere auf die Übergabe des abgeschlossenen Vorgängers
+Plan `024` (Urlaubslauf) ist am 26.08.2026 abgelöst worden und liegt unter
+[`docs/plans/done/024-urlaubslauf/`](docs/plans/done/024-urlaubslauf/). Seine
+Übergabe nennt, was auf dem Gerät ohne Sitzung weiterläuft; für alles Ältere
+verweist sie auf die Übergabe des Vorgängers
 [`docs/plans/done/023-feature-audit/UEBERGABE.md`](docs/plans/done/023-feature-audit/UEBERGABE.md)
 — dort stehen die **acht Fallen**, die einen halben Tag gekostet haben. Sie
 gelten weiter.
 
-`docs/plans/active/` enthält **genau einen** Plan. Das ist keine Konvention,
-sondern eine Prüfung: `scripts/test/plan-faden.py` schlägt fehl, sobald dort ein
-zweiter liegt. Angefangene, aber ruhende Pläne liegen unter
+Eine Aufgabe gilt erst als erledigt, wenn ihre Abnahme **live auf dem Orin**
+belegt ist, nicht wenn der Branch gemerged wurde.
+
+`docs/plans/active/` enthält **höchstens einen** Plan und ist normalerweise
+leer. Das ist keine Konvention, sondern eine Prüfung: `scripts/test/plan-faden.py`
+schlägt fehl, sobald dort zwei liegen. Ein Plan dort ist ein Einzelauftrag, kein
+zweiter Faden neben dem Überordner. Angefangene, aber ruhende Pläne liegen unter
 [`docs/plans/paused/`](docs/plans/paused/README.md) mit einem Satz, warum sie
 ruhen und was noch offen ist.
 
 **Ziele kommen von außen.** Was dieses Repo bis wann können muss, entscheidet
-das Steuer-Repo (`Arasul-GmbH/arasul-os`, nicht öffentlich), nicht dieses hier.
-Hier steht, _wie_ gebaut wird. Wer ein Ziel ohne Bezug zu einem Meilenstein
-findet, hat eine Idee gefunden, keine Aufgabe.
+das Steuer-Repo, nicht dieses hier. Hier steht, _wie_ gebaut wird. Wer ein Ziel
+ohne Bezug zu einer Phase oder Abnahme findet, hat eine Idee gefunden, keine
+Aufgabe.
 
-**Die sieben Verkaufs-Gates** stehen in
-[`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html). Achtung: der
-Themenspeicher auf derselben Seite stammt aus der Zeit **vor** Plan 023 und ist
-nicht der laufende Faden. Der Gate-Titel G4 sagt dort noch „Mandanten-Isolation",
-das Gate wurde am 19.08.2026 auf Geräte-Isolation umdefiniert.
+**Die acht Abnahmen** (A1 bis A8) haben am 26.08.2026 die sieben Verkaufs-Gates
+ersetzt; G5 Recht bleibt bei Kolja außerhalb der Abnahmen. Ihr Stand steht in
+`#roadmap-meta` von [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html), alle
+`open`, und wird aus einer Messung gesetzt, nie von Hand; der Überordner liest
+ihn mit `roadmap-build.py`. Achtung: der Themenspeicher auf derselben Seite
+stammt aus der Zeit **vor** Plan 023 und ist nicht der laufende Faden.
 
 **Die vier Befehle** sind der Mechanismus, nicht die Quelle: `/plan` (Interview
 zu einer Planseite), `/work` (autonome Ausführung bis zum Live-Verify auf dem
-Jetson), `/audit` (Scan zu Befunden), `/status` (Lagebild). Sie liegen als
-Skills unter `.claude/skills/`, nicht als Befehle unter `.claude/commands/` —
-den Ordner gibt es nicht.
+Jetson — bleibt für **Einzelaufträge**, die keine Phase des Überordners sind),
+`/audit` (Scan zu Befunden), `/status` (Lagebild). Sie liegen als Skills unter
+`.claude/skills/`, nicht als Befehle unter `.claude/commands/` — den Ordner gibt
+es nicht.
 
 **Nichts in diesem Repo läuft nach Uhrzeit.** Ein langer autonomer Lauf wird
 von Hand gestartet: `./scripts/util/autonom-run.sh` (führt `/work --autonom`
 aus, Voreinstellung fünf Stunden, `ARASUL_LAUF_STUNDEN=30` für einen Lauf über
-einen Tag hinaus). Er arbeitet freigegebene Pläne ab und mergt **einmal je
-Plan-Phase**, nicht je Aufgabe — am 24.08.2026 waren es sonst elf Deploys in
-66 Minuten. Impulse kommen aus dem Steuer-Repo, der Plan entsteht hier: mehrere
-Impulse von dort können ein Plan hier werden, und `/plan` hält im
-Entscheidungs-Log fest, welche eingeflossen sind und welche nicht.
+einen Tag hinaus). Er mergt **einmal je Plan-Phase**, nicht je Aufgabe — am
+24.08.2026 waren es sonst elf Deploys in 66 Minuten.
 
 ## Quick reference
 

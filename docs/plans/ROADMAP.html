@@ -5,6 +5,9 @@
 
   MACHINE CONTRACT:
   - #roadmap-meta (JSON) is the parseable state: gates[] and themes[].
+    Since 2026-08-26 gates[] holds the eight Abnahmen (A1-A8) of the
+    Ueberordner plan; the key stays "gates" because roadmap-build.py in the
+    Ueberordner reads it. State is set from a measurement, never by hand.
     Keep JSON and visible cards in sync when editing.
   - Theme cards are <details class="card" id="Txx" data-prio data-status
     data-ref="Txx <Titel>"> — data-ref keys the user's notes; keep it stable.
@@ -21,42 +24,56 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-08-19",
+  "updated": "2026-08-26",
   "migrated_from_master_plan": true,
-  "gates": [
+  "gates_sind": "die acht Abnahmen des Ueberordner-Plans vom 26.08.2026; G1 bis G7 sind am 26.08.2026 ersetzt worden, G5 Recht bleibt bei Kolja ausserhalb der Abnahmen",
+    "gates": [
     {
-      "id": "G1",
-      "title": "Alle Features funktionieren nachweislich (Feature-Audit grün)",
+      "id": "A1",
+      "title": "Frischer Klon des Kits, /start, /device gegen einen Rechner ohne Arasul: Akte, Prüfung, Docker, Ollama",
+      "entsteht_in": "E3",
       "state": "open"
     },
     {
-      "id": "G2",
-      "title": "Aktions-Feedback plattformweit konsistent (jede Aktion gibt klaren Status)",
+      "id": "A2",
+      "title": "/device installiert Arasul auf dem Orin mit Token, Oberfläche erreichbar",
+      "entsteht_in": "E4",
       "state": "open"
     },
     {
-      "id": "G3",
-      "title": "UI plattformweit konsistent (Abstände, Größen, Formatierung)",
+      "id": "A3",
+      "title": "/app baut eine App mit Frontend, Backend und Flow und deployt sie auf den Orin",
+      "entsteht_in": "E5",
       "state": "open"
     },
     {
-      "id": "G4",
-      "title": "Daten eines Geräts verlassen das Gerät nicht, und ein Gerät sieht kein anderes",
+      "id": "A4",
+      "title": "Admin legt Mitarbeiter an, gibt eine App frei. Mitarbeiter sieht nur diese, alles andere antwortet 403 aus der Route",
+      "entsteht_in": "D3",
       "state": "open"
     },
     {
-      "id": "G5",
-      "title": "DSGVO-Compliance dokumentiert",
+      "id": "A5",
+      "title": "Flow läuft, fordert Freigabe an, Mitarbeiter bestätigt, Lauf ist mit Gedankengang nachlesbar",
+      "entsteht_in": "D4",
       "state": "open"
     },
     {
-      "id": "G6",
-      "title": "Verschlüsselte Backups + Restore-Drill bewiesen",
+      "id": "A6",
+      "title": "Backup und Wiederherstellung über alle Tabellen und App-Volumes",
+      "entsteht_in": "C9",
       "state": "open"
     },
     {
-      "id": "G7",
-      "title": "7 Tage unattended stabil",
+      "id": "A7",
+      "title": "Sieben Tage Dauerlauf ohne Eingriff",
+      "entsteht_in": "G2",
+      "state": "open"
+    },
+    {
+      "id": "A8",
+      "title": "Website sagt die Wahrheit: kein „Entwicklungsumgebung“, kein alter Produktname, Kit verlinkt, Claude Code statt Codex",
+      "entsteht_in": "F1",
       "state": "open"
     }
   ],
@@ -660,15 +677,16 @@
   </p>
 
   <div class="gatebar">
-    <span class="big">0<small> / 7 Gates</small></span>
+    <span class="big">0<small> / 8 Abnahmen</small></span>
     <div class="gpills">
-      <span class="gpill" data-state="open" title="Alle Features funktionieren nachweislich">G1 Features</span>
-      <span class="gpill" data-state="open" title="Aktions-Feedback plattformweit konsistent">G2 Feedback</span>
-      <span class="gpill" data-state="open" title="UI plattformweit konsistent">G3 UI</span>
-      <span class="gpill" data-state="open" title="Mandanten-Isolation bewiesen">G4 Mandanten</span>
-      <span class="gpill" data-state="open" title="DSGVO-Compliance dokumentiert">G5 DSGVO</span>
-      <span class="gpill" data-state="open" title="Verschlüsselte Backups + Restore-Drill">G6 Backups</span>
-      <span class="gpill" data-state="open" title="7 Tage unattended stabil">G7 Unattended</span>
+      <span class="gpill" data-state="open" title="Frischer Klon des Kits, /start, /device gegen einen Rechner ohne Arasul: Akte, Prüfung, Docker, Ollama">A1 Kit ohne Arasul</span>
+      <span class="gpill" data-state="open" title="/device installiert Arasul auf dem Orin mit Token, Oberfläche erreichbar">A2 Installation</span>
+      <span class="gpill" data-state="open" title="/app baut eine App mit Frontend, Backend und Flow und deployt sie auf den Orin">A3 App-Deploy</span>
+      <span class="gpill" data-state="open" title="Admin legt Mitarbeiter an, gibt eine App frei. Mitarbeiter sieht nur diese, alles andere antwortet 403 aus der Route">A4 Freigaben 403</span>
+      <span class="gpill" data-state="open" title="Flow läuft, fordert Freigabe an, Mitarbeiter bestätigt, Lauf ist mit Gedankengang nachlesbar">A5 Flow-Freigabe</span>
+      <span class="gpill" data-state="open" title="Backup und Wiederherstellung über alle Tabellen und App-Volumes">A6 Backup</span>
+      <span class="gpill" data-state="open" title="Sieben Tage Dauerlauf ohne Eingriff">A7 7 Tage</span>
+      <span class="gpill" data-state="open" title="Website sagt die Wahrheit: kein „Entwicklungsumgebung“, kein alter Produktname, Kit verlinkt, Claude Code statt Codex">A8 Website</span>
     </div>
   </div>
   <div class="counts">
@@ -679,7 +697,7 @@
   </div>
 
   <div class="banner">
-    <strong>Frische Roadmap (2026-07-14).</strong> Neuausrichtung Richtung <em>voll
+    <strong>Seit dem 26.08.2026 zählen die acht Abnahmen oben</strong>, nicht mehr die sieben Gates: der Überordner-Plan vom 26.08.2026 hat G1 bis G7 ersetzt (G5 Recht bleibt bei Kolja). Die Karten unten nennen weiter „Macht Gate: G…“ — das ist ihr historischer Stand, kein Ziel.<br><br><strong>Frische Roadmap (2026-07-14).</strong> Neuausrichtung Richtung <em>voll
     verkaufbar</em>: Der North Star ist, dass <strong>jede vorhandene Funktion
     100&nbsp;% funktioniert und sauber aussieht</strong> — Feature-Zuverlässigkeit,
     Aktions-Feedback und UI-Konsistenz stehen oben (T01–T04), parallel dazu die
