@@ -225,8 +225,8 @@ class ModelLifecycleService {
           continue;
         }
 
-        // Respect Ollama's own expires_at (accounts for direct external usage,
-        // e.g. document-indexer calling Ollama directly)
+        // Respect Ollama's own expires_at (accounts for direct external usage
+        // that bypasses this service)
         if (model.expires_at) {
           const expiresAt = new Date(model.expires_at).getTime();
           if (expiresAt > now) {

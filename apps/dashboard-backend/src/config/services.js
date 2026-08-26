@@ -97,8 +97,6 @@ const services = {
     host: DOCUMENT_INDEXER_HOST,
     port: DOCUMENT_INDEXER_PORT,
     url: `http://${DOCUMENT_INDEXER_HOST}:${DOCUMENT_INDEXER_PORT}`,
-    indexEndpoint: `http://${DOCUMENT_INDEXER_HOST}:${DOCUMENT_INDEXER_PORT}/index`,
-    statusEndpoint: `http://${DOCUMENT_INDEXER_HOST}:${DOCUMENT_INDEXER_PORT}/status`,
   },
 
   // Self-Healing Agent
