@@ -447,27 +447,6 @@ run_python_tests() {
   done
 }
 
-# Funktion: E2E-Tests (Playwright)
-run_e2e_tests() {
-  if [ -d "apps/dashboard-frontend/e2e" ]; then
-    echo ""
-    echo "-> Running E2E Tests (Playwright)..."
-
-    if check_npm; then
-      cd apps/dashboard-frontend
-      if npx playwright test --reporter=list 2>/dev/null; then
-        echo "   E2E tests: PASSED"
-      else
-        echo "   E2E tests: FAILED"
-        EXIT_CODE=1
-      fi
-      cd "$PROJECT_ROOT"
-    else
-      echo "   SKIPPED: npm not available for Playwright"
-    fi
-  fi
-}
-
 # Funktion: Geänderte Dateien erkennen
 detect_changes() {
   # Git-basierte Änderungserkennung (staged + unstaged + untracked)
@@ -484,7 +463,6 @@ RUN_BACKEND=false
 RUN_FRONTEND=false
 RUN_PYTHON=false
 RUN_QUALITY=false
-RUN_E2E=false
 
 arg="${1:-}"
 if [ "$arg" = "--all" ] || [ "$arg" = "-a" ]; then
@@ -497,8 +475,6 @@ elif [ "$arg" = "--python" ] || [ "$arg" = "-p" ]; then
   RUN_PYTHON=true
 elif [ "$arg" = "--quality" ] || [ "$arg" = "-q" ]; then
   RUN_QUALITY=true
-elif [ "$arg" = "--e2e" ] || [ "$arg" = "-e" ]; then
-  RUN_E2E=true
 fi
 
 # Funktion: Quality Gates (Design System + Code Quality)
@@ -548,8 +524,6 @@ elif [ "$RUN_PYTHON" = true ]; then
   run_python_tests
 elif [ "$RUN_QUALITY" = true ]; then
   run_quality_gates
-elif [ "$RUN_E2E" = true ]; then
-  run_e2e_tests
 else
   # Auto-Detection basierend auf Änderungen
   CHANGES=$(detect_changes)

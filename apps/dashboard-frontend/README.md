@@ -14,7 +14,6 @@ Single Page Application (SPA) for the Arasul Platform dashboard.
 | Routing   | React Router 6 (lazy loading)     |
 | Charts    | Recharts                          |
 | Tests     | Vitest 3 + React Testing Library  |
-| E2E       | Playwright                        |
 
 ## Directory Structure
 
@@ -48,7 +47,6 @@ src/
 ├── lib/
 │   └── utils.ts           # cn() helper (clsx + tailwind-merge)
 └── __tests__/             # Unit tests (Vitest)
-e2e/                       # E2E tests (Playwright)
 ```
 
 ## Key Patterns
@@ -65,9 +63,6 @@ e2e/                       # E2E tests (Playwright)
 ```bash
 # Tests (Vitest)
 npx vitest run
-
-# E2E tests (Playwright - requires running platform)
-npx playwright test
 
 # Lint
 npm run lint:fix

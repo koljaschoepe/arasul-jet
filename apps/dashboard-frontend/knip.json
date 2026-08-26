@@ -1,13 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": [
-    "src/index.tsx",
-    "index.html",
-    "src/**/*.test.{ts,tsx}",
-    "src/__tests__/**/*.{ts,tsx}",
-    "e2e/**/*.spec.ts",
-    "playwright.config.ts"
-  ],
+  "entry": ["src/index.tsx", "index.html", "src/**/*.test.{ts,tsx}", "src/__tests__/**/*.{ts,tsx}"],
   "project": ["src/**/*.{ts,tsx}"],
   "ignore": ["src/components/ui/shadcn/**"],
   "ignoreDependencies": [
