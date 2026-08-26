@@ -70,8 +70,10 @@ echo "Elf Phasen A bis K, 9 Aufgaben." > "$TMP/faden/CLAUDE.md"
 pruefe "Faden: falsche Zahl in CLAUDE.md ist rot" 1 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
 rm -f "$TMP/faden/CLAUDE.md"
 
+# Seit dem 26.08.2026 liegt der laufende Plan im Ueberordner. Ein leerer
+# Ordner ist deshalb gruen; zwei Plaene bleiben rot (oben geprueft).
 rm -r "$TMP/faden/docs/plans/active/023-beispiel"
-pruefe "Faden: leerer Ordner ist rot" 1 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
+pruefe "Faden: leerer Ordner ist gruen" 0 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
 
 # --- wartungsfenster.sh -----------------------------------------------------
 # Das Fenster haelt die Selbstheilung zurueck, solange ein Deploy oder ein

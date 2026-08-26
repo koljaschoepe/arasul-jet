@@ -129,13 +129,14 @@ run_gedankenstrich_check() {
   fi
 }
 
-# Funktion: Der Faden (genau ein Plan in docs/plans/active/)
+# Funktion: Der Faden (hoechstens ein Plan in docs/plans/active/)
 # Laeuft immer mit. Am 20.08.2026 lagen dort vier Eintraege, drei aus der Zeit
 # vor dem laufenden Plan, und CLAUDE.md nannte als "den einen Faden" eine Seite,
-# die den laufenden Plan gar nicht kennt.
+# die den laufenden Plan gar nicht kennt. Seit dem 26.08.2026 liegt der laufende
+# Plan im Ueberordner; leer ist deshalb gruen, zwei bleiben rot.
 run_faden_check() {
   echo ""
-  echo "-> Pruefe den Faden (ein Plan in docs/plans/active/)..."
+  echo "-> Pruefe den Faden (hoechstens ein Plan in docs/plans/active/)..."
   if python3 "${PROJECT_ROOT}/scripts/test/plan-faden.py" --pfad "${PROJECT_ROOT}"; then
     :
   else
