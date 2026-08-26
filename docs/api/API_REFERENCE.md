@@ -1609,7 +1609,7 @@ first failed step. `400` if the run is not failed or the flow has no step chain;
 `404` if the run is unknown/foreign. Response: `202 { runId, uebernommeneSchritte }`.
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
-> `werkzeuge`, `beispiele`, `vorlagen`) is a reserved segment: a flow named
+> `werkzeuge`, `vorlagen`) is a reserved segment: a flow named
 > exactly `laeufe` could not be fetched via `GET /:name`.
 >
 > The former preview endpoints `POST /api/flows/vorschau` and
