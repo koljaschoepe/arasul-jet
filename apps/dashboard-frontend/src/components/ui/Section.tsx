@@ -92,5 +92,3 @@ export function SectionList({ children, className }: SectionListProps) {
     </div>
   );
 }
-
-export default Section;

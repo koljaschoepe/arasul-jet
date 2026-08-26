@@ -2,82 +2,49 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Workspace-Store v7: offene Tabs, aktiver Tab, die Sidebar-Ansicht und die
+ * Workspace-Store v8: offene Tabs, aktiver Tab, die Sidebar-Ansicht und die
  * Sichtbarkeit der beiden Seitenspalten. Persistiert in localStorage, der
  * aktive Tab wird zusätzlich in der URL gespiegelt (siehe WorkspaceShell).
  *
- * Tab-Identität: pro (type, payload)-Kombination existiert höchstens ein
- * Tab — `tabId()` liefert den deterministischen Schlüssel, openTab dedupliziert.
+ * Tab-Identität: pro Typ existiert höchstens ein Tab — `tabId()` liefert den
+ * deterministischen Schlüssel, openTab dedupliziert.
  *
  * Phase B2 (26.08.2026): Editor, Terminal, Agent-Chat und Sandbox sind aus der
- * Oberfläche gefallen. Damit sind auch die Terminal-Session-Registry, der
- * Chat-Scope, das Dirty-Register der Editoren, die Explorer-Anfragen und die
- * Tab-Typen für Dokumente, Projektdateien und Projekte weg. Das rechte Panel
- * hat keinen Modus mehr, nur noch eine Sichtbarkeit; die Spalte bleibt leer,
- * bis D2 sie füllt.
+ * Oberfläche gefallen, mit ihnen die Terminal-Session-Registry, der Chat-Scope,
+ * das Dirty-Register, die Explorer-Anfragen und die Tab-Typen für Dokumente,
+ * Projektdateien und Projekte. Phase B3: Flow-Editor, Erweiterungs-Store und
+ * der Tab einer installierten Erweiterung sind weg; damit gibt es keinen Tab
+ * mehr, der eine Kennung (`extensionId`) trägt. Es bleiben Einstellungen,
+ * Modelle und Automationen (n8n). Das rechte Panel hat keinen Modus, nur eine
+ * Sichtbarkeit; die Spalte bleibt leer, bis D2 sie füllt.
  */
 
-export type WorkspaceTabType =
-  | 'settings'
-  // Plan 023 B7: aus dem einen Tab "Extensions", der je nach Zustand Modelle
-  // ODER Erweiterungen zeigte, sind zwei geworden. Der Titel sagt jetzt, was
-  // drinsteht, und beide lassen sich nebeneinander offen halten.
-  | 'modelle'
-  | 'erweiterungen'
-  | 'automationen'
-  | 'flow'
-  | 'extension';
+export type WorkspaceTabType = 'settings' | 'modelle' | 'automationen';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
   title?: string;
-  /** Nur bei type='extension': die installierte Erweiterung, die die Mitte füllt. */
-  extensionId?: string;
 }
 
 export interface WorkspaceTab {
   id: string;
   type: WorkspaceTabType;
   title: string;
-  extensionId?: string;
 }
 
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   settings: 'Einstellungen',
   modelle: 'Modelle',
-  erweiterungen: 'Erweiterungen',
   automationen: 'Automationen',
-  flow: 'Neuer Flow',
-  extension: 'Erweiterung',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
-  switch (spec.type) {
-    // Jede Erweiterung ist ein eigener Tab, damit man mehrere parallel offen
-    // haben kann.
-    case 'extension':
-      return `extension:${spec.extensionId ?? ''}`;
-    default:
-      return spec.type;
-  }
+  return spec.type;
 }
 
 /** Aktiver Tab → URL-Pfad unterhalb von /workspace. */
 export function tabToPath(tab: WorkspaceTab): string {
-  switch (tab.type) {
-    case 'settings':
-      return '/workspace/settings';
-    case 'modelle':
-      return '/workspace/modelle';
-    case 'erweiterungen':
-      return '/workspace/erweiterungen';
-    case 'automationen':
-      return '/workspace/automationen';
-    case 'flow':
-      return '/workspace/flow';
-    case 'extension':
-      return `/workspace/ext/${tab.extensionId ?? ''}`;
-  }
+  return `/workspace/${tab.type}`;
 }
 
 /** URL-Pfad (nach /workspace) → Tab-Spec, oder null wenn unbekannt. */
@@ -90,19 +57,12 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'settings' };
     case 'modelle':
       return { type: 'modelle' };
-    case 'erweiterungen':
-      return { type: 'erweiterungen' };
     // Alter Pfad aus der Zeit vor Plan 023 B7: /workspace/store zeigte je nach
-    // Zustand Modelle oder Erweiterungen. Gespeicherte Links landen bei den
-    // Erweiterungen; Modelle haben ihren eigenen Pfad.
+    // Zustand Modelle oder Erweiterungen. Seit B3 gibt es nur noch die Modelle.
     case 'store':
-      return { type: 'erweiterungen' };
+      return { type: 'modelle' };
     case 'automationen':
       return { type: 'automationen' };
-    case 'flow':
-      return { type: 'flow' };
-    case 'ext':
-      return parts[1] ? { type: 'extension', extensionId: parts[1] } : null;
     default:
       return null;
   }
@@ -110,16 +70,12 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
 
 /**
  * Die Sidebar-Ansichten der Activity-Bar. `null` heißt: keine Ansicht gewählt,
- * die linke Spalte ist leer. Seit B2 gibt es die Ansicht „Dateien" nicht mehr;
- * alte Stände mit 'files' oder 'search' landen auf null.
+ * die linke Spalte ist leer. Seit B2 gibt es die Ansicht „Dateien" nicht mehr,
+ * seit B3 auch „Erweiterungen" und „Flows" nicht; alte Stände damit landen auf
+ * null.
  */
-export type ActivityView = 'models' | 'extensions' | 'flows' | 'settings';
-const ACTIVITY_VIEWS: ReadonlySet<ActivityView> = new Set<ActivityView>([
-  'models',
-  'extensions',
-  'flows',
-  'settings',
-]);
+export type ActivityView = 'models' | 'settings';
+const ACTIVITY_VIEWS: ReadonlySet<ActivityView> = new Set<ActivityView>(['models', 'settings']);
 
 export interface WorkspaceState {
   tabs: WorkspaceTab[];
@@ -160,9 +116,9 @@ interface PersistedWorkspaceState {
   rightPanelVisible: boolean;
 }
 
-/** Roh-Shape älterer persistierter Stände (v≤6). */
+/** Roh-Shape älterer persistierter Stände (v≤7). */
 interface PersistedLegacyState {
-  tabs?: Array<{ id: string; type: string; title: string; extensionId?: string }>;
+  tabs?: Array<{ id: string; type: string; title: string }>;
   activeTabId?: string | null;
   activeView?: string;
   sidebarVisible?: boolean;
@@ -172,23 +128,24 @@ interface PersistedLegacyState {
   // v3 (zwei unabhängige Flächen)
   chatVisible?: boolean;
   terminalVisible?: boolean;
-  // v4 bis v6
+  // v4 bis v7
   rightPanelVisible?: boolean;
 }
 
 /**
- * Migration auf v7. Ältere Stände kannten ein rechtes Panel mit Modus (Chat
- * oder Terminal), Terminal-Sessions und Tabs für Dokumente, Projektdateien und
- * Projekte. Davon bleibt nur, was es noch gibt: die Tabs der verbliebenen
- * Typen, die Sidebar-Ansicht (ohne 'files'/'search') und die Sichtbarkeit der
- * beiden Spalten. Ein Tab, der beim Aktualisieren verschwindet, sieht aus wie
- * ein Fehler; deshalb wird der alte `store`-Tab weiter auf `erweiterungen`
- * umgeschrieben statt verworfen.
+ * Migration auf v8. Ältere Stände kannten ein rechtes Panel mit Modus (Chat
+ * oder Terminal), Terminal-Sessions, Tabs für Dokumente, Projektdateien und
+ * Projekte (bis v6) sowie die Tabs `erweiterungen`, `flow` und `extension`
+ * (v7). Davon bleibt nur, was es noch gibt: die Tabs der verbliebenen Typen,
+ * die Sidebar-Ansicht (ohne 'files'/'search'/'extensions'/'flows') und die
+ * Sichtbarkeit der beiden Spalten. Ein Tab, der beim Aktualisieren
+ * verschwindet, sieht aus wie ein Fehler; deshalb wird der alte `store`-Tab
+ * weiter umgeschrieben, jetzt auf `modelle`, statt verworfen.
  */
 function migrateWorkspaceState(persisted: unknown, version: number): PersistedWorkspaceState {
   const old = (persisted ?? {}) as PersistedLegacyState;
   const valid = new Set(Object.keys(DEFAULT_TITLES));
-  const umbenannt: Record<string, WorkspaceTabType> = { store: 'erweiterungen' };
+  const umbenannt: Record<string, WorkspaceTabType> = { store: 'modelle' };
   const neueId: Record<string, string> = {};
   const tabs = (Array.isArray(old.tabs) ? old.tabs : [])
     .map(t => {
@@ -199,11 +156,10 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
       return { ...t, type: neuerTyp, id, title: DEFAULT_TITLES[neuerTyp] };
     })
     .filter(t => valid.has(t.type))
-    .map(t => {
-      const tab: WorkspaceTab = { id: t.id, type: t.type as WorkspaceTabType, title: t.title };
-      if (t.extensionId) tab.extensionId = t.extensionId;
-      return tab;
-    });
+    // Zwei alte Tabs können auf denselben neuen Typ fallen (`store` und
+    // `modelle` nebeneinander); der Schlüssel bleibt eindeutig.
+    .filter((t, i, alle) => alle.findIndex(a => a.id === t.id) === i)
+    .map(t => ({ id: t.id, type: t.type as WorkspaceTabType, title: t.title }));
   const alterAktiver = old.activeTabId ? (neueId[old.activeTabId] ?? old.activeTabId) : null;
   const activeTabId =
     alterAktiver && tabs.some(t => t.id === alterAktiver) ? alterAktiver : (tabs[0]?.id ?? null);
@@ -250,7 +206,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           type: spec.type,
           title: spec.title ?? DEFAULT_TITLES[spec.type],
         };
-        if (spec.extensionId) tab.extensionId = spec.extensionId;
         set({ tabs: [...tabs, tab], activeTabId: id });
       },
 
@@ -310,7 +265,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'arasul_workspace',
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
       partialize: state => ({
         tabs: state.tabs,

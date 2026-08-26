@@ -1,7 +1,7 @@
 /**
- * StoreDetailPage — Detailseite eines Store-Eintrags (Full-Width mit „← Zurück").
- * Deckt Modell-Detail (Kontextlänge, Aktivieren, Als Standard, Zurück) und
- * Erweiterungs-Detail (Workspace-App An/Aus über setAppEnabled) ab.
+ * StoreDetailPage — Detailseite eines Modells (Full-Width mit „← Zurück").
+ * Deckt Kontextlänge, Aktivieren, Als Standard, Zurück und den Steckbrief ab.
+ * Erweiterungs- und Baukasten-Detail sind mit Phase B3 gefallen.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -49,25 +49,6 @@ const catalog = {
 };
 vi.mock('@/hooks/useStoreCatalog', () => ({
   useStoreCatalog: () => catalog,
-}));
-
-const setAppEnabled = vi.fn().mockResolvedValue(undefined);
-vi.mock('@/hooks/useWorkspaceApps', () => ({
-  useWorkspaceApps: () => ({
-    apps: [
-      {
-        id: 'n8n',
-        name: 'n8n',
-        description: 'Workflow-Automatisierung',
-        tab: 'automationen',
-        enabled: true,
-      },
-    ],
-    isLoading: false,
-    isAppEnabled: () => true,
-    isTabTypeEnabled: () => true,
-    setAppEnabled,
-  }),
 }));
 
 const startActivation = vi.fn();
@@ -169,14 +150,6 @@ describe('StoreDetailPage', () => {
     expect(useExtensionStore.getState().selected).toEqual({ kind: 'model', id: 'llama3-mini' });
   });
 
-  it('Erweiterungs-Detail: Deaktivieren ruft setAppEnabled', async () => {
-    useExtensionStore.getState().selectExtension({ kind: 'app', id: 'n8n' });
-    renderPage();
-    expect(screen.getByRole('heading', { name: 'n8n' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Deaktivieren/ }));
-    await waitFor(() => expect(setAppEnabled).toHaveBeenCalledWith('n8n', false));
-  });
-
   // --- Steckbrief, Plan 023 D2 -------------------------------------------
 
   it('Steckbrief: Parameter, Quantisierung und Lizenz stehen da', () => {
@@ -227,13 +200,5 @@ describe('StoreDetailPage', () => {
     expect(
       screen.queryByRole('link', { name: /Modellkarte beim Hersteller/ })
     ).not.toBeInTheDocument();
-  });
-
-  it('Baukasten-Einstieg (kind: builder) zeigt die Foundation-Seite', () => {
-    useExtensionStore.getState().selectExtension({ kind: 'builder', id: 'builder' });
-    renderPage();
-    expect(screen.getByRole('heading', { name: 'Eigene Erweiterung bauen' })).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('store-detail-back'));
-    expect(onBack).toHaveBeenCalled();
   });
 });

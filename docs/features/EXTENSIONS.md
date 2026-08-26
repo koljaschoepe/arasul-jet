@@ -1,5 +1,13 @@
 # Erweiterungs-Baukasten
 
+> **Stand 26.08.2026, Phase B3 des Umbaus:** Die Oberfläche des Baukastens
+> (Erweiterungen-Ansicht mit Karten und An/Aus-Schalter, Detailseiten für
+> Kern-App und Paket, „Eigene Erweiterung bauen", der Mitte-Tab einer
+> installierten `app`-Erweiterung und ihr Eintrag in der Activity-Bar) ist aus
+> dem Frontend entfernt; das Werkstatt-Panel schon mit B2. Die Endpunkte unter
+> `/api/extensions` und `/api/workspace-apps` laufen bis Phase B4 weiter.
+> Absätze, die eine Bedienung beschreiben, gelten seitdem nur noch für die API.
+
 Arasul ist offen: eigene **Apps**, **n8n-Flows** und **Werkzeug-Konnektoren**
 lassen sich lokal bauen, paketieren, herunterladen, weitergeben und wieder
 installieren — ohne Cloud, ohne fremden Marktplatz (Plan 012 Phase E).
@@ -382,10 +390,10 @@ entfernt, laufen ihre Zeitpläne nicht mehr.
 
 ## Grenzen (Stand „Automatisch live", 2026-07-29)
 
-- Eine **aktivierte** `app`-Erweiterung hat einen eigenen Eintrag in der
-  Activity-Bar (Puzzle-Icon, Klick öffnet ihren Mitte-Tab über den generischen
-  Tab-Typ `extension`) — die frühere Lücke ist geschlossen. Deaktivierte sowie
-  `flow`/`tool`-Pakete erscheinen dort nicht.
+- Eine **aktivierte** `app`-Erweiterung hatte bis B3 einen eigenen Eintrag in
+  der Activity-Bar (Puzzle-Icon, Klick öffnete ihren Mitte-Tab über den
+  Tab-Typ `extension`). Beides ist mit B3 gefallen; wie eine Erweiterung im
+  Zielbild in der Oberfläche erscheint, legt D1 fest.
 - Die Zugriffs-Stufe ist im Manifest deklariert und wird angezeigt; sie steuert
   heute die Sandbox, in der gebaut wird, noch nicht eine eigene Laufzeit pro
   Erweiterung.

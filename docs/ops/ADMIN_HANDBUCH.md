@@ -50,37 +50,35 @@ ausschliesslich unter **Einstellungen → Erscheinungsbild** gewaehlt. Alle
 Flaechen (Sidebar, Mitte, rechte Spalte) teilen denselben Hintergrund;
 getrennt wird nur durch feine Linien.
 
-> **Stand 26.08.2026 (Phase B2 des Umbaus):** Datei-Explorer, Editor,
-> Agent-Chat, Terminal und Sandbox-Ansichten sind aus der Oberflaeche
-> entfernt. Die linke Spalte ist ohne gewaehlte Ansicht leer, die rechte
-> Spalte ganz. Was dort kuenftig steht, legen die Phasen D1 und D2 fest.
+> **Stand 26.08.2026 (Phasen B2 und B3 des Umbaus):** Datei-Explorer,
+> Editor, Agent-Chat, Terminal und Sandbox-Ansichten (B2) sowie Flow-Editor,
+> Erweiterungs-Store und der Tab einer installierten Erweiterung (B3) sind
+> aus der Oberflaeche entfernt. Die linke Spalte ist ohne gewaehlte Ansicht
+> leer, die rechte Spalte ganz. Was dort kuenftig steht, legen die Phasen D1
+> und D2 fest.
 
-- **Activity Bar (ganz links):** schmale Icon-Leiste mit den Ansichten
-  **Modelle · Erweiterungen · Flows**, darunter die aktivierten
-  App-Erweiterungen (z. B. Automation/n8n), ganz unten **Einstellungen**
-  (inkl. System-Status).
-- **Sidebar (links):** zeigt die gewaehlte Ansicht: Modell-Filter,
-  Erweiterungs-Suche, Flow-Liste oder die Bereiche der Einstellungen. Ohne
-  Auswahl bleibt sie leer. Ein erneuter Klick auf die aktive Ansicht klappt
-  sie ein (auch `Strg/⌘ + B`).
-- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Modelle, Erweiterungen,
-  Flow-Editor, Automation, Einstellungen), schliessbar, werden nach einem
-  Neuladen wiederhergestellt.
+- **Activity Bar (ganz links):** schmale Icon-Leiste mit der Ansicht
+  **Modelle**, darunter die aktivierten Kern-Apps (Automation/n8n), ganz
+  unten **Einstellungen** (inkl. System-Status).
+- **Sidebar (links):** zeigt die gewaehlte Ansicht: Modell-Filter oder die
+  Bereiche der Einstellungen. Ohne Auswahl bleibt sie leer. Ein erneuter
+  Klick auf die aktive Ansicht klappt sie ein (auch `Strg/⌘ + B`).
+- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Modelle, Automation,
+  Einstellungen), schliessbar, werden nach einem Neuladen wiederhergestellt.
 - **Rechte Spalte:** leer, ein- und ausblendbar.
 - **Layout-Schalter (oben rechts, neben Einstellungen):** **zwei** Symbole
   blenden die Sidebar und die rechte Spalte unabhaengig ein/aus.
 - **Statusleiste (unten):** Verbindung und Version, das aktuell geladene
   KI-Modell samt belegtem KI-RAM (klickbar: Standardmodell waehlen), laufende
   Modell-Downloads.
-- **Modelle und Erweiterungen:** in der Mitte der durchsuchbare **Store** mit
-  zwei eigenen Tabs (Modelle · Erweiterungen); ein Klick oeffnet die
-  Detailseite mit allen Aktionen, KI-Modelle installieren/aktivieren,
-  Plattform-Apps (n8n) ein-/ausblenden. Ueber dem Modell-Raster steht ein
+- **Modelle:** in der Mitte der durchsuchbare **Store**; ein Klick auf eine
+  Karte oeffnet die Detailseite mit allen Aktionen (installieren, aktivieren,
+  als Standard, loeschen). Ueber dem Modell-Raster steht ein
   **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
   die aktuell im RAM geladenen Modelle mit **Entladen**, das **Standardmodell**
-  und **In den RAM laden** mit Live-Statusmeldungen. Deaktivieren einer App
-  wirkt sofort (ohne Neuladen): das Symbol verschwindet aus der Activity Bar
-  und offene Tabs der App werden geschlossen.
+  und **In den RAM laden** mit Live-Statusmeldungen. Der Erweiterungs-Store
+  mit dem An/Aus-Schalter der Kern-Apps ist mit B3 gefallen; n8n laesst sich
+  bis D1 nur ueber `PUT /api/workspace-apps/n8n` ein- und ausblenden.
 - Die Workspace-Shell ist die einzige Ansicht: `/` landet nach dem Login
   immer auf `/workspace`.
 
@@ -95,7 +93,8 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 - **Automatisierungen:** die letzten n8n-Workflow-Laeufe mit Status und
   Zeitpunkt; „n8n oeffnen" springt direkt in den Automation-Tab
 - **Chat starten/Dokument hochladen/Projekt oeffnen** sind als Aktions-Kacheln
-  entfallen, Chat lebt im rechten Panel, Upload im Explorer der Sidebar.
+  entfallen; Chat, Upload und Projekte gibt es seit B2 nicht mehr in der
+  Oberflaeche.
 
 ### Status-Farben
 
@@ -121,8 +120,8 @@ Zielbild ueber Flows laufen, legt Phase D4 fest.
 
 Dokumenten-Upload und Wissensraeume haben seit dem 26.08.2026 (Phase B2)
 keine Oberflaeche mehr; der Datei-Explorer, ueber den hochgeladen wurde, ist
-entfernt. Die Endpunkte unter `/api/documents` und `/api/spaces` laufen bis
-Phase B3/B4 weiter. Es gibt kein Vektor-RAG; gesucht wird ueber den
+entfernt; B3 hat im Frontend nichts mehr davon vorgefunden. Die Endpunkte
+unter `/api/documents` und `/api/spaces` laufen bis Phase B4 weiter. Es gibt kein Vektor-RAG; gesucht wird ueber den
 Textlayer in PostgreSQL.
 
 ---

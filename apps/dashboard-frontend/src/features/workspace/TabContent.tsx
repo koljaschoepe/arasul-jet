@@ -9,8 +9,6 @@ import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
-const ExtensionAppTab = lazy(() => import('./viewers/ExtensionAppTab'));
-const FlowEditorTab = lazy(() => import('@/features/flows/FlowEditorTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -53,13 +51,7 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/settings';
     case 'modelle':
       return '/store';
-    case 'erweiterungen':
-      return '/store';
     case 'automationen':
-      return '/';
-    case 'flow':
-      return '/';
-    case 'extension':
       // Direkt gerendert (kein FeatureTabHost), Wert wird nie genutzt.
       return '/';
   }
@@ -69,10 +61,7 @@ function initialPathFor(tab: WorkspaceTab): string {
 const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   modelle: new Set(['store']),
-  erweiterungen: new Set(['store']),
   automationen: new Set([]),
-  flow: new Set([]),
-  extension: new Set([]),
 };
 
 /**
@@ -132,20 +121,10 @@ export function FeatureTabHost({
             { type: 'settings' }
           )}
         />
-        {/* Plan 023 B7: derselbe innere Pfad, zwei Tabs. Welcher Bereich
-            gezeigt wird, entscheidet der Tab-Typ, nicht mehr ein Zustand
-            nebenan. */}
-        <Route
-          path="/store/*"
-          element={routeFor(
-            // Der Schluessel ist der ROUTEN-Name, nicht der Tab-Typ. Beide Tabs
-            // liegen auf demselben inneren Pfad /store, und SELF_KEYS sagt nur,
-            // ob dieser Pfad zum Tab selbst gehoert oder zur Bruecke.
-            'store',
-            <Store bereich={tab.type === 'modelle' ? 'models' : 'extensions'} />,
-            { type: tab.type === 'modelle' ? 'modelle' : 'erweiterungen' }
-          )}
-        />
+        {/* Der Schluessel ist der ROUTEN-Name, nicht der Tab-Typ: der Tab
+            `modelle` liegt auf dem inneren Pfad /store, und SELF_KEYS sagt nur,
+            ob dieser Pfad zum Tab selbst gehoert oder zur Bruecke. */}
+        <Route path="/store/*" element={routeFor('store', <Store />, { type: 'modelle' })} />
         <Route path="*" element={<Navigate to={resetTo} replace />} />
       </Routes>
     </IsolatedMemoryRouter>
@@ -156,27 +135,14 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   if (tab.type === 'automationen') {
     return <AutomationenTab />;
   }
-  if (tab.type === 'extension') {
-    return <ExtensionAppTab extensionId={tab.extensionId ?? ''} title={tab.title} />;
-  }
-  if (tab.type === 'flow') {
-    return <FlowEditorTab />;
-  }
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }
 
 /**
- * Tab-Typen, die beim Wechsel gemountet bleiben. `automationen` und
- * `extension` wegen des eingebetteten iframes; `flow`, damit ein halb
- * ausgefülltes Editor-Formular einen kurzen Tab-Wechsel übersteht statt
- * unbemerkt verloren zu gehen. Keep-Alive greift nur für tatsächlich
- * geöffnete Tabs.
+ * Tab-Typen, die beim Wechsel gemountet bleiben: `automationen` wegen des
+ * eingebetteten iframes. Keep-Alive greift nur für tatsächlich geöffnete Tabs.
  */
-const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
-  'automationen',
-  'flow',
-  'extension',
-]);
+const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['automationen']);
 
 /**
  * Rendert den aktiven Tab (plus Keep-Alive-Tabs unsichtbar), jeweils mit

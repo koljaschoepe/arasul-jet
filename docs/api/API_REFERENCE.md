@@ -1469,8 +1469,9 @@ verschwinden aus ActivityBar/Tab-Angebot, die Dienste laufen weiter.
 
 Seit Plan 012 Phase E tragen die kuratierten Kern-Apps dieselbe Taxonomie wie
 selbst gebaute Erweiterungen: `type` (`app` | `flow` | `tool`) und `accessTier`
-(`internet` | `internal` | `full`). Der Erweiterungen-Reiter filtert beide
-Quellen über dieselben Facetten.
+(`internet` | `internal` | `full`). Der Erweiterungen-Reiter, der beide
+Quellen über dieselben Facetten filterte, ist mit Phase B3 (26.08.2026) aus
+der Oberfläche gefallen; der Schalter hat bis D1 keine Oberfläche.
 
 ### Extensions (Erweiterungs-Baukasten)
 
@@ -3106,9 +3107,11 @@ only with `?raw=1`). Statuses: `laeuft | fertig | fehler | abgebrochen`.
 **Agenten-Baum (Migration 124).** Steps form a real tree: a subagent step is
 created **before** the role executes, and the role's inner tool calls become
 child steps via `flow_run_steps.parent_step_id`; `modell` records which model
-drove a subagent/model step. The run view (chat run card and the Flow-Zentrale
-run detail) renders each agent as a collapsible tree — live from the
-`step_start`/`step_end` frames, afterwards from the stored steps.
+drove a subagent/model step. The run views that rendered each agent as a
+collapsible tree (chat run card, Flow-Zentrale run detail) left the frontend
+with phases B2 and B3 on 2026-08-26; the data stays: live via the
+`step_start`/`step_end` frames, afterwards from the stored steps. D4 decides
+how runs are read in the target picture.
 
 **File changes overview (Plan 011, Schritt 16).** A flow writes and deletes
 files without confirmation, so every run that _can_ change files (declares
@@ -3488,7 +3491,8 @@ With `wait_for_result: true` (default) it blocks until the run reaches a termina
 state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
 are owned by the API key's creator (or the primary admin for orphaned keys). This
-is the per-flow HTTP trigger the UI surfaces (Flow-Zentrale). The former named-event
+is the per-flow HTTP trigger (the Flow-Zentrale that surfaced it left the UI with
+phase B3 on 2026-08-26). The former named-event
 endpoint (`events/:name`) was removed with flow scheduling on 2026-07-28.
 
 **POST /api/v1/external/llm/chat:**

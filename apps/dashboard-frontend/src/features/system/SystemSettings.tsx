@@ -69,5 +69,3 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
     </FilterBar>
   );
 }
-
-export default SystemSettings;

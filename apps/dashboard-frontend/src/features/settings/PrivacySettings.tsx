@@ -28,7 +28,7 @@ interface ZieleAntwort {
 }
 
 /** Bytes als Zahl, die jemand vorlesen kann. */
-export function groesse(bytes: number | null): string {
+function groesse(bytes: number | null): string {
   if (bytes === null || !Number.isFinite(bytes)) return 'unbekannt';
   const einheiten = ['Byte', 'KB', 'MB', 'GB', 'TB'];
   let wert = bytes;

@@ -9,12 +9,7 @@ import type { ReactNode } from 'react';
  * der Verwender bestimmt die Größe.
  */
 export type SettingsSectionId =
-  | 'general'
-  | 'ki'
-  | 'security'
-  | 'privacy'
-  | 'system'
-  | 'remote-access';
+  'general' | 'ki' | 'security' | 'privacy' | 'system' | 'remote-access';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -47,7 +42,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
 ];
 
-export const SETTINGS_SECTION_IDS: SettingsSectionId[] = SETTINGS_SECTIONS.map(s => s.id);
+const SETTINGS_SECTION_IDS: SettingsSectionId[] = SETTINGS_SECTIONS.map(s => s.id);
 
 /**
  * Alt-/Unter-Sektions-Ids (und Vorkonsolidierungs-Ids) auf die 6 Sektionen

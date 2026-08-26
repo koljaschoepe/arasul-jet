@@ -342,5 +342,3 @@ export function Werksreset() {
     </div>
   );
 }
-
-export default Werksreset;

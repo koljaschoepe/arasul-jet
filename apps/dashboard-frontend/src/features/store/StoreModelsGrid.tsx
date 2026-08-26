@@ -681,5 +681,3 @@ export function StoreModelsGrid() {
     </div>
   );
 }
-
-export default StoreModelsGrid;

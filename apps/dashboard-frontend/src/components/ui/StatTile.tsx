@@ -66,5 +66,3 @@ export function StatGrid({ children, className }: StatGridProps) {
     </div>
   );
 }
-
-export default StatTile;

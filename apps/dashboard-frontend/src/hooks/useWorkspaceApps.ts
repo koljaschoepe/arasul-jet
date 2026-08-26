@@ -1,15 +1,21 @@
 /**
- * Zustand der kuratierten Workspace-Apps (n8n, Datenbank).
- * Gemeinsame Datenbasis für ActivityBar (Sichtbarkeit) und Extensions-Tab
- * (Toggles) — via React Query, damit ein Toggle sofort überall wirkt.
- * Beim Deaktivieren schließt setAppEnabled offene Mitte-Tabs der App.
+ * Zustand der kuratierten Workspace-Apps (n8n).
+ * Datenbasis für ActivityBar (Sichtbarkeit) und WorkspaceShell (Tab-Gating)
+ * — via React Query. Der Schalter (`setAppEnabled`) hat seit Phase B3 keinen
+ * Aufrufer in der Oberfläche mehr: der Erweiterungs-Store, der ihn trug, ist
+ * gefallen; `PUT /workspace-apps/:id` bleibt im Backend. Er bleibt hier, weil
+ * D1 die App-Liste neu baut und der Fluss (Tabs schließen, Cache nachziehen)
+ * derselbe bleibt.
  */
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
-import type { AccessTier, ExtType } from '@/features/store/storeExtensionFilters';
+
+/** Taxonomie aus Plan 012 Phase E; das Backend liefert sie weiter. */
+type ExtType = 'app' | 'flow' | 'tool';
+type AccessTier = 'internet' | 'internal' | 'full';
 
 export interface WorkspaceApp {
   id: string;
@@ -90,8 +96,8 @@ export function useWorkspaceApps() {
 
   const setAppEnabled = useCallback(
     async (id: string, enabled: boolean) => {
-      // showError:false — der Aufrufer (StoreExtensionsGrid / StoreDetailPage)
-      // fängt den Fehler selbst ab und zeigt genau EINEN Toast. Sonst doppelt.
+      // showError:false — der Aufrufer fängt den Fehler selbst ab und zeigt
+      // genau EINEN Toast. Sonst doppelt.
       await api.put(`/workspace-apps/${id}`, { enabled }, { showError: false });
       queryClient.setQueryData<WorkspaceApp[]>(QUERY_KEY, prev =>
         (prev ?? []).map(a => (a.id === id ? { ...a, enabled } : a))

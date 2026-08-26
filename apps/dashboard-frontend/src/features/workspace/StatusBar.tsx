@@ -9,7 +9,6 @@ import { modellage, wechselGrund, kiRamZeile, zuGb } from '@/utils/modellZustand
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useExtensionStore } from '@/stores/extensionStore';
 import {
   isModelInstalled,
   isModelActive,
@@ -111,7 +110,6 @@ export function StatusBar() {
   // Store sichtbar — hier bleiben sie es überall, ein Klick springt hin.
   const { activeDownloadsList } = useDownloads();
   const openTab = useWorkspaceStore(s => s.openTab);
-  const setStoreTab = useExtensionStore(s => s.setStoreTab);
   const laufendeDownloads = activeDownloadsList.filter(
     d => d.phase !== 'complete' && d.phase !== 'error'
   );
@@ -310,7 +308,6 @@ export function StatusBar() {
           data-testid="statusbar-downloads"
           title="Zu den Modellen"
           onClick={() => {
-            setStoreTab('models');
             openTab({ type: 'modelle' });
           }}
           className="flex items-center gap-1.5 rounded px-1 text-primary hover:bg-accent"

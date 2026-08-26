@@ -7,7 +7,6 @@
 | Backend  | Jest 29 + supertest                 | `jest.config.js`, `jest.setup.js`            | `__tests__/helpers/authMock.js`                              |
 | Frontend | Vitest 3 + Testing Library React 16 | `vitest.config.ts`                           | `__tests__/helpers/renderWithProviders.tsx`, `testUtils.tsx` |
 | Python   | Pytest                              | `tests/pytest.ini`, per-service `pytest.ini` | `tests/unit/conftest.py` (30+ module mocks)                  |
-| E2E      | Playwright                          | `apps/dashboard-frontend/e2e/`               | 4 spec files                                                 |
 
 ## Run Tests
 

@@ -29,10 +29,9 @@ apps/dashboard-frontend/src/
   index.css                  # Tailwind v4 config, CSS variables, design tokens
 
   features/                  # Feature modules
-    workspace/               # Shell: ActivityBar (Modelle · Erweiterungen · Flows), Sidebar, Tabs, rechte Spalte (leer)
-    flows/                   # Flow-Editor-Tab, Flow-Dashboard, Läufe
+    workspace/               # Shell: ActivityBar (Modelle), Sidebar, Tabs, rechte Spalte (leer)
     settings/                # Settings, GeneralSettings, AIProfileSettings, System-Status
-    store/                   # Store (Modelle · Erweiterungen tabs)
+    store/                   # Store (Modelle: Raster + Detailseite)
     system/                  # SetupWizard, UpdatePage, SelfHealingEvents, Login
 
   components/

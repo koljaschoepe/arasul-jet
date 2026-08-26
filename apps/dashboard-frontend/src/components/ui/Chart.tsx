@@ -45,7 +45,7 @@ export const SERIENFARBEN = [
   'var(--text-muted)',
 ] as const;
 
-export interface ChartSeries {
+interface ChartSeries {
   /** Feldname im Datensatz. */
   key: string;
   /** Beschriftung in Legende und Tooltip. */
@@ -242,5 +242,3 @@ export const Sparkline = memo(function Sparkline({
     </div>
   );
 });
-
-export default Chart;

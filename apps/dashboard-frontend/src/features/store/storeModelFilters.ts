@@ -15,7 +15,7 @@ import { isModelInstalled } from '@/hooks/useStoreCatalog';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 
 export type SizeBucket = 'klein' | 'mittel' | 'gross';
-export type StatusFacet = 'installed' | 'available';
+type StatusFacet = 'installed' | 'available';
 
 export interface ModelFilterState {
   types: string[];
@@ -35,7 +35,7 @@ export const SIZE_LABELS: Record<SizeBucket, string> = {
   gross: 'Groß (> 16 GB)',
 };
 
-export const STATUS_LABELS: Record<StatusFacet, string> = {
+const STATUS_LABELS: Record<StatusFacet, string> = {
   installed: 'Installiert',
   available: 'Verfügbar',
 };
@@ -51,7 +51,7 @@ export const STATUS_LABELS: Record<StatusFacet, string> = {
  * `task` sagt es (Migration 151). Die alten Bezeichnungen bleiben als
  * Rückfall, für Geräte, deren Katalog die Spalte noch nicht trägt.
  */
-export const TASK_LABELS: Record<string, string> = {
+const TASK_LABELS: Record<string, string> = {
   text: 'Text',
   coding: 'Programmieren',
   vision: 'Sehen',
@@ -59,7 +59,7 @@ export const TASK_LABELS: Record<string, string> = {
   embedding: 'Einbettung',
 };
 
-export const TYPE_LABELS: Record<string, string> = {
+const TYPE_LABELS: Record<string, string> = {
   llm: 'Sprachmodell',
   chat: 'Sprachmodell',
   vision: 'Vision',
@@ -78,7 +78,7 @@ export function typeLabel(value: string): string {
 }
 
 /** Die Aufgabe eines Modells, mit dem alten Typ als Rückfall. */
-export function aufgabeVon(model: CatalogModel): string | undefined {
+function aufgabeVon(model: CatalogModel): string | undefined {
   return model.task ?? model.model_type;
 }
 
@@ -101,11 +101,6 @@ function statusOf(model: CatalogModel): StatusFacet {
   return isModelInstalled(model) ? 'installed' : 'available';
 }
 
-/** True, wenn kein Filter gesetzt ist. */
-export function isFilterEmpty(f: ModelFilterState): boolean {
-  return f.types.length === 0 && f.sizes.length === 0 && f.status.length === 0;
-}
-
 /** Anzahl aktiver Einzel-Filter (für die Chip-Leiste / „Zurücksetzen"). */
 export function activeFilterCount(f: ModelFilterState): number {
   return f.types.length + f.sizes.length + f.status.length;
@@ -115,11 +110,7 @@ export function activeFilterCount(f: ModelFilterState): number {
  * Ein Modell gegen Suchtext + Filterzustand prüfen. Innerhalb einer Gruppe
  * gilt ODER (mind. ein gewählter Wert passt), zwischen Gruppen UND.
  */
-export function modelMatches(
-  model: CatalogModel,
-  filters: ModelFilterState,
-  query: string
-): boolean {
+function modelMatches(model: CatalogModel, filters: ModelFilterState, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q !== '') {
     // Plan 023 D1: gesucht wird in dem Namen, den der Nutzer auch sieht.

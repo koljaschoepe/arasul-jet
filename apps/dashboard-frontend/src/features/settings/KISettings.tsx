@@ -72,5 +72,3 @@ export function KISettings({ onDirtyChange }: KISettingsProps = {}) {
     </FilterBar>
   );
 }
-
-export default KISettings;

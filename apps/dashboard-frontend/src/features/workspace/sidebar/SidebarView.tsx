@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 /**
  * Einheitliche Kopfzeile aller Sidebar-Ansichten: schmale Leiste mit Titel
- * (+ optionalen Aktionen), damit jede Ansicht (Modelle · Erweiterungen ·
- * Flows · Einstellungen) gleich aussieht.
+ * (+ optionalen Aktionen), damit jede Ansicht (Modelle · Einstellungen)
+ * gleich aussieht.
  */
 function SidebarViewHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
