@@ -1,6 +1,6 @@
 /**
  * Settings API routes
- * Handles system settings including password management for Dashboard, MinIO, and n8n
+ * Handles system settings including password management for Dashboard and n8n
  */
 
 const express = require('express');

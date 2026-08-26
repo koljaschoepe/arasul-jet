@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-// POST /password/dashboard, /password/minio, /password/n8n — shape only
+// POST /password/dashboard, /password/n8n — shape only
 const PasswordChangeBody = z
   .object({
     currentPassword: z

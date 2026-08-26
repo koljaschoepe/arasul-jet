@@ -7,7 +7,7 @@
  * Zwei Stufen:
  *
  *   `inhalte`      Alles, was der Nutzer erzeugt hat, ist weg. Die Einrichtung
- *                  bleibt: Zugang, Erweiterungen, Flows, Einstellungen, Modelle.
+ *                  bleibt: Zugang, Flows, Einstellungen, Modelle.
  *   `auslieferung` Zusätzlich die ganze Einrichtung. Danach läuft beim nächsten
  *                  Aufruf wieder die Ersteinrichtung, so wie bei einem neuen Gerät.
  *

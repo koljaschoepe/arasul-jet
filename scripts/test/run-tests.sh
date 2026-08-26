@@ -265,16 +265,6 @@ run_werksreset_tabellen_check() {
   fi
 }
 
-run_geruest_regeln_check() {
-  echo ""
-  echo "-> Pruefe die Geruest-Regeln (Werkstatt gegen Backend)..."
-  if python3 "${PROJECT_ROOT}/scripts/test/geruest-regeln.py"; then
-    :
-  else
-    EXIT_CODE=1
-  fi
-}
-
 # Drei Waechter liefen bisher NUR in der CI. Wer lokal `run-tests.sh` aufruft,
 # sah sie nicht — und ein Zug, der die CI umgeht (Weboberflaeche, --no-verify,
 # ein Workflow, der selbst committet), sieht sie dann gar nicht. Am 24.08.2026
@@ -499,7 +489,6 @@ run_durchreichung_check
 run_datenordner_check
 run_werksreset_tabellen_check
 run_rollback_meldung_check
-run_geruest_regeln_check
 run_pfadfilter_check
 run_routenregeln_check
 run_stiller_tod_check
