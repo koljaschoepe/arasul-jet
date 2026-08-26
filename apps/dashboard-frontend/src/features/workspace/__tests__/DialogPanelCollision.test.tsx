@@ -33,16 +33,6 @@ vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
 vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
-vi.mock('@/hooks/useWorkspaceApps', () => ({
-  useWorkspaceApps: () => ({
-    apps: [],
-    isLoading: false,
-    isAppEnabled: () => true,
-    isTabTypeEnabled: () => true,
-    setAppEnabled: vi.fn(),
-  }),
-}));
-
 function resetStore() {
   useWorkspaceStore.setState({
     tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],

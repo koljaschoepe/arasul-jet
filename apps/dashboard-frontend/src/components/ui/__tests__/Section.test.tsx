@@ -66,9 +66,9 @@ describe('SectionList', () => {
   });
 
   it('greift auf das letzte Kind, nicht auf den letzten Abschnitt', () => {
-    // In "Allgemein" folgt nach dem letzten Abschnitt noch die n8n-Anleitung.
-    // Genau diese Linie trennt sie, sie muss also stehen bleiben. Mit
-    // last-of-type wäre sie verschwunden.
+    // Folgt nach dem letzten Abschnitt noch etwas, das kein Abschnitt ist
+    // (bis B5 war das die n8n-Anleitung in „Allgemein"), trennt genau diese
+    // Linie; sie muss also stehen bleiben. Mit last-of-type wäre sie weg.
     const { container } = render(
       <SectionList>
         <Section title="Erster">

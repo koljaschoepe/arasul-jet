@@ -2,7 +2,7 @@
  * PasswordManagement Component Tests
  *
  * Tests für PasswordManagement:
- * - Nur das Dashboard-Passwort (MinIO ist seit Phase B4 weg; n8n verwaltet Passwörter selbst)
+ * - Nur das Dashboard-Passwort (MinIO ist seit Phase B4 weg, der n8n-Hinweis seit B5)
  * - Formular-Rendering
  * - Password-Validierung
  * - Toggle-Sichtbarkeit
@@ -175,25 +175,13 @@ describe('PasswordManagement Component', () => {
   // Nur ein Dienst
   // =====================================================
   describe('Nur ein Dienst', () => {
-    test('zeigt keinen Dienst-Selektor mehr, aber den n8n-Hinweis', async () => {
+    test('zeigt keinen Dienst-Selektor und keinen Fremddienst-Hinweis mehr', async () => {
       renderPasswordManagement();
 
       // Seit Phase B4 gibt es nur das Dashboard-Passwort: keine Tabs, kein MinIO.
       expect(screen.queryAllByRole('tab')).toHaveLength(0);
       expect(screen.queryByText(/MinIO/)).not.toBeInTheDocument();
-      // n8n ist kein Passwort-Tab, es verwaltet seine Konten selbst (Hinweis).
-      expect(screen.getByText('n8n-Passwort')).toBeInTheDocument();
-    });
-
-    test('zeigt n8n-Hinweis-Sektion mit Link zu n8n', async () => {
-      renderPasswordManagement();
-
-      // n8n manages accounts itself, so it appears as an info section, not a tab.
-      expect(
-        screen.getByText(/n8n verwaltet Benutzerkonten und Passwörter selbst/)
-      ).toBeInTheDocument();
-      const n8nLink = screen.getByRole('link', { name: 'n8n' });
-      expect(n8nLink).toHaveAttribute('href', '/n8n');
+      expect(screen.queryByText(/n8n/)).not.toBeInTheDocument();
     });
   });
 
@@ -372,13 +360,6 @@ describe('PasswordManagement Component', () => {
       expect(
         screen.getByText(/Nach dem Ändern des Dashboard-Passworts wirst du automatisch abgemeldet/)
       ).toBeInTheDocument();
-    });
-
-    test('zeigt Hinweis dass n8n Passwörter selbst verwaltet', async () => {
-      renderPasswordManagement();
-
-      // n8n changes are done in n8n itself (Settings → Personal Settings).
-      expect(screen.getByText(/Settings → Personal Settings/)).toBeInTheDocument();
     });
   });
 

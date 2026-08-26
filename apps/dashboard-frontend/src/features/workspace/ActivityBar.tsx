@@ -1,8 +1,7 @@
 import React from 'react';
-import { Cpu, Workflow, Settings } from 'lucide-react';
+import { Cpu, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import type { ActivityView, WorkspaceTabSpec } from '@/stores/workspaceStore';
-import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
+import type { ActivityView } from '@/stores/workspaceStore';
 
 interface ActivityButtonProps {
   label: string;
@@ -44,34 +43,13 @@ const VIEW_ENTRIES: Array<{ view: ActivityView; label: string; icon: React.React
 ];
 
 /**
- * Dynamische App-Einträge: erscheinen NUR, wenn die zugehörige Erweiterung
- * aktiviert (heruntergeladen) ist. n8n ist damit eine echte Erweiterung —
- * deaktiviert taucht sie hier nicht auf (Lizenz-sauber, der Container läuft
- * dann auch nicht; siehe appLifecycleService). App-Einträge öffnen einen
- * Mitte-Tab, sie sind keine Sidebar-Ansicht.
- */
-const APP_ENTRIES: Array<{
-  appId: string;
-  spec: WorkspaceTabSpec;
-  label: string;
-  icon: React.ReactNode;
-}> = [
-  {
-    appId: 'n8n',
-    spec: { type: 'automationen' },
-    label: 'Automation',
-    icon: <Workflow className="h-[18px] w-[18px]" />,
-  },
-];
-
-/**
  * Activity-Bar (Plan 012 Phase B, Schritt 5): eine eigene, **immer sichtbare**
  * schmale Spalte ganz links — außerhalb des einklappbaren Sidebar-Panels.
  * Dadurch bleibt jede Ansicht erreichbar, auch wenn die Sidebar eingeklappt
  * ist.
  *
- * Oben die feste Ansicht »Modelle«, darunter die aktivierten Kern-Apps, unten
- * das Einstellungen-Zahnrad. Ein Klick auf eine Ansicht wählt sie und zieht die
+ * Oben die feste Ansicht »Modelle«, unten das Einstellungen-Zahnrad. Die
+ * Kern-App-Einträge dazwischen (n8n) sind mit Phase B5 gefallen. Ein Klick auf eine Ansicht wählt sie und zieht die
  * Sidebar auf; erneuter Klick auf die aktive Ansicht klappt sie wieder ein
  * (VS-Code-Semantik, `selectView`). »Modelle« öffnet zusätzlich den Mitte-Tab.
  */
@@ -80,11 +58,6 @@ export function ActivityBar() {
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const selectView = useWorkspaceStore(s => s.selectView);
   const openTab = useWorkspaceStore(s => s.openTab);
-  const activeTabId = useWorkspaceStore(s => s.activeTabId);
-  const { isAppEnabled } = useWorkspaceApps();
-
-  const apps = APP_ENTRIES.filter(a => isAppEnabled(a.appId));
-
   const handleView = (view: ActivityView) => {
     selectView(view);
     // Jede Ansicht zeigt ihren Inhalt auch in der Mitte.
@@ -106,18 +79,6 @@ export function ActivityBar() {
           onClick={() => handleView(entry.view)}
         >
           {entry.icon}
-        </ActivityButton>
-      ))}
-
-      {apps.length > 0 && <div className="my-1 h-px w-6 shrink-0 bg-border" aria-hidden="true" />}
-      {apps.map(a => (
-        <ActivityButton
-          key={a.appId}
-          label={a.label}
-          active={activeTabId === a.spec.type}
-          onClick={() => openTab(a.spec)}
-        >
-          {a.icon}
         </ActivityButton>
       ))}
 

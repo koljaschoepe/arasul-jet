@@ -7,7 +7,6 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
-import { N8nIntegrationGuide } from './N8nIntegrationGuide';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 
@@ -209,8 +208,6 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
             </p>
           </div>
         </Section>
-
-        <N8nIntegrationGuide />
       </SectionList>
     </div>
   );

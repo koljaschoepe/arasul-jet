@@ -8,7 +8,6 @@ import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
-const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -51,9 +50,6 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/settings';
     case 'modelle':
       return '/store';
-    case 'automationen':
-      // Direkt gerendert (kein FeatureTabHost), Wert wird nie genutzt.
-      return '/';
   }
 }
 
@@ -61,7 +57,6 @@ function initialPathFor(tab: WorkspaceTab): string {
 const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   modelle: new Set(['store']),
-  automationen: new Set([]),
 };
 
 /**
@@ -131,29 +126,16 @@ export function FeatureTabHost({
   );
 }
 
-function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
-  if (tab.type === 'automationen') {
-    return <AutomationenTab />;
-  }
-  return <FeatureTabHost tab={tab} themeControls={themeControls} />;
-}
-
 /**
- * Tab-Typen, die beim Wechsel gemountet bleiben: `automationen` wegen des
- * eingebetteten iframes. Keep-Alive greift nur für tatsächlich geöffnete Tabs.
- */
-const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['automationen']);
-
-/**
- * Rendert den aktiven Tab (plus Keep-Alive-Tabs unsichtbar), jeweils mit
- * eigener ErrorBoundary — ein Renderfehler in einem Tab darf die Shell
+ * Rendert den aktiven Tab mit eigener ErrorBoundary (das Keep-Alive für den
+ * n8n-iframe ist mit Phase B5 gefallen) — ein Renderfehler in einem Tab darf die Shell
  * nicht mitreißen.
  */
 export function TabContent({ themeControls }: TabContentProps) {
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
 
-  const mounted = tabs.filter(t => t.id === activeTabId || KEEP_ALIVE_TYPES.has(t.type));
+  const mounted = tabs.filter(t => t.id === activeTabId);
 
   if (mounted.length === 0) {
     return (
@@ -184,7 +166,7 @@ export function TabContent({ themeControls }: TabContentProps) {
                 </div>
               }
             >
-              {renderTab(tab, themeControls)}
+              <FeatureTabHost tab={tab} themeControls={themeControls} />
             </Suspense>
           </ComponentErrorBoundary>
         </div>

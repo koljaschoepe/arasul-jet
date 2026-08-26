@@ -50,11 +50,10 @@ describe('workspaceStore, Tabs', () => {
     const s = useWorkspaceStore.getState();
     s.openTab({ type: 'settings' });
     s.openTab({ type: 'modelle' });
-    s.openTab({ type: 'automationen' });
-    s.activateTab('modelle');
-    s.closeTab('modelle');
-    expect(useWorkspaceStore.getState().activeTabId).toBe('automationen');
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings', 'automationen']);
+    s.activateTab('settings');
+    s.closeTab('settings');
+    expect(useWorkspaceStore.getState().activeTabId).toBe('modelle');
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['modelle']);
   });
 
   it('schließt den letzten Tab → kein aktiver Tab', () => {
@@ -76,33 +75,24 @@ describe('workspaceStore, Tabs', () => {
     const s = useWorkspaceStore.getState();
     s.openTab({ type: 'settings' });
     s.openTab({ type: 'modelle' });
-    s.openTab({ type: 'automationen' });
-    s.moveTab(0, 2);
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
-      'modelle',
-      'automationen',
-      'settings',
-    ]);
+    s.moveTab(0, 1);
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['modelle', 'settings']);
     s.moveTab(5, 0);
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
-      'modelle',
-      'automationen',
-      'settings',
-    ]);
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['modelle', 'settings']);
   });
 
   it('jeder Tab-Typ ist ein Singleton mit Default-Titel', () => {
     const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'automationen' });
-    s.openTab({ type: 'automationen' });
+    s.openTab({ type: 'modelle' });
+    s.openTab({ type: 'modelle' });
     expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
-    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('Automationen');
+    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('Modelle');
   });
 
   it('updateTabTitle ändert den Titel', () => {
     const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'automationen' });
-    s.updateTabTitle('automationen', 'angebot');
+    s.openTab({ type: 'modelle' });
+    s.updateTabTitle('modelle', 'angebot');
     expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('angebot');
   });
 
@@ -111,7 +101,7 @@ describe('workspaceStore, Tabs', () => {
     const raw = localStorage.getItem('arasul_workspace');
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw as string) as { state: { tabs: unknown[] }; version: number };
-    expect(parsed.version).toBe(8);
+    expect(parsed.version).toBe(9);
     expect(parsed.state.tabs).toHaveLength(1);
   });
 });
@@ -158,7 +148,7 @@ describe('workspaceStore, Sidebar + rechte Spalte', () => {
   });
 });
 
-describe('workspaceStore, Migration auf v8', () => {
+describe('workspaceStore, Migration auf v9', () => {
   beforeEach(reset);
 
   async function migriere(state: Record<string, unknown>, version: number) {
@@ -235,11 +225,28 @@ describe('workspaceStore, Migration auf v8', () => {
       },
       7
     );
-    expect(s.tabs.map(t => t.id)).toEqual(['automationen']);
-    expect(s.activeTabId).toBe('automationen');
+    expect(s.tabs).toEqual([]);
+    expect(s.activeTabId).toBeNull();
     expect(s.activeView).toBeNull();
     expect(s.sidebarVisible).toBe(false);
-    expect('extensionId' in (s.tabs[0] ?? {})).toBe(false);
+  });
+
+  it('v8: der Tab automationen (n8n) fällt, die übrigen bleiben', async () => {
+    const s = await migriere(
+      {
+        tabs: [
+          { id: 'settings', type: 'settings', title: 'Einstellungen' },
+          { id: 'automationen', type: 'automationen', title: 'Automationen' },
+        ],
+        activeTabId: 'automationen',
+        activeView: null,
+        sidebarVisible: true,
+        rightPanelVisible: true,
+      },
+      8
+    );
+    expect(s.tabs.map(t => t.id)).toEqual(['settings']);
+    expect(s.activeTabId).toBe('settings');
   });
 
   it('v3: zwei Flächen (Chat/Terminal) falten sich zur Sichtbarkeit der rechten Spalte', async () => {
@@ -256,14 +263,14 @@ describe('workspaceStore, Migration auf v8', () => {
     expect(s.rightPanelVisible).toBe(false);
   });
 
-  it('schreibt den migrierten Stand als version 8 zurück', async () => {
+  it('schreibt den migrierten Stand als version 9 zurück', async () => {
     await migriere({ tabs: [{ id: 'settings', type: 'settings', title: 'E' }] }, 6);
     useWorkspaceStore.getState().toggleSidebar();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') as string) as {
       version: number;
       state: Record<string, unknown>;
     };
-    expect(parsed.version).toBe(8);
+    expect(parsed.version).toBe(9);
     expect(Object.keys(parsed.state).sort()).toEqual(
       ['activeTabId', 'activeView', 'rightPanelVisible', 'sidebarVisible', 'tabs'].sort()
     );
@@ -272,11 +279,7 @@ describe('workspaceStore, Migration auf v8', () => {
 
 describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
   it('bildet jeden Tab-Typ auf einen Pfad ab und zurück', () => {
-    const specs: WorkspaceTabSpec[] = [
-      { type: 'settings' },
-      { type: 'modelle' },
-      { type: 'automationen' },
-    ];
+    const specs: WorkspaceTabSpec[] = [{ type: 'settings' }, { type: 'modelle' }];
     for (const spec of specs) {
       const tab = { id: tabId(spec), type: spec.type, title: 'x' };
       const zurueck = pathToTabSpec(tabToPath(tab).replace(/^\/workspace/, ''));

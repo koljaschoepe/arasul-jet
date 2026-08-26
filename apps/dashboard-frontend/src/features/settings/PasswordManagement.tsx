@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Check, X, AlertCircle, AlertTriangle, Info, Lock, Zap } from 'lucide-react';
+import { Eye, EyeOff, Check, X, AlertCircle, AlertTriangle, Info, Lock } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -377,28 +377,6 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
             wirst du automatisch abgemeldet.
           </p>
         </form>
-
-        {/* n8n info */}
-        <div className="mt-6 pt-6 border-t border-border">
-          <div className="flex items-start gap-3 text-sm">
-            <Zap className="size-4 text-primary shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-foreground">n8n-Passwort</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                n8n verwaltet Benutzerkonten und Passwörter selbst. Öffne{' '}
-                <a
-                  href="/n8n"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  n8n
-                </a>{' '}
-                → Settings → Personal Settings, um dein n8n-Passwort zu ändern.
-              </p>
-            </div>
-          </div>
-        </div>
       </Section>
     </>
   );
