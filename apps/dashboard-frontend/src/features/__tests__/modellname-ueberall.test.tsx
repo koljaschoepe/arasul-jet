@@ -3,10 +3,11 @@
  *
  * Am 20.08.2026 am Geraet gemessen: Katalog, Statusleiste und Auswahlliste
  * sagten uebereinstimmend "Gemma 4 Kompakt", der Modellknopf im Chat sagte
- * "Gemma". Er kuerzte auf das erste Wort.
+ * "Gemma". Er kuerzte auf das erste Wort. Der Chat ist mit B2 gefallen; die
+ * beiden verbliebenen Flaechen muessen weiter dasselbe sagen.
  *
- * Dieser Test rendert die drei Flaechen mit DEMSELBEN Modell und verlangt
- * dieselbe Zeichenkette. Er ist bewusst nicht in eine der drei bestehenden
+ * Dieser Test rendert beide Flaechen mit DEMSELBEN Modell und verlangt
+ * dieselbe Zeichenkette. Er ist bewusst nicht in eine der bestehenden
  * Testdateien gewandert: die Aussage gilt zwischen ihnen, nicht in einer.
  *
  * Zwei Faelle, weil zwei Wege in die Anzeige fuehren:
@@ -19,10 +20,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { StoreModelsGrid } from '../store/StoreModelsGrid';
 import { StatusBar } from '../workspace/StatusBar';
-import ComposerCard, { type ComposerModel } from '../workspace/llm/agentChat/ComposerCard';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { EMPTY_MODEL_FILTERS } from '../store/storeModelFilters';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 
 /** Katalog-Eintrag mit gepflegtem Namen und einer rohen Kennung. */
@@ -55,12 +54,6 @@ vi.mock('@/hooks/useApi', () => ({ useApi: () => ({ get, post }) }));
 vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
-vi.mock('@/stores/workspaceStore', async () => {
-  const actual =
-    await vi.importActual<typeof import('@/stores/workspaceStore')>('@/stores/workspaceStore');
-  return actual;
-});
-
 const katalog = {
   models: [GEPFLEGT, DIREKT_PULL] as unknown[],
   loadedModel: null as { model_id: string } | null,
@@ -125,8 +118,6 @@ function apiRouten(geladen: { name: string; ramMb: number } | null) {
         return Promise.resolve({ loaded_model: null });
       case '/models/default':
         return Promise.resolve({ default_model: null });
-      case '/projects/active':
-        return Promise.resolve({ data: { project: null, space_ids: [] } });
       default:
         return Promise.resolve({ status: 'OK', version: '1.2.3' });
     }
@@ -134,36 +125,17 @@ function apiRouten(geladen: { name: string; ramMb: number } | null) {
   post.mockResolvedValue({});
 }
 
-function composerProps(modelle: ComposerModel[], gewaehlt: string) {
-  return {
-    value: '',
-    onChange: vi.fn(),
-    onSend: vi.fn(),
-    onCancel: vi.fn(),
-    isLoading: false,
-    attachedFiles: [] as File[],
-    onRemoveFile: vi.fn(),
-    attachedImages: [] as { file: File; base64: string }[],
-    onRemoveImage: vi.fn(),
-    onPickFile: vi.fn(),
-    models: modelle,
-    selectedModel: gewaehlt,
-    onSelectModel: vi.fn(),
-  };
-}
-
 describe('ein Modell heisst ueberall gleich', () => {
   beforeEach(() => {
     get.mockReset();
     post.mockReset();
     useStoreFilterStore.setState({ modelQuery: '', modelFilters: EMPTY_MODEL_FILTERS });
-    useWorkspaceStore.setState({ chatScope: null });
   });
 
   it.each([
     ['Katalogname gepflegt', GEPFLEGT, 'Qwen 3.8 27B'],
     ['Direkt-Pull ohne Namen', DIREKT_PULL, 'Qwen 3 Coder 30B'],
-  ])('%s: Katalog, Statusleiste und Chat sagen dasselbe', async (_was, modell, erwartet) => {
+  ])('%s: Katalog und Statusleiste sagen dasselbe', async (_was, modell, erwartet) => {
     // Das Register ist die Quelle, an der die drei Flaechen gemessen werden.
     expect(modellAnzeigeName(modell)).toBe(erwartet);
 
@@ -180,12 +152,5 @@ describe('ein Modell heisst ueberall gleich', () => {
     const leiste = huelle(<StatusBar />);
     expect(await screen.findByText(new RegExp(erwartet.replace(/\./g, '\\.')))).toBeInTheDocument();
     leiste.unmount();
-
-    // 3. Modellknopf im Chat
-    const chat = huelle(
-      <ComposerCard {...composerProps([{ id: modell.id, name: erwartet }], modell.id)} />
-    );
-    expect(screen.getByRole('button', { name: 'Modell wählen' })).toHaveTextContent(erwartet);
-    chat.unmount();
   });
 });

@@ -113,7 +113,7 @@ export default function RunCard({ runId, flowName, onFinished }: RunCardProps) {
   // Wissensbasis-Argumente stehen im Lauf als Raum-UUID — in der Kopfzeile den
   // NAMEN der Sammlung zeigen; eine UUID, die sich nicht auflösen lässt,
   // lieber ausblenden als roh anzeigen. Die Sammlungen sind gecacht (gleicher
-  // Query-Key wie im ArgumentPicker) — das kostet keinen zusätzlichen Request.
+  // Query-Key wie in der Flow-Liste) — das kostet keinen zusätzlichen Request.
   const hatUuidArg = Object.values(run.args).some(v => UUID_RE.test(String(v)));
   const sammlungen = useQuery({
     queryKey: ['flows', 'sammlungen'],
