@@ -28,13 +28,18 @@
 | login_attempts   | id, username, ip_address, success, attempted_at                             |
 | password_history | id, user_id, password_hash, changed_at, ip_address                          |
 
-### Chat (005, 006, 008, 041, 042, 046)
+### LLM Jobs (006, 008, 154, 159, 165)
 
-| Table              | Key Columns                                                                                                      |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| chat_conversations | id, title, message_count, deleted_at, compaction_summary                                                         |
-| chat_messages      | id, conversation_id, role, content, thinking, sources, job_id, status                                            |
-| llm_jobs           | id (UUID), conversation_id, job_type, status, content, thinking, sources, request_data, queue_position, priority |
+| Table    | Key Columns                                                                                                    |
+| -------- | -------------------------------------------------------------------------------------------------------------- |
+| llm_jobs | id (UUID), user_id, job_type, status, content, thinking, request_data, queue_position, priority, abbruch_grund |
+
+> **Chat — ENTFERNT (Migration 165, 2026-08-26).** Phase B6 hat
+> `chat_conversations`, `chat_messages` und `chat_attachments` (005, 041, 046,
+> 059, 066, 127, 128, 155) gestrichen; der Oberflächen-Chat war seit B2 weg.
+> Ein Auftrag an das Sprachmodell trägt seinen Besitzer selbst (`user_id`) und
+> lebt eine Stunde nach seinem Ende; er entsteht nur noch über die externe
+> API und die OpenAI-kompatible `/v1`.
 
 ### Documents, RAG, Memory, Workspaces — ENTFERNT (Migration 163, 2026-08-26)
 
@@ -133,7 +138,9 @@ INSERT INTO ... ON CONFLICT (key) DO NOTHING;
 
 ### Soft Deletes
 
-`chat_conversations` uses a `deleted_at TIMESTAMPTZ` column. Filter with `WHERE deleted_at IS NULL`.
+Keine mehr: `chat_conversations` (mit `deleted_at`) ist seit Migration 165 weg.
+`flow_runs` und `llm_jobs` werden hart gelöscht (Werksreset, DSGVO-Löschung,
+`cleanup_old_llm_jobs()`).
 
 ### JSONB for Flexible Data
 
@@ -178,8 +185,6 @@ All enforced by `run_all_cleanups()`:
 | Self-healing events             | 30 days          |
 | Service restarts                | 30 days          |
 | Document access logs            | 30 days          |
-| Soft-deleted chats              | 30 days          |
-| Compaction logs                 | 30 days          |
 | App store events                | 30 days          |
 | Notification events             | 30 days          |
 | Bot audit logs                  | 90 days          |

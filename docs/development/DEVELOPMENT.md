@@ -283,14 +283,17 @@ curl -H "Authorization: Bearer <token>" -H "Accept: text/event-stream" \
 | POST   | `/api/auth/logout` | Yes  | Logout         |
 | GET    | `/api/auth/me`     | Yes  | Current user   |
 
-### AI Chat
+### LLM (externe API)
 
-| Method | Path             | Auth | Description         |
-| ------ | ---------------- | ---- | ------------------- |
-| POST   | `/api/llm/chat`  | Yes  | LLM inference (SSE) |
-| GET    | `/api/chats`     | Yes  | List conversations  |
-| POST   | `/api/chats`     | Yes  | Create conversation |
-| GET    | `/api/llm/queue` | Yes  | Queue status        |
+Den Oberflächen-Chat (`/api/llm/chat`, `/api/chats`) gibt es seit Phase B6
+(26.08.2026) nicht mehr. Aufträge an das Sprachmodell laufen über die externe
+API mit API-Schlüssel, siehe `docs/api/API_REFERENCE.md`, Abschnitt External API.
+
+| Method | Path                              | Auth    | Description             |
+| ------ | --------------------------------- | ------- | ----------------------- |
+| POST   | `/api/v1/external/llm/chat`       | API Key | Zustandsloser Auftrag   |
+| GET    | `/api/v1/external/llm/job/:jobId` | API Key | Stand eines Auftrags    |
+| POST   | `/v1/chat/completions`            | API Key | OpenAI-kompatibler Chat |
 
 ### Flows
 

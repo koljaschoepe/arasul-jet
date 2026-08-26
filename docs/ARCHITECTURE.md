@@ -280,8 +280,6 @@ apps/dashboard-backend/
 ├── src/routes/
 │   ├── index.js              # Central router (mounts all routes)
 │   ├── auth.js               # /api/auth/login, /logout, /me
-│   ├── llm.js                # /api/llm/chat (SSE), /queue, /jobs
-│   ├── chats.js              # /api/chats CRUD
 │   ├── flows.js              # /api/flows (Definitionen, Läufe, Vorlagen)
 │   ├── docs.js               # /api/docs
 │   ├── system/               # system, services, metrics, logs, database, tailscale

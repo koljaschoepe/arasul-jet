@@ -363,194 +363,18 @@ Erlaubte Dienste (Stand: 2026-08-26, Quelle:
 `embedding-service`, `document-indexer`, `reverse-proxy`, `dashboard-backend`,
 `dashboard-frontend`, `self-healing-agent`, `backup-service`.
 
-### AI Chat (LLM)
+### AI Chat (LLM) und Chat Conversations — ENTFERNT (Phase B6, 26.08.2026)
 
-| Method | Endpoint                    | Description                                                      | Rate Limit |
-| ------ | --------------------------- | ---------------------------------------------------------------- | ---------- |
-| POST   | `/api/llm/chat`             | LLM inference (SSE streaming)                                    | 10/s       |
-| GET    | `/api/llm/models`           | List available models                                            | -          |
-| GET    | `/api/llm/status`           | LLM service status                                               | -          |
-| GET    | `/api/llm/jobs`             | Die Läufe (`llm_jobs`), neueste zuerst                           | -          |
-| GET    | `/api/llm/jobs/:id`         | Ein Lauf im Einzelnen, samt Teiltext und Abbruchgrund            | -          |
-| GET    | `/api/llm/jobs/:id/stream`  | Der Ereignis-Strom eines laufenden Laufs (SSE)                   | -          |
-| DELETE | `/api/llm/jobs/:id`         | Einen Lauf abbrechen. Der Teiltext bleibt erhalten (Plan 023 E1) | -          |
-| GET    | `/api/llm/queue`            | Wer wartet gerade auf die GPU, in welcher Reihenfolge            | -          |
-| GET    | `/api/llm/queue/metrics`    | Wartezeiten und Durchsatz der GPU-Warteschlange                  | -          |
-| POST   | `/api/llm/queue/prioritize` | Einen wartenden Lauf nach vorn holen                             | -          |
-
-**GET /api/llm/models:** Eine engine-bewusste Sicht (Plan 021). Das Backend
-löst die aktive Inferenz-Engine nach Hardware/Override auf und liefert die
-Modelle des passenden Backends (auf dem Orin: Ollama):
-
-```json
-{
-  "models": [{ "name": "..." }],
-  "engine": "ollama", // aktive Engine: "ollama" | "vllm"
-  "engineSource": "default", // Herkunft: "override" | "hal" | "default"
-  "profileId": null, // aufgelöste config/platforms-Id oder null
-  "timestamp": "2026-..."
-}
-```
-
-Die Auflösung ist: `ARASUL_ENGINE` (Override) → HAL (`JETSON_PROFILE` →
-Katalog-Id → `engine`-Feld) → Default `ollama`. Für `engine: "vllm"` antwortet
-der Endpunkt bis Plan 021 Schritt 7 mit `503 SERVICE_UNAVAILABLE`.
-
-**POST /api/llm/chat:**
-
-```json
-{
-  "message": "Your question here",
-  "conversation_id": "uuid", // optional
-  "model": "gemma4:26b-q4", // optional
-  "system_prompt": "..." // optional
-}
-```
-
-Response: Server-Sent Events (SSE) stream
-
-**Kein Agent-Modus mehr (Phase B4, 26.08.2026).** Die Felder `agent`,
-`datei_modus`, `ablage_ziel` und `space_ids` sind mit dem Chat-Agenten, der
-Projektablage und den Wissensräumen gefallen; ein Body mit diesen Feldern ist
-ein `400 VALIDATION_ERROR`. Der Systemprompt besteht nur noch aus der
-Basis-Schicht (`llm_base_system_prompt` oder der eingebaute Text); KI-Profil
-und Unternehmenskontext gibt es nicht mehr. Ein Lauf wird über
-`DELETE /api/llm/jobs/:jobId` abgebrochen, der Teiltext bleibt an der
-Nachricht erhalten (`done`-Frame mit `cancelled: true`).
-
-**SSE frame catalogue** (selected — full list in `services/llm/llmJobProcessor.js`):
-
-| `type`                                            | `code`                         | Meaning                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `job_started`                                     | —                              | Job entered the queue with an id.                                                                                                                                                                                                                                                                                                          |
-| `status`                                          | `VISION_PROCESSING`            | (P6) Image is being captioned by a vision model before primary stream starts. Payload: `vision_via`.                                                                                                                                                                                                                                       |
-| `warning`                                         | `THINKING_NOT_SUPPORTED`       | Requested think-mode but model lacks support; disabled silently.                                                                                                                                                                                                                                                                           |
-| `warning`                                         | `VISION_FALLBACK_ACTIVE`       | (P6) Image was captioned by a vision model; primary streams with caption injected. Payload: `vision_via`.                                                                                                                                                                                                                                  |
-| `warning`                                         | `VISION_FALLBACK_SKIPPED`      | (P6) Vision fallback returned no caption; primary streams without image context.                                                                                                                                                                                                                                                           |
-| `warning`                                         | `NO_VISION_FALLBACK_AVAILABLE` | (P6) Primary is text-only and no vision model is installed; images dropped.                                                                                                                                                                                                                                                                |
-| `thinking` / `thinking_end` / `response` / `done` | —                              | Streaming content frames. Der `done`-Frame trägt `performance: {tokens, tokens_per_second}` (Tokens/Sekunde des ganzen Laufs, Plan 022), `prompt_tokens`, `prompt_tokens_total` und `prompt_ms` (Plan 023 D7: Vorlauf der ersten Runde, Vorlauf gesamt, Dauer bis zum ersten Wort). Das Frontend liest die drei Vorlauf-Felder noch nicht. |
-
-### Chat Conversations
-
-| Method | Endpoint                                   | Description                                            |
-| ------ | ------------------------------------------ | ------------------------------------------------------ |
-| GET    | `/api/chats`                               | List all conversations                                 |
-| POST   | `/api/chats`                               | Create new conversation                                |
-| GET    | `/api/chats/:id`                           | Get conversation details                               |
-| PATCH  | `/api/chats/:id`                           | Update title                                           |
-| DELETE | `/api/chats/:id`                           | Soft delete conversation                               |
-| GET    | `/api/chats/:id/messages`                  | Get messages                                           |
-| POST   | `/api/chats/:id/messages`                  | Add message                                            |
-| PUT    | `/api/chats/:id/messages/:messageId/datei` | Datei-Verweis an Nachricht hängen                      |
-| GET    | `/api/chats/:id/export`                    | Export chat (JSON/Markdown)                            |
-| PATCH  | `/api/chats/:id/settings`                  | Einstellungen eines Chats (`preferred_model`)          |
-| GET    | `/api/chats/:id/jobs`                      | Die Läufe dieses Chats (`llm_jobs`), für die Nachschau |
-| GET    | `/api/chats/recent`                        | Die zuletzt benutzten Chats, für die Schnellauswahl    |
-| GET    | `/api/chats/search?q=…`                    | Volltextsuche über Titel und Nachrichten               |
-
-**POST /api/chats:**
-
-```json
-{
-  "title": "Optional title"
-}
-```
-
-**PATCH /api/chats/:id:**
-
-```json
-{
-  "title": "New title" // optional
-}
-```
-
-**POST /api/chats/:id/messages:**
-
-```json
-{
-  "role": "user|assistant",
-  "content": "Message content",
-  "thinking": "Optional thinking content",
-  "datei": {
-    "art": "projektdatei",
-    "project_id": "<uuid>",
-    "pfad": "test/notiz.txt",
-    "name": "notiz.txt"
-  }
-}
-```
-
-`datei` (optional, Form wie beim PUT unten): ein gespeicherter Datei-Verweis
-an der Nachricht (Spalte `chat_messages.datei`, Migration 127). Die
-Projektablage, auf die `art: "projektdatei"` zeigte, ist mit Phase B4
-(26.08.2026) gefallen; das Feld bleibt bis B6 im Schema, ein Verweis führt
-aber ins Leere.
-
-**PUT /api/chats/:id/messages/:messageId/datei:**
-
-Hängt einen Datei-Verweis an eine Nachricht (Spalte `chat_messages.datei`,
-Migration 127). Bis Phase B4 zeigte er auf eine Datei der Projektablage
-(`PUT /api/projects/:id/dateien/inhalt`); diese Routen gibt es nicht mehr,
-die Route bleibt bis B6 stehen.
-
-```json
-{
-  "art": "projektdatei",
-  "project_id": "<uuid>",
-  "pfad": "kunden/newsletter-juli.md",
-  "name": "newsletter-juli.md"
-}
-```
-
-`GET /api/chats/:id/messages` liefert das Feld als `datei` pro Nachricht zurück
-(bei Nutzer-Nachrichten mit Anhang: `{ "art": "anhang", "name": "bericht.pdf" }`).
-
-**GET /api/chats/:id/export:**
-
-Exports a chat conversation to JSON or Markdown format.
-
-Query Parameters:
-
-- `format`: Export format (`json` or `markdown`/`md`). Default: `json`
-
-Response: File download with appropriate Content-Type and Content-Disposition headers.
-
-JSON Export Example:
-
-```json
-{
-  "chat": {
-    "id": 1,
-    "title": "Chat Title",
-    "created_at": "2026-01-15T10:00:00.000Z",
-    "updated_at": "2026-01-15T10:30:00.000Z"
-  },
-  "messages": [
-    {
-      "role": "user",
-      "content": "Hello",
-      "thinking": null,
-      "sources": [],
-      "created_at": "2026-01-15T10:00:00.000Z"
-    },
-    {
-      "role": "assistant",
-      "content": "Hi! How can I help?",
-      "thinking": "Thinking about greeting...",
-      "sources": [],
-      "created_at": "2026-01-15T10:00:05.000Z"
-    }
-  ],
-  "export_info": {
-    "exported_at": "2026-01-15T10:35:00.000Z",
-    "format": "json",
-    "version": "1.0",
-    "message_count": 2
-  }
-}
-```
-
-Markdown Export: Generates a human-readable Markdown file with collapsible thinking blocks and source citations.
+`/api/llm/*` (Chat-Strom der Oberfläche, Warteschlange, Läufe) und
+`/api/chats/*` (Konversationen, Nachrichten, Export) sind mit Phase B6 des
+Rückbaus gefallen; der Oberflächen-Chat selbst war schon mit B2 weg. Die
+Tabellen `chat_conversations`, `chat_messages` und `chat_attachments` entfernt
+Migration 165. Aufträge an das Sprachmodell (`llm_jobs`) gibt es weiter, sie
+tragen ihren Besitzer selbst (`user_id`) und laufen nur noch über die
+[externe API](#external-api-for-external-automations) (`/api/v1/external/llm/*`)
+und die OpenAI-kompatible `/v1/chat/completions`. Ein Auftrag lebt eine Stunde
+nach seinem Ende (`cleanup_old_llm_jobs()`), dann ist er weg; wer die Antwort
+behalten will, holt sie ab.
 
 ### Einstellungen für die Generierung
 
@@ -1167,7 +991,7 @@ Response:
       "user_id": 1,
       "username": "admin",
       "action_type": "POST",
-      "target_endpoint": "/api/chats",
+      "target_endpoint": "/api/flows",
       "request_method": "POST",
       "request_payload": { "title": "New Chat" },
       "response_status": 201,
@@ -1236,7 +1060,7 @@ Response:
 {
   "endpoints": [
     {
-      "target_endpoint": "/api/chats",
+      "target_endpoint": "/api/flows",
       "action_type": "GET",
       "request_count": 500,
       "unique_users": 3,
@@ -1992,6 +1816,15 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 | GET    | `/api/v1/external/llm/queue`      | API Key | Get queue status            |
 | GET    | `/api/v1/external/models`         | API Key | Get available models        |
 
+`/llm/chat` ist zustandslos (Phase B6, 26.08.2026): jeder Aufruf ist ein
+eigener Auftrag mit genau der Vorgeschichte, die im `prompt` steht. Es gibt
+keine Konversation, an die sich ein zweiter Aufruf anschließen könnte; wer
+einen Verlauf will, führt ihn selbst und schickt ihn mit. Der Auftrag gehört
+dem Ersteller des API-Schlüssels; ein Schlüssel, dessen Ersteller gelöscht
+wurde, bekommt `403 FORBIDDEN` und muss neu erstellt werden (bis B6 wich er
+still auf den ersten Administrator aus). `GET /llm/job/:jobId` liefert nur
+eigene Aufträge, eine Stunde nach ihrem Ende sind sie weg.
+
 ### Flows (Plan 013, B8)
 
 Trigger flows from your own automations with an API key. The endpoint
@@ -2009,7 +1842,8 @@ projektgebundene Flows) sind mit Phase B4 (26.08.2026) gefallen.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
 state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
-are owned by the API key's creator (or the primary admin for orphaned keys). This
+are owned by the API key's creator; an orphaned key (creator deleted) gets
+`403 FORBIDDEN`. This
 is the per-flow HTTP trigger (the Flow-Zentrale that surfaced it left the UI with
 phase B3 on 2026-08-26). The former named-event
 endpoint (`events/:name`) was removed with flow scheduling on 2026-07-28.

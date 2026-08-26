@@ -22,7 +22,7 @@ src/
   services/      Business logic. Routes call services; services call db/external.
     <domain>/    One folder per domain that has multiple cooperating modules.
   middleware/    Cross-cutting: auth, csrf, rateLimit, validate, errorHandler, audit.
-  schemas/       Zod schemas — one file per route domain (auth.js, chats.js, ...).
+  schemas/       Zod schemas — one file per route domain (auth.js, flows.js, ...).
   utils/         Stateless helpers: errors, logger, jwt, password, retry, ...
   config/        Static config (no runtime state).
   tools/         Nur noch `baseTool.js`, die Basisklasse der Flow-Werkzeuge.
@@ -143,8 +143,8 @@ is preferred so `errorHandler` keeps structured fields.
 ## Werkzeug-Schleife (Plan 008 / 011)
 
 Der Agenten- und Fluss-Layer ist mit Plan 011 entfernt; an seine Stelle treten
-**Flows** (Markdown-Dateien unter `data/flows/`, im Chat per `/name`
-aufgerufen). Der Flow-Layer lebt vollständig in `services/flows/` und bringt
+**Flows** (Markdown-Dateien unter `data/flows/`, gestartet über
+`POST /api/flows/laeufe` oder extern per API-Schlüssel). Der Flow-Layer lebt vollständig in `services/flows/` und bringt
 seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 
 - `runFlow.js` — der Runner (Schritt 10): lädt den Flow, setzt Argumente ein,
@@ -159,9 +159,9 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   direkte Werkzeuge, mit Iteration), threadet die Ausgaben und lässt danach den
   Rumpf-Prompt synthetisieren. `runFlow` verzweigt hierher, wenn ein Flow
   `schritte` deklariert — sonst bleibt es beim modellgetriebenen `toolLoop`.
-- Flows werden per Slash-Befehl im Chat oder extern per HTTP-Trigger
-  (`POST /api/v1/external/flows/:name/run`, API-Key mit Scope `flow:run`)
-  gestartet. Der frühere Zeitplan-/Cron-Mechanismus (B8: `scheduler.js`,
+- Flows werden über `POST /api/flows/laeufe` (Anmeldung) oder extern per
+  HTTP-Trigger (`POST /api/v1/external/flows/:name/run`, API-Key mit Scope
+  `flow:run`) gestartet; der Slash-Befehl im Chat ist mit dem Chat gefallen. Der frühere Zeitplan-/Cron-Mechanismus (B8: `scheduler.js`,
   `scheduleStore.js`, `cronExpr.js`, Tabelle `flow_schedules`, Routen
   `/flows/zeitplaene`, externer `events/:name`-Endpunkt) ist am 2026-07-28
   ersatzlos entfernt (Migration 123 droppt die Tabelle).
@@ -196,7 +196,12 @@ Tabellen mit Migration 163. Ordner sind seither genau die im Flow deklarierten
 (`ordner`-Feld), ohne Bezug auf Projekt, Wissensraum oder Sandbox. Phase B5
 (gleicher Tag) nahm n8n (`/api/automations`, `/api/workflows`,
 `/api/workspace-apps`, `n8nLogger`, `appLifecycleService`, Migration 164)
-und SearXNG mit den Web-Werkzeugen der Flows.
+und SearXNG mit den Web-Werkzeugen der Flows. Phase B6 (gleicher Tag) nahm den
+Rest des Oberflächen-Chats: `/api/chats`, `/api/llm`, `services/chat/`, die
+Tabellen `chat_*` (Migration 165). `llm_jobs` ist seither zustandslos und
+trägt `user_id`; `llmQueueService.enqueue(userId, ...)` ist der einzige Weg
+zu einem Auftrag, aufgerufen von `routes/external/externalApi.js` und
+`openaiCompat.js`.
 
 ## Testing
 

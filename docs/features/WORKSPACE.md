@@ -15,10 +15,10 @@
 - **Workspace-Apps** gibt es seit B5 nicht mehr: `/api/workspace-apps`, die
   Tabelle `platform_apps` (Migration 164) und n8n als letzte Kern-App sind
   weg. Das App-Modell aus C3 ersetzt sie.
-- **Chat** (`/api/chats`, `/api/llm/chat`): bleibt bis B6, ohne Agent-Modus,
-  ohne Datei-Ablage, ohne Wissensraum-Bindung. Die Spalten
-  `chat_messages.datei` und `.schritte` (Migrationen 127/128) stehen noch,
-  neue Zeilen entstehen nicht mehr.
+- **Chat** (`/api/chats`, `/api/llm/chat`): mit B6 gefallen, samt den
+  Tabellen `chat_conversations`, `chat_messages`, `chat_attachments`
+  (Migration 165). Sprachmodell-Aufträge laufen nur noch zustandslos über die
+  externe API.
 - **Flows** (`/api/flows`, `data/flows/`): siehe [`FLOWS.md`](FLOWS.md).
   Ordner sind die im Flow deklarierten Pfade im Backend-Container; das
   Schema `projekt://` gibt es nicht mehr.
@@ -27,6 +27,6 @@
 
 - [`FLOWS.md`](FLOWS.md)
 - [`../api/API_REFERENCE.md`](../api/API_REFERENCE.md), Abschnitte
-  **Chat Conversations**, **Flows**
+  **Flows**, **External API**
 - Die Geschichte des Workspace bis zum Rückbau steht in den abgeschlossenen
   Plänen 012 bis 019 (Übersicht in [`../plans/HISTORIE.md`](../plans/HISTORIE.md)).

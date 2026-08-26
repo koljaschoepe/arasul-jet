@@ -100,23 +100,15 @@ src/
 | GET    | `/api/metrics/history`     | Historical metrics (?range=24h)     |
 | WS     | `/api/metrics/live-stream` | WebSocket stream (5s interval)      |
 
-### AI & Chat (Auth Required)
+### AI (Auth Required)
 
-| Method | Path                      | Description                   |
-| ------ | ------------------------- | ----------------------------- |
-| POST   | `/api/llm/chat`           | LLM inference (SSE streaming) |
-| GET    | `/api/llm/queue`          | Queue status                  |
-| GET    | `/api/llm/jobs`           | Job history                   |
-| GET    | `/api/llm/models`         | List available models         |
-| GET    | `/api/llm/models/default` | Get default model             |
-| POST   | `/api/embeddings`         | Generate text embeddings      |
-| GET    | `/api/chats`              | List all conversations        |
-| POST   | `/api/chats`              | Create new conversation       |
-| GET    | `/api/chats/:id`          | Get conversation details      |
-| GET    | `/api/chats/:id/messages` | Get messages for chat         |
-| POST   | `/api/chats/:id/messages` | Add message to chat           |
-| PATCH  | `/api/chats/:id`          | Update chat title             |
-| DELETE | `/api/chats/:id`          | Soft delete chat              |
+Der Oberflächen-Chat (`/api/llm/*`, `/api/chats/*`) ist mit Phase B6
+(26.08.2026) gefallen; Sprachmodell-Aufträge laufen über die externe API
+(`/api/v1/external/llm/*`, API-Schlüssel) und `/v1/chat/completions`.
+
+| Method | Path              | Description              |
+| ------ | ----------------- | ------------------------ |
+| POST   | `/api/embeddings` | Generate text embeddings |
 
 ### Models (Auth Required)
 

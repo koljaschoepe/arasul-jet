@@ -49,9 +49,10 @@ Normalbetrieb nicht laufen.
 NICHT stattgefunden, und die restlichen Schritte auch nicht. Plan 023 Phase D
 hat dasselbe Gebiet aus der Verkaufssicht angefasst und dabei auf dem
 vorhandenen Ollama-Pfad gearbeitet, nicht auf einem neuen. Was von Schritt 3
-übrig ist, steht als engine-bewusste Sicht in `GET /api/llm/models`
-(`"engine": "ollama" | "vllm"`) — die Abstraktion existiert, der Wechsel wurde
-nie vollzogen.
+übrig war, die engine-bewusste Sicht in `GET /api/llm/models`
+(`engineGateway.js`, `ARASUL_ENGINE`), ist mit Phase B6 des Rückbaus
+(26.08.2026) gefallen — die Abstraktion hatte keinen Aufrufer mehr, der
+Wechsel wurde nie vollzogen.
 
 **Was Plan 023 dazu entschieden hat:** G5 hat die Rücknahme von Schritt 8
 geprüft und ausdrücklich abgelehnt (rund 1100 Neu-Indexierungen und ein 8-GB-

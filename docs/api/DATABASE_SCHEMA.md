@@ -8,10 +8,10 @@
 
 ## Übersicht
 
-- Tabellen: **59**
-- Spalten gesamt: **861**
-- Foreign Keys: **58**
-- Indexes: **334**
+- Tabellen: **56**
+- Spalten gesamt: **817**
+- Foreign Keys: **52**
+- Indexes: **311**
 
 ---
 
@@ -650,137 +650,6 @@
 
 ---
 
-## `chat_attachments`
-
-| Column                | Type                     | Nullable | Default                        |
-| --------------------- | ------------------------ | -------- | ------------------------------ |
-| `id`                  | uuid                     | ⛔       | `gen_random_uuid()`            |
-| `message_id`          | bigint                   | ✅       |                                |
-| `conversation_id`     | bigint                   | ✅       |                                |
-| `filename`            | character varying        | ⛔       |                                |
-| `original_filename`   | character varying        | ⛔       |                                |
-| `file_path`           | character varying        | ⛔       |                                |
-| `file_size`           | bigint                   | ⛔       |                                |
-| `mime_type`           | character varying        | ✅       |                                |
-| `file_extension`      | character varying        | ✅       |                                |
-| `extracted_text`      | text                     | ✅       |                                |
-| `extraction_status`   | character varying        | ✅       | `'pending'::character varying` |
-| `extraction_metadata` | jsonb                    | ✅       |                                |
-| `created_at`          | timestamp with time zone | ✅       | `now()`                        |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `message_id` → `chat_messages.id`
-- `conversation_id` → `chat_conversations.id`
-
-**Indexes:**
-
-- `chat_attachments_pkey` — `CREATE UNIQUE INDEX chat_attachments_pkey ON public.chat_attachments USING btree (id)`
-- `idx_chat_attachments_conversation` — `CREATE INDEX idx_chat_attachments_conversation ON public.chat_attachments USING btree (conversation_id)`
-- `idx_chat_attachments_message` — `CREATE INDEX idx_chat_attachments_message ON public.chat_attachments USING btree (message_id)`
-- `idx_chat_attachments_status` — `CREATE INDEX idx_chat_attachments_status ON public.chat_attachments USING btree (extraction_status) WHERE ((extraction_status)::text <> 'done'::text)`
-
----
-
-## `chat_conversations`
-
-> Multi-conversation chat sessions
-
-| Column                     | Type                     | Nullable | Default                                    |
-| -------------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                       | bigint                   | ⛔       | `nextval('chat_conversations_id_seq'::...` |
-| `title`                    | text                     | ⛔       | `'New Chat'::text`                         |
-| `created_at`               | timestamp with time zone | ⛔       | `now()`                                    |
-| `updated_at`               | timestamp with time zone | ⛔       | `now()`                                    |
-| `deleted_at`               | timestamp with time zone | ✅       |                                            |
-| `message_count`            | integer                  | ⛔       | `0`                                        |
-| `compaction_summary`       | text                     | ✅       |                                            |
-| `compaction_token_count`   | integer                  | ✅       | `0`                                        |
-| `compaction_message_count` | integer                  | ✅       | `0`                                        |
-| `last_compacted_at`        | timestamp with time zone | ✅       |                                            |
-| `use_rag`                  | boolean                  | ✅       | `false`                                    |
-| `use_thinking`             | boolean                  | ✅       | `true`                                     |
-| `preferred_model`          | character varying        | ✅       | `NULL::character varying`                  |
-| `preferred_space_id`       | uuid                     | ✅       |                                            |
-| `user_id`                  | bigint                   | ⛔       |                                            |
-| `titel_bei_nachrichten`    | integer                  | ✅       |                                            |
-| `titel_quelle`             | character varying        | ✅       |                                            |
-
-Die beiden `titel_*`-Spalten kommen aus Migration 155 (Plan 023 E5).
-`titel_quelle` ist `vorgabe`, `frage` oder `lauf`; **NULL bedeutet von Hand
-vergeben und wird nie überschrieben.** `titel_bei_nachrichten` hält fest, bei
-welchem Stand der Titel entstand: verdoppelt sich `message_count` seitdem, ist
-ein neuer fällig. Das braucht weder eine Uhr noch eine zweite Tabelle.
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `user_id` → `admin_users.id`
-
-**Indexes:**
-
-- `chat_conversations_pkey` — `CREATE UNIQUE INDEX chat_conversations_pkey ON public.chat_conversations USING btree (id)`
-- `idx_chat_conversations_deleted` — `CREATE INDEX idx_chat_conversations_deleted ON public.chat_conversations USING btree (deleted_at) WHERE (deleted_at IS NULL)`
-- `idx_chat_conversations_updated` — `CREATE INDEX idx_chat_conversations_updated ON public.chat_conversations USING btree (updated_at DESC)`
-- `idx_chat_conversations_user` — `CREATE INDEX idx_chat_conversations_user ON public.chat_conversations USING btree (user_id, updated_at DESC) WHERE (deleted_at IS NULL)`
-- `idx_conversations_updated` — `CREATE INDEX idx_conversations_updated ON public.chat_conversations USING btree (updated_at DESC) WHERE (deleted_at IS NULL)`
-
----
-
-## `chat_messages`
-
-> Chat messages with role (user/assistant/system) and optional thinking blocks
-
-| Column            | Type                     | Nullable | Default                                    |
-| ----------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`              | bigint                   | ⛔       | `nextval('chat_messages_id_seq'::regcl...` |
-| `conversation_id` | bigint                   | ⛔       |                                            |
-| `role`            | text                     | ⛔       |                                            |
-| `content`         | text                     | ⛔       |                                            |
-| `thinking`        | text                     | ✅       |                                            |
-| `created_at`      | timestamp with time zone | ⛔       | `now()`                                    |
-| `job_id`          | uuid                     | ✅       |                                            |
-| `status`          | character varying        | ✅       | `'completed'::character varying`           |
-| `sources`         | jsonb                    | ✅       |                                            |
-| `matched_spaces`  | jsonb                    | ✅       |                                            |
-| `datei`           | jsonb                    | ✅       |                                            |
-| `schritte`        | jsonb                    | ✅       |                                            |
-
-`datei` (Migration 127): Datei-Verweis der Nachricht —
-`{ art: 'projektdatei', project_id, pfad, name }` für Antworten, die bis
-Phase B4 (26.08.2026) in der Projektablage lagen (die Tabelle `projects` ist
-mit Migration 163 gefallen, solche Verweise führen ins Leere), bzw.
-`{ art: 'anhang', name }` für hochgeladene Anhänge an Nutzer-Nachrichten. Der frühere Chat-Agent konnte
-mehrere Dateien in einem Lauf schreiben, dann trägt `datei` eine **Liste**
-solcher Objekte (das Frontend normalisiert beides).
-
-`schritte` (Migration 128): Werkzeug-Schritte des bis Phase B4 vorhandenen
-Chat-Agenten an der Assistenten-Antwort (Liste, Ein-/Ausgaben gekürzt);
-neue Zeilen entstehen seit dem 26.08.2026 nicht mehr:
-`[{ id, kind: 'werkzeug'|'subagent', name, input, output, status, parent_step_id }]`.
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `conversation_id` → `chat_conversations.id`
-- `job_id` → `llm_jobs.id`
-
-**Indexes:**
-
-- `chat_messages_pkey` — `CREATE UNIQUE INDEX chat_messages_pkey ON public.chat_messages USING btree (id)`
-- `idx_chat_messages_conversation` — `CREATE INDEX idx_chat_messages_conversation ON public.chat_messages USING btree (conversation_id)`
-- `idx_chat_messages_conversation_created` — `CREATE INDEX idx_chat_messages_conversation_created ON public.chat_messages USING btree (conversation_id, created_at)`
-- `idx_chat_messages_created` — `CREATE INDEX idx_chat_messages_created ON public.chat_messages USING btree (created_at DESC)`
-- `idx_chat_messages_job` — `CREATE INDEX idx_chat_messages_job ON public.chat_messages USING btree (job_id) WHERE (job_id IS NOT NULL)`
-- `idx_chat_messages_job_id` — `CREATE INDEX idx_chat_messages_job_id ON public.chat_messages USING btree (job_id) WHERE (job_id IS NOT NULL)`
-- `idx_chat_messages_status` — `CREATE INDEX idx_chat_messages_status ON public.chat_messages USING btree (status) WHERE ((status)::text <> 'completed'::text)`
-
----
-
 ## `component_updates`
 
 | Column            | Type                     | Nullable | Default                                    |
@@ -850,8 +719,7 @@ neue Zeilen entstehen seit dem 26.08.2026 nicht mehr:
 | Column                | Type                     | Nullable | Default                        |
 | --------------------- | ------------------------ | -------- | ------------------------------ |
 | `id`                  | uuid                     | ⛔       | `gen_random_uuid()`            |
-| `conversation_id`     | bigint                   | ⛔       |                                |
-| `message_id`          | bigint                   | ✅       |                                |
+| `user_id`             | bigint                   | ✅       |                                |
 | `job_type`            | character varying        | ⛔       |                                |
 | `status`              | character varying        | ⛔       | `'pending'::character varying` |
 | `request_data`        | jsonb                    | ⛔       |                                |
@@ -891,16 +759,19 @@ Bildschirm zur Zeile im Protokoll eine einzige Suche ist. Auswertung:
 
 **Primary key:** `id`
 
+Seit Migration 165 (Phase B6, 26.08.2026) ist ein Auftrag zustandslos: `user_id`
+(Ersteller des API-Schlüssels, `ON DELETE SET NULL`) ersetzt `conversation_id`
+und `message_id`; die Antwort steht in `content`/`thinking` am Auftrag selbst
+und wird nirgendwohin umkopiert. `sources` und `matched_spaces` sind seit dem
+Ausbau des RAG (162, 163) immer NULL.
+
 **Foreign Keys:**
 
-- `conversation_id` → `chat_conversations.id`
-- `message_id` → `chat_messages.id`
+- `user_id` → `admin_users.id`
 
 **Indexes:**
 
 - `idx_llm_jobs_completed_at` — `CREATE INDEX idx_llm_jobs_completed_at ON public.llm_jobs USING btree (completed_at) WHERE ((status)::text = ANY ((ARRAY['completed'::character varying, 'error'::character varying, 'cancelled'::character varying])::text[]))`
-- `idx_llm_jobs_conversation` — `CREATE INDEX idx_llm_jobs_conversation ON public.llm_jobs USING btree (conversation_id)`
-- `idx_llm_jobs_conversation_status` — `CREATE INDEX idx_llm_jobs_conversation_status ON public.llm_jobs USING btree (conversation_id, status) WHERE ((status)::text = ANY ((ARRAY['pending'::character varying, 'queued'::character varying, 'streaming'::character varying])::text[]))`
 - `idx_llm_jobs_created` — `CREATE INDEX idx_llm_jobs_created ON public.llm_jobs USING btree (created_at DESC)`
 - `idx_llm_jobs_fairness_check` — `CREATE INDEX idx_llm_jobs_fairness_check ON public.llm_jobs USING btree (queued_at) WHERE ((status)::text = 'pending'::text)`
 - `idx_llm_jobs_model_pending` — `CREATE INDEX idx_llm_jobs_model_pending ON public.llm_jobs USING btree (requested_model, priority DESC, queued_at) WHERE ((status)::text = 'pending'::text)`
@@ -908,6 +779,7 @@ Bildschirm zur Zeile im Protokoll eine einzige Suche ist. Auswertung:
 - `idx_llm_jobs_queue_position` — `CREATE INDEX idx_llm_jobs_queue_position ON public.llm_jobs USING btree (queue_position) WHERE ((status)::text = ANY ((ARRAY['pending'::character varying, 'queued'::character varying])::text[]))`
 - `idx_llm_jobs_status` — `CREATE INDEX idx_llm_jobs_status ON public.llm_jobs USING btree (status) WHERE ((status)::text = ANY ((ARRAY['pending'::character varying, 'streaming'::character varying])::text[]))`
 - `idx_llm_jobs_status_created` — `CREATE INDEX idx_llm_jobs_status_created ON public.llm_jobs USING btree (status, created_at DESC)`
+- `idx_llm_jobs_user` — `CREATE INDEX idx_llm_jobs_user ON public.llm_jobs USING btree (user_id)`
 - `llm_jobs_pkey` — `CREATE UNIQUE INDEX llm_jobs_pkey ON public.llm_jobs USING btree (id)`
 
 ---
@@ -1539,21 +1411,20 @@ trägt die Angabe nicht".
 
 > Skill-Läufe (Plan 011, Schritt 9): ein Lauf je Aufruf von /name. Überlebt das Schließen des Tabs, damit die Live-Übertragung wiederverbinden kann.
 
-| Column            | Type                     | Nullable | Default                                 |
-| ----------------- | ------------------------ | -------- | --------------------------------------- |
-| `id`              | bigint                   | ⛔       | `nextval('flow_runs_id_seq'::regclass)` |
-| `user_id`         | bigint                   | ⛔       |                                         |
-| `flow_name`       | character varying        | ⛔       |                                         |
-| `conversation_id` | bigint                   | ✅       |                                         |
-| `arguments`       | jsonb                    | ⛔       | `'{}'::jsonb`                           |
-| `status`          | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`             |
-| `result`          | text                     | ✅       |                                         |
-| `error`           | text                     | ✅       |                                         |
-| `steps_used`      | integer                  | ⛔       | `0`                                     |
-| `changes`         | jsonb                    | ✅       |                                         |
-| `annahmen`        | jsonb                    | ✅       |                                         |
-| `created_at`      | timestamp with time zone | ⛔       | `now()`                                 |
-| `finished_at`     | timestamp with time zone | ✅       |                                         |
+| Column        | Type                     | Nullable | Default                                 |
+| ------------- | ------------------------ | -------- | --------------------------------------- |
+| `id`          | bigint                   | ⛔       | `nextval('flow_runs_id_seq'::regclass)` |
+| `user_id`     | bigint                   | ⛔       |                                         |
+| `flow_name`   | character varying        | ⛔       |                                         |
+| `arguments`   | jsonb                    | ⛔       | `'{}'::jsonb`                           |
+| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`             |
+| `result`      | text                     | ✅       |                                         |
+| `error`       | text                     | ✅       |                                         |
+| `steps_used`  | integer                  | ⛔       | `0`                                     |
+| `changes`     | jsonb                    | ✅       |                                         |
+| `annahmen`    | jsonb                    | ✅       |                                         |
+| `created_at`  | timestamp with time zone | ⛔       | `now()`                                 |
+| `finished_at` | timestamp with time zone | ✅       |                                         |
 
 > `annahmen` (Migration 131, Plan 014 Phase 2): Annahmen-Protokoll des
 > Prüfschritts — JSON-Array von Klartext-Sätzen (Annahmen der Prüfrunde +
@@ -1566,7 +1437,6 @@ trägt die Angabe nicht".
 
 **Indexes:**
 
-- `idx_flow_runs_conversation` — `CREATE INDEX idx_flow_runs_conversation ON arasul.flow_runs USING btree (conversation_id)`
 - `idx_flow_runs_status` — `CREATE INDEX idx_flow_runs_status ON arasul.flow_runs USING btree (status) WHERE (status = 'laeuft'::flow_run_status)`
 - `idx_flow_runs_user_id` — `CREATE INDEX idx_flow_runs_user_id ON arasul.flow_runs USING btree (user_id)`
 - `flow_runs_pkey` — `CREATE UNIQUE INDEX flow_runs_pkey ON arasul.flow_runs USING btree (id)`

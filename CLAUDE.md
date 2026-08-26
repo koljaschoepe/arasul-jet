@@ -24,7 +24,9 @@ sie nichts tun. Am 26.08.2026 (Phase B4 des Rückbaus) sind auch Dokumente,
 Wissensräume, Projekte und der Textlayer (`document_chunks`) gefallen, dazu
 MinIO, Loki, Promtail, Sandbox, Terminal und der Erweiterungs-Baukasten
 (Migration 163); mit Phase B5 (gleicher Tag) n8n samt Schema, SearXNG und
-die Plattform-Apps (Migration 164). Der `document-indexer` extrahiert nur noch Text auf Anfrage
+die Plattform-Apps (Migration 164); mit Phase B6 (gleicher Tag) die Chat-Tabellen
+und `/api/chats`, `/api/llm` (Migration 165), `llm_jobs` ist zustandslos und
+gehört dem Ersteller des API-Schlüssels. Der `document-indexer` extrahiert nur noch Text auf Anfrage
 (`POST /extract-text`); Flows arbeiten mit ihren Datei-Werkzeugen in den im
 Flow deklarierten Ordnern. `embedding-service` läuft weiter und ohne Profil:
 die OpenAI-kompatible `/v1/embeddings` braucht ihn. Wer eine Doku findet, die
