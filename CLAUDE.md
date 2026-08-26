@@ -188,7 +188,7 @@ make logs s=dashboard-backend                      # Logs via Make
 | API reference          | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                 |
 | API errors             | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                       |
 | Database schema        | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                             |
-| Design system          | [docs/development/DESIGN_SYSTEM.md](docs/development/DESIGN_SYSTEM.md)                                                 |
+| Design system          | [docs/development/DESIGN.md](docs/development/DESIGN.md)                                                 |
 | Development            | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                     |
 | Onboarding             | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                       |
 | Testing                | [docs/development/TESTING.md](docs/development/TESTING.md)                                                             |

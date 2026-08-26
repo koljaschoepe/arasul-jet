@@ -81,6 +81,6 @@ docker compose up -d --build dashboard-frontend
 
 ## Related Documentation
 
-- [Design System](../../docs/development/DESIGN_SYSTEM.md) - UI guidelines (MANDATORY)
+- [Design](../../docs/development/DESIGN.md) - UI guidelines (MANDATORY)
 - [Development Guide](../../docs/development/DEVELOPMENT.md) - API patterns & debugging
 - [API Reference](../../docs/api/API_REFERENCE.md) - Complete endpoint list

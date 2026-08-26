@@ -70,7 +70,7 @@ src/
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung
                      nur über Borders. `--card` bleibt erhabenen Elementen
-                     vorbehalten (siehe DESIGN_SYSTEM.md, Regel „eine
+                     vorbehalten (siehe DESIGN.md, Regel „eine
                      Flächenfarbe").
   components/
     ui/            App-wide primitives (Modal, ErrorBoundary, …). Darunter das
@@ -82,7 +82,7 @@ src/
                    Einstieg) und AuthCard (Rahmen der beiden Seiten vor der
                    Anmeldung, C3). Eine neue Seite baut auf diesen sieben auf,
                    statt die Klassenkette erneut zu schreiben; Festlegungen in
-                   `docs/development/DESIGN_SYSTEM.md`, Abschnitt
+                   `docs/development/DESIGN.md`, Abschnitt
                    „Das gemeinsame Baustein-Set".
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
     mascot/        Das Maskottchen.
@@ -196,7 +196,7 @@ Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via
 
 | You changed…                          | Also update                                                                                                                |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| A theme token / new color/radius/font | `docs/development/DESIGN_SYSTEM.md`                                                                                        |
+| A theme token / new color/radius/font | `docs/development/DESIGN.md`                                                                                        |
 | A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                               |
 | Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                      |
 | Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |

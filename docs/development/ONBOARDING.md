@@ -209,7 +209,7 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 | Adding a DB field    | `services/postgres/init/` (next migration number)                             |
 | Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                                    |
 | Touching flows       | `apps/dashboard-backend/src/services/flows/` + `routes/flows.js`              |
-| Changing design      | `docs/development/DESIGN_SYSTEM.md` + `apps/dashboard-frontend/src/index.css` |
+| Changing design      | `docs/development/DESIGN.md` + `apps/dashboard-frontend/src/index.css` |
 
 ### Reading guide per domain
 

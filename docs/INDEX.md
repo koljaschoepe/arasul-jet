@@ -39,7 +39,7 @@ docs/
 | [`development/ONBOARDING.md`](development/ONBOARDING.md)       | 30-min cold-clone-to-first-PR walkthrough        |
 | [`development/DEVELOPMENT.md`](development/DEVELOPMENT.md)     | Backend + frontend patterns, debugging, hooks    |
 | [`development/TESTING.md`](development/TESTING.md)             | Jest + Vitest + pytest workflows, coverage       |
-| [`development/DESIGN_SYSTEM.md`](development/DESIGN_SYSTEM.md) | Frontend design tokens, theming, mandatory rules |
+| [`development/DESIGN.md`](development/DESIGN.md) | Das Design: Palette, Themes, Maße, Baustein-Set, Regeln |
 
 ---
 

@@ -125,7 +125,7 @@ function checkIndexCSS() {
   // aliases (--primary-color / --bg-dark) now point at those via var(). Check the
   // real values where they actually live, not the aliased names.
   // Canonical values = Theme »Schwarz« (:root default), see
-  // docs/development/DESIGN_SYSTEM.md (Plan 001 »Cursor-Feinschliff«).
+  // docs/development/DESIGN.md (Plan 001 »Cursor-Feinschliff«).
   if (!lower.includes('--primary: #81a1c1')) errors.push('Primary nicht #81A1C1 (Theme Schwarz)');
   if (!lower.includes('--background: #0a0a0a')) errors.push('Background Schwarz nicht #0A0A0A');
   if (!lower.includes('--text-primary')) errors.push('--text-primary Variable fehlt');

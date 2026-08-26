@@ -21,7 +21,7 @@ Development workflows, patterns, API usage, and debugging for the Arasul Platfor
 | Database schema     | `docs/api/DATABASE_SCHEMA.md`, add migration     |
 | New env variable    | `docs/ENVIRONMENT_VARIABLES.md`, `.env.template` |
 | Architecture change | `docs/ARCHITECTURE.md`                           |
-| Frontend component  | Follow `docs/development/DESIGN_SYSTEM.md`       |
+| Frontend component  | Follow `docs/development/DESIGN.md`       |
 
 ---
 
@@ -187,7 +187,7 @@ api.get('/endpoint', { raw: true }); // Raw Response (for blobs, SSE)
 - Primary: `var(--primary-color)` (#45ADFF)
 - Background: `var(--bg-dark)` (#101923) / `var(--bg-card)` (#1A2330)
 - Never use hardcoded hex in JSX - always use CSS variables
-- Full reference: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
+- Full reference: [DESIGN.md](DESIGN.md)
 
 ### Component Structure
 
@@ -396,7 +396,7 @@ See [`docs/ops/TROUBLESHOOTING.md`](../ops/TROUBLESHOOTING.md).
 1. Create in appropriate `apps/dashboard-frontend/src/features/` directory
 2. Export from barrel file (`index.js`)
 3. Add route in `App.js` if needed
-4. Follow [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) guidelines
+4. Follow [DESIGN.md](DESIGN.md) guidelines
 
 ---
 
@@ -418,6 +418,6 @@ Kein separater "Skalierungscode" noetig. `git pull && docker compose up -d --bui
 
 - [API_REFERENCE.md](../api/API_REFERENCE.md) - Full endpoint reference
 - [API_ERRORS.md](../api/API_ERRORS.md) - Error codes & handling
-- [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) - Frontend design guidelines
+- [DESIGN.md](DESIGN.md) - Frontend design guidelines
 - [DATABASE_SCHEMA.md](../api/DATABASE_SCHEMA.md) - Database tables
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture
