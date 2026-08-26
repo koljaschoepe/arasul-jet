@@ -2,27 +2,22 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Workspace-Store v4: offene Tabs, aktiver Tab, die Sidebar, EIN rechtes Panel
- * (Chat ODER Terminal, umschaltbar über den Modus) und die Terminal-Session-
- * Registry der IDE-Shell. Persistiert in localStorage, der aktive Tab wird
- * zusätzlich in der URL gespiegelt (siehe WorkspaceShell).
+ * Workspace-Store v7: offene Tabs, aktiver Tab, die Sidebar-Ansicht und die
+ * Sichtbarkeit der beiden Seitenspalten. Persistiert in localStorage, der
+ * aktive Tab wird zusätzlich in der URL gespiegelt (siehe WorkspaceShell).
  *
  * Tab-Identität: pro (type, payload)-Kombination existiert höchstens ein
  * Tab — `tabId()` liefert den deterministischen Schlüssel, openTab dedupliziert.
  *
- * Rechtes Panel: EINE Fläche mit zwei Modi. `rightPanelVisible` steuert die
- * Sichtbarkeit, `rightPanelMode` ('chat' | 'terminal') den Inhalt. Zuvor
- * (v3) waren Chat und Terminal zwei unabhängige Flächen (chatVisible/
- * terminalVisible) — die Migration faltet sie zu Sichtbarkeit + Modus.
- *
- * Terminal: existiert NICHT als Mitte-Tab. Es lebt ausschließlich im rechten
- * Panel (rightPanelMode === 'terminal'), seine Sessions in der Registry dieses
- * Stores — Komponenten rendern die Sessions nur, sie besitzen sie nicht.
+ * Phase B2 (26.08.2026): Editor, Terminal, Agent-Chat und Sandbox sind aus der
+ * Oberfläche gefallen. Damit sind auch die Terminal-Session-Registry, der
+ * Chat-Scope, das Dirty-Register der Editoren, die Explorer-Anfragen und die
+ * Tab-Typen für Dokumente, Projektdateien und Projekte weg. Das rechte Panel
+ * hat keinen Modus mehr, nur noch eine Sichtbarkeit; die Spalte bleibt leer,
+ * bis D2 sie füllt.
  */
 
 export type WorkspaceTabType =
-  | 'document'
-  | 'projektdatei'
   | 'settings'
   // Plan 023 B7: aus dem einen Tab "Extensions", der je nach Zustand Modelle
   // ODER Erweiterungen zeigte, sind zwei geworden. Der Titel sagt jetzt, was
@@ -31,61 +26,37 @@ export type WorkspaceTabType =
   | 'erweiterungen'
   | 'automationen'
   | 'flow'
-  | 'extension'
-  | 'kundenuebersicht'
-  // Plan 018: Projekt-Startseite (Kachelliste aller Projekte) + Projekt-
-  // Übersichtsseite (folgt dem aktiven Projekt: Info + Werkstatt + Schnellzugriff).
-  | 'projekte'
-  | 'projektuebersicht';
+  | 'extension';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
   title?: string;
-  documentId?: string;
-  slug?: string;
   /** Nur bei type='extension': die installierte Erweiterung, die die Mitte füllt. */
   extensionId?: string;
-  /** Nur bei type='projektdatei': Projekt + relativer Pfad in der Projektablage. */
-  projectId?: string;
-  filePath?: string;
 }
 
 export interface WorkspaceTab {
   id: string;
   type: WorkspaceTabType;
   title: string;
-  documentId?: string;
-  slug?: string;
   extensionId?: string;
-  projectId?: string;
-  filePath?: string;
 }
 
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
-  document: 'Dokument',
-  projektdatei: 'Datei',
   settings: 'Einstellungen',
   modelle: 'Modelle',
   erweiterungen: 'Erweiterungen',
   automationen: 'Automationen',
   flow: 'Neuer Flow',
   extension: 'Erweiterung',
-  kundenuebersicht: 'Kundenübersicht',
-  projekte: 'Projekte',
-  projektuebersicht: 'Projekt-Übersicht',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
   switch (spec.type) {
-    case 'document':
-      return `document:${spec.documentId ?? ''}`;
-    // Jede Erweiterung ist ein eigener Tab (wie ein Dokument), damit man mehrere
-    // parallel offen haben kann.
+    // Jede Erweiterung ist ein eigener Tab, damit man mehrere parallel offen
+    // haben kann.
     case 'extension':
       return `extension:${spec.extensionId ?? ''}`;
-    // Jede Projektablage-Datei ist ein eigener Tab (Projekt + Pfad).
-    case 'projektdatei':
-      return `projektdatei:${spec.projectId ?? ''}:${spec.filePath ?? ''}`;
     default:
       return spec.type;
   }
@@ -94,11 +65,6 @@ export function tabId(spec: WorkspaceTabSpec): string {
 /** Aktiver Tab → URL-Pfad unterhalb von /workspace. */
 export function tabToPath(tab: WorkspaceTab): string {
   switch (tab.type) {
-    case 'document':
-      return `/workspace/doc/${tab.documentId ?? ''}`;
-    case 'projektdatei':
-      // Der Datei-Pfad enthält '/' — URL-kodiert, damit er EIN Segment bleibt.
-      return `/workspace/pfile/${tab.projectId ?? ''}/${encodeURIComponent(tab.filePath ?? '')}`;
     case 'settings':
       return '/workspace/settings';
     case 'modelle':
@@ -111,12 +77,6 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/flow';
     case 'extension':
       return `/workspace/ext/${tab.extensionId ?? ''}`;
-    case 'kundenuebersicht':
-      return '/workspace/kunden';
-    case 'projekte':
-      return '/workspace/projekte';
-    case 'projektuebersicht':
-      return '/workspace/projekt';
   }
 }
 
@@ -126,200 +86,54 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
   const head = parts[0];
   if (!head) return null;
   switch (head) {
-    case 'doc':
-      return parts[1] ? { type: 'document', documentId: parts[1] } : null;
-    case 'pfile': {
-      if (!parts[1] || !parts[2]) return null;
-      try {
-        return {
-          type: 'projektdatei',
-          projectId: parts[1],
-          filePath: decodeURIComponent(parts[2]),
-        };
-      } catch {
-        return null;
-      }
-    }
     case 'settings':
       return { type: 'settings' };
     case 'modelle':
       return { type: 'modelle' };
     case 'erweiterungen':
       return { type: 'erweiterungen' };
-    // Alter Pfad aus der Zeit des einen Tabs. Er landet bei den Erweiterungen,
-    // weil der Tab so hiess.
+    // Alter Pfad aus der Zeit vor Plan 023 B7: /workspace/store zeigte je nach
+    // Zustand Modelle oder Erweiterungen. Gespeicherte Links landen bei den
+    // Erweiterungen; Modelle haben ihren eigenen Pfad.
     case 'store':
       return { type: 'erweiterungen' };
     case 'automationen':
       return { type: 'automationen' };
     case 'flow':
       return { type: 'flow' };
-    case 'kunden':
-      return { type: 'kundenuebersicht' };
-    case 'projekte':
-      return { type: 'projekte' };
-    case 'projekt':
-      return { type: 'projektuebersicht' };
     case 'ext':
       return parts[1] ? { type: 'extension', extensionId: parts[1] } : null;
     default:
-      // /workspace/terminal (v2) ist kein Tab mehr — Terminal lebt im Panel.
       return null;
   }
 }
 
 /**
- * Ordner-Scope für den Chat (»Mit Ordner chatten«): schränkt die RAG-Suche
- * auf den Teilbaum eines Ordners ein. Ephemer — wird bewusst nicht persistiert.
+ * Die Sidebar-Ansichten der Activity-Bar. `null` heißt: keine Ansicht gewählt,
+ * die linke Spalte ist leer. Seit B2 gibt es die Ansicht „Dateien" nicht mehr;
+ * alte Stände mit 'files' oder 'search' landen auf null.
  */
-export interface ChatScope {
-  spaceIds: string[];
-  label: string;
-}
-
-/**
- * Datei-Ziel des Chats: der Projektablage-Ordner, in dem als Datei erzeugte
- * Antworten landen (per Drag & Drop aus dem Ablage-Baum gesetzt). Ephemer.
- * `pfad` ist relativ zur Ablage-Wurzel; `''` = Wurzel des Projekts.
- */
-export interface ChatDateiZiel {
-  projectId: string;
-  pfad: string;
-  label: string;
-  /**
-   * Wie viele Dateien in diesem Ordner liegen (Plan 023 E6).
-   *
-   * Ein Ordner ohne Zahl ist eine Behauptung: der Nutzer sieht "Speichern in:
-   * berichte" und weiss nicht, ob dort drei oder dreihundert Dateien liegen.
-   * `null` heisst "noch nicht gezaehlt", nicht "leer" - die Zahl kommt erst
-   * nach dem Ablegen aus einer eigenen Abfrage.
-   */
-  dateien?: number | null;
-  /** Der Baum ist gedeckelt; dann ist die Zahl eine Untergrenze. */
-  dateienGedeckelt?: boolean;
-}
-
-/**
- * Aktionen, die die Menüleiste an den Explorer delegiert (der Dialog-State
- * lebt lokal im ExplorerPanel; die Menubar stellt nur eine Anfrage).
- */
-export type ExplorerAction = 'create-folder' | 'upload-files';
-
-/**
- * Eine Terminal-Session im rechten Panel. Die Registry lebt im Store
- * (nicht im Komponenten-State), damit genau eine Quelle der Wahrheit
- * existiert — egal ob das Panel sichtbar ist oder nicht. Die eigentliche
- * WebSocket-Verbindung hält die Terminal-Komponente; sie hängt an der
- * stabilen Session-Id.
- */
-export interface TerminalSession {
-  /**
-   * Stabile, eindeutige Session-Id. Erste Session eines Projekts: die
-   * Projekt-Id selbst (rückwärtskompatibel zum 1-Session-Modell); weitere
-   * Sessions desselben Projekts: `${projectId}#${n}`.
-   */
-  id: string;
-  /** Sandbox-Projekt (Container), in dem die Session läuft. */
-  projectId: string;
-  title: string;
-  /**
-   * tmux-Session-Name im Container — stabil über Reconnects hinweg. Mehrere
-   * Sessions im selben Projekt brauchen DISTINKTE Namen, sonst spiegeln sie
-   * denselben Screen statt unabhängige Shells zu sein. Fehlt bei Alt-Sessions
-   * (v≤4-Persist) → Backend-Default 'main'.
-   */
-  terminalName?: string;
-}
-
-/** Inhalt des rechten Panels: Chat oder Terminal (nie beide gleichzeitig). */
-export type RightPanelMode = 'chat' | 'terminal';
-
-/**
- * Aktive Sidebar-Ansicht (Plan 012 Phase B): welche Activity-Bar-Rubrik die
- * linke Sidebar füllt. Löst die frühere reine Boolean-Semantik ab — die
- * (immer sichtbare) Activity-Bar wählt jetzt eine ANSICHT, `sidebarVisible`
- * steuert nur noch das Auf/Zu des Panels.
- *
- *   files       → Datei-Explorer (Baum)
- *   search      → Suche (Trefferliste; Anbindung in Schritt 19)
- *   models      → Modell-Filter (ziehen in Schritt 7 hierher)
- *   extensions  → Erweiterungs-Filter (Schritt 9)
- *   flows      → Flow-Liste (Zentrale in Phase D)
- */
-export type ActivityView = 'files' | 'search' | 'models' | 'extensions' | 'flows' | 'settings';
-
-const ACTIVITY_VIEWS = new Set<ActivityView>([
-  'files',
-  'search',
+export type ActivityView = 'models' | 'extensions' | 'flows' | 'settings';
+const ACTIVITY_VIEWS: ReadonlySet<ActivityView> = new Set<ActivityView>([
   'models',
   'extensions',
   'flows',
   'settings',
 ]);
 
-interface WorkspaceState {
+export interface WorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
-  /**
-   * Aktive Sidebar-Ansicht (Activity-Bar-Auswahl). Die Bar wählt eine Ansicht,
-   * `sidebarVisible` steuert nur noch das Auf/Zu — so bleibt die Bar (und damit
-   * »Dateien«) erreichbar, auch wenn das Panel eingeklappt ist.
-   */
-  activeView: ActivityView;
-  /** Linke Sidebar (Explorer/Workspace). */
+  activeView: ActivityView | null;
   sidebarVisible: boolean;
-  /**
-   * Auto-Collapse-Merker: die vor dem Betreten eines App-Tabs gültige
-   * Sidebar-Präferenz. `null` heißt „nicht auto-eingeklappt". Persistiert,
-   * damit die Präferenz einen Reload auf einem App-Tab überlebt und beim
-   * Verlassen korrekt wiederhergestellt wird (statt den bereits eingeklappten
-   * Zustand als vermeintliche Präferenz zu übernehmen).
-   */
-  sidebarRestore: boolean | null;
-  /** Sichtbarkeit des rechten Panels (Chat/Terminal). */
   rightPanelVisible: boolean;
-  /** Aktiver Inhalt des rechten Panels. */
-  rightPanelMode: RightPanelMode;
-  terminalSessions: TerminalSession[];
-  activeTerminalSessionId: string | null;
-  chatScope: ChatScope | null;
-  chatDateiZiel: ChatDateiZiel | null;
-  explorerRequest: ExplorerAction | null;
-  /**
-   * Tabs mit ungespeicherten Änderungen (ephemer, NICHT persistiert). Die
-   * Editoren melden ihren Dirty-Zustand über `setTabDirty`; die Tab-Leiste
-   * (Punkt + „Verwerfen?"-Rückfrage beim Schließen) und die Shell
-   * (beforeunload-Warnung) lesen daraus. Datenverlust-Schutz — Plan QA-Sweep.
-   */
-  dirtyTabs: Set<string>;
   openTab: (spec: WorkspaceTabSpec) => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
   moveTab: (fromIndex: number, toIndex: number) => void;
   updateTabTitle: (id: string, title: string) => void;
-  /**
-   * Offene Projektdatei-Tabs einem Verschieben in der Ablage nachziehen
-   * (Tab-Drag / Explorer-Move). Ohne das zeigte der Tab nach dem Move auf den
-   * alten Pfad — Breadcrumb veraltet und Speichern/Neuladen liefe ins Leere.
-   * Trifft die Datei selbst (filePath === von) UND Kinder eines Ordner-Moves.
-   */
-  verschiebeProjektdatei: (projectId: string, von: string, nach: string) => void;
-  /**
-   * Offene Projektdatei-Tabs zu einem gelöschten Pfad schließen (Datei selbst
-   * UND alles unterhalb eines gelöschten Ordners).
-   *
-   * Ohne das blieb der Editor-Tab nach dem Löschen stehen und zeigte den alten
-   * Inhalt, als gäbe es die Datei noch. Wer dann hineintippte, legte sie über
-   * das automatische Speichern wieder an — am 19.08.2026 live nachgestellt: 88
-   * Byte gelöscht, ein Tastendruck später lagen 52 neue Byte am selben Pfad und
-   * wanderten erneut in den Index. Für eine Löschung, die auch eine
-   * Auskunfts-/Löschpflicht bedienen soll, ist das die falsche Richtung.
-   */
-  schliesseProjektdatei: (projectId: string, pfad: string) => void;
-  /** Ungespeicherten-Zustand eines Tabs melden (Editor → Store). */
-  setTabDirty: (id: string, dirty: boolean) => void;
   toggleSidebar: () => void;
-  /** Sidebar-Sichtbarkeit explizit setzen (Auto-Collapse des SidebarHost). */
+  /** Sidebar-Sichtbarkeit explizit setzen. */
   setSidebarVisible: (visible: boolean) => void;
   /**
    * Activity-Bar-Klick (VS-Code-Semantik): dieselbe Ansicht bei offener Sidebar
@@ -333,100 +147,47 @@ interface WorkspaceState {
    * Sidebar nicht ein-/ausklappen, nur ihren Inhalt passend stellen.
    */
   setActiveView: (view: ActivityView) => void;
-  /**
-   * Auto-Collapse-Zustandsmaschine für Kontextwechsel: beim Betreten eines
-   * App-Tabs die aktuelle Präferenz in `sidebarRestore` sichern und einklappen,
-   * beim Verlassen wiederherstellen. Nur die Ein-/Austritts-Übergänge wirken
-   * (Gate über `sidebarRestore === null`), damit ein manueller Toggle auf einem
-   * App-Tab nicht sofort revidiert wird.
-   */
-  syncSidebarForTab: (isAppTab: boolean) => void;
-  /** Rechtes Panel ein-/ausblenden (Modus bleibt erhalten). */
+  /** Rechtes Panel ein-/ausblenden. */
   toggleRightPanel: () => void;
-  /** Modus setzen und das rechte Panel dabei einblenden. */
-  setRightPanelMode: (mode: RightPanelMode) => void;
-  /** Session registrieren/aktivieren — blendet das Terminal-Panel ein. */
-  openTerminalSession: (session: TerminalSession) => void;
-  closeTerminalSession: (id: string) => void;
-  activateTerminalSession: (id: string) => void;
-  updateTerminalSessionTitle: (id: string, title: string) => void;
-  setChatScope: (scope: ChatScope | null) => void;
-  setChatDateiZiel: (ziel: ChatDateiZiel | null) => void;
-  requestExplorerAction: (action: ExplorerAction) => void;
-  clearExplorerRequest: () => void;
 }
 
 /** Persistierte Felder (partialize) — Basis für die migrate-Signatur. */
 interface PersistedWorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
-  activeView: ActivityView;
+  activeView: ActivityView | null;
   sidebarVisible: boolean;
-  sidebarRestore: boolean | null;
   rightPanelVisible: boolean;
-  rightPanelMode: RightPanelMode;
-  terminalSessions: TerminalSession[];
-  activeTerminalSessionId: string | null;
 }
 
-/** Roh-Shape älterer persistierter Stände (v≤3) + evtl. schon v4-Felder. */
-interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'tabs'>> {
-  tabs?: Array<{
-    id: string;
-    type: string;
-    title: string;
-    documentId?: string;
-    slug?: string;
-  }>;
-  // v2-Felder
+/** Roh-Shape älterer persistierter Stände (v≤6). */
+interface PersistedLegacyState {
+  tabs?: Array<{ id: string; type: string; title: string; extensionId?: string }>;
+  activeTabId?: string | null;
+  activeView?: string;
+  sidebarVisible?: boolean;
+  // v≤2
   explorerVisible?: boolean;
   llmVisible?: boolean;
-  llmPanelMode?: 'chat' | 'terminal';
-  // v3-Felder (zwei unabhängige Flächen)
+  // v3 (zwei unabhängige Flächen)
   chatVisible?: boolean;
   terminalVisible?: boolean;
-  // v4-Felder (eine Fläche mit Modus)
+  // v4 bis v6
   rightPanelVisible?: boolean;
-  rightPanelMode?: RightPanelMode;
-  // v6-Feld (Activity-Bar-Ansicht)
-  activeView?: ActivityView;
 }
 
 /**
- * Migration auf v4 (rightPanelVisible/-Mode). Je nach Herkunftsversion:
- *
- * - v≤2: Das rechte Panel war schon damals EINE Fläche mit Modus
- *   (llmVisible = sichtbar, llmPanelMode = Inhalt) — es bildet 1:1 auf v4 ab:
- *   rightPanelVisible = llmVisible, rightPanelMode = llmPanelMode. explorerVisible
- *   → sidebarVisible. (Kein Umweg über die v3-Zwei-Flächen-Faltung: der würde
- *   den zuletzt genutzten Terminal-Modus verlieren, weil llmVisible=true dort als
- *   „Chat sichtbar" gelesen würde und Chat beim Falten Vorrang hat.)
- * - v≥3: Chat und Terminal waren zwei unabhängige Flächen; sie werden zu
- *   Sichtbarkeit + Modus gefaltet:
- *     visible = chatVisible || terminalVisible
- *     mode    = (terminalVisible && !chatVisible) ? 'terminal' : 'chat'
- *
- * - v4: Panel-Felder liegen bereits in ihrer heutigen Form vor und werden
- *   unverändert übernommen. Die Migration auf v5 dient allein dazu, den mit
- *   Plan 011 entfallenen 'agenten'-Tab aus bestehenden Sitzungen zu entfernen —
- *   ohne Versionssprung liefe der Filter unten für v4-Nutzer nie an und sie
- *   behielten einen Tab, den es nicht mehr gibt.
- *
- * - v6: additiv die Activity-Bar-Ansicht (`activeView`, Plan 012 Phase B).
- *   Fehlt in v≤5-Ständen → 'files'. Das Panel-Layout bleibt unangetastet.
- *
- * 'sandbox'-Tabs (Terminal als Mitte-Tab), der frühere 'agenten'-Tab und
- * unbekannte Typen werden entfernt, übrige Tabs + aktiver Tab bleiben erhalten.
- * sidebarRestore startet bei null (kein Auto-Collapse aus einer Alt-Session
- * übernehmen).
+ * Migration auf v7. Ältere Stände kannten ein rechtes Panel mit Modus (Chat
+ * oder Terminal), Terminal-Sessions und Tabs für Dokumente, Projektdateien und
+ * Projekte. Davon bleibt nur, was es noch gibt: die Tabs der verbliebenen
+ * Typen, die Sidebar-Ansicht (ohne 'files'/'search') und die Sichtbarkeit der
+ * beiden Spalten. Ein Tab, der beim Aktualisieren verschwindet, sieht aus wie
+ * ein Fehler; deshalb wird der alte `store`-Tab weiter auf `erweiterungen`
+ * umgeschrieben statt verworfen.
  */
 function migrateWorkspaceState(persisted: unknown, version: number): PersistedWorkspaceState {
   const old = (persisted ?? {}) as PersistedLegacyState;
   const valid = new Set(Object.keys(DEFAULT_TITLES));
-  // Plan 023 B7: der Tab „store" heisst jetzt „erweiterungen". Ohne diese
-  // Umschrift faellt er beim naechsten Laden still aus der Leiste, weil die
-  // Filterung unbekannte Typen verwirft. Ein Tab, der beim Aktualisieren
-  // verschwindet, sieht aus wie ein Fehler.
   const umbenannt: Record<string, WorkspaceTabType> = { store: 'erweiterungen' };
   const neueId: Record<string, string> = {};
   const tabs = (Array.isArray(old.tabs) ? old.tabs : [])
@@ -437,59 +198,34 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
       neueId[t.id] = id;
       return { ...t, type: neuerTyp, id, title: DEFAULT_TITLES[neuerTyp] };
     })
-    .filter(t => valid.has(t.type)) as WorkspaceTab[];
+    .filter(t => valid.has(t.type))
+    .map(t => {
+      const tab: WorkspaceTab = { id: t.id, type: t.type as WorkspaceTabType, title: t.title };
+      if (t.extensionId) tab.extensionId = t.extensionId;
+      return tab;
+    });
   const alterAktiver = old.activeTabId ? (neueId[old.activeTabId] ?? old.activeTabId) : null;
   const activeTabId =
     alterAktiver && tabs.some(t => t.id === alterAktiver) ? alterAktiver : (tabs[0]?.id ?? null);
 
   let sidebarVisible: boolean;
   let rightPanelVisible: boolean;
-  let rightPanelMode: RightPanelMode;
-  let terminalSessions: TerminalSession[];
-  let activeTerminalSessionId: string | null;
-
   if (version >= 4) {
-    // v4 → v5: Panel-Zustand ist bereits im Zielformat, nur durchreichen.
     sidebarVisible = old.sidebarVisible ?? true;
     rightPanelVisible = old.rightPanelVisible ?? true;
-    rightPanelMode = old.rightPanelMode === 'terminal' ? 'terminal' : 'chat';
-    terminalSessions = Array.isArray(old.terminalSessions) ? old.terminalSessions : [];
-    activeTerminalSessionId = old.activeTerminalSessionId ?? null;
   } else if (version >= 3) {
-    const chatVisible = old.chatVisible ?? true;
-    const terminalVisible = old.terminalVisible ?? false;
     sidebarVisible = old.sidebarVisible ?? true;
-    rightPanelVisible = chatVisible || terminalVisible;
-    rightPanelMode = terminalVisible && !chatVisible ? 'terminal' : 'chat';
-    terminalSessions = Array.isArray(old.terminalSessions) ? old.terminalSessions : [];
-    activeTerminalSessionId = old.activeTerminalSessionId ?? null;
+    rightPanelVisible = (old.chatVisible ?? true) || (old.terminalVisible ?? false);
   } else {
-    // v≤2: EIN Panel mit Modus → direkt übernehmen (kein Faltungs-Verlust).
     sidebarVisible = old.explorerVisible ?? true;
     rightPanelVisible = old.llmVisible ?? true;
-    rightPanelMode = old.llmPanelMode === 'terminal' ? 'terminal' : 'chat';
-    terminalSessions = [];
-    activeTerminalSessionId = null;
   }
 
-  // v6: die Activity-Bar-Ansicht. Ältere Stände (v≤5) kennen sie nicht → auf
-  // 'files' zurückfallen. Das Panel-Layout (Breiten, Sichtbarkeit) bleibt
-  // unberührt — nur ein additives Feld kommt hinzu.
   const activeView = ACTIVITY_VIEWS.has(old.activeView as ActivityView)
     ? (old.activeView as ActivityView)
-    : 'files';
+    : null;
 
-  return {
-    tabs,
-    activeTabId,
-    activeView,
-    sidebarVisible,
-    sidebarRestore: null,
-    rightPanelVisible,
-    rightPanelMode,
-    terminalSessions,
-    activeTerminalSessionId,
-  };
+  return { tabs, activeTabId, activeView, sidebarVisible, rightPanelVisible };
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -497,17 +233,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set, get) => ({
       tabs: [],
       activeTabId: null,
-      activeView: 'files',
+      activeView: null,
       sidebarVisible: true,
-      sidebarRestore: null,
       rightPanelVisible: true,
-      rightPanelMode: 'chat',
-      terminalSessions: [],
-      activeTerminalSessionId: null,
-      chatScope: null,
-      chatDateiZiel: null,
-      explorerRequest: null,
-      dirtyTabs: new Set<string>(),
 
       openTab: spec => {
         const id = tabId(spec);
@@ -521,17 +249,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           id,
           type: spec.type,
           title: spec.title ?? DEFAULT_TITLES[spec.type],
-          documentId: spec.documentId,
-          slug: spec.slug,
-          extensionId: spec.extensionId,
-          projectId: spec.projectId,
-          filePath: spec.filePath,
         };
+        if (spec.extensionId) tab.extensionId = spec.extensionId;
         set({ tabs: [...tabs, tab], activeTabId: id });
       },
 
       closeTab: id => {
-        const { tabs, activeTabId, dirtyTabs } = get();
+        const { tabs, activeTabId } = get();
         const index = tabs.findIndex(t => t.id === id);
         if (index === -1) return;
         const nextTabs = tabs.filter(t => t.id !== id);
@@ -540,46 +264,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const neighbor = nextTabs[index] ?? nextTabs[index - 1] ?? null;
           nextActive = neighbor ? neighbor.id : null;
         }
-        // Dirty-Merker des geschlossenen Tabs mitentfernen, damit kein
-        // Geister-Eintrag die beforeunload-Warnung offen hält.
-        let nextDirty = dirtyTabs;
-        if (dirtyTabs.has(id)) {
-          nextDirty = new Set(dirtyTabs);
-          nextDirty.delete(id);
-        }
-        set({ tabs: nextTabs, activeTabId: nextActive, dirtyTabs: nextDirty });
-      },
-
-      schliesseProjektdatei: (projectId, pfad) => {
-        const { tabs, activeTabId, dirtyTabs } = get();
-        const betroffen = (t: WorkspaceTab): boolean =>
-          t.type === 'projektdatei' &&
-          t.projectId === projectId &&
-          t.filePath != null &&
-          (t.filePath === pfad || t.filePath.startsWith(`${pfad}/`));
-        const zuSchliessen = tabs.filter(betroffen);
-        if (zuSchliessen.length === 0) return;
-        const nextTabs = tabs.filter(t => !betroffen(t));
-        let nextActive = activeTabId;
-        if (activeTabId != null && zuSchliessen.some(t => t.id === activeTabId)) {
-          // Der Nachbar wird von der Stelle des AKTIVEN Tabs aus gesucht, nicht
-          // von der des ersten betroffenen. Beim Löschen eines Ordners fallen
-          // mehrere Tabs auf einmal weg, und die müssen nicht nebeneinander
-          // liegen: bei [foo, A/x, bar, A/y, baz] mit aktivem A/y landete der
-          // Fokus sonst auf bar statt auf baz.
-          const aktivIndex = tabs.findIndex(t => t.id === activeTabId);
-          const ueberlebendeDavor = tabs.slice(0, aktivIndex).filter(t => !betroffen(t)).length;
-          const nachbar = nextTabs[ueberlebendeDavor] ?? nextTabs[ueberlebendeDavor - 1] ?? null;
-          nextActive = nachbar ? nachbar.id : null;
-        }
-        let nextDirty = dirtyTabs;
-        for (const t of zuSchliessen) {
-          if (dirtyTabs.has(t.id)) {
-            if (nextDirty === dirtyTabs) nextDirty = new Set(dirtyTabs);
-            nextDirty.delete(t.id);
-          }
-        }
-        set({ tabs: nextTabs, activeTabId: nextActive, dirtyTabs: nextDirty });
+        set({ tabs: nextTabs, activeTabId: nextActive });
       },
 
       activateTab: id => {
@@ -612,75 +297,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }));
       },
 
-      verschiebeProjektdatei: (projectId, von, nach) => {
-        const { tabs, activeTabId, dirtyTabs } = get();
-        // Neuen Pfad eines betroffenen Tabs berechnen (null = nicht betroffen).
-        const zielPfad = (pfad: string | undefined): string | null => {
-          if (pfad == null) return null;
-          if (pfad === von) return nach;
-          if (pfad.startsWith(`${von}/`)) return `${nach}${pfad.slice(von.length)}`;
-          return null;
-        };
-        // 1. Bewegte Tabs bestimmen (alte Id → neuer Tab mit neuer Id).
-        const bewegt = new Map<string, WorkspaceTab>();
-        for (const t of tabs) {
-          if (t.type !== 'projektdatei' || t.projectId !== projectId) continue;
-          const neu = zielPfad(t.filePath);
-          if (neu == null) continue;
-          const neuerTab: WorkspaceTab = { ...t, filePath: neu };
-          neuerTab.id = tabId(neuerTab);
-          bewegt.set(t.id, neuerTab);
-        }
-        if (bewegt.size === 0) return;
-        // 2. Zusammenbauen. Ein bereits offener Tab, der GENAU auf dem Zielpfad
-        // eines bewegten Tabs sitzt (verwaist — seine Datei wurde überschrieben),
-        // würde dieselbe Id tragen → verwerfen, sonst zwei Tabs mit gleichem
-        // React-Key/gleicher Id.
-        const neueIds = new Set([...bewegt.values()].map(t => t.id));
-        let nextActive = activeTabId;
-        let nextDirty = dirtyTabs;
-        const klonDirty = () => {
-          if (nextDirty === dirtyTabs) nextDirty = new Set(dirtyTabs);
-        };
-        const nextTabs: WorkspaceTab[] = [];
-        for (const t of tabs) {
-          const neuerTab = bewegt.get(t.id);
-          if (neuerTab) {
-            if (activeTabId === t.id) nextActive = neuerTab.id;
-            if (dirtyTabs.has(t.id)) {
-              klonDirty();
-              nextDirty.delete(t.id);
-              nextDirty.add(neuerTab.id);
-            }
-            nextTabs.push(neuerTab);
-            continue;
-          }
-          // Verwaister Ziel-Tab: seine Id lebt auf dem bewegten Tab weiter, also
-          // fällt er hier weg (aktiver Zustand bleibt gültig — dieselbe Id).
-          if (neueIds.has(t.id)) {
-            if (dirtyTabs.has(t.id)) {
-              klonDirty();
-              nextDirty.delete(t.id);
-            }
-            continue;
-          }
-          nextTabs.push(t);
-        }
-        set({ tabs: nextTabs, activeTabId: nextActive, dirtyTabs: nextDirty });
-      },
-
-      setTabDirty: (id, dirty) => {
-        set(state => {
-          // No-op wenn unverändert — verhindert unnötige Re-Renders bei jedem
-          // Tastendruck (Editoren melden den abgeleiteten Dirty-Zustand).
-          if (state.dirtyTabs.has(id) === dirty) return {};
-          const next = new Set(state.dirtyTabs);
-          if (dirty) next.add(id);
-          else next.delete(id);
-          return { dirtyTabs: next };
-        });
-      },
-
       toggleSidebar: () => set(state => ({ sidebarVisible: !state.sidebarVisible })),
       setSidebarVisible: visible => set({ sidebarVisible: visible }),
       selectView: view =>
@@ -690,94 +306,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             : { activeView: view, sidebarVisible: true }
         ),
       setActiveView: view => set({ activeView: view }),
-      syncSidebarForTab: isAppTab =>
-        set(state => {
-          // Betreten eines App-Tabs (nur der Eintritts-Übergang, Gate über
-          // sidebarRestore === null): Präferenz sichern und einklappen.
-          if (isAppTab && state.sidebarRestore === null) {
-            return { sidebarRestore: state.sidebarVisible, sidebarVisible: false };
-          }
-          // Verlassen des App-Kontexts: gesicherte Präferenz wiederherstellen.
-          // Greift auch selbstheilend nach einem Reload, der auf einem App-Tab
-          // mit bereits eingeklappter (persistierter) Sidebar startete.
-          if (!isAppTab && state.sidebarRestore !== null) {
-            return { sidebarVisible: state.sidebarRestore, sidebarRestore: null };
-          }
-          return {};
-        }),
       toggleRightPanel: () => set(state => ({ rightPanelVisible: !state.rightPanelVisible })),
-      setRightPanelMode: mode => set({ rightPanelVisible: true, rightPanelMode: mode }),
-
-      openTerminalSession: session => {
-        const { terminalSessions } = get();
-        const exists = terminalSessions.some(s => s.id === session.id);
-        set({
-          terminalSessions: exists ? terminalSessions : [...terminalSessions, session],
-          activeTerminalSessionId: session.id,
-          rightPanelVisible: true,
-          rightPanelMode: 'terminal',
-        });
-      },
-
-      closeTerminalSession: id => {
-        const { terminalSessions, activeTerminalSessionId } = get();
-        const index = terminalSessions.findIndex(s => s.id === id);
-        if (index === -1) return;
-        const next = terminalSessions.filter(s => s.id !== id);
-        let nextActive = activeTerminalSessionId;
-        if (activeTerminalSessionId === id) {
-          const neighbor = next[index] ?? next[index - 1] ?? null;
-          nextActive = neighbor ? neighbor.id : null;
-        }
-        set({ terminalSessions: next, activeTerminalSessionId: nextActive });
-      },
-
-      activateTerminalSession: id => {
-        if (get().terminalSessions.some(s => s.id === id)) {
-          set({ activeTerminalSessionId: id });
-        }
-      },
-
-      updateTerminalSessionTitle: (id, title) => {
-        set(state => ({
-          terminalSessions: state.terminalSessions.map(s => (s.id === id ? { ...s, title } : s)),
-        }));
-      },
-
-      // Datei-Ziel setzen blendet das Chat-Panel ein (dorthin wirkt es)
-      setChatDateiZiel: ziel =>
-        set(
-          ziel
-            ? { chatDateiZiel: ziel, rightPanelVisible: true, rightPanelMode: 'chat' }
-            : { chatDateiZiel: null }
-        ),
-      // Scope setzen blendet das Chat-Panel ein (dorthin wirkt der Scope)
-      setChatScope: scope =>
-        set(
-          scope
-            ? { chatScope: scope, rightPanelVisible: true, rightPanelMode: 'chat' }
-            : { chatScope: null }
-        ),
-      // Menü-Aktion an den Explorer delegieren — blendet die Datei-Sidebar dafür
-      // ein (Ordner anlegen / hochladen brauchen den Baum sichtbar).
-      requestExplorerAction: action =>
-        set({ explorerRequest: action, sidebarVisible: true, activeView: 'files' }),
-      clearExplorerRequest: () => set({ explorerRequest: null }),
     }),
     {
       name: 'arasul_workspace',
-      version: 6,
+      version: 7,
       migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
       partialize: state => ({
         tabs: state.tabs,
         activeTabId: state.activeTabId,
         activeView: state.activeView,
         sidebarVisible: state.sidebarVisible,
-        sidebarRestore: state.sidebarRestore,
         rightPanelVisible: state.rightPanelVisible,
-        rightPanelMode: state.rightPanelMode,
-        terminalSessions: state.terminalSessions,
-        activeTerminalSessionId: state.activeTerminalSessionId,
       }),
     }
   )

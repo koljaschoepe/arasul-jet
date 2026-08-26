@@ -60,11 +60,6 @@ function resetStore() {
     activeTabId: null,
     sidebarVisible: true,
     rightPanelVisible: true,
-    rightPanelMode: 'chat',
-    terminalSessions: [],
-    activeTerminalSessionId: null,
-    chatScope: null,
-    explorerRequest: null,
   });
 }
 

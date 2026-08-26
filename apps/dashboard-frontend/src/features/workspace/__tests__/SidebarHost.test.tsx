@@ -1,17 +1,14 @@
 /**
  * SidebarHost — Ansichts-Mapping (Plan 012 Phase B, Schritt 6).
  * Die aktive Activity-Bar-Ansicht (`activeView`) bestimmt den Inhalt der
- * linken Sidebar. Der Datei-Explorer bleibt beim Wechsel gemountet (nur
- * versteckt), damit sein Baum-Zustand erhalten bleibt.
+ * linken Sidebar. Seit B2 gibt es keinen Datei-Explorer mehr: ohne gewählte
+ * Ansicht bleibt die Spalte leer.
  */
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import type { ActivityView } from '@/stores/workspaceStore';
 import { SidebarHost } from '../SidebarHost';
-
-vi.mock('../explorer/ExplorerPanel', () => ({
-  ExplorerPanel: () => <div data-testid="explorer" />,
-}));
 
 // Ansichten mit Datenanbindung (useFlows / useStoreCatalog) hier isolieren —
 // dieser Test prüft nur das Ansichts-Mapping, nicht deren Innenleben.
@@ -24,31 +21,20 @@ vi.mock('../sidebar/ModelsPanel', () => ({
 vi.mock('../sidebar/ExtensionsPanel', () => ({
   ExtensionsPanel: () => <div data-testid="extensions-panel" />,
 }));
+vi.mock('../sidebar/SettingsPanel', () => ({
+  SettingsPanel: () => <div data-testid="settings-panel" />,
+}));
 
-function reset(activeView: 'files' | 'search' | 'models' | 'extensions' | 'flows') {
-  useWorkspaceStore.setState({
-    tabs: [],
-    activeTabId: null,
-    activeView,
-    sidebarVisible: true,
-    sidebarRestore: null,
-  });
+function reset(activeView: ActivityView | null) {
+  useWorkspaceStore.setState({ tabs: [], activeTabId: null, activeView, sidebarVisible: true });
 }
 
 describe('SidebarHost, Ansichts-Mapping', () => {
-  beforeEach(() => reset('files'));
+  beforeEach(() => reset(null));
 
-  it('files → Datei-Explorer', () => {
+  it('ohne Ansicht ist die Spalte leer (kein Explorer mehr)', () => {
     render(<SidebarHost />);
-    expect(screen.getByTestId('explorer')).toBeInTheDocument();
-  });
-
-  it('search (entfernt) → fällt auf den Datei-Explorer zurück', () => {
-    // Die »Suche«-Ansicht ist entfernt; ein alter persistierter Wert darf keine
-    // leere Sidebar erzeugen — der Explorer ist der Fallback.
-    reset('search');
-    render(<SidebarHost />);
-    expect(screen.getByTestId('explorer')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-sidebar-leer')).toBeInTheDocument();
     expect(screen.queryByTestId('models-panel')).not.toBeInTheDocument();
   });
 
@@ -70,10 +56,17 @@ describe('SidebarHost, Ansichts-Mapping', () => {
     expect(screen.getByTestId('flows-panel')).toBeInTheDocument();
   });
 
+  it('settings → Bereiche der Einstellungen', () => {
+    reset('settings');
+    render(<SidebarHost />);
+    expect(screen.getByTestId('settings-panel')).toBeInTheDocument();
+  });
+
   it('reagiert auf einen Ansichtswechsel im Store', () => {
     render(<SidebarHost />);
     expect(screen.queryByTestId('models-panel')).not.toBeInTheDocument();
     act(() => useWorkspaceStore.setState({ activeView: 'models' }));
     expect(screen.getByTestId('models-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('workspace-sidebar-leer')).not.toBeInTheDocument();
   });
 });

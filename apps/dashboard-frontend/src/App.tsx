@@ -16,13 +16,12 @@ import { DownloadProvider } from './contexts/DownloadContext';
 import { ActivationProvider } from './contexts/ActivationContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { ChatProvider } from './contexts/ChatContext';
 
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
 import './index.css';
 
-// Einstellungen, Store und Terminal werden nicht mehr hier geladen, sondern
+// Einstellungen und Store werden nicht mehr hier geladen, sondern
 // vom Arbeitsbereich (features/workspace/TabContent.tsx), seit die Legacy-Shell
 // entfernt ist (Plan 023 B1).
 
@@ -232,65 +231,62 @@ function AppContent(): React.JSX.Element | null {
   return (
     <DownloadProvider>
       <ActivationProvider>
-        <ChatProvider isAuthenticated={isAuthenticated}>
-          <Router>
-            {/* Update available banner (overlay, gilt für alte UI und Workspace) */}
-            {updateAvailable && (
-              <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
-                <span>Update verfügbar, Seite neu laden</span>
-                <button
-                  className="underline font-semibold hover:opacity-80"
-                  onClick={() => window.location.reload()}
-                >
-                  Jetzt laden
-                </button>
-                <button
-                  type="button"
-                  aria-label="Update-Benachrichtigung schließen"
-                  className="ml-2 opacity-70 hover:opacity-100"
-                  onClick={() => {
-                    setUpdateAvailable(false);
-                    updateDismissedRef.current = Date.now();
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-            <Routes>
-              <Route
-                path="/workspace/*"
-                element={
-                  <RouteErrorBoundary routeName="Workspace">
-                    <Suspense
-                      fallback={<LoadingSpinner message="Lade Workspace..." fullscreen={true} />}
-                    >
-                      <WorkspaceShell
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                        onLogout={handleLogout}
-                      />
-                    </Suspense>
-                  </RouteErrorBoundary>
-                }
-              />
-              {/* Plan 023 B1: die Legacy-Shell ist entfernt. Sie war nur über
+        <Router>
+          {/* Update available banner (overlay) */}
+          {updateAvailable && (
+            <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
+              <span>Update verfügbar, Seite neu laden</span>
+              <button
+                className="underline font-semibold hover:opacity-80"
+                onClick={() => window.location.reload()}
+              >
+                Jetzt laden
+              </button>
+              <button
+                type="button"
+                aria-label="Update-Benachrichtigung schließen"
+                className="ml-2 opacity-70 hover:opacity-100"
+                onClick={() => {
+                  setUpdateAvailable(false);
+                  updateDismissedRef.current = Date.now();
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          <Routes>
+            <Route
+              path="/workspace/*"
+              element={
+                <RouteErrorBoundary routeName="Workspace">
+                  <Suspense
+                    fallback={<LoadingSpinner message="Lade Workspace..." fullscreen={true} />}
+                  >
+                    <WorkspaceShell
+                      theme={theme}
+                      onToggleTheme={toggleTheme}
+                      onLogout={handleLogout}
+                    />
+                  </Suspense>
+                </RouteErrorBoundary>
+              }
+            />
+            {/* Plan 023 B1: die Legacy-Shell ist entfernt. Sie war nur über
                   getippte URLs erreichbar, hatte genau einen Menüeintrag und
                   keine Navigation zu fünf der sechs Einstellungsbereiche. Ihre
                   Routen zeigen jetzt in den Arbeitsbereich, der dieselben
                   Inhalte als Tab kennt. Suchparameter bleiben erhalten, damit
                   Deep-Links wie /settings?tab=remote-access weiter funktionieren. */}
-              <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
-              <Route path="/settings" element={<InDenArbeitsbereich ziel="/settings" />} />
-              <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />
-              <Route path="/terminal" element={<InDenArbeitsbereich ziel="/terminal" />} />
-              <Route path="/sandbox" element={<InDenArbeitsbereich ziel="/terminal" />} />
-              <Route path="/data" element={<InDenArbeitsbereich ziel="" />} />
-              <Route path="/documents" element={<InDenArbeitsbereich ziel="" />} />
-              <Route path="*" element={<NichtGefunden />} />
-            </Routes>
-          </Router>
-        </ChatProvider>
+            <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
+            <Route path="/settings" element={<InDenArbeitsbereich ziel="/settings" />} />
+            <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />
+            {/* /terminal, /sandbox, /data und /documents zeigten auf Terminal
+                  und Explorer; beides ist mit B2 gefallen, die Adressen sind
+                  unbekannt. */}
+            <Route path="*" element={<NichtGefunden />} />
+          </Routes>
+        </Router>
       </ActivationProvider>
     </DownloadProvider>
   );

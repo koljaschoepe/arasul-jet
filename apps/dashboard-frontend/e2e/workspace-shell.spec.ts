@@ -3,19 +3,11 @@ import { test, expect, type Page } from '@playwright/test';
 /**
  * Workspace-Shell (Cursor-Raster) E2E Tests — Plan 003 »Cursor-Shell 3.1«.
  *
- * Deckt die 3.1-Anpassungen ab:
- *  - Genau ZWEI Layout-Toggles oben rechts (Sidebar + rechtes Panel). Die
- *    früheren getrennten Chat-/Terminal-Toggles sind weg — Chat und Terminal
- *    teilen sich EINE Fläche, umgeschaltet über den Segment-Kopf im Panel
- *    (data-testid="right-panel-mode").
- *  - Segment-Umschalter wechselt den Modus, ohne die inaktive Fläche zu
- *    unmounten (Keep-alive → Session überlebt).
- *  - Kontext-Sidebar (SidebarHost): Dashboard → Explorer, Extensions →
- *    Extensions-Liste, App-Tab → Sidebar klappt automatisch zu.
- *  - Terminal existiert NUR im rechten Panel, nie als Mitte-Tab; die
- *    Activity Bar hat KEINE Explorer-/Chats-/Terminal-Buttons mehr.
- *  - Bug (b): ein offener Radix-Dialog (»Neuer Ordner«) lässt Sidebar und
- *    rechtes Panel sichtbar (aria-hidden steuert die Darstellung nicht mehr).
+ * Seit Phase B2 (26.08.2026) sind Explorer, Agent-Chat und Terminal aus der
+ * Shell gefallen; die Fälle dazu sind aus dieser Spec entfernt. Was bleibt:
+ *  - Genau ZWEI Layout-Toggles oben rechts (Sidebar + rechte Spalte).
+ *  - Die Activity Bar zeigt Modelle · Erweiterungen · Flows, keine Dateien-,
+ *    Chat- oder Terminal-Knöpfe.
  *  - CSRF-Retry: ein 403 CSRF_INVALID auf eine Mutation wird transparent über
  *    einen frischen Token wiederholt (lokal per Route-Mock nachgestellt).
  *  - Mitte-Tabs: öffnen, schließen, Restore nach Reload.
@@ -42,29 +34,22 @@ async function login(page: Page) {
 /** Kurzzugriffe auf die stabilen Anker der Shell (3.1). */
 function shell(page: Page) {
   const layoutGroup = page.getByRole('group', { name: 'Layout' });
-  const modeSwitch = page.getByTestId('right-panel-mode');
   return {
     root: page.getByTestId('workspace-shell'),
     activityBar: page.getByRole('navigation', { name: 'Workspace-Navigation' }),
     tabList: page.getByRole('tablist', { name: 'Offene Tabs' }),
     statusBar: page.getByTestId('workspace-statusbar'),
-    // Linke Fläche: kontextabhängig Explorer ODER Extensions-Liste
-    explorerPanel: page.getByTestId('workspace-explorer-panel'),
+    // Linke Spalte (leer, solange keine Ansicht gewählt ist)
+    sidebar: page.getByTestId('workspace-sidebar'),
     extensionsSidebar: page.getByTestId('extensions-sidebar'),
-    // Rechtes Panel: EINE Fläche, zwei Modi
+    // Rechte Spalte (leer seit B2)
     rightPanel: page.getByTestId('workspace-right-panel'),
-    chatPanel: page.getByTestId('workspace-chat-panel'),
-    terminalPanel: page.getByTestId('workspace-terminal-panel'),
     // Genau zwei Layout-Toggles oben rechts (Labels wechseln mit dem Zustand).
     // Der Sidebar-Toggle trägt »Sidebar …blenden«, der Panel-Toggle »Panel
     // …blenden« — auf die Layout-Gruppe eingegrenzt, damit der gleichnamige
     // Schließen-Button IM Panel nicht mitgezählt wird.
     sidebarToggle: layoutGroup.getByRole('button', { name: /Sidebar (aus|ein)blenden/ }),
     rightPanelToggle: layoutGroup.getByRole('button', { name: /^Panel (aus|ein)blenden/ }),
-    // Segment-Umschalter Chat ⇄ Terminal im rechten Panel
-    modeSwitch,
-    chatModeTab: modeSwitch.getByRole('tab', { name: 'Chat' }),
-    terminalModeTab: modeSwitch.getByRole('tab', { name: 'Terminal' }),
   };
 }
 
@@ -102,149 +87,42 @@ test.describe('Workspace-Shell', () => {
     await expect(layoutGroup.getByRole('button')).toHaveCount(2);
 
     // Ausgangszustand (frischer Context): Sidebar + rechtes Panel sichtbar
-    await expect(s.explorerPanel).toBeVisible();
+    await expect(s.sidebar).toBeVisible();
     await expect(s.rightPanel).toBeVisible();
     await expect(s.sidebarToggle).toHaveAttribute('aria-pressed', 'true');
     await expect(s.rightPanelToggle).toHaveAttribute('aria-pressed', 'true');
 
     // Sidebar ausblenden — rechtes Panel bleibt sichtbar
     await s.sidebarToggle.click();
-    await expect(s.explorerPanel).toBeHidden();
+    await expect(s.sidebar).toBeHidden();
     await expect(s.rightPanel).toBeVisible();
     await expect(s.sidebarToggle).toHaveAttribute('aria-pressed', 'false');
 
     // Rechtes Panel ausblenden — Sidebar bleibt aus
     await s.rightPanelToggle.click();
     await expect(s.rightPanel).toBeHidden();
-    await expect(s.explorerPanel).toBeHidden();
+    await expect(s.sidebar).toBeHidden();
     await expect(s.rightPanelToggle).toHaveAttribute('aria-pressed', 'false');
 
     // Beide wieder einblenden
     await s.sidebarToggle.click();
     await s.rightPanelToggle.click();
-    await expect(s.explorerPanel).toBeVisible();
+    await expect(s.sidebar).toBeVisible();
     await expect(s.rightPanel).toBeVisible();
   });
 
-  test('Segment-Umschalter wechselt Chat ⇄ Terminal, Session bleibt gemountet', async ({
+  test('Activity Bar zeigt Modelle · Erweiterungen · Flows, keine Dateien-/Chat-/Terminal-Knöpfe', async ({
     page,
   }) => {
     await openWorkspace(page);
     const s = shell(page);
 
-    // Default: Chat-Modus aktiv, Terminal versteckt (aber gemountet)
-    await expect(s.chatPanel).toBeVisible();
-    await expect(s.terminalPanel).toBeHidden();
-    await expect(s.chatModeTab).toHaveAttribute('aria-selected', 'true');
-    await expect(s.terminalModeTab).toHaveAttribute('aria-selected', 'false');
-
-    // Auf Terminal umschalten — Chat verschwindet nur optisch
-    await s.terminalModeTab.click();
-    await expect(s.terminalPanel).toBeVisible();
-    await expect(s.chatPanel).toBeHidden();
-    await expect(s.terminalModeTab).toHaveAttribute('aria-selected', 'true');
-    await expect(s.chatModeTab).toHaveAttribute('aria-selected', 'false');
-
-    // Keep-alive: BEIDE Flächen bleiben im DOM verankert (nie unmounten →
-    // Chat-Stream/Terminal-WebSocket überleben den Moduswechsel).
-    await expect(s.chatPanel).toHaveCount(1);
-    await expect(s.terminalPanel).toHaveCount(1);
-
-    // Zurück zu Chat — dieselbe (nie zerstörte) Fläche ist wieder sichtbar
-    await s.chatModeTab.click();
-    await expect(s.chatPanel).toBeVisible();
-    await expect(s.terminalPanel).toBeHidden();
-    await expect(s.terminalPanel).toHaveCount(1);
-  });
-
-  test('Activity Bar hat keine Explorer-/Chats-/Terminal-Buttons', async ({ page }) => {
-    await openWorkspace(page);
-    const s = shell(page);
-
-    // 3.1: Die Activity Bar ist rein für Mitte-Tabs (Dashboard/Extensions/Apps).
-    // Panel-Sichtbarkeit und -Modus steuern die Layout-Toggles bzw. der
-    // Segment-Kopf — daher keine dieser Buttons mehr in der Leiste.
-    await expect(s.activityBar.getByRole('button', { name: /^Explorer/ })).toHaveCount(0);
+    for (const name of ['Modelle', 'Erweiterungen', 'Flows', 'Einstellungen']) {
+      await expect(s.activityBar.getByRole('button', { name })).toBeVisible();
+    }
+    await expect(s.activityBar.getByRole('button', { name: 'Dateien' })).toHaveCount(0);
     await expect(s.activityBar.getByRole('button', { name: /^Chats?/ })).toHaveCount(0);
-    await expect(
-      s.activityBar.getByRole('button', { name: /Terminal (aus|ein)blenden/ })
-    ).toHaveCount(0);
-
-    // Dashboard und Extensions bleiben als Mitte-Tab-Shortcuts erhalten
-    await expect(s.activityBar.getByRole('button', { name: 'Dashboard' })).toBeVisible();
-    await expect(s.activityBar.getByRole('button', { name: 'Extensions' })).toBeVisible();
-  });
-
-  test('Kontext-Sidebar bildet den aktiven Tab ab (Dashboard → Explorer, Extensions → Liste)', async ({
-    page,
-  }) => {
-    await openWorkspace(page);
-    const s = shell(page);
-
-    // Dashboard-Tab (Default): linke Fläche = Explorer
-    await expect(s.explorerPanel).toBeVisible();
-    await expect(s.extensionsSidebar).toHaveCount(0);
-
-    // Extensions-Tab: linke Fläche wechselt auf die Extensions-Liste
-    await s.activityBar.getByRole('button', { name: 'Extensions' }).click();
-    await expect(s.extensionsSidebar).toBeVisible();
-    await expect(s.explorerPanel).toHaveCount(0);
-
-    // Zurück auf Dashboard: Explorer wieder sichtbar
-    await s.activityBar.getByRole('button', { name: 'Dashboard' }).click();
-    await expect(s.explorerPanel).toBeVisible();
-    await expect(s.sidebarToggle).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  test('offener Dialog lässt Sidebar und rechtes Panel sichtbar (Bug b)', async ({ page }) => {
-    await openWorkspace(page);
-    const s = shell(page);
-
-    await expect(s.explorerPanel).toBeVisible();
-    await expect(s.rightPanel).toBeVisible();
-
-    // »Neuer Ordner…« über das Datei-Menü öffnen → Radix-Dialog. Radix ruft
-    // beim Öffnen hideOthers() auf und kippt aria-hidden auf Nachbar-Elemente;
-    // seit dem Fix (data-shell-hidden statt aria-hidden als CSS-Anker) dürfen
-    // Sidebar und rechtes Panel dabei NICHT mehr kollabieren.
-    await page.getByRole('button', { name: 'Datei-Menü' }).click();
-    await page.getByRole('menuitem', { name: /Neuer Ordner/ }).click();
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-
-    // Kern des Regressions-Tests: beide Panels bleiben sichtbar
-    await expect(s.explorerPanel).toBeVisible();
-    await expect(s.rightPanel).toBeVisible();
-
-    // Dialog schließen — Panels weiterhin sichtbar
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
-    await expect(s.explorerPanel).toBeVisible();
-    await expect(s.rightPanel).toBeVisible();
-  });
-
-  test('Terminal erscheint nie als Mitte-Tab', async ({ page }) => {
-    await openWorkspace(page);
-    const s = shell(page);
-
-    const tabCountBefore = await s.tabList.getByRole('tab').count();
-
-    // Terminal wird über den Segment-Kopf des rechten Panels erreicht,
-    // nicht als Mitte-Tab.
-    await s.terminalModeTab.click();
-    await expect(s.terminalPanel).toBeVisible();
-    await expect(s.tabList.getByRole('tab')).toHaveCount(tabCountBefore);
-    await expect(s.tabList.getByRole('tab', { name: /Terminal/i })).toHaveCount(0);
-
-    // Der Legacy-Deep-Link /workspace/terminal (v2-Bookmark) erzeugt keinen
-    // Mitte-Tab, sondern blendet das Terminal-Panel ein und normalisiert
-    // die URL auf den aktiven Tab.
-    await page.goto('/workspace/terminal');
-    await expect(s.root).toBeVisible({ timeout: 10000 });
-    await expect(s.tabList.getByRole('tab', { name: /Terminal/i })).toHaveCount(0);
-    await expect(s.terminalPanel).toBeVisible();
-    await expect(page).not.toHaveURL(/\/workspace\/terminal/);
+    await expect(s.activityBar.getByRole('button', { name: /Terminal/ })).toHaveCount(0);
   });
 
   test('Tabs öffnen, schließen und nach Reload wiederherstellen', async ({ page }) => {
@@ -440,7 +318,10 @@ test.describe('Workspace-Shell', () => {
       });
     });
     await page.route('**/n8n/**', route =>
-      route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>n8n editor stub</title>' })
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><title>n8n editor stub</title>',
+      })
     );
 
     await openWorkspace(page);

@@ -1,16 +1,14 @@
 /**
- * Tests: URL-Sync der WorkspaceShell (Deep-Links, Browser-Zurück, Gating).
+ * Tests: URL-Sync der WorkspaceShell (Deep-Links, Browser-Zurück, Gating) und
+ * das Dreispalten-Raster nach B2.
  *
- * 1. v2-Deep-Link /workspace/terminal: Terminal ist kein Tab mehr — die URL
- *    blendet das Terminal-Panel ein (gleiche Semantik wie die
- *    TerminalPanelBridge in TabContent) und normalisiert sich auf den
- *    aktiven Tab.
- * 2. Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
+ * 1. Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
  *    Deep-Link / Browser-Zurück nicht wieder (Plan 002 §5 Kriterium 4).
- * 3. Keep-alive-Verdrahtung: ausgeblendete Flächen werden über
+ * 2. Keep-alive-Verdrahtung: ausgeblendete Spalten werden über
  *    data-shell-hidden am echten react-resizable-panels-Panel versteckt, nicht
  *    unmounted (aria-hidden wird für die A11y gespiegelt, steuert aber die
  *    Darstellung nicht mehr — siehe DialogPanelCollision.test).
+ * 3. Die drei Spalten stehen auch dann, wenn links und rechts leer sind.
  */
 
 import { render, screen, act, waitFor } from '@testing-library/react';
@@ -24,13 +22,7 @@ vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div data-testid="mock-act
 vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
-vi.mock('../QuickOpen', () => ({ QuickOpen: () => null }));
 vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
-vi.mock('../explorer/ExplorerPanel', () => ({ ExplorerPanel: () => <div /> }));
-vi.mock('../llm/ChatPanel', () => ({ ChatPanel: () => <div /> }));
-vi.mock('../terminal/TerminalPanel', () => ({
-  TerminalPanel: () => <div data-testid="mock-terminal-panel" />,
-}));
 
 // App-Gating deterministisch mocken (echte Datenbasis: GET /workspace-apps)
 const { disabledTabTypes } = vi.hoisted(() => ({ disabledTabTypes: new Set<string>() }));
@@ -48,21 +40,10 @@ function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
     activeTabId: null,
+    activeView: null,
     sidebarVisible: true,
-    sidebarRestore: null,
     rightPanelVisible: true,
-    rightPanelMode: 'chat',
-    terminalSessions: [],
-    activeTerminalSessionId: null,
-    chatScope: null,
-    explorerRequest: null,
   });
-}
-
-/** Terminal ist sichtbar, wenn das rechte Panel offen ist und im Terminal-Modus steht. */
-function terminalIsVisible() {
-  const s = useWorkspaceStore.getState();
-  return s.rightPanelVisible && s.rightPanelMode === 'terminal';
 }
 
 function LocationProbe() {
@@ -93,30 +74,22 @@ describe('WorkspaceShell, URL-Sync', () => {
     localStorage.clear();
   });
 
-  it('v2-Deep-Link /workspace/terminal blendet das Terminal-Panel ein (kein Tab)', async () => {
+  it('ohne Deep-Link bleibt der Workspace leer (kein Default-Tab)', async () => {
+    renderShell('/workspace');
+    await screen.findByTestId('mock-tabcontent');
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+  });
+
+  it('der alte Terminal-Pfad öffnet nichts mehr (Terminal ist mit B2 gefallen)', async () => {
     useWorkspaceStore.setState({
       tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
       activeTabId: 'settings',
     });
-
     renderShell('/workspace/terminal');
-
-    await waitFor(() => expect(terminalIsVisible()).toBe(true));
-    // Kein Terminal-Tab, bestehende Tabs unverändert
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings']);
-    // URL normalisiert sich auf den aktiven Tab
     await waitFor(() =>
       expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/settings')
     );
-  });
-
-  it('v2-Deep-Link /workspace/terminal beim ersten Start: nur Terminal-Panel, kein Default-Tab', async () => {
-    renderShell('/workspace/terminal');
-
-    await waitFor(() => expect(terminalIsVisible()).toBe(true));
-    // Kein Dashboard-Default-Tab mehr (Plan 008): der Workspace bleibt leer,
-    // der Chat-first-Einstieg lebt im rechten Panel.
-    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings']);
   });
 
   it('Gating: Deep-Link auf eine deaktivierte App öffnet den Tab nicht (Browser-Zurück-Szenario)', async () => {
@@ -164,10 +137,6 @@ describe('WorkspaceShell, URL-Sync', () => {
   });
 
   it('Farbregel (AC #8): die Mitte nutzt die Basis-Flächenfarbe bg-background, nicht bg-card', async () => {
-    // Anker für „eine Flächenfarbe überall": der zentrale TabContent-Wrapper und
-    // die Shell-Grundfläche müssen bg-background tragen. Ein Refactoring, das die
-    // Mitte wieder auf bg-card (den früheren Farbbruch) umstellt, lässt diesen
-    // Test fehlschlagen, bevor es unbemerkt live geht.
     useWorkspaceStore.setState({
       tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
       activeTabId: 'settings',
@@ -184,44 +153,25 @@ describe('WorkspaceShell, URL-Sync', () => {
     expect(shellRoot).not.toHaveClass('bg-card');
   });
 
-  it('Keep-alive: Terminal-Fläche wird per data-shell-hidden versteckt, nicht unmounted', async () => {
-    useWorkspaceStore.setState({
-      tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
-      activeTabId: 'settings',
-    });
+  it('drei Spalten: links und rechts stehen leer, werden aber per data-shell-hidden versteckt, nicht unmounted', async () => {
+    renderShell('/workspace');
 
-    renderShell('/workspace/settings');
+    const links = (await screen.findByTestId('workspace-sidebar-leer')).closest('[data-panel]');
+    const rechts = screen.getByTestId('workspace-right-panel-leer').closest('[data-panel]');
+    expect(links).toHaveAttribute('id', 'sidebar');
+    expect(rechts).toHaveAttribute('id', 'right');
+    expect(links).toHaveAttribute('data-shell-hidden', 'false');
+    expect(rechts).toHaveAttribute('data-shell-hidden', 'false');
+    expect(document.querySelector('[data-panel]#main')).not.toBeNull();
 
-    // Default: rechtes Panel sichtbar, Modus Chat. Die Terminal-Fläche im
-    // RightPanel ist als [data-shell-surface] gemountet, aber wegen des
-    // Chat-Modus per data-shell-hidden='true' versteckt (nicht unmounted). Das
-    // umgebende [data-panel]#llm ist sichtbar (rightPanelVisible).
-    const terminalContent = await screen.findByTestId('mock-terminal-panel');
-    const surface = terminalContent.closest('[data-shell-surface]');
-    expect(surface).not.toBeNull();
-    expect(surface).toHaveAttribute('data-shell-hidden', 'true');
-    expect(surface).toHaveAttribute('aria-hidden', 'true');
-    const panelRoot = terminalContent.closest('[data-panel]');
-    expect(panelRoot).not.toBeNull();
-    expect(panelRoot).toHaveAttribute('data-shell-hidden', 'false');
-
-    // Auf den Terminal-Modus umschalten: dieselbe Fläche wird sichtbar, ohne
-    // Remount (kein zweiter Knoten).
+    const rechtsInhalt = screen.getByTestId('workspace-right-panel-leer');
     act(() => {
-      useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
+      useWorkspaceStore.setState({ rightPanelVisible: false, sidebarVisible: false });
     });
-    expect(terminalContent.closest('[data-shell-surface]')).toHaveAttribute(
-      'data-shell-hidden',
-      'false'
-    );
-    expect(screen.getByTestId('mock-terminal-panel')).toBe(terminalContent);
-
-    // Ganzes Panel ausblenden: das [data-panel]#llm wird versteckt, die Fläche
-    // bleibt derselbe (kein Remount) gemountete Knoten.
-    act(() => {
-      useWorkspaceStore.setState({ rightPanelVisible: false });
-    });
-    expect(screen.getByTestId('mock-terminal-panel')).toBe(terminalContent);
-    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('data-shell-hidden', 'true');
+    // Derselbe Knoten, nur versteckt.
+    expect(screen.getByTestId('workspace-right-panel-leer')).toBe(rechtsInhalt);
+    expect(rechts).toHaveAttribute('data-shell-hidden', 'true');
+    expect(rechts).toHaveAttribute('aria-hidden', 'true');
+    expect(links).toHaveAttribute('data-shell-hidden', 'true');
   });
 });
