@@ -47,8 +47,10 @@ function app() {
   return a;
 }
 
-const ADMIN = { id: 1, username: 'admin', role: 'admin' };
-const MITARBEITER = { id: 2, username: 'mia', role: 'mitarbeiter' };
+// Kennungen als ZEICHENKETTE, so wie `node-postgres` `int8` liefert; siehe die
+// Begruendung in benutzer.test.js.
+const ADMIN = { id: '1', username: 'admin', role: 'admin' };
+const MITARBEITER = { id: '2', username: 'mia', role: 'mitarbeiter' };
 const FREIGABE = {
   app_id: 'urlaub',
   user_id: 2,
@@ -105,7 +107,7 @@ describe('/api/freigaben', () => {
       .send({ app_id: 'urlaub', benutzer_id: 2 });
     expect(res.status).toBe(201);
     expect(res.body.neu).toBe(true);
-    expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 2, 1]);
+    expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 2, '1']);
     expect(logSecurityEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'freigabe_erteilt' })
     );

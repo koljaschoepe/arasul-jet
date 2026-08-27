@@ -33,6 +33,33 @@ const { setzePasswort } = require('../../services/auth/passwordService');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { logSecurityEvent } = require('../../utils/auditLog');
 
+/**
+ * Ist der Benutzer aus dem Pfad derselbe, der die Anfrage stellt?
+ *
+ * Sieht nach einer Zeile aus, ist aber eine Falle, und sie hat zwei Routen
+ * still ausgehebelt (gefunden im Review zu Phase C2, am 27.08.2026 am Geraet
+ * belegt: `GET /api/auth/me` liefert `"id": "1"`, mit Anfuehrungszeichen):
+ *
+ *   `admin_users.id` ist BIGSERIAL, also `int8`. `node-postgres` gibt `int8`
+ *   als ZEICHENKETTE zurueck, weil eine 64-Bit-Zahl nicht in eine JS-Zahl
+ *   passt, und dieses Repo setzt keinen `pg.types.setTypeParser` dagegen.
+ *   `req.user.id` ist deshalb `'1'`. `req.params.id` kommt dagegen durch
+ *   `BenutzerIdParams` (`z.coerce.number()`) und ist die ZAHL `1`.
+ *
+ *   `'1' === 1` ist false. Beide Schutzwaelle -- „das eigene Konto wird ueber
+ *   /gdpr/me geloescht" und „das eigene Konto kann nicht stillgelegt werden"
+ *   -- haben also in Wirklichkeit nie gegriffen; in den Tests schon, weil die
+ *   dort gemockte Zeile eine Zahl trug und nicht das, was die Datenbank
+ *   liefert.
+ *
+ * Verglichen wird deshalb ueber `Number`. Die Kennungen dieses Geraets liegen
+ * weit unter 2^53; ginge es um echte 64-Bit-Werte, waere `String` die
+ * richtige Richtung.
+ */
+function istEigenesKonto(req) {
+  return Number(req.params.id) === Number(req.user.id);
+}
+
 // GET /api/benutzer — alle Benutzer mit Rolle.
 router.get(
   '/',
@@ -113,7 +140,7 @@ router.put(
     // Sich selbst stillzulegen heisst, sich auszusperren; das ist nie gemeint.
     // Der Schutz des letzten Administrators (im Service) faengt das auf einem
     // Geraet mit einem Zugang ohnehin ab, aber nicht auf einem mit zweien.
-    if (req.params.id === req.user.id && req.body.aktiv === false) {
+    if (istEigenesKonto(req) && req.body.aktiv === false) {
       throw new ValidationError('Das eigene Konto kann nicht stillgelegt werden');
     }
     const benutzer = await benutzerService.setzeAktiv({
@@ -138,7 +165,7 @@ router.delete(
   requireRole('admin'),
   validateParams(BenutzerIdParams),
   asyncHandler(async (req, res) => {
-    if (req.params.id === req.user.id) {
+    if (istEigenesKonto(req)) {
       throw new ValidationError('Das eigene Konto wird ueber DELETE /api/gdpr/me geloescht');
     }
     const ziel = await benutzerService.holeBenutzer(req.params.id);

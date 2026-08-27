@@ -54,8 +54,13 @@ function app() {
   return a;
 }
 
-const ADMIN = { id: 1, username: 'admin', role: 'admin' };
-const MITARBEITER = { id: 2, username: 'mia', role: 'mitarbeiter' };
+// Die Kennungen sind ZEICHENKETTEN, weil `admin_users.id` BIGSERIAL ist und
+// `node-postgres` `int8` als String liefert. Bis zum 27.08.2026 stand hier eine
+// Zahl, und genau deshalb sahen die Tests zwei Schutzwaelle gruen, die in
+// Wirklichkeit nie griffen (`'1' === 1` ist false). Ein Mock, der etwas anderes
+// liefert als die Datenbank, prueft den Code gegen eine Welt, die es nicht gibt.
+const ADMIN = { id: '1', username: 'admin', role: 'admin' };
+const MITARBEITER = { id: '2', username: 'mia', role: 'mitarbeiter' };
 
 describe('/api/benutzer', () => {
   beforeEach(() => {
@@ -193,8 +198,27 @@ describe('/api/benutzer', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+  test('PUT /:id/aktiv darf sich nicht an der Zeichenkette aus der Datenbank vorbeimogeln', async () => {
+    // `req.user.id` ist '1' (String, int8 aus pg), der Pfadparameter die Zahl 1.
+    // Der Vergleich muss beides als dieselbe Person erkennen, sonst sperrt sich
+    // ein Administrator selbst aus, sobald ein zweiter existiert.
+    auth.__setUser({ id: '1', username: 'admin', role: 'admin' });
+    const res = await request(app()).put('/api/benutzer/1/aktiv').send({ aktiv: false });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/eigene Konto/);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test('PUT /:id/aktiv auf ein FREMDES Konto laeuft trotzdem durch', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', role: 'mitarbeiter' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', is_active: false }] });
+    const res = await request(app()).put('/api/benutzer/2/aktiv').send({ aktiv: false });
+    expect(res.status).toBe(200);
+  });
+
   test('PUT /:id/aktiv legt den letzten aktiven Administrator nicht still', async () => {
-    auth.__setUser({ id: 9, username: 'zweiter', role: 'admin' });
+    auth.__setUser({ id: '9', username: 'zweiter', role: 'admin' });
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', role: 'admin' }] }) // holeBenutzer
       .mockResolvedValueOnce({ rows: [{ n: 1 }] }); // istLetzterAktiverAdmin
@@ -214,6 +238,8 @@ describe('/api/benutzer', () => {
   test('DELETE des eigenen Kontos wird auf /gdpr/me verwiesen (400)', async () => {
     const res = await request(app()).delete('/api/benutzer/1');
     expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/gdpr\/me/);
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   test('DELETE loescht einen Mitarbeiter samt Daten', async () => {
@@ -242,7 +268,7 @@ describe('/api/benutzer', () => {
   });
 
   test('DELETE des letzten Admins laesst die Zugangs-Zeile stehen', async () => {
-    auth.__setUser({ id: 9, username: 'zweiter', role: 'admin' });
+    auth.__setUser({ id: '9', username: 'zweiter', role: 'admin' });
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', role: 'admin' }] })
       .mockResolvedValueOnce({ rows: [{ n: 1 }] });
