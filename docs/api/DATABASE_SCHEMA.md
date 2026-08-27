@@ -400,6 +400,12 @@ Mit Migration 169 sind `app_installations`, `app_configurations`,
 Katalog, aus dem ein Administrator Container aussucht. Eine App kommt jetzt vom
 Partner auf das Gerät.
 
+Angelegt hat beide Tabellen am Gerät allerdings Migration **170**. 169 brach
+ab, bevor sie dazu kam: sie ließ die Typen `app_status` und `app_type` fallen,
+ohne die Funktion `check_app_dependencies()` aus 014 auf ihre Löschliste zu
+nehmen, deren Rückgabetyp `app_status` nennt. 170 holt beides nach und ist
+gegen beide Ausgangslagen idempotent.
+
 ---
 
 ## `audit_log_health`
