@@ -36,7 +36,7 @@ src/
 │   ├── database.js       # Database health & pool metrics
 │   ├── docs.js           # OpenAPI/Swagger documentation
 │   ├── models.js         # LLM model management (catalog, download, activate)
-│   ├── appstore.js       # App marketplace CRUD
+│   ├── store/apps.js     # Apps am Geraet: Staende einspielen, entfernen, Logs
 │   ├── workspaces.js     # Claude workspaces CRUD
 │   ├── alerts.js         # Alert configuration & thresholds
 │   ├── audit.js          # Audit log history & statistics
@@ -108,18 +108,36 @@ dort wird das alte geprueft. `PUT /api/benutzer/:id/passwort` ist der Weg des
 Administrators, der es nicht kennt. Beide schreiben durch
 `services/auth/passwordService.js`, also mit Eintrag in `password_history`.
 
-### Freigaben (Admin, Phase C2)
+### Freigaben (Admin, Phase C2, Tester-Kreis aus C3)
 
-| Method | Path                                | Description                                     |
-| ------ | ----------------------------------- | ----------------------------------------------- |
-| GET    | `/api/freigaben`                    | Alle Freigaben; `?app_id=`, `?benutzer_id=`     |
-| POST   | `/api/freigaben`                    | `{ app_id, benutzer_id }`; 201 neu, 200 Bestand |
-| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zuruecknehmen; 404, wenn keine da ist  |
+| Method | Path                                | Description                                             |
+| ------ | ----------------------------------- | ------------------------------------------------------- |
+| GET    | `/api/freigaben`                    | Alle Freigaben; `?app_id=`, `?benutzer_id=`             |
+| POST   | `/api/freigaben`                    | `{ app_id, benutzer_id, stand? }`; 201 neu, 200 Bestand |
+| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zuruecknehmen; 404, wenn keine da ist          |
 
-Tabelle `app_members` (Migration 168), Nachfolgerin von `space_members`.
-`app_id` ist bis Phase C3 ein freier Text in Slug-Form; das App-Modell mit der
-Tabelle `apps` setzt den Fremdschluessel nach. Gegen das Geraet misst das
-`scripts/test/mitarbeiter-abnahme.sh`.
+Tabelle `app_members` (Migration 168), Nachfolgerin von `space_members`. Seit
+Migration 169 zeigt `app_id` als Fremdschluessel auf `apps.id`, und `stand`
+sagt, wie weit freigegeben ist: `live` oder `test` (Tester). Gegen das Geraet
+misst das `scripts/test/mitarbeiter-abnahme.sh`.
+
+### Apps (Phase C3)
+
+| Method | Path                       | Description                                           |
+| ------ | -------------------------- | ----------------------------------------------------- |
+| GET    | `/api/apps`                | Alle Apps mit beiden Staenden                         |
+| GET    | `/api/apps/meine`          | Was dem Aufrufer freigegeben ist (auch Mitarbeiter)   |
+| GET    | `/api/apps/:id`            | Manifest, Versionen, Modelle, Flows, Containerzustand |
+| POST   | `/api/apps/:id/einspielen` | `{ version, stand? }`; ohne Angabe in den Teststand   |
+| DELETE | `/api/apps/:id`            | Beide Container, beide Staende, Freigaben             |
+| GET    | `/api/apps/:id/logs`       | `?stand=live                                          | test&zeilen=…` |
+
+Dazu die Auslieferung NEBEN `/api`: `GET /apps/<id>/` liefert das statische
+Frontend des Livestandes, `/apps/<id>/test/` das des Teststandes
+(`routes/appAusliefern.js`). Das BACKEND einer App laeuft nicht hier, sondern in
+ihrem Container; Traefik gibt ihm `/apps/<id>/api/`. Alles dazu in
+[`docs/features/APPS.md`](../../docs/features/APPS.md); gegen das Geraet misst
+`scripts/test/apps-abnahme.sh`.
 
 ### System & Metrics (Auth Required)
 

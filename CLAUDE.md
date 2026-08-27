@@ -35,9 +35,12 @@ Werksreset, Fernzugriff). `llm_jobs` ist zustandslos und gehört dem Ersteller
 des API-Schlüssels; der `document-indexer` extrahiert Text auf Anfrage
 (`POST /extract-text`); Flows arbeiten mit ihren Datei-Werkzeugen in den im
 Flow deklarierten Ordnern; `embedding-service` läuft ohne Profil, weil die
-OpenAI-kompatible `/v1/embeddings` ihn braucht. Das App-Modell (Manifest
-`app.json`, Frontend unter `/apps/<id>/`, Backend als Container) kommt mit den
-C-Phasen, die neue Oberfläche mit den D-Phasen.
+OpenAI-kompatible `/v1/embeddings` ihn braucht. Das App-Modell steht seit C3
+(Manifest `app.json`, Tabellen `apps` und `app_staende`, Frontend unter
+`/apps/<id>/` von Arasul ausgeliefert, Backend als Container über Traefik unter
+`/apps/<id>/api/`, je App ein Test- und ein Livestand — siehe
+[`docs/features/APPS.md`](docs/features/APPS.md)); die App-Anmeldung kommt mit
+C4, der Deploy-Endpunkt mit C5, die neue Oberfläche mit den D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
