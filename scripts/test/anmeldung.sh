@@ -220,12 +220,28 @@ PY
 # an den Auffangpfad von Arasul -- HTTP 404, `Endpoint not found`. Die Abnahme
 # meldete daraufhin etwas ueber den MESSAUFBAU und schrieb es der App zu.
 #
-# Die Unterscheidung liegt in der Antwort selbst: Arasuls Auffangpfad
-# (`middleware/errorHandler.js`) antwortet immer mit `Endpoint not found`. Kommt
-# irgendetwas anderes zurueck -- auch ein Fehler --, dann hat der Container der
-# App geantwortet, und darauf wird hier gewartet. Ein Pfad, den die App mit
-# ihrer eigenen Fehlermeldung beantwortet, ist deshalb ein gutes Ziel
-# (z. B. `GET /apps/<id>/api/flow` ohne `?lauf=`).
+# DRITTE FASSUNG (Phase C8, 27.08.2026). Die zweite arbeitete mit einer
+# Ausschlussliste: 000, 502, 503 und das eine 404 mit `Endpoint not found`
+# hiessen "noch nicht da", alles andere "die App antwortet". Bei der
+# C7-Abnahme meldete sie "erreichbar nach 8s", und der Aufruf DIREKT DANACH
+# bekam 404 `Endpoint not found` aus Arasuls Auffangpfad. Eine Ausschlussliste
+# ist an dieser Stelle die falsche Form: sie muss jede Antwort kennen, die
+# Traefik und Arasul im Hochlauf geben koennen, und 504 stand nicht darin.
+#
+# Diese Fassung fragt umgekehrt: was ist ein Beweis, dass die APP geantwortet
+# hat? Zwei Dinge, und nur die:
+#
+#   1. Ein Code aus dem 2xx-Bereich. Weder Traefik noch Arasuls Auffangpfad
+#      antworten so, solange der Router des Containers fehlt.
+#   2. Ein JSON-Rumpf, der NICHT von Arasul stammt. Die App antwortet auf
+#      `GET /apps/<id>/api/flow` ohne `?lauf=` mit ihrer eigenen Meldung
+#      (HTTP 400, `{"fehler":"..."}`); Arasul antwortet in jedem Fehlerfall mit
+#      `{"error":{"code":...}}` (`middleware/errorHandler.js`). Traefik
+#      antwortet mit Klartext ("Bad Gateway", "404 page not found") -- also gar
+#      keinem JSON.
+#
+# Alles andere heisst "noch nicht da", ohne dass diese Datei wissen muss,
+# welche Fehlercodes Traefik im Hochlauf produziert.
 #
 # GRENZE, ehrlich benannt: wer nach dem Schalten wartet, waehrend ein ALTER
 # Livestand noch laeuft, bekommt womoeglich dessen Antwort. Fuer den Weg
@@ -235,6 +251,20 @@ PY
 #   arasul_warte_auf_app <pfad> [zeitgrenze_s] [token]
 #
 # Rueckgabe 0, sobald die App antwortet; 1, wenn die Zeitgrenze reisst.
+
+# Ist der Rumpf JSON, das NICHT aus Arasuls Fehlerbehandlung stammt?
+# Rueckgabe 0 = von der App.
+_arasul_rumpf_von_app() {
+  python3 -c 'import sys, json
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)          # kein JSON -> Traefik-Klartext
+if isinstance(d, dict) and isinstance(d.get("error"), dict) and "code" in d["error"]:
+    raise SystemExit(1)          # Arasuls Fehlerumschlag
+raise SystemExit(0)' "$1" 2>/dev/null
+}
+
 arasul_warte_auf_app() {
   local pfad="$1" grenze="${2:-120}" token="${3:-${ARASUL_TOKEN:-}}"
   local ende=$((SECONDS + grenze)) code
@@ -246,15 +276,13 @@ arasul_warte_auf_app() {
     [ -n "$token" ] && argumente+=(-H "authorization: Bearer $token")
     code=$(curl "${argumente[@]}" "$ARASUL_URL$pfad")
     case "$code" in
-      000 | 502 | 503) ;;
-      404)
-        # Der eine Fall, der NICHT von der App kommt.
-        case "$(cat "$datei" 2>/dev/null)" in
-          *'Endpoint not found'*) ;;
-          *) rm -f "$datei"; return 0 ;;
-        esac
+      2??) rm -f "$datei"; return 0 ;;
+      *)
+        if _arasul_rumpf_von_app "$datei"; then
+          rm -f "$datei"
+          return 0
+        fi
         ;;
-      *) rm -f "$datei"; return 0 ;;
     esac
     if [ "$SECONDS" -ge "$ende" ]; then
       rm -f "$datei"

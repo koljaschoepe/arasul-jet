@@ -183,6 +183,16 @@ starte_und_warte_auf_halt() {
   local flow="$1" grenze="$2"
   LAUF=""
   sitzungs_ruf POST "/apps/$APP/api/flow?flow=$flow&woche=34"
+  # Einmal nachfassen, und nur bei 404. Selbst nach einer Antwort der App kann
+  # der naechste Aufruf noch an Arasuls Auffangpfad landen: Traefik traegt
+  # seine Router je Anfrage nach, und zwischen zwei Aufrufen liegt ein Moment
+  # (bei der C7-Abnahme am Orin gesehen -- „erreichbar nach 8s", direkt danach
+  # 404). Bei jedem anderen Code hat die App geantwortet, und ein zweiter Start
+  # waere ein zweiter Lauf.
+  if [ "$CODE" = "404" ]; then
+    sleep 5
+    sitzungs_ruf POST "/apps/$APP/api/flow?flow=$flow&woche=34"
+  fi
   if [ "$CODE" != "202" ]; then
     echo "        Antwort der App: $(rumpf)"
     return 1
