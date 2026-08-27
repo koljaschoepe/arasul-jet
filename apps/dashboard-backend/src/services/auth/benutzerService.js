@@ -71,6 +71,24 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
  * Der Single-Box-Schutz (Plan 023 J4) haengt an dieser einen Frage, und zwei
  * Wege stellen sie: die Loeschung und die Stilllegung. Sie steht deshalb
  * einmal hier und nicht zweimal dort.
+ *
+ * OFFEN, und ausdruecklich eine Entscheidung und keine Auslassung (Review zu
+ * Phase C2, 27.08.2026): gepruet wird VOR der Aenderung, ohne Sperre dazwischen.
+ * Bei genau zwei aktiven Administratoren und zwei GLEICHZEITIGEN Anfragen
+ * koennen beide die Zwei sehen, beide durchkommen und am Ende keiner uebrig
+ * sein -- genau das, was der Schutz verhindern soll.
+ *
+ * Nicht hier behoben, weil eine halbe Sperre schlechter waere als keine: die
+ * Stilllegung allein zu sperren hilft nicht, wenn die Loeschung nebenher
+ * dieselbe Zeile anfasst, und die Loeschung hat eine sorgfaeltig begruendete
+ * Reihenfolge aus Phase C1, die eine eigene Abnahme verdient. Der Weg dahin
+ * ist kurz: `SELECT pg_advisory_xact_lock(<Konstante>)` als erste Zeile in
+ * BEIDEN Transaktionen, dann diese Pruefung darin. Ein einzelner benannter
+ * Riegel, kein Verklemmen moeglich.
+ *
+ * Bis dahin getragenes Risiko: zwei Administratoren muessen in derselben
+ * Sekunde handeln. Auf einem Geraet mit ein bis zwei Zugaengen ist das selten,
+ * die Folge waere aber ein unbedienbares Geraet.
  */
 async function istLetzterAktiverAdmin(role) {
   if (role !== 'admin') {
