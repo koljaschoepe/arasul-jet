@@ -50,6 +50,7 @@ INSERT INTO public.llm_model_catalog (
     size_bytes, ram_required_gb, category,
     capabilities, recommended_for,
     model_type, task, is_task_default, speed_tier,
+    supports_thinking, supports_vision_input,
     jetson_tested, performance_tier, ollama_library_url
 ) VALUES
     ('hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS', 'Qwen3.8 27B',
@@ -59,6 +60,7 @@ INSERT INTO public.llm_model_catalog (
      '["general", "multilingual", "reasoning", "long-context", "agentic"]'::jsonb,
      '["flows", "complex-tasks", "long-documents"]'::jsonb,
      'llm', 'text', false, 'quality',
+     true, false,
      true, 3, 'https://huggingface.co/unsloth/Qwen3.8-27B-GGUF'),
 
     ('gemma4:e4b', 'Gemma 4 Kompakt',
@@ -68,6 +70,7 @@ INSERT INTO public.llm_model_catalog (
      '["general", "multilingual", "vision", "edge-optimized"]'::jsonb,
      '["quick-tasks", "chat"]'::jsonb,
      'llm', 'text', false, 'fast',
+     false, true,
      true, 1, 'https://ollama.com/library/gemma4'),
 
     ('nomic-embed-text', 'Nomic Embed Text',
@@ -77,6 +80,7 @@ INSERT INTO public.llm_model_catalog (
      '["embedding"]'::jsonb,
      '["embeddings"]'::jsonb,
      'embedding', 'embedding', false, 'embed',
+     false, false,
      true, 1, 'https://ollama.com/library/nomic-embed-text'),
 
     ('llava-phi3', 'LLaVA Phi-3',
@@ -86,6 +90,7 @@ INSERT INTO public.llm_model_catalog (
      '["vision", "ocr"]'::jsonb,
      '["image-analysis", "scanned-documents"]'::jsonb,
      'vision', 'vision', false, 'vision',
+     false, true,
      true, 1, 'https://ollama.com/library/llava-phi3')
 
 ON CONFLICT (id) DO UPDATE SET
@@ -102,11 +107,33 @@ ON CONFLICT (id) DO UPDATE SET
     recommended_for    = EXCLUDED.recommended_for,
     model_type         = EXCLUDED.model_type,
     task               = EXCLUDED.task,
+    supports_thinking     = EXCLUDED.supports_thinking,
+    supports_vision_input = EXCLUDED.supports_vision_input,
     speed_tier         = EXCLUDED.speed_tier,
     jetson_tested      = EXCLUDED.jetson_tested,
     performance_tier   = EXCLUDED.performance_tier,
     ollama_library_url = EXCLUDED.ollama_library_url,
     updated_at         = NOW();
+
+-- WOHER `supports_thinking` UND `supports_vision_input` KOMMEN. Beide Spalten
+-- werden gelesen, und zwar an verschiedenen Stellen: `llmJobProcessor` schaltet
+-- das Denken fuer einen Auftrag der externen Schnittstelle daran ab,
+-- `/api/models/:id/capabilities` zeigt sie an. Nicht gesetzt hiesse auf einem
+-- frischen Geraet `false` fuer alle vier -- also eine Aussage, und zwar eine
+-- falsche.
+--
+--   Sehen: `gemma4:e4b` ist nach Migration 062 nativ multimodal, `llava-phi3`
+--   ist ein reines Bildmodell. Die beiden anderen sind Text.
+--
+--   Denken: fuer `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` steht hier `true`,
+--   und das ist keine neue Behauptung, sondern das Angleichen an das, was das
+--   Geraet ohnehin tut. Der Flow-Runner entscheidet ueber
+--   `agentConfig.kannDenken`, eine Regel ueber den NAMEN: alles aus der
+--   qwen3-Familie ausser `coder` und `nothink` denkt. Das Standardmodell faellt
+--   darunter und laeuft seit C6 so, mit gruener Flow-Abnahme. Stuende in der
+--   Spalte `false`, saehen zwei Stellen dasselbe Modell verschieden.
+--   Die drei anderen denken nicht: ein Einbettungsmodell und ein Bildmodell
+--   koennen es nicht, und Gemma 4 kann es nach Migration 062 erst ab 26B.
 
 -- --- 2. Der Installationsstand wandert auf die neue Kennung ------------------
 -- `gemma4:e4b-q4` hiess die Slug-Zeile, ihr `ollama_name` war `gemma4:e4b`.

@@ -7,62 +7,37 @@
     "Geraet gemessen hat und dessen Fehlschlag Arasul erklaeren muss.",
     "Vier bleiben: eines fuer die Flows, ein schnelles kleines, eines fuer",
     "Einbettungen, eines fuer Bilder und eingescannten Text.",
-    "Diese Datei ist die EINZIGE Quelle. Wer sie aendert, aendert damit den",
-    "Katalog (Migration 175), die Plattformprofile und die beiden Skripte;",
-    "`scripts/test/kurzliste.py` haelt sie aneinander."
+    "Diese Datei sagt WELCHE VIER, und sonst nichts. Groesse, RAM-Bedarf,",
+    "Beschreibung und Faehigkeiten stehen in Migration 175 und nirgends sonst;",
+    "sie hier noch einmal zu fuehren hiesse, eine zweite Wahrheit anzulegen,",
+    "die niemand prueft. Was geprueft wird, ist die Liste der Kennungen:",
+    "`scripts/test/kurzliste.py` haelt Migration 175, die Empfehlungskarte in",
+    "utils/hardware.js, die Plattformprofile und detect-platform.sh daran."
   ],
   "modelle": [
     {
       "id": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
-      "name": "Qwen3.8 27B",
       "aufgabe": "text",
       "standard": true,
-      "modelltyp": "llm",
-      "tempo": "quality",
-      "kategorie": "large",
-      "groesse_bytes": 16000000000,
-      "ram_gb": 22,
-      "karte": "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF",
-      "beschreibung": "Das Standardmodell dieses Geraets. Dichtes 27B-Modell mit langem Kontext und Werkzeugaufrufen; die Flows laufen darauf."
+      "wofuer": "Der Standard. Die Flows laufen darauf."
     },
     {
       "id": "gemma4:e4b",
-      "name": "Gemma 4 Kompakt",
       "aufgabe": "text",
       "standard": false,
-      "modelltyp": "llm",
-      "tempo": "fast",
-      "kategorie": "medium",
-      "groesse_bytes": 10066329600,
-      "ram_gb": 10,
-      "karte": "https://ollama.com/library/gemma4",
-      "beschreibung": "Das kleine schnelle Modell. Antwortet in Sekunden statt in Minuten, fuer kurze Schritte, bei denen Tempo mehr zaehlt als Tiefe."
+      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es."
     },
     {
       "id": "nomic-embed-text",
-      "name": "Nomic Embed Text",
       "aufgabe": "embedding",
       "standard": true,
-      "modelltyp": "embedding",
-      "tempo": "embed",
-      "kategorie": "small",
-      "groesse_bytes": 274000000,
-      "ram_gb": 2,
-      "karte": "https://ollama.com/library/nomic-embed-text",
-      "beschreibung": "Rechnet Text in Vektoren um. Die OpenAI-kompatible Schnittstelle /v1/embeddings arbeitet damit."
+      "wofuer": "Einbettungen. /v1/embeddings arbeitet damit."
     },
     {
       "id": "llava-phi3",
-      "name": "LLaVA Phi-3",
       "aufgabe": "vision",
       "standard": true,
-      "modelltyp": "vision",
-      "tempo": "vision",
-      "kategorie": "small",
-      "groesse_bytes": 2900000000,
-      "ram_gb": 4,
-      "karte": "https://ollama.com/library/llava-phi3",
-      "beschreibung": "Der Weg fuer Bilder und eingescannten Text. Liest, was auf einer Aufnahme oder einer gescannten Seite steht."
+      "wofuer": "Bilder und eingescannter Text."
     }
   ]
 }
