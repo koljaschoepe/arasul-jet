@@ -96,31 +96,34 @@ async function changeDashboardPassword(
  *
  * Die Laenge prueft das Zod-Schema an der Route (mindestens acht Zeichen).
  *
- * @param {number} userId - admin_users.id des Benutzers, dessen Passwort gesetzt wird
+ * Gibt den betroffenen Benutzer zurueck, nicht den Hash: der Aufrufer braucht
+ * den Namen fuers Protokoll und die Antwort, und diese Abfrage prueft ohnehin,
+ * dass es ihn gibt. Ihn davor noch einmal zu holen waere ein zweiter Weg zur
+ * Datenbank fuer dieselbe Zeile.
+ *
+ * @param {number|string} userId - admin_users.id des Benutzers, dessen Passwort gesetzt wird
  * @param {string} neuesPasswort - Klartext
  * @param {object} options
  * @param {string} options.gesetztVon - Benutzername des Administrators, fuer die Historie
  * @param {string} [options.ipAddress]
- * @returns {Promise<string>} der neue Hash
+ * @returns {Promise<{id: string, username: string}>} der betroffene Benutzer
  */
 async function setzePasswort(userId, neuesPasswort, { gesetztVon, ipAddress } = {}) {
   if (!neuesPasswort) {
     throw new ValidationError('Passwort fehlt');
   }
 
-  const result = await db.query('SELECT username FROM admin_users WHERE id = $1', [userId]);
+  const result = await db.query('SELECT id, username FROM admin_users WHERE id = $1', [userId]);
   if (result.rows.length === 0) {
     throw new NotFoundError(`Benutzer ${userId} gibt es nicht`);
   }
+  const ziel = result.rows[0];
 
-  const hash = await schreibePasswort(userId, neuesPasswort, {
-    changedBy: gesetztVon,
-    ipAddress,
-  });
+  await schreibePasswort(userId, neuesPasswort, { changedBy: gesetztVon, ipAddress });
   logger.warn(
-    `Passwort von ${result.rows[0].username} (id=${userId}) gesetzt durch ${gesetztVon || 'unbekannt'}`
+    `Passwort von ${ziel.username} (id=${userId}) gesetzt durch ${gesetztVon || 'unbekannt'}`
   );
-  return hash;
+  return ziel;
 }
 
 /**

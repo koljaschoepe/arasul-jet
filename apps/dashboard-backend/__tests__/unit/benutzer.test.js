@@ -125,9 +125,9 @@ describe('/api/benutzer', () => {
 
   test('PUT /:id/passwort setzt das Passwort und beendet die Sitzungen', async () => {
     const { blacklistAllUserTokens } = require('../../src/utils/jwt');
-    db.query
-      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', role: 'mitarbeiter' }] }) // holeBenutzer
-      .mockResolvedValueOnce({ rows: [{ username: 'mia' }] }); // setzePasswort: Existenz
+    // Nur EINE Abfrage vor der Transaktion: setzePasswort liest die Zeile, die
+    // es ohnehin auf Existenz pruefen muss, und gibt sie zurueck.
+    db.query.mockResolvedValueOnce({ rows: [{ id: '2', username: 'mia' }] });
     const calls = [];
     db.transaction.mockImplementation(async cb =>
       cb({
@@ -146,7 +146,9 @@ describe('/api/benutzer', () => {
     const historie = calls.find(c => c.sql.includes('INSERT INTO password_history'));
     expect(historie.params[0]).toBe(2);
     expect(historie.params[2]).toBe('admin');
-    expect(blacklistAllUserTokens).toHaveBeenCalledWith(2);
+    expect(blacklistAllUserTokens).toHaveBeenCalledWith('2');
+    // Genau eine Abfrage vor der Transaktion, nicht zwei fuer dieselbe Zeile.
+    expect(db.query).toHaveBeenCalledTimes(1);
   });
 
   test('PUT /:id/passwort auf das eigene Konto ist 400', async () => {

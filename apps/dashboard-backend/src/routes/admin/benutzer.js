@@ -120,8 +120,7 @@ router.put(
         'Das eigene Passwort wird ueber POST /api/auth/change-password gewechselt'
       );
     }
-    const ziel = await benutzerService.holeBenutzer(req.params.id);
-    await setzePasswort(ziel.id, req.body.password, {
+    const ziel = await setzePasswort(req.params.id, req.body.password, {
       gesetztVon: req.user.username,
       ipAddress: req.ip,
     });
