@@ -52,6 +52,27 @@ kleinen Baum, in dem der Fall wirklich vorliegt, und prüft beide Richtungen:
 grün, wenn alles stimmt, und rot, wenn es nicht stimmt. Ein Wächter, der immer
 grün ist, belegt nichts.
 
+### Die Migrationskette
+
+`scripts/test/migrationskette.sh` läuft **nicht** in `run-tests.sh` mit: er
+startet eine echte Postgres-Instanz und braucht Docker. In der CI ist er ein
+eigener Job (`Migrationskette (leere Datenbank)`), von Hand:
+
+```bash
+npm ci                                  # einmal, für den Runner in Teil 2
+bash scripts/test/migrationskette.sh
+```
+
+Er misst beide Wege des Migrationsvertrags aus
+[`services/postgres/CLAUDE.md`](../../services/postgres/CLAUDE.md): den
+Erstlauf (`services/postgres/init` als `/docker-entrypoint-initdb.d`, alle
+Dateien alphabetisch, `.sql` wie `.sh`) und danach den `migrationRunner.js` des
+Backends gegen dieselbe frisch initialisierte Datenbank.
+
+Es gibt ihn seit dem 27.08.2026, weil Migration 169 am Gerät scheiterte,
+während die CI grün blieb — sie hatte die Migrationen nie ausgeführt, nur die
+Dateien danebenliegen sehen.
+
 ### Testing Frameworks
 
 - **JavaScript/Node.js**: Jest + Supertest
