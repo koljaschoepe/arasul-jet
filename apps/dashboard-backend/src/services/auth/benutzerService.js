@@ -55,9 +55,15 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
     throw new ValidationError(`Unbekannte Rolle ${rolle}; erlaubt sind ${ROLLEN.join(', ')}`);
   }
   const passwordHash = await hashPassword(password);
+  // `passwort_vom_admin = true`: was hier vergeben wird, ist ein Startpasswort
+  // (so steht es in `schemas/benutzer.js`, deshalb gelten die
+  // Komplexitaetsregeln hier nicht). Die Oberflaeche verlangt beim ersten
+  // Anmelden einen Wechsel, danach kennt es nur noch der Mitarbeiter selbst
+  // (Phase D1, Migration 178).
   const result = await db.query(
-    `INSERT INTO admin_users (username, password_hash, email, role, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, true, NOW(), NOW())
+    `INSERT INTO admin_users (username, password_hash, email, role, is_active,
+                              passwort_vom_admin, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, true, true, NOW(), NOW())
      RETURNING ${SPALTEN}`,
     [username, passwordHash, email || null, rolle]
   );

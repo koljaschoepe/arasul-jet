@@ -163,6 +163,35 @@ describe('Authentication Routes', () => {
       expect(response.body.user).toHaveProperty('username', 'admin');
     });
 
+    /**
+     * Phase D1: die Antwort sagt, ob das Passwort von jemand anderem stammt.
+     * Die Oberflaeche verlangt dann den Wechsel, BEVOR sie die Shell zeigt.
+     * Das Backend sperrt deswegen nichts -- es sagt nur, was der Fall ist.
+     */
+    test('sagt, ob das Passwort von jemand anderem gesetzt wurde', async () => {
+      setupLoginMocks(db, validPasswordHash, {
+        user: { ...mockUser, passwort_vom_admin: true }
+      });
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ username: 'admin', password: 'TestPassword123!' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.user).toHaveProperty('passwortWechselNoetig', true);
+    });
+
+    test('und bei einem selbst gewaehlten Passwort steht dort false, nicht undefined', async () => {
+      setupLoginMocks(db, validPasswordHash);
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ username: 'admin', password: 'TestPassword123!' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.user).toHaveProperty('passwortWechselNoetig', false);
+    });
+
     test('should set HttpOnly cookie on successful login', async () => {
       setupLoginMocks(db, validPasswordHash);
 

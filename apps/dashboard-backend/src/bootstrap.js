@@ -197,9 +197,14 @@ async function ensureAdminUser() {
 
     const passwordHash = await hashPassword(password);
 
+    // `passwort_vom_admin = true`: dieses Passwort steht einmal auf dem
+    // Bildschirm der Installation (`install.sh`, Phase C10) und ist damit ein
+    // Startpasswort im Wortsinn. Die Oberflaeche verlangt beim ersten Anmelden
+    // einen Wechsel (Phase D1, Migration 178).
     await db.query(
-      `INSERT INTO admin_users (username, password_hash, email, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, true, NOW(), NOW())
+      `INSERT INTO admin_users (username, password_hash, email, is_active,
+                                passwort_vom_admin, created_at, updated_at)
+       VALUES ($1, $2, $3, true, true, NOW(), NOW())
        ON CONFLICT (username) DO NOTHING`,
       [DEFAULT_USERNAME, passwordHash, DEFAULT_EMAIL]
     );

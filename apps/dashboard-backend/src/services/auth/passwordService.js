@@ -80,7 +80,14 @@ async function changeDashboardPassword(
     throw new ValidationError('New password must be different from current password');
   }
 
-  return schreibePasswort(userId, newPassword, { changedBy: username, ipAddress });
+  // `vomAdmin: false` -- hier waehlt der Mensch sein Passwort selbst. Das ist
+  // die EINE Stelle, an der das Kennzeichen aus Migration 178 wieder faellt,
+  // und deshalb auch die einzige, die den erzwungenen Wechsel beendet.
+  return schreibePasswort(userId, newPassword, {
+    changedBy: username,
+    ipAddress,
+    vomAdmin: false,
+  });
 }
 
 /**
@@ -119,7 +126,13 @@ async function setzePasswort(userId, neuesPasswort, { gesetztVon, ipAddress } = 
   }
   const ziel = result.rows[0];
 
-  await schreibePasswort(userId, neuesPasswort, { changedBy: gesetztVon, ipAddress });
+  // `vomAdmin: true` -- ein Zweiter kennt das Passwort jetzt. Die Oberflaeche
+  // verlangt beim naechsten Anmelden einen Wechsel (Migration 178).
+  await schreibePasswort(userId, neuesPasswort, {
+    changedBy: gesetztVon,
+    ipAddress,
+    vomAdmin: true,
+  });
   logger.warn(
     `Passwort von ${ziel.username} (id=${userId}) gesetzt durch ${gesetztVon || 'unbekannt'}`
   );
@@ -130,14 +143,28 @@ async function setzePasswort(userId, neuesPasswort, { gesetztVon, ipAddress } = 
  * Der eine Schreibweg: hashen, Zeile aktualisieren, Historie schreiben — in
  * EINER Transaktion. `changed_by` haelt fest, WER geschrieben hat; beim
  * Selbstwechsel ist das der Mensch selbst, beim Setzen der Administrator.
+ *
+ * `vomAdmin` setzt dieselbe Tatsache noch einmal an die Benutzerzeile, weil
+ * die Frage „muss dieser Mensch sein Passwort wechseln" bei JEDER Anmeldung
+ * gestellt wird und die Historie dafuer der falsche Ort waere: sie waechst mit
+ * jedem Wechsel, und die Antwort haengt nur am letzten Eintrag. Die Spalte
+ * `passwort_vom_admin` ist die abgeleitete Wahrheit, die Historie bleibt das
+ * Protokoll (Phase D1, Migration 178).
+ *
+ * Ohne `vomAdmin` gilt `false`. Wer einen dritten Schreibweg baut und die
+ * Angabe vergisst, verlangt also KEINEN Wechsel -- das ist der Zustand von
+ * vorher und faellt niemandem auf die Fuesse, waehrend ein versehentliches
+ * `true` jeden Betroffenen bei der naechsten Anmeldung anhielte.
  */
-async function schreibePasswort(userId, newPassword, { changedBy, ipAddress } = {}) {
+async function schreibePasswort(userId, newPassword, { changedBy, ipAddress, vomAdmin } = {}) {
   const newPasswordHash = await hashPassword(newPassword);
 
   await db.transaction(async client => {
     const geaendert = await client.query(
-      'UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-      [newPasswordHash, userId]
+      `UPDATE admin_users
+          SET password_hash = $1, passwort_vom_admin = $3, updated_at = NOW()
+        WHERE id = $2`,
+      [newPasswordHash, userId, vomAdmin === true]
     );
 
     // Zwischen der Existenzpruefung des Aufrufers und diesem UPDATE kann der
