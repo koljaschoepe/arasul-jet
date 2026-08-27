@@ -177,28 +177,49 @@ class DatabaseMixin:
         )
         return result[0] if result else 0
 
-    def is_store_app_intentionally_stopped(self, container_name: str) -> bool:
-        """Check if a container is an App Store app that was intentionally stopped."""
-        try:
-            result = self.execute_query(
-                """SELECT status FROM app_installations
-                   WHERE container_name = %s OR app_id = %s""",
-                (container_name, container_name),
-                fetch=True
-            )
+    def ist_app_ohne_stand(self, container_name: str) -> bool:
+        """Ist das ein App-Container, den es laut Datenbank nicht geben sollte?
 
-            if result:
-                db_status = result[0]
-                if db_status == 'installed':
-                    logger.debug(f"Container {container_name} is a Store app intentionally stopped (status: {db_status})")
-                    return True
-                logger.debug(f"Container {container_name} is a Store app that should be running (status: {db_status})")
-                return False
+        Bis Phase C3 (27.08.2026) hiess diese Frage anders: `app_installations`
+        kannte einen Status `installed` fuer "installiert, aber absichtlich
+        gestoppt", und ein solcher Container durfte nicht wiederbelebt werden.
+        Diesen Status gibt es nicht mehr. Im App-Modell laeuft ein Stand oder
+        er ist weg; ein Zwischending, das die Selbstheilung kennen muesste,
+        gibt es nicht.
 
+        Was bleibt, ist die Gegenrichtung, und die ist wichtiger: ein
+        `arasul-app-…`-Container, zu dem KEINE Zeile in `app_staende` steht, ist
+        ein Rest. Ihn immer wieder zu starten hiesse, eine App am Leben zu
+        halten, die der Administrator entfernt hat.
+
+        Container, die keine App sind, gehen hier unveraendert durch (False):
+        die Plattformdienste heilt die Selbstheilung wie bisher.
+        """
+        if not container_name.startswith('arasul-app-'):
             return False
 
+        rest = container_name[len('arasul-app-'):]
+        app_id, _, stand = rest.rpartition('-')
+        if not app_id or stand not in ('test', 'live'):
+            logger.debug(f"{container_name} sieht wie ein App-Container aus, hat aber keinen Stand im Namen")
+            return True
+
+        try:
+            result = self.execute_query(
+                "SELECT 1 FROM app_staende WHERE app_id = %s AND stand = %s",
+                (app_id, stand),
+                fetch=True
+            )
+            if result:
+                logger.debug(f"{container_name} gehoert zum Stand {stand} von {app_id} und soll laufen")
+                return False
+            logger.debug(f"{container_name} hat keinen Stand in app_staende - ein Rest, nicht wiederbeleben")
+            return True
+
         except Exception as e:
-            logger.warning(f"Failed to check Store app status for {container_name}: {e}")
+            # Fail-safe in die HEILENDE Richtung: eine Datenbank, die nicht
+            # antwortet, darf keine laufende App als Rest einstufen.
+            logger.warning(f"Stand von {container_name} nicht feststellbar: {e}")
             return False
 
     def record_recovery_action(self, action_type: str, service_name: str, reason: str,

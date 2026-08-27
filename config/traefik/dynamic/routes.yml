@@ -124,6 +124,26 @@ http:
         - websecure
       tls: {}
 
+    # Die Frontends der Apps (Phase C3, 27.08.2026).
+    #
+    # Arasul liefert sie selbst aus, nicht der Frontend-Container: nur das
+    # Backend kennt die Anmeldung und damit die Frage, welche App wem
+    # freigegeben ist (die Pruefung selbst kommt mit C4). Die Zahl liegt ueber
+    # dem Catch-All des Dashboards (1) und UNTER den Routern der App-Backends,
+    # die Docker-Labels mitbringen (`/apps/<id>/api` = 40, `/apps/<id>/test/api`
+    # = 45, siehe services/app/appContainer.js). Ein App-Backend gewinnt damit
+    # gegen die statische Auslieferung, und beide gewinnen gegen das Dashboard.
+    apps-frontend:
+      rule: 'PathPrefix(`/apps`)'
+      service: dashboard-backend-service
+      priority: 30
+      middlewares:
+        - security-headers-dokument
+        - compress
+      entryPoints:
+        - websecure
+      tls: {}
+
     # Dashboard Frontend Static Files
     dashboard-static:
       rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'

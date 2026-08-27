@@ -532,7 +532,7 @@ create_directories() {
     # so they are owned by the setup user; otherwise Docker auto-creates them
     # root-owned on first `up`, breaking writes from services running as uid 1000.
     #   updates/backups        → compose.app + compose.monitoring
-    #   appstore/manifests     → compose.app (dashboard-backend, ro)
+    #   apps                   → compose.app (dashboard-backend, rw — Apps am Geraet)
     #   ssh-keys               → compose.app (dashboard-backend, ro)
     #   skills                 → compose.app (dashboard-backend, rw — the writer)
     #                            + compose.monitoring (backup-service, ro)
@@ -541,7 +541,7 @@ create_directories() {
     # root — und der als uid 1000 laufende Backend-Container kann nicht hinein
     # schreiben (EACCES). Genau das ist bei data/skills passiert.
     mkdir -p data/{postgres,models,updates,backups}
-    mkdir -p data/appstore/manifests
+    mkdir -p data/apps
     mkdir -p data/ssh-keys
     mkdir -p data/skills
     # Am 23.08.2026 nachgetragen, nachdem derselbe Fall ein zweites Mal

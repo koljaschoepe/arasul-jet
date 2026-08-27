@@ -118,9 +118,11 @@ router.get(
         -- the planner, much cheaper than COUNT(*) on large tables. Off by
         -- a few rows is fine for an overview dashboard. Falls back to 0 if
         -- the row hasn't been written yet (fresh table, no analyze).
+        --
+        -- app_events stand hier bis Phase C3 (27.08.2026) daneben. Die
+        -- Tabelle ist mit dem alten AppStore gefallen (Migration 169); eine
+        -- Zeile, die immer 0 meldet, sieht aus wie eine Aussage.
         SELECT
-          COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
-                    WHERE relname = 'app_events'), 0)         AS app_events,
           COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
                     WHERE relname = 'self_healing_events'), 0) AS self_healing_events
       `
@@ -220,7 +222,6 @@ router.get(
         disk_percent: metrics.disk_percent ?? null,
       },
       retention_counts: {
-        app_events: retention.app_events ?? null,
         self_healing_events: retention.self_healing_events ?? null,
       },
       timestamp: new Date().toISOString(),

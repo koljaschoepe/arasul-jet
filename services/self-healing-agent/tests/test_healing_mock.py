@@ -475,7 +475,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         with patch.object(self.engine, 'get_metrics', return_value=None), \
              patch.object(self.engine, 'check_disk_usage'), \
              patch.object(self.engine, 'check_service_health', return_value=dienste), \
-             patch.object(self.engine, 'is_store_app_intentionally_stopped', return_value=False), \
+             patch.object(self.engine, 'ist_app_ohne_stand', return_value=False), \
              patch.object(self.engine, 'update_heartbeat'), \
              patch.object(self.engine, 'handle_category_a_service_down') as mock_a:
 
@@ -673,6 +673,61 @@ class NeustartEhrlichkeitTests(unittest.TestCase):
             self.engine.handle_category_d_reboot('Testgrund')
         self.assertIn('system_reboot', self._typen())
         lauf.assert_called_once()
+
+
+class AppRestTests(unittest.TestCase):
+    """`ist_app_ohne_stand` (Phase C3): welchen Container die Selbstheilung
+    liegen laesst.
+
+    Bis C3 hiess die Frage "ist das eine absichtlich gestoppte Store-App" und
+    las `app_installations`. Die Tabelle ist mit dem alten AppStore gefallen;
+    was bleibt, ist die Gegenrichtung: ein App-Container ohne Zeile in
+    `app_staende` ist ein Rest und darf nicht wiederbelebt werden.
+    """
+
+    def setUp(self):
+        self.mock_client = MagicMock()
+        mock_docker.from_env.return_value = self.mock_client
+        self.mock_db_pool = MagicMock()
+        mock_psycopg2.pool.ThreadedConnectionPool.return_value = self.mock_db_pool
+        self.engine = SelfHealingEngine()
+
+    def test_plattformdienst_geht_unveraendert_durch(self):
+        # Ohne diesen Zweig wuerde jede Datenbankabfrage fuer jeden Container
+        # laufen, und `dashboard-backend` waere ploetzlich eine App.
+        self.engine.execute_query = MagicMock()
+        self.assertFalse(self.engine.ist_app_ohne_stand('dashboard-backend'))
+        self.engine.execute_query.assert_not_called()
+
+    def test_app_mit_stand_soll_laufen(self):
+        self.engine.execute_query = MagicMock(return_value=(1,))
+        self.assertFalse(self.engine.ist_app_ohne_stand('arasul-app-urlaub-live'))
+        self.assertEqual(
+            self.engine.execute_query.call_args.args[1], ('urlaub', 'live')
+        )
+
+    def test_app_ohne_stand_ist_ein_rest(self):
+        self.engine.execute_query = MagicMock(return_value=None)
+        self.assertTrue(self.engine.ist_app_ohne_stand('arasul-app-urlaub-test'))
+
+    def test_bindestrich_in_der_kennung_wird_nicht_zum_stand(self):
+        self.engine.execute_query = MagicMock(return_value=(1,))
+        self.assertFalse(self.engine.ist_app_ohne_stand('arasul-app-urlaubs-antrag-live'))
+        self.assertEqual(
+            self.engine.execute_query.call_args.args[1], ('urlaubs-antrag', 'live')
+        )
+
+    def test_name_ohne_erkennbaren_stand_ist_ein_rest(self):
+        self.engine.execute_query = MagicMock()
+        self.assertTrue(self.engine.ist_app_ohne_stand('arasul-app-urlaub'))
+        self.engine.execute_query.assert_not_called()
+
+    def test_stumme_datenbank_laesst_die_app_heilen(self):
+        # Fail-safe in die heilende Richtung: eine Datenbank, die nicht
+        # antwortet, darf keine laufende App als Rest einstufen.
+        self.engine.execute_query = MagicMock(side_effect=RuntimeError('keine Verbindung'))
+        self.assertFalse(self.engine.ist_app_ohne_stand('arasul-app-urlaub-live'))
+
 
 if __name__ == '__main__':
     unittest.main()
