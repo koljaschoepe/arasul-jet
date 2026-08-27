@@ -5,10 +5,11 @@
 > Von Hand nachgezogen am 26.08.2026 (Migration 163, Phase B4): 30 Tabellen, drei Spalten,
 > zwei Sichten, 23 Funktionen und sechs Aufzaehlungstypen der gestrichenen Bereiche sind
 > entfallen; Foreign-Key- und Index-Zaehler unten sind seitdem nur noch ungefaehr.
+> Am 27.08.2026 von Hand ergaenzt (Migration 168, Phase C2): `app_members`.
 
 ## Übersicht
 
-- Tabellen: **56**
+- Tabellen: **57**
 - Spalten gesamt: **817**
 - Foreign Keys: **52**
 - Indexes: **311**
@@ -421,6 +422,37 @@
 - `idx_app_installations_app_id` — `CREATE INDEX idx_app_installations_app_id ON public.app_installations USING btree (app_id)`
 - `idx_app_installations_status` — `CREATE INDEX idx_app_installations_status ON public.app_installations USING btree (status)`
 - `idx_app_installations_type` — `CREATE INDEX idx_app_installations_type ON public.app_installations USING btree (app_type)`
+
+---
+
+## `app_members`
+
+> Freigaben: welcher Mitarbeiter sieht welche App. Ersetzt space_members (089, verworfen mit 163); seit 168
+
+| Column            | Type                     | Nullable | Default |
+| ----------------- | ------------------------ | -------- | ------- |
+| `app_id`          | text                     | ⛔       |         |
+| `user_id`         | bigint                   | ⛔       |         |
+| `freigegeben_von` | bigint                   | ✅       |         |
+| `freigegeben_am`  | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `app_id, user_id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id` (`ON DELETE CASCADE`)
+- `freigegeben_von` → `admin_users.id` (`ON DELETE SET NULL`)
+
+**Indexes:**
+
+- `app_members_pkey` — `CREATE UNIQUE INDEX app_members_pkey ON public.app_members USING btree (app_id, user_id)`
+- `idx_app_members_user` — `CREATE INDEX idx_app_members_user ON public.app_members USING btree (user_id)`
+
+`app_id` ist bis Phase C3 ein **freier Text**: die Tabelle `apps` gibt es noch
+nicht, also gibt es nichts, worauf ein Fremdschlüssel zeigen könnte. C3 setzt
+ihn nach. Ein `permission`-Feld wie in `space_members` (089) gibt es bewusst
+nicht — eine App ist freigegeben oder nicht, und wer innerhalb der App was
+darf, entscheidet die App.
 
 ---
 

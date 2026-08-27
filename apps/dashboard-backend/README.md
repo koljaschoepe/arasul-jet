@@ -95,11 +95,31 @@ fuer den Administrator. `scripts/test/rollenregeln.py` prueft das im Testlauf,
 
 ### Benutzer (Admin)
 
-| Method | Path                | Description                  |
-| ------ | ------------------- | ---------------------------- |
-| GET    | `/api/benutzer`     | Alle Benutzer mit Rolle      |
-| POST   | `/api/benutzer`     | Benutzer anlegen (`rolle`)   |
-| DELETE | `/api/benutzer/:id` | Benutzer samt Daten loeschen |
+| Method | Path                         | Description                                        |
+| ------ | ---------------------------- | -------------------------------------------------- |
+| GET    | `/api/benutzer`              | Alle Benutzer mit Rolle                            |
+| POST   | `/api/benutzer`              | Benutzer anlegen (`rolle`)                         |
+| PUT    | `/api/benutzer/:id/passwort` | Passwort setzen; beendet alle seine Sitzungen      |
+| PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen (`false`) oder wieder zulassen (`true`) |
+| DELETE | `/api/benutzer/:id`          | Benutzer samt Daten loeschen                       |
+
+Sein eigenes Passwort wechselt jeder ueber `POST /api/auth/change-password`;
+dort wird das alte geprueft. `PUT /api/benutzer/:id/passwort` ist der Weg des
+Administrators, der es nicht kennt. Beide schreiben durch
+`services/auth/passwordService.js`, also mit Eintrag in `password_history`.
+
+### Freigaben (Admin, Phase C2)
+
+| Method | Path                                | Description                                     |
+| ------ | ----------------------------------- | ----------------------------------------------- |
+| GET    | `/api/freigaben`                    | Alle Freigaben; `?app_id=`, `?benutzer_id=`     |
+| POST   | `/api/freigaben`                    | `{ app_id, benutzer_id }`; 201 neu, 200 Bestand |
+| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zuruecknehmen; 404, wenn keine da ist  |
+
+Tabelle `app_members` (Migration 168), Nachfolgerin von `space_members`.
+`app_id` ist bis Phase C3 ein freier Text in Slug-Form; das App-Modell mit der
+Tabelle `apps` setzt den Fremdschluessel nach. Gegen das Geraet misst das
+`scripts/test/mitarbeiter-abnahme.sh`.
 
 ### System & Metrics (Auth Required)
 

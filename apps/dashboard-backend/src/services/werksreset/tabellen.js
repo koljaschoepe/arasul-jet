@@ -47,6 +47,7 @@ const AUSLIEFERUNG = [
   ['public.app_dependencies', 'Abhängigkeiten installierter Anwendungen'],
   ['public.app_events', 'Ereignisse installierter Anwendungen'],
   ['public.app_installations', 'Installierte Anwendungen'],
+  ['public.app_members', 'Freigaben: welcher Mitarbeiter sieht welche App'],
   ['public.audit_log_health', 'Selbstprüfung des Prüfprotokolls'],
   ['public.audit_logs', 'Prüfprotokoll'],
   ['public.bot_audit_log', 'Prüfprotokoll der Bots'],

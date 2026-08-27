@@ -1,0 +1,118 @@
+/**
+ * Freigaben (Phase C2 des Umbaus vom 26.08.2026).
+ *
+ * Eine Freigabe ist ein Paar: diese App, dieser Mensch. Mehr steht nicht in
+ * `app_members` (Migration 168), und mehr braucht die Plattform auch nicht —
+ * wer INNERHALB einer App was darf, entscheidet die App.
+ *
+ * `app_id` ist bis Phase C3 ein freier Text, weil es die Tabelle `apps` noch
+ * nicht gibt. Die Form wird trotzdem geprueft (`schemas/freigaben.js`): eine
+ * Kennung, die spaeter auf ein Manifest zeigen soll, darf jetzt schon keine
+ * Leerzeichen und keine Umlaute enthalten.
+ *
+ * Freigegeben wird an JEDEN Benutzer, nicht nur an Mitarbeiter. Die Rolle sagt,
+ * wer verwaltet, nicht wer arbeitet; ein Administrator, der eine App benutzen
+ * will, braucht sie genauso freigegeben. Eine Sonderregel „Admins sehen alles"
+ * waere eine zweite Wahrheit neben dieser Tabelle.
+ */
+
+const db = require('../../database');
+const { ConflictError, NotFoundError } = require('../../utils/errors');
+const logger = require('../../utils/logger');
+
+const SPALTEN = `f.app_id, f.user_id, f.freigegeben_von, f.freigegeben_am,
+                 b.username, b.email, b.role, b.is_active`;
+
+/**
+ * Freigaben lesen, wahlweise gefiltert nach App oder Benutzer.
+ *
+ * @param {{appId?: string, benutzerId?: number}} filter
+ */
+async function listeFreigaben({ appId, benutzerId } = {}) {
+  const wo = [];
+  const werte = [];
+  if (appId) {
+    werte.push(appId);
+    wo.push(`f.app_id = $${werte.length}`);
+  }
+  if (benutzerId) {
+    werte.push(benutzerId);
+    wo.push(`f.user_id = $${werte.length}`);
+  }
+  const result = await db.query(
+    `SELECT ${SPALTEN}
+       FROM public.app_members f
+       JOIN public.admin_users b ON b.id = f.user_id
+      ${wo.length ? `WHERE ${wo.join(' AND ')}` : ''}
+      ORDER BY f.app_id, f.user_id`,
+    werte
+  );
+  return result.rows;
+}
+
+/**
+ * Eine App fuer einen Benutzer freigeben.
+ *
+ * Zweimal dieselbe Freigabe ist kein Fehler, sondern derselbe Zustand: der
+ * zweite Aufruf laesst die erste stehen (samt ihrem Zeitstempel und dem
+ * Administrator, der sie gesetzt hat) und meldet `neu: false`. Ein 409 waere
+ * hier eine Strafe fuer einen Klick, der nichts kaputt macht.
+ *
+ * Einen unbekannten Benutzer faengt der Fremdschluessel ab (PG 23503 → 400).
+ * Vorab zu pruefen waere ein zweiter Ort, an dem dieselbe Regel steht, und
+ * zwischen Pruefung und INSERT liegt ohnehin ein Fenster.
+ *
+ * @returns {Promise<{freigabe: object, neu: boolean}>}
+ */
+async function gibFrei({ appId, benutzerId, durch }) {
+  const result = await db.query(
+    `INSERT INTO public.app_members (app_id, user_id, freigegeben_von)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (app_id, user_id) DO NOTHING
+     RETURNING app_id, user_id, freigegeben_von, freigegeben_am`,
+    [appId, benutzerId, durch ?? null]
+  );
+  if (result.rows.length > 0) {
+    logger.info(`Freigabe: App ${appId} fuer Benutzer ${benutzerId}`);
+    return { freigabe: result.rows[0], neu: true };
+  }
+  // Dieselben vier Spalten wie oben, nicht die angereicherte Zeile aus
+  // `listeFreigaben`: sonst haette dieselbe Route zwei Antwortformen, je
+  // nachdem ob es der erste oder der zweite Aufruf war, und ein Client, der
+  // sich auf die 201 verlaesst, bekaeme bei 200 ueberraschend Felder dazu.
+  // Wer Namen und Rolle will, fragt `GET /api/freigaben`.
+  const bestand = await db.query(
+    `SELECT app_id, user_id, freigegeben_von, freigegeben_am
+       FROM public.app_members WHERE app_id = $1 AND user_id = $2`,
+    [appId, benutzerId]
+  );
+  if (bestand.rows.length === 0) {
+    // Zwischen dem INSERT und dieser Zeile hat jemand die Freigabe
+    // zurueckgenommen. Ein winziges Fenster, aber ohne diese Pruefung
+    // antwortete die Route mit 200 und `data: undefined` -- eine Zusage, die
+    // sie nicht halten kann. 409 sagt: nicht dein Fehler, versuch es noch mal.
+    throw new ConflictError(
+      `Die Freigabe von ${appId} fuer Benutzer ${benutzerId} wurde waehrend des Anlegens zurueckgenommen`
+    );
+  }
+  return { freigabe: bestand.rows[0], neu: false };
+}
+
+/**
+ * Eine Freigabe zuruecknehmen. Was es nicht gibt, kann nicht zurueckgenommen
+ * werden: dann 404, damit ein Tippfehler in der App-Kennung nicht wie Erfolg
+ * aussieht.
+ */
+async function nimmZurueck({ appId, benutzerId }) {
+  const result = await db.query(
+    `DELETE FROM public.app_members WHERE app_id = $1 AND user_id = $2`,
+    [appId, benutzerId]
+  );
+  if (result.rowCount === 0) {
+    throw new NotFoundError(`Keine Freigabe von ${appId} fuer Benutzer ${benutzerId}`);
+  }
+  logger.info(`Freigabe zurueckgenommen: App ${appId} fuer Benutzer ${benutzerId}`);
+  return { app_id: appId, user_id: benutzerId };
+}
+
+module.exports = { listeFreigaben, gibFrei, nimmZurueck };

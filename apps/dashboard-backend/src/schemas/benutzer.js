@@ -23,4 +23,25 @@ const BenutzerIdParams = z.object({
   id: z.coerce.number().int().positive(),
 });
 
-module.exports = { CreateBenutzerBody, BenutzerIdParams };
+// Dieselbe Grenze wie beim Anlegen, und aus demselben Grund: der Administrator
+// vergibt ein STARTPASSWORT. Die Komplexitaetsregeln greifen dort, wo der
+// Mensch sein eigenes Passwort waehlt (`POST /api/auth/change-password`).
+const SetzePasswortBody = z
+  .object({
+    password: z
+      .string({ error: 'Passwort fehlt' })
+      .min(8, 'Passwort braucht mindestens 8 Zeichen')
+      .max(256),
+  })
+  .strict();
+
+// `aktiv: false` legt still, `aktiv: true` laesst wieder zu. Ein Wert, zwei
+// Richtungen — zwei Endpunkte („sperren", „entsperren") waeren zwei Wege zu
+// demselben Feld.
+const SetzeAktivBody = z
+  .object({
+    aktiv: z.boolean({ error: 'aktiv muss true oder false sein' }),
+  })
+  .strict();
+
+module.exports = { CreateBenutzerBody, BenutzerIdParams, SetzePasswortBody, SetzeAktivBody };
