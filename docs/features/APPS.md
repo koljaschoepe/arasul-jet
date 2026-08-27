@@ -112,8 +112,17 @@ und trifft in beiden Ständen das richtige Backend. Dieselbe Datei, beide Ständ
 Ein absoluter Pfad (`/apps/urlaub/api/hallo`) zeigt im Teststand auf den
 Livestand — das ist die eine Regel, die eine App einhalten muss.
 
-Deshalb ist `test` keine gültige App-Kennung: `/apps/test/` wäre ein Pfad, der
-zweimal etwas anderes bedeutet.
+Zwei Namen sind damit vergeben, und beide aus demselben Grund:
+
+- **`test` als App-Kennung.** `/apps/test/` wäre ein Pfad, der zweimal etwas
+  anderes bedeutet; das Schema weist die Kennung ab.
+- **`test` als erstes Stück einer Route der App.** `/apps/urlaub/test` ist der
+  Teststand von `urlaub`, nicht die Seite `test` der App `urlaub`. Wer eine
+  solche Route braucht, nennt sie anders — `/apps/urlaub/tests` oder
+  `/apps/urlaub/pruefung` gehen beide.
+
+Ebenso vergeben ist `api`: alles unter `/apps/<id>/api/` gehört dem Container
+der App und wird nie als Datei ausgeliefert.
 
 ## Der Tester-Kreis
 

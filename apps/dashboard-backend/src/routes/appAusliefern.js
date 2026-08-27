@@ -29,6 +29,13 @@ const appStore = require('../services/app/appStore');
 const PFAD = /^\/([^/]+)(?:\/(test))?(?:\/(.*))?$/;
 
 /**
+ * Zwei Namen sind unter `/apps/<id>/` vergeben, und beide aus demselben Grund:
+ * `test` ist der Teststand (also nicht die Seite „test" der App), und alles
+ * unter `api/` gehoert dem Container der App. Steht in `docs/features/APPS.md`,
+ * damit ein Partner es weiss, bevor er es baut.
+ */
+
+/**
  * Ein Pfad ohne Punkt im letzten Stueck ist eine Route der App, keine Datei —
  * `/apps/urlaub/antraege/17` gehoert zur Seite und nicht auf die Platte.
  * Dafuer liefert eine Einzelseiten-Anwendung ihre `index.html`, sonst waere
