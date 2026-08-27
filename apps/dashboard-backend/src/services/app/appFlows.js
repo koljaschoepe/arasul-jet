@@ -139,7 +139,14 @@ async function leseAusPaket(manifest, ordner) {
 }
 
 /**
- * Die Flows eines Standes registrieren.
+ * Die gelesenen Flows eines Standes eintragen.
+ *
+ * GETRENNT VOM LESEN, und das ist die eigentliche Aussage dieser beiden
+ * Funktionen: `leseAusPaket` prueft und kann scheitern, `registriere`
+ * schreibt und soll es nicht mehr. Der Aufrufer liest deshalb FRUEH -- bevor
+ * er einen Container anfasst -- und schreibt SPAET, wenn der Stand steht.
+ * Waeren beide ein Aufruf, faellt ein Flow mit einem Tippfehler erst auf,
+ * nachdem die App schon laeuft: der Stand waere neu und seine Flows die alten.
  *
  * ERSETZEN, NICHT ERGAENZEN: was der Stand hat, sagt das Paket, das gerade
  * eingespielt wird. Ein Flow, den die neue Version nicht mehr mitbringt, ist
@@ -149,12 +156,10 @@ async function leseAusPaket(manifest, ordner) {
  * Die Ueberschreibungen des Administrators (`flow_settings`) fasst dieser
  * Aufruf NICHT an. Genau das ist ihr Zweck: sie ueberleben ein App-Update.
  *
- * @param {{appId: string, stand: 'test'|'live', version: string, manifest: object, versionsPfad: string}} was
+ * @param {{appId: string, stand: 'test'|'live', version: string, flows: {name: string, definition: object}[]}} was
  * @returns {Promise<string[]>} die Namen der registrierten Flows
  */
-async function registriere({ appId, stand, version, manifest, versionsPfad }) {
-  const gelesen = await leseAusPaket(manifest, versionsPfad);
-
+async function registriere({ appId, stand, version, flows: gelesen = [] }) {
   await db.query('DELETE FROM public.app_flows WHERE app_id = $1 AND stand = $2', [appId, stand]);
   for (const { name, definition } of gelesen) {
     await db.query(

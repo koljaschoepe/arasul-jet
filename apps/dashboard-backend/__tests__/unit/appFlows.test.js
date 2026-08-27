@@ -126,14 +126,19 @@ Lies alles.
 });
 
 describe('registriere', () => {
+  /** Was `leseAusPaket` liefert -- der Aufrufer liest frueh und schreibt spaet. */
+  async function gelesen(dateien) {
+    return appFlows.leseAusPaket(MANIFEST, paketMit(dateien));
+  }
+
   it('ersetzt die Flows eines Standes, statt sie zu ergaenzen', async () => {
+    const flows = await gelesen({ 'bericht.md': BERICHT });
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
     const namen = await appFlows.registriere({
       appId: 'urlaub',
       stand: 'test',
       version: '1.0.0',
-      manifest: MANIFEST,
-      versionsPfad: paketMit({ 'bericht.md': BERICHT }),
+      flows,
     });
     expect(namen).toEqual(['bericht']);
 
@@ -152,8 +157,7 @@ describe('registriere', () => {
       appId: 'urlaub',
       stand: 'live',
       version: '2.0.0',
-      manifest: { id: 'urlaub', version: '2.0.0' },
-      versionsPfad: PAKET,
+      flows: [],
     });
     expect(namen).toEqual([]);
     expect(db.query).toHaveBeenCalledTimes(1);
@@ -161,13 +165,13 @@ describe('registriere', () => {
   });
 
   it('fasst `flow_settings` nicht an -- die Ueberschreibung ueberlebt ein Update', async () => {
+    const flows = await gelesen({ 'bericht.md': BERICHT });
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
     await appFlows.registriere({
       appId: 'urlaub',
       stand: 'test',
       version: '1.1.0',
-      manifest: MANIFEST,
-      versionsPfad: paketMit({ 'bericht.md': BERICHT }),
+      flows,
     });
     const alles = db.query.mock.calls.map(c => c[0]).join('\n');
     expect(alles).not.toMatch(/flow_settings/);

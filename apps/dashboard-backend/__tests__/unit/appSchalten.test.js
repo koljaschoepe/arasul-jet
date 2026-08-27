@@ -141,6 +141,65 @@ describe('schalte', () => {
   });
 });
 
+describe('Die Flows kommen vor dem Container (Phase C6)', () => {
+  const FLOW = `---
+name: bericht
+---
+Schreibe einen Bericht.
+`;
+
+  /** Eine Version mit einem Flow-Ordner ablegen. */
+  function legeAb(version, flowDateien) {
+    const ordner = path.join(APPS_DIR, 'urlaub', version);
+    fs.mkdirSync(path.join(ordner, 'frontend'), { recursive: true });
+    fs.writeFileSync(path.join(ordner, 'frontend', 'index.html'), '<!doctype html>');
+    fs.mkdirSync(path.join(ordner, 'flows'), { recursive: true });
+    for (const [name, inhalt] of Object.entries(flowDateien)) {
+      fs.writeFileSync(path.join(ordner, 'flows', name), inhalt);
+    }
+    fs.writeFileSync(
+      path.join(ordner, 'app.json'),
+      JSON.stringify({ ...MANIFEST(version), flows: { verzeichnis: 'flows' } })
+    );
+    return ordner;
+  }
+
+  test('ein Flow mit einem Tippfehler haelt den Deploy auf, BEVOR etwas laeuft', async () => {
+    // Der Kern der Reihenfolge: gelesen wird frueh, geschrieben spaet. Faellt
+    // die Pruefung erst nach `starte`, waere der Stand neu und seine Flows die
+    // alten -- und niemand saehe der App an, welche Fassung gilt.
+    legeAb('2.0.0', { 'bericht.md': '---\nname: [kaputt\n---\nRumpf\n' });
+
+    await expect(appStore.spieleEin({ appId: 'urlaub', version: '2.0.0', stand: 'test' })).rejects.toThrow();
+
+    expect(appContainer.sorgeFuerImage).not.toHaveBeenCalled();
+    expect(appContainer.starte).not.toHaveBeenCalled();
+    // Gelesen wurde (die Lizenzgrenze fragt nach), geschrieben nichts.
+    const geschrieben = db.query.mock.calls
+      .map(c => String(c[0]))
+      .filter(a => /INSERT|UPDATE|DELETE/.test(a));
+    expect(geschrieben).toEqual([]);
+  });
+
+  test('ein gueltiger Flow wird NACH dem Stand eingetragen', async () => {
+    legeAb('2.1.0', { 'bericht.md': FLOW });
+    db.query.mockResolvedValue({ rows: [{ app_id: 'urlaub', stand: 'test', version: '2.1.0' }] });
+
+    const ergebnis = await appStore.spieleEin({
+      appId: 'urlaub',
+      version: '2.1.0',
+      stand: 'test',
+    });
+
+    expect(ergebnis.flows).toEqual(['bericht']);
+    const anweisungen = db.query.mock.calls.map(c => String(c[0]));
+    const stand = anweisungen.findIndex(a => /INSERT INTO public\.app_staende/.test(a));
+    const flow = anweisungen.findIndex(a => /INSERT INTO public\.app_flows/.test(a));
+    expect(stand).toBeGreaterThanOrEqual(0);
+    expect(flow).toBeGreaterThan(stand);
+  });
+});
+
 describe('spieleEin fuehrt Buch ueber die vorige Version', () => {
   test('die Buchfuehrung steht in der einen INSERT-Anweisung, nicht im Schalter', async () => {
     spieleEinLaeuftDurch('1.1.0');

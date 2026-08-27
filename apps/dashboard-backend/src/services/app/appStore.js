@@ -169,6 +169,16 @@ async function spieleEin({ appId, version, stand, durch }) {
     await appManifest.frontendVerzeichnis(manifest);
   }
 
+  // Die Flows LESEN, bevor irgendetwas angefasst wird (C6); geschrieben werden
+  // sie erst ganz unten. Ein Flow mit einem Tippfehler im YAML-Kopf soll
+  // diesen Aufruf HIER zum Stehen bringen -- nicht erst, nachdem der Container
+  // ersetzt und der Stand geschrieben ist. Dann waere der Stand neu und seine
+  // Flows die alten, und niemand saehe der App an, welche Fassung gilt.
+  const flowDateien = await appFlows.leseAusPaket(
+    manifest,
+    appManifest.verzeichnisFuer(manifest.id, manifest.version)
+  );
+
   // Das Image, bevor irgendetwas Bestehendes angefasst wird (Phase C4).
   // `starte` sorgt ohnehin dafuer, aber erst nachdem der Schluessel schon
   // gewechselt ist -- und ein Image, das nicht kommt, haette dann einer
@@ -241,8 +251,8 @@ async function spieleEin({ appId, version, stand, durch }) {
     [manifest.id, stand, manifest.version, manifest, durch ?? null]
   );
 
-  // Die Flows dieses Standes (C6). NACH dem Stand und nicht davor: sie
-  // gehoeren zu einer Version, die wirklich eingespielt ist. Waere es
+  // Die oben gelesenen Flows eintragen (C6). NACH dem Stand und nicht davor:
+  // sie gehoeren zu einer Version, die wirklich eingespielt ist. Waere es
   // andersherum, haette ein Container, der nicht hochkommt, die Flows der
   // neuen Fassung hinterlassen und den Stand der alten -- und der naechste
   // Aufruf haette den Flow einer Version gestartet, die nirgends laeuft.
@@ -250,16 +260,15 @@ async function spieleEin({ appId, version, stand, durch }) {
   // Die Ueberschreibungen des Administrators (`flow_settings`) fasst das
   // NICHT an. Genau dafuer stehen sie in einer eigenen Tabelle.
   //
-  // Auch OHNE `flows` im Manifest wird registriert -- dann mit einem leeren
-  // Ergebnis. Der Aufruf raeumt damit weg, was eine VORIGE Version in diesem
-  // Stand mitgebracht hat; ohne ihn blieben Flows startbar, die die laufende
+  // Auch OHNE `flows` im Manifest laeuft der Aufruf -- dann mit einer leeren
+  // Liste. Er raeumt damit weg, was eine VORIGE Version in diesem Stand
+  // mitgebracht hat; ohne ihn blieben Flows startbar, die die laufende
   // Fassung nicht mehr kennt.
   const flows = await appFlows.registriere({
     appId: manifest.id,
     stand,
     version: manifest.version,
-    manifest,
-    versionsPfad,
+    flows: flowDateien,
   });
 
   logger.info(

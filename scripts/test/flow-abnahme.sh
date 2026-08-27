@@ -438,9 +438,18 @@ fi
 # (`app_id IS NULL`) und sucht deshalb unter den Flows der Plattform -- den
 # Flow dieser App findet er dort nicht, obwohl derselbe Administrator hinter
 # beiden steht.
-schluessel_ruf POST "/api/v1/external/flows/$FLOW/run" '{"wait_for_result":false}'
-pruefe 'Ein Schluessel eines Menschen findet den Flow der App nicht' \
-  "$(ja_wenn "$CODE" 404)" "HTTP $CODE"
+# Nur mit dem SELBST angelegten Schluessel: der traegt `flow:run` und kommt
+# damit bis zur Suche. Ein mitgebrachter `ARASUL_KIT_SCHLUESSEL` hat
+# ueblicherweise nur `app:deploy`, und ein 403 vor der Drossel belegt nichts
+# ueber Namensraeume -- das waere Gruen-Dribbeln.
+if [ -n "$KEY_ID" ]; then
+  schluessel_ruf POST "/api/v1/external/flows/$FLOW/run" '{"wait_for_result":false}'
+  pruefe 'Ein Schluessel eines Menschen findet den Flow der App nicht' \
+    "$(ja_wenn "$CODE" 404)" "HTTP $CODE"
+else
+  uebergehen 'Ein Schluessel eines Menschen findet den Flow der App nicht' \
+    'ARASUL_KIT_SCHLUESSEL traegt vermutlich kein flow:run'
+fi
 
 # Und in die andere Richtung: ein Lauf, der ihr nicht gehoert. `getRun` engt
 # fuer einen App-Schluessel auf App UND Stand ein -- ohne das saehe die App die
