@@ -706,14 +706,34 @@ sudo chmod +x /usr/local/bin/arasul-usb-trigger.sh
 sudo udevadm control --reload-rules
 ```
 
+### Zwei Formen der Fassung, und nur eine ist vergleichbar
+
+Seit Phase C10 (27.08.2026) kommt `SYSTEM_VERSION` aus dem Bau, und der Bau
+kennt zwei Formen (`scripts/lib/fassung.sh`):
+
+| Form                | Woher                                  | Paket-Update |
+| ------------------- | -------------------------------------- | ------------ |
+| `1.2.0`             | ein Tag genau auf dem gebauten Stand   | ja           |
+| `20260827-a1b2c3d`  | jeder Stand ohne Tag, also jeder Deploy | nein         |
+
+Ein Gerät der zweiten Art lehnt ein Paket ab und sagt warum: es trägt keine
+Release-Nummer, also lässt sich nicht entscheiden, ob das Paket neuer ist. Es
+aktualisiert über den Deploy (`scripts/deploy/deploy-local.sh`). Bis zu dieser
+Phase warf `compareVersions` an dieser Stelle „Invalid version format:
+20260827-a1b2c3d" — eine Meldung, die auf das Paket zeigt statt auf das Gerät.
+
 ### Environment Variables
 
 ```bash
-# .env.template
+# .env
 UPDATE_PUBLIC_KEY_PATH=/arasul/config/public_update_key.pem
 DASHBOARD_BACKEND_URL=http://dashboard-backend:3001
-SYSTEM_VERSION=1.0.0
-BUILD_HASH=abc123def456
+# SYSTEM_VERSION und BUILD_HASH setzt der Bau, nicht die Hand: `install.sh` aus
+# dem Auslieferungsartefakt, der Deploy aus Git (docs/ops/AUSLIEFERUNG.md).
+# Ohne SYSTEM_VERSION nimmt das Geraet KEIN Paket an: es kann ueber die
+# Vertraeglichkeit nichts sagen (`validateManifest`).
+SYSTEM_VERSION=20260827-a1b2c3d
+BUILD_HASH=a1b2c3d
 ```
 
 ---

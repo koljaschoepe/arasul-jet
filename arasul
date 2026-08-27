@@ -706,31 +706,31 @@ setup_secrets() {
 setup_https() {
     log_info "Configuring HTTPS/TLS..."
 
-    # Traefik is configured for self-signed TLS only (config/traefik/dynamic/tls.yml
+    # Traefik is configured for local TLS only (config/traefik/dynamic/tls.yml
     # references arasul.crt + arasul.key; there is no ACME/Let's Encrypt resolver).
     # The cert pair is device-specific and never committed, so always generate it
     # here when missing — regardless of internet connectivity. Without this,
     # Traefik starts without a certificate and HTTPS is broken.
     local cert_dir="./config/traefik/certs"
 
-    # Resolve the LAN hostname from MDNS_NAME so the cert CN matches the real
-    # access name (https://<hostname>.local). A hardcoded "arasul.local" would
-    # produce a cert mismatch for customers running a custom hostname.
+    # Der Netzname aus MDNS_NAME, nicht "arasul" hartkodiert: ein Kunde mit
+    # eigenem Namen bekaeme sonst ein Zertifikat, das auf einen fremden Namen
+    # lautet. Seit Phase C10 steht der NACKTE Name im Zertifikat (https://arasul/)
+    # und `.local` daneben, siehe scripts/security/geraete-zertifikat.sh.
+    # `|| true` und nicht nur `2>/dev/null`: fehlt die Zeile in der `.env`,
+    # gibt grep 1 zurueck, `pipefail` traegt es aus der Pipe heraus, und unter
+    # `set -e` endet der Bootstrap hier wortlos (scripts/test/stiller-tod.py).
     local cert_mdns
-    cert_mdns=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2)
+    cert_mdns=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2 || true)
     cert_mdns="${cert_mdns:-arasul}"
     cert_mdns="${cert_mdns%.local}" # strip any .local the user may have added
-    local cert_host="${cert_mdns}.local"
 
-    if [ -f "$cert_dir/arasul.crt" ] && [ -f "$cert_dir/arasul.key" ]; then
-        log_success "Self-signed certificate already present in $cert_dir"
-    elif [ -f "scripts/security/generate-self-signed-cert.sh" ]; then
-        log_info "Generating self-signed certificate for ${cert_host}..."
-        bash scripts/security/generate-self-signed-cert.sh "$cert_dir" "$cert_host" "3650"
-        log_success "Self-signed certificate generated"
-        log_warning "Browser will show a security warning (normal for self-signed certificates)"
+    if [ -f "scripts/security/geraete-zertifikat.sh" ]; then
+        bash scripts/security/geraete-zertifikat.sh "$cert_dir" "$cert_mdns"
+        log_success "Geraete-CA und Zertifikat stehen"
+        log_warning "Der Browser warnt, bis das CA-Zertifikat verteilt ist (docs/ops/NETZNAME_UND_ZERTIFIKAT.md)"
     else
-        log_error "Certificate generation script not found: scripts/security/generate-self-signed-cert.sh"
+        log_error "Certificate script not found: scripts/security/geraete-zertifikat.sh"
         log_error "HTTPS cannot be configured — Traefik will fail to serve TLS"
         return 1
     fi
@@ -815,6 +815,49 @@ EOSQL
     else
         log_error "Administrator-Erstellung fehlgeschlagen"
         return 1
+    fi
+}
+
+# Der Schluessel, mit dem das Ara-Kit spaeter Apps auf dieses Geraet rollt.
+#
+# Er gehoert in den Bootstrap und nicht in eine spaetere Handbewegung: ein
+# Partner, der ein Geraet ausliefert, hat GENAU EINEN Moment, in dem er am
+# Geraet steht. Danach braucht er SSH, um an einen Schluessel zu kommen, und
+# genau das soll das Kit ja vermeiden (Phase C5).
+#
+# Nicht kritisch: schlaegt es fehl, laeuft die Plattform trotzdem, und
+# `scripts/util/kit-schluessel.sh anlegen` holt es nach.
+init_kit_schluessel() {
+    local skript="${SCRIPT_DIR}/scripts/util/kit-schluessel.sh"
+    if [ ! -f "$skript" ]; then
+        return 0
+    fi
+
+    log_info "Lege den Deploy-Schluessel fuer das Ara-Kit an..."
+
+    local liste
+    liste=$(bash "$skript" liste 2>/dev/null || true)
+    # Herestring statt Rohr: unter `pipefail` traegt ein `| grep -q` den
+    # Abbruch des Erzeugers als Antwort heraus (scripts/test/rohrbruch.py).
+    if grep -q '^gueltig' <<<"$liste"; then
+        log_info "Es gibt schon einen gueltigen Kit-Schluessel, er bleibt"
+        return 0
+    fi
+
+    local ausgabe
+    ausgabe=$(bash "$skript" anlegen "Ara-Kit (Erstinstallation)" 2>&1) || {
+        log_warning "Kit-Schluessel nicht angelegt. Nachholen mit:"
+        log_warning "  bash scripts/util/kit-schluessel.sh anlegen"
+        return 0
+    }
+
+    # Die Ausgabe des Skripts hat die Form "  Schluessel  aras_...".
+    KIT_SCHLUESSEL=$(awk '/^  Schluessel/ {print $2}' <<<"$ausgabe")
+    if [ -n "${KIT_SCHLUESSEL:-}" ]; then
+        log_success "Kit-Schluessel angelegt (er erscheint einmal, in der Zusammenfassung)"
+    else
+        log_warning "Kit-Schluessel angelegt, aber nicht lesbar. Neu anlegen mit:"
+        log_warning "  bash scripts/util/kit-schluessel.sh anlegen"
     fi
 }
 
@@ -1028,35 +1071,49 @@ run_smoke_tests() {
 # Show completion summary after successful bootstrap
 show_completion_summary() {
     local admin_user=$(grep "^ADMIN_USERNAME=" .env | cut -d'=' -f2)
-    local admin_pass=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
     local hostname=$(grep "^MDNS_NAME=" .env | cut -d'=' -f2)
+    local fassung=$(grep "^SYSTEM_VERSION=" .env | cut -d'=' -f2)
+    hostname="${hostname:-arasul}"
 
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${GREEN}  ARASUL PLATFORM - Erfolgreich installiert!${NC}"
+    echo -e "${GREEN}  ARASUL ${fassung:-Vorserie} - Erfolgreich installiert!${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo -e "  Dashboard:    ${BLUE}https://${hostname:-arasul}.local${NC}"
+    # Der nackte Name zuerst: den lernt der Router ueber den DHCP-Hostnamen,
+    # und danach tippt ein Mitarbeiter ihn so, wie er ihn sich merkt.
+    # `<name>.local` ist der Rueckfall ueber mDNS, falls der Router es nicht tut.
+    echo -e "  Oberflaeche:  ${BLUE}https://${hostname}/${NC}"
+    echo -e "                ${BLUE}https://${hostname}.local/${NC} (Rueckfall)"
 
-    # Tailscale-Info anzeigen (wenn verbunden). Bevorzugt den MagicDNS-Namen
-    # (https://<geraet>.<tailnet>.ts.net) — browser-vertrautes Schloss via
-    # `tailscale serve` — und fällt nur auf die rohe IP zurück.
-    local ts_dnsname ts_ip
+    # Tailscale: NUR der MagicDNS-Name. Die rohe Tailscale-IP stand hier bis
+    # zum 27.08.2026 als Rueckfall und war eine Sackgasse: mit aktivem
+    # `tailscale serve` hoert tailscaled auf 443 dieser Adresse und findet
+    # ohne Namen im ClientHello kein Zertifikat (Alert 80, internal error).
+    local ts_dnsname
     ts_dnsname=$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/\.$//')
-    ts_ip=$(tailscale ip -4 2>/dev/null || echo "")
     if [ -n "$ts_dnsname" ]; then
-        echo -e "  Remote:       ${BLUE}https://${ts_dnsname}${NC} (via Tailscale)"
-    elif [ -n "$ts_ip" ]; then
-        echo -e "  Remote:       ${BLUE}https://${ts_ip}${NC} (via Tailscale)"
+        echo -e "  Von unterwegs: ${BLUE}https://${ts_dnsname}${NC} (Tailscale)"
     fi
     echo ""
-    echo "  ┌─────────────────────────────────────────────┐"
-    echo "  │  Benutzername:  ${admin_user:-admin}"
-    echo "  │  Passwort:      (wie bei Setup eingegeben) │"
-    echo "  │                                             │"
-    echo "  │  Passwort aenderbar im Dashboard unter      │"
-    echo "  │  Einstellungen > Sicherheit                 │"
-    echo "  └─────────────────────────────────────────────┘"
+    echo "  Anmeldung"
+    echo "    Benutzername  ${admin_user:-admin}"
+    echo "    Passwort      wie beim Einrichten vergeben"
+    echo "    Aenderbar unter Einstellungen > Sicherheit"
+
+    if [ -n "${KIT_SCHLUESSEL:-}" ]; then
+        echo ""
+        echo "  Schluessel fuer das Ara-Kit (Bereich app:deploy)"
+        echo "    ${KIT_SCHLUESSEL}"
+        echo "    Er steht NUR HIER. Ins Kit eintragen; ein neuer geht ueber"
+        echo "    scripts/util/kit-schluessel.sh anlegen"
+    fi
+
+    echo ""
+    echo "  Der Browser warnt beim ersten Aufruf vor dem Zertifikat. Das hoert"
+    echo "  auf, sobald das CA-Zertifikat dieses Geraets verteilt ist:"
+    echo "  Einstellungen > Sicherheit > Geraetezertifikat."
+    echo "  Anleitung: docs/ops/NETZNAME_UND_ZERTIFIKAT.md"
     echo ""
     echo "  Befehle:"
     echo "    ./arasul status    - Status anzeigen"
@@ -1340,8 +1397,12 @@ cmd_bootstrap() {
 
     # 15. Admin-Benutzer anlegen. Only on success do we mark the admin as
     # initialized and redact — otherwise the password must survive for a retry.
+    KIT_SCHLUESSEL=""
     if init_admin_user; then
         ADMIN_USER_INITIALIZED=1
+        # Der Kit-Schluessel gehoert einem Administrator (`kit-schluessel.sh`
+        # sucht ihn in `admin_users`), also erst hier und nicht frueher.
+        init_kit_schluessel
         # 15b. Immediately redact plaintext password after admin user creation,
         # so it is not exposed if bootstrap fails in a later step.
         redact_plaintext_password
@@ -1584,6 +1645,30 @@ cmd_platform_profile() {
 }
 
 # Help command
+# Das Zertifikat des Geraets neu ausstellen (Phase C10).
+#
+# Von Hand gebraucht wird das genau zweimal: wenn das Geraet einen neuen
+# Netznamen bekommt und wenn es in ein Netz mit anderen Adressen umzieht --
+# beides steht als Name im Zertifikat, und beides merkt kein Automatismus. Die
+# ABLAUFENDE Erneuerung macht die Selbstheilung von selbst
+# (services/self-healing-agent/healing_engine.py).
+#
+# Die Geraete-CA bleibt dabei dieselbe. Wer sie schon verteilt hat, muss nichts
+# noch einmal verteilen.
+cmd_zertifikat() {
+    local netzname
+    netzname=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2 || true)
+    netzname="${netzname:-arasul}"
+
+    FORCE_OVERWRITE=true bash "${SCRIPT_DIR}/scripts/security/geraete-zertifikat.sh" \
+        "${SCRIPT_DIR}/config/traefik/certs" "${netzname%.local}"
+
+    log_info "Lade Traefik neu..."
+    docker compose restart reverse-proxy >/dev/null 2>&1 || \
+        log_warning "Traefik nicht neu gestartet. Von Hand: docker compose restart reverse-proxy"
+    log_success "Zertifikat erneuert"
+}
+
 cmd_help() {
     echo "Arasul Platform Management Tool"
     echo ""
@@ -1604,6 +1689,7 @@ cmd_help() {
     echo "  logs [service]    - Show logs (optionally for a specific service)"
     echo "  update            - Update to latest version"
     echo "  mdns              - Configure mDNS (arasul.local)"
+    echo "  zertifikat        - Geraetezertifikat neu ausstellen (nach Namens-/Netzwechsel)"
     echo "  reset-password [user] - Reset admin password + clear account lock (default: admin)"
     echo "  validate-config   - Validate .env configuration"
     echo "  validate-deps     - Validate Docker Compose dependency chain"
@@ -1675,6 +1761,9 @@ case "${1:-help}" in
         ;;
     mdns)
         cmd_mdns
+        ;;
+    zertifikat)
+        cmd_zertifikat
         ;;
     reset-password)
         shift

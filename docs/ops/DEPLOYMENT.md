@@ -84,84 +84,76 @@ docker run --rm --gpus all nvidia/cuda:12.6.0-base-ubuntu22.04 nvidia-smi
 
 ## 3. Installation
 
-There are three installation methods. Pick the one that matches your scenario.
+Zwei Wege. Der erste ist der, den ein Kunde geht; der zweite der, den ein
+Entwickler geht.
 
-### Method A — Interactive setup (recommended for single devices)
+### Weg A — aus dem Auslieferungsartefakt (der Regelweg)
 
-Requires internet access on the device.
+Das ist die Auslieferung. Sie ist in
+[AUSLIEFERUNG.md](AUSLIEFERUNG.md) beschrieben; hier die Kurzform.
 
 ```bash
-git clone <repository-url> ~/arasul-platform
-cd ~/arasul-platform
+curl -fsSL https://arasul.de/api/install | bash
+```
+
+Die Website lädt das versionierte Artefakt hinter ihrem Token, packt es aus und
+ruft den Einstiegspunkt `install.sh` darin auf. Von Hand, direkt aus dem
+GitHub-Release:
+
+```bash
+curl -fsSLO https://github.com/Arasul-GmbH/arasul-jet/releases/download/v1.2.0/arasul-1.2.0.tar.gz
+tar xzf arasul-1.2.0.tar.gz && cd arasul-1.2.0
+./install.sh                        # Startpasswort wird erzeugt und einmal gezeigt
+./install.sh --passwort 'Geheim123' --name werkstatt
+```
+
+`install.sh` prüft die Voraussetzungen, schreibt die `.env` (samt
+`SYSTEM_VERSION` aus dem Bau), setzt den Netznamen, ruft `./arasul bootstrap`
+auf und installiert `arasul-platform.service`. Wandzeit: **15–30 Minuten**, der
+größte Teil davon Docker-Builds am Gerät.
+
+Am Ende zeigt der Bootstrap **einmal** das Startpasswort des Administrators und
+den Deploy-Schlüssel für das Ara-Kit.
+
+### Weg B — aus dem Quellbaum (Entwicklung, Prüfstand)
+
+Braucht Internet auf dem Gerät und einen Git-Zugang.
+
+```bash
+git clone <repository-url> ~/arasul/arasul-jet
+cd ~/arasul/arasul-jet
 ./scripts/interactive_setup.sh
 ./arasul bootstrap
 ```
 
-The interactive setup runs five steps:
+Das interaktive Setup läuft in fünf Schritten:
 
-1. **Hardware detection** — auto-identifies Jetson model, RAM, CPU cores, CUDA architecture, and selects the correct profile (e.g., `agx_orin_64gb`, `thor_128gb`).
-2. **Admin account** — username, password (≥ 12 chars, mixed case + digit), email.
-3. **Network** — hostname (default `arasul`, reachable as `arasul.local` via mDNS).
-4. **AI model** — pick from device-specific recommendations.
-5. **Confirmation** — summary and confirmation.
+1. **Hardware-Erkennung** — Jetson-Modell, RAM, Kerne, CUDA-Architektur, Profil
+   (z. B. `agx_orin_64gb`, `thor_128gb`).
+2. **Administrator-Konto** — Name, Passwort (≥ 8 Zeichen, Groß, Klein, Ziffer),
+   E-Mail.
+3. **Netzname** — Vorgabe `arasul`, erreichbar als `https://arasul/` und
+   `https://arasul.local/` (siehe [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md)).
+4. **KI-Modell** — aus der Kurzliste des Geräts.
+5. **Bestätigung.**
 
-Output: a `.env` file with all configuration values and auto-generated secrets.
+Ergebnis: eine `.env` mit allen Werten und erzeugten Geheimnissen. `./arasul
+bootstrap` führt danach Hardware-Prüfung, Verzeichnisse, Geheimnisse, TLS,
+Image-Bau, Datenbank, Dienststart, Admin, Kit-Schlüssel und Rauchtests aus.
 
-`./arasul bootstrap` then runs 15 stages (hardware validation → directory layout → secrets → TLS → image pull / build → DB init → service startup → smoke tests). Total wall time: **15–30 minutes** depending on internet speed.
+Nach erfolgreichem Bootstrap wird das Klartext-Passwort aus der `.env` entfernt.
 
-After successful bootstrap the plaintext admin password is automatically removed from `.env`.
+> Ein so installiertes Gerät kennt seine Fassung aus Git (`git describe`, sonst
+> Datum plus SHA). Ohne Git-Verzeichnis **und** ohne `arasul-release.json`
+> bleibt `SYSTEM_VERSION` leer, und das Gerät nimmt keine Aktualisierung über
+> die Schnittstelle an.
 
-### Method B — Factory image (offline, mass deployment)
-
-Best for offline installation or fleet rollout. Requires no internet on the target device.
-
-#### On a source device (working Arasul installation)
-
-```bash
-# Without bundled AI models (smaller archive, internet needed at first start)
-./scripts/deploy/create-factory-image.sh
-
-# With bundled AI models (larger archive, ready to run immediately)
-./scripts/deploy/create-factory-image.sh --include-models
-
-# All options
-./scripts/deploy/create-factory-image.sh \
-  --output=/path/to/output-dir \
-  --version=1.0.0 \
-  --include-models
-```
-
-The script builds all images, exports them to `images.tar.gz`, copies the project source (excluding `.git`, `node_modules`, data, secrets), embeds `factory-install.sh`, optionally exports Ollama models, generates a manifest with checksums, and packs everything into `arasul-factory-<version>.tar.gz`.
-
-#### Transfer to target device
-
-```bash
-cp deployment/arasul-factory-*.tar.gz /media/usb-stick/
-# Move USB to target device
-```
-
-#### On the target device
-
-```bash
-tar xzf arasul-factory-*.tar.gz
-cd arasul-factory-*/
-./factory-install.sh
-```
-
-The factory installer runs five steps: load Docker images from `images.tar.gz` → restore AI models (if bundled) → prepare project → run interactive setup for admin / hostname / model → bootstrap services. Wall time: **5–10 minutes**, no internet needed.
-
-For unattended fleet provisioning, combine with non-interactive mode:
-
-```bash
-ADMIN_PASSWORD='YourSecurePass1' ./factory-install.sh --non-interactive
-```
-
-### Method C — Non-interactive (CI/CD, automated rollouts)
+### Weg B ohne Rückfragen (CI/CD, Flotte)
 
 Skip all prompts, run end-to-end:
 
 ```bash
-cd ~/arasul-platform
+cd ~/arasul/arasul-jet
 
 # Mandatory: set ADMIN_PASSWORD
 ADMIN_PASSWORD='YourSecurePass1' \
@@ -178,7 +170,7 @@ ADMIN_PASSWORD='YourSecurePass1' \
 | `ADMIN_USERNAME` | `admin`              | Admin login name.                          |
 | `ADMIN_EMAIL`    | `admin@arasul.local` | Admin email.                               |
 | `LLM_MODEL`      | _(auto-detected)_    | Override the device-recommended model.     |
-| `HOSTNAME`       | `arasul`             | mDNS hostname.                             |
+| `ARASUL_NETZNAME` | `arasul`            | Netzname (DHCP-Hostname und mDNS).         |
 
 #### Bootstrap flags
 
@@ -197,20 +189,22 @@ After bootstrap completes, you should see:
 ```
 [SUCCESS] Arasul Platform bootstrap completed!
 
-Dashboard URL: https://arasul.local
+Oberflaeche: https://arasul/
 ```
 
 Run health checks:
 
 ```bash
 ./arasul status                                              # all services Up (healthy)
-curl -k https://arasul.local/api/health
+curl -k https://arasul/api/health
 docker compose exec -T postgres-db pg_isready -U arasul
 docker compose exec -T llm-service curl -s http://localhost:11434/api/tags
 docker compose exec -T embedding-service curl -s http://localhost:11435/health
 ```
 
-> Self-signed TLS certificates produce a browser warning on first access — expected. Click through.
+> Der Browser warnt beim ersten Aufruf: das Gerät stellt sein Zertifikat
+> selbst aus. Die Warnung hört auf, sobald das CA-Zertifikat verteilt ist —
+> siehe [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md).
 
 If a model is not yet pulled (skipped during bootstrap):
 
@@ -425,7 +419,7 @@ docker exec llm-service ollama pull mistral:7b   # manual model pull
 
 ```bash
 docker compose logs reverse-proxy           # Traefik logs
-curl -k https://arasul.local/api/health     # backend reachable?
+curl -k https://arasul/api/health     # backend reachable?
 curl http://localhost:3001/api/health       # backend direct
 docker compose logs dashboard-frontend
 sudo netstat -tulpn | grep -E ':80|:443'    # port conflict?

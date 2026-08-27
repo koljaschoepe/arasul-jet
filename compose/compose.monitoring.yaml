@@ -95,8 +95,18 @@ services:
       HEARTBEAT_PORT: ${SELF_HEALING_HEARTBEAT_PORT:-9200}
       EXCLUDED_CONTAINERS: ''
       DOCKER_HOST: tcp://docker-proxy:2375
+      # Der Netzname steht im erneuerten Zertifikat. Ohne ihn faellt die
+      # Erneuerung auf "arasul" zurueck, und ein Kunde mit eigenem Namen haette
+      # nach der Erneuerung ein Zertifikat auf einen fremden Namen (Phase C10).
+      MDNS_NAME: ${MDNS_NAME:-arasul}
     volumes:
       - ${LOGS_PATH:-../logs}:/arasul/logs
+      # Das Zertifikat des Geraets und der Schluessel seiner CA. SCHREIBBAR:
+      # dieser Dienst stellt es neu aus, sobald weniger als 60 Tage bleiben
+      # (`check_tls_cert_expiry`). Bis Phase C10 war der Ordner hier nicht
+      # eingehaengt und die Erneuerung damit wirkungslos.
+      - ../config/traefik/certs:/arasul/config/traefik/certs
+      - ../scripts/security:/arasul/scripts/security:ro
       - /sys:/host/sys:ro
       - /proc:/host/proc:ro
       - /media:/media:ro

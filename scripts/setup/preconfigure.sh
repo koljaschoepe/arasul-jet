@@ -39,7 +39,11 @@ NC='\033[0m'
 
 # Script location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# Das Wurzelverzeichnis liegt ZWEI Ebenen ueber scripts/setup, nicht eine.
+# Bis zum 27.08.2026 stand hier `dirname "$SCRIPT_DIR"`, also `scripts/`:
+# eine `.env` in scripts/.env, ein Zertifikat in scripts/config/, und beides
+# sah das laufende System nie.
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # CLI flags
 SKIP_PULL=false
@@ -346,7 +350,7 @@ else
 fi
 
 ###############################################################################
-# Step 5: Generate self-signed TLS certificate
+# Step 5: Generate TLS certificate
 ###############################################################################
 log_step 5 "TLS-Zertifikat generieren"
 
@@ -354,29 +358,14 @@ log_step 5 "TLS-Zertifikat generieren"
 # gets a matching cert (no CN mismatch). Defaults to "arasul".
 MDNS_HOST="${MDNS_NAME:-arasul}"
 MDNS_HOST="${MDNS_HOST%.local}" # strip a trailing .local if the user added one
-MDNS_FQDN="${MDNS_HOST}.local"
 
-# Traefik reads the cert pair from /etc/traefik/certs (config/traefik/dynamic/tls.yml),
-# which is the bind-mount ../config/traefik:/etc/traefik. Generate it there so the
-# path matches ./arasul bootstrap and Traefik actually finds it.
+# Hier stand bis zum 27.08.2026 ein DRITTER Weg, ein Zertifikat zu erzeugen:
+# ein `openssl req -x509` von Hand, zehn Jahre lang gueltig, nur mit
+# `<name>.local` als Namen. Er hat sich von dem im Bootstrap unterschieden,
+# und keiner von beiden kannte den nackten Namen `arasul`. Es gibt jetzt genau
+# einen Weg, und er legt auch die Geraete-CA an (Phase C10).
 CERT_DIR="${PROJECT_ROOT}/config/traefik/certs"
-CERT_FILE="${CERT_DIR}/arasul.crt"
-KEY_FILE="${CERT_DIR}/arasul.key"
-
-if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
-  log_info "TLS-Zertifikat existiert bereits"
-else
-  mkdir -p "$CERT_DIR"
-  openssl req -x509 -nodes -days 3650 \
-    -newkey rsa:2048 \
-    -keyout "$KEY_FILE" \
-    -out "$CERT_FILE" \
-    -subj "/CN=${MDNS_FQDN}/O=Arasul Platform/C=DE" \
-    -addext "subjectAltName=DNS:${MDNS_FQDN},DNS:localhost,IP:127.0.0.1" \
-    >/dev/null 2>&1
-  chmod 600 "$KEY_FILE"
-  log_info "Selbstsigniertes TLS-Zertifikat generiert (10 Jahre, CN=${MDNS_FQDN})"
-fi
+bash "${SCRIPT_DIR}/../security/geraete-zertifikat.sh" "$CERT_DIR" "$MDNS_HOST"
 
 ###############################################################################
 # Step 6: Generate Traefik Basic Auth credentials

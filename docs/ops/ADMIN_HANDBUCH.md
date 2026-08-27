@@ -39,10 +39,14 @@ bis dahin ist der Weg die Schnittstelle, unten beschrieben.
 
 ### Zugriff
 
-| Dienst          | Adresse                    |
-| --------------- | -------------------------- |
-| Web-Oberflaeche | `https://<hostname>.local` |
-| SSH-Zugang      | `ssh -p 2222 arasul@<ip>`  |
+| Dienst          | Adresse                                                     |
+| --------------- | ----------------------------------------------------------- |
+| Web-Oberflaeche | `https://arasul/` (Rueckfall `https://arasul.local/`)        |
+| SSH-Zugang      | `ssh -p 2222 arasul@<ip>`                                    |
+
+Der nackte Name kommt vom DHCP-Hostnamen, den der Router aufloest; `.local`
+ist der Rueckfall ueber mDNS. Beide stehen im Zertifikat des Geraets, ebenso
+jede seiner IP-Adressen. Heisst das Geraet anders, gilt sein Name.
 
 ### Die Oberflaeche
 
@@ -144,6 +148,12 @@ Auswirkung kennen.
   Administrator setzt das Passwort per Operator-CLI zurueck: `scripts/security/reset-password.sh`
 - **Abmelden / Von allen Geraeten abmelden:** beide mit Sicherheitsabfrage
 - **Session-Dauer:** Automatisches Abmelden nach Inaktivitaet
+- **Geraetezertifikat herunterladen:** Die eine Aufgabe, die JEDER Admin einmal
+  erledigen sollte. Das Geraet stellt sein TLS-Zertifikat selbst aus; solange
+  seine CA im Haus niemand kennt, warnt jeder Browser. Die Datei einmal
+  herunterladen und auf den Rechnern der Firma installieren, dann hoert die
+  Warnung auf. Anleitung fuer Windows, macOS, iOS und Android:
+  [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md)
 
 ---
 

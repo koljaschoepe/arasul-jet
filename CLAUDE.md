@@ -68,6 +68,21 @@ dieselbe Liste — `scripts/test/kurzliste.py` hält sie aneinander. Gestrichene
 Gewichte nimmt `scripts/util/modelle-aufraeumen.sh` von Hand vom Gerät, nicht
 der Deploy. Bei RAM-Überlast entlädt die Selbstheilung jetzt das Modell (der
 Idle-Unload bleibt daneben bestehen).
+Seit C9 nimmt die **Sicherung** Apps und Konfiguration mit, ein Weg zurück holt
+sie samt Containern wieder.
+Seit C10 gibt es die **Auslieferung**: die CI baut aus einem Tag ein
+versioniertes Artefakt (`scripts/deploy/artefakt-bauen.sh`,
+`.github/workflows/release.yml`), hängt es als GitHub-Release an das Jet-Repo,
+und `install.sh` im Wurzelverzeichnis des Artefakts ist sein Einstiegspunkt —
+er schreibt die `.env`, setzt den Netznamen und ruft `./arasul bootstrap`. Die
+**Fassung kommt aus dem Bau** und nicht mehr aus einer Datei `VERSION`
+(`scripts/lib/fassung.sh`: Tag auf HEAD, sonst Datum plus SHA); der Bootstrap
+zeigt einmal das Startpasswort und den **Kit-Schlüssel** (`app:deploy`). Das
+Gerät heißt im Firmennetz schlicht `arasul` (DHCP-Hostname, Rückfall
+`arasul.local` über mDNS) und trägt ein Zertifikat aus einer beim ersten Start
+erzeugten **Geräte-CA**, deren Zertifikat der Admin einmal aus der Oberfläche
+lädt und verteilt — siehe [`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md)
+und [`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`](docs/ops/NETZNAME_UND_ZERTIFIKAT.md).
 Die neue Oberfläche kommt mit den D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

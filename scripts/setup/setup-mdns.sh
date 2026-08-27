@@ -7,7 +7,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Zwei Ebenen ueber scripts/setup, nicht eine. Bis zum 27.08.2026 zeigte das
+# hier auf `scripts/`; die `.env` wurde dort nie gefunden, also griff der
+# Rueckfall auf die Geraetekennung und das Geraet hiess `arasul-a1b2c3d4`
+# statt `arasul`. Genau dieser Name landete dann NICHT im Zertifikat.
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Colors
 RED='\033[0;31m'

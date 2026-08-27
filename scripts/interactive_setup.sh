@@ -7,6 +7,7 @@
 # Aufruf:
 #   ./scripts/interactive_setup.sh                    # Interaktiv
 #   ADMIN_PASSWORD=... ./scripts/interactive_setup.sh --non-interactive
+#   ARASUL_NETZNAME=werkstatt ADMIN_PASSWORD=... ./scripts/interactive_setup.sh -n
 ###############################################################################
 
 set -euo pipefail
@@ -422,12 +423,17 @@ main() {
     print_step 3 6 "Netzwerk"
 
     if [ "$NON_INTERACTIVE" = true ]; then
-        SETUP_HOSTNAME="${HOSTNAME:-arasul}"
+        # ARASUL_NETZNAME und NICHT HOSTNAME: `HOSTNAME` ist eine Variable der
+        # Bash selbst und traegt den Namen des Rechners. Der Rueckfall auf
+        # "arasul" griff deshalb nie -- ein Geraet, das noch "ubuntu" hiess,
+        # bekam MDNS_NAME=ubuntu und ein Zertifikat auf "ubuntu.local".
+        SETUP_HOSTNAME="${ARASUL_NETZNAME:-arasul}"
     else
-        SETUP_HOSTNAME=$(prompt_with_default "Hostname" "arasul")
+        SETUP_HOSTNAME=$(prompt_with_default "Netzname" "arasul")
     fi
-    echo -e "  ${DIM}Geraet wird erreichbar unter: ${SETUP_HOSTNAME}.local${NC}"
-    print_ok "Hostname: ${SETUP_HOSTNAME}"
+    SETUP_HOSTNAME="${SETUP_HOSTNAME%.local}"
+    echo -e "  ${DIM}Geraet wird erreichbar unter: https://${SETUP_HOSTNAME}/ und https://${SETUP_HOSTNAME}.local/${NC}"
+    print_ok "Netzname: ${SETUP_HOSTNAME}"
 
     # Unbeaufsichtigter Betrieb (Auto-Reboot bei kritischen Fehlern)
     UNATTENDED_MODE=false

@@ -31,7 +31,7 @@ echo -e "${NC}"
 echo "  Dies loescht ALLE Kundendaten:"
 echo "    - Datenbank (Chats, Projekte, Einstellungen)"
 echo "    - Dokumente und Uploads"
-echo "    - Konfiguration (.env, Zertifikate, SSH-Keys)"
+echo "    - Konfiguration (.env, Geraete-CA und Zertifikate, SSH-Keys)"
 echo "    - Logs und Cache"
 echo ""
 echo "  Folgendes bleibt erhalten:"
@@ -114,7 +114,13 @@ rm -rf "$BACKUP_DIR"
 # Step 4: Delete customer data and configs
 echo -e "\n${BOLD}[4/5]${NC} Loesche Kundendaten und Konfiguration..."
 rm -f .env
-rm -rf config/device/ config/certs/ config/ssh/
+# `config/traefik/certs/` steht seit dem 27.08.2026 mit in der Liste, und das
+# war eine Luecke: die Zertifikate liegen dort, nicht in `config/certs/` (ein
+# Pfad, den es nicht gibt). Ein zurueckgesetztes Geraet hat den privaten
+# Schluessel der CA des VORIGEN Kunden behalten -- samt eines Zertifikats auf
+# dessen Namen und dessen IP-Adressen. Der naechste Bootstrap legt beides neu
+# an; der neue Kunde verteilt danach SEINE CA.
+rm -rf config/device/ config/traefik/certs/ config/ssh/
 rm -rf data/ logs/ cache/ updates/
 echo -e "  ${GREEN}Kundendaten geloescht${NC}"
 

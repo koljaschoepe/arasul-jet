@@ -69,7 +69,13 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # beides fasst die Platte an. Wer sie vorn einreiht, misst danach die
 # Warteschlange statt die Funktion. Ihr zerstoerender Teil steht ohnehin
 # daneben (`dr-drill.sh`, loeschend, nur am Geraet).
-ALLE=(csp fernzugriff rueckmeldung oberflaeche apps app-anmeldung rollen mitarbeiter modelle betrieb)
+#
+# Phase C10 (27.08.2026): `auslieferung` kommt dazu und braucht KEINE eigene
+# Anmeldung. Sie steht VORN, gleich hinter den Browser-Abnahmen: sie misst,
+# was das Geraet ueber sich selbst sagt (Fassung, Zertifikat, Namen), also den
+# Zustand VOR allem, was die uebrigen Abnahmen daran aendern. Und sie ist in
+# Sekunden durch.
+ALLE=(csp fernzugriff rueckmeldung oberflaeche auslieferung apps app-anmeldung rollen mitarbeiter modelle betrieb)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 

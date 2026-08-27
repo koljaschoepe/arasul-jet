@@ -5,7 +5,11 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const { versionFuerVergleich, versionBekannt } = require('../../utils/version');
+const {
+  versionFuerVergleich,
+  versionBekannt,
+  istReleaseNummer,
+} = require('../../utils/version');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../../utils/logger');
@@ -115,8 +119,35 @@ class UpdateService {
         };
       }
 
-      // 5. Check version compatibility
+      // 5. Traegt dieses Geraet eine Release-Nummer?
+      //
+      // Der Bau kennt zwei Formen (Phase C10): `1.2.0` aus einem Tag und
+      // `JJJJMMTT-<sha>` von jedem Stand ohne Tag -- also von jedem Geraet, das
+      // seinen Stand ueber den Deploy bekommt. Die zweite laesst sich nicht
+      // vergleichen, und `compareVersions` warf dabei „Invalid version format:
+      // 20260827-a1b2c3d". Wer das liest, sucht den Fehler im Paket.
       const currentVersion = versionFuerVergleich();
+
+      if (!istReleaseNummer(currentVersion)) {
+        return {
+          valid: false,
+          error:
+            `Dieses Geraet traegt die Fassung ${currentVersion} aus dem Bau, keine ` +
+            `Release-Nummer. Ob ${manifest.version} neuer ist, laesst sich damit nicht ` +
+            'entscheiden. Pakete gelten fuer ausgelieferte Staende; dieses Geraet ' +
+            'aktualisiert ueber den Deploy (scripts/deploy/deploy-local.sh).',
+          versionBekannt: true,
+        };
+      }
+
+      if (!istReleaseNummer(manifest.version) || !istReleaseNummer(manifest.min_version)) {
+        return {
+          valid: false,
+          error:
+            `Das Paket nennt die Fassungen ${manifest.version} / ${manifest.min_version}; ` +
+            'erwartet wird je eine Release-Nummer der Form X.Y.Z.',
+        };
+      }
 
       if (this.compareVersions(manifest.version, currentVersion) <= 0) {
         return {
@@ -746,6 +777,23 @@ class UpdateService {
         error:
           'Dieses Geraet kennt seine eigene Fassung nicht (SYSTEM_VERSION ist nicht gesetzt). ' +
           'Solange sie nicht aus dem Bau kommt, laesst sich nicht sagen, ob es etwas Neueres gibt.',
+      };
+    }
+
+    // Dieselbe Frage wie in `validateUpdate`, nur frueher: mit einer Fassung
+    // aus dem Bau ohne Tag (`JJJJMMTT-<sha>`) gibt es nichts zu vergleichen.
+    // Der Aktualisierungsserver bekaeme eine Zahl, mit der er nichts anfangen
+    // kann, und `compareVersions` wuerde die Antwort ohnehin nur mit einem
+    // Wurf quittieren.
+    if (!istReleaseNummer(currentVersion)) {
+      return {
+        available: false,
+        currentVersion,
+        versionBekannt: true,
+        channel: UPDATE_CHANNEL,
+        error:
+          `Dieses Geraet traegt die Fassung ${currentVersion} aus dem Bau, keine ` +
+          'Release-Nummer. Es aktualisiert ueber den Deploy, nicht ueber ein Paket.',
       };
     }
 

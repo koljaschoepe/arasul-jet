@@ -1,0 +1,115 @@
+name: Release
+
+# Das Auslieferungsartefakt (Phase C10, 27.08.2026).
+#
+# Ein Tag `v<Nummer>` erzeugt ein GitHub-Release mit genau zwei Dateien:
+# `arasul-<Fassung>.tar.gz` und der zugehoerigen `.sha256`. Von dieser Datei
+# holt die Website das Artefakt (`ARA_INSTALLER_URL`), und `curl
+# arasul.de/api/install` packt es aus und ruft `install.sh` darin auf. Die Form
+# der Adresse steht in docs/ops/AUSLIEFERUNG.md.
+#
+# WARUM ALS RELEASE UND NICHT IN EINEN OBJEKTSPEICHER: das Repo ist oeffentlich,
+# GitHub-Releases kosten nichts und haben kein Ablaufdatum. Die Website legt
+# ihren Token davor, nicht das Speichersystem dahinter.
+#
+# `workflow_dispatch` baut dasselbe Artefakt, haengt es aber nur als
+# Workflow-Artefakt an den Lauf. Damit laesst sich ein Stand ausprobieren, ohne
+# eine Nummer zu vergeben, die danach fuer immer im Netz steht.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      fassung:
+        description: 'Fassung von Hand (leer = Datum plus SHA)'
+        required: false
+        default: ''
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  artefakt:
+    name: Artefakt bauen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # nur fuer `gh release create`
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Ganze Historie samt Tags: `fassung_aus_bau` fragt
+          # `git describe --tags --exact-match`, und das findet ohne Tags nichts.
+          fetch-depth: 0
+
+      - name: Fassung bestimmen
+        id: fassung
+        env:
+          VON_HAND: ${{ inputs.fassung }}
+        run: |
+          source scripts/lib/fassung.sh
+          fassung="${VON_HAND:-$(fassung_aus_bau "$PWD")}"
+          if [ -z "$fassung" ]; then
+            echo "Keine Fassung ermittelbar." >&2
+            exit 1
+          fi
+          echo "fassung=$fassung" >> "$GITHUB_OUTPUT"
+          echo "Fassung: $fassung"
+
+      - name: Artefakt bauen
+        run: |
+          bash scripts/deploy/artefakt-bauen.sh \
+            --ausgabe dist \
+            --fassung "${{ steps.fassung.outputs.fassung }}"
+
+      # Ein Artefakt, das sich nicht auspacken laesst, faellt sonst erst am
+      # Geraet des Kunden auf. Geprueft wird, was der Installer voraussetzt:
+      # der Einstiegspunkt liegt im Wurzelverzeichnis, er ist ausfuehrbar, und
+      # die Datei daneben nennt ihn.
+      - name: Artefakt aufmachen und nachsehen
+        run: |
+          fassung="${{ steps.fassung.outputs.fassung }}"
+          mkdir -p pruefung && tar xzf "dist/arasul-${fassung}.tar.gz" -C pruefung
+          wurzel="pruefung/arasul-${fassung}"
+          for datei in install.sh arasul arasul-release.json docker-compose.yml compose/compose.core.yaml; do
+            if [ ! -e "$wurzel/$datei" ]; then
+              echo "Im Artefakt fehlt: $datei" >&2
+              exit 1
+            fi
+          done
+          [ -x "$wurzel/install.sh" ] || { echo "install.sh ist nicht ausfuehrbar" >&2; exit 1; }
+          einstieg=$(sed -n 's/.*"einstiegspunkt"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$wurzel/arasul-release.json")
+          [ "$einstieg" = "install.sh" ] || { echo "Einstiegspunkt heisst \"$einstieg\"" >&2; exit 1; }
+          gemeldet=$(sed -n 's/.*"fassung"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$wurzel/arasul-release.json")
+          [ "$gemeldet" = "$fassung" ] || { echo "Fassung im Artefakt: \"$gemeldet\"" >&2; exit 1; }
+          bash -n "$wurzel/install.sh"
+          echo "Artefakt in Ordnung: $(du -h "dist/arasul-${fassung}.tar.gz" | cut -f1)"
+
+      - name: Als Workflow-Artefakt anhaengen
+        uses: actions/upload-artifact@v4
+        with:
+          name: arasul-${{ steps.fassung.outputs.fassung }}
+          path: dist/
+          retention-days: 30
+
+      - name: Release anlegen (nur bei einem Tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FASSUNG: ${{ steps.fassung.outputs.fassung }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Arasul ${FASSUNG}" \
+            --notes "Artefakt der Auslieferung. Installation:
+
+          \`\`\`
+          curl -fsSL https://arasul.de/api/install | bash
+          \`\`\`
+
+          Von Hand: Datei herunterladen, \`tar xzf arasul-${FASSUNG}.tar.gz\`,
+          \`cd arasul-${FASSUNG}\`, \`./install.sh\`.
+          Was dabei passiert: docs/ops/AUSLIEFERUNG.md" \
+            "dist/arasul-${FASSUNG}.tar.gz" \
+            "dist/arasul-${FASSUNG}.tar.gz.sha256"
