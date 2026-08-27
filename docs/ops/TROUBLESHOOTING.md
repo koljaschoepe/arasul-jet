@@ -280,28 +280,57 @@ docker compose restart
 
 ```bash
 # Manuell ausfuehren und Fehler sehen:
-./scripts/backup/backup.sh
+docker exec backup-service /usr/local/bin/backup.sh
 
-# Log pruefen:
+# Log und Bericht pruefen:
 cat data/backups/backup.log
+cat data/backups/backup_report.json | jq .
 ```
+
+`status: partial_failure` heisst: mindestens ein Teil ist nicht durchgekommen.
+Welcher, sagen `apps_status`, `flows_status` und `config_status` — `skipped`
+heisst dabei "der Ordner ist nicht eingehaengt", und auf einem Geraet mit Apps
+ist das ein Fehler und keine Nebensache.
 
 ### Restore schlaegt fehl
 
 ```bash
-# Verfuegbare Backups anzeigen:
-./scripts/backup/restore.sh --list
+# Erst pruefen, ob sich die Sicherung ueberhaupt lesen laesst:
+docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe
 
-# Mit spezifischem Datum wiederherstellen:
-./scripts/backup/restore.sh --all --date 20260217
+# Zurueckspielen:
+docker exec backup-service /usr/local/bin/wiederherstellen.sh
+
+# Was dabei passiert ist:
+cat data/backups/wiederherstellung.log
+cat data/backups/wiederherstellung_bericht.json | jq .
 ```
+
+`sicherung_unlesbar` heisst fast immer: die Sicherung ist verschluesselt und
+der Schluessel passt nicht. Ein Wechsel von
+`config/secrets/backup_encryption_key` macht **jede** aeltere Sicherung
+unlesbar; es gibt keinen Weg daran vorbei.
 
 ### Backup-Verzeichnis pruefen
 
 ```bash
 ls -la data/backups/
-# Unterverzeichnisse: postgres/, weekly/ (Host-Skript); der Container-Dienst schreibt postgres/, flows/, wal-archive/
+# postgres/  apps/  flows/  config/  wal-archive/  vor_wiederherstellung/
 ```
+
+### Keine Kopie ausserhalb des Geraets
+
+```bash
+cat data/backups/backup_report.json | jq .extern_status
+```
+
+| Wert                 | Was zu tun ist                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `kein_ziel`          | Kein Datentraeger unter `BACKUP_EXTERN_PFAD` eingehaengt                            |
+| `nicht_eingehaengt`  | Der Ordner liegt auf derselben Platte wie das Geraet — das ist kein Ziel ausserhalb |
+| `nicht_beschreibbar` | Der Datentraeger ist da, nimmt aber nichts an (abgezogen? schreibgeschuetzt?)       |
+| `abgeschaltet`       | `BACKUP_EXTERN_AN=false` — so eingerichtet                                          |
+| `kopiert`            | Alles in Ordnung; Datum und Groesse in `extern_bericht.json`                        |
 
 ---
 

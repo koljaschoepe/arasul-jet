@@ -310,10 +310,12 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 
 ## Backup
 
-| Variable              | Default      | Description                            |
-| --------------------- | ------------ | -------------------------------------- |
-| BACKUP_SCHEDULE       | 0 2 \* \* \* | Cron schedule (default: 2:00 AM daily) |
-| BACKUP_RETENTION_DAYS | 30           | Days to keep daily backups             |
+| Variable              | Default               | Description                                                                                                          |
+| --------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| BACKUP_SCHEDULE       | 0 2 \* \* \*          | Cron schedule (default: 2:00 AM daily)                                                                               |
+| BACKUP_RETENTION_DAYS | 30                    | Days to keep daily backups                                                                                           |
+| APPS_BACKUP_DIR       | /arasul/apps          | Die Pakete der Apps im Sicherungsdienst. **Schreibbar** gemountet, weil `wiederherstellen.sh` sie hier wieder ablegt |
+| CONFIG_BACKUP_DIR     | /arasul/konfiguration | `.env` und `config/` im Sicherungsdienst, nur lesend. Der Sicherungsschlüssel selbst bleibt aus dem Archiv           |
 
 ---
 
@@ -321,10 +323,30 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 
 ### Backup Paths
 
-| Variable             | Default                     | Description                                               |
-| -------------------- | --------------------------- | --------------------------------------------------------- |
-| BACKUP_REPORT_PATH   | /backups/backup_report.json | Path to last-run backup status JSON (used by healthcheck) |
-| EXTERNAL_BACKUP_PATH | (none)                      | Optional: mount path for external drive backup copy       |
+| Variable           | Default                     | Description                                               |
+| ------------------ | --------------------------- | --------------------------------------------------------- |
+| BACKUP_REPORT_PATH | /backups/backup_report.json | Path to last-run backup status JSON (used by healthcheck) |
+
+### Die Kopie außerhalb des Geräts (Phase C9)
+
+Ein USB-Datenträger oder eine SMB-Freigabe im Kundennetz. **Kein Cloud-Ziel:**
+das Gerät steht beim Kunden, die Daten bleiben dort.
+
+| Variable           | Default               | Description                                                                                   |
+| ------------------ | --------------------- | --------------------------------------------------------------------------------------------- |
+| BACKUP_EXTERN_AN   | auto                  | `auto` = kopieren, wenn dort wirklich etwas eingehängt ist; `false` = nie (so beim Prüfstand) |
+| BACKUP_EXTERN_ZIEL | /arasul/extern        | Der Ordner **im** Container, hinter dem der Datenträger liegt                                 |
+| BACKUP_EXTERN_PFAD | /mnt/arasul-sicherung | Wo der Host ihn einhängt. Einhängen ist Sache des Betriebssystems, nicht dieses Dienstes      |
+
+`auto` prüft die **Gerätenummer des Dateisystems** gegen den Sicherungsordner:
+ein Bind-Mount auf einen Host-Pfad, den niemand eingehängt hat, legt Docker als
+leeren Ordner an, und eine Kopie dorthin läge auf derselben Platte wie das
+Original. Ein Misslingen färbt die Sicherung nie rot — ein abgezogener Stick ist
+der Normalfall im Alltag —, steht aber als `extern_status` im Bericht.
+
+`EXTERNAL_BACKUP_PATH` ist mit Phase C9 entfallen: es zeigte auf eine externe
+SSD, an der `POST /api/backup/trigger` scheiterte (der Endpunkt war ein
+Platzhalter, der `501` warf), und es gab an keinem Gerät eine.
 
 ### Self-Healing / Ops
 
@@ -333,14 +355,13 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 | SELF_HEALING_WEBHOOK_SECRET | (none)  | Shared secret for `/api/events/webhook/self-healing` auth              |
 | COMPOSE_PROJECT_DIR         | (none)  | Absolute path to the arasul-jet repo root (used by backend ops routes) |
 
-### Optional: S3 Offsite Backups
-
-| Variable              | Default      | Description                   |
-| --------------------- | ------------ | ----------------------------- |
-| AWS_S3_BUCKET         | (none)       | S3 bucket for offsite backups |
-| AWS_ACCESS_KEY_ID     | (none)       | AWS access key                |
-| AWS_SECRET_ACCESS_KEY | (none)       | AWS secret key                |
-| AWS_DEFAULT_REGION    | eu-central-1 | AWS region                    |
+> **S3 gibt es nicht mehr.** `AWS_S3_BUCKET` und die drei Zugangsvariablen
+> standen hier bis zum 27.08.2026; gelesen hat sie nur `scripts/backup/backup.sh`,
+> das der Zeitplan nie aufrief. Das Ziel außerhalb ist seit Phase C9 ein
+> Datenträger im Haus (siehe oben) — eine Entscheidung, kein Rückstand: das
+> Gerät steht beim Kunden, und ein Ziel, das eine Zugangskennung zu einem
+> fremden Rechenzentrum braucht, wäre genau der Bruch, den die
+> Datenschutzzusage dieses Produkts nicht macht.
 
 ### Backup Commands
 
