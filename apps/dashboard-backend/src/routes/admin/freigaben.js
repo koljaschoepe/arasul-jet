@@ -3,8 +3,12 @@
  *
  * Der Administrator gibt eine App fuer einen Benutzer frei und nimmt die
  * Freigabe zurueck. Alle drei Wege sind Admin-Wege; der Mitarbeiter bekommt
- * hier 403. Seine eigene Sicht auf das Freigegebene kommt mit dem App-Modell
- * (Phase C3) — vorher gibt es nichts zu zeigen als eine Kennung.
+ * hier 403. Seine eigene Sicht auf das Freigegebene ist `GET /api/apps/meine`
+ * (Phase C3).
+ *
+ * Seit C3 traegt eine Freigabe ausserdem ein Wort dazu, wie weit sie reicht:
+ * `live` ist der Normalfall, `test` macht aus dem Nutzer einen Tester, der
+ * zusaetzlich den Teststand der App sieht.
  */
 
 const express = require('express');
@@ -42,13 +46,18 @@ router.post(
     const { freigabe, neu } = await freigabeService.gibFrei({
       appId: req.body.app_id,
       benutzerId: req.body.benutzer_id,
+      stand: req.body.stand,
       durch: req.user.id,
     });
     if (neu) {
       logSecurityEvent({
         userId: req.user.id,
         action: 'freigabe_erteilt',
-        details: { app_id: req.body.app_id, benutzer_id: req.body.benutzer_id },
+        details: {
+          app_id: req.body.app_id,
+          benutzer_id: req.body.benutzer_id,
+          stand: req.body.stand,
+        },
         ipAddress: req.ip,
         requestId: req.headers['x-request-id'],
       });
