@@ -262,13 +262,14 @@ apps/dashboard-backend/
 ├── src/database.js           # PostgreSQL connection pool
 ├── src/routes/
 │   ├── index.js              # Central router (mounts all routes)
+│   ├── appAusliefern.js      # /apps/<id>/ und /apps/<id>/test/ (statisch, Phase C3)
 │   ├── auth.js               # /api/auth/login, /logout, /me
 │   ├── flows.js              # /api/flows (Definitionen, Läufe, Vorlagen)
 │   ├── docs.js               # /api/docs
 │   ├── system/               # system, services, metrics, logs, database, tailscale
 │   ├── admin/                # settings, audit, update, selfhealing, backup, gdpr, werksreset
 │   ├── ai/                   # models, embeddings
-│   ├── store/                # appstore, store
+│   ├── store/                # apps (Apps am Geraet), store (Modellkatalog)
 │   └── external/             # externalApi, openaiCompat, events, alerts
 ├── src/middleware/
 │   ├── auth.js               # JWT validation

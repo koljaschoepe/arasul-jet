@@ -41,7 +41,13 @@ const STUFEN = ['inhalte', 'auslieferung'];
 /** Ordner, deren INHALT geleert wird. Der Ordner selbst bleibt, er ist ein Mountpunkt. */
 const ORDNER = {
   inhalte: [],
-  auslieferung: [[process.env.FLOWS_DIR || '/arasul/flows', 'Flow-Definitionen']],
+  auslieferung: [
+    [process.env.FLOWS_DIR || '/arasul/flows', 'Flow-Definitionen'],
+    // Die Apps des Kunden (Phase C3). Ohne diese Zeile blieben ihre Dateien
+    // liegen, waehrend die Zeilen in `apps` weg sind: ein Geraet, das sich
+    // fuer frisch haelt und den Code des vorigen Kunden auf der Platte hat.
+    [process.env.APPS_DIR || '/arasul/apps', 'Apps am Geraet'],
+  ],
 };
 
 /** Tabellennamen `schema.tabelle` sicher in einen SQL-Bezeichner übersetzen. */
@@ -322,7 +328,7 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
     }
   }
 
-  const nebenwirkungen = await raeumeUmsysteme({ modelleLoeschen });
+  const nebenwirkungen = await raeumeUmsysteme({ stufe, modelleLoeschen });
 
   if (stufe === 'auslieferung') {
     // `admin_users` ist leer, aber `requireAuth` haelt jede Identitaet bis zu
@@ -384,13 +390,24 @@ async function pruefeEntwertung() {
 
 /**
  * Alles, was nicht in der Datenbank und nicht im Dateisystem des Backends liegt:
- * seit Phase B5 (26.08.2026) nur noch die Modelle; bis dahin stand hier auch
- * der n8n-Neustart nach dem Leeren seines Schemas. Jeder Punkt einzeln
+ * seit Phase C3 (27.08.2026) die App-Container und wahlweise die Modelle; bis
+ * Phase B5 stand hier auch der n8n-Neustart. Jeder Punkt einzeln
  * abgesichert, ein nicht erreichbarer Nachbardienst darf den Reset nicht
  * zurücknehmen; er ist zu diesem Zeitpunkt schon geschehen.
  */
-async function raeumeUmsysteme({ modelleLoeschen }) {
+async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
   const ergebnis = {};
+
+  if (stufe === 'auslieferung') {
+    // Die App-Container. Ihre Zeilen in `apps` und ihre Dateien sind weg;
+    // ein weiterlaufender Container waere der Rest, den man erst bemerkt,
+    // wenn er auf einem angeblich frischen Geraet einen Port beantwortet.
+    // `stillEntfernen` breitet das Ergebnis in seinen Bericht aus, eine Zahl
+    // waere dabei spurlos verschwunden.
+    ergebnis.appContainer = await stillEntfernen('App-Container', async () => ({
+      entfernt: await require('../app/appContainer').entferneAlle(),
+    }));
+  }
 
   if (modelleLoeschen) {
     ergebnis.modelle = await stillEntfernen('Modelle', () => loescheAlleModelle());

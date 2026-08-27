@@ -82,7 +82,6 @@ in the same PR.
 
 - `services/metrics-collector/` writes CPU/RAM/GPU/temperature into
   `metrics_*` tables (Mig 077, 080) with 7-day retention.
-- App-level events live in `app_events` (Mig 079, 90-day retention).
 - Don't add a "metrics-y" table without registering it in the cleanup
   cron (Mig 081 / `81_cleanups_include_infra.sql`).
 

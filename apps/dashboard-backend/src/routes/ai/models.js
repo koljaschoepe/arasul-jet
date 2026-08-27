@@ -395,7 +395,7 @@ router.delete(
 
 /**
  * POST /api/models/:modelId/load
- * Load a model into RAM (LLM) or start container (OCR)
+ * Ein Modell in den Speicher laden
  */
 router.post(
   '/:modelId/load',
@@ -415,20 +415,23 @@ router.post(
       throw new NotFoundError(`Modell "${modelId}" nicht im Katalog gefunden`);
     }
 
+    // OCR-Engines waren bis Phase C3 (27.08.2026) Container aus dem alten
+    // AppStore: `/load` startete `tesseract` oder `paddleocr` aus einem
+    // Manifest unter `config/appstore/manifests/`. Diese Manifeste gibt es
+    // nicht mehr, und den AppStore als Katalog auch nicht. Die Ablehnung stand
+    // ohnehin schon in `POST /download` daneben — dort hiess es seit langem,
+    // OCR werde „vom Dokument-Indexer verwaltet und nicht ueber Ollama
+    // geladen". Zwei Wege, zwei Antworten auf dieselbe Frage: jetzt eine.
     if (typeResult.rows[0].model_type === 'ocr') {
-      // OCR: Start Docker container
-      const containerService = require('../../services/app/containerService');
-      const appId = modelId.split(':')[0];
-      const result = await containerService.startApp(appId);
-      cacheService.invalidate(CACHE_KEYS.STATUS);
-      cacheService.invalidate(CACHE_KEYS.INSTALLED);
-      res.json({ message: `OCR-Modell ${modelId} wird gestartet`, ...result });
-    } else {
-      // LLM: Load into VRAM via Ollama
-      const result = await modelService.activateModel(modelId, 'user');
-      cacheService.invalidate(CACHE_KEYS.STATUS);
-      res.json(result);
+      throw new ValidationError(
+        'OCR-Engines (Tesseract/PaddleOCR) werden vom Dokument-Indexer verwaltet und nicht geladen oder gestartet.'
+      );
     }
+
+    // LLM: Load into VRAM via Ollama
+    const result = await modelService.activateModel(modelId, 'user');
+    cacheService.invalidate(CACHE_KEYS.STATUS);
+    res.json(result);
   })
 );
 
@@ -473,14 +476,11 @@ async function modellEntladen(modelId) {
   }
 
   if (typeResult.rows[0].model_type === 'ocr') {
-    // OCR: Stop Docker container
-    const containerService = require('../../services/app/containerService');
-    const appId = modelId.split(':')[0];
-    const result = await containerService.stopApp(appId);
-    // Die eigene Meldung NACH dem Spread: `stopApp` bringt eine allgemeine mit
-    // ("App gestoppt"), und die stand bisher da, obwohl die spezifischere
-    // schon geschrieben war. Alt, aber dieser Schritt raeumt die Meldungen auf.
-    return { ...result, message: `OCR-Modell ${modelId} wurde gestoppt`, model: modelId };
+    // Siehe `/load`: OCR-Engines sind seit Phase C3 keine Container des
+    // Geraets mehr, es gibt also nichts zu stoppen.
+    throw new ValidationError(
+      'OCR-Engines (Tesseract/PaddleOCR) werden vom Dokument-Indexer verwaltet und nicht geladen oder gestartet.'
+    );
   }
 
   const ollamaName = typeResult.rows[0].ollama_name;
@@ -489,7 +489,7 @@ async function modellEntladen(modelId) {
 
 /**
  * POST /api/models/:modelId/unload
- * Unload model from RAM (LLM) or stop container (OCR)
+ * Ein Modell aus dem Speicher nehmen
  */
 router.post(
   '/:modelId/unload',

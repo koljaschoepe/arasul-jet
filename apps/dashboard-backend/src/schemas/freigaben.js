@@ -1,20 +1,13 @@
 const { z } = require('zod');
+const { AppId, Stand } = require('./apps');
 
 /**
- * Die Kennung einer App. Bis Phase C3 ist sie freier Text — aber nicht
- * beliebiger: sie soll spaeter ohne Umschreiben auf `apps.id` aus dem Manifest
- * `app.json` zeigen und steht dann auch im Pfad (`/apps/<id>/`). Was in einem
- * Pfad nicht vorkommen darf, wird deshalb schon jetzt abgewiesen.
+ * Freigaben (Phase C2, Tester-Kreis aus C3).
+ *
+ * Die Kennung einer App gehoert dem App-Modell, nicht den Freigaben: sie steht
+ * in `schemas/apps.js` und wird hier nur benutzt. Bis C3 stand sie hier, weil
+ * es das Manifest noch nicht gab; jetzt gibt es nur noch eine Regel fuer sie.
  */
-const AppId = z
-  .string({ error: 'App-Kennung fehlt' })
-  .trim()
-  .min(1, 'App-Kennung fehlt')
-  .max(64, 'App-Kennung ist zu lang')
-  .regex(
-    /^[a-z0-9][a-z0-9._-]*$/,
-    'App-Kennung: Kleinbuchstaben, Ziffern, Punkt, Bindestrich, Unterstrich; beginnt mit Buchstabe oder Ziffer'
-  );
 
 const BenutzerId = z.coerce.number().int().positive();
 
@@ -22,6 +15,9 @@ const FreigabeBody = z
   .object({
     app_id: AppId,
     benutzer_id: BenutzerId,
+    // Wie weit freigegeben wird. Ohne Angabe der Normalfall: der Livestand.
+    // Wer `test` bekommt, ist Tester und sieht zusaetzlich /apps/<id>/test/.
+    stand: Stand.default('live'),
   })
   .strict();
 

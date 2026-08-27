@@ -6,7 +6,7 @@
  *   system/    - Services, metrics, logs, database
  *   admin/     - Settings, audit, updates, self-healing
  *   ai/        - Models, embeddings
- *   store/     - App store, unified store
+ *   store/     - Apps am Geraet, Modellkatalog
  *   external/  - External API, events, alerts
  *
  * Core routes (auth, docs) stay at the top level. Der Oberflaechen-Chat
@@ -109,7 +109,7 @@ router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
 router.use('/flows', require('./flows'));
 
 // --- Store ---
-router.use('/apps', require('./store/appstore'));
+router.use('/apps', require('./store/apps'));
 router.use('/store', require('./store/store'));
 
 // --- External ---

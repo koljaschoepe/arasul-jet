@@ -33,7 +33,7 @@
       bricht bei **fehlendem** `ADMIN_PASSWORD` mit klarer Fehlermeldung ab — **nicht**
       mit „unbound variable".
 - [ ] ⚠️ **Regressionsschutz — Verzeichnisse angelegt.** Nach `create_directories` existieren
-      `data/appstore/manifests`, `data/ssh-keys` (Bind-Mount-Quellen;
+      `data/apps`, `data/ssh-keys` (Bind-Mount-Quellen;
       sonst legt Docker sie root-owned an und Services können nicht schreiben).
 
 ## 3. TLS / Zertifikat

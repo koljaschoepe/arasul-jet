@@ -1,5 +1,10 @@
 /**
- * Eine Anmeldung fuer alle Abnahmen (23.08.2026).
+ * Eine Anmeldung fuer alle Abnahmen (23.08.2026, erweitert am 27.08.2026).
+ *
+ * Seit dem 27.08.2026 teilen sich AUCH die curl-Abnahmen diese Sitzung:
+ * `abnahmen.sh` meldet sich einmal an und baut daraus die Datei, die hier
+ * gelesen wird (`scripts/test/anmeldung.sh`, `arasul_sitzung_bauen`). Vorher
+ * hatten Browser und Kommandozeile je eine eigene Anmeldung.
  *
  * Jede Abnahme meldete sich selbst an. Das Geraet erlaubt zehn Anmeldungen je
  * Viertelstunde und IP (`loginLimiter`), also stand nach der sechsten oder
@@ -66,9 +71,23 @@ export async function angemeldeteSeite(kontextBauen, { url, benutzer, passwort }
   return { kontext, seite, angemeldet: true };
 }
 
+/**
+ * Angemeldet ist, wer eine Auskunft ueber sich selbst bekommt.
+ *
+ * Bis zum 27.08.2026 stand hier `document.cookie.includes('arasul_csrf')`. Das
+ * war die Frage nach einem NEBENPRODUKT der Anmeldung, nicht nach der Anmeldung:
+ * seit `abnahmen.sh` einen Token je Lauf teilt, kann eine gueltige Sitzung aus
+ * dem Sitzungs-Cookie allein bestehen (`arasul_session` ist HttpOnly, den
+ * CSRF-Wert holt die Oberflaeche bei Bedarf ueber GET /api/auth/csrf). Die
+ * alte Pruefung haette in genau diesem Fall Nein gesagt und eine zweite
+ * Anmeldung ausgeloest -- also das getan, was das Teilen verhindern soll.
+ */
 async function istAngemeldet(seite) {
   try {
-    return await seite.evaluate(() => document.cookie.includes('arasul_csrf'));
+    return await seite.evaluate(async () => {
+      const antwort = await fetch('/api/auth/me', { credentials: 'include' });
+      return antwort.ok;
+    });
   } catch {
     return false;
   }
@@ -121,9 +140,7 @@ export async function anmeldenFallsNoetig(seite, kontext, { url, benutzer, passw
   await feld.fill(passwort);
   await seite.click('button[type="submit"]');
   await seite.waitForTimeout(4000);
-  const ok = await seite
-    .evaluate(() => document.cookie.includes('arasul_csrf'))
-    .catch(() => false);
+  const ok = await istAngemeldet(seite);
   if (!ok) {
     return {
       angemeldet: false,

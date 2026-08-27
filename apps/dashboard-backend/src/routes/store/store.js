@@ -1,11 +1,15 @@
 /**
- * Store API Routes
- * Unified store for models and apps
+ * Store API Routes — Modelle
  *
- * Endpoints:
- * - GET /api/store/recommendations - Get recommended models and apps
- * - GET /api/store/search          - Search across models and apps
- * - GET /api/store/info            - Get system info for recommendations
+ * Endpunkte:
+ * - GET /api/store/recommendations - empfohlene Modelle nach RAM
+ * - GET /api/store/search          - Suche im Modellkatalog
+ * - GET /api/store/info            - Eckdaten des Geraets fuer die Anzeige
+ *
+ * Apps standen hier bis Phase C3 (27.08.2026) daneben: der Laden bot Modelle
+ * UND Apps zum Aussuchen an. Einen App-Katalog gibt es nicht mehr — eine App
+ * kommt vom Partner auf das Geraet, sie wird nicht ausgesucht. Was von den
+ * Apps bleibt, steht unter `/api/apps`.
  */
 
 const os = require('os');
@@ -13,7 +17,6 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const modelService = require('../../services/llm/modelService');
-const appService = require('../../services/app/appService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { cacheMiddleware } = require('../../services/core/cacheService');
@@ -44,7 +47,7 @@ const CACHE_TTLS = {
 
 /**
  * GET /api/store/recommendations
- * Get recommended models (based on RAM) and featured apps
+ * Empfohlene Modelle nach dem RAM, das dem Sprachmodell zusteht
  */
 router.get(
   '/recommendations',
@@ -85,40 +88,19 @@ router.get(
       recommendedModels.push(...remaining);
     }
 
-    // Get apps and filter to featured
-    let allApps = [];
-    let appsError = false;
-    try {
-      allApps = await appService.getAllApps({});
-    } catch (err) {
-      logger.warn('[Store] Failed to load apps:', err.message);
-      appsError = true;
-    }
-
-    // Empfohlen ist, was das Manifest als `featured` fuehrt; bis Phase B5
-    // (26.08.2026) stand hier eine feste Liste (n8n, terminal), beide sind weg.
-    const recommendedApps = allApps.filter(app => app.featured).slice(0, 4);
-    if (recommendedApps.length < 4) {
-      recommendedApps.push(
-        ...allApps.filter(a => !a.featured).slice(0, 4 - recommendedApps.length)
-      );
-    }
-
     res.json({
       models: recommendedModels,
-      apps: recommendedApps,
       systemInfo: {
         llmRamGB,
         totalRamGB: Math.round(os.totalmem() / (1024 * 1024 * 1024)),
       },
-      ...(appsError && { warnings: ['Apps konnten nicht geladen werden'] }),
     });
   })
 );
 
 /**
  * GET /api/store/search
- * Search across models and apps
+ * Suche im Modellkatalog
  */
 router.get(
   '/search',
@@ -128,7 +110,7 @@ router.get(
     const { q } = req.query;
 
     if (!q || q.trim().length < 2) {
-      return res.json({ models: [], apps: [] });
+      return res.json({ models: [] });
     }
 
     const query = q.toLowerCase().trim();
@@ -150,27 +132,8 @@ router.get(
       })
       .slice(0, 10);
 
-    // Search apps
-    let allApps = [];
-    try {
-      allApps = await appService.getAllApps({});
-    } catch (err) {
-      logger.warn('[Store] Failed to load apps for search:', err.message);
-    }
-
-    const matchingApps = allApps
-      .filter(app => {
-        const searchFields = [app.id, app.name, app.description, app.category].map(s =>
-          (s || '').toLowerCase()
-        );
-
-        return searchFields.some(field => field.includes(query));
-      })
-      .slice(0, 10);
-
     res.json({
       models: matchingModels,
-      apps: matchingApps,
       query,
     });
   })

@@ -609,29 +609,32 @@ stillgelegt werden, und niemand kann sich selbst stilllegen.
 }
 ```
 
-### Freigaben (Phase C2)
+### Freigaben (Phase C2, Tester-Kreis aus C3)
 
 Eine Freigabe ist ein Paar: diese App, dieser Mensch (`app_members`, Migration
 168). Sie ersetzt `space_members` aus der Zeit der Wissensräume. Wer innerhalb
 einer App was darf, entscheidet die App; die Plattform kennt nur „freigegeben
 oder nicht".
 
-`app_id` ist **bis Phase C3 ein freier Text** — das App-Modell mit der Tabelle
-`apps` kommt erst dort, und vorher gibt es nichts, worauf ein Fremdschlüssel
-zeigen könnte. Die Form wird trotzdem geprüft: Kleinbuchstaben, Ziffern, Punkt,
-Bindestrich, Unterstrich, höchstens 64 Zeichen, beginnend mit Buchstabe oder
-Ziffer. Damit passt jede heute gesetzte Kennung später auf `apps.id` aus dem
-Manifest `app.json` und in den Pfad `/apps/<id>/`.
+Dazu ein Wort, wie weit: `stand` ist `live` (der Normalfall — er sieht
+`/apps/<id>/`) oder `test` (ein Tester — er sieht zusätzlich
+`/apps/<id>/test/`). Ein Tester ist kein anderer Nutzer, sondern ein Nutzer mit
+einer Tür mehr; deshalb keine zweite Zeile je Mensch und App.
+
+`app_id` zeigt seit Migration 169 als **Fremdschlüssel auf `apps.id`**. Eine
+Freigabe für eine App, die es am Gerät nicht gibt, ist damit ein `400` und
+keine Zusage ins Leere. Die Form der Kennung: Kleinbuchstaben, Ziffern und
+Bindestrich, höchstens 64 Zeichen, beginnend mit Buchstabe oder Ziffer.
 
 Freigegeben wird an jeden Benutzer, auch an einen Administrator: die Rolle sagt,
-wer verwaltet, nicht wer arbeitet. Alle drei Wege sind Admin-Wege. Die eigene
-Sicht des Mitarbeiters auf das Freigegebene kommt mit dem App-Modell (C3).
+wer verwaltet, nicht wer arbeitet. Alle drei Wege sind Admin-Wege. Was der
+Mitarbeiter selbst davon sieht, steht unter `GET /api/apps/meine`.
 
-| Method | Endpoint                            | Description                                                                                                              |
-| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/api/freigaben`                    | Alle Freigaben; Filter `?app_id=` und `?benutzer_id=`; mit `username`, `email`, `role`                                   |
-| POST   | `/api/freigaben`                    | Freigeben: `{ app_id, benutzer_id }`; 201 neu, 200 wenn sie schon stand (`neu: false`), 409 bei gleichzeitiger Rücknahme |
-| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zurücknehmen; 404, wenn es sie nicht gibt                                                                       |
+| Method | Endpoint                            | Description                                                                                        |
+| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| GET    | `/api/freigaben`                    | Alle Freigaben; Filter `?app_id=` und `?benutzer_id=`; mit `app_name`, `username`, `email`, `role` |
+| POST   | `/api/freigaben`                    | Freigeben: `{ app_id, benutzer_id, stand? }`; 201 neu, 200 wenn sie schon stand (`neu: false`)     |
+| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zurücknehmen; 404, wenn es sie nicht gibt                                                 |
 
 ```json
 // POST /api/freigaben → 201
@@ -639,6 +642,7 @@ Sicht des Mitarbeiters auf das Freigegebene kommt mit dem App-Modell (C3).
   "data": {
     "app_id": "urlaub",
     "user_id": 7,
+    "stand": "live",
     "freigegeben_von": 1,
     "freigegeben_am": "2026-08-27T09:00:00.000Z"
   },
@@ -648,9 +652,11 @@ Sicht des Mitarbeiters auf das Freigegebene kommt mit dem App-Modell (C3).
 ```
 
 Zweimal dieselbe Freigabe ist kein Fehler, sondern derselbe Zustand: der zweite
-Aufruf lässt die erste stehen, samt Zeitstempel und dem Administrator, der sie
-gesetzt hat, und meldet `neu: false`. `data` trägt dabei in beiden Fällen
-dieselben vier Felder; `username`, `email` und `role` gibt es nur bei
+Aufruf lässt Zeitstempel und Administrator der ersten stehen und meldet
+`neu: false`. Der `stand` ist die Ausnahme — er wird überschrieben. Wer jemanden
+vom Tester zum normalen Nutzer macht (oder umgekehrt), schickt dieselbe Freigabe
+noch einmal mit dem anderen Wort. `data` trägt in beiden Fällen dieselben fünf
+Felder; `app_name`, `username`, `email` und `role` gibt es nur bei
 `GET /api/freigaben`. Löscht man den Benutzer, fallen seine
 Freigaben mit (`ON DELETE CASCADE`) und stehen in der Zusammenfassung der
 Löschung unter `app_members`.
@@ -854,66 +860,101 @@ Braucht die Erweiterung `pg_stat_statements`. Fehlt sie, ist
 Fehler, sondern eine Auskunft. Sonst die zehn langsamsten Abfragen über
 100 ms Mittelwert, auf 200 Zeichen gekürzt.
 
-### Store
+### Apps
 
-| Method | Endpoint                  | Description                                   |
-| ------ | ------------------------- | --------------------------------------------- |
-| GET    | `/api/apps`               | List all apps (installed + available)         |
-| GET    | `/api/apps/categories`    | List app categories                           |
-| GET    | `/api/apps/:id`           | Get single app details                        |
-| GET    | `/api/apps/:id/logs`      | Get container logs                            |
-| GET    | `/api/apps/:id/events`    | Get app event history                         |
-| POST   | `/api/apps/:id/install`   | Install an app                                |
-| POST   | `/api/apps/:id/uninstall` | Uninstall an app                              |
-| POST   | `/api/apps/:id/start`     | Start an installed app                        |
-| POST   | `/api/apps/:id/stop`      | Stop a running app                            |
-| POST   | `/api/apps/:id/restart`   | Restart an app                                |
-| GET    | `/api/apps/:id/config`    | Konfiguration einer App, Geheimnisse maskiert |
-| POST   | `/api/apps/:id/config`    | Konfiguration einer App setzen                |
+Eine App ist das, was ein Partner mit dem Ara-Kit baut und auf das Gerät rollt:
+ein statisches Frontend, das Arasul unter `/apps/<id>/` ausliefert, und ein
+Backend-Container, den Traefik unter `/apps/<id>/api/` erreicht. Was sie ist,
+steht in ihrem Manifest `app.json` — die Felder erklärt
+[docs/features/APPS.md](../features/APPS.md).
 
-**GET /api/apps/:id/config:** Geheimnisse kommen maskiert zurück. Wer den
-Klartext braucht, hat ihn selbst gesetzt.
+Je App gibt es zwei Stände: `live` für alle Freigegebenen, `test` für die
+benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 
-**POST /api/apps/:id/config:** Body: `{ "config": { … } }`. Jeder einzelne Wert
-darf höchstens 10 KB haben, sonst `VALIDATION_ERROR` mit dem Namen des Feldes.
-Die Werte greifen erst nach `POST /api/apps/:id/restart` mit
-`applyConfig: true`.
+| Method | Endpoint                   | Description                                                        |
+| ------ | -------------------------- | ------------------------------------------------------------------ |
+| GET    | `/api/apps`                | Alle Apps mit beiden Ständen und dem Zustand ihrer Container       |
+| GET    | `/api/apps/meine`          | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter) |
+| GET    | `/api/apps/:id`            | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows         |
+| POST   | `/api/apps/:id/einspielen` | Eine Version in einen Stand bringen                                |
+| DELETE | `/api/apps/:id`            | App entfernen: beide Container, beide Stände, Freigaben            |
+| GET    | `/api/apps/:id/logs`       | Die letzten Zeilen des App-Backends                                |
 
-**GET /api/apps Query Parameters:**
+Alle bis auf `/meine` sind Admin-Wege.
 
-- `category`: Filter by category (e.g., `development`, `productivity`)
-- `status`: Filter by status (e.g., `running`, `installed`, `available`)
-- `search`: Search in name and description
+**POST /api/apps/:id/einspielen:** Body `{ "version": "1.0.0", "stand": "test" }`.
+Ohne `stand` geht es in den **Teststand** — gerollt wird nach `test`, live
+schaltet ein Mensch. Die Version muss schon unter
+`/arasul/apps/<id>/<version>/` liegen; der Weg, auf dem ein Paket dorthin
+kommt (`POST /api/v1/apps`), ist Phase C5.
 
-**Response Example:**
+Die Reihenfolge ist die vorsichtige: erst Manifest lesen und prüfen, dann den
+Container starten, erst danach schreiben. Ein Stand, der in der Antwort steht,
+ist einer, der wirklich hochgekommen ist. Antworten: `201` mit dem Stand,
+`404` wenn die Version nicht auf der Platte liegt, `400` wenn das Manifest
+nicht durchgeht, `409` wenn die Lizenz keine weitere App erlaubt (die Grenze
+greift nur bei einer neuen App, nicht bei einer neuen Version).
+
+**GET /api/apps/:id/logs:** Query `?stand=live|test&zeilen=1..2000`.
+
+**GET /api/apps/:id Response (gekürzt):**
 
 ```json
 {
-  "apps": [
-    {
-      "id": "code-server",
-      "name": "Code-Server",
-      "description": "VS Code im Browser",
-      "version": "4.96.4",
-      "category": "development",
-      "status": "available",
-      "appType": "official",
-      "canUninstall": true
+  "data": {
+    "id": "urlaub",
+    "name": "Urlaubsantrag",
+    "versionen": ["1.0.0", "1.1.0"],
+    "staende": {
+      "live": {
+        "version": "1.0.0",
+        "pfad": "/apps/urlaub/",
+        "api": "/apps/urlaub/api/",
+        "backend": { "laeuft": true, "status": "running", "gesundheit": "healthy" },
+        "modelle": [{ "name": "qwen3:14b-q8", "vorhanden": true }],
+        "flows": [{ "name": "urlaub-pruefen", "vorhanden": false }]
+      },
+      "test": null
     }
-  ],
-  "total": 4,
-  "timestamp": "2026-01-05T12:00:00Z"
+  },
+  "timestamp": "2026-08-27T12:00:00Z"
 }
 ```
 
-**App Status Values:**
+`modelle` und `flows` sagen, was das Manifest verlangt und was davon am Gerät
+ist. Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte
+lädt, ist keine Installation mehr, sondern ein Abend.
 
-- `available` - Not installed
-- `installing` - Currently installing
-- `installed` - Installed but stopped
-- `running` - Currently running
-- `stopping` / `starting` - Transitioning
-- `error` - Error state
+**GET /api/apps/meine Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "urlaub",
+      "name": "Urlaubsantrag",
+      "live": { "version": "1.0.0", "pfad": "/apps/urlaub/" },
+      "test": null
+    }
+  ],
+  "timestamp": "2026-08-27T12:00:00Z"
+}
+```
+
+`test` ist nur gefüllt, wenn die Freigabe dieses Menschen den Stand `test`
+trägt — er ist dann Tester (siehe `POST /api/freigaben`).
+
+### Store
+
+| Method | Endpoint                     | Description                          |
+| ------ | ---------------------------- | ------------------------------------ |
+| GET    | `/api/store/recommendations` | Empfohlene Modelle nach dem KI-RAM   |
+| GET    | `/api/store/search`          | Suche im Modellkatalog               |
+| GET    | `/api/store/info`            | RAM und Plattenplatz für die Anzeige |
+
+Bis Phase C3 (27.08.2026) standen hier Modelle **und** Apps nebeneinander: der
+Laden bot beides zum Aussuchen an. Einen App-Katalog gibt es nicht mehr — eine
+App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
 
 ### Model Management
 
@@ -1267,7 +1308,7 @@ All endpoints require admin authentication (`requireAuth` + `requireRole('admin'
   "tier": "professional",
   "customer": "Muster GmbH",
   "expiresAt": "2027-01-01T00:00:00.000Z",
-  "features": ["externalApi", "customModels"],
+  "features": { "maxUsers": 5, "maxApps": -1, "externalApi": true, "customModels": false },
   "hardwareFingerprint": "sha256:abc...",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
@@ -1559,7 +1600,6 @@ Single consolidated endpoint that aggregates backup status, restore-drill status
     "disk_percent": 35
   },
   "retention_counts": {
-    "app_events": 1250,
     "self_healing_events": 120
   },
   "timestamp": "2026-01-15T10:00:00.000Z"

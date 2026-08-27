@@ -305,7 +305,7 @@ function createModelService(deps = {}) {
     }
 
     /**
-     * Get installed models only (LLMs + OCR with running status)
+     * Die wirklich installierten Modelle.
      */
     async getInstalledModels() {
       const result = await database.query(`
@@ -331,31 +331,15 @@ function createModelService(deps = {}) {
                 ORDER BY i.is_default DESC, i.last_used_at DESC NULLS LAST
             `);
 
-      // Also fetch OCR models with container running status
-      const ocrResult = await database.query(`
-                SELECT
-                    c.id,
-                    c.name,
-                    c.description,
-                    c.ram_required_gb,
-                    c.category,
-                    c.capabilities,
-                    c.recommended_for,
-                    c.performance_tier,
-                    c.speed_tier,
-                    c.model_type,
-                    c.size_bytes,
-                    COALESCE(c.ollama_name, c.id) as effective_ollama_name,
-                    'available' as status,
-                    'available' as install_status,
-                    COALESCE(a.status = 'running', FALSE) as is_running
-                FROM llm_model_catalog c
-                LEFT JOIN app_installations a ON a.app_id = SPLIT_PART(c.id, ':', 1)
-                WHERE c.model_type = 'ocr'
-                ORDER BY c.performance_tier ASC
-            `);
-
-      return [...result.rows, ...ocrResult.rows];
+      // Bis Phase C3 (27.08.2026) stand hier eine zweite Abfrage, die die
+      // OCR-Engines aus dem Katalog dazuholte und ihren Laufzustand aus
+      // `app_installations` las -- der Tabelle des alten AppStores, in der
+      // `tesseract` und `paddleocr` als installierbare Apps standen. Beide
+      // sind mit dem Katalog gefallen (Migration 169), und OCR laeuft
+      // ohnehin im `document-indexer`, nicht als eigener Container. Eine
+      // Engine als "installiertes Modell" zu fuehren, die niemand installiert
+      // und niemand startet, war eine Zeile in der Liste ohne Griff daran.
+      return result.rows;
     }
 
     /**

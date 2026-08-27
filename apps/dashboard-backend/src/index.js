@@ -170,6 +170,14 @@ app.use('/api', csrfProtection);
 // Register all API routes (centralized in routes/index.js)
 app.use('/api', require('./routes'));
 
+// Die Frontends der Apps (Phase C3): `/apps/<id>/` liefert die statischen
+// Dateien des Livestandes, `/apps/<id>/test/` die des Teststandes. Neben
+// `/api`, nicht darunter -- was hier herauskommt, ist eine Seite und keine
+// Schnittstelle, und der CSRF-Schutz von `/api` gehoert nicht auf eine Seite,
+// die der Browser als Dokument holt. Das BACKEND einer App laeuft nicht hier,
+// sondern in ihrem Container; Traefik gibt ihm `/apps/<id>/api/`.
+app.use('/apps', require('./routes/appAusliefern'));
+
 // P3.2: OpenAI-compatible endpoints (/v1/chat/completions, /v1/embeddings,
 // /v1/models). Mounted at /v1 (parallel to /api). Uses API-key auth, not
 // session cookies, so it sits outside the CSRF middleware applied to /api.

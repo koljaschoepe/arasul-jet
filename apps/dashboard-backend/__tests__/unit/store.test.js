@@ -27,10 +27,6 @@ jest.mock('../../src/services/llm/modelService', () => ({
   syncWithOllama: jest.fn()
 }));
 
-jest.mock('../../src/services/app/appService', () => ({
-  getAllApps: jest.fn()
-}));
-
 jest.mock('../../src/services/core/cacheService', () => ({
   cacheService: {
     invalidate: jest.fn(),
@@ -43,7 +39,6 @@ jest.mock('../../src/services/core/cacheService', () => ({
 
 const db = require('../../src/database');
 const modelService = require('../../src/services/llm/modelService');
-const appService = require('../../src/services/app/appService');
 const { app } = require('../../src/server');
 
 const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');
@@ -51,11 +46,6 @@ const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');
 const MOCK_CATALOG = [
   { id: 'qwen3:32b-q4', name: 'Qwen 3 32B', description: 'Large model', capabilities: ['chat'] },
   { id: 'llama3:8b', name: 'Llama 3', description: 'Medium model', capabilities: ['chat'] }
-];
-
-const MOCK_APPS = [
-  { id: 'beispiel-app', name: 'Beispiel-App', description: 'Workflow automation', category: 'automation' },
-  { id: 'zweite-app', name: 'Zweite App', description: 'Shell access', category: 'tools' }
 ];
 
 describe('Store Routes', () => {
@@ -68,7 +58,6 @@ describe('Store Routes', () => {
 
     modelService.getCatalog.mockResolvedValue(MOCK_CATALOG);
     modelService.getDiskSpace.mockResolvedValue({ free: 107374182400, total: 214748364800 });
-    appService.getAllApps.mockResolvedValue(MOCK_APPS);
   });
 
   describe('GET /api/store/recommendations', () => {
@@ -77,16 +66,25 @@ describe('Store Routes', () => {
       expect(res.status).toBe(401);
     });
 
-    it('returns models and apps arrays', async () => {
+    it('returns a models array', async () => {
       const res = await request(app)
         .get('/api/store/recommendations')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('models');
-      expect(res.body).toHaveProperty('apps');
       expect(Array.isArray(res.body.models)).toBe(true);
-      expect(Array.isArray(res.body.apps)).toBe(true);
+    });
+
+    // Seit Phase C3 gibt es keinen App-Katalog mehr. Der Laden empfiehlt
+    // Modelle; Apps kommen vom Partner und stehen unter /api/apps.
+    it('nennt keine Apps mehr', async () => {
+      const res = await request(app)
+        .get('/api/store/recommendations')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).not.toHaveProperty('apps');
     });
 
     it('returns systemInfo with llmRamGB and totalRamGB', async () => {
@@ -102,55 +100,37 @@ describe('Store Routes', () => {
       expect(typeof res.body.systemInfo.totalRamGB).toBe('number');
     });
 
-    it('includes featured apps from catalog', async () => {
-      const res = await request(app)
-        .get('/api/store/recommendations')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(res.status).toBe(200);
-      expect(appService.getAllApps).toHaveBeenCalled();
-    });
   });
 
   describe('GET /api/store/search', () => {
-    it('returns matching models and apps for valid query', async () => {
+    it('returns matching models for valid query', async () => {
       const res = await request(app)
         .get('/api/store/search?q=llama')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('models');
-      expect(res.body).toHaveProperty('apps');
+      expect(res.body).not.toHaveProperty('apps');
       expect(res.body.models.length).toBeGreaterThan(0);
       expect(res.body.models[0].id).toBe('llama3:8b');
     });
 
-    it('returns empty arrays for query shorter than 2 chars', async () => {
+    it('returns an empty list for query shorter than 2 chars', async () => {
       const res = await request(app)
         .get('/api/store/search?q=a')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ models: [], apps: [] });
+      expect(res.body).toEqual({ models: [] });
     });
 
-    it('returns empty arrays when no query param provided', async () => {
+    it('returns an empty list when no query param provided', async () => {
       const res = await request(app)
         .get('/api/store/search')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ models: [], apps: [] });
-    });
-
-    it('returns matching apps for app-specific query', async () => {
-      const res = await request(app)
-        .get('/api/store/search?q=workflow')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(res.status).toBe(200);
-      expect(res.body.apps.length).toBeGreaterThan(0);
-      expect(res.body.apps[0].id).toBe('beispiel-app');
+      expect(res.body).toEqual({ models: [] });
     });
 
     it('returns the search query in response', async () => {

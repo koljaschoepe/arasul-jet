@@ -32,9 +32,10 @@ freigegeben hat. Das Geraet bietet:
 - **Automatische Sicherung:** Taegliche Backups aller Daten
 - **Offline-faehig:** Funktioniert ohne Internetverbindung
 
-Das App-Modell (Manifest, Zuweisung an Mitarbeiter, Freigaben) kommt mit den
-Phasen C und D des Umbaus vom 26.08.2026; bis dahin zeigt die Oberflaeche
-Modelle und Einstellungen.
+Das App-Modell steht seit Phase C3 (27.08.2026): eine App bringt ein Manifest
+`app.json` mit, liegt am Geraet unter `/arasul/apps/<id>/<version>/` und ist
+unter `/apps/<id>/` erreichbar. Die Oberflaeche dafuer kommt mit den D-Phasen;
+bis dahin ist der Weg die Schnittstelle, unten beschrieben.
 
 ### Zugriff
 
@@ -346,11 +347,54 @@ curl -sk -X DELETE https://<geraet>/api/freigaben/urlaub/7 -H "authorization: Be
 ```
 
 Dieselbe Freigabe zweimal zu setzen ist kein Fehler, sondern derselbe Zustand.
-Loeschen Sie einen Benutzer, fallen seine Freigaben mit ihm weg.
+Loeschen Sie einen Benutzer, fallen seine Freigaben mit ihm weg. Die
+App-Kennung ist die `id` aus dem Manifest `app.json`; eine App, die es am Geraet
+nicht gibt, laesst sich nicht freigeben.
 
-Bis das App-Modell da ist (naechste Phase), ist die App-Kennung ein frei
-gewaehlter Name in Kleinbuchstaben. Danach ist es die `id` aus dem Manifest
-`app.json` der App.
+**Tester.** Wer eine App vor allen anderen sehen soll, bekommt die Freigabe mit
+`"stand":"test"` und sieht damit zusaetzlich den Teststand unter
+`/apps/<id>/test/`. Mit `"stand":"live"` wird er wieder normaler Nutzer; eine
+zweite Freigabe entsteht dabei nicht.
+
+Was ein Mitarbeiter selbst sieht, steht unter `GET /api/apps/meine` — das ist
+die einzige App-Auskunft, die er selbst abrufen darf.
+
+### Apps am Geraet
+
+Eine App kommt vom Partner: er baut sie mit dem Ara-Kit und legt sie unter
+`/arasul/apps/<id>/<version>/` ab. Danach bringen Sie eine Version in einen
+Stand. Es gibt zwei je App:
+
+| Stand  | Wer sieht ihn       | Adresse                            |
+| ------ | ------------------- | ---------------------------------- |
+| `live` | jeder Freigegebene  | `https://<geraet>/apps/<id>/`      |
+| `test` | nur benannte Tester | `https://<geraet>/apps/<id>/test/` |
+
+```bash
+# was am Geraet liegt
+curl -sk https://<geraet>/api/apps -H "authorization: Bearer $TOKEN"
+
+# eine Version in den Teststand (ohne "stand" ist es der Teststand)
+curl -sk -X POST https://<geraet>/api/apps/urlaub/einspielen \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"version":"1.2.0","stand":"test"}'
+
+# spaeter dieselbe Version live
+curl -sk -X POST https://<geraet>/api/apps/urlaub/einspielen \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"version":"1.2.0","stand":"live"}'
+
+# wenn eine App haengt: die letzten Zeilen ihres Backends
+curl -sk "https://<geraet>/api/apps/urlaub/logs?stand=live&zeilen=100" \
+  -H "authorization: Bearer $TOKEN"
+
+# App entfernen (beide Staende, beide Container, alle Freigaben)
+curl -sk -X DELETE https://<geraet>/api/apps/urlaub -H "authorization: Bearer $TOKEN"
+```
+
+`GET /api/apps/<id>` sagt Ihnen auch, was die App verlangt und was davon da ist:
+welche Sprachmodelle sie braucht und welche Flows. Fehlt eines, laeuft die App
+trotzdem an — das Geraet installiert nichts von allein nach.
 
 ### Passwort aendern
 

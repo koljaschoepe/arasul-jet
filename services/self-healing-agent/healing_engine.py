@@ -859,8 +859,8 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     continue
                 if service_name in EXCLUDED_CONTAINERS:
                     continue
-                if service_info['status'] == 'exited' and self.is_store_app_intentionally_stopped(service_name):
-                    logger.debug(f"Skipping {service_name} - Store app intentionally stopped")
+                if service_info['status'] == 'exited' and self.ist_app_ohne_stand(service_name):
+                    logger.debug(f"Uebersprungen: {service_name} ist ein App-Rest ohne Stand")
                     continue
 
                 if service_info['health'] == 'unhealthy':
