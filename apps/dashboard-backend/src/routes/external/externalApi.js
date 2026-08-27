@@ -17,12 +17,8 @@ const router = express.Router();
 const multer = require('multer');
 const { mitNamensReparatur } = require('../../utils/uploadName');
 const logger = require('../../utils/logger');
-const {
-  requireApiKey,
-  requireEndpoint,
-  generateApiKey,
-  VORGABE_ENDPUNKTE,
-} = require('../../middleware/apiKeyAuth');
+const { requireApiKey, requireEndpoint, generateApiKey } = require('../../middleware/apiKeyAuth');
+const { VORGABE_ENDPUNKTE } = require('../../config/apiBereiche');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');

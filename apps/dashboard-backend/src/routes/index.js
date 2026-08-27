@@ -113,6 +113,12 @@ router.use('/apps', require('./store/apps'));
 router.use('/store', require('./store/store'));
 
 // --- External ---
+// Zwei Router auf demselben Praefix, und das ist Absicht: `deploy` ist der Weg
+// des Ara-Kits auf das Geraet (Phase C5) und haengt an einem eigenen Bereich
+// (`app:deploy`), waehrend `externalApi` das ist, was eine Automatisierung oder
+// eine App benutzt. Sie in eine Datei zu legen hiesse, zwei Zielgruppen in
+// einer Datei zu haben, deren Rechte sich gerade NICHT decken.
+router.use('/v1/external', require('./external/deploy'));
 router.use('/v1/external', require('./external/externalApi'));
 router.use('/events', require('./external/events'));
 router.use('/alerts', require('./external/alerts'));

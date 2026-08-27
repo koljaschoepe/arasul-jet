@@ -8,6 +8,7 @@
 > Am 27.08.2026 von Hand ergaenzt (Migration 168, Phase C2): `app_members`.
 > Am 27.08.2026 von Hand ergaenzt (Migration 171, Phase C4): `api_keys.app_id`,
 > `api_keys.stand` und die Breite von `api_keys.key_prefix`.
+> Am 27.08.2026 von Hand ergaenzt (Migration 172, Phase C5): `app_staende.vorige_version`.
 
 ## Übersicht
 
@@ -371,6 +372,7 @@ Nutzer mit einer Tür mehr; deshalb bleibt der Primärschlüssel ein Paar.
 | `app_id`          | text                     | ⛔       |         |
 | `stand`           | text                     | ⛔       |         |
 | `version`         | text                     | ⛔       |         |
+| `vorige_version`  | text                     | ✅       |         |
 | `manifest`        | jsonb                    | ⛔       |         |
 | `eingespielt_am`  | timestamp with time zone | ⛔       | `now()` |
 | `eingespielt_von` | bigint                   | ✅       |         |
@@ -388,6 +390,16 @@ Nutzer mit einer Tür mehr; deshalb bleibt der Primärschlüssel ein Paar.
 der Ordner am Gerät kann gelöscht werden, die Antwort auf „womit lief das" nicht.
 Ob ein Container LÄUFT, steht hier nicht — das weiß Docker, und es daneben in
 einer Spalte zu führen hieße, zwei Wahrheiten zu pflegen.
+
+`vorige_version` (Migration 172, Phase C5) ist die Version, die in diesem Stand
+vor der jetzigen lief; `NULL`, wenn es keine gab. Darauf schaltet
+`POST /api/v1/external/apps/:id/schalten` mit `{"ziel":"zurueck"}` zurück.
+Geschrieben wird sie in `appStore.spieleEin` und nur bei einem echten Wechsel —
+dieselbe Version noch einmal einzuspielen (was der Schalter nach `live` tut)
+darf die Erinnerung nicht überschreiben. Eine Tabelle mit dem ganzen Verlauf
+wäre eine zweite Antwort auf eine Frage, die niemand stellt: was am Gerät
+liegt, sagen die Ordner, und wer wann geschaltet hat, steht in
+`security_events`.
 
 ---
 

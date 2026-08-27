@@ -10,28 +10,14 @@ const bcrypt = require('bcrypt');
 const database = require('../database');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
+// Die Bereiche liegen in `config/`, nicht hier: das Schema, gegen das ein
+// Administrator einen Schluessel anlegt, braucht dieselbe Liste, und ein
+// Schema, das eine Middleware einbindet, waere die Ordnung dieses Backends auf
+// den Kopf gestellt (`config/apiBereiche.js`).
+const { VORGABE_ENDPUNKTE } = require('../config/apiBereiche');
 
 // Cache for rate limiting (in-memory, resets on restart)
 const rateLimitCache = new Map();
-
-/**
- * Was ein Schluessel darf, wenn niemand etwas anderes sagt.
- *
- * Eine Liste, ein Ort. Sie stand bis zum 27.08.2026 ausgeschrieben in
- * `routes/external/externalApi.js`; seit Phase C4 legt auch das Geraet selbst
- * Schluessel an (einen je App und Stand), und zwei Listen waeren zwei
- * Antworten auf dieselbe Frage gewesen.
- *
- * Kein `*`. Migration 085 hat die Wildcard-Schluessel stillgelegt, und die
- * Pruefung honoriert sie seit dem 29.04.2026 ohnehin nicht mehr.
- */
-const VORGABE_ENDPUNKTE = Object.freeze([
-  'llm:chat',
-  'llm:status',
-  'document:extract',
-  'document:analyze',
-  'flow:run',
-]);
 
 /**
  * Generate a new API key
@@ -267,7 +253,6 @@ function requireEndpoint(endpoint) {
 }
 
 module.exports = {
-  VORGABE_ENDPUNKTE,
   generateApiKey,
   validateApiKey,
   requireApiKey,

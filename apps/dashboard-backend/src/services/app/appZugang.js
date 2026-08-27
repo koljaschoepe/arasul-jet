@@ -24,6 +24,20 @@ const db = require('../../database');
 const { ForbiddenError, NotFoundError } = require('../../utils/errors');
 
 /**
+ * Die zwei Kopfzeilen, unter denen eine App ihren Aufrufer sieht.
+ *
+ * Sie stehen hier als Konstanten und nicht dreimal ausgeschrieben, weil sie an
+ * drei Stellen gebraucht werden, die auseinanderlaufen koennen: die Antwort
+ * dieses Bausteins (`setzeKoepfe`), das Traefik-Etikett am Container der App
+ * (`appContainer.beschriftung`, `authResponseHeaders`) und der Kontrakt, den
+ * das Kit liest (`appKontrakt.js`). Stuende der Name im Etikett anders als in
+ * der Antwort, waere der Kopf einfach nicht gesetzt -- und eine App saehe
+ * jeden Aufrufer als denselben Unbekannten.
+ */
+const KOPF_BENUTZER = 'X-Arasul-User';
+const KOPF_ROLLE = 'X-Arasul-Role';
+
+/**
  * Ein Wert, der in einer HTTP-Kopfzeile stehen darf.
  *
  * Zwei Dinge passieren hier, und beide sind noetig:
@@ -112,9 +126,9 @@ async function pruefe({ benutzerId, appId, stand }) {
  */
 function setzeKoepfe(res, benutzer) {
   res.set({
-    'X-Arasul-User': kopfWert(benutzer.username),
-    'X-Arasul-Role': kopfWert(benutzer.role),
+    [KOPF_BENUTZER]: kopfWert(benutzer.username),
+    [KOPF_ROLLE]: kopfWert(benutzer.role),
   });
 }
 
-module.exports = { pruefe, setzeKoepfe, kopfWert };
+module.exports = { pruefe, setzeKoepfe, kopfWert, KOPF_BENUTZER, KOPF_ROLLE };

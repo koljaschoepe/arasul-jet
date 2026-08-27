@@ -152,6 +152,23 @@ async function frontendVerzeichnis(manifest) {
   return ordner;
 }
 
+/**
+ * Die Dateien einer App wegwerfen: `/arasul/apps/<id>/` mit allen Versionen
+ * (Phase C5).
+ *
+ * Nur ueber `appVerzeichnis`, also nur nach der Pruefung der Kennung. Ein
+ * rekursives Loeschen ist die eine Stelle, an der ein durchgerutschter
+ * Schraegstrich nicht eine Fehlermeldung, sondern einen Schaden ergibt.
+ *
+ * @returns {Promise<string[]>} die Versionen, die dabei weggefallen sind
+ */
+async function entferneDateien(appId) {
+  const ordner = appVerzeichnis(appId);
+  const versionen = await listeVersionen(appId);
+  await fs.rm(ordner, { recursive: true, force: true });
+  return versionen;
+}
+
 module.exports = {
   APPS_DIR,
   verzeichnisFuer,
@@ -159,4 +176,5 @@ module.exports = {
   leseManifest,
   listeVersionen,
   frontendVerzeichnis,
+  entferneDateien,
 };

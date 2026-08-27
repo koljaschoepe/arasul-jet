@@ -12,9 +12,12 @@
  * stoppen und loeschen und sonst nichts.
  */
 
+const path = require('path');
+const tar = require('tar');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
-const { NotFoundError } = require('../../utils/errors');
+const { NotFoundError, ValidationError } = require('../../utils/errors');
+const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 
 // Compose stellt dem Netznamen den Projektnamen voran. Traefik haengt in
 // genau diesem Netz; ein App-Container in einem anderen waere gestartet und
@@ -85,8 +88,7 @@ function beschriftung(manifest, stand) {
     // neu gesetzt. Ein Aufrufer, der `X-Arasul-User: chef` mitschickt, kommt
     // damit nicht durch -- ohne diese Liste waere sein Kopf einfach
     // durchgereicht worden.
-    [`traefik.http.middlewares.${router}-zugang.forwardauth.authResponseHeaders`]:
-      'X-Arasul-User,X-Arasul-Role',
+    [`traefik.http.middlewares.${router}-zugang.forwardauth.authResponseHeaders`]: `${KOPF_BENUTZER},${KOPF_ROLLE}`,
     // Die App sieht ihre eigenen Pfade, nicht die der Plattform: aus
     // `/apps/urlaub/api/antraege` wird `/antraege`. Ein App-Backend soll nicht
     // wissen muessen, unter welchem Praefix es haengt.
@@ -214,12 +216,111 @@ async function holeImageFallsNoetig(image) {
 }
 
 /**
+ * Das Image einer App am Geraet bauen (Phase C5).
+ *
+ * Der Bau-Kontext geht als Tar-Strom an den Docker-Dienst, nicht als Pfad:
+ * das Backend spricht ueber `docker-proxy` (TCP) mit einem Dienst, der ein
+ * anderes Dateisystem sieht als dieser Container. Ein Pfad waere dort ein
+ * Pfad ins Leere -- und zwar einer, der je nach Host zufaellig doch etwas
+ * traefe.
+ *
+ * `noCache` gibt es hier bewusst nicht. Ein Partner, der dieselbe Version
+ * zweimal rollt, hat etwas geaendert und will das Ergebnis sehen; die Ebenen,
+ * die Docker wiederverwendet, sind genau die, an denen sich nichts geaendert
+ * hat. Das ist der Unterschied zwischen „schnell" und „falsch", und Docker
+ * kennt ihn besser als eine Kennzahl von uns.
+ *
+ * @param {object} manifest das gepruefte `app.json`
+ * @param {string} kontextPfad der Ordner, der als Kontext geht (absolut)
+ * @returns {Promise<string>} der Name des gebauten Images
+ */
+async function baueImage(manifest, kontextPfad) {
+  const image = manifest.backend.image;
+  const dockerfile = manifest.backend.bauen.dockerfile;
+  logger.info(`App-Image wird am Geraet gebaut: ${image} aus ${kontextPfad} (${dockerfile})`);
+
+  const kontext = tar.c({ cwd: kontextPfad, gzip: false, portable: true }, ['.']);
+  const strom = await docker.buildImage(kontext, { t: image, dockerfile, forcerm: true });
+
+  // Die letzten Zeilen der Bauausgabe, damit ein Fehlschlag etwas sagt.
+  // Docker meldet den Grund im Strom und nicht im Fehler -- ohne sie stuende
+  // im Protokoll „build failed" und der Partner duerfte raten.
+  const ausgabe = [];
+  await new Promise((auf, ab) => {
+    docker.modem.followProgress(
+      strom,
+      fehler => {
+        if (!fehler) {
+          auf();
+          return;
+        }
+        const grund = typeof fehler === 'string' ? fehler : fehler.message || String(fehler);
+        ab(
+          new ValidationError(`Das Image ${image} liess sich am Geraet nicht bauen: ${grund}`, {
+            ausgabe: ausgabe.slice(-25),
+          })
+        );
+      },
+      schritt => {
+        const zeile = (schritt.stream || schritt.status || '').trim();
+        if (zeile) {
+          ausgabe.push(zeile);
+        }
+      }
+    );
+  });
+
+  logger.info(`App-Image gebaut: ${image}`);
+  return image;
+}
+
+/**
+ * Dafuer sorgen, dass das Image dieser Version da ist.
+ *
+ * Zwei Wege, und das Manifest sagt welcher: mit `backend.bauen` baut das
+ * Geraet aus dem Paket (C5), ohne erwartet es ein fertiges Image und holt es
+ * notfalls (C3, der Weg ueber SSH).
+ *
+ * Gebaut wird nur, wenn das Image FEHLT. Der Schalter nach live spielt
+ * dieselbe Version noch einmal ein, die im Teststand schon laeuft; ihn einen
+ * Bau kosten zu lassen hiesse, den Livestand fuer Minuten von einem
+ * Bauergebnis abhaengig zu machen, das schon da ist.
+ *
+ * Der Deploy eines Pakets baut deshalb SELBST, bevor er hierher kommt
+ * (`services/app/appPaket.js`): wer dieselbe Versionsnummer noch einmal
+ * schickt, hat etwas geaendert und will das Ergebnis sehen. Danach findet
+ * dieser Aufruf das Image vor und tut nichts.
+ *
+ * @param {object} manifest das gepruefte `app.json`
+ * @param {string} versionsPfad `/arasul/apps/<id>/<version>` (absolut)
+ */
+async function sorgeFuerImage(manifest, versionsPfad) {
+  if (!manifest.backend.bauen) {
+    await holeImageFallsNoetig(manifest.backend.image);
+    return;
+  }
+  try {
+    await docker.getImage(manifest.backend.image).inspect();
+    return;
+  } catch (err) {
+    if (err.statusCode !== 404) {
+      throw err;
+    }
+  }
+  await baueImage(manifest, path.join(versionsPfad, manifest.backend.bauen.verzeichnis));
+}
+
+/**
  * Das Backend eines Standes starten. Ein vorhandener Container wird ersetzt,
  * nicht neu gestartet: das Manifest kann eine andere Grenze, ein anderes Image
  * oder einen anderen Port nennen, und ein `restart` uebernaehme davon nichts.
  */
-async function starte(manifest, stand, umgebung = {}) {
-  await holeImageFallsNoetig(manifest.backend.image);
+async function starte(manifest, stand, umgebung = {}, versionsPfad = null) {
+  if (versionsPfad) {
+    await sorgeFuerImage(manifest, versionsPfad);
+  } else {
+    await holeImageFallsNoetig(manifest.backend.image);
+  }
   await entferne(manifest.id, stand);
   const container = await docker.createContainer(containerBeschreibung(manifest, stand, umgebung));
   await container.start();
@@ -278,6 +379,8 @@ module.exports = {
   containerName,
   apiPfad,
   holeImageFallsNoetig,
+  baueImage,
+  sorgeFuerImage,
   beschriftung,
   containerBeschreibung,
   speicherInBytes,
