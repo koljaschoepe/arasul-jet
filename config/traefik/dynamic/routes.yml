@@ -158,16 +158,31 @@ http:
     # ueber den Routern der App-Backends (40 live, 45 test, siehe
     # services/app/appContainer.js), sonst faenge der Container sie ab.
     #
-    # Die beiden Regeln benutzen verschiedene Variablennamen (`app`, `appTest`)
-    # -- derselbe Name zweimal in einer Regel waere eine Wette darauf, wie
-    # Traefik zwei Matcher mit gleichnamiger Variablen zusammenlegt.
+    # ZWEI Router und nicht einer mit `||`: eine Regel mit einer Variablen ist
+    # in Traefik v2 belegt (`Path(`/produkte/{id:[0-9]+}`)`), zwei Matcher mit
+    # je einer Variablen in derselben Regel sind eine Wette darauf, wie Traefik
+    # sie zusammenlegt. Der Preis dieser Vorsicht sind sechs Zeilen; der Preis
+    # eines Irrtums waere ein Router, den Traefik verwirft, und damit eine
+    # `/api/me`, die still im Container der App landet.
     #
     # Kein `forward-auth` davor: das Backend prueft die Freigabe hier selbst
     # (`appAusliefern.js` -> `services/app/appZugang.js`), so wie bei der
     # statischen Auslieferung darunter. Ein zweiter Weg fuer dieselbe Frage
     # waere ein zweiter Ort, an dem sie falsch beantwortet werden kann.
     apps-me:
-      rule: 'Path(`/apps/{app:[a-z0-9-]+}/api/me`) || Path(`/apps/{appTest:[a-z0-9-]+}/test/api/me`)'
+      rule: 'Path(`/apps/{app:[a-z0-9-]+}/api/me`)'
+      service: dashboard-backend-service
+      priority: 50
+      middlewares:
+        - security-headers
+        - rate-limit-api
+        - compress
+      entryPoints:
+        - websecure
+      tls: {}
+
+    apps-me-test:
+      rule: 'Path(`/apps/{app:[a-z0-9-]+}/test/api/me`)'
       service: dashboard-backend-service
       priority: 50
       middlewares:
