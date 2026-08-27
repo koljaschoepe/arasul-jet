@@ -8,12 +8,12 @@ const router = express.Router();
 const tailscaleService = require('../../services/network/tailscaleService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { validateBody } = require('../../middleware/validate');
 const { TailscaleConnectBody } = require('../../schemas/tailscale');
 
 // All routes require authentication
-router.use(requireAuth);
+router.use(requireAuth, requireRole('admin'));
 
 /**
  * GET /api/tailscale/status

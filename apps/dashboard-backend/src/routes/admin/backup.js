@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotImplementedError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
@@ -115,7 +115,7 @@ async function getSsdStatus() {
 router.get(
   '/status',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const ssdStatus = await getSsdStatus();
     const bericht = await leseSicherungsbericht();
@@ -146,7 +146,7 @@ router.get(
 router.post(
   '/trigger',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const ssdStatus = await getSsdStatus();
 
@@ -180,7 +180,7 @@ router.post(
 router.get(
   '/history',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const ssdStatus = await getSsdStatus();
 

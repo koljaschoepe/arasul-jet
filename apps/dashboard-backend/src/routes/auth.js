@@ -17,7 +17,7 @@ const {
 } = require('../utils/jwt');
 const { verifyPassword } = require('../utils/password');
 const { changeDashboardPassword } = require('../services/auth/passwordService');
-const { requireAuth, optionalAuth } = require('../middleware/auth');
+const { requireAuth, optionalAuth, requireRole } = require('../middleware/auth');
 const {
   loginLimiter,
   generalAuthLimiter,
@@ -62,7 +62,7 @@ router.post(
 
     // Get user from database
     const result = await db.query(
-      'SELECT id, username, password_hash, email, is_active FROM admin_users WHERE username = $1',
+      'SELECT id, username, password_hash, email, role, is_active FROM admin_users WHERE username = $1 OR email = $1',
       [username]
     );
 
@@ -154,6 +154,7 @@ router.post(
         id: user.id,
         username: user.username,
         email: user.email,
+        role: user.role,
       },
       timestamp: new Date().toISOString(),
     });
@@ -222,7 +223,7 @@ router.post(
       token: tokenData.token,
       expiresAt: tokenData.expiresAt,
       expiresIn: tokenData.expiresIn,
-      user: { id: user.id, username: user.username, email: user.email },
+      user: { id: user.id, username: user.username, email: user.email, role: 'admin' },
       timestamp: new Date().toISOString(),
     });
   })
@@ -233,6 +234,7 @@ router.post(
   '/logout',
   generalAuthLimiter,
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     // Get token from header or cookie
     const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
@@ -279,6 +281,7 @@ router.post(
 router.post(
   '/logout-all',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     // Blacklist all user tokens
     await blacklistAllUserTokens(req.user.id);
@@ -310,6 +313,7 @@ router.post(
 router.post(
   '/change-password',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   passwordChangeLimiter,
   validateBody(ChangePasswordBody),
   asyncHandler(async (req, res) => {
@@ -344,12 +348,14 @@ router.post(
 router.get(
   '/me',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     res.json({
       user: {
         id: req.user.id,
         username: req.user.username,
         email: req.user.email,
+        role: req.user.role,
       },
       timestamp: new Date().toISOString(),
     });
@@ -383,7 +389,12 @@ router.get(
     res.json({
       authenticated: Boolean(req.user),
       user: req.user
-        ? { id: req.user.id, username: req.user.username, email: req.user.email }
+        ? {
+            id: req.user.id,
+            username: req.user.username,
+            email: req.user.email,
+            role: req.user.role,
+          }
         : null,
       timestamp: new Date().toISOString(),
     });
@@ -399,6 +410,7 @@ router.get(
 router.get(
   '/csrf',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const csrfToken = generateCsrfToken();
     res.cookie(CSRF_COOKIE, csrfToken, {
@@ -416,6 +428,7 @@ router.get(
 router.get(
   '/sessions',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const sessions = await getUserSessions(req.user.id);
 
@@ -444,6 +457,7 @@ router.get(
 router.post(
   '/refresh-cookie',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
     if (!token) {

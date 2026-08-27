@@ -9,7 +9,7 @@ const dockerService = require('../../services/core/docker');
 const logger = require('../../utils/logger');
 const axios = require('axios');
 const db = require('../../database');
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const {
   NotFoundError,
@@ -42,6 +42,7 @@ const lastRestartTimes = new Map();
 router.get(
   '/',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const services = await dockerService.getAllServicesStatus();
 
@@ -81,6 +82,7 @@ router.get(
 router.get(
   '/ai',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const services = await dockerService.getAllServicesStatus();
 
@@ -161,6 +163,7 @@ router.get(
 router.get(
   '/llm/models',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const llmServiceUrl = serviceConfig.llm.url;
 
@@ -200,6 +203,7 @@ router.get(
 router.get(
   '/llm/models/:name',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { name } = req.params;
     const llmServiceUrl = serviceConfig.llm.url;
@@ -243,6 +247,7 @@ router.get(
 router.post(
   '/llm/models/pull',
   requireAuth,
+  requireRole('admin'),
   validateBody(PullModelBody),
   asyncHandler(async (req, res) => {
     const { model_name } = req.body;
@@ -284,6 +289,7 @@ router.post(
 router.delete(
   '/llm/models/:name',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { name } = req.params;
     const llmServiceUrl = serviceConfig.llm.url;
@@ -324,6 +330,7 @@ router.delete(
 router.get(
   '/embedding/info',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const embeddingServiceUrl = serviceConfig.embedding.url;
 
@@ -350,6 +357,7 @@ router.get(
 router.get(
   '/all',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const statuses = await dockerService.getAllServicesStatus();
 
@@ -374,7 +382,7 @@ router.get(
 router.post(
   '/restart/:serviceName',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { serviceName } = req.params;
     const userId = req.user?.id;

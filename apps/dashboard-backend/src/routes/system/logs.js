@@ -7,7 +7,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ForbiddenError } = require('../../utils/errors');
@@ -38,6 +38,7 @@ const LOG_FILES = {
 router.get(
   '/',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { service = 'system', lines = 100, format = 'text', level = null } = req.query;
 
@@ -124,6 +125,7 @@ router.get(
 router.get(
   '/list',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const availableLogs = [];
 
@@ -160,6 +162,7 @@ router.get(
 router.get(
   '/stream',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { service = 'system', lines = 50 } = req.query;
 
@@ -259,6 +262,7 @@ router.get(
 router.get(
   '/search',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { service = 'system', query, lines = 100, case_sensitive = 'false' } = req.query;
 

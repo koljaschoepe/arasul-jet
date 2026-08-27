@@ -31,7 +31,7 @@ jest.mock('../../src/utils/auditLog', () => ({
   logSecurityEvent: jest.fn(),
 }));
 
-// requireAuth + requireAdmin: testweise pass-through, der req.user injiziert.
+// requireAuth + requireRole: testweise pass-through, der req.user injiziert.
 jest.mock('../../src/middleware/auth', () => {
   let mockUser = { id: 42, username: 'kolja', role: 'admin' };
   return {
@@ -44,22 +44,21 @@ jest.mock('../../src/middleware/auth', () => {
     optionalAuth: (req, res, next) => next(),
     requireAuth: (req, res, next) => {
       if (!mockUser) {
-        return res
-          .status(401)
-          .json({ error: { code: 'UNAUTHORIZED', message: 'no user' } });
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'no user' } });
       }
       req.user = mockUser;
       next();
     },
-    requireAdmin: (req, res, next) => {
-      if (!req.user || req.user.role !== 'admin') {
-        return res
-          .status(403)
-          .json({ error: { code: 'FORBIDDEN', message: 'admin required' } });
-      }
-      next();
-    },
+    requireRole:
+      (...rollen) =>
+      (req, res, next) => {
+        if (!req.user || !rollen.includes(req.user.role)) {
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Rolle fehlt' } });
+        }
+        next();
+      },
     invalidateUserCache: jest.fn(),
+    ROLLEN: ['admin', 'mitarbeiter'],
   };
 });
 
@@ -128,9 +127,7 @@ describe('DELETE /api/gdpr/me', () => {
     db.query.mockResolvedValueOnce({ rows: [{ n: 2 }] });
     const app = buildApp();
 
-    const res = await request(app)
-      .delete('/api/gdpr/me')
-      .send({ confirm: 'JA-LOESCHEN' });
+    const res = await request(app).delete('/api/gdpr/me').send({ confirm: 'JA-LOESCHEN' });
 
     expect(res.status).toBe(400);
     expect(db.transaction).not.toHaveBeenCalled();
@@ -149,9 +146,7 @@ describe('DELETE /api/gdpr/me', () => {
     const { queryCalls } = fakeTransaction();
 
     const app = buildApp();
-    const res = await request(app)
-      .delete('/api/gdpr/me')
-      .send({ confirm: 'LOESCHEN-BESTAETIGT' });
+    const res = await request(app).delete('/api/gdpr/me').send({ confirm: 'LOESCHEN-BESTAETIGT' });
 
     expect(res.status).toBe(200);
     expect(res.body.zugangBleibt).toBe(true);
@@ -169,9 +164,7 @@ describe('DELETE /api/gdpr/me', () => {
     const { queryCalls } = fakeTransaction();
 
     const app = buildApp();
-    const res = await request(app)
-      .delete('/api/gdpr/me')
-      .send({ confirm: 'LOESCHEN-BESTAETIGT' });
+    const res = await request(app).delete('/api/gdpr/me').send({ confirm: 'LOESCHEN-BESTAETIGT' });
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
@@ -208,16 +201,14 @@ describe('DELETE /api/gdpr/me', () => {
   });
 
   test('User ohne admin-Rolle braucht keinen Single-Box-Schutz', async () => {
-    auth.__setUser({ id: 99, username: 'gast', role: 'user' });
+    auth.__setUser({ id: 99, username: 'gast', role: 'mitarbeiter' });
     // count=1 darf den Nicht-Admin nicht blocken — der ist ja kein Admin
     db.query.mockResolvedValueOnce({ rows: [{ n: 1 }] });
 
     fakeTransaction();
 
     const app = buildApp();
-    const res = await request(app)
-      .delete('/api/gdpr/me')
-      .send({ confirm: 'LOESCHEN-BESTAETIGT' });
+    const res = await request(app).delete('/api/gdpr/me').send({ confirm: 'LOESCHEN-BESTAETIGT' });
 
     expect(res.status).toBe(200);
     // Kein Admin, also auch kein Letzter-Admin-Fall: die Zugangs-Zeile geht mit.
@@ -227,9 +218,7 @@ describe('DELETE /api/gdpr/me', () => {
   test('ohne Auth → 401', async () => {
     auth.__clearUser();
     const app = buildApp();
-    const res = await request(app)
-      .delete('/api/gdpr/me')
-      .send({ confirm: 'LOESCHEN-BESTAETIGT' });
+    const res = await request(app).delete('/api/gdpr/me').send({ confirm: 'LOESCHEN-BESTAETIGT' });
 
     expect(res.status).toBe(401);
     expect(db.transaction).not.toHaveBeenCalled();
@@ -255,9 +244,7 @@ describe('DELETE /api/gdpr/me — was wirklich gelöscht wird (Plan 023 J4)', ()
     db.query.mockResolvedValueOnce({ rows: [{ n: 2 }] });
     const { queryCalls } = fakeTransaction();
     const app = buildApp();
-    const res = await request(app)
-      .delete('/api/gdpr/me')
-      .send({ confirm: 'LOESCHEN-BESTAETIGT' });
+    const res = await request(app).delete('/api/gdpr/me').send({ confirm: 'LOESCHEN-BESTAETIGT' });
     return { res, queryCalls, sqls: queryCalls.map(c => c.sql) };
   }
 
@@ -287,5 +274,4 @@ describe('DELETE /api/gdpr/me — was wirklich gelöscht wird (Plan 023 J4)', ()
     const { sqls } = await loeschen();
     expect(sqls.some(s2 => s2.includes('UPDATE audit_logs SET user_id = NULL'))).toBe(true);
   });
-
 });

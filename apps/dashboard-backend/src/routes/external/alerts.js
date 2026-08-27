@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const alertEngine = require('../../services/alertEngine');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
@@ -19,7 +19,7 @@ const {
 } = require('../../schemas/alerts');
 
 // All routes require authentication
-router.use(requireAuth);
+router.use(requireAuth, requireRole('admin'));
 
 // =============================================================================
 // GLOBAL SETTINGS

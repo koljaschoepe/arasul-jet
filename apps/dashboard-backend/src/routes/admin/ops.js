@@ -12,7 +12,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const db = require('../../database');
 const dockerService = require('../../services/core/docker');
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const logger = require('../../utils/logger');
 
@@ -63,7 +63,7 @@ async function readRestoreDrillReport() {
 router.get(
   '/overview',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const [backup, drill, services, alerts, unsent, metrics, retention] = await Promise.all([
       readBackupReport(),

@@ -15,7 +15,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs').promises;
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { ServiceUnavailableError } = require('../../utils/errors');
 const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
 const { logSecurityEvent } = require('../../utils/auditLog');
@@ -42,6 +42,7 @@ router.get('/heartbeat', (req, res) => {
 router.get(
   '/status',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     // Get service statuses from Docker
     const services = await dockerService.getAllServicesStatus();
@@ -137,6 +138,7 @@ router.get(
 router.get(
   '/info',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const uptime = os.uptime();
     // Device name from MDNS_NAME. os.hostname() runs inside the container and
@@ -194,6 +196,7 @@ router.get(
 router.get(
   '/network',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const networkInterfaces = os.networkInterfaces();
     const ipAddresses = [];
@@ -234,6 +237,7 @@ router.get(
 router.get(
   '/thresholds',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     // Detect device type
     let deviceType = 'generic';
@@ -384,7 +388,7 @@ router.get(
 );
 
 // POST /api/system/reload-config - Reload configuration without restart
-router.post('/reload-config', requireAuth, (req, res) => {
+router.post('/reload-config', requireAuth, requireRole('admin'), (req, res) => {
   logger.info('Configuration reload requested');
 
   logSecurityEvent({
@@ -434,6 +438,7 @@ router.post('/reload-config', requireAuth, (req, res) => {
 router.post(
   '/diagnostics',
   requireAuth,
+  requireRole('admin'),
   validateBody(DiagnosticsBody),
   asyncHandler(async (req, res) => {
     const { days = 3, includeLogs = true } = req.body;
@@ -503,6 +508,7 @@ router.post(
 router.get(
   '/diagnostics/quick',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const [systemInfo, dockerInfo, dbInfo] = await Promise.all([
       // System
@@ -623,6 +629,7 @@ router.get(
 router.post(
   '/setup-complete',
   requireAuth,
+  requireRole('admin'),
   validateBody(SetupCompleteBody),
   asyncHandler(async (req, res) => {
     const { companyName, hostname, selectedModel } = req.body;
@@ -665,6 +672,7 @@ router.post(
 router.put(
   '/setup-step',
   requireAuth,
+  requireRole('admin'),
   validateBody(SetupStepBody),
   asyncHandler(async (req, res) => {
     const { step, companyName, hostname, selectedModel } = req.body;
@@ -695,6 +703,7 @@ router.put(
 router.post(
   '/setup-skip',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     await db.query(
       `UPDATE system_settings SET

@@ -18,7 +18,7 @@ const multer = require('multer');
 const { mitNamensReparatur } = require('../../utils/uploadName');
 const logger = require('../../utils/logger');
 const { requireApiKey, requireEndpoint, generateApiKey } = require('../../middleware/apiKeyAuth');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
@@ -290,6 +290,7 @@ router.get(
 router.post(
   '/api-keys',
   requireAuth,
+  requireRole('admin'),
   validateBody(CreateApiKeyBody),
   asyncHandler(async (req, res) => {
     const { name, description, rate_limit_per_minute, allowed_endpoints, expires_at } = req.body;
@@ -323,6 +324,7 @@ router.post(
 router.get(
   '/api-keys',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const result = await require('../../database').query(
       `
@@ -360,6 +362,7 @@ router.get(
 router.delete(
   '/api-keys/:keyId',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const result = await require('../../database').query(
       `

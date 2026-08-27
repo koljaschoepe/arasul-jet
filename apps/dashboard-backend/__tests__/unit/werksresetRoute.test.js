@@ -25,13 +25,18 @@ jest.mock('../../src/middleware/auth', () => ({
     req.user = { id: 1, username: 'kolja', role: mockRolle };
     next();
   },
-  requireAdmin: (req, res, next) => {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Nur Administratoren' } });
-    }
-    next();
-  },
+  requireRole:
+    (...rollen) =>
+    (req, res, next) => {
+      if (!rollen.includes(req.user?.role)) {
+        return res
+          .status(403)
+          .json({ error: { code: 'FORBIDDEN', message: 'Nur Administratoren' } });
+      }
+      next();
+    },
   invalidateUserCache: jest.fn(),
+  ROLLEN: ['admin', 'mitarbeiter'],
 }));
 
 jest.mock('../../src/services/werksreset/werksreset', () => ({

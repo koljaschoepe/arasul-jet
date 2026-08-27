@@ -33,6 +33,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/logs', group: 'system' },
   { prefix: '/database', group: 'system' },
   { prefix: '/tailscale', group: 'system' },
+  { prefix: '/benutzer', group: 'admin' },
   { prefix: '/settings', group: 'admin' },
   { prefix: '/audit', group: 'admin' },
   { prefix: '/update', group: 'admin' },
@@ -89,6 +90,7 @@ router.use('/database', require('./system/database'));
 router.use('/tailscale', tailscaleLimiter, require('./system/tailscale'));
 
 // --- Admin ---
+router.use('/benutzer', require('./admin/benutzer'));
 router.use('/settings', require('./admin/settings'));
 router.use('/audit', require('./admin/audit'));
 router.use('/update', require('./admin/update'));

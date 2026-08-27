@@ -5,7 +5,7 @@
 
 const router = require('express').Router();
 const crypto = require('crypto');
-const { requireAuth: auth } = require('../../middleware/auth');
+const { requireAuth: auth, requireRole } = require('../../middleware/auth');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 
@@ -37,6 +37,7 @@ const {
 router.get(
   '/',
   auth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { limit = 50, event_type, severity } = req.query;
 
@@ -77,6 +78,7 @@ router.get(
 router.get(
   '/stats',
   auth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const listenerStats = eventListenerService.getStats();
 
@@ -108,6 +110,7 @@ router.get(
 router.get(
   '/settings',
   auth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const result = await db.query(`SELECT * FROM notification_settings WHERE user_id = $1`, [
       req.user.id,
@@ -127,6 +130,7 @@ router.get(
 router.put(
   '/settings',
   auth,
+  requireRole('admin'),
   validateBody(UpdateNotificationSettingsBody),
   asyncHandler(async (req, res) => {
     const {
@@ -183,6 +187,7 @@ router.put(
 router.post(
   '/test',
   auth,
+  requireRole('admin'),
   validateBody(TestNotificationBody),
   asyncHandler(async (req, res) => {
     const { message = 'Test-Benachrichtigung von Arasul Platform' } = req.body;
@@ -280,6 +285,7 @@ router.post(
 router.post(
   '/manual',
   auth,
+  requireRole('admin'),
   validateBody(ManualEventBody),
   asyncHandler(async (req, res) => {
     const {
@@ -319,6 +325,7 @@ router.post(
 router.get(
   '/service-status',
   auth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const result = await db.query(`
         SELECT * FROM service_status_cache
@@ -340,6 +347,7 @@ router.get(
 router.get(
   '/boot-history',
   auth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { limit = 10 } = req.query;
 
@@ -367,6 +375,7 @@ router.get(
 router.delete(
   '/:id',
   auth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
@@ -393,6 +402,7 @@ router.delete(
 router.post(
   '/cleanup',
   auth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const result = await db.query(`SELECT cleanup_old_notification_events()`);
     const deletedCount = result.rows[0].cleanup_old_notification_events;

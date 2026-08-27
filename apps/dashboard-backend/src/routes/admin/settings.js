@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const { verifyPassword, validatePasswordComplexity } = require('../../utils/password');
 const { changeDashboardPassword } = require('../../services/auth/passwordService');
@@ -102,7 +102,7 @@ async function restartService(serviceName) {
 router.post(
   '/password/dashboard',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   passwordChangeLimiter,
   validateBody(PasswordChangeBody),
   asyncHandler(async (req, res) => {

@@ -11,7 +11,7 @@
 const os = require('os');
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const modelService = require('../../services/llm/modelService');
 const appService = require('../../services/app/appService');
 const logger = require('../../utils/logger');
@@ -49,6 +49,7 @@ const CACHE_TTLS = {
 router.get(
   '/recommendations',
   requireAuth,
+  requireRole('admin'),
   cacheMiddleware(CACHE_KEYS.RECOMMENDATIONS, CACHE_TTLS.RECOMMENDATIONS),
   asyncHandler(async (req, res) => {
     logger.debug('[Store] Recommendations request');
@@ -122,6 +123,7 @@ router.get(
 router.get(
   '/search',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { q } = req.query;
 
@@ -181,6 +183,7 @@ router.get(
 router.get(
   '/info',
   requireAuth,
+  requireRole('admin'),
   cacheMiddleware(CACHE_KEYS.INFO, CACHE_TTLS.INFO),
   asyncHandler(async (req, res) => {
     logger.debug('[Store] Info request');

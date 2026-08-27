@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { apiLimiter } = require('../../middleware/rateLimit');
 const appService = require('../../services/app/appService');
 const logger = require('../../utils/logger');
@@ -28,6 +28,7 @@ const { initSSE, trackConnection } = require('../../utils/sseHelper');
 router.get(
   '/',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { category, status, search } = req.query;
 
@@ -52,6 +53,7 @@ router.get(
 router.get(
   '/categories',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const categories = await appService.getCategories();
 
@@ -69,6 +71,7 @@ router.get(
 router.get(
   '/:id',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
@@ -92,6 +95,7 @@ router.get(
 router.get(
   '/:id/logs',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const tail = Math.min(Math.max(parseInt(req.query.tail) || 100, 1), 10000);
@@ -113,6 +117,7 @@ router.get(
 router.get(
   '/:id/events',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 1000);
@@ -135,6 +140,7 @@ router.get(
 router.post(
   '/:id/install',
   requireAuth,
+  requireRole('admin'),
   apiLimiter,
   validateBody(AppInstallBody),
   asyncHandler(async (req, res) => {
@@ -193,6 +199,7 @@ router.post(
 router.post(
   '/:id/uninstall',
   requireAuth,
+  requireRole('admin'),
   apiLimiter,
   validateBody(AppUninstallBody),
   asyncHandler(async (req, res) => {
@@ -217,6 +224,7 @@ router.post(
 router.post(
   '/:id/start',
   requireAuth,
+  requireRole('admin'),
   apiLimiter,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -239,6 +247,7 @@ router.post(
 router.post(
   '/:id/stop',
   requireAuth,
+  requireRole('admin'),
   apiLimiter,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -262,6 +271,7 @@ router.post(
 router.post(
   '/:id/restart',
   requireAuth,
+  requireRole('admin'),
   apiLimiter,
   validateBody(AppRestartBody),
   asyncHandler(async (req, res) => {
@@ -296,6 +306,7 @@ router.post(
 router.get(
   '/:id/config',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const config = await appService.getAppConfig(id);
@@ -314,6 +325,7 @@ router.get(
 router.post(
   '/:id/config',
   requireAuth,
+  requireRole('admin'),
   validateBody(AppConfigBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;

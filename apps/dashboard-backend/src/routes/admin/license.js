@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError } = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
@@ -18,7 +18,7 @@ const logger = require('../../utils/logger');
 router.get(
   '/info',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const info = await licenseService.getLicenseInfo();
 
@@ -33,7 +33,7 @@ router.get(
 router.get(
   '/fingerprint',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const fingerprint = await licenseService.getHardwareFingerprint();
 
@@ -48,7 +48,7 @@ router.get(
 router.post(
   '/activate',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   validateBody(ActivateLicenseBody),
   asyncHandler(async (req, res) => {
     const { licenseKey } = req.body;
@@ -86,7 +86,7 @@ router.post(
 router.get(
   '/check/:feature',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { feature } = req.params;
     const allowed = await licenseService.isFeatureAllowed(feature);

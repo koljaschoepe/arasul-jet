@@ -66,7 +66,8 @@ jest.mock('../../src/middleware/auth', () => {
   };
 
   authMiddleware.requireAuth = authMiddleware;
-  authMiddleware.requireAdmin = (req, res, next) => next();
+  authMiddleware.requireRole = () => (req, res, next) => next();
+  authMiddleware.ROLLEN = ['admin', 'mitarbeiter'];
   authMiddleware.optionalAuth = (req, res, next) => next();
 
   return authMiddleware;

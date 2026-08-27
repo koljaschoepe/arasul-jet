@@ -22,6 +22,8 @@ import { queryClient } from '../lib/queryClient';
 interface User {
   id: number;
   username: string;
+  /** `admin` oder `mitarbeiter` (Phase C1); das Backend liefert sie mit jeder Anmeldung. */
+  role?: 'admin' | 'mitarbeiter';
   [key: string]: unknown;
 }
 
