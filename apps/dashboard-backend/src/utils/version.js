@@ -47,4 +47,25 @@ function versionFuerVergleich() {
   return gesetzt && gesetzt.trim() ? gesetzt.trim() : '0.0.0';
 }
 
-module.exports = { versionFuerAnzeige, versionFuerVergleich };
+/**
+ * Weiss das Geraet, welche Fassung es ist?
+ *
+ * Die Frage klingt nach einer Formalie und ist die wichtigste im
+ * Aktualisierungsweg. `versionFuerVergleich()` gibt ohne gesetzte Version
+ * `0.0.0` zurueck, und das ist fuer den Vergleich „ist das Angebotene neuer"
+ * genau richtig -- fuer die andere Richtung aber falsch: `validateManifest`
+ * lehnt damit JEDES Paket mit `min_version` ueber 0.0.0 ab, und die Begruendung
+ * lautete „Current version 0.0.0 is below minimum required version 1.0.0".
+ * Wer das liest, sucht den Fehler im Paket. Der Fehler ist aber, dass das
+ * Geraet seine eigene Fassung nicht kennt.
+ *
+ * `SYSTEM_VERSION` setzt der Bau (Phase C10). Bis dahin ist die ehrliche
+ * Antwort auf jede Frage nach einer Aktualisierung: das laesst sich nicht
+ * entscheiden, weil hier keine Fassung steht.
+ */
+function versionBekannt() {
+  const gesetzt = process.env.SYSTEM_VERSION;
+  return Boolean(gesetzt && gesetzt.trim());
+}
+
+module.exports = { versionFuerAnzeige, versionFuerVergleich, versionBekannt };

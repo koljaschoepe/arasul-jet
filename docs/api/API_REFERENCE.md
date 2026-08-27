@@ -703,6 +703,35 @@ Gegen das Gerät misst das `scripts/test/mitarbeiter-abnahme.sh`.
 **GET /api/update/check** und **POST /api/update/download** verlangen
 **Admin**, nicht nur eine Anmeldung.
 
+**Zwei Dinge, die dieser Weg seit Phase C9 (27.08.2026) ehrlich sagt.**
+
+_Erstens: kennt das Gerät seine eigene Fassung?_ `SYSTEM_VERSION` setzt der Bau,
+und der versioniert erst ab Phase C10. Bis dahin lautet die Antwort
+`fassung.bekannt: false`, und `check` fragt den Aktualisierungsserver gar nicht
+erst — er bekäme `current_version=0.0.0` und böte jede Fassung an, die es je
+gab. Ein Paket wird dann mit genau dieser Begründung abgelehnt: das Gerät kennt
+seine eigene Fassung nicht. Vorher stand dort „Current version 0.0.0 is below
+minimum required version 1.0.0", und wer das liest, sucht den Fehler im Paket.
+
+_Zweitens: kann dieses Gerät ein Paket überhaupt einspielen?_
+`einspielenMoeglich` beantwortet das **vor** dem ersten Handgriff. Der Ablauf
+ruft `docker` und `docker-compose` als Programme auf; im Backend-Container gibt
+es beide nicht. Bis C9 antwortete `apply` trotzdem `started` und starb danach
+still. Was am Gerät wirklich aktualisiert, ist der Deploy
+(`scripts/deploy/deploy-local.sh`) beziehungsweise `./arasul update`.
+
+**GET /api/update/status Response (Auszug):**
+
+```json
+{
+  "status": "idle",
+  "fassung": { "version": null, "anzeige": "Vorserie", "bekannt": false },
+  "einspielenMoeglich": false,
+  "einspielenGrund": "Ein Paket lässt sich an diesem Gerät nicht über die Schnittstelle einspielen: …",
+  "timestamp": "2026-08-27T10:00:00.000Z"
+}
+```
+
 **POST /api/update/download:**
 
 Body: `downloadUrl`, `version`. Nur `https://` ist erlaubt, alles andere ist ein
@@ -717,6 +746,10 @@ Auth: erforderlich, **Admin**. Body: `file_path`. Der Pfad muss unterhalb von
 `/arasul/updates` oder `/tmp/updates` liegen, sonst `VALIDATION_ERROR`; das ist
 die Sperre gegen Pfadausbruch. Läuft bereits eine Aktualisierung, antwortet der
 Endpunkt mit `409 CONFLICT`; fehlt die Datei, mit `404`.
+
+Kann das Gerät gar nicht einspielen (siehe `einspielenMoeglich` oben), antwortet
+er mit `503 SERVICE_UNAVAILABLE` und der Begründung — **bevor** irgendetwas
+gesichert oder ersetzt wird.
 
 **POST /api/update/upload:**
 
@@ -1565,97 +1598,173 @@ DSGVO Art. 17 right to erasure. Löscht Chats samt Anhängen, die aktiven Sessio
 
 ---
 
-### Backup (External SSD)
+### Sichern und Wiederherstellen
 
-All endpoints require admin authentication (`requireAuth` + `requireRole('admin')`).
-
-The backup path defaults to `/mnt/external-ssd` and can be overridden with `EXTERNAL_BACKUP_PATH`.
+Alle Endpunkte verlangen eine Anmeldung als `admin` (`requireAuth` +
+`requireRole('admin')`).
 
 **Zwei verschiedene Dinge, und sie waren bis zum 23.08.2026 eines.**
-`backupEnabled` stand auf „haengt eine externe Platte dran". Auf dem Orin
-gemessen: keine Platte angesteckt, Antwort `backupEnabled: false` — und
-gleichzeitig 38 Postgres-Sicherungen, 328 WAL-Segmente, letzte Sicherung drei
-Stunden alt. Wer eine eigene Anwendung dagegen baut, schloss daraus, die
-Sicherung sei aus.
+`backupEnabled` stand auf „hängt eine externe Platte dran". Auf dem Orin
+gemessen: keine Platte angesteckt, Antwort `false` — und gleichzeitig 38
+Postgres-Sicherungen, 328 WAL-Segmente, letzte Sicherung drei Stunden alt. Wer
+eine eigene Anwendung dagegen baute, schloss daraus, die Sicherung sei aus.
+Seit Phase C9 heißt die Antwort auf die erste Frage `sichertWirklich`, und die
+zweite hat eine eigene: `ausserhalb`.
 
-| Feld                | Bedeutung                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| `backupEnabled`     | Es wird wirklich gesichert (letzter Lauf `completed` und nicht aelter als 48 Stunden) |
-| `ssdBackupMoeglich` | Eine externe Platte ist eingehaengt                                                   |
-| `letzteSicherung`   | Stand und Alter des letzten Laufs                                                     |
+| Method | Endpoint                        | Beschreibung                                               |
+| ------ | ------------------------------- | ---------------------------------------------------------- |
+| GET    | `/api/backup/status`            | Sichert das Gerät? Wann lag zuletzt eine Kopie außer Haus? |
+| GET    | `/api/backup/sicherungen`       | Was liegt da — Name, Art, Größe, Datum                     |
+| POST   | `/api/backup/sicherung`         | Jetzt sichern (dauert Minuten, antwortet erst danach)      |
+| POST   | `/api/backup/wiederherstellung` | Zurück auf eine Sicherung, danach laufen die Apps wieder   |
+| POST   | `/api/backup/test`              | Wiederherstellungstest gegen eine Wegwerf-Datenbank        |
 
-Die Quelle fuer den Sicherungsstand ist dieselbe Datei wie bei
-`/api/ops/overview`.
+Gesichert werden vier Dinge, und die Frage dahinter ist jedes Mal dieselbe: was
+bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn es fehlt?
 
-| Method | Endpoint              | Description                                   |
-| ------ | --------------------- | --------------------------------------------- |
-| GET    | `/api/backup/status`  | Zustand der Sicherung UND der externen Platte |
-| POST   | `/api/backup/trigger` | Trigger a manual backup to external SSD       |
-| GET    | `/api/backup/history` | List previous backup directories on SSD       |
+| Art        | Was                                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postgres` | Nutzer und Rollen, Apps und Stände, Freigaben, Schlüssel je App, Flow-Läufe mit Schritten, Freigabe-Anfragen, Modell-Überschreibungen, das Migrationsbuch                       |
+| `apps`     | Die **Pakete** der Apps (`/arasul/apps/<id>/<version>/`) — Manifest, fertiges Frontend, Dockerfile mit Kontext. Die Images werden nicht gesichert, sie werden daraus neu gebaut |
+| `flows`    | Die Flow-Dateien, die ein Mensch am Gerät geschrieben hat (`/arasul/flows`)                                                                                                     |
+| `config`   | `.env`, Zertifikate, Traefik, Geheimnisse — **ohne** den Sicherungsschlüssel selbst                                                                                             |
+
+App-**Volumes** stehen nicht in dieser Liste, weil es keine gibt: eine App
+bekommt weder Bind-Mount noch benanntes Volume
+(`services/app/appContainer.js`); ein abgeschirmter Datenordner je App kommt
+mit den D-Phasen.
 
 **GET /api/backup/status Response:**
 
 ```json
 {
-  "ssd": {
-    "mounted": true,
-    "path": "/mnt/external-ssd",
-    "totalBytes": 1000000000000,
-    "usedBytes": 200000000000,
-    "availableBytes": 800000000000
+  "data": {
+    "sichertWirklich": true,
+    "letzteSicherung": {
+      "status": "completed",
+      "zeitpunkt": "2026-08-27T02:00:54+00:00",
+      "alterStunden": 3,
+      "veraltet": false,
+      "verschluesselt": true,
+      "groesse": "4.9G",
+      "apps": "true",
+      "flows": "true",
+      "konfiguration": "true"
+    },
+    "ausserhalb": {
+      "vorhanden": true,
+      "zeitpunkt": "2026-08-27T02:03:11+02:00",
+      "bytes": 5211334,
+      "dateien": 4,
+      "ziel": "/arasul/extern",
+      "letzterVersuch": "kopiert"
+    },
+    "wiederherstellungstest": { "status": "ok", "zeitpunkt": "...", "tabellen": 14 },
+    "letzteWiederherstellung": null,
+    "laeuftGerade": null
   },
-  "backupEnabled": true,
-  "ssdBackupMoeglich": true,
-  "letzteSicherung": {
-    "status": "completed",
-    "zeitpunkt": "2026-08-23T02:00:54+00:00",
-    "alterStunden": 3,
-    "veraltet": false
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
+  "timestamp": "2026-08-27T10:00:00.000Z"
 }
 ```
 
-When no SSD is connected:
+`ausserhalb` beantwortet die Frage „wann lag zuletzt eine Kopie **außerhalb**
+des Geräts" — auf einem USB-Datenträger oder einer SMB-Freigabe im Kundennetz.
+Kein Cloud-Ziel. Hat es noch nie eine gegeben, ist die Antwort leer und sagt
+das; `letzterVersuch` nennt dann den Grund (`kein_ziel`, `nicht_eingehaengt`,
+`nicht_beschreibbar`, `abgeschaltet`, `fehler`):
 
 ```json
 {
-  "ssd": { "mounted": false, "reason": "No device mounted at mount point" },
-  "backupEnabled": false,
-  "timestamp": "2026-01-15T10:00:00.000Z"
+  "vorhanden": false,
+  "zeitpunkt": null,
+  "bytes": null,
+  "dateien": null,
+  "ziel": null,
+  "letzterVersuch": "kein_ziel"
 }
 ```
 
-**POST /api/backup/trigger:**
-
-On-demand backup is not implemented — scheduled backups run inside the separate
-`backup-service` container (`BACKUP_USB_ENABLED` / `BACKUP_USB_MOUNT`), not on
-request from this backend. Returns `400 VALIDATION_ERROR` if no external SSD is
-mounted, otherwise `501 NOT_IMPLEMENTED`.
+**GET /api/backup/sicherungen Response:**
 
 ```json
-// 501 Response
 {
-  "error": {
-    "code": "NOT_IMPLEMENTED",
-    "message": "Manuelles Backup ist noch nicht verfügbar. Backups laufen automatisch geplant über den Backup-Service.",
-    "details": { "scheduled": true, "targetPath": "/mnt/external-ssd" }
+  "data": [
+    {
+      "art": "postgres",
+      "zweck": "Datenbank",
+      "name": "arasul_db_20260827_020054.sql.gz",
+      "bytes": 4211334,
+      "zeitpunkt": "2026-08-27T02:00:54.000Z"
+    },
+    {
+      "art": "apps",
+      "zweck": "Die Pakete der Apps",
+      "name": "apps_20260827_020054.tar.gz",
+      "bytes": 812334,
+      "zeitpunkt": "2026-08-27T02:00:58.000Z"
+    }
+  ],
+  "anzahl": 42,
+  "bytes": 5211334000,
+  "ordner": "/arasul/backups",
+  "timestamp": "2026-08-27T10:00:00.000Z"
+}
+```
+
+Gelesen wird die Platte, nicht der Bericht der letzten Nacht: der Bericht sagt,
+was getan wurde, die Platte sagt, was heute noch zurückspielbar ist.
+
+**POST /api/backup/wiederherstellung:**
+
+```json
+{ "datei": "arasul_db_20260827_020054.sql.gz", "bestaetigung": "wiederherstellen" }
+```
+
+`datei` ist ein **Name**, kein Pfad, und liegt im Sicherungsordner; ohne Angabe
+gilt die neueste. `bestaetigung` muss das Wort `wiederherstellen` sein — kein
+`true`: dieser Aufruf ersetzt die ganze Datenbank, und ein `{"bestaetigung":
+true}` schreibt sich in einem Skript versehentlich hin.
+
+Zwei Schritte in einem Aufruf, und der zweite ist der, den man vergisst:
+`wiederherstellen.sh` im Sicherungs-Container holt Datenbank, App-Pakete und
+Flow-Dateien zurück; danach spielt das Backend **jeden App-Stand aus seinem
+Paket neu ein** — Image bauen (auf einem leeren Gerät gibt es keines mehr),
+frischer API-Schlüssel, Container starten. Ohne den zweiten Schritt wäre eine
+Wiederherstellung eine Datenbank voller Apps, von denen keine antwortet.
+
+```json
+{
+  "data": {
+    "erfolg": true,
+    "bericht": {
+      "status": "fertig",
+      "tabellen": 96,
+      "apps": "ok",
+      "flows": "ok",
+      "vorher_gesichert": "vorher_20260827_101500.sql.gz"
+    },
+    "apps": [
+      {
+        "app_id": "beispielapp",
+        "stand": "live",
+        "version": "1.0.0",
+        "erfolg": true,
+        "grund": null
+      }
+    ],
+    "ausgabe": "…"
   },
-  "timestamp": "2026-01-15T10:00:00.000Z"
+  "timestamp": "2026-08-27T10:20:00.000Z"
 }
 ```
 
-**GET /api/backup/history Response:**
+Eine App, die nicht hochkommt, hält die anderen nicht auf; sie steht mit ihrem
+Grund in `apps` und `erfolg` ist dann `false`.
 
-```json
-{
-  "backups": [{ "name": "2026-01-15T08-00-00" }, { "name": "2026-01-14T08-00-00" }],
-  "ssd": { "mounted": true, "path": "/mnt/external-ssd", "...": "..." },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-Returns an empty `backups` array if the SSD is not mounted or no backups exist yet.
+**Fehler:** `409 CONFLICT`, wenn schon ein Sicherungs- oder
+Wiederherstellungslauf läuft. `503 SERVICE_UNAVAILABLE`, wenn der
+Sicherungsdienst nicht läuft — ohne ihn lässt sich weder sichern noch
+zurückspielen.
 
 ---
 

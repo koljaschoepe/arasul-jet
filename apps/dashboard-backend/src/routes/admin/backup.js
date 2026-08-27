@@ -1,138 +1,114 @@
 /**
- * Backup API routes (SSD-based backup)
- * Stub endpoints for future external SSD backup management
+ * Sichern, auflisten, wiederherstellen (Phase C9 des Umbaus vom 26.08.2026).
+ *
+ * BIS HIERHER WAR DAS EIN PLATZHALTER. `POST /trigger` warf
+ * `NotImplementedError` und verwies auf den Zeitplan, `GET /history` zaehlte
+ * Ordner auf einer externen SSD, die es an keinem Geraet gab, und
+ * wiederherstellen liess sich ueber die Schnittstelle gar nichts. Fuer eine
+ * Abnahme, die nur ueber einen Tunnel messen kann, war damit nichts messbar.
+ *
+ * Jetzt beantwortet dieser Router vier Fragen, und jede davon aus dem Geraet
+ * und nicht aus einer Absichtserklaerung:
+ *
+ *   GET  /api/backup/status              Sichert dieses Geraet wirklich? Wann
+ *                                        lag zuletzt eine Kopie AUSSERHALB?
+ *   GET  /api/backup/sicherungen         Was liegt da, wie gross, wie alt?
+ *   POST /api/backup/sicherung           Jetzt sichern.
+ *   POST /api/backup/wiederherstellung   Zurueck -- und danach laufen die Apps
+ *                                        wieder, aus ihren gesicherten Paketen
+ *                                        neu gebaut.
+ *   POST /api/backup/test                Der Wiederherstellungstest, ohne den
+ *                                        Betrieb anzufassen.
+ *
+ * WER DARF DAS: `admin`. Eine Wiederherstellung ersetzt die ganze Datenbank;
+ * das ist kein Knopf fuer einen Mitarbeiter.
  */
 
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotImplementedError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { logSecurityEvent } = require('../../utils/auditLog');
 const logger = require('../../utils/logger');
-const fs = require('fs').promises;
-const { execFile } = require('child_process');
-const { promisify } = require('util');
-
-const execFilePromise = promisify(execFile);
-
-const EXTERNAL_MOUNT = process.env.EXTERNAL_BACKUP_PATH || '/mnt/external-ssd';
-// Dieselbe Datei, aus der `/api/ops/overview` liest. Eine zweite Quelle fuer
-// dieselbe Zahl waere genau der Widerspruch, den dieser Endpunkt hatte.
-const BACKUP_REPORT_PATH = process.env.BACKUP_REPORT_PATH || '/arasul/backups/backup_report.json';
-
-/**
- * Der letzte Sicherungslauf, so wie ihn das Sicherungs-Skript hinterlaesst.
- *
- * Faellt der Bericht weg, gilt die Sicherung als fehlend und veraltet. Ein
- * fehlender Bericht ist kein "unbekannt": wer nicht belegen kann, dass er
- * gesichert hat, hat fuer diese Frage nicht gesichert.
- */
-async function leseSicherungsbericht() {
-  try {
-    const roh = await fs.readFile(BACKUP_REPORT_PATH, 'utf8');
-    const bericht = JSON.parse(roh);
-    const stat = await fs.stat(BACKUP_REPORT_PATH);
-    const alterStunden = Math.round((Date.now() - stat.mtimeMs) / 36e5);
-    return {
-      status: bericht.status || 'unknown',
-      timestamp: bericht.timestamp || null,
-      ageHours: alterStunden,
-      stale: alterStunden > 48,
-    };
-  } catch {
-    return { status: 'missing', timestamp: null, ageHours: null, stale: true };
-  }
-}
-
-/**
- * Check if external SSD is mounted and accessible
- */
-async function getSsdStatus() {
-  try {
-    await fs.access(EXTERNAL_MOUNT);
-    const stats = await fs.stat(EXTERNAL_MOUNT);
-
-    if (!stats.isDirectory()) {
-      return { mounted: false, reason: 'Mount point is not a directory' };
-    }
-
-    // Check if it's a real mount (not just an empty dir)
-    let isMounted = false;
-    try {
-      const { stdout } = await execFilePromise('mountpoint', ['-q', EXTERNAL_MOUNT]);
-      isMounted = true;
-    } catch {
-      // mountpoint returns non-zero if not a mount
-      isMounted = false;
-    }
-
-    if (!isMounted) {
-      return { mounted: false, reason: 'No device mounted at mount point' };
-    }
-
-    // Get disk usage
-    const { stdout } = await execFilePromise('df', [
-      '-B1',
-      '--output=size,used,avail',
-      EXTERNAL_MOUNT,
-    ]);
-    const lines = stdout.trim().split('\n');
-    if (lines.length >= 2) {
-      const [size, used, avail] = lines[1].trim().split(/\s+/).map(Number);
-      return {
-        mounted: true,
-        path: EXTERNAL_MOUNT,
-        totalBytes: size,
-        usedBytes: used,
-        availableBytes: avail,
-      };
-    }
-
-    return { mounted: true, path: EXTERNAL_MOUNT };
-  } catch {
-    return { mounted: false, reason: 'Mount point not accessible' };
-  }
-}
+const sicherungsdienst = require('../../services/betrieb/sicherungsdienst');
+const { WiederherstellungBody } = require('../../schemas/admin-backup');
 
 /**
  * GET /api/backup/status
  *
  * Zwei verschiedene Dinge, die hier bis zum 23.08.2026 eines waren.
+ * `backupEnabled` stand auf „haengt eine externe Platte dran". Auf dem Orin
+ * gemessen: keine Platte angesteckt, Antwort `false` -- und gleichzeitig 38
+ * Postgres-Sicherungen, 4,9 GB, letzte Sicherung drei Stunden alt. Das Geraet
+ * sicherte also, und der Endpunkt sagte das Gegenteil.
  *
- * `backupEnabled` stand auf `ssdStatus.mounted`, also auf "haengt eine externe
- * Platte dran". Auf dem Orin gemessen: keine Platte angesteckt, Antwort
- * `backupEnabled: false` — und gleichzeitig 38 Postgres-Sicherungen, 37 fuer
- * 328 WAL-Segmente, 4,9 GB, letzte Sicherung drei Stunden alt, und eine
- * Wiederherstellungsprobe derselben Nacht mit sechs geprueften Tabellen.
- *
- * Das Geraet sichert also, und der Endpunkt sagte das Gegenteil. Wer eine
- * eigene Anwendung dagegen baut, schliesst daraus, die Sicherung sei aus.
- *
- * Jetzt sagt die Antwort beides getrennt: ob eine externe Platte da ist, und ob
- * wirklich gesichert wird. Die Quelle fuer das Zweite ist dieselbe Datei, aus
- * der auch `/api/ops/overview` liest.
+ * Seit Phase C9 sind es endgueltig zwei getrennte Angaben: `sichertWirklich`
+ * (hat es gesichert) und `ausserhalb` (liegt eine Kopie ausser Haus). Die
+ * zweite ist leer, solange noch nie eine entstanden ist -- und sagt das,
+ * statt zu schweigen.
  */
 router.get(
   '/status',
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const ssdStatus = await getSsdStatus();
-    const bericht = await leseSicherungsbericht();
+    res.json({ data: await sicherungsdienst.status(), timestamp: new Date().toISOString() });
+  })
+);
 
+/**
+ * GET /api/backup/sicherungen
+ *
+ * Gelesen wird die Platte, nicht der Bericht der letzten Nacht: der Bericht
+ * sagt, was getan wurde, die Platte sagt, was heute noch zurueckspielbar ist.
+ */
+router.get(
+  '/sicherungen',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const liste = await sicherungsdienst.sicherungen();
     res.json({
-      ssd: ssdStatus,
-      // Bleibt erhalten, weil eine dokumentierte Antwortform nicht still die
-      // Bedeutung wechselt. Aber sie sagt jetzt die Wahrheit: laeuft die
-      // Sicherung.
-      backupEnabled: bericht.status === 'completed' && !bericht.stale,
-      // Was frueher `backupEnabled` hiess und wirklich gemeint war.
-      ssdBackupMoeglich: ssdStatus.mounted,
-      letzteSicherung: {
-        status: bericht.status,
-        zeitpunkt: bericht.timestamp,
-        alterStunden: bericht.ageHours ?? null,
-        veraltet: bericht.stale,
+      data: liste,
+      anzahl: liste.length,
+      bytes: liste.reduce((summe, s) => summe + s.bytes, 0),
+      ordner: sicherungsdienst.SICHERUNGS_ORDNER,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/backup/sicherung
+ *
+ * Sichert JETZT. Die Antwort kommt erst, wenn es durch ist -- am Jetson sind
+ * das Minuten. Das ist Absicht: ein `202 angenommen` mit einem Zustand zum
+ * Nachfragen waere ein zweiter Zustandsautomat fuer einen Vorgang, der ohnehin
+ * hoechstens einmal am Tag laeuft, und die Abnahme muesste ihn abfragen,
+ * statt eine Antwort zu lesen.
+ */
+router.post(
+  '/sicherung',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    logger.info(`Sicherung von Hand angestossen von ${req.user.username}`);
+    const ergebnis = await sicherungsdienst.sichereJetzt();
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'sicherung_angestossen',
+      details: { erfolg: ergebnis.erfolg },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.status(ergebnis.erfolg ? 200 : 500).json({
+      data: {
+        erfolg: ergebnis.erfolg,
+        bericht: ergebnis.bericht,
+        ausgabe: ergebnis.ausgabe,
       },
       timestamp: new Date().toISOString(),
     });
@@ -140,75 +116,63 @@ router.get(
 );
 
 /**
- * POST /api/backup/trigger
- * Trigger a manual backup to external SSD
+ * POST /api/backup/wiederherstellung
+ *
+ * Der Weg zurueck. Zwei Schritte in einem Aufruf: das Skript im
+ * Sicherungs-Container holt Datenbank, App-Pakete und Flow-Dateien zurueck,
+ * danach baut das Backend jeden App-Stand aus seinem Paket neu.
+ *
+ * OHNE `bestaetigung` PASSIERT NICHTS. Das ist der Aufruf, der die ganze
+ * Datenbank ersetzt; ein Tippfehler in einem Skript darf ihn nicht ausloesen.
  */
 router.post(
-  '/trigger',
+  '/wiederherstellung',
   requireAuth,
   requireRole('admin'),
+  validateBody(WiederherstellungBody),
   asyncHandler(async (req, res) => {
-    const ssdStatus = await getSsdStatus();
+    const { datei, bestaetigung } = req.body;
 
-    if (!ssdStatus.mounted) {
-      // P8.1: throw typed error so the global error handler returns the
-      // canonical {error:{code,message}} envelope instead of a bare-string.
-      throw new ValidationError(
-        'Keine externe SSD erkannt. Bitte SSD anschliessen und erneut versuchen.',
-        { ssd: ssdStatus }
-      );
-    }
-
-    // On-demand backup is not implemented: backup.sh runs on a schedule inside
-    // the separate backup-service container (BACKUP_USB_ENABLED / BACKUP_USB_MOUNT),
-    // not on request from this backend process. Report that honestly instead of
-    // returning success:true without doing anything.
     logger.warn(
-      `Manual backup requested by ${req.user.username} but on-demand trigger is not implemented`
+      `Wiederherstellung angestossen von ${req.user.username} (${datei || 'neueste Sicherung'})`
     );
-    throw new NotImplementedError(
-      'Manuelles Backup ist noch nicht verfügbar. Backups laufen automatisch geplant über den Backup-Service.',
-      { scheduled: true, targetPath: EXTERNAL_MOUNT }
-    );
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'wiederherstellung_angestossen',
+      details: { datei: datei ?? null, bestaetigung },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    const ergebnis = await sicherungsdienst.stelleWiederHer({ datei, durch: req.user.id });
+
+    res.status(ergebnis.erfolg ? 200 : 500).json({
+      data: {
+        erfolg: ergebnis.erfolg,
+        bericht: ergebnis.bericht,
+        apps: ergebnis.apps,
+        ausgabe: ergebnis.ausgabe,
+      },
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 
 /**
- * GET /api/backup/history
- * List previous backups on external SSD
+ * POST /api/backup/test
+ *
+ * Der Wiederherstellungstest: eine Wegwerf-Datenbank, die neueste Sicherung
+ * hinein, nachzaehlen. Er faellt nicht ueber den Betrieb her und beantwortet
+ * die Frage, die ein Zeitplan sonst nur einmal in der Woche stellt.
  */
-router.get(
-  '/history',
+router.post(
+  '/test',
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const ssdStatus = await getSsdStatus();
-
-    if (!ssdStatus.mounted) {
-      return res.json({
-        backups: [],
-        ssd: ssdStatus,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // List backup directories on the SSD
-    const backupsDir = `${EXTERNAL_MOUNT}/backups`;
-    let backups = [];
-
-    try {
-      const entries = await fs.readdir(backupsDir, { withFileTypes: true });
-      backups = entries
-        .filter(e => e.isDirectory())
-        .map(e => ({ name: e.name }))
-        .sort((a, b) => b.name.localeCompare(a.name));
-    } catch {
-      // No backups directory yet
-    }
-
-    res.json({
-      backups,
-      ssd: ssdStatus,
+    const ergebnis = await sicherungsdienst.testeWiederherstellung();
+    res.status(ergebnis.erfolg ? 200 : 500).json({
+      data: { erfolg: ergebnis.erfolg, bericht: ergebnis.bericht, ausgabe: ergebnis.ausgabe },
       timestamp: new Date().toISOString(),
     });
   })

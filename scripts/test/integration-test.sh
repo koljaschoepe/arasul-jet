@@ -462,18 +462,17 @@ fi
 
 log_section "12. Backup System"
 
-# Check backup script exists and is executable
-if [ -x "scripts/backup/backup.sh" ]; then
-  test_pass "Backup script exists and is executable"
-else
-  test_fail "Backup script missing or not executable"
-fi
-
-if [ -x "scripts/backup/restore.sh" ]; then
-  test_pass "Restore script exists and is executable"
-else
-  test_fail "Restore script missing or not executable"
-fi
+# Sichern und wiederherstellen liegen seit Phase C9 im Sicherungs-Container und
+# nicht mehr als zweite Fassung auf dem Host: dort standen sie, wurden vom
+# Zeitplan nie aufgerufen, und der Weg zurueck konnte einen verschluesselten
+# Abzug gar nicht lesen.
+for skript in backup.sh wiederherstellen.sh restore-drill.sh; do
+  if [ -x "services/backup-service/${skript}" ]; then
+    test_pass "${skript} vorhanden und ausfuehrbar"
+  else
+    test_fail "${skript} fehlt oder ist nicht ausfuehrbar"
+  fi
+done
 
 # Check backup directory
 if [ -d "data/backups" ]; then

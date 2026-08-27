@@ -28,7 +28,7 @@ docker compose ps
 
 # Datenbank-Integrität prüfen
 docker exec postgres-db pg_isready -U arasul
-docker exec postgres-db psql -U arasul -d arasul_db -c "SELECT count(*) FROM users;"
+docker exec postgres-db psql -U arasul -d arasul_db -c "SELECT count(*) FROM admin_users;"
 ```
 
 **Erwartete Recovery-Zeit**: < 5 Minuten (automatisch)
@@ -42,14 +42,29 @@ docker exec postgres-db psql -U arasul -d arasul_db -c "SELECT count(*) FROM use
 **Recovery mit Backup**:
 
 ```bash
-# Verfügbare Backups anzeigen
-./scripts/recovery/restore-from-backup.sh --list
+# Verfügbare Sicherungen anzeigen (Name, Art, Größe, Datum)
+curl -sk -H "authorization: Bearer $TOKEN" \
+  https://arasul.local/api/backup/sicherungen | jq .
 
-# Letztes Backup wiederherstellen
-./scripts/recovery/restore-from-backup.sh
+# Erst prüfen, ob sich die neueste überhaupt lesen lässt — ohne etwas anzufassen
+docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe
 
-# Oder spezifisches Backup
-./scripts/recovery/restore-from-backup.sh 2026-03-14_02-00
+# Zurückspielen: Datenbank, App-Pakete, Flow-Dateien
+docker exec backup-service /usr/local/bin/wiederherstellen.sh
+
+# Oder eine bestimmte Sicherung
+docker exec backup-service /usr/local/bin/wiederherstellen.sh \
+  --datei arasul_db_20260827_020054.sql.gz
+```
+
+**Danach müssen die App-Container neu gebaut werden** — die Images sind bei
+einem Plattenschaden mit weg, und das Skript baut sie nicht. Über die
+Schnittstelle macht das Backend beides in einem Aufruf:
+
+```bash
+curl -k -X POST https://arasul.local/api/backup/wiederherstellung \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"bestaetigung":"wiederherstellen"}'
 ```
 
 **Recovery mit WAL (Point-in-Time Recovery)**:
@@ -93,12 +108,33 @@ cd /opt/arasul
 ./arasul setup
 ./arasul bootstrap
 
-# 3. Backup von altem Gerät einspielen
-# (Backup-Festplatte oder S3-Backup)
-./scripts/recovery/restore-from-backup.sh
+# 3. Die SICHERUNG vom alten Gerät holen (USB oder SMB — kein Cloud-Ziel).
+#    Auf dem Datenträger liegt sie unter arasul-sicherung/<datum>/.
+cp /mnt/arasul-sicherung/arasul-sicherung/20260827/* data/backups/postgres/ ...
 
-# 4. Modelle erneut pullen
-docker exec llm-service ollama pull gemma4:26b-q4
+# 4. ZUERST die Konfiguration, VOR dem ersten Start.
+#    Sie kommt aus config_latest.tar.gz und wird NICHT vom
+#    Wiederherstellungsweg eingespielt: einem laufenden Gerät die Zugangsdaten
+#    zu tauschen hieße, dass das Passwort im Container nicht mehr zu dem in der
+#    Datenbank passt. Auf ein leeres Gerät gehört sie von Hand.
+openssl enc -d -aes-256-cbc -pbkdf2 -in config_latest.tar.gz \
+  -pass file:/pfad/zum/backup_encryption_key | tar xz -C /opt/arasul
+
+#    DER SCHLÜSSEL LIEGT NICHT IM ARCHIV. Er ist ausdrücklich ausgenommen —
+#    wer das Archiv öffnen will, braucht ihn vorher. Wenn er nicht außerhalb
+#    des Geräts aufbewahrt wurde, ist an dieser Stelle Schluss.
+
+# 5. Stack hochfahren und den Rest zurückspielen
+docker compose up -d
+docker exec backup-service /usr/local/bin/wiederherstellen.sh
+
+# 6. App-Container aus den gesicherten Paketen neu bauen
+curl -k -X POST https://arasul.local/api/backup/wiederherstellung \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"bestaetigung":"wiederherstellen"}'
+
+# 7. Modelle erneut laden (die Kurzliste, C8)
+docker exec llm-service ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
 ```
 
 **Erwartete Recovery-Zeit**: 1-2 Stunden (inkl. Model-Download)

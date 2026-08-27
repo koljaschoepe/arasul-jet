@@ -37,7 +37,7 @@ keine zentrale Log-Aggregation und keinen Objektspeicher.
 | 8   | self-healing-agent | 9200         | Python              | `healing_engine.py`   | Autonomous recovery             |
 | 9   | docker-proxy       | -            | Docker Socket Proxy | -                     | Secure Docker API access        |
 | 10  | reverse-proxy      | 80/443       | Traefik             | `routes.yml`          | Reverse proxy + SSL             |
-| 11  | backup-service     | -            | Alpine + cron       | `backup.sh`           | Automated backups               |
+| 11  | backup-service     | -            | Alpine + cron       | `backup.sh`           | Sichern und wiederherstellen    |
 | 12  | cloudflared        | -            | Cloudflare Tunnel   | -                     | Remote access tunnel (optional) |
 
 ### Host-Level Services
@@ -175,7 +175,7 @@ Critical dependency chain (enforced via Docker Compose `depends_on` with `condit
 - **metrics-collector** (9100)
 - **llm-service** (11434) - Requires GPU (NVIDIA runtime)
 - **embedding-service** (11435) - läuft ohne Profil mit
-- **backup-service** - Automated backups (cron)
+- **backup-service** - Sichern (cron), wiederherstellen, Wiederherstellungstest
 
 ### Tier 3: Application Services Layer
 

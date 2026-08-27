@@ -266,12 +266,17 @@ else
   fi
 fi
 
-# Backup cron (check for backup.sh in crontab)
-if grep -q "backup.sh" <<<"$(crontab -l 2>/dev/null)"; then
-  check_pass "Backup cron job configured"
+# Die Sicherung laeuft NICHT ueber die Crontab des Hosts, sondern im
+# Sicherungs-Container (`services/backup-service/entrypoint.sh`, Zeitplan
+# `BACKUP_SCHEDULE`). Bis zum 27.08.2026 stand hier eine Warnung, wenn in der
+# Crontab kein `backup.sh` steht -- auf einem korrekt eingerichteten Geraet
+# steht dort keines, und die Warnung riet dazu, eine ZWEITE Sicherung neben
+# der laufenden einzurichten.
+if grep -q '^backup-service$' <<<"$(docker ps --format '{{.Names}}' 2>/dev/null)"; then
+  check_pass "Sicherungsdienst laeuft"
 else
-  check_warn "No backup cron job found"
-  echo -e "    ${YELLOW}Add: crontab -e → 0 2 * * * ${PROJECT_ROOT}/scripts/backup/backup.sh${NC}"
+  check_warn "Sicherungsdienst laeuft nicht — dieses Geraet sichert gerade nicht"
+  echo -e "    ${YELLOW}docker compose up -d backup-service${NC}"
 fi
 
 # Disk space

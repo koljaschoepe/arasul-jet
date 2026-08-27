@@ -176,30 +176,53 @@ Das System ueberwacht alle Dienste automatisch:
 
 ### Automatische Backups
 
-Das System erstellt automatisch taegliche Backups um 02:00 Uhr:
+Das Geraet sichert jede Nacht um 02:00 Uhr **vier** Dinge:
 
-- **PostgreSQL-Datenbank:** Alle Einstellungen, Benutzer, Flow-Laeufe
-- **Flows:** Die Flow-Definitionen unter `data/flows/`
+| Was             | Warum es fehlen wuerde                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| Datenbank       | Mitarbeiter, Rollen, Apps und Staende, Freigaben, Flow-Laeufe, Einstellungen                        |
+| Pakete der Apps | Woraus das Geraet die App-Container baut. Ohne sie nennt die Datenbank Apps, die es nicht mehr gibt |
+| Flow-Dateien    | Was jemand am Geraet selbst geschrieben hat                                                         |
+| Konfiguration   | Ohne sie faehrt auf einem leeren Geraet kein Container hoch                                         |
+
+**Eine Kopie ausserhalb des Geraets** (USB-Stick oder eine Freigabe im
+Firmennetz) legt der Dienst dazu, sobald einer angesteckt ist. Kein Cloud-Ziel:
+die Daten bleiben im Haus. Steckt keiner, sichert das Geraet weiter lokal und
+sagt in der Uebersicht, wann zuletzt eine Kopie ausser Haus entstanden ist.
+
+**Der Sicherungsschluessel gehoert nicht auf das Geraet.** Er liegt unter
+`config/secrets/backup_encryption_key` und ist ausdruecklich NICHT im Archiv:
+wer eine Sicherung oeffnen will, braucht ihn vorher. Eine Kopie davon gehoert
+in den Safe. Ohne ihn ist nach einem Geraeteverlust jede Sicherung Papier.
 
 ### Manuelles Backup
 
 ```bash
 ssh -p 2222 arasul@<jetson-ip>
-./scripts/backup/backup.sh
+docker exec backup-service /usr/local/bin/backup.sh
 ```
 
 ### Backup wiederherstellen
 
 ```bash
-# Letztes Backup wiederherstellen:
-./scripts/backup/restore.sh --latest --all
+# Erst schauen, ob sich die neueste Sicherung lesen laesst — ohne etwas anzufassen:
+docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe
 
-# Bestimmtes Datum:
-./scripts/backup/restore.sh --all --date 20260217
+# Zurueckspielen: Datenbank, Pakete der Apps, Flow-Dateien
+docker exec backup-service /usr/local/bin/wiederherstellen.sh
 
-# Nur Datenbank:
-./scripts/backup/restore.sh --postgres --latest
+# Eine bestimmte Sicherung:
+docker exec backup-service /usr/local/bin/wiederherstellen.sh \
+  --datei arasul_db_20260827_020054.sql.gz
 ```
+
+Danach muessen die App-Container aus ihren Paketen neu gebaut werden. Ueber die
+Schnittstelle macht das Geraet beides in einem Aufruf; der Weg steht in
+[BACKUP_SYSTEM.md](BACKUP_SYSTEM.md#der-weg-zurück).
+
+**Was vorher da war, geht nicht verloren:** vor dem Zurueckspielen legt das
+Geraet einen Abzug des jetzigen Standes unter
+`data/backups/vor_wiederherstellung/` ab.
 
 ### Aufbewahrung
 

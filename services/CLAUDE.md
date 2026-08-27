@@ -13,7 +13,7 @@
 | `document-indexer/`   | Text extraction (`/extract-text`, multipart, no DB)  | Python  |
 | `self-healing-agent/` | Watches services, restarts/recovers, optional reboot | Python  |
 | `metrics-collector/`  | CPU/RAM/GPU/temperature → Postgres                   | Python  |
-| `backup-service/`     | Scheduled `pg_dump` + restore-drill                  | Bash    |
+| `backup-service/`     | Sichern, wiederherstellen, Wiederherstellungstest    | Bash    |
 | `postgres/`           | DB image, migrations — **see `postgres/CLAUDE.md`**  | SQL     |
 | `cloudflared/`        | Cloudflare tunnel client                             | config  |
 
