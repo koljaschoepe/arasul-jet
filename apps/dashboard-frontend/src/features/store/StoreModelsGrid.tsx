@@ -31,7 +31,6 @@ import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudge
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useActivation } from '@/contexts/ActivationContext';
-import { ModellHinzufuegen } from './ModellHinzufuegen';
 import {
   useStoreCatalog,
   isModelInstalled,
@@ -97,20 +96,9 @@ function modelStatus(
   return 'available';
 }
 
-function ModelCard({
-  model,
-  loadedId,
-  onEntfernt,
-}: {
-  model: CatalogModel;
-  loadedId: string | null;
-  onEntfernt?: () => void;
-}) {
+function ModelCard({ model, loadedId }: { model: CatalogModel; loadedId: string | null }) {
   const { isDownloading, getDownloadState, startDownload, cancelDownload } = useDownloads();
   const selectExtension = useExtensionStore(s => s.selectExtension);
-  const api = useApi();
-  const toast = useToast();
-  const [entfernt, setEntfernt] = useState(false);
   // Sofort-Feedback: der Ollama-Pull braucht anfangs Sekunden, bis der SSE-
   // Fortschritt einsetzt (Manifest auflösen). „Startet …" überbrückt diese
   // Lücke, damit der Klick nie ins Leere läuft (Nutzerkritik B3).
@@ -182,34 +170,6 @@ function ModelCard({
         </div>
         <p className="line-clamp-2 text-xs text-muted-foreground">{model.description}</p>
       </button>
-
-      {/* Selbst hinzugefuegt heisst: auch wieder wegnehmbar. Ohne diesen Knopf
-          stuende ein Tippfehler im Namen fuer immer im Katalog des Kunden. Nur
-          solange nichts installiert ist — sonst waere die Karte weg und das
-          Modell laege weiter auf der Platte. */}
-      {model.selbst_hinzugefuegt && !isModelInstalled(model) && !downloadState && (
-        <div className="border-t border-border px-2.5 py-1.5">
-          <button
-            type="button"
-            disabled={entfernt}
-            data-testid={`model-katalog-entfernen-${model.id}`}
-            className="text-ui-xs text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-50"
-            onClick={async () => {
-              setEntfernt(true);
-              try {
-                await api.del(`/models/katalog/${model.id}`);
-                toast.success(`„${anzeige}" ist nicht mehr im Katalog.`);
-                onEntfernt?.();
-              } catch {
-                // `useApi` zeigt die Meldung des Servers bereits an.
-                setEntfernt(false);
-              }
-            }}
-          >
-            Aus dem Katalog nehmen
-          </button>
-        </div>
-      )}
 
       {(downloadState || canDownload || starting) && (
         <div className="border-t border-border p-2.5">
@@ -634,9 +594,6 @@ export function StoreModelsGrid() {
         <>
           <div className="shrink-0 px-4 pt-4">
             <ModelsDashboard models={models} shown={visible.length} />
-            <div className="mt-3">
-              <ModellHinzufuegen onHinzugefuegt={() => invalidateModels()} />
-            </div>
           </div>
           <div className="@container min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <div className="flex flex-col gap-6">
@@ -650,12 +607,7 @@ export function StoreModelsGrid() {
                   </h3>
                   <div className="grid grid-cols-1 gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3 @6xl:grid-cols-4">
                     {group.models.map(model => (
-                      <ModelCard
-                        key={model.id}
-                        model={model}
-                        loadedId={loadedId}
-                        onEntfernt={() => invalidateModels()}
-                      />
+                      <ModelCard key={model.id} model={model} loadedId={loadedId} />
                     ))}
                   </div>
                 </section>
@@ -670,12 +622,6 @@ export function StoreModelsGrid() {
               ? 'Keine Modelle passen zu Suche/Filter.'
               : 'Noch keine Modelle im Katalog.'}
           </p>
-          {/* Auch im leeren Katalog erreichbar: genau dort braucht man ihn. */}
-          {!isFiltered && (
-            <div className="flex justify-center">
-              <ModellHinzufuegen onHinzugefuegt={() => invalidateModels()} />
-            </div>
-          )}
         </div>
       )}
     </div>

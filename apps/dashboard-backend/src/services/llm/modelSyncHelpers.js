@@ -8,6 +8,15 @@
  *
  * Extracted from modelService.js for maintainability.
  *
+ * Der Abgleich laeuft in EINE Richtung: was der Katalog kennt und in Ollama
+ * liegt, gilt als installiert. Umgekehrt nicht. Bis Phase C8 (27.08.2026) gab
+ * es `importUnknownModels`: jedes Modell, das nur in Ollama lag, wurde als
+ * Minimal-Eintrag in den Katalog uebernommen. Das war richtig, solange der
+ * Katalog eine Empfehlung war -- mit der Kurzliste ist er eine Zusage, und ein
+ * Abgleich, der ungefragt Eintraege nachtraegt, haette sie nach dem naechsten
+ * Start wieder aufgefuellt. Der Katalog kommt jetzt ausschliesslich aus
+ * Migrationen (`config/modelle/kurzliste.json`, Migration 175).
+ *
  * Usage: const helpers = createSyncHelpers({ database, logger, ... });
  */
 
@@ -38,61 +47,6 @@ function tagVarianten(name) {
 /** Ist `name` (in irgendeiner `:latest`-Schreibweise) in der Ollama-Liste? */
 function inOllama(ollamaModels, name) {
   return tagVarianten(name).some(v => ollamaModels.includes(v));
-}
-
-/** Tag-lose Normalform eines Ollama-Namens ('x:latest' → 'x'). */
-function ohneLatest(name) {
-  return name.endsWith(':latest') ? name.slice(0, -':latest'.length) : name;
-}
-
-/** Grobe Größenklasse für importierte Modelle (Katalog-CHECK: small…xlarge). */
-function kategorieFuerBytes(sizeBytes) {
-  const gb = (sizeBytes || 0) / 1e9;
-  if (gb < 8) {
-    return 'small';
-  }
-  if (gb < 16) {
-    return 'medium';
-  }
-  if (gb < 30) {
-    return 'large';
-  }
-  return 'xlarge';
-}
-
-/** Heuristik: Vision-Modell? (Familien aus /api/tags oder sprechender Name) */
-function istVisionModell(modelObj) {
-  const familien = (modelObj.details && modelObj.details.families) || [];
-  if (familien.some(f => /clip|mllama|vision/i.test(String(f)))) {
-    return true;
-  }
-  return /llava|vision|minicpm-v|paligemma/i.test(modelObj.name || '');
-}
-
-/**
- * Plan 022 — Embedding-Modelle beim Auto-Import als solche erkennen. Sonst
- * landen direkt gezogene Embedder (bge-m3, all-minilm, …) als `model_type='llm'`
- * im Katalog und tauchen fälschlich im Chat-Modell-Picker auf.
- */
-function istEmbeddingModell(modelObj) {
-  const familien = (modelObj.details && modelObj.details.families) || [];
-  if (familien.some(f => /bert|embed/i.test(String(f)))) {
-    return true;
-  }
-  return /(?:^|[-_/])(?:nomic-embed|bge-m3|bge-large|all-minilm|e5-|gte-)|embed(?:ding)?\b/i.test(
-    modelObj.name || ''
-  );
-}
-
-/** Modelltyp eines nur in Ollama vorhandenen Modells bestimmen. */
-function modellTypFuer(modelObj) {
-  if (istEmbeddingModell(modelObj)) {
-    return 'embedding';
-  }
-  if (istVisionModell(modelObj)) {
-    return 'vision';
-  }
-  return 'llm';
 }
 
 function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabilityCache }) {
@@ -232,90 +186,11 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
     return staleCount;
   }
 
-  /**
-   * Übernimmt Modelle, die NUR in Ollama existieren, in den Katalog (sync
-   * step 1b). Bisher waren solche Modelle für die Plattform unsichtbar: kein
-   * Katalog-Eintrag → kein Store-Eintrag, und ein als Default gesetzter
-   * Roh-Name ließ das Standardmodell als „Fehler" erscheinen (Live-Audit
-   * 2026-07-28, z. B. llava-phi3 und selbst gebaute qwen3-Varianten).
-   *
-   * Angelegt wird ein ehrlicher Minimal-Eintrag: id = tag-loser Ollama-Name,
-   * Größe aus /api/tags, Kategorie/RAM grob geschätzt, `jetson_tested = false`
-   * und eine Beschreibung, die die Herkunft benennt. Ein späterer kuratierter
-   * Eintrag gewinnt automatisch (ON CONFLICT DO NOTHING).
-   *
-   * @param {Array<{name:string,size?:number,details?:object}>} ollamaModelObjects
-   *   Die vollen Modell-Objekte aus GET /api/tags.
-   * @returns {Promise<number>} Zahl der neu übernommenen Modelle.
-   */
-  async function importUnknownModels(ollamaModelObjects) {
-    let importiert = 0;
-    for (const modelObj of ollamaModelObjects || []) {
-      const ollamaName = modelObj && modelObj.name;
-      if (!ollamaName) {
-        continue;
-      }
-      const varianten = tagVarianten(ollamaName);
-      const bekannt = await database.query(
-        `SELECT id FROM llm_model_catalog WHERE ollama_name = ANY($1) OR id = ANY($1)`,
-        [varianten]
-      );
-      if (bekannt.rows.length > 0) {
-        continue;
-      }
-
-      const id = ohneLatest(ollamaName);
-      const sizeBytes = Number(modelObj.size) || 0;
-      const ramGb = Math.max(2, Math.ceil((sizeBytes / 1e9) * 1.3));
-      const paramGroesse = (modelObj.details && modelObj.details.parameter_size) || null;
-      // Kundentext, keine Entwicklernotiz. Der Store zeigt diese Beschreibung
-      // unveraendert neben den kuratierten Modellen; "automatisch in den
-      // Katalog uebernommen" erklaerte dort die eigene Importmechanik statt
-      // das Modell. Der Hinweis auf die fehlende Pruefung bleibt, weil
-      // `jetson_tested = false` in der Oberflaeche (noch) nicht sichtbar ist.
-      const beschreibung =
-        `Auf diesem Gerät installiert${paramGroesse ? `, ${paramGroesse}` : ''}. ` +
-        'Nicht von Arasul geprüft.';
-
-      const eingefuegt = await database.query(
-        `INSERT INTO llm_model_catalog
-           (id, name, description, size_bytes, ram_required_gb, category,
-            capabilities, recommended_for, jetson_tested, performance_tier, model_type)
-         VALUES ($1, $2, $3, $4, $5, $6, '[]'::jsonb, '[]'::jsonb, false, 2, $7)
-         ON CONFLICT (id) DO NOTHING
-         RETURNING id`,
-        [
-          id,
-          id,
-          beschreibung,
-          sizeBytes,
-          ramGb,
-          kategorieFuerBytes(sizeBytes),
-          modellTypFuer(modelObj),
-        ]
-      );
-      if (eingefuegt.rows.length === 0) {
-        continue; // Wettlauf mit einem parallelen Sync — der Erste gewinnt.
-      }
-      await database.query(
-        `INSERT INTO llm_installed_models (id, status, download_progress, downloaded_at)
-         VALUES ($1, 'available', 100, NOW())
-         ON CONFLICT (id) DO UPDATE SET
-             status = 'available', download_progress = 100, error_message = NULL`,
-        [id]
-      );
-      importiert += 1;
-      logger.info(`[SYNC] Ollama-Modell ohne Katalog-Eintrag übernommen: ${id}`);
-    }
-    return importiert;
-  }
-
   return {
     markAvailableModels,
     markMissingModels,
     cleanupStaleDownloads,
-    importUnknownModels,
   };
 }
 
-module.exports = { createSyncHelpers, tagVarianten, inOllama, kategorieFuerBytes };
+module.exports = { createSyncHelpers, tagVarianten, inOllama };
