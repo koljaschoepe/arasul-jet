@@ -294,6 +294,21 @@ run_stiller_tod_check() {
   fi
 }
 
+# Der Schwesterfall zum stillen Tod: dort traegt `pipefail` eine 1 aus der Pipe
+# heraus (grep hat nichts gefunden), hier eine 141 (der Verbraucher stieg aus,
+# der Erzeuger schrieb weiter). Am 27.08.2026 hat das den CI-Job
+# "Migrationskette" drei Minuten warten und dann "nein" melden lassen, obwohl
+# die Kette nach sechs Sekunden durch war.
+run_rohrbruch_check() {
+  echo ""
+  echo "-> Pruefe auf Rohre, die beim ersten Treffer zerreissen..."
+  if python3 "${PROJECT_ROOT}/scripts/test/rohrbruch.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_endpunkte_check() {
   echo ""
   echo "-> Pruefe, ob jeder Endpunkt eine Beschreibung hat..."
@@ -486,6 +501,7 @@ run_pfadfilter_check
 run_routenregeln_check
 run_rollenregeln_check
 run_stiller_tod_check
+run_rohrbruch_check
 run_endpunkte_check
 run_anleitungen_check
 run_faden_check

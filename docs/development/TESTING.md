@@ -45,6 +45,8 @@ eine Route, deren Schema niemand exportiert hat. Sie laufen bei jedem
 | `gedankenstriche.py` | Keine Gedankenstriche als Trenner                                                                                                                      |
 | `modellnamen.py`     | Modellnamen kommen aus der Live-Quelle, nicht aus dem Gedächtnis                                                                                       |
 | `plan-faden.py`      | Höchstens ein Plan unter `docs/plans/active/`                                                                                                          |
+| `rohrbruch.py`       | Kein `\| grep -q` unter `pipefail`: der Erzeuger stirbt an SIGPIPE, und 141 wird zur Antwort                                                           |
+| `stiller-tod.py`     | Keine Zuweisung, die unter `set -e` und `pipefail` wortlos das Skript beendet, sobald nichts gefunden wird                                             |
 | `toter-code.sh`      | Keine Datei ohne Importeur                                                                                                                             |
 
 **Jeder Wächter hat einen Selbsttest.** `waechter-selbsttest.sh` baut einen
@@ -72,6 +74,22 @@ Backends gegen dieselbe frisch initialisierte Datenbank.
 Es gibt ihn seit dem 27.08.2026, weil Migration 169 am Gerät scheiterte,
 während die CI grün blieb — sie hatte die Migrationen nie ausgeführt, nur die
 Dateien danebenliegen sehen.
+
+Sein erster Lauf war rot, und zwar aus einem Grund, der nichts mit Migrationen
+zu tun hatte: `docker logs … | grep -q 'ready to accept connections'` unter
+`set -o pipefail`. `grep -q` steigt beim ersten Treffer aus, Postgres schreibt
+diese Zeile früh und danach noch viel mehr, `docker logs` schreibt also in ein
+geschlossenes Rohr und endet mit 141 — und die Bedingung wird falsch, **gerade
+weil** der gesuchte Text da ist. Nachstellbar in einer Zeile:
+
+```bash
+bash -c 'set -o pipefail; seq 1 200000 | grep -q 5'   # 141
+```
+
+Es trifft nur Ausgaben über dem Rohrpuffer (64 KiB); darunter ist alles
+geschrieben, bevor der Verbraucher aussteigt. Deshalb ist derselbe Bau an
+Dutzenden anderen Stellen jahrelang gutgegangen. Seitdem hält `rohrbruch.py`
+die Zusage, dass es ihn nicht mehr gibt.
 
 ### Testing Frameworks
 

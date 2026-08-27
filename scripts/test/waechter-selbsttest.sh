@@ -198,6 +198,98 @@ BEISPIEL
 pruefe "Stiller Tod: ls ohne Netz ist rot" 1 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
 rm -r "$TMP/st"
 
+# --- rohrbruch.py -----------------------------------------------------------
+# Der Schwesterfall zu stiller-tod: dort traegt `pipefail` eine 1 aus der Pipe
+# heraus (nichts gefunden), hier eine 141 (Rohr zerrissen). Die Pruefung darf
+# nur anschlagen, wo der Wert der Pipe wirklich die Antwort ist.
+RB="$TMP/rb/scripts"
+mkdir -p "$RB"
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -uo pipefail
+if docker logs "$B" 2>&1 | grep -q 'ready to accept'; then echo da; fi
+BEISPIEL
+pruefe "Rohrbruch: | grep -q unter pipefail ist rot" 1 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -uo pipefail
+if grep -q 'ready to accept' <<<"$(docker logs "$B" 2>&1)"; then echo da; fi
+BEISPIEL
+pruefe "Rohrbruch: der Hier-String ist gruen" 0 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+# Ohne pipefail zaehlt nur das letzte Glied, und grep gibt 0 zurueck.
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -eu
+if docker logs "$B" 2>&1 | grep -q 'ready to accept'; then echo da; fi
+BEISPIEL
+pruefe "Rohrbruch: ohne pipefail ist gruen" 0 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -uo pipefail
+if ls /pfad | head -1; then echo da; fi
+BEISPIEL
+pruefe "Rohrbruch: | head in einer Bedingung ist rot" 1 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+X=$(ls /pfad | head -1 || true)
+BEISPIEL
+pruefe "Rohrbruch: mit Auffangnetz ist gruen" 0 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+X=$(ls /pfad | head -1)
+BEISPIEL
+pruefe "Rohrbruch: Zuweisung ohne Netz unter set -e ist rot" 1 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+# Der Rueckgabewert ist hier der von `[`, nicht der der Pipe. Der erste Wurf
+# der Pruefung hat genau diese Zeile gemeldet, und es war nichts kaputt.
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+kleiner() { [ "$(printf '%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]; }
+BEISPIEL
+pruefe "Rohrbruch: Pipe in einer Ersetzung in [ ] ist gruen" 0 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+# Ein Beispiel IN einem Here-Dokument ist Text, kein Code.
+cat > "$RB/rohr.sh" <<'BEISPIEL'
+#!/bin/bash
+set -uo pipefail
+cat > /tmp/anleitung <<'ENDE'
+So bitte NICHT: docker logs x | grep -q fertig
+ENDE
+BEISPIEL
+pruefe "Rohrbruch: im Here-Dokument zaehlt nicht" 0 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+# In `.github/` gilt heute kein pipefail: GitHub startet `run:` mit
+# `bash -e {0}`. Mit `shell: bash` wird daraus `bash -eo pipefail {0}`, und
+# dann gilt dort alles, was oben steht. Das Wort allein — etwa im Kommentar,
+# der genau das erklaert — darf sich NICHT melden.
+mkdir -p "$TMP/rb/.github/workflows"
+cat > "$TMP/rb/.github/workflows/lauf.yml" <<'BEISPIEL'
+jobs:
+  a:
+    steps:
+      # Ohne pipefail zaehlt nur das letzte Glied der Pipe.
+      - run: docker logs x | grep -q fertig
+BEISPIEL
+pruefe "Rohrbruch: .github ohne shell bash ist gruen" 0 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+
+cat > "$TMP/rb/.github/workflows/lauf.yml" <<'BEISPIEL'
+jobs:
+  a:
+    steps:
+      - shell: bash
+        run: docker logs x | grep -q fertig
+BEISPIEL
+pruefe "Rohrbruch: .github mit shell bash ist rot" 1 python3 "$WURZEL/scripts/test/rohrbruch.py" --wurzel "$TMP/rb"
+rm -r "$TMP/rb"
+
 # --- routenregeln.py --------------------------------------------------------
 RR="$TMP/rr/apps/dashboard-backend/src/routes"
 mkdir -p "$RR"
