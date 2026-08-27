@@ -14,6 +14,13 @@ name: CI (nur Doku)
 #     mergeable: MERGEABLE, state: BLOCKED
 #     gelaufene Checks: nur claude-review
 #
+# (Den Workflow `claude-review` gibt es seit dem 27.08.2026 nicht mehr — der
+# automatische Claude-Review auf jedem PR ist abgeschaltet. Die Zeile bleibt
+# unveraendert stehen, weil sie eine Messung von damals ist; wer heute danach
+# sucht, findet sie nicht mehr, und das ist richtig so. Fuer diesen Workflow
+# aendert sich nichts: der Befund war, dass ein uebersprungener Pflicht-Check
+# nie eintrifft, nicht welcher Check daneben lief.)
+#
 # Damit ist die Annahme im Kopf von `test.yml` widerlegt: GitHub laesst einen
 # Pflicht-Check, dessen Workflow durch `paths-ignore` uebersprungen wurde, NICHT
 # automatisch durchgehen, wenn die Pflicht aus einem Ruleset kommt. Bei der
