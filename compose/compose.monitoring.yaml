@@ -163,13 +163,33 @@ services:
       BACKUP_WEEKLY_RETENTION_WEEKS: ${BACKUP_WEEKLY_RETENTION_WEEKS:-12}
       TZ: ${TZ:-Europe/Berlin}
       BACKUP_REPORT_PATH: ${BACKUP_REPORT_PATH:-/backups/backup_report.json}
+      # Das Ziel ausserhalb des Geraets (Phase C9): ein USB-Datentraeger oder
+      # eine SMB-Freigabe im Kundennetz, eingehaengt vom Betriebssystem. KEIN
+      # Cloud-Ziel. `auto` heisst: kopieren, wenn dort wirklich etwas
+      # eingehaengt ist -- das Skript prueft die Geraetenummer des
+      # Dateisystems, damit ein leerer Ordner nicht als "ausserhalb" zaehlt.
+      BACKUP_EXTERN_AN: ${BACKUP_EXTERN_AN:-auto}
+      BACKUP_EXTERN_ZIEL: /arasul/extern
     volumes:
       - ${BACKUP_PATH:-${DATA_PATH:-../data}/backups}:/backups
       - arasul-wal:/backups/wal
-      - ../scripts/backup/backup.sh:/usr/local/bin/backup-full.sh:ro
-      # Flow-Definitionen (Plan 011) nur-lesend: sie stecken in keiner Datenbank
-      # und waeren bei Geraeteverlust sonst unwiederbringlich weg.
-      - ${DATA_PATH:-../data}/flows:/arasul/flows:ro
+      # Apps und Flows SCHREIBBAR, und das ist eine bewusste Erweiterung
+      # (Phase C9): der Weg zurueck (`wiederherstellen.sh`) legt die Pakete und
+      # die Flow-Dateien wieder an ihren Platz, und er laeuft hier, weil hier
+      # der Sicherungsschluessel liegt. Schreibrecht auf zwei Ordner ist der
+      # kleinere Schritt neben dem, was dieser Dienst ohnehin darf: er haelt
+      # das Datenbankpasswort und zieht jede Nacht die ganze Datenbank ab.
+      - ${DATA_PATH:-../data}/apps:/arasul/apps
+      - ${DATA_PATH:-../data}/flows:/arasul/flows
+      # Die Konfiguration nur-lesend: `.env`, Zertifikate, Traefik, Geheimnisse.
+      # Ohne sie faehrt auf einem leeren Geraet kein Container hoch. Der
+      # Sicherungsschluessel selbst bleibt aus dem Archiv (siehe backup.sh).
+      - ${ENV_DATEI:-../.env}:/arasul/konfiguration/.env:ro
+      - ../config:/arasul/konfiguration/config:ro
+      # Der Datentraeger ausserhalb. Haengt dort nichts, sieht der Container
+      # einen leeren Ordner -- und meldet genau das, statt eine Kopie
+      # ausserhalb zu behaupten.
+      - ${BACKUP_EXTERN_PFAD:-/mnt/arasul-sicherung}:/arasul/extern
     depends_on:
       postgres-db:
         condition: service_healthy

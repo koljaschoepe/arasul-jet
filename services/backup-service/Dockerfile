@@ -26,6 +26,12 @@ RUN chmod +x /usr/local/bin/backup.sh
 COPY restore-drill.sh /usr/local/bin/restore-drill.sh
 RUN chmod +x /usr/local/bin/restore-drill.sh
 
+# Der Weg zurueck (Phase C9). Er laeuft HIER und nicht auf dem Host, weil hier
+# alles liegt, was er braucht: die Archive, der Sicherungsschluessel als
+# Docker-Secret, `psql`, `openssl`.
+COPY wiederherstellen.sh /usr/local/bin/wiederherstellen.sh
+RUN chmod +x /usr/local/bin/wiederherstellen.sh
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

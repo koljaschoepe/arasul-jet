@@ -44,15 +44,27 @@ DRILL_USER="arasul"
 DRILL_ROH="$(head -c 12 /dev/urandom | base64 | tr -d '/+=')"
 DRILL_PASSWORD="drill-${DRILL_ROH:0:16}"
 
-# Tables we insist the restore brings back. Counts must be > 0 for any table
-# that is populated in production. The list is intentionally narrow — a drill
-# that demands every one of 85 tables is non-zero will flap on legitimately
-# unused features.
+# Was der Wiederherstellungstest prueft, in drei Stufen
+# -----------------------------------------------------------------------------
+#
+#   1. DAS GERAET. Vier Tabellen, die jedes Geraet ab dem ersten Start fuellt:
+#      der Administrator, die Einstellungen, der Modellkatalog, die
+#      Alarmschwellen. Sie MUESSEN abfragbar sein.
+#   2. DIE ARBEIT DES KUNDEN. Was seit den Phasen B bis C8 zu ihm gehoert:
+#      Nutzer, Apps mit ihren Staenden, Freigaben, Schluessel je App, die Flows
+#      der Apps, die Modell-Ueberschreibungen des Administrators, Laeufe,
+#      Schritte, Freigabe-Anfragen. Geprueft wird nur, was im Abzug ueberhaupt
+#      steht -- eine feste Liste waere auf einer aelteren Datenbank rot, ohne
+#      dass etwas kaputt ist.
+#   3. ALLES ANDERE, ohne Liste. Jede Tabelle, die im Abzug steht, muss nach
+#      dem Zurueckspielen da sein. Das ist die Pruefung, die sich nicht
+#      veraltet: eine gepflegte Liste haengt immer eine Phase hinterher (bis
+#      zum 27.08.2026 nannte sie `flow_runs` und keine einzige App-Tabelle,
+#      obwohl `apps`, `app_staende`, `app_members`, `api_keys`, `app_flows`,
+#      `flow_settings` und `approvals` seit vier Phasen im Geraet stehen).
 #
 # Phase B6 (26.08.2026): chat_conversations, chat_messages (165) und documents,
-# document_chunks (163) sind gefallen. Was jedes Geraet ab dem ersten Start
-# fuellt: der Administrator, die Einstellungen, der Modellkatalog, die
-# Alarmschwellen.
+# document_chunks (163) sind gefallen.
 CRITICAL_TABLES=(
     admin_users
     system_settings
@@ -60,26 +72,30 @@ CRITICAL_TABLES=(
     alert_settings
 )
 
-# Was der Kunde selbst gebaut hat. Diese vier oben sind das Geraet; die hier
-# sind seine Arbeit: die Flow-Laeufe. (Bis Phase B5 am 26.08.2026 standen hier
-# auch die n8n-Automationen und -Zugaenge, bis B4 die Erweiterungen; beides
-# ist ausgebaut.)
+# Die Arbeit des Kunden. Bis Phase B5 standen hier die n8n-Automationen, bis B4
+# die Erweiterungen; beides ist ausgebaut. Was heute an ihre Stelle tritt, sind
+# die Apps und alles, was an ihnen haengt.
 #
-# Warum sie nicht einfach in die Liste oben gehoeren: sie liegen in einem
-# eigenen Schema (`arasul`), das erst Migration 090 anlegt. Eine feste Liste
-# wuerde auf einer aelteren Datenbank rot, ohne dass etwas kaputt ist.
+# Warum sie nicht einfach in die Liste oben gehoeren: `arasul.*` liegt in einem
+# eigenen Schema, das erst Migration 090 anlegt, und die App-Tabellen kommen
+# erst mit den Migrationen 168 bis 174. Eine feste Pflichtliste wuerde auf einer
+# aelteren Datenbank rot, ohne dass etwas kaputt ist.
 #
 # Deshalb entscheidet die SICHERUNG selbst, was geprueft wird: was im Abzug
 # steht, muss nach dem Zurueckspielen auch da sein. Das ist die Frage, die G6
-# wirklich stellt — nicht "laesst sich irgendwas zurueckspielen", sondern
+# wirklich stellt -- nicht "laesst sich irgendwas zurueckspielen", sondern
 # "bekommt der Kunde seine Sachen wieder".
-#
-# Fund vom 23.08.2026: der Drill prueft sechs Tabellen, alle in `public`. Ein
-# Abzug, bei dem das Schema `n8n` fehlgeschlagen waere, haette ihn trotzdem
-# bestanden — und der Kunde haette nach dem Zurueckspielen keine einzige
-# Automation mehr.
 KUNDENTABELLEN=(
+    public.apps
+    public.app_staende
+    public.app_members
+    public.app_flows
+    public.api_keys
+    public.flow_settings
+    public.approvals
     arasul.flow_runs
+    arasul.flow_run_steps
+    arasul.schema_migrations
 )
 
 DRY_RUN=false
@@ -180,46 +196,57 @@ sicherung_lesen() {
     return 0
 }
 
-# Flow-Archiv pruefen (Plan 011). Die Flows liegen in KEINER Datenbank, der
-# Postgres-Drill sagt ueber sie also nichts aus. Geprueft wird deshalb separat:
-# existiert das Archiv, ist es lesbar, und enthaelt es .md-Dateien?
+# Die Archive neben der Datenbank pruefen: apps und flows.
 #
-# Wichtig: Bei BACKUP_ENCRYPT=true ist das Archiv AES-verschluesselt und damit
+# Beide liegen in KEINER Datenbank, der Postgres-Teil dieses Tests sagt ueber
+# sie also nichts aus. Und beide sind unersetzlich: die Flow-Dateien hat ein
+# Mensch geschrieben, die App-Pakete sind das, woraus das Geraet die Images
+# baut. Ein Abzug ohne sie ist eine Datenbank, die Apps nennt, die es nicht
+# mehr gibt.
+#
+# Wichtig: Bei BACKUP_ENCRYPT=true ist ein Archiv AES-verschluesselt und damit
 # kein gueltiges gzip mehr. Ein blindes `tar -tzf` wuerde dann "korrupt" melden,
-# obwohl alles in Ordnung ist. Deshalb erst die gzip-Magic-Bytes pruefen und
-# verschluesselte Archive als "encrypted" (ungeprueft) ausweisen, statt zu luegen.
-FLOWS_ARCHIVE="${BACKUP_DIR}/flows/flows_latest.tar.gz"
+# obwohl alles in Ordnung ist. Deshalb erst entschluesseln, dann pruefen -- ein
+# Archiv, dessen Inhalt niemand angesehen hat, ist genau die Sorte Zusage,
+# wegen der Gate G6 aufgemacht wurde.
+apps_status="absent"
+apps_dateien=0
 flows_status="absent"
 flows_files=0
 
-check_flows_archive() {
-    if [[ ! -f "$FLOWS_ARCHIVE" ]]; then
-        log "SKIP: kein Flow-Archiv unter ${FLOWS_ARCHIVE}"
-        flows_status="absent"
+# pruefe_archiv <name> <dateimuster-fuer-die-zaehlung>
+# Setzt $ARCHIV_STATUS und $ARCHIV_DATEIEN.
+ARCHIV_STATUS="absent"
+ARCHIV_DATEIEN=0
+pruefe_archiv() {
+    local name="$1" muster="$2"
+    local archiv="${BACKUP_DIR}/${name}/${name}_latest.tar.gz"
+    ARCHIV_STATUS="absent"
+    ARCHIV_DATEIEN=0
+
+    if [[ ! -e "$archiv" ]]; then
+        log "SKIP: kein ${name}-Archiv unter ${archiv}"
         return 0
     fi
-    # Verschluesselte Archive werden jetzt entschluesselt statt als "nicht
-    # pruefbar" durchgewunken. Ein Archiv, dessen Inhalt niemand geprueft hat,
-    # ist genau die Sorte Zusage, wegen der Gate G6 aufgemacht wurde.
     # Ueber eine temporaere Datei, NICHT ueber eine Variable: gzip ist binaer,
     # und Kommandosubstitution verliert NUL-Bytes und abschliessende Zeilenumbrueche.
     local klartext
     klartext=$(mktemp)
-    if ! sicherung_lesen "$FLOWS_ARCHIVE" > "$klartext"; then
+    if ! sicherung_lesen "$(readlink -f "$archiv")" > "$klartext"; then
         rm -f "$klartext"
-        flows_status="unreadable"
+        ARCHIV_STATUS="unreadable"
         return 1
     fi
     if ! tar -tzf "$klartext" >/dev/null 2>&1; then
-        log "FAIL: Flow-Archiv ist beschaedigt (${FLOWS_ARCHIVE})"
+        log "FAIL: ${name}-Archiv ist beschaedigt (${archiv})"
         rm -f "$klartext"
-        flows_status="corrupt"
+        ARCHIV_STATUS="corrupt"
         return 1
     fi
-    flows_files=$(tar -tzf "$klartext" 2>/dev/null | grep -c '\.md$' || true)
+    ARCHIV_DATEIEN=$(tar -tzf "$klartext" 2>/dev/null | grep -c "$muster" || true)
     rm -f "$klartext"
-    log "OK:   Flow-Archiv lesbar (${flows_files} Flow-Dateien)"
-    flows_status="ok"
+    log "OK:   ${name}-Archiv lesbar (${ARCHIV_DATEIEN} Treffer auf ${muster})"
+    ARCHIV_STATUS="ok"
     return 0
 }
 
@@ -239,6 +266,8 @@ write_report() {
   "verified_tables": ${verified},
   "duration_seconds": ${duration},
   "backup_file": "$(json_escape "$basename")",
+  "apps_status": "$(json_escape "$apps_status")",
+  "apps_dateien": ${apps_dateien},
   "flows_status": "$(json_escape "$flows_status")",
   "flows_files": ${flows_files},
   "timestamp": "${ts}"
@@ -434,10 +463,47 @@ else
     log "Hinweis: Schemas nicht vergleichbar, laufende Datenbank nicht erreichbar"
 fi
 
-# Flow-Archiv mitpruefen. Ein beschaedigtes Archiv laesst den Drill scheitern —
-# ein fehlendes nicht, denn auf Geraeten ohne Flows gibt es schlicht keines.
-flows_ok=true
-check_flows_archive || flows_ok=false
+# --- Und kommt jede EINZELNE Tabelle zurueck? --------------------------------
+# Die Stufe, die sich nicht veraltet. Die beiden Listen oben sind gepflegt und
+# haengen deshalb immer eine Phase hinterher; diese hier fragt die Sicherung
+# selbst: welche Tabellen stehen im Abzug, und welche davon sind nach dem
+# Einspielen wirklich da?
+#
+# EINE Abfrage statt einer je Tabelle. Neunzig `docker exec psql` nacheinander
+# dauern auf dem Jetson laenger als das Einspielen selbst.
+tabellen_fehlen=()
+tabellen_geprueft=0
+if zurueck=$(docker exec "$DRILL_CONTAINER" \
+        psql -U "$DRILL_USER" -d "$DRILL_DB" -tAc \
+        "SELECT table_schema || '.' || table_name FROM information_schema.tables
+          WHERE table_type='BASE TABLE'
+            AND table_schema NOT IN ('pg_catalog','information_schema')" 2>/dev/null); then
+    while IFS= read -r tbl; do
+        [ -n "$tbl" ] || continue
+        tabellen_geprueft=$((tabellen_geprueft + 1))
+        if ! grep -qx "$tbl" <<<"$zurueck"; then
+            tabellen_fehlen+=("$tbl")
+        fi
+    done <<<"$im_abzug"
+    log "Tabellen im Abzug: ${tabellen_geprueft}, davon zurueck: $(( tabellen_geprueft - ${#tabellen_fehlen[@]} ))"
+    if (( ${#tabellen_fehlen[@]} > 0 )); then
+        log "FAIL: im Abzug, aber nicht zurueckgekommen: ${tabellen_fehlen[*]}"
+        failed_tables+=("${tabellen_fehlen[@]}")
+    fi
+else
+    log "Hinweis: die Tabellen der Probe liessen sich nicht auflisten"
+fi
+
+# Die Archive daneben mitpruefen. Ein beschaedigtes Archiv laesst den Drill
+# scheitern -- ein fehlendes nicht, denn ein Geraet ohne Apps und ohne
+# selbstgeschriebene Flows hat schlicht keines.
+archive_ok=true
+pruefe_archiv apps '/app\.json$' || archive_ok=false
+apps_status="$ARCHIV_STATUS"
+apps_dateien="$ARCHIV_DATEIEN"
+pruefe_archiv flows '\.md$' || archive_ok=false
+flows_status="$ARCHIV_STATUS"
+flows_files="$ARCHIV_DATEIEN"
 
 duration=$(( $(date +%s) - DRILL_START ))
 
@@ -461,11 +527,11 @@ fi
 # mit ein paar Textdateien einen DR-Fehlalarm aus und entwertet das Signal.
 # Das Flow-Problem bleibt sichtbar: im Log und als `flows_status` im Report,
 # den das Ops-Widget anzeigt.
-if [[ "$flows_ok" != "true" ]]; then
-    write_report "ok" "all ${verified} critical tables verified; WARNUNG: Flow-Archiv beschaedigt (${FLOWS_ARCHIVE})" "$verified" "$duration"
-    log "Drill OK in ${duration}s (DB verified=${verified}) — ABER: Flow-Archiv beschaedigt, bitte pruefen"
+if [[ "$archive_ok" != "true" ]]; then
+    write_report "ok" "${verified} Tabellen geprueft; WARNUNG: Archiv beschaedigt (apps: ${apps_status}, flows: ${flows_status})" "$verified" "$duration"
+    log "Drill OK in ${duration}s (DB verified=${verified}) — ABER: ein Archiv ist beschaedigt, bitte pruefen"
     exit 0
 fi
 
-write_report "ok" "all ${verified} critical tables verified (flows: ${flows_status})" "$verified" "$duration"
-log "Drill OK in ${duration}s (verified=${verified}, flows=${flows_status})"
+write_report "ok" "${verified} Tabellen geprueft, ${tabellen_geprueft} aus dem Abzug zurueck (apps: ${apps_status}, flows: ${flows_status})" "$verified" "$duration"
+log "Drill OK in ${duration}s (verified=${verified}, apps=${apps_status}, flows=${flows_status})"
