@@ -13,6 +13,26 @@ const USER_CACHE_TTL = 60_000; // 60 seconds
 const USER_CACHE_MAX = 50;
 
 /**
+ * Der Schluessel des Zwischenspeichers, immer als Zeichenkette.
+ *
+ * Gefunden im Review zu Phase C2 (27.08.2026), vierter Fall derselben Falle:
+ * `admin_users.id` ist BIGSERIAL, `node-postgres` liefert das als Zeichenkette,
+ * und ueber den JWT bleibt sie eine (am Geraet nachgesehen: die Nutzlast traegt
+ * `"userId": "1"`). Der Zwischenspeicher wird also mit `'1'` gefuellt. Ein
+ * Aufrufer, der seine Kennung aus einem Pfadparameter hat, reicht dagegen die
+ * ZAHL 1 herein -- `z.coerce.number()` in den Zod-Schemata macht daraus eine.
+ *
+ * `Map` vergleicht mit SameValueZero, also ist `delete(1)` auf einem Schluessel
+ * `'1'` ein stiller Fehlschlag: kein Fehler, keine Wirkung. `setzeAktiv` hat
+ * genau so aufgeraeumt und nichts aufgeraeumt.
+ *
+ * Deshalb liegt die Vereinheitlichung HIER, an der einen Stelle, der die `Map`
+ * gehoert, und nicht bei jedem Aufrufer. Wer eine Kennung hat, darf sie
+ * hereinreichen, wie er sie hat.
+ */
+const schluessel = userId => String(userId);
+
+/**
  * Require authentication middleware
  * Validates JWT token from Authorization header
  * PHASE1-FIX (HIGH-B02): Improved error handling with separate try-catch blocks
@@ -65,7 +85,7 @@ async function requireAuth(req, res, next) {
 
   // PERF: Check user cache first
   let user;
-  const cached = userCache.get(decoded.userId);
+  const cached = userCache.get(schluessel(decoded.userId));
   if (cached && Date.now() < cached.expiresAt) {
     user = cached.user;
   } else {
@@ -122,11 +142,11 @@ async function requireAuth(req, res, next) {
         }
       }
     }
-    userCache.set(decoded.userId, { user, expiresAt: Date.now() + USER_CACHE_TTL });
+    userCache.set(schluessel(decoded.userId), { user, expiresAt: Date.now() + USER_CACHE_TTL });
   }
 
   if (!user.is_active) {
-    userCache.delete(decoded.userId);
+    userCache.delete(schluessel(decoded.userId));
     return res.status(403).json({
       error: { code: 'FORBIDDEN', message: 'User account is disabled' },
       timestamp: new Date().toISOString(),
@@ -248,7 +268,7 @@ function requireRole(...rollen) {
  * to USER_CACHE_TTL (60s) after the DB row is gone.
  */
 function invalidateUserCache(userId) {
-  userCache.delete(userId);
+  userCache.delete(schluessel(userId));
 }
 
 /**
