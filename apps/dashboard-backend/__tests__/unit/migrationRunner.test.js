@@ -196,6 +196,75 @@ describe('runMigrations', () => {
   });
 
   /**
+   * Eine abgeloeste Migration (Fund vom 27.08.2026 am Orin).
+   *
+   * 169 scheiterte am Geraet und stand mit `success = false` im Buch. Der
+   * Runner haelt beim ersten Fehlschlag an, versuchte sie also bei jedem Start
+   * erneut und kam nie zu 170, die den Fehler behebt. Seitdem gibt es
+   * `ABGELOEST`: die genannte Nummer wird nicht angewendet, sondern als
+   * erledigt eingetragen, und nur dann, wenn die abloesende Datei da ist.
+   */
+  describe('Abgeloeste Migration', () => {
+    function laufMitDateien(dateien) {
+      fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue(dateien);
+      fs.readFileSync.mockReturnValue('SELECT 1;');
+    }
+
+    const kopf = [
+      {}, // SET statement_timeout
+      { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
+      {}, // CREATE TABLE schema_migrations
+      { rows: [] }, // schattentabellen (vorher)
+      { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, kein Seed)
+      { rows: [] }, // buchWiderspricht: Schema arasul gibt es nicht
+      { rows: [] }, // getAppliedVersions (leer)
+    ];
+
+    test('wendet 169 nicht an, traegt sie ein und kommt zu 170', async () => {
+      laufMitDateien(['169_app_modell_c3.sql', '170_app_modell_reparatur_c3.sql']);
+      queryResults = [
+        ...kopf,
+        {}, // INSERT: 169 als erledigt
+        {}, // BEGIN (170)
+        {}, // SQL von 170
+        {}, // INSERT: 170
+        {}, // COMMIT
+        { rows: [] }, // schattentabellen (nachher)
+      ];
+
+      const result = await runMigrations(mockPool);
+      expect(result.applied).toBe(1);
+      expect(result.skipped).toBe(1);
+      expect(result.failed).toBeNull();
+
+      // Genau ein BEGIN: 169 wurde nicht angefasst.
+      const befehle = mockClient.query.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : ''));
+      expect(befehle.filter(b => b === 'BEGIN')).toHaveLength(1);
+
+      // Und ihre Zeile steht mit success = true im Buch.
+      const eintrag = mockClient.query.mock.calls.find(
+        c => Array.isArray(c[1]) && c[1][1] === '169_app_modell_c3.sql'
+      );
+      expect(eintrag[0]).toMatch(/success = true/);
+    });
+
+    test('wendet 169 an, wenn 170 gar nicht auf der Platte liegt', async () => {
+      laufMitDateien(['169_app_modell_c3.sql']);
+      queryResults = [
+        ...kopf,
+        {}, // BEGIN
+        new Error('cannot drop type app_status because other objects depend on it'),
+        {}, // ROLLBACK
+        {}, // INSERT: Fehlschlag vermerken
+      ];
+
+      const result = await runMigrations(mockPool);
+      expect(result.failed).toBe('169_app_modell_c3.sql');
+    });
+  });
+
+  /**
    * Wo das Migrationsbuch steht (Nacharbeit zur Live-Abnahme vom 19.08.2026).
    *
    * Der unqualifizierte Name `schema_migrations` loeste gegen `search_path`
