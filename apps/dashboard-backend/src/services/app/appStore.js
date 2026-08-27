@@ -14,7 +14,7 @@
  * waehrend es den Container nicht mehr gab.
  *
  * Zwei Staende je App: `live` ist der Stand fuer alle Freigegebenen,
- * `test` der fuer die Tester. Umgeschaltet wird in Phase C5.
+ * `test` der fuer die Tester. Umgeschaltet wird mit `schalte` (Phase C5).
  */
 
 const db = require('../../database');
@@ -27,7 +27,7 @@ const appSchluessel = require('./appSchluessel');
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
   const result = await db.query(
-    `SELECT stand, version, manifest, eingespielt_am, eingespielt_von
+    `SELECT stand, version, vorige_version, manifest, eingespielt_am, eingespielt_von
        FROM public.app_staende WHERE app_id = $1`,
     [appId]
   );
@@ -102,6 +102,7 @@ async function holeApp(appId) {
     const manifest = staende[stand].manifest;
     ergebnis.staende[stand] = {
       version: staende[stand].version,
+      vorige_version: staende[stand].vorige_version,
       eingespielt_am: staende[stand].eingespielt_am,
       eingespielt_von: staende[stand].eingespielt_von,
       manifest,
@@ -175,12 +176,16 @@ async function spieleEin({ appId, version, stand, durch }) {
   }
 
   // Das Image, bevor irgendetwas Bestehendes angefasst wird (Phase C4).
-  // `starte` holt es ohnehin, aber erst nachdem der Schluessel schon
+  // `starte` sorgt ohnehin dafuer, aber erst nachdem der Schluessel schon
   // gewechselt ist -- und ein Image, das nicht kommt, haette dann einer
   // laufenden App den Schluessel unter den Fuessen weggezogen. Der zweite
   // Aufruf in `starte` findet es dann da und tut nichts.
+  //
+  // Seit C5 kann „sorgen fuer" heissen: hier bauen. Welcher der beiden Wege
+  // gilt, sagt das Manifest (`backend.bauen`), nicht der Aufrufer.
+  const versionsPfad = appManifest.verzeichnisFuer(manifest.id, manifest.version);
   if (manifest.backend) {
-    await appContainer.holeImageFallsNoetig(manifest.backend.image);
+    await appContainer.sorgeFuerImage(manifest, versionsPfad);
   }
 
   // Die Zeile in `apps` muss VOR den Schluessel: der haengt als
@@ -201,7 +206,12 @@ async function spieleEin({ appId, version, stand, durch }) {
       // in die Umgebung dieses Containers. Danach gibt es ihn nur noch als
       // bcrypt-Abdruck (`services/app/appSchluessel.js`).
       const schluessel = await appSchluessel.erneuere({ appId: manifest.id, stand, durch });
-      await appContainer.starte(manifest, stand, appSchluessel.umgebungFuer(schluessel));
+      await appContainer.starte(
+        manifest,
+        stand,
+        appSchluessel.umgebungFuer(schluessel),
+        versionsPfad
+      );
     }
   } catch (fehler) {
     // Was nur wegen dieses Versuchs entstanden ist, faellt wieder weg: eine
@@ -214,20 +224,92 @@ async function spieleEin({ appId, version, stand, durch }) {
     throw fehler;
   }
 
+  // `vorige_version` (Migration 172) entsteht HIER und nicht im Schalter: sie
+  // gilt fuer jeden Weg, auf dem sich ein Stand aendert -- Deploy, Schalter,
+  // Sitzungsroute -- und eine Buchfuehrung, die nur einer der drei Wege
+  // fuehrt, waere beim naechsten Weg falsch. Nur wenn sich die Version
+  // wirklich aendert: dieselbe Version noch einmal einzuspielen (der Schalter
+  // nach live tut genau das) darf die Erinnerung nicht ueberschreiben.
   const gespeichert = await db.query(
     `INSERT INTO public.app_staende (app_id, stand, version, manifest, eingespielt_von)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (app_id, stand) DO UPDATE
         SET version = EXCLUDED.version,
+            vorige_version = CASE
+              WHEN public.app_staende.version <> EXCLUDED.version
+                THEN public.app_staende.version
+              ELSE public.app_staende.vorige_version
+            END,
             manifest = EXCLUDED.manifest,
             eingespielt_am = NOW(),
             eingespielt_von = EXCLUDED.eingespielt_von
-     RETURNING app_id, stand, version, eingespielt_am`,
+     RETURNING app_id, stand, version, vorige_version, eingespielt_am`,
     [manifest.id, stand, manifest.version, manifest, durch ?? null]
   );
 
   logger.info(`App eingespielt: ${appId} ${version} nach ${stand}`);
   return gespeichert.rows[0];
+}
+
+/**
+ * Den Livestand schalten (Phase C5).
+ *
+ * Zwei Richtungen, ein Vorgang:
+ *
+ *   `live`     die Version aus dem Teststand wird die Version des Livestandes
+ *   `zurueck`  die Version, die vor der jetzigen live war, wird es wieder
+ *
+ * Beides geht durch `spieleEin` und nicht an ihm vorbei. Ein Schalter, der
+ * nur eine Zeile in `app_staende` umschriebe, haette einen Livestand
+ * versprochen, dessen Container noch die alte Version faehrt -- und der
+ * API-Schluessel des Standes gehoerte weiter zum Container, der eben ersetzt
+ * wurde. „Schalten" heisst: diese Version laeuft jetzt im Livestand, mit
+ * allem, was dazugehoert.
+ *
+ * `zurueck` ist ein TAUSCH und keine Einbahnstrasse: was live war, wird die
+ * vorige Version, und wer ein zweites Mal `zurueck` ruft, ist wieder da, wo er
+ * angefangen hat. Die Alternative -- die Erinnerung nach dem Zurueckschalten
+ * zu loeschen -- haette den Fall „ich habe zu frueh zurueckgeschaltet"
+ * unumkehrbar gemacht, und genau in diesem Fall drueckt jemand hastig Knoepfe.
+ *
+ * @param {{appId: string, ziel: 'live'|'zurueck', durch: number|string|null}} was
+ */
+async function schalte({ appId, ziel, durch }) {
+  const staende = await staendeVon(appId);
+  if (ziel === 'live') {
+    if (!staende.test) {
+      throw new ConflictError(
+        `App ${appId} hat keinen Teststand. Erst ein Paket einspielen, dann live schalten.`
+      );
+    }
+    const eingespielt = await spieleEin({
+      appId,
+      version: staende.test.version,
+      stand: 'live',
+      durch,
+    });
+    logger.info(`App ${appId} live geschaltet: ${staende.test.version}`);
+    return eingespielt;
+  }
+
+  if (!staende.live) {
+    throw new ConflictError(`App ${appId} hat keinen Livestand, es gibt nichts zurueckzunehmen.`);
+  }
+  if (!staende.live.vorige_version) {
+    throw new ConflictError(
+      `Im Livestand von ${appId} lief nie eine andere Version als ${staende.live.version}.`
+    );
+  }
+  const eingespielt = await spieleEin({
+    appId,
+    version: staende.live.vorige_version,
+    stand: 'live',
+    durch,
+  });
+  logger.info(
+    `App ${appId} zurueckgeschaltet: ${staende.live.version} -> ${staende.live.vorige_version}`
+  );
+  return eingespielt;
 }
 
 /**
@@ -264,14 +346,23 @@ async function pruefeAppGrenze(appId) {
 }
 
 /**
- * Eine App entfernen: beide Container, beide Staende, die Zeile.
+ * Eine App entfernen: beide Container mitsamt ihren Volumes, beide Staende,
+ * alle Freigaben, die Zeile.
  *
- * Die Ordner unter `/arasul/apps/<id>/` bleiben liegen. Das Verzeichnis ist
- * schreibgeschuetzt eingehaengt, und wer eine App entfernt, will sie
- * ueblicherweise gleich wieder einspielen; die Dateien wegzuwerfen hiesse, den
- * naechsten Deploy zum vollen Deploy zu machen. Aufraeumen tut der Werksreset.
+ * Die Ordner unter `/arasul/apps/<id>/` bleiben liegen, wenn niemand etwas
+ * anderes sagt: wer eine App entfernt, will sie ueblicherweise gleich wieder
+ * einspielen, und die Dateien wegzuwerfen hiesse, den naechsten Deploy zum
+ * vollen Deploy zu machen. Aufraeumen tut sonst der Werksreset.
+ *
+ * `dateien: true` nimmt sie mit. Der Deploy-Endpunkt aus C5 hat sie selbst
+ * dorthin gelegt, und ein Kit, das aus der Ferne einspielen kann, muss auch
+ * aus der Ferne aufraeumen koennen -- sonst waechst das Geraet mit jeder
+ * verworfenen Version, ohne dass jemand ohne SSH etwas dagegen tun kann.
+ *
+ * @param {string} appId
+ * @param {{dateien?: boolean}} [wie]
  */
-async function entferneApp(appId) {
+async function entferneApp(appId, { dateien = false } = {}) {
   const vorhanden = await db.query('SELECT id FROM public.apps WHERE id = $1', [appId]);
   if (vorhanden.rows.length === 0) {
     throw new NotFoundError(`App ${appId} gibt es am Geraet nicht`);
@@ -281,8 +372,12 @@ async function entferneApp(appId) {
   }
   // `app_staende` und `app_members` haengen mit ON DELETE CASCADE daran.
   await db.query('DELETE FROM public.apps WHERE id = $1', [appId]);
-  logger.info(`App entfernt: ${appId}`);
-  return { id: appId };
+  let versionen = [];
+  if (dateien) {
+    versionen = await appManifest.entferneDateien(appId);
+  }
+  logger.info(`App entfernt: ${appId}${dateien ? ` (samt ${versionen.length} Version(en))` : ''}`);
+  return { id: appId, dateien_entfernt: dateien ? versionen : null };
 }
 
 /**
@@ -348,6 +443,7 @@ module.exports = {
   listeApps,
   holeApp,
   spieleEin,
+  schalte,
   entferneApp,
   appsFuerNutzer,
   ausliefernAus,

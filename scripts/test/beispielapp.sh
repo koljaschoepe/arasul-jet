@@ -19,14 +19,19 @@
 #
 # Was `einspielen` tut, in der Reihenfolge:
 #   1. `app.json` lesen (Kennung und Version kommen von dort, nicht von hier)
-#   2. das Paket nach `data/apps/<id>/<version>/` kopieren
-#   3. das Backend-Image bauen, unter dem Namen aus dem Manifest
-#   4. `POST /api/apps/<id>/einspielen` -- ab hier arbeitet die Plattform
+#   2. das Paket nach `data/apps/<id>/<version>/` kopieren, samt `backend/`
+#   3. `POST /api/apps/<id>/einspielen` -- ab hier arbeitet die Plattform
 #
-# Schritt 4 ist der eigentliche Punkt: das Geraet startet den Container mit
-# seinen eigenen Regeln (Traefik-Beschriftung, Grenzen, kein Port am Host) und
-# traegt den Stand in `app_staende` ein. Was dieses Skript tut, uebernimmt in
-# Phase C5 der Endpunkt `POST /api/v1/apps`, der ein Paket entgegennimmt.
+# Schritt 3 ist der eigentliche Punkt: das Geraet BAUT das Image aus dem
+# `backend/`-Ordner (das Manifest sagt mit `backend.bauen`, wo er liegt),
+# startet den Container mit seinen eigenen Regeln (Traefik-Beschriftung,
+# Grenzen, kein Port am Host) und traegt den Stand in `app_staende` ein.
+#
+# Bis Phase C5 baute dieses Skript das Image selbst und legte es dem Geraet
+# fertig hin. Das ist jetzt der Weg der Plattform, und ein zweiter Bau daneben
+# waere ein zweiter Ort, an dem etwas anders sein koennte. Wer den Deploy
+# ueber die Schnittstelle sehen will, nimmt `scripts/test/deploy-abnahme.sh`:
+# dasselbe Ergebnis, aber ohne SSH und ohne diesen Ordner.
 #
 # Rueckgabe 0 bei Erfolg.
 # =============================================================================
@@ -84,7 +89,11 @@ api() {
   # Die Argumente in einem Feld, nicht in einer Zeichenkette: eine
   # unquotierte `${leib:+-d "$leib"}`-Ersetzung zerlegt der Shell den Rumpf an
   # jedem Leerzeichen, und das faellt erst bei dem Manifest auf, das eines hat.
-  local -a argumente=(-sk -w '\n%{http_code}' -X "$verb" --max-time 120
+  # 600 und nicht 120: seit C5 baut das GERAET das Image, und der Bau haengt
+  # an diesem einen Aufruf. Beim ersten Mal laedt Docker dafuer ein
+  # Basis-Image; auf einem Jetson an einer maessigen Leitung sind zwei Minuten
+  # dann zu knapp, und ein Abbruch hier saehe aus wie ein Fehler der App.
+  local -a argumente=(-sk -w '\n%{http_code}' -X "$verb" --max-time 600
     -H "authorization: Bearer $TOKEN" -H 'content-type: application/json')
   [ -n "$leib" ] && argumente+=(-d "$leib")
   curl "${argumente[@]}" "$ARASUL_URL$pfad"
@@ -94,18 +103,16 @@ case "$BEFEHL" in
   einspielen)
     echo "=== Beispielapp $ID $VERSION einspielen ==="
 
-    echo "1/4  Paket nach $ZIEL"
+    echo "1/3  Paket nach $ZIEL"
     mkdir -p "$ZIEL" || exit 1
     # `--delete` gibt es in `cp` nicht: der Zielordner wird vorher geleert,
     # damit eine Datei, die aus dem Paket verschwunden ist, nicht liegenbleibt
     # und weiter ausgeliefert wird.
     rm -rf "${ZIEL:?}"/* 2>/dev/null
-    cp -R "$QUELLE/app.json" "$QUELLE/frontend" "$ZIEL/" || exit 1
+    # `backend/` gehoert seit C5 dazu: das Geraet baut daraus das Image.
+    cp -R "$QUELLE/app.json" "$QUELLE/frontend" "$QUELLE/backend" "$ZIEL/" || exit 1
 
-    echo "2/4  Image $IMAGE bauen"
-    docker build -q -t "$IMAGE" "$QUELLE/backend" || exit 1
-
-    echo "3/4  Anmelden"
+    echo "2/3  Anmelden"
     TOKEN=$(arasul_token)
     if [ -z "$TOKEN" ]; then
       echo "Keine Anmeldung an $ARASUL_URL (HTTP $(arasul_anmeldecode))."
@@ -113,7 +120,7 @@ case "$BEFEHL" in
       exit 1
     fi
 
-    echo "4/4  POST /api/apps/$ID/einspielen (stand=$STAND)"
+    echo "3/3  POST /api/apps/$ID/einspielen (stand=$STAND, das Geraet baut das Image)"
     ANTWORT=$(api POST "/api/apps/$ID/einspielen" "{\"version\":\"$VERSION\",\"stand\":\"$STAND\"}")
     CODE=$(printf '%s' "$ANTWORT" | tail -n1)
     printf '%s' "$ANTWORT" | sed '$d'

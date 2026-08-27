@@ -84,11 +84,43 @@ const Frontend = z
   })
   .strict();
 
+/**
+ * Wo im Paket das Dockerfile liegt, aus dem das Geraet baut (Phase C5).
+ *
+ * Bis C4 musste das Image fertig am Geraet liegen; das Kit baute es dort ueber
+ * SSH und `app.json` nannte nur seinen Namen. Der Deploy-Endpunkt nimmt statt
+ * dessen ein Paket mit dem Quelltext, und das Geraet baut selbst -- „Paket nur
+ * mit Dockerfile, Bau am Geraet, keine Image-Tars" (Entscheidung Kolja vom
+ * 27.08.2026).
+ *
+ * Der Grund ist nicht Bequemlichkeit: ein Image-Tar ist ein fertiges
+ * Dateisystem, das niemand mehr liest, bevor es laeuft. Ein Dockerfile mit
+ * seinem Kontext ist ein Bauplan, und was daraus wird, entsteht auf dem
+ * Geraet, fuer dessen Architektur es gedacht ist -- ein Partner mit einem
+ * x86-Laptop kann fuer einen ARM64-Jetson gar kein brauchbares Tar bauen,
+ * ohne es zu merken.
+ */
+const Bauen = z
+  .object({
+    // Der Ordner im Paket, der als Bau-Kontext an Docker geht.
+    verzeichnis: PaketPfad.default('backend'),
+    // Das Dockerfile IN diesem Ordner. Relativ dazu, nicht zum Paket: Docker
+    // versteht es genauso, und ein Pfad, der aus dem Kontext herausfuehrt,
+    // waere ohnehin keiner.
+    dockerfile: PaketPfad.default('Dockerfile'),
+  })
+  .strict();
+
 const Backend = z
   .object({
-    // Ein Image, kein Dockerfile: gebaut wird im Kit oder in C5, hier laeuft
-    // nur, was schon ein Image ist.
+    // Der Name des Images. Mit `bauen` ist er der Name, unter dem das Geraet
+    // das Ergebnis ablegt; ohne `bauen` der Name eines Images, das schon da
+    // ist (oder geholt wird). In beiden Faellen steht genau dieser Name im
+    // Container -- eine App hat einen Image-Namen, nicht zwei.
     image: z.string().trim().min(1, 'Image fehlt').max(200),
+    // Woraus das Geraet dieses Image baut (C5). Ohne die Angabe baut es
+    // nichts und erwartet das Image vor.
+    bauen: Bauen.optional(),
     // Ein Pfad IM Backend, den der Gesundheitscheck aufruft. Ohne Angabe gilt
     // ein Container als gesund, sobald er laeuft -- das ist Dockers Antwort,
     // nicht unsere.
@@ -137,8 +169,11 @@ const AppManifest = z
     // Welche Sprachmodelle die App braucht. Das Geraet installiert sie nicht
     // nach; es sagt beim Einspielen, welches fehlt.
     modelle: z.array(z.string().trim().min(1).max(120)).max(10).default([]),
-    // Welche Flows die App mitbringt. Ausgeliefert werden sie mit dem Paket
-    // (C5); hier stehen ihre Namen, damit das Geraet sagen kann, welcher fehlt.
+    // Welche Flows die App braucht. Wie bei `modelle` ist das eine FORDERUNG
+    // und keine Lieferung: das Paket bringt sie nicht mit, das Geraet sagt
+    // beim Einspielen, welcher fehlt (`appStore.flowStand`). Einen Flow
+    // nebenbei zu ueberschreiben, den ein Mensch am Geraet bearbeitet hat,
+    // waere ein Deploy, der mehr tut, als er ankuendigt.
     flows: z.array(z.string().trim().min(1).max(120)).max(50).default([]),
   })
   .strict()
@@ -163,6 +198,47 @@ const EinspielenBody = z
   .object({
     version: Version,
     stand: Stand.default('test'),
+  })
+  .strict();
+
+/**
+ * Wohin der Schalter zeigt (Phase C5).
+ *
+ * `live` nimmt die Version aus dem Teststand und macht sie zur Livestand-
+ * Version. `zurueck` holt die Version, die vorher live war
+ * (`app_staende.vorige_version`, Migration 172).
+ *
+ * Beides ist derselbe Vorgang -- „welche Version ist ab jetzt live" -- und
+ * deshalb ein Endpunkt und nicht zwei. Zwei waeren zwei Stellen, an denen die
+ * Buchfuehrung ueber die vorige Version steht, und die eine wuerde die andere
+ * eines Tages vergessen.
+ */
+const SchaltenBody = z
+  .object({ ziel: z.enum(['live', 'zurueck'], { error: 'Ziel ist „live" oder „zurueck"' }) })
+  .strict();
+
+/**
+ * Die Rueckfrage vor dem Entfernen (Phase C5).
+ *
+ * Ein `DELETE`, das ein `curl` aus Versehen ausloest, nimmt beide Container
+ * mitsamt ihren Volumes -- also alles, was die App je gespeichert hat. Die
+ * Rueckfrage einer Schnittstelle ist kein Dialog, sondern ein Wort, das der
+ * Aufrufer abtippen muss: die Kennung der App selbst. Wer sie hinschreibt, hat
+ * gelesen, was er loescht.
+ *
+ * `dateien` nimmt zusaetzlich die Ordner unter `/arasul/apps/<id>/`. Ohne die
+ * Angabe bleiben sie liegen, so wie es C3 fuer die Sitzungsroute entschieden
+ * hat; der Deploy-Endpunkt hat sie aber selbst dorthin gelegt, und ein Kit,
+ * das aus der Ferne einspielen kann, muss auch aus der Ferne aufraeumen
+ * koennen.
+ */
+const EntfernenQuery = z
+  .object({
+    bestaetigung: z.string().trim().min(1, 'Rueckfrage: die Kennung der App als `bestaetigung`'),
+    dateien: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform(v => v === 'true'),
   })
   .strict();
 
@@ -197,6 +273,8 @@ module.exports = {
   AppManifest,
   AppParams,
   EinspielenBody,
+  SchaltenBody,
+  EntfernenQuery,
   LogsQuery,
   ZugangQuery,
 };

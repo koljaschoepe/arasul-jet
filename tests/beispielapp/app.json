@@ -9,6 +9,9 @@
   },
   "backend": {
     "image": "arasul-beispielapp:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
     "gesundheit": "/gesund",
     "umgebung": {
       "ARASUL_APP_NAME": "Beispielapp"
