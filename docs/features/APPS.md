@@ -1,9 +1,12 @@
 # Apps: das Manifest `app.json`, die zwei Stände und die Anmeldung
 
-> Phasen C3 und C4 des Umbaus vom 26.08.2026. Die Durchsetzung steht in
+> Phasen C3 bis C5 des Umbaus vom 26.08.2026. Die Durchsetzung steht in
 > `apps/dashboard-backend/src/schemas/apps.js` (Manifest) und
 > `apps/dashboard-backend/src/services/app/appZugang.js` (Anmeldung); wer
 > eines davon ändert, ändert beides.
+>
+> **Wie ein Paket auf das Gerät kommt**, steht auf einer eigenen Seite:
+> [APP-PAKET.md](APP-PAKET.md). Diese hier sagt, was eine App IST.
 
 **Eine App ist das, was ein Partner mit dem Ara-Kit baut und auf das Gerät
 rollt.** Sie besteht aus höchstens zwei Teilen: einem statischen Frontend, das
@@ -28,9 +31,12 @@ Livestand für alle Freigegebenen und der Teststand für die Tester. Ein Ordner,
 den der nächste Deploy überschreibt, könnte das nicht.
 
 Das Verzeichnis ist in `dashboard-backend` als `APPS_DIR` eingehängt
-(`compose/compose.app.yaml`). Der Weg, auf dem ein Paket dorthin kommt
-(`POST /api/v1/apps`, gebaut und versioniert am Gerät), ist Phase C5; bis dahin
-legt es das Kit über SSH ab.
+(`compose/compose.app.yaml`), schreibbar. Der Weg, auf dem ein Paket dorthin
+kommt, ist seit Phase C5 `POST /api/v1/external/apps`: das Gerät packt aus,
+prüft, baut und versioniert selbst ([APP-PAKET.md](APP-PAKET.md)). Der ältere
+Weg — das Kit legt die Dateien über SSH ab und ruft
+`POST /api/apps/<id>/einspielen` — funktioniert weiter und ruft denselben
+Dienst.
 
 ## Das Manifest, Fassung 1
 
@@ -44,6 +50,7 @@ legt es das Kit über SSH ab.
   "frontend": { "verzeichnis": "frontend" },
   "backend": {
     "image": "urlaubsantrag:1.2.0",
+    "bauen": { "verzeichnis": "backend" },
     "gesundheit": "/gesund",
     "umgebung": { "ABTEILUNG_STANDARD": "Werkstatt" }
   },
@@ -62,13 +69,23 @@ legt es das Kit über SSH ab.
 | `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                 |
 | `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                    |
 | `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.          |
-| `backend`      | nein\*      | `{ "image", "gesundheit"?, "umgebung"? }`                                           |
+| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                 |
 | `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                      |
 | `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                      |
 | `modelle`      | nein        | Welche Sprachmodelle die App braucht.                                               |
 | `flows`        | nein        | Welche Flows sie mitbringt.                                                         |
 
 \* Mindestens eines von `frontend` und `backend`.
+
+`backend.bauen` (Phase C5) sagt, WORAUS das Gerät das Image baut:
+`{ "verzeichnis": "backend", "dockerfile": "Dockerfile" }`, beides relativ zum
+Paket beziehungsweise zum Bau-Kontext. Mit `bauen` ist `image` der Name, unter
+dem das Ergebnis abgelegt wird; ohne `bauen` der Name eines Images, das schon
+am Gerät liegt. **Der Deploy-Endpunkt verlangt `bauen`** — er nimmt keine
+fertigen Images entgegen. Ein Image-Tar ist ein Dateisystem, das niemand mehr
+liest, bevor es läuft, und es ist für eine Architektur gebaut; ein Partner mit
+einem x86-Laptop hätte für einen ARM64-Jetson etwas Unbrauchbares geschickt,
+ohne es zu merken.
 
 **Unbekannte Felder werden abgewiesen.** Ein Tippfehler oder eine Erwartung an
 eine Fassung, die es noch nicht gibt, still zu schlucken hieße, dem Partner zu
@@ -90,7 +107,10 @@ Namen, je nachdem wen man fragt.
   Einspielen (siehe „Was das Gerät der App mitgibt").
 - **Kein Nachinstallieren.** `modelle` und `flows` sagen, was die App verlangt;
   das Gerät sagt beim Einspielen, was davon fehlt. Ein Deploy, der nebenbei
-  sieben Gigabyte lädt, ist keine Installation mehr, sondern ein Abend.
+  sieben Gigabyte lädt, ist keine Installation mehr, sondern ein Abend. Auch
+  `flows` ist eine Forderung und keine Lieferung: das Paket bringt keine
+  Flow-Dateien mit. Einen Flow zu überschreiben, den ein Mensch am Gerät
+  bearbeitet hat, wäre ein Deploy, der mehr tut, als er ankündigt.
 
 ## Die zwei Stände
 
@@ -268,15 +288,26 @@ Administrator von Hand anlegt.
 
 ## Der Lebenslauf
 
-1. Der Partner baut die App mit dem Ara-Kit und legt sie unter
-   `/arasul/apps/<id>/<version>/` ab.
-2. `POST /api/apps/<id>/einspielen` bringt die Version in den **Teststand**.
-   Ohne Angabe geht es dorthin; live schaltet ein Mensch.
+1. Der Partner baut die App mit dem Ara-Kit und schickt das Paket an
+   `POST /api/v1/external/apps` ([APP-PAKET.md](APP-PAKET.md)). Das Gerät packt
+   aus, legt unter `/arasul/apps/<id>/<version>/` ab und **baut das Image**.
+2. Es rollt in den **Teststand**. Einen Parameter dafür gibt es nicht.
 3. Benannte Tester probieren unter `/apps/<id>/test/`.
-4. Der Administrator schaltet auf live (Endpunkt in Phase C5).
-5. `DELETE /api/apps/<id>` entfernt beide Container, beide Stände und alle
-   Freigaben. Die Dateien bleiben liegen — wer eine App entfernt, will sie
-   üblicherweise gleich wieder einspielen. Aufgeräumt wird beim Werksreset.
+4. Ein Mensch schaltet live:
+   `POST /api/v1/external/apps/<id>/schalten` mit `{"ziel":"live"}`. Zurück auf
+   die Version davor geht es mit `{"ziel":"zurueck"}` — das ist ein Tausch, wer
+   ihn zweimal ruft, ist wieder da, wo er angefangen hat.
+5. `DELETE /api/apps/<id>` (Sitzung) oder
+   `DELETE /api/v1/external/apps/<id>?bestaetigung=<id>` (Schlüssel) entfernt
+   beide Container **mitsamt ihren Volumes**, beide Stände, alle Freigaben und
+   die Schlüssel der App. Die Dateien bleiben liegen — wer eine App entfernt,
+   will sie üblicherweise gleich wieder einspielen; mit `?dateien=true` gehen
+   sie mit. Aufgeräumt wird sonst beim Werksreset.
+
+Schritt 1 und 2 gehen auch anders herum, wenn jemand ohnehin am Gerät sitzt:
+Dateien nach `/arasul/apps/<id>/<version>/` legen und
+`POST /api/apps/<id>/einspielen` rufen. Das ist derselbe Dienst, nur mit einer
+Sitzung statt eines Schlüssels — zwei Wege in das Gerät, eine Logik dahinter.
 
 ## Grenzen
 
@@ -299,4 +330,10 @@ bash scripts/test/beispielapp.sh entfernen
 # vom Arbeitsrechner, durch den Tunnel
 bash scripts/test/apps-abnahme.sh           # misst beide Pfade (C3)
 bash scripts/test/app-anmeldung-abnahme.sh  # misst die Anmeldung (C4)
+bash scripts/test/deploy-abnahme.sh         # misst den Deploy-Endpunkt (C5)
 ```
+
+`deploy-abnahme.sh` spielt den Inhalt der Beispielapp unter einer **eigenen
+Kennung** (`beispielapp-deploy`) ein und räumt am Ende alles weg, was es
+angelegt hat. Unter derselben Kennung wäre das das Ende der App, die die
+C3/C4-Abnahmen brauchen.

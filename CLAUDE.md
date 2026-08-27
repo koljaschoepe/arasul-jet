@@ -39,8 +39,13 @@ OpenAI-kompatible `/v1/embeddings` ihn braucht. Das App-Modell steht seit C3
 (Manifest `app.json`, Tabellen `apps` und `app_staende`, Frontend unter
 `/apps/<id>/` von Arasul ausgeliefert, Backend als Container über Traefik unter
 `/apps/<id>/api/`, je App ein Test- und ein Livestand — siehe
-[`docs/features/APPS.md`](docs/features/APPS.md)); die App-Anmeldung kommt mit
-C4, der Deploy-Endpunkt mit C5, die neue Oberfläche mit den D-Phasen.
+[`docs/features/APPS.md`](docs/features/APPS.md)); die App-Anmeldung steht seit
+C4 (Forward-Auth vor jedem App-Backend, `X-Arasul-User` und `X-Arasul-Role`),
+der Deploy-Endpunkt seit C5 (`POST /api/v1/external/apps` nimmt ein Paket, baut
+das Image am Gerät, rollt in den Teststand; `schalten` setzt den Livestand und
+nimmt ihn zurück; `GET /api/v1/external/contract` ist der Vertrag mit dem
+Ara-Kit — siehe [`docs/features/APP-PAKET.md`](docs/features/APP-PAKET.md)).
+Die neue Oberfläche kommt mit den D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |

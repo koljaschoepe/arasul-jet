@@ -886,8 +886,10 @@ Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 **POST /api/apps/:id/einspielen:** Body `{ "version": "1.0.0", "stand": "test" }`.
 Ohne `stand` geht es in den **Teststand** — gerollt wird nach `test`, live
 schaltet ein Mensch. Die Version muss schon unter
-`/arasul/apps/<id>/<version>/` liegen; der Weg, auf dem ein Paket dorthin
-kommt (`POST /api/v1/apps`), ist Phase C5.
+`/arasul/apps/<id>/<version>/` liegen. Der Weg, auf dem ein **Paket** dorthin
+kommt, ist seit Phase C5 `POST /api/v1/external/apps`
+([Deploy für das Ara-Kit](#deploy-für-das-ara-kit-phase-c5)); beide rufen
+denselben Dienst.
 
 Die Reihenfolge ist die vorsichtige: erst Manifest lesen und prüfen, dann den
 Container starten, erst danach schreiben. Ein Stand, der in der Antwort steht,
@@ -925,6 +927,10 @@ greift nur bei einer neuen App, nicht bei einer neuen Version).
 `modelle` und `flows` sagen, was das Manifest verlangt und was davon am Gerät
 ist. Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte
 lädt, ist keine Installation mehr, sondern ein Abend.
+
+Jeder Stand trägt seit Phase C5 zusätzlich `vorige_version`: die Version, die
+in diesem Stand vor der jetzigen lief, oder `null`. Darauf schaltet
+`POST /api/v1/external/apps/:id/schalten` mit `{"ziel":"zurueck"}` zurück.
 
 **GET /api/apps/meine Response:**
 
@@ -2138,6 +2144,82 @@ Request: `multipart/form-data` with `file` field only.
 }
 ```
 
+### Deploy für das Ara-Kit (Phase C5)
+
+Der Weg, auf dem ein Partner eine App auf das Gerät bringt — mit einem
+Schlüssel und ohne Sitzung. Was ein Paket enthalten muss und wie der Schlüssel
+entsteht, steht auf einer eigenen Seite:
+[docs/features/APP-PAKET.md](../features/APP-PAKET.md).
+
+| Method | Endpoint                             | Auth    | Scope        | Description                                            |
+| ------ | ------------------------------------ | ------- | ------------ | ------------------------------------------------------ |
+| GET    | `/api/v1/external/contract`          | API Key | —            | Der Vertrag zwischen Gerät und Kit                     |
+| POST   | `/api/v1/external/apps`              | API Key | `app:deploy` | Ein Paket einspielen; rollt **immer** in `test`        |
+| GET    | `/api/v1/external/apps/:id`          | API Key | `app:deploy` | Dieselbe Antwort wie `GET /api/apps/:id`               |
+| POST   | `/api/v1/external/apps/:id/schalten` | API Key | `app:deploy` | Livestand setzen: `live` oder `zurueck`                |
+| DELETE | `/api/v1/external/apps/:id`          | API Key | `app:deploy` | App weg — beide Container samt Volumes, nach Rückfrage |
+
+`app:deploy` steht **nicht** in den Vorgabe-Bereichen
+(`src/config/apiBereiche.js`). Der Schlüssel, den das Gerät jeder App beim
+Einspielen mitgibt (C4), trägt ihn also nicht: keine App ersetzt eine andere.
+
+**GET /api/v1/external/contract** — die einzige Quelle, gegen die das Kit seine
+Vorlage prüft, und der Weg, auf dem es merkt, dass es zu einem Gerät nicht
+passt. Antwort (gekürzt):
+
+```json
+{
+  "data": {
+    "kontrakt": 1,
+    "arasul": "Vorserie",
+    "app_json": { "schema": { "type": "object", "…": "JSON-Schema" }, "regeln": ["…"] },
+    "flow_frontmatter": { "schema": { "…": "JSON-Schema" }, "rumpf": "…" },
+    "koepfe": {
+      "benutzer": "X-Arasul-User",
+      "rolle": "X-Arasul-Role",
+      "rollen": ["admin", "mitarbeiter"]
+    },
+    "paket": { "format": "tar.gz", "packen": "tar czf paket.tgz -C <ordner> .", "…": "Grenzen" },
+    "schluessel": { "kopf": "X-API-Key", "bereiche": ["…"], "vorgabe": ["…"] },
+    "endpunkte": [{ "verb": "POST", "pfad": "/api/v1/external/apps", "bereich": "app:deploy" }]
+  }
+}
+```
+
+`kontrakt` ist die **Kontraktversion**. Sie zählt hoch, wenn sich etwas ändert,
+worauf ein Kit sich verlassen hat, und nicht, wenn eine Beschreibung präziser
+wird. `regeln` nennt die Manifest-Regeln, die kein JSON-Schema trägt — Zod
+übergeht seine `.refine`-Regeln beim Erzeugen des Schemas still, und gerade sie
+sind die interessanten (»mindestens eines von Frontend und Backend«).
+
+**POST /api/v1/external/apps** — Multipart mit dem Feld `paket`, einem
+`.tar.gz` mit `app.json` im Wurzelverzeichnis. Das Gerät packt aus, prüft,
+legt unter `/arasul/apps/<id>/<version>/` ab, **baut das Image aus dem
+Dockerfile im Paket** und spielt in den Teststand ein. Antworten: `201` mit dem
+Stand, `400` bei einem Paket, das nicht durchgeht (Symlink, fehlendes
+`app.json`, fehlender Bauplan, fehlgeschlagener Bau), `409` wenn diese Version
+gerade **live** ist (neue Fassung, neue Nummer), `413` wenn das Archiv über
+200 MB liegt.
+
+Einen Parameter für den Stand gibt es nicht. Live schaltet ein Mensch.
+
+**POST /api/v1/external/apps/:id/schalten** — Body `{ "ziel": "live" }` nimmt
+die Version aus dem Teststand, `{ "ziel": "zurueck" }` die aus
+`vorige_version`. Beides geht durch denselben Dienst wie das Einspielen: der
+Container wird ersetzt und der API-Schlüssel des Standes erneuert. `zurueck`
+ist ein **Tausch** — wer ihn zweimal ruft, ist wieder da, wo er angefangen hat.
+Antworten: `200`, `409` ohne Teststand beziehungsweise ohne vorige Version.
+
+**DELETE /api/v1/external/apps/:id** — Query
+`?bestaetigung=<id>&dateien=true|false`. Ohne die passende `bestaetigung` ist
+es `400`; die Rückfrage einer Schnittstelle ist ein Wort, das der Aufrufer
+abtippen muss. Es fallen beide Container mitsamt ihren Volumes, beide Stände,
+alle Freigaben und die Schlüssel der App. Mit `dateien=true` zusätzlich die
+Ordner unter `/arasul/apps/<id>/`; ohne bleiben sie liegen (wie bei
+`DELETE /api/apps/:id`).
+
+Gemessen wird der ganze Weg von `scripts/test/deploy-abnahme.sh`.
+
 ### API Key Management
 
 | Method | Endpoint                           | Auth | Description        |
@@ -2158,6 +2240,12 @@ Request: `multipart/form-data` with `file` field only.
 }
 ```
 
+`allowed_endpoints` nimmt seit Phase C5 nur noch bekannte Bereiche:
+`llm:chat`, `llm:status`, `document:extract`, `document:analyze`, `flow:run`
+und `app:deploy` (`src/config/apiBereiche.js`). Ein Tippfehler ergab vorher
+einen Schlüssel, der still nichts durfte. Ohne Angabe gilt die Vorgabe — die
+fünf ersten, **ohne** `app:deploy`.
+
 **Response:**
 
 ```json
@@ -2169,6 +2257,9 @@ Request: `multipart/form-data` with `file` field only.
   "message": "Store this API key securely - it will not be shown again!"
 }
 ```
+
+Ein Schlüssel für das Ara-Kit entsteht am Gerät auch ohne Sitzung:
+`bash scripts/util/kit-schluessel.sh anlegen "Kit von Firma Meier"`.
 
 ---
 

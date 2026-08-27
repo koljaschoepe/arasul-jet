@@ -81,6 +81,7 @@ docs/
 | Document                                                                             | Topic                                                                  |
 | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
 | [`features/APPS.md`](features/APPS.md)                                               | Apps: Manifest `app.json`, die zwei Stände, Tester-Kreis, Auslieferung |
+| [`features/APP-PAKET.md`](features/APP-PAKET.md)                                     | Das App-Paket: was hineingehört, der Deploy-Schlüssel, der Kontrakt    |
 | [`features/FLOWS.md`](features/FLOWS.md)                                             | Flows: Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger     |
 | [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                                        |
 | [`features/PLATFORM_COMPATIBILITY.md`](features/PLATFORM_COMPATIBILITY.md)           | Multi-device support, GPU error handling                               |
