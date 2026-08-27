@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { ALLE_ENDPUNKTE } = require('../config/apiBereiche');
 
 // POST /llm/chat
 const ExternalLlmChatBody = z
@@ -33,7 +34,19 @@ const CreateApiKeyBody = z
     name: z.string({ error: 'name is required' }).trim().min(1, 'name is required').max(200),
     description: z.string().max(2000).optional().nullable(),
     rate_limit_per_minute: z.number().int().positive().max(100000).optional(),
-    allowed_endpoints: z.array(z.string().max(100)).max(50).optional(),
+    // Nur Bereiche, die es gibt. Bis Phase C5 stand hier ein freier Text: ein
+    // Tippfehler ergab einen Schluessel, der still nichts durfte, und der
+    // Administrator suchte den Fehler beim Aufrufer. Seit es mit `app:deploy`
+    // einen Bereich gibt, der wirklich etwas kostet, ist Raten hier nicht mehr
+    // vertretbar.
+    allowed_endpoints: z
+      .array(
+        z.enum(ALLE_ENDPUNKTE, {
+          error: `Unbekannter Bereich. Erlaubt: ${ALLE_ENDPUNKTE.join(', ')}`,
+        })
+      )
+      .max(ALLE_ENDPUNKTE.length)
+      .optional(),
     expires_at: z.string().max(50).optional().nullable(),
   })
   .strict();
