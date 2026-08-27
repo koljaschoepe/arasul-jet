@@ -346,8 +346,42 @@ async function pruefeAppGrenze(appId) {
 }
 
 /**
- * Eine App entfernen: beide Container mitsamt ihren Volumes, beide Staende,
- * alle Freigaben, die Zeile.
+ * Die Namen aller Images, die zu dieser App gehoeren koennen.
+ *
+ * Gefragt werden die beiden Stellen, an denen der Name WIRKLICH steht: die
+ * Manifeste der beiden Staende (was gerade laeuft) und jedes `app.json` auf
+ * der Platte (jede Version, die je eingespielt wurde). Eine dritte Quelle --
+ * die Etiketten der Images selbst -- fragt `appContainer.entferneImages`
+ * daneben ab; sie findet, was diese beiden nicht mehr kennen.
+ *
+ * Ein kaputtes oder fehlendes `app.json` einer alten Version haelt das
+ * Entfernen NICHT auf: es ist ein Grund, dieses eine Image stehen zu lassen,
+ * und keiner, die App zu behalten.
+ */
+async function imageNamenVon(appId, staende) {
+  const namen = new Set();
+  for (const stand of ['test', 'live']) {
+    const image = staende[stand]?.manifest?.backend?.image;
+    if (image) {
+      namen.add(image);
+    }
+  }
+  for (const version of await appManifest.listeVersionen(appId)) {
+    try {
+      const manifest = await appManifest.leseManifest(appId, version);
+      if (manifest.backend?.image) {
+        namen.add(manifest.backend.image);
+      }
+    } catch (fehler) {
+      logger.warn(`App ${appId} ${version}: app.json nicht lesbar (${fehler.message})`);
+    }
+  }
+  return [...namen];
+}
+
+/**
+ * Eine App entfernen: beide Container mitsamt ihren Volumes, die am Geraet
+ * gebauten Images, beide Staende, alle Freigaben, die Zeile.
  *
  * Die Ordner unter `/arasul/apps/<id>/` bleiben liegen, wenn niemand etwas
  * anderes sagt: wer eine App entfernt, will sie ueblicherweise gleich wieder
@@ -359,6 +393,15 @@ async function pruefeAppGrenze(appId) {
  * aus der Ferne aufraeumen koennen -- sonst waechst das Geraet mit jeder
  * verworfenen Version, ohne dass jemand ohne SSH etwas dagegen tun kann.
  *
+ * DIE IMAGES GEHEN IMMER MIT, auch ohne `dateien` (Phase C6). Sie sind nicht
+ * die Quelle, aus der sich ein zweiter Deploy bedient -- das ist der Ordner --
+ * sondern ihr Ergebnis, und ein Ergebnis ohne App ist Belegung ohne Nutzen.
+ * Am Orin waren das je Version 228 MB.
+ *
+ * DIE REIHENFOLGE: erst lesen, was weg soll, dann entfernen. Die Namen der
+ * Images stehen in den Manifesten, und `dateien: true` wirft die Manifeste
+ * weg -- wer erst loescht, weiss danach nicht mehr, was er gebaut hat.
+ *
  * @param {string} appId
  * @param {{dateien?: boolean}} [wie]
  */
@@ -367,17 +410,31 @@ async function entferneApp(appId, { dateien = false } = {}) {
   if (vorhanden.rows.length === 0) {
     throw new NotFoundError(`App ${appId} gibt es am Geraet nicht`);
   }
+  const images = await imageNamenVon(appId, await staendeVon(appId));
+
   for (const stand of ['test', 'live']) {
     await appContainer.entferne(appId, stand);
   }
-  // `app_staende` und `app_members` haengen mit ON DELETE CASCADE daran.
+  // Erst der Container, dann sein Image: andersherum weist Docker mit 409 ab.
+  const entfernteImages = await appContainer.entferneImages(appId, images);
+
+  // `app_staende`, `app_members` und die App-Schluessel haengen mit
+  // ON DELETE CASCADE daran: wer eine App entfernt, entfernt sie ganz.
   await db.query('DELETE FROM public.apps WHERE id = $1', [appId]);
   let versionen = [];
   if (dateien) {
     versionen = await appManifest.entferneDateien(appId);
   }
-  logger.info(`App entfernt: ${appId}${dateien ? ` (samt ${versionen.length} Version(en))` : ''}`);
-  return { id: appId, dateien_entfernt: dateien ? versionen : null };
+  logger.info(
+    `App entfernt: ${appId}` +
+      `${dateien ? ` (samt ${versionen.length} Version(en))` : ''}` +
+      `${entfernteImages.length ? `, ${entfernteImages.length} Image(s)` : ''}`
+  );
+  return {
+    id: appId,
+    dateien_entfernt: dateien ? versionen : null,
+    images_entfernt: entfernteImages,
+  };
 }
 
 /**

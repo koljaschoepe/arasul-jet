@@ -186,6 +186,77 @@ async function entferne(appId, stand) {
 }
 
 /**
+ * Die am Geraet gebauten Images einer App wegwerfen (Phase C6).
+ *
+ * Bis hierher nahm `DELETE /api/v1/external/apps/:id` die Zeile, beide
+ * Container samt Volumes, die Freigaben und auf Wunsch die Dateien -- und
+ * liess die Images liegen. Am Orin waren das am 27.08.2026 je Version 228 MB
+ * auf einem Geraet, das fuenf Jahre unbeaufsichtigt laufen soll. Wer eine App
+ * aus der Ferne einspielen kann, muss sie aus der Ferne ganz loswerden
+ * koennen; sonst waechst das Geraet mit jeder verworfenen Version.
+ *
+ * WOHER DIE NAMEN KOMMEN, und warum aus drei Quellen und nicht aus einem
+ * Muster: der Name eines Images steht im Manifest (`backend.image`) und ist
+ * dort freier Text. `arasul-<id>:<version>` ist die Gewohnheit der
+ * Beispielapp, keine Regel -- nach ihr zu loeschen hiesse, ein fremdes Image
+ * zu treffen, das sich nur aehnlich nennt. Gefragt werden deshalb die
+ * Stellen, an denen der Name wirklich steht:
+ *
+ *   1. die beiden Staende in `app_staende.manifest` (was gerade laeuft),
+ *   2. jedes `app.json` unter `/arasul/apps/<id>/<version>/` (jede Version,
+ *      die je eingespielt wurde und deren Ordner noch da ist),
+ *   3. jedes Image mit dem Etikett `arasul.app=<id>` (seit C6 vergibt es
+ *      `baueImage`; es findet auch, was 1 und 2 nicht mehr kennen).
+ *
+ * Ein Image, das noch ein Container benutzt, weist Docker mit 409 ab. Das ist
+ * kein Fehler dieses Aufrufs, sondern eine Auskunft: der Aufrufer hat die
+ * Container vorher entfernt, und wenn trotzdem einer haengt, gehoert er einer
+ * ANDEREN App, die dasselbe Image benutzt. Sie darf es behalten.
+ *
+ * @param {string} appId
+ * @param {string[]} [ausManifesten] Image-Namen, die der Aufrufer schon kennt
+ * @returns {Promise<string[]>} die Images, die wirklich weg sind
+ */
+async function entferneImages(appId, ausManifesten = []) {
+  const namen = new Set(ausManifesten.filter(Boolean));
+
+  let etikettiert = [];
+  try {
+    etikettiert = await docker.listImages({ filters: { label: [`arasul.app=${appId}`] } });
+  } catch (err) {
+    logger.warn(`App-Images von ${appId}: Docker gibt keine Liste her: ${err.message}`);
+  }
+  for (const eintrag of etikettiert) {
+    for (const tag of eintrag.RepoTags || []) {
+      if (tag !== '<none>:<none>') {
+        namen.add(tag);
+      }
+    }
+  }
+
+  const weg = [];
+  for (const name of namen) {
+    try {
+      await docker.getImage(name).remove();
+      weg.push(name);
+    } catch (err) {
+      if (err.statusCode === 404) {
+        continue; // schon weg
+      }
+      if (err.statusCode === 409) {
+        logger.info(`App-Image ${name} bleibt: ein anderer Container benutzt es`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (weg.length > 0) {
+    logger.info(`App-Images entfernt (${appId}): ${weg.join(', ')}`);
+  }
+  return weg;
+}
+
+/**
  * Das Image holen, wenn es am Geraet fehlt.
  *
  * Ist es schon da, wird NICHT gezogen. Der Partner baut sein Image am Geraet
@@ -240,7 +311,16 @@ async function baueImage(manifest, kontextPfad) {
   logger.info(`App-Image wird am Geraet gebaut: ${image} aus ${kontextPfad} (${dockerfile})`);
 
   const kontext = tar.c({ cwd: kontextPfad, gzip: false, portable: true }, ['.']);
-  const strom = await docker.buildImage(kontext, { t: image, dockerfile, forcerm: true });
+  const strom = await docker.buildImage(kontext, {
+    t: image,
+    dockerfile,
+    forcerm: true,
+    // Dieselben Etiketten wie am Container. Sie sind der Weg, auf dem
+    // `entferneImages` ein Image WIEDERFINDET, dessen Manifest es nicht mehr
+    // gibt -- und der Weg, auf dem der Werksreset die Bauergebnisse eines
+    // Kunden von den Images der Plattform unterscheidet.
+    labels: { 'arasul.app': manifest.id, 'arasul.version': manifest.version },
+  });
 
   // Die letzten Zeilen der Bauausgabe, damit ein Fehlschlag etwas sagt.
   // Docker meldet den Grund im Strom und nicht im Fehler -- ohne sie stuende
@@ -372,6 +452,37 @@ async function entferneAlle() {
   if (entfernt > 0) {
     logger.info(`Werksreset: ${entfernt} App-Container entfernt`);
   }
+
+  // Und die Bauergebnisse dazu (C6). Ein Image ist der Quelltext des Partners
+  // in ausgefuehrter Form; es auf einem Geraet stehen zu lassen, das als
+  // fabrikneu gilt, waere derselbe Rest des alten Kunden wie ein laufender
+  // Container. Gesucht wird ueber das Etikett, das `baueImage` vergibt -- eine
+  // Kennung braucht es dafuer nicht, weil hier ALLE Apps gemeint sind.
+  let bilder = 0;
+  try {
+    const liste = await docker.listImages({ filters: { label: ['arasul.app'] } });
+    for (const eintrag of liste) {
+      for (const tag of eintrag.RepoTags || []) {
+        if (tag === '<none>:<none>') {
+          continue;
+        }
+        try {
+          await docker.getImage(tag).remove();
+          bilder += 1;
+        } catch (err) {
+          if (err.statusCode !== 404 && err.statusCode !== 409) {
+            throw err;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`Werksreset: App-Images nicht aufraeumbar: ${err.message}`);
+  }
+  if (bilder > 0) {
+    logger.info(`Werksreset: ${bilder} App-Image(s) entfernt`);
+  }
+
   return entfernt;
 }
 
@@ -380,6 +491,7 @@ module.exports = {
   apiPfad,
   holeImageFallsNoetig,
   baueImage,
+  entferneImages,
   sorgeFuerImage,
   beschriftung,
   containerBeschreibung,

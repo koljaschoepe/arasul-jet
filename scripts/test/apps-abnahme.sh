@@ -103,7 +103,7 @@ for k in sys.argv[1].split("."):
 print(d if isinstance(d, (str, int)) else "")' "$1" 2>/dev/null
 }
 
-if ! nc -z "$(echo "$BASIS" | sed -E 's#https?://##; s#:.*##')" "$(echo "$BASIS" | sed -E 's#.*:##')" 2>/dev/null; then
+if ! arasul_geraet_erreichbar "$BASIS"; then
   echo "Kein Geraet unter $BASIS. Erst: ssh -f -N -L 8443:localhost:443 jetson"
   exit 1
 fi

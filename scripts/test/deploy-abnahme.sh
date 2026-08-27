@@ -104,7 +104,14 @@ print("" if d is None else (d if isinstance(d,(str,int,float)) else json.dumps(d
 # Der Image-Name muss mit: sonst baute das Geraet unter `arasul-beispielapp:1.0.0`
 # und ueberschriebe das Image der App, die die C3-Abnahme laufen laesst.
 baue_paket() {
-  local version="$1" ordner="$ARBEIT/paket-$version"
+  # Zwei Zeilen, nicht eine: `local` ist ein BEFEHL, und seine Argumente werden
+  # alle ersetzt, bevor er laeuft. `local version="$1" ordner="…$version"`
+  # loeste `$version` also auf, waehrend es die Variable noch gar nicht gibt --
+  # unter `set -u` ist das "version: unbound variable" und das Ende der
+  # Abnahme (gemessen am Orin am 27.08.2026). `scripts/test/eigenbezug.py`
+  # haelt das Muster ab jetzt auf.
+  local version="$1"
+  local ordner="$ARBEIT/paket-$version"
   rm -rf "$ordner"
   mkdir -p "$ordner"
   cp -R "$QUELLE/frontend" "$QUELLE/backend" "$ordner/"
@@ -126,7 +133,7 @@ PY
   echo "$ARBEIT/paket-$version.tgz"
 }
 
-if ! nc -z "$(echo "$BASIS" | sed -E 's#https?://##; s#:.*##')" "$(echo "$BASIS" | sed -E 's#.*:##')" 2>/dev/null; then
+if ! arasul_geraet_erreichbar "$BASIS"; then
   echo "Kein Geraet unter $BASIS. Erst: ssh -f -N -L 8443:localhost:443 jetson"
   exit 1
 fi

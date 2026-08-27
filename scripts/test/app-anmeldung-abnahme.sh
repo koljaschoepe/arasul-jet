@@ -139,7 +139,7 @@ verwalte() {
   curl "${argumente[@]}" "$BASIS$pfad"
 }
 
-if ! nc -z "$(echo "$BASIS" | sed -E 's#https?://##; s#:.*##')" "$(echo "$BASIS" | sed -E 's#.*:##')" 2>/dev/null; then
+if ! arasul_geraet_erreichbar "$BASIS"; then
   echo "Kein Geraet unter $BASIS. Erst: ssh -f -N -L 8443:localhost:443 jetson"
   exit 1
 fi

@@ -39,6 +39,7 @@
 #   arasul_anmeldecode      der HTTP-Code der letzten Anmeldung ("" ohne)
 #   arasul_token_ablegen    Token in die Datei schreiben (macht arasul_token selbst)
 #   arasul_sitzung_bauen    aus dem Token eine Playwright-Sitzung fuer die .mjs
+#   arasul_geraet_erreichbar  horcht, ob unter ARASUL_URL ueberhaupt etwas ist
 #
 # Umgebung: ARASUL_URL, ARASUL_BENUTZER, ARASUL_PASSWORT, ARASUL_TOKEN,
 # ARASUL_TOKEN_DATEI, ARASUL_SITZUNG.
@@ -49,6 +50,43 @@ ARASUL_BENUTZER="${ARASUL_BENUTZER:-admin}"
 ARASUL_PASSWORT="${ARASUL_PASSWORT:-2309}"
 ARASUL_TOKEN_DATEI="${ARASUL_TOKEN_DATEI:-${TMPDIR:-/tmp}/arasul-abnahme-token}"
 ARASUL_SITZUNG="${ARASUL_SITZUNG:-${TMPDIR:-/tmp}/arasul-abnahme-sitzung.json}"
+
+# ---------------------------------------------------------------------------
+# Ist unter dieser Adresse ueberhaupt ein Geraet?
+# ---------------------------------------------------------------------------
+# Fuenf Abnahmen trugen dafuer dieselbe Zeile:
+#
+#   nc -z "$(echo "$BASIS" | sed -E 's#https?://##; s#:.*##')" \
+#         "$(echo "$BASIS" | sed -E 's#.*:##')"
+#
+# Sie geht genau so lange gut, wie in der Adresse ein Port steht. Ohne ihn --
+# `ARASUL_URL=https://localhost`, der Aufruf AUF dem Geraet -- frisst `s#.*:##`
+# gierig bis zum letzten Doppelpunkt, und der steht in `https:`. Heraus kommt
+# der Port `//localhost`, `nc` weist ihn ab, und jede der fuenf Abnahmen meldet
+# "Kein Geraet", waehrend das Geraet danebensteht und laeuft (gemessen am Orin
+# am 27.08.2026).
+#
+# Ein fehlender Port ist kein Sonderfall, sondern die Voreinstellung des
+# Schemas: `https` ist 443, `http` ist 80. Genau das steht hier.
+#
+# Rueckgabe 0, wenn jemand horcht.
+arasul_geraet_erreichbar() {
+  local adresse="${1:-$ARASUL_URL}"
+  local schema="${adresse%%://*}"
+  local rest="${adresse#*://}"
+  rest="${rest%%/*}"          # alles ab dem ersten / gehoert nicht mehr zur Adresse
+  local rechner="${rest%%:*}"
+  local port=""
+  # Nur wenn nach dem Rechnernamen wirklich ein Doppelpunkt kam, steht dort ein
+  # Port. `${rest#*:}` gaebe sonst den Rechnernamen selbst zurueck.
+  if [ "$rest" != "$rechner" ]; then
+    port="${rest##*:}"
+  fi
+  if [ -z "$port" ]; then
+    if [ "$schema" = "http" ]; then port=80; else port=443; fi
+  fi
+  nc -z "$rechner" "$port" 2>/dev/null
+}
 
 # Der Code landet in einer DATEI und nicht in einer Variablen: `arasul_token`
 # wird als `TOK=$(arasul_token)` aufgerufen, und eine Kommandosubstitution ist

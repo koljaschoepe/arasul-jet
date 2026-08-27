@@ -709,6 +709,58 @@ pruefe "Anleitungen: make im Fliesstext zaehlt nicht" 0 \
   python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
 rm -f "$AN/Makefile"
 
+# --- eigenbezug.py ----------------------------------------------------------
+# `local` ist ein Befehl, kein Zuweisungsblock: seine Argumente werden ALLE
+# ersetzt, bevor er laeuft. Eine zweite Zuweisung darf sich deshalb nicht auf
+# die erste derselben Zeile stuetzen. Ohne `local` davor ist genau dieselbe
+# Zeile richtig -- die Pruefung muss beides auseinanderhalten.
+EB="$TMP/eb/scripts"
+mkdir -p "$EB"
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+baue() { local version="$1" ordner="/tmp/paket-$version"; echo "$ordner"; }
+BEISPIEL
+pruefe "Eigenbezug: local mit Selbstbezug ist rot" 1 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+baue() {
+  local version="$1"
+  local ordner="/tmp/paket-$version"
+  echo "$ordner"
+}
+BEISPIEL
+pruefe "Eigenbezug: auf zwei Zeilen ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Ohne `local` fuehrt die Shell die Zuweisungen nacheinander aus und ersetzt
+# fuer jede erst dann. Diese Zeile ist richtig und darf nicht gemeldet werden.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+version="$1" ordner="/tmp/paket-$version"
+BEISPIEL
+pruefe "Eigenbezug: ohne local ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Zwei Zuweisungen auf einer `local`-Zeile, die einander nichts angehen, sind
+# in Ordnung -- der haeufige Fall (`local was="$1" ok="$2"`).
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+pruefe() { local was="$1" ok="$2" detail="${3:-}"; echo "$was $ok $detail"; }
+BEISPIEL
+pruefe "Eigenbezug: unabhaengige Zuweisungen sind gruen" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# `export` hat dieselbe Reihenfolge und damit dieselbe Falle.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+export BASIS="https://localhost" ZIEL="$BASIS/api"
+BEISPIEL
+pruefe "Eigenbezug: export zaehlt genauso" 1 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+rm -r "$TMP/eb"
+
 # --- zeilen.py --------------------------------------------------------------
 # Die Messregel der Rueckbau-Phasen (B2 bis B6). Ihr Selbsttest baut einen
 # Wegwerfbaum mit bekannten Zeilenzahlen; hier laeuft er mit, damit ein

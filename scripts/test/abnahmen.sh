@@ -65,9 +65,14 @@ GEWAEHLT=("$@")
 BERICHT="${ARASUL_BERICHT:-$(mktemp -d)}/abnahmen"
 mkdir -p "$BERICHT"
 
-if ! nc -z localhost 8443 2>/dev/null; then
-  echo "Kein Tunnel auf localhost:8443. Erst:"
-  echo "  ssh -f -N -L 8443:localhost:443 jetson"
+# Gefragt wird nach der Adresse, die die Reihe DANN auch benutzt. Die feste
+# Zeile `nc -z localhost 8443` davor stimmte nur vom Arbeitsrechner aus; auf
+# dem Geraet selbst (ARASUL_URL=https://localhost:443) brach die ganze Reihe
+# mit "Kein Tunnel" ab, waehrend das Geraet lief.
+if ! arasul_geraet_erreichbar "$ARASUL_URL"; then
+  echo "Kein Geraet unter $ARASUL_URL."
+  echo "  Vom Arbeitsrechner:  ssh -f -N -L 8443:localhost:443 jetson"
+  echo "  Auf dem Geraet:      ARASUL_URL=https://localhost:443 $0 $*"
   exit 1
 fi
 

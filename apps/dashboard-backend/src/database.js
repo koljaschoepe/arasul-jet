@@ -6,10 +6,30 @@ const { Pool } = require('pg');
 const logger = require('./utils/logger');
 const { retryDatabaseQuery } = require('./utils/retry');
 
+// Die Docker-Secrets aufloesen, BEVOR nach dem Passwort gefragt wird.
+//
+// `src/index.js` tut dasselbe als erste Zeile, und fuer den Serverprozess
+// genuegte das jahrelang. Es genuegt aber nur ihm: der Container bekommt von
+// Compose ausschliesslich `POSTGRES_PASSWORD_FILE` und `JWT_SECRET_FILE`, und
+// wer den Container mit `docker exec … node -e …` betritt, laeuft an
+// `index.js` VORBEI. Er landet direkt hier, findet kein `POSTGRES_PASSWORD`
+// und wird mit `process.exit(1)` weggeschickt.
+//
+// Gemessen am Orin am 27.08.2026: `scripts/util/kit-schluessel.sh anlegen`
+// scheiterte an genau dieser Stelle mit "POSTGRES_PASSWORD is not set", und
+// ohne Kit-Schluessel liess sich die Abnahme zu C5 nicht fahren.
+//
+// Der Aufruf steht HIER und nicht im Skript, weil das Skript nicht der letzte
+// Einstieg dieser Art bleiben wird. `resolveSecrets` ist idempotent -- es
+// liest Dateien und setzt `process.env`; ein zweiter Aufruf aus `index.js`
+// setzt dieselben Werte noch einmal.
+require('./utils/resolveSecrets')();
+
 // Validate required database credentials
 if (!process.env.POSTGRES_PASSWORD) {
   logger.error('FATAL: POSTGRES_PASSWORD environment variable is not set');
   logger.error('Run ./arasul bootstrap or set POSTGRES_PASSWORD in /arasul/config/.env');
+  logger.error('Im Container: POSTGRES_PASSWORD_FILE zeigt auf das Docker-Secret.');
   process.exit(1);
 }
 
