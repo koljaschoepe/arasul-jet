@@ -460,6 +460,81 @@ describe('UpdateService', () => {
   });
 
   // =========================================================================
+  // Eine Fassung aus dem Bau ohne Tag ist keine Release-Nummer (Phase C10)
+  // =========================================================================
+  //
+  // Seit C10 setzt der Bau `SYSTEM_VERSION`, und er kennt zwei Formen: `1.2.0`
+  // aus einem Tag und `JJJJMMTT-<sha>` von jedem Stand ohne Tag -- also von
+  // jedem Geraet, das ueber den Deploy aktualisiert wird. Die zweite laesst
+  // sich nicht vergleichen. `compareVersions` warf dabei „Invalid version
+  // format: 20260827-a1b2c3d", und diese Meldung zeigt auf das Paket statt auf
+  // das Geraet.
+  describe('mit einer Fassung aus dem Bau ohne Tag', () => {
+    const vorher = process.env.SYSTEM_VERSION;
+    beforeEach(() => {
+      process.env.SYSTEM_VERSION = '20260827-a1b2c3d';
+    });
+    afterAll(() => {
+      if (vorher === undefined) delete process.env.SYSTEM_VERSION;
+      else process.env.SYSTEM_VERSION = vorher;
+    });
+
+    it('lehnt ein Paket ab und zeigt dabei auf das Geraet, nicht auf das Paket', async () => {
+      const origVerify = updateService.verifySignature;
+      const origExtract = updateService.extractManifest;
+      updateService.verifySignature = jest.fn().mockResolvedValue({ valid: true });
+      updateService.extractManifest = jest.fn().mockResolvedValue({
+        version: '1.4.0',
+        min_version: '1.0.0',
+        components: [],
+      });
+
+      const ergebnis = await updateService.validateUpdate('/tmp/update.araupdate');
+
+      expect(ergebnis.valid).toBe(false);
+      expect(ergebnis.error).toMatch(/20260827-a1b2c3d/);
+      expect(ergebnis.error).toMatch(/keine Release-Nummer/);
+      expect(ergebnis.error).not.toMatch(/Invalid version format/);
+
+      updateService.verifySignature = origVerify;
+      updateService.extractManifest = origExtract;
+    });
+
+    it('fragt den Aktualisierungsserver nicht, statt an ihm zu scheitern', async () => {
+      const axios = require('axios');
+      axios.get.mockClear();
+
+      const ergebnis = await updateService.checkForUpdates();
+
+      expect(ergebnis.available).toBe(false);
+      expect(ergebnis.versionBekannt).toBe(true);
+      expect(ergebnis.currentVersion).toBe('20260827-a1b2c3d');
+      expect(ergebnis.error).toMatch(/ueber den Deploy/);
+      expect(axios.get).not.toHaveBeenCalled();
+    });
+
+    it('eine Fassung aus einem Tag geht den normalen Weg weiter', async () => {
+      process.env.SYSTEM_VERSION = '1.2.0';
+      const origVerify = updateService.verifySignature;
+      const origExtract = updateService.extractManifest;
+      updateService.verifySignature = jest.fn().mockResolvedValue({ valid: true });
+      updateService.extractManifest = jest.fn().mockResolvedValue({
+        version: '1.4.0',
+        min_version: '1.0.0',
+        components: [],
+      });
+
+      const ergebnis = await updateService.validateUpdate('/tmp/update.araupdate');
+
+      expect(ergebnis.valid).toBe(true);
+      expect(ergebnis.manifest.version).toBe('1.4.0');
+
+      updateService.verifySignature = origVerify;
+      updateService.extractManifest = origExtract;
+    });
+  });
+
+  // =========================================================================
   // Ein Weg, der nicht gehen kann, sagt das VORHER (Phase C9)
   // =========================================================================
   describe('wegPruefen', () => {

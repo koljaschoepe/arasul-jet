@@ -68,4 +68,22 @@ function versionBekannt() {
   return Boolean(gesetzt && gesetzt.trim());
 }
 
-module.exports = { versionFuerAnzeige, versionFuerVergleich, versionBekannt };
+/**
+ * Ist das eine Release-Nummer, also `X.Y.Z`?
+ *
+ * Seit Phase C10 (27.08.2026) kommt die Fassung aus dem Bau, und der Bau kennt
+ * ZWEI Formen (`scripts/lib/fassung.sh`): die Nummer eines Tags (`1.2.0`) und,
+ * wenn kein Tag auf dem Stand sitzt, `JJJJMMTT-<sha>` -- die Form, die jedes
+ * Geraet traegt, das seinen Stand ueber den Deploy bekommt.
+ *
+ * Die zweite Form laesst sich nicht vergleichen, und der Versuch war schlimmer
+ * als das Eingestaendnis: `compareVersions` wirft bei allem, was nicht `X.Y.Z`
+ * ist, und die Meldung lautete „Invalid version format: 20260827-a1b2c3d". Wer
+ * das liest, sucht den Fehler im PAKET. Der Fehler ist aber, dass dieses Geraet
+ * gar keine Release-Nummer traegt.
+ */
+function istReleaseNummer(fassung) {
+  return /^\d+\.\d+\.\d+$/.test(String(fassung || '').trim());
+}
+
+module.exports = { versionFuerAnzeige, versionFuerVergleich, versionBekannt, istReleaseNummer };
