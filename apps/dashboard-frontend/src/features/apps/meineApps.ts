@@ -19,7 +19,7 @@ import { useApi } from '@/hooks/useApi';
 import type { AppStand } from '@/stores/workspaceStore';
 
 /** Ein Stand einer App, so wie ihn `GET /api/apps/meine` liefert. */
-export interface MeinAppStand {
+interface MeinAppStand {
   version: string;
   /** Der Weg im Browser, z. B. `/apps/urlaub/` — vom Backend gesetzt. */
   pfad: string;
@@ -43,7 +43,7 @@ export interface AppEintrag {
   pfad: string;
 }
 
-export const MEINE_APPS_KEY = ['apps', 'meine'] as const;
+const MEINE_APPS_KEY = ['apps', 'meine'] as const;
 
 /**
  * Die Liste flach machen: eine App mit Live- **und** Teststand ergibt zwei

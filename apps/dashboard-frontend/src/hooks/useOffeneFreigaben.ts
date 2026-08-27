@@ -31,7 +31,7 @@ export interface OffeneFreigabe {
   angefragt_am: string;
 }
 
-export const OFFENE_FREIGABEN_KEY = ['freigabe-anfragen', 'offen'] as const;
+const OFFENE_FREIGABEN_KEY = ['freigabe-anfragen', 'offen'] as const;
 
 export function useOffeneFreigaben() {
   const api = useApi();

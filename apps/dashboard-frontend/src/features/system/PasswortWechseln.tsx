@@ -54,7 +54,7 @@ interface PasswortWechselnProps {
   onAbmelden: () => void;
 }
 
-export function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
+function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
   const api = useApi();
   const [anforderungen, setAnforderungen] = useState<Anforderungen | null>(null);
   const [alt, setAlt] = useState('');

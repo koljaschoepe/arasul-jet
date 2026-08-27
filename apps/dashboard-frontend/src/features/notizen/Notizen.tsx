@@ -25,7 +25,7 @@ interface NotizAntwort {
   geaendert_am: string | null;
 }
 
-export const NOTIZ_KEY = ['notizen'] as const;
+const NOTIZ_KEY = ['notizen'] as const;
 
 /** So lange wird nach dem letzten Tastendruck gewartet, bevor geschrieben wird. */
 const RUHE_MS = 1000;

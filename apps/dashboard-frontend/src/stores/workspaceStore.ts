@@ -69,6 +69,17 @@ export function tabToPath(tab: WorkspaceTab): string {
 }
 
 /**
+ * Die Form einer App-Kennung, wie das Backend sie kennt (`schemas/apps.js`).
+ *
+ * Sie steht hier nicht als zweite Berechtigung — die Kennung kommt aus der
+ * Adresszeile, und von dort kommt alles Mögliche. `/workspace/app/..` ergäbe
+ * sonst einen Rahmen auf `/apps/../`, also auf Arasul selbst: die Oberfläche
+ * in sich geschachtelt, was wie ein Fehler des Geräts aussieht und keiner ist.
+ * Ein Muster ist die kürzere Antwort als eine Sonderbehandlung je Fall.
+ */
+const APP_KENNUNG = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/**
  * Der Weg, unter dem eine App im Browser läuft — derselbe, den
  * `GET /api/apps/meine` als `pfad` liefert (Backend: `routes/appAusliefern.js`).
  *
@@ -90,9 +101,10 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
     case 'dashboard':
       return { type: 'dashboard' };
     case 'app': {
-      // `/workspace/app` ohne Kennung ist kein Tab, sondern ein halber Link.
+      // `/workspace/app` ohne Kennung ist kein Tab, sondern ein halber Link —
+      // und eine Kennung, die keine ist, erst recht keiner.
       const appId = parts[1];
-      if (!appId) return null;
+      if (!appId || !APP_KENNUNG.test(appId)) return null;
       return { type: 'app', appId, stand: parts[2] === 'test' ? 'test' : 'live' };
     }
     case 'settings':

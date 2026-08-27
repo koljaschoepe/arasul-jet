@@ -360,6 +360,22 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
     expect(pathToTabSpec('/app')).toBeNull();
   });
 
+  /**
+   * Die Kennung kommt aus der Adresszeile, und von dort kommt alles Mögliche.
+   * `/workspace/app/..` ergäbe sonst einen Rahmen auf `/apps/../`, also auf
+   * Arasul selbst: die Oberfläche in sich geschachtelt.
+   */
+  it('eine Kennung, die keine ist, ergibt ebenfalls keinen Tab', () => {
+    for (const p of ['/app/..', '/app/.', '/app/Gross', '/app/mit punkt', '/app/-anfang']) {
+      expect(pathToTabSpec(p)).toBeNull();
+    }
+    expect(pathToTabSpec('/app/beispiel-app-2')).toEqual({
+      type: 'app',
+      appId: 'beispiel-app-2',
+      stand: 'live',
+    });
+  });
+
   it('nurFuerAdmin nennt genau die Ansichten und Tabs der Verwaltung', () => {
     expect(nurFuerAdmin('models')).toBe(true);
     expect(nurFuerAdmin('modelle')).toBe(true);

@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { PasswortWechseln } from '../PasswortWechseln';
+import PasswortWechseln from '../PasswortWechseln';
 
 const apiMock = {
   get: vi.fn(),
