@@ -28,6 +28,9 @@ const VALID_TOOLS = [
   // wirksam in der Betriebsart `rueckfragen`; in `autonom` legt die Registry
   // es gar nicht erst in den Kasten (siehe `betriebsart` unten).
   'frage_nutzer',
+  // Phase C7: der Lauf haelt an, bis ein Mensch bestaetigt oder ablehnt. In
+  // jeder Betriebsart erlaubt -- siehe `services/flows/toolRegistry.js`.
+  'freigabe_anfordern',
 ];
 
 // Argumenttypen. Bis Phase B4 (26.08.2026) gab es dazu `datei` (ein Dokument
@@ -607,7 +610,11 @@ const ListRunsQuery = z
     limit: z.coerce.number().int().min(1).max(200).default(50),
     // Optionaler Status-Filter, z. B. `?status=laeuft` für die „laufende Flows"-
     // Anzeige im Chat (Plan 013, B8).
-    status: z.enum(['laeuft', 'fertig', 'fehler', 'abgebrochen']).optional(),
+    // `wartend` und `abgelaufen` seit Phase C7 (Freigaben): der eine haelt an,
+    // der andere ist vorbei, ohne dass jemand entschieden hat.
+    status: z
+      .enum(['laeuft', 'wartend', 'fertig', 'fehler', 'abgebrochen', 'abgelaufen'])
+      .optional(),
     // Optionaler Flow-Filter — die Flow-Zentrale zeigt „Letzte Läufe" EINES
     // Flows, statt client-seitig aus der Gesamtliste zu sieben.
     flow: FlowName.optional(),

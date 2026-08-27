@@ -24,6 +24,7 @@ gaebe es hier nicht, und der Wurzel-Lockfile bleibt unberuehrt.
 | `/apps/beispielapp/api/schluessel` | ihr eigener Container | `{"gesetzt":true,"antwort":200}`            |
 | `/apps/beispielapp/api/gesund`     | ihr eigener Container | `{"status":"ok"}`, auch Dockers Healthcheck |
 | `/apps/beispielapp/api/flow`       | ihr eigener Container | `{"gestartet":true,"lauf":42}` (POST)       |
+| `/apps/beispielapp/api/freigaben`  | ihr eigener Container | `{"freigaben":[{"id":1,"status":"offen"}]}` |
 
 Der Pfad in der Antwort ist die eigentliche Aussage: das Backend sieht
 `/hallo`, nicht `/apps/beispielapp/api/hallo`. Traefik schneidet das Praefix
@@ -65,6 +66,21 @@ Seit Phase C6 kommt ein Drittes dazu, und es ist das Mass jener Phase:
   Rolle und schreibt aus deren Ergebnis den Bericht. Ein Schritt in
   `flow_run_steps` entsteht genau dadurch.
 
+Seit Phase C7 das Vierte: ein Flow, der **anhaelt**.
+
+- **`flows/freigabe.md`** fordert mit `freigabe_anfordern` eine Freigabe an.
+  Der Lauf steht dann auf `wartend` und tut nichts, bis ein Mensch entscheidet:
+  bestaetigt laeuft er ab dem angehaltenen Schritt weiter, abgelehnt endet er
+  als `abgebrochen` mit der Begruendung. Entscheiden darf jeder, dem die App
+  freigegeben ist -- der Flow nennt keine Person.
+- **`flows/freigabe-frist.md`** ist derselbe Flow mit einer Frist von zwoelf
+  Sekunden. Er belegt den dritten Ausgang: ohne Entscheidung endet der Lauf als
+  `abgelaufen`, und das ist kein Fehler.
+- **`/freigaben`** liest, woran ein Lauf haengt (`?lauf=<n>` engt ein). **Nur
+  lesen**: eine App, die ihre eigene Freigabe erteilen koennte, waere keine.
+- **`/flow?flow=<name>`** waehlt, welchen der drei Flows sie startet; ohne
+  Angabe `wochenbericht`.
+
 ## Aufruf
 
 ```bash
@@ -74,4 +90,7 @@ bash scripts/test/beispielapp.sh entfernen
 
 # Der ganze Weg der Flow-Engine, ueber die externe Schnittstelle (Phase C6)
 bash scripts/test/flow-abnahme.sh
+
+# Der ganze Weg einer Freigabe: halten, bestaetigen, ablehnen, ablaufen (C7)
+bash scripts/test/freigabe-abnahme.sh
 ```

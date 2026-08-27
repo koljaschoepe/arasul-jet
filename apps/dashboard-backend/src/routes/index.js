@@ -47,6 +47,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/models', group: 'ai' },
   { prefix: '/embeddings', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
+  { prefix: '/freigabe-anfragen', group: 'ai' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
@@ -107,6 +108,11 @@ router.use('/werksreset', require('./admin/werksreset'));
 router.use('/models', require('./ai/models'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
 router.use('/flows', require('./flows'));
+// Die Freigaben, die ein Flow anfordert (Phase C7). Bei den Flows und nicht
+// bei den Admin-Wegen: hier entscheidet ein MITARBEITER ueber einen Lauf,
+// waehrend `/freigaben` (admin/) die Freigabe einer App fuer einen Menschen
+// verwaltet. Zwei Gegenstaende, zwei Praefixe.
+router.use('/freigabe-anfragen', require('./freigabeAnfragen'));
 
 // --- Store ---
 router.use('/apps', require('./store/apps'));

@@ -49,7 +49,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 2;
+const KONTRAKT_VERSION = 3;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -57,6 +57,12 @@ const KONTRAKT_VERSION = 2;
  * Lieferung geworden. Ein Kit, das noch `"flows": ["a","b"]` schreibt, wird
  * vom Geraet abgewiesen (`.strict()` plus Typpruefung), und genau dafuer ist
  * diese Zahl da: es merkt es, bevor es ein Paket schickt.
+ *
+ * Fassung 3 (Phase C7, 27.08.2026): das Werkzeug `freigabe_anfordern` kommt
+ * dazu. Ein Kit, das gegen Fassung 2 prueft, weist einen Flow damit als
+ * ungueltig ab, obwohl das Geraet ihn nimmt -- und der Partner suchte den
+ * Fehler in seiner Datei. Dazu ein Endpunkt: eine App darf nachlesen, woran
+ * ihr Lauf haengt (`GET /freigaben`).
  */
 
 /**
@@ -179,6 +185,12 @@ const ENDPUNKTE = Object.freeze([
     bereich: 'flow:run',
     was: 'Der Lauf eines Flows, mit seinen Schritten',
   },
+  {
+    verb: 'GET',
+    pfad: '/api/v1/external/freigaben?lauf=<id>',
+    bereich: 'flow:run',
+    was: 'Die Freigaben dieser App nachlesen. Nur lesen: entschieden wird ueber die Sitzung eines Menschen',
+  },
 ]);
 
 /**
@@ -225,6 +237,9 @@ function kontrakt() {
         '`ordner` ist fuer einen Flow aus einem Paket nicht erlaubt: die Datei-Werkzeuge brauchen einen abgeschirmten Datenordner je App, und den gibt es noch nicht.',
         `Hoechstens ${appFlows.MAX_FLOWS} Flows je Paket.`,
         'Der Namensraum ist die App: zwei Apps duerfen denselben Flow-Namen tragen.',
+        'Das Werkzeug `freigabe_anfordern` haelt den Lauf an, bis ein Mensch bestaetigt (Status `wartend`). Ablehnung beendet ihn als `abgebrochen`, Fristablauf als `abgelaufen`.',
+        'Entscheiden darf jeder, dem die App freigegeben ist. Ein Flow nennt dafuer keine Person und keine Rolle.',
+        'Die Frist steht als `frist_minuten` in den `parameter` des Schritts; ohne Angabe gilt die Vorgabe des Geraets.',
       ],
     },
     koepfe: {

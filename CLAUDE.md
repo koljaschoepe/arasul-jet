@@ -50,6 +50,12 @@ Stand registriert in `app_flows`, Namensraum ist die App); das Modell je Flow
 steht im Frontmatter, der Admin überschreibt es in `flow_settings`, und diese
 Überschreibung überlebt ein App-Update. Eine App startet nur ihre eigenen
 Flows — der Schlüssel aus C4 trägt App und Stand, gesucht wird mit beiden.
+Seit C7 kann ein Flow **anhalten**: das Werkzeug `freigabe_anfordern` legt eine
+Zeile in `approvals`, der Lauf steht auf `wartend`, und wer die App freigegeben
+hat, bestätigt oder lehnt über `/api/freigabe-anfragen` ab (der Flow nennt keine
+Person). Bestätigt läuft er ab dem angehaltenen Schritt weiter, abgelehnt endet
+er als `abgebrochen` mit Begründung, ohne Entscheidung nach der Frist als
+`abgelaufen` — siehe [`docs/features/FLOWS.md`](docs/features/FLOWS.md).
 Die neue Oberfläche kommt mit den D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

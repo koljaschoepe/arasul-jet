@@ -486,6 +486,9 @@ describe('Werkzeug-Registry', () => {
         // Plan 023 I3: EINE Rueckfrage an den Nutzer. Nur wirksam in der
         // Betriebsart `rueckfragen` — siehe die Tests darunter.
         'frage_nutzer',
+        // Phase C7: der Lauf haelt an, bis ein Mensch entscheidet. Anders als
+        // die Rueckfrage in JEDER Betriebsart -- eine Freigabe IST der Halt.
+        'freigabe_anfordern',
       ].sort()
     );
   });

@@ -248,8 +248,11 @@ router.get(
     // 1. Verlauf zuerst — der Wiederverbinden-Fall.
     sende({ type: 'verlauf', run });
 
-    // 2. Ist der Lauf schon beendet, gibt es nichts Live mehr.
-    if (run.status !== 'laeuft') {
+    // 2. Ist der Lauf schon beendet, gibt es nichts Live mehr. `wartend` ist
+    //    NICHT beendet (Phase C7): der Lauf haengt an einer Freigabe und geht
+    //    danach weiter -- wer hier „Ende" meldet, schliesst die Verbindung
+    //    genau in dem Moment, in dem es spannend wird.
+    if (!runStore.LAEUFT_NOCH.has(run.status)) {
       sende({ type: 'ende', status: run.status });
       res.end();
       return;
@@ -294,7 +297,7 @@ router.get(
     runStore
       .getRun({ runId, userId: req.user.id })
       .then(aktuell => {
-        if (aktuell.status !== 'laeuft') {
+        if (!runStore.LAEUFT_NOCH.has(aktuell.status)) {
           sende({ type: 'ende', status: aktuell.status });
           schliessen();
         }

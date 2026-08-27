@@ -23,7 +23,19 @@ const logger = require('../../utils/logger');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
 
 /** Zustände, die einen Lauf beenden — von hier an ändert sich sein Status nicht mehr. */
-const ENDZUSTAENDE = new Set(['fertig', 'fehler', 'abgebrochen']);
+const ENDZUSTAENDE = new Set(['fertig', 'fehler', 'abgebrochen', 'abgelaufen']);
+
+/**
+ * Zustände, in denen ein Lauf noch nicht vorbei ist (Phase C7).
+ *
+ * `wartend` ist der zweite davon: der Lauf haelt an einer Freigabe und tut
+ * nichts, aber er ist NICHT beendet -- derselbe Lauf laeuft nach der
+ * Bestaetigung weiter, ab dem Schritt, an dem er stehengeblieben ist. Wer die
+ * beiden Zustaende an einer Stelle vergisst, baut genau einen von zwei
+ * Fehlern: ein wartender Lauf laesst sich nicht mehr abbrechen, oder eine
+ * Live-Verbindung meldet „Ende", waehrend der Lauf noch da ist.
+ */
+const LAEUFT_NOCH = new Set(['laeuft', 'wartend']);
 
 /**
  * Legt einen neuen Lauf an (Status 'laeuft').
@@ -179,7 +191,7 @@ async function finishRun(
             annahmen = $6::jsonb,
             finished_at = NOW()
       WHERE id = $1
-        AND status = 'laeuft'
+        AND status IN ('laeuft', 'wartend')
       RETURNING *`,
     [
       runId,
@@ -235,7 +247,7 @@ async function cancelRun({ runId, userId }, { db = database } = {}) {
         SET status = 'abgebrochen', finished_at = NOW()
       WHERE id = $1
         AND user_id = $2
-        AND status = 'laeuft'
+        AND status IN ('laeuft', 'wartend')
       RETURNING *`,
     [runId, userId]
   );
@@ -346,4 +358,5 @@ module.exports = {
   getRun,
   listRuns,
   ENDZUSTAENDE,
+  LAEUFT_NOCH,
 };

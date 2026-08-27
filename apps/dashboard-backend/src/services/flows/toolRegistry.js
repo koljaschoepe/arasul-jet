@@ -21,6 +21,7 @@ const { DateiSuchenTool } = require('./tools/suche');
 const { SymbolSuchenTool } = require('./tools/symbolIndex');
 const SubagentTool = require('./subagent');
 const FrageNutzerTool = require('./tools/frage');
+const FreigabeAnfordernTool = require('./tools/freigabe');
 const BaseTool = require('../../tools/baseTool');
 
 /**
@@ -58,6 +59,12 @@ const FACTORIES = {
   symbol_suche: () => new SymbolSuchenTool(),
   subagent: () => new SubagentTool(),
   frage_nutzer: () => new FrageNutzerTool(),
+  // Phase C7. Anders als `frage_nutzer` in JEDER Betriebsart: eine Freigabe
+  // ist der Halt selbst, und ein Flow, der sie anfordert, will angehalten
+  // werden -- auch ein autonomer. Die Rueckfrage fehlt in `autonom`, weil ein
+  // Lauf ohne Zuschauer nicht auf eine Antwort warten soll; eine Freigabe hat
+  // dagegen einen Kreis von Adressaten und eine Frist.
+  freigabe_anfordern: () => new FreigabeAnfordernTool(),
 };
 
 /**

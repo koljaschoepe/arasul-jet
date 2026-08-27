@@ -12,7 +12,7 @@
 
 ## Übersicht
 
-- Tabellen: **57**
+- Tabellen: **58**
 - Spalten gesamt: **817**
 - Foreign Keys: **52**
 - Indexes: **311**
@@ -489,6 +489,65 @@ Schlüssel liegt als AES-256-GCM-Blob (`utils/tokenCrypto.js`), nie im Klartext
 — dieselbe Zusage wie `arasul.externe_modell_anbieter` (153) und
 `user_external_credentials` (107); `extern_endet_auf` ist bewusst Klartext,
 damit eine Oberfläche zeigen kann, welcher Schlüssel hinterlegt ist.
+
+---
+
+## `approvals`
+
+> Freigabe-Anfragen aus Flow-Läufen (Phase C7): der Lauf hält an, ein Mensch bestätigt oder lehnt ab, nach der Frist läuft sie ab. Seit 174
+
+| Column            | Type                     | Nullable | Default                                 |
+| ----------------- | ------------------------ | -------- | --------------------------------------- |
+| `id`              | bigint                   | ⛔       | `nextval('approvals_id_seq'::regclass)` |
+| `run_id`          | bigint                   | ⛔       |                                         |
+| `app_id`          | text                     | ⛔       |                                         |
+| `stand`           | text                     | ⛔       |                                         |
+| `flow_name`       | text                     | ⛔       |                                         |
+| `titel`           | text                     | ⛔       |                                         |
+| `zusammenhang`    | text                     | ✅       |                                         |
+| `status`          | text                     | ⛔       | `'offen'`                               |
+| `frist`           | timestamp with time zone | ⛔       |                                         |
+| `angefragt_am`    | timestamp with time zone | ⛔       | `now()`                                 |
+| `entschieden_von` | bigint                   | ✅       |                                         |
+| `entschieden_am`  | timestamp with time zone | ✅       |                                         |
+| `begruendung`     | text                     | ✅       |                                         |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `run_id` → `flow_runs.id` (`ON DELETE CASCADE`)
+- `entschieden_von` → `admin_users.id` (`ON DELETE SET NULL`)
+
+**Constraints:** `stand IN ('test','live')` ·
+`status IN ('offen','bestaetigt','abgelehnt','abgelaufen','verfallen')` ·
+`(status = 'offen') = (entschieden_am IS NULL)`
+
+**Indexes:** `idx_approvals_offen` — `(app_id, stand) WHERE status = 'offen'` ·
+`idx_approvals_run` — `(run_id)` ·
+`idx_approvals_eine_offene_je_lauf` — UNIQUE `(run_id) WHERE status = 'offen'`
+
+**Nicht zu verwechseln mit `app_members`.** Zwei Dinge heißen in diesem Gerät
+„Freigabe": `app_members` ist die Freigabe einer _App_ für einen Menschen (C2),
+diese Tabelle die Freigabe eines _Laufs_ durch einen Menschen. Das eine ist die
+Voraussetzung für das andere — entscheiden darf, wem die App freigegeben ist.
+
+**Sie hängt am Lauf, nicht an der App.** Der Fremdschlüssel zeigt auf
+`flow_runs` mit `ON DELETE CASCADE`: eine Freigabe ohne ihren Lauf wäre eine
+Aufgabe, die niemand mehr erfüllen kann. Auf `apps` zeigt dagegen **kein**
+Fremdschlüssel — dieselbe Begründung wie bei `flow_runs.app_id`: wer eine App
+entfernt, soll nicht die Auskunft darüber löschen, wer damals was freigegeben
+hat. `app_id`/`stand` stehen trotzdem in der Zeile: sie sind der Namensraum, in
+dem der Kreis der Entscheider steht (`app_members`), und der JOIN darauf **ist**
+die Berechtigung.
+
+`frist` ist eine **Zeit**, keine Dauer. Eine Dauer müsste jeder Leser mit
+`angefragt_am` verrechnen, und der erste, der es vergisst, zeigt einem
+Mitarbeiter eine Freigabe, die längst abgelaufen ist.
+
+`verfallen` ist der fünfte Zustand und heißt: der Lauf läuft nicht mehr (das
+Backend wurde neu gestartet, der Lauf wurde abgebrochen). Bewusst getrennt von
+`abgelaufen` — dort hat ein Mensch nicht geantwortet, hier die Maschine.
 
 ---
 
@@ -1547,6 +1606,14 @@ trägt die Angabe nicht".
 > Die Lauf-Liste eines Nutzers filtert **nicht** danach: ein Lauf, den eine
 > seiner Apps gestartet hat, gehört sichtbar dazu, und die Spalten sagen,
 > woher er kam.
+
+> `status` (Typ `flow_run_status`): seit Migration 174 mit zwei Werten mehr —
+> `wartend` (der Lauf hält an einer Freigabe, **kein** Endzustand: er läuft nach
+> der Bestätigung ab dem angehaltenen Schritt weiter) und `abgelaufen` (niemand
+> hat innerhalb der Frist entschieden). Eine Ablehnung ist `abgebrochen` mit der
+> Begründung in `error` — ein Mensch hat den Lauf beendet, und das ist kein
+> Fehler. Ein Enum-Wert lässt sich in Postgres nicht wieder entfernen; beim
+> Rollback von 174 bleiben die zwei stehen und stören nicht.
 
 > `changes` (Plan 011, Schritt 16): Datei-Änderungen des Laufs — `[{pfad, art (neu\|geaendert\|geloescht), vorher, nachher, gekuerzt, hinweis}]`, aus dem Ordner-Abzug vor/nach dem Lauf; gedeckelt in Zahl und Vorschau-Länge. `NULL` = nicht ermittelt (Lauf ohne Schreib-Werkzeug).
 

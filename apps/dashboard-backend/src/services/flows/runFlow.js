@@ -181,7 +181,13 @@ async function runFlow(
   //    erben). Bewusst getrennt gehalten: `roleContextBase` sind die
   //    Ordner-Angaben, `context` ist dieselbe Basis plus die Lauf-weiten
   //    Subagent-Daten (Rollen, Grenzen, Tiefe).
-  const roleContextBase = { userId, roots: flow.ordner, slug: flowName };
+  //
+  //    `appId`/`stand` gehoeren in die BASIS und nicht nur in den aeusseren
+  //    Kontext (Phase C7): eine Rolle, die `freigabe_anfordern` deklariert,
+  //    braucht denselben Namensraum wie der Orchestrator. Ohne sie forderte
+  //    sie eine Freigabe an, die niemandem gehoert -- und bekaeme dieselbe
+  //    Abweisung wie ein Flow der Plattform.
+  const roleContextBase = { userId, roots: flow.ordner, slug: flowName, appId, stand };
 
   // 5. Lauf anlegen — ODER einen bereits angelegten weiterverwenden. Der
   //    Lauf-Verwalter (Schritt 12) legt den Lauf VOR dem Start an, damit seine
@@ -409,15 +415,38 @@ async function runFlow(
       }
       ausgabe = String(await tool.execute(params, context));
     } catch (err) {
+      // `laufBeendet` heisst: hier ist Schluss, aber nichts ist kaputt
+      // (Phase C7, `services/flows/freigabeAnfragen.js`). Eine abgelehnte
+      // oder abgelaufene Freigabe beendet den Lauf; sie als Fehler zu
+      // protokollieren hiesse, im Protokoll nach einer Stoerung zu suchen,
+      // wo ein Mensch nein gesagt hat.
       await stepRecorder.abschliessen({
         stepId: step.id,
-        output: `Fehler: ${err.message}`,
-        status: 'fehler',
+        output: err.laufBeendet ? err.message : `Fehler: ${err.message}`,
+        status: err.laufBeendet ? 'abgebrochen' : 'fehler',
       });
       throw err;
     }
     await stepRecorder.abschliessen({ stepId: step.id, output: ausgabe });
     return ausgabe;
+  };
+
+  // Ein Werkzeug, das WIRFT, laesst im modellgetriebenen Pfad seinen Schritt
+  // offen: `weiter` legt ihn bei `tool_start` an und schliesst ihn bei
+  // `tool_result` -- und das Ereignis bleibt aus, wenn das Werkzeug wirft. Die
+  // Werkzeuge halten sich an die Regel „nie werfen"; seit Phase C7 gibt es
+  // genau eine Ausnahme (`freigabe_anfordern`, wenn die Freigabe ausbleibt),
+  // und ein Schritt, der fuer immer auf `laeuft` steht, waere die falsche
+  // Erinnerung an einen Lauf, der laengst beendet ist.
+  const offeneSchritteSchliessen = async (text, status) => {
+    for (const stepId of offeneSchritte.values()) {
+      try {
+        await stepRecorder.abschliessen({ stepId, output: text, status });
+      } catch (err) {
+        logger.warn(`Flow "${flowName}": offener Schritt nicht abschliessbar: ${err.message}`);
+      }
+    }
+    offeneSchritte.clear();
   };
 
   // 6. Ausführen — deterministische Schritt-Kette (B7), sonst modellgetrieben.
@@ -452,6 +481,10 @@ async function runFlow(
         });
   } catch (err) {
     logger.error(`Flow "${flowName}" abgebrochen: ${err.message}`);
+    await offeneSchritteSchliessen(
+      err.laufBeendet ? err.message : `Fehler: ${err.message}`,
+      err.laufBeendet ? 'abgebrochen' : 'fehler'
+    );
     await store.finishRun({
       runId: run.id,
       status: 'fehler',
@@ -544,6 +577,13 @@ async function runFlow(
         }
       }
     }
+  }
+
+  if (ergebnis.error) {
+    await offeneSchritteSchliessen(
+      ergebnis.laufBeendet ? ergebnis.error : `Fehler: ${ergebnis.error}`,
+      ergebnis.laufBeendet ? 'abgebrochen' : 'fehler'
+    );
   }
 
   // 7. Lauf abschließen. Ein per Signal abgebrochener Lauf wird 'abgebrochen';

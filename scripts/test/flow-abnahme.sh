@@ -369,6 +369,19 @@ pruefe 'Die App ist dem Administrator freigegeben' "$FREI" "HTTP $CODE benutzer=
 # Das eigentliche Mass der Phase. Nicht `curl` startet ihn, sondern die App --
 # mit dem Schluessel, den das Geraet ihr beim Einspielen in den Container
 # gelegt hat und den sonst niemand kennt.
+#
+# ERST WARTEN. Am 27.08.2026 startete diese Abnahme den Flow eine Sekunde nach
+# dem Schalten; Traefik kannte den Router des Live-Containers da noch nicht,
+# und Arasuls Auffangpfad antwortete 404 "Endpoint not found". Die Abnahme
+# meldete das als Fehler der App. `GET /flow` ohne `?lauf=` beantwortet die App
+# mit IHRER eigenen Meldung (HTTP 400) -- sobald die kommt, steht der Weg.
+if arasul_warte_auf_app "/apps/$APP/api/flow" 180 "$TOK"; then
+  pruefe 'Die App ist unter ihrem eigenen Pfad erreichbar' ja "nach $((SECONDS))s"
+else
+  pruefe 'Die App ist unter ihrem eigenen Pfad erreichbar' nein \
+    'Zeitgrenze 180s, Traefik kennt den Router nicht'
+fi
+
 sitzungs_ruf POST "/apps/$APP/api/flow?woche=34"
 pruefe 'Die Beispielapp startet ihren Flow' "$(ja_wenn "$CODE" 202)" "HTTP $CODE"
 LAUF=$(rumpf | feld lauf)
@@ -411,7 +424,20 @@ fi
 # Die Messregel woertlich. Nur am Geraet: vom Arbeitsrechner aus gibt es keinen
 # Weg zur Datenbank, und einen zu bauen hiesse, fuer eine Messung eine Tuer
 # aufzumachen, die es sonst nicht gibt.
-if [ -n "$LAUF" ] && docker exec postgres-db pg_isready -U arasul >/dev/null 2>&1; then
+# ZWEI Gruende, hier nichts zu messen, und sie duerfen nicht dieselbe Zeile
+# bekommen. Am 27.08.2026 meldete diese Abnahme am Orin "docker exec
+# postgres-db nicht erreichbar" und uebersprang die Tabellenpruefung, obwohl
+# sie AUF dem Geraet lief und Docker danebenstand: der Flow-Start war an 404
+# gescheitert, `$LAUF` war leer, und die gemeinsame Bedingung schrieb das der
+# Datenbank zu. Eine Uebersprungen-Meldung, die den falschen Grund nennt,
+# schickt den naechsten Menschen einen halben Tag in die falsche Richtung.
+if [ -z "$LAUF" ]; then
+  uebergehen 'Der Lauf steht mit Schritten in flow_runs/flow_run_steps' \
+    'kein Lauf gestartet, es gibt nichts nachzuschlagen'
+elif ! docker exec postgres-db pg_isready -U arasul >/dev/null 2>&1; then
+  uebergehen 'Der Lauf steht mit Schritten in flow_runs/flow_run_steps' \
+    'nur am Geraet: docker exec postgres-db nicht erreichbar'
+else
   ZEILE=$(docker exec postgres-db psql -U arasul -d arasul_db -tAF'|' -c \
     "SELECT app_id, stand, flow_name, status,
             (SELECT count(*) FROM flow_run_steps s WHERE s.run_id = r.id)
@@ -428,9 +454,6 @@ if [ -n "$LAUF" ] && docker exec postgres-db pg_isready -U arasul >/dev/null 2>&
   pruefe 'und flow_run_steps traegt seine Schritte' \
     "$([ "${DB_SCHRITTE:-0}" -gt 0 ] 2>/dev/null && echo ja || echo nein)" \
     "schritte=$DB_SCHRITTE status=$DB_STATUS"
-else
-  uebergehen 'Der Lauf steht mit Schritten in flow_runs/flow_run_steps' \
-    'nur am Geraet: docker exec postgres-db nicht erreichbar'
 fi
 
 # --- 9. Nur eigene Flows ----------------------------------------------------

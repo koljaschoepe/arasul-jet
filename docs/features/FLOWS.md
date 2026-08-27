@@ -74,7 +74,7 @@ Dateiname).
 
 `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`,
 `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `subagent`,
-`frage_nutzer`. Ein Flow bekommt **genau** die
+`frage_nutzer`, `freigabe_anfordern`. Ein Flow bekommt **genau** die
 deklarierten Werkzeuge; ein unbekannter Name ist ein Schreibfehler und wird
 beim Speichern abgewiesen.
 
@@ -95,6 +95,8 @@ beim Speichern abgewiesen.
 - `subagent` verlangt `rollen` und umgekehrt: eine Rolle darf nie mehr
   Werkzeuge haben als der Flow selbst.
 - `frage_nutzer` gibt es nur in der Betriebsart `rueckfragen` (unten).
+- `freigabe_anfordern` hält den Lauf an, bis ein Mensch entscheidet (unten).
+  Es gibt das Werkzeug in **jeder** Betriebsart — anders als die Rückfrage.
 
 ### Subagenten und Kontext-Sparsamkeit
 
@@ -261,6 +263,56 @@ erste ist die Empfehlung, immer ein Freitext), beantwortet wird sie mit
 mit. Das Warten kostet keine GPU: die Sperre umschließt einen einzelnen
 Modellaufruf, nicht den ganzen Lauf.
 
+## Freigaben (Phase C7)
+
+Ein Flow kann anhalten und um Freigabe bitten. Das ist etwas anderes als eine
+Rückfrage, und der Unterschied ist nicht technisch, sondern die Sache:
+
+|              | `frage_nutzer`                          | `freigabe_anfordern`                    |
+| ------------ | --------------------------------------- | --------------------------------------- |
+| Adressat     | wer gerade zusieht                      | jeder, dem die App freigegeben ist      |
+| liegt        | im Speicher des Prozesses               | in der Tabelle `approvals`              |
+| ohne Antwort | der Flow läuft mit einer Annahme weiter | **nichts** läuft weiter, der Lauf endet |
+| Betriebsart  | nur `rueckfragen`                       | jede — eine Freigabe **ist** der Halt   |
+
+```yaml
+schritte:
+  - name: freigeben
+    typ: werkzeug
+    werkzeug: freigabe_anfordern
+    parameter:
+      titel: Wochenbericht für KW {{woche}} freigeben
+      zusammenhang: '{{entwurf}}'
+      frist_minuten: 60
+```
+
+Der Lauf steht dann auf **`wartend`**. Wer die App freigegeben hat, sieht ihn
+unter `GET /api/freigabe-anfragen` und entscheidet mit
+`POST /api/freigabe-anfragen/:id/bestaetigen` oder `…/ablehnen`
+(Begründung Pflicht). Danach:
+
+| Entscheidung  | Lauf                                                    |
+| ------------- | ------------------------------------------------------- |
+| bestätigt     | läuft **ab dem angehaltenen Schritt** weiter            |
+| abgelehnt     | endet als `abgebrochen`, die Begründung wird sein Grund |
+| nichts, Frist | endet als `abgelaufen`                                  |
+
+**Der Flow nennt keine Person und keine Rolle** (Entscheidung vom 27.08.2026).
+Er beschreibt die Sache; wer entscheiden darf, steht in `app_members` — dieselbe
+Freigabe, mit der jemand die App überhaupt benutzen darf. Eine Freigabe gehört
+deshalb immer einer App: ein Flow der Plattform kann keine anfordern und
+bekommt einen Satz, der das sagt.
+
+Die Frist steht als `frist_minuten` am Schritt, ohne Angabe gilt
+`FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 1440 = ein Tag). Das Warten kostet keine
+GPU — dieselbe Begründung wie bei der Rückfrage.
+
+**Grenze, ehrlich benannt:** ein wartender Lauf überlebt keinen Neustart des
+Backends. Er hängt an einem Zeitgeber und einem Versprechen in diesem Prozess;
+nach einem Neustart wird er wie jeder laufende Lauf als `fehler` markiert, und
+seine offene Anfrage schließt als `verfallen`. Die Entscheidung selbst bleibt
+in der Tabelle — was fehlt, ist nur der Faden zurück in den Lauf.
+
 ## Verwandte Dokumentation
 
 - API: [`API_REFERENCE.md`](../api/API_REFERENCE.md), Abschnitt **Flows**
@@ -268,4 +320,4 @@ Modellaufruf, nicht den ganzen Lauf.
 - Umgebungsvariablen: [`ENVIRONMENT_VARIABLES.md`](../ENVIRONMENT_VARIABLES.md),
   Abschnitte **Werkzeug-Schleife** und **Flows**.
 - Datenbank: [`DATABASE_SCHEMA.md`](../api/DATABASE_SCHEMA.md), Tabellen
-  `flow_runs` und `flow_run_steps`.
+  `flow_runs`, `flow_run_steps` und `approvals`.

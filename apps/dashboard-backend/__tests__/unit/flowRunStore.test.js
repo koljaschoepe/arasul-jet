@@ -156,12 +156,24 @@ describe('finishStep', () => {
 });
 
 describe('finishRun', () => {
-  it('beendet nur einen noch laufenden Lauf (WHERE status = laeuft)', async () => {
+  it('beendet nur einen noch NICHT beendeten Lauf (die Idempotenz-Bedingung)', async () => {
     const db = fakeDb({ rows: [{ id: 7, status: 'fertig' }] });
     const run = await runStore.finishRun({ runId: 7, status: 'fertig', result: 'fertig!' }, { db });
     expect(run.status).toBe('fertig');
     const { sql } = db.calls[0];
-    expect(sql).toMatch(/status = 'laeuft'/); // die Idempotenz-Bedingung
+    // Seit Phase C7 sind es ZWEI Zustaende: `wartend` haelt an einer Freigabe
+    // und ist nicht beendet -- ein Lauf, der dort endet (Ablehnung, Ablauf),
+    // muss trotzdem abschliessbar sein.
+    expect(sql).toMatch(/status IN \('laeuft', 'wartend'\)/);
+  });
+
+  it('nimmt `abgelaufen` als Endzustand (Freigabe nicht erteilt, C7)', async () => {
+    const db = fakeDb({ rows: [{ id: 7, status: 'abgelaufen' }] });
+    const run = await runStore.finishRun(
+      { runId: 7, status: 'abgelaufen', error: 'Frist vorbei' },
+      { db }
+    );
+    expect(run.status).toBe('abgelaufen');
   });
 
   it('gibt null zurück, wenn der Lauf schon beendet war (kein Übertünchen)', async () => {
@@ -193,7 +205,7 @@ describe('cancelRun', () => {
     const laufSql = db.calls[0];
     expect(laufSql.sql).toMatch(/UPDATE flow_runs/);
     expect(laufSql.sql).toMatch(/user_id = \$2/); // Eigentümer-Bindung
-    expect(laufSql.sql).toMatch(/status = 'laeuft'/); // nur laufende
+    expect(laufSql.sql).toMatch(/status IN \('laeuft', 'wartend'\)/); // nur nicht beendete
     expect(laufSql.params).toEqual([7, 1]);
 
     const schrittSql = db.calls[1];

@@ -1897,6 +1897,42 @@ they appear in the new run's log as steps with input
 first failed step. `400` if the run is not failed or the flow has no step chain;
 `404` if the run is unknown/foreign. Response: `202 { runId, uebernommeneSchritte }`.
 
+### Freigabe-Anfragen (Phase C7)
+
+Ein Flow kann anhalten und um Freigabe bitten (Werkzeug `freigabe_anfordern`).
+Der Lauf steht dann auf `wartend`, und ein **Mensch** entscheidet — über die
+Sitzung, nicht über einen Schlüssel.
+
+| Method | Endpoint                                 | Description                                                              |
+| ------ | ---------------------------------------- | ------------------------------------------------------------------------ |
+| GET    | `/api/freigabe-anfragen`                 | Die offenen Freigaben der Apps, die dem Aufrufer freigegeben sind        |
+| POST   | `/api/freigabe-anfragen/:id/bestaetigen` | Ja. Der Lauf läuft ab dem angehaltenen Schritt weiter (Body `{}`)        |
+| POST   | `/api/freigabe-anfragen/:id/ablehnen`    | Nein, Body `{ begruendung }` (Pflicht). Der Lauf endet als `abgebrochen` |
+
+**Wer darf entscheiden.** Jeder, dem die App freigegeben ist (`app_members`,
+Phase C2) — Administrator **und** Mitarbeiter. Der Flow nennt keine Person und
+kein Rollenmodell (Entscheidung vom 27.08.2026): er beschreibt die Sache, nicht
+die Zuständigkeit. Wer die App nicht freigegeben hat, bekommt `403`; eine
+Anfrage, die es nicht gibt, `404`; eine, die nicht mehr offen oder deren Frist
+abgelaufen ist, `409` — vier Gründe, vier Meldungen, weil der Mensch am anderen
+Ende gerade auf „Bestätigen" gedrückt hat.
+
+**Die Frist** steht als `frist_minuten` in den `parameter` des Schritts; ohne
+Angabe gilt `FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 1440 = ein Tag). Läuft sie
+ab, endet der Lauf als `abgelaufen`.
+
+**Nicht zu verwechseln mit `/api/freigaben`** (Admin): das ist die Freigabe
+einer _App_ für einen Menschen. Das eine ist die Voraussetzung für das andere.
+
+**Antwort von `POST …/bestaetigen`:** `{ data: { id, run_id, app_id, stand,
+flow_name, titel, status, entschieden_am, benutzer, fortgesetzt } }`.
+`fortgesetzt: false` heißt: die Entscheidung steht, aber niemand führt den Lauf
+mehr weiter (das Backend ist zwischendurch neu gestartet). Das wird gesagt und
+nicht verschwiegen.
+
+Die App selbst liest den Stand über `GET /api/v1/external/freigaben` (siehe
+External API) — lesen darf sie, entscheiden nicht.
+
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
 > `werkzeuge`, `vorlagen`) is a reserved segment: a flow named
 > exactly `laeufe` could not be fetched via `GET /:name`.
@@ -1911,7 +1947,13 @@ first failed step. `400` if the run is not failed or the flow has no step chain;
 a run belonging to another user returns `404`, never `403` — its existence is
 not revealed. Each step stores a condensed `output` (what reaches the
 orchestrator) separately from `raw_output` (page/file content, log-only, loaded
-only with `?raw=1`). Statuses: `laeuft | fertig | fehler | abgebrochen`.
+only with `?raw=1`). Statuses: `laeuft | wartend | fertig | fehler | abgebrochen | abgelaufen`.
+`wartend` und `abgelaufen` kamen mit Phase C7 (Freigaben) dazu: `wartend` hält
+an einer Freigabe an und ist **kein** Endzustand — derselbe Lauf läuft nach der
+Bestätigung ab dem angehaltenen Schritt weiter. `abgelaufen` heißt: niemand hat
+innerhalb der Frist entschieden. Eine Ablehnung ist `abgebrochen`, mit der
+Begründung in `error` — ein Mensch hat den Lauf beendet, und das ist kein
+Fehler.
 
 **Agenten-Baum (Migration 124).** Steps form a real tree: a subagent step is
 created **before** the role executes, and the role's inner tool calls become
@@ -2086,19 +2128,26 @@ nur eigene Aufträge, eine Stunde nach ihrem Ende sind sie weg.
 Trigger flows from your own automations with an API key. The endpoint
 scope is `flow:run` (included in the default endpoint set for new keys).
 
-| Method | Endpoint                           | Auth    | Description                                   |
-| ------ | ---------------------------------- | ------- | --------------------------------------------- |
-| GET    | `/api/v1/external/flows`           | API Key | List available flows                          |
-| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default   |
-| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `annahmen`) |
+| Method | Endpoint                           | Auth    | Description                                                  |
+| ------ | ---------------------------------- | ------- | ------------------------------------------------------------ |
+| GET    | `/api/v1/external/flows`           | API Key | List available flows                                         |
+| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default                  |
+| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `annahmen`)                |
+| GET    | `/api/v1/external/freigaben`       | API Key | Die Freigaben dieser App nachlesen (`?lauf=<id>`); nur lesen |
 
 **POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
 state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
 are owned by the API key's creator; an orphaned key (creator deleted) gets
-`403 FORBIDDEN`. This is the per-flow HTTP trigger; there is no scheduler on
-the device, recurring starts come from outside through this endpoint.
+`403 FORBIDDEN`.
+
+> **Ein Flow mit Freigabe-Schritt gehört mit `wait_for_result: false` gestartet**
+> (Phase C7). Er hält an, bis ein Mensch entscheidet — das kann Stunden dauern,
+> und der wartende Aufruf läuft vorher in sein Zeitlimit (höchstens 30 Minuten).
+> Die Lauf-Nummer kommt sofort; den Rest fragt man über
+> `GET /flows/runs/:id` und `GET /freigaben?lauf=<id>` nach. This is the per-flow HTTP trigger; there is no scheduler on
+> the device, recurring starts come from outside through this endpoint.
 
 #### Zwei Namensräume, ein Schlüssel entscheidet (Phase C6)
 
@@ -2125,6 +2174,15 @@ eines Laufs ein: der Schlüssel einer App gehört dem Administrator, der sie
 eingespielt hat, und über `user_id` allein sähe die App dessen eigene Läufe
 und die jeder anderen App desselben Geräts. Ein Lauf trägt seit Migration 173
 `app_id` und `stand` mit.
+
+`GET /api/v1/external/freigaben` (Phase C7) beantwortet die eine Frage, die
+eine App zu einem wartenden Lauf hat: **worauf** wartet er? Der Namensraum
+kommt wieder aus dem Schlüssel — ein Schlüssel eines Menschen (`app_id IS
+NULL`) bekommt `403` mit dem Hinweis auf `/api/freigabe-anfragen`. Antwort:
+`{ success, app, stand, freigaben: [{ id, run_id, flow_name, titel, status,
+frist, angefragt_am, entschieden_am, entschieden_von, begruendung }] }`.
+**Nur lesen.** Entschieden wird über die Sitzung eines Menschen; eine App, die
+ihre eigene Freigabe erteilen könnte, wäre keine.
 
 **POST /api/v1/external/llm/chat:**
 

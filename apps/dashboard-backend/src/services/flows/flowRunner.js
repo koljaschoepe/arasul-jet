@@ -186,12 +186,17 @@ async function abbrechen({ runId, userId }, deps = {}) {
  */
 async function verwaisteAufraeumen(deps = {}) {
   const { db = require('../../database') } = deps;
+  // `wartend` gehört mit dazu (Phase C7): ein Lauf, der an einer Freigabe
+  // hängt, hängt an einem Zeitgeber und einem Versprechen in DIESEM Prozess.
+  // Nach einem Neustart gibt es beides nicht mehr — er stünde für immer als
+  // wartend da, und niemand würde ihn je fortsetzen. Die offenen Anfragen
+  // dazu schließt `freigabeAnfragen.verwaisteSchliessen` unmittelbar danach.
   const res = await db.query(
     `UPDATE flow_runs
         SET status = 'fehler',
             error = 'Backend wurde neu gestartet, während der Lauf lief',
             finished_at = NOW()
-      WHERE status = 'laeuft'
+      WHERE status IN ('laeuft', 'wartend')
       RETURNING id`
   );
   if (res.rowCount > 0) {

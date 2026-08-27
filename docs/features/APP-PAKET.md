@@ -113,6 +113,32 @@ curl -k -X POST https://arasul.local/api/v1/external/flows/bericht/run \
 **Nur eigene Flows.** Der Schlüssel trägt App und Stand; gesucht wird mit
 beiden. Eine App kann den Flow einer anderen nicht einmal benennen.
 
+### Ein Schritt, der auf einen Menschen wartet (seit Kontrakt 3, Phase C7)
+
+Ein Flow aus einem Paket darf `freigabe_anfordern` deklarieren. Der Lauf hält
+dann an (`status: wartend`), bis jemand entscheidet, dem die App freigegeben
+ist:
+
+```yaml
+schritte:
+  - name: freigeben
+    typ: werkzeug
+    werkzeug: freigabe_anfordern
+    parameter:
+      titel: Wochenbericht für KW {{woche}} freigeben
+      zusammenhang: '{{entwurf}}'
+      frist_minuten: 60
+```
+
+Bestätigt: der Lauf läuft ab dem angehaltenen Schritt weiter. Abgelehnt: er
+endet als `abgebrochen` mit der Begründung. Niemand entscheidet bis zur Frist:
+`abgelaufen`. Die App **liest** den Stand mit ihrem Schlüssel
+(`GET /api/v1/external/freigaben?lauf=<id>`) und entscheidet nicht selbst — eine
+App, die ihre eigene Freigabe erteilen könnte, wäre keine.
+
+Der Flow nennt dabei **keine Person und keine Rolle**. Wer entscheiden darf,
+ist eine Sache des Kunden (`app_members`), nicht des Partners.
+
 ## Der Weg einer Version
 
 ```

@@ -68,6 +68,9 @@ services:
       FLOW_LLM_VORLAUF_TIMEOUT_MS: ${FLOW_LLM_VORLAUF_TIMEOUT_MS:-300000}
       # Plan 023 I3: wie lange ein Flow auf eine Rueckfrage-Antwort wartet.
       FLOW_RUECKFRAGE_TIMEOUT_MS: ${FLOW_RUECKFRAGE_TIMEOUT_MS:-}
+      # Phase C7: wie lange eine Freigabe-Anfrage offen bleibt, wenn der Flow
+      # selbst keine `frist_minuten` nennt. Danach endet der Lauf `abgelaufen`.
+      FLOW_FREIGABE_FRIST_MINUTEN: ${FLOW_FREIGABE_FRIST_MINUTEN:-}
       # Externe Cloud-Modelle (Plan 023 D9).
       EXTERN_TIMEOUT_MS: ${EXTERN_TIMEOUT_MS:-60000}
       EXTERN_MODELLE_CACHE_MS: ${EXTERN_MODELLE_CACHE_MS:-300000}

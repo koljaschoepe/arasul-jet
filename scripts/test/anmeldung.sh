@@ -40,6 +40,7 @@
 #   arasul_token_ablegen    Token in die Datei schreiben (macht arasul_token selbst)
 #   arasul_sitzung_bauen    aus dem Token eine Playwright-Sitzung fuer die .mjs
 #   arasul_geraet_erreichbar  horcht, ob unter ARASUL_URL ueberhaupt etwas ist
+#   arasul_warte_auf_app    wartet, bis der Container einer App selbst antwortet
 #
 # Umgebung: ARASUL_URL, ARASUL_BENUTZER, ARASUL_PASSWORT, ARASUL_TOKEN,
 # ARASUL_TOKEN_DATEI, ARASUL_SITZUNG.
@@ -208,4 +209,57 @@ with open(ziel, "w", encoding="utf-8") as f:
     json.dump({"cookies": kekse, "origins": []}, f)
 os.chmod(ziel, 0o600)
 PY
+}
+
+# ---------------------------------------------------------------------------
+# Warten, bis die APP selbst antwortet
+# ---------------------------------------------------------------------------
+# Gefunden bei der C6-Abnahme am Orin (27.08.2026): `flow-abnahme.sh` schaltete
+# live und startete den Flow eine Sekunde spaeter. Traefik kannte den Router des
+# frisch gestarteten Containers da noch nicht, und `/apps/<id>/api/flow` fiel
+# an den Auffangpfad von Arasul -- HTTP 404, `Endpoint not found`. Die Abnahme
+# meldete daraufhin etwas ueber den MESSAUFBAU und schrieb es der App zu.
+#
+# Die Unterscheidung liegt in der Antwort selbst: Arasuls Auffangpfad
+# (`middleware/errorHandler.js`) antwortet immer mit `Endpoint not found`. Kommt
+# irgendetwas anderes zurueck -- auch ein Fehler --, dann hat der Container der
+# App geantwortet, und darauf wird hier gewartet. Ein Pfad, den die App mit
+# ihrer eigenen Fehlermeldung beantwortet, ist deshalb ein gutes Ziel
+# (z. B. `GET /apps/<id>/api/flow` ohne `?lauf=`).
+#
+# GRENZE, ehrlich benannt: wer nach dem Schalten wartet, waehrend ein ALTER
+# Livestand noch laeuft, bekommt womoeglich dessen Antwort. Fuer den Weg
+# „einspielen, schalten, benutzen" -- den diese Abnahmen gehen -- gibt es
+# vorher nichts, was antworten koennte.
+#
+#   arasul_warte_auf_app <pfad> [zeitgrenze_s] [token]
+#
+# Rueckgabe 0, sobald die App antwortet; 1, wenn die Zeitgrenze reisst.
+arasul_warte_auf_app() {
+  local pfad="$1" grenze="${2:-120}" token="${3:-${ARASUL_TOKEN:-}}"
+  local ende=$((SECONDS + grenze)) code
+  local datei
+  datei="$(mktemp)"
+  local -a argumente
+  while :; do
+    argumente=(-sk -o "$datei" -w '%{http_code}' --max-time 20)
+    [ -n "$token" ] && argumente+=(-H "authorization: Bearer $token")
+    code=$(curl "${argumente[@]}" "$ARASUL_URL$pfad")
+    case "$code" in
+      000 | 502 | 503) ;;
+      404)
+        # Der eine Fall, der NICHT von der App kommt.
+        case "$(cat "$datei" 2>/dev/null)" in
+          *'Endpoint not found'*) ;;
+          *) rm -f "$datei"; return 0 ;;
+        esac
+        ;;
+      *) rm -f "$datei"; return 0 ;;
+    esac
+    if [ "$SECONDS" -ge "$ende" ]; then
+      rm -f "$datei"
+      return 1
+    fi
+    sleep 2
+  done
 }

@@ -186,6 +186,19 @@ hole "/apps/$APP/gibt-es-nicht.css"
 pruefe 'Eine fehlende Datei ist 404' "$([ "$CODE" = "404" ] && echo ja || echo nein)" "HTTP $CODE"
 
 # --- 3. Das Backend, ueber Traefik aus dem Container -------------------------
+# ERST WARTEN. Wurde die App gerade eingespielt oder live geschaltet, kennt
+# Traefik den Router ihres Containers noch nicht, und `/apps/<id>/api/...`
+# faellt an Arasuls Auffangpfad: HTTP 404 "Endpoint not found". Das saehe aus
+# wie ein Backend, das nicht antwortet, und ist ein Messaufbau, der zu frueh
+# fragt (gefunden bei der C6-Abnahme am Orin, 27.08.2026). `hole` wiederholt
+# nur bei 000/502/503 -- ein 404 sieht es nicht an.
+if arasul_warte_auf_app "/apps/$APP/api/hallo" 120 "$TOK"; then
+  pruefe 'Der Container der App antwortet ueber Traefik' ja "nach $((SECONDS))s"
+else
+  pruefe 'Der Container der App antwortet ueber Traefik' nein \
+    'Zeitgrenze 120s, nur Arasuls Auffangpfad'
+fi
+
 hole "/apps/$APP/api/hallo"
 pruefe "GET /apps/$APP/api/hallo antwortet" "$([ "$CODE" = "200" ] && echo ja || echo nein)" "HTTP $CODE"
 
