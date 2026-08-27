@@ -145,6 +145,42 @@ async function getAppliedVersions(client, buch) {
  */
 const SCHEMA_MIGRATION = 90;
 
+/**
+ * Migrationen, die in ihrer ausgelieferten Fassung nicht anwendbar sind und
+ * deren Ergebnis eine SPAETERE Migration herstellt: Nummer -> Nummer.
+ *
+ * Warum es das gibt. Der Runner haelt beim ersten Fehlschlag an, und das ist
+ * richtig: was nach einer misslungenen Migration kommt, rechnet mit einem
+ * Schema, das es nicht gibt. Die Kehrseite hat sich am 27.08.2026 am Orin
+ * gezeigt. Migration 169 laesst einen Typ fallen, an dem eine Funktion aus 014
+ * haengt, die sie nicht mit auf ihre Loeschliste genommen hat:
+ *
+ *   ERROR: cannot drop type app_status because other objects depend on it
+ *
+ * Damit stand 169 mit `success = false` im Buch, und bei jedem Start versuchte
+ * der Runner sie erneut, scheiterte erneut und kam nie zu einer Migration, die
+ * den Fehler haette beheben koennen. Eine gescheiterte Migration war eine
+ * Sackgasse, aus der nur eine Hand am Geraet herausfuehrt.
+ *
+ * Reparieren laesst sich das nur an einer von zwei Stellen: in der
+ * gescheiterten Datei selbst oder hier. Die Datei steht im Buch und wird nicht
+ * mehr geaendert (services/postgres/CLAUDE.md, "Forbidden"), auch keine
+ * gescheiterte: sie ist der Beleg dafuer, was das Geraet versucht hat.
+ *
+ * Was hier steht, wird deshalb NICHT ANGEWENDET, sondern als erledigt
+ * eingetragen -- und zwar nur, wenn die abloesende Datei wirklich auf der
+ * Platte liegt. Das Buch beantwortet damit weiter die Frage, die der Runner
+ * ihm stellt ("muss diese Datei noch laufen?"), und die Zeile im Log sagt,
+ * warum die Antwort nein ist. Jede Nummer hier ist eine Entscheidung mit
+ * Datum, keine Regel: eine Migration, die nicht drinsteht, haelt den Lauf
+ * weiterhin an.
+ */
+const ABGELOEST = new Map([
+  // 27.08.2026, Phase C3: 170_app_modell_reparatur_c3.sql tut, was 169 tun
+  // wollte, und raeumt zusaetzlich check_app_dependencies() aus 014 weg.
+  [169, 170],
+]);
+
 async function buchWiderspricht(client, buch) {
   const { rows: schema } = await client.query(
     `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'arasul'`
@@ -282,6 +318,7 @@ async function runMigrations(pool) {
     await seedExistingMigrations(client, files, buch);
 
     const applied = await getAppliedVersions(client, buch);
+    const aufDerPlatte = new Set(files.map(m => m.version));
 
     let appliedCount = 0;
     let skippedCount = 0;
@@ -289,6 +326,30 @@ async function runMigrations(pool) {
     for (const migration of files) {
       if (applied.has(migration.version)) {
         skippedCount++;
+        continue;
+      }
+
+      // Abgeloest: nicht anwenden, als erledigt eintragen, weiter. Siehe
+      // ABGELOEST. Der Eintrag faellt nur, wenn die abloesende Datei wirklich
+      // da ist -- sonst bliebe ihre Arbeit ungetan und niemand saehe es.
+      const abloeser = ABGELOEST.get(migration.version);
+      if (abloeser !== undefined && aufDerPlatte.has(abloeser)) {
+        const hash = checksum(fs.readFileSync(migration.filepath, 'utf8'));
+        await client.query(
+          `INSERT INTO ${buch} (version, filename, checksum, execution_ms, success)
+           VALUES ($1, $2, $3, 0, true)
+           ON CONFLICT (version) DO UPDATE SET
+             filename = EXCLUDED.filename,
+             checksum = EXCLUDED.checksum,
+             execution_ms = 0,
+             applied_at = NOW(),
+             success = true`,
+          [migration.version, migration.filename, hash]
+        );
+        skippedCount++;
+        logger.warn(
+          `Migration ${migration.filename} wird nicht angewendet: Migration ${abloeser} stellt ihr Ergebnis her.`
+        );
         continue;
       }
 

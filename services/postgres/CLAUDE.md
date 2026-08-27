@@ -110,10 +110,44 @@ Wer eine Migration ab 090 schreibt, qualifiziert das Schema am besten
 ausdrücklich (`arasul.foo` oder `public.foo`), statt sich auf den
 `search_path` zu verlassen.
 
+## Wenn eine Migration am Gerät scheitert
+
+Der Runner hält beim ersten Fehlschlag an und trägt die Migration mit
+`success = false` ins Buch ein. Das ist richtig: was nach ihr kommt, rechnet
+mit einem Schema, das es nicht gibt. Die Kehrseite hat Migration 169 am
+27.08.2026 gezeigt — sie ließ einen Typ fallen, an dem eine Funktion aus 014
+hing, und wurde damit bei jedem Start erneut versucht. Eine gescheiterte
+Migration war eine Sackgasse, aus der keine spätere Migration mehr herausführt.
+
+Der Weg heraus geht in drei Schritten, und keiner davon ändert die
+gescheiterte Datei:
+
+1. **Eine neue Migration** mit der nächsten Nummer, die alles tut, was die
+   gescheiterte tun wollte, plus das Fehlende. Idempotent gegen beide
+   Ausgangslagen: das Gerät, auf dem die alte zurückgerollt ist, und das
+   Gerät, auf dem sie durchlief.
+2. **`ABGELOEST` in `migrationRunner.js`** um `[alt, neu]` erweitern. Die alte
+   Nummer wird dann nicht mehr angewendet, sondern als erledigt eingetragen —
+   und nur, wenn die neue Datei wirklich auf der Platte liegt. Ohne diesen
+   Eintrag kommt die neue Migration am Gerät nie an die Reihe.
+3. **Frisches Gerät getrennt betrachten.** Der Docker-Init fährt mit
+   `ON_ERROR_STOP=1`: dieselbe fehlerhafte Datei bricht dort die ganze
+   Initialisierung ab, und der Runner (mit seinem `ABGELOEST`) läuft in diesem
+   Moment noch gar nicht. Was der Init vorher braucht, gehört in eine
+   `NNNa_*.sh` mit der Nummer davor — sie läuft alphabetisch vor der `.sql`,
+   nur beim Erstlauf, und der Runner ignoriert `.sh`. Beispiel:
+   `168a_appstore_funktion_vor_169.sh`.
+
+Nach beiden Wegen steht dasselbe Schema da. Das ist die Bedingung, unter der
+sich das überhaupt lohnt.
+
 ## Forbidden
 
 - ❌ Editing an already-applied migration file. Checksums diverge → the
-  runner errors. Add a follow-up `0YY_*.sql` instead.
+  runner errors. Add a follow-up `0YY_*.sql` instead. Das gilt auch für eine
+  **gescheiterte** Migration: sie steht im Buch, und der Eintrag ist der Beleg
+  dafür, was das Gerät versucht hat (siehe „Wenn eine Migration am Gerät
+  scheitert").
 - ❌ Renumbering or deleting existing files.
 - ❌ `DROP TABLE … CASCADE` without an explicit `IF EXISTS` guard plus a
   rationale comment at the top of the file.

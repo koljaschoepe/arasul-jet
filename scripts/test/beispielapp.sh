@@ -32,6 +32,15 @@
 # =============================================================================
 set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# VOR dem Einbinden gesetzt, weil `anmeldung.sh` sonst seine eigene
+# Voreinstellung nimmt: `https://localhost:8443`. Das ist die Adresse des
+# SSH-Tunnels vom Arbeitsrechner, und die gibt es hier nicht. Dieses Skript
+# laeuft AUF DEM GERAET, dort haengt Traefik an 443. Am 27.08.2026 hat es
+# deshalb am Orin keine Anmeldung bekommen und mit "429 heisst Anmeldedrossel"
+# aufgehoert, obwohl auf 8443 einfach niemand horchte.
+ARASUL_URL="${ARASUL_URL:-https://localhost}"
+
 # shellcheck source=scripts/test/anmeldung.sh
 source "$WURZEL/scripts/test/anmeldung.sh"
 
@@ -52,6 +61,23 @@ ID=$(lies_manifest id)
 VERSION=$(lies_manifest version)
 IMAGE=$(python3 -c "import json; print(json.load(open('$QUELLE/app.json'))['backend']['image'])")
 ZIEL="$DATEN/apps/$ID/$VERSION"
+
+# Aus welchem Ordner liest das Backend wirklich? Am Orin liegen zwei Checkouts
+# nebeneinander, der Deploy-Ordner (`~/arasul/arasul-jet`) und der Ordner des
+# GitHub-Runners; in den Container gebunden ist nur einer. Wer im falschen
+# steht, legt das Paket dorthin, wo es niemand liest, und bekommt beim
+# Einspielen einen Fehler ueber ein Manifest, das er gerade selbst hingelegt
+# hat. Docker weiss es genau, also wird gefragt statt geraten.
+GEBUNDEN=$(docker inspect dashboard-backend \
+  --format '{{range .Mounts}}{{if eq .Destination "/arasul/apps"}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
+if [ -n "$GEBUNDEN" ] && [ "$GEBUNDEN" != "$DATEN/apps" ]; then
+  echo "Falscher Ordner. Der Backend-Container liest:"
+  echo "  $GEBUNDEN"
+  echo "dieses Skript wuerde ablegen nach:"
+  echo "  $DATEN/apps"
+  echo "Von dort starten:  cd ${GEBUNDEN%/data/apps} && bash scripts/test/beispielapp.sh $BEFEHL"
+  exit 1
+fi
 
 api() {
   local verb="$1" pfad="$2" leib="${3:-}"
@@ -82,7 +108,8 @@ case "$BEFEHL" in
     echo "3/4  Anmelden"
     TOKEN=$(arasul_token)
     if [ -z "$TOKEN" ]; then
-      echo "Keine Anmeldung an $ARASUL_URL (HTTP $(arasul_anmeldecode); 429 heisst Anmeldedrossel)."
+      echo "Keine Anmeldung an $ARASUL_URL (HTTP $(arasul_anmeldecode))."
+      echo "429 heisst Anmeldedrossel, 000 heisst: dort horcht niemand."
       exit 1
     fi
 

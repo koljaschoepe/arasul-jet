@@ -15,6 +15,8 @@
 #   4. Aktuelle Images als :rollback taggen.
 #   5. Nur die geaenderten Services neu bauen + hochfahren.
 #   6. Healthcheck. Bei Fehler: Auto-Rollback (Image zuruecktaggen + git reset).
+#   7. Migrationsbuch pruefen. Bei Fehler: rot, aber OHNE Rollback (Begruendung
+#      an Ort und Stelle).
 #
 # Andere Stacks (flow-*, livia-*, jarvis-*) bleiben unberuehrt: alle
 # docker-compose-Aufrufe sind auf das Projekt `arasul-platform` gescoped.
@@ -150,7 +152,26 @@ ok "Working Tree auf $NEW_SHA"
 # als uid 1000 laufende dashboard-backend kann dann nicht hineinschreiben und
 # jeder Schreibzugriff endet in EACCES. Hier angelegt, gehoert das Verzeichnis
 # dem Deploy-Nutzer (uid 1000) und ist damit schreibbar.
-mkdir -p "$DEPLOY_DIR/data/skills"
+#
+# `data/apps` kam mit Phase C3 (27.08.2026) dazu: dort liegen die Pakete der
+# Apps, ein Ordner je Kennung und Version, und das Backend schreibt sie beim
+# Einspielen hinein. Am 27.08. gehoerte der Ordner am Orin ROOT -- Docker hatte
+# ihn beim Start des Backends selbst angelegt, weil hier nur `data/skills`
+# stand. Das Einspielen scheiterte daraufhin mit EACCES, und zwar nicht beim
+# Deploy, sondern erst Stunden spaeter beim ersten Versuch, eine App
+# einzuspielen.
+for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps"; do
+  mkdir -p "$ordner"
+  [ -w "$ordner" ] && continue
+  # Ein Ordner, den Docker vor diesem Deploy angelegt hat, gehoert root. Der
+  # Versuch kostet nichts und gelingt nur, wenn der Deploy-Nutzer darf.
+  chown -R "$(id -u):$(id -g)" "$ordner" 2>/dev/null
+  [ -w "$ordner" ] && continue
+  warn "$ordner gehoert $(stat -c '%U' "$ordner" 2>/dev/null || echo '?') und ist fuer den Deploy-Nutzer nicht schreibbar."
+  warn "  Das Backend laeuft als uid 1000 und kann dort nichts ablegen. Von Hand:"
+  warn "  sudo chown -R $(id -u):$(id -g) $ordner"
+  summary "⚠️ \`$ordner\` ist nicht schreibbar (gehoert root). \`sudo chown -R $(id -u):$(id -g) $ordner\`"
+done
 
 SECRETS_DIR="$DEPLOY_DIR/config/secrets"
 mkdir -p "$SECRETS_DIR"; chmod 700 "$SECRETS_DIR" 2>/dev/null || true
@@ -337,6 +358,101 @@ for s in "${SERVICES[@]}"; do
   [ -z "$status" ] && { err "$cname wurde nicht rechtzeitig healthy"; diagnose "$cname"; rollback; }
   ok "$cname: $status"
 done
+
+# --- 7. Das Migrationsbuch ---------------------------------------------------
+# Warum es diesen Schritt gibt: am 27.08.2026 meldete der Deploy gruen, und auf
+# dem Geraet war Migration 169 gescheitert. Im Buch stand
+# `success = false`, die Tabelle `apps` gab es nicht, und die Abnahme fiel
+# Stunden spaeter darueber. Der Healthcheck konnte das nicht sehen: das Backend
+# faehrt seine Migrationen NACH `server.listen()` (siehe `index.js`), es ist
+# also gesund, bevor es weiss, ob das Schema steht.
+#
+# Geprueft wird deshalb beides, und zwar mit Geduld statt einmal:
+#   1. keine Migration mit `success = false`, und
+#   2. die hoechste .sql auf der Platte steht im Buch.
+# Die zweite Frage faengt den Fall, der am 27.08. vorlag: der Runner haelt beim
+# ersten Fehlschlag an, also fehlt alles danach im Buch, ohne dass irgendwo
+# etwas rot ist.
+#
+# KEIN Rollback. Ein Rollback taggt Images zurueck und setzt git zurueck; an
+# einem Schema aendert er nichts, denn was vor der gescheiterten Migration lief,
+# ist laengst festgeschrieben. Er wuerde also ALTEN Code auf ein NEUES Schema
+# stellen, und das ist schlechter als der Zustand, den er reparieren soll. Der
+# neue Stand bleibt stehen, der Deploy wird rot, und die Meldung sagt, wo
+# nachzusehen ist.
+buch_schema() {
+  docker exec postgres-db psql -U arasul -d arasul_db -tA -c \
+    "SELECT table_schema FROM information_schema.tables
+      WHERE table_name = 'schema_migrations' AND table_schema IN ('arasul','public')
+      ORDER BY CASE table_schema WHEN 'arasul' THEN 0 ELSE 1 END LIMIT 1" 2>/dev/null | tr -d '[:space:]'
+}
+
+# Die hoechste Migrationsnummer auf der Platte. Nicht abgeschrieben: eine feste
+# Zahl waere bei der naechsten Migration falsch. Nur .sql, denn nur die
+# verarbeitet der Runner.
+hoechste_migration() {
+  local hoechste=0 roh
+  for datei in "$DEPLOY_DIR"/services/postgres/init/*.sql; do
+    roh="$(basename "$datei")"
+    roh="${roh%%_*}"
+    roh="${roh%[a-z]}"
+    [[ "$roh" =~ ^[0-9]+$ ]] || continue
+    [ "$((10#$roh))" -gt "$hoechste" ] && hoechste=$((10#$roh))
+  done
+  echo "$hoechste"
+}
+
+log "Migrationsbuch pruefen"
+BUCH_SCHEMA="$(buch_schema)"
+if [ -z "$BUCH_SCHEMA" ]; then
+  err "Migrationsbuch nicht lesbar: postgres-db antwortet nicht oder kennt keine Tabelle schema_migrations."
+  summary "❌ **Deploy rot** \`${NEW_SHA:0:7}\`: das Migrationsbuch liess sich nicht lesen."
+  exit 1
+fi
+BUCH="${BUCH_SCHEMA}.schema_migrations"
+HOECHSTE="$(hoechste_migration)"
+ok "Buch in $BUCH, hoechste Migration auf der Platte: $HOECHSTE"
+
+buch_frage() {
+  docker exec postgres-db psql -U arasul -d arasul_db -tA -c "$1" 2>/dev/null | tr -d '\r'
+}
+
+# Zuerst warten, dann urteilen. Die Reihenfolge ist nicht beliebig: eine Zeile
+# mit `success = false` steht so lange im Buch, BIS der Runner sie ueberschreibt,
+# und das tut er erst waehrend seines Laufs. Wer sofort nach dem Healthcheck
+# fragt, liest also den Fehlschlag des VORIGEN Starts und macht ausgerechnet den
+# Deploy rot, der ihn behebt. Erst wenn die hoechste Migration im Buch steht,
+# ist der Lauf durch, und ab da ist jede Antwort belastbar.
+MIGRATION_DEADLINE=$(( SECONDS + 180 ))
+BUCH_STAND=""
+while :; do
+  if [ "$(buch_frage "SELECT count(*) FROM ${BUCH} WHERE version = ${HOECHSTE} AND success = true")" = "1" ]; then
+    BUCH_STAND="ok"
+    break
+  fi
+  [ "$SECONDS" -ge "$MIGRATION_DEADLINE" ] && break
+  wartung_an   # Herzschlag, wie beim Healthcheck: Migrationen duerfen dauern
+  sleep 5
+done
+
+GESCHEITERT="$(buch_frage "SELECT version || ' ' || filename FROM ${BUCH} WHERE success = false ORDER BY version")"
+if [ -n "$GESCHEITERT" ]; then
+  err "Migration gescheitert. Im Buch steht:"
+  printf '%s\n' "$GESCHEITERT" | sed 's/^/    /' >&2
+  err "  Der neue Stand laeuft, aber das Schema ist nicht das, was er erwartet."
+  err "  Nachsehen: docker logs dashboard-backend 2>&1 | grep -i migration"
+  summary "❌ **Deploy rot** \`${NEW_SHA:0:7}\`: gescheiterte Migration(en) im Buch: $(printf '%s' "$GESCHEITERT" | tr '\n' ' ')"
+  exit 1
+fi
+
+if [ -z "$BUCH_STAND" ]; then
+  err "Migration $HOECHSTE steht nach 180s nicht im Buch ($BUCH), und gescheitert ist auch keine."
+  err "  Entweder laeuft der Runner noch, oder das Backend hat ihn gar nicht erst gestartet."
+  err "  Nachsehen: docker logs dashboard-backend 2>&1 | grep -i migration"
+  summary "❌ **Deploy rot** \`${NEW_SHA:0:7}\`: Migration $HOECHSTE steht nicht im Migrationsbuch."
+  exit 1
+fi
+ok "Migrationsbuch: keine gescheiterte Migration, $HOECHSTE angewendet"
 
 # --- Erfolg ------------------------------------------------------------------
 ok "Deploy erfolgreich: $NEW_SHA"
