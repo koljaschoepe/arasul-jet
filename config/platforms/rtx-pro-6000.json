@@ -2,14 +2,23 @@
   "id": "rtx-pro-6000",
   "display_name": "Workstation mit NVIDIA RTX PRO 6000",
   "arch": "amd64",
-  "compute_capability": { "sm": "sm_120", "confirmed": false },
+  "compute_capability": {
+    "sm": "sm_120",
+    "confirmed": false
+  },
   "memory_budget_gb": 90,
-  "default_model": "moe-120b-fp8",
+  "default_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+  "models": [
+    "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+    "gemma4:e4b",
+    "nomic-embed-text",
+    "llava-phi3"
+  ],
   "precision": "fp8",
   "engine": "vllm",
   "gpu_query": "nvidia-smi",
   "ld_library_path": "/usr/local/cuda/lib64",
   "max_num_seqs": 32,
   "verification": "emulation",
-  "notes": "amd64-Build per QEMU-Emulation (nur Bauzeit). sm_120 NVFP4/FP8: vLLM-Version pinnen. Engine vllm gesetzt in Plan 021 (loest SGLang ab). Echt im Folge-Plan."
+  "notes": "amd64-Build per QEMU-Emulation (nur Bauzeit). sm_120 NVFP4/FP8: vLLM-Version pinnen. Engine vllm gesetzt in Plan 021 (loest SGLang ab). Echt im Folge-Plan. Kurzliste (C8) gilt auch hier. Auf dem vllm-Track sind dieselben vier Modelle in fp8 bereitzustellen -- ungeprueft."
 }

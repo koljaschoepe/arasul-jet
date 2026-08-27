@@ -7,6 +7,14 @@
 # Formerly detect-jetson.sh — a thin detect-jetson.sh forwarder is kept for
 # backward compatibility. The declarative per-target catalog lives in
 # config/platforms/*.json; `platform-profile` maps the detected hardware to it.
+#
+# MODELLE (Phase C8, 27.08.2026): `LLM_MODEL` und `RECOMMENDED_MODELS` tragen
+# die Kurzliste aus `config/modelle/kurzliste.json` -- vier Modelle, auf jedem
+# Profil dieselben. Ein Profil entscheidet nur noch, ob das Standardmodell mit
+# seinen 22 GB hineinpasst; wo nicht, fuehrt das kleine schnelle. Vorher stand
+# hier je Profil eine eigene Auswahl, und acht der siebzehn genannten Kennungen
+# gab es im Katalog gar nicht. `scripts/test/kurzliste.py` haelt Skript,
+# Profile, Migration 175 und `utils/hardware.js` aneinander.
 # =============================================================================
 
 set -euo pipefail
@@ -401,7 +409,7 @@ CPU_LIMIT_BACKEND=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:31b-q4
+LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=900
@@ -411,8 +419,8 @@ OLLAMA_STARTUP_TIMEOUT=300
 EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=200
 
-# Recommended Models (in order of capability)
-RECOMMENDED_MODELS="gemma4:31b-q4,gemma4:26b-q4,qwen3:32b-q4,llama3.1:70b-q4,codellama:70b,mixtral:8x7b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS,gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -443,7 +451,7 @@ CPU_LIMIT_BACKEND=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:31b-q4
+LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=600
@@ -453,8 +461,8 @@ OLLAMA_STARTUP_TIMEOUT=240
 EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=100
 
-# Recommended Models
-RECOMMENDED_MODELS="gemma4:31b-q4,gemma4:26b-q4,qwen3:14b-q8,llama3.1:70b-q4,codellama:34b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS,gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -485,7 +493,7 @@ CPU_LIMIT_BACKEND=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:26b-q4
+LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=600
@@ -495,8 +503,8 @@ OLLAMA_STARTUP_TIMEOUT=240
 EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=100
 
-# Recommended Models (in order of capability)
-RECOMMENDED_MODELS="gemma4:26b-q4,gemma4:31b-q4,qwen3:14b-q8,llama3.1:70b-q4,codellama:34b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS,gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -527,7 +535,7 @@ CPU_LIMIT_BACKEND=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:e4b-q4
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=300
@@ -537,8 +545,8 @@ OLLAMA_STARTUP_TIMEOUT=120
 EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=50
 
-# Recommended Models
-RECOMMENDED_MODELS="gemma4:e4b-q4,qwen3:7b-q8,llama3.1:8b,mistral:7b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -567,7 +575,7 @@ CPU_LIMIT_BACKEND=2
 CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
-LLM_MODEL=gemma4:e4b-q4
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=180
@@ -577,8 +585,8 @@ OLLAMA_STARTUP_TIMEOUT=120
 EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=25
 
-# Recommended Models
-RECOMMENDED_MODELS="gemma4:e4b-q4,llama3.1:8b,mistral:7b,phi3:mini"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -607,7 +615,7 @@ CPU_LIMIT_BACKEND=2
 CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
-LLM_MODEL=phi3:mini
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=2048
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=120
@@ -617,8 +625,8 @@ OLLAMA_STARTUP_TIMEOUT=90
 EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=10
 
-# Recommended Models
-RECOMMENDED_MODELS="phi3:mini,gemma:2b,tinyllama:1.1b,qwen:1.8b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -647,7 +655,7 @@ CPU_LIMIT_BACKEND=1
 CPU_LIMIT_DASHBOARD=1
 
 # LLM Configuration
-LLM_MODEL=tinyllama:1.1b
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=1024
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=60
@@ -657,8 +665,8 @@ OLLAMA_STARTUP_TIMEOUT=60
 EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=5
 
-# Recommended Models
-RECOMMENDED_MODELS="tinyllama:1.1b,qwen:0.5b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -687,7 +695,7 @@ CPU_LIMIT_BACKEND=2
 CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
-LLM_MODEL=gemma4:e4b-q4
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=300
@@ -697,8 +705,8 @@ OLLAMA_STARTUP_TIMEOUT=120
 EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=25
 
-# Recommended Models
-RECOMMENDED_MODELS="gemma4:e4b-q4,llama3.1:8b,mistral:7b,codellama:7b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -727,7 +735,7 @@ CPU_LIMIT_BACKEND=2
 CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
-LLM_MODEL=phi3:mini
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=2048
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=120
@@ -737,8 +745,8 @@ OLLAMA_STARTUP_TIMEOUT=90
 EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=10
 
-# Recommended Models
-RECOMMENDED_MODELS="phi3:mini,gemma:2b,tinyllama:1.1b"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -768,7 +776,7 @@ CPU_LIMIT_BACKEND=2
 CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
-LLM_MODEL=gemma4:e4b-q4
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=180
@@ -778,8 +786,8 @@ OLLAMA_STARTUP_TIMEOUT=120
 EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=20
 
-# Recommended Models
-RECOMMENDED_MODELS="gemma4:e4b-q4,mistral:7b,phi3:mini"
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+RECOMMENDED_MODELS="gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
     esac

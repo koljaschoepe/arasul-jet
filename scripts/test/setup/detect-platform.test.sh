@@ -166,9 +166,12 @@ teardown() {
 # get_config_for_profile() tests
 # =============================================================================
 
+# Phase C8: der Standard der Kurzliste, ueberall derselbe, solange der Speicher
+# fuer seine 22 GB reicht. `config/modelle/kurzliste.json` ist die Quelle,
+# `scripts/test/kurzliste.py` haelt beide aneinander.
 @test "get_config_for_profile: thor_128gb sets correct LLM model" {
     result=$(get_config_for_profile "thor_128gb")
-    echo "$result" | grep -q "LLM_MODEL=gemma4:31b-q4"
+    echo "$result" | grep -q "LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS"
 }
 
 @test "get_config_for_profile: thor_128gb sets 88G LLM RAM limit" {
@@ -178,7 +181,13 @@ teardown() {
 
 @test "get_config_for_profile: agx_orin_64gb sets correct LLM model" {
     result=$(get_config_for_profile "agx_orin_64gb")
-    echo "$result" | grep -q "LLM_MODEL=gemma4:26b-q4"
+    echo "$result" | grep -q "LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS"
+}
+
+# Und die Gegenprobe: unter 64 GB fuehrt das kleine schnelle Modell.
+@test "get_config_for_profile: agx_orin_32gb faellt auf das kleine Modell" {
+    result=$(get_config_for_profile "agx_orin_32gb")
+    echo "$result" | grep -q "LLM_MODEL=gemma4:e4b"
 }
 
 @test "get_config_for_profile: agx_orin_32gb enables FP16" {
