@@ -10,7 +10,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-jest.mock('../../src/database', () => ({ query: jest.fn() }));
+// `transaction` reicht einen Client durch, der auf denselben Spion zeigt:
+// so bleibt `db.query.mock.calls` die eine Stelle, an der die Abfragen dieses
+// Tests stehen, egal ob sie in einer Transaktion liefen.
+jest.mock('../../src/database', () => {
+  const query = jest.fn();
+  return { query, transaction: jest.fn(cb => cb({ query })) };
+});
 jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
@@ -23,7 +29,10 @@ const appFlows = require('../../src/services/app/appFlows');
 
 const PAKET = fs.mkdtempSync(path.join(os.tmpdir(), 'arasul-appflows-'));
 afterAll(() => fs.rmSync(PAKET, { recursive: true, force: true }));
-beforeEach(() => db.query.mockReset());
+beforeEach(() => {
+  db.query.mockReset();
+  db.transaction.mockClear();
+});
 
 const MANIFEST = { id: 'urlaub', version: '1.0.0', flows: { verzeichnis: 'flows' } };
 
@@ -149,6 +158,21 @@ describe('registriere', () => {
     expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 'test']);
     expect(db.query.mock.calls[1][0]).toMatch(/INSERT INTO public\.app_flows/);
     expect(db.query.mock.calls[1][1].slice(0, 4)).toEqual(['urlaub', 'test', 'bericht', '1.0.0']);
+  });
+
+  it('laeuft in EINER Transaktion -- kein halb registrierter Stand', async () => {
+    // Der Aufruf steht hinter dem Stand und dem Container. Risse die
+    // Verbindung zwischen dem DELETE und den INSERTs, stuende `app_staende`
+    // auf der neuen Version und `app_flows` waere leer -- ein Flow des
+    // Partners waere still weg, ohne Fehlermeldung.
+    const flows = await gelesen({ 'bericht.md': BERICHT, 'pruefen.md': BERICHT.replace(/bericht/g, 'pruefen') });
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+
+    await appFlows.registriere({ appId: 'urlaub', stand: 'test', version: '1.0.0', flows });
+
+    // EINE Transaktion fuer das DELETE und BEIDE INSERTs, nicht drei.
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledTimes(3);
   });
 
   it('raeumt auch dann auf, wenn das neue Manifest gar keine Flows mehr nennt', async () => {

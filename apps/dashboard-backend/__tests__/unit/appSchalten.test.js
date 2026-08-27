@@ -13,7 +13,13 @@ const path = require('path');
 const APPS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'arasul-schalten-'));
 process.env.APPS_DIR = APPS_DIR;
 
-jest.mock('../../src/database', () => ({ query: jest.fn() }));
+// `transaction` reicht einen Client durch, der auf denselben Spion zeigt: so
+// bleibt `db.query.mock.calls` die eine Stelle, an der die Abfragen stehen --
+// egal ob sie in einer Transaktion liefen (`appFlows.registriere`).
+jest.mock('../../src/database', () => {
+  const query = jest.fn();
+  return { query, transaction: jest.fn(cb => cb({ query })) };
+});
 jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),

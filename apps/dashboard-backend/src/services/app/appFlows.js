@@ -160,14 +160,26 @@ async function leseAusPaket(manifest, ordner) {
  * @returns {Promise<string[]>} die Namen der registrierten Flows
  */
 async function registriere({ appId, stand, version, flows: gelesen = [] }) {
-  await db.query('DELETE FROM public.app_flows WHERE app_id = $1 AND stand = $2', [appId, stand]);
-  for (const { name, definition } of gelesen) {
-    await db.query(
-      `INSERT INTO public.app_flows (app_id, stand, name, version, definition)
-       VALUES ($1, $2, $3, $4, $5::jsonb)`,
-      [appId, stand, name, version, JSON.stringify(definition)]
-    );
-  }
+  // IN EINER TRANSAKTION, und das ist keine Formsache: erst faellt alles weg,
+  // was der Stand hatte, dann kommt das Neue. Risse die Verbindung dazwischen,
+  // stuende `app_staende` auf der neuen Version und `app_flows` waere leer
+  // oder halb gefuellt -- ein Flow, den der Partner mitgeliefert hat, waere
+  // still verschwunden, und niemand bekaeme davon eine Fehlermeldung. Dieser
+  // Aufruf steht hinter dem Stand und dem Container; ein Fehler HIER darf
+  // deshalb nichts Halbes hinterlassen.
+  await db.transaction(async client => {
+    await client.query('DELETE FROM public.app_flows WHERE app_id = $1 AND stand = $2', [
+      appId,
+      stand,
+    ]);
+    for (const { name, definition } of gelesen) {
+      await client.query(
+        `INSERT INTO public.app_flows (app_id, stand, name, version, definition)
+         VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        [appId, stand, name, version, JSON.stringify(definition)]
+      );
+    }
+  });
   if (gelesen.length > 0) {
     logger.info(
       `App-Flows registriert: ${appId}/${stand} ${version} -> ${gelesen.map(f => f.name).join(', ')}`

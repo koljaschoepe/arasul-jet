@@ -32,9 +32,21 @@ Der Ersatz ist immer derselbe und kostet eine Zeile:
     local version="$1"
     local ordner="$ARBEIT/paket-$version"
 
-Gesucht wird in allen Shell-Skripten des Repos: jede Zeile, die mit `local`,
-`declare`, `typeset`, `export` oder `readonly` beginnt und in der eine spaetere
-Zuweisung einen Namen benutzt, den dieselbe Zeile vorher zuweist.
+Gesucht wird in allen Shell-Skripten des Repos: jede Zeile, in der an einer
+BEFEHLSSTELLE `local`, `declare`, `typeset`, `export` oder `readonly` steht und
+eine ihrer Zuweisungen einen Namen benutzt, den dieselbe Zeile zuweist.
+
+Drei Feinheiten, jede davon einmal falsch gehabt:
+
+  * **Die Reihenfolge auf der Zeile zaehlt nicht.** `local b="$a" a="$1"` ist
+    derselbe Fehler wie `local a="$1" b="$a"` -- ersetzt wird alles, bevor
+    `local` laeuft.
+  * **Der Selbstbezug ist erlaubt.** `local PATH="$PATH:/x"` schreibt den
+    aeusseren Wert in die lokale Kopie; das ist ein haeufiger und richtiger
+    Griff. Nur der Bezug auf eine ANDERE Variable derselben Zeile ist falsch.
+  * **Befehlsstelle heisst nicht Zeilenanfang.** `f() { local a="$1" b="$a"; }`
+    und der Zweig eines `case … in muster) local … ;;` tragen den Fehler
+    genauso.
 
 Was NICHT geprueft wird und warum:
 
@@ -57,9 +69,16 @@ from pathlib import Path
 # genauso, und gerade sie ist der Ort, an dem er entsteht -- wer eine Funktion
 # in eine Zeile schreibt, spart Zeilen.
 KOPF = re.compile(
-    r'(?:^|[;{}]|\|\||&&|\bthen\b|\bdo\b|\belse\b)\s*'
+    r'(?:^|[;{})]|\|\||&&|\bthen\b|\bdo\b|\belse\b)\s*'
     r'(local|declare|typeset|export|readonly)\s+'
 )
+
+# Ein Backslash vor einem Dollar macht ihn zu Text: `b="\$a"` liest `$a` NICHT.
+# `shlex.split` nimmt das Fluchtzeichen weg, bevor hier jemand hinsieht -- die
+# Zeile saehe danach aus wie ein Eigenbezug und waere keiner. Solche Zeilen
+# werden ganz uebergangen: gemeldet wird, was SICHER falsch ist, nicht was
+# danach aussieht.
+FLUCHT_DOLLAR = re.compile(r'\\\$')
 
 ZUWEISUNG = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)=(.*)$', re.S)
 
@@ -95,10 +114,16 @@ def bis_zum_semikolon(rest: str) -> str:
     return ''.join(aus)
 
 
-def bezieht_sich_auf(wert: str, namen: set[str]) -> str | None:
-    """Der erste Name aus `namen`, den `wert` als `$name` oder `${name}` nennt."""
+def bezieht_sich_auf(wert: str, namen: set[str], selbst: str) -> str | None:
+    """Der erste Name aus `namen`, den `wert` als `$name` oder `${name}` nennt.
+
+    `selbst` ist ausgenommen, und das ist keine Nachlaessigkeit, sondern ein
+    haeufiger und RICHTIGER Fall: `local PATH="$PATH:/x"` schreibt den aeusseren
+    Wert in die lokale Kopie. Nur der Bezug auf eine ANDERE Variable derselben
+    Zeile ist der Fehler.
+    """
     for treffer in re.finditer(r'\$\{?([A-Za-z_][A-Za-z0-9_]*)', wert):
-        if treffer.group(1) in namen:
+        if treffer.group(1) != selbst and treffer.group(1) in namen:
             return treffer.group(1)
     return None
 
@@ -110,6 +135,8 @@ def stellen(datei: Path) -> list[tuple[int, str, str, str]]:
     for nummer, zeile in enumerate(text.splitlines(), 1):
         schlank = zeile.strip()
         if schlank.startswith('#'):
+            continue
+        if FLUCHT_DOLLAR.search(schlank):
             continue
         for kopf in KOPF.finditer(schlank):
             try:
@@ -125,20 +152,26 @@ def stellen(datei: Path) -> list[tuple[int, str, str, str]]:
                 # stillschweigend zu uebergehen ist richtig: hier wird
                 # gemeldet, was sicher falsch ist, nicht geraten.
                 continue
-            gesetzt: set[str] = set()
-            treffer = None
+            # ZUERST alle Namen sammeln, dann pruefen. Die Reihenfolge auf der
+            # Zeile hilft naemlich nicht: `local b="$a" a="$1"` ist derselbe
+            # Fehler wie `local a="$1" b="$a"` -- die Shell ersetzt ALLE
+            # Argumente, bevor `local` ueberhaupt laeuft, und `$a` ist in
+            # beiden Faellen leer (oder, schlimmer, ein globales `a`).
+            zuweisungen = []
             for wort in worte:
                 if wort.startswith('-'):
                     continue  # `local -a`, `declare -r`
                 teil = ZUWEISUNG.match(wort)
-                if not teil:
-                    continue
-                name, wert = teil.group(1), teil.group(2)
-                benutzt = bezieht_sich_auf(wert, gesetzt)
+                if teil:
+                    zuweisungen.append((teil.group(1), teil.group(2)))
+            gesetzt = {name for name, _ in zuweisungen}
+
+            treffer = None
+            for name, wert in zuweisungen:
+                benutzt = bezieht_sich_auf(wert, gesetzt, name)
                 if benutzt:
                     treffer = (nummer, schlank[:100], benutzt, name)
                     break
-                gesetzt.add(name)
             if treffer:
                 gefunden.append(treffer)
                 break
