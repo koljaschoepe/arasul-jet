@@ -246,6 +246,15 @@ human review. Humans focus on:
 - Doc updates that follow code (see §7).
 - Clarity for the next reader (naming, comments where the _why_ is non-obvious).
 
+**No automatic review on GitHub.** Opening a PR no longer triggers a Claude
+review comment — `.github/workflows/claude-code-review.yml` was removed on
+27.08.2026. It commented on every PR whether or not anyone had asked, which
+buried the reviews people did want. Review happens where it is asked for: the
+`code-reviewer` subagent before the PR exists, and `@claude` in a PR comment,
+review comment, or issue afterwards (`.github/workflows/claude.yml`, which
+stays). Nothing in CI depends on it: `claude-review` was never a required check
+and never sat in the `needs` list of `CI Summary`.
+
 ---
 
 ## 10. Reporting bugs and proposing features
