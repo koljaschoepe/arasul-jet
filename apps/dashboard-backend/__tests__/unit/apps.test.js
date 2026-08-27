@@ -235,10 +235,14 @@ describe('POST /api/apps/:id/einspielen', () => {
 
     // Der alte Schluessel dieses Standes faellt, bevor der neue entsteht:
     // der eindeutige Index aus 171 laesst nur einen zu.
-    const geloescht = db.query.mock.calls.find(([sql]) => sql.includes('DELETE FROM public.api_keys'));
+    const geloescht = db.query.mock.calls.find(([sql]) =>
+      sql.includes('DELETE FROM public.api_keys')
+    );
     expect(geloescht[1]).toEqual(['urlaub', 'test']);
 
-    const angelegt = db.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO public.api_keys'));
+    const angelegt = db.query.mock.calls.find(([sql]) =>
+      sql.includes('INSERT INTO public.api_keys')
+    );
     expect(angelegt[1].slice(-2)).toEqual(['urlaub', 'test']);
 
     const { Env } = docker.createContainer.mock.calls.at(-1)[0];
@@ -473,6 +477,26 @@ describe('Auslieferung unter /apps/<id>/: die Freigabe steht davor (C4)', () => 
     const res = await request(auslieferung()).get('/apps/urlaub');
     expect(res.status).toBe(301);
     expect(res.headers.location).toBe('/apps/urlaub/');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('Was NICHT die Anfrage an eine App ist, faellt aus dem Router', () => {
+  // `pfadErkennen` verlaesst den Router mit `next('router')`. Ein einfaches
+  // `next()` liefe in die naechste Middleware DIESES Routers, also in die
+  // Anmeldung -- und die hat mit `/apps/etwas-anderes` nichts zu tun.
+  test.each([
+    ['eine unmoegliche Kennung', '/apps/GROSS/'],
+    ['die vergebene Kennung test', '/apps/test/'],
+  ])('%s: kein 403, sondern durchgereicht', async (_was, pfad) => {
+    const res = await request(auslieferung()).get(pfad);
+    expect(res.status).toBe(404);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test('ein POST ist keine Auslieferung', async () => {
+    const res = await request(auslieferung()).post('/apps/urlaub/');
+    expect(res.status).toBe(404);
     expect(db.query).not.toHaveBeenCalled();
   });
 });
