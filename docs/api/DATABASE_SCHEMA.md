@@ -6,6 +6,8 @@
 > zwei Sichten, 23 Funktionen und sechs Aufzaehlungstypen der gestrichenen Bereiche sind
 > entfallen; Foreign-Key- und Index-Zaehler unten sind seitdem nur noch ungefaehr.
 > Am 27.08.2026 von Hand ergaenzt (Migration 168, Phase C2): `app_members`.
+> Am 27.08.2026 von Hand ergaenzt (Migration 171, Phase C4): `api_keys.app_id`,
+> `api_keys.stand` und die Breite von `api_keys.key_prefix`.
 
 ## Übersicht
 
@@ -292,17 +294,31 @@
 | `allowed_endpoints`     | ARRAY                    | ✅       | `ARRAY['llm:chat'::text, 'llm:status':...` |
 | `metadata`              | jsonb                    | ✅       | `'{}'::jsonb`                              |
 | `requires_review`       | boolean                  | ✅       | `false`                                    |
+| `app_id`                | text                     | ✅       |                                            |
+| `stand`                 | text                     | ✅       |                                            |
+
+`app_id` und `stand` (Migration 171, Phase C4) binden einen Schlüssel an eine
+App: `NULL` heißt „gehört einem Menschen", gesetzt heißt „steht in der Umgebung
+des Containers `arasul-app-<app_id>-<stand>`". Beide sind zusammen gesetzt oder
+zusammen leer. Je App und Stand gibt es höchstens einen; beim Einspielen wird
+er neu gewürfelt und der alte zurückgezogen.
+
+`key_prefix` ist seit 171 `varchar(16)`. Bis dahin stand dort `varchar(8)`,
+während der Code zwölf Zeichen schreibt — jedes Anlegen eines Schlüssels
+scheiterte mit `value too long for type character varying(8)`.
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
 - `created_by` → `admin_users.id`
+- `app_id` → `apps.id` (ON DELETE CASCADE)
 
 **Indexes:**
 
 - `api_keys_pkey` — `CREATE UNIQUE INDEX api_keys_pkey ON public.api_keys USING btree (id)`
 - `idx_api_keys_active` — `CREATE INDEX idx_api_keys_active ON public.api_keys USING btree (is_active) WHERE (is_active = true)`
+- `idx_api_keys_app_stand` — `CREATE UNIQUE INDEX idx_api_keys_app_stand ON public.api_keys USING btree (app_id, stand) WHERE (app_id IS NOT NULL)`
 - `idx_api_keys_prefix` — `CREATE INDEX idx_api_keys_prefix ON public.api_keys USING btree (key_prefix)`
 - `idx_api_keys_requires_review` — `CREATE INDEX idx_api_keys_requires_review ON public.api_keys USING btree (requires_review) WHERE (requires_review = true)`
 

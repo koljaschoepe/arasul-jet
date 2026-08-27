@@ -88,16 +88,23 @@ TOTAL_STEPS=16
 # Helper functions
 ###############################################################################
 
+# Abgeschnitten wird NACH dem Rohr, nicht darin — Begruendung wie in
+# `scripts/interactive_setup.sh`: `| head -c N` laesst den Erzeuger in ein
+# geschlossenes Rohr schreiben, und unter `set -euo pipefail` ist das 141.
 generate_secret() {
   # Generate a cryptographically secure random string
   local length=${1:-32}
-  openssl rand -base64 "$length" | tr -dc 'a-zA-Z0-9' | head -c "$length"
+  local roh
+  roh=$(openssl rand -base64 "$length" | tr -dc 'a-zA-Z0-9')
+  printf '%s' "${roh:0:$length}"
 }
 
 generate_password() {
   # Generate a human-readable password (for admin)
   local length=${1:-16}
-  openssl rand -base64 "$length" | tr -dc 'a-zA-Z0-9!@#$%' | head -c "$length"
+  local roh
+  roh=$(openssl rand -base64 "$length" | tr -dc 'a-zA-Z0-9!@#$%')
+  printf '%s' "${roh:0:$length}"
 }
 
 ###############################################################################
@@ -173,7 +180,7 @@ if [ "$FULL_MODE" = true ]; then
   fi
 
   # Ensure current user is in docker group
-  if ! groups | grep -q docker; then
+  if ! grep -q docker <<<"$(groups)"; then
     sudo usermod -aG docker "$(whoami)" 2>/dev/null && \
       log_info "User zur docker-Gruppe hinzugefuegt (Neulogin erforderlich)" || true
   fi

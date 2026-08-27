@@ -53,7 +53,7 @@ check_health() {
 
 # Check if self-healing container is running
 is_container_running() {
-    docker inspect --format='{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | grep -q "true"
+    grep -q "true" <<<"$(docker inspect --format='{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null)"
 }
 
 # Main logic

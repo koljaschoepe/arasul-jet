@@ -21,7 +21,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 FEHLER=0
 pruefe() { # name, erwartet-im-text, tatsaechlicher-text
-  if printf '%s' "$3" | grep -qi -- "$2"; then
+  if grep -qi -- "$2" <<<"$3"; then
     printf '   ok    %s\n' "$1"
   else
     printf '   FEHLT %s\n      erwartet: %s\n      bekommen: %s\n' "$1" "$2" "$(printf '%s' "$3" | tr '\n' ' ')"
@@ -29,7 +29,7 @@ pruefe() { # name, erwartet-im-text, tatsaechlicher-text
   fi
 }
 nicht() { # name, verboten-im-text, tatsaechlicher-text
-  if printf '%s' "$3" | grep -qi -- "$2"; then
+  if grep -qi -- "$2" <<<"$3"; then
     printf '   FEHLT %s\n      verboten: %s\n' "$1" "$2"
     FEHLER=1
   else

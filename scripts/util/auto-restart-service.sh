@@ -169,7 +169,7 @@ if should_debounce "$SERVICE"; then
 fi
 
 # Check if service is running
-if ! docker compose ps --status running "$SERVICE" 2>/dev/null | grep -q "$SERVICE"; then
+if ! grep -q "$SERVICE" <<<"$(docker compose ps --status running "$SERVICE" 2>/dev/null)"; then
     exit 0
 fi
 

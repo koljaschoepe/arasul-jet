@@ -167,7 +167,7 @@ log_success "Exported $IMAGE_COUNT Docker images"
 
 log_step 4 "Pre-loading Ollama model: ${MODEL}"
 
-if docker compose ps llm-service --format "{{.State}}" 2>/dev/null | grep -q "running"; then
+if grep -q "running" <<<"$(docker compose ps llm-service --format "{{.State}}" 2>/dev/null)"; then
   log_info "Pulling model ${MODEL} (this may take a while)..."
   docker exec llm-service ollama pull "$MODEL" 2>&1 | tail -5
 
@@ -229,7 +229,7 @@ else
   cd "$PROJECT_ROOT"
 
   # Integration tests (if services are running)
-  if docker compose ps --format "{{.State}}" 2>/dev/null | grep -q "running"; then
+  if grep -q "running" <<<"$(docker compose ps --format "{{.State}}" 2>/dev/null)"; then
     log_info "Running integration tests..."
     if ./scripts/test/integration-test.sh 2>&1 | tail -10; then
       log_success "Integration tests passed"

@@ -65,7 +65,7 @@ fi
 
 # Test logrotate configuration
 info "Testing logrotate configuration..."
-if logrotate -d /etc/logrotate.d/arasul 2>&1 | grep -q "error"; then
+if grep -q "error" <<<"$(logrotate -d /etc/logrotate.d/arasul 2>&1)"; then
     error "Logrotate configuration test failed"
     logrotate -d /etc/logrotate.d/arasul
     exit 1

@@ -144,6 +144,55 @@ http:
         - websecure
       tls: {}
 
+    # `/apps/<id>/api/me` gehoert der Plattform (Phase C4, 27.08.2026).
+    #
+    # Der eine Weg unter `api/`, den nicht der Container der App beantwortet,
+    # sondern Arasul: „wer ist gerade angemeldet". Die Begruendung, warum er
+    # der App weggenommen wird, steht bei `ICH` in
+    # `apps/dashboard-backend/src/routes/appAusliefern.js` -- kurz: eine App
+    # darf ganz ohne Backend auskommen, und dann gaebe es niemanden, der die
+    # Frage beantworten koennte.
+    #
+    # `Path` und nicht `PathPrefix`: vergeben ist GENAU dieser Weg.
+    # `/apps/urlaub/api/meine-antraege` gehoert weiter der App. Die Zahl liegt
+    # ueber den Routern der App-Backends (40 live, 45 test, siehe
+    # services/app/appContainer.js), sonst faenge der Container sie ab.
+    #
+    # ZWEI Router und nicht einer mit `||`: eine Regel mit einer Variablen ist
+    # in Traefik v2 belegt (`Path(`/produkte/{id:[0-9]+}`)`), zwei Matcher mit
+    # je einer Variablen in derselben Regel sind eine Wette darauf, wie Traefik
+    # sie zusammenlegt. Der Preis dieser Vorsicht sind sechs Zeilen; der Preis
+    # eines Irrtums waere ein Router, den Traefik verwirft, und damit eine
+    # `/api/me`, die still im Container der App landet.
+    #
+    # Kein `forward-auth` davor: das Backend prueft die Freigabe hier selbst
+    # (`appAusliefern.js` -> `services/app/appZugang.js`), so wie bei der
+    # statischen Auslieferung darunter. Ein zweiter Weg fuer dieselbe Frage
+    # waere ein zweiter Ort, an dem sie falsch beantwortet werden kann.
+    apps-me:
+      rule: 'Path(`/apps/{app:[a-z0-9-]+}/api/me`)'
+      service: dashboard-backend-service
+      priority: 50
+      middlewares:
+        - security-headers
+        - rate-limit-api
+        - compress
+      entryPoints:
+        - websecure
+      tls: {}
+
+    apps-me-test:
+      rule: 'Path(`/apps/{app:[a-z0-9-]+}/test/api/me`)'
+      service: dashboard-backend-service
+      priority: 50
+      middlewares:
+        - security-headers
+        - rate-limit-api
+        - compress
+      entryPoints:
+        - websecure
+      tls: {}
+
     # Dashboard Frontend Static Files
     dashboard-static:
       rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'

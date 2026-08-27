@@ -136,7 +136,7 @@ for r in sorted(refs):
   MW_ERRORS=0
   while IFS= read -r ref; do
     [ -z "$ref" ] && continue
-    if ! echo "$DEFINED_MW" | grep -qx "$ref"; then
+    if ! grep -qx "$ref" <<<"$DEFINED_MW"; then
       fail "Middleware '$ref' wird referenziert aber nicht definiert"
       MW_ERRORS=$((MW_ERRORS + 1))
     fi
@@ -150,7 +150,7 @@ for r in sorted(refs):
   UNUSED=0
   while IFS= read -r def; do
     [ -z "$def" ] && continue
-    if ! echo "$REFERENCED_MW" | grep -qx "$def"; then
+    if ! grep -qx "$def" <<<"$REFERENCED_MW"; then
       UNUSED=$((UNUSED + 1))
       [ "$UNUSED" -le 5 ] && warn "Middleware '$def' definiert aber nie referenziert"
     fi
@@ -202,7 +202,7 @@ for r in sorted(refs):
   SVC_ERRORS=0
   while IFS= read -r ref; do
     [ -z "$ref" ] && continue
-    if ! echo "$DEFINED_SVC" | grep -qx "$ref"; then
+    if ! grep -qx "$ref" <<<"$DEFINED_SVC"; then
       fail "Service '$ref' wird referenziert aber nicht definiert"
       SVC_ERRORS=$((SVC_ERRORS + 1))
     fi

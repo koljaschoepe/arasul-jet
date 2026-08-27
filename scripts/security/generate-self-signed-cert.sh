@@ -104,7 +104,7 @@ done
 
 # Add common Docker bridge IPs if not already added
 for DOCKER_IP in "172.17.0.1" "172.18.0.1" "172.19.0.1"; do
-    if ! echo "$ALL_IPS" | grep -q "$DOCKER_IP"; then
+    if ! grep -q "$DOCKER_IP" <<<"$ALL_IPS"; then
         echo "IP.$IP_INDEX = $DOCKER_IP" >> "$CONFIG_FILE"
         echo "   Added IP.$IP_INDEX = $DOCKER_IP (Docker)"
         ((IP_INDEX++))

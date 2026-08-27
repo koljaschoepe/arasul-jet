@@ -1,8 +1,9 @@
-# Apps: das Manifest `app.json` und die zwei Stände
+# Apps: das Manifest `app.json`, die zwei Stände und die Anmeldung
 
-> Phase C3 des Umbaus vom 26.08.2026. Die Durchsetzung steht in
-> `apps/dashboard-backend/src/schemas/apps.js`; wer eines von beiden ändert,
-> ändert beides.
+> Phasen C3 und C4 des Umbaus vom 26.08.2026. Die Durchsetzung steht in
+> `apps/dashboard-backend/src/schemas/apps.js` (Manifest) und
+> `apps/dashboard-backend/src/services/app/appZugang.js` (Anmeldung); wer
+> eines davon ändert, ändert beides.
 
 **Eine App ist das, was ein Partner mit dem Ara-Kit baut und auf das Gerät
 rollt.** Sie besteht aus höchstens zwei Teilen: einem statischen Frontend, das
@@ -86,7 +87,7 @@ Namen, je nachdem wen man fragt.
   schließen.
 - **Keine Geheimnisse in `umgebung`.** Das Manifest liegt im Paket und im
   Kit-Repository des Partners. Den API-Schlüssel je App setzt das Gerät beim
-  Deploy (C4).
+  Einspielen (siehe „Was das Gerät der App mitgibt").
 - **Kein Nachinstallieren.** `modelle` und `flows` sagen, was die App verlangt;
   das Gerät sagt beim Einspielen, was davon fehlt. Ein Deploy, der nebenbei
   sieben Gigabyte lädt, ist keine Installation mehr, sondern ein Abend.
@@ -143,21 +144,127 @@ Tabelle (Entscheidung aus C2).
 ## Wer liefert was aus
 
 ```
-Browser → Traefik ─┬─ /apps/<id>/api      (Zahl 40) → Container der App
+Browser → Traefik ─┬─ /apps/<id>/api/me   (Zahl 50) → dashboard-backend
                    ├─ /apps/<id>/test/api (Zahl 45) → Container des Teststandes
-                   ├─ /apps                (Zahl 30) → dashboard-backend, statisch
-                   └─ /                    (Zahl  1) → dashboard-frontend
+                   ├─ /apps/<id>/api      (Zahl 40) → Container der App
+                   ├─ /apps               (Zahl 30) → dashboard-backend, statisch
+                   └─ /                   (Zahl  1) → dashboard-frontend
 ```
 
 Arasul liefert die statischen Dateien selbst aus und nicht der
 Frontend-Container: nur das Backend kennt die Anmeldung und damit die Frage,
-welche App wem freigegeben ist. Die Prüfung selbst kommt mit Phase C4; C3 legt
-den Weg, über den sie läuft.
+welche App wem freigegeben ist. Die Prüfung steht seit C4 darin, siehe „Die
+Anmeldung".
 
 Eine Anfrage an `/apps/<id>/api/…`, die trotzdem beim Backend ankommt, ist ein
 `404` mit Grund und **nicht** die Startseite der App. Ein Frontend, das auf
 seine Schnittstelle HTML zurückbekommt, meldet einen Fehler, der nach einem
 Fehler der App aussieht.
+
+## Die Anmeldung
+
+> Phase C4.
+
+**Eine App bekommt keine eigene Anmeldung.** Wer an Arasul angemeldet ist und
+die App freigegeben hat, ist in der App angemeldet; wer nicht, kommt nicht
+hinein. Ein Partner baut keine Anmeldemaske, verwaltet keine Passwörter und
+speichert keine Sitzungen — das ist eines der drei Dinge, die die Lizenz kauft.
+
+Geprüft wird an zwei Stellen, aber nach **einer** Regel
+(`services/app/appZugang.js`):
+
+| Weg                 | Wer prüft                                               |
+| ------------------- | ------------------------------------------------------- |
+| `/apps/<id>/…`      | Arasul selbst, beim Ausliefern der Seite                |
+| `/apps/<id>/api/…`  | Traefik per Forward-Auth auf `GET /api/apps/:id/zugang` |
+| `/apps/<id>/api/me` | Arasul selbst                                           |
+
+Die Forward-Auth hängt als Etikett am Container der App
+(`services/app/appContainer.js`), nicht in `middlewares.yml`: sie trägt Kennung
+und Stand, und beides weiß nur, wer den Container anlegt.
+
+### Was die App über den Aufrufer erfährt
+
+| Kopfzeile       | Inhalt                      |
+| --------------- | --------------------------- |
+| `X-Arasul-User` | Der Benutzername, als UTF-8 |
+| `X-Arasul-Role` | `admin` oder `mitarbeiter`  |
+
+**Beide sind nicht fälschbar.** Traefik löscht sie aus der eingehenden Anfrage,
+bevor es sie aus der Antwort der Anmeldung neu setzt
+(`forwardauth.authResponseHeaders`). Ein Browser, der `X-Arasul-User: chef`
+mitschickt, kommt damit nicht durch.
+
+Der Name steht als UTF-8 in der Kopfzeile, nicht als Latin-1. In Node liest man
+ihn mit `Buffer.from(kopf, 'latin1').toString('utf8')`. Wer das nicht möchte,
+fragt `api/me`:
+
+```js
+const ich = await (await fetch('api/me')).json();
+ich.data.benutzer; // "anna"
+ich.data.rolle; // "mitarbeiter"
+```
+
+`api/me` ist der **dritte vergebene Name** unter `/apps/<id>/` — nach `test`
+und `api` — und der einzige, der einer App etwas wegnimmt. Der Grund: eine App
+darf ganz ohne Backend auskommen, und dann gäbe es niemanden, der die Frage
+beantworten könnte. Vergeben ist genau dieser eine Weg;
+`/apps/<id>/api/meine-antraege` gehört weiter der App.
+
+### Was zurückkommt, wenn jemand nicht darf
+
+| Zustand                                   | Seite         | Schnittstelle |
+| ----------------------------------------- | ------------- | ------------- |
+| keine Sitzung                             | `302` auf `/` | `401`         |
+| Sitzung, App nicht freigegeben            | `403`         | `403`         |
+| Freigabe nur `live`, Teststand aufgerufen | `403`         | `403`         |
+| Freigabe, aber diesen Stand gibt es nicht | `404`         | `404`         |
+
+Die Seite zieht zur Anmeldung um, die Schnittstelle nicht: ein `fetch` der App
+bekäme auf einen Umzug die Anmeldeseite als HTML zurück und meldete einen
+Fehler, der nach einem Fehler der App aussieht — genau der Fall aus „Wer
+liefert was".
+
+**Erst die Freigabe, dann die Existenz.** Eine App, die es am Gerät nicht gibt,
+ist `403` und nicht `404`. Sonst wäre die Liste der Apps eines Unternehmens für
+jeden angemeldeten Menschen abzählbar.
+
+## Was das Gerät der App mitgibt
+
+Beim Einspielen setzt das Gerät zwei Umgebungsvariablen in den Container, über
+das hinaus, was `backend.umgebung` im Manifest nennt:
+
+| Variable                | Inhalt                                          |
+| ----------------------- | ----------------------------------------------- |
+| `ARASUL_API_URL`        | `http://dashboard-backend:3001/api/v1/external` |
+| `ARASUL_API_SCHLUESSEL` | Der API-Schlüssel dieser App und dieses Standes |
+
+Damit kann eine App ein Sprachmodell fragen, Text aus einer Datei holen und
+einen Flow anstoßen — dieselben Wege, die eine Automatisierung von außen geht,
+nur ohne Umweg über Traefik: die App hängt im selben Docker-Netz.
+
+```js
+await fetch(`${process.env.ARASUL_API_URL}/models`, {
+  headers: { 'x-api-key': process.env.ARASUL_API_SCHLUESSEL },
+});
+```
+
+**Je Stand einer**, nicht je App einer: der Teststand ist eine andere Version,
+die jemand gerade ausprobiert, und was dort in einem Protokoll landet, soll den
+Livestand nichts kosten.
+
+**Bei jedem Einspielen ein neuer.** In der Datenbank steht nur der
+bcrypt-Abdruck; den Klartext gibt es genau einmal, im Augenblick des Anlegens.
+Ihn daneben verschlüsselt abzulegen, um ihn später noch einmal in einen
+Container schreiben zu können, wäre ein zweiter Ort, an dem ein gültiger
+Schlüssel liegt — und gebraucht würde er nie, weil das Einspielen den Container
+ohnehin **ersetzt** statt ihn neu zu starten. Ein Neustart durch Docker
+(Gerätestart, `unless-stopped`) behält die Umgebung und damit den Schlüssel.
+
+Was der Schlüssel darf, steht in `VORGABE_ENDPUNKTE`
+(`middleware/apiKeyAuth.js`): `llm:chat`, `llm:status`, `document:extract`,
+`document:analyze`, `flow:run`. Dieselbe Liste bekommt ein Schlüssel, den ein
+Administrator von Hand anlegt.
 
 ## Der Lebenslauf
 
@@ -187,6 +294,9 @@ installiert sie, `.dockerignore` schließt `**/tests/` aus jedem Image aus.
 ```bash
 # auf dem Gerät
 bash scripts/test/beispielapp.sh einspielen
-bash scripts/test/apps-abnahme.sh          # misst beide Pfade
 bash scripts/test/beispielapp.sh entfernen
+
+# vom Arbeitsrechner, durch den Tunnel
+bash scripts/test/apps-abnahme.sh           # misst beide Pfade (C3)
+bash scripts/test/app-anmeldung-abnahme.sh  # misst die Anmeldung (C4)
 ```

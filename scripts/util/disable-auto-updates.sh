@@ -25,7 +25,7 @@ echo ""
 
 # 1. Disable unattended-upgrades
 echo "[1/4] Disabling unattended-upgrades..."
-if dpkg -l | grep -q unattended-upgrades; then
+if grep -q unattended-upgrades <<<"$(dpkg -l)"; then
     systemctl stop unattended-upgrades 2>/dev/null || true
     systemctl disable unattended-upgrades 2>/dev/null || true
     systemctl mask unattended-upgrades 2>/dev/null || true

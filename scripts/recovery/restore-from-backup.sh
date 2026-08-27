@@ -60,13 +60,19 @@ find_backup() {
     local type="$1"    # postgres
     local timestamp="$2"
 
+    # Erst die ganze Liste, dann die erste Zeile. `ls ... | head -1` laesst
+    # `ls` in ein geschlossenes Rohr schreiben, sobald die Liste den Rohrpuffer
+    # ueberschreitet, und unter `pipefail` ist das 141 statt 0.
+    local treffer
     if [ "$timestamp" = "latest" ]; then
         # Find most recent backup of this type
-        ls -t "$BACKUP_DIR"/${type}_*.gz 2>/dev/null | head -1
+        treffer=$(ls -t "$BACKUP_DIR"/${type}_*.gz 2>/dev/null) || true
     else
         # Find backup matching timestamp
-        ls "$BACKUP_DIR"/${type}_*${timestamp}*.gz 2>/dev/null | head -1
+        treffer=$(ls "$BACKUP_DIR"/${type}_*${timestamp}*.gz 2>/dev/null) || true
     fi
+    [ -n "$treffer" ] || return 0
+    printf '%s\n' "${treffer%%$'\n'*}"
 }
 
 # Restore PostgreSQL

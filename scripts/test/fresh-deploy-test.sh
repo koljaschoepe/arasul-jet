@@ -176,7 +176,7 @@ fi
 
 # Setup status (unauthenticated endpoint)
 SETUP_STATUS=$(curl -sf --max-time 5 "http://${HOST}/api/system/setup-status" 2>/dev/null)
-if echo "$SETUP_STATUS" | grep -q "setupComplete" 2>/dev/null; then
+if grep -q "setupComplete" 2>/dev/null <<<"$SETUP_STATUS"; then
   pass "Setup-Status abrufbar (/api/system/setup-status)"
 else
   warn "Setup-Status nicht abrufbar"
@@ -201,7 +201,7 @@ if [ -n "$ADMIN_PASSWORD" ]; then
     -H "Content-Type: application/json" \
     -d "{\"username\":\"admin\",\"password\":\"${ADMIN_PASSWORD}\"}" 2>/dev/null || echo "")
 
-  if echo "$LOGIN_RESULT" | grep -q "token" 2>/dev/null; then
+  if grep -q "token" 2>/dev/null <<<"$LOGIN_RESULT"; then
     pass "Login als admin erfolgreich"
 
     # Extract token and test authenticated endpoint

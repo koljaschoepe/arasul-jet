@@ -95,7 +95,7 @@ confirm() {
 # Pre-restore checks
 pre_restore_checks() {
     # Check if containers are running
-    if ! docker ps --format '{{.Names}}' | grep -q "^postgres-db$"; then
+    if ! grep -q "^postgres-db$" <<<"$(docker ps --format '{{.Names}}')"; then
         log "ERROR" "PostgreSQL container is not running"
         echo "Please start the services first: docker compose up -d postgres-db"
         exit 1

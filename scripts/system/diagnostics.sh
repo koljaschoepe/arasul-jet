@@ -176,7 +176,12 @@ fi
 echo "  [5/8] Backup status..."
 section "backups.txt" "Backup Directory"
 if [[ -d "${PROJECT_DIR}/data/backups" ]]; then
-  ls -lhR "${PROJECT_DIR}/data/backups/" 2>/dev/null | head -50 >> "${DIAG_DIR}/backups.txt"
+  # `ls -lhR | head -50` ist der Fall, der hier wirklich zuschlaegt: ein
+  # gewachsener Sicherungsordner listet weit mehr als die 64 KiB des
+  # Rohrpuffers, `ls` stirbt an SIGPIPE, `pipefail` macht 141 daraus und
+  # `set -e` bricht die Diagnose an dieser Stelle ab.
+  BACKUP_LISTING=$(ls -lhR "${PROJECT_DIR}/data/backups/" 2>/dev/null || true)
+  head -50 <<<"${BACKUP_LISTING}" >> "${DIAG_DIR}/backups.txt"
 else
   echo "No backup directory found" >> "${DIAG_DIR}/backups.txt"
 fi

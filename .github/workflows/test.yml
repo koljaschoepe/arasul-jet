@@ -263,6 +263,37 @@ jobs:
         run: npm ci --ignore-scripts
 
   # ----------------------------------------------------------------------------
+  # Die Migrationskette gegen eine leere Datenbank (Entscheidung 27.08.2026).
+  #
+  # Migration 169 ist am 27.08.2026 am Orin gescheitert, und die CI war dabei
+  # gruen: sie hat die Migrationen nie ausgefuehrt, nur die Dateien
+  # danebenliegen sehen. Der Fehler kam beim Deploy heraus. Auf einem FRISCHEN
+  # Geraet waere er schlimmer gewesen — der Postgres-Einstiegspunkt faehrt mit
+  # ON_ERROR_STOP=1, der Container waere gar nicht erst hochgekommen.
+  #
+  # `npm ci` steht hier, weil das Skript in seinem zweiten Teil den echten
+  # `migrationRunner.js` des Backends gegen dieselbe frisch initialisierte
+  # Datenbank faehrt. Ohne die Abhaengigkeiten bricht es ab statt zu schweigen.
+  # ----------------------------------------------------------------------------
+  migrationen:
+    name: Migrationskette (leere Datenbank)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: 000 bis heute gegen eine leere Datenbank
+        run: bash scripts/test/migrationskette.sh
+
+  # ----------------------------------------------------------------------------
   # Python services: non-blocking pytest. Some services have no tests yet.
   # ----------------------------------------------------------------------------
   python-services:
@@ -394,6 +425,14 @@ jobs:
       - name: Stiller Tod (Zuweisungen, die ein Skript wortlos beenden)
         run: python3 scripts/test/stiller-tod.py --wurzel .
 
+      # Der Schwesterfall, 27.08.2026: `docker logs … | grep -q …` unter
+      # `pipefail`. grep steigt beim ersten Treffer aus, docker logs schreibt
+      # in ein geschlossenes Rohr und endet mit 141, und die Bedingung wird
+      # falsch — gerade WEIL der gesuchte Text da ist. Der Job
+      # "Migrationskette" hat daran drei Minuten gewartet und "nein" gemeldet.
+      - name: Rohrbruch (Pipes, die beim ersten Treffer zerreissen)
+        run: python3 scripts/test/rohrbruch.py --wurzel .
+
       - name: Routenregeln (asyncHandler, keine nackten Fehler)
         run: python3 scripts/test/routenregeln.py --wurzel .
 
@@ -440,7 +479,17 @@ jobs:
     name: CI Summary
     runs-on: ubuntu-latest
     needs:
-      [changes, backend, frontend, docker-build, python-services, lockfile-guard, guards, dead-code]
+      [
+        changes,
+        backend,
+        frontend,
+        docker-build,
+        migrationen,
+        python-services,
+        lockfile-guard,
+        guards,
+        dead-code,
+      ]
     if: always()
     steps:
       - name: Aggregate results
@@ -456,6 +505,7 @@ jobs:
             Backend=${{ needs.backend.result }}
             Frontend=${{ needs.frontend.result }}
             Docker=${{ needs.docker-build.result }}
+            Migrationen=${{ needs.migrationen.result }}
             Python=${{ needs.python-services.result }}
             Lockfile=${{ needs.lockfile-guard.result }}
             Guards=${{ needs.guards.result }}

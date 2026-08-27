@@ -173,6 +173,23 @@ const LogsQuery = z
   })
   .strict();
 
+/**
+ * Der Stand, fuer den die Forward-Auth fragt (Phase C4).
+ *
+ * Ohne Angabe der Livestand. Die Frage stellt Traefik, und zwar aus dem
+ * Etikett des Containers heraus (`services/app/appContainer.js`), also mit
+ * einem festen `?stand=`; die Vorgabe deckt den Aufruf von Hand ab.
+ *
+ * OHNE `.strict()`, als einziges Schema in dieser Datei. Das Manifest weist
+ * ein unbekanntes Feld ab, weil dahinter ein Mensch mit einem Tippfehler
+ * steht. Hier steht ein Proxy: sollte Traefik eines Tages die Suchparameter
+ * der urspruenglichen Anfrage anhaengen (heute tut es das nicht, sie stehen
+ * in `X-Forwarded-Uri`), waere ein 400 die Antwort auf JEDEN Aufruf an JEDE
+ * App, die ihre Schnittstelle mit einem Parameter aufruft. Zod verwirft
+ * Unbekanntes hier still; der Wert von `stand` wird geprueft wie ueberall.
+ */
+const ZugangQuery = z.object({ stand: Stand.default('live') });
+
 module.exports = {
   AppId,
   Stand,
@@ -181,4 +198,5 @@ module.exports = {
   AppParams,
   EinspielenBody,
   LogsQuery,
+  ZugangQuery,
 };

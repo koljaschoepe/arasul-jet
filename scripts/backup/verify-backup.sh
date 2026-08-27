@@ -62,10 +62,18 @@ find_latest_pg_backup() {
         fi
     fi
 
-    # Fallback: find most recent file
-    find "${BACKUP_DIR}/postgres" -name "arasul_db_*.sql.gz*" \
+    # Fallback: find most recent file. `| head -1` wuerde `sort` in ein
+    # geschlossenes Rohr schreiben lassen, sobald genug Sicherungen daliegen
+    # (ab rund 800 Dateien passt die Liste nicht mehr in den Rohrpuffer) —
+    # unter `pipefail` waere der Rueckgabewert dann 141. Also erst lesen,
+    # dann die erste Zeile nehmen.
+    local nach_alter
+    nach_alter=$(find "${BACKUP_DIR}/postgres" -name "arasul_db_*.sql.gz*" \
         ! -name "*latest*" ! -name "*pre_restore*" \
-        -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2
+        -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn)
+    [[ -n "${nach_alter}" ]] || return 0
+    local neueste="${nach_alter%%$'\n'*}"
+    echo "${neueste#* }"
 }
 
 # Decrypt if needed, returns path to usable file

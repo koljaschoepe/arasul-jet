@@ -14,6 +14,15 @@
 # Startseite des Dashboards, und ein `/api/`-Pfad ohne Container gibt keine
 # HTML-Seite zurueck.
 #
+# SEIT PHASE C4 steht vor jeder dieser Zusagen die Freigabe (sie selbst misst
+# `app-anmeldung-abnahme.sh`). Diese Abnahme misst die AUSLIEFERUNG und nicht
+# die Anmeldung, also gibt sie sich die App zu Beginn selbst frei und nimmt die
+# Freigabe am Ende wieder zurueck -- als Tester, damit auch der Teststand
+# erreichbar bleibt. Ohne das waere jede Zeile hier ein 403, und die Abnahme
+# meldete etwas ueber die Anmeldung statt ueber die Auslieferung. Auch ein
+# Administrator braucht eine Freigabe; "Admins sehen alles" gibt es nicht
+# (Entscheidung aus C2).
+#
 # Voraussetzung: die Beispielapp ist eingespielt.
 #   bash scripts/test/beispielapp.sh einspielen     (auf dem Geraet)
 #
@@ -57,7 +66,6 @@ pruefe() {
 # Container, der gerade hochkommt, ist kein Befund, und Traefik braucht nach
 # dem Start eines App-Containers einen Moment, bis er sein Etikett gesehen hat.
 RUMPF_DATEI="$(mktemp)"
-trap 'rm -f "$RUMPF_DATEI"' EXIT
 CODE=""
 TYP=""
 hole() {
@@ -74,7 +82,17 @@ hole() {
   done
 }
 rumpf() { cat "$RUMPF_DATEI" 2>/dev/null; }
+
+# Beide Pruefungen des Inhaltstyps stehen als FUNKTION da, und das ist kein
+# Geschmack: `$(case "$TYP" in text/html*) ... esac)` laeuft unter bash 3.2
+# nicht. Die alte Shell beendet die Kommandosubstitution an der ersten
+# schliessenden Klammer -- also an der des Musters -- und meldet zur LAUFZEIT
+# "syntax error near unexpected token". `bash -n` sieht davon nichts, weil der
+# Rumpf einer Substitution erst beim Ausfuehren geparst wird; die Datei ist
+# also syntaktisch in Ordnung und faellt trotzdem um. macOS liefert bis heute
+# bash 3.2 aus, und der Ueberordner misst von einem Mac (Fund aus C3).
 ist_json() { case "$TYP" in application/json*) echo ja ;; *) echo nein ;; esac; }
+ist_html() { case "$TYP" in text/html*) echo ja ;; *) echo nein ;; esac; }
 
 json_feld() {
   python3 -c 'import sys,json
@@ -90,7 +108,7 @@ if ! nc -z "$(echo "$BASIS" | sed -E 's#https?://##; s#:.*##')" "$(echo "$BASIS"
   exit 1
 fi
 
-echo "=== Abnahme des App-Modells (Phase C3) gegen $BASIS ==="
+echo "=== Abnahme des App-Modells (Phase C3, Freigabe seit C4) gegen $BASIS ==="
 echo
 
 TOK=$(arasul_token)
@@ -99,6 +117,34 @@ pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" 
 [ -z "$TOK" ] && { echo; echo "Ohne Anmeldung gibt es nichts zu messen."; exit 1; }
 
 # --- 1. Die App steht in der Verwaltung --------------------------------------
+# Erst die eigene Nummer, dann die Freigabe. Wer sie schon hatte, behaelt sie:
+# das Aufraeumen nimmt nur zurueck, was dieser Lauf gegeben hat.
+ICH=$(curl -sk --max-time 20 -H "authorization: Bearer $TOK" "$BASIS/api/auth/me" |
+  python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("user",{}).get("id") or "")
+except Exception: print("")' 2>/dev/null)
+HATTE_FREIGABE=$(curl -sk --max-time 20 -H "authorization: Bearer $TOK" \
+  "$BASIS/api/freigaben?app_id=$APP&benutzer_id=$ICH" |
+  python3 -c 'import sys,json
+try: print("ja" if json.load(sys.stdin).get("data") else "nein")
+except Exception: print("nein")' 2>/dev/null)
+aufraeumen() {
+  rm -f "$RUMPF_DATEI"
+  [ "$HATTE_FREIGABE" = "ja" ] && return
+  [ -z "$ICH" ] && return
+  local code
+  code=$(curl -sk -o /dev/null -w '%{http_code}' -X DELETE \
+    -H "authorization: Bearer $TOK" "$BASIS/api/freigaben/$APP/$ICH")
+  printf 'aufgeraeumt  Freigabe von %s zurueckgenommen (HTTP %s)\n' "$APP" "$code"
+}
+trap aufraeumen EXIT
+FREI=$(curl -sk -o /dev/null -w '%{http_code}' -X POST --max-time 20 \
+  -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+  -d "{\"app_id\":\"$APP\",\"benutzer_id\":$ICH,\"stand\":\"test\"}" \
+  "$BASIS/api/freigaben")
+pruefe 'Der Administrator gibt sich die App frei (auch er braucht das)' \
+  "$([ "$FREI" = "201" ] || [ "$FREI" = "200" ] && echo ja || echo nein)" "HTTP $FREI"
+
 hole "/api/apps/$APP"
 pruefe "GET /api/apps/$APP" "$([ "$CODE" = "200" ] && echo ja || echo nein)" "HTTP $CODE"
 if [ "$CODE" != "200" ]; then
@@ -119,9 +165,9 @@ pruefe 'Ihr Backend-Container laeuft' "${LAEUFT:-nein}" "laeuft=$LAEUFT"
 # --- 2. Das Frontend, von Arasul ausgeliefert --------------------------------
 hole "/apps/$APP/"
 pruefe "GET /apps/$APP/ liefert die Seite" "$([ "$CODE" = "200" ] && echo ja || echo nein)" "HTTP $CODE"
-pruefe 'und zwar als HTML' "$(case "$TYP" in text/html*) echo ja ;; *) echo nein ;; esac)" "$TYP"
+pruefe 'und zwar als HTML' "$(ist_html)" "$TYP"
 pruefe 'mit dem Namen der App darin' \
-  "$(rumpf | grep -qi "$APP\|Beispielapp" && echo ja || echo nein)"
+  "$(grep -qi "$APP\|Beispielapp" <<<"$(rumpf)" && echo ja || echo nein)"
 
 # Eine Datei aus dem Paket, nicht die Startseite: der Unterschied zwischen
 # "liefert irgendwas" und "liefert das Verzeichnis dieser Version".
@@ -151,12 +197,14 @@ NAME=$(rumpf | json_feld app)
 pruefe 'Die Umgebungsvariable aus dem Manifest ist gesetzt' \
   "$([ -n "$NAME" ] && echo ja || echo nein)" "app=$NAME"
 
-# Phase C4 reicht die Anmeldung an die App weiter. HEUTE tut sie es nicht, und
-# das soll belegt sein: eine App, die sich auf einen Kopf verlaesst, den die
-# Plattform noch nicht setzt, wuerde jeden Aufrufer fuer denselben halten.
+# Phase C4 reicht die Anmeldung an die App weiter. Bis dahin war dieser Kopf
+# leer, und die Abnahme belegte GENAU DAS -- eine App, die sich auf einen Kopf
+# verlaesst, den die Plattform nicht setzt, wuerde jeden Aufrufer fuer denselben
+# halten. Seit C4 steht ein Name darin. Wessen Name das ist und wer keinen
+# bekommt, misst `app-anmeldung-abnahme.sh`; hier reicht, DASS er da ist.
 NUTZER=$(rumpf | python3 -c 'import sys,json; print(json.load(sys.stdin).get("nutzer") or "")' 2>/dev/null)
-pruefe 'X-Arasul-User ist noch leer (kommt mit C4)' \
-  "$([ -z "$NUTZER" ] && echo ja || echo nein)" "nutzer=${NUTZER:-null}"
+pruefe 'X-Arasul-User traegt den angemeldeten Menschen (seit C4)' \
+  "$([ -n "$NUTZER" ] && echo ja || echo nein)" "nutzer=${NUTZER:-null}"
 
 hole "/apps/$APP/api/gibt-es-nicht"
 pruefe 'Die App beantwortet ihre eigenen 404' "$([ "$CODE" = "404" ] && echo ja || echo nein)" "HTTP $CODE"
@@ -169,8 +217,14 @@ pruefe 'mit der Meldung der App, nicht der der Plattform' \
 # Ohne den Router `apps-frontend` faellt `/apps/...` an den Catch-All des
 # Dashboards, und der antwortet mit seiner eigenen HTML-Seite und HTTP 200.
 # Genau das waere der stille Fehler: es SIEHT aus, als antworte etwas.
+#
+# Bis C3 stand hier 404. Seit C4 antwortet die Freigabe zuerst, und sie kennt
+# keine App dieses Namens -- wer eine App nicht freigegeben hat, erfaehrt auch
+# nicht, ob es sie am Geraet gibt. Die Aussage dieser Pruefung bleibt dieselbe:
+# eine Begruendung als JSON und nicht die Seite des Dashboards.
 hole "/apps/gibt-es-nicht-$$/"
-pruefe 'Eine unbekannte App ist 404' "$([ "$CODE" = "404" ] && echo ja || echo nein)" "HTTP $CODE"
+pruefe 'Eine unbekannte App ist 403 (seit C4, davor 404)' \
+  "$([ "$CODE" = "403" ] && echo ja || echo nein)" "HTTP $CODE"
 pruefe 'und keine Seite des Dashboards' "$(ist_json)" "$TYP"
 
 # --- 5. Der Teststand liegt woanders -----------------------------------------
