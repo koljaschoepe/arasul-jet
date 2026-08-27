@@ -102,3 +102,8 @@ data-pruefstand/
 logs-pruefstand/
 .env.pruefstand
 arasul-abnahme-sitzung.json
+# Der geteilte Anmelde-Token der Abnahme-Reihe (Entscheidung 27.08.2026) und
+# sein Keksglas. Beide sind gueltige Sitzungen des Geraets.
+arasul-abnahme-token
+arasul-abnahme-token.cookies
+arasul-abnahme-code

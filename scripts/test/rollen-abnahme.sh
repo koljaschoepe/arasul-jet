@@ -21,8 +21,13 @@
 #   ARASUL_PASSWORT=... bash scripts/test/rollen-abnahme.sh
 #
 # Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin.
-# Es werden drei Anmeldungen gebraucht (Admin, Abnahme-Admin, Mitarbeiter);
-# die Anmeldedrossel erlaubt zehn je Viertelstunde und IP.
+#
+# ANMELDUNGEN: zwei eigene (Abnahme-Admin, Abnahme-Mitarbeiter) plus die des
+# Administrators. Die dritte entfaellt, wenn `abnahmen.sh` den Lauf startet:
+# seit dem 27.08.2026 teilt sich die ganze Reihe einen Token, und diese Abnahme
+# nimmt ihn aus `ARASUL_TOKEN`. Die Drossel bleibt bei zehn je Viertelstunde
+# und IP; die zwei eigenen Zugaenge lassen sich nicht teilen, sie sind der Kern
+# dessen, was hier gemessen wird.
 #
 # Nicht zerstoerend: mit dem Mitarbeiter wird jede Admin-Route zwar
 # aufgerufen, auch POST /api/werksreset, aber requireRole steht in jeder
@@ -33,10 +38,12 @@
 # =============================================================================
 set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Der geteilte Token der Reihe (Entscheidung 27.08.2026). Steht ARASUL_TOKEN
+# in der Umgebung, meldet sich diese Abnahme fuer den Administrator NICHT an.
+# shellcheck source=scripts/test/anmeldung.sh
+source "$WURZEL/scripts/test/anmeldung.sh"
 
-BASIS="${ARASUL_URL:-https://localhost:8443}"
-NUTZER="${ARASUL_BENUTZER:-admin}"
-PASS="${ARASUL_PASSWORT:-2309}"
+BASIS="$ARASUL_URL"
 # Ein Zufallsteil, damit ein abgebrochener Lauf keinen Namenskonflikt beim
 # naechsten hinterlaesst.
 STEMPEL="$(date +%s)"
@@ -128,9 +135,11 @@ echo "=== Abnahme der Rollen (Phase C1) gegen $BASIS ==="
 echo
 
 # --- 1. Admin anmelden -------------------------------------------------------
-TOK=$(hole_token "$NUTZER" "$PASS")
-pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" "HTTP $(anm_code)"
-[ -z "$TOK" ] && { echo; echo "Ohne Anmeldung geht nichts weiter (HTTP $(anm_code); 429 heisst Anmeldedrossel)."; exit 1; }
+# `arasul_token` nimmt den geteilten Token, den abgelegten oder meldet einmal an.
+TOK=$(arasul_token)
+pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" \
+  "${ARASUL_TOKEN:+geteilter Token}${ARASUL_TOKEN:-HTTP $(arasul_anmeldecode)}"
+[ -z "$TOK" ] && { echo; echo "Ohne Anmeldung geht nichts weiter (HTTP $(arasul_anmeldecode); 429 heisst Anmeldedrossel)."; exit 1; }
 
 ROLLE=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/auth/me" | json_feld user.role)
 pruefe '/api/auth/me nennt die Rolle admin' "$([ "$ROLLE" = "admin" ] && echo ja || echo nein)" "role=$ROLLE"

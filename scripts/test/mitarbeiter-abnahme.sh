@@ -21,35 +21,53 @@
 #
 # Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin.
 #
-# ACHTUNG, ANMELDEDROSSEL: `loginLimiter` erlaubt ZEHN Anmeldungen je
-# Viertelstunde und IP. Dieser Lauf braucht SECHS. Zwei Laeufe hintereinander
-# sprengen die Drossel, und `rollen-abnahme.sh` (drei Anmeldungen) direkt davor
-# ebenfalls. Wer beide fahren will, laesst eine Viertelstunde dazwischen. Ein
-# 429 wird hier ausdruecklich als 429 gemeldet und nicht als "Anmeldung
-# fehlgeschlagen" -- ein Waechter, der die Ursache verschweigt, kostet mehr
-# Zeit als er spart.
+# ANMELDEDROSSEL: `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde und
+# IP, und dabei bleibt es. Dieser Lauf braucht FUENF eigene -- der Mitarbeiter
+# meldet sich mehrfach an, und genau das ist der Punkt der Messung. Die sechste,
+# die des Administrators, entfaellt seit dem 27.08.2026, wenn `abnahmen.sh` den
+# Lauf startet: die Reihe teilt sich einen Token. Ein 429 wird ausdruecklich als
+# 429 gemeldet und nicht als "Anmeldung fehlgeschlagen" -- ein Waechter, der die
+# Ursache verschweigt, kostet mehr Zeit als er spart.
 #
 # Nicht zerstoerend fuer den Bestand: angelegt wird ein Benutzer mit
-# Zeitstempel im Namen, freigegeben wird eine App-Kennung mit Zeitstempel, und
-# beides wird am Ende geloescht, auch wenn unterwegs etwas rot war.
+# Zeitstempel im Namen, freigegeben wird eine App, die schon da ist, und die
+# Freigabe wie der Benutzer werden am Ende entfernt, auch wenn unterwegs etwas
+# rot war.
 #
 # Rueckgabe 0, wenn jede Pruefung gruen war, sonst 1.
 # =============================================================================
 set -uo pipefail
+WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Der geteilte Token der Reihe (Entscheidung 27.08.2026).
+# shellcheck source=scripts/test/anmeldung.sh
+source "$WURZEL/scripts/test/anmeldung.sh"
 
-BASIS="${ARASUL_URL:-https://localhost:8443}"
-NUTZER="${ARASUL_BENUTZER:-admin}"
-PASS="${ARASUL_PASSWORT:-2309}"
+BASIS="$ARASUL_URL"
 STEMPEL="$(date +%s)"
 MITARB="abnahme-mitarbeiter-$STEMPEL"
 MAIL="$MITARB@abnahme.local"
-APP="abnahme-app-$STEMPEL"
+# Die App, fuer die freigegeben wird. Bis Phase C3 war das eine erfundene
+# Kennung mit Zeitstempel; seit Migration 169 zeigt `app_members.app_id` als
+# Fremdschluessel auf `apps.id`, und eine Freigabe fuer eine App, die es am
+# Geraet nicht gibt, ist jetzt zu Recht ein 400. Genommen wird deshalb die
+# erste App, die wirklich da ist; gibt es keine, werden die Freigabe-Pruefungen
+# uebersprungen und gezaehlt, statt rot zu melden.
+APP=""
+
 PASS1="Start-$STEMPEL"        # vom Administrator beim Anlegen vergeben
 PASS2="Gesetzt-$STEMPEL"      # vom Administrator nachtraeglich gesetzt
 PASS3="Selbst-$STEMPEL"       # vom Mitarbeiter selbst gewaehlt
 
 gruen=0
 rot=0
+uebersprungen=0
+# Eine Pruefung, deren Voraussetzung fehlt, ist weder gruen noch rot. Sie rot
+# zu melden waere ein Befund ueber den Messaufbau, der wie einer ueber das
+# Geraet aussieht; sie wegzulassen waere ein stilles Gruen.
+ueberspringe() {
+  uebersprungen=$((uebersprungen + 1))
+  printf 'weg    %s  (%s)\n' "$1" "$2"
+}
 pruefe() {
   local was="$1" ok="$2" detail="${3:-}"
   if [ "$ok" = "ja" ]; then
@@ -136,14 +154,28 @@ echo "=== Abnahme der Mitarbeiterverwaltung (Phase C2) gegen $BASIS ==="
 echo
 
 # --- 1. Administrator anmelden ----------------------------------------------
-TOK=$(hole_token "$NUTZER" "$PASS")
-pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" "HTTP $(anm_code)"
-[ -z "$TOK" ] && { echo; echo "Ohne Anmeldung geht nichts weiter (HTTP $(anm_code); 429 heisst Anmeldedrossel)."; exit 1; }
+# `arasul_token` nimmt den geteilten Token, den abgelegten oder meldet einmal an.
+TOK=$(arasul_token)
+pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" \
+  "${ARASUL_TOKEN:+geteilter Token}${ARASUL_TOKEN:-HTTP $(arasul_anmeldecode)}"
+[ -z "$TOK" ] && { echo; echo "Ohne Anmeldung geht nichts weiter (HTTP $(arasul_anmeldecode); 429 heisst Anmeldedrossel)."; exit 1; }
 
 # Die eigene Nummer wird in Abschnitt 8 gebraucht. Ohne sie stuende dort
 # `/api/benutzer//aktiv`, und ein 404 saehe aus wie eine fehlende Pruefung.
 ICH=$(hole GET /api/auth/me "$TOK" | json_feld user.id)
 pruefe 'Der Administrator kennt seine eigene Nummer' "$([ -n "$ICH" ] && echo ja || echo nein)" "id=$ICH"
+
+# Die App, fuer die freigegeben wird: die erste, die am Geraet steht.
+APP=$(hole GET /api/apps "$TOK" |
+  python3 -c 'import sys,json
+d=json.load(sys.stdin).get("data",[])
+print(d[0]["id"] if d else "")' 2>/dev/null)
+if [ -n "$APP" ]; then
+  printf 'gefunden  App %s, fuer sie wird freigegeben\n' "$APP"
+else
+  printf 'gefunden  keine App am Geraet, die Freigabe-Pruefungen entfallen\n'
+  printf '          (erst: bash scripts/test/beispielapp.sh einspielen)\n'
+fi
 
 # --- 2. Mitarbeiter anlegen, Aufraeumen sicherstellen ------------------------
 ID=""
@@ -171,6 +203,9 @@ ROLLE=$(hole GET /api/auth/me "$TOK_M" | json_feld user.role)
 pruefe 'Mitarbeiter sieht seine Rolle' "$([ "$ROLLE" = "mitarbeiter" ] && echo ja || echo nein)" "role=$ROLLE"
 
 # --- 3. Freigeben ------------------------------------------------------------
+if [ -z "$APP" ]; then
+  ueberspringe 'Freigeben und Freigabe sehen' 'keine App am Geraet'
+else
 code=$(rufe POST /api/freigaben "$TOK" "{\"app_id\":\"$APP\",\"benutzer_id\":$ID}")
 pruefe "App $APP fuer den Mitarbeiter freigegeben" "$([ "$code" = "201" ] && echo ja || echo nein)" "HTTP $code"
 
@@ -190,6 +225,30 @@ d=json.load(sys.stdin).get('data',[])
 print(d[0]['username'] if d else '')" 2>/dev/null)
 pruefe 'Freigabe nennt den Menschen, nicht nur seine Nummer' "$([ "$NAME" = "$MITARB" ] && echo ja || echo nein)" "username=$NAME"
 
+# Der Tester-Kreis (Phase C3): dieselbe Freigabe noch einmal, diesmal mit
+# `stand: test`. Sie wird nicht zur zweiten Zeile, sondern die eine Zeile
+# aendert ihr Wort -- und der Zeitstempel der ersten bleibt stehen.
+STAND=$(hole POST /api/freigaben "$TOK" "{\"app_id\":\"$APP\",\"benutzer_id\":$ID,\"stand\":\"test\"}" |
+  json_feld data.stand)
+pruefe 'Aus dem Nutzer wird ein Tester (stand=test)' "$([ "$STAND" = "test" ] && echo ja || echo nein)" "stand=$STAND"
+
+ZEILEN=$(hole GET "/api/freigaben?app_id=$APP&benutzer_id=$ID" "$TOK" |
+  python3 -c 'import sys,json; print(len(json.load(sys.stdin).get("data",[])))' 2>/dev/null)
+pruefe 'und bleibt dabei EINE Freigabe' "$([ "$ZEILEN" = "1" ] && echo ja || echo nein)" "$ZEILEN Zeile(n)"
+
+STAND=$(hole POST /api/freigaben "$TOK" "{\"app_id\":\"$APP\",\"benutzer_id\":$ID,\"stand\":\"live\"}" |
+  json_feld data.stand)
+pruefe 'und wieder zurueck (stand=live)' "$([ "$STAND" = "live" ] && echo ja || echo nein)" "stand=$STAND"
+
+# Was das dem Mitarbeiter bringt: er sieht die App in seiner eigenen Liste.
+MEINE=$(hole GET /api/apps/meine "$TOK_M" |
+  python3 -c "import sys,json
+d=json.load(sys.stdin).get('data',[])
+print(next((a['id'] for a in d if a['id']=='$APP'), ''))" 2>/dev/null)
+pruefe 'Der Mitarbeiter sieht die App unter /api/apps/meine' \
+  "$([ "$MEINE" = "$APP" ] && echo ja || echo nein)" "id=$MEINE"
+fi
+
 # --- 4. Der Mitarbeiter verwaltet nichts -------------------------------------
 while read -r verb pfad; do
   [ -z "$verb" ] && continue
@@ -198,7 +257,7 @@ while read -r verb pfad; do
 done <<VERWALTUNG
 GET /api/freigaben
 POST /api/freigaben
-DELETE /api/freigaben/$APP/$ID
+DELETE /api/freigaben/${APP:-platzhalter}/$ID
 GET /api/benutzer
 POST /api/benutzer
 PUT /api/benutzer/$ID/passwort
@@ -261,6 +320,9 @@ if [ -n "$ICH" ]; then
 fi
 
 # --- 9. Freigabe zuruecknehmen -----------------------------------------------
+if [ -z "$APP" ]; then
+  ueberspringe 'Freigabe zuruecknehmen' 'keine App am Geraet'
+else
 code=$(rufe DELETE "/api/freigaben/$APP/$ID" "$TOK")
 pruefe 'Freigabe zurueckgenommen' "$([ "$code" = "200" ] && echo ja || echo nein)" "HTTP $code"
 
@@ -270,15 +332,32 @@ pruefe 'Zweimal zuruecknehmen ist 404, kein stiller Erfolg' "$([ "$code" = "404"
 # --- 10. Loeschen raeumt die Freigaben mit -----------------------------------
 code=$(rufe POST /api/freigaben "$TOK" "{\"app_id\":\"$APP\",\"benutzer_id\":$ID}")
 pruefe 'Noch einmal freigegeben, um die Loeschung zu pruefen' "$([ "$code" = "201" ] && echo ja || echo nein)" "HTTP $code"
+fi
 
+# Die Nummer wird nach dem Loeschen noch gebraucht. `ID` selbst muss leer
+# werden, sonst versucht das Aufraeumen den Benutzer ein zweites Mal zu
+# loeschen und meldet ein 404 als Rest.
+GEWESEN="$ID"
 WEG=$(hole DELETE "/api/benutzer/$ID" "$TOK" | json_feld deleted)
 pruefe 'Administrator loescht den Mitarbeiter' "$([ "$WEG" = "true" ] && echo ja || echo nein)" "deleted=$WEG"
 [ "$WEG" = "true" ] && ID=""
 
-REST=$(hole GET "/api/freigaben?app_id=$APP" "$TOK" |
+if [ -z "$APP" ]; then
+  ueberspringe 'Freigaben sind mit dem Benutzer weg' 'keine App am Geraet'
+else
+# Nach BENUTZER gefiltert, nicht nur nach App: die App ist eine echte App am
+# Geraet und kann Freigaben fuer andere Menschen tragen. Bis Phase C3 war sie
+# eine erfundene Kennung, die nur diesem Lauf gehoerte, und `?app_id=` allein
+# reichte.
+REST=$(hole GET "/api/freigaben?app_id=$APP&benutzer_id=$GEWESEN" "$TOK" |
   python3 -c 'import sys,json; print(len(json.load(sys.stdin).get("data",[])))' 2>/dev/null)
 pruefe 'Seine Freigaben sind mit ihm weg' "$([ "$REST" = "0" ] && echo ja || echo nein)" "$REST uebrig"
+fi
 
 echo
-echo "$gruen von $((gruen + rot)) gruen"
+if [ "$uebersprungen" -gt 0 ]; then
+  echo "$gruen von $((gruen + rot)) gruen, $uebersprungen uebersprungen"
+else
+  echo "$gruen von $((gruen + rot)) gruen"
+fi
 [ "$rot" -eq 0 ] || exit 1

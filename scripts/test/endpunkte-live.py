@@ -18,6 +18,10 @@ sie braucht dafuer nur eines: ein laufendes Geraet.
 Aufruf (SSH-Tunnel auf 8443 vorausgesetzt):
   python3 scripts/test/endpunkte-live.py
 
+Seit dem 27.08.2026 nimmt sie `ARASUL_TOKEN` aus der Umgebung, wenn er da ist,
+und meldet sich dann NICHT an: `abnahmen.sh` teilt einen Token je Lauf, und die
+Anmeldedrossel bleibt bei zehn je Viertelstunde und IP.
+
 Rot ist jeder Antwortcode ab 500, ausser er steht mit Begruendung in
 `ERWARTET_503`. Ein 4xx ist gruen: eine fehlende Pflichtangabe oder eine
 verweigerte Berechtigung ist eine Antwort, kein Absturz.
@@ -63,7 +67,7 @@ ERWARTET_503 = {}
 # Erweiterungen, Projekte, Git, Wissensraeume, Sandbox und /api/llm/jobs sind
 # mit ihren Bereichen gefallen. Uebrig sind vier.
 ID_QUELLEN = [
-    ('/api/apps/', '/api/apps', 'apps', 'id'),
+    ('/api/apps/', '/api/apps', 'data', 'id'),
     ('/api/flows/laeufe/', '/api/flows/laeufe', 'data', 'id'),
     ('/api/flows/', '/api/flows', 'data', 'name'),
     ('/api/services/llm/models/', '/api/services/llm/models', 'models', 'name'),
@@ -103,13 +107,13 @@ def mit_parametern():
     return [e for e in alle_gets() if ':x' in e and e not in NICHT_MESSBAR]
 
 
-def erste_id(pfad: str, kekse: Path, zwischenspeicher: dict):
+def erste_id(pfad: str, token: str, zwischenspeicher: dict):
     """Eine echte Id fuer einen Pfad mit `:x`, oder None mit Grund."""
     for praefix, liste, schluessel, feld in ID_QUELLEN:
         if not pfad.startswith(praefix):
             continue
         if liste not in zwischenspeicher:
-            code, rumpf = hole(liste, kekse, kurz=False)
+            code, rumpf = hole(liste, token, kurz=False)
             werte = []
             if code == '200':
                 try:
@@ -147,8 +151,8 @@ FALSCHE_EINGABEN = [
      'leerer Modellname, Rumpfpruefung lehnt ab'),
     ('POST', '/api/flows/laeufe', {'flow': 'gibt-es-nicht'},
      'Flow gibt es nicht, faellt vor dem Anlegen des Laufs durch'),
-    ('POST', '/api/apps/gibt-es-nicht/config', {'config': {}},
-     'App gibt es nicht, faellt vor dem Schreiben durch'),
+    ('POST', '/api/apps/gibt-es-nicht/einspielen', {'version': '9.9.9'},
+     'App gibt es nicht, faellt vor dem Starten eines Containers durch'),
     ('GET', '/api/flows/laeufe/keine-zahl', None,
      'kaputte Id in der Adresse'),
     ('GET', '/api/logs/search', None,
@@ -156,50 +160,56 @@ FALSCHE_EINGABEN = [
 ]
 
 
-def csrf_aus(kekse: Path) -> str:
-    """Das CSRF-Merkmal steht im Keksglas, nicht in der Antwort."""
-    try:
-        for zeile in kekse.read_text(encoding='utf-8').splitlines():
-            teile = zeile.split('\t')
-            if len(teile) >= 7 and teile[5] == 'arasul_csrf':
-                return teile[6]
-    except Exception:
-        pass
-    return ''
-
-
-def sende(verb: str, pfad: str, rumpf, kekse: Path):
-    befehl = ['curl', '-sk', '-b', str(kekse), '-m', '25', '-w', '\n%{http_code}',
+def sende(verb: str, pfad: str, rumpf, token: str):
+    # Mit `Authorization: Bearer` und ohne Sitzungs-Cookie ueberspringt
+    # `middleware/csrf.js` seine Pruefung: ein fremder Ursprung kann keinen
+    # Authorization-Kopf setzen. Bis zum 27.08.2026 lief diese Messung ueber
+    # das Keksglas und musste deshalb das CSRF-Merkmal daraus lesen; seit die
+    # Reihe sich einen Token teilt, gibt es kein Keksglas mehr.
+    befehl = ['curl', '-sk', '-m', '25', '-w', '\n%{http_code}',
+              '-H', f'authorization: Bearer {token}',
               '-X', verb, f'{URL}{pfad}']
     if rumpf is not None:
         befehl += ['-H', 'Content-Type: application/json',
-                   '-H', f'X-CSRF-Token: {csrf_aus(kekse)}',
                    '-d', json.dumps(rumpf)]
     ergebnis = subprocess.run(befehl, capture_output=True, text=True, errors='replace')
     teile = ergebnis.stdout.rsplit('\n', 1)
     return teile[-1].strip(), (teile[0] if len(teile) > 1 else '')[:200]
 
 
-def anmelden(kekse: Path) -> bool:
+def anmelden() -> str:
+    """Der Token fuer diesen Lauf.
+
+    Steht `ARASUL_TOKEN` in der Umgebung, wird NICHT angemeldet: `abnahmen.sh`
+    hat sich fuer die ganze Reihe einmal angemeldet und reicht den Token durch
+    (Entscheidung 27.08.2026). Die Anmeldedrossel bleibt bei zehn je
+    Viertelstunde und IP, und diese Messung soll keine davon verbrauchen.
+    """
+    vorhanden = os.environ.get('ARASUL_TOKEN', '').strip()
+    if vorhanden:
+        return vorhanden
     ergebnis = subprocess.run(
         [
-            'curl', '-sk', '-c', str(kekse), '-m', '20',
+            'curl', '-sk', '-m', '20',
             '-X', 'POST', f'{URL}/api/auth/login',
             '-H', 'Content-Type: application/json',
             '-d', json.dumps({'username': BENUTZER, 'password': PASSWORT}),
-            '-o', '/dev/null', '-w', '%{http_code}',
         ],
         capture_output=True, text=True,
     )
-    return ergebnis.stdout.strip() == '200'
+    try:
+        return json.loads(ergebnis.stdout).get('token', '')
+    except Exception:
+        return ''
 
 
-def hole(pfad: str, kekse: Path, kurz: bool = True):
+def hole(pfad: str, token: str, kurz: bool = True):
     # Ohne `errors='replace'` stirbt die ganze Messung an der ersten Antwort,
     # die kein UTF-8 ist — ein Download, ein Archiv, ein Bild. Der Antwortcode
     # interessiert hier, nicht der Rumpf.
     ergebnis = subprocess.run(
-        ['curl', '-sk', '-b', str(kekse), '-m', '25', '-w', '\n%{http_code}', f'{URL}{pfad}'],
+        ['curl', '-sk', '-m', '25', '-w', '\n%{http_code}',
+         '-H', f'authorization: Bearer {token}', f'{URL}{pfad}'],
         capture_output=True, text=True, errors='replace',
     )
     teile = ergebnis.stdout.rsplit('\n', 1)
@@ -209,101 +219,98 @@ def hole(pfad: str, kekse: Path, kurz: bool = True):
 
 
 def main() -> int:
-    import tempfile
+    token = anmelden()
+    if not token:
+        print(f'ROT   Anmeldung an {URL} fehlgeschlagen')
+        return 1
 
-    with tempfile.TemporaryDirectory() as ordner:
-        kekse = Path(ordner) / 'kekse.txt'
-        if not anmelden(kekse):
-            print(f'ROT   Anmeldung an {URL} fehlgeschlagen')
-            return 1
+    rot, gedrosselt, ungemessen = [], [], []
+    gruen = 0
+    listen = {}
 
-        rot, gedrosselt, ungemessen = [], [], []
-        gruen = 0
-        listen = {}
-
-        def messen(pfad: str, anzeige: str):
-            nonlocal gruen
-            code, rumpf = hole(pfad, kekse)
-            # Die eigene Ratenbremse ist kein Befund. Einmal warten, einmal neu.
+    def messen(pfad: str, anzeige: str):
+        nonlocal gruen
+        code, rumpf = hole(pfad, token)
+        # Die eigene Ratenbremse ist kein Befund. Einmal warten, einmal neu.
+        if code == '429':
+            time.sleep(3)
+            code, rumpf = hole(pfad, token)
             if code == '429':
-                time.sleep(3)
-                code, rumpf = hole(pfad, kekse)
-                if code == '429':
-                    gedrosselt.append(anzeige)
-                    return
-            if code == '503' and anzeige in ERWARTET_503:
-                gruen += 1
+                gedrosselt.append(anzeige)
                 return
-            # `000` heisst: curl bekam gar keine Antwort. Das ist nicht dasselbe
-            # wie ein Serverfehler, und es hat oft eine harmlose Ursache — ein
-            # Deploy, der den Container gerade neu startet. Am 23.08.2026 stand
-            # so zweimal ROT im Bericht, und beide Endpunkte antworteten
-            # einzeln nachgemessen in 0,1 Sekunden.
-            #
-            # Einmal nachfassen, mit Pause. Bleibt es dabei, ist es ein Befund;
-            # sonst war es der Neustart. Eine Messung, die einen Neustart als
-            # Ausfall meldet, macht sich selbst unglaubwuerdig.
-            if code == '000':
-                time.sleep(5)
-                code, rumpf = hole(pfad, kekse)
-            if code and code[0] == '5':
-                rot.append((anzeige, code, rumpf))
-                print(f'ROT   {code}  {anzeige}')
-            elif code == '000':
-                rot.append((anzeige, 'keine Antwort', 'auch beim zweiten Versuch nicht'))
-                print(f'ROT   ---  {anzeige}  (zweimal keine Antwort im Zeitlimit)')
-            else:
-                gruen += 1
+        if code == '503' and anzeige in ERWARTET_503:
+            gruen += 1
+            return
+        # `000` heisst: curl bekam gar keine Antwort. Das ist nicht dasselbe
+        # wie ein Serverfehler, und es hat oft eine harmlose Ursache — ein
+        # Deploy, der den Container gerade neu startet. Am 23.08.2026 stand
+        # so zweimal ROT im Bericht, und beide Endpunkte antworteten
+        # einzeln nachgemessen in 0,1 Sekunden.
+        #
+        # Einmal nachfassen, mit Pause. Bleibt es dabei, ist es ein Befund;
+        # sonst war es der Neustart. Eine Messung, die einen Neustart als
+        # Ausfall meldet, macht sich selbst unglaubwuerdig.
+        if code == '000':
+            time.sleep(5)
+            code, rumpf = hole(pfad, token)
+        if code and code[0] == '5':
+            rot.append((anzeige, code, rumpf))
+            print(f'ROT   {code}  {anzeige}')
+        elif code == '000':
+            rot.append((anzeige, 'keine Antwort', 'auch beim zweiten Versuch nicht'))
+            print(f'ROT   ---  {anzeige}  (zweimal keine Antwort im Zeitlimit)')
+        else:
+            gruen += 1
 
-        ohne = endpunkte()
-        mit = mit_parametern()
-        print(f'{len(ohne)} parameterlose und {len(mit)} parametrisierte '
-              f'GET-Endpunkte gegen {URL}\n')
+    ohne = endpunkte()
+    mit = mit_parametern()
+    print(f'{len(ohne)} parameterlose und {len(mit)} parametrisierte '
+          f'GET-Endpunkte gegen {URL}\n')
 
-        for pfad in ohne:
-            messen(pfad, pfad)
+    for pfad in ohne:
+        messen(pfad, pfad)
 
-        for muster in mit:
-            # Mehrere `:x` in einem Pfad: die erste Id ist die des Objekts,
-            # jede weitere gehoert zu einer Unterliste, die es hier nicht gibt.
-            if muster.count(':x') > 1:
-                ungemessen.append((muster, 'zwei Ids noetig, nur die erste ist zu holen'))
-                continue
-            wert, grund = erste_id(muster, kekse, listen)
-            if wert is None:
-                ungemessen.append((muster, grund))
-                continue
-            messen(muster.replace(':x', quote(str(wert), safe='')), f'{muster}  [{wert}]')
-
-        for muster, grund in NICHT_MESSBAR.items():
+    for muster in mit:
+        # Mehrere `:x` in einem Pfad: die erste Id ist die des Objekts,
+        # jede weitere gehoert zu einer Unterliste, die es hier nicht gibt.
+        if muster.count(':x') > 1:
+            ungemessen.append((muster, 'zwei Ids noetig, nur die erste ist zu holen'))
+            continue
+        wert, grund = erste_id(muster, token, listen)
+        if wert is None:
             ungemessen.append((muster, grund))
+            continue
+        messen(muster.replace(':x', quote(str(wert), safe='')), f'{muster}  [{wert}]')
 
-        print(f'\n{len(FALSCHE_EINGABEN)} falsche Eingaben, die eine Antwort '
-              f'ergeben muessen\n')
-        for verb, pfad, rumpf, warum in FALSCHE_EINGABEN:
-            code, text = sende(verb, pfad, rumpf, kekse)
-            anzeige = f'{verb} {pfad}'
-            if code == '429':
-                time.sleep(3)
-                code, text = sende(verb, pfad, rumpf, kekse)
-            if code and code[0] == '4':
-                gruen += 1
-            else:
-                rot.append((f'{anzeige}  ({warum})', code or '---', text))
-                print(f'ROT   {code}  {anzeige}  — erwartet 4xx')
+    for muster, grund in NICHT_MESSBAR.items():
+        ungemessen.append((muster, grund))
 
-        print(f'\n{gruen} beantwortet, {len(rot)} mit Serverfehler, '
-              f'{len(gedrosselt)} gedrosselt, {len(ungemessen)} nicht gemessen')
-        for pfad in gedrosselt:
-            print(f'  gedrosselt: {pfad}')
-        for muster, grund in sorted(ungemessen):
-            print(f'  nicht gemessen: {muster}  ({grund})')
-        if rot:
-            print('\nWas geantwortet hat:')
-            for pfad, code, rumpf in rot:
-                print(f'  {code}  {pfad}\n        {rumpf}')
-            return 1
-        return 0
+    print(f'\n{len(FALSCHE_EINGABEN)} falsche Eingaben, die eine Antwort '
+          f'ergeben muessen\n')
+    for verb, pfad, rumpf, warum in FALSCHE_EINGABEN:
+        code, text = sende(verb, pfad, rumpf, token)
+        anzeige = f'{verb} {pfad}'
+        if code == '429':
+            time.sleep(3)
+            code, text = sende(verb, pfad, rumpf, token)
+        if code and code[0] == '4':
+            gruen += 1
+        else:
+            rot.append((f'{anzeige}  ({warum})', code or '---', text))
+            print(f'ROT   {code}  {anzeige}  — erwartet 4xx')
+
+    print(f'\n{gruen} beantwortet, {len(rot)} mit Serverfehler, '
+          f'{len(gedrosselt)} gedrosselt, {len(ungemessen)} nicht gemessen')
+    for pfad in gedrosselt:
+        print(f'  gedrosselt: {pfad}')
+    for muster, grund in sorted(ungemessen):
+        print(f'  nicht gemessen: {muster}  ({grund})')
+    if rot:
+        print('\nWas geantwortet hat:')
+        for pfad, code, rumpf in rot:
+            print(f'  {code}  {pfad}\n        {rumpf}')
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
