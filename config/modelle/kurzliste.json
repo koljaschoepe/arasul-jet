@@ -36,7 +36,7 @@
       "groesse_bytes": 10066329600,
       "ram_gb": 10,
       "karte": "https://ollama.com/library/gemma4",
-      "beschreibung": "Das kleine schnelle Modell. Antwortet in Sekunden statt in Minuten -- fuer kurze Schritte, bei denen Tempo mehr zaehlt als Tiefe."
+      "beschreibung": "Das kleine schnelle Modell. Antwortet in Sekunden statt in Minuten, fuer kurze Schritte, bei denen Tempo mehr zaehlt als Tiefe."
     },
     {
       "id": "nomic-embed-text",

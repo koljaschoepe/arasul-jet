@@ -62,7 +62,7 @@ INSERT INTO public.llm_model_catalog (
      true, 3, 'https://huggingface.co/unsloth/Qwen3.8-27B-GGUF'),
 
     ('gemma4:e4b', 'Gemma 4 Kompakt',
-     'Das kleine schnelle Modell. Antwortet in Sekunden statt in Minuten — für kurze Schritte, bei denen Tempo mehr zählt als Tiefe.',
+     'Das kleine schnelle Modell. Antwortet in Sekunden statt in Minuten, für kurze Schritte, bei denen Tempo mehr zählt als Tiefe.',
      'gemma4:e4b',
      10066329600, 10, 'medium',
      '["general", "multilingual", "vision", "edge-optimized"]'::jsonb,
