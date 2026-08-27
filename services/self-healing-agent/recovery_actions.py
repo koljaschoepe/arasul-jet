@@ -20,20 +20,65 @@ import requests
 class RecoveryActionsMixin:
     """Recovery action primitives mixin for SelfHealingEngine"""
 
+    def entlade_modelle(self) -> dict:
+        """Alle geladenen Modelle aus dem Speicher nehmen.
+
+        Das ist der EINE Hebel, mit dem sich auf dieser Box Arbeitsspeicher
+        freimachen laesst, und seit Phase C8 (27.08.2026) der Hebel der
+        RAM-Ueberlast. Ein 27B-Modell in IQ4_XS belegt gut 16 GB; auf einem
+        Geraet mit 61 GB ist das der groesste einzelne Posten, den ein Dienst
+        freiwillig hergeben kann.
+
+        Der Aufruf geht an `POST /api/cache/clear` der Management-API des
+        `llm-service` (Port 11436). Sie liest `ollama ps`, entlaedt jedes
+        gefundene Modell mit `keep_alive: 0` und nennt in der Antwort, WELCHE.
+        Genau diese Namen braucht der Aufrufer: "Cache geleert" ohne Namen ist
+        von "es war ohnehin nichts geladen" nicht zu unterscheiden.
+
+        Bis zum 27.08.2026 stand hier stattdessen ein `POST /api/generate` an
+        dieselbe Adresse. Diese Route gibt es auf 11436 nicht -- sie gehoert
+        Ollama auf 11434. Der Aufruf endete mit HTTP 404, und die Bedingung
+        darunter lautete `status_code in [200, 404]`. Die Selbstheilung meldete
+        also "LLM cache cleared", waehrend das Modell unberuehrt im Speicher
+        lag. Ein Hebel, der Erfolg meldet und nichts tut, ist schlimmer als
+        keiner: er verhindert die Eskalation.
+
+        Ein Lauf wird dabei nicht abgeschnitten. Ollama arbeitet Anfragen je
+        Modell nacheinander ab, und die Entlade-Anfrage stellt sich hinten an;
+        auf dieser Box kommt dazu, dass `gpuQueue` ohnehin nur eine Inferenz
+        zur Zeit zulaesst.
+
+        @return {'erfolg': bool, 'entladen': [str], 'meldung': str}
+        """
+        try:
+            antwort = requests.post(f"{LLM_SERVICE_URL}/api/cache/clear", timeout=30)
+        except Exception as fehler:
+            logger.warning(f"Modelle entladen fehlgeschlagen: {fehler}")
+            return {'erfolg': False, 'entladen': [], 'meldung': str(fehler)}
+
+        if antwort.status_code != 200:
+            logger.warning(f"Modelle entladen: HTTP {antwort.status_code}")
+            return {
+                'erfolg': False, 'entladen': [],
+                'meldung': f"HTTP {antwort.status_code}",
+            }
+
+        daten = antwort.json()
+        entladen = daten.get('unloaded_models', []) or []
+        if entladen:
+            logger.info(f"Modelle entladen: {', '.join(entladen)}")
+        else:
+            logger.info("Kein Modell geladen, nichts zu entladen")
+        return {
+            'erfolg': True,
+            'entladen': entladen,
+            'meldung': daten.get('message', ''),
+        }
+
     def clear_llm_cache(self) -> bool:
         """Clear LLM service cache"""
-        try:
-            logger.info("Clearing LLM cache")
-            response = requests.post(
-                f"{LLM_SERVICE_URL}/api/generate",
-                json={"model": "", "keep_alive": 0},
-                timeout=5
-            )
-            if response.status_code in [200, 404]:
-                logger.info("LLM cache cleared via model unload")
-                return True
-        except Exception as e:
-            logger.warning(f"Could not clear LLM cache via API: {e}")
+        if self.entlade_modelle()['erfolg']:
+            return True
 
         try:
             container = self.docker_client.containers.get('llm-service')
@@ -46,19 +91,9 @@ class RecoveryActionsMixin:
 
     def reset_gpu_session(self) -> bool:
         """Reset GPU session for LLM service"""
-        try:
-            logger.info("Resetting GPU session")
-            response = requests.post(
-                f"{LLM_SERVICE_URL}/api/generate",
-                json={"model": "", "keep_alive": 0},
-                timeout=5
-            )
-            if response.status_code in [200, 404]:
-                logger.info("GPU session reset via model unload")
-                time.sleep(2)
-                return True
-        except Exception as e:
-            logger.debug(f"Non-critical error during GPU session reset via API: {e}")
+        if self.entlade_modelle()['erfolg']:
+            time.sleep(2)
+            return True
 
         try:
             container = self.docker_client.containers.get('llm-service')

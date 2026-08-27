@@ -180,101 +180,61 @@ function getLlmRamGB() {
  *
  * Returns four model slots:
  *   - model            primary chat-quality default for the detected hardware
- *   - fast_model       small companion for "Schnell"-Tier chats (always pull-friendly)
- *   - vision_model     auto-vision-fallback for text-only primaries; null when
- *                      the primary already supports native vision (Gemma 4 26B/31B)
- *   - embedding_model  RAG embeddings (BGE-M3 for almost everything; nomic-embed
- *                      as a tiny alternative for ≤ 4 GB devices)
+ *   - fast_model       small companion for short steps where speed beats depth
+ *   - vision_model     Bilder und eingescannter Text
+ *   - embedding_model  Einbettungen (/v1/embeddings)
+ *
+ * SEIT PHASE C8 IST DIE LISTE UEBERALL DIESELBE. Vorher trug diese Karte
+ * siebzehn Kennungen fuer elf Profile, und acht davon standen in keinem
+ * Katalog -- auf einem Xavier NX empfahl sie `phi3:mini`, ein Modell, das
+ * niemand laden kann (Plan 023 D5, deshalb `gegenKatalogPruefen`). Die
+ * Kurzliste macht die Fallunterscheidung gegenstandslos: es gibt vier Modelle,
+ * und die Frage ist nicht mehr "welches", sondern "passt der Standard noch in
+ * dieses Geraet". Genau das steht jetzt hier -- ein Profil kippt den Standard
+ * auf das kleine schnelle Modell, sobald der Speicher fuer die 22 GB des
+ * Standardmodells nicht reicht. Die Kurzliste selbst kommt aus
+ * `config/modelle/kurzliste.json`; `scripts/test/kurzliste.py` haelt sie fest.
  *
  * @returns {Promise<{model: string, fast_model: string, vision_model: string|null, embedding_model: string, profile: string, models: string[]}>}
  */
 async function getRecommendedModel() {
-  // Profile → default model mapping (mirrors detect-jetson.sh)
+  // Die vier Modelle der Kurzliste (config/modelle/kurzliste.json).
+  const STANDARD = 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS';
+  const SCHNELL = 'gemma4:e4b';
+  const SEHEN = 'llava-phi3';
+  const EINBETTUNG = 'nomic-embed-text';
+
+  // Ein Profil sagt nur noch, ob das Standardmodell hineinpasst. Es braucht
+  // 22 GB; wo weniger fuer die Modelle uebrig ist, fuehrt das kleine schnelle.
+  const GROSS = {
+    model: STANDARD,
+    fast_model: SCHNELL,
+    vision_model: SEHEN,
+    embedding_model: EINBETTUNG,
+    models: [STANDARD, SCHNELL, SEHEN, EINBETTUNG],
+  };
+  const KLEIN = {
+    model: SCHNELL,
+    fast_model: SCHNELL,
+    vision_model: SEHEN,
+    embedding_model: EINBETTUNG,
+    models: [SCHNELL, SEHEN, EINBETTUNG],
+  };
+
   const PROFILE_MODELS = {
-    thor_128gb: {
-      model: 'gemma4:31b-q4',
-      fast_model: 'gemma3:4b',
-      vision_model: null, // primary supports native vision
-      embedding_model: 'bge-m3',
-      models: ['gemma4:31b-q4', 'gemma4:26b-q4', 'qwen3:32b-q8'],
-    },
-    thor_64gb: {
-      model: 'gemma4:31b-q4',
-      fast_model: 'gemma3:4b',
-      vision_model: null,
-      embedding_model: 'bge-m3',
-      models: ['gemma4:31b-q4', 'gemma4:26b-q4', 'qwen3:14b-q8'],
-    },
-    agx_orin_64gb: {
-      model: 'gemma4:26b-q4',
-      fast_model: 'gemma3:4b',
-      vision_model: null,
-      embedding_model: 'bge-m3',
-      models: ['gemma4:26b-q4', 'gemma4:31b-q4', 'qwen3:14b-q8'],
-    },
-    agx_orin_32gb: {
-      model: 'gemma4:e4b-q4',
-      fast_model: 'gemma3:1b',
-      vision_model: 'paligemma-3b-mix',
-      embedding_model: 'bge-m3',
-      models: ['gemma4:e4b-q4', 'gemma4:26b-q4', 'qwen3:8b-q8'],
-    },
-    orin_nx_16gb: {
-      model: 'gemma4:e4b-q4',
-      fast_model: 'gemma3:1b',
-      vision_model: 'paligemma-3b-mix',
-      embedding_model: 'bge-m3',
-      models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'],
-    },
-    xavier_agx: {
-      model: 'gemma4:e4b-q4',
-      fast_model: 'gemma3:1b',
-      vision_model: 'paligemma-3b-mix',
-      embedding_model: 'bge-m3',
-      models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'],
-    },
-    xavier_nx_8gb: {
-      model: 'phi3:mini',
-      fast_model: 'gemma3:1b',
-      vision_model: 'paligemma-3b-mix',
-      embedding_model: 'nomic-embed-text',
-      models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'],
-    },
-    orin_8gb: {
-      model: 'phi3:mini',
-      fast_model: 'gemma3:1b',
-      vision_model: 'paligemma-3b-mix',
-      embedding_model: 'nomic-embed-text',
-      models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'],
-    },
-    minimal_4gb: {
-      model: 'tinyllama:1.1b',
-      fast_model: 'tinyllama:1.1b',
-      vision_model: null, // not enough RAM for a second model
-      embedding_model: 'nomic-embed-text',
-      models: ['tinyllama:1.1b', 'qwen:0.5b'],
-    },
-    nano_4gb: {
-      model: 'tinyllama:1.1b',
-      fast_model: 'tinyllama:1.1b',
-      vision_model: null,
-      embedding_model: 'nomic-embed-text',
-      models: ['tinyllama:1.1b', 'qwen:0.5b'],
-    },
-    nano_2gb: {
-      model: 'tinyllama:1.1b',
-      fast_model: 'tinyllama:1.1b',
-      vision_model: null,
-      embedding_model: 'nomic-embed-text',
-      models: ['tinyllama:1.1b'],
-    },
-    generic: {
-      model: 'gemma4:e4b-q4',
-      fast_model: 'gemma3:1b',
-      vision_model: 'paligemma-3b-mix',
-      embedding_model: 'bge-m3',
-      models: ['gemma4:e4b-q4', 'gemma4:26b-q4', 'mistral:7b'],
-    },
+    thor_128gb: GROSS,
+    thor_64gb: GROSS,
+    agx_orin_64gb: GROSS,
+    // Ab hier reicht der Speicher fuer die 22 GB des Standardmodells nicht.
+    agx_orin_32gb: KLEIN,
+    orin_nx_16gb: KLEIN,
+    xavier_agx: KLEIN,
+    xavier_nx_8gb: KLEIN,
+    orin_8gb: KLEIN,
+    minimal_4gb: KLEIN,
+    nano_4gb: KLEIN,
+    nano_2gb: KLEIN,
+    generic: KLEIN,
   };
 
   // 1. Try JETSON_PROFILE env var (set by setup scripts)
@@ -303,24 +263,21 @@ async function getRecommendedModel() {
  *
  * Die Karte oben sagt, welche GROESSENKLASSE auf welches Geraet passt. Das ist
  * Hardwarewissen und gehoert hierher. Welches Modell diese Klasse fuellt, sagt
- * der Katalog, und bis zum 21.08.2026 stimmten die beiden nicht ueberein:
+ * der Katalog, und bis zum 21.08.2026 stimmten die beiden nicht ueberein: ACHT
+ * der siebzehn Kennungen in der Karte gab es im Katalog nicht, unter anderem
+ * das Modell, das der Einrichtungsassistent auf einem Xavier NX empfahl.
  *
- *   ACHT der siebzehn Kennungen in der Karte gibt es im Katalog nicht.
- *   bge-m3, gemma:2b, mistral:7b, phi3:mini, qwen3:32b-q8, qwen3:8b-q8,
- *   qwen:0.5b, tinyllama:1.1b
+ * Seit Phase C8 ist die Karte die Kurzliste, und damit dieselbe Liste, die auch
+ * Migration 175 in den Katalog schreibt. Diese Pruefung bleibt trotzdem, und
+ * zwar aus einem anderen Grund als damals: sie fasst den Fall ab, in dem die
+ * beiden AUSEINANDERLAUFEN -- ein Geraet, dessen Migration nicht durchgelaufen
+ * ist, oder ein Katalog, der eine spaetere Kurzliste traegt als dieser Code.
  *
- * Auf einem Xavier NX empfahl der Einrichtungsassistent damit `phi3:mini`, ein
- * Modell, das im Katalog nicht steht und also nicht geladen werden kann. Bei
- * `bge-m3` ist es kein Tippfehler, sondern ein Rest: Plan 021 Schritt 8 hat das
- * klassische Vektor-RAG abgeloest, und am 24.08.2026 ist Qdrant ganz
- * ausgebaut worden. Der `embedding-service` laeuft weiter, aber das Modell
- * steht nicht im Katalog.
- *
- * Statt die Karte von Hand nachzupflegen, faellt eine Kennung, die der Katalog
- * nicht kennt, auf den Standard ihrer Aufgabe zurueck (`is_task_default`, seit
- * Migration 151 hoechstens einer je Aufgabe). Eine Empfehlung zeigt damit nie
- * mehr auf etwas, das es nicht gibt, und wer die Karte erweitert, bekommt eine
- * Warnung statt eines stillen Fehlgriffs.
+ * Eine Kennung, die der Katalog nicht kennt, faellt auf den Standard ihrer
+ * Aufgabe zurueck (`is_task_default`, seit Migration 151 hoechstens einer je
+ * Aufgabe). Eine Empfehlung zeigt damit nie auf etwas, das es nicht gibt, und
+ * wer die Karte aendert, ohne die Migration nachzuziehen, bekommt eine Warnung
+ * statt eines stillen Fehlgriffs.
  */
 const ROLLE_ZU_AUFGABE = {
   model: 'text',

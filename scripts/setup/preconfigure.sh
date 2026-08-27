@@ -259,7 +259,7 @@ COMPOSE_PROJECT_DIR=${PROJECT_ROOT}
 # LLM
 LLM_HOST=llm-service
 LLM_PORT=11434
-LLM_MODEL=gemma4:e4b-q4
+LLM_MODEL=gemma4:e4b
 
 # Embedding
 EMBEDDING_HOST=embedding-service
@@ -521,7 +521,7 @@ else
   if [ -f "$ENV_FILE" ]; then
     LLM_MODEL=$(grep "^LLM_MODEL=" "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'" || true)
   fi
-  LLM_MODEL=${LLM_MODEL:-"gemma4:e4b-q4"}
+  LLM_MODEL=${LLM_MODEL:-"gemma4:e4b"}
 
   if command -v docker >/dev/null 2>&1; then
     # Check if LLM service is running

@@ -182,6 +182,22 @@ run_modellnamen_check() {
   fi
 }
 
+# Funktion: Kurzliste (Phase C8)
+# Laeuft immer mit. Die vier Modelle stehen in config/modelle/kurzliste.json und
+# muessen an fuenf weiteren Stellen dasselbe sagen -- Migration, Empfehlungskarte,
+# Plattformprofile, Setup-Skript, Aufraeum-Skript. Vor dieser Phase drifteten
+# genau diese Stellen: acht von siebzehn Kennungen der Empfehlungskarte gab es
+# im Katalog gar nicht.
+run_kurzliste_check() {
+  echo ""
+  echo "-> Pruefe die Kurzliste..."
+  if python3 "${PROJECT_ROOT}/scripts/test/kurzliste.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Einheiten (Plan 023 D4)
 # Laeuft immer mit. Im Produkt standen fuenf Rechnungen fuer Bytegroessen, und
 # eine Kachel zeigte dadurch "261 MB" in der Kopfzeile und "~274 MB" im Text
@@ -507,6 +523,7 @@ run_totercode_check
 run_gedankenstrich_check
 run_bausteine_check
 run_modellnamen_check
+run_kurzliste_check
 run_einheiten_check
 run_durchreichung_check
 run_datenordner_check

@@ -1,0 +1,43 @@
+{
+  "stand": "2026-08-27",
+  "quelle": "Entscheidung Kolja 27.08.2026, festgelegt an `ollama list` auf dem Orin",
+  "warum": [
+    "Der Katalog trug siebzehn Eintraege, von denen vier benutzt wurden. Jeder",
+    "weitere ist ein Modell, das ein Kunde laden kann, das niemand auf diesem",
+    "Geraet gemessen hat und dessen Fehlschlag Arasul erklaeren muss.",
+    "Vier bleiben: eines fuer die Flows, ein schnelles kleines, eines fuer",
+    "Einbettungen, eines fuer Bilder und eingescannten Text.",
+    "Diese Datei sagt WELCHE VIER, und sonst nichts. Groesse, RAM-Bedarf,",
+    "Beschreibung und Faehigkeiten stehen in Migration 175 und nirgends sonst;",
+    "sie hier noch einmal zu fuehren hiesse, eine zweite Wahrheit anzulegen,",
+    "die niemand prueft. Was geprueft wird, ist die Liste der Kennungen:",
+    "`scripts/test/kurzliste.py` haelt Migration 175, die Empfehlungskarte in",
+    "utils/hardware.js, die Plattformprofile und detect-platform.sh daran."
+  ],
+  "modelle": [
+    {
+      "id": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+      "aufgabe": "text",
+      "standard": true,
+      "wofuer": "Der Standard. Die Flows laufen darauf."
+    },
+    {
+      "id": "gemma4:e4b",
+      "aufgabe": "text",
+      "standard": false,
+      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es."
+    },
+    {
+      "id": "nomic-embed-text",
+      "aufgabe": "embedding",
+      "standard": true,
+      "wofuer": "Einbettungen. /v1/embeddings arbeitet damit."
+    },
+    {
+      "id": "llava-phi3",
+      "aufgabe": "vision",
+      "standard": true,
+      "wofuer": "Bilder und eingescannter Text."
+    }
+  ]
+}

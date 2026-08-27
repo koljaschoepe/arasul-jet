@@ -383,6 +383,14 @@ jobs:
       - name: Namensregister (Plan 023 D1)
         run: python3 scripts/test/modellnamen.py --pfad .
 
+      # Die vier Modelle stehen einmal in config/modelle/kurzliste.json und
+      # muessen an fuenf weiteren Stellen dasselbe sagen (Phase C8). Hier und
+      # nicht nur in `run-tests.sh`: ein Zug ueber die Weboberflaeche oder mit
+      # `--no-verify` saehe den Waechter sonst nie, und genau so sind die
+      # Modell-Listen vorher auseinandergelaufen.
+      - name: Kurzliste (Phase C8)
+        run: python3 scripts/test/kurzliste.py --wurzel .
+
       - name: Einheiten (Plan 023 D4)
         run: python3 scripts/test/einheiten.py --pfad .
 

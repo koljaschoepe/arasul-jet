@@ -1158,16 +1158,11 @@ function createModelService(deps = {}) {
         // 1. For each Ollama model, find matching catalog entry and mark as available
         await syncHelpers.markAvailableModels(ollamaModels);
 
-        // 1b. Modelle, die NUR in Ollama existieren (lokal importiert/gebaut),
-        //     als Minimal-Einträge in den Katalog übernehmen — sonst sind sie
-        //     für Store, Default-Auswahl und Flows unsichtbar.
-        await syncHelpers.importUnknownModels(response.data.models || []);
-
-        // 1c. Steckbrief aus den Gewichten nachtragen (Plan 023 D2):
+        // 1b. Steckbrief aus den Gewichten nachtragen (Plan 023 D2):
         //     Parametergroesse, Quantisierung, Lizenz und die WIRKLICHE
-        //     Kontextlaenge. Laeuft nach markAvailableModels, damit auch ein
-        //     gerade importiertes Modell schon einen Eintrag hat, und stoert
-        //     den Abgleich nicht, wenn Ollama dabei aussteigt.
+        //     Kontextlaenge. Laeuft nach markAvailableModels, damit ein gerade
+        //     als verfuegbar gemeldetes Modell schon einen Eintrag hat, und
+        //     stoert den Abgleich nicht, wenn Ollama dabei aussteigt.
         // Angestossen, nicht abgewartet. `syncWithOllama` haengt auch an
         // POST /api/models/sync, und diese Route wird im Anfragefaden
         // abgewartet; fuenf Modelle mal zehn Sekunden Zeitgrenze waeren im

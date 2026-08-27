@@ -2,14 +2,23 @@
   "id": "orin-64",
   "display_name": "NVIDIA Jetson AGX Orin 64GB",
   "arch": "arm64",
-  "compute_capability": { "sm": "sm_87", "confirmed": true },
+  "compute_capability": {
+    "sm": "sm_87",
+    "confirmed": true
+  },
   "memory_budget_gb": 48,
-  "default_model": "gguf-q4-30b",
+  "default_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+  "models": [
+    "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+    "gemma4:e4b",
+    "nomic-embed-text",
+    "llava-phi3"
+  ],
   "precision": "q4_gguf",
   "engine": "ollama",
   "gpu_query": "tegrastats",
   "ld_library_path": "/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu",
   "max_num_seqs": 2,
   "verification": "live",
-  "notes": "Einziges physisch vorhandenes Gerät. Ampere ohne FP8/NVFP4 -> GGUF-Track via Ollama (wrappt llama.cpp; Idle-Unload existiert). Auf R39 geflasht, ehrliches Regressionsgeraet auf alter Hardware. Engine ollama gesetzt in Plan 021 (loest llama.cpp ab)."
+  "notes": "Einziges physisch vorhandenes Gerät. Ampere ohne FP8/NVFP4 -> GGUF-Track via Ollama (wrappt llama.cpp; Idle-Unload existiert). Auf R39 geflasht, ehrliches Regressionsgeraet auf alter Hardware. Engine ollama gesetzt in Plan 021 (loest llama.cpp ab). Kurzliste (C8) live nachgewiesen: Ollama laedt alle vier."
 }

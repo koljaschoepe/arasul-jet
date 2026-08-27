@@ -382,7 +382,18 @@ else
     'Zeitgrenze 180s, Traefik kennt den Router nicht'
 fi
 
+# UND EINMAL NACHFASSEN. Selbst nach einer Antwort der App kann der naechste
+# Aufruf noch an Arasuls Auffangpfad landen: Traefik traegt seine Router je
+# Anfrage nach, und zwischen zwei Aufrufen liegt ein Moment. Genau das ist bei
+# der C7-Abnahme passiert -- „erreichbar nach 8s", direkt danach 404. Ein
+# einziger Wiederholversuch nach fuenf Sekunden, und nur bei 404: bei jedem
+# anderen Code hat die App wirklich geantwortet, und ein zweiter Start waere
+# ein zweiter Lauf.
 sitzungs_ruf POST "/apps/$APP/api/flow?woche=34"
+if [ "$CODE" = "404" ]; then
+  sleep 5
+  sitzungs_ruf POST "/apps/$APP/api/flow?woche=34"
+fi
 pruefe 'Die Beispielapp startet ihren Flow' "$(ja_wenn "$CODE" 202)" "HTTP $CODE"
 LAUF=$(rumpf | feld lauf)
 pruefe 'und bekommt eine Lauf-Nummer' "$([ -n "$LAUF" ] && echo ja || echo nein)" "lauf=$LAUF"

@@ -2,14 +2,23 @@
   "id": "server-generic",
   "display_name": "Generischer x86-Server mit NVIDIA-GPU",
   "arch": "amd64",
-  "compute_capability": { "sm": "sm_89+", "confirmed": false },
+  "compute_capability": {
+    "sm": "sm_89+",
+    "confirmed": false
+  },
   "memory_budget_gb": null,
-  "default_model": "auto-by-vram",
+  "default_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+  "models": [
+    "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+    "gemma4:e4b",
+    "nomic-embed-text",
+    "llava-phi3"
+  ],
   "precision": "fp8",
   "engine": "vllm",
   "gpu_query": "nvidia-smi",
   "ld_library_path": "/usr/local/cuda/lib64",
   "max_num_seqs": null,
   "verification": "follow-up",
-  "notes": "Fallback-Profil fuer beliebige x86-Server. memory_budget_gb und max_num_seqs werden zur Laufzeit aus dem verfuegbaren VRAM abgeleitet. Ein Referenzlauf spaeter."
+  "notes": "Fallback-Profil fuer beliebige x86-Server. memory_budget_gb und max_num_seqs werden zur Laufzeit aus dem verfuegbaren VRAM abgeleitet. Ein Referenzlauf spaeter. Kurzliste (C8) gilt auch hier. Auf dem vllm-Track sind dieselben vier Modelle bereitzustellen -- ungeprueft."
 }

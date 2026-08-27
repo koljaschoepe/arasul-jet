@@ -117,68 +117,18 @@ describe(':latest-Tag-Normalisierung (Live-Bug 2026-07-27)', () => {
   });
 });
 
-describe('importUnknownModels — Ollama-Modelle ohne Katalog-Eintrag übernehmen', () => {
-  function makeImportDeps({ katalogTreffer = [], insertKlappt = true } = {}) {
-    const queries = [];
-    const database = {
-      query: jest.fn(async (sql, params) => {
-        queries.push({ sql, params });
-        if (/SELECT id FROM llm_model_catalog/i.test(sql)) {
-          return { rows: katalogTreffer };
-        }
-        if (/INSERT INTO llm_model_catalog/i.test(sql)) {
-          return { rows: insertKlappt ? [{ id: params[0] }] : [] };
-        }
-        return { rows: [] };
-      }),
-    };
-    const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn(), error: jest.fn() };
-    return { database, logger, activeDownloadIds: new Set(), modelAvailabilityCache: new Map(), queries };
-  }
-
-  test('legt für ein unbekanntes Modell Katalog- UND Installations-Zeile an', async () => {
-    const deps = makeImportDeps();
-    const helpers = createSyncHelpers(deps);
-
-    const n = await helpers.importUnknownModels([
-      { name: 'llava-phi3:latest', size: 2_900_000_000, details: { families: ['clip'], parameter_size: '3.8B' } },
+describe('Der Abgleich traegt nichts nach (Phase C8)', () => {
+  test('createSyncHelpers bietet importUnknownModels nicht mehr an', () => {
+    // Der Katalog ist die Kurzliste und kommt aus Migration 175. Ein Abgleich,
+    // der jedes Modell aus `ollama list` nachtraegt, haette ihn nach dem
+    // naechsten Start wieder aufgefuellt -- genau der Weg, ueber den
+    // qwen3:8b/14b/32b und die gemma3-Reste in den Katalog gekommen sind.
+    const helpers = createSyncHelpers(makeDeps());
+    expect(helpers.importUnknownModels).toBeUndefined();
+    expect(Object.keys(helpers).sort()).toEqual([
+      'cleanupStaleDownloads',
+      'markAvailableModels',
+      'markMissingModels',
     ]);
-
-    expect(n).toBe(1);
-    const katalogInsert = deps.queries.find(q => /INSERT INTO llm_model_catalog/i.test(q.sql));
-    expect(katalogInsert).toBeTruthy();
-    // id = tag-lose Form, Vision-Heuristik greift, Kategorie aus der Größe.
-    expect(katalogInsert.params[0]).toBe('llava-phi3');
-    expect(katalogInsert.params[6]).toBe('vision');
-    expect(katalogInsert.params[5]).toBe('small');
-    expect(deps.queries.some(q => /INSERT INTO llm_installed_models/i.test(q.sql))).toBe(true);
-  });
-
-  test('überspringt Modelle, die der Katalog schon kennt (ollama_name ODER id)', async () => {
-    const deps = makeImportDeps({ katalogTreffer: [{ id: 'qwen3:7b-q8' }] });
-    const helpers = createSyncHelpers(deps);
-
-    const n = await helpers.importUnknownModels([{ name: 'qwen3:8b', size: 5_000_000_000 }]);
-
-    expect(n).toBe(0);
-    expect(deps.queries.some(q => /INSERT INTO/i.test(q.sql))).toBe(false);
-  });
-
-  test('verliert im Wettlauf (ON CONFLICT DO NOTHING) keine Installations-Zeile an Fremde', async () => {
-    const deps = makeImportDeps({ insertKlappt: false });
-    const helpers = createSyncHelpers(deps);
-
-    const n = await helpers.importUnknownModels([{ name: 'neues-modell', size: 1_000_000_000 }]);
-
-    expect(n).toBe(0);
-    expect(deps.queries.some(q => /INSERT INTO llm_installed_models/i.test(q.sql))).toBe(false);
-  });
-
-  test('ohne Namen/leere Liste passiert nichts', async () => {
-    const deps = makeImportDeps();
-    const helpers = createSyncHelpers(deps);
-    expect(await helpers.importUnknownModels([])).toBe(0);
-    expect(await helpers.importUnknownModels([{}])).toBe(0);
-    expect(deps.database.query).not.toHaveBeenCalled();
   });
 });

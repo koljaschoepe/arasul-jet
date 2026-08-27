@@ -436,21 +436,61 @@ class CategoryHandlersMixin:
                 self.record_recovery_action('llm_cache_clear', 'llm-service', f'CPU overload: {cpu}%', success)
                 self.last_overload_actions[action_key] = current_time
 
-        # RAM Overload: seit Phase B5 (26.08.2026) ohne Hebel. Bis dahin hielt
-        # die Selbstheilung n8n an, um Speicher freizugeben, und startete es
-        # nach drei ruhigen Zyklen wieder; n8n ist weg, und kein anderer
-        # Dienst laesst sich gefahrlos anhalten (Ollama gibt sein Modell nach
-        # KEEP_ALIVE selbst frei). Der Zustand wird gemeldet, nicht behandelt.
+        # RAM Overload: das geladene Modell entladen (Entscheidung 26.08.2026,
+        # umgesetzt in Phase C8).
+        #
+        # Bis Phase B5 hielt die Selbstheilung hier n8n an und startete es nach
+        # drei ruhigen Zyklen wieder. n8n gibt es nicht mehr, und danach stand
+        # der Zweig ohne Hebel da: er meldete, dass nichts zu tun sei. Das war
+        # ehrlich, aber falsch -- der groesste einzelne Posten im Speicher ist
+        # kein Dienst, sondern das Modell. Auf dem Orin (61 GB) belegt das
+        # Standardmodell in IQ4_XS gut 16 GB, und es ist das einzige, was ein
+        # Dienst hier freiwillig hergeben kann.
+        #
+        # Warum das kein Rueckschritt gegenueber dem Idle-Unload ist: der gibt
+        # das Modell nach KEEP_ALIVE frei, also nach Ruhe. Eine RAM-Ueberlast
+        # entsteht aber unter LAST, und genau dann laeuft die Uhr nicht ab.
+        # Der Idle-Unload bleibt; das hier ist der Fall daneben.
+        #
+        # Ein laufender Lauf wird nicht abgeschnitten (siehe
+        # `entlade_modelle`), aber der naechste Aufruf laedt das Modell neu --
+        # auf dem Orin gut eine Minute. Deshalb hoechstens alle fuenf Minuten,
+        # wie bei den anderen Hebeln auch.
         if ram > RAM_OVERLOAD_THRESHOLD:
             action_key = 'ram_overload'
             last_action = self.last_overload_actions.get(action_key, 0)
             if current_time - last_action > 300:
-                logger.warning(f"RAM overload detected: {ram}% - no service left to stop, reporting only")
-                self.log_event(
-                    'ram_overload', 'WARNING', f'RAM usage at {ram}%',
-                    'No action: no stoppable service (n8n removed in B5)',
-                    'system', False
-                )
+                logger.warning(f"RAM overload detected: {ram}% - unloading model(s)")
+                ergebnis = self.entlade_modelle()
+                entladen = ergebnis['entladen']
+                if entladen:
+                    self.log_event(
+                        'ram_overload', 'WARNING', f'RAM usage at {ram}%',
+                        f'Modell entladen: {", ".join(entladen)}',
+                        'llm-service', True
+                    )
+                    self.record_recovery_action(
+                        'model_unload', 'llm-service', f'RAM overload: {ram}%', True
+                    )
+                elif ergebnis['erfolg']:
+                    # Kein Modell geladen. Dann ist der Speicher woanders, und
+                    # eine Erfolgsmeldung waere die falsche Auskunft: sie
+                    # verhindert die Eskalation an einen Menschen.
+                    self.log_event(
+                        'ram_overload', 'WARNING', f'RAM usage at {ram}%',
+                        'No action: kein Modell geladen, der Speicher liegt woanders',
+                        'system', False
+                    )
+                else:
+                    self.log_event(
+                        'ram_overload', 'WARNING', f'RAM usage at {ram}%',
+                        f'Entladen fehlgeschlagen: {ergebnis["meldung"]}',
+                        'llm-service', False
+                    )
+                    self.record_recovery_action(
+                        'model_unload', 'llm-service', f'RAM overload: {ram}%', False,
+                        error_message=ergebnis['meldung']
+                    )
                 self.last_overload_actions[action_key] = current_time
 
         # GPU "Overload": 99%+ Auslastung ist bei laufender LLM-Inferenz

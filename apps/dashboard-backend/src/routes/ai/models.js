@@ -15,6 +15,13 @@
  * - POST /api/models/default     - Set default model
  * - GET  /api/models/default     - Get default model
  * - POST /api/models/sync        - Sync with Ollama
+ *
+ * Was hier NICHT mehr steht (Phase C8, 27.08.2026): `POST /quelle/pruefen`,
+ * `POST /katalog` und `DELETE /katalog/*`. Ueber sie konnte ein Administrator
+ * ein beliebiges Modell von HuggingFace in den Katalog holen und danach laden.
+ * Seit der Kurzliste (`config/modelle/kurzliste.json`, Migration 175) ist der
+ * Katalog eine Zusage ueber vier gemessene Modelle, und ein Weg daran vorbei
+ * waere genau die Zusage, die das Geraet nicht halten kann.
  */
 
 const express = require('express');
@@ -24,16 +31,8 @@ const modelService = require('../../services/llm/modelService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody } = require('../../middleware/validate');
-const {
-  DownloadBody,
-  DefaultModelBody,
-  QuellePruefenBody,
-  KatalogHinzufuegenBody,
-} = require('../../schemas/models');
-const { NotFoundError, ValidationError, ConflictError } = require('../../utils/errors');
-const { quelleLesen, variantenHolen, ramFuer } = require('../../services/llm/modellQuelle');
-const { kategorieFuerBytes } = require('../../services/llm/modelSyncHelpers');
-const database = require('../../database');
+const { DownloadBody, DefaultModelBody } = require('../../schemas/models');
+const { NotFoundError, ValidationError } = require('../../utils/errors');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
@@ -176,220 +175,6 @@ router.get(
   asyncHandler(async (req, res) => {
     const budget = await modelService.getMemoryBudget();
     res.json(budget);
-  })
-);
-
-/**
- * POST /api/models/quelle/pruefen
- *
- * Nachsehen, was hinter einem Link steckt, BEVOR etwas geladen wird.
- *
- * Der Grund steht in `services/llm/modellQuelle.js`: ohne diesen Schritt
- * muesste der Kunde die Quantisierung raten und danach zweistellige Gigabyte
- * laden, um zu merken, dass sie nicht ins Geraet passt. Hier steht die Groesse
- * vorher fest, und `passt` sagt es in einem Wort.
- */
-router.post(
-  '/quelle/pruefen',
-  requireAuth,
-  requireRole('admin'),
-  validateBody(QuellePruefenBody),
-  asyncHandler(async (req, res) => {
-    const gelesen = quelleLesen(req.body.quelle);
-
-    if (gelesen.art === 'ollama') {
-      res.json({
-        art: 'ollama',
-        name: gelesen.name,
-        varianten: [],
-        hinweis:
-          'Das ist ein Modell aus Ollamas eigener Ablage. Varianten lassen sich ' +
-          'von hier aus nicht auflisten; der Name wird so übernommen, wie er dasteht.',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
-
-    const varianten = await variantenHolen(gelesen.repo);
-    if (varianten.length === 0) {
-      throw new ValidationError(
-        `In „${gelesen.repo}" liegt keine einzelne GGUF-Datei. Ollama kann nur ` +
-          'GGUF laden, und aufgeteilte Dateien nicht über einen Tag.'
-      );
-    }
-
-    const frei = await modelService.getMemoryBudget().catch(() => null);
-    const freiGb = frei && typeof frei.availableMb === 'number' ? frei.availableMb / 1024 : null;
-
-    res.json({
-      art: 'huggingface',
-      repo: gelesen.repo,
-      name: gelesen.name,
-      frei_gb: freiGb === null ? null : Math.round(freiGb * 10) / 10,
-      varianten: varianten
-        .map(v => ({
-          ...v,
-          groesse_gb: Math.round((v.groesseBytes / 1e9) * 10) / 10,
-          // `null`, wenn das Geraet seinen freien Speicher nicht nennen kann.
-          // Ein erfundenes „passt" waere schlimmer als keine Aussage.
-          passt: freiGb === null ? null : v.ramGb <= freiGb,
-        }))
-        .sort((a, b) => a.groesseBytes - b.groesseBytes),
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/models/katalog
- *
- * Ein Modell in den Katalog aufnehmen. Danach ist es ueber den normalen Weg
- * (`POST /api/models/download`) ladbar wie jedes kuratierte auch.
- *
- * `jetson_tested = false` ist keine Formalie: der Kunde soll sehen, dass
- * dieses Modell nicht von Arasul geprueft wurde.
- */
-router.post(
-  '/katalog',
-  requireAuth,
-  requireRole('admin'),
-  validateBody(KatalogHinzufuegenBody),
-  asyncHandler(async (req, res) => {
-    const gelesen = quelleLesen(req.body.quelle);
-    const variante = req.body.variante || gelesen.tag || null;
-
-    if (gelesen.art === 'huggingface' && !variante) {
-      throw new ValidationError(
-        'Bitte eine Variante angeben (zum Beispiel „IQ4_XS"). ' +
-          'POST /api/models/quelle/pruefen nennt die verfügbaren.'
-      );
-    }
-
-    const id = gelesen.art === 'huggingface' ? `hf.co/${gelesen.repo}:${variante}` : gelesen.name;
-
-    const vorhanden = await database.query('SELECT id FROM llm_model_catalog WHERE id = $1', [id]);
-    if (vorhanden.rows.length > 0) {
-      throw new ConflictError(`„${id}" steht bereits im Katalog.`);
-    }
-
-    // Groesse und RAM aus der Quelle, nicht geraten. Bei Ollama-Modellen wissen
-    // wir sie erst nach dem Laden — dann traegt sie der Download nach.
-    let groesseBytes = 0;
-    if (gelesen.art === 'huggingface') {
-      const varianten = await variantenHolen(gelesen.repo);
-      const treffer = varianten.find(v => v.tag === variante);
-      if (!treffer) {
-        throw new ValidationError(
-          `Die Variante „${variante}" gibt es in „${gelesen.repo}" nicht. ` +
-            `Vorhanden: ${varianten.map(v => v.tag).join(', ') || 'keine'}.`
-        );
-      }
-      groesseBytes = treffer.groesseBytes;
-    }
-
-    const anzeige = req.body.name || (gelesen.repo ? gelesen.repo.split('/')[1] : gelesen.name);
-    const beschreibung = `Selbst hinzugefügt${
-      gelesen.art === 'huggingface' ? ` von huggingface.co/${gelesen.repo}` : ''
-    }${variante ? `, Variante ${variante}` : ''}. Nicht von Arasul geprüft.`;
-
-    await database.query(
-      `INSERT INTO llm_model_catalog
-         (id, name, description, size_bytes, ram_required_gb, category,
-          capabilities, recommended_for, jetson_tested, performance_tier,
-          ollama_name, model_type, selbst_hinzugefuegt)
-       VALUES ($1, $2, $3, $4, $5, $6, '[]'::jsonb, '[]'::jsonb, false, 2, $7, 'llm', true)`,
-      // `category` ist eine GROESSENKLASSE, kein Typ: der Katalog hat einen
-      // CHECK auf small/medium/large/xlarge. Beim ersten Anlauf stand hier
-      // 'custom', und jeder Aufruf endete mit HTTP 500
-      // (`llm_model_catalog_category_check`, am 23.08.2026 am Geraet gefunden).
-      // Die Einordnung kommt aus `modelSyncHelpers`, damit der automatische
-      // Import und dieser Weg nicht zwei Wahrheiten haben.
-      [
-        id,
-        anzeige,
-        beschreibung,
-        groesseBytes,
-        ramFuer(groesseBytes),
-        kategorieFuerBytes(groesseBytes),
-        id,
-      ]
-    );
-
-    cacheService.invalidate(CACHE_KEYS.CATALOG);
-    logger.info(`Modell in den Katalog aufgenommen: ${id} (von ${req.user.username})`);
-
-    res.status(201).json({
-      data: {
-        id,
-        name: anzeige,
-        size_bytes: groesseBytes,
-        ram_required_gb: ramFuer(groesseBytes),
-      },
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * DELETE /api/models/katalog/:modelId
- *
- * Eine selbst hinzugefuegte Katalogzeile wieder entfernen.
- *
- * Ohne diesen Weg gaebe es keinen zurueck: `DELETE /api/models/:id` raeumt nur
- * `llm_installed_models`, die Katalogzeile bleibt. Ein Tippfehler im Namen
- * stuende damit fuer immer im Katalog des Kunden (beim Nachweisen am Geraet am
- * 23.08.2026 aufgefallen).
- *
- * Entfernt wird ausschliesslich, was `selbst_hinzugefuegt` traegt. Die
- * kuratierten Zeilen kommen aus Migrationen und kaemen beim naechsten Start
- * ohnehin wieder — sie hier loeschen zu lassen waere eine Zusage, die das
- * Geraet nicht halten kann.
- */
-router.delete(
-  // `*` und nicht `:modelId`: die Kennung eines HuggingFace-Modells traegt
-  // selbst Schraegstriche (`hf.co/unsloth/Qwen3-30B-A3B-GGUF:IQ1_S`), und ein
-  // Parameter fasst nur EIN Segment.
-  '/katalog/*',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const modelId = req.params[0];
-    if (!modelId) {
-      throw new ValidationError('Ohne Kennung lässt sich nichts entfernen.');
-    }
-
-    const zeile = await database.query(
-      'SELECT id, name, selbst_hinzugefuegt FROM llm_model_catalog WHERE id = $1',
-      [modelId]
-    );
-    if (zeile.rows.length === 0) {
-      throw new NotFoundError(`„${modelId}" steht nicht im Katalog.`);
-    }
-    if (!zeile.rows[0].selbst_hinzugefuegt) {
-      throw new ValidationError(
-        `„${modelId}" gehört zum Lieferumfang und lässt sich nicht aus dem Katalog entfernen. ` +
-          'Ein installiertes Modell löschst du über DELETE /api/models/:id.'
-      );
-    }
-
-    const installiert = await database.query('SELECT id FROM llm_installed_models WHERE id = $1', [
-      modelId,
-    ]);
-    if (installiert.rows.length > 0) {
-      throw new ConflictError(
-        `„${modelId}" ist noch installiert. Erst das Modell löschen, dann den Katalogeintrag.`
-      );
-    }
-
-    await database.query('DELETE FROM llm_model_catalog WHERE id = $1', [modelId]);
-    cacheService.invalidatePattern('models:*');
-    logger.info(`Katalogeintrag entfernt: ${modelId} (von ${req.user.username})`);
-
-    res.json({
-      data: { id: modelId, name: zeile.rows[0].name },
-      message: `„${zeile.rows[0].name}" ist nicht mehr im Katalog.`,
-      timestamp: new Date().toISOString(),
-    });
   })
 );
 

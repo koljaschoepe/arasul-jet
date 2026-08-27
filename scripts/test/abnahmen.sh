@@ -58,7 +58,11 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # Anmeldungen, eine je Mensch; damit sitzt die Reihe auf der Grenze der
 # Anmeldedrossel (zwei fuer `rollen`, fuenf fuer `mitarbeiter`, zwei hier, eine
 # geteilte: genau zehn je Viertelstunde und IP).
-ALLE=(csp fernzugriff rueckmeldung oberflaeche apps app-anmeldung rollen mitarbeiter)
+#
+# Phase C8 (27.08.2026): `modelle` kommt dazu und braucht KEINE eigene
+# Anmeldung -- sie nimmt den geteilten Token und legt sich ihren Schluessel
+# selbst an. Die Reihe bleibt damit bei zehn Anmeldungen.
+ALLE=(csp fernzugriff rueckmeldung oberflaeche apps app-anmeldung rollen mitarbeiter modelle)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 

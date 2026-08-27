@@ -2,14 +2,23 @@
   "id": "thor-128",
   "display_name": "NVIDIA Jetson Thor 128GB",
   "arch": "arm64",
-  "compute_capability": { "sm": "sm_110", "confirmed": false },
+  "compute_capability": {
+    "sm": "sm_110",
+    "confirmed": false
+  },
   "memory_budget_gb": 96,
-  "default_model": "moe-120b-nvfp4",
+  "default_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+  "models": [
+    "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+    "gemma4:e4b",
+    "nomic-embed-text",
+    "llava-phi3"
+  ],
   "precision": "nvfp4",
   "engine": "vllm",
   "gpu_query": "nvidia-smi",
   "ld_library_path": "/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu",
   "max_num_seqs": 4,
   "verification": "emulation",
-  "notes": "JetPack 7 / SBSA, einheitliches CUDA 13. sm_110 spekulativ, am echten Gerät zu bestaetigen. Pre-Warming gegen ~25s JIT der ersten Anfrage."
+  "notes": "JetPack 7 / SBSA, einheitliches CUDA 13. sm_110 spekulativ, am echten Gerät zu bestaetigen. Pre-Warming gegen ~25s JIT der ersten Anfrage. Kurzliste (C8) gilt auch hier. Auf dem vllm-Track sind dieselben vier Modelle in nvfp4 bereitzustellen -- ungeprueft, Echt-Hardware-Folge-Plan."
 }
