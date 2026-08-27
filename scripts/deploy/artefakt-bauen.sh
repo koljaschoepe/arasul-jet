@@ -106,9 +106,12 @@ rm -rf \
 #   .husky    Git-Haken ohne Git-Verzeichnis.
 #   tests/    Integrationstests laufen in der CI; das Geraet baut nur.
 #   docs/plans, docs/archive
-#             Planungsgeschichte. docs/ selbst BLEIBT: `/api/docs` liefert die
-#             Schnittstellenbeschreibung aus, und das Admin-Handbuch soll auf
-#             dem Geraet liegen, auf dem es gebraucht wird.
+#             Planungsgeschichte. docs/ selbst BLEIBT: `install.sh` und der
+#             Bootstrap verweisen am Ende auf docs/ops/NETZNAME_UND_ZERTIFIKAT.md,
+#             und das Admin-Handbuch gehoert auf das Geraet, auf dem es
+#             gebraucht wird. Ein Verweis ins Leere waere schlimmer als kein
+#             Verweis. (Die Schnittstellenbeschreibung unter `/api/docs` kommt
+#             NICHT von hier, sondern aus apps/dashboard-backend/openapi.yaml.)
 
 GEBAUT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cat > "${BAUM}/arasul-release.json" <<JSON

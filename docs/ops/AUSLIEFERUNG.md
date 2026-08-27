@@ -53,8 +53,10 @@ werden müssen.
 
 Was nicht im Artefakt liegt: `.git`, `.github`, `.claude`, `.husky`, `tests/`,
 `docs/plans`, `docs/archive`, alles Unversionierte. `docs/` selbst liegt drin,
-weil `/api/docs` die Schnittstellenbeschreibung ausliefert und das
-Admin-Handbuch auf das Gerät gehört, auf dem es gebraucht wird.
+weil `install.sh` und der Bootstrap am Ende auf
+[NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md) verweisen und das
+Admin-Handbuch auf das Gerät gehört, auf dem es gebraucht wird. Ein Verweis ins
+Leere wäre schlimmer als kein Verweis.
 
 ## Die Fassung kommt aus dem Bau
 
