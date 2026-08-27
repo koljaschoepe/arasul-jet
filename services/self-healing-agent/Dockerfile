@@ -10,6 +10,7 @@ LABEL org.opencontainers.image.architecture="arm64"
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     docker.io \
+    openssl \
     sudo \
     procps \
     findutils \

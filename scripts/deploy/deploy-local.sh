@@ -138,6 +138,24 @@ fi
 git reset --hard "$NEW_SHA" || { err "git reset fehlgeschlagen"; exit 1; }
 ok "Working Tree auf $NEW_SHA"
 
+# --- 1a. Die Fassung kommt aus dem Bau ---------------------------------------
+# Das Geraet bekommt seinen Stand ueber diesen Deploy, nicht ueber das
+# Auslieferungsartefakt. Ohne diese Zeilen bliebe in der `.env` die Fassung
+# stehen, die bei der INSTALLATION galt -- und `/api/health` naehme sie ein
+# Jahr spaeter noch immer. Was hier gesetzt wird, steht in
+# scripts/lib/fassung.sh: ein Tag genau auf HEAD, sonst Datum plus SHA.
+# shellcheck source=../lib/fassung.sh
+source "$DEPLOY_DIR/scripts/lib/fassung.sh"
+NEUE_FASSUNG="$(fassung_aus_bau "$DEPLOY_DIR")"
+ALTE_FASSUNG="$(grep '^SYSTEM_VERSION=' "$DEPLOY_DIR/.env" 2>/dev/null | cut -d= -f2- || true)"
+FASSUNG_GEWECHSELT=0
+if [ -n "$NEUE_FASSUNG" ] && [ "$NEUE_FASSUNG" != "$ALTE_FASSUNG" ]; then
+  env_setzen "$DEPLOY_DIR/.env" SYSTEM_VERSION "$NEUE_FASSUNG"
+  env_setzen "$DEPLOY_DIR/.env" BUILD_HASH "$(bau_hash "$DEPLOY_DIR")"
+  FASSUNG_GEWECHSELT=1
+  ok "Fassung ${ALTE_FASSUNG:-keine} → $NEUE_FASSUNG"
+fi
+
 # --- 1b. Fehlende, auto-generierbare Docker-Secrets idempotent nachziehen ----
 # Neu eingefuehrte Secret-Dateien existieren auf Bestandsgeraeten noch nicht.
 # compose kann eine fehlende Bind-Quelle nicht mounten und der Deploy bricht ab.
@@ -160,7 +178,11 @@ ok "Working Tree auf $NEW_SHA"
 # stand. Das Einspielen scheiterte daraufhin mit EACCES, und zwar nicht beim
 # Deploy, sondern erst Stunden spaeter beim ersten Versuch, eine App
 # einzuspielen.
-for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps"; do
+# `config/traefik/certs` steht mit in der Liste, seit die Selbstheilung dort
+# hineinschreibt (Phase C10, Erneuerung des Geraetezertifikats). Ein Ordner,
+# den Docker beim Start selbst anlegt, gehoert root -- und dann scheitert die
+# Erneuerung erst in zwei Jahren, an einem Geraet, an dem niemand mehr sitzt.
+for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps" "$DEPLOY_DIR/config/traefik/certs"; do
   mkdir -p "$ordner"
   [ -w "$ordner" ] && continue
   # Ein Ordner, den Docker vor diesem Deploy angelegt hat, gehoert root. Der
@@ -211,9 +233,28 @@ for f in "${CHANGED[@]}"; do
   done
 done
 
+# Die neue Fassung an das Backend weiterreichen.
+#
+# `SYSTEM_VERSION` steht in der `.env` und wird beim START eines Containers
+# gelesen. Ein Deploy, der das Backend nicht anfasst, laesst die alte Zahl in
+# `/api/health` stehen, obwohl in der Datei die neue steht.
+#
+# Nur `up -d --no-build dashboard-backend` und NICHT `INFRA_CHANGE=1`: die
+# Fassung wechselt bei JEDEM Deploy (sie traegt den SHA), auch bei einem reinen
+# Doku-Merge. Der ganze Stapel wuerde dann jedes Mal durchgesehen, und dieses
+# Repo hat schon einmal elf Deploys in 66 Minuten gehabt. Ein Container, ein
+# Neustart, fertig.
+fassung_anwenden() {
+  [ "$FASSUNG_GEWECHSELT" -eq 1 ] || return 0
+  log "Fassung an das Backend weiterreichen"
+  "${COMPOSE[@]}" up -d --no-build dashboard-backend || \
+    warn "dashboard-backend nicht neu gestartet — /api/health nennt weiter die alte Fassung"
+}
+
 SERVICES=("${!SVC_SET[@]}")
 if [ "${#SERVICES[@]}" -eq 0 ] && [ "$INFRA_CHANGE" -eq 0 ]; then
   ok "Nur nicht-deploybare Dateien (docs/.claude/.github/tests) geaendert — kein Rebuild."
+  fassung_anwenden
   summary "Deploy: only non-deployable files changed — skipped."; exit 0
 fi
 
@@ -294,6 +335,9 @@ if [ "${#SERVICES[@]}" -gt 0 ]; then
   "${COMPOSE[@]}" build "${SERVICES[@]}" || rollback
   log "Starte: ${SERVICES[*]}"
   "${COMPOSE[@]}" up -d "${SERVICES[@]}" || rollback
+fi
+if [[ " ${SERVICES[*]} " != *" dashboard-backend "* ]] && [ "$INFRA_CHANGE" -eq 0 ]; then
+  fassung_anwenden
 fi
 if [ "$INFRA_CHANGE" -eq 1 ]; then
   log "Infra-/Compose-Aenderung — wende Konfiguration auf gesamten Stack an (up -d, ohne Rebuild)"

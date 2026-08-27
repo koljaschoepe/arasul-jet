@@ -69,13 +69,15 @@ fi
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Read current version from VERSION file if exists
-CURRENT_VERSION="1.0.0"
-if [ -f "$PROJECT_ROOT/VERSION" ]; then
-    CURRENT_VERSION="$(cat "$PROJECT_ROOT/VERSION" | tr -d '[:space:]')"
-fi
+# Die Fassung dieses Baums. Kam bis zum 27.08.2026 aus einer Datei `VERSION`,
+# in der `1.0.0` stand -- unabhaengig davon, welcher Stand gerade gebaut wurde.
+# Jetzt aus dem Bau: ein Tag genau auf HEAD, sonst Datum plus SHA.
+# shellcheck source=../lib/fassung.sh
+source "${SCRIPT_DIR}/../lib/fassung.sh"
+CURRENT_VERSION="$(fassung_aus_bau "$PROJECT_ROOT")"
+CURRENT_VERSION="${CURRENT_VERSION:-unbekannt}"
 
 echo "=================================================="
 echo "  ARASUL Update Package Creator"

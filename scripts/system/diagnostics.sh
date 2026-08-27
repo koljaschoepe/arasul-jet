@@ -244,8 +244,12 @@ fi
 section "config/version.txt" "Version Info"
 echo "SYSTEM_VERSION=${SYSTEM_VERSION:-unknown}" >> "${DIAG_DIR}/config/version.txt"
 echo "BUILD_HASH=${BUILD_HASH:-dev}" >> "${DIAG_DIR}/config/version.txt"
-if [[ -f "${PROJECT_DIR}/VERSION" ]]; then
-  echo "VERSION_FILE=$(cat "${PROJECT_DIR}/VERSION")" >> "${DIAG_DIR}/config/version.txt"
+# Die Datei `VERSION` gab es bis zum 27.08.2026. In ihr stand `1.0.0`, seit
+# Monaten unveraendert, und sie sagte damit ueber ein Geraet genau nichts. Die
+# Fassung kommt aus dem Bau (scripts/lib/fassung.sh); im Betrieb steht sie in
+# der `.env` und damit oben in dieser Datei.
+if [[ -f "${PROJECT_DIR}/arasul-release.json" ]]; then
+  echo "RELEASE_DATEI=$(cat "${PROJECT_DIR}/arasul-release.json" | tr -d '\n')" >> "${DIAG_DIR}/config/version.txt"
 fi
 
 # ─── 8. Cron & Scheduled Tasks ───────────────────────────────────────────────

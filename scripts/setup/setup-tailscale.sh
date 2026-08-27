@@ -171,14 +171,28 @@ authenticate_tailscale() {
             log_success "Verbunden! Tailscale-IP: ${GREEN}${ts_ip}${NC}"
 
             # Browser-vertrautes Remote-HTTPS: serve auf Traefik:443 zeigen.
-            # https+insecure, da Traefik ein self-signed Backend-Cert hat; port 443
-            # (nicht 80 → sonst 301-Redirect-Loop). Best-effort, non-fatal: schlaegt
-            # es fehl (z. B. MagicDNS-HTTPS noch nicht in der Admin-Konsole aktiv),
-            # bleibt der Zugriff ueber die rohe Tailscale-IP funktionsfaehig.
+            # https+insecure, da Traefik das Zertifikat der Geraete-CA traegt;
+            # port 443 (nicht 80 → sonst 301-Redirect-Loop). Best-effort,
+            # non-fatal.
+            #
+            # WAS DAS KOSTET, und es steht hier, weil es einen halben Tag
+            # gekostet hat (27.08.2026): mit aktivem `serve` hoert TAILSCALED
+            # auf 443 der Tailscale-Adresse, nicht mehr Traefik. tailscaled
+            # kennt nur ein Zertifikat, naemlich das auf den MagicDNS-Namen,
+            # und sucht es ueber den Namen aus dem ClientHello. Ein Aufruf
+            # ueber die rohe IP nennt keinen Namen (eine IP ist keine SNI), also
+            # findet tailscaled nichts und bricht den Handschlag mit
+            # `tls: internal error` (Alert 80) ab. Der Zugriff ueber die rohe
+            # Tailscale-IP ist mit `serve` also NICHT moeglich, und der Hinweis
+            # darauf war falsch. Ueber den Namen geht es, im Firmennetz ueber
+            # die LAN-IP auch (dort antwortet Traefik).
             if tailscale serve --bg --https=443 https+insecure://127.0.0.1:443 2>/dev/null; then
-                log_success "Remote-HTTPS aktiviert (tailscale serve → 443)"
+                local ts_name
+                ts_name=$(get_tailscale_hostname)
+                log_success "Remote-HTTPS aktiviert: https://${ts_name:-<magicdns-name>}/"
+                log_info "  Ueber die rohe Tailscale-IP geht es damit NICHT (kein Name, kein Zertifikat)."
             else
-                log_warning "tailscale serve nicht aktiviert — Remote-Zugriff via Tailscale-IP bleibt moeglich"
+                log_warning "tailscale serve nicht aktiviert — Zugriff dann ueber https://${ts_ip}/ (Zertifikatswarnung)"
                 log_info "  MagicDNS + HTTPS-Certs ggf. einmalig in der Tailscale-Admin-Konsole aktivieren"
             fi
             return 0

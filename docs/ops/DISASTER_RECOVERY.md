@@ -12,7 +12,7 @@
 
 **Automatische Recovery**:
 
-1. Systemd startet `arasul-platform.service` automatisch
+1. Systemd startet `arasul-platform.service` automatisch (installiert von `install.sh`)
 2. `ordered-startup.sh` startet Services in 4 Phasen
 3. PostgreSQL replayed WAL-Logs automatisch
 4. Self-Healing-Agent validiert alle Services nach Start
@@ -99,14 +99,10 @@ docker compose up -d postgres-db
 ```bash
 # 1. JetPack auf neuem Jetson flashen (NVIDIA SDK Manager)
 
-# 2a. Factory-Image verwenden (wenn vorhanden):
-sudo ./factory-install.sh
-
-# 2b. Manuelle Installation:
-git clone <repo-url> /opt/arasul
-cd /opt/arasul
-./arasul setup
-./arasul bootstrap
+# 2. Aus dem Auslieferungsartefakt installieren (docs/ops/AUSLIEFERUNG.md):
+curl -fsSL https://arasul.de/api/install | bash
+#    oder von Hand aus dem Release:
+#    tar xzf arasul-<fassung>.tar.gz && cd arasul-<fassung> && ./install.sh
 
 # 3. Die SICHERUNG vom alten Gerät holen (USB oder SMB — kein Cloud-Ziel).
 #    Auf dem Datenträger liegt sie unter arasul-sicherung/<datum>/.
@@ -310,4 +306,4 @@ docker exec reverse-proxy traefik healthcheck
 | L1    | Service unhealthy               | Automatischer Restart (Self-Healing) |
 | L2    | Mehrfach-Restart fehlgeschlagen | GPU-Reset oder Container-Neubau      |
 | L3    | System nicht recoverable        | Restore aus Backup                   |
-| L4    | Hardware-Defekt                 | Factory-Image auf neuem Gerät        |
+| L4    | Hardware-Defekt                 | Artefakt auf neuem Gerät installieren |

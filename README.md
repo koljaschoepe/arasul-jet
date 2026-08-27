@@ -3,11 +3,13 @@
 **Vorserie** · Standard software that hosts a company's internal apps on a
 server in the building — an NVIDIA Jetson AGX Orin / Thor.
 
-> The device says **Vorserie**, not a version number, until a build sets
-> `SYSTEM_VERSION` (`utils/version.js`). Without one, the version used for
-> update comparison is `0.0.0`: a pre-series device is older than any release
-> that will ever ship. `package.json` says `0.0.0` for the same reason; nothing
-> reads it.
+> Seit Phase C10 (27.08.2026) setzt der **Bau** die Fassung: `install.sh` aus
+> dem Auslieferungsartefakt, der Deploy aus Git (`scripts/lib/fassung.sh`).
+> Ein Gerät, auf dem `SYSTEM_VERSION` nicht gesetzt ist, sagt weiterhin
+> **Vorserie** (`utils/version.js`) und nimmt keine Aktualisierung an — es kann
+> über die Verträglichkeit nichts sagen. `package.json` sagt `0.0.0`; das liest
+> nichts. Wie das Artefakt entsteht und wo es liegt, steht in
+> [`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md).
 
 Arasul runs on the customer's Jetson and hosts **apps**: container apps with a
 manifest, built by a partner or a tech-savvy employee with the open

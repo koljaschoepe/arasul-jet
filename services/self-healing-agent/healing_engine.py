@@ -701,46 +701,68 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         except Exception as e:
             logger.debug(f"TLS cert check skipped: {e}")
 
-    def _is_self_signed_cert(self) -> bool:
+    # Derselbe Ordner, den Traefik unter /etc/traefik/certs sieht, hier
+    # eingehaengt (compose/compose.monitoring.yaml). Bis zum 27.08.2026 stand
+    # hier /etc/traefik/certs — ein Pfad, den es in DIESEM Container nie gab.
+    # `_is_self_signed_cert` fand deshalb nie ein Zertifikat, und die
+    # Erneuerung scheiterte danach am fehlenden Skript. Sie hat also noch nie
+    # stattgefunden.
+    CERT_PATH = '/arasul/config/traefik/certs/arasul.crt'
+    CA_KEY_PATH = '/arasul/config/traefik/certs/arasul-ca.key'
+
+    def _cert_is_ours(self) -> bool:
         """
-        P5.3: detect self-signed certs by comparing issuer == subject. The
-        auto-renew path replaces the cert with a fresh self-signed one — if
-        the customer is running behind a real CA (Let's Encrypt etc.) this
-        would clobber their cert and break browser HTTPS for everyone.
+        Darf dieses Zertifikat erneuert werden?
+
+        P5.3 fragte: ist es selbstsigniert (Aussteller == Inhaber)? Nur dann
+        wurde erneuert, denn ein Zertifikat einer echten CA zu ueberschreiben
+        macht HTTPS fuer alle kaputt.
+
+        Seit Phase C10 (27.08.2026) stellt eine Geraete-CA das Zertifikat aus
+        (scripts/security/geraete-zertifikat.sh). Aussteller und Inhaber sind
+        damit VERSCHIEDEN, und die alte Frage haette jede Erneuerung verweigert
+        — bei 800 Tagen Laufzeit faellt das nach gut zwei Jahren auf, an einem
+        Geraet, das niemand mehr anfasst.
+
+        Die Frage lautet deshalb jetzt: koennen WIR es neu ausstellen? Das
+        koennen wir genau dann, wenn der private Schluessel der ausstellenden
+        CA hier liegt. Ein Zertifikat von Let's Encrypt bleibt damit
+        unangetastet, weil deren Schluessel hier nie liegt.
         """
         try:
-            cert_path = '/etc/traefik/certs/arasul.crt'
-            if not os.path.exists(cert_path):
-                return True  # no cert at all — treat as renewable
+            if not os.path.exists(self.CERT_PATH):
+                return True  # kein Zertifikat — es gibt nichts zu zerstoeren
+            if os.path.exists(self.CA_KEY_PATH):
+                return True  # unsere Geraete-CA, wir stellen selbst neu aus
             issuer = subprocess.run(
-                ['openssl', 'x509', '-in', cert_path, '-noout', '-issuer'],
+                ['openssl', 'x509', '-in', self.CERT_PATH, '-noout', '-issuer'],
                 capture_output=True, text=True, timeout=10,
             )
             subject = subprocess.run(
-                ['openssl', 'x509', '-in', cert_path, '-noout', '-subject'],
+                ['openssl', 'x509', '-in', self.CERT_PATH, '-noout', '-subject'],
                 capture_output=True, text=True, timeout=10,
             )
             if issuer.returncode != 0 or subject.returncode != 0:
-                return True  # cannot determine — fall back to renewable
+                return True  # nicht feststellbar — wie bisher: erneuerbar
             issuer_line = issuer.stdout.strip().split('=', 1)[-1].strip()
             subject_line = subject.stdout.strip().split('=', 1)[-1].strip()
             return issuer_line == subject_line
         except Exception as e:
             logger.warning(f"Could not determine cert issuer: {e}")
-            return False  # safe default: do NOT renew
+            return False  # sichere Vorgabe: NICHT erneuern
 
     def _renew_tls_cert(self) -> bool:
-        """Auto-renew self-signed TLS certificate and reload Traefik"""
+        """Stellt das Geraete-Zertifikat neu aus und laedt Traefik neu"""
         try:
-            # P5.3: refuse to overwrite a real CA cert.
-            if not self._is_self_signed_cert():
+            # P5.3: ein fremdes CA-Zertifikat wird nicht angefasst.
+            if not self._cert_is_ours():
                 logger.warning(
-                    "TLS cert is NOT self-signed (CA-issued) — refusing to auto-renew. "
-                    "Manual renewal required."
+                    "TLS cert was issued by a CA whose key is not on this device — "
+                    "refusing to auto-renew. Manual renewal required."
                 )
                 return False
 
-            cert_script = '/arasul/scripts/security/generate-self-signed-cert.sh'
+            cert_script = '/arasul/scripts/security/geraete-zertifikat.sh'
             if not os.path.exists(cert_script):
                 logger.error(f"Cert renewal script not found: {cert_script}")
                 return False
@@ -748,9 +770,10 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             # Run cert generation with FORCE_OVERWRITE
             env = os.environ.copy()
             env['FORCE_OVERWRITE'] = 'true'
+            netzname = os.environ.get('MDNS_NAME', 'arasul').removesuffix('.local')
             result = subprocess.run(
-                ['bash', cert_script, '/arasul/config/traefik/certs'],
-                capture_output=True, text=True, timeout=30, env=env
+                ['bash', cert_script, '/arasul/config/traefik/certs', netzname],
+                capture_output=True, text=True, timeout=60, env=env
             )
             if result.returncode != 0:
                 logger.error(f"Cert renewal script failed: {result.stderr}")

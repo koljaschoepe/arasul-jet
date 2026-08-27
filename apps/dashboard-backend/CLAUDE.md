@@ -4,7 +4,10 @@
 > follows when writing code under `apps/dashboard-backend/`. For the API
 > surface and feature inventory, read `README.md` in this folder.
 
-> **Aktuellster Plan:** [`docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md`](../../docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md) — löst die bisherigen aktiven Pläne ab. Sekundär/Backlog: `side-branch-cherry-pick-2026-05-14.md` (Side-Branches noch nicht auf main).
+> **Woran gerade gearbeitet wird:** steht nicht in diesem Repo. Seit dem
+> 26.08.2026 steuert der Überordner-Plan die Arbeit, und die laufende Phase
+> liegt als `PHASE.md` im Wurzelverzeichnis des Worktrees (nie committet).
+> Was war, steht in [`docs/plans/HISTORIE.md`](../../docs/plans/HISTORIE.md).
 
 ## Stack
 

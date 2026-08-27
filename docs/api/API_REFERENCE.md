@@ -59,7 +59,13 @@ list of error codes. No auth required.
 `SYSTEM_VERSION` set it is the literal string `Vorserie` (see
 `utils/version.js`). The same holds for `version` in `GET /api/health` and
 `GET /api/system/info`.
-Stand: 2026-08-20. Quelle: `apps/dashboard-backend/src/utils/version.js`.
+
+Seit Phase C10 (27.08.2026) setzt der Bau diese Zahl: der Installer schreibt
+sie aus `arasul-release.json` in die `.env`, der Deploy stempelt sie aus Git
+(`scripts/lib/fassung.sh`). Ein Gerät, das noch `Vorserie` meldet, hat also
+keine Fassung aus dem Bau bekommen, und es nimmt dann auch keine
+Aktualisierung an (`validateManifest`).
+Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 
 ```json
 {
@@ -188,9 +194,28 @@ Returns user info headers on success:
 | GET    | `/api/system/network`           | IP addresses, mDNS, connectivity            |
 | GET    | `/api/system/thresholds`        | Device-specific metric thresholds           |
 | GET    | `/api/system/heartbeat`         | Lebenszeichen, ohne Anmeldung               |
+| GET    | `/api/system/ca-zertifikat`     | CA-Zertifikat des Geräts, als Datei         |
 | GET    | `/api/system/diagnostics/quick` | Lagebild als JSON, ohne Archiv              |
 | POST   | `/api/system/diagnostics`       | Diagnosearchiv erzeugen und ausliefern      |
 | POST   | `/api/system/reload-config`     | Ratenbremse und Protokollstufe neu einlesen |
+
+**GET /api/system/ca-zertifikat:**
+
+Auth: Administrator. Liefert das CA-Zertifikat dieses Geräts als Datei
+(`application/x-x509-ca-cert`, Dateiname `<netzname>-ca.crt`).
+
+Wozu: das Gerät stellt sein TLS-Zertifikat selbst aus, mit einer CA, die beim
+ersten Start entsteht und deren privater Schlüssel das Gerät nie verlässt
+(`scripts/security/geraete-zertifikat.sh`). Solange niemand diese CA kennt,
+warnt jeder Browser im Haus. Der Admin lädt die Datei einmal herunter und
+verteilt sie an die Rechner der Firma; danach ist jeder Name dieses Geräts
+vertraut, auch nach einer Erneuerung des Zertifikats. Die Anleitung für
+Windows, macOS, iOS und Android steht in
+[`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`](../ops/NETZNAME_UND_ZERTIFIKAT.md).
+
+`404`, wenn es noch keine CA gibt. Am Gerät nachholen: `./arasul zertifikat`.
+
+Stand: 2026-08-27 (Phase C10). Quelle: `routes/system/system.js`.
 
 **GET /api/system/heartbeat:**
 

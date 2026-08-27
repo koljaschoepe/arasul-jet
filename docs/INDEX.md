@@ -61,7 +61,9 @@ docs/
 
 | Document                                                           | Topic                                                                                |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (interactive / factory / non-interactive), pre-shipping checklist, hardening |
+| [`ops/AUSLIEFERUNG.md`](ops/AUSLIEFERUNG.md)                       | Das Artefakt, seine Adresse, `install.sh`, woher die Fassung kommt                    |
+| [`ops/NETZNAME_UND_ZERTIFIKAT.md`](ops/NETZNAME_UND_ZERTIFIKAT.md) | `https://arasul/`, die Geräte-CA, Anleitung für Windows, macOS, iOS, Android          |
+| [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (Artefakt / Quellbaum / ohne Rückfragen), pre-shipping checklist, hardening   |
 | [`ops/QUICK_START.md`](ops/QUICK_START.md)                         | Customer quick start (German, end-user-facing)                                       |
 | [`ops/ADMIN_HANDBUCH.md`](ops/ADMIN_HANDBUCH.md)                   | Operator handbook (German, 8 chapters)                                               |
 | [`ops/TROUBLESHOOTING.md`](ops/TROUBLESHOOTING.md)                 | Symptom-to-fix lookup                                                                |

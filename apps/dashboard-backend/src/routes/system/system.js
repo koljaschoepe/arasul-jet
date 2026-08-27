@@ -16,7 +16,7 @@ const { promisify } = require('util');
 const fs = require('fs').promises;
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth, requireRole } = require('../../middleware/auth');
-const { ServiceUnavailableError } = require('../../utils/errors');
+const { ServiceUnavailableError, NotFoundError } = require('../../utils/errors');
 const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { validateBody } = require('../../middleware/validate');
@@ -721,6 +721,56 @@ router.post(
       message: 'Setup skipped',
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+// GET /api/system/ca-zertifikat
+//
+// Das CA-Zertifikat dieses Geraets, als Datei zum Herunterladen (Phase C10).
+//
+// Warum es diesen Weg gibt: das Geraet stellt sein eigenes TLS-Zertifikat aus,
+// mit einer CA, die beim ersten Start entsteht und deren privater Schluessel
+// das Geraet nie verlaesst (scripts/security/geraete-zertifikat.sh). Solange
+// niemand diese CA kennt, warnt jeder Browser im Haus. Der Admin laedt die
+// Datei hier EINMAL herunter und verteilt sie an die Rechner der Firma;
+// danach ist jeder Name dieses Geraets vertraut, auch nach einer Erneuerung
+// des Zertifikats.
+//
+// Nur der Administrator: die Datei ist zwar oeffentlich (ein CA-Zertifikat ist
+// kein Geheimnis, der Schluessel dazu bleibt hier), aber wer sie verteilt, ist
+// eine Rolle und keine Zufaelligkeit. Ein Mitarbeiter, der sie sich selbst
+// installiert, hat sie nicht von einer Stelle bekommen, der er trauen kann.
+//
+// `/config` ist der schreibgeschuetzte Einhang des `config`-Ordners
+// (compose/compose.app.yaml). Der PRIVATE Schluessel der CA liegt daneben und
+// wird hier nie angefasst.
+const CA_ZERTIFIKAT_PFAD = '/config/traefik/certs/arasul-ca.crt';
+
+router.get(
+  '/ca-zertifikat',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    let pem;
+    try {
+      pem = await fs.readFile(CA_ZERTIFIKAT_PFAD, 'utf8');
+    } catch {
+      throw new NotFoundError(
+        'Dieses Geraet hat noch kein CA-Zertifikat. Es entsteht beim Einrichten; ' +
+          'nachholen laesst es sich am Geraet mit `./arasul zertifikat`.'
+      );
+    }
+
+    if (!pem.includes('BEGIN CERTIFICATE')) {
+      throw new NotFoundError(
+        'Die Datei mit dem CA-Zertifikat ist unlesbar. Neu ausstellen: `./arasul zertifikat`.'
+      );
+    }
+
+    const netzname = (process.env.MDNS_NAME || 'arasul').replace(/\.local$/, '');
+    res.setHeader('Content-Type', 'application/x-x509-ca-cert');
+    res.setHeader('Content-Disposition', `attachment; filename="${netzname}-ca.crt"`);
+    res.send(pem);
   })
 );
 
