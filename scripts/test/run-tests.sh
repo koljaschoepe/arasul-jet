@@ -16,7 +16,7 @@ cd "$PROJECT_ROOT"
 read -t 1 HOOK_INPUT 2>/dev/null || HOOK_INPUT="{}"
 
 # Prüfe ob wir bereits in einem Stop-Hook-Cycle sind
-if echo "$HOOK_INPUT" | grep -q '"stop_hook_active":true'; then
+if grep -q '"stop_hook_active":true' <<<"$HOOK_INPUT"; then
   echo "Already in stop hook cycle, skipping tests to prevent infinite loop"
   echo '{"decision": "allow"}'
   exit 0
@@ -348,7 +348,7 @@ run_frontend_tests() {
         EXIT_CODE=1
       fi
       cd "$PROJECT_ROOT"
-    elif docker compose ps dashboard-frontend 2>/dev/null | grep -q "Up"; then
+    elif grep -q "Up" <<<"$(docker compose ps dashboard-frontend 2>/dev/null)"; then
       echo "   Running in Docker container..."
       if docker compose exec -T dashboard-frontend sh -c "npx vitest run --reporter=verbose"; then
         echo "   Frontend tests: PASSED"
@@ -414,7 +414,7 @@ run_python_tests() {
           echo "   ${service_dir}: NICHT BESTANDEN oder nicht pruefbar (siehe CI)"
           PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
         fi
-      elif docker compose ps "$(basename "$service_dir")" 2>/dev/null | grep -q "Up\|running"; then
+      elif grep -q "Up\|running" <<<"$(docker compose ps "$(basename "$service_dir")" 2>/dev/null)"; then
         if docker compose exec -T "$(basename "$service_dir")" pytest tests/ -v --tb=short -q 2>/dev/null; then
           echo "   ${service_dir}: PASSED"
         else
@@ -511,17 +511,17 @@ else
   CHANGES=$(detect_changes)
   RAN_TESTS=false
 
-  if echo "$CHANGES" | grep -q "apps/dashboard-backend"; then
+  if grep -q "apps/dashboard-backend" <<<"$CHANGES"; then
     run_backend_tests
     RAN_TESTS=true
   fi
 
-  if echo "$CHANGES" | grep -q "apps/dashboard-frontend"; then
+  if grep -q "apps/dashboard-frontend" <<<"$CHANGES"; then
     run_frontend_tests
     RAN_TESTS=true
   fi
 
-  if echo "$CHANGES" | grep -qE "(services/.*\.py|tests/)"; then
+  if grep -qE "(services/.*\.py|tests/)" <<<"$CHANGES"; then
     run_python_tests
     RAN_TESTS=true
   fi

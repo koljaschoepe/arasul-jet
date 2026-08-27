@@ -155,7 +155,7 @@ check_model_loaded() {
         fi
 
         # Check if default model is available
-        if echo "$MODELS_RESPONSE" | grep -q "\"name\":\"${TEST_MODEL}\""; then
+        if grep -q "\"name\":\"${TEST_MODEL}\"" <<<"$MODELS_RESPONSE"; then
             success "Model '${TEST_MODEL}' is loaded (${MODEL_COUNT} total models)"
             return 0
         else
@@ -196,7 +196,7 @@ check_gpu_errors() {
     fi
 
     # HIGH-010 FIX: Check last 100 lines for CUDA errors with proper error handling
-    if ! tail -100 "$LOG_FILE" 2>/dev/null | grep -iq "CUDA error\|out of memory\|GPU error"; then
+    if ! grep -iq "CUDA error\|out of memory\|GPU error" <<<"$(tail -100 "$LOG_FILE" 2>/dev/null)"; then
         success "No recent GPU errors detected"
         return 0
     else

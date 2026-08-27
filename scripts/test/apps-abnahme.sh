@@ -167,7 +167,7 @@ hole "/apps/$APP/"
 pruefe "GET /apps/$APP/ liefert die Seite" "$([ "$CODE" = "200" ] && echo ja || echo nein)" "HTTP $CODE"
 pruefe 'und zwar als HTML' "$(ist_html)" "$TYP"
 pruefe 'mit dem Namen der App darin' \
-  "$(rumpf | grep -qi "$APP\|Beispielapp" && echo ja || echo nein)"
+  "$(grep -qi "$APP\|Beispielapp" <<<"$(rumpf)" && echo ja || echo nein)"
 
 # Eine Datei aus dem Paket, nicht die Startseite: der Unterschied zwischen
 # "liefert irgendwas" und "liefert das Verzeichnis dieser Version".

@@ -39,7 +39,10 @@ DRILL_CONTAINER="arasul-restore-drill"
 DRILL_IMAGE="postgres:16-alpine"
 DRILL_DB="arasul_drill"
 DRILL_USER="arasul"
-DRILL_PASSWORD="drill-$(head -c 12 /dev/urandom | base64 | tr -d '/+=' | head -c 16)"
+# Truncate after the pipe, not inside it: `... | head -c 16` lets the producer
+# write into a closed pipe, and under `pipefail` that is 141 instead of 0.
+DRILL_ROH="$(head -c 12 /dev/urandom | base64 | tr -d '/+=')"
+DRILL_PASSWORD="drill-${DRILL_ROH:0:16}"
 
 # Tables we insist the restore brings back. Counts must be > 0 for any table
 # that is populated in production. The list is intentionally narrow — a drill
@@ -245,7 +248,7 @@ EOF
 }
 
 cleanup() {
-    if docker ps -a --format '{{.Names}}' | grep -qx "$DRILL_CONTAINER"; then
+    if grep -qx "$DRILL_CONTAINER" <<<"$(docker ps -a --format '{{.Names}}')"; then
         docker rm -f "$DRILL_CONTAINER" >/dev/null 2>&1 || true
     fi
 }
@@ -356,7 +359,7 @@ kunden_uebersprungen=()
 im_abzug=$(sicherung_lesen "$BACKUP_FILE" | zcat 2>/dev/null \
     | grep -oE '^CREATE TABLE [a-z0-9_]+\.[a-z0-9_]+ ' | awk '{print $3}' | sort -u)
 for tbl in "${KUNDENTABELLEN[@]}"; do
-    if ! printf '%s\n' "$im_abzug" | grep -qx "$tbl"; then
+    if ! grep -qx "$tbl" <<<"$im_abzug"; then
         log "----: $tbl steht nicht im Abzug, nicht geprueft"
         kunden_uebersprungen+=("$tbl")
         continue
@@ -415,7 +418,7 @@ if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] \
          WHERE table_type='BASE TABLE'
            AND table_schema NOT IN ('pg_catalog','information_schema')" 2>/dev/null); then
     for schema in $schemas_betrieb; do
-        if ! printf '%s\n' $schemas_abzug | grep -qx "$schema"; then
+        if ! grep -qx "$schema" <<<"$(printf '%s\n' $schemas_abzug)"; then
             schemas_fehlen+=("$schema")
         fi
     done

@@ -35,7 +35,7 @@ CONTAINER="${POSTGRES_CONTAINER:-postgres-db}"
 DB="${POSTGRES_DB:-arasul_db}"
 USER="${POSTGRES_USER:-arasul}"
 
-if ! docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+if ! grep -qx "$CONTAINER" <<<"$(docker ps --format '{{.Names}}')"; then
     echo "ERROR: container '$CONTAINER' not running" >&2
     exit 1
 fi

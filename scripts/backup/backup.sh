@@ -91,7 +91,7 @@ backup_postgres() {
     local backup_file_latest="${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz"
 
     # Check if postgres container is running
-    if ! docker ps --format '{{.Names}}' | grep -q "^postgres-db$"; then
+    if ! grep -q "^postgres-db$" <<<"$(docker ps --format '{{.Names}}')"; then
         log "ERROR" "PostgreSQL container is not running"
         return 1
     fi

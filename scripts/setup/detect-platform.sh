@@ -43,10 +43,10 @@ detect_jetson_model() {
     # Stufe 2: Device-Tree Compatible String
     if [ -f "$compatible_file" ]; then
         local compat=$(cat "$compatible_file" 2>/dev/null | tr '\0' '\n')
-        if echo "$compat" | grep -qi "thor"; then
+        if grep -qi "thor" <<<"$compat"; then
             echo "NVIDIA Jetson Thor"
             return
-        elif echo "$compat" | grep -qi "orin"; then
+        elif grep -qi "orin" <<<"$compat"; then
             echo "NVIDIA Jetson Orin (via compatible)"
             return
         fi
@@ -70,10 +70,10 @@ detect_jetson_model() {
     # Stufe 4: nvidia-smi GPU-Name
     if command -v nvidia-smi &>/dev/null; then
         local gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
-        if echo "$gpu_name" | grep -qi "thor\|blackwell\|gh"; then
+        if grep -qi "thor\|blackwell\|gh" <<<"$gpu_name"; then
             echo "NVIDIA Jetson Thor (via GPU)"
             return
-        elif echo "$gpu_name" | grep -qi "orin"; then
+        elif grep -qi "orin" <<<"$gpu_name"; then
             echo "NVIDIA Jetson Orin (via GPU)"
             return
         fi
@@ -108,7 +108,7 @@ detect_jetson_model() {
     # dgx-spark-Katalogprofil waere unerreichbar (Plan 020, Schritt 2).
     if command -v nvidia-smi &>/dev/null; then
         local arm_gpu=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
-        if echo "$arm_gpu" | grep -qi "spark\|gb10"; then
+        if grep -qi "spark\|gb10" <<<"$arm_gpu"; then
             echo "arm64 NVIDIA DGX Spark"
             return
         elif [ -n "$arm_gpu" ]; then
@@ -128,9 +128,9 @@ detect_x86_model() {
         # Single-line local (masks nvidia-smi exit code) — matches the file's
         # existing pattern und ist unter set -e robuster als getrennte Zuweisung.
         local gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
-        if echo "$gpu_name" | grep -qi "rtx pro 6000\|rtx 6000"; then
+        if grep -qi "rtx pro 6000\|rtx 6000" <<<"$gpu_name"; then
             echo "x86_64 NVIDIA RTX PRO 6000"
-        elif echo "$gpu_name" | grep -qi "dgx station\|gb200\|gb300"; then
+        elif grep -qi "dgx station\|gb200\|gb300" <<<"$gpu_name"; then
             echo "x86_64 NVIDIA DGX Station"
         elif [ -n "$gpu_name" ]; then
             echo "x86_64 NVIDIA Server (${gpu_name})"

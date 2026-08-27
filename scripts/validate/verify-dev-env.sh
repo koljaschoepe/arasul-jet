@@ -217,7 +217,7 @@ else
 fi
 
 # GitHub SSH connectivity (warn-only, might not have access)
-if ssh -T git@github.com 2>&1 | grep -qi "successfully authenticated\|Hi "; then
+if grep -qi "successfully authenticated\|Hi " <<<"$(ssh -T git@github.com 2>&1)"; then
   check_pass "GitHub SSH-Verbindung funktioniert"
 else
   check_warn "GitHub SSH-Verbindung fehlgeschlagen (Key bei GitHub hinterlegt?)"
@@ -237,14 +237,14 @@ else
 fi
 
 # User in docker group
-if groups 2>/dev/null | grep -qw docker; then
+if grep -qw docker <<<"$(groups 2>/dev/null)"; then
   check_pass "Benutzer in docker-Gruppe"
 else
   check_warn "Benutzer nicht in docker-Gruppe"
 fi
 
 # NVIDIA Runtime
-if docker info 2>/dev/null | grep -qi "nvidia"; then
+if grep -qi "nvidia" <<<"$(docker info 2>/dev/null)"; then
   check_pass "NVIDIA Container Runtime verfügbar"
 else
   check_warn "NVIDIA Container Runtime nicht erkannt"
@@ -303,7 +303,7 @@ check_port() {
   local port=$1
   local label=$2
   if curl -sf --max-time 3 "http://localhost:${port}/" >/dev/null 2>&1 || \
-     curl -sf --max-time 3 -o /dev/null -w '%{http_code}' "http://localhost:${port}/" 2>/dev/null | grep -qE "^[2345]"; then
+     grep -qE "^[2345]" <<<"$(curl -sf --max-time 3 -o /dev/null -w '%{http_code}' "http://localhost:${port}/" 2>/dev/null)"; then
     check_pass "Port $port ($label) erreichbar"
   elif nc -z localhost "$port" 2>/dev/null; then
     check_pass "Port $port ($label) offen"

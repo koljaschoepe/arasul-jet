@@ -22,7 +22,7 @@ echo "  User: $USERNAME"
 echo ""
 
 # Check if postgres container is running
-if ! docker compose ps postgres-db 2>/dev/null | grep -q "Up\|running"; then
+if ! grep -q "Up\|running" <<<"$(docker compose ps postgres-db 2>/dev/null)"; then
   echo "ERROR: PostgreSQL container is not running."
   echo "Start it with: docker compose up -d postgres-db"
   exit 1
@@ -63,7 +63,7 @@ if [ ${#PASSWORD} -lt 8 ]; then
 fi
 
 # Generate bcrypt hash using the backend container (same bcrypt config as app)
-if docker compose ps dashboard-backend 2>/dev/null | grep -q "Up\|running"; then
+if grep -q "Up\|running" <<<"$(docker compose ps dashboard-backend 2>/dev/null)"; then
   # Use Node.js in backend container (matches app's bcrypt salt rounds)
   HASH=$(docker compose exec -T dashboard-backend node -e "
     const bcrypt = require('bcrypt');

@@ -192,7 +192,7 @@ section "3. Security"
 # SSH key-only auth
 if [ -f "/etc/ssh/sshd_config.d/99-arasul-hardening.conf" ]; then
   check_pass "SSH hardening config present"
-elif sshd -T 2>/dev/null | grep -q "passwordauthentication no"; then
+elif grep -q "passwordauthentication no" <<<"$(sshd -T 2>/dev/null)"; then
   check_pass "SSH password auth disabled"
 else
   check_warn "SSH hardening not applied - run scripts/security/harden-ssh.sh"
@@ -206,7 +206,7 @@ else
 fi
 
 # Firewall
-if command -v ufw &>/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+if command -v ufw &>/dev/null && grep -q "Status: active" <<<"$(ufw status 2>/dev/null)"; then
   check_pass "Firewall (UFW) active"
 else
   check_warn "Firewall not active - run scripts/security/setup-firewall.sh"
@@ -267,7 +267,7 @@ else
 fi
 
 # Backup cron (check for backup.sh in crontab)
-if crontab -l 2>/dev/null | grep -q "backup.sh"; then
+if grep -q "backup.sh" <<<"$(crontab -l 2>/dev/null)"; then
   check_pass "Backup cron job configured"
 else
   check_warn "No backup cron job found"

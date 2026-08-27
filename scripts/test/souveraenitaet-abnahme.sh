@@ -190,7 +190,7 @@ PROBEN=$(ssh "$HOST" "wc -l < $PROBEN_DATEI 2>/dev/null" | tr -d ' ')
 # Die Proben nur dann wegwerfen, wenn NICHTS nach draussen ging. Ging etwas,
 # bleiben sie liegen und ihr Pfad steht am Ende — sonst ist der einzige Beleg
 # weg, bevor jemand ihn ansehen kann (23.08.2026 genau so passiert).
-if printf '%s' "$AUSWERTUNG" | grep -q '^DRAUSSEN|'; then
+if grep -q '^DRAUSSEN|' <<<"$AUSWERTUNG"; then
   BELEG=$(ssh "$HOST" "cp $PROBEN_DATEI /tmp/arasul-souveraenitaet-beleg.txt 2>/dev/null && echo /tmp/arasul-souveraenitaet-beleg.txt")
 fi
 ssh "$HOST" "rm -f $PROBEN_DATEI $STOP_DATEI" 2>/dev/null

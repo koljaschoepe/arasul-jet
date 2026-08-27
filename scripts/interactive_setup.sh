@@ -110,19 +110,19 @@ validate_password() {
     fi
 
     # Grossbuchstabe
-    if ! echo "$pw" | grep -q '[A-Z]'; then
+    if ! grep -q '[A-Z]' <<<"$pw"; then
         echo "Mindestens ein Grossbuchstabe (A-Z) erforderlich"
         return 1
     fi
 
     # Kleinbuchstabe
-    if ! echo "$pw" | grep -q '[a-z]'; then
+    if ! grep -q '[a-z]' <<<"$pw"; then
         echo "Mindestens ein Kleinbuchstabe (a-z) erforderlich"
         return 1
     fi
 
     # Zahl
-    if ! echo "$pw" | grep -q '[0-9]'; then
+    if ! grep -q '[0-9]' <<<"$pw"; then
         echo "Mindestens eine Ziffer (0-9) erforderlich"
         return 1
     fi
@@ -221,20 +221,30 @@ prompt_confirm() {
 # Secret-Generierung
 # =============================================================================
 
+# Abgeschnitten wird NACH dem Rohr, nicht darin. `... | head -c N` laesst den
+# Erzeuger in ein geschlossenes Rohr weiterschreiben; unter `pipefail` ist der
+# Rueckgabewert dann 141, und `set -e` beendet den Assistenten mitten in der
+# Schluesselerzeugung. Hier reicht die Ausgabe zwar nie an den Rohrpuffer
+# heran, aber die Form ist dieselbe, und `${wert:0:N}` kostet nichts.
 generate_secret() {
     local length="${1:-32}"
-    openssl rand -hex "$length" 2>/dev/null || \
-    head -c "$((length*2))" /dev/urandom | xxd -p | tr -d '\n' | head -c "$((length*2))"
+    local roh
+    roh=$(openssl rand -hex "$length" 2>/dev/null || \
+        head -c "$((length*2))" /dev/urandom | xxd -p | tr -d '\n')
+    printf '%s' "${roh:0:$((length*2))}"
 }
 
 generate_password() {
     local length="${1:-24}"
     local pw
-    pw=$(openssl rand -base64 "$((length * 2))" 2>/dev/null | tr -d '/+=\n' | head -c "$length")
+    pw=$(openssl rand -base64 "$((length * 2))" 2>/dev/null | tr -d '/+=\n')
+    pw="${pw:0:$length}"
     if [ -n "$pw" ] && [ ${#pw} -ge "$length" ]; then
         echo "$pw"
     else
-        head -c "$((length * 2))" /dev/urandom | base64 | tr -d '/+=\n' | head -c "$length"
+        local ersatz
+        ersatz=$(head -c "$((length * 2))" /dev/urandom | base64 | tr -d '/+=\n')
+        printf '%s' "${ersatz:0:$length}"
     fi
 }
 
