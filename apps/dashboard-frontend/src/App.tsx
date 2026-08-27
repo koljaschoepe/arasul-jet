@@ -10,12 +10,13 @@ import ErrorBoundary, { RouteErrorBoundary } from './components/ui/ErrorBoundary
 import NichtGefunden from './components/ui/NichtGefunden';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import SetupWizard from './features/system/SetupWizard';
+import PasswortWechseln from './features/system/PasswortWechseln';
 
 // PHASE 3: State Management - Contexts and Hooks
 import { DownloadProvider } from './contexts/DownloadContext';
 import { ActivationProvider } from './contexts/ActivationContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ToastProvider } from './contexts/ToastContext';
+import { ToastProvider, useToast } from './contexts/ToastContext';
 
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
@@ -52,7 +53,8 @@ function App(): React.JSX.Element {
  */
 function AppContent(): React.JSX.Element | null {
   const api = useApi();
-  const { isAuthenticated, loading: authLoading, login, logout } = useAuth();
+  const toast = useToast();
+  const { user, isAuthenticated, loading: authLoading, login, logout } = useAuth();
 
   // Setup wizard state
   const [, setSetupComplete] = useState<boolean | null>(null); // null = loading, true/false = known
@@ -144,9 +146,19 @@ function AppContent(): React.JSX.Element | null {
     };
   }, [api]);
 
-  // Check setup wizard status after login
+  // Check setup wizard status after login.
+  //
+  // Nur fuer den Administrator (Phase D1): der Assistent richtet das GERAET
+  // ein — Modelle, Dienste, Fernzugriff — und jede seiner Fragen fuehrt auf
+  // einen Weg, der einem Mitarbeiter mit 403 antwortet. Vor C1 gab es nur eine
+  // Rolle, und die Frage stellte sich nicht.
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (user?.role !== 'admin') {
+      setSetupComplete(true);
+      setShowSetupWizard(false);
+      return;
+    }
 
     const controller = new AbortController();
     const checkSetupStatus = async () => {
@@ -169,7 +181,7 @@ function AppContent(): React.JSX.Element | null {
 
     checkSetupStatus();
     return () => controller.abort();
-  }, [isAuthenticated, api]);
+  }, [isAuthenticated, user?.role, api]);
 
   // Handle login success - called from Login component
   const handleLoginSuccess = useCallback(
@@ -206,6 +218,29 @@ function AppContent(): React.JSX.Element | null {
       return <CreateAdmin onCreated={handleLoginSuccess} />;
     }
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Startpasswort wechseln, bevor irgendetwas anderes kommt (Phase D1).
+  //
+  // Vor dem Einrichtungsassistenten und vor der Shell: wer mit einem Passwort
+  // angemeldet ist, das ein Zweiter kennt, soll das zuerst aendern und nicht
+  // erst am Ende eines Assistenten. Die Sitzung selbst ist gueltig — das
+  // Backend sperrt hier nichts, es sagt nur, was der Fall ist.
+  if (user?.passwortWechselNoetig) {
+    return (
+      <PasswortWechseln
+        onGewechselt={() => {
+          // `POST /api/auth/change-password` entwertet alle Sitzungen des
+          // Betroffenen. Eine neue Anmeldung ist deshalb keine Hoeflichkeit,
+          // sondern der Zustand: der alte Token traegt nicht mehr.
+          toast.success('Passwort geändert. Bitte melde dich neu an.');
+          void logout();
+        }}
+        onAbmelden={() => {
+          void logout();
+        }}
+      />
+    );
   }
 
   // Show setup wizard if setup is not complete

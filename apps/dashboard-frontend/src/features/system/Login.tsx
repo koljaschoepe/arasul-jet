@@ -134,10 +134,16 @@ function Login({ onLoginSuccess }: LoginProps) {
         <div className="space-y-4">
           <div>
             <Label htmlFor="username" className="mb-1.5 block text-sm font-medium">
-              Benutzername
+              Benutzername oder E-Mail
             </Label>
             {/* Kein Platzhalter: er waere die einzige Stelle, an der wieder ein
-                Benutzername auf der Seite steht (Befund F-01). */}
+                Benutzername auf der Seite steht (Befund F-01).
+
+                Die Beschriftung nennt beides, weil das Backend beides annimmt
+                (`WHERE username = $1 OR email = $1`, Phase C1). Ein
+                Mitarbeiter bekommt vom Administrator einen Namen UND eine
+                Adresse; sich merken zu muessen, welches davon hier gemeint
+                ist, waere eine Huerde ohne Zweck. */}
             <Input
               id="username"
               type="text"
