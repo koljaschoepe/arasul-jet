@@ -7,15 +7,24 @@
 # jemand eingreifen musste". Das ist keine Momentaufnahme, sondern eine
 # Zeitreihe, und sie entsteht nur, wenn man rechtzeitig anfaengt zu messen.
 #
-# Vier Fragen, vier Quellen:
+# Fuenf Fragen, fuenf Quellen:
 #
-#   1. Musste ein Dienst neu gestartet werden?   Dockers RestartCount.
+#   1. Ist ueberhaupt alles da?                  Die zwoelf Dienste aus
+#      `docker-compose.yml` plus die App-Container, die das Backend selbst
+#      anlegt. Bis zum 27.08.2026 fehlte diese Frage, und gezaehlt wurde, was
+#      `docker ps` zeigt -- ein Dienst, der weg ist, taucht dort nicht auf. Ein
+#      Geraet mit acht statt zwoelf Containern meldete "geprueft: 8 Dienste,
+#      keiner musste neu starten" und sah damit gruen aus.
+#   2. Musste ein Dienst neu gestartet werden?   Dockers RestartCount.
 #      Ein `docker compose up` beim Deploy zaehlt NICHT mit — RestartCount
 #      steigt nur, wenn Docker selbst neu startet, also nach einem Absturz.
 #      Genau das ist die Frage.
-#   2. Musste sich das Geraet selbst heilen?     self_healing_events.
-#   3. Hat es weiter gesichert?                  Die Sicherungen der letzten Tage.
-#   4. Lief die Messung durch?                   Luecken in metrics_cpu. Eine
+#   3. Musste sich das Geraet selbst heilen?     self_healing_events.
+#   4. Hat es weiter gesichert, und liegt eine Kopie ausser Haus?
+#      Die vier Arten von Sicherung (Datenbank, App-Pakete, Flows,
+#      Konfiguration), der Merker der Kopie ausserhalb und der letzte
+#      Wiederherstellungstest.
+#   5. Lief die Messung durch?                   Luecken in metrics_cpu. Eine
 #      Luecke heisst: entweder war das Geraet weg, oder der Sammler war es.
 #      Beides zaehlt gegen G7.
 #
@@ -67,11 +76,66 @@ if [ "$TAGE_AM_STUECK" -lt 7 ]; then
 fi
 echo ""
 
-# --- 1. Neustarts ----------------------------------------------------------
+# --- 1. Die Dienste, die da sein muessen ------------------------------------
+# ZWEI Fragen, und bis zum 27.08.2026 stellte dieser Bericht nur die zweite:
+#
+#   a) LAEUFT ueberhaupt alles? Gezaehlt wurde vorher, was `docker ps` zeigt --
+#      und ein Dienst, der weg ist, taucht dort nicht auf. Ein Geraet mit acht
+#      statt zwoelf Containern meldete "geprueft: 8 Dienste, keiner musste neu
+#      starten" und sah damit gruen aus. Deshalb steht die Soll-Liste jetzt
+#      HIER, und es wird gegen sie gezaehlt.
+#   b) Musste einer von selbst neu starten? Dockers RestartCount.
+#
+# Die zwoelf sind die aus `docker-compose.yml` (`compose/compose.*.yaml`).
+# `cloudflared` laeuft nur mit dem Profil `tunnel` und fehlt auf einem Geraet
+# ohne Fernzugriff zu Recht -- es steht deshalb getrennt.
+#
+# Dazu die APP-CONTAINER. Sie stehen in keiner Compose-Datei: das Backend legt
+# sie an, je App und Stand: `arasul-app-<id>-<stand>`
+# (`services/app/appContainer.js`, `containerName`).
+# Fuer G7 zaehlen sie mit -- eine App, die jede Nacht abstuerzt und neu
+# startet, ist kein unbeaufsichtigter Betrieb.
+#
 # Der Pruefstand (pruef-*) ist ein zweiter Stack fuer Abnahmen und gehoert
-# nicht zum Produkt. Er wird hier ausgeblendet, sonst faelscht er das Bild.
+# nicht zum Produkt. Er wird ausgeblendet, sonst faelscht er das Bild.
+SOLL_DIENSTE="postgres-db docker-proxy reverse-proxy llm-service embedding-service document-indexer dashboard-backend dashboard-frontend metrics-collector self-healing-agent backup-service"
+SOLL_MIT_PROFIL="cloudflared"
+
+echo "--- Die Dienste ---"
+LAUFEN=$(ssh -n "$HOST" "docker ps --format '{{.Names}}' | grep -v '^pruef-'" 2>/dev/null)
+FEHLEN=""
+for dienst in $SOLL_DIENSTE; do
+  if ! grep -qx "$dienst" <<<"$LAUFEN"; then
+    FEHLEN="${FEHLEN} ${dienst}"
+  fi
+done
+ANZ_SOLL=$(echo "$SOLL_DIENSTE" | wc -w | tr -d ' ')
+echo "  von ${ANZ_SOLL} erwarteten laufen: $(( ANZ_SOLL - $(echo "$FEHLEN" | wc -w | tr -d ' ') ))"
+if [ -n "$FEHLEN" ]; then
+  echo "  ACHTUNG, es fehlen:${FEHLEN}"
+fi
+for dienst in $SOLL_MIT_PROFIL; do
+  if grep -qx "$dienst" <<<"$LAUFEN"; then
+    echo "  ${dienst}: laeuft (Profil tunnel)"
+  else
+    echo "  ${dienst}: nicht gestartet (Profil tunnel, ohne Fernzugriff richtig so)"
+  fi
+done
+
+# Die App-Container: was das Backend selbst angelegt hat.
+APPS=$(grep '^arasul-app-' <<<"$LAUFEN" || true)
+if [ -n "$APPS" ]; then
+  echo "  App-Container: $(echo "$APPS" | wc -l | tr -d ' ') ($(echo "$APPS" | tr '\n' ' '))"
+else
+  echo "  App-Container: keiner"
+fi
+echo ""
+
 echo "--- Dienste, die von selbst neu starten mussten ---"
-NEUSTARTS=$(ssh "$HOST" "docker inspect \$(docker ps --format '{{.Names}}' | grep -v '^pruef-' | grep -v '^arasul-sandbox-') --format '{{.Name}} {{.RestartCount}}' 2>/dev/null | sed 's|^/||'" 2>/dev/null)
+# Ein `docker compose up` beim Deploy zaehlt NICHT mit: RestartCount steigt nur,
+# wenn Docker selbst neu startet, also nach einem Absturz. Genau das ist die
+# Frage.
+NEUSTARTS=$(ssh -n "$HOST" "docker inspect \$(docker ps --format '{{.Names}}' | grep -v '^pruef-') --format '{{.Name}} {{.RestartCount}}' 2>/dev/null | sed 's|^/||'" 2>/dev/null)
 SCHLECHT=$(echo "$NEUSTARTS" | awk '$2 > 0 {print "  " $1 ": " $2 " Neustart(s)"}')
 if [ -z "$SCHLECHT" ]; then
   echo "  keiner (das ist die gute Antwort)"
@@ -79,7 +143,7 @@ else
   echo "$SCHLECHT"
 fi
 ANZ_DIENSTE=$(echo "$NEUSTARTS" | grep -c . )
-echo "  geprueft: ${ANZ_DIENSTE} Dienste"
+echo "  geprueft: ${ANZ_DIENSTE} laufende Container"
 echo ""
 
 # --- 2. Selbstheilung ------------------------------------------------------
@@ -122,8 +186,36 @@ sql "SELECT to_char(timestamp,'DD.MM. HH24:MI')||' '||coalesce(service_name,'-')
 echo ""
 
 # --- 3. Sicherungen --------------------------------------------------------
+# Seit Phase C9 sind es vier Arten, und drei davon fehlten hier: die Pakete der
+# Apps, die Flow-Dateien, die Konfiguration. Ein Bericht, der nur die Datenbank
+# zaehlt, sagt ueber die Wiederherstellbarkeit eines Geraets wenig -- die
+# Datenbank nennt Apps, deren Dateien in keinem Archiv stehen.
 echo "--- Sicherungen ---"
-ssh "$HOST" "ls -1t ${REPO}/data/backups/postgres 2>/dev/null | head -3 | sed 's/^/  /'; echo '  Anzahl gesamt: '\$(ls -1 ${REPO}/data/backups/postgres 2>/dev/null | wc -l)" 2>/dev/null
+for art in postgres apps flows config; do
+  ZEILE=$(ssh -n "$HOST" "ls -1t ${REPO}/data/backups/${art} 2>/dev/null | grep -v latest | head -1" 2>/dev/null)
+  ANZ=$(ssh -n "$HOST" "ls -1 ${REPO}/data/backups/${art} 2>/dev/null | grep -v latest | wc -l" 2>/dev/null)
+  printf '  %-9s %s\n' "$art" "${ZEILE:-(keine)}${ZEILE:+  (${ANZ// /} Stueck)}"
+done
+
+# Die Kopie AUSSERHALB des Geraets. Sie ist der einzige Teil der Sicherung, der
+# einen Plattenausfall ueberlebt -- und der einzige, den ein Mensch vergessen
+# kann (Stick abgezogen und nicht wieder angesteckt).
+EXTERN=$(ssh -n "$HOST" "cat ${REPO}/data/backups/extern_bericht.json 2>/dev/null" 2>/dev/null)
+if [ -n "$EXTERN" ]; then
+  echo "  ausserhalb: $(python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("zeitpunkt","?"), d.get("bytes",0), "Bytes,", d.get("dateien",0), "Dateien")' <<<"$EXTERN" 2>/dev/null)"
+else
+  echo "  ausserhalb: noch nie eine Kopie (kein Datentraeger angesteckt?)"
+fi
+
+# Der Wiederherstellungstest. Er laeuft woechentlich; steht hier nichts, ist
+# noch nie einer gelaufen -- und dann ist ueber die Sicherungen oben nichts
+# bewiesen ausser, dass es sie gibt.
+DRILL=$(ssh -n "$HOST" "cat ${REPO}/data/backups/restore_drill_report.json 2>/dev/null" 2>/dev/null)
+if [ -n "$DRILL" ]; then
+  echo "  Wiederherstellungstest: $(python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("status","?"), d.get("timestamp",""), "-", d.get("detail",""))' <<<"$DRILL" 2>/dev/null)"
+else
+  echo "  Wiederherstellungstest: nie gelaufen"
+fi
 echo ""
 
 # --- 4. Luecken in der Messreihe -------------------------------------------
@@ -153,6 +245,7 @@ echo ""
 # --- Urteil ----------------------------------------------------------------
 echo "--- Urteil ---"
 ROT=0
+[ -n "$FEHLEN" ] && { echo "  ROT: es fehlen Dienste:${FEHLEN}"; ROT=1; }
 [ -n "$SCHLECHT" ] && { echo "  ROT: mindestens ein Dienst musste neu starten"; ROT=1; }
 [ "${MISS_B:-0}" -gt 0 ] && { echo "  ROT: seit dem Neustart ist eine Selbstheilung fehlgeschlagen"; ROT=1; }
 [ "${LUECKE_UNERKLAERT:-0}" -gt 0 ] && { echo "  ROT: die Messreihe hat eine unerklaerte Luecke"; ROT=1; }

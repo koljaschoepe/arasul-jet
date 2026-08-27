@@ -49,9 +49,9 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # statt daneben. Sie waren nie im Browser, aber sie messen gegen dasselbe
 # Geraet, und seit alle sich einen Token teilen, gibt es keinen Grund mehr,
 # sie getrennt zu fahren. Was weiter daneben steht, ist das Zerstoerende:
-# `passwort-loeschung-abnahme.sh` und `werksreset-abnahme.sh` laufen nur gegen
-# den Pruefstand, `souveraenitaet-abnahme.sh` und `endpunkte-live.py` messen
-# etwas anderes als eine Funktion.
+# `passwort-loeschung-abnahme.sh`, `werksreset-abnahme.sh` und `dr-drill.sh`
+# laufen nur gegen den Pruefstand, `souveraenitaet-abnahme.sh` und
+# `endpunkte-live.py` messen etwas anderes als eine Funktion.
 #
 # Phase C4 (27.08.2026): `app-anmeldung` kommt dazu und steht direkt hinter
 # `apps` -- sie misst, was `apps` voraussetzt. Sie braucht ZWEI eigene
@@ -62,7 +62,14 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # Phase C8 (27.08.2026): `modelle` kommt dazu und braucht KEINE eigene
 # Anmeldung -- sie nimmt den geteilten Token und legt sich ihren Schluessel
 # selbst an. Die Reihe bleibt damit bei zehn Anmeldungen.
-ALLE=(csp fernzugriff rueckmeldung oberflaeche apps app-anmeldung rollen mitarbeiter modelle)
+#
+# Phase C9 (27.08.2026): `betrieb` kommt dazu und braucht KEINE eigene
+# Anmeldung. Sie steht am ENDE der Reihe, und das ist Absicht: sie stoesst eine
+# Sicherung und einen Wiederherstellungstest an, beides dauert Minuten und
+# beides fasst die Platte an. Wer sie vorn einreiht, misst danach die
+# Warteschlange statt die Funktion. Ihr zerstoerender Teil steht ohnehin
+# daneben (`dr-drill.sh`, loeschend, nur am Geraet).
+ALLE=(csp fernzugriff rueckmeldung oberflaeche apps app-anmeldung rollen mitarbeiter modelle betrieb)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 
