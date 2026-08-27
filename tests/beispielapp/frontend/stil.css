@@ -1,0 +1,29 @@
+/* Ohne Build-Schritt und ohne Design-System: die Beispielapp soll das
+   App-Modell zeigen, nicht das Erscheinungsbild. Das bringt die Vorlage des
+   Ara-Kits mit (Phase E5). */
+:root {
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+}
+main {
+  max-width: 42rem;
+  padding: 3rem 1.5rem;
+}
+h1 {
+  margin-bottom: 0.5rem;
+}
+code,
+pre {
+  font-family: ui-monospace, monospace;
+}
+pre {
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+  white-space: pre-wrap;
+}
