@@ -83,7 +83,21 @@ Gerät heißt im Firmennetz schlicht `arasul` (DHCP-Hostname, Rückfall
 erzeugten **Geräte-CA**, deren Zertifikat der Admin einmal aus der Oberfläche
 lädt und verteilt — siehe [`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md)
 und [`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`](docs/ops/NETZNAME_UND_ZERTIFIKAT.md).
-Die neue Oberfläche kommt mit den D-Phasen.
+Seit D1 steht die **Shell** aus Beschluss 10: dreispaltig, links die Apps aus
+`GET /api/apps/meine`, in der Mitte die Übersicht oder eine App (iframe auf
+`/apps/<id>/`, Forward-Auth aus C4), rechts die **Notizen** (`/api/notizen`,
+einer je Mensch). Mitarbeiter-Sicht zuerst: **die Rolle blendet aus, das
+Backend entscheidet** — die Verwaltung (Modelle, Einstellungen) ist für einen
+Mitarbeiter nicht sichtbar, und `requireRole` antwortet ihm dort ohnehin mit
+403; das Abmelden sitzt deshalb im Benutzermenü der Kopfleiste und nicht mehr
+in den Einstellungen. Angemeldet wird mit Benutzername **oder** E-Mail (C1);
+ein vom Administrator gesetztes Passwort ist ein Startpasswort und wird beim
+ersten Anmelden gewechselt (`admin_users.passwort_vom_admin`, Migration 178).
+Die Zahl der offenen Freigaben aus C7 steht in der Statusleiste; die Oberfläche
+zum Entscheiden kommt später. Abnahme: `scripts/test/shell-abnahme.sh`
+(Bilder in drei Breiten: `scripts/test/shell-bilder.mjs`) — sie läuft **neben**
+`abnahmen.sh`, weil die Reihe dort mit zehn Anmeldungen auf der Drossel sitzt.
+Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |

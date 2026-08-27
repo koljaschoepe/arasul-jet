@@ -3,8 +3,11 @@ import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 're
 import { IsolatedMemoryRouter } from './IsolatedMemoryRouter';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
-import { useWorkspaceStore, tabToPath } from '@/stores/workspaceStore';
-import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/workspaceStore';
+import { useWorkspaceStore, tabToPath, nurFuerAdmin } from '@/stores/workspaceStore';
+import { useAuth } from '@/contexts/AuthContext';
+import type { WorkspaceTab, WorkspaceTabSpec } from '@/stores/workspaceStore';
+import { Uebersicht } from '@/features/apps/Uebersicht';
+import { AppRahmen } from '@/features/apps/AppRahmen';
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
@@ -43,9 +46,18 @@ function TabBridge({
   return null;
 }
 
+/**
+ * Die Tab-Typen, die aus der Zeit der Legacy-Routen stammen und deshalb einen
+ * eigenen MemoryRouter brauchen. `dashboard` und `app` (Phase D1) gehören
+ * NICHT dazu: sie sind ohne Router gebaut, ihr Zustand steht im Workspace-Store
+ * bzw. im iframe der App. Einen Router um sie zu legen hieße, ihnen eine
+ * zweite, unsichtbare Adresse zu geben, die niemand benutzt.
+ */
+type RouterTabTyp = 'settings' | 'modelle';
+
 /** Legacy-Startpfad je Tab-Typ (für den MemoryRouter des Tabs). */
-function initialPathFor(tab: WorkspaceTab): string {
-  switch (tab.type) {
+function initialPathFor(typ: RouterTabTyp): string {
+  switch (typ) {
     case 'settings':
       return '/settings';
     case 'modelle':
@@ -54,17 +66,18 @@ function initialPathFor(tab: WorkspaceTab): string {
 }
 
 /** Welche Route-Keys gehören zum Tab selbst (statt zur Bridge)? */
-const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
+const SELF_KEYS: Record<RouterTabTyp, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   modelle: new Set(['store']),
 };
 
 /**
- * Hostet einen Feature-Tab in einem eigenen MemoryRouter. Die Route-Tabelle
- * spiegelt die Legacy-Pfade: Routen des eigenen Features rendern das Feature,
- * fremde Pfade werden per TabBridge in Workspace-Tabs übersetzt. Dadurch
- * funktionieren Router-gekoppelte Features (Store, Einstellungen) ohne
- * Eingriff in ihren Code als Tab.
+ * Die Weiche für den Inhalt eines Tabs.
+ *
+ * Zwei Typen (Übersicht und App, Phase D1) rendern direkt. Die übrigen sind
+ * Router-gekoppelte Features aus der Zeit der Legacy-Pfade und laufen je in
+ * einem eigenen MemoryRouter (`RouterTab`) — dadurch funktionieren Store und
+ * Einstellungen ohne Eingriff in ihren Code als Tab.
  */
 export function FeatureTabHost({
   tab,
@@ -73,8 +86,44 @@ export function FeatureTabHost({
   tab: WorkspaceTab;
   themeControls: TabThemeControls;
 }) {
-  const resetTo = initialPathFor(tab);
-  const self = SELF_KEYS[tab.type];
+  // Die zwei Typen aus D1 stehen VOR dem Router und nicht darin: sie haben
+  // keine Legacy-Adresse, an die eine Brücke führen könnte, und ihr Zustand
+  // steht im Workspace-Store bzw. im iframe der App. Diese Weiche ruft selbst
+  // keinen Hook auf — deshalb darf sie vorzeitig zurückkehren.
+  if (tab.type === 'dashboard') {
+    return <Uebersicht />;
+  }
+  if (tab.type === 'app') {
+    // Ohne Kennung ist der Tab keiner. Die Store-Migration wirft solche Tabs
+    // weg (v10); hier steht der Fall trotzdem, weil `appId` im Typ optional
+    // ist und ein `!` an dieser Stelle nur die Frage verstecken würde.
+    return tab.appId ? (
+      <AppRahmen appId={tab.appId} stand={tab.stand ?? 'live'} />
+    ) : (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        Dieser Tab zeigt auf keine App.
+      </div>
+    );
+  }
+  return <RouterTab typ={tab.type} tab={tab} themeControls={themeControls} />;
+}
+
+/**
+ * Ein Tab, dessen Feature an einen Router gekoppelt ist (Einstellungen,
+ * Modelle). Er bekommt einen eigenen MemoryRouter mit der Legacy-Route des
+ * Features; fremde Pfade übersetzt die TabBridge in Tab-Öffnungen.
+ */
+function RouterTab({
+  typ,
+  tab,
+  themeControls,
+}: {
+  typ: RouterTabTyp;
+  tab: WorkspaceTab;
+  themeControls: TabThemeControls;
+}) {
+  const resetTo = initialPathFor(typ);
+  const self = SELF_KEYS[typ];
 
   // Der Suchteil der ECHTEN Adresse muss in den MemoryRouter dieses Tabs
   // hinein, sonst kommt er nirgends an (Plan 023 B1, Nachtrag).
@@ -132,6 +181,8 @@ export function FeatureTabHost({
  * nicht mitreißen.
  */
 export function TabContent({ themeControls }: TabContentProps) {
+  const { user } = useAuth();
+  const istAdmin = user?.role === 'admin';
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
 
@@ -155,19 +206,31 @@ export function TabContent({ themeControls }: TabContentProps) {
           data-tab-path={tabToPath(tab)}
         >
           <ComponentErrorBoundary componentName={`Tab ${tab.title}`}>
-            <Suspense
-              fallback={
-                <div className="flex flex-col gap-6 p-6 animate-in fade-in">
-                  <SkeletonText lines={2} width="40%" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <SkeletonCard hasAvatar={false} lines={3} />
-                    <SkeletonCard hasAvatar={false} lines={3} />
+            {/* Ein Admin-Tab, der im gespeicherten Stand eines Mitarbeiters
+                liegt (er war einmal Administrator), zeigt einen Satz statt
+                einer Seite, die bei jedem Handgriff 403 sagt. */}
+            {!istAdmin && nurFuerAdmin(tab.type) ? (
+              <div
+                className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground"
+                data-testid="tab-nur-admin"
+              >
+                {tab.title} ist der Verwaltung vorbehalten.
+              </div>
+            ) : (
+              <Suspense
+                fallback={
+                  <div className="flex flex-col gap-6 p-6 animate-in fade-in">
+                    <SkeletonText lines={2} width="40%" />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <SkeletonCard hasAvatar={false} lines={3} />
+                      <SkeletonCard hasAvatar={false} lines={3} />
+                    </div>
                   </div>
-                </div>
-              }
-            >
-              <FeatureTabHost tab={tab} themeControls={themeControls} />
-            </Suspense>
+                }
+              >
+                <FeatureTabHost tab={tab} themeControls={themeControls} />
+              </Suspense>
+            )}
           </ComponentErrorBoundary>
         </div>
       ))}

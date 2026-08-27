@@ -61,8 +61,12 @@ router.post(
     }
 
     // Get user from database
+    // `username` ist hier Benutzername ODER E-Mail (Phase C1): der Mitarbeiter
+    // bekommt vom Administrator beides und soll sich nicht merken muessen,
+    // welches davon das Anmelde-Merkmal ist.
     const result = await db.query(
-      'SELECT id, username, password_hash, email, role, is_active FROM admin_users WHERE username = $1 OR email = $1',
+      `SELECT id, username, password_hash, email, role, is_active, passwort_vom_admin
+         FROM admin_users WHERE username = $1 OR email = $1`,
       [username]
     );
 
@@ -155,6 +159,13 @@ router.post(
         username: user.username,
         email: user.email,
         role: user.role,
+        // Das Passwort hat jemand anderes gesetzt (Startpasswort, Phase D1).
+        // Die Oberflaeche verlangt den Wechsel, BEVOR sie die Shell zeigt; das
+        // Backend sperrt deswegen nichts -- es sagt nur, was der Fall ist.
+        // Eine Sperre hier waere die falsche Stelle: sie muesste jeden Weg
+        // einzeln kennen, und der eine Weg, den sie offenlassen muesste, ist
+        // ausgerechnet der Passwortwechsel.
+        passwortWechselNoetig: user.passwort_vom_admin === true,
       },
       timestamp: new Date().toISOString(),
     });
@@ -356,6 +367,7 @@ router.get(
         username: req.user.username,
         email: req.user.email,
         role: req.user.role,
+        passwortWechselNoetig: req.user.passwort_vom_admin === true,
       },
       timestamp: new Date().toISOString(),
     });
@@ -394,6 +406,7 @@ router.get(
             username: req.user.username,
             email: req.user.email,
             role: req.user.role,
+            passwortWechselNoetig: req.user.passwort_vom_admin === true,
           }
         : null,
       timestamp: new Date().toISOString(),

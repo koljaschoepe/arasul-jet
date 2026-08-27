@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Download, ChevronsUpDown, Wifi } from 'lucide-react';
+import { ClipboardCheck, Cpu, Download, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
 import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';
@@ -9,6 +9,7 @@ import { modellage, wechselGrund, kiRamZeile, zuGb } from '@/utils/modellZustand
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import {
   isModelInstalled,
   isModelActive,
@@ -32,6 +33,12 @@ interface HealthResponse {
  * wählen). Die beiden Popover laden ihre Detaildaten erst beim Öffnen (kein
  * Dauer-Poll auf dem Jetson). Das aktive Projekt und die Git-Kopplung, die
  * rechts standen, sind mit B2 gefallen.
+ *
+ * Rechts steht seit D1 die Zahl der Freigaben, die auf eine Entscheidung
+ * warten (Phase C7). Nur die ZAHL: die Oberfläche zum Entscheiden ist D2 oder
+ * später, und eine halbe hier wäre die, die dann noch einmal gebaut wird. Bis
+ * dahin ist die Zahl trotzdem das, was gefehlt hat — ein angehaltener Lauf
+ * stand in der Datenbank und wartete darauf, dass jemand die Adresse kennt.
  */
 export function StatusBar() {
   const api = useApi();
@@ -108,6 +115,9 @@ export function StatusBar() {
 
   // Globales Download-Feedback: laufende Modell-Downloads sind sonst nur im
   // Store sichtbar — hier bleiben sie es überall, ein Klick springt hin.
+  const { data: offeneFreigaben } = useOffeneFreigaben();
+  const wartende = offeneFreigaben?.length ?? 0;
+
   const { activeDownloadsList } = useDownloads();
   const openTab = useWorkspaceStore(s => s.openTab);
   const laufendeDownloads = activeDownloadsList.filter(
@@ -320,6 +330,17 @@ export function StatusBar() {
       )}
 
       <div className="flex-1" />
+
+      {wartende > 0 && (
+        <span
+          className="flex items-center gap-1.5 px-1 text-foreground"
+          data-testid="statusbar-freigaben"
+          title="Freigaben, die auf deine Entscheidung warten"
+        >
+          <ClipboardCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
+          {wartende === 1 ? '1 Freigabe wartet' : `${wartende} Freigaben warten`}
+        </span>
+      )}
     </footer>
   );
 }

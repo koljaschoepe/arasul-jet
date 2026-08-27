@@ -1,6 +1,8 @@
 import React from 'react';
-import { Settings, PanelLeft, PanelRight } from 'lucide-react';
+import { LogOut, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
 
 /** Icon-Toggle für die zwei Layout-Flächen (Sidebar/rechte Spalte). */
@@ -33,17 +35,30 @@ function LayoutToggleButton({
   );
 }
 
+interface WorkspaceMenuBarProps {
+  /** Abmelden. Kommt von der Shell, die es von App.tsx bekommt. */
+  onLogout: () => Promise<void> | void;
+}
+
 /**
  * Schlanke Top-Menüleiste der Shell, bewusst minimal: links die Marke, rechts
- * die zwei Layout-Toggles (Sidebar / rechte Spalte) neben den Einstellungen.
- * Das Theme (Schwarz/Dunkel/Hell) wird ausschließlich in den Einstellungen →
- * Erscheinungsbild gesetzt (Plan 005 · Schritt 1).
+ * die zwei Layout-Toggles (Sidebar / rechte Spalte), das Benutzermenü und —
+ * für den Administrator — die Einstellungen. Das Theme (Schwarz/Dunkel/Hell)
+ * wird ausschließlich in den Einstellungen → Erscheinungsbild gesetzt
+ * (Plan 005 · Schritt 1).
  *
  * Das Datei-Menü (Ordner anlegen, Terminal, Dokumente hochladen) und der
  * Projekt-Umschalter sind mit B2 gefallen: Explorer, Terminal und Projekte
  * gibt es in der Oberfläche nicht mehr.
+ *
+ * DAS BENUTZERMENÜ IST NEU IN D1, und es musste kommen: das Abmelden lag
+ * bisher **in** den Einstellungen, und die Einstellungen sind ab dieser Phase
+ * eine Admin-Seite. Ein Mitarbeiter hätte sich sonst nicht mehr abmelden
+ * können — die Rolle hätte nicht nur ausgeblendet, sondern eingesperrt.
  */
-export function WorkspaceMenuBar() {
+export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
+  const { user } = useAuth();
+  const istAdmin = user?.role === 'admin';
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
@@ -73,7 +88,7 @@ export function WorkspaceMenuBar() {
           <PanelLeft className="h-4 w-4" aria-hidden="true" />
         </LayoutToggleButton>
         <LayoutToggleButton
-          label={rightPanelVisible ? 'Panel ausblenden' : 'Panel einblenden'}
+          label={rightPanelVisible ? 'Notizen ausblenden' : 'Notizen einblenden'}
           pressed={rightPanelVisible}
           onClick={toggleRightPanel}
         >
@@ -83,22 +98,62 @@ export function WorkspaceMenuBar() {
 
       <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
 
-      <button
-        type="button"
-        title="Einstellungen"
-        aria-label="Einstellungen"
-        onClick={() => {
-          selectView('settings');
-          openTab({ type: 'settings' });
-        }}
-        className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
-          activeTabId === 'settings'
-            ? 'bg-accent text-foreground'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-        }`}
-      >
-        <Settings className="h-4 w-4" aria-hidden="true" />
-      </button>
+      {/* Die Einstellungen sind ab D1 eine Admin-Seite. Sie einem Mitarbeiter
+          zu zeigen hiesse, ihm sechs Bereiche anzubieten, von denen fünf mit
+          403 antworten. Entscheiden tut weiter `requireRole` im Backend. */}
+      {istAdmin && (
+        <button
+          type="button"
+          title="Einstellungen"
+          aria-label="Einstellungen"
+          onClick={() => {
+            selectView('settings');
+            openTab({ type: 'settings' });
+          }}
+          className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
+            activeTabId === 'settings'
+              ? 'bg-accent text-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          <Settings className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
+
+      <Popover>
+        <PopoverTrigger
+          title="Konto"
+          aria-label="Konto"
+          data-testid="workspace-benutzermenue"
+          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <User className="h-4 w-4" aria-hidden="true" />
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-56 p-1 text-xs">
+          <div className="px-2 py-1.5">
+            <p className="truncate text-sm font-medium text-foreground">
+              {user?.username ?? 'Angemeldet'}
+            </p>
+            {/* Die Rolle steht da, weil sie erklärt, warum jemand mehr oder
+                weniger sieht als der Kollege daneben. */}
+            <p className="text-muted-foreground">
+              {user?.role === 'admin' ? 'Administrator' : 'Mitarbeiter'}
+            </p>
+          </div>
+          <div className="my-1 h-px bg-border" aria-hidden="true" />
+          <button
+            type="button"
+            data-testid="workspace-abmelden"
+            onClick={() => {
+              void onLogout();
+            }}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground hover:bg-accent"
+          >
+            <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Abmelden
+          </button>
+        </PopoverContent>
+      </Popover>
     </header>
   );
 }

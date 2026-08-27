@@ -24,6 +24,13 @@ interface User {
   username: string;
   /** `admin` oder `mitarbeiter` (Phase C1); das Backend liefert sie mit jeder Anmeldung. */
   role?: 'admin' | 'mitarbeiter';
+  /**
+   * Das aktuelle Passwort hat jemand anderes gesetzt (Phase D1,
+   * `admin_users.passwort_vom_admin`). Steht in der Antwort von `/auth/login`,
+   * `/auth/me` und `/auth/session`, damit ein Neuladen der Seite denselben
+   * Schluss zieht wie die Anmeldung selbst.
+   */
+  passwortWechselNoetig?: boolean;
   [key: string]: unknown;
 }
 

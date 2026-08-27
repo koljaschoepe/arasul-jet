@@ -36,6 +36,11 @@ const INHALTE = [
   ['public.approvals', 'Freigabe-Anfragen aus Flow-Läufen'],
   ['arasul.flow_run_steps', 'Einzelschritte der Flow-Läufe'],
   ['arasul.flow_runs', 'Flow-Läufe'],
+  // Der Zettel aus der rechten Spalte der Shell (Phase D1). Nutzerinhalt, also
+  // Stufe 1: wer die Inhalte zurücksetzt, meint auch die Notizen. Die Zeile
+  // ginge mit dem Benutzer ohnehin (ON DELETE CASCADE, Migration 177), aber
+  // Stufe 1 löscht keine Benutzer.
+  ['public.notizen', 'Der Zettel in der rechten Spalte, einer je Mensch'],
 ];
 
 /** Einrichtung des Geräts. Weg nur bei Stufe 2. */

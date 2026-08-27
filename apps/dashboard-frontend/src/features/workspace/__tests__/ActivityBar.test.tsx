@@ -1,26 +1,37 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+/**
+ * ActivityBar — die schmale Spalte ganz links.
+ *
+ * Seit D1 steht »Apps« oben und ist für jeden da; »Modelle« und das
+ * Einstellungen-Zahnrad gehören dem Administrator. Die Rolle blendet aus, das
+ * Backend entscheidet — hier wird nur das Ausblenden geprüft.
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ActivityBar } from '../ActivityBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { angemeldet } from '@/__tests__/helpers/authMock';
+
+vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 
 function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
     activeTabId: null,
-    activeView: null,
+    activeView: 'apps',
     sidebarVisible: true,
     rightPanelVisible: true,
   });
 }
 
-describe('ActivityBar, feste Spalte: Modelle + Zahnrad', () => {
+describe('ActivityBar, feste Spalte: Apps + Modelle + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
+    angemeldet({ role: 'admin' });
   });
 
-  it('zeigt die Ansicht Modelle und das Einstellungen-Zahnrad', () => {
+  it('zeigt dem Administrator Apps, Modelle und das Einstellungen-Zahnrad', () => {
     render(<ActivityBar />);
-    for (const label of ['Modelle', 'Einstellungen']) {
+    for (const label of ['Apps', 'Modelle', 'Einstellungen']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     // »Dateien« (Explorer) ist mit B2 gefallen, »Erweiterungen« und »Flows«
@@ -30,6 +41,24 @@ describe('ActivityBar, feste Spalte: Modelle + Zahnrad', () => {
     }
     // »Automation« (n8n) ist mit B5 gefallen.
     expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
+  });
+
+  it('zeigt dem Mitarbeiter NUR die Apps', () => {
+    angemeldet({ role: 'mitarbeiter', username: 'mia' });
+    render(<ActivityBar />);
+    expect(screen.getByLabelText('Apps')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Modelle')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
+  });
+
+  it('Apps wählt die Ansicht, zieht die Sidebar auf und öffnet die Übersicht', () => {
+    useWorkspaceStore.setState({ sidebarVisible: false, activeView: 'models' });
+    render(<ActivityBar />);
+    fireEvent.click(screen.getByLabelText('Apps'));
+    const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('apps');
+    expect(s.sidebarVisible).toBe(true);
+    expect(s.activeTabId).toBe('dashboard');
   });
 
   it('Modelle wählt die Ansicht, zieht die Sidebar auf und öffnet den Modelle-Tab', () => {
