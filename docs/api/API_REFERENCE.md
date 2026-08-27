@@ -2140,8 +2140,14 @@ With `wait_for_result: true` (default) it blocks until the run reaches a termina
 state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
 are owned by the API key's creator; an orphaned key (creator deleted) gets
-`403 FORBIDDEN`. This is the per-flow HTTP trigger; there is no scheduler on
-the device, recurring starts come from outside through this endpoint.
+`403 FORBIDDEN`.
+
+> **Ein Flow mit Freigabe-Schritt gehört mit `wait_for_result: false` gestartet**
+> (Phase C7). Er hält an, bis ein Mensch entscheidet — das kann Stunden dauern,
+> und der wartende Aufruf läuft vorher in sein Zeitlimit (höchstens 30 Minuten).
+> Die Lauf-Nummer kommt sofort; den Rest fragt man über
+> `GET /flows/runs/:id` und `GET /freigaben?lauf=<id>` nach. This is the per-flow HTTP trigger; there is no scheduler on
+> the device, recurring starts come from outside through this endpoint.
 
 #### Zwei Namensräume, ein Schlüssel entscheidet (Phase C6)
 
