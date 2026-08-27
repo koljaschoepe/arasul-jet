@@ -559,14 +559,51 @@ class TestSelfHealingEngine(unittest.TestCase):
             mock_clear.assert_called_once()
 
     def test_handle_category_b_ram_overload(self):
-        """Kategorie B, RAM-Ueberlast: seit B5 nur gemeldet, kein Dienst wird angehalten."""
+        """Kategorie B, RAM-Ueberlast: das geladene Modell wird entladen (C8).
+
+        Bis B5 hielt die Selbstheilung hier n8n an; danach stand der Zweig ohne
+        Hebel da und meldete nur. Seit C8 gibt er den groessten einzelnen
+        Posten frei, den ein Dienst hergeben kann: das Modell im Speicher.
+        Angehalten wird weiterhin kein Container -- das war der Grund, warum
+        der alte Hebel weg musste.
+        """
         metrics = {'cpu': 50, 'ram': 95, 'gpu': 0, 'temperature': 60}
 
-        with patch.object(self.engine, 'log_event') as mock_log:
+        with patch.object(self.engine, 'log_event') as mock_log, \
+                patch.object(self.engine, 'record_recovery_action') as mock_action, \
+                patch.object(self.engine, 'entlade_modelle',
+                             return_value={'erfolg': True, 'entladen': ['qwen3.8:iq4'],
+                                           'meldung': ''}) as mock_entladen:
             self.engine.handle_category_b_overload(metrics)
+
+        mock_entladen.assert_called_once()
         typen = [c.args[0] for c in mock_log.call_args_list]
         self.assertIn('ram_overload', typen)
+        mock_action.assert_called_once()
+        self.assertEqual(mock_action.call_args.args[0], 'model_unload')
+        self.assertTrue(mock_action.call_args.args[3])
         self.mock_client.containers.get.return_value.stop.assert_not_called()
+
+    def test_ram_ueberlast_ohne_geladenes_modell_meldet_keinen_erfolg(self):
+        """Kein Modell geladen heisst: der Speicher liegt woanders.
+
+        Ein `record_recovery_action(..., success=True)` waere hier die falsche
+        Auskunft -- er behauptete eine Massnahme, die es nicht gab, und die
+        Eskalation an einen Menschen bliebe aus. Genau dieser Fehler steckte
+        bis zum 27.08.2026 in `clear_llm_cache`: der Aufruf lief gegen eine
+        Route, die es auf diesem Port nicht gibt, HTTP 404 galt als Erfolg.
+        """
+        metrics = {'cpu': 50, 'ram': 95, 'gpu': 0, 'temperature': 60}
+
+        with patch.object(self.engine, 'log_event') as mock_log, \
+                patch.object(self.engine, 'record_recovery_action') as mock_action, \
+                patch.object(self.engine, 'entlade_modelle',
+                             return_value={'erfolg': True, 'entladen': [], 'meldung': ''}):
+            self.engine.handle_category_b_overload(metrics)
+
+        mock_action.assert_not_called()
+        meldungen = [c.args[3] for c in mock_log.call_args_list if c.args[0] == 'ram_overload']
+        self.assertTrue(any('kein Modell geladen' in m for m in meldungen), meldungen)
 
     def test_handle_category_b_gpu_overload(self):
         """Category B: hohe GPU-Last allein loest NICHTS aus.
