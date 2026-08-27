@@ -13,10 +13,12 @@
 > `llm_model_catalog` traegt genau die vier Modelle der Kurzliste und hat die
 > Spalte `selbst_hinzugefuegt` (Migration 160) wieder verloren;
 > `recovery_actions.action_type` kennt zusaetzlich `model_unload`.
+> Am 27.08.2026 von Hand ergaenzt (Migrationen 177/178, Phase D1): die Tabelle
+> `notizen` und die Spalte `admin_users.passwort_vom_admin`.
 
 ## Übersicht
 
-- Tabellen: **58**
+- Tabellen: **59**
 - Spalten gesamt: **817**
 - Foreign Keys: **52**
 - Indexes: **311**
@@ -59,20 +61,28 @@
 > Benutzer des Geräts: Administratoren und Mitarbeiter (seit Migration 167).
 > `role` ist `admin` oder `mitarbeiter` (`CHECK admin_users_role_check`, 167);
 > der Wert steuert `requireRole` im Backend.
+> `passwort_vom_admin` (Migration 178, Phase D1) sagt, dass das **aktuelle**
+> Passwort jemand anderes gesetzt hat — beim Anlegen, über
+> `PUT /api/benutzer/:id/passwort` oder beim Bootstrap. Solange es `true` ist,
+> verlangt die Oberfläche nach der Anmeldung einen Wechsel;
+> `POST /api/auth/change-password` ist die einzige Stelle, die es auf `false`
+> setzt. Bestandszeilen bekamen `false`: wer das Passwort in der Vergangenheit
+> gesetzt hat, weiß die Spalte nicht.
 
-| Column           | Type                     | Nullable | Default                                   |
-| ---------------- | ------------------------ | -------- | ----------------------------------------- |
-| `id`             | bigint                   | ⛔       | `nextval('admin_users_id_seq'::regclass)` |
-| `username`       | character varying        | ⛔       |                                           |
-| `password_hash`  | character varying        | ⛔       |                                           |
-| `email`          | character varying        | ✅       |                                           |
-| `created_at`     | timestamp with time zone | ✅       | `now()`                                   |
-| `updated_at`     | timestamp with time zone | ✅       | `now()`                                   |
-| `last_login`     | timestamp with time zone | ✅       |                                           |
-| `login_attempts` | integer                  | ✅       | `0`                                       |
-| `locked_until`   | timestamp with time zone | ✅       |                                           |
-| `is_active`      | boolean                  | ✅       | `true`                                    |
-| `role`           | character varying        | ⛔       | `'admin'::character varying`              |
+| Column               | Type                     | Nullable | Default                                   |
+| -------------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`                 | bigint                   | ⛔       | `nextval('admin_users_id_seq'::regclass)` |
+| `username`           | character varying        | ⛔       |                                           |
+| `password_hash`      | character varying        | ⛔       |                                           |
+| `email`              | character varying        | ✅       |                                           |
+| `created_at`         | timestamp with time zone | ✅       | `now()`                                   |
+| `updated_at`         | timestamp with time zone | ✅       | `now()`                                   |
+| `last_login`         | timestamp with time zone | ✅       |                                           |
+| `login_attempts`     | integer                  | ✅       | `0`                                       |
+| `locked_until`       | timestamp with time zone | ✅       |                                           |
+| `is_active`          | boolean                  | ✅       | `true`                                    |
+| `role`               | character varying        | ⛔       | `'admin'::character varying`              |
+| `passwort_vom_admin` | boolean                  | ⛔       | `false`                                   |
 
 **Primary key:** `id`
 
@@ -1340,6 +1350,30 @@ Slug-Kennung, legt ein Direkt-Pull daneben eine zweite Zeile an (Migration
 
 - `notification_settings_pkey` — `CREATE UNIQUE INDEX notification_settings_pkey ON public.notification_settings USING btree (id)`
 - `notification_settings_user_id_channel_key` — `CREATE UNIQUE INDEX notification_settings_user_id_channel_key ON public.notification_settings USING btree (user_id, channel)`
+
+---
+
+## `notizen`
+
+> Der Zettel in der rechten Spalte der Shell (Migration 177, Phase D1).
+> **Einer je Mensch** — der Primärschlüssel _ist_ die Benutzernummer, damit die
+> Frage „welche Notiz ist die richtige" gar nicht erst entsteht und das
+> Speichern ein `INSERT … ON CONFLICT` bleibt. Kein Notizbuch mit vielen
+> Blättern: wer mehrere braucht, braucht eine App dafür.
+
+| Column         | Type                     | Nullable | Default |
+| -------------- | ------------------------ | -------- | ------- |
+| `user_id`      | bigint                   | ⛔       |         |
+| `inhalt`       | text                     | ⛔       | `''`    |
+| `geaendert_am` | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `user_id`
+
+**Foreign keys:** `user_id` → `admin_users(id)` `ON DELETE CASCADE` — die Notiz
+eines gelöschten Menschen ist sein Text und geht mit ihm.
+
+`inhalt` ist nie `NULL`: „keine Notiz" und „leere Notiz" sind derselbe Zustand.
+Die Längengrenze (20 000 Zeichen) setzt `schemas/notizen.js`, nicht die Spalte.
 
 ---
 

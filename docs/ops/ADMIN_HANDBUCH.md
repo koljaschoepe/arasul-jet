@@ -39,10 +39,10 @@ bis dahin ist der Weg die Schnittstelle, unten beschrieben.
 
 ### Zugriff
 
-| Dienst          | Adresse                                                     |
-| --------------- | ----------------------------------------------------------- |
-| Web-Oberflaeche | `https://arasul/` (Rueckfall `https://arasul.local/`)        |
-| SSH-Zugang      | `ssh -p 2222 arasul@<ip>`                                    |
+| Dienst          | Adresse                                               |
+| --------------- | ----------------------------------------------------- |
+| Web-Oberflaeche | `https://arasul/` (Rueckfall `https://arasul.local/`) |
+| SSH-Zugang      | `ssh -p 2222 arasul@<ip>`                             |
 
 Der nackte Name kommt vom DHCP-Hostnamen, den der Router aufloest; `.local`
 ist der Rueckfall ueber mDNS. Beide stehen im Zertifikat des Geraets, ebenso
@@ -53,25 +53,35 @@ jede seiner IP-Adressen. Heisst das Geraet anders, gilt sein Name.
 Die Oberflaeche nach der Anmeldung ist ein Dreispalten-Raster in drei Themes
 (Schwarz · Dunkel · Hell). Das Theme wird unter **Einstellungen →
 Erscheinungsbild** gewaehlt. Alle Flaechen (Sidebar, Mitte, rechte Spalte)
-teilen denselben Hintergrund; getrennt wird nur durch feine Linien. Im
-Zielbild stehen links die Apps, in der Mitte Dashboard oder App, rechts
-Notizen (Phasen D1 und D2); heute ist die linke Spalte ohne gewaehlte Ansicht
-leer, die rechte Spalte ganz.
+teilen denselben Hintergrund; getrennt wird nur durch feine Linien. Links
+stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
 
-- **Activity Bar (ganz links):** schmale Icon-Leiste mit der Ansicht
-  **Modelle**, ganz unten **Einstellungen** (inkl. System-Status).
-- **Sidebar (links):** zeigt die gewaehlte Ansicht: Modell-Filter oder die
-  Bereiche der Einstellungen. Ohne Auswahl bleibt sie leer. Ein erneuter
-  Klick auf die aktive Ansicht klappt sie ein (auch `Strg/⌘ + B`).
-- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Modelle, Einstellungen),
-  schliessbar, werden nach einem Neuladen wiederhergestellt.
-- **Rechte Spalte:** leer, ein- und ausblendbar.
-- **Layout-Schalter (oben rechts, neben Einstellungen):** **zwei** Symbole
-  blenden die Sidebar und die rechte Spalte unabhaengig ein/aus.
+- **Activity Bar (ganz links):** schmale Icon-Leiste mit **Apps** ganz oben.
+  Fuer Administratoren zusaetzlich **Modelle** und ganz unten
+  **Einstellungen** (inkl. System-Status).
+- **Sidebar (links):** zeigt die gewaehlte Ansicht: die eigenen Apps (Vorgabe),
+  Modell-Filter oder die Bereiche der Einstellungen. Ein erneuter Klick auf die
+  aktive Ansicht klappt sie ein (auch `Strg/⌘ + B`).
+- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Uebersicht, Apps, Modelle,
+  Einstellungen), schliessbar, werden nach einem Neuladen wiederhergestellt.
+  Eine App laeuft in ihrem eigenen Rahmen; Test- und Livestand sind zwei Tabs.
+- **Rechte Spalte:** die **Notizen** — ein Zettel je Mensch, der sich nach
+  einer Sekunde Ruhe von selbst speichert. Ein- und ausblendbar.
+- **Layout-Schalter (oben rechts):** **zwei** Symbole blenden die Sidebar und
+  die Notizen unabhaengig ein/aus. Daneben das **Benutzermenue** (Name, Rolle,
+  Abmelden) und — nur fuer Administratoren — die Einstellungen.
 - **Statusleiste (unten):** Verbindung und Version, das aktuell geladene
   KI-Modell samt belegtem KI-RAM (klickbar: Standardmodell waehlen), laufende
-  Modell-Downloads.
-- **Modelle:** in der Mitte der durchsuchbare **Store**; ein Klick auf eine
+  Modell-Downloads und rechts die Zahl der **Freigaben, die auf eine
+  Entscheidung warten**.
+
+**Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
+hat, die Uebersicht, seine Notizen und sein Konto. Modelle, Benutzer,
+Datensicherung und Einstellungen sind fuer ihn nicht da — und zwar nicht nur
+unsichtbar: das Geraet weist ihn auf jedem dieser Wege ab, auch wenn er die
+Adresse kennt.
+
+- **Modelle (nur Administrator):** in der Mitte der durchsuchbare **Store**; ein Klick auf eine
   Karte oeffnet die Detailseite mit allen Aktionen (installieren, aktivieren,
   als Standard, loeschen). Ueber dem Modell-Raster steht ein
   **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
@@ -428,6 +438,29 @@ curl -sk -X DELETE https://<geraet>/api/apps/urlaub -H "authorization: Bearer $T
 `GET /api/apps/<id>` sagt Ihnen auch, was die App verlangt und was davon da ist:
 welche Sprachmodelle sie braucht und welche Flows. Fehlt eines, laeuft die App
 trotzdem an — das Geraet installiert nichts von allein nach.
+
+### Anmelden
+
+Angemeldet wird mit **Benutzername oder E-Mail-Adresse** und Passwort. Beides
+funktioniert; welches von beiden jemand eintippt, ist gleich.
+
+Zehn Anmeldeversuche je Viertelstunde und Absender-IP. Wer diese Zahl reisst,
+bekommt eine Meldung, die das sagt, und wartet eine Viertelstunde.
+
+### Startpasswort wechseln
+
+Wenn Sie einem Mitarbeiter ein Passwort **setzen** (beim Anlegen oder ueber
+**Benutzer > Passwort setzen**), kennen zwei Menschen es: er und Sie. Das
+Geraet merkt sich das. Bei seiner naechsten Anmeldung kommt er deshalb nicht in
+die Oberflaeche, sondern auf eine Seite, die ein neues Passwort verlangt — ohne
+„Spaeter"; der einzige Weg daneben ist Abmelden. Danach kennt es nur noch er.
+
+Dasselbe gilt fuer das Startpasswort des Administrators, das die Installation
+einmal auf dem Bildschirm zeigt.
+
+Nach dem Wechsel sind **alle** Sitzungen des Betroffenen beendet; er meldet
+sich einmal neu an. Das ist der Zweck: wer wechselt, weil ein Zweiter das alte
+Passwort kannte, will genau das.
 
 ### Passwort aendern
 

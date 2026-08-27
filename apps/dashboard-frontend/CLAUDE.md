@@ -17,34 +17,61 @@ Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`)
 src/
   features/        Domain-organized UI. One folder per top-level route.
     settings/  store/  system/
+    apps/          Die eigenen Apps (D1): `meineApps.ts` (Hook + `zuEintraegen`,
+                   eine App mit Live- UND Teststand ergibt ZWEI Einträge),
+                   `Uebersicht.tsx` (die Mitte ohne offene App) und
+                   `AppRahmen.tsx` (die App im iframe auf `/apps/<id>/`).
+                   **Kein `sandbox` am iframe** — es nähme ihm die eigene
+                   Herkunft und damit das Sitzungscookie, an dem die
+                   Forward-Auth aus C4 hängt. Den Rahmen setzt die CSP des
+                   Geräts (`frame-src 'self'`).
+    notizen/       Der Zettel der rechten Spalte (D1). Ein Textfeld, speichert
+                   nach einer Sekunde Ruhe gegen `PUT /api/notizen`.
     workspace/     Die Shell (Dreispalten-Raster, **immer aktiv** — `/` landet
-                   nach Login stets auf `/workspace`). Die linke Spalte ist
-                   ohne gewählte Ansicht leer, die rechte Spalte ganz; das
-                   Zielbild (links Apps, Mitte Dashboard oder App, rechts
-                   Notizen) füllen D1/D2 des Überordner-Plans.
+                   nach Login stets auf `/workspace`, und `/workspace` ohne
+                   weiteren Pfad auf der **Übersicht**). Seit D1 steht das
+                   Zielbild: links Apps, Mitte Übersicht oder App, rechts
+                   Notizen.
                    WorkspaceMenuBar (Marke + **zwei** Layout-Toggles [Sidebar,
-                   rechte Spalte] + Settings oben rechts), ActivityBar (eigene,
-                   **immer sichtbare** schmale Spalte ganz links — außerhalb des
-                   einklappbaren Panels — mit der Ansicht **Modelle** und dem
-                   Einstellungen-Zahnrad unten),
+                   Notizen] + Benutzermenü + Settings oben rechts — Settings
+                   **nur für `admin`**), ActivityBar (eigene, **immer
+                   sichtbare** schmale Spalte ganz links — außerhalb des
+                   einklappbaren Panels — mit **Apps** oben, **Modelle**
+                   [admin] darunter und dem Einstellungen-Zahnrad [admin]
+                   unten),
                    SidebarHost
                    (Sidebar), Tab-Bar/-Content (Mitte), RightPanel (rechts,
-                   leer), StatusBar (Modell + KI-RAM). Feature-Tabs laufen je in
+                   Notizen), StatusBar (Modell + KI-RAM + Zahl der offenen
+                   Freigaben). Feature-Tabs laufen je in
                    einem eigenen IsolatedMemoryRouter (FeatureTabHost);
                    Cross-Feature-Links übersetzt die TabBridge in Tab-Öffnungen.
-                   • **Tab-Typen** — `settings`, `modelle`
-                     (`stores/workspaceStore.ts`, v9). Jeder Typ ist ein
-                     Singleton, `tabId()` ist der Typ. Unbekannte Typen aus
+                   • **Tab-Typen** — `dashboard`, `app`, `settings`, `modelle`
+                     (`stores/workspaceStore.ts`, v10). Alle bis auf `app` sind
+                     Singletons, `tabId()` ist dann der Typ; eine App trägt
+                     `appId` und `stand` (`app:<id>:<stand>`), damit zwei Apps
+                     nebeneinander offen sein können. Unbekannte Typen aus
                      alten Ständen (v7/v8) fallen in der Store-Migration, ein
-                     alter `store`-Tab wird zu `modelle`.
-                   • **RightPanel** — leere Fläche mit Schließen-Knopf; die Shell
-                     versteckt sie per `data-shell-hidden` (nie unmounten).
+                     alter `store`-Tab wird zu `modelle`, ein `app`-Tab ohne
+                     Kennung fällt.
+                   • **Die Rolle blendet aus, das Backend entscheidet.**
+                     `nurFuerAdmin()` (Store) ist die eine Liste dafür; sie wird
+                     an drei Stellen gelesen — ActivityBar (kein Knopf),
+                     WorkspaceShell (eine getippte Admin-Adresse landet auf der
+                     Übersicht) und TabContent (ein Alt-Tab zeigt einen Satz).
+                     Keine davon ist eine Berechtigung: `requireRole` im
+                     Backend antwortet ohnehin mit 403.
+                   • **RightPanel** — die Notizen mit Schließen-Knopf; die Shell
+                     versteckt sie per `data-shell-hidden` (nie unmounten —
+                     ein Unmount während der Schreibpause verlöre den Text).
                      Zustand im Store: `rightPanelVisible`.
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
-                     Activity-Bar-Ansicht (`activeView`, Store): models → Modell-
-                     Filter, settings → Bereiche der Einstellungen
-                     (`features/workspace/sidebar/*Panel.tsx`); `null` (kein
-                     Klick, unbekannte alte Werte) → leere Spalte. Die Bar wählt die Ansicht, `sidebarVisible` steuert
+                     Activity-Bar-Ansicht (`activeView`, Store): apps → die
+                     eigenen Apps (Voreinstellung), models → Modell-Filter,
+                     settings → Bereiche der Einstellungen
+                     (`features/workspace/sidebar/*Panel.tsx`). Einen
+                     Leerzustand gibt es seit D1 nicht mehr; ein Mitarbeiter mit
+                     gespeicherter Admin-Ansicht sieht die Apps. Die Bar wählt
+                     die Ansicht, `sidebarVisible` steuert
                      nur das Auf/Zu (⌘B / erneuter Klick).
                    • **Modelle** — EIN Mitte-Tab (`modelle`, innerer Pfad
                      `/store`), Full-Width-Kartenraster (StoreModelsGrid); ein
@@ -56,8 +83,12 @@ src/
                      (Karte oder Deep-Link `/store/models?highlight=…`) läuft
                      über den ephemeren `extensionStore` (`kind:'model'`). Ein
                      unbekannter Pfad landet auf dem Raster.
-                   • **Apps** — die App-Liste der linken Spalte baut D1 auf dem
-                     App-Modell aus C3; heute gibt es keine.
+                   • **Apps** — die Liste der linken Spalte kommt aus
+                     `GET /api/apps/meine` (siebt über `app_members`, C2) und
+                     ist für beide Rollen dieselbe Abfrage: ein Administrator
+                     sieht hier NICHT alle Apps des Geräts, sondern die, die
+                     auch ihm freigegeben sind. Alle sieht `GET /api/apps`, ein
+                     Verwaltungsweg.
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung
                      nur über Borders. `--card` bleibt erhabenen Elementen
@@ -185,13 +216,13 @@ Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via
 
 ## When you change something
 
-| You changed…                          | Also update                                                                                                                |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| A theme token / new color/radius/font | `docs/development/DESIGN.md`                                                                                               |
-| A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                               |
-| Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                      |
-| Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |
-| Touched API typings                   | Keep the matching backend `schemas/` happy                                                                                 |
+| You changed…                          | Also update                                                                                                                                                             |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A theme token / new color/radius/font | `docs/development/DESIGN.md`                                                                                                                                            |
+| A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                                                                            |
+| Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                                                                   |
+| Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec + `NUR_ADMIN`, wenn er der Verwaltung gehört) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |
+| Touched API typings                   | Keep the matching backend `schemas/` happy                                                                                                                              |
 
 ## Deploy
 

@@ -102,10 +102,20 @@ Eintrag ohne Grund ist keiner.
 
 ## Die Shell
 
-Dreispaltig: links Apps, Mitte Dashboard oder App, rechts Notizen (Zielbild,
-Beschluss 10 vom 26.08.2026). Die ActivityBar ganz links ist immer sichtbar,
-Sidebar und rechte Spalte lassen sich einzeln ein- und ausblenden. Die Rolle
-blendet aus, das Backend entscheidet.
+Dreispaltig: links Apps, Mitte Übersicht oder App, rechts Notizen (Beschluss 10
+vom 26.08.2026, gebaut in Phase D1). Die ActivityBar ganz links ist immer
+sichtbar, Sidebar und rechte Spalte lassen sich einzeln ein- und ausblenden.
+Unter 900 px Fensterbreite gibt es keine drei Spalten (`useSchmalesFenster`);
+die ActivityBar bleibt, sie ist einen Klick entfernt.
+
+**Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
+Apps, die Übersicht, die Notizen und sein Konto; die Verwaltung (Modelle,
+Einstellungen) blendet die Oberfläche für ihn aus. Das ist keine Berechtigung:
+`requireRole` im Backend antwortet ihm auf jeden dieser Wege mit `403`, ob der
+Knopf da ist oder nicht. Ein Knopf, der bei jedem Klick 403 sagt, ist kein
+Schutz, sondern eine Sackgasse. Umgekehrt darf nichts, was jeder braucht, hinter
+einer Admin-Seite liegen — das Abmelden lag bis D1 in den Einstellungen und
+sitzt seitdem im Benutzermenü der Kopfleiste.
 
 ## Wo was steht
 

@@ -43,11 +43,11 @@ gegen das Gerät misst es `scripts/test/rollen-abnahme.sh`.
 
 ### Public (No Auth)
 
-| Method | Endpoint          | Description                                                                          |
-| ------ | ----------------- | ------------------------------------------------------------------------------------ |
-| GET    | `/api/health`     | Health check                                                                         |
-| GET    | `/api/_meta`      | API surface (route groups, version, errorCodes)                                      |
-| POST   | `/api/auth/login` | Login with username or e-mail + password (sets cookie); response carries `user.role` |
+| Method | Endpoint          | Description                                                                                                           |
+| ------ | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/health`     | Health check                                                                                                          |
+| GET    | `/api/_meta`      | API surface (route groups, version, errorCodes)                                                                       |
+| POST   | `/api/auth/login` | Login with username or e-mail + password (sets cookie); response carries `user.role` and `user.passwortWechselNoetig` |
 
 **GET /api/\_meta:**
 
@@ -119,6 +119,22 @@ Browser für eine 401 eine Fehlerzeile in die Konsole schreibt (Befund F-02).
 Erkennt sowohl den `Authorization: Bearer`-Kopf als auch das
 `httpOnly`-Sitzungscookie `arasul_session`. `/api/auth/me` bleibt die
 geschützte Route und antwortet ohne Sitzung weiter mit 401.
+
+**`user.passwortWechselNoetig` (Phase D1):**
+
+`/api/auth/login`, `/api/auth/me` und `/api/auth/session` tragen im
+`user`-Objekt zusätzlich `passwortWechselNoetig: boolean`. `true` heißt: das
+aktuelle Passwort hat **jemand anderes** gesetzt — der Administrator über
+`PUT /api/benutzer/:id/passwort`, beim Anlegen des Kontos, oder der Bootstrap
+eines frischen Geräts. Die Oberfläche verlangt dann den Wechsel, bevor sie die
+Shell zeigt.
+
+Das **Backend sperrt deswegen nichts.** Es sagt, was der Fall ist; eine Sperre
+dort müsste jeden Weg einzeln kennen, und der eine Weg, den sie offenlassen
+müsste, ist ausgerechnet `POST /api/auth/change-password`. Genau dieser Aufruf
+setzt das Kennzeichen zurück (`admin_users.passwort_vom_admin`, Migration 178)
+und beendet als einziger alle Sitzungen des Betroffenen — der Wechsel führt
+also immer über eine neue Anmeldung.
 
 **POST /api/auth/logout-all:**
 
@@ -2037,6 +2053,28 @@ nicht verschwiegen.
 
 Die App selbst liest den Stand über `GET /api/v1/external/freigaben` (siehe
 External API) — lesen darf sie, entscheiden nicht.
+
+### Notizen (Phase D1)
+
+Der Zettel in der rechten Spalte der Shell. **Einer je Mensch**, kein Notizbuch
+mit vielen Blättern; wer mehrere Blätter braucht, braucht eine App dafür.
+
+| Method | Endpoint       | Description                                |
+| ------ | -------------- | ------------------------------------------ |
+| GET    | `/api/notizen` | Meinen Zettel lesen                        |
+| PUT    | `/api/notizen` | Meinen Zettel schreiben, Body `{ inhalt }` |
+
+Antwort in beiden Fällen `{ data: { inhalt, geaendert_am } }`. Wer noch nichts
+geschrieben hat, bekommt `{ inhalt: '', geaendert_am: null }` und **keine
+`404`** — „ich habe noch nichts geschrieben" ist kein Fehler.
+
+**Keine Kennung in der Adresse.** Der Zettel gehört dem Angemeldeten; wer das
+ist, sagt die Sitzung. Ein `/api/notizen/:id` wäre eine Einladung, die Nummer
+eines anderen zu probieren. **Kein `DELETE`:** `PUT { "inhalt": "" }` ist der
+leere Zettel, und zwei Wege in denselben Zustand sind einer zu viel.
+`inhalt` fasst höchstens 20 000 Zeichen (`schemas/notizen.js`), darüber `400`.
+
+Administrator **und** Mitarbeiter — ein Zettel ist Arbeit, keine Verwaltung.
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
 > `werkzeuge`, `vorlagen`) is a reserved segment: a flow named
