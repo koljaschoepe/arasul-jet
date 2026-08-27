@@ -811,6 +811,79 @@ rm -r "$TMP/eb"
 pruefe "Zeilen: der Zaehler besteht seinen Selbsttest" 0 \
   python3 "$WURZEL/scripts/test/zeilen.py" --selbsttest
 
+# --- kurzliste.py -----------------------------------------------------------
+# Die vier Modelle stehen einmal in config/modelle/kurzliste.json und muessen an
+# fuenf weiteren Stellen dasselbe sagen. Der Waechter muss jede einzeln finden;
+# ein Waechter, der nur die erste prueft, waere an genau dem Tag still, an dem
+# jemand ein Profil vergisst.
+KL="$TMP/kl"
+kl_baum() {
+  rm -rf "$KL"
+  mkdir -p "$KL/config/modelle" "$KL/config/platforms" \
+    "$KL/services/postgres/init" "$KL/apps/dashboard-backend/src/utils" \
+    "$KL/scripts/setup" "$KL/scripts/util" "$KL/scripts/test"
+  cat > "$KL/config/modelle/kurzliste.json" <<'BEISPIEL'
+{
+  "modelle": [
+    { "id": "hf.co/wer/Was-GGUF:IQ4_XS", "aufgabe": "text", "standard": true },
+    { "id": "klein:e4b", "aufgabe": "text", "standard": false }
+  ]
+}
+BEISPIEL
+  cat > "$KL/services/postgres/init/175_kurzliste_c8.sql" <<'BEISPIEL'
+INSERT INTO llm_model_catalog (id) VALUES
+  ('hf.co/wer/Was-GGUF:IQ4_XS'), ('klein:e4b');
+BEISPIEL
+  cat > "$KL/apps/dashboard-backend/src/utils/hardware.js" <<'BEISPIEL'
+const STANDARD = 'hf.co/wer/Was-GGUF:IQ4_XS';
+const SCHNELL = 'klein:e4b';
+module.exports = { STANDARD, SCHNELL };
+BEISPIEL
+  cat > "$KL/config/platforms/eins.json" <<'BEISPIEL'
+{
+  "id": "eins",
+  "default_model": "hf.co/wer/Was-GGUF:IQ4_XS",
+  "models": ["hf.co/wer/Was-GGUF:IQ4_XS", "klein:e4b"]
+}
+BEISPIEL
+  cat > "$KL/scripts/setup/detect-platform.sh" <<'BEISPIEL'
+LLM_MODEL=hf.co/wer/Was-GGUF:IQ4_XS
+RECOMMENDED_MODELS="hf.co/wer/Was-GGUF:IQ4_XS,klein:e4b"
+BEISPIEL
+  echo 'KURZLISTE="$WURZEL/config/modelle/kurzliste.json"' > "$KL/scripts/util/modelle-aufraeumen.sh"
+  echo 'KURZLISTE="$WURZEL/config/modelle/kurzliste.json"' > "$KL/scripts/test/modelle-abnahme.sh"
+}
+
+kl_baum
+pruefe "Kurzliste: alle Stellen einig ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+sed -i.bak 's/"klein:e4b"\]/"alt:26b"]/' "$KL/config/platforms/eins.json" && rm -f "$KL/config/platforms/eins.json.bak"
+pruefe "Kurzliste: ein Profil mit fremdem Modell ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+sed -i.bak "s/klein:e4b/alt:26b/" "$KL/scripts/setup/detect-platform.sh" && rm -f "$KL/scripts/setup/detect-platform.sh.bak"
+pruefe "Kurzliste: RECOMMENDED_MODELS mit fremdem Modell ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+echo "const ALT = 'alt:26b';" >> "$KL/apps/dashboard-backend/src/utils/hardware.js"
+pruefe "Kurzliste: eine Kennung zuviel in der Empfehlungskarte ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+echo "-- nur eines" > "$KL/services/postgres/init/175_kurzliste_c8.sql"
+pruefe "Kurzliste: eine Migration ohne alle vier ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+echo 'BLEIBEN="hf.co/wer/Was-GGUF:IQ4_XS klein:e4b"' > "$KL/scripts/util/modelle-aufraeumen.sh"
+pruefe "Kurzliste: ein Skript mit eigener Kopie der Liste ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+rm -rf "$KL"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

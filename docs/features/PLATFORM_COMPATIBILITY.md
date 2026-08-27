@@ -45,19 +45,31 @@ carry `confirmed:false` in the catalog and are **not** hardwired in code.
 
 ## Supported Jetson devices
 
-| Device          | RAM   | GPU       | Status          | Default LLM    |
-| --------------- | ----- | --------- | --------------- | -------------- |
-| Thor 128GB      | 128GB | Blackwell | Planned         | gemma4:31b-q8  |
-| Thor 64GB       | 64GB  | Blackwell | Planned         | gemma4:31b-q4  |
-| AGX Orin 64GB   | 64GB  | Ampere    | Fully Supported | gemma4:26b-q4  |
-| AGX Orin 32GB   | 32GB  | Ampere    | Fully Supported | gemma4:e4b-q8  |
-| Orin NX 16GB    | 16GB  | Ampere    | Fully Supported | gemma4:e4b-q4  |
-| Orin NX 8GB     | 8GB   | Ampere    | Supported       | phi3:mini      |
-| Orin Nano 8GB   | 8GB   | Ampere    | Supported       | phi3:mini      |
-| Orin Nano 4GB   | 4GB   | Ampere    | Limited         | tinyllama:1.1b |
-| Xavier AGX      | 32GB  | Volta     | Supported       | gemma4:e4b-q4  |
-| Xavier NX 8GB   | 8GB   | Volta     | Supported       | phi3:mini      |
-| Jetson Nano 4GB | 4GB   | Maxwell   | Limited         | tinyllama:1.1b |
+Seit Phase C8 (27.08.2026) gibt es **eine** Modell-Liste für alle Geräte, die
+Kurzliste aus `config/modelle/kurzliste.json`. Ein Profil entscheidet nur noch,
+ob das Standardmodell mit seinen 22 GB hineinpasst — wo nicht, führt das kleine
+schnelle. Die Spalte „Default LLM" hat deshalb genau zwei Werte:
+
+| Device          | RAM   | GPU       | Status          | Default LLM                             |
+| --------------- | ----- | --------- | --------------- | --------------------------------------- |
+| Thor 128GB      | 128GB | Blackwell | Planned         | `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` |
+| Thor 64GB       | 64GB  | Blackwell | Planned         | `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` |
+| AGX Orin 64GB   | 64GB  | Ampere    | Fully Supported | `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` |
+| AGX Orin 32GB   | 32GB  | Ampere    | Fully Supported | `gemma4:e4b`                            |
+| Orin NX 16GB    | 16GB  | Ampere    | Fully Supported | `gemma4:e4b`                            |
+| Orin NX 8GB     | 8GB   | Ampere    | Supported       | `gemma4:e4b`                            |
+| Orin Nano 8GB   | 8GB   | Ampere    | Supported       | `gemma4:e4b`                            |
+| Orin Nano 4GB   | 4GB   | Ampere    | Limited         | `gemma4:e4b`                            |
+| Xavier AGX      | 32GB  | Volta     | Supported       | `gemma4:e4b`                            |
+| Xavier NX 8GB   | 8GB   | Volta     | Supported       | `gemma4:e4b`                            |
+| Jetson Nano 4GB | 4GB   | Maxwell   | Limited         | `gemma4:e4b`                            |
+
+**Ehrlich zu den beiden letzten Zeilen:** `gemma4:e4b` braucht rund 10 GB. Auf
+einem 4-GB-Gerät läuft es nicht. Vorher stand dort `tinyllama:1.1b` — ein
+Modell, das im Katalog nicht mehr steht und deshalb auch nicht mehr ladbar
+wäre. Die Zeile nennt jetzt, was die Plattform tatsächlich anbietet; dass diese
+Geräte damit kein passendes Modell mehr haben, ist die Kehrseite der Kurzliste
+und keine Konfigurationsfrage.
 
 ## Quick Setup
 
@@ -114,7 +126,7 @@ CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:31b-q8
+LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=900
@@ -124,11 +136,11 @@ OLLAMA_STARTUP_TIMEOUT=300
 TORCH_CUDA_ARCH_LIST=10.0
 L4T_PYTORCH_TAG=r36.4.0  # Fallback; update to r37.0.0 when dustynv publishes JetPack 7.x image
 
-# Recommended Models (in order of capability)
-# - gemma4:31b-q8 (36GB) - Default, multimodal, near-lossless
-# - gemma4:26b-q4 (20GB) - MoE, vision, fast inference
-# - qwen3:32b-q8 (32GB) - Best text quality (no vision)
-# - llama3.1:70b-q4 (40GB) - Maximum capability
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+# - hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS (16GB) - Standard, die Flows laufen darauf
+# - gemma4:e4b (10GB) - das kleine schnelle
+# - nomic-embed-text (0.3GB) - Einbettungen
+# - llava-phi3 (2.9GB) - Bilder und eingescannter Text
 ```
 
 ### Thor 64GB (High Performance)
@@ -156,7 +168,7 @@ CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:31b-q4
+LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=600
@@ -166,10 +178,11 @@ OLLAMA_STARTUP_TIMEOUT=240
 TORCH_CUDA_ARCH_LIST=10.0
 L4T_PYTORCH_TAG=r36.4.0  # Fallback; update to r37.0.0 when dustynv publishes JetPack 7.x image
 
-# Recommended Models
-# - gemma4:31b-q4 (22GB) - Default, multimodal, thinking
-# - gemma4:26b-q4 (20GB) - MoE, vision, fast inference
-# - qwen3:14b-q8 (15GB) - Best text balance (no vision)
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+# - hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS (16GB) - Standard, die Flows laufen darauf
+# - gemma4:e4b (10GB) - das kleine schnelle
+# - nomic-embed-text (0.3GB) - Einbettungen
+# - llava-phi3 (2.9GB) - Bilder und eingescannter Text
 ```
 
 ### AGX Orin 64GB (Maximum Performance)
@@ -180,14 +193,15 @@ RAM_LIMIT_LLM=38G
 RAM_LIMIT_EMBEDDING=6G
 
 # LLM Configuration
-LLM_MODEL=gemma4:26b-q4
+LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 
-# Recommended Models
-# - gemma4:26b-q4 (20GB) - Default, MoE, vision, thinking
-# - gemma4:31b-q4 (22GB) - Dense, highest quality
-# - qwen3:14b-q8 (15GB) - Best text quality (no vision)
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+# - hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS (16GB) - Standard, die Flows laufen darauf
+# - gemma4:e4b (10GB) - das kleine schnelle
+# - nomic-embed-text (0.3GB) - Einbettungen
+# - llava-phi3 (2.9GB) - Bilder und eingescannter Text
 ```
 
 ### AGX Orin 32GB (High Performance)
@@ -198,15 +212,14 @@ RAM_LIMIT_LLM=24G
 RAM_LIMIT_EMBEDDING=4G
 
 # LLM Configuration
-LLM_MODEL=gemma4:e4b-q8
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 
-# Recommended Models
-# - gemma4:e4b-q8 (12GB) - Default, vision+audio
-# - gemma4:e4b-q4 (10GB) - Lighter variant
-# - qwen3:8b-q8 (8GB) - Good text balance (no vision)
-# - llama3.1:8b (5GB) - Fast & capable
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+# - gemma4:e4b (10GB) - das kleine schnelle
+# - nomic-embed-text (0.3GB) - Einbettungen
+# - llava-phi3 (2.9GB) - Bilder und eingescannter Text
 ```
 
 ### Orin NX 16GB (Balanced)
@@ -217,14 +230,14 @@ RAM_LIMIT_LLM=10G
 RAM_LIMIT_EMBEDDING=2G
 
 # LLM Configuration
-LLM_MODEL=gemma4:e4b-q4
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 
-# Recommended Models
-# - gemma4:e4b-q4 (10GB) - Default, vision+audio
-# - gemma4:e2b-q8 (10GB) - Higher precision edge
-# - llama3.1:8b (5GB) - Fast alternative
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+# - gemma4:e4b (10GB) - das kleine schnelle
+# - nomic-embed-text (0.3GB) - Einbettungen
+# - llava-phi3 (2.9GB) - Bilder und eingescannter Text
 ```
 
 ### Orin 8GB (NX/Nano)
@@ -235,14 +248,14 @@ RAM_LIMIT_LLM=5G
 RAM_LIMIT_EMBEDDING=1G
 
 # LLM Configuration
-LLM_MODEL=phi3:mini
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=2048
 LLM_GPU_LAYERS=99
 
-# Recommended Models
-# - phi3:mini (2GB) - Default, best for 8GB
-# - gemma:2b (1.5GB) - Lightweight
-# - tinyllama:1.1b (0.6GB) - Minimal
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+# - gemma4:e4b (10GB) - das kleine schnelle
+# - nomic-embed-text (0.3GB) - Einbettungen
+# - llava-phi3 (2.9GB) - Bilder und eingescannter Text
 ```
 
 ### Minimal 4GB (Orin Nano 4GB / Jetson Nano)
@@ -253,29 +266,30 @@ RAM_LIMIT_LLM=2G
 RAM_LIMIT_EMBEDDING=512M
 
 # LLM Configuration
-LLM_MODEL=tinyllama:1.1b
+LLM_MODEL=gemma4:e4b
 LLM_CONTEXT_LENGTH=1024
 LLM_GPU_LAYERS=99
 
-# Recommended Models
-# - tinyllama:1.1b (0.6GB) - Default
-# - qwen:0.5b (0.3GB) - Smallest
+# Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
+# - gemma4:e4b (10GB) - das kleine schnelle
+# - nomic-embed-text (0.3GB) - Einbettungen
+# - llava-phi3 (2.9GB) - Bilder und eingescannter Text
 ```
 
 ## Thor vs Orin: Key Differences
 
-| Property               | Thor 128GB                  | AGX Orin 64GB   |
-| ---------------------- | --------------------------- | --------------- |
-| GPU Architecture       | Blackwell                   | Ampere          |
-| Unified Memory         | 128GB                       | 64GB            |
-| CUDA Compute Cap.      | sm_100 (speculative)        | sm_87           |
-| Default LLM Model      | gemma4:31b-q8               | gemma4:26b-q4   |
-| Max Context Length     | 131072                      | 131072          |
-| LLM RAM Allocation     | 88G                         | 38G             |
-| Ollama Startup Timeout | 300s                        | 240s            |
-| L4T PyTorch Tag        | r36.4.0 (fallback; r37 TBD) | r36.4.0         |
-| Expected CPU Cores     | 12-16+                      | 12              |
-| Status                 | Planned (specs may change)  | Fully Supported |
+| Property               | Thor 128GB                  | AGX Orin 64GB           |
+| ---------------------- | --------------------------- | ----------------------- |
+| GPU Architecture       | Blackwell                   | Ampere                  |
+| Unified Memory         | 128GB                       | 64GB                    |
+| CUDA Compute Cap.      | sm_100 (speculative)        | sm_87                   |
+| Default LLM Model      | Qwen3.8 27B (Kurzliste)     | Qwen3.8 27B (Kurzliste) |
+| Max Context Length     | 131072                      | 131072                  |
+| LLM RAM Allocation     | 88G                         | 38G                     |
+| Ollama Startup Timeout | 300s                        | 240s                    |
+| L4T PyTorch Tag        | r36.4.0 (fallback; r37 TBD) | r36.4.0                 |
+| Expected CPU Cores     | 12-16+                      | 12                      |
+| Status                 | Planned (specs may change)  | Fully Supported         |
 
 **Setup differences:**
 
@@ -369,7 +383,7 @@ LLM_CONTEXT_LENGTH=4096
 LLM_KEEP_ALIVE_SECONDS=60
 
 # Use smaller models
-LLM_MODEL=phi3:mini
+LLM_MODEL=gemma4:e4b
 ```
 
 ## Troubleshooting
@@ -381,7 +395,7 @@ LLM_MODEL=phi3:mini
 docker exec llm-service curl -X POST http://localhost:11436/api/cache/clear
 
 # Reduce model size
-# Edit .env: LLM_MODEL=phi3:mini
+# Edit .env: LLM_MODEL=gemma4:e4b
 
 # Reduce context length
 # Edit .env: LLM_CONTEXT_LENGTH=2048
@@ -414,9 +428,15 @@ cat /etc/nv_tegra_release
 
 If a model doesn't fit in memory:
 
-1. Try a quantized version (e.g., `llama3.1:8b-q4` instead of `llama3.1:8b`)
-2. Use a smaller model from the recommendations
-3. Reduce context length
+1. Nimm das kleine schnelle Modell der Kurzliste (`gemma4:e4b`, rund 10 GB
+   statt 22)
+2. Reduce context length (`LLM_CONTEXT_LENGTH`)
+3. Kürzere Haltezeit (`LLM_KEEP_ALIVE_SECONDS`), damit zwei Modelle nicht
+   gleichzeitig im Speicher stehen
+
+Eine andere Quantisierung desselben Modells auszuprobieren ist seit Phase C8
+kein Weg mehr: der Katalog trägt genau die vier Modelle der Kurzliste, und
+`POST /api/models/download` nimmt nur, was darin steht.
 
 ## Model Download
 

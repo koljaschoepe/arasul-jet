@@ -58,7 +58,17 @@ Resource thresholds exceeded.
 2. Reset service session
 3. Enable throttling
 4. Restart service
-5. Escalate to Category C
+
+**RAM overload has its own lever (Phase C8, 27.08.2026).** Bis B5 wurde hier
+n8n angehalten; danach stand der Zweig ohne Hebel da und meldete nur. Seit C8
+nimmt er das geladene Modell aus dem Speicher (`entlade_modelle` →
+`POST /api/cache/clear` am `llm-service`), gebucht als `model_unload` in
+`recovery_actions`. Der Idle-Unload nach `LLM_KEEP_ALIVE_SECONDS` bleibt
+davon unberührt — er greift nach Ruhe, eine RAM-Überlast entsteht unter Last.
+
+War kein Modell geladen, wird **kein** Erfolg gebucht: der Speicher liegt dann
+woanders, und eine Erfolgsmeldung würde die Eskalation an einen Menschen
+verhindern. 5. Escalate to Category C
 
 ### Category C: Critical
 

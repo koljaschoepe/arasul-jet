@@ -56,6 +56,18 @@ hat, bestätigt oder lehnt über `/api/freigabe-anfragen` ab (der Flow nennt kei
 Person). Bestätigt läuft er ab dem angehaltenen Schritt weiter, abgelehnt endet
 er als `abgebrochen` mit Begründung, ohne Entscheidung nach der Frist als
 `abgelaufen` — siehe [`docs/features/FLOWS.md`](docs/features/FLOWS.md).
+Seit C8 ist der **Modellkatalog die Kurzliste**: vier Modelle, festgelegt an
+`ollama list` am Orin und einmal notiert in
+[`config/modelle/kurzliste.json`](config/modelle/kurzliste.json) — das
+Standardmodell der Flows (`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS`), ein kleines
+schnelles (`gemma4:e4b`), eines für Einbettungen (`nomic-embed-text`), eines für
+Bilder und eingescannten Text (`llava-phi3`). Geladen wird nur, was darin steht;
+der Katalog kommt ausschließlich aus Migrationen, und die Plattformprofile
+(`config/platforms/*.json`, `utils/hardware.js`, `detect-platform.sh`) tragen
+dieselbe Liste — `scripts/test/kurzliste.py` hält sie aneinander. Gestrichene
+Gewichte nimmt `scripts/util/modelle-aufraeumen.sh` von Hand vom Gerät, nicht
+der Deploy. Bei RAM-Überlast entlädt die Selbstheilung jetzt das Modell (der
+Idle-Unload bleibt daneben bestehen).
 Die neue Oberfläche kommt mit den D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

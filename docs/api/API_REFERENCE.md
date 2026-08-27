@@ -1111,9 +1111,6 @@ App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
 | GET    | `/api/models/default`          | Get default model                                                              |
 | POST   | `/api/models/default`          | Set default model                                                              |
 | POST   | `/api/models/download`         | Download model (SSE progress)                                                  |
-| POST   | `/api/models/quelle/pruefen`   | Nachsehen, welche Varianten hinter einem Link stecken und wie groß sie sind    |
-| POST   | `/api/models/katalog`          | Ein Modell über einen Link in den Katalog aufnehmen                            |
-| DELETE | `/api/models/katalog/*`        | Einen selbst hinzugefügten Katalogeintrag wieder entfernen                     |
 | DELETE | `/api/models/:id`              | Delete installed model                                                         |
 | POST   | `/api/models/:id/activate`     | Load model into RAM                                                            |
 | POST   | `/api/models/:id/deactivate`   | Unload model from RAM (identisch mit `/unload`)                                |
@@ -1125,60 +1122,34 @@ App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
 | GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen              |
 | POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat |
 
-**Ein Modell über einen Link hinzufügen (Plan 023, Entscheidung 23.08.2026):**
+**Der Katalog ist die Kurzliste (Phase C8, Entscheidung 27.08.2026):**
 
-Bis dahin konnte ein Kunde nur laden, was im Katalog steht, und der Katalog
-kommt aus Migrationen — also aus einer Software-Aktualisierung. Ein Gerät, das
-keine mehr bekommt, hätte für immer die Modelle seines Auslieferungstages. Der
-Weg dahinter ist nicht neu: Ollama lädt direkt von HuggingFace, wenn der Name
-mit `hf.co/` beginnt (das Standardmodell dieses Geräts ist genau so eines).
+`GET /api/models/catalog` zeigt genau vier Modelle, und mehr gibt es nicht:
 
-Der Ablauf ist zweistufig, und der erste Schritt ist der Punkt: eine GGUF-Ablage
-trägt ein Dutzend Quantisierungen zwischen 11 und 50 GB.
+| Kennung                                 | Aufgabe   | RAM   | Wofür                             |
+| --------------------------------------- | --------- | ----- | --------------------------------- |
+| `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` | text      | 22 GB | Standard, die Flows laufen darauf |
+| `gemma4:e4b`                            | text      | 10 GB | das kleine schnelle               |
+| `nomic-embed-text`                      | embedding | 2 GB  | Einbettungen (`/v1/embeddings`)   |
+| `llava-phi3`                            | vision    | 4 GB  | Bilder und eingescannter Text     |
 
-**POST /api/models/quelle/pruefen** — Body: `{ "quelle": "…" }`. Angenommen wird
-eine Adresse (`https://huggingface.co/<besitzer>/<ablage>`, auch mit
-`/tree/main`), die Kurzform `hf.co/<besitzer>/<ablage>:<variante>`,
-`<besitzer>/<ablage>` oder ein Ollama-Name wie `llama3.2:3b`. Alles andere ist
-ein `VALIDATION_ERROR`; eine Adresse zu einem anderen Host wird ausdrücklich
-abgelehnt.
+Die Liste steht in `config/modelle/kurzliste.json` und kommt über Migration 175
+in den Katalog. Sie ist eine **Zusage** über vier auf diesem Gerät gemessene
+Modelle, kein Vorschlag: `POST /api/models/download` nimmt nur, was im Katalog
+steht, und der Katalog wird nur noch von Migrationen geschrieben.
 
-Antwort bei HuggingFace: `repo`, `frei_gb` (freier KI-Speicher des Geräts) und
-`varianten` mit `tag`, `groesse_gb`, `ramGb` und `passt`. `passt` ist `null`,
-wenn das Gerät seinen freien Speicher nicht nennen kann — ein erfundenes „passt"
-wäre schlimmer als keine Aussage. Aufgeteilte Dateien
-(`-00001-of-00002.gguf`) stehen nicht in der Liste: Ollama kann sie nicht über
-einen Tag laden, sie anzubieten hieße einen Fehlschlag zu verkaufen.
+Bis zum 27.08.2026 gab es zwei Wege daran vorbei, und beide sind weg:
 
-`400`, wenn die Ablage nicht existiert, nicht öffentlich oder
-freigabepflichtig ist. `503` nur bei einem echten Ausfall.
+- `POST /api/models/quelle/pruefen`, `POST /api/models/katalog` und
+  `DELETE /api/models/katalog/*` holten ein beliebiges Modell von HuggingFace
+  in den Katalog. Sie antworten jetzt mit `404`.
+- Der Abgleich mit Ollama trug jedes Modell nach, das nur dort lag
+  (`importUnknownModels`). Er tut es nicht mehr; ein Modell, das jemand am CLI
+  zieht, bleibt für die Plattform unsichtbar.
 
-Der Unterschied ist nicht theoretisch: HuggingFace antwortet auf einen
-Tippfehler im Namen mit **401**, nicht mit 404 — es verrät nicht, ob eine
-Ablage fehlt oder nur nicht öffentlich ist. Wer nur 404 abfängt, meldet dem
-Nutzer „der Dienst ist kaputt", wo „der Name stimmt nicht" richtig wäre.
-Stand: 2026-08-23, auf dem Orin gemessen.
-
-**POST /api/models/katalog** — Body: `{ "quelle": "…", "variante": "IQ4_XS" }`.
-Legt die Katalogzeile an (`category = 'custom'`, `jetson_tested = false`,
-Beschreibung „Nicht von Arasul geprüft"). `409`, wenn die Kennung schon im
-Katalog steht. Größe und RAM-Bedarf kommen aus der Quelle, nicht aus einer
-Schätzung; bei Ollama-Modellen trägt der Download sie nach.
-
-Danach ist das Modell über den normalen Weg (`POST /api/models/download`)
-ladbar wie jedes kuratierte auch.
-
-**DELETE /api/models/katalog/\*** — nimmt einen selbst hinzugefügten Eintrag
-wieder aus dem Katalog. Der Pfad endet auf `*` und nicht auf einen Parameter,
-weil die Kennung eines HuggingFace-Modells selbst Schrägstriche trägt
-(`hf.co/unsloth/Qwen3-30B-A3B-GGUF:IQ1_S`).
-
-Entfernt wird ausschließlich, was `selbst_hinzugefuegt` trägt (Migration 160).
-Ein kuratierter Eintrag ergibt `400`: er kommt aus einer Migration und käme
-beim nächsten Start ohnehin wieder — ihn löschen zu lassen wäre eine Zusage,
-die das Gerät nicht halten kann. Ist das Modell noch installiert, ergibt es
-`409`: erst das Modell löschen (`DELETE /api/models/:id`), dann den Eintrag,
-sonst läge es weiter auf der Platte, ohne dass es im Katalog steht.
+Was am Gerät liegt, bleibt liegen — die Migration räumt die Datenbank, nicht
+die Platte. Die gestrichenen Gewichte nimmt
+`scripts/util/modelle-aufraeumen.sh` von Hand, mit Liste und Rückfrage.
 
 **Hinweis zu `/api/models/installed`:** Die Antwort enthaelt seit Plan 023 D9
 auch die externen Cloud-Modelle, sofern ein Anbieter eingeschaltet ist. Sie

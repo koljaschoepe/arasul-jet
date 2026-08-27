@@ -9,6 +9,10 @@
 > Am 27.08.2026 von Hand ergaenzt (Migration 171, Phase C4): `api_keys.app_id`,
 > `api_keys.stand` und die Breite von `api_keys.key_prefix`.
 > Am 27.08.2026 von Hand ergaenzt (Migration 172, Phase C5): `app_staende.vorige_version`.
+> Am 27.08.2026 von Hand nachgezogen (Migrationen 175/176, Phase C8):
+> `llm_model_catalog` traegt genau die vier Modelle der Kurzliste und hat die
+> Spalte `selbst_hinzugefuegt` (Migration 160) wieder verloren;
+> `recovery_actions.action_type` kennt zusaetzlich `model_unload`.
 
 ## Übersicht
 
@@ -993,6 +997,16 @@ gepflegt, sondern beim Modell-Abgleich aus Ollamas `/api/show` gelesen.
 `profile_read_at` unterscheidet „noch nie gelesen" von „gelesen, das Modell
 trägt die Angabe nicht".
 
+**Seit Migration 175 (Phase C8) hat diese Tabelle genau vier Zeilen** — die
+Kurzliste aus `config/modelle/kurzliste.json`. Sie wird ausschließlich von
+Migrationen geschrieben: der Abgleich mit Ollama trägt nichts mehr nach
+(`importUnknownModels` ist entfallen), und die Route, über die ein Kunde ein
+Modell per Link eintragen konnte, ebenfalls. Damit hat die Spalte
+`selbst_hinzugefuegt` aus Migration 160 nichts mehr zu trennen und ist
+gefallen. Die `id` ist bei allen vier der Ollama-Name — steht dort eine
+Slug-Kennung, legt ein Direkt-Pull daneben eine zweite Zeile an (Migration
+141).
+
 **Primary key:** `id`
 
 **Indexes:**
@@ -1396,6 +1410,14 @@ trägt die Angabe nicht".
 **Primary key:** `id`
 
 **Indexes:**
+
+`action_type` ist eine CHECK-Liste. Seit Migration 176 (Phase C8) gehört
+`model_unload` dazu: bei RAM-Überlast nimmt die Selbstheilung das geladene
+Modell aus dem Speicher. Bewusst nicht unter `llm_cache_clear` — darunter läuft
+der Hebel der CPU-Überlast, und wer später nachsieht, warum ein Lauf sein
+Modell neu laden musste, soll die beiden auseinanderhalten können. Der
+Idle-Unload nach `KEEP_ALIVE` steht hier **nicht**, er ist Normalbetrieb von
+Ollama und keine Selbstheilung.
 
 - `idx_recovery_actions_action_type` — `CREATE INDEX idx_recovery_actions_action_type ON public.recovery_actions USING btree (action_type)`
 - `idx_recovery_actions_service` — `CREATE INDEX idx_recovery_actions_service ON public.recovery_actions USING btree (service_name)`
