@@ -302,11 +302,15 @@ async function getRun(
 /**
  * Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht).
  *
- * `appId` engt auf eine App und ihren Stand ein (C6) — derselbe Schnitt wie in
- * `getRun`.
+ * `app_id`/`stand` stehen seit C6 in der Auswahl, aber es gibt keinen Filter
+ * darauf — die Liste eines Nutzers ist die Liste eines Nutzers, und ein Lauf,
+ * den eine seiner Apps gestartet hat, gehört sichtbar dazu. Die Spalten sagen,
+ * WOHER er kam. Ein Filter ohne Aufrufer wäre eine Verzweigung, die niemand je
+ * durchläuft und die beim nächsten Umbau falsch stehenbleibt; wenn die
+ * D-Phasen eine Ansicht je App bauen, kommt er mit ihr.
  */
 async function listRuns(
-  { userId, limit = 50, status = null, flowName = null, appId = null, stand = null },
+  { userId, limit = 50, status = null, flowName = null },
   { db = database } = {}
 ) {
   const params = [userId];
@@ -318,10 +322,6 @@ async function listRuns(
   if (flowName != null) {
     params.push(flowName);
     filter += `AND flow_name = $${params.length} `;
-  }
-  if (appId != null) {
-    params.push(appId, stand);
-    filter += `AND app_id = $${params.length - 1} AND stand = $${params.length} `;
   }
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(

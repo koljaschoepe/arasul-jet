@@ -1544,6 +1544,9 @@ trägt die Angabe nicht".
 > Angabe genommen, die man Monate später sucht. Beide Spalten sind zusammen
 > gesetzt oder zusammen leer (CHECK), wie bei `api_keys.app_id`/`stand`.
 > Index: `idx_flow_runs_app` auf `(app_id, stand) WHERE app_id IS NOT NULL`.
+> Die Lauf-Liste eines Nutzers filtert **nicht** danach: ein Lauf, den eine
+> seiner Apps gestartet hat, gehört sichtbar dazu, und die Spalten sagen,
+> woher er kam.
 
 > `changes` (Plan 011, Schritt 16): Datei-Änderungen des Laufs — `[{pfad, art (neu\|geaendert\|geloescht), vorher, nachher, gekuerzt, hinweis}]`, aus dem Ordner-Abzug vor/nach dem Lauf; gedeckelt in Zahl und Vorschau-Länge. `NULL` = nicht ermittelt (Lauf ohne Schreib-Werkzeug).
 
