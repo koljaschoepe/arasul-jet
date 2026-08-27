@@ -668,6 +668,18 @@ If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the 
 
 ---
 
+## Die Umgebung einer App
+
+`ARASUL_API_URL` und `ARASUL_API_SCHLUESSEL` stehen bewusst **nicht** in diesem
+Dokument als Tabellenzeile: sie sind keine Stellschraube dieses Geräts, sondern
+zwei Werte, die das Gerät beim Einspielen in den Container einer App schreibt.
+Niemand trägt sie in eine `.env` ein, und `compose/` reicht sie nicht durch.
+
+Was drinsteht und warum, erklärt
+[docs/features/APPS.md](features/APPS.md#was-das-gerät-der-app-mitgibt).
+
+---
+
 ## Related Documentation
 
 - [Deployment](ops/DEPLOYMENT.md) - Setup & deployment guide

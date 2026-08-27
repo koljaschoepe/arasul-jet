@@ -22,6 +22,7 @@ const logger = require('../../utils/logger');
 const { ConflictError, NotFoundError } = require('../../utils/errors');
 const appManifest = require('./appManifest');
 const appContainer = require('./appContainer');
+const appSchluessel = require('./appSchluessel');
 
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
@@ -152,24 +153,38 @@ async function flowStand(namen) {
  * Eine Version in einen Stand einspielen.
  *
  * Die Reihenfolge ist die vorsichtige: erst lesen und pruefen, was auf der
- * Platte liegt, dann den Container starten, erst danach schreiben. Ein Stand,
- * der in der Datenbank steht, ist damit einer, der wirklich hochgekommen ist.
- * Andersherum haette ein kaputtes Image eine Zeile hinterlassen, die eine App
- * verspricht, die es nicht gibt.
+ * Platte liegt, dann den Container starten, erst danach den STAND schreiben.
+ * Ein Stand, der in der Datenbank steht, ist damit einer, der wirklich
+ * hochgekommen ist. Andersherum haette ein kaputtes Image eine Zeile
+ * hinterlassen, die eine App verspricht, die es nicht gibt.
+ *
+ * Die Zeile in `apps` selbst ist seit C4 die eine Ausnahme davon, und sie hat
+ * einen Grund: der API-Schluessel der App haengt als Fremdschluessel an ihr,
+ * und er muss im Container stehen, bevor der startet. Scheitert der Start,
+ * wird sie wieder weggeraeumt -- aber nur, wenn dieser Aufruf sie angelegt
+ * hat.
  *
  * Der Container wird ersetzt, nicht neu gestartet — die Begruendung steht in
  * `appContainer.starte`.
  */
 async function spieleEin({ appId, version, stand, durch }) {
   const manifest = await appManifest.leseManifest(appId, version);
-  await pruefeAppGrenze(manifest.id);
+  const neueApp = await pruefeAppGrenze(manifest.id);
   if (manifest.frontend) {
     await appManifest.frontendVerzeichnis(manifest);
   }
+
+  // Das Image, bevor irgendetwas Bestehendes angefasst wird (Phase C4).
+  // `starte` holt es ohnehin, aber erst nachdem der Schluessel schon
+  // gewechselt ist -- und ein Image, das nicht kommt, haette dann einer
+  // laufenden App den Schluessel unter den Fuessen weggezogen. Der zweite
+  // Aufruf in `starte` findet es dann da und tut nichts.
   if (manifest.backend) {
-    await appContainer.starte(manifest, stand);
+    await appContainer.holeImageFallsNoetig(manifest.backend.image);
   }
 
+  // Die Zeile in `apps` muss VOR den Schluessel: der haengt als
+  // Fremdschluessel an ihr (Migration 171).
   await db.query(
     `INSERT INTO public.apps (id, name, beschreibung)
      VALUES ($1, $2, $3)
@@ -179,6 +194,26 @@ async function spieleEin({ appId, version, stand, durch }) {
             geaendert_am = NOW()`,
     [manifest.id, manifest.name, manifest.beschreibung ?? null]
   );
+
+  try {
+    if (manifest.backend) {
+      // Je Stand ein frischer Schluessel, und er geht nur in EINE Richtung:
+      // in die Umgebung dieses Containers. Danach gibt es ihn nur noch als
+      // bcrypt-Abdruck (`services/app/appSchluessel.js`).
+      const schluessel = await appSchluessel.erneuere({ appId: manifest.id, stand, durch });
+      await appContainer.starte(manifest, stand, appSchluessel.umgebungFuer(schluessel));
+    }
+  } catch (fehler) {
+    // Was nur wegen dieses Versuchs entstanden ist, faellt wieder weg: eine
+    // App, die es vorher nicht gab, wuerde sonst als leere Zeile stehen
+    // bleiben und dauerhaft einen Platz der Lizenzgrenze belegen. Der DELETE
+    // nimmt ueber ON DELETE CASCADE auch den eben angelegten Schluessel mit.
+    if (neueApp) {
+      await db.query('DELETE FROM public.apps WHERE id = $1', [manifest.id]);
+    }
+    throw fehler;
+  }
+
   const gespeichert = await db.query(
     `INSERT INTO public.app_staende (app_id, stand, version, manifest, eingespielt_von)
      VALUES ($1, $2, $3, $4, $5)
@@ -205,11 +240,16 @@ async function spieleEin({ appId, version, stand, durch }) {
  *
  * `maxApps` ist die einzige Zahl aus `FEATURE_TIERS`, hinter der ein Riegel
  * steht. Die anderen sind Angaben; diese ist eine Zusage.
+ *
+ * @returns {Promise<boolean>} ob die App neu ist. `spieleEin` braucht die
+ *   Antwort, um bei einem Fehlschlag zu wissen, ob es die Zeile in `apps`
+ *   wieder wegraeumen darf -- sie an zweiter Stelle noch einmal zu erfragen
+ *   waere dieselbe Abfrage und ein Fenster dazwischen.
  */
 async function pruefeAppGrenze(appId) {
   const vorhanden = await db.query('SELECT 1 FROM public.apps WHERE id = $1', [appId]);
   if (vorhanden.rows.length > 0) {
-    return;
+    return false;
   }
   const { rows } = await db.query('SELECT count(*)::int AS n FROM public.apps');
   const licenseService = require('./licenseService');
@@ -220,6 +260,7 @@ async function pruefeAppGrenze(appId) {
         'Eine App entfernen oder die Lizenz erweitern.'
     );
   }
+  return true;
 }
 
 /**

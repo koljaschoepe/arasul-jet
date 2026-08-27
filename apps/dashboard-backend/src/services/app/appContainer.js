@@ -277,6 +277,7 @@ async function entferneAlle() {
 module.exports = {
   containerName,
   apiPfad,
+  holeImageFallsNoetig,
   beschriftung,
   containerBeschreibung,
   speicherInBytes,

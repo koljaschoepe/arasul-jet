@@ -17,7 +17,12 @@ const router = express.Router();
 const multer = require('multer');
 const { mitNamensReparatur } = require('../../utils/uploadName');
 const logger = require('../../utils/logger');
-const { requireApiKey, requireEndpoint, generateApiKey } = require('../../middleware/apiKeyAuth');
+const {
+  requireApiKey,
+  requireEndpoint,
+  generateApiKey,
+  VORGABE_ENDPUNKTE,
+} = require('../../middleware/apiKeyAuth');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
@@ -297,13 +302,7 @@ router.post(
 
     const result = await generateApiKey(name, description || '', req.user.id, {
       rateLimitPerMinute: rate_limit_per_minute || 60,
-      allowedEndpoints: allowed_endpoints || [
-        'llm:chat',
-        'llm:status',
-        'document:extract',
-        'document:analyze',
-        'flow:run',
-      ],
+      allowedEndpoints: allowed_endpoints || VORGABE_ENDPUNKTE,
       expiresAt: expires_at || null,
     });
 

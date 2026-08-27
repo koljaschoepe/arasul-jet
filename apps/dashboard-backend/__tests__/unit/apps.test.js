@@ -69,6 +69,7 @@ jest.mock('../../src/middleware/auth', () => {
 });
 
 const db = require('../../src/database');
+const { docker } = require('../../src/services/core/docker');
 const auth = require('../../src/middleware/auth');
 const licenseService = require('../../src/services/app/licenseService');
 const { errorHandler } = require('../../src/middleware/errorHandler');
@@ -82,7 +83,7 @@ const MANIFEST = {
   name: 'Urlaubsantrag',
   version: '1.0.0',
   frontend: { verzeichnis: 'frontend' },
-  backend: { image: 'urlaub:1.0.0' },
+  backend: { image: 'urlaub:1.0.0', umgebung: { ARASUL_APP_NAME: 'Urlaub' } },
   ports: { backend: 8080 },
   ressourcen: { speicher: '512m', cpus: 1 },
   modelle: [],
@@ -116,6 +117,8 @@ afterAll(() => fs.rmSync(APPS_DIR, { recursive: true, force: true }));
 
 beforeEach(() => {
   db.query.mockReset();
+  docker.createContainer.mockClear();
+  docker.createContainer.mockResolvedValue({ start: jest.fn().mockResolvedValue(undefined) });
   licenseService.checkLimit.mockClear();
   licenseService.checkLimit.mockResolvedValue({ allowed: true, limit: -1, current: 0 });
   auth.__setUser(ADMIN);
@@ -195,20 +198,75 @@ describe('/api/apps/meine', () => {
   });
 });
 
+/**
+ * Die Abfragen eines erfolgreichen Einspielens, in ihrer Reihenfolge:
+ *   1. gibt es die App schon (Lizenzgrenze)
+ *   2. die Zeile in `apps` -- seit C4 VOR dem Container, weil der Schluessel
+ *      als Fremdschluessel an ihr haengt
+ *   3. der alte Schluessel dieses Standes weg
+ *   4. der neue Schluessel
+ *   5. der Stand
+ */
+function einspielenAntworten() {
+  db.query
+    .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] })
+    .mockResolvedValueOnce({ rows: [] })
+    .mockResolvedValueOnce({ rowCount: 0 })
+    .mockResolvedValueOnce({ rows: [{ id: 7 }] })
+    .mockResolvedValueOnce({
+      rows: [{ app_id: 'urlaub', stand: 'test', version: '1.0.0', eingespielt_am: 'jetzt' }],
+    });
+}
+
 describe('POST /api/apps/:id/einspielen', () => {
   test('spielt eine Version ein und antwortet 201', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }) // App gibt es schon: keine Grenze
-      .mockResolvedValueOnce({ rows: [] }) // apps upsert
-      .mockResolvedValueOnce({
-        rows: [{ app_id: 'urlaub', stand: 'test', version: '1.0.0', eingespielt_am: 'jetzt' }],
-      });
+    einspielenAntworten();
     const res = await request(verwaltung())
       .post('/api/apps/urlaub/einspielen')
       .send({ version: '1.0.0' });
     expect(res.status).toBe(201);
     // Ohne Angabe geht es in den TESTSTAND. Live schaltet ein Mensch.
     expect(res.body.data.stand).toBe('test');
+  });
+
+  test('setzt einen frischen Schluessel in die Umgebung des Containers (C4)', async () => {
+    einspielenAntworten();
+    await request(verwaltung()).post('/api/apps/urlaub/einspielen').send({ version: '1.0.0' });
+
+    // Der alte Schluessel dieses Standes faellt, bevor der neue entsteht:
+    // der eindeutige Index aus 171 laesst nur einen zu.
+    const geloescht = db.query.mock.calls.find(([sql]) => sql.includes('DELETE FROM public.api_keys'));
+    expect(geloescht[1]).toEqual(['urlaub', 'test']);
+
+    const angelegt = db.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO public.api_keys'));
+    expect(angelegt[1].slice(-2)).toEqual(['urlaub', 'test']);
+
+    const { Env } = docker.createContainer.mock.calls.at(-1)[0];
+    expect(Env).toContain('ARASUL_API_URL=http://dashboard-backend:3001/api/v1/external');
+    const schluessel = Env.find(z => z.startsWith('ARASUL_API_SCHLUESSEL='));
+    expect(schluessel).toMatch(/^ARASUL_API_SCHLUESSEL=aras_[0-9a-f]{32}$/);
+    // Was im Manifest steht, bleibt daneben stehen.
+    expect(Env).toContain('ARASUL_APP_NAME=Urlaub');
+  });
+
+  test('kommt der Container nicht hoch, bleibt keine neue App stehen', async () => {
+    // Sonst belegte eine leere Zeile dauerhaft einen Platz der Lizenzgrenze.
+    docker.createContainer.mockRejectedValueOnce(new Error('kein Image'));
+    db.query
+      .mockResolvedValueOnce({ rows: [] }) // die App gibt es noch nicht
+      .mockResolvedValueOnce({ rows: [{ n: 0 }] })
+      .mockResolvedValueOnce({ rows: [] }) // apps upsert
+      .mockResolvedValueOnce({ rowCount: 0 }) // alter Schluessel weg
+      .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // neuer Schluessel
+      .mockResolvedValueOnce({ rows: [] }); // DELETE FROM apps
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/einspielen')
+      .send({ version: '1.0.0' });
+    expect(res.status).toBe(500);
+    const aufgeraeumt = db.query.mock.calls.find(([sql]) =>
+      sql.includes('DELETE FROM public.apps')
+    );
+    expect(aufgeraeumt[1]).toEqual(['urlaub']);
   });
 
   test('eine Version, die nicht auf der Platte liegt, ist 404', async () => {
@@ -242,12 +300,7 @@ describe('POST /api/apps/:id/einspielen', () => {
     // Sonst blockierte ein abgelaufener Schluessel ein Update, das vielleicht
     // genau den Fehler behebt, wegen dem jemand anruft.
     licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 1, current: 1 });
-    db.query
-      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }) // die App gibt es schon
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [{ app_id: 'urlaub', stand: 'test', version: '1.0.0', eingespielt_am: 'jetzt' }],
-      });
+    einspielenAntworten();
     const res = await request(verwaltung())
       .post('/api/apps/urlaub/einspielen')
       .send({ version: '1.0.0' });

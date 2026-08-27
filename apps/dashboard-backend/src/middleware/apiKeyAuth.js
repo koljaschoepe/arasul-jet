@@ -15,18 +15,40 @@ const crypto = require('crypto');
 const rateLimitCache = new Map();
 
 /**
+ * Was ein Schluessel darf, wenn niemand etwas anderes sagt.
+ *
+ * Eine Liste, ein Ort. Sie stand bis zum 27.08.2026 ausgeschrieben in
+ * `routes/external/externalApi.js`; seit Phase C4 legt auch das Geraet selbst
+ * Schluessel an (einen je App und Stand), und zwei Listen waeren zwei
+ * Antworten auf dieselbe Frage gewesen.
+ *
+ * Kein `*`. Migration 085 hat die Wildcard-Schluessel stillgelegt, und die
+ * Pruefung honoriert sie seit dem 29.04.2026 ohnehin nicht mehr.
+ */
+const VORGABE_ENDPUNKTE = Object.freeze([
+  'llm:chat',
+  'llm:status',
+  'document:extract',
+  'document:analyze',
+  'flow:run',
+]);
+
+/**
  * Generate a new API key
  * @param {string} name - Key name/label
  * @param {string} description - Key description
  * @param {number} createdBy - User ID who created this key
- * @param {Object} options - Additional options
+ * @param {Object} options - Additional options. `appId`/`stand` binden den
+ *   Schluessel an eine App (Phase C4); ohne sie gehoert er einem Menschen.
  * @returns {Promise<{key: string, keyPrefix: string, keyId: number}>}
  */
 async function generateApiKey(name, description, createdBy, options = {}) {
   const {
     rateLimitPerMinute = 60,
-    allowedEndpoints = ['llm:chat', 'llm:status'],
+    allowedEndpoints = VORGABE_ENDPUNKTE,
     expiresAt = null,
+    appId = null,
+    stand = null,
   } = options;
 
   // Generate random key: aras_ + 32 random hex chars
@@ -40,8 +62,8 @@ async function generateApiKey(name, description, createdBy, options = {}) {
   // Store in database
   const result = await database.query(
     `
-        INSERT INTO api_keys (key_hash, key_prefix, name, description, created_by, rate_limit_per_minute, allowed_endpoints, expires_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO public.api_keys (key_hash, key_prefix, name, description, created_by, rate_limit_per_minute, allowed_endpoints, expires_at, app_id, stand)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
     `,
     [
@@ -53,6 +75,8 @@ async function generateApiKey(name, description, createdBy, options = {}) {
       rateLimitPerMinute,
       allowedEndpoints,
       expiresAt,
+      appId,
+      stand,
     ]
   );
 
@@ -243,6 +267,7 @@ function requireEndpoint(endpoint) {
 }
 
 module.exports = {
+  VORGABE_ENDPUNKTE,
   generateApiKey,
   validateApiKey,
   requireApiKey,
