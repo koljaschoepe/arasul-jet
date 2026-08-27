@@ -593,9 +593,16 @@ if (alsServerGestartet) {
     // Flow-Läufe (Plan 011, Schritt 12): Ein Neustart bricht laufende Flows ab.
     // In der DB stünden sie sonst ewig als 'laeuft', obwohl kein Prozess sie mehr
     // fortsetzt — hier einmalig auf 'fehler' setzen.
+    //
+    // Danach, in DIESER Reihenfolge (Phase C7): die offenen Freigabe-Anfragen
+    // der eben beendeten Läufe schließen. Andersherum wäre der Lauf noch
+    // `wartend`, die Anfrage bliebe offen, und ein Mitarbeiter bekäme morgen
+    // früh etwas zu bestätigen, das niemand mehr weiterführt.
     try {
       const flowRunner = require('./services/flows/flowRunner');
       await flowRunner.verwaisteAufraeumen();
+      const freigabeAnfragen = require('./services/flows/freigabeAnfragen');
+      await freigabeAnfragen.verwaisteSchliessen();
     } catch (err) {
       logger.error(`Failed to clean up orphaned flow runs: ${err.message}`);
     }

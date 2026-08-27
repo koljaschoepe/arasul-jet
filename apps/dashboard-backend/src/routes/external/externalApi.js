@@ -41,6 +41,7 @@ const flowRegistry = require('../../services/flows/flowRegistry');
 const appFlows = require('../../services/app/appFlows');
 const flowRunner = require('../../services/flows/flowRunner');
 const flowRunStore = require('../../services/flows/runStore');
+const freigabeAnfragen = require('../../services/flows/freigabeAnfragen');
 const { resolveArguments } = require('../../services/flows/runFlow');
 
 // Multer for document upload endpoints (50MB limit)
@@ -925,12 +926,62 @@ router.get(
 );
 
 /**
+ * GET /api/v1/external/freigaben - Die Freigaben dieser App nachlesen.
+ *
+ * Eine App darf WISSEN, woran ihr Lauf haengt, aber nicht entscheiden: hier
+ * gibt es nur Lesen. Bestaetigt und abgelehnt wird ueber `/api/freigabe-anfragen`
+ * mit einer Sitzung -- eine App, die ihre eigene Freigabe erteilen koennte,
+ * waere keine.
+ *
+ * Der Namensraum kommt aus dem SCHLUESSEL und nicht aus der Anfrage (dieselbe
+ * Regel wie bei den Flows, C6): eine App kann die Freigaben einer anderen
+ * nicht einmal benennen. Der Schluessel eines Menschen (`app_id IS NULL`)
+ * findet hier deshalb gar nichts -- er gehoert zu keiner App.
+ *
+ * `?lauf=<id>` engt auf einen Lauf ein. Das ist die Frage, die eine App
+ * wirklich stellt: „mein Lauf steht auf wartend -- worauf wartet er?"
+ */
+router.get(
+  '/freigaben',
+  requireApiKey,
+  requireEndpoint('flow:run'),
+  asyncHandler(async (req, res) => {
+    const { appId, stand } = namensraumVon(req.apiKey);
+    if (!appId) {
+      throw new ForbiddenError(
+        'Freigaben gehoeren einer App. Dieser Schluessel gehoert einem Menschen; ' +
+          'seine offenen Freigaben stehen unter /api/freigabe-anfragen.'
+      );
+    }
+    let lauf = null;
+    if (req.query.lauf != null && req.query.lauf !== '') {
+      lauf = Number(req.query.lauf);
+      if (!Number.isInteger(lauf) || lauf <= 0) {
+        throw new ValidationError('lauf must be a positive integer');
+      }
+    }
+    const freigaben = await freigabeAnfragen.listeFuerApp({ appId, stand, runId: lauf });
+    res.json({
+      success: true,
+      app: appId,
+      stand,
+      freigaben,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
  * Helper: Wartet auf das Ende eines Flow-Laufs (Terminal-Status) mit Timeout.
  * Bricht ab, wenn der API-Aufrufer die Verbindung schließt — der Lauf läuft
  * serverseitig weiter (er ist losgelöst), wir hören nur auf zu warten.
  */
 async function waitForRunCompletion(runId, userId, timeoutMs, req, namensraum = {}) {
-  const TERMINAL = new Set(['fertig', 'fehler', 'abgebrochen']);
+  // `abgelaufen` gehoert dazu (Phase C7): niemand hat die Freigabe innerhalb
+  // ihrer Frist erteilt, der Lauf ist vorbei. `wartend` gehoert NICHT dazu --
+  // dort haelt der Lauf an und geht nach einer Bestaetigung weiter, und genau
+  // darauf soll dieser Aufruf ja warten.
+  const TERMINAL = new Set(['fertig', 'fehler', 'abgebrochen', 'abgelaufen']);
   const pollInterval = 750;
   const startTime = Date.now();
   let clientGone = false;

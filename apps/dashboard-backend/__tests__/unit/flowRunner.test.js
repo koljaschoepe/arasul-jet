@@ -167,7 +167,10 @@ describe('verwaisteAufraeumen', () => {
     expect(n).toBe(2);
     const sql = db.query.mock.calls[0][0];
     expect(sql).toMatch(/UPDATE flow_runs/);
-    expect(sql).toMatch(/status = 'laeuft'/); // nur die laufenden
+    // `wartend` gehoert dazu (Phase C7): ein Lauf an einer Freigabe haengt an
+    // einem Zeitgeber in DIESEM Prozess. Nach einem Neustart wartet er auf
+    // etwas, das ihn nie mehr fortsetzt.
+    expect(sql).toMatch(/status IN \('laeuft', 'wartend'\)/);
     expect(sql).toMatch(/SET status = 'fehler'/);
   });
 });

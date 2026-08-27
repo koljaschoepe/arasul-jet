@@ -30,6 +30,10 @@
 /** Nutzerinhalte. Weg bei Stufe 1 und Stufe 2. */
 const INHALTE = [
   ['public.llm_jobs', 'Aufträge an die Sprachmodelle'],
+  // Vor den Läufen, an denen sie hängt (Phase C7). Die Reihenfolge ist hier
+  // zwar egal — `leereTabellen` wiederholt, was am Fremdschlüssel scheitert —,
+  // aber wer sie liest, soll die Richtung sehen.
+  ['public.approvals', 'Freigabe-Anfragen aus Flow-Läufen'],
   ['arasul.flow_run_steps', 'Einzelschritte der Flow-Läufe'],
   ['arasul.flow_runs', 'Flow-Läufe'],
 ];

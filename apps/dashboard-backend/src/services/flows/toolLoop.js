@@ -247,6 +247,16 @@ async function runFlowLoop({
           try {
             result = await tool.execute(params, context);
           } catch (err) {
+            // EINE Ausnahme von „Werkzeuge werfen nie in die Schleife hinein":
+            // `laufBeendet` (Phase C7). Eine abgelehnte oder abgelaufene
+            // Freigabe beendet den Lauf, und das Modell darf davon nichts als
+            // Werkzeugantwort lesen -- es suchte sich sonst einen anderen Weg
+            // zum selben Ziel, und genau den soll die Freigabe verhindern.
+            // Der Lauf steht zu diesem Zeitpunkt bereits terminal in der
+            // Datenbank (`freigabeAnfragen.beendeLauf`).
+            if (err.laufBeendet) {
+              throw err;
+            }
             // Doppelter Boden: Sollte ein Werkzeug wider Erwarten doch werfen,
             // wird daraus eine Fehler-Nachricht, kein Lauf-Abbruch.
             logger.warn(`Flow-Werkzeug "${toolName}" warf: ${err.message}`);

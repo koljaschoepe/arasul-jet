@@ -146,6 +146,10 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     delete ohneSystemversion.arasul;
     const abdruck = crypto.createHash('sha256').update(stabil(ohneSystemversion)).digest('hex');
 
-    expect(abdruck).toBe('be8c3eaf4729304e21bf8a0bcc9af03df4ec09de08fc1f84706f604811dae208');
+    // Phase C7 (Kontrakt 3): `freigabe_anfordern` steht im Werkzeug-Schema,
+    // drei Regeln fuer Flows aus einem Paket kommen dazu, und ein Endpunkt --
+    // `GET /freigaben`. Ein Kit, das gegen Fassung 2 prueft, wiese einen
+    // gueltigen Flow ab; deshalb ist die Zahl mitgegangen.
+    expect(abdruck).toBe('6c5eefb0a92aad1787d8a7c48f6ce68e865061b4192d7f96edc3ac06a22f77b5');
   });
 });
