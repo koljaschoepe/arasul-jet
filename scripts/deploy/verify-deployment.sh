@@ -272,7 +272,7 @@ fi
 # Crontab kein `backup.sh` steht -- auf einem korrekt eingerichteten Geraet
 # steht dort keines, und die Warnung riet dazu, eine ZWEITE Sicherung neben
 # der laufenden einzurichten.
-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^backup-service$'; then
+if grep -q '^backup-service$' <<<"$(docker ps --format '{{.Names}}' 2>/dev/null)"; then
   check_pass "Sicherungsdienst laeuft"
 else
   check_warn "Sicherungsdienst laeuft nicht — dieses Geraet sichert gerade nicht"

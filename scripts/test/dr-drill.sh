@@ -74,7 +74,7 @@ echo "=== Drill: sichern, loeschen, wiederherstellen (Stack: ${STACK}) ==="
 echo
 
 # --- 0. Steht ueberhaupt etwas zum Verlieren da? -----------------------------
-if ! docker ps --format '{{.Names}}' | grep -qx "$PG"; then
+if ! grep -qx "$PG" <<<"$(docker ps --format '{{.Names}}')"; then
     echo "Kein ${PG}. Erst den Stack hochfahren."
     exit 1
 fi

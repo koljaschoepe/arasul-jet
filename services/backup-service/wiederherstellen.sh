@@ -276,6 +276,23 @@ entpacke_nach() {
         return 1
     fi
     rm -rf "$vorlauf"
+
+    # WEM GEHOEREN DIE DATEIEN JETZT?
+    #
+    # Dieser Dienst laeuft als root, das Backend als `node` (uid 1000). `tar`
+    # legt als root die Eigentuemer aus dem Archiv wieder an, und die stimmen --
+    # solange das Archiv sie kennt. Wo es sie nicht kennt (neu angelegte
+    # Zwischenordner), bliebe root stehen, und der naechste Deploy derselben App
+    # scheiterte beim Loeschen des Versionsordners mit EACCES: ein Fehler, der
+    # Wochen spaeter auftritt und nach allem aussieht ausser nach der
+    # Wiederherstellung.
+    #
+    # Deshalb die Regel, die ohnehin gilt: alles unter dem Ordner gehoert dem,
+    # dem der Ordner gehoert.
+    local eigner
+    eigner=$(stat -c '%u:%g' "$ziel" 2>/dev/null)
+    [ -n "$eigner" ] && chown -R "$eigner" "$ziel" 2>/dev/null
+
     local anzahl
     anzahl=$(find "$ziel" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
     protokoll "${name}: zurueck (${anzahl} Eintraege in ${ziel})"
