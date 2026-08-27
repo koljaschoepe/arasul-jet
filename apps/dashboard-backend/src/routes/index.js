@@ -48,6 +48,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/embeddings', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
   { prefix: '/freigabe-anfragen', group: 'ai' },
+  { prefix: '/notizen', group: 'core' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
@@ -82,6 +83,10 @@ router.get('/_meta', (req, res) => {
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
 router.use('/docs', require('./docs'));
+// Der Zettel in der rechten Spalte der Shell (Phase D1). Bei den Kern-Wegen
+// und nicht unter `admin/`: er gehoert dem Angemeldeten, jeder hat einen, und
+// niemand verwaltet den eines anderen.
+router.use('/notizen', require('./notizen'));
 
 // --- System ---
 router.use('/system', require('./system/system'));
