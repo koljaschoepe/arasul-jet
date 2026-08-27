@@ -135,10 +135,20 @@ async function schreibePasswort(userId, newPassword, { changedBy, ipAddress } = 
   const newPasswordHash = await hashPassword(newPassword);
 
   await db.transaction(async client => {
-    await client.query(
+    const geaendert = await client.query(
       'UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [newPasswordHash, userId]
     );
+
+    // Zwischen der Existenzpruefung des Aufrufers und diesem UPDATE kann der
+    // Benutzer geloescht worden sein. Ohne diese Zeile aktualisierte das UPDATE
+    // still null Zeilen, und der Eintrag in die Historie darunter lief in eine
+    // Fremdschluessel-Verletzung -- ein 400 mit einer Meldung ueber eine
+    // Datenbankspalte, wo ein 404 hingehoert. Der Wurf rollt die Transaktion
+    // zurueck, also bleibt nichts halb geschrieben.
+    if (geaendert.rowCount === 0) {
+      throw new NotFoundError(`Benutzer ${userId} gibt es nicht (mehr)`);
+    }
 
     await client.query(
       `INSERT INTO password_history (user_id, password_hash, changed_by, ip_address)

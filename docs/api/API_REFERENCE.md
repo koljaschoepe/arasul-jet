@@ -627,11 +627,11 @@ Freigegeben wird an jeden Benutzer, auch an einen Administrator: die Rolle sagt,
 wer verwaltet, nicht wer arbeitet. Alle drei Wege sind Admin-Wege. Die eigene
 Sicht des Mitarbeiters auf das Freigegebene kommt mit dem App-Modell (C3).
 
-| Method | Endpoint                            | Description                                                                            |
-| ------ | ----------------------------------- | -------------------------------------------------------------------------------------- |
-| GET    | `/api/freigaben`                    | Alle Freigaben; Filter `?app_id=` und `?benutzer_id=`; mit `username`, `email`, `role` |
-| POST   | `/api/freigaben`                    | Freigeben: `{ app_id, benutzer_id }`; 201 neu, 200 wenn sie schon stand (`neu: false`) |
-| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zurücknehmen; 404, wenn es sie nicht gibt                                     |
+| Method | Endpoint                            | Description                                                                                                              |
+| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/freigaben`                    | Alle Freigaben; Filter `?app_id=` und `?benutzer_id=`; mit `username`, `email`, `role`                                   |
+| POST   | `/api/freigaben`                    | Freigeben: `{ app_id, benutzer_id }`; 201 neu, 200 wenn sie schon stand (`neu: false`), 409 bei gleichzeitiger Rücknahme |
+| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zurücknehmen; 404, wenn es sie nicht gibt                                                                       |
 
 ```json
 // POST /api/freigaben → 201

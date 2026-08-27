@@ -169,6 +169,26 @@ describe('/api/benutzer', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+  test('PUT /:id/passwort meldet 404, wenn der Benutzer waehrenddessen verschwindet', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: '2', username: 'mia' }] });
+    const calls = [];
+    db.transaction.mockImplementation(async cb =>
+      cb({
+        query: jest.fn(async (sql, params) => {
+          calls.push(sql.replace(/\s+/g, ' '));
+          // Das UPDATE trifft niemanden mehr.
+          return { rowCount: sql.includes('UPDATE admin_users') ? 0 : 1, rows: [] };
+        }),
+      })
+    );
+    const res = await request(app())
+      .put('/api/benutzer/2/passwort')
+      .send({ password: 'Startpasswort1!' });
+    expect(res.status).toBe(404);
+    // Die Historie darf dann auch nicht geschrieben werden.
+    expect(calls.some(c => c.includes('INSERT INTO password_history'))).toBe(false);
+  });
+
   test('PUT /:id/passwort eines unbekannten Benutzers ist 404', async () => {
     db.query.mockResolvedValueOnce({ rows: [] });
     const res = await request(app())

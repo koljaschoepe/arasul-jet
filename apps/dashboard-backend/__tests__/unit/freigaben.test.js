@@ -143,6 +143,17 @@ describe('/api/freigaben', () => {
     expect(db.query.mock.calls[2][0]).not.toContain('JOIN');
   });
 
+  test('POST meldet 409, wenn die Freigabe zwischen INSERT und Nachlese verschwindet', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [] }) // ON CONFLICT DO NOTHING
+      .mockResolvedValueOnce({ rows: [] }); // und jetzt ist sie auch nicht mehr da
+    const res = await request(app())
+      .post('/api/freigaben')
+      .send({ app_id: 'urlaub', benutzer_id: 2 });
+    // Nicht 200 mit leerem data: das waere eine Zusage, die die Antwort nicht haelt.
+    expect(res.status).toBe(409);
+  });
+
   test('POST fuer einen unbekannten Benutzer ist 400 (Fremdschluessel)', async () => {
     db.query.mockRejectedValueOnce(Object.assign(new Error('fk'), { code: '23503' }));
     const res = await request(app())

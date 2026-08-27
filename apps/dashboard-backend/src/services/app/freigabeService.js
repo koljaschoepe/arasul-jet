@@ -17,7 +17,7 @@
  */
 
 const db = require('../../database');
-const { NotFoundError } = require('../../utils/errors');
+const { ConflictError, NotFoundError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
 
 const SPALTEN = `f.app_id, f.user_id, f.freigegeben_von, f.freigegeben_am,
@@ -86,6 +86,15 @@ async function gibFrei({ appId, benutzerId, durch }) {
        FROM public.app_members WHERE app_id = $1 AND user_id = $2`,
     [appId, benutzerId]
   );
+  if (bestand.rows.length === 0) {
+    // Zwischen dem INSERT und dieser Zeile hat jemand die Freigabe
+    // zurueckgenommen. Ein winziges Fenster, aber ohne diese Pruefung
+    // antwortete die Route mit 200 und `data: undefined` -- eine Zusage, die
+    // sie nicht halten kann. 409 sagt: nicht dein Fehler, versuch es noch mal.
+    throw new ConflictError(
+      `Die Freigabe von ${appId} fuer Benutzer ${benutzerId} wurde waehrend des Anlegens zurueckgenommen`
+    );
+  }
   return { freigabe: bestand.rows[0], neu: false };
 }
 
