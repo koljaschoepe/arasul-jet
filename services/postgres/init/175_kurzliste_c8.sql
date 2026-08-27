@@ -92,7 +92,10 @@ ON CONFLICT (id) DO UPDATE SET
     name               = EXCLUDED.name,
     description        = EXCLUDED.description,
     ollama_name        = EXCLUDED.ollama_name,
-    size_bytes         = GREATEST(EXCLUDED.size_bytes, public.llm_model_catalog.size_bytes),
+    -- Unqualifiziert und nicht `public.llm_model_catalog.…`: in einem
+    -- ON CONFLICT DO UPDATE spricht man die Zielzeile ueber den Namen der
+    -- Tabelle an, den der INSERT als Alias gesetzt hat.
+    size_bytes         = GREATEST(EXCLUDED.size_bytes, llm_model_catalog.size_bytes),
     ram_required_gb    = EXCLUDED.ram_required_gb,
     category           = EXCLUDED.category,
     capabilities       = EXCLUDED.capabilities,
@@ -141,7 +144,7 @@ UPDATE public.llm_model_catalog SET is_task_default = false
 
 UPDATE public.llm_model_catalog SET is_task_default = true, updated_at = NOW()
  WHERE id IN ('hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS', 'nomic-embed-text', 'llava-phi3')
-   AND NOT is_task_default;
+   AND COALESCE(is_task_default, false) = false;
 
 -- --- 5. Das Standardmodell ---------------------------------------------------
 -- Hing das Flag an einem gestrichenen Modell, ist es mit Schritt 3 gefallen.

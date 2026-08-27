@@ -20,8 +20,28 @@
 -- "ADD VALUE" fuer eine CHECK-Liste. Bestehende Zeilen erfuellen die neue
 -- Bedingung, sie ist eine echte Obermenge.
 
-ALTER TABLE public.recovery_actions
-  DROP CONSTRAINT IF EXISTS recovery_actions_action_type_check;
+-- Nicht ueber den vermuteten Namen, sondern ueber den gefundenen: Postgres
+-- benennt eine Spalten-CHECK zwar `<tabelle>_<spalte>_check`, aber ein Geraet,
+-- auf dem die Tabelle einmal von Hand angefasst wurde, traegt womoeglich einen
+-- anderen Namen -- und dann liefe das ADD unten in einen Konflikt mit einer
+-- Bedingung, die niemand mehr sieht.
+DO $$
+DECLARE
+  bedingung text;
+BEGIN
+  FOR bedingung IN
+    SELECT c.conname
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+     WHERE n.nspname = 'public'
+       AND t.relname = 'recovery_actions'
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) LIKE '%llm_cache_clear%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.recovery_actions DROP CONSTRAINT %I', bedingung);
+  END LOOP;
+END $$;
 
 ALTER TABLE public.recovery_actions
   ADD CONSTRAINT recovery_actions_action_type_check
