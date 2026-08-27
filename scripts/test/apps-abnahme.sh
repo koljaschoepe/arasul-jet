@@ -74,7 +74,17 @@ hole() {
   done
 }
 rumpf() { cat "$RUMPF_DATEI" 2>/dev/null; }
+
+# Beide Pruefungen des Inhaltstyps stehen als FUNKTION da, und das ist kein
+# Geschmack: `$(case "$TYP" in text/html*) ... esac)` laeuft unter bash 3.2
+# nicht. Die alte Shell beendet die Kommandosubstitution an der ersten
+# schliessenden Klammer -- also an der des Musters -- und meldet zur LAUFZEIT
+# "syntax error near unexpected token". `bash -n` sieht davon nichts, weil der
+# Rumpf einer Substitution erst beim Ausfuehren geparst wird; die Datei ist
+# also syntaktisch in Ordnung und faellt trotzdem um. macOS liefert bis heute
+# bash 3.2 aus, und der Ueberordner misst von einem Mac (Fund aus C3).
 ist_json() { case "$TYP" in application/json*) echo ja ;; *) echo nein ;; esac; }
+ist_html() { case "$TYP" in text/html*) echo ja ;; *) echo nein ;; esac; }
 
 json_feld() {
   python3 -c 'import sys,json
@@ -119,7 +129,7 @@ pruefe 'Ihr Backend-Container laeuft' "${LAEUFT:-nein}" "laeuft=$LAEUFT"
 # --- 2. Das Frontend, von Arasul ausgeliefert --------------------------------
 hole "/apps/$APP/"
 pruefe "GET /apps/$APP/ liefert die Seite" "$([ "$CODE" = "200" ] && echo ja || echo nein)" "HTTP $CODE"
-pruefe 'und zwar als HTML' "$(case "$TYP" in text/html*) echo ja ;; *) echo nein ;; esac)" "$TYP"
+pruefe 'und zwar als HTML' "$(ist_html)" "$TYP"
 pruefe 'mit dem Namen der App darin' \
   "$(rumpf | grep -qi "$APP\|Beispielapp" && echo ja || echo nein)"
 
