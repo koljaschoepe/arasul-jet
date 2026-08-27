@@ -76,8 +76,17 @@ async function gibFrei({ appId, benutzerId, durch }) {
     logger.info(`Freigabe: App ${appId} fuer Benutzer ${benutzerId}`);
     return { freigabe: result.rows[0], neu: true };
   }
-  const bestand = await listeFreigaben({ appId, benutzerId });
-  return { freigabe: bestand[0], neu: false };
+  // Dieselben vier Spalten wie oben, nicht die angereicherte Zeile aus
+  // `listeFreigaben`: sonst haette dieselbe Route zwei Antwortformen, je
+  // nachdem ob es der erste oder der zweite Aufruf war, und ein Client, der
+  // sich auf die 201 verlaesst, bekaeme bei 200 ueberraschend Felder dazu.
+  // Wer Namen und Rolle will, fragt `GET /api/freigaben`.
+  const bestand = await db.query(
+    `SELECT app_id, user_id, freigegeben_von, freigegeben_am
+       FROM public.app_members WHERE app_id = $1 AND user_id = $2`,
+    [appId, benutzerId]
+  );
+  return { freigabe: bestand.rows[0], neu: false };
 }
 
 /**

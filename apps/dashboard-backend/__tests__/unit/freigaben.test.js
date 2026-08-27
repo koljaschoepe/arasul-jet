@@ -116,7 +116,7 @@ describe('/api/freigaben', () => {
   test('POST auf eine bestehende Freigabe ist 200 und aendert nichts', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [] }) // ON CONFLICT DO NOTHING
-      .mockResolvedValueOnce({ rows: [{ ...FREIGABE, username: 'mia' }] }); // Bestand lesen
+      .mockResolvedValueOnce({ rows: [FREIGABE] }); // Bestand lesen
     const res = await request(app())
       .post('/api/freigaben')
       .send({ app_id: 'urlaub', benutzer_id: 2 });
@@ -125,6 +125,22 @@ describe('/api/freigaben', () => {
     expect(res.body.data.freigegeben_am).toBe(FREIGABE.freigegeben_am);
     // Kein zweiter Protokolleintrag fuer einen Zustand, der schon galt.
     expect(logSecurityEvent).not.toHaveBeenCalled();
+  });
+
+  test('POST antwortet zweimal mit derselben Form, 201 wie 200', async () => {
+    // Der Bestand wird mit denselben vier Spalten gelesen wie das INSERT sie
+    // zurueckgibt, nicht mit der angereicherten Zeile aus listeFreigaben.
+    // Sonst haette dieselbe Route zwei Antwortformen.
+    db.query.mockResolvedValueOnce({ rows: [FREIGABE] });
+    const neu = await request(app())
+      .post('/api/freigaben')
+      .send({ app_id: 'urlaub', benutzer_id: 2 });
+    db.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [FREIGABE] });
+    const bestand = await request(app())
+      .post('/api/freigaben')
+      .send({ app_id: 'urlaub', benutzer_id: 2 });
+    expect(Object.keys(bestand.body.data).sort()).toEqual(Object.keys(neu.body.data).sort());
+    expect(db.query.mock.calls[2][0]).not.toContain('JOIN');
   });
 
   test('POST fuer einen unbekannten Benutzer ist 400 (Fremdschluessel)', async () => {

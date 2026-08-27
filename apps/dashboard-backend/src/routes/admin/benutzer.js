@@ -108,6 +108,18 @@ router.put(
   validateParams(BenutzerIdParams),
   validateBody(SetzePasswortBody),
   asyncHandler(async (req, res) => {
+    // Nicht fuer das eigene Konto. Es gaebe dafuer keinen Anlass -- wer hier
+    // ankommt, ist angemeldet und kann sein Passwort ueber
+    // POST /api/auth/change-password wechseln -- und dieser Weg hier prueft
+    // das alte Passwort nicht und setzt die Komplexitaetsregeln nicht durch.
+    // Ohne diese Zeile waere er also eine Abkuerzung an den eigenen Regeln
+    // vorbei, und eine uebernommene Admin-Sitzung koennte sich damit ein
+    // dauerhaftes Passwort setzen statt nur den geliehenen Token zu haben.
+    if (istEigenesKonto(req)) {
+      throw new ValidationError(
+        'Das eigene Passwort wird ueber POST /api/auth/change-password gewechselt'
+      );
+    }
     const ziel = await benutzerService.holeBenutzer(req.params.id);
     await setzePasswort(ziel.id, req.body.password, {
       gesetztVon: req.user.username,

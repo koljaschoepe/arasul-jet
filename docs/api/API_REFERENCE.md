@@ -577,20 +577,23 @@ Sein eigenes Passwort wechselt jeder über `POST /api/auth/change-password` —
 dort wird das alte geprüft und das neue muss den Komplexitätsregeln genügen.
 `PUT /api/benutzer/:id/passwort` ist der andere Fall: der Administrator kennt
 das alte nicht, setzt ein Startpasswort (mindestens acht Zeichen) und beendet
-damit alle Sitzungen des Betroffenen.
+damit alle Sitzungen des Betroffenen. Für das **eigene** Konto ist dieser Weg
+gesperrt (400): er prüft das alte Passwort nicht und setzt die
+Komplexitätsregeln nicht durch, wäre also sonst eine Abkürzung an den eigenen
+Regeln vorbei.
 
 Stilllegen ist nicht Löschen. Ein stillgelegter Benutzer kommt nicht mehr
 herein (`POST /api/auth/login` antwortet 403 `Account is disabled`), seine
 Läufe und Protokolle bleiben stehen. Der letzte aktive Administrator kann nicht
 stillgelegt werden, und niemand kann sich selbst stilllegen.
 
-| Method | Endpoint                     | Description                                                                                       |
-| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| GET    | `/api/benutzer`              | Alle Benutzer: `id, username, email, role, is_active, created_at, last_login`                     |
-| POST   | `/api/benutzer`              | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name |
-| PUT    | `/api/benutzer/:id/passwort` | Passwort setzen: `{ password }` (≥ 8 Zeichen); beendet alle Sitzungen; 404 unbekannt              |
-| PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin   |
-| DELETE | `/api/benutzer/:id`          | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                              |
+| Method | Endpoint                     | Description                                                                                                    |
+| ------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/benutzer`              | Alle Benutzer: `id, username, email, role, is_active, created_at, last_login`                                  |
+| POST   | `/api/benutzer`              | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name              |
+| PUT    | `/api/benutzer/:id/passwort` | Passwort setzen: `{ password }` (≥ 8 Zeichen); beendet alle Sitzungen; 400 für das eigene Konto, 404 unbekannt |
+| PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin                |
+| DELETE | `/api/benutzer/:id`          | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                                           |
 
 ```json
 // POST /api/benutzer → 201
@@ -646,7 +649,9 @@ Sicht des Mitarbeiters auf das Freigegebene kommt mit dem App-Modell (C3).
 
 Zweimal dieselbe Freigabe ist kein Fehler, sondern derselbe Zustand: der zweite
 Aufruf lässt die erste stehen, samt Zeitstempel und dem Administrator, der sie
-gesetzt hat, und meldet `neu: false`. Löscht man den Benutzer, fallen seine
+gesetzt hat, und meldet `neu: false`. `data` trägt dabei in beiden Fällen
+dieselben vier Felder; `username`, `email` und `role` gibt es nur bei
+`GET /api/freigaben`. Löscht man den Benutzer, fallen seine
 Freigaben mit (`ON DELETE CASCADE`) und stehen in der Zusammenfassung der
 Löschung unter `app_members`.
 

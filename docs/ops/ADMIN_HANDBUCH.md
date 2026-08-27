@@ -320,6 +320,9 @@ Ein gesetztes Passwort beendet ebenfalls alle Sitzungen des Betroffenen. Er
 meldet sich damit einmal an und waehlt danach unter **Einstellungen >
 Sicherheit** sein eigenes; erst dort gelten die Passwort-Anforderungen unten.
 
+Fuer das EIGENE Konto ist dieser Weg gesperrt. Ihr eigenes Passwort wechseln
+Sie unter **Einstellungen > Sicherheit**, und dort gelten die Anforderungen.
+
 Der letzte aktive Administrator laesst sich weder loeschen noch stilllegen; sein
 Zugang bleibt, sonst waere das Geraet unbedienbar. Sich selbst kann ausserdem
 niemand stilllegen.

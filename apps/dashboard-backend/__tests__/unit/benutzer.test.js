@@ -149,6 +149,18 @@ describe('/api/benutzer', () => {
     expect(blacklistAllUserTokens).toHaveBeenCalledWith(2);
   });
 
+  test('PUT /:id/passwort auf das eigene Konto ist 400', async () => {
+    // Der Weg hier prueft das alte Passwort nicht und setzt die
+    // Komplexitaetsregeln nicht durch; fuer das eigene Konto waere er damit
+    // eine Abkuerzung an den eigenen Regeln vorbei.
+    const res = await request(app())
+      .put('/api/benutzer/1/passwort')
+      .send({ password: 'Startpasswort1!' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/change-password/);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   test('PUT /:id/passwort lehnt ein zu kurzes Passwort mit 400 ab', async () => {
     const res = await request(app()).put('/api/benutzer/2/passwort').send({ password: 'kurz' });
     expect(res.status).toBe(400);

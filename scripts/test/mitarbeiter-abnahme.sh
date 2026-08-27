@@ -252,6 +252,12 @@ if [ -n "$ICH" ]; then
 
   code=$(rufe GET /api/auth/me "$TOK")
   pruefe 'und ist danach immer noch angemeldet' "$([ "$code" = "200" ] && echo ja || echo nein)" "HTTP $code"
+
+  # Und er setzt sich hier auch nicht selbst ein Passwort: dieser Weg prueft
+  # das alte nicht und kennt die Komplexitaetsregeln nicht. Fuer das eigene
+  # Konto gibt es POST /api/auth/change-password.
+  code=$(rufe PUT "/api/benutzer/$ICH/passwort" "$TOK" '{"password":"Umgehung-12345"}')
+  pruefe 'Der Administrator setzt sich nicht selbst ein Passwort' "$([ "$code" = "400" ] && echo ja || echo nein)" "HTTP $code"
 fi
 
 # --- 9. Freigabe zuruecknehmen -----------------------------------------------
