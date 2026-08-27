@@ -1,7 +1,14 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
-import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
+import {
+  useWorkspaceStore,
+  pathToTabSpec,
+  tabToPath,
+  tabId,
+  nurFuerAdmin,
+} from '@/stores/workspaceStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
 import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { StatusBar } from './StatusBar';
@@ -22,9 +29,11 @@ import { RightPanel } from './RightPanel';
  * Der aktive Tab wird in der URL gespiegelt (/workspace/...), offene Tabs und
  * Panel-Layout persistieren in localStorage.
  *
- * Seit B2 (26.08.2026) sind die linke Spalte ohne gewählte Ansicht und die
- * rechte Spalte leer: Datei-Explorer, Agent-Chat und Terminal sind aus der
- * Oberfläche gefallen. Das Raster bleibt, D1 und D2 füllen die Spalten neu.
+ * Phase D1 (27.08.2026) füllt das Raster nach dem Zielbild aus Beschluss 10:
+ * links die Apps, in der Mitte das Dashboard oder eine App, rechts die
+ * Notizen. Zwischen B2 und D1 standen beide Seitenspalten leer, weil
+ * Datei-Explorer, Agent-Chat und Terminal aus der Oberfläche gefallen sind;
+ * das Raster ist dieselbe Sache geblieben.
  *
  * Keep-alive: Sidebar und rechte Spalte werden beim Ausblenden NICHT
  * unmounted, sondern nur per CSS versteckt (Regel in index.css:
@@ -44,6 +53,8 @@ import { RightPanel } from './RightPanel';
 export default function WorkspaceShell(props: TabThemeControls) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const istAdmin = user?.role === 'admin';
 
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
@@ -51,20 +62,29 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
 
-  // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
+  // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab.
+  //
+  // Seit D1 gibt es einen Standard-Tab: `/workspace` ohne weiteren Pfad landet
+  // auf der Übersicht. Vorher stand dort „Kein Tab geöffnet", weil es keinen
+  // gab, der immer passt; jetzt gibt es ihn, und die erste Ansicht nach der
+  // Anmeldung soll die eigenen Apps zeigen und keinen Leerzustand.
+  //
+  // Eine Admin-Adresse, die ein Mitarbeiter tippt, landet ebenfalls auf der
+  // Übersicht. Das ist Ausblenden und keine Berechtigung — `requireRole` im
+  // Backend antwortet ihm auf jeden Weg dahinter mit 403.
   useEffect(() => {
     const subPath = location.pathname.replace(/^\/workspace/, '');
-    const spec = pathToTabSpec(subPath);
+    const gewuenscht = pathToTabSpec(subPath);
+    const spec =
+      gewuenscht && (istAdmin || !nurFuerAdmin(gewuenscht.type))
+        ? gewuenscht
+        : ({ type: 'dashboard' } as const);
 
-    if (spec) {
-      const id = tabId(spec);
-      if (id !== activeTabId) {
-        openTab(spec);
-      }
+    const id = tabId(spec);
+    if (id !== activeTabId) {
+      openTab(spec);
     }
-    // Kein Default-Tab: ohne passenden Deep-Link landet der Workspace auf
-    // seinem Leerzustand ("Kein Tab geöffnet").
-  }, [location.pathname]);
+  }, [location.pathname, istAdmin]);
 
   // Store → URL: aktiver Tab spiegelt sich im Pfad
   useEffect(() => {
@@ -120,7 +140,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
       className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground"
       data-testid="workspace-shell"
     >
-      <WorkspaceMenuBar />
+      <WorkspaceMenuBar onLogout={props.onLogout} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Immer sichtbare Activity-Bar links, außerhalb des einklappbaren
             Panels — so bleibt jede Ansicht erreichbar, auch wenn die Sidebar

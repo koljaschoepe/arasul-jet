@@ -28,16 +28,21 @@ import WorkspaceShell from '../WorkspaceShell';
 import Modal, { ConfirmModal } from '@/components/ui/Modal';
 
 // Schwere Shell-Kinder mocken — getestet wird die Panel-/Dialog-Interaktion.
+vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div /> }));
 vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
 vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
+// Seit D1 tragen die beiden Spalten Inhalt (App-Liste, Notizen), der eigene
+// Abfragen stellt. Hier geht es um die Panels, nicht um das, was darin steht.
+vi.mock('../SidebarHost', () => ({ SidebarHost: () => <div data-testid="mock-sidebar" /> }));
+vi.mock('../RightPanel', () => ({ RightPanel: () => <div data-testid="mock-rightpanel" /> }));
 function resetStore() {
   useWorkspaceStore.setState({
     tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
     activeTabId: 'settings',
-    activeView: null,
+    activeView: 'apps',
     sidebarVisible: true,
     rightPanelVisible: true,
   });

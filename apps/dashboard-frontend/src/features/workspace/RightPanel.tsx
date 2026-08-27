@@ -1,21 +1,29 @@
 import { X } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { Notizen } from '@/features/notizen/Notizen';
 
 /**
- * Rechte Spalte der Shell. Seit B2 (26.08.2026) ist sie leer: Agent-Chat und
- * Terminal, die hier als eine Fläche mit zwei Modi lebten, sind aus der
- * Oberfläche gefallen. Die Spalte bleibt, damit das Dreispalten-Raster steht;
- * D2 füllt sie mit den Notizen.
+ * Rechte Spalte der Shell: die Notizen (Zielbild aus Beschluss 10 vom
+ * 26.08.2026, gefüllt in Phase D1). Sie stand seit B2 leer, weil Agent-Chat
+ * und Terminal, die hier als eine Fläche mit zwei Modi lebten, aus der
+ * Oberfläche gefallen sind.
  *
  * Die Shell versteckt die Spalte per `data-shell-hidden` am Panel, nie über
- * `aria-hidden` (Radix-Dialoge kippen das auf Nachbarn, Plan 003 · Bug b).
+ * `aria-hidden` (Radix-Dialoge kippen das auf Nachbarn, Plan 003 · Bug b) —
+ * und sie **unmountet sie nicht**. Für die Notizen ist das mehr als eine
+ * Formsache: ein Zuklappen während der Schreibpause würde den Zeitgeber
+ * abräumen, bevor er geschrieben hat.
  */
 export function RightPanel() {
   const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background" data-testid="workspace-right-panel">
-      <div className="flex h-8 shrink-0 items-center px-2 select-none">
+      <div className="flex h-8 shrink-0 items-center gap-2 px-2 select-none">
+        <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Notizen
+        </span>
         <button
           type="button"
           title="Panel ausblenden"
@@ -26,11 +34,10 @@ export function RightPanel() {
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
-      <div
-        className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground"
-        data-testid="workspace-right-panel-leer"
-      >
-        Noch nichts hier
+      <div className="min-h-0 flex-1">
+        <ComponentErrorBoundary componentName="Notizen">
+          <Notizen />
+        </ComponentErrorBoundary>
       </div>
     </div>
   );
