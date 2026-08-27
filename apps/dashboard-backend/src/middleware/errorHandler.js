@@ -97,6 +97,20 @@ const errorHandler = (err, req, res, next) => {
     message = 'Request-Body zu groß';
     code = 'VALIDATION_ERROR';
     logger.warn(`${req.method} ${req.originalUrl}: Body too large`, errorContext);
+  } else if (err.name === 'MulterError') {
+    // multer: die Datei sprengt das Limit, kommt im falschen Feld oder es sind
+    // zu viele. Alles davon ist ein Fehler des Aufrufers und keiner des
+    // Geraets -- ohne diesen Zweig fiel ein zu grosses Paket als 500 heraus,
+    // und der Partner las „das Geraet ist kaputt", wo „zu gross" stand
+    // (Phase C5, beim Deploy-Endpunkt aufgefallen).
+    statusCode = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'Die hochgeladene Datei ist zu gross'
+        : `Upload abgewiesen: ${err.message}`;
+    code = 'VALIDATION_ERROR';
+    details = { feld: err.field || null, grund: err.code };
+    logger.warn(`${req.method} ${req.originalUrl}: multer ${err.code}`, errorContext);
   } else if (err.code === 'ECONNREFUSED') {
     // Database/service connection error
     statusCode = 503;
