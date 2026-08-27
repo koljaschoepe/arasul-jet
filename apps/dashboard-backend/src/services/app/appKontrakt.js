@@ -30,6 +30,7 @@ const { FlowDefinition } = require('../../schemas/flows');
 const { VORGABE_ENDPUNKTE, ALLE_ENDPUNKTE } = require('../../config/apiBereiche');
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 const appPaket = require('./appPaket');
+const appFlows = require('./appFlows');
 
 /**
  * Die Kontraktversion.
@@ -48,7 +49,15 @@ const appPaket = require('./appPaket');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 1;
+const KONTRAKT_VERSION = 2;
+
+/*
+ * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
+ * Namen mehr, sondern ein Verzeichnis -- aus einer Forderung ist eine
+ * Lieferung geworden. Ein Kit, das noch `"flows": ["a","b"]` schreibt, wird
+ * vom Geraet abgewiesen (`.strict()` plus Typpruefung), und genau dafuer ist
+ * diese Zahl da: es merkt es, bevor es ein Paket schickt.
+ */
 
 /**
  * Die Regeln des Manifests, die kein JSON-Schema traegt.
@@ -65,7 +74,8 @@ const MANIFEST_REGELN = Object.freeze([
   'Die Kennung `test` ist vergeben: `/apps/<id>/test/` ist der Teststand jeder App.',
   '`id` und `version` muessen zum Ordner passen, in dem das Manifest liegt.',
   'Unbekannte Felder werden abgewiesen, nicht ignoriert.',
-  '`modelle` und `flows` sind Forderungen, keine Lieferung: das Geraet installiert nichts nach, es sagt beim Einspielen, was fehlt.',
+  '`modelle` ist eine Forderung, keine Lieferung: das Geraet installiert kein Modell nach, es sagt beim Einspielen, welches fehlt.',
+  '`flows` ist umgekehrt eine LIEFERUNG (seit Kontrakt 2): das Paket bringt die Dateien mit, das Geraet registriert sie je App und Stand.',
 ]);
 
 /** Die Namen, die unter `/apps/<id>/` der Plattform gehoeren. */
@@ -151,18 +161,23 @@ const ENDPUNKTE = Object.freeze([
     bereich: 'document:analyze',
     was: 'Datei holen und vom Modell auswerten lassen',
   },
-  { verb: 'GET', pfad: '/api/v1/external/flows', bereich: 'flow:run', was: 'Welche Flows es gibt' },
+  {
+    verb: 'GET',
+    pfad: '/api/v1/external/flows',
+    bereich: 'flow:run',
+    was: 'Welche Flows dieser Schluessel starten darf. Mit dem Schluessel einer App: NUR ihre eigenen, im Stand ihres Containers',
+  },
   {
     verb: 'POST',
     pfad: '/api/v1/external/flows/:name/run',
     bereich: 'flow:run',
-    was: 'Einen Flow anstossen',
+    was: 'Einen Flow anstossen. Gesucht wird im Namensraum des Schluessels',
   },
   {
     verb: 'GET',
     pfad: '/api/v1/external/flows/runs/:id',
     bereich: 'flow:run',
-    was: 'Der Lauf eines Flows',
+    was: 'Der Lauf eines Flows, mit seinen Schritten',
   },
 ]);
 
@@ -200,6 +215,17 @@ function kontrakt() {
       // ein, bevor er gegen dieses Schema prueft (`services/flows/flowFile.js`).
       schema: alsJsonSchema(FlowDefinition),
       rumpf: 'systemPrompt ist der Markdown-Rumpf unter dem YAML-Kopf, kein Feld im Kopf.',
+      // Was fuer einen Flow AUS EINEM PAKET zusaetzlich gilt (C6). Wie die
+      // Manifest-Regeln steht es als Satz und nicht als Ausdruck: das Kit soll
+      // es einem Menschen zeigen koennen.
+      regeln: [
+        'Eine Datei je Flow unter `flows.verzeichnis`, Endung `.md`. Der Dateiname IST der Name.',
+        'Steht im Kopf ein `name:`, muss er derselbe sein wie der Dateiname.',
+        'Das Standardmodell steht im Kopf (`modell:`). Der Administrator am Geraet darf es je Flow ueberschreiben; seine Ueberschreibung liegt in der Datenbank und ueberlebt ein App-Update.',
+        '`ordner` ist fuer einen Flow aus einem Paket nicht erlaubt: die Datei-Werkzeuge brauchen einen abgeschirmten Datenordner je App, und den gibt es noch nicht.',
+        `Hoechstens ${appFlows.MAX_FLOWS} Flows je Paket.`,
+        'Der Namensraum ist die App: zwei Apps duerfen denselben Flow-Namen tragen.',
+      ],
     },
     koepfe: {
       benutzer: KOPF_BENUTZER,
@@ -219,7 +245,12 @@ function kontrakt() {
     paket: {
       format: 'tar.gz',
       packen: 'tar czf paket.tgz -C <ordner> .',
-      wurzel: ['app.json', '<frontend.verzeichnis>/', '<backend.bauen.verzeichnis>/'],
+      wurzel: [
+        'app.json',
+        '<frontend.verzeichnis>/',
+        '<backend.bauen.verzeichnis>/',
+        '<flows.verzeichnis>/',
+      ],
       max_archiv_bytes: appPaket.MAX_ARCHIV_BYTES,
       max_entpackt_bytes: appPaket.MAX_ENTPACKT_BYTES,
       max_eintraege: appPaket.MAX_EINTRAEGE,
@@ -230,6 +261,7 @@ function kontrakt() {
         'Das Frontend ist fertig gebaut. Das Geraet liefert aus, es baut keine Seite.',
         'Ein Deploy rollt immer in den Teststand. Live schaltet ein Mensch.',
         'Eine Version, die gerade live ist, wird nicht ueberschrieben: neue Fassung, neue Nummer.',
+        'Mit `flows` im Manifest muss der Ordner da sein und wenigstens eine .md enthalten.',
       ],
     },
     apps: {

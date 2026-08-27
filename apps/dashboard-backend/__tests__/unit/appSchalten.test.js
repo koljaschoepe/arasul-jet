@@ -50,7 +50,6 @@ const MANIFEST = version => ({
   ports: { backend: 8080 },
   ressourcen: { speicher: '512m', cpus: 1 },
   modelle: [],
-  flows: [],
 });
 
 beforeAll(() => {

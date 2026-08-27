@@ -50,7 +50,10 @@ describe('Schema app.json v1', () => {
     const m = AppManifest.parse(GUELTIG);
     expect(m.ressourcen).toEqual({ speicher: '512m', cpus: 1 });
     expect(m.modelle).toEqual([]);
-    expect(m.flows).toEqual([]);
+    // `flows` hat KEINE Vorgabe: seit C6 ist es ein Verzeichnis und damit eine
+    // Lieferung. Ein leeres Objekt daraus zu machen hiesse, jedem Manifest
+    // einen Ordner `flows/` zu versprechen, den kein Paket mitbringt.
+    expect(m.flows).toBeUndefined();
   });
 
   test.each([
@@ -58,6 +61,10 @@ describe('Schema app.json v1', () => {
     ['mit Backend, aber ohne Port', { ...GUELTIG, ports: undefined }],
     ['mit Port, aber ohne Backend', { ...GUELTIG, backend: undefined }],
     ['mit einer Kennung in Grossbuchstaben', { ...GUELTIG, id: 'Urlaub' }],
+    // Kontrakt 1 schrieb `flows` als Liste von Namen. Ein Kit, das darauf
+    // stehengeblieben ist, soll ein klares Nein bekommen und keinen still
+    // ignorierten Wert (Phase C6).
+    ['mit `flows` als Liste, wie in Kontrakt 1', { ...GUELTIG, flows: ['bericht'] }],
     ['mit einem Punkt in der Kennung', { ...GUELTIG, id: 'mein.urlaub' }],
     ['mit der Kennung test', { ...GUELTIG, id: 'test' }],
     ['mit einer Version ohne Punkte', { ...GUELTIG, version: 'neu' }],

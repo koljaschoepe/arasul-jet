@@ -57,23 +57,23 @@ Dienst.
   "ports": { "backend": 8080 },
   "ressourcen": { "speicher": "512m", "cpus": 1 },
   "modelle": ["qwen3:14b-q8"],
-  "flows": ["urlaub-pruefen"]
+  "flows": { "verzeichnis": "flows" }
 }
 ```
 
-| Feld           | Pflicht     | Bedeutung                                                                           |
-| -------------- | ----------- | ----------------------------------------------------------------------------------- |
-| `schema`       | ja          | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                   |
-| `id`           | ja          | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router. |
-| `name`         | ja          | Der Anzeigename, wie ein Mensch ihn liest.                                          |
-| `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                 |
-| `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                    |
-| `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.          |
-| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                 |
-| `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                      |
-| `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                      |
-| `modelle`      | nein        | Welche Sprachmodelle die App braucht.                                               |
-| `flows`        | nein        | Welche Flows sie mitbringt.                                                         |
+| Feld           | Pflicht     | Bedeutung                                                                                 |
+| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `schema`       | ja          | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                         |
+| `id`           | ja          | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router.       |
+| `name`         | ja          | Der Anzeigename, wie ein Mensch ihn liest.                                                |
+| `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                       |
+| `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                          |
+| `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.                |
+| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                       |
+| `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                            |
+| `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                            |
+| `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                |
+| `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**). |
 
 \* Mindestens eines von `frontend` und `backend`.
 
@@ -105,12 +105,85 @@ Namen, je nachdem wen man fragt.
 - **Keine Geheimnisse in `umgebung`.** Das Manifest liegt im Paket und im
   Kit-Repository des Partners. Den API-Schlüssel je App setzt das Gerät beim
   Einspielen (siehe „Was das Gerät der App mitgibt").
-- **Kein Nachinstallieren.** `modelle` und `flows` sagen, was die App verlangt;
-  das Gerät sagt beim Einspielen, was davon fehlt. Ein Deploy, der nebenbei
-  sieben Gigabyte lädt, ist keine Installation mehr, sondern ein Abend. Auch
-  `flows` ist eine Forderung und keine Lieferung: das Paket bringt keine
-  Flow-Dateien mit. Einen Flow zu überschreiben, den ein Mensch am Gerät
-  bearbeitet hat, wäre ein Deploy, der mehr tut, als er ankündigt.
+- **Kein Nachinstallieren von Modellen.** `modelle` sagt, welche die App
+  verlangt; das Gerät sagt beim Einspielen, was davon fehlt. Ein Deploy, der
+  nebenbei sieben Gigabyte lädt, ist keine Installation mehr, sondern ein
+  Abend.
+
+## Die Flows einer App (Phase C6)
+
+Bis C5 war `flows` eine Liste von Namen und damit eine **Forderung**: „diese
+Flows müssen am Gerät liegen". Das Paket brachte keine mit, und wer eine App
+ausrollte, baute ihre Flows getrennt davon von Hand nach; ob beides
+zusammenpasste, zeigte sich beim ersten Lauf.
+
+Seit C6 ist `flows` ein Verzeichnis und damit eine **Lieferung**, genau wie
+`frontend`:
+
+```
+app.json          "flows": { "verzeichnis": "flows" }
+flows/bericht.md  ein Flow: YAML-Kopf, darunter der Auftrag als Markdown
+flows/pruefen.md  noch einer
+```
+
+Beim Einspielen registriert das Gerät sie **je App und Stand** (`app_flows`).
+Der Namensraum ist damit die App: zwei Apps dürfen beide einen `bericht` haben,
+ohne voneinander zu wissen, und der `bericht` des Teststandes ist ein anderer
+Gegenstand als der des Livestandes — der Teststand ist eine andere Version.
+
+Was für einen Flow **aus einem Paket** zusätzlich gilt:
+
+| Regel                                              | Warum                                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Eine `.md` je Flow, der **Dateiname ist der Name** | Ein Flow mit zwei Namen ist einer, den man beim nächsten Mal nicht wiederfindet.                                   |
+| Steht `name:` im Kopf, muss er derselbe sein       | Dieselbe Regel wie `id`/`version` gegen den Ordner des Manifests.                                                  |
+| **Kein `ordner`**                                  | `ordner` sind absolute Pfade am Gerät; ein Paket könnte `/arasul/config` deklarieren und die Umgebungsdatei lesen. |
+| Höchstens 50 Flows je Paket                        | Dieselbe Vorsicht wie bei der Größe des Archivs.                                                                   |
+
+Weil `ordner` nicht geht, hat ein App-Flow heute **keine Datei-Werkzeuge**
+(`schemas/flows.js` verlangt für die ohnehin einen Ordner). Ein abgeschirmter
+Datenordner je App braucht ein Volume, einen Platz in der Sicherung und einen
+im Werksreset — ein eigener Beschluss, kein Nebeneffekt. Bis dahin ist die
+ehrliche Antwort eine Abweisung mit Begründung und kein halb gesperrter Pfad.
+
+### Wer entscheidet, mit welchem Modell ein Flow läuft
+
+Zwei Menschen, und sie entscheiden über Verschiedenes:
+
+| Wer             | Was                                        | Wo                                     |
+| --------------- | ------------------------------------------ | -------------------------------------- |
+| der **Partner** | was der Flow tut, und womit er gemeint war | `modell:` im Kopf der Flow-Datei       |
+| der **Kunde**   | womit er auf **diesem** Gerät läuft        | `flow_settings` (Tabelle, keine Datei) |
+
+Der Administrator setzt es mit
+`PUT /api/apps/<id>/flows/<name>/modell` und nimmt es mit `{"modell": null}`
+zurück. **Seine Entscheidung überlebt ein App-Update**, und genau deshalb steht
+sie in der Datenbank: schriebe er sie in die Flow-Datei, wäre sie beim nächsten
+Paket weg — die Datei gehört dem Partner. So bleibt beides ganz, und ein Deploy
+muss keine Datei aussparen.
+
+Sie gilt **ohne Stand**: „welches Modell treibt diesen Flow" meint den Flow,
+nicht die Fassung, mit der jemand gerade testet.
+
+### Starten
+
+Eine App startet ihren eigenen Flow über die externe Schnittstelle, mit dem
+Schlüssel, den das Gerät ihr beim Einspielen mitgegeben hat (C4):
+
+```
+POST /api/v1/external/flows/bericht/run
+X-API-Key: <ARASUL_API_SCHLUESSEL>
+{ "args": { "woche": "34" } }
+```
+
+**Nur eigene Flows.** Das steht nicht als Prüfung in der Route, sondern in der
+Auswahl der Quelle: der Schlüssel trägt `app_id` und `stand`, und damit sucht
+das Gerät in `app_flows` mit beiden im `WHERE`. Eine App kann den Flow einer
+anderen nicht einmal benennen. Eine Prüfung kann man an einer von drei Routen
+vergessen; ein `WHERE` nicht.
+
+Der Lauf landet mit allen Schritten in `flow_runs`/`flow_run_steps` und trägt
+`app_id` und `stand` mit.
 
 ## Die zwei Stände
 

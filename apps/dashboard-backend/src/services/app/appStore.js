@@ -23,6 +23,7 @@ const { ConflictError, NotFoundError } = require('../../utils/errors');
 const appManifest = require('./appManifest');
 const appContainer = require('./appContainer');
 const appSchluessel = require('./appSchluessel');
+const appFlows = require('./appFlows');
 
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
@@ -80,9 +81,8 @@ async function listeApps() {
 
 /**
  * Eine App mit allem, was das Geraet ueber sie weiss: beide Staende, die
- * Versionen auf der Platte und die Antwort auf die zwei Fragen, die ein
- * Manifest stellt und die die Plattform beantworten kann — ist das Modell da,
- * ist der Flow da.
+ * Versionen auf der Platte, ob die geforderten Modelle da sind und welche
+ * Flows in welchem Stand registriert sind.
  */
 async function holeApp(appId) {
   const zeile = await db.query('SELECT * FROM public.apps WHERE id = $1', [appId]);
@@ -114,7 +114,11 @@ async function holeApp(appId) {
       api: manifest.backend ? `${appContainer.apiPfad(appId, stand)}/` : null,
       backend: manifest.backend ? await appContainer.zustand(appId, stand) : null,
       modelle: await modellStand(manifest.modelle),
-      flows: await flowStand(manifest.flows),
+      // Die Flows dieses Standes -- registriert, nicht gefordert (C6). Bis C5
+      // stand hier die Antwort auf "liegt der Flow, den das Manifest nennt,
+      // am Geraet"; seit C6 bringt das Paket sie mit, und die Frage stellt
+      // sich nicht mehr.
+      flows: await appFlows.liste({ appId, stand }),
     };
   }
   return ergebnis;
@@ -137,16 +141,6 @@ async function modellStand(namen) {
     [namen]
   );
   const da = new Set(result.rows.map(r => r.id));
-  return namen.map(name => ({ name, vorhanden: da.has(name) }));
-}
-
-/** Welche der im Manifest genannten Flows am Geraet liegen. */
-async function flowStand(namen) {
-  if (!namen || namen.length === 0) {
-    return [];
-  }
-  const { listFlows } = require('../flows/flowRegistry');
-  const da = new Set((await listFlows()).map(f => f.name));
   return namen.map(name => ({ name, vorhanden: da.has(name) }));
 }
 
@@ -247,8 +241,32 @@ async function spieleEin({ appId, version, stand, durch }) {
     [manifest.id, stand, manifest.version, manifest, durch ?? null]
   );
 
-  logger.info(`App eingespielt: ${appId} ${version} nach ${stand}`);
-  return gespeichert.rows[0];
+  // Die Flows dieses Standes (C6). NACH dem Stand und nicht davor: sie
+  // gehoeren zu einer Version, die wirklich eingespielt ist. Waere es
+  // andersherum, haette ein Container, der nicht hochkommt, die Flows der
+  // neuen Fassung hinterlassen und den Stand der alten -- und der naechste
+  // Aufruf haette den Flow einer Version gestartet, die nirgends laeuft.
+  //
+  // Die Ueberschreibungen des Administrators (`flow_settings`) fasst das
+  // NICHT an. Genau dafuer stehen sie in einer eigenen Tabelle.
+  //
+  // Auch OHNE `flows` im Manifest wird registriert -- dann mit einem leeren
+  // Ergebnis. Der Aufruf raeumt damit weg, was eine VORIGE Version in diesem
+  // Stand mitgebracht hat; ohne ihn blieben Flows startbar, die die laufende
+  // Fassung nicht mehr kennt.
+  const flows = await appFlows.registriere({
+    appId: manifest.id,
+    stand,
+    version: manifest.version,
+    manifest,
+    versionsPfad,
+  });
+
+  logger.info(
+    `App eingespielt: ${appId} ${version} nach ${stand}` +
+      `${flows.length ? ` (${flows.length} Flow(s))` : ''}`
+  );
+  return { ...gespeichert.rows[0], flows };
 }
 
 /**
@@ -418,8 +436,9 @@ async function entferneApp(appId, { dateien = false } = {}) {
   // Erst der Container, dann sein Image: andersherum weist Docker mit 409 ab.
   const entfernteImages = await appContainer.entferneImages(appId, images);
 
-  // `app_staende`, `app_members` und die App-Schluessel haengen mit
-  // ON DELETE CASCADE daran: wer eine App entfernt, entfernt sie ganz.
+  // `app_staende`, `app_members`, `app_flows`, `flow_settings` und die
+  // App-Schluessel haengen mit ON DELETE CASCADE daran: wer eine App
+  // entfernt, entfernt sie ganz.
   await db.query('DELETE FROM public.apps WHERE id = $1', [appId]);
   let versionen = [];
   if (dateien) {

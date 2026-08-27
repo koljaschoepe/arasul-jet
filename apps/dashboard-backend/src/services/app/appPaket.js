@@ -21,10 +21,11 @@
  *     frontend/…               die FERTIGEN Dateien, gebaut im Kit
  *     backend/Dockerfile       der Bauplan, gebaut am Geraet
  *     backend/…                sein Kontext
+ *     flows/*.md               die Flows der App (C6), YAML-Kopf + Rumpf
  *
- * `frontend` und `backend` heissen so, weil das Manifest es sagt
- * (`frontend.verzeichnis`, `backend.bauen.verzeichnis`); wer andere Namen
- * will, schreibt sie dort hinein.
+ * `frontend`, `backend` und `flows` heissen so, weil das Manifest es sagt
+ * (`frontend.verzeichnis`, `backend.bauen.verzeichnis`, `flows.verzeichnis`);
+ * wer andere Namen will, schreibt sie dort hinein.
  *
  * KEIN IMAGE-TAR (Entscheidung Kolja vom 27.08.2026). Ein fertiges Image ist
  * ein Dateisystem, das niemand mehr liest, bevor es laeuft, und es ist fuer
@@ -51,6 +52,7 @@ const { AppManifest } = require('../../schemas/apps');
 const appManifest = require('./appManifest');
 const appContainer = require('./appContainer');
 const appStore = require('./appStore');
+const appFlows = require('./appFlows');
 
 /**
  * Der Eingang: hierhin laedt multer das Archiv, hierhin wird ausgepackt.
@@ -211,13 +213,24 @@ async function leseManifestAusPaket(ordner) {
 
 /**
  * Was im Paket liegen muss, damit das Manifest keine Zusage macht, die das
- * Geraet nicht halten kann.
+ * Geraet nicht halten kann: die Seite, der Bauplan und seit C6 die Flows.
  *
- * Beides wird HIER geprueft und nicht erst beim Bauen oder beim ersten
+ * Alles drei wird HIER geprueft und nicht erst beim Bauen oder beim ersten
  * Besucher: ein Deploy, der mit „201 eingespielt" antwortet und dessen App
  * eine leere Seite zeigt, ist die schlechteste aller Antworten.
  */
 async function pruefePaketInhalt(manifest, ordner) {
+  // Die Flows zuerst, weil sie am billigsten scheitern: eine kaputte
+  // YAML-Kopfzeile findet sich in Millisekunden, und der Bau des Images
+  // dauert am Jetson Minuten. Ein Partner, der beides falsch hat, soll die
+  // Antwort zum Flow bekommen, bevor er zehn Minuten wartet.
+  //
+  // `leseAusPaket` ist derselbe Aufruf, den `appFlows.registriere` spaeter
+  // gegen den fertigen Versionsordner macht. Zwei Pruefungen mit
+  // unterschiedlicher Strenge waeren zwei Meinungen darueber, was ein
+  // gueltiger Flow ist.
+  await appFlows.leseAusPaket(manifest, ordner);
+
   if (manifest.frontend) {
     const seite = path.join(ordner, manifest.frontend.verzeichnis, 'index.html');
     try {

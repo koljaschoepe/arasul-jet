@@ -33,11 +33,15 @@ meineapp/
   backend/
     Dockerfile          Der Bauplan. Gebaut wird AM GERÄT.
     …                   sein Kontext
+  flows/
+    bericht.md          Ein Flow der App (C6): YAML-Kopf, darunter der Auftrag.
+    …
 ```
 
-`frontend` und `backend` heißen so, weil das Manifest es sagt
-(`frontend.verzeichnis`, `backend.bauen.verzeichnis`); wer andere Namen will,
-schreibt sie dort hinein. Eine App braucht mindestens eines von beiden.
+`frontend`, `backend` und `flows` heißen so, weil das Manifest es sagt
+(`frontend.verzeichnis`, `backend.bauen.verzeichnis`, `flows.verzeichnis`); wer
+andere Namen will, schreibt sie dort hinein. Eine App braucht mindestens eines
+von `frontend` und `backend`; `flows` ist immer freiwillig.
 
 **`app.json` liegt im Wurzelverzeichnis des Archivs.** Gepackt wird der
 _Inhalt_ des Ordners (`tar czf paket.tgz -C meineapp .`), nicht der Ordner
@@ -53,7 +57,61 @@ Ordner der richtige ist, und weist das Paket mit genau diesem Hinweis ab.
 | **Gerätedateien, Sockets, FIFOs**      | Haben in einem App-Paket keinen denkbaren Zweck.                                                                                                                                                                                                                                                    |
 | **`node_modules/`**                    | Kein Verbot, aber die Grenzen greifen: 200 MB Archiv, 500 MB ausgepackt, 20 000 Einträge. Ein `.dockerignore` im Bau-Kontext hilft ohnehin mehr als ein großes Paket.                                                                                                                               |
 | **Geheimnisse in `backend.umgebung`**  | Das Manifest liegt im Paket **und** im Repository des Partners. Den API-Schlüssel setzt das Gerät (unten).                                                                                                                                                                                          |
-| **Flow-Dateien**                       | `flows` im Manifest ist eine _Forderung_, keine Lieferung. Das Gerät sagt beim Einspielen, welcher Flow fehlt; einen zu überschreiben, den ein Mensch am Gerät bearbeitet hat, wäre ein Deploy, der mehr tut, als er ankündigt.                                                                     |
+| **Ein `ordner:` in einer Flow-Datei**  | `ordner` sind absolute Pfade am Gerät. Ein Paket könnte `/arasul/config` deklarieren und die Umgebungsdatei mit `dateien_lesen` ausliefern lassen. Ein abgeschirmter Datenordner je App kommt mit den D-Phasen; bis dahin wird ein solcher Flow abgewiesen.                                         |
+
+## Die Flows im Paket (seit Kontrakt 2, Phase C6)
+
+Bis C5 war `flows` im Manifest eine Liste von Namen und damit eine
+**Forderung** — das Paket brachte keine Flow-Datei mit. Seit C6 ist es ein
+Verzeichnis und damit eine **Lieferung**:
+
+```json
+"flows": { "verzeichnis": "flows" }
+```
+
+```markdown
+---
+name: bericht
+beschreibung: Fasst die Woche zusammen.
+modell: qwen3:14b-q8
+argumente:
+  - name: woche
+    typ: freitext
+    pflicht: true
+---
+
+Fasse die Woche {{woche}} in fünf Sätzen zusammen.
+```
+
+Das Gerät registriert sie beim Einspielen **je App und Stand**; der Namensraum
+ist die App. Geprüft wird **vor** dem Bau des Images: eine kaputte YAML-Zeile
+findet sich in Millisekunden, ein Image zu bauen dauert am Jetson Minuten.
+
+| Regel                                 | Antwort bei Verstoß                                 |
+| ------------------------------------- | --------------------------------------------------- |
+| Der **Dateiname ist der Name**        | `400`, wenn `name:` im Kopf etwas anderes sagt      |
+| Mit `flows` muss der Ordner da sein … | `400` „verspricht Flows … gibt es den Ordner nicht" |
+| … und wenigstens eine `.md` enthalten | `400` „keine einzige .md-Datei"                     |
+| Kein `ordner:` (siehe oben)           | `400` mit Begründung                                |
+| Höchstens 50 Flows je Paket           | `400`                                               |
+
+**Das Modell steht im Kopf** (`modell:`) und ist der Vorschlag des Partners.
+Der Administrator am Gerät darf es je Flow überschreiben; seine Entscheidung
+liegt in der Datenbank und **nicht in der Datei** und überlebt deshalb jedes
+App-Update. Ein Partner muss dafür nichts tun und darf nichts dagegen tun.
+
+Gestartet wird ein Flow über die externe Schnittstelle mit dem Schlüssel, den
+das Gerät der App beim Einspielen mitgibt (`ARASUL_API_SCHLUESSEL`, C4):
+
+```bash
+curl -k -X POST https://arasul.local/api/v1/external/flows/bericht/run \
+  -H "x-api-key: $ARASUL_API_SCHLUESSEL" \
+  -H 'content-type: application/json' \
+  -d '{"args":{"woche":"34"}}'
+```
+
+**Nur eigene Flows.** Der Schlüssel trägt App und Stand; gesucht wird mit
+beiden. Eine App kann den Flow einer anderen nicht einmal benennen.
 
 ## Der Weg einer Version
 

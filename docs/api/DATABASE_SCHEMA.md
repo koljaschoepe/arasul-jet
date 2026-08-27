@@ -403,6 +403,95 @@ liegt, sagen die Ordner, und wer wann geschaltet hat, steht in
 
 ---
 
+## `app_flows`
+
+> Die Flows, die ein Stand einer App hat. Kommen aus `flows/*.md` im App-Paket und werden beim Einspielen registriert. Seit 173
+
+| Column           | Type                     | Nullable | Default |
+| ---------------- | ------------------------ | -------- | ------- |
+| `app_id`         | text                     | ⛔       |         |
+| `stand`          | text                     | ⛔       |         |
+| `name`           | text                     | ⛔       |         |
+| `version`        | text                     | ⛔       |         |
+| `definition`     | jsonb                    | ⛔       |         |
+| `registriert_am` | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `app_id, stand, name`
+
+**Foreign Keys:**
+
+- `app_id` → `apps.id` (`ON DELETE CASCADE`)
+
+**Constraints:** `stand IN ('test', 'live')`
+
+**Indexes:** `idx_app_flows_app` — `(app_id)`
+
+Der Primärschlüssel ist die Aussage: **der Namensraum ist die App.** Zwei Apps
+dürfen beide einen Flow `bericht` haben, ohne voneinander zu wissen, und der
+`bericht` des Teststandes ist ein anderer Gegenstand als der des Livestandes —
+der Teststand ist eine andere Version.
+
+`definition` ist die geparste Flow-Definition (`schemas/flows.js`,
+`FlowDefinition`) samt `systemPrompt`. Sie steht hier, obwohl die Datei auf der
+Platte liegt — derselbe Schnitt wie bei `app_staende.manifest` und aus
+demselben Grund: ein Stand ist etwas Festes. Wäre die Datei die Wahrheit,
+änderte sich der Flow eines laufenden Livestandes, sobald jemand unter dem
+Versionsordner etwas editiert: ohne Einspielen, ohne Schalten, ohne dass es
+irgendwo steht.
+
+`version` sagt, aus welchem Paket dieser Flow stammt — die Antwort auf „warum
+tut der Flow im Teststand etwas anderes als im Livestand".
+
+---
+
+## `flow_settings`
+
+> Was der Administrator am Gerät an einem Flow einer App geändert hat. Überlebt ein App-Update. Seit 173
+
+| Column              | Type                     | Nullable | Default |
+| ------------------- | ------------------------ | -------- | ------- |
+| `app_id`            | text                     | ⛔       |         |
+| `flow_name`         | text                     | ⛔       |         |
+| `modell`            | text                     | ✅       |         |
+| `extern_anbieter`   | text                     | ✅       |         |
+| `extern_modell`     | text                     | ✅       |         |
+| `extern_schluessel` | bytea                    | ✅       |         |
+| `extern_endet_auf`  | character varying(8)     | ✅       |         |
+| `geaendert_am`      | timestamp with time zone | ⛔       | `now()` |
+| `geaendert_von`     | bigint                   | ✅       |         |
+
+**Primary key:** `app_id, flow_name`
+
+**Foreign Keys:**
+
+- `app_id` → `apps.id` (`ON DELETE CASCADE`)
+- `geaendert_von` → `admin_users.id` (`ON DELETE SET NULL`)
+
+Zwei Menschen entscheiden über einen Flow, und sie entscheiden über
+Verschiedenes: der **Partner**, was der Flow tut und womit er gemeint war (im
+Frontmatter der Datei), und der **Kunde**, womit er auf diesem Gerät läuft
+(hier).
+
+**Die Überschreibung liegt nicht in der Datei**, und das ist der ganze Zweck
+dieser Tabelle. Schriebe der Administrator sie in `flows/<name>.md`, wäre sie
+beim nächsten App-Update weg — das Paket bringt die Datei mit, und ein Deploy,
+der eine Datei des Kunden aussparen müsste, lieferte etwas anderes aus als das
+Paket.
+
+**Ohne `stand`:** „welches Modell treibt diesen Flow" gilt dem Flow, nicht der
+Fassung, mit der jemand gerade testet. Je Stand eine Zeile hieße: wer im
+Teststand einstellt, stellt im Livestand nichts ein — und merkt es beim
+Schalten.
+
+Die vier `extern_`-Spalten sind **heute leer**. Sie sind das Datenmodell für
+„externe Modelle je Flow mit API-Schlüssel in der Flow-Ansicht" (D-Phasen). Der
+Schlüssel liegt als AES-256-GCM-Blob (`utils/tokenCrypto.js`), nie im Klartext
+— dieselbe Zusage wie `arasul.externe_modell_anbieter` (153) und
+`user_external_credentials` (107); `extern_endet_auf` ist bewusst Klartext,
+damit eine Oberfläche zeigen kann, welcher Schlüssel hinterlegt ist.
+
+---
+
 ## `apps`
 
 > Die Apps am Gerät. Was eine App IST, steht in ihrem Manifest app.json; was von ihr läuft, in app_staende. Ersetzt app_installations (013); seit 169
@@ -1430,6 +1519,8 @@ trägt die Angabe nicht".
 | `id`          | bigint                   | ⛔       | `nextval('flow_runs_id_seq'::regclass)` |
 | `user_id`     | bigint                   | ⛔       |                                         |
 | `flow_name`   | character varying        | ⛔       |                                         |
+| `app_id`      | text                     | ✅       |                                         |
+| `stand`       | text                     | ✅       |                                         |
 | `arguments`   | jsonb                    | ⛔       | `'{}'::jsonb`                           |
 | `status`      | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`             |
 | `result`      | text                     | ✅       |                                         |
@@ -1444,6 +1535,15 @@ trägt die Angabe nicht".
 > Prüfschritts — JSON-Array von Klartext-Sätzen (Annahmen der Prüfrunde +
 > verbliebene `[offene Stellen]` im Dokument). `NULL` = kein Prüfschritt
 > gelaufen (Flow ohne Dokument-Ausgabe oder Lauf vor Phase 2).
+
+> `app_id`/`stand` (Migration 173, Phase C6): die App, deren Flow hier lief,
+> und ihr Stand. `NULL` = ein Flow der Plattform. **Ohne Fremdschlüssel** — mit
+> derselben Begründung, mit der `flow_name` seit 112 keinen hat: ein Lauf ist
+> Geschichte und soll lesbar bleiben, wenn die App längst weg ist. Ein
+> `ON DELETE SET NULL` hätte den Lauf behalten und ihm ausgerechnet die
+> Angabe genommen, die man Monate später sucht. Beide Spalten sind zusammen
+> gesetzt oder zusammen leer (CHECK), wie bei `api_keys.app_id`/`stand`.
+> Index: `idx_flow_runs_app` auf `(app_id, stand) WHERE app_id IS NOT NULL`.
 
 > `changes` (Plan 011, Schritt 16): Datei-Änderungen des Laufs — `[{pfad, art (neu\|geaendert\|geloescht), vorher, nachher, gekuerzt, hinweis}]`, aus dem Ordner-Abzug vor/nach dem Lauf; gedeckelt in Zahl und Vorschau-Länge. `NULL` = nicht ermittelt (Lauf ohne Schreib-Werkzeug).
 

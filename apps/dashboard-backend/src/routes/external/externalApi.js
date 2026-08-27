@@ -38,6 +38,7 @@ const {
   CreateApiKeyBody,
 } = require('../../schemas/externalApi');
 const flowRegistry = require('../../services/flows/flowRegistry');
+const appFlows = require('../../services/app/appFlows');
 const flowRunner = require('../../services/flows/flowRunner');
 const flowRunStore = require('../../services/flows/runStore');
 const { resolveArguments } = require('../../services/flows/runFlow');
@@ -746,22 +747,60 @@ async function waitForJobCompletion(jobId, timeoutMs, req) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Flow-Trigger (Plan 013, B8)
+// Flow-Trigger (Plan 013, B8; App-Flows seit Phase C6)
 //
-// Ein Flow lässt sich von außen (eigene Automationen) per API-Key starten —
-// zwei Wege: direkt („starte Flow X") oder über ein benanntes Ereignis („es ist
-// etwas passiert, feuere alle Auslöser, die darauf hören"). Beide gehen durch
-// denselben Runner wie der Chat; der Lauf erscheint dort als Karte.
+// Ein Flow lässt sich von außen per API-Key starten. Seit C6 gibt es dafür
+// ZWEI Arten von Schlüssel, und der Schlüssel selbst entscheidet, welche
+// Flows er sieht:
+//
+//   Schlüssel eines MENSCHEN   (`app_id IS NULL`)  die Flows der Plattform
+//                                                  unter `/arasul/flows/`
+//   Schlüssel einer APP        (`app_id`+`stand`)  NUR die Flows dieser App
+//                                                  in diesem Stand
+//
+// „Nur eigene Flows" (Entscheidung Kolja vom 27.08.2026) steht deshalb nicht
+// als Prüfung IN den Routen, sondern in der Auswahl der Quelle: eine App kann
+// den Flow einer anderen nicht einmal benennen, weil sie in einem anderen
+// Namensraum sucht. Eine Prüfung, die man vergessen kann, wäre die schlechtere
+// Hälfte derselben Regel.
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Der Namensraum, in dem dieser Schlüssel Flows sucht.
+ *
+ * `{appId: null, stand: null}` heißt: die Flows der Plattform. Beide Werte
+ * sind zusammen gesetzt oder zusammen leer — die Datenbank hält das mit einer
+ * CHECK-Regel fest (Migration 171).
+ */
+function namensraumVon(apiKey) {
+  return { appId: apiKey.appId || null, stand: apiKey.stand || null };
+}
+
+/**
  * GET /api/v1/external/flows - Verfügbare Flows auflisten (Discovery für Aufrufer).
+ *
+ * Mit einem App-Schlüssel sind das die Flows DIESER App in DIESEM Stand, samt
+ * dem Modell, das sie wirklich treibt (die Überschreibung des Administrators
+ * eingerechnet). Mit dem Schlüssel eines Menschen die Flows der Plattform.
  */
 router.get(
   '/flows',
   requireApiKey,
   requireEndpoint('flow:run'),
   asyncHandler(async (req, res) => {
+    const { appId, stand } = namensraumVon(req.apiKey);
+
+    if (appId) {
+      const flows = await appFlows.liste({ appId, stand });
+      return res.json({
+        success: true,
+        app: appId,
+        stand,
+        flows,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     const zeile = f => ({
       name: f.name,
       beschreibung: f.beschreibung || '',
@@ -801,16 +840,22 @@ router.post(
     const waitForResult = req.body.wait_for_result !== false;
 
     const userId = besitzerOderAbweisen(req.apiKey);
+    const { appId, stand } = namensraumVon(req.apiKey);
 
     // FRÜH prüfen, solange der Request da ist: Flow existiert (→ 404) und die
     // Argumente passen (→ 400). Sonst käme der Fehler erst als toter Lauf.
-    const flow = await flowRegistry.loadFlow(flowName);
+    // Gesucht wird im Namensraum DIESES Schlüssels — ein App-Schlüssel findet
+    // hier nur die Flows seiner eigenen App.
+    const flow = appId
+      ? await appFlows.lade({ appId, stand, name: flowName })
+      : await flowRegistry.loadFlow(flowName);
     resolveArguments(flow.argumente, args);
 
-    const { runId } = await flowRunner.starten({ flowName, args, userId });
+    const { runId } = await flowRunner.starten({ flowName, args, userId, appId, stand });
 
     logger.info(
-      `[External API] Flow "${flowName}" gestartet (Lauf ${runId}) von ${req.apiKey.name}`
+      `[External API] Flow "${flowName}"${appId ? ` von App ${appId}/${stand}` : ''} ` +
+        `gestartet (Lauf ${runId}) von ${req.apiKey.name}`
     );
 
     if (!waitForResult) {
@@ -823,7 +868,7 @@ router.post(
     }
 
     const timeoutMs = Math.min((req.body.timeout_seconds || 300) * 1000, 1800000);
-    const run = await waitForRunCompletion(runId, userId, timeoutMs, req);
+    const run = await waitForRunCompletion(runId, userId, timeoutMs, req, { appId, stand });
 
     return res.json({
       success: run.status === 'fertig',
@@ -854,12 +899,16 @@ router.get(
       throw new NotFoundError('Lauf nicht gefunden');
     }
     const userId = req.apiKey.userId;
+    const { appId, stand } = namensraumVon(req.apiKey);
     const runId = Number(req.params.id);
     if (!Number.isInteger(runId) || runId <= 0) {
       throw new ValidationError('run id must be a positive integer');
     }
-    // getRun wirft NotFound bei fremd/unbekannt (eigentümer-geprüft).
-    const run = await flowRunStore.getRun({ runId, userId });
+    // getRun wirft NotFound bei fremd/unbekannt (eigentümer-geprüft). Ein
+    // App-Schlüssel gehört dem Administrator, der die App eingespielt hat —
+    // über `user_id` allein sähe die App auch dessen eigene Läufe und die
+    // jeder anderen App. Deshalb zusätzlich der Namensraum.
+    const run = await flowRunStore.getRun({ runId, userId, appId, stand });
     res.json({
       success: true,
       run_id: runId,
@@ -880,7 +929,7 @@ router.get(
  * Bricht ab, wenn der API-Aufrufer die Verbindung schließt — der Lauf läuft
  * serverseitig weiter (er ist losgelöst), wir hören nur auf zu warten.
  */
-async function waitForRunCompletion(runId, userId, timeoutMs, req) {
+async function waitForRunCompletion(runId, userId, timeoutMs, req, namensraum = {}) {
   const TERMINAL = new Set(['fertig', 'fehler', 'abgebrochen']);
   const pollInterval = 750;
   const startTime = Date.now();
@@ -895,7 +944,12 @@ async function waitForRunCompletion(runId, userId, timeoutMs, req) {
     if (clientGone) {
       return { status: 'laeuft', error: 'Client disconnected' };
     }
-    const run = await flowRunStore.getRun({ runId, userId });
+    const run = await flowRunStore.getRun({
+      runId,
+      userId,
+      appId: namensraum.appId ?? null,
+      stand: namensraum.stand ?? null,
+    });
     if (TERMINAL.has(run.status)) {
       return run;
     }

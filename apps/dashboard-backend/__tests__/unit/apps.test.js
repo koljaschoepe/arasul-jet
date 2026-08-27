@@ -1,3 +1,119 @@
+describe('Die Flows einer App (Phase C6)', () => {
+  /**
+   * `holeApp` fragt die Zeile in `apps`, dann `app_staende`, dann (fuer jeden
+   * vorhandenen Stand) weiter. Fuer diese Tests genuegt eine App ohne Staende:
+   * gemessen wird die Flow-Liste, nicht der Container.
+   */
+  function appOhneStaende() {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'urlaub', name: 'Urlaub' }] }) // apps
+      .mockResolvedValueOnce({ rows: [] }); // app_staende
+  }
+
+  test('GET /:id/flows nennt beide Staende', async () => {
+    auth.__setUser(ADMIN);
+    appOhneStaende();
+    db.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            name: 'bericht',
+            version: '1.0.0',
+            definition: { beschreibung: 'B', modell: 'aus-dem-paket', argumente: [] },
+            registriert_am: '2026-08-27T12:00:00Z',
+          },
+        ],
+      }) // app_flows test
+      .mockResolvedValueOnce({ rows: [] }) // flow_settings
+      .mockResolvedValueOnce({ rows: [] }) // app_flows live
+      .mockResolvedValueOnce({ rows: [] }); // flow_settings
+
+    const res = await request(verwaltung()).get('/api/apps/urlaub/flows');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.test[0].name).toBe('bericht');
+    expect(res.body.data.test[0].modell).toBe('aus-dem-paket');
+    expect(res.body.data.test[0].modell_ueberschrieben).toBe(false);
+    expect(res.body.data.live).toEqual([]);
+    // Der Prompt ist der Auftrag des Partners an das Modell und geht den
+    // Aufrufer nichts an.
+    expect(JSON.stringify(res.body)).not.toContain('systemPrompt');
+  });
+
+  test('die Ueberschreibung des Admins gewinnt und ist als solche erkennbar', async () => {
+    auth.__setUser(ADMIN);
+    appOhneStaende();
+    db.query
+      .mockResolvedValueOnce({
+        rows: [{ name: 'bericht', version: '1.0.0', definition: { modell: 'aus-dem-paket' } }],
+      })
+      .mockResolvedValueOnce({ rows: [{ flow_name: 'bericht', modell: 'vom-admin' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(verwaltung()).get('/api/apps/urlaub/flows');
+
+    expect(res.body.data.test[0].modell).toBe('vom-admin');
+    expect(res.body.data.test[0].modell_ueberschrieben).toBe(true);
+  });
+
+  test('eine App, die es nicht gibt, ist 404 und keine leere Liste', async () => {
+    // Der Unterschied zwischen „diese App hat keine Flows" und „diese App gibt
+    // es nicht". Wer sie verwechselt, sucht den Fehler an der falschen Stelle.
+    auth.__setUser(ADMIN);
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(verwaltung()).get('/api/apps/gibtsnicht/flows');
+    expect(res.status).toBe(404);
+  });
+
+  test('PUT setzt das Modell, ohne `stand` und ohne die Flow-Datei anzufassen', async () => {
+    auth.__setUser(ADMIN);
+    appOhneStaende();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ name: 'bericht', version: '1.0.0', definition: {} }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ app_id: 'urlaub', flow_name: 'bericht', modell: 'm' }] });
+
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/modell')
+      .send({ modell: 'm' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.modell).toBe('m');
+    const geschrieben = db.query.mock.calls.at(-1);
+    expect(geschrieben[0]).toMatch(/INSERT INTO public\.flow_settings/);
+    expect(geschrieben[0]).not.toMatch(/\bstand\b/);
+  });
+
+  test('PUT auf einen Flow, den die App nicht hat: 404', async () => {
+    auth.__setUser(ADMIN);
+    appOhneStaende();
+    db.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/gibtsnicht/modell')
+      .send({ modell: 'm' });
+
+    expect(res.status).toBe(404);
+  });
+
+  test('`modell: null` nimmt zurueck, ein fehlendes Feld ist ein 400', async () => {
+    // „Das Feld fehlt" und „setz es auf nichts" muessen sich unterscheiden
+    // lassen, sonst gaebe es keinen Weg zurueck.
+    auth.__setUser(ADMIN);
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/modell')
+      .send({});
+    expect(res.status).toBe(400);
+  });
+});
+
 /**
  * /api/apps und die Auslieferung unter /apps/<id>/ (Phasen C3 und C4).
  *
@@ -87,7 +203,6 @@ const MANIFEST = {
   ports: { backend: 8080 },
   ressourcen: { speicher: '512m', cpus: 1 },
   modelle: [],
-  flows: [],
 };
 
 function verwaltung() {
@@ -131,6 +246,8 @@ describe('/api/apps: wer darf was', () => {
     ['post', '/api/apps/urlaub/einspielen'],
     ['delete', '/api/apps/urlaub'],
     ['get', '/api/apps/urlaub/logs'],
+    ['get', '/api/apps/urlaub/flows'],
+    ['put', '/api/apps/urlaub/flows/bericht/modell'],
   ])('%s %s: Mitarbeiter bekommt 403', async (verb, pfad) => {
     auth.__setUser(MITARBEITER);
     const res = await request(verwaltung())[verb](pfad).send({ version: '1.0.0' });

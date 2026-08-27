@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { FLOW_NAME_RE } = require('./flows');
 
 /**
  * Das Manifest `app.json`, Fassung 1 (Phase C3 des Umbaus vom 26.08.2026).
@@ -132,6 +133,29 @@ const Backend = z
   })
   .strict();
 
+/**
+ * Wo im Paket die Flows liegen (Phase C6).
+ *
+ * Bis C5 war `flows` eine Liste von NAMEN und damit eine Forderung: "diese
+ * Flows muessen am Geraet liegen". Das Paket brachte keine mit, und wer eine
+ * App ausrollte, baute sie getrennt davon von Hand nach.
+ *
+ * Jetzt ist es ein Verzeichnis, genau wie `frontend` -- eine Lieferung. Die
+ * Dateien darin sind Markdown mit YAML-Kopf (`services/flows/flowFile.js`),
+ * eine je Flow, der Dateiname ist der Name. Das Geraet registriert sie beim
+ * Einspielen je App und Stand; der Namensraum ist die App.
+ *
+ * Das Standardmodell steht im Kopf jeder Flow-Datei (`modell:`). Der
+ * Administrator am Geraet darf es ueberschreiben, und seine Ueberschreibung
+ * liegt in `flow_settings` und NICHT in der Datei -- sonst waere sie beim
+ * naechsten Update weg (Entscheidung Kolja vom 27.08.2026).
+ */
+const Flows = z
+  .object({
+    verzeichnis: PaketPfad.default('flows'),
+  })
+  .strict();
+
 const Ressourcen = z
   .object({
     speicher: Speicher.default('512m'),
@@ -169,12 +193,10 @@ const AppManifest = z
     // Welche Sprachmodelle die App braucht. Das Geraet installiert sie nicht
     // nach; es sagt beim Einspielen, welches fehlt.
     modelle: z.array(z.string().trim().min(1).max(120)).max(10).default([]),
-    // Welche Flows die App braucht. Wie bei `modelle` ist das eine FORDERUNG
-    // und keine Lieferung: das Paket bringt sie nicht mit, das Geraet sagt
-    // beim Einspielen, welcher fehlt (`appStore.flowStand`). Einen Flow
-    // nebenbei zu ueberschreiben, den ein Mensch am Geraet bearbeitet hat,
-    // waere ein Deploy, der mehr tut, als er ankuendigt.
-    flows: z.array(z.string().trim().min(1).max(120)).max(50).default([]),
+    // Die Flows, die die App MITBRINGT (C6). Anders als `modelle` ist das
+    // eine Lieferung: die Dateien liegen im Paket und werden beim Einspielen
+    // je App und Stand registriert (`services/app/appFlows.js`).
+    flows: Flows.optional(),
   })
   .strict()
   .refine(m => m.frontend || m.backend, {
@@ -242,6 +264,35 @@ const EntfernenQuery = z
   })
   .strict();
 
+/**
+ * Ein Flow einer App: Kennung plus Flow-Name (Phase C6).
+ *
+ * Der Name gehorcht derselben Regel wie jeder Flow-Name am Geraet
+ * (`schemas/flows.js`, `FLOW_NAME_RE`) -- er ist im Paket ein Dateiname
+ * gewesen und hier ein Pfadstueck.
+ */
+const AppFlowParams = z.object({
+  id: AppId,
+  name: z
+    .string()
+    .trim()
+    .regex(FLOW_NAME_RE, 'Flow-Name: Kleinbuchstaben, Ziffern und Bindestriche'),
+});
+
+/**
+ * Das Modell, mit dem ein Flow auf DIESEM Geraet laufen soll (Phase C6).
+ *
+ * `null` nimmt die Ueberschreibung zurueck: dann gilt wieder, was im
+ * Frontmatter des Flows steht. Deshalb `.nullable()` und nicht `.optional()`
+ * -- „das Feld fehlt" und „setz es auf nichts" muessen sich unterscheiden
+ * lassen, sonst gaebe es keinen Weg zurueck.
+ */
+const FlowModellBody = z
+  .object({
+    modell: z.string().trim().max(100).nullable(),
+  })
+  .strict();
+
 const LogsQuery = z
   .object({
     stand: Stand.default('live'),
@@ -272,6 +323,8 @@ module.exports = {
   Version,
   AppManifest,
   AppParams,
+  AppFlowParams,
+  FlowModellBody,
   EinspielenBody,
   SchaltenBody,
   EntfernenQuery,

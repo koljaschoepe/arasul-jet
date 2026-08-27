@@ -45,6 +45,11 @@ der Deploy-Endpunkt seit C5 (`POST /api/v1/external/apps` nimmt ein Paket, baut
 das Image am Gerät, rollt in den Teststand; `schalten` setzt den Livestand und
 nimmt ihn zurück; `GET /api/v1/external/contract` ist der Vertrag mit dem
 Ara-Kit — siehe [`docs/features/APP-PAKET.md`](docs/features/APP-PAKET.md)).
+Seit C6 bringt eine App ihre **Flows** im Paket mit (`flows/*.md`, je App und
+Stand registriert in `app_flows`, Namensraum ist die App); das Modell je Flow
+steht im Frontmatter, der Admin überschreibt es in `flow_settings`, und diese
+Überschreibung überlebt ein App-Update. Eine App startet nur ihre eigenen
+Flows — der Schlüssel aus C4 trägt App und Stand, gesucht wird mit beiden.
 Die neue Oberfläche kommt mit den D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

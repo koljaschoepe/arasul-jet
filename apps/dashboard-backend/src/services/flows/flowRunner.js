@@ -55,6 +55,10 @@ async function starten(
     flowName,
     args = {},
     userId,
+    // Die App, deren Flow das ist (C6). Ohne sie ist es ein Flow der
+    // Plattform. Nur durchgereicht: was sie bedeutet, weiss `runFlow`.
+    appId = null,
+    stand = null,
     // „Ab Fehler wiederholen": übernommene Schritt-Ausgaben eines alten Laufs
     // (siehe stepExecutor.berechneVorabErgebnisse) — nur durchgereicht.
     vorabErgebnisse = null,
@@ -69,6 +73,8 @@ async function starten(
   const angelegt = await store.createRun({
     userId,
     flowName,
+    appId,
+    stand,
     arguments: args,
   });
   // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
@@ -101,6 +107,8 @@ async function starten(
       flowName,
       args,
       userId,
+      appId,
+      stand,
       onEvent,
       existingRunId: runId,
       signal: controller.signal,

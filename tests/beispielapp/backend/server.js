@@ -14,6 +14,16 @@
  *
  *   /hallo       wer angemeldet ist (`X-Arasul-User`, `X-Arasul-Role`)
  *   /schluessel  dass ihr API-Schluessel wirklich gilt
+ *
+ * Seit Phase C6 kommt das Dritte dazu, und es ist das eigentliche Mass jener
+ * Phase:
+ *
+ *   /flow        sie STARTET ihren eigenen Flow, mit ihrem eigenen Schluessel
+ *
+ * Der Flow liegt in ihrem Paket (`flows/wochenbericht.md`) und wurde beim
+ * Einspielen je Stand registriert. Dass sie ihn starten darf und den einer
+ * anderen App nicht, entscheidet nicht sie, sondern der Schluessel: er traegt
+ * App und Stand, und das Geraet sucht mit beiden.
  */
 
 const http = require('http');
@@ -42,6 +52,58 @@ function ausUtf8(wert) {
  * Der Schluessel selbst verlaesst diesen Prozess nicht. Eine Beispielapp, die
  * ihn anzeigt, waere eine Anleitung dafuer, es genauso zu machen.
  */
+/**
+ * Einen Aufruf an die externe Schnittstelle machen und Code UND Rumpf
+ * zurueckgeben.
+ *
+ * `schluesselPruefen` unten will nur den Code; hier braucht es die Antwort
+ * selbst, weil die Lauf-Nummer darin steht.
+ */
+function ruf(verb, pfad, leib) {
+  return new Promise(fertig => {
+    if (!API_URL || !API_SCHLUESSEL) {
+      fertig({ code: null, rumpf: null });
+      return;
+    }
+    const daten = leib ? JSON.stringify(leib) : null;
+    const anfrage = http.request(
+      `${API_URL}${pfad}`,
+      {
+        method: verb,
+        timeout: 30000,
+        headers: {
+          'x-api-key': API_SCHLUESSEL,
+          ...(daten
+            ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(daten) }
+            : {}),
+        },
+      },
+      antwort => {
+        let text = '';
+        antwort.setEncoding('utf8');
+        antwort.on('data', stueck => {
+          text += stueck;
+        });
+        antwort.on('end', () => {
+          let rumpf = null;
+          try {
+            rumpf = JSON.parse(text);
+          } catch {
+            rumpf = null;
+          }
+          fertig({ code: antwort.statusCode, rumpf });
+        });
+      }
+    );
+    anfrage.on('timeout', () => anfrage.destroy());
+    anfrage.on('error', () => fertig({ code: 0, rumpf: null }));
+    if (daten) {
+      anfrage.write(daten);
+    }
+    anfrage.end();
+  });
+}
+
 function schluesselPruefen() {
   return new Promise(fertig => {
     if (!API_URL || !API_SCHLUESSEL) {
@@ -98,6 +160,53 @@ const server = http.createServer((anfrage, antwort) => {
           // Schluessel gilt. `null` heisst, das Geraet hat keinen gesetzt,
           // `0` heisst, es kam keine Antwort.
           antwort: code,
+        })
+      );
+    });
+    return;
+  }
+
+  // Phase C6: die App startet IHREN Flow. Der Schluessel verlaesst den
+  // Container auch hier nicht -- zurueck geht nur, was die Plattform
+  // antwortet.
+  //
+  //   POST /flow          startet `wochenbericht` und gibt die Lauf-Nummer
+  //   GET  /flow?lauf=42  fragt nach, wie weit er ist
+  //
+  // Getrennt in zwei Aufrufe, weil ein Flow Minuten laufen kann: die
+  // Forward-Auth, Traefik und der Browser dazwischen haben alle ihre eigenen
+  // Zeitlimits, und ein Aufruf, der auf das Ende wartet, laeuft in das
+  // kuerzeste davon.
+  if (pfad === '/flow') {
+    const woche = new URL(anfrage.url, 'http://app').searchParams;
+    if (anfrage.method === 'POST') {
+      ruf('POST', '/flows/wochenbericht/run', {
+        args: { woche: woche.get('woche') || '34' },
+        wait_for_result: false,
+      }).then(({ code, rumpf }) => {
+        antwort.statusCode = code === 202 ? 202 : 502;
+        antwort.end(
+          JSON.stringify({ gestartet: code === 202, antwort: code, lauf: rumpf?.run_id ?? null })
+        );
+      });
+      return;
+    }
+    const lauf = woche.get('lauf');
+    if (!lauf) {
+      antwort.statusCode = 400;
+      antwort.end(JSON.stringify({ fehler: 'GET /flow braucht ?lauf=<nummer>' }));
+      return;
+    }
+    ruf('GET', `/flows/runs/${encodeURIComponent(lauf)}`).then(({ code, rumpf }) => {
+      antwort.statusCode = code === 200 ? 200 : 502;
+      antwort.end(
+        JSON.stringify({
+          antwort: code,
+          lauf: Number(lauf),
+          status: rumpf?.status ?? null,
+          schritte: rumpf?.steps_used ?? null,
+          ergebnis: rumpf?.result ?? null,
+          fehler: rumpf?.error ?? null,
         })
       );
     });

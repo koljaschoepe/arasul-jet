@@ -871,15 +871,17 @@ steht in ihrem Manifest `app.json` — die Felder erklärt
 Je App gibt es zwei Stände: `live` für alle Freigegebenen, `test` für die
 benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 
-| Method | Endpoint                   | Description                                                        |
-| ------ | -------------------------- | ------------------------------------------------------------------ |
-| GET    | `/api/apps`                | Alle Apps mit beiden Ständen und dem Zustand ihrer Container       |
-| GET    | `/api/apps/meine`          | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter) |
-| GET    | `/api/apps/:id`            | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows         |
-| POST   | `/api/apps/:id/einspielen` | Eine Version in einen Stand bringen                                |
-| DELETE | `/api/apps/:id`            | App entfernen: beide Container, beide Stände, Freigaben            |
-| GET    | `/api/apps/:id/logs`       | Die letzten Zeilen des App-Backends                                |
-| GET    | `/api/apps/:id/zugang`     | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)      |
+| Method | Endpoint                           | Description                                                        |
+| ------ | ---------------------------------- | ------------------------------------------------------------------ |
+| GET    | `/api/apps`                        | Alle Apps mit beiden Ständen und dem Zustand ihrer Container       |
+| GET    | `/api/apps/meine`                  | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter) |
+| GET    | `/api/apps/:id`                    | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows         |
+| POST   | `/api/apps/:id/einspielen`         | Eine Version in einen Stand bringen                                |
+| DELETE | `/api/apps/:id`                    | App entfernen: beide Container, beide Stände, Freigaben            |
+| GET    | `/api/apps/:id/logs`               | Die letzten Zeilen des App-Backends                                |
+| GET    | `/api/apps/:id/zugang`             | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)      |
+| GET    | `/api/apps/:id/flows`              | Die Flows beider Stände, mit dem Modell, das sie treibt            |
+| PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen oder zurücknehmen                    |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 
@@ -915,7 +917,7 @@ greift nur bei einer neuen App, nicht bei einer neuen Version).
         "api": "/apps/urlaub/api/",
         "backend": { "laeuft": true, "status": "running", "gesundheit": "healthy" },
         "modelle": [{ "name": "qwen3:14b-q8", "vorhanden": true }],
-        "flows": [{ "name": "urlaub-pruefen", "vorhanden": false }]
+        "flows": [{ "name": "urlaub-pruefen", "modell": "qwen3:14b-q8", "version": "1.0.0" }]
       },
       "test": null
     }
@@ -924,9 +926,15 @@ greift nur bei einer neuen App, nicht bei einer neuen Version).
 }
 ```
 
-`modelle` und `flows` sagen, was das Manifest verlangt und was davon am Gerät
-ist. Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte
-lädt, ist keine Installation mehr, sondern ein Abend.
+`modelle` sagt, was das Manifest **verlangt** und was davon am Gerät ist.
+Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte lädt,
+ist keine Installation mehr, sondern ein Abend.
+
+`flows` ist seit Phase C6 das Gegenstück dazu — keine Forderung, sondern eine
+**Lieferung**: das Paket bringt die Dateien mit (`flows/*.md`), und das Gerät
+registriert sie beim Einspielen je App und Stand. Bis C5 stand hier
+`{"name": …, "vorhanden": false}`, also die Antwort auf eine Frage, die sich
+nicht mehr stellt.
 
 Jeder Stand trägt seit Phase C5 zusätzlich `vorige_version`: die Version, die
 in diesem Stand vor der jetzigen lief, oder `null`. Darauf schaltet
@@ -950,6 +958,59 @@ in diesem Stand vor der jetzigen lief, oder `null`. Darauf schaltet
 
 `test` ist nur gefüllt, wenn die Freigabe dieses Menschen den Stand `test`
 trägt — er ist dann Tester (siehe `POST /api/freigaben`).
+
+#### Die Flows einer App (Phase C6)
+
+Ein Flow gehört seit C6 zu einer App: er kommt in ihrem Paket mit
+(`flows/<name>.md`, Markdown mit YAML-Kopf) und wird beim Einspielen je App
+**und Stand** registriert. Der Namensraum ist die App — zwei Apps dürfen beide
+einen Flow `bericht` haben, ohne voneinander zu wissen. Die Felder des Kopfes
+erklärt [docs/features/FLOWS.md](../features/FLOWS.md), das Paket
+[docs/features/APP-PAKET.md](../features/APP-PAKET.md).
+
+**GET /api/apps/:id/flows Response:**
+
+```json
+{
+  "data": {
+    "app_id": "urlaub",
+    "live": [
+      {
+        "name": "urlaub-pruefen",
+        "beschreibung": "Prüft einen Antrag gegen die Regeln.",
+        "argumente": [{ "name": "antrag", "typ": "freitext", "pflicht": true }],
+        "modell": "qwen3:14b-q8",
+        "modell_ueberschrieben": false,
+        "version": "1.0.0",
+        "registriert_am": "2026-08-27T12:00:00Z"
+      }
+    ],
+    "test": []
+  },
+  "timestamp": "2026-08-27T12:00:00Z"
+}
+```
+
+`modell` ist das Modell, das den Flow **wirklich** treibt.
+`modell_ueberschrieben` sagt, ob es aus dem Paket kommt (`false`) oder vom
+Administrator (`true`). Der Prompt steht nicht darin: er ist der Auftrag des
+Partners an das Modell, und wer ihn braucht, hat das Paket.
+
+**PUT /api/apps/:id/flows/:name/modell:** Body `{ "modell": "qwen3:14b-q8" }`
+setzt das Modell, `{ "modell": null }` nimmt die Überschreibung zurück (dann
+gilt wieder der Kopf der Flow-Datei). Antworten: `200`, `404` wenn die App den
+Flow in keinem Stand hat, `400` bei einem ungültigen Namen.
+
+Zwei Eigenschaften sind Absicht und keine Nachlässigkeit:
+
+- **Die Überschreibung liegt in der Datenbank, nicht in der Flow-Datei.** Die
+  Datei kommt mit jedem Paket neu; eine Änderung darin wäre beim nächsten
+  App-Update weg. So überlebt die Entscheidung des Kunden ein Update, ohne
+  dass der Deploy eine Datei aussparen müsste.
+- **Sie gilt ohne `stand`.** „Welches Modell treibt diesen Flow" ist eine
+  Entscheidung über den Flow, nicht über die Fassung, mit der jemand gerade
+  testet. Wer im Teststand einstellte und im Livestand nicht, merkte es erst
+  beim Schalten.
 
 ### Die App-Anmeldung
 
@@ -2039,6 +2100,32 @@ are owned by the API key's creator; an orphaned key (creator deleted) gets
 `403 FORBIDDEN`. This is the per-flow HTTP trigger; there is no scheduler on
 the device, recurring starts come from outside through this endpoint.
 
+#### Zwei Namensräume, ein Schlüssel entscheidet (Phase C6)
+
+Seit C6 gibt es zwei Arten von Schlüssel, und der Schlüssel selbst bestimmt,
+welche Flows diese drei Endpunkte sehen:
+
+| Schlüssel          | `api_keys`         | Sichtbare Flows                            |
+| ------------------ | ------------------ | ------------------------------------------ |
+| eines **Menschen** | `app_id IS NULL`   | die Flows der Plattform (`/arasul/flows/`) |
+| einer **App** (C4) | `app_id` + `stand` | **nur** die dieser App in **diesem** Stand |
+
+Das ist die Regel »nur eigene Flows«, und sie steht bewusst **nicht** als
+Prüfung in den Routen, sondern in der Auswahl der Quelle: eine App sucht in
+`app_flows` mit ihrer Kennung und ihrem Stand im `WHERE`. Sie kann den Flow
+einer anderen App nicht einmal benennen. Eine Prüfung kann man an einer von
+drei Routen vergessen; ein `WHERE` nicht.
+
+`GET /api/v1/external/flows` gibt einem App-Schlüssel deshalb zusätzlich
+`app` und `stand` zurück und die Flows in derselben Form wie
+`GET /api/apps/:id/flows` (mit `modell`, `version`, `registriert_am`).
+
+`GET /api/v1/external/flows/runs/:id` engt aus demselben Grund auch den Abruf
+eines Laufs ein: der Schlüssel einer App gehört dem Administrator, der sie
+eingespielt hat, und über `user_id` allein sähe die App dessen eigene Läufe
+und die jeder anderen App desselben Geräts. Ein Lauf trägt seit Migration 173
+`app_id` und `stand` mit.
+
 **POST /api/v1/external/llm/chat:**
 
 ```json
@@ -2170,10 +2257,10 @@ passt. Antwort (gekürzt):
 ```json
 {
   "data": {
-    "kontrakt": 1,
+    "kontrakt": 2,
     "arasul": "Vorserie",
     "app_json": { "schema": { "type": "object", "…": "JSON-Schema" }, "regeln": ["…"] },
-    "flow_frontmatter": { "schema": { "…": "JSON-Schema" }, "rumpf": "…" },
+    "flow_frontmatter": { "schema": { "…": "JSON-Schema" }, "rumpf": "…", "regeln": ["…"] },
     "koepfe": {
       "benutzer": "X-Arasul-User",
       "rolle": "X-Arasul-Role",
@@ -2192,14 +2279,24 @@ wird. `regeln` nennt die Manifest-Regeln, die kein JSON-Schema trägt — Zod
 übergeht seine `.refine`-Regeln beim Erzeugen des Schemas still, und gerade sie
 sind die interessanten (»mindestens eines von Frontend und Backend«).
 
+**Fassung 2 (Phase C6):** `flows` im Manifest ist keine Liste von Namen mehr,
+sondern ein Verzeichnis — aus einer Forderung ist eine Lieferung geworden. Ein
+Kit, das noch `"flows": ["a","b"]` schreibt, bekommt vom Gerät ein `400`.
+`flow_frontmatter.regeln` sagt zusätzlich, was für einen Flow **aus einem
+Paket** gilt (Dateiname ist der Name, kein `ordner`, Namensraum je App).
+
 **POST /api/v1/external/apps** — Multipart mit dem Feld `paket`, einem
 `.tar.gz` mit `app.json` im Wurzelverzeichnis. Das Gerät packt aus, prüft,
 legt unter `/arasul/apps/<id>/<version>/` ab, **baut das Image aus dem
-Dockerfile im Paket** und spielt in den Teststand ein. Antworten: `201` mit dem
-Stand, `400` bei einem Paket, das nicht durchgeht (Symlink, fehlendes
-`app.json`, fehlender Bauplan, fehlgeschlagener Bau), `409` wenn diese Version
-gerade **live** ist (neue Fassung, neue Nummer), `413` wenn das Archiv über
-200 MB liegt.
+Dockerfile im Paket**, registriert die Flows aus `flows/*.md` (C6) und spielt
+in den Teststand ein. Antworten: `201` mit dem Stand und den registrierten
+Flows, `400` bei einem Paket, das nicht durchgeht (Symlink, fehlendes
+`app.json`, fehlender Bauplan, fehlgeschlagener Bau, unlesbarer Flow), `409`
+wenn diese Version gerade **live** ist (neue Fassung, neue Nummer), `413` wenn
+das Archiv über 200 MB liegt.
+
+Die Flows werden **vor** dem Bau geprüft: eine kaputte YAML-Kopfzeile findet
+sich in Millisekunden, ein Image zu bauen dauert am Jetson Minuten.
 
 Einen Parameter für den Stand gibt es nicht. Live schaltet ein Mensch.
 
@@ -2214,9 +2311,12 @@ Antworten: `200`, `409` ohne Teststand beziehungsweise ohne vorige Version.
 `?bestaetigung=<id>&dateien=true|false`. Ohne die passende `bestaetigung` ist
 es `400`; die Rückfrage einer Schnittstelle ist ein Wort, das der Aufrufer
 abtippen muss. Es fallen beide Container mitsamt ihren Volumes, beide Stände,
-alle Freigaben und die Schlüssel der App. Mit `dateien=true` zusätzlich die
+alle Freigaben, die Schlüssel der App, ihre registrierten Flows samt der
+Einstellungen dazu — und seit C6 die am Gerät **gebauten Images** aller
+Versionen (je Version schnell 200 MB). Mit `dateien=true` zusätzlich die
 Ordner unter `/arasul/apps/<id>/`; ohne bleiben sie liegen (wie bei
-`DELETE /api/apps/:id`).
+`DELETE /api/apps/:id`). Die Antwort nennt unter `images_entfernt`, was
+wirklich weg ist.
 
 Gemessen wird der ganze Weg von `scripts/test/deploy-abnahme.sh`.
 
