@@ -52,7 +52,13 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # `passwort-loeschung-abnahme.sh` und `werksreset-abnahme.sh` laufen nur gegen
 # den Pruefstand, `souveraenitaet-abnahme.sh` und `endpunkte-live.py` messen
 # etwas anderes als eine Funktion.
-ALLE=(csp fernzugriff rueckmeldung oberflaeche apps rollen mitarbeiter)
+#
+# Phase C4 (27.08.2026): `app-anmeldung` kommt dazu und steht direkt hinter
+# `apps` -- sie misst, was `apps` voraussetzt. Sie braucht ZWEI eigene
+# Anmeldungen, eine je Mensch; damit sitzt die Reihe auf der Grenze der
+# Anmeldedrossel (zwei fuer `rollen`, fuenf fuer `mitarbeiter`, zwei hier, eine
+# geteilte: genau zehn je Viertelstunde und IP).
+ALLE=(csp fernzugriff rueckmeldung oberflaeche apps app-anmeldung rollen mitarbeiter)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 

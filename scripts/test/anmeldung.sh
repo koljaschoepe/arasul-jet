@@ -16,6 +16,12 @@
 # GERAET, die nur ueber den Messaufbau galten (siehe die Messung zu C2,
 # "Der Wackler in der Rollen-Abnahme").
 #
+# Stand nach Phase C4: zwei fuer `rollen`, fuenf fuer `mitarbeiter`, zwei fuer
+# `app-anmeldung`, eine geteilte -- zusammen genau zehn. Die Reihe sitzt damit
+# auf der Grenze. Wer eine weitere Abnahme mit eigener Anmeldung dazustellt,
+# muss vorher hier nachrechnen; sonst faellt mitten in der Reihe ein 429, und
+# die Abnahme danach meldet etwas ueber den Messaufbau.
+#
 # Deshalb meldet sich EINE Stelle an -- `abnahmen.sh` -- und gibt den Token an
 # alle weiter. Wer eine Abnahme einzeln fahren will, ruft sie wie bisher auf;
 # dann meldet sie sich selbst an und legt den Token fuer die naechste ab.
