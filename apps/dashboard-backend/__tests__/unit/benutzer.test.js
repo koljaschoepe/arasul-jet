@@ -1,6 +1,7 @@
 /**
- * /api/benutzer (Phase C1): der Administrator legt Benutzer an, sieht sie und
- * loescht sie. Der Mitarbeiter bekommt auf allen drei Wegen 403.
+ * /api/benutzer (Phasen C1 und C2): der Administrator legt Benutzer an, sieht
+ * sie, setzt ihr Passwort, legt sie still und loescht sie. Der Mitarbeiter
+ * bekommt auf jedem dieser Wege 403.
  */
 const express = require('express');
 const request = require('supertest');
@@ -18,6 +19,8 @@ jest.mock('../../src/utils/jwt', () => ({
 }));
 jest.mock('../../src/utils/password', () => ({
   hashPassword: jest.fn().mockResolvedValue('$hash$'),
+  verifyPassword: jest.fn(),
+  validatePasswordComplexity: jest.fn(() => ({ valid: true, errors: [] })),
 }));
 
 // requireAuth injiziert den Nutzer aus dem Test; requireRole ist der echte.
@@ -69,9 +72,14 @@ describe('/api/benutzer', () => {
     expect(res.body.data[1].role).toBe('mitarbeiter');
   });
 
-  test.each(['get', 'post', 'delete'])('%s: Mitarbeiter bekommt 403', async verb => {
+  test.each([
+    ['get', '/api/benutzer'],
+    ['post', '/api/benutzer'],
+    ['delete', '/api/benutzer/1'],
+    ['put', '/api/benutzer/1/passwort'],
+    ['put', '/api/benutzer/1/aktiv'],
+  ])('%s %s: Mitarbeiter bekommt 403', async (verb, pfad) => {
     auth.__setUser(MITARBEITER);
-    const pfad = verb === 'delete' ? '/api/benutzer/1' : '/api/benutzer';
     const res = await request(app())[verb](pfad).send({});
     expect(res.status).toBe(403);
     expect(db.query).not.toHaveBeenCalled();
@@ -108,6 +116,101 @@ describe('/api/benutzer', () => {
     expect(res.status).toBe(409);
   });
 
+  // --- Passwort setzen (C2) -------------------------------------------------
+
+  test('PUT /:id/passwort setzt das Passwort und beendet die Sitzungen', async () => {
+    const { blacklistAllUserTokens } = require('../../src/utils/jwt');
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', role: 'mitarbeiter' }] }) // holeBenutzer
+      .mockResolvedValueOnce({ rows: [{ username: 'mia' }] }); // setzePasswort: Existenz
+    const calls = [];
+    db.transaction.mockImplementation(async cb =>
+      cb({
+        query: jest.fn(async (sql, params) => {
+          calls.push({ sql: sql.replace(/\s+/g, ' '), params });
+          return { rowCount: 1, rows: [] };
+        }),
+      })
+    );
+    const res = await request(app())
+      .put('/api/benutzer/2/passwort')
+      .send({ password: 'Startpasswort1!' });
+    expect(res.status).toBe(200);
+    expect(calls.some(c => c.sql.includes('UPDATE admin_users SET password_hash'))).toBe(true);
+    // Die Historie haelt fest, WER gesetzt hat: der Administrator, nicht der Betroffene.
+    const historie = calls.find(c => c.sql.includes('INSERT INTO password_history'));
+    expect(historie.params[0]).toBe(2);
+    expect(historie.params[2]).toBe('admin');
+    expect(blacklistAllUserTokens).toHaveBeenCalledWith(2);
+  });
+
+  test('PUT /:id/passwort lehnt ein zu kurzes Passwort mit 400 ab', async () => {
+    const res = await request(app()).put('/api/benutzer/2/passwort').send({ password: 'kurz' });
+    expect(res.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test('PUT /:id/passwort eines unbekannten Benutzers ist 404', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app())
+      .put('/api/benutzer/404/passwort')
+      .send({ password: 'Startpasswort1!' });
+    expect(res.status).toBe(404);
+  });
+
+  // --- Stilllegen und wieder zulassen (C2) ----------------------------------
+
+  test('PUT /:id/aktiv legt einen Mitarbeiter still und beendet seine Sitzungen', async () => {
+    const { blacklistAllUserTokens } = require('../../src/utils/jwt');
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', role: 'mitarbeiter' }] }) // holeBenutzer
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', is_active: false }] }); // UPDATE
+    const res = await request(app()).put('/api/benutzer/2/aktiv').send({ aktiv: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data.is_active).toBe(false);
+    expect(db.query.mock.calls[1][0]).toContain('UPDATE admin_users SET is_active');
+    expect(db.query.mock.calls[1][1]).toEqual([2, false]);
+    expect(blacklistAllUserTokens).toHaveBeenCalledWith(2);
+    // Ohne das bliebe er bis zu 60 s im Identitaets-Zwischenspeicher aktiv.
+    expect(auth.invalidateUserCache).toHaveBeenCalledWith(2);
+  });
+
+  test('PUT /:id/aktiv laesst einen Stillgelegten wieder zu, ohne Sitzungen zu beenden', async () => {
+    const { blacklistAllUserTokens } = require('../../src/utils/jwt');
+    blacklistAllUserTokens.mockClear();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', role: 'mitarbeiter' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', is_active: true }] });
+    const res = await request(app()).put('/api/benutzer/2/aktiv').send({ aktiv: true });
+    expect(res.status).toBe(200);
+    expect(res.body.data.is_active).toBe(true);
+    expect(blacklistAllUserTokens).not.toHaveBeenCalled();
+  });
+
+  test('PUT /:id/aktiv auf das eigene Konto ist 400', async () => {
+    const res = await request(app()).put('/api/benutzer/1/aktiv').send({ aktiv: false });
+    expect(res.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test('PUT /:id/aktiv legt den letzten aktiven Administrator nicht still', async () => {
+    auth.__setUser({ id: 9, username: 'zweiter', role: 'admin' });
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', role: 'admin' }] }) // holeBenutzer
+      .mockResolvedValueOnce({ rows: [{ n: 1 }] }); // istLetzterAktiverAdmin
+    const res = await request(app()).put('/api/benutzer/1/aktiv').send({ aktiv: false });
+    expect(res.status).toBe(400);
+    expect(db.query.mock.calls.some(c => c[0].includes('UPDATE admin_users SET is_active'))).toBe(
+      false
+    );
+  });
+
+  test('PUT /:id/aktiv verlangt einen Wahrheitswert', async () => {
+    const res = await request(app()).put('/api/benutzer/2/aktiv').send({ aktiv: 'nein' });
+    expect(res.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   test('DELETE des eigenen Kontos wird auf /gdpr/me verwiesen (400)', async () => {
     const res = await request(app()).delete('/api/benutzer/1');
     expect(res.status).toBe(400);
@@ -134,6 +237,7 @@ describe('/api/benutzer', () => {
       true
     );
     expect(calls.some(c => c.sql.includes('DELETE FROM api_keys'))).toBe(true);
+    expect(calls.some(c => c.sql.includes('DELETE FROM public.app_members'))).toBe(true);
     expect(auth.invalidateUserCache).toHaveBeenCalledWith(2);
   });
 

@@ -66,22 +66,55 @@ for k in sys.argv[1].split("."):
 print(d if isinstance(d, (str, int)) else "")' "$1" 2>/dev/null
 }
 
+# Anmelden und dabei sagen, WARUM es nicht geht.
+#
+# GEFUNDEN AM 27.08.2026 (Phase C2): diese Funktion gab nur den Token zurueck.
+# War er leer, meldete die Abnahme "Abnahme-Admin meldet sich an" als ROT ohne
+# jede Angabe, und danach "Ohne beide Sitzungen gibt es nichts zu messen." Ein
+# 429 der Anmeldedrossel, ein 401 bei falschem Passwort und ein 403 bei
+# stillgelegtem Konto sahen dabei alle gleich aus.
+#
+# Das ist die wahrscheinlichste Erklaerung fuer den einen Fall, der beim ersten
+# Lauf rot und beim zweiten gruen war: `loginLimiter` erlaubt ZEHN Anmeldungen
+# je Viertelstunde und IP, diese Abnahme braucht drei, und wer sich vorher im
+# Browser ein paarmal angemeldet hat, hat sieben davon schon verbraucht. Der
+# zweite Lauf eine Viertelstunde spaeter trifft ein leeres Fenster und ist
+# gruen. Nachstellen laesst sich das nicht mehr, benennen schon: seit heute
+# steht der Code an der Pruefung, und ein 429 heisst 429.
+#
+# Der Code landet in einer DATEI, nicht in einer Variablen: `hole_token` wird
+# als `TOK=$(hole_token ...)` aufgerufen, und eine Kommandosubstitution ist eine
+# Subshell. Was sie in eine Variable schreibt, ist beim naechsten Befehl wieder
+# weg -- der erste Entwurf meldete deshalb "HTTP " ohne Zahl.
+ANM_DATEI="$(mktemp)"
+# Bis das eigentliche Aufraeumen steht, raeumt wenigstens die Datei sich selbst.
+trap 'rm -f "$ANM_DATEI"' EXIT
 hole_token() {
-  curl -sk -X POST -H 'content-type: application/json' \
-    -d "{\"username\":\"$1\",\"password\":\"$2\"}" \
-    "$BASIS/api/auth/login" | json_feld token
+  local antwort
+  antwort=$(curl -sk -w '\n%{http_code}' -X POST -H 'content-type: application/json' \
+    --max-time 30 -d "{\"username\":\"$1\",\"password\":\"$2\"}" \
+    "$BASIS/api/auth/login")
+  printf '%s' "$antwort" | tail -n1 > "$ANM_DATEI"
+  printf '%s' "$antwort" | sed '$d' | json_feld token
 }
+anm_code() { cat "$ANM_DATEI" 2>/dev/null; }
 
-# Ein Aufruf, der den HTTP-Code liefert. Bei 429 wird gewartet und wiederholt:
-# ein 429 sagt etwas ueber die Drossel, nichts ueber die Rolle.
+# Ein Aufruf, der den HTTP-Code liefert. Wiederholt wird bei 429 (Drossel) und
+# bei 000 (Zeitueberschreitung oder abgebrochene Verbindung): beides sagt etwas
+# ueber den Zeitpunkt, nichts ueber die Rolle. `000` galt bis zum 27.08.2026 als
+# endgueltige Antwort, und eine Box, auf der nebenher ein Flow die GPU haelt,
+# braucht fuer eine Sammel-Auskunft schon mal laenger als die zwanzig Sekunden.
 rufe() {
   local verb="$1" pfad="$2" token="$3" code versuch
   for versuch in 1 2 3; do
-    code=$(curl -sk -o /dev/null -w '%{http_code}' -X "$verb" --max-time 20 \
+    code=$(curl -sk -o /dev/null -w '%{http_code}' -X "$verb" --max-time 30 \
       -H "authorization: Bearer $token" -H 'content-type: application/json' \
       -d '{}' "$BASIS$pfad")
-    [ "$code" != "429" ] && break
-    sleep 20
+    case "$code" in
+      429) sleep 20 ;;
+      000) sleep 5 ;;
+      *) break ;;
+    esac
   done
   echo "$code"
 }
@@ -96,8 +129,8 @@ echo
 
 # --- 1. Admin anmelden -------------------------------------------------------
 TOK=$(hole_token "$NUTZER" "$PASS")
-pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)"
-[ -z "$TOK" ] && { echo; echo "Ohne Anmeldung geht nichts weiter (falsches Passwort oder Drossel, HTTP 429)."; exit 1; }
+pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" "HTTP $(anm_code)"
+[ -z "$TOK" ] && { echo; echo "Ohne Anmeldung geht nichts weiter (HTTP $(anm_code); 429 heisst Anmeldedrossel)."; exit 1; }
 
 ROLLE=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/auth/me" | json_feld user.role)
 pruefe '/api/auth/me nennt die Rolle admin' "$([ "$ROLLE" = "admin" ] && echo ja || echo nein)" "role=$ROLLE"
@@ -106,6 +139,7 @@ pruefe '/api/auth/me nennt die Rolle admin' "$([ "$ROLLE" = "admin" ] && echo ja
 ID_ADMIN=""
 ID_MITARB=""
 aufraeumen() {
+  rm -f "$ANM_DATEI"
   local code
   for id in "$ID_ADMIN" "$ID_MITARB"; do
     [ -z "$id" ] && continue
@@ -128,12 +162,12 @@ pruefe 'Abnahme-Mitarbeiter angelegt' "$([ -n "$ID_MITARB" ] && echo ja || echo 
 [ -z "$ID_ADMIN" ] || [ -z "$ID_MITARB" ] && { echo; echo "Ohne die zwei Benutzer gibt es nichts zu messen."; exit 1; }
 
 TOK_ADMIN=$(hole_token "$ABN_ADMIN" "$ABN_PASS")
-pruefe 'Abnahme-Admin meldet sich an' "$([ -n "$TOK_ADMIN" ] && echo ja || echo nein)"
+pruefe 'Abnahme-Admin meldet sich an' "$([ -n "$TOK_ADMIN" ] && echo ja || echo nein)" "HTTP $(anm_code)"
 # Der Mitarbeiter meldet sich mit seiner E-Mail-Adresse an: so steht es in
 # der Vision, "Mitarbeiter melden sich mit E-Mail und Passwort an".
 TOK_MITARB=$(hole_token "$ABN_MITARB@abnahme.local" "$ABN_PASS")
-pruefe 'Abnahme-Mitarbeiter meldet sich mit E-Mail an' "$([ -n "$TOK_MITARB" ] && echo ja || echo nein)"
-[ -z "$TOK_ADMIN" ] || [ -z "$TOK_MITARB" ] && { echo; echo "Ohne beide Sitzungen gibt es nichts zu messen."; exit 1; }
+pruefe 'Abnahme-Mitarbeiter meldet sich mit E-Mail an' "$([ -n "$TOK_MITARB" ] && echo ja || echo nein)" "HTTP $(anm_code)"
+[ -z "$TOK_ADMIN" ] || [ -z "$TOK_MITARB" ] && { echo; echo "Ohne beide Sitzungen gibt es nichts zu messen (letzter Anmeldecode $(anm_code); 429 heisst Anmeldedrossel, zehn je Viertelstunde und IP)."; exit 1; }
 
 ROLLE=$(curl -sk -H "authorization: Bearer $TOK_MITARB" "$BASIS/api/auth/me" | json_feld user.role)
 pruefe 'Mitarbeiter sieht seine Rolle' "$([ "$ROLLE" = "mitarbeiter" ] && echo ja || echo nein)" "role=$ROLLE"
