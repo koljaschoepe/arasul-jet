@@ -48,7 +48,9 @@
 
 ## `admin_users`
 
-> Administrator user accounts
+> Benutzer des Geräts: Administratoren und Mitarbeiter (seit Migration 167).
+> `role` ist `admin` oder `mitarbeiter` (`CHECK admin_users_role_check`, 167);
+> der Wert steuert `requireRole` im Backend.
 
 | Column           | Type                     | Nullable | Default                                   |
 | ---------------- | ------------------------ | -------- | ----------------------------------------- |

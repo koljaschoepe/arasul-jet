@@ -26,17 +26,28 @@ All endpoints except `/api/health` and `/api/auth/login` require JWT authenticat
 
 Tokens expire after 24 hours (configurable via `JWT_EXPIRY`).
 
+**Rollen (Phase C1, 27.08.2026).** Jeder Benutzer trägt in `admin_users.role`
+eine von zwei Rollen: `admin` verwaltet Mitarbeiter, Apps, Freigaben, Modelle
+und den Betrieb; `mitarbeiter` sieht seine freigegebenen Apps, Freigaben und
+eigenen Flow-Läufe. Jede Route prüft mit `requireRole(...)`; alles, was nicht
+Admin ist und nicht ausdrücklich Mitarbeiter, antwortet `403 FORBIDDEN`. In
+den Tabellen unten gilt deshalb: **ohne Vermerk ist eine Route nur für den
+Administrator**; Routen für beide Rollen sind mit „auch Mitarbeiter" markiert.
+Die externe API (`/api/v1/external`, API-Schlüssel) ist davon unberührt.
+Welche Route was prüft, listet `python3 scripts/test/rollenregeln.py --json`;
+gegen das Gerät misst es `scripts/test/rollen-abnahme.sh`.
+
 ---
 
 ## Endpoints Overview
 
 ### Public (No Auth)
 
-| Method | Endpoint          | Description                                     |
-| ------ | ----------------- | ----------------------------------------------- |
-| GET    | `/api/health`     | Health check                                    |
-| GET    | `/api/_meta`      | API surface (route groups, version, errorCodes) |
-| POST   | `/api/auth/login` | Login                                           |
+| Method | Endpoint          | Description                                                                          |
+| ------ | ----------------- | ------------------------------------------------------------------------------------ |
+| GET    | `/api/health`     | Health check                                                                         |
+| GET    | `/api/_meta`      | API surface (route groups, version, errorCodes)                                      |
+| POST   | `/api/auth/login` | Login with username or e-mail + password (sets cookie); response carries `user.role` |
 
 **GET /api/\_meta:**
 
@@ -64,20 +75,20 @@ Stand: 2026-08-20. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 
 ### Authentication
 
-| Method | Endpoint                    | Description                                      | Rate Limit    |
-| ------ | --------------------------- | ------------------------------------------------ | ------------- |
-| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin?       | 30/min        |
-| POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin     | 10/15min      |
-| POST   | `/api/auth/login`           | Login with username/password (sets cookie)       | 10/15min      |
-| GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated` | 120/min       |
-| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie)         | 30/min        |
-| POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user         | -             |
-| POST   | `/api/auth/change-password` | Change own password (invalidates all sessions)   | 3/15min, user |
-| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token         | -             |
-| GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)          | -             |
-| GET    | `/api/auth/me`              | Get current user info                            | -             |
-| GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session   | -             |
-| GET    | `/api/auth/sessions`        | List active sessions for current user            | -             |
+| Method | Endpoint                    | Description                                                       | Rate Limit    |
+| ------ | --------------------------- | ----------------------------------------------------------------- | ------------- |
+| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin?                        | 30/min        |
+| POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin                      | 10/15min      |
+| POST   | `/api/auth/login`           | Login with username/password (sets cookie)                        | 10/15min      |
+| GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated`                  | 120/min       |
+| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie) (auch Mitarbeiter)       | 30/min        |
+| POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user (auch Mitarbeiter)       | -             |
+| POST   | `/api/auth/change-password` | Change own password (invalidates all sessions) (auch Mitarbeiter) | 3/15min, user |
+| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token (auch Mitarbeiter)       | -             |
+| GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)                           | -             |
+| GET    | `/api/auth/me`              | Get current user info (auch Mitarbeiter)                          | -             |
+| GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session (auch Mitarbeiter) | -             |
+| GET    | `/api/auth/sessions`        | List active sessions for current user (auch Mitarbeiter)          | -             |
 
 > Stand: 2026-08-20 · Quelle: `src/routes/auth.js`, `src/middleware/rateLimit.js`
 >
@@ -548,6 +559,34 @@ Only accepts requests from localhost or Docker network IPs.
   "success": true,
   "duration_ms": 3000,
   "error_message": null
+}
+```
+
+### Benutzer (Phase C1)
+
+Der Administrator verwaltet die Benutzer des Geräts. Das eigene Konto löscht
+jeder über `DELETE /api/gdpr/me`; `DELETE /api/benutzer/:id` ist für andere
+und läuft durch dieselbe Löschung (`services/auth/benutzerService.js`):
+Flow-Läufe, API-Schlüssel und Sitzungen weg, Protokolle anonymisiert. Der
+letzte aktive Administrator behält seine Zugangs-Zeile (`zugangBleibt: true`).
+
+| Method | Endpoint            | Description                                                                                       |
+| ------ | ------------------- | ------------------------------------------------------------------------------------------------- |
+| GET    | `/api/benutzer`     | Alle Benutzer: `id, username, email, role, is_active, created_at, last_login`                     |
+| POST   | `/api/benutzer`     | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name |
+| DELETE | `/api/benutzer/:id` | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                              |
+
+```json
+// POST /api/benutzer → 201
+{
+  "data": {
+    "id": 7,
+    "username": "mia",
+    "email": "mia@firma.de",
+    "role": "mitarbeiter",
+    "is_active": true
+  },
+  "timestamp": "2026-08-27T09:00:00.000Z"
 }
 ```
 
@@ -1144,7 +1183,7 @@ Tailscale admin console; until then remote access uses the raw Tailscale IP.
 
 ### License
 
-All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
+All endpoints require admin authentication (`requireAuth` + `requireRole('admin')`).
 
 | Method | Endpoint                      | Description                                 |
 | ------ | ----------------------------- | ------------------------------------------- |
@@ -1210,14 +1249,14 @@ All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
 
 ### GDPR / Data Privacy
 
-All endpoints require authentication. `export` and `categories` additionally require admin role.
+`export` und `me` gelten für beide Rollen (die eigenen Daten); `ziele` und `categories` sind Admin.
 
-| Method | Endpoint               | Auth     | Description                                                                                                                                                          |
-| ------ | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/gdpr/export`     | Admin    | Full GDPR data export (Art. 20) as JSON file                                                                                                                         |
-| GET    | `/api/gdpr/categories` | Admin    | List data categories with record counts                                                                                                                              |
-| GET    | `/api/gdpr/ziele`      | Required | Angesteckte Datenträger als Export-Ziel (Plan 023 J3). Die Antwort trägt einen `hinweis`, der „keine Platte angesteckt" von „Ordner nicht eingebunden" unterscheidet |
-| DELETE | `/api/gdpr/me`         | Required | Delete own account (Art. 17 — right to erasure)                                                                                                                      |
+| Method | Endpoint               | Auth  | Description                                                                                                                                                          |
+| ------ | ---------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/gdpr/export`     | Beide | Full GDPR data export (Art. 20) as JSON file                                                                                                                         |
+| GET    | `/api/gdpr/categories` | Admin | List data categories with record counts                                                                                                                              |
+| GET    | `/api/gdpr/ziele`      | Admin | Angesteckte Datenträger als Export-Ziel (Plan 023 J3). Die Antwort trägt einen `hinweis`, der „keine Platte angesteckt" von „Ordner nicht eingebunden" unterscheidet |
+| DELETE | `/api/gdpr/me`         | Beide | Delete own account (Art. 17 — right to erasure)                                                                                                                      |
 
 **GET /api/gdpr/export:**
 
@@ -1306,7 +1345,7 @@ DSGVO Art. 17 right to erasure. Löscht Chats samt Anhängen, die aktiven Sessio
 
 ### Backup (External SSD)
 
-All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
+All endpoints require admin authentication (`requireAuth` + `requireRole('admin')`).
 
 The backup path defaults to `/mnt/external-ssd` and can be overridden with `EXTERNAL_BACKUP_PATH`.
 
@@ -1539,7 +1578,7 @@ Ergebnis für die Modelle (falls `modelleLoeschen`), dazu die Dauer.
 
 ### Flows
 
-Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
+Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. Ein Mitarbeiter darf Flows lesen (`GET /api/flows`, `GET /api/flows/:name`) und seine eigenen Läufe (`/laeufe/*`); anlegen, ändern, löschen, Vorlagen, Werkzeuge und die rohe Datei sind Admin.
 
 | Method | Endpoint                            | Description                                                                                                                             |
 | ------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |

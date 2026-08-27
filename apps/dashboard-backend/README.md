@@ -79,14 +79,27 @@ src/
 
 ## API Routes
 
-### Authentication (No Auth Required)
+### Authentication
 
-| Method | Path               | Description                  |
-| ------ | ------------------ | ---------------------------- |
-| POST   | `/api/auth/login`  | Login with username/password |
-| POST   | `/api/auth/logout` | Logout (blacklists token)    |
-| GET    | `/api/auth/me`     | Get current user info        |
-| GET    | `/api/health`      | Health check                 |
+| Method | Path               | Description                                        |
+| ------ | ------------------ | -------------------------------------------------- |
+| POST   | `/api/auth/login`  | Login with username or e-mail + password (no auth) |
+| POST   | `/api/auth/logout` | Logout (blacklists token)                          |
+| GET    | `/api/auth/me`     | Get current user info incl. `role`                 |
+| GET    | `/api/health`      | Health check (no auth)                             |
+
+Zwei Rollen (Phase C1): `admin` und `mitarbeiter`. Jede Route traegt
+`requireRole(...)` aus `middleware/auth.js`; ohne Vermerk ist eine Route nur
+fuer den Administrator. `scripts/test/rollenregeln.py` prueft das im Testlauf,
+`scripts/test/rollen-abnahme.sh` gegen das Geraet.
+
+### Benutzer (Admin)
+
+| Method | Path                | Description                  |
+| ------ | ------------------- | ---------------------------- |
+| GET    | `/api/benutzer`     | Alle Benutzer mit Rolle      |
+| POST   | `/api/benutzer`     | Benutzer anlegen (`rolle`)   |
+| DELETE | `/api/benutzer/:id` | Benutzer samt Daten loeschen |
 
 ### System & Metrics (Auth Required)
 
