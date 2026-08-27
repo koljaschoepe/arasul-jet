@@ -717,8 +717,11 @@ setup_https() {
     # eigenem Namen bekaeme sonst ein Zertifikat, das auf einen fremden Namen
     # lautet. Seit Phase C10 steht der NACKTE Name im Zertifikat (https://arasul/)
     # und `.local` daneben, siehe scripts/security/geraete-zertifikat.sh.
+    # `|| true` und nicht nur `2>/dev/null`: fehlt die Zeile in der `.env`,
+    # gibt grep 1 zurueck, `pipefail` traegt es aus der Pipe heraus, und unter
+    # `set -e` endet der Bootstrap hier wortlos (scripts/test/stiller-tod.py).
     local cert_mdns
-    cert_mdns=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2)
+    cert_mdns=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2 || true)
     cert_mdns="${cert_mdns:-arasul}"
     cert_mdns="${cert_mdns%.local}" # strip any .local the user may have added
 
@@ -1654,7 +1657,7 @@ cmd_platform_profile() {
 # noch einmal verteilen.
 cmd_zertifikat() {
     local netzname
-    netzname=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2)
+    netzname=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2 || true)
     netzname="${netzname:-arasul}"
 
     FORCE_OVERWRITE=true bash "${SCRIPT_DIR}/scripts/security/geraete-zertifikat.sh" \

@@ -193,12 +193,14 @@ echo "--- 4. Das Zertifikat, das der Browser sieht ---"
 if openssl s_client -connect "${RECHNER}:${PORT}" -servername "$RECHNER" </dev/null 2>/dev/null \
      | openssl x509 -out "$ZERT_DATEI" 2>/dev/null; then
   NAMEN=$(openssl x509 -in "$ZERT_DATEI" -noout -ext subjectAltName 2>/dev/null | tr -d ' ')
-  for erwartet in "DNS:${NETZNAME}," "DNS:${NETZNAME}.local," "DNS:localhost"; do
-    kurz="${erwartet%,}"
-    if grep -q "${erwartet%,}" <<<"${NAMEN},"; then
-      pruefe "Das Zertifikat traegt ${kurz#DNS:}" ja
+  # Mit Komma vergleichen, an beiden Seiten. `DNS:arasul` steht sonst auch in
+  # `DNS:arasul.local` drin, und die Pruefung auf den nackten Namen -- also
+  # genau die, um die es in dieser Phase geht -- waere immer gruen.
+  for name in "$NETZNAME" "${NETZNAME}.local" localhost; do
+    if grep -q ",DNS:${name}," <<<",${NAMEN},"; then
+      pruefe "Das Zertifikat traegt ${name}" ja
     else
-      pruefe "Das Zertifikat traegt ${kurz#DNS:}" nein "SAN: ${NAMEN:-leer}"
+      pruefe "Das Zertifikat traegt ${name}" nein "SAN: ${NAMEN:-leer}"
     fi
   done
 
