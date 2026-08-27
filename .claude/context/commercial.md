@@ -11,7 +11,7 @@
 | `GET /api/gdpr/export`     | Full JSON archive of the authed user's personal data |
 | `GET /api/gdpr/categories` | Counts per category — transparency before export     |
 
-Both routes require `requireAuth + requireAdmin` and call
+Both routes require `requireAuth + requireRole('admin')` and call
 `logSecurityEvent(...)` so the access shows up in `security_audit_log`
 (Migration 061). Always extend that audit call when you add a new
 GDPR-relevant action — the log is what proves the export ever happened.

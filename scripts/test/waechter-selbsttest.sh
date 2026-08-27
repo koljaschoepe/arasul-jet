@@ -243,6 +243,58 @@ BEISPIEL
 pruefe "Routenregeln: synchroner Handler ist gruen" 0 python3 "$WURZEL/scripts/test/routenregeln.py" --wurzel "$TMP/rr"
 rm -r "$TMP/rr"
 
+# --- rollenregeln.py --------------------------------------------------------
+# Jede montierte Route prueft eine Rolle, oder sie steht mit Grund in
+# OEFFENTLICH. Der Wegwerfbaum braucht eine index.js, weil der Waechter den
+# Montagepfad daraus liest; eine nicht montierte Datei zaehlt nicht.
+RO="$TMP/ro/apps/dashboard-backend/src/routes"
+mkdir -p "$RO"
+cat > "$RO/index.js" <<'BEISPIEL'
+router.use('/dinge', require('./dinge'));
+BEISPIEL
+cat > "$RO/dinge.js" <<'BEISPIEL'
+router.get(
+  '/',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    res.json({ data: [] });
+  })
+);
+router.get(
+  '/meine',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  asyncHandler(async (req, res) => {
+    res.json({ data: [] });
+  })
+);
+BEISPIEL
+pruefe "Rollenregeln: jede Route mit requireRole ist gruen" 0 python3 "$WURZEL/scripts/test/rollenregeln.py" --wurzel "$TMP/ro"
+
+cat >> "$RO/dinge.js" <<'BEISPIEL'
+router.post(
+  '/',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(201).json({ data: {} });
+  })
+);
+BEISPIEL
+pruefe "Rollenregeln: eine Route nur mit requireAuth ist rot" 1 python3 "$WURZEL/scripts/test/rollenregeln.py" --wurzel "$TMP/ro"
+
+cat > "$RO/dinge.js" <<'BEISPIEL'
+router.use(requireAuth, requireRole('admin'));
+router.get('/', asyncHandler(async (req, res) => res.json({ data: [] })));
+BEISPIEL
+pruefe "Rollenregeln: router.use mit requireRole deckt die Datei" 0 python3 "$WURZEL/scripts/test/rollenregeln.py" --wurzel "$TMP/ro"
+
+cat > "$RO/dinge.js" <<'BEISPIEL'
+router.post('/melden', requireApiKey, asyncHandler(async (req, res) => res.json({ ok: true })));
+BEISPIEL
+pruefe "Rollenregeln: API-Schluessel ist ein eigener Schutz" 0 python3 "$WURZEL/scripts/test/rollenregeln.py" --wurzel "$TMP/ro"
+rm -r "$TMP/ro"
+
 # --- bausteine.py -----------------------------------------------------------
 BAU="$TMP/bau/apps/dashboard-frontend/src/features/beispiel"
 mkdir -p "$BAU"

@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { apiLimiter } = require('../../middleware/rateLimit');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody } = require('../../middleware/validate');
@@ -54,6 +54,7 @@ function getEmbeddingAxios() {
 router.post(
   '/',
   requireAuth,
+  requireRole('admin'),
   apiLimiter,
   validateBody(EmbedBody),
   asyncHandler(async (req, res) => {

@@ -19,7 +19,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const modelService = require('../../services/llm/modelService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
@@ -63,6 +63,7 @@ const CACHE_TTLS = {
 router.get(
   '/catalog',
   requireAuth,
+  requireRole('admin'),
   cacheMiddleware(CACHE_KEYS.CATALOG, CACHE_TTLS.CATALOG),
   asyncHandler(async (req, res) => {
     logger.debug(
@@ -88,6 +89,7 @@ router.get(
 router.get(
   '/installed',
   requireAuth,
+  requireRole('admin'),
   cacheMiddleware(CACHE_KEYS.INSTALLED, CACHE_TTLS.INSTALLED),
   asyncHandler(async (req, res) => {
     const models = await modelService.getInstalledModels();
@@ -113,6 +115,7 @@ router.get(
 router.get(
   '/status',
   requireAuth,
+  requireRole('admin'),
   cacheMiddleware(CACHE_KEYS.STATUS, CACHE_TTLS.STATUS),
   asyncHandler(async (req, res) => {
     logger.debug(
@@ -135,6 +138,7 @@ router.get(
 router.get(
   '/loaded',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const loadedModels = await modelService.getLoadedModels();
     // Backwards-compatible: also include single loaded_model for existing consumers
@@ -153,6 +157,7 @@ router.get(
 router.get(
   '/lifecycle',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const modelLifecycleService = require('../../services/llm/modelLifecycleService');
     const status = await modelLifecycleService.getLifecycleStatus();
@@ -167,6 +172,7 @@ router.get(
 router.get(
   '/memory-budget',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const budget = await modelService.getMemoryBudget();
     res.json(budget);
@@ -186,6 +192,7 @@ router.get(
 router.post(
   '/quelle/pruefen',
   requireAuth,
+  requireRole('admin'),
   validateBody(QuellePruefenBody),
   asyncHandler(async (req, res) => {
     const gelesen = quelleLesen(req.body.quelle);
@@ -245,6 +252,7 @@ router.post(
 router.post(
   '/katalog',
   requireAuth,
+  requireRole('admin'),
   validateBody(KatalogHinzufuegenBody),
   asyncHandler(async (req, res) => {
     const gelesen = quelleLesen(req.body.quelle);
@@ -343,6 +351,7 @@ router.delete(
   // Parameter fasst nur EIN Segment.
   '/katalog/*',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const modelId = req.params[0];
     if (!modelId) {
@@ -391,6 +400,7 @@ router.delete(
 router.post(
   '/:modelId/load',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { modelId } = req.params;
     const database = require('../../database');
@@ -484,6 +494,7 @@ async function modellEntladen(modelId) {
 router.post(
   '/:modelId/unload',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const result = await modellEntladen(req.params.modelId);
     cacheService.invalidate(CACHE_KEYS.STATUS);
@@ -505,6 +516,7 @@ router.post(
 router.post(
   '/download',
   requireAuth,
+  requireRole('admin'),
   validateBody(DownloadBody),
   asyncHandler(async (req, res) => {
     const { model_id } = req.body;
@@ -667,6 +679,7 @@ router.post(
 router.delete(
   '/:modelId',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { modelId } = req.params;
 
@@ -690,6 +703,7 @@ router.delete(
 router.post(
   '/:modelId/activate',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { modelId } = req.params;
     const useStream = req.query.stream === 'true';
@@ -810,6 +824,7 @@ router.post(
 router.post(
   '/:modelId/deactivate',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { modelId } = req.params;
     const result = await modellEntladen(modelId);
@@ -838,6 +853,7 @@ router.post(
 router.get(
   '/recommended',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { getRecommendedModel } = require('../../utils/hardware');
     const recommendation = await getRecommendedModel();
@@ -864,6 +880,7 @@ router.get(
 router.post(
   '/default',
   requireAuth,
+  requireRole('admin'),
   validateBody(DefaultModelBody),
   asyncHandler(async (req, res) => {
     const { model_id } = req.body;
@@ -894,6 +911,7 @@ router.post(
 router.get(
   '/default',
   requireAuth,
+  requireRole('admin'),
   cacheMiddleware(CACHE_KEYS.DEFAULT, CACHE_TTLS.DEFAULT),
   asyncHandler(async (req, res) => {
     const defaultModel = await modelService.getDefaultModel();
@@ -911,6 +929,7 @@ router.get(
 router.post(
   '/sync',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const result = await modelService.syncWithOllama();
 
@@ -932,6 +951,7 @@ router.post(
 router.get(
   '/:modelId/capabilities',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { modelId } = req.params;
     const db = require('../../database');
@@ -983,6 +1003,7 @@ router.get(
 router.get(
   '/:modelId',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { modelId } = req.params;
 

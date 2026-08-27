@@ -397,6 +397,9 @@ jobs:
       - name: Routenregeln (asyncHandler, keine nackten Fehler)
         run: python3 scripts/test/routenregeln.py --wurzel .
 
+      - name: Rollenregeln (jede Route prueft admin oder mitarbeiter, Phase C1)
+        run: python3 scripts/test/rollenregeln.py --wurzel .
+
       - name: Der Deploy-Rollback sagt die Wahrheit ueber sich
         run: bash scripts/test/rollback-meldung.sh
 

@@ -7,24 +7,15 @@
 const { versionFuerAnzeige } = require('../../utils/version');
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin, invalidateUserCache } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, ForbiddenError } = require('../../utils/errors');
-const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
 const logger = require('../../utils/logger');
+const { loescheBenutzer } = require('../../services/auth/benutzerService');
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
-
-/**
- * Platzhalter fuer anonymisierte Spalten, die NOT NULL sind.
- *
- * Kein Name, den jemand haben koennte, und kein leerer String: ein
- * leerer Wert sieht in einer Auswertung aus wie ein Fehler, ein
- * sprechender Platzhalter sagt, was geschehen ist.
- */
-const ANONYM = '(geloescht)';
 
 /**
  * GET /api/gdpr/export
@@ -34,7 +25,7 @@ const ANONYM = '(geloescht)';
 router.get(
   '/export',
   requireAuth,
-  requireAdmin,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
@@ -276,7 +267,7 @@ router.get(
 router.get(
   '/ziele',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const data = await require('../../services/medien/medienService').liste();
     res.json({ data, timestamp: new Date().toISOString() });
@@ -291,7 +282,7 @@ router.get(
 router.get(
   '/categories',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
@@ -358,9 +349,8 @@ router.get(
 router.delete(
   '/me',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
-    const userId = req.user.id;
-    const username = req.user.username;
     const confirm = req.body && req.body.confirm;
 
     if (confirm !== DELETE_CONFIRMATION_TOKEN) {
@@ -369,117 +359,33 @@ router.delete(
       );
     }
 
-    // Single-Box-Schutz, neu gefasst (Plan 023 J4). Der letzte Admin darf seine
-    // Zugangs-Zeile nicht löschen, sonst ist das Gerät unbedienbar — seine
-    // DATEN muss er trotzdem löschen können. Mit einem Zugang je Gerät
-    // (Entscheidung E1) ist er sonst nämlich immer der letzte, und Art. 17
-    // liefe grundsätzlich in einen 403.
-    const adminCount = await db.query(
-      `SELECT COUNT(*)::int AS n FROM admin_users WHERE role = 'admin' AND is_active = true`
-    );
-    const letzterAdmin = req.user.role === 'admin' && (adminCount.rows[0]?.n ?? 0) <= 1;
-
-    logger.warn(`[gdpr-delete] user ${username} (id=${userId}) initiates account deletion`);
-
-    // Auth-Invalidierung MUSS vor der Lösch-Transaktion laufen:
-    // blacklistAllUserTokens liest active_sessions, um alle JTIs zu ermitteln,
-    // sie in token_blacklist einzutragen UND den in-memory verifiedTokenCache
-    // (60s TTL) sofort zu leeren. Die Transaktion löscht active_sessions weiter
-    // unten — liefe der Aufruf danach, fände er keine Sessions mehr und der
-    // aktuelle Token bliebe bis zu 60s aus dem Cache gültig. Bei Rollback der
-    // Transaktion ist der User nur ausgeloggt (Account bleibt) — sicheres Fail.
-    await blacklistAllUserTokens(userId);
-
-    const summary = await db.transaction(async client => {
-      const counts = {};
-
-      // Reihenfolge folgt FK-Abhängigkeiten: erst Kinder, dann Parents.
-      // Jede Query nutzt try/catch via separate Helpers wäre nicht atomar —
-      // bei einer fehlenden Tabelle (Schema-Drift) lieber crashen und
-      // ROLLBACK, damit nichts halb-gelöscht zurückbleibt.
-
-      const del = async (label, sql, params) => {
-        const result = await client.query(sql, params);
-        counts[label] = result.rowCount || 0;
-      };
-
-      // 1) Flow-Läufe des Nutzers (die Schritte hängen per ON DELETE CASCADE
-      //    daran). Chats (bis B6) sowie Dokumente, Wissensräume und Projekte
-      //    (bis B4) standen hier bis zum 26.08.2026; ihre Tabellen sind mit
-      //    163 und 165 gefallen.
-      await del('flow_runs', `DELETE FROM flow_runs WHERE user_id = $1`, [userId]);
-
-      // 3) Aktive Sessions invalidieren
-      await del('active_sessions', `DELETE FROM active_sessions WHERE user_id = $1`, [userId]);
-
-      // 4) Compliance-Trails anonymisieren (siehe DSGVO Art. 17 (3) (b))
-      const anon = async (label, sql, params) => {
-        const result = await client.query(sql, params);
-        counts[`anon_${label}`] = result.rowCount || 0;
-      };
-      await anon('audit_logs', `UPDATE audit_logs SET user_id = NULL WHERE user_id = $1`, [userId]);
-      await anon('api_audit_logs', `UPDATE api_audit_logs SET user_id = NULL WHERE user_id = $1`, [
-        userId,
-      ]);
-      // `login_attempts.username` ist NOT NULL (23.08.2026 auf dem Pruefstand
-      // gefunden). Ein `SET username = NULL` liess die ganze Transaktion
-      // zurueckrollen:
-      //
-      //   null value in column "username" of relation "login_attempts"
-      //   violates not-null constraint
-      //
-      // Da jedes Geraet Anmeldeversuche hat, ist das kein Sonderfall: die
-      // Loeschung nach Art. 17 scheiterte daran immer. Anonymisiert wird
-      // deshalb mit einem festen Platzhalter statt mit NULL; die Zeile bleibt
-      // fuer die Aufbewahrungspflicht erhalten und zeigt auf niemanden mehr.
-      //
-      // OFFEN, und ausdruecklich eine Entscheidung und keine Auslassung: die
-      // Spalte `ip_address` ist ebenfalls NOT NULL und bleibt stehen. Eine
-      // IP-Adresse ist ein personenbezogenes Datum. Ob die
-      // Aufbewahrungspflicht (Art. 17 (3) (b)) sie deckt oder ob auch sie zu
-      // ersetzen ist, ist eine Rechtsfrage und keine Frage an den Code.
-      await anon('login_attempts', `UPDATE login_attempts SET username = $2 WHERE username = $1`, [
-        username,
-        ANONYM,
-      ]);
-      // 5) admin_users — eigene Row löschen (Single-Box-Schutz oben hat
-      //    Zeile bleibt beim letzten Admin stehen, siehe oben.
-      if (letzterAdmin) {
-        counts.admin_users = 0;
-      } else {
-        await del('admin_users', `DELETE FROM admin_users WHERE id = $1`, [userId]);
-      }
-
-      return counts;
+    // Die Loeschung selbst liegt in `services/auth/benutzerService.js`, weil
+    // der Administrator sie seit Phase C1 auch fuer andere ausloest
+    // (`DELETE /api/benutzer/:id`). Eine Loeschung, zwei Wege.
+    const { summary, zugangBleibt } = await loescheBenutzer({
+      userId: req.user.id,
+      username: req.user.username,
+      role: req.user.role,
     });
 
     logSecurityEvent({
       userId: null,
       action: 'gdpr_account_deletion',
-      details: { deleted_user: username, summary },
+      details: { deleted_user: req.user.username, summary },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
-
-    logger.warn(
-      `[gdpr-delete] user ${username} (id=${userId}) deleted; summary: ${JSON.stringify(summary)}`
-    );
-
-    // userCache (auth.js, 60s TTL) leeren, damit eine warme Cache-Entry den
-    // gelöschten User nicht weiter als aktiv authentifiziert, obwohl die
-    // admin_users-Row bereits weg ist. Ergänzt die Token-Invalidierung oben.
-    invalidateUserCache(userId);
 
     // Session-Cookie räumen, damit der Client nicht weiter eingeloggt wirkt
     res.clearCookie('arasul_session');
 
     res.json({
       ok: true,
-      message: letzterAdmin
+      message: zugangBleibt
         ? 'Alle persönlichen Daten wurden gelöscht. Der Zugang selbst bleibt ' +
           'bestehen, weil es der letzte ist und das Gerät sonst unbedienbar wäre.'
         : 'Account und alle persönlichen Daten wurden gelöscht.',
-      zugangBleibt: letzterAdmin,
+      zugangBleibt,
       summary,
       timestamp: new Date().toISOString(),
     });

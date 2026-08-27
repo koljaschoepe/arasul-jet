@@ -9,7 +9,7 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const axios = require('axios');
 const { metricsLimiter } = require('../../middleware/rateLimit');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
 const services = require('../../config/services');
@@ -20,6 +20,7 @@ const METRICS_COLLECTOR_URL = services.metrics.url;
 router.get(
   '/live',
   requireAuth,
+  requireRole('admin'),
   metricsLimiter,
   asyncHandler(async (req, res) => {
     // Try to get live metrics from metrics collector
@@ -69,6 +70,7 @@ router.get(
 router.get(
   '/history',
   requireAuth,
+  requireRole('admin'),
   metricsLimiter,
   asyncHandler(async (req, res) => {
     const range = req.query.range || '24h';

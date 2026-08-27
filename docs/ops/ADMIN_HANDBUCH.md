@@ -275,6 +275,35 @@ Unter **Einstellungen → System → Updates → Verlauf** sehen Sie:
 
 ## 7. Benutzerverwaltung
 
+### Zwei Rollen
+
+Das Geraet kennt zwei Rollen. Der **Administrator** verwaltet Mitarbeiter,
+Apps, Freigaben, Modelle und den Betrieb. Der **Mitarbeiter** meldet sich mit
+E-Mail-Adresse oder Benutzername und Passwort an und sieht, was ihm freigegeben
+ist, dazu seine eigenen Flow-Laeufe. Alles andere beantwortet das Geraet mit
+„Diese Funktion ist dem Administrator vorbehalten" (HTTP 403).
+
+### Benutzer anlegen und loeschen
+
+Eine Seite dafuer kommt mit der neuen Oberflaeche (D-Phasen). Bis dahin geht
+es ueber die Schnittstelle, angemeldet als Administrator:
+
+```bash
+# anlegen (Rolle admin oder mitarbeiter)
+curl -sk -X POST https://<geraet>/api/benutzer \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"username":"mia","password":"Startpasswort1!","email":"mia@firma.de","rolle":"mitarbeiter"}'
+
+# auflisten
+curl -sk https://<geraet>/api/benutzer -H "authorization: Bearer $TOKEN"
+
+# loeschen (samt Flow-Laeufen, API-Schluesseln und Sitzungen)
+curl -sk -X DELETE https://<geraet>/api/benutzer/<id> -H "authorization: Bearer $TOKEN"
+```
+
+Der letzte aktive Administrator laesst sich nicht loeschen; sein Zugang bleibt,
+sonst waere das Geraet unbedienbar.
+
 ### Passwort aendern
 
 1. Oeffnen Sie **Einstellungen > Sicherheit**

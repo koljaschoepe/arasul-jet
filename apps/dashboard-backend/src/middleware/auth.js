@@ -201,26 +201,45 @@ async function optionalAuth(req, res, next) {
 }
 
 /**
- * Require admin role middleware
- * Must be used AFTER requireAuth — checks that the authenticated user has admin role
+ * Die zwei Rollen des Geraets (Phase C1 des Umbaus vom 26.08.2026):
+ * `admin` verwaltet Mitarbeiter, Apps, Freigaben, Modelle und den Betrieb;
+ * `mitarbeiter` sieht seine freigegebenen Apps, Freigaben und eigenen
+ * Flow-Laeufe. Migration 167 haelt `admin_users.role` auf genau diese zwei.
  */
-function requireAdmin(req, res, next) {
-  if (!req.user) {
-    return res.status(401).json({
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-      timestamp: new Date().toISOString(),
-    });
-  }
+const ROLLEN = Object.freeze(['admin', 'mitarbeiter']);
 
-  if (req.user.role !== 'admin') {
-    logger.warn(`Non-admin access attempt by user ${req.user.username} (role: ${req.user.role})`);
-    return res.status(403).json({
-      error: { code: 'FORBIDDEN', message: 'Admin access required' },
-      timestamp: new Date().toISOString(),
-    });
+/**
+ * Rollenpruefung. Kommt NACH requireAuth und laesst nur die genannten Rollen
+ * durch; alles andere antwortet 403. Jede Route traegt sie ausdruecklich,
+ * `scripts/test/rollenregeln.py` prueft das. Eine Route ohne Rollenpruefung
+ * gibt es nur mit Grund in der Liste PUBLIC des Waechters.
+ *
+ *   requireRole('admin')                  nur der Administrator
+ *   requireRole('admin', 'mitarbeiter')   ausdruecklich auch der Mitarbeiter
+ */
+function requireRole(...rollen) {
+  const unbekannt = rollen.filter(r => !ROLLEN.includes(r));
+  if (rollen.length === 0 || unbekannt.length > 0) {
+    throw new TypeError(`requireRole: unbekannte Rolle ${unbekannt.join(', ') || '(keine)'}`);
   }
-
-  next();
+  return function rollenPruefung(req, res, next) {
+    if (!req.user) {
+      return res.status(401).json({
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        timestamp: new Date().toISOString(),
+      });
+    }
+    if (!rollen.includes(req.user.role)) {
+      logger.warn(
+        `Zugriff verweigert: ${req.method} ${req.originalUrl} fuer ${req.user.username} (Rolle ${req.user.role}, erlaubt ${rollen.join(', ')})`
+      );
+      return res.status(403).json({
+        error: { code: 'FORBIDDEN', message: 'Diese Funktion ist dem Administrator vorbehalten' },
+        timestamp: new Date().toISOString(),
+      });
+    }
+    next();
+  };
 }
 
 /**
@@ -252,7 +271,8 @@ const _clearUserCacheForTest = clearUserCache;
 
 module.exports = {
   requireAuth,
-  requireAdmin,
+  requireRole,
+  ROLLEN,
   optionalAuth,
   invalidateUserCache,
   clearUserCache,

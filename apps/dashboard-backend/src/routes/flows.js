@@ -14,7 +14,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const {
@@ -86,6 +86,7 @@ function fromApi(name, body) {
 router.get(
   '/',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const { flows, fehlerhaft } = await registry.listFlows();
     res.json({
@@ -107,6 +108,7 @@ router.get(
 router.get(
   '/werkzeuge',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const nutzbar = new Set(implementedTools());
     res.json({
@@ -124,6 +126,7 @@ router.get(
 router.get(
   '/vorlagen',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const vorlagen = await vorlagenStore.listVorlagen();
     res.json({ data: vorlagen, timestamp: new Date().toISOString() });
@@ -136,6 +139,7 @@ router.get(
 router.post(
   '/vorlagen',
   requireAuth,
+  requireRole('admin'),
   uploadLimiter,
   vorlagenUpload.single('datei'),
   asyncHandler(async (req, res) => {
@@ -154,6 +158,7 @@ router.post(
 router.delete(
   '/vorlagen/:name',
   requireAuth,
+  requireRole('admin'),
   validateParams(VorlageNameParams),
   asyncHandler(async (req, res) => {
     await vorlagenStore.deleteVorlage(req.params.name);
@@ -169,6 +174,7 @@ router.delete(
 router.get(
   '/laeufe',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   validateQuery(ListRunsQuery),
   asyncHandler(async (req, res) => {
     const runs = await runStore.listRuns({
@@ -187,6 +193,7 @@ router.get(
 router.post(
   '/laeufe',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   // Ein Lauf ist ein teurer GPU-Vorgang. Früher bremste die synchrone
   // Ausführung von selbst (der Aufruf hing am Modell); jetzt kehrt der Start
   // sofort zurück, deshalb hier ein Limiter gegen zu viele Läufe hintereinander.
@@ -218,6 +225,7 @@ router.post(
 router.get(
   '/laeufe/:id/stream',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   validateParams(RunIdParams),
   asyncHandler(async (req, res) => {
     const runId = req.params.id;
@@ -309,6 +317,7 @@ router.get(
 router.get(
   '/laeufe/:id',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   validateParams(RunIdParams),
   asyncHandler(async (req, res) => {
     const run = await runStore.getRun({
@@ -327,6 +336,7 @@ router.get(
 router.post(
   '/laeufe/:id/abbrechen',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   validateParams(RunIdParams),
   asyncHandler(async (req, res) => {
     const run = await flowRunner.abbrechen({ runId: req.params.id, userId: req.user.id });
@@ -346,6 +356,7 @@ router.post(
 router.get(
   '/laeufe/:id/frage',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   validateParams(RunIdParams),
   asyncHandler(async (req, res) => {
     // `getRun` wirft NotFound, wenn der Lauf nicht diesem Nutzer gehört. Ohne
@@ -362,6 +373,7 @@ router.get(
 router.post(
   '/laeufe/:id/antwort',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   validateParams(RunIdParams),
   validateBody(FlowAntwortBody),
   asyncHandler(async (req, res) => {
@@ -381,6 +393,7 @@ router.post(
 router.post(
   '/laeufe/:id/wiederholen',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   // Wie beim Start: ein neuer Lauf ist ein teurer GPU-Vorgang.
   llmLimiter,
   validateParams(RunIdParams),
@@ -425,6 +438,7 @@ router.post(
 router.get(
   '/:name',
   requireAuth,
+  requireRole('admin', 'mitarbeiter'),
   validateParams(FlowNameParams),
   asyncHandler(async (req, res) => {
     const flow = await registry.loadFlow(req.params.name);
@@ -438,6 +452,7 @@ router.get(
 router.get(
   '/:name/datei',
   requireAuth,
+  requireRole('admin'),
   validateParams(FlowNameParams),
   asyncHandler(async (req, res) => {
     const flow = await registry.loadFlow(req.params.name);
@@ -449,6 +464,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  requireRole('admin'),
   validateBody(CreateFlowBody),
   asyncHandler(async (req, res) => {
     const saved = await registry.saveFlow(fromApi(req.body.name, req.body), { overwrite: false });
@@ -467,6 +483,7 @@ router.post(
 router.put(
   '/:name',
   requireAuth,
+  requireRole('admin'),
   validateParams(FlowNameParams),
   validateBody(SaveFlowBody),
   asyncHandler(async (req, res) => {
@@ -490,6 +507,7 @@ router.put(
 router.delete(
   '/:name',
   requireAuth,
+  requireRole('admin'),
   validateParams(FlowNameParams),
   asyncHandler(async (req, res) => {
     await registry.deleteFlow(req.params.name);

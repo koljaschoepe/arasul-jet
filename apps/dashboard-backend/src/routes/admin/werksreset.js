@@ -11,7 +11,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const { validateBody, validateQuery } = require('../../middleware/validate');
 const { asyncHandler } = require('../../middleware/errorHandler');
@@ -36,7 +36,7 @@ const vorschauLimiter = createUserRateLimiter(20, 5 * 60 * 1000);
 router.get(
   '/vorschau',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   vorschauLimiter,
   validateQuery(WerksresetVorschauQuery),
   asyncHandler(async (req, res) => {
@@ -53,7 +53,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
-  requireAdmin,
+  requireRole('admin'),
   werksresetLimiter,
   validateBody(WerksresetBody),
   asyncHandler(async (req, res) => {

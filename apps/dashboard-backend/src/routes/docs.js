@@ -9,12 +9,12 @@ const yaml = require('js-yaml');
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const router = express.Router();
 
 // Require authentication for all docs routes
-router.use(requireAuth);
+router.use(requireAuth, requireRole('admin'));
 
 // Load OpenAPI specification
 let swaggerDocument;

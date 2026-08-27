@@ -34,7 +34,8 @@ jest.mock('../../src/middleware/auth', () => ({
     req.user = { id: 1, username: 'admin', role: 'admin' };
     next();
   },
-  requireAdmin: (_req, _res, next) => next(),
+  requireRole: () => (_req, _res, next) => next(),
+  ROLLEN: ['admin', 'mitarbeiter'],
 }));
 
 function app(berichtPfad, mountPfad) {

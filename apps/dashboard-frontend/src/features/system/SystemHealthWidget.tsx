@@ -76,8 +76,7 @@ const SystemHealthWidget: React.FC = () => {
   const [data, setData] = useState<OpsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin =
-    (typeof user?.role === 'string' && user.role === 'admin') || user?.is_admin === true;
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     if (!isAdmin) return;

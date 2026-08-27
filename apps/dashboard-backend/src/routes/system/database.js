@@ -5,13 +5,14 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../database');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
 // GET /api/database/pool - Get connection pool statistics
 router.get(
   '/pool',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const stats = db.getPoolStats();
 
@@ -27,6 +28,7 @@ router.get(
 router.get(
   '/health',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     const healthResult = await db.healthCheck();
 
@@ -46,6 +48,7 @@ router.get(
 router.get(
   '/connections',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     // Query PostgreSQL for current connections
     const query = `
@@ -93,6 +96,7 @@ router.get(
 router.get(
   '/queries',
   requireAuth,
+  requireRole('admin'),
   asyncHandler(async (req, res) => {
     // Get slow queries from pg_stat_statements if available
     const extensionCheck = await db.query(`

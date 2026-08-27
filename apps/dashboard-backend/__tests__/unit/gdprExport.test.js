@@ -34,7 +34,8 @@ jest.mock('../../src/middleware/auth', () => ({
     req.user = { id: 42, username: 'kolja', role: 'admin' };
     next();
   },
-  requireAdmin: (req, res, next) => next(),
+  requireRole: () => (req, res, next) => next(),
+  ROLLEN: ['admin', 'mitarbeiter'],
   optionalAuth: (req, res, next) => next(),
   invalidateUserCache: jest.fn(),
 }));
