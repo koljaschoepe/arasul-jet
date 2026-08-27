@@ -68,6 +68,7 @@ class FreigabeAnfordernTool extends BaseTool {
    *          onEvent?: Function, signal?: AbortSignal}} context
    */
   async execute(params = {}, context = {}) {
+    const begonnen = Date.now();
     const { entschieden_am: wann, benutzer } = await freigabeAnfragen.anfordern(
       {
         runId: context.runId,
@@ -80,6 +81,12 @@ class FreigabeAnfordernTool extends BaseTool {
       },
       { signal: context.signal, onEvent: context.onEvent }
     );
+
+    // Die Wartezeit zaehlt nicht gegen das Zeitlimit des Flows: waehrend der
+    // Lauf haengt, rechnet er nicht. Ohne diese Zeile bekaeme der erste
+    // Subagent NACH der Bestaetigung „Zeitlimit erreicht" -- der Lauf liefe
+    // also bis genau zu der Stelle weiter, an der er wieder etwas tun soll.
+    context.limits?.verschiebeUm(Date.now() - begonnen);
 
     // Nur der Erfolgsfall kommt hier an. Ablehnung und Zeitablauf werfen
     // `LaufBeendet` -- der Lauf ist dann in der Datenbank schon beendet, und

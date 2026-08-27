@@ -24,6 +24,14 @@
  * Einspielen je Stand registriert. Dass sie ihn starten darf und den einer
  * anderen App nicht, entscheidet nicht sie, sondern der Schluessel: er traegt
  * App und Stand, und das Geraet sucht mit beiden.
+ *
+ * Seit Phase C7 das Vierte:
+ *
+ *   /freigaben   sie LIEST, woran ihr Lauf haengt
+ *
+ * Nur lesen. Bestaetigt und abgelehnt wird ueber `/api/freigabe-anfragen` mit
+ * der Sitzung eines Menschen -- eine App, die ihre eigene Freigabe erteilen
+ * koennte, waere keine.
  */
 
 const http = require('http');
@@ -180,7 +188,12 @@ const server = http.createServer((anfrage, antwort) => {
   if (pfad === '/flow') {
     const woche = new URL(anfrage.url, 'http://app').searchParams;
     if (anfrage.method === 'POST') {
-      ruf('POST', '/flows/wochenbericht/run', {
+      // `?flow=` waehlt, welchen ihrer Flows sie startet -- seit C7 bringt sie
+      // drei mit. Der Name geht ungeprueft an das Geraet: es sucht ohnehin nur
+      // im Namensraum DIESER App und dieses Standes, und eine zweite Liste
+      // hier waere eine, die beim naechsten Paket veraltet.
+      const flow = woche.get('flow') || 'wochenbericht';
+      ruf('POST', `/flows/${encodeURIComponent(flow)}/run`, {
         args: { woche: woche.get('woche') || '34' },
         wait_for_result: false,
       }).then(({ code, rumpf }) => {
@@ -210,6 +223,25 @@ const server = http.createServer((anfrage, antwort) => {
         })
       );
     });
+    return;
+  }
+
+  // Phase C7: woran haengt der Lauf? Die App liest ihre eigenen Freigaben.
+  //
+  //   GET /freigaben           alle ihrer Freigaben, neueste zuerst
+  //   GET /freigaben?lauf=42   nur die eines Laufs
+  //
+  // Der Namensraum kommt wieder aus dem Schluessel, nicht aus dieser Anfrage.
+  if (pfad === '/freigaben') {
+    const lauf = new URL(anfrage.url, 'http://app').searchParams.get('lauf');
+    ruf('GET', `/freigaben${lauf ? `?lauf=${encodeURIComponent(lauf)}` : ''}`).then(
+      ({ code, rumpf }) => {
+        antwort.statusCode = code === 200 ? 200 : 502;
+        antwort.end(
+          JSON.stringify({ antwort: code, freigaben: rumpf?.freigaben ?? null })
+        );
+      }
+    );
     return;
   }
 

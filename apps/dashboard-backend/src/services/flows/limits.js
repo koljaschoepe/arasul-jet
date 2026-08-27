@@ -38,6 +38,25 @@ class RunLimits {
     return this.now() >= this.deadline;
   }
 
+  /**
+   * Die Frist nach hinten schieben, weil der Lauf gewartet hat statt gerechnet
+   * (Phase C7).
+   *
+   * Ein Lauf, der an einer Freigabe haengt, tut nichts: keine GPU, kein
+   * Modell, kein Werkzeug. Zaehlte diese Zeit gegen `zeitlimit_s`, waere die
+   * Frist nach einer Stunde Warten sicher vorbei, und der erste Subagent NACH
+   * der Bestaetigung bekaeme „Zeitlimit erreicht" -- der Lauf liefe also genau
+   * bis zu der Stelle weiter, an der er wieder etwas tun soll. Das Zeitlimit
+   * meint die Arbeit des Flows, nicht die Bedenkzeit eines Menschen.
+   *
+   * @param {number} ms - Wie lange gewartet wurde.
+   */
+  verschiebeUm(ms) {
+    if (Number.isFinite(ms) && ms > 0) {
+      this.deadline += ms;
+    }
+  }
+
   /** Verbleibende Sekunden bis zur Frist (mindestens 1). */
   restSekunden() {
     return Math.max(1, Math.ceil((this.deadline - this.now()) / 1000));

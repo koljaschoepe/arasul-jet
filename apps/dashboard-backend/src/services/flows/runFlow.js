@@ -580,7 +580,10 @@ async function runFlow(
   }
 
   if (ergebnis.error) {
-    await offeneSchritteSchliessen(`Fehler: ${ergebnis.error}`, 'fehler');
+    await offeneSchritteSchliessen(
+      ergebnis.laufBeendet ? ergebnis.error : `Fehler: ${ergebnis.error}`,
+      ergebnis.laufBeendet ? 'abgebrochen' : 'fehler'
+    );
   }
 
   // 7. Lauf abschließen. Ein per Signal abgebrochener Lauf wird 'abgebrochen';

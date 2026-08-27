@@ -275,7 +275,15 @@ async function runFlowLoop({
   } catch (err) {
     logger.error(`Flow-Lauf fehlgeschlagen: ${err.message}`);
     await emit({ type: 'error', message: err.message });
-    return { result: '', runden: 0, error: err.message };
+    // `laufBeendet` reicht mit nach oben (Phase C7): der Runner soll den
+    // offenen Werkzeug-Schritt dann als `abgebrochen` schliessen und nicht als
+    // `fehler`. Eine abgelehnte Freigabe ist keine Stoerung.
+    return {
+      result: '',
+      runden: 0,
+      error: err.message,
+      ...(err.laufBeendet ? { laufBeendet: true, laufStatus: err.laufStatus } : {}),
+    };
   }
 }
 

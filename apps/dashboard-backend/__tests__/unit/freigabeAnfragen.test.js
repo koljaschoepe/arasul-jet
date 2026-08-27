@@ -349,6 +349,25 @@ describe('das Werkzeug', () => {
     await expect(lauf).rejects.toMatchObject({ laufBeendet: true, laufStatus: 'abgebrochen' });
   });
 
+  it('schiebt das Zeitlimit des Flows um die Wartezeit nach hinten', async () => {
+    // Sonst bekaeme der erste Subagent NACH der Bestaetigung „Zeitlimit
+    // erreicht": der Lauf liefe bis genau zu der Stelle weiter, an der er
+    // wieder etwas tun soll. Warten ist keine Rechenzeit.
+    fakeDb();
+    const { RunLimits } = require('../../src/services/flows/limits');
+    const limits = new RunLimits({ maxAufrufe: 5, zeitlimitS: 300 });
+    const vorher = limits.deadline;
+    const werkzeug = new FreigabeAnfordernTool();
+    const lauf = werkzeug.execute(
+      { titel: 'x' },
+      { runId: 7, appId: 'beispielapp', stand: 'live', limits }
+    );
+    await new Promise(setImmediate);
+    await freigabeAnfragen.entscheide({ id: 42, benutzerId: 3, status: 'bestaetigt' });
+    await lauf;
+    expect(limits.deadline).toBeGreaterThanOrEqual(vorher);
+  });
+
   it('steht in jeder Betriebsart im Kasten (anders als die Rueckfrage)', () => {
     const { buildTools } = require('../../src/services/flows/toolRegistry');
     for (const betriebsart of ['autonom', 'rueckfragen']) {
