@@ -26,31 +26,41 @@ const LICENSE_PUBLIC_KEY =
   process.env.LICENSE_PUBLIC_KEY_PATH || '/arasul/config/public_license_key.pem';
 const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30', 10);
 
-// Feature tiers: what each license level unlocks
+/**
+ * Was eine Lizenzstufe freischaltet.
+ *
+ * Bis Phase C3 (27.08.2026) standen hier `rag`, `maxDocuments` und
+ * `maxWorkflows`. Alle drei beschrieben ein Produkt, das es nicht mehr gibt:
+ * Dokumente und RAG sind in Phase B4 gefallen, die n8n-Workflows in B5. Eine
+ * Lizenz, die Grenzen fuer Dinge zieht, die das Geraet nicht kann, verspricht
+ * dem Kunden ein anderes Produkt als das gekaufte.
+ *
+ * Was bleibt, ist das, was CLAUDE.md als Zielbild nennt: Zugaenge, Apps, die
+ * externe Schnittstelle. `maxApps` ist neu und wird beim Einspielen einer App
+ * durchgesetzt (`appStore.spieleEin`) — die einzige Zahl hier, hinter der ein
+ * Riegel steht.
+ *
+ * `community` ist die Stufe eines Geraets OHNE Lizenzdatei. Sie ist kein
+ * Verkaufspaket, sondern der Zustand vor dem ersten Schluessel.
+ */
 const FEATURE_TIERS = {
   community: {
     maxUsers: 1,
-    maxDocuments: 100,
-    maxWorkflows: 3,
-    rag: true,
+    maxApps: 3,
     externalApi: false,
     customModels: false,
     priority: 0,
   },
   professional: {
     maxUsers: 5,
-    maxDocuments: 10_000,
-    maxWorkflows: 50,
-    rag: true,
+    maxApps: -1, // unbegrenzt
     externalApi: true,
     customModels: false,
     priority: 1,
   },
   enterprise: {
-    maxUsers: -1, // unlimited
-    maxDocuments: -1,
-    maxWorkflows: -1,
-    rag: true,
+    maxUsers: -1, // unbegrenzt
+    maxApps: -1,
     externalApi: true,
     customModels: true,
     priority: 2,
