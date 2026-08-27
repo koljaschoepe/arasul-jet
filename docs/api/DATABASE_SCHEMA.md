@@ -308,151 +308,97 @@
 
 ---
 
-## `app_configurations`
-
-> Per-app configuration key-value storage
-
-| Column         | Type                     | Nullable | Default                                    |
-| -------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`           | integer                  | ⛔       | `nextval('app_configurations_id_seq'::...` |
-| `app_id`       | character varying        | ⛔       |                                            |
-| `config_key`   | character varying        | ⛔       |                                            |
-| `config_value` | text                     | ✅       |                                            |
-| `is_secret`    | boolean                  | ✅       | `false`                                    |
-| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`   | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `app_id` → `app_installations.app_id`
-
-**Indexes:**
-
-- `app_configurations_app_id_config_key_key` — `CREATE UNIQUE INDEX app_configurations_app_id_config_key_key ON public.app_configurations USING btree (app_id, config_key)`
-- `app_configurations_pkey` — `CREATE UNIQUE INDEX app_configurations_pkey ON public.app_configurations USING btree (id)`
-- `idx_app_configurations_app` — `CREATE INDEX idx_app_configurations_app ON public.app_configurations USING btree (app_id)`
-- `idx_app_configurations_app_id` — `CREATE INDEX idx_app_configurations_app_id ON public.app_configurations USING btree (app_id)`
-
----
-
-## `app_dependencies`
-
-> App dependency tracking (e.g., needs postgres-db)
-
-| Column            | Type              | Nullable | Default                                    |
-| ----------------- | ----------------- | -------- | ------------------------------------------ |
-| `id`              | integer           | ⛔       | `nextval('app_dependencies_id_seq'::re...` |
-| `app_id`          | character varying | ⛔       |                                            |
-| `depends_on`      | character varying | ⛔       |                                            |
-| `dependency_type` | character varying | ✅       | `'required'::character varying`            |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `app_id` → `app_installations.app_id`
-
-**Indexes:**
-
-- `app_dependencies_app_id_depends_on_key` — `CREATE UNIQUE INDEX app_dependencies_app_id_depends_on_key ON public.app_dependencies USING btree (app_id, depends_on)`
-- `app_dependencies_pkey` — `CREATE UNIQUE INDEX app_dependencies_pkey ON public.app_dependencies USING btree (id)`
-- `idx_app_dependencies_app` — `CREATE INDEX idx_app_dependencies_app ON public.app_dependencies USING btree (app_id)`
-
----
-
-## `app_events`
-
-> Audit log for app lifecycle events
-
-| Column          | Type                     | Nullable | Default                                  |
-| --------------- | ------------------------ | -------- | ---------------------------------------- |
-| `id`            | integer                  | ⛔       | `nextval('app_events_id_seq'::regclass)` |
-| `app_id`        | character varying        | ⛔       |                                          |
-| `event_type`    | character varying        | ⛔       |                                          |
-| `event_message` | text                     | ✅       |                                          |
-| `event_details` | jsonb                    | ✅       |                                          |
-| `created_at`    | timestamp with time zone | ✅       | `now()`                                  |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `app_events_pkey` — `CREATE UNIQUE INDEX app_events_pkey ON public.app_events USING btree (id)`
-- `idx_app_events_app` — `CREATE INDEX idx_app_events_app ON public.app_events USING btree (app_id)`
-- `idx_app_events_created` — `CREATE INDEX idx_app_events_created ON public.app_events USING btree (created_at DESC)`
-- `idx_app_events_type` — `CREATE INDEX idx_app_events_type ON public.app_events USING btree (event_type)`
-
----
-
-## `app_installations`
-
-> Main app installation tracking for AppStore
-
-| Column              | Type                     | Nullable | Default                   |
-| ------------------- | ------------------------ | -------- | ------------------------- |
-| `id`                | uuid                     | ⛔       | `gen_random_uuid()`       |
-| `app_id`            | character varying        | ⛔       |                           |
-| `status`            | USER-DEFINED             | ✅       | `'available'::app_status` |
-| `app_type`          | USER-DEFINED             | ✅       | `'official'::app_type`    |
-| `version`           | character varying        | ✅       |                           |
-| `container_id`      | character varying        | ✅       |                           |
-| `container_name`    | character varying        | ✅       |                           |
-| `internal_port`     | integer                  | ✅       |                           |
-| `external_port`     | integer                  | ✅       |                           |
-| `traefik_route`     | character varying        | ✅       |                           |
-| `cpu_usage`         | numeric                  | ✅       |                           |
-| `memory_usage_mb`   | integer                  | ✅       |                           |
-| `installed_at`      | timestamp with time zone | ✅       |                           |
-| `started_at`        | timestamp with time zone | ✅       |                           |
-| `stopped_at`        | timestamp with time zone | ✅       |                           |
-| `last_health_check` | timestamp with time zone | ✅       |                           |
-| `last_error`        | text                     | ✅       |                           |
-| `error_count`       | integer                  | ✅       | `0`                       |
-| `created_at`        | timestamp with time zone | ✅       | `now()`                   |
-| `updated_at`        | timestamp with time zone | ✅       | `now()`                   |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `app_installations_app_id_key` — `CREATE UNIQUE INDEX app_installations_app_id_key ON public.app_installations USING btree (app_id)`
-- `app_installations_pkey` — `CREATE UNIQUE INDEX app_installations_pkey ON public.app_installations USING btree (id)`
-- `idx_app_installations_app_id` — `CREATE INDEX idx_app_installations_app_id ON public.app_installations USING btree (app_id)`
-- `idx_app_installations_status` — `CREATE INDEX idx_app_installations_status ON public.app_installations USING btree (status)`
-- `idx_app_installations_type` — `CREATE INDEX idx_app_installations_type ON public.app_installations USING btree (app_type)`
-
----
-
 ## `app_members`
 
 > Freigaben: welcher Mitarbeiter sieht welche App. Ersetzt space_members (089, verworfen mit 163); seit 168
 
-| Column            | Type                     | Nullable | Default |
-| ----------------- | ------------------------ | -------- | ------- |
-| `app_id`          | text                     | ⛔       |         |
-| `user_id`         | bigint                   | ⛔       |         |
-| `freigegeben_von` | bigint                   | ✅       |         |
-| `freigegeben_am`  | timestamp with time zone | ⛔       | `now()` |
+| Column            | Type                     | Nullable | Default  |
+| ----------------- | ------------------------ | -------- | -------- |
+| `app_id`          | text                     | ⛔       |          |
+| `user_id`         | bigint                   | ⛔       |          |
+| `stand`           | text                     | ⛔       | `'live'` |
+| `freigegeben_von` | bigint                   | ✅       |          |
+| `freigegeben_am`  | timestamp with time zone | ⛔       | `now()`  |
 
 **Primary key:** `app_id, user_id`
 
 **Foreign Keys:**
 
+- `app_id` → `apps.id` (`ON DELETE CASCADE`) — seit 169
 - `user_id` → `admin_users.id` (`ON DELETE CASCADE`)
 - `freigegeben_von` → `admin_users.id` (`ON DELETE SET NULL`)
+
+**Constraints:** `stand IN ('test', 'live')`
 
 **Indexes:**
 
 - `app_members_pkey` — `CREATE UNIQUE INDEX app_members_pkey ON public.app_members USING btree (app_id, user_id)`
 - `idx_app_members_user` — `CREATE INDEX idx_app_members_user ON public.app_members USING btree (user_id)`
 
-`app_id` ist bis Phase C3 ein **freier Text**: die Tabelle `apps` gibt es noch
-nicht, also gibt es nichts, worauf ein Fremdschlüssel zeigen könnte. C3 setzt
-ihn nach. Ein `permission`-Feld wie in `space_members` (089) gibt es bewusst
-nicht — eine App ist freigegeben oder nicht, und wer innerhalb der App was
-darf, entscheidet die App.
+`app_id` war bis Phase C3 ein freier Text und zeigt seit Migration 169 als
+Fremdschlüssel auf `apps.id`. Ein `permission`-Feld wie in `space_members` (089)
+gibt es bewusst nicht — eine App ist freigegeben oder nicht, und wer innerhalb
+der App was darf, entscheidet die App.
+
+`stand` ist der Tester-Kreis aus C3: `live` sieht `/apps/<id>/`, `test` sieht
+zusätzlich `/apps/<id>/test/`. Ein Tester ist kein anderer Nutzer, sondern ein
+Nutzer mit einer Tür mehr; deshalb bleibt der Primärschlüssel ein Paar.
+
+---
+
+## `app_staende`
+
+> Je App höchstens zwei Zeilen: der Teststand und der Livestand, jeder mit Version und Manifest. Seit 169
+
+| Column            | Type                     | Nullable | Default |
+| ----------------- | ------------------------ | -------- | ------- |
+| `app_id`          | text                     | ⛔       |         |
+| `stand`           | text                     | ⛔       |         |
+| `version`         | text                     | ⛔       |         |
+| `manifest`        | jsonb                    | ⛔       |         |
+| `eingespielt_am`  | timestamp with time zone | ⛔       | `now()` |
+| `eingespielt_von` | bigint                   | ✅       |         |
+
+**Primary key:** `app_id, stand`
+
+**Foreign Keys:**
+
+- `app_id` → `apps.id` (`ON DELETE CASCADE`)
+- `eingespielt_von` → `admin_users.id` (`ON DELETE SET NULL`)
+
+**Constraints:** `stand IN ('test', 'live')`
+
+`manifest` ist das ganze `app.json` dieser Version, so wie es eingespielt wurde:
+der Ordner am Gerät kann gelöscht werden, die Antwort auf „womit lief das" nicht.
+Ob ein Container LÄUFT, steht hier nicht — das weiß Docker, und es daneben in
+einer Spalte zu führen hieße, zwei Wahrheiten zu pflegen.
+
+---
+
+## `apps`
+
+> Die Apps am Gerät. Was eine App IST, steht in ihrem Manifest app.json; was von ihr läuft, in app_staende. Ersetzt app_installations (013); seit 169
+
+| Column         | Type                     | Nullable | Default |
+| -------------- | ------------------------ | -------- | ------- |
+| `id`           | text                     | ⛔       |         |
+| `name`         | text                     | ⛔       |         |
+| `beschreibung` | text                     | ✅       |         |
+| `angelegt_am`  | timestamp with time zone | ⛔       | `now()` |
+| `geaendert_am` | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `id`
+
+Die Kennung kommt aus dem Manifest und ist zugleich Pfad (`/apps/<id>/`),
+Containername (`arasul-app-<id>-live`) und Traefik-Router. Eine zweite,
+künstliche Nummer daneben wäre ein zweiter Name für dieselbe Sache. Die Form
+prüft das Backend (`schemas/apps.js`), nicht die Datenbank: eine CHECK-Regel mit
+einem regulären Ausdruck wäre ein zweiter Ort für dieselbe Regel.
+
+Mit Migration 169 sind `app_installations`, `app_configurations`,
+`app_dependencies` und `app_events` aus 013 gefallen: sie beschrieben einen
+Katalog, aus dem ein Administrator Container aussucht. Eine App kommt jetzt vom
+Partner auf das Gerät.
 
 ---
 

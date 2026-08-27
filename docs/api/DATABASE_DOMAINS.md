@@ -56,12 +56,16 @@
 | llm_model_switches        | id, from_model, to_model, switched_at                                                                    |
 | model_performance_metrics | id, model_id, tokens_generated, total_duration_ms, tokens_per_second (generated), time_to_first_token_ms |
 
-### Apps (013, 014)
+### Apps (168, 169)
 
-| Table              | Key Columns                                                |
-| ------------------ | ---------------------------------------------------------- |
-| app_installations  | id (UUID), app_id, status (enum), app_type, container_name |
-| app_configurations | id, app_id, config_key, config_value                       |
+| Table       | Key Columns                                                 |
+| ----------- | ----------------------------------------------------------- |
+| apps        | id (Kennung aus dem Manifest), name, beschreibung           |
+| app_staende | app_id, stand ('test' \| 'live'), version, manifest (jsonb) |
+| app_members | app_id, user_id, stand ('test' \| 'live') — die Freigaben   |
+
+Der AppStore aus 013/014 (`app_installations`, `app_configurations`,
+`app_dependencies`, `app_events`) ist mit Migration 169 gefallen.
 
 ### Alerts (010)
 

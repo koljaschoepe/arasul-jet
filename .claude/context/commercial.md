@@ -46,7 +46,6 @@ Use `utils/auditLog.js` (`logSecurityEvent`, etc.) — never raw `INSERT INTO �
 - **Metrics & logs**: 7 days (Mig 081 + the cleanup cron).
 - **Chat conversations**: soft-delete (30 days, see schema docs).
 - **`update_events`, `admin_users`**: permanent.
-- **`app_events`**: 90 days (Mig 079).
 - New table that holds user data → add it to the cleanup cron and to
   `docs/api/DATABASE_DOMAINS.md` retention table.
 
