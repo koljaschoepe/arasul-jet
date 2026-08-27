@@ -259,12 +259,17 @@ function warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal }) {
   return new Promise((erfuellen, ablehnen) => {
     const schluessel = String(anfrage.id);
 
+    // Die Uhr steht in der Closure und NICHT nur im Eintrag der Map: bei einem
+    // Lauf, der schon abgebrochen war, bevor er hier ankam, gibt es gar keinen
+    // Eintrag (siehe unten, `signal.aborted`) -- und ein Zeitgeber, den
+    // niemand mehr abstellt, liefe bis zu vierzehn Tage weiter.
+    let uhr = null;
     const aufraeumen = () => {
-      const eintrag = wartende.get(schluessel);
-      if (eintrag) {
-        clearTimeout(eintrag.uhr);
-        wartende.delete(schluessel);
+      if (uhr) {
+        clearTimeout(uhr);
+        uhr = null;
       }
+      wartende.delete(schluessel);
       if (signal) {
         signal.removeEventListener('abort', beiAbbruch);
       }
@@ -272,7 +277,7 @@ function warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal }) {
 
     // 1. Der Zeitablauf. Er schreibt die Zeile UND beendet den Lauf; die Zeile
     //    allein waere ein Lauf, der ewig `wartend` bleibt.
-    const uhr = setTimeout(
+    uhr = setTimeout(
       () => {
         aufraeumen();
         schliesseAb({ id: anfrage.id, status: 'abgelaufen', datenbank })
@@ -315,6 +320,11 @@ function warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal }) {
     }
 
     // 3. Die Entscheidung. `entscheide` zieht an diesem Faden.
+    //
+    // Die Uhr liegt HIER noch einmal, obwohl `aufraeumen` die aus der Closure
+    // abstellt: `_reset` (Tests) und ein kuenftiger Aufraeumer kommen nur ueber
+    // die Map an sie heran. Es ist dasselbe Objekt, zweimal abstellen schadet
+    // nicht.
     wartende.set(schluessel, {
       runId: Number(runId),
       uhr,

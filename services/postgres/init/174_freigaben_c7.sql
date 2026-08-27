@@ -89,6 +89,13 @@ CREATE TABLE IF NOT EXISTS public.approvals (
   titel              TEXT        NOT NULL,
   -- Was der Flow an Zusammenhang mitgibt (der Entwurf, die Zahl, der Grund).
   zusammenhang       TEXT,
+  -- offen | bestaetigt | abgelehnt | abgelaufen | verfallen
+  --
+  -- `abgelaufen` und `verfallen` sind NICHT dasselbe, und der Unterschied ist
+  -- die Antwort auf die Frage, die danach gestellt wird: `abgelaufen` heisst,
+  -- ein Mensch hat nicht geantwortet, `verfallen` heisst, der Lauf lief nicht
+  -- mehr (Neustart des Backends, Abbruch). Wer die zwei zusammenwirft, sucht
+  -- einen saeumigen Kollegen, und es war die Maschine.
   status             TEXT        NOT NULL DEFAULT 'offen',
   frist              TIMESTAMPTZ NOT NULL,
   angefragt_am       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -108,7 +115,7 @@ END $$;
 DO $$ BEGIN
   ALTER TABLE public.approvals
     ADD CONSTRAINT approvals_status_check
-    CHECK (status IN ('offen', 'bestaetigt', 'abgelehnt', 'abgelaufen'));
+    CHECK (status IN ('offen', 'bestaetigt', 'abgelehnt', 'abgelaufen', 'verfallen'));
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
