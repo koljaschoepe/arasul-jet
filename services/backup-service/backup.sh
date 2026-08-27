@@ -118,7 +118,14 @@ else
     BACKUP_OK=false
 fi
 rm -f ~/.pgpass
-encrypt_file /backups/postgres/arasul_db_$TIMESTAMP.sql.gz
+# `|| true`, weil `set -e` sonst genau hier aussteigt: `encrypt_file` gibt bei
+# fehlgeschlagener Verschluesselung 1 zurueck, und dieser Aufruf steht am
+# Zeilenanfang. Das Skript waere ohne Bericht abgebrochen -- und der
+# Healthcheck haette einen veralteten `backup_report.json` gefunden und rot
+# gemeldet, ohne zu sagen, woran es lag. Der Fehlschlag ist nicht verschwunden:
+# `VERSCHLUESSELUNG_ERFOLGT` steht auf false, und der Block weiter unten legt
+# BACKUP_OK dafuer um.
+encrypt_file /backups/postgres/arasul_db_$TIMESTAMP.sql.gz || true
 ln -sf arasul_db_$TIMESTAMP.sql.gz /backups/postgres/arasul_db_latest.sql.gz
 
 # Weekly snapshot: copy Sunday's backup to weekly dir (kept longer)

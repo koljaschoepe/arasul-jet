@@ -170,9 +170,15 @@ if [ "$PROBE" = "true" ]; then
 fi
 
 # --- Zugang zur Datenbank ----------------------------------------------------
+# Mit Vorgaben, obwohl Compose alle drei setzt: unter `set -u` waere eine
+# fehlende Variable ein "unbound variable" mitten im Lauf -- ohne Bericht, ohne
+# Zeile im Protokoll, und wer danach sucht, findet eine Wiederherstellung, die
+# scheinbar nichts getan hat. Ein sprechender Fehlschlag ist besser als ein
+# stummer Abbruch.
 [ -f "${POSTGRES_PASSWORD_FILE:-}" ] && POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
 export PGPASSWORD="${POSTGRES_PASSWORD:-}"
-PGH=(-h "$POSTGRES_HOST" -U "$POSTGRES_USER")
+PGH=(-h "${POSTGRES_HOST:-postgres-db}" -U "${POSTGRES_USER:-arasul}")
+POSTGRES_DB="${POSTGRES_DB:-arasul_db}"
 
 if ! psql "${PGH[@]}" -d "$POSTGRES_DB" -tAc 'SELECT 1' >/dev/null 2>&1; then
     protokoll "FEHLER: die Datenbank antwortet nicht"
