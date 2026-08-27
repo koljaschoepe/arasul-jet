@@ -109,11 +109,16 @@ if [ -f "${WURZEL}/.env" ]; then
   sagen ".env ist schon da, sie bleibt unveraendert (bis auf Fassung und Netzname)"
 else
   if [ -z "$PASSWORT" ]; then
-    # 18 Zeichen aus dem Zufallsgenerator des Systems, mit garantiert einem
+    # 19 Zeichen aus dem Zufallsgenerator des Systems, mit garantiert einem
     # Grossbuchstaben, einem Kleinbuchstaben und einer Ziffer -- sonst weist
     # `validate_password` es zurueck, und der Installer bliebe an seiner
     # eigenen Regel haengen.
-    PASSWORT="Ara$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 15)9"
+    #
+    # `cut` und nicht `head -c`: `head` steigt nach 15 Zeichen aus, `tr`
+    # schreibt in ein geschlossenes Rohr und endet mit 141, und unter
+    # `pipefail` waere diese Zuweisung das stille Ende des Installers
+    # (scripts/test/rohrbruch.py kennt den Fall). `cut` liest zu Ende.
+    PASSWORT="Ara$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-15)9"
     PASSWORT_ERZEUGT=true
   fi
   sagen "Schreibe .env"
@@ -177,7 +182,8 @@ if command -v systemctl >/dev/null 2>&1; then
       gut "Startet nach einem Neustart von selbst (arasul-platform.service)"
     else
       achtung "arasul-platform.service nicht installiert (kein sudo ohne Rueckfrage)."
-      achtung "  Von Hand: sudo bash ${WURZEL}/install.sh --hilfe"
+      achtung "  Ohne sie startet die Plattform nach einem Stromausfall trotzdem"
+      achtung "  (die Container tragen restart: always), aber ohne geordnete Reihenfolge."
     fi
   fi
 fi

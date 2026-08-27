@@ -32,6 +32,7 @@ push auf main  ──►  .github/workflows/deploy.yml  (runs-on: self-hosted, j
 ▼  Jetson (self-hosted Runner, User arasul)
 scripts/deploy/deploy-local.sh
 ├─ git reset --hard <sha>  (im kanonischen ~/arasul/arasul-jet, .env/data intakt)
+├─ SYSTEM_VERSION/BUILD_HASH in .env stempeln (scripts/lib/fassung.sh)
 ├─ nur GEÄNDERTE Services ermitteln (git diff)
 ├─ DB-Dump vor Backend-/Migrations-Änderung  → ~/db-backups/
 ├─ Images als :rollback taggen
@@ -68,6 +69,7 @@ scripts/deploy/deploy-local.sh
 | `.github/workflows/deploy.yml`                  | Deploy-Trigger (push→main), self-hosted                                                                                                                                                                      |
 | `scripts/deploy/deploy-local.sh`                | Deploy-Logik + Healthcheck + Rollback                                                                                                                                                                        |
 | `.github/workflows/test.yml`                    | CI (unverändert), liefert den Required-Check                                                                                                                                                                 |
+| `.github/workflows/release.yml`                 | Ein Tag `v*` baut das Auslieferungsartefakt (`scripts/deploy/artefakt-bauen.sh`) und hängt es samt Prüfsumme an ein GitHub-Release. `workflow_dispatch` baut dasselbe, ohne eine Nummer zu vergeben. Siehe [ops/AUSLIEFERUNG.md](ops/AUSLIEFERUNG.md) |
 | `.github/workflows/doku-summary.yml`            | Gegenstück zu `test.yml`: liefert „CI Summary" für reine Doku-PRs, damit ein Pflicht-Check nicht auf einen übersprungenen Workflow wartet                                                                    |
 | `.github/workflows/claude.yml`                  | Antwort auf `@claude` in PR-Kommentaren, Review-Kommentaren und Issues. **Nur auf Zuruf** — es gibt seit dem 27.08.2026 keinen automatischen Review auf jedem PR mehr (`claude-code-review.yml` entfernt)    |
 | Runner-Dienst auf dem Jetson                    | `~/actions-runner/`, systemd `actions.runner.*.service`                                                                                                                                                      |
@@ -95,3 +97,7 @@ scripts/deploy/deploy-local.sh
   resultierenden Backend-Crash aber ab und rollt zurück.
 - Der Offline-OTA-Kanal (signierte `.araupdate`-USB-Pakete) bleibt davon
   unberührt — das ist der separate Kundenkanal, nicht dieser Dev-Loop.
+- Ein Release entsteht **nur auf einen Tag hin**, nicht bei jedem Merge nach
+  `main`. Der Deploy auf den Orin stempelt seine Fassung deshalb aus Git
+  (`JJJJMMTT-<sha>`); eine Nummer wie `1.2.0` trägt nur ein Gerät, das aus
+  einem getaggten Artefakt installiert wurde.

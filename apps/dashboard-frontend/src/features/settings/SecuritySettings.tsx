@@ -87,7 +87,7 @@ export function SecuritySettings({
             </Button>
             <p className="text-sm text-muted-foreground">
               Wie die Datei auf Windows, macOS, iOS und Android installiert wird, steht in der
-              Anleitung „Netzname und Zertifikat" im Handbuch.
+              Anleitung {'\u201eNetzname und Zertifikat\u201c'} im Handbuch.
             </p>
           </div>
         </Section>

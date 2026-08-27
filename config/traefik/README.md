@@ -99,28 +99,34 @@ Routes are matched by priority (higher = first):
 
 ## TLS/HTTPS
 
-### Let's Encrypt Integration
+### Das Zertifikat kommt vom Gerät selbst
 
-Automatic certificate provisioning via ACME HTTP challenge:
+Hier stand bis zum 27.08.2026 eine Anleitung für Let's Encrypt samt ACME-Resolver
+und daneben ein `openssl req -x509` von Hand. Beides gab es nicht: `traefik.yml`
+hat keinen `certificatesResolvers`-Block, und `arasul.local` ist eine Adresse im
+lokalen Netz — Let's Encrypt kann sie gar nicht bestätigen.
 
-**Certificate Storage:** `/letsencrypt/acme.json` (Docker volume)
+Was es wirklich gibt (Phase C10):
 
-**Domains:**
-
-- Primary: `arasul.local`
-- Wildcards: `*.arasul.local`
-
-**Configuration:**
-
-```yaml
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: admin@arasul.local
-      storage: /letsencrypt/acme.json
-      httpChallenge:
-        entryPoint: web
 ```
+config/traefik/certs/
+  arasul-ca.key    der private Schlüssel der Geräte-CA. Verlässt das Gerät nie.
+  arasul-ca.crt    das CA-Zertifikat. Diese Datei verteilt der Admin.
+  arasul.key       der private Schlüssel des Geräts.
+  arasul.crt       das Zertifikat des Geräts, dahinter die CA.
+```
+
+Angelegt von `scripts/security/geraete-zertifikat.sh` (aufgerufen von
+`./arasul bootstrap`, `scripts/setup/preconfigure.sh` und `./arasul zertifikat`),
+erneuert von der Selbstheilung, sobald weniger als 60 Tage bleiben. Traefik
+liest die Dateien über `dynamic/tls.yml` unter `/etc/traefik/certs`.
+
+Warum `stores.default.defaultCertificate` dort steht und `sniStrict` aus
+bleibt: ein Aufruf über eine IP-Adresse schickt keinen Namen mit, und ohne
+Vorgabezertifikat hätte Traefik an dieser Stelle nichts anzubieten.
+
+Die ganze Geschichte, samt Anleitung zum Verteilen der CA auf Windows, macOS,
+iOS und Android: [`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`](../../docs/ops/NETZNAME_UND_ZERTIFIKAT.md).
 
 ### HTTP to HTTPS Redirect
 
@@ -136,29 +142,6 @@ entryPoints:
           to: websecure
           scheme: https
           permanent: true
-```
-
-### Manual Certificate Setup
-
-For development or air-gapped environments:
-
-1. Generate self-signed certificate:
-
-```bash
-openssl req -x509 -newkey rsa:4096 -nodes \
-  -keyout /letsencrypt/key.pem \
-  -out /letsencrypt/cert.pem \
-  -days 365 \
-  -subj "/CN=arasul.local"
-```
-
-2. Update `traefik.yml`:
-
-```yaml
-tls:
-  certificates:
-    - certFile: /letsencrypt/cert.pem
-      keyFile: /letsencrypt/key.pem
 ```
 
 ## Rate Limiting
@@ -382,7 +365,7 @@ curl -H "Host: arasul.local" http://localhost/api/metrics/live
 - Let's Encrypt challenge failing
 - Check port 80 is accessible
 - Verify email in config
-- Check `/letsencrypt/acme.json` permissions (600)
+- Check `config/traefik/certs/arasul.crt` und `arasul.key` (`./arasul zertifikat` stellt sie neu aus)
 
 ## Security Best Practices
 

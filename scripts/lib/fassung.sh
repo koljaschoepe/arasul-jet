@@ -41,8 +41,12 @@ fassung_aus_bau() {
     # Ohne `jq`: das Backend-Image hat es, ein frisch ausgepacktes Artefakt auf
     # einem nackten Jetson nicht. Eine Zeile mit sed statt einer Abhaengigkeit,
     # die genau im Installationsmoment fehlt.
+    # Ohne Rohr nach `head`: das waere unter `pipefail` eine Zuweisung, die
+    # den Aufrufer beenden kann (scripts/test/rohrbruch.py). Die erste Zeile
+    # holt die Bash selbst.
     local aus_datei
-    aus_datei=$(sed -n 's/.*"fassung"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$release_datei" | head -1)
+    aus_datei=$(sed -n 's/.*"fassung"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$release_datei")
+    aus_datei="${aus_datei%%$'\n'*}"
     if [ -n "$aus_datei" ]; then
       printf '%s\n' "$aus_datei"
       return 0
@@ -81,7 +85,8 @@ bau_hash() {
   local release_datei="${wurzel}/arasul-release.json"
   if [ -f "$release_datei" ]; then
     local aus_datei
-    aus_datei=$(sed -n 's/.*"commit"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$release_datei" | head -1)
+    aus_datei=$(sed -n 's/.*"commit"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$release_datei")
+    aus_datei="${aus_datei%%$'\n'*}"
     if [ -n "$aus_datei" ]; then
       printf '%s\n' "$aus_datei"
       return 0
