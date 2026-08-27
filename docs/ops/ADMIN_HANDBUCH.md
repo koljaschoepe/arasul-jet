@@ -283,7 +283,7 @@ E-Mail-Adresse oder Benutzername und Passwort an und sieht, was ihm freigegeben
 ist, dazu seine eigenen Flow-Laeufe. Alles andere beantwortet das Geraet mit
 „Diese Funktion ist dem Administrator vorbehalten" (HTTP 403).
 
-### Benutzer anlegen und loeschen
+### Benutzer anlegen, sperren und loeschen
 
 Eine Seite dafuer kommt mit der neuen Oberflaeche (D-Phasen). Bis dahin geht
 es ueber die Schnittstelle, angemeldet als Administrator:
@@ -297,12 +297,57 @@ curl -sk -X POST https://<geraet>/api/benutzer \
 # auflisten
 curl -sk https://<geraet>/api/benutzer -H "authorization: Bearer $TOKEN"
 
-# loeschen (samt Flow-Laeufen, API-Schluesseln und Sitzungen)
+# Passwort setzen, wenn jemand seines vergessen hat
+curl -sk -X PUT https://<geraet>/api/benutzer/<id>/passwort \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"password":"Neues-Startpasswort1"}'
+
+# stilllegen, spaeter wieder zulassen
+curl -sk -X PUT https://<geraet>/api/benutzer/<id>/aktiv \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"aktiv":false}'
+
+# loeschen (samt Flow-Laeufen, API-Schluesseln, Freigaben und Sitzungen)
 curl -sk -X DELETE https://<geraet>/api/benutzer/<id> -H "authorization: Bearer $TOKEN"
 ```
 
-Der letzte aktive Administrator laesst sich nicht loeschen; sein Zugang bleibt,
-sonst waere das Geraet unbedienbar.
+**Stilllegen ist nicht loeschen.** Wer stillgelegt ist, kommt nicht mehr herein
+und seine offenen Sitzungen enden sofort; seine Laeufe und Protokolle bleiben
+stehen. Das ist der richtige erste Schritt, wenn jemand das Unternehmen
+verlaesst: was mit seinen Daten geschehen soll, entscheiden Sie danach in Ruhe.
+
+Ein gesetztes Passwort beendet ebenfalls alle Sitzungen des Betroffenen. Er
+meldet sich damit einmal an und waehlt danach unter **Einstellungen >
+Sicherheit** sein eigenes; erst dort gelten die Passwort-Anforderungen unten.
+
+Der letzte aktive Administrator laesst sich weder loeschen noch stilllegen; sein
+Zugang bleibt, sonst waere das Geraet unbedienbar. Sich selbst kann ausserdem
+niemand stilllegen.
+
+### Apps fuer Mitarbeiter freigeben
+
+Ein Mitarbeiter sieht nur, was ihm freigegeben ist. Eine Freigabe ist ein Paar
+aus App-Kennung und Mitarbeiter:
+
+```bash
+# freigeben
+curl -sk -X POST https://<geraet>/api/freigaben \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"app_id":"urlaub","benutzer_id":7}'
+
+# sehen, wer welche App hat
+curl -sk "https://<geraet>/api/freigaben?benutzer_id=7" -H "authorization: Bearer $TOKEN"
+
+# zuruecknehmen
+curl -sk -X DELETE https://<geraet>/api/freigaben/urlaub/7 -H "authorization: Bearer $TOKEN"
+```
+
+Dieselbe Freigabe zweimal zu setzen ist kein Fehler, sondern derselbe Zustand.
+Loeschen Sie einen Benutzer, fallen seine Freigaben mit ihm weg.
+
+Bis das App-Modell da ist (naechste Phase), ist die App-Kennung ein frei
+gewaehlter Name in Kleinbuchstaben. Danach ist es die `id` aus dem Manifest
+`app.json` der App.
 
 ### Passwort aendern
 

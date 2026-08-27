@@ -562,19 +562,35 @@ Only accepts requests from localhost or Docker network IPs.
 }
 ```
 
-### Benutzer (Phase C1)
+### Benutzer (Phasen C1 und C2)
 
-Der Administrator verwaltet die Benutzer des Geräts. Das eigene Konto löscht
-jeder über `DELETE /api/gdpr/me`; `DELETE /api/benutzer/:id` ist für andere
-und läuft durch dieselbe Löschung (`services/auth/benutzerService.js`):
-Flow-Läufe, API-Schlüssel und Sitzungen weg, Protokolle anonymisiert. Der
-letzte aktive Administrator behält seine Zugangs-Zeile (`zugangBleibt: true`).
+Der Administrator verwaltet die Benutzer des Geräts. Alle Wege hier sind
+Admin-Wege; ein Mitarbeiter bekommt 403.
 
-| Method | Endpoint            | Description                                                                                       |
-| ------ | ------------------- | ------------------------------------------------------------------------------------------------- |
-| GET    | `/api/benutzer`     | Alle Benutzer: `id, username, email, role, is_active, created_at, last_login`                     |
-| POST   | `/api/benutzer`     | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name |
-| DELETE | `/api/benutzer/:id` | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                              |
+Das eigene Konto löscht jeder über `DELETE /api/gdpr/me`;
+`DELETE /api/benutzer/:id` ist für andere und läuft durch dieselbe Löschung
+(`services/auth/benutzerService.js`): Flow-Läufe, API-Schlüssel, Freigaben und
+Sitzungen weg, Protokolle anonymisiert. Der letzte aktive Administrator behält
+seine Zugangs-Zeile (`zugangBleibt: true`).
+
+Sein eigenes Passwort wechselt jeder über `POST /api/auth/change-password` —
+dort wird das alte geprüft und das neue muss den Komplexitätsregeln genügen.
+`PUT /api/benutzer/:id/passwort` ist der andere Fall: der Administrator kennt
+das alte nicht, setzt ein Startpasswort (mindestens acht Zeichen) und beendet
+damit alle Sitzungen des Betroffenen.
+
+Stilllegen ist nicht Löschen. Ein stillgelegter Benutzer kommt nicht mehr
+herein (`POST /api/auth/login` antwortet 403 `Account is disabled`), seine
+Läufe und Protokolle bleiben stehen. Der letzte aktive Administrator kann nicht
+stillgelegt werden, und niemand kann sich selbst stilllegen.
+
+| Method | Endpoint                     | Description                                                                                       |
+| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| GET    | `/api/benutzer`              | Alle Benutzer: `id, username, email, role, is_active, created_at, last_login`                     |
+| POST   | `/api/benutzer`              | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name |
+| PUT    | `/api/benutzer/:id/passwort` | Passwort setzen: `{ password }` (≥ 8 Zeichen); beendet alle Sitzungen; 404 unbekannt              |
+| PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin   |
+| DELETE | `/api/benutzer/:id`          | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                              |
 
 ```json
 // POST /api/benutzer → 201
@@ -589,6 +605,52 @@ letzte aktive Administrator behält seine Zugangs-Zeile (`zugangBleibt: true`).
   "timestamp": "2026-08-27T09:00:00.000Z"
 }
 ```
+
+### Freigaben (Phase C2)
+
+Eine Freigabe ist ein Paar: diese App, dieser Mensch (`app_members`, Migration
+168). Sie ersetzt `space_members` aus der Zeit der Wissensräume. Wer innerhalb
+einer App was darf, entscheidet die App; die Plattform kennt nur „freigegeben
+oder nicht".
+
+`app_id` ist **bis Phase C3 ein freier Text** — das App-Modell mit der Tabelle
+`apps` kommt erst dort, und vorher gibt es nichts, worauf ein Fremdschlüssel
+zeigen könnte. Die Form wird trotzdem geprüft: Kleinbuchstaben, Ziffern, Punkt,
+Bindestrich, Unterstrich, höchstens 64 Zeichen, beginnend mit Buchstabe oder
+Ziffer. Damit passt jede heute gesetzte Kennung später auf `apps.id` aus dem
+Manifest `app.json` und in den Pfad `/apps/<id>/`.
+
+Freigegeben wird an jeden Benutzer, auch an einen Administrator: die Rolle sagt,
+wer verwaltet, nicht wer arbeitet. Alle drei Wege sind Admin-Wege. Die eigene
+Sicht des Mitarbeiters auf das Freigegebene kommt mit dem App-Modell (C3).
+
+| Method | Endpoint                            | Description                                                                            |
+| ------ | ----------------------------------- | -------------------------------------------------------------------------------------- |
+| GET    | `/api/freigaben`                    | Alle Freigaben; Filter `?app_id=` und `?benutzer_id=`; mit `username`, `email`, `role` |
+| POST   | `/api/freigaben`                    | Freigeben: `{ app_id, benutzer_id }`; 201 neu, 200 wenn sie schon stand (`neu: false`) |
+| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zurücknehmen; 404, wenn es sie nicht gibt                                     |
+
+```json
+// POST /api/freigaben → 201
+{
+  "data": {
+    "app_id": "urlaub",
+    "user_id": 7,
+    "freigegeben_von": 1,
+    "freigegeben_am": "2026-08-27T09:00:00.000Z"
+  },
+  "neu": true,
+  "timestamp": "2026-08-27T09:00:00.000Z"
+}
+```
+
+Zweimal dieselbe Freigabe ist kein Fehler, sondern derselbe Zustand: der zweite
+Aufruf lässt die erste stehen, samt Zeitstempel und dem Administrator, der sie
+gesetzt hat, und meldet `neu: false`. Löscht man den Benutzer, fallen seine
+Freigaben mit (`ON DELETE CASCADE`) und stehen in der Zusammenfassung der
+Löschung unter `app_members`.
+
+Gegen das Gerät misst das `scripts/test/mitarbeiter-abnahme.sh`.
 
 ### Settings / Passwords
 
