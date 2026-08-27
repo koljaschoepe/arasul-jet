@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, ForbiddenError } = require('../../utils/errors');
+const { ValidationError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
 const logger = require('../../utils/logger');
@@ -108,6 +108,7 @@ router.get(
       sessionsResult,
       auditResult,
       securityAuditResult,
+      freigabenResult,
     ] = await nacheinander([
       // 1. User profile
       () =>
@@ -173,6 +174,18 @@ router.get(
          ORDER BY timestamp DESC`,
           [userId]
         ),
+
+      // 11. Freigaben (Phase C2): welche Apps ein Administrator fuer diesen
+      //     Menschen freigeschaltet hat, wann und durch wen. Das ist ein
+      //     personenbezogenes Datum ueber ihn, also gehoert es in die Auskunft.
+      () =>
+        hole(
+          'freigaben',
+          `SELECT app_id, freigegeben_am, freigegeben_von
+             FROM public.app_members WHERE user_id = $1
+            ORDER BY app_id`,
+          [userId]
+        ),
     ]);
 
     const exportData = {
@@ -214,6 +227,7 @@ router.get(
             : undefined,
       }),
       securityEvents: block('sicherheitsereignisse', securityAuditResult),
+      freigaben: block('freigaben', freigabenResult),
     };
 
     const filename = `arasul-gdpr-export-${req.user.username}-${new Date().toISOString().split('T')[0]}.json`;
@@ -288,9 +302,10 @@ router.get(
 
     // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
     // Zahlen als die Auskunft.
-    const [laeufeCount, auditCount] = await Promise.all([
+    const [laeufeCount, auditCount, freigabenCount] = await Promise.all([
       db.query('SELECT count(*) FROM flow_runs WHERE user_id = $1', [userId]),
       db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
+      db.query('SELECT count(*) FROM public.app_members WHERE user_id = $1', [userId]),
     ]);
 
     res.json({
@@ -310,6 +325,11 @@ router.get(
         {
           name: 'Sicherheitsereignisse',
           description: 'Passwortänderungen, Konfigurationsänderungen',
+        },
+        {
+          name: 'Freigaben',
+          description: 'Apps, die ein Administrator freigegeben hat',
+          count: parseInt(freigabenCount.rows[0].count),
         },
       ],
       timestamp: new Date().toISOString(),

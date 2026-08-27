@@ -1,11 +1,18 @@
 /**
- * Benutzerverwaltung (Phase C1 des Umbaus vom 26.08.2026).
+ * Benutzerverwaltung (Phasen C1 und C2 des Umbaus vom 26.08.2026).
  *
  * Das Geraet kennt zwei Rollen, `admin` und `mitarbeiter` (Migration 167).
- * Der Administrator legt Mitarbeiter an und loescht sie; die Loeschung ist
- * dieselbe wie die nach Art. 17 ueber `DELETE /api/gdpr/me`, nur dass hier
- * ein anderer sie ausloest. Deshalb liegt sie hier und nicht in der Route:
- * eine Loeschung, zwei Wege.
+ * Der Administrator legt Mitarbeiter an, setzt ihr Passwort
+ * (`services/auth/passwordService.js`), legt sie still und loescht sie.
+ *
+ * Die Loeschung ist dieselbe wie die nach Art. 17 ueber `DELETE /api/gdpr/me`,
+ * nur dass hier ein anderer sie ausloest. Deshalb liegt sie hier und nicht in
+ * der Route: eine Loeschung, zwei Wege.
+ *
+ * Stilllegen und Loeschen sind zwei verschiedene Dinge und beide gewollt:
+ * stillgelegt kommt der Mensch nicht mehr herein, seine Laeufe und Protokolle
+ * bleiben; geloescht ist er weg. Wer nur sperren will, soll nicht loeschen
+ * muessen.
  */
 
 const db = require('../../database');
@@ -59,6 +66,64 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
 }
 
 /**
+ * Ist das der letzte Administrator, der das Geraet noch bedienen kann?
+ *
+ * Der Single-Box-Schutz (Plan 023 J4) haengt an dieser einen Frage, und zwei
+ * Wege stellen sie: die Loeschung und die Stilllegung. Sie steht deshalb
+ * einmal hier und nicht zweimal dort.
+ */
+async function istLetzterAktiverAdmin(role) {
+  if (role !== 'admin') {
+    return false;
+  }
+  const adminCount = await db.query(
+    `SELECT COUNT(*)::int AS n FROM admin_users WHERE role = 'admin' AND is_active = true`
+  );
+  return (adminCount.rows[0]?.n ?? 0) <= 1;
+}
+
+/**
+ * Einen Benutzer stilllegen oder wieder zulassen (Phase C2).
+ *
+ * Stilllegen ist die kleinere Schwester der Loeschung: der Mensch kommt nicht
+ * mehr herein (`login` antwortet 403, `requireAuth` ebenfalls), seine Daten
+ * bleiben aber stehen. Fuer einen Mitarbeiter, der das Unternehmen verlaesst,
+ * ist das der richtige erste Schritt — was mit seinen Laeufen geschieht,
+ * entscheidet man danach in Ruhe.
+ *
+ * Zwei Dinge muessen dabei mitgehen, sonst ist die Stilllegung erst in einer
+ * Minute wirksam: die Sitzungen (sonst laeuft sein Token weiter) und der
+ * Identitaets-Zwischenspeicher in `auth.js` (60 s TTL, prueft `is_active` auf
+ * dem zwischengespeicherten Stand).
+ *
+ * @returns {Promise<object>} die Benutzerzeile nach der Aenderung
+ */
+async function setzeAktiv({ userId, aktiv }) {
+  const ziel = await holeBenutzer(userId);
+
+  if (!aktiv && (await istLetzterAktiverAdmin(ziel.role))) {
+    throw new ValidationError(
+      'Der letzte aktive Administrator kann nicht stillgelegt werden; das Geraet waere unbedienbar'
+    );
+  }
+
+  const result = await db.query(
+    `UPDATE admin_users SET is_active = $2, updated_at = NOW() WHERE id = $1 RETURNING ${SPALTEN}`,
+    [userId, aktiv]
+  );
+
+  if (!aktiv) {
+    await blacklistAllUserTokens(userId);
+  }
+  invalidateUserCache(userId);
+
+  logger.warn(
+    `Benutzer ${ziel.username} (id=${userId}) ${aktiv ? 'wieder zugelassen' : 'stillgelegt'}`
+  );
+  return result.rows[0];
+}
+
+/**
  * Einen Benutzer samt seiner Daten loeschen.
  *
  * Single-Box-Schutz (Plan 023 J4): der letzte aktive Administrator darf seine
@@ -70,10 +135,7 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
  * @returns {Promise<{summary: object, zugangBleibt: boolean}>}
  */
 async function loescheBenutzer({ userId, username, role }) {
-  const adminCount = await db.query(
-    `SELECT COUNT(*)::int AS n FROM admin_users WHERE role = 'admin' AND is_active = true`
-  );
-  const letzterAdmin = role === 'admin' && (adminCount.rows[0]?.n ?? 0) <= 1;
+  const letzterAdmin = await istLetzterAktiverAdmin(role);
 
   logger.warn(`[benutzer-loeschung] ${username} (id=${userId}) wird geloescht`);
 
@@ -108,10 +170,17 @@ async function loescheBenutzer({ userId, username, role }) {
     //    der Mensch dahinter weg ist.
     await del('api_keys', `DELETE FROM api_keys WHERE created_by = $1`, [userId]);
 
-    // 3) Aktive Sessions invalidieren
+    // 3) Seine Freigaben (Phase C2). `app_members.user_id` haengt per
+    //    ON DELETE CASCADE an der Zeile in admin_users, waere also auch ohne
+    //    diese Zeile weg. Sie steht hier, weil die Zusammenfassung sonst
+    //    schweigt: eine Loeschung, die eine Kategorie nicht nennt, sieht in
+    //    der Auskunft aus wie eine, zu der es nichts gab.
+    await del('app_members', `DELETE FROM public.app_members WHERE user_id = $1`, [userId]);
+
+    // 4) Aktive Sessions invalidieren
     await del('active_sessions', `DELETE FROM active_sessions WHERE user_id = $1`, [userId]);
 
-    // 4) Compliance-Trails anonymisieren (siehe DSGVO Art. 17 (3) (b))
+    // 5) Compliance-Trails anonymisieren (siehe DSGVO Art. 17 (3) (b))
     const anon = async (label, sql, params) => {
       const result = await client.query(sql, params);
       counts[`anon_${label}`] = result.rowCount || 0;
@@ -142,7 +211,7 @@ async function loescheBenutzer({ userId, username, role }) {
       ANONYM,
     ]);
 
-    // 5) admin_users: die Zeile bleibt beim letzten Admin stehen, siehe oben.
+    // 6) admin_users: die Zeile bleibt beim letzten Admin stehen, siehe oben.
     if (letzterAdmin) {
       counts.admin_users = 0;
     } else {
@@ -163,4 +232,11 @@ async function loescheBenutzer({ userId, username, role }) {
   return { summary, zugangBleibt: letzterAdmin };
 }
 
-module.exports = { listeBenutzer, holeBenutzer, legeBenutzerAn, loescheBenutzer, ANONYM };
+module.exports = {
+  listeBenutzer,
+  holeBenutzer,
+  legeBenutzerAn,
+  setzeAktiv,
+  loescheBenutzer,
+  ANONYM,
+};
