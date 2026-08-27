@@ -274,6 +274,16 @@ run_routenregeln_check() {
   fi
 }
 
+run_rollenregeln_check() {
+  echo ""
+  echo "-> Pruefe, ob jede Route ihre Rolle prueft (Phase C1)..."
+  if python3 "${PROJECT_ROOT}/scripts/test/rollenregeln.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_stiller_tod_check() {
   echo ""
   echo "-> Pruefe auf Zuweisungen, die ein Skript wortlos beenden..."
@@ -474,6 +484,7 @@ run_werksreset_tabellen_check
 run_rollback_meldung_check
 run_pfadfilter_check
 run_routenregeln_check
+run_rollenregeln_check
 run_stiller_tod_check
 run_endpunkte_check
 run_anleitungen_check
