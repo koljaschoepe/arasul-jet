@@ -173,6 +173,15 @@ const LogsQuery = z
   })
   .strict();
 
+/**
+ * Der Stand, fuer den die Forward-Auth fragt (Phase C4).
+ *
+ * Ohne Angabe der Livestand. Die Frage stellt Traefik, und zwar aus dem
+ * Etikett des Containers heraus (`services/app/appContainer.js`), also mit
+ * einem festen `?stand=`; die Vorgabe deckt den Aufruf von Hand ab.
+ */
+const ZugangQuery = z.object({ stand: Stand.default('live') }).strict();
+
 module.exports = {
   AppId,
   Stand,
@@ -181,4 +190,5 @@ module.exports = {
   AppParams,
   EinspielenBody,
   LogsQuery,
+  ZugangQuery,
 };

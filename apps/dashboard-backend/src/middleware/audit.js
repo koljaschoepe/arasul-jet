@@ -18,6 +18,19 @@ const EXCLUDED_ENDPOINTS = [
   '/api/chats', // Chat list polling (GET only excluded below)
 ];
 
+/**
+ * Dasselbe wie EXCLUDED_ENDPOINTS, nur fuer Wege, deren veraenderlicher Teil in
+ * der MITTE steht -- daran kommt ein `startsWith` nicht heran.
+ *
+ * Bisher genau einer: `GET /api/apps/<id>/zugang` ist die Forward-Auth vor dem
+ * Backend jeder App (Phase C4). Traefik ruft sie bei JEDER Anfrage an
+ * `/apps/<id>/api/` auf; eine Zeile je Aufruf im Pruefprotokoll waere kein
+ * Protokoll mehr, sondern ein Zugriffslog, und der Aufruf steht ohnehin schon
+ * als die Anfrage darin, die ihn ausgeloest hat. Was hier passiert -- eine
+ * verweigerte Freigabe -- gehoert ins Sicherheitsprotokoll und nicht hierher.
+ */
+const AUSGENOMMENE_MUSTER = [/^\/api\/apps\/[^/]+\/zugang$/];
+
 // Sensitive fields to mask in request payloads
 const SENSITIVE_FIELDS = [
   'password',
@@ -145,6 +158,10 @@ function createAuditMiddleware() {
       return next();
     }
 
+    if (AUSGENOMMENE_MUSTER.some(muster => muster.test(req.path))) {
+      return next();
+    }
+
     // Only audit /api/* requests
     if (!req.path.startsWith('/api/')) {
       return next();
@@ -215,5 +232,6 @@ module.exports = {
   getClientIP,
   writeAuditLog,
   EXCLUDED_ENDPOINTS,
+  AUSGENOMMENE_MUSTER,
   SENSITIVE_FIELDS,
 };

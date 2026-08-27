@@ -879,8 +879,9 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | POST   | `/api/apps/:id/einspielen` | Eine Version in einen Stand bringen                                |
 | DELETE | `/api/apps/:id`            | App entfernen: beide Container, beide Stände, Freigaben            |
 | GET    | `/api/apps/:id/logs`       | Die letzten Zeilen des App-Backends                                |
+| GET    | `/api/apps/:id/zugang`     | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)      |
 
-Alle bis auf `/meine` sind Admin-Wege.
+Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 
 **POST /api/apps/:id/einspielen:** Body `{ "version": "1.0.0", "stand": "test" }`.
 Ohne `stand` geht es in den **Teststand** — gerollt wird nach `test`, live
@@ -943,6 +944,81 @@ lädt, ist keine Installation mehr, sondern ein Abend.
 
 `test` ist nur gefüllt, wenn die Freigabe dieses Menschen den Stand `test`
 trägt — er ist dann Tester (siehe `POST /api/freigaben`).
+
+### Die App-Anmeldung
+
+> Phase C4 des Umbaus vom 26.08.2026. Die Durchsetzung steht in
+> `apps/dashboard-backend/src/services/app/appZugang.js`.
+
+**Eine App bekommt keine eigene Anmeldung.** Wer an Arasul angemeldet ist und
+die App freigegeben hat, ist in der App angemeldet; wer nicht, kommt nicht
+hinein. Es gibt keine Sonderregel für Administratoren — auch sie brauchen die
+App freigegeben (Entscheidung aus C2).
+
+Geprüft wird an zwei Stellen, aber nach **einer** Regel:
+
+| Weg                 | Wer prüft                                                 |
+| ------------------- | --------------------------------------------------------- |
+| `/apps/<id>/…`      | Arasul selbst, beim Ausliefern der Seite                  |
+| `/apps/<id>/api/…`  | Traefik per Forward-Auth auf `GET /api/apps/:id/zugang`   |
+| `/apps/<id>/api/me` | Arasul selbst (der eine Weg unter `api/`, der ihm gehört) |
+
+Die Antworten:
+
+| Zustand                                   | Seite         | Schnittstelle |
+| ----------------------------------------- | ------------- | ------------- |
+| keine Sitzung                             | `302` auf `/` | `401`         |
+| Sitzung, App nicht freigegeben            | `403`         | `403`         |
+| Freigabe nur `live`, Teststand aufgerufen | `403`         | `403`         |
+| Freigabe, aber diesen Stand gibt es nicht | `404`         | `404`         |
+
+Warum die Seite umzieht und die Schnittstelle nicht: ein `fetch` der App
+bekäme auf einen Umzug die Anmeldeseite als HTML zurück und meldete einen
+Fehler, der nach einem Fehler der App aussieht.
+
+**Erst die Freigabe, dann die Existenz.** Wer eine App nicht freigegeben hat,
+erfährt auch nicht, ob es sie am Gerät gibt — die Antwort ist `403`, nicht
+`404`. Sonst wäre die Liste der Apps eines Unternehmens für jeden angemeldeten
+Menschen abzählbar.
+
+**GET /api/apps/:id/zugang:** Query `?stand=live|test` (ohne Angabe `live`).
+Ruft Traefik auf, nicht der Browser; die Adresse steht im Etikett des
+App-Containers. Bei Erfolg `200` und zwei Kopfzeilen, die Traefik in die
+Anfrage an die App überträgt:
+
+| Kopfzeile       | Inhalt                      |
+| --------------- | --------------------------- |
+| `X-Arasul-User` | Der Benutzername, als UTF-8 |
+| `X-Arasul-Role` | `admin` oder `mitarbeiter`  |
+
+Beide sind **nicht fälschbar**: Traefik löscht sie aus der eingehenden Anfrage,
+bevor es sie aus der Antwort dieses Endpunkts neu setzt
+(`forwardauth.authResponseHeaders`).
+
+Der Name steht als UTF-8 in der Kopfzeile. In Node liest man ihn mit
+`Buffer.from(kopf, 'latin1').toString('utf8')`; bequemer ist der nächste
+Abschnitt.
+
+**GET /apps/&lt;id&gt;/api/me** — nicht unter `/api`, sondern unter dem Pfad der
+App. Der eine Weg unter `api/`, den nicht der Container der App beantwortet,
+sondern Arasul: eine App darf nach ihrem Manifest ganz ohne Backend auskommen,
+und dann gäbe es niemanden, der die Frage beantworten könnte. Der Teststand hat
+seinen eigenen: `/apps/<id>/test/api/me`.
+
+```json
+{
+  "data": {
+    "app_id": "urlaub",
+    "stand": "live",
+    "benutzer": "anna",
+    "rolle": "mitarbeiter"
+  },
+  "timestamp": "2026-08-27T12:00:00Z"
+}
+```
+
+Vergeben ist genau dieser Weg. `/apps/urlaub/api/meine-antraege` gehört weiter
+der App.
 
 ### Store
 

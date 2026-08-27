@@ -19,9 +19,10 @@ const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
-const { AppParams, EinspielenBody, LogsQuery } = require('../../schemas/apps');
+const { AppParams, EinspielenBody, LogsQuery, ZugangQuery } = require('../../schemas/apps');
 const appStore = require('../../services/app/appStore');
 const appContainer = require('../../services/app/appContainer');
+const appZugang = require('../../services/app/appZugang');
 const { logSecurityEvent } = require('../../utils/auditLog');
 
 /**
@@ -39,6 +40,47 @@ router.get(
   asyncHandler(async (req, res) => {
     const data = await appStore.appsFuerNutzer(req.user.id);
     res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/apps/:id/zugang — die Forward-Auth vor dem Backend einer App
+ * (Phase C4).
+ *
+ * Traefik ruft diesen Endpunkt VOR jeder Anfrage an `/apps/<id>/api/` auf und
+ * laesst sie nur durch, wenn hier eine 2xx herauskommt; die beiden Koepfe
+ * `X-Arasul-User` und `X-Arasul-Role` gehen aus der Antwort in die Anfrage an
+ * die App ueber. Das Etikett dazu haengt am Container
+ * (`services/app/appContainer.js`), nicht in `middlewares.yml`: es traegt die
+ * Kennung der App und ihren Stand, und beides weiss nur, wer den Container
+ * anlegt.
+ *
+ * Warum das hier eine gewoehnliche Route mit `requireAuth` und `requireRole`
+ * ist und nicht ein Sonderfall wie `GET /api/auth/verify`: die Antworten, die
+ * eine Forward-Auth braucht, sind genau die, die der Fehlerbehandler ohnehin
+ * baut -- 401 ohne Sitzung, 403 ohne Freigabe, 404 ohne Stand. Ein zweiter Weg
+ * daneben waere ein zweiter Ort, an dem dieselbe Regel steht.
+ *
+ * Beide Rollen duerfen fragen. Ob jemand eine App benutzen darf, entscheidet
+ * die Freigabe und nicht die Rolle (Entscheidung aus C2).
+ */
+router.get(
+  '/:id/zugang',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  validateParams(AppParams),
+  validateQuery(ZugangQuery),
+  asyncHandler(async (req, res) => {
+    const data = await appZugang.pruefe({
+      benutzerId: req.user.id,
+      appId: req.params.id,
+      stand: req.query.stand,
+    });
+    appZugang.setzeKoepfe(res, req.user);
+    res.json({
+      data: { ...data, benutzer: req.user.username, rolle: req.user.role },
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 

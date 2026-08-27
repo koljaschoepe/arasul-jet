@@ -21,6 +21,14 @@ const { NotFoundError } = require('../../utils/errors');
 // unerreichbar.
 const NETZ = process.env.DOCKER_NETWORK || 'arasul-platform_arasul-backend';
 
+// Wohin Traefik die Forward-Auth schickt (Phase C4). Ausgeschrieben und nicht
+// aus der Umgebung: dieselbe Adresse steht schon in
+// `config/traefik/dynamic/middlewares.yml` (Middleware `forward-auth`), und
+// zwei Stellschrauben fuer denselben Dienstnamen waeren eine mehr als noetig.
+// Der Aufruf geht von Traefik AN das Backend, also am Router `/api` vorbei --
+// die Drossel und die Kopfzeilen daran gelten fuer ihn nicht.
+const BACKEND = 'http://dashboard-backend:3001';
+
 /** Der Containername je App und Stand. Eine Zeile, damit es eine Regel bleibt. */
 function containerName(appId, stand) {
   return `arasul-app-${appId}-${stand}`;
@@ -54,7 +62,31 @@ function beschriftung(manifest, stand) {
     [`traefik.http.routers.${router}.priority`]: stand === 'test' ? '45' : '40',
     [`traefik.http.routers.${router}.entrypoints`]: 'websecure',
     [`traefik.http.routers.${router}.tls`]: 'true',
-    [`traefik.http.routers.${router}.middlewares`]: `${router}-strip@docker,security-headers@file`,
+    // Die Reihenfolge ist die Aussage: erst die Anmeldung, dann das Abschneiden
+    // des Praefixes. Wer nicht freigegeben ist, kommt nie bis zum Container.
+    [`traefik.http.routers.${router}.middlewares`]: `${router}-zugang@docker,${router}-strip@docker,security-headers@file`,
+    // Die App-Anmeldung (Phase C4). Traefik fragt vor JEDER Anfrage an dieses
+    // Backend beim Dashboard nach, ob der Aufrufer diese App in diesem Stand
+    // haben darf, und reicht die Antwort bei 401/403/404 unveraendert an den
+    // Browser durch.
+    //
+    // Kennung und Stand stehen als Suchparameter fest im Etikett, statt sie
+    // aus `X-Forwarded-Uri` zu lesen: der Container weiss, wer er ist, und ein
+    // Pfad, den erst jemand zerlegen muss, ist eine Stelle mehr, an der die
+    // Zuordnung schiefgehen kann.
+    [`traefik.http.middlewares.${router}-zugang.forwardauth.address`]: `${BACKEND}/api/apps/${manifest.id}/zugang?stand=${stand}`,
+    // Nur diese zwei gehen HIN. Die Sitzung steckt im Cookie `arasul_session`
+    // oder im Bearer-Token; alles andere geht die Anmeldung nichts an.
+    [`traefik.http.middlewares.${router}-zugang.forwardauth.authRequestHeaders`]:
+      'Cookie,Authorization',
+    // Und diese zwei kommen ZURUECK. Der entscheidende Teil steht in Traefiks
+    // Quelle: fuer jeden Namen in dieser Liste wird der Kopf zuerst aus der
+    // eingehenden Anfrage GELOESCHT und danach aus der Antwort der Anmeldung
+    // neu gesetzt. Ein Aufrufer, der `X-Arasul-User: chef` mitschickt, kommt
+    // damit nicht durch -- ohne diese Liste waere sein Kopf einfach
+    // durchgereicht worden.
+    [`traefik.http.middlewares.${router}-zugang.forwardauth.authResponseHeaders`]:
+      'X-Arasul-User,X-Arasul-Role',
     // Die App sieht ihre eigenen Pfade, nicht die der Plattform: aus
     // `/apps/urlaub/api/antraege` wird `/antraege`. Ein App-Backend soll nicht
     // wissen muessen, unter welchem Praefix es haengt.
