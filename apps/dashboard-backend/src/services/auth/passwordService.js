@@ -157,7 +157,13 @@ async function schreibePasswort(userId, newPassword, { changedBy, ipAddress } = 
     );
   });
 
-  logger.info(`Password changed for user: ${changedBy || userId}`);
+  // Der Betroffene, nicht der Handelnde. `changedBy` ist beim Selbstwechsel
+  // derselbe Mensch, beim Setzen durch den Administrator aber DESSEN Name --
+  // die Zeile las sich dann wie "das Passwort von admin wurde geaendert",
+  // obwohl es das von mia war. Im Protokoll (`password_history.changed_by`)
+  // stand es immer richtig; hier nicht, und wer bei einem Vorfall die Logs
+  // liest, liest zuerst hier.
+  logger.info(`Passwort geaendert fuer Benutzer id=${userId} (durch ${changedBy || 'ihn selbst'})`);
 
   return newPasswordHash;
 }
