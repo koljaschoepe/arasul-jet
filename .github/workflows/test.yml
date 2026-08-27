@@ -433,6 +433,14 @@ jobs:
       - name: Rohrbruch (Pipes, die beim ersten Treffer zerreissen)
         run: python3 scripts/test/rohrbruch.py --wurzel .
 
+      # Die dritte aus derselben Familie, 27.08.2026: nicht der Wert einer
+      # Pipe, sondern die Reihenfolge der Ersetzung. `local a="$1" b="$a"`
+      # loest `$a` auf, bevor `local` laeuft -- unter `set -u` das Ende des
+      # Skripts. Die Abnahme des Deploy-Endpunkts kam am Orin daran nicht
+      # ueber ihren ersten Schritt hinaus.
+      - name: Eigenbezug (local-Zeilen, die sich auf sich selbst beziehen)
+        run: python3 scripts/test/eigenbezug.py --wurzel .
+
       - name: Routenregeln (asyncHandler, keine nackten Fehler)
         run: python3 scripts/test/routenregeln.py --wurzel .
 

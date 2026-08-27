@@ -6,10 +6,26 @@
 
 Ein **Flow** ist eine vorkonfigurierte Aufgabe, die das lokale Modell mit
 Werkzeugen ausführt. Technisch ist ein Flow eine Markdown-Datei mit
-YAML-Kopf unter `data/flows/` (im Container `/arasul/flows`, siehe
-`FLOWS_DIR`). Die Datei ist die Wahrheit; die Routen unter `/api/flows`
-lesen und schreiben sie und prüfen jede Änderung gegen das Schema, bevor sie
-auf die Platte kommt.
+YAML-Kopf. Seit Phase C6 gibt es davon **zwei Herkünfte**, und der Rest dieser
+Seite gilt für beide:
+
+| Herkunft                 | Wo die Datei liegt                           | Wem sie gehört                               |
+| ------------------------ | -------------------------------------------- | -------------------------------------------- |
+| **Plattform** (Plan 011) | `data/flows/` (im Container `/arasul/flows`) | dem Betreiber; die Routen unter `/api/flows` |
+| **App** (Phase C6)       | im App-Paket unter `flows/*.md`              | dem Partner, der die App gebaut hat          |
+
+Für die Flows der Plattform ist die **Datei** die Wahrheit; die Routen unter
+`/api/flows` lesen und schreiben sie und prüfen jede Änderung gegen das
+Schema, bevor sie auf die Platte kommt.
+
+Für die Flows einer App ist die **registrierte Zeile** die Wahrheit
+(`app_flows`, je App und Stand beim Einspielen angelegt) — sonst änderte sich
+der Flow eines laufenden Livestandes, sobald jemand unter dem Versionsordner
+etwas editiert. Sie werden über `/api/flows` weder gelesen noch geschrieben;
+was ein Administrator daran ändern darf, ist das **Modell**, und das steht in
+`flow_settings`. Alles Weitere dazu:
+[`APPS.md`](APPS.md#die-flows-einer-app-phase-c6) und
+[`APP-PAKET.md`](APP-PAKET.md).
 
 ## Aufbau einer Flow-Datei
 
@@ -167,6 +183,12 @@ Besitzer (fremde Läufe sind ein `404`) und tragen Status `laeuft | fertig |
 fehler | abgebrochen`. Ein Neustart des Backends setzt jeden noch laufenden
 Lauf auf `fehler`.
 
+Seit Phase C6 trägt ein Lauf zusätzlich `app_id` und `stand` — beide `NULL`
+bei einem Flow der Plattform. Sie sind **kein** Fremdschlüssel, mit derselben
+Begründung, mit der `flow_name` seit jeher keiner ist: ein Lauf ist Geschichte
+und soll lesbar bleiben, wenn die App längst weg ist. Ein Schlüssel, der einer
+App gehört, sieht auch nur die Läufe **dieser** App in **diesem** Stand.
+
 Jeder Lauf, der Dateien ändern **kann** (schreibendes Datei-Werkzeug oder
 Ausgabe-Dokument), wird vorher und nachher abgezogen; der Unterschied steht
 als `flow_runs.changes` am Lauf (`[{ pfad, art: neu|geaendert|geloescht,
@@ -208,6 +230,12 @@ Prompt; eine gelöschte Vorlage wird still übersprungen.
   die Antwort.
 - **Zeitpläne.** Wiederkehrende Starts (Cron) kommen von außen über dieselbe
   Trigger-URL; das Gerät hat keinen eigenen Zeitplaner.
+- **Eine App startet ihren eigenen Flow** (Phase C6). Sie benutzt denselben
+  Endpunkt mit dem Schlüssel, den das Gerät ihr beim Einspielen in den
+  Container gelegt hat. Was sie dabei sieht, entscheidet der Schlüssel: er
+  trägt App und Stand, und gesucht wird mit beiden. **Nur eigene Flows** ist
+  deshalb keine Prüfung in der Route, sondern die Auswahl der Quelle — eine
+  App kann den Flow einer anderen nicht einmal benennen.
 
 ## Zwei Betriebsarten (Plan 023 I2)
 

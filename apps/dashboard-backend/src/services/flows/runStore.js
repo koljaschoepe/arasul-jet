@@ -28,19 +28,29 @@ const ENDZUSTAENDE = new Set(['fertig', 'fehler', 'abgebrochen']);
 /**
  * Legt einen neuen Lauf an (Status 'laeuft').
  *
+ * `appId`/`stand` (Migration 173, Phase C6) sagen, WESSEN Flow hier lief. Sie
+ * stehen ohne Fremdschlüssel da — dieselbe Begründung, mit der `flow_name`
+ * seit Migration 112 keinen hat: ein Lauf ist Geschichte und soll lesbar
+ * bleiben, wenn die App längst weg ist.
+ *
  * @param {object} p
  * @param {number} p.userId
  * @param {string} p.flowName
+ * @param {string|null} [p.appId]
+ * @param {'test'|'live'|null} [p.stand]
  * @param {object} [p.arguments]
  * @param {object} [deps]
  * @returns {Promise<object>} Die angelegte Lauf-Zeile.
  */
-async function createRun({ userId, flowName, arguments: args = {} }, { db = database } = {}) {
+async function createRun(
+  { userId, flowName, appId = null, stand = null, arguments: args = {} },
+  { db = database } = {}
+) {
   const { rows } = await db.query(
-    `INSERT INTO flow_runs (user_id, flow_name, arguments)
-     VALUES ($1, $2, $3::jsonb)
+    `INSERT INTO flow_runs (user_id, flow_name, app_id, stand, arguments)
+     VALUES ($1, $2, $3, $4, $5::jsonb)
      RETURNING *`,
-    [userId, flowName, JSON.stringify(args || {})]
+    [userId, flowName, appId, stand, JSON.stringify(args || {})]
   );
   return rows[0];
 }
@@ -248,17 +258,34 @@ async function cancelRun({ runId, userId }, { db = database } = {}) {
  * NotFound (nicht Forbidden: die Existenz fremder Läufe wird nicht verraten;
  * gleiche Linie wie beim Workspace-Zugriff).
  *
+ * `appId`/`stand` engen ZUSÄTZLICH ein (Phase C6). Ein App-Schlüssel gehört
+ * dem Administrator, der die App eingespielt hat — über `user_id` allein sähe
+ * die App damit auch seine eigenen Läufe und die jeder anderen App desselben
+ * Geräts. „Nur eigene Flows" heißt: nur die dieser App in diesem Stand.
+ *
  * @param {object} p
  * @param {number} p.runId
  * @param {number} p.userId
+ * @param {string|null} [p.appId] Wenn gesetzt, muss der Lauf zu dieser App
+ *   und diesem Stand gehören.
+ * @param {'test'|'live'|null} [p.stand]
  * @param {boolean} [p.includeRaw=false] Rohdaten der Schritte mitliefern? Für
  *   die Nachschau ja, für die normale Anzeige nein — sie können groß sein.
  */
-async function getRun({ runId, userId, includeRaw = false }, { db = database } = {}) {
-  const runRes = await db.query(`SELECT * FROM flow_runs WHERE id = $1 AND user_id = $2`, [
-    runId,
-    userId,
-  ]);
+async function getRun(
+  { runId, userId, appId = null, stand = null, includeRaw = false },
+  { db = database } = {}
+) {
+  const params = [runId, userId];
+  let filter = '';
+  if (appId != null) {
+    params.push(appId, stand);
+    filter = `AND app_id = $${params.length - 1} AND stand = $${params.length}`;
+  }
+  const runRes = await db.query(
+    `SELECT * FROM flow_runs WHERE id = $1 AND user_id = $2 ${filter}`,
+    params
+  );
   if (runRes.rows.length === 0) {
     throw new NotFoundError(`Flow-Lauf ${runId} nicht gefunden`);
   }
@@ -272,7 +299,16 @@ async function getRun({ runId, userId, includeRaw = false }, { db = database } =
   return { ...runRes.rows[0], steps: stepsRes.rows };
 }
 
-/** Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht). */
+/**
+ * Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht).
+ *
+ * `app_id`/`stand` stehen seit C6 in der Auswahl, aber es gibt keinen Filter
+ * darauf — die Liste eines Nutzers ist die Liste eines Nutzers, und ein Lauf,
+ * den eine seiner Apps gestartet hat, gehört sichtbar dazu. Die Spalten sagen,
+ * WOHER er kam. Ein Filter ohne Aufrufer wäre eine Verzweigung, die niemand je
+ * durchläuft und die beim nächsten Umbau falsch stehenbleibt; wenn die
+ * D-Phasen eine Ansicht je App bauen, kommt er mit ihr.
+ */
 async function listRuns(
   { userId, limit = 50, status = null, flowName = null },
   { db = database } = {}
@@ -289,7 +325,7 @@ async function listRuns(
   }
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(
-    `SELECT id, flow_name, status, steps_used, created_at, finished_at, arguments
+    `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at, arguments
        FROM flow_runs
       WHERE user_id = $1 ${filter}
       ORDER BY id DESC

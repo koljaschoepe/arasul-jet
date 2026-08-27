@@ -25,5 +25,7 @@
     "cpus": 0.25
   },
   "modelle": [],
-  "flows": []
+  "flows": {
+    "verzeichnis": "flows"
+  }
 }

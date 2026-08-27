@@ -45,16 +45,58 @@ describe('createRun', () => {
     expect(sql).toMatch(/INSERT INTO flow_runs/);
     expect(params[0]).toBe(1);
     expect(params[1]).toBe('recherche');
-    expect(JSON.parse(params[2])).toEqual({ thema: 'x' });
-    expect(params).toHaveLength(3);
+    // Ein Lauf der Plattform: keine App, kein Stand (Migration 173).
+    expect(params[2]).toBeNull();
+    expect(params[3]).toBeNull();
+    expect(JSON.parse(params[4])).toEqual({ thema: 'x' });
+    expect(params).toHaveLength(5);
   });
 
   it('verträgt fehlende Argumente', async () => {
     const db = fakeDb({ rows: [{ id: 8 }] });
     await runStore.createRun({ userId: 1, flowName: 'notiz' }, { db });
     const { params } = db.calls[0];
-    expect(JSON.parse(params[2])).toEqual({});
-    expect(params).toHaveLength(3);
+    expect(JSON.parse(params[4])).toEqual({});
+    expect(params).toHaveLength(5);
+  });
+
+  it('schreibt App und Stand mit, wenn der Lauf einer App gehört (C6)', async () => {
+    const db = fakeDb({ rows: [{ id: 9 }] });
+    await runStore.createRun(
+      { userId: 1, flowName: 'bericht', appId: 'urlaub', stand: 'test' },
+      { db }
+    );
+    const { params } = db.calls[0];
+    expect(params[2]).toBe('urlaub');
+    expect(params[3]).toBe('test');
+  });
+});
+
+describe('getRun engt auf den Namensraum ein (C6)', () => {
+  it('fragt ohne App nur nach dem Nutzer', async () => {
+    const db = fakeDb({ rows: [{ id: 1, user_id: 3 }] }, { rows: [] });
+    await runStore.getRun({ runId: 1, userId: 3 }, { db });
+    const { sql, params } = db.calls[0];
+    expect(sql).not.toMatch(/app_id/);
+    expect(params).toEqual([1, 3]);
+  });
+
+  it('verlangt mit App auch App und Stand', async () => {
+    // Der Schlüssel einer App gehört dem Administrator, der sie eingespielt
+    // hat. Über `user_id` allein sähe die App dessen eigene Läufe und die
+    // jeder anderen App desselben Geräts — „nur eigene Flows" wäre dahin.
+    const db = fakeDb({ rows: [{ id: 1, user_id: 3 }] }, { rows: [] });
+    await runStore.getRun({ runId: 1, userId: 3, appId: 'urlaub', stand: 'live' }, { db });
+    const { sql, params } = db.calls[0];
+    expect(sql).toMatch(/AND app_id = \$3 AND stand = \$4/);
+    expect(params).toEqual([1, 3, 'urlaub', 'live']);
+  });
+
+  it('meldet NotFound, wenn der Lauf einer anderen App gehört', async () => {
+    const db = fakeDb({ rows: [] });
+    await expect(
+      runStore.getRun({ runId: 1, userId: 3, appId: 'fremd', stand: 'live' }, { db })
+    ).rejects.toThrow(/nicht gefunden/);
   });
 });
 

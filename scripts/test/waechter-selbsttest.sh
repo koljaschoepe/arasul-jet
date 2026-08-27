@@ -709,6 +709,100 @@ pruefe "Anleitungen: make im Fliesstext zaehlt nicht" 0 \
   python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
 rm -f "$AN/Makefile"
 
+# --- eigenbezug.py ----------------------------------------------------------
+# `local` ist ein Befehl, kein Zuweisungsblock: seine Argumente werden ALLE
+# ersetzt, bevor er laeuft. Eine zweite Zuweisung darf sich deshalb nicht auf
+# die erste derselben Zeile stuetzen. Ohne `local` davor ist genau dieselbe
+# Zeile richtig -- die Pruefung muss beides auseinanderhalten.
+EB="$TMP/eb/scripts"
+mkdir -p "$EB"
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+baue() { local version="$1" ordner="/tmp/paket-$version"; echo "$ordner"; }
+BEISPIEL
+pruefe "Eigenbezug: local mit Selbstbezug ist rot" 1 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+baue() {
+  local version="$1"
+  local ordner="/tmp/paket-$version"
+  echo "$ordner"
+}
+BEISPIEL
+pruefe "Eigenbezug: auf zwei Zeilen ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Ohne `local` fuehrt die Shell die Zuweisungen nacheinander aus und ersetzt
+# fuer jede erst dann. Diese Zeile ist richtig und darf nicht gemeldet werden.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+version="$1" ordner="/tmp/paket-$version"
+BEISPIEL
+pruefe "Eigenbezug: ohne local ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Zwei Zuweisungen auf einer `local`-Zeile, die einander nichts angehen, sind
+# in Ordnung -- der haeufige Fall (`local was="$1" ok="$2"`).
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+pruefe() { local was="$1" ok="$2" detail="${3:-}"; echo "$was $ok $detail"; }
+BEISPIEL
+pruefe "Eigenbezug: unabhaengige Zuweisungen sind gruen" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# `export` hat dieselbe Reihenfolge und damit dieselbe Falle.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+export BASIS="https://localhost" ZIEL="$BASIS/api"
+BEISPIEL
+pruefe "Eigenbezug: export zaehlt genauso" 1 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Die Reihenfolge auf der Zeile hilft nicht: ersetzt wird ALLES, bevor `local`
+# laeuft. `b` liest hier ein leeres (oder, schlimmer, ein globales) `$a`.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+baue() { local ordner="/tmp/paket-$version" version="$1"; echo "$ordner"; }
+BEISPIEL
+pruefe "Eigenbezug: auch andersherum aufgeschrieben ist rot" 1 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Der Selbstbezug ist der haeufige und RICHTIGE Fall: die lokale Kopie bekommt
+# den aeusseren Wert. Ihn zu melden hiesse, jedes `local PATH="$PATH:…"`
+# anzuschwaerzen -- beim dritten falschen Alarm liest niemand mehr hin.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+mit_pfad() { local PATH="$PATH:/opt/arasul/bin"; echo "$PATH"; }
+BEISPIEL
+pruefe "Eigenbezug: die lokale Kopie einer aeusseren Variablen ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Ein Zweig eines `case` ist eine Befehlsstelle wie jede andere -- der Fehler
+# steht dort genauso, und die erste Fassung dieser Pruefung sah ihn nicht.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+was() {
+  case "$1" in
+    bau) local version="$2" ordner="/tmp/$version" ;;
+  esac
+}
+BEISPIEL
+pruefe "Eigenbezug: ein case-Zweig zaehlt genauso" 1 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+
+# Ein Backslash vor dem Dollar macht ihn zu Text. Diese Zeile ist richtig, und
+# `shlex` nimmt das Fluchtzeichen weg, bevor die Pruefung hinsieht -- ohne die
+# Ausnahme waere sie ein Fehlalarm.
+cat > "$EB/lokal.sh" <<'BEISPIEL'
+#!/bin/bash
+zeige() { local a="$1" b="\$a bleibt Text"; echo "$b"; }
+BEISPIEL
+pruefe "Eigenbezug: ein gefluchteter Dollar ist kein Bezug" 0 \
+  python3 "$WURZEL/scripts/test/eigenbezug.py" --wurzel "$TMP/eb"
+rm -r "$TMP/eb"
+
 # --- zeilen.py --------------------------------------------------------------
 # Die Messregel der Rueckbau-Phasen (B2 bis B6). Ihr Selbsttest baut einen
 # Wegwerfbaum mit bekannten Zeilenzahlen; hier laeuft er mit, damit ein

@@ -23,6 +23,7 @@ gaebe es hier nicht, und der Wurzel-Lockfile bleibt unberuehrt.
 | `/apps/beispielapp/api/hallo`      | ihr eigener Container | `{"app":…,"pfad":"/hallo","nutzer":"anna"}` |
 | `/apps/beispielapp/api/schluessel` | ihr eigener Container | `{"gesetzt":true,"antwort":200}`            |
 | `/apps/beispielapp/api/gesund`     | ihr eigener Container | `{"status":"ok"}`, auch Dockers Healthcheck |
+| `/apps/beispielapp/api/flow`       | ihr eigener Container | `{"gestartet":true,"lauf":42}` (POST)       |
 
 Der Pfad in der Antwort ist die eigentliche Aussage: das Backend sieht
 `/hallo`, nicht `/apps/beispielapp/api/hallo`. Traefik schneidet das Praefix
@@ -42,10 +43,35 @@ Seit Phase C4 kommen zwei Aussagen dazu, und beide gehoeren der Plattform:
 Zu sehen ist all das nur fuer jemanden, dem die App freigegeben ist. Ein
 anderer bekommt 403, wer gar nicht angemeldet ist einen Umzug zur Anmeldung.
 
+Seit Phase C6 kommt ein Drittes dazu, und es ist das Mass jener Phase:
+
+- **`flows/wochenbericht.md`** liegt in ihrem Paket. Beim Einspielen
+  registriert das Geraet ihn je App und **Stand** (`app_flows`); der Namensraum
+  ist die App. Er kommt bewusst ohne `modell:` im Kopf aus — dann gilt das
+  Standardmodell des Geraets, und die Beispielapp haengt nicht an einem
+  Modellnamen, der auf dem naechsten Geraet ein anderer ist.
+- **`/flow`** startet ihn: `POST` gibt die Lauf-Nummer, `GET /flow?lauf=<n>`
+  sagt, wie weit er ist. Zwei Aufrufe und nicht einer, weil ein Flow Minuten
+  laufen kann und die Zeitlimits von Forward-Auth, Traefik und Browser
+  dazwischen alle kuerzer sind.
+
+  Sie startet ihn **mit ihrem eigenen Schluessel**, und den einer anderen App
+  koennte sie nicht starten: der Schluessel traegt App und Stand, das Geraet
+  sucht mit beiden. Der Schluessel selbst verlaesst den Container auch hier
+  nicht — zurueck geht nur, was die Plattform antwortet.
+
+  Der Flow deklariert **keine Ordner**. Ein Flow aus einem Paket bekommt am
+  Geraet keine, und damit auch keine Datei-Werkzeuge; er delegiert an eine
+  Rolle und schreibt aus deren Ergebnis den Bericht. Ein Schritt in
+  `flow_run_steps` entsteht genau dadurch.
+
 ## Aufruf
 
 ```bash
 # auf dem Geraet
 bash scripts/test/beispielapp.sh einspielen
 bash scripts/test/beispielapp.sh entfernen
+
+# Der ganze Weg der Flow-Engine, ueber die externe Schnittstelle (Phase C6)
+bash scripts/test/flow-abnahme.sh
 ```

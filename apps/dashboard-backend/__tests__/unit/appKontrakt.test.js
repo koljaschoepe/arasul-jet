@@ -33,8 +33,8 @@ describe('Der Kontrakt sagt, was das Kit wissen muss', () => {
   it('gibt app.json als JSON-Schema aus, aus der Sicht dessen, der es schreibt', () => {
     expect(k.app_json.schema.type).toBe('object');
     // Pflicht ist genau das, was ein Mensch tippen MUSS. Felder mit Vorgabe
-    // (`ressourcen`, `modelle`, `flows`) stehen nicht dabei -- das ist der
-    // Unterschied zwischen der Eingabe- und der Ausgabesicht des Schemas.
+    // (`ressourcen`, `modelle`) und optionale (`flows`) stehen nicht dabei --
+    // das ist der Unterschied zwischen der Eingabe- und der Ausgabesicht.
     expect(k.app_json.schema.required.sort()).toEqual(['id', 'name', 'schema', 'version']);
     expect(k.app_json.schema.properties.backend.properties.bauen).toBeDefined();
     expect(k.app_json.schema.additionalProperties).toBe(false);
@@ -54,6 +54,24 @@ describe('Der Kontrakt sagt, was das Kit wissen muss', () => {
     expect(k.flow_frontmatter.schema.type).toBe('object');
     expect(k.flow_frontmatter.schema.properties.werkzeuge).toBeDefined();
     expect(k.flow_frontmatter.rumpf).toMatch(/systemPrompt/);
+  });
+
+  it('nennt die Regeln, die nur fuer einen Flow AUS EINEM PAKET gelten (C6)', () => {
+    // Sie stehen nicht im JSON-Schema, weil sie keine sind: der Dateiname als
+    // Name, das verbotene `ordner`, der Namensraum je App. Ein Kit, das nur
+    // `FlowDefinition` prueft, schickte ein Paket, das das Geraet abweist.
+    const regeln = k.flow_frontmatter.regeln.join(' ');
+    expect(regeln).toMatch(/Dateiname/);
+    expect(regeln).toMatch(/ordner/);
+    expect(regeln).toMatch(/Namensraum/);
+  });
+
+  it('sagt, dass `flows` eine Lieferung ist und `modelle` eine Forderung (C6)', () => {
+    // Der eigentliche Unterschied zwischen Kontrakt 1 und 2. Ein Kit, das
+    // `"flows": ["a"]` schreibt, bekommt vom Geraet ein 400 -- es soll das
+    // hier lesen koennen, bevor es packt.
+    expect(k.app_json.regeln.join(' ')).toMatch(/`flows` ist umgekehrt eine LIEFERUNG/);
+    expect(k.paket.wurzel).toContain('<flows.verzeichnis>/');
   });
 
   it('nennt die Kopfzeilen mit denselben Namen, die die Anmeldung setzt', () => {
@@ -128,6 +146,6 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     delete ohneSystemversion.arasul;
     const abdruck = crypto.createHash('sha256').update(stabil(ohneSystemversion)).digest('hex');
 
-    expect(abdruck).toBe('7bf558be8f2cea514bacd2807062efe151193a34454ce3204601e73f6e6de115');
+    expect(abdruck).toBe('be8c3eaf4729304e21bf8a0bcc9af03df4ec09de08fc1f84706f604811dae208');
   });
 });

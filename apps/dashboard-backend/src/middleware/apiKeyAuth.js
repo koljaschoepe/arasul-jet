@@ -91,7 +91,8 @@ async function validateApiKey(apiKey) {
     // Get key data by prefix
     const result = await database.query(
       `
-            SELECT id, key_hash, name, rate_limit_per_minute, allowed_endpoints, expires_at, is_active, created_by
+            SELECT id, key_hash, name, rate_limit_per_minute, allowed_endpoints, expires_at, is_active, created_by,
+                   last_used_at, app_id, stand
             FROM api_keys
             WHERE key_prefix = $1
         `,
@@ -125,6 +126,43 @@ async function validateApiKey(apiKey) {
     logger.error(`API key validation error: ${err.message}`);
     return { valid: false, error: 'Validation error' };
   }
+}
+
+/**
+ * Wie lange „zuletzt benutzt" stehen bleiben darf, bevor es neu geschrieben
+ * wird. Eine Minute ist grob genug, um aus einer Anfrage je Sekunde nicht
+ * einen Schreibvorgang je Sekunde zu machen, und genau genug fuer die Frage,
+ * die ein Administrator vor einer Schluesselliste hat: benutzt das noch
+ * jemand?
+ */
+const GEBRAUCH_GENAUIGKEIT_MS = 60 * 1000;
+
+/**
+ * „Zuletzt benutzt" nachtragen (Phase C6).
+ *
+ * Die Spalte `api_keys.last_used_at` gibt es seit Migration 023, und bis
+ * hierher schrieb sie NIEMAND: die einzige Stelle, die es tut, ist die
+ * Datenbankfunktion `log_api_key_usage()`, und die ruft im ganzen Repo kein
+ * Aufrufer (nachgesehen am 27.08.2026, notiert in der Messung zu C4). Die
+ * Schluesselliste in `scripts/util/kit-schluessel.sh` und
+ * `GET /api/v1/external/api-keys` meldeten deshalb „nie benutzt", waehrend
+ * ein Schluessel gerade eine App auf das Geraet rollte. Eine Angabe, die
+ * immer dasselbe sagt, ist keine Angabe.
+ *
+ * NICHT AWAITED, und das ist Absicht: die Anfrage soll nicht auf eine
+ * Buchhaltungszeile warten. Scheitert der Schreibvorgang, ist der Schluessel
+ * trotzdem gueltig -- der Fehler gehoert ins Protokoll, nicht in die Antwort.
+ */
+function vermerkeGebrauch(keyData) {
+  const zuletzt = keyData.last_used_at ? new Date(keyData.last_used_at).getTime() : 0;
+  if (Date.now() - zuletzt < GEBRAUCH_GENAUIGKEIT_MS) {
+    return;
+  }
+  database
+    .query('UPDATE public.api_keys SET last_used_at = NOW() WHERE id = $1', [keyData.id])
+    .catch(err =>
+      logger.warn(`API-Schluessel ${keyData.id}: zuletzt-benutzt nicht gesetzt: ${err.message}`)
+    );
 }
 
 /**
@@ -203,6 +241,10 @@ async function requireApiKey(req, res, next) {
     });
   }
 
+  // Erst NACH der Drossel: ein abgewiesener Aufruf ist kein Gebrauch des
+  // Schluessels, sondern ein Aufrufer, der zu schnell fragt.
+  vermerkeGebrauch(keyData);
+
   // Attach key data to request
   req.apiKey = {
     id: keyData.id,
@@ -210,6 +252,12 @@ async function requireApiKey(req, res, next) {
     name: keyData.name,
     userId: keyData.created_by,
     allowedEndpoints: keyData.allowed_endpoints,
+    // Wem der Schluessel gehoert, wenn nicht einem Menschen (C4): der App und
+    // ihrem Stand. Beide sind zusammen gesetzt oder beide null (Migration
+    // 171). Die Flow-Engine (C6) entscheidet daran, WELCHE Flows dieser
+    // Schluessel starten darf.
+    appId: keyData.app_id || null,
+    stand: keyData.stand || null,
   };
 
   next();

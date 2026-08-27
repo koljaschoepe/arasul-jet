@@ -309,6 +309,21 @@ run_rohrbruch_check() {
   fi
 }
 
+# Die dritte aus derselben Familie: nicht der Wert einer Pipe, sondern die
+# Reihenfolge der Ersetzung. `local a="$1" b="$a"` loest `$a` auf, bevor
+# `local` ueberhaupt laeuft -- unter `set -u` das Ende des Skripts. Am
+# 27.08.2026 hat das die Abnahme des Deploy-Endpunkts am Orin im ersten
+# Schritt angehalten.
+run_eigenbezug_check() {
+  echo ""
+  echo "-> Pruefe auf local-Zeilen, die sich auf sich selbst beziehen..."
+  if python3 "${PROJECT_ROOT}/scripts/test/eigenbezug.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_endpunkte_check() {
   echo ""
   echo "-> Pruefe, ob jeder Endpunkt eine Beschreibung hat..."
@@ -502,6 +517,7 @@ run_routenregeln_check
 run_rollenregeln_check
 run_stiller_tod_check
 run_rohrbruch_check
+run_eigenbezug_check
 run_endpunkte_check
 run_anleitungen_check
 run_faden_check

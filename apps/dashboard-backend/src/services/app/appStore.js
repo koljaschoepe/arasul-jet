@@ -23,6 +23,7 @@ const { ConflictError, NotFoundError } = require('../../utils/errors');
 const appManifest = require('./appManifest');
 const appContainer = require('./appContainer');
 const appSchluessel = require('./appSchluessel');
+const appFlows = require('./appFlows');
 
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
@@ -80,9 +81,8 @@ async function listeApps() {
 
 /**
  * Eine App mit allem, was das Geraet ueber sie weiss: beide Staende, die
- * Versionen auf der Platte und die Antwort auf die zwei Fragen, die ein
- * Manifest stellt und die die Plattform beantworten kann — ist das Modell da,
- * ist der Flow da.
+ * Versionen auf der Platte, ob die geforderten Modelle da sind und welche
+ * Flows in welchem Stand registriert sind.
  */
 async function holeApp(appId) {
   const zeile = await db.query('SELECT * FROM public.apps WHERE id = $1', [appId]);
@@ -114,7 +114,11 @@ async function holeApp(appId) {
       api: manifest.backend ? `${appContainer.apiPfad(appId, stand)}/` : null,
       backend: manifest.backend ? await appContainer.zustand(appId, stand) : null,
       modelle: await modellStand(manifest.modelle),
-      flows: await flowStand(manifest.flows),
+      // Die Flows dieses Standes -- registriert, nicht gefordert (C6). Bis C5
+      // stand hier die Antwort auf "liegt der Flow, den das Manifest nennt,
+      // am Geraet"; seit C6 bringt das Paket sie mit, und die Frage stellt
+      // sich nicht mehr.
+      flows: await appFlows.liste({ appId, stand }),
     };
   }
   return ergebnis;
@@ -137,16 +141,6 @@ async function modellStand(namen) {
     [namen]
   );
   const da = new Set(result.rows.map(r => r.id));
-  return namen.map(name => ({ name, vorhanden: da.has(name) }));
-}
-
-/** Welche der im Manifest genannten Flows am Geraet liegen. */
-async function flowStand(namen) {
-  if (!namen || namen.length === 0) {
-    return [];
-  }
-  const { listFlows } = require('../flows/flowRegistry');
-  const da = new Set((await listFlows()).map(f => f.name));
   return namen.map(name => ({ name, vorhanden: da.has(name) }));
 }
 
@@ -174,6 +168,16 @@ async function spieleEin({ appId, version, stand, durch }) {
   if (manifest.frontend) {
     await appManifest.frontendVerzeichnis(manifest);
   }
+
+  // Die Flows LESEN, bevor irgendetwas angefasst wird (C6); geschrieben werden
+  // sie erst ganz unten. Ein Flow mit einem Tippfehler im YAML-Kopf soll
+  // diesen Aufruf HIER zum Stehen bringen -- nicht erst, nachdem der Container
+  // ersetzt und der Stand geschrieben ist. Dann waere der Stand neu und seine
+  // Flows die alten, und niemand saehe der App an, welche Fassung gilt.
+  const flowDateien = await appFlows.leseAusPaket(
+    manifest,
+    appManifest.verzeichnisFuer(manifest.id, manifest.version)
+  );
 
   // Das Image, bevor irgendetwas Bestehendes angefasst wird (Phase C4).
   // `starte` sorgt ohnehin dafuer, aber erst nachdem der Schluessel schon
@@ -247,8 +251,31 @@ async function spieleEin({ appId, version, stand, durch }) {
     [manifest.id, stand, manifest.version, manifest, durch ?? null]
   );
 
-  logger.info(`App eingespielt: ${appId} ${version} nach ${stand}`);
-  return gespeichert.rows[0];
+  // Die oben gelesenen Flows eintragen (C6). NACH dem Stand und nicht davor:
+  // sie gehoeren zu einer Version, die wirklich eingespielt ist. Waere es
+  // andersherum, haette ein Container, der nicht hochkommt, die Flows der
+  // neuen Fassung hinterlassen und den Stand der alten -- und der naechste
+  // Aufruf haette den Flow einer Version gestartet, die nirgends laeuft.
+  //
+  // Die Ueberschreibungen des Administrators (`flow_settings`) fasst das
+  // NICHT an. Genau dafuer stehen sie in einer eigenen Tabelle.
+  //
+  // Auch OHNE `flows` im Manifest laeuft der Aufruf -- dann mit einer leeren
+  // Liste. Er raeumt damit weg, was eine VORIGE Version in diesem Stand
+  // mitgebracht hat; ohne ihn blieben Flows startbar, die die laufende
+  // Fassung nicht mehr kennt.
+  const flows = await appFlows.registriere({
+    appId: manifest.id,
+    stand,
+    version: manifest.version,
+    flows: flowDateien,
+  });
+
+  logger.info(
+    `App eingespielt: ${appId} ${version} nach ${stand}` +
+      `${flows.length ? ` (${flows.length} Flow(s))` : ''}`
+  );
+  return { ...gespeichert.rows[0], flows };
 }
 
 /**
@@ -346,8 +373,42 @@ async function pruefeAppGrenze(appId) {
 }
 
 /**
- * Eine App entfernen: beide Container mitsamt ihren Volumes, beide Staende,
- * alle Freigaben, die Zeile.
+ * Die Namen aller Images, die zu dieser App gehoeren koennen.
+ *
+ * Gefragt werden die beiden Stellen, an denen der Name WIRKLICH steht: die
+ * Manifeste der beiden Staende (was gerade laeuft) und jedes `app.json` auf
+ * der Platte (jede Version, die je eingespielt wurde). Eine dritte Quelle --
+ * die Etiketten der Images selbst -- fragt `appContainer.entferneImages`
+ * daneben ab; sie findet, was diese beiden nicht mehr kennen.
+ *
+ * Ein kaputtes oder fehlendes `app.json` einer alten Version haelt das
+ * Entfernen NICHT auf: es ist ein Grund, dieses eine Image stehen zu lassen,
+ * und keiner, die App zu behalten.
+ */
+async function imageNamenVon(appId, staende) {
+  const namen = new Set();
+  for (const stand of ['test', 'live']) {
+    const image = staende[stand]?.manifest?.backend?.image;
+    if (image) {
+      namen.add(image);
+    }
+  }
+  for (const version of await appManifest.listeVersionen(appId)) {
+    try {
+      const manifest = await appManifest.leseManifest(appId, version);
+      if (manifest.backend?.image) {
+        namen.add(manifest.backend.image);
+      }
+    } catch (fehler) {
+      logger.warn(`App ${appId} ${version}: app.json nicht lesbar (${fehler.message})`);
+    }
+  }
+  return [...namen];
+}
+
+/**
+ * Eine App entfernen: beide Container mitsamt ihren Volumes, die am Geraet
+ * gebauten Images, beide Staende, alle Freigaben, die Zeile.
  *
  * Die Ordner unter `/arasul/apps/<id>/` bleiben liegen, wenn niemand etwas
  * anderes sagt: wer eine App entfernt, will sie ueblicherweise gleich wieder
@@ -359,6 +420,15 @@ async function pruefeAppGrenze(appId) {
  * aus der Ferne aufraeumen koennen -- sonst waechst das Geraet mit jeder
  * verworfenen Version, ohne dass jemand ohne SSH etwas dagegen tun kann.
  *
+ * DIE IMAGES GEHEN IMMER MIT, auch ohne `dateien` (Phase C6). Sie sind nicht
+ * die Quelle, aus der sich ein zweiter Deploy bedient -- das ist der Ordner --
+ * sondern ihr Ergebnis, und ein Ergebnis ohne App ist Belegung ohne Nutzen.
+ * Am Orin waren das je Version 228 MB.
+ *
+ * DIE REIHENFOLGE: erst lesen, was weg soll, dann entfernen. Die Namen der
+ * Images stehen in den Manifesten, und `dateien: true` wirft die Manifeste
+ * weg -- wer erst loescht, weiss danach nicht mehr, was er gebaut hat.
+ *
  * @param {string} appId
  * @param {{dateien?: boolean}} [wie]
  */
@@ -367,17 +437,32 @@ async function entferneApp(appId, { dateien = false } = {}) {
   if (vorhanden.rows.length === 0) {
     throw new NotFoundError(`App ${appId} gibt es am Geraet nicht`);
   }
+  const images = await imageNamenVon(appId, await staendeVon(appId));
+
   for (const stand of ['test', 'live']) {
     await appContainer.entferne(appId, stand);
   }
-  // `app_staende` und `app_members` haengen mit ON DELETE CASCADE daran.
+  // Erst der Container, dann sein Image: andersherum weist Docker mit 409 ab.
+  const entfernteImages = await appContainer.entferneImages(appId, images);
+
+  // `app_staende`, `app_members`, `app_flows`, `flow_settings` und die
+  // App-Schluessel haengen mit ON DELETE CASCADE daran: wer eine App
+  // entfernt, entfernt sie ganz.
   await db.query('DELETE FROM public.apps WHERE id = $1', [appId]);
   let versionen = [];
   if (dateien) {
     versionen = await appManifest.entferneDateien(appId);
   }
-  logger.info(`App entfernt: ${appId}${dateien ? ` (samt ${versionen.length} Version(en))` : ''}`);
-  return { id: appId, dateien_entfernt: dateien ? versionen : null };
+  logger.info(
+    `App entfernt: ${appId}` +
+      `${dateien ? ` (samt ${versionen.length} Version(en))` : ''}` +
+      `${entfernteImages.length ? `, ${entfernteImages.length} Image(s)` : ''}`
+  );
+  return {
+    id: appId,
+    dateien_entfernt: dateien ? versionen : null,
+    images_entfernt: entfernteImages,
+  };
 }
 
 /**

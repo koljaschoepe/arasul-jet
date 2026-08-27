@@ -3,12 +3,16 @@
  *
  * Nimmt einen Flow-Namen und die Argumente, und führt den Flow aus:
  *
- *   1. Flow laden (Registry).
+ *   1. Flow laden -- aus der Registry der Plattform (`/arasul/flows/`) oder,
+ *      mit `appId`/`stand`, aus den Flows dieser App (`app_flows`, Phase C6).
  *   2. Argumente prüfen und einsetzen — Pflichtfelder, Auswahllisten, Standards;
  *      die Platzhalter im Prompt werden ersetzt.
  *   3. Werkzeuge zusammenstellen — GENAU die, die der Flow deklariert.
  *   4. Kontext bauen: die erlaubten Ordner der Datei-Werkzeuge.
- *   5. Modell auflösen: das im Flow genannte, sonst das Standardmodell.
+ *   5. Modell auflösen: das im Flow genannte, sonst das Standardmodell. Bei
+ *      einem App-Flow hat `appFlows.lade` die Überschreibung des Admins
+ *      (`flow_settings`) schon eingesetzt -- der Runner sieht ein Modell,
+ *      nicht zwei Quellen.
  *   6. Lauf anlegen, die Werkzeug-Schleife treiben, jeden Schritt mitschreiben,
  *      Lauf abschließen. Die Grenzen des Flows (Runden, Zeitlimit) greifen hier.
  *
@@ -19,6 +23,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const registry = require('./flowRegistry');
+const appFlows = require('../app/appFlows');
 const runStore = require('./runStore');
 const { buildTools } = require('./toolRegistry');
 const { runFlowLoop } = require('./toolLoop');
@@ -85,6 +90,10 @@ function buildUserInput(declared = [], werte = {}) {
  * @param {string} p.flowName
  * @param {object} [p.args] - Argumentwerte (name → Wert).
  * @param {number} p.userId
+ * @param {string|null} [p.appId] - Die App, deren Flow das ist (C6). Ohne sie
+ *   ist es ein Flow der Plattform.
+ * @param {'test'|'live'|null} [p.stand] - Ihr Stand. Zusammen mit `appId`
+ *   gesetzt oder beide nicht.
  * @param {(evt:object)=>void} [p.onEvent] - Live-Ereignisse (Schritt 12 hängt sich hier ein).
  * @param {object} [deps] - Für Tests austauschbar.
  * @returns {Promise<object>} Der abgeschlossene Lauf (aus runStore).
@@ -94,6 +103,8 @@ async function runFlow(
     flowName,
     args = {},
     userId,
+    appId = null,
+    stand = null,
     onEvent,
     existingRunId = null,
     signal,
@@ -106,7 +117,14 @@ async function runFlow(
   deps = {}
 ) {
   const {
-    loadFlow = registry.loadFlow,
+    // Zwei Herkuenfte, ein Aufruf: die Flows der Plattform liegen als Dateien
+    // unter `/arasul/flows/`, die einer App als Zeilen in `app_flows` (C6).
+    // Welche gemeint ist, sagt `appId` -- nicht der Aufrufer mit einem
+    // zweiten Parameter, und nicht ein Praefix im Namen. Ein Name wie
+    // `urlaub/bericht` waere ein zusammengesetzter Schluessel in einem
+    // Textfeld, und jeder, der ihn zerlegt, zerlegt ihn ein bisschen anders.
+    loadFlow = ({ flowName: name, appId: app, stand: st }) =>
+      app ? appFlows.lade({ appId: app, stand: st, name }) : registry.loadFlow(name),
     store = runStore,
     makeTools = buildTools,
     runLoop = runFlowLoop,
@@ -115,7 +133,7 @@ async function runFlow(
     pruefe = pruefungService.pruefeUndKorrigiere,
   } = deps;
 
-  const geladen = await loadFlow(flowName);
+  const geladen = await loadFlow({ flowName, appId, stand });
 
   const { werte } = resolveArguments(geladen.argumente, args);
 
@@ -170,7 +188,7 @@ async function runFlow(
   //    ID sofort streambar ist, und reicht ihn hier herein.
   const run = existingRunId
     ? { id: existingRunId }
-    : await store.createRun({ userId, flowName, arguments: werte });
+    : await store.createRun({ userId, flowName, appId, stand, arguments: werte });
 
   // Zähler und offene Schritte (weiter unten von `weiter` und dem stepRecorder
   // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.
