@@ -26,6 +26,15 @@
 # Wegwerf-Schluessel an und widerruft ihn am Ende; das ist derselbe Weg, den
 # `scripts/util/kit-schluessel.sh` am Geraet geht, nur ueber die Schnittstelle.
 #
+# WARUM HIER NICHT AUF DIE APP GEWARTET WIRD. `anmeldung.sh` traegt seit C7
+# `arasul_warte_auf_app`, weil eine Abnahme, die den Pfad einer App direkt nach
+# dem Einspielen oder Schalten aufruft, sonst Arasuls Auffangpfad misst
+# (404 "Endpoint not found") und ihn der App zuschreibt. Dieses Skript ruft
+# `/apps/<id>/...` an keiner Stelle auf: es misst die SCHNITTSTELLE, nicht die
+# App dahinter, und `backend.laeuft` kommt von Docker und nicht von Traefik.
+# Ein Warten ohne Aufruf danach waere eine Zeile, die nichts misst. Wer hier
+# einen Aufruf auf den Pfad der App ergaenzt, ergaenzt das Warten mit.
+#
 # Aufruf vom Arbeitsrechner ueber einen SSH-Tunnel:
 #   ssh -f -N -L 8443:localhost:443 jetson
 #   ARASUL_PASSWORT=... bash scripts/test/deploy-abnahme.sh

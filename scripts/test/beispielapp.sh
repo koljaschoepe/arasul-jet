@@ -20,7 +20,10 @@
 # Was `einspielen` tut, in der Reihenfolge:
 #   1. `app.json` lesen (Kennung und Version kommen von dort, nicht von hier)
 #   2. das Paket nach `data/apps/<id>/<version>/` kopieren, samt `backend/`
+#      und `flows/`
 #   3. `POST /api/apps/<id>/einspielen` -- ab hier arbeitet die Plattform
+#   4. die App dem angemeldeten Administrator freigeben (ARASUL_FREIGABE=nein
+#      laesst es bleiben)
 #
 # Schritt 3 ist der eigentliche Punkt: das Geraet BAUT das Image aus dem
 # `backend/`-Ordner (das Manifest sagt mit `backend.bauen`, wo er liegt),
@@ -109,8 +112,13 @@ case "$BEFEHL" in
     # damit eine Datei, die aus dem Paket verschwunden ist, nicht liegenbleibt
     # und weiter ausgeliefert wird.
     rm -rf "${ZIEL:?}"/* 2>/dev/null
-    # `backend/` gehoert seit C5 dazu: das Geraet baut daraus das Image.
-    cp -R "$QUELLE/app.json" "$QUELLE/frontend" "$QUELLE/backend" "$ZIEL/" || exit 1
+    # `backend/` gehoert seit C5 dazu: das Geraet baut daraus das Image,
+    # `flows/` seit C6 -- das Manifest verspricht sie, und ein Paket, das sie
+    # nicht mitbringt, weist das Geraet mit 400 ab ("Das Manifest verspricht
+    # Flows in flows/, im Paket gibt es den Ordner nicht"). Genau daran ist das
+    # Einspielen am Orin am 27.08.2026 gescheitert.
+    cp -R "$QUELLE/app.json" "$QUELLE/frontend" "$QUELLE/backend" "$QUELLE/flows" \
+      "$ZIEL/" || exit 1
 
     echo "2/3  Anmelden"
     TOKEN=$(arasul_token)
@@ -129,6 +137,30 @@ case "$BEFEHL" in
       echo "ROT   HTTP $CODE"
       exit 1
     fi
+    # Die Freigabe. Ohne sie steht die Forward-Auth aus C4 vor jeder Seite und
+    # vor jedem Aufruf an das Backend der App -- auch fuer den Administrator,
+    # der sie gerade eingespielt hat (es gibt keine Sonderregel fuer ihn,
+    # `services/app/appZugang.js`). Und ohne den Weg durch die App darf sie
+    # ihren Flow nicht starten. Wer das nicht will, setzt ARASUL_FREIGABE=nein.
+    if [ "${ARASUL_FREIGABE:-ja}" = "ja" ]; then
+      ICH=$(api GET /api/auth/me | sed '$d' |
+        python3 -c 'import sys,json
+try: print(json.load(sys.stdin)["user"]["id"])
+except Exception: print("")' 2>/dev/null)
+      if [ -n "$ICH" ]; then
+        FREI=$(api POST /api/freigaben "{\"app_id\":\"$ID\",\"benutzer_id\":$ICH}" | tail -n1)
+        case "$FREI" in
+          200 | 201) echo "Freigegeben fuer Benutzer $ICH (HTTP $FREI)." ;;
+          *) echo "ACHTUNG  Freigabe fehlgeschlagen (HTTP $FREI). Ohne sie ist die App gesperrt." ;;
+        esac
+      else
+        echo "ACHTUNG  Eigene Benutzerkennung nicht lesbar, keine Freigabe angelegt."
+      fi
+    else
+      echo "Keine Freigabe angelegt (ARASUL_FREIGABE=nein). Die App bleibt gesperrt,"
+      echo "bis ein Admin sie freigibt:  POST /api/freigaben {app_id, benutzer_id}"
+    fi
+
     echo "Eingespielt. Jetzt zu erreichen unter:"
     if [ "$STAND" = "test" ]; then
       echo "  $ARASUL_URL/apps/$ID/test/        und  $ARASUL_URL/apps/$ID/test/api/hallo"
