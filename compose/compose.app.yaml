@@ -112,6 +112,11 @@ services:
       COMPOSE_PROJECT_DIR: ${COMPOSE_PROJECT_DIR:-.}
       DOCKER_HOST: tcp://docker-proxy:2375
       DOCKER_NETWORK: arasul-platform_arasul-backend
+      # Welcher Stack. Containernamen sind global und nicht je Compose-Projekt;
+      # ohne dieses Praefix spraeche das Backend des Pruefstands den
+      # Sicherungsdienst des Betriebs an (Phase C9,
+      # `services/betrieb/sicherungsdienst.js`).
+      CONTAINER_PREFIX: ${CONTAINER_PREFIX:-}
     volumes:
       # Sechste Trennung fuer den Pruefstand (siehe compose/pruefstand.vars):
       # der Werksreset SCHREIBT in diese Datei, er entwertet ADMIN_PASSWORD.

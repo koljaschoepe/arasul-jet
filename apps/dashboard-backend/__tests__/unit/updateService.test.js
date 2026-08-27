@@ -27,8 +27,14 @@ jest.mock('../../src/database', () => ({
 }));
 
 jest.mock('../../src/services/core/docker', () => ({
+  docker: { getContainer: jest.fn() },
   getAllServicesStatus: jest.fn(),
 }));
+
+// Der Aktualisierungsserver wird nicht wirklich gefragt. Wichtig fuer den
+// Test „ohne eigene Fassung wird gar nicht erst gefragt": ohne diese Attrappe
+// liefe der Aufruf in einen echten Netzwerk-Zeitablauf.
+jest.mock('axios', () => ({ get: jest.fn(), request: jest.fn() }));
 
 const mockExecFile = jest.fn();
 jest.mock('child_process', () => ({
@@ -136,7 +142,9 @@ describe('UpdateService', () => {
     it('should throw on invalid version format', () => {
       expect(() => updateService.compareVersions('1.0', '1.0.0')).toThrow(/Invalid version format/);
       expect(() => updateService.compareVersions('abc', '1.0.0')).toThrow(/Invalid version format/);
-      expect(() => updateService.compareVersions('1.0.0', 'v1.0.0')).toThrow(/Invalid version format/);
+      expect(() => updateService.compareVersions('1.0.0', 'v1.0.0')).toThrow(
+        /Invalid version format/
+      );
     });
 
     it('should handle equal complex versions', () => {
@@ -174,7 +182,9 @@ describe('UpdateService', () => {
       mockFs.access
         .mockResolvedValueOnce(undefined) // public key exists
         .mockRejectedValueOnce(new Error('ENOENT')); // sig not found
-      mockFs.readFile.mockResolvedValueOnce('-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----');
+      mockFs.readFile.mockResolvedValueOnce(
+        '-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----'
+      );
 
       const result = await updateService.verifySignature(updatePath, sigPath);
 
@@ -279,9 +289,7 @@ describe('UpdateService', () => {
     });
 
     it('should return parsed state', async () => {
-      mockFs.readFile.mockResolvedValue(
-        JSON.stringify({ status: 'completed', version: '1.2.0' })
-      );
+      mockFs.readFile.mockResolvedValue(JSON.stringify({ status: 'completed', version: '1.2.0' }));
 
       const state = await updateService.getUpdateState();
 
@@ -355,9 +363,7 @@ describe('UpdateService', () => {
 
     it('should recurse into subdirectories', async () => {
       mockFs.readdir
-        .mockResolvedValueOnce([
-          { name: 'subdir', isFile: () => false, isDirectory: () => true },
-        ]) // /media/usb
+        .mockResolvedValueOnce([{ name: 'subdir', isFile: () => false, isDirectory: () => true }]) // /media/usb
         .mockResolvedValueOnce([
           { name: 'nested.araupdate', isFile: () => true, isDirectory: () => false },
         ]); // /media/usb/subdir
@@ -401,56 +407,94 @@ describe('UpdateService', () => {
       updateService.validateUpdate = origValidate;
     });
   });
+  // =========================================================================
+  // Ohne Fassung aus dem Bau wird nicht geraten (Phase C9, 27.08.2026)
+  // =========================================================================
+  //
+  // `versionFuerVergleich()` gibt ohne `SYSTEM_VERSION` die 0.0.0 zurueck. Fuer
+  // die Frage „ist das Angebotene neuer" ist das richtig, fuer die Gegenfrage
+  // falsch: jedes Paket mit einer `min_version` ueber 0.0.0 wurde abgelehnt --
+  // mit der Begruendung „Current version 0.0.0 is below minimum required
+  // version 1.0.0". Wer das liest, sucht den Fehler im Paket.
+  describe('ohne SYSTEM_VERSION', () => {
+    const vorher = process.env.SYSTEM_VERSION;
+    beforeEach(() => {
+      delete process.env.SYSTEM_VERSION;
+    });
+    afterAll(() => {
+      if (vorher === undefined) delete process.env.SYSTEM_VERSION;
+      else process.env.SYSTEM_VERSION = vorher;
+    });
+
+    it('lehnt ein Paket ab und nennt die eigene fehlende Fassung als Grund', async () => {
+      const origVerify = updateService.verifySignature;
+      const origExtract = updateService.extractManifest;
+      updateService.verifySignature = jest.fn().mockResolvedValue({ valid: true });
+      updateService.extractManifest = jest.fn().mockResolvedValue({
+        version: '1.4.0',
+        min_version: '1.0.0',
+        components: [],
+      });
+
+      const ergebnis = await updateService.validateUpdate('/tmp/update.araupdate');
+
+      expect(ergebnis.valid).toBe(false);
+      expect(ergebnis.versionBekannt).toBe(false);
+      expect(ergebnis.error).toMatch(/kennt seine eigene Fassung nicht/);
+      // Und ausdruecklich NICHT die alte, irrefuehrende Begruendung.
+      expect(ergebnis.error).not.toMatch(/0\.0\.0 is below/);
+
+      updateService.verifySignature = origVerify;
+      updateService.extractManifest = origExtract;
+    });
+
+    it('fragt den Aktualisierungsserver gar nicht erst', async () => {
+      const axios = require('axios');
+      const ergebnis = await updateService.checkForUpdates();
+
+      expect(ergebnis.available).toBe(false);
+      expect(ergebnis.versionBekannt).toBe(false);
+      expect(ergebnis.currentVersion).toBeNull();
+      expect(axios.get).not.toHaveBeenCalled();
+    });
+  });
 
   // =========================================================================
-  // checkAllServicesHealthy
+  // Ein Weg, der nicht gehen kann, sagt das VORHER (Phase C9)
   // =========================================================================
-  describe('checkAllServicesHealthy', () => {
-    const dockerService = require('../../src/services/core/docker');
-
-    it('should return true when all critical services are healthy', async () => {
-      dockerService.getAllServicesStatus.mockResolvedValue({
-        llm: { status: 'healthy' },
-        embeddings: { status: 'healthy' },
-        postgres: { status: 'healthy' },
-        dashboard_backend: { status: 'healthy' },
+  describe('wegPruefen', () => {
+    it('meldet den fehlenden docker-Aufruf statt ihn mitten im Lauf zu treffen', async () => {
+      mockExecFile.mockImplementationOnce((cmd, args, cb) => {
+        const fehler = new Error('spawn docker ENOENT');
+        fehler.code = 'ENOENT';
+        cb(fehler);
       });
 
-      const result = await updateService.checkAllServicesHealthy();
+      const weg = await updateService.wegPruefen();
 
-      expect(result).toBe(true);
+      expect(weg.moeglich).toBe(false);
+      expect(weg.grund).toMatch(/kein `docker`-Programm/);
+      expect(weg.grund).toMatch(/deploy-local\.sh/);
     });
 
-    it('should return false when a critical service is unhealthy', async () => {
-      dockerService.getAllServicesStatus.mockResolvedValue({
-        llm: { status: 'unhealthy' },
-        embeddings: { status: 'healthy' },
-        postgres: { status: 'healthy' },
-        dashboard_backend: { status: 'healthy' },
+    it('applyUpdate bricht ab, bevor irgendetwas gesichert oder ersetzt wird', async () => {
+      mockExecFile.mockImplementationOnce((cmd, args, cb) => {
+        const fehler = new Error('spawn docker ENOENT');
+        fehler.code = 'ENOENT';
+        cb(fehler);
       });
+      const origValidate = updateService.validateUpdate;
+      updateService.validateUpdate = jest.fn();
 
-      const result = await updateService.checkAllServicesHealthy();
+      const ergebnis = await updateService.applyUpdate('/tmp/update.araupdate');
 
-      expect(result).toBe(false);
-    });
+      expect(ergebnis.success).toBe(false);
+      expect(ergebnis.wegMoeglich).toBe(false);
+      // Nicht einmal geprueft wurde das Paket -- der Weg ist vorher zu Ende.
+      expect(updateService.validateUpdate).not.toHaveBeenCalled();
+      expect(updateService.updateInProgress).toBe(false);
 
-    it('should return false when a critical service is missing', async () => {
-      dockerService.getAllServicesStatus.mockResolvedValue({
-        llm: { status: 'healthy' },
-        // postgres missing
-      });
-
-      const result = await updateService.checkAllServicesHealthy();
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false on error', async () => {
-      dockerService.getAllServicesStatus.mockRejectedValue(new Error('Docker down'));
-
-      const result = await updateService.checkAllServicesHealthy();
-
-      expect(result).toBe(false);
+      updateService.validateUpdate = origValidate;
     });
   });
 });

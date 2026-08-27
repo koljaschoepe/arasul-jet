@@ -3,7 +3,7 @@
  * Handles system updates via dashboard upload
  */
 
-const { versionFuerVergleich } = require('../../utils/version');
+const { versionFuerAnzeige, versionFuerVergleich, versionBekannt } = require('../../utils/version');
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -14,7 +14,12 @@ const logger = require('../../utils/logger');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const updateService = require('../../services/app/updateService');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  ServiceUnavailableError,
+} = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { validateBody } = require('../../middleware/validate');
 const {
@@ -159,6 +164,15 @@ router.post(
     }
     const file_path = resolvedPath;
 
+    // Kann dieses Geraet ein Paket ueberhaupt einspielen? Die Frage kommt VOR
+    // der Antwort `started`. Bis zum 27.08.2026 antwortete dieser Endpunkt
+    // immer `started` und der Ablauf scheiterte danach still an einem
+    // `docker`, das es im Backend-Container nicht gibt.
+    const weg = await updateService.wegPruefen();
+    if (!weg.moeglich) {
+      throw new ServiceUnavailableError(weg.grund);
+    }
+
     // Check if update is already in progress
     const currentState = await updateService.getUpdateState();
     if (currentState && currentState.status === 'in_progress') {
@@ -231,16 +245,35 @@ router.get(
   asyncHandler(async (req, res) => {
     const state = await updateService.getUpdateState();
 
+    // Die eigene Fassung steht IMMER dabei, auch im Ruhezustand. Sie ist die
+    // erste Frage, die jemand an den Aktualisierungsweg stellt, und die
+    // ehrliche Antwort lautet an einem Vorseriengeraet: unbekannt. Sie kommt
+    // aus dem Bau (Phase C10); bis dahin laesst sich weder pruefen noch
+    // einspielen, und das steht hier, statt sich hinter einer 0.0.0 zu
+    // verstecken.
+    const fassung = {
+      version: versionBekannt() ? versionFuerVergleich() : null,
+      anzeige: versionFuerAnzeige(),
+      bekannt: versionBekannt(),
+    };
+    const weg = await updateService.wegPruefen();
+
     if (!state) {
       return res.json({
         status: 'idle',
         message: 'No update in progress',
+        fassung,
+        einspielenMoeglich: weg.moeglich,
+        einspielenGrund: weg.grund,
         timestamp: new Date().toISOString(),
       });
     }
 
     res.json({
       ...state,
+      fassung,
+      einspielenMoeglich: weg.moeglich,
+      einspielenGrund: weg.grund,
       timestamp: new Date().toISOString(),
     });
   })

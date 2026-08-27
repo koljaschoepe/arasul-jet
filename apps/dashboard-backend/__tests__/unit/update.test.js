@@ -15,7 +15,11 @@ jest.mock('../../src/utils/logger', () => ({
 jest.mock('../../src/services/app/updateService', () => ({
     validateUpdate: jest.fn(),
     getUpdateState: jest.fn(),
-    applyUpdate: jest.fn()
+    applyUpdate: jest.fn(),
+    // Seit Phase C9 fragt die Route VOR jeder Antwort, ob dieses Geraet ein
+    // Paket ueberhaupt einspielen kann. Voreinstellung hier: ja -- die Tests,
+    // die den anderen Fall messen, setzen es selbst.
+    wegPruefen: jest.fn().mockResolvedValue({ moeglich: true, grund: null })
 }));
 
 jest.mock('../../src/middleware/auth', () => ({
@@ -172,6 +176,25 @@ describe('Update API Routes', () => {
 
             expect(response.status).toBe(409);
             expect(response.body.error.message).toBe('Update already in progress');
+        });
+
+        it('sagt vorher, wenn dieses Geraet gar nicht einspielen kann', async () => {
+            // Bis zum 27.08.2026 antwortete dieser Endpunkt IMMER `started` und
+            // der Ablauf scheiterte danach still an einem `docker`, das es im
+            // Backend-Container nicht gibt. Wer `started` liest, wartet auf ein
+            // Ende, das nie kommt.
+            updateService.wegPruefen.mockResolvedValueOnce({
+                moeglich: false,
+                grund: 'im Backend-Container gibt es kein `docker`-Programm'
+            });
+
+            const response = await request(app)
+                .post('/api/update/apply')
+                .send({ file_path: '/arasul/updates/update.araupdate' });
+
+            expect(response.status).toBe(503);
+            expect(response.body.error.message).toMatch(/docker/);
+            expect(updateService.applyUpdate).not.toHaveBeenCalled();
         });
 
         it('should reject if file path missing', async () => {

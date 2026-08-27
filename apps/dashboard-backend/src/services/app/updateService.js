@@ -5,13 +5,12 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const { versionFuerVergleich } = require('../../utils/version');
+const { versionFuerVergleich, versionBekannt } = require('../../utils/version');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../../utils/logger');
 const db = require('../../database');
-const dockerService = require('../core/docker');
-const { spawnToFile, spawnFromFile } = require('../../utils/processHelpers');
+const { spawnFromFile } = require('../../utils/processHelpers');
 const { verifySignature } = require('./updateSignatureService');
 
 const execFileAsync = promisify(execFile);
@@ -19,7 +18,6 @@ const execFileAsync = promisify(execFile);
 const axios = require('axios');
 
 const UPDATE_STATE_FILE = '/arasul/updates/update_state.json';
-const BACKUP_DIR = '/arasul/backups';
 const UPDATES_DIR = '/arasul/updates';
 const UPDATE_SERVER_URL = process.env.UPDATE_SERVER_URL || 'https://updates.arasul.de';
 const UPDATE_CHANNEL = process.env.UPDATE_CHANNEL || 'stable';
@@ -96,7 +94,28 @@ class UpdateService {
         return { valid: false, error: 'Invalid manifest structure' };
       }
 
-      // 4. Check version compatibility
+      // 4. Kennt dieses Geraet seine eigene Fassung?
+      //
+      // Wenn nicht, laesst sich NICHTS ueber die Vertraeglichkeit sagen, und
+      // das muss so dastehen. Bis zum 27.08.2026 rechnete diese Pruefung
+      // stillschweigend mit `0.0.0` weiter und antwortete „Current version
+      // 0.0.0 is below minimum required version 1.0.0". Wer das liest, sucht
+      // den Fehler im Paket -- der Fehler ist aber, dass das Geraet keine
+      // Fassung traegt. `SYSTEM_VERSION` setzt der Bau (Phase C10).
+      if (!versionBekannt()) {
+        return {
+          valid: false,
+          error:
+            'Dieses Geraet kennt seine eigene Fassung nicht (SYSTEM_VERSION ist nicht gesetzt). ' +
+            `Ob ${manifest.version} dazu passt, laesst sich damit nicht entscheiden -- ` +
+            'weder ob es neuer ist noch ob die verlangte Mindestfassung ' +
+            `(${manifest.min_version}) erreicht ist. Die Fassung kommt aus dem Bau; ` +
+            'bis dahin wird an diesem Geraet nicht ueber die Schnittstelle aktualisiert.',
+          versionBekannt: false,
+        };
+      }
+
+      // 5. Check version compatibility
       const currentVersion = versionFuerVergleich();
 
       if (this.compareVersions(manifest.version, currentVersion) <= 0) {
@@ -122,62 +141,59 @@ class UpdateService {
   }
 
   /**
-   * Create backup before update
+   * Kann dieses Geraet ein Paket ueberhaupt einspielen?
+   *
+   * Die Frage muss VOR der ersten Aenderung beantwortet werden, und bis zum
+   * 27.08.2026 wurde sie nie gestellt. `loadDockerImages` und `updateServices`
+   * rufen `docker` und `docker-compose` als PROGRAMME auf; im Backend-Image
+   * gibt es beide nicht (`apk add git tzdata`, siehe Dockerfile). Der Aufruf
+   * scheitert mit ENOENT -- aber erst nach der Sicherung, mitten im Lauf, und
+   * `POST /api/update/apply` hatte da laengst `started` geantwortet.
+   *
+   * Ein Weg, der nicht gehen kann, sagt das jetzt vorher. Was am Geraet
+   * WIRKLICH aktualisiert, ist der GitOps-Deploy (`.github/workflows/deploy.yml`
+   * -> `scripts/deploy/deploy-local.sh`) beziehungsweise `./arasul update`.
+   *
+   * @returns {Promise<{moeglich: boolean, grund: string|null}>}
+   */
+  async wegPruefen() {
+    try {
+      await execFileAsync('docker', ['version', '--format', '{{.Server.Version}}']);
+    } catch (fehler) {
+      const warum =
+        fehler.code === 'ENOENT'
+          ? 'im Backend-Container gibt es kein `docker`-Programm'
+          : `docker antwortet nicht (${fehler.message})`;
+      return {
+        moeglich: false,
+        grund:
+          `Ein Paket laesst sich an diesem Geraet nicht ueber die Schnittstelle einspielen: ${warum}. ` +
+          'Aktualisiert wird ueber den Deploy (scripts/deploy/deploy-local.sh) oder `./arasul update` ' +
+          'am Geraet selbst. Pruefen und Herunterladen eines Pakets geht hier weiterhin.',
+      };
+    }
+    return { moeglich: true, grund: null };
+  }
+
+  /**
+   * Die Sicherung vor der Aktualisierung.
+   *
+   * Sie geht seit Phase C9 durch DENSELBEN Weg wie jede andere Sicherung
+   * (`services/betrieb/sicherungsdienst.js` -> `backup.sh` im
+   * Sicherungs-Container). Vorher stand hier eine zweite, eigene Fassung:
+   * `docker exec postgres-db pg_dump` in einen Ordner unter `/arasul/backups`
+   * -- ein Programm, das es im Container nicht gibt, in einen Ordner, der
+   * nur-lesend eingehaengt ist. Sie hat nie funktioniert, und sie sicherte
+   * ausserdem weder die Pakete der Apps noch die Flows.
    */
   async createBackup() {
-    try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupPath = path.join(BACKUP_DIR, `backup_${timestamp}`);
-
-      await fs.mkdir(backupPath, { recursive: true });
-
-      logger.info(`Creating backup at ${backupPath}`);
-
-      // SECURITY: Use execFile/spawn with array args to prevent shell injection
-
-      // 1. Backup database (pipe docker exec stdout to file)
-      const dbBackupPath = path.join(backupPath, 'database.sql');
-      await spawnToFile(
-        'docker',
-        ['exec', 'postgres-db', 'pg_dump', '-U', 'arasul', '-d', 'arasul_db'],
-        dbBackupPath
-      );
-
-      // 2. Save current container versions
-      const { stdout: psOutput } = await execFileAsync('docker', [
-        'ps',
-        '--format',
-        '{{.Names}}:{{.Image}}',
-      ]);
-      const containerVersions = {};
-      psOutput
-        .split('\n')
-        .filter(Boolean)
-        .forEach(line => {
-          const [name, image] = line.split(':');
-          containerVersions[name] = image;
-        });
-
-      await fs.writeFile(
-        path.join(backupPath, 'container_versions.json'),
-        JSON.stringify(containerVersions, null, 2)
-      );
-
-      // 3. Backup docker-compose.yml (use fs.copyFile instead of cp)
-      await fs.copyFile('/arasul/docker-compose.yml', path.join(backupPath, 'docker-compose.yml'));
-
-      // 4. Backup .env (use fs.copyFile instead of cp)
-      await fs.copyFile('/arasul/config/.env', path.join(backupPath, '.env'));
-
-      // 5. Save current system version
-      await fs.writeFile(path.join(backupPath, 'version.txt'), versionFuerVergleich());
-
-      logger.info(`Backup created successfully: ${backupPath}`);
-      return { success: true, backupPath };
-    } catch (error) {
-      logger.error(`Backup creation failed: ${error.message}`);
-      return { success: false, error: error.message };
+    const sicherungsdienst = require('../betrieb/sicherungsdienst');
+    const ergebnis = await sicherungsdienst.sichereJetzt();
+    if (!ergebnis.erfolg) {
+      return { success: false, error: ergebnis.ausgabe || 'Sicherung fehlgeschlagen' };
     }
+    logger.info('Sicherung vor der Aktualisierung liegt vor');
+    return { success: true, bericht: ergebnis.bericht };
   }
 
   /**
@@ -388,8 +404,18 @@ class UpdateService {
       return { success: false, error: 'Update already in progress' };
     }
 
+    // ERST fragen, ob dieser Weg an diesem Geraet ueberhaupt gangbar ist, DANN
+    // etwas anfassen. Bis zum 27.08.2026 lief der Ablauf los, sicherte und
+    // scheiterte danach an einem `docker`, das es im Container nicht gibt --
+    // und die Antwort an den Aufrufer war laengst `started`.
+    const weg = await this.wegPruefen();
+    if (!weg.moeglich) {
+      logger.warn(`Aktualisierung abgelehnt: ${weg.grund}`);
+      return { success: false, error: weg.grund, wegMoeglich: false };
+    }
+
     this.updateInProgress = true;
-    let backupPath = null;
+    let gesichert = false;
 
     try {
       // 1. Validate update
@@ -415,7 +441,7 @@ class UpdateService {
       if (!backupResult.success) {
         throw new Error(`Backup failed: ${backupResult.error}`);
       }
-      backupPath = backupResult.backupPath;
+      gesichert = true;
 
       // 4. Load Docker images
       await this.saveUpdateState({ currentStep: 'loading_images' });
@@ -462,13 +488,12 @@ class UpdateService {
         `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
                  VALUES ($1, $2, $3, $4, $5)`,
         [
-          // Heute unerreichbar: createBackup wirft oben, wenn kein Pfad
-          // herauskommt. Trotzdem kein festes '1.0.0' mehr: genau so eine
-          // vergessene Zeile ist der Grund, warum dieselbe Frage vorher an
-          // fuenfzehn Stellen verschieden beantwortet wurde.
-          backupResult.backupPath
-            ? await fs.readFile(path.join(backupPath, 'version.txt'), 'utf8')
-            : versionFuerVergleich(),
+          // Die Fassung, von der aus aktualisiert wurde. Sie kommt aus
+          // derselben Quelle wie ueberall sonst; bis Phase C9 wurde sie aus
+          // einer `version.txt` im Sicherungsordner gelesen, die dort nie
+          // ankam, weil `createBackup` den Ordner gar nicht beschreiben
+          // konnte.
+          versionFuerVergleich(),
           manifest.version,
           'completed',
           'dashboard',
@@ -488,9 +513,9 @@ class UpdateService {
       logger.error(`Update failed: ${error.message}`);
 
       // Attempt rollback
-      if (backupPath) {
+      if (gesichert) {
         logger.info('Attempting automatic rollback...');
-        const rollbackResult = await this.rollback(backupPath);
+        const rollbackResult = await this.rollback();
 
         if (rollbackResult.success) {
           logger.info('Rollback completed successfully');
@@ -511,83 +536,43 @@ class UpdateService {
   }
 
   /**
-   * Rollback to previous version
+   * Zurueck auf den Stand vor der Aktualisierung.
+   *
+   * Seit Phase C9 derselbe Weg wie jede andere Wiederherstellung
+   * (`services/betrieb/sicherungsdienst.js` -> `wiederherstellen.sh`): die
+   * Sicherung, die `createBackup` eben angelegt hat, kommt zurueck, und
+   * danach baut das Backend die App-Container aus ihren Paketen neu.
+   *
+   * WAS DIESER RUECKWEG NICHT KANN, und das gehoert dazu gesagt: er holt
+   * DATEN zurueck, keine Images. Ein Container, der schon mit einer neuen
+   * Fassung laeuft, laeuft danach weiter mit ihr. Solange `applyUpdate` an
+   * `wegPruefen` scheitert, ist das kein offener Fall -- es wird kein Image
+   * getauscht, also muss auch keines zurueck. Wer das aendert (Phase C10),
+   * aendert diese Stelle mit.
+   *
+   * Bis hierher stand an dieser Stelle etwas anderes: `docker-compose stop`,
+   * `docker exec -i postgres-db psql`, `.env` und `docker-compose.yml`
+   * zurueckkopieren. Keine dieser Zeilen konnte je laufen -- die Programme
+   * fehlen im Container, und `/arasul/docker-compose.yml` ist dort nicht
+   * eingehaengt. Ein Rueckweg, den niemand je gegangen ist, ist keiner.
    */
-  async rollback(backupPath) {
+  async rollback() {
     try {
-      logger.info(`Starting rollback from backup: ${backupPath}`);
+      logger.info('Rollback: die Sicherung von vor der Aktualisierung kommt zurueck');
+      const sicherungsdienst = require('../betrieb/sicherungsdienst');
+      const ergebnis = await sicherungsdienst.stelleWiederHer({ durch: null });
 
-      // SECURITY: Use execFile/spawn with array args to prevent shell injection
-
-      // 1. Stop all application services
-      await execFileAsync('docker-compose', ['-f', '/arasul/docker-compose.yml', 'stop']);
-
-      // 2. Restore database (pipe file to psql stdin)
-      const dbBackupPath = path.join(backupPath, 'database.sql');
-      await spawnFromFile(
-        'docker',
-        ['exec', '-i', 'postgres-db', 'psql', '-U', 'arasul', '-d', 'arasul_db'],
-        dbBackupPath
-      );
-
-      // 3. Restore docker-compose.yml (use fs.copyFile instead of cp)
-      await fs.copyFile(path.join(backupPath, 'docker-compose.yml'), '/arasul/docker-compose.yml');
-
-      // 4. Restore .env (use fs.copyFile instead of cp)
-      await fs.copyFile(path.join(backupPath, '.env'), '/arasul/config/.env');
-
-      // 5. Load previous container versions
-      const containerVersionsPath = path.join(backupPath, 'container_versions.json');
-      const _containerVersions = JSON.parse(await fs.readFile(containerVersionsPath, 'utf8'));
-
-      // Pull previous images if needed (they should still be in Docker cache)
-      logger.info('Restoring previous container versions...');
-
-      // 6. Restart services
-      await execFileAsync('docker-compose', ['-f', '/arasul/docker-compose.yml', 'up', '-d']);
-
-      // 7. Wait for services to be healthy with timeout
-      // HIGH-003 FIX: Poll for service health instead of fixed delay
-      const MAX_WAIT_MS = 30000; // 30 seconds max
-      const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
-      const startTime = Date.now();
-      let allHealthy = false;
-
-      logger.info('Waiting for services to become healthy after rollback...');
-
-      while (Date.now() - startTime < MAX_WAIT_MS) {
-        allHealthy = await this.checkAllServicesHealthy();
-        if (allHealthy) {
-          logger.info(`All services healthy after ${Math.round((Date.now() - startTime) / 1000)}s`);
-          break;
-        }
-
-        logger.debug(
-          `Waiting for services... (${Math.round((Date.now() - startTime) / 1000)}s elapsed)`
-        );
-        await new Promise(resolve => {
-          setTimeout(resolve, POLL_INTERVAL_MS);
-        });
+      if (!ergebnis.erfolg) {
+        return { success: false, error: ergebnis.ausgabe || 'Wiederherstellung fehlgeschlagen' };
       }
 
-      if (!allHealthy) {
-        const elapsed = Math.round((Date.now() - startTime) / 1000);
-        logger.error(`Services failed to become healthy after ${elapsed}s`);
-        throw new Error('Services failed to become healthy after rollback');
-      }
+      const vorher = versionFuerVergleich();
+      logger.info(`Rollback fertig, Stand ${vorher}`);
 
-      // 8. Restore system version
-      // BUG-008 FIX: Write version to file instead of modifying process.env
-      const previousVersion = await fs.readFile(path.join(backupPath, 'version.txt'), 'utf8');
-      await fs.writeFile('/arasul/config/version.txt', previousVersion.trim(), 'utf8');
-
-      logger.info(`Rollback completed successfully to version ${previousVersion.trim()}`);
-
-      // Log rollback event
       await db.query(
         `INSERT INTO update_events (version_from, version_to, status, source)
                  VALUES ($1, $2, $3, $4)`,
-        ['failed_update', previousVersion, 'rolled_back', 'automatic']
+        ['failed_update', vorher, 'rolled_back', 'automatic']
       );
 
       return { success: true };
@@ -669,33 +654,6 @@ class UpdateService {
   }
 
   /**
-   * HIGH-003 FIX: Check if all critical services are healthy
-   * @returns {Promise<boolean>} true if all services healthy, false otherwise
-   */
-  async checkAllServicesHealthy() {
-    try {
-      const services = await dockerService.getAllServicesStatus();
-
-      // Critical services that must be healthy
-      const criticalServices = ['llm', 'embeddings', 'postgres', 'dashboard_backend'];
-
-      for (const serviceName of criticalServices) {
-        const service = services[serviceName];
-        if (!service || service.status !== 'healthy') {
-          logger.warn(`Service ${serviceName} is not healthy: ${service?.status || 'unknown'}`);
-          return false;
-        }
-      }
-
-      logger.debug('All critical services are healthy');
-      return true;
-    } catch (error) {
-      logger.error(`Error checking service health: ${error.message}`);
-      return false;
-    }
-  }
-
-  /**
    * Scan for USB devices with update packages
    * Checks /media/ and /mnt/ for mounted drives containing .araupdate files
    */
@@ -772,6 +730,25 @@ class UpdateService {
   async checkForUpdates() {
     const currentVersion = versionFuerVergleich();
 
+    // Ohne eigene Fassung wird gar nicht erst gefragt.
+    //
+    // Der Aktualisierungsserver bekaeme `current_version=0.0.0` und boete
+    // daraufhin jede Fassung an, die es je gab -- eine Antwort, die nichts
+    // ueber dieses Geraet aussagt und die `validateUpdate` gleich darauf
+    // ablehnen wuerde. Eine Frage, deren Antwort man nicht gebrauchen kann,
+    // wird nicht gestellt; stattdessen steht hier, woran es liegt.
+    if (!versionBekannt()) {
+      return {
+        available: false,
+        currentVersion: null,
+        versionBekannt: false,
+        channel: UPDATE_CHANNEL,
+        error:
+          'Dieses Geraet kennt seine eigene Fassung nicht (SYSTEM_VERSION ist nicht gesetzt). ' +
+          'Solange sie nicht aus dem Bau kommt, laesst sich nicht sagen, ob es etwas Neueres gibt.',
+      };
+    }
+
     // Collect device info for update server (helps serve correct architecture/JetPack builds)
     let deviceInfo = {};
     try {
@@ -825,12 +802,14 @@ class UpdateService {
         minVersion: release.min_version || null,
         requiresReboot: release.requires_reboot || false,
         channel: UPDATE_CHANNEL,
+        versionBekannt: true,
       };
     } catch (error) {
       logger.warn(`Update check failed: ${error.message}`);
       return {
         available: false,
         currentVersion,
+        versionBekannt: true,
         channel: UPDATE_CHANNEL,
         error:
           error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND'
