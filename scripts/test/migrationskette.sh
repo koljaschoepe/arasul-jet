@@ -108,29 +108,53 @@ fi
 # Zwei Abbruchgruende, und der zweite ist der eigentliche Fund: der Behaelter
 # ist NICHT MEHR DA. Der Einstiegspunkt beendet sich bei jedem Fehler in einer
 # Init-Datei, und dann ist das Ergebnis dieses Laufs schon entschieden.
+#
+# Das Protokoll wird EINMAL je Durchlauf in eine Variable gelesen und darin
+# durchsucht. Der erste Wurf hat `docker logs ... | grep -q ...` geschrieben
+# und damit 180 Sekunden gewartet, obwohl die Kette nach sechs Sekunden durch
+# war (CI-Lauf 33064190628): `grep -q` steigt beim ersten Treffer aus, `docker
+# logs` schreibt weiter und stirbt an SIGPIPE, und unter `pipefail` ist der
+# Rueckgabewert der Pipe dann 141 statt 0 — der `if` wird falsch, gerade WEIL
+# der Text da ist. Nachstellbar ohne Docker:
+#
+#   bash -c 'set -o pipefail; seq 1 200000 | grep -q 5'   ->  141
+#
+# Es trifft nur lange Ausgaben: was in den Rohrpuffer passt (64 KiB), ist
+# geschrieben, bevor `grep` aussteigt. Ein Postgres-Init passt nicht hinein.
 bereit="nein"
+protokoll=""
 for _ in $(seq 1 180); do
-  if ! docker ps -q --filter "name=^${BEHAELTER}$" | grep -q .; then
+  if [ -z "$(docker ps -q --filter "name=^${BEHAELTER}$")" ]; then
     break
   fi
   # Der Einstiegspunkt faehrt Postgres waehrend der Initialisierung auf einem
   # Unix-Socket ohne TCP hoch. `pg_isready` ueber den Socket antwortet deshalb
   # schon, bevor die Init-Dateien durch sind; die Zeile im Protokoll erst
   # danach. Sie ist das Signal, nicht der Socket.
-  if docker logs "$BEHAELTER" 2>&1 | grep -q 'database system is ready to accept connections'; then
-    if docker logs "$BEHAELTER" 2>&1 | grep -q 'PostgreSQL init process complete'; then
-      bereit="ja"
-      break
-    fi
+  protokoll=$(docker logs "$BEHAELTER" 2>&1)
+  case "$protokoll" in
+    *'database system is ready to accept connections'*)
+      case "$protokoll" in
+        *'PostgreSQL init process complete'*) bereit="ja" ;;
+      esac
+      ;;
+  esac
+  if [ "$bereit" = "ja" ]; then
+    break
   fi
   sleep 1
 done
+
+# Nach einem Abbruch (Behaelter weg) steht hier noch das Protokoll des
+# vorletzten Durchlaufs oder gar keins. Fuer die Fehlermeldung zaehlt das
+# letzte Wort des Behaelters, also einmal frisch nachlesen.
+protokoll=$(docker logs "$BEHAELTER" 2>&1)
 
 pruefe 'Die Initialisierung laeuft durch (000 bis heute, .sql und .sh)' "$bereit"
 if [ "$bereit" != "ja" ]; then
   echo
   echo "--- Die letzten 40 Zeilen des Behaelters -----------------------------"
-  docker logs "$BEHAELTER" 2>&1 | tail -40
+  printf '%s\n' "$protokoll" | tail -40
   echo "---------------------------------------------------------------------"
   echo
   echo "Eine Init-Datei ist gescheitert. Der Einstiegspunkt faehrt mit"
@@ -141,7 +165,6 @@ fi
 # Der Beleg, dass die beiden .sh wirklich gelaufen sind und nicht nur die .sql.
 # Ohne ihn koennte die Kette gruen aussehen, waehrend `zzz` beim ersten Befehl
 # ausgestiegen ist — genau der Fehlschlag vom 20.08.2026.
-protokoll=$(docker logs "$BEHAELTER" 2>&1)
 case "$protokoll" in
   *"168a: check_app_dependencies entfernt"*) v168a=ja ;;
   *) v168a=nein ;;
