@@ -93,6 +93,18 @@ export function Sicherung() {
     setSicherungsMeldung(null);
     sichern.mutate(undefined, {
       onSuccess: (ergebnis: LaufErgebnis) => {
+        // Ein 200 heisst laut Route `erfolg: true`. Die Frage steht trotzdem
+        // hier: sonst haengt „fertig" an einem Statuscode statt an dem, was
+        // das Geraet sagt.
+        if (!ergebnis.erfolg) {
+          setSicherungsMeldung({
+            gut: false,
+            text: 'Die Sicherung ist nicht durchgelaufen.',
+            ausgabe: ergebnis.ausgabe,
+          });
+          toast.error('Sicherung fehlgeschlagen');
+          return;
+        }
         const groesse = ergebnis.bericht?.total_size;
         const text = `Sicherung fertig${groesse ? `, ${groesse}` : ''}. Sie steht unten in der Liste.`;
         setSicherungsMeldung({ gut: true, text });
