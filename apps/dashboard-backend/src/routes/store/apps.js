@@ -306,6 +306,10 @@ router.get(
   validateParams(AppFlowParams),
   validateQuery(FlowQuery),
   asyncHandler(async (req, res) => {
+    // Erst die App, dann der Flow: sonst waere die Antwort auf eine unbekannte
+    // Kennung zwar auch ein 404, aber mit der falschen Begruendung ("dieser
+    // Stand hat den Flow nicht"). Wer sie liest, sucht an der falschen Stelle.
+    await appStore.pruefeVorhanden(req.params.id);
     const data = await appFlows.hole({
       appId: req.params.id,
       stand: req.query.stand,
@@ -334,7 +338,9 @@ router.get(
   validateParams(AppParams),
   validateQuery(LaeufeQuery),
   asyncHandler(async (req, res) => {
-    await appStore.holeApp(req.params.id);
+    // `pruefeVorhanden` und nicht `holeApp`: hier soll nur die Kennung geprueft
+    // werden, und `holeApp` faehrt dafuer den Docker-Proxy und die Platte an.
+    await appStore.pruefeVorhanden(req.params.id);
     const data = await runStore.listRunsFuerApp({
       appId: req.params.id,
       stand: req.query.stand ?? null,

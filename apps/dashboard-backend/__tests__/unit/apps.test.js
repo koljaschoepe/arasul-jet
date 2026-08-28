@@ -123,16 +123,19 @@ describe('Die Flows einer App (Phase C6)', () => {
  * Gedankengang), und: schalte den Teststand live.
  */
 describe('Die App-Ansicht des Administrators (Phase D4)', () => {
-  function appOhneStaende() {
-    db.query
-      .mockResolvedValueOnce({ rows: [{ id: 'urlaub', name: 'Urlaub' }] })
-      .mockResolvedValueOnce({ rows: [] });
+  /**
+   * Die eine Zeile, mit der die Routen dieser Phase pruefen, ob die Kennung in
+   * der Adresse ueberhaupt eine App meint (`appStore.pruefeVorhanden`).
+   */
+  function appGibtEs() {
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
   }
 
   test('GET /:id/flows/:name liefert die Datei samt Prompt', async () => {
     // Der Prompt steht NICHT in der Liste (siehe C6) und hier schon: die Frage
     // lautet „was tut dieser Flow", und ohne den Auftrag an das Modell ist sie
     // nicht zu beantworten.
+    appGibtEs();
     db.query
       .mockResolvedValueOnce({
         rows: [
@@ -164,16 +167,30 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
   });
 
   test('ein Flow, den der Stand nicht hat, ist 404', async () => {
+    appGibtEs();
     db.query.mockResolvedValueOnce({ rows: [] });
     const res = await request(verwaltung()).get('/api/apps/urlaub/flows/gibtsnicht');
     expect(res.status).toBe(404);
+  });
+
+  test('eine App, die es nicht gibt, ist 404 mit der richtigen Begruendung', async () => {
+    // Sonst hiesse die Antwort „dieser Stand hat den Flow nicht", und wer sie
+    // liest, sucht an der falschen Stelle.
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(verwaltung()).get('/api/apps/gibtsnicht/flows/bericht');
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toMatch(/gibt es am Geraet nicht/);
   });
 
   test('GET /:id/laeufe siebt nach App und nicht nach Nutzer', async () => {
     // Der ganze Grund fuer diese Route: `GET /api/flows/laeufe` haengt an
     // `user_id`, und ein App-Lauf traegt den, dem der Schluessel gehoert. Ein
     // zweiter Administrator saehe die Laeufe der App dort nie.
-    appOhneStaende();
+    //
+    // Geprueft wird die Kennung mit EINER Zeile (`pruefeVorhanden`) und nicht
+    // mit `holeApp`: das faehrt fuer jeden Stand den Docker-Proxy an, und diese
+    // Liste wird bei jedem Blick auf die App-Ansicht geholt.
+    appGibtEs();
     db.query.mockResolvedValueOnce({ rows: [{ id: 9, flow_name: 'freigabe', status: 'fertig' }] });
 
     const res = await request(verwaltung()).get('/api/apps/urlaub/laeufe?stand=live');
