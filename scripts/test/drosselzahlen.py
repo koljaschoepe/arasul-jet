@@ -29,8 +29,8 @@ from pathlib import Path
 # Welcher Limiter im Backend welche Drossel der Abnahmen ist.
 LIMITER = {
     "anmeldung": "loginLimiter",
+    "probe": "probeLimiter",
     "auth": "generalAuthLimiter",
-    "sitzung": "sessionProbeLimiter",
 }
 
 
@@ -93,7 +93,7 @@ def main() -> int:
     if fehler:
         return 1
     zeilen = ", ".join(f"{n} {g} je {f // 1000} s" for n, (g, f) in soll.items())
-    print(f"OK  drei Drosseln, drei Stellen, dieselben Zahlen ({zeilen})")
+    print(f"OK  {len(soll)} Drosseln, drei Stellen, dieselben Zahlen ({zeilen})")
     return 0
 
 

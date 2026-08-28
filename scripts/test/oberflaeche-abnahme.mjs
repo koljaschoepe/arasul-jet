@@ -89,14 +89,28 @@
  * dem ersten Handgriff, und ein 429 am Formular wird ueber `Retry-After`
  * abgewartet und einmal wiederholt.
  *
- * SEIT DEM 28.08.2026 GILT DAS FUER ALLE DREI DROSSELN, nicht nur fuer die
- * Anmeldung (`scripts/test/drossel.mjs`): auch `needs-setup` und `logout`
- * (dreissig je Minute) und die Sitzungsprobe (hundertzwanzig je Minute) tragen
- * eine, jede Seitenladung kostet von beiden eine, und Lauf 4 von fuenf
- * hintereinander fiel an einem 429 der Sitzungsprobe. Jede Antwort, die eine
- * Drossel traegt, wird gemerkt, und vor jeder Seitenladung (`laden`) fragt die
- * Reihe, ob fuer zwei Platz ist. Fuenf Laeufe ohne Pause sind damit zehn
- * Anmeldungen -- genau das Fenster; der sechste wartet, und sagt es.
+ * SEIT DEM 28.08.2026 GILT DAS FUER JEDE DROSSEL, nicht nur fuer die Anmeldung
+ * (`scripts/test/drossel.mjs`): jede Antwort, die eine traegt, wird gemerkt,
+ * und vor jeder Seitenladung (`laden`) fragt die Reihe, ob noch Platz ist.
+ * Fuenf Laeufe ohne Pause sind zehn Anmeldungen -- genau das Fenster; der
+ * sechste wartet, und sagt es.
+ *
+ * UND WO WARTEN NICHT REICHT, WIRD WIEDERHOLT. Die Buchfuehrung aus den
+ * Kopfzeilen kann nie vollstaendig sein: hinter Traefik zaehlen die Drosseln
+ * je IP, und das ist EINE IP fuer die Reihe, den Ueberordner daneben und
+ * jeden Menschen im Browser. Kommt trotzdem ein 429, zeigt die Oberflaeche
+ * die Anmeldung, und die Zelle sah aus wie eine Aussage ueber die Ansicht.
+ * `ansichtMessen` merkt sich deshalb, ob waehrend der Zelle eine Drossel 429
+ * gesagt hat, wartet ab, was sie sagt, und misst noch einmal.
+ *
+ * WAS AM 28.08.2026 GEMESSEN WURDE, und warum das Backend dabei etwas
+ * abbekommen hat: ein Lauf macht 44 Seitenladungen in 129 s und stand in
+ * seiner vollsten Minute bei 22 von 30 auf der Drossel, die `needs-setup`
+ * und `logout` trug -- 73 Prozent, ohne Luft fuer irgendwen sonst. Die
+ * Sitzungsprobe, auf die die Abnahmen geschaut haben, stand bei 21 von 120.
+ * Die enge Drossel war nie die genannte. Seither tragen beide Proben, die
+ * eine Seitenladung macht, dieselbe (`probeLimiter`, 120 je Minute), und die
+ * dreissig gehoeren dem Abmelden allein.
  *
  * Und ein 401 fuer den Pruefbenutzer heisst seither nicht Ende: der Werksreset
  * von G1 loescht ihn mit, die Reihe legt ihn einmal am Geraet an
@@ -128,12 +142,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, request as pwRequest } from 'playwright';
 import {
+  drossel429Seit,
+  drossel429Stand,
   drosselAbwarten,
   drosselBilanz,
   drosselMerken,
-  drosselRestzeit,
+  drosselNochmalNach,
   drosselSchlafen,
-  DROSSELN,
   seitenladungAbwarten,
 } from './drossel.mjs';
 import { pruefbenutzerAnlegen } from './anmeldung.mjs';
@@ -242,20 +257,16 @@ async function tokenGilt(token) {
 /**
  * Eine Seite laden -- und vorher fragen, ob das Geraet sie noch annimmt.
  *
- * Jede Seitenladung kostet eine Frage an `needs-setup` (App.tsx) und eine
- * Sitzungsprobe (`checkAuth`), und beide Wege tragen eine Drossel je IP. Ein
- * 429 dort zeigt die Anmeldung statt der Ansicht, und die Oberflaeche
- * wiederholt es mit Absicht nicht (das ist eine Antwort). Also wartet die
- * Reihe VOR dem Laden, aus dem, was die letzten Antworten gesagt haben.
+ * Jede Seitenladung kostet ZWEI aus der Proben-Drossel: die Frage an
+ * `needs-setup` (App.tsx) und die Sitzungsprobe (`checkAuth`). Ein 429 dort
+ * zeigt die Anmeldung statt der Ansicht, und die Oberflaeche wiederholt es
+ * mit Absicht nicht (das ist eine Antwort). Also wartet die Reihe VOR dem
+ * Laden, aus dem, was die letzten Antworten gesagt haben -- und wenn es
+ * trotzdem passiert, wiederholt `ansichtMessen` die Zelle.
  */
 async function laden(seite, adresse, optionen = {}) {
   await seitenladungAbwarten();
   return seite.goto(adresse, { waitUntil: 'domcontentloaded', timeout: 60000, ...optionen });
-}
-
-/** Wie lange nach einem 429 gewartet wird: was die Drossel sagt, mindestens fuenf Sekunden. */
-function nochmalNach(name) {
-  return Math.min(Math.max(drosselRestzeit(name, 1) + 1000, 5000), DROSSELN[name].fensterMs);
 }
 
 /**
@@ -283,7 +294,7 @@ async function anmelden(benutzer, passwort, { versuche = 2 } = {}) {
       }
       // Wie am Formular: ein 429 ist eine Wartezeit und kein Ergebnis.
       if (antwort.status() === 429 && versuch < versuche) {
-        nochmal = nochmalNach('anmeldung');
+        nochmal = drosselNochmalNach('anmeldung');
       } else {
         return { token: '', code: antwort.status() };
       }
@@ -338,7 +349,7 @@ async function anmeldungAbschicken(seite, tun, { versuche = 2 } = {}) {
     if (antwort.status() === 429 && versuch < versuche) {
       // Mindestens fuenf Sekunden, hoechstens ein Fenster: eine Antwort ohne
       // brauchbare Zahl darf weder sofort wieder anklopfen noch ewig liegen.
-      await drosselSchlafen('anmeldung', nochmalNach('anmeldung'));
+      await drosselSchlafen('anmeldung', drosselNochmalNach('anmeldung'));
       continue;
     }
     const rumpf = await antwort.json().catch(() => null);
@@ -721,8 +732,21 @@ async function klickFrei(seite, ziel, grenze = 15000) {
     .catch(() => false);
 }
 
+/** Wie oft eine Zelle wiederholt wird, wenn ihr eine Drossel dazwischenkam. */
+const VERSUCHE_JE_ZELLE = 3;
+
 /**
  * Eine Ansicht bei einer Breite messen und ihr Bild schreiben.
+ *
+ * EIN 429 IST KEIN ROT, AUCH HIER NICHT. Die Reihe wartet vor jeder
+ * Seitenladung, aber ihre Buchfuehrung kann nie vollstaendig sein: hinter
+ * Traefik zaehlen die Drosseln je IP, und das ist EINE IP fuer alles, was am
+ * Geraet anklopft. Kommt trotzdem einer, sagt die Oberflaeche genau das, was
+ * sie ohne Sitzung sagt — sie zeigt die Anmeldung —, und die Zelle sah bis
+ * zum 28.08.2026 aus wie eine Aussage ueber die Ansicht. Sie war eine ueber
+ * den Messaufbau. Also: gemerkt, ob waehrend der Zelle eine Drossel 429
+ * gesagt hat, abgewartet, was sie sagt, und die Zelle noch einmal. Dieselbe
+ * Regel, die das Anmeldeformular seit D6 hat.
  *
  * @param oeffnen Bringt die Ansicht auf den Schirm (Adresse oder Klick).
  * @param kennzeichen Der Waehler, an dem die Ansicht zu erkennen ist.
@@ -736,15 +760,39 @@ async function ansichtMessen(
   seite,
   { name, dateiname, breite, oeffnen, kennzeichen, notizenZu = true, warum = null }
 ) {
-  await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
-  konsole = [];
-  await oeffnen();
-  if (notizenZu) await wegRaeumen(seite);
+  let da = false;
+  let gedrosselt = null;
+  for (let versuch = 1; versuch <= VERSUCHE_JE_ZELLE && !da; versuch += 1) {
+    const vorher = drossel429Stand();
+    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
+    konsole = [];
+    await oeffnen();
+    if (notizenZu) await wegRaeumen(seite);
 
-  const da = await steht(seite, kennzeichen, 30000);
+    da = await steht(seite, kennzeichen, 30000);
+    if (da) break;
+    const drossel = drossel429Seit(vorher);
+    if (!drossel) break;
+    gedrosselt = drossel;
+    if (versuch < VERSUCHE_JE_ZELLE) {
+      console.log(
+        `nochmal  ${breite.px} px · ${name}: die Drossel „${drossel}" sagte 429, das ist keine Ansicht`
+      );
+      await drosselSchlafen(drossel, drosselNochmalNach(drossel));
+    }
+  }
+
   if (!da) {
     const zusatz = warum ? await warum().catch(e => `warum-Frage selbst rot: ${e.message}`) : '';
-    zelle(name, breite.px, false, [`kein ${kennzeichen}`, zusatz].filter(Boolean).join('; '));
+    const drossel = gedrosselt
+      ? `die Drossel „${gedrosselt}" sagte 429, auch nach ${VERSUCHE_JE_ZELLE} Versuchen`
+      : '';
+    zelle(
+      name,
+      breite.px,
+      false,
+      [`kein ${kennzeichen}`, drossel, zusatz].filter(Boolean).join('; ')
+    );
     await seite
       .screenshot({ path: path.join(ZIEL, `${breite.px}-${dateiname}.png`) })
       .catch(() => {});

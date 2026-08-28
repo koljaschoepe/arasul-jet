@@ -61,16 +61,19 @@ ARASUL_DROSSEL_DATEI="${ARASUL_DROSSEL_DATEI:-${TMPDIR:-/tmp}/arasul-abnahme-dro
 ARASUL_DROSSEL_DATEI="${ARASUL_DROSSEL_DATEI//\/\//\/}"
 
 # ---------------------------------------------------------------------------
-# Die drei Drosseln des Geraets, als EINE Sache
+# Die Drosseln des Geraets, als EINE Sache
 # ---------------------------------------------------------------------------
 # Bis zum 28.08.2026 kannte diese Datei genau eine Drossel, die Anmeldedrossel.
-# Das Geraet hat DREI auf den Wegen, die jede Seitenladung nimmt
+# Das Geraet hat mehr auf den Wegen, die jede Seitenladung nimmt
 # (`middleware/rateLimit.js`, dort nachzulesen und nicht hier zu glauben):
 #
 #   anmeldung   POST /api/auth/login, /setup        10 je 15 min   loginLimiter
-#   auth        GET  /api/auth/needs-setup,         30 je 60 s     generalAuthLimiter
-#               POST /api/auth/logout
-#   sitzung     GET  /api/auth/session              120 je 60 s    sessionProbeLimiter
+#   probe       GET  /api/auth/session,             120 je 60 s    probeLimiter
+#               GET  /api/auth/needs-setup
+#   auth        POST /api/auth/logout               30 je 60 s     generalAuthLimiter
+#
+# Eine Seitenladung kostet ZWEI aus `probe` und sonst nichts; ein Abmelden eine
+# aus `auth`.
 #
 # Der Stand steht je Drossel in EINER Datei (JSON, `reset` als Zeitpunkt in ms),
 # geschrieben aus den Kopfzeilen jeder Antwort, die eine Drossel traegt; die
@@ -85,19 +88,18 @@ import json, os, re, sys, time
 DATEI = os.environ["ARASUL_DROSSEL_DATEI"]
 DROSSELN = {
     "anmeldung": (10, 15 * 60 * 1000),
+    "probe": (120, 60 * 1000),
     "auth": (30, 60 * 1000),
-    "sitzung": (120, 60 * 1000),
 }
 
 def name_fuer(methode, pfad):
     methode = methode.upper()
     if methode == "POST" and pfad in ("/api/auth/login", "/api/auth/setup"):
         return "anmeldung"
-    if (methode == "GET" and pfad == "/api/auth/needs-setup") or \
-       (methode == "POST" and pfad == "/api/auth/logout"):
+    if methode == "GET" and pfad in ("/api/auth/session", "/api/auth/needs-setup"):
+        return "probe"
+    if methode == "POST" and pfad == "/api/auth/logout":
         return "auth"
-    if methode == "GET" and pfad == "/api/auth/session":
-        return "sitzung"
     return None
 
 def lesen():
@@ -170,7 +172,7 @@ PY
 # arasul_drossel_merken <methode> <pfad> <kopfzeilen-datei> <http-code>
 arasul_drossel_merken() { _arasul_drossel_py merken "$1" "$2" "$3" "${4:-0}"; }
 
-# arasul_drossel_abwarten <anmeldung|auth|sitzung> [brauche]
+# arasul_drossel_abwarten <anmeldung|probe|auth> [brauche]
 # Wartet laut, wenn die Drossel laut letzter Antwort noch zu ist. Irrt sich das,
 # weil jemand anders dazwischen war, faengt der 429 danach es ab.
 arasul_drossel_abwarten() {
@@ -182,11 +184,11 @@ arasul_drossel_abwarten() {
   fi
 }
 
-# Vor einer Seitenladung im Browser: eine Frage aus `auth` (needs-setup) und
-# eine Sitzungsprobe, und danach oft gleich die naechste. Platz fuer zwei.
+# Vor einer Seitenladung im Browser: sie kostet ZWEI aus `probe` (Sitzungsprobe
+# und needs-setup), und danach kommt oft gleich die naechste. Platz fuer zwei
+# Ladungen.
 arasul_seitenladung_abwarten() {
-  arasul_drossel_abwarten auth 2
-  arasul_drossel_abwarten sitzung 2
+  arasul_drossel_abwarten probe 4
 }
 
 # ---------------------------------------------------------------------------

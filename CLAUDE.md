@@ -398,6 +398,30 @@ ein Mensch — der Weg fehlte in der Oberfläche und steht jetzt unter
 Einstellungen → Apps → **App entfernen** (Kennung abtippen wie beim Kit,
 `DELETE /api/apps/:id?dateien=true`, derselbe Dienst wie der Kit-Weg aus C5).
 
+Der Auftrag **sitzungsdrossel** (28.08.2026, für G1) hat die enge Drossel
+**gemessen statt vermutet**, und es war eine andere als die genannte. Ein Lauf
+der Oberflächen-Abnahme macht **44 Seitenladungen in 129 s** und stand in
+seiner vollsten Minute bei **22 von 30** auf `generalAuthLimiter` (den trug
+`needs-setup`, und mit ihm das Abmelden) — 73 % der Decke, ohne Luft für
+irgendwen sonst hinter derselben IP. Die Sitzungsprobe, auf die die Abnahmen
+seit dem Vortag schauten, stand im selben Lauf bei **21 von 120**. Die
+Erklärung des Auftrags — die Reihe frage nicht vor der Seitenladung — trug
+nicht: `laden` fragt seit dem Vortag, und die Buchführung ist vollständig
+(46 Antworten der einen Drossel, 44 der anderen, alle mitgeschrieben).
+Deshalb zwei Dinge. Erstens tragen **beide Proben, die jede Seitenladung
+macht, dieselbe Drossel**: `needs-setup` ist von den dreißig je Minute auf
+`probeLimiter` gezogen (120 je Minute, zusammen mit `session`; eine
+Seitenladung kostet zwei davon, also sechzig je Minute und IP), und die
+dreißig gehören dem Abmelden allein — einer Mutation. Das Argument dafür stand
+seit C3 im Code, es galt nur der halben Sache. Zweitens **ist ein 429 in einer
+Zelle kein Rot**: die Buchführung aus Kopfzeilen kann nie vollständig sein,
+weil hinter Traefik alle dieselbe IP haben, also merkt sich `ansichtMessen`,
+ob während der Zelle eine Drossel 429 gesagt hat, wartet ab, was sie sagt, und
+misst noch einmal (dreimal höchstens) — dieselbe Regel, die das Anmeldeformular
+seit D6 hat. Und die Reihe **sagt am Ende, wie knapp es war**: der kleinste
+Rest je Drossel steht in der Schlusszeile, denn „22 von 30" ist die Zahl, die
+den Tag gekostet hat.
+
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/`   |

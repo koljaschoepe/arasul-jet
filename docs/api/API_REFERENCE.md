@@ -83,7 +83,7 @@ Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 
 | Method | Endpoint                    | Description                                                       | Rate Limit    |
 | ------ | --------------------------- | ----------------------------------------------------------------- | ------------- |
-| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin?                        | 30/min        |
+| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin?                        | 120/min       |
 | POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin                      | 10/15min      |
 | POST   | `/api/auth/login`           | Login with username/password (sets cookie)                        | 10/15min      |
 | GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated`                  | 120/min       |
@@ -96,7 +96,7 @@ Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 | GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session (auch Mitarbeiter) | -             |
 | GET    | `/api/auth/sessions`        | List active sessions for current user (auch Mitarbeiter)          | -             |
 
-> Stand: 2026-08-20 · Quelle: `src/routes/auth.js`, `src/middleware/rateLimit.js`
+> Stand: 2026-08-28 · Quelle: `src/routes/auth.js`, `src/middleware/rateLimit.js`
 >
 > Beim Eintragen von `/api/auth/session` (Plan 023 C3) gegengeprüft: drei
 > Angaben in dieser Tabelle waren falsch. `logout` steht auf 30 **pro Minute**,
@@ -104,6 +104,14 @@ Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 > überhaupt keinen Limiter. `change-password` zählt je Nutzer, nicht je IP.
 > Alle Werte oben stammen jetzt aus dem Code, nicht aus dem vorigen Stand
 > dieser Datei.
+>
+> Am 28.08.2026 ist `needs-setup` von 30/min auf 120/min gegangen: es ist die
+> zweite Probe, die **jede** Seitenladung macht (App.tsx, beim Einhängen), und
+> stand trotzdem auf der Drossel, die das Abmelden trägt. Am Orin gemessen:
+> ein Lauf der Oberflächen-Abnahme steht in seiner vollsten Minute bei 22 von
+> 30 auf dieser Drossel — 73 % der Decke, ohne Luft für einen zweiten Menschen
+> hinter derselben IP. Beide Proben tragen jetzt `probeLimiter`; eine
+> Seitenladung kostet zwei von 120, also 60 Seitenladungen je Minute und IP.
 
 **GET /api/auth/session:**
 

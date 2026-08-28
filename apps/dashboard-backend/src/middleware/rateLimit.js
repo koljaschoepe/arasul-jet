@@ -153,7 +153,13 @@ const rateLimitCleanupInterval = setInterval(
 // Background housekeeping timer must not keep the process / Jest worker alive.
 rateLimitCleanupInterval.unref();
 
-/** General auth rate limiter - 30 requests per minute per IP (for authenticated endpoints) */
+/**
+ * General auth rate limiter - 30 requests per minute per IP.
+ *
+ * Since 28.08.2026 it guards exactly one route, POST /api/auth/logout: a
+ * mutation, asked once when a person leaves. The two probes that every page
+ * load makes sit on `probeLimiter`; the reason is written there.
+ */
 const generalAuthLimiter = createLimiter(
   'GeneralAuth',
   60 * 1000,
@@ -162,19 +168,33 @@ const generalAuthLimiter = createLimiter(
 );
 
 /**
- * Session probe rate limiter - 120 requests per minute per IP.
+ * Probe rate limiter - 120 requests per minute per IP, for BOTH probes that
+ * every page load makes: GET /api/auth/session and GET /api/auth/needs-setup.
  *
- * Plan 023 C3: GET /api/auth/session is asked on every page load, and several
- * people in one office share one IP behind NAT. generalAuthLimiter allows 30
- * per minute for the whole group of endpoints it guards, and a single page load
- * already spends two of them (/session plus /needs-setup). Fifteen page loads
- * a minute from one office would have started answering 429 to a probe whose
- * whole purpose is to be asked often. The endpoint is a cheap read and returns
- * nothing to a caller without a session, so the ceiling is here against abuse,
- * not against use.
+ * Plan 023 C3 moved the session probe off generalAuthLimiter with this
+ * argument: the probe is asked on every page load, several people in one
+ * office share one IP behind NAT, and 30 a minute for the whole group would
+ * answer 429 to a probe whose whole purpose is to be asked often. The argument
+ * was right and applied to only half of its subject. `needs-setup` is the
+ * other half -- App.tsx asks it on every page load too, it is a public read
+ * that answers a constant `false` once the box has an admin, and it stayed on
+ * the 30-a-minute limiter that exists to slow down guessing at auth endpoints.
+ *
+ * MEASURED on the Orin, 28.08.2026: one run of `oberflaeche-abnahme.mjs` makes
+ * 44 page loads in 129 s and peaks at 22 of 30 in its busiest minute -- 73 %
+ * of the ceiling, with nothing left over for a second client on the same IP.
+ * The session probe peaked at 21 of 120 in the same run. The binding limit was
+ * never the one the abnahmen were told to watch; it was this one, and a run
+ * next to anything else went red on `POST /api/auth/logout` (which shares the
+ * window) or on the page load behind it.
+ *
+ * So both probes live here now, and generalAuthLimiter guards what it was
+ * meant for: a mutation. A page load costs TWO of the 120 -- sixty page loads
+ * a minute from one office IP -- and the ceiling stays where it is, because it
+ * is against abuse and not against use.
  */
-const sessionProbeLimiter = createLimiter(
-  'SessionProbe',
+const probeLimiter = createLimiter(
+  'Probe',
   60 * 1000,
   120,
   'Too many requests, please try again later'
@@ -198,7 +218,7 @@ module.exports = {
   metricsLimiter,
   webhookLimiter,
   generalAuthLimiter,
-  sessionProbeLimiter,
+  probeLimiter,
   tailscaleLimiter,
   uploadLimiter,
   createUserRateLimiter,

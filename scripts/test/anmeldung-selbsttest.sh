@@ -48,11 +48,13 @@ namen() { python3 -c 'import json,sys; print(",".join(sorted(json.load(open(sys.
 
 printf 'HTTP/2 200\r\nRateLimit-Remaining: 0\r\nRateLimit-Reset: 2\r\n' > "$kopf"
 arasul_drossel_merken GET /api/auth/session "$kopf" 200
-pruefe "die Sitzungsprobe wird als sitzung gemerkt" "sitzung" "$(namen "$ARASUL_DROSSEL_DATEI")"
-pruefe "sitzung: Restzeit 3 s (2 s plus Rand)" "3" "$(_arasul_drossel_py restzeit sitzung 1)"
+pruefe "die Sitzungsprobe wird als probe gemerkt" "probe" "$(namen "$ARASUL_DROSSEL_DATEI")"
+pruefe "probe: Restzeit 3 s (2 s plus Rand)" "3" "$(_arasul_drossel_py restzeit probe 1)"
 pruefe "auth: frei" "0" "$(_arasul_drossel_py restzeit auth 2)"
+arasul_drossel_merken GET /api/auth/needs-setup "$kopf" 200
+pruefe "needs-setup traegt dieselbe Drossel" "probe" "$(namen "$ARASUL_DROSSEL_DATEI")"
 start=$SECONDS
-arasul_drossel_abwarten sitzung 1 2>/dev/null
+arasul_drossel_abwarten probe 1 2>/dev/null
 if [ $((SECONDS - start)) -ge 2 ]; then geschlafen=ja; else geschlafen=nein; fi
 pruefe "abwarten hat geschlafen" ja "$geschlafen"
 
@@ -64,7 +66,7 @@ arasul_drossel_merken POST /api/auth/login "$kopf" 200
 pruefe "gebuendelte Kopfzeile: sieben uebrig, frei fuer zwei" "0" "$(_arasul_drossel_py restzeit anmeldung 2)"
 printf 'HTTP/2 200\r\nRateLimit-Remaining: 99\r\n' > "$kopf"
 arasul_drossel_merken GET /api/apps "$kopf" 200
-pruefe "ein Weg ohne Drossel steht nicht in der Datei" "anmeldung,sitzung" "$(namen "$ARASUL_DROSSEL_DATEI")"
+pruefe "ein Weg ohne Drossel steht nicht in der Datei" "anmeldung,probe" "$(namen "$ARASUL_DROSSEL_DATEI")"
 
 ARASUL_PASSWORT= bash scripts/util/pruefbenutzer.sh >/dev/null 2>&1
 pruefe "pruefbenutzer ohne Passwort: 2" 2 $?
