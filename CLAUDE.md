@@ -122,9 +122,9 @@ in den Einstellungen. Angemeldet wird mit Benutzername **oder** E-Mail (C1);
 ein vom Administrator gesetztes Passwort ist ein Startpasswort und wird beim
 ersten Anmelden gewechselt (`admin_users.passwort_vom_admin`, Migration 178).
 Die Zahl der offenen Freigaben aus C7 steht in der Statusleiste. Abnahme:
-`scripts/test/shell-abnahme.sh` (Bilder in drei Breiten:
-`scripts/test/shell-bilder.mjs`) — sie läuft **neben** `abnahmen.sh`, weil die
-Reihe dort mit zehn Anmeldungen auf der Drossel sitzt.
+`scripts/test/shell-abnahme.sh` — sie läuft **neben** `abnahmen.sh`, weil die
+Reihe dort mit zehn Anmeldungen auf der Drossel sitzt (die Bilder in drei
+Breiten hat D6 übernommen).
 Seit D2 wird die **Freigabe aus C7 im Dashboard entschieden**: die Übersicht
 zeigt die offenen Anfragen mit Titel, Zusammenhang und Restzeit, bestätigen
 oder ablehnen mit Begründung geht an `POST /api/freigabe-anfragen/:id/…`, und
@@ -225,6 +225,30 @@ Dokument, sonst wären die Kennungen doppelt da). Abnahme A6:
 Sicherung auslösen, Meldung, Liste; die Modelle gegen
 `config/modelle/kurzliste.json`); auch sie läuft neben `abnahmen.sh` und
 **nicht** in derselben Viertelstunde wie die vier anderen Browser-Abnahmen.
+Seit D6 gibt es die **Oberflächen-Abnahme** als eine Reihe
+(`scripts/test/oberflaeche-abnahme.mjs`; ohne Buchstaben — A1 bis A8 sind
+vergeben, A7 ist der siebentägige Dauerlauf): zwölf Ansichten mal drei
+Breiten (390, 1024, 1440) für Mitarbeiter und Administrator, dazu die CSP
+(Kopfzeilen und Verstöße), die Tastatur (Tab-Reihenfolge durch Anmeldung und
+Shell, Escape schließt einen Dialog, Enter bestätigt) und die Fehlerzustände
+(Backend weg, ein Mitarbeiter auf einer Admin-Adresse, eine Adresse, die es
+nicht gibt). Ausgabe ist eine Tabelle Ansicht mal Breite, die Bilder liegen
+unter `docs/plans/audits/<datum>-oberflaeche-d6/`. **Keine zwei Wahrheiten:**
+das Breitenraster, die Konsolenfrage und die Bilder standen bis dahin in
+sechs Skripten nebeneinander — `csp-abnahme.mjs` und `shell-bilder.mjs` sind
+gefallen, die vier übrigen `*-bilder.mjs` haben ihre Breitenschleife verloren
+und behalten ihren Handgriff (anlegen, entscheiden, umstellen, sichern). Die
+Reihe kostet **zwei** Anmeldungen, beide für ihren Wegwerf-Mitarbeiter (mit
+dem Startpasswort und danach mit dem eigenen); der Administrator kommt über
+den geteilten Token. Sie läuft deshalb neben `abnahmen.sh`, aus dem `csp` und
+`oberflaeche` heraus sind — die Reihe dort sitzt wieder bei genau zehn. Der
+Fund der D5-Abnahme ist zu: `getDefaultModel()` fiel ohne gesetztes
+`is_default` auf das **zuletzt geladene** Modell zurück, ohne die Aufgabe zu
+beachten, und setzte das Abzeichen „Standard" am Orin auf `llava-phi3` — ein
+Bildmodell, das die Ansicht daneben selbst nicht als Standard anbietet. Die
+Rückfälle beachten jetzt die Aufgabe (`is_task_default` für `text` vor allem
+anderen), und `POST /api/models/default` weist ein Modell ab, mit dem kein
+Flow rechnen kann.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

@@ -4,7 +4,8 @@
 # =============================================================================
 # Die Messregel der Phase: "Login als Mitarbeiter zeigt nur freigegebene Apps,
 # Screenshot in drei Breiten." Dieses Skript misst den ersten Teil gegen das
-# laufende Geraet und stoesst den zweiten an (`shell-bilder.mjs`, Playwright).
+# laufende Geraet. Den zweiten misst seit Phase D6 die Oberflaechen-Abnahme
+# (`scripts/test/oberflaeche-abnahme.mjs`) fuer jede Ansicht und beide Rollen.
 #
 # WAS GEMESSEN WIRD, und in dieser Reihenfolge:
 #
@@ -36,11 +37,13 @@
 # Reihe in `abnahmen.sh` sitzt seit Phase C4 mit GENAU ZEHN auf dieser Grenze
 # (zwei fuer `rollen`, fuenf fuer `mitarbeiter`, zwei fuer `app-anmeldung`, eine
 # geteilte -- nachgerechnet im Kopf von `anmeldung.sh`). Dieser Lauf braucht
-# DREI eigene: einmal mit dem Startpasswort, einmal nach dem Selbstwechsel,
-# einmal fuer den Bilderlauf im Browser. In die Reihe gestellt fiele mitten
-# darin ein 429, und die Abnahme danach meldete etwas ueber den Messaufbau
-# statt ueber das Geraet. Die Drossel zu lockern, damit die eigenen Messungen
-# bequemer werden, hiesse das Geraet fuer den Messaufbau zu schwaechen.
+# ZWEI eigene: einmal mit dem Startpasswort, einmal nach dem Selbstwechsel.
+# (Bis D6 waren es drei; die dritte gehoerte dem Bilderlauf, der gefallen ist
+# -- das Breitenraster steht seit D6 in `oberflaeche-abnahme.mjs`.) In die
+# Reihe gestellt fiele mitten darin ein 429, und die Abnahme danach meldete
+# etwas ueber den Messaufbau statt ueber das Geraet. Die Drossel zu lockern,
+# damit die eigenen Messungen bequemer werden, hiesse das Geraet fuer den
+# Messaufbau zu schwaechen.
 #
 # Nicht zerstoerend fuer den Bestand: angelegt wird ein Benutzer mit
 # Zeitstempel im Namen, freigegeben wird eine App, die schon da ist, und beides
@@ -298,23 +301,16 @@ pruefe 'Danach verlangt die Anmeldung keinen Wechsel mehr' \
   "$([ -n "$TOK_M" ] && [ "$WECHSEL" = "false" ] && echo ja || echo nein)" \
   "HTTP $(anm_code), passwortWechselNoetig=$WECHSEL"
 
-# --- 9. Die drei Breiten -----------------------------------------------------
-# Die Bilder gehoeren zur Messregel der Phase. Sie brauchen Playwright; ohne es
-# wird uebersprungen und gesagt, warum. Der Lauf bekommt den Zugang des
-# Mitarbeiters mit, damit er die Mitarbeiter-Sicht zeigt und keine eigene
-# Anmeldung an der Drossel verbraucht.
-if node -e 'require.resolve("playwright")' 2>/dev/null; then
-  if ARASUL_URL="$BASIS" ARASUL_BENUTZER="$MAIL" ARASUL_PASSWORT="$PASS_SELBST" \
-     node "$WURZEL/scripts/test/shell-bilder.mjs"; then
-    pruefe 'Screenshots in drei Breiten (390, 1024, 1440)' ja "docs/plans/audits/"
-  else
-    pruefe 'Screenshots in drei Breiten (390, 1024, 1440)' nein 'shell-bilder.mjs war rot'
-  fi
-else
-  ueberspringe 'Screenshots in drei Breiten' 'playwright nicht installiert (npm ci)'
-fi
+# --- 9. Freigabe zuruecknehmen ----------------------------------------------
+# HIER STAND DER BILDERLAUF (bis Phase D6, 28.08.2026). `shell-bilder.mjs` fuhr
+# die Shell in drei Breiten ab und stellte dabei dieselben vier Fragen wie vier
+# weitere Bilder-Skripte aus D2 bis D5 -- sechs Stellen mit einer Wahrheit
+# ueber das Breitenraster, jede mit eigener Anmeldezahl. Er ist gefallen; das
+# Raster steht seit D6 in `scripts/test/oberflaeche-abnahme.mjs`, und zwar fuer
+# BEIDE Rollen und alle Ansichten statt fuer eine.
+#
+# Diese Abnahme kostet damit ZWEI Anmeldungen statt drei; die dritte war seine.
 
-# --- 10. Freigabe zuruecknehmen ---------------------------------------------
 if [ -n "$APP" ]; then
   code=$(rufe DELETE "/api/freigaben/$APP/$ID" "$TOK")
   pruefe 'Freigabe zurueckgenommen' "$(ja_nein "$code" 200)" "HTTP $code"

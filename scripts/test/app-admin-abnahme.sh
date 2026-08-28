@@ -18,9 +18,8 @@
 #      Lauf haelt an: `wartend`.
 #   4. IM BROWSER (`app-admin-bilder.mjs`), zwei Sitzungen hintereinander:
 #      der Mitarbeiter bestaetigt auf dem Dashboard (D2), danach liest der
-#      Administrator in der App-Ansicht drei Breiten, die Staende, den Lauf mit
-#      seinen Schritten und dem Gedankengang, und stellt das Modell um und
-#      zurueck.
+#      Administrator in der App-Ansicht die Staende und den Lauf mit seinen
+#      Schritten und dem Gedankengang, und stellt das Modell um und zurueck.
 #   5. Am Backend nachgerechnet: der Lauf ist weitergelaufen und beendet, und
 #      das Modell des Flows steht wieder auf dem des Pakets.
 #   6. Aufgeraeumt wird, auch wenn unterwegs etwas rot war.

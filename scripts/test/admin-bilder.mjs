@@ -11,19 +11,18 @@
  *
  * WAS GEMESSEN WIRD, in dieser Reihenfolge:
  *
- *   1. Drei Breiten (390, 1024, 1440). Zu jeder: steht die Seite, rollt sie
- *      waagerecht, steht etwas da, meldet die Konsole einen Fehler. Die
- *      Konsolenfrage ist keine Formalie -- die Funde der D1- und D2-Abnahme
- *      waren beide Konsolenmeldungen (403 aus dem DownloadContext, 403 aus
- *      dem KI-RAM-Budget).
- *   2. Anlegen: der Dialog, das Formular, und danach steht die Zeile in der
+ *   1. Anlegen: der Dialog, das Formular, und danach steht die Zeile in der
  *      Liste -- OHNE Neuladen. Sie traegt "Startpasswort".
- *   3. Passwort setzen: der zweite Dialog. Danach traegt die Zeile weiterhin
+ *   2. Passwort setzen: der zweite Dialog. Danach traegt die Zeile weiterhin
  *      "Startpasswort", denn ein gesetztes Passwort IST eines (Migration 178).
- *   4. Freigeben: ein Haken in der Matrix. Danach steht in der Zelle der
+ *   3. Freigeben: ein Haken in der Matrix. Danach steht in der Zelle der
  *      Stand-Schalter "Live" -- er erscheint nur, wenn die Freigabe wirklich
  *      steht, und ist damit die Probe darauf, dass die Liste sich nach dem
  *      Klick selbst erneuert hat.
+ *
+ * NICHT MEHR HIER (Phase D6): die drei Breiten. Sie standen in fuenf
+ * Bilder-Skripten nebeneinander und stehen jetzt einmal, in
+ * `scripts/test/oberflaeche-abnahme.mjs`.
  *
  * Was daraus geworden ist, misst `admin-abnahme.sh` danach am Backend: der
  * Mitarbeiter meldet sich mit dem hier gesetzten Passwort an und sieht genau
@@ -66,13 +65,6 @@ const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-admin-d3`);
 /** Der Weg zur Sektion. Der Suchteil geht in den Tab-Router hinein (B1). */
 const SEITE = `${URL}/workspace/settings?tab=benutzer`;
 
-/** Die drei Breiten aus dem Auftrag der Phase (wie in D1 und D2). */
-const BREITEN = [
-  { px: 390, hoehe: 844, name: 'telefon' },
-  { px: 1024, hoehe: 768, name: 'tablet' },
-  { px: 1440, hoehe: 900, name: 'arbeitsplatz' },
-];
-
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {
   ergebnisse.push({ was, ok });
@@ -100,11 +92,6 @@ const ctx = await browser.newContext({
 });
 const seite = await ctx.newPage();
 
-let konsole = [];
-seite.on('console', m => {
-  if (m.type() === 'error') konsole.push(m.text().slice(0, 200));
-});
-
 const steht = (waehler, grenze = 20000) =>
   seite
     .locator(waehler)
@@ -113,50 +100,19 @@ const steht = (waehler, grenze = 20000) =>
     .catch(() => false);
 
 try {
-  // --- 1. Die drei Breiten ---------------------------------------------------
-  for (const breite of BREITEN) {
-    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
-    konsole = [];
-    await seite.goto(SEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-    const shell = await steht('[data-testid="workspace-shell"]', 30000);
-    pruefe(`${breite.px} px: die Shell steht`, shell);
-
-    const seiteDa = shell && (await steht('[data-testid="mitarbeiter-seite"]'));
-    pruefe(`${breite.px} px: die Mitarbeiter-Seite steht`, seiteDa);
-
-    if (seiteDa) {
-      // Die Seite holt drei Listen (Benutzer, Apps, Freigaben); ohne diese
-      // Pause zeigt das Bild ein Skelett.
-      await seite.waitForTimeout(2000);
-
-      const rollt = await seite.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
-      );
-      pruefe(`${breite.px} px: die Seite rollt nicht waagerecht`, !rollt);
-
-      const text = await seite.evaluate(() => document.body.innerText.trim().length);
-      pruefe(`${breite.px} px: es steht etwas da`, text > 20, `${text} Zeichen`);
-    }
-
-    const datei = path.join(ZIEL, `${breite.px}-${breite.name}.png`);
-    await seite.screenshot({ path: datei, fullPage: false });
-    console.log(`  Bild: ${path.relative(WURZEL, datei)}`);
-
-    pruefe(
-      `${breite.px} px: keine Fehler in der Konsole`,
-      konsole.length === 0,
-      konsole.slice(0, 2).join(' | ')
-    );
-  }
-
-  // Ab hier der Arbeitsplatz: die Matrix braucht Breite.
+  // HIER STAND DIE BREITENSCHLEIFE (bis Phase D6, 28.08.2026). Drei Breiten,
+  // vier Fragen, drei Bilder -- und dieselbe Schleife stand in vier weiteren
+  // Bilder-Skripten aus D1 bis D5. Sie steht seit D6 einmal, in
+  // `scripts/test/oberflaeche-abnahme.mjs`, und dort fuer alle Ansichten und
+  // beide Rollen. Was hier bleibt, ist der HANDGRIFF, den nur diese Abnahme
+  // misst: einen Menschen anlegen, ihm ein Startpasswort setzen, ihm genau
+  // eine App freigeben.
   await seite.setViewportSize({ width: 1440, height: 900 });
   await seite.goto(SEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await steht('[data-testid="mitarbeiter-seite"]', 30000);
+  pruefe('Die Mitarbeiter-Seite steht', await steht('[data-testid="mitarbeiter-seite"]', 30000));
   await seite.waitForTimeout(1500);
 
-  // --- 2. Anlegen ------------------------------------------------------------
+  // --- 1. Anlegen ------------------------------------------------------------
   const oeffnen = await steht('[data-testid="mitarbeiter-anlegen-oeffnen"]');
   pruefe('Die Seite hat einen Knopf "Menschen anlegen"', oeffnen);
 
@@ -183,7 +139,7 @@ try {
     }
   }
 
-  // --- 3. Das Startpasswort setzen -------------------------------------------
+  // --- 2. Das Startpasswort setzen -------------------------------------------
   let gesetzt = false;
   if (angelegt) {
     await seite.locator(`[data-testid="passwort-${MITARB}"]`).click();
@@ -208,7 +164,7 @@ try {
     }
   }
 
-  // --- 4. Genau eine App freigeben -------------------------------------------
+  // --- 3. Genau eine App freigeben -------------------------------------------
   if (gesetzt) {
     const zelle = `${APP}-${MITARB}`;
     const matrix = await steht(`[data-testid="freigabe-${zelle}"]`);

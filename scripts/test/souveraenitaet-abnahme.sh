@@ -138,6 +138,11 @@ else
   # Bis B2 lief hier die Dokument-Abnahme (hochladen, fragen, Quelle). Chat und
   # Explorer sind gefallen; die Oberflaechen-Abnahme geht durch jede Ansicht
   # und haelt das Geraet waehrend der Messung genauso beschaeftigt.
+  #
+  # Seit Phase D6 kostet sie ZWEI Anmeldungen (sie legt sich einen
+  # Wegwerf-Mitarbeiter an und meldet ihn zweimal an, einmal mit dem
+  # Startpasswort und einmal danach). Wer diese Messung dreimal fahren will,
+  # rechnet sie gegen die Drossel: zehn je Viertelstunde und IP.
   ARBEIT='node scripts/test/oberflaeche-abnahme.mjs'
   WAS='die Oberflaechen-Abnahme'
 fi

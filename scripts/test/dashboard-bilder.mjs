@@ -1,6 +1,6 @@
 /**
- * Das Dashboard in drei Breiten, und der Klick, der die Phase misst.
- * Phase D2 des Umbaus vom 26.08.2026.
+ * Der Klick auf dem Dashboard, der die Phase misst.
+ * Phase D2 des Umbaus vom 26.08.2026, geschnitten in D6.
  *
  * Die Messregel der Phase: "Freigabe aus C7 im Dashboard bestaetigen, Notiz
  * ueberlebt Neuladen." Beides passiert IM BROWSER und nirgends sonst -- eine
@@ -9,23 +9,23 @@
  *
  * WAS GEMESSEN WIRD, in dieser Reihenfolge:
  *
- *   1. Drei Breiten (390, 1024, 1440). Zu jeder: steht die Shell, rollt die
- *      Seite waagerecht, steht etwas da, meldet die Konsole einen Fehler.
- *      Die Konsolenfrage ist hier keine Formalie: der erste Fund der
- *      D1-Abnahme war genau so eine Meldung (403 aus dem DownloadContext).
- *   2. Die offene Freigabe steht auf dem Dashboard, mit Titel und Frist.
- *   3. Die Notiz: schreiben, NEU LADEN, wieder da. Das Neuladen ist der Kern
+ *   1. Die offene Freigabe steht auf dem Dashboard, mit Titel und Frist.
+ *   2. Die Notiz: schreiben, NEU LADEN, wieder da. Das Neuladen ist der Kern
  *      der Messung -- ein Textfeld, das seinen Inhalt nur im Speicher haelt,
  *      sieht bis dahin genauso aus.
- *   4. Der Klick auf "Bestaetigen". Die Zeile verschwindet OHNE NEULADEN;
+ *   3. Der Klick auf "Bestaetigen". Die Zeile verschwindet OHNE NEULADEN;
  *      dass der Lauf danach `fertig` wird, misst `dashboard-abnahme.sh` am
  *      Backend weiter.
+ *
+ * NICHT MEHR HIER (Phase D6): die drei Breiten. Sie standen in fuenf
+ * Bilder-Skripten nebeneinander und stehen jetzt einmal, in
+ * `scripts/test/oberflaeche-abnahme.mjs`.
  *
  * KEINE EIGENE ANMELDUNG. Der Aufrufer legt die Sitzung des Mitarbeiters als
  * `storageState` unter `$ARASUL_SITZUNG` ab (`arasul_sitzung_bauen`). Drei
  * Kontexte mit je einer Anmeldung -- wie in D1 -- kosteten drei der zehn
  * Versuche je Viertelstunde, und die Abnahme danach meldete etwas ueber den
- * Messaufbau. Ein Kontext, drei Fenstergroessen.
+ * Messaufbau.
  *
  * Aufruf (der Regelfall ist ueber `dashboard-abnahme.sh`):
  *   ARASUL_URL=... ARASUL_SITZUNG=... ARASUL_FREIGABE=<id> \
@@ -50,13 +50,6 @@ const FREIGABE = process.env.ARASUL_FREIGABE || '';
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-dashboard-d2`);
 
-/** Die drei Breiten aus dem Auftrag der Phase (wie in D1). */
-const BREITEN = [
-  { px: 390, hoehe: 844, name: 'telefon' },
-  { px: 1024, hoehe: 768, name: 'tablet' },
-  { px: 1440, hoehe: 900, name: 'arbeitsplatz' },
-];
-
 /** Der Text, den die Notiz ueber das Neuladen tragen soll. */
 const NOTIZ = `Abnahme D2 ${Date.now()}`;
 
@@ -79,14 +72,9 @@ const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,
   storageState: SITZUNG,
-  viewport: { width: BREITEN[BREITEN.length - 1].px, height: 900 },
+  viewport: { width: 1440, height: 900 },
 });
 const seite = await ctx.newPage();
-
-let konsole = [];
-seite.on('console', m => {
-  if (m.type() === 'error') konsole.push(m.text().slice(0, 200));
-});
 
 /** Auf die Shell warten, nicht auf eine Zeitspanne. */
 async function shellSteht(grenze = 30000) {
@@ -98,48 +86,20 @@ async function shellSteht(grenze = 30000) {
 }
 
 try {
-  // --- 1. Die drei Breiten ---------------------------------------------------
-  for (const breite of BREITEN) {
-    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
-    konsole = [];
-    await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-    const angekommen = await shellSteht();
-    pruefe(`${breite.px} px: die Shell steht`, angekommen);
-
-    if (angekommen) {
-      // Die Mitte holt ihre Listen (Apps und Freigaben); ohne diese Pause
-      // zeigt das Bild ein Skelett.
-      await seite.waitForTimeout(2000);
-
-      const rollt = await seite.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
-      );
-      pruefe(`${breite.px} px: die Seite rollt nicht waagerecht`, !rollt);
-
-      const text = await seite.evaluate(() => document.body.innerText.trim().length);
-      pruefe(`${breite.px} px: es steht etwas da`, text > 20, `${text} Zeichen`);
-    }
-
-    const datei = path.join(ZIEL, `${breite.px}-${breite.name}.png`);
-    await seite.screenshot({ path: datei, fullPage: false });
-    console.log(`  Bild: ${path.relative(WURZEL, datei)}`);
-
-    // Der erste Fund der D1-Abnahme war eine Konsolenmeldung, kein Bild.
-    pruefe(
-      `${breite.px} px: keine Fehler in der Konsole`,
-      konsole.length === 0,
-      konsole.slice(0, 2).join(' | ')
-    );
-  }
-
-  // Ab hier der Arbeitsplatz: die schmalen Breiten haben keine rechte Spalte.
+  // HIER STAND DIE BREITENSCHLEIFE (bis Phase D6, 28.08.2026). Drei Breiten,
+  // vier Fragen, drei Bilder -- und dieselben drei Breiten mit denselben vier
+  // Fragen standen in vier weiteren Bilder-Skripten aus D1 bis D5. Sechs
+  // Stellen mit einer Wahrheit ueber das Breitenraster: das Raster steht seit
+  // D6 in `scripts/test/oberflaeche-abnahme.mjs`, fuer alle Ansichten und
+  // beide Rollen. Was hier bleibt, ist der HANDGRIFF, den nur diese Abnahme
+  // misst -- die Notiz ueber ein Neuladen und der Klick, der einen
+  // angehaltenen Lauf weiterlaufen laesst.
   await seite.setViewportSize({ width: 1440, height: 900 });
   await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await shellSteht();
+  pruefe('Die Shell steht', await shellSteht());
   await seite.waitForTimeout(2000);
 
-  // --- 2. Die offene Freigabe steht da ---------------------------------------
+  // --- 1. Die offene Freigabe steht da ---------------------------------------
   const liste = seite.locator('[data-testid="offene-freigaben"]');
   const listeDa = await liste
     .waitFor({ timeout: 20000 })
@@ -155,7 +115,7 @@ try {
     pruefe('und sie nennt ihre Restzeit', /noch|Frist/.test(frist), frist || 'nichts');
   }
 
-  // --- 3. Die Notiz ueberlebt das Neuladen -----------------------------------
+  // --- 2. Die Notiz ueberlebt das Neuladen -----------------------------------
   const feld = seite.locator('#notizen-feld');
   const feldDa = await feld
     .waitFor({ timeout: 15000 })
@@ -187,7 +147,7 @@ try {
     pruefe('Die Notiz ueberlebt das Neuladen', danach === NOTIZ, `"${danach.slice(0, 40)}"`);
   }
 
-  // --- 4. Der Klick, der den Lauf weiterlaufen laesst -------------------------
+  // --- 3. Der Klick, der den Lauf weiterlaufen laesst -------------------------
   await seite.waitForTimeout(1500);
   const knopf = seite.locator(`[data-testid="freigabe-${FREIGABE}-bestaetigen"]`);
   const knopfDa = await knopf

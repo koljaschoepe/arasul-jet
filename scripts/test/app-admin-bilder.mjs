@@ -12,16 +12,15 @@
  *
  *   1. Der MITARBEITER sieht die offene Freigabe auf seinem Dashboard (D2)
  *      und bestaetigt sie. Die Zeile geht weg, ohne Neuladen.
- *   2. Der ADMINISTRATOR oeffnet die App-Verwaltung in drei Breiten (390,
- *      1024, 1440). Zu jeder: steht die Seite, rollt sie waagerecht, steht
- *      etwas da, meldet die Konsole einen Fehler.
- *   3. Bei 1440 px MIT OFFENER NOTIZSPALTE: die Seite bleibt ganz. Genau das
- *      war der zweite Fund der D3-Abnahme -- die Namensspalte der Tabelle war
- *      nicht zu sehen und nicht zu erreichen.
- *   4. Die App-Ansicht: beide Staende mit Version und Zustand des Containers.
- *   5. Der Lauf: Schritte, und der Gedankengang darunter.
- *   6. Das Modell des Flows: auf ein anderes aus der Kurzliste umstellen, in
+ *   2. Die App-Ansicht: beide Staende mit Version und Zustand des Containers.
+ *   3. Der Lauf: Schritte, und der Gedankengang darunter.
+ *   4. Das Modell des Flows: auf ein anderes aus der Kurzliste umstellen, in
  *      der Liste nachsehen, wieder auf das Paket zurueck.
+ *
+ * NICHT MEHR HIER (Phase D6): die drei Breiten und die Probe darauf, dass die
+ * Mitte bei 1440 px mit offener Notizspalte ganz bleibt (der zweite Fund der
+ * D3-Abnahme). Beides steht jetzt in `scripts/test/oberflaeche-abnahme.mjs`,
+ * und dort fuer jede Verwaltungsansicht statt fuer diese eine.
  *
  * KEINE EIGENE ANMELDUNG. Der Aufrufer legt beide Sitzungen als `storageState`
  * ab (`arasul_sitzung_bauen`). Die Drossel laesst zehn Anmeldungen je
@@ -59,13 +58,6 @@ const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-app-admin-d4`);
 
 /** Der Weg zur Sektion. Der Suchteil geht in den Tab-Router hinein (B1). */
 const SEITE = `${URL}/workspace/settings?tab=apps`;
-
-/** Die drei Breiten aus dem Auftrag der Phase (wie in D1, D2 und D3). */
-const BREITEN = [
-  { px: 390, hoehe: 844, name: 'telefon' },
-  { px: 1024, hoehe: 768, name: 'tablet' },
-  { px: 1440, hoehe: 900, name: 'arbeitsplatz' },
-];
 
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {
@@ -141,86 +133,21 @@ const ctxA = await browser.newContext({
   viewport: { width: 1440, height: 900 },
 });
 const seite = await ctxA.newPage();
-let konsole = [];
-seite.on('console', m => {
-  if (m.type() === 'error') konsole.push(m.text().slice(0, 200));
-});
 
 try {
-  // --- Die drei Breiten ------------------------------------------------------
-  for (const breite of BREITEN) {
-    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
-    konsole = [];
-    await seite.goto(SEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-    const shell = await steht(seite, '[data-testid="workspace-shell"]', 30000);
-    pruefe(`${breite.px} px: die Shell steht`, shell);
-
-    const seiteDa = shell && (await steht(seite, '[data-testid="apps-seite"]'));
-    pruefe(`${breite.px} px: die App-Verwaltung steht`, seiteDa);
-
-    if (seiteDa) {
-      // Die Seite holt die Liste; ohne diese Pause zeigt das Bild ein Skelett.
-      await seite.waitForTimeout(1500);
-
-      const rollt = await seite.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
-      );
-      pruefe(`${breite.px} px: die Seite rollt nicht waagerecht`, !rollt);
-
-      const text = await seite.evaluate(() => document.body.innerText.trim().length);
-      pruefe(`${breite.px} px: es steht etwas da`, text > 20, `${text} Zeichen`);
-    }
-
-    const datei = path.join(ZIEL, `${breite.px}-${breite.name}.png`);
-    await seite.screenshot({ path: datei, fullPage: false });
-    console.log(`  Bild: ${path.relative(WURZEL, datei)}`);
-
-    pruefe(
-      `${breite.px} px: keine Fehler in der Konsole`,
-      konsole.length === 0,
-      konsole.slice(0, 2).join(' | ')
-    );
-  }
-
-  // --- Der zweite Fund der D3-Abnahme ----------------------------------------
-  // Bei 1440 px MIT offener Notizspalte war die Einstellungsseite in der Mitte
-  // abgeschnitten: die Namensspalte der Tabelle war nicht zu sehen und ueber
-  // keinen Balken zu erreichen. Gemessen wird beides -- dass die Notizspalte
-  // wirklich offen ist (sonst misst die Zeile nichts) und dass der Inhalt der
-  // Mitte in seiner Spalte bleibt.
+  // HIER STANDEN DIE DREI BREITEN UND DER FUND DER D3-ABNAHME (bis Phase D6,
+  // 28.08.2026). Beides ist verallgemeinert nach
+  // `scripts/test/oberflaeche-abnahme.mjs` gewandert: das Breitenraster fuer
+  // alle Ansichten und beide Rollen, und die Frage „bleibt die Mitte bei
+  // 1440 px mit offener Notizspalte ganz" fuer JEDE Verwaltungsansicht statt
+  // fuer diese eine. Ein Fund, der an einer Seite gemessen wird, faellt an der
+  // naechsten wieder auf.
+  //
+  // Was hier bleibt, ist der HANDGRIFF: bestaetigen, lesen, umstellen.
   await seite.setViewportSize({ width: 1440, height: 900 });
   await seite.goto(SEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await steht(seite, '[data-testid="apps-seite"]', 30000);
+  pruefe('Die App-Verwaltung steht', await steht(seite, '[data-testid="apps-seite"]', 30000));
   await seite.waitForTimeout(1500);
-
-  const notizenOffen = await seite
-    .locator('#notizen-feld')
-    .isVisible()
-    .catch(() => false);
-  if (!notizenOffen) {
-    pruefe('Die Notizspalte ist offen (sonst misst die naechste Zeile nichts)', false);
-  } else {
-    pruefe('Die Notizspalte ist offen', true);
-    const ganz = await seite.evaluate(() => {
-      const seite = document.querySelector('[data-testid="apps-seite"]');
-      if (!seite) return null;
-      const kasten = seite.getBoundingClientRect();
-      // Der Inhalt der Mitte darf nicht links aus seiner Spalte herauslaufen
-      // (der Fund) und auch nicht rechts abgeschnitten sein.
-      return {
-        links: Math.round(kasten.left),
-        rechts: Math.round(kasten.right),
-        fensterbreite: window.innerWidth,
-        ueberlauf: seite.scrollWidth - seite.clientWidth,
-      };
-    });
-    pruefe(
-      '1440 px mit Notizen: die App-Verwaltung bleibt ganz',
-      ganz !== null && ganz.links >= 0 && ganz.rechts <= ganz.fensterbreite && ganz.ueberlauf <= 1,
-      ganz ? `links ${ganz.links}, rechts ${ganz.rechts} von ${ganz.fensterbreite}` : 'nicht da'
-    );
-  }
 
   // --- Die App-Ansicht -------------------------------------------------------
   const zeile = await steht(seite, `[data-testid="app-oeffnen-${APP}"]`);

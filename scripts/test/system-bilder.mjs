@@ -10,18 +10,17 @@
  *
  * WAS GEMESSEN WIRD, in dieser Reihenfolge:
  *
- *   1. Drei Breiten (390, 1024, 1440) auf der Sicherung. Zu jeder: steht die
- *      Seite, rollt sie waagerecht, steht etwas da, meldet die Konsole einen
- *      Fehler. Die Konsolenfrage ist keine Formalie -- die Funde der D1-, D2-
- *      und D3-Abnahme waren alle drei Konsolenmeldungen.
- *   2. Die Modelle, ebenfalls in drei Breiten: die Liste zeigt GENAU die
- *      Kurzliste (die Kennungen kommen vom Aufrufer aus
- *      `config/modelle/kurzliste.json`), und das Standardmodell traegt sein
- *      Abzeichen -- genau eines.
- *   3. Die Aktualisierungen: die Fassung steht da, und wenn dieses Geraet
+ *   1. Die Modelle: die Liste zeigt GENAU die Kurzliste (die Kennungen kommen
+ *      vom Aufrufer aus `config/modelle/kurzliste.json`), und das
+ *      Standardmodell traegt sein Abzeichen -- genau eines.
+ *   2. Die Aktualisierungen: die Fassung steht da, und wenn dieses Geraet
  *      nicht ueber die Schnittstelle einspielen kann, sagt es das.
- *   4. Die Sicherung wird ausgeloest. Die Meldung erscheint, und die Liste
+ *   3. Die Sicherung wird ausgeloest. Die Meldung erscheint, und die Liste
  *      zeigt danach eine Sicherung mit Datum und Groesse.
+ *
+ * NICHT MEHR HIER (Phase D6): die drei Breiten, zweimal. Sie standen in fuenf
+ * Bilder-Skripten nebeneinander und stehen jetzt einmal, in
+ * `scripts/test/oberflaeche-abnahme.mjs`.
  *
  * DIE SICHERUNG DAUERT MINUTEN, nicht Sekunden: `backup.sh` laeuft im
  * Sicherungs-Container ueber die ganze Datenbank, die App-Pakete und die
@@ -63,13 +62,6 @@ const SICHERUNG = `${URL}/workspace/settings?tab=sicherung`;
 const AKTUALISIERUNG = `${URL}/workspace/settings?tab=updates`;
 const MODELLSEITE = `${URL}/workspace/modelle`;
 
-/** Die drei Breiten aus dem Auftrag der Phase (wie in D1 bis D4). */
-const BREITEN = [
-  { px: 390, hoehe: 844, name: 'telefon' },
-  { px: 1024, hoehe: 768, name: 'tablet' },
-  { px: 1440, hoehe: 900, name: 'arbeitsplatz' },
-];
-
 /** So lange darf eine Sicherung am Jetson brauchen. */
 const SICHERUNG_GEDULD = Number(process.env.ARASUL_SICHERUNG_GEDULD_MS || 20 * 60_000);
 
@@ -98,11 +90,6 @@ const ctx = await browser.newContext({
 });
 const seite = await ctx.newPage();
 
-let konsole = [];
-seite.on('console', m => {
-  if (m.type() === 'error') konsole.push(m.text().slice(0, 200));
-});
-
 const steht = (waehler, grenze = 20000) =>
   seite
     .locator(waehler)
@@ -111,67 +98,17 @@ const steht = (waehler, grenze = 20000) =>
     .then(() => true)
     .catch(() => false);
 
-const rolltWaagerecht = () =>
-  seite.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
-  );
-
 try {
-  // --- 1. Die drei Breiten auf der Sicherung ---------------------------------
-  for (const breite of BREITEN) {
-    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
-    konsole = [];
-    await seite.goto(SICHERUNG, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // HIER STANDEN ZWEI BREITENSCHLEIFEN (bis Phase D6, 28.08.2026), eine auf
+  // der Sicherung und eine auf den Modellen -- dieselben drei Breiten mit
+  // denselben vier Fragen wie in vier weiteren Bilder-Skripten aus D1 bis D4.
+  // Das Breitenraster steht seit D6 einmal, in
+  // `scripts/test/oberflaeche-abnahme.mjs`, und dort fuer alle Ansichten und
+  // beide Rollen. Was hier bleibt, ist der HANDGRIFF: die Kurzliste gegen
+  // `config/modelle/kurzliste.json` halten und eine Sicherung ausloesen.
 
-    const shell = await steht('[data-testid="workspace-shell"]', 30000);
-    pruefe(`${breite.px} px: die Shell steht`, shell);
-
-    const seiteDa = shell && (await steht('[data-testid="sicherung-seite"]'));
-    pruefe(`${breite.px} px: die Sicherung steht`, seiteDa);
-
-    if (seiteDa) {
-      // Die Seite holt Zustand und Liste; ohne diese Pause zeigt das Bild ein
-      // Skelett.
-      await seite.waitForTimeout(2000);
-      pruefe(`${breite.px} px: die Seite rollt nicht waagerecht`, !(await rolltWaagerecht()));
-      const text = await seite.evaluate(() => document.body.innerText.trim().length);
-      pruefe(`${breite.px} px: es steht etwas da`, text > 20, `${text} Zeichen`);
-    }
-
-    const datei = path.join(ZIEL, `${breite.px}-${breite.name}-sicherung.png`);
-    await seite.screenshot({ path: datei, fullPage: false });
-    console.log(`  Bild: ${path.relative(WURZEL, datei)}`);
-
-    pruefe(
-      `${breite.px} px: keine Fehler in der Konsole`,
-      konsole.length === 0,
-      konsole.slice(0, 2).join(' | ')
-    );
-  }
-
-  // --- 2. Die Modelle: drei Breiten, und genau die Kurzliste -----------------
-  // Auch hier drei Breiten: die Liste traegt je Zeile bis zu vier Knoepfe, und
-  // die Frage aus der D4-Abnahme lautet, ob das am Telefon steht.
-  for (const breite of BREITEN) {
-    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
-    konsole = [];
-    await seite.goto(MODELLSEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    const da = await steht('[data-testid="modelle-seite"]', 30000);
-    pruefe(`${breite.px} px: die Modelle stehen`, da);
-    if (da) {
-      await seite.waitForTimeout(2000);
-      pruefe(`${breite.px} px: die Modelle rollen nicht waagerecht`, !(await rolltWaagerecht()));
-    }
-    await seite.screenshot({ path: path.join(ZIEL, `${breite.px}-${breite.name}-modelle.png`) });
-    pruefe(
-      `${breite.px} px: keine Fehler in der Konsole (Modelle)`,
-      konsole.length === 0,
-      konsole.slice(0, 2).join(' | ')
-    );
-  }
-
+  // --- 1. Genau die Kurzliste ------------------------------------------------
   await seite.setViewportSize({ width: 1440, height: 900 });
-  konsole = [];
   await seite.goto(MODELLSEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const modelleDa = await steht('[data-testid="modell-liste"]', 30000);
   pruefe('Die Modell-Ansicht zeigt eine Liste', modelleDa);
@@ -204,8 +141,7 @@ try {
 
   }
 
-  // --- 3. Die Aktualisierungen ----------------------------------------------
-  konsole = [];
+  // --- 2. Die Aktualisierungen ----------------------------------------------
   await seite.goto(AKTUALISIERUNG, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const updateDa = await steht('[data-testid="update-seite"]', 30000);
   pruefe('Die Aktualisierungen stehen', updateDa);
@@ -224,15 +160,9 @@ try {
       grund === 1 ? 'Grund steht da' : 'Weg steht da'
     );
     await seite.screenshot({ path: path.join(ZIEL, '1440-aktualisierungen.png') });
-    pruefe(
-      'Aktualisierungen: keine Fehler in der Konsole',
-      konsole.length === 0,
-      konsole.slice(0, 2).join(' | ')
-    );
   }
 
-  // --- 4. Sichern ------------------------------------------------------------
-  konsole = [];
+  // --- 3. Sichern ------------------------------------------------------------
   await seite.goto(SICHERUNG, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await steht('[data-testid="sicherung-seite"]', 30000);
   await seite.waitForTimeout(1500);
