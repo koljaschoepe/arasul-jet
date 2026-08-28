@@ -125,6 +125,28 @@ Mitarbeiter war es ein 403 in der Konsole beim Laden der Shell), und
 `GET /api/system/info`. Abnahme: `scripts/test/dashboard-abnahme.sh` (Klick im
 Browser über `scripts/test/dashboard-bilder.mjs`); sie läuft ebenfalls neben
 `abnahmen.sh` und **nicht** in derselben Viertelstunde wie `shell-abnahme.sh`.
+Seit D3 gibt es die **Verwaltung der Mitarbeiter** als Einstellungs-Sektion
+(`/workspace/settings?tab=benutzer`, `features/settings/MitarbeiterSettings.tsx`
+plus `features/settings/mitarbeiter/`): die Liste der Menschen am Gerät mit
+Rolle, Zustand und der Spalte **Passwort** („Startpasswort" oder „eigenes",
+`passwort_vom_admin` steht seit D3 auch in `GET /api/benutzer`), Anlegen und
+Startpasswort-Setzen als Dialog, und darunter die **Freigabe-Matrix** Menschen
+mal Apps (`GET/POST /api/freigaben`, `DELETE /api/freigaben/:appId/:benutzerId`
+aus C2, Apps aus `GET /api/apps`) — ein Häkchen je Zelle, darunter der Stand
+(`live` oder `test`, der Tester-Kreis aus C3). Die Matrix führt **alle**
+Benutzer, auch Administratoren: die Rolle sagt, wer verwaltet, nicht wer
+arbeitet. Sie liegt in den Einstellungen und nicht als eigener Knopf in der
+Aktivitätsleiste, weil deren Ansichten die Arbeit tragen (Apps, Modelle) und das
+Zahnrad darunter das Einrichten des Geräts. Der dritte Fund der D-Abnahmen ist
+zu: `useMemoryBudget` fragte `GET /api/models/memory-budget`
+(`requireRole('admin')`) aus der Statusleiste in **jeder** Shell — für einen
+Mitarbeiter beim Laden zwei 403 (`retry: 1`) und danach alle zehn Sekunden
+eines; seit D3 nur noch als `admin`, und ohne Budget fällt der Modell-Umschalter
+von selbst weg. Abnahme A4: `scripts/test/admin-abnahme.sh` (der Admin-Teil
+passiert im Browser über `scripts/test/admin-bilder.mjs`); sie läuft neben
+`abnahmen.sh` und **nicht** in derselben Viertelstunde wie `shell-abnahme.sh`
+oder `dashboard-abnahme.sh` — die drei brauchen zusammen acht der zehn
+Anmeldungen je Viertelstunde.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
