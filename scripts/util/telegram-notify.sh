@@ -48,7 +48,7 @@ fi
 # Falls nicht gesetzt, versuche aus .env zu laden
 if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+  PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
   if [ -f "$PROJECT_ROOT/.env" ]; then
     # Nur TELEGRAM-Variablen extrahieren (sicher)

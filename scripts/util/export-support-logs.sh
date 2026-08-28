@@ -28,7 +28,7 @@ LOG_LINES=500
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # CLI flags
