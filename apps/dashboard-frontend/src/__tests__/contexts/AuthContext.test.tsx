@@ -12,7 +12,7 @@
  * nie sehen kann.
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 
 function base64url(o: object): string {
@@ -137,5 +137,151 @@ describe('AuthContext, Sitzungspruefung beim Start', () => {
       await waitFor(() => expect(screen.getByText('abgemeldet')).toBeInTheDocument());
       expect(localStorage.getItem('arasul_token')).not.toBeNull();
     });
+  });
+
+  /**
+   * Der Fund der Oberflaechen-Abnahme am Orin (28.08.2026): einer von vier
+   * Laeufen fand die Seite „Neues Passwort" bei 1024 px nicht, die Breiten
+   * davor und danach schon. Eine einzelne verlorene Anfrage, und der
+   * angemeldete Mensch stand auf der Anmeldung -- dieselbe Klasse wie die
+   * nachgeladenen Buendel aus D6.
+   */
+  describe('wenn eine einzelne Probe verloren geht', () => {
+    test('haelt die Sitzung, weil der zweite Versuch traegt', async () => {
+      localStorage.setItem('arasul_token', token(3600));
+      fetchSpy.mockRejectedValueOnce(new Error('Failed to fetch')).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ authenticated: true, user: { id: 1, username: 'pruefer' } }),
+      });
+      zeichne();
+
+      await waitFor(() => expect(screen.getByText('angemeldet')).toBeInTheDocument());
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    // Ein 429 ist eine Antwort, die der Server gegeben hat. Sofort noch einmal
+    // anzuklopfen macht sie nur wahrer -- und verbrennt die Drossel.
+    test('wiederholt einen 429 nicht', async () => {
+      localStorage.setItem('arasul_token', token(3600));
+      fetchSpy.mockResolvedValue({ ok: false, status: 429, json: async () => ({}) });
+      zeichne();
+
+      await waitFor(() => expect(screen.getByText('abgemeldet')).toBeInTheDocument());
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+/**
+ * Abmelden ist die EINZIGE Stelle, die das httpOnly-Cookie `arasul_session`
+ * loeschen kann. Geht sie daneben, bleibt eine tote Sitzung im Browser stehen,
+ * die niemand mehr wegbekommt -- die Oberflaeche zeigt die Anmeldung, der
+ * Browser traegt weiter ein Cookie. Der zweite Fund der Oberflaechen-Abnahme am
+ * Orin (28.08.2026), einer von vier Laeufen.
+ */
+describe('AuthContext, Abmelden', () => {
+  let fetchSpy: ReturnType<typeof vi.fn>;
+
+  function Abmelder() {
+    const { logout, isAuthenticated } = useAuth();
+    return (
+      <button type="button" onClick={() => void logout()}>
+        {isAuthenticated ? 'angemeldet' : 'abgemeldet'}
+      </button>
+    );
+  }
+
+  /** Nur die Antwort auf `POST /auth/logout` interessiert; die Probe traegt. */
+  function beimAbmelden(antworten: Array<{ ok: boolean; status: number }>) {
+    let dran = 0;
+    fetchSpy.mockImplementation((url: string) => {
+      if (String(url).includes('/auth/session')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ authenticated: true, user: { id: 1, username: 'pruefer' } }),
+        });
+      }
+      const antwort = antworten[Math.min(dran, antworten.length - 1)];
+      dran += 1;
+      return Promise.resolve({ ...antwort, json: async () => ({}) });
+    });
+    return () => dran;
+  }
+
+  async function abmelden() {
+    render(
+      <AuthProvider>
+        <Abmelder />
+      </AuthProvider>
+    );
+    await waitFor(() => expect(screen.getByText('angemeldet')).toBeInTheDocument());
+    await act(async () => {
+      screen.getByRole('button').click();
+    });
+    await waitFor(() => expect(screen.getByText('abgemeldet')).toBeInTheDocument());
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    document.cookie = 'arasul_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test('ruft den Weg genau einmal, wenn er traegt', async () => {
+    const versuche = beimAbmelden([{ ok: true, status: 200 }]);
+    await abmelden();
+    expect(versuche()).toBe(1);
+  });
+
+  /**
+   * Der Startpasswort-Wechsel ist selbst eine Mutation, und jede angenommene
+   * Mutation DREHT `arasul_csrf`. Chromium fuehrt `document.cookie` im Renderer
+   * als Kopie und zieht sie erst kurz danach nach -- das Abmelden folgt dem
+   * Wechsel auf dem Fuss und liest womoeglich noch den alten Wert. Der Server
+   * antwortet dann 403 CSRF_INVALID, BEVOR die Route laeuft, und
+   * `res.clearCookie` faellt aus. Eine abgelehnte Anfrage dreht das Cookie
+   * nicht: der zweite Versuch liest es neu und trifft.
+   */
+  test('liest das gedrehte CSRF-Cookie neu, wenn der erste Versuch 403 sagt', async () => {
+    document.cookie = 'arasul_csrf=alt; path=/';
+    const gesehen: Array<string | undefined> = [];
+    let dran = 0;
+    fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url).includes('/auth/session')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ authenticated: true, user: { id: 1, username: 'pruefer' } }),
+        });
+      }
+      gesehen.push((init?.headers as Record<string, string>)?.['X-CSRF-Token']);
+      dran += 1;
+      if (dran === 1) {
+        // Genau hier zieht der Browser seine Kopie nach.
+        document.cookie = 'arasul_csrf=gedreht; path=/';
+        return Promise.resolve({ ok: false, status: 403, json: async () => ({}) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    });
+
+    await abmelden();
+
+    expect(gesehen).toEqual(['alt', 'gedreht']);
+  });
+
+  // Auch wenn beide Versuche danebengehen, meldet die Oberflaeche ab: der
+  // Mensch soll nicht auf einem Bildschirm festhaengen, den er verlassen will.
+  test('meldet die Oberflaeche auch ab, wenn der Weg zweimal danebengeht', async () => {
+    const versuche = beimAbmelden([{ ok: false, status: 403 }]);
+    await abmelden();
+    expect(versuche()).toBe(2);
+    expect(localStorage.getItem('arasul_token')).toBeNull();
   });
 });
