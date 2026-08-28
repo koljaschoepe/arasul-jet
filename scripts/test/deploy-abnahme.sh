@@ -124,6 +124,10 @@ baue_paket() {
   rm -rf "$ordner"
   mkdir -p "$ordner"
   cp -R "$QUELLE/frontend" "$QUELLE/backend" "$ordner/"
+  # Das Designsystem gehoert ins Paket (Phase D7): das Frontend der
+  # Beispielapp laedt `marken.js` und `marken.css`, und ein Paket ohne sie
+  # waere eine App, die im Rahmen weiss bleibt.
+  bash "$WURZEL/scripts/util/marken-beilegen.sh" "$ordner/frontend" >/dev/null || return 1
   python3 - "$QUELLE/app.json" "$ordner/app.json" "$APP" "$version" <<'PY'
 import json, sys
 quelle, ziel, kennung, version = sys.argv[1:5]

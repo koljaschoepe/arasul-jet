@@ -4,19 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Beispielapp</title>
-    <link rel="stylesheet" href="stil.css" />
+    <!--
+      Das Designsystem des Geraets (Phase D7). Beide Dateien kommen aus
+      `packages/marken/` und werden beim Einspielen daneben gelegt
+      (`scripts/util/marken-beilegen.sh`) -- die App bringt kein eigenes
+      Erscheinungsbild mehr mit, weil sie im selben Rahmen steht wie die Shell.
+    -->
+    <link rel="stylesheet" href="marken.css" />
   </head>
-  <body>
-    <main>
-      <h1>Beispielapp</h1>
-      <p>
-        Angemeldet als <strong id="name">wird geholt …</strong>. Diese Seite liegt unter
-        <code id="pfad">/apps/beispielapp/</code> und wird von Arasul ausgeliefert. Der Kasten
-        darunter kommt aus dem eigenen Container der App.
-      </p>
-      <p>Der API-Schlüssel dieser App: <span id="schluessel">wird geprüft …</span></p>
-      <pre id="antwort">wird geholt …</pre>
-    </main>
-    <script src="app.js"></script>
+  <body class="ara-seite">
+    <div id="app"></div>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
