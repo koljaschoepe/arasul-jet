@@ -100,9 +100,17 @@ ON CONFLICT (username) DO UPDATE SET
 RETURNING CASE WHEN xmax = 0 THEN \x27angelegt\x27 ELSE \x27aktualisiert\x27 END;
 SQL
 )
-case "$ERGEBNIS" in
+# Die ERSTE Zeile ist die Antwort, die zweite ist psqls Quittung. `RETURNING`
+# gibt die Zeile aus, danach schreibt psql den Befehlsanhang `INSERT 0 1` --
+# auch mit `-tA`, denn der Anhang ist keine Zeile des Ergebnisses. Der
+# Vergleich unten sah beides als einen Text und meldete den gelungenen Anlauf
+# als Fehler: "hat nicht geantwortet, wie erwartet (angelegt INSERT 0 1)". Der
+# Benutzer war da, das Skript sagte nein, und der Aufrufer versuchte es nicht
+# noch einmal.
+ANTWORT=$(printf "%s\n" "$ERGEBNIS" | head -n1)
+case "$ANTWORT" in
   angelegt|aktualisiert)
-    echo "pruefbenutzer: Benutzer $BENUTZER $ERGEBNIS (Administrator, aktiv, eigenes Passwort)."
+    echo "pruefbenutzer: Benutzer $BENUTZER $ANTWORT (Administrator, aktiv, eigenes Passwort)."
     ;;
   *)
     echo "pruefbenutzer: die Datenbank hat nicht geantwortet, wie erwartet (${ERGEBNIS:0:120})." >&2
@@ -111,7 +119,18 @@ case "$ERGEBNIS" in
 esac
 '
 # `\x27` statt eines Apostrophs: der Text oben steht selbst in Apostrophen.
-AM_GERAET="${AM_GERAET//\\x27/\'}"
+#
+# UND DER ERSATZ STEHT IN EINER VARIABLEN, nicht als `\'` in der Ersetzung.
+# `"${x//\\x27/\'}"` sieht richtig aus und ist es nicht: der Text steht in
+# doppelten Anfuehrungszeichen, dort ist ein Backslash vor einem Apostroph
+# nichts Besonderes, und bash setzt beide Zeichen ein. Aus `\x27pruefer\x27`
+# wurde damit `\'pruefer\'`, psql bekam `\'pruefer` zu sehen und antwortete
+# "invalid command \'pruefer" -- auf beiden Wegen, am Geraet wie ueber ssh.
+# Gefunden beim ersten Aufruf, der wirklich einen Benutzer anlegen sollte
+# (28.08.2026, Phase G1); der Selbsttest kannte bis dahin nur den Weg, auf dem
+# das Geraet gar nicht antwortet.
+APOSTROPH=\'
+AM_GERAET="${AM_GERAET//\\x27/$APOSTROPH}"
 
 if [ "$(docker inspect -f '{{.State.Running}}' "${PREFIX}dashboard-backend" 2>/dev/null)" = "true" ]; then
   printf '%s\n' "$PASSWORT" | BENUTZER="$BENUTZER" PREFIX="$PREFIX" bash -c "$AM_GERAET"
