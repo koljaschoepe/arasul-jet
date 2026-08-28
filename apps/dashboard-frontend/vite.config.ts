@@ -23,6 +23,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Das Designsystem (Phase D7). Ein PFAD-Alias wie `@` und kein
+      // npm-Paket: die Bibliothek wird mit der Shell uebersetzt, steht in
+      // keinem Lockfile und hat kein `dist/`, das jemand vergessen koennte.
+      // Dieselbe Quelle nimmt eine App -- als Buendel unter
+      // `packages/marken/browser/` oder ueber den Spiegel des Kits.
+      '@marken': path.resolve(__dirname, '../../packages/marken/src'),
     },
   },
   server: {

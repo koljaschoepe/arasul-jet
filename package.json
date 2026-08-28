@@ -17,6 +17,7 @@
     "test:backend": "./scripts/test/run-tests.sh --backend",
     "test:frontend": "./scripts/test/run-tests.sh --frontend",
     "typecheck": "./scripts/test/run-typecheck.sh",
+    "marken": "npm run marken --workspace=arasul-dashboard-frontend",
     "audit": "npm audit --production",
     "audit:fix": "npm audit fix --production"
   },
@@ -33,6 +34,9 @@
       "eslint --fix"
     ],
     "apps/dashboard-frontend/src/**/*.{ts,tsx}": [
+      "prettier --write"
+    ],
+    "packages/marken/src/**/*.{ts,tsx,css}": [
       "prettier --write"
     ],
     "*.{json,md,yml,yaml}": [
