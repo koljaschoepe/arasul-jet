@@ -26,6 +26,17 @@
 # KEINER DAVON WAERE VON EINEM TEST GEFUNDEN WORDEN, weil es keinen gab, der
 # eine Installation von vorn durchspielt. Das ist dieses Skript.
 #
+# DER ZWEITE WERKSRESET, spaeter am 28.08.2026 (Release v0.2.0): alles oben war
+# zu. Zehn Container healthy, Administrator und Kit-Schluessel angelegt,
+# `https://arasul/` mit dem CA-Zertifikat erreichbar -- und `install.sh` endete
+# trotzdem mit Rueckgabewert 1. Der Rauchtest am Ende des Bootstraps stiess
+# jeden Dienst EINMAL an, statt wie der Deploy auf ihn zu warten: das
+# dashboard-frontend war neun Sekunden spaeter healthy, der self-healing-agent
+# noch in seiner Startphase. Danach "Critical tests failed", der Fehlerbericht,
+# und die Zusammenfassung -- Startpasswort und Kit-Schluessel -- erschien nie,
+# denn sie stand im gruenen Zweig. Der Schluessel war angelegt und hat ihn
+# niemand gesehen. Abschnitt 8 misst beides.
+#
 # ZWEI BETRIEBSARTEN
 #
 #   --trocken     alles, was OHNE laufende Container geht. Laeuft in der CI
@@ -149,10 +160,15 @@ if [ -f "$reset" ]; then
   else
     pruefe 'Der Werksreset zieht kein Modell' ja
   fi
-  if steht_in 'arasul-app-' "$reset"; then
-    pruefe 'Der Werksreset entfernt die App-Container' ja
+  # Seit dem 28.08.2026 nicht mehr nur `arasul-app-*`: am Orin ueberlebten
+  # zehn `arasul-sandbox-*` und ein `arasul-skills-sandbox` den Reset, weil
+  # `docker compose down` sie nicht kennt und der Filter sie nicht traf.
+  # Gemessen wird an beiden Merkmalen der neuen Regel: Name und Etikett.
+  if steht_in '\^arasul-' "$reset" && steht_in '\{\{\.Labels\}\}' "$reset"; then
+    pruefe 'Der Werksreset entfernt jeden Container mit Name arasul-* oder Etikett arasul.*' ja
   else
-    pruefe 'Der Werksreset entfernt die App-Container' nein
+    pruefe 'Der Werksreset entfernt jeden Container mit Name arasul-* oder Etikett arasul.*' nein \
+      'weder der Namensfilter noch die Etikettenpruefung stehen drin'
   fi
   if steht_in 'docker volume rm' "$reset"; then
     pruefe 'Der Werksreset entfernt die Volumes des Geraets' ja
@@ -306,6 +322,93 @@ else
     "${basis}/api/health" 2>/dev/null || true)
   pruefe 'Die Oberflaeche antwortet auf /api/health' \
     "$([ "$code" = "200" ] && echo ja || echo nein)" "${basis} -> HTTP ${code:-000}"
+fi
+
+# -----------------------------------------------------------------------------
+# 8. Die Erstausgabe: Startpasswort und Kit-Schluessel, einmal und immer
+# -----------------------------------------------------------------------------
+# Der Fund des zweiten Versuchs (28.08.2026, Release v0.2.0): die Installation
+# war in Ordnung -- zehn Container healthy, Admin und Kit-Schluessel angelegt --
+# und trotzdem endete `install.sh` mit Rueckgabewert 1, weil der Rauchtest nicht
+# wartete. Die Zusammenfassung stand im gruenen Zweig und erschien deshalb nie.
+# Der Kit-Schluessel war angelegt und hat nie jemand gesehen.
+echo
+echo "--- 8. Die Erstausgabe (Fund vom 28.08.2026) ---"
+
+# 8a. Der Rauchtest wartet, statt einmal zu stossen.
+if steht_in 'dienst_pruefen' arasul && steht_in 'wait_for_healthy "\$dienst"' arasul; then
+  pruefe 'Der Rauchtest wartet je Dienst mit Zeitgrenze' ja
+else
+  pruefe 'Der Rauchtest wartet je Dienst mit Zeitgrenze' nein 'kein wait_for_healthy je Dienst'
+fi
+if steht_in 'pgrep -f healing_engine' arasul; then
+  pruefe 'Der Rauchtest sucht den Heil-Prozess NICHT mehr mit pgrep' nein 'der Aufruf steht wieder drin'
+else
+  pruefe 'Der Rauchtest sucht den Heil-Prozess NICHT mehr mit pgrep' ja 'Health-Status des Containers'
+fi
+
+# 8b. Die Zusammenfassung steht VOR dem Fehlerbericht und in keinem Zweig.
+# Gemessen an der Reihenfolge der Zeilen, denn genau die war der Fehler.
+zeile_ausgabe=$(grep -n '^    show_completion_summary$' arasul 2>/dev/null | tail -1 | cut -d: -f1 || true)
+zeile_bericht=$(grep -n 'generate_error_report 1 "smoke_tests"' arasul 2>/dev/null | tail -1 | cut -d: -f1 || true)
+if [ -n "${zeile_ausgabe:-}" ] && [ -n "${zeile_bericht:-}" ] && [ "$zeile_ausgabe" -lt "$zeile_bericht" ]; then
+  pruefe 'Die Erstausgabe steht vor dem Fehlerbericht' ja "Zeile $zeile_ausgabe vor $zeile_bericht"
+else
+  pruefe 'Die Erstausgabe steht vor dem Fehlerbericht' nein \
+    "Ausgabe Zeile ${zeile_ausgabe:-keine}, Fehlerbericht Zeile ${zeile_bericht:-keine}"
+fi
+
+# 8c. Das Skript selbst, ausgefuehrt: es schreibt die Datei, und zwar mit 600.
+#     Kein Blick in den Quelltext -- der Lauf ist der Beleg.
+if [ -f scripts/util/erstausgabe.sh ]; then
+  probe_ordner=$(mktemp -d)
+  probe_datei="${probe_ordner}/erstausgabe.txt"
+  probe_ausgabe=$(bash scripts/util/erstausgabe.sh \
+    --passwort 'ProbeStartpasswort9' --schluessel 'aras_probeschluessel' \
+    --datei "$probe_datei" 2>&1 || true)
+
+  grep -q 'ProbeStartpasswort9' <<<"$probe_ausgabe" &&
+    grep -q 'aras_probeschluessel' <<<"$probe_ausgabe"
+  pruefe 'Die Erstausgabe nennt beide Geheimnisse auf der Konsole' "$(ja_nein $?)"
+
+  if [ -f "$probe_datei" ]; then
+    rechte=$(stat -c '%a' "$probe_datei" 2>/dev/null || stat -f '%Lp' "$probe_datei" 2>/dev/null || echo '?')
+    pruefe 'erstausgabe.txt hat die Rechte 600' \
+      "$([ "$rechte" = "600" ] && echo ja || echo nein)" "Rechte $rechte"
+
+    grep -q 'ProbeStartpasswort9' "$probe_datei" && grep -q 'aras_probeschluessel' "$probe_datei"
+    pruefe 'erstausgabe.txt traegt beide Geheimnisse' "$(ja_nein $?)"
+
+    grep -qi 'LOESCHEN' "$probe_datei"
+    pruefe 'erstausgabe.txt sagt, dass sie zu loeschen ist' "$(ja_nein $?)"
+  else
+    pruefe 'erstausgabe.txt wird geschrieben' nein "$probe_datei fehlt"
+  fi
+
+  # Ohne Geheimnis wird nichts geschrieben: ein zweiter Bootstrap-Lauf kennt
+  # das Startpasswort nicht mehr und darf die Erstausgabe nicht leeren.
+  leer_datei="${probe_ordner}/leer.txt"
+  bash scripts/util/erstausgabe.sh --datei "$leer_datei" >/dev/null 2>&1 || true
+  pruefe 'Ohne Geheimnis wird keine Erstausgabe geschrieben' \
+    "$([ ! -f "$leer_datei" ] && echo ja || echo nein)"
+
+  rm -rf "$probe_ordner"
+else
+  pruefe 'scripts/util/erstausgabe.sh gibt es' nein 'Datei fehlt'
+fi
+
+# 8d. Am Geraet: die Datei liegt wirklich da, direkt nach der Installation.
+if [ "$TROCKEN" = true ]; then
+  uebergehen 'config/secrets/erstausgabe.txt liegt am Geraet' 'trocken'
+elif [ -f config/secrets/erstausgabe.txt ]; then
+  rechte=$(stat -c '%a' config/secrets/erstausgabe.txt 2>/dev/null || echo '?')
+  grep -q 'aras_' config/secrets/erstausgabe.txt
+  treffer=$?
+  pruefe 'config/secrets/erstausgabe.txt liegt am Geraet und nennt den Kit-Schluessel' \
+    "$([ "$rechte" = "600" ] && [ "$treffer" -eq 0 ] && echo ja || echo nein)" "Rechte $rechte"
+else
+  pruefe 'config/secrets/erstausgabe.txt liegt am Geraet' nein \
+    'Datei fehlt -- schon geloescht, oder der Bootstrap hat sie nie geschrieben'
 fi
 
 echo

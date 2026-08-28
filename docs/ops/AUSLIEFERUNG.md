@@ -123,15 +123,18 @@ Bootstrap voraussetzt und was ein unbeaufsichtigter Lauf nicht erfragen kann:
 2. Voraussetzungen prüfen: `docker`, `docker compose`, `openssl`, `curl`, und
    ob der Docker-Dienst diesem Benutzer antwortet.
 3. `.env` schreiben (`scripts/interactive_setup.sh --non-interactive`). Ohne
-   `--passwort` erzeugt es ein Startpasswort und zeigt es **einmal** am Ende.
+   `--passwort` erzeugt es ein Startpasswort.
 4. Netzname setzen (`scripts/setup/setup-mdns.sh`): System-Hostname für DHCP
    plus Avahi für `.local`. Siehe
    [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md).
-5. `./arasul bootstrap` — Hardware, Zertifikate, Images bauen, Datenbank,
-   Dienste, Admin, **Kit-Schlüssel**, Rauchtest.
-6. `arasul-platform.service` installieren, damit das Gerät nach einem Neustart
+5. `arasul-platform.service` installieren, damit das Gerät nach einem Neustart
    von selbst hochkommt (in der richtigen Reihenfolge, nicht dreizehn Container
-   gleichzeitig auf einem gerade gestarteten Orin).
+   gleichzeitig auf einem gerade gestarteten Orin). **Vor** dem Bootstrap, weil
+   der Bootstrap mit der Erstausgabe endet und nichts sie nach oben schieben
+   soll.
+6. `./arasul bootstrap` — Hardware, Zertifikate, Images bauen, Datenbank,
+   Dienste, Admin, **Kit-Schlüssel**, Rauchtest, **Erstausgabe**. Der Bootstrap
+   sagt das letzte Wort; `install.sh` gibt an ihn ab (`exec`).
 
 Optionen:
 
@@ -155,23 +158,49 @@ vorbeikam. Ein Reset, der schon halb installiert, ist eine **zweite**
 Installation, die von der ersten abweicht. Der Aufruf ist raus.
 
 **Er räumt alles Eigene weg**, auch was `docker compose down -v` nicht kennt:
-die App-Container `arasul-app-<id>-<stand>` samt der am Gerät gebauten Images
-(Etikett `arasul.app`), und jedes Volume dieses Geräts — auch die aus früheren
-Projektnamen. Genau die blieben am Orin stehen und trugen die Datenbank des
-vorigen Kunden in die nächste Installation. Erhalten bleiben nur die
-KI-Modelle; sie werden gesichert und zurückgelegt.
+jeden Container, dessen **Name mit `arasul-` beginnt** oder der ein **Etikett
+`arasul.*`** trägt, die am Gerät gebauten App-Images (Etikett `arasul.app`), und
+jedes Volume dieses Geräts — auch die aus früheren Projektnamen. Genau die
+blieben am Orin stehen: die Volumes trugen die Datenbank des vorigen Kunden in
+die nächste Installation, und zehn `arasul-sandbox-*` samt einem
+`arasul-skills-sandbox` liefen nach dem Reset weiter, weil der Filter bis zum
+28.08.2026 nur `arasul-app-*` traf. Was weder das eine noch das andere Merkmal
+hat, bleibt stehen: ein Werksreset räumt sein eigenes Gerät auf, nicht den
+Rechner eines Fremden. Erhalten bleiben nur die KI-Modelle; sie werden gesichert
+und zurückgelegt.
 
 Lief der Reset mit `sudo`, gibt er das Verzeichnis am Ende an den aufrufenden
 Benutzer zurück.
 
-## Was der Bootstrap einmal zeigt
+## Die Erstausgabe: was der Bootstrap einmal sagt
 
-Am Ende stehen zwei Dinge auf dem Bildschirm, und beide nur dort:
+Am Ende stehen zwei Dinge auf dem Bildschirm, und von beiden speichert das
+Gerät nur einen bcrypt-Abdruck:
 
 - **Das Startpasswort des Administrators** (wenn `install.sh` es erzeugt hat).
+  Beim ersten Anmelden wird es gewechselt (`passwort_vom_admin`, Phase D1).
 - **Der Deploy-Schlüssel für das Ara-Kit**, Bereich `app:deploy`. Mit ihm rollt
-  ein Partner Apps auf dieses Gerät, ohne SSH und ohne Passwort (Phase C5). In
-  der Datenbank steht nur sein bcrypt-Abdruck; nachschlagen geht nicht.
+  ein Partner Apps auf dieses Gerät, ohne SSH und ohne Passwort (Phase C5).
+
+Beides schreibt `scripts/util/erstausgabe.sh`, und zwar an **zwei** Orte: auf
+die Konsole und in **`config/secrets/erstausgabe.txt`** (Rechte `600`, nur für
+den Besitzer lesbar). Die Datei sagt in ihrer ersten Zeile, dass sie nach dem
+Lesen zu löschen ist:
+
+```bash
+cat config/secrets/erstausgabe.txt
+shred -u config/secrets/erstausgabe.txt
+```
+
+**Beides erscheint immer**, auch wenn der Rauchtest rot war, und immer **vor**
+dem Fehlerbericht. Das ist der Fund des zweiten Werksresets vom 28.08.2026: die
+Installation war in Ordnung — zehn Container healthy, Admin und Kit-Schlüssel
+angelegt —, aber der Rauchtest stieß jeden Dienst nur einmal an, statt wie der
+Deploy auf ihn zu warten. Das `dashboard-frontend` war neun Sekunden später
+healthy, der `self-healing-agent` noch in seiner Startphase, `install.sh` endete
+mit `1`, und die Zusammenfassung stand im grünen Zweig. Der Kit-Schlüssel war
+angelegt, und gesehen hat ihn niemand. Ein Fehlerbericht ist nachlesbar, ein
+einmal gezeigtes Geheimnis nicht.
 
 Verloren? Ein neuer Schlüssel, der alte wird entwertet:
 
@@ -211,7 +240,7 @@ Drei Stufen, und jede misst etwas, das die anderen nicht sehen:
 
 | Wo                        | Was                                                                                                                                                                                                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI, Job `Installation`    | Baut das Artefakt, packt es aus und startet `./install.sh --nur-vorbereiten` darin. Danach: `.env` da und mit 600, `SYSTEM_VERSION` aus dem Bau, `validate-dependencies.sh` findet seine Compose-Datei, `docker compose config` schweigt, `bootstrap-abnahme.sh --trocken` grün. |
+| CI, Job `Installation`    | Baut das Artefakt, packt es aus und startet `./install.sh --nur-vorbereiten` darin. Danach: `.env` da und mit 600, `SYSTEM_VERSION` aus dem Bau, `validate-dependencies.sh` findet seine Compose-Datei, `docker compose config` schweigt, `erstausgabe.sh` nennt beide Geheimnisse und legt `config/secrets/erstausgabe.txt` mit 600 an, `bootstrap-abnahme.sh --trocken` grün. |
 | `bootstrap-abnahme.sh`    | Am Gerät nach dem Reset: laufen alle Dienste bis `document-indexer` und `self-healing-agent`, gibt es einen gültigen Kit-Schlüssel, antwortet `/api/health`, sind die App-Container von vorher weg.                                                                              |
 | `auslieferung-abnahme.sh` | Über die Schnittstelle: Fassung, CA-Zertifikat, Namen im Zertifikat, TLS ohne SNI, Kit-Schlüssel.                                                                                                                                                                                |
 
