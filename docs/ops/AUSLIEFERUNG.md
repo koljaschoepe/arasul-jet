@@ -62,6 +62,29 @@ git push origin v0.3.1
 Der Grund hängt damit für immer am Tag-Objekt und nicht in einem
 Lauf-Protokoll, das nach dreißig Tagen weg ist.
 
+### Die Sperre prüft den Tag. Sie kann nicht prüfen, was danach kommt.
+
+Am 28.08.2026 um 21:25 ging v0.4.0 auf die damalige Spitze von `main`, und
+alle drei Regeln standen grün. Eine Stunde später wurde PR #737 (Phase G2)
+gemergt, und darin lag eine Reparatur, die einen Kunden trifft: in Traefik
+begrenzte `rate-limit-auth` das **ganze** Präfix `/api/auth` auf 30 Anfragen
+je Minute und je IP. Eine Seitenladung kostet zwei davon (`session` und
+`needs-setup`), hinter einer NAT-Adresse teilt sich ein Büro eine IP — nach
+etwa fünf Seiten kam 429, ohne eine einzige `RateLimit-*`-Kopfzeile, die es
+erklärt hätte.
+
+Das war kein Fehler am Tag. Ein Tag ist eine Momentaufnahme, und `main` läuft
+danach weiter; die Sperre misst gegen `origin/main` **zum Zeitpunkt des
+Baus**, und zu diesem Zeitpunkt war v0.4.0 richtig. Es gibt keine dritte Regel,
+die das auffangen könnte, ohne jeden Merge zu einem Release zu machen.
+
+Was bleibt, ist eine Frage nach dem Merge und keine Prüfung davor: **trägt die
+Nummer, die gerade im Netz steht, diese Reparatur schon?** Lautet die Antwort
+nein und spürt ein Kunde den Fehler, ist die Antwort eine neue Nummer auf die
+neue Spitze — so ist v0.5.0 entstanden (Auftrag `release-v050`, Nachweis am
+ausgepackten Artefakt in
+[`docs/plans/audits/2026-08-29-messung-release-v050.md`](../plans/audits/2026-08-29-messung-release-v050.md)).
+
 ## Das Artefakt
 
 | Was            | Wert                                                                                     |
