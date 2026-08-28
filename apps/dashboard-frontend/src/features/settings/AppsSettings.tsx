@@ -60,6 +60,16 @@ function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => voi
             test {app.staende.test.version}
           </span>
         )}
+        {/* Ein Stand, der nicht ausgeliefert werden kann, steht schon in der
+            Liste rot da und nicht erst nach dem Klick (Auftrag app-leiche). */}
+        {(app.staende.live?.lieferbar === false || app.staende.test?.lieferbar === false) && (
+          <span
+            className="rounded bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive"
+            data-testid={`app-mangel-${app.id}`}
+          >
+            nicht lieferbar
+          </span>
+        )}
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>

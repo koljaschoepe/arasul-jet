@@ -16,7 +16,7 @@
  * Knopf, wie in der Modell-Detailseite (Plan 012).
  */
 import { useState } from 'react';
-import { AppWindow, FileText, ListOrdered, ScrollText, Users } from 'lucide-react';
+import { AppWindow, FileText, ListOrdered, ScrollText, Trash2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
@@ -24,6 +24,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatDate } from '@/utils/formatting';
 import { cn } from '@/lib/utils';
 import type { Stand } from '../mitarbeiter/useAppFreigaben';
+import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppStaende } from './AppStaende';
 import { AppTester } from './AppTester';
 import { FlowAnsicht, ModellZeile } from './FlowAnsicht';
@@ -33,6 +34,7 @@ import {
   useApp,
   useAppLaeufe,
   useAppLogs,
+  useEntfernen,
   useFlowModell,
   useKurzliste,
   useSchalten,
@@ -83,6 +85,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const { data: app, isLoading, isError } = useApp(appId);
   const { data: laeufe } = useAppLaeufe(appId);
   const schalten = useSchalten(appId);
+  const entfernen = useEntfernen(appId);
   const modellSetzen = useFlowModell(appId);
   // Die Kurzliste des Geräts — dieselbe Abfrage wie die Ansicht „Modelle",
   // über denselben Schlüssel: React Query holt sie nicht zweimal.
@@ -92,6 +95,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const [stand, setStand] = useState<Stand>('live');
   const [logsAn, setLogsAn] = useState(false);
   const [modellFuer, setModellFuer] = useState<AppFlow | FlowDefinition | null>(null);
+  const [entfernenOffen, setEntfernenOffen] = useState(false);
 
   const { data: logs, isFetching: logsLaden } = useAppLogs(appId, stand, logsAn);
 
@@ -123,6 +127,16 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             ? `${app.name} ist live. Wer sie freigegeben hat, sieht die neue Fassung.`
             : `${app.name} steht wieder auf der vorigen Fassung.`
         ),
+    });
+  };
+
+  const handleEntfernen = () => {
+    entfernen.mutate(undefined, {
+      onSuccess: () => {
+        setEntfernenOffen(false);
+        toast.success(`${app.name} ist vom Gerät entfernt.`);
+        onZurueck();
+      },
     });
   };
 
@@ -184,9 +198,23 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             <p className="mt-1 text-sm text-muted-foreground">{app.beschreibung}</p>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={onZurueck} data-testid="app-zurueck">
-          Alle Apps
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Der eine Weg, eine App loszuwerden, den es für einen Menschen
+              gibt (Auftrag app-leiche): bis dahin konnte ein Kunde eine App
+              nur über das Kit oder in der Datenbank entfernen. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEntfernenOffen(true)}
+            data-testid="app-entfernen"
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+            App entfernen
+          </Button>
+          <Button variant="outline" size="sm" onClick={onZurueck} data-testid="app-zurueck">
+            Alle Apps
+          </Button>
+        </div>
       </div>
 
       <SectionList>
@@ -342,6 +370,12 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         laeuft={modellSetzen.isPending}
         onSchliessen={() => setModellFuer(null)}
         onSetzen={handleModell}
+      />
+      <AppEntfernenDialog
+        fuer={entfernenOffen ? { id: app.id, name: app.name } : null}
+        laeuft={entfernen.isPending}
+        onSchliessen={() => setEntfernenOffen(false)}
+        onEntfernen={handleEntfernen}
       />
     </div>
   );

@@ -315,6 +315,46 @@ Eine Anfrage an `/apps/<id>/api/…`, die trotzdem beim Backend ankommt, ist ein
 seine Schnittstelle HTML zurückbekommt, meldet einen Fehler, der nach einem
 Fehler der App aussieht.
 
+## Was ein Stand „lieferbar" nennt
+
+> Auftrag app-leiche, 28.08.2026.
+
+Ein Stand besteht aus drei Dingen, und keines weiß vom anderen: der Zeile in
+`app_staende`, dem Container und den Dateien unter `/arasul/apps/<id>/<version>/`.
+Am Orin stand `urlaubsantrag` als `test` **und** `live`, beide Container
+liefen und meldeten `healthy`, und den Ordner gab es nicht — `GET
+/apps/urlaubsantrag/` endete in `INTERNAL_ERROR`, und keine Ansicht zeigte
+etwas Rotes.
+
+**Der Healthcheck des Containers prüft das Backend, sonst nichts.** Er ruft
+`backend.gesundheit` am Port der App auf (`appContainer.containerBeschreibung`).
+Das Frontend liegt nicht im Container, sondern am Host, und ausliefern tut es
+Arasul; dass es fehlt, kann der Container nicht wissen. Deshalb rechnet das
+Gerät die Gesundheit eines **Standes** selbst, aus beiden Quellen
+(`appStore.standZustand`):
+
+| Feld        | Woher                                                                    |
+| ----------- | ------------------------------------------------------------------------ |
+| `backend`   | Docker: läuft er, was sagt seine eigene Prüfung (`healthy`, `unhealthy`) |
+| `dateien`   | die Platte: `app.json` da, `index.html` des Frontends da (`null` ohne)   |
+| `lieferbar` | bekommt ein Mensch, der auf die Kachel klickt, diese App?                |
+| `mangel`    | wenn nicht: warum, als ein Satz                                          |
+
+`GET /api/apps` und `GET /api/apps/:id` tragen alle vier je Stand. Die
+Verwaltung (Einstellungen → Apps) zeigt einen Stand ohne `lieferbar` rot,
+schon in der Liste; `GET /api/apps/meine` lässt einen Stand ohne Frontend
+weg, damit kein Mitarbeiter eine Kachel bekommt, hinter der nichts ist; und
+`GET /apps/<id>/` antwortet mit **`503 APP_DATEIEN_FEHLEN`** und dem Satz,
+was zu tun ist, statt mit `INTERNAL_ERROR`.
+
+**Aufgeräumt wird nicht von selbst.** Beim Start sieht das Backend einmal
+nach und schreibt je Stand ohne Dateien eine Warnung ins Protokoll
+(`appStore.pruefeStaende`) — mehr nicht. Docker legt eine fehlende Bind-Quelle
+beim Start als leeren Ordner an (Falle aus dem Werksreset vom 28.08.2026); ein
+Backend, das bei leerem `/arasul/apps` jeden Stand löschte, hätte nach einem
+verrutschten Mount das Gerät leergeräumt. Entfernen tut ein Mensch, und die
+Ansicht sagt ihm, welche.
+
 ## Die Anmeldung
 
 > Phase C4.
@@ -438,9 +478,14 @@ Administrator von Hand anlegt.
 5. `DELETE /api/apps/<id>` (Sitzung) oder
    `DELETE /api/v1/external/apps/<id>?bestaetigung=<id>` (Schlüssel) entfernt
    beide Container **mitsamt ihren Volumes**, beide Stände, alle Freigaben und
-   die Schlüssel der App. Die Dateien bleiben liegen — wer eine App entfernt,
-   will sie üblicherweise gleich wieder einspielen; mit `?dateien=true` gehen
-   sie mit. Aufgeräumt wird sonst beim Werksreset.
+   die Schlüssel der App. Die Dateien bleiben liegen — wer eine App aus dem
+   Kit heraus entfernt, will sie üblicherweise gleich wieder einspielen; mit
+   `?dateien=true` gehen sie mit. Ein Mensch nimmt den Weg in der Oberfläche
+   (Einstellungen → Apps → **App entfernen**, seit dem Auftrag app-leiche vom
+   28.08.2026): die Rückfrage ist dieselbe wie die des Kits — die Kennung
+   abtippen —, und die Dateien gehen mit, denn ein Kunde, der eine App
+   loswerden will, will sie ganz los sein. Aufgeräumt wird sonst beim
+   Werksreset.
 
 Schritt 1 und 2 gehen auch anders herum, wenn jemand ohnehin am Gerät sitzt:
 Dateien nach `/arasul/apps/<id>/<version>/` legen und

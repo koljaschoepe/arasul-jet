@@ -27,7 +27,29 @@ import type { AppStandDetail, Backendzustand } from './useAppVerwaltung';
  * läuft nicht. Der mittlere ist kein Fehler — deshalb ist er grau und nicht
  * rot.
  */
-function Gesundheit({ backend }: { backend: Backendzustand | null }) {
+function Gesundheit({
+  backend,
+  mangel,
+}: {
+  backend: Backendzustand | null;
+  /** Was dem Stand fehlt, um ausgeliefert zu werden — oder null. */
+  mangel: string | null;
+}) {
+  // Vor allem anderen: ein Container, der gesund meldet, während die Dateien
+  // daneben fehlen, ist genau der Zustand, den niemand sehen konnte
+  // (Auftrag app-leiche). Das Gerät sagt jetzt, was fehlt, und die Karte
+  // sagt es weiter — rot, weil ein Mensch auf die Kachel klickt und nichts
+  // bekommt.
+  if (mangel) {
+    return (
+      <span className="inline-flex items-start gap-1.5 text-destructive" data-testid="stand-mangel">
+        <Activity className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+        <span>
+          <span className="font-medium">nicht lieferbar</span> — {mangel}
+        </span>
+      </span>
+    );
+  }
   if (!backend) {
     return <span className="text-muted-foreground">kein Backend</span>;
   }
@@ -93,7 +115,7 @@ function StandKarte({
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="text-muted-foreground">Zustand</dt>
           <dd>
-            <Gesundheit backend={detail.backend} />
+            <Gesundheit backend={detail.backend} mangel={detail.lieferbar ? null : detail.mangel} />
           </dd>
           <dt className="text-muted-foreground">Eingespielt</dt>
           <dd className="text-foreground">{formatDate(detail.eingespielt_am)}</dd>

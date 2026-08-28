@@ -29,12 +29,19 @@ export interface Freigabe {
   freigegeben_am: string;
 }
 
+/** Ein Stand in der Liste: die Version, und ob er ausgeliefert werden kann. */
+interface StandKurz {
+  version: string;
+  lieferbar?: boolean;
+  mangel?: string | null;
+}
+
 /** Eine App am Gerät, so wie `GET /api/apps` sie liefert (nur was hier zählt). */
 export interface AppZeile {
   id: string;
   name: string;
   beschreibung: string | null;
-  staende: { test: { version: string } | null; live: { version: string } | null };
+  staende: { test: StandKurz | null; live: StandKurz | null };
 }
 
 /**

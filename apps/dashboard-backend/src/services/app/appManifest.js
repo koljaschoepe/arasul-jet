@@ -132,10 +132,7 @@ async function frontendVerzeichnis(manifest) {
   if (!manifest.frontend) {
     return null;
   }
-  const ordner = path.join(
-    verzeichnisFuer(manifest.id, manifest.version),
-    manifest.frontend.verzeichnis
-  );
+  const ordner = frontendOrdner(manifest);
   try {
     const stat = await fs.stat(path.join(ordner, 'index.html'));
     if (!stat.isFile()) {
@@ -150,6 +147,51 @@ async function frontendVerzeichnis(manifest) {
     throw err;
   }
   return ordner;
+}
+
+/** Der Ordner, aus dem das Frontend einer Version ausgeliefert wird. */
+function frontendOrdner(manifest) {
+  return path.join(verzeichnisFuer(manifest.id, manifest.version), manifest.frontend.verzeichnis);
+}
+
+/** Gibt es diese Datei? Antwortet, statt zu werfen. */
+async function dateiDa(pfad) {
+  try {
+    return (await fs.stat(pfad)).isFile();
+  } catch (err) {
+    if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Liegt auf der Platte, was ein Stand verspricht? (Auftrag app-leiche,
+ * 28.08.2026.)
+ *
+ * `frontendVerzeichnis` oben WIRFT, und das ist richtig fuer das Einspielen:
+ * dort soll eine fehlende Seite den Aufruf zum Stehen bringen. Hier wird
+ * NACHGESEHEN, fuer einen Stand, der laengst in der Datenbank steht -- und
+ * der Befund ist eine Antwort, kein Fehler. Am Orin standen am 28.08.2026
+ * zwei Staende von `urlaubsantrag` in `app_staende`, beide Container liefen
+ * und meldeten healthy, und `/arasul/apps/urlaubsantrag/` gab es nicht. Die
+ * Gesundheit eines Containers sagt nichts ueber die Dateien daneben: das
+ * Frontend liegt nicht im Container, sondern am Host, und ausliefern tut es
+ * Arasul. Wer wissen will, ob ein Stand ausgeliefert werden KANN, fragt
+ * beides -- und das hier ist die eine Haelfte.
+ *
+ * @returns {Promise<{manifest: boolean, frontend: boolean|null}>}
+ *   `frontend` ist `null`, wenn die App keines hat.
+ */
+async function dateienVorhanden(manifest) {
+  const versionsPfad = verzeichnisFuer(manifest.id, manifest.version);
+  return {
+    manifest: await dateiDa(path.join(versionsPfad, 'app.json')),
+    frontend: manifest.frontend
+      ? await dateiDa(path.join(frontendOrdner(manifest), 'index.html'))
+      : null,
+  };
 }
 
 /**
@@ -176,5 +218,7 @@ module.exports = {
   leseManifest,
   listeVersionen,
   frontendVerzeichnis,
+  frontendOrdner,
+  dateienVorhanden,
   entferneDateien,
 };

@@ -946,21 +946,21 @@ steht in ihrem Manifest `app.json` — die Felder erklärt
 Je App gibt es zwei Stände: `live` für alle Freigegebenen, `test` für die
 benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 
-| Method | Endpoint                           | Description                                                        |
-| ------ | ---------------------------------- | ------------------------------------------------------------------ |
-| GET    | `/api/apps`                        | Alle Apps mit beiden Ständen und dem Zustand ihrer Container       |
-| GET    | `/api/apps/meine`                  | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter) |
-| GET    | `/api/apps/:id`                    | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows         |
-| POST   | `/api/apps/:id/einspielen`         | Eine Version in einen Stand bringen                                |
-| DELETE | `/api/apps/:id`                    | App entfernen: beide Container, beide Stände, Freigaben            |
-| GET    | `/api/apps/:id/logs`               | Die letzten Zeilen des App-Backends                                |
-| GET    | `/api/apps/:id/zugang`             | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)      |
-| GET    | `/api/apps/:id/flows`              | Die Flows beider Stände, mit dem Modell, das sie treibt            |
-| GET    | `/api/apps/:id/flows/:name`        | Die Flow-Datei selbst, samt Prompt (Phase D4)                      |
-| PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen     |
-| GET    | `/api/apps/:id/laeufe`             | Die Flow-Läufe dieser App (Phase D4)                               |
-| GET    | `/api/apps/:id/laeufe/:runId`      | Ein Lauf samt Schritten und Gedankengang (Phase D4)                |
-| POST   | `/api/apps/:id/schalten`           | Den Teststand live schalten oder zurücknehmen (Phase D4)           |
+| Method | Endpoint                           | Description                                                                                |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/apps`                        | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                               |
+| GET    | `/api/apps/meine`                  | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                         |
+| GET    | `/api/apps/:id`                    | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                 |
+| POST   | `/api/apps/:id/einspielen`         | Eine Version in einen Stand bringen                                                        |
+| DELETE | `/api/apps/:id`                    | App entfernen: beide Container, beide Stände, Freigaben (`?dateien=true`: auch die Ordner) |
+| GET    | `/api/apps/:id/logs`               | Die letzten Zeilen des App-Backends                                                        |
+| GET    | `/api/apps/:id/zugang`             | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                              |
+| GET    | `/api/apps/:id/flows`              | Die Flows beider Stände, mit dem Modell, das sie treibt                                    |
+| GET    | `/api/apps/:id/flows/:name`        | Die Flow-Datei selbst, samt Prompt (Phase D4)                                              |
+| PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                             |
+| GET    | `/api/apps/:id/laeufe`             | Die Flow-Läufe dieser App (Phase D4)                                                       |
+| GET    | `/api/apps/:id/laeufe/:runId`      | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                        |
+| POST   | `/api/apps/:id/schalten`           | Den Teststand live schalten oder zurücknehmen (Phase D4)                                   |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 
@@ -981,6 +981,13 @@ greift nur bei einer neuen App, nicht bei einer neuen Version).
 
 **GET /api/apps/:id/logs:** Query `?stand=live|test&zeilen=1..2000`.
 
+**DELETE /api/apps/:id:** Query `?dateien=true|false` (Vorgabe `false`). Ohne
+`dateien` bleiben die Ordner unter `/arasul/apps/<id>/` liegen; mit gehen sie
+mit — das ist der Weg der Oberfläche (Einstellungen → Apps → App entfernen).
+Derselbe Dienst wie `DELETE /api/v1/external/apps/:id`, dort mit der Rückfrage
+`?bestaetigung=<id>`; hier fragt der Dialog. Antwort:
+`{ "data": { "id", "dateien_entfernt": ["1.0.0"] | null, "images_entfernt": [] } }`.
+
 **GET /api/apps/:id Response (gekürzt):**
 
 ```json
@@ -995,6 +1002,9 @@ greift nur bei einer neuen App, nicht bei einer neuen Version).
         "pfad": "/apps/urlaub/",
         "api": "/apps/urlaub/api/",
         "backend": { "laeuft": true, "status": "running", "gesundheit": "healthy" },
+        "dateien": { "manifest": true, "frontend": true },
+        "lieferbar": true,
+        "mangel": null,
         "modelle": [{ "name": "qwen3:14b-q8", "vorhanden": true }],
         "flows": [{ "name": "urlaub-pruefen", "modell": "qwen3:14b-q8", "version": "1.0.0" }]
       },
@@ -1004,6 +1014,18 @@ greift nur bei einer neuen App, nicht bei einer neuen Version).
   "timestamp": "2026-08-27T12:00:00Z"
 }
 ```
+
+`backend` ist, was Docker über den Container sagt — sein Healthcheck prüft
+`backend.gesundheit` am Port der App und sonst nichts. `dateien`, `lieferbar`
+und `mangel` (Auftrag app-leiche, 28.08.2026) sind die Antwort des Geräts auf
+die Frage, ob dieser Stand ausgeliefert werden **kann**: `app.json` und die
+`index.html` des Frontends auf der Platte, der Container da und nicht
+`unhealthy`. Ein Stand mit `lieferbar: false` nennt in `mangel` den Grund als
+Satz; `GET /api/apps` trägt dieselben drei Felder je Stand. Ein
+`GET /apps/<id>/` auf einen Stand ohne Dateien antwortet mit
+`503 APP_DATEIEN_FEHLEN` statt `INTERNAL_ERROR`, und `GET /api/apps/meine`
+lässt ihn weg (siehe [APPS.md](../features/APPS.md), „Was ein Stand
+lieferbar nennt").
 
 `modelle` sagt, was das Manifest **verlangt** und was davon am Gerät ist.
 Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte lädt,

@@ -254,6 +254,20 @@ const SchaltenBody = z
  * das aus der Ferne einspielen kann, muss auch aus der Ferne aufraeumen
  * koennen.
  */
+/**
+ * Dasselbe ohne Rueckfrage, fuer die Sitzungsroute (Auftrag app-leiche): dort
+ * fragt der Dialog in der Oberflaeche, und ein zweites Wort in der Adresse
+ * waere eine Rueckfrage hinter der Rueckfrage.
+ */
+const EntfernenSitzungQuery = z
+  .object({
+    dateien: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform(v => v === 'true'),
+  })
+  .strict();
+
 const EntfernenQuery = z
   .object({
     bestaetigung: z.string().trim().min(1, 'Rueckfrage: die Kennung der App als `bestaetigung`'),
@@ -434,6 +448,7 @@ module.exports = {
   EinspielenBody,
   SchaltenBody,
   EntfernenQuery,
+  EntfernenSitzungQuery,
   LogsQuery,
   ZugangQuery,
 };
