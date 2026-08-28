@@ -5,14 +5,14 @@ import { Chart, Sparkline } from '@/components/ui/Chart';
 import { Section, SectionList } from '@/components/ui/Section';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { useDashboardData } from '@/hooks/useDashboardData';
+import { useGeraetezustand } from './geraetezustand';
 import type {
-  DashboardData,
+  Geraetezustand,
   MetricsHistory,
   Thresholds,
   DeviceInfo,
   ChartDataPoint,
-} from '@/hooks/useDashboardData';
+} from './geraetezustand';
 import type { Metrics } from '@/types';
 import { useMemoryBudget } from '@/hooks/useMemoryBudget';
 import { DashboardCard } from './DashboardCard';
@@ -22,10 +22,10 @@ import { DashboardCard } from './DashboardCard';
  * Kacheln, Performance-Verlauf und die admin-only System-Gesundheit).
  *
  * Aus der entfernten Dashboard-Startseite (Plan 008) in die System-
- * Einstellungen übernommen; die Datenbasis liefert weiterhin `useDashboardData`
- * (Live-Metriken via WebSocket, `/metrics/history?range=24h`,
- * `/system/thresholds`, …). Die frühere Automatisierungs-Kachel war reines
- * Dashboard-Chrome und entfällt hier.
+ * Einstellungen übernommen; die Datenbasis liefert seit Phase D5
+ * `geraetezustand.ts` daneben (Live-Metriken über den WebSocket,
+ * `/metrics/history?range=24h`, `/system/thresholds`). Die frühere
+ * Automatisierungs-Kachel war reines Dashboard-Chrome und entfällt hier.
  */
 
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
@@ -91,8 +91,8 @@ interface SystemStatusViewProps {
 
 /**
  * Die eigentliche Status-Darstellung. Erwartet bereits geladene Daten aus
- * useDashboardData (der Wrapper unten übernimmt Lade-/Fehlerzustand + den
- * einen useDashboardData-Aufruf, damit nur EIN WebSocket geöffnet wird).
+ * `useGeraetezustand` (der Wrapper unten übernimmt Lade- und Fehlerzustand und
+ * den EINEN Aufruf, damit nur ein WebSocket offen ist).
  */
 function SystemStatusView({
   metrics,
@@ -360,7 +360,7 @@ function SystemStatusView({
  * Öffentlicher Einstieg: kapselt Lade-/Fehlerzustand rund um die Status-Ansicht.
  */
 export function SystemStatus(): React.JSX.Element {
-  const data: DashboardData = useDashboardData(true);
+  const data: Geraetezustand = useGeraetezustand(true);
 
   if (data.loading) {
     return <LoadingSpinner message="Lade Systemstatus..." />;

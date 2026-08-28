@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useApi } from './useApi';
-import { useWebSocketMetrics } from './useWebSocketMetrics';
-import type { Metrics } from '../types';
+import { useApi } from '@/hooks/useApi';
+import { useWebSocketMetrics } from '@/hooks/useWebSocketMetrics';
+import type { Metrics } from '@/types';
 
 /**
- * Kapselt das komplette Dashboard-Datenmodell (Live-Metriken via WebSocket,
- * History, Services, System-/Netzwerk-Info, Apps, Thresholds) inklusive
- * 30s-Refresh. Wird von der alten UI (App.tsx) und vom Dashboard-Tab der
- * Workspace-Shell gemeinsam genutzt — es rendert immer nur einer von beiden.
+ * Was das Gerät gerade tut: Live-Metriken über den WebSocket, der Verlauf der
+ * letzten 24 Stunden und die Schwellen samt Geräteangaben.
+ *
+ * Hieß bis Phase D5 `hooks/useDashboardData` und holte sieben Wege im
+ * 30-Sekunden-Takt: dazu `/services`, `/system/info`, `/system/network` und
+ * `/apps?status=running,installed`. Gelesen wurde davon nichts. Die Startseite,
+ * für die das gebaut war, ist mit Plan 008 gefallen; übrig blieb ein Hook, der
+ * auf einem Jetson alle 30 Sekunden vier Antworten wegwarf. Der Rest steht
+ * jetzt hier, beim einzigen Verwender (Regel des Ordners: ein Feature, ein
+ * Ort).
  */
 
 /**
@@ -45,36 +51,6 @@ export interface MetricsHistory {
   temperature: (number | null)[];
 }
 
-interface ServiceStatus {
-  status: string;
-}
-
-interface Services {
-  llm: ServiceStatus;
-  embeddings: ServiceStatus;
-}
-
-interface SystemInfo {
-  uptime_seconds: number;
-  version: string;
-  hostname: string;
-}
-
-interface NetworkInfo {
-  internet_reachable: boolean;
-}
-
-interface RunningApp {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  status: string;
-  hasCustomPage?: boolean;
-  customPageRoute?: string;
-  ports?: { external?: number };
-}
-
 interface ThresholdPair {
   warning: number;
   critical: number;
@@ -105,13 +81,9 @@ export interface ChartDataPoint {
   Temp: number | null;
 }
 
-export interface DashboardData {
+export interface Geraetezustand {
   metrics: Metrics | null;
   metricsHistory: MetricsHistory | null;
-  services: Services | null;
-  systemInfo: SystemInfo | null;
-  networkInfo: NetworkInfo | null;
-  runningApps: RunningApp[];
   thresholds: Thresholds | null;
   deviceInfo: DeviceInfo | null;
   loading: boolean;
@@ -120,16 +92,12 @@ export interface DashboardData {
   retry: () => void;
 }
 
-export function useDashboardData(isAuthenticated: boolean): DashboardData {
+export function useGeraetezustand(isAuthenticated: boolean): Geraetezustand {
   const api = useApi();
 
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistory | null>(null);
-  const [services, setServices] = useState<Services | null>(null);
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [runningApps, setRunningApps] = useState<RunningApp[]>([]);
   const [thresholds, setThresholds] = useState<Thresholds | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
 
@@ -149,25 +117,12 @@ export function useDashboardData(isAuthenticated: boolean): DashboardData {
 
       try {
         const opts = { signal, showError: false };
-        const [metricsRes, historyRes, servicesRes, infoRes, networkRes, appsRes, thresholdsRes] =
-          await Promise.allSettled([
-            api.get<Metrics>('/metrics/live', opts),
-            api.get<MetricsHistory>('/metrics/history?range=24h', opts),
-            api.get<Services>('/services', opts),
-            api.get<SystemInfo>('/system/info', opts),
-            api.get<NetworkInfo>('/system/network', opts),
-            api.get<{ apps?: RunningApp[] }>('/apps?status=running,installed', opts),
-            api.get<{ thresholds: Thresholds; device: DeviceInfo }>('/system/thresholds', opts),
-          ]);
-        const results: PromiseSettledResult<unknown>[] = [
-          metricsRes,
-          historyRes,
-          servicesRes,
-          infoRes,
-          networkRes,
-          appsRes,
-          thresholdsRes,
-        ];
+        const [metricsRes, historyRes, thresholdsRes] = await Promise.allSettled([
+          api.get<Metrics>('/metrics/live', opts),
+          api.get<MetricsHistory>('/metrics/history?range=24h', opts),
+          api.get<{ thresholds: Thresholds; device: DeviceInfo }>('/system/thresholds', opts),
+        ]);
+        const results: PromiseSettledResult<unknown>[] = [metricsRes, historyRes, thresholdsRes];
 
         if (metricsRes.status === 'fulfilled' && metricsRes.value) setMetrics(metricsRes.value);
         if (historyRes.status === 'fulfilled' && historyRes.value)
@@ -175,11 +130,6 @@ export function useDashboardData(isAuthenticated: boolean): DashboardData {
             ...historyRes.value,
             temperature: ohneAusfallwerte(historyRes.value.temperature),
           });
-        if (servicesRes.status === 'fulfilled' && servicesRes.value) setServices(servicesRes.value);
-        if (infoRes.status === 'fulfilled' && infoRes.value) setSystemInfo(infoRes.value);
-        if (networkRes.status === 'fulfilled' && networkRes.value) setNetworkInfo(networkRes.value);
-        if (appsRes.status === 'fulfilled' && appsRes.value)
-          setRunningApps(appsRes.value.apps || []);
         if (thresholdsRes.status === 'fulfilled' && thresholdsRes.value) {
           setThresholds(thresholdsRes.value.thresholds);
           setDeviceInfo(thresholdsRes.value.device);
@@ -187,7 +137,7 @@ export function useDashboardData(isAuthenticated: boolean): DashboardData {
 
         const failedCount = results.filter(r => r.status === 'rejected').length;
         if (failedCount > 0) {
-          console.warn(`${failedCount} of ${results.length} dashboard requests failed`);
+          console.warn(`${failedCount} von ${results.length} Abfragen zum Gerätezustand rot`);
         }
         // Only show error if ALL requests failed
         if (failedCount === results.length) {
@@ -201,7 +151,7 @@ export function useDashboardData(isAuthenticated: boolean): DashboardData {
             r => r.status === 'rejected' && (r.reason as { status?: number })?.status === 401
           );
           if (!all401) {
-            setError('Alle Dashboard-Daten konnten nicht geladen werden');
+            setError('Der Zustand des Geräts ließ sich nicht laden');
           }
         } else {
           setError(null);
@@ -257,10 +207,6 @@ export function useDashboardData(isAuthenticated: boolean): DashboardData {
   return {
     metrics,
     metricsHistory,
-    services,
-    systemInfo,
-    networkInfo,
-    runningApps,
     thresholds,
     deviceInfo,
     loading,

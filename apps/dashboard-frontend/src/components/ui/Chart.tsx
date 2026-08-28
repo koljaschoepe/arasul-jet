@@ -199,7 +199,7 @@ interface SparklineProps {
  *
  * Lücken kommen als null herein. Wer eine Ausfallkennung hat, die wie ein
  * gültiger Wert aussieht, wandelt sie vorher um: die Temperatur macht das in
- * `useDashboardData.ohneAusfallwerte`, weil null Grad dort kein Messwert ist,
+ * `geraetezustand.ohneAusfallwerte`, weil null Grad dort kein Messwert ist,
  * sondern ein stummer Sensor.
  */
 export const Sparkline = memo(function Sparkline({
