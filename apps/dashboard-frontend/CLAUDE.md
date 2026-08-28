@@ -17,7 +17,11 @@ Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`)
 src/
   features/        Domain-organized UI. One folder per top-level route.
     settings/      Die Einstellungen als Sektionen (`sections.tsx` ist die eine
-                   Quelle, geteilt von Sidebar-Panel und Mitte-Tab). Seit D4
+                   Quelle, geteilt von Sidebar-Panel und Mitte-Tab). Die
+                   Sektion **System** trägt seit D5 sechs Unterbereiche
+                   (Auslastung, Dienste, Aktualisierungen, **Sicherung**,
+                   Selbstheilung, Werksreset); `?tab=sicherung` und
+                   `?tab=updates` sind Tieflinks darauf. Seit D4
                    gehört die Sektion **Apps** dazu (`AppsSettings.tsx` plus
                    `apps/`): die Liste der Apps am Gerät, und je App die
                    Stände mit Schalter (`AppStaende.tsx`), die Tester
@@ -39,7 +43,19 @@ src/
                    Fehler. Die Verwaltung liegt hier und nicht als eigene
                    Ansicht in der ActivityBar: deren Einträge tragen die Arbeit
                    (Apps, Modelle), das Zahnrad darunter das Einrichten.
-    store/  system/
+    modelle/       Die Kurzliste des Geräts (D5): `ModelleAnsicht.tsx` (die
+                   Seite des `modelle`-Tabs), `ModellZeile.tsx` (ein Modell mit
+                   seinen Handgriffen), `useModelle.ts` (Abfragen und
+                   Mutationen) und `DownloadProgress.tsx`. Der frühere
+                   `features/store/` mit Kartenraster, Facetten, Filterleiste
+                   und Detailseite ist mit D5 gefallen: seit C8 hat der Katalog
+                   vier Einträge, und über vier Zeilen sucht niemand.
+    system/        Anmeldung, Systemzustand und Betrieb. Seit D5 gehört
+                   `sicherung/` dazu (Sicherung auslösen, Liste,
+                   Wiederherstellungstest, Kopie außerhalb) und
+                   `geraetezustand.ts` — der Hook, der die Auslastung speist
+                   (hieß `hooks/useDashboardData` und holte vier Wege, die
+                   niemand las).
     apps/          Die eigenen Apps (D1): `meineApps.ts` (Hook + `zuEintraegen`,
                    eine App mit Live- UND Teststand ergibt ZWEI Einträge),
                    `Uebersicht.tsx` (die Mitte ohne offene App; die Freigaben
@@ -78,8 +94,10 @@ src/
                    (Sidebar), Tab-Bar/-Content (Mitte), RightPanel (rechts,
                    Notizen), StatusBar (Modell + KI-RAM + Zahl der offenen
                    Freigaben). Feature-Tabs laufen je in
-                   einem eigenen IsolatedMemoryRouter (FeatureTabHost);
-                   Cross-Feature-Links übersetzt die TabBridge in Tab-Öffnungen.
+                   einem eigenen IsolatedMemoryRouter (FeatureTabHost) — seit
+                   D5 gilt das nur noch für die Einstellungen, die drei
+                   anderen rendern direkt. Cross-Feature-Links übersetzt die
+                   TabBridge in Tab-Öffnungen.
                    • **Tab-Typen** — `dashboard`, `app`, `settings`, `modelle`
                      (`stores/workspaceStore.ts`, v10). Alle bis auf `app` sind
                      Singletons, `tabId()` ist dann der Typ; eine App trägt
@@ -101,23 +119,24 @@ src/
                      Zustand im Store: `rightPanelVisible`.
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
                      Activity-Bar-Ansicht (`activeView`, Store): apps → die
-                     eigenen Apps (Voreinstellung), models → Modell-Filter,
+                     eigenen Apps (Voreinstellung), models → die Kurzliste
+                     (D5, vorher die Modell-Filter),
                      settings → Bereiche der Einstellungen
                      (`features/workspace/sidebar/*Panel.tsx`). Einen
                      Leerzustand gibt es seit D1 nicht mehr; ein Mitarbeiter mit
                      gespeicherter Admin-Ansicht sieht die Apps. Die Bar wählt
                      die Ansicht, `sidebarVisible` steuert
                      nur das Auf/Zu (⌘B / erneuter Klick).
-                   • **Modelle** — EIN Mitte-Tab (`modelle`, innerer Pfad
-                     `/store`), Full-Width-Kartenraster (StoreModelsGrid); ein
-                     Klick auf eine Karte öffnet die Detailseite (StoreDetailPage)
-                     mit „← Zurück". Katalog (Laden/Aktivieren/Standard/Löschen)
-                     aus `useStoreCatalog`. Die Filter leben in der linken
-                     Sidebar (StoreModelsFilterPanel), das Raster liest sie aus
-                     dem `storeFilterStore` (Plan 012 Phase C); die Auswahl
-                     (Karte oder Deep-Link `/store/models?highlight=…`) läuft
-                     über den ephemeren `extensionStore` (`kind:'model'`). Ein
-                     unbekannter Pfad landet auf dem Raster.
+                   • **Modelle** — EIN Mitte-Tab (`modelle`), seit D5 OHNE
+                     eigenen MemoryRouter: er rendert `features/modelle/`
+                     direkt, wie Übersicht und App. Die Seite ist die
+                     Kurzliste aus C8 (vier Zeilen mit Laden, Standard,
+                     Speicher, Entfernen) über `useStoreCatalog` und
+                     `useMemoryBudget`; die linke Sidebar zeigt dieselben vier
+                     als Liste (ModelsPanel). Der alte innere Pfad `/store`
+                     führt aus dem Einstellungen-Tab über die TabBridge auf
+                     den Modelle-Tab; `/workspace/store` bleibt als
+                     Lesezeichen gültig (`pathToTabSpec`).
                    • **Apps** — die Liste der linken Spalte kommt aus
                      `GET /api/apps/meine` (siebt über `app_members`, C2) und
                      ist für beide Rollen dieselbe Abfrage: ein Administrator
