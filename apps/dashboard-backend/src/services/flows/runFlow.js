@@ -123,8 +123,12 @@ async function runFlow(
     // zweiten Parameter, und nicht ein Praefix im Namen. Ein Name wie
     // `urlaub/bericht` waere ein zusammengesetzter Schluessel in einem
     // Textfeld, und jeder, der ihn zerlegt, zerlegt ihn ein bisschen anders.
+    // `mitZugang`: NUR hier wird der Schluessel eines externen Modells
+    // entschluesselt (D4) -- der Runner ist der einzige, der ihn benutzt.
     loadFlow = ({ flowName: name, appId: app, stand: st }) =>
-      app ? appFlows.lade({ appId: app, stand: st, name }) : registry.loadFlow(name),
+      app
+        ? appFlows.lade({ appId: app, stand: st, name, mitZugang: true })
+        : registry.loadFlow(name),
     store = runStore,
     makeTools = buildTools,
     runLoop = runFlowLoop,

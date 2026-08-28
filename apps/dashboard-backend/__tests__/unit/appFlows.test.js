@@ -235,3 +235,58 @@ describe('lade', () => {
     expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 'live', 'fremd']);
   });
 });
+
+/**
+ * Das externe Modell faellt in `lade` ein (Phase D4).
+ *
+ * Die Zusage, die hier gehalten wird: der Schluessel wird NUR entschluesselt,
+ * wo er auch benutzt wird. Ein zweiter Aufrufer derselben Funktion (die
+ * externe Route, fuer die Argumente eines Flows) bekommt ihn gar nicht erst in
+ * seinen Speicher.
+ */
+describe('lade mit externem Modell (Phase D4)', () => {
+  const flowSettings = require('../../src/services/flows/flowSettings');
+
+  function flowInDerDatenbank() {
+    db.query.mockResolvedValueOnce({
+      rows: [{ name: 'bericht', version: '1.0.0', definition: { modell: 'aus-dem-paket' } }],
+    });
+  }
+
+  test('ohne `mitZugang` wird nichts entschluesselt', async () => {
+    flowInDerDatenbank();
+    jest.spyOn(flowSettings, 'hole').mockResolvedValue({ extern_anbieter: 'OpenAI' });
+    const spion = jest.spyOn(flowSettings, 'externerZugang');
+
+    const flow = await appFlows.lade({ appId: 'urlaub', stand: 'live', name: 'bericht' });
+
+    expect(spion).not.toHaveBeenCalled();
+    expect(flow.extern).toBeUndefined();
+    spion.mockRestore();
+    flowSettings.hole.mockRestore();
+  });
+
+  test('mit `mitZugang` bekommt der Runner Modell UND Zugang', async () => {
+    flowInDerDatenbank();
+    jest.spyOn(flowSettings, 'hole').mockResolvedValue({ extern_anbieter: 'OpenAI' });
+    jest.spyOn(flowSettings, 'externerZugang').mockResolvedValue({
+      anbieter: 'OpenAI',
+      modell: 'gpt-4o',
+      basisUrl: 'https://api.example.test/v1',
+      schluessel: 'sk-geheim',
+    });
+
+    const flow = await appFlows.lade({
+      appId: 'urlaub',
+      stand: 'live',
+      name: 'bericht',
+      mitZugang: true,
+    });
+
+    // Das Modell, das GILT, ist das des Anbieters -- nicht das aus dem Paket.
+    expect(flow.modell).toBe('gpt-4o');
+    expect(flow.extern.basisUrl).toBe('https://api.example.test/v1');
+    flowSettings.externerZugang.mockRestore();
+    flowSettings.hole.mockRestore();
+  });
+});

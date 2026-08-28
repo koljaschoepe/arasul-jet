@@ -311,8 +311,16 @@ async function hole({ appId, stand, name }) {
  * NotFound und nicht Forbidden, wenn es den Flow in diesem Stand nicht gibt:
  * derselbe Schnitt wie ueberall am Geraet -- wer nicht darf, erfaehrt nicht,
  * was es gibt.
+ *
+ * `mitZugang` entschluesselt den Schluessel des externen Modells (D4) und ist
+ * deshalb AUSGESCHALTET, solange niemand ihn braucht. Genau ein Aufrufer setzt
+ * ihn: der Runner, kurz bevor er das Modell anwaehlt. Die zweite Stelle, die
+ * diese Funktion ruft (`routes/external/externalApi.js`, fuer die Argumente
+ * eines Flows), bekommt den Klartext damit gar nicht erst in ihren Speicher --
+ * eine Zeile weniger, in der ein Geheimnis liegt, und eine Abfrage weniger je
+ * Flow-Start.
  */
-async function lade({ appId, stand, name }) {
+async function lade({ appId, stand, name, mitZugang = false }) {
   const { rows } = await db.query(
     `SELECT name, version, definition
        FROM public.app_flows
@@ -330,9 +338,10 @@ async function lade({ appId, stand, name }) {
   // soll nicht wissen muessen, aus welchen zwei Quellen er zusammengesetzt ist.
   // Der Klartext-Schluessel lebt ab hier nur noch im Speicher dieses Laufs --
   // er wird nicht protokolliert und steht in keiner Antwort.
-  const zugang = einstellung?.extern_anbieter
-    ? await flowSettings.externerZugang({ appId, flowName: name })
-    : null;
+  const zugang =
+    mitZugang && einstellung?.extern_anbieter
+      ? await flowSettings.externerZugang({ appId, flowName: name })
+      : null;
   if (zugang) {
     return { ...definition, modell: zugang.modell, extern: zugang };
   }
