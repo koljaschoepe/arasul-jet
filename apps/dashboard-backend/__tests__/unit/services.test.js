@@ -343,12 +343,13 @@ describe('ModelService', () => {
         });
 
         test('fällt auf env-Variable zurück wenn kein Default', async () => {
-            // 1. No default in DB
+            // 1. Kein gesetzter Standard in der DB
             mockDb.query.mockResolvedValueOnce({ rows: [] });
-            // 2. getLoadedModel() makes axios call - no model loaded
+            // 2. Kein installierter Standard der Aufgabe „text"
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
+            // 3. getLoadedModel() fragt Ollama -- nichts geladen
             mockAxios.get.mockResolvedValueOnce({ data: { models: [] } });
-            // 3. No match for loaded model in DB (not called since no loaded model)
-            // 4. No installed models
+            // 4. Kein installiertes Modell, mit dem ein Flow rechnen kann
             mockDb.query.mockResolvedValueOnce({ rows: [] });
 
             const defaultModel = await service.getDefaultModel();
@@ -356,6 +357,49 @@ describe('ModelService', () => {
             // Falls back to env variable or returns null if not set
             // In test env, env var is not set so will be null
             expect(defaultModel === null || typeof defaultModel === 'string').toBe(true);
+        });
+
+        /**
+         * DER FUND DER D5-ABNAHME AM ORIN (28.08.2026). Ohne gesetztes
+         * `is_default` fiel die Kette auf das ZULETZT geladene Modell zurück,
+         * ohne die Aufgabe zu beachten -- am Gerät war das `llava-phi3`, ein
+         * Bildmodell. Die Ansicht setzte daraufhin das Abzeichen „Standard"
+         * darauf, obwohl sie daneben selbst sagt, dass ein Bildmodell keiner
+         * sein kann.
+         *
+         * Gemessen wird die Reihenfolge: der Standard der Aufgabe „text" aus
+         * dem Katalog steht VOR allem, was nur zufällig auf der Platte liegt.
+         */
+        test('nimmt den Standard der Aufgabe text, bevor irgendetwas anderes zählt', async () => {
+            // 1. Kein gesetzter Standard in der DB
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
+            // 2. Der Standard der Aufgabe „text" liegt am Gerät
+            mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'qwen-27b' }] });
+
+            const defaultModel = await service.getDefaultModel();
+
+            expect(defaultModel).toBe('qwen-27b');
+            // Ollama wird gar nicht erst gefragt: was geladen ist, ist eine
+            // Aussage über die letzte Minute und keine über die Einrichtung.
+            expect(mockAxios.get).not.toHaveBeenCalled();
+        });
+
+        test('überspringt ein geladenes Modell, mit dem kein Flow rechnen kann', async () => {
+            // 1. kein gesetzter Standard, 2. kein Aufgaben-Standard am Gerät
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
+            // 3. Ollama hat ein Bildmodell im Speicher …
+            mockAxios.get.mockResolvedValueOnce({
+                data: { models: [{ name: 'llava-phi3', size_vram: 1 }] },
+            });
+            // … das die Abfrage wegen `task = 'vision'` nicht zurückgibt.
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
+            // 4. Ein Sprachmodell liegt daneben und gewinnt.
+            mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'gemma4:e4b' }] });
+
+            const defaultModel = await service.getDefaultModel();
+
+            expect(defaultModel).toBe('gemma4:e4b');
         });
     });
 

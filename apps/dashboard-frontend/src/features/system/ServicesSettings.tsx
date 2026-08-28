@@ -161,7 +161,7 @@ export function ServicesSettings() {
   }
 
   return (
-    <div className="animate-in fade-in">
+    <div className="animate-in fade-in" data-testid="dienste-seite">
       <PageHeader
         title="Services"
         description="Die Dienste der Arasul-Plattform. Hier siehst du den Zustand und startest einen Dienst bei Bedarf neu."

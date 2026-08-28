@@ -12,9 +12,9 @@
 #   2. Die Kurzliste aus `config/modelle/kurzliste.json` und das Standardmodell
 #      des Geraets (GET /api/models/default). Beides geht als Erwartung in den
 #      Browser: die Ansicht soll GENAU diese Modelle zeigen.
-#   3. IM BROWSER (`system-bilder.mjs`): drei Breiten auf der Sicherung, die
-#      Modell-Ansicht, die Aktualisierungen, und dann der Klick auf
-#      "Jetzt sichern" mit der Meldung und der Liste danach.
+#   3. IM BROWSER (`system-bilder.mjs`): die Modell-Ansicht, die
+#      Aktualisierungen, und dann der Klick auf "Jetzt sichern" mit der
+#      Meldung und der Liste danach.
 #   4. Am Backend nachgerechnet: es liegt eine Sicherung MEHR da als vorher,
 #      oder die neueste ist juenger als die vorherige neueste. Der Browser kann
 #      gruen gemeldet haben und trotzdem nichts bewirkt haben.
@@ -136,6 +136,25 @@ print(d or "")' < "$RUMPF" 2>/dev/null)
 pruefe 'Das Geraet nennt ein Standardmodell' \
   "$([ -n "$STANDARD" ] && echo ja || echo nein)" "${STANDARD:-keines} (HTTP $CODE)"
 
+# DER FUND DER D5-ABNAHME AM ORIN (28.08.2026), hier festgehalten. Das
+# Abzeichen „Standard" sass auf `llava-phi3`, obwohl die Kurzliste Qwen als
+# Standard der Flows fuehrt. Der Grund lag in `getDefaultModel()`: Migration
+# 175 setzt `is_default` nur, wenn der Standard zum Zeitpunkt der Migration
+# schon auf der Platte liegt, und die Rueckfaelle danach nahmen schlicht das
+# ZULETZT geladene Modell -- das kleinste, also das Bildmodell.
+#
+# Ein Bild- oder Einbettungsmodell kann den Standard der Flows nicht
+# ausfuellen; die Ansicht sagt das selbst (`ModellZeile.kannStandardSein`) und
+# zeigte daneben genau so eines als Standard an. Gemessen wird deshalb nicht
+# nur, DASS ein Standard da ist, sondern dass ein Flow damit rechnen kann.
+AUFGABE=$(python3 -c 'import sys,json
+d=json.load(open(sys.argv[1]))
+print(next((m["aufgabe"] for m in d["modelle"] if m["id"] == sys.argv[2]), "unbekannt"))' \
+  "$KURZLISTE" "$STANDARD" 2>/dev/null)
+pruefe 'und es ist eines, mit dem ein Flow rechnen kann' \
+  "$([ "$AUFGABE" = "text" ] || [ "$AUFGABE" = "coding" ] && echo ja || echo nein)" \
+  "Aufgabe $AUFGABE"
+
 # --- 3. Der Browser ----------------------------------------------------------
 # OHNE PLAYWRIGHT GIBT ES HIER NICHTS ZU MESSEN. Diese Abnahme misst die
 # Oberflaeche; ein gruener Lauf ohne sie waere eine Aussage ueber nichts.
@@ -158,10 +177,10 @@ pruefe 'Die Sitzung des Administrators fuer den Browser' \
 
 if ARASUL_URL="$BASIS" ARASUL_SITZUNG="$SITZUNG_A" ARASUL_MODELLE="$MODELLE" \
    ARASUL_STANDARD="$STANDARD" node "$WURZEL/scripts/test/system-bilder.mjs"; then
-  pruefe 'Im Browser: drei Breiten, Kurzliste, Fassung, Sicherung ausgeloest' ja \
+  pruefe 'Im Browser: Kurzliste, Fassung, Sicherung ausgeloest' ja \
     'docs/plans/audits/'
 else
-  pruefe 'Im Browser: drei Breiten, Kurzliste, Fassung, Sicherung ausgeloest' nein \
+  pruefe 'Im Browser: Kurzliste, Fassung, Sicherung ausgeloest' nein \
     'system-bilder.mjs war rot'
 fi
 

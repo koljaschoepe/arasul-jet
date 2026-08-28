@@ -71,7 +71,7 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
   const eintraege = zuEintraegen(apps ?? []);
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="mx-auto max-w-4xl p-6" data-testid="uebersicht-seite">
       <PageHeader
         title={user?.username ? `Guten Tag, ${user.username}` : 'Guten Tag'}
         description="Die Apps, die für dich freigegeben sind. Alles läuft auf diesem Gerät."

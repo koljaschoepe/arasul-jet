@@ -67,7 +67,7 @@ export function SecuritySettings({
   };
 
   return (
-    <div className="animate-in fade-in">
+    <div className="animate-in fade-in" data-testid="sicherheit-seite">
       <PageHeader title="Sicherheit" description="Passwörter verwalten und Sitzungen beenden" />
 
       <SectionList>

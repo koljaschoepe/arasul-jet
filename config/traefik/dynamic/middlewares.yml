@@ -119,8 +119,9 @@ http:
     # blob:-URL, und die Anlagen im Chat sind Blobs.
     #
     # Die Policy war zuerst BERICHTEND, weil die Anwendung noch nie unter einer
-    # gelaufen war. Am 22.08.2026 auf dem Orin gemessen
-    # (`scripts/test/csp-abnahme.mjs`, vier Stationen plus geoeffnetes PDF):
+    # gelaufen war. Am 22.08.2026 auf dem Orin gemessen (damals
+    # `scripts/test/csp-abnahme.mjs`, seit Phase D6 in
+    # `scripts/test/oberflaeche-abnahme.mjs`):
     # genau EIN Verstoss im ganzen Durchlauf, und zwar eine Bibliothek, die
     # mit `new Function("")` FRAGT, ob sie kompilieren darf, und den Fehler
     # abfaengt. Unter einer scharfen Policy lautet die Antwort Nein, und mehr

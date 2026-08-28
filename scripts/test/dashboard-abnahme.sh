@@ -16,7 +16,7 @@
 #      (`POST /apps/<id>/api/flow?flow=freigabe&woche=34`). Der Lauf haelt an.
 #   3. Unter `GET /api/freigabe-anfragen` steht seine Anfrage -- mit Titel,
 #      Zusammenhang und Frist. Das ist der Stoff, aus dem die Liste besteht.
-#   4. Im BROWSER: drei Breiten, die Notiz ueberlebt ein Neuladen, und der
+#   4. Im BROWSER: die Notiz ueberlebt ein Neuladen, und der
 #      Klick auf "Bestaetigen" laesst die Zeile ohne Neuladen verschwinden.
 #   5. Danach wieder am Backend: der Lauf endet `fertig`, und seine offene
 #      Anfrage ist keine mehr.
@@ -280,7 +280,7 @@ pruefe 'einen Zusammenhang' "$([ -n "$ZUS" ] && echo ja || echo nein)" \
   "$(printf '%s' "${ZUS:-leer}" | head -c 60)"
 pruefe 'und eine Frist' "$([ -n "$FRIST" ] && echo ja || echo nein)" "${FRIST:-leer}"
 
-# --- 5. Der Browser: drei Breiten, die Notiz, der Klick ----------------------
+# --- 5. Der Browser: die Notiz, der Klick -----------------------------------
 # Der Bilderlauf bekommt die FERTIGE Sitzung und meldet sich nicht selbst an.
 # Sie liegt bewusst in einer eigenen Datei: `$ARASUL_SITZUNG` traegt die des
 # Administrators und wird von der ganzen Reihe geteilt.
@@ -302,17 +302,17 @@ if node -e 'require.resolve("playwright")' 2>/dev/null; then
   if [ -s "$SITZUNG_M" ]; then
     if ARASUL_URL="$BASIS" ARASUL_SITZUNG="$SITZUNG_M" ARASUL_FREIGABE="$ANFRAGE" \
        node "$WURZEL/scripts/test/dashboard-bilder.mjs"; then
-      pruefe 'Dashboard im Browser: drei Breiten, Notiz, Bestaetigen' ja 'docs/plans/audits/'
+      pruefe 'Dashboard im Browser: Notiz, Bestaetigen' ja 'docs/plans/audits/'
       GEKLICKT=ja
     else
-      pruefe 'Dashboard im Browser: drei Breiten, Notiz, Bestaetigen' nein \
+      pruefe 'Dashboard im Browser: Notiz, Bestaetigen' nein \
         'dashboard-bilder.mjs war rot'
     fi
   else
     pruefe 'Die Sitzung des Mitarbeiters fuer den Browser' nein 'nicht gebaut'
   fi
 else
-  ueberspringe 'Dashboard im Browser (drei Breiten, Notiz, Klick)' \
+  ueberspringe 'Dashboard im Browser (Notiz, Klick)' \
     'playwright nicht installiert (npm ci)'
 fi
 

@@ -9,7 +9,7 @@
 #
 # WAS GEMESSEN WIRD, und in dieser Reihenfolge:
 #
-#   1. IM BROWSER (`admin-bilder.mjs`): drei Breiten, anlegen, Startpasswort
+#   1. IM BROWSER (`admin-bilder.mjs`): anlegen, Startpasswort
 #      setzen, genau eine App freigeben. Das ist der Teil, den D3 hinzufuegt --
 #      die Wege dahinter stehen seit C1 und C2, die Oberflaeche davor nicht.
 #   2. Am Backend: der im Browser angelegte Mensch ist wirklich da, traegt sein
@@ -232,10 +232,10 @@ pruefe 'Die Sitzung des Administrators fuer den Browser' \
 if ARASUL_URL="$BASIS" ARASUL_SITZUNG="$SITZUNG_A" ARASUL_MITARBEITER="$MITARB" \
    ARASUL_MAIL="$MAIL" ARASUL_PASS_ERST="$PASS_ERST" ARASUL_PASS_START="$PASS_START" \
    ARASUL_APP="$APP" node "$WURZEL/scripts/test/admin-bilder.mjs"; then
-  pruefe 'Verwaltung im Browser: drei Breiten, anlegen, Passwort, Freigabe' ja \
+  pruefe 'Verwaltung im Browser: anlegen, Passwort, Freigabe' ja \
     'docs/plans/audits/'
 else
-  pruefe 'Verwaltung im Browser: drei Breiten, anlegen, Passwort, Freigabe' nein \
+  pruefe 'Verwaltung im Browser: anlegen, Passwort, Freigabe' nein \
     'admin-bilder.mjs war rot'
 fi
 

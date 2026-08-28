@@ -28,7 +28,12 @@
 # Voraussetzung: ein SSH-Tunnel auf das Geraet.
 #   ssh -f -N -L 8443:localhost:443 jetson
 #   ARASUL_PASSWORT=... bash scripts/test/abnahmen.sh          alle
-#   ARASUL_PASSWORT=... bash scripts/test/abnahmen.sh csp apps nur diese
+#   ARASUL_PASSWORT=... bash scripts/test/abnahmen.sh apps rollen  nur diese
+#
+# NICHT in dieser Reihe: die fuenf Browser-Abnahmen aus D2 bis D6
+# (`dashboard-`, `admin-`, `app-admin-`, `system-` und `oberflaeche-`). Jede
+# braucht eigene Anmeldungen, und zusammen sprengten sie die Drossel; sie
+# laufen daneben und nicht zwei davon in derselben Viertelstunde.
 #
 # Rueckgabe 0, wenn jede Abnahme gruen war, sonst 1.
 # =============================================================================
@@ -75,7 +80,26 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # was das Geraet ueber sich selbst sagt (Fassung, Zertifikat, Namen), also den
 # Zustand VOR allem, was die uebrigen Abnahmen daran aendern. Und sie ist in
 # Sekunden durch.
-ALLE=(csp fernzugriff rueckmeldung oberflaeche auslieferung apps app-anmeldung rollen mitarbeiter modelle betrieb)
+#
+# Phase D6 (28.08.2026): `csp` und `oberflaeche` sind aus der Reihe heraus.
+#
+# `csp` ist GEFALLEN und steht jetzt in `oberflaeche-abnahme.mjs`: sie mass die
+# Kopfzeilen des Dokuments und die Verstoesse waehrend eines Durchlaufs, und
+# beides gehoert zu der Frage, ob die Oberflaeche steht. Ein zweiter Durchlauf
+# durch dieselben Ansichten war ein zweiter Takt auf dem Jetson fuer dieselbe
+# Antwort.
+#
+# `oberflaeche` steht seit D6 NEBEN dieser Reihe, wie die vier anderen
+# Browser-Abnahmen aus D2 bis D5. Der Grund ist die Drossel und nichts sonst:
+# sie legt ihren eigenen Wegwerf-Mitarbeiter an und braucht ZWEI Anmeldungen
+# fuer ihn -- einmal mit dem Startpasswort, einmal mit dem eigenen danach.
+# Beide SIND die Messung (die Ansichten „Anmeldung" und
+# „Startpasswort-Wechsel"), also lassen sie sich nicht teilen. In die Reihe
+# gestellt stuende sie bei zwoelf, und mitten darin fiele ein 429.
+#
+# Nachgerechnet bleibt es damit bei zehn: zwei fuer `rollen`, fuenf fuer
+# `mitarbeiter`, zwei fuer `app-anmeldung`, eine geteilte.
+ALLE=(fernzugriff rueckmeldung auslieferung apps app-anmeldung rollen mitarbeiter modelle betrieb)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 

@@ -197,7 +197,7 @@ function SystemStatusView({
   const usedDisk = metrics?.disk?.used || 0;
 
   return (
-    <div className="flex min-w-0 flex-col gap-ui-3">
+    <div className="flex min-w-0 flex-col gap-ui-3" data-testid="auslastung-seite">
       <div className="text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
         Systemstatus
       </div>
