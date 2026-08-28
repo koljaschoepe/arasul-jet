@@ -243,6 +243,17 @@ else
   pruefe 'Die Registry-Pruefung wertet nicht mehr `curl -sfI` aus' ja
 fi
 
+# Traefik leitet :80 dauerhaft auf :443 um. Eine 301 ist fuer `curl -f` kein
+# Fehler -- `-f` schlaegt erst ab 400 an --, also war jede Messung des
+# Dashboards ueber Port 80 gruen, sobald Traefik lief, und sagte ueber das
+# Backend gar nichts. Sie haette einen toten Dienst als "OK" gemeldet.
+if steht_in 'curl [^|]*http://localhost:\$\{?(dash_port|smoke_port)' arasul; then
+  pruefe 'Der Bootstrap misst die Oberflaeche ueber HTTPS, nicht ueber die Umleitung' \
+    nein 'es wird wieder Port 80 gemessen'
+else
+  pruefe 'Der Bootstrap misst die Oberflaeche ueber HTTPS, nicht ueber die Umleitung' ja
+fi
+
 if [ "$TROCKEN" = false ] && command -v curl >/dev/null 2>&1; then
   code=$(curl -s -o /dev/null -w '%{http_code}' -I --max-time 5 https://registry-1.docker.io/v2/ 2>/dev/null || true)
   if [ -n "$code" ] && [ "$code" != "000" ]; then
@@ -284,15 +295,17 @@ else
   grep -q '^gueltig' <<<"$liste"
   pruefe 'Es gibt einen gueltigen Kit-Schluessel' "$(ja_nein $?)"
 
-  port=$(grep '^DASHBOARD_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2 || true)
+  # UEBER HTTPS und ohne Rueckfall auf Port 80. Traefik leitet den ganzen
+  # Einstiegspunkt `web` dauerhaft auf `websecure` um; eine Messung auf Port 80
+  # bekommt eine 301 und sagt ueber das Backend nichts. Genau daran haben die
+  # Rauchtests des Bootstraps bis zum 28.08.2026 "OK" gemeldet.
+  port=$(grep '^HTTPS_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2 || true)
+  basis="https://localhost"
+  [ -n "${port:-}" ] && [ "$port" != "443" ] && basis="https://localhost:${port}"
   code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 \
-    "https://localhost/api/health" 2>/dev/null || true)
-  if [ "$code" != "200" ]; then
-    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
-      "http://localhost:${port:-80}/api/health" 2>/dev/null || true)
-  fi
+    "${basis}/api/health" 2>/dev/null || true)
   pruefe 'Die Oberflaeche antwortet auf /api/health' \
-    "$([ "$code" = "200" ] && echo ja || echo nein)" "HTTP ${code:-000}"
+    "$([ "$code" = "200" ] && echo ja || echo nein)" "${basis} -> HTTP ${code:-000}"
 fi
 
 echo

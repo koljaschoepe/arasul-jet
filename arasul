@@ -169,6 +169,25 @@ env_wert() {
     printf '%s' "${wert:-$vorgabe}"
 }
 
+# Die Adresse, unter der die Oberflaeche am Geraet selbst antwortet.
+#
+# IMMER https, und deshalb auch immer mit `-k` abfragen: Traefik leitet den
+# ganzen Einstiegspunkt `web` (:80) dauerhaft auf `websecure` (:443) um
+# (config/traefik/traefik.yml). Wer den Zustand des Backends ueber Port 80
+# misst, misst nur, ob Traefik laeuft -- eine 301 ist fuer `curl -f` kein
+# Fehler, `-f` schlaegt erst ab 400 an. Bis zum 28.08.2026 meldeten die
+# Rauchtests des Bootstraps auf diesem Weg "Dashboard Backend: OK", und das
+# haetten sie auch getan, wenn es den Container gar nicht gaebe.
+dashboard_url() {
+    local port
+    port=$(env_wert HTTPS_PORT 443)
+    if [ "$port" = "443" ]; then
+        printf 'https://localhost'
+    else
+        printf 'https://localhost:%s' "$port"
+    fi
+}
+
 # Wait for a Docker service to become healthy or respond to a check command.
 # Usage: wait_for_healthy <service_name> <timeout_seconds> [check_command]
 # If check_command is omitted, uses Docker health status.
@@ -927,9 +946,13 @@ start_services() {
     # Layer 5: Application layer
     docker compose up -d dashboard-backend dashboard-frontend
     log_info "Waiting for Dashboard..."
-    local dash_port
-    dash_port=$(env_wert DASHBOARD_PORT 80)
-    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${dash_port}/api/health" || true
+    # UEBER HTTPS, nicht ueber Port 80. Traefik leitet den ganzen
+    # `web`-Einstiegspunkt dauerhaft auf `websecure` um
+    # (config/traefik/traefik.yml). Eine 301 ist fuer `curl -f` KEIN Fehler --
+    # `-f` schlaegt erst ab 400 an --, also war diese Pruefung in dem Moment
+    # gruen, in dem Traefik lief, und sagte ueber das Backend gar nichts. Sie
+    # haette einen toten Dienst als "OK" gemeldet.
+    wait_for_healthy dashboard-backend 60 "curl -skf $(dashboard_url)/api/health" || true
 
     # Layer 6: Document indexer (needs the backend; writes the text layer)
     docker compose up -d document-indexer
@@ -975,18 +998,16 @@ run_smoke_tests() {
         warnings=1
     fi
 
-    # Read configured port (default 80)
-    local smoke_port
-    smoke_port=$(env_wert DASHBOARD_PORT 80)
-
     # Wait for services to be fully ready
+    local basis
+    basis=$(dashboard_url)
     log_info "Waiting for services to stabilize..."
-    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${smoke_port}/api/health" || true
+    wait_for_healthy dashboard-backend 60 "curl -skf ${basis}/api/health" || true
     wait_for_healthy llm-service 60 "docker compose exec -T llm-service curl -sf http://localhost:11434/api/tags" || true
 
     # Test Dashboard Backend
     log_info "Testing Dashboard Backend..."
-    if curl -f http://localhost:${smoke_port}/api/health &> /dev/null; then
+    if curl -kf "${basis}/api/health" &> /dev/null; then
         log_success "Dashboard Backend: OK"
     else
         log_error "Dashboard Backend: FAILED"
@@ -995,7 +1016,7 @@ run_smoke_tests() {
 
     # Test Dashboard Frontend
     log_info "Testing Dashboard Frontend..."
-    if curl -f http://localhost:${smoke_port} &> /dev/null; then
+    if curl -kf "${basis}/" &> /dev/null; then
         log_success "Dashboard Frontend: OK"
     else
         log_error "Dashboard Frontend: FAILED"
