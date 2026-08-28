@@ -116,7 +116,17 @@ src/
                    • **RightPanel** — die Notizen mit Schließen-Knopf; die Shell
                      versteckt sie per `data-shell-hidden` (nie unmounten —
                      ein Unmount während der Schreibpause verlöre den Text).
-                     Zustand im Store: `rightPanelVisible`.
+                     Zustand im Store: `rightPanelVisible`. **Unter 900 px ist
+                     dasselbe Panel ein BLATT über der Mitte** und keine
+                     Spalte daneben (D6, `data-shell-blatt` in `index.css`;
+                     `data-shell-voll` gibt der Mitte die freie Breite).
+                     Zustand dafür: `notizenBlattOffen` — **nicht
+                     persistiert**, das Blatt fängt immer zu an, und jede
+                     Ansicht, die kommt, schließt es. Zwei Felder, zwei
+                     Fragen: gehört die Spalte zu meinem Arbeitsplatz (bleibt)
+                     gegen liegt das Blatt jetzt gerade oben (nicht). Der eine
+                     Knopf in der `WorkspaceMenuBar` schaltet je nach Breite
+                     das eine oder das andere.
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
                      Activity-Bar-Ansicht (`activeView`, Store): apps → die
                      eigenen Apps (Voreinstellung), models → die Kurzliste
@@ -166,7 +176,10 @@ src/
   contexts/        Global state (Auth, Toast, Download, Activation).
   stores/          zustand stores (workspaceStore: Tabs, Sidebar-Ansicht, Spalten).
   lib/             queryClient, cn() helper.
-  utils/           Pure utilities (csrf, formatting, sanitizeUrl, token).
+  utils/           Pure utilities (csrf, formatting, token, lazyNachladen —
+                   `React.lazy` mit zweitem und drittem Versuch, D6: ein
+                   verlorenes `import()` strandete den Menschen sonst auf
+                   einer Fehlerseite, obwohl an seinem Gerät nichts ist).
   config/          api.ts (API_BASE, getAuthHeaders).
   types/           Cross-feature TypeScript types.
   index.css        Tailwind v4 theme + Arasul design tokens (@theme block).

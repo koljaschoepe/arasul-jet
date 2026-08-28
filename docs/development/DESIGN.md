@@ -108,6 +108,18 @@ sichtbar, Sidebar und rechte Spalte lassen sich einzeln ein- und ausblenden.
 Unter 900 px Fensterbreite gibt es keine drei Spalten (`useSchmalesFenster`);
 die ActivityBar bleibt, sie ist einen Klick entfernt.
 
+**Unter 900 px stehen Notizen und Mitte nie nebeneinander** (Phase D6,
+28.08.2026). Zwei Flächen nebeneinander, von denen eine ihre Mindestbreite
+nicht bekommt, sind eine Fläche zu viel: bei 390 px sind 48 px für die
+ActivityBar, 160 px für die Sidebar und 220 px für die Notizen mehr, als da
+ist, und die Mitte bekam null. Am Orin gemessen zeigten daraufhin alle sieben
+Verwaltungsansichten die Notizen statt der Ansicht. Die Regel ist deshalb
+keine Zahl, sondern eine Reihenfolge: die Notizen liegen dort als **Blatt**
+über der Mitte, sie fangen **zu** an, und jede Ansicht, die kommt, schließt
+sie. Dasselbe gilt für die Statusleiste: bei 390 px bleibt sie **eine Zeile**
+und lässt weg, was in den Popover daneben gehört (die Fassung) oder als Zahl
+neben einem Symbol genügt (die offenen Freigaben).
+
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
 Apps, die Übersicht, die Notizen und sein Konto; die Verwaltung (Modelle,
 Einstellungen) blendet die Oberfläche für ihn aus. Das ist keine Berechtigung:

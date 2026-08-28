@@ -2,6 +2,7 @@ import React from 'react';
 import { LogOut, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
 
@@ -62,10 +63,19 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const notizenBlattOffen = useWorkspaceStore(s => s.notizenBlattOffen);
   const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
   const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
+  const toggleNotizenBlatt = useWorkspaceStore(s => s.toggleNotizenBlatt);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const selectView = useWorkspaceStore(s => s.selectView);
+
+  // EIN Knopf für die Notizen, zwei Zustände dahinter (Phase D6): über 900 px
+  // ist es die Spalte, darunter das Blatt über der Mitte. Der Mensch drückt
+  // dasselbe Ding — was er aufmacht, entscheidet die Breite des Fensters.
+  const schmal = useSchmalesFenster();
+  const notizenOffen = schmal ? notizenBlattOffen : rightPanelVisible;
+  const notizenSchalten = schmal ? toggleNotizenBlatt : toggleRightPanel;
 
   return (
     <header
@@ -88,9 +98,9 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
           <PanelLeft className="h-4 w-4" aria-hidden="true" />
         </LayoutToggleButton>
         <LayoutToggleButton
-          label={rightPanelVisible ? 'Notizen ausblenden' : 'Notizen einblenden'}
-          pressed={rightPanelVisible}
-          onClick={toggleRightPanel}
+          label={notizenOffen ? 'Notizen ausblenden' : 'Notizen einblenden'}
+          pressed={notizenOffen}
+          onClick={notizenSchalten}
         >
           <PanelRight className="h-4 w-4" aria-hidden="true" />
         </LayoutToggleButton>

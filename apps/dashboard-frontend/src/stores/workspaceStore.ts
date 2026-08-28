@@ -165,6 +165,19 @@ export interface WorkspaceState {
   activeView: ActivityView;
   sidebarVisible: boolean;
   rightPanelVisible: boolean;
+  /**
+   * Liegt das Notizen-Blatt gerade ueber der Mitte? (Phase D6)
+   *
+   * NICHT persistiert, und das ist der Unterschied zu `rightPanelVisible`.
+   * Die beiden beantworten zwei Fragen: `rightPanelVisible` sagt, ob die
+   * Notizen zur Aufteilung des Arbeitsplatzes GEHOEREN -- das ist eine
+   * Voreinstellung und ueberlebt das Neuladen. `notizenBlattOffen` sagt, ob
+   * das Blatt JETZT GERADE oben liegt; unter 900 px verdeckt es die Mitte,
+   * und ein verdeckter Bildschirm, den jemand vor einer Woche aufgezogen hat,
+   * ist beim naechsten Oeffnen ein Fehler und keine Erinnerung. Es faengt
+   * deshalb immer zu an.
+   */
+  notizenBlattOffen: boolean;
   openTab: (spec: WorkspaceTabSpec) => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
@@ -187,6 +200,10 @@ export interface WorkspaceState {
   setActiveView: (view: ActivityView) => void;
   /** Rechtes Panel ein-/ausblenden. */
   toggleRightPanel: () => void;
+  /** Das Notizen-Blatt auf- oder zuklappen (schmales Fenster). */
+  toggleNotizenBlatt: () => void;
+  /** Das Notizen-Blatt zuklappen. Die Shell ruft es, sobald eine Ansicht kommt. */
+  schliesseNotizenBlatt: () => void;
 }
 
 /** Persistierte Felder (partialize) — Basis für die migrate-Signatur. */
@@ -287,6 +304,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       activeView: START_VIEW,
       sidebarVisible: true,
       rightPanelVisible: true,
+      notizenBlattOffen: false,
 
       openTab: spec => {
         const id = tabId(spec);
@@ -368,6 +386,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         ),
       setActiveView: view => set({ activeView: view }),
       toggleRightPanel: () => set(state => ({ rightPanelVisible: !state.rightPanelVisible })),
+      toggleNotizenBlatt: () => set(state => ({ notizenBlattOffen: !state.notizenBlattOffen })),
+      schliesseNotizenBlatt: () =>
+        set(state => (state.notizenBlattOffen ? { notizenBlattOffen: false } : state)),
     }),
     {
       name: 'arasul_workspace',

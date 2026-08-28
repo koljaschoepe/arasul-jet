@@ -4070,3 +4070,37 @@ a:focus:not(:focus-visible),
 [data-shell-surface][data-shell-hidden='true'] {
   display: none !important;
 }
+
+/* ========================================
+   WORKSPACE-SHELL: DIE NOTIZEN ALS BLATT (Phase D6, 28.08.2026)
+
+   Unter 900 px gibt es keine dritte Spalte. Die erste D6-Messung am Orin hat
+   gezeigt, warum das mehr ist als eine Feinheit: bei 390 px bekam die Mitte
+   null Pixel, und alle sieben Verwaltungsansichten zeigten die Notizen statt
+   der Ansicht.
+
+   Das Panel bleibt an seinem Platz im React-Baum (die Notizen dürfen nicht
+   unmounten, sie schreiben nach einer Sekunde Ruhe) und wird hier aus dem
+   Fluss genommen: position:fixed legt es über die Mitte, damit gibt der
+   Group-Flex seine Breite frei, und data-shell-voll an der Mitte holt sie
+   sich. Beides mit !important, weil react-resizable-panels flexBasis inline
+   setzt — dieselbe Mechanik wie bei data-shell-hidden darüber.
+
+   bottom: 1.5rem ist die Höhe der Statusleiste (h-6): das Blatt legt sich
+   über die Mitte, nicht über den Zustand des Geräts.
+   ======================================== */
+[data-panel][data-shell-blatt='true'] {
+  position: fixed !important;
+  top: 35%;
+  right: 0;
+  bottom: 1.5rem;
+  left: 0;
+  z-index: var(--z-sidebar-toggle);
+  border-top: 1px solid var(--border);
+  background-color: var(--background);
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.28);
+}
+
+[data-panel][data-shell-voll='true'] {
+  flex: 1 1 0% !important;
+}
