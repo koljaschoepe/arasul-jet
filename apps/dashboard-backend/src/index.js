@@ -607,6 +607,15 @@ if (alsServerGestartet) {
       logger.error(`Failed to clean up orphaned flow runs: ${err.message}`);
     }
 
+    // Und einmal nachsehen, ob jeder App-Stand seine Dateien hat (Auftrag
+    // app-leiche, 28.08.2026). Nur eine Warnung im Protokoll -- warum nicht
+    // mehr, steht bei `appStore.pruefeStaende`.
+    try {
+      await require('./services/app/appStore').pruefeStaende();
+    } catch (err) {
+      logger.warn(`App-Staende nicht pruefbar: ${err.message}`);
+    }
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

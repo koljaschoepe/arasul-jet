@@ -449,6 +449,29 @@ Returned when a dependent service is unavailable.
 
 ---
 
+#### App-Dateien fehlen (`APP_DATEIEN_FEHLEN`)
+
+```json
+{
+  "error": {
+    "code": "APP_DATEIEN_FEHLEN",
+    "message": "urlaubsantrag 1.0.0 steht als live, aber die Dateien fehlen am Geraet. Die App entfernen oder neu einspielen (Einstellungen -> Apps)."
+  },
+  "timestamp": "2026-08-28T18:00:00.000Z"
+}
+```
+
+**Cause**: `GET /apps/<id>/` (oder `/apps/<id>/test/`) trifft einen Stand, der
+in `app_staende` steht, dessen Ordner unter `/arasul/apps/<id>/<version>/`
+aber nicht mehr da ist (Auftrag app-leiche, 28.08.2026). Der Container kann
+dabei `healthy` sein — seine Prüfung sieht nur sein Backend.
+
+**Solution**: Einstellungen → Apps zeigt den Stand rot mit dem Grund. Die App
+entfernen (**App entfernen**, oder `DELETE /api/apps/:id?dateien=true`) oder
+vom Partner neu einspielen lassen.
+
+---
+
 ## Error Handling Best Practices
 
 ### 1. Always Check HTTP Status Code

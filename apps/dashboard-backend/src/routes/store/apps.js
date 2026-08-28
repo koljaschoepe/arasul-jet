@@ -25,6 +25,7 @@ const {
   AppLaufParams,
   FlowModellBody,
   EinspielenBody,
+  EntfernenSitzungQuery,
   FlowQuery,
   LaeufeQuery,
   LaufQuery,
@@ -157,20 +158,25 @@ router.post(
 /**
  * DELETE /api/apps/:id — App weg: beide Container, beide Staende, Freigaben.
  *
- * Die Dateien unter `/arasul/apps/<id>/` bleiben; die Begruendung steht in
- * `appStore.entferneApp`.
+ * Die Dateien unter `/arasul/apps/<id>/` bleiben, wenn niemand etwas anderes
+ * sagt (die Begruendung steht in `appStore.entferneApp`); `?dateien=true`
+ * nimmt sie mit. Das ist der Weg, den die Oberflaeche nimmt (Einstellungen ->
+ * Apps -> App entfernen, Auftrag app-leiche): ein Kunde, der eine App
+ * loswerden will, will sie ganz los sein -- derselbe Dienst wie
+ * `DELETE /api/v1/external/apps/:id` aus C5, nur mit einer Sitzung davor.
  */
 router.delete(
   '/:id',
   requireAuth,
   requireRole('admin'),
   validateParams(AppParams),
+  validateQuery(EntfernenSitzungQuery),
   asyncHandler(async (req, res) => {
-    const data = await appStore.entferneApp(req.params.id);
+    const data = await appStore.entferneApp(req.params.id, { dateien: req.query.dateien });
     logSecurityEvent({
       userId: req.user.id,
       action: 'app_entfernt',
-      details: { app_id: req.params.id },
+      details: { app_id: req.params.id, dateien: req.query.dateien },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });

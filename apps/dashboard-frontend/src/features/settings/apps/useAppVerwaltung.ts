@@ -60,6 +60,12 @@ export interface AppStandDetail {
   pfad: string | null;
   api: string | null;
   backend: Backendzustand | null;
+  /** Liegt auf der Platte, was der Stand verspricht? `frontend` ist null ohne Frontend. */
+  dateien: { manifest: boolean; frontend: boolean | null };
+  /** Bekommt ein Mensch, der auf die Kachel klickt, diese App? */
+  lieferbar: boolean;
+  /** Warum nicht — ein Satz, oder null. */
+  mangel: string | null;
   modelle: Array<{ name: string; vorhanden: boolean }>;
   flows: AppFlow[];
 }
@@ -269,6 +275,31 @@ export function useSchalten(appId: string) {
       void qc.invalidateQueries({ queryKey: appKey(appId) });
       void qc.invalidateQueries({ queryKey: ['apps', 'alle'] });
       void qc.invalidateQueries({ queryKey: ['apps', 'meine'] });
+    },
+  });
+}
+
+/**
+ * Eine App vom Gerät entfernen (Auftrag app-leiche, 28.08.2026).
+ *
+ * MIT DATEIEN. `DELETE /api/apps/:id` lässt die Ordner unter `/arasul/apps/`
+ * ohne Angabe liegen, weil das Kit eine App üblicherweise gleich wieder
+ * einspielt. Wer sie hier entfernt, ist kein Kit, sondern ein Mensch, der sie
+ * loswerden will — samt Container, Ständen, Freigaben, Schlüsseln und Dateien.
+ * Derselbe Dienst wie `DELETE /api/v1/external/apps/:id` aus C5.
+ *
+ * Entwertet wird ALLES unter `['apps']`: die Liste der Verwaltung, die
+ * Kacheln der Shell (`meine`), die Freigabe-Matrix. Eine App, die es nicht
+ * mehr gibt, darf nirgends stehen bleiben.
+ */
+export function useEntfernen(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.del(`/apps/${appId}?dateien=true`),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['apps'] });
+      void qc.invalidateQueries({ queryKey: ['freigaben'] });
     },
   });
 }

@@ -19,7 +19,7 @@
 
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const { ConflictError, NotFoundError } = require('../../utils/errors');
+const { ConflictError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
 const appManifest = require('./appManifest');
 const appContainer = require('./appContainer');
 const appSchluessel = require('./appSchluessel');
@@ -37,6 +37,54 @@ async function staendeVon(appId) {
     staende[zeile.stand] = zeile;
   }
   return staende;
+}
+
+/**
+ * Was einem Stand fehlt, um ausgeliefert zu werden -- oder `null`, wenn nichts.
+ *
+ * Die Reihenfolge ist die der Sicherheit der Aussage: die Platte zuerst, denn
+ * ohne Dateien ist ein Container, der gesund meldet, genau die Luege aus dem
+ * Auftrag vom 28.08.2026. Ein Satz, kein Katalog: wer ihn liest, soll wissen,
+ * was zu tun ist (entfernen oder neu einspielen), nicht eine Liste abhaken.
+ */
+function beschreibeMangel({ manifest, backend, dateien }) {
+  if (!dateien.manifest) {
+    return 'Die Dateien dieser Version fehlen am Geraet (kein app.json).';
+  }
+  if (dateien.frontend === false) {
+    return 'Das Frontend fehlt am Geraet; es gibt nichts, was sich ausliefern liesse.';
+  }
+  if (manifest.backend) {
+    if (!backend) {
+      return 'Der Container fehlt.';
+    }
+    if (!backend.laeuft) {
+      return `Der Container laeuft nicht (${backend.status}).`;
+    }
+    if (backend.gesundheit === 'unhealthy') {
+      return 'Der Container meldet sich krank.';
+    }
+  }
+  return null;
+}
+
+/**
+ * Der Zustand eines Standes, aus BEIDEN Quellen, die dafuer zaehlen (Auftrag
+ * app-leiche, 28.08.2026): Docker sagt, ob der Container laeuft und was seine
+ * eigene Pruefung meldet; die Platte sagt, ob die Dateien da sind, die Arasul
+ * ausliefert. Der Healthcheck im Container prueft `backend.gesundheit` am
+ * Port der App -- sein Backend, sonst nichts. Das Frontend liegt nicht im
+ * Container, und dass es fehlt, kann der Container gar nicht wissen.
+ *
+ * `lieferbar` ist die Antwort auf die eine Frage, die ein Betreiber stellt:
+ * bekommt ein Mensch, der auf die Kachel klickt, diese App? `mangel` sagt,
+ * warum nicht.
+ */
+async function standZustand(appId, stand, manifest) {
+  const backend = manifest.backend ? await appContainer.zustand(appId, stand) : null;
+  const dateien = await appManifest.dateienVorhanden(manifest);
+  const mangel = beschreibeMangel({ manifest, backend, dateien });
+  return { backend, dateien, lieferbar: mangel === null, mangel };
 }
 
 /**
@@ -72,7 +120,7 @@ async function listeApps() {
       apps.get(zeile.id).staende[zeile.stand] = {
         version: zeile.version,
         eingespielt_am: zeile.eingespielt_am,
-        backend: zeile.manifest.backend ? await appContainer.zustand(zeile.id, zeile.stand) : null,
+        ...(await standZustand(zeile.id, zeile.stand, zeile.manifest)),
       };
     }
   }
@@ -132,7 +180,7 @@ async function holeApp(appId) {
           : `/apps/${appId}/`
         : null,
       api: manifest.backend ? `${appContainer.apiPfad(appId, stand)}/` : null,
-      backend: manifest.backend ? await appContainer.zustand(appId, stand) : null,
+      ...(await standZustand(appId, stand, manifest)),
       modelle: await modellStand(manifest.modelle),
       // Die Flows dieses Standes -- registriert, nicht gefordert (C6). Bis C5
       // stand hier die Antwort auf "liegt der Flow, den das Manifest nennt,
@@ -496,7 +544,8 @@ async function entferneApp(appId, { dateien = false } = {}) {
 async function appsFuerNutzer(benutzerId) {
   const result = await db.query(
     `SELECT a.id, a.name, a.beschreibung, f.stand AS freigegeben_bis,
-            l.version AS live_version, t.version AS test_version
+            l.version AS live_version, t.version AS test_version,
+            l.manifest AS live_manifest, t.manifest AS test_manifest
        FROM public.app_members f
        JOIN public.apps a ON a.id = f.app_id
        LEFT JOIN public.app_staende l ON l.app_id = a.id AND l.stand = 'live'
@@ -505,18 +554,36 @@ async function appsFuerNutzer(benutzerId) {
       ORDER BY a.name`,
     [benutzerId]
   );
-  return result.rows
-    .map(z => ({
+  const apps = [];
+  for (const z of result.rows) {
+    apps.push({
       id: z.id,
       name: z.name,
       beschreibung: z.beschreibung,
-      live: z.live_version ? { version: z.live_version, pfad: `/apps/${z.id}/` } : null,
+      live:
+        z.live_version && (await seiteDa(z.live_manifest))
+          ? { version: z.live_version, pfad: `/apps/${z.id}/` }
+          : null,
       test:
-        z.freigegeben_bis === 'test' && z.test_version
+        z.freigegeben_bis === 'test' && z.test_version && (await seiteDa(z.test_manifest))
           ? { version: z.test_version, pfad: `/apps/${z.id}/test/` }
           : null,
-    }))
-    .filter(a => a.live || a.test);
+    });
+  }
+  return apps.filter(a => a.live || a.test);
+}
+
+/**
+ * Ist die Seite dieses Standes am Geraet? Fuer die Kachel eines Mitarbeiters
+ * (Auftrag app-leiche): ein Stand, dessen Frontend fehlt, ist kein Stand, den
+ * jemand benutzen kann -- dieselbe Regel wie „eine App ohne Livestand steht
+ * nicht darin". Ohne Manifest oder ohne Frontend gibt es nichts zu pruefen.
+ */
+async function seiteDa(manifest) {
+  if (!manifest?.frontend) {
+    return true;
+  }
+  return (await appManifest.dateienVorhanden(manifest)).frontend;
 }
 
 /**
@@ -535,13 +602,48 @@ async function ausliefernAus(appId, stand) {
   if (!manifest.frontend) {
     return null;
   }
-  return {
-    version,
-    verzeichnis: require('path').join(
-      appManifest.verzeichnisFuer(appId, version),
-      manifest.frontend.verzeichnis
-    ),
-  };
+  // Ein Stand, dessen Dateien fehlen, ist eine Aussage und kein Absturz
+  // (Auftrag app-leiche, 28.08.2026): bis dahin lief `sendFile` in ENOENT und
+  // der Besucher bekam INTERNAL_ERROR -- als haette Arasul einen Fehler, wo
+  // Arasul nur die Wahrheit ueber diese App nicht sagte.
+  const dateien = await appManifest.dateienVorhanden(manifest);
+  if (!dateien.frontend) {
+    throw new ServiceUnavailableError(
+      `${appId} ${version} steht als ${stand}, aber die Dateien fehlen am Geraet. ` +
+        'Die App entfernen oder neu einspielen (Einstellungen -> Apps).',
+      { code: 'APP_DATEIEN_FEHLEN' }
+    );
+  }
+  return { version, verzeichnis: appManifest.frontendOrdner(manifest) };
+}
+
+/**
+ * Beim Start nachsehen, ob jeder Stand hat, was er verspricht, und es sagen.
+ *
+ * NUR SAGEN, nicht raeumen. Docker legt eine fehlende Bind-Quelle beim Start
+ * als leeren Ordner an (Falle aus dem Werksreset vom 28.08.2026): ein
+ * Backend, das bei leerem `/arasul/apps` jeden Stand loeschte, haette nach
+ * einem verrutschten Mount das Geraet leergeraeumt. Entfernen tut ein Mensch,
+ * ueber `DELETE /api/apps/:id`, und die Ansicht sagt ihm, welche.
+ *
+ * @returns {Promise<Array<{app_id: string, stand: string, version: string, mangel: string}>>}
+ */
+async function pruefeStaende() {
+  const { rows } = await db.query(
+    'SELECT app_id, stand, version, manifest FROM public.app_staende ORDER BY app_id, stand'
+  );
+  const maengel = [];
+  for (const zeile of rows) {
+    const dateien = await appManifest.dateienVorhanden(zeile.manifest);
+    const mangel = beschreibeMangel({ manifest: zeile.manifest, backend: null, dateien });
+    if (mangel && (!dateien.manifest || dateien.frontend === false)) {
+      maengel.push({ app_id: zeile.app_id, stand: zeile.stand, version: zeile.version, mangel });
+      logger.warn(
+        `App ${zeile.app_id} ${zeile.version} steht als ${zeile.stand}, ist aber nicht lieferbar: ${mangel}`
+      );
+    }
+  }
+  return maengel;
 }
 
 module.exports = {
@@ -553,5 +655,7 @@ module.exports = {
   entferneApp,
   appsFuerNutzer,
   ausliefernAus,
+  pruefeStaende,
+  standZustand,
   staendeVon,
 };

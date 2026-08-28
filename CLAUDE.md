@@ -379,6 +379,25 @@ an, mit klarer Meldung, was geschah. Über die Schnittstelle geht das nicht:
 das Startpasswort des Administrators nach dem Reset kennen die Abnahmen
 nicht, und sollen es nicht.
 
+Der Auftrag **app-leiche** (28.08.2026, für G1) hat am Orin eine App gefunden,
+die registriert war, gesund meldete und nicht ausgeliefert werden konnte:
+`urlaubsantrag` stand als `test` und `live` in `app_staende`, beide Container
+liefen `healthy`, und `data/apps/urlaubsantrag/` gab es nicht —
+`GET /apps/urlaubsantrag/` war ein `INTERNAL_ERROR`. **Der Healthcheck des
+Containers prüft das Backend, sonst nichts**; das Frontend liegt am Host, und
+dass es fehlt, kann der Container nicht wissen. Seither rechnet das Gerät die
+Gesundheit je **Stand** selbst (`appStore.standZustand`: `dateien`,
+`lieferbar`, `mangel` in `GET /api/apps` und `GET /api/apps/:id`), die
+Verwaltung zeigt einen Stand ohne `lieferbar` rot, schon in der Liste,
+`GET /api/apps/meine` lässt ihn weg, und `GET /apps/<id>/` antwortet
+`503 APP_DATEIEN_FEHLEN` mit dem Satz, was zu tun ist. Beim Start warnt das
+Backend je Stand ohne Dateien (`pruefeStaende`) und **räumt nicht**: Docker
+legt eine fehlende Bind-Quelle leer an, und ein Backend, das dann jeden Stand
+löschte, räumte nach einem verrutschten Mount das Gerät leer. Entfernen tut
+ein Mensch — der Weg fehlte in der Oberfläche und steht jetzt unter
+Einstellungen → Apps → **App entfernen** (Kennung abtippen wie beim Kit,
+`DELETE /api/apps/:id?dateien=true`, derselbe Dienst wie der Kit-Weg aus C5).
+
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/`   |

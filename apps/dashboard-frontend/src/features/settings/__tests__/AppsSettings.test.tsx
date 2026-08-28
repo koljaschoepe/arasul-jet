@@ -58,6 +58,9 @@ const APP_DETAIL = {
       pfad: '/apps/beispielapp/',
       api: '/apps/beispielapp/api/',
       backend: { laeuft: true, status: 'running', gesundheit: 'healthy', seit: null, image: null },
+      dateien: { manifest: true, frontend: true },
+      lieferbar: true,
+      mangel: null,
       modelle: [],
       flows: [FLOW],
     },
@@ -68,8 +71,32 @@ const APP_DETAIL = {
       pfad: '/apps/beispielapp/test/',
       api: '/apps/beispielapp/test/api/',
       backend: { laeuft: true, status: 'running', gesundheit: null, seit: null, image: null },
+      dateien: { manifest: true, frontend: true },
+      lieferbar: true,
+      mangel: null,
       modelle: [],
       flows: [FLOW],
+    },
+  },
+};
+
+/** Der Befund vom Orin: Container healthy, Dateien weg. */
+const LEICHE_ZEILE = {
+  ...APP_ZEILE,
+  staende: {
+    test: null,
+    live: { version: '1.0.0', lieferbar: false, mangel: 'Das Frontend fehlt am Geraet.' },
+  },
+};
+const LEICHE_DETAIL = {
+  ...APP_DETAIL,
+  staende: {
+    test: null,
+    live: {
+      ...APP_DETAIL.staende.live,
+      dateien: { manifest: false, frontend: false },
+      lieferbar: false,
+      mangel: 'Das Frontend fehlt am Geraet.',
     },
   },
 };
@@ -168,7 +195,49 @@ describe('AppsSettings', () => {
     apiMock.get.mockReset();
     apiMock.post.mockReset();
     apiMock.put.mockReset();
+    apiMock.del.mockReset();
     toast.success.mockReset();
+  });
+
+  it('nennt einen Stand, dessen Dateien fehlen, rot, trotz gesundem Container', async () => {
+    // Auftrag app-leiche: der Container meldete healthy, das Frontend gab es
+    // nicht, und niemand sah es. Jetzt steht es in der Liste und in der Karte.
+    antworte({ '/apps': { data: [LEICHE_ZEILE] }, '/apps/beispielapp': { data: LEICHE_DETAIL } });
+    render(<AppsSettings />, { wrapper: huelle() });
+
+    expect(await screen.findByTestId('app-mangel-beispielapp')).toHaveTextContent(
+      'nicht lieferbar'
+    );
+    fireEvent.click(screen.getByTestId('app-oeffnen-beispielapp'));
+    await screen.findByTestId('app-ansicht-beispielapp');
+    expect(screen.getByTestId('stand-mangel')).toHaveTextContent('Das Frontend fehlt am Geraet.');
+  });
+
+  it('entfernt eine App erst, wenn ihre Kennung eingetippt ist, samt Dateien', async () => {
+    antworte();
+    apiMock.del.mockResolvedValue({ data: { id: 'beispielapp' } });
+    await oeffneApp();
+
+    fireEvent.click(screen.getByTestId('app-entfernen'));
+    const absenden = await screen.findByTestId('app-entfernen-absenden');
+    expect(absenden).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('app-entfernen-kennung'), {
+      target: { value: 'beispiel' },
+    });
+    expect(absenden).toBeDisabled();
+    expect(apiMock.del).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByTestId('app-entfernen-kennung'), {
+      target: { value: 'beispielapp' },
+    });
+    expect(absenden).toBeEnabled();
+    fireEvent.click(absenden);
+
+    await waitFor(() => expect(apiMock.del).toHaveBeenCalledWith('/apps/beispielapp?dateien=true'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    // Danach steht die Liste wieder da, nicht die Ansicht einer App, die es nicht mehr gibt.
+    await screen.findByTestId('app-liste');
   });
 
   it('zeigt die Apps des Geraets mit beiden Fassungen', async () => {
