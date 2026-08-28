@@ -249,6 +249,19 @@ fi
 # --- 6. Die Verwaltung bleibt zu ---------------------------------------------
 # Die Oberflaeche blendet diese Wege fuer ihn aus. Hier steht, dass das
 # Ausblenden nicht die Berechtigung IST.
+#
+# `GET /api/settings` STAND HIER UND IST RAUS (Phase D2). Die D1-Abnahme am
+# Orin meldete dafuer 404 statt 403 und trug es als Befund. Der Befund war
+# richtig gemessen und falsch zugeordnet: `/api/settings` hat gar keine
+# Wurzelroute (`routes/admin/settings.js` kennt `POST /password/dashboard` und
+# `GET /password-requirements`, mehr nicht). 404 ist die richtige Antwort auf
+# einen Weg, den es nicht gibt, und eine Wurzelroute nur einzuziehen, damit
+# eine Abnahme gruen wird, waere eine tote Route.
+#
+# An seine Stelle tritt `GET /api/system/info` -- der Weg, den der Bereich
+# „System" der Einstellungen tatsaechlich liest, mit `requireRole('admin')`
+# davor. Damit misst die Zeile, was sie messen wollte: die Einstellungen
+# bleiben ihm zu.
 while read -r verb pfad; do
   [ -z "$verb" ] && continue
   code=$(rufe "$verb" "$pfad" "$TOK_M")
@@ -258,7 +271,7 @@ GET /api/models/catalog
 GET /api/benutzer
 GET /api/freigaben
 GET /api/backup/status
-GET /api/settings
+GET /api/system/info
 GET /api/apps
 VERWALTUNG
 

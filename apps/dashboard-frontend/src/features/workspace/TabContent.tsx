@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { WorkspaceTab, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { Uebersicht } from '@/features/apps/Uebersicht';
 import { AppRahmen } from '@/features/apps/AppRahmen';
+import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
@@ -91,7 +92,11 @@ export function FeatureTabHost({
   // steht im Workspace-Store bzw. im iframe der App. Diese Weiche ruft selbst
   // keinen Hook auf — deshalb darf sie vorzeitig zurückkehren.
   if (tab.type === 'dashboard') {
-    return <Uebersicht />;
+    // Die Shell ist die EINE Stelle, die quer zusammensetzt (Regel des
+    // Ordners: `features/X/` importiert nichts aus `features/Y/`). Die
+    // Übersicht bekommt die Freigaben deshalb hereingereicht, statt sie zu
+    // kennen — Phase D2.
+    return <Uebersicht freigaben={<OffeneFreigaben />} />;
   }
   if (tab.type === 'app') {
     // Ohne Kennung ist der Tab keiner. Die Store-Migration wirft solche Tabs

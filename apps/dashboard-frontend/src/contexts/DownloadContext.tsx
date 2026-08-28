@@ -17,6 +17,7 @@ import {
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from './AuthContext';
 import type { CatalogModel } from '../hooks/useStoreCatalog';
 import { modellAnzeigeName } from '../utils/modelDisplay';
 
@@ -93,6 +94,17 @@ const interpretDownloadStatus = (status: string): StatusInterpretation => {
 export function DownloadProvider({ children }: DownloadProviderProps) {
   const api = useApi();
 
+  // NUR FUER DEN ADMINISTRATOR (Phase D2). `/models/catalog` ist eine
+  // Verwaltungsroute (`requireRole('admin')`), und dieser Provider haengt seit
+  // jeher an der Wurzel der Anwendung. Fuer einen Mitarbeiter hiess das: beim
+  // Laden der Shell ein 403 und die Meldung „Diese Funktion ist dem
+  // Administrator vorbehalten" in der Konsole -- gemessen in der D1-Abnahme am
+  // Orin, in allen drei Breiten. Ein Modell laedt ohnehin nur ein
+  // Administrator herunter; fuer alle anderen gibt es hier nichts zu
+  // beobachten.
+  const { user } = useAuth();
+  const istAdmin = user?.role === 'admin';
+
   // Active downloads: { modelId: { progress, status, phase, error } }
   const [activeDownloads, setActiveDownloads] = useState<Record<string, DownloadState>>({});
 
@@ -117,6 +129,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
 
   // Check for existing downloads on mount (poll DB state)
   useEffect(() => {
+    if (!istAdmin) return;
     const controller = new AbortController();
     const checkExistingDownloads = async () => {
       try {
@@ -251,7 +264,9 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       clearInterval(pollInterval);
     };
     // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
-  }, []); // RC-004 FIX: Empty dependency array - only run on mount (api is stable via useMemo)
+    // `istAdmin` ist die einzige Abhaengigkeit: die Rolle steht erst fest,
+    // wenn `GET /api/auth/me` zurueck ist, und vorher darf hier nichts fragen.
+  }, [istAdmin]); // RC-004 FIX: sonst leer - api ist stabil via useMemo
 
   // Start a download
   // DL-FE-001: Use ref instead of state in dependency array to prevent

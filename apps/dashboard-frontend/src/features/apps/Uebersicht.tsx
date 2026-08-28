@@ -11,12 +11,12 @@
  * hierher; er steht in den Einstellungen unter System, und ein Mitarbeiter,
  * der einen Urlaubsantrag stellt, hat mit der GPU-Temperatur nichts zu tun.
  */
-import { AppWindow, ClipboardCheck } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { AppWindow } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useMeineApps, zuEintraegen, type AppEintrag } from './meineApps';
 
@@ -32,8 +32,14 @@ function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () 
       <span className="flex w-full items-center gap-2">
         <AppWindow className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate font-medium text-foreground">{eintrag.name}</span>
+        {/* Der Teststand-Hinweis fuer Tester (D2): das Wort allein sagt nicht,
+            was daran anders ist. Wer eine App in zwei Staenden vor sich hat,
+            muss beim Anklicken wissen, welche Fassung er gleich bedient. */}
         {eintrag.stand === 'test' && (
-          <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning">
+          <span
+            className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning"
+            title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
+          >
             Test
           </span>
         )}
@@ -46,14 +52,23 @@ function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () 
   );
 }
 
-export function Uebersicht() {
+/**
+ * @param freigaben Die offenen Freigaben, als Baustein hereingereicht.
+ *
+ * ALS SLOT UND NICHT ALS IMPORT, und das ist die Regel dieses Ordners: ein
+ * Bauteil aus `features/X/` importiert nichts aus `features/Y/`. Was quer
+ * zusammensetzt, ist die Shell (`features/workspace/TabContent.tsx`) — sie
+ * reicht hier `<OffeneFreigaben />` herein. Ohne den Slot müsste entweder die
+ * Übersicht die Freigaben kennen (dann hängen App-Liste und Freigaben
+ * aneinander) oder die Freigaben lägen im App-Ordner (dann heißt der Ordner
+ * nicht mehr, was darin steht).
+ */
+export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
   const { user } = useAuth();
   const openTab = useWorkspaceStore(s => s.openTab);
   const { data: apps, isLoading } = useMeineApps();
-  const { data: freigaben } = useOffeneFreigaben();
 
   const eintraege = zuEintraegen(apps ?? []);
-  const offen = freigaben?.length ?? 0;
 
   return (
     <div className="mx-auto max-w-4xl p-6">
@@ -62,17 +77,10 @@ export function Uebersicht() {
         description="Die Apps, die für dich freigegeben sind. Alles läuft auf diesem Gerät."
       />
 
-      {offen > 0 && (
-        <p
-          className="mb-6 flex items-center gap-2 rounded-md border border-border bg-card p-ui-3 text-sm text-foreground"
-          data-testid="uebersicht-freigaben"
-        >
-          <ClipboardCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          {offen === 1
-            ? 'Eine Freigabe wartet auf deine Entscheidung.'
-            : `${offen} Freigaben warten auf deine Entscheidung.`}
-        </p>
-      )}
+      {/* Zuerst das, was auf eine ANTWORT wartet, danach das, was offen
+          herumsteht. Ein angehaltener Flow blockiert jemanden anderes; eine
+          App wartet nicht. */}
+      {freigaben}
 
       {isLoading ? (
         <SkeletonText lines={3} />

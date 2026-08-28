@@ -287,7 +287,15 @@ schritte:
 ```
 
 Der Lauf steht dann auf **`wartend`**. Wer die App freigegeben hat, sieht ihn
-unter `GET /api/freigabe-anfragen` und entscheidet mit
+seit Phase D2 **auf der Übersicht** (die Mitte der Shell, ohne offene App): eine
+Karte je Anfrage mit Titel, Zusammenhang und Restzeit, darunter **Bestätigen**
+und **Ablehnen**. Ablehnen klappt ein Feld für die Begründung auf; ohne sie
+geht der Knopf nicht. Nach der Entscheidung verschwindet die Karte ohne
+Neuladen. Die Zahl der Wartenden steht zusätzlich rechts in der Statusleiste
+(Phase D1).
+
+Über die Schnittstelle sind es dieselben Wege:
+`GET /api/freigabe-anfragen`, dann
 `POST /api/freigabe-anfragen/:id/bestaetigen` oder `…/ablehnen`
 (Begründung Pflicht). Danach:
 

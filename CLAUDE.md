@@ -106,10 +106,25 @@ Mitarbeiter nicht sichtbar, und `requireRole` antwortet ihm dort ohnehin mit
 in den Einstellungen. Angemeldet wird mit Benutzername **oder** E-Mail (C1);
 ein vom Administrator gesetztes Passwort ist ein Startpasswort und wird beim
 ersten Anmelden gewechselt (`admin_users.passwort_vom_admin`, Migration 178).
-Die Zahl der offenen Freigaben aus C7 steht in der Statusleiste; die Oberfläche
-zum Entscheiden kommt später. Abnahme: `scripts/test/shell-abnahme.sh`
-(Bilder in drei Breiten: `scripts/test/shell-bilder.mjs`) — sie läuft **neben**
-`abnahmen.sh`, weil die Reihe dort mit zehn Anmeldungen auf der Drossel sitzt.
+Die Zahl der offenen Freigaben aus C7 steht in der Statusleiste. Abnahme:
+`scripts/test/shell-abnahme.sh` (Bilder in drei Breiten:
+`scripts/test/shell-bilder.mjs`) — sie läuft **neben** `abnahmen.sh`, weil die
+Reihe dort mit zehn Anmeldungen auf der Drossel sitzt.
+Seit D2 wird die **Freigabe aus C7 im Dashboard entschieden**: die Übersicht
+zeigt die offenen Anfragen mit Titel, Zusammenhang und Restzeit, bestätigen
+oder ablehnen mit Begründung geht an `POST /api/freigabe-anfragen/:id/…`, und
+die Liste aktualisiert sich über die Entwertung der Abfrage — ohne Neuladen,
+auch nach einem Fehler (ein 409 heißt gerade, dass die Liste veraltet ist).
+Die Oberfläche liegt in `features/freigaben/`, zusammengesetzt wird sie in
+`features/workspace/TabContent.tsx`: nur die Shell importiert quer, die
+Übersicht bekommt die Liste als Slot. Zwei Funde der D1-Abnahme sind zu:
+`DownloadContext` fragt `/models/catalog` nur noch als `admin` (für einen
+Mitarbeiter war es ein 403 in der Konsole beim Laden der Shell), und
+`GET /api/settings` ist aus der Verwaltungsprobe von `shell-abnahme.sh` heraus
+— diesen Weg gibt es gar nicht, 404 war richtig, gemessen wird jetzt
+`GET /api/system/info`. Abnahme: `scripts/test/dashboard-abnahme.sh` (Klick im
+Browser über `scripts/test/dashboard-bilder.mjs`); sie läuft ebenfalls neben
+`abnahmen.sh` und **nicht** in derselben Viertelstunde wie `shell-abnahme.sh`.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
