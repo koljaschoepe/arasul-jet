@@ -29,14 +29,14 @@ export interface Freigabe {
   freigegeben_am: string;
 }
 
-/** Eine App am Gerät, so wie `GET /api/apps` sie liefert (nur was hier zählt). */
 /** Ein Stand in der Liste: die Version, und ob er ausgeliefert werden kann. */
-export interface StandKurz {
+interface StandKurz {
   version: string;
   lieferbar?: boolean;
   mangel?: string | null;
 }
 
+/** Eine App am Gerät, so wie `GET /api/apps` sie liefert (nur was hier zählt). */
 export interface AppZeile {
   id: string;
   name: string;
