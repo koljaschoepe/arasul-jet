@@ -1386,7 +1386,7 @@ try {
       lauf = rumpf ? ausAntwort(rumpf, FLOW_FELD) : null;
       // Und WO der Pfad abbrach. Ohne das ist der naechste Schritt raten;
       // damit steht in derselben Zeile, wie ARASUL_FLOW_FELD heissen muss.
-      if (!lauf) grund = `die Antwort trug ${FLOW_FELD} nicht: ${pfadEnde(rumpf, FLOW_FELD)}`;
+      if (!lauf) grund = `die Antwort nannte keinen Lauf: ${pfadEnde(rumpf, FLOW_FELD)}`;
     }
     if (lauf) {
       const ende = Date.now() + 120000;
