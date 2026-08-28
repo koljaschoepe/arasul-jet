@@ -884,84 +884,51 @@ apply_config() {
     echo -e "${GREEN}Configuration applied successfully!${NC}"
 }
 
+# Was auf diesem Geraet vorgesehen ist -- gelesen aus der Kurzliste, nicht
+# abgeschrieben.
+#
+# Bis zum 28.08.2026 stand hier eine `case`-Anweisung mit sechzig Zeilen
+# Modellempfehlungen je Profil: `gemma4:31b-q4`, `qwen3:32b-q4`,
+# `llama3.1:70b-q4`, `codellama:70b`, `phi3:mini`, `tinyllama:1.1b`. Von diesen
+# Kennungen gibt es seit der Kurzliste (Phase C8, 27.08.2026) keine einzige
+# mehr. Der Einrichtungsassistent empfahl einem Kunden also Modelle, die er
+# nicht laden kann -- genau der Fehler, gegen den die Kurzliste angetreten ist.
+#
+# `RECOMMENDED_MODELS` je Profil steht weiter unten in dieser Datei und wird
+# von `scripts/test/kurzliste.py` an der Kurzliste gehalten. Was hier
+# ausgegeben wird, ist genau das, was `config/modelle/kurzliste.json` sagt.
 show_recommendations() {
-    local profile=$(get_device_profile)
+    local profile
+    profile=$(get_device_profile)
+    local kurzliste="${PROJECT_ROOT}/config/modelle/kurzliste.json"
 
     echo -e "${BLUE}================================================${NC}"
-    echo -e "${BLUE}       Recommended LLM Models${NC}"
+    echo -e "${BLUE}       Modelle fuer dieses Geraet${NC}"
     echo -e "${BLUE}================================================${NC}"
     echo ""
+    echo -e "Profil: ${GREEN}${profile}${NC}"
+    echo ""
 
-    case "$profile" in
-        "thor_128gb")
-            echo -e "${GREEN}Maximum Performance (Standard: gemma4:31b-q4):${NC}"
-            echo "  - gemma4:31b-q4     (22GB) - Standard - Multimodal, Thinking, Vision"
-            echo "  - gemma4:26b-q4     (20GB) - MoE, Vision, schnelle Inferenz"
-            echo "  - qwen3:32b-q4      (24GB) - Beste Text-Qualitaet (ohne Vision)"
-            echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
-            echo ""
-            echo -e "${YELLOW}Auch unterstuetzt:${NC}"
-            echo "  - codellama:70b     (38GB) - Bester Code-Assistent"
-            echo "  - mixtral:8x7b      (26GB) - MoE Architektur"
-            ;;
-        "thor_64gb")
-            echo -e "${GREEN}Empfohlen (Standard: gemma4:31b-q4):${NC}"
-            echo "  - gemma4:31b-q4     (22GB) - Standard - Multimodal, Thinking, Vision"
-            echo "  - gemma4:26b-q4     (20GB) - MoE, Vision, schnelle Inferenz"
-            echo "  - qwen3:14b-q8      (15GB) - Beste Text-Balance (ohne Vision)"
-            echo ""
-            echo -e "${YELLOW}Auch unterstuetzt:${NC}"
-            echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
-            echo "  - codellama:34b     (19GB) - Best fuer Coding"
-            ;;
-        "agx_orin_64gb")
-            echo -e "${GREEN}Best Performance (Standard: gemma4:26b-q4):${NC}"
-            echo "  - gemma4:26b-q4     (20GB) - Standard - MoE, Vision, Thinking"
-            echo "  - gemma4:31b-q4     (22GB) - Dense, hoechste Qualitaet, Vision"
-            echo "  - qwen3:14b-q8      (15GB) - Beste Text-Balance (ohne Vision)"
-            echo ""
-            echo -e "${YELLOW}Auch unterstuetzt:${NC}"
-            echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
-            echo "  - codellama:34b     (19GB) - Best fuer Coding"
-            ;;
-        "agx_orin_32gb"|"xavier_agx"*)
-            echo -e "${GREEN}Empfohlen (Standard: gemma4:e4b-q4):${NC}"
-            echo "  - gemma4:e4b-q4     (10GB) - Standard - Vision+Audio, RAG"
-            echo "  - qwen3:7b-q8       (8GB)  - Gute Balance (ohne Vision)"
-            echo "  - llama3.1:8b       (5GB)  - Schnell & faehig"
-            echo ""
-            echo -e "${YELLOW}Auch unterstuetzt:${NC}"
-            echo "  - mistral:7b        (4GB)  - Effizient"
-            ;;
-        "orin_nx_16gb")
-            echo -e "${GREEN}Empfohlen (Standard: gemma4:e4b-q4):${NC}"
-            echo "  - gemma4:e4b-q4     (10GB) - Standard - Vision+Audio, RAG"
-            echo "  - llama3.1:8b       (5GB)  - Schnelle Alternative"
-            echo ""
-            echo -e "${YELLOW}Auch unterstuetzt:${NC}"
-            echo "  - mistral:7b        (4GB)  - Schnelle Antworten"
-            echo "  - phi3:mini         (2GB)  - Sehr effizient"
-            ;;
-        "orin_8gb"|"xavier_nx"*)
-            echo -e "${GREEN}Recommended:${NC}"
-            echo "  - phi3:mini         (2GB)  - Best for 8GB"
-            echo "  - gemma:2b          (1.5GB) - Lightweight"
-            echo ""
-            echo -e "${YELLOW}Also Supported:${NC}"
-            echo "  - tinyllama:1.1b    (0.6GB) - Minimal"
-            echo "  - qwen:1.8b         (1GB)   - Compact"
-            ;;
-        *)
-            echo -e "${YELLOW}Fuer Ihr Geraet empfohlen:${NC}"
-            echo "  - gemma4:e4b-q4     (10GB) - Standard - Vision+Audio"
-            echo "  - mistral:7b        (4GB)  - Effizient"
-            echo "  - phi3:mini         (2GB)  - Sehr effizient"
-            ;;
-    esac
+    if [ ! -f "$kurzliste" ]; then
+        echo -e "${YELLOW}config/modelle/kurzliste.json nicht gefunden.${NC}"
+        return 0
+    fi
+
+    python3 - "$kurzliste" <<'KURZ'
+import json
+import sys
+
+for modell in json.load(open(sys.argv[1], encoding='utf-8'))['modelle']:
+    marke = 'Standard' if modell.get('standard') else '        '
+    print(f"  {marke}  {modell['id']:<40} {modell.get('wofuer', '')}")
+KURZ
 
     echo ""
-    echo -e "${BLUE}Download a model:${NC}"
-    echo "  docker exec llm-service ollama pull <model-name>"
+    echo -e "${BLUE}Ein Modell laden:${NC}"
+    echo "  docker exec llm-service ollama pull <Kennung>"
+    echo ""
+    echo "  Geladen wird NUR, was in der Kurzliste steht. Was sonst noch auf"
+    echo "  dem Geraet liegt, raeumt scripts/util/modelle-aufraeumen.sh weg."
 }
 
 # =============================================================================

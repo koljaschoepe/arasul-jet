@@ -45,7 +45,9 @@ fi
 # BUG-001 FIX: Auto-import GGUF models from /host-models if not already imported
 echo "[2.5/3] Checking for models to import..."
 
-MODEL_NAME="${LLM_MODEL:-gemma4:26b-q4}"
+# Rueckfall aus der Kurzliste (config/modelle/kurzliste.json). Hier stand bis
+# zum 28.08.2026 `gemma4:26b-q4`, eine Kennung, die es dort nicht gibt.
+MODEL_NAME="${LLM_MODEL:-gemma4:e4b}"
 HOST_MODELS_DIR="/host-models"
 
 # Support two modes:

@@ -24,7 +24,11 @@ services:
       - arasul-backend
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
-      LLM_MODEL: ${LLM_MODEL:-gemma4:26b-q4}
+      # Rueckfall aus der Kurzliste (config/modelle/kurzliste.json). Hier stand
+      # bis zum 28.08.2026 `gemma4:26b-q4`, eine Kennung, die es dort nicht
+      # gibt -- ein Geraet ohne LLM_MODEL in der .env haette ein Modell
+      # angefordert, das niemand laden kann.
+      LLM_MODEL: ${LLM_MODEL:-gemma4:e4b}
       LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-3600}
       OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
       OLLAMA_FLASH_ATTENTION: '1'

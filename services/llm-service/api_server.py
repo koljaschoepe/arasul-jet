@@ -40,7 +40,10 @@ logger = setup_logging("llm-service")
 
 # Configuration
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-DEFAULT_MODEL = os.environ.get("LLM_MODEL", "gemma4:26b-q4")  # Used for session reset
+# Rueckfall aus der Kurzliste (config/modelle/kurzliste.json). Hier stand bis
+# zum 28.08.2026 `gemma4:26b-q4`, eine Kennung, die es dort nicht gibt --
+# `scripts/test/kurzliste.py` haelt diese Zeile jetzt daran.
+DEFAULT_MODEL = os.environ.get("LLM_MODEL", "gemma4:e4b")  # Used for session reset
 
 # HIGH-PRIORITY-FIX 2.2: Background CPU monitoring to avoid blocking requests
 _cpu_percent = 0.0
