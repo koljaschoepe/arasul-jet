@@ -200,6 +200,14 @@ curl -X POST https://arasul.local/api/v1/external/api-keys \
 bcrypt-Abdruck. Wer ihn verliert, legt einen neuen an und widerruft den alten;
 nachschlagen geht nicht, und das ist der Sinn der Sache.
 
+Den Schlüssel der **Erstinstallation** legt der Bootstrap selbst an, damit ein
+Partner ihn im einen Moment bekommt, in dem er am Gerät steht. Er steht dann an
+zwei Orten: auf der Konsole am Ende des Bootstraps und in
+**`config/secrets/erstausgabe.txt`** (Rechte `600`) — zusammen mit dem
+Startpasswort des Administrators. Die Datei ist nach dem Lesen zu löschen
+(`shred -u config/secrets/erstausgabe.txt`); sie sagt das in ihrer ersten Zeile.
+Siehe [../ops/AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md#die-erstausgabe-was-der-bootstrap-einmal-sagt).
+
 `app:deploy` steht **nicht** in den Vorgabe-Bereichen
 (`apps/dashboard-backend/src/config/apiBereiche.js`). Der Schlüssel, den das
 Gerät jeder App beim Einspielen selbst mitgibt (`ARASUL_API_SCHLUESSEL`, Phase

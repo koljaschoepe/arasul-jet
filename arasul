@@ -603,7 +603,45 @@ create_directories() {
     mkdir -p cache
     mkdir -p updates
 
+    gib_data_dem_benutzer
+
     log_success "Directory structure created"
+}
+
+# `data/` gehoert dem Menschen, der installiert -- nicht root.
+#
+# Legt Docker eine fehlende Bind-Quelle selbst an, gehoert sie root. Am Orin
+# war das nach dem Werksreset vom 28.08.2026 `data/apps`: die Verzeichnisse
+# oben werden zwar angelegt, aber ein Reset mit `sudo` und ein `docker compose
+# up` dazwischen genuegen, damit wieder root darauf steht. Danach scheiterte
+# `scripts/test/beispielapp.sh` mit "Permission denied", und die Ursache lag
+# eine Stunde und einen Werksreset zurueck.
+#
+# Nicht kritisch: gelingt das Zurueckholen nicht, laeuft die Plattform
+# trotzdem, und der Hinweis nennt den Befehl.
+gib_data_dem_benutzer() {
+    [ -d data ] || return 0
+
+    local uid gid fremd
+    uid=$(id -u)
+    gid=$(id -g)
+    # `-maxdepth 2` reicht: was Docker anlegt, ist die fehlende Bind-QUELLE
+    # selbst, und die steht direkt unter `data/`.
+    fremd=$(find data -maxdepth 2 ! -user "$uid" -print -quit 2>/dev/null || true)
+    [ -n "$fremd" ] || return 0
+
+    if chown -R "${uid}:${gid}" data 2>/dev/null; then
+        log_success "data/ gehoert wieder dem aufrufenden Benutzer"
+        return 0
+    fi
+    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null &&
+        sudo chown -R "${uid}:${gid}" data 2>/dev/null; then
+        log_success "data/ gehoert wieder dem aufrufenden Benutzer (ueber sudo)"
+        return 0
+    fi
+
+    log_warning "In data/ liegt etwas, das diesem Benutzer nicht gehoert (${fremd})."
+    log_warning "  Nachholen mit: sudo chown -R ${uid}:${gid} $(pwd)/data"
 }
 
 # Run interactive setup to generate .env
@@ -962,6 +1000,10 @@ start_services() {
     # Layer 7: Background agents
     docker compose up -d self-healing-agent
 
+    # Noch einmal: `up` legt jede Bind-Quelle an, die zwischendurch verschwunden
+    # ist, und legt sie als root an.
+    gib_data_dem_benutzer
+
     log_success "All services started"
 }
 
@@ -998,127 +1040,94 @@ run_smoke_tests() {
         warnings=1
     fi
 
-    # Wait for services to be fully ready
+    # Jede Pruefung WARTET, statt einmal zu stossen.
+    #
+    # Am 28.08.2026 endete `install.sh` am Orin mit Rueckgabewert 1, weil der
+    # Rauchtest "Dashboard Frontend: FAILED" meldete -- neun Sekunden spaeter
+    # war der Container healthy. Der Deploy wartet an dieser Stelle seit jeher
+    # (`wait_for_healthy` in `start_services`), der Rauchtest tat es nicht. Ein
+    # Test, der frueher misst als ein Dienst antwortet, misst die Startzeit und
+    # nicht den Dienst -- und macht eine gelungene Installation rot.
     local basis
     basis=$(dashboard_url)
     log_info "Waiting for services to stabilize..."
-    wait_for_healthy dashboard-backend 60 "curl -skf ${basis}/api/health" || true
-    wait_for_healthy llm-service 60 "docker compose exec -T llm-service curl -sf http://localhost:11434/api/tags" || true
 
-    # Test Dashboard Backend
-    log_info "Testing Dashboard Backend..."
-    if curl -kf "${basis}/api/health" &> /dev/null; then
-        log_success "Dashboard Backend: OK"
-    else
-        log_error "Dashboard Backend: FAILED"
+    # Beschriftung, Dienst, Zeitgrenze in Sekunden, Pruefbefehl.
+    # Ohne Pruefbefehl zaehlt der Health-Status des Containers.
+    dienst_pruefen() {
+        local was="$1" dienst="$2" grenze="$3"
+        shift 3
+        log_info "Testing ${was}..."
+        if wait_for_healthy "$dienst" "$grenze" "$*"; then
+            log_success "${was}: OK"
+            return 0
+        fi
+        log_error "${was}: FAILED (keine Antwort binnen ${grenze}s)"
         failed=1
-    fi
+        return 1
+    }
 
-    # Test Dashboard Frontend
-    log_info "Testing Dashboard Frontend..."
-    if curl -kf "${basis}/" &> /dev/null; then
-        log_success "Dashboard Frontend: OK"
-    else
-        log_error "Dashboard Frontend: FAILED"
-        failed=1
-    fi
+    # Ueber HTTPS, nicht ueber Port 80: Traefik leitet `web` dauerhaft auf
+    # `websecure` um, und eine 301 ist fuer `curl -f` kein Fehler.
+    dienst_pruefen "Dashboard Backend" dashboard-backend 90 \
+        curl -skf -o /dev/null "${basis}/api/health"
+    dienst_pruefen "Dashboard Frontend" dashboard-frontend 90 \
+        curl -skf -o /dev/null "${basis}/"
 
-    # Test Metrics Collector
-    log_info "Testing Metrics Collector..."
-    if docker compose exec -T metrics-collector curl -f http://localhost:9100/health &> /dev/null; then
-        log_success "Metrics Collector: OK"
-    else
-        log_error "Metrics Collector: FAILED"
-        failed=1
-    fi
+    dienst_pruefen "Metrics Collector" metrics-collector 60 \
+        docker compose exec -T metrics-collector curl -sf http://localhost:9100/health
 
-    # Test PostgreSQL
-    log_info "Testing PostgreSQL..."
-    if docker compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
-        log_success "PostgreSQL: OK"
-
-        # Test database schema
-        TABLES=$(docker compose exec -T postgres-db psql -U arasul -d arasul_db -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null | tr -d ' \n')
-        if [ "$TABLES" -gt 5 ]; then
-            log_success "PostgreSQL Schema: OK ($TABLES tables)"
+    if dienst_pruefen "PostgreSQL" postgres-db 60 \
+        docker compose exec -T postgres-db pg_isready -U arasul; then
+        local tabellen
+        tabellen=$(docker compose exec -T postgres-db psql -U arasul -d arasul_db -t \
+            -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" \
+            2>/dev/null | tr -d ' \n')
+        if [ "${tabellen:-0}" -gt 5 ] 2>/dev/null; then
+            log_success "PostgreSQL Schema: OK (${tabellen} tables)"
         else
-            log_warning "PostgreSQL Schema: Incomplete ($TABLES tables found)"
+            log_warning "PostgreSQL Schema: Incomplete (${tabellen:-0} tables found)"
             warnings=1
         fi
-    else
-        log_error "PostgreSQL: FAILED"
-        failed=1
     fi
 
-    # Test LLM Service
-    log_info "Testing LLM Service..."
-    if docker compose exec -T llm-service curl -f http://localhost:11434/api/tags &> /dev/null; then
-        log_success "LLM Service: OK"
-
-        # Check if any models are available (skip inference test if none)
-        log_info "Checking for loaded models..."
-        MODELS_RESPONSE=$(docker compose exec -T llm-service curl -s http://localhost:11434/api/tags 2>/dev/null)
-        if grep -q '"models"' <<<"$MODELS_RESPONSE"; then
-            # Kein Modell ist der Normalfall auf einem frischen Geraet, und
-            # ohne Auffangnetz waere genau dieser Normalfall das stille Ende
-            # des Bootstraps: `grep -o` ohne Treffer gibt 1 zurueck.
-            MODEL_COUNT=$(grep -o '"name"' <<<"$MODELS_RESPONSE" | wc -l || true)
-            MODEL_COUNT=${MODEL_COUNT:-0}
-            if [ "$MODEL_COUNT" -gt 0 ]; then
-                log_success "LLM Models: $MODEL_COUNT model(s) available"
-            else
-                log_warning "LLM Models: No models loaded yet (normal on first boot - models must be pulled manually)"
-                log_info "Pull a model with: docker exec llm-service ollama pull llama3.1:8b"
-                warnings=1
-            fi
+    if dienst_pruefen "LLM Service" llm-service 120 \
+        docker compose exec -T llm-service curl -sf http://localhost:11434/api/tags; then
+        # Kein Modell ist der Normalfall auf einem frischen Geraet, und ohne
+        # Auffangnetz waere genau dieser Normalfall das stille Ende des
+        # Bootstraps: `grep -o` ohne Treffer gibt 1 zurueck.
+        local modelle antwort
+        antwort=$(docker compose exec -T llm-service curl -s http://localhost:11434/api/tags 2>/dev/null)
+        modelle=$(grep -o '"name"' <<<"$antwort" | wc -l || true)
+        if [ "${modelle:-0}" -gt 0 ]; then
+            log_success "LLM Models: ${modelle} model(s) available"
         else
-            log_warning "LLM Models: Could not retrieve model list"
+            log_warning "LLM Models: keins geladen (auf einem frischen Geraet normal)"
+            log_info "Modell laden: docker compose exec llm-service ollama pull <Kennung aus config/modelle/kurzliste.json>"
             warnings=1
         fi
-    else
-        log_error "LLM Service: FAILED"
-        failed=1
     fi
 
-    # Test Embedding Service
-    log_info "Testing Embedding Service..."
-    if docker compose exec -T embedding-service curl -f http://localhost:11435/health &> /dev/null; then
-        log_success "Embedding Service: OK"
-
-        # Try embeddings test (using correct /embed endpoint)
-        log_info "Running embeddings test..."
-        EMB_RESPONSE=$(docker compose exec -T embedding-service curl -s --max-time 5 http://localhost:11435/embed -H "Content-Type: application/json" -d '{"texts":["test"]}' 2>/dev/null)
-        if grep -q "vectors" <<<"$EMB_RESPONSE"; then
+    if dienst_pruefen "Embedding Service" embedding-service 120 \
+        docker compose exec -T embedding-service curl -sf http://localhost:11435/health; then
+        local einbettung
+        einbettung=$(docker compose exec -T embedding-service curl -s --max-time 5 \
+            http://localhost:11435/embed -H "Content-Type: application/json" \
+            -d '{"texts":["test"]}' 2>/dev/null)
+        if grep -q "vectors" <<<"$einbettung"; then
             log_success "Embeddings Inference: OK"
         else
             log_warning "Embeddings Inference: Model may not be ready"
             warnings=1
         fi
-    else
-        log_error "Embedding Service: FAILED"
-        failed=1
     fi
 
-    # Test Self-Healing Agent
-    log_info "Testing Self-Healing Agent..."
-    if grep -q "Up" <<<"$(docker compose ps self-healing-agent 2>/dev/null)"; then
-        log_success "Self-Healing Agent: Running"
-
-        # Check if healing engine is actually running
-        # `pgrep` ohne Treffer gibt 1 zurueck; unter `pipefail` waere die
-        # Zuweisung damit das stille Ende des Bootstraps.
-        HEALING_PROCS=$(docker compose exec -T self-healing-agent pgrep -f healing_engine.py 2>/dev/null | wc -l || true)
-        HEALING_PROCS=${HEALING_PROCS:-0}
-        if [ "$HEALING_PROCS" -gt 0 ]; then
-            log_success "Self-Healing Engine: Active"
-        else
-            log_warning "Self-Healing Engine: Process not found"
-            warnings=1
-        fi
-    else
-        log_error "Self-Healing Agent: Not running"
-        failed=1
-    fi
+    # Der eigene Health-Status des Agenten und nicht `pgrep`: sein Healthcheck
+    # ist `heartbeat.py --test`, und der prueft genau das Richtige -- ob die
+    # Heilschleife binnen 60 Sekunden ein Lebenszeichen geschrieben hat. Die
+    # Suche nach dem Prozess meldete am 28.08.2026 "Process not found", waehrend
+    # der Agent noch in seiner Startphase war (`start_period: 30s`).
+    dienst_pruefen "Self-Healing Agent" self-healing-agent 120
 
     echo ""
     log_info "=== Smoke Test Summary ==="
@@ -1135,58 +1144,20 @@ run_smoke_tests() {
     fi
 }
 
-# Show completion summary after successful bootstrap
+# Die Erstausgabe: Startpasswort und Kit-Schluessel, einmal.
+#
+# Sie erscheint IMMER -- auch wenn der Rauchtest rot war -- und immer VOR dem
+# Fehlerbericht. Am 28.08.2026 hing sie am gruenen Rauchtest, der Rauchtest war
+# rot (weil er nicht wartete), und damit hat niemand je den Kit-Schluessel
+# gesehen, den der Bootstrap kurz zuvor angelegt hatte. Ein Fehlerbericht ist
+# nachlesbar, ein einmal gezeigtes Geheimnis nicht.
+#
+# Der Inhalt steht in scripts/util/erstausgabe.sh, an einem Ort und nicht an
+# dreien: dasselbe Skript legt config/secrets/erstausgabe.txt (0600) an.
 show_completion_summary() {
-    local admin_user=$(env_wert ADMIN_USERNAME admin)
-    local hostname=$(env_wert MDNS_NAME arasul)
-    local fassung=$(env_wert SYSTEM_VERSION)
-
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${GREEN}  ARASUL ${fassung:-Vorserie} - Erfolgreich installiert!${NC}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
-    # Der nackte Name zuerst: den lernt der Router ueber den DHCP-Hostnamen,
-    # und danach tippt ein Mitarbeiter ihn so, wie er ihn sich merkt.
-    # `<name>.local` ist der Rueckfall ueber mDNS, falls der Router es nicht tut.
-    echo -e "  Oberflaeche:  ${BLUE}https://${hostname}/${NC}"
-    echo -e "                ${BLUE}https://${hostname}.local/${NC} (Rueckfall)"
-
-    # Der MagicDNS-Name, falls das Geraet im Tailnet ist. Seit dem 28.08.2026
-    # antwortet dort Traefik selbst -- `tailscale serve` ist gestrichen, weil es
-    # tailscaled 443 binden liess und Traefik danach `0.0.0.0:443` nicht mehr
-    # bekam (docs/ops/NETZNAME_UND_ZERTIFIKAT.md).
-    local ts_dnsname
-    ts_dnsname=$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/\.$//' || true)
-    if [ -n "$ts_dnsname" ]; then
-        echo -e "  Von unterwegs: ${BLUE}https://${ts_dnsname}${NC} (Tailscale)"
-    fi
-    echo ""
-    echo "  Anmeldung"
-    echo "    Benutzername  ${admin_user:-admin}"
-    echo "    Passwort      wie beim Einrichten vergeben"
-    echo "    Aenderbar unter Einstellungen > Sicherheit"
-
-    if [ -n "${KIT_SCHLUESSEL:-}" ]; then
-        echo ""
-        echo "  Schluessel fuer das Ara-Kit (Bereich app:deploy)"
-        echo "    ${KIT_SCHLUESSEL}"
-        echo "    Er steht NUR HIER. Ins Kit eintragen; ein neuer geht ueber"
-        echo "    scripts/util/kit-schluessel.sh anlegen"
-    fi
-
-    echo ""
-    echo "  Der Browser warnt beim ersten Aufruf vor dem Zertifikat. Das hoert"
-    echo "  auf, sobald das CA-Zertifikat dieses Geraets verteilt ist:"
-    echo "  Einstellungen > Sicherheit > Geraetezertifikat."
-    echo "  Anleitung: docs/ops/NETZNAME_UND_ZERTIFIKAT.md"
-    echo ""
-    echo "  Befehle:"
-    echo "    ./arasul status    - Status anzeigen"
-    echo "    ./arasul logs      - Logs anzeigen"
-    echo "    ./arasul stop      - System stoppen"
-    echo "    ./arasul restart   - System neustarten"
-    echo ""
+    bash "${SCRIPT_DIR}/scripts/util/erstausgabe.sh" \
+        --passwort "${STARTPASSWORT:-}" \
+        --schluessel "${KIT_SCHLUESSEL:-}" || true
 }
 
 # Remove plaintext ADMIN_PASSWORD from .env after bootstrap
@@ -1464,6 +1435,12 @@ cmd_bootstrap() {
     # 15. Admin-Benutzer anlegen. Only on success do we mark the admin as
     # initialized and redact — otherwise the password must survive for a retry.
     KIT_SCHLUESSEL=""
+    # Das Startpasswort, solange es noch in der `.env` steht: `redact_...`
+    # traegt es gleich darauf aus, und die Erstausgabe am Ende braucht es.
+    STARTPASSWORT=$(env_wert ADMIN_PASSWORD)
+    if [ "$STARTPASSWORT" = "REDACTED_AFTER_BOOTSTRAP" ]; then
+        STARTPASSWORT=""
+    fi
     if init_admin_user; then
         ADMIN_USER_INITIALIZED=1
         # Der Kit-Schluessel gehoert einem Administrator (`kit-schluessel.sh`
@@ -1479,9 +1456,11 @@ cmd_bootstrap() {
         log_warning "Admin noch nicht abschliessend angelegt (Fehler oder Backend-Erstgenerierung) — Klartext-Passwort bleibt in .env"
     fi
 
-    # 16. Smoke Tests & Ergebnis
-    if run_smoke_tests; then
+    # 16. Smoke Tests
+    local rauchtest=0
+    run_smoke_tests || rauchtest=1
 
+    if [ "$rauchtest" -eq 0 ]; then
         # 17. Production-Haertung (nicht kritisch - Fehler blockieren Bootstrap nicht)
         harden_production_security
 
@@ -1495,13 +1474,23 @@ cmd_bootstrap() {
         # so configure Avahi here. Non-fatal and only when we can escalate without
         # an interactive prompt (root or passwordless sudo), to stay unattended-safe.
         setup_mdns_if_possible
-
-        generate_error_report 0 "completed"
-        show_completion_summary
-    else
-        generate_error_report 1 "smoke_tests"
-        exit 1
     fi
+
+    # 20. Die Erstausgabe -- VOR dem Fehlerbericht und OHNE Bedingung.
+    #
+    # Bis zum 28.08.2026 stand sie im gruenen Zweig. Am Orin war der Rauchtest
+    # rot, weil er nicht wartete; die Installation selbst war in Ordnung, und
+    # trotzdem hat den Kit-Schluessel nie jemand gesehen. Ein Fehlerbericht ist
+    # nachlesbar (/tmp/arasul_bootstrap_errors.json, `./arasul logs`), ein
+    # einmal gezeigtes Geheimnis nicht -- also kommt es zuerst.
+    show_completion_summary
+
+    if [ "$rauchtest" -eq 0 ]; then
+        generate_error_report 0 "completed"
+        return 0
+    fi
+    generate_error_report 1 "smoke_tests"
+    exit 1
 }
 
 # Start command

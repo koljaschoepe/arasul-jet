@@ -256,6 +256,15 @@ WURZEL="$(dirname "$SCRIPT_DIR")"
 BEISPIEL
 pruefe "Wurzelpfad: eine Ebene zuviel im Wurzelverzeichnis ist rot" 1 \
   python3 "$WURZEL/scripts/test/wurzelpfad.py" --wurzel "$TMP/wp"
+
+# Ein ORDNER, der wie ein Skript heisst. Am Orin legte Docker unter `data/`
+# eine fehlende Bind-Quelle namens `healthcheck.sh` als Verzeichnis an; der
+# Waechter las sie als Datei und starb an einem IsADirectoryError -- der
+# Pruefer stolperte, nicht das Gepruefte.
+rm -f "$TMP/wp/arasul"
+mkdir -p "$TMP/wp/data/healthcheck.sh"
+pruefe "Wurzelpfad: ein Ordner mit Skriptnamen wird uebersprungen" 0 \
+  python3 "$WURZEL/scripts/test/wurzelpfad.py" --wurzel "$TMP/wp"
 rm -r "$TMP/wp"
 
 # --- rohrbruch.py -----------------------------------------------------------

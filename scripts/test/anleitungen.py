@@ -199,10 +199,11 @@ def main():
         for p in pfade:
             if '*' in p:
                 continue
-            # `data/` entsteht zur Laufzeit auf dem Geraet und liegt nicht im
-            # Repo. Ein Verweis darauf ist richtig, auch wenn die Datei hier
-            # fehlt.
-            if p.startswith('data/'):
+            # `data/` und `config/secrets/` entstehen zur Laufzeit auf dem
+            # Geraet und liegen nicht im Repo (beide in `.gitignore`). Ein
+            # Verweis darauf ist richtig, auch wenn die Datei hier fehlt --
+            # `config/secrets/erstausgabe.txt` schreibt der Bootstrap.
+            if p.startswith('data/') or p.startswith('config/secrets/'):
                 continue
             if not os.path.exists(os.path.join(WURZEL, p)) and not os.path.exists(
                 os.path.join(ordner, p)

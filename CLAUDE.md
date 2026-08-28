@@ -86,16 +86,31 @@ und [`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`](docs/ops/NETZNAME_UND_ZERTIFIKAT.md)
 Der erste Werksreset am Orin (28.08.2026) hat fünf Wege gefunden, auf denen die
 Installation nicht ohne Hand durchlief, und alle fünf sind zu: der
 **Werksreset installiert nichts mehr** (kein `preconfigure.sh`, kein
-Modell-Pull) und räumt App-Container, App-Images und alle Volumes des Geräts
-weg; `tailscale serve` ist **gestrichen**, weil es Traefik den Port 443 nimmt
-(auch aus Oberfläche und API); Geheimnisse mit `$` stehen in der `.env` in
-Anführungszeichen, sonst liest docker compose sie als Variable. Zwei neue
-Wächter halten die Klassen fest: `scripts/test/wurzelpfad.py` (ein Skript, das
-sein Wurzelverzeichnis eine Ebene zu hoch ansetzt) und der erweiterte
-`stiller-tod.py`, der jetzt auch `arasul` selbst liest. Gemessen wird die
-Installation seither **bei jedem Zug**: der CI-Job `Installation` baut das
-Artefakt, packt es aus und fährt `./install.sh --nur-vorbereiten` darin;
-`scripts/test/bootstrap-abnahme.sh` misst am Gerät, was danach wirklich läuft.
+Modell-Pull) und räumt jeden Container mit Name `arasul-*` oder Etikett
+`arasul.*`, die App-Images und alle Volumes des Geräts weg; `tailscale serve`
+ist **gestrichen**, weil es Traefik den Port 443 nimmt (auch aus Oberfläche und
+API); Geheimnisse mit `$` stehen in der `.env` in Anführungszeichen, sonst liest
+docker compose sie als Variable. Zwei neue Wächter halten die Klassen fest:
+`scripts/test/wurzelpfad.py` (ein Skript, das sein Wurzelverzeichnis eine Ebene
+zu hoch ansetzt) und der erweiterte `stiller-tod.py`, der jetzt auch `arasul`
+selbst liest. Gemessen wird die Installation seither **bei jedem Zug**: der
+CI-Job `Installation` baut das Artefakt, packt es aus und fährt
+`./install.sh --nur-vorbereiten` darin; `scripts/test/bootstrap-abnahme.sh`
+misst am Gerät, was danach wirklich läuft.
+Der zweite Werksreset (ebenfalls 28.08.2026, Release v0.2.0) lief bis zum Ende
+und war trotzdem rot: der **Rauchtest wartet jetzt je Dienst** über
+`wait_for_healthy` mit Zeitgrenze, statt einmal zu stoßen (das
+`dashboard-frontend` war neun Sekunden später healthy), und die Prüfung des
+Self-Healing-Agenten ist sein Docker-Health-Status (`heartbeat.py --test`) statt
+einer Suche nach dem Prozess. Vor allem aber hängt die **Erstausgabe** — das
+Startpasswort und der Kit-Schlüssel — an keiner Bedingung mehr: sie erscheint
+immer und **vor** dem Fehlerbericht, und sie steht zusätzlich in
+`config/secrets/erstausgabe.txt` (0600, mit dem Hinweis, sie nach dem Lesen zu
+löschen). Ein Ort dafür, `scripts/util/erstausgabe.sh`; `install.sh` hat seinen
+doppelten Schlussblock verloren und übergibt am Ende an den Bootstrap. Dazu:
+`data/` gehört nach dem Bootstrap dem Menschen, der installiert (Docker legt
+eine fehlende Bind-Quelle als root an), und `wurzelpfad.py` stolpert nicht mehr
+über einen **Ordner**, der wie ein Skript heißt.
 Seit D1 steht die **Shell** aus Beschluss 10: dreispaltig, links die Apps aus
 `GET /api/apps/meine`, in der Mitte die Übersicht oder eine App (iframe auf
 `/apps/<id>/`, Forward-Auth aus C4), rechts die **Notizen** (`/api/notizen`,

@@ -565,6 +565,34 @@ jobs:
           fi
           echo "Keine Warnung."
 
+      # Die beiden Geheimnisse einer Installation -- Startpasswort und
+      # Kit-Schluessel -- gibt es genau einmal. Am 28.08.2026 hing ihre Ausgabe
+      # am gruenen Rauchtest; der Rauchtest war rot, weil er nicht wartete, und
+      # der Kit-Schluessel war angelegt und hat ihn nie jemand gesehen. Hier
+      # laeuft genau das Skript, das der Bootstrap am Ende ruft.
+      - name: Die Erstausgabe nennt beide Geheimnisse und legt sie ab
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: |
+          set -eu
+          ziel=config/secrets/erstausgabe.txt
+          ausgabe=$(bash scripts/util/erstausgabe.sh \
+            --passwort 'AbnahmeCi2026x' --schluessel 'aras_abnahmeci')
+          echo "$ausgabe"
+          for geheimnis in AbnahmeCi2026x aras_abnahmeci; do
+            grep -q "$geheimnis" <<<"$ausgabe" ||
+              { echo "Die Konsolenausgabe nennt $geheimnis nicht." >&2; exit 1; }
+            grep -q "$geheimnis" "$ziel" ||
+              { echo "$ziel nennt $geheimnis nicht." >&2; exit 1; }
+          done
+          rechte=$(stat -c '%a' "$ziel")
+          [ "$rechte" = "600" ] || { echo "$ziel hat Rechte $rechte statt 600." >&2; exit 1; }
+          grep -qi 'LOESCHEN' "$ziel" ||
+            { echo "$ziel sagt nicht, dass sie zu loeschen ist." >&2; exit 1; }
+          rm -f "$ziel"
+
+      # Abschnitt 8 darin misst, dass der Rauchtest je Dienst wartet und dass
+      # die Erstausgabe VOR dem Fehlerbericht steht -- also auch dann erscheint,
+      # wenn der Rauchtest rot ist.
       - name: Abnahme des Bootstraps (trocken)
         working-directory: ${{ steps.auspacken.outputs.wurzel }}
         run: bash scripts/test/bootstrap-abnahme.sh --trocken
