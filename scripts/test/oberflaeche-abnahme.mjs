@@ -493,6 +493,79 @@ const cspVerstoesse = [];
 let konsole = [];
 
 /**
+ * Jeder Wortwechsel mit `/api/auth/*`, mitgeschrieben.
+ *
+ * WARUM DAS HIER STEHT. Die vier Laeufe am Orin nach dem D7-Deploy
+ * (28.08.2026, 90/91, 91/91, 90/91, 91/91) waren zweimal rot, je genau einmal
+ * und je an einer anderen Stelle — und beide roten Felder nannten nur das
+ * Symptom: „arasul_session blieb mit Wert stehen" und „kein
+ * [data-testid=passwort-wechseln]". Woran es lag, stand nirgends, und eine
+ * Abnahme, die ihren eigenen Befund nicht erklaeren kann, kostet den halben
+ * Tag, den sie sparen soll.
+ *
+ * Beide Stellen haengen an genau einer HTTP-Antwort: das Cookie faellt in
+ * `POST /api/auth/logout`, und ob die Seite „Neues Passwort" kommt, entscheidet
+ * `GET /api/auth/session`. Also wird jede Antwort dieser Wege festgehalten,
+ * samt der, die gar nicht kam (`requestfailed`) — und das rote Feld nennt sie.
+ */
+const authWege = [];
+
+/** Die Wortwechsel eines Weges seit einem Zeitpunkt, in einer Zeile. */
+function authSeit(ab, pfad) {
+  const treffer = authWege.filter(w => w.zeit >= ab && w.pfad === pfad);
+  if (!treffer.length) return `${pfad} nie gerufen`;
+  return treffer.map(w => `${w.methode} ${pfad} → ${w.ausgang}`).join(', ');
+}
+
+/**
+ * Was steht ueberhaupt auf dem Schirm? Gefragt wird, wenn ein Kennzeichen
+ * fehlt: „kein [data-testid=…]" sagt, was NICHT da ist, und das ist die
+ * uninteressante Haelfte. Die Anmeldung statt der erwarteten Seite ist ein
+ * anderer Befund als eine haengende Ladeanzeige.
+ */
+async function wasStehtDa(seite) {
+  const marken = [
+    ['die Anmeldung', 'input#username'],
+    ['eine Ladeanzeige', '.loading-spinner'],
+    ['die Shell', '[data-testid="workspace-shell"]'],
+  ];
+  for (const [wort, waehler] of marken) {
+    const da = await seite
+      .locator(waehler)
+      .first()
+      .isVisible({ timeout: 1500 })
+      .catch(() => false);
+    if (da) return wort;
+  }
+  const text = await seite
+    .locator('body')
+    .innerText({ timeout: 3000 })
+    .catch(() => '');
+  return text ? `„${einzeilig(text, 80)}"` : 'nichts';
+}
+
+/**
+ * Wartet, bis das Sitzungscookie gefallen ist — hoechstens diese Spanne.
+ *
+ * Kein Nachlassen der Frage, sondern ein Zugestaendnis an den Messweg: die
+ * Oberflaeche zeigt die Anmeldung, sobald ihr eigener Zustand geraeumt ist, und
+ * der Cookie-Speicher des Browsers ist ein anderer Ort als das Dokument. Was
+ * gemessen wird, bleibt dasselbe — dass am Ende nichts liegen bleibt —, und
+ * WIE LANGE es gedauert hat, steht in der Zeile.
+ */
+async function sitzungscookieFaellt(ctx, grenze = 5000) {
+  const beginn = Date.now();
+  for (;;) {
+    const uebrig = await ctx.cookies(URL);
+    const tot = uebrig.some(c => c.name === 'arasul_session' && c.value);
+    if (!tot || Date.now() - beginn >= grenze) {
+      return { uebrig, tot, gewartet: Date.now() - beginn };
+    }
+    await new Promise(weiter => setTimeout(weiter, 250));
+  }
+}
+
+/**
  * Meldungen, die NICHT der Oberflaeche gehoeren: alles, was aus dem iframe
  * einer App kommt. Eine App stammt vom Partner, laeuft in einem eigenen
  * Dokument und bringt ihre eigene Konsole mit; sie hier rot zu zaehlen hiesse,
@@ -526,6 +599,24 @@ async function fensterHorchen(ctx, seite) {
   });
   seite.on('pageerror', e =>
     konsole.push({ text: `pageerror: ${String(e.message).slice(0, 200)}`, ort: '', app: false })
+  );
+
+  // Die Auth-Wege mitschreiben, Antwort UND Ausfall. Ein Weg, der gar nicht
+  // erst durchkam, ist der interessantere der beiden Faelle.
+  // Ein Horcher, der wirft, reisst den Lauf mit: eine Zeile, die nur der
+  // Fehlersuche dient, darf die Messung nie kosten.
+  const merken = (url, methode, ausgang) => {
+    try {
+      const pfad = new globalThis.URL(url).pathname;
+      if (!pfad.startsWith('/api/auth/')) return;
+      authWege.push({ zeit: Date.now(), pfad, methode, ausgang });
+    } catch {
+      /* keine gewoehnliche Adresse (data:, blob:) -- die interessiert hier nicht */
+    }
+  };
+  seite.on('response', a => merken(a.url(), a.request().method(), `HTTP ${a.status()}`));
+  seite.on('requestfailed', a =>
+    merken(a.url(), a.method(), a.failure()?.errorText || 'ohne Antwort')
   );
   await ctx.exposeBinding('__arasulCspMelden', (_quelle, v) => {
     cspVerstoesse.push({ quelle: 'seite', ...v });
@@ -654,10 +745,13 @@ async function klickFrei(seite, ziel, grenze = 15000) {
  * @param kennzeichen Der Waehler, an dem die Ansicht zu erkennen ist.
  * @param notizenZu Schmal vorher wegraeumen, was obenauf liegt. Nur die Zelle
  *        „Notizen" selbst will sie aufgeschlagen haben.
+ * @param warum Wird gerufen, wenn das Kennzeichen ausbleibt, und liefert einen
+ *        Satz dazu. „kein [data-testid=…]" sagt, was NICHT da ist — die
+ *        uninteressante Haelfte. Woran es lag, weiss nur die Ansicht selbst.
  */
 async function ansichtMessen(
   seite,
-  { name, dateiname, breite, oeffnen, kennzeichen, notizenZu = true }
+  { name, dateiname, breite, oeffnen, kennzeichen, notizenZu = true, warum = null }
 ) {
   await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
   konsole = [];
@@ -666,7 +760,8 @@ async function ansichtMessen(
 
   const da = await steht(seite, kennzeichen, 30000);
   if (!da) {
-    zelle(name, breite.px, false, `kein ${kennzeichen}`);
+    const zusatz = warum ? await warum().catch(e => `warum-Frage selbst rot: ${e.message}`) : '';
+    zelle(name, breite.px, false, [`kein ${kennzeichen}`, zusatz].filter(Boolean).join('; '));
     await seite
       .screenshot({ path: path.join(ZIEL, `${breite.px}-${dateiname}.png`) })
       .catch(() => {});
@@ -1089,7 +1184,13 @@ try {
   }
 
   // --- 4. Der Startpasswort-Wechsel, in drei Breiten ------------------------
+  //
+  // Ob diese Seite kommt, entscheidet EINE Antwort: `GET /api/auth/session`
+  // sagt `passwortWechselNoetig`. Bleibt sie aus, zeigt die Oberflaeche die
+  // Anmeldung — und das rote Feld sah bis zum 28.08.2026 aus wie eine Aussage
+  // ueber diese Ansicht. Deshalb nennt `warum` hier den Wortwechsel selbst.
   for (const breite of BREITEN) {
+    const beginn = Date.now();
     await ansichtMessen(seiteM, {
       name: 'Startpasswort-Wechsel',
       dateiname: 'startpasswort',
@@ -1098,6 +1199,12 @@ try {
       oeffnen: async () => {
         await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       },
+      warum: async () =>
+        [
+          authSeit(beginn, '/api/auth/session'),
+          `Adresse ${seiteM.url().replace(URL, '')}`,
+          `auf dem Schirm: ${await wasStehtDa(seiteM)}`,
+        ].join(', '),
     });
   }
 
@@ -1107,13 +1214,15 @@ try {
   await seiteM.locator('#passwort-alt').fill(PASS_START);
   await seiteM.locator('#passwort-neu').fill(PASS_SELBST);
   await seiteM.locator('#passwort-wiederholung').fill(PASS_SELBST);
+  const wechselBeginn = Date.now();
   await seiteM.keyboard.press('Enter');
   // Der Wechsel entwertet alle Sitzungen; die Oberflaeche meldet ab und zeigt
   // wieder die Anmeldung.
   const zurueckZurAnmeldung = await steht(seiteM, 'input#username', 45000);
   pruefe(
     'Startpasswort-Wechsel: die Eingabetaste bestaetigt, danach steht die Anmeldung',
-    zurueckZurAnmeldung
+    zurueckZurAnmeldung,
+    zurueckZurAnmeldung ? '' : await wasStehtDa(seiteM)
   );
 
   // Der Wechsel entwertet ALLE Sitzungen des Mitarbeiters, und die Oberflaeche
@@ -1123,11 +1232,21 @@ try {
   // eine Sitzung, die eine Seite selbst nicht loeschen kann, weil sie
   // httpOnly-Cookies nicht sieht. Gemessen wird hier der Browser, nicht die
   // Antwort: was zaehlt, ist, dass nichts liegen bleibt.
-  const uebrig = await ctxM.cookies(URL);
+  //
+  // SEIT DEM 28.08.2026 STEHT DIE ANTWORT TROTZDEM DANEBEN. Einer von vier
+  // Laeufen am Orin war genau hier rot, und „arasul_session blieb stehen"
+  // liess offen, ob der Weg 403 sagte (CSRF), 429 (Drossel) oder gar nichts
+  // (verlorene Anfrage) -- drei Befunde mit drei verschiedenen Antworten. Der
+  // Wortwechsel entscheidet das in einer Zeile.
+  const { uebrig, tot, gewartet } = await sitzungscookieFaellt(ctxM);
   pruefe(
     'Der Passwortwechsel laesst keine tote Sitzung im Browser zurueck',
-    !uebrig.some(c => c.name === 'arasul_session' && c.value),
-    uebrig.map(c => c.name).join(', ') || 'gar keine Cookies'
+    !tot,
+    [
+      uebrig.map(c => c.name).join(', ') || 'gar keine Cookies',
+      authSeit(wechselBeginn, '/api/auth/logout'),
+      `nach ${gewartet} ms`,
+    ].join(' · ')
   );
 
   // --- 5. Die zweite Anmeldung ---------------------------------------------
