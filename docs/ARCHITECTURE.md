@@ -50,9 +50,11 @@ Tailscale runs directly on the host (not in Docker) to provide VPN access to all
 Managed via Dashboard UI (Einstellungen > Fernzugriff) and backend API (`/api/tailscale/*`).
 
 **Access model:** LAN-only is the delivery default; remote is an opt-in via
-Tailscale. One name per context, never a raw IP — in the LAN
-`https://<hostname>.local`, remotely `https://<device>.<tailnet>.ts.net` with a
-browser-trusted cert served by `tailscale serve` → Traefik:443.
+Tailscale. One name per context, never a raw IP — in the LAN `https://arasul`
+(fallback `https://arasul.local`), remotely `https://<device>.<tailnet>.ts.net`.
+Traefik serves both, with the same certificate from the device CA; `tailscale
+serve` is deliberately NOT used, because it takes port 443 away from Traefik
+(28.08.2026, Phase C10).
 
 ---
 

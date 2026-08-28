@@ -14,7 +14,6 @@ import {
   ChevronUp,
   Download,
   Loader2,
-  Lock,
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
@@ -64,19 +63,8 @@ const OS_ICONS: Record<string, typeof Monitor> = {
   android: Smartphone,
 };
 
-/** Zustand von `tailscale serve` plus Zertifikatslage des Tailnets. */
-export interface ServeInfo {
-  /** `tailscale serve` laeuft und leitet auf Traefik weiter. */
-  enabled: boolean;
-  /** Das Tailnet hat MagicDNS + HTTPS-Zertifikate aktiviert. */
-  httpsAvailable: boolean;
-}
-
-/** Direktziel fuer den einen Klick, den nur der Tailnet-Besitzer machen kann. */
-const TAILSCALE_DNS_ADMIN = 'https://login.tailscale.com/admin/dns';
-
 /** „Fertig". Kein Schritt, den man noch vor sich hat, sondern der Zustand danach. */
-export const LETZTER_SCHRITT = 5;
+export const LETZTER_SCHRITT = 3;
 
 /**
  * Ist dieser Schritt abgehakt?
@@ -93,29 +81,26 @@ export function istErledigt(n: number, currentStep: number): boolean {
 }
 
 /**
- * Aktueller Schritt im Assistenten.
+ * Aktueller Schritt im Assistenten: installieren, verbinden, fertig.
  *
- * Bis 2026-08-18 endete der Ablauf bei „verbunden" (Schritt 3). Damit war er
- * genau dort zu Ende, wo der interessante Teil anfaengt: Ohne HTTPS-Zertifikate
- * im Tailnet und ohne `tailscale serve` erreicht man das Geraet nur ueber die
- * nackte 100.x-IP — mit Zertifikatswarnung im Browser. Wer nicht weiss, dass es
- * die beiden Schalter gibt, bleibt dort haengen.
+ * Zwischen „verbinden" und „fertig" standen bis zum 28.08.2026 zwei weitere
+ * Schritte: HTTPS-Zertifikate im Tailnet freischalten und danach `tailscale
+ * serve` einschalten, damit der Tailscale-Name ein browser-vertrautes Schloss
+ * bekommt. Beide sind gefallen, und der Grund ist eine Messung am Orin: mit
+ * aktivem `serve` bindet tailscaled `100.x.y.z:443`, danach bekommt Traefik
+ * `0.0.0.0:443` nicht mehr, der reverse-proxy startet nicht -- und das Geraet
+ * ist im EIGENEN Firmennetz nicht mehr erreichbar. Ein Knopf, der die
+ * Oberflaeche abschaltet, gehoert nicht in die Oberflaeche.
  *
- * `serveInfo` ist BERATEND: liefert der Abruf nichts (null), wird niemals
- * zurueckgestuft — sonst wuerde ein fehlgeschlagener Nebenabruf einen fertig
- * eingerichteten Nutzer wieder in den Assistenten werfen.
+ * Das vertraute Schloss kommt seit Phase C10 fuer BEIDE Netze aus derselben
+ * Quelle: der Geraete-CA, die der Admin einmal verteilt
+ * (docs/ops/NETZNAME_UND_ZERTIFIKAT.md). Traefik antwortet auch auf der
+ * Tailscale-Adresse.
  */
-export function getStep(
-  status: TailscaleStatus | null,
-  serveInfo: ServeInfo | null,
-  certSkipped: boolean
-): number {
+export function getStep(status: TailscaleStatus | null): number {
   if (!status || !status.installed) return 1;
   if (!status.connected) return 2;
-  if (!serveInfo || certSkipped) return 5;
-  if (!serveInfo.httpsAvailable) return 3;
-  if (!serveInfo.enabled) return 4;
-  return 5;
+  return 3;
 }
 
 // sessionStorage for instant tab-switch rendering
@@ -157,15 +142,8 @@ export function RemoteAccessSettings() {
   const [authKey, setAuthKey] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
-  // "So erreichst du Arasul" card: real LAN name (/system/network) + serve state.
+  // "So erreichst du Arasul" card: der echte LAN-Name aus /system/network.
   const [lanName, setLanName] = useState<string | null>(null);
-  // „Spaeter" in Schritt 3: der Nutzer will vorerst ueber die IP arbeiten.
-  // Bewusst nur fuer diese Sitzung — beim naechsten Oeffnen fragt der
-  // Assistent wieder, weil der Zustand ja weiterhin unfertig ist.
-  const [certSkipped, setCertSkipped] = useState(false);
-  const [enablingServe, setEnablingServe] = useState(false);
-  const [recheckingCert, setRecheckingCert] = useState(false);
-  const [serveInfo, setServeInfo] = useState<ServeInfo | null>(null);
 
   // Use ref for status so callbacks don't need it as a dependency
   const statusRef = useRef(status);
@@ -216,10 +194,9 @@ export function RemoteAccessSettings() {
     [api, updateStatus]
   );
 
-  // Access-path info for the "So erreichst du Arasul" card. The LAN name is
-  // effectively static; serve state only matters once connected. Fetched
-  // separately from the 30s status poll to avoid probing `tailscale cert` on
-  // the host on every tick.
+  // Der Name, unter dem das Geraet im Firmennetz erreichbar ist. Er ist
+  // praktisch unveraenderlich und wird deshalb getrennt vom 30-Sekunden-Takt
+  // des Statusabrufs geholt.
   const loadAccessInfo = useCallback(
     async (signal?: AbortSignal) => {
       try {
@@ -230,12 +207,6 @@ export function RemoteAccessSettings() {
         if (!signal?.aborted && net?.mdns) setLanName(net.mdns);
       } catch {
         /* LAN name is a nice-to-have; ignore failures */
-      }
-      try {
-        const serve = await api.get<ServeInfo>('/tailscale/serve', { showError: false, signal });
-        if (!signal?.aborted) setServeInfo(serve);
-      } catch {
-        /* serve status is advisory; ignore failures */
       }
     },
     [api]
@@ -287,7 +258,6 @@ export function RemoteAccessSettings() {
       );
       updateStatus(data);
       setAuthKey('');
-      // connect() auto-enables serve on the backend — refresh the access card.
       loadAccessInfo();
       toast.success('Tailscale verbunden!');
     } catch (err: unknown) {
@@ -320,39 +290,6 @@ export function RemoteAccessSettings() {
       toast.error(e.message || 'Trennung fehlgeschlagen');
     } finally {
       setDisconnecting(false);
-    }
-  };
-
-  /**
-   * Schritt 3: nachsehen, ob der Zertifikat-Schalter im Tailnet inzwischen
-   * gesetzt ist. Der Klick passiert ausserhalb der Anwendung (Admin-Konsole),
-   * deshalb braucht es hier eine ausdrueckliche Nachfrage statt Warten auf den
-   * 30-Sekunden-Takt.
-   */
-  const handleRecheckCert = async () => {
-    setRecheckingCert(true);
-    try {
-      await loadAccessInfo();
-    } finally {
-      setRecheckingCert(false);
-    }
-  };
-
-  /** Schritt 4: `tailscale serve` einschalten — der Schritt zum echten Schloss. */
-  const handleEnableServe = async () => {
-    setEnablingServe(true);
-    try {
-      await api.post('/tailscale/serve', null, {
-        showError: false,
-        signal: AbortSignal.timeout(60_000),
-      });
-      await loadAccessInfo();
-      toast.success('Sicherer Name aktiv');
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      toast.error(e.message || 'Sicherer Name konnte nicht aktiviert werden');
-    } finally {
-      setEnablingServe(false);
     }
   };
 
@@ -410,7 +347,7 @@ export function RemoteAccessSettings() {
     );
   }
 
-  const currentStep = getStep(status, serveInfo, certSkipped);
+  const currentStep = getStep(status);
   const erledigt = (n: number) => istErledigt(n, currentStep);
 
   return (
@@ -457,9 +394,7 @@ export function RemoteAccessSettings() {
         {[
           { n: 1, label: 'Installation' },
           { n: 2, label: 'Verbinden' },
-          { n: 3, label: 'Zertifikat' },
-          { n: 4, label: 'Sicherer Name' },
-          { n: 5, label: 'Fertig' },
+          { n: 3, label: 'Fertig' },
         ].map(({ n, label }, i) => (
           <div key={n} className="flex items-center gap-2">
             {i > 0 && (
@@ -672,99 +607,8 @@ export function RemoteAccessSettings() {
           </Section>
         )}
 
-        {/* Step 3: HTTPS-Zertifikate — der einzige Schritt ausserhalb von Arasul */}
-        {currentStep === 3 && (
-          <Section
-            title="Schritt 3: HTTPS-Zertifikate freischalten"
-            description="Das Gerät ist im Tailnet erreichbar, erreichbar heißt aber noch nicht vertrauenswürdig: Der Browser zeigt beim Zugriff eine Zertifikatswarnung. Dagegen hilft ein einmaliger Schalter in deiner Tailscale-Konsole. Er liegt außerhalb von Arasul, weil nur der Besitzer des Tailnets ihn setzen kann."
-          >
-            <ol className="mb-4 space-y-2 text-xs text-muted-foreground">
-              <li className="flex gap-2">
-                <span className="text-foreground font-medium shrink-0">1.</span>
-                <span>
-                  Öffne die Tailscale-Konsole unter <strong className="text-foreground">DNS</strong>
-                  .
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-foreground font-medium shrink-0">2.</span>
-                <span>
-                  Aktiviere dort <strong className="text-foreground">MagicDNS</strong> und
-                  anschließend <strong className="text-foreground">HTTPS Certificates</strong>.
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-foreground font-medium shrink-0">3.</span>
-                <span>Komm hierher zurück und prüfe erneut.</span>
-              </li>
-            </ol>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button asChild size="sm" className="h-8 text-xs">
-                <a href={TAILSCALE_DNS_ADMIN} target="_blank" rel="noreferrer noopener">
-                  <ExternalLink className="size-3.5" />
-                  Tailscale-Konsole öffnen
-                </a>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRecheckCert}
-                disabled={recheckingCert}
-                className="h-8 text-xs"
-              >
-                {recheckingCert ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="size-3.5" />
-                )}
-                Erneut prüfen
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCertSkipped(true)}
-                className="h-8 text-xs text-muted-foreground"
-              >
-                Später, vorerst über die IP-Adresse
-              </Button>
-            </div>
-          </Section>
-        )}
-
-        {/* Step 4: `tailscale serve` — macht aus dem Namen eine vertraute Adresse */}
-        {currentStep === 4 && (
-          <Section
-            title="Schritt 4: Sicheren Namen aktivieren"
-            description="Die Zertifikate sind freigeschaltet. Jetzt fehlt nur noch, dass Arasul unter dem Tailscale-Namen antwortet, statt unter einer IP-Adresse, der dein Browser nicht traut. Ein Klick, danach ist der Fernzugriff fertig eingerichtet."
-          >
-            {status?.dnsName && (
-              <div className="mb-4 flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
-                <Lock className="size-3.5 text-primary shrink-0" />
-                <span className="text-xs font-mono text-foreground truncate">
-                  https://{status.dnsName}
-                </span>
-              </div>
-            )}
-
-            <Button
-              size="sm"
-              onClick={handleEnableServe}
-              disabled={enablingServe}
-              className="h-8 text-xs"
-            >
-              {enablingServe ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Lock className="size-3.5" />
-              )}
-              Sicheren Namen einschalten
-            </Button>
-          </Section>
-        )}
-
-        {/* Step 5: Connected */}
-        {currentStep === 5 && status && (
+        {/* Schritt 3: verbunden */}
+        {currentStep === 3 && status && (
           <SectionList>
             {/* Ein stabiler Name je Zusammenhang, die IP nur als Rueckfalltuer. */}
             <Section
@@ -849,16 +693,14 @@ export function RemoteAccessSettings() {
                   </div>
                 )}
               </div>
-              {status.dnsName && serveInfo && !serveInfo.httpsAvailable && (
+              {status.dnsName && (
                 <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
                   <AlertCircle className="size-3.5 text-muted-foreground mt-0.5 shrink-0" />
                   <p className="text-[11px] text-muted-foreground">
-                    Für ein browser-vertrautes Schloss auf dem Tailscale-Namen einmalig{' '}
-                    <strong className="font-medium text-foreground">
-                      MagicDNS + HTTPS-Zertifikate
-                    </strong>{' '}
-                    in der Tailscale-Admin-Konsole aktivieren. Bis dahin funktioniert der
-                    Fernzugriff über die IP (ggf. mit Zertifikatswarnung).
+                    Unterwegs antwortet dasselbe Gerät mit demselben Zertifikat wie im Firmennetz.
+                    Damit der Browser es ohne Warnung annimmt, muss einmalig das{' '}
+                    <strong className="font-medium text-foreground">Gerätezertifikat</strong>{' '}
+                    verteilt sein: Einstellungen &gt; Sicherheit.
                   </p>
                 </div>
               )}

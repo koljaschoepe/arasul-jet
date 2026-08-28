@@ -7,7 +7,13 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# ZWEI Ebenen ueber scripts/validate, nicht eine. Bis zum 28.08.2026 stand hier
+# `dirname "$SCRIPT_DIR"`, also `scripts/`, und gesucht wurde
+# `scripts/docker-compose.yml` -- eine Datei, die es nicht gibt. Auf einem
+# Arbeitsgeraet faellt das nicht auf, weil dort niemand den Validator ruft; auf
+# JEDEM frischen Geraet brach der Bootstrap daran ab. `scripts/test/wurzelpfad.py`
+# haelt diese Rechnung jetzt fuer jedes Skript des Repos nach.
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 
 # Colors

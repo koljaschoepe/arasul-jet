@@ -14,7 +14,7 @@ MAX_RESPONSE_TIME_MS=5000  # 5 seconds max for minimal prompt (cold start tolera
 MIN_RESPONSE_TIME_MS=0      # No minimum - fast responses are fine
 OLLAMA_HOST="${OLLAMA_BASE_URL:-${OLLAMA_HOST:-http://localhost:11434}}"
 TEST_PROMPT="Hello"
-TEST_MODEL="${LLM_MODEL:-${DEFAULT_MODEL:-gemma4:26b-q4}}"
+TEST_MODEL="${LLM_MODEL:-${DEFAULT_MODEL:-gemma4:e4b}}"
 
 # Colors for output
 RED='\033[0;31m'

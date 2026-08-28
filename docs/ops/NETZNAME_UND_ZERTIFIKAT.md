@@ -6,12 +6,12 @@
 
 ## Kurz
 
-| Adresse                    | Woher der Name kommt              | Wann sie geht                            |
-| -------------------------- | --------------------------------- | ---------------------------------------- |
-| `https://arasul/`          | DHCP-Hostname, der Router löst ihn auf | fast immer (Fritzbox und die meisten Firmenrouter) |
-| `https://arasul.local/`    | mDNS über Avahi                   | immer, auch ohne mitspielenden Router     |
-| `https://192.168.1.50/`    | die IP selbst                     | immer                                     |
-| `https://<gerät>.<tailnet>.ts.net/` | Tailscale MagicDNS       | von unterwegs, mit browser-vertrautem Schloss |
+| Adresse                             | Woher der Name kommt                   | Wann sie geht                                      |
+| ----------------------------------- | -------------------------------------- | -------------------------------------------------- |
+| `https://arasul/`                   | DHCP-Hostname, der Router löst ihn auf | fast immer (Fritzbox und die meisten Firmenrouter) |
+| `https://arasul.local/`             | mDNS über Avahi                        | immer, auch ohne mitspielenden Router              |
+| `https://192.168.1.50/`             | die IP selbst                          | immer                                              |
+| `https://<gerät>.<tailnet>.ts.net/` | Tailscale MagicDNS                     | von unterwegs, mit browser-vertrautem Schloss      |
 
 Alle vier zeigen auf dasselbe Traefik. Alle vier stehen im Zertifikat des
 Geräts — bis auf die letzte, die Tailscale selbst absichert.
@@ -75,9 +75,9 @@ eines Geräts hat, kann sich als dieses eine Gerät ausgeben und sonst nichts.
 
 ### Zwei Laufzeiten, mit Absicht verschieden
 
-| Was            | Laufzeit  | Warum                                                                                                 |
-| -------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| Geräte-CA      | 10 Jahre  | Sie wird verteilt. Ein Wechsel kostet den Admin einen zweiten Rundgang durch die Firma.                 |
+| Was              | Laufzeit | Warum                                                                                                                                                                           |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Geräte-CA        | 10 Jahre | Sie wird verteilt. Ein Wechsel kostet den Admin einen zweiten Rundgang durch die Firma.                                                                                         |
 | Gerätezertifikat | 800 Tage | Apple lehnt seit September 2020 jedes Serverzertifikat über 825 Tage ab, auch von einer vertrauten CA. Ein Zertifikat über zehn Jahre wäre auf jedem iPhone der Firma ungültig. |
 
 Die 800 Tage erneuert die Selbstheilung von selbst, sobald weniger als 60 Tage
@@ -104,16 +104,16 @@ Import-Certificate -FilePath .\arasul-ca.crt `
   -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
-Von Hand: Doppelklick auf die Datei → *Zertifikat installieren* →
-*Lokaler Computer* → *Alle Zertifikate in folgendem Speicher speichern* →
-*Vertrauenswürdige Stammzertifizierungsstellen*. Browser danach neu starten.
-Firefox hat einen eigenen Speicher: *Einstellungen → Datenschutz →
+Von Hand: Doppelklick auf die Datei → _Zertifikat installieren_ →
+_Lokaler Computer_ → _Alle Zertifikate in folgendem Speicher speichern_ →
+_Vertrauenswürdige Stammzertifizierungsstellen_. Browser danach neu starten.
+Firefox hat einen eigenen Speicher: _Einstellungen → Datenschutz →
 Zertifikate anzeigen → Importieren → „Dieser CA vertrauen, um Websites zu
-identifizieren"*.
+identifizieren"_.
 
-Im Netz verteilen: Gruppenrichtlinie unter *Computerkonfiguration → Richtlinien
+Im Netz verteilen: Gruppenrichtlinie unter _Computerkonfiguration → Richtlinien
 → Windows-Einstellungen → Sicherheitseinstellungen → Richtlinien für
-öffentliche Schlüssel → Vertrauenswürdige Stammzertifizierungsstellen*.
+öffentliche Schlüssel → Vertrauenswürdige Stammzertifizierungsstellen_.
 
 ### macOS
 
@@ -123,8 +123,8 @@ sudo security add-trusted-cert -d -r trustRoot \
 ```
 
 Von Hand: Doppelklick öffnet die Schlüsselbundverwaltung → Schlüsselbund
-*System* → Doppelklick auf „Arasul Geräte-CA" → *Vertrauen* → *Bei Verwendung
-dieses Zertifikats: Immer vertrauen*. Safari und Chrome nutzen diesen
+_System_ → Doppelklick auf „Arasul Geräte-CA" → _Vertrauen_ → _Bei Verwendung
+dieses Zertifikats: Immer vertrauen_. Safari und Chrome nutzen diesen
 Schlüsselbund, Firefox seinen eigenen (siehe oben).
 
 ### iOS und iPadOS
@@ -133,21 +133,21 @@ Zwei Schritte, und der zweite wird gern vergessen:
 
 1. Die Datei auf das Gerät bringen (AirDrop, Mail an sich selbst, oder in
    Safari `https://arasul/api/system/ca-zertifikat` aufrufen und die Warnung
-   durchklicken). iOS meldet „Profil geladen" → *Einstellungen → Geladenes
-   Profil → Installieren*.
-2. **Vertrauen erteilen**: *Einstellungen → Allgemein → Info → Vertrauen für
-   Zertifikate* → den Schalter neben „Arasul Geräte-CA" einschalten. Ohne
+   durchklicken). iOS meldet „Profil geladen" → _Einstellungen → Geladenes
+   Profil → Installieren_.
+2. **Vertrauen erteilen**: _Einstellungen → Allgemein → Info → Vertrauen für
+   Zertifikate_ → den Schalter neben „Arasul Geräte-CA" einschalten. Ohne
    diesen zweiten Schritt ist das Profil installiert und das Zertifikat
    trotzdem nicht vertraut.
 
 ### Android
 
-Ab Android 7 unterscheidet das System *Benutzer*- und *System*-Zertifikate.
+Ab Android 7 unterscheidet das System _Benutzer_- und _System_-Zertifikate.
 Chrome und die meisten Apps trauen Benutzer-Zertifikaten für normales Surfen;
 eine App mit eigener Zertifikatsprüfung kann sie ablehnen.
 
-*Einstellungen → Sicherheit → Verschlüsselung und Anmeldedaten →
-Zertifikat installieren → CA-Zertifikat → Trotzdem installieren* → die Datei
+_Einstellungen → Sicherheit → Verschlüsselung und Anmeldedaten →
+Zertifikat installieren → CA-Zertifikat → Trotzdem installieren_ → die Datei
 auswählen. Das Gerät verlangt dafür eine Bildschirmsperre.
 
 Der Weg heißt je nach Hersteller anders; die Suche in den Einstellungen nach
@@ -167,43 +167,52 @@ möglich, und beide stehen seit Phase C10 fest:
    und ohne Vorgabe hätte Traefik an dieser Stelle nichts anzubieten.
    `sniStrict` bleibt aus demselben Grund `false`.
 
-### Der Fall, der am 27.08.2026 gemessen wurde
+### `tailscale serve` ist raus, und warum (27./28.08.2026)
 
-`https://100.121.244.80` (die **Tailscale**-Adresse des Orin) brach mit
-`tls: internal error` (Alert 80) ab, während derselbe Aufruf durch einen
-SSH-Tunnel auf `localhost` funktionierte.
+Am 27.08.2026 brach `https://100.121.244.80` (die **Tailscale**-Adresse des
+Orin) mit `tls: internal error` (Alert 80) ab, während derselbe Aufruf durch
+einen SSH-Tunnel auf `localhost` funktionierte.
 
-Die Ursache ist nicht Traefik. Auf dem Orin läuft
+Die Ursache war nicht Traefik. Auf dem Orin lief
 
 ```
 tailscale serve --bg --https=443 https+insecure://127.0.0.1:443
 ```
 
 (gesetzt von `scripts/setup/setup-tailscale.sh`, damit der MagicDNS-Name ein
-browser-vertrautes Schloss hat). Damit hört **tailscaled** auf Port 443 der
-Tailscale-Adresse, nicht Traefik. tailscaled kennt genau ein Zertifikat,
-nämlich das auf `<gerät>.<tailnet>.ts.net`, und sucht es über den Namen im
-ClientHello. Ein Aufruf über die rohe IP nennt keinen Namen, tailscaled findet
-nichts und bricht mit `internal error` ab. Der SSH-Tunnel geht auf
-`127.0.0.1:443` und damit an tailscaled vorbei zu Traefik — deshalb ging er.
+browser-vertrautes Schloss hat). Damit hörte **tailscaled** auf Port 443 der
+Tailscale-Adresse. tailscaled kennt genau ein Zertifikat, nämlich das auf
+`<gerät>.<tailnet>.ts.net`, und sucht es über den Namen im ClientHello. Ein
+Aufruf über die rohe IP nennt keinen Namen, tailscaled findet nichts und bricht
+ab. Der SSH-Tunnel geht auf `127.0.0.1:443` und damit an tailscaled vorbei.
 
-**Über die Tailscale-Adresse ist der Weg über die rohe IP damit nicht möglich,
-und zwar entwurfsbedingt.** Von unterwegs gilt der Name:
-`https://<gerät>.<tailnet>.ts.net/`. Im Firmennetz gilt die LAN-IP, dort
-antwortet Traefik.
+Einen Tag später kam die Rechnung: nach einem Werksreset **startete der
+`reverse-proxy` gar nicht mehr**. tailscaled hielt `100.121.244.80:443`, und
+ein Wildcard-Bind auf `0.0.0.0:443` schlägt fehl, solange eine einzelne Adresse
+denselben Port hält. Das Gerät war damit im **eigenen Firmennetz** nicht mehr
+erreichbar — wegen einer Bequemlichkeit für den Fernzugriff.
+
+**Entscheidung (28.08.2026, Phase C10): `tailscale serve` fällt.** Es ist aus
+`setup-tailscale.sh` entfernt, das Verbinden über die Oberfläche schaltet es
+nicht mehr ein, und die drei Endpunkte `/api/tailscale/serve` samt dem
+Assistenten-Schritt „Sicherer Name" gibt es nicht mehr. Ein vorhandenes `serve`
+aus einer früheren Einrichtung wird beim nächsten Verbinden mit
+`tailscale serve reset` zurückgenommen.
+
+Was an seine Stelle tritt: **nichts Neues.** Ohne `serve` antwortet Traefik auf
+allen Adressen des Geräts — LAN-IP, Netzname, Tailscale-IP und MagicDNS-Name —
+mit demselben Zertifikat aus der Geräte-CA. Es gibt damit genau einen Weg zum
+vertrauten Schloss, und er gilt für beide Netze: die CA einmal verteilen (siehe
+oben).
 
 Nachsehen, wer auf 443 hört:
 
 ```bash
-sudo ss -lntp | grep ':443'          # tailscaled auf 100.x, docker-proxy auf 0.0.0.0
-tailscale serve status
-openssl s_client -connect 100.121.244.80:443 -noservername </dev/null   # Alert 80
+sudo ss -lntp | grep ':443'          # erwartet: NUR docker-proxy auf 0.0.0.0
+tailscale serve status               # erwartet: "No serve config"
+openssl s_client -connect 100.121.244.80:443 -noservername </dev/null   # Zertifikat
 openssl s_client -connect 192.168.1.50:443  -noservername </dev/null    # Zertifikat
 ```
-
-Wer die rohe Tailscale-IP unbedingt braucht, schaltet `serve` ab
-(`tailscale serve reset`) und verliert dafür das vertraute Schloss auf dem
-MagicDNS-Namen. Das ist ein schlechter Tausch und deshalb nicht die Vorgabe.
 
 ## Prüfen
 

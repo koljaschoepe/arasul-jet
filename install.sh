@@ -27,7 +27,17 @@
 #   ./install.sh                              Passwort wird erzeugt und gezeigt
 #   ./install.sh --passwort 'Geheim123'       Passwort vorgeben
 #   ./install.sh --name werkstatt             anderer Netzname als `arasul`
+#   ./install.sh --nur-vorbereiten            .env schreiben, Bootstrap NICHT starten
 #   ./install.sh --hilfe
+#
+# `--nur-vorbereiten` ist fuer die Pruefung da, nicht fuer den Kunden: es
+# durchlaeuft alles, was ohne die Hardware eines Jetson geht -- Fassung,
+# Voraussetzungen, `.env` -- und haelt vor dem Bootstrap an. Die CI faehrt
+# damit bei jedem Zug eine Installation auf einem leeren Rechner durch
+# (`.github/workflows/test.yml`, Job "Installation"). Ohne diesen Lauf war der
+# einzige Test der Auslieferung ein Werksreset am Orin von Hand, und genau
+# deshalb fiel am 28.08.2026 erst dort auf, dass der Bootstrap gar nicht
+# durchlaeuft.
 # =============================================================================
 set -euo pipefail
 
@@ -46,13 +56,15 @@ fehler()  { echo -e "${ROT}[INSTALL]${AUS} $*" >&2; }
 PASSWORT="${ADMIN_PASSWORD:-}"
 NETZNAME="${ARASUL_NETZNAME:-arasul}"
 PASSWORT_ERZEUGT=false
+NUR_VORBEREITEN=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --passwort) PASSWORT="$2"; shift 2 ;;
     --name)     NETZNAME="$2"; shift 2 ;;
+    --nur-vorbereiten) NUR_VORBEREITEN=true; shift ;;
     --hilfe|-h)
-      sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,42p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) fehler "Unbekannte Option: $1"; exit 2 ;;
@@ -144,7 +156,9 @@ gut "Fassung ${FASSUNG} steht in der .env"
 # Vor dem Bootstrap, weil das Zertifikat auf diesen Namen ausgestellt wird.
 # Braucht root; ohne sudo ohne Rueckfrage bleibt es beim Namen, den das System
 # schon hat, und das Geraet ist ueber seine IP erreichbar.
-if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+if [ "$NUR_VORBEREITEN" = true ]; then
+  sagen "Netzname wird nicht gesetzt (--nur-vorbereiten)."
+elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
   if sudo MDNS_NAME="$NETZNAME" bash "${WURZEL}/scripts/setup/setup-mdns.sh" >/dev/null 2>&1; then
     gut "Netzname ${NETZNAME} gesetzt (DHCP-Hostname und mDNS)"
   else
@@ -158,6 +172,14 @@ fi
 # -----------------------------------------------------------------------------
 # 5. Der Bootstrap macht den Rest
 # -----------------------------------------------------------------------------
+if [ "$NUR_VORBEREITEN" = true ]; then
+  echo ""
+  gut "Vorbereitet. Der Bootstrap ist auf Wunsch ausgelassen (--nur-vorbereiten)."
+  echo "  Weiter ginge es mit: ./arasul bootstrap"
+  echo ""
+  exit 0
+fi
+
 sagen "Bootstrap laeuft. Das dauert, weil die Images am Geraet gebaut werden."
 echo ""
 bash "${WURZEL}/arasul" bootstrap

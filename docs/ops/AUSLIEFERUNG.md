@@ -24,13 +24,13 @@ Tag `v1.2.0` im Jet-Repo
 
 ## Das Artefakt
 
-| Was            | Wert                                                             |
-| -------------- | ---------------------------------------------------------------- |
-| Dateiname      | `arasul-<Fassung>.tar.gz`                                        |
-| Verzeichnis    | ein einziges, `arasul-<Fassung>/`                                |
-| Einstiegspunkt | `install.sh` im Wurzelverzeichnis                                |
-| Beschreibung   | `arasul-release.json` im Wurzelverzeichnis                       |
-| Prüfsumme      | `arasul-<Fassung>.tar.gz.sha256` als zweite Datei am Release      |
+| Was            | Wert                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| Dateiname      | `arasul-<Fassung>.tar.gz`                                                                |
+| Verzeichnis    | ein einziges, `arasul-<Fassung>/`                                                        |
+| Einstiegspunkt | `install.sh` im Wurzelverzeichnis                                                        |
+| Beschreibung   | `arasul-release.json` im Wurzelverzeichnis                                               |
+| Prüfsumme      | `arasul-<Fassung>.tar.gz.sha256` als zweite Datei am Release                             |
 | Gebaut von     | `scripts/deploy/artefakt-bauen.sh` (aus `git archive`, nicht aus dem Arbeitsverzeichnis) |
 
 `arasul-release.json`:
@@ -76,11 +76,11 @@ Jetzt (`scripts/lib/fassung.sh`), in dieser Reihenfolge:
 
 Wo die Zahl landet:
 
-| Weg                      | Wer setzt sie                              | Wohin                    |
-| ------------------------ | ------------------------------------------ | ------------------------ |
-| Installation aus Artefakt | `install.sh`                              | `SYSTEM_VERSION` in `.env` |
-| Deploy nach `main`       | `scripts/deploy/deploy-local.sh` (Schritt 1a) | `SYSTEM_VERSION` in `.env` |
-| Anzeige                  | `utils/version.js`                         | `/api/health`, `/api/system/info`, Einstellungen |
+| Weg                       | Wer setzt sie                                 | Wohin                                            |
+| ------------------------- | --------------------------------------------- | ------------------------------------------------ |
+| Installation aus Artefakt | `install.sh`                                  | `SYSTEM_VERSION` in `.env`                       |
+| Deploy nach `main`        | `scripts/deploy/deploy-local.sh` (Schritt 1a) | `SYSTEM_VERSION` in `.env`                       |
+| Anzeige                   | `utils/version.js`                            | `/api/health`, `/api/system/info`, Einstellungen |
 
 Der Deploy startet danach `dashboard-backend` neu, und nur den. Die Fassung
 wechselt bei jedem Deploy (sie trägt den SHA); den ganzen Stapel deswegen
@@ -139,7 +139,30 @@ Optionen:
 ./install.sh                          # Passwort wird erzeugt und einmal gezeigt
 ./install.sh --passwort 'Geheim123'   # Passwort vorgeben
 ./install.sh --name werkstatt         # anderer Netzname als `arasul`
+./install.sh --nur-vorbereiten        # bis vor den Bootstrap, für die Prüfung
 ```
+
+## Was der Werksreset tut, und was er ausdrücklich nicht tut
+
+`scripts/setup/factory-reset.sh` macht aus einem benutzten Gerät ein leeres.
+Zwei Regeln, beide aus der Messung vom 28.08.2026:
+
+**Er installiert nichts.** Bis dahin rief er zum Schluss `preconfigure.sh`;
+das schrieb eine eigene `.env` und zog daraus ein Modell — dreißig Minuten
+gegen einen `llm-service`, der gerade erst startete, und danach gehörte die
+`.env` root, sodass `./install.sh` als normaler Benutzer nicht mehr an ihr
+vorbeikam. Ein Reset, der schon halb installiert, ist eine **zweite**
+Installation, die von der ersten abweicht. Der Aufruf ist raus.
+
+**Er räumt alles Eigene weg**, auch was `docker compose down -v` nicht kennt:
+die App-Container `arasul-app-<id>-<stand>` samt der am Gerät gebauten Images
+(Etikett `arasul.app`), und jedes Volume dieses Geräts — auch die aus früheren
+Projektnamen. Genau die blieben am Orin stehen und trugen die Datenbank des
+vorigen Kunden in die nächste Installation. Erhalten bleiben nur die
+KI-Modelle; sie werden gesichert und zurückgelegt.
+
+Lief der Reset mit `sudo`, gibt er das Verzeichnis am Ende an den aufrufenden
+Benutzer zurück.
 
 ## Was der Bootstrap einmal zeigt
 
@@ -160,14 +183,14 @@ bash scripts/util/kit-schluessel.sh widerrufen aras_ab12cd3
 
 ## Was gefallen ist, und warum
 
-| Weg                                   | Stand      | Begründung                                                                                                                                             |
-| ------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `scripts/deploy/create-factory-image.sh` | gestrichen | Baute Images auf einem Quellgerät und packte sie mit. Das Artefakt aus der CI kann das nicht (x86, keine GPU) und braucht es nicht: das Gerät baut selbst. Zwei Auslieferungswege wären zwei Geräte-Zustände. |
-| `scripts/deploy/factory-install.sh`    | gestrichen | Der Einstiegspunkt des Factory-Images. Fällt mit ihm; `install.sh` ist der eine Einstiegspunkt.                                                          |
-| `scripts/deploy/create-deployment-image.sh` | gestrichen | Dritter Packer derselben Art, und er lud `llama3.1:8b` vor — ein Modell, das seit Phase C8 nicht mehr im Katalog steht. Er lieferte also aktiv Falsches aus. |
-| `packaging/build_deb.sh` + `DEBIAN/`   | gestrichen | Ein `.deb` der Plattform. Niemand rief es auf, keine Zeile Dokumentation beschrieb den Weg, und die Auslieferung ist ein Tarball mit Einstiegspunkt. Die **systemd-Units** unter `packaging/arasul-platform/etc/` bleiben: `install.sh` und `./arasul bootstrap` installieren sie. |
-| `scripts/deploy/create-update-package.sh` | bleibt, nachgezogen | Erzeugt die signierten `.araupdate`-Pakete für den Offline-Weg über USB, und der lebt (`updateService`, `scripts/util/arasul-usb-trigger.sh`). Nachgezogen: die Fassung kommt aus dem Bau statt aus `VERSION`, und `PROJECT_ROOT` zeigte auf `scripts/` statt auf das Wurzelverzeichnis. |
-| Datei `VERSION`                        | gestrichen | Siehe oben.                                                                                                                                             |
+| Weg                                         | Stand               | Begründung                                                                                                                                                                                                                                                                               |
+| ------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/deploy/create-factory-image.sh`    | gestrichen          | Baute Images auf einem Quellgerät und packte sie mit. Das Artefakt aus der CI kann das nicht (x86, keine GPU) und braucht es nicht: das Gerät baut selbst. Zwei Auslieferungswege wären zwei Geräte-Zustände.                                                                            |
+| `scripts/deploy/factory-install.sh`         | gestrichen          | Der Einstiegspunkt des Factory-Images. Fällt mit ihm; `install.sh` ist der eine Einstiegspunkt.                                                                                                                                                                                          |
+| `scripts/deploy/create-deployment-image.sh` | gestrichen          | Dritter Packer derselben Art, und er lud `llama3.1:8b` vor — ein Modell, das seit Phase C8 nicht mehr im Katalog steht. Er lieferte also aktiv Falsches aus.                                                                                                                             |
+| `packaging/build_deb.sh` + `DEBIAN/`        | gestrichen          | Ein `.deb` der Plattform. Niemand rief es auf, keine Zeile Dokumentation beschrieb den Weg, und die Auslieferung ist ein Tarball mit Einstiegspunkt. Die **systemd-Units** unter `packaging/arasul-platform/etc/` bleiben: `install.sh` und `./arasul bootstrap` installieren sie.       |
+| `scripts/deploy/create-update-package.sh`   | bleibt, nachgezogen | Erzeugt die signierten `.araupdate`-Pakete für den Offline-Weg über USB, und der lebt (`updateService`, `scripts/util/arasul-usb-trigger.sh`). Nachgezogen: die Fassung kommt aus dem Bau statt aus `VERSION`, und `PROJECT_ROOT` zeigte auf `scripts/` statt auf das Wurzelverzeichnis. |
+| Datei `VERSION`                             | gestrichen          | Siehe oben.                                                                                                                                                                                                                                                                              |
 
 ## Abnahme
 
@@ -176,12 +199,27 @@ bash scripts/util/kit-schluessel.sh widerrufen aras_ab12cd3
 sudo bash scripts/setup/factory-reset.sh
 curl -fsSL https://arasul.de/api/install | bash
 
+# Am Gerät, direkt danach: lief der Bootstrap bis zum Ende durch?
+bash scripts/test/bootstrap-abnahme.sh
+
 # Vom Arbeitsrechner, alles über die Schnittstelle:
 ssh -f -N -L 8443:localhost:443 jetson
 ARASUL_PASSWORT=... bash scripts/test/auslieferung-abnahme.sh
 ```
 
-Das Abnahmeskript misst die Fassung, das CA-Zertifikat, die Namen im
-Zertifikat, TLS ohne SNI und den Kit-Schlüssel. Was es nicht beweisen kann:
-dass die Installation aus dem Artefakt kam. Es sieht nur das Ergebnis; der
-Beweis ist der Ablauf oben.
+Drei Stufen, und jede misst etwas, das die anderen nicht sehen:
+
+| Wo                        | Was                                                                                                                                                                                                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI, Job `Installation`    | Baut das Artefakt, packt es aus und startet `./install.sh --nur-vorbereiten` darin. Danach: `.env` da und mit 600, `SYSTEM_VERSION` aus dem Bau, `validate-dependencies.sh` findet seine Compose-Datei, `docker compose config` schweigt, `bootstrap-abnahme.sh --trocken` grün. |
+| `bootstrap-abnahme.sh`    | Am Gerät nach dem Reset: laufen alle Dienste bis `document-indexer` und `self-healing-agent`, gibt es einen gültigen Kit-Schlüssel, antwortet `/api/health`, sind die App-Container von vorher weg.                                                                              |
+| `auslieferung-abnahme.sh` | Über die Schnittstelle: Fassung, CA-Zertifikat, Namen im Zertifikat, TLS ohne SNI, Kit-Schlüssel.                                                                                                                                                                                |
+
+Warum es den CI-Job gibt: bis zum 28.08.2026 prüfte die Auslieferung nur, ob
+die Dateien **im** Artefakt liegen. Ausgeführt wurde es nie. Von den fünf
+Funden des ersten Versuchs am Orin wären vier hier aufgefallen — vier
+Wegewechsel und eine Zuweisung, alle ohne Jetson-Hardware messbar.
+
+Was auch der CI-Job nicht beweisen kann: dass die Installation aus dem Artefakt
+kam **und** dass zwölf ARM64-Images sich am Gerät bauen lassen. Dafür bleibt
+der Ablauf oben.

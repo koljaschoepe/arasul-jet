@@ -51,6 +51,9 @@ ist rot. Wer eine Zeile aus der Liste repariert, streicht sie hier — die
 Pruefung meldet auch, wenn eine gelistete Stelle gar nicht mehr existiert,
 damit die Liste nicht zum Friedhof wird.
 
+Gesucht wird in allen Shell-Skripten unter `scripts/`, in jeder `.sh` im
+Wurzelverzeichnis und in `arasul` selbst -- siehe `dateien()`.
+
 Rueckgabe: 0 wenn keine neue Stelle dazukommt, 1 sonst.
 """
 import argparse
@@ -77,6 +80,31 @@ KOPF_E = re.compile(r'^set -[a-z]*e', re.M)
 def kopf_ist_streng(text: str) -> bool:
     kopf = '\n'.join(text.splitlines()[:30])
     return bool(KOPF_E.search(kopf)) and 'pipefail' in kopf
+
+
+def dateien(wurzel: Path) -> list[Path]:
+    """Jedes Shell-Skript des Baumes, nicht nur die unter `scripts/`.
+
+    Der Grund steht in einer Messung vom 28.08.2026: der Bootstrap endete am
+    Orin nach "Waiting for Dashboard..." mit Rueckgabewert 1 und ohne eine
+    Zeile Ausgabe. Die Stelle war
+
+        dash_port=$(grep "^DASHBOARD_PORT=" .env 2>/dev/null | cut -d'=' -f2)
+
+    in `arasul` -- genau die Form, die diese Pruefung sucht. Sie sah sie nur
+    nie: das Skript heisst `arasul`, hat keine Endung und liegt nicht unter
+    `scripts/`. Der Waechter war seit seinem ersten Tag blind fuer die
+    wichtigste Datei des Repos.
+
+    Gesucht wird deshalb: alles unter `scripts/`, jede `.sh` im
+    Wurzelverzeichnis, und die Datei `arasul` selbst.
+    """
+    gefunden = list(wurzel.glob('scripts/**/*.sh'))
+    gefunden += list(wurzel.glob('*.sh'))
+    einstieg = wurzel / 'arasul'
+    if einstieg.is_file():
+        gefunden.append(einstieg)
+    return gefunden
 
 
 def stellen(datei: Path) -> list[tuple[int, str]]:
@@ -112,7 +140,7 @@ def main() -> int:
 
     wurzel = Path(args.wurzel)
     befunde = []
-    for datei in sorted(wurzel.glob('scripts/**/*.sh')):
+    for datei in sorted(dateien(wurzel)):
         for nummer, zeile in stellen(datei):
             befunde.append((datei.relative_to(wurzel), nummer, zeile))
 

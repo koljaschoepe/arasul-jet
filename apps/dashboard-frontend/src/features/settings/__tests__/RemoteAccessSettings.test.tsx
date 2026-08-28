@@ -1,17 +1,20 @@
 /**
  * Schrittlogik des Fernzugriff-Assistenten.
  *
- * Der Assistent endete bis 2026-08-18 bei „verbunden" — also genau dort, wo der
- * interessante Teil anfängt. Ohne HTTPS-Zertifikate im Tailnet und ohne
- * `tailscale serve` erreicht man das Gerät nur über die nackte 100.x-IP, mit
- * Zertifikatswarnung im Browser. Diese Tests halten die beiden neuen Schritte
- * fest — und vor allem die Regel, dass ein fehlgeschlagener Nebenabruf niemanden
- * zurückstuft.
+ * Der Assistent hatte bis zum 28.08.2026 fünf Schritte: nach „verbunden" kamen
+ * „HTTPS-Zertifikate im Tailnet freischalten" und „Sicheren Namen aktivieren"
+ * (`tailscale serve`). Beide sind gefallen, und der Grund ist eine Messung am
+ * Orin: mit aktivem `serve` bindet tailscaled `100.x.y.z:443`, danach bekommt
+ * Traefik `0.0.0.0:443` nicht mehr, der reverse-proxy startet nicht — und das
+ * Gerät ist im EIGENEN Firmennetz nicht mehr erreichbar.
+ *
+ * Geblieben sind drei Schritte: installieren, verbinden, fertig. Das vertraute
+ * Schloss kommt seit Phase C10 für beide Netze aus der Geräte-CA.
  */
 
 import { describe, it, expect } from 'vitest';
 import { getStep, istErledigt, LETZTER_SCHRITT } from '../RemoteAccessSettings';
-import type { TailscaleStatus, ServeInfo } from '../RemoteAccessSettings';
+import type { TailscaleStatus } from '../RemoteAccessSettings';
 
 function status(over: Partial<TailscaleStatus> = {}): TailscaleStatus {
   return {
@@ -28,55 +31,25 @@ function status(over: Partial<TailscaleStatus> = {}): TailscaleStatus {
   };
 }
 
-const serve = (over: Partial<ServeInfo> = {}): ServeInfo => ({
-  enabled: true,
-  httpsAvailable: true,
-  ...over,
-});
-
 describe('getStep', () => {
   it('ohne Status → Installation', () => {
-    expect(getStep(null, null, false)).toBe(1);
-    expect(getStep(status({ installed: false }), null, false)).toBe(1);
+    expect(getStep(null)).toBe(1);
+    expect(getStep(status({ installed: false }))).toBe(1);
   });
 
   it('installiert, aber nicht verbunden → Verbinden', () => {
-    expect(getStep(status({ connected: false }), null, false)).toBe(2);
+    expect(getStep(status({ connected: false }))).toBe(2);
   });
 
-  it('verbunden ohne Tailnet-Zertifikate → Zertifikat-Schritt', () => {
-    expect(getStep(status(), serve({ httpsAvailable: false, enabled: false }), false)).toBe(3);
-  });
-
-  it('Zertifikate da, aber serve aus → Sicherer Name', () => {
-    expect(getStep(status(), serve({ httpsAvailable: true, enabled: false }), false)).toBe(4);
-  });
-
-  it('beides erledigt → fertig', () => {
-    expect(getStep(status(), serve(), false)).toBe(5);
-  });
-
-  it('„Später" überspringt den Zertifikat-Schritt', () => {
-    expect(getStep(status(), serve({ httpsAvailable: false, enabled: false }), true)).toBe(5);
-  });
-
-  it('unbekannter serve-Zustand stuft NIEMALS zurück', () => {
-    // Der /tailscale/serve-Abruf ist beratend und scheitert stillschweigend.
-    // Wäre das ein Rückfall auf Schritt 3, würde ein fertig eingerichteter
-    // Nutzer bei jedem Netzhänger wieder in den Assistenten geworfen.
-    expect(getStep(status(), null, false)).toBe(5);
-  });
-
-  it('unbekannter serve-Zustand hebt eine fehlende Verbindung nicht auf', () => {
-    expect(getStep(status({ connected: false }), null, false)).toBe(2);
-    expect(getStep(status({ installed: false }), null, false)).toBe(1);
+  it('verbunden → fertig', () => {
+    expect(getStep(status())).toBe(3);
   });
 });
 
 /**
- * F-26: Der Assistent zeigte Schritt 5 „Fertig" als offen, waehrend vier Haken
- * davor standen und die Verbindung nachweislich lief. Er widersprach damit dem,
- * was einen Absatz weiter unten auf demselben Bildschirm zu lesen war.
+ * F-26: Der Assistent zeigte den letzten Schritt „Fertig" als offen, waehrend
+ * die Haken davor standen und die Verbindung nachweislich lief. Er widersprach
+ * damit dem, was einen Absatz weiter unten auf demselben Bildschirm stand.
  */
 describe('istErledigt', () => {
   it('hakt „Fertig" ab, sobald der Assistent dort angekommen ist', () => {
@@ -90,8 +63,8 @@ describe('istErledigt', () => {
   });
 
   it('haelt den laufenden Schritt offen, solange er laeuft', () => {
-    expect(istErledigt(3, 3)).toBe(false);
-    expect(istErledigt(4, 3)).toBe(false);
-    expect(istErledigt(2, 3)).toBe(true);
+    expect(istErledigt(2, 2)).toBe(false);
+    expect(istErledigt(3, 2)).toBe(false);
+    expect(istErledigt(1, 2)).toBe(true);
   });
 });

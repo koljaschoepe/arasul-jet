@@ -24,7 +24,13 @@ Die eine Stelle ist `config/modelle/kurzliste.json`. Geprueft wird:
    Standard. Jedes Profil, nicht nur Thor und DGX Spark.
 4. `scripts/setup/detect-platform.sh`: jeder Wert von `LLM_MODEL=` und
    `RECOMMENDED_MODELS=` besteht ausschliesslich aus Kennungen der Kurzliste.
-5. `scripts/util/modelle-aufraeumen.sh` und `scripts/test/modelle-abnahme.sh`
+5. Jede Stelle, an der ein Rueckfall fuer `LLM_MODEL` von Hand dasteht: die
+   beiden `.env`-Vorlagen, die zwei Skripte, die daraus eine `.env` machen
+   (`interactive_setup.sh`, `preconfigure.sh`), die drei Dateien des
+   LLM-Dienstes (`api_server.py`, `entrypoint.sh`, `healthcheck.sh`) und
+   `compose/compose.ai.yaml`. Jede Modellkennung neben `LLM_MODEL` steht in
+   der Kurzliste.
+6. `scripts/util/modelle-aufraeumen.sh` und `scripts/test/modelle-abnahme.sh`
    LESEN die Datei, statt die Liste abzuschreiben.
 
 Was er NICHT kann
@@ -125,6 +131,56 @@ def pruefe_setup(wurzel: Path, liste: list[str]) -> list[str]:
     return fehler
 
 
+# Wo eine Modellkennung noch von Hand dasteht und nicht aus einem Profil kommt:
+# die beiden .env-Vorlagen und die zwei Skripte, die daraus eine .env machen.
+VORLAGEN = (
+    '.env.example',
+    '.env.template',
+    'scripts/interactive_setup.sh',
+    'scripts/setup/preconfigure.sh',
+    'services/llm-service/api_server.py',
+    'services/llm-service/entrypoint.sh',
+    'services/llm-service/healthcheck.sh',
+    'compose/compose.ai.yaml',
+)
+# Eine Modellkennung in einer dieser Dateien steht immer neben `LLM_MODEL`.
+# Beide Formen kommen vor:
+#   LLM_MODEL=gemma4:e4b
+#   DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-gemma4:e4b}"
+MODELLWORT = re.compile(r'(?:hf\.co/[\w.\-/]+(?::[\w.\-]+)?|[a-z][\w.\-]*:[\w.\-]+)')
+
+
+def pruefe_vorlagen(wurzel: Path, liste: list[str]) -> list[str]:
+    """Die .env-Vorlagen nennen nur Modelle der Kurzliste.
+
+    Der Anlass, 28.08.2026: in `.env.example` stand `LLM_MODEL=qwen3:14b`, in
+    `.env.template` `qwen3:14b-q8`. Beide gibt es seit der Kurzliste nicht
+    mehr. Der Werksreset schrieb daraus eine `.env` und zog das Modell dann --
+    dreissig Minuten gegen einen Dienst, der noch startete. Die Kurzliste hielt
+    fuenf Stellen zusammen und ausgerechnet die, aus der ein frisches Geraet
+    seine erste `.env` bekommt, nicht.
+    """
+    fehler = []
+    for rel in VORLAGEN:
+        pfad = wurzel / rel
+        if not pfad.exists():
+            fehler.append(f'{rel}: fehlt')
+            continue
+        for nummer, zeile in enumerate(
+            pfad.read_text(encoding='utf-8').splitlines(), 1
+        ):
+            schlank = zeile.strip()
+            if schlank.startswith('#') or 'LLM_MODEL' not in schlank:
+                continue
+            fremd = [
+                w for w in MODELLWORT.findall(schlank)
+                if w not in liste and not w.startswith('LLM_MODEL')
+            ]
+            if fremd:
+                fehler.append(f'{rel}:{nummer}: nennt {", ".join(sorted(set(fremd)))}')
+    return fehler
+
+
 def pruefe_leser(wurzel: Path) -> list[str]:
     """Die beiden Skripte muessen die Datei LESEN, nicht abschreiben."""
     fehler = []
@@ -153,6 +209,7 @@ def main() -> int:
         + pruefe_hardware(wurzel, liste)
         + pruefe_profile(wurzel, liste)
         + pruefe_setup(wurzel, liste)
+        + pruefe_vorlagen(wurzel, liste)
         + pruefe_leser(wurzel)
     )
 

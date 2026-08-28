@@ -505,10 +505,10 @@ Tailscale ermoeglicht sicheren Zugriff von ueberall - ohne Port-Forwarding oder 
 
 **Nach der Einrichtung:**
 
-- Dashboard: `https://<geraet>.<tailnet>.ts.net` (von ueberall erreichbar,
-  browser-vertrautes Schloss via `tailscale serve`). Ersatzweise
-  `https://<tailscale-ip>` (mit Zertifikatswarnung), falls MagicDNS/HTTPS
-  noch nicht in der Tailscale-Admin-Konsole aktiviert wurde.
+- Dashboard: `https://<geraet>.<tailnet>.ts.net` oder `https://<tailscale-ip>`
+  (beides von ueberall erreichbar). Es antwortet dasselbe Traefik mit demselben
+  Zertifikat wie im Firmennetz; die Browserwarnung geht weg, sobald das
+  Geraetezertifikat verteilt ist (Einstellungen > Sicherheit).
 - SSH: `ssh arasul@<tailscale-ip>`
 
 **Status pruefen:** Im Dashboard unter Einstellungen > Fernzugriff werden angezeigt:

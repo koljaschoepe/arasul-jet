@@ -196,7 +196,67 @@ set -euo pipefail
 X=$(ls /pfad/*.tar.gz 2>/dev/null | head -1)
 BEISPIEL
 pruefe "Stiller Tod: ls ohne Netz ist rot" 1 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
+
+# Der Fall, der die Pruefung am 28.08.2026 ihre Glaubwuerdigkeit gekostet
+# haette: die Zeile stand in `arasul`, und die suchte sie gar nicht ab.
+rm -f "$ST/streng.sh"
+cat > "$TMP/st/arasul" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+dash_port=$(grep "^DASHBOARD_PORT=" .env 2>/dev/null | cut -d'=' -f2)
+BEISPIEL
+pruefe 'Stiller Tod: dieselbe Zeile im Skript arasul ist rot' 1 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
 rm -r "$TMP/st"
+
+# --- wurzelpfad.py ----------------------------------------------------------
+# Ein Skript, das seine eigene Wurzel eine Ebene zu hoch ansetzt, sucht seine
+# Dateien in `scripts/` und findet keine. Am 28.08.2026 brach der Bootstrap auf
+# jedem frischen Geraet genau daran ab.
+WP="$TMP/wp/scripts/validate"
+mkdir -p "$WP"
+cat > "$WP/pruefer.sh" <<'BEISPIEL'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+BEISPIEL
+pruefe "Wurzelpfad: zwei Ebenen bei zwei Ebenen Tiefe ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/wurzelpfad.py" --wurzel "$TMP/wp"
+
+cat > "$WP/pruefer.sh" <<'BEISPIEL'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+BEISPIEL
+pruefe "Wurzelpfad: eine Ebene zu wenig ist rot" 1 \
+  python3 "$WURZEL/scripts/test/wurzelpfad.py" --wurzel "$TMP/wp"
+
+# Beide Schreibweisen zaehlen gleich, und `dirname` ueber `BASH_SOURCE` zaehlt
+# einmal weniger -- das innerste macht aus dem Dateinamen ihr Verzeichnis.
+cat > "$WP/pruefer.sh" <<'BEISPIEL'
+#!/bin/bash
+WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BEISPIEL
+pruefe "Wurzelpfad: die Kurzform ueber BASH_SOURCE ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/wurzelpfad.py" --wurzel "$TMP/wp"
+
+cat > "$WP/pruefer.sh" <<'BEISPIEL'
+#!/bin/bash
+PROJECT_ROOT="${ARASUL_REPO_DIR:-$(git rev-parse --show-toplevel)}"
+BEISPIEL
+pruefe "Wurzelpfad: eine Wurzel ohne Selbstbezug bleibt ungemessen" 0 \
+  python3 "$WURZEL/scripts/test/wurzelpfad.py" --wurzel "$TMP/wp"
+
+# Ein Skript im Wurzelverzeichnis geht keine Ebene hoch -- und `arasul` heisst
+# nicht `.sh`, wird aber trotzdem gelesen.
+rm -f "$WP/pruefer.sh"
+cat > "$TMP/wp/arasul" <<'BEISPIEL'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WURZEL="$(dirname "$SCRIPT_DIR")"
+BEISPIEL
+pruefe "Wurzelpfad: eine Ebene zuviel im Wurzelverzeichnis ist rot" 1 \
+  python3 "$WURZEL/scripts/test/wurzelpfad.py" --wurzel "$TMP/wp"
+rm -r "$TMP/wp"
 
 # --- rohrbruch.py -----------------------------------------------------------
 # Der Schwesterfall zu stiller-tod: dort traegt `pipefail` eine 1 aus der Pipe
@@ -852,6 +912,21 @@ RECOMMENDED_MODELS="hf.co/wer/Was-GGUF:IQ4_XS,klein:e4b"
 BEISPIEL
   echo 'KURZLISTE="$WURZEL/config/modelle/kurzliste.json"' > "$KL/scripts/util/modelle-aufraeumen.sh"
   echo 'KURZLISTE="$WURZEL/config/modelle/kurzliste.json"' > "$KL/scripts/test/modelle-abnahme.sh"
+  # Die beiden .env-Vorlagen und die zwei Skripte, die daraus eine .env machen.
+  # Aus ihnen bekommt ein FRISCHES Geraet sein erstes Modell -- und genau dort
+  # stand am 28.08.2026 noch `qwen3:14b`, dreissig Minuten Ladezeit fuer ein
+  # Modell, das der Katalog nicht mehr kennt.
+  echo 'LLM_MODEL=klein:e4b' > "$KL/.env.example"
+  echo 'LLM_MODEL=klein:e4b' > "$KL/.env.template"
+  echo 'DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-klein:e4b}"' > "$KL/scripts/interactive_setup.sh"
+  echo 'LLM_MODEL=klein:e4b' > "$KL/scripts/setup/preconfigure.sh"
+  mkdir -p "$KL/services/llm-service"
+  echo 'DEFAULT_MODEL = os.environ.get("LLM_MODEL", "klein:e4b")' \
+    > "$KL/services/llm-service/api_server.py"
+  echo 'MODEL_NAME="${LLM_MODEL:-klein:e4b}"' > "$KL/services/llm-service/entrypoint.sh"
+  echo 'TEST_MODEL="${LLM_MODEL:-klein:e4b}"' > "$KL/services/llm-service/healthcheck.sh"
+  mkdir -p "$KL/compose"
+  echo '      LLM_MODEL: ${LLM_MODEL:-klein:e4b}' > "$KL/compose/compose.ai.yaml"
 }
 
 kl_baum
@@ -881,6 +956,21 @@ pruefe "Kurzliste: eine Migration ohne alle vier ist rot" 1 \
 kl_baum
 echo 'BLEIBEN="hf.co/wer/Was-GGUF:IQ4_XS klein:e4b"' > "$KL/scripts/util/modelle-aufraeumen.sh"
 pruefe "Kurzliste: ein Skript mit eigener Kopie der Liste ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+echo 'LLM_MODEL=alt:26b' > "$KL/.env.example"
+pruefe "Kurzliste: eine .env-Vorlage mit fremdem Modell ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+echo 'DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-alt:26b}"' > "$KL/scripts/interactive_setup.sh"
+pruefe "Kurzliste: ein Rueckfall mit fremdem Modell ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_baum
+rm -f "$KL/.env.example"
+pruefe "Kurzliste: eine fehlende .env-Vorlage ist rot" 1 \
   python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
 rm -rf "$KL"
 

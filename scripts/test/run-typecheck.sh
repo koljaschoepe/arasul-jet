@@ -3,7 +3,7 @@
 # Läuft nach jeder Edit/Write Operation (via PostToolUse Hook)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Nur bei tatsächlichen Änderungen laufen

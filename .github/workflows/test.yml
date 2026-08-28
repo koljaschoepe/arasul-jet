@@ -433,6 +433,14 @@ jobs:
       - name: Stiller Tod (Zuweisungen, die ein Skript wortlos beenden)
         run: python3 scripts/test/stiller-tod.py --wurzel .
 
+      # Die vierte aus derselben Familie, 28.08.2026: nicht der Rueckgabewert,
+      # sondern der Pfad. Ein Skript in `scripts/validate/` ging nur EINE Ebene
+      # hoch, sein `PROJECT_ROOT` zeigte damit auf `scripts/`, und der Bootstrap
+      # suchte `scripts/docker-compose.yml`. Auf einem Arbeitsgeraet faellt das
+      # nie auf, auf jedem frischen sofort.
+      - name: Wurzelpfad (Skripte, die ihr Wurzelverzeichnis falsch ausrechnen)
+        run: python3 scripts/test/wurzelpfad.py --wurzel .
+
       # Der Schwesterfall, 27.08.2026: `docker logs … | grep -q …` unter
       # `pipefail`. grep steigt beim ersten Treffer aus, docker logs schreibt
       # in ein geschlossenes Rohr und endet mit 141, und die Bedingung wird
@@ -463,6 +471,103 @@ jobs:
 
       - name: Toter Code (Plan 023 B3)
         run: bash scripts/test/toter-code.sh
+
+  # ----------------------------------------------------------------------------
+  # Installation aus dem Artefakt auf einem leeren Rechner (Phase C10,
+  # 28.08.2026).
+  #
+  # WARUM ES DIESEN JOB GIBT. Am 27.08.2026 galt die Auslieferung als fertig:
+  # die CI baute ein Artefakt, das Release hing am Repo, `install.sh` lag im
+  # Wurzelverzeichnis, und die Pruefung im Release-Workflow sah nach, ob die
+  # Dateien DRIN sind. Sie hat das Artefakt nie AUSGEFUEHRT. Beim ersten echten
+  # Werksreset am Orin lief die Installation dann nicht ohne Hand durch, und
+  # von den fuenf Funden waeren vier hier aufgefallen -- vier Wegewechsel und
+  # eine Zuweisung, allesamt ohne Jetson-Hardware messbar.
+  #
+  # Gemessen wird deshalb an dem, was der Kunde bekommt: das Artefakt wird
+  # gebaut, ausgepackt und `install.sh --nur-vorbereiten` darin gestartet.
+  # Weiter geht es nicht, denn `./arasul bootstrap` baut zwoelf Images fuer
+  # ARM64. Alles davor -- Fassung, Voraussetzungen, `.env`, die Validatoren,
+  # wie docker compose die `.env` liest -- laeuft hier vollstaendig.
+  # ----------------------------------------------------------------------------
+  installation:
+    name: Installation (install.sh aus dem Artefakt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # `fassung_aus_bau` fragt `git describe --tags`; ohne Historie
+          # bekaeme das Artefakt keine Fassung und `install.sh` bricht ab --
+          # was hier richtig waere, aber aus dem falschen Grund.
+          fetch-depth: 0
+
+      - name: Artefakt bauen
+        run: bash scripts/deploy/artefakt-bauen.sh --ausgabe /tmp/dist
+
+      - name: Auspacken, wie es ein Kunde tut
+        id: auspacken
+        run: |
+          set -eu
+          mkdir -p /tmp/geraet
+          tar xzf /tmp/dist/arasul-*.tar.gz -C /tmp/geraet
+          wurzel=$(find /tmp/geraet -maxdepth 1 -mindepth 1 -type d | head -1)
+          echo "wurzel=$wurzel" >> "$GITHUB_OUTPUT"
+          echo "Ausgepackt nach: $wurzel"
+
+      # Der Lauf selbst. Das Passwort ist fest und offen: es lebt in einem
+      # Wegwerf-Runner und wird von keinem Dienst angenommen.
+      - name: install.sh --nur-vorbereiten
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: ./install.sh --nur-vorbereiten --passwort 'AbnahmeCi2026x'
+
+      - name: Was dabei herausgekommen ist
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: |
+          set -eu
+          [ -f .env ] || { echo "Keine .env geschrieben." >&2; exit 1; }
+          fassung=$(grep '^SYSTEM_VERSION=' .env | tail -1 | cut -d= -f2-)
+          case "$fassung" in
+            ''|Vorserie|0.0.0)
+              echo "SYSTEM_VERSION ist \"$fassung\" -- keine Fassung aus dem Bau." >&2
+              exit 1 ;;
+          esac
+          echo "SYSTEM_VERSION=$fassung"
+          # Die Rechte der Datei: sie traegt das Startpasswort im Klartext, bis
+          # der Bootstrap es entwertet.
+          rechte=$(stat -c '%a' .env)
+          [ "$rechte" = "600" ] || { echo ".env hat Rechte $rechte statt 600." >&2; exit 1; }
+
+      # Beide Validatoren, die `./arasul bootstrap` aufruft und bei deren
+      # Fehlschlag er mit exit 1 abbricht (arasul, Schritt 5). Bis zum
+      # 28.08.2026 hat sie nie jemand gegen eine frisch erzeugte `.env`
+      # laufen lassen -- der eine suchte seine Compose-Datei im falschen
+      # Verzeichnis, und das fiel erst am Geraet auf.
+      - name: Der Konfigurations-Validator ist mit der frischen .env zufrieden
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: bash scripts/validate/validate-config.sh
+
+      - name: Der Abhaengigkeits-Validator findet seine Compose-Datei
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: bash scripts/validate/validate-dependencies.sh
+
+      # `config` liest die `.env` und alle sechs Compose-Dateien, startet aber
+      # nichts. Jede Zeile auf stderr ist eine Warnung; die haeufigste war
+      # "The dvbE0IB... variable is not set" -- ein bcrypt-Hash mit `$`.
+      - name: docker compose liest die Konfiguration ohne Warnung
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: |
+          set -eu
+          meckern=$(docker compose config -q 2>&1 >/dev/null || true)
+          if [ -n "$meckern" ]; then
+            echo "docker compose meldet beim Lesen der Konfiguration:" >&2
+            echo "$meckern" >&2
+            exit 1
+          fi
+          echo "Keine Warnung."
+
+      - name: Abnahme des Bootstraps (trocken)
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: bash scripts/test/bootstrap-abnahme.sh --trocken
 
   # ----------------------------------------------------------------------------
   # Toter Code im Frontend (Phase B3 des Ueberordner-Plans vom 26.08.2026).
@@ -505,6 +610,7 @@ jobs:
         lockfile-guard,
         guards,
         dead-code,
+        installation,
       ]
     if: always()
     steps:
@@ -526,6 +632,7 @@ jobs:
             Lockfile=${{ needs.lockfile-guard.result }}
             Guards=${{ needs.guards.result }}
             DeadCode=${{ needs.dead-code.result }}
+            Installation=${{ needs.installation.result }}
         run: |
           fehler=0
           while IFS='=' read -r name ergebnis; do

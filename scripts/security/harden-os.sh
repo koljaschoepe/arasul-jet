@@ -127,7 +127,7 @@ if [ "$SKIP_APPARMOR" = false ]; then
     echo "=========================================="
     echo "  Step 5/5: AppArmor Profiles"
     echo "=========================================="
-    PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
     APPARMOR_DIR="$PROJECT_ROOT/config/apparmor"
 
     if [ -d "$APPARMOR_DIR" ]; then

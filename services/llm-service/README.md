@@ -4,13 +4,13 @@ Flexible LLM service based on Ollama with Dashboard-managed model downloads, opt
 
 ## Overview
 
-| Property        | Value                         |
-| --------------- | ----------------------------- |
-| Ollama Port     | 11434 (inference API)         |
-| Management Port | 11436 (Flask API)             |
-| Container       | llm-service                   |
-| GPU             | NVIDIA Jetson AGX Orin (64GB) |
-| Default Model   | qwen3:14b-q8                  |
+| Property        | Value                                     |
+| --------------- | ----------------------------------------- |
+| Ollama Port     | 11434 (inference API)                     |
+| Management Port | 11436 (Flask API)                         |
+| Container       | llm-service                               |
+| GPU             | NVIDIA Jetson AGX Orin (64GB)             |
+| Default Model   | aus `$LLM_MODEL` (Rueckfall `gemma4:e4b`) |
 
 ## Features
 
@@ -76,15 +76,15 @@ See [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/a
 
 ## Environment Variables
 
-| Variable               | Default      | Description               |
-| ---------------------- | ------------ | ------------------------- |
-| LLM_MODEL              | qwen3:14b-q8 | Default model name        |
-| LLM_CONTEXT_LENGTH     | 8192         | Context window size       |
-| LLM_GPU_LAYERS         | 33           | GPU layers to use         |
-| LLM_KEEP_ALIVE_SECONDS | 300          | Model keep-alive time     |
-| OLLAMA_STARTUP_TIMEOUT | 120          | Startup timeout (seconds) |
-| OLLAMA_HOST            | 0.0.0.0      | Ollama bind address       |
-| OLLAMA_ORIGINS         | \*           | Allowed CORS origins      |
+| Variable               | Default    | Description               |
+| ---------------------- | ---------- | ------------------------- |
+| LLM_MODEL              | gemma4:e4b | Default model name        |
+| LLM_CONTEXT_LENGTH     | 8192       | Context window size       |
+| LLM_GPU_LAYERS         | 33         | GPU layers to use         |
+| LLM_KEEP_ALIVE_SECONDS | 300        | Model keep-alive time     |
+| OLLAMA_STARTUP_TIMEOUT | 120        | Startup timeout (seconds) |
+| OLLAMA_HOST            | 0.0.0.0    | Ollama bind address       |
+| OLLAMA_ORIGINS         | \*         | Allowed CORS origins      |
 
 ## Health Check Implementation
 

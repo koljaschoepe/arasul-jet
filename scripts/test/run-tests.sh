@@ -340,6 +340,21 @@ run_eigenbezug_check() {
   fi
 }
 
+# Die vierte aus derselben Familie, 28.08.2026: nicht der Rueckgabewert,
+# sondern der Pfad. Ein Skript in `scripts/validate/` ging nur EINE Ebene hoch,
+# sein `PROJECT_ROOT` zeigte damit auf `scripts/`, und der Bootstrap suchte
+# `scripts/docker-compose.yml`. Auf einem Arbeitsgeraet faellt das nie auf, auf
+# jedem frischen sofort.
+run_wurzelpfad_check() {
+  echo ""
+  echo "-> Pruefe, ob jedes Skript sein Wurzelverzeichnis richtig ausrechnet..."
+  if python3 "${PROJECT_ROOT}/scripts/test/wurzelpfad.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_endpunkte_check() {
   echo ""
   echo "-> Pruefe, ob jeder Endpunkt eine Beschreibung hat..."
@@ -535,6 +550,7 @@ run_rollenregeln_check
 run_stiller_tod_check
 run_rohrbruch_check
 run_eigenbezug_check
+run_wurzelpfad_check
 run_endpunkte_check
 run_anleitungen_check
 run_faden_check

@@ -38,7 +38,7 @@ Flask APIs (except metrics-collector which uses aiohttp). Each service has a
 - **Model cache:** 30s TTL (`MODEL_CACHE_TTL`), thread-safe with lock
 - **HTTP retries:** `create_retry_session()` with exponential backoff (3 retries, 0.5s backoff, retries on 500/502/503/504)
 - **CPU monitoring:** Background thread updates every 3s (1s measure + 2s sleep) to avoid blocking requests
-- **Default model:** `$LLM_MODEL` env var (default: `qwen3:14b-q8`)
+- **Default model:** `$LLM_MODEL` env var (fallback: `gemma4:e4b`, aus der Kurzliste)
 - Ollama base URL: `http://localhost:11434` (both run in same container)
 
 ---

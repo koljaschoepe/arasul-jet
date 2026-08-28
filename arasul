@@ -85,22 +85,22 @@ EOF
     # Add suggestions based on errors
     local suggestions=()
 
-    if echo "${ERRORS[@]}" | grep -qi "gpu"; then
+    if grep -qi "gpu" <<<"${ERRORS[*]}"; then
         suggestions+=("Check NVIDIA drivers: nvidia-smi")
         suggestions+=("Ensure NVIDIA Container Runtime is installed")
     fi
 
-    if echo "${ERRORS[@]}" | grep -qi "disk"; then
+    if grep -qi "disk" <<<"${ERRORS[*]}"; then
         suggestions+=("Free up disk space: docker system prune -a")
         suggestions+=("Check available space: df -h")
     fi
 
-    if echo "${ERRORS[@]}" | grep -qi "ram\|memory"; then
+    if grep -qi "ram\|memory" <<<"${ERRORS[*]}"; then
         suggestions+=("Close unnecessary applications")
         suggestions+=("Consider upgrading RAM to 32GB+")
     fi
 
-    if echo "${ERRORS[@]}" | grep -qi "docker"; then
+    if grep -qi "docker" <<<"${ERRORS[*]}"; then
         suggestions+=("Verify Docker is running: sudo systemctl status docker")
         suggestions+=("Check Docker permissions: docker ps")
     fi
@@ -136,6 +136,55 @@ EOF
         log_info "Error Report:"
         cat "$ERROR_LOG_FILE"
         echo ""
+    fi
+}
+
+# Einen Wert aus der `.env` lesen.
+#
+# IMMER ueber diese Funktion und NIE mit einer nackten Zuweisung der Form
+# `x=$(grep "^SCHLUESSEL=" .env | cut -d= -f2)`. Das war am 28.08.2026 der
+# Grund, aus dem der Bootstrap am Orin nach "Waiting for Dashboard..." mit
+# Rueckgabewert 1 endete, ohne eine Zeile Ausgabe: `.env` kennt kein
+# `DASHBOARD_PORT` (die Vorlage schreibt `DASHBOARD_BACKEND_PORT`), grep gab
+# also 1 zurueck, `pipefail` trug es aus der Pipe heraus, die Zuweisung war
+# damit 1, und `set -e` beendete das Skript. Danach lief weder der
+# document-indexer noch der self-healing-agent, und weder Startpasswort noch
+# Kit-Schluessel wurden je ausgegeben (scripts/test/stiller-tod.py).
+#
+# Drei Dinge macht die Funktion, die eine Pipe von Hand jedesmal falsch macht:
+#   - sie faengt den Leerfall ab und gibt eine Vorgabe zurueck,
+#   - sie nimmt das LETZTE Vorkommen, denn so liest dotenv die Datei auch,
+#   - sie streicht umschliessende Anfuehrungszeichen. Seit dem 28.08.2026
+#     steht der bcrypt-Hash in der `.env` in einfachen Anfuehrungszeichen,
+#     weil docker compose sonst sein `$` als Variable liest.
+env_wert() {
+    local schluessel="$1" vorgabe="${2:-}" wert=""
+    if [ -f .env ]; then
+        wert=$(grep "^${schluessel}=" .env 2>/dev/null | tail -1 | cut -d'=' -f2- || true)
+    fi
+    case "$wert" in
+        "'"*"'") wert="${wert#\'}"; wert="${wert%\'}" ;;
+        '"'*'"') wert="${wert#\"}"; wert="${wert%\"}" ;;
+    esac
+    printf '%s' "${wert:-$vorgabe}"
+}
+
+# Die Adresse, unter der die Oberflaeche am Geraet selbst antwortet.
+#
+# IMMER https, und deshalb auch immer mit `-k` abfragen: Traefik leitet den
+# ganzen Einstiegspunkt `web` (:80) dauerhaft auf `websecure` (:443) um
+# (config/traefik/traefik.yml). Wer den Zustand des Backends ueber Port 80
+# misst, misst nur, ob Traefik laeuft -- eine 301 ist fuer `curl -f` kein
+# Fehler, `-f` schlaegt erst ab 400 an. Bis zum 28.08.2026 meldeten die
+# Rauchtests des Bootstraps auf diesem Weg "Dashboard Backend: OK", und das
+# haetten sie auch getan, wenn es den Container gar nicht gaebe.
+dashboard_url() {
+    local port
+    port=$(env_wert HTTPS_PORT 443)
+    if [ "$port" = "443" ]; then
+        printf 'https://localhost'
+    else
+        printf 'https://localhost:%s' "$port"
     fi
 }
 
@@ -208,10 +257,10 @@ detect_jetson() {
     log_info "Detecting hardware platform..."
 
     if [ -f /etc/nv_tegra_release ]; then
-        JETSON_VERSION=$(cat /etc/nv_tegra_release | grep -oP 'R\d+' | head -1)
+        JETSON_VERSION=$(grep -oP 'R\d+' /etc/nv_tegra_release 2>/dev/null | head -1 || true)
         JETSON_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
 
-        if echo "$JETSON_MODEL" | grep -qiE "AGX Orin|Thor"; then
+        if grep -qiE "AGX Orin|Thor" <<<"$JETSON_MODEL"; then
             log_success "Jetson detected: $JETSON_MODEL"
             return 0
         else
@@ -230,7 +279,7 @@ check_jetpack_version() {
     log_info "Checking JetPack version..."
 
     if command -v dpkg &> /dev/null; then
-        JETPACK_VERSION=$(dpkg -l | grep nvidia-jetpack | awk '{print $3}' | head -1)
+        JETPACK_VERSION=$(dpkg -l 2>/dev/null | grep nvidia-jetpack | awk '{print $3}' | head -1 || true)
 
         if [ -n "$JETPACK_VERSION" ]; then
             log_success "JetPack version: $JETPACK_VERSION"
@@ -269,7 +318,7 @@ check_gpu() {
     log_info "Checking GPU availability..."
 
     if command -v nvidia-smi &> /dev/null; then
-        GPU_INFO=$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -1)
+        GPU_INFO=$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -1 || true)
 
         if [ -n "$GPU_INFO" ]; then
             GPU_NAME=$(echo "$GPU_INFO" | cut -d',' -f1)
@@ -295,7 +344,7 @@ check_gpu() {
         return 0
     fi
 
-    if docker info 2>/dev/null | grep -qi 'nvidia'; then
+    if grep -qi 'nvidia' <<<"$(docker info 2>/dev/null)"; then
         log_success "NVIDIA container runtime detected via 'docker info' — GPU available to containers"
         return 0
     fi
@@ -310,7 +359,8 @@ check_ram() {
     log_info "Checking system RAM..."
 
     # Get total RAM in GB
-    TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || true)
+    TOTAL_RAM_KB=${TOTAL_RAM_KB:-0}
     TOTAL_RAM_GB=$((TOTAL_RAM_KB / 1024 / 1024))
 
     log_info "Total RAM: ${TOTAL_RAM_GB}GB"
@@ -436,7 +486,7 @@ check_requirements() {
 
     # Check NVIDIA Container Runtime (optional but recommended)
     # Use 'docker info' instead of pulling a test image (works on ARM64 Jetson)
-    if docker info 2>/dev/null | grep -q "nvidia"; then
+    if grep -q "nvidia" <<<"$(docker info 2>/dev/null)"; then
         log_success "NVIDIA Container Runtime detected"
     elif nvidia-smi &>/dev/null; then
         log_success "NVIDIA GPU detected (nvidia-smi works)"
@@ -507,7 +557,7 @@ install_nvidia_runtime() {
             $SUDO_CMD systemctl restart docker
 
             # Test installation
-            if docker info 2>/dev/null | grep -q "nvidia"; then
+            if grep -q "nvidia" <<<"$(docker info 2>/dev/null)"; then
                 return 0
             else
                 return 1
@@ -576,7 +626,7 @@ apply_jetson_profile() {
     if [ -f "$detect_script" ]; then
         # Skip if interactive_setup already embedded the profile in .env
         if grep -q "^JETSON_PROFILE=" .env 2>/dev/null; then
-            local existing_profile=$(grep "^JETSON_PROFILE=" .env | cut -d'=' -f2)
+            local existing_profile=$(env_wert JETSON_PROFILE)
             log_info "Jetson-Profil bereits in .env vorhanden: ${existing_profile} (ueberspringe)"
             return 0
         fi
@@ -589,11 +639,21 @@ apply_jetson_profile() {
 }
 
 # Pre-flight network check: can we reach a Docker registry?
+# Gemessen wird ERREICHBARKEIT, nicht Berechtigung. Beide Registries
+# antworten auf `/v2/` ohne Anmeldung mit 401 — das ist die richtige Antwort
+# eines erreichbaren Servers. Bis zum 28.08.2026 stand hier `curl -sfI`, und
+# `-f` macht aus jeder Antwort ab 400 einen Fehlschlag: der Bootstrap brach
+# auf einem Geraet mit tadelloser Internetverbindung mit "Keine Verbindung zu
+# Docker-Registry" ab. Gezaehlt wird deshalb der HTTP-Code, und jeder Code
+# ungleich 000 heisst: da war jemand.
 check_registry_reachable() {
-    local timeout=5
-    # Try Docker Hub and ghcr.io — at least one must respond
-    curl -sfI --max-time "$timeout" https://registry-1.docker.io/v2/ >/dev/null 2>&1 && return 0
-    curl -sfI --max-time "$timeout" https://ghcr.io/v2/ >/dev/null 2>&1 && return 0
+    local timeout=5 ziel code
+    for ziel in https://registry-1.docker.io/v2/ https://ghcr.io/v2/; do
+        code=$(curl -s -o /dev/null -w '%{http_code}' -I --max-time "$timeout" "$ziel" 2>/dev/null || true)
+        if [ -n "$code" ] && [ "$code" != "000" ]; then
+            return 0
+        fi
+    done
     return 1
 }
 
@@ -717,12 +777,11 @@ setup_https() {
     # eigenem Namen bekaeme sonst ein Zertifikat, das auf einen fremden Namen
     # lautet. Seit Phase C10 steht der NACKTE Name im Zertifikat (https://arasul/)
     # und `.local` daneben, siehe scripts/security/geraete-zertifikat.sh.
-    # `|| true` und nicht nur `2>/dev/null`: fehlt die Zeile in der `.env`,
-    # gibt grep 1 zurueck, `pipefail` traegt es aus der Pipe heraus, und unter
-    # `set -e` endet der Bootstrap hier wortlos (scripts/test/stiller-tod.py).
+    # Gelesen wird ueber `env_wert`, und nicht von Hand aus einer Pipe: fehlt
+    # die Zeile, gibt grep 1 zurueck, `pipefail` traegt es heraus, und unter
+    # `set -e` endet der Bootstrap wortlos (scripts/test/stiller-tod.py).
     local cert_mdns
-    cert_mdns=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2 || true)
-    cert_mdns="${cert_mdns:-arasul}"
+    cert_mdns=$(env_wert MDNS_NAME arasul)
     cert_mdns="${cert_mdns%.local}" # strip any .local the user may have added
 
     if [ -f "scripts/security/geraete-zertifikat.sh" ]; then
@@ -742,10 +801,10 @@ setup_https() {
 init_admin_user() {
     log_info "Erstelle Administrator-Benutzer..."
 
-    local admin_user=$(grep "^ADMIN_USERNAME=" .env | cut -d'=' -f2)
-    local admin_pass=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
-    local admin_email=$(grep "^ADMIN_EMAIL=" .env | cut -d'=' -f2)
-    local admin_hash=$(grep "^ADMIN_HASH=" .env | cut -d'=' -f2-)
+    local admin_user=$(env_wert ADMIN_USERNAME)
+    local admin_pass=$(env_wert ADMIN_PASSWORD)
+    local admin_email=$(env_wert ADMIN_EMAIL)
+    local admin_hash=$(env_wert ADMIN_HASH)
 
     if [ -z "$admin_pass" ] || [ "$admin_pass" = "REDACTED_AFTER_BOOTSTRAP" ]; then
         log_error "ADMIN_PASSWORD nicht verfuegbar. Bitte './arasul setup' erneut ausfuehren."
@@ -760,7 +819,7 @@ init_admin_user() {
         if command -v htpasswd &>/dev/null; then
             admin_hash=$(htpasswd -nbB "" "$admin_pass" | cut -d: -f2)
         # Methode 2: Backend-Container (bcryptjs)
-        elif docker compose ps dashboard-backend 2>/dev/null | grep -q "Up\|running"; then
+        elif grep -q "Up\|running" <<<"$(docker compose ps dashboard-backend 2>/dev/null)"; then
             admin_hash=$(docker compose exec -T dashboard-backend \
                 node -e "const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))" "$admin_pass" \
                 2>/dev/null)
@@ -789,11 +848,11 @@ init_admin_user() {
     local safe_user="${admin_user:-admin}"
     local safe_email="${admin_email:-admin@arasul.local}"
 
-    if ! echo "$safe_user" | grep -qE '^[a-zA-Z0-9_-]{1,64}$'; then
+    if ! grep -qE '^[a-zA-Z0-9_-]{1,64}$' <<<"$safe_user"; then
         log_error "Ungueltiger Benutzername: nur a-z, 0-9, _ und - erlaubt (max 64 Zeichen)"
         return 1
     fi
-    if ! echo "$safe_email" | grep -qE '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'; then
+    if ! grep -qE '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' <<<"$safe_email"; then
         log_error "Ungueltige E-Mail-Adresse: ${safe_email}"
         return 1
     fi
@@ -887,10 +946,13 @@ start_services() {
     # Layer 5: Application layer
     docker compose up -d dashboard-backend dashboard-frontend
     log_info "Waiting for Dashboard..."
-    local dash_port
-    dash_port=$(grep "^DASHBOARD_PORT=" .env 2>/dev/null | cut -d'=' -f2)
-    dash_port=${dash_port:-80}
-    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${dash_port}/api/health" || true
+    # UEBER HTTPS, nicht ueber Port 80. Traefik leitet den ganzen
+    # `web`-Einstiegspunkt dauerhaft auf `websecure` um
+    # (config/traefik/traefik.yml). Eine 301 ist fuer `curl -f` KEIN Fehler --
+    # `-f` schlaegt erst ab 400 an --, also war diese Pruefung in dem Moment
+    # gruen, in dem Traefik lief, und sagte ueber das Backend gar nichts. Sie
+    # haette einen toten Dienst als "OK" gemeldet.
+    wait_for_healthy dashboard-backend 60 "curl -skf $(dashboard_url)/api/health" || true
 
     # Layer 6: Document indexer (needs the backend; writes the text layer)
     docker compose up -d document-indexer
@@ -917,7 +979,8 @@ run_smoke_tests() {
         log_warning "Konfiguration: Standard-Dev-Credentials erkannt"
         warnings=1
     else
-        local jwt_len=$(grep "^JWT_SECRET=" .env 2>/dev/null | cut -d'=' -f2 | wc -c)
+        local jwt_secret=$(env_wert JWT_SECRET)
+        local jwt_len=${#jwt_secret}
         if [ "$jwt_len" -ge 32 ]; then
             log_success "Konfiguration: Produktionsreif"
         else
@@ -927,7 +990,7 @@ run_smoke_tests() {
     fi
 
     # Jetson-Profil pruefen
-    local profile=$(grep "^JETSON_PROFILE=" .env 2>/dev/null | cut -d'=' -f2)
+    local profile=$(env_wert JETSON_PROFILE)
     if [ -n "$profile" ]; then
         log_success "Jetson-Profil: ${profile}"
     else
@@ -935,19 +998,16 @@ run_smoke_tests() {
         warnings=1
     fi
 
-    # Read configured port (default 80)
-    local smoke_port
-    smoke_port=$(grep "^DASHBOARD_PORT=" .env 2>/dev/null | cut -d'=' -f2)
-    smoke_port=${smoke_port:-80}
-
     # Wait for services to be fully ready
+    local basis
+    basis=$(dashboard_url)
     log_info "Waiting for services to stabilize..."
-    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${smoke_port}/api/health" || true
+    wait_for_healthy dashboard-backend 60 "curl -skf ${basis}/api/health" || true
     wait_for_healthy llm-service 60 "docker compose exec -T llm-service curl -sf http://localhost:11434/api/tags" || true
 
     # Test Dashboard Backend
     log_info "Testing Dashboard Backend..."
-    if curl -f http://localhost:${smoke_port}/api/health &> /dev/null; then
+    if curl -kf "${basis}/api/health" &> /dev/null; then
         log_success "Dashboard Backend: OK"
     else
         log_error "Dashboard Backend: FAILED"
@@ -956,7 +1016,7 @@ run_smoke_tests() {
 
     # Test Dashboard Frontend
     log_info "Testing Dashboard Frontend..."
-    if curl -f http://localhost:${smoke_port} &> /dev/null; then
+    if curl -kf "${basis}/" &> /dev/null; then
         log_success "Dashboard Frontend: OK"
     else
         log_error "Dashboard Frontend: FAILED"
@@ -998,8 +1058,12 @@ run_smoke_tests() {
         # Check if any models are available (skip inference test if none)
         log_info "Checking for loaded models..."
         MODELS_RESPONSE=$(docker compose exec -T llm-service curl -s http://localhost:11434/api/tags 2>/dev/null)
-        if echo "$MODELS_RESPONSE" | grep -q '"models"'; then
-            MODEL_COUNT=$(echo "$MODELS_RESPONSE" | grep -o '"name"' | wc -l)
+        if grep -q '"models"' <<<"$MODELS_RESPONSE"; then
+            # Kein Modell ist der Normalfall auf einem frischen Geraet, und
+            # ohne Auffangnetz waere genau dieser Normalfall das stille Ende
+            # des Bootstraps: `grep -o` ohne Treffer gibt 1 zurueck.
+            MODEL_COUNT=$(grep -o '"name"' <<<"$MODELS_RESPONSE" | wc -l || true)
+            MODEL_COUNT=${MODEL_COUNT:-0}
             if [ "$MODEL_COUNT" -gt 0 ]; then
                 log_success "LLM Models: $MODEL_COUNT model(s) available"
             else
@@ -1024,7 +1088,7 @@ run_smoke_tests() {
         # Try embeddings test (using correct /embed endpoint)
         log_info "Running embeddings test..."
         EMB_RESPONSE=$(docker compose exec -T embedding-service curl -s --max-time 5 http://localhost:11435/embed -H "Content-Type: application/json" -d '{"texts":["test"]}' 2>/dev/null)
-        if echo "$EMB_RESPONSE" | grep -q "vectors"; then
+        if grep -q "vectors" <<<"$EMB_RESPONSE"; then
             log_success "Embeddings Inference: OK"
         else
             log_warning "Embeddings Inference: Model may not be ready"
@@ -1037,11 +1101,14 @@ run_smoke_tests() {
 
     # Test Self-Healing Agent
     log_info "Testing Self-Healing Agent..."
-    if docker compose ps self-healing-agent | grep -q "Up"; then
+    if grep -q "Up" <<<"$(docker compose ps self-healing-agent 2>/dev/null)"; then
         log_success "Self-Healing Agent: Running"
 
         # Check if healing engine is actually running
-        HEALING_PROCS=$(docker compose exec -T self-healing-agent pgrep -f healing_engine.py | wc -l)
+        # `pgrep` ohne Treffer gibt 1 zurueck; unter `pipefail` waere die
+        # Zuweisung damit das stille Ende des Bootstraps.
+        HEALING_PROCS=$(docker compose exec -T self-healing-agent pgrep -f healing_engine.py 2>/dev/null | wc -l || true)
+        HEALING_PROCS=${HEALING_PROCS:-0}
         if [ "$HEALING_PROCS" -gt 0 ]; then
             log_success "Self-Healing Engine: Active"
         else
@@ -1070,10 +1137,9 @@ run_smoke_tests() {
 
 # Show completion summary after successful bootstrap
 show_completion_summary() {
-    local admin_user=$(grep "^ADMIN_USERNAME=" .env | cut -d'=' -f2)
-    local hostname=$(grep "^MDNS_NAME=" .env | cut -d'=' -f2)
-    local fassung=$(grep "^SYSTEM_VERSION=" .env | cut -d'=' -f2)
-    hostname="${hostname:-arasul}"
+    local admin_user=$(env_wert ADMIN_USERNAME admin)
+    local hostname=$(env_wert MDNS_NAME arasul)
+    local fassung=$(env_wert SYSTEM_VERSION)
 
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1086,12 +1152,12 @@ show_completion_summary() {
     echo -e "  Oberflaeche:  ${BLUE}https://${hostname}/${NC}"
     echo -e "                ${BLUE}https://${hostname}.local/${NC} (Rueckfall)"
 
-    # Tailscale: NUR der MagicDNS-Name. Die rohe Tailscale-IP stand hier bis
-    # zum 27.08.2026 als Rueckfall und war eine Sackgasse: mit aktivem
-    # `tailscale serve` hoert tailscaled auf 443 dieser Adresse und findet
-    # ohne Namen im ClientHello kein Zertifikat (Alert 80, internal error).
+    # Der MagicDNS-Name, falls das Geraet im Tailnet ist. Seit dem 28.08.2026
+    # antwortet dort Traefik selbst -- `tailscale serve` ist gestrichen, weil es
+    # tailscaled 443 binden liess und Traefik danach `0.0.0.0:443` nicht mehr
+    # bekam (docs/ops/NETZNAME_UND_ZERTIFIKAT.md).
     local ts_dnsname
-    ts_dnsname=$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/\.$//')
+    ts_dnsname=$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/\.$//' || true)
     if [ -n "$ts_dnsname" ]; then
         echo -e "  Von unterwegs: ${BLUE}https://${ts_dnsname}${NC} (Tailscale)"
     fi
@@ -1143,7 +1209,7 @@ redact_plaintext_password() {
     fi
 
     local current_val
-    current_val=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
+    current_val=$(env_wert ADMIN_PASSWORD)
 
     # Skip if already redacted or empty
     if [ -z "$current_val" ] || [ "$current_val" = "REDACTED_AFTER_BOOTSTRAP" ]; then
@@ -1163,7 +1229,7 @@ redact_plaintext_password() {
 # Non-critical: failures warn but don't block bootstrap
 setup_tailscale() {
     local ts_enabled
-    ts_enabled=$(grep "^TAILSCALE_ENABLED=" .env 2>/dev/null | cut -d'=' -f2)
+    ts_enabled=$(env_wert TAILSCALE_ENABLED)
 
     if [ "$ts_enabled" != "true" ]; then
         log_info "Tailscale deaktiviert (TAILSCALE_ENABLED != true)"
@@ -1180,8 +1246,8 @@ setup_tailscale() {
 
     # Auth-Key aus .env laden
     local auth_key hostname
-    auth_key=$(grep "^TAILSCALE_AUTH_KEY=" .env 2>/dev/null | cut -d'=' -f2)
-    hostname=$(grep "^TAILSCALE_HOSTNAME=" .env 2>/dev/null | cut -d'=' -f2)
+    auth_key=$(env_wert TAILSCALE_AUTH_KEY)
+    hostname=$(env_wert TAILSCALE_HOSTNAME)
 
     export TAILSCALE_AUTH_KEY="$auth_key"
     export TAILSCALE_HOSTNAME="$hostname"
@@ -1208,7 +1274,7 @@ setup_tailscale() {
 # Non-critical: failures warn but don't block bootstrap
 harden_production_security() {
     local node_env
-    node_env=$(grep "^NODE_ENV=" .env 2>/dev/null | cut -d'=' -f2)
+    node_env=$(env_wert NODE_ENV)
 
     # SSH Hardening (production only, opt-out via ENABLE_SSH_HARDENING=false)
     if [ "${ENABLE_SSH_HARDENING:-true}" = "true" ] && [ "${node_env}" = "production" ]; then
@@ -1657,8 +1723,7 @@ cmd_platform_profile() {
 # noch einmal verteilen.
 cmd_zertifikat() {
     local netzname
-    netzname=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2 || true)
-    netzname="${netzname:-arasul}"
+    netzname=$(env_wert MDNS_NAME arasul)
 
     FORCE_OVERWRITE=true bash "${SCRIPT_DIR}/scripts/security/geraete-zertifikat.sh" \
         "${SCRIPT_DIR}/config/traefik/certs" "${netzname%.local}"

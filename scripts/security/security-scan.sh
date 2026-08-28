@@ -13,7 +13,7 @@ set -euo pipefail
 #   4. Summary report
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REPORT_DIR="$PROJECT_ROOT/reports/security"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 SKIP_TRIVY=false

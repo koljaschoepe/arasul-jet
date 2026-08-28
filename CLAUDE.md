@@ -83,6 +83,19 @@ Gerät heißt im Firmennetz schlicht `arasul` (DHCP-Hostname, Rückfall
 erzeugten **Geräte-CA**, deren Zertifikat der Admin einmal aus der Oberfläche
 lädt und verteilt — siehe [`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md)
 und [`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`](docs/ops/NETZNAME_UND_ZERTIFIKAT.md).
+Der erste Werksreset am Orin (28.08.2026) hat fünf Wege gefunden, auf denen die
+Installation nicht ohne Hand durchlief, und alle fünf sind zu: der
+**Werksreset installiert nichts mehr** (kein `preconfigure.sh`, kein
+Modell-Pull) und räumt App-Container, App-Images und alle Volumes des Geräts
+weg; `tailscale serve` ist **gestrichen**, weil es Traefik den Port 443 nimmt
+(auch aus Oberfläche und API); Geheimnisse mit `$` stehen in der `.env` in
+Anführungszeichen, sonst liest docker compose sie als Variable. Zwei neue
+Wächter halten die Klassen fest: `scripts/test/wurzelpfad.py` (ein Skript, das
+sein Wurzelverzeichnis eine Ebene zu hoch ansetzt) und der erweiterte
+`stiller-tod.py`, der jetzt auch `arasul` selbst liest. Gemessen wird die
+Installation seither **bei jedem Zug**: der CI-Job `Installation` baut das
+Artefakt, packt es aus und fährt `./install.sh --nur-vorbereiten` darin;
+`scripts/test/bootstrap-abnahme.sh` misst am Gerät, was danach wirklich läuft.
 Seit D1 steht die **Shell** aus Beschluss 10: dreispaltig, links die Apps aus
 `GET /api/apps/meine`, in der Mitte die Übersicht oder eine App (iframe auf
 `/apps/<id>/`, Forward-Auth aus C4), rechts die **Notizen** (`/api/notizen`,
