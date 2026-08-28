@@ -1,4 +1,4 @@
-import { Info, Lock, Server, Globe, ShieldAlert, Sparkles, Users } from 'lucide-react';
+import { AppWindow, Info, Lock, Server, Globe, ShieldAlert, Sparkles, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /**
@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
  * der Verwender bestimmt die Größe.
  */
 export type SettingsSectionId =
-  'general' | 'benutzer' | 'ki' | 'security' | 'privacy' | 'system' | 'remote-access';
+  'general' | 'apps' | 'benutzer' | 'ki' | 'security' | 'privacy' | 'system' | 'remote-access';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -20,8 +20,18 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'general', label: 'Allgemein', icon: <Info />, description: 'System & Erscheinungsbild' },
-  // Zweiter Platz und nicht letzter (Phase D3): Menschen anlegen und Apps
-  // freigeben ist der Handgriff, den ein Administrator am haeufigsten tut.
+  // Zweiter Platz (Phase D4): was auf dem Geraet laeuft, ist das erste, was
+  // ein Administrator nachsieht -- und der Ort, an dem er den Teststand live
+  // schaltet. Die Menschen kommen direkt danach: erst was laeuft, dann wer es
+  // benutzt.
+  {
+    id: 'apps',
+    label: 'Apps',
+    icon: <AppWindow />,
+    description: 'Fassungen, Zustand, Flows und Laeufe',
+  },
+  // Menschen anlegen und Apps freigeben ist der Handgriff, den ein
+  // Administrator am haeufigsten tut (Phase D3).
   {
     id: 'benutzer',
     label: 'Mitarbeiter',

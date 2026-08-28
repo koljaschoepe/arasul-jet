@@ -76,3 +76,104 @@ describe('listeFuer', () => {
     expect(db.query).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * Das externe Modell (Phase D4).
+ *
+ * Die eine Zusage, die hier gehalten wird: der Schluessel geht verschluesselt
+ * hinein und kommt nur an EINER Stelle wieder heraus -- `externerZugang`, dem
+ * einzigen Aufrufer, der ihn braucht.
+ */
+describe('setzeExtern', () => {
+  const GUT = {
+    appId: 'urlaub',
+    flowName: 'bericht',
+    anbieter: 'OpenAI',
+    modell: 'gpt-4o',
+    basisUrl: 'https://api.example.test/v1',
+    schluessel: 'sk-geheim-abcd',
+  };
+
+  it('legt den Schluessel verschluesselt ab und merkt sich die letzten vier Zeichen', async () => {
+    db.query.mockResolvedValue({ rows: [{ app_id: 'urlaub', extern_endet_auf: 'abcd' }] });
+    await flowSettings.setzeExtern(GUT);
+
+    const [, werte] = db.query.mock.calls[0];
+    expect(werte).not.toContain('sk-geheim-abcd');
+    expect(werte.some(w => Buffer.isBuffer(w))).toBe(true);
+    expect(werte).toContain('abcd');
+  });
+
+  it('raeumt das lokale Modell: ein Flow laeuft auf EINEM Modell', async () => {
+    db.query.mockResolvedValue({ rows: [{}] });
+    await flowSettings.setzeExtern(GUT);
+    expect(db.query.mock.calls[0][0]).toMatch(/SET modell = NULL/);
+  });
+
+  it('laesst einen hinterlegten Schluessel stehen, wenn keiner mitkommt', async () => {
+    // Wer nur den Modellnamen aendert, soll ihn nicht erneut abtippen muessen
+    // -- und er kann es auch nicht, er sieht ihn nirgends.
+    db.query.mockResolvedValue({ rows: [{}] });
+    await flowSettings.setzeExtern({ ...GUT, schluessel: null });
+    const [sql, werte] = db.query.mock.calls[0];
+    expect(sql).toMatch(/COALESCE\(EXCLUDED\.extern_schluessel/);
+    expect(werte.some(w => Buffer.isBuffer(w))).toBe(false);
+  });
+
+  it('schneidet den Schraegstrich am Ende der Adresse weg', async () => {
+    // Sonst stuende in der Anfrage `…/v1//chat/completions`, und mancher
+    // Anbieter antwortet darauf mit 404.
+    db.query.mockResolvedValue({ rows: [{}] });
+    await flowSettings.setzeExtern({ ...GUT, basisUrl: 'https://api.example.test/v1/' });
+    expect(db.query.mock.calls[0][1]).toContain('https://api.example.test/v1');
+  });
+
+  it('weist eine halbe Angabe ab, statt eine Zeile zu schreiben, die nicht laufen kann', async () => {
+    await expect(flowSettings.setzeExtern({ ...GUT, basisUrl: '' })).rejects.toThrow(
+      /Anbieter, Modell und Basis-Adresse/
+    );
+    await expect(flowSettings.setzeExtern({ ...GUT, basisUrl: 'ftp://x' })).rejects.toThrow(
+      /http/
+    );
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('externerZugang', () => {
+  it('gibt den Schluessel entschluesselt heraus -- und nur hier', async () => {
+    const { encryptToken } = require('../../src/utils/tokenCrypto');
+    db.query.mockResolvedValue({
+      rows: [
+        {
+          extern_anbieter: 'OpenAI',
+          extern_modell: 'gpt-4o',
+          extern_basis_url: 'https://api.example.test/v1',
+          extern_schluessel: encryptToken('sk-geheim-abcd'),
+        },
+      ],
+    });
+    const zugang = await flowSettings.externerZugang({ appId: 'urlaub', flowName: 'bericht' });
+    expect(zugang.schluessel).toBe('sk-geheim-abcd');
+    expect(zugang.basisUrl).toBe('https://api.example.test/v1');
+  });
+
+  it('ist null, solange der Flow hier rechnet', async () => {
+    db.query.mockResolvedValue({ rows: [{ extern_anbieter: null }] });
+    expect(await flowSettings.externerZugang({ appId: 'u', flowName: 'b' })).toBeNull();
+  });
+
+  it('gibt einen Zugang ohne Schluessel her -- ein Gateway im Haus verlangt keinen', async () => {
+    db.query.mockResolvedValue({
+      rows: [
+        {
+          extern_anbieter: 'Hausgateway',
+          extern_modell: 'lokal-gross',
+          extern_basis_url: 'http://gateway.intern/v1',
+          extern_schluessel: null,
+        },
+      ],
+    });
+    const zugang = await flowSettings.externerZugang({ appId: 'u', flowName: 'b' });
+    expect(zugang.schluessel).toBeNull();
+  });
+});

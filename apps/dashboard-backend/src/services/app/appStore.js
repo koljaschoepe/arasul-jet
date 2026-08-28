@@ -80,6 +80,26 @@ async function listeApps() {
 }
 
 /**
+ * Gibt es diese App? Wirft NotFound, wenn nicht (Phase D4).
+ *
+ * EINE ZEILE STATT `holeApp`, und das ist der Punkt: `holeApp` liest die
+ * Versionen von der Platte, fragt fuer jeden Stand den Docker-Proxy nach dem
+ * Container und holt Modelle und Flows aus der Datenbank. Das ist richtig fuer
+ * eine Ansicht und falsch fuer eine Route, die nur wissen will, ob die Kennung
+ * in der Adresse eine App meint -- die Lauf-Liste fragt genau das, und sie
+ * fragt es bei jedem Blick auf die App-Ansicht.
+ *
+ * Warum ueberhaupt gefragt wird: sonst waere eine leere Liste die Antwort auf
+ * eine Kennung mit Tippfehler.
+ */
+async function pruefeVorhanden(appId) {
+  const { rows } = await db.query('SELECT 1 FROM public.apps WHERE id = $1', [appId]);
+  if (rows.length === 0) {
+    throw new NotFoundError(`App ${appId} gibt es am Geraet nicht`);
+  }
+}
+
+/**
  * Eine App mit allem, was das Geraet ueber sie weiss: beide Staende, die
  * Versionen auf der Platte, ob die geforderten Modelle da sind und welche
  * Flows in welchem Stand registriert sind.
@@ -526,6 +546,7 @@ async function ausliefernAus(appId, stand) {
 
 module.exports = {
   listeApps,
+  pruefeVorhanden,
   holeApp,
   spieleEin,
   schalte,

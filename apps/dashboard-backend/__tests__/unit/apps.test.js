@@ -115,6 +115,232 @@ describe('Die Flows einer App (Phase C6)', () => {
 });
 
 /**
+ * Die Ansicht einer App fuer den Administrator (Phase D4).
+ *
+ * Vier neue Wege, und jeder beantwortet eine Frage, die vor D4 nur mit `curl`
+ * und Datenbank-Zugriff zu beantworten war: was tut dieser Flow (Definition),
+ * was hat die App getan (Laeufe), was ging in einem Lauf vor (Schritte samt
+ * Gedankengang), und: schalte den Teststand live.
+ */
+describe('Die App-Ansicht des Administrators (Phase D4)', () => {
+  /**
+   * Die eine Zeile, mit der die Routen dieser Phase pruefen, ob die Kennung in
+   * der Adresse ueberhaupt eine App meint (`appStore.pruefeVorhanden`).
+   */
+  function appGibtEs() {
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
+  }
+
+  test('GET /:id/flows/:name liefert die Datei samt Prompt', async () => {
+    // Der Prompt steht NICHT in der Liste (siehe C6) und hier schon: die Frage
+    // lautet „was tut dieser Flow", und ohne den Auftrag an das Modell ist sie
+    // nicht zu beantworten.
+    appGibtEs();
+    db.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            name: 'bericht',
+            version: '1.0.0',
+            definition: {
+              beschreibung: 'B',
+              modell: 'aus-dem-paket',
+              systemPrompt: 'Schreibe den Bericht.',
+              werkzeuge: ['freigabe_anfordern'],
+            },
+            registriert_am: '2026-08-27T12:00:00Z',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] }); // flow_settings
+
+    const res = await request(verwaltung()).get('/api/apps/urlaub/flows/bericht?stand=test');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.prompt).toBe('Schreibe den Bericht.');
+    expect(res.body.data.stand).toBe('test');
+    expect(res.body.data.paket_modell).toBe('aus-dem-paket');
+    expect(res.body.data.extern).toBeNull();
+    // `systemPrompt` heisst nach aussen `prompt` -- wie bei den Flows der
+    // Plattform. Zwei Namen fuer dasselbe Feld waeren zwei Vertraege.
+    expect(JSON.stringify(res.body)).not.toContain('systemPrompt');
+  });
+
+  test('ein Flow, den der Stand nicht hat, ist 404', async () => {
+    appGibtEs();
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(verwaltung()).get('/api/apps/urlaub/flows/gibtsnicht');
+    expect(res.status).toBe(404);
+  });
+
+  test('eine App, die es nicht gibt, ist 404 mit der richtigen Begruendung', async () => {
+    // Sonst hiesse die Antwort „dieser Stand hat den Flow nicht", und wer sie
+    // liest, sucht an der falschen Stelle.
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(verwaltung()).get('/api/apps/gibtsnicht/flows/bericht');
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toMatch(/gibt es am Geraet nicht/);
+  });
+
+  test('GET /:id/laeufe siebt nach App und nicht nach Nutzer', async () => {
+    // Der ganze Grund fuer diese Route: `GET /api/flows/laeufe` haengt an
+    // `user_id`, und ein App-Lauf traegt den, dem der Schluessel gehoert. Ein
+    // zweiter Administrator saehe die Laeufe der App dort nie.
+    //
+    // Geprueft wird die Kennung mit EINER Zeile (`pruefeVorhanden`) und nicht
+    // mit `holeApp`: das faehrt fuer jeden Stand den Docker-Proxy an, und diese
+    // Liste wird bei jedem Blick auf die App-Ansicht geholt.
+    appGibtEs();
+    db.query.mockResolvedValueOnce({ rows: [{ id: 9, flow_name: 'freigabe', status: 'fertig' }] });
+
+    const res = await request(verwaltung()).get('/api/apps/urlaub/laeufe?stand=live');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].id).toBe(9);
+    const [sql, werte] = db.query.mock.calls.at(-1);
+    expect(sql).toMatch(/WHERE app_id = \$1/);
+    expect(sql).not.toMatch(/user_id/);
+    expect(werte).toContain('live');
+  });
+
+  test('GET /:id/laeufe/:runId bringt die Schritte mit, den Gedankengang darin', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 9, app_id: 'urlaub', status: 'fertig' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          { id: 1, kind: 'modell', name: 'Gedankengang', output: 'Ich frage zuerst nach.' },
+          { id: 2, kind: 'werkzeug', name: 'freigabe_anfordern' },
+        ],
+      });
+
+    const res = await request(verwaltung()).get('/api/apps/urlaub/laeufe/9');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.steps).toHaveLength(2);
+    expect(res.body.data.steps[0].kind).toBe('modell');
+    // Ohne `?raw=1` bleiben die Rohdaten drausen -- sie koennen je Subagent
+    // einige Dutzend Kilobyte sein.
+    expect(db.query.mock.calls.at(-1)[0]).not.toMatch(/SELECT \* FROM flow_run_steps/);
+  });
+
+  test('ein Lauf einer ANDEREN App ist 404 und nicht 403', async () => {
+    // Wer nicht darf, erfaehrt nicht, was es gibt -- derselbe Schnitt wie
+    // ueberall am Geraet.
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(verwaltung()).get('/api/apps/urlaub/laeufe/9');
+    expect(res.status).toBe(404);
+  });
+
+  test('POST /:id/schalten nimmt die Version aus dem Teststand', async () => {
+    // Der Schalter geht durch `spieleEin` und nicht an ihm vorbei -- sonst
+    // stuende im Livestand eine Version, deren Container noch die alte faehrt.
+    // Deshalb liest er das Manifest von der Platte (`1.0.0` liegt dort).
+    db.query.mockResolvedValueOnce({ rows: [{ stand: 'test', version: '1.0.0' }] }); // staendeVon
+    einspielenAntworten('live');
+
+    const res = await request(verwaltung()).post('/api/apps/urlaub/schalten').send({ ziel: 'live' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.stand).toBe('live');
+    expect(res.body.data.version).toBe('1.0.0');
+  });
+
+  test('live schalten ohne Teststand ist 409 und keine stille Nullnummer', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] }); // staendeVon: nichts da
+    const res = await request(verwaltung()).post('/api/apps/urlaub/schalten').send({ ziel: 'live' });
+    expect(res.status).toBe(409);
+  });
+
+  test('ein anderes Ziel als live/zurueck ist ein 400', async () => {
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/schalten')
+      .send({ ziel: 'irgendwohin' });
+    expect(res.status).toBe(400);
+  });
+});
+
+/**
+ * Das externe Modell eines Flows (Phase D4).
+ *
+ * Die Zusage, die hier gehalten wird, ist eine einzige und die wichtigste: der
+ * Schluessel geht hinein und kommt nie wieder heraus -- nicht in der Antwort,
+ * nicht im Protokoll, nicht in einer Fehlermeldung.
+ */
+describe('Ein Flow rechnet extern (Phase D4)', () => {
+  const { logSecurityEvent } = require('../../src/utils/auditLog');
+
+  function flowGibtEs() {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'urlaub', name: 'Urlaub' }] }) // apps
+      .mockResolvedValueOnce({ rows: [] }) // app_staende
+      .mockResolvedValueOnce({ rows: [{ name: 'bericht', version: '1.0.0', definition: {} }] })
+      .mockResolvedValueOnce({ rows: [] }) // flow_settings (test)
+      .mockResolvedValueOnce({ rows: [] }) // app_flows live
+      .mockResolvedValueOnce({ rows: [] }); // flow_settings (live)
+  }
+
+  test('der Schluessel steht weder in der Antwort noch im Protokoll', async () => {
+    logSecurityEvent.mockClear();
+    flowGibtEs();
+    db.query.mockResolvedValueOnce({
+      rows: [
+        {
+          app_id: 'urlaub',
+          flow_name: 'bericht',
+          modell: null,
+          extern_anbieter: 'OpenAI',
+          extern_modell: 'gpt-4o',
+          extern_basis_url: 'https://api.openai.com/v1',
+          extern_endet_auf: 'ffff',
+        },
+      ],
+    });
+
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/modell')
+      .send({
+        extern: {
+          anbieter: 'OpenAI',
+          modell: 'gpt-4o',
+          basis_url: 'https://api.openai.com/v1',
+          schluessel: 'sk-geheim-ffff',
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.extern_endet_auf).toBe('ffff');
+    expect(JSON.stringify(res.body)).not.toContain('sk-geheim');
+    expect(JSON.stringify(logSecurityEvent.mock.calls)).not.toContain('sk-geheim');
+
+    // Verschluesselt in der Spalte, nicht im Klartext.
+    const [, werte] = db.query.mock.calls.at(-1);
+    expect(werte.some(w => Buffer.isBuffer(w))).toBe(true);
+    expect(werte).not.toContain('sk-geheim-ffff');
+  });
+
+  test('ein externes Modell ohne Adresse ist ein 400', async () => {
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/modell')
+      .send({ extern: { anbieter: 'OpenAI', modell: 'gpt-4o' } });
+    expect(res.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test('lokal und extern zugleich gibt es nicht: das Setzen raeumt das andere', async () => {
+    flowGibtEs();
+    db.query.mockResolvedValueOnce({ rows: [{ app_id: 'urlaub', flow_name: 'bericht' }] });
+
+    await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/modell')
+      .send({ modell: 'gemma4:e4b' });
+
+    const sql = db.query.mock.calls.at(-1)[0];
+    expect(sql).toMatch(/extern_anbieter = NULL/);
+    expect(sql).toMatch(/extern_schluessel = NULL/);
+  });
+});
+
+/**
  * /api/apps und die Auslieferung unter /apps/<id>/ (Phasen C3 und C4).
  *
  * Drei Dinge werden hier gehalten, die leicht auseinanderlaufen: dass jede
@@ -253,7 +479,11 @@ describe('/api/apps: wer darf was', () => {
     ['delete', '/api/apps/urlaub'],
     ['get', '/api/apps/urlaub/logs'],
     ['get', '/api/apps/urlaub/flows'],
+    ['get', '/api/apps/urlaub/flows/bericht'],
     ['put', '/api/apps/urlaub/flows/bericht/modell'],
+    ['get', '/api/apps/urlaub/laeufe'],
+    ['get', '/api/apps/urlaub/laeufe/7'],
+    ['post', '/api/apps/urlaub/schalten'],
   ])('%s %s: Mitarbeiter bekommt 403', async (verb, pfad) => {
     auth.__setUser(MITARBEITER);
     const res = await request(verwaltung())[verb](pfad).send({ version: '1.0.0' });
@@ -330,14 +560,14 @@ describe('/api/apps/meine', () => {
  *   4. der neue Schluessel
  *   5. der Stand
  */
-function einspielenAntworten() {
+function einspielenAntworten(stand = 'test') {
   db.query
     .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] })
     .mockResolvedValueOnce({ rows: [] })
     .mockResolvedValueOnce({ rowCount: 0 })
     .mockResolvedValueOnce({ rows: [{ id: 7 }] })
     .mockResolvedValueOnce({
-      rows: [{ app_id: 'urlaub', stand: 'test', version: '1.0.0', eingespielt_am: 'jetzt' }],
+      rows: [{ app_id: 'urlaub', stand, version: '1.0.0', eingespielt_am: 'jetzt' }],
     });
 }
 

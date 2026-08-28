@@ -22,7 +22,8 @@ Für die Flows einer App ist die **registrierte Zeile** die Wahrheit
 (`app_flows`, je App und Stand beim Einspielen angelegt) — sonst änderte sich
 der Flow eines laufenden Livestandes, sobald jemand unter dem Versionsordner
 etwas editiert. Sie werden über `/api/flows` weder gelesen noch geschrieben;
-was ein Administrator daran ändern darf, ist das **Modell**, und das steht in
+was ein Administrator daran ändern darf, ist das **Modell** — eines vom Gerät
+oder, seit Phase D4, eines bei einem Anbieter draußen —, und das steht in
 `flow_settings`. Alles Weitere dazu:
 [`APPS.md`](APPS.md#die-flows-einer-app-phase-c6) und
 [`APP-PAKET.md`](APP-PAKET.md).
@@ -112,6 +113,23 @@ der Rolle werden Kind-Schritte (`flow_run_steps.parent_step_id`); `modell` hält
 fest, welches Modell den Schritt getrieben hat. Live meldet der SSE-Strom jeden
 Schritt als `step_start`/`step_end` (die volle Schritt-Zeile, ohne Rohdaten;
 die lädt `?raw=1` nach).
+
+### Der Gedankengang (Phase D4)
+
+Ruft das Modell ein Werkzeug auf, sagt es fast immer auch, **warum** („Ich hole
+zuerst den Bericht der Woche, dann …"). Bis D4 fiel dieser Text weg: die
+Werkzeug-Schleife meldete nur die letzte Runde, die ohne Werkzeug-Aufruf. Im
+Protokoll stand damit eine Kette von Handgriffen ohne einen Satz dazu, und die
+Frage „warum hat der Flow das getan" ließ sich nicht beantworten.
+
+Seit D4 wird er als Schritt der Art `modell` mitgeschrieben (die Spalte kennt
+Migration 112 seit jeher) und im Ereignisstrom als `gedanke` gemeldet — ein
+eigenes Ereignis und nicht `text`: `text` ist die **Antwort** des Laufs, der
+Gedankengang ist sein Weg dorthin. Gelesen wird er in der App-Ansicht
+(Einstellungen → Apps → Läufe).
+
+Er entsteht nur, wo das Modell überhaupt frei entscheidet. Ein Flow mit einer
+festen `schritte`-Kette hat keinen; dort steht die Reihenfolge in der Datei.
 
 **`runden` je Rolle.** Eine Rolle erbt ohne eigene Angabe die
 `werkzeug_runden` des Flows, und zwar bei **jeder** Delegation. Mit

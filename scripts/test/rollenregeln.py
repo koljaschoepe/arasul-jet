@@ -47,7 +47,6 @@ OEFFENTLICH = {
     'GET /api/auth/session': 'Sitzungsprobe, antwortet 200 in beiden Faellen (Plan 023 C3)',
     'GET /api/auth/verify': 'Forward-Auth fuer Traefik; antwortet 401 statt zu werfen',
     'GET /api/system/heartbeat': 'Lebenszeichen fuer den Selbstheilungs-Agenten, ohne Sitzung',
-    'GET /api/system/setup-status': 'die Oberflaeche fragt es vor der Anmeldung',
     'GET /api/settings/password-requirements': 'die Passwortregeln stehen vor dem Passwortwechsel',
     'POST /api/events/webhook/self-healing': 'Webhook des Selbstheilungs-Agenten, gesichert ueber sein Geheimnis',
 }

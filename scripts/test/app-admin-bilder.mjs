@@ -1,0 +1,348 @@
+/**
+ * Die App-Ansicht im Browser: bestaetigen, lesen, umstellen. Abnahme A5,
+ * Phase D4 des Umbaus vom 26.08.2026.
+ *
+ * ZWEI MENSCHEN, ZWEI SITZUNGEN, EIN LAUF. Das ist der Grund, warum beide
+ * Teile in EINEM Skript stehen und nicht in zweien: der Lauf, den der
+ * Administrator am Ende liest, ist genau der, den der Mitarbeiter vorher
+ * bestaetigt hat. Zwei Skripte muessten ihn sich ueber die Befehlszeile
+ * zureichen, und dazwischen laege eine Wartezeit, die niemandem gehoert.
+ *
+ * WAS GEMESSEN WIRD, in dieser Reihenfolge:
+ *
+ *   1. Der MITARBEITER sieht die offene Freigabe auf seinem Dashboard (D2)
+ *      und bestaetigt sie. Die Zeile geht weg, ohne Neuladen.
+ *   2. Der ADMINISTRATOR oeffnet die App-Verwaltung in drei Breiten (390,
+ *      1024, 1440). Zu jeder: steht die Seite, rollt sie waagerecht, steht
+ *      etwas da, meldet die Konsole einen Fehler.
+ *   3. Bei 1440 px MIT OFFENER NOTIZSPALTE: die Seite bleibt ganz. Genau das
+ *      war der zweite Fund der D3-Abnahme -- die Namensspalte der Tabelle war
+ *      nicht zu sehen und nicht zu erreichen.
+ *   4. Die App-Ansicht: beide Staende mit Version und Zustand des Containers.
+ *   5. Der Lauf: Schritte, und der Gedankengang darunter.
+ *   6. Das Modell des Flows: auf ein anderes aus der Kurzliste umstellen, in
+ *      der Liste nachsehen, wieder auf das Paket zurueck.
+ *
+ * KEINE EIGENE ANMELDUNG. Der Aufrufer legt beide Sitzungen als `storageState`
+ * ab (`arasul_sitzung_bauen`). Die Drossel laesst zehn Anmeldungen je
+ * Viertelstunde und IP durch, und dieser Lauf soll keine davon verbrauchen.
+ *
+ * Aufruf (der Regelfall ist ueber `app-admin-abnahme.sh`):
+ *   ARASUL_URL=... ARASUL_SITZUNG_ADMIN=... ARASUL_SITZUNG_MITARBEITER=... \
+ *   ARASUL_APP=beispielapp ARASUL_FLOW=freigabe ARASUL_LAUF=42 \
+ *   ARASUL_FREIGABE=7 ARASUL_MODELL=gemma4:e4b \
+ *     node scripts/test/app-admin-bilder.mjs
+ *
+ * Die Bilder landen unter `docs/plans/audits/<datum>-app-admin-d4/`.
+ *
+ * Rueckgabe 0, wenn jede Frage gruen war, sonst 1.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+
+const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const URL = process.env.ARASUL_URL || 'https://localhost:8443';
+const SITZUNG_ADMIN = process.env.ARASUL_SITZUNG_ADMIN || '';
+const SITZUNG_MITARBEITER = process.env.ARASUL_SITZUNG_MITARBEITER || '';
+const APP = process.env.ARASUL_APP || 'beispielapp';
+const FLOW = process.env.ARASUL_FLOW || 'freigabe';
+const LAUF = process.env.ARASUL_LAUF || '';
+const FREIGABE = process.env.ARASUL_FREIGABE || '';
+/** Das Modell, auf das umgestellt und von dem zurueckgenommen wird. */
+const MODELL = process.env.ARASUL_MODELL || '';
+
+const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
+const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-app-admin-d4`);
+
+/** Der Weg zur Sektion. Der Suchteil geht in den Tab-Router hinein (B1). */
+const SEITE = `${URL}/workspace/settings?tab=apps`;
+
+/** Die drei Breiten aus dem Auftrag der Phase (wie in D1, D2 und D3). */
+const BREITEN = [
+  { px: 390, hoehe: 844, name: 'telefon' },
+  { px: 1024, hoehe: 768, name: 'tablet' },
+  { px: 1440, hoehe: 900, name: 'arbeitsplatz' },
+];
+
+const ergebnisse = [];
+const pruefe = (was, ok, detail = '') => {
+  ergebnisse.push({ was, ok });
+  console.log(`${ok ? 'gruen' : 'ROT  '}  ${was}${detail ? `  (${detail})` : ''}`);
+};
+
+for (const [name, wert] of Object.entries({ LAUF, FREIGABE, MODELL })) {
+  if (!wert) {
+    console.log(`ROT    ${name} fehlt -- der Aufrufer setzt es.`);
+    process.exit(1);
+  }
+}
+for (const datei of [SITZUNG_ADMIN, SITZUNG_MITARBEITER]) {
+  if (!datei || !fs.existsSync(datei)) {
+    console.log('ROT    Eine Sitzung fehlt -- der Aufrufer baut beide.');
+    process.exit(1);
+  }
+}
+
+fs.mkdirSync(ZIEL, { recursive: true });
+
+const browser = await chromium.launch({ headless: true });
+
+/** Wartet auf einen Waehler und sagt ja oder nein, statt zu werfen. */
+const steht = (seite, waehler, grenze = 20000) =>
+  seite
+    .locator(waehler)
+    .waitFor({ timeout: grenze })
+    .then(() => true)
+    .catch(() => false);
+
+// ---------------------------------------------------------------------------
+// 1. Der Mitarbeiter bestaetigt
+// ---------------------------------------------------------------------------
+const ctxM = await browser.newContext({
+  ignoreHTTPSErrors: true,
+  storageState: SITZUNG_MITARBEITER,
+  viewport: { width: 1440, height: 900 },
+});
+try {
+  const seite = await ctxM.newPage();
+  await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const shell = await steht(seite, '[data-testid="workspace-shell"]', 30000);
+  pruefe('Der Mitarbeiter kommt in seine Shell', shell);
+
+  const knopf = `[data-testid="freigabe-${FREIGABE}-bestaetigen"]`;
+  const knopfDa = shell && (await steht(seite, knopf, 30000));
+  pruefe(`Die Freigabe ${FREIGABE} steht auf seinem Dashboard`, knopfDa);
+
+  if (knopfDa) {
+    await seite.screenshot({ path: path.join(ZIEL, 'mitarbeiter-freigabe-offen.png') });
+    await seite.locator(knopf).click();
+    // OHNE NEULADEN: die Zeile geht weg, weil die Abfrage entwertet und neu
+    // geholt wurde (D2). Ein `reload()` verstecke genau das.
+    const weg = await seite
+      .locator(`[data-testid="freigabe-${FREIGABE}"]`)
+      .waitFor({ state: 'detached', timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+    pruefe('Er bestaetigt, und die Zeile ist weg -- ohne Neuladen', weg);
+  }
+} finally {
+  await ctxM.close();
+}
+
+// ---------------------------------------------------------------------------
+// 2. Der Administrator liest und stellt um
+// ---------------------------------------------------------------------------
+const ctxA = await browser.newContext({
+  ignoreHTTPSErrors: true,
+  storageState: SITZUNG_ADMIN,
+  viewport: { width: 1440, height: 900 },
+});
+const seite = await ctxA.newPage();
+let konsole = [];
+seite.on('console', m => {
+  if (m.type() === 'error') konsole.push(m.text().slice(0, 200));
+});
+
+try {
+  // --- Die drei Breiten ------------------------------------------------------
+  for (const breite of BREITEN) {
+    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
+    konsole = [];
+    await seite.goto(SEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    const shell = await steht(seite, '[data-testid="workspace-shell"]', 30000);
+    pruefe(`${breite.px} px: die Shell steht`, shell);
+
+    const seiteDa = shell && (await steht(seite, '[data-testid="apps-seite"]'));
+    pruefe(`${breite.px} px: die App-Verwaltung steht`, seiteDa);
+
+    if (seiteDa) {
+      // Die Seite holt die Liste; ohne diese Pause zeigt das Bild ein Skelett.
+      await seite.waitForTimeout(1500);
+
+      const rollt = await seite.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+      );
+      pruefe(`${breite.px} px: die Seite rollt nicht waagerecht`, !rollt);
+
+      const text = await seite.evaluate(() => document.body.innerText.trim().length);
+      pruefe(`${breite.px} px: es steht etwas da`, text > 20, `${text} Zeichen`);
+    }
+
+    const datei = path.join(ZIEL, `${breite.px}-${breite.name}.png`);
+    await seite.screenshot({ path: datei, fullPage: false });
+    console.log(`  Bild: ${path.relative(WURZEL, datei)}`);
+
+    pruefe(
+      `${breite.px} px: keine Fehler in der Konsole`,
+      konsole.length === 0,
+      konsole.slice(0, 2).join(' | ')
+    );
+  }
+
+  // --- Der zweite Fund der D3-Abnahme ----------------------------------------
+  // Bei 1440 px MIT offener Notizspalte war die Einstellungsseite in der Mitte
+  // abgeschnitten: die Namensspalte der Tabelle war nicht zu sehen und ueber
+  // keinen Balken zu erreichen. Gemessen wird beides -- dass die Notizspalte
+  // wirklich offen ist (sonst misst die Zeile nichts) und dass der Inhalt der
+  // Mitte in seiner Spalte bleibt.
+  await seite.setViewportSize({ width: 1440, height: 900 });
+  await seite.goto(SEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await steht(seite, '[data-testid="apps-seite"]', 30000);
+  await seite.waitForTimeout(1500);
+
+  const notizenOffen = await seite
+    .locator('#notizen-feld')
+    .isVisible()
+    .catch(() => false);
+  if (!notizenOffen) {
+    pruefe('Die Notizspalte ist offen (sonst misst die naechste Zeile nichts)', false);
+  } else {
+    pruefe('Die Notizspalte ist offen', true);
+    const ganz = await seite.evaluate(() => {
+      const seite = document.querySelector('[data-testid="apps-seite"]');
+      if (!seite) return null;
+      const kasten = seite.getBoundingClientRect();
+      // Der Inhalt der Mitte darf nicht links aus seiner Spalte herauslaufen
+      // (der Fund) und auch nicht rechts abgeschnitten sein.
+      return {
+        links: Math.round(kasten.left),
+        rechts: Math.round(kasten.right),
+        fensterbreite: window.innerWidth,
+        ueberlauf: seite.scrollWidth - seite.clientWidth,
+      };
+    });
+    pruefe(
+      '1440 px mit Notizen: die App-Verwaltung bleibt ganz',
+      ganz !== null && ganz.links >= 0 && ganz.rechts <= ganz.fensterbreite && ganz.ueberlauf <= 1,
+      ganz ? `links ${ganz.links}, rechts ${ganz.rechts} von ${ganz.fensterbreite}` : 'nicht da'
+    );
+  }
+
+  // --- Die App-Ansicht -------------------------------------------------------
+  const zeile = await steht(seite, `[data-testid="app-oeffnen-${APP}"]`);
+  pruefe(`Die Liste nennt ${APP}`, zeile);
+
+  if (zeile) {
+    await seite.locator(`[data-testid="app-oeffnen-${APP}"]`).click();
+    const ansicht = await steht(seite, `[data-testid="app-ansicht-${APP}"]`, 30000);
+    pruefe('Ihre Ansicht geht auf', ansicht);
+
+    if (ansicht) {
+      await seite.waitForTimeout(1500);
+      const stand = await seite
+        .locator('[data-testid="stand-live"]')
+        .innerText()
+        .catch(() => '');
+      pruefe('Der Livestand nennt seine Version', /\d+\.\d+\.\d+/.test(stand), stand.split('\n')[1]);
+      // „laeuft" deckt beide gesunden Faelle ab: mit und ohne
+      // Gesundheitspruefung im Manifest.
+      pruefe('und den Zustand seines Containers', /läuft|steht|kein Backend/.test(stand));
+      await seite.screenshot({ path: path.join(ZIEL, 'app-ansicht.png'), fullPage: true });
+    }
+  }
+
+  // --- Der Lauf mit Schritten und Gedankengang -------------------------------
+  const laufKnopf = `[data-testid="lauf-oeffnen-${LAUF}"]`;
+  const laufDa = await steht(seite, laufKnopf, 30000);
+  pruefe(`Der Lauf ${LAUF} steht in der Liste`, laufDa);
+
+  if (laufDa) {
+    await seite.locator(laufKnopf).click();
+    const schritte = await steht(seite, '[data-testid="lauf-schritte"]', 30000);
+    pruefe('Der Lauf zeigt seine Schritte', schritte);
+
+    if (schritte) {
+      const anzahl = await seite
+        .locator('[data-testid="lauf-schritte"]')
+        .getAttribute('data-schritte');
+      pruefe('und es sind welche da', Number(anzahl) > 0, `${anzahl} Schritte`);
+
+      // Der Gedankengang ist ein Schritt der Art `modell` (D4). Er entsteht
+      // nur, wenn das Modell neben einem Werkzeug-Aufruf auch etwas gesagt hat
+      // -- bei einer festen Schritt-Kette wie `freigabe` muss es das nicht.
+      // Deshalb wird hier gemeldet, was da ist, und nichts erzwungen: eine
+      // rote Zeile waere eine Aussage ueber das Modell, nicht ueber das Geraet.
+      const gedanken = await seite.locator('[data-schritt-art="modell"]').count();
+      console.log(
+        gedanken > 0
+          ? `gruen  Der Lauf zeigt einen Gedankengang  (${gedanken} Schritt(e) der Art modell)`
+          : '  --   Kein Gedankengang in diesem Lauf  (feste Schritt-Kette, das Modell redet nur am Ende)'
+      );
+      if (gedanken > 0) {
+        ergebnisse.push({ was: 'Gedankengang', ok: true });
+      }
+
+      await seite.screenshot({ path: path.join(ZIEL, 'lauf-mit-schritten.png'), fullPage: true });
+    }
+
+    await seite.locator('[data-testid="lauf-zurueck"]').click();
+    await steht(seite, `[data-testid="app-ansicht-${APP}"]`, 20000);
+  }
+
+  // --- Das Modell umstellen und zurueck --------------------------------------
+  // DIE MESSUNG DER PHASE. Beide Richtungen, denn der Rueckweg ist der, den
+  // man selten geht und der deshalb kaputtgeht.
+  const modellKnopf = `[data-testid="flow-modell-${FLOW}"]`;
+  const flowDa = await steht(seite, modellKnopf, 20000);
+  pruefe(`Der Flow ${FLOW} steht in der App-Ansicht`, flowDa);
+
+  if (flowDa) {
+    await seite.locator(modellKnopf).click();
+    const dialog = await steht(seite, '[data-testid="modell-quelle-lokal"]');
+    pruefe('Der Modell-Dialog geht auf', dialog);
+
+    if (dialog) {
+      await seite.locator('[data-testid="modell-quelle-lokal"]').click();
+      await seite.locator('[data-testid="modell-lokal"]').selectOption(MODELL);
+      await seite.screenshot({ path: path.join(ZIEL, 'modell-dialog.png') });
+      await seite.locator('[data-testid="modell-absenden"]').click();
+
+      // OHNE NEULADEN: die Zeile des Flows traegt danach das neue Modell, weil
+      // die Abfrage entwertet und neu geholt wurde.
+      const umgestellt = await seite
+        .locator(`[data-testid="flow-${FLOW}"]`)
+        .filter({ hasText: MODELL })
+        .waitFor({ timeout: 30000 })
+        .then(() => true)
+        .catch(() => false);
+      pruefe(`Der Flow rechnet jetzt mit ${MODELL} -- ohne Neuladen`, umgestellt);
+      await seite.screenshot({ path: path.join(ZIEL, 'modell-umgestellt.png'), fullPage: true });
+
+      // Und zurueck.
+      await seite.locator(modellKnopf).click();
+      await steht(seite, '[data-testid="modell-quelle-paket"]');
+      await seite.locator('[data-testid="modell-quelle-paket"]').click();
+      await seite.locator('[data-testid="modell-absenden"]').click();
+
+      const zurueck = await seite
+        .locator(`[data-testid="flow-${FLOW}"]`)
+        .filter({ hasText: MODELL })
+        .waitFor({ state: 'detached', timeout: 30000 })
+        .then(() => true)
+        .catch(async () => {
+          // `detached` greift nicht, wenn die Zeile bleibt und nur ihr Text
+          // wechselt. Dann zaehlt der Text.
+          const text = await seite
+            .locator(`[data-testid="flow-${FLOW}"]`)
+            .innerText()
+            .catch(() => '');
+          return !text.includes(MODELL);
+        });
+      pruefe('Die Ueberschreibung laesst sich zuruecknehmen', zurueck);
+      await seite.screenshot({ path: path.join(ZIEL, 'modell-zurueck.png'), fullPage: true });
+    }
+  }
+} finally {
+  await ctxA.close();
+  await browser.close();
+}
+
+const rot = ergebnisse.filter(e => !e.ok).length;
+console.log('');
+console.log(`${ergebnisse.length - rot} von ${ergebnisse.length} gruen`);
+console.log(`Bilder unter ${path.relative(WURZEL, ZIEL)}/`);
+process.exit(rot === 0 ? 0 : 1);

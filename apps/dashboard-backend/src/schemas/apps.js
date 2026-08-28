@@ -280,18 +280,120 @@ const AppFlowParams = z.object({
 });
 
 /**
- * Das Modell, mit dem ein Flow auf DIESEM Geraet laufen soll (Phase C6).
+ * Das Modell, mit dem ein Flow auf DIESEM Geraet laufen soll (Phase C6, um
+ * das externe Modell erweitert in D4).
  *
- * `null` nimmt die Ueberschreibung zurueck: dann gilt wieder, was im
- * Frontmatter des Flows steht. Deshalb `.nullable()` und nicht `.optional()`
- * -- „das Feld fehlt" und „setz es auf nichts" muessen sich unterscheiden
- * lassen, sonst gaebe es keinen Weg zurueck.
+ * ZWEI ARME, EINE ENTSCHEIDUNG. Die Frage lautet "welches Modell treibt diesen
+ * Flow", und sie hat drei Antworten:
+ *
+ *   {"modell": "gemma4:e4b"}   eines vom Geraet, aus der Kurzliste (C8)
+ *   {"modell": null}           keines -- es gilt wieder das Paket
+ *   {"extern": {...}}          eines bei einem Anbieter draussen
+ *
+ * Ein Weg und nicht zwei, weil die drei einander ausschliessen: ein Flow
+ * laeuft auf EINEM Modell. Zwei Endpunkte nebeneinander liessen offen, was
+ * gilt, wenn beide beschickt wurden, und die Antwort darauf stuende dann im
+ * Service statt im Vertrag.
+ *
+ * `null` und nicht `.optional()`: „das Feld fehlt" und „setz es auf nichts"
+ * muessen sich unterscheiden lassen, sonst gaebe es keinen Weg zurueck.
  */
-const FlowModellBody = z
+const ExternesModell = z
   .object({
-    modell: z.string().trim().max(100).nullable(),
+    /** Der Name des Anbieters, wie ihn ein Mensch liest ("OpenAI", "Azure"). */
+    anbieter: z.string().trim().min(1, 'Anbieter fehlt').max(60),
+    /** Der Name des Modells BEIM ANBIETER, nicht am Geraet. */
+    modell: z.string().trim().min(1, 'Modellname fehlt').max(120),
+    /**
+     * Die OpenAI-kompatible Basis-Adresse OHNE `/chat/completions`, z. B.
+     * `https://api.openai.com/v1`. Keine Anbieter-Liste im Code: ein Kunde
+     * waehlt sein eigenes Gateway an, und eine gepflegte Liste waere am Tag
+     * ihres Schreibens veraltet (dieselbe Regel wie in
+     * `services/llm/extern/providerRegistry.js`).
+     */
+    basis_url: z
+      .string()
+      .trim()
+      .min(1, 'Basis-Adresse fehlt')
+      .max(300)
+      .regex(/^https?:\/\//i, 'Die Basis-Adresse beginnt mit http:// oder https://'),
+    /**
+     * Der Schluessel im Klartext -- einmal, auf dem Weg hinein. Er wird
+     * verschluesselt abgelegt und kommt nie wieder heraus (`flow_settings`).
+     * FEHLT ER, bleibt ein hinterlegter stehen: wer nur den Modellnamen
+     * aendert, soll ihn nicht erneut abtippen muessen, und er kann es auch
+     * nicht -- er sieht ihn nirgends.
+     */
+    schluessel: z.string().trim().min(1).max(300).optional(),
   })
   .strict();
+
+const FlowModellBody = z.union(
+  [
+    z.object({ modell: z.string().trim().max(100).nullable() }).strict(),
+    z.object({ extern: ExternesModell }).strict(),
+  ],
+  {
+    // Zod meldet fuer eine Vereinigung nur „Invalid input" und haengt die
+    // Fehler beider Arme daran. Der Fehlerbehandler nimmt den ERSTEN Befund
+    // (`middleware/validate.js`, `summarizeIssues`), und der lautete damit
+    // „expected string, received undefined" -- eine Auskunft ueber den einen
+    // Arm, nicht ueber die Frage. Hier steht sie ganz.
+    error:
+      'Erwartet wird {"modell": "<name>"}, {"modell": null} (zurueck zum Paket) ' +
+      'oder {"extern": {anbieter, modell, basis_url, schluessel?}}. Beides zugleich gibt es nicht.',
+  }
+);
+
+/**
+ * Die Laeufe einer App: welcher Stand, welcher Flow, wie viele (Phase D4).
+ *
+ * OHNE Vorgabe fuer `stand`, im Unterschied zu `LogsQuery`. Ein Container hat
+ * je Stand einen eigenen Logstrom, ein Lauf dagegen ist Geschichte: die Frage
+ * "was hat diese App getan" meint zuerst beide Staende, und wer nur den einen
+ * sucht, sagt es.
+ */
+const LaeufeQuery = z
+  .object({
+    stand: Stand.optional(),
+    flow: z
+      .string()
+      .trim()
+      .regex(FLOW_NAME_RE, 'Flow-Name: Kleinbuchstaben, Ziffern und Bindestriche')
+      .optional(),
+    status: z
+      .enum(['laeuft', 'wartend', 'fertig', 'fehler', 'abgebrochen', 'abgelaufen'])
+      .optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+  })
+  .strict();
+
+/** Ein Lauf einer App. Die Nummer kommt aus der Adresse, also als Text. */
+const AppLaufParams = z.object({
+  id: AppId,
+  runId: z.coerce.number().int().positive('Lauf-Nummer ist eine positive Zahl'),
+});
+
+/**
+ * Die Rohdaten der Schritte mitliefern? (Phase D4, wie `?raw=1` bei den Laeufen
+ * der Plattform.) Sie koennen je Subagent einige Dutzend Kilobyte sein.
+ */
+const LaufQuery = z
+  .object({
+    raw: z
+      .enum(['0', '1', 'true', 'false'])
+      .default('0')
+      .transform(v => v === '1' || v === 'true'),
+  })
+  .strict();
+
+/**
+ * Welche Fassung eines Flows gelesen werden soll (Phase D4).
+ *
+ * Vorgabe `live`, wie bei den Logs: der Livestand ist die Fassung, die gilt.
+ * Wer den Teststand meint, sagt es -- er ist die Ausnahme, nicht der Normalfall.
+ */
+const FlowQuery = z.object({ stand: Stand.default('live') }).strict();
 
 const LogsQuery = z
   .object({
@@ -324,7 +426,11 @@ module.exports = {
   AppManifest,
   AppParams,
   AppFlowParams,
+  AppLaufParams,
   FlowModellBody,
+  FlowQuery,
+  LaeufeQuery,
+  LaufQuery,
   EinspielenBody,
   SchaltenBody,
   EntfernenQuery,

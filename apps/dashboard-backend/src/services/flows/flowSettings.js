@@ -21,10 +21,41 @@
  * Flow, nicht der Fassung, mit der jemand gerade testet. Je Stand eine Zeile
  * hiesse: wer im Teststand einstellt, stellt im Livestand nichts ein -- und
  * merkt es erst beim Schalten.
+ *
+ * SEIT PHASE D4 GIBT ES ZWEI ARTEN VON UEBERSCHREIBUNG, und sie schliessen
+ * einander aus:
+ *
+ *   modell        ein Modell aus der Kurzliste des Geraets (C8). Es rechnet
+ *                 hier, auf der GPU, und die Daten bleiben im Haus.
+ *   extern_*      ein Modell bei einem Anbieter draussen: Name, Adresse,
+ *                 Schluessel. Der Flow schickt seinen Prompt aus dem Haus.
+ *
+ * Beides zugleich gaebe es nicht: ein Flow laeuft auf EINEM Modell. Deshalb
+ * raeumt jedes Setzen das jeweils andere Feld -- eine Zeile, in der beides
+ * steht, waere eine Frage ohne Antwort ("welches gilt?"), und die Antwort
+ * darauf faende jeder Leser ein bisschen anders.
+ *
+ * DER SCHLUESSEL LIEGT VERSCHLUESSELT (AES-256-GCM aus `utils/tokenCrypto.js`,
+ * Schluessel aus JWT_SECRET) und verlaesst dieses Modul NIE im Klartext. Was
+ * die Oberflaeche zeigen darf, sind die letzten vier Zeichen; sie stehen als
+ * eigene Spalte da, damit die Anzeige nichts entschluesseln muss. Nur
+ * `externerZugang` gibt den Klartext heraus, und sein einziger Aufrufer ist
+ * der Runner, kurz bevor er das Modell anwaehlt.
  */
 
 const db = require('../../database');
 const logger = require('../../utils/logger');
+const { encryptToken, decryptToken } = require('../../utils/tokenCrypto');
+const { ValidationError } = require('../../utils/errors');
+
+/**
+ * Die Spalten, die eine Ansicht sehen darf. `extern_schluessel` steht bewusst
+ * nicht dabei -- er ist an keiner Stelle Teil einer Antwort, und eine Abfrage,
+ * die ihn gar nicht erst holt, kann ihn auch nicht versehentlich durchreichen.
+ */
+const SICHTBAR = `app_id, flow_name, modell,
+            extern_anbieter, extern_modell, extern_basis_url, extern_endet_auf,
+            geaendert_am, geaendert_von`;
 
 /**
  * Die Einstellung zu einem Flow, oder `null`, wenn der Administrator nichts
@@ -32,8 +63,7 @@ const logger = require('../../utils/logger');
  */
 async function hole({ appId, flowName }) {
   const { rows } = await db.query(
-    `SELECT app_id, flow_name, modell, extern_anbieter, extern_modell, extern_endet_auf,
-            geaendert_am, geaendert_von
+    `SELECT ${SICHTBAR}
        FROM public.flow_settings
       WHERE app_id = $1 AND flow_name = $2`,
     [appId, flowName]
@@ -50,7 +80,7 @@ async function hole({ appId, flowName }) {
  */
 async function listeFuer(appId) {
   const { rows } = await db.query(
-    `SELECT flow_name, modell, extern_anbieter, extern_modell, extern_endet_auf
+    `SELECT ${SICHTBAR}
        FROM public.flow_settings
       WHERE app_id = $1`,
     [appId]
@@ -65,13 +95,17 @@ async function listeFuer(appId) {
  * lassen. Der Unterschied ist nicht kosmetisch: eine Zeile mit `modell IS
  * NULL` und keine Zeile bedeuten dasselbe ("es gilt das Paket"), und zwei
  * Schreibweisen fuer dieselbe Aussage sind eine Stelle, an der ein
- * Vergleich eines Tages danebengreift. Solange `modell` das einzige Feld ist,
- * das jemand setzt, ist die Zeile ihr eigener Inhalt.
+ * Vergleich eines Tages danebengreift.
  *
- * Sobald die D-Phasen die `extern_`-Felder fuellen, gilt das nicht mehr -- dann
- * ist "kein Modell, aber ein externer Anbieter" ein gueltiger Zustand. Der
- * Aufruf hier bekommt an dieser Stelle dann eine Bedingung mehr, und das ist
- * der Grund, warum diese Ueberlegung hier steht und nicht nur in einem Commit.
+ * SEIT D4 NIMMT `null` AUCH DAS EXTERNE MODELL MIT, und das ist die
+ * Bedingung, die C6 an dieser Stelle angekuendigt hat. "Zurueck zum Paket"
+ * heisst: es gilt wieder, was im Frontmatter steht -- und ein hinterlegter
+ * Anbieter, der die Zeile ueberlebte, waere genau das nicht. Ein Schluessel,
+ * den niemand mehr sieht und der trotzdem noch wirkt, ist ausserdem der
+ * Anfang einer unangenehmen Ueberraschung.
+ *
+ * Ein gesetztes lokales Modell raeumt die `extern_`-Felder aus demselben
+ * Grund: ein Flow laeuft auf EINEM Modell.
  *
  * @param {{appId: string, flowName: string, modell: string|null, durch: number|null}} was
  * @returns {Promise<object|null>} die gespeicherte Zeile, oder null bei Ruecknahme
@@ -93,13 +127,119 @@ async function setzeModell({ appId, flowName, modell, durch = null }) {
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (app_id, flow_name) DO UPDATE
         SET modell = EXCLUDED.modell,
+            extern_anbieter = NULL,
+            extern_modell = NULL,
+            extern_basis_url = NULL,
+            extern_schluessel = NULL,
+            extern_endet_auf = NULL,
             geaendert_am = NOW(),
             geaendert_von = EXCLUDED.geaendert_von
-     RETURNING app_id, flow_name, modell, geaendert_am, geaendert_von`,
+     RETURNING ${SICHTBAR}`,
     [appId, flowName, modell, durch]
   );
   logger.info(`Flow-Modell gesetzt: ${appId}/${flowName} -> ${modell}`);
   return rows[0];
 }
 
-module.exports = { hole, listeFuer, setzeModell };
+/**
+ * Einen Flow auf ein externes Modell umstellen (Phase D4).
+ *
+ * Vier Angaben, drei davon Pflicht: wer rechnet (`anbieter`, ein Name fuer
+ * Menschen), was rechnet (`modell`, der Name beim Anbieter) und wohin
+ * (`basisUrl`, die OpenAI-kompatible Adresse ohne `/chat/completions`). Der
+ * Schluessel ist optional -- ein Gateway im eigenen Netz verlangt keinen, und
+ * einen zu erzwingen hiesse, eine Angabe zu erfinden.
+ *
+ * OHNE `schluessel` BLEIBT EIN HINTERLEGTER STEHEN. Der Administrator, der nur
+ * den Modellnamen aendert, soll den Schluessel nicht erneut abtippen muessen --
+ * und er KANN es auch nicht, denn er bekommt ihn nirgends zu sehen. Wer ihn
+ * wirklich loswerden will, schaltet den Flow auf das Paket zurueck
+ * (`setzeModell(null)`).
+ *
+ * @param {{appId: string, flowName: string, anbieter: string, modell: string,
+ *          basisUrl: string, schluessel: string|null, durch: number|null}} was
+ * @returns {Promise<object>} die gespeicherte Zeile, ohne Schluessel
+ */
+async function setzeExtern({
+  appId,
+  flowName,
+  anbieter,
+  modell,
+  basisUrl,
+  schluessel = null,
+  durch = null,
+}) {
+  const adresse = String(basisUrl || '')
+    .trim()
+    .replace(/\/+$/, '');
+  // Die Prueferei steht schon im Zod-Schema der Route. Hier steht sie noch
+  // einmal, weil dieses Modul auch von Skripten und Tests gerufen wird und
+  // eine halb gefuellte Zeile im Betrieb ein Flow ist, der nicht laufen kann.
+  if (!anbieter || !modell || !adresse) {
+    throw new ValidationError('Ein externes Modell braucht Anbieter, Modell und Basis-Adresse.');
+  }
+  if (!/^https?:\/\//i.test(adresse)) {
+    throw new ValidationError('Die Basis-Adresse beginnt mit http:// oder https://.');
+  }
+
+  const klartext = schluessel == null ? null : String(schluessel).trim();
+  const verschluesselt = klartext ? encryptToken(klartext) : null;
+  const endetAuf = klartext ? klartext.slice(-4) : null;
+
+  const { rows } = await db.query(
+    `INSERT INTO public.flow_settings
+       (app_id, flow_name, modell, extern_anbieter, extern_modell, extern_basis_url,
+        extern_schluessel, extern_endet_auf, geaendert_von)
+     VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (app_id, flow_name) DO UPDATE
+        SET modell = NULL,
+            extern_anbieter = EXCLUDED.extern_anbieter,
+            extern_modell = EXCLUDED.extern_modell,
+            extern_basis_url = EXCLUDED.extern_basis_url,
+            -- COALESCE und nicht EXCLUDED: ohne neuen Schluessel bleibt der
+            -- alte stehen. Siehe Kopf dieser Funktion.
+            extern_schluessel =
+              COALESCE(EXCLUDED.extern_schluessel, public.flow_settings.extern_schluessel),
+            extern_endet_auf =
+              COALESCE(EXCLUDED.extern_endet_auf, public.flow_settings.extern_endet_auf),
+            geaendert_am = NOW(),
+            geaendert_von = EXCLUDED.geaendert_von
+     RETURNING ${SICHTBAR}`,
+    [appId, flowName, anbieter, modell, adresse, verschluesselt, endetAuf, durch]
+  );
+  logger.info(
+    `Flow-Modell extern gesetzt: ${appId}/${flowName} -> ${anbieter}/${modell} (${adresse})`
+  );
+  return rows[0];
+}
+
+/**
+ * Der Zugang zum externen Modell eines Flows, MIT Schluessel im Klartext.
+ *
+ * Die einzige Stelle, die entschluesselt, und sie hat genau einen Aufrufer:
+ * `services/app/appFlows.lade`, kurz bevor der Runner das Modell anwaehlt.
+ * Alles andere in diesem Modul gibt den Schluessel nicht heraus.
+ *
+ * @returns {Promise<{anbieter:string, modell:string, basisUrl:string, schluessel:string|null}|null>}
+ *   null, wenn dieser Flow lokal rechnet
+ */
+async function externerZugang({ appId, flowName }) {
+  const { rows } = await db.query(
+    `SELECT extern_anbieter, extern_modell, extern_basis_url, extern_schluessel
+       FROM public.flow_settings
+      WHERE app_id = $1 AND flow_name = $2`,
+    [appId, flowName]
+  );
+  const zeile = rows[0];
+  if (!zeile || !zeile.extern_anbieter) {
+    return null;
+  }
+  return {
+    anbieter: zeile.extern_anbieter,
+    modell: zeile.extern_modell,
+    basisUrl: zeile.extern_basis_url,
+    schluessel: zeile.extern_schluessel ? decryptToken(zeile.extern_schluessel) : null,
+  };
+}
+
+module.exports = { hole, listeFuer, setzeModell, setzeExtern, externerZugang };

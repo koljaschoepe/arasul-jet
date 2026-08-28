@@ -500,6 +500,36 @@ curl -sk -X DELETE https://<geraet>/api/apps/urlaub -H "authorization: Bearer $T
 welche Sprachmodelle sie braucht und welche Flows. Fehlt eines, laeuft die App
 trotzdem an — das Geraet installiert nichts von allein nach.
 
+#### Dasselbe im Browser
+
+Seit August 2026 muessen Sie dafuer keine Befehlszeile mehr aufmachen.
+**Einstellungen → Apps** zeigt jede App am Geraet mit beiden Fassungen; ein
+Klick darauf oeffnet ihre Ansicht:
+
+| Abschnitt   | Was dort steht                                                                                                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Staende** | Version je Stand, ob der Container laeuft und ob er sich gesund meldet. Darunter **Live schalten** (nimmt die Version aus dem Teststand) und **Zurueck** (die, die vorher live war). |
+| **Tester**  | Wer diese App sieht, und wer davon zusaetzlich den Teststand bekommt.                                                                                                                |
+| **Flows**   | Was die App kann, und mit welchem Modell. Ein Klick oeffnet die Flow-Datei samt Auftrag an das Modell.                                                                               |
+| **Laeufe**  | Was die App getan hat. Ein Klick oeffnet den Lauf mit seinen Schritten und dem Gedankengang dazwischen.                                                                              |
+| **Logs**    | Die letzten 200 Zeilen des Containers, auf Klick.                                                                                                                                    |
+
+**Das Modell eines Flows umstellen.** Der Knopf „Modell" neben einem Flow
+fragt, womit er rechnen soll: mit dem, was im Paket steht, mit einem Modell von
+diesem Geraet, oder mit einem bei einem Anbieter draussen. Fuer den letzten Fall
+brauchen Sie den Namen des Anbieters, den Modellnamen dort, die Adresse (die
+OpenAI-kompatible Basis-Adresse, z. B. `https://api.openai.com/v1`) und
+gegebenenfalls einen Schluessel.
+
+> **Der Prompt dieses Flows verlaesst dann das Haus.** Alles andere an Arasul
+> laeuft lokal; ein Flow mit einem externen Modell ist die eine Ausnahme, und
+> Sie treffen sie bewusst, je Flow. Wer sie zuruecknehmen will, waehlt wieder
+> „Aus dem Paket" — das raeumt auch den hinterlegten Schluessel weg.
+
+Der Schluessel wird verschluesselt abgelegt und danach nie wieder angezeigt;
+sichtbar bleiben nur seine letzten vier Zeichen. Wollen Sie nur den Modellnamen
+aendern, lassen Sie das Schluesselfeld leer — der hinterlegte bleibt stehen.
+
 ### Anmelden
 
 Angemeldet wird mit **Benutzername oder E-Mail-Adresse** und Passwort. Beides

@@ -297,59 +297,25 @@ Returns device-specific thresholds for metrics based on auto-detected hardware.
 
 Supported devices: Jetson AGX Orin, Orin Nano, Orin NX, Xavier, Nano, Generic Linux
 
-### System Setup
+### System Setup — gestrichen (Phase D4)
 
-| Method | Endpoint                     | Auth     | Description                            |
-| ------ | ---------------------------- | -------- | -------------------------------------- |
-| GET    | `/api/system/setup-status`   | None     | Check if initial setup is complete     |
-| POST   | `/api/system/setup-complete` | Required | Mark setup as complete with settings   |
-| PUT    | `/api/system/setup-step`     | Required | Update current setup step and settings |
-| POST   | `/api/system/setup-skip`     | Required | Mark setup as skipped                  |
+Hier standen vier Wege des Einrichtungsassistenten: `GET /api/system/setup-status`,
+`POST /api/system/setup-complete`, `PUT /api/system/setup-step`,
+`POST /api/system/setup-skip`. Sie gibt es seit dem 28.08.2026 nicht mehr, und
+mit ihnen sind die Spalten `setup_*` aus `system_settings` gefallen
+(Migration 179).
 
-**GET /api/system/setup-status:**
+Der Assistent fragte nach Firma, Branche, Teamgröße, Antwortstil und einem
+Modell und stand nach jeder frischen Installation vor der Shell. Jede seiner
+Fragen gehört inzwischen woandershin: das Profil war das des **Chats**, den es
+seit Phase B2 nicht mehr gibt; die Modellwahl ist seit C8 eine **Kurzliste**
+und wird in der Ansicht „Modelle" bedient; Netzname, Startpasswort und
+Kit-Schlüssel nennt seit C10 der **Bootstrap**, einmal, auf der Konsole des
+Geräts. Übrig geblieben wäre ein Bildschirm, der wiederholt, was der Bootstrap
+gerade gezeigt hat.
 
-No authentication required. Used by the frontend to determine whether to show the Setup Wizard on first boot.
-
-```json
-{
-  "setupComplete": false,
-  "setupStep": 1,
-  "companyName": null
-}
-```
-
-**POST /api/system/setup-complete:**
-
-Marks the setup wizard as completed and persists the provided settings.
-
-```json
-{
-  "companyName": "Muster GmbH",
-  "hostname": "arasul-device",
-  "selectedModel": "gemma4:26b-q4"
-}
-```
-
-**PUT /api/system/setup-step:**
-
-Saves progress at a specific step without completing the wizard. Allows resuming the wizard at the last saved step.
-
-```json
-{
-  "step": 3,
-  "companyName": "Muster GmbH",
-  "hostname": "arasul-device",
-  "selectedModel": "qwen3:7b-q8"
-}
-```
-
-**POST /api/system/setup-skip:**
-
-Marks the setup wizard as skipped. The wizard will not be shown again, but settings can still be configured later via the Settings page.
-
-```json
-{}
-```
+Ob ein Gerät noch **gar keinen Administrator** hat, sagt weiterhin
+`GET /api/auth/needs-setup` — das ist eine andere Frage und ein anderer Weg.
 
 ### Metrics
 
@@ -964,7 +930,11 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | GET    | `/api/apps/:id/logs`               | Die letzten Zeilen des App-Backends                                |
 | GET    | `/api/apps/:id/zugang`             | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)      |
 | GET    | `/api/apps/:id/flows`              | Die Flows beider Stände, mit dem Modell, das sie treibt            |
-| PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen oder zurücknehmen                    |
+| GET    | `/api/apps/:id/flows/:name`        | Die Flow-Datei selbst, samt Prompt (Phase D4)                      |
+| PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen     |
+| GET    | `/api/apps/:id/laeufe`             | Die Flow-Läufe dieser App (Phase D4)                               |
+| GET    | `/api/apps/:id/laeufe/:runId`      | Ein Lauf samt Schritten und Gedankengang (Phase D4)                |
+| POST   | `/api/apps/:id/schalten`           | Den Teststand live schalten oder zurücknehmen (Phase D4)           |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 
@@ -1079,10 +1049,16 @@ erklärt [docs/features/FLOWS.md](../features/FLOWS.md), das Paket
 Administrator (`true`). Der Prompt steht nicht darin: er ist der Auftrag des
 Partners an das Modell, und wer ihn braucht, hat das Paket.
 
-**PUT /api/apps/:id/flows/:name/modell:** Body `{ "modell": "qwen3:14b-q8" }`
-setzt das Modell, `{ "modell": null }` nimmt die Überschreibung zurück (dann
-gilt wieder der Kopf der Flow-Datei). Antworten: `200`, `404` wenn die App den
-Flow in keinem Stand hat, `400` bei einem ungültigen Namen.
+**PUT /api/apps/:id/flows/:name/modell:** eine Entscheidung, drei Antworten:
+
+| Body                                                                 | Bedeutung                              |
+| -------------------------------------------------------------------- | -------------------------------------- |
+| `{ "modell": "gemma4:e4b" }`                                         | ein Modell vom Gerät (Kurzliste, C8)   |
+| `{ "modell": null }`                                                 | zurück zum Paket (Kopf der Flow-Datei) |
+| `{ "extern": { "anbieter", "modell", "basis_url", "schluessel"? } }` | ein Modell bei einem Anbieter draußen  |
+
+Antworten: `200`, `404` wenn die App den Flow in keinem Stand hat, `400` bei
+einem ungültigen Namen oder einer halben externen Angabe.
 
 Zwei Eigenschaften sind Absicht und keine Nachlässigkeit:
 
@@ -1094,6 +1070,62 @@ Zwei Eigenschaften sind Absicht und keine Nachlässigkeit:
   Entscheidung über den Flow, nicht über die Fassung, mit der jemand gerade
   testet. Wer im Teststand einstellte und im Livestand nicht, merkte es erst
   beim Schalten.
+
+#### Ein Flow rechnet extern (Phase D4)
+
+`basis_url` ist die **OpenAI-kompatible** Basis-Adresse ohne
+`/chat/completions`, z. B. `https://api.openai.com/v1` — so passt derselbe Weg
+auf OpenAI, Azure, ein gemietetes vLLM und ein Gateway im eigenen Netz. Eine
+Anbieter-Liste im Code gibt es dafür bewusst nicht.
+
+**Der Schlüssel geht nur hinein.** Er wird mit AES-256-GCM verschlüsselt
+abgelegt (`flow_settings.extern_schluessel`, Schlüssel aus `JWT_SECRET`) und
+steht in keiner Antwort, keinem Protokoll und keiner Fehlermeldung. Was die
+Oberfläche zeigt, sind die letzten vier Zeichen (`extern_endet_auf`). Fehlt
+`schluessel` in einem sonst vollständigen Body, bleibt ein hinterlegter stehen:
+wer nur den Modellnamen ändert, soll ihn nicht erneut abtippen müssen — und
+kann es auch nicht, er sieht ihn nirgends. Wer ihn loswerden will, schaltet mit
+`{"modell": null}` auf das Paket zurück; das räumt die Zeile ganz.
+
+**Lokal und extern schließen einander aus.** Ein Flow läuft auf einem Modell:
+das Setzen des einen räumt das andere. Der Lauf geht dann vollständig nach
+draußen — auch die Delegationen an Rollen und der Prüfschritt (eine Rolle mit
+eigenem `modell` im Paket meint weiter ein Modell dieses Geräts).
+
+**GET /api/apps/:id/flows/:name:** Query `?stand=live|test` (Vorgabe `live`).
+Liefert die Flow-Datei so, wie sie registriert ist — mit `prompt` (dem Auftrag
+an das Modell), `werkzeuge`, `rollen`, `schritte`, `grenzen` — dazu
+`paket_modell` (was das Paket wollte) neben `modell` (was gilt) und `extern`.
+`404`, wenn dieser Stand den Flow nicht hat.
+
+#### Die Läufe einer App (Phase D4)
+
+**GET /api/apps/:id/laeufe:** Query `?stand=`, `?flow=`, `?status=`,
+`?limit=1..200` (Vorgabe 50). Sortiert nach Nummer absteigend.
+
+Warum es diesen Weg neben `GET /api/flows/laeufe` gibt: die dortige Liste ist
+die des **angemeldeten Menschen**. Ein App-Lauf trägt als Nutzer den, dem der
+App-Schlüssel gehört — also den Administrator, der die App eingespielt hat. Ein
+zweiter Administrator sähe die Läufe der App dort nie, obwohl beide dasselbe
+Gerät verwalten.
+
+**GET /api/apps/:id/laeufe/:runId:** Query `?raw=1` liefert zusätzlich die
+Rohdaten der Schritte (sie können je Subagent einige Dutzend Kilobyte sein).
+Die Schritte tragen `kind`:
+
+| `kind`     | was es ist                                                                   |
+| ---------- | ---------------------------------------------------------------------------- |
+| `werkzeug` | ein Werkzeug-Aufruf mit `input` und `output`                                 |
+| `subagent` | eine Delegation an eine Rolle; ihre inneren Schritte tragen `parent_step_id` |
+| `modell`   | der **Gedankengang**: was das Modell sagte, bevor es ein Werkzeug rief       |
+| `hinweis`  | ein Vermerk des Runners (Prüfschritt, übernommener Schritt)                  |
+
+**POST /api/apps/:id/schalten:** Body `{ "ziel": "live" }` nimmt die Version
+aus dem Teststand, `{ "ziel": "zurueck" }` die, die vorher live war. Derselbe
+Dienst wie der Kit-Weg `POST /api/v1/external/apps/:id/schalten` (C5), aber für
+einen Menschen mit einer Sitzung: das Kit schaltet, wenn der Partner
+ausgeliefert hat, der Administrator, wenn **er** den Teststand gesehen hat.
+Antworten: `200`, `409` ohne Teststand bzw. ohne vorige Version.
 
 ### Die App-Anmeldung
 

@@ -272,6 +272,10 @@ class SubagentTool extends BaseTool {
     try {
       ergebnis = await runLoop({
         model: rolle.modell || defaultModel,
+        // Der Zugang des Laufs, aber NUR wenn die Rolle kein eigenes Modell
+        // nennt: `rolle.modell` ist ein Name aus dem Paket und meint eines
+        // vom Geraet (Phase D4).
+        extern: rolle.modell ? null : context.extern || null,
         systemPrompt: rolle.prompt + vertragsHinweis,
         userInput: auftrag,
         tools: roleTools,
@@ -297,6 +301,7 @@ class SubagentTool extends BaseTool {
       if (schreibRolle && !hatGeschrieben && !(context.signal && context.signal.aborted)) {
         const nachfass = await runLoop({
           model: rolle.modell || defaultModel,
+          extern: rolle.modell ? null : context.extern || null,
           systemPrompt: rolle.prompt + vertragsHinweis,
           userInput:
             `${auftrag}\n\nDu hast beim ersten Versuch KEINE Datei geschrieben, dein ` +

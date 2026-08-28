@@ -101,12 +101,6 @@ const createApiMock = (_mockUser: MockUser, overrides: Record<string, Promise<un
         temperature: [55],
       });
     }
-    if (url.includes('/system/setup-status')) {
-      return Promise.resolve({
-        setupComplete: true,
-        setupStep: 5,
-      });
-    }
     if (url.includes('/system/info')) {
       return Promise.resolve({
         hostname: 'arasul-edge',
@@ -254,9 +248,6 @@ describe('App Component', () => {
 
       // Auth-relevante Endpunkte liefern gültige Daten, alles andere schlägt fehl
       mockApi.get.mockImplementation(url => {
-        if (url.includes('/system/setup-status')) {
-          return Promise.resolve({ setupComplete: true, setupStep: 5 });
-        }
         if (url.includes('/apps')) {
           return Promise.resolve({ apps: [] });
         }

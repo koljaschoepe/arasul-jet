@@ -290,21 +290,23 @@ else
 fi
 
 ###############################################################################
-# 5. SETUP WIZARD
+# 5. ERSTSTART
 ###############################################################################
 
-section "5. Setup Wizard"
+section "5. Erststart"
 
-# Check setup-status endpoint
-SETUP_STATUS=$(curl -s --max-time 5 "http://localhost/api/system/setup-status" 2>/dev/null || echo "{}")
-SETUP_COMPLETED=$(echo "$SETUP_STATUS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('setup_completed', False))" 2>/dev/null || echo "unknown")
+# Bis Phase D4 stand hier der Einrichtungsassistent. Den gibt es nicht mehr;
+# geprueft wird die Frage, die ein ausgeliefertes Geraet wirklich stellt: hat
+# es schon einen Administrator?
+ERSTSTART=$(curl -s --max-time 5 "http://localhost/api/auth/needs-setup" 2>/dev/null || echo "{}")
+BRAUCHT_ADMIN=$(echo "$ERSTSTART" | python3 -c "import sys,json; print(json.load(sys.stdin).get('needsSetup', 'unbekannt'))" 2>/dev/null || echo "unbekannt")
 
-if [ "$SETUP_COMPLETED" = "False" ] || [ "$SETUP_COMPLETED" = "false" ]; then
-  check_pass "Setup wizard will show on first login"
-elif [ "$SETUP_COMPLETED" = "True" ] || [ "$SETUP_COMPLETED" = "true" ]; then
-  check_warn "Setup wizard already completed - reset for new customer?"
+if [ "$BRAUCHT_ADMIN" = "True" ] || [ "$BRAUCHT_ADMIN" = "true" ]; then
+  check_pass "Erststart: der Kunde legt seinen Administrator selbst an"
+elif [ "$BRAUCHT_ADMIN" = "False" ] || [ "$BRAUCHT_ADMIN" = "false" ]; then
+  check_warn "Es gibt schon einen Administrator - fuer einen neuen Kunden zuruecksetzen?"
 else
-  check_warn "Could not check setup wizard status"
+  check_warn "Erststart-Frage nicht beantwortbar"
 fi
 
 ###############################################################################

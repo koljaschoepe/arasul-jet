@@ -214,7 +214,10 @@ describe('werkseinstellungen', () => {
         if (sql.includes('information_schema.columns')) {
           return {
             rows: [
-              { column_name: 'setup_completed', is_nullable: 'NO', column_default: 'false' },
+              // Eine Spalte mit Werkswert. Bis Phase D4 stand hier
+              // `setup_completed`; die Spalte gibt es nicht mehr (Migration
+              // 179), die Regel dahinter schon.
+              { column_name: 'ai_transparency_enabled', is_nullable: 'NO', column_default: 'true' },
               { column_name: 'hostname', is_nullable: 'YES', column_default: null },
               {
                 column_name: 'gezaehlt',
@@ -231,7 +234,7 @@ describe('werkseinstellungen', () => {
     await werksreset._werkseinstellungen(client);
 
     const update = gestellt.find(s => s.startsWith('UPDATE system_settings'));
-    expect(update).toContain('"setup_completed" = false');
+    expect(update).toContain('"ai_transparency_enabled" = true');
     expect(update).toContain('"hostname" = NULL');
     // Ein Sequenz-Aufruf ist kein Werkswert und darf nicht in das UPDATE wandern.
     expect(update).toContain('"gezaehlt" = NULL');
@@ -267,7 +270,7 @@ describe('ausfuehren, ganzer Durchlauf', () => {
         query: jest.fn(async sql => {
           clientAbfragen.push(sql);
           if (sql.includes('information_schema.columns')) {
-            return { rows: [{ column_name: 'setup_completed', column_default: 'false' }] };
+            return { rows: [{ column_name: 'ai_transparency_enabled', column_default: 'true' }] };
           }
           return { rowCount: 1 };
         }),

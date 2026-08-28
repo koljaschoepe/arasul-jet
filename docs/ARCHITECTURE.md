@@ -293,11 +293,15 @@ apps/dashboard-backend/
 apps/dashboard-frontend/
 ├── src/App.tsx               # Routes, Auth context (/ always → /workspace)
 ├── src/features/             # Feature modules
-│   ├── settings/             # Settings, GeneralSettings, AIProfileSettings, System-Status
+│   ├── apps/                 # Die eigenen Apps: Übersicht, Rahmen (D1)
+│   ├── freigaben/            # Die offenen Freigaben auf der Übersicht (D2)
+│   ├── notizen/              # Der Zettel der rechten Spalte (D1)
+│   ├── settings/             # Sektionen: Allgemein, Apps (D4), Mitarbeiter (D3),
+│   │                         #   KI, Sicherheit, Datenschutz, System, Fernzugriff
 │   ├── store/                # Store (Modelle: Raster + Detailseite)
-│   ├── system/               # SetupWizard, UpdatePage, Login
-│   └── workspace/            # Shell: ActivityBar (Modelle), Sidebar, Tabs,
-│                             #   rechte Spalte (leer), StatusBar
+│   ├── system/               # UpdatePage, Login, CreateAdmin
+│   └── workspace/            # Shell: ActivityBar (Apps, Modelle), Sidebar, Tabs,
+│                             #   rechte Spalte (Notizen), StatusBar
 ├── src/components/
 │   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState, Baustein-Set
 │   └── mascot/               # Das Maskottchen

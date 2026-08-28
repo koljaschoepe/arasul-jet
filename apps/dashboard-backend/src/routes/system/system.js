@@ -20,7 +20,7 @@ const { ServiceUnavailableError, NotFoundError } = require('../../utils/errors')
 const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { validateBody } = require('../../middleware/validate');
-const { SetupStepBody, SetupCompleteBody, DiagnosticsBody } = require('../../schemas/system');
+const { DiagnosticsBody } = require('../../schemas/system');
 
 const path = require('path');
 const execFileAsync = promisify(execFile);
@@ -581,148 +581,26 @@ router.get(
 );
 
 // =============================================================================
-// SETUP WIZARD ENDPOINTS
+// KEIN EINRICHTUNGSASSISTENT MEHR (Phase D4, 28.08.2026)
 // =============================================================================
-
-/**
- * GET /api/system/setup-status
- * Check if initial setup has been completed.
- * No auth required - frontend needs this before login to decide routing.
- */
-router.get(
-  '/setup-status',
-  asyncHandler(async (req, res) => {
-    const result = await db.query(
-      'SELECT setup_completed, setup_step, company_name FROM system_settings WHERE id = 1'
-    );
-
-    if (result.rows.length === 0) {
-      return res.json({
-        setupComplete: false,
-        setupStep: 0,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const settings = result.rows[0];
-    res.json({
-      setupComplete: settings.setup_completed,
-      setupStep: settings.setup_step || 0,
-      companyName: settings.company_name || null,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * Beide Abschluss-Endpunkte schreiben `setup_step` NICHT mehr. Bis zum
- * 20.08.2026 stand hier `setup_step = 5`, die Nummer des sechsten Schritts aus
- * der Zeit, als der Assistent sechs hatte. Seit Plan 023 C7 hat er zwei, und
- * eine abgeschriebene Zahl waere ab dem naechsten Umbau wieder falsch. Der
- * Zaehler sagt ohnehin nur, wie weit eine LAUFENDE Einrichtung gekommen ist;
- * sobald `setup_completed` steht, liest ihn niemand mehr.
- *
- * POST /api/system/setup-complete
- * Mark the initial setup as completed.
- * Requires auth - only admin can complete setup.
- */
-router.post(
-  '/setup-complete',
-  requireAuth,
-  requireRole('admin'),
-  validateBody(SetupCompleteBody),
-  asyncHandler(async (req, res) => {
-    const { companyName, hostname, selectedModel } = req.body;
-
-    await db.query(
-      `UPDATE system_settings SET
-        setup_completed = TRUE,
-        setup_completed_at = NOW(),
-        setup_completed_by = $1,
-        company_name = COALESCE($2, company_name),
-        hostname = COALESCE($3, hostname),
-        selected_model = COALESCE($4, selected_model)
-      WHERE id = 1`,
-      [req.user.id, companyName || null, hostname || null, selectedModel || null]
-    );
-
-    logger.info(`Setup wizard completed by user ${req.user.username}`);
-
-    logSecurityEvent({
-      userId: req.user.id,
-      action: 'setup_complete',
-      details: { companyName: companyName || null },
-      ipAddress: req.ip,
-      requestId: req.headers['x-request-id'],
-    });
-
-    res.json({
-      success: true,
-      message: 'Setup completed successfully',
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * PUT /api/system/setup-step
- * Save current wizard step progress (for resume on refresh/restart).
- * Requires auth.
- */
-router.put(
-  '/setup-step',
-  requireAuth,
-  requireRole('admin'),
-  validateBody(SetupStepBody),
-  asyncHandler(async (req, res) => {
-    const { step, companyName, hostname, selectedModel } = req.body;
-
-    await db.query(
-      `UPDATE system_settings SET
-        setup_step = $1,
-        company_name = COALESCE($2, company_name),
-        hostname = COALESCE($3, hostname),
-        selected_model = COALESCE($4, selected_model)
-      WHERE id = 1`,
-      [step, companyName || null, hostname || null, selectedModel || null]
-    );
-
-    res.json({
-      success: true,
-      step,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/system/setup-skip
- * Skip setup wizard (for experienced admins).
- * Requires auth.
- */
-router.post(
-  '/setup-skip',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    await db.query(
-      `UPDATE system_settings SET
-        setup_completed = TRUE,
-        setup_completed_at = NOW(),
-        setup_completed_by = $1
-      WHERE id = 1`,
-      [req.user.id]
-    );
-
-    logger.info(`Setup wizard skipped by user ${req.user.username}`);
-
-    res.json({
-      success: true,
-      message: 'Setup skipped',
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
+//
+// Hier standen vier Wege: `GET /setup-status`, `POST /setup-complete`,
+// `PUT /setup-step`, `POST /setup-skip`. Sie bedienten den `SetupWizard`, der
+// nach jeder frischen Installation vor der Shell stand und nach Firma,
+// Branche, Teamgroesse, Antwortstil und einem Modell fragte.
+//
+// Jede dieser Fragen gehoert inzwischen woandershin: das Profil war das des
+// CHATS, den es seit Phase B2 nicht mehr gibt; die Modellwahl ist seit C8 eine
+// Kurzliste und wird in der Ansicht „Modelle" bedient; Netzname, Startpasswort
+// und Kit-Schluessel sagt seit C10 der Bootstrap, einmal, auf der Konsole des
+// Geraets. Uebrig geblieben waere ein Bildschirm, der wiederholt, was der
+// Bootstrap gerade gezeigt hat -- und genau dagegen stand schon die
+// Entscheidung vom 20.08.2026 („kein Schritt, der nur bestaetigt, was der
+// vorige getan hat").
+//
+// Mit den Wegen sind die vier Spalten `setup_*` in `system_settings` gefallen
+// (Migration 179). `company_name`, `hostname` und `selected_model` bleiben --
+// sie gehoeren den Einstellungen und nicht dem Assistenten.
 
 // GET /api/system/ca-zertifikat
 //

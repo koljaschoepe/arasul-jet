@@ -215,11 +215,90 @@ async function liste({ appId, stand }) {
       beschreibung: a.beschreibung || '',
       optionen: a.optionen || undefined,
     })),
-    modell: einstellungen.get(z.name)?.modell || z.definition.modell || null,
-    modell_ueberschrieben: Boolean(einstellungen.get(z.name)?.modell),
+    ...modellAngabe(z, einstellungen.get(z.name)),
     version: z.version,
     registriert_am: z.registriert_am,
   }));
+}
+
+/**
+ * Womit ein Flow laeuft, in drei Feldern -- geteilt von `liste` und der
+ * Einzelansicht, damit beide dieselbe Auskunft geben (Phase D4).
+ *
+ *   modell                 der Name, der gilt. Bei einem externen Modell der
+ *                          Name beim Anbieter.
+ *   modell_ueberschrieben  hat der Administrator etwas entschieden, oder gilt
+ *                          das Paket?
+ *   extern                 null, solange der Flow hier rechnet; sonst wer, wo
+ *                          und welcher Schluessel (nur die letzten vier
+ *                          Zeichen -- der Schluessel selbst verlaesst
+ *                          `flowSettings` nie).
+ *
+ * `extern` ist ein eigenes Feld und kein Praefix im Namen. Ein `extern:openai/…`
+ * im Modellnamen waere ein zusammengesetzter Schluessel in einem Textfeld, und
+ * jeder, der ihn zerlegt, zerlegt ihn ein bisschen anders.
+ */
+function modellAngabe(zeile, einstellung) {
+  const extern = einstellung?.extern_anbieter
+    ? {
+        anbieter: einstellung.extern_anbieter,
+        modell: einstellung.extern_modell,
+        basis_url: einstellung.extern_basis_url,
+        endet_auf: einstellung.extern_endet_auf,
+      }
+    : null;
+  return {
+    modell: extern?.modell || einstellung?.modell || zeile.definition.modell || null,
+    modell_ueberschrieben: Boolean(extern || einstellung?.modell),
+    extern,
+  };
+}
+
+/**
+ * EIN Flow eines Standes, so ausfuehrlich, wie ein Administrator ihn lesen
+ * will (Phase D4): mit dem Prompt, den Werkzeugen, den Rollen und den Schritten.
+ *
+ * WARUM HIER DER PROMPT STEHT UND IN `liste` NICHT. Die Liste beantwortet
+ * "was hat dieser Stand" und wird bei jedem Blick auf die App geholt; der
+ * Prompt gehoert nicht in eine Uebersicht. Diese Antwort dagegen ist die
+ * Flow-Datei selbst -- die Frage dahinter lautet "was tut dieser Flow
+ * eigentlich", und sie laesst sich ohne den Auftrag an das Modell nicht
+ * beantworten.
+ *
+ * DASS DER PARTNER SIE GESCHRIEBEN HAT, MACHT SIE NICHT GEHEIM. Sie liegt als
+ * Datei im Paket, das auf diesem Geraet ausgepackt wurde, und der
+ * Administrator, der dieses Geraet verwaltet, darf wissen, was darauf laeuft --
+ * er haftet dafuer. Die Route traegt `requireRole('admin')`; ein Mitarbeiter
+ * sieht sie nicht.
+ *
+ * `systemPrompt` heisst nach aussen `prompt`, wie bei den Flows der Plattform
+ * (`routes/flows.js`, `toApi`).
+ */
+async function hole({ appId, stand, name }) {
+  const { rows } = await db.query(
+    `SELECT name, version, definition, registriert_am
+       FROM public.app_flows
+      WHERE app_id = $1 AND stand = $2 AND name = $3`,
+    [appId, stand, name]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`App ${appId} hat im ${stand}-Stand keinen Flow "${name}"`);
+  }
+  const zeile = rows[0];
+  const einstellung = await flowSettings.hole({ appId, flowName: name });
+  const { systemPrompt, modell: paketModell, ...rest } = zeile.definition;
+  return {
+    ...rest,
+    prompt: systemPrompt || '',
+    app_id: appId,
+    stand,
+    version: zeile.version,
+    registriert_am: zeile.registriert_am,
+    // Was das PAKET wollte, neben dem, was GILT. Ohne die erste Angabe sieht
+    // ein Administrator nach dem Umstellen nicht mehr, wovon er abgewichen ist.
+    paket_modell: paketModell || null,
+    ...modellAngabe(zeile, einstellung),
+  };
 }
 
 /**
@@ -232,8 +311,16 @@ async function liste({ appId, stand }) {
  * NotFound und nicht Forbidden, wenn es den Flow in diesem Stand nicht gibt:
  * derselbe Schnitt wie ueberall am Geraet -- wer nicht darf, erfaehrt nicht,
  * was es gibt.
+ *
+ * `mitZugang` entschluesselt den Schluessel des externen Modells (D4) und ist
+ * deshalb AUSGESCHALTET, solange niemand ihn braucht. Genau ein Aufrufer setzt
+ * ihn: der Runner, kurz bevor er das Modell anwaehlt. Die zweite Stelle, die
+ * diese Funktion ruft (`routes/external/externalApi.js`, fuer die Argumente
+ * eines Flows), bekommt den Klartext damit gar nicht erst in ihren Speicher --
+ * eine Zeile weniger, in der ein Geheimnis liegt, und eine Abfrage weniger je
+ * Flow-Start.
  */
-async function lade({ appId, stand, name }) {
+async function lade({ appId, stand, name, mitZugang = false }) {
   const { rows } = await db.query(
     `SELECT name, version, definition
        FROM public.app_flows
@@ -245,6 +332,19 @@ async function lade({ appId, stand, name }) {
   }
   const einstellung = await flowSettings.hole({ appId, flowName: name });
   const definition = rows[0].definition;
+
+  // Ein externes Modell (Phase D4) faellt hier genauso ein wie ein lokales,
+  // und zwar MIT seinem Schluessel: der Runner bekommt einen fertigen Flow und
+  // soll nicht wissen muessen, aus welchen zwei Quellen er zusammengesetzt ist.
+  // Der Klartext-Schluessel lebt ab hier nur noch im Speicher dieses Laufs --
+  // er wird nicht protokolliert und steht in keiner Antwort.
+  const zugang =
+    mitZugang && einstellung?.extern_anbieter
+      ? await flowSettings.externerZugang({ appId, flowName: name })
+      : null;
+  if (zugang) {
+    return { ...definition, modell: zugang.modell, extern: zugang };
+  }
   return {
     ...definition,
     ...(einstellung?.modell ? { modell: einstellung.modell } : {}),
@@ -256,5 +356,6 @@ module.exports = {
   leseAusPaket,
   registriere,
   liste,
+  hole,
   lade,
 };
