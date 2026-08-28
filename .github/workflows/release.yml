@@ -15,6 +15,11 @@ name: Release
 # `workflow_dispatch` baut dasselbe Artefakt, haengt es aber nur als
 # Workflow-Artefakt an den Lauf. Damit laesst sich ein Stand ausprobieren, ohne
 # eine Nummer zu vergeben, die danach fuer immer im Netz steht.
+#
+# Vor dem Bau steht seit dem 28.08.2026 die Tag-Pruefung
+# (`scripts/deploy/tag-pruefen.sh`): der Tag muss auf main liegen, hinter
+# seinem Vorgaenger und auf dessen Spitze. v0.3.0 verletzte die dritte Regel
+# und lieferte einen elf Stunden alten Stand an ein Kundengeraet aus.
 
 on:
   push:
@@ -43,6 +48,17 @@ jobs:
           # Ganze Historie samt Tags: `fassung_aus_bau` fragt
           # `git describe --tags --exact-match`, und das findet ohne Tags nichts.
           fetch-depth: 0
+
+      # Die Sperre gegen einen Tag, der nicht ausliefern darf, was er
+      # verspricht (28.08.2026). Warum, mit welchen drei Regeln und wie ein
+      # gewollter Nachtrag daran vorbeikommt: scripts/deploy/tag-pruefen.sh.
+      # Sie laeuft VOR dem Bau -- ein Artefakt, das nicht entstehen darf,
+      # soll auch keine zehn Minuten Rechenzeit kosten.
+      - name: Tag pruefen (nur bei einem Tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          bash scripts/deploy/tag-pruefen.sh "${GITHUB_REF_NAME}" origin/main
 
       - name: Fassung bestimmen
         id: fassung

@@ -498,6 +498,13 @@ jobs:
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh
 
+      # Die Sperre aus release.yml laeuft im Ernstfall einmal je Release, und
+      # wenn sie dann durchwinkt, steht der Fehler fuer immer im Netz. Der
+      # Selbsttest hat schon beim Anlegen einen gefunden: bei genau einem Tag
+      # im Repo brach das Skript unter `pipefail` ab -- mit Rueckgabe 0.
+      - name: Selbsttest der Tag-Sperre (release.yml)
+        run: bash scripts/test/tag-pruefen-selbsttest.sh
+
       - name: Toter Code (Plan 023 B3)
         run: bash scripts/test/toter-code.sh
 

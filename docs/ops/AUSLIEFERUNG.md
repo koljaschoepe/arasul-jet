@@ -1,7 +1,7 @@
 # Auslieferung
 
 > Wie ein Stand dieses Repos auf ein Gerät beim Kunden kommt.
-> Stand: 27.08.2026 (Phase C10 des Umbaus vom 26.08.2026).
+> Stand: 28.08.2026 (Phase C10 des Umbaus vom 26.08.2026; Tag-Pruefung 28.08.).
 
 Ein Satz vorweg: **das Artefakt ist der Bauplan, nicht das Gebäude.** Es
 enthält den Quellstand, keine Docker-Images. Die Images tragen CUDA, laufen auf
@@ -21,6 +21,46 @@ Tag `v1.2.0` im Jet-Repo
                                  └─ install.sh im Artefakt
                                       └─ ./arasul bootstrap
 ```
+
+## Was ein Tag durchlaufen muss, bevor er ein Release wird
+
+`release.yml` prüft den Tag, **bevor** es baut
+(`scripts/deploy/tag-pruefen.sh`). Drei Regeln:
+
+| Regel                                             | Warum                                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------- |
+| Der Tag-Commit ist Vorfahre von `origin/main`      | Ein Tag auf einem nie gemergten Zweig liefert ungeprüften Code aus.          |
+| Er ist Nachfahre des vorigen Tags                  | Sonst nimmt die höhere Nummer zurück, was die niedrigere schon hatte.       |
+| Er ist die **Spitze** von `origin/main`            | Sonst fährt der Kunde mit einem Stand los, der im Repo längst überholt ist. |
+
+Die dritte Regel hat es gebraucht. Am 28.08.2026 installierte das Ara-Kit
+v0.3.0 auf den Orin, und was ankam, war der Stand vom Vormittag: Phase D4, wo
+das Produkt bei D7 plus den G1-Reparaturen stand. **Kein Tag war falsch
+gesetzt** — v0.1.0, v0.2.0 und v0.3.0 laufen sauber vorwärts, jeder ist
+Vorfahre von `main`, jeder liegt hinter seinem Vorgänger. Der Fehler war eine
+Unterlassung: zwischen v0.3.0 (11:45) und `main` (22:25) lagen zehn Merges und
+223 geänderte Dateien, und getaggt hat sie niemand. Das Kit holte das Neueste,
+was es gab. Am Gerät fehlten dann `features/modelle/` (D5), `packages/marken/`
+(D7), `optionalAuth` am `/logout` (D6) und `is_task_default` im
+`modelService` — die Oberflächen-Reihe kam auf 42 von 70.
+
+Dass niemand es merkte, lag auch an der Betreffzeile: `cb087fce` heißt „Phase
+C10", ist aber ein C10-Nachzügler, der erst **nach** D3 und D4 gemergt wurde.
+Wer die Tag-Liste las, sah eine Nummer, die rückwärts zu laufen schien, und
+suchte den Fehler an der falschen Stelle. Deshalb misst die Sperre an der
+Vorgeschichte und nie am Text.
+
+**Ein Nachtrag auf einen älteren Punkt bleibt erlaubt**, aber nicht aus
+Versehen. Dafür braucht es einen *annotierten* Tag mit einer Zeile
+`Nachtrag: <Grund>`:
+
+```bash
+git tag -a v0.3.1 cb087fce -m "Nachtrag: Sicherheitsfix fuer Geraete auf 0.3.x"
+git push origin v0.3.1
+```
+
+Der Grund hängt damit für immer am Tag-Objekt und nicht in einem
+Lauf-Protokoll, das nach dreißig Tagen weg ist.
 
 ## Das Artefakt
 
