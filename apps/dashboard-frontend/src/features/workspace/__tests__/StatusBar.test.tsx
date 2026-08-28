@@ -25,6 +25,11 @@ vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => toast,
 }));
 
+// Der DownloadProvider fragt seit D2 nach der Rolle: `/models/catalog` ist eine
+// Verwaltungsroute, und fuer einen Mitarbeiter darf er sie gar nicht erst
+// abrufen. Ohne diesen Ersatz wirft `useAuth` hier mangels Provider.
+vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
+
 const emptyBudget: MemoryBudget = {
   totalBudgetMb: 24_576,
   usedMb: 0,
