@@ -34,7 +34,8 @@
     "test:ci": "vitest run --coverage",
     "lint": "eslint src/ --ext .ts,.tsx",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
-    "knip": "knip --no-config-hints"
+    "knip": "knip --no-config-hints",
+    "marken": "vite build --config ../../packages/marken/vite.config.mjs"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

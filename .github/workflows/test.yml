@@ -383,6 +383,13 @@ jobs:
       - name: Namensregister (Plan 023 D1)
         run: python3 scripts/test/modellnamen.py --pfad .
 
+      # Das Designsystem hat zwei Ausgaenge und eine Quelle (Phase D7): die
+      # Shell uebersetzt `packages/marken/src/` selbst, eine App laedt das
+      # eingecheckte Buendel. Eine Kopie veraltet lautlos, und nichts an der
+      # Oberflaeche wuerde davon rot.
+      - name: Marken (Designsystem, Phase D7)
+        run: python3 scripts/test/marken.py --wurzel .
+
       # Die vier Modelle stehen einmal in config/modelle/kurzliste.json und
       # muessen an fuenf weiteren Stellen dasselbe sagen (Phase C8). Hier und
       # nicht nur in `run-tests.sh`: ein Zug ueber die Weboberflaeche oder mit

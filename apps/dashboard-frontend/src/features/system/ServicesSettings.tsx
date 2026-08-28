@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import {
@@ -29,7 +30,6 @@ import {
   DialogTitle,
 } from '@/components/ui/shadcn/dialog';
 import { cn } from '@/lib/utils';
-import { PageHeader } from '@/components/ui/PageHeader';
 
 interface Service {
   id: string;
@@ -154,7 +154,7 @@ export function ServicesSettings() {
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <PageHeader title="Services" />
+        <Kopf titel="Services" />
         <SkeletonCard hasAvatar={false} lines={6} />
       </div>
     );
@@ -162,10 +162,10 @@ export function ServicesSettings() {
 
   return (
     <div className="animate-in fade-in" data-testid="dienste-seite">
-      <PageHeader
-        title="Services"
-        description="Die Dienste der Arasul-Plattform. Hier siehst du den Zustand und startest einen Dienst bei Bedarf neu."
-        action={
+      <Kopf
+        titel="Services"
+        beschreibung="Die Dienste der Arasul-Plattform. Hier siehst du den Zustand und startest einen Dienst bei Bedarf neu."
+        aktionen={
           <Button
             variant="outline"
             size="sm"

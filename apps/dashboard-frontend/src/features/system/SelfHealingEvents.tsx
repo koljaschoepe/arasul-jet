@@ -16,9 +16,9 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { formatRelativeDate } from '../../utils/formatting';
+import { Kopf } from '@marken';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/shadcn/button';
-import { PageHeader } from '@/components/ui/PageHeader';
 
 interface SelfHealingEvent {
   id: number;
@@ -174,7 +174,7 @@ const SelfHealingEvents = () => {
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <PageHeader title="Selbstheilung" />
+        <Kopf titel="Selbstheilung" />
         <SkeletonList count={5} hasAvatar={false} />
       </div>
     );
@@ -183,10 +183,10 @@ const SelfHealingEvents = () => {
   return (
     <div className="animate-in fade-in">
       {/* Header */}
-      <PageHeader
-        title="Selbstheilung"
-        description="Systemwiederherstellung und Wartung"
-        action={
+      <Kopf
+        titel="Selbstheilung"
+        beschreibung="Systemwiederherstellung und Wartung"
+        aktionen={
           <div className="flex gap-2 items-center">
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
               <input

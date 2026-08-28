@@ -168,6 +168,20 @@ run_bausteine_check() {
   fi
 }
 
+# Funktion: Marken (Phase D7)
+# Laeuft immer mit. Das Designsystem hat zwei Ausgaenge und eine Quelle: die
+# Shell uebersetzt `packages/marken/src/` selbst, eine App laedt das
+# eingecheckte Buendel `browser/marken.js`. Eine Kopie veraltet lautlos.
+run_marken_check() {
+  echo ""
+  echo "-> Pruefe das Designsystem..."
+  if python3 "${PROJECT_ROOT}/scripts/test/marken.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Namensregister (Plan 023 D1)
 # Laeuft immer mit. Ein Modellname darf nur ueber modellAnzeigeName in die
 # Oberflaeche, sonst sagt der Chat "Gemma", wo der Katalog "Gemma 4 Kompakt"
@@ -537,6 +551,7 @@ run_quality_gates() {
 run_totercode_check
 run_gedankenstrich_check
 run_bausteine_check
+run_marken_check
 run_modellnamen_check
 run_kurzliste_check
 run_einheiten_check

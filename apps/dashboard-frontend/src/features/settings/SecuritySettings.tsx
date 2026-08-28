@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Download, LogOut, MonitorOff, ShieldCheck } from 'lucide-react';
 import PasswordManagement from './PasswordManagement';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
@@ -68,7 +68,7 @@ export function SecuritySettings({
 
   return (
     <div className="animate-in fade-in" data-testid="sicherheit-seite">
-      <PageHeader title="Sicherheit" description="Passwörter verwalten und Sitzungen beenden" />
+      <Kopf titel="Sicherheit" beschreibung="Passwörter verwalten und Sitzungen beenden" />
 
       <SectionList>
         <ComponentErrorBoundary componentName="Passwortverwaltung">

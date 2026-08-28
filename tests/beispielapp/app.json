@@ -2,13 +2,13 @@
   "schema": 1,
   "id": "beispielapp",
   "name": "Beispielapp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "beschreibung": "Die kleinste App, die beide Wege belegt: eine Seite unter /apps/beispielapp/ und eine Schnittstelle unter /apps/beispielapp/api/.",
   "frontend": {
     "verzeichnis": "frontend"
   },
   "backend": {
-    "image": "arasul-beispielapp:1.0.0",
+    "image": "arasul-beispielapp:1.1.0",
     "bauen": {
       "verzeichnis": "backend"
     },

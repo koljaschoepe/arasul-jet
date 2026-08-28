@@ -165,6 +165,9 @@ baue_paket() {
   rm -rf "$ordner"
   mkdir -p "$ordner"
   cp -R "$QUELLE/frontend" "$QUELLE/backend" "$QUELLE/flows" "$ordner/"
+  # Das Designsystem gehoert ins Paket (Phase D7): das Frontend laedt
+  # `marken.js` und `marken.css`, und ohne sie bliebe die Seite im Rahmen leer.
+  bash "$WURZEL/scripts/util/marken-beilegen.sh" "$ordner/frontend" >/dev/null || return 1
   python3 - "$QUELLE/app.json" "$ordner/app.json" "$APP" "$version" <<'PY'
 import json, sys
 quelle, ziel, kennung, version = sys.argv[1:5]

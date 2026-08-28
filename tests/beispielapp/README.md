@@ -10,9 +10,26 @@ von keiner Compose-Datei erwaehnt, von keinem Setup installiert und ist in
 kommt sie mit dem Git-Checkout des Deploys, und dort tut sie nichts, bis jemand
 `scripts/test/beispielapp.sh einspielen` aufruft.
 
-Sie hat keine Abhaengigkeiten: das Frontend ist eine HTML-Datei ohne Build, das
-Backend ein Node-Programm mit dem eingebauten `http`-Modul. Ein `npm install`
-gaebe es hier nicht, und der Wurzel-Lockfile bleibt unberuehrt.
+Sie hat keine Abhaengigkeiten und keinen Bauschritt -- das gilt seit Phase D7
+weiter, obwohl das Frontend jetzt **React** ist: es laedt `marken.js`, das
+Buendel des Designsystems, und darin liegen React, React-DOM und die sechs
+Bausteine zusammen. Ein `npm install` gaebe es hier nicht, und der
+Wurzel-Lockfile bleibt unberuehrt. Das Backend ist ein Node-Programm mit dem
+eingebauten `http`-Modul.
+
+**Das Erscheinungsbild bringt sie nicht mehr mit.** Bis D6 lagen hier zwoelf
+Zeilen `stil.css`; jetzt benutzt sie dieselben Bausteine wie die Shell
+(`packages/marken/`, `docs/development/DESIGN.md`). Der Mensch sieht beides in
+EINEM Rahmen uebereinander, und zwei Erscheinungsbilder auf einem Bildschirm
+sind kein Geschmack, sondern ein Fehler. Die zwei Dateien des Designsystems
+legt `scripts/util/marken-beilegen.sh` beim Einspielen daneben; eine App MIT
+Buendler (die Vorlage des Ara-Kits, Phase E5) uebersetzt stattdessen die Quelle
+mit.
+
+**Kein JSX.** JSX braucht einen Uebersetzer, und im Browser uebersetzt einer
+nur mit `eval` -- das verbietet die Content-Security-Policy dieses Geraets, und
+die Oberflaechen-Abnahme fragt jedes Mal danach. Deshalb steht in `app.js`
+`h(Karte, {...})` statt `<Karte …/>`: dieselbe Sache, eine Zeile unbequemer.
 
 ## Was sie beweist
 

@@ -481,11 +481,15 @@ describe('SelfHealingEvents Component', () => {
       });
     });
 
-    test('hat header section mit border-b', async () => {
+    // Der Seitenkopf kommt seit D7 aus `@marken` (`Kopf`): die Trennlinie
+    // steht dort in `marken.css` an `.ara-kopf` und nicht mehr als
+    // Tailwind-Klassenkette an einem `div`. Gefragt wird deshalb nach dem
+    // Baustein und nicht nach seinem fruehren Innenleben.
+    test('hat einen Seitenkopf aus dem Designsystem', async () => {
       const { container } = render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(container.querySelector('.border-b.border-border')).toBeInTheDocument();
+        expect(container.querySelector('.ara-kopf')).toBeInTheDocument();
       });
     });
 

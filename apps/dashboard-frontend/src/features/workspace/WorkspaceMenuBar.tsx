@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
+import { LogOut, Menu, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
@@ -56,6 +56,13 @@ interface WorkspaceMenuBarProps {
  * bisher **in** den Einstellungen, und die Einstellungen sind ab dieser Phase
  * eine Admin-Seite. Ein Mitarbeiter hätte sich sonst nicht mehr abmelden
  * können — die Rolle hätte nicht nur ausgeblendet, sondern eingesperrt.
+ *
+ * UNTER 900 PX IST DIESE LEISTE DIE GANZE NAVIGATION (Phase D7): links der
+ * Hamburger-Knopf, daneben der Name der Ansicht, die gerade dasteht — dort
+ * gibt es weder Aktivitätsleiste noch Tab-Leiste, und ohne den Namen wüsste
+ * niemand, worauf er schaut. Der Sidebar-Schalter und das Zahnrad fallen
+ * dort weg: die eine Spalte hat keine Sidebar, und die Einstellungen stehen
+ * im Menü.
  */
 export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const { user } = useAuth();
@@ -63,10 +70,13 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
-  const notizenBlattOffen = useWorkspaceStore(s => s.notizenBlattOffen);
+  const notizenAnsichtOffen = useWorkspaceStore(s => s.notizenAnsichtOffen);
+  const menueOffen = useWorkspaceStore(s => s.menueOffen);
   const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
   const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
-  const toggleNotizenBlatt = useWorkspaceStore(s => s.toggleNotizenBlatt);
+  const toggleNotizenAnsicht = useWorkspaceStore(s => s.toggleNotizenAnsicht);
+  const toggleMenue = useWorkspaceStore(s => s.toggleMenue);
+  const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const selectView = useWorkspaceStore(s => s.selectView);
 
@@ -74,29 +84,64 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   // ist es die Spalte, darunter das Blatt über der Mitte. Der Mensch drückt
   // dasselbe Ding — was er aufmacht, entscheidet die Breite des Fensters.
   const schmal = useSchmalesFenster();
-  const notizenOffen = schmal ? notizenBlattOffen : rightPanelVisible;
-  const notizenSchalten = schmal ? toggleNotizenBlatt : toggleRightPanel;
+  const notizenOffen = schmal ? notizenAnsichtOffen : rightPanelVisible;
+  const notizenSchalten = schmal ? toggleNotizenAnsicht : toggleRightPanel;
+
+  // Was gerade dasteht — der Name für den schmalen Aufbau. Der Zettel gewinnt
+  // gegen den Tab: er liegt dort nicht daneben, sondern an seiner Stelle.
+  const aktiverTab = tabs.find(t => t.id === activeTabId);
+  const ansichtsName = notizenOffen && schmal ? 'Notizen' : (aktiverTab?.title ?? 'Arasul');
 
   return (
     <header
       className="flex h-ui-header shrink-0 items-center gap-1 bg-background px-2 select-none"
       data-testid="workspace-menubar"
     >
-      <span className="mr-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-foreground">
-        <Mascot state="idle" label="Arasul" className="h-5 w-5" />
-        Arasul
-      </span>
-
-      <div className="flex-1" />
+      {schmal ? (
+        <>
+          {/* Der Hamburger. Er ist unter 900 px der einzige Weg zu einer
+              anderen Ansicht und deshalb der erste Halt der Tastatur. */}
+          <button
+            type="button"
+            title={menueOffen ? 'Menü schließen' : 'Menü öffnen'}
+            aria-label={menueOffen ? 'Menü schließen' : 'Menü öffnen'}
+            aria-expanded={menueOffen}
+            data-testid="workspace-menue-knopf"
+            onClick={toggleMenue}
+            className="flex h-8 w-8 items-center justify-center rounded text-foreground transition-colors hover:bg-accent"
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <span
+            className="min-w-0 flex-1 truncate px-1 text-ui-sm font-semibold text-foreground"
+            data-testid="workspace-ansichtsname"
+          >
+            {ansichtsName}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="mr-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-foreground">
+            <Mascot state="idle" label="Arasul" className="h-5 w-5" />
+            Arasul
+          </span>
+          <div className="flex-1" />
+        </>
+      )}
 
       <div className="flex items-center gap-0.5" role="group" aria-label="Layout">
-        <LayoutToggleButton
-          label={sidebarVisible ? 'Sidebar ausblenden' : 'Sidebar einblenden'}
-          pressed={sidebarVisible}
-          onClick={toggleSidebar}
-        >
-          <PanelLeft className="h-4 w-4" aria-hidden="true" />
-        </LayoutToggleButton>
+        {/* Kein Sidebar-Schalter unter 900 px: dort gibt es keine Sidebar,
+            und ein Schalter für eine Fläche, die es nicht gibt, ist ein
+            Knopf, der nichts tut. */}
+        {!schmal && (
+          <LayoutToggleButton
+            label={sidebarVisible ? 'Sidebar ausblenden' : 'Sidebar einblenden'}
+            pressed={sidebarVisible}
+            onClick={toggleSidebar}
+          >
+            <PanelLeft className="h-4 w-4" aria-hidden="true" />
+          </LayoutToggleButton>
+        )}
         <LayoutToggleButton
           label={notizenOffen ? 'Notizen ausblenden' : 'Notizen einblenden'}
           pressed={notizenOffen}
@@ -111,7 +156,7 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
       {/* Die Einstellungen sind ab D1 eine Admin-Seite. Sie einem Mitarbeiter
           zu zeigen hiesse, ihm sechs Bereiche anzubieten, von denen fünf mit
           403 antworten. Entscheiden tut weiter `requireRole` im Backend. */}
-      {istAdmin && (
+      {istAdmin && !schmal && (
         <button
           type="button"
           title="Einstellungen"

@@ -25,7 +25,7 @@ interface AuthCardProps {
  * Ueberschrift mit fuenf Breakpoint-Ausnahmen. Der Rahmen gehoert deshalb an
  * eine Stelle. Das `h1` traegt hier den Produktnamen, nicht einen Seitentitel:
  * diese Seiten liegen ausserhalb der Shell und haben keine Kopfleiste, in die
- * ein `PageHeader` passen wuerde.
+ * ein `Kopf` passen wuerde.
  *
  * Groessen folgen dem Design-System (Seitentitel `text-2xl`, Knopf `text-sm`),
  * nicht den gewachsenen Sonderwerten der alten Anmeldeseite.

@@ -40,9 +40,9 @@ import { getValidToken } from '../../utils/token';
 import { useApi } from '../../hooks/useApi';
 import { formatBytes, formatDate } from '../../utils/formatting';
 import EmptyState from '../../components/ui/EmptyState';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
 
@@ -278,9 +278,9 @@ const UpdatePage = () => {
 
   return (
     <div className="animate-in fade-in" data-testid="update-seite">
-      <PageHeader
-        title="Aktualisierungen"
-        description="Welche Fassung hier läuft, und wie eine neue hierher kommt."
+      <Kopf
+        titel="Aktualisierungen"
+        beschreibung="Welche Fassung hier läuft, und wie eine neue hierher kommt."
       />
 
       <SectionList>

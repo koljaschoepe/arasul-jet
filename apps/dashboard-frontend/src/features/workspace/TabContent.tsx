@@ -1,5 +1,6 @@
 import { Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Meldung } from '@marken';
 import { IsolatedMemoryRouter } from './IsolatedMemoryRouter';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
@@ -91,8 +92,10 @@ export function FeatureTabHost({
     return tab.appId ? (
       <AppRahmen appId={tab.appId} stand={tab.stand ?? 'live'} />
     ) : (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Dieser Tab zeigt auf keine App.
+      <div className="p-ui-4">
+        <Meldung art="warnung" titel="Dieser Tab zeigt auf keine App.">
+          Er kann nur aus einem von Hand veränderten Speicher stammen. Schließe ihn.
+        </Meldung>
       </div>
     );
   }
@@ -173,8 +176,8 @@ export function TabContent({ themeControls }: TabContentProps) {
 
   if (mounted.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Kein Tab geöffnet
+      <div className="p-ui-4">
+        <Meldung titel="Kein Tab geöffnet">Wähle links eine Ansicht, unter 900 px im Menü.</Meldung>
       </div>
     );
   }
@@ -193,11 +196,10 @@ export function TabContent({ themeControls }: TabContentProps) {
                 liegt (er war einmal Administrator), zeigt einen Satz statt
                 einer Seite, die bei jedem Handgriff 403 sagt. */}
             {!istAdmin && nurFuerAdmin(tab.type) ? (
-              <div
-                className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground"
-                data-testid="tab-nur-admin"
-              >
-                {tab.title} ist der Verwaltung vorbehalten.
+              <div className="p-ui-4" data-testid="tab-nur-admin">
+                <Meldung titel={`${tab.title} ist der Verwaltung vorbehalten.`}>
+                  Die Wege dahinter antworten mit 403, unabhängig davon, was hier steht.
+                </Meldung>
               </div>
             ) : (
               <Suspense

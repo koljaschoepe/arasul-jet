@@ -26,7 +26,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { ClipboardCheck, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/shadcn/button';
+import { Formular, Karte, Knopf } from '@marken';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { useToast } from '@/contexts/ToastContext';
 import {
@@ -124,91 +124,92 @@ function FreigabeKarte({ f }: { f: OffeneFreigabe }) {
   const knapp = istKnapp(f.frist);
 
   return (
-    <li
-      data-testid={`freigabe-${f.id}`}
-      className="flex flex-col gap-2 rounded-md border border-border bg-card p-ui-3"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <span className="min-w-0 font-medium text-foreground">{f.titel}</span>
-        <span
-          className={`flex shrink-0 items-center gap-1 text-ui-xs ${
-            knapp ? 'text-warning' : 'text-muted-foreground'
-          }`}
-          data-testid={`freigabe-${f.id}-frist`}
-          title={`Frist: ${new Date(f.frist).toLocaleString('de-DE')}`}
-        >
-          <Clock className="size-3 shrink-0" aria-hidden="true" />
-          {restzeit(f.frist)}
-        </span>
-      </div>
-
-      <Herkunft f={f} />
-
-      {f.zusammenhang && (
-        <p className="max-h-40 overflow-auto whitespace-pre-wrap text-sm text-muted-foreground">
-          {f.zusammenhang}
-        </p>
-      )}
-
-      {ablehnenOffen ? (
-        <div className="flex flex-col gap-2">
-          {/* Pflichtfeld, und das ist eine Entscheidung ueber Umgangsformen:
-              eine Ablehnung beendet den Lauf eines anderen Menschen. */}
-          <Textarea
-            ref={feld}
-            rows={2}
-            maxLength={2000}
-            value={begruendung}
-            onChange={e => setBegruendung(e.target.value)}
-            placeholder="Warum nicht? Der Grund steht danach am Lauf."
-            aria-label={`Begründung für die Ablehnung von ${f.titel}`}
-            data-testid={`freigabe-${f.id}-begruendung`}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={laeuft || begruendung.trim().length === 0}
-              onClick={ablehnen}
-              data-testid={`freigabe-${f.id}-ablehnen-absenden`}
-            >
-              Ablehnen
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={laeuft}
-              onClick={() => {
-                setAblehnenOffen(false);
-                setBegruendung('');
-              }}
-            >
-              Zurück
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="solid"
-            disabled={laeuft}
-            onClick={bestaetigen}
-            data-testid={`freigabe-${f.id}-bestaetigen`}
+    <li>
+      {/* Karte, Formular und Knopf kommen seit D7 aus dem Designsystem
+          (`@marken`) — dieselben Bausteine, aus denen eine App gebaut ist.
+          Eine Freigabe entscheidet man neben der App, die sie ausgeloest hat;
+          dass beide gleich aussehen, ist keine Kosmetik. */}
+      <Karte
+        titel={f.titel}
+        kennzeichen={`freigabe-${f.id}`}
+        hinweis={
+          <span
+            className={`flex items-center gap-1 ${knapp ? 'text-warning' : ''}`}
+            data-testid={`freigabe-${f.id}-frist`}
+            title={`Frist: ${new Date(f.frist).toLocaleString('de-DE')}`}
           >
-            {laeuft ? 'Einen Moment …' : 'Bestätigen'}
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={laeuft}
-            onClick={() => setAblehnenOffen(true)}
-            data-testid={`freigabe-${f.id}-ablehnen`}
-          >
-            Ablehnen
-          </Button>
+            <Clock className="size-3 shrink-0" aria-hidden="true" />
+            {restzeit(f.frist)}
+          </span>
+        }
+      >
+        <Herkunft f={f} />
+
+        {f.zusammenhang && (
+          <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap">{f.zusammenhang}</p>
+        )}
+
+        <div className="mt-3">
+          {ablehnenOffen ? (
+            <Formular
+              onAbsenden={ablehnen}
+              aktionen={
+                <>
+                  <Knopf
+                    art="gefahr"
+                    typ="absenden"
+                    gesperrt={laeuft || begruendung.trim().length === 0}
+                    kennzeichen={`freigabe-${f.id}-ablehnen-absenden`}
+                  >
+                    Ablehnen
+                  </Knopf>
+                  <Knopf
+                    gesperrt={laeuft}
+                    onKlick={() => {
+                      setAblehnenOffen(false);
+                      setBegruendung('');
+                    }}
+                  >
+                    Zurück
+                  </Knopf>
+                </>
+              }
+            >
+              {/* Pflichtfeld, und das ist eine Entscheidung ueber Umgangsformen:
+                  eine Ablehnung beendet den Lauf eines anderen Menschen. */}
+              <Textarea
+                ref={feld}
+                rows={2}
+                maxLength={2000}
+                value={begruendung}
+                onChange={e => setBegruendung(e.target.value)}
+                placeholder="Warum nicht? Der Grund steht danach am Lauf."
+                aria-label={`Begründung für die Ablehnung von ${f.titel}`}
+                data-testid={`freigabe-${f.id}-begruendung`}
+              />
+            </Formular>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Knopf
+                art="haupt"
+                gesperrt={laeuft}
+                onKlick={bestaetigen}
+                kennzeichen={`freigabe-${f.id}-bestaetigen`}
+              >
+                {laeuft ? 'Einen Moment …' : 'Bestätigen'}
+              </Knopf>
+              <Knopf
+                art="gefahr"
+                gesperrt={laeuft}
+                onKlick={() => setAblehnenOffen(true)}
+                kennzeichen={`freigabe-${f.id}-ablehnen`}
+              >
+                Ablehnen
+              </Knopf>
+            </div>
+          )}
         </div>
-      )}
+      </Karte>
     </li>
   );
 }

@@ -13,42 +13,45 @@
  */
 import type { ReactNode } from 'react';
 import { AppWindow } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
+import { Karte, Kopf } from '@marken';
 import EmptyState from '@/components/ui/EmptyState';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useMeineApps, zuEintraegen, type AppEintrag } from './meineApps';
 
-/** Eine App als Kachel. Ein Klick öffnet sie als Tab in der Mitte. */
+/**
+ * Eine App als Karte. Ein Klick öffnet sie als Tab in der Mitte.
+ *
+ * Die Karte kommt seit D7 aus dem Designsystem (`@marken`) — derselbe
+ * Baustein, den eine App für ihre eigenen Karten benutzt. Bis dahin war es
+ * dieselbe Form aus einer eigenen Klassenkette, und genau daran laufen zwei
+ * Erscheinungsbilder auseinander.
+ */
 function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onOeffnen}
-      data-testid={`uebersicht-app-${eintrag.id}-${eintrag.stand}`}
-      className="flex min-h-11 flex-col items-start gap-1 rounded-md border border-border bg-card p-ui-3 text-left transition-colors hover:border-primary/50 hover:bg-accent"
-    >
-      <span className="flex w-full items-center gap-2">
-        <AppWindow className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground">{eintrag.name}</span>
-        {/* Der Teststand-Hinweis fuer Tester (D2): das Wort allein sagt nicht,
-            was daran anders ist. Wer eine App in zwei Staenden vor sich hat,
-            muss beim Anklicken wissen, welche Fassung er gleich bedient. */}
-        {eintrag.stand === 'test' && (
+    <Karte
+      titel={eintrag.name}
+      symbol={<AppWindow />}
+      onKlick={onOeffnen}
+      kennzeichen={`uebersicht-app-${eintrag.id}-${eintrag.stand}`}
+      /* Der Teststand-Hinweis fuer Tester (D2): das Wort allein sagt nicht,
+         was daran anders ist. Wer eine App in zwei Staenden vor sich hat,
+         muss beim Anklicken wissen, welche Fassung er gleich bedient. */
+      hinweis={
+        eintrag.stand === 'test' ? (
           <span
-            className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning"
+            className="text-warning"
             title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
           >
             Test
           </span>
-        )}
-      </span>
-      {eintrag.beschreibung && (
-        <span className="line-clamp-2 text-sm text-muted-foreground">{eintrag.beschreibung}</span>
-      )}
-      <span className="text-ui-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
-    </button>
+        ) : undefined
+      }
+    >
+      {eintrag.beschreibung && <span className="line-clamp-2">{eintrag.beschreibung}</span>}
+      <span className="block text-ui-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
+    </Karte>
   );
 }
 
@@ -71,10 +74,10 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
   const eintraege = zuEintraegen(apps ?? []);
 
   return (
-    <div className="mx-auto max-w-4xl p-6" data-testid="uebersicht-seite">
-      <PageHeader
-        title={user?.username ? `Guten Tag, ${user.username}` : 'Guten Tag'}
-        description="Die Apps, die für dich freigegeben sind. Alles läuft auf diesem Gerät."
+    <div className="ara-strom" data-testid="uebersicht-seite">
+      <Kopf
+        titel={user?.username ? `Guten Tag, ${user.username}` : 'Guten Tag'}
+        beschreibung="Die Apps, die für dich freigegeben sind. Alles läuft auf diesem Gerät."
       />
 
       {/* Zuerst das, was auf eine ANTWORT wartet, danach das, was offen
@@ -91,7 +94,7 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
           description="Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für dich dabei ist, steht sie hier und links in der Leiste."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-ui-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-ui-2 min-[900px]:grid-cols-2">
           {eintraege.map(e => (
             <AppKachel
               key={`${e.id}:${e.stand}`}

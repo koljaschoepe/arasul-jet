@@ -16,13 +16,15 @@ import { Notizen } from '@/features/notizen/Notizen';
  * Formsache: ein Zuklappen während der Schreibpause würde den Zeitgeber
  * abräumen, bevor er geschrieben hat.
  *
- * Unter 900 px ist dasselbe Panel seit D6 ein **Blatt** über der Mitte statt
- * einer Spalte daneben; der Schließen-Knopf hier legt es entsprechend zu
- * (`schliesseNotizenBlatt`) und nicht die Spalte, die es dort gar nicht gibt.
+ * Unter 900 px ist dasselbe Panel seit D7 eine eigene **Ansicht** in der
+ * einen Spalte — nicht das Blatt über der Mitte, das D6 dorthin gelegt hatte
+ * (die App stand dahinter abgedunkelt). Der Schließen-Knopf hier führt
+ * entsprechend zurück auf die Mitte (`schliesseNotizenAnsicht`) und schaltet
+ * nicht die Spalte, die es dort gar nicht gibt.
  */
 export function RightPanel() {
   const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
-  const schliesseNotizenBlatt = useWorkspaceStore(s => s.schliesseNotizenBlatt);
+  const schliesseNotizenAnsicht = useWorkspaceStore(s => s.schliesseNotizenAnsicht);
   const schmal = useSchmalesFenster();
 
   return (
@@ -33,9 +35,9 @@ export function RightPanel() {
         </span>
         <button
           type="button"
-          title="Panel ausblenden"
-          aria-label="Panel ausblenden"
-          onClick={schmal ? schliesseNotizenBlatt : toggleRightPanel}
+          title={schmal ? 'Zurück zur Ansicht' : 'Panel ausblenden'}
+          aria-label={schmal ? 'Zurück zur Ansicht' : 'Panel ausblenden'}
+          onClick={schmal ? schliesseNotizenAnsicht : toggleRightPanel}
           className="ml-auto flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />

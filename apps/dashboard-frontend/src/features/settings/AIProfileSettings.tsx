@@ -5,6 +5,7 @@ import { useApi, type ApiError } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../utils/formatting';
 import { extractIssues } from './validationIssues';
+import { Kopf } from '@marken';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
@@ -18,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/shadcn/select';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 
 const AI_INDUSTRIES = [
@@ -306,7 +306,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <PageHeader title="KI-Profil" />
+        <Kopf titel="KI-Profil" />
         <SkeletonCard hasAvatar={false} lines={4} />
       </div>
     );
@@ -315,7 +315,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
   if (loadError) {
     return (
       <div className="animate-in fade-in">
-        <PageHeader title="KI-Profil" />
+        <Kopf titel="KI-Profil" />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription className="flex flex-col items-start gap-3">
@@ -335,9 +335,9 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
 
   return (
     <div className="animate-in fade-in">
-      <PageHeader
-        title="KI-Profil"
-        description="Firmen- und KI-Verhalten konfigurieren. Diese Einstellungen werden automatisch bei jedem Chat als Kontext mitgegeben."
+      <Kopf
+        titel="KI-Profil"
+        beschreibung="Firmen- und KI-Verhalten konfigurieren. Diese Einstellungen werden automatisch bei jedem Chat als Kontext mitgegeben."
       />
 
       <SectionList>

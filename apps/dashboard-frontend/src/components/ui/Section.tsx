@@ -20,7 +20,7 @@
  * USB-Erkennung und Update-Paket tragen heute eines in der Überschrift. Vier
  * Stellen sind kein Ausrutscher.
  *
- * Überschriftenebene ist `h2`: unterhalb des einen `h1` aus PageHeader ist das
+ * Überschriftenebene ist `h2`: unterhalb des einen `h1` aus `Kopf` ist das
  * die nächste Ebene, und die Einstellungen trugen `h3` ohne ein `h2` dazwischen.
  * Die Schriftgröße bleibt `text-sm font-semibold` und folgt damit der Zeile
  * „Label" der Typografie-Tabelle; Ebene und Größe sind zwei Achsen.

@@ -17,11 +17,11 @@ import {
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { cn } from '@/lib/utils';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 import useConfirm from '../../hooks/useConfirm';
 import { sitzungLaeuftUeberFernzugriff, trennFrage } from './sitzungUeberFernzugriff';
@@ -311,7 +311,7 @@ export function RemoteAccessSettings() {
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <PageHeader title="Fernzugriff" />
+        <Kopf titel="Fernzugriff" />
         <SkeletonCard hasAvatar={false} lines={3} />
       </div>
     );
@@ -323,9 +323,9 @@ export function RemoteAccessSettings() {
   if (statusError && !status) {
     return (
       <div className="animate-in fade-in">
-        <PageHeader
-          title="Fernzugriff"
-          description="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
+        <Kopf
+          titel="Fernzugriff"
+          beschreibung="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
         />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
@@ -353,10 +353,10 @@ export function RemoteAccessSettings() {
   return (
     <div className="animate-in fade-in">
       {ConfirmDialog}
-      <PageHeader
-        title="Fernzugriff"
-        description="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
-        action={
+      <Kopf
+        titel="Fernzugriff"
+        beschreibung="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
+        aktionen={
           <Button
             variant="ghost"
             size="sm"

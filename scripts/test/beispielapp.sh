@@ -20,7 +20,8 @@
 # Was `einspielen` tut, in der Reihenfolge:
 #   1. `app.json` lesen (Kennung und Version kommen von dort, nicht von hier)
 #   2. das Paket nach `data/apps/<id>/<version>/` kopieren, samt `backend/`
-#      und `flows/`
+#      und `flows/` -- und das Designsystem daneben legen
+#      (`scripts/util/marken-beilegen.sh`, Phase D7)
 #   3. `POST /api/apps/<id>/einspielen` -- ab hier arbeitet die Plattform
 #   4. die App dem angemeldeten Administrator freigeben (ARASUL_FREIGABE=nein
 #      laesst es bleiben)
@@ -119,6 +120,11 @@ case "$BEFEHL" in
     # Einspielen am Orin am 27.08.2026 gescheitert.
     cp -R "$QUELLE/app.json" "$QUELLE/frontend" "$QUELLE/backend" "$QUELLE/flows" \
       "$ZIEL/" || exit 1
+    # Das Designsystem (Phase D7): die App ist React-Code auf den Bausteinen
+    # aus `packages/marken/` und bringt kein eigenes Erscheinungsbild mehr mit.
+    # Ohne Buendler kommen die zwei fertigen Dateien daneben; eine App MIT
+    # Buendler (die Kit-Vorlage aus E5) uebersetzt stattdessen die Quelle mit.
+    bash "$WURZEL/scripts/util/marken-beilegen.sh" "$ZIEL/frontend" || exit 1
 
     echo "2/3  Anmelden"
     TOKEN=$(arasul_token)

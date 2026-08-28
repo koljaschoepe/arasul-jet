@@ -293,11 +293,41 @@ Anmeldung ein 429. Sie merkt sich jetzt nach jeder Anmeldung
 `RateLimit-Remaining` und `RateLimit-Reset` (in `/tmp`, neben der Token-Datei,
 damit der nächste Lauf es weiß), fragt danach **vor** dem ersten Handgriff, und
 ein 429 am Formular wird über `Retry-After` abgewartet und einmal wiederholt.
+Seit D7 gibt es das **Designsystem für alle Apps** (`packages/marken/`):
+Schrift, Farben und Abstände aus `index.css` und sechs Bausteine daraus —
+Kopf, Liste, Karte, Formular (mit Feld und Knopf), Meldung, Menü. Kein neues
+Erscheinungsbild, ein gemeinsames: jeder Wert steht als
+`var(--token-der-shell, <derselbe Wert>)`, also folgt die Bibliothek in der
+Shell dem Thema und steht in einer App allein auf »Schwarz«. Zwei Ausgänge,
+eine Quelle — die Shell übersetzt `src/` über den Vite-Alias `@marken` mit
+(**kein npm-Paket**, kein Lockfile-Eintrag, kein `dist/`, das jemand vergisst),
+eine App ohne Bau lädt das eingecheckte Bündel `browser/marken.js`, in dem
+React mitliegt (`npm run marken`, danebengelegt von
+`scripts/util/marken-beilegen.sh`). Kein JSX darin: JSX braucht im Browser
+`eval`, und das verbietet die CSP dieses Geräts. `scripts/test/marken.py` hält
+Quelle und Bündel aneinander. `PageHeader` ist gefallen, `Kopf` nimmt seinen
+Platz — zwei Seitenköpfe wären genau die Doppelung, gegen die die Bibliothek
+gebaut ist. Die **Beispielapp** ist damit React (weiter ohne Bau und ohne
+Abhängigkeit), die Referenz-App Urlaubsantrag zieht nach; das Kit spiegelt die
+Quelle in die Vorlage aus E5.
+Und die Shell hat **unter 900 px einen eigenen Aufbau** statt eines
+geschrumpften Desktops: ein Hamburger-Menü in der Kopfleiste (daneben der Name
+dessen, was dasteht), **eine Spalte**, die Notizen als eigene **Ansicht** —
+keine Aktivitätsleiste, keine Sidebar, keine Tab-Leiste. Das Blatt aus D6 ist
+gefallen (`data-shell-blatt`): es nahm der Mitte ihre Pixel nicht mehr weg,
+verdeckte sie aber weiter, und die zweite Messung am Orin zeigte die App
+abgedunkelt dahinter. Jetzt liegt nichts mehr übereinander — entweder steht
+die Ansicht da oder der Zettel. Die Reihe aus D6 misst das mit: `wegRaeumen`
+statt `blattZumachen`, die Station „eine Ansicht macht die Notizen zu" geht
+über das Menü auf die Übersicht (ein Mitarbeiter mit einer App hat dort genau
+diesen Weg), und „es steht etwas da" zählt den Text **im Rahmen** mit —
+`innerText` endet am iframe, und bei 390 px hat die App die Spalte für sich.
+Ab 900 px bleiben die drei Spalten aus D1.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
-| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`                                    |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/`   |
 | Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                     |
 | AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`         |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                 |

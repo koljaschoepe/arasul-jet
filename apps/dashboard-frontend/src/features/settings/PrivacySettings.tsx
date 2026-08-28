@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Trash2, Info, HardDrive, RefreshCw } from 'lucide-react';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
@@ -9,7 +10,6 @@ import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
@@ -182,9 +182,9 @@ export function PrivacySettings() {
     <div className="animate-in fade-in">
       {ConfirmDialog}
 
-      <PageHeader
-        title="Datenschutz"
-        description="DSGVO-Rechte: Auskunft (Art. 15) und Löschung (Art. 17)"
+      <Kopf
+        titel="Datenschutz"
+        beschreibung="DSGVO-Rechte: Auskunft (Art. 15) und Löschung (Art. 17)"
       />
 
       <SectionList>

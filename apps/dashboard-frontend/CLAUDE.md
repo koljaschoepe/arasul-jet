@@ -9,7 +9,17 @@
 React 19 · Vite 6 · TypeScript (strict) · Tailwind v4 · shadcn/ui ·
 React Router v6 · TanStack Query v5 · Vitest · ESLint.
 
-Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`).
+Path aliases (both in `tsconfig.json` and `vite.config.ts`):
+
+- `@/* → src/*`
+- `@marken → ../../packages/marken/src` — **das Designsystem** (Phase D7):
+  Kopf, Liste, Karte, Formular/Feld/Knopf, Meldung, Menü, geteilt mit **jeder
+  App** auf dem Gerät. Ein Pfad-Alias und **kein npm-Paket**: die Bibliothek
+  wird mit der Shell übersetzt, steht in keinem Lockfile und hat kein `dist/`,
+  das jemand vergessen könnte. Das Stylesheet kommt in `index.css` als
+  relativer `@import … layer(components)` herein (unlayered CSS gewinnt gegen
+  jede Schicht, auch gegen die Utilities). Siehe
+  `packages/marken/README.md`.
 
 ## Folder convention
 
@@ -78,7 +88,8 @@ src/
                    gibt.
     notizen/       Der Zettel der rechten Spalte (D1). Ein Textfeld, speichert
                    nach einer Sekunde Ruhe gegen `PUT /api/notizen`.
-    workspace/     Die Shell (Dreispalten-Raster, **immer aktiv** — `/` landet
+    workspace/     Die Shell (ab 900 px Dreispalten-Raster, darunter der
+                   schmale Aufbau aus D7; **immer aktiv** — `/` landet
                    nach Login stets auf `/workspace`, und `/workspace` ohne
                    weiteren Pfad auf der **Übersicht**). Seit D1 steht das
                    Zielbild: links Apps, Mitte Übersicht oder App, rechts
@@ -113,20 +124,32 @@ src/
                      Übersicht) und TabContent (ein Alt-Tab zeigt einen Satz).
                      Keine davon ist eine Berechtigung: `requireRole` im
                      Backend antwortet ohnehin mit 403.
+                   • **Der schmale Aufbau (D7)** — unter 900 px
+                     (`useSchmalesFenster`) gibt es keine ActivityBar, keine
+                     Sidebar und keine Tab-Leiste, sondern den
+                     Hamburger-Knopf der `WorkspaceMenuBar` (daneben der Name
+                     der Ansicht) und `SchmalMenue.tsx`: Übersicht, die
+                     eigenen Apps, Notizen, für den Administrator Modelle und
+                     Einstellungen — **jeder Eintrag ein Ziel**, keine zwei
+                     Stufen wie in der Leiste. Die Shell trägt
+                     `data-shell-aufbau="schmal" | "drei-spalten"`; ab 900 px
+                     stehen die drei Spalten aus D1 unverändert.
                    • **RightPanel** — die Notizen mit Schließen-Knopf; die Shell
                      versteckt sie per `data-shell-hidden` (nie unmounten —
                      ein Unmount während der Schreibpause verlöre den Text).
                      Zustand im Store: `rightPanelVisible`. **Unter 900 px ist
-                     dasselbe Panel ein BLATT über der Mitte** und keine
-                     Spalte daneben (D6, `data-shell-blatt` in `index.css`;
-                     `data-shell-voll` gibt der Mitte die freie Breite).
-                     Zustand dafür: `notizenBlattOffen` — **nicht
-                     persistiert**, das Blatt fängt immer zu an, und jede
-                     Ansicht, die kommt, schließt es. Zwei Felder, zwei
-                     Fragen: gehört die Spalte zu meinem Arbeitsplatz (bleibt)
-                     gegen liegt das Blatt jetzt gerade oben (nicht). Der eine
-                     Knopf in der `WorkspaceMenuBar` schaltet je nach Breite
-                     das eine oder das andere.
+                     dasselbe Panel eine eigene ANSICHT** in der einen Spalte:
+                     entweder steht die Mitte da oder der Zettel, nie beides
+                     (`data-shell-voll` gibt der übrigen Fläche die ganze
+                     Breite). Zustand dafür: `notizenAnsichtOffen` — **nicht
+                     persistiert**, es fängt immer bei der Mitte an, und jede
+                     Ansicht, die kommt, führt dorthin zurück; `menueOffen`
+                     ebenso. Zwei Felder, zwei Fragen: gehört die Spalte zu
+                     meinem Arbeitsplatz (bleibt) gegen wo bin ich gerade
+                     (nicht). Der eine Knopf in der `WorkspaceMenuBar`
+                     schaltet je nach Breite das eine oder das andere. Das
+                     **Blatt** aus D6 (`data-shell-blatt`) ist gefallen: es
+                     verdeckte die App, statt an ihrer Stelle zu stehen.
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
                      Activity-Bar-Ansicht (`activeView`, Store): apps → die
                      eigenen Apps (Voreinstellung), models → die Kurzliste
@@ -161,15 +184,19 @@ src/
   components/
     ui/            App-wide primitives (Modal, ErrorBoundary, …). Darunter das
                    Baustein-Set aus Plan 023 C1, das die wiederkehrenden Formen
-                   traegt: PageHeader (Seitenkopf), FilterBar (Tab-Leiste mit
+                   traegt: FilterBar (Tab-Leiste mit
                    eigener Inhaltsflaeche), StatTile/StatGrid (Kennzahl, festes
                    1/2/4-Raster), Chart/Sparkline (nur Blau nach Grau, ohne
                    Karte), Section (Feldgruppe), EmptyState (leere Liste mit
                    Einstieg) und AuthCard (Rahmen der beiden Seiten vor der
-                   Anmeldung, C3). Eine neue Seite baut auf diesen sieben auf,
-                   statt die Klassenkette erneut zu schreiben; Festlegungen in
-                   `docs/development/DESIGN.md`, Abschnitt
-                   „Das gemeinsame Baustein-Set".
+                   Anmeldung, C3). Der Seitenkopf steht seit D7 NICHT mehr
+                   hier: `PageHeader` ist gefallen, `Kopf` aus `@marken` nimmt
+                   seinen Platz — zwei Seitenköpfe (einer für die Shell, einer
+                   für die Apps) wären genau die Doppelung, gegen die das
+                   Designsystem gebaut ist. Eine neue Seite baut auf diesen
+                   Bausteinen und auf `@marken` auf, statt die Klassenkette
+                   erneut zu schreiben; Festlegungen in
+                   `docs/development/DESIGN.md`.
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
     mascot/        Das Maskottchen.
   hooks/           Cross-feature hooks (useApi, useTheme, …).

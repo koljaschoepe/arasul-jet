@@ -3,13 +3,13 @@ import { Save, AlertCircle } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
+import { Kopf } from '@marken';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { extractIssues } from './validationIssues';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 
 /**
@@ -212,7 +212,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
   if (loading || !numberValues) {
     return (
       <div className="animate-in fade-in">
-        <PageHeader title="Sprachmodell" />
+        <Kopf titel="Sprachmodell" />
         <SkeletonCard hasAvatar={false} lines={6} />
       </div>
     );
@@ -244,9 +244,9 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
 
   return (
     <div className="animate-in fade-in">
-      <PageHeader
-        title="Sprachmodell"
-        description="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen."
+      <Kopf
+        titel="Sprachmodell"
+        beschreibung="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen."
       />
 
       <SectionList>

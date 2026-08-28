@@ -3,6 +3,16 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
 
+/* Das Designsystem (Phase D7): dieselbe Datei, die eine App laedt. Sie steht
+   in `packages/marken/src/` und kommt hier als RELATIVER Pfad herein — die
+   Bibliothek ist ein Ordner mit einem Vite-Alias und kein npm-Paket, also
+   gibt es keinen Paketnamen, den ein `@import` aufloesen koennte.
+
+   `layer(components)`: unlayered CSS gewinnt gegen JEDE Schicht, auch gegen
+   die Utilities. Eine Tailwind-Klasse an einem Baustein waere sonst wirkungs-
+   los, und genau das erwartet niemand, der `className` daran schreibt. */
+@import "../../../packages/marken/src/marken.css" layer(components);
+
 @custom-variant dark (&:is(.dark *));
 
 /* ========================================
@@ -4072,35 +4082,21 @@ a:focus:not(:focus-visible),
 }
 
 /* ========================================
-   WORKSPACE-SHELL: DIE NOTIZEN ALS BLATT (Phase D6, 28.08.2026)
+   WORKSPACE-SHELL: EINE SPALTE UNTER 900 PX (Phase D7, 28.08.2026)
 
-   Unter 900 px gibt es keine dritte Spalte. Die erste D6-Messung am Orin hat
-   gezeigt, warum das mehr ist als eine Feinheit: bei 390 px bekam die Mitte
-   null Pixel, und alle sieben Verwaltungsansichten zeigten die Notizen statt
-   der Ansicht.
+   Der schmale Aufbau hat keine Aktivitaetsleiste, keine Sidebar und keine
+   Tab-Leiste; uebrig bleiben zwei Flaechen, von denen immer genau eine
+   dasteht — die Mitte oder die Notizen. Beide bleiben gemountet (der Zettel
+   schreibt nach einer Sekunde Ruhe), versteckt wird ueber
+   data-shell-hidden darueber, und data-shell-voll gibt der uebrigen die
+   ganze Breite: react-resizable-panels setzt flexBasis inline, deshalb
+   !important.
 
-   Das Panel bleibt an seinem Platz im React-Baum (die Notizen dürfen nicht
-   unmounten, sie schreiben nach einer Sekunde Ruhe) und wird hier aus dem
-   Fluss genommen: position:fixed legt es über die Mitte, damit gibt der
-   Group-Flex seine Breite frei, und data-shell-voll an der Mitte holt sie
-   sich. Beides mit !important, weil react-resizable-panels flexBasis inline
-   setzt — dieselbe Mechanik wie bei data-shell-hidden darüber.
-
-   bottom: 1.5rem ist die Höhe der Statusleiste (h-6): das Blatt legt sich
-   über die Mitte, nicht über den Zustand des Geräts.
+   Bis D6 lag hier das BLATT — die Notizen als position:fixed ueber der
+   Mitte. Es ist gefallen: es nahm der Mitte ihre Pixel nicht mehr weg,
+   verdeckte sie aber weiter, und die zweite Messung am Orin zeigte die App
+   abgedunkelt hinter seinem Hintergrund.
    ======================================== */
-[data-panel][data-shell-blatt='true'] {
-  position: fixed !important;
-  top: 35%;
-  right: 0;
-  bottom: 1.5rem;
-  left: 0;
-  z-index: var(--z-sidebar-toggle);
-  border-top: 1px solid var(--border);
-  background-color: var(--background);
-  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.28);
-}
-
 [data-panel][data-shell-voll='true'] {
   flex: 1 1 0% !important;
 }

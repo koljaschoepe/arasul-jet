@@ -1,6 +1,6 @@
 /**
  * Die Oberflaeche, ganz: alle Ansichten mal alle Breiten, fuer beide Rollen.
- * Phase D6 des Umbaus vom 26.08.2026.
+ * Phase D6 des Umbaus vom 26.08.2026, fortgeschrieben in D7.
  *
  * Ohne Buchstaben: die acht Abnahmen A1 bis A8 sind vergeben, und A7 ist der
  * siebentaegige Dauerlauf aus G2. Diese Reihe belegt keines der acht Gates,
@@ -44,19 +44,23 @@
  *      die Mitte MIT offener Notizspalte ganz (der zweite Fund der
  *      D3-Abnahme, hier fuer jede Verwaltungsansicht statt fuer eine).
  *
- *      UNTER 900 PX STEHEN NOTIZEN UND MITTE NIE NEBENEINANDER. Das ist der
- *      erste Fund der D6-Messung am Orin (28.08.2026): bei 390 px verdeckte
- *      die Notizspalte die Mitte vollstaendig, alle sieben
- *      Verwaltungsansichten waren rot, und jedes Bild zeigte dasselbe --
- *      „NOTIZEN, noch nichts notiert". Seither liegen die Notizen dort als
- *      BLATT darueber und fangen zu an. Diese Reihe macht sie deshalb vor
- *      jeder schmalen Messung ausdruecklich zu (`blattZumachen`, und vor
- *      jedem Klick `klickFrei`) und misst sie danach als eigene Zelle
- *      „Notizen" bei 390 px -- offen, wie jemand sie aufzieht. Dass eine
- *      Ansicht das Blatt wieder zumacht, wird ueber die Tab-Leiste geprueft
- *      und nicht ueber eine App-Kachel: die Leiste sitzt ueber dem Blatt, die
- *      Kachel darunter. Der zweite D6-Lauf am Orin ist an dieser Kachel
- *      zweimal abgebrochen.
+ *      UNTER 900 PX GIBT ES EINE SPALTE, UND NICHTS LIEGT UEBEREINANDER.
+ *      Das ist der Weg aus zwei Messungen am Orin (28.08.2026). Zuerst
+ *      verdeckte die Notizspalte bei 390 px die Mitte vollstaendig -- alle
+ *      sieben Verwaltungsansichten rot, jedes Bild „NOTIZEN, noch nichts
+ *      notiert"; D6 legte die Notizen daraufhin als BLATT darueber. Der
+ *      zweite Lauf zeigte, dass das die halbe Antwort war: die App stand
+ *      abgedunkelt hinter dem Blatt, und ein Klick darunter kam nicht durch,
+ *      weder fuer Playwright noch fuer einen Menschen.
+ *
+ *      Seit D7 hat der schmale Aufbau deshalb einen EIGENEN Aufbau: ein
+ *      Hamburger-Menue in der Kopfleiste statt Aktivitaetsleiste und
+ *      Sidebar, keine Tab-Leiste, und die Notizen sind eine eigene ANSICHT.
+ *      Diese Reihe raeumt vor jeder schmalen Messung ausdruecklich weg, was
+ *      obenauf liegen koennte (`wegRaeumen`, und vor jedem Klick
+ *      `klickFrei`), misst die Notizen danach als eigene Zelle „Notizen" bei
+ *      390 px -- aufgeschlagen, wie jemand sie waehlt -- und prueft am
+ *      Menue, dass eine Ansicht sie wieder zumacht.
  *   3. CSP: traegt das Dokument eine Policy, verbietet sie `unsafe-eval`,
  *      stehen die vier weiteren Sicherheitskopfzeilen da -- und meldet der
  *      ganze Durchlauf einen Verstoss?
@@ -96,7 +100,7 @@
  *   for i in 1 2 3; do ARASUL_PASSWORT=... \
  *     node scripts/test/oberflaeche-abnahme.mjs || break; done
  *
- * Die Bilder landen unter `docs/plans/audits/<datum>-oberflaeche-d6/`.
+ * Die Bilder landen unter `docs/plans/audits/<datum>-oberflaeche/`.
  *
  * Nicht zerstoerend fuer den Bestand: angelegt wird ein Mitarbeiter mit
  * Zeitstempel im Namen, freigegeben wird eine App, die schon da ist, und
@@ -136,7 +140,7 @@ const DROSSEL_DATEI =
 const DROSSEL_FENSTER_MS = 15 * 60 * 1000;
 
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
-const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-oberflaeche-d6`);
+const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-oberflaeche`);
 
 /** Die drei Breiten aus dem Auftrag der Phase (wie in D1 bis D5). */
 const BREITEN = [
@@ -149,7 +153,7 @@ const BREITEN = [
 const SCHMAL_AB_PX = 900;
 
 const STEMPEL = Date.now();
-const MITARB = `abnahme-d6-${STEMPEL}`;
+const MITARB = `abnahme-d7-${STEMPEL}`;
 const MAIL = `${MITARB}@abnahme.local`;
 const PASS_START = `Start-${STEMPEL}`;
 const PASS_SELBST = `Selbst-${STEMPEL}`;
@@ -564,35 +568,55 @@ const steht = (seite, waehler, grenze = 20000) =>
     .catch(() => false);
 
 /**
- * Das Notizen-Blatt ausdruecklich zumachen.
+ * Wegraeumen, was im schmalen Aufbau obenauf liegen koennte.
  *
- * Seit D6 liegen die Notizen unter 900 px als Blatt UEBER der Mitte und
- * fangen zu an, und jede Ansicht, die kommt, schliesst sie. Diese Zeile misst
- * das nicht -- sie stellt es her. Der Unterschied ist wichtig: eine Ansicht,
- * die hinter einem offenen Blatt gemessen wird, sagt nichts ueber die Ansicht
- * (der erste Fund der D6-Messung am Orin). Was die Regel wirklich prueft,
- * steht in `aufteilungMessen`, und wie das Blatt AUFGEZOGEN aussieht, in der
- * eigenen Zelle „Notizen" bei 390 px.
+ * Zwei Dinge gibt es dort: die Notizen als eigene ANSICHT (dann steht die
+ * Mitte nicht da) und das Hamburger-MENUE (dann liegt es ueber allem). Diese
+ * Zeile misst keines von beiden -- sie stellt den Zustand her, in dem eine
+ * Ansicht ueberhaupt zu sehen ist. Der Unterschied ist wichtig: eine Ansicht,
+ * die hinter etwas anderem gemessen wird, sagt nichts ueber die Ansicht (der
+ * erste Fund der D6-Messung am Orin). Was die REGEL prueft, steht in
+ * `aufteilungMessen` und in der eigenen Zelle „Notizen" bei 390 px.
  *
- * GEFRAGT WIRD DAS BLATT UND NICHT DIE FENSTERBREITE. Derselbe Knopf in der
+ * GEFRAGT WIRD DER AUFBAU UND NICHT DIE FENSTERBREITE. Derselbe Knopf in der
  * Kopfleiste schaltet ueber 900 px die Notiz-SPALTE, und die ist persistiert:
  * ein Zumachen „zur Sicherheit" haette sie dort fuer den Rest des Laufs
  * versteckt und `mitteBleibtGanz` um seinen Gegenstand gebracht.
- * `data-shell-blatt` steht nur dann auf `true`, wenn die Notizen wirklich
- * obenauf liegen -- damit ist die Frage die richtige und nicht bloss die
- * bequeme.
+ * `data-shell-aufbau="schmal"` steht nur am schmalen Aufbau -- damit ist die
+ * Frage die richtige und nicht bloss die bequeme.
  */
-async function blattZumachen(seite) {
-  const liegtDrueber = await seite
-    .locator("[data-panel][data-shell-blatt='true'][data-shell-hidden='false']")
+async function wegRaeumen(seite) {
+  const schmal = await seite
+    .locator("[data-testid='workspace-shell'][data-shell-aufbau='schmal']")
     .count()
     .catch(() => 0);
-  if (!liegtDrueber) return;
-  await seite
-    .locator('[aria-label="Notizen ausblenden"]')
-    .first()
-    .click({ timeout: 5000 })
-    .catch(() => {});
+  if (!schmal) return;
+
+  // Das Menue zuerst: es liegt ueber der Kopfleiste, in der der Notizen-Knopf
+  // sitzt. Andersherum klickte der zweite Griff ins Leere.
+  const menueOffen = await seite
+    .locator("[data-testid='workspace-schmal-menue']")
+    .count()
+    .catch(() => 0);
+  if (menueOffen) {
+    await seite
+      .locator('[aria-label="Menü schließen"]')
+      .first()
+      .click({ timeout: 5000 })
+      .catch(() => {});
+  }
+
+  const notizenDa = await seite
+    .locator("[data-panel]#right[data-shell-hidden='false']")
+    .count()
+    .catch(() => 0);
+  if (notizenDa) {
+    await seite
+      .locator('[aria-label="Notizen ausblenden"]')
+      .first()
+      .click({ timeout: 5000 })
+      .catch(() => {});
+  }
 }
 
 /**
@@ -604,11 +628,11 @@ async function blattZumachen(seite) {
  * abgebrochen (28.08.2026, Lauf 1 und 3 an derselben Stelle): eine App-Kachel
  * der Uebersicht unter dem offenen Notizen-Blatt, `locator.click` Timeout
  * 15000 ms -- und der Lauf endete dort, vor der Tastatur und vor den
- * Fehlerzustaenden.
+ * Fehlerzustaenden. Das Blatt gibt es seit D7 nicht mehr; die Regel bleibt.
  *
- * Also: erst zumachen, was oben liegt, dann klicken. Die eine Stelle, die
- * ABSICHTLICH gegen das offene Blatt klickt -- der Wechsel des Tabs in der
- * Leiste, die ueber dem Blatt sitzt --, ruft `click` weiter selbst.
+ * Also: erst wegraeumen, was oben liegt, dann klicken. Die eine Stelle, die
+ * ABSICHTLICH gegen ein offenes Menue klickt -- der Weg zurueck auf die
+ * Uebersicht, der ja durch das Menue fuehrt --, ruft `click` weiter selbst.
  *
  * UND SIE WIRFT NICHT. Ein Klick, der nicht durchkommt, ist eine rote Zeile
  * wert und nicht das Ende des Durchlaufs: was danach noch zu messen waere --
@@ -616,7 +640,7 @@ async function blattZumachen(seite) {
  * mehr wert als die Ausnahme. Der Rueckgabewert sagt, was war.
  */
 async function klickFrei(seite, ziel, grenze = 15000) {
-  await blattZumachen(seite);
+  await wegRaeumen(seite);
   return ziel
     .click({ timeout: grenze })
     .then(() => true)
@@ -628,8 +652,8 @@ async function klickFrei(seite, ziel, grenze = 15000) {
  *
  * @param oeffnen Bringt die Ansicht auf den Schirm (Adresse oder Klick).
  * @param kennzeichen Der Waehler, an dem die Ansicht zu erkennen ist.
- * @param notizenZu Schmal die Notizen vorher zumachen. Nur die Zelle
- *        „Notizen" selbst will sie offen haben.
+ * @param notizenZu Schmal vorher wegraeumen, was obenauf liegt. Nur die Zelle
+ *        „Notizen" selbst will sie aufgeschlagen haben.
  */
 async function ansichtMessen(
   seite,
@@ -638,7 +662,7 @@ async function ansichtMessen(
   await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
   konsole = [];
   await oeffnen();
-  if (notizenZu) await blattZumachen(seite);
+  if (notizenZu) await wegRaeumen(seite);
 
   const da = await steht(seite, kennzeichen, 30000);
   if (!da) {
@@ -653,12 +677,35 @@ async function ansichtMessen(
   // und die Konsolenfrage kommt zu frueh.
   await seite.waitForTimeout(2000);
 
-  const mass = await seite.evaluate(() => ({
-    rollt: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    zeichen: (document.body.innerText || '').replace(/\s+/g, ' ').trim().length,
-  }));
+  const mass = await seite.evaluate(() => {
+    const worte = wurzel => (wurzel?.innerText || '').replace(/\s+/g, ' ').trim().length;
+    // WAS IN EINEM RAHMEN STEHT, STEHT AUCH DA (Phase D7).
+    //
+    // `innerText` des Dokuments endet am `iframe`, und die Zelle „App im
+    // Rahmen" misst genau einen: der ganze Inhalt der App liegt darin. Bis D6
+    // fiel das nicht auf, weil bei jeder Breite die Sidebar, die Tab-Leiste
+    // und die Notizspalte daneben standen und ihre Woerter mitzaehlten. Seit
+    // D7 gibt es unter 900 px nichts davon -- die App hat die Spalte fuer
+    // sich --, und die Frage „steht etwas da" haette dort ohne diese Zeile
+    // eine App uebersehen, die vollstaendig dasteht.
+    //
+    // Der Rahmen ist gleicher Herkunft (`/apps/<id>/`, dasselbe Geraet),
+    // deshalb geht das ueberhaupt; `try` haelt den Fall offen, dass einmal
+    // einer nicht ist.
+    const inRahmen = [...document.querySelectorAll('iframe')].reduce((summe, rahmen) => {
+      try {
+        return summe + worte(rahmen.contentDocument?.body);
+      } catch {
+        return summe;
+      }
+    }, 0);
+    return {
+      rollt: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      zeichen: worte(document.body) + inRahmen,
+    };
+  });
 
   const eigene = konsole.filter(m => !m.app);
   const fremde = konsole.length - eigene.length;
@@ -699,11 +746,25 @@ async function ansichtMessen(
 /**
  * Die Aufteilung der Shell bei dieser Breite.
  *
- * Unter 900 px faellt die Sidebar weg (die Aktivitaetsleiste bleibt, sie ist
- * einen Klick entfernt); darueber steht sie. Das ist die Regel, nicht ein
- * Mangel -- geprueft wird, dass sie greift.
+ * Unter 900 px gibt es seit D7 einen EIGENEN Aufbau und keine geschrumpfte
+ * Fassung des Arbeitsplatzes: keine Sidebar, keine Aktivitaetsleiste, keine
+ * Tab-Leiste -- ein Hamburger-Knopf in der Kopfleiste und eine Spalte
+ * darunter. Darueber die drei Spalten aus D1. Das ist die Regel, nicht ein
+ * Mangel; geprueft wird, dass sie greift.
  */
 async function aufteilungMessen(seite, breite) {
+  const schmal = breite.px < SCHMAL_AB_PX;
+
+  const aufbau = await seite
+    .locator("[data-testid='workspace-shell']")
+    .getAttribute('data-shell-aufbau')
+    .catch(() => null);
+  pruefe(
+    `${breite.px} px: die Shell steht ${schmal ? 'schmal' : 'dreispaltig'}`,
+    aufbau === (schmal ? 'schmal' : 'drei-spalten'),
+    `data-shell-aufbau=${aufbau ?? 'fehlt'}`
+  );
+
   const sichtbar = await seite
     .locator('[data-panel]#sidebar')
     .evaluate(el => el.getAttribute('data-shell-hidden') === 'false')
@@ -716,7 +777,6 @@ async function aufteilungMessen(seite, breite) {
     );
     return;
   }
-  const schmal = breite.px < SCHMAL_AB_PX;
   pruefe(
     `${breite.px} px: ${schmal ? 'keine' : 'eine'} Sidebar, wie vorgesehen`,
     schmal ? !sichtbar : sichtbar
@@ -724,27 +784,35 @@ async function aufteilungMessen(seite, breite) {
 
   if (!schmal) return;
 
-  // DIE REGEL AUS D6: unter 900 px stehen Notizen und Mitte nie nebeneinander.
+  // DIE REGEL AUS D7: unter 900 px eine Spalte, und die gehoert der Ansicht.
   //
   // Gemessen wird sie an der Mitte und nicht an den Notizen -- die Frage ist
   // ja, ob die Ansicht ihre Flaeche bekommt. Bis D6 bekam sie bei 390 px null
   // Pixel: 48 fuer die Aktivitaetsleiste, 160 fuer die Sidebar, 220 fuer die
-  // Notizen sind mehr, als 390 hergeben, und das Uebrige war null. Was hier
-  // steht, ist deshalb eine Zahl und kein Kennzeichen: die Mitte muss den
-  // Platz neben der Aktivitaetsleiste WIRKLICH haben.
+  // Notizen sind mehr, als 390 hergeben, und das Uebrige war null. Seit D7
+  // faellt dort beides weg, und die Zahl ist entsprechend schaerfer: die
+  // Mitte hat die GANZE Breite, nicht die uebrige.
   const mass = await seite.evaluate(() => {
     const kasten = el => (el ? Math.round(el.getBoundingClientRect().width) : -1);
     const offen = el => Boolean(el) && el.getAttribute('data-shell-hidden') === 'false';
     return {
       mitte: kasten(document.querySelector('[data-panel]#main')),
       notizenOffen: offen(document.querySelector('[data-panel]#right')),
+      leiste: document.querySelectorAll('[aria-label="Workspace-Navigation"]').length,
+      hamburger: document.querySelectorAll("[data-testid='workspace-menue-knopf']").length,
+      tabs: document.querySelectorAll('[role="tab"]').length,
       fenster: window.innerWidth,
     };
   });
   pruefe(
-    `${breite.px} px: die Notizen stehen nicht neben der Mitte, und die Mitte hat ihre Breite`,
-    !mass.notizenOffen && mass.mitte >= mass.fenster - 80,
+    `${breite.px} px: die Notizen stehen nicht neben der Mitte, und die Mitte hat die ganze Breite`,
+    !mass.notizenOffen && mass.mitte >= mass.fenster - 2,
     `Mitte ${mass.mitte} px von ${mass.fenster}, Notizen ${mass.notizenOffen ? 'OFFEN' : 'zu'}`
+  );
+  pruefe(
+    `${breite.px} px: ein Hamburger-Knopf statt Aktivitaetsleiste und Tab-Leiste`,
+    mass.hamburger === 1 && mass.leiste === 0 && mass.tabs === 0,
+    `Hamburger ${mass.hamburger}, Aktivitaetsleiste ${mass.leiste}, Tabs ${mass.tabs}`
   );
 }
 
@@ -840,7 +908,7 @@ async function tabReihenfolge(seite, schritte) {
 // Der Durchlauf
 // ---------------------------------------------------------------------------
 
-console.log(`=== Oberflaechen-Abnahme (Phase D6) gegen ${URL} ===\n`);
+console.log(`=== Oberflaechen-Abnahme (Phase D7) gegen ${URL} ===\n`);
 
 if (!(await geraetErreichbar())) {
   console.log(`Kein Geraet unter ${URL}.`);
@@ -1092,7 +1160,7 @@ try {
   if (app && mitarbeiterToken) {
     const mApi = await apiKanal(mitarbeiterToken);
     const start = await mApi
-      .post(`/apps/${app}/api/flow?flow=${FLOW}&woche=Abnahme-D6`, {
+      .post(`/apps/${app}/api/flow?flow=${FLOW}&woche=Abnahme-D7`, {
         headers: { 'content-type': 'application/json' },
         data: {},
         timeout: 60000,
@@ -1180,60 +1248,57 @@ try {
     }
   }
 
-  // --- 7b. Die Notizen bei 390 px, aufgezogen ------------------------------
+  // --- 7b. Das Menue und die Notizen bei 390 px ----------------------------
   //
   // Die dreizehnte Zelle, und die einzige, die eine Breite fuer sich hat. Sie
   // gehoert zum ersten Fund der D6-Messung: dass die Notizen bei 390 px die
   // Mitte NICHT mehr verdecken, ist eine halbe Aussage, solange niemand
-  // nachsieht, ob man sie dort ueberhaupt noch benutzen kann. Also: aufziehen
-  // wie ein Mensch (der Knopf in der Kopfleiste), messen, Bild -- und danach
-  // die Probe, dass eine Ansicht sie wieder zumacht.
+  // nachsieht, ob man sie dort ueberhaupt noch benutzen kann. Davor steht seit
+  // D7 das Hamburger-Menue -- ohne es gibt es unter 900 px gar keinen Weg von
+  // einer Ansicht zur naechsten.
   {
     const telefon = BREITEN[0];
-
-    // ZUERST DER ZWEITE TAB, DANN DAS BLATT.
-    //
-    // Das ist die Lehre aus der zweiten D6-Messung am Orin (28.08.2026): die
-    // Probe „eine Ansicht macht das Blatt wieder zu" klickte bis dahin auf
-    // eine App-Kachel der Uebersicht -- und die liegt UNTER dem Blatt.
-    // Playwright wartete fuenfzehn Sekunden darauf, dass der Punkt frei wird,
-    // warf, und zwei von drei Laeufen endeten an dieser Zeile: vor der
-    // Tastatur, vor den Fehlerzustaenden, vor der ganzen Verwaltung.
-    //
-    // Ein Mensch kann diesen Klick dort auch nicht ausfuehren, und eine Probe,
-    // die etwas Unmoegliches verlangt, misst nichts. Was er bei offenem Blatt
-    // WIRKLICH erreicht, steht oben: die Kopfleiste und die Tab-Leiste -- das
-    // Blatt faengt erst bei 35 Prozent der Hoehe an. Also wird der zweite Tab
-    // vorher geoeffnet, solange die Kachel frei liegt, und die Probe wechselt
-    // spaeter ueber die Leiste dorthin.
     await seiteM.setViewportSize({ width: telefon.px, height: telefon.hoehe });
     await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
-    let zweiterTabDa = false;
-    if (app) {
-      const kachel = seiteM.locator(`[data-testid="uebersicht-app-${app}-live"]`);
-      if (await kachel.count().catch(() => 0)) {
-        await klickFrei(seiteM, kachel.first());
-        await seiteM.waitForTimeout(1500);
-        // Genau zwei Tabs -- der andere ist immer der, der gerade nicht
-        // ausgewaehlt ist. Gemerkt wird die Zahl und nicht der Knoten: das
-        // Neuladen unten baut die Leiste neu auf.
-        zweiterTabDa =
-          (await seiteM
-            .locator('[role="tab"]')
-            .count()
-            .catch(() => 0)) === 2;
-        if (zweiterTabDa) {
-          await seiteM
-            .locator('[role="tab"][aria-selected="false"]')
-            .first()
-            .click({ timeout: 15000 })
-            .catch(() => {});
-          await seiteM.waitForTimeout(1000);
-        }
-      }
-    }
 
+    // --- Das Menue ---------------------------------------------------------
+    const menueAuf = await klickFrei(
+      seiteM,
+      seiteM.locator('[data-testid="workspace-menue-knopf"]')
+    );
+    const menueDa = menueAuf && (await steht(seiteM, '[data-testid="workspace-schmal-menue"]', 15000));
+    pruefe(
+      `${telefon.px} px: der Hamburger oeffnet das Menue`,
+      menueDa,
+      menueAuf ? '' : 'der Klick auf den Hamburger kam nicht durch'
+    );
+    if (menueDa) {
+      await seiteM
+        .screenshot({ path: path.join(ZIEL, `${telefon.px}-menue.png`) })
+        .catch(() => {});
+      // Was drinsteht: der Weg zurueck und die eigenen Apps. Ein Menue ohne
+      // die Uebersicht waere unter 900 px eine Sackgasse -- es gibt dort
+      // weder Aktivitaetsleiste noch Tab-Leiste, die zurueckfuehrt.
+      const zurueck = await seiteM
+        .locator('[data-testid="menue-uebersicht"]')
+        .count()
+        .catch(() => 0);
+      const appDa = app
+        ? await seiteM
+            .locator(`[data-testid="menue-app-${app}-live"]`)
+            .count()
+            .catch(() => 0)
+        : 1;
+      pruefe(
+        `${telefon.px} px: das Menue fuehrt die Uebersicht und die eigenen Apps`,
+        zurueck === 1 && appDa >= 1,
+        `Uebersicht ${zurueck}, App ${appDa}`
+      );
+    }
+    await wegRaeumen(seiteM);
+
+    // --- Die Notizen, aufgeschlagen ----------------------------------------
     const ok = await ansichtMessen(seiteM, {
       name: 'Notizen',
       dateiname: 'notizen',
@@ -1248,67 +1313,98 @@ try {
           .first()
           .click({ timeout: 15000 })
           .catch(() => {});
+        // UND ETWAS HINEINSCHREIBEN. Zwei Gruende, und beide zaehlen: die
+        // Frage dieser Zelle ist, ob der Zettel bei 390 px BENUTZBAR ist, und
+        // ein leeres Feld beantwortet sie nicht. Dazu misst `ansichtMessen`,
+        // ob etwas dasteht -- und seit D7 verdeckt der Zettel die Mitte nicht
+        // mehr, sondern steht an ihrer Stelle: was hinter ihm lag, zaehlt
+        // nicht mehr mit. Der Text gehoert dem Wegwerf-Mitarbeiter und geht
+        // mit ihm.
+        await seiteM
+          .locator('#notizen-feld')
+          .fill('Abnahme D7: der Zettel steht bei 390 px als eigene Ansicht und nimmt Text an.')
+          .catch(() => {});
       },
     });
     if (ok) {
-      const blatt = await seiteM.evaluate(() => {
-        const el = document.querySelector('[data-panel]#right');
-        if (!el) return null;
-        const kasten = el.getBoundingClientRect();
+      // NICHTS LIEGT UEBEREINANDER, und das ist die Regel aus D7. Bis dahin
+      // lagen die Notizen als Blatt UEBER der Mitte: sie nahmen ihr die Pixel
+      // nicht mehr weg, verdeckten sie aber weiter, und der zweite D6-Lauf am
+      // Orin zeigte die App abgedunkelt dahinter. Gefragt wird deshalb nach
+      // BEIDEN: der Zettel nimmt die ganze Breite, und die Mitte ist in
+      // derselben Sekunde nicht da.
+      const spalte = await seiteM.evaluate(() => {
+        const zettel = document.querySelector('[data-panel]#right');
+        const mitte = document.querySelector('[data-panel]#main');
+        if (!zettel) return null;
+        const kasten = zettel.getBoundingClientRect();
         return {
-          blatt: el.getAttribute('data-shell-blatt') === 'true',
           links: Math.round(kasten.left),
           breite: Math.round(kasten.width),
           fenster: window.innerWidth,
+          mitteDa: Boolean(mitte) && mitte.getAttribute('data-shell-hidden') === 'false',
         };
       });
       pruefe(
-        `${telefon.px} px: die Notizen liegen als Blatt ueber der ganzen Breite`,
-        blatt !== null && blatt.blatt && blatt.links <= 1 && blatt.breite >= blatt.fenster - 1,
-        blatt ? `links ${blatt.links}, breit ${blatt.breite} von ${blatt.fenster}` : 'kein Panel'
+        `${telefon.px} px: die Notizen sind eine eigene Ansicht ueber die ganze Breite`,
+        spalte !== null &&
+          !spalte.mitteDa &&
+          spalte.links <= 1 &&
+          spalte.breite >= spalte.fenster - 1,
+        spalte
+          ? `links ${spalte.links}, breit ${spalte.breite} von ${spalte.fenster}, ` +
+              `Mitte ${spalte.mitteDa ? 'AUCH DA' : 'weg'}`
+          : 'kein Panel'
       );
 
-      // Und eine Ansicht macht sie wieder zu. Ohne diese Regel bliebe das Blatt
-      // der Zustand, in dem der naechste Bildschirm gemessen wuerde -- genau
-      // das, was in der ersten D6-Messung sieben Ansichten rot machte.
+      // Und eine Ansicht macht sie wieder zu. Ohne diese Regel bliebe der
+      // Zettel der Zustand, in dem der naechste Bildschirm gemessen wuerde --
+      // genau das, was in der ersten D6-Messung sieben Ansichten rot machte.
       //
       // Gemessen wird sie IM LAUFENDEN Bildschirm und nicht ueber die Adresse:
-      // ein Neuladen macht das Blatt ohnehin zu (der Zustand ist absichtlich
-      // nicht gespeichert), und diese Zeile pruefte dann nichts. Der Wechsel
-      // in der Tab-Leiste ist der Weg, den ein Mensch bei offenem Blatt hat --
-      // und deshalb der einzige Klick dieser Reihe, der ABSICHTLICH nicht
-      // ueber `klickFrei` laeuft.
-      const anderer = seiteM.locator('[role="tab"][aria-selected="false"]');
-      if (zweiterTabDa && (await anderer.count().catch(() => 0))) {
-        const gewechselt = await anderer
+      // ein Neuladen macht den Zettel ohnehin zu (der Zustand ist absichtlich
+      // nicht gespeichert), und diese Zeile pruefte dann nichts.
+      //
+      // UEBER DAS MENUE UND DIE UEBERSICHT, nicht ueber einen zweiten Tab.
+      // Bis D6 klickte diese Probe auf einen zweiten Tab, den sie sich vorher
+      // ueber eine App-Kachel besorgen musste -- eine Vorbereitung, die zwei
+      // von drei Laeufen am Orin abgebrochen hat, und ein Weg, den es unter
+      // 900 px gar nicht mehr gibt (dort ist keine Tab-Leiste). Ein
+      // Mitarbeiter mit EINER App hat genau einen Weg von hier weg, und den
+      // misst diese Zeile: Menue auf, Uebersicht.
+      const auf = await seiteM
+        .locator('[data-testid="workspace-menue-knopf"]')
+        .first()
+        .click({ timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+      const gewechselt =
+        auf &&
+        (await seiteM
+          .locator('[data-testid="menue-uebersicht"]')
           .first()
           .click({ timeout: 15000 })
           .then(() => true)
-          .catch(() => false);
-        await seiteM.waitForTimeout(1500);
-        const wiederZu = await seiteM
-          .locator('#notizen-feld')
-          .isVisible()
-          .catch(() => false);
-        pruefe(
-          `${telefon.px} px: eine Ansicht macht das Blatt wieder zu`,
-          gewechselt && !wiederZu,
-          gewechselt ? '' : 'der Wechsel in der Tab-Leiste kam nicht durch'
-        );
-      } else {
-        ueberspringe(
-          `${telefon.px} px: eine Ansicht macht das Blatt wieder zu`,
-          app
-            ? 'kein zweiter Tab in der Leiste, also keine Ansicht zum Wechseln'
-            : 'keine App mit Livestand am Geraet, also keine zweite Ansicht'
-        );
-      }
+          .catch(() => false));
+      await seiteM.waitForTimeout(1500);
+      const wiederZu = await seiteM
+        .locator('#notizen-feld')
+        .isVisible()
+        .catch(() => false);
+      const uebersichtDa = await steht(seiteM, '[data-testid="uebersicht-seite"]', 15000);
+      pruefe(
+        `${telefon.px} px: eine Ansicht aus dem Menue macht die Notizen wieder zu`,
+        gewechselt && !wiederZu && uebersichtDa,
+        gewechselt
+          ? `Notizen ${wiederZu ? 'OFFEN' : 'zu'}, Uebersicht ${uebersichtDa ? 'da' : 'FEHLT'}`
+          : 'der Weg ueber das Menue kam nicht durch'
+      );
     }
 
     // Was auch immer hier passiert ist: ueber der naechsten Station liegt
     // nichts mehr. Die folgenden Ansichten kommen zwar ueber die Adresse und
     // laden neu, aber diese Zeile haengt nicht davon ab, dass das so bleibt.
-    await blattZumachen(seiteM);
+    await wegRaeumen(seiteM);
   }
 
   // --- 8. Die App im Rahmen, in drei Breiten -------------------------------

@@ -19,9 +19,9 @@
  */
 import { useState } from 'react';
 import { Archive, DatabaseBackup, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
 import EmptyState from '@/components/ui/EmptyState';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
@@ -153,10 +153,10 @@ export function Sicherung() {
 
   return (
     <div className="animate-in fade-in" data-testid="sicherung-seite">
-      <PageHeader
-        title="Sicherung"
-        icon={<DatabaseBackup />}
-        description="Was gesichert ist, wann zuletzt, und ob es sich zurückspielen lässt."
+      <Kopf
+        titel="Sicherung"
+        symbol={<DatabaseBackup />}
+        beschreibung="Was gesichert ist, wann zuletzt, und ob es sich zurückspielen lässt."
       />
 
       {isLoading ? (
