@@ -168,7 +168,12 @@ async function runFlow(
   const filledPrompt = fillPlaceholders(flow.systemPrompt, werte);
   const userInput = buildUserInput(flow.argumente, werte);
 
-  // 2. Modell.
+  // 2. Modell. Entweder eines vom Gerät — oder, seit Phase D4, das externe,
+  //    das der Administrator für diesen Flow hinterlegt hat (`flow_settings`,
+  //    aufgelöst in `appFlows.lade`). `extern` reicht bis in `callOllama`
+  //    durch und entscheidet dort, wohin der Aufruf geht; `model` bleibt
+  //    daneben stehen, weil jeder Schritt seinen Modellnamen protokolliert.
+  const extern = flow.extern || null;
   const model = flow.modell || (await resolveModel());
   if (!model) {
     throw new ValidationError('Kein Modell verfügbar, bitte im Model Store eines laden.');
@@ -263,6 +268,10 @@ async function runFlow(
     limits,
     depth: 0,
     model,
+    // Die Rollen erben den Zugang: ein Flow, der draußen rechnet, rechnet
+    // auch in seinen Delegationen draußen. Eine Rolle mit EIGENEM Modell
+    // (`rolle.modell`) fällt davon aus — sie nennt ein Modell dieses Geräts.
+    extern,
     werkzeugRunden: flow.grenzen.werkzeug_runden,
     roleContextBase,
     stepRecorder,
@@ -296,6 +305,18 @@ async function runFlow(
           await stepRecorder.abschliessen({ stepId, output: evt.result });
           offeneSchritte.delete(evt.tool);
         }
+      } else if (evt.type === 'gedanke') {
+        // Der Gedankengang (Phase D4): was das Modell gesagt hat, BEVOR es ein
+        // Werkzeug rief. Ein Schritt der Art `modell`, sofort geschlossen — er
+        // hat keine Dauer, er ist eine Aussage. Er steht zwischen den
+        // Werkzeug-Schritten und beantwortet in der Lauf-Ansicht die Frage,
+        // die eine reine Werkzeug-Kette offenlässt: warum dieses Werkzeug.
+        const step = await stepRecorder.beginnen({
+          kind: 'modell',
+          name: 'Gedankengang',
+          modell: evt.modell || model,
+        });
+        await stepRecorder.abschliessen({ stepId: step.id, output: evt.content });
       }
     } catch (err) {
       // Das Mitschreiben darf einen laufenden Flow nie zum Absturz bringen.
@@ -303,7 +324,8 @@ async function runFlow(
     }
     // Werkzeug-Ereignisse gehen als step_start/step_end raus (siehe
     // stepRecorder) — die rohen tool_*-Ereignisse hier NICHT doppelt senden.
-    if (evt.type !== 'tool_start' && evt.type !== 'tool_result') {
+    // `gedanke` ebenso wenig: er ist gerade als Schritt gemeldet worden.
+    if (evt.type !== 'tool_start' && evt.type !== 'tool_result' && evt.type !== 'gedanke') {
       emitLive(evt);
     }
   };
@@ -459,6 +481,7 @@ async function runFlow(
           werte,
           userInput,
           model,
+          extern,
           context,
           makeTools,
           runLoop,
@@ -470,6 +493,7 @@ async function runFlow(
         })
       : await runLoop({
           model,
+          extern,
           systemPrompt: filledPrompt,
           userInput,
           tools,
@@ -510,6 +534,7 @@ async function runFlow(
         flow,
         userInput,
         model,
+        extern,
         context,
         signal,
         stepRecorder,

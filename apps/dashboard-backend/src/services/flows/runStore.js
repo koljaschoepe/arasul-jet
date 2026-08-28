@@ -347,6 +347,86 @@ async function listRuns(
   return rows;
 }
 
+/**
+ * Die Laeufe EINER App, unabhaengig davon, wer sie gestartet hat (Phase D4).
+ *
+ * DER UNTERSCHIED ZU `listRuns` IST DER SCHNITT, und er ist keine Bequemlichkeit:
+ * `listRuns` beantwortet "was habe ICH laufen lassen", diese Funktion "was hat
+ * DIESE APP getan". Ein App-Lauf traegt als `user_id` den Menschen, dem der
+ * App-Schluessel gehoert -- also den Administrator, der die App eingespielt
+ * hat. Ein zweiter Administrator saehe die Laeufe der App ueber `listRuns`
+ * deshalb NIE, obwohl beide dasselbe Geraet verwalten, und die App-Ansicht
+ * waere je nach Anmeldung eine andere.
+ *
+ * DIE BERECHTIGUNG STEHT AN DER ROUTE (`requireRole('admin')`), nicht hier.
+ * Diese Funktion siebt nach App und Stand, mehr nicht -- so wie `listeApps`
+ * alle Apps des Geraets aufzaehlt.
+ *
+ * @param {{appId: string, stand?: 'test'|'live'|null, flowName?: string|null,
+ *          status?: string|null, limit?: number}} p
+ */
+async function listRunsFuerApp(
+  { appId, stand = null, flowName = null, status = null, limit = 50 },
+  { db = database } = {}
+) {
+  const params = [appId];
+  let filter = '';
+  if (stand != null) {
+    params.push(stand);
+    filter += `AND stand = $${params.length} `;
+  }
+  if (flowName != null) {
+    params.push(flowName);
+    filter += `AND flow_name = $${params.length} `;
+  }
+  if (status != null) {
+    params.push(status);
+    filter += `AND status = $${params.length} `;
+  }
+  params.push(Math.min(Math.max(1, limit), 200));
+  const { rows } = await db.query(
+    `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at,
+            arguments, error
+       FROM flow_runs
+      WHERE app_id = $1 ${filter}
+      ORDER BY id DESC
+      LIMIT $${params.length}`,
+    params
+  );
+  return rows;
+}
+
+/**
+ * Ein Lauf EINER App samt Schritten (Phase D4).
+ *
+ * Ohne `userId` und mit derselben Begruendung wie `listRunsFuerApp`: die Frage
+ * lautet "was hat diese App getan", nicht "was habe ich getan". `appId` ist
+ * hier die ganze Einschraenkung, und sie ist eine echte -- ein Lauf der
+ * Plattform (`app_id IS NULL`) oder einer anderen App faellt heraus und ist ein
+ * NotFound, kein Forbidden: wer nicht darf, erfaehrt nicht, was es gibt.
+ *
+ * `includeRaw` holt die Rohdaten der Schritte dazu. Sie koennen je Subagent
+ * einige Dutzend Kilobyte sein; die Ansicht laedt sie deshalb erst, wenn
+ * jemand einen Schritt aufklappt.
+ */
+async function getRunFuerApp({ runId, appId, includeRaw = false }, { db = database } = {}) {
+  const runRes = await db.query(`SELECT * FROM flow_runs WHERE id = $1 AND app_id = $2`, [
+    runId,
+    appId,
+  ]);
+  if (runRes.rows.length === 0) {
+    throw new NotFoundError(`Flow-Lauf ${runId} nicht gefunden`);
+  }
+  const spalten = includeRaw
+    ? '*'
+    : 'id, run_id, position, kind, name, input, output, status, created_at, finished_at, parent_step_id, modell';
+  const stepsRes = await db.query(
+    `SELECT ${spalten} FROM flow_run_steps WHERE run_id = $1 ORDER BY position ASC`,
+    [runId]
+  );
+  return { ...runRes.rows[0], steps: stepsRes.rows };
+}
+
 module.exports = {
   createRun,
   startStep,
@@ -356,7 +436,9 @@ module.exports = {
   bumpSteps,
   cancelRun,
   getRun,
+  getRunFuerApp,
   listRuns,
+  listRunsFuerApp,
   ENDZUSTAENDE,
   LAEUFT_NOCH,
 };

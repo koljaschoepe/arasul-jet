@@ -107,9 +107,9 @@ Der AppStore aus 013/014 (`app_installations`, `app_configurations`,
 
 ### Settings (031, 038)
 
-| Table           | Key Columns                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------ |
-| system_settings | id=1 (singleton), setup_completed, company_name, hostname, selected_model, ai_profile_yaml |
+| Table           | Key Columns                                                               |
+| --------------- | ------------------------------------------------------------------------- |
+| system_settings | id=1 (singleton), company_name, hostname, selected_model, ai_profile_yaml |
 
 ## Singleton Tables
 
@@ -154,7 +154,6 @@ Created with `DO $$ BEGIN CREATE TYPE ... EXCEPTION WHEN duplicate_object THEN n
 | `is_user_locked(username)`    | Check if account is locked from failed logins                                  |
 | `record_login_attempt()`      | Record login + auto-lock after 5 failures (15 min)                             |
 | `get_next_queue_position()`   | Next position in LLM job queue                                                 |
-| `is_setup_completed()`        | Check if setup wizard has been completed                                       |
 | `cleanup_old_metrics()`       | Delete metrics older than 7 days                                               |
 | `cleanup_expired_auth_data()` | Clear expired tokens, sessions, old login attempts                             |
 | `is_in_quiet_hours()`         | Check if current time is in alert quiet hours                                  |
@@ -238,8 +237,6 @@ docker exec -it postgres-db psql -U arasul -d arasul_db
 # Run cleanup
 SELECT run_all_cleanups();
 
-# Check setup status
-SELECT is_setup_completed();
 ```
 
 ## Backend Query Pattern

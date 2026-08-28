@@ -209,6 +209,10 @@ async function pruefeUndKorrigiere({
   flow,
   userInput,
   model,
+  // Rechnet der Flow extern (D4), rechnet auch sein Pruefschritt dort. Alles
+  // andere hiesse: der Entwurf entsteht draussen und wird hier bewertet, und
+  // die beiden Urteile kaemen von zwei verschiedenen Modellen.
+  extern = null,
   context,
   signal,
   stepRecorder,
@@ -234,6 +238,7 @@ async function pruefeUndKorrigiere({
     const vorgaben = vorgabenText(ausgabe);
     const antwort = await runLoop({
       model,
+      extern,
       systemPrompt: PRUEF_PROMPT,
       userInput:
         `AUFTRAG:\n${userInput || '(kein gesonderter Auftrag)'}\n\n` +
@@ -274,6 +279,7 @@ async function pruefeUndKorrigiere({
     try {
       const antwort = await runLoop({
         model,
+        extern,
         systemPrompt: KORREKTUR_PROMPT,
         userInput:
           `AUFTRAG:\n${userInput || '(kein gesonderter Auftrag)'}\n\n` +

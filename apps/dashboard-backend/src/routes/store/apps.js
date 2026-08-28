@@ -22,9 +22,14 @@ const { validateBody, validateParams, validateQuery } = require('../../middlewar
 const {
   AppParams,
   AppFlowParams,
+  AppLaufParams,
   FlowModellBody,
   EinspielenBody,
+  FlowQuery,
+  LaeufeQuery,
+  LaufQuery,
   LogsQuery,
+  SchaltenBody,
   ZugangQuery,
 } = require('../../schemas/apps');
 const appStore = require('../../services/app/appStore');
@@ -32,6 +37,7 @@ const appContainer = require('../../services/app/appContainer');
 const appFlows = require('../../services/app/appFlows');
 const appZugang = require('../../services/app/appZugang');
 const flowSettings = require('../../services/flows/flowSettings');
+const runStore = require('../../services/flows/runStore');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { NotFoundError } = require('../../utils/errors');
 
@@ -239,23 +245,167 @@ router.put(
       throw new NotFoundError(`App ${appId} hat keinen Flow "${name}"`);
     }
 
-    const data = await flowSettings.setzeModell({
-      appId,
-      flowName: name,
-      modell: req.body.modell,
-      durch: req.user.id,
-    });
+    const extern = req.body.extern;
+    const data = extern
+      ? await flowSettings.setzeExtern({
+          appId,
+          flowName: name,
+          anbieter: extern.anbieter,
+          modell: extern.modell,
+          basisUrl: extern.basis_url,
+          schluessel: extern.schluessel ?? null,
+          durch: req.user.id,
+        })
+      : await flowSettings.setzeModell({
+          appId,
+          flowName: name,
+          modell: req.body.modell,
+          durch: req.user.id,
+        });
+    // DER SCHLUESSEL STEHT IN KEINEM PROTOKOLL. Was hier festgehalten wird, ist
+    // die Entscheidung -- wer, welcher Flow, welches Modell, welcher Anbieter --
+    // und die letzten vier Zeichen genuegen, um zwei Schluessel auseinanderzu-
+    // halten. Ein Audit-Log, das Geheimnisse mitschreibt, ist selbst eines.
     logSecurityEvent({
       userId: req.user.id,
-      action: 'flow_modell_gesetzt',
-      details: { app_id: appId, flow: name, modell: req.body.modell },
+      action: extern ? 'flow_modell_extern_gesetzt' : 'flow_modell_gesetzt',
+      details: extern
+        ? {
+            app_id: appId,
+            flow: name,
+            anbieter: extern.anbieter,
+            modell: extern.modell,
+            basis_url: extern.basis_url,
+            schluessel_endet_auf: data?.extern_endet_auf ?? null,
+          }
+        : { app_id: appId, flow: name, modell: req.body.modell },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
     res.json({
-      data: data ?? { app_id: appId, flow_name: name, modell: null },
+      data: data ?? { app_id: appId, flow_name: name, modell: null, extern: null },
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+/**
+ * GET /api/apps/:id/flows/:name — die Flow-Datei lesen (Phase D4).
+ *
+ * `?stand=` sagt, welche Fassung: der Flow des Teststandes ist ein anderer
+ * Gegenstand als der gleichnamige des Livestandes -- der Teststand ist eine
+ * andere Version, und genau deshalb liest man ihn nach.
+ *
+ * Was hier steht und in `GET /:id/flows` nicht: der Prompt. Die Begruendung
+ * steht an `appFlows.hole`.
+ */
+router.get(
+  '/:id/flows/:name',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppFlowParams),
+  validateQuery(FlowQuery),
+  asyncHandler(async (req, res) => {
+    const data = await appFlows.hole({
+      appId: req.params.id,
+      stand: req.query.stand,
+      name: req.params.name,
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/apps/:id/laeufe — was diese App hat laufen lassen (Phase D4).
+ *
+ * NICHT `GET /api/flows/laeufe`, und das ist der Grund, warum es diese Route
+ * gibt: die dortige Liste ist die des ANGEMELDETEN Menschen. Ein App-Lauf
+ * traegt als Nutzer den, dem der App-Schluessel gehoert -- also den
+ * Administrator, der die App eingespielt hat. Ein zweiter Administrator saehe
+ * die Laeufe der App dort nie, obwohl beide dasselbe Geraet verwalten.
+ *
+ * Die App muss es geben: sonst waere eine leere Liste die Antwort auf eine
+ * Kennung mit Tippfehler.
+ */
+router.get(
+  '/:id/laeufe',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppParams),
+  validateQuery(LaeufeQuery),
+  asyncHandler(async (req, res) => {
+    await appStore.holeApp(req.params.id);
+    const data = await runStore.listRunsFuerApp({
+      appId: req.params.id,
+      stand: req.query.stand ?? null,
+      flowName: req.query.flow ?? null,
+      status: req.query.status ?? null,
+      limit: req.query.limit,
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/apps/:id/laeufe/:runId — ein Lauf mit seinen Schritten (Phase D4).
+ *
+ * Der Gedankengang steht in denselben Schritten: was das Modell sagte, bevor
+ * es ein Werkzeug rief, liegt als Schritt der Art `modell` dazwischen
+ * (`services/flows/runFlow.js`). `?raw=1` holt zusaetzlich die Rohdaten der
+ * Subagent-Schritte -- die Ansicht laedt sie erst, wenn jemand einen Schritt
+ * aufklappt.
+ */
+router.get(
+  '/:id/laeufe/:runId',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppLaufParams),
+  validateQuery(LaufQuery),
+  asyncHandler(async (req, res) => {
+    const data = await runStore.getRunFuerApp({
+      runId: req.params.runId,
+      appId: req.params.id,
+      includeRaw: req.query.raw,
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/apps/:id/schalten — den Livestand setzen oder zuruecknehmen
+ * (Phase D4).
+ *
+ * DENSELBEN DIENST WIE DER KIT-WEG (`POST /api/v1/external/apps/:id/schalten`,
+ * C5), aber fuer einen Menschen mit einer Sitzung. Beide rufen `appStore.schalte`;
+ * die Regel, was `live` und was `zurueck` bedeutet, steht dort und nur dort.
+ *
+ * WARUM ES BEIDE GIBT: das Kit schaltet, wenn der Partner ausgeliefert hat --
+ * aus der Ferne, mit einem Schluessel. Der Administrator schaltet, wenn ER es
+ * fuer richtig haelt, nachdem er den Teststand gesehen hat. Das ist der
+ * Lebenslauf einer App aus `kit-grundriss.md`: gerollt wird nach `test`, live
+ * schaltet ein Mensch. Ohne diese Route braeuchte dieser Mensch einen
+ * API-Schluessel und eine Befehlszeile.
+ */
+router.post(
+  '/:id/schalten',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppParams),
+  validateBody(SchaltenBody),
+  asyncHandler(async (req, res) => {
+    const data = await appStore.schalte({
+      appId: req.params.id,
+      ziel: req.body.ziel,
+      durch: req.user.id,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'app_geschaltet',
+      details: { app_id: req.params.id, ziel: req.body.ziel, version: data.version },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
   })
 );
 

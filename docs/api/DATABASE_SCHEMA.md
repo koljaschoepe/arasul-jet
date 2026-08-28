@@ -469,6 +469,7 @@ tut der Flow im Teststand etwas anderes als im Livestand".
 | `modell`            | text                     | ✅       |         |
 | `extern_anbieter`   | text                     | ✅       |         |
 | `extern_modell`     | text                     | ✅       |         |
+| `extern_basis_url`  | text                     | ✅       |         |
 | `extern_schluessel` | bytea                    | ✅       |         |
 | `extern_endet_auf`  | character varying(8)     | ✅       |         |
 | `geaendert_am`      | timestamp with time zone | ⛔       | `now()` |
@@ -497,12 +498,23 @@ Fassung, mit der jemand gerade testet. Je Stand eine Zeile hieße: wer im
 Teststand einstellt, stellt im Livestand nichts ein — und merkt es beim
 Schalten.
 
-Die vier `extern_`-Spalten sind **heute leer**. Sie sind das Datenmodell für
-„externe Modelle je Flow mit API-Schlüssel in der Flow-Ansicht" (D-Phasen). Der
-Schlüssel liegt als AES-256-GCM-Blob (`utils/tokenCrypto.js`), nie im Klartext
-— dieselbe Zusage wie `arasul.externe_modell_anbieter` (153) und
+Die fünf `extern_`-Spalten füllt seit **Phase D4** die Flow-Ansicht: ein
+Administrator stellt einen einzelnen Flow auf ein Modell bei einem Anbieter
+draußen um. `extern_basis_url` (seit 179) ist die OpenAI-kompatible Adresse
+ohne `/chat/completions` — eine Anbieter-Liste im Code gäbe es dafür nicht, ein
+Kunde wählt sein eigenes Gateway an.
+
+Der Schlüssel liegt als AES-256-GCM-Blob (`utils/tokenCrypto.js`), nie im
+Klartext — dieselbe Zusage wie `arasul.externe_modell_anbieter` (153) und
 `user_external_credentials` (107); `extern_endet_auf` ist bewusst Klartext,
-damit eine Oberfläche zeigen kann, welcher Schlüssel hinterlegt ist.
+damit die Oberfläche zeigen kann, welcher Schlüssel hinterlegt ist. Entschlüsselt
+wird an genau einer Stelle (`flowSettings.externerZugang`), und ihr einziger
+Aufrufer ist der Runner.
+
+**`modell` und `extern_*` schließen einander aus** (`flow_settings_extern_check`
+hält die drei Pflichtangaben zusammen, der Service räumt die jeweils andere
+Seite): ein Flow läuft auf einem Modell. `{"modell": null}` über die API räumt
+die Zeile ganz — samt Schlüssel.
 
 ---
 
@@ -1799,13 +1811,9 @@ Ollama und keine Selbstheilung.
 | Column                            | Type                     | Nullable | Default |
 | --------------------------------- | ------------------------ | -------- | ------- |
 | `id`                              | integer                  | ⛔       | `1`     |
-| `setup_completed`                 | boolean                  | ⛔       | `false` |
-| `setup_completed_at`              | timestamp with time zone | ✅       |         |
-| `setup_completed_by`              | integer                  | ✅       |         |
 | `company_name`                    | character varying        | ✅       |         |
 | `hostname`                        | character varying        | ✅       |         |
 | `selected_model`                  | character varying        | ✅       |         |
-| `setup_step`                      | integer                  | ✅       | `0`     |
 | `created_at`                      | timestamp with time zone | ⛔       | `now()` |
 | `updated_at`                      | timestamp with time zone | ⛔       | `now()` |
 | `ai_profile_yaml`                 | text                     | ✅       |         |
@@ -1827,7 +1835,6 @@ Ollama und keine Selbstheilung.
 **Foreign Keys:**
 
 - `telegram_disclaimer_accepted_by` → `admin_users.id`
-- `setup_completed_by` → `admin_users.id`
 - `ai_transparency_disabled_by` → `admin_users.id`
 
 **Indexes:**

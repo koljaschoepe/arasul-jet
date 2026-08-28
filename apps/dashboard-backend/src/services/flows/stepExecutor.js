@@ -178,6 +178,7 @@ function buildSynthesisInput(userInput, schritte, outputs) {
  * @param {object} p.werte - eingesetzte Argumentwerte (name → Wert).
  * @param {string} p.userInput - die zusammengebaute Nutzer-Eingabe.
  * @param {string} p.model - aufgelöstes Modell.
+ * @param {object|null} [p.extern] - Zugang zu einem externen Modell (D4).
  * @param {object} p.context - der volle Runner-Kontext (rollen, limits, depth 0,
  *   stepRecorder, roleContextBase, …) — identisch zum modellgetriebenen Pfad.
  * @param {(names:string[])=>object[]} p.makeTools - buildTools.
@@ -200,6 +201,7 @@ async function executeSteps({
   werte,
   userInput,
   model,
+  extern = null,
   context,
   makeTools,
   runLoop = runFlowLoop,
@@ -344,6 +346,7 @@ async function executeSteps({
 
   return runLoop({
     model,
+    extern,
     systemPrompt,
     userInput: synthInput,
     tools: makeTools([]),

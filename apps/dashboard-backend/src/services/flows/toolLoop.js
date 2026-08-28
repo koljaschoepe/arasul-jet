@@ -27,6 +27,7 @@ const axios = require('axios');
 const services = require('../../config/services');
 const logger = require('../../utils/logger');
 const { withGpuLock } = require('./gpuQueue');
+const { ServiceUnavailableError } = require('../../utils/errors');
 const { parseTextToolCalls, enthaeltToolSyntax } = require('../llm/textToolCalls');
 
 // Eine eigene Variable, und zwar seit dem 22.08.2026 wirklich eine eigene.
@@ -90,10 +91,106 @@ function _clearOllamaNameCache() {
 }
 
 /**
- * Ein einzelner /api/chat-Aufruf, in die GPU-Sperre gewickelt.
+ * Ein Aufruf gegen ein EXTERNES, OpenAI-kompatibles Modell (Phase D4).
+ *
+ * OHNE GPU-SPERRE, und das ist der Sinn der Sache: dieses Modell rechnet
+ * woanders. Die Sperre haelt genau eine Sache auseinander -- wer die GPU
+ * dieses Geraets benutzt -- und ein Aufruf, der sie nicht anfasst, soll
+ * niemanden aufhalten, der sie braucht.
+ *
+ * `/chat/completions` und nicht `/v1/chat/completions`: die `basis_url`
+ * enthaelt das Versionsstueck bereits (`https://api.openai.com/v1`). So kann
+ * ein Kunde auch ein Gateway anwaehlen, das seine Wege anders schneidet.
+ *
+ * Die Antwort wird auf die Form gebracht, die die Schleife von Ollama kennt
+ * (`{content, tool_calls:[{function:{name, arguments}}]}`). OpenAI liefert die
+ * Argumente als JSON-ZEICHENKETTE, Ollama als Objekt; die Schleife erwartet
+ * ein Objekt, und diese Uebersetzung ist der einzige echte Unterschied
+ * zwischen den beiden Protokollen an dieser Stelle.
+ *
+ * @param {{extern: {anbieter:string, modell:string, basisUrl:string, schluessel:string|null},
+ *          messages: object[], tools: object[]}} was
+ * @returns {Promise<object>} das `message`-Objekt, in Ollama-Form
+ */
+async function callExtern({ extern, messages, tools }) {
+  const koepfe = { 'content-type': 'application/json' };
+  if (extern.schluessel) {
+    koepfe.authorization = `Bearer ${extern.schluessel}`;
+  }
+  const body = { model: extern.modell, messages, stream: false };
+  if (tools && tools.length > 0) {
+    body.tools = tools;
+  }
+
+  let antwort;
+  try {
+    antwort = await axios.post(`${extern.basisUrl}/chat/completions`, body, {
+      headers: koepfe,
+      timeout: CALL_TIMEOUT_MS,
+    });
+  } catch (err) {
+    // Der Schluessel darf in KEINER Fehlermeldung landen -- axios haengt die
+    // Anfrage samt Koepfen an seinen Fehler, und der geht als Lauf-Fehler in
+    // die Datenbank und in die Oberflaeche.
+    const status = err.response?.status;
+    throw new ServiceUnavailableError(
+      `Das externe Modell ${extern.anbieter}/${extern.modell} antwortete nicht` +
+        (status ? ` (HTTP ${status})` : ` (${err.code || 'keine Antwort'})`)
+    );
+  }
+
+  const wahl = antwort.data?.choices?.[0]?.message || {};
+  const aufrufe = Array.isArray(wahl.tool_calls) ? wahl.tool_calls : [];
+  return {
+    content: wahl.content || '',
+    ...(aufrufe.length > 0
+      ? {
+          tool_calls: aufrufe.map(a => ({
+            function: {
+              name: a.function?.name,
+              arguments:
+                typeof a.function?.arguments === 'string'
+                  ? sicherGeparst(a.function.arguments)
+                  : a.function?.arguments || {},
+            },
+          })),
+        }
+      : {}),
+  };
+}
+
+/**
+ * JSON aus einer Zeichenkette, ohne zu werfen. Ein Modell, das seine Argumente
+ * kaputt formatiert, soll eine Werkzeug-Fehlermeldung bekommen und keinen
+ * abgebrochenen Lauf -- dieselbe Linie wie beim Text-Fallback weiter unten.
+ */
+function sicherGeparst(text) {
+  try {
+    const wert = JSON.parse(text);
+    return wert && typeof wert === 'object' ? wert : {};
+  } catch {
+    logger.warn('Flow-toolLoop: Werkzeug-Argumente des externen Modells sind kein JSON');
+    return {};
+  }
+}
+
+/**
+ * Ein einzelner Modell-Aufruf. Lokal ueber /api/chat und die GPU-Sperre, oder
+ * -- wenn der Administrator diesen Flow umgestellt hat (D4) -- gegen den
+ * externen Anbieter.
+ *
+ * EINE WEICHE, und sie steht hier: jeder Modell-Aufruf eines Flows geht durch
+ * diese Funktion, auch der einer Subagent-Rolle und der des Pruefschritts.
+ * Stuende die Weiche weiter oben, gaebe es Pfade, die sie umgehen -- und ein
+ * Flow, der halb draussen und halb hier rechnet, waere das Gegenteil einer
+ * Entscheidung.
+ *
  * @returns {Promise<object>} Das `message`-Objekt der Antwort.
  */
-async function callOllama({ model, messages, tools, think = false }) {
+async function callOllama({ model, messages, tools, think = false, extern = null }) {
+  if (extern) {
+    return callExtern({ extern, messages, tools });
+  }
   // `think: false` (Standard) schaltet den Reasoning-Trace „denkender" Modelle
   // (qwen3 & Co.) ab. Ein Flow FÜHRT AUS statt zu plaudern — der lange
   // Gedankengang bringt hier nichts, kostet aber ein Vielfaches: auf dem
@@ -117,6 +214,8 @@ async function callOllama({ model, messages, tools, think = false }) {
  *
  * @param {object} args
  * @param {string} args.model
+ * @param {object|null} [args.extern] - Zugang zu einem externen Modell (D4);
+ *   gesetzt, laeuft JEDER Aufruf dieser Schleife dort statt auf der GPU.
  * @param {string} args.systemPrompt - Prompt mit bereits ersetzten Platzhaltern.
  * @param {string} args.userInput - Die Eingabe des Nutzers (Argument-Freitext o. Ä.).
  * @param {import('../../tools/baseTool')[]} args.tools - Fertige Werkzeug-Instanzen.
@@ -131,6 +230,7 @@ async function callOllama({ model, messages, tools, think = false }) {
  */
 async function runFlowLoop({
   model,
+  extern = null,
   systemPrompt,
   userInput,
   tools = [],
@@ -188,7 +288,7 @@ async function runFlowLoop({
         return { result: note, runden: runde, truncated: true };
       }
 
-      const message = await callOllama({ model, messages, tools: toolDefs, think });
+      const message = await callOllama({ model, messages, tools: toolDefs, think, extern });
       const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
       let rundenContent = message.content || '';
 
@@ -222,6 +322,21 @@ async function runFlowLoop({
         await emit({ type: 'text', content: rundenContent });
         await emit({ type: 'done', result: rundenContent });
         return { result: rundenContent, runden: runde + 1 };
+      }
+
+      // DER GEDANKENGANG (Phase D4). Ruft das Modell ein Werkzeug auf, sagt es
+      // fast immer auch, WARUM ("Ich hole zuerst den Bericht der Woche, dann
+      // …"). Bis D4 fiel dieser Text hier lautlos weg: gemeldet wurde nur die
+      // LETZTE Runde, die ohne Werkzeug-Aufruf. Damit stand in der Lauf-Ansicht
+      // eine Kette von Werkzeugen ohne einen einzigen Satz dazu, und die Frage
+      // "warum hat der Flow das getan" liess sich nicht beantworten.
+      //
+      // Ein eigenes Ereignis und nicht `text`: `text` ist die ANTWORT des
+      // Laufs, dieses hier ist sein Weg dorthin. Der Runner schreibt es als
+      // Schritt der Art `modell` mit (Migration 112 kennt sie seit jeher), der
+      // Live-Kanal reicht es durch.
+      if (rundenContent.trim()) {
+        await emit({ type: 'gedanke', content: rundenContent, modell: model });
       }
 
       // Den Assistenten-Zug MIT seinen tool_calls festhalten, bevor die

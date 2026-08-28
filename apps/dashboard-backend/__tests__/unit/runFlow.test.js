@@ -504,6 +504,229 @@ describe('runFlow — Orchestrierung', () => {
   });
 });
 
+/**
+ * Der Gedankengang (Phase D4).
+ *
+ * Bis D4 fiel der Zwischentext des Modells lautlos weg: gemeldet wurde nur die
+ * letzte Runde, die ohne Werkzeug-Aufruf. In der Lauf-Ansicht stand damit eine
+ * Kette von Werkzeugen ohne einen Satz dazu, und die Frage „warum hat der Flow
+ * das getan" liess sich nicht beantworten.
+ */
+describe('Gedankengang (Phase D4)', () => {
+  it('meldet den Zwischentext neben einem Werkzeug-Aufruf als eigenes Ereignis', async () => {
+    axios.post
+      .mockResolvedValueOnce(
+        antwort({
+          content: 'Ich hole zuerst den Bericht.',
+          toolCalls: [{ function: { name: 'dateien_suchen', arguments: {} } }],
+        })
+      )
+      .mockResolvedValueOnce(antwort({ content: 'Fertig.' }));
+
+    const ereignisse = [];
+    await runFlowLoop({
+      model: 'm',
+      systemPrompt: 's',
+      userInput: 'u',
+      tools: [fakeTool('dateien_suchen')],
+      onEvent: e => ereignisse.push(e),
+    });
+
+    const gedanke = ereignisse.find(e => e.type === 'gedanke');
+    expect(gedanke).toMatchObject({ content: 'Ich hole zuerst den Bericht.', modell: 'm' });
+    // Die letzte Runde bleibt `text` — sie ist die ANTWORT, nicht der Weg dahin.
+    expect(ereignisse.filter(e => e.type === 'text')).toHaveLength(1);
+  });
+
+  it('schweigt, wenn das Modell nur das Werkzeug ruft', async () => {
+    axios.post
+      .mockResolvedValueOnce(
+        antwort({ toolCalls: [{ function: { name: 'dateien_suchen', arguments: {} } }] })
+      )
+      .mockResolvedValueOnce(antwort({ content: 'Fertig.' }));
+
+    const ereignisse = [];
+    await runFlowLoop({
+      model: 'm',
+      systemPrompt: 's',
+      userInput: 'u',
+      tools: [fakeTool('dateien_suchen')],
+      onEvent: e => ereignisse.push(e),
+    });
+    expect(ereignisse.some(e => e.type === 'gedanke')).toBe(false);
+  });
+
+  it('der Runner schreibt ihn als Schritt der Art `modell` mit', async () => {
+    const store = {
+      createRun: jest.fn(async () => ({ id: 5 })),
+      startStep: jest.fn(async () => ({ id: 11 })),
+      finishStep: jest.fn(async () => ({})),
+      bumpSteps: jest.fn(async () => 1),
+      finishRun: jest.fn(async () => ({})),
+      getRun: jest.fn(async () => ({ id: 5, steps: [] })),
+    };
+    axios.post
+      .mockResolvedValueOnce(
+        antwort({
+          content: 'Erst nachfragen.',
+          toolCalls: [{ function: { name: 'dateien_suchen', arguments: {} } }],
+        })
+      )
+      .mockResolvedValueOnce(antwort({ content: 'Fertig.' }));
+
+    await runFlow(
+      { flowName: 'notiz', args: { thema: 'x' }, userId: 1 },
+      {
+        store,
+        loadFlow: jest.fn(async () => ({
+          systemPrompt: 'Fasse {{thema}} zusammen.',
+          argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
+          werkzeuge: ['dateien_suchen'],
+          ordner: [],
+          grenzen: { werkzeug_runden: 5, zeitlimit_s: 300, max_aufrufe: 20 },
+        })),
+        makeTools: jest.fn(() => [fakeTool('dateien_suchen')]),
+        tracker: {
+          snapshot: jest.fn(async () => new Map()),
+          berechneAenderungen: jest.fn(() => ({ aenderungen: [], abgeschnitten: false })),
+        },
+        resolveModel: jest.fn(async () => 'default-model'),
+      }
+    );
+
+    const gedanke = store.startStep.mock.calls.find(([p]) => p.kind === 'modell');
+    expect(gedanke[0]).toMatchObject({ kind: 'modell', name: 'Gedankengang', modell: 'default-model' });
+    expect(store.finishStep).toHaveBeenCalledWith(
+      expect.objectContaining({ output: 'Erst nachfragen.' })
+    );
+  });
+});
+
+/**
+ * Das externe Modell eines Flows (Phase D4).
+ *
+ * Ein Flow, den der Administrator umgestellt hat, rechnet woanders — und zwar
+ * VOLLSTAENDIG: derselbe Zugang gilt fuer jede Runde der Schleife. Ein Lauf,
+ * der halb draussen und halb hier rechnet, waere das Gegenteil einer
+ * Entscheidung.
+ */
+describe('Ein Flow rechnet extern (Phase D4)', () => {
+  const ZUGANG = {
+    anbieter: 'OpenAI',
+    modell: 'gpt-4o',
+    basisUrl: 'https://api.example.test/v1',
+    schluessel: 'sk-geheim',
+  };
+
+  /** Eine Antwort im OpenAI-Format (`choices`, nicht `message`). */
+  function openaiAntwort({ content = '', toolCalls = null } = {}) {
+    return {
+      data: {
+        choices: [{ message: { content, ...(toolCalls ? { tool_calls: toolCalls } : {}) } }],
+      },
+    };
+  }
+
+  it('waehlt die hinterlegte Adresse an, mit Schluessel und ohne GPU-Sperre', async () => {
+    axios.post.mockResolvedValue(openaiAntwort({ content: 'Von draussen.' }));
+
+    const r = await runFlowLoop({
+      model: 'egal',
+      extern: ZUGANG,
+      systemPrompt: 's',
+      userInput: 'u',
+      tools: [],
+    });
+
+    expect(r.result).toBe('Von draussen.');
+    const [url, body, optionen] = axios.post.mock.calls[0];
+    expect(url).toBe('https://api.example.test/v1/chat/completions');
+    expect(body.model).toBe('gpt-4o');
+    expect(optionen.headers.authorization).toBe('Bearer sk-geheim');
+    // Kein `think` — das ist eine Eigenheit von Ollama.
+    expect(body.think).toBeUndefined();
+  });
+
+  it('uebersetzt Werkzeug-Argumente aus der JSON-Zeichenkette', async () => {
+    // Der einzige echte Protokollunterschied an dieser Stelle: OpenAI liefert
+    // die Argumente als Text, Ollama als Objekt, und die Schleife erwartet ein
+    // Objekt.
+    const tool = fakeTool('dateien_suchen', async () => 'Treffer');
+    axios.post
+      .mockResolvedValueOnce(
+        openaiAntwort({
+          toolCalls: [{ function: { name: 'dateien_suchen', arguments: '{"q":"x"}' } }],
+        })
+      )
+      .mockResolvedValueOnce(openaiAntwort({ content: 'Fertig.' }));
+
+    await runFlowLoop({
+      model: 'egal',
+      extern: ZUGANG,
+      systemPrompt: 's',
+      userInput: 'u',
+      tools: [tool],
+    });
+
+    expect(tool.execute).toHaveBeenCalledWith({ q: 'x' }, expect.anything());
+  });
+
+  it('haelt den Schluessel aus der Fehlermeldung heraus', async () => {
+    // axios haengt die Anfrage samt Koepfen an seinen Fehler, und der geht als
+    // Lauf-Fehler in die Datenbank und in die Oberflaeche.
+    const fehler = new Error('Request failed');
+    fehler.response = { status: 401 };
+    fehler.config = { headers: { authorization: 'Bearer sk-geheim' } };
+    axios.post.mockRejectedValue(fehler);
+
+    const r = await runFlowLoop({
+      model: 'egal',
+      extern: ZUGANG,
+      systemPrompt: 's',
+      userInput: 'u',
+      tools: [],
+    });
+
+    expect(r.error).toContain('OpenAI/gpt-4o');
+    expect(JSON.stringify(r)).not.toContain('sk-geheim');
+  });
+
+  it('der Runner reicht den Zugang aus dem Flow bis in die Schleife durch', async () => {
+    const deps = {
+      store: {
+        createRun: jest.fn(async () => ({ id: 3 })),
+        startStep: jest.fn(async () => ({ id: 1 })),
+        finishStep: jest.fn(async () => ({})),
+        bumpSteps: jest.fn(async () => 1),
+        finishRun: jest.fn(async () => ({})),
+        getRun: jest.fn(async () => ({ id: 3, steps: [] })),
+      },
+      loadFlow: jest.fn(async () => ({
+        systemPrompt: 'p',
+        argumente: [],
+        werkzeuge: [],
+        ordner: [],
+        grenzen: { werkzeug_runden: 3, zeitlimit_s: 60, max_aufrufe: 10 },
+        modell: 'gpt-4o',
+        extern: ZUGANG,
+      })),
+      makeTools: jest.fn(() => []),
+      runLoop: jest.fn(async () => ({ result: 'R', runden: 1 })),
+      tracker: {
+        snapshot: jest.fn(async () => new Map()),
+        berechneAenderungen: jest.fn(() => ({ aenderungen: [], abgeschnitten: false })),
+      },
+      resolveModel: jest.fn(async () => 'default-model'),
+    };
+
+    await runFlow({ flowName: 'f', args: {}, userId: 1, appId: 'urlaub', stand: 'live' }, deps);
+
+    expect(deps.runLoop.mock.calls[0][0].extern).toEqual(ZUGANG);
+    // Auch die Rollen erben ihn — sonst rechnete eine Delegation wieder hier.
+    expect(deps.runLoop.mock.calls[0][0].context.extern).toEqual(ZUGANG);
+  });
+});
+
 describe('buildUserInput', () => {
   it('fasst die gesetzten Argumente zusammen', () => {
     const decl = [{ name: 'thema', beschreibung: 'Das Thema' }];

@@ -1,27 +1,8 @@
 const { z } = require('zod');
 
-// PUT /setup-step
-const SetupStepBody = z
-  .object({
-    step: z
-      .number({ error: 'Step must be a number between 0 and 5' })
-      .int('Step must be a number between 0 and 5')
-      .min(0, 'Step must be a number between 0 and 5')
-      .max(5, 'Step must be a number between 0 and 5'),
-    companyName: z.string().max(500).optional().nullable(),
-    hostname: z.string().max(200).optional().nullable(),
-    selectedModel: z.string().max(200).optional().nullable(),
-  })
-  .strict();
-
-// POST /setup-complete
-const SetupCompleteBody = z
-  .object({
-    companyName: z.string().max(500).optional().nullable(),
-    hostname: z.string().max(200).optional().nullable(),
-    selectedModel: z.string().max(200).optional().nullable(),
-  })
-  .strict();
+// Bis Phase D4 standen hier `SetupStepBody` und `SetupCompleteBody`, die
+// beiden Koerper des Einrichtungsassistenten. Der Assistent ist gestrichen
+// (Begruendung in `routes/system/system.js` und Migration 179).
 
 // POST /diagnostics
 const DiagnosticsBody = z
@@ -32,7 +13,5 @@ const DiagnosticsBody = z
   .strict();
 
 module.exports = {
-  SetupStepBody,
-  SetupCompleteBody,
   DiagnosticsBody,
 };
