@@ -161,6 +161,29 @@ const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
 const WUNSCH_APP = process.env.ARASUL_APP || '';
 /** Der Flow, der eine offene Freigabe herstellt (C7). */
 const FLOW = process.env.ARASUL_FLOW || 'freigabe';
+
+// WIE EINE APP IHREN FLOW STARTET, SAGT DIE APP. Voreingestellt ist der Weg
+// der `beispielapp`; die Referenz-App `urlaubsantrag` reicht statt dessen
+// einen Vorgang ein. Dieselben vier Stellschrauben wie in
+// `app-admin-abnahme.sh` (Abnahme A5), damit ein Aufruf beide Reihen mit
+// denselben Werten fuettern kann:
+//
+//   ARASUL_FLOW_WEG=/apps/urlaubsantrag/api/vorgaenge
+//   ARASUL_FLOW_RUMPF='{"titel":"Abnahme","text":"drei Tage im Mai"}'
+//   ARASUL_FLOW_CODE=201 ARASUL_FLOW_FELD=vorgang.lauf
+//
+// Ohne sie meldete die Reihe am 28.08.2026 am Orin „der Flow hat nicht
+// angehalten" und uebersprang die Uebersicht mit einer offenen Freigabe --
+// dabei kannte die App den Weg `/flow` schlicht nicht.
+const FLOW_WEG = process.env.ARASUL_FLOW_WEG || null;
+const FLOW_RUMPF = process.env.ARASUL_FLOW_RUMPF || null;
+const FLOW_CODE = Number(process.env.ARASUL_FLOW_CODE || 202);
+const FLOW_FELD = process.env.ARASUL_FLOW_FELD || 'lauf';
+
+/** Ein Feld aus einer Antwort holen, auch ueber einen Punktpfad („a.b"). */
+function ausAntwort(daten, pfad) {
+  return pfad.split('.').reduce((wert, teil) => (wert == null ? wert : wert[teil]), daten) ?? null;
+}
 /** Dieselbe Datei, die `scripts/test/anmeldung.sh` schreibt. */
 const TOKEN_DATEI =
   process.env.ARASUL_TOKEN_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-token');
@@ -1311,14 +1334,16 @@ try {
   // er haelt in Sekunden an und braucht das Modell nicht.
   if (app && mitarbeiterToken) {
     const mApi = await apiKanal(mitarbeiterToken);
+    const weg = FLOW_WEG || `/apps/${app}/api/flow?flow=${FLOW}&woche=Abnahme-D7`;
     const start = await mApi
-      .post(`/apps/${app}/api/flow?flow=${FLOW}&woche=Abnahme-D7`, {
+      .post(weg, {
         headers: { 'content-type': 'application/json' },
-        data: {},
+        data: FLOW_RUMPF ? JSON.parse(FLOW_RUMPF) : {},
         timeout: 60000,
       })
       .catch(() => null);
-    const lauf = start && start.ok() ? ((await start.json()).lauf ?? null) : null;
+    const lauf =
+      start && start.status() === FLOW_CODE ? ausAntwort(await start.json(), FLOW_FELD) : null;
     if (lauf) {
       const ende = Date.now() + 120000;
       while (Date.now() < ende && !anfrage) {
