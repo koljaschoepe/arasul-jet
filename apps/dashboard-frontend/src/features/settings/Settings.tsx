@@ -9,6 +9,7 @@ import useConfirm from '../../hooks/useConfirm';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { resolveTab, resolveSystemSub } from './sections';
 import { GeneralSettings } from './GeneralSettings';
+import { MitarbeiterSettings } from './MitarbeiterSettings';
 import { KISettings } from './KISettings';
 import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
@@ -84,6 +85,12 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
         return (
           <ComponentErrorBoundary componentName="Allgemein">
             <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />
+          </ComponentErrorBoundary>
+        );
+      case 'benutzer':
+        return (
+          <ComponentErrorBoundary componentName="Mitarbeiter">
+            <MitarbeiterSettings />
           </ComponentErrorBoundary>
         );
       case 'ki':

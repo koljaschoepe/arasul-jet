@@ -16,7 +16,19 @@ Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`)
 ```
 src/
   features/        Domain-organized UI. One folder per top-level route.
-    settings/  store/  system/
+    settings/      Die Einstellungen als Sektionen (`sections.tsx` ist die eine
+                   Quelle, geteilt von Sidebar-Panel und Mitte-Tab). Seit D3
+                   gehört die Sektion **Mitarbeiter** dazu
+                   (`MitarbeiterSettings.tsx` plus `mitarbeiter/`): die Liste
+                   der Menschen am Gerät, die zwei Dialoge (anlegen,
+                   Startpasswort setzen) und die **Freigabe-Matrix** Menschen
+                   mal Apps. Abfragen und Mutationen stehen je Adresse
+                   zusammen (`useMitarbeiter.ts`, `useAppFreigaben.ts`) — nach
+                   jedem Ausgang wird die Liste entwertet, auch nach einem
+                   Fehler. Die Verwaltung liegt hier und nicht als eigene
+                   Ansicht in der ActivityBar: deren Einträge tragen die Arbeit
+                   (Apps, Modelle), das Zahnrad darunter das Einrichten.
+    store/  system/
     apps/          Die eigenen Apps (D1): `meineApps.ts` (Hook + `zuEintraegen`,
                    eine App mit Live- UND Teststand ergibt ZWEI Einträge),
                    `Uebersicht.tsx` (die Mitte ohne offene App; die Freigaben

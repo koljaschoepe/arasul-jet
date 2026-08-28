@@ -1,4 +1,4 @@
-import { Info, Lock, Server, Globe, ShieldAlert, Sparkles } from 'lucide-react';
+import { Info, Lock, Server, Globe, ShieldAlert, Sparkles, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /**
@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
  * der Verwender bestimmt die Größe.
  */
 export type SettingsSectionId =
-  'general' | 'ki' | 'security' | 'privacy' | 'system' | 'remote-access';
+  'general' | 'benutzer' | 'ki' | 'security' | 'privacy' | 'system' | 'remote-access';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -20,6 +20,14 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'general', label: 'Allgemein', icon: <Info />, description: 'System & Erscheinungsbild' },
+  // Zweiter Platz und nicht letzter (Phase D3): Menschen anlegen und Apps
+  // freigeben ist der Handgriff, den ein Administrator am haeufigsten tut.
+  {
+    id: 'benutzer',
+    label: 'Mitarbeiter',
+    icon: <Users />,
+    description: 'Konten, Startpasswort, App-Freigaben',
+  },
   { id: 'ki', label: 'KI', icon: <Sparkles />, description: 'Firmenprofil, Kontext & RAG/LLM' },
   { id: 'security', label: 'Sicherheit', icon: <Lock />, description: 'Passwörter und Zugriff' },
   {
