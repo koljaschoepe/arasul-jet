@@ -120,4 +120,24 @@ describe('Das Hamburger-Menue', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(useWorkspaceStore.getState().menueOffen).toBe(false);
   });
+
+  /**
+   * Die Tabulatorfalle. Ohne sie liefe der Fokus hinter das offene Menue in
+   * eine Seite weiter, die der Mensch gar nicht sieht -- derselbe Fehler, den
+   * `scripts/test/bausteine.py` an handgebauten Dialogen aufhaelt.
+   */
+  it('haelt den Fokus drin: er faengt im Menue an und springt am Ende zurueck', () => {
+    zeige();
+    const flaeche = screen.getByTestId('workspace-schmal-menue');
+    const halte = [...flaeche.querySelectorAll('button')];
+    expect(document.activeElement).toBe(halte[0]);
+
+    const letzter = halte[halte.length - 1] as HTMLElement;
+    letzter.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(halte[0]);
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(letzter);
+  });
 });

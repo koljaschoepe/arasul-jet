@@ -7,4 +7,4 @@
  * vergleicht beide. Wer die Bausteine aendert, hebt sie und baut neu --
  * sonst faellt der Waechter.
  */
-export const FASSUNG = '1.0.0';
+export const FASSUNG = '1.1.0';
