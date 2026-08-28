@@ -39,7 +39,7 @@
 # =============================================================================
 set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$WURZEL"
+cd "$WURZEL" || exit 1
 # shellcheck source=scripts/test/anmeldung.sh
 source "$WURZEL/scripts/test/anmeldung.sh"
 
@@ -124,8 +124,10 @@ echo ""
 TOKEN=$(arasul_token)
 if [ -z "$TOKEN" ]; then
   echo "Keine Anmeldung an $ARASUL_URL (HTTP $(arasul_anmeldecode))."
-  echo "429 heisst Anmeldedrossel: zehn je Viertelstunde und IP, eine"
-  echo "Viertelstunde warten. Sonst ARASUL_PASSWORT pruefen."
+  echo "429 heisst Anmeldedrossel, und die wurde schon einmal abgewartet und"
+  echo "wiederholt; 401 heisst, der Pruefbenutzer $ARASUL_BENUTZER fehlte und"
+  echo "liess sich nicht anlegen (scripts/util/pruefbenutzer.sh, siehe oben)."
+  echo "Sonst ARASUL_PASSWORT pruefen."
   exit 1
 fi
 if ! arasul_sitzung_bauen "$TOKEN"; then

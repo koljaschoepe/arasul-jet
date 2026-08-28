@@ -355,6 +355,30 @@ Und die Reihe **erklärt ihre roten Felder**: sie schreibt jeden Wortwechsel mit
 „arasul_session blieb stehen" ließ offen, ob der Weg 403 sagte, 429 oder gar
 nichts, drei Befunde mit drei verschiedenen Antworten.
 
+Fünf Läufe der Reihe ohne Pause (28.08.2026, für G1) haben gezeigt, dass das
+Gerät **drei Drosseln** auf den Wegen hat, die jede Seitenladung nimmt, und
+die Abnahmen nur eine kannten: `loginLimiter` (zehn je Viertelstunde),
+`generalAuthLimiter` auf `needs-setup` und `logout` (dreißig je Minute) und
+`sessionProbeLimiter` auf `session` (hundertzwanzig je Minute), alle je IP,
+und hinter Traefik ist das eine IP für alles, was anklopft. Lauf 4 fiel an
+einem 429 der Sitzungsprobe. Seither ist **die Drossel eine Sache**:
+`scripts/test/drossel.mjs` (Browser) und `_arasul_drossel_py` in
+`scripts/test/anmeldung.sh` (curl) merken sich aus **jeder** Antwort, die
+eine Drossel trägt, den Stand je Drossel in einer Datei, warten vor der
+Anmeldung und vor jeder Seitenladung (`laden` in `oberflaeche-abnahme.mjs`)
+und wiederholen ein 429 einmal; `scripts/test/drosselzahlen.py` hält die
+Zahlen an `middleware/rateLimit.js` fest, damit sie nicht zweimal auseinander
+laufen. Und der **Prüfbenutzer legt sich selbst an**: der Werksreset in G1
+löscht jeden Benutzer, auch den, mit dem die Abnahmen anmelden (28.08.2026,
+11:55, `pruefer`), und danach war jede Anmeldung ein 401 über den Messaufbau.
+Ein 401 für `ARASUL_BENUTZER` ruft jetzt einmal
+`scripts/util/pruefbenutzer.sh` (idempotent: `ON CONFLICT DO UPDATE`, Hash
+aus dem `bcrypt` des Backend-Containers, am Gerät oder über
+`ssh $ARASUL_GERAET`, Passwort nur über STDIN) und meldet sich noch einmal
+an, mit klarer Meldung, was geschah. Über die Schnittstelle geht das nicht:
+das Startpasswort des Administrators nach dem Reset kennen die Abnahmen
+nicht, und sollen es nicht.
+
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/`   |

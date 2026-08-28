@@ -22,9 +22,35 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
 
 const SPEICHER =
   process.env.ARASUL_SITZUNG || path.join(os.tmpdir(), 'arasul-abnahme-sitzung.json');
+
+const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+/**
+ * Den Pruefbenutzer am Geraet anlegen, wenn er fehlt (28.08.2026).
+ *
+ * Der Werksreset von G1 loescht jeden Benutzer, auch den, mit dem die
+ * Abnahmen sich anmelden; um 11:55 war `pruefer` weg, und danach kam keine
+ * Browser-Abnahme mehr durch. Ein 401 fuer diesen Benutzer heisst seither
+ * nicht "Ende", sondern: einmal anlegen (`scripts/util/pruefbenutzer.sh`,
+ * idempotent, am Geraet oder ueber ssh), einmal wiederholen. Der Aufrufer
+ * entscheidet, ob der Code ein 401 war; hier wird nur angelegt.
+ *
+ * Liefert `{ ok, meldung }` und wirft nie.
+ */
+export function pruefbenutzerAnlegen({ benutzer, passwort }) {
+  const lauf = spawnSync('bash', [path.join(WURZEL, 'scripts/util/pruefbenutzer.sh')], {
+    env: { ...process.env, ARASUL_BENUTZER: benutzer, ARASUL_PASSWORT: passwort },
+    encoding: 'utf-8',
+    timeout: 120000,
+  });
+  const meldung = `${lauf.stdout || ''}${lauf.stderr || ''}`.trim().split('\n').pop() || '';
+  return { ok: lauf.status === 0, meldung: meldung || `Rueckgabe ${lauf.status}` };
+}
 
 /**
  * Liefert eine angemeldete Seite. Wirft nie wegen einer abgewiesenen

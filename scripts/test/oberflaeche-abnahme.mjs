@@ -89,6 +89,19 @@
  * dem ersten Handgriff, und ein 429 am Formular wird ueber `Retry-After`
  * abgewartet und einmal wiederholt.
  *
+ * SEIT DEM 28.08.2026 GILT DAS FUER ALLE DREI DROSSELN, nicht nur fuer die
+ * Anmeldung (`scripts/test/drossel.mjs`): auch `needs-setup` und `logout`
+ * (dreissig je Minute) und die Sitzungsprobe (hundertzwanzig je Minute) tragen
+ * eine, jede Seitenladung kostet von beiden eine, und Lauf 4 von fuenf
+ * hintereinander fiel an einem 429 der Sitzungsprobe. Jede Antwort, die eine
+ * Drossel traegt, wird gemerkt, und vor jeder Seitenladung (`laden`) fragt die
+ * Reihe, ob fuer zwei Platz ist. Fuenf Laeufe ohne Pause sind damit zehn
+ * Anmeldungen -- genau das Fenster; der sechste wartet, und sagt es.
+ *
+ * Und ein 401 fuer den Pruefbenutzer heisst seither nicht Ende: der Werksreset
+ * von G1 loescht ihn mit, die Reihe legt ihn einmal am Geraet an
+ * (`scripts/util/pruefbenutzer.sh`, idempotent) und meldet sich noch einmal an.
+ *
  * Aufruf (SSH-Tunnel auf 8443 vorausgesetzt):
  *   ARASUL_PASSWORT=... node scripts/test/oberflaeche-abnahme.mjs
  *
@@ -114,6 +127,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, request as pwRequest } from 'playwright';
+import {
+  drosselAbwarten,
+  drosselBilanz,
+  drosselMerken,
+  drosselRestzeit,
+  drosselSchlafen,
+  DROSSELN,
+  seitenladungAbwarten,
+} from './drossel.mjs';
+import { pruefbenutzerAnlegen } from './anmeldung.mjs';
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
@@ -127,17 +150,11 @@ const FLOW = process.env.ARASUL_FLOW || 'freigabe';
 const TOKEN_DATEI =
   process.env.ARASUL_TOKEN_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-token');
 
-/**
- * Was diese Reihe ueber die Anmeldedrossel weiss -- und was sie dem naechsten
- * Lauf hinterlaesst. Neben der Token-Datei und aus demselben Grund: drei
- * Laeufe hintereinander sind drei Prozesse, und die Drossel zaehlt fuer alle
- * drei dieselben zehn Versuche je Viertelstunde und IP.
- */
-const DROSSEL_DATEI =
-  process.env.ARASUL_DROSSEL_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-drossel');
-
-/** Laenger als ein Fenster der Drossel wartet niemand -- `loginLimiter`. */
-const DROSSEL_FENSTER_MS = 15 * 60 * 1000;
+// Was diese Reihe ueber die Drosseln des Geraets weiss, steht seit dem
+// 28.08.2026 in `scripts/test/drossel.mjs` -- ALLE DREI, nicht nur die
+// Anmeldung. Lauf 4 von fuenf hintereinander fiel an „390 px
+// Startpasswort-Wechsel, GET /api/auth/session HTTP 429": die Reihe hatte nur
+// die Anmeldedrossel abgewartet und die Sitzungsprobe nie gezaehlt.
 
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-oberflaeche`);
@@ -223,76 +240,22 @@ async function tokenGilt(token) {
 }
 
 /**
- * Was die Antwort ueber die Anmeldedrossel verraet.
+ * Eine Seite laden -- und vorher fragen, ob das Geraet sie noch annimmt.
  *
- * `express-rate-limit` schreibt seine Zahlen je nach Entwurf in zwei Formen:
- * als eigene Kopfzeilen (`RateLimit-Remaining`, `RateLimit-Reset`) oder
- * gebuendelt in einer (`RateLimit: limit=10, remaining=9, reset=880`), dazu
- * `Retry-After` an der 429-Antwort. Gelesen werden alle drei -- sonst haengt
- * diese Reihe an der Fassung eines Pakets im Backend, und das waere wieder
- * eine Aussage ueber den Messaufbau, die wie eine ueber das Geraet aussieht.
+ * Jede Seitenladung kostet eine Frage an `needs-setup` (App.tsx) und eine
+ * Sitzungsprobe (`checkAuth`), und beide Wege tragen eine Drossel je IP. Ein
+ * 429 dort zeigt die Anmeldung statt der Ansicht, und die Oberflaeche
+ * wiederholt es mit Absicht nicht (das ist eine Antwort). Also wartet die
+ * Reihe VOR dem Laden, aus dem, was die letzten Antworten gesagt haben.
  */
-function drosselAusKopfzeilen(kopf) {
-  const zahl = wert => {
-    const n = Number(wert);
-    return Number.isFinite(n) ? n : null;
-  };
-  const gebuendelt = kopf['ratelimit'] || '';
-  const rest = zahl(kopf['ratelimit-remaining']) ?? zahl(/remaining=(\d+)/.exec(gebuendelt)?.[1]);
-  const inSekunden =
-    zahl(kopf['ratelimit-reset']) ??
-    zahl(/reset=(\d+)/.exec(gebuendelt)?.[1]) ??
-    zahl(kopf['retry-after']);
-  if (rest === null && inSekunden === null) return null;
-  return { rest: rest ?? 0, reset: Date.now() + (inSekunden ?? 0) * 1000 };
+async function laden(seite, adresse, optionen = {}) {
+  await seitenladungAbwarten();
+  return seite.goto(adresse, { waitUntil: 'domcontentloaded', timeout: 60000, ...optionen });
 }
 
-/** Der Stand der Drossel ueberlebt den Lauf, sonst wuesste ihn keiner mehr. */
-function drosselMerken(kopf) {
-  const stand = drosselAusKopfzeilen(kopf);
-  if (!stand) return null;
-  try {
-    fs.writeFileSync(DROSSEL_DATEI, JSON.stringify(stand), { mode: 0o600 });
-  } catch {
-    /* nicht schreibbar -- dann faengt der 429 unten es eben allein ab */
-  }
-  return stand;
-}
-
-/** Die Wartezeit laut aussprechen: ein stiller Lauf sieht aus wie ein haengender. */
-async function drosselSchlafen(ms) {
-  console.log(
-    `warte  ${Math.ceil(ms / 1000)} s auf die Anmeldedrossel ` +
-      '(zehn Versuche je Viertelstunde und IP)'
-  );
-  await new Promise(fertig => setTimeout(fertig, ms));
-}
-
-/**
- * Warten, statt rot zu werden.
- *
- * Der zweite Fund der zweiten D6-Messung am Orin (28.08.2026): Lauf 2 von
- * dreien blieb an der zweiten Anmeldung des Mitarbeiters haengen, HTTP 429.
- * Drei Laeufe dieser Reihe kosten sechs der zehn Versuche, und daneben meldet
- * sich der Ueberordner fuer seinen Admin-Token an und der Rueckbau fuer
- * seinen -- zusammen ist das Fenster voll. Die Reihe soll dreimal
- * hintereinander laufen, ohne dass ein Mensch dazwischen wartet.
- *
- * Also wartet sie selbst. Gefragt wird VOR der Anmeldung und aus dem, was die
- * letzte Antwort gesagt hat; irrt sich das, weil jemand anders dazwischen war,
- * faengt der 429 in `anmeldungAbschicken` es ab und wartet die Restzeit, die
- * er selbst nennt.
- */
-async function drosselAbwarten(brauche) {
-  let stand = null;
-  try {
-    stand = JSON.parse(fs.readFileSync(DROSSEL_DATEI, 'utf-8'));
-  } catch {
-    return;
-  }
-  const bleibt = Number(stand?.reset ?? 0) - Date.now();
-  if (!(bleibt > 0) || Number(stand?.rest ?? 0) >= brauche) return;
-  await drosselSchlafen(Math.min(bleibt + 2000, DROSSEL_FENSTER_MS));
+/** Wie lange nach einem 429 gewartet wird: was die Drossel sagt, mindestens fuenf Sekunden. */
+function nochmalNach(name) {
+  return Math.min(Math.max(drosselRestzeit(name, 1) + 1000, 5000), DROSSELN[name].fensterMs);
 }
 
 /**
@@ -305,7 +268,7 @@ async function drosselAbwarten(brauche) {
 let anmeldungen = 0;
 async function anmelden(benutzer, passwort, { versuche = 2 } = {}) {
   for (let versuch = 1; ; versuch += 1) {
-    await drosselAbwarten(1);
+    await drosselAbwarten('anmeldung', 1);
     const kanal = await pwRequest.newContext({ baseURL: URL, ignoreHTTPSErrors: true });
     let nochmal = 0;
     try {
@@ -313,15 +276,14 @@ async function anmelden(benutzer, passwort, { versuche = 2 } = {}) {
       const antwort = await kanal.post('/api/auth/login', {
         data: { username: benutzer, password: passwort },
       });
-      const stand = drosselMerken(antwort.headers());
+      drosselMerken('POST', '/api/auth/login', antwort.headers(), antwort.status());
       if (antwort.status() === 200) {
         const rumpf = await antwort.json();
         return { token: rumpf.token ?? '', code: 200 };
       }
       // Wie am Formular: ein 429 ist eine Wartezeit und kein Ergebnis.
       if (antwort.status() === 429 && versuch < versuche) {
-        const bleibt = Number(stand?.reset ?? 0) - Date.now();
-        nochmal = Math.min(Math.max(bleibt + 2000, 5000), DROSSEL_FENSTER_MS);
+        nochmal = nochmalNach('anmeldung');
       } else {
         return { token: '', code: antwort.status() };
       }
@@ -332,7 +294,7 @@ async function anmelden(benutzer, passwort, { versuche = 2 } = {}) {
     } finally {
       await kanal.dispose();
     }
-    await drosselSchlafen(nochmal);
+    await drosselSchlafen('anmeldung', nochmal);
   }
 }
 
@@ -357,7 +319,7 @@ async function anmelden(benutzer, passwort, { versuche = 2 } = {}) {
  */
 async function anmeldungAbschicken(seite, tun, { versuche = 2 } = {}) {
   for (let versuch = 1; ; versuch += 1) {
-    await drosselAbwarten(1);
+    await drosselAbwarten('anmeldung', 1);
     anmeldungen += 1;
     konsole = [];
     const wartet = seite
@@ -371,13 +333,12 @@ async function anmeldungAbschicken(seite, tun, { versuche = 2 } = {}) {
     await tun();
     const antwort = await wartet;
     if (!antwort) return { status: 0, grund: 'keine Antwort auf /api/auth/login gesehen' };
-    const stand = drosselMerken(antwort.headers());
+    drosselMerken('POST', '/api/auth/login', antwort.headers(), antwort.status());
     if (antwort.status() === 200) return { status: 200, grund: '' };
     if (antwort.status() === 429 && versuch < versuche) {
-      const bleibt = Number(stand?.reset ?? 0) - Date.now();
       // Mindestens fuenf Sekunden, hoechstens ein Fenster: eine Antwort ohne
       // brauchbare Zahl darf weder sofort wieder anklopfen noch ewig liegen.
-      await drosselSchlafen(Math.min(Math.max(bleibt + 2000, 5000), DROSSEL_FENSTER_MS));
+      await drosselSchlafen('anmeldung', nochmalNach('anmeldung'));
       continue;
     }
     const rumpf = await antwort.json().catch(() => null);
@@ -446,7 +407,19 @@ async function adminToken() {
   if (process.env.ARASUL_TOKEN) return { token: process.env.ARASUL_TOKEN, quelle: 'geteilt' };
   const abgelegt = fs.existsSync(TOKEN_DATEI) ? fs.readFileSync(TOKEN_DATEI, 'utf-8').trim() : '';
   if (await tokenGilt(abgelegt)) return { token: abgelegt, quelle: 'abgelegt' };
-  const { token, code } = await anmelden(BENUTZER, PASSWORT);
+  let { token, code } = await anmelden(BENUTZER, PASSWORT);
+  // Ein 401 fuer den Pruefbenutzer heisst seit dem 28.08.2026: der Werksreset
+  // von G1 hat ihn mitgenommen. Einmal anlegen, einmal wiederholen -- und
+  // sagen, was passiert ist, statt „Ohne den Administrator gibt es nichts".
+  if (code === 401) {
+    console.log(`Der Benutzer ${BENUTZER} meldet sich nicht an (HTTP 401). Lege ihn an ...`);
+    const angelegt = pruefbenutzerAnlegen({ benutzer: BENUTZER, passwort: PASSWORT });
+    console.log(`${angelegt.ok ? 'gruen' : 'ROT  '}  ${angelegt.meldung}`);
+    if (angelegt.ok) {
+      ({ token, code } = await anmelden(BENUTZER, PASSWORT));
+      if (token) code = 'nach dem Anlegen des Pruefbenutzers 200';
+    }
+  }
   if (token) {
     try {
       fs.writeFileSync(TOKEN_DATEI, token, { mode: 0o600 });
@@ -614,7 +587,17 @@ async function fensterHorchen(ctx, seite) {
       /* keine gewoehnliche Adresse (data:, blob:) -- die interessiert hier nicht */
     }
   };
-  seite.on('response', a => merken(a.url(), a.request().method(), `HTTP ${a.status()}`));
+  seite.on('response', a => {
+    merken(a.url(), a.request().method(), `HTTP ${a.status()}`);
+    // Und jede Antwort, die eine Drossel traegt, sagt der Reihe, wie viel
+    // Platz noch ist -- `drosselFuer` sortiert aus, was keine traegt.
+    try {
+      const pfad = new globalThis.URL(a.url()).pathname;
+      drosselMerken(a.request().method(), pfad, a.headers(), a.status());
+    } catch {
+      /* keine gewoehnliche Adresse */
+    }
+  });
   seite.on('requestfailed', a =>
     merken(a.url(), a.method(), a.failure()?.errorText || 'ohne Antwort')
   );
@@ -1016,11 +999,13 @@ if (!(await geraetErreichbar())) {
 // waere ein Ordner, den jemand spaeter deutet.
 fs.mkdirSync(ZIEL, { recursive: true });
 
-// Und erst recht jetzt: die Drossel VOR dem ersten Handgriff. Diese Reihe
+// Und erst recht jetzt: die Drosseln VOR dem ersten Handgriff. Diese Reihe
 // kostet zwei Anmeldungen; mitten im Lauf darauf zu warten hiesse, den
 // Wegwerf-Mitarbeiter und seine offene Freigabe eine Viertelstunde lang am
-// Geraet stehen zu lassen.
-await drosselAbwarten(2);
+// Geraet stehen zu lassen. Die beiden Minuten-Drosseln fragt jede Seitenladung
+// selbst (`laden`); hier nur, damit der Lauf nicht auf der Kante anfaengt.
+await drosselAbwarten('anmeldung', 2);
+await seitenladungAbwarten();
 
 let browser;
 let admin = { token: '' };
@@ -1104,7 +1089,7 @@ try {
   // Vor jeder Anmeldung, weil sie an keiner haengen. Bis zum 22.08.2026 trug
   // das Dokument als einziges keine Policy, waehrend jeder API-Pfad eine
   // hatte; genau das soll nie wieder unbemerkt passieren.
-  const erste = await seiteM.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const erste = await laden(seiteM,URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const kopf = erste?.headers() ?? {};
   const policy = kopf['content-security-policy'] || kopf['content-security-policy-report-only'];
   pruefe(
@@ -1134,7 +1119,7 @@ try {
       breite,
       kennzeichen: 'input#username',
       oeffnen: async () => {
-        await seiteM.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM,URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
       },
     });
   }
@@ -1197,7 +1182,7 @@ try {
       breite,
       kennzeichen: '[data-testid="passwort-wechseln"]',
       oeffnen: async () => {
-        await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       },
       warum: async () =>
         [
@@ -1316,7 +1301,7 @@ try {
       breite,
       kennzeichen: '[data-testid="uebersicht-seite"]',
       oeffnen: async () => {
-        await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       },
     });
     if (ok) {
@@ -1378,7 +1363,7 @@ try {
   {
     const telefon = BREITEN[0];
     await seiteM.setViewportSize({ width: telefon.px, height: telefon.hoehe });
-    await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
 
     // --- Das Menue ---------------------------------------------------------
@@ -1425,7 +1410,7 @@ try {
       kennzeichen: '#notizen-feld',
       notizenZu: false,
       oeffnen: async () => {
-        await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
         await seiteM
           .locator('[aria-label="Notizen einblenden"]')
@@ -1535,7 +1520,7 @@ try {
         breite,
         kennzeichen: `[data-testid="app-rahmen-${app}"]`,
         oeffnen: async () => {
-          await seiteM.goto(`${URL}/workspace/app/${app}`, {
+          await laden(seiteM,`${URL}/workspace/app/${app}`, {
             waitUntil: 'domcontentloaded',
             timeout: 60000,
           });
@@ -1552,7 +1537,7 @@ try {
   // Reihenfolge soll der Fokus laufen. Ein Halt in einer eingeklappten Spalte
   // oder in einem versteckten Tab springt zurueck und faellt hier auf.
   await seiteM.setViewportSize({ width: 1440, height: 900 });
-  await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await steht(seiteM, '[data-testid="workspace-shell"]', 45000);
   await seiteM.waitForTimeout(1500);
   await seiteM.evaluate(() => {
@@ -1585,7 +1570,7 @@ try {
   // Ausblenden und keine Berechtigung -- `requireRole` antwortet ihm auf jeden
   // Weg dahinter ohnehin mit 403.
   konsole = [];
-  await seiteM.goto(`${URL}/workspace/settings`, {
+  await laden(seiteM,`${URL}/workspace/settings`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
@@ -1612,7 +1597,7 @@ try {
   // Eine Adresse, die es nicht gibt: ein Satz und ein Weg zurueck, keine
   // weisse Flaeche. `/dokumente` ist ein Alt-Tab -- das Dokumentensystem ist
   // mit B2 gefallen, die Adresse steht noch in manchem Lesezeichen.
-  await seiteM.goto(`${URL}/dokumente`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM,`${URL}/dokumente`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await seiteM.waitForTimeout(2000);
   const vierNullVier = await seiteM.evaluate(() => (document.body.innerText || '').trim());
   pruefe(
@@ -1627,7 +1612,7 @@ try {
   // was los ist. (Die abgewuergten Anfragen schreiben selbst rote Zeilen in
   // die Konsole; die zaehlen hier ausdruecklich nicht, sie SIND die Messung.)
   await seiteM.route('**/api/**', route => route.abort());
-  await seiteM.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM,URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await seiteM.waitForTimeout(3000);
   const ohneBackend = await seiteM.evaluate(() => (document.body.innerText || '').trim());
   pruefe(
@@ -1659,7 +1644,7 @@ try {
   // Das Benutzermenue der Kopfleiste, und nicht die Einstellungen: die sind
   // seit D1 eine Admin-Seite, und ein Mitarbeiter kaeme sonst nicht mehr
   // hinaus (D1, `WorkspaceMenuBar`).
-  await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const shellFuersAbmelden = await steht(seiteM, '[data-testid="workspace-shell"]', 45000);
   if (shellFuersAbmelden) {
     const menueAuf = await klickFrei(
@@ -1752,7 +1737,7 @@ try {
         breite,
         kennzeichen,
         oeffnen: async () => {
-          await seiteA.goto(`${URL}${pfad}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await laden(seiteA,`${URL}${pfad}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
         },
       });
       // Der Fund der D3-Abnahme, verallgemeinert: bei 1440 px MIT offener
@@ -1768,7 +1753,7 @@ try {
   // Aufruf sieht (C10). Gemessen wird, dass der Knopf da ist und die Datei
   // wirklich kommt -- ein Knopf, der nichts herunterlaedt, sieht genauso aus.
   await seiteA.setViewportSize({ width: 1440, height: 900 });
-  await seiteA.goto(`${URL}/workspace/settings?tab=security`, {
+  await laden(seiteA,`${URL}/workspace/settings?tab=security`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
@@ -1789,7 +1774,7 @@ try {
   }
 
   // --- Escape schliesst einen Dialog ---------------------------------------
-  await seiteA.goto(`${URL}/workspace/settings?tab=benutzer`, {
+  await laden(seiteA,`${URL}/workspace/settings?tab=benutzer`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
@@ -1890,7 +1875,7 @@ if (uebersprungen.length) {
   for (const u of uebersprungen) console.log(`uebersprungen: ${u.was} -- ${u.grund}`);
 }
 console.log(
-  `${ergebnisse.length - rot} von ${ergebnisse.length} gruen, ${anmeldungen} Anmeldung(en)`
+  `${ergebnisse.length - rot} von ${ergebnisse.length} gruen, ${anmeldungen} Anmeldung(en), ${drosselBilanz()}`
 );
 console.log(`Bilder unter ${path.relative(WURZEL, ZIEL)}/`);
 process.exit(rot === 0 ? 0 : 1);
