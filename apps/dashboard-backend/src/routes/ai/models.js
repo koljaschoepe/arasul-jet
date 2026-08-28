@@ -660,7 +660,8 @@ router.get(
 
 /**
  * POST /api/models/default
- * Set default model for new chats
+ * Das Standardmodell setzen: damit rechnet ein Flow, der im Frontmatter
+ * keines nennt (C6). Den Chat der Oberflaeche gibt es seit B6 nicht mehr.
  */
 router.post(
   '/default',

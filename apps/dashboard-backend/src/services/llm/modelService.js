@@ -817,7 +817,8 @@ function createModelService(deps = {}) {
     }
 
     /**
-     * Set default model (used for new chats when no model specified)
+     * Das Standardmodell setzen. Es gilt fuer jeden Flow, der im Frontmatter
+     * keines nennt; der Chat der Oberflaeche ist mit B6 gefallen.
      */
     async setDefaultModel(modelId) {
       await database.transaction(async client => {
