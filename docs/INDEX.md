@@ -40,6 +40,7 @@ docs/
 | [`development/DEVELOPMENT.md`](development/DEVELOPMENT.md)             | Backend + frontend patterns, debugging, hooks           |
 | [`development/TESTING.md`](development/TESTING.md)                     | Jest + Vitest + pytest workflows, coverage              |
 | [`development/DESIGN.md`](development/DESIGN.md)                       | Das Design: Palette, Themes, Maße, Baustein-Set, Regeln |
+| [`../packages/marken/README.md`](../packages/marken/README.md)         | Das Designsystem, das Shell und Apps teilen (Phase D7)  |
 | [`development/FRONTEND_HANDBOOK.md`](development/FRONTEND_HANDBOOK.md) | Frontend patterns, folder layout, testing               |
 | [`development/PYTHON_SERVICES.md`](development/PYTHON_SERVICES.md)     | LLM service, embedding service, document indexer        |
 | [`CICD.md`](CICD.md)                                                   | CI checks, deploy workflow, local deploy script         |
@@ -59,22 +60,22 @@ docs/
 
 ## Operations
 
-| Document                                                           | Topic                                                                                |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| [`ops/AUSLIEFERUNG.md`](ops/AUSLIEFERUNG.md)                       | Das Artefakt, seine Adresse, `install.sh`, woher die Fassung kommt                    |
-| [`ops/NETZNAME_UND_ZERTIFIKAT.md`](ops/NETZNAME_UND_ZERTIFIKAT.md) | `https://arasul/`, die Geräte-CA, Anleitung für Windows, macOS, iOS, Android          |
-| [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (Artefakt / Quellbaum / ohne Rückfragen), pre-shipping checklist, hardening   |
-| [`ops/QUICK_START.md`](ops/QUICK_START.md)                         | Customer quick start (German, end-user-facing)                                       |
-| [`ops/ADMIN_HANDBUCH.md`](ops/ADMIN_HANDBUCH.md)                   | Operator handbook (German, 8 chapters)                                               |
-| [`ops/TROUBLESHOOTING.md`](ops/TROUBLESHOOTING.md)                 | Symptom-to-fix lookup                                                                |
-| [`ops/UPDATE_SYSTEM.md`](ops/UPDATE_SYSTEM.md)                     | OTA / package update mechanism                                                       |
-| [`ops/REMOTE_MAINTENANCE.md`](ops/REMOTE_MAINTENANCE.md)           | SSH, Cloudflared, VPN setup                                                          |
-| [`ops/LOGGING.md`](ops/LOGGING.md)                                 | Logger configuration, log paths, rotation                                            |
-| [`ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md)                     | Automated backup engine                                                              |
-| [`ops/DISASTER_RECOVERY.md`](ops/DISASTER_RECOVERY.md)             | DR runbooks, restore procedures                                                      |
-| [`ops/INFRASTRUCTURE.md`](ops/INFRASTRUCTURE.md)                   | Containers, networks, volumes, startup order                                         |
-| [`ops/FRESH_INSTALL_CHECKLIST.md`](ops/FRESH_INSTALL_CHECKLIST.md) | Checklist for a fresh device                                                         |
-| [`legal/`](legal/README.md)                                        | AVV template, privacy modules (German)                                               |
+| Document                                                           | Topic                                                                               |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| [`ops/AUSLIEFERUNG.md`](ops/AUSLIEFERUNG.md)                       | Das Artefakt, seine Adresse, `install.sh`, woher die Fassung kommt                  |
+| [`ops/NETZNAME_UND_ZERTIFIKAT.md`](ops/NETZNAME_UND_ZERTIFIKAT.md) | `https://arasul/`, die Geräte-CA, Anleitung für Windows, macOS, iOS, Android        |
+| [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (Artefakt / Quellbaum / ohne Rückfragen), pre-shipping checklist, hardening |
+| [`ops/QUICK_START.md`](ops/QUICK_START.md)                         | Customer quick start (German, end-user-facing)                                      |
+| [`ops/ADMIN_HANDBUCH.md`](ops/ADMIN_HANDBUCH.md)                   | Operator handbook (German, 8 chapters)                                              |
+| [`ops/TROUBLESHOOTING.md`](ops/TROUBLESHOOTING.md)                 | Symptom-to-fix lookup                                                               |
+| [`ops/UPDATE_SYSTEM.md`](ops/UPDATE_SYSTEM.md)                     | OTA / package update mechanism                                                      |
+| [`ops/REMOTE_MAINTENANCE.md`](ops/REMOTE_MAINTENANCE.md)           | SSH, Cloudflared, VPN setup                                                         |
+| [`ops/LOGGING.md`](ops/LOGGING.md)                                 | Logger configuration, log paths, rotation                                           |
+| [`ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md)                     | Automated backup engine                                                             |
+| [`ops/DISASTER_RECOVERY.md`](ops/DISASTER_RECOVERY.md)             | DR runbooks, restore procedures                                                     |
+| [`ops/INFRASTRUCTURE.md`](ops/INFRASTRUCTURE.md)                   | Containers, networks, volumes, startup order                                        |
+| [`ops/FRESH_INSTALL_CHECKLIST.md`](ops/FRESH_INSTALL_CHECKLIST.md) | Checklist for a fresh device                                                        |
+| [`legal/`](legal/README.md)                                        | AVV template, privacy modules (German)                                              |
 
 ---
 
