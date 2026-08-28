@@ -186,7 +186,9 @@ export function Sicherung() {
                 note={
                   status?.sichertWirklich
                     ? 'Die letzte Sicherung ist durchgelaufen und nicht veraltet.'
-                    : 'Seit über 48 Stunden ist keine Sicherung durchgelaufen.'
+                    : letzte?.status === 'fehlt'
+                      ? 'Es liegt kein Bericht vor: dieses Gerät hat noch nie gesichert.'
+                      : 'Seit über 48 Stunden ist keine Sicherung durchgelaufen.'
                 }
               />
               <StatTile
@@ -220,7 +222,9 @@ export function Sicherung() {
                     ? 'nie gelaufen'
                     : drill?.status === 'ok'
                       ? 'bestanden'
-                      : (drill?.status ?? 'unbekannt')
+                      : drill?.status === 'failed'
+                        ? 'gescheitert'
+                        : (drill?.status ?? 'unbekannt')
                 }
                 note={
                   drill?.zeitpunkt
