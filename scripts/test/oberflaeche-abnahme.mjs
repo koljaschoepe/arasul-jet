@@ -30,17 +30,29 @@
  *
  * WAS GEMESSEN WIRD
  *
- *   1. Zwoelf Ansichten mal drei Breiten (390, 1024, 1440). Zu jeder Zelle
- *      vier Fragen und ein Bild:
+ *   1. Zwoelf Ansichten mal drei Breiten (390, 1024, 1440), dazu die Notizen
+ *      bei 390 px. Zu jeder Zelle vier Fragen und ein Bild:
  *        - steht die Ansicht ueberhaupt (ihr Kennzeichen ist da)?
  *        - rollt die Seite waagerecht (dann passt etwas nicht hinein)?
  *        - steht etwas da (eine leere Flaeche ist kein Erfolg)?
  *        - meldet die Konsole einen Fehler?
- *      Vier der zwoelf gehoeren dem Mitarbeiter, acht dem Administrator.
+ *      Vier der zwoelf gehoeren dem Mitarbeiter, acht dem Administrator; die
+ *      dreizehnte Zeile hat nur die eine Breite, weil es die Notizen als
+ *      Blatt nur dort gibt.
  *   2. Die Aufteilung der Shell: unter 900 px keine Sidebar, darueber eine
- *      (`useSchmalesFenster`), die Notizen der rechten Spalte je Breite, und
- *      bei 1440 px bleibt die Mitte MIT offener Notizspalte ganz (der zweite
- *      Fund der D3-Abnahme, hier fuer jede Verwaltungsansicht statt fuer eine).
+ *      (`useSchmalesFenster`), die Notizen je Breite, und bei 1440 px bleibt
+ *      die Mitte MIT offener Notizspalte ganz (der zweite Fund der
+ *      D3-Abnahme, hier fuer jede Verwaltungsansicht statt fuer eine).
+ *
+ *      UNTER 900 PX STEHEN NOTIZEN UND MITTE NIE NEBENEINANDER. Das ist der
+ *      erste Fund der D6-Messung am Orin (28.08.2026): bei 390 px verdeckte
+ *      die Notizspalte die Mitte vollstaendig, alle sieben
+ *      Verwaltungsansichten waren rot, und jedes Bild zeigte dasselbe --
+ *      „NOTIZEN, noch nichts notiert". Seither liegen die Notizen dort als
+ *      BLATT darueber und fangen zu an. Diese Reihe macht sie deshalb vor
+ *      jeder schmalen Messung ausdruecklich zu (`notizenZumachen`) und misst
+ *      sie danach als eigene Zelle „Notizen" bei 390 px -- offen, wie jemand
+ *      sie aufzieht.
  *   3. CSP: traegt das Dokument eine Policy, verbietet sie `unsafe-eval`,
  *      stehen die vier weiteren Sicherheitskopfzeilen da -- und meldet der
  *      ganze Durchlauf einen Verstoss?
@@ -213,6 +225,64 @@ async function anmelden(benutzer, passwort) {
   }
 }
 
+/**
+ * Eine Anmeldung ueber das FORMULAR -- und die Antwort, die dahinter kam.
+ *
+ * Der Grund fuer diese Funktion steht im zweiten Fund der ersten D6-Messung:
+ * Lauf 2 von dreien blieb an „Der Mitarbeiter kommt mit dem eigenen Passwort
+ * in die Shell" haengen, Lauf 1 und 3 nicht -- und die Zeile sagte nur, dass
+ * die Shell nicht kam. Ob die Anmeldung mit 401 abgelehnt wurde, mit 429
+ * gedrosselt, ob sie gar nicht abgeschickt wurde oder ob sie durchging und
+ * danach etwas anderes klemmte, war aus der Ausgabe nicht zu lesen; die
+ * Ursache liess sich hinterher nicht mehr feststellen.
+ *
+ * Ab jetzt haelt die Reihe die HTTP-Antwort fest, bevor sie auf den Schirm
+ * wartet. Ein rotes Feld nennt danach die Zahl.
+ */
+async function anmeldungAbschicken(seite, tun) {
+  anmeldungen += 1;
+  konsole = [];
+  const wartet = seite
+    .waitForResponse(
+      antwort =>
+        antwort.request().method() === 'POST' &&
+        new globalThis.URL(antwort.url()).pathname === '/api/auth/login',
+      { timeout: 60000 }
+    )
+    .catch(() => null);
+  await tun();
+  const antwort = await wartet;
+  if (!antwort) return { status: 0, grund: 'keine Antwort auf /api/auth/login gesehen' };
+  if (antwort.status() === 200) return { status: 200, grund: '' };
+  const rumpf = await antwort.json().catch(() => null);
+  return {
+    status: antwort.status(),
+    grund: rumpf?.error?.code || rumpf?.error?.message || '',
+  };
+}
+
+/**
+ * Warum ist die Anmeldung nicht angekommen? Alles, was in eine Zeile passt:
+ * die HTTP-Antwort, die Meldung auf der Seite, die Adresse und die erste
+ * Konsolenzeile.
+ */
+async function warumNichtAngemeldet(seite, ausgang) {
+  const meldung = await seite
+    .locator('#login-error')
+    .innerText({ timeout: 3000 })
+    .catch(() => '');
+  const eigene = konsole.filter(m => !m.app);
+  return [
+    `${anmeldungen}. Anmeldung`,
+    `HTTP ${ausgang.status}${ausgang.grund ? ` ${ausgang.grund}` : ''}`,
+    `Adresse ${seite.url().replace(URL, '')}`,
+    meldung ? `Meldung "${einzeilig(meldung, 80)}"` : '',
+    eigene.length ? `Konsole: ${einzeilig(eigene[0].text, 80)}` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
 /** Eine Fehlermeldung, die in eine Ergebniszeile passt. */
 function einzeilig(text, laenge = 200) {
   return String(text ?? '')
@@ -371,15 +441,46 @@ const steht = (seite, waehler, grenze = 20000) =>
     .catch(() => false);
 
 /**
+ * Die Notizen bei schmaler Breite ausdruecklich zumachen.
+ *
+ * Seit D6 liegen sie unter 900 px als Blatt UEBER der Mitte und fangen zu an,
+ * und jede Ansicht, die kommt, schliesst sie. Diese Zeile misst das nicht --
+ * sie stellt es her. Der Unterschied ist wichtig: eine Ansicht, die hinter
+ * einem offenen Blatt gemessen wird, sagt nichts ueber die Ansicht (der erste
+ * Fund der D6-Messung am Orin). Was die Regel wirklich prueft, steht in
+ * `aufteilungMessen`, und wie das Blatt AUFGEZOGEN aussieht, in der eigenen
+ * Zelle „Notizen" bei 390 px.
+ *
+ * Ueber 900 px gibt es nichts zuzumachen: dort sind die Notizen eine Spalte
+ * neben der Mitte und nehmen ihr nichts weg.
+ */
+async function notizenZumachen(seite, breite) {
+  if (breite.px >= SCHMAL_AB_PX) return;
+  const zu = seite.locator('[aria-label="Notizen ausblenden"]');
+  if (await zu.count().catch(() => 0)) {
+    await zu
+      .first()
+      .click({ timeout: 5000 })
+      .catch(() => {});
+  }
+}
+
+/**
  * Eine Ansicht bei einer Breite messen und ihr Bild schreiben.
  *
  * @param oeffnen Bringt die Ansicht auf den Schirm (Adresse oder Klick).
  * @param kennzeichen Der Waehler, an dem die Ansicht zu erkennen ist.
+ * @param notizenZu Schmal die Notizen vorher zumachen. Nur die Zelle
+ *        „Notizen" selbst will sie offen haben.
  */
-async function ansichtMessen(seite, { name, dateiname, breite, oeffnen, kennzeichen }) {
+async function ansichtMessen(
+  seite,
+  { name, dateiname, breite, oeffnen, kennzeichen, notizenZu = true }
+) {
   await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
   konsole = [];
   await oeffnen();
+  if (notizenZu) await notizenZumachen(seite, breite);
 
   const da = await steht(seite, kennzeichen, 30000);
   if (!da) {
@@ -461,6 +562,31 @@ async function aufteilungMessen(seite, breite) {
   pruefe(
     `${breite.px} px: ${schmal ? 'keine' : 'eine'} Sidebar, wie vorgesehen`,
     schmal ? !sichtbar : sichtbar
+  );
+
+  if (!schmal) return;
+
+  // DIE REGEL AUS D6: unter 900 px stehen Notizen und Mitte nie nebeneinander.
+  //
+  // Gemessen wird sie an der Mitte und nicht an den Notizen -- die Frage ist
+  // ja, ob die Ansicht ihre Flaeche bekommt. Bis D6 bekam sie bei 390 px null
+  // Pixel: 48 fuer die Aktivitaetsleiste, 160 fuer die Sidebar, 220 fuer die
+  // Notizen sind mehr, als 390 hergeben, und das Uebrige war null. Was hier
+  // steht, ist deshalb eine Zahl und kein Kennzeichen: die Mitte muss den
+  // Platz neben der Aktivitaetsleiste WIRKLICH haben.
+  const mass = await seite.evaluate(() => {
+    const kasten = el => (el ? Math.round(el.getBoundingClientRect().width) : -1);
+    const offen = el => Boolean(el) && el.getAttribute('data-shell-hidden') === 'false';
+    return {
+      mitte: kasten(document.querySelector('[data-panel]#main')),
+      notizenOffen: offen(document.querySelector('[data-panel]#right')),
+      fenster: window.innerWidth,
+    };
+  });
+  pruefe(
+    `${breite.px} px: die Notizen stehen nicht neben der Mitte, und die Mitte hat ihre Breite`,
+    !mass.notizenOffen && mass.mitte >= mass.fenster - 80,
+    `Mitte ${mass.mitte} px von ${mass.fenster}, Notizen ${mass.notizenOffen ? 'OFFEN' : 'zu'}`
   );
 }
 
@@ -707,15 +833,19 @@ try {
   // Absende-Knopf, und ob die Eingabetaste ihn ausloest, ist die Frage nach
   // der Tastatur -- nicht nach dem Zeiger.
   await seiteM.locator('input#password').focus();
-  anmeldungen += 1;
-  await seiteM.keyboard.press('Enter');
+  const ersteAnmeldung = await anmeldungAbschicken(seiteM, () => seiteM.keyboard.press('Enter'));
   const wechselDa = await steht(seiteM, '[data-testid="passwort-wechseln"]', 45000);
-  pruefe('Anmeldung: die Eingabetaste meldet an', wechselDa, `${anmeldungen}. Anmeldung`);
+  pruefe(
+    'Anmeldung: die Eingabetaste meldet an',
+    wechselDa,
+    wechselDa ? `${anmeldungen}. Anmeldung` : await warumNichtAngemeldet(seiteM, ersteAnmeldung)
+  );
   if (!wechselDa) {
+    await seiteM.screenshot({ path: path.join(ZIEL, '1440-erste-anmeldung.png') }).catch(() => {});
     throw new Error(
-      'Die Anmeldung des Mitarbeiters kam nicht durch. Haeufigste Ursache: die ' +
-        'zehn Anmeldungen je Viertelstunde und IP sind aufgebraucht (HTTP 429). ' +
-        'Das sagt nichts ueber das Geraet.'
+      `Die Anmeldung des Mitarbeiters kam nicht durch (HTTP ${ersteAnmeldung.status}). ` +
+        'HTTP 429 heisst Anmeldedrossel: zehn je Viertelstunde und IP, das sagt ' +
+        'nichts ueber das Geraet.'
     );
   }
 
@@ -747,16 +877,34 @@ try {
     zurueckZurAnmeldung
   );
 
+  // Der Wechsel entwertet ALLE Sitzungen des Mitarbeiters, und die Oberflaeche
+  // ruft danach `POST /api/auth/logout` mit genau dem entwerteten Token. Bis
+  // D6 antwortete der Weg darauf mit 401, der Rumpf lief nie, und das
+  // httpOnly-Cookie `arasul_session` blieb mit totem Token im Browser stehen --
+  // eine Sitzung, die eine Seite selbst nicht loeschen kann, weil sie
+  // httpOnly-Cookies nicht sieht. Gemessen wird hier der Browser, nicht die
+  // Antwort: was zaehlt, ist, dass nichts liegen bleibt.
+  const uebrig = await ctxM.cookies(URL);
+  pruefe(
+    'Der Passwortwechsel laesst keine tote Sitzung im Browser zurueck',
+    !uebrig.some(c => c.name === 'arasul_session' && c.value),
+    uebrig.map(c => c.name).join(', ') || 'gar keine Cookies'
+  );
+
   // --- 5. Die zweite Anmeldung ---------------------------------------------
   await seiteM.locator('input#username').fill(MAIL);
   await seiteM.locator('input#password').fill(PASS_SELBST);
-  anmeldungen += 1;
-  await seiteM.locator('button[type="submit"]').click();
+  const zweiteAnmeldung = await anmeldungAbschicken(seiteM, () =>
+    seiteM.locator('button[type="submit"]').click()
+  );
   const shellDa = await steht(seiteM, '[data-testid="workspace-shell"]', 60000);
+  if (!shellDa) {
+    await seiteM.screenshot({ path: path.join(ZIEL, '1440-zweite-anmeldung.png') }).catch(() => {});
+  }
   pruefe(
     'Der Mitarbeiter kommt mit dem eigenen Passwort in die Shell',
     shellDa,
-    `${anmeldungen}. Anmeldung`
+    shellDa ? `${anmeldungen}. Anmeldung` : await warumNichtAngemeldet(seiteM, zweiteAnmeldung)
   );
   if (!shellDa) throw new Error('Ohne seine Shell gibt es die Mitarbeiter-Sicht nicht zu messen.');
 
@@ -816,19 +964,32 @@ try {
     if (ok) {
       await aufteilungMessen(seiteM, breite);
 
-      // Die Notizen der rechten Spalte. Sie werden nie ausgehaengt, sondern nur
-      // versteckt (der Zettel speichert nach einer Sekunde Ruhe; ein Unmount
-      // waehrend der Pause verloere den Text) -- gefragt wird deshalb, ob das
-      // Feld DA ist, und bei 1440 px zusaetzlich, ob es zu sehen ist.
-      const zettelDa = await steht(seiteM, '#notizen-feld', 20000);
+      // Die Notizen. Sie werden nie ausgehaengt, sondern nur versteckt (der
+      // Zettel speichert nach einer Sekunde Ruhe; ein Unmount waehrend der
+      // Pause verloere den Text) -- gefragt wird deshalb, ob das Feld DA ist,
+      // und getrennt davon, ob es zu sehen ist.
+      //
+      // Und genau hier trennen sich die Breiten seit D6: ueber 900 px ist der
+      // Zettel eine Spalte und STEHT da, darunter ist er ein Blatt und liegt
+      // ZU, solange niemand ihn aufzieht. Beides ist die Regel, nicht ein
+      // Mangel; die eigene Zelle „Notizen" weiter unten misst ihn aufgezogen.
+      const zettelDa = await seiteM
+        .locator('#notizen-feld')
+        .first()
+        .waitFor({ state: 'attached', timeout: 20000 })
+        .then(() => true)
+        .catch(() => false);
       const zettelSichtbar = await seiteM
         .locator('#notizen-feld')
         .isVisible()
         .catch(() => false);
+      const schmalHier = breite.px < SCHMAL_AB_PX;
       pruefe(
-        `${breite.px} px: die Notizen stehen in der rechten Spalte`,
-        zettelDa && (breite.px < SCHMAL_AB_PX || zettelSichtbar),
-        zettelDa ? (zettelSichtbar ? 'sichtbar' : 'da, aber verdeckt') : 'kein #notizen-feld'
+        schmalHier
+          ? `${breite.px} px: die Notizen sind gemountet und liegen zu`
+          : `${breite.px} px: die Notizen stehen in der rechten Spalte`,
+        zettelDa && (schmalHier ? !zettelSichtbar : zettelSichtbar),
+        zettelDa ? (zettelSichtbar ? 'sichtbar' : 'da, aber zu') : 'kein #notizen-feld'
       );
 
       if (anfrage) {
@@ -843,6 +1004,73 @@ try {
           `${breite.px} px: die offene Freigabe steht mit ihrer Restzeit da`,
           karte && /noch|Frist|abgelaufen/i.test(frist),
           frist || 'keine Karte'
+        );
+      }
+    }
+  }
+
+  // --- 7b. Die Notizen bei 390 px, aufgezogen ------------------------------
+  //
+  // Die dreizehnte Zelle, und die einzige, die eine Breite fuer sich hat. Sie
+  // gehoert zum ersten Fund der D6-Messung: dass die Notizen bei 390 px die
+  // Mitte NICHT mehr verdecken, ist eine halbe Aussage, solange niemand
+  // nachsieht, ob man sie dort ueberhaupt noch benutzen kann. Also: aufziehen
+  // wie ein Mensch (der Knopf in der Kopfleiste), messen, Bild -- und danach
+  // die Probe, dass eine Ansicht sie wieder zumacht.
+  {
+    const telefon = BREITEN[0];
+    const ok = await ansichtMessen(seiteM, {
+      name: 'Notizen',
+      dateiname: 'notizen',
+      breite: telefon,
+      kennzeichen: '#notizen-feld',
+      notizenZu: false,
+      oeffnen: async () => {
+        await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
+        await seiteM.locator('[aria-label="Notizen einblenden"]').first().click({ timeout: 15000 });
+      },
+    });
+    if (ok) {
+      const blatt = await seiteM.evaluate(() => {
+        const el = document.querySelector('[data-panel]#right');
+        if (!el) return null;
+        const kasten = el.getBoundingClientRect();
+        return {
+          blatt: el.getAttribute('data-shell-blatt') === 'true',
+          links: Math.round(kasten.left),
+          breite: Math.round(kasten.width),
+          fenster: window.innerWidth,
+        };
+      });
+      pruefe(
+        `${telefon.px} px: die Notizen liegen als Blatt ueber der ganzen Breite`,
+        blatt !== null && blatt.blatt && blatt.links <= 1 && blatt.breite >= blatt.fenster - 1,
+        blatt ? `links ${blatt.links}, breit ${blatt.breite} von ${blatt.fenster}` : 'kein Panel'
+      );
+
+      // Und eine Ansicht macht sie wieder zu. Ohne diese Regel bliebe das Blatt
+      // der Zustand, in dem der naechste Bildschirm gemessen wuerde -- genau
+      // das, was in der ersten D6-Messung sieben Ansichten rot machte.
+      //
+      // Gemessen wird sie IM LAUFENDEN Bildschirm und nicht ueber die Adresse:
+      // ein Neuladen macht das Blatt ohnehin zu (der Zustand ist absichtlich
+      // nicht gespeichert), und diese Zeile pruefte dann nichts. Der Klick auf
+      // eine App-Kachel der Uebersicht ist die Ansicht, die ein Mensch dort
+      // wirklich oeffnet.
+      const kachel = app ? seiteM.locator(`[data-testid="uebersicht-app-${app}-live"]`) : null;
+      if (kachel && (await kachel.count().catch(() => 0))) {
+        await kachel.first().click({ timeout: 15000 });
+        await seiteM.waitForTimeout(1500);
+        const wiederZu = await seiteM
+          .locator('#notizen-feld')
+          .isVisible()
+          .catch(() => false);
+        pruefe(`${telefon.px} px: eine Ansicht macht das Blatt wieder zu`, !wiederZu);
+      } else {
+        ueberspringe(
+          `${telefon.px} px: eine Ansicht macht das Blatt wieder zu`,
+          'keine App-Kachel auf der Uebersicht, also keine Ansicht zum Oeffnen'
         );
       }
     }

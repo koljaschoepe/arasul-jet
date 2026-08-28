@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardCheck, Cpu, Download, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
+import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
 import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';
 import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
 import { modellage, wechselGrund, kiRamZeile, zuGb } from '@/utils/modellZustand';
@@ -40,6 +41,13 @@ interface HealthResponse {
  * später, und eine halbe hier wäre die, die dann noch einmal gebaut wird. Bis
  * dahin ist die Zahl trotzdem das, was gefehlt hat — ein angehaltener Lauf
  * stand in der Datenbank und wartete darauf, dass jemand die Adresse kennt.
+ *
+ * UNTER 900 PX BLEIBT SIE EINE ZEILE (Phase D6). Die erste D6-Messung am Orin
+ * zeigte die Leiste bei 390 px zweizeilig: „2 Freigaben warten" und die
+ * Fassung „20260828-8794a42" nebeneinander sind mehr Zeichen, als dort
+ * hingehen. Beides fällt schmal weg, ohne dass etwas verloren geht — die
+ * Fassung steht im Verbindungs-Popover daneben, und die Freigaben werden zur
+ * Zahl neben ihrem Symbol; der ganze Satz bleibt als `aria-label` stehen.
  */
 export function StatusBar() {
   const api = useApi();
@@ -47,6 +55,7 @@ export function StatusBar() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
+  const schmal = useSchmalesFenster();
   const [modelOpen, setModelOpen] = useState(false);
 
   const { data, isError } = useQuery({
@@ -128,6 +137,7 @@ export function StatusBar() {
   // Store sichtbar — hier bleiben sie es überall, ein Klick springt hin.
   const { data: offeneFreigaben } = useOffeneFreigaben();
   const wartende = offeneFreigaben?.length ?? 0;
+  const wartendeSatz = wartende === 1 ? '1 Freigabe wartet' : `${wartende} Freigaben warten`;
 
   const { activeDownloadsList } = useDownloads();
   const openTab = useWorkspaceStore(s => s.openTab);
@@ -176,13 +186,18 @@ export function StatusBar() {
 
   return (
     <footer
-      className="flex h-6 shrink-0 items-center gap-3 border-t border-border bg-background px-3 text-xs text-muted-foreground select-none"
+      // `overflow-hidden`: was hier nicht hineinpasst, darf nicht das ganze
+      // Dokument breiter machen. Ohne die Zeile rollte die Seite bei 390 px
+      // waagerecht, und das misst die Oberflächen-Abnahme je Ansicht.
+      className={`flex h-6 shrink-0 items-center overflow-hidden border-t border-border bg-background px-3 text-xs whitespace-nowrap text-muted-foreground select-none ${
+        schmal ? 'gap-2' : 'gap-3'
+      }`}
       data-testid="workspace-statusbar"
     >
       {/* Verbindung — klickbar: zeigt, womit die Plattform verbunden ist. */}
       <Popover>
         <PopoverTrigger
-          className="flex items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground"
+          className="flex shrink-0 items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground"
           title="Verbindung anzeigen"
         >
           <span
@@ -239,8 +254,11 @@ export function StatusBar() {
       </Popover>
 
       {/* Ohne das feste „v": die Version sagt seit Plan 023 C6 „Vorserie",
-          solange keine gesetzt ist, und „vVorserie" waere Unsinn. */}
-      {data?.version && <span className="text-muted-foreground/70">{data.version}</span>}
+          solange keine gesetzt ist, und „vVorserie" waere Unsinn. Schmal steht
+          sie nicht hier, sondern im Popover darüber (D6). */}
+      {!schmal && data?.version && (
+        <span className="shrink-0 text-muted-foreground/70">{data.version}</span>
+      )}
 
       {/* Modell — klickbar: heruntergeladenes Modell als Standard wählen. */}
       {budget !== undefined && (
@@ -344,12 +362,13 @@ export function StatusBar() {
 
       {wartende > 0 && (
         <span
-          className="flex items-center gap-1.5 px-1 text-foreground"
+          className="flex shrink-0 items-center gap-1.5 px-1 text-foreground"
           data-testid="statusbar-freigaben"
-          title="Freigaben, die auf deine Entscheidung warten"
+          title={wartendeSatz}
+          aria-label={wartendeSatz}
         >
           <ClipboardCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
-          {wartende === 1 ? '1 Freigabe wartet' : `${wartende} Freigaben warten`}
+          {schmal ? wartende : wartendeSatz}
         </span>
       )}
     </footer>

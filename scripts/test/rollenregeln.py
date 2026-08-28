@@ -42,6 +42,11 @@ FENSTER = 40
 #: Routen ohne Rollenpruefung, jede mit dem Grund, warum das richtig ist.
 OEFFENTLICH = {
     'POST /api/auth/login': 'die Anmeldung selbst; vor ihr gibt es keine Rolle',
+    'POST /api/auth/logout': (
+        'das Abmelden muss auch eine bereits entwertete Sitzung wegraeumen '
+        '(Phase D6); es gibt hier nichts zu schuetzen, wer ruft, wird seine '
+        'eigenen Cookies los, und die CSRF-Pflicht bleibt'
+    ),
     'GET /api/auth/needs-setup': 'sagt der Oberflaeche, ob das Geraet noch keinen Admin hat',
     'POST /api/auth/setup': 'legt den ERSTEN Admin an; schliesst sich selbst, sobald einer da ist',
     'GET /api/auth/session': 'Sitzungsprobe, antwortet 200 in beiden Faellen (Plan 023 C3)',

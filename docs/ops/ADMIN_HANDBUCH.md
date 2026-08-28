@@ -71,6 +71,11 @@ stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
   live.
 - **Rechte Spalte:** die **Notizen** — ein Zettel je Mensch, der sich nach
   einer Sekunde Ruhe von selbst speichert. Ein- und ausblendbar.
+- **Auf einem schmalen Bildschirm** (unter 900 Pixel, also am Telefon) gibt es
+  keine dritte Spalte. Die Notizen liegen dort als **Blatt** ueber der Mitte:
+  derselbe Schalter oben rechts zieht sie hoch, ein Klick auf das X oder das
+  Oeffnen einer Ansicht legt sie wieder weg. Geschriebenes geht dabei nicht
+  verloren.
 - **Layout-Schalter (oben rechts):** **zwei** Symbole blenden die Sidebar und
   die Notizen unabhaengig ein/aus. Daneben das **Benutzermenue** (Name, Rolle,
   Abmelden) und — nur fuer Administratoren — die Einstellungen.

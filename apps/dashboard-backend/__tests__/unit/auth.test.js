@@ -217,19 +217,33 @@ describe('Authentication Routes', () => {
   // POST /api/auth/logout
   // ============================================================================
   describe('POST /api/auth/logout', () => {
-    test('should return 401 without authentication', async () => {
+    // Phase D6 (28.08.2026): Abmelden meldet ab, auch wenn die Sitzung schon
+    // tot ist. Vorher stand hier zweimal 401 -- und genau das liess nach einem
+    // Passwortwechsel (der ALLE Sitzungen entwertet) ein httpOnly-Cookie mit
+    // totem Token im Browser stehen, das eine Seite selbst nicht loeschen kann.
+    const raeumtDieCookies = (response) => {
+      const gesetzt = response.headers['set-cookie'] || [];
+      expect(gesetzt.join(' ')).toMatch(/arasul_session=/);
+      expect(gesetzt.join(' ')).toMatch(/arasul_csrf=/);
+    };
+
+    test('raeumt auch ohne Sitzung die Cookies weg', async () => {
       const response = await request(app)
         .post('/api/auth/logout');
 
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('success', true);
+      raeumtDieCookies(response);
     });
 
-    test('should return 401 with invalid token', async () => {
+    test('raeumt auch mit einem toten Token die Cookies weg', async () => {
       const response = await request(app)
         .post('/api/auth/logout')
         .set('Authorization', 'Bearer invalid-token');
 
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('success', true);
+      raeumtDieCookies(response);
     });
 
     test('should successfully logout with valid token', async () => {

@@ -87,7 +87,7 @@ Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 | POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin                      | 10/15min      |
 | POST   | `/api/auth/login`           | Login with username/password (sets cookie)                        | 10/15min      |
 | GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated`                  | 120/min       |
-| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie) (auch Mitarbeiter)       | 30/min        |
+| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie) — auch ohne Sitzung 200  | 30/min        |
 | POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user (auch Mitarbeiter)       | -             |
 | POST   | `/api/auth/change-password` | Change own password (invalidates all sessions) (auch Mitarbeiter) | 3/15min, user |
 | POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token (auch Mitarbeiter)       | -             |
@@ -135,6 +135,32 @@ müsste, ist ausgerechnet `POST /api/auth/change-password`. Genau dieser Aufruf
 setzt das Kennzeichen zurück (`admin_users.passwort_vom_admin`, Migration 178)
 und beendet als einziger alle Sitzungen des Betroffenen — der Wechsel führt
 also immer über eine neue Anmeldung.
+
+**POST /api/auth/logout:**
+
+Meldet die aktuelle Sitzung ab: der Token wandert auf die Sperrliste, und die
+beiden Cookies (`arasul_session`, `arasul_csrf`) werden gelöscht.
+
+**Der Weg verlangt keine gültige Sitzung** (Phase D6, 28.08.2026). Er trug bis
+dahin `requireAuth`, und genau das ging nach einem Passwortwechsel schief:
+`POST /api/auth/change-password` entwertet **alle** Sitzungen des Betroffenen,
+die Oberfläche ruft danach das Abmelden mit eben diesem entwerteten Token, und
+die Antwort war 401. Der Rumpf lief nie, also blieb das httpOnly-Cookie
+`arasul_session` mit totem Token im Browser stehen — eine Sitzung, die eine
+Seite selbst nicht löschen kann, weil sie httpOnly-Cookies nicht sieht.
+
+Ohne gültigen Token gibt es nichts zu sperren; die Cookies fallen trotzdem, und
+die Antwort ist 200. Die CSRF-Pflicht bleibt: ein fremder Absender soll
+niemanden abmelden können.
+
+```json
+// Response
+{
+  "success": true,
+  "message": "Logged out successfully",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
 
 **POST /api/auth/logout-all:**
 

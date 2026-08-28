@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { IsolatedMemoryRouter } from './IsolatedMemoryRouter';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -9,9 +9,10 @@ import type { WorkspaceTab, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { Uebersicht } from '@/features/apps/Uebersicht';
 import { AppRahmen } from '@/features/apps/AppRahmen';
 import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
+import { lazyNachladen } from '@/utils/lazyNachladen';
 
-const Settings = lazy(() => import('@/features/settings/Settings'));
-const ModelleAnsicht = lazy(() => import('@/features/modelle/ModelleAnsicht'));
+const Settings = lazyNachladen(() => import('@/features/settings/Settings'));
+const ModelleAnsicht = lazyNachladen(() => import('@/features/modelle/ModelleAnsicht'));
 
 export interface TabThemeControls {
   theme: string;

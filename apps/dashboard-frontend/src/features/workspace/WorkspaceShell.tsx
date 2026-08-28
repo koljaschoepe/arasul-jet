@@ -41,6 +41,11 @@ import { RightPanel } from './RightPanel';
  * resizable-panels setzt display:flex inline auf Panel-Wurzeln, daher läuft das
  * über ein Datenattribut + !important statt über das hidden-Attribut.
  *
+ * Phase D6 (28.08.2026) nimmt der rechten Spalte unter 900 px ihre Spalte:
+ * dort liegen die Notizen als BLATT über der Mitte (`data-shell-blatt`), sie
+ * fangen zu an, und jede Ansicht, die kommt, schließt sie. Gemountet bleiben
+ * sie auch dann — dasselbe Panel, eine andere Fläche.
+ *
  * WICHTIG — `data-shell-hidden` statt `aria-hidden` als CSS-Anker: Die
  * Sichtbarkeit MUSS an einem Attribut hängen, das ausschließlich diese Shell
  * setzt. `aria-hidden` erfüllt das nicht — Radix-Dialoge/-Overlays rufen beim
@@ -61,6 +66,8 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const notizenBlattOffen = useWorkspaceStore(s => s.notizenBlattOffen);
+  const activeView = useWorkspaceStore(s => s.activeView);
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab.
   //
@@ -128,6 +135,32 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const schmal = useSchmalesFenster();
   const sidebarZeigen = sidebarVisible && !schmal;
 
+  /**
+   * Die Notizen unter 900 px: ein BLATT von unten, nie eine dritte Spalte.
+   *
+   * Der Fund der ersten D6-Messung am Orin (28.08.2026): bei 390 px verdeckte
+   * die Notizspalte die Mitte VOLLSTAENDIG. Alle sieben Verwaltungsansichten
+   * waren rot, und das Bild zeigte jedes Mal dasselbe -- „NOTIZEN, noch nichts
+   * notiert". Der Grund steht in der Aufteilung: die Mitte darf schmal auf
+   * null schrumpfen (`minSize` unten), die Notizen behalten ihre 220 px, und
+   * 48 + 160 + 220 sind bei 342 nutzbaren Pixeln schon mehr als da ist. Die
+   * Mitte bekam null.
+   *
+   * Es gibt darauf keine Antwort in Pixeln. Zwei Flaechen nebeneinander, von
+   * denen eine ihre Mindestbreite nicht bekommt, sind eine Fläche zu viel --
+   * also liegt die zweite ab hier DARUEBER und nicht daneben, und sie faengt
+   * zu an. Wer sie aufzieht, verdeckt die Mitte absichtlich; wer eine Ansicht
+   * oeffnet, hat sie wieder zu (der Effekt darunter).
+   */
+  const notizenZeigen = schmal ? notizenBlattOffen : rightPanelVisible;
+
+  // Eine Ansicht kommt, das Blatt geht. `notizenBlattOffen` steht ABSICHTLICH
+  // nicht in den Abhaengigkeiten: sonst schloesse dieser Effekt das Blatt
+  // sofort wieder, das jemand gerade aufgezogen hat.
+  useEffect(() => {
+    if (schmal) useWorkspaceStore.getState().schliesseNotizenBlatt();
+  }, [schmal, activeTabId, activeView]);
+
   // Panel-Layout (Breiten) in localStorage persistieren. Die Panel-Ids sind
   // stabil (Panels bleiben wegen Keep-alive immer gemountet).
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
@@ -150,7 +183,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
           orientation="horizontal"
           className="flex-1"
           defaultLayout={defaultLayout}
-          onLayoutChanged={onLayoutChanged}
+          {...(schmal ? {} : { onLayoutChanged })}
         >
           <Panel
             id="sidebar"
@@ -182,7 +215,11 @@ export default function WorkspaceShell(props: TabThemeControls) {
             die Notizen breiter zieht, nimmt sie also nicht mehr der Mitte weg,
             sondern stoesst an.
           */}
-          <Panel id="main" minSize={schmal ? '0px' : '420px'}>
+          <Panel
+            id="main"
+            minSize={schmal ? '0px' : '420px'}
+            data-shell-voll={schmal ? 'true' : 'false'}
+          >
             <div className="flex h-full min-w-0 flex-col">
               <TabBar />
               <div className="min-h-0 flex-1 overflow-hidden rounded-tl-md bg-background">
@@ -191,17 +228,23 @@ export default function WorkspaceShell(props: TabThemeControls) {
             </div>
           </Panel>
           <Separator
-            aria-hidden={!rightPanelVisible}
-            data-shell-hidden={rightPanelVisible ? 'false' : 'true'}
+            aria-hidden={!notizenZeigen || schmal}
+            data-shell-hidden={notizenZeigen && !schmal ? 'false' : 'true'}
             className="w-px bg-border transition-colors hover:bg-primary/50"
           />
+          {/* Das Panel bleibt IMMER an dieser Stelle des Baums, auch als Blatt:
+              die Notizen schreiben nach einer Sekunde Ruhe, und ein Umhaengen
+              waere ein Unmount mitten in der Pause. Was sich aendert, ist
+              allein die Flaeche -- `data-shell-blatt` in index.css legt sie
+              ueber die Mitte statt daneben. */}
           <Panel
             id="right"
             defaultSize="26%"
             minSize="220px"
             maxSize={schmal ? '100%' : '45%'}
-            aria-hidden={!rightPanelVisible}
-            data-shell-hidden={rightPanelVisible ? 'false' : 'true'}
+            aria-hidden={!notizenZeigen}
+            data-shell-hidden={notizenZeigen ? 'false' : 'true'}
+            data-shell-blatt={schmal ? 'true' : 'false'}
           >
             <RightPanel />
           </Panel>

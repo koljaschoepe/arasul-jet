@@ -249,6 +249,30 @@ Bildmodell, das die Ansicht daneben selbst nicht als Standard anbietet. Die
 Rückfälle beachten jetzt die Aufgabe (`is_task_default` für `text` vor allem
 anderen), und `POST /api/models/default` weist ein Modell ab, mit dem kein
 Flow rechnen kann.
+Der erste Lauf dieser Reihe am Orin (28.08.2026, dreimal: 71/80, 18/20, 72/80)
+hat zwei Dinge gefunden, und beide sind zu. **Unter 900 px stehen Notizen und
+Mitte nie nebeneinander**: bei 390 px bekam die Mitte null Pixel (48 für die
+Aktivitätsleiste, 160 für die Sidebar und 220 für die Notizen sind mehr, als da
+ist), alle sieben Verwaltungsansichten waren rot, und jedes Bild zeigte
+„NOTIZEN — noch nichts notiert". Seither liegen die Notizen dort als **Blatt**
+über der Mitte (`data-shell-blatt` in `index.css`, dasselbe Panel an derselben
+Stelle des Baums — die Notizen dürfen nicht unmounten), sie fangen **zu** an
+(`notizenBlattOffen`, nicht persistiert), und jede Ansicht, die kommt,
+schließt sie; die Statusleiste lässt bei 390 px die Fassung weg und zählt die
+Freigaben als Zahl neben dem Symbol. Die Reihe macht die Notizen vor jeder
+schmalen Messung ausdrücklich zu und misst sie danach als eigene Zelle
+„Notizen" bei 390 px, aufgezogen. Zweitens **meldet Abmelden jetzt ab, auch
+wenn die Sitzung schon tot ist**: `POST /api/auth/logout` trug `requireAuth`,
+und nach einem Passwortwechsel (der alle Sitzungen entwertet) antwortete es
+mit 401 — das httpOnly-Cookie `arasul_session` blieb mit totem Token im
+Browser stehen, wo keine Seite es löschen kann. Jetzt `optionalAuth`, Cookies
+fallen immer, 200. Dazu zwei Dinge gegen den flüchtigen zweiten Fund (Lauf 2
+brach an der zweiten Anmeldung ab, Lauf 1 und 3 nicht): die Reihe hält die
+HTTP-Antwort von `POST /api/auth/login` fest und nennt sie im roten Feld statt
+nur „keine Shell", und die drei per `React.lazy` nachgeladenen Bündel
+versuchen es dreimal (`utils/lazyNachladen.ts`) — die Shell wird genau einmal
+geholt, nämlich wenn die Anmeldung durch ist, und eine verlorene Anfrage sah
+danach aus wie ein Gerät, das nicht anmeldet.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

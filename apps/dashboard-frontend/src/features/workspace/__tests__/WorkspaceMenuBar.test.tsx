@@ -13,7 +13,26 @@ function resetStore() {
     activeView: 'apps',
     sidebarVisible: true,
     rightPanelVisible: true,
+    notizenBlattOffen: false,
   });
+}
+
+/**
+ * Ein matchMedia-Doppel: `schmal` sagt, ob `(max-width: 899px)` passt. Der
+ * Notizen-Knopf ist EINER, aber unter 900 px schaltet er das Blatt ueber der
+ * Mitte und nicht die Spalte daneben (Phase D6) — die gibt es dort nicht.
+ */
+function fensterbreite(schmal: boolean) {
+  const original = window.matchMedia;
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: schmal,
+    media: '',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }) as unknown as typeof window.matchMedia;
+  return () => {
+    window.matchMedia = original;
+  };
 }
 
 const abmelden = vi.fn();
@@ -66,6 +85,19 @@ describe('WorkspaceMenuBar', () => {
 
     fireEvent.click(screen.getByLabelText('Notizen einblenden'));
     expect(useWorkspaceStore.getState().rightPanelVisible).toBe(true);
+  });
+
+  it('schaltet unter 900 px das Notizen-Blatt und laesst die Spalten-Voreinstellung in Ruhe', () => {
+    const zurueck = fensterbreite(true);
+    try {
+      render(<WorkspaceMenuBar onLogout={abmelden} />);
+      // Zu, obwohl `rightPanelVisible` true ist: das Blatt faengt immer zu an.
+      fireEvent.click(screen.getByLabelText('Notizen einblenden'));
+      expect(useWorkspaceStore.getState().notizenBlattOffen).toBe(true);
+      expect(useWorkspaceStore.getState().rightPanelVisible).toBe(true);
+    } finally {
+      zurueck();
+    }
   });
 
   it('bietet keine Design-/Theme-Auswahl in der Menüleiste', () => {
