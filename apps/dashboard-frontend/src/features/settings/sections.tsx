@@ -50,7 +50,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'system',
     label: 'System',
     icon: <Server />,
-    description: 'Services, Updates, Self-Healing',
+    description: 'Auslastung, Updates, Sicherung, Selbstheilung',
   },
   {
     id: 'remote-access',
@@ -73,6 +73,7 @@ export function resolveTab(param: string | null): SettingsSectionId {
     'rag-llm': 'ki',
     services: 'system',
     updates: 'system',
+    sicherung: 'system',
     selfhealing: 'system',
     werksreset: 'system',
   };
@@ -85,9 +86,10 @@ export function resolveTab(param: string | null): SettingsSectionId {
 /** Initiale System-Unter-Sektion aus einem (evtl. alten) `?tab=`-Wert. */
 export function resolveSystemSub(
   param: string | null
-): 'services' | 'updates' | 'selfhealing' | 'werksreset' | undefined {
+): 'services' | 'updates' | 'sicherung' | 'selfhealing' | 'werksreset' | undefined {
   if (
     param === 'updates' ||
+    param === 'sicherung' ||
     param === 'selfhealing' ||
     param === 'services' ||
     param === 'werksreset'
