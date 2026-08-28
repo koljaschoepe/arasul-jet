@@ -1,0 +1,267 @@
+/**
+ * Modelle und System im Browser: eine Sicherung auslösen und die Kurzliste
+ * lesen. Abnahme A6, Phase D5 des Umbaus vom 26.08.2026.
+ *
+ * WARUM DAS IM BROWSER PASSIERT UND NICHT PER curl. Dass die Wege dahinter
+ * antworten, misst `betrieb-abnahme.sh` seit C9 und `modelle-abnahme.sh` seit
+ * C8. Was D5 hinzufuegt, ist ausschliesslich die Frage, ob ein Administrator
+ * sie FINDET und bedient: bis heute sicherte er mit `docker exec` und las die
+ * Kurzliste mit `psql`.
+ *
+ * WAS GEMESSEN WIRD, in dieser Reihenfolge:
+ *
+ *   1. Drei Breiten (390, 1024, 1440) auf der Sicherung. Zu jeder: steht die
+ *      Seite, rollt sie waagerecht, steht etwas da, meldet die Konsole einen
+ *      Fehler. Die Konsolenfrage ist keine Formalie -- die Funde der D1-, D2-
+ *      und D3-Abnahme waren alle drei Konsolenmeldungen.
+ *   2. Die Modelle: die Liste zeigt GENAU die Kurzliste (die Kennungen
+ *      kommen vom Aufrufer aus `config/modelle/kurzliste.json`), und das
+ *      Standardmodell traegt sein Abzeichen -- genau eines.
+ *   3. Die Aktualisierungen: die Fassung steht da, und wenn dieses Geraet
+ *      nicht ueber die Schnittstelle einspielen kann, sagt es das.
+ *   4. Die Sicherung wird ausgeloest. Die Meldung erscheint, und die Liste
+ *      zeigt danach eine Sicherung mit Datum und Groesse.
+ *
+ * DIE SICHERUNG DAUERT MINUTEN, nicht Sekunden: `backup.sh` laeuft im
+ * Sicherungs-Container ueber die ganze Datenbank, die App-Pakete und die
+ * Flows. Die Geduld unten ist deshalb gross; sie misst nicht das Geraet, sie
+ * gibt ihm Zeit.
+ *
+ * KEINE EIGENE ANMELDUNG. Der Aufrufer legt die Sitzung des Administrators als
+ * `storageState` unter `$ARASUL_SITZUNG` ab (`arasul_sitzung_bauen`).
+ *
+ * Aufruf (der Regelfall ist ueber `system-abnahme.sh`):
+ *   ARASUL_URL=... ARASUL_SITZUNG=... ARASUL_MODELLE=id1,id2,... \
+ *   ARASUL_STANDARD=<id> node scripts/test/system-bilder.mjs
+ *
+ * Die Bilder landen unter `docs/plans/audits/<datum>-system-d5/`.
+ *
+ * Rueckgabe 0, wenn jede Frage gruen war, sonst 1.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+
+const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const URL = process.env.ARASUL_URL || 'https://localhost:8443';
+const SITZUNG = process.env.ARASUL_SITZUNG || '';
+/** Die Kennungen der Kurzliste, kommagetrennt. Der Aufrufer liest sie aus der Datei. */
+const MODELLE = (process.env.ARASUL_MODELLE || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+/** Das Standardmodell des Geraets, aus GET /api/models/default. Darf leer sein. */
+const STANDARD = process.env.ARASUL_STANDARD || '';
+
+const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
+const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-system-d5`);
+
+const SICHERUNG = `${URL}/workspace/settings?tab=sicherung`;
+const AKTUALISIERUNG = `${URL}/workspace/settings?tab=updates`;
+const MODELLSEITE = `${URL}/workspace/modelle`;
+
+/** Die drei Breiten aus dem Auftrag der Phase (wie in D1 bis D4). */
+const BREITEN = [
+  { px: 390, hoehe: 844, name: 'telefon' },
+  { px: 1024, hoehe: 768, name: 'tablet' },
+  { px: 1440, hoehe: 900, name: 'arbeitsplatz' },
+];
+
+/** So lange darf eine Sicherung am Jetson brauchen. */
+const SICHERUNG_GEDULD = Number(process.env.ARASUL_SICHERUNG_GEDULD_MS || 20 * 60_000);
+
+const ergebnisse = [];
+const pruefe = (was, ok, detail = '') => {
+  ergebnisse.push({ was, ok });
+  console.log(`${ok ? 'gruen' : 'ROT  '}  ${was}${detail ? `  (${detail})` : ''}`);
+};
+
+if (!SITZUNG || !fs.existsSync(SITZUNG)) {
+  console.log('ROT    Keine Sitzung unter ARASUL_SITZUNG -- der Aufrufer baut sie.');
+  process.exit(1);
+}
+if (MODELLE.length === 0) {
+  console.log('ROT    ARASUL_MODELLE fehlt -- der Aufrufer liest die Kurzliste.');
+  process.exit(1);
+}
+
+fs.mkdirSync(ZIEL, { recursive: true });
+
+const browser = await chromium.launch({ headless: true });
+const ctx = await browser.newContext({
+  ignoreHTTPSErrors: true,
+  storageState: SITZUNG,
+  viewport: { width: 1440, height: 900 },
+});
+const seite = await ctx.newPage();
+
+let konsole = [];
+seite.on('console', m => {
+  if (m.type() === 'error') konsole.push(m.text().slice(0, 200));
+});
+
+const steht = (waehler, grenze = 20000) =>
+  seite
+    .locator(waehler)
+    .first()
+    .waitFor({ timeout: grenze })
+    .then(() => true)
+    .catch(() => false);
+
+const rolltWaagerecht = () =>
+  seite.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+  );
+
+try {
+  // --- 1. Die drei Breiten auf der Sicherung ---------------------------------
+  for (const breite of BREITEN) {
+    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
+    konsole = [];
+    await seite.goto(SICHERUNG, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    const shell = await steht('[data-testid="workspace-shell"]', 30000);
+    pruefe(`${breite.px} px: die Shell steht`, shell);
+
+    const seiteDa = shell && (await steht('[data-testid="sicherung-seite"]'));
+    pruefe(`${breite.px} px: die Sicherung steht`, seiteDa);
+
+    if (seiteDa) {
+      // Die Seite holt Zustand und Liste; ohne diese Pause zeigt das Bild ein
+      // Skelett.
+      await seite.waitForTimeout(2000);
+      pruefe(`${breite.px} px: die Seite rollt nicht waagerecht`, !(await rolltWaagerecht()));
+      const text = await seite.evaluate(() => document.body.innerText.trim().length);
+      pruefe(`${breite.px} px: es steht etwas da`, text > 20, `${text} Zeichen`);
+    }
+
+    const datei = path.join(ZIEL, `${breite.px}-${breite.name}-sicherung.png`);
+    await seite.screenshot({ path: datei, fullPage: false });
+    console.log(`  Bild: ${path.relative(WURZEL, datei)}`);
+
+    pruefe(
+      `${breite.px} px: keine Fehler in der Konsole`,
+      konsole.length === 0,
+      konsole.slice(0, 2).join(' | ')
+    );
+  }
+
+  // --- 2. Die Modelle: genau die Kurzliste ----------------------------------
+  await seite.setViewportSize({ width: 1440, height: 900 });
+  konsole = [];
+  await seite.goto(MODELLSEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const modelleDa = await steht('[data-testid="modell-liste"]', 30000);
+  pruefe('Die Modell-Ansicht steht', modelleDa);
+
+  if (modelleDa) {
+    await seite.waitForTimeout(1500);
+    const gezeigt = await seite.$$eval('[data-testid="modell-liste"] > li', zeilen =>
+      zeilen.map(z => z.getAttribute('data-testid').replace(/^modell-/, ''))
+    );
+    const fehlt = MODELLE.filter(id => !gezeigt.includes(id));
+    const zuviel = gezeigt.filter(id => !MODELLE.includes(id));
+    pruefe(
+      'Die Ansicht zeigt GENAU die Kurzliste',
+      fehlt.length === 0 && zuviel.length === 0,
+      `${gezeigt.length} Zeilen${fehlt.length ? `, fehlt: ${fehlt.join(' ')}` : ''}${
+        zuviel.length ? `, zuviel: ${zuviel.join(' ')}` : ''
+      }`
+    );
+
+    if (STANDARD) {
+      const abzeichen = await seite.locator(`[data-testid="standard-${STANDARD}"]`).count();
+      pruefe('Das Standardmodell traegt sein Abzeichen', abzeichen === 1, STANDARD);
+    } else {
+      pruefe('Das Standardmodell traegt sein Abzeichen', false, 'kein Standard gesetzt');
+    }
+
+    // Die KI-RAM-Zeile steht im Kopf und kommt aus /models/memory-budget.
+    const kopf = await seite.locator('[data-testid="modelle-seite"]').innerText();
+    pruefe('Der Kopf nennt das KI-RAM', /KI-RAM/i.test(kopf));
+
+    await seite.screenshot({ path: path.join(ZIEL, '1440-modelle.png') });
+    pruefe(
+      'Modelle: keine Fehler in der Konsole',
+      konsole.length === 0,
+      konsole.slice(0, 2).join(' | ')
+    );
+  }
+
+  // --- 3. Die Aktualisierungen ----------------------------------------------
+  konsole = [];
+  await seite.goto(AKTUALISIERUNG, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const updateDa = await steht('[data-testid="update-seite"]', 30000);
+  pruefe('Die Aktualisierungen stehen', updateDa);
+  if (updateDa) {
+    await seite.waitForTimeout(1500);
+    const text = await seite.locator('[data-testid="update-seite"]').innerText();
+    pruefe('Sie nennen die Fassung dieses Geraets', /Fassung/.test(text));
+    // Ehrlichkeit: entweder steht der Weg zum Einspielen da, oder der Grund,
+    // warum es hier nicht geht. Beides zugleich waere falsch, keines von
+    // beiden auch.
+    const grund = await seite.locator('[data-testid="einspielen-nicht-moeglich"]').count();
+    const weg = await seite.getByText('.araupdate Datei auswählen').count();
+    pruefe(
+      'Entweder der Weg zum Einspielen oder der Grund, warum es nicht geht',
+      (grund === 1) !== (weg === 1),
+      grund === 1 ? 'Grund steht da' : 'Weg steht da'
+    );
+    await seite.screenshot({ path: path.join(ZIEL, '1440-aktualisierungen.png') });
+    pruefe(
+      'Aktualisierungen: keine Fehler in der Konsole',
+      konsole.length === 0,
+      konsole.slice(0, 2).join(' | ')
+    );
+  }
+
+  // --- 4. Sichern ------------------------------------------------------------
+  konsole = [];
+  await seite.goto(SICHERUNG, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await steht('[data-testid="sicherung-seite"]', 30000);
+  await seite.waitForTimeout(1500);
+
+  const knopf = seite.locator('[data-testid="sicherung-ausloesen"]');
+  const bereit = await knopf.isEnabled().catch(() => false);
+  pruefe('Der Knopf „Jetzt sichern" steht bereit', bereit);
+
+  if (bereit) {
+    await seite.screenshot({ path: path.join(ZIEL, 'sicherung-vorher.png') });
+    await knopf.click();
+
+    const meldung = seite.locator('[data-testid="sicherung-meldung"]');
+    const kam = await meldung
+      .waitFor({ timeout: SICHERUNG_GEDULD })
+      .then(() => true)
+      .catch(() => false);
+    pruefe('Nach dem Klick erscheint eine Meldung', kam);
+
+    if (kam) {
+      const wort = (await meldung.innerText()).trim();
+      pruefe('und sie sagt, dass die Sicherung fertig ist', /fertig/i.test(wort), wort.slice(0, 120));
+
+      // Die Liste erneuert sich ueber die Entwertung der Abfrage, ohne
+      // Neuladen. Ein `reload()` verstecke genau das.
+      const listeDa = await steht('[data-testid="sicherungsliste"]', 60000);
+      pruefe('Die Liste der Sicherungen steht danach da, ohne Neuladen', listeDa);
+
+      if (listeDa) {
+        const erste = await seite.locator('[data-testid="sicherungsliste"] > li').first().innerText();
+        // Datum wie „28.08.2026, 12:30" und eine Groesse wie „5,2 GB".
+        pruefe('Die oberste Sicherung nennt ihr Datum', /\d{2}\.\d{2}\.\d{4}/.test(erste), erste.split('\n')[0]);
+        pruefe('und ihre Groesse', /\d+([.,]\d+)?\s?(B|KB|MB|GB)/.test(erste), erste.split('\n')[1] ?? '');
+      }
+      await seite.screenshot({ path: path.join(ZIEL, 'sicherung-nachher.png'), fullPage: true });
+    }
+  }
+} finally {
+  await ctx.close();
+  await browser.close();
+}
+
+const rot = ergebnisse.filter(e => !e.ok).length;
+console.log('');
+console.log(`${ergebnisse.length - rot} von ${ergebnisse.length} gruen`);
+console.log(`Bilder unter ${path.relative(WURZEL, ZIEL)}/`);
+process.exit(rot === 0 ? 0 : 1);
