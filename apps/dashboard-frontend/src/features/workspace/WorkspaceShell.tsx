@@ -167,7 +167,22 @@ export default function WorkspaceShell(props: TabThemeControls) {
             data-shell-hidden={sidebarZeigen ? 'false' : 'true'}
             className="w-px bg-border transition-colors hover:bg-primary/50"
           />
-          <Panel id="main" minSize={schmal ? '0px' : '30%'}>
+          {/*
+            Eine MINDESTBREITE in Pixeln und nicht in Prozent (Phase D4).
+
+            `30%` heisst bei 1440 px 432 px und bei 3440 px 1032 px -- die
+            Grenze waechst mit dem Fenster, obwohl das, was sie schuetzen soll,
+            gleich bleibt: eine Tabelle mit sechs Spalten braucht ihre Breite
+            unabhaengig davon, wie gross der Bildschirm ist. Umgekehrt wird sie
+            auf einem kleinen Fenster zu schwach.
+
+            420 px passen unter die Schwelle, ab der die Shell dreispaltig ist
+            (900 px, `useSchmalesFenster`): 48 fuer die Aktivitaetsleiste, 160
+            fuer die Sidebar, 220 fuer die Notizen und 420 hier sind 848. Wer
+            die Notizen breiter zieht, nimmt sie also nicht mehr der Mitte weg,
+            sondern stoesst an.
+          */}
+          <Panel id="main" minSize={schmal ? '0px' : '420px'}>
             <div className="flex h-full min-w-0 flex-col">
               <TabBar />
               <div className="min-h-0 flex-1 overflow-hidden rounded-tl-md bg-background">

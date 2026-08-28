@@ -9,7 +9,6 @@ import CreateAdmin from './features/system/CreateAdmin';
 import ErrorBoundary, { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import NichtGefunden from './components/ui/NichtGefunden';
 import LoadingSpinner from './components/ui/LoadingSpinner';
-import SetupWizard from './features/system/SetupWizard';
 import PasswortWechseln from './features/system/PasswortWechseln';
 
 // PHASE 3: State Management - Contexts and Hooks
@@ -56,9 +55,6 @@ function AppContent(): React.JSX.Element | null {
   const toast = useToast();
   const { user, isAuthenticated, loading: authLoading, login, logout } = useAuth();
 
-  // Setup wizard state
-  const [, setSetupComplete] = useState<boolean | null>(null); // null = loading, true/false = known
-  const [showSetupWizard, setShowSetupWizard] = useState<boolean>(false);
   // First-run onboarding: null = still checking, true = box has no admin yet
   // (show CreateAdmin instead of Login), false = normal login.
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
@@ -146,42 +142,20 @@ function AppContent(): React.JSX.Element | null {
     };
   }, [api]);
 
-  // Check setup wizard status after login.
+  // HIER STAND DER EINRICHTUNGSASSISTENT (bis Phase D4, 28.08.2026).
   //
-  // Nur fuer den Administrator (Phase D1): der Assistent richtet das GERAET
-  // ein — Modelle, Dienste, Fernzugriff — und jede seiner Fragen fuehrt auf
-  // einen Weg, der einem Mitarbeiter mit 403 antwortet. Vor C1 gab es nur eine
-  // Rolle, und die Frage stellte sich nicht.
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    if (user?.role !== 'admin') {
-      setSetupComplete(true);
-      setShowSetupWizard(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    const checkSetupStatus = async () => {
-      try {
-        const data = await api.get<{ setupComplete?: boolean }>('/system/setup-status', {
-          signal: controller.signal,
-          showError: false,
-        });
-        const isComplete = data.setupComplete === true;
-        setSetupComplete(isComplete);
-        if (!isComplete) {
-          setShowSetupWizard(true);
-        }
-      } catch (err: unknown) {
-        if (controller.signal.aborted) return;
-        // If endpoint doesn't exist (old backend), assume setup is complete
-        setSetupComplete(true);
-      }
-    };
-
-    checkSetupStatus();
-    return () => controller.abort();
-  }, [isAuthenticated, user?.role, api]);
+  // Nach der Anmeldung fragte die Oberfläche `GET /api/system/setup-status`
+  // und schob dem Administrator einen Assistenten vor die Shell: Firma,
+  // Branche, Teamgröße, Antwortstil, ein Modell. Jede dieser Fragen gehört
+  // inzwischen woandershin — das Profil war das des Chats (seit B2 weg), die
+  // Modellwahl ist seit C8 eine Kurzliste in der Ansicht „Modelle", und
+  // Netzname, Startpasswort und Kit-Schlüssel nennt seit C10 der Bootstrap auf
+  // der Konsole des Geräts. Übrig geblieben wäre ein Bildschirm, der
+  // wiederholt, was der Bootstrap gerade gezeigt hat.
+  //
+  // Was BLEIBT, steht direkt darüber und darunter: `needsSetup` (hat das Gerät
+  // überhaupt einen Administrator?) und der erzwungene Wechsel eines
+  // Startpassworts (D1). Beides sind Zustände, keine Assistenten.
 
   // Handle login success - called from Login component
   const handleLoginSuccess = useCallback(
@@ -240,26 +214,6 @@ function AppContent(): React.JSX.Element | null {
           void logout();
         }}
       />
-    );
-  }
-
-  // Show setup wizard if setup is not complete
-  if (showSetupWizard) {
-    return (
-      <DownloadProvider>
-        <ActivationProvider>
-          <SetupWizard
-            onComplete={() => {
-              setShowSetupWizard(false);
-              setSetupComplete(true);
-            }}
-            onSkip={() => {
-              setShowSetupWizard(false);
-              setSetupComplete(true);
-            }}
-          />
-        </ActivationProvider>
-      </DownloadProvider>
     );
   }
 

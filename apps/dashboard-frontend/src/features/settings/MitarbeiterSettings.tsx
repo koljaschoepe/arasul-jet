@@ -155,7 +155,15 @@ export function MitarbeiterSettings() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm" data-testid="mitarbeiter-liste">
+              {/* Die Tabelle rollt in SICH, nicht die Seite (Phase D4, Fund
+                  der D3-Abnahme). Ohne die Mindestbreite quetscht `w-full`
+                  sechs Spalten in eine schmale Mitte, bis vom Namen nichts
+                  mehr uebrig ist; mit ihr bleibt jede Spalte lesbar und der
+                  Rest wandert unter den waagerechten Balken dieses Kastens. */}
+              <table
+                className="w-full min-w-[42rem] border-collapse text-sm"
+                data-testid="mitarbeiter-liste"
+              >
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
                     <th scope="col" className="p-2 font-medium">

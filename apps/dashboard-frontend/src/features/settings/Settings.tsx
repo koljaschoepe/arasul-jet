@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
-import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { Mascot } from '@/components/mascot/Mascot';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
@@ -9,6 +8,7 @@ import useConfirm from '../../hooks/useConfirm';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { resolveTab, resolveSystemSub } from './sections';
 import { GeneralSettings } from './GeneralSettings';
+import { AppsSettings } from './AppsSettings';
 import { MitarbeiterSettings } from './MitarbeiterSettings';
 import { KISettings } from './KISettings';
 import { SecuritySettings } from './SecuritySettings';
@@ -87,6 +87,12 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
             <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />
           </ComponentErrorBoundary>
         );
+      case 'apps':
+        return (
+          <ComponentErrorBoundary componentName="Apps">
+            <AppsSettings />
+          </ComponentErrorBoundary>
+        );
       case 'benutzer':
         return (
           <ComponentErrorBoundary componentName="Mitarbeiter">
@@ -154,9 +160,29 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
           </span>
         )}
       </header>
-      <ScrollArea className="flex-1">
-        <div className="max-w-225 p-6 max-md:p-4">{renderContent()}</div>
-      </ScrollArea>
+      {/*
+        EIN GEWOEHNLICHER ROLLBEREICH und keine `ScrollArea` mehr (Phase D4,
+        Fund der D3-Abnahme am Orin).
+
+        Bei 1440 px mit offener Notizspalte war die Einstellungsseite in der
+        Mitte abgeschnitten -- die Namensspalte der Mitarbeiter-Tabelle war
+        nicht zu sehen und auch nicht zu erreichen. Der Grund steckt in Radix'
+        `ScrollArea`: ihr Ansichtsfenster legt um den Inhalt ein Element mit
+        `display: table`, und dessen Breite richtet sich nach dem INHALT. Eine
+        Tabelle, die breiter ist als die Spalte, macht damit den ganzen
+        Rollbereich breiter, statt in sich zu rollen -- waagerecht rollen
+        laesst er sich zwar, aber ohne sichtbaren Balken (Radix rendert je
+        Richtung eine eigene Leiste, und hier stand nur die senkrechte).
+
+        Ein `div` mit `overflow-y-auto` und `min-w-0` kann schrumpfen. Was
+        darin breiter ist als die Spalte -- Tabellen, die Freigabe-Matrix, die
+        Log-Ausgabe der App-Ansicht -- rollt in seinem EIGENEN `overflow-x-auto`
+        und damit dort, wo es hingehoert: „die Mitte scrollt waagerecht
+        innerhalb".
+      */}
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="min-w-0 max-w-225 p-6 max-md:p-4">{renderContent()}</div>
+      </div>
 
       {ConfirmDialog}
     </div>

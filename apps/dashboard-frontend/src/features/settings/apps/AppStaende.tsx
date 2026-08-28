@@ -1,0 +1,177 @@
+/**
+ * Die zwei Stände einer App, nebeneinander (Phase D4).
+ *
+ * Der Lebenslauf einer App aus `kit-grundriss.md`: der Partner rollt in den
+ * **Teststand**, die benannten Tester sehen ihn, und **live schaltet ein
+ * Mensch**. Bis D4 war dieser Mensch jemand mit einem API-Schlüssel und einer
+ * Befehlszeile; hier ist es der Administrator, der eben den Teststand gesehen
+ * hat.
+ *
+ * ZWEI KARTEN UND KEIN UMSCHALTER. Beide Stände stehen gleichzeitig da, mit
+ * ihrer Version und dem Zustand ihres Containers. Ein Umschalter wäre die
+ * kleinere Fläche und die größere Falle: die Frage vor dem Schalten lautet
+ * „was ist im Test, und was ist gerade live", und die beantwortet man nicht,
+ * indem man hin- und herklickt.
+ */
+import { Activity, ArrowLeftRight, Rocket } from 'lucide-react';
+import { Button } from '@/components/ui/shadcn/button';
+import { cn } from '@/lib/utils';
+import { formatDate } from '@/utils/formatting';
+import type { AppStandDetail, Backendzustand } from './useAppVerwaltung';
+
+/**
+ * Der Zustand des App-Backends in einem Wort und einer Farbe.
+ *
+ * Drei Zustände, die man auseinanderhalten muss: es läuft und meldet sich
+ * gesund, es läuft und meldet nichts (das Manifest nennt keine Prüfung), es
+ * läuft nicht. Der mittlere ist kein Fehler — deshalb ist er grau und nicht
+ * rot.
+ */
+function Gesundheit({ backend }: { backend: Backendzustand | null }) {
+  if (!backend) {
+    return <span className="text-muted-foreground">kein Backend</span>;
+  }
+  const gut = backend.laeuft && backend.gesundheit !== 'unhealthy';
+  const wort = !backend.laeuft
+    ? backend.status || 'steht'
+    : backend.gesundheit === 'healthy'
+      ? 'läuft, gesund'
+      : backend.gesundheit === 'unhealthy'
+        ? 'läuft, meldet Fehler'
+        : backend.gesundheit === 'starting'
+          ? 'startet'
+          : 'läuft';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5',
+        gut ? 'text-success' : 'text-destructive',
+        backend.laeuft && !backend.gesundheit && 'text-muted-foreground'
+      )}
+    >
+      <Activity className="size-3.5" aria-hidden="true" />
+      {wort}
+    </span>
+  );
+}
+
+function StandKarte({
+  stand,
+  detail,
+  aktion,
+}: {
+  stand: 'test' | 'live';
+  detail: AppStandDetail | null;
+  aktion?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-md border border-border p-ui-3"
+      data-testid={`stand-${stand}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-foreground">
+          {stand === 'live' ? 'Livestand' : 'Teststand'}
+        </span>
+        {detail && (
+          <span
+            className="rounded bg-accent px-1.5 py-0.5 font-mono text-ui-xs text-foreground"
+            data-testid={`version-${stand}`}
+          >
+            {detail.version}
+          </span>
+        )}
+      </div>
+
+      {!detail ? (
+        <p className="text-sm text-muted-foreground">
+          {stand === 'live'
+            ? 'Noch nichts live. Was im Teststand steht, schaltet der Knopf daneben.'
+            : 'Kein Teststand. Der Partner rollt eine Version mit dem Ara-Kit hierher.'}
+        </p>
+      ) : (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          <dt className="text-muted-foreground">Zustand</dt>
+          <dd>
+            <Gesundheit backend={detail.backend} />
+          </dd>
+          <dt className="text-muted-foreground">Eingespielt</dt>
+          <dd className="text-foreground">{formatDate(detail.eingespielt_am)}</dd>
+          {detail.vorige_version && (
+            <>
+              <dt className="text-muted-foreground">Davor</dt>
+              <dd className="font-mono text-foreground">{detail.vorige_version}</dd>
+            </>
+          )}
+          <dt className="text-muted-foreground">Flows</dt>
+          <dd className="text-foreground">{detail.flows.length}</dd>
+          {detail.pfad && (
+            <>
+              <dt className="text-muted-foreground">Weg</dt>
+              <dd className="truncate font-mono text-ui-xs text-muted-foreground">{detail.pfad}</dd>
+            </>
+          )}
+        </dl>
+      )}
+
+      {aktion && <div className="mt-1">{aktion}</div>}
+    </div>
+  );
+}
+
+export function AppStaende({
+  staende,
+  laeuft,
+  onSchalten,
+}: {
+  staende: { test: AppStandDetail | null; live: AppStandDetail | null };
+  laeuft: boolean;
+  onSchalten: (ziel: 'live' | 'zurueck') => void;
+}) {
+  // Beide Knöpfe stehen nur da, wenn sie etwas tun können. Ein „Zurück", das
+  // sicher mit 409 antwortet, weil im Livestand nie etwas anderes lief, ist
+  // eine Sackgasse — dieselbe Linie wie bei den Knöpfen der Mitarbeiter-Liste
+  // für das eigene Konto (D3).
+  const kannLive = Boolean(staende.test);
+  const kannZurueck = Boolean(staende.live?.vorige_version);
+
+  return (
+    <div className="grid grid-cols-1 gap-ui-2 md:grid-cols-2">
+      <StandKarte
+        stand="test"
+        detail={staende.test}
+        aktion={
+          kannLive ? (
+            <Button
+              size="sm"
+              disabled={laeuft}
+              onClick={() => onSchalten('live')}
+              data-testid="schalten-live"
+            >
+              <Rocket className="size-4" aria-hidden="true" />
+              {staende.live ? `Live schalten (${staende.test?.version})` : 'Live schalten'}
+            </Button>
+          ) : undefined
+        }
+      />
+      <StandKarte
+        stand="live"
+        detail={staende.live}
+        aktion={
+          kannZurueck ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={laeuft}
+              onClick={() => onSchalten('zurueck')}
+              data-testid="schalten-zurueck"
+            >
+              <ArrowLeftRight className="size-4" aria-hidden="true" />
+              Zurück auf {staende.live?.vorige_version}
+            </Button>
+          ) : undefined
+        }
+      />
+    </div>
+  );
+}
