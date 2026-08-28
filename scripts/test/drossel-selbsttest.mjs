@@ -35,7 +35,22 @@ const s = d.drosselMerken(
   { 'ratelimit-remaining': '1', 'ratelimit-reset': '30' },
   200
 );
-pruefe('die Sitzungsprobe wird als sitzung gemerkt', s?.name === 'sitzung' && s.rest === 1, JSON.stringify(s));
+pruefe(
+  'die Sitzungsprobe wird als probe gemerkt',
+  s?.name === 'probe' && s.rest === 1,
+  JSON.stringify(s)
+);
+const n = d.drosselMerken(
+  'GET',
+  '/api/auth/needs-setup',
+  { 'ratelimit-remaining': '1', 'ratelimit-reset': '30' },
+  200
+);
+pruefe(
+  'needs-setup traegt seit dem 28.08.2026 dieselbe Drossel wie die Sitzungsprobe',
+  n?.name === 'probe',
+  JSON.stringify(n)
+);
 const a = d.drosselMerken('POST', '/api/auth/logout', {}, 429);
 pruefe(
   'ein 429 ohne Zahlen heisst: nichts uebrig, ein Fenster lang',
@@ -52,14 +67,14 @@ pruefe('die gebuendelte Kopfzeile wird gelesen', l?.name === 'anmeldung' && l.re
 const alles = d.drosselLesen();
 pruefe(
   'alle drei stehen in einer Datei',
-  Object.keys(alles).sort().join() === 'anmeldung,auth,sitzung',
+  Object.keys(alles).sort().join() === 'anmeldung,auth,probe',
   Object.keys(alles).join()
 );
-pruefe('sitzung: fuer einen Versuch ist Platz', d.drosselRestzeit('sitzung', 1) === 0);
+pruefe('probe: fuer einen Versuch ist Platz', d.drosselRestzeit('probe', 1) === 0);
 pruefe(
-  'sitzung: fuer zwei nicht, hoechstens ein Fenster',
-  d.drosselRestzeit('sitzung', 2) > 0 && d.drosselRestzeit('sitzung', 2) <= 60000,
-  String(d.drosselRestzeit('sitzung', 2))
+  'probe: fuer zwei nicht, hoechstens ein Fenster',
+  d.drosselRestzeit('probe', 2) > 0 && d.drosselRestzeit('probe', 2) <= 60000,
+  String(d.drosselRestzeit('probe', 2))
 );
 pruefe('auth: zu', d.drosselRestzeit('auth') > 0);
 pruefe('anmeldung: neun uebrig, zwei gebraucht, frei', d.drosselRestzeit('anmeldung', 2) === 0);
@@ -69,25 +84,44 @@ pruefe(
   d.drosselLesen().anmeldung?.rest === 0 && d.drosselRestzeit('anmeldung', 1) > 0
 );
 const t0 = Date.now();
-await d.drosselSchlafen('sitzung', 200);
+await d.drosselSchlafen('probe', 200);
 pruefe(
   'drosselSchlafen wartet und zaehlt',
-  Date.now() - t0 >= 190 && d.gewartet.sitzung === 1,
+  Date.now() - t0 >= 190 && d.gewartet.probe === 1,
   d.drosselBilanz()
 );
+// Eine Seitenladung kostet ZWEI aus `probe`, und gewartet wird auf Platz fuer
+// zwei Ladungen: drei uebrig reichen nicht, das Abmelden geht es nichts an.
 fs.writeFileSync(
   DATEI,
   JSON.stringify({
-    auth: { rest: 0, reset: Date.now() + 1500 },
-    sitzung: { rest: 5, reset: Date.now() + 50000 },
+    probe: { rest: 3, reset: Date.now() + 1500 },
+    auth: { rest: 0, reset: Date.now() + 50000 },
   })
 );
 const t1 = Date.now();
 await d.seitenladungAbwarten();
 pruefe(
-  'seitenladungAbwarten wartet auf auth und nicht auf sitzung',
+  'seitenladungAbwarten wartet auf probe und nicht auf auth',
   Date.now() - t1 >= 1400 && Date.now() - t1 < 4000,
   `${Date.now() - t1} ms`
+);
+
+// Ein 429 wird gezaehlt, auch wenn er keine Zahlen mitbringt -- daran erkennt
+// ein Handgriff, dass sein Scheitern dem Messaufbau gehoert und nicht dem
+// Geraet.
+const vorher = d.drossel429Stand();
+pruefe('ohne 429 seit dem Stand: nichts', d.drossel429Seit(vorher) === null);
+d.drosselMerken('GET', '/api/auth/session', {}, 429);
+pruefe(
+  'ein 429 der Sitzungsprobe wird als probe gezaehlt',
+  d.drossel429Seit(vorher) === 'probe',
+  String(d.drossel429Seit(vorher))
+);
+pruefe(
+  'die Bilanz nennt den kleinsten Rest',
+  /kleinster Rest/.test(d.drosselBilanz()),
+  d.drosselBilanz()
 );
 fs.rmSync(DATEI, { force: true });
 console.log(fehler ? `${fehler} rot` : 'alles gruen');

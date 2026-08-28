@@ -4,33 +4,44 @@
  * Bis zum 28.08.2026 wusste `oberflaeche-abnahme.mjs` von genau einer
  * Drossel, der Anmeldedrossel (`loginLimiter`, zehn je Viertelstunde und IP):
  * sie merkte sich deren Kopfzeilen, wartete vor der Anmeldung und wiederholte
- * ein 429 am Formular einmal. Das Geraet hat aber DREI Drosseln auf den
+ * ein 429 am Formular einmal. Das Geraet hat aber mehr als eine auf den
  * Wegen, die jede Seitenladung nimmt (`middleware/rateLimit.js`):
  *
  *   anmeldung   POST /api/auth/login, /setup        10 je 15 min   loginLimiter
- *   auth        GET  /api/auth/needs-setup,         30 je 60 s     generalAuthLimiter
- *               POST /api/auth/logout
- *   sitzung     GET  /api/auth/session              120 je 60 s    sessionProbeLimiter
+ *   probe       GET  /api/auth/session,             120 je 60 s    probeLimiter
+ *               GET  /api/auth/needs-setup
+ *   auth        POST /api/auth/logout               30 je 60 s     generalAuthLimiter
  *
- * Jede Seitenladung kostet eine Frage an `needs-setup` (App.tsx, beim
- * Einhaengen) und eine Sitzungsprobe (`checkAuth`); ein Abmelden kostet eine
- * weitere aus `auth`. Fuenf Laeufe der Reihe hintereinander am Orin
- * (28.08.2026): Lauf 4 fiel an „390 px Startpasswort-Wechsel, GET
- * /api/auth/session HTTP 429" -- die Oberflaeche wiederholt ein 429 mit
- * Absicht nicht (das ist eine Antwort), und die Reihe hatte es nie abgewartet,
- * weil sie nur die Anmeldung kannte. Die Drosseln zaehlen je IP, und hinter
- * Traefik (`trustProxy: false`) ist das EINE IP fuer alles, was am Geraet
- * anklopft: die Reihe, der Ueberordner daneben, ein Mensch im Browser.
+ * EINE SEITENLADUNG KOSTET ZWEI AUS `probe` und sonst nichts: die
+ * Sitzungsprobe (`checkAuth`) und die Frage nach dem ersten Administrator
+ * (App.tsx, beim Einhaengen). Ein Abmelden kostet eine aus `auth`.
  *
- * Deshalb hier: ein Stand je Drossel, aus den Kopfzeilen JEDER Antwort, die
- * eine Drossel traegt (`express-rate-limit` schreibt `RateLimit-Remaining`
- * und `RateLimit-Reset` an jede, `Retry-After` an die 429), in EINER Datei,
- * damit der naechste Lauf ihn kennt -- und eine Wartefunktion, die vor dem
- * Handgriff fragt, ob noch genug da ist. Das Gegenstueck fuer die
- * curl-Abnahmen steht in `anmeldung.sh` und liest und schreibt dieselbe Datei.
+ * WARUM DAS SEIT DEM 28.08.2026 SO GESCHNITTEN IST. Die erste Fassung dieser
+ * Datei kannte drei Drosseln und `needs-setup` sass bei den dreissig je
+ * Minute. GEMESSEN am Orin, ein Lauf der Oberflaechen-Abnahme: 44
+ * Seitenladungen in 129 s, in der vollsten Minute 22 von 30 auf jener Drossel
+ * und 21 von 120 auf der Sitzungsprobe. Die enge war also nie die, auf die
+ * die Abnahmen geschaut haben -- ein Lauf fuhr auf 73 Prozent einer Drossel,
+ * die er sich mit dem Abmelden teilte, und neben irgendetwas anderem wurde er
+ * rot. Seither tragen beide Proben dieselbe Drossel (`probeLimiter`), und die
+ * dreissig je Minute gehoeren dem, wofuer sie da sind: einer Mutation.
+ *
+ * Die Drosseln zaehlen je IP, und hinter Traefik (`trustProxy: false`) ist das
+ * EINE IP fuer alles, was am Geraet anklopft: die Reihe, der Ueberordner
+ * daneben, ein Mensch im Browser. Eine Buchfuehrung, die nur die eigenen
+ * Anfragen kennt, kann deshalb nie vollstaendig sein -- deshalb WARTET diese
+ * Datei nicht nur vorher, sie sagt dem Aufrufer auch, wenn trotzdem ein 429
+ * gekommen ist (`drossel429Stand`, `drossel429Seit`), damit er den Handgriff
+ * wiederholen kann statt rot zu werden.
+ *
+ * Der Stand je Drossel steht aus den Kopfzeilen JEDER Antwort, die eine
+ * traegt (`express-rate-limit` schreibt `RateLimit-Remaining` und
+ * `RateLimit-Reset` an jede, `Retry-After` an die 429), in EINER Datei, damit
+ * der naechste Lauf ihn kennt. Das Gegenstueck fuer die curl-Abnahmen steht
+ * in `anmeldung.sh` und liest und schreibt dieselbe Datei.
  *
  * DIE DATEI. JSON, je Drossel ein Eintrag:
- *   { "anmeldung": { "rest": 7, "reset": 1756400000000 }, "sitzung": {...} }
+ *   { "anmeldung": { "rest": 7, "reset": 1756400000000 }, "probe": {...} }
  * `reset` ist ein Zeitpunkt (ms seit 1970), kein Abstand -- der Abstand aus
  * der Kopfzeile gilt nur im Augenblick der Antwort. Die Fassung vor dem
  * 28.08.2026 schrieb einen einzigen flachen Eintrag `{rest, reset}`; der wird
@@ -53,19 +64,18 @@ export const DROSSELN = {
     trifft: (methode, pfad) =>
       methode === 'POST' && (pfad === '/api/auth/login' || pfad === '/api/auth/setup'),
   },
+  probe: {
+    grenze: 120,
+    fensterMs: 60 * 1000,
+    wort: 'hundertzwanzig Proben je Minute und IP (session, needs-setup)',
+    trifft: (methode, pfad) =>
+      methode === 'GET' && (pfad === '/api/auth/session' || pfad === '/api/auth/needs-setup'),
+  },
   auth: {
     grenze: 30,
     fensterMs: 60 * 1000,
-    wort: 'dreissig Auth-Anfragen je Minute und IP (needs-setup, logout)',
-    trifft: (methode, pfad) =>
-      (methode === 'GET' && pfad === '/api/auth/needs-setup') ||
-      (methode === 'POST' && pfad === '/api/auth/logout'),
-  },
-  sitzung: {
-    grenze: 120,
-    fensterMs: 60 * 1000,
-    wort: 'hundertzwanzig Sitzungsproben je Minute und IP',
-    trifft: (methode, pfad) => methode === 'GET' && pfad === '/api/auth/session',
+    wort: 'dreissig Abmeldungen je Minute und IP',
+    trifft: (methode, pfad) => methode === 'POST' && pfad === '/api/auth/logout',
   },
 };
 
@@ -137,8 +147,10 @@ export function drosselMerken(methode, pfad, kopf, status = 200) {
   if (!stand && status === 429) {
     stand = { rest: 0, reset: Date.now() + DROSSELN[name].fensterMs };
   }
+  if (status === 429) gedrosselt[name] = (gedrosselt[name] ?? 0) + 1;
   if (!stand) return null;
   if (status === 429) stand.rest = 0;
+  engpass[name] = Math.min(engpass[name] ?? Number.POSITIVE_INFINITY, stand.rest);
   const alles = drosselLesen();
   alles[name] = stand;
   try {
@@ -149,6 +161,34 @@ export function drosselMerken(methode, pfad, kopf, status = 200) {
   return { name, ...stand };
 }
 
+/**
+ * Wie oft eine Drossel in DIESEM Lauf schon 429 gesagt hat, je Drossel.
+ *
+ * Die Buchfuehrung aus den Kopfzeilen kann nie vollstaendig sein -- hinter
+ * Traefik teilen sich alle dieselbe IP, und wer sonst noch anklopft, taucht
+ * darin nicht auf. Ein Handgriff, der schiefging, WAEHREND eine Drossel 429
+ * gesagt hat, ist deshalb keine Aussage ueber das Geraet, sondern eine ueber
+ * den Messaufbau; der Aufrufer vergleicht den Stand vorher und nachher und
+ * wiederholt, statt rot zu werden.
+ */
+const gedrosselt = {};
+
+/** Der kleinste Rest, den eine Drossel in diesem Lauf gezeigt hat. */
+const engpass = {};
+
+/** Der Zaehlerstand, um ihn spaeter mit `drossel429Seit` zu vergleichen. */
+export function drossel429Stand() {
+  return { ...gedrosselt };
+}
+
+/** Welche Drossel seit `vorher` 429 gesagt hat -- oder null. */
+export function drossel429Seit(vorher) {
+  for (const name of Object.keys(DROSSELN)) {
+    if ((gedrosselt[name] ?? 0) > (vorher[name] ?? 0)) return name;
+  }
+  return null;
+}
+
 /** Wie lange (ms) eine Drossel noch zu ist, wenn `brauche` Versuche fehlen. 0 = frei. */
 export function drosselRestzeit(name, brauche = 1) {
   const stand = drosselLesen()[name];
@@ -156,6 +196,15 @@ export function drosselRestzeit(name, brauche = 1) {
   const bleibt = Number(stand.reset ?? 0) - Date.now();
   if (!(bleibt > 0) || Number(stand.rest ?? 0) >= brauche) return 0;
   return Math.min(bleibt + 1000, DROSSELN[name]?.fensterMs ?? LAENGSTES_FENSTER_MS);
+}
+
+/**
+ * Wie lange nach einem 429 gewartet wird: was die Drossel sagt, mindestens
+ * fuenf Sekunden, hoechstens ein Fenster. Eine Antwort ohne brauchbare Zahl
+ * darf weder sofort wieder anklopfen noch ewig liegen.
+ */
+export function drosselNochmalNach(name) {
+  return Math.min(Math.max(drosselRestzeit(name, 1) + 1000, 5000), DROSSELN[name].fensterMs);
 }
 
 /** Was insgesamt gewartet wurde, je Drossel -- fuer die letzte Zeile eines Laufs. */
@@ -181,18 +230,31 @@ export async function drosselAbwarten(name, brauche = 1) {
 }
 
 /**
- * Vor einer Seitenladung: sie kostet eine Frage aus `auth` (needs-setup) und
- * eine Sitzungsprobe; danach kommt oft gleich die naechste. Gewartet wird
- * deshalb, bis fuer ZWEI Ladungen Platz ist -- eine Reihe, die auf der Kante
- * faehrt, misst sonst bei jeder zweiten Zelle die Drossel statt der Ansicht.
+ * Vor einer Seitenladung: sie kostet ZWEI aus `probe` (die Sitzungsprobe und
+ * die Frage nach dem ersten Administrator), und danach kommt oft gleich die
+ * naechste. Gewartet wird deshalb, bis fuer ZWEI Ladungen Platz ist -- eine
+ * Reihe, die auf der Kante faehrt, misst sonst bei jeder zweiten Zelle die
+ * Drossel statt der Ansicht. `auth` traegt seit dem 28.08.2026 nur noch das
+ * Abmelden und wird von einer Seitenladung nicht angefasst.
  */
 export async function seitenladungAbwarten() {
-  await drosselAbwarten('auth', 2);
-  await drosselAbwarten('sitzung', 2);
+  await drosselAbwarten('probe', 4);
 }
 
-/** Eine Zeile fuer das Ende eines Laufs: was die Drossel gekostet hat. */
+/**
+ * Eine Zeile fuer das Ende eines Laufs: was die Drossel gekostet hat -- und
+ * WIE KNAPP es war.
+ *
+ * Der kleinste Rest ist die Zahl, die den 28.08.2026 gekostet hat: die Reihe
+ * fuhr auf 22 von 30 und sagte darueber nichts, und die roten Felder sahen
+ * aus wie Aussagen ueber das Geraet. Wer sie liest, sieht in einer Zeile, ob
+ * der naechste Lauf Luft hat.
+ */
 export function drosselBilanz() {
+  const eng = Object.entries(engpass)
+    .map(([n, r]) => `${n} ${r} von ${DROSSELN[n]?.grenze ?? '?'}`)
+    .join(', ');
   const teile = Object.entries(gewartet).map(([n, s]) => `${s} s auf „${n}"`);
-  return teile.length ? `gewartet: ${teile.join(', ')}` : 'nie auf eine Drossel gewartet';
+  const warten = teile.length ? `gewartet: ${teile.join(', ')}` : 'nie auf eine Drossel gewartet';
+  return eng ? `${warten}; kleinster Rest ${eng}` : warten;
 }
