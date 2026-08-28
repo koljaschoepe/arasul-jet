@@ -86,7 +86,10 @@ export function AppsPanel() {
                 <AppWindow className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate text-foreground">{e.name}</span>
                 {e.stand === 'test' && (
-                  <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning">
+                  <span
+                    className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning"
+                    title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
+                  >
                     Test
                   </span>
                 )}

@@ -65,6 +65,10 @@ stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
 - **Mitte (Tab-Leiste):** mehrere Tabs parallel (Uebersicht, Apps, Modelle,
   Einstellungen), schliessbar, werden nach einem Neuladen wiederhergestellt.
   Eine App laeuft in ihrem eigenen Rahmen; Test- und Livestand sind zwei Tabs.
+  Die **Uebersicht** zeigt oben die **Freigaben, die auf eine Entscheidung
+  warten** (siehe unten), darunter die eigenen Apps als Kacheln. Eine Kachel
+  mit dem Zeichen **Test** ist ein Teststand: diese Fassung ist noch nicht
+  live.
 - **Rechte Spalte:** die **Notizen** — ein Zettel je Mensch, der sich nach
   einer Sekunde Ruhe von selbst speichert. Ein- und ausblendbar.
 - **Layout-Schalter (oben rechts):** **zwei** Symbole blenden die Sidebar und
@@ -76,10 +80,34 @@ stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
   Entscheidung warten**.
 
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
-hat, die Uebersicht, seine Notizen und sein Konto. Modelle, Benutzer,
-Datensicherung und Einstellungen sind fuer ihn nicht da — und zwar nicht nur
-unsichtbar: das Geraet weist ihn auf jedem dieser Wege ab, auch wenn er die
-Adresse kennt.
+hat, die Uebersicht mit seinen offenen Freigaben, seine Notizen und sein Konto.
+Modelle, Benutzer, Datensicherung und Einstellungen sind fuer ihn nicht da —
+und zwar nicht nur unsichtbar: das Geraet weist ihn auf jedem dieser Wege ab,
+auch wenn er die Adresse kennt.
+
+### Eine Freigabe entscheiden
+
+Ein Flow einer App kann anhalten und um eine Freigabe bitten (etwa: „Diesen
+Wochenbericht versenden?"). Der Lauf steht dann still, bis ein Mensch
+entscheidet.
+
+Wo: auf der **Uebersicht**, ganz oben. Jede Anfrage ist eine Karte mit dem
+Titel, dem Zusammenhang, den der Flow mitgibt, und der verbleibenden Zeit.
+
+- **Bestaetigen** — der Lauf laeuft ab der angehaltenen Stelle weiter.
+- **Ablehnen** — es klappt ein Feld auf; ohne Begruendung geht der Knopf nicht.
+  Der Lauf endet, und die Begruendung wird sein Grund.
+- **Nichts tun** — nach Ablauf der Frist endet der Lauf von selbst. Die Frist
+  steht am Flow, in der Regel ein Tag.
+
+**Wer darf entscheiden?** Jeder, dem die App freigegeben ist — Administrator
+und Mitarbeiter gleichermassen. Freigeben ist Arbeit, keine Verwaltung. Der
+Flow nennt keine Person; er beschreibt die Sache.
+
+Die Karte verschwindet, sobald entschieden ist. Steht danach eine Meldung, dass
+der Lauf nicht mehr fortgesetzt wird, wurde das Geraet zwischendurch neu
+gestartet: die Entscheidung ist festgehalten, den Lauf muss jemand neu
+anstossen.
 
 - **Modelle (nur Administrator):** in der Mitte der durchsuchbare **Store**; ein Klick auf eine
   Karte oeffnet die Detailseite mit allen Aktionen (installieren, aktivieren,

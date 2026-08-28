@@ -19,12 +19,24 @@ src/
     settings/  store/  system/
     apps/          Die eigenen Apps (D1): `meineApps.ts` (Hook + `zuEintraegen`,
                    eine App mit Live- UND Teststand ergibt ZWEI Einträge),
-                   `Uebersicht.tsx` (die Mitte ohne offene App) und
+                   `Uebersicht.tsx` (die Mitte ohne offene App; die Freigaben
+                   kommen als **Slot** herein, siehe unten) und
                    `AppRahmen.tsx` (die App im iframe auf `/apps/<id>/`).
                    **Kein `sandbox` am iframe** — es nähme ihm die eigene
                    Herkunft und damit das Sitzungscookie, an dem die
                    Forward-Auth aus C4 hängt. Den Rahmen setzt die CSP des
                    Geräts (`frame-src 'self'`).
+    freigaben/     Die offenen Freigaben aus C7, entschieden in der Übersicht
+                   (D2): `OffeneFreigaben.tsx` (Liste mit Titel, Zusammenhang,
+                   Restzeit, Bestätigen und Ablehnen-mit-Begründung) und
+                   `frist.ts` (die Restzeit in Worten, reine Funktion).
+                   Abfrage und Mutationen stehen zusammen in
+                   `hooks/useOffeneFreigaben.ts` — nach JEDEM Ausgang wird die
+                   Liste entwertet, auch nach einem Fehler: ein 409 heißt
+                   gerade, dass die Liste im Browser veraltet ist. Steht die
+                   Liste leer, steht sie **gar nicht** da; ein Leerzustand wäre
+                   auf der Übersicht eine Dauermeldung über etwas, das es nicht
+                   gibt.
     notizen/       Der Zettel der rechten Spalte (D1). Ein Textfeld, speichert
                    nach einer Sekunde Ruhe gegen `PUT /api/notizen`.
     workspace/     Die Shell (Dreispalten-Raster, **immer aktiv** — `/` landet
@@ -122,6 +134,13 @@ src/
 **Rule of placement:** if it's used by exactly one feature → live there.
 If it's used by ≥2 features → promote to `components/ui/` or `hooks/`.
 A component in `features/X/` must not be imported from `features/Y/`.
+
+Die **einzige** Stelle, die quer zusammensetzt, ist `features/workspace/` — die
+Shell. Wenn zwei Features auf einer Seite stehen sollen (D2: Übersicht plus
+offene Freigaben), reicht die Shell das eine als **Prop** in das andere hinein
+(`<Uebersicht freigaben={<OffeneFreigaben />} />`), statt einen Querimport
+aufzumachen. Ein Slot kostet eine Zeile und hält die Regel; ein Querimport
+kostet nichts und hebt sie auf.
 
 ## Non-negotiable patterns
 
