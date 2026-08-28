@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { AlertTriangle, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
@@ -8,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { PageHeader } from '@/components/ui/PageHeader';
 
 /**
  * Werksreset (Plan 023 B5).
@@ -162,10 +162,10 @@ export function Werksreset() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader
-        title="Werksreset"
-        icon={<RotateCcw className="text-primary" />}
-        description="Setzt das Gerät zurück. Es gibt kein Rückgängig. Was hier verschwindet, ist nur noch in einer Sicherung vorhanden."
+      <Kopf
+        titel="Werksreset"
+        symbol={<RotateCcw className="text-primary" />}
+        beschreibung="Setzt das Gerät zurück. Es gibt kein Rückgängig. Was hier verschwindet, ist nur noch in einer Sicherung vorhanden."
       />
 
       <div className="flex flex-col gap-6">

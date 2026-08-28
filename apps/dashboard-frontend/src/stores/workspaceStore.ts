@@ -166,18 +166,29 @@ export interface WorkspaceState {
   sidebarVisible: boolean;
   rightPanelVisible: boolean;
   /**
-   * Liegt das Notizen-Blatt gerade ueber der Mitte? (Phase D6)
+   * Stehen die Notizen unter 900 px gerade als ANSICHT da? (Phase D7)
    *
    * NICHT persistiert, und das ist der Unterschied zu `rightPanelVisible`.
    * Die beiden beantworten zwei Fragen: `rightPanelVisible` sagt, ob die
-   * Notizen zur Aufteilung des Arbeitsplatzes GEHOEREN -- das ist eine
-   * Voreinstellung und ueberlebt das Neuladen. `notizenBlattOffen` sagt, ob
-   * das Blatt JETZT GERADE oben liegt; unter 900 px verdeckt es die Mitte,
-   * und ein verdeckter Bildschirm, den jemand vor einer Woche aufgezogen hat,
-   * ist beim naechsten Oeffnen ein Fehler und keine Erinnerung. Es faengt
-   * deshalb immer zu an.
+   * Notizen zur Aufteilung des breiten Arbeitsplatzes GEHOEREN -- eine
+   * Voreinstellung, die das Neuladen ueberlebt. `notizenAnsichtOffen` sagt,
+   * ob der schmale Aufbau JETZT GERADE die Notizen zeigt statt der Mitte.
+   * Das ist ein Aufenthaltsort und keine Einstellung: wer sein Telefon nach
+   * einer Woche wieder aufmacht, will da anfangen, wo die Arbeit ist.
+   *
+   * Bis D6 hiess dieses Feld `notizenBlattOffen` und meinte ein Blatt, das
+   * ueber der Mitte lag. Es liegt seit D7 nichts mehr uebereinander -- unter
+   * 900 px gibt es eine Spalte, und darin steht entweder die Ansicht oder der
+   * Zettel.
    */
-  notizenBlattOffen: boolean;
+  notizenAnsichtOffen: boolean;
+  /**
+   * Ist das Hamburger-Menue offen? (Phase D7, nur unter 900 px)
+   *
+   * Ebenfalls nicht persistiert, und aus demselben Grund wie die Notizen:
+   * ein Menue ist ein Handgriff und kein Zustand des Arbeitsplatzes.
+   */
+  menueOffen: boolean;
   openTab: (spec: WorkspaceTabSpec) => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
@@ -200,10 +211,14 @@ export interface WorkspaceState {
   setActiveView: (view: ActivityView) => void;
   /** Rechtes Panel ein-/ausblenden. */
   toggleRightPanel: () => void;
-  /** Das Notizen-Blatt auf- oder zuklappen (schmales Fenster). */
-  toggleNotizenBlatt: () => void;
-  /** Das Notizen-Blatt zuklappen. Die Shell ruft es, sobald eine Ansicht kommt. */
-  schliesseNotizenBlatt: () => void;
+  /** Zwischen Mitte und Notizen umschalten (schmales Fenster). */
+  toggleNotizenAnsicht: () => void;
+  /** Zurueck auf die Mitte. Die Shell ruft es, sobald eine Ansicht kommt. */
+  schliesseNotizenAnsicht: () => void;
+  /** Das Hamburger-Menue auf- oder zuklappen (schmales Fenster). */
+  toggleMenue: () => void;
+  /** Das Menue zumachen. Jede Ansicht, die kommt, macht es zu. */
+  schliesseMenue: () => void;
 }
 
 /** Persistierte Felder (partialize) — Basis für die migrate-Signatur. */
@@ -304,7 +319,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       activeView: START_VIEW,
       sidebarVisible: true,
       rightPanelVisible: true,
-      notizenBlattOffen: false,
+      notizenAnsichtOffen: false,
+      menueOffen: false,
 
       openTab: spec => {
         const id = tabId(spec);
@@ -386,9 +402,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         ),
       setActiveView: view => set({ activeView: view }),
       toggleRightPanel: () => set(state => ({ rightPanelVisible: !state.rightPanelVisible })),
-      toggleNotizenBlatt: () => set(state => ({ notizenBlattOffen: !state.notizenBlattOffen })),
-      schliesseNotizenBlatt: () =>
-        set(state => (state.notizenBlattOffen ? { notizenBlattOffen: false } : state)),
+      toggleNotizenAnsicht: () =>
+        set(state => ({ notizenAnsichtOffen: !state.notizenAnsichtOffen })),
+      schliesseNotizenAnsicht: () =>
+        set(state => (state.notizenAnsichtOffen ? { notizenAnsichtOffen: false } : state)),
+      toggleMenue: () => set(state => ({ menueOffen: !state.menueOffen })),
+      schliesseMenue: () => set(state => (state.menueOffen ? { menueOffen: false } : state)),
     }),
     {
       name: 'arasul_workspace',

@@ -21,8 +21,8 @@
  */
 import { useState } from 'react';
 import { AppWindow, ChevronRight } from 'lucide-react';
+import { Kopf } from '@marken';
 import EmptyState from '@/components/ui/EmptyState';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { AppAnsicht } from './apps/AppAnsicht';
 import { useAlleApps, type AppZeile } from './mitarbeiter/useAppFreigaben';
@@ -80,10 +80,10 @@ export function AppsSettings() {
 
   return (
     <div className="animate-in fade-in" data-testid="apps-seite">
-      <PageHeader
-        title="Apps"
-        icon={<AppWindow />}
-        description="Was auf diesem Gerät läuft: Fassungen, Zustand, Flows und Läufe."
+      <Kopf
+        titel="Apps"
+        symbol={<AppWindow />}
+        beschreibung="Was auf diesem Gerät läuft: Fassungen, Zustand, Flows und Läufe."
       />
 
       {isLoading ? (

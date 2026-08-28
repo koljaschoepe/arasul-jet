@@ -19,7 +19,7 @@
  */
 import { useEffect } from 'react';
 import { Cpu } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
+import { Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import { useActivation } from '@/contexts/ActivationContext';
@@ -66,10 +66,10 @@ function ModelleAnsicht() {
 
   return (
     <div className="min-w-0 p-6 max-md:p-4 animate-in fade-in" data-testid="modelle-seite">
-      <PageHeader
-        title="Modelle"
-        icon={<Cpu />}
-        description="Die Kurzliste dieses Geräts: vier Modelle, hier gemessen. Geladen wird nur, was hier steht."
+      <Kopf
+        titel="Modelle"
+        symbol={<Cpu />}
+        beschreibung="Die Kurzliste dieses Geräts: vier Modelle, hier gemessen. Geladen wird nur, was hier steht."
       />
 
       <StatGrid className="mb-6">

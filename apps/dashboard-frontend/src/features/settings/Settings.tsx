@@ -148,7 +148,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
       {/*
         Kein Ueberschriftenelement: Der Rahmen ist bleibende Umgebung, nicht die
         Ueberschrift der Seite. Die steht als einziges h1 im Bereich darunter,
-        aus dem PageHeader. Vorher stand hier ein h2 ueber einem h1, und der
+        aus dem Kopf. Vorher stand hier ein h2 ueber einem h1, und der
         Bereichsname darunter noch einmal im h1, vierzig Pixel tiefer.
       */}
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-4 max-md:px-4">

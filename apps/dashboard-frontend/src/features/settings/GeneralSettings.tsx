@@ -1,13 +1,13 @@
 import { formatUptime } from '../../utils/formatting';
 import { useState, useEffect, useCallback } from 'react';
 import { Moon, MoonStar, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
+import { Kopf } from '@marken';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
 import { Label } from '@/components/ui/shadcn/label';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 
 const THEME_OPTIONS: ReadonlyArray<{
@@ -80,7 +80,7 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
 
   return (
     <div className="animate-in fade-in">
-      <PageHeader title="Allgemein" description="Systeminformationen und Konfiguration" />
+      <Kopf titel="Allgemein" beschreibung="Systeminformationen und Konfiguration" />
 
       <SectionList>
         <Section

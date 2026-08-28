@@ -23,8 +23,8 @@
  */
 import { useState } from 'react';
 import { KeyRound, ShieldCheck, Trash2, UserPlus, Users, UserX } from 'lucide-react';
+import { Kopf } from '@marken';
 import { Button } from '@/components/ui/shadcn/button';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
@@ -129,11 +129,11 @@ export function MitarbeiterSettings() {
     <div className="animate-in fade-in" data-testid="mitarbeiter-seite">
       {ConfirmDialog}
 
-      <PageHeader
-        title="Mitarbeiter"
-        icon={<Users />}
-        description="Wer sich am Gerät anmelden darf, und welche Apps er sieht."
-        action={
+      <Kopf
+        titel="Mitarbeiter"
+        symbol={<Users />}
+        beschreibung="Wer sich am Gerät anmelden darf, und welche Apps er sieht."
+        aktionen={
           <Button onClick={() => setAnlegenOffen(true)} data-testid="mitarbeiter-anlegen-oeffnen">
             <UserPlus className="size-4" aria-hidden="true" />
             Menschen anlegen

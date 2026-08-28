@@ -86,15 +86,15 @@ Bedeutung, die es nicht gibt.
 
 ## Das gemeinsame Baustein-Set (`components/ui/`)
 
-| Baustein                  | Was er festlegt                                                                     |
-| ------------------------- | ----------------------------------------------------------------------------------- |
-| `PageHeader`              | Seitentitel als einziges `h1` (`text-2xl`), optionales Symbol, Beschreibung, Aktion |
-| `FilterBar`               | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`) mit eigener Inhaltsfläche             |
-| `StatTile` / `StatGrid`   | Kennzahl ohne Symbol; Raster fest 1/2/4 Spalten, nie drei plus eins                 |
-| `Chart` / `Sparkline`     | recharts-Linien in Serienfarben, ohne eigene Karte                                  |
-| `Section` / `SectionList` | Feldgruppe mit `h2`; die Liste setzt die Trennlinien zwischen, nicht an Abschnitte  |
-| `EmptyState`              | leere Liste mit Titel und Einstieg                                                  |
-| `AuthCard`                | Rahmen der Seiten vor der Anmeldung; das einzige `h1`, das kein Seitentitel ist     |
+| Baustein                  | Was er festlegt                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `Kopf` (`@marken`)        | Seitentitel als einziges `h1`, optionales Symbol, Beschreibung, Aktionen — seit D7 aus dem Designsystem, das Shell und Apps teilen |
+| `FilterBar`               | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`) mit eigener Inhaltsfläche                                                            |
+| `StatTile` / `StatGrid`   | Kennzahl ohne Symbol; Raster fest 1/2/4 Spalten, nie drei plus eins                                                                |
+| `Chart` / `Sparkline`     | recharts-Linien in Serienfarben, ohne eigene Karte                                                                                 |
+| `Section` / `SectionList` | Feldgruppe mit `h2`; die Liste setzt die Trennlinien zwischen, nicht an Abschnitte                                                 |
+| `EmptyState`              | leere Liste mit Titel und Einstieg                                                                                                 |
+| `AuthCard`                | Rahmen der Seiten vor der Anmeldung; das einzige `h1`, das kein Seitentitel ist                                                    |
 
 Eine neue Seite baut auf diesen Bausteinen auf, statt die Klassenkette zu
 kopieren. Ausnahmen stehen mit Grund in `AUSNAHMEN` von `bausteine.py`; ein

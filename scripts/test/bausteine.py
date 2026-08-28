@@ -10,14 +10,14 @@ dass die naechste Seite die Klassen der vorigen kopiert hat. Einmal von Hand
 aufraeumen haelt das nicht auf; morgen kopiert die uebernaechste Seite wieder.
 
 Geprueft wird deshalb die Abwesenheit der Handarbeit, nicht die Anwesenheit der
-Bausteine. Wer eine Seite baut, soll `PageHeader`, `Section` und `FilterBar`
+Bausteine. Wer eine Seite baut, soll `Kopf`, `Section` und `FilterBar`
 benutzen, weil der Weg daran vorbei versperrt ist.
 
 Was gemeldet wird
 -----------------
 In allem unter `src/`, ausser `src/components/ui/`:
 
-1. `<h1>`                     Der Seitentitel gehoert in `PageHeader`.
+1. `<h1>`                     Der Seitentitel gehoert in `Kopf` (`@marken`).
 2. `pb-6 border-b border-border`
    und `mb-8 pb-6 border-b`   Die Trennlinie einer Feldgruppe gehoert in `Section`.
 3. `border-b-2` an einem Knopf
@@ -76,7 +76,7 @@ from pathlib import Path
 AUSNAHMEN = {
     # Die Detailseite im Store traegt eine feste Kopfleiste mit Zurueck-Knopf,
     # Symbol und Abzeichen. Das ist eine andere Form als der Seitenkopf einer
-    # Einstellungsseite, und PageHeader dafuer aufzubohren hiesse, einen
+    # Einstellungsseite, und den Kopf dafuer aufzubohren hiesse, einen
     # Baustein fuer einen einzigen Aufrufer zu verbiegen.
     'src/features/store/StoreDetailPage.tsx': 'feste Kopfleiste mit Zurueck-Knopf, andere Form',
     # Bis Phase B4 (26.08.2026) standen hier vier handgebaute Dialoge aus der
@@ -89,7 +89,7 @@ AUSNAHMEN = {
 REGELN = [
     (
         re.compile(r'<h1[\s>]'),
-        'Seitentitel von Hand. Gehoert in PageHeader (components/ui/PageHeader.tsx).',
+        'Seitentitel von Hand. Gehoert in Kopf (packages/marken/src/Kopf.tsx).',
     ),
     (
         re.compile(r'pb-6 border-b border-border'),

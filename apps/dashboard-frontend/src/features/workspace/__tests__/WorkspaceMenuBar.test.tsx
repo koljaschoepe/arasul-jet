@@ -13,14 +13,16 @@ function resetStore() {
     activeView: 'apps',
     sidebarVisible: true,
     rightPanelVisible: true,
-    notizenBlattOffen: false,
+    notizenAnsichtOffen: false,
+    menueOffen: false,
   });
 }
 
 /**
  * Ein matchMedia-Doppel: `schmal` sagt, ob `(max-width: 899px)` passt. Der
- * Notizen-Knopf ist EINER, aber unter 900 px schaltet er das Blatt ueber der
- * Mitte und nicht die Spalte daneben (Phase D6) — die gibt es dort nicht.
+ * Notizen-Knopf ist EINER, aber unter 900 px schaltet er die Notizen als
+ * eigene ANSICHT und nicht die Spalte daneben (Phase D7) — die gibt es dort
+ * nicht.
  */
 function fensterbreite(schmal: boolean) {
   const original = window.matchMedia;
@@ -87,14 +89,43 @@ describe('WorkspaceMenuBar', () => {
     expect(useWorkspaceStore.getState().rightPanelVisible).toBe(true);
   });
 
-  it('schaltet unter 900 px das Notizen-Blatt und laesst die Spalten-Voreinstellung in Ruhe', () => {
+  it('schaltet unter 900 px die Notizen-Ansicht und laesst die Spalten-Voreinstellung in Ruhe', () => {
     const zurueck = fensterbreite(true);
     try {
       render(<WorkspaceMenuBar onLogout={abmelden} />);
-      // Zu, obwohl `rightPanelVisible` true ist: das Blatt faengt immer zu an.
+      // Zu, obwohl `rightPanelVisible` true ist: unter 900 px faengt der
+      // Aufenthaltsort immer bei der Mitte an.
       fireEvent.click(screen.getByLabelText('Notizen einblenden'));
-      expect(useWorkspaceStore.getState().notizenBlattOffen).toBe(true);
+      expect(useWorkspaceStore.getState().notizenAnsichtOffen).toBe(true);
       expect(useWorkspaceStore.getState().rightPanelVisible).toBe(true);
+    } finally {
+      zurueck();
+    }
+  });
+
+  /**
+   * Der schmale Aufbau aus D7: die Kopfleiste IST die Navigation. Links der
+   * Hamburger, daneben der Name dessen, was dasteht -- es gibt dort weder
+   * Aktivitaetsleiste noch Tab-Leiste, die es sonst sagen wuerden.
+   */
+  it('zeigt unter 900 px den Hamburger und den Namen der Ansicht statt Marke und Sidebar-Schalter', () => {
+    const zurueck = fensterbreite(true);
+    try {
+      useWorkspaceStore.setState({
+        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Übersicht' }],
+        activeTabId: 'dashboard',
+      });
+      render(<WorkspaceMenuBar onLogout={abmelden} />);
+
+      const hamburger = screen.getByTestId('workspace-menue-knopf');
+      expect(hamburger).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByTestId('workspace-ansichtsname')).toHaveTextContent('Übersicht');
+      expect(screen.queryByLabelText('Sidebar ausblenden')).not.toBeInTheDocument();
+      // Das Zahnrad steht im Menue, nicht in der Leiste -- auch fuer den Admin.
+      expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
+
+      fireEvent.click(hamburger);
+      expect(useWorkspaceStore.getState().menueOffen).toBe(true);
     } finally {
       zurueck();
     }

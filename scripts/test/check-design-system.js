@@ -12,7 +12,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const SRC_PATH = path.join(__dirname, '..', '..', 'apps', 'dashboard-frontend', 'src');
+const REPO = path.join(__dirname, '..', '..');
+const SRC_PATH = path.join(REPO, 'apps', 'dashboard-frontend', 'src');
+
+// Seit Phase D7 liegt das Designsystem nicht mehr nur in der Shell: die sechs
+// Bausteine, die Shell und Apps teilen, bringen ihr eigenes Stylesheet mit
+// (`packages/marken/src/marken.css`). Ein Waechter fuer das Designsystem, der
+// die Datei des Designsystems nicht liest, misst die kleinere Haelfte.
+const CSS_WURZELN = [SRC_PATH, path.join(REPO, 'packages', 'marken', 'src')];
 
 // --- Design System constants ---------------------------------------------------
 
@@ -56,7 +63,7 @@ function findCSSFiles(dir, files = []) {
 
 function analyzeCSS(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
-  const fileName = path.relative(SRC_PATH, filePath);
+  const fileName = path.relative(REPO, filePath);
   const lines = content.split('\n');
   const issues = [];
 
@@ -135,7 +142,7 @@ function checkIndexCSS() {
 // --- Main --------------------------------------------------------------------
 
 function main() {
-  const cssFiles = findCSSFiles(SRC_PATH);
+  const cssFiles = CSS_WURZELN.filter(w => fs.existsSync(w)).flatMap(w => findCSSFiles(w));
   let allIssues = [];
   cssFiles.forEach(f => { allIssues = allIssues.concat(analyzeCSS(f)); });
 

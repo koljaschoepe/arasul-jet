@@ -13,7 +13,7 @@
  */
 import type { ReactNode } from 'react';
 import { AppWindow } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
+import { Kopf } from '@marken';
 import EmptyState from '@/components/ui/EmptyState';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,10 +71,10 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
   const eintraege = zuEintraegen(apps ?? []);
 
   return (
-    <div className="mx-auto max-w-4xl p-6" data-testid="uebersicht-seite">
-      <PageHeader
-        title={user?.username ? `Guten Tag, ${user.username}` : 'Guten Tag'}
-        description="Die Apps, die für dich freigegeben sind. Alles läuft auf diesem Gerät."
+    <div className="ara-strom" data-testid="uebersicht-seite">
+      <Kopf
+        titel={user?.username ? `Guten Tag, ${user.username}` : 'Guten Tag'}
+        beschreibung="Die Apps, die für dich freigegeben sind. Alles läuft auf diesem Gerät."
       />
 
       {/* Zuerst das, was auf eine ANTWORT wartet, danach das, was offen
@@ -91,7 +91,7 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
           description="Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für dich dabei ist, steht sie hier und links in der Leiste."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-ui-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-ui-2 min-[900px]:grid-cols-2">
           {eintraege.map(e => (
             <AppKachel
               key={`${e.id}:${e.stand}`}
