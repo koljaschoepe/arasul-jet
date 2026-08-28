@@ -273,6 +273,26 @@ nur „keine Shell", und die drei per `React.lazy` nachgeladenen Bündel
 versuchen es dreimal (`utils/lazyNachladen.ts`) — die Shell wird genau einmal
 geholt, nämlich wenn die Anmeldung durch ist, und eine verlorene Anfrage sah
 danach aus wie ein Gerät, das nicht anmeldet.
+Der zweite Lauf (28.08.2026, dreimal: 35/36, 19/21, 35/36) hat alle
+sechsunddreißig Zellen Ansicht mal Breite grün gezeigt und war trotzdem rot —
+zweimal an der Reihe selbst, nicht am Produkt. **Die Probe „eine Ansicht macht
+das Blatt wieder zu" klickte auf eine App-Kachel, und die liegt unter dem
+Blatt**: `locator.click` wartete fünfzehn Sekunden, warf, und Lauf 1 und 3
+endeten dort — vor Tastatur, Fehlerzuständen und der ganzen Verwaltung. Ein
+Mensch kann diesen Klick dort auch nicht ausführen. Über dem Blatt (es beginnt
+bei 35 % der Höhe) liegen die Kopfleiste und die **Tab-Leiste**; die Reihe
+öffnet den zweiten Tab deshalb **vor** dem Blatt, wechselt danach über die
+Leiste und misst so dieselbe Regel an einem Weg, den es gibt. Jeder andere
+Klick im Arbeitsplatz geht über `klickFrei`, das vorher wegräumt, was oben
+liegt — gefragt wird dabei `data-shell-blatt` und nicht die Fensterbreite, denn
+über 900 px schaltet derselbe Knopf die persistierte Notiz-**Spalte**.
+Zweitens **wartet die Reihe die Anmeldedrossel ab, statt rot zu werden**: drei
+Läufe kosten sechs der zehn Versuche je Viertelstunde und IP (`loginLimiter`),
+daneben melden sich Überordner und Rückbau an, und Lauf 2 bekam an der zweiten
+Anmeldung ein 429. Sie merkt sich jetzt nach jeder Anmeldung
+`RateLimit-Remaining` und `RateLimit-Reset` (in `/tmp`, neben der Token-Datei,
+damit der nächste Lauf es weiß), fragt danach **vor** dem ersten Handgriff, und
+ein 429 am Formular wird über `Retry-After` abgewartet und einmal wiederholt.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

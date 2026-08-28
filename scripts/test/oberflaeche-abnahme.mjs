@@ -50,9 +50,13 @@
  *      Verwaltungsansichten waren rot, und jedes Bild zeigte dasselbe --
  *      „NOTIZEN, noch nichts notiert". Seither liegen die Notizen dort als
  *      BLATT darueber und fangen zu an. Diese Reihe macht sie deshalb vor
- *      jeder schmalen Messung ausdruecklich zu (`notizenZumachen`) und misst
- *      sie danach als eigene Zelle „Notizen" bei 390 px -- offen, wie jemand
- *      sie aufzieht.
+ *      jeder schmalen Messung ausdruecklich zu (`blattZumachen`, und vor
+ *      jedem Klick `klickFrei`) und misst sie danach als eigene Zelle
+ *      „Notizen" bei 390 px -- offen, wie jemand sie aufzieht. Dass eine
+ *      Ansicht das Blatt wieder zumacht, wird ueber die Tab-Leiste geprueft
+ *      und nicht ueber eine App-Kachel: die Leiste sitzt ueber dem Blatt, die
+ *      Kachel darunter. Der zweite D6-Lauf am Orin ist an dieser Kachel
+ *      zweimal abgebrochen.
  *   3. CSP: traegt das Dokument eine Policy, verbietet sie `unsafe-eval`,
  *      stehen die vier weiteren Sicherheitskopfzeilen da -- und meldet der
  *      ganze Durchlauf einen Verstoss?
@@ -73,7 +77,13 @@
  * kostet er eine dritte -- und legt sie fuer den naechsten Lauf ab.
  *
  * Drei Laeufe hintereinander kosten damit hoechstens sieben der zehn
- * Anmeldungen je Viertelstunde.
+ * Anmeldungen je Viertelstunde. Ist das Fenster trotzdem voll -- weil der
+ * Ueberordner und der Rueckbau daneben ihre eigenen ausgeben --, WARTET die
+ * Reihe die Restzeit ab, statt rot zu werden: sie merkt sich nach jeder
+ * Anmeldung, was `RateLimit-Remaining` und `RateLimit-Reset` gesagt haben
+ * (neben der Token-Datei, damit der naechste Lauf es weiss), fragt danach vor
+ * dem ersten Handgriff, und ein 429 am Formular wird ueber `Retry-After`
+ * abgewartet und einmal wiederholt.
  *
  * Aufruf (SSH-Tunnel auf 8443 vorausgesetzt):
  *   ARASUL_PASSWORT=... node scripts/test/oberflaeche-abnahme.mjs
@@ -112,6 +122,18 @@ const FLOW = process.env.ARASUL_FLOW || 'freigabe';
 /** Dieselbe Datei, die `scripts/test/anmeldung.sh` schreibt. */
 const TOKEN_DATEI =
   process.env.ARASUL_TOKEN_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-token');
+
+/**
+ * Was diese Reihe ueber die Anmeldedrossel weiss -- und was sie dem naechsten
+ * Lauf hinterlaesst. Neben der Token-Datei und aus demselben Grund: drei
+ * Laeufe hintereinander sind drei Prozesse, und die Drossel zaehlt fuer alle
+ * drei dieselben zehn Versuche je Viertelstunde und IP.
+ */
+const DROSSEL_DATEI =
+  process.env.ARASUL_DROSSEL_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-drossel');
+
+/** Laenger als ein Fenster der Drossel wartet niemand -- `loginLimiter`. */
+const DROSSEL_FENSTER_MS = 15 * 60 * 1000;
 
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-oberflaeche-d6`);
@@ -197,6 +219,79 @@ async function tokenGilt(token) {
 }
 
 /**
+ * Was die Antwort ueber die Anmeldedrossel verraet.
+ *
+ * `express-rate-limit` schreibt seine Zahlen je nach Entwurf in zwei Formen:
+ * als eigene Kopfzeilen (`RateLimit-Remaining`, `RateLimit-Reset`) oder
+ * gebuendelt in einer (`RateLimit: limit=10, remaining=9, reset=880`), dazu
+ * `Retry-After` an der 429-Antwort. Gelesen werden alle drei -- sonst haengt
+ * diese Reihe an der Fassung eines Pakets im Backend, und das waere wieder
+ * eine Aussage ueber den Messaufbau, die wie eine ueber das Geraet aussieht.
+ */
+function drosselAusKopfzeilen(kopf) {
+  const zahl = wert => {
+    const n = Number(wert);
+    return Number.isFinite(n) ? n : null;
+  };
+  const gebuendelt = kopf['ratelimit'] || '';
+  const rest = zahl(kopf['ratelimit-remaining']) ?? zahl(/remaining=(\d+)/.exec(gebuendelt)?.[1]);
+  const inSekunden =
+    zahl(kopf['ratelimit-reset']) ??
+    zahl(/reset=(\d+)/.exec(gebuendelt)?.[1]) ??
+    zahl(kopf['retry-after']);
+  if (rest === null && inSekunden === null) return null;
+  return { rest: rest ?? 0, reset: Date.now() + (inSekunden ?? 0) * 1000 };
+}
+
+/** Der Stand der Drossel ueberlebt den Lauf, sonst wuesste ihn keiner mehr. */
+function drosselMerken(kopf) {
+  const stand = drosselAusKopfzeilen(kopf);
+  if (!stand) return null;
+  try {
+    fs.writeFileSync(DROSSEL_DATEI, JSON.stringify(stand), { mode: 0o600 });
+  } catch {
+    /* nicht schreibbar -- dann faengt der 429 unten es eben allein ab */
+  }
+  return stand;
+}
+
+/** Die Wartezeit laut aussprechen: ein stiller Lauf sieht aus wie ein haengender. */
+async function drosselSchlafen(ms) {
+  console.log(
+    `warte  ${Math.ceil(ms / 1000)} s auf die Anmeldedrossel ` +
+      '(zehn Versuche je Viertelstunde und IP)'
+  );
+  await new Promise(fertig => setTimeout(fertig, ms));
+}
+
+/**
+ * Warten, statt rot zu werden.
+ *
+ * Der zweite Fund der zweiten D6-Messung am Orin (28.08.2026): Lauf 2 von
+ * dreien blieb an der zweiten Anmeldung des Mitarbeiters haengen, HTTP 429.
+ * Drei Laeufe dieser Reihe kosten sechs der zehn Versuche, und daneben meldet
+ * sich der Ueberordner fuer seinen Admin-Token an und der Rueckbau fuer
+ * seinen -- zusammen ist das Fenster voll. Die Reihe soll dreimal
+ * hintereinander laufen, ohne dass ein Mensch dazwischen wartet.
+ *
+ * Also wartet sie selbst. Gefragt wird VOR der Anmeldung und aus dem, was die
+ * letzte Antwort gesagt hat; irrt sich das, weil jemand anders dazwischen war,
+ * faengt der 429 in `anmeldungAbschicken` es ab und wartet die Restzeit, die
+ * er selbst nennt.
+ */
+async function drosselAbwarten(brauche) {
+  let stand = null;
+  try {
+    stand = JSON.parse(fs.readFileSync(DROSSEL_DATEI, 'utf-8'));
+  } catch {
+    return;
+  }
+  const bleibt = Number(stand?.reset ?? 0) - Date.now();
+  if (!(bleibt > 0) || Number(stand?.rest ?? 0) >= brauche) return;
+  await drosselSchlafen(Math.min(bleibt + 2000, DROSSEL_FENSTER_MS));
+}
+
+/**
  * Eine Anmeldung -- und die einzige Stelle, die eine ausgibt.
  *
  * Der Kanal ist ein eigener und wird sofort weggeworfen: die Antwort setzt
@@ -204,24 +299,36 @@ async function tokenGilt(token) {
  * einen CSRF-Wert mitschicken.
  */
 let anmeldungen = 0;
-async function anmelden(benutzer, passwort) {
-  const kanal = await pwRequest.newContext({ baseURL: URL, ignoreHTTPSErrors: true });
-  try {
-    anmeldungen += 1;
-    const antwort = await kanal.post('/api/auth/login', {
-      data: { username: benutzer, password: passwort },
-    });
-    if (antwort.status() !== 200) {
-      return { token: '', code: antwort.status() };
+async function anmelden(benutzer, passwort, { versuche = 2 } = {}) {
+  for (let versuch = 1; ; versuch += 1) {
+    await drosselAbwarten(1);
+    const kanal = await pwRequest.newContext({ baseURL: URL, ignoreHTTPSErrors: true });
+    let nochmal = 0;
+    try {
+      anmeldungen += 1;
+      const antwort = await kanal.post('/api/auth/login', {
+        data: { username: benutzer, password: passwort },
+      });
+      const stand = drosselMerken(antwort.headers());
+      if (antwort.status() === 200) {
+        const rumpf = await antwort.json();
+        return { token: rumpf.token ?? '', code: 200 };
+      }
+      // Wie am Formular: ein 429 ist eine Wartezeit und kein Ergebnis.
+      if (antwort.status() === 429 && versuch < versuche) {
+        const bleibt = Number(stand?.reset ?? 0) - Date.now();
+        nochmal = Math.min(Math.max(bleibt + 2000, 5000), DROSSEL_FENSTER_MS);
+      } else {
+        return { token: '', code: antwort.status() };
+      }
+    } catch (fehler) {
+      // Playwrights Ausnahmen bringen ein mehrzeiliges „Call log" mit; in einer
+      // Ergebniszeile ist davon nur die erste Zeile brauchbar.
+      return { token: '', code: `Ausnahme: ${einzeilig(fehler.message, 100)}` };
+    } finally {
+      await kanal.dispose();
     }
-    const rumpf = await antwort.json();
-    return { token: rumpf.token ?? '', code: 200 };
-  } catch (fehler) {
-    // Playwrights Ausnahmen bringen ein mehrzeiliges „Call log" mit; in einer
-    // Ergebniszeile ist davon nur die erste Zeile brauchbar.
-    return { token: '', code: `Ausnahme: ${einzeilig(fehler.message, 100)}` };
-  } finally {
-    await kanal.dispose();
+    await drosselSchlafen(nochmal);
   }
 }
 
@@ -238,27 +345,43 @@ async function anmelden(benutzer, passwort) {
  *
  * Ab jetzt haelt die Reihe die HTTP-Antwort fest, bevor sie auf den Schirm
  * wartet. Ein rotes Feld nennt danach die Zahl.
+ *
+ * UND EIN 429 IST KEIN ROT. Die Drossel sagt mit `Retry-After`, wie lange sie
+ * noch zu ist; die Reihe wartet das ab und schickt das Formular ein zweites
+ * Mal. `tun` fuellt die Felder deshalb selbst aus und ist wiederholbar -- ein
+ * Klick auf einen Knopf allein waere es nicht.
  */
-async function anmeldungAbschicken(seite, tun) {
-  anmeldungen += 1;
-  konsole = [];
-  const wartet = seite
-    .waitForResponse(
-      antwort =>
-        antwort.request().method() === 'POST' &&
-        new globalThis.URL(antwort.url()).pathname === '/api/auth/login',
-      { timeout: 60000 }
-    )
-    .catch(() => null);
-  await tun();
-  const antwort = await wartet;
-  if (!antwort) return { status: 0, grund: 'keine Antwort auf /api/auth/login gesehen' };
-  if (antwort.status() === 200) return { status: 200, grund: '' };
-  const rumpf = await antwort.json().catch(() => null);
-  return {
-    status: antwort.status(),
-    grund: rumpf?.error?.code || rumpf?.error?.message || '',
-  };
+async function anmeldungAbschicken(seite, tun, { versuche = 2 } = {}) {
+  for (let versuch = 1; ; versuch += 1) {
+    await drosselAbwarten(1);
+    anmeldungen += 1;
+    konsole = [];
+    const wartet = seite
+      .waitForResponse(
+        antwort =>
+          antwort.request().method() === 'POST' &&
+          new globalThis.URL(antwort.url()).pathname === '/api/auth/login',
+        { timeout: 60000 }
+      )
+      .catch(() => null);
+    await tun();
+    const antwort = await wartet;
+    if (!antwort) return { status: 0, grund: 'keine Antwort auf /api/auth/login gesehen' };
+    const stand = drosselMerken(antwort.headers());
+    if (antwort.status() === 200) return { status: 200, grund: '' };
+    if (antwort.status() === 429 && versuch < versuche) {
+      const bleibt = Number(stand?.reset ?? 0) - Date.now();
+      // Mindestens fuenf Sekunden, hoechstens ein Fenster: eine Antwort ohne
+      // brauchbare Zahl darf weder sofort wieder anklopfen noch ewig liegen.
+      await drosselSchlafen(Math.min(Math.max(bleibt + 2000, 5000), DROSSEL_FENSTER_MS));
+      continue;
+    }
+    const rumpf = await antwort.json().catch(() => null);
+    return {
+      status: antwort.status(),
+      grund: rumpf?.error?.code || rumpf?.error?.message || '',
+    };
+  }
 }
 
 /**
@@ -441,28 +564,63 @@ const steht = (seite, waehler, grenze = 20000) =>
     .catch(() => false);
 
 /**
- * Die Notizen bei schmaler Breite ausdruecklich zumachen.
+ * Das Notizen-Blatt ausdruecklich zumachen.
  *
- * Seit D6 liegen sie unter 900 px als Blatt UEBER der Mitte und fangen zu an,
- * und jede Ansicht, die kommt, schliesst sie. Diese Zeile misst das nicht --
- * sie stellt es her. Der Unterschied ist wichtig: eine Ansicht, die hinter
- * einem offenen Blatt gemessen wird, sagt nichts ueber die Ansicht (der erste
- * Fund der D6-Messung am Orin). Was die Regel wirklich prueft, steht in
- * `aufteilungMessen`, und wie das Blatt AUFGEZOGEN aussieht, in der eigenen
- * Zelle „Notizen" bei 390 px.
+ * Seit D6 liegen die Notizen unter 900 px als Blatt UEBER der Mitte und
+ * fangen zu an, und jede Ansicht, die kommt, schliesst sie. Diese Zeile misst
+ * das nicht -- sie stellt es her. Der Unterschied ist wichtig: eine Ansicht,
+ * die hinter einem offenen Blatt gemessen wird, sagt nichts ueber die Ansicht
+ * (der erste Fund der D6-Messung am Orin). Was die Regel wirklich prueft,
+ * steht in `aufteilungMessen`, und wie das Blatt AUFGEZOGEN aussieht, in der
+ * eigenen Zelle „Notizen" bei 390 px.
  *
- * Ueber 900 px gibt es nichts zuzumachen: dort sind die Notizen eine Spalte
- * neben der Mitte und nehmen ihr nichts weg.
+ * GEFRAGT WIRD DAS BLATT UND NICHT DIE FENSTERBREITE. Derselbe Knopf in der
+ * Kopfleiste schaltet ueber 900 px die Notiz-SPALTE, und die ist persistiert:
+ * ein Zumachen „zur Sicherheit" haette sie dort fuer den Rest des Laufs
+ * versteckt und `mitteBleibtGanz` um seinen Gegenstand gebracht.
+ * `data-shell-blatt` steht nur dann auf `true`, wenn die Notizen wirklich
+ * obenauf liegen -- damit ist die Frage die richtige und nicht bloss die
+ * bequeme.
  */
-async function notizenZumachen(seite, breite) {
-  if (breite.px >= SCHMAL_AB_PX) return;
-  const zu = seite.locator('[aria-label="Notizen ausblenden"]');
-  if (await zu.count().catch(() => 0)) {
-    await zu
-      .first()
-      .click({ timeout: 5000 })
-      .catch(() => {});
-  }
+async function blattZumachen(seite) {
+  const liegtDrueber = await seite
+    .locator("[data-panel][data-shell-blatt='true'][data-shell-hidden='false']")
+    .count()
+    .catch(() => 0);
+  if (!liegtDrueber) return;
+  await seite
+    .locator('[aria-label="Notizen ausblenden"]')
+    .first()
+    .click({ timeout: 5000 })
+    .catch(() => {});
+}
+
+/**
+ * Ein Klick im Arbeitsplatz, dem nichts im Weg liegt.
+ *
+ * Playwright zielt auf die Mitte des Elements und prueft vorher, dass dort
+ * auch wirklich dieses Element liegt; liegt etwas darueber, wartet er bis zur
+ * Zeitgrenze und wirft dann. Genau das hat den zweiten D6-Lauf am Orin
+ * abgebrochen (28.08.2026, Lauf 1 und 3 an derselben Stelle): eine App-Kachel
+ * der Uebersicht unter dem offenen Notizen-Blatt, `locator.click` Timeout
+ * 15000 ms -- und der Lauf endete dort, vor der Tastatur und vor den
+ * Fehlerzustaenden.
+ *
+ * Also: erst zumachen, was oben liegt, dann klicken. Die eine Stelle, die
+ * ABSICHTLICH gegen das offene Blatt klickt -- der Wechsel des Tabs in der
+ * Leiste, die ueber dem Blatt sitzt --, ruft `click` weiter selbst.
+ *
+ * UND SIE WIRFT NICHT. Ein Klick, der nicht durchkommt, ist eine rote Zeile
+ * wert und nicht das Ende des Durchlaufs: was danach noch zu messen waere --
+ * die Tastatur, die Fehlerzustaende, die acht Verwaltungsansichten -- ist
+ * mehr wert als die Ausnahme. Der Rueckgabewert sagt, was war.
+ */
+async function klickFrei(seite, ziel, grenze = 15000) {
+  await blattZumachen(seite);
+  return ziel
+    .click({ timeout: grenze })
+    .then(() => true)
+    .catch(() => false);
 }
 
 /**
@@ -480,7 +638,7 @@ async function ansichtMessen(
   await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
   konsole = [];
   await oeffnen();
-  if (notizenZu) await notizenZumachen(seite, breite);
+  if (notizenZu) await blattZumachen(seite);
 
   const da = await steht(seite, kennzeichen, 30000);
   if (!da) {
@@ -695,6 +853,12 @@ if (!(await geraetErreichbar())) {
 // waere ein Ordner, den jemand spaeter deutet.
 fs.mkdirSync(ZIEL, { recursive: true });
 
+// Und erst recht jetzt: die Drossel VOR dem ersten Handgriff. Diese Reihe
+// kostet zwei Anmeldungen; mitten im Lauf darauf zu warten hiesse, den
+// Wegwerf-Mitarbeiter und seine offene Freigabe eine Viertelstunde lang am
+// Geraet stehen zu lassen.
+await drosselAbwarten(2);
+
 let browser;
 let admin = { token: '' };
 let app = '';
@@ -832,8 +996,15 @@ try {
   // Enter im Passwortfeld statt ein Klick: das Formular hat einen
   // Absende-Knopf, und ob die Eingabetaste ihn ausloest, ist die Frage nach
   // der Tastatur -- nicht nach dem Zeiger.
-  await seiteM.locator('input#password').focus();
-  const ersteAnmeldung = await anmeldungAbschicken(seiteM, () => seiteM.keyboard.press('Enter'));
+  const ersteAnmeldung = await anmeldungAbschicken(seiteM, async () => {
+    // Wiederholbar: nach einem 429 steht dasselbe Formular noch da, und der
+    // zweite Versuch soll nicht davon abhaengen, wo der Fokus liegen geblieben
+    // ist. `fill` ist idempotent.
+    await seiteM.locator('input#username').fill(MAIL);
+    await seiteM.locator('input#password').fill(PASS_START);
+    await seiteM.locator('input#password').focus();
+    await seiteM.keyboard.press('Enter');
+  });
   const wechselDa = await steht(seiteM, '[data-testid="passwort-wechseln"]', 45000);
   pruefe(
     'Anmeldung: die Eingabetaste meldet an',
@@ -892,11 +1063,11 @@ try {
   );
 
   // --- 5. Die zweite Anmeldung ---------------------------------------------
-  await seiteM.locator('input#username').fill(MAIL);
-  await seiteM.locator('input#password').fill(PASS_SELBST);
-  const zweiteAnmeldung = await anmeldungAbschicken(seiteM, () =>
-    seiteM.locator('button[type="submit"]').click()
-  );
+  const zweiteAnmeldung = await anmeldungAbschicken(seiteM, async () => {
+    await seiteM.locator('input#username').fill(MAIL);
+    await seiteM.locator('input#password').fill(PASS_SELBST);
+    await seiteM.locator('button[type="submit"]').click();
+  });
   const shellDa = await steht(seiteM, '[data-testid="workspace-shell"]', 60000);
   if (!shellDa) {
     await seiteM.screenshot({ path: path.join(ZIEL, '1440-zweite-anmeldung.png') }).catch(() => {});
@@ -1019,6 +1190,50 @@ try {
   // die Probe, dass eine Ansicht sie wieder zumacht.
   {
     const telefon = BREITEN[0];
+
+    // ZUERST DER ZWEITE TAB, DANN DAS BLATT.
+    //
+    // Das ist die Lehre aus der zweiten D6-Messung am Orin (28.08.2026): die
+    // Probe „eine Ansicht macht das Blatt wieder zu" klickte bis dahin auf
+    // eine App-Kachel der Uebersicht -- und die liegt UNTER dem Blatt.
+    // Playwright wartete fuenfzehn Sekunden darauf, dass der Punkt frei wird,
+    // warf, und zwei von drei Laeufen endeten an dieser Zeile: vor der
+    // Tastatur, vor den Fehlerzustaenden, vor der ganzen Verwaltung.
+    //
+    // Ein Mensch kann diesen Klick dort auch nicht ausfuehren, und eine Probe,
+    // die etwas Unmoegliches verlangt, misst nichts. Was er bei offenem Blatt
+    // WIRKLICH erreicht, steht oben: die Kopfleiste und die Tab-Leiste -- das
+    // Blatt faengt erst bei 35 Prozent der Hoehe an. Also wird der zweite Tab
+    // vorher geoeffnet, solange die Kachel frei liegt, und die Probe wechselt
+    // spaeter ueber die Leiste dorthin.
+    await seiteM.setViewportSize({ width: telefon.px, height: telefon.hoehe });
+    await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
+    let zweiterTabDa = false;
+    if (app) {
+      const kachel = seiteM.locator(`[data-testid="uebersicht-app-${app}-live"]`);
+      if (await kachel.count().catch(() => 0)) {
+        await klickFrei(seiteM, kachel.first());
+        await seiteM.waitForTimeout(1500);
+        // Genau zwei Tabs -- der andere ist immer der, der gerade nicht
+        // ausgewaehlt ist. Gemerkt wird die Zahl und nicht der Knoten: das
+        // Neuladen unten baut die Leiste neu auf.
+        zweiterTabDa =
+          (await seiteM
+            .locator('[role="tab"]')
+            .count()
+            .catch(() => 0)) === 2;
+        if (zweiterTabDa) {
+          await seiteM
+            .locator('[role="tab"][aria-selected="false"]')
+            .first()
+            .click({ timeout: 15000 })
+            .catch(() => {});
+          await seiteM.waitForTimeout(1000);
+        }
+      }
+    }
+
     const ok = await ansichtMessen(seiteM, {
       name: 'Notizen',
       dateiname: 'notizen',
@@ -1028,7 +1243,11 @@ try {
       oeffnen: async () => {
         await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
-        await seiteM.locator('[aria-label="Notizen einblenden"]').first().click({ timeout: 15000 });
+        await seiteM
+          .locator('[aria-label="Notizen einblenden"]')
+          .first()
+          .click({ timeout: 15000 })
+          .catch(() => {});
       },
     });
     if (ok) {
@@ -1055,25 +1274,41 @@ try {
       //
       // Gemessen wird sie IM LAUFENDEN Bildschirm und nicht ueber die Adresse:
       // ein Neuladen macht das Blatt ohnehin zu (der Zustand ist absichtlich
-      // nicht gespeichert), und diese Zeile pruefte dann nichts. Der Klick auf
-      // eine App-Kachel der Uebersicht ist die Ansicht, die ein Mensch dort
-      // wirklich oeffnet.
-      const kachel = app ? seiteM.locator(`[data-testid="uebersicht-app-${app}-live"]`) : null;
-      if (kachel && (await kachel.count().catch(() => 0))) {
-        await kachel.first().click({ timeout: 15000 });
+      // nicht gespeichert), und diese Zeile pruefte dann nichts. Der Wechsel
+      // in der Tab-Leiste ist der Weg, den ein Mensch bei offenem Blatt hat --
+      // und deshalb der einzige Klick dieser Reihe, der ABSICHTLICH nicht
+      // ueber `klickFrei` laeuft.
+      const anderer = seiteM.locator('[role="tab"][aria-selected="false"]');
+      if (zweiterTabDa && (await anderer.count().catch(() => 0))) {
+        const gewechselt = await anderer
+          .first()
+          .click({ timeout: 15000 })
+          .then(() => true)
+          .catch(() => false);
         await seiteM.waitForTimeout(1500);
         const wiederZu = await seiteM
           .locator('#notizen-feld')
           .isVisible()
           .catch(() => false);
-        pruefe(`${telefon.px} px: eine Ansicht macht das Blatt wieder zu`, !wiederZu);
+        pruefe(
+          `${telefon.px} px: eine Ansicht macht das Blatt wieder zu`,
+          gewechselt && !wiederZu,
+          gewechselt ? '' : 'der Wechsel in der Tab-Leiste kam nicht durch'
+        );
       } else {
         ueberspringe(
           `${telefon.px} px: eine Ansicht macht das Blatt wieder zu`,
-          'keine App-Kachel auf der Uebersicht, also keine Ansicht zum Oeffnen'
+          app
+            ? 'kein zweiter Tab in der Leiste, also keine Ansicht zum Wechseln'
+            : 'keine App mit Livestand am Geraet, also keine zweite Ansicht'
         );
       }
     }
+
+    // Was auch immer hier passiert ist: ueber der naechsten Station liegt
+    // nichts mehr. Die folgenden Ansichten kommen zwar ueber die Adresse und
+    // laden neu, aber diese Zeile haengt nicht davon ab, dass das so bleibt.
+    await blattZumachen(seiteM);
   }
 
   // --- 8. Die App im Rahmen, in drei Breiten -------------------------------
@@ -1212,15 +1447,26 @@ try {
   await seiteM.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const shellFuersAbmelden = await steht(seiteM, '[data-testid="workspace-shell"]', 45000);
   if (shellFuersAbmelden) {
-    await seiteM.locator('[data-testid="workspace-benutzermenue"]').click();
-    const menue = await steht(seiteM, '[data-testid="workspace-abmelden"]', 15000);
-    pruefe('Das Benutzermenue der Kopfleiste geht auf', menue);
+    const menueAuf = await klickFrei(
+      seiteM,
+      seiteM.locator('[data-testid="workspace-benutzermenue"]')
+    );
+    const menue = menueAuf && (await steht(seiteM, '[data-testid="workspace-abmelden"]', 15000));
+    pruefe(
+      'Das Benutzermenue der Kopfleiste geht auf',
+      menue,
+      menueAuf ? '' : 'der Klick auf das Benutzermenue kam nicht durch'
+    );
     if (menue) {
       await seiteM.screenshot({ path: path.join(ZIEL, '1440-benutzermenue.png') }).catch(() => {});
-      await seiteM.locator('[data-testid="workspace-abmelden"]').click();
+      const geklickt = await klickFrei(
+        seiteM,
+        seiteM.locator('[data-testid="workspace-abmelden"]')
+      );
       pruefe(
         'Abmelden fuehrt zurueck auf die Anmeldung',
-        await steht(seiteM, 'input#username', 30000)
+        geklickt && (await steht(seiteM, 'input#username', 30000)),
+        geklickt ? '' : 'der Klick auf Abmelden kam nicht durch'
       );
     }
   } else {
@@ -1316,7 +1562,7 @@ try {
   if (await zertKnopf.count()) {
     const [ladung] = await Promise.all([
       seiteA.waitForEvent('download', { timeout: 45000 }).catch(() => null),
-      zertKnopf.click(),
+      klickFrei(seiteA, zertKnopf, 45000),
     ]);
     pruefe(
       'Sicherheit: das Geraetezertifikat laedt sich herunter',
@@ -1333,9 +1579,16 @@ try {
     timeout: 60000,
   });
   await steht(seiteA, '[data-testid="mitarbeiter-seite"]', 30000);
-  await seiteA.locator('[data-testid="mitarbeiter-anlegen-oeffnen"]').click();
-  const dialogDa = await steht(seiteA, '#neu-username', 20000);
-  pruefe('Der Dialog zum Anlegen geht auf', dialogDa);
+  const anlegenAuf = await klickFrei(
+    seiteA,
+    seiteA.locator('[data-testid="mitarbeiter-anlegen-oeffnen"]')
+  );
+  const dialogDa = anlegenAuf && (await steht(seiteA, '#neu-username', 20000));
+  pruefe(
+    'Der Dialog zum Anlegen geht auf',
+    dialogDa,
+    anlegenAuf ? '' : 'der Klick auf „Mitarbeiter anlegen" kam nicht durch'
+  );
   if (dialogDa) {
     await seiteA.keyboard.press('Escape');
     const zu = await seiteA
