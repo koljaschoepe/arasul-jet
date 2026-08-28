@@ -29,10 +29,13 @@ apps/dashboard-frontend/src/
   index.css                  # Tailwind v4 config, CSS variables, design tokens
 
   features/                  # Feature modules
-    workspace/               # Shell: ActivityBar (Modelle), Sidebar, Tabs, rechte Spalte (leer)
-    settings/                # Settings, GeneralSettings, AIProfileSettings, System-Status
+    workspace/               # Shell: ActivityBar (Apps, Modelle), Sidebar, Tabs, rechte Spalte (Notizen)
+    apps/                    # Die eigenen Apps: Übersicht, Rahmen (D1)
+    freigaben/               # Die offenen Freigaben auf der Übersicht (D2)
+    notizen/                 # Der Zettel der rechten Spalte (D1)
+    settings/                # Sektionen, darunter Apps (D4) und Mitarbeiter (D3)
     store/                   # Store (Modelle: Raster + Detailseite)
-    system/                  # SetupWizard, UpdatePage, SelfHealingEvents, Login
+    system/                  # UpdatePage, SelfHealingEvents, Login, CreateAdmin
 
   components/
     ui/                      # Modal, Skeleton, LoadingSpinner, EmptyState, ErrorBoundary, Baustein-Set

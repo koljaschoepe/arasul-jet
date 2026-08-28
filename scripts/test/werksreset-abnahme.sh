@@ -89,7 +89,7 @@ docker exec "$BACKEND" sh -c 'mkdir -p /arasul/flows &&
     printf -- "---\nname: abnahme\nbeschreibung: Abnahme\n---\n\nText\n" > /arasul/flows/abnahme.md'
 sql "INSERT INTO arasul.flow_runs (user_id, flow_name) SELECT id, 'abnahme' FROM admin_users LIMIT 1" >/dev/null
 sql "INSERT INTO llm_jobs (user_id, job_type, request_data) SELECT id, 'chat', '{}'::jsonb FROM admin_users LIMIT 1" >/dev/null
-sql "UPDATE system_settings SET hostname = 'pruefstand', setup_completed = true WHERE id = 1" >/dev/null
+sql "UPDATE system_settings SET hostname = 'pruefstand' WHERE id = 1" >/dev/null
 
 laeufe_vorher=$(sql "SELECT count(*) > 0 FROM arasul.flow_runs")
 admins_vorher=$(sql "SELECT count(*) > 0 FROM admin_users")
@@ -130,7 +130,10 @@ echo "== 8. Zustand direkt nach dem Reset =="
 pruefe "Flow-Laeufe" "0" "$(sql 'SELECT count(*) FROM arasul.flow_runs')"
 pruefe "Auftraege" "0" "$(sql 'SELECT count(*) FROM llm_jobs')"
 pruefe "Administratoren" "0" "$(sql 'SELECT count(*) FROM admin_users')"
-pruefe "Ersteinrichtung faellig" "f" "$(sql 'SELECT setup_completed FROM system_settings')"
+# Bis Phase D4 stand hier `setup_completed = f`, der Merker des
+# Einrichtungsassistenten. Den gibt es nicht mehr (Migration 179); was der
+# Reset an dieser Zeile wirklich zuruecksetzen muss, ist der Netzname.
+pruefe "Netzname wieder leer" "t" "$(sql 'SELECT hostname IS NULL FROM system_settings')"
 pruefe "Modellkatalog bleibt" "t" "$(sql 'SELECT count(*) > 0 FROM llm_model_catalog')"
 # Das Migrationsbuch steht entweder in public oder in arasul, je nach Alter der
 # Datenbank (siehe migrationRunner.js, ermittleBuchOrt). Gefragt wird deshalb

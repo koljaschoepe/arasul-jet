@@ -165,6 +165,22 @@ muss keine Datei aussparen.
 Sie gilt **ohne Stand**: „welches Modell treibt diesen Flow" meint den Flow,
 nicht die Fassung, mit der jemand gerade testet.
 
+Seit Phase D4 trifft er sie **im Browser**, in der App-Ansicht unter
+Einstellungen → Apps, und er hat dort eine dritte Wahl: ein Modell bei einem
+Anbieter **draußen** (`{"extern": {anbieter, modell, basis_url, schluessel}}`
+am selben Weg). `basis_url` ist eine OpenAI-kompatible Adresse ohne
+`/chat/completions` — dasselbe Feld passt auf OpenAI, auf Azure, auf ein
+gemietetes vLLM und auf ein Gateway im eigenen Netz. Der Schlüssel wird
+verschlüsselt abgelegt und nie wieder angezeigt (`flow_settings`,
+AES-256-GCM); lokal und extern schließen einander aus, denn ein Flow läuft auf
+einem Modell. Rechnet ein Flow draußen, tun es auch seine Delegationen und sein
+Prüfschritt — ein Lauf, der halb draußen und halb hier rechnet, wäre das
+Gegenteil einer Entscheidung.
+
+**Kein eigener Einstellungsbereich für externe Modelle** (Entscheidung vom
+26.08.2026). Ein solcher Bereich wäre eine Liste von Zugängen, von denen
+niemand mehr sagen könnte, welcher Flow sie benutzt.
+
 ### Starten
 
 Eine App startet ihren eigenen Flow über die externe Schnittstelle, mit dem
@@ -184,6 +200,25 @@ vergessen; ein `WHERE` nicht.
 
 Der Lauf landet mit allen Schritten in `flow_runs`/`flow_run_steps` und trägt
 `app_id` und `stand` mit.
+
+### Nachlesen, was ein Lauf getan hat (Phase D4)
+
+`GET /api/apps/<id>/laeufe` nennt die Läufe **dieser App** (nicht die des
+angemeldeten Menschen — ein App-Lauf trägt als Nutzer den, dem der Schlüssel
+gehört), `GET /api/apps/<id>/laeufe/<nr>` einen davon samt Schritten. Vier
+Arten von Schritt:
+
+| `kind`     | was er ist                                                                   |
+| ---------- | ---------------------------------------------------------------------------- |
+| `werkzeug` | ein Werkzeug-Aufruf, mit `input` und `output`                                |
+| `subagent` | eine Delegation an eine Rolle; ihre inneren Schritte tragen `parent_step_id` |
+| `modell`   | der **Gedankengang**: was das Modell sagte, bevor es ein Werkzeug rief       |
+| `hinweis`  | ein Vermerk des Runners                                                      |
+
+Der Gedankengang ist seit D4 dabei. Bis dahin meldete die Werkzeug-Schleife nur
+die letzte Runde; der Satz, mit dem das Modell seinen nächsten Handgriff
+begründet, fiel lautlos weg, und im Protokoll stand eine Kette von Werkzeugen
+ohne ein Wort dazu.
 
 ## Die zwei Stände
 
@@ -228,7 +263,10 @@ Freigabe ein Wort dazu, wie weit sie reicht:
 
 Ein Tester ist kein anderer Nutzer, sondern ein Nutzer mit einer Tür mehr.
 Gesetzt wird das über `POST /api/freigaben` mit `{ "stand": "test" }`; gelesen
-über `GET /api/apps/meine`.
+über `GET /api/apps/meine`. Im Browser steht es an zwei Stellen, und beide
+schreiben denselben Weg: in der Freigabe-Matrix (Einstellungen → Mitarbeiter,
+D3) für das ganze Gerät, und in der App-Ansicht (Einstellungen → Apps, D4) für
+diese eine App.
 
 Auch ein Administrator, der eine App benutzen will, braucht sie freigegeben.
 Eine Sonderregel „Admins sehen alles" wäre eine zweite Wahrheit neben der
@@ -366,10 +404,14 @@ Administrator von Hand anlegt.
    aus, legt unter `/arasul/apps/<id>/<version>/` ab und **baut das Image**.
 2. Es rollt in den **Teststand**. Einen Parameter dafür gibt es nicht.
 3. Benannte Tester probieren unter `/apps/<id>/test/`.
-4. Ein Mensch schaltet live:
-   `POST /api/v1/external/apps/<id>/schalten` mit `{"ziel":"live"}`. Zurück auf
-   die Version davor geht es mit `{"ziel":"zurueck"}` — das ist ein Tausch, wer
-   ihn zweimal ruft, ist wieder da, wo er angefangen hat.
+4. Ein Mensch schaltet live: in der Oberfläche unter Einstellungen → Apps
+   (seit Phase D4, `POST /api/apps/<id>/schalten`) oder aus dem Kit heraus
+   (`POST /api/v1/external/apps/<id>/schalten`, C5), beide mit
+   `{"ziel":"live"}`. Zurück auf die Version davor geht es mit
+   `{"ziel":"zurueck"}` — das ist ein Tausch, wer ihn zweimal ruft, ist wieder
+   da, wo er angefangen hat. Zwei Wege und ein Dienst dahinter: das Kit
+   schaltet, wenn der Partner ausgeliefert hat, der Administrator, wenn **er**
+   den Teststand gesehen hat.
 5. `DELETE /api/apps/<id>` (Sitzung) oder
    `DELETE /api/v1/external/apps/<id>?bestaetigung=<id>` (Schlüssel) entfernt
    beide Container **mitsamt ihren Volumes**, beide Stände, alle Freigaben und

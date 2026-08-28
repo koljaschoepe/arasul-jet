@@ -174,12 +174,16 @@ else
   fail "Frontend gibt $FRONTEND_CODE statt 200"
 fi
 
-# Setup status (unauthenticated endpoint)
-SETUP_STATUS=$(curl -sf --max-time 5 "http://${HOST}/api/system/setup-status" 2>/dev/null)
-if grep -q "setupComplete" 2>/dev/null <<<"$SETUP_STATUS"; then
-  pass "Setup-Status abrufbar (/api/system/setup-status)"
+# Braucht das Geraet noch einen Administrator? (unauthenticated)
+#
+# Bis Phase D4 stand hier `/api/system/setup-status`, die Frage des
+# Einrichtungsassistenten. Den gibt es nicht mehr; die Frage, die ein frisches
+# Geraet wirklich stellt, ist eine andere und hat einen eigenen Weg.
+ERSTSTART=$(curl -sf --max-time 5 "http://${HOST}/api/auth/needs-setup" 2>/dev/null)
+if grep -q "needsSetup" 2>/dev/null <<<"$ERSTSTART"; then
+  pass "Erststart-Frage abrufbar (/api/auth/needs-setup)"
 else
-  warn "Setup-Status nicht abrufbar"
+  warn "Erststart-Frage nicht abrufbar"
 fi
 
 echo ""

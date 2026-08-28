@@ -17,7 +17,18 @@ Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`)
 src/
   features/        Domain-organized UI. One folder per top-level route.
     settings/      Die Einstellungen als Sektionen (`sections.tsx` ist die eine
-                   Quelle, geteilt von Sidebar-Panel und Mitte-Tab). Seit D3
+                   Quelle, geteilt von Sidebar-Panel und Mitte-Tab). Seit D4
+                   gehört die Sektion **Apps** dazu (`AppsSettings.tsx` plus
+                   `apps/`): die Liste der Apps am Gerät, und je App die
+                   Stände mit Schalter (`AppStaende.tsx`), die Tester
+                   (`AppTester.tsx`, dieselben Hooks wie die Matrix), die Flows
+                   mit ihrem Modell (`FlowAnsicht.tsx`, `ModellDialog.tsx`),
+                   die Läufe mit Schritten und Gedankengang
+                   (`LaufAnsicht.tsx`) und die Logs. Abfragen und Mutationen
+                   stehen zusammen in `apps/useAppVerwaltung.ts`. Sie ist die
+                   Verwaltungs-Sicht auf eine App; `features/apps/` ist die
+                   Sicht dessen, der sie BENUTZT (D1). Zwei Ordner, zwei
+                   Fragen, dasselbe Wort. Seit D3
                    gehört die Sektion **Mitarbeiter** dazu
                    (`MitarbeiterSettings.tsx` plus `mitarbeiter/`): die Liste
                    der Menschen am Gerät, die zwei Dialoge (anlegen,
@@ -140,7 +151,12 @@ src/
   config/          api.ts (API_BASE, getAuthHeaders).
   types/           Cross-feature TypeScript types.
   index.css        Tailwind v4 theme + Arasul design tokens (@theme block).
-  App.tsx          Router, providers, lazy-loaded route shells.
+  App.tsx          Router, providers, lazy-loaded route shells. Was VOR der
+                   Shell stehen kann, ist seit D4 abschließend: `CreateAdmin`
+                   (das Gerät hat noch keinen Administrator) und
+                   `PasswortWechseln` (ein Startpasswort, D1). Der
+                   Einrichtungsassistent ist gestrichen — Begründung in
+                   Migration 179.
 ```
 
 **Rule of placement:** if it's used by exactly one feature → live there.

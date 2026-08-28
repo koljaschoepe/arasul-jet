@@ -147,6 +147,43 @@ passiert im Browser über `scripts/test/admin-bilder.mjs`); sie läuft neben
 `abnahmen.sh` und **nicht** in derselben Viertelstunde wie `shell-abnahme.sh`
 oder `dashboard-abnahme.sh` — die drei brauchen zusammen acht der zehn
 Anmeldungen je Viertelstunde.
+Seit D4 gibt es die **App-Verwaltung** als Einstellungs-Sektion
+(`/workspace/settings?tab=apps`, `features/settings/AppsSettings.tsx` plus
+`features/settings/apps/`), und mit ihr die Sicht dessen, der das Gerät
+betreibt: je App die zwei **Stände** mit Version, Zustand und Gesundheit ihres
+Containers samt Schalter **live** und **zurück**
+(`POST /api/apps/:id/schalten`, dieselbe Sache wie der Kit-Weg aus C5, aber
+für einen Menschen mit einer Sitzung), die **Tester** (die Spalte einer App aus
+der D3-Matrix, aus der anderen Richtung gelesen), die **Flows** je Stand mit dem
+Modell, das sie treibt, die **Läufe** und die **Logs** des Containers. Ein Klick
+auf einen Flow öffnet seine Datei samt Prompt
+(`GET /api/apps/:id/flows/:name` — was der Partner geschrieben hat, ist nicht
+geheim: es liegt auf diesem Gerät, und wer es verwaltet, haftet dafür); ein
+Klick auf einen Lauf zeigt seine Schritte
+(`GET /api/apps/:id/laeufe`, `.../laeufe/:runId` — eigene Wege, weil
+`GET /api/flows/laeufe` an `user_id` hängt und ein App-Lauf dem gehört, der den
+Schlüssel angelegt hat). Darunter der **Gedankengang**: was das Modell sagte,
+bevor es ein Werkzeug rief, fiel in `toolLoop` bis D4 lautlos weg und steht
+jetzt als Schritt der Art `modell` im Protokoll. Das **Modell je Flow** stellt
+ein Dialog um — aus dem Paket, eines vom Gerät (Kurzliste, C8) oder eines bei
+einem Anbieter draußen (`{"extern": {anbieter, modell, basis_url, schluessel}}`
+am selben `PUT .../modell`; Migration 179 ergänzt `extern_basis_url`, der
+Schlüssel liegt verschlüsselt und kommt nirgends heraus, lokal und extern
+schließen einander aus). **Kein eigener Settings-Bereich für externe Modelle**
+(Entscheidung 26.08.2026): eine Liste von Zugängen, von denen niemand mehr
+sagen könnte, welcher Flow sie benutzt, wäre das Gegenteil einer Übersicht.
+Zwei Funde der D3-Abnahme sind zu: der **Einrichtungsassistent ist gestrichen**
+(SetupWizard, `/api/system/setup-*`, die vier `setup_`-Spalten) — jede seiner
+Fragen gehört woandershin, und übrig geblieben wäre ein Bildschirm, der
+wiederholt, was der Bootstrap gerade gezeigt hat; und die Einstellungsseite ist
+bei 1440 px mit offener Notizspalte nicht mehr abgeschnitten (Radix'
+`ScrollArea` legte um den Inhalt ein Element mit `display: table`, das sich nach
+dem Inhalt richtete statt nach der Spalte — jetzt ein gewöhnlicher Rollbereich,
+und was breiter ist, rollt in seinem eigenen Kasten). Abnahme A5:
+`scripts/test/app-admin-abnahme.sh` (Browser über
+`scripts/test/app-admin-bilder.mjs`, zwei Sitzungen in einem Lauf); auch sie
+läuft neben `abnahmen.sh` und **nicht** in derselben Viertelstunde wie die drei
+anderen Browser-Abnahmen — zusammen brauchen die vier zehn Anmeldungen.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |
