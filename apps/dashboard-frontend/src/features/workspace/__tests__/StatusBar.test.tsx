@@ -58,6 +58,28 @@ interface ApiOverrides {
   catalog?: CatalogModel[];
   loadedModelId?: string | null;
   defaultModelId?: string | null;
+  /** Wie viele Freigaben auf eine Entscheidung warten (C7). */
+  offeneFreigaben?: number;
+}
+
+/**
+ * Ein matchMedia-Doppel: `schmal` sagt, ob `(max-width: 899px)` passt.
+ *
+ * Bei 390 px stand die Leiste in der ersten D6-Messung am Orin ZWEIZEILIG:
+ * „2 Freigaben warten" und die Fassung „20260828-8794a42" nebeneinander sind
+ * mehr Zeichen, als dort hingehen. Beide fallen schmal weg (D6).
+ */
+function fensterbreite(schmal: boolean) {
+  const original = window.matchMedia;
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: schmal,
+    media: '',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }) as unknown as typeof window.matchMedia;
+  return () => {
+    window.matchMedia = original;
+  };
 }
 
 /**
@@ -70,8 +92,11 @@ function mockApi(overrides: ApiOverrides = {}) {
   const catalog = overrides.catalog ?? [];
   const loadedModelId = overrides.loadedModelId ?? null;
   const defaultModelId = overrides.defaultModelId ?? null;
+  const freigaben = Array.from({ length: overrides.offeneFreigaben ?? 0 }, (_, i) => ({ id: i }));
   get.mockImplementation((path: string) => {
     switch (path) {
+      case '/freigabe-anfragen':
+        return Promise.resolve({ data: freigaben });
       case '/models/memory-budget':
         return Promise.resolve(budget);
       case '/models/catalog':
@@ -138,6 +163,41 @@ describe('StatusBar', () => {
     renderStatusBar();
     expect(await screen.findAllByText('Vorserie')).not.toHaveLength(0);
     expect(screen.queryByText('vVorserie')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Phase D6: eine Zeile bei 390 px. Nichts geht dabei verloren -- die Fassung
+   * steht im Verbindungs-Popover daneben, und der ganze Satz bleibt als
+   * `aria-label` an der Zahl.
+   */
+  it('laesst schmal die Fassung weg und zeigt die Freigaben als Zahl', async () => {
+    const zurueck = fensterbreite(true);
+    try {
+      mockApi({ offeneFreigaben: 2 });
+      renderStatusBar();
+
+      const zaehler = await screen.findByTestId('statusbar-freigaben');
+      expect(zaehler).toHaveTextContent(/^2$/);
+      expect(zaehler).toHaveAttribute('aria-label', '2 Freigaben warten');
+      expect(screen.queryByText('1.2.3')).not.toBeInTheDocument();
+    } finally {
+      zurueck();
+    }
+  });
+
+  it('schreibt breit weiter den ganzen Satz und die Fassung', async () => {
+    const zurueck = fensterbreite(false);
+    try {
+      mockApi({ offeneFreigaben: 2 });
+      renderStatusBar();
+
+      expect(await screen.findByTestId('statusbar-freigaben')).toHaveTextContent(
+        '2 Freigaben warten'
+      );
+      expect(await screen.findAllByText('1.2.3')).not.toHaveLength(0);
+    } finally {
+      zurueck();
+    }
   });
 
   it('zeigt Getrennt, wenn /health nicht erreichbar ist', async () => {
