@@ -422,6 +422,50 @@ seit D6 hat. Und die Reihe **sagt am Ende, wie knapp es war**: der kleinste
 Rest je Drossel steht in der Schlusszeile, denn „22 von 30" ist die Zahl, die
 den Tag gekostet hat.
 
+Phase **G2** (29.08.2026) hat zwei Reparaturen aus G1 gebracht, und bei beiden
+war die genannte Ursache nicht die Ursache. Erstens **enthält ein Rollkasten,
+was er wegrollt**: die Zelle „1024 px · Einstellungen · Mitarbeiter" meldete
+„rollt waagerecht, 1039 gegen 1024", und zu sehen war nichts. Nicht
+`useSchmalesFenster` (bei 1024 px ist das Fenster ≥ 900, die Tabellenform ist
+gewollt, und sie rollt seit D4 in ihrem eigenen `overflow-x-auto`), sondern:
+`overflow` klammert nur ab, was auch **in** dem Kasten liegt. Ein absolut
+gesetztes Kind liegt in seinem nächsten **positionierten** Vorfahren — ist der
+Rollkasten `position: static`, ist das irgendein Kasten weiter oben, und das
+Kind entkommt: es rollt nicht mit, wird nicht abgeklammert, und seine Breite
+zählt zur Rollbreite des **Dokuments**. Die `.sr-only` in den Knöpfen der
+Tabelle sind je einen Pixel breit und standen bei x=1042. Deshalb tragen die
+drei rollenden Utilities in `index.css` jetzt `position: relative` (nicht
+`.overflow-hidden` — dort ist ein Kind, das herausragt, manchmal gewollt); am
+Orin gegengeprüft über neun Ansichten mal drei Breiten: null verschobene
+Elemente, und was heute überhaupt einem Rollkasten entkommt, ist ausschließlich
+`.sr-only`. `check-design-system.js` hält die Regel (je Selektor, weil
+`.navigation` sein `overflow-x` erst in einer Media-Query bekommt).
+
+Zweitens **stand die enge Drossel vor dem Backend, nicht darin**. G1 hatte die
+zwei Proben jeder Seitenladung von 30 auf 120 je Minute gehoben — wirkungslos,
+denn auf dem ganzen Präfix `/api/auth` lag in **Traefik** eine zweite Drossel
+mit 30 je Minute, und Traefik antwortet, bevor das Backend die Anfrage sieht.
+Am Gerät gemessen: ab der zwölften Anfrage auf `/api/auth/needs-setup` kam 429,
+während das Backend `remaining: 79 von 120` meldete. Eine Seitenladung kostet
+zwei — ein Büro hinter einer NAT-IP war nach fünf Seiten dicht. Und sie war
+**unsichtbar**: Traefiks `rateLimit` schickt keine `RateLimit-*`-Kopfzeilen
+(das Traefik-README behauptete das Gegenteil), also meldeten drei Läufe „nie
+auf eine Drossel gewartet" und wurden trotzdem rot. Seither haben die zwei
+Proben ihre eigene Middleware (`rate-limit-auth-probe`, 120 je Minute, eigener
+Router mit `Path` statt Präfix), `rate-limit-auth` behält seine 30 für die
+Mutationen, `drosselzahlen.py` liest **vier** Stellen statt drei und verlangt
+vom Vorbau nicht Gleichheit, sondern dass er nicht **enger** ist als das
+Backend, und `drossel.mjs` zählt 429 **ohne** Kopfzeilen getrennt und nennt sie
+in der Schlusszeile — das ist das Merkmal, an dem die beiden zu unterscheiden
+sind.
+
+Nebenbei am Gerät gefunden: der Live-Stack läuft aus dem **Artefakt**
+(`/home/arasul/arasul-0.4.0`) und nicht aus dem Git-Checkout, auf den
+`deploy.yml` zeigt. Ein `docker compose up` im Checkout will `postgres-db` neu
+anlegen und scheitert an den Secrets, die dort nicht liegen. Das ist die Karte
+`artefakt-aktualisiert-nicht` und kommt nach G2 — bis dahin geht ein Deploy an
+diesem Gerät von Hand im Artefakt-Verzeichnis.
+
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/`   |
