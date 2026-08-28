@@ -3309,9 +3309,39 @@ a:focus:not(:focus-visible),
 }
 
 /* Scrollable containers */
-.overflow-auto { overflow: auto; }
-.overflow-x-auto { overflow-x: auto; }
-.overflow-y-auto { overflow-y: auto; }
+/*
+   EIN ROLLKASTEN ENTHAELT, WAS ER WEGROLLT (Phase G2, Fund der G1-Abnahme).
+
+   `overflow` klammert nur ab, was auch in ihm liegt. Ein absolut gesetztes
+   Kind liegt in seinem naechsten POSITIONIERTEN Vorfahren -- und ist der
+   Rollkasten `position: static`, ist das irgendein Kasten weiter oben. Das
+   Kind entkommt dem Kasten dann: es wird nicht mitgerollt, es wird nicht
+   abgeklammert, und seine Breite zaehlt zur Rollbreite des DOKUMENTS.
+
+   Am 29.08.2026 am Orin gemessen. Die Mitarbeiter-Tabelle rollt seit D4
+   absichtlich in SICH (`min-w-[42rem]` in einem `overflow-x-auto`), und in
+   ihren Knoepfen sitzt je ein `.sr-only` -- `position: absolute`, 1 px breit,
+   fuer den Vorleser. Bei 1024 px mit offener Notizspalte ist die Mitte 493 px
+   und die Tabelle 798 px; die sieben `.sr-only` standen damit bei x=1042 und
+   schoben die Seite auf 1042 statt 1024. Die Abnahme sah „rollt waagerecht",
+   und zu sehen war nichts, denn was sie schob, ist einen Pixel breit.
+
+   Es war NICHT die Tabelle (`min-width: 0` aendert nichts) und NICHT die
+   Fensterbreite; `position: relative` auf dem Kasten macht es gruen. Deshalb
+   steht die Regel hier und nicht an der einen Tabelle: allein die
+   Mitarbeiter-Seite hat zehn solcher Kaesten.
+
+   `position: relative` ohne Versatz verschiebt nichts (ueber neun Ansichten
+   mal drei Breiten am Geraet gegengeprueft: null verschobene Elemente) und
+   macht keinen Stapelkontext auf -- dafuer braeuchte es ein `z-index`.
+
+   Nur die ROLLENDEN drei. `.overflow-hidden` traegt dieselbe Luecke, aber
+   dort ist ein Kind, das entkommt, manchmal gewollt (ein Menue, das aus
+   seiner Karte herausragt); ein Kind, das aus einem Rollkasten entkommt, ist
+   nie gewollt -- man kann es nicht erreichen. */
+.overflow-auto { overflow: auto; position: relative; }
+.overflow-x-auto { overflow-x: auto; position: relative; }
+.overflow-y-auto { overflow-y: auto; position: relative; }
 .overflow-hidden { overflow: hidden; }
 
 /* Width utilities */
