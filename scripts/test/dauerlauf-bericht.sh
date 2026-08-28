@@ -35,7 +35,32 @@ set -uo pipefail
 
 HOST="${ARASUL_SSH:-jetson}"
 TAGE="${1:-7}"
-REPO="/home/arasul/arasul/arasul-jet"
+
+# WO DIE SICHERUNGEN LIEGEN, SAGT DAS GERAET -- nicht diese Datei.
+#
+# Hier stand fest `/home/arasul/arasul/arasul-jet`. Seit der Auslieferung aus
+# dem Artefakt (C10) liegt Arasul unter `/home/arasul/arasul-<fassung>`, und
+# der alte Pfad ist ein Rest aus dem vorigen Leben. Jeder der vier Zugriffe
+# unten haette dort ins Leere gegriffen -- und zwar STILL: `ls` in einen
+# Ordner, den es nicht gibt, gibt nichts zurueck, und der Bericht haette
+# "(keine)" gemeldet und "Wiederherstellungstest: nie gelaufen". Ein Geraet,
+# das sauber sichert, saehe im Bericht fuer Abnahme A7 aus wie eines, das es
+# nie getan hat. Gefunden am 28.08.2026 auf dem frisch installierten Orin.
+#
+# Gefragt wird deshalb der Sicherungs-Container selbst: er haelt den
+# Sicherungsordner unter `/backups`, und Docker weiss, welcher Pfad des
+# Geraets das ist. Das ueberlebt jeden weiteren Umzug.
+BACKUP_DIR="${ARASUL_BACKUP_PFAD:-}"
+if [ -z "$BACKUP_DIR" ]; then
+  BACKUP_DIR=$(ssh -n "$HOST" \
+    "docker inspect -f '{{range .Mounts}}{{if eq .Destination \"/backups\"}}{{.Source}}{{end}}{{end}}' backup-service 2>/dev/null" \
+    2>/dev/null | tr -d '\r')
+fi
+if [ -z "$BACKUP_DIR" ]; then
+  echo "Kein Sicherungsordner gefunden: laeuft 'backup-service' an diesem Geraet?" >&2
+  echo "Notfalls von Hand: ARASUL_BACKUP_PFAD=/pfad/zu/data/backups $0 $*" >&2
+  BACKUP_DIR="/nicht-gefunden"
+fi
 
 # Die Zeitzone des GERAETS, aus dem Geraet gelesen und nicht hier
 # hingeschrieben. Postgres laeuft im Container mit UTC, das Geraet steht auf
@@ -62,17 +87,68 @@ echo "=== Dauerlauf-Bericht, letzte ${TAGE} Tage ==="
 echo "Gelesen am: $(date '+%Y-%m-%d %H:%M %Z')  (Zeiten unten in ${GERAETE_TZ})"
 echo ""
 
-# --- 0. Die eigentliche G7-Zahl ---------------------------------------------
-# Wie lange laeuft das Geraet am Stueck? Alles andere in diesem Bericht ist
-# Beiwerk, wenn diese Zahl unter sieben Tagen liegt.
+# Die Soll-Dienste stehen HIER OBEN, weil schon die A7-Zahl sie braucht: die
+# Laufzeit von Arasul ist der aelteste Start UNTER DIESEN Diensten. Sie sind
+# die elf aus `docker-compose.yml` (`compose/compose.*.yaml`); `cloudflared`
+# laeuft nur mit dem Profil `tunnel` und fehlt auf einem Geraet ohne
+# Fernzugriff zu Recht. `scripts/test/dienste.py` haelt die Liste an das
+# Compose.
+SOLL_DIENSTE="postgres-db docker-proxy reverse-proxy llm-service embedding-service document-indexer dashboard-backend dashboard-frontend metrics-collector self-healing-agent backup-service"
+SOLL_MIT_PROFIL="cloudflared"
+
+# --- 0. Die eigentliche A7-Zahl ---------------------------------------------
+# WIE LANGE LAEUFT ARASUL -- nicht wie lange laeuft der Rechner.
+#
+# Hier stand `/proc/uptime`, und das ist die Laufzeit des BETRIEBSSYSTEMS. Am
+# 28.08.2026 hat das die Frage von A7 falsch beantwortet: der Orin lief seit
+# neun Tagen durch, aber um 20:20 war Werksreset, und Arasul war eine Stunde
+# alt. Der Bericht meldete trotzdem "GRUEN fuer G7: sieben Tage am Stueck,
+# ohne Eingriff" -- fuer eine Plattform, die gerade neu aufgesetzt worden war.
+#
+# A7 fragt, ob DIESE PLATTFORM sieben Tage ohne Eingriff durchhaelt. Ein
+# Werksreset, eine Neuinstallation oder ein `docker compose down` setzen diese
+# Uhr zurueck, ein Kernel-Update des Wirts nicht unbedingt. Gemessen wird
+# deshalb der aelteste Start unter den Soll-Diensten: solange die alle
+# durchlaufen, laeuft Arasul.
 LAUFZEIT=$(ssh "$HOST" "cat /proc/uptime" 2>/dev/null | cut -d' ' -f1 | cut -d. -f1)
 BOOT_EPOCH=$(( $(date +%s) - ${LAUFZEIT:-0} ))
-TAGE_AM_STUECK=$(( ${LAUFZEIT:-0} / 86400 ))
+
+# Der aelteste Start unter den Diensten, in Sekunden seit der Epoche.
+# GENAU DIE SOLL-DIENSTE, nicht alles, was auf dem Geraet laeuft. Am
+# 28.08.2026 stand auf dem Orin ein fremder Container (`jetcam`, vier Tage
+# alt) neben Arasul; ueber `docker ps` gerechnet kam "Arasul laeuft seit vier
+# Tagen" heraus, waehrend die Plattform eine Stunde alt war.
+PLATTFORM_START=$(ssh -n "$HOST" \
+  "docker inspect -f '{{.State.StartedAt}}' ${SOLL_DIENSTE} 2>/dev/null" \
+  2>/dev/null | sort | head -1 | tr -d '\r')
+PLATTFORM_EPOCH=$(python3 - "$PLATTFORM_START" <<'PY' 2>/dev/null
+import datetime, sys
+roh = (sys.argv[1] or "").strip()
+if not roh:
+    print(0); raise SystemExit
+# Docker liefert Nanosekunden; Python kann nur Mikrosekunden.
+roh = roh.replace("Z", "+00:00")
+if "." in roh:
+    kopf, rest = roh.split(".", 1)
+    bruch, _, zone = rest.partition("+")
+    roh = f"{kopf}.{bruch[:6]}+{zone}" if zone else f"{kopf}.{bruch[:6]}"
+print(int(datetime.datetime.fromisoformat(roh).timestamp()))
+PY
+)
+PLATTFORM_EPOCH="${PLATTFORM_EPOCH:-0}"
+if [ "${PLATTFORM_EPOCH:-0}" -gt 0 ]; then
+  PLATTFORM_S=$(( $(date +%s) - PLATTFORM_EPOCH ))
+else
+  PLATTFORM_S=0
+fi
+TAGE_AM_STUECK=$(( PLATTFORM_S / 86400 ))
+
 echo "--- Laufzeit am Stueck ---"
-echo "  ${TAGE_AM_STUECK} Tage ($(( ${LAUFZEIT:-0} / 3600 )) Stunden)"
-echo "  letzter Neustart: $(date -r "$BOOT_EPOCH" '+%d.%m. %H:%M' 2>/dev/null || date -d "@$BOOT_EPOCH" '+%d.%m. %H:%M' 2>/dev/null)"
+echo "  Arasul:  ${TAGE_AM_STUECK} Tage ($(( PLATTFORM_S / 3600 )) Stunden)"
+echo "  laeuft seit: $(date -r "$PLATTFORM_EPOCH" '+%d.%m.%Y %H:%M' 2>/dev/null || date -d "@$PLATTFORM_EPOCH" '+%d.%m.%Y %H:%M' 2>/dev/null)"
+echo "  Rechner: $(( ${LAUFZEIT:-0} / 86400 )) Tage, letzter Neustart $(date -r "$BOOT_EPOCH" '+%d.%m. %H:%M' 2>/dev/null || date -d "@$BOOT_EPOCH" '+%d.%m. %H:%M' 2>/dev/null)"
 if [ "$TAGE_AM_STUECK" -lt 7 ]; then
-  echo "  G7 verlangt sieben Tage. Noch $(( 7 - TAGE_AM_STUECK )) Tage."
+  echo "  A7 verlangt sieben Tage ARASUL. Noch $(( 7 - TAGE_AM_STUECK )) Tage."
 fi
 echo ""
 
@@ -98,8 +174,6 @@ echo ""
 #
 # Der Pruefstand (pruef-*) ist ein zweiter Stack fuer Abnahmen und gehoert
 # nicht zum Produkt. Er wird ausgeblendet, sonst faelscht er das Bild.
-SOLL_DIENSTE="postgres-db docker-proxy reverse-proxy llm-service embedding-service document-indexer dashboard-backend dashboard-frontend metrics-collector self-healing-agent backup-service"
-SOLL_MIT_PROFIL="cloudflared"
 
 echo "--- Die Dienste ---"
 LAUFEN=$(ssh -n "$HOST" "docker ps --format '{{.Names}}' | grep -v '^pruef-'" 2>/dev/null)
@@ -192,15 +266,15 @@ echo ""
 # Datenbank nennt Apps, deren Dateien in keinem Archiv stehen.
 echo "--- Sicherungen ---"
 for art in postgres apps flows config; do
-  ZEILE=$(ssh -n "$HOST" "ls -1t ${REPO}/data/backups/${art} 2>/dev/null | grep -v latest | head -1" 2>/dev/null)
-  ANZ=$(ssh -n "$HOST" "ls -1 ${REPO}/data/backups/${art} 2>/dev/null | grep -v latest | wc -l" 2>/dev/null)
+  ZEILE=$(ssh -n "$HOST" "ls -1t ${BACKUP_DIR}/${art} 2>/dev/null | grep -v latest | head -1" 2>/dev/null)
+  ANZ=$(ssh -n "$HOST" "ls -1 ${BACKUP_DIR}/${art} 2>/dev/null | grep -v latest | wc -l" 2>/dev/null)
   printf '  %-9s %s\n' "$art" "${ZEILE:-(keine)}${ZEILE:+  (${ANZ// /} Stueck)}"
 done
 
 # Die Kopie AUSSERHALB des Geraets. Sie ist der einzige Teil der Sicherung, der
 # einen Plattenausfall ueberlebt -- und der einzige, den ein Mensch vergessen
 # kann (Stick abgezogen und nicht wieder angesteckt).
-EXTERN=$(ssh -n "$HOST" "cat ${REPO}/data/backups/extern_bericht.json 2>/dev/null" 2>/dev/null)
+EXTERN=$(ssh -n "$HOST" "cat ${BACKUP_DIR}/extern_bericht.json 2>/dev/null" 2>/dev/null)
 if [ -n "$EXTERN" ]; then
   echo "  ausserhalb: $(python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("zeitpunkt","?"), d.get("bytes",0), "Bytes,", d.get("dateien",0), "Dateien")' <<<"$EXTERN" 2>/dev/null)"
 else
@@ -210,7 +284,7 @@ fi
 # Der Wiederherstellungstest. Er laeuft woechentlich; steht hier nichts, ist
 # noch nie einer gelaufen -- und dann ist ueber die Sicherungen oben nichts
 # bewiesen ausser, dass es sie gibt.
-DRILL=$(ssh -n "$HOST" "cat ${REPO}/data/backups/restore_drill_report.json 2>/dev/null" 2>/dev/null)
+DRILL=$(ssh -n "$HOST" "cat ${BACKUP_DIR}/restore_drill_report.json 2>/dev/null" 2>/dev/null)
 if [ -n "$DRILL" ]; then
   echo "  Wiederherstellungstest: $(python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("status","?"), d.get("timestamp",""), "-", d.get("detail",""))' <<<"$DRILL" 2>/dev/null)"
 else
@@ -252,9 +326,9 @@ ROT=0
 if [ "$ROT" = "0" ]; then
   echo "  Nichts Rotes in diesem Zeitraum."
   if [ "$TAGE_AM_STUECK" -ge 7 ]; then
-    echo "  GRUEN fuer G7: sieben Tage am Stueck, ohne Eingriff."
+    echo "  GRUEN fuer A7: sieben Tage Arasul am Stueck, ohne Eingriff."
   else
-    echo "  NOCH NICHT GRUEN fuer G7: das Geraet laeuft erst ${TAGE_AM_STUECK} Tage am Stueck."
+    echo "  NOCH NICHT GRUEN fuer A7: Arasul laeuft erst ${TAGE_AM_STUECK} Tage am Stueck."
   fi
 fi
 exit "$ROT"
