@@ -66,6 +66,10 @@
  * Aufruf (SSH-Tunnel auf 8443 vorausgesetzt):
  *   ARASUL_PASSWORT=... node scripts/test/oberflaeche-abnahme.mjs
  *
+ * Umgebung: ARASUL_URL, ARASUL_BENUTZER, ARASUL_PASSWORT, ARASUL_TOKEN,
+ * ARASUL_TOKEN_DATEI, ARASUL_TAG -- und ARASUL_APP / ARASUL_FLOW, wenn die
+ * offene Freigabe von einer anderen App als der Beispielapp kommen soll.
+ *
  * Dreimal hintereinander, so wie die Phase gemessen wird:
  *   for i in 1 2 3; do ARASUL_PASSWORT=... \
  *     node scripts/test/oberflaeche-abnahme.mjs || break; done
@@ -89,6 +93,10 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
 const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
+/** Die App, an der die Mitarbeiter-Sicht gemessen wird. Leer = selbst suchen. */
+const WUNSCH_APP = process.env.ARASUL_APP || '';
+/** Der Flow, der eine offene Freigabe herstellt (C7). */
+const FLOW = process.env.ARASUL_FLOW || 'freigabe';
 /** Dieselbe Datei, die `scripts/test/anmeldung.sh` schreibt. */
 const TOKEN_DATEI =
   process.env.ARASUL_TOKEN_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-token');
@@ -583,12 +591,23 @@ try {
   }
   const adminApi = await apiKanal(admin.token);
 
-  // Eine App, die schon am Geraet steht. Ohne sie fallen zwei Zellen weg --
-  // gemeldet und nicht rot: das waere eine Aussage ueber den Messaufbau.
+  // Eine App, die schon am Geraet steht. Gesucht wird eine mit LIVESTAND:
+  // `POST /api/freigaben` gibt den Livestand frei, und der Rahmen zeigt nur,
+  // was auch freigegeben ist (`AppRahmen`). Eine App, die nur einen Teststand
+  // hat, ergaebe hier drei rote Zellen ueber den Messaufbau.
+  //
+  // Findet sich keine, fallen die Zellen weg -- gemeldet und nicht rot.
   const appsAntwort = await adminApi.get('/api/apps');
   const apps = appsAntwort.ok() ? ((await appsAntwort.json()).data ?? []) : [];
-  app = apps[0]?.id ?? '';
-  console.log(`gefunden  ${apps.length} App(s) am Geraet${app ? `, gemessen wird ${app}` : ''}`);
+  const mitLive = apps.filter(a => a.staende?.live);
+  // Die Beispielapp zuerst, wenn sie dasteht: ihr Flow `freigabe` haelt an
+  // einem festen Werkzeug-Schritt an und braucht das Modell nicht. Eine andere
+  // App kann denselben Flow tragen oder nicht -- dann wird die Station
+  // uebersprungen, und die uebrigen Zellen messen trotzdem.
+  app = WUNSCH_APP || mitLive.find(a => a.id === 'beispielapp')?.id || mitLive[0]?.id || '';
+  console.log(
+    `gefunden  ${apps.length} App(s) am Geraet${app ? `, gemessen wird ${app}` : ', keine mit Livestand'}`
+  );
 
   // Der Wegwerf-Mitarbeiter. Sein Passwort kommt vom Administrator und ist
   // damit ein STARTPASSWORT (Migration 178) -- das ist die Voraussetzung fuer
@@ -754,7 +773,7 @@ try {
   if (app && mitarbeiterToken) {
     const mApi = await apiKanal(mitarbeiterToken);
     const start = await mApi
-      .post(`/apps/${app}/api/flow?flow=freigabe&woche=Abnahme-D6`, {
+      .post(`/apps/${app}/api/flow?flow=${FLOW}&woche=Abnahme-D6`, {
         headers: { 'content-type': 'application/json' },
         data: {},
         timeout: 60000,
@@ -776,11 +795,11 @@ try {
     } else {
       ueberspringe(
         'Die Uebersicht mit einer offenen Freigabe',
-        `der Flow "freigabe" der App ${app} hat nicht angehalten`
+        `der Flow "${FLOW}" der App ${app} hat nicht angehalten`
       );
     }
   } else if (!app) {
-    ueberspringe('Die Uebersicht mit einer offenen Freigabe', 'keine App am Geraet');
+    ueberspringe('Die Uebersicht mit einer offenen Freigabe', 'keine App mit Livestand am Geraet');
   }
 
   // --- 7. Die Uebersicht, in drei Breiten ----------------------------------
@@ -846,7 +865,7 @@ try {
       });
     }
   } else {
-    ueberspringe('Die App im Rahmen', 'keine App am Geraet');
+    ueberspringe('Die App im Rahmen', 'keine App mit Livestand am Geraet');
   }
 
   // --- 9. Die Tastatur durch die Shell --------------------------------------
