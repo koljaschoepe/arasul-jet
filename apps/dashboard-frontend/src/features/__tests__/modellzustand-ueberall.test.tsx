@@ -14,10 +14,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { StoreModelsGrid } from '../store/StoreModelsGrid';
+import ModelleAnsicht from '../modelle/ModelleAnsicht';
 import { StatusBar } from '../workspace/StatusBar';
-import { useStoreFilterStore } from '@/stores/storeFilterStore';
-import { EMPTY_MODEL_FILTERS } from '../store/storeModelFilters';
 
 const get = vi.fn();
 const post = vi.fn();
@@ -129,19 +127,18 @@ describe('ein Zustand, ueberall gleich', () => {
     get.mockReset();
     post.mockReset();
     routen();
-    useStoreFilterStore.setState({ modelQuery: '', modelFilters: EMPTY_MODEL_FILTERS });
   });
 
-  it('Raster und Statusleiste nennen dasselbe bereite Modell', async () => {
+  it('Ansicht und Statusleiste nennen dasselbe bereite Modell', async () => {
     // waitFor statt findByTestId: das Element steht sofort da, sein Inhalt
     // kommt erst mit der Antwort auf /models/memory-budget. Ein findByTestId
     // waere hier gruen gewesen, ohne je den richtigen Satz gesehen zu haben.
-    const raster = huelle(<StoreModelsGrid />);
+    const ansicht = huelle(<ModelleAnsicht />);
     await waitFor(() =>
       // Bis zum 21.08.2026 stand hier „kein Modell geladen".
       expect(screen.getByTestId('modelle-zustand')).toHaveTextContent('Gemma 4 Kompakt, bereit')
     );
-    raster.unmount();
+    ansicht.unmount();
 
     const leiste = huelle(<StatusBar />);
     await waitFor(() =>
@@ -152,8 +149,8 @@ describe('ein Zustand, ueberall gleich', () => {
     leiste.unmount();
   });
 
-  it('das Raster sagt, warum das Modell aus dem Speicher ist', async () => {
-    huelle(<StoreModelsGrid />);
+  it('die Ansicht sagt, warum das Modell aus dem Speicher ist', async () => {
+    huelle(<ModelleAnsicht />);
     const grund = await screen.findByTestId('modelle-wechselgrund');
     expect(grund).toHaveTextContent(
       'Gemma 4 Kompakt wurde automatisch aus dem Speicher genommen, weil es eine Weile nicht gebraucht wurde.'
@@ -161,11 +158,11 @@ describe('ein Zustand, ueberall gleich', () => {
   });
 
   it('die KI-RAM-Zeile steht in beiden gleich', async () => {
-    const raster = huelle(<StoreModelsGrid />);
+    const ansicht = huelle(<ModelleAnsicht />);
     // Plan 023 D4: die Reserve steht jetzt mit da, und die Zeile geht auf.
     expect(
       await screen.findByText('0,0 von 32,0 GB belegt, 2,0 GB Reserve, frei 30,0 GB')
     ).toBeInTheDocument();
-    raster.unmount();
+    ansicht.unmount();
   });
 });

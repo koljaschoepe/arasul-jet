@@ -18,10 +18,8 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { StoreModelsGrid } from '../store/StoreModelsGrid';
+import ModelleAnsicht from '../modelle/ModelleAnsicht';
 import { StatusBar } from '../workspace/StatusBar';
-import { useStoreFilterStore } from '@/stores/storeFilterStore';
-import { EMPTY_MODEL_FILTERS } from '../store/storeModelFilters';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 
 /** Katalog-Eintrag mit gepflegtem Namen und einer rohen Kennung. */
@@ -133,7 +131,6 @@ describe('ein Modell heisst ueberall gleich', () => {
   beforeEach(() => {
     get.mockReset();
     post.mockReset();
-    useStoreFilterStore.setState({ modelQuery: '', modelFilters: EMPTY_MODEL_FILTERS });
   });
 
   it.each([
@@ -143,9 +140,9 @@ describe('ein Modell heisst ueberall gleich', () => {
     // Das Register ist die Quelle, an der die drei Flaechen gemessen werden.
     expect(modellAnzeigeName(modell)).toBe(erwartet);
 
-    // 1. Katalog
+    // 1. Die Modell-Ansicht
     apiRouten(null);
-    const katalogAnsicht = huelle(<StoreModelsGrid />);
+    const katalogAnsicht = huelle(<ModelleAnsicht />);
     expect(
       await screen.findByText(erwartet, { selector: 'span', exact: true })
     ).toBeInTheDocument();

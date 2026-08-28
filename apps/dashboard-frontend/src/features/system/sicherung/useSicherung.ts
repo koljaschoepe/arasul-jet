@@ -59,7 +59,7 @@ export interface Sicherungsdatei {
   zeitpunkt: string;
 }
 
-export interface Sicherungsliste {
+interface Sicherungsliste {
   dateien: Sicherungsdatei[];
   anzahl: number;
   bytes: number;
@@ -73,8 +73,8 @@ export interface LaufErgebnis {
   ausgabe?: string;
 }
 
-export const SICHERUNG_STATUS_KEY = ['backup', 'status'] as const;
-export const SICHERUNG_LISTE_KEY = ['backup', 'sicherungen'] as const;
+const SICHERUNG_STATUS_KEY = ['backup', 'status'] as const;
+const SICHERUNG_LISTE_KEY = ['backup', 'sicherungen'] as const;
 
 /**
  * So lange darf ein Lauf im Sicherungs-Container brauchen: dieselben 30

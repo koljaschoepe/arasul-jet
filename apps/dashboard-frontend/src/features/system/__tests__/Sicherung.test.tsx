@@ -11,6 +11,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Sicherung } from '../sicherung/Sicherung';
+import type { SicherungStatus } from '../sicherung/useSicherung';
 
 const apiMock = {
   get: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() };
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => toast }));
 
-const STATUS = {
+const STATUS: SicherungStatus = {
   sichertWirklich: true,
   letzteSicherung: {
     status: 'completed',
