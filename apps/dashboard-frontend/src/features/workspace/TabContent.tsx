@@ -177,9 +177,7 @@ export function TabContent({ themeControls }: TabContentProps) {
   if (mounted.length === 0) {
     return (
       <div className="p-ui-4">
-        <Meldung titel="Kein Tab geöffnet">
-          Wähle links eine Ansicht — oder unter 900 px im Menü.
-        </Meldung>
+        <Meldung titel="Kein Tab geöffnet">Wähle links eine Ansicht, unter 900 px im Menü.</Meldung>
       </div>
     );
   }

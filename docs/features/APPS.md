@@ -110,6 +110,29 @@ Namen, je nachdem wen man fragt.
   nebenbei sieben Gigabyte lädt, ist keine Installation mehr, sondern ein
   Abend.
 
+## Das Erscheinungsbild einer App (Phase D7)
+
+Eine App bringt ihr Aussehen **nicht mehr selbst mit**. Sie ist React-Code auf
+dem Designsystem des Geräts (`packages/marken/`): Schrift, Farben, Abstände und
+sechs Bausteine — Kopf, Liste, Karte, Formular, Meldung, Menü.
+
+Der Grund steht auf dem Bildschirm: die App läuft im Rahmen der Shell
+(`/apps/<id>/` im iframe), und der Mensch sieht beides als **ein** Ding. Zwei
+Erscheinungsbilder übereinander sind kein Geschmack, sondern ein Fehler.
+
+Zwei Wege, eine Quelle:
+
+| Die App hat…      | …und nimmt                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| einen Bauschritt  | die Quelle `packages/marken/src/` (das Ara-Kit spiegelt sie in die Vorlage aus E5) und schreibt JSX |
+| keinen Bauschritt | `marken.js` und `marken.css` neben `index.html`, und schreibt `h(Karte, {...})` statt JSX           |
+
+Ohne Bauschritt geht **kein JSX**: JSX braucht einen Übersetzer, und im Browser
+übersetzt einer nur mit `eval` — das verbietet die Content-Security-Policy
+dieses Geräts. `scripts/util/marken-beilegen.sh` legt die zwei Dateien beim
+Einspielen daneben; `tests/beispielapp/` zeigt beides an einem Beispiel, das
+läuft.
+
 ## Die Flows einer App (Phase C6)
 
 Bis C5 war `flows` eine Liste von Namen und damit eine **Forderung**: „diese

@@ -23,9 +23,9 @@ Drei Regeln, die ein Wächter hält:
    `bg-background`; `bg-card` ist erhabenen Elementen darauf vorbehalten
    (Karten, Popover, Dialoge, Eingabefelder, Tabellenköpfe). Der aktive Tab
    teilt die Flächenfarbe und hebt sich nur über die Schriftstärke ab.
-3. **Wiederkehrende Formen kommen aus dem Baustein-Set** (unten). Ein `h1`,
+3. **Wiederkehrende Formen kommen aus dem Designsystem** (unten). Ein `h1`,
    eine Feldgruppen-Trennlinie oder eine Tab-Leiste außerhalb von
-   `components/ui` meldet `scripts/test/bausteine.py`.
+   `components/ui` und `packages/marken` meldet `scripts/test/bausteine.py`.
 
 ## Stack
 
@@ -84,17 +84,46 @@ Bedeutung, die es nicht gibt.
 - Berührungsziele mindestens 44 px. Übergänge aus `--transition-fast/base/slow`
   (0,15/0,2/0,3 s), keine eigenen Zeiten.
 
+## Das Designsystem für alle Apps (`packages/marken/`)
+
+Seit **Phase D7** (28.08.2026) liegen Schrift, Farben, Abstände und sechs
+Bausteine in einer Bibliothek, die die Shell **und jede App** benutzt:
+
+| Baustein                      | Was er festlegt                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------- |
+| `Kopf`                        | Seitentitel als einziges `h1`, Symbol, Beschreibung, Aktionen                       |
+| `Liste` / `ListenEintrag`     | eine Reihe; ein Eintrag ist ein Knopf, sobald er etwas tut                          |
+| `Karte`                       | die erhabene Fläche für ein Ding, das für sich steht (`--card`)                     |
+| `Formular` / `Feld` / `Knopf` | ein echtes `form` (Eingabetaste sendet ab), Felder mit `label`                      |
+| `Meldung`                     | Hinweis, Erfolg, Warnung, Fehler — die Art steht auch im Text, nie nur in der Farbe |
+| `Menue`                       | die Fläche über der Seite hinter dem Hamburger-Knopf (unter 900 px)                 |
+
+**Kein neues Erscheinungsbild.** Die Werte sind die aus `index.css` (Thema
+»Schwarz«) und stehen als `var(--token-der-shell, <derselbe Wert>)`: in der
+Shell folgt die Bibliothek dem Thema, in einer App gilt der Rückfall.
+
+Zwei Wege hinein, eine Quelle: die Shell übersetzt `packages/marken/src/` über
+den Vite-Alias `@marken` mit (kein npm-Paket, kein Lockfile-Eintrag); eine App
+ohne Bauschritt lädt `packages/marken/browser/marken.js`, in dem React
+mitliegt (`scripts/util/marken-beilegen.sh` legt es beim Einspielen daneben).
+`scripts/test/marken.py` hält Quelle und Bündel aneinander. Einzelheiten:
+[`packages/marken/README.md`](../../packages/marken/README.md).
+
+**Warum es das gibt:** bis D6 hatte Arasul seine Oberfläche und jede App ihre
+eigene. Der Mensch sieht beides in **einem** Rahmen übereinander — zwei
+Erscheinungsbilder auf einem Bildschirm sind kein Geschmack, sondern ein
+Fehler.
+
 ## Das gemeinsame Baustein-Set (`components/ui/`)
 
-| Baustein                  | Was er festlegt                                                                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `Kopf` (`@marken`)        | Seitentitel als einziges `h1`, optionales Symbol, Beschreibung, Aktionen — seit D7 aus dem Designsystem, das Shell und Apps teilen |
-| `FilterBar`               | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`) mit eigener Inhaltsfläche                                                            |
-| `StatTile` / `StatGrid`   | Kennzahl ohne Symbol; Raster fest 1/2/4 Spalten, nie drei plus eins                                                                |
-| `Chart` / `Sparkline`     | recharts-Linien in Serienfarben, ohne eigene Karte                                                                                 |
-| `Section` / `SectionList` | Feldgruppe mit `h2`; die Liste setzt die Trennlinien zwischen, nicht an Abschnitte                                                 |
-| `EmptyState`              | leere Liste mit Titel und Einstieg                                                                                                 |
-| `AuthCard`                | Rahmen der Seiten vor der Anmeldung; das einzige `h1`, das kein Seitentitel ist                                                    |
+| Baustein                  | Was er festlegt                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| `FilterBar`               | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`) mit eigener Inhaltsfläche            |
+| `StatTile` / `StatGrid`   | Kennzahl ohne Symbol; Raster fest 1/2/4 Spalten, nie drei plus eins                |
+| `Chart` / `Sparkline`     | recharts-Linien in Serienfarben, ohne eigene Karte                                 |
+| `Section` / `SectionList` | Feldgruppe mit `h2`; die Liste setzt die Trennlinien zwischen, nicht an Abschnitte |
+| `EmptyState`              | leere Liste mit Titel und Einstieg                                                 |
+| `AuthCard`                | Rahmen der Seiten vor der Anmeldung; das einzige `h1`, das kein Seitentitel ist    |
 
 Eine neue Seite baut auf diesen Bausteinen auf, statt die Klassenkette zu
 kopieren. Ausnahmen stehen mit Grund in `AUSNAHMEN` von `bausteine.py`; ein
@@ -102,23 +131,29 @@ Eintrag ohne Grund ist keiner.
 
 ## Die Shell
 
-Dreispaltig: links Apps, Mitte Übersicht oder App, rechts Notizen (Beschluss 10
-vom 26.08.2026, gebaut in Phase D1). Die ActivityBar ganz links ist immer
-sichtbar, Sidebar und rechte Spalte lassen sich einzeln ein- und ausblenden.
-Unter 900 px Fensterbreite gibt es keine drei Spalten (`useSchmalesFenster`);
-die ActivityBar bleibt, sie ist einen Klick entfernt.
+**Ab 900 px dreispaltig**: links Apps, Mitte Übersicht oder App, rechts
+Notizen (Beschluss 10 vom 26.08.2026, gebaut in Phase D1). Die ActivityBar
+ganz links ist dort immer sichtbar, Sidebar und rechte Spalte lassen sich
+einzeln ein- und ausblenden.
 
-**Unter 900 px stehen Notizen und Mitte nie nebeneinander** (Phase D6,
-28.08.2026). Zwei Flächen nebeneinander, von denen eine ihre Mindestbreite
-nicht bekommt, sind eine Fläche zu viel: bei 390 px sind 48 px für die
-ActivityBar, 160 px für die Sidebar und 220 px für die Notizen mehr, als da
-ist, und die Mitte bekam null. Am Orin gemessen zeigten daraufhin alle sieben
-Verwaltungsansichten die Notizen statt der Ansicht. Die Regel ist deshalb
-keine Zahl, sondern eine Reihenfolge: die Notizen liegen dort als **Blatt**
-über der Mitte, sie fangen **zu** an, und jede Ansicht, die kommt, schließt
-sie. Dasselbe gilt für die Statusleiste: bei 390 px bleibt sie **eine Zeile**
-und lässt weg, was in den Popover daneben gehört (die Fassung) oder als Zahl
-neben einem Symbol genügt (die offenen Freigaben).
+**Darunter ein eigener Aufbau, kein geschrumpfter Desktop** (Phase D7,
+28.08.2026): ein **Hamburger-Menü** in der Kopfleiste — daneben der Name
+dessen, was gerade dasteht —, **eine Spalte** darunter, und die Notizen sind
+dort eine eigene **Ansicht**. Keine ActivityBar, keine Sidebar, keine
+Tab-Leiste; das Menü führt Übersicht, die eigenen Apps, die Notizen und (für
+den Administrator) Modelle und Einstellungen, und jeder Eintrag ist ein Ziel.
+
+**Es liegt nichts übereinander.** Der Weg dahin steht in zwei Messungen am
+Orin. Zuerst bekam die Mitte bei 390 px null Pixel — 48 für die ActivityBar,
+160 für die Sidebar und 220 für die Notizen sind mehr, als da ist —, und alle
+sieben Verwaltungsansichten zeigten die Notizen statt der Ansicht (D6). Die
+Antwort darauf war ein **Blatt** über der Mitte; die zweite Messung zeigte,
+dass das die halbe war: die App stand abgedunkelt dahinter, und was darunter
+lag, war für niemanden anklickbar. Seit D7 steht in der einen Spalte deshalb
+entweder die Ansicht oder der Zettel — nie beides. Dasselbe Prinzip gilt für
+die Statusleiste: bei 390 px bleibt sie **eine Zeile** und lässt weg, was in
+den Popover daneben gehört (die Fassung) oder als Zahl neben einem Symbol
+genügt (die offenen Freigaben).
 
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
 Apps, die Übersicht, die Notizen und sein Konto; die Verwaltung (Modelle,
