@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
@@ -19,6 +19,7 @@ import { ToastProvider, useToast } from './contexts/ToastContext';
 
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
+import { lazyNachladen } from './utils/lazyNachladen';
 import './index.css';
 
 // Einstellungen und Store werden nicht mehr hier geladen, sondern
@@ -26,7 +27,12 @@ import './index.css';
 // entfernt ist (Plan 023 B1).
 
 // IDE-Workspace-Shell (Feature-Flag `workspace-shell`, Plan ide-workspace-shell)
-const WorkspaceShell = lazy(() => import('./features/workspace'));
+//
+// `lazyNachladen` und nicht `lazy` (D6): dieses Buendel wird genau EINMAL
+// geholt, naemlich in dem Augenblick, in dem die Anmeldung durch ist. Geht die
+// eine Anfrage daneben, sieht der Mensch nach richtigem Passwort eine
+// Fehlerseite. Ein zweiter Versuch kostet eine halbe Sekunde.
+const WorkspaceShell = lazyNachladen(() => import('./features/workspace'));
 
 /**
  * Main App Component
