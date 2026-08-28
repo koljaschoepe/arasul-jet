@@ -199,4 +199,41 @@ describe('MitarbeiterSettings', () => {
 
     await waitFor(() => expect(apiMock.del).toHaveBeenCalledWith('/freigaben/urlaubsantrag/7'));
   });
+  /**
+   * Phase D5, Fund der D4-Abnahme: bei 390 px stand die Verwaltung nicht. Die
+   * Tabelle mit ihren sechs Spalten weicht dort einer Liste, und die Matrix
+   * wird zu einer Gruppe je App. Dieselben Kennungen, dieselben Wege, nur
+   * untereinander.
+   */
+  it('steht am Telefon als Liste, nicht als Tabelle', async () => {
+    const echt = window.matchMedia;
+    window.matchMedia = ((abfrage: string) =>
+      ({
+        matches: true,
+        media: abfrage,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    try {
+      antworte();
+      render(<MitarbeiterSettings />, { wrapper: huelle() });
+
+      const liste = await screen.findByTestId('mitarbeiter-liste');
+      expect(liste.tagName).toBe('UL');
+      expect(screen.getByTestId('mitarbeiter-mia')).toBeInTheDocument();
+      expect(screen.getByTestId('startpasswort-mia')).toBeInTheDocument();
+      expect(screen.getByTestId('loeschen-mia')).toBeInTheDocument();
+
+      // Die Matrix steht als Gruppe je App, und die Zelle heisst weiter gleich.
+      const matrix = await screen.findByTestId('freigabe-matrix');
+      expect(matrix.querySelector('table')).toBeNull();
+      expect(screen.getByTestId('freigabe-urlaubsantrag-mia')).toBeInTheDocument();
+    } finally {
+      window.matchMedia = echt;
+    }
+  });
 });

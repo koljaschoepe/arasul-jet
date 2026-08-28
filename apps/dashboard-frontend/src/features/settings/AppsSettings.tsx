@@ -34,18 +34,20 @@ function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => voi
       type="button"
       onClick={onOeffnen}
       data-testid={`app-oeffnen-${app.id}`}
-      className="flex w-full items-center gap-3 border-b border-border p-ui-3 text-left transition-colors last:border-b-0 hover:bg-accent/40"
+      className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-border p-ui-3 text-left transition-colors last:border-b-0 hover:bg-accent/40"
     >
       <AppWindow className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-[1_1_10rem]">
         <span className="block text-sm font-medium text-foreground">{app.name}</span>
         <span className="block truncate text-xs text-muted-foreground">
           {app.beschreibung || app.id}
         </span>
       </span>
       {/* Beide Fassungen nebeneinander: die Frage vor dem Klick lautet fast
-          immer „steht im Test etwas Neues". */}
-      <span className="flex shrink-0 items-center gap-1.5 text-ui-xs">
+          immer „steht im Test etwas Neues". Bei 390 px rutschen sie unter den
+          Namen, statt die Zeile breiter zu machen als die Spalte (Phase D5,
+          Fund der D4-Abnahme). */}
+      <span className="flex shrink-0 flex-wrap items-center gap-1.5 text-ui-xs">
         {app.staende.live ? (
           <span className="rounded bg-accent px-1.5 py-0.5 font-mono text-foreground">
             live {app.staende.live.version}
