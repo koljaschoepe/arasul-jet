@@ -335,7 +335,9 @@ detect_hardware() {
         DEFAULT_LLM_MODEL=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^LLM_MODEL=" | cut -d= -f2 || true)
         RECOMMENDED_MODELS_STR=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^RECOMMENDED_MODELS=" | cut -d= -f2 | tr -d '"' || true)
     fi
-    DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-gemma4:e4b-q4}"
+    # Rueckfall aus der Kurzliste (config/modelle/kurzliste.json), nicht
+    # `gemma4:e4b-q4` -- diese Kennung gibt es dort nicht.
+    DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-gemma4:e4b}"
     RECOMMENDED_MODELS_STR="${RECOMMENDED_MODELS_STR:-gemma4:e4b-q4,mistral:7b}"
 }
 
@@ -411,7 +413,15 @@ main() {
         echo -e "  ${DIM}Passwort kann spaeter im Dashboard geaendert werden.${NC}"
     fi
 
-    # bcrypt-Hash generieren
+    # bcrypt-Hash generieren.
+    #
+    # Er landet in der `.env` in EINFACHEN Anfuehrungszeichen, und das ist
+    # keine Kosmetik: ein bcrypt-Hash sieht aus wie `$2y$10$dvbE0IB…`, und
+    # docker compose loest beim Lesen der `.env` `$dvbE0IB` als Variable auf.
+    # Am 28.08.2026 am Orin gemessen: "The dvbE0IB… variable is not set.
+    # Defaulting to a blank string." bei JEDEM `docker compose`-Aufruf des
+    # Bootstraps. Einfache Anfuehrungszeichen schalten diese Aufloesung ab;
+    # wer den Wert wieder liest, streicht sie (`env_wert` im Skript `arasul`).
     echo -n -e "  ${DIM}Generiere Passwort-Hash...${NC}"
     ADMIN_HASH=$(generate_bcrypt_hash "$ADMIN_PASSWORD")
     echo -e "\r  ${GREEN}✓${NC} Passwort-Hash generiert       "
@@ -601,7 +611,7 @@ NODE_ENV=production
 ADMIN_USERNAME=${ADMIN_USERNAME}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 ADMIN_EMAIL=${ADMIN_EMAIL}
-ADMIN_HASH=${ADMIN_HASH}
+ADMIN_HASH='${ADMIN_HASH}'
 
 # --- Sicherheit (automatisch generiert) ---
 JWT_SECRET=${JWT_SECRET}

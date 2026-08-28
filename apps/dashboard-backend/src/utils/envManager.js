@@ -42,6 +42,31 @@ async function readEnvFile() {
 }
 
 /**
+ * Einen Wert so schreiben, dass docker compose ihn nicht als Variable liest.
+ *
+ * Ein bcrypt-Hash sieht aus wie `$2y$10$dvbE0IB...`. docker compose loest
+ * beim Lesen der `.env` `$dvbE0IB` auf und warnt bei jedem Aufruf "The
+ * dvbE0IB... variable is not set" (am 28.08.2026 am Orin im Bootstrap
+ * gemessen). Einfache Anfuehrungszeichen schalten die Aufloesung ab --
+ * dieselbe Form, die `scripts/interactive_setup.sh` beim ersten Schreiben der
+ * Datei nutzt. Wer den Wert wieder liest, streicht sie (`env_wert` im Skript
+ * `arasul`).
+ *
+ * Nur Werte mit `$` werden eingefasst: eine Datei, in der jede Zeile
+ * Anfuehrungszeichen traegt, liest sich schlechter und aendert mehr, als sie
+ * muss. Ein einfaches Anfuehrungszeichen IM Wert kann es nicht geben -- der
+ * einzige Wert mit `$` ist ein bcrypt-Hash, und dessen Alphabet ist
+ * `./A-Za-z0-9$`.
+ */
+function fasseWert(value) {
+  const text = String(value);
+  if (!text.includes('$') || /^['"].*['"]$/.test(text)) {
+    return text;
+  }
+  return `'${text.replace(/'/g, '')}'`;
+}
+
+/**
  * Einen Schluessel im Inhalt setzen, ueberall.
  *
  * Ein Schluessel kann mehrfach in der Datei stehen. Am 19.08.2026 auf dem
@@ -57,12 +82,16 @@ function setzeSchluessel(content, key, value) {
   // BH11 FIX: Escape regex special characters in key to prevent injection
   const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`^${escapedKey}=.*$`, 'gm');
+  const zeile = `${key}=${fasseWert(value)}`;
 
   if (pattern.test(content)) {
     pattern.lastIndex = 0;
-    return content.replace(pattern, `${key}=${value}`);
+    // Ersetzung als FUNKTION, nicht als Zeichenkette: in einer
+    // Ersetzungszeichenkette haette JavaScript `$&` und `$'` aus einem
+    // bcrypt-Hash als Rueckverweise gelesen und den Hash dabei verstuemmelt.
+    return content.replace(pattern, () => zeile);
   }
-  return `${content}\n${key}=${value}\n`;
+  return `${content}\n${zeile}\n`;
 }
 
 /**
