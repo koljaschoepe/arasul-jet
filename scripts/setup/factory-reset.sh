@@ -20,11 +20,14 @@
 #      er ist eine zweite Installation, die von der ersten abweicht.
 #
 #   2. EIN WERKSRESET RAEUMT ALLES EIGENE WEG, auch was `docker compose down`
-#      nicht kennt: die App-Container `arasul-app-<id>-<stand>` samt ihrer am
-#      Geraet gebauten Images (Etikett `arasul.app`), und JEDES Volume dieses
-#      Geraets -- auch die aus frueheren Projektnamen, die `down -v` nicht
-#      anfasst. Genau die blieben am Orin stehen und trugen die Datenbank des
-#      vorigen Kunden in die naechste Installation.
+#      nicht kennt: JEDEN Container, dessen Name mit `arasul-` beginnt oder der
+#      ein Etikett `arasul.*` traegt -- die App-Container
+#      `arasul-app-<id>-<stand>` ebenso wie die zehn `arasul-sandbox-*` aus
+#      Zeiten, in denen es diese Dienste noch gab --, die am Geraet gebauten
+#      App-Images (Etikett `arasul.app`), und JEDES Volume dieses Geraets, auch
+#      die aus frueheren Projektnamen, die `down -v` nicht anfasst. Genau die
+#      blieben am Orin stehen und trugen die Datenbank des vorigen Kunden in
+#      die naechste Installation.
 #
 # Was bleibt: die KI-Modelle. Sie sind Gigabytes, sie enthalten keine
 # Kundendaten, und sie ueber eine Mobilfunkverbindung neu zu ziehen ist die
@@ -65,7 +68,8 @@ echo "============================================"
 echo -e "${AUS}"
 echo "  Dies loescht ALLE Kundendaten:"
 echo "    - Datenbank (Flows, Laeufe, Benutzer, Einstellungen)"
-echo "    - Apps: Dateien, Container und die am Geraet gebauten Images"
+echo "    - Alle Container dieses Geraets (Name arasul-*, Etikett arasul.*)"
+echo "    - Apps: Dateien und die am Geraet gebauten Images"
 echo "    - Konfiguration (.env, Geraete-CA und Zertifikate, SSH-Keys)"
 echo "    - Logs und Cache"
 echo ""
@@ -131,20 +135,36 @@ echo -e "\n${FETT}[2/6]${AUS} Halte die Plattform an..."
 docker compose down -v --remove-orphans 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
-# 3. Apps: Container und die am Geraet gebauten Images
+# 3. Jeder Container dieses Geraets, und die am Geraet gebauten App-Images
 # -----------------------------------------------------------------------------
-# `docker compose` kennt sie nicht: eine App-Instanz startet das Backend
-# einzeln ueber den Docker-Proxy (appContainer.js), sie steht in keiner
-# Compose-Datei und ueberlebt jedes `down --remove-orphans`. Am Orin liefen
-# nach dem Reset die `arasul-app-*` des vorigen Kunden weiter.
-echo -e "\n${FETT}[3/6]${AUS} Entferne App-Container und App-Images..."
-APP_CONTAINER=$(docker ps -aq --filter 'name=^arasul-app-' 2>/dev/null || true)
-if [ -n "$APP_CONTAINER" ]; then
+# `docker compose down` kennt nur, was gerade in den Compose-Dateien steht.
+# Alles andere bleibt stehen, und "alles andere" war am 28.08.2026 am Orin eine
+# lange Liste: zehn `arasul-sandbox-*` und ein `arasul-skills-sandbox` aus
+# Zeiten, in denen es diese Dienste noch gab, dazu die `arasul-app-*` des
+# vorigen Kunden -- eine App-Instanz startet das Backend einzeln ueber den
+# Docker-Proxy (`appContainer.js`), sie steht in keiner Compose-Datei und
+# ueberlebt jedes `down --remove-orphans`.
+#
+# Gemessen wird deshalb an zwei Merkmalen, die ein Container dieses Geraets
+# traegt und ein fremder nicht: der NAME beginnt mit `arasul-`, oder ein
+# ETIKETT beginnt mit `arasul.` (`arasul.app` vergibt `baueImage` seit C6).
+# Was weder das eine noch das andere hat, bleibt stehen -- ein Werksreset
+# raeumt sein eigenes Geraet auf, nicht den Rechner eines Fremden.
+echo -e "\n${FETT}[3/6]${AUS} Entferne die Container dieses Geraets und die App-Images..."
+eigene_container() {
+  # Ein Aufruf statt eines `docker inspect` je Container: `{{.Labels}}` gibt
+  # `schluessel=wert,schluessel=wert`, und ein Etikett `arasul.app` steht damit
+  # entweder am Anfang oder hinter einem Komma.
+  docker ps -a --format '{{.ID}}|{{.Names}}|{{.Labels}}' 2>/dev/null |
+    awk -F'|' '$2 ~ /^arasul-/ || $3 ~ /(^|,)arasul\./ { print $1 }' || true
+}
+EIGENE=$(eigene_container)
+if [ -n "$EIGENE" ]; then
   # shellcheck disable=SC2086
-  docker rm -f $APP_CONTAINER >/dev/null 2>&1 || true
-  echo -e "  ${GRUEN}$(wc -w <<<"$APP_CONTAINER" | tr -d ' ') App-Container entfernt${AUS}"
+  docker rm -f $EIGENE >/dev/null 2>&1 || true
+  echo -e "  ${GRUEN}$(wc -w <<<"$EIGENE" | tr -d ' ') Container entfernt (Name arasul-* oder Etikett arasul.*)${AUS}"
 else
-  echo "  Keine App-Container vorhanden"
+  echo "  Keine Container mit Name arasul-* oder Etikett arasul.* vorhanden"
 fi
 
 # Das Etikett vergibt `baueImage` seit C6 an jedes am Geraet gebaute App-Image.
