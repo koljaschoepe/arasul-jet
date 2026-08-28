@@ -537,8 +537,15 @@ jobs:
           rechte=$(stat -c '%a' .env)
           [ "$rechte" = "600" ] || { echo ".env hat Rechte $rechte statt 600." >&2; exit 1; }
 
-      # Genau der Aufruf, an dem der Bootstrap am 28.08.2026 auf jedem frischen
-      # Geraet abbrach: er suchte `scripts/docker-compose.yml`.
+      # Beide Validatoren, die `./arasul bootstrap` aufruft und bei deren
+      # Fehlschlag er mit exit 1 abbricht (arasul, Schritt 5). Bis zum
+      # 28.08.2026 hat sie nie jemand gegen eine frisch erzeugte `.env`
+      # laufen lassen -- der eine suchte seine Compose-Datei im falschen
+      # Verzeichnis, und das fiel erst am Geraet auf.
+      - name: Der Konfigurations-Validator ist mit der frischen .env zufrieden
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: bash scripts/validate/validate-config.sh
+
       - name: Der Abhaengigkeits-Validator findet seine Compose-Datei
         working-directory: ${{ steps.auspacken.outputs.wurzel }}
         run: bash scripts/validate/validate-dependencies.sh
