@@ -27,11 +27,11 @@ Tag `v1.2.0` im Jet-Repo
 `release.yml` prüft den Tag, **bevor** es baut
 (`scripts/deploy/tag-pruefen.sh`). Drei Regeln:
 
-| Regel                                             | Warum                                                                       |
-| ------------------------------------------------- | --------------------------------------------------------------------------- |
-| Der Tag-Commit ist Vorfahre von `origin/main`      | Ein Tag auf einem nie gemergten Zweig liefert ungeprüften Code aus.          |
-| Er ist Nachfahre des vorigen Tags                  | Sonst nimmt die höhere Nummer zurück, was die niedrigere schon hatte.       |
-| Er ist die **Spitze** von `origin/main`            | Sonst fährt der Kunde mit einem Stand los, der im Repo längst überholt ist. |
+| Regel                                         | Warum                                                                       |
+| --------------------------------------------- | --------------------------------------------------------------------------- |
+| Der Tag-Commit ist Vorfahre von `origin/main` | Ein Tag auf einem nie gemergten Zweig liefert ungeprüften Code aus.         |
+| Er ist Nachfahre des vorigen Tags             | Sonst nimmt die höhere Nummer zurück, was die niedrigere schon hatte.       |
+| Er ist die **Spitze** von `origin/main`       | Sonst fährt der Kunde mit einem Stand los, der im Repo längst überholt ist. |
 
 Die dritte Regel hat es gebraucht. Am 28.08.2026 installierte das Ara-Kit
 v0.3.0 auf den Orin, und was ankam, war der Stand vom Vormittag: Phase D4, wo
@@ -51,7 +51,7 @@ suchte den Fehler an der falschen Stelle. Deshalb misst die Sperre an der
 Vorgeschichte und nie am Text.
 
 **Ein Nachtrag auf einen älteren Punkt bleibt erlaubt**, aber nicht aus
-Versehen. Dafür braucht es einen *annotierten* Tag mit einer Zeile
+Versehen. Dafür braucht es einen _annotierten_ Tag mit einer Zeile
 `Nachtrag: <Grund>`:
 
 ```bash
@@ -126,6 +126,88 @@ Der Deploy startet danach `dashboard-backend` neu, und nur den. Die Fassung
 wechselt bei jedem Deploy (sie trägt den SHA); den ganzen Stapel deswegen
 durchzusehen, hätte dieses Repo schon einmal elf Deploys in 66 Minuten
 gekostet.
+
+## Das Artefakt installiert. Es aktualisiert **nicht**.
+
+> Gemessen am 28.08.2026 am Orin, beim Update von 0.3.0 auf 0.4.0
+> (Auftrag `release-v040`). Das ist eine offene Lücke, keine Anleitung.
+
+Es gibt derzeit **keinen Weg, auf dem ein Kunde von einer Fassung auf die
+nächste kommt.** Wer das wissen muss, bevor er einem Kunden ein Update
+verspricht:
+
+- **`install.sh` kennt nur sein eigenes Verzeichnis.** Findet es dort keine
+  `.env`, erzeugt `interactive_setup.sh` bedingungslos neue Geheimnisse. Am
+  Orin nachgerechnet (sha256, gekürzt): `POSTGRES_PASSWORD` alt `4b5ff99ff49e`
+  gegen frisch `7a8ecc928624`, `JWT_SECRET` alt `abf318256610` gegen frisch
+  `6f3b8c582d82`.
+- **Der Projektname steht fest** (`name: arasul-platform` in
+  `docker-compose.yml`). Ein zweites Verzeichnis übernimmt deshalb _dieselben_
+  Volumes — `arasul-platform_arasul-postgres` mit der alten Datenbank — und
+  fährt sie mit dem neuen Passwort an. Postgres beachtet `POSTGRES_PASSWORD`
+  nur beim ersten Anlegen. Das Backend käme an seine eigene Datenbank nicht
+  mehr heran.
+- **Im Installationsverzeichnis liegt Zustand**, den das Artefakt nicht kennt
+  und nicht mitbringt (aus den Bind-Mounts der laufenden Container gelesen):
+
+  | Was                                                           | Warum es weh tut, wenn es fehlt                                                     |
+  | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+  | `config/secrets/`                                             | alle Geheimnisse, `admin.hash`, `erstausgabe.txt`                                   |
+  | `config/traefik/certs/`                                       | die Geräte-CA. Eine neue heißt: jeder Admin bekommt wieder eine Zertifikatswarnung. |
+  | `data/apps/`                                                  | die App-Dateien. Fehlen sie, ist es die App-Leiche (`503 APP_DATEIEN_FEHLEN`).      |
+  | `data/flows`, `data/backups`, `data/ssh-keys`, `data/updates` | Läufe, Sicherungen, Schlüssel                                                       |
+  | `logs/`                                                       | die Vorgeschichte des Geräts                                                        |
+
+  Eine Installation daneben behält also die Datenbank (Volume) und wirft alles
+  andere weg — eine **halbe Migration**, schlimmer als beides Ganze.
+
+- **Die systemd-Unit zeigt auf das Verzeichnis.**
+  `arasul-platform.service` trägt `WorkingDirectory=…/arasul-<Fassung>`. Wer
+  den Stapel von Hand umhängt und die Unit vergisst, hat nach dem nächsten
+  Stromausfall wieder den alten Stand. `install.sh` schreibt sie mit,
+  `./arasul update` nicht.
+- **`./arasul update` ist kein Update.** Es baut nur den lokalen Baum neu
+  (`docker compose pull|build|up`) und holt keinen neuen Stand.
+  `updateService.wegPruefen()` sagt über den Weg in der Oberfläche selbst, dass
+  er an diesem Gerät nicht geht (kein `docker`-Programm im Backend-Container).
+
+### Wie der Orin trotzdem auf 0.4.0 kam
+
+Das ist die Liste dessen, was ein Update-Weg tun müsste — von Hand
+ausgeführt, nicht als Anleitung für Kunden gedacht:
+
+```bash
+# 1. Artefakt holen und die Prüfsumme prüfen, dann auspacken
+curl -sSLO https://github.com/…/releases/download/v0.4.0/arasul-0.4.0.tar.gz
+sha256sum -c arasul-0.4.0.tar.gz.sha256
+tar xzf arasul-0.4.0.tar.gz -C /home/arasul
+
+# 2. Den Zustand hinübertragen, den das Artefakt nicht mitbringt
+A=/home/arasul/arasul-0.3.0; N=/home/arasul/arasul-0.4.0
+cp -a "$A/.env" "$N/.env"
+cp -a "$A/config/secrets/."     "$N/config/secrets/"
+cp -a "$A/config/traefik/certs" "$N/config/traefik/"
+cp -a "$A/data" "$N/data"; cp -a "$A/logs" "$N/logs"
+
+# 3. Bilder bauen, SOLANGE DER ALTE STAPEL NOCH LÄUFT
+cd "$N" && docker compose build
+
+# 4. Erst jetzt umschalten: install.sh sieht die .env vor, lässt sie stehen,
+#    setzt SYSTEM_VERSION, hängt die systemd-Unit um, übergibt an den Bootstrap
+./install.sh
+```
+
+Schritt 3 ist kein Beiwerk: ein Baufehler nach dem Abschalten lässt das Gerät
+unten. So gebaut lief der Wechsel am Orin in rund zwei Minuten Ausfall, acht
+Images in 90 Sekunden.
+
+Zwei Dinge, die dabei auffielen und in einen echten Update-Weg gehören:
+`docker compose` legt nur neu an, was sich geändert hat — `docker-proxy` lief
+danach als einziger Container noch mit `working_dir` des **alten**
+Verzeichnisses weiter (und hielt damit die A7-Uhr auf dem alten Stand), bis ein
+`--force-recreate` darauf folgte. Und der Bootstrap meldet auf einem Gerät mit
+bestehender `.env` `ADMIN_PASSWORD nicht verfügbar` — harmlos, der
+Administrator ist längst angelegt, aber es steht als Fehler im Bericht.
 
 ## Die Adresse des Artefakts
 
@@ -278,11 +360,11 @@ ARASUL_PASSWORT=... bash scripts/test/auslieferung-abnahme.sh
 
 Drei Stufen, und jede misst etwas, das die anderen nicht sehen:
 
-| Wo                        | Was                                                                                                                                                                                                                                                                              |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Wo                        | Was                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CI, Job `Installation`    | Baut das Artefakt, packt es aus und startet `./install.sh --nur-vorbereiten` darin. Danach: `.env` da und mit 600, `SYSTEM_VERSION` aus dem Bau, `validate-dependencies.sh` findet seine Compose-Datei, `docker compose config` schweigt, `erstausgabe.sh` nennt beide Geheimnisse und legt `config/secrets/erstausgabe.txt` mit 600 an, `bootstrap-abnahme.sh --trocken` grün. |
-| `bootstrap-abnahme.sh`    | Am Gerät nach dem Reset: laufen alle Dienste bis `document-indexer` und `self-healing-agent`, gibt es einen gültigen Kit-Schlüssel, antwortet `/api/health`, sind die App-Container von vorher weg.                                                                              |
-| `auslieferung-abnahme.sh` | Über die Schnittstelle: Fassung, CA-Zertifikat, Namen im Zertifikat, TLS ohne SNI, Kit-Schlüssel.                                                                                                                                                                                |
+| `bootstrap-abnahme.sh`    | Am Gerät nach dem Reset: laufen alle Dienste bis `document-indexer` und `self-healing-agent`, gibt es einen gültigen Kit-Schlüssel, antwortet `/api/health`, sind die App-Container von vorher weg.                                                                                                                                                                             |
+| `auslieferung-abnahme.sh` | Über die Schnittstelle: Fassung, CA-Zertifikat, Namen im Zertifikat, TLS ohne SNI, Kit-Schlüssel.                                                                                                                                                                                                                                                                               |
 
 Warum es den CI-Job gibt: bis zum 28.08.2026 prüfte die Auslieferung nur, ob
 die Dateien **im** Artefakt liegen. Ausgeführt wurde es nie. Von den fünf
