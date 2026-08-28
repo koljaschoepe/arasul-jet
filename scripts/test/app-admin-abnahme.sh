@@ -171,13 +171,23 @@ pruefe "Die App $APP hat einen Livestand" \
   "$([ -n "$LIVE_VERSION" ] && echo ja || echo nein)" "${LIVE_VERSION:-keiner}"
 [ -z "$LIVE_VERSION" ] && { echo; echo "Ohne Livestand laesst sich kein Flow starten."; exit 1; }
 
+# ZWEI ANGABEN, ZWEI FRAGEN, und sie hangen nicht aneinander: ob es den Flow
+# gibt, und womit er laeuft. Ein Flow ohne `modell:` im Frontmatter ist der
+# Normalfall -- dann gilt das Standardmodell des Geraets, und `modell` ist
+# `null`. Wer beides in einer Zeile prueft, meldet genau diesen Normalfall rot.
+# Das Modell steht deshalb als JSON da (`null` oder `"name"`), damit der
+# Vergleich am Ende beide Faelle trifft.
 ruf GET "/api/apps/$APP/flows" "$TOK"
+FLOW_DA=$(python3 -c 'import sys,json
+d=json.load(sys.stdin)["data"]["live"]
+print("ja" if any(x["name"]==sys.argv[1] for x in d) else "nein")' "$FLOW" < "$RUMPF" 2>/dev/null)
 PAKET_MODELL=$(python3 -c 'import sys,json
 d=json.load(sys.stdin)["data"]["live"]
 f=next((x for x in d if x["name"]==sys.argv[1]), None)
-print(f["modell"] if f else "")' "$FLOW" < "$RUMPF" 2>/dev/null)
-pruefe "Ihr Flow '$FLOW' ist im Livestand registriert" \
-  "$([ -n "$PAKET_MODELL" ] && echo ja || echo nein)" "Modell ${PAKET_MODELL:-keins}"
+print(json.dumps(f["modell"]) if f else "null")' "$FLOW" < "$RUMPF" 2>/dev/null)
+pruefe "Ihr Flow '$FLOW' ist im Livestand registriert" "${FLOW_DA:-nein}" \
+  "Modell aus dem Paket: $PAKET_MODELL"
+[ "$FLOW_DA" != "ja" ] && { echo; echo "Ohne den Flow gibt es nichts zu starten."; exit 1; }
 
 # Ein zweites Modell aus der Kurzliste, auf das umgestellt werden kann. Es muss
 # INSTALLIERT sein: ein Flow auf ein Modell zu stellen, das nicht am Geraet
@@ -185,7 +195,7 @@ pruefe "Ihr Flow '$FLOW' ist im Livestand registriert" \
 ruf GET "/api/models/catalog" "$TOK"
 ANDERES=$(python3 -c 'import sys,json
 d=json.load(sys.stdin).get("models",[])
-aktuell=sys.argv[1]
+aktuell=json.loads(sys.argv[1])
 for m in d:
     if m.get("install_status")=="available" and m["id"]!=aktuell and (m.get("model_type") or "") not in ("embedding","ocr"):
         print(m["id"]); break' "$PAKET_MODELL" < "$RUMPF" 2>/dev/null)
@@ -194,8 +204,8 @@ if [ -z "$ANDERES" ]; then
   echo "Erst eines laden: die Ansicht Modelle, oder POST /api/models/download"
   exit 1
 fi
-printf 'gefunden  App %s %s, Flow %s, zweites Modell %s\n' \
-  "$APP" "$LIVE_VERSION" "$FLOW" "$ANDERES"
+printf 'gefunden  App %s %s, Flow %s (Paket-Modell %s), zweites Modell %s\n' \
+  "$APP" "$LIVE_VERSION" "$FLOW" "$PAKET_MODELL" "$ANDERES"
 
 # --- 2. Der Mensch, der gleich entscheidet ----------------------------------
 # Der Administrator braucht die App ebenfalls freigegeben: der Flow-Start geht
@@ -378,7 +388,7 @@ d=json.load(sys.stdin)["data"]["live"]
 f=next((x for x in d if x["name"]==sys.argv[1]), None)
 print(json.dumps([f["modell"], f["modell_ueberschrieben"]]) if f else "[]")' "$FLOW" < "$RUMPF" 2>/dev/null)
 pruefe 'Das Modell des Flows steht wieder auf dem des Pakets' \
-  "$(ja_nein "$JETZT" "[\"$PAKET_MODELL\", false]")" "$JETZT"
+  "$(ja_nein "$JETZT" "[$PAKET_MODELL, false]")" "$JETZT"
 
 echo
 if [ "$uebersprungen" -gt 0 ]; then

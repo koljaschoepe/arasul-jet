@@ -74,9 +74,12 @@ export function AppTester({ appId, hatTeststand }: { appId: string; hatTeststand
 
             {/* Der Tester-Schalter erscheint erst, WENN freigegeben ist —
                 sonst machte ein Klick aus einem Nichtnutzer stillschweigend
-                einen Tester. Ohne Teststand steht er auch dann nicht da: es
-                gäbe nichts zu testen. */}
-            {freigabe && hatTeststand && (
+                einen Tester. Ohne Teststand steht er nicht da, es gäbe nichts
+                zu testen — es sei denn, jemand IST noch als Tester eingetragen
+                (die App hatte einmal einen Teststand). Dann muss er zu sehen
+                und zurückzunehmen sein; ein Zustand, den die Seite verbirgt,
+                ist der, den niemand mehr aufräumt. */}
+            {freigabe && (hatTeststand || freigabe.stand === 'test') && (
               <button
                 type="button"
                 disabled={setzen.isPending}
