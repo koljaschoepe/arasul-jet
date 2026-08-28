@@ -24,10 +24,34 @@ name: arasul-platform
 #   docker compose up -d dashboard-backend            # Single service
 # ==============================================================================
 
+# EIN Eintrag mit einer Liste, nicht sechs Eintraege. Der Unterschied ist keine
+# Kosmetik, und er hat am 28.08.2026 die Installation auf einem frischen Geraet
+# verhindert.
+#
+# Sechs getrennte `include`-Eintraege sind fuer Compose sechs eigenstaendige
+# Projekte. `compose.secrets.yaml` ergaenzt aber Dienste, die in `core`, `app`
+# und `monitoring` definiert sind -- `postgres-db`, `dashboard-backend`,
+# `metrics-collector`, `self-healing-agent`, `backup-service` -- und das ist
+# dann kein Ueberschreiben, sondern ein Namenskonflikt:
+#
+#   services.postgres-db conflicts with imported resource
+#
+# Aeltere Compose-Fassungen haben das stillschweigend zusammengefuehrt, neuere
+# lehnen es ab. Auf dem gewachsenen Orin lief es deshalb weiter, auf einem
+# frisch aufgesetzten Geraet mit aktuellem Docker brach `docker compose config`
+# ab -- und mit ihm der Bootstrap, der den Validator aufruft (arasul:1385).
+# Gefunden hat es der CI-Job "Installation", der seit dieser Phase eine
+# Installation aus dem Artefakt durchspielt.
+#
+# In der LISTENFORM ist die erste Datei die Grundlage und jede weitere eine
+# Ergaenzung darauf, genau wie bei `-f a -f b`. `compose.secrets.yaml` steht
+# deshalb ZULETZT: sie legt sich ueber die anderen und definiert nichts, was
+# nicht schon da waere.
 include:
-  - path: ./compose/compose.secrets.yaml
-  - path: ./compose/compose.core.yaml
-  - path: ./compose/compose.ai.yaml
-  - path: ./compose/compose.app.yaml
-  - path: ./compose/compose.monitoring.yaml
-  - path: ./compose/compose.external.yaml
+  - path:
+      - ./compose/compose.core.yaml
+      - ./compose/compose.ai.yaml
+      - ./compose/compose.app.yaml
+      - ./compose/compose.monitoring.yaml
+      - ./compose/compose.external.yaml
+      - ./compose/compose.secrets.yaml
