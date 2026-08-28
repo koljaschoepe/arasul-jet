@@ -24,7 +24,7 @@
 # Zwei Installationswege waeren zwei Orte, an denen ein Geraet anders aussieht.
 #
 # Aufruf:
-#   ./install.sh                              Passwort wird erzeugt und gezeigt
+#   ./install.sh                              Startpasswort wird erzeugt und gezeigt
 #   ./install.sh --passwort 'Geheim123'       Passwort vorgeben
 #   ./install.sh --name werkstatt             anderer Netzname als `arasul`
 #   ./install.sh --nur-vorbereiten            .env schreiben, Bootstrap NICHT starten
@@ -55,7 +55,6 @@ fehler()  { echo -e "${ROT}[INSTALL]${AUS} $*" >&2; }
 
 PASSWORT="${ADMIN_PASSWORD:-}"
 NETZNAME="${ARASUL_NETZNAME:-arasul}"
-PASSWORT_ERZEUGT=false
 NUR_VORBEREITEN=false
 
 while [ $# -gt 0 ]; do
@@ -131,7 +130,6 @@ else
     # `pipefail` waere diese Zuweisung das stille Ende des Installers
     # (scripts/test/rohrbruch.py kennt den Fall). `cut` liest zu Ende.
     PASSWORT="Ara$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-15)9"
-    PASSWORT_ERZEUGT=true
   fi
   sagen "Schreibe .env"
   ADMIN_PASSWORD="$PASSWORT" \
@@ -170,8 +168,10 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 5. Der Bootstrap macht den Rest
+# Halt fuer die Pruefung
 # -----------------------------------------------------------------------------
+# Bis hierher wurde nichts am System veraendert -- nur die `.env` geschrieben.
+# Alles Weitere (systemd-Unit, Bootstrap) greift ein und braucht ein Geraet.
 if [ "$NUR_VORBEREITEN" = true ]; then
   echo ""
   gut "Vorbereitet. Der Bootstrap ist auf Wunsch ausgelassen (--nur-vorbereiten)."
@@ -180,18 +180,19 @@ if [ "$NUR_VORBEREITEN" = true ]; then
   exit 0
 fi
 
-sagen "Bootstrap laeuft. Das dauert, weil die Images am Geraet gebaut werden."
-echo ""
-bash "${WURZEL}/arasul" bootstrap
-
 # -----------------------------------------------------------------------------
-# 6. Beim Neustart wieder hochfahren
+# 5. Beim Neustart wieder hochfahren
 # -----------------------------------------------------------------------------
 # Die Compose-Dienste tragen `restart: always`, kommen nach einem Stromausfall
 # also von selbst zurueck, SOBALD der Docker-Dienst laeuft. Die Unit hier ist
 # die Stufe darueber: sie faehrt den Stapel in der richtigen Reihenfolge hoch
 # (`ordered-startup.sh`) statt alle dreizehn Container gleichzeitig auf einen
 # gerade erst gestarteten Orin loszulassen.
+#
+# VOR dem Bootstrap, seit dem 28.08.2026: der Bootstrap endet mit der
+# Erstausgabe -- Startpasswort und Kit-Schluessel --, und was danach noch auf
+# den Bildschirm laeuft, schiebt genau die beiden Zeilen nach oben, die der
+# Mensch abschreiben soll.
 if command -v systemctl >/dev/null 2>&1; then
   UNIT_QUELLE="${WURZEL}/packaging/arasul-platform/etc/systemd/system/arasul-platform.service"
   if [ -f "$UNIT_QUELLE" ]; then
@@ -211,22 +212,14 @@ if command -v systemctl >/dev/null 2>&1; then
 fi
 
 # -----------------------------------------------------------------------------
-# 7. Was der Mensch jetzt wissen muss
+# 6. Der Bootstrap macht den Rest -- und sagt das letzte Wort
 # -----------------------------------------------------------------------------
+# Hardware, Zertifikate, Images, Datenbank, Administrator, Kit-Schluessel,
+# Rauchtest. Und zum Schluss die Erstausgabe: Startpasswort und
+# Kit-Schluessel, auf dem Bildschirm und in `config/secrets/erstausgabe.txt`
+# (scripts/util/erstausgabe.sh). Sie stand hier bis zum 28.08.2026 ein zweites
+# Mal -- an zwei Orten, von denen der eine bei rotem Rauchtest gar nicht erst
+# erreicht wurde. Jetzt sagt sie der Bootstrap, und nur der.
+sagen "Bootstrap laeuft. Das dauert, weil die Images am Geraet gebaut werden."
 echo ""
-echo "  ─────────────────────────────────────────────────────────────"
-echo -e "  ${FETT}Arasul ${FASSUNG} laeuft.${AUS}"
-echo ""
-echo -e "  Oberflaeche   ${BLAU}https://${NETZNAME}/${AUS}   (Rueckfall: https://${NETZNAME}.local/)"
-if [ "$PASSWORT_ERZEUGT" = true ]; then
-  echo ""
-  echo -e "  ${FETT}Erstpasswort  ${PASSWORT}${AUS}"
-  echo "  Es steht nur hier. Notieren, anmelden, in den Einstellungen aendern."
-fi
-echo ""
-echo "  Der Browser warnt beim ersten Aufruf vor dem Zertifikat. Das ist"
-echo "  richtig so und geht weg, sobald das Geraete-Zertifikat verteilt ist:"
-echo "  Einstellungen > Sicherheit > Geraetezertifikat herunterladen."
-echo "  Anleitung: docs/ops/NETZNAME_UND_ZERTIFIKAT.md"
-echo "  ─────────────────────────────────────────────────────────────"
-echo ""
+exec bash "${WURZEL}/arasul" bootstrap
