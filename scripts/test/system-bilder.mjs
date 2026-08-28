@@ -14,9 +14,10 @@
  *      Seite, rollt sie waagerecht, steht etwas da, meldet die Konsole einen
  *      Fehler. Die Konsolenfrage ist keine Formalie -- die Funde der D1-, D2-
  *      und D3-Abnahme waren alle drei Konsolenmeldungen.
- *   2. Die Modelle: die Liste zeigt GENAU die Kurzliste (die Kennungen
- *      kommen vom Aufrufer aus `config/modelle/kurzliste.json`), und das
- *      Standardmodell traegt sein Abzeichen -- genau eines.
+ *   2. Die Modelle, ebenfalls in drei Breiten: die Liste zeigt GENAU die
+ *      Kurzliste (die Kennungen kommen vom Aufrufer aus
+ *      `config/modelle/kurzliste.json`), und das Standardmodell traegt sein
+ *      Abzeichen -- genau eines.
  *   3. Die Aktualisierungen: die Fassung steht da, und wenn dieses Geraet
  *      nicht ueber die Schnittstelle einspielen kann, sagt es das.
  *   4. Die Sicherung wird ausgeloest. Die Meldung erscheint, und die Liste
@@ -148,12 +149,32 @@ try {
     );
   }
 
-  // --- 2. Die Modelle: genau die Kurzliste ----------------------------------
+  // --- 2. Die Modelle: drei Breiten, und genau die Kurzliste -----------------
+  // Auch hier drei Breiten: die Liste traegt je Zeile bis zu vier Knoepfe, und
+  // die Frage aus der D4-Abnahme lautet, ob das am Telefon steht.
+  for (const breite of BREITEN) {
+    await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
+    konsole = [];
+    await seite.goto(MODELLSEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const da = await steht('[data-testid="modelle-seite"]', 30000);
+    pruefe(`${breite.px} px: die Modelle stehen`, da);
+    if (da) {
+      await seite.waitForTimeout(2000);
+      pruefe(`${breite.px} px: die Modelle rollen nicht waagerecht`, !(await rolltWaagerecht()));
+    }
+    await seite.screenshot({ path: path.join(ZIEL, `${breite.px}-${breite.name}-modelle.png`) });
+    pruefe(
+      `${breite.px} px: keine Fehler in der Konsole (Modelle)`,
+      konsole.length === 0,
+      konsole.slice(0, 2).join(' | ')
+    );
+  }
+
   await seite.setViewportSize({ width: 1440, height: 900 });
   konsole = [];
   await seite.goto(MODELLSEITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const modelleDa = await steht('[data-testid="modell-liste"]', 30000);
-  pruefe('Die Modell-Ansicht steht', modelleDa);
+  pruefe('Die Modell-Ansicht zeigt eine Liste', modelleDa);
 
   if (modelleDa) {
     await seite.waitForTimeout(1500);
@@ -181,12 +202,6 @@ try {
     const kopf = await seite.locator('[data-testid="modelle-seite"]').innerText();
     pruefe('Der Kopf nennt das KI-RAM', /KI-RAM/i.test(kopf));
 
-    await seite.screenshot({ path: path.join(ZIEL, '1440-modelle.png') });
-    pruefe(
-      'Modelle: keine Fehler in der Konsole',
-      konsole.length === 0,
-      konsole.slice(0, 2).join(' | ')
-    );
   }
 
   // --- 3. Die Aktualisierungen ----------------------------------------------
