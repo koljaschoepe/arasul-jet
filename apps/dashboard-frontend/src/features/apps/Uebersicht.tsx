@@ -13,42 +13,45 @@
  */
 import type { ReactNode } from 'react';
 import { AppWindow } from 'lucide-react';
-import { Kopf } from '@marken';
+import { Karte, Kopf } from '@marken';
 import EmptyState from '@/components/ui/EmptyState';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useMeineApps, zuEintraegen, type AppEintrag } from './meineApps';
 
-/** Eine App als Kachel. Ein Klick öffnet sie als Tab in der Mitte. */
+/**
+ * Eine App als Karte. Ein Klick öffnet sie als Tab in der Mitte.
+ *
+ * Die Karte kommt seit D7 aus dem Designsystem (`@marken`) — derselbe
+ * Baustein, den eine App für ihre eigenen Karten benutzt. Bis dahin war es
+ * dieselbe Form aus einer eigenen Klassenkette, und genau daran laufen zwei
+ * Erscheinungsbilder auseinander.
+ */
 function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onOeffnen}
-      data-testid={`uebersicht-app-${eintrag.id}-${eintrag.stand}`}
-      className="flex min-h-11 flex-col items-start gap-1 rounded-md border border-border bg-card p-ui-3 text-left transition-colors hover:border-primary/50 hover:bg-accent"
-    >
-      <span className="flex w-full items-center gap-2">
-        <AppWindow className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground">{eintrag.name}</span>
-        {/* Der Teststand-Hinweis fuer Tester (D2): das Wort allein sagt nicht,
-            was daran anders ist. Wer eine App in zwei Staenden vor sich hat,
-            muss beim Anklicken wissen, welche Fassung er gleich bedient. */}
-        {eintrag.stand === 'test' && (
+    <Karte
+      titel={eintrag.name}
+      symbol={<AppWindow />}
+      onKlick={onOeffnen}
+      kennzeichen={`uebersicht-app-${eintrag.id}-${eintrag.stand}`}
+      /* Der Teststand-Hinweis fuer Tester (D2): das Wort allein sagt nicht,
+         was daran anders ist. Wer eine App in zwei Staenden vor sich hat,
+         muss beim Anklicken wissen, welche Fassung er gleich bedient. */
+      hinweis={
+        eintrag.stand === 'test' ? (
           <span
-            className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning"
+            className="text-warning"
             title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
           >
             Test
           </span>
-        )}
-      </span>
-      {eintrag.beschreibung && (
-        <span className="line-clamp-2 text-sm text-muted-foreground">{eintrag.beschreibung}</span>
-      )}
-      <span className="text-ui-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
-    </button>
+        ) : undefined
+      }
+    >
+      {eintrag.beschreibung && <span className="line-clamp-2">{eintrag.beschreibung}</span>}
+      <span className="block text-ui-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
+    </Karte>
   );
 }
 
