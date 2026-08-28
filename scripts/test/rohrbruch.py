@@ -213,18 +213,27 @@ def main() -> int:
 
     befunde = []
     gesehen = set()
+    # `arasul` und die `.sh` im Wurzelverzeichnis stehen mit in der Liste, seit
+    # am 28.08.2026 auffiel, dass die ganze Waechter-Familie ausgerechnet die
+    # wichtigste Datei des Repos nie gelesen hat: sie heisst `arasul`, hat
+    # keine Endung und liegt in keinem der vier Ordner.
+    kandidaten = []
     for ordner in ('scripts', 'services', 'config', 'packaging'):
-        for datei in sorted((wurzel / ordner).rglob('*.sh')):
-            if datei.name in AUSGENOMMEN:
-                continue
-            # `scripts/ops/restore-drill.sh` ist ein Verweis auf die Datei
-            # unter `services/`. Zweimal melden hiesse zweimal beheben.
-            echt = datei.resolve()
-            if echt in gesehen:
-                continue
-            gesehen.add(echt)
-            for nummer, zeile, regel in stellen(datei):
-                befunde.append((datei.relative_to(wurzel), nummer, zeile, regel))
+        kandidaten += sorted((wurzel / ordner).rglob('*.sh'))
+    kandidaten += sorted(wurzel.glob('*.sh'))
+    if (wurzel / 'arasul').is_file():
+        kandidaten.append(wurzel / 'arasul')
+    for datei in kandidaten:
+        if datei.name in AUSGENOMMEN:
+            continue
+        # `scripts/ops/restore-drill.sh` ist ein Verweis auf die Datei
+        # unter `services/`. Zweimal melden hiesse zweimal beheben.
+        echt = datei.resolve()
+        if echt in gesehen:
+            continue
+        gesehen.add(echt)
+        for nummer, zeile, regel in stellen(datei):
+            befunde.append((datei.relative_to(wurzel), nummer, zeile, regel))
 
     mit_pipefail = github_mit_pipefail(wurzel)
 

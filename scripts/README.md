@@ -8,17 +8,17 @@ When in doubt: if a thing runs once and exits, it belongs here. If it runs conti
 
 ## Folder map
 
-| Folder      | Purpose                                                                                     | Examples                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `deploy/`   | Das Auslieferungsartefakt bauen, Updatepakete schnüren, ein Gerät nach dem Deploy prüfen.    | `artefakt-bauen.sh`, `deploy-local.sh`, `create-update-package.sh`, `verify-deployment.sh` |
-| `docs/`     | Auto-generators for documentation kept in sync with the code.                               | `generate-db-schema.sh`                                                                  |
-| `lib/`      | Shared bash helpers. Source these from other scripts; they aren't meant to be run directly. | `logging.sh`                                                                             |
-| `security/` | OS / SSH hardening, htpasswd, Geräte-CA und Zertifikat, vuln scans.                         | `harden-os.sh`, `harden-ssh.sh`, `geraete-zertifikat.sh`, `security-scan.sh`             |
-| `setup/`    | First-boot setup helpers used by `./arasul bootstrap`.                                      | `detect-platform.sh`, `factory-reset.sh`, `setup-tailscale.sh`, `preconfigure.sh`        |
-| `system/`   | Runtime system management — boot guards, watchdogs, ordered startup.                        | `boot-guard.sh`, `deadman-switch.sh`, `docker-watchdog.sh`, `ordered-startup.sh`         |
-| `test/`     | Test runners + smoke / DR / integration / load tests.                                       | `run-tests.sh`, `smoke-test.sh`, `dr-drill.sh`, `integration-test.sh`                    |
-| `util/`     | One-off utilities: notifications, support-log export, MCP server bring-up.                  | `telegram-notify.sh`, `export-support-logs.sh`, `inject-context.sh`                      |
-| `validate/` | Pre-flight validators for config, dependencies, traefik, file permissions, hooks.           | `validate-permissions.sh`, `validate-traefik.sh`, `verify-dev-env.sh`, `verify-hooks.sh` |
+| Folder      | Purpose                                                                                                                                               | Examples                                                                                   |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `deploy/`   | Das Auslieferungsartefakt bauen, Updatepakete schnüren, ein Gerät nach dem Deploy prüfen.                                                             | `artefakt-bauen.sh`, `deploy-local.sh`, `create-update-package.sh`, `verify-deployment.sh` |
+| `docs/`     | Auto-generators for documentation kept in sync with the code.                                                                                         | `generate-db-schema.sh`                                                                    |
+| `lib/`      | Shared bash helpers. Source these from other scripts; they aren't meant to be run directly.                                                           | `logging.sh`                                                                               |
+| `security/` | OS / SSH hardening, htpasswd, Geräte-CA und Zertifikat, vuln scans.                                                                                   | `harden-os.sh`, `harden-ssh.sh`, `geraete-zertifikat.sh`, `security-scan.sh`               |
+| `setup/`    | First-boot setup helpers used by `./arasul bootstrap`. `factory-reset.sh` wipes a device for the next customer and installs **nothing** (28.08.2026). | `detect-platform.sh`, `factory-reset.sh`, `setup-tailscale.sh`, `preconfigure.sh`          |
+| `system/`   | Runtime system management — boot guards, watchdogs, ordered startup.                                                                                  | `boot-guard.sh`, `deadman-switch.sh`, `docker-watchdog.sh`, `ordered-startup.sh`           |
+| `test/`     | Test runners + smoke / DR / integration / load tests.                                                                                                 | `run-tests.sh`, `smoke-test.sh`, `dr-drill.sh`, `integration-test.sh`                      |
+| `util/`     | One-off utilities: notifications, support-log export, MCP server bring-up.                                                                            | `telegram-notify.sh`, `export-support-logs.sh`, `inject-context.sh`                        |
+| `validate/` | Pre-flight validators for config, dependencies, traefik, file permissions, hooks.                                                                     | `validate-permissions.sh`, `validate-traefik.sh`, `verify-dev-env.sh`, `verify-hooks.sh`   |
 
 The single root-level script is `interactive_setup.sh` — invoked by `./arasul bootstrap` and by `install.sh` (the entry point of the delivery artifact, at the repo root). It owns the user-facing first-boot wizard.
 

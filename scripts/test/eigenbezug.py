@@ -196,7 +196,12 @@ def main() -> int:
 
     wurzel = Path(args.wurzel)
     befunde = []
-    for datei in sorted(wurzel.glob('**/*.sh')):
+    # `arasul` steht mit in der Liste: es ist ein Shell-Skript ohne Endung, und
+    # bis zum 28.08.2026 hat kein Waechter dieser Familie es je gelesen.
+    kandidaten = sorted(wurzel.glob('**/*.sh'))
+    if (wurzel / 'arasul').is_file():
+        kandidaten.append(wurzel / 'arasul')
+    for datei in kandidaten:
         if 'node_modules' in datei.parts or '.git' in datei.parts:
             continue
         pfad = datei.relative_to(wurzel)

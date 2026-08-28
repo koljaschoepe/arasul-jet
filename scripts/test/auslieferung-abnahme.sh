@@ -192,7 +192,19 @@ echo "--- 4. Das Zertifikat, das der Browser sieht ---"
 
 if openssl s_client -connect "${RECHNER}:${PORT}" -servername "$RECHNER" </dev/null 2>/dev/null \
      | openssl x509 -out "$ZERT_DATEI" 2>/dev/null; then
-  NAMEN=$(openssl x509 -in "$ZERT_DATEI" -noout -ext subjectAltName 2>/dev/null | tr -d ' ')
+  # `openssl -ext subjectAltName` gibt ZWEI Zeilen aus: die Ueberschrift
+  # "X509v3 Subject Alternative Name:" und darunter die Liste. Bis zum
+  # 28.08.2026 stand hier nur `tr -d ' '`, die Zeilenumbrueche blieben also
+  # stehen -- und das fuehrende Komma des Vergleichs unten landete am Ende der
+  # UEBERSCHRIFT statt vor dem ersten Namen. Ergebnis: der erste Eintrag der
+  # Liste galt immer als fehlend, und das war ausgerechnet `DNS:arasul`, also
+  # genau der Name, um den es in dieser Phase geht. Die Abnahme meldete rot,
+  # obwohl das Zertifikat stimmte.
+  #
+  # Deshalb wird die Ausgabe hier erst in Einzelteile zerlegt, dann auf die
+  # Eintraege gefiltert und zu EINER Zeile zusammengesetzt.
+  NAMEN=$(openssl x509 -in "$ZERT_DATEI" -noout -ext subjectAltName 2>/dev/null \
+    | tr ',' '\n' | tr -d ' ' | grep -E '^(DNS|IPAddress|IP Address):' | paste -sd, - || true)
   # Mit Komma vergleichen, an beiden Seiten. `DNS:arasul` steht sonst auch in
   # `DNS:arasul.local` drin, und die Pruefung auf den nackten Namen -- also
   # genau die, um die es in dieser Phase geht -- waere immer gruen.
