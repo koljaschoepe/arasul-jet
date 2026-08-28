@@ -70,18 +70,15 @@ sudo tailscale status --json | grep -o '"KeyExpiry":"[^"]*"'
 
 ### Zugriff nach Einrichtung
 
-Ein Gerät, ein Denkmodell: im LAN über den `.local`-Namen, unterwegs über den
+Ein Gerät, ein Denkmodell: im LAN über seinen Netznamen, unterwegs über den
 Tailscale-MagicDNS-Namen — immer derselbe Name statt roher IPs.
 
 ```bash
 # Dashboard im LAN:
-https://<hostname>.local
+https://arasul                        # Rückfall: https://arasul.local
 
-# Dashboard unterwegs (Tailscale, browser-vertrautes Schloss via `tailscale serve`):
-https://<geraet>.<tailnet>.ts.net
-
-# Fallback, falls MagicDNS/HTTPS noch nicht aktiv ist (Zertifikatswarnung):
-https://<tailscale-ip>
+# Dashboard unterwegs (Tailscale):
+https://<geraet>.<tailnet>.ts.net     # oder https://<tailscale-ip>
 
 # SSH:
 ssh arasul@<tailscale-ip>
@@ -90,9 +87,13 @@ ssh arasul@<tailscale-ip>
 ssh arasul@<hostname>
 ```
 
-> Das browser-vertraute Schloss auf `*.ts.net` benötigt einmalig MagicDNS +
-> HTTPS-Zertifikate in der Tailscale-Admin-Konsole (DNS-Einstellungen). Danach
-> aktiviert Arasul `tailscale serve` automatisch beim Verbinden. Der genaue
+> **Beide Wege beantwortet Traefik, mit demselben Zertifikat aus der
+> Geräte-CA.** `tailscale serve` wird bewusst NICHT verwendet: es lässt
+> tailscaled `100.x.y.z:443` binden, danach bekommt Traefik `0.0.0.0:443` nicht
+> mehr, und das Gerät ist im eigenen Firmennetz nicht mehr erreichbar (am
+> 28.08.2026 am Orin gemessen, Phase C10). Die Browserwarnung geht auf beiden
+> Wegen mit demselben Schritt weg: das Gerätezertifikat einmal verteilen, siehe
+> [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md). Der genaue
 > Zugriffsname steht im Dashboard unter **Einstellungen > Fernzugriff**
 > („So erreichst du Arasul").
 

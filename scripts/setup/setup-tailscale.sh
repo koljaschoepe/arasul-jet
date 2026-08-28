@@ -170,31 +170,37 @@ authenticate_tailscale() {
         if [ -n "$ts_ip" ]; then
             log_success "Verbunden! Tailscale-IP: ${GREEN}${ts_ip}${NC}"
 
-            # Browser-vertrautes Remote-HTTPS: serve auf Traefik:443 zeigen.
-            # https+insecure, da Traefik das Zertifikat der Geraete-CA traegt;
-            # port 443 (nicht 80 → sonst 301-Redirect-Loop). Best-effort,
-            # non-fatal.
+            # KEIN `tailscale serve`. Die Entscheidung ist am 28.08.2026
+            # gefallen, und sie hat eine Messung als Grund.
             #
-            # WAS DAS KOSTET, und es steht hier, weil es einen halben Tag
-            # gekostet hat (27.08.2026): mit aktivem `serve` hoert TAILSCALED
-            # auf 443 der Tailscale-Adresse, nicht mehr Traefik. tailscaled
-            # kennt nur ein Zertifikat, naemlich das auf den MagicDNS-Namen,
-            # und sucht es ueber den Namen aus dem ClientHello. Ein Aufruf
-            # ueber die rohe IP nennt keinen Namen (eine IP ist keine SNI), also
-            # findet tailscaled nichts und bricht den Handschlag mit
-            # `tls: internal error` (Alert 80) ab. Der Zugriff ueber die rohe
-            # Tailscale-IP ist mit `serve` also NICHT moeglich, und der Hinweis
-            # darauf war falsch. Ueber den Namen geht es, im Firmennetz ueber
-            # die LAN-IP auch (dort antwortet Traefik).
-            if tailscale serve --bg --https=443 https+insecure://127.0.0.1:443 2>/dev/null; then
-                local ts_name
-                ts_name=$(get_tailscale_hostname)
-                log_success "Remote-HTTPS aktiviert: https://${ts_name:-<magicdns-name>}/"
-                log_info "  Ueber die rohe Tailscale-IP geht es damit NICHT (kein Name, kein Zertifikat)."
-            else
-                log_warning "tailscale serve nicht aktiviert — Zugriff dann ueber https://${ts_ip}/ (Zertifikatswarnung)"
-                log_info "  MagicDNS + HTTPS-Certs ggf. einmalig in der Tailscale-Admin-Konsole aktivieren"
-            fi
+            # Bis dahin stand hier
+            #   tailscale serve --bg --https=443 https+insecure://127.0.0.1:443
+            # damit der MagicDNS-Name ein Zertifikat von Tailscale bekommt.
+            # Das kostet den Port: mit aktivem `serve` bindet TAILSCALED
+            # 100.x.y.z:443, und danach bekommt Traefik 0.0.0.0:443 nicht mehr
+            # -- ein Wildcard-Bind schlaegt fehl, solange eine einzelne
+            # Adresse denselben Port haelt. Am Orin stand der `reverse-proxy`
+            # deshalb, und mit ihm die ganze Oberflaeche: fuer den
+            # Fernzugriff war das Geraet im eigenen Firmennetz nicht mehr
+            # erreichbar. Das ist der falsche Handel.
+            #
+            # Ohne `serve` antwortet Traefik auf ALLEN Adressen des Geraets,
+            # auch auf der Tailscale-Adresse und unter dem MagicDNS-Namen. Es
+            # ist dann dasselbe Zertifikat wie im Firmennetz, naemlich das aus
+            # der Geraete-CA -- und derselbe Weg, es loszuwerden: die CA
+            # einmal verteilen (docs/ops/NETZNAME_UND_ZERTIFIKAT.md). EIN
+            # Zertifikat fuer beide Wege statt zweier, von denen eines den
+            # anderen abschaltet.
+            #
+            # Ein `serve` aus einer frueheren Einrichtung wird aktiv
+            # zurueckgenommen; sonst bliebe der Port auf einem Geraet, das
+            # schon einmal eingerichtet war, weiter belegt.
+            tailscale serve reset >/dev/null 2>&1 || true
+
+            local ts_name
+            ts_name=$(get_tailscale_hostname)
+            log_success "Erreichbar unter https://${ts_name:-<magicdns-name>}/ und https://${ts_ip}/"
+            log_info "  Es antwortet Traefik mit dem Zertifikat der Geraete-CA -- dasselbe wie im Firmennetz."
             return 0
         fi
     fi
