@@ -88,14 +88,14 @@ WebSocket support:
 
 Routes are matched by priority (higher = first):
 
-| Priority | Route            | Path                                                       |
-| -------- | ---------------- | ---------------------------------------------------------- |
-| 50       | WebSocket routes | `/api/metrics/live-stream` (with Upgrade header)           |
-| 25       | AI services      | `/models`, `/embeddings`                                   |
-| 20       | Auth             | `/api/auth`                                                |
-| 15       | Metrics API      | `/api/metrics`                                             |
-| 10       | General API      | `/api`                                                     |
-| 1        | Frontend         | `/`                                                        |
+| Priority | Route            | Path                                             |
+| -------- | ---------------- | ------------------------------------------------ |
+| 50       | WebSocket routes | `/api/metrics/live-stream` (with Upgrade header) |
+| 25       | AI services      | `/models`, `/embeddings`                         |
+| 20       | Auth             | `/api/auth`                                      |
+| 15       | Metrics API      | `/api/metrics`                                   |
+| 10       | General API      | `/api`                                           |
+| 1        | Frontend         | `/`                                              |
 
 ## TLS/HTTPS
 
@@ -158,13 +158,36 @@ rate-limit-llm:
     burst: 5 # Allow 5 burst requests
 ```
 
-### Rate Limit Headers
+### Die zwei Proben jeder Seitenladung
 
-Responses include:
+`GET /api/auth/session` und `GET /api/auth/needs-setup` haben seit dem
+29.08.2026 eine eigene Middleware (`rate-limit-auth-probe`, 120 je Minute) und
+einen eigenen Router mit hoeherer Prioritaet. Vorher lagen sie unter
+`rate-limit-auth` mit 30 je Minute fuer das ganze Praefix `/api/auth` -- eine
+Seitenladung kostet beide, also war ein Buero hinter einer NAT-IP nach fuenf
+Seiten dicht. Das Backend hatte diese Grenze in G1 auf 120 gehoben; wirksam
+wurde es erst, als hier dieselbe Zahl stand.
 
-- `X-RateLimit-Limit`: Maximum requests
-- `X-RateLimit-Remaining`: Remaining requests
-- `X-RateLimit-Reset`: Reset timestamp
+`scripts/test/drosselzahlen.py` prueft bei jedem Zug, dass der Vorbau nicht
+enger ist als das Backend.
+
+### Rate Limit Headers — es gibt KEINE
+
+Traefiks `rateLimit` schickt **keine** `RateLimit-*`- oder
+`X-RateLimit-*`-Kopfzeilen. Hier stand bis zum 29.08.2026 das Gegenteil, und
+das war teuer: die Abnahmen fuehren ueber jede Drossel Buch, die eine
+Kopfzeile traegt, meldeten „nie auf eine Drossel gewartet" und wurden trotzdem
+rot -- an einer Drossel, die sie nicht sehen konnten.
+
+Woran die beiden zu unterscheiden sind:
+
+|               | Traefik                      | Backend (`express-rate-limit`) |
+| ------------- | ---------------------------- | ------------------------------ |
+| `RateLimit-*` | fehlen                       | immer da                       |
+| Rumpf des 429 | `Too Many Requests` als Text | JSON mit `error`               |
+
+Wer eine Drossel sucht, prueft deshalb **beide** Schichten. Ein 429 ohne
+Kopfzeilen kam aus dem Vorbau und steht nicht im Backend-Log.
 
 ### Testing Rate Limits
 
@@ -175,7 +198,7 @@ for i in {1..15}; do
 done
 # First 15 should be 200/429
 
-# Test auth rate limit (5 req/min)
+# Test auth rate limit (30 req/min, burst 10 — die Proben haben ihre eigene)
 for i in {1..10}; do
   curl -s -o /dev/null -w "%{http_code}\n" https://arasul.local/api/auth/login
 done

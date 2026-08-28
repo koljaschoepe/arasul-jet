@@ -22,11 +22,45 @@ http:
     # Auth endpoints: 30 requests/minute (prevent brute force while allowing normal use)
     # Previous: 5/15min was too restrictive, caused login failures
     # Note: Backend also has login attempt tracking in database for security
+    #
+    # Seit dem 29.08.2026 traegt sie nur noch, was sie meint: eine MUTATION
+    # (Anmelden, Abmelden) und das Traefik-Dashboard. Die zwei Proben, die
+    # jede Seitenladung macht, haben ihre eigene daneben -- warum, steht dort.
     rate-limit-auth:
       rateLimit:
         average: 30
         period: 1m
         burst: 10
+
+    # Die zwei Proben jeder Seitenladung: 120 je Minute, wie im Backend.
+    #
+    # DIE ENGE DROSSEL WAR WIEDER EINE ANDERE (Phase G2, am Orin gemessen).
+    # G1 hat `GET /api/auth/session` und `GET /api/auth/needs-setup` im
+    # Backend von 30 auf 120 je Minute gehoben, mit dem Argument: eine
+    # Seitenladung fragt beide, ein Buero teilt sich hinter NAT eine IP, und
+    # 30 je Minute fuer die ganze Gruppe beantwortet eine Probe mit 429, deren
+    # Zweck es ist, oft gestellt zu werden.
+    #
+    # Das Argument war richtig und blieb wirkungslos: HIER stand eine zweite,
+    # strengere Drossel auf dem GANZEN Praefix `/api/auth`, und Traefik
+    # antwortet, bevor das Backend die Anfrage sieht. Am 29.08.2026 gemessen:
+    # nach eff 11 Anfragen auf `/api/auth/needs-setup` kam 429, waehrend das
+    # Backend `ratelimit-remaining: 79 von 120` meldete. Eine Seitenladung
+    # kostet zwei -- ein Buero war nach fuenf Seiten dicht.
+    #
+    # Und sie war UNSICHTBAR: Traefiks `rateLimit` schickt keine
+    # `RateLimit-*`-Kopfzeilen. Die Abnahmen fuehren seit G1 Buch ueber jede
+    # Drossel, die eine traegt, meldeten „nie auf eine Drossel gewartet" --
+    # und wurden trotzdem rot. Am Koerper des 429 sind die beiden zu
+    # unterscheiden: Traefik schickt `Too Many Requests` als Text, das
+    # Backend JSON.
+    #
+    # `scripts/test/drosselzahlen.py` haelt diese Zahl an die des Backends.
+    rate-limit-auth-probe:
+      rateLimit:
+        average: 120
+        period: 1m
+        burst: 40
 
     # General API: 100 requests/second
     rate-limit-api:

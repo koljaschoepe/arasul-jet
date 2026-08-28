@@ -184,6 +184,30 @@ const FLOW_FELD = process.env.ARASUL_FLOW_FELD || 'lauf';
 function ausAntwort(daten, pfad) {
   return pfad.split('.').reduce((wert, teil) => (wert == null ? wert : wert[teil]), daten) ?? null;
 }
+
+/**
+ * Wie weit ein Pfad in eine Antwort hineinkam, und was dort stand.
+ *
+ * Fuer die Meldung, wenn `ausAntwort` nichts findet: „kein Feld vorgang.lauf"
+ * laesst offen, ob es `vorgang` nicht gibt oder `lauf` darin fehlt. Das sind
+ * zwei verschiedene Naechste-Schritte, und die zweite Haelfte ist die
+ * haeufigere (Phase G2 am Orin: der Weg antwortete 201 und trug `vorgang`,
+ * nur ohne `lauf`).
+ */
+export function pfadEnde(daten, pfad) {
+  let wert = daten;
+  const gegangen = [];
+  for (const teil of pfad.split('.')) {
+    if (wert == null || typeof wert !== 'object' || !(teil in wert)) {
+      const felder =
+        wert && typeof wert === 'object' ? Object.keys(wert).join(', ') || '(leer)' : String(wert);
+      return `„${teil}" fehlt${gegangen.length ? ` in ${gegangen.join('.')}` : ''}; da waren: ${felder}`;
+    }
+    gegangen.push(teil);
+    wert = wert[teil];
+  }
+  return `„${pfad}" war ${JSON.stringify(wert)}`;
+}
 /** Dieselbe Datei, die `scripts/test/anmeldung.sh` schreibt. */
 const TOKEN_DATEI =
   process.env.ARASUL_TOKEN_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-token');
@@ -1341,9 +1365,29 @@ try {
         data: FLOW_RUMPF ? JSON.parse(FLOW_RUMPF) : {},
         timeout: 60000,
       })
-      .catch(() => null);
-    const lauf =
-      start && start.status() === FLOW_CODE ? ausAntwort(await start.json(), FLOW_FELD) : null;
+      .catch(fehler => ({ fehler: einzeilig(fehler.message, 90) }));
+    // WORAN ES LAG, NICHT NUR DASS ES NICHT GING (Phase G2).
+    //
+    // Hier stand ein Satz -- „der Flow hat nicht angehalten" -- fuer drei
+    // verschiedene Ausgaenge: der Aufruf kam gar nicht durch, er kam durch und
+    // antwortete anders als erwartet, oder er lief und der Lauf erreichte nie
+    // `wartend`. Am 29.08.2026 uebersprang die Reihe diese Zelle bei jedem
+    // Lauf, und der Satz liess offen, ob die App den Weg nicht kennt oder der
+    // Flow nicht anhaelt. Das sind zwei verschiedene Befunde.
+    let grund = '';
+    let lauf = null;
+    if (!start || start.fehler) {
+      grund = `${weg} kam nicht durch (${start?.fehler ?? 'kein Grund'})`;
+    } else if (start.status() !== FLOW_CODE) {
+      const rumpf = await start.text().catch(() => '');
+      grund = `${weg} antwortete HTTP ${start.status()} statt ${FLOW_CODE}: ${einzeilig(rumpf, 90)}`;
+    } else {
+      const rumpf = await start.json().catch(() => null);
+      lauf = rumpf ? ausAntwort(rumpf, FLOW_FELD) : null;
+      // Und WO der Pfad abbrach. Ohne das ist der naechste Schritt raten;
+      // damit steht in derselben Zeile, wie ARASUL_FLOW_FELD heissen muss.
+      if (!lauf) grund = `die Antwort nannte keinen Lauf: ${pfadEnde(rumpf, FLOW_FELD)}`;
+    }
     if (lauf) {
       const ende = Date.now() + 120000;
       while (Date.now() < ende && !anfrage) {
@@ -1352,6 +1396,7 @@ try {
         anfrage = liste.find(a => String(a.run_id) === String(lauf))?.id ?? null;
         if (!anfrage) await seiteM.waitForTimeout(3000);
       }
+      if (!anfrage) grund = `Lauf ${lauf} lief, stand aber in 120 s nie auf „wartend"`;
     }
     await mApi.dispose();
     if (anfrage) {
@@ -1359,7 +1404,7 @@ try {
     } else {
       ueberspringe(
         'Die Uebersicht mit einer offenen Freigabe',
-        `der Flow "${FLOW}" der App ${app} hat nicht angehalten`
+        `der Flow "${FLOW}" der App ${app} hat nicht angehalten: ${grund}`
       );
     }
   } else if (!app) {

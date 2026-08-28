@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Die Drosseln des Geraets stehen an drei Stellen, und alle drei sagen dasselbe.
+"""Die Drosseln des Geraets stehen an vier Stellen, und alle vier sagen dasselbe.
 
 Das Backend legt sie fest (`middleware/rateLimit.js`: Fenster und Zahl je
 Limiter). Die Abnahmen muessen sie kennen, um VOR dem Handgriff zu warten statt
@@ -15,8 +15,22 @@ jedem Zug: sie liest die Zahlen aus `rateLimit.js` und vergleicht sie mit den
 beiden Kopien in den Abnahmen. Faellt eine Aenderung im Backend, faellt hier
 die CI, und nicht erst eine Abnahme am Geraet.
 
+UND VOR DEM BACKEND STEHT NOCH EINE (Phase G2, 29.08.2026). Traefik drosselt
+`/api/auth` selbst, und diese Drossel antwortet, BEVOR das Backend die Anfrage
+sieht -- sie war mit 30 je Minute auf dem ganzen Praefix strenger als das
+Backend und machte dessen 120 fuer die zwei Proben wirkungslos. Am Orin
+gemessen: nach elf Anfragen auf `/api/auth/needs-setup` kam 429, waehrend das
+Backend `ratelimit-remaining: 79 von 120` meldete.
+
+Sie ist ausserdem UNSICHTBAR fuer die Buchfuehrung der Abnahmen: Traefiks
+`rateLimit` schickt keine `RateLimit-*`-Kopfzeilen. Eine Drossel, die keine
+Zahl herausgibt, kann keine Abnahme abwarten -- also muss sie mindestens so
+weit stehen wie die, die es tut. Geprueft wird deshalb: die Traefik-Drossel
+des Probenpfades ist nicht STRENGER als `probeLimiter`, die des uebrigen
+`/api/auth` nicht strenger als `generalAuthLimiter`.
+
 Aufruf: python3 scripts/test/drosselzahlen.py [--wurzel PFAD]
-Rueckgabe 0, wenn alle drei Stellen dieselben Zahlen tragen.
+Rueckgabe 0, wenn alle vier Stellen dieselben Zahlen tragen.
 """
 
 from __future__ import annotations
@@ -75,6 +89,32 @@ def curl(wurzel: Path) -> dict[str, tuple[int, int]]:
     return stand
 
 
+# Welche Traefik-Middleware vor welchem Backend-Limiter steht.
+TRAEFIK = {
+    "probe": "rate-limit-auth-probe",
+    "auth": "rate-limit-auth",
+}
+
+# Traefik zaehlt in `average` je `period`; Sekunden je Einheit.
+PERIODE = {"s": 1000, "m": 60_000, "h": 3_600_000}
+
+
+def traefik(wurzel: Path) -> dict[str, tuple[int, int]]:
+    """(average, period_ms) je Middleware aus `dynamic/middlewares.yml`."""
+    quelle = (wurzel / "config/traefik/dynamic/middlewares.yml").read_text(encoding="utf-8")
+    stand: dict[str, tuple[int, int]] = {}
+    for name, mw in TRAEFIK.items():
+        m = re.search(
+            rf"^    {re.escape(mw)}:\n\s*rateLimit:\n\s*average: (\d+)\n\s*period: (\d+)([smh])",
+            quelle,
+            re.MULTILINE,
+        )
+        if not m:
+            raise SystemExit(f"middlewares.yml: {mw} nicht gefunden")
+        stand[name] = (int(m.group(1)), int(m.group(2)) * PERIODE[m.group(3)])
+    return stand
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--wurzel", default=Path(__file__).resolve().parents[2], type=Path)
@@ -90,10 +130,25 @@ def main() -> int:
                     f"rateLimit.js sagt {grenze} je {fenster} ms"
                 )
                 fehler += 1
+    # Traefik steht DAVOR: es muss nicht dieselbe Zahl sein, aber es darf
+    # keine engere sein -- sonst antwortet der Vorbau, und das Backend kommt
+    # mit seiner Regel nie zum Zug.
+    vorbau = traefik(args.wurzel)
+    for name, mw in TRAEFIK.items():
+        grenze, fenster = soll[name]
+        schnitt, periode = vorbau[name]
+        # Auf dieselbe Zeitspanne umgerechnet vergleichen.
+        if schnitt / periode < grenze / fenster:
+            print(
+                f"FEHLT  middlewares.yml: {mw} laesst {schnitt} je {periode // 1000} s durch, "
+                f"rateLimit.js laesst {grenze} je {fenster // 1000} s -- "
+                "der Vorbau ist enger als das Backend und antwortet zuerst"
+            )
+            fehler += 1
     if fehler:
         return 1
     zeilen = ", ".join(f"{n} {g} je {f // 1000} s" for n, (g, f) in soll.items())
-    print(f"OK  {len(soll)} Drosseln, drei Stellen, dieselben Zahlen ({zeilen})")
+    print(f"OK  {len(soll)} Drosseln, vier Stellen, dieselben Zahlen ({zeilen})")
     return 0
 
 

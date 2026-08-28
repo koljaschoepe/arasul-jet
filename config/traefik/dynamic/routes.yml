@@ -71,6 +71,23 @@ http:
         - websecure
       tls: {}
 
+    # Die zwei Proben jeder Seitenladung, vor dem Praefix darunter.
+    #
+    # Hoehere Prioritaet als `auth-api`, sonst faengt dessen `PathPrefix` sie
+    # weg. Genau zwei Pfade, als `Path` und nicht als Praefix: was hier
+    # steht, umgeht die strengere Drossel, und das soll nur, was jede
+    # Seitenladung ohnehin fragt.
+    auth-probe-api:
+      rule: 'Path(`/api/auth/session`) || Path(`/api/auth/needs-setup`)'
+      service: dashboard-backend-service
+      priority: 25
+      middlewares:
+        - security-headers
+        - rate-limit-auth-probe
+      entryPoints:
+        - websecure
+      tls: {}
+
     # Auth endpoints (with stricter rate limiting)
     auth-api:
       rule: 'PathPrefix(`/api/auth`)'

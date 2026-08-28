@@ -139,6 +139,85 @@ function checkIndexCSS() {
   return errors;
 }
 
+// --- Rollkaesten enthalten, was sie wegrollen --------------------------------
+
+/**
+ * Bekannte Rollkaesten ohne `position` -- und warum sie noch stehen.
+ *
+ * Kein Zaehlwerk, sondern Namen: wird einer geloescht, faellt hier nichts um,
+ * und ein NEUER faellt auf, auch wenn zugleich ein alter verschwindet. (Die
+ * beiden Zahlen weiter oben in dieser Datei sind Ratschen; eine Liste ist die
+ * genauere Form derselben Idee.)
+ *
+ *   .navigation, .nav-bar, .modal-global, .msb-list
+ *       Toter Code. Keine dieser Klassen steht am 29.08.2026 noch in einem
+ *       `className` -- sie sind aus der Zeit vor der Shell aus D1 uebrig.
+ *       Die Reparatur ist nicht `position`, sondern Loeschen; das ist eine
+ *       eigene Aufgabe (die vier Familien haengen mit `.nav-link`, `.msb-*`
+ *       und ihren Media-Queries an mehreren hundert Zeilen).
+ *
+ *   .ara-menue__inhalt
+ *       Lebt, hat aber heute kein absolut gesetztes Kind: in
+ *       `packages/marken/` gibt es KEIN `position: absolute` und kein
+ *       `sr-only`. Es zu aendern hiesse die Fassung heben und
+ *       `browser/marken.js` neu bauen (siehe `scripts/test/marken.py`) --
+ *       und das erreicht eine schon ausgelieferte App ohnehin erst beim
+ *       naechsten Deploy der App.
+ */
+const ROLLKAESTEN_OHNE_POSITION = [
+  '.navigation',
+  '.nav-bar',
+  '.modal-global',
+  '.msb-list',
+  '.ara-menue__inhalt',
+];
+
+/**
+ * Ein Rollkasten (`overflow: auto|scroll`) muss ein enthaltender Block sein.
+ *
+ * Der Fund der G1-Abnahme, am 29.08.2026 am Orin gemessen: `overflow`
+ * klammert nur ab, was auch IN dem Kasten liegt. Ein absolut gesetztes Kind
+ * liegt in seinem naechsten POSITIONIERTEN Vorfahren -- ist der Rollkasten
+ * `position: static`, ist das irgendein Kasten weiter oben, und das Kind
+ * entkommt: es rollt nicht mit, es wird nicht abgeklammert, und seine Breite
+ * zaehlt zur Rollbreite des DOKUMENTS.
+ *
+ * So schoben die sieben `.sr-only` in den Knoepfen der Mitarbeiter-Tabelle
+ * (je 1 px breit, unsichtbar) die Seite bei 1024 px auf 1042 px. Die Abnahme
+ * sah „rollt waagerecht", und zu sehen war nichts.
+ *
+ * Kaesten mit `overflow: hidden` sind ausgenommen: dort ist ein Kind, das
+ * herausragt, manchmal gewollt (ein Menue aus seiner Karte). Aus einem
+ * ROLLKASTEN ist es das nie -- man kann es nicht erreichen.
+ *
+ * Gefragt wird je SELEKTOR und nicht je Block: `.navigation` bekommt sein
+ * `overflow-x` erst in einer Media-Query, und `position` stuende im
+ * Grundblock. Zwei Bloecke, eine Regel.
+ */
+function checkRollkaesten(cssFiles) {
+  const errors = [];
+  const ROLLT = /overflow(-x|-y)?\s*:\s*(auto|scroll)/;
+  const SETZT_POSITION = /position\s*:\s*(relative|absolute|fixed|sticky)/;
+  for (const datei of cssFiles) {
+    const inhalt = fs.readFileSync(datei, 'utf8');
+    // Alle Deklarationen je Selektor einsammeln, ueber die ganze Datei.
+    const jeSelektor = new Map();
+    for (const [, selektor, rumpf] of inhalt.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const name = selektor.trim().split('\n').pop().trim();
+      jeSelektor.set(name, (jeSelektor.get(name) || '') + rumpf);
+    }
+    for (const [name, rumpf] of jeSelektor) {
+      if (!ROLLT.test(rumpf) || SETZT_POSITION.test(rumpf)) continue;
+      if (ROLLKAESTEN_OHNE_POSITION.includes(name)) continue;
+      errors.push(
+        `${path.relative(REPO, datei)} — \`${name}\` rollt, setzt aber kein ` +
+          '`position`: ein absolut gesetztes Kind entkaeme dem Kasten und schoebe die Seite'
+      );
+    }
+  }
+  return errors;
+}
+
 // --- Main --------------------------------------------------------------------
 
 function main() {
@@ -151,6 +230,7 @@ function main() {
   const transitions = allIssues.filter(i => i.type === 'MISSING_TRANSITION');
   const loginErrors = checkLoginCSS();
   const indexErrors = checkIndexCSS();
+  const rollErrors = checkRollkaesten(cssFiles);
 
   let failed = false;
 
@@ -198,6 +278,14 @@ function main() {
     failed = true;
   } else {
     console.log('  PASS  index.css Variablen korrekt');
+  }
+
+  // 6. Rollkaesten
+  if (rollErrors.length > 0) {
+    rollErrors.forEach(e => console.log(`  FAIL  ${e}`));
+    failed = true;
+  } else {
+    console.log('  PASS  Jeder Rollkasten enthaelt, was er wegrollt');
   }
 
   console.log('');
