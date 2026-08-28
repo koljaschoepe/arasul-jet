@@ -52,6 +52,148 @@ interface AuthContextValue {
 // Context
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Die Sitzungsprobe, mit zweitem und drittem Versuch — und mit Zeitgrenze.
+ *
+ * `GET /api/auth/session` antwortet in BEIDEN Fällen mit 200 und sagt im Rumpf,
+ * welcher es ist. Eine Antwort, die nicht 200 ist, und erst recht eine, die gar
+ * nicht kommt, ist deshalb KEINE Aussage über die Sitzung, sondern ein Ausfall
+ * auf dem Weg dorthin — und trotzdem landete der Mensch danach auf der
+ * Anmeldung, obwohl seine Sitzung getragen hätte.
+ *
+ * Der Fund kommt aus der Oberflächen-Abnahme am Orin (28.08.2026): einer von
+ * vier Läufen fand die Seite „Neues Passwort" bei 1024 px nicht, die beiden
+ * Breiten davor und danach schon. Dieselbe Klasse wie die nachgeladenen Bündel
+ * aus D6 (`utils/lazyNachladen`) — eine einzelne Anfrage geht verloren, und was
+ * danach dasteht, sieht aus wie eine Aussage über das Gerät.
+ *
+ * Zwei Dinge daher, die vorher fehlten:
+ *  - eine ZEITGRENZE. Ohne sie blieb eine hängende Anfrage für immer hängen,
+ *    und die Oberfläche zeigte dauerhaft „Prüfe Authentifizierung…".
+ *  - ein ZWEITER VERSUCH. Er kostet auf einem gesunden Gerät nichts, weil der
+ *    erste trägt.
+ *
+ * Ein 429 wird NICHT wiederholt: das ist eine Antwort, die der Server gegeben
+ * hat, und sofort noch einmal anzuklopfen macht sie nur wahrer.
+ */
+const PROBE_VERSUCHE = 3;
+const PROBE_GRENZE_MS = 6000;
+const PROBE_PAUSE_MS = 250;
+
+/**
+ * Zwei Gründe zum Abbrechen, ein Signal: der Aufrufer (StrictMode, Unmount)
+ * und die eigene Zeitgrenze. Von Hand zusammengeführt und nicht mit
+ * `AbortSignal.any` — das gibt es erst seit Chrome 116 und Safari 17.4, und
+ * fehlte es, würde die Probe hier werfen und JEDEN abmelden. Ein
+ * `AbortController` gibt es überall.
+ */
+function probenSignal(signal: AbortSignal | undefined, grenzeMs: number) {
+  const halt = new AbortController();
+  const weiterreichen = () => halt.abort();
+  if (signal?.aborted) halt.abort();
+  else signal?.addEventListener('abort', weiterreichen);
+  const uhr = setTimeout(() => halt.abort(), grenzeMs);
+  return {
+    signal: halt.signal,
+    aufraeumen: () => {
+      clearTimeout(uhr);
+      signal?.removeEventListener('abort', weiterreichen);
+    },
+  };
+}
+
+async function sitzungProbe(signal?: AbortSignal): Promise<Response | null> {
+  let letzte: Response | null = null;
+  for (let versuch = 1; versuch <= PROBE_VERSUCHE; versuch += 1) {
+    const halt = probenSignal(signal, PROBE_GRENZE_MS);
+    try {
+      const response = await fetch(`${API_BASE}/auth/session`, {
+        headers: getAuthHeaders(),
+        signal: halt.signal,
+      });
+      if (response.ok) return response;
+      // Der Server hat geantwortet, nur nicht mit 200. Bei 429 ist das sein
+      // letztes Wort; bei allem anderen darf ein zweiter Versuch fragen.
+      letzte = response;
+      if (response.status === 429) return response;
+    } catch (err) {
+      // Der Aufrufer hat abgebrochen — dann gehört der Zustand ihm, nicht uns.
+      if (signal?.aborted) throw err;
+      letzte = null;
+    } finally {
+      halt.aufraeumen();
+    }
+    if (versuch < PROBE_VERSUCHE) {
+      await new Promise(weiter => setTimeout(weiter, PROBE_PAUSE_MS * versuch));
+    }
+  }
+  return letzte;
+}
+
+/**
+ * Abmelden am Gerät — und zwar so, dass das Sitzungscookie wirklich fällt.
+ *
+ * `POST /api/auth/logout` ist die EINZIGE Stelle, die das httpOnly-Cookie
+ * `arasul_session` löschen kann: eine Seite sieht es nie und kann es nicht
+ * selbst wegräumen. Geht dieser eine Ruf daneben, bleibt eine tote Sitzung im
+ * Browser stehen, die der Mensch nicht mehr loswird — die Oberfläche zeigt die
+ * Anmeldung, und der Browser trägt weiter ein Cookie.
+ *
+ * WARUM ZWEIMAL. Der Startpasswort-Wechsel ist selbst eine Mutation, und jede
+ * angenommene Mutation DREHT das Cookie `arasul_csrf`
+ * (`middleware/csrf.js`, „defense in depth"). Chromium führt `document.cookie`
+ * im Renderer als Kopie und zieht sie erst kurz nach der Antwort nach; wer
+ * unmittelbar danach liest — und genau das tut das Abmelden, das dem Wechsel
+ * auf dem Fuß folgt — kann noch den alten Wert bekommen. Der Server sieht dann
+ * Kopfzeile und Cookie auseinandergehen und antwortet mit 403 CSRF_INVALID,
+ * BEVOR die Route läuft: `res.clearCookie` fällt aus, das Cookie bleibt.
+ * Eine abgelehnte Anfrage dreht das Cookie NICHT — der zweite Versuch liest es
+ * neu und trifft.
+ *
+ * Das ist der zweite Fund der Oberflächen-Abnahme am Orin (28.08.2026), einer
+ * von vier Läufen. In D6 war schon einmal etwas anderes an derselben Stelle zu
+ * (`requireAuth` → `optionalAuth`); dies hier ist nicht dessen Rückfall,
+ * sondern die Schicht davor.
+ *
+ * Jeder ANDERE Mutationsweg hat diese Erholung längst: `useApi` holt bei
+ * 403 CSRF_INVALID einen frischen Wert und wiederholt einmal. Das Abmelden
+ * geht bewusst nicht durch `useApi` (Ringschluss, siehe `checkAuth`) — und war
+ * damit der einzige Weg ohne. `GET /api/auth/csrf` hilft ihm nicht: der Weg
+ * verlangt eine gültige Sitzung, und die ist nach dem Wechsel gerade tot.
+ *
+ * Ein `fetch` wirft nur beim Netzfehler; ein 403 oder 429 kommt als Antwort
+ * zurück. Gefragt wird deshalb `res.ok` und nicht bloß, ob es eine Antwort gab.
+ */
+const ABMELDE_VERSUCHE = 2;
+const ABMELDE_PAUSE_MS = 150;
+
+async function abmeldenBeimGeraet(): Promise<void> {
+  let letzter = 'kein Versuch';
+  for (let versuch = 1; versuch <= ABMELDE_VERSUCHE; versuch += 1) {
+    try {
+      const headers: Record<string, string> = getAuthHeaders();
+      // Frisch bei JEDEM Versuch aus dem Cookie gelesen — darin liegt die
+      // ganze Erholung.
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+      const response = await fetch(`${API_BASE}/auth/logout`, { method: 'POST', headers });
+      if (response.ok) return;
+      letzter = `HTTP ${response.status}`;
+    } catch (err) {
+      letzter = (err as Error)?.message || 'Netzfehler';
+    }
+    if (versuch < ABMELDE_VERSUCHE) {
+      await new Promise(weiter => setTimeout(weiter, ABMELDE_PAUSE_MS));
+    }
+  }
+  // Kein Grund, den Menschen aufzuhalten: die Oberfläche meldet ihn gleich
+  // ohnehin ab. Aber es soll in der Konsole stehen, denn der Browser trägt
+  // jetzt ein Cookie, das niemand mehr wegbekommt.
+  console.warn(`Abmelden am Gerät fehlgeschlagen (${letzter}); Sitzungscookie bleibt womöglich.`);
+}
+
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -100,10 +242,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // verloren, die der Server noch anerkannt haette. Ein Pruefpunkt, der
         // nie 401 antwortet, hat diesen Handel nicht noetig. Der Server
         // entscheidet weiter allein.
-        const response = await fetch(`${API_BASE}/auth/session`, {
-          headers: getAuthHeaders(),
-          signal,
-        });
+        // `sitzungProbe` und nicht ein blosses `fetch`: mit Zeitgrenze und
+        // zweitem Versuch, damit eine EINZELNE verlorene Anfrage keinen
+        // angemeldeten Menschen auf die Anmeldung wirft. Begruendung dort.
+        const response = await sitzungProbe(signal);
 
         // Der Pruefpunkt antwortet auf beide Faelle mit 200. Alles andere, 429
         // aus dem Rate-Limiter, 5xx, ein Proxy dazwischen, ist KEINE Aussage
@@ -112,8 +254,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // angemeldeten Nutzer ab. Vor C3 war das nicht zu unterscheiden, weil
         // /auth/me auf "nicht angemeldet" mit 401 antwortete, also selbst nicht
         // ok war.
-        if (!response.ok) {
-          return keineAussage('Auth check failed (server unreachable)');
+        if (!response || !response.ok) {
+          return keineAussage(
+            `Auth check failed (${response ? `HTTP ${response.status}` : 'server unreachable'})`
+          );
         }
 
         const data = await response.json();
@@ -166,16 +310,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // previous user's chats/documents until each query refetches.
   const logout = useCallback(async () => {
     try {
-      const headers: Record<string, string> = getAuthHeaders();
-      const csrfToken = getCsrfToken();
-      if (csrfToken) {
-        headers['X-CSRF-Token'] = csrfToken;
-      }
-      // useApi-exception: see checkAuth above — auth primitive, raw fetch by design.
-      await fetch(`${API_BASE}/auth/logout`, {
-        method: 'POST',
-        headers,
-      });
+      // useApi-exception: see checkAuth above — auth primitive, raw fetch by
+      // design. `abmeldenBeimGeraet` prüft den Ausgang und wiederholt einmal;
+      // warum, steht dort.
+      await abmeldenBeimGeraet();
     } catch (err) {
       console.error('Logout error:', err);
     } finally {

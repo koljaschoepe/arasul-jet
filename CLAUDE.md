@@ -325,6 +325,36 @@ diesen Weg), und „es steht etwas da" zählt den Text **im Rahmen** mit —
 Ab 900 px bleiben die drei Spalten aus D1.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
+Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,
+90/91, 91/91) waren zweimal rot, je genau einmal und je an einer anderen
+Stelle — und beide Male im Startpasswort-Wechsel des Wegwerf-Mitarbeiters. Es
+lag **am Produkt, nicht an der Reihe**, und beide Male an derselben Sache: eine
+einzelne HTTP-Antwort entschied alles, und niemand sah nach, ob sie kam.
+**Abmelden ist die einzige Stelle, die das httpOnly-Cookie `arasul_session`
+löschen kann** — eine Seite sieht es nie. Der Passwortwechsel ist selbst eine
+Mutation, und jede angenommene Mutation dreht das Cookie `arasul_csrf`
+(`middleware/csrf.js`); Chromium führt `document.cookie` im Renderer als Kopie
+und zieht sie erst kurz danach nach, das Abmelden folgt dem Wechsel aber auf dem
+Fuß. Wer noch den alten Wert liest, bekommt **403 CSRF_INVALID, bevor die Route
+läuft** — `res.clearCookie` fällt aus, und im Browser bleibt eine tote Sitzung
+stehen, die niemand mehr wegbekommt. Jeder andere Mutationsweg hat diese
+Erholung längst (`useApi` holt bei `CSRF_INVALID` einen frischen Wert und
+wiederholt einmal); das Abmelden geht bewusst nicht durch `useApi` und war damit
+der einzige Weg ohne. Es wiederholt jetzt einmal und liest das Cookie dabei neu
+— eine abgelehnte Anfrage dreht es nicht, der zweite Versuch trifft.
+`GET /api/auth/csrf` hilft hier nicht: der Weg verlangt eine gültige Sitzung,
+und die ist nach dem Wechsel gerade tot. Zweitens **wirft eine verlorene
+Sitzungsprobe niemanden mehr auf die Anmeldung**: `GET /api/auth/session`
+antwortet in beiden Fällen mit 200, alles andere ist keine Aussage über die
+Sitzung — `checkAuth` fragt jetzt bis zu dreimal und mit Zeitgrenze (ein 429
+wird nicht wiederholt, das ist eine Antwort). Ohne Zeitgrenze blieb eine
+hängende Anfrage für immer hängen, und die Oberfläche zeigte dauerhaft „Prüfe
+Authentifizierung …". Dieselbe Klasse wie `utils/lazyNachladen` aus D6.
+Und die Reihe **erklärt ihre roten Felder**: sie schreibt jeden Wortwechsel mit
+`/api/auth/*` mit, samt dem, der gar nicht kam, und nennt ihn in der Zeile —
+„arasul_session blieb stehen" ließ offen, ob der Weg 403 sagte, 429 oder gar
+nichts, drei Befunde mit drei verschiedenen Antworten.
+
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/`   |
