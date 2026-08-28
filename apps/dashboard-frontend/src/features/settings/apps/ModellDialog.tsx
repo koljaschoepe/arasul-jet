@@ -23,6 +23,7 @@ import Modal from '@/components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
 import { cn } from '@/lib/utils';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import type { CatalogModel } from '@/hooks/useStoreCatalog';
@@ -125,8 +126,12 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
       }
     >
       <form id="flow-modell" onSubmit={absenden} className="flex flex-col gap-4">
-        <fieldset className="flex flex-col gap-2">
-          <legend className="sr-only">Woher das Modell kommt</legend>
+        <RadioGroup
+          value={quelle}
+          onValueChange={wert => setQuelle(wert as Quelle)}
+          className="flex flex-col gap-2"
+          aria-label="Woher das Modell kommt"
+        >
           {(
             [
               [
@@ -140,20 +145,17 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
               ['extern', 'Bei einem Anbieter', 'Der Prompt dieses Flows verlässt dann das Haus.'],
             ] as const
           ).map(([wert, titel, satz]) => (
-            <label
+            <Label
               key={wert}
-              aria-label={titel}
+              htmlFor={`quelle-${wert}`}
               className={cn(
-                'flex cursor-pointer items-start gap-3 rounded-md border p-ui-3 transition-colors',
+                'flex cursor-pointer items-start gap-3 rounded-md border p-ui-3 font-normal transition-colors',
                 quelle === wert ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50'
               )}
             >
-              <input
-                type="radio"
-                name="quelle"
+              <RadioGroupItem
                 value={wert}
-                checked={quelle === wert}
-                onChange={() => setQuelle(wert)}
+                id={`quelle-${wert}`}
                 data-testid={`modell-quelle-${wert}`}
                 className="mt-1"
               />
@@ -161,9 +163,9 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
                 <span className="block text-sm font-medium text-foreground">{titel}</span>
                 <span className="block text-xs text-muted-foreground">{satz}</span>
               </span>
-            </label>
+            </Label>
           ))}
-        </fieldset>
+        </RadioGroup>
 
         {quelle === 'lokal' && (
           <div className="flex flex-col gap-1.5">

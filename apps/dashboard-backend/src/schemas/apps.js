@@ -328,10 +328,22 @@ const ExternesModell = z
   })
   .strict();
 
-const FlowModellBody = z.union([
-  z.object({ modell: z.string().trim().max(100).nullable() }).strict(),
-  z.object({ extern: ExternesModell }).strict(),
-]);
+const FlowModellBody = z.union(
+  [
+    z.object({ modell: z.string().trim().max(100).nullable() }).strict(),
+    z.object({ extern: ExternesModell }).strict(),
+  ],
+  {
+    // Zod meldet fuer eine Vereinigung nur „Invalid input" und haengt die
+    // Fehler beider Arme daran. Der Fehlerbehandler nimmt den ERSTEN Befund
+    // (`middleware/validate.js`, `summarizeIssues`), und der lautete damit
+    // „expected string, received undefined" -- eine Auskunft ueber den einen
+    // Arm, nicht ueber die Frage. Hier steht sie ganz.
+    error:
+      'Erwartet wird {"modell": "<name>"}, {"modell": null} (zurueck zum Paket) ' +
+      'oder {"extern": {anbieter, modell, basis_url, schluessel?}}. Beides zugleich gibt es nicht.',
+  }
+);
 
 /**
  * Die Laeufe einer App: welcher Stand, welcher Flow, wie viele (Phase D4).
