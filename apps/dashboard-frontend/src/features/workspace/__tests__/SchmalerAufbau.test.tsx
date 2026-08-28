@@ -36,18 +36,32 @@ vi.mock('../SidebarHost', () => ({ SidebarHost: () => <div data-testid="mock-sid
 vi.mock('../RightPanel', () => ({ RightPanel: () => <div data-testid="mock-rightpanel" /> }));
 vi.mock('../SchmalMenue', () => ({ SchmalMenue: () => <div data-testid="mock-schmalmenue" /> }));
 
-/** Ein matchMedia-Doppel: `schmal` sagt, ob `(max-width: 899px)` passt. */
+/**
+ * Ein matchMedia-Doppel: `schmal` sagt, ob `(max-width: 899px)` passt.
+ *
+ * Es merkt sich seine Horcher, damit ein Test das Fenster WAEHREND des Laufs
+ * breiter ziehen kann (`umstellen`). Ein Doppel mit leeren Horchern koennte
+ * das nicht: `useSchmalesFenster` liest `matches` einmal beim Einhaengen und
+ * danach nur noch auf Zuruf.
+ */
 function fensterbreite(schmal: boolean) {
   const original = window.matchMedia;
-  window.matchMedia = vi.fn().mockReturnValue({
+  const horcher = new Set<() => void>();
+  const abfrage = {
     matches: schmal,
     media: '',
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  }) as unknown as typeof window.matchMedia;
-  return () => {
+    addEventListener: (_art: string, ruf: () => void) => horcher.add(ruf),
+    removeEventListener: (_art: string, ruf: () => void) => horcher.delete(ruf),
+  };
+  window.matchMedia = vi.fn().mockReturnValue(abfrage) as unknown as typeof window.matchMedia;
+  const zurueckstellen = () => {
     window.matchMedia = original;
   };
+  zurueckstellen.umstellen = (jetztSchmal: boolean) => {
+    abfrage.matches = jetztSchmal;
+    for (const ruf of horcher) ruf();
+  };
+  return zurueckstellen;
 }
 
 let zurueck = () => {};
@@ -153,6 +167,30 @@ describe('Der schmale Aufbau unter 900 px', () => {
     });
     expect(useWorkspaceStore.getState().notizenAnsichtOffen).toBe(false);
     expect(useWorkspaceStore.getState().menueOffen).toBe(false);
+  });
+
+  it('macht den Zettel auch zu, wenn das Fenster wieder breit wird', async () => {
+    const doppel = fensterbreite(true);
+    zurueck = doppel;
+    renderShell();
+    await screen.findByTestId('mock-tabcontent');
+
+    act(() => {
+      useWorkspaceStore.getState().toggleNotizenAnsicht();
+    });
+    expect(useWorkspaceStore.getState().notizenAnsichtOffen).toBe(true);
+
+    // Dasselbe Fenster, jetzt breit gezogen: sonst bliebe der Aufenthaltsort
+    // von vorhin stehen, und wer es wieder schmal zieht, faende die Notizen
+    // offen vor statt seiner Arbeit.
+    act(() => {
+      doppel.umstellen(false);
+    });
+    expect(useWorkspaceStore.getState().notizenAnsichtOffen).toBe(false);
+    expect(screen.getByTestId('workspace-shell')).toHaveAttribute(
+      'data-shell-aufbau',
+      'drei-spalten'
+    );
   });
 
   it('laesst ueber 900 px die drei Spalten aus D1 stehen', async () => {

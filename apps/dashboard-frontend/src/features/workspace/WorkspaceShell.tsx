@@ -167,8 +167,12 @@ export default function WorkspaceShell(props: TabThemeControls) {
   // Eine Ansicht kommt, der Zettel und das Menue gehen. `notizenAnsichtOffen`
   // steht ABSICHTLICH nicht in den Abhaengigkeiten: sonst schloesse dieser
   // Effekt sofort wieder, was jemand gerade aufgeschlagen hat.
+  //
+  // Auch beim Wechsel INS breite Fenster, obwohl es dort weder Zettel-Ansicht
+  // noch Menue gibt: sonst bliebe der Aufenthaltsort von vorhin stehen, und
+  // wer das Fenster wieder schmal zieht, faende die Notizen offen vor statt
+  // seiner Arbeit.
   useEffect(() => {
-    if (!schmal) return;
     useWorkspaceStore.getState().schliesseNotizenAnsicht();
     useWorkspaceStore.getState().schliesseMenue();
   }, [schmal, activeTabId, activeView]);
