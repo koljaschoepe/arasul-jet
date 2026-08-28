@@ -7,6 +7,7 @@ import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudge
 import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
 import { modellage, wechselGrund, kiRamZeile, zuGb } from '@/utils/modellZustand';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
@@ -44,6 +45,8 @@ export function StatusBar() {
   const api = useApi();
   const toast = useToast();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const istAdmin = user?.role === 'admin';
   const [modelOpen, setModelOpen] = useState(false);
 
   const { data, isError } = useQuery({
@@ -57,7 +60,14 @@ export function StatusBar() {
   // KI-RAM-Budget: teilt sich Key + Cache mit useModelStatus, daher kein
   // zweiter Poll-Zyklus. 10 s Intervall spiegelt die bisherige Kadenz der
   // (entfallenen) Dashboard-KI-Karte.
-  const { data: budget } = useMemoryBudget();
+  //
+  // NUR FUER DEN ADMINISTRATOR (Phase D3, Fund der D2-Abnahme). Der Weg
+  // dahinter traegt `requireRole('admin')`, die Statusleiste steht aber in
+  // jeder Shell: ein Mitarbeiter bekam beim Laden zwei 403 in die Konsole
+  // (`retry: 1`) und danach alle zehn Sekunden eines. Ohne Budget faellt der
+  // Modell-Umschalter unten von selbst weg, und das ist richtig so: welches
+  // Modell Standard ist, entscheidet die Verwaltung.
+  const { data: budget } = useMemoryBudget({ enabled: istAdmin });
 
   // Modell-Umschalter: Katalog/Status/Standard nur laden, während das Popover
   // offen ist. Teilt die Query-Keys mit der Store-Ansicht (Cache-Dedup).
