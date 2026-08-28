@@ -77,9 +77,14 @@ def ebenen(ausdruck: str) -> int:
 
 
 def dateien(wurzel: Path) -> list[Path]:
+    # `is_file()` und nicht nur der Name: am Orin liegt unter `data/` ein
+    # ORDNER namens `healthcheck.sh` -- Docker legt eine fehlende Bind-Quelle
+    # als Verzeichnis an, und der Name der Quelle war eine Datei. Ohne diese
+    # Zeile endet der Waechter mit einem IsADirectoryError, und die Abnahme des
+    # Bootstraps ist rot, weil der PRUEFER stolpert und nicht das Gepruefte.
     gefunden = [
         d for d in wurzel.glob('**/*.sh')
-        if 'node_modules' not in d.parts and '.git' not in d.parts
+        if d.is_file() and 'node_modules' not in d.parts and '.git' not in d.parts
     ]
     if (wurzel / 'arasul').is_file():
         gefunden.append(wurzel / 'arasul')
