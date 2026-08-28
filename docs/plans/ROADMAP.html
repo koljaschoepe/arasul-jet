@@ -24,7 +24,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-08-26",
+  "updated": "2026-08-28",
   "migrated_from_master_plan": true,
   "gates_sind": "die acht Abnahmen des Ueberordner-Plans vom 26.08.2026; G1 bis G7 sind am 26.08.2026 ersetzt worden, G5 Recht bleibt bei Kolja ausserhalb der Abnahmen",
     "gates": [
@@ -32,49 +32,57 @@
       "id": "A1",
       "title": "Frischer Klon des Kits, /start, /device gegen einen Rechner ohne Arasul: Akte, Prüfung, Docker, Ollama",
       "entsteht_in": "E3",
-      "state": "open"
+      "state": "done",
+      "gemessen": "ara-kit PR #22/#23, 28.08.2026"
     },
     {
       "id": "A2",
       "title": "/device installiert Arasul auf dem Orin mit Token, Oberfläche erreichbar",
       "entsteht_in": "E4",
-      "state": "open"
+      "state": "done",
+      "gemessen": "ara-kit PR #22/#23, 28.08.2026: Werksreset 20:20, danach Arasul 0.3.0 aus dem Artefakt"
     },
     {
       "id": "A3",
       "title": "/app baut eine App mit Frontend, Backend und Flow und deployt sie auf den Orin",
       "entsteht_in": "E5",
-      "state": "open"
+      "state": "done",
+      "gemessen": "ara-kit PR #22/#23, 28.08.2026: urlaubsantrag 0.1.0 live und test am Orin"
     },
     {
       "id": "A4",
       "title": "Admin legt Mitarbeiter an, gibt eine App frei. Mitarbeiter sieht nur diese, alles andere antwortet 403 aus der Route",
       "entsteht_in": "D3",
-      "state": "open"
+      "state": "done",
+      "gemessen": "28.08.2026 21:39, ARASUL_ADMIN_APP=urlaubsantrag bash scripts/test/admin-abnahme.sh gegen https://100.121.244.80 -> 22 von 22 gruen, 1 uebersprungen (zweite App fehlt am Geraet)"
     },
     {
       "id": "A5",
       "title": "Flow läuft, fordert Freigabe an, Mitarbeiter bestätigt, Lauf ist mit Gedankengang nachlesbar",
       "entsteht_in": "D4",
-      "state": "open"
+      "state": "done",
+      "gemessen": "28.08.2026 21:41, bash scripts/test/app-admin-abnahme.sh (ARASUL_APP=urlaubsantrag, ARASUL_FLOW_WEG=/apps/urlaubsantrag/api/vorgaenge) -> 17 von 17 gruen, 1 uebersprungen (Gedankengang: der Flow ist eine feste Schritt-Kette)"
     },
     {
       "id": "A6",
       "title": "Backup und Wiederherstellung über alle Tabellen und App-Volumes",
       "entsteht_in": "C9",
-      "state": "open"
+      "state": "done",
+      "gemessen": "28.08.2026 21:43 am Geraet, ARASUL_STACK=betrieb ARASUL_DRILL_APP=urlaubsantrag bash scripts/test/dr-drill.sh -> 19 gruen, 0 rot: geloescht (Container, Images, Pakete, Zeilen) und vollstaendig zurueckgeholt, Image aus dem gesicherten Paket neu gebaut"
     },
     {
       "id": "A7",
       "title": "Sieben Tage Dauerlauf ohne Eingriff",
       "entsteht_in": "G2",
-      "state": "open"
+      "state": "open",
+      "gemessen": "28.08.2026 21:52 gestartet: bash scripts/test/dauerlauf-bericht.sh 7 -> 'Arasul laeuft seit 28.08.2026 20:54', 11 von 11 Diensten, keiner musste neu starten, nichts Rotes. Faellig 04.09.2026."
     },
     {
       "id": "A8",
       "title": "Website sagt die Wahrheit: kein „Entwicklungsumgebung“, kein alter Produktname, Kit verlinkt, Claude Code statt Codex",
       "entsteht_in": "F1",
-      "state": "open"
+      "state": "done",
+      "gemessen": "arasul-website PR #21, 28.08.2026"
     }
   ],
   "themes": [
@@ -677,16 +685,16 @@
   </p>
 
   <div class="gatebar">
-    <span class="big">0<small> / 8 Abnahmen</small></span>
+    <span class="big">7<small> / 8 Abnahmen</small></span>
     <div class="gpills">
-      <span class="gpill" data-state="open" title="Frischer Klon des Kits, /start, /device gegen einen Rechner ohne Arasul: Akte, Prüfung, Docker, Ollama">A1 Kit ohne Arasul</span>
-      <span class="gpill" data-state="open" title="/device installiert Arasul auf dem Orin mit Token, Oberfläche erreichbar">A2 Installation</span>
-      <span class="gpill" data-state="open" title="/app baut eine App mit Frontend, Backend und Flow und deployt sie auf den Orin">A3 App-Deploy</span>
-      <span class="gpill" data-state="open" title="Admin legt Mitarbeiter an, gibt eine App frei. Mitarbeiter sieht nur diese, alles andere antwortet 403 aus der Route">A4 Freigaben 403</span>
-      <span class="gpill" data-state="open" title="Flow läuft, fordert Freigabe an, Mitarbeiter bestätigt, Lauf ist mit Gedankengang nachlesbar">A5 Flow-Freigabe</span>
-      <span class="gpill" data-state="open" title="Backup und Wiederherstellung über alle Tabellen und App-Volumes">A6 Backup</span>
+      <span class="gpill" data-state="done" title="Frischer Klon des Kits, /start, /device gegen einen Rechner ohne Arasul: Akte, Prüfung, Docker, Ollama">A1 Kit ohne Arasul</span>
+      <span class="gpill" data-state="done" title="/device installiert Arasul auf dem Orin mit Token, Oberfläche erreichbar">A2 Installation</span>
+      <span class="gpill" data-state="done" title="/app baut eine App mit Frontend, Backend und Flow und deployt sie auf den Orin">A3 App-Deploy</span>
+      <span class="gpill" data-state="done" title="Admin legt Mitarbeiter an, gibt eine App frei. Mitarbeiter sieht nur diese, alles andere antwortet 403 aus der Route">A4 Freigaben 403</span>
+      <span class="gpill" data-state="done" title="Flow läuft, fordert Freigabe an, Mitarbeiter bestätigt, Lauf ist mit Gedankengang nachlesbar">A5 Flow-Freigabe</span>
+      <span class="gpill" data-state="done" title="Backup und Wiederherstellung über alle Tabellen und App-Volumes">A6 Backup</span>
       <span class="gpill" data-state="open" title="Sieben Tage Dauerlauf ohne Eingriff">A7 7 Tage</span>
-      <span class="gpill" data-state="open" title="Website sagt die Wahrheit: kein „Entwicklungsumgebung“, kein alter Produktname, Kit verlinkt, Claude Code statt Codex">A8 Website</span>
+      <span class="gpill" data-state="done" title="Website sagt die Wahrheit: kein „Entwicklungsumgebung“, kein alter Produktname, Kit verlinkt, Claude Code statt Codex">A8 Website</span>
     </div>
   </div>
   <div class="counts">

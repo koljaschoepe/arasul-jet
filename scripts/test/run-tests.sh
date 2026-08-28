@@ -359,6 +359,20 @@ run_eigenbezug_check() {
 # sein `PROJECT_ROOT` zeigte damit auf `scripts/`, und der Bootstrap suchte
 # `scripts/docker-compose.yml`. Auf einem Arbeitsgeraet faellt das nie auf, auf
 # jedem frischen sofort.
+# 28.08.2026, Phase G1: `backup-service` stand im Compose, sein Image war
+# gebaut, der Container war nie angelegt -- ein frisch installiertes Geraet kam
+# ohne Sicherung hoch. Vier Listen nennen die Dienste, und ausgerechnet die,
+# die den Bootstrap steuert, war die falsche.
+run_dienste_check() {
+  echo ""
+  echo "-> Pruefe, ob jeder Dienst des Compose beim Bootstrap hochfaehrt..."
+  if python3 "${PROJECT_ROOT}/scripts/test/dienste.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_wurzelpfad_check() {
   echo ""
   echo "-> Pruefe, ob jedes Skript sein Wurzelverzeichnis richtig ausrechnet..."
@@ -566,6 +580,7 @@ run_stiller_tod_check
 run_rohrbruch_check
 run_eigenbezug_check
 run_wurzelpfad_check
+run_dienste_check
 run_endpunkte_check
 run_anleitungen_check
 run_faden_check

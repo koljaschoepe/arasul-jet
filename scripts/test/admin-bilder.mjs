@@ -172,7 +172,26 @@ try {
 
     if (matrix) {
       await seite.screenshot({ path: path.join(ZIEL, 'matrix-vor-der-freigabe.png') });
-      await seite.locator(`[data-testid="freigabe-${zelle}"] input`).check();
+
+      // KLICKEN, NICHT `check()`. Der Unterschied ist keine Kosmetik, und er
+      // hat die A4-Messung am 28.08.2026 rot gemacht, obwohl die Freigabe in
+      // der Datenbank stand: `locator.check()` klickt und prueft DANACH
+      // SOFORT, ob `input.checked` wahr ist -- ist es das nicht, wirft es
+      // "Clicking the checkbox did not change its state", ohne zu warten.
+      //
+      // Dieses Haekchen ist ein KONTROLLIERTES Feld (`components/ui/Checkbox`,
+      // `checked={Boolean(freigabe)}`): der Klick setzt es einen Wimpernschlag
+      // lang, dann rendert React es aus dem unveraenderten Zustand zurueck auf
+      // leer, und erst wenn `POST /api/freigaben` durch ist und die Abfrage
+      // erneuert wurde, steht der Haken. Genau so soll es sein -- ein Haken,
+      // der steht, bevor das Geraet zugestimmt hat, waere eine Behauptung.
+      // Gemessen hat `check()` also den Renderzyklus und nicht das Produkt.
+      //
+      // Die Probe steht ohnehin direkt darunter und ist die bessere: der
+      // Stand-Schalter erscheint NUR, wenn die Freigabe wirklich steht.
+      const haken = seite.locator(`[data-testid="freigabe-${zelle}"] input`);
+      pruefe('Das Haekchen steht vor dem Klick leer', !(await haken.isChecked()));
+      await haken.click();
 
       // Der Stand-Schalter steht nur da, WENN die Freigabe steht. Er ist damit
       // die Probe darauf, dass der Klick angekommen und die Liste ohne

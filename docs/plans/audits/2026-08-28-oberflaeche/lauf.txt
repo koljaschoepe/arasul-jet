@@ -1,0 +1,95 @@
+=== Oberflaechen-Abnahme (Phase D7) gegen https://100.121.244.80 ===
+
+gruen  Der Administrator hat eine Sitzung  (abgelegt)
+gefunden  1 App(s) am Geraet, gemessen wird urlaubsantrag
+gruen  Ein Mitarbeiter fuer diesen Lauf ist angelegt  (id=12, HTTP 201)
+gruen  Die App urlaubsantrag ist fuer ihn freigegeben  (HTTP 201)
+gruen  Das Dokument traegt eine Content-Security-Policy  (290 Zeichen)
+gruen  Die Policy erlaubt kein unsafe-eval  (nicht enthalten)
+gruen  Kopfzeile strict-transport-security  (max-age=63072000; includeSubDomains)
+gruen  Kopfzeile referrer-policy  (strict-origin-when-cross-origin)
+gruen  Kopfzeile permissions-policy  (camera=(), microphone=(), geolocation=(), payment=())
+gruen  Kopfzeile x-content-type-options  (nosniff)
+gruen  390 px · Anmeldung
+gruen  1024 px · Anmeldung
+gruen  1440 px · Anmeldung
+gruen  Anmeldung: Tab fuehrt von der Kennung ueber das Passwort auf den Knopf  (password -> button -> a)
+gruen  Anmeldung: die Eingabetaste meldet an  (1. Anmeldung)
+gruen  390 px · Startpasswort-Wechsel
+gruen  1024 px · Startpasswort-Wechsel
+gruen  1440 px · Startpasswort-Wechsel
+gruen  Startpasswort-Wechsel: die Eingabetaste bestaetigt, danach steht die Anmeldung
+ROT    Der Passwortwechsel laesst keine tote Sitzung im Browser zurueck  (arasul_session · POST /api/auth/logout → HTTP 401 · nach 5081 ms)
+gruen  Der Mitarbeiter kommt mit dem eigenen Passwort in die Shell  (2. Anmeldung)
+weg    Die Uebersicht mit einer offenen Freigabe  (der Flow "freigabe" der App urlaubsantrag hat nicht angehalten)
+ROT    390 px · Uebersicht  (kein [data-testid="uebersicht-seite"])
+ROT    1024 px · Uebersicht  (kein [data-testid="uebersicht-seite"])
+ROT    1440 px · Uebersicht  (kein [data-testid="uebersicht-seite"])
+ROT    390 px: der Hamburger oeffnet das Menue  (der Klick auf den Hamburger kam nicht durch)
+gruen  390 px · Notizen
+ROT    390 px: die Notizen sind eine eigene Ansicht ueber die ganze Breite  (links 52, breit 338 von 390, Mitte weg)
+ROT    390 px: eine Ansicht aus dem Menue macht die Notizen wieder zu  (der Weg ueber das Menue kam nicht durch)
+ROT    390 px · App im Rahmen  (kein [data-testid="app-rahmen-urlaubsantrag"])
+gruen  1024 px · App im Rahmen
+gruen  1440 px · App im Rahmen
+gruen  Shell: die Tastatur kommt ueberhaupt hinein  (14 Halte)
+gruen  Shell: der Fokus haelt nur auf Sichtbarem  (14 Halte)
+gruen  Shell: die Tab-Reihenfolge folgt dem Dokument  (Sidebar ausblenden -> Notizen ausblenden -> Konto -> Apps -> button -> button)
+gruen  Mitarbeiter auf einer Admin-Adresse: die Shell leitet auf die Uebersicht um  (/workspace/dashboard)
+gruen  und der Weg dahinter antwortet ihm mit 403  (HTTP 403)
+gruen  Ein Alt-Tab, den es nicht mehr gibt: ein Satz statt einer weissen Seite  (Diese Adresse gibt es nicht.)
+gruen  Backend weg: die Seite zeichnet weiter, statt weiss zu bleiben  (142 Zeichen)
+gruen  Backend weg: der Anmeldeversuch nennt den Grund  (Verbindung zum Server fehlgeschlagen. Bitte die Netzwerkverbindung prüfen.)
+gruen  Das Benutzermenue der Kopfleiste geht auf
+gruen  Abmelden fuehrt zurueck auf die Anmeldung
+ROT    390 px · Einstellungen · Mitarbeiter  (kein [data-testid="mitarbeiter-seite"])
+gruen  1024 px · Einstellungen · Mitarbeiter
+gruen  1440 px · Einstellungen · Mitarbeiter
+gruen  1440 px mit Notizen: Einstellungen · Mitarbeiter bleibt ganz  (links 304, rechts 855 von 1440)
+ROT    390 px · Einstellungen · Apps  (kein [data-testid="apps-seite"])
+gruen  1024 px · Einstellungen · Apps
+gruen  1440 px · Einstellungen · Apps
+gruen  1440 px mit Notizen: Einstellungen · Apps bleibt ganz  (links 304, rechts 855 von 1440)
+ROT    390 px · Einstellungen · Sicherheit  (kein [data-testid="sicherheit-seite"])
+ROT    1024 px · Einstellungen · Sicherheit  (kein [data-testid="sicherheit-seite"])
+ROT    1440 px · Einstellungen · Sicherheit  (kein [data-testid="sicherheit-seite"])
+ROT    390 px · Modelle  (kein [data-testid="modelle-seite"])
+ROT    1024 px · Modelle  (kein [data-testid="modelle-seite"])
+ROT    1440 px · Modelle  (kein [data-testid="modelle-seite"])
+ROT    390 px · System · Auslastung  (kein [data-testid="auslastung-seite"])
+ROT    1024 px · System · Auslastung  (kein [data-testid="auslastung-seite"])
+ROT    1440 px · System · Auslastung  (kein [data-testid="auslastung-seite"])
+ROT    390 px · System · Dienste  (kein [data-testid="dienste-seite"])
+ROT    1024 px · System · Dienste  (kein [data-testid="dienste-seite"])
+ROT    1440 px · System · Dienste  (kein [data-testid="dienste-seite"])
+ROT    390 px · System · Aktualisierungen  (kein [data-testid="update-seite"])
+ROT    1024 px · System · Aktualisierungen  (kein [data-testid="update-seite"])
+ROT    1440 px · System · Aktualisierungen  (kein [data-testid="update-seite"])
+ROT    390 px · System · Sicherung  (kein [data-testid="sicherung-seite"])
+ROT    1024 px · System · Sicherung  (kein [data-testid="sicherung-seite"])
+ROT    1440 px · System · Sicherung  (kein [data-testid="sicherung-seite"])
+gruen  Sicherheit: das Geraetezertifikat laedt sich herunter  (arasul-ca.crt)
+gruen  Der Dialog zum Anlegen geht auf
+gruen  Escape schliesst ihn wieder
+gruen  Kein unerwarteter CSP-Verstoss im ganzen Durchlauf  (0 unerwartet, 46 bekannte eval-Probe)
+aufgeraeumt  Benutzer 12 geloescht (HTTP 200)
+
+  Ansicht                        390    1024   1440
+  ----------------------------------------------------
+  Anmeldung                      gruen  gruen  gruen 
+  Startpasswort-Wechsel          gruen  gruen  gruen 
+  Uebersicht                     ROT    ROT    ROT   
+  Notizen                        gruen    -      -   
+  App im Rahmen                  ROT    gruen  gruen 
+  Einstellungen · Mitarbeiter    ROT    gruen  gruen 
+  Einstellungen · Apps           ROT    gruen  gruen 
+  Einstellungen · Sicherheit     ROT    ROT    ROT   
+  Modelle                        ROT    ROT    ROT   
+  System · Auslastung            ROT    ROT    ROT   
+  System · Dienste               ROT    ROT    ROT   
+  System · Aktualisierungen      ROT    ROT    ROT   
+  System · Sicherung             ROT    ROT    ROT   
+
+uebersprungen: Die Uebersicht mit einer offenen Freigabe -- der Flow "freigabe" der App urlaubsantrag hat nicht angehalten
+42 von 70 gruen, 2 Anmeldung(en), nie auf eine Drossel gewartet; kleinster Rest probe 21 von 120, anmeldung 6 von 10, auth 20 von 30
+Bilder unter docs/plans/audits/2026-08-28-oberflaeche/

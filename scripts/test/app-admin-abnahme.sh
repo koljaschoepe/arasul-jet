@@ -57,6 +57,16 @@
 # Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin,
 # ARASUL_APP=beispielapp, ARASUL_FLOW=freigabe.
 #
+# WIE DIE APP IHREN FLOW STARTET, sagt die App. Voreingestellt ist der Weg der
+# `beispielapp`; die Referenz-App `urlaubsantrag` reicht statt dessen einen
+# Vorgang ein:
+#
+#   ARASUL_APP=urlaubsantrag \
+#   ARASUL_FLOW_WEG=/apps/urlaubsantrag/api/vorgaenge \
+#   ARASUL_FLOW_RUMPF='{"titel":"Abnahme A5","text":"drei Tage im Mai"}' \
+#   ARASUL_FLOW_CODE=201 ARASUL_FLOW_FELD=vorgang.lauf \
+#     bash scripts/test/app-admin-abnahme.sh
+#
 # Nicht zerstoerend fuer den Bestand: angelegt wird ein Benutzer mit Zeitstempel
 # im Namen, benutzt wird eine App, die schon da ist, und die Modell-Einstellung
 # steht am Ende wieder so, wie sie stand.
@@ -270,14 +280,31 @@ pruefe 'Er hat die App freigegeben und darf deshalb entscheiden' \
 # Ueber IHRE Schnittstelle und nicht ueber `/api/flows/laeufe`: ein App-Flow
 # gehoert der App, und ihr Schluessel traegt App und Stand (C4/C6). Genau so
 # entsteht ein Lauf, den die App-Ansicht spaeter zeigen soll.
-if ! arasul_warte_auf_app "/apps/$APP/api/flow" 120 "$TOK"; then
+#
+# WELCHER WEG DAS IST, SAGT DIE APP UND NICHT DIESE DATEI. Bis zum 28.08.2026
+# stand hier fest `POST /apps/<app>/api/flow?flow=…&woche=…` -- der Weg der
+# `beispielapp`. Am Orin liegt seit A3 aber die Referenz-App `urlaubsantrag`,
+# und die startet ihren Flow, indem ein Mensch einen Vorgang einreicht
+# (`POST /vorgaenge` mit Titel und Text, Antwort 201 mit `vorgang.lauf`).
+# Gegen sie gemessen antwortete die Abnahme "urlaubsantrag kennt /flow nicht"
+# und meldete das als Fehler des Geraets.
+#
+# Gemessen werden soll aber nicht EIN Weg, sondern der Satz "die App startet
+# ihren Flow selbst". Der Weg dahin gehoert der App; er steht deshalb in vier
+# Stellschrauben, deren Voreinstellung die `beispielapp` unveraendert laesst.
+FLOW_WEG="${ARASUL_FLOW_WEG:-/apps/$APP/api/flow?flow=$FLOW&woche=$(date +%V)}"
+FLOW_RUMPF="${ARASUL_FLOW_RUMPF:-}"
+FLOW_CODE="${ARASUL_FLOW_CODE:-202}"
+FLOW_FELD="${ARASUL_FLOW_FELD:-lauf}"
+
+if ! arasul_warte_auf_app "$FLOW_WEG" 120 "$TOK"; then
   echo "Die App antwortet nicht unter /apps/$APP/api/. Laeuft ihr Container?"
   exit 1
 fi
-ruf POST "/apps/$APP/api/flow?flow=$FLOW&woche=$(date +%V)" "$TOK"
-LAUF=$(feld lauf < "$RUMPF")
+ruf POST "$FLOW_WEG" "$TOK" "$FLOW_RUMPF"
+LAUF=$(feld "$FLOW_FELD" < "$RUMPF")
 pruefe 'Die App hat ihren Flow gestartet' \
-  "$([ "$CODE" = "202" ] && [ -n "$LAUF" ] && echo ja || echo nein)" \
+  "$([ "$CODE" = "$FLOW_CODE" ] && [ -n "$LAUF" ] && echo ja || echo nein)" \
   "HTTP $CODE, Lauf ${LAUF:-keiner}"
 [ -z "$LAUF" ] && { echo; echo "Antwort der App: $(cat "$RUMPF")"; exit 1; }
 

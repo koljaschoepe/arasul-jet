@@ -79,5 +79,57 @@ rc=$?
 if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ]; then ohne=ja; else ohne="nein ($rc)"; fi
 pruefe "pruefbenutzer ohne Geraet: Fehler, kein Haenger" ja "$ohne"
 
+# DER GELUNGENE FALL, mit einem gefaelschten `docker` statt eines Geraets.
+#
+# Bis zum 28.08.2026 kannte dieser Selbsttest nur die drei Wege, auf denen
+# `pruefbenutzer.sh` ABLEHNT. Der Weg, auf dem es wirklich einen Benutzer
+# anlegt, war nie gelaufen -- und trug zwei Fehler, die beide erst auffielen,
+# als nach dem Werksreset zum ersten Mal jemand einen Benutzer brauchte:
+#
+#   1. Der Ersatz fuer `\x27` setzte `\'` statt `'` ein (Backslash und
+#      Apostroph stehen in doppelten Anfuehrungszeichen beide fuer sich
+#      selbst). psql sah `\'pruefer` und sagte "invalid command".
+#   2. `RETURNING` gibt eine Zeile aus, danach schreibt psql `INSERT 0 1`.
+#      Der Vergleich las beides als einen Text und meldete den gelungenen
+#      Anlauf als Fehler.
+#
+# Beide sind hier zu sehen, ohne Geraet: der Stub nimmt die SQL entgegen,
+# legt sie ab und antwortet wie psql -- mit Quittung.
+stub=$(mktemp -d)
+sql="$stub/sql.txt"
+cat > "$stub/docker" <<'STUB'
+#!/bin/bash
+case "$1" in
+  inspect) echo true ;;
+  exec)
+    shift
+    while [ "${1:0:1}" = "-" ]; do shift; done   # -i
+    shift                                        # Containername
+    if [ "$1" = "psql" ]; then
+      cat > "$ARASUL_STUB_SQL"
+      # Genau wie psql: die Zeile aus RETURNING, dann der Befehlsanhang.
+      printf 'angelegt\nINSERT 0 1\n'
+    else
+      cat > /dev/null
+      printf '$2b$12$0123456789012345678901234567890123456789012'
+    fi
+    ;;
+esac
+STUB
+chmod +x "$stub/docker"
+ausgabe=$(PATH="$stub:$PATH" ARASUL_STUB_SQL="$sql" ARASUL_BENUTZER=pruefer \
+  ARASUL_PASSWORT='geheim' bash scripts/util/pruefbenutzer.sh 2>&1)
+pruefe "pruefbenutzer legt an: Rueckgabe 0" 0 $?
+
+gemeldet="nein ($ausgabe)"
+if [[ "$ausgabe" == *"pruefer angelegt"* ]]; then gemeldet=ja; fi
+pruefe "pruefbenutzer meldet, was geschah" ja "$gemeldet"
+
+sauber="nein ($(grep -o "..pruefer.." "$sql" 2>/dev/null | head -n1))"
+if grep -q "'pruefer'" "$sql" 2>/dev/null &&
+   ! grep -q "\\\\'" "$sql" && ! grep -q 'x27' "$sql"; then sauber=ja; fi
+pruefe "die SQL traegt Apostrophe, keine Backslashes" ja "$sauber"
+rm -rf "$stub"
+
 if [ "$fehler" = 0 ]; then echo "alles gruen"; else echo "$fehler rot"; fi
 exit "$fehler"

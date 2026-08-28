@@ -753,7 +753,9 @@ build_images() {
     # All services with a build: directive must be listed here, otherwise they are
     # built implicitly (and invisibly) later during `docker compose up`. llm-service
     # (compose.ai.yaml) and document-indexer (compose.ai.yaml) were previously missing.
-    build_output=$(docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service llm-service document-indexer self-healing-agent 2>&1) || {
+    # backup-service (compose.monitoring.yaml) fehlte bis zum 28.08.2026 -- siehe
+    # `start_services`. Gehalten wird die Liste von `scripts/test/dienste.py`.
+    build_output=$(docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service llm-service document-indexer self-healing-agent backup-service 2>&1) || {
         log_error "Docker build failed — check Dockerfiles and build context"
         echo "$build_output" | tail -20
         return 1
@@ -998,7 +1000,20 @@ start_services() {
     wait_for_healthy document-indexer 90 "docker compose exec -T document-indexer curl -sf http://localhost:9102/health" || true
 
     # Layer 7: Background agents
-    docker compose up -d self-healing-agent
+    #
+    # `backup-service` GEHOERT HIERHER, und dass er hier gefehlt hat, war der
+    # teuerste Fund des Werksresets vom 28.08.2026: das Image war gebaut, der
+    # Container nie angelegt. Ein frisch installiertes Geraet kam damit OHNE
+    # SICHERUNG hoch -- kein naechtliches Backup, kein Wiederherstellungstest,
+    # und die Ansicht "Sicherung" zeigte eine leere Liste, die niemand voll
+    # bekommt. Aufgefallen ist es erst, als Abnahme A6 keinen Gegenstand hatte.
+    #
+    # Der Kopf von `docker-compose.yml` nennt ihn seit jeher in Schicht 6,
+    # `scripts/system/ordered-startup.sh` in PHASE4, `dauerlauf-bericht.sh`
+    # erwartet ihn unter den elf Soll-Diensten -- nur die Liste, die den
+    # Bootstrap wirklich steuert, kannte ihn nicht. Vier Orte, drei richtig:
+    # deshalb haelt `scripts/test/dienste.py` sie ab jetzt aneinander.
+    docker compose up -d self-healing-agent backup-service
 
     # Noch einmal: `up` legt jede Bind-Quelle an, die zwischendurch verschwunden
     # ist, und legt sie als root an.
@@ -1128,6 +1143,27 @@ run_smoke_tests() {
     # Suche nach dem Prozess meldete am 28.08.2026 "Process not found", waehrend
     # der Agent noch in seiner Startphase war (`start_period: 30s`).
     dienst_pruefen "Self-Healing Agent" self-healing-agent 120
+
+    # Die Sicherung: GIBT ES DEN CONTAINER UEBERHAUPT. Nicht sein Health-Status,
+    # denn der sagt hier zwangslaeufig 120 Sekunden lang "starting"
+    # (`start_period: 120s`, `interval: 5m`), und darauf zu warten kostet den
+    # Bootstrap zwei Minuten fuer eine Auskunft, die niemand braucht.
+    #
+    # Gefragt ist genau der Fehler vom 28.08.2026: das Image war gebaut, der
+    # Container nie angelegt, und kein Rauchtest sah hin. Ein Geraet ohne
+    # diesen Dienst sichert nie -- das ist kein Schoenheitsfehler, sondern der
+    # Verlust einer der drei Sachen, die die Lizenz kauft.
+    log_info "Testing Backup Service..."
+    local sicherung_status
+    sicherung_status=$(docker inspect --format='{{.State.Status}}' \
+        "$(docker compose ps -q backup-service 2>/dev/null)" 2>/dev/null || echo "fehlt")
+    if [ "$sicherung_status" = "running" ]; then
+        log_success "Backup Service: OK (laeuft)"
+    else
+        log_error "Backup Service: FAILED (Container ${sicherung_status}) — dieses Geraet sichert nicht"
+        log_error "  Nachholen: docker compose up -d backup-service"
+        failed=1
+    fi
 
     echo ""
     log_info "=== Smoke Test Summary ==="

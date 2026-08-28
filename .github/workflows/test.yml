@@ -440,6 +440,14 @@ jobs:
       - name: Stiller Tod (Zuweisungen, die ein Skript wortlos beenden)
         run: python3 scripts/test/stiller-tod.py --wurzel .
 
+      # 28.08.2026, Phase G1: `backup-service` war definiert, gebaut -- und nie
+      # gestartet. Ein frisch installiertes Geraet kam ohne Sicherung hoch, und
+      # gemerkt hat es erst Abnahme A6, die keinen Gegenstand hatte. Vier
+      # Listen nennen die Dienste, drei waren richtig; die falsche war die,
+      # die den Bootstrap steuert.
+      - name: Dienste (jeder Dienst des Compose faehrt beim Bootstrap hoch)
+        run: python3 scripts/test/dienste.py --wurzel .
+
       # 28.08.2026: die drei Drosseln des Geraets stehen im Backend und zweimal
       # in den Abnahmen (Browser und curl), weil ein Shell-Skript kein
       # Node-Modul laden kann. Aendert das Backend eine Zahl, faellt es hier
