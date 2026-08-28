@@ -136,15 +136,25 @@ export function drosselLesen() {
  * traegt. Gibt zurueck, was gemerkt wurde, oder null, wenn der Weg keine
  * Drossel traegt oder die Antwort nichts sagt.
  *
- * Ein 429 ohne Zahlen (das kommt vor, wenn ein Proxy die Kopfzeilen
- * verschluckt) wird als „nichts mehr uebrig, ein Fenster lang" gemerkt: lieber
- * einmal zu lange warten als denselben 429 gleich noch einmal.
+ * Ein 429 ohne Zahlen wird als „nichts mehr uebrig, ein Fenster lang"
+ * gemerkt: lieber einmal zu lange warten als denselben 429 gleich noch einmal.
+ *
+ * UND ER WIRD GEZAEHLT, denn er sagt, WER geantwortet hat (Phase G2). Das
+ * Backend schickt zu jeder Antwort `RateLimit-*`; Traefiks `rateLimit` tut
+ * das nicht. Ein 429 ohne Kopfzeilen kommt also aus dem VORBAU, und der
+ * Unterschied ist nicht akademisch: am 29.08.2026 stand vor `/api/auth` eine
+ * Traefik-Drossel mit 30 je Minute, waehrend das Backend 120 meldete und
+ * `remaining: 79` dazu. Die Reihe meldete „nie auf eine Drossel gewartet" und
+ * wurde trotzdem rot -- sie konnte die Drossel, die antwortete, nicht sehen.
+ * `scripts/test/drosselzahlen.py` haelt den Vorbau seither davon ab, enger zu
+ * sein als das Backend; diese Zahl sagt, ob er es doch wieder ist.
  */
 export function drosselMerken(methode, pfad, kopf, status = 200) {
   const name = drosselFuer(methode, pfad);
   if (!name) return null;
   let stand = drosselAusKopfzeilen(kopf);
   if (!stand && status === 429) {
+    ohneKopfzeilen[name] = (ohneKopfzeilen[name] ?? 0) + 1;
     stand = { rest: 0, reset: Date.now() + DROSSELN[name].fensterMs };
   }
   if (status === 429) gedrosselt[name] = (gedrosselt[name] ?? 0) + 1;
@@ -172,6 +182,10 @@ export function drosselMerken(methode, pfad, kopf, status = 200) {
  * wiederholt, statt rot zu werden.
  */
 const gedrosselt = {};
+
+/** 429 OHNE `RateLimit-*`, je Drossel: die kamen aus dem Vorbau, nicht aus dem
+ *  Backend. Siehe `drosselMerken`. */
+const ohneKopfzeilen = {};
 
 /** Der kleinste Rest, den eine Drossel in diesem Lauf gezeigt hat. */
 const engpass = {};
@@ -256,5 +270,11 @@ export function drosselBilanz() {
     .join(', ');
   const teile = Object.entries(gewartet).map(([n, s]) => `${s} s auf „${n}"`);
   const warten = teile.length ? `gewartet: ${teile.join(', ')}` : 'nie auf eine Drossel gewartet';
-  return eng ? `${warten}; kleinster Rest ${eng}` : warten;
+  // Ein 429 ohne Kopfzeilen kam aus dem Vorbau. Er gehoert in die Schlusszeile,
+  // sonst sucht ihn beim naechsten Mal wieder jemand im Backend.
+  const vorbau = Object.entries(ohneKopfzeilen)
+    .map(([n, z]) => `${z}x auf „${n}"`)
+    .join(', ');
+  const satz = eng ? `${warten}; kleinster Rest ${eng}` : warten;
+  return vorbau ? `${satz}; 429 OHNE RateLimit-Kopfzeilen (aus dem Vorbau): ${vorbau}` : satz;
 }
