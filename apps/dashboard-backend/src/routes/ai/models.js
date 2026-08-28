@@ -677,6 +677,22 @@ router.post(
       throw new NotFoundError(`Modell ${model_id} ist nicht installiert`);
     }
 
+    // Ein Bild- oder Einbettungsmodell kann den Standard der Flows nicht
+    // ausfuellen: es beantwortet keinen Prompt mit Werkzeugen. Die Ansicht
+    // bietet den Knopf dafuer gar nicht erst an (`ModellZeile`); dass es
+    // trotzdem hier steht, ist dieselbe Regel wie ueberall -- die Oberflaeche
+    // blendet aus, das Backend entscheidet. Fund der D5-Abnahme am Orin.
+    const database = require('../../database');
+    const { rows } = await database.query('SELECT task FROM llm_model_catalog WHERE id = $1', [
+      model_id,
+    ]);
+    const aufgabe = rows[0]?.task ?? null;
+    if (aufgabe && aufgabe !== 'text' && aufgabe !== 'coding') {
+      throw new ValidationError(
+        `${model_id} ist fuer die Aufgabe "${aufgabe}" vorgesehen und kann nicht der Standard der Flows sein`
+      );
+    }
+
     const result = await modelService.setDefaultModel(model_id);
 
     // Invalidate default model cache

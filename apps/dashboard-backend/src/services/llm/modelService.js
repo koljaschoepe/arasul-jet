@@ -834,11 +834,34 @@ function createModelService(deps = {}) {
     }
 
     /**
-     * Get default model ID
-     * Priority: 1. DB default -> 2. Loaded model -> 3. Any installed -> 4. ENV -> 5. null
+     * Das Standardmodell der Flows.
+     *
+     * Reihenfolge: 1. gesetzter Standard -> 2. der Standard der Aufgabe „text"
+     * aus dem Katalog -> 3. das geladene Modell -> 4. das zuletzt geladene
+     * Modell -> 5. LLM_MODEL -> 6. die Empfehlung der Hardware -> null.
+     *
+     * JEDER RUECKFALL BEACHTET DIE AUFGABE, und das ist der Fund der
+     * D5-Abnahme am Orin (28.08.2026): das Abzeichen „Standard" sass dort auf
+     * `llava-phi3`, obwohl die Kurzliste Qwen als Standard fuehrt. Der Grund
+     * stand hier. Migration 175 setzt `is_default` nur, wenn der Standard zum
+     * Zeitpunkt der Migration schon auf der Platte liegt -- am Orin lag er
+     * noch nicht --, und die Rueckfaelle nahmen danach schlicht das ZULETZT
+     * geladene Modell. Das war das kleinste, also das Bildmodell.
+     *
+     * Ein Bild- oder Einbettungsmodell kann den Standard der Flows aber gar
+     * nicht ausfuellen: es beantwortet keinen Prompt mit Werkzeugen. Die
+     * Ansicht sagt das auch (`ModellZeile.kannStandardSein`) -- und zeigte
+     * daneben genau so ein Modell als Standard an. Zwei Wahrheiten in einer
+     * Ansicht, und die falsche davon stand hier.
+     *
+     * `task IS NULL` zaehlt mit: ein Katalogeintrag ohne Aufgabe ist ein
+     * Sprachmodell, das niemand einsortiert hat, und kein Bildmodell.
      */
     async getDefaultModel() {
-      // 1. Check for explicitly set default in DB
+      // Aufgaben, mit denen ein Flow rechnen kann. Alles andere scheidet aus.
+      const FLOW_AUFGABEN = `(c.task IS NULL OR c.task IN ('text', 'coding'))`;
+
+      // 1. Der ausdruecklich gesetzte Standard.
       const defaultResult = await database.query(
         'SELECT id FROM llm_installed_models WHERE is_default = true LIMIT 1'
       );
@@ -846,13 +869,29 @@ function createModelService(deps = {}) {
         return defaultResult.rows[0].id;
       }
 
-      // 2. Check currently loaded model in Ollama
+      // 2. Der Standard der Aufgabe „text" aus dem Katalog, wenn er am Geraet
+      // liegt. Das ist die Antwort, die die Kurzliste gibt -- und sie steht
+      // VOR dem geladenen Modell, weil „gerade im Speicher" eine Aussage
+      // ueber die letzte Minute ist und keine ueber die Einrichtung.
+      const aufgabenStandard = await database.query(
+        `SELECT i.id FROM llm_installed_models i
+                   JOIN llm_model_catalog c ON i.id = c.id
+                  WHERE i.status = 'available' AND c.is_task_default AND c.task = 'text'
+                  LIMIT 1`
+      );
+      if (aufgabenStandard.rows.length > 0) {
+        logger.debug(`Standard der Aufgabe text: ${aufgabenStandard.rows[0].id}`);
+        return aufgabenStandard.rows[0].id;
+      }
+
+      // 3. Das gerade geladene Modell, wenn ein Flow damit rechnen kann.
       const loadedModel = await this.getLoadedModel();
       if (loadedModel?.model_id) {
         const existsResult = await database.query(
           `SELECT i.id FROM llm_installed_models i
                      JOIN llm_model_catalog c ON i.id = c.id
-                     WHERE COALESCE(c.ollama_name, c.id) = $1 AND i.status = 'available'`,
+                     WHERE COALESCE(c.ollama_name, c.id) = $1 AND i.status = 'available'
+                       AND ${FLOW_AUFGABEN}`,
           [loadedModel.model_id]
         );
         if (existsResult.rows.length > 0) {
@@ -861,12 +900,13 @@ function createModelService(deps = {}) {
         }
       }
 
-      // 3. Use most recently downloaded available model
+      // 4. Das zuletzt geladene Modell, mit dem ein Flow rechnen kann.
       const anyModelResult = await database.query(
-        `SELECT id FROM llm_installed_models
-                 WHERE status = 'available'
-                 ORDER BY downloaded_at DESC NULLS LAST
-                 LIMIT 1`
+        `SELECT i.id FROM llm_installed_models i
+                   JOIN llm_model_catalog c ON i.id = c.id
+                  WHERE i.status = 'available' AND ${FLOW_AUFGABEN}
+                  ORDER BY i.downloaded_at DESC NULLS LAST
+                  LIMIT 1`
       );
       if (anyModelResult.rows.length > 0) {
         logger.debug(`Using most recent installed model as default: ${anyModelResult.rows[0].id}`);

@@ -1223,8 +1223,8 @@ App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
 | GET    | `/api/models/status`           | Current loaded model + queue stats                                             |
 | GET    | `/api/models/memory-budget`    | KI-RAM-Lage, geladene Modelle, letzter Wechsel                                 |
 | GET    | `/api/models/loaded`           | Get currently loaded model                                                     |
-| GET    | `/api/models/default`          | Get default model                                                              |
-| POST   | `/api/models/default`          | Set default model                                                              |
+| GET    | `/api/models/default`          | Standardmodell der Flows                                                       |
+| POST   | `/api/models/default`          | Standardmodell der Flows setzen (nur `task` text/coding, sonst 400)            |
 | POST   | `/api/models/download`         | Download model (SSE progress)                                                  |
 | DELETE | `/api/models/:id`              | Delete installed model                                                         |
 | POST   | `/api/models/:id/activate`     | Load model into RAM                                                            |
@@ -1236,6 +1236,16 @@ App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
 | GET    | `/api/models/recommended`      | Empfehlung für diese Hardware, aus RAM und Rechenwerk abgeleitet               |
 | GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen              |
 | POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat |
+
+**Das Standardmodell ist das der FLOWS (Phase D6, 28.08.2026).** `GET`
+liefert es in dieser Reihenfolge: der gesetzte Standard (`is_default`), sonst
+der Standard der Aufgabe `text` aus dem Katalog (`is_task_default`), sonst das
+geladene Modell, sonst das zuletzt geladene — und jeder dieser Rückfälle
+überspringt, was nicht `task IN ('text','coding')` (oder ohne Aufgabe) ist.
+`POST` weist ein Bild- oder Einbettungsmodell mit `VALIDATION_ERROR` ab. Grund:
+ein solches Modell beantwortet keinen Prompt mit Werkzeugen, und bis D6 konnte
+es über den Rückfall trotzdem zum Standard werden (Fund der D5-Abnahme am Orin:
+das Abzeichen „Standard" saß auf `llava-phi3`).
 
 **Der Katalog ist die Kurzliste (Phase C8, Entscheidung 27.08.2026):**
 
