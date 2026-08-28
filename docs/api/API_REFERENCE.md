@@ -623,6 +623,14 @@ gesperrt (400): er prüft das alte Passwort nicht und setzt die
 Komplexitätsregeln nicht durch, wäre also sonst eine Abkürzung an den eigenen
 Regeln vorbei.
 
+`passwort_vom_admin` steht seit Phase D3 in der Liste. Es sagt, ob das
+**aktuelle** Passwort von einem Administrator gesetzt wurde und beim nächsten
+Anmelden gewechselt werden muss (Migration 178, Phase D1). Die Mitarbeiterliste
+der Oberfläche zeigt daran, wer sein Startpasswort noch trägt — ohne diese
+Angabe sieht ein gesetztes Passwort aus wie ein selbst gewähltes. Ein Geheimnis
+gibt das nicht preis: es sagt nur, dass ein Zweiter das Passwort kennt, und
+genau deshalb muss es gewechselt werden.
+
 Stilllegen ist nicht Löschen. Ein stillgelegter Benutzer kommt nicht mehr
 herein (`POST /api/auth/login` antwortet 403 `Account is disabled`), seine
 Läufe und Protokolle bleiben stehen. Der letzte aktive Administrator kann nicht
@@ -630,7 +638,7 @@ stillgelegt werden, und niemand kann sich selbst stilllegen.
 
 | Method | Endpoint                     | Description                                                                                                    |
 | ------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/benutzer`              | Alle Benutzer: `id, username, email, role, is_active, created_at, last_login`                                  |
+| GET    | `/api/benutzer`              | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login`              |
 | POST   | `/api/benutzer`              | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name              |
 | PUT    | `/api/benutzer/:id/passwort` | Passwort setzen: `{ password }` (≥ 8 Zeichen); beendet alle Sitzungen; 400 für das eigene Konto, 404 unbekannt |
 | PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin                |
@@ -644,7 +652,8 @@ stillgelegt werden, und niemand kann sich selbst stilllegen.
     "username": "mia",
     "email": "mia@firma.de",
     "role": "mitarbeiter",
-    "is_active": true
+    "is_active": true,
+    "passwort_vom_admin": true
   },
   "timestamp": "2026-08-27T09:00:00.000Z"
 }
