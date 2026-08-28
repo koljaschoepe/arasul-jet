@@ -39,7 +39,7 @@
 # =============================================================================
 set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$WURZEL"
+cd "$WURZEL" || exit 1
 # shellcheck source=scripts/test/anmeldung.sh
 source "$WURZEL/scripts/test/anmeldung.sh"
 
