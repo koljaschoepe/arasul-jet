@@ -33,15 +33,34 @@ interface Optionen {
    */
   refetchInterval?: number | false;
   staleTime?: number;
+  /**
+   * Ueberhaupt fragen? Voreinstellung ja.
+   *
+   * `GET /api/models/memory-budget` traegt `requireRole('admin')`. Die
+   * Statusleiste steht aber in JEDER Shell, auch in der eines Mitarbeiters,
+   * und fragte bis Phase D3 auch dort: alle zehn Sekunden ein 403, beim Laden
+   * wegen `retry: 1` gleich zwei hintereinander. Das waren die zwei Meldungen,
+   * die die D2-Abnahme in der Konsole gefunden hat.
+   *
+   * Nicht die Berechtigung, sondern das Ausblenden: der Wert gehoert zur
+   * Modellverwaltung, und die sieht ein Mitarbeiter nicht. Wer trotzdem
+   * fragt, bekommt weiterhin 403 aus der Route.
+   */
+  enabled?: boolean;
 }
 
-export function useMemoryBudget({ refetchInterval = 10_000, staleTime = 5_000 }: Optionen = {}) {
+export function useMemoryBudget({
+  refetchInterval = 10_000,
+  staleTime = 5_000,
+  enabled = true,
+}: Optionen = {}) {
   const api = useApi();
   return useQuery({
     queryKey: MEMORY_BUDGET_QUERY_KEY,
     queryFn: () => api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
     refetchInterval,
     staleTime,
+    enabled,
     retry: 1,
   });
 }

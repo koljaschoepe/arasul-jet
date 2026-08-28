@@ -139,17 +139,22 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 
 ## 3. Einstellungen
 
-Die Einstellungen sind in **6 Reiter** gegliedert (frueher 9, verwandte Bereiche
-wurden zusammengelegt, damit die Navigation uebersichtlich bleibt):
+Die Einstellungen sind in **7 Reiter** gegliedert (frueher 9, verwandte Bereiche
+wurden zusammengelegt, damit die Navigation uebersichtlich bleibt; „Mitarbeiter"
+kam mit der neuen Oberflaeche dazu):
 
 | Reiter          | Inhalt                                                          |
 | --------------- | --------------------------------------------------------------- |
 | **Allgemein**   | Systeminformationen, Theme                                      |
+| **Mitarbeiter** | Konten anlegen, Startpasswort setzen, App-Freigaben             |
 | **KI**          | Zwei Unterbereiche: _Firmenprofil & Kontext_ und _Sprachmodell_ |
 | **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden        |
 | **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung                     |
 | **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_       |
 | **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                                |
+
+Der Reiter **Mitarbeiter** ist in Kapitel 7 beschrieben, weil dort auch die
+Wege ueber die Schnittstelle stehen.
 
 > Deep-Links funktionieren: `…/settings?tab=system` oeffnet direkt den System-Reiter.
 > Alte Links (z. B. `?tab=selfhealing`) werden automatisch auf den neuen Reiter umgeleitet.
@@ -357,8 +362,23 @@ ist, dazu seine eigenen Flow-Laeufe. Alles andere beantwortet das Geraet mit
 
 ### Benutzer anlegen, sperren und loeschen
 
-Eine Seite dafuer kommt mit der neuen Oberflaeche (D-Phasen). Bis dahin geht
-es ueber die Schnittstelle, angemeldet als Administrator:
+**In der Oberflaeche: Einstellungen > Mitarbeiter.** Das Zahnrad unten in der
+Aktivitaetsleiste links, dann in der Sektionsliste „Mitarbeiter". Die Seite
+zeigt jeden Menschen am Geraet mit Rolle, Zustand und der letzten Anmeldung.
+Rechts an jeder Zeile stehen drei Handgriffe: Startpasswort setzen, stilllegen
+oder wieder zulassen, loeschen. Oben rechts legt „Menschen anlegen" einen
+neuen an.
+
+Die Spalte **Passwort** sagt „Startpasswort", solange das aktuelle Passwort von
+einem Administrator gesetzt wurde. Der Mensch wechselt es beim naechsten
+Anmelden, danach steht dort „eigenes". Sie sehen daran auch, ob er sich
+ueberhaupt schon angemeldet hat.
+
+Am eigenen Konto stehen keine Handgriffe. Ihr eigenes Passwort wechseln Sie
+unter **Einstellungen > Sicherheit**, geloescht wird das eigene Konto ueber
+**Einstellungen > Datenschutz**; das Geraet lehnt beide Wege hier ohnehin ab.
+
+Dieselben Handgriffe ueber die Schnittstelle, angemeldet als Administrator:
 
 ```bash
 # anlegen (Rolle admin oder mitarbeiter)
@@ -402,7 +422,20 @@ niemand stilllegen.
 ### Apps fuer Mitarbeiter freigeben
 
 Ein Mitarbeiter sieht nur, was ihm freigegeben ist. Eine Freigabe ist ein Paar
-aus App-Kennung und Mitarbeiter:
+aus App-Kennung und Mitarbeiter.
+
+**In der Oberflaeche: Einstellungen > Mitarbeiter, Abschnitt „Freigaben".**
+Eine Zeile je Mensch, eine Spalte je App, in der Zelle ein Haeckchen. Setzen
+heisst freigeben, wegnehmen heisst zuruecknehmen; beides wirkt sofort, ohne
+Speichern-Knopf. Unter einem gesetzten Haeckchen steht der Stand: „Live" ist
+der Normalfall, ein Klick darauf macht den Menschen zum **Tester** („Test", er
+sieht dann zusaetzlich den Teststand), ein weiterer Klick zurueck.
+
+Die Matrix fuehrt auch die Administratoren auf, und das ist kein Versehen: die
+Rolle sagt, wer verwaltet, nicht wer arbeitet. Wer eine App benutzen will,
+braucht sie freigegeben, auch als Administrator.
+
+Dieselben Handgriffe ueber die Schnittstelle:
 
 ```bash
 # freigeben

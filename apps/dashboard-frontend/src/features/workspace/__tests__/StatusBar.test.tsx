@@ -29,6 +29,7 @@ vi.mock('@/contexts/ToastContext', () => ({
 // Verwaltungsroute, und fuer einen Mitarbeiter darf er sie gar nicht erst
 // abrufen. Ohne diesen Ersatz wirft `useAuth` hier mangels Provider.
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
+import { angemeldet } from '@/__tests__/helpers/authMock';
 
 const emptyBudget: MemoryBudget = {
   totalBudgetMb: 24_576,
@@ -113,6 +114,9 @@ function resetStore() {
 describe('StatusBar', () => {
   beforeEach(() => {
     resetStore();
+    // Der Voreingestellte ist der Administrator; ein Test darunter setzt ihn
+    // auf `mitarbeiter` und darf das nicht an die naechsten weiterreichen.
+    angemeldet();
     get.mockReset();
     post.mockReset();
     toast.success.mockReset();
@@ -153,6 +157,23 @@ describe('StatusBar', () => {
 
     await screen.findByTestId('workspace-statusbar-model');
     expect(get).toHaveBeenCalledWith('/models/memory-budget', { showError: false });
+  });
+
+  /**
+   * Der Fund der D2-Abnahme, behoben in D3: `GET /api/models/memory-budget`
+   * traegt `requireRole('admin')`, die Statusleiste steht aber in JEDER Shell.
+   * Ein Mitarbeiter bekam beim Laden zwei 403 in die Konsole (`retry: 1`) und
+   * danach alle zehn Sekunden eines. Ohne Budget faellt der Modell-Umschalter
+   * von selbst weg -- welches Modell Standard ist, entscheidet die Verwaltung.
+   */
+  it('fragt das KI-RAM-Budget als Mitarbeiter gar nicht erst', async () => {
+    angemeldet({ role: 'mitarbeiter' });
+    mockApi();
+    renderStatusBar();
+
+    expect(await screen.findByText('Verbunden')).toBeInTheDocument();
+    expect(get).not.toHaveBeenCalledWith('/models/memory-budget', { showError: false });
+    expect(screen.queryByTestId('workspace-statusbar-model')).not.toBeInTheDocument();
   });
 
   // Plan 023 D3: der Satz heisst jetzt "kein Modell installiert" und kommt aus

@@ -22,6 +22,10 @@ import { EMPTY_MODEL_FILTERS } from '../store/storeModelFilters';
 const get = vi.fn();
 const post = vi.fn();
 vi.mock('@/hooks/useApi', () => ({ useApi: () => ({ get, post }) }));
+// Die Statusleiste fragt seit D3 nach der Rolle: das KI-RAM-Budget ist eine
+// Verwaltungsroute, und fuer einen Mitarbeiter darf sie sie gar nicht erst
+// abrufen. Ohne diesen Ersatz wirft `useAuth` hier mangels Provider.
+vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));

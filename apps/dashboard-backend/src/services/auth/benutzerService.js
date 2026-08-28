@@ -31,7 +31,17 @@ const logger = require('../../utils/logger');
  */
 const ANONYM = '(geloescht)';
 
-const SPALTEN = 'id, username, email, role, is_active, created_at, last_login';
+/**
+ * Die Spalten, die ein Benutzer nach aussen hat.
+ *
+ * `passwort_vom_admin` steht seit Phase D3 dabei: die Mitarbeiterliste des
+ * Administrators zeigt, wer sein STARTPASSWORT noch traegt. Ohne diese Spalte
+ * sieht ein gesetztes Passwort genauso aus wie ein selbst gewaehltes, und der
+ * Administrator kann nicht erkennen, ob der Mensch sich ueberhaupt schon
+ * angemeldet hat. Ein Geheimnis ist das nicht: es sagt nur, ob ein Zweiter das
+ * Passwort kennt, und genau das ist der Grund, warum es gewechselt werden muss.
+ */
+const SPALTEN = 'id, username, email, role, is_active, passwort_vom_admin, created_at, last_login';
 
 async function listeBenutzer() {
   const result = await db.query(`SELECT ${SPALTEN} FROM admin_users ORDER BY id`);
