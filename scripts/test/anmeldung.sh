@@ -41,9 +41,12 @@
 #   arasul_sitzung_bauen    aus dem Token eine Playwright-Sitzung fuer die .mjs
 #   arasul_geraet_erreichbar  horcht, ob unter ARASUL_URL ueberhaupt etwas ist
 #   arasul_warte_auf_app    wartet, bis der Container einer App selbst antwortet
+#   arasul_drossel_merken   den Stand einer Drossel aus einer Antwort festhalten
+#   arasul_drossel_abwarten warten, bis eine Drossel wieder Platz hat
+#   arasul_pruefbenutzer_anlegen  den Pruefbenutzer am Geraet anlegen (idempotent)
 #
 # Umgebung: ARASUL_URL, ARASUL_BENUTZER, ARASUL_PASSWORT, ARASUL_TOKEN,
-# ARASUL_TOKEN_DATEI, ARASUL_SITZUNG.
+# ARASUL_TOKEN_DATEI, ARASUL_SITZUNG, ARASUL_DROSSEL_DATEI, ARASUL_GERAET.
 # =============================================================================
 
 ARASUL_URL="${ARASUL_URL:-https://localhost:8443}"
@@ -51,6 +54,156 @@ ARASUL_BENUTZER="${ARASUL_BENUTZER:-admin}"
 ARASUL_PASSWORT="${ARASUL_PASSWORT:-2309}"
 ARASUL_TOKEN_DATEI="${ARASUL_TOKEN_DATEI:-${TMPDIR:-/tmp}/arasul-abnahme-token}"
 ARASUL_SITZUNG="${ARASUL_SITZUNG:-${TMPDIR:-/tmp}/arasul-abnahme-sitzung.json}"
+# Dieselbe Datei, die `scripts/test/drossel.mjs` liest und schreibt: `os.tmpdir()`
+# von Node und `${TMPDIR:-/tmp}` sind derselbe Ordner, nur ohne den Schraegstrich
+# am Ende, den macOS an TMPDIR haengt.
+ARASUL_DROSSEL_DATEI="${ARASUL_DROSSEL_DATEI:-${TMPDIR:-/tmp}/arasul-abnahme-drossel}"
+ARASUL_DROSSEL_DATEI="${ARASUL_DROSSEL_DATEI//\/\//\/}"
+
+# ---------------------------------------------------------------------------
+# Die drei Drosseln des Geraets, als EINE Sache
+# ---------------------------------------------------------------------------
+# Bis zum 28.08.2026 kannte diese Datei genau eine Drossel, die Anmeldedrossel.
+# Das Geraet hat DREI auf den Wegen, die jede Seitenladung nimmt
+# (`middleware/rateLimit.js`, dort nachzulesen und nicht hier zu glauben):
+#
+#   anmeldung   POST /api/auth/login, /setup        10 je 15 min   loginLimiter
+#   auth        GET  /api/auth/needs-setup,         30 je 60 s     generalAuthLimiter
+#               POST /api/auth/logout
+#   sitzung     GET  /api/auth/session              120 je 60 s    sessionProbeLimiter
+#
+# Der Stand steht je Drossel in EINER Datei (JSON, `reset` als Zeitpunkt in ms),
+# geschrieben aus den Kopfzeilen jeder Antwort, die eine Drossel traegt; die
+# Browser-Abnahmen (`drossel.mjs`) lesen und schreiben dieselbe. Die Logik
+# steht hier ein zweites Mal in Python, weil ein Shell-Skript kein Node-Modul
+# laden kann; die ZAHLEN stehen in beiden und werden von
+# `scripts/test/drosselzahlen.py` gegen `rateLimit.js` gehalten.
+_arasul_drossel_py() {
+  ARASUL_DROSSEL_DATEI="$ARASUL_DROSSEL_DATEI" python3 - "$@" <<'PY'
+import json, os, re, sys, time
+
+DATEI = os.environ["ARASUL_DROSSEL_DATEI"]
+DROSSELN = {
+    "anmeldung": (10, 15 * 60 * 1000),
+    "auth": (30, 60 * 1000),
+    "sitzung": (120, 60 * 1000),
+}
+
+def name_fuer(methode, pfad):
+    methode = methode.upper()
+    if methode == "POST" and pfad in ("/api/auth/login", "/api/auth/setup"):
+        return "anmeldung"
+    if (methode == "GET" and pfad == "/api/auth/needs-setup") or \
+       (methode == "POST" and pfad == "/api/auth/logout"):
+        return "auth"
+    if methode == "GET" and pfad == "/api/auth/session":
+        return "sitzung"
+    return None
+
+def lesen():
+    try:
+        roh = json.load(open(DATEI, encoding="utf-8"))
+    except Exception:
+        return {}
+    if isinstance(roh, dict) and "reset" in roh and "anmeldung" not in roh:
+        return {"anmeldung": {"rest": roh.get("rest", 0), "reset": roh.get("reset", 0)}}
+    return roh if isinstance(roh, dict) else {}
+
+def zahl(w):
+    try:
+        return float(w)
+    except (TypeError, ValueError):
+        return None
+
+def merken(methode, pfad, kopfdatei, status):
+    name = name_fuer(methode, pfad)
+    if not name:
+        return
+    kopf = {}
+    try:
+        for zeile in open(kopfdatei, encoding="utf-8", errors="replace"):
+            if ":" in zeile:
+                k, v = zeile.split(":", 1)
+                kopf[k.strip().lower()] = v.strip()
+    except OSError:
+        pass
+    gebuendelt = kopf.get("ratelimit", "")
+    m_rest = re.search(r"remaining=(\d+)", gebuendelt)
+    m_reset = re.search(r"reset=(\d+)", gebuendelt)
+    rest = zahl(kopf.get("ratelimit-remaining")) if "ratelimit-remaining" in kopf \
+        else (zahl(m_rest.group(1)) if m_rest else None)
+    sek = zahl(kopf.get("ratelimit-reset")) if "ratelimit-reset" in kopf \
+        else (zahl(m_reset.group(1)) if m_reset else zahl(kopf.get("retry-after")))
+    if rest is None and sek is None:
+        if status != 429:
+            return
+        rest, sek = 0, DROSSELN[name][1] / 1000
+    stand = {"rest": rest or 0, "reset": int(time.time() * 1000 + (sek or 0) * 1000)}
+    if status == 429:
+        stand["rest"] = 0
+    alles = lesen()
+    alles[name] = stand
+    try:
+        fd = os.open(DATEI, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(alles, f)
+    except OSError:
+        pass
+
+def restzeit(name, brauche):
+    stand = lesen().get(name)
+    if not stand:
+        return 0
+    bleibt = float(stand.get("reset", 0)) - time.time() * 1000
+    if bleibt <= 0 or float(stand.get("rest", 0)) >= brauche:
+        return 0
+    return int(min(bleibt + 1000, DROSSELN[name][1]) / 1000) + 1
+
+was = sys.argv[1]
+if was == "merken":
+    merken(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5] or 0))
+elif was == "restzeit":
+    print(restzeit(sys.argv[2], int(sys.argv[3])))
+PY
+}
+
+# arasul_drossel_merken <methode> <pfad> <kopfzeilen-datei> <http-code>
+arasul_drossel_merken() { _arasul_drossel_py merken "$1" "$2" "$3" "${4:-0}"; }
+
+# arasul_drossel_abwarten <anmeldung|auth|sitzung> [brauche]
+# Wartet laut, wenn die Drossel laut letzter Antwort noch zu ist. Irrt sich das,
+# weil jemand anders dazwischen war, faengt der 429 danach es ab.
+arasul_drossel_abwarten() {
+  local name="$1" brauche="${2:-1}" s
+  s=$(_arasul_drossel_py restzeit "$name" "$brauche")
+  if [ "${s:-0}" -gt 0 ] 2>/dev/null; then
+    echo "warte  ${s} s auf die Drossel \"$name\" (siehe middleware/rateLimit.js)" >&2
+    sleep "$s"
+  fi
+}
+
+# Vor einer Seitenladung im Browser: eine Frage aus `auth` (needs-setup) und
+# eine Sitzungsprobe, und danach oft gleich die naechste. Platz fuer zwei.
+arasul_seitenladung_abwarten() {
+  arasul_drossel_abwarten auth 2
+  arasul_drossel_abwarten sitzung 2
+}
+
+# ---------------------------------------------------------------------------
+# Der Pruefbenutzer, wenn er fehlt
+# ---------------------------------------------------------------------------
+# Der Werksreset von G1 loescht jeden Benutzer, auch den, mit dem die Abnahmen
+# sich anmelden (28.08.2026, 11:55: `pruefer` weg, danach kam keine
+# Browser-Abnahme mehr durch). Ein 401 fuer ARASUL_BENUTZER heisst seither
+# nicht "Ende", sondern: einmal anlegen, einmal wiederholen. Der Weg geht ueber
+# `scripts/util/pruefbenutzer.sh`, idempotent, am Geraet oder ueber ssh.
+arasul_pruefbenutzer_anlegen() {
+  local wurzel
+  wurzel="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  echo "Der Benutzer $ARASUL_BENUTZER meldet sich nicht an (HTTP $(arasul_anmeldecode)). Lege ihn an ..." >&2
+  ARASUL_BENUTZER="$ARASUL_BENUTZER" ARASUL_PASSWORT="$ARASUL_PASSWORT" \
+    bash "$wurzel/scripts/util/pruefbenutzer.sh" >&2
+}
 
 # ---------------------------------------------------------------------------
 # Ist unter dieser Adresse ueberhaupt ein Geraet?
@@ -116,14 +269,43 @@ _arasul_token_gilt() {
   [ "$code" = "200" ]
 }
 
-_arasul_anmelden() {
-  local antwort
+# Ein Versuch. Haelt den Code und den Stand der Anmeldedrossel fest.
+_arasul_anmelden_einmal() {
+  local antwort kopf
+  kopf="$(mktemp)"
   antwort=$(curl -sk -w '\n%{http_code}' -X POST -H 'content-type: application/json' \
-    --max-time 30 -c "$ARASUL_TOKEN_DATEI.cookies" \
+    --max-time 30 -c "$ARASUL_TOKEN_DATEI.cookies" -D "$kopf" \
     -d "{\"username\":\"$ARASUL_BENUTZER\",\"password\":\"$ARASUL_PASSWORT\"}" \
     "$ARASUL_URL/api/auth/login")
   printf '%s' "$antwort" | tail -n1 > "$_ARASUL_CODE_DATEI"
+  arasul_drossel_merken POST /api/auth/login "$kopf" "$(arasul_anmeldecode)"
+  rm -f "$kopf"
   printf '%s' "$antwort" | sed '$d' | _arasul_json_feld token
+}
+
+# Die Anmeldung, mit dem, was ein Mensch auch taete: vor dem Klopfen nachsehen,
+# ob die Drossel zu ist, ein 429 abwarten und einmal wiederholen, und einen
+# fehlenden Pruefbenutzer einmal anlegen. Jeder dieser drei Faelle war vorher
+# ein rotes Feld ueber den Messaufbau.
+_arasul_anmelden() {
+  local token angelegt=0
+  arasul_drossel_abwarten anmeldung 1
+  token=$(_arasul_anmelden_einmal)
+  case "$(arasul_anmeldecode)" in
+    429)
+      arasul_drossel_abwarten anmeldung 1
+      token=$(_arasul_anmelden_einmal)
+      ;;
+    401)
+      if arasul_pruefbenutzer_anlegen; then
+        angelegt=1
+        arasul_drossel_abwarten anmeldung 1
+        token=$(_arasul_anmelden_einmal)
+      fi
+      ;;
+  esac
+  [ "$angelegt" = 1 ] && [ -n "$token" ] && echo "Pruefbenutzer $ARASUL_BENUTZER angelegt und angemeldet." >&2
+  printf '%s' "$token"
 }
 
 arasul_token_ablegen() {

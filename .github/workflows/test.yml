@@ -440,6 +440,20 @@ jobs:
       - name: Stiller Tod (Zuweisungen, die ein Skript wortlos beenden)
         run: python3 scripts/test/stiller-tod.py --wurzel .
 
+      # 28.08.2026: die drei Drosseln des Geraets stehen im Backend und zweimal
+      # in den Abnahmen (Browser und curl), weil ein Shell-Skript kein
+      # Node-Modul laden kann. Aendert das Backend eine Zahl, faellt es hier
+      # und nicht erst als 429 mitten in einer Abnahme am Geraet.
+      - name: Drosselzahlen (Backend und Abnahmen nennen dieselben Drosseln)
+        run: python3 scripts/test/drosselzahlen.py --wurzel .
+
+      # Und die Logik dahinter, mit gefaelschten Kopfzeilen statt einer vollen
+      # Drossel am Geraet: Browser-Seite und curl-Seite je einmal.
+      - name: Drossel-Selbsttest (drossel.mjs)
+        run: node scripts/test/drossel-selbsttest.mjs
+      - name: Anmeldung-Selbsttest (anmeldung.sh, pruefbenutzer.sh)
+        run: bash scripts/test/anmeldung-selbsttest.sh
+
       # Die vierte aus derselben Familie, 28.08.2026: nicht der Rueckgabewert,
       # sondern der Pfad. Ein Skript in `scripts/validate/` ging nur EINE Ebene
       # hoch, sein `PROJECT_ROOT` zeigte damit auf `scripts/`, und der Bootstrap
