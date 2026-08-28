@@ -13,6 +13,26 @@ import type { ReactNode } from 'react';
 import { Sicherung } from '../sicherung/Sicherung';
 import type { SicherungStatus } from '../sicherung/useSicherung';
 
+/**
+ * Derselbe Zeitpunkt, wie ihn der Mensch vor dem Bildschirm liest.
+ *
+ * `formatDate` schreibt Ortszeit. Eine fest hingeschriebene Uhrzeit misst
+ * deshalb die Zone der Maschine mit: auf dem Laptop (Europe/Berlin) stand
+ * „04:00", in der CI (UTC) „02:00" — daran ist der Lauf 33163888736
+ * gescheitert. Die Zone steht jetzt in `vite.config.ts` fest, und diese Zeile
+ * haelt den Test auch dann aufrecht, wenn jemand sie dort wieder herausnimmt:
+ * verglichen wird der Zeitpunkt, nicht die Zahl auf einer bestimmten Uhr.
+ * Dass die Schreibweise selbst deutsch ist, misst `utils/formatting.test.ts`.
+ */
+const wieAngezeigt = (iso: string) =>
+  new Date(iso).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
 const apiMock = {
   get: vi.fn(),
   post: vi.fn(),
@@ -88,7 +108,7 @@ describe('Sicherung', () => {
     render(<Sicherung />, { wrapper: huelle() });
 
     const zeile = await screen.findByTestId(`sicherung-${DATEI.name}`);
-    expect(zeile.textContent).toContain('28.08.2026');
+    expect(zeile.textContent).toContain(wieAngezeigt(DATEI.zeitpunkt));
     expect(zeile.textContent).toContain('5,2 GB');
     expect(zeile.textContent).toContain('Datenbank');
   });
@@ -101,11 +121,12 @@ describe('Sicherung', () => {
   });
 
   it('nennt Datum und Groesse der letzten Kopie ausserhalb, wenn es eine gibt', async () => {
+    const zeitpunkt = '2026-08-27T02:00:00.000Z';
     antworte({
       ...STATUS,
       ausserhalb: {
         vorhanden: true,
-        zeitpunkt: '2026-08-27T02:00:00.000Z',
+        zeitpunkt,
         bytes: 4_900_000_000,
         dateien: 12,
         ziel: 'USB-Stick',
@@ -114,7 +135,7 @@ describe('Sicherung', () => {
     });
     render(<Sicherung />, { wrapper: huelle() });
 
-    expect(await screen.findByText('27.08.2026, 04:00')).toBeInTheDocument();
+    expect(await screen.findByText(wieAngezeigt(zeitpunkt))).toBeInTheDocument();
     expect(screen.getByText(/4,9 GB auf USB-Stick/)).toBeInTheDocument();
   });
 
