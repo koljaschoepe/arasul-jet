@@ -1,19 +1,30 @@
 import { useState } from 'react';
-import { Activity, RotateCcw, Server, Upload, Wrench } from 'lucide-react';
+import { Activity, DatabaseBackup, RotateCcw, Server, Upload, Wrench } from 'lucide-react';
 import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ServicesSettings } from './ServicesSettings';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
 import { SystemStatus } from './SystemStatus';
+import { Sicherung } from './sicherung/Sicherung';
 import { Werksreset } from './Werksreset';
 
-type SubId = 'status' | 'services' | 'updates' | 'selfhealing' | 'werksreset';
+type SubId = 'status' | 'services' | 'updates' | 'sicherung' | 'selfhealing' | 'werksreset';
 
+/**
+ * Die Unterbereiche in der Reihenfolge, in der ein Administrator sie braucht:
+ * erst was gerade ist (Auslastung), dann was läuft (Dienste), dann die drei
+ * Handgriffe des Betriebs (einspielen, sichern, heilen) und ganz hinten der
+ * Werksreset, der alles wegnimmt.
+ *
+ * „Sicherung" kommt mit Phase D5 dazu. Die Wege dahinter stehen seit C9; bis
+ * dahin gab es sie nur für jemanden mit einer Konsole.
+ */
 const subSections: FilterBarItem<SubId>[] = [
-  { id: 'status', label: 'System-Status', icon: Activity },
+  { id: 'status', label: 'Auslastung', icon: Activity },
   { id: 'services', label: 'Dienste', icon: Server },
   { id: 'updates', label: 'Aktualisierungen', icon: Upload },
+  { id: 'sicherung', label: 'Sicherung', icon: DatabaseBackup },
   { id: 'selfhealing', label: 'Selbstheilung', icon: Wrench },
   { id: 'werksreset', label: 'Werksreset', icon: RotateCcw },
 ];
@@ -42,7 +53,7 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
       panelClassName="pt-6"
     >
       {active === 'status' && (
-        <ComponentErrorBoundary componentName="System-Status">
+        <ComponentErrorBoundary componentName="Auslastung">
           <SystemStatus />
         </ComponentErrorBoundary>
       )}
@@ -54,6 +65,11 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
       {active === 'updates' && (
         <ComponentErrorBoundary componentName="Aktualisierungen">
           <UpdatePage />
+        </ComponentErrorBoundary>
+      )}
+      {active === 'sicherung' && (
+        <ComponentErrorBoundary componentName="Sicherung">
+          <Sicherung />
         </ComponentErrorBoundary>
       )}
       {active === 'selfhealing' && (

@@ -6,12 +6,17 @@
  * Admin-only endpoint; renders nothing for non-admin users.
  *
  * Aus dem entfernten Dashboard-Feature in die System-Einstellungen (Settings →
- * System → System-Status) übernommen (Plan 008).
+ * System → Auslastung) übernommen (Plan 008).
+ *
+ * Phase D5: die zwei Zeilen „Letztes Backup" und „Aktive Alerts" waren Links
+ * auf `/settings?tab=system`, also auf die Seite, auf der sie stehen. Im
+ * MemoryRouter des Einstellungen-Tabs führte der Klick nirgendwohin. Jetzt
+ * sind es Zeilen wie die anderen; wer zur Sicherung will, nimmt den
+ * Unterbereich daneben.
  */
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ShieldCheck, ShieldAlert, ShieldX, ExternalLink } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { DashboardCard, DashboardCardTitle } from './DashboardCard';
@@ -173,13 +178,10 @@ const SystemHealthWidget: React.FC = () => {
       </div>
 
       <div className="grid min-w-0 gap-ui-1 text-ui">
-        <Link
-          to="/settings?tab=system"
-          className="flex min-w-0 items-center justify-between gap-ui-2 text-inherit no-underline"
-        >
+        <div className="flex min-w-0 items-center justify-between gap-ui-2">
           <span className="min-w-0 truncate">Letztes Backup</span>
           <span
-            className="inline-flex shrink-0 items-center gap-ui-1 whitespace-nowrap"
+            className="shrink-0 whitespace-nowrap"
             style={{ color: backup.stale ? 'var(--danger-color)' : 'var(--success-color)' }}
           >
             {backup.status === 'missing'
@@ -187,9 +189,8 @@ const SystemHealthWidget: React.FC = () => {
               : backup.ageHours !== undefined
                 ? `vor ${backup.ageHours}h`
                 : backup.status}
-            <ExternalLink size={12} className="shrink-0" aria-hidden="true" />
           </span>
-        </Link>
+        </div>
 
         <div className="flex min-w-0 items-center justify-between gap-ui-2">
           <span className="min-w-0 truncate">Restore-Drill</span>
@@ -219,19 +220,15 @@ const SystemHealthWidget: React.FC = () => {
           </span>
         </div>
 
-        <Link
-          to="/settings?tab=system"
-          className="flex min-w-0 items-center justify-between gap-ui-2 text-inherit no-underline"
-        >
+        <div className="flex min-w-0 items-center justify-between gap-ui-2">
           <span className="min-w-0 truncate">Aktive Alerts</span>
           <span
-            className="inline-flex shrink-0 items-center gap-ui-1 whitespace-nowrap"
+            className="shrink-0 whitespace-nowrap"
             style={{ color: alerts.active > 0 ? 'var(--warning-color)' : 'var(--success-color)' }}
           >
             {alerts.active}
-            <ExternalLink size={12} className="shrink-0" aria-hidden="true" />
           </span>
-        </Link>
+        </div>
 
         {notifications.unsent_critical_24h > 0 && (
           <div className="flex min-w-0 items-center justify-between gap-ui-2">

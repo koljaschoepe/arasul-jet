@@ -37,7 +37,7 @@ const geraet = {
   retry: () => {},
 };
 
-vi.mock('@/hooks/useDashboardData', () => ({ useDashboardData: () => geraet }));
+vi.mock('../geraetezustand', () => ({ useGeraetezustand: () => geraet }));
 
 vi.mock('@/hooks/useApi', () => ({
   useApi: () => ({

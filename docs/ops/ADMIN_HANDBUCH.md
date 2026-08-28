@@ -8,7 +8,7 @@
 ## Inhaltsverzeichnis
 
 1. [Systemuebersicht](#1-systemuebersicht)
-2. [Dashboard](#2-dashboard)
+2. [Auslastung](#2-auslastung)
 3. [Einstellungen](#3-einstellungen)
 4. [Services-Verwaltung](#4-services-verwaltung)
 5. [Datensicherung](#5-datensicherung)
@@ -109,23 +109,33 @@ der Lauf nicht mehr fortgesetzt wird, wurde das Geraet zwischendurch neu
 gestartet: die Entscheidung ist festgehalten, den Lauf muss jemand neu
 anstossen.
 
-- **Modelle (nur Administrator):** in der Mitte der durchsuchbare **Store**; ein Klick auf eine
-  Karte oeffnet die Detailseite mit allen Aktionen (installieren, aktivieren,
-  als Standard, loeschen). Ueber dem Modell-Raster steht ein
-  **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
-  die aktuell im RAM geladenen Modelle mit **Entladen**, das **Standardmodell**
-  und **In den RAM laden** mit Live-Statusmeldungen.
+- **Modelle (nur Administrator):** in der Mitte die **Kurzliste** des Geraets,
+  vier Modelle und keine Suche daneben: eines fuer die Flows
+  (`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS`, der Standard), ein kleines
+  schnelles (`gemma4:e4b`), eines fuer Einbettungen (`nomic-embed-text`) und
+  eines fuer Bilder und eingescannten Text (`llava-phi3`). Je Zeile steht,
+  wofuer das Modell da ist, wie gross es ist und ob es am Geraet liegt; die
+  Knoepfe sind **Laden**, **Standard**, **In den Speicher** bzw. **Aus dem
+  Speicher** und **Entfernen**. Darueber vier Kacheln: KI-RAM, das Modell im
+  Speicher, der Standard der Flows und wie viele der vier am Geraet liegen.
+  Geladen wird nur, was in der Kurzliste steht; einen Weg daran vorbei gibt es
+  nicht.
 - Die Shell ist die einzige Ansicht: `/` landet nach dem Login immer auf
   `/workspace`.
 
 ---
 
-## 2. Dashboard
+## 2. Auslastung
 
-Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
+**Einstellungen → System → Auslastung** zeigt auf einen Blick, was das Geraet
+gerade tut:
 
-- **System-Status:** RAM, Swap, Speicherplatz, Temperatur (mit Verlauf) sowie
-  ein Dienste-Health-Widget mit Ampel-Anzeige (gruen/gelb/rot)
+- **Kacheln:** Arbeitsspeicher, Auslagerung, Speicherplatz und Temperatur, mit
+  dem Hinweis, wie viel vom Arbeitsspeicher fuer KI-Modelle reserviert ist
+- **Verlauf:** Arbeitsspeicher und Auslagerung in Prozent, Temperatur in Grad
+  auf einer eigenen Achse, wahlweise ueber 1, 6, 12 oder 24 Stunden
+- **System-Gesundheit:** eine Ampel aus letzter Sicherung,
+  Wiederherstellungstest, Diensten und offenen Alarmen
 
 ### Status-Farben
 
@@ -204,7 +214,7 @@ Auswirkung kennen.
 
 ### Dienste anzeigen
 
-1. Navigieren Sie zu **Einstellungen → System → "Services"**
+1. Navigieren Sie zu **Einstellungen → System → Dienste**
 2. Alle Dienste werden mit Status angezeigt (manueller Refresh-Button oben rechts)
 
 ### Dienst-Aktionen
@@ -250,12 +260,33 @@ in den Safe. Ohne ihn ist nach einem Geraeteverlust jede Sicherung Papier.
 
 ### Manuelles Backup
 
+**Einstellungen → System → Sicherung → Jetzt sichern.** Die Sicherung laeuft
+sofort und braucht am Geraet einige Minuten; danach steht die Meldung, dass sie
+fertig ist, und die Liste darunter zeigt die neue Datei mit Datum und Groesse.
+Solange sie laeuft, laesst das Geraet nichts Zweites zu.
+
+Auf derselben Seite steht ausserdem:
+
+- **Zustand:** ob das Geraet wirklich sichert (nicht „koennte", sondern „hat"),
+  wann zuletzt und wie gross.
+- **Kopie ausserhalb:** Datum und Groesse der letzten Kopie AUSSER HAUS. Steht
+  dort „noch nie", liegt jede Sicherung nur auf diesem Geraet und ueberlebt es
+  nicht.
+- **Wiederherstellungstest:** ein Knopf, der die neueste Sicherung in eine
+  Wegwerf-Datenbank spielt und nachzaehlt, ohne den Betrieb anzufassen.
+
+Ueber die Befehlszeile geht es weiterhin:
+
 ```bash
 ssh -p 2222 arasul@<jetson-ip>
 docker exec backup-service /usr/local/bin/backup.sh
 ```
 
 ### Backup wiederherstellen
+
+Das Zurueckspielen ersetzt die ganze Datenbank und steht deshalb bewusst NICHT
+als Knopf im Dashboard. Es geht ueber die Befehlszeile oder ueber
+`POST /api/backup/wiederherstellung` mit ausdruecklicher Bestaetigung.
 
 ```bash
 # Erst schauen, ob sich die neueste Sicherung lesen laesst — ohne etwas anzufassen:
@@ -325,28 +356,35 @@ Vollstaendigkeit behauptet. In dem Fall gehoert die neue Tabelle in
 
 ## 6. System-Updates
 
-### USB-Update einspielen
+**Einstellungen → System → Aktualisierungen.** Ganz oben steht, welche Fassung
+dieses Geraet traegt. Sie kommt aus dem Bau (Tag oder Datum plus Kurz-SHA);
+sagt die Seite „Vorserie", kennt das Geraet seine eigene Fassung nicht, und
+dann laesst sich auch nicht entscheiden, ob ein Paket neuer ist.
 
-1. Stecken Sie den USB-Stick mit dem Update ein
-2. Oeffnen Sie **Einstellungen → System → Updates**
-3. Das System erkennt den USB-Stick automatisch
-4. Klicken Sie auf **"Update installieren"**
-5. Warten Sie, bis das Update abgeschlossen ist
-6. Das System startet bei Bedarf automatisch neu
+**Wenn dieses Geraet nicht ueber die Oberflaeche einspielen kann, sagt es das.**
+Der Weg dahinter braucht ein `docker`-Programm im Backend-Container, und das
+gibt es dort nicht; aktualisiert wird dann ueber den Deploy
+(`scripts/deploy/deploy-local.sh`) oder `./arasul update` am Geraet selbst.
+Statt Knoepfen, die zuverlaessig scheitern, steht der Grund da.
 
-### Update-Verlauf
+### Paket einspielen (wenn der Weg offen ist)
 
-Unter **Einstellungen → System → Updates → Verlauf** sehen Sie:
+1. Stecken Sie den USB-Stick mit dem Paket ein, oder waehlen Sie die
+   `.araupdate`-Datei und die zugehoerige `.sig` von Hand
+2. **Hochladen und pruefen** — Signatur und Manifest werden geprueft
+3. **Einspielen**, und die Seite offen lassen: das Geraet startet sich dabei
+   selbst neu, und die Verbindung bricht kurz weg. Das ist erwartbar.
 
-- Installierte Updates mit Datum
-- Versionsnummern
-- Aenderungsprotokoll
+### Verlauf
+
+Darunter steht, was bisher eingespielt wurde: Fassung vorher und nachher,
+Ausgang, Datum, Quelle und Dauer.
 
 ### Hinweise
 
 - Updates werden digital signiert und vor der Installation verifiziert
 - Bei Problemen wird automatisch ein Rollback durchgefuehrt
-- Erstellen Sie vor dem Update ein manuelles Backup
+- Vor dem Einspielen sichert das Geraet selbst (Abschnitt 5)
 
 ---
 

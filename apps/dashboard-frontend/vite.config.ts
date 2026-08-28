@@ -50,5 +50,14 @@ export default defineConfig({
     setupFiles: './src/setupTests.ts',
     css: true,
     exclude: ['e2e/**', 'node_modules/**'],
+    // Die Zeitzone gehoert zur Messung, nicht zur Maschine (28.08.2026).
+    // `formatDate` schreibt einen Zeitpunkt in Ortszeit; ohne feste Zone misst
+    // derselbe Test auf dem Laptop (Europe/Berlin) und in der CI (UTC) zwei
+    // verschiedene Uhrzeiten. Genau daran ist die Sicherungs-Reihe im Lauf
+    // 33163888736 gescheitert: „27.08.2026, 04:00" hier, „02:00" dort.
+    // Gewaehlt ist die Zone des Geraets, nicht UTC — ein Test soll zeigen, was
+    // der Mensch vor dem Bildschirm sieht. Die Sprache steht ohnehin in jedem
+    // Aufruf (`toLocaleString('de-DE')`) und haengt an keiner Umgebung.
+    env: { TZ: 'Europe/Berlin' },
   },
 });

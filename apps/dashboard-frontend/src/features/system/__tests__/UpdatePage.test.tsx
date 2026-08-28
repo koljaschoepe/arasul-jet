@@ -1,78 +1,18 @@
 /**
- * UpdatePage Component Tests
+ * Aktualisierungen (Phase D5).
  *
- * Tests für UpdatePage:
- * - Initial Rendering (German UI)
- * - File Upload UI
- * - USB Device Detection
- * - Validation Flow
- * - Apply Update Flow
- * - Update History
- * - Error Handling
+ * Gemessen wird, was die Phase verlangt: die Fassung kommt aus dem Bau, und
+ * die Seite sagt ehrlich, wenn dieses Gerät nicht über die Schnittstelle
+ * einspielen kann. Der Ablauf des Einspielens selbst (hochladen, prüfen,
+ * einspielen) steht nur da, wenn er auch gehen kann.
  */
-
-import React from 'react';
-import { ToastProvider } from '../../../contexts/ToastContext';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import UpdatePage from '../UpdatePage';
 
-// Mock AuthContext - useApi now requires AuthProvider
-vi.mock('../../../contexts/AuthContext', () => ({
-  useAuth: () => ({ logout: vi.fn() }),
-  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
-
-// Mock formatDate
-// Plan 023 D4: die Seite hatte eine eigene Groessenrechnung, jetzt nimmt sie
-// formatBytes wie der Rest des Produkts. Der Mock muss das mitfuehren, sonst
-// scheitert die Seite beim Rendern statt an einer Erwartung.
-vi.mock('../../../utils/formatting', async () => {
-  const echt = await vi.importActual<typeof import('../../../utils/formatting')>(
-    '../../../utils/formatting'
-  );
-  return { ...echt, formatDate: vi.fn(() => '22.01.2026, 10:30') };
-});
-
-// Mock config/api
-vi.mock('../../../config/api', () => ({
-  API_BASE: '/api',
-  getAuthHeaders: () => ({ Authorization: 'Bearer test-token' }),
-}));
-
-// Mock token utility (used by getAuthHeaders)
-vi.mock('../../../utils/token', () => ({
-  getValidToken: () => 'test-token',
-}));
-
-// Mock csrf utility
-vi.mock('../../../utils/csrf', () => ({
-  getCsrfToken: () => 'mock-csrf-token',
-}));
-
-const mockHistory = [
-  {
-    id: 1,
-    version_from: '1.0.0',
-    version_to: '1.1.0',
-    source: 'dashboard',
-    status: 'completed',
-    timestamp: new Date().toISOString(),
-    duration_seconds: 180,
-  },
-  {
-    id: 2,
-    version_from: '0.9.0',
-    version_to: '1.0.0',
-    source: 'usb',
-    status: 'failed',
-    timestamp: new Date().toISOString(),
-    duration_seconds: 60,
-  },
-];
-
-// Mock useApi — the component uses useApi(), not raw fetch
-const mockApi = {
+const apiMock = {
   get: vi.fn(),
   post: vi.fn(),
   put: vi.fn(),
@@ -80,421 +20,108 @@ const mockApi = {
   del: vi.fn(),
   request: vi.fn(),
 };
+vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
+vi.mock('../../../hooks/useApi', () => ({ useApi: () => apiMock }));
 
-vi.mock('../../../hooks/useApi', () => ({
-  useApi: () => mockApi,
-  default: () => mockApi,
-}));
+const STATUS_EINSPIELBAR = {
+  status: 'idle',
+  fassung: { version: '0.3.0', anzeige: '0.3.0', bekannt: true },
+  einspielenMoeglich: true,
+  einspielenGrund: null,
+};
 
-/**
- * Configure mock API responses based on URL patterns.
- */
-function setupMockApi(
-  overrides: {
-    history?: typeof mockHistory;
-    usbDevices?: Array<{
-      path: string;
-      name: string;
-      size: number;
-      device: string;
-      modified?: string;
-    }>;
-    systemInfo?: Record<string, unknown>;
-  } = {}
-) {
-  mockApi.get.mockImplementation((url: string) => {
-    if (url.includes('/update/history')) {
-      return Promise.resolve({ updates: overrides.history ?? mockHistory });
-    }
-    if (url.includes('/update/usb-devices')) {
-      return Promise.resolve({ devices: overrides.usbDevices ?? [] });
-    }
-    if (url.includes('/system/info')) {
-      return Promise.resolve(overrides.systemInfo ?? { version: '1.0.0' });
-    }
-    if (url.includes('/update/status')) {
-      return Promise.resolve({ status: 'idle' });
-    }
-    return Promise.resolve({});
+const STATUS_NICHT_EINSPIELBAR = {
+  ...STATUS_EINSPIELBAR,
+  einspielenMoeglich: false,
+  einspielenGrund:
+    'Ein Paket laesst sich an diesem Geraet nicht ueber die Schnittstelle einspielen: im Backend-Container gibt es kein `docker`-Programm.',
+};
+
+function huelle() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return function Huelle({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  };
+}
+
+function antworte(status: Record<string, unknown>, verlauf: unknown[] = []) {
+  apiMock.get.mockImplementation(async (pfad: string) => {
+    if (pfad === '/update/status') return status;
+    if (pfad === '/update/history') return { updates: verlauf };
+    if (pfad === '/update/usb-devices') return { devices: [] };
+    if (pfad === '/system/info') return { build_hash: 'abcdef1234', jetpack_version: '6.0' };
+    throw new Error(`unerwarteter Pfad: ${pfad}`);
   });
 }
 
-describe('UpdatePage Component', () => {
+describe('Aktualisierungen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setupMockApi();
   });
 
-  // =====================================================
-  // Initial Rendering (German UI)
-  // =====================================================
-  describe('Initial Rendering', () => {
-    test('zeigt deutschen Seiten-Titel', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText('System-Updates')).toBeInTheDocument();
-    });
+  it('zeigt die Fassung aus dem Bau', async () => {
+    antworte(STATUS_EINSPIELBAR);
+    render(<UpdatePage />, { wrapper: huelle() });
 
-    test('zeigt deutsche Beschreibung', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText('Updates sicher hochladen und installieren')).toBeInTheDocument();
-    });
-
-    test('zeigt Upload-Section', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText('Update-Paket hochladen')).toBeInTheDocument();
-    });
-
-    test('zeigt USB-Section', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText(/USB-Update erkennen/)).toBeInTheDocument();
-    });
-
-    test('zeigt History-Section', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText('Update-Verlauf')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('0.3.0')).toBeInTheDocument();
+    expect(await screen.findByText('abcdef1')).toBeInTheDocument();
   });
 
-  // =====================================================
-  // File Upload UI
-  // =====================================================
-  describe('File Upload UI', () => {
-    test('zeigt .araupdate File Input', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText('.araupdate Datei auswählen')).toBeInTheDocument();
-    });
+  it('sagt es, wenn das Geraet nicht ueber die Schnittstelle einspielen kann', async () => {
+    antworte(STATUS_NICHT_EINSPIELBAR);
+    render(<UpdatePage />, { wrapper: huelle() });
 
-    test('zeigt .sig Signature Input als erforderlich', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText('.sig Signaturdatei auswählen (erforderlich)')).toBeInTheDocument();
-    });
-
-    test('zeigt Upload Button', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(screen.getByText('Hochladen & Validieren')).toBeInTheDocument();
-    });
-
-    test('Upload Button ist initial disabled', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      const button = screen.getByText('Hochladen & Validieren');
-      expect(button).toBeDisabled();
-    });
+    const satz = await screen.findByTestId('einspielen-nicht-moeglich');
+    expect(satz.textContent).toContain('docker');
+    // Und dann steht der Weg zum Einspielen NICHT da: ein Knopf, der
+    // zuverlaessig scheitert, ist schlimmer als keiner.
+    expect(screen.queryByText('Hochladen und prüfen')).not.toBeInTheDocument();
+    expect(screen.queryByText('.araupdate Datei auswählen')).not.toBeInTheDocument();
   });
 
-  // =====================================================
-  // File Selection
-  // =====================================================
-  describe('File Selection', () => {
-    test('akzeptiert .araupdate Dateien', async () => {
-      const user = userEvent.setup();
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
+  it('bietet den Weg an, wenn das Geraet einspielen kann', async () => {
+    antworte(STATUS_EINSPIELBAR);
+    render(<UpdatePage />, { wrapper: huelle() });
 
-      const file = new File(['update content'], 'update-1.2.0.araupdate', {
-        type: 'application/octet-stream',
-      });
-      const input = document.getElementById('update-file');
-      await user.upload(input!, file);
-
-      expect(screen.getByText('update-1.2.0.araupdate')).toBeInTheDocument();
-    });
-
-    test('akzeptiert .sig Dateien', async () => {
-      const user = userEvent.setup();
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      const file = new File(['signature'], 'update.sig', { type: 'application/octet-stream' });
-      const input = document.getElementById('signature-file');
-      await user.upload(input!, file);
-
-      expect(screen.getByText('update.sig')).toBeInTheDocument();
-    });
-
-    test('Upload Button bleibt disabled ohne Signaturdatei', async () => {
-      const user = userEvent.setup();
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      const file = new File(['content'], 'update.araupdate', {
-        type: 'application/octet-stream',
-      });
-      const input = document.getElementById('update-file');
-      await user.upload(input!, file);
-
-      // Button still disabled because signature is required
-      const button = screen.getByText('Hochladen & Validieren');
-      expect(button).toBeDisabled();
-    });
-
-    test('aktiviert Upload Button nach beiden Dateiauswahlen', async () => {
-      const user = userEvent.setup();
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      const updateFile = new File(['content'], 'update.araupdate', {
-        type: 'application/octet-stream',
-      });
-      const sigFile = new File(['sig'], 'update.sig', { type: 'application/octet-stream' });
-
-      await user.upload(document.getElementById('update-file')!, updateFile);
-      await user.upload(document.getElementById('signature-file')!, sigFile);
-
-      const button = screen.getByText('Hochladen & Validieren');
-      expect(button).not.toBeDisabled();
-    });
+    expect(await screen.findByText('.araupdate Datei auswählen')).toBeInTheDocument();
+    expect(screen.getByText('Hochladen und prüfen')).toBeInTheDocument();
+    expect(screen.queryByTestId('einspielen-nicht-moeglich')).not.toBeInTheDocument();
   });
 
-  // =====================================================
-  // USB Device Detection
-  // =====================================================
-  describe('USB Device Detection', () => {
-    test('zeigt Scan-Button (ghost icon button)', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      // The USB scan button is a ghost variant icon-only button with a RefreshCw icon
-      const buttons = screen.getAllByRole('button');
-      const scanButton = buttons.find(
-        btn => btn.getAttribute('data-variant') === 'ghost' && btn.querySelector('svg')
-      );
-      expect(scanButton).toBeDefined();
+  it('sagt bei einem Geraet ohne Fassung, dass es seine Fassung nicht kennt', async () => {
+    antworte({
+      ...STATUS_EINSPIELBAR,
+      fassung: { version: null, anzeige: 'Vorserie', bekannt: false },
     });
+    render(<UpdatePage />, { wrapper: huelle() });
 
-    test('zeigt Keine-Geräte-Nachricht', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      await waitFor(() => {
-        expect(screen.getByText(/Kein USB-Gerät gefunden/)).toBeInTheDocument();
-      });
-    });
-
-    test('zeigt gefundene USB-Geräte', async () => {
-      setupMockApi({
-        usbDevices: [
-          {
-            path: '/media/usb/update-1.2.0.araupdate',
-            name: 'update-1.2.0.araupdate',
-            size: 52428800,
-            device: 'usb-stick',
-            modified: new Date().toISOString(),
-          },
-        ],
-      });
-
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('update-1.2.0.araupdate')).toBeInTheDocument();
-        expect(screen.getByText('Installieren')).toBeInTheDocument();
-      });
-    });
-
-    test('ruft api.get für USB-Scan auf', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        expect(mockApi.get).toHaveBeenCalledWith(
-          '/update/usb-devices',
-          expect.objectContaining({ showError: false })
-        );
-      });
-    });
+    expect(await screen.findByText('Vorserie')).toBeInTheDocument();
+    expect(screen.getByText(/kennt seine Fassung nicht/)).toBeInTheDocument();
   });
 
-  // =====================================================
-  // Update History
-  // =====================================================
-  describe('Update History', () => {
-    test('lädt History beim Mount', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        expect(mockApi.get).toHaveBeenCalledWith(
-          '/update/history',
-          expect.objectContaining({ showError: false })
-        );
-      });
-    });
-
-    test('zeigt History-Einträge als div-basierte Liste', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        // History uses div-based layout: "version_from → version_to"
-        expect(screen.getAllByText(/→/).length).toBeGreaterThanOrEqual(1);
-      });
-    });
-
-    test('zeigt Versionen in History-Einträgen', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      // version_from and version_to displayed together: "1.0.0 → 1.1.0"
-      await waitFor(() => {
-        expect(screen.getByText(/1\.0\.0 → 1\.1\.0/)).toBeInTheDocument();
-      });
-    });
-
-    test('zeigt Status-Badges auf Deutsch', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Abgeschlossen')).toBeInTheDocument();
-        expect(screen.getByText('Fehlgeschlagen')).toBeInTheDocument();
-      });
-    });
-
-    test('zeigt Quellen auf Deutsch', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Dashboard')).toBeInTheDocument();
-        expect(screen.getByText('USB')).toBeInTheDocument();
-      });
-    });
-
-    test('zeigt Duration in Minuten', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('3m')).toBeInTheDocument();
-        expect(screen.getByText('1m')).toBeInTheDocument();
-      });
-    });
-
-    test('zeigt Aktueller-Stand-Info wenn keine History vorhanden', async () => {
-      setupMockApi({ history: [] });
-
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        // When no history, shows system info card with "Aktueller Stand"
-        expect(screen.getByText('Aktueller Stand')).toBeInTheDocument();
-        expect(screen.getByText('Noch kein Update durchgeführt')).toBeInTheDocument();
-      });
-    });
+  it('sagt bei leerem Verlauf einen Satz statt einer leeren Liste', async () => {
+    antworte(STATUS_EINSPIELBAR);
+    render(<UpdatePage />, { wrapper: huelle() });
+    expect(await screen.findByTestId('verlauf-leer')).toBeInTheDocument();
   });
 
-  // =====================================================
-  // Layout Structure (Tailwind classes, no BEM)
-  // =====================================================
-  describe('Layout Structure', () => {
-    test('hat animate-in fade-in Container', () => {
-      const { container } = render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(container.querySelector('.animate-in.fade-in')).toBeInTheDocument();
-    });
-
-    test('hat header section mit border-b', () => {
-      const { container } = render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      expect(container.querySelector('.border-b.border-border')).toBeInTheDocument();
-    });
-
-    test('hat multiple sections mit border-b (USB + Upload + History)', () => {
-      const { container } = render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-      // Header, USB section, Upload section all have border-b
-      const borderedSections = container.querySelectorAll('.border-b');
-      expect(borderedSections.length).toBeGreaterThanOrEqual(3);
-    });
+  it('zeigt den Verlauf mit Fassung, Ausgang und Dauer', async () => {
+    antworte(STATUS_EINSPIELBAR, [
+      {
+        id: 1,
+        version_from: '0.2.0',
+        version_to: '0.3.0',
+        source: 'dashboard',
+        status: 'completed',
+        started_at: '2026-08-28T09:00:00.000Z',
+        duration_seconds: 240,
+      },
+    ]);
+    render(<UpdatePage />, { wrapper: huelle() });
+    // Zweimal dieselbe Zeile ist Absicht: oben in der Kachel „Letzte
+    // Aktualisierung", unten im Verlauf.
+    await waitFor(() => expect(screen.getAllByText(/0\.2\.0 auf 0\.3\.0/)).toHaveLength(2));
+    expect(screen.getByText('Abgeschlossen')).toBeInTheDocument();
+    expect(screen.getByText('4 min')).toBeInTheDocument();
   });
 });

@@ -34,8 +34,9 @@
 # WARUM DIESE ABNAHME NEBEN `abnahmen.sh` STEHT, wie `shell-`, `dashboard-` und
 # `admin-abnahme.sh`: `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde
 # und IP, und die Reihe dort sitzt seit C4 mit genau zehn auf der Grenze.
-# Dieser Lauf braucht ZWEI (Administrator und Mitarbeiter); der Browser bekommt
-# beide Sitzungen fertig gereicht und meldet sich gar nicht an.
+# Dieser Lauf braucht DREI (Administrator, Mitarbeiter, und der Mitarbeiter
+# noch einmal nach seinem Passwortwechsel); der Browser bekommt beide
+# Sitzungen fertig gereicht und meldet sich gar nicht an.
 #
 # NICHT IN DERSELBEN VIERTELSTUNDE WIE `shell-`, `dashboard-` ODER
 # `admin-abnahme.sh`. Die vier brauchen zusammen zehn Anmeldungen.
@@ -75,6 +76,10 @@ STEMPEL="$(date +%s)"
 MITARB="abnahme-d4-$STEMPEL"
 MAIL="$MITARB@abnahme.local"
 PASS="Abnahme-D4-$STEMPEL"
+# Das zweite Passwort, das er sich selbst gibt. Ohne diesen Wechsel bliebe sein
+# Konto auf „Startpasswort", und die Shell schickte ihn im Browser auf die
+# Seite „Neues Passwort" statt auf das Dashboard.
+PASS_SELBST="Selbst-D4-$STEMPEL!"
 
 # So lange darf ein Lauf brauchen, bis er an der Freigabe anhaelt. Er startet
 # losgeloest, und die GPU-Warteschlange laesst strikt einen nach dem anderen
@@ -221,8 +226,11 @@ case "$CODE" in
 esac
 pruefe 'Der Administrator darf die App benutzen' "$ADMIN_DARF" "HTTP $CODE"
 
+# `rolle` und nicht `role`: `CreateBenutzerBody` ist `.strict()`, ein fremder
+# Schluessel ist ein 400 und der Mitarbeiter entstuende gar nicht (Fund der
+# D4-Abnahme, in D5 zu).
 ruf POST /api/benutzer "$TOK" \
-  "{\"username\":\"$MITARB\",\"email\":\"$MAIL\",\"password\":\"$PASS\",\"role\":\"mitarbeiter\"}"
+  "{\"username\":\"$MITARB\",\"email\":\"$MAIL\",\"password\":\"$PASS\",\"rolle\":\"mitarbeiter\"}"
 ID=$(feld data.id < "$RUMPF")
 pruefe 'Ein Wegwerf-Mitarbeiter ist angelegt' "$([ -n "$ID" ] && echo ja || echo nein)" \
   "HTTP $CODE, id=${ID:-keine}"
@@ -309,6 +317,28 @@ try: print(json.load(sys.stdin).get("token",""))
 except Exception: print("")' 2>/dev/null)
 pruefe 'Der Mitarbeiter meldet sich an' "$([ -n "$TOK_M" ] && echo ja || echo nein)" \
   "HTTP $(anm_code)"
+[ -z "$TOK_M" ] && { echo; echo "Ohne seine Sitzung kann niemand bestaetigen."; exit 1; }
+
+# DAS STARTPASSWORT MUSS WEG, sonst zeigt der Browser ihm „Neues Passwort"
+# statt der Shell (Migration 178, D1) und der Klick auf die Freigabe geht ins
+# Leere. Zweiter Fund der D4-Abnahme, in D5 zu. Der Selbstwechsel entwertet
+# alle seine Sitzungen (`blacklistAllUserTokens`), deshalb danach noch einmal
+# anmelden: das ist die DRITTE Anmeldung dieses Laufs, und mehr braucht er
+# nicht.
+ruf POST /api/auth/change-password "$TOK_M" \
+  "{\"currentPassword\":\"$PASS\",\"newPassword\":\"$PASS_SELBST\"}"
+pruefe 'Er wechselt sein Startpasswort selbst' "$(ja_nein "$CODE" 200)" "HTTP $CODE"
+
+ANTWORT=$(hole_token "$MAIL" "$PASS_SELBST")
+TOK_M=$(printf '%s' "$ANTWORT" | python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("token",""))
+except Exception: print("")' 2>/dev/null)
+WECHSEL=$(printf '%s' "$ANTWORT" | python3 -c 'import sys,json
+try: print(json.dumps(json.load(sys.stdin).get("user",{}).get("passwortWechselNoetig")))
+except Exception: print("null")' 2>/dev/null)
+pruefe 'und kommt danach ohne Passwortwechsel herein' \
+  "$([ -n "$TOK_M" ] && [ "$WECHSEL" = "false" ] && echo ja || echo nein)" \
+  "HTTP $(anm_code), passwortWechselNoetig=$WECHSEL"
 [ -z "$TOK_M" ] && { echo; echo "Ohne seine Sitzung kann niemand bestaetigen."; exit 1; }
 
 # Je eine Sitzung als `storageState`. In Subshells, damit `$ARASUL_SITZUNG` die

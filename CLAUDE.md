@@ -199,6 +199,32 @@ und was breiter ist, rollt in seinem eigenen Kasten). Abnahme A5:
 `scripts/test/app-admin-bilder.mjs`, zwei Sitzungen in einem Lauf); auch sie
 läuft neben `abnahmen.sh` und **nicht** in derselben Viertelstunde wie die drei
 anderen Browser-Abnahmen — zusammen brauchen die vier zehn Anmeldungen.
+Seit D5 stehen **Modelle und System** als Sicht des Betreibers. Die
+**Modelle** sind die Kurzliste aus C8 und nicht mehr ein Laden: vier Zeilen
+(`features/modelle/`, Tab `modelle` ohne eigenen Router) mit Laden, Standard
+setzen (`POST /api/models/default`), in den und aus dem Speicher und Entfernen,
+darüber KI-RAM und das geladene Modell aus `GET /api/models/memory-budget`.
+Der frühere Store mit Suche, Facetten, Größenklassen und Detailseite ist
+gefallen — samt `storeFilterStore`, `extensionStore`, `SidebarSearch` und
+`sanitizeUrl`; die Sidebar zeigt jetzt dieselben vier Modelle als Liste. Unter
+**System** kommt die **Sicherung** dazu (`features/system/sicherung/`, die C9-Wege
+mit einem Menschen davor): Zustand, jetzt sichern, die Liste mit Datum und
+Größe, der Wiederherstellungstest und die letzte Kopie **außerhalb** — leer,
+wenn es nie eine gab. Das Zurückspielen bleibt bewusst ohne Knopf. Die
+**Aktualisierungen** sagen die Wahrheit: die Fassung kommt aus dem Bau (C10),
+und kann dieses Gerät nicht über die Schnittstelle einspielen
+(`einspielenMoeglich`), steht der Grund da statt eines Knopfes, der zuverlässig
+scheitert. Die Auslastung liest ihre Zahlen aus `features/system/geraetezustand.ts`
+— der alte `useDashboardData` holte alle 30 Sekunden vier Antworten, die
+niemand las. Zwei Funde der D4-Abnahme sind zu: `app-admin-abnahme.sh` schickt
+`rolle` statt `role` und räumt das Startpasswort des Wegwerf-Mitarbeiters weg,
+und die **Tabellen der Verwaltung stehen unter 900 px als Liste**
+(Mitarbeiter und Freigabe-Matrix, `useSchmalesFenster`; immer nur eine Form im
+Dokument, sonst wären die Kennungen doppelt da). Abnahme A6:
+`scripts/test/system-abnahme.sh` (Browser über `scripts/test/system-bilder.mjs`:
+Sicherung auslösen, Meldung, Liste; die Modelle gegen
+`config/modelle/kurzliste.json`); auch sie läuft neben `abnahmen.sh` und
+**nicht** in derselben Viertelstunde wie die vier anderen Browser-Abnahmen.
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 | Layer    | Stack                                                             | Path                                                          |

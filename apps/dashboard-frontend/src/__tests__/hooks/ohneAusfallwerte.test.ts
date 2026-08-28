@@ -9,7 +9,7 @@
  * die Gegenprobe hat es nicht gemerkt, weil sie nur den Weg über null prüfte.
  */
 
-import { ohneAusfallwerte } from '@/hooks/useDashboardData';
+import { ohneAusfallwerte } from '@/features/system/geraetezustand';
 
 describe('ohneAusfallwerte', () => {
   it('macht aus der Ausfallkennung eine Lücke', () => {

@@ -1,9 +1,14 @@
 /**
- * Gemeinsame Datenbasis der Store-Ansicht: Modell-Katalog (+ geladenes/
- * Standard-Modell) und Container-Apps. Vom Kartenraster (StoreModelsGrid) UND
- * der Detailseite (StoreDetailPage) genutzt. React Query mit stabilen Keys
- * dedupliziert die Requests über beide Verbraucher hinweg — keine doppelte
- * Poll-Last auf dem Jetson.
+ * Die gemeinsame Datenbasis für die Modelle: Katalog (seit C8 die Kurzliste),
+ * geladenes Modell, Standardmodell. Gelesen von der Modell-Ansicht (D5), ihrer
+ * Sidebar-Liste und dem Modell-Dialog der App-Verwaltung (D4); die
+ * Statusleiste teilt dieselben Schlüssel. React Query dedupliziert darüber
+ * hinweg — keine doppelte Abfragelast auf dem Jetson.
+ *
+ * Phase D5: die Container-Apps sind hier heraus. Der Hook holte
+ * `GET /api/apps?…` in einer Form (`{ apps: [...] }`), die es seit dem
+ * App-Modell aus C3 nicht mehr gibt (`{ data: [...] }`), und niemand las das
+ * Ergebnis. Eine Abfrage alle 20 Sekunden, deren Antwort immer leer war.
  */
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -64,26 +69,6 @@ export interface LoadedModel {
   ram_usage_mb?: number;
 }
 
-export interface CatalogApp {
-  id: string;
-  name: string;
-  description: string;
-  longDescription?: string;
-  version: string;
-  category: string;
-  author?: string;
-  icon?: string;
-  status: string;
-  appType?: string;
-  featured?: boolean;
-  hasCustomPage?: boolean;
-  customPageRoute?: string;
-  homepage?: string;
-  builtin?: boolean;
-  ports?: { external?: number; internal?: number };
-  lastError?: string;
-}
-
 /**
  * Zentrale „installiert/aktiv"-Prädikate (Plan 005 · Schritt 5). Achtung:
  * Der Katalog nutzt `install_status === 'available'` verwirrenderweise für
@@ -106,7 +91,6 @@ export function isModelActive(model: CatalogModel, loadedModelId: string | null)
 export const STORE_MODELS_KEY = ['store', 'models'] as const;
 export const STORE_MODEL_STATUS_KEY = ['store', 'model-status'] as const;
 export const STORE_MODEL_DEFAULT_KEY = ['store', 'model-default'] as const;
-const STORE_APPS_KEY = ['store', 'apps'] as const;
 
 export function useStoreCatalog() {
   const api = useApi();
@@ -151,36 +135,17 @@ export function useStoreCatalog() {
     staleTime: 30_000,
   });
 
-  const appsQuery = useQuery({
-    queryKey: STORE_APPS_KEY,
-    queryFn: async () => {
-      const res = await api.get<{ apps?: CatalogApp[] }>('/apps', { showError: false });
-      return res.apps ?? [];
-    },
-    staleTime: 20_000,
-  });
-
   const invalidateModels = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: STORE_MODELS_KEY });
     queryClient.invalidateQueries({ queryKey: STORE_MODEL_STATUS_KEY });
     queryClient.invalidateQueries({ queryKey: STORE_MODEL_DEFAULT_KEY });
   }, [queryClient]);
 
-  const invalidateApps = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: STORE_APPS_KEY });
-  }, [queryClient]);
-
   return {
     models: modelsQuery.data ?? [],
     loadedModel: statusQuery.data ?? null,
     defaultModel: defaultQuery.data ?? null,
-    apps: appsQuery.data ?? [],
-    isLoading:
-      modelsQuery.isLoading ||
-      appsQuery.isLoading ||
-      statusQuery.isLoading ||
-      defaultQuery.isLoading,
+    isLoading: modelsQuery.isLoading || statusQuery.isLoading || defaultQuery.isLoading,
     invalidateModels,
-    invalidateApps,
   };
 }

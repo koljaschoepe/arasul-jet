@@ -24,8 +24,8 @@ src/
 ├── features/             # Feature modules
 │   ├── workspace/        # Shell: ActivityBar, Sidebar, Tabs, rechte Spalte (leer seit B2), StatusBar
 │   ├── settings/         # System configuration
-│   ├── store/            # Model store (Raster + Detailseite)
-│   └── system/           # Login, setup wizard, updates
+│   ├── modelle/          # Die Kurzliste des Geräts (D5)
+│   └── system/           # Login, Auslastung, Aktualisierungen, Sicherung
 ├── components/
 │   ├── ui/               # Modal, Skeleton, LoadingSpinner, etc.
 │   │   └── shadcn/       # shadcn/ui components
@@ -40,7 +40,7 @@ src/
 │   ├── useWebSocketMetrics.ts # Real-time metrics
 │   ├── useConfirm.tsx     # Confirmation dialogs
 │   └── useTheme.ts        # Dark/light theme toggle
-├── stores/               # zustand (workspaceStore, extensionStore, storeFilterStore, settingsStore)
+├── stores/               # zustand (workspaceStore, settingsStore)
 ├── config/
 │   └── api.ts             # API base URL, auth headers
 ├── lib/

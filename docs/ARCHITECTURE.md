@@ -298,8 +298,9 @@ apps/dashboard-frontend/
 │   ├── notizen/              # Der Zettel der rechten Spalte (D1)
 │   ├── settings/             # Sektionen: Allgemein, Apps (D4), Mitarbeiter (D3),
 │   │                         #   KI, Sicherheit, Datenschutz, System, Fernzugriff
-│   ├── store/                # Store (Modelle: Raster + Detailseite)
-│   ├── system/               # UpdatePage, Login, CreateAdmin
+│   ├── modelle/              # Die Kurzliste des Geräts (D5)
+│   ├── system/               # Login, CreateAdmin, Auslastung, Aktualisierungen,
+│   │                         #   Sicherung (D5), Dienste, Selbstheilung, Werksreset
 │   └── workspace/            # Shell: ActivityBar (Apps, Modelle), Sidebar, Tabs,
 │                             #   rechte Spalte (Notizen), StatusBar
 ├── src/components/

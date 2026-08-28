@@ -30,8 +30,8 @@ import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import useConfirm from '@/hooks/useConfirm';
-import { formatDate } from '@/utils/formatting';
 import { FreigabeMatrix } from './mitarbeiter/FreigabeMatrix';
+import { MitarbeiterListe } from './mitarbeiter/MitarbeiterListe';
 import { MitarbeiterAnlegenDialog } from './mitarbeiter/MitarbeiterAnlegenDialog';
 import { PasswortSetzenDialog } from './mitarbeiter/PasswortSetzenDialog';
 import {
@@ -154,135 +154,59 @@ export function MitarbeiterSettings() {
               Die Liste ließ sich nicht laden.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              {/* Die Tabelle rollt in SICH, nicht die Seite (Phase D4, Fund
-                  der D3-Abnahme). Ohne die Mindestbreite quetscht `w-full`
-                  sechs Spalten in eine schmale Mitte, bis vom Namen nichts
-                  mehr uebrig ist; mit ihr bleibt jede Spalte lesbar und der
-                  Rest wandert unter den waagerechten Balken dieses Kastens. */}
-              <table
-                className="w-full min-w-[42rem] border-collapse text-sm"
-                data-testid="mitarbeiter-liste"
-              >
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th scope="col" className="p-2 font-medium">
-                      Name
-                    </th>
-                    <th scope="col" className="p-2 font-medium">
-                      E-Mail
-                    </th>
-                    <th scope="col" className="p-2 font-medium">
-                      Rolle
-                    </th>
-                    <th scope="col" className="p-2 font-medium">
-                      Passwort
-                    </th>
-                    <th scope="col" className="p-2 font-medium">
-                      Zuletzt angemeldet
-                    </th>
-                    <th scope="col" className="p-2 text-right font-medium">
-                      <span className="sr-only">Aktionen</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {liste.map(b => (
-                    <tr
-                      key={String(b.id)}
-                      data-testid={`mitarbeiter-${b.username}`}
-                      className="border-b border-border last:border-b-0"
+            <MitarbeiterListe
+              liste={liste}
+              istIchSelbst={istIchSelbst}
+              aktionen={b =>
+                /* Für das eigene Konto steht hier nichts: alle drei Wege lehnt
+                   das Backend für einen selbst ab (das eigene Passwort
+                   wechselt man unter Sicherheit, gelöscht wird man über den
+                   Datenschutz). Knöpfe, die sicher scheitern, sind eine
+                   Sackgasse. */
+                istIchSelbst(b) ? null : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPasswortFuer(b)}
+                      data-testid={`passwort-${b.username}`}
+                      title="Startpasswort setzen"
                     >
-                      <td className="p-2">
-                        <span className="text-foreground">{b.username}</span>
-                        {!b.is_active && (
-                          <span className="ml-2 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning">
-                            stillgelegt
-                          </span>
-                        )}
-                        {istIchSelbst(b) && (
-                          <span className="ml-2 text-ui-xs text-muted-foreground">du</span>
-                        )}
-                      </td>
-                      <td className="p-2 text-muted-foreground">{b.email || '—'}</td>
-                      <td className="p-2 text-muted-foreground">
-                        {b.role === 'admin' ? 'Administrator' : 'Mitarbeiter'}
-                      </td>
-                      <td className="p-2">
-                        {/* Was hier steht, ist keine Geheimnis-Preisgabe: es
-                            sagt nur, ob ein Zweiter das Passwort kennt. Genau
-                            deshalb muss es gewechselt werden. */}
-                        {b.passwort_vom_admin ? (
-                          <span
-                            className="text-warning"
-                            data-testid={`startpasswort-${b.username}`}
-                            title="Wird beim nächsten Anmelden gewechselt."
-                          >
-                            Startpasswort
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">eigenes</span>
-                        )}
-                      </td>
-                      <td className="p-2 text-muted-foreground">
-                        {b.last_login ? formatDate(b.last_login) : 'noch nie'}
-                      </td>
-                      <td className="p-2">
-                        <div className="flex justify-end gap-1">
-                          {/* Für das eigene Konto steht hier nichts: alle drei
-                              Wege lehnt das Backend für einen selbst ab (das
-                              eigene Passwort wechselt man unter Sicherheit,
-                              gelöscht wird man über den Datenschutz). Knöpfe,
-                              die sicher scheitern, sind eine Sackgasse. */}
-                          {!istIchSelbst(b) && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setPasswortFuer(b)}
-                                data-testid={`passwort-${b.username}`}
-                                title="Startpasswort setzen"
-                              >
-                                <KeyRound className="size-4" aria-hidden="true" />
-                                <span className="sr-only">Passwort setzen</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => void handleAktiv(b)}
-                                disabled={aktivSetzen.isPending}
-                                data-testid={`aktiv-${b.username}`}
-                                title={b.is_active ? 'Stilllegen' : 'Wieder zulassen'}
-                              >
-                                {b.is_active ? (
-                                  <UserX className="size-4" aria-hidden="true" />
-                                ) : (
-                                  <ShieldCheck className="size-4" aria-hidden="true" />
-                                )}
-                                <span className="sr-only">
-                                  {b.is_active ? 'Stilllegen' : 'Wieder zulassen'}
-                                </span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => void handleLoeschen(b)}
-                                disabled={loeschen.isPending}
-                                data-testid={`loeschen-${b.username}`}
-                                title="Löschen"
-                              >
-                                <Trash2 className="size-4 text-destructive" aria-hidden="true" />
-                                <span className="sr-only">Löschen</span>
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      <KeyRound className="size-4" aria-hidden="true" />
+                      <span className="sr-only">Passwort setzen</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleAktiv(b)}
+                      disabled={aktivSetzen.isPending}
+                      data-testid={`aktiv-${b.username}`}
+                      title={b.is_active ? 'Stilllegen' : 'Wieder zulassen'}
+                    >
+                      {b.is_active ? (
+                        <UserX className="size-4" aria-hidden="true" />
+                      ) : (
+                        <ShieldCheck className="size-4" aria-hidden="true" />
+                      )}
+                      <span className="sr-only">
+                        {b.is_active ? 'Stilllegen' : 'Wieder zulassen'}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleLoeschen(b)}
+                      disabled={loeschen.isPending}
+                      data-testid={`loeschen-${b.username}`}
+                      title="Löschen"
+                    >
+                      <Trash2 className="size-4 text-destructive" aria-hidden="true" />
+                      <span className="sr-only">Löschen</span>
+                    </Button>
+                  </>
+                )
+              }
+            />
           )}
         </Section>
 

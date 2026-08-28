@@ -7,7 +7,7 @@
  * geteilt und trotzdem "MB" darueber geschrieben wurde.
  */
 import { describe, it, expect } from 'vitest';
-import { formatBytes, formatBytesBinaer } from '../formatting';
+import { formatBytes, formatBytesBinaer, formatDate } from '../formatting';
 
 describe('formatBytes', () => {
   it('nennt 274000000 Bytes 274 MB, nicht 261', () => {
@@ -75,5 +75,26 @@ describe('formatBytesBinaer', () => {
   it('ohne Angabe steht N/A da', () => {
     expect(formatBytesBinaer(null)).toBe('N/A');
     expect(formatBytesBinaer(undefined)).toBe('N/A');
+  });
+});
+
+describe('formatDate', () => {
+  /**
+   * Ein Zeitpunkt steht in Ortszeit da, nicht in UTC (28.08.2026).
+   *
+   * Die Zone der Testreihe ist in `vite.config.ts` auf `Europe/Berlin`
+   * festgenagelt — die des Geraets. Ohne diese Festlegung schrieb derselbe
+   * Zeitpunkt auf dem Laptop „04:00" und in der CI „02:00", und der
+   * Sicherungs-Test war rot (Lauf 33163888736). Bricht dieser Test hier, ist
+   * die Zone verstellt und nicht die Funktion kaputt.
+   */
+  it('schreibt einen Zeitpunkt deutsch und in Ortszeit', () => {
+    expect(formatDate('2026-08-27T02:00:00.000Z')).toBe('27.08.2026, 04:00');
+  });
+
+  it('ohne Zeitpunkt steht ein Strich da', () => {
+    expect(formatDate(null)).toBe('-');
+    expect(formatDate(undefined)).toBe('-');
+    expect(formatDate('')).toBe('-');
   });
 });

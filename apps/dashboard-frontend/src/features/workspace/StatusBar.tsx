@@ -105,8 +105,9 @@ export function StatusBar() {
     staleTime: 30_000,
   });
 
-  // Standardmodell = Gesprächsmodell für neue Chats: Embedding-/OCR-Modelle
-  // (z. B. nomic-embed-text) sind installiert, aber hier keine sinnvolle Wahl.
+  // Das Standardmodell ist das, mit dem ein Flow rechnet, der im Frontmatter
+  // keines nennt (C6). Embedding- und OCR-Modelle (z. B. nomic-embed-text)
+  // liegen zwar am Gerät, sind hier aber keine sinnvolle Wahl.
   const installedModels = (catalog ?? []).filter(isModelInstalled).filter(istChatModell);
   const loadedModelId = loaded?.model_id ?? null;
 
@@ -258,11 +259,11 @@ export function StatusBar() {
           </PopoverTrigger>
           <PopoverContent side="top" align="start" className="w-72 p-1 text-xs">
             <p className="px-2 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
-              Modell für neue Chats
+              Standardmodell der Flows
             </p>
             {installedModels.length === 0 ? (
               <p className="px-2 py-2 text-muted-foreground">
-                Noch keine Modelle heruntergeladen. Im Store „Modelle“ laden.
+                Noch kein Modell am Gerät. Unter „Modelle“ laden.
               </p>
             ) : (
               <ul className="flex flex-col">
@@ -316,7 +317,7 @@ export function StatusBar() {
               </p>
             )}
             <p className="mt-1 border-t border-border px-2 pt-2 text-muted-foreground">
-              Ausgewähltes Modell wird der Standard für neue Chats.
+              Damit rechnet ein Flow, der kein eigenes Modell nennt.
             </p>
           </PopoverContent>
         </Popover>

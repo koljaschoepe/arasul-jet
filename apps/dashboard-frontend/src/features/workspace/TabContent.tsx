@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { IsolatedMemoryRouter } from './IsolatedMemoryRouter';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -11,7 +11,7 @@ import { AppRahmen } from '@/features/apps/AppRahmen';
 import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
-const Store = lazy(() => import('@/features/store'));
+const ModelleAnsicht = lazy(() => import('@/features/modelle/ModelleAnsicht'));
 
 export interface TabThemeControls {
   theme: string;
@@ -48,37 +48,20 @@ function TabBridge({
 }
 
 /**
- * Die Tab-Typen, die aus der Zeit der Legacy-Routen stammen und deshalb einen
- * eigenen MemoryRouter brauchen. `dashboard` und `app` (Phase D1) gehören
- * NICHT dazu: sie sind ohne Router gebaut, ihr Zustand steht im Workspace-Store
- * bzw. im iframe der App. Einen Router um sie zu legen hieße, ihnen eine
- * zweite, unsichtbare Adresse zu geben, die niemand benutzt.
+ * Der Startpfad im MemoryRouter des Einstellungen-Tabs. Er ist der letzte
+ * Tab-Typ mit einer Legacy-Adresse; `dashboard`, `app` (D1) und seit D5 auch
+ * `modelle` sind ohne Router gebaut, ihr Zustand steht im Workspace-Store,
+ * im iframe der App oder in der Abfrage.
  */
-type RouterTabTyp = 'settings' | 'modelle';
-
-/** Legacy-Startpfad je Tab-Typ (für den MemoryRouter des Tabs). */
-function initialPathFor(typ: RouterTabTyp): string {
-  switch (typ) {
-    case 'settings':
-      return '/settings';
-    case 'modelle':
-      return '/store';
-  }
-}
-
-/** Welche Route-Keys gehören zum Tab selbst (statt zur Bridge)? */
-const SELF_KEYS: Record<RouterTabTyp, ReadonlySet<string>> = {
-  settings: new Set(['settings']),
-  modelle: new Set(['store']),
-};
+const EINSTELLUNGEN_PFAD = '/settings';
 
 /**
  * Die Weiche für den Inhalt eines Tabs.
  *
- * Zwei Typen (Übersicht und App, Phase D1) rendern direkt. Die übrigen sind
- * Router-gekoppelte Features aus der Zeit der Legacy-Pfade und laufen je in
- * einem eigenen MemoryRouter (`RouterTab`) — dadurch funktionieren Store und
- * Einstellungen ohne Eingriff in ihren Code als Tab.
+ * Drei Typen rendern direkt: Übersicht und App (D1) und die Modelle (D5).
+ * Übrig bleibt die Einstellungsseite, die an ihrer Legacy-Adresse hängt und
+ * deshalb in einem eigenen MemoryRouter läuft; fremde Pfade darin übersetzt
+ * die TabBridge in Tab-Öffnungen.
  */
 export function FeatureTabHost({
   tab,
@@ -87,9 +70,8 @@ export function FeatureTabHost({
   tab: WorkspaceTab;
   themeControls: TabThemeControls;
 }) {
-  // Die zwei Typen aus D1 stehen VOR dem Router und nicht darin: sie haben
-  // keine Legacy-Adresse, an die eine Brücke führen könnte, und ihr Zustand
-  // steht im Workspace-Store bzw. im iframe der App. Diese Weiche ruft selbst
+  // Diese drei stehen VOR dem Router und nicht darin: sie haben keine
+  // Legacy-Adresse, an die eine Brücke führen könnte. Diese Weiche ruft selbst
   // keinen Hook auf — deshalb darf sie vorzeitig zurückkehren.
   if (tab.type === 'dashboard') {
     // Die Shell ist die EINE Stelle, die quer zusammensetzt (Regel des
@@ -97,6 +79,9 @@ export function FeatureTabHost({
     // Übersicht bekommt die Freigaben deshalb hereingereicht, statt sie zu
     // kennen — Phase D2.
     return <Uebersicht freigaben={<OffeneFreigaben />} />;
+  }
+  if (tab.type === 'modelle') {
+    return <ModelleAnsicht />;
   }
   if (tab.type === 'app') {
     // Ohne Kennung ist der Tab keiner. Die Store-Migration wirft solche Tabs
@@ -110,25 +95,20 @@ export function FeatureTabHost({
       </div>
     );
   }
-  return <RouterTab typ={tab.type} tab={tab} themeControls={themeControls} />;
+  return <EinstellungenTab tab={tab} themeControls={themeControls} />;
 }
 
 /**
- * Ein Tab, dessen Feature an einen Router gekoppelt ist (Einstellungen,
- * Modelle). Er bekommt einen eigenen MemoryRouter mit der Legacy-Route des
- * Features; fremde Pfade übersetzt die TabBridge in Tab-Öffnungen.
+ * Der Einstellungen-Tab in seinem eigenen MemoryRouter.
  */
-function RouterTab({
-  typ,
+function EinstellungenTab({
   tab,
   themeControls,
 }: {
-  typ: RouterTabTyp;
   tab: WorkspaceTab;
   themeControls: TabThemeControls;
 }) {
-  const resetTo = initialPathFor(typ);
-  const self = SELF_KEYS[typ];
+  const resetTo = EINSTELLUNGEN_PFAD;
 
   // Der Suchteil der ECHTEN Adresse muss in den MemoryRouter dieses Tabs
   // hinein, sonst kommt er nirgends an (Plan 023 B1, Nachtrag).
@@ -149,9 +129,6 @@ function RouterTab({
       ? `${resetTo}${aussenLocation.search}`
       : resetTo;
 
-  const routeFor = (key: string, feature: React.ReactNode, spec: WorkspaceTabSpec) =>
-    self.has(key) ? feature : <TabBridge makeSpec={() => spec} resetTo={resetTo} />;
-
   return (
     <IsolatedMemoryRouter initialEntries={[startEintrag]}>
       <Routes>
@@ -160,20 +137,20 @@ function RouterTab({
         <Route path="/" element={<Navigate to={resetTo} replace />} />
         <Route
           path="/settings"
-          element={routeFor(
-            'settings',
+          element={
             <Settings
               handleLogout={themeControls.onLogout}
               theme={themeControls.theme}
               onToggleTheme={themeControls.onToggleTheme}
-            />,
-            { type: 'settings' }
-          )}
+            />
+          }
         />
-        {/* Der Schluessel ist der ROUTEN-Name, nicht der Tab-Typ: der Tab
-            `modelle` liegt auf dem inneren Pfad /store, und SELF_KEYS sagt nur,
-            ob dieser Pfad zum Tab selbst gehoert oder zur Bruecke. */}
-        <Route path="/store/*" element={routeFor('store', <Store />, { type: 'modelle' })} />
+        {/* Ein Verweis aus den Einstellungen auf die Modelle öffnet den
+            Modelle-Tab, statt ihn in diesen hineinzuziehen. */}
+        <Route
+          path="/store/*"
+          element={<TabBridge makeSpec={() => ({ type: 'modelle' })} resetTo={resetTo} />}
+        />
         <Route path="*" element={<Navigate to={resetTo} replace />} />
       </Routes>
     </IsolatedMemoryRouter>
