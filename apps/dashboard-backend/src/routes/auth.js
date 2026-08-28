@@ -241,17 +241,33 @@ router.post(
 );
 
 // POST /api/auth/logout
+//
+// `optionalAuth` und NICHT `requireAuth` (Phase D6, 28.08.2026). Abmelden muss
+// auch dann abmelden, wenn die Sitzung schon tot ist -- und genau das ist der
+// Normalfall nach `POST /api/auth/change-password`: der Wechsel entwertet ALLE
+// Sitzungen des Betroffenen, die Oberflaeche ruft danach diesen Weg mit genau
+// dem entwerteten Token, und `requireAuth` antwortete darauf mit 401. Der
+// Rumpf lief nie, also blieb das httpOnly-Cookie `arasul_session` mit einem
+// toten Token im Browser stehen -- eine Sitzung, die der Mensch selbst nicht
+// mehr loswerden kann, weil eine Seite httpOnly-Cookies nicht sieht.
+//
+// Es gibt hier nichts zu schuetzen: wer diesen Weg ruft, will seine eigene
+// Sitzung los. Ohne gueltigen Token gibt es nichts zu sperren, die Cookies
+// fallen trotzdem, und die Antwort ist 200 -- das Ergebnis ist in beiden
+// Faellen dasselbe. Die CSRF-Pflicht bleibt (ein fremder Absender soll
+// niemanden abmelden koennen).
 router.post(
   '/logout',
   generalAuthLimiter,
-  requireAuth,
-  requireRole('admin', 'mitarbeiter'),
+  optionalAuth,
   asyncHandler(async (req, res) => {
     // Get token from header or cookie
     const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
 
-    // Blacklist the token
-    if (token) {
+    // Blacklist the token -- nur wenn er ueberhaupt noch traegt. Ein Token, den
+    // `optionalAuth` schon verworfen hat, ist abgelaufen, gefaelscht oder
+    // laengst gesperrt; `blacklistToken` wuerfe darauf einen 503.
+    if (token && req.user) {
       await blacklistToken(token);
     }
 
@@ -271,14 +287,16 @@ router.post(
       path: '/',
     });
 
-    logger.info(`User ${req.user.username} logged out`);
+    logger.info(`User ${req.user?.username ?? '(Sitzung bereits entwertet)'} logged out`);
 
-    logSecurityEvent({
-      userId: req.user.id,
-      action: 'logout',
-      ipAddress: req.ip,
-      requestId: req.headers['x-request-id'],
-    });
+    if (req.user) {
+      logSecurityEvent({
+        userId: req.user.id,
+        action: 'logout',
+        ipAddress: req.ip,
+        requestId: req.headers['x-request-id'],
+      });
+    }
 
     res.json({
       success: true,
