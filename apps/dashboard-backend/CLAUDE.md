@@ -96,7 +96,8 @@ get typed, trimmed, defaulted data.
 | Limiter                          | Use for                                         | Window / max |
 | -------------------------------- | ----------------------------------------------- | ------------ |
 | `loginLimiter`                   | `/auth/login`                                   | 15 min / 10  |
-| `generalAuthLimiter`             | other `/auth/*` (logout, needs-setup)           | 1 min / 30   |
+| `probeLimiter`                   | `/auth/session`, `/auth/needs-setup`            | 1 min / 120  |
+| `generalAuthLimiter`             | `/auth/logout`                                  | 1 min / 30   |
 | `apiLimiter`                     | default, per-IP                                 | 1 min / 100  |
 | `llmLimiter`                     | `/llm/*`, `/embeddings`, `/flows/*` (expensive) | 1 sec / 10   |
 | `metricsLimiter`                 | high-frequency polling endpoints                | 1 sec / 20   |

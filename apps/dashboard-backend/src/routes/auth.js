@@ -21,7 +21,7 @@ const { requireAuth, optionalAuth, requireRole } = require('../middleware/auth')
 const {
   loginLimiter,
   generalAuthLimiter,
-  sessionProbeLimiter,
+  probeLimiter,
   createUserRateLimiter,
 } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -175,9 +175,14 @@ router.post(
 // GET /api/auth/needs-setup
 // Public: tells the frontend whether to show the "create admin" screen instead
 // of login. True only while the box has no admin user yet.
+//
+// probeLimiter and not generalAuthLimiter (28.08.2026): App.tsx asks this on
+// every page load, exactly like /session, and 30 a minute for a whole office
+// behind one NAT was the binding limit on the box. Reasoning and measurement
+// in `middleware/rateLimit.js`.
 router.get(
   '/needs-setup',
-  generalAuthLimiter,
+  probeLimiter,
   asyncHandler(async (req, res) => {
     const needsSetup = await isSetupNeeded();
     res.json({ needsSetup, timestamp: new Date().toISOString() });
@@ -413,7 +418,7 @@ router.get(
 // answers correctly for both the normal and the LAN/cookie-only path.
 router.get(
   '/session',
-  sessionProbeLimiter,
+  probeLimiter,
   optionalAuth,
   asyncHandler((req, res) => {
     res.json({
