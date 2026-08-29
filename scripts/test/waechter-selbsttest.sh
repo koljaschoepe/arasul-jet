@@ -605,8 +605,11 @@ mkdir -p "$PF/.github/workflows"
 # Ohne 2>/dev/null: schlaegt das Kopieren fehl, will man den Grund sehen und
 # nicht eine verwirrende Folgemeldung aus pfadfilter.py. Aus der Review von #454.
 cp -R "$WURZEL/apps" "$WURZEL/services" "$PF/"
-mkdir -p "$PF/packages" "$PF/libs"
+mkdir -p "$PF/packages" "$PF/libs" "$PF/scripts/deploy"
 cp "$WURZEL/.github/workflows/test.yml" "$PF/.github/workflows/test.yml"
+# Seit J31 liest derselbe Waechter auch die Tabelle des Deploys: sie ist eine
+# Behauptung ueber DIESE Dockerfiles, und sie war es falsch.
+cp "$WURZEL/scripts/deploy/deploy-local.sh" "$PF/scripts/deploy/deploy-local.sh"
 
 pruefe "Pfadfilter: der echte Workflow ist gruen" 0 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
@@ -639,6 +642,35 @@ sed -i.sicherung "s|grep -qE '[^']*'|grep -q platzhalter|" "$PF/.github/workflow
 pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
+
+# Die Tabelle des Deploys (J31, 29.08.2026). Der Fall, der wirklich passiert
+# ist: `packages/marken/` liegt im Image des Frontends, die Tabelle schickte
+# `packages/` an das Backend, der Deploy meldete Erfolg und das Geraet lief
+# weiter mit dem alten CSS. Ein Deploy, der zu wenig baut, ist gruen.
+sed -i.sicherung '/\["packages\/marken\/"\]/d' "$PF/scripts/deploy/deploy-local.sh"
+pruefe "Pfadfilter: ein Pfad ohne seinen Dienst im Deploy ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+mv "$PF/scripts/deploy/deploy-local.sh.sicherung" "$PF/scripts/deploy/deploy-local.sh"
+
+# Ein Pfad, der in ZWEI Images liegt, muss auch zwei Dienste nennen. Bis J31
+# stand `packages/` nur beim Backend, obwohl `shared-schemas` in beiden Apps
+# liegt -- derselbe Fehler, nur unauffaelliger.
+sed -i.sicherung 's|\["packages/shared-schemas/"\]="dashboard-backend dashboard-frontend"|["packages/shared-schemas/"]="dashboard-backend"|' \
+  "$PF/scripts/deploy/deploy-local.sh"
+pruefe "Pfadfilter: ein Pfad in zwei Images mit nur einem Dienst ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+mv "$PF/scripts/deploy/deploy-local.sh.sicherung" "$PF/scripts/deploy/deploy-local.sh"
+
+# Und die Tabelle muss ueberhaupt auffindbar sein: wird der Deploy umgebaut,
+# meldet sich der Waechter, statt still nichts mehr zu pruefen.
+sed -i.sicherung 's|declare -A PATH2SVC=(|declare -A ANDERSHERUM=(|' \
+  "$PF/scripts/deploy/deploy-local.sh"
+pruefe "Pfadfilter: verschwundene Deploy-Tabelle ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+mv "$PF/scripts/deploy/deploy-local.sh.sicherung" "$PF/scripts/deploy/deploy-local.sh"
+
+pruefe "Pfadfilter: nach jeder Reparatur wieder gruen" 0 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 
 # --- endpunkte.py -----------------------------------------------------------
 # Der Waechter aus Plan 023 K1: meldet ein Endpunkt ohne Zeile in der Doku.
