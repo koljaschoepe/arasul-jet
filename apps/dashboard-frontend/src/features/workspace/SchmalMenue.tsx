@@ -27,6 +27,7 @@ import { Liste, ListenEintrag, Menue } from '@marken';
 import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMeineApps, zuEintraegen } from '@/features/apps/meineApps';
+import { TeststandMarke } from '@/features/apps/TeststandMarke';
 
 export function SchmalMenue() {
   const { user } = useAuth();
@@ -81,7 +82,7 @@ export function SchmalMenue() {
               key={id}
               titel={e.name}
               symbol={<AppWindow />}
-              hinweis={e.stand === 'test' ? 'Test' : undefined}
+              hinweis={e.stand === 'test' ? <TeststandMarke /> : undefined}
               aktiv={activeTabId === id && !notizenAnsichtOffen}
               kennzeichen={`menue-app-${e.id}-${e.stand}`}
               onKlick={() =>

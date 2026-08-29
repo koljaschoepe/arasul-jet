@@ -24,9 +24,10 @@
  * groß für eine Seitenspalte.
  */
 import { AppWindow, LayoutDashboard } from 'lucide-react';
-import { Badge, Liste, ListenEintrag } from '@marken';
+import { Liste, ListenEintrag } from '@marken';
 import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useMeineApps, zuEintraegen } from '@/features/apps/meineApps';
+import { TeststandMarke } from '@/features/apps/TeststandMarke';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { SidebarView } from './SidebarView';
 
@@ -59,16 +60,7 @@ export function AppsPanel() {
                 erklaerung={e.beschreibung || e.name}
                 aktiv={activeTabId === id}
                 kennzeichen={`apps-open-${e.id}-${e.stand}`}
-                hinweis={
-                  e.stand === 'test' ? (
-                    <Badge
-                      variant="outline"
-                      title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
-                    >
-                      Test
-                    </Badge>
-                  ) : undefined
-                }
+                hinweis={e.stand === 'test' ? <TeststandMarke /> : undefined}
                 onKlick={() => openTab({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
               />
             );
