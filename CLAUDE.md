@@ -938,6 +938,29 @@ nicht gilt. Er liest dafür jetzt auch TSX, nimmt Kommentare aus — sonst
 meldete er seine eigene Erklärung — und kennt `--wurzel`, damit
 `waechter-selbsttest.sh` ihn an einem Wegwerfbaum messen kann.
 
+Der Deploy dieses Auftrags hat gleich noch etwas gefunden, und es war der
+Grund, warum die Reparatur zunaechst nicht am Geraet ankam: **die Tabelle des
+Deploys war eine Behauptung ueber die Dockerfiles, und sie war falsch**. In
+`scripts/deploy/deploy-local.sh` stand `["packages/"]="dashboard-backend"` mit
+dem Kommentar „geteilte Schemas" — richtig, solange unter `packages/` nur
+`shared-schemas` lag; seit D7 liegt dort das Designsystem, und das uebersetzt
+die **Shell** mit. Der Deploy baute also das Backend, liess das Frontend
+stehen, meldete Erfolg, und am Geraet lag weiter das alte CSS
+(`docker ps`: „dashboard-frontend Up 2 hours"). **Ein Deploy, der zu wenig
+baut, ist gruen** — das ist dieselbe Klasse wie ein verworfenes CSS, eine
+Stufe spaeter und ohne CI, die es auffangen koennte. Dieselbe Tabelle hatte
+acht weitere Loecher derselben Sorte: `packages/shared-schemas` liegt in
+**beiden** Apps und baute nur das Backend, `libs/shared-python` liegt in den
+**fuenf Python-Diensten** und in keiner der beiden Apps und baute ebenfalls
+nur das Backend, und die Wurzeldateien des Workspace
+(`package.json`, `package-lock.json`) standen gar nicht darin — ein Merge, der
+nur die Sperrdatei bewegt, baute nichts. Ein Pfad nennt jetzt **alle** Dienste,
+in deren Image er landet, und `scripts/test/pfadfilter.py` haelt die Tabelle an
+den `COPY`-Zeilen fest (Punkt 4) — derselbe Waechter, der seit #454 den
+Pfadfilter der CI an denselben Dockerfiles haelt, denn es ist dieselbe Frage
+an zwei Stellen. Gegengeprueft: gegen die alte Tabelle meldet er genau diese
+neun Befunde.
+
 | Layer    | Stack                                                             | Path                                                                                              |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 9 Muster, 6 Bausteine) |

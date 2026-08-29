@@ -22,6 +22,24 @@ Was geprueft wird
 2. **Reine Dokumentation loest nicht aus.** Sonst waere der Filter wirkungslos.
 3. **Der Ausdruck ist ueberhaupt auffindbar.** Wird der Job umgebaut oder
    umbenannt, meldet sich der Waechter, statt stillschweigend nichts zu pruefen.
+4. **Der DEPLOY baut jeden Dienst, in dessen Image ein geaenderter Pfad
+   landet** (seit 29.08.2026, J31). `scripts/deploy/deploy-local.sh` haelt
+   eine Tabelle Pfad-Praefix -> Dienste, und die ist eine BEHAUPTUNG ueber
+   dieselben Dockerfiles wie Punkt 1. Sie war es falsch: dort stand
+   `["packages/"]="dashboard-backend"` mit dem Kommentar „geteilte Schemas",
+   und das war richtig, solange unter `packages/` nur `shared-schemas` lag.
+   Seit D7 liegt dort das Designsystem, das die Shell mituebersetzt -- eine
+   Reparatur an `packages/marken/` ging gruen durch den Deploy, das Backend
+   wurde gebaut, das Frontend blieb stehen, und auf dem Geraet lag weiter das
+   alte CSS. Ein Deploy, der zu wenig baut, meldet trotzdem Erfolg; das ist
+   dieselbe Klasse wie Punkt 1, nur eine Stufe spaeter und ohne CI, die es
+   auffangen koennte.
+
+   Geprueft werden die Kopierquellen, die auf `apps/`, `services/`,
+   `packages/` oder `libs/` zeigen -- die repo-weiten also, an denen sich die
+   Frage ueberhaupt stellt. Was ein Dockerfile relativ zu seinem eigenen
+   Kontext holt (`requirements.txt`, `backup.sh`), liegt in dem Ordner, der
+   ohnehin auf seinen Dienst zeigt.
 
 Mehrzeilige COPY-Anweisungen
 ---------------------------
@@ -35,7 +53,10 @@ Ob der Filter zu oft baut. Er faellt bewusst offen aus, das kostet Zeit und
 niemals Richtigkeit. Dazu gehoert auch, dass die CI bei einem PR mit zwei
 Punkten vergleicht statt mit dem Verschmelzungspunkt: waechst `main` waehrend
 der PR laeuft, stehen fremde Dateien in der Liste und es wird zu viel gebaut.
-Nie zu wenig.
+Nie zu wenig. Und fuer Punkt 4 nicht, WELCHE Dockerfiles der Deploy bauen
+kann -- das steht in compose, nicht hier. Gefragt wird nur: was in der Tabelle
+steht, muss zu den Dockerfiles passen, und jede repo-weite Kopierquelle eines
+dort genannten Dienstes muss darin vorkommen.
 
 Aufruf
 ------
@@ -185,6 +206,82 @@ def passt(ausdruck, pfad):
     return lauf.returncode == 0
 
 
+DEPLOY = "scripts/deploy/deploy-local.sh"
+# Nur diese vier Praefixe sind repo-weit gemeint. Alles andere in einer
+# COPY-Zeile ist relativ zum Kontext des Dockerfiles und liegt damit in dem
+# Ordner, der ohnehin auf seinen Dienst zeigt.
+REPO_PRAEFIXE = ("apps/", "services/", "packages/", "libs/")
+
+
+def deploy_tabelle(wurzel):
+    """Liest PATH2SVC aus `deploy-local.sh` -- die Tabelle, nicht eine Kopie davon."""
+    datei = wurzel / DEPLOY
+    if not datei.exists():
+        return None, f"{DEPLOY} fehlt"
+    text = datei.read_text(encoding="utf-8")
+    block = re.search(r"declare -A PATH2SVC=\((.*?)\n\)", text, re.S)
+    if not block:
+        return None, (
+            f"In {DEPLOY} gibt es kein `declare -A PATH2SVC=(...)`. Der Deploy "
+            "wurde umgebaut; dieser Waechter kann dann nichts pruefen und meldet "
+            "deshalb einen Fehler statt Ruhe."
+        )
+    tabelle = {}
+    for pfad, dienste in re.findall(r'\["([^"]+)"\]="([^"]*)"', block.group(1)):
+        tabelle[pfad] = set(dienste.split())
+    if not tabelle:
+        return None, f"PATH2SVC in {DEPLOY} ist leer"
+    return tabelle, None
+
+
+def dienst_aus_dockerfile(name):
+    """`apps/dashboard-frontend/Dockerfile` -> `dashboard-frontend`.
+
+    Der compose-Servicename ist in diesem Repo ausnahmslos der Ordnername; so
+    steht es auch in den Schluesseln der Tabelle selbst. Damit braucht dieser
+    Waechter kein YAML zu lesen, um zu wissen, wovon er redet.
+    """
+    teile = pathlib.PurePosixPath(name).parts
+    return teile[1] if len(teile) >= 3 and teile[0] in ("apps", "services") else None
+
+
+def deploy_pruefen(wurzel):
+    """Punkt 4: jede repo-weite Kopierquelle steht mit ihrem Dienst in der Tabelle."""
+    tabelle, meldung = deploy_tabelle(wurzel)
+    if meldung:
+        return [meldung], 0
+    gebaut = set().union(*tabelle.values())
+
+    fehler = []
+    geprueft = 0
+    for pfad in sorted(wurzel.glob("apps/*/Dockerfile")) + sorted(
+        wurzel.glob("services/*/Dockerfile")
+    ):
+        name = str(pfad.relative_to(wurzel))
+        dienst = dienst_aus_dockerfile(name)
+        # Ein Dockerfile, das der Deploy gar nicht bauen kann (`_template`),
+        # ist nicht sein Problem.
+        if dienst not in gebaut:
+            continue
+        for quelle in kopierquellen(wurzel, [(name, ".")]):
+            if not quelle.startswith(REPO_PRAEFIXE):
+                continue
+            geprueft += 1
+            deckung = set()
+            for schluessel, dienste in tabelle.items():
+                if quelle.startswith(schluessel) or schluessel.startswith(quelle.rstrip("/") + "/"):
+                    deckung |= dienste
+            if dienst not in deckung:
+                fehler.append(
+                    f"  {quelle}\n"
+                    f"      liegt im Image von `{dienst}`, aber PATH2SVC in {DEPLOY} "
+                    f"baut dafuer {sorted(deckung) or 'gar nichts'}.\n"
+                    f"      Eine Aenderung dort ginge gruen durch den Deploy und "
+                    f"kaeme nie auf das Geraet."
+                )
+    return fehler, geprueft
+
+
 def main():
     zerleger = argparse.ArgumentParser()
     zerleger.add_argument("--pfad", default=".")
@@ -239,15 +336,20 @@ def main():
                 f"Der Filter spart dann nichts."
             )
 
+    deploy_fehler, deploy_geprueft = deploy_pruefen(wurzel)
+    fehler.extend(deploy_fehler)
+
     print(f"Ausdruck aus {WORKFLOW}:\n  {ausdruck}\n")
     print(f"Geprueft: {len(quellen)} Kopierquellen aus {len(dockerfiles)} gebauten "
-          f"Images, {len(NICHT_BAUEN)} Gegenbeispiele.")
+          f"Images, {len(NICHT_BAUEN)} Gegenbeispiele, "
+          f"{deploy_geprueft} repo-weite Kopierquellen gegen {DEPLOY}.")
     if fehler:
         print(f"\n{len(fehler)} Befund(e):")
         for f in fehler:
             print(f)
         return 1
-    print("Der Pfadfilter deckt jede Kopierquelle ab und laesst Dokumentation durch.")
+    print("Der Pfadfilter deckt jede Kopierquelle ab und laesst Dokumentation durch; "
+          "der Deploy baut jeden Dienst, in dessen Image ein Pfad landet.")
     return 0
 
 

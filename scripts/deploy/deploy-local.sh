@@ -104,8 +104,28 @@ WARTUNG_FALLBACK_DIR="${DEPLOY_DIR}/logs"
 WARTUNG_GRUND="deploy ${NEW_SHA:0:7}"
 trap wartung_aus EXIT
 
-# Pfad-Praefix -> compose-Servicename. Reihenfolge egal.
+# Pfad-Praefix -> die compose-Services, deren Image diesen Pfad HEREINKOPIERT.
+# Reihenfolge egal, Werte durch Leerzeichen getrennt.
+#
+# DIE TABELLE IST EINE BEHAUPTUNG UEBER DIE DOCKERFILES, und sie war es
+# zweimal falsch. Am 29.08.2026 (J31) stand hier `["packages/"]="dashboard-backend"`
+# mit dem Kommentar „geteilte Schemas -> Backend neu bauen". Das war richtig,
+# solange unter `packages/` nur `shared-schemas` lag. Seit D7 liegt dort das
+# DESIGNSYSTEM, und das uebersetzt die Shell mit -- eine Reparatur an
+# `packages/marken/` ging gruen durch den Deploy und kam nie auf das Geraet:
+# das Backend wurde gebaut, das Frontend blieb stehen, und `docker ps` zeigte
+# es als „Up 2 hours". Ein Deploy, der zu wenig baut, meldet trotzdem Erfolg.
+#
+# Deshalb steht jetzt jeder Pfad hier so, wie ihn ein Dockerfile wirklich
+# hereinkopiert, und `scripts/test/pfadfilter.py` haelt beides aneinander.
+# Ein Pfad, der in zwei Images landet, nennt zwei Services: `shared-schemas`
+# steht in beiden Apps, `libs/shared-python` in den fuenf Python-Diensten und
+# in KEINER der beiden Apps, und die `package.json` der einen App liegt im
+# Image der anderen, weil der Workspace-Install sie braucht -- die Quelle
+# daneben aber nicht.
 declare -A PATH2SVC=(
+  ["apps/dashboard-backend/package.json"]="dashboard-backend dashboard-frontend"
+  ["apps/dashboard-frontend/package.json"]="dashboard-frontend dashboard-backend"
   ["apps/dashboard-backend/"]="dashboard-backend"
   ["apps/dashboard-frontend/"]="dashboard-frontend"
   ["services/llm-service/"]="llm-service"
@@ -114,8 +134,16 @@ declare -A PATH2SVC=(
   ["services/metrics-collector/"]="metrics-collector"
   ["services/self-healing-agent/"]="self-healing-agent"
   ["services/backup-service/"]="backup-service"
-  ["packages/"]="dashboard-backend"          # geteilte Schemas -> Backend neu bauen
-  ["libs/"]="dashboard-backend"
+  ["packages/shared-schemas/"]="dashboard-backend dashboard-frontend"
+  ["packages/marken/"]="dashboard-frontend"
+  ["libs/shared-python/"]="llm-service embedding-service document-indexer metrics-collector self-healing-agent"
+  # Die Wurzeldateien des Workspace. Beide Apps installieren daraus mit
+  # `npm ci`; ein Merge, der nur die Sperrdatei bewegt (Regel 7: nur innerhalb
+  # eines Plans), baute bis dahin GAR NICHTS und liess das Geraet auf den alten
+  # Abhaengigkeiten stehen. Die Python-Dienste haben ihre eigene
+  # `requirements.txt` und stehen deshalb nicht dabei.
+  ["package.json"]="dashboard-backend dashboard-frontend"
+  ["package-lock.json"]="dashboard-backend dashboard-frontend"
 )
 
 # --- 1. Neuen Stand in den kanonischen Checkout holen ------------------------
@@ -333,7 +361,10 @@ for f in "${CHANGED[@]}"; do
     services/postgres/init/*) MIGRATION_CHANGE=1; SVC_SET["dashboard-backend"]=1 ;;
   esac
   for p in "${!PATH2SVC[@]}"; do
-    [[ "$f" == "$p"* ]] && SVC_SET["${PATH2SVC[$p]}"]=1
+    # Ein Pfad kann in mehreren Images liegen; der Wert ist deshalb eine Liste.
+    # Unquoted mit Absicht -- hier soll das Wort-Splitting greifen.
+    # shellcheck disable=SC2086
+    [[ "$f" == "$p"* ]] && for s in ${PATH2SVC[$p]}; do SVC_SET["$s"]=1; done
   done
 done
 
