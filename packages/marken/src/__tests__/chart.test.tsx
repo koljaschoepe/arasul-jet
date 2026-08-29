@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { Chart, Sparkline, SERIENFARBEN } from '../Chart';
+import { Chart, Sparkline, SERIENFARBEN } from '../primitive/chart';
 
 vi.mock('recharts', async () => {
   const echt = await vi.importActual<typeof import('recharts')>('recharts');
