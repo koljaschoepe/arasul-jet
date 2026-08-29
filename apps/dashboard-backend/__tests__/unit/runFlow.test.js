@@ -19,9 +19,10 @@ const { withGpuLock, _gpuMutex } = require('../../src/services/flows/gpuQueue');
 const { runFlow, resolveArguments, buildUserInput } = require('../../src/services/flows/runFlow');
 
 /** Ein Werkzeug-Doppel im BaseTool-Stil. */
-function fakeTool(name, fn) {
+function fakeTool(name, fn, parameters = {}) {
   return {
     name,
+    parameters,
     toOllamaToolDefinition: () => ({ type: 'function', function: { name } }),
     execute: jest.fn(fn || (async () => `${name}-ok`)),
   };
@@ -109,6 +110,101 @@ describe('runFlowLoop — Ablauf', () => {
       model: 'm', systemPrompt: 's', userInput: 'u', tools: [tool], context: { roots: ['/a'] },
     });
     expect(tool.execute.mock.calls[0][1]).toMatchObject({ roots: ['/a'] });
+  });
+
+  it('nennt in der Werkzeug-Antwort, zu welchem Aufruf sie gehoert', async () => {
+    // Phase H7. Bis dahin stand da `{role:'tool', content}` und sonst nichts;
+    // ein Modell mit mehreren Werkzeugen kann eine solche Antwort keinem
+    // seiner Aufrufe zuordnen. Ollama nennt das Feld `tool_name`.
+    const tool = fakeTool('dateien_lesen', async () => 'Inhalt');
+    axios.post
+      .mockResolvedValueOnce(
+        antwort({ toolCalls: [{ function: { name: 'dateien_lesen', arguments: {} } }] })
+      )
+      .mockResolvedValueOnce(antwort({ content: 'ok' }));
+    await runFlowLoop({ model: 'm', systemPrompt: 's', userInput: 'u', tools: [tool] });
+    const zweiter = axios.post.mock.calls[1][1].messages;
+    expect(zweiter[zweiter.length - 1]).toEqual({
+      role: 'tool',
+      tool_name: 'dateien_lesen',
+      content: 'Inhalt',
+    });
+  });
+});
+
+/**
+ * Ein Schema an der Stelle eines Aufrufs (Phase H7).
+ *
+ * Am Orin gemessen: das Standardmodell schickte achtmal in drei Laeufen die
+ * Huelle statt der Werte, und ein ausdruecklicher Satz im Prompt hat daran
+ * nichts geaendert. Die Notbremse packt EINMAL aus -- und nur dann, wenn unter
+ * `properties` wirklich die Namen liegen, die das Werkzeug kennt.
+ */
+describe('runFlowLoop — ein Schema ist kein Aufruf', () => {
+  const FREIGABE = { titel: { required: true }, zusammenhang: {} };
+
+  function schickt(argumente) {
+    const tool = fakeTool('freigabe_anfordern', async () => 'angefragt', FREIGABE);
+    axios.post
+      .mockResolvedValueOnce(
+        antwort({ toolCalls: [{ function: { name: 'freigabe_anfordern', arguments: argumente } }] })
+      )
+      .mockResolvedValueOnce(antwort({ content: 'ok' }));
+    return tool;
+  }
+
+  it('packt `properties` aus, wenn es als Objekt kommt', async () => {
+    const tool = schickt({
+      type: 'freigabe',
+      required: ['titel'],
+      properties: { titel: 'A-2026-0001', zusammenhang: 'Grund' },
+    });
+    await runFlowLoop({ model: 'm', systemPrompt: 's', userInput: 'u', tools: [tool] });
+    expect(tool.execute).toHaveBeenCalledWith(
+      { titel: 'A-2026-0001', zusammenhang: 'Grund' },
+      expect.anything()
+    );
+  });
+
+  it('packt `properties` auch aus einer Zeichenkette aus', async () => {
+    // Genau die Form vom Orin: die Huelle traegt ihre Werte als Text.
+    const tool = schickt({
+      type: 'freigabe',
+      required: '["titel", "zusammenhang"]',
+      properties: '{"titel": "A-2026-0001", "zusammenhang": "Grund"}',
+    });
+    await runFlowLoop({ model: 'm', systemPrompt: 's', userInput: 'u', tools: [tool] });
+    expect(tool.execute).toHaveBeenCalledWith(
+      { titel: 'A-2026-0001', zusammenhang: 'Grund' },
+      expect.anything()
+    );
+  });
+
+  it('meldet trotzdem, was ankam', async () => {
+    const tool = schickt({ properties: { titel: 'A-1' } });
+    const gemeldet = [];
+    await runFlowLoop({
+      model: 'm',
+      systemPrompt: 's',
+      userInput: 'u',
+      tools: [tool],
+      onEvent: e => e.type === 'tool_start' && gemeldet.push(e.params),
+    });
+    expect(gemeldet[0]).toEqual({ properties: { titel: 'A-1' } });
+  });
+
+  it('laesst einen richtigen Aufruf in Ruhe, auch mit `properties` daneben', async () => {
+    // Steht oben auch nur ein Name, den das Werkzeug kennt, ist der Aufruf
+    // gemeint, wie er dasteht.
+    const tool = schickt({ titel: 'A-1', properties: { titel: 'falsch' } });
+    await runFlowLoop({ model: 'm', systemPrompt: 's', userInput: 'u', tools: [tool] });
+    expect(tool.execute.mock.calls[0][0]).toEqual({ titel: 'A-1', properties: { titel: 'falsch' } });
+  });
+
+  it('packt nicht aus, wenn unter `properties` keiner der Namen steht', async () => {
+    const tool = schickt({ properties: { irgendwas: 1 } });
+    await runFlowLoop({ model: 'm', systemPrompt: 's', userInput: 'u', tools: [tool] });
+    expect(tool.execute.mock.calls[0][0]).toEqual({ properties: { irgendwas: 1 } });
   });
 });
 
@@ -669,6 +765,45 @@ describe('Ein Flow rechnet extern (Phase D4)', () => {
     });
 
     expect(tool.execute).toHaveBeenCalledWith({ q: 'x' }, expect.anything());
+  });
+
+  it('schickt die Werkzeug-Antwort mit id und Namen zurueck, und den Zug wortgleich', async () => {
+    // Phase H7. OpenAI verlangt an einem `tool_calls` eine `id`, `type` und
+    // Argumente als Zeichenkette; die uebersetzte Ollama-Form hat nichts
+    // davon. Und die Antwort eines Werkzeugs braucht `tool_call_id`, sonst
+    // kann das Modell sie keinem seiner Aufrufe zuordnen.
+    const tool = fakeTool('dateien_suchen', async () => 'Treffer');
+    const zug = {
+      role: 'assistant',
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_abc',
+          type: 'function',
+          function: { name: 'dateien_suchen', arguments: '{"q":"x"}' },
+        },
+      ],
+    };
+    axios.post
+      .mockResolvedValueOnce({ data: { choices: [{ message: zug }] } })
+      .mockResolvedValueOnce(openaiAntwort({ content: 'Fertig.' }));
+
+    await runFlowLoop({
+      model: 'egal',
+      extern: ZUGANG,
+      systemPrompt: 's',
+      userInput: 'u',
+      tools: [tool],
+    });
+
+    const zweiter = axios.post.mock.calls[1][1].messages;
+    expect(zweiter[2]).toEqual(zug);
+    expect(zweiter[3]).toEqual({
+      role: 'tool',
+      tool_call_id: 'call_abc',
+      name: 'dateien_suchen',
+      content: 'Treffer',
+    });
   });
 
   it('haelt den Schluessel aus der Fehlermeldung heraus', async () => {

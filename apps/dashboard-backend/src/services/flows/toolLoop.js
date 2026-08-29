@@ -143,9 +143,17 @@ async function callExtern({ extern, messages, tools }) {
   const aufrufe = Array.isArray(wahl.tool_calls) ? wahl.tool_calls : [];
   return {
     content: wahl.content || '',
+    // `roh` ist die Antwort des Anbieters, unveraendert. Die Schleife schickt
+    // sie WORTGLEICH als Assistenten-Zug zurueck: OpenAI verlangt an einem
+    // `tool_calls` eine `id`, `type: 'function'` und Argumente als
+    // ZEICHENKETTE. Die uebersetzte Ollama-Form hat nichts davon, und ein
+    // Gespraech, das sie zurueckschickt, wird abgewiesen oder falsch
+    // verstanden. Uebersetzt wird nur, was die SCHLEIFE liest.
+    roh: wahl,
     ...(aufrufe.length > 0
       ? {
           tool_calls: aufrufe.map(a => ({
+            id: a.id,
             function: {
               name: a.function?.name,
               arguments:
@@ -172,6 +180,70 @@ function sicherGeparst(text) {
     logger.warn('Flow-toolLoop: Werkzeug-Argumente des externen Modells sind kein JSON');
     return {};
   }
+}
+
+/**
+ * Die Notbremse gegen ein SCHEMA an der Stelle eines Aufrufs (Phase H7).
+ *
+ * Am Orin gemessen (Werkstatt W4, 29.08.2026): das Standardmodell rief
+ * `freigabe_anfordern` achtmal in drei Laeufen auf und schickte jedes Mal
+ * nicht die Werte, sondern die Huelle darum:
+ *
+ *   {"type": "freigabe",
+ *    "required": "[\"titel\", \"zusammenhang\"]",
+ *    "properties": "{\"titel\": \"A-2026-0001 …\", \"zusammenhang\": \"…\"}"}
+ *
+ * Titel und Zusammenhang sind da, sie stehen nur eine Ebene zu tief und als
+ * Zeichenkette. Das Werkzeug antwortete achtmal „Eine Freigabe braucht einen
+ * Titel", das Modell schrieb im naechsten Gedankengang „Die Parameter-Struktur
+ * war offenbar falsch angelegt" und schickte dieselbe Huelle noch einmal. Ein
+ * ausdruecklicher Satz im Prompt hat daran nichts geaendert.
+ *
+ * ES IST EIN AUSPACKEN UND KEIN RATEN, und die Bedingung sagt das: nur wenn
+ * unter `properties` ein Objekt liegt, das die Namen traegt, die das Werkzeug
+ * WIRKLICH kennt, und wenn keiner dieser Namen schon oben steht. Traegt der
+ * Aufruf oben auch nur einen richtigen Namen, ist er gemeint, wie er dasteht,
+ * und diese Funktion laesst ihn in Ruhe. Ein Werkzeug, das selbst einen
+ * Parameter `properties` fuehrt, ebenso.
+ *
+ * Der Lauf faehrt damit nicht achtmal gegen dieselbe Wand -- und in der
+ * Lauf-Ansicht steht trotzdem, was ankam: `tool_start` meldet die Parameter
+ * VOR dem Auspacken.
+ *
+ * @param {object} params was das Modell geschickt hat
+ * @param {import('../../tools/baseTool')} [tool]
+ * @returns {object} die Parameter, notfalls ausgepackt
+ */
+function schemaAuspacken(params, tool) {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    return params;
+  }
+  const bekannt = Object.keys(tool?.parameters || {});
+  if (bekannt.length === 0 || bekannt.includes('properties')) {
+    return params;
+  }
+  if (bekannt.some(name => name in params)) {
+    return params;
+  }
+  let innen = params.properties;
+  if (typeof innen === 'string') {
+    try {
+      innen = JSON.parse(innen);
+    } catch {
+      return params;
+    }
+  }
+  if (!innen || typeof innen !== 'object' || Array.isArray(innen)) {
+    return params;
+  }
+  if (!bekannt.some(name => name in innen)) {
+    return params;
+  }
+  logger.warn(
+    `Flow-toolLoop: "${tool.name}" bekam ein JSON-Schema statt der Werte; ` +
+      `\`properties\` ausgepackt (${Object.keys(innen).join(', ')})`
+  );
+  return innen;
 }
 
 /**
@@ -341,18 +413,28 @@ async function runFlowLoop({
 
       // Den Assistenten-Zug MIT seinen tool_calls festhalten, bevor die
       // Ergebnisse folgen — sonst versteht das Modell die tool-Antworten nicht.
-      messages.push({
-        role: 'assistant',
-        content: rundenContent,
-        tool_calls: toolCalls,
-      });
+      //
+      // Bei einem EXTERNEN Modell geht die Antwort wortgleich zurueck (`roh`):
+      // OpenAI verlangt an jedem `tool_calls` eine `id` und Argumente als
+      // Zeichenkette, und beides geht in der uebersetzten Form verloren. Nur
+      // wenn die Aufrufe nicht vom Modell selbst kamen, sondern aus dem
+      // Text-Fallback darunter, ist die selbst gebaute Form die richtige.
+      const vomModell = Array.isArray(message.tool_calls) && message.tool_calls.length > 0;
+      messages.push(
+        extern && vomModell && message.roh
+          ? message.roh
+          : { role: 'assistant', content: rundenContent, tool_calls: toolCalls }
+      );
 
       for (const call of toolCalls) {
         const toolName = call.function?.name;
         const params = call.function?.arguments || {};
+        // Gemeldet wird, was ANKAM, und ausgefuehrt, was gemeint war: das
+        // Protokoll soll ein Schema an dieser Stelle zeigen, nicht verstecken.
         await emit({ type: 'tool_start', tool: toolName, params });
 
         const tool = toolByName.get(toolName);
+        const argumente = schemaAuspacken(params, tool);
         let result;
         if (!tool) {
           // Das Modell hat ein Werkzeug erfunden, das der Flow nicht hat. Als
@@ -360,7 +442,7 @@ async function runFlowLoop({
           result = `Fehler: Werkzeug "${toolName}" steht diesem Flow nicht zur Verfügung.`;
         } else {
           try {
-            result = await tool.execute(params, context);
+            result = await tool.execute(argumente, context);
           } catch (err) {
             // EINE Ausnahme von „Werkzeuge werfen nie in die Schleife hinein":
             // `laufBeendet` (Phase C7). Eine abgelehnte oder abgelaufene
@@ -380,7 +462,22 @@ async function runFlowLoop({
         }
         result = result == null ? '' : String(result);
         await emit({ type: 'tool_result', tool: toolName, result });
-        messages.push({ role: 'tool', content: result });
+        // DIE ANTWORT SAGT, ZU WELCHEM AUFRUF SIE GEHOERT (Phase H7). Bis
+        // dahin stand hier `{ role: 'tool', content }` und sonst nichts. Ein
+        // Modell, das mehrere Werkzeuge kennt und in einer Runde zwei davon
+        // ruft, kann eine solche Antwort keinem seiner Aufrufe zuordnen -- die
+        // Rueckmeldung, an der es merken soll, dass sein Aufruf falsch geformt
+        // war, geht damit verloren. Die Werkstatt hat am 29.08.2026 genau das
+        // gesehen: achtmal derselbe Fehler, achtmal dieselbe falsche Form.
+        //
+        // Die beiden Protokolle nennen das Feld verschieden: Ollama
+        // `tool_name`, OpenAI `tool_call_id` und `name`. Geschickt wird, was
+        // das Gegenueber kennt -- ein fremdes Feld weist OpenAI ab.
+        messages.push(
+          extern
+            ? { role: 'tool', tool_call_id: call.id, name: toolName, content: result }
+            : { role: 'tool', tool_name: toolName, content: result }
+        );
       }
     }
 
