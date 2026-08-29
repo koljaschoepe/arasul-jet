@@ -14,10 +14,7 @@
  */
 import { useState, type FormEvent } from 'react';
 import Modal from '@/components/ui/Modal';
-import { Button } from '@/components/ui/shadcn/button';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
+import { Button, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
 import type { NeuerBenutzer } from './useMitarbeiter';
 
 /** Dieselbe Untergrenze wie im Backend (`schemas/benutzer.js`). */

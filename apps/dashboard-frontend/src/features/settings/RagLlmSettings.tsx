@@ -4,11 +4,7 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { Kopf } from '@marken';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { Button } from '@/components/ui/shadcn/button';
-import { Textarea } from '@/components/ui/shadcn/textarea';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { Alert, AlertDescription, Button, Input, Label, Textarea } from '@marken';
 import { extractIssues } from './validationIssues';
 import { Section, SectionList } from '@/components/ui/Section';
 

@@ -23,6 +23,9 @@ In allem unter `src/`, ausser `src/components/ui/`:
 3. `border-b-2` an einem Knopf
    in einer Leiste             Eine Tab-Leiste gehoert in `FilterBar`.
 4. `role="dialog"` von Hand   Ein Dialog gehoert in `Modal` (auf Radix).
+5. Ein Name, den `@marken` schon ausgibt, noch einmal in der Shell erklaert
+   -- oder ein Import aus dem alten `components/ui/shadcn/` (Phase H3).
+6. Ein Primitiv ohne Schaustueck auf `/entwickler/bausteine` (Phase H3).
 
 Zur vierten Regel: am 20.08.2026 trugen fuenf Dateien `role="dialog"` selbst,
 waehrend fuenf andere den gemeinsamen `Modal` benutzen. VIER der fuenf
@@ -85,6 +88,96 @@ AUSNAHMEN = {
     # mit B2 bis B4 gefallen; ein Eintrag fuer eine Datei, die es nicht gibt,
     # haelt den Waechter gruen, ohne etwas zu pruefen.
 }
+
+# --------------------------------------------------------------------------
+# Die fuenfte Regel: kein Primitiv doppelt (Phase H3, 29.08.2026)
+# --------------------------------------------------------------------------
+# Seit H3 stehen die Primitive in `packages/marken/src/primitive/` und die
+# Shell holt sie ueber `@marken`. Der Rueckweg ist das Risiko: wer morgen
+# einen Knopf braucht und die Bibliothek nicht kennt, schreibt sich einen --
+# und dann gibt es zwei Knoepfe, von denen einer dem Thema folgt und der
+# andere nicht. Genau so sind vor Plan 023 zwanzig Kopfstellen entstanden.
+#
+# Geprueft wird die ANWESENHEIT eines zweiten Bausteins mit demselben Namen,
+# nicht die Abwesenheit von Handarbeit -- ein Name ist das, was ein Aufrufer
+# tippt, und zwei Dinge unter einem Namen sind die Verwechslung selbst.
+PRIMITIV_BARREL = 'packages/marken/src/primitive/index.ts'
+SHELL_DEKLARATION = re.compile(
+    r'^export\s+(?:default\s+)?(?:function|const|class)\s+(\w+)\b'
+)
+ALTER_SHADCN_PFAD = re.compile(r"""from\s+['"][^'"]*components/ui/shadcn/""")
+
+
+def primitivnamen(wurzel: Path) -> set[str]:
+    """Die Namen, die `packages/marken/src/primitive/index.ts` ausgibt."""
+    datei = wurzel / PRIMITIV_BARREL
+    if not datei.is_file():
+        return set()
+    namen: set[str] = set()
+    for gruppe in re.findall(r'export\s+(?:type\s+)?\{([^}]*)\}', datei.read_text(encoding='utf-8')):
+        for teil in gruppe.split(','):
+            teil = teil.strip()
+            if teil and not teil.startswith('type '):
+                namen.add(teil.split(' as ')[-1].strip())
+    return namen
+
+
+def primitive_doppelt(wurzel: Path) -> list[str]:
+    befunde: list[str] = []
+    namen = primitivnamen(wurzel)
+    ordner = wurzel / 'apps/dashboard-frontend/src'
+    if not namen or not ordner.is_dir():
+        return befunde
+    for datei in sorted(list(ordner.rglob('*.tsx')) + list(ordner.rglob('*.ts'))):
+        if '__tests__' in datei.parts or datei.name.endswith(('.test.tsx', '.test.ts')):
+            continue
+        relativ = datei.relative_to(wurzel / 'apps/dashboard-frontend').as_posix()
+        for nr, zeile in enumerate(datei.read_text(encoding='utf-8').splitlines(), 1):
+            treffer = SHELL_DEKLARATION.match(zeile)
+            if treffer and treffer.group(1) in namen:
+                befunde.append(
+                    f'{relativ}:{nr}  {treffer.group(1)} gibt es schon in @marken -- '
+                    'zwei Bausteine unter einem Namen sind die Verwechslung selbst.'
+                )
+            if ALTER_SHADCN_PFAD.search(zeile):
+                befunde.append(
+                    f'{relativ}:{nr}  Import aus components/ui/shadcn/ -- '
+                    'die Primitive stehen seit H3 in @marken.'
+                )
+    return befunde
+
+
+SCHAUSEITE = 'apps/dashboard-frontend/src/features/entwickler/Schauseite.tsx'
+
+def schauseite_vollstaendig(wurzel: Path) -> list[str]:
+    """Jedes Primitiv steht auf der Schauseite (Phase H3).
+
+    Die Schauseite ist der einzige Ort, an dem ein Baustein, den heute niemand
+    benutzt, ueberhaupt zu sehen ist -- und genau der ist der gefaehrliche: er
+    sieht in einem der beiden Themes falsch aus, und es merkt erst der, der ihn
+    in einem halben Jahr zum ersten Mal einsetzt. Ein neues Primitiv ohne
+    Schaustueck faellt sonst durch jede Abnahme dieses Repos.
+
+    Verglichen werden DATEINAMEN und nicht Ausgaben: `dialog.tsx` gibt zehn
+    Namen aus, ist aber ein Stueck. Aus `alert-dialog` wird `AlertDialog`.
+    """
+    ordner = wurzel / 'packages/marken/src/primitive'
+    seite = wurzel / SCHAUSEITE
+    if not ordner.is_dir() or not seite.is_file():
+        return []
+    erwartet = {
+        ''.join(teil.capitalize() for teil in datei.stem.split('-'))
+        for datei in ordner.glob('*.tsx')
+    }
+    text = seite.read_text(encoding='utf-8')
+    gezeigt = set(re.findall(r'name="([A-Z]\w+)"', text))
+    fehlen = sorted(erwartet - gezeigt)
+    return [
+        f'{SCHAUSEITE}  {name} hat kein Schaustueck -- ein Primitiv, das '
+        'niemand ansieht, ist eines, dessen Fehler niemand findet.'
+        for name in fehlen
+    ]
+
 
 REGELN = [
     (
@@ -149,7 +242,7 @@ def main() -> int:
     argumente = zerleger.parse_args()
     wurzel = Path(argumente.pfad).resolve()
 
-    befunde = pruefe(wurzel)
+    befunde = pruefe(wurzel) + primitive_doppelt(wurzel) + schauseite_vollstaendig(wurzel)
     if not befunde:
         print('   Baustein-Set: eingehalten')
         return 0

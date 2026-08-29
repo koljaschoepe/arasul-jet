@@ -18,10 +18,8 @@ import {
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { Kopf } from '@marken';
-import { Button } from '@/components/ui/shadcn/button';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { Alert, AlertDescription, Button, cn } from '@marken';
 import { SkeletonCard } from '../../components/ui/Skeleton';
-import { cn } from '@/lib/utils';
 import { Section, SectionList } from '@/components/ui/Section';
 import useConfirm from '../../hooks/useConfirm';
 import { sitzungLaeuftUeberFernzugriff, trennFrage } from './sitzungUeberFernzugriff';

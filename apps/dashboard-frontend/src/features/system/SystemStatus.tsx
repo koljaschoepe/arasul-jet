@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { formatBytesBinaer } from '@/utils/formatting';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button } from '@marken';
 import { Chart, Sparkline } from '@/components/ui/Chart';
 import { Section, SectionList } from '@/components/ui/Section';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { LogOut, Menu, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@marken';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
 import { useAuth } from '@/contexts/AuthContext';

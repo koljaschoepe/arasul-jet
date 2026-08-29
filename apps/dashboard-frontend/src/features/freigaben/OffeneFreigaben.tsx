@@ -27,7 +27,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ClipboardCheck, Clock } from 'lucide-react';
 import { Formular, Karte, Knopf } from '@marken';
-import { Textarea } from '@/components/ui/shadcn/textarea';
+import { Textarea } from '@marken';
 import { useToast } from '@/contexts/ToastContext';
 import {
   useOffeneFreigaben,

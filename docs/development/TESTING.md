@@ -38,12 +38,13 @@ eine Route, deren Schema niemand exportiert hat. Sie laufen bei jedem
 | Wächter              | Was er hält                                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `anleitungen.py`     | README und CLAUDE.md gegen den Code: Links, Pfade, CLI-Befehle, Make-Ziele, und ob ein Dienst hinter einem compose-Profil als laufend beschrieben wird |
-| `bausteine.py`       | Das Komponentenset der Oberfläche                                                                                                                      |
+| `bausteine.py`       | Das Komponentenset der Oberfläche: keine Handarbeit statt Baustein, kein Name der Bibliothek zweimal, kein Primitiv ohne Schaustück                    |
 | `durchreichung.py`   | Jede dokumentierte Stellschraube erreicht den Container über `compose/`                                                                                |
 | `einheiten.py`       | Eine Rechnung je Zählweise, keine zwei Zahlen für dasselbe                                                                                             |
 | `endpunkte.py`       | Jeder Endpunkt im Code hat eine Zeile in der Schnittstellendoku                                                                                        |
 | `gedankenstriche.py` | Keine Gedankenstriche als Trenner                                                                                                                      |
 | `kurzliste.py`       | Die vier Modelle stehen einmal in `config/modelle/kurzliste.json`; Migration, Empfehlungskarte, Plattformprofile und Setup-Skript sagen dasselbe       |
+| `marken.py`          | Das Designsystem an seiner Quelle: Bündel, Fassung, Klassen, Grenzen, Rückfälle gegen `theme.css`, kein Farbliteral, kein Name doppelt                 |
 | `modellnamen.py`     | Modellnamen kommen aus der Live-Quelle, nicht aus dem Gedächtnis                                                                                       |
 | `plan-faden.py`      | Höchstens ein Plan unter `docs/plans/active/`                                                                                                          |
 | `rohrbruch.py`       | Kein `\| grep -q` unter `pipefail`: der Erzeuger stirbt an SIGPIPE, und 141 wird zur Antwort                                                           |

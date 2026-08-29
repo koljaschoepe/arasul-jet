@@ -8547,7 +8547,7 @@ function pd({ offen: o, onSchliessen: O, titel: C = "Menü", kennzeichen: j, chi
     })]
   })] }) : null;
 }
-var Cd = "1.1.0", rd = Wt.createElement;
+var Cd = "2.0.0", rd = Wt.createElement;
 function jd(o, O) {
   (0, Od.createRoot)(O).render(o);
 }

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/shadcn/card';
+import { Card, CardContent, CardFooter, CardHeader, cn } from '@marken';
 import { Mascot } from '@/components/mascot/Mascot';
 import { PLATFORM_NAME } from '@/config/branding';
-import { cn } from '@/lib/utils';
 
 interface AuthCardProps {
   /** Ueberschrift der Seite. */

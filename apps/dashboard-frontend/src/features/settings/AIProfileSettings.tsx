@@ -6,19 +6,21 @@ import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../utils/formatting';
 import { extractIssues } from './validationIssues';
 import { Kopf } from '@marken';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { Button } from '@/components/ui/shadcn/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
-import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
+  Alert,
+  AlertDescription,
+  Button,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/shadcn/select';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+  Textarea,
+} from '@marken';
 import { Section, SectionList } from '@/components/ui/Section';
 
 const AI_INDUSTRIES = [

@@ -179,7 +179,7 @@ try {
       // SOFORT, ob `input.checked` wahr ist -- ist es das nicht, wirft es
       // "Clicking the checkbox did not change its state", ohne zu warten.
       //
-      // Dieses Haekchen ist ein KONTROLLIERTES Feld (`components/ui/Checkbox`,
+      // Dieses Haekchen ist ein KONTROLLIERTES Feld (`Checkbox` aus `@marken`,
       // `checked={Boolean(freigabe)}`): der Klick setzt es einen Wimpernschlag
       // lang, dann rendert React es aus dem unveraenderten Zustand zurueck auf
       // leer, und erst wenn `POST /api/freigaben` durch ist und die Abfrage
@@ -189,8 +189,17 @@ try {
       //
       // Die Probe steht ohnehin direkt darunter und ist die bessere: der
       // Stand-Schalter erscheint NUR, wenn die Freigabe wirklich steht.
-      const haken = seite.locator(`[data-testid="freigabe-${zelle}"] input`);
-      pruefe('Das Haekchen steht vor dem Klick leer', !(await haken.isChecked()));
+      //
+      // UEBER DIE ROLLE UND NICHT UEBER `input` (Phase H3): das Haekchen ist
+      // seit H3 das Primitiv der Bibliothek und damit Radix, und Radix legt
+      // ein verstecktes `<input>` nur in einem Formular an. Was dasteht, ist
+      // ein `<button role="checkbox" aria-checked>` -- und das ist ohnehin
+      // das, was ein Mensch bedient.
+      const haken = seite.getByTestId(`freigabe-${zelle}`).getByRole('checkbox');
+      pruefe(
+        'Das Haekchen steht vor dem Klick leer',
+        (await haken.getAttribute('aria-checked')) !== 'true'
+      );
       await haken.click();
 
       // Der Stand-Schalter steht nur da, WENN die Freigabe steht. Er ist damit

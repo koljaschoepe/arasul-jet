@@ -12,8 +12,7 @@
  * nicht).
  */
 import { Cpu, Download, Loader2, Power, Trash2, Zap } from 'lucide-react';
-import { Button } from '@/components/ui/shadcn/button';
-import { cn } from '@/lib/utils';
+import { Button, cn } from '@marken';
 import { formatBytes } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import type { CatalogModel } from '@/hooks/useStoreCatalog';

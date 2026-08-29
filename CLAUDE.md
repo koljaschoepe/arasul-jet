@@ -421,6 +421,60 @@ dunklen Theme bei `rgb(246, 246, 246)`, mit steht `rgb(20, 20, 20)` da.
 `check-design-system.js` hält die Regel — kein ungeschichtetes CSS in
 `index.html`.
 
+Seit **H3** (29.08.2026) ist `packages/marken/` eine **Komponentenbibliothek**
+und nicht mehr nur ein Stylesheet mit sechs Bausteinen. Die sechsundzwanzig
+Primitive, aus denen eine Oberfläche besteht — Button, Input, Textarea, Label,
+Select, Checkbox, RadioGroup, Switch, Dialog, AlertDialog, Sheet, Popover,
+Tooltip, DropdownMenu, ContextMenu, Tabs, Card, Badge, Alert, Toast, Avatar,
+Separator, Skeleton, Progress, ScrollArea, Breadcrumb —, lagen bis dahin in
+einem Ordner `shadcn` unterhalb der Shell und gehörten damit **ihr allein**: eine App, die einen Knopf brauchte, baute ihren eigenen, und
+der sah anders aus. Sie stehen jetzt in `packages/marken/src/primitive/`, die
+Shell holt sie über `@marken` wie jeder andere auch. Dreizehn davon gab es
+noch nicht; alle auf `radix-ui`, das schon im Lockfile stand — **keine neue
+Abhängigkeit**.
+Mit ihnen gezogen sind die **Tokens**: `packages/marken/src/theme.css` trägt
+seither die zwei `@theme`-Blöcke und die shadcn-Semantik beider Themes, und
+`index.css` holt sie von dort. Das ist die Umkehr von H2 — bis dahin war die
+Shell die Quelle und die Bibliothek trug die Kopie; seit die Primitive auf
+Tailwind geschrieben sind (`bg-secondary`, `text-muted-foreground`), braucht
+**eine App** den Block genauso, und hätte ihn sonst abschreiben müssen. Zwei
+Zeilen entscheiden dabei, ob es überhaupt geht: der Import trägt **keine
+Schicht** (ein `@theme` in `layer(...)` ist keins mehr), und
+`@source "../../../packages/marken/src"` sagt Tailwind, wo die Klassen der
+Primitive liegen — ohne das stünden sie in der Shell ohne jede Regel da, und
+nichts an der Übersetzung wäre rot.
+**Zwei Sätze, zwei Laufzeiten, und das ist keine Doppelung.** Die Primitive
+brauchen einen Bau; die sechs Bausteine aus D7 (Kopf, Liste, Karte, Formular,
+Meldung, Menü) sind auf reinem CSS geschrieben und laufen in einer App **ohne**
+Bau. `browser.ts` gibt deshalb nur die Bausteine aus und `browser/marken.js`
+trägt weiter nur sie — eine App ohne Tailwind bekäme sonst sechsundzwanzig
+Bausteine, von denen kein einziger aussieht wie etwas.
+Drei Dinge, die keine Verschiebung waren: `cn()` musste mit (ein Baustein der
+Bibliothek darf nicht aus der Shell importieren, `marken.py` Punkt 4), also ist
+`@/lib/utils` gefallen; die **Checkbox** steht auf Radix statt auf einem
+eigenen `appearance-none`-Input — der Grund für die Handarbeit war richtig, die
+Lösung war eine Wette gegen eine geprüfte Bibliothek; und die **Meldungen**
+waren achtzig Zeilen `.toast-*` in `index.css`, wo eine App sie nie erreicht
+hätte (das Aussehen ist jetzt ein Primitiv, die Warteschlange bleibt in
+`ToastContext` — die weiß die Anwendung).
+Die **Schauseite** steht unter `/entwickler/bausteine`, in keinem Menü: sie
+zeigt jedes Primitiv in allen Zuständen, die es wirklich kennt. Sie gibt es,
+weil eine Bibliothek ein Problem hat, das keine andere Abnahme findet — ein
+Baustein, den heute niemand benutzt, sieht in einem der beiden Themes falsch
+aus, und es merkt erst der, der ihn in einem halben Jahr auf der Seite eines
+Kunden einsetzt. `scripts/test/schauseite.mjs` macht Bilder hell und dunkel bei
+390, 1024 und 1440 px und fragt je Zelle vier Dinge: stehen alle Stücke da, ist
+die Fläche die des Themes, rollt es waagerecht, schweigt die Konsole. Sie läuft
+**neben** `abnahmen.sh` und kostet **eine** Anmeldung.
+Drei Wächter halten das: `marken.py` meldet ein **Farbliteral** in einem
+Baustein (Hex, `rgb()` **oder** eine Klasse aus Tailwinds eingebauter Palette —
+`bg-black/50` folgt keinem Thema; der Schleier unter jedem Dialog ist deshalb
+ein Token geworden) und einen Namen, den zwei Barrels ausgeben;
+`bausteine.py` meldet einen Namen der Bibliothek, den die Shell noch einmal
+erklärt, und ein Primitiv **ohne Schaustück**. `knip` sieht die Bibliothek
+nicht (es kommt über die Wurzel des Frontends nicht hinaus), also stehen ihre
+vier Pakete mit diesem Grund in `ignoreDependencies`.
+
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,

@@ -26,7 +26,7 @@
 ```
 apps/dashboard-frontend/src/
   App.tsx                    # Root component, routes, providers, lazy loading
-  index.css                  # Tailwind v4 config, CSS variables, design tokens
+  index.css                  # Import der Tokens aus @marken/theme.css + Shell-CSS
 
   features/                  # Feature modules
     workspace/               # Shell: ActivityBar (Apps, Modelle), Sidebar, Tabs, rechte Spalte (Notizen)
@@ -39,13 +39,13 @@ apps/dashboard-frontend/src/
 
   components/
     ui/                      # Modal, Skeleton, LoadingSpinner, EmptyState, ErrorBoundary, Baustein-Set
-    ui/shadcn/               # shadcn components (alert, badge, button, card, dialog, input, label, popover, …)
+                             # (die Primitive liegen seit H3 in packages/marken/src/primitive/)
     mascot/                  # Das Maskottchen
 
   hooks/                     # Reusable hooks (useApi, useTheme, useFetchData, ...)
   contexts/                  # AuthContext, DownloadContext, ToastContext, ActivationContext
   config/                    # api.ts (API_BASE, getAuthHeaders), branding.ts
-  lib/                       # utils.ts (cn helper)
+  lib/                       # queryClient (cn() steht seit H3 in @marken)
   utils/                     # csrf.ts, token.ts
   __tests__/                 # Vitest test suites + helpers/
 ```
@@ -54,72 +54,29 @@ apps/dashboard-frontend/src/
 
 ## Design System
 
-### CSS Variables (`:root` in `index.css`)
+### Die Tokens (`packages/marken/src/theme.css`)
 
-```css
-/* shadcn semantic colors (dark theme default) */
---background: #101923;
---foreground: #f8fafc;
---card: #1a2330;
---card-foreground: #f8fafc;
---primary: #45adff;
---primary-foreground: #000000;
---secondary: #1d2835;
---secondary-foreground: #f8fafc;
---muted: #1d2835;
---muted-foreground: #94a3b8;
---accent: #222d3d;
---accent-foreground: #f8fafc;
---destructive: #f0f4f8;
---destructive-foreground: #101923;
---border: #2a3544;
---input: #2a3544;
---ring: #45adff;
---radius: 0.75rem;
-```
+Sie standen bis **Phase H3** in `apps/dashboard-frontend/src/index.css`. Seit
+die Primitive in der Bibliothek liegen und auf Tailwind geschrieben sind,
+braucht **eine App** dieselben Tokens — also stehen sie dort, und `index.css`
+holt sie mit einem `@import` ohne Schicht.
 
-### Custom Tailwind Tokens (`@theme` block in `index.css`)
+| Block                 | Was darin steht                                     |
+| --------------------- | --------------------------------------------------- |
+| `@theme`              | Rundungen, Schriften, Dichte-Skala, Diagrammpalette |
+| `@theme inline`       | `--color-x: var(--x)` — die Brücke zu den Utilities |
+| `:root`               | die Farben von **Hell**, der Vorgabe (H1)           |
+| `[data-theme='dark']` | nur das, was im Dunkeln abweicht                    |
 
-```css
-/* Available as Tailwind classes: bg-bg-card, text-text-muted, etc. */
---color-bg-dark: #101923;
---color-bg-card: #1a2330;
---color-bg-card-hover: #222d3d;
---color-bg-elevated: #2a3544;
---color-bg-input: #101923;
---color-text-primary: #f8fafc;
---color-text-secondary: #cbd5e1;
---color-text-muted: #94a3b8;
---color-text-disabled: #64748b;
---color-primary-hover: #6ec4ff;
---color-primary-active: #2d8fd9;
-```
+**Die Werte stehen hier absichtlich nicht.** Ein Handbuch, das eine Farbtabelle
+abschreibt, ist die zweite Wahrheit, gegen die dieses Repo an sechs Stellen
+antritt — und diese Liste war bis H3 die von vor H1 (dunkle Vorgabe,
+`#101923`), also seit zwei Phasen falsch. Wer einen Wert sucht, liest
+`theme.css`; die Entscheidungen dahinter stehen in
+[`DESIGN.md`](DESIGN.md).
 
-### Color Rules (MANDATORY)
-
-```tsx
-// GOOD - Tailwind classes
-<div className="bg-card text-foreground border border-border" />
-<div className="bg-bg-card text-text-muted" />
-
-// GOOD - CSS variables in inline styles (when dynamic)
-<div style={{ color: 'var(--primary)' }} />
-
-// BAD - never hardcode hex in JSX
-<div style={{ color: '#45ADFF' }} />
-<div className="bg-[#1a2330]" />   // Avoid arbitrary values for design tokens
-```
-
-### `cn()` Helper
-
-```tsx
-import { cn } from '@/lib/utils';
-
-// Merges class names, handles conditionals, resolves Tailwind conflicts
-<div className={cn('p-4 rounded-lg', isActive && 'bg-primary text-primary-foreground')} />;
-```
-
----
+Was in `index.css` blieb: die Aliasse auf diese Tokens, die Alpha-Skalen,
+Schatten, Verläufe, die Syntaxfarben und das Komponenten-CSS der Shell.
 
 ## Tailwind v4 Setup
 
@@ -131,20 +88,19 @@ The CSS setup in `index.css` uses Tailwind CSS v4 syntax:
 @import 'tailwindcss/utilities.css' layer(utilities);
 @import 'tw-animate-css';
 
+/* Die Bausteine der Bibliothek — GESCHICHTET, damit eine Tailwind-Klasse
+   an einem Baustein gewinnt. */
+@import '../../../packages/marken/src/marken.css' layer(components);
+
+/* Die Tokens — OHNE Schicht: ein `@theme` in `layer(...)` ist keins mehr,
+   und `bg-primary` gäbe es dann nicht. */
+@import '../../../packages/marken/src/theme.css';
+
+/* Und Tailwind muss wissen, wo die Klassen der Primitive liegen: sie stehen
+   NEBEN diesem Vite-Projekt, und von allein sucht es dort nicht. */
+@source '../../../packages/marken/src';
+
 @custom-variant dark (&:is(.dark *));
-
-/* Custom design tokens */
-@theme {
-  --color-bg-card: #1a2330;
-  /* ... */
-}
-
-/* shadcn/ui semantic mappings */
-@theme inline {
-  --color-background: var(--background);
-  --color-primary: var(--primary);
-  /* ... */
-}
 ```
 
 Key differences from Tailwind v3:
@@ -423,39 +379,66 @@ import ErrorBoundary, { RouteErrorBoundary, ComponentErrorBoundary } from '@/com
 </ComponentErrorBoundary>
 ```
 
-### shadcn/ui Components
+### Die Primitive (`@marken`)
 
-All shadcn components are in `@/components/ui/shadcn/`. Import directly.
-Es gibt genau die dreizehn Bausteine, die dort liegen (Stand 26.08.2026); `tabs`, `separator`, `skeleton`, `dropdown-menu`, `tooltip` und
-`table` sind nicht installiert. Wer einen braucht, holt ihn mit
-`npx shadcn@latest add <name>`, nicht von Hand:
+Seit **Phase H3** liegen sie in `packages/marken/src/primitive/` und kommen aus
+**einem** Barrel — sechsundzwanzig Stück, geteilt mit jeder App auf dem Gerät.
+`scripts/test/bausteine.py` meldet einen dieser Namen, wenn ihn die Shell noch
+einmal erklärt.
 
 ```tsx
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/shadcn/alert';
-import { Badge } from '@/components/ui/shadcn/badge';
-import { Button } from '@/components/ui/shadcn/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/shadcn/card';
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Checkbox,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from '@/components/ui/shadcn/context-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/shadcn/dialog';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
-import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
-import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  RadioGroup,
+  RadioGroupItem,
+  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/shadcn/select';
-import { Textarea } from '@/components/ui/shadcn/textarea';
+  Switch,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@marken';
 ```
+
+Die vollständige Liste in allen Zuständen steht unter
+`/entwickler/bausteine` — der Schauseite, die es hinter der Anmeldung und in
+keinem Menü gibt.
+
+Wer einen braucht, den es noch nicht gibt, holt ihn mit
+`npx shadcn@latest add <name>` (`components.json` zeigt auf die Bibliothek),
+trägt ihn in `primitive/index.ts` ein, gibt ihm ein Schaustück und hebt
+`packages/marken/src/fassung.ts`.
 
 ### Custom Shared UI Components
 
@@ -612,7 +595,7 @@ All user-facing text is **German**. Examples:
 - [ ] API calls use `useApi()` hook -- no raw fetch()
 - [ ] Notifications via `useToast()` -- no window.alert()
 - [ ] Confirmations via `useConfirm()` -- no window.confirm()
-- [ ] shadcn imports from `@/components/ui/shadcn/` path
+- [ ] Primitive kommen aus `@marken`, nicht aus einer eigenen Datei
 - [ ] `cn()` for conditional/merged class names
 - [ ] German UI text
 - [ ] Loading and error states handled

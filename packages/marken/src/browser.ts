@@ -7,6 +7,13 @@
  * Abhaengigkeit im Wurzel-Lockfile. Sie laedt stattdessen `browser/marken.js`,
  * und darin liegen React, React-DOM und die sechs Bausteine zusammen.
  *
+ * WARUM NUR DIE SECHS UND NICHT DIE PRIMITIVE (Phase H3). Die Primitive sind
+ * auf Tailwind geschrieben: ihre Klassen entstehen erst, wenn ein Bau die
+ * Quelle liest. Eine App ohne Bau hat keinen -- sie bekaeme fuenfundzwanzig
+ * Bausteine, von denen kein einziger aussieht wie etwas, und ein Buendel, das
+ * dreimal so gross ist. Wer die Primitive will, braucht einen Bau, und dann
+ * nimmt er `@marken` direkt.
+ *
  * WARUM KEIN JSX DARIN. JSX braucht einen Uebersetzer, und im Browser
  * uebersetzt einer nur mit `eval`. Die Content-Security-Policy dieses Geraets
  * verbietet `unsafe-eval` (`config/traefik/dynamic/middlewares.yml`), und das
@@ -19,7 +26,7 @@ import { createElement, Fragment, useEffect, useMemo, useRef, useState } from 'r
 import { createRoot } from 'react-dom/client';
 import type { ReactNode } from 'react';
 
-export * from './index';
+export * from './bausteine';
 
 /** `React.createElement`, kurz -- der Ersatz fuer JSX. */
 export const h = createElement;

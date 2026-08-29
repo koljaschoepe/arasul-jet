@@ -486,6 +486,30 @@ mkdir -p "$UI"
 echo 'export const E = () => <div role="dialog" />;' > "$UI/Modal.tsx"
 pruefe "Bausteine: components/ui bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 
+# Regel 5 und 6 (Phase H3): kein Name der Bibliothek zweimal, kein Primitiv
+# ohne Schaustueck. Beide brauchen eine Bibliothek IM Pruefbaum -- ohne sie
+# schweigt der Waechter, und ein Selbsttest gegen einen Baum ohne den
+# gepruefte Gegenstand belegt nichts.
+DUP="$TMP/bau/packages/marken/src/primitive"
+SCHAU="$TMP/bau/apps/dashboard-frontend/src/features/entwickler"
+mkdir -p "$DUP" "$SCHAU"
+printf 'export { Knopf } from "./knopf";\n' > "$DUP/index.ts"
+printf 'export function Knopf() { return null; }\n' > "$DUP/knopf.tsx"
+printf '<Schaustueck name="Knopf" satz="x" />\n' > "$SCHAU/Schauseite.tsx"
+pruefe "Bausteine: Bibliothek mit Schaustueck ist gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+
+printf 'export function Knopf() { return null; }\n' > "$BAU/ZweiterKnopf.tsx"
+pruefe "Bausteine: derselbe Name zweimal ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU/ZweiterKnopf.tsx"
+
+printf "import { Knopf } from '@/components/ui/shadcn/button';\n" > "$BAU/AlterPfad.tsx"
+pruefe "Bausteine: der alte shadcn-Pfad ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU/AlterPfad.tsx"
+
+printf 'export function Schalter() { return null; }\n' > "$DUP/schalter.tsx"
+pruefe "Bausteine: ein Primitiv ohne Schaustueck ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$DUP/schalter.tsx"
+
 # --- modellnamen.py ---------------------------------------------------------
 MOD="$TMP/mod/apps/dashboard-frontend/src/features/beispiel"
 mkdir -p "$MOD"
@@ -1057,6 +1081,32 @@ PY_INNER
 pruefe "Marken: ein fehlender Eintrag im Dunkel-Block ist rot" 1 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 cp "$TMP/marken.css.echt" "$MA_CSS"
+
+# Punkt 6 (Phase H3): eine Farbe, die kein Token ist. Zwei Schreibweisen, und
+# die zweite ist die unauffaellige -- `bg-black/50` sieht wie eine gewoehnliche
+# Utility aus und folgt doch keinem Thema.
+MA_BADGE="$MA/packages/marken/src/primitive/badge.tsx"
+cp "$MA_BADGE" "$TMP/badge.echt"
+sed -i.bak 's/bg-secondary text-foreground/bg-slate-200 text-foreground/' "$MA_BADGE"
+pruefe "Marken: eine Klasse aus Tailwinds Palette ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$TMP/badge.echt" "$MA_BADGE"
+sed -i.bak "s/border-border bg-secondary/border-[#123456] bg-secondary/" "$MA_BADGE"
+pruefe "Marken: ein Hex in einem Baustein ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$TMP/badge.echt" "$MA_BADGE"
+
+# Punkt 7: derselbe Name aus beiden Barrels. In JavaScript gewinnt wortlos der
+# letzte, und welcher das ist, entscheidet die Reihenfolge zweier Zeilen.
+MA_BAUSTEINE="$MA/packages/marken/src/bausteine.ts"
+cp "$MA_BAUSTEINE" "$TMP/bausteine.echt"
+printf 'export { Button } from "./Karte";\n' >> "$MA_BAUSTEINE"
+pruefe "Marken: derselbe Name aus zwei Barrels ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$TMP/bausteine.echt" "$MA_BAUSTEINE"
+
+pruefe "Marken: nach jeder Reparatur wieder gruen" 0 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 rm -rf "$MA"
 
 if [ "$FEHLER" = "0" ]; then

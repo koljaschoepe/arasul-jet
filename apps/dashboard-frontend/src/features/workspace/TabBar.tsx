@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '@/components/ui/shadcn/context-menu';
+} from '@marken';
 
 /**
  * Kompakte Tab-Leiste über der Arbeitsfläche (Cursor-Maß: 32px). Keine

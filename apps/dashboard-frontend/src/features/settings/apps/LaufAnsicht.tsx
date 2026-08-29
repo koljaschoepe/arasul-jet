@@ -16,9 +16,8 @@
  */
 import { useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, Brain, PenLine, Users, Info } from 'lucide-react';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
 import { formatDate } from '@/utils/formatting';
 import type { LaufSchritt } from './useAppVerwaltung';
 import { useAppLauf } from './useAppVerwaltung';

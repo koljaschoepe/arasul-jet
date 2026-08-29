@@ -3,7 +3,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useStoreCatalog, isModelInstalled } from '@/hooks/useStoreCatalog';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
+import { cn } from '@marken';
 import { SidebarView } from './SidebarView';
 
 /**

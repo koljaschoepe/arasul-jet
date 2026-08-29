@@ -11,6 +11,13 @@
 #   marken.js    das Buendel, React liegt darin (eingecheckt, `npm run marken`)
 #   marken.css   dieselbe Datei, die die Shell laedt
 #
+# `theme.css` ist ABSICHTLICH NICHT dabei (Phase H3). Es traegt die Tokens fuer
+# die Primitive, und die stehen auf Tailwind: eine App ohne Buendler hat kein
+# Tailwind, also gaebe es die Klassen nicht, die die Tokens faerben wuerden.
+# Ihre Farben kommen aus den Rueckfaellen in `marken.css`
+# (`var(--token, <Wert>)`), und `scripts/test/marken.py` haelt die an
+# `theme.css` fest.
+#
 # EINE STELLE DAFUER, und darum dieses Skript: es kopiert an zwei Orten
 # dasselbe (beim Einspielen am Geraet und beim Bauen eines Pakets fuer den
 # Deploy-Endpunkt). Zwei Kopierbefehle, die auseinanderlaufen, waeren eine App

@@ -1,28 +1,16 @@
-import * as React from 'react';
-import { cn } from '@/lib/utils';
-
-interface SkeletonProps {
-  width?: string | number;
-  height?: string | number;
-  borderRadius?: string | number;
-  className?: string;
-  style?: React.CSSProperties;
-}
-
-function Skeleton({ width, height, borderRadius, className = '', style = {} }: SkeletonProps) {
-  return (
-    <div
-      className={cn('animate-pulse rounded-md bg-accent', className)}
-      style={{
-        width: width || '100%',
-        height: height || '1rem',
-        borderRadius: borderRadius || undefined,
-        ...style,
-      }}
-      aria-hidden="true"
-    />
-  );
-}
+/**
+ * Zusammensetzungen aus dem Platzhalter `Skeleton` (`@marken`).
+ *
+ * Der Platzhalter selbst ist seit H3 ein Primitiv der Bibliothek -- ein
+ * grauer Kasten, mehr nicht. Was hier steht, ist das, was die Shell daraus
+ * baut: ein Absatz, eine Karte, eine Liste. Genau die Grenze, an der die
+ * Bibliothek endet -- `Skeleton` weiß nichts von Arasul, `SkeletonList` weiß,
+ * dass eine Liste auf diesem Gerät Zeilen mit Bildchen hat.
+ *
+ * `role="status"` steht an der LISTE und nicht am einzelnen Kasten: der ist
+ * `aria-hidden`, denn niemand will sieben graue Balken vorgelesen bekommen.
+ */
+import { Skeleton } from '@marken';
 
 export function SkeletonText({
   lines = 3,

@@ -41,8 +41,7 @@ import { useApi } from '../../hooks/useApi';
 import { formatBytes, formatDate } from '../../utils/formatting';
 import EmptyState from '../../components/ui/EmptyState';
 import { Kopf } from '@marken';
-import { Button } from '@/components/ui/shadcn/button';
-import { cn } from '@/lib/utils';
+import { Button, cn } from '@marken';
 import { Section, SectionList } from '@/components/ui/Section';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
 

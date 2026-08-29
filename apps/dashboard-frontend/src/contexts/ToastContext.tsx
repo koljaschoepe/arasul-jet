@@ -8,7 +8,8 @@ import React, {
   useMemo,
   type ReactNode,
 } from 'react';
-import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { Toast, ToastClose, ToastIcon, ToastMessage, ToastViewport } from '@marken';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -50,34 +51,36 @@ const DEFAULT_DURATIONS: Record<ToastType, number> = {
   info: 4000,
 };
 
+/**
+ * Die Meldungen auf dem Bildschirm.
+ *
+ * Das Aussehen kommt seit H3 aus der Bibliothek (`Toast` und Geschwister,
+ * `@marken`), die Warteschlange bleibt hier: wann eine Meldung erscheint, wie
+ * lange sie steht und wie viele gleichzeitig -- das weiß die Anwendung, nicht
+ * ein Primitiv. Bis dahin standen dieselben Kästen als achtzig Zeilen
+ * `.toast-*` in `index.css`, wo eine App sie nie erreicht hätte.
+ */
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: number) => void }) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="toast-container" role="alert" aria-live="polite">
+    <ToastViewport role="alert" aria-live="polite">
       {toasts.map(toast => {
         const Icon = TOAST_ICONS[toast.type] || Info;
         return (
-          <div
-            key={toast.id}
-            className={`toast toast-${toast.type}`}
-            role="alert"
-            aria-atomic="true"
-          >
-            <Icon className="toast-icon" aria-hidden="true" />
-            <span className="toast-message">{toast.message}</span>
-            <button
-              type="button"
+          <Toast key={toast.id} art={toast.type} role="alert" aria-atomic="true">
+            <ToastIcon>
+              <Icon />
+            </ToastIcon>
+            <ToastMessage>{toast.message}</ToastMessage>
+            <ToastClose
               onClick={() => onRemove(toast.id)}
-              className="toast-close"
               aria-label="Benachrichtigung schließen"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
+            />
+          </Toast>
         );
       })}
-    </div>
+    </ToastViewport>
   );
 }
 

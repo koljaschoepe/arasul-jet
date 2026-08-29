@@ -20,11 +20,7 @@
  */
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '@/components/ui/Modal';
-import { Button } from '@/components/ui/shadcn/button';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
-import { cn } from '@/lib/utils';
+import { Button, cn, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import type { CatalogModel } from '@/hooks/useStoreCatalog';
 import type { ExternesModell, ModellWunsch } from './useAppVerwaltung';

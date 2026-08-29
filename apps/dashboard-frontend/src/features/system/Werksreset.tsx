@@ -1,11 +1,7 @@
 import { useCallback, useState } from 'react';
 import { AlertTriangle, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Kopf } from '@marken';
-import { Button } from '@/components/ui/shadcn/button';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
-import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';

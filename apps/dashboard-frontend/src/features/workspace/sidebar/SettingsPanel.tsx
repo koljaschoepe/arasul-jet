@@ -1,7 +1,7 @@
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from '@/features/settings/sections';
-import { cn } from '@/lib/utils';
+import { cn } from '@marken';
 import { SidebarView } from './SidebarView';
 
 /**

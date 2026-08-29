@@ -34,6 +34,13 @@ import './index.css';
 // Fehlerseite. Ein zweiter Versuch kostet eine halbe Sekunde.
 const WorkspaceShell = lazyNachladen(() => import('./features/workspace'));
 
+// Die Schauseite der Bibliothek (Phase H3). Sie steht unter einem
+// Entwicklerpfad und in KEINEM Menue: sie ist fuer den, der eine App baut,
+// nicht fuer den, der auf diesem Geraet arbeitet. Nachgeladen wie die Shell --
+// sechsundzwanzig Primitive in allen Zustaenden gehoeren in kein Buendel, das
+// jemand beim Anmelden holt.
+const Schauseite = lazyNachladen(() => import('./features/entwickler/Schauseite'));
+
 /**
  * Main App Component
  * PHASE 3: Wraps the application with providers (AuthProvider, DownloadProvider)
@@ -273,6 +280,21 @@ function AppContent(): React.JSX.Element | null {
                   Routen zeigen jetzt in den Arbeitsbereich, der dieselben
                   Inhalte als Tab kennt. Suchparameter bleiben erhalten, damit
                   Deep-Links wie /settings?tab=remote-access weiter funktionieren. */}
+            {/* Die Schauseite der Bibliothek (H3). Hinter der Anmeldung, weil
+                  sie auf einem Geraet im Firmennetz steht; in keinem Menue,
+                  weil sie niemandem hier bei der Arbeit hilft. */}
+            <Route
+              path="/entwickler/bausteine"
+              element={
+                <RouteErrorBoundary routeName="Bausteine">
+                  <Suspense
+                    fallback={<LoadingSpinner message="Lade Bausteine..." fullscreen={true} />}
+                  >
+                    <Schauseite />
+                  </Suspense>
+                </RouteErrorBoundary>
+              }
+            />
             <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
             <Route path="/settings" element={<InDenArbeitsbereich ziel="/settings" />} />
             <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />

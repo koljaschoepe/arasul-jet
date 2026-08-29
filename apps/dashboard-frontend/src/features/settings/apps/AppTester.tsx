@@ -13,9 +13,8 @@
  * kann Tester sein, ein Mitarbeiter auch. Deshalb steht hier jeder Mensch am
  * Gerät und nicht nur die Mitarbeiter.
  */
-import { Checkbox } from '@/components/ui/Checkbox';
+import { Checkbox, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
 import { useBenutzer } from '../mitarbeiter/useMitarbeiter';
 import { freigabeVon, useFreigaben, useFreigabeSetzen } from '../mitarbeiter/useAppFreigaben';
 

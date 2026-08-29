@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Trash2, Info, HardDrive, RefreshCw } from 'lucide-react';
 import { Kopf } from '@marken';
-import { Button } from '@/components/ui/shadcn/button';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { Alert, AlertDescription, Button, Input, Label } from '@marken';
 import Modal from '@/components/ui/Modal';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';

@@ -32,7 +32,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@marken';
 
 export interface FilterBarItem<Id extends string = string> {
   id: Id;

@@ -1,15 +1,15 @@
 import * as React from 'react';
 import { XIcon } from 'lucide-react';
 import {
+  Button,
+  cn,
   Dialog,
+  DialogClose,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/shadcn/dialog';
-import { Button } from '@/components/ui/shadcn/button';
-import { cn } from '@/lib/utils';
+} from '@marken';
 
 const sizeClasses: Record<string, string> = {
   small: 'sm:max-w-100',

@@ -12,14 +12,29 @@ React Router v6 · TanStack Query v5 · Vitest · ESLint.
 Path aliases (both in `tsconfig.json` and `vite.config.ts`):
 
 - `@/* → src/*`
-- `@marken → ../../packages/marken/src` — **das Designsystem** (Phase D7):
-  Kopf, Liste, Karte, Formular/Feld/Knopf, Meldung, Menü, geteilt mit **jeder
-  App** auf dem Gerät. Ein Pfad-Alias und **kein npm-Paket**: die Bibliothek
-  wird mit der Shell übersetzt, steht in keinem Lockfile und hat kein `dist/`,
-  das jemand vergessen könnte. Das Stylesheet kommt in `index.css` als
-  relativer `@import … layer(components)` herein (unlayered CSS gewinnt gegen
-  jede Schicht, auch gegen die Utilities). Siehe
-  `packages/marken/README.md`.
+- `@marken → ../../packages/marken/src` — **das Designsystem**, geteilt mit
+  **jeder App** auf dem Gerät. Seit **H3** zwei Sätze und die Tokens:
+  - die **Primitive** (`src/primitive/`, 26 Stück): Button, Input, Textarea,
+    Label, Select, Checkbox, RadioGroup, Switch, Dialog, AlertDialog, Sheet,
+    Popover, Tooltip, DropdownMenu, ContextMenu, Tabs, Card, Badge, Alert,
+    Toast, Avatar, Separator, Skeleton, Progress, ScrollArea, Breadcrumb. Auf
+    Radix und Tailwind. **Sie sind der einzige Ort dafür** — ein zweiter
+    Button in der Shell ist ein Befund (`scripts/test/bausteine.py`).
+  - die **Bausteine** aus D7 (Kopf, Liste, Karte, Formular/Feld/Knopf,
+    Meldung, Menü): reines CSS, laufen in einer App **ohne** Bau.
+  - `cn()` — er ist mit den Primitiven dorthin gezogen; `@/lib/utils` gibt es
+    nicht mehr.
+  - `theme.css` — die Tokens (`@theme`, `@theme inline`, `:root`,
+    `[data-theme='dark']`). `index.css` holt sie mit einem `@import`
+    **ohne Schicht** (ein `@theme` in `layer(...)` wäre keins) und zeigt
+    Tailwind mit `@source` auf `packages/marken/src`, sonst fände es die
+    Klassen der Primitive nicht.
+
+  Ein Pfad-Alias und **kein npm-Paket**: die Bibliothek wird mit der Shell
+  übersetzt, steht in keinem Lockfile und hat kein `dist/`, das jemand
+  vergessen könnte. `marken.css` kommt in `index.css` als relativer
+  `@import … layer(components)` herein (unlayered CSS gewinnt gegen jede
+  Schicht, auch gegen die Utilities). Siehe `packages/marken/README.md`.
 
 ## Folder convention
 
@@ -92,6 +107,10 @@ src/
                    Liste leer, steht sie **gar nicht** da; ein Leerzustand wäre
                    auf der Übersicht eine Dauermeldung über etwas, das es nicht
                    gibt.
+    entwickler/    Die Schauseite der Bibliothek (H3): `/entwickler/bausteine`,
+                   jedes Primitiv aus `@marken` in allen Zuständen, hell und
+                   dunkel. In **keinem** Menü — sie ist für den, der eine App
+                   baut. Gemessen von `scripts/test/schauseite.mjs`.
     notizen/       Der Zettel der rechten Spalte (D1). Ein Textfeld, speichert
                    nach einer Sekunde Ruhe gegen `PUT /api/notizen`.
     workspace/     Die Shell (ab 900 px Dreispalten-Raster, darunter der
@@ -211,7 +230,12 @@ src/
                    Bausteinen und auf `@marken` auf, statt die Klassenkette
                    erneut zu schreiben; Festlegungen in
                    `docs/development/DESIGN.md`.
-      shadcn/      shadcn/ui primitives (button, input, …) — generated.
+                   Seit H3 gibt es hier KEINE Primitive mehr: `shadcn/` ist
+                   nach `packages/marken/src/primitive/` gezogen, `Checkbox`
+                   mit (jetzt auf Radix). Was blieb, sind die
+                   Zusammensetzungen — `Skeleton.tsx` etwa hält
+                   SkeletonText/Card/List und holt den Platzhalter selbst aus
+                   `@marken`.
     mascot/        Das Maskottchen.
   hooks/           Cross-feature hooks (useApi, useTheme, …). `useTheme` liest
                    seit H1 das Theme des Angemeldeten aus dem `AuthContext`
@@ -219,14 +243,16 @@ src/
                    `PUT /api/darstellung` — nicht mehr in den `localStorage`.
   contexts/        Global state (Auth, Toast, Download, Activation).
   stores/          zustand stores (workspaceStore: Tabs, Sidebar-Ansicht, Spalten).
-  lib/             queryClient, cn() helper.
+  lib/             queryClient. `cn()` steht seit H3 in `@marken` — ein
+                   Primitiv dort darf nicht aus der Shell importieren.
   utils/           Pure utilities (csrf, formatting, token, lazyNachladen —
                    `React.lazy` mit zweitem und drittem Versuch, D6: ein
                    verlorenes `import()` strandete den Menschen sonst auf
                    einer Fehlerseite, obwohl an seinem Gerät nichts ist).
   config/          api.ts (API_BASE, getAuthHeaders).
   types/           Cross-feature TypeScript types.
-  index.css        Tailwind v4 theme + Arasul design tokens (@theme block).
+  index.css        Import der Tokens aus `@marken/theme.css` plus die
+                   Shell-eigenen Regeln (Aliasse, Alpha-Skalen, Komponenten-CSS).
   App.tsx          Router, providers, lazy-loaded route shells. Was VOR der
                    Shell stehen kann, ist seit D4 abschließend: `CreateAdmin`
                    (das Gerät hat noch keinen Administrator) und
@@ -285,9 +311,12 @@ it as part of your task only when it's the file you need to edit.
 
 ### 4. Theming — CSS variables, never hex literals
 
-The whole color system lives in `src/index.css` as Tailwind v4 `@theme`
-tokens (`--color-primary-*`, `--color-bg-*`, `--color-text-*`, …) plus
-shadcn's CSS variables. Always reference via Tailwind utilities
+The whole color system lives in `packages/marken/src/theme.css` as Tailwind
+v4 `@theme` tokens (`--color-primary-*`, `--color-bg-*`, `--color-text-*`, …)
+plus shadcn's CSS variables — seit **H3** dort und nicht mehr in `index.css`,
+weil eine App sie genauso braucht wie die Shell. Was in `index.css` blieb,
+sind die Aliasse darauf, die Alpha-Skalen, Schatten, Verläufe und die
+Syntaxfarben. Always reference via Tailwind utilities
 (`bg-bg-card`, `text-text-primary`, `border-border-subtle`) or
 `var(--…)` in `style={}`. **Never** inline `#1a2330` etc. — that bypasses
 the theme and breaks light-mode / future re-skins.
@@ -302,21 +331,43 @@ dunklen gibt, ist eine, die im hellen fehlt.
 Seit **Phase H2** hat `packages/marken/src/marken.css` dieselbe Form —
 `:root` ist Hell, `[data-theme='dark']` überschreibt —, damit eine App im
 iframe dem Theme folgen kann. Jeder `--ara-*`-Wert dort ist eine **Kopie**
-des Tokens aus `index.css` (`var(--token, <Rückfall>)`), und in der Shell
+des Tokens aus `theme.css` (`var(--token, <Rückfall>)`), und in der Shell
 gewinnt immer der Token: eine veraltete Kopie fällt hier nie auf, sondern
-nur in einer App. Wer einen Token in `index.css` ändert, ändert den
-Rückfall mit — `scripts/test/marken.py` hält beides aneinander.
+nur in einer App ohne Bau. Wer einen Token ändert, ändert den Rückfall mit —
+`scripts/test/marken.py` hält beides aneinander.
 
-### 5. shadcn/ui via `@/components/ui/shadcn/<name>`
+Und seit **H3** gilt dasselbe für die Klassen: **kein Farbliteral in einem
+Primitiv** — weder ein Hex noch ein `rgb()` noch eine Klasse aus Tailwinds
+eingebauter Palette (`bg-black/50`, `text-red-500`). Die Palette folgt keinem
+Thema. Der Schleier unter jedem Dialog ist deshalb ein Token geworden
+(`bg-backdrop`).
 
-Add components with the official CLI (do not paste the code by hand):
+### 5. Primitive kommen aus `@marken` — und **nur** von dort
 
-```bash
-cd apps/dashboard-frontend && npx shadcn@latest add dialog
+```typescript
+import { Button, Dialog, DialogContent, Input, Label } from '@marken';
 ```
 
-`components.json` already pins `style: new-york`, `tsx: true`, `iconLibrary:
-lucide`. App-specific wrappers live in `components/ui/` (one level up).
+Seit **H3** liegen sie in `packages/marken/src/primitive/` und nicht mehr in
+dem Ordner `shadcn`, den es unter `components/ui` bis dahin gab. Wer einen
+Namen, den `@marken` schon ausgibt, in
+der Shell noch einmal erklärt, wird von `scripts/test/bausteine.py` gemeldet:
+zwei Bausteine unter einem Namen sind die Verwechslung selbst.
+
+Ein neues Primitiv:
+
+```bash
+cd apps/dashboard-frontend && npx shadcn@latest add switch
+```
+
+`components.json` zeigt mit `ui: "@marken/primitive"` und
+`css: "../../packages/marken/src/theme.css"` dorthin. Danach: in
+`primitive/index.ts` eintragen, ein Schaustück auf `/entwickler/bausteine`
+(sonst ist `bausteine.py` rot), `src/fassung.ts` heben.
+
+App-spezifische **Zusammensetzungen** — `Modal`, `Section`, `FilterBar`,
+`AuthCard`, `SkeletonList` — bleiben in `components/ui/`. Die Grenze: ein
+Primitiv weiß nichts von Arasul.
 
 ### 6. Code-splitting for non-critical routes
 
@@ -356,7 +407,8 @@ Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via
 
 | You changed…                          | Also update                                                                                                                                                             |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A theme token / new color/radius/font | `docs/development/DESIGN.md`                                                                                                                                            |
+| A theme token / new color/radius/font | `packages/marken/src/theme.css` (dort stehen sie) + `docs/development/DESIGN.md`                                                                                        |
+| Ein neues Primitiv                    | `packages/marken/src/primitive/index.ts` + ein Schaustück auf `/entwickler/bausteine` + `src/fassung.ts` heben                                                          |
 | A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                                                                            |
 | Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                                                                   |
 | Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec + `NUR_ADMIN`, wenn er der Verwaltung gehört) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |
