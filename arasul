@@ -9,6 +9,25 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# shellcheck source=scripts/lib/installation.sh
+source "${SCRIPT_DIR}/scripts/lib/installation.sh"
+
+# Ein Verzeichnis, das sein Geraet abgegeben hat, ist kein Geraet mehr.
+#
+# Nach einer Aktualisierung (`install.sh` im neuen Artefakt) liegen hier nur
+# noch die Programmdateien der alten Fassung -- `.env`, Geheimnisse,
+# Geraete-CA, `data/` und `logs/` sind umgezogen. Ein `docker compose up` von
+# hier aus laesst Docker jede fehlende Bind-Quelle LEER anlegen, waehrend die
+# Datenbank im gemeinsamen Volume weiterlebt: das Geraet stuende ohne Apps,
+# ohne Zertifikat und ohne Sicherungen da. Das ist genau die halbe Migration,
+# gegen die die Uebernahme gebaut ist -- nur von der anderen Seite.
+if [ -f "${SCRIPT_DIR}/${ARASUL_ABGEGEBEN}" ]; then
+    echo "Dieses Verzeichnis ist nicht mehr das Geraet." >&2
+    echo "" >&2
+    sed -n '3,$p' "${SCRIPT_DIR}/${ARASUL_ABGEGEBEN}" >&2
+    exit 1
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -1191,9 +1210,15 @@ run_smoke_tests() {
 # Der Inhalt steht in scripts/util/erstausgabe.sh, an einem Ort und nicht an
 # dreien: dasselbe Skript legt config/secrets/erstausgabe.txt (0600) an.
 show_completion_summary() {
+    local zusatz=()
+    # Eine Aktualisierung hat keine Geheimnisse zu nennen -- sie hat schon
+    # welche. Was sie zu sagen hat, ist die Fassung, und dass die alten
+    # weitergelten. "ist installiert" waere an dieser Stelle schlicht falsch.
+    [ "${AKTUALISIERUNG:-false}" = "true" ] && zusatz+=(--aktualisierung)
     bash "${SCRIPT_DIR}/scripts/util/erstausgabe.sh" \
         --passwort "${STARTPASSWORT:-}" \
-        --schluessel "${KIT_SCHLUESSEL:-}" || true
+        --schluessel "${KIT_SCHLUESSEL:-}" \
+        "${zusatz[@]+"${zusatz[@]}"}" || true
 }
 
 # Remove plaintext ADMIN_PASSWORD from .env after bootstrap
@@ -1442,6 +1467,32 @@ cmd_bootstrap() {
         log_info "Image-Build uebersprungen (--skip-build)"
     fi
 
+    # 9b. Bei einer Aktualisierung: den alten Stapel abschalten, JETZT und
+    # keinen Schritt frueher.
+    #
+    # Bis hierher lief er weiter -- das Bauen der Images ist der lange Teil
+    # (am Orin acht Images in 90 Sekunden), und ein Baufehler nach dem
+    # Abschalten liesse das Geraet unten liegen. Erst wenn die Images stehen,
+    # kostet der Wechsel noch Sekunden.
+    #
+    # `down` und nicht `up --force-recreate`: `docker compose up` legt nur neu
+    # an, was sich geaendert hat. Beim Wechsel von 0.3.0 auf 0.4.0 lief
+    # `docker-proxy` danach als EINZIGER Container mit dem `working_dir` des
+    # alten Verzeichnisses weiter (docs/ops/AUSLIEFERUNG.md, 28.08.2026) --
+    # seine Mounts hatten sich nicht geaendert, also sah compose keinen Grund.
+    # Genau dieses Etikett ist inzwischen die Auskunft darueber, wo das Geraet
+    # steht (`scripts/lib/installation.sh`); ein Container, der auf ein
+    # abgegebenes Verzeichnis zeigt, macht die Auskunft zweideutig.
+    #
+    # Die Volumes bleiben: `down` ohne `-v` fasst sie nicht an. Die Datenbank
+    # dieses Geraets liegt in `arasul-platform_arasul-postgres` und ueberlebt
+    # den Wechsel -- sie ist der Grund, warum es ihn ueberhaupt gibt.
+    if [ "${AKTUALISIERUNG:-false}" = "true" ]; then
+        log_info "Alter Stapel wird abgeschaltet (die neuen Images stehen)..."
+        docker compose down --remove-orphans || \
+            log_warning "down meldete einen Fehler -- up legt gleich trotzdem neu an"
+    fi
+
     # 10. Datenbank initialisieren
     init_database
 
@@ -1477,7 +1528,26 @@ cmd_bootstrap() {
     if [ "$STARTPASSWORT" = "REDACTED_AFTER_BOOTSTRAP" ]; then
         STARTPASSWORT=""
     fi
-    if init_admin_user; then
+    if [ "${AKTUALISIERUNG:-false}" = "true" ] && [ -z "$STARTPASSWORT" ]; then
+        # Beide gehoeren zur ERSTinstallation, und beide waeren hier falsch.
+        # `init_admin_user` liest `ADMIN_PASSWORD` aus der `.env`, wo seit dem
+        # ersten Bootstrap `REDACTED_AFTER_BOOTSTRAP` steht -- es meldete
+        # deshalb bei jedem Update "ADMIN_PASSWORD nicht verfuegbar" als
+        # FEHLER, obwohl der Administrator laengst angelegt ist (am Orin am
+        # 28.08.2026 gesehen, docs/ops/AUSLIEFERUNG.md). Und ein neuer
+        # Kit-Schluessel bei jedem Update waere schlimmer als kein Schluessel:
+        # `kit-schluessel.sh anlegen` entwertet den alten, und das Kit des
+        # Partners stuende ohne Zugang da.
+        #
+        # Die zweite Bedingung ist keine Vorsicht, sondern ein Fall: bricht der
+        # ERSTE Bootstrap ab, bevor der Administrator angelegt ist, steht das
+        # Startpasswort weiter im Klartext in der `.env` -- und dann ist der
+        # zweite Lauf zwar formal eine "Aktualisierung" (es gibt eine `.env`),
+        # hat aber sehr wohl einen Administrator anzulegen. Ein leeres
+        # `STARTPASSWORT` heisst genau: es ist schon geschehen.
+        log_info "Aktualisierung: Administrator und Kit-Schluessel bleiben, wie sie sind"
+        ADMIN_USER_INITIALIZED=1
+    elif init_admin_user; then
         ADMIN_USER_INITIALIZED=1
         # Der Kit-Schluessel gehoert einem Administrator (`kit-schluessel.sh`
         # sucht ihn in `admin_users`), also erst hier und nicht frueher.
@@ -1814,12 +1884,17 @@ case "${1:-help}" in
         SKIP_PULL=false
         SKIP_BUILD=false
         FORCE_SETUP=false
+        # `--aktualisierung`: dieses Geraet gibt es schon. Gesetzt von
+        # `install.sh`, wenn es eine vorhandene Installation uebernommen oder
+        # eine vorhandene `.env` vorgefunden hat.
+        AKTUALISIERUNG=false
         shift
         for arg in "$@"; do
             case "$arg" in
-                --skip-pull)   SKIP_PULL=true ;;
-                --skip-build)  SKIP_BUILD=true ;;
-                --force-setup) FORCE_SETUP=true ;;
+                --skip-pull)      SKIP_PULL=true ;;
+                --skip-build)     SKIP_BUILD=true ;;
+                --force-setup)    FORCE_SETUP=true ;;
+                --aktualisierung) AKTUALISIERUNG=true ;;
             esac
         done
         cmd_bootstrap

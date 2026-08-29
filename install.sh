@@ -28,7 +28,17 @@
 #   ./install.sh --passwort 'Geheim123'       Passwort vorgeben
 #   ./install.sh --name werkstatt             anderer Netzname als `arasul`
 #   ./install.sh --nur-vorbereiten            .env schreiben, Bootstrap NICHT starten
+#   ./install.sh --uebernehmen /pfad/alt      vorhandene Installation von Hand nennen
 #   ./install.sh --hilfe
+#
+# UND ES AKTUALISIERT. Findet dieses Artefakt eine vorhandene Installation in
+# einem ANDEREN Verzeichnis, uebernimmt es sie: der Zustand des Geraets zieht
+# hierher um -- Geheimnisse, Geraete-CA, Datenbankzugang, Apps, Flows,
+# Sicherungen -- und danach ist DIESES Verzeichnis das Geraet. Ohne diesen
+# Schritt erzeugte `interactive_setup.sh` bedingungslos neue Geheimnisse,
+# waehrend der feste Projektname dieselben Volumes uebernahm: alte Datenbank,
+# neues Passwort. Wo das Geraet steht, sagt Docker, nicht eine Annahme --
+# siehe `scripts/lib/installation.sh`.
 #
 # `--nur-vorbereiten` ist fuer die Pruefung da, nicht fuer den Kunden: es
 # durchlaeuft alles, was ohne die Hardware eines Jetson geht -- Fassung,
@@ -46,6 +56,8 @@ cd "$WURZEL"
 
 # shellcheck source=scripts/lib/fassung.sh
 source "${WURZEL}/scripts/lib/fassung.sh"
+# shellcheck source=scripts/lib/installation.sh
+source "${WURZEL}/scripts/lib/installation.sh"
 
 ROT='\033[0;31m'; GRUEN='\033[0;32m'; GELB='\033[1;33m'; BLAU='\033[0;34m'; FETT='\033[1m'; AUS='\033[0m'
 sagen()   { echo -e "${BLAU}[INSTALL]${AUS} $*"; }
@@ -56,14 +68,17 @@ fehler()  { echo -e "${ROT}[INSTALL]${AUS} $*" >&2; }
 PASSWORT="${ADMIN_PASSWORD:-}"
 NETZNAME="${ARASUL_NETZNAME:-arasul}"
 NUR_VORBEREITEN=false
+UEBERNEHMEN="${ARASUL_UEBERNEHMEN:-}"
+AKTUALISIERUNG=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --passwort) PASSWORT="$2"; shift 2 ;;
     --name)     NETZNAME="$2"; shift 2 ;;
     --nur-vorbereiten) NUR_VORBEREITEN=true; shift ;;
+    --uebernehmen) UEBERNEHMEN="$2"; shift 2 ;;
     --hilfe|-h)
-      sed -n '2,42p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,52p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) fehler "Unbekannte Option: $1"; exit 2 ;;
@@ -114,9 +129,121 @@ fi
 gut "Docker ist da und antwortet"
 
 # -----------------------------------------------------------------------------
+# 2a. Gibt es dieses Geraet schon?
+# -----------------------------------------------------------------------------
+# Der Schritt, der aus einer Installation eine Aktualisierung macht. Er steht
+# VOR der `.env`, denn genau dort lag der Schaden: ohne `.env` erzeugte
+# `interactive_setup.sh` bedingungslos neue Geheimnisse, waehrend der feste
+# Projektname (`arasul-platform`) dieselben Volumes uebernahm. Alte Datenbank,
+# neues Passwort -- und Postgres beachtet `POSTGRES_PASSWORD` nur beim ersten
+# Anlegen, das Backend kaeme an seine eigene Datenbank nie mehr heran.
+#
+# Wo das Geraet steht, sagt Docker (`scripts/lib/installation.sh`). Geraten
+# wird hier nichts mehr.
+GERAET_HIER=false
+if [ -f "${WURZEL}/.env" ]; then GERAET_HIER=true; fi
+
+if [ -n "$UEBERNEHMEN" ]; then
+  ALT="$(cd "$UEBERNEHMEN" 2>/dev/null && pwd || true)"
+  if [ -z "$ALT" ]; then
+    fehler "--uebernehmen ${UEBERNEHMEN}: dieses Verzeichnis gibt es nicht."
+    exit 1
+  fi
+else
+  ALT="$(installation_finden)"
+fi
+
+# Ein Verzeichnis, das seinen Zustand schon abgegeben hat, ist kein Geraet
+# mehr -- auch wenn Docker es noch nennt. Genau dieser Fall tritt bei einem
+# zweiten Anlauf ein: die Uebernahme ist durch, die alten Container laufen
+# aber noch aus dem alten Ordner, weil der Bootstrap noch nicht so weit war.
+if [ -n "$ALT" ] && [ "$ALT" != "$WURZEL" ] && [ -f "${ALT}/${ARASUL_ABGEGEBEN}" ]; then
+  sagen "${ALT} hat sein Geraet bereits hierher abgegeben."
+  AKTUALISIERUNG=true
+  ALT=""
+fi
+
+if [ -n "$ALT" ] && [ "$ALT" != "$WURZEL" ]; then
+  # Zwei Zuhause. Hier liegt eine `.env`, und anderswo laeuft ein Geraet -- es
+  # gibt also zwei Verzeichnisse, die beide "das Geraet" sein koennten. Welches
+  # es ist, weiss nur ein Mensch, und ein Umzug in dieser Lage wuerde die
+  # Geheimnisse zweier Geraete vermengen.
+  if [ "$GERAET_HIER" = true ]; then
+    echo ""
+    fehler "Hier liegt schon eine .env, und ein Geraet laeuft aus ${ALT}."
+    fehler "  Zwei Verzeichnisse, die beide das Geraet sein koennten -- das"
+    fehler "  entscheidet ein Mensch, nicht der Installer."
+    fehler "  Ist ${WURZEL} das Geraet, dann halte den alten Stapel an:"
+    fehler "    cd ${ALT} && docker compose down"
+    fehler "  Ist es ${ALT}, dann installiere dort weiter."
+    exit 1
+  fi
+
+  AKTUALISIERUNG=true
+  echo ""
+  sagen "Dieses Geraet gibt es schon: ${ALT}"
+  sagen "Sein Zustand zieht hierher um. Danach ist ${WURZEL} das Geraet."
+
+  # Der Umzug ist ein `rename` und kostet nichts, auch bei Modellen von
+  # zweistelligen Gigabytes. Die Bind-Mounts der LAUFENDEN Container haengen am
+  # Inode, nicht am Namen -- der alte Stapel laeuft waehrenddessen unbeirrt
+  # weiter und wird erst abgeschaltet, wenn die neuen Images gebaut sind
+  # (`./arasul bootstrap --aktualisierung`).
+  if ! UMZUG="$(zustand_umziehen "$ALT" "$WURZEL")"; then
+    fehler "Die Uebernahme ist nicht durchgelaufen. Beide Verzeichnisse ansehen:"
+    fehler "  ${ALT}"
+    fehler "  ${WURZEL}"
+    exit 1
+  fi
+
+  # Die Rechte des Ordners kommen vom ARTEFAKT, nicht vom Geraet: beim
+  # eintragsweisen Umzug bleibt das Zielverzeichnis stehen, und mit ihm seine
+  # Rechte. `config/secrets/` ist der einzige Pfad dieser Liste, den das
+  # Artefakt ueberhaupt mitbringt (wegen `README.md` und `.example/`) -- er kam
+  # mit 755 aus dem Tar, waehrend er am alten Geraet 700 war. Ohne diese Zeile
+  # waere ein Update eine stille Lockerung: die Geheimnisse des Geraets lesbar
+  # fuer jeden, der auf dem Jetson ein Konto hat. Gemessen am 29.08.2026.
+  chmod 700 "${WURZEL}/config/secrets" 2>/dev/null || true
+
+  abgabe_vermerken "$ALT" "$WURZEL"
+  gut "${UMZUG%% *} Zustandspfade uebernommen (Geheimnisse, Geraete-CA, Daten, Protokolle)"
+  if [ "${UMZUG##* }" != "0" ]; then
+    sagen "${UMZUG##* } Dateien lagen in beiden Ordnern und stammen aus dem Artefakt"
+    sagen "  (z. B. config/secrets/README.md) -- es gilt die neue Fassung."
+  fi
+  if [ -f "${WURZEL}/.env" ]; then GERAET_HIER=true; fi
+elif [ -n "$ALT" ]; then
+  sagen "Dieses Verzeichnis ist die Installation dieses Geraets."
+fi
+
+# Zustand ohne Zuhause. Es gibt Volumes dieses Projekts -- also eine Datenbank,
+# die einem Geraet gehoert --, aber weder hier noch anderswo eine Installation,
+# die dazu passt. Frueher lief der Installer hier weiter und erzeugte frische
+# Geheimnisse fuer eine fremde Datenbank. Jetzt haelt er an: eine Installation,
+# die Daten unbrauchbar macht, ist schlimmer als eine, die nicht stattfindet.
+if [ "$GERAET_HIER" = false ] && zustand_vorhanden; then
+  echo ""
+  fehler "Auf diesem Rechner liegen schon Daten des Projekts ${ARASUL_PROJEKT}:"
+  docker volume ls --filter "name=^${ARASUL_PROJEKT}_" --format '    {{.Name}}' 2>/dev/null || true
+  fehler "  Wo das zugehoerige Verzeichnis steht, ist nicht zu ermitteln (kein"
+  fehler "  Container dieses Projekts, kein Zeiger unter ${ARASUL_ZEIGER})."
+  fehler ""
+  fehler "  Wuerde hier weiter installiert, entstuenden neue Geheimnisse fuer eine"
+  fehler "  alte Datenbank -- Postgres beachtet ein neues Passwort nicht, und das"
+  fehler "  Geraet kaeme an seine eigenen Daten nicht mehr heran."
+  fehler ""
+  fehler "  Das Verzeichnis von Hand nennen:   ./install.sh --uebernehmen /pfad/zur/alten"
+  fehler "  Oder das Geraet wirklich leeren:   sudo bash scripts/setup/factory-reset.sh"
+  exit 1
+fi
+
+# -----------------------------------------------------------------------------
 # 3. Konfiguration (.env)
 # -----------------------------------------------------------------------------
-if [ -f "${WURZEL}/.env" ]; then
+# `GERAET_HIER` und nicht die Datei selbst: nach einer Uebernahme LIEGT die
+# `.env` hier, und sie ist die alte. Sie bleibt es auch.
+if [ "$GERAET_HIER" = true ]; then
+  AKTUALISIERUNG=true
   sagen ".env ist schon da, sie bleibt unveraendert (bis auf Fassung und Netzname)"
 else
   if [ -z "$PASSWORT" ]; then
@@ -141,6 +268,14 @@ env_setzen "${WURZEL}/.env" SYSTEM_VERSION "$FASSUNG"
 env_setzen "${WURZEL}/.env" BUILD_HASH "${HASH:-unbekannt}"
 env_setzen "${WURZEL}/.env" MDNS_NAME "$NETZNAME"
 gut "Fassung ${FASSUNG} steht in der .env"
+
+# Der Zeiger auf dieses Verzeichnis. Er ist die zweite Quelle fuer die Frage
+# "wo steht dieses Geraet" -- die erste ist Docker, und die schweigt, solange
+# kein Container laeuft (frisch heruntergefahren, gleich nach dem Werksreset,
+# eine Pruefung ohne Stapel). Geschrieben wird er JETZT und nicht am Ende:
+# bricht der Bootstrap gleich darauf ab, ist das naechste Artefakt trotzdem in
+# der Lage, dieses Verzeichnis zu finden, statt daneben neu zu installieren.
+installation_merken "$WURZEL"
 
 # -----------------------------------------------------------------------------
 # 4. Netzname
@@ -175,7 +310,11 @@ fi
 if [ "$NUR_VORBEREITEN" = true ]; then
   echo ""
   gut "Vorbereitet. Der Bootstrap ist auf Wunsch ausgelassen (--nur-vorbereiten)."
-  echo "  Weiter ginge es mit: ./arasul bootstrap"
+  if [ "$AKTUALISIERUNG" = true ]; then
+    echo "  Weiter ginge es mit: ./arasul bootstrap --aktualisierung"
+  else
+    echo "  Weiter ginge es mit: ./arasul bootstrap"
+  fi
   echo ""
   exit 0
 fi
@@ -193,6 +332,12 @@ fi
 # Erstausgabe -- Startpasswort und Kit-Schluessel --, und was danach noch auf
 # den Bildschirm laeuft, schiebt genau die beiden Zeilen nach oben, die der
 # Mensch abschreiben soll.
+#
+# Bei einer Aktualisierung ist dieser Schritt nicht Beiwerk, sondern der, der
+# die Unit vom alten auf das neue Verzeichnis umhaengt: sie traegt
+# `WorkingDirectory=<Fassungsordner>`, und wer sie vergisst, hat nach dem
+# naechsten Stromausfall wieder den alten Stand. Ueberschrieben wird dieselbe
+# Datei, also gibt es die alte danach nicht mehr.
 if command -v systemctl >/dev/null 2>&1; then
   UNIT_QUELLE="${WURZEL}/packaging/arasul-platform/etc/systemd/system/arasul-platform.service"
   if [ -f "$UNIT_QUELLE" ]; then
@@ -220,6 +365,13 @@ fi
 # (scripts/util/erstausgabe.sh). Sie stand hier bis zum 28.08.2026 ein zweites
 # Mal -- an zwei Orten, von denen der eine bei rotem Rauchtest gar nicht erst
 # erreicht wurde. Jetzt sagt sie der Bootstrap, und nur der.
+if [ "$AKTUALISIERUNG" = true ]; then
+  sagen "Aktualisierung laeuft. Die Images werden hier gebaut, WAEHREND der alte"
+  sagen "Stapel noch laeuft; abgeschaltet wird erst danach."
+  echo ""
+  exec bash "${WURZEL}/arasul" bootstrap --aktualisierung
+fi
+
 sagen "Bootstrap laeuft. Das dauert, weil die Images am Geraet gebaut werden."
 echo ""
 exec bash "${WURZEL}/arasul" bootstrap

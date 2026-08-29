@@ -31,7 +31,8 @@ push auf main  ──►  .github/workflows/deploy.yml  (runs-on: self-hosted, j
 │
 ▼  Jetson (self-hosted Runner, User arasul)
 scripts/deploy/deploy-local.sh
-├─ git reset --hard <sha>  (im kanonischen ~/arasul/arasul-jet, .env/data intakt)
+├─ die Installation finden (Docker-Etikett, scripts/lib/installation.sh)
+├─ git reset --hard <sha>  (dort; .env/config/data sind unversioniert und bleiben)
 ├─ SYSTEM_VERSION/BUILD_HASH in .env stempeln (scripts/lib/fassung.sh)
 ├─ nur GEÄNDERTE Services ermitteln (git diff)
 ├─ DB-Dump vor Backend-/Migrations-Änderung  → ~/db-backups/
@@ -52,7 +53,7 @@ scripts/deploy/deploy-local.sh
 | Entscheidung                                            | Grund                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Self-hosted Runner auf dem Jetson**                   | Die Box hängt hinter Heim-NAT — kein eingehender Port. Der Runner baut eine ausgehende Verbindung zu GitHub auf und führt den Deploy lokal aus. Deploy-Logs sichtbar im **Actions**-Tab.                                                                                                                                                                |
-| **Deploy aus `~/arasul/arasul-jet`, nicht aus `_work`** | `.env`, `config/`, `data/` und alle Bind-Mounts hängen an diesem Pfad. Ein Build aus dem Runner-`_work`-Checkout würde auf leere Volumes zeigen. Der Runner-Checkout liefert nur das aktuelle Deploy-**Skript**; gebaut wird im kanonischen Verzeichnis.                                                                                                |
+| **Deploy dorthin, wo der Stapel wirklich läuft** | `.env`, `config/`, `data/` und alle Bind-Mounts hängen an einem Pfad, und der Runner-`_work`-Checkout ist nicht dieser Pfad — er liefert nur das aktuelle Deploy-**Skript**. Bis zum 29.08.2026 stand der Zielpfad fest im Workflow (`~/arasul/arasul-jet`). Seit der Orin über das Ara-Kit installiert wurde, lief der Stapel aber aus `/home/arasul/arasul-<Fassung>`: der Deploy arbeitete in einem Verzeichnis ohne Geheimnisse und war rot (Lauf 33221221851), ohne dass sich eine Zeile geändert hätte. Gefragt wird deshalb Docker (`com.docker.compose.project.working_dir`, `scripts/lib/installation.sh`); findet sich keine Installation, ist der Deploy **rot** und fasst nichts an. Ein aus dem Artefakt installiertes Gerät hat kein `.git` — der Deploy legt es an und baut beim ersten Mal alle Dienste, weil `PREV..NEW` dort die falsche Frage wäre. Siehe [ops/AUSLIEFERUNG.md](ops/AUSLIEFERUNG.md). |
 | **Nur geänderte Services rebuilden**                    | `docker compose build <svc>` statt ganzem Stack — kein unnötiger Downtime, warmer Build-Cache. Andere Stacks (`flow-*`, `livia-*`, `jarvis-*`) bleiben unberührt (`-p arasul-platform`-Scoping).                                                                                                                                                        |
 | **CI-Gate „CI Summary"**                                | Aggregiert Backend-Tests + Docker-Build-Smoke. Nur bei grün merged GitHub automatisch. Frontend-Lint/Tests sind bewusst non-blocking (Backlog).                                                                                                                                                                                                         |
 | **Auto-Rollback**                                       | Deploy = Rebuild auf der Live-Appliance. Healthcheck + Image-Rücktaggen + `git reset` stellen bei jedem Fehlschlag den Vorzustand her.                                                                                                                                                                                                                  |
@@ -81,8 +82,12 @@ scripts/deploy/deploy-local.sh
   gebaute Services bzw. Rollback-Grund.
 - **Runner-Status auf der Box:**
   `systemctl status 'actions.runner.*'` · Logs: `journalctl -u 'actions.runner.*' -f`
-- **Manueller Deploy (Notfall):** auf der Box
-  `cd ~/arasul/arasul-jet && GITHUB_WORKSPACE=$PWD GITHUB_SHA=$(git rev-parse origin/main) bash scripts/deploy/deploy-local.sh`
+- **Wo steht das Gerät?** `docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' $(docker ps -q --filter label=com.docker.compose.project=arasul-platform) | sort -u`
+  — genau das fragt der Deploy. Mehr als eine Zeile heißt: ein Container läuft
+  noch aus einem alten Verzeichnis.
+- **Manueller Deploy (Notfall):** auf der Box, im Deploy-Verzeichnis
+  `GITHUB_WORKSPACE=$PWD GITHUB_SHA=$(git rev-parse origin/main) bash scripts/deploy/deploy-local.sh`
+  (`DEPLOY_DIR=/pfad` davor, wenn es von Hand gesagt werden soll)
 - **Rollback war nötig?** Der Deploy-Job ist rot, der Stand wurde automatisch
   auf den vorherigen Commit + Images zurückgesetzt. DB-Dump liegt in
   `~/db-backups/pre-deploy_*.sql`.

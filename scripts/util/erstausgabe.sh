@@ -30,6 +30,7 @@
 #
 #   bash scripts/util/erstausgabe.sh --passwort 'Ara...9' --schluessel aras_...
 #   bash scripts/util/erstausgabe.sh --datei /tmp/probe.txt --nur-datei
+#   bash scripts/util/erstausgabe.sh --aktualisierung
 #
 # Ohne Geheimnis wird KEINE Datei geschrieben und eine vorhandene nicht
 # angefasst: ein zweiter Bootstrap-Lauf auf demselben Geraet kennt das
@@ -49,6 +50,11 @@ PASSWORT=""
 SCHLUESSEL=""
 DATEI="config/secrets/erstausgabe.txt"
 NUR_DATEI=false
+# Eine Aktualisierung hat keine Geheimnisse zu nennen -- sie hat schon welche.
+# "ARASUL 0.5.0 ist installiert" waere dort eine falsche Auskunft: es ist
+# dasselbe Geraet mit derselben CA, demselben Administrator und demselben
+# Kit-Schluessel, nur mit neuer Fassung.
+AKTUALISIERUNG=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -56,7 +62,8 @@ while [ $# -gt 0 ]; do
     --schluessel) SCHLUESSEL="${2:-}"; shift 2 ;;
     --datei)      DATEI="${2:-}"; shift 2 ;;
     --nur-datei)  NUR_DATEI=true; shift ;;
-    --hilfe|-h)   sed -n '2,38p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --aktualisierung) AKTUALISIERUNG=true; shift ;;
+    --hilfe|-h)   sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unbekannte Option: $1" >&2; exit 2 ;;
   esac
 done
@@ -91,7 +98,11 @@ TAILNETZ="$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | 
 if [ "$NUR_DATEI" = false ]; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo -e "${GRUEN}  ARASUL ${FASSUNG:-Vorserie} ist installiert${AUS}"
+  if [ "$AKTUALISIERUNG" = true ]; then
+    echo -e "${GRUEN}  ARASUL laeuft jetzt als ${FASSUNG:-Vorserie}${AUS}"
+  else
+    echo -e "${GRUEN}  ARASUL ${FASSUNG:-Vorserie} ist installiert${AUS}"
+  fi
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   # Der nackte Name zuerst: den lernt der Router ueber den DHCP-Hostnamen, und
@@ -104,6 +115,8 @@ if [ "$NUR_DATEI" = false ]; then
   if [ -n "$PASSWORT" ]; then
     echo -e "  ${FETT}Startpasswort ${PASSWORT}${AUS}"
     echo "                Beim ersten Anmelden wird es gewechselt."
+  elif [ "$AKTUALISIERUNG" = true ]; then
+    echo "  Passwort      unveraendert (auch CA, Kit-Schluessel und Daten)"
   else
     echo "  Passwort      wie beim Einrichten vergeben"
   fi
@@ -115,11 +128,13 @@ if [ "$NUR_DATEI" = false ]; then
     echo "                bash scripts/util/kit-schluessel.sh anlegen"
   fi
   echo ""
-  echo "  Der Browser warnt beim ersten Aufruf vor dem Zertifikat. Das hoert"
-  echo "  auf, sobald das CA-Zertifikat dieses Geraets verteilt ist:"
-  echo "  Einstellungen > Sicherheit > Geraetezertifikat."
-  echo "  Anleitung: docs/ops/NETZNAME_UND_ZERTIFIKAT.md"
-  echo ""
+  if [ "$AKTUALISIERUNG" = false ]; then
+    echo "  Der Browser warnt beim ersten Aufruf vor dem Zertifikat. Das hoert"
+    echo "  auf, sobald das CA-Zertifikat dieses Geraets verteilt ist:"
+    echo "  Einstellungen > Sicherheit > Geraetezertifikat."
+    echo "  Anleitung: docs/ops/NETZNAME_UND_ZERTIFIKAT.md"
+    echo ""
+  fi
   echo "  Befehle: ./arasul status | logs | stop | restart"
   echo ""
 fi

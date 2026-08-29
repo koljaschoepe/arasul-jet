@@ -18,6 +18,29 @@
 
 set -euo pipefail
 
+# Resolve compose directory. Ganz oben, VOR jedem Seiteneffekt: der Riegel
+# gleich darunter muss greifen, bevor dieses Skript irgendetwas anlegt.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Ein Verzeichnis, das sein Geraet abgegeben hat, faehrt hier nichts hoch.
+#
+# Dieses Skript ist der `ExecStart` von `arasul-platform.service`, und die Unit
+# traegt `WorkingDirectory=<Fassungsordner>`. Nach einer Aktualisierung schreibt
+# `install.sh` sie auf das neue Verzeichnis um -- bricht es aber vorher ab, zeigt
+# eine STEHENGEBLIEBENE Unit weiter auf den alten Ordner, und der naechste
+# Stromausfall faehrt von dort hoch. Docker legt dann jede fehlende Bind-Quelle
+# LEER an, waehrend die Datenbank im gemeinsamen Volume weiterlebt: das Geraet
+# stuende ohne Apps, ohne Zertifikat und ohne Sicherungen da. Derselbe Riegel
+# steht in `arasul`.
+# shellcheck source=../lib/installation.sh
+source "${SCRIPT_DIR}/../lib/installation.sh"
+if [ -f "${PROJECT_DIR}/${ARASUL_ABGEGEBEN}" ]; then
+    echo "Dieses Verzeichnis ist nicht mehr das Geraet, es wird hier nichts gestartet." >&2
+    sed -n '3,$p' "${PROJECT_DIR}/${ARASUL_ABGEGEBEN}" >&2
+    exit 1
+fi
+
 # Configuration
 COMPOSE_PROJECT="arasul-platform"
 PHASE_TIMEOUT=${PHASE_TIMEOUT:-300}       # 5 min per phase
@@ -42,9 +65,6 @@ PHASE2_SERVICES="llm-service embedding-service"
 PHASE3_SERVICES="dashboard-backend dashboard-frontend reverse-proxy"
 PHASE4_SERVICES="metrics-collector self-healing-agent backup-service document-indexer"
 
-# Resolve compose directory
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 log() {
     local level="$1"
