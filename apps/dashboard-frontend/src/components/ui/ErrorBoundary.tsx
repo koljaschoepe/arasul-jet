@@ -1,5 +1,5 @@
 import React, { type ErrorInfo, type ReactNode } from 'react';
-import { Button } from '@marken';
+import { Button, Kopf } from '@marken';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -98,14 +98,22 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           className="error-boundary min-h-screen flex items-center justify-center bg-background p-8"
           role="alert"
         >
-          <div className="error-boundary-content max-w-150 w-full bg-card border border-border rounded-lg px-8 py-12 text-center">
-            <div className="error-icon text-6xl mb-6">⚠️</div>
-            <h1 className="text-destructive mb-4 text-3xl font-bold">
-              {this.props.title || 'Etwas ist schiefgelaufen'}
-            </h1>
-            <p className="error-message text-muted-foreground mb-8 leading-relaxed">
-              {this.props.message || 'Die Anwendung ist auf einen unerwarteten Fehler gestoßen.'}
-            </p>
+          <div className="error-boundary-content max-w-150 w-full rounded-lg border border-border bg-card px-8 py-12 text-center">
+            {/* SEIT H5 DER `Kopf` AUS DER BIBLIOTHEK, mittig — bis dahin ein
+                handgeschriebenes `h1`, das `bausteine.py` erst sah, als der
+                Ausnahmeordner `components/ui/` fiel. Der Titel steht nicht
+                mehr in `text-destructive`: dieser Bildschirm IST die
+                Fehlermeldung, und eine rote Überschrift darin ist eine
+                Farbe, die nichts mehr unterscheidet. Das Warnzeichen darüber
+                sagt es schon. */}
+            <div className="error-icon mb-6 text-6xl">⚠️</div>
+            <Kopf
+              titel={this.props.title || 'Etwas ist schiefgelaufen'}
+              beschreibung={
+                this.props.message || 'Die Anwendung ist auf einen unerwarteten Fehler gestoßen.'
+              }
+              mittig
+            />
 
             {(isDevelopment || this.props.showDetails) && this.state.error && (
               <details className="error-details my-8 text-left bg-background border border-border rounded-md p-4">

@@ -35,14 +35,22 @@ describe('AuthCard', () => {
     expect(container.querySelector('svg, img')).not.toBeNull();
   });
 
-  // C1-Merkposten: der Titel ist die Wortmarke, keine Seitenueberschrift, und
-  // folgt trotzdem der Groesse aus dem Design-System statt eigener Sonderwerte.
-  test('Titel traegt die Groesse des Design-Systems, ohne Breakpoint-Ausnahmen', () => {
+  // C1-Merkposten, in H5 nachgezogen: der Titel ist die Wortmarke, keine
+  // Seitenueberschrift, und folgt trotzdem der Groesse aus dem Design-System
+  // statt eigener Sonderwerte. Seit H5 kommt er aus `Kopf` (`@marken`,
+  // mittig) -- die Groesse steht damit in `marken.css` (`--ara-groesse-titel`)
+  // und nicht mehr in einer Klassenkette hier. Geprueft wird, dass es GENAU
+  // EIN `h1` gibt, dass es der Baustein ist und dass keine
+  // Breakpoint-Ausnahme daran haengt.
+  test('Titel kommt aus dem Baustein, ohne Breakpoint-Ausnahmen', () => {
     const { container } = render(<AuthCard title="Arasul">Formular</AuthCard>);
-    const h1 = container.querySelector('h1');
+    const ueberschriften = container.querySelectorAll('h1');
 
-    expect(h1?.className).toContain('text-2xl');
+    expect(ueberschriften).toHaveLength(1);
+    const h1 = ueberschriften[0];
+    expect(h1?.className).toContain('ara-kopf__titel');
     expect(h1?.className).not.toMatch(/min-\[|max-\[/);
+    expect(h1?.closest('.ara-kopf')).toHaveAttribute('data-mittig', 'true');
   });
 });
 

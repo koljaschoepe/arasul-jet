@@ -110,14 +110,14 @@ export function TabBar() {
                 }}
                 className={`group relative flex h-7 max-w-44 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-md px-2.5 text-ui-sm select-none ${
                   isActive
-                    ? 'bg-background font-medium text-foreground'
-                    : 'text-muted-foreground/70 hover:bg-card/50 hover:text-foreground'
+                    ? 'font-semibold text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
                 {istDropZiel && (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
+                    className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-foreground"
                   />
                 )}
                 <span className="truncate">{tab.title}</span>

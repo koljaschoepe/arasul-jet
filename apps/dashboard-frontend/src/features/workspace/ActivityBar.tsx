@@ -14,6 +14,21 @@ interface ActivityButtonProps {
 /**
  * Icon-Button der Activity-Bar (~36px, Cursor-/VS-Code-Maß). Reiner
  * Darstellungs-Baustein — Zustand und Verhalten liegen in der ActivityBar.
+ *
+ * DER AKTIVE KNOPF TRÄGT EINE LINIE, KEINE FLÄCHE (H5). Bis dahin war er
+ * `bg-accent` — dieselbe Fläche, die jeder Knopf der Leiste beim Überfahren
+ * bekommt. „Hier bist du" und „hier ist gerade die Maus" sahen damit gleich
+ * aus, und wer die Maus stehen ließ, sah zwei aktive Knöpfe. Eine Linie am
+ * linken Rand kann nur eines von beidem bedeuten. Die Schriftstärke, die
+ * anderswo diese Aufgabe hat, gibt es hier nicht: der Knopf trägt keine
+ * Schrift, nur ein Symbol — und ein Symbol wird nicht fett, es wird kräftig
+ * (`text-foreground` gegen `text-muted-foreground`).
+ *
+ * Die Linie liegt INNERHALB des Knopfes (`before:left-0`) und nicht am Rand
+ * der Leiste daneben. Ein absolut gesetztes Kind, das aus seinem Kasten
+ * herausragt, zählt zur Rollbreite des Dokuments — das ist der Fund der
+ * G1-Abnahme, der in G2 zur Regel wurde, und die Oberflächen-Reihe fragt
+ * jede Zelle danach.
  */
 function ActivityButton({ label, onClick, active, children }: ActivityButtonProps) {
   return (
@@ -23,10 +38,10 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
       aria-label={label}
       aria-pressed={active}
       onClick={onClick}
-      className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
+      className={`relative flex h-9 w-9 items-center justify-center rounded-md transition-colors before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-0.5 before:rounded-full before:content-[''] ${
         active
-          ? 'bg-accent text-foreground'
-          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          ? 'text-foreground before:bg-foreground'
+          : 'text-muted-foreground before:bg-transparent hover:bg-accent hover:text-foreground'
       }`}
     >
       {children}

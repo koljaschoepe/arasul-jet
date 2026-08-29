@@ -89,7 +89,7 @@ export function ModellZeile({
           {istStandard && (
             <span
               data-testid={`standard-${modell.id}`}
-              className="rounded bg-primary/10 px-1.5 py-0.5 text-ui-xs font-medium text-primary"
+              className="rounded border border-border px-1.5 py-0.5 text-ui-xs font-medium text-foreground"
             >
               Standard
             </span>

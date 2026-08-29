@@ -315,7 +315,10 @@ describe('PasswordManagement Component', () => {
 
       await user.type(screen.getByPlaceholderText(NEW_PLACEHOLDER), 'TestPass123!');
 
-      const validItems = container.querySelectorAll('li.text-primary');
+      // Seit H5 ist eine erfuellte Anforderung GRUEN und nicht mehr im
+      // Akzent: der Akzent ist die Farbe der Primaeraktion, „erfuellt" ist
+      // ein Zustand.
+      const validItems = container.querySelectorAll('li.text-success');
       expect(validItems.length).toBeGreaterThan(0);
     });
 

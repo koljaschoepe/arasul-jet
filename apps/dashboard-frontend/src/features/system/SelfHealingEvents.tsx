@@ -216,7 +216,7 @@ const SelfHealingEvents = () => {
           <span className="text-muted-foreground ml-1.5">Gesamt</span>
         </div>
         <div>
-          <span className="text-lg font-bold text-primary">{stats.INFO}</span>
+          <span className="text-lg font-bold text-foreground">{stats.INFO}</span>
           <span className="text-muted-foreground ml-1.5">Info</span>
         </div>
         <div>
@@ -306,7 +306,7 @@ const SelfHealingEvents = () => {
                           <div
                             className={cn(
                               'shrink-0 text-muted-foreground',
-                              event.severity === 'INFO' && 'text-primary',
+                              event.severity === 'INFO' && 'text-muted-foreground',
                               event.severity === 'CRITICAL' && 'text-foreground'
                             )}
                           >
@@ -321,7 +321,7 @@ const SelfHealingEvents = () => {
                           <span
                             className={cn(
                               'text-xs font-medium shrink-0',
-                              event.severity === 'INFO' && 'text-primary',
+                              event.severity === 'INFO' && 'text-muted-foreground',
                               event.severity === 'WARNING' && 'text-muted-foreground',
                               event.severity === 'CRITICAL' && 'text-foreground'
                             )}

@@ -160,7 +160,7 @@ export function Werksreset() {
     <div className="max-w-3xl">
       <Kopf
         titel="Werksreset"
-        symbol={<RotateCcw className="text-primary" />}
+        symbol={<RotateCcw />}
         beschreibung="Setzt das Gerät zurück. Es gibt kein Rückgängig. Was hier verschwindet, ist nur noch in einer Sicherung vorhanden."
       />
 
@@ -180,7 +180,7 @@ export function Werksreset() {
               className={cn(
                 'text-left rounded-lg border p-4 transition-colors',
                 stufe === eintrag.id
-                  ? 'border-primary bg-primary/5'
+                  ? 'border-foreground font-medium'
                   : 'border-border hover:border-muted-foreground/40'
               )}
             >

@@ -40,9 +40,9 @@ interface Service {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
-  healthy: { label: 'Aktiv', dot: 'bg-primary' },
-  starting: { label: 'Startet...', dot: 'bg-primary animate-pulse' },
-  restarting: { label: 'Neustart...', dot: 'bg-primary animate-pulse' },
+  healthy: { label: 'Aktiv', dot: 'bg-success' },
+  starting: { label: 'Startet...', dot: 'bg-muted-foreground animate-pulse' },
+  restarting: { label: 'Neustart...', dot: 'bg-muted-foreground animate-pulse' },
   failed: { label: 'Fehler', dot: 'bg-foreground/40' },
   unhealthy: { label: 'Fehler', dot: 'bg-foreground/40' },
   exited: { label: 'Beendet', dot: 'bg-foreground/40' },

@@ -1,11 +1,20 @@
 import type { ReactNode } from 'react';
-import { Card, CardContent, CardFooter, CardHeader, cn } from '@marken';
+import {
+  Alert,
+  AlertDescription,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  cn,
+  Kopf,
+} from '@marken';
 import { Mascot } from '@/components/mascot/Mascot';
 import { PLATFORM_NAME } from '@/config/branding';
 
 interface AuthCardProps {
-  /** Ueberschrift der Seite. */
-  title: ReactNode;
+  /** Ueberschrift der Seite. Ein String, denn sie ist das `h1` von `Kopf`. */
+  title: string;
   /** Eine Zeile darunter, was diese Seite tut. */
   description?: ReactNode;
   /** Maskottchen ueber der Ueberschrift. */
@@ -48,7 +57,7 @@ export function AuthCard({
           className
         )}
       >
-        <CardHeader className="mb-6 gap-0 p-0 text-center">
+        <CardHeader className="gap-0 p-0 text-center">
           {mascot && (
             <Mascot
               state="idle"
@@ -56,8 +65,11 @@ export function AuthCard({
               className="mx-auto mb-3 h-12 w-12 drop-shadow-sm"
             />
           )}
-          <h1 className="text-2xl font-bold leading-tight text-primary">{title}</h1>
-          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+          {/* SEIT H5 DER `Kopf` AUS DER BIBLIOTHEK, mittig. Bis dahin standen
+              hier ein eigenes `h1` und ein eigener Satz darunter — dieselbe
+              Sache wie der Seitenkopf, nur zentriert, und damit der zweite
+              Seitenkopf, gegen den D7 den ersten abgeschafft hat. */}
+          <Kopf titel={title} beschreibung={description} mittig />
         </CardHeader>
 
         <CardContent className="p-0">{children}</CardContent>
@@ -75,16 +87,19 @@ export function AuthCard({
 /**
  * Fehlerkasten ueber dem Formular. Die Kennung bleibt beim Aufrufer, damit sie
  * dort steht, wo das Feld sie ueber `aria-describedby` anzieht.
+ *
+ * SEIT H5 EIN `Alert` AUS DER BIBLIOTHEK. Die Klassenkette hier war eine
+ * zweite Antwort auf dieselbe Frage -- wie sieht eine Fehlermeldung aus --,
+ * und sie stand neben einem Primitiv, das genau das kann. `role="alert"`
+ * bleibt: die Meldung erscheint, waehrend der Mensch schon liest, und die
+ * soll ihn unterbrechen. Der Rand darunter (`mb-4`) gehoert dem Abstand zum
+ * Formular und nicht dem Kasten.
  */
 export function AuthError({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <div
-      id={id}
-      role="alert"
-      className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-    >
-      {children}
-    </div>
+    <Alert id={id} role="alert" variant="destructive" className="mb-4">
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
   );
 }
 

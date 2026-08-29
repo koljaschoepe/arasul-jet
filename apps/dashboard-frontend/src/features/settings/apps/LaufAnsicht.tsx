@@ -28,7 +28,7 @@ export function LaufZustand({ status }: { status: string }) {
     status === 'fertig'
       ? 'bg-success/15 text-success'
       : status === 'wartend' || status === 'laeuft'
-        ? 'bg-primary/15 text-primary'
+        ? 'border border-border text-muted-foreground'
         : status === 'abgelaufen'
           ? 'bg-warning/15 text-warning'
           : 'bg-destructive/15 text-destructive';
@@ -74,10 +74,7 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
             <ChevronRight className="size-3.5" aria-hidden="true" />
           )}
         </span>
-        <span
-          className={cn('mt-0.5 shrink-0', gedanke ? 'text-primary' : 'text-muted-foreground')}
-          aria-hidden="true"
-        >
+        <span className={cn('mt-0.5 shrink-0', 'text-muted-foreground')} aria-hidden="true">
           {SYMBOL[schritt.kind]}
         </span>
         <span className="min-w-0 flex-1">
@@ -103,7 +100,7 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
       {offen && (
         <div className="ml-9 mb-2 flex flex-col gap-2">
           {eingabe && (
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-card p-2 font-mono text-ui-xs text-muted-foreground">
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-border p-2 font-mono text-ui-xs text-muted-foreground">
               {eingabe}
             </pre>
           )}
@@ -112,8 +109,8 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
               className={cn(
                 'max-h-72 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-ui-xs',
                 gedanke
-                  ? 'border-primary/30 bg-primary/5 font-sans text-foreground'
-                  : 'border-border bg-card font-mono text-foreground'
+                  ? 'border-border font-sans text-foreground'
+                  : 'border-border font-mono text-foreground'
               )}
               data-testid={`schritt-${schritt.id}-ausgabe`}
             >
@@ -228,7 +225,7 @@ export function LaufAnsicht({
             <div>
               <h4 className="mb-1 text-sm font-semibold text-foreground">Ergebnis</h4>
               <pre
-                className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-card p-ui-3 text-sm text-foreground"
+                className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 text-sm text-foreground"
                 data-testid="lauf-ergebnis"
               >
                 {lauf.result}

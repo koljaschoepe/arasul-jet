@@ -354,7 +354,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             <SkeletonText lines={4} />
           ) : (
             <pre
-              className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-card p-ui-3 font-mono text-ui-xs text-foreground"
+              className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 font-mono text-ui-xs text-foreground"
               data-testid="app-logs"
             >
               {logs || '(keine Ausgabe)'}

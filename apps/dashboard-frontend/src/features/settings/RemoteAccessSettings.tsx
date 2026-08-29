@@ -396,16 +396,16 @@ export function RemoteAccessSettings() {
         ].map(({ n, label }, i) => (
           <div key={n} className="flex items-center gap-2">
             {i > 0 && (
-              <div className={cn('h-px w-6', n <= currentStep ? 'bg-primary' : 'bg-border')} />
+              <div className={cn('h-px w-6', n <= currentStep ? 'bg-foreground' : 'bg-border')} />
             )}
             <div className="flex items-center gap-1.5">
               <div
                 className={cn(
                   'size-5 rounded-full flex items-center justify-center text-xs font-medium',
                   erledigt(n)
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-foreground text-background'
                     : n === currentStep
-                      ? 'border-2 border-primary text-primary'
+                      ? 'border-2 border-foreground font-semibold text-foreground'
                       : 'border border-border text-muted-foreground'
                 )}
                 aria-hidden="true"
@@ -609,10 +609,7 @@ export function RemoteAccessSettings() {
         {currentStep === 3 && status && (
           <Formularseite>
             {/* Ein stabiler Name je Zusammenhang, die IP nur als Rueckfalltuer. */}
-            <Feldgruppe
-              titel="So erreichst du Arasul"
-              symbol={<ExternalLink className="text-primary" />}
-            >
+            <Feldgruppe titel="So erreichst du Arasul" symbol={<ExternalLink />}>
               <div className="border border-border/50 rounded-lg divide-y divide-border/50">
                 {lanName && (
                   <div className="flex items-center justify-between gap-2 px-4 py-2.5">
@@ -633,7 +630,7 @@ export function RemoteAccessSettings() {
                         onClick={() => copyValue(`https://${lanName}`, 'lan')}
                       >
                         {copiedKey === 'lan' ? (
-                          <Check className="size-3 text-primary" />
+                          <Check className="size-3 text-success" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -662,7 +659,7 @@ export function RemoteAccessSettings() {
                         }
                       >
                         {copiedKey === 'remote' ? (
-                          <Check className="size-3 text-primary" />
+                          <Check className="size-3 text-success" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -682,7 +679,7 @@ export function RemoteAccessSettings() {
                         onClick={() => status.ip && copyValue(`https://${status.ip}`, 'ip')}
                       >
                         {copiedKey === 'ip' ? (
-                          <Check className="size-3 text-primary" />
+                          <Check className="size-3 text-success" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -706,7 +703,7 @@ export function RemoteAccessSettings() {
 
             <Feldgruppe
               titel="Verbunden"
-              symbol={<Wifi className="text-primary" />}
+              symbol={<Wifi />}
               aktion={
                 <Button
                   variant="outline"
@@ -739,7 +736,7 @@ export function RemoteAccessSettings() {
                         onClick={() => status.ip && copyValue(status.ip, 'ip')}
                       >
                         {copiedKey === 'ip' ? (
-                          <Check className="size-3 text-primary" />
+                          <Check className="size-3 text-success" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -794,7 +791,7 @@ export function RemoteAccessSettings() {
                           <div
                             className={cn(
                               'size-2 rounded-full',
-                              peer.online ? 'bg-primary' : 'bg-muted-foreground/30'
+                              peer.online ? 'bg-success' : 'bg-muted-foreground/30'
                             )}
                           />
                         </div>
@@ -809,7 +806,7 @@ export function RemoteAccessSettings() {
             {status.ip && (
               /* Ein Randhinweis, kein Abschnitt: er steht nicht auf derselben
                  Ebene wie "So erreichst du Arasul" und "Verbunden". */
-              <div className="space-y-1 border-l-2 border-primary/30 pl-4">
+              <div className="space-y-1 border-l-2 border-border pl-4">
                 <p className="text-xs font-medium text-foreground">SSH-Zugriff:</p>
                 <code className="rounded border border-border px-1 py-0.5 text-xs text-muted-foreground">
                   ssh arasul@{status.ip}
