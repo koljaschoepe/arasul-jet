@@ -92,6 +92,15 @@ async function main() {
     return;
   }
 
+  // Datum UND Uhrzeit, in der Ortszeit des Geraets.
+  //
+  // Der zweite Fremdtest am 29.08.2026 fand acht gueltige Kit-Schluessel auf
+  // einem Orin, drei davon mit demselben Namen und alle mit demselben Datum:
+  // welcher davon der eigene war, sagte die Liste nicht. Die Uhrzeit sagt es.
+  // Ortszeit und nicht UTC, weil der Mensch davorsteht und weil die ISO-Form
+  // nach 22 Uhr sogar den falschen Tag nannte.
+  const wann = wert => new Date(wert).toLocaleString('sv-SE').slice(0, 16);
+
   if (befehl === 'liste') {
     const { rows } = await db.query(
       `SELECT id, key_prefix, name, created_at, last_used_at, is_active
@@ -110,8 +119,8 @@ async function main() {
           String(z.id).padStart(4),
           z.key_prefix,
           (z.name || '').slice(0, 40).padEnd(40),
-          'angelegt ' + new Date(z.created_at).toISOString().slice(0, 10),
-          z.last_used_at ? 'zuletzt ' + new Date(z.last_used_at).toISOString().slice(0, 10) : 'nie benutzt',
+          'angelegt ' + wann(z.created_at),
+          z.last_used_at ? 'zuletzt ' + wann(z.last_used_at) : 'nie benutzt',
         ].join('  ')
       );
     }
