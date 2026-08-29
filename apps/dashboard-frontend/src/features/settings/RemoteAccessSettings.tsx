@@ -20,9 +20,9 @@ import { useToast } from '../../contexts/ToastContext';
 import { Kopf } from '@marken';
 import { Alert, AlertDescription, Button, cn } from '@marken';
 import { SkeletonCard } from '../../components/ui/Skeleton';
-import { Section, SectionList } from '@/components/ui/Section';
 import useConfirm from '../../hooks/useConfirm';
 import { sitzungLaeuftUeberFernzugriff, trennFrage } from './sitzungUeberFernzugriff';
+import { Feldgruppe, Formularseite } from '@marken';
 
 interface Peer {
   id: string;
@@ -432,12 +432,12 @@ export function RemoteAccessSettings() {
         ))}
       </div>
 
-      <SectionList>
+      <Formularseite>
         {/* Step 1: Installation */}
         {currentStep === 1 && (
-          <Section
-            title="Schritt 1: Tailscale installieren"
-            description={
+          <Feldgruppe
+            titel="Schritt 1: Tailscale installieren"
+            beschreibung={
               installing || installError
                 ? undefined
                 : 'Tailscale wird direkt auf deinem Gerät installiert. Die Installation dauert ein bis zwei Minuten und benötigt eine Internetverbindung.'
@@ -503,14 +503,14 @@ export function RemoteAccessSettings() {
                 </Button>
               </div>
             </div>
-          </Section>
+          </Feldgruppe>
         )}
 
         {/* Step 2: Auth-Key & Connect */}
         {currentStep === 2 && (
-          <Section
-            title="Schritt 2: Mit Tailscale verbinden"
-            description={
+          <Feldgruppe
+            titel="Schritt 2: Mit Tailscale verbinden"
+            beschreibung={
               <>
                 Tailscale ist installiert{status?.version ? ` (v${status.version})` : ''}. Erstelle
                 einen Auth-Key in deinem{' '}
@@ -602,16 +602,16 @@ export function RemoteAccessSettings() {
                 </div>
               )}
             </div>
-          </Section>
+          </Feldgruppe>
         )}
 
         {/* Schritt 3: verbunden */}
         {currentStep === 3 && status && (
-          <SectionList>
+          <Formularseite>
             {/* Ein stabiler Name je Zusammenhang, die IP nur als Rueckfalltuer. */}
-            <Section
-              title="So erreichst du Arasul"
-              icon={<ExternalLink className="text-primary" />}
+            <Feldgruppe
+              titel="So erreichst du Arasul"
+              symbol={<ExternalLink className="text-primary" />}
             >
               <div className="border border-border/50 rounded-lg divide-y divide-border/50">
                 {lanName && (
@@ -702,12 +702,12 @@ export function RemoteAccessSettings() {
                   </p>
                 </div>
               )}
-            </Section>
+            </Feldgruppe>
 
-            <Section
-              title="Verbunden"
-              icon={<Wifi className="text-primary" />}
-              action={
+            <Feldgruppe
+              titel="Verbunden"
+              symbol={<Wifi className="text-primary" />}
+              aktion={
                 <Button
                   variant="outline"
                   size="sm"
@@ -766,11 +766,11 @@ export function RemoteAccessSettings() {
                   </div>
                 )}
               </div>
-            </Section>
+            </Feldgruppe>
 
             {status.peers.length > 0 && (
-              <Section
-                title={`Geräte im Netzwerk (${status.peers.filter(p => p.online).length} online)`}
+              <Feldgruppe
+                titel={`Geräte im Netzwerk (${status.peers.filter(p => p.online).length} online)`}
               >
                 <div className="border border-border/50 rounded-lg divide-y divide-border/50">
                   {status.peers.map(peer => {
@@ -802,7 +802,7 @@ export function RemoteAccessSettings() {
                     );
                   })}
                 </div>
-              </Section>
+              </Feldgruppe>
             )}
 
             {/* Der Dashboard-Zugriff steht schon in der Karte darueber. */}
@@ -816,9 +816,9 @@ export function RemoteAccessSettings() {
                 </code>
               </div>
             )}
-          </SectionList>
+          </Formularseite>
         )}
-      </SectionList>
+      </Formularseite>
     </div>
   );
 }

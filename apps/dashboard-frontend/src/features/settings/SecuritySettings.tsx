@@ -4,9 +4,9 @@ import PasswordManagement from './PasswordManagement';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Kopf } from '@marken';
 import { Button } from '@marken';
-import { Section, SectionList } from '@/components/ui/Section';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
+import { Feldgruppe, Formularseite } from '@marken';
 
 interface SecuritySettingsProps {
   handleLogout: () => void;
@@ -70,15 +70,15 @@ export function SecuritySettings({
     <div className="animate-in fade-in" data-testid="sicherheit-seite">
       <Kopf titel="Sicherheit" beschreibung="Passwörter verwalten und Sitzungen beenden" />
 
-      <SectionList>
+      <Formularseite>
         <ComponentErrorBoundary componentName="Passwortverwaltung">
           <PasswordManagement onDirtyChange={onDirtyChange} />
         </ComponentErrorBoundary>
 
-        <Section
-          title="Gerätezertifikat"
-          icon={<ShieldCheck />}
-          description="Die Datei einmal herunterladen und auf den Rechnern der Firma installieren. Danach zeigt der Browser kein Warnschild mehr, wenn jemand dieses Gerät aufruft."
+        <Feldgruppe
+          titel="Gerätezertifikat"
+          symbol={<ShieldCheck />}
+          beschreibung="Die Datei einmal herunterladen und auf den Rechnern der Firma installieren. Danach zeigt der Browser kein Warnschild mehr, wenn jemand dieses Gerät aufruft."
         >
           <div className="flex flex-col gap-3">
             <Button variant="outline" onClick={zertifikatLaden} disabled={ladeZertifikat}>
@@ -90,12 +90,12 @@ export function SecuritySettings({
               Anleitung {'\u201eNetzname und Zertifikat\u201c'} im Handbuch.
             </p>
           </div>
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Sitzungen"
-          icon={<LogOut />}
-          description="Beende die aktuelle Sitzung oder melde dich auf allen Geräten ab."
+        <Feldgruppe
+          titel="Sitzungen"
+          symbol={<LogOut />}
+          beschreibung="Beende die aktuelle Sitzung oder melde dich auf allen Geräten ab."
         >
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" onClick={handleLogout}>
@@ -106,8 +106,8 @@ export function SecuritySettings({
               {loggingOutAll ? 'Wird abgemeldet...' : 'Von allen Geräten abmelden'}
             </Button>
           </div>
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
     </div>
   );
 }

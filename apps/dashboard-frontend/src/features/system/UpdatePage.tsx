@@ -39,11 +39,10 @@ import { getCsrfToken } from '../../utils/csrf';
 import { getValidToken } from '../../utils/token';
 import { useApi } from '../../hooks/useApi';
 import { formatBytes, formatDate } from '../../utils/formatting';
-import EmptyState from '../../components/ui/EmptyState';
 import { Kopf } from '@marken';
 import { Button, cn } from '@marken';
-import { Section, SectionList } from '@/components/ui/Section';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
+import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
 
 interface ValidationResult {
   file_path?: string;
@@ -282,8 +281,8 @@ const UpdatePage = () => {
         beschreibung="Welche Fassung hier läuft, und wie eine neue hierher kommt."
       />
 
-      <SectionList>
-        <Section title="Diese Fassung" icon={<Package />}>
+      <Formularseite>
+        <Feldgruppe titel="Diese Fassung" symbol={<Package />}>
           <StatGrid>
             <StatTile
               label="Fassung"
@@ -305,7 +304,7 @@ const UpdatePage = () => {
               note={letztes ? `${letztes.version_from} auf ${letztes.version_to}` : undefined}
             />
           </StatGrid>
-        </Section>
+        </Feldgruppe>
 
         {!einspielenMoeglich ? (
           /*
@@ -315,19 +314,19 @@ const UpdatePage = () => {
            * Image gibt es keines. Statt eines Knopfes, der das erst nach dem
            * Hochladen von zwei Gigabyte sagt, steht hier der Satz des Geräts.
            */
-          <Section title="Einspielen über diese Seite" icon={<AlertCircle />}>
+          <Feldgruppe titel="Einspielen über diese Seite" symbol={<AlertCircle />}>
             <p className="text-sm text-muted-foreground" data-testid="einspielen-nicht-moeglich">
               {status?.einspielenGrund ??
                 'Dieses Gerät kann ein Paket nicht über die Schnittstelle einspielen.'}
             </p>
-          </Section>
+          </Feldgruppe>
         ) : (
           <>
             {schritt === 'ruhe' && (
-              <Section
-                title="Paket auf einem USB-Stick"
-                icon={<HardDrive />}
-                action={
+              <Feldgruppe
+                titel="Paket auf einem USB-Stick"
+                symbol={<HardDrive />}
+                aktion={
                   <Button
                     variant="ghost"
                     size="sm"
@@ -366,16 +365,16 @@ const UpdatePage = () => {
                     ))}
                   </ul>
                 ) : (
-                  <EmptyState
-                    icon={<HardDrive />}
-                    title={sucht ? 'Sucht …' : 'Kein Stick mit einem Paket'}
-                    description={sucht ? undefined : 'Stick anstecken und noch einmal suchen.'}
+                  <Leerzustand
+                    symbol={<HardDrive />}
+                    titel={sucht ? 'Sucht …' : 'Kein Stick mit einem Paket'}
+                    beschreibung={sucht ? undefined : 'Stick anstecken und noch einmal suchen.'}
                   />
                 )}
-              </Section>
+              </Feldgruppe>
             )}
 
-            <Section title="Paket einspielen" icon={<Package />}>
+            <Feldgruppe titel="Paket einspielen" symbol={<Package />}>
               {schritt === 'ruhe' && (
                 <div className="flex flex-col gap-3">
                   <label
@@ -544,11 +543,11 @@ const UpdatePage = () => {
                   </Button>
                 </div>
               )}
-            </Section>
+            </Feldgruppe>
           </>
         )}
 
-        <Section title="Verlauf" icon={<RefreshCw />}>
+        <Feldgruppe titel="Verlauf" symbol={<RefreshCw />}>
           {!verlauf || verlauf.length === 0 ? (
             <p className="text-sm text-muted-foreground" data-testid="verlauf-leer">
               Auf diesem Gerät ist noch nichts eingespielt worden.
@@ -576,8 +575,8 @@ const UpdatePage = () => {
               ))}
             </ul>
           )}
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
     </div>
   );
 };

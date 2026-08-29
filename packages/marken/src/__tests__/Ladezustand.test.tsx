@@ -9,33 +9,33 @@
  */
 
 import { render, screen } from '@testing-library/react';
-import LoadingSpinner from '../LoadingSpinner';
+import { Ladezustand } from '../muster/Ladezustand';
 
-describe('LoadingSpinner Component', () => {
+describe('Ladezustand Component', () => {
   // =====================================================
   // Default Rendering
   // =====================================================
   describe('Default Rendering', () => {
     test('rendert mit Default-Message', () => {
-      render(<LoadingSpinner />);
+      render(<Ladezustand />);
 
       expect(screen.getByText('Laden...')).toBeInTheDocument();
     });
 
     test('hat inline Container-Klasse standardmäßig', () => {
-      const { container } = render(<LoadingSpinner />);
+      const { container } = render(<Ladezustand />);
 
       expect(container.querySelector('.loading-spinner-inline')).toBeInTheDocument();
     });
 
     test('zeigt Spinner-Animation', () => {
-      const { container } = render(<LoadingSpinner />);
+      const { container } = render(<Ladezustand />);
 
       expect(container.querySelector('.spinner-animation')).toBeInTheDocument();
     });
 
     test('hat vier Spinner-Ringe', () => {
-      const { container } = render(<LoadingSpinner />);
+      const { container } = render(<Ladezustand />);
 
       const rings = container.querySelectorAll('.spinner-ring');
       expect(rings).toHaveLength(4);
@@ -47,19 +47,19 @@ describe('LoadingSpinner Component', () => {
   // =====================================================
   describe('Custom Message', () => {
     test('zeigt custom Message', () => {
-      render(<LoadingSpinner message="Bitte warten..." />);
+      render(<Ladezustand meldung="Bitte warten..." />);
 
       expect(screen.getByText('Bitte warten...')).toBeInTheDocument();
     });
 
     test('zeigt andere Message', () => {
-      render(<LoadingSpinner message="Daten werden geladen" />);
+      render(<Ladezustand meldung="Daten werden geladen" />);
 
       expect(screen.getByText('Daten werden geladen')).toBeInTheDocument();
     });
 
     test('Message hat spinner-message Klasse', () => {
-      const { container } = render(<LoadingSpinner message="Test" />);
+      const { container } = render(<Ladezustand meldung="Test" />);
 
       expect(container.querySelector('.spinner-message')).toBeInTheDocument();
     });
@@ -70,13 +70,13 @@ describe('LoadingSpinner Component', () => {
   // =====================================================
   describe('Empty Message', () => {
     test('zeigt keine Message wenn leer', () => {
-      const { container } = render(<LoadingSpinner message="" />);
+      const { container } = render(<Ladezustand meldung="" />);
 
       expect(container.querySelector('.spinner-message')).not.toBeInTheDocument();
     });
 
     test('zeigt keine Message wenn null', () => {
-      const { container } = render(<LoadingSpinner message={null} />);
+      const { container } = render(<Ladezustand meldung={null} />);
 
       expect(container.querySelector('.spinner-message')).not.toBeInTheDocument();
     });
@@ -87,21 +87,21 @@ describe('LoadingSpinner Component', () => {
   // =====================================================
   describe('Fullscreen Mode', () => {
     test('hat fullscreen Klasse wenn fullscreen=true', () => {
-      const { container } = render(<LoadingSpinner fullscreen={true} />);
+      const { container } = render(<Ladezustand ganzeSeite={true} />);
 
       expect(container.querySelector('.loading-spinner-fullscreen')).toBeInTheDocument();
       expect(container.querySelector('.loading-spinner-inline')).not.toBeInTheDocument();
     });
 
     test('hat inline Klasse wenn fullscreen=false', () => {
-      const { container } = render(<LoadingSpinner fullscreen={false} />);
+      const { container } = render(<Ladezustand ganzeSeite={false} />);
 
       expect(container.querySelector('.loading-spinner-inline')).toBeInTheDocument();
       expect(container.querySelector('.loading-spinner-fullscreen')).not.toBeInTheDocument();
     });
 
     test('fullscreen mit custom Message', () => {
-      const { container } = render(<LoadingSpinner fullscreen={true} message="Vollbild-Loading" />);
+      const { container } = render(<Ladezustand ganzeSeite={true} meldung="Vollbild-Loading" />);
 
       expect(container.querySelector('.loading-spinner-fullscreen')).toBeInTheDocument();
       expect(screen.getByText('Vollbild-Loading')).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe('LoadingSpinner Component', () => {
   // =====================================================
   describe('Props Combinations', () => {
     test('fullscreen ohne Message', () => {
-      const { container } = render(<LoadingSpinner fullscreen={true} message="" />);
+      const { container } = render(<Ladezustand ganzeSeite={true} meldung="" />);
 
       expect(container.querySelector('.loading-spinner-fullscreen')).toBeInTheDocument();
       expect(container.querySelector('.spinner-message')).not.toBeInTheDocument();
@@ -121,7 +121,7 @@ describe('LoadingSpinner Component', () => {
 
     test('inline mit langer Message', () => {
       const longMessage = 'Dies ist eine sehr lange Nachricht die angezeigt werden soll';
-      render(<LoadingSpinner message={longMessage} />);
+      render(<Ladezustand meldung={longMessage} />);
 
       expect(screen.getByText(longMessage)).toBeInTheDocument();
     });
@@ -132,7 +132,7 @@ describe('LoadingSpinner Component', () => {
   // =====================================================
   describe('Component Structure', () => {
     test('hat korrekte DOM-Struktur', () => {
-      const { container } = render(<LoadingSpinner />);
+      const { container } = render(<Ladezustand />);
 
       // Outer container (firstElementChild = the component's root div)
       const outerDiv = container.firstElementChild;

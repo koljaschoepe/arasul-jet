@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardCheck, Cpu, Download, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@marken';
 import { useApi } from '@/hooks/useApi';
-import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
+import { useSchmalesFenster } from '@marken';
 import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';
 import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
 import { modellage, wechselGrund, kiRamZeile, zuGb } from '@/utils/modellZustand';

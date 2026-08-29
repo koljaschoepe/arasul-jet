@@ -21,8 +21,6 @@ import { useState } from 'react';
 import { Archive, DatabaseBackup, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Kopf } from '@marken';
 import { Button, cn } from '@marken';
-import EmptyState from '@/components/ui/EmptyState';
-import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import { useToast } from '@/contexts/ToastContext';
@@ -34,6 +32,7 @@ import {
   useWiederherstellungstest,
   type LaufErgebnis,
 } from './useSicherung';
+import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
 
 /** Was nach einem Lauf stehen bleibt, bis der nächste kommt. */
 interface Meldung {
@@ -161,12 +160,12 @@ export function Sicherung() {
       {isLoading ? (
         <SkeletonText lines={4} />
       ) : (
-        <SectionList>
-          <Section
-            title="Zustand"
-            icon={<ShieldCheck />}
-            description={'Nicht „könnte sichern“, sondern „hat gesichert“.'}
-            action={
+        <Formularseite>
+          <Feldgruppe
+            titel="Zustand"
+            symbol={<ShieldCheck />}
+            beschreibung={'Nicht „könnte sichern“, sondern „hat gesichert“.'}
+            aktion={
               <Button onClick={jetztSichern} disabled={laeuft} data-testid="sicherung-ausloesen">
                 {sichern.isPending ? (
                   <>
@@ -242,22 +241,22 @@ export function Sicherung() {
             {sicherungsMeldung && (
               <MeldungsZeile meldung={sicherungsMeldung} testid="sicherung-meldung" />
             )}
-          </Section>
+          </Feldgruppe>
 
-          <Section
-            title="Was da liegt"
-            icon={<Archive />}
-            description={
+          <Feldgruppe
+            titel="Was da liegt"
+            symbol={<Archive />}
+            beschreibung={
               liste
                 ? `${liste.anzahl} Dateien, ${formatBytes(liste.bytes)} in ${liste.ordner}`
                 : 'Gelesen wird die Platte, nicht der Bericht der letzten Nacht.'
             }
           >
             {!liste || liste.dateien.length === 0 ? (
-              <EmptyState
-                icon={<Archive />}
-                title="Noch keine Sicherung"
-                description="Der Knopf oben legt die erste an. Danach steht sie hier mit Datum und Größe."
+              <Leerzustand
+                symbol={<Archive />}
+                titel="Noch keine Sicherung"
+                beschreibung="Der Knopf oben legt die erste an. Danach steht sie hier mit Datum und Größe."
               />
             ) : (
               <ul className="rounded-md border border-border" data-testid="sicherungsliste">
@@ -279,13 +278,13 @@ export function Sicherung() {
                 ))}
               </ul>
             )}
-          </Section>
+          </Feldgruppe>
 
-          <Section
-            title="Der Weg zurück"
-            icon={<RotateCcw />}
-            description="Ob eine Sicherung etwas taugt, weiß man erst, wenn sie einmal zurückgespielt wurde."
-            action={
+          <Feldgruppe
+            titel="Der Weg zurück"
+            symbol={<RotateCcw />}
+            beschreibung="Ob eine Sicherung etwas taugt, weiß man erst, wenn sie einmal zurückgespielt wurde."
+            aktion={
               <Button
                 variant="outline"
                 onClick={testLaufen}
@@ -317,8 +316,8 @@ export function Sicherung() {
               </p>
             )}
             {testMeldung && <MeldungsZeile meldung={testMeldung} testid="test-meldung" />}
-          </Section>
-        </SectionList>
+          </Feldgruppe>
+        </Formularseite>
       )}
     </div>
   );

@@ -4,17 +4,17 @@
  */
 
 import { render, screen } from '@testing-library/react';
-import EmptyState from '../EmptyState';
+import { Leerzustand } from '../muster/Leerzustand';
 
-describe('EmptyState', () => {
+describe('Leerzustand', () => {
   it('meldet sich als Statusmeldung', () => {
-    render(<EmptyState title="Noch keine Projekte" />);
+    render(<Leerzustand titel="Noch keine Projekte" />);
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
   it('zeigt Titel und Beschreibung', () => {
     render(
-      <EmptyState title="Noch keine Kunden" description="Lege im Chat den ersten Kunden an." />
+      <Leerzustand titel="Noch keine Kunden" beschreibung="Lege im Chat den ersten Kunden an." />
     );
     expect(screen.getByText('Noch keine Kunden')).toBeInTheDocument();
     expect(screen.getByText('Lege im Chat den ersten Kunden an.')).toBeInTheDocument();
@@ -22,7 +22,7 @@ describe('EmptyState', () => {
 
   it('führt den Einstieg mit, der die Liste füllt', () => {
     render(
-      <EmptyState title="Noch keine Projekte" action={<button type="button">Anlegen</button>} />
+      <Leerzustand titel="Noch keine Projekte" aktion={<button type="button">Anlegen</button>} />
     );
     expect(screen.getByRole('button', { name: 'Anlegen' })).toBeInTheDocument();
   });
@@ -31,7 +31,7 @@ describe('EmptyState', () => {
     // Vorher stand text-5xl auf der Umhüllung. Auf ein SVG wirkt das nicht,
     // und das voreingestellte size-12 fiel doppelt so groß aus wie die size-6
     // der fünf Aufrufer.
-    const { container } = render(<EmptyState title="Keine Ereignisse" />);
+    const { container } = render(<Leerzustand titel="Keine Ereignisse" />);
     const huelle = container.querySelector('[aria-hidden="true"]');
     expect(huelle?.className).toContain('[&>svg]:size-6');
     expect(huelle?.className).not.toContain('text-5xl');
@@ -39,7 +39,7 @@ describe('EmptyState', () => {
   });
 
   it('hält das Symbol von Vorlesewerkzeugen fern', () => {
-    const { container } = render(<EmptyState title="Keine Ereignisse" />);
+    const { container } = render(<Leerzustand titel="Keine Ereignisse" />);
     expect(container.querySelector('svg')?.closest('[aria-hidden="true"]')).not.toBeNull();
   });
 });

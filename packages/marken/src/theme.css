@@ -252,3 +252,47 @@
   /* Der Schleier ist im Dunkeln dichter. */
   --backdrop-color: rgba(0, 0, 0, 0.7);
 }
+
+/* -----------------------------------------------------------------------------
+   BEWEGUNG (Phase H4)
+   -----------------------------------------------------------------------------
+   Die zwei Bilder des Ladezustands. Sie standen bis H4 in `index.css` und sind
+   mit `Ladezustand` (frueher `LoadingSpinner`) hierher gezogen: eine App mit
+   Bau laedt diese Datei und nicht die der Shell -- ohne sie waere der Kreisel
+   dort ein stillstehender Ring, und es faellt niemandem auf, der an der Shell
+   arbeitet.
+
+   Es sind bewusst nur diese zwei. Alles andere, was sich in dieser Bibliothek
+   bewegt, kommt aus `tw-animate-css` (`animate-in`, `animate-accordion-down`,
+   `animate-caret-blink`) -- wer die Primitive benutzt, laedt das Paket ohnehin
+   neben Tailwind.
+   -------------------------------------------------------------------------- */
+@keyframes spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes message-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Wer weniger Bewegung eingestellt hat, bekommt einen langsameren Kreisel und
+   keinen stehenden: ein Ring, der sich nicht dreht, sieht aus wie ein Fehler.
+   Die Regel haengt an den Klassen des `Ladezustand` und ist mit ihm aus
+   `index.css` hierher gezogen -- in einer App gaebe es sie sonst nicht. */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner .spinner-ring,
+  .spinner-animation .spinner-ring {
+    animation-duration: 2s !important;
+  }
+}

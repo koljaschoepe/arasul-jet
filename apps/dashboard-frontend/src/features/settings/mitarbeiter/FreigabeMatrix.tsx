@@ -27,10 +27,9 @@
  * Weg nicht.
  */
 import { AppWindow } from 'lucide-react';
-import EmptyState from '@/components/ui/EmptyState';
 import { Checkbox, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
+import { useSchmalesFenster } from '@marken';
 import type { Benutzer } from './useMitarbeiter';
 import {
   useAlleApps,
@@ -41,6 +40,7 @@ import {
   type Freigabe,
   type Stand,
 } from './useAppFreigaben';
+import { Leerzustand } from '@marken';
 
 /** Eine Zelle der Matrix: das Häkchen und, wenn freigegeben, der Stand. */
 function Zelle({
@@ -123,10 +123,10 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
 
   if (alleApps.length === 0) {
     return (
-      <EmptyState
-        icon={<AppWindow />}
-        title="Noch keine App am Gerät"
-        description="Apps kommen vom Partner, der sie mit dem Ara-Kit gebaut und auf das Gerät gerollt hat. Sobald eine da ist, steht sie hier als Spalte."
+      <Leerzustand
+        symbol={<AppWindow />}
+        titel="Noch keine App am Gerät"
+        beschreibung="Apps kommen vom Partner, der sie mit dem Ara-Kit gebaut und auf das Gerät gerollt hat. Sobald eine da ist, steht sie hier als Spalte."
       />
     );
   }

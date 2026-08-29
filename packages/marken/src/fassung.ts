@@ -8,9 +8,18 @@
  * neu -- sonst faellt der Waechter.
  *
  * 2.0.0 (Phase H3): die Bibliothek hat einen zweiten Satz bekommen -- die
- * fuenfundzwanzig Primitive -- und mit `theme.css` die Tokens, die bis dahin
+ * sechsundzwanzig Primitive -- und mit `theme.css` die Tokens, die bis dahin
  * der Shell gehoerten. Der Sprung auf eine neue Hauptzahl steht fuer den
  * Spiegel des Ara-Kits: eine Vorlage, die auf 1.x gebaut ist, kennt
  * `theme.css` nicht.
+ *
+ * 3.0.0 (Phase H4): der Satz der Primitive ist vollstaendig (46), und daneben
+ * steht ein dritter -- die MUSTER, die Formen einer Fachanwendung
+ * (`src/muster/`). Wieder eine neue Hauptzahl, und wieder wegen des Spiegels:
+ * die Bibliothek hat seither vier Abhaengigkeiten von aussen, die eine
+ * Vorlage auf 2.x nicht installiert hat (`cmdk`, `react-day-picker`,
+ * `embla-carousel-react`, `input-otp`), und `useSchmalesFenster` ist aus der
+ * Shell hierher gezogen. Auch das Buendel traegt ihn: `browser/marken.js`
+ * gibt seit H4 einen Namen mehr aus.
  */
-export const FASSUNG = '2.0.0';
+export const FASSUNG = '3.0.0';

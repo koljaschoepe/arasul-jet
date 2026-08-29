@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { SkeletonList } from '../../components/ui/Skeleton';
-import EmptyState from '../../components/ui/EmptyState';
 import {
   RefreshCw,
   AlertCircle,
@@ -18,6 +17,7 @@ import {
 import { formatRelativeDate } from '../../utils/formatting';
 import { Kopf } from '@marken';
 import { Button, cn } from '@marken';
+import { Leerzustand } from '@marken';
 
 interface SelfHealingEvent {
   id: number;
@@ -260,15 +260,15 @@ const SelfHealingEvents = () => {
 
       {/* Events List — grouped by time */}
       {filteredEvents.length === 0 ? (
-        <EmptyState
-          icon={<CheckCircle />}
-          title={filter === 'all' ? 'Keine Ereignisse' : `Keine ${filter}-Ereignisse`}
-          description={
+        <Leerzustand
+          symbol={<CheckCircle />}
+          titel={filter === 'all' ? 'Keine Ereignisse' : `Keine ${filter}-Ereignisse`}
+          beschreibung={
             filter === 'all'
               ? 'Das System läuft einwandfrei. Es wurden keine Selbstheilungs-Ereignisse aufgezeichnet.'
               : `Es sind keine Ereignisse mit Schweregrad \u201e${filter}\u201c vorhanden.`
           }
-          action={
+          aktion={
             filter !== 'all' ? (
               <Button variant="outline" size="sm" onClick={() => setFilter('all')}>
                 Alle anzeigen

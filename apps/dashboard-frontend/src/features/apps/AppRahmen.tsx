@@ -51,11 +51,10 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { AppWindow } from 'lucide-react';
-import EmptyState from '@/components/ui/EmptyState';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useTheme, themeAmDokument } from '@/hooks/useTheme';
 import { appPfad, type AppStand } from '@/stores/workspaceStore';
 import { useMeineApps } from './meineApps';
+import { Ladezustand, Leerzustand } from '@marken';
 
 interface AppRahmenProps {
   appId: string;
@@ -94,7 +93,7 @@ export function AppRahmen({ appId, stand }: AppRahmenProps) {
 
   // Alle Hooks stehen oben, also darf ab hier vorzeitig zurueckgekehrt werden.
   if (isLoading) {
-    return <LoadingSpinner message={`${appId} wird geöffnet …`} />;
+    return <Ladezustand meldung={`${appId} wird geöffnet …`} />;
   }
 
   // Ein Fehler beim Laden der Liste ist KEIN „nicht freigegeben". Die App
@@ -104,10 +103,10 @@ export function AppRahmen({ appId, stand }: AppRahmenProps) {
 
   if (!bekannt) {
     return (
-      <EmptyState
-        icon={<AppWindow />}
-        title={`${appId} ist dir nicht freigegeben`}
-        description={
+      <Leerzustand
+        symbol={<AppWindow />}
+        titel={`${appId} ist dir nicht freigegeben`}
+        beschreibung={
           stand === 'test'
             ? 'Den Teststand sieht nur, wer als Tester eingetragen ist. Ein Administrator kann das ändern.'
             : 'Ein Administrator gibt Apps für einzelne Menschen frei. Sprich ihn an, wenn du sie brauchst.'

@@ -22,10 +22,10 @@
 import { useState } from 'react';
 import { AppWindow, ChevronRight } from 'lucide-react';
 import { Kopf } from '@marken';
-import EmptyState from '@/components/ui/EmptyState';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { AppAnsicht } from './apps/AppAnsicht';
 import { useAlleApps, type AppZeile } from './mitarbeiter/useAppFreigaben';
+import { Leerzustand } from '@marken';
 
 /** Eine App in der Liste: Name, Kennung, die zwei Fassungen. */
 function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => void }) {
@@ -105,10 +105,10 @@ export function AppsSettings() {
           Die App-Liste ließ sich nicht laden.
         </p>
       ) : (apps ?? []).length === 0 ? (
-        <EmptyState
-          icon={<AppWindow />}
-          title="Noch keine App am Gerät"
-          description="Apps baut ein Partner mit dem Ara-Kit und rollt sie hierher. Sobald eine ankommt, steht sie hier, zuerst im Teststand."
+        <Leerzustand
+          symbol={<AppWindow />}
+          titel="Noch keine App am Gerät"
+          beschreibung="Apps baut ein Partner mit dem Ara-Kit und rollt sie hierher. Sobald eine ankommt, steht sie hier, zuerst im Teststand."
         />
       ) : (
         <ul className="rounded-md border border-border" data-testid="app-liste">

@@ -7,7 +7,7 @@ import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
-import { Section, SectionList } from '@/components/ui/Section';
+import { Feldgruppe, Formularseite } from '@marken';
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
@@ -184,11 +184,11 @@ export function PrivacySettings() {
         beschreibung="DSGVO-Rechte: Auskunft (Art. 15) und Löschung (Art. 17)"
       />
 
-      <SectionList>
-        <Section
-          title="Meine Daten exportieren"
-          icon={<Download />}
-          description="Lädt eine JSON-Datei mit allen zu deinem Konto gespeicherten Daten herunter: Profil, Chats, Dokument-Metadaten, Projekte, API-Schlüssel, Prüfprotokoll."
+      <Formularseite>
+        <Feldgruppe
+          titel="Meine Daten exportieren"
+          symbol={<Download />}
+          beschreibung="Lädt eine JSON-Datei mit allen zu deinem Konto gespeicherten Daten herunter: Profil, Chats, Dokument-Metadaten, Projekte, API-Schlüssel, Prüfprotokoll."
         >
           <div className="flex flex-col gap-3">
             <Button onClick={handleExport} disabled={exporting} variant="outline">
@@ -243,9 +243,9 @@ export function PrivacySettings() {
               )}
             </div>
           </div>
-        </Section>
+        </Feldgruppe>
 
-        <Section title="Konto löschen" icon={<Trash2 className="text-destructive" />}>
+        <Feldgruppe titel="Konto löschen" symbol={<Trash2 className="text-destructive" />}>
           <Alert variant="destructive">
             <Info className="size-4" />
             <AlertDescription>
@@ -256,8 +256,8 @@ export function PrivacySettings() {
           <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="mt-3">
             {deleting ? 'Lösche...' : 'Konto endgültig löschen'}
           </Button>
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
 
       <Modal
         isOpen={tokenModalOpen}

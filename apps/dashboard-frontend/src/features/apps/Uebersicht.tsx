@@ -14,11 +14,11 @@
 import type { ReactNode } from 'react';
 import { AppWindow } from 'lucide-react';
 import { Karte, Kopf } from '@marken';
-import EmptyState from '@/components/ui/EmptyState';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useMeineApps, zuEintraegen, type AppEintrag } from './meineApps';
+import { Leerzustand } from '@marken';
 
 /**
  * Eine App als Karte. Ein Klick öffnet sie als Tab in der Mitte.
@@ -88,10 +88,10 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
       {isLoading ? (
         <SkeletonText lines={3} />
       ) : eintraege.length === 0 ? (
-        <EmptyState
-          icon={<AppWindow />}
-          title="Noch keine App für dich"
-          description="Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für dich dabei ist, steht sie hier und links in der Leiste."
+        <Leerzustand
+          symbol={<AppWindow />}
+          titel="Noch keine App für dich"
+          beschreibung="Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für dich dabei ist, steht sie hier und links in der Leiste."
         />
       ) : (
         <div className="grid grid-cols-1 gap-ui-2 min-[900px]:grid-cols-2">

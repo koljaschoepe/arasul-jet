@@ -4,7 +4,7 @@ import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
-import { Section } from '@/components/ui/Section';
+import { Feldgruppe } from '@marken';
 
 interface PasswordRequirements {
   minLength: number;
@@ -220,10 +220,10 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
     // ueber seine Trennlinie. In einem div waere er versteckt und traege sie
     // auch dann, wenn er der letzte auf der Seite ist.
     <>
-      <Section
-        title="Passwortverwaltung"
-        icon={<Lock />}
-        description="Ändere das Passwort für das Dashboard"
+      <Feldgruppe
+        titel="Passwortverwaltung"
+        symbol={<Lock />}
+        beschreibung="Ändere das Passwort für das Dashboard"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {renderPasswordField(
@@ -373,7 +373,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
             wirst du automatisch abgemeldet.
           </p>
         </form>
-      </Section>
+      </Feldgruppe>
     </>
   );
 }

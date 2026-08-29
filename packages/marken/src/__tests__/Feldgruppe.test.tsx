@@ -5,14 +5,14 @@
  */
 
 import { render, screen } from '@testing-library/react';
-import { Section, SectionList } from '../Section';
+import { Feldgruppe, Formularseite } from '../muster/Feldgruppe';
 
-describe('Section', () => {
+describe('Feldgruppe', () => {
   it('setzt den Titel als h2, damit unter dem einen h1 keine Ebene fehlt', () => {
     render(
-      <Section title="Firmenprofil">
+      <Feldgruppe titel="Firmenprofil">
         <p>Inhalt</p>
-      </Section>
+      </Feldgruppe>
     );
     expect(screen.getByRole('heading', { level: 2, name: 'Firmenprofil' })).toBeInTheDocument();
   });
@@ -23,22 +23,22 @@ describe('Section', () => {
     // denken, sie am alten letzten wieder einzuschalten. Genau so entsteht die
     // doppelte Linie, die dieser Plan beseitigt hat.
     const { container } = render(
-      <Section title="Kontext">
+      <Feldgruppe titel="Kontext">
         <p>Inhalt</p>
-      </Section>
+      </Feldgruppe>
     );
     expect(container.querySelector('section')?.className).toContain('border-b');
   });
 
   it('zeigt Beschreibung, Aktion und Inhalt zusammen', () => {
     render(
-      <Section
-        title="Sprachmodell"
-        description="Welches Modell antwortet"
-        action={<button type="button">Ändern</button>}
+      <Feldgruppe
+        titel="Sprachmodell"
+        beschreibung="Welches Modell antwortet"
+        aktion={<button type="button">Ändern</button>}
       >
         <p>Inhalt</p>
-      </Section>
+      </Feldgruppe>
     );
     expect(screen.getByText('Welches Modell antwortet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ändern' })).toBeInTheDocument();
@@ -46,19 +46,19 @@ describe('Section', () => {
   });
 });
 
-describe('SectionList', () => {
+describe('Formularseite', () => {
   it('nimmt dem letzten Abschnitt die Trennlinie ab', () => {
     // Die Linie gehört zwischen die Abschnitte, nicht an sie. Die Spalte sieht
     // die Reihenfolge, der einzelne Abschnitt nicht.
     const { container } = render(
-      <SectionList>
-        <Section title="Erster">
+      <Formularseite>
+        <Feldgruppe titel="Erster">
           <p>A</p>
-        </Section>
-        <Section title="Letzter">
+        </Feldgruppe>
+        <Feldgruppe titel="Letzter">
           <p>B</p>
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
     );
     const klassen = container.firstElementChild?.className ?? '';
     expect(klassen).toContain('[&>section:last-child]:border-b-0');
@@ -70,12 +70,12 @@ describe('SectionList', () => {
     // (bis B5 war das die n8n-Anleitung in „Allgemein"), trennt genau diese
     // Linie; sie muss also stehen bleiben. Mit last-of-type wäre sie weg.
     const { container } = render(
-      <SectionList>
-        <Section title="Erster">
+      <Formularseite>
+        <Feldgruppe titel="Erster">
           <p>A</p>
-        </Section>
+        </Feldgruppe>
         <div>kein Abschnitt</div>
-      </SectionList>
+      </Formularseite>
     );
     const klassen = container.firstElementChild?.className ?? '';
     expect(klassen).toContain('section:last-child');
@@ -84,11 +84,11 @@ describe('SectionList', () => {
 
   it('setzt die Abstandsspalte, damit jede Seite dasselbe Raster hat', () => {
     const { container } = render(
-      <SectionList>
-        <Section title="Erster">
+      <Formularseite>
+        <Feldgruppe titel="Erster">
           <p>A</p>
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
     );
     const klassen = container.firstElementChild?.className ?? '';
     expect(klassen).toContain('flex');

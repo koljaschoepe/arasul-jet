@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
+import { useSchmalesFenster } from '@marken';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Notizen } from '@/features/notizen/Notizen';
 
