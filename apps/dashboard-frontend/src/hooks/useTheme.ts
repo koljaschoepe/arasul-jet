@@ -99,6 +99,13 @@ export function useTheme() {
   // gehoeren koennte -- und genau einmal je Browser, weil der Schluessel
   // danach weg ist. `uebernommen` haelt sie zusaetzlich innerhalb einer
   // Sitzung fest, damit der StrictMode-Doppelaufruf nicht zweimal schreibt.
+  //
+  // Der Merker gehoert dem einzelnen Hook und nicht dem Modul. Beim Laden
+  // haelt `useTheme()` nur `App.tsx`; `GeneralSettings` kommt erst, wenn
+  // jemand die Einstellungen oeffnet, und da ist der Schluessel laengst weg.
+  // Waeren doch zwei zugleich gemountet, schickten sie zweimal DIESELBE
+  // Anfrage und raeumten zweimal denselben Schluessel weg -- ein Merker am
+  // Modul brauchte dafuer eine Naht, die nur die Tests zuruecksetzen.
   const uebernommen = useRef(false);
   useEffect(() => {
     if (!isAuthenticated || uebernommen.current) return;

@@ -22,7 +22,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, invalidateUserCache } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
 const { DarstellungBody } = require('../schemas/darstellung');
@@ -34,6 +34,15 @@ const { DarstellungBody } = require('../schemas/darstellung');
  * `data-theme` auf das, was das Geraet bestaetigt hat, nicht auf das, was sie
  * geschickt hat. Bei zwei Werten ist der Unterschied klein; die Regel ist es
  * nicht.
+ *
+ * UND DER ZWISCHENSPEICHER MUSS WEG. `requireAuth` haelt die Zeile eines
+ * Menschen 60 s lang (`USER_CACHE_TTL`), und aus genau dieser Zeile liest
+ * `GET /api/auth/session` das `theme`. Ohne diese Zeile stellt jemand die
+ * Darstellung um, laedt die Seite neu -- und sieht bis zu eine Minute lang
+ * wieder die alte, weil die Sitzungsprobe eine warme Kopie von vorher
+ * bekommt. Dieselbe Vorsorge trifft `benutzerService` beim Stilllegen und
+ * beim Rollenwechsel; hier gilt sie aus demselben Grund, nur fuer eine
+ * harmlosere Eigenschaft.
  */
 router.put(
   '/',
@@ -45,6 +54,7 @@ router.put(
       'UPDATE admin_users SET theme = $2 WHERE id = $1 RETURNING theme',
       [req.user.id, req.body.theme]
     );
+    invalidateUserCache(req.user.id);
     res.json({ data: result.rows[0], timestamp: new Date().toISOString() });
   })
 );

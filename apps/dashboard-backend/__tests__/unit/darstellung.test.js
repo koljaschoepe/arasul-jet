@@ -17,6 +17,11 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 
 // requireAuth injiziert den Nutzer aus dem Test; requireRole ist der echte.
+// `invalidateUserCache` wird mitgeschrieben: dass die Route den
+// Zwischenspeicher raeumt, ist kein Beiwerk, sondern der Unterschied
+// zwischen „umgestellt" und „umgestellt, sieht man aber eine Minute lang
+// nicht" (`USER_CACHE_TTL`).
+const mockCacheGeraeumt = jest.fn();
 jest.mock('../../src/middleware/auth', () => {
   const echt = jest.requireActual('../../src/middleware/auth');
   let mockUser = null;
@@ -29,6 +34,7 @@ jest.mock('../../src/middleware/auth', () => {
       next();
     },
     requireRole: echt.requireRole,
+    invalidateUserCache: (...args) => mockCacheGeraeumt(...args),
     ROLLEN: echt.ROLLEN,
   };
 });
@@ -64,6 +70,23 @@ describe('PUT /api/darstellung', () => {
     expect(res.body.data).toEqual({ theme: 'dark' });
     // Geschrieben wird auf die Nummer aus der SITZUNG, nicht aus der Anfrage.
     expect(db.query.mock.calls[0][1]).toEqual(['7', 'dark']);
+  });
+
+  /**
+   * Ohne das Raeumen laege die alte Zeile bis zu 60 s im Zwischenspeicher von
+   * `requireAuth` -- und `GET /api/auth/session` liest das `theme` genau aus
+   * ihr. Wer umstellt und die Seite neu laedt, saehe eine Minute lang wieder
+   * das alte Theme.
+   */
+  it('raeumt die Zeile aus dem Zwischenspeicher von requireAuth', async () => {
+    db.query.mockResolvedValue({ rows: [{ theme: 'dark' }] });
+    await request(app()).put('/api/darstellung').send({ theme: 'dark' });
+    expect(mockCacheGeraeumt).toHaveBeenCalledWith('7');
+  });
+
+  it('raeumt nichts, wenn gar nicht geschrieben wurde', async () => {
+    await request(app()).put('/api/darstellung').send({ theme: 'schwarz' });
+    expect(mockCacheGeraeumt).not.toHaveBeenCalled();
   });
 
   it('antwortet mit dem Wert, den die Datenbank bestaetigt hat', async () => {
