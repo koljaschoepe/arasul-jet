@@ -20,7 +20,7 @@ Aufruf (SSH-Tunnel auf 8443 vorausgesetzt):
 
 Seit dem 27.08.2026 nimmt sie `ARASUL_TOKEN` aus der Umgebung, wenn er da ist,
 und meldet sich dann NICHT an: `abnahmen.sh` teilt einen Token je Lauf, und die
-Anmeldedrossel bleibt bei zehn je Viertelstunde und IP.
+Anmeldedrossel zaehlt seit H7 nur Fehlschlaege, dreissig je Viertelstunde.
 
 Rot ist jeder Antwortcode ab 500, ausser er steht mit Begruendung in
 `ERWARTET_503`. Ein 4xx ist gruen: eine fehlende Pflichtangabe oder eine
@@ -182,7 +182,8 @@ def anmelden() -> str:
 
     Steht `ARASUL_TOKEN` in der Umgebung, wird NICHT angemeldet: `abnahmen.sh`
     hat sich fuer die ganze Reihe einmal angemeldet und reicht den Token durch
-    (Entscheidung 27.08.2026). Die Anmeldedrossel bleibt bei zehn je
+    (Entscheidung 27.08.2026). Die Anmeldedrossel zaehlt seit H7 nur
+    Fehlschlaege, dreissig je
     Viertelstunde und IP, und diese Messung soll keine davon verbrauchen.
     """
     vorhanden = os.environ.get('ARASUL_TOKEN', '').strip()

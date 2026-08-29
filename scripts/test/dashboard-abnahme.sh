@@ -27,7 +27,7 @@
 # drueckt. Eine Bestaetigung per `curl` beantwortete sie nicht.
 #
 # WARUM DIESE ABNAHME NEBEN `abnahmen.sh` STEHT, wie schon `shell-abnahme.sh`:
-# `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde und IP, und die
+# `loginLimiter` erlaubt DREISSIG Fehlschlaege je Viertelstunde und IP, und die
 # Reihe dort sitzt seit Phase C4 mit genau zehn auf der Grenze. Dieser Lauf
 # braucht ZWEI eigene (einmal mit dem Startpasswort, einmal nach dem
 # Selbstwechsel); der Browser bekommt die fertige Sitzung gereicht und meldet

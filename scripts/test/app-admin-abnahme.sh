@@ -31,14 +31,15 @@
 # mit `psql`.
 #
 # WARUM DIESE ABNAHME NEBEN `abnahmen.sh` STEHT, wie `shell-`, `dashboard-` und
-# `admin-abnahme.sh`: `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde
+# `admin-abnahme.sh`: `loginLimiter` erlaubt DREISSIG Fehlschlaege je Viertelstunde
 # und IP, und die Reihe dort sitzt seit C4 mit genau zehn auf der Grenze.
 # Dieser Lauf braucht DREI (Administrator, Mitarbeiter, und der Mitarbeiter
 # noch einmal nach seinem Passwortwechsel); der Browser bekommt beide
 # Sitzungen fertig gereicht und meldet sich gar nicht an.
 #
 # NICHT IN DERSELBEN VIERTELSTUNDE WIE `shell-`, `dashboard-` ODER
-# `admin-abnahme.sh`. Die vier brauchen zusammen zehn Anmeldungen.
+# `admin-abnahme.sh`. Die vier brauchen zusammen zehn Anmeldungen; seit H7 ist
+# das keine Grenze mehr, weil eine gelungene Anmeldung nicht zaehlt.
 #
 # WAS LANGE DAUERT: der Flow laeuft auf dem Jetson. Nach der Bestaetigung kommt
 # ein Modell-Aufruf, und der teilt sich die GPU mit allem anderen. Die

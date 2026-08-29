@@ -95,7 +95,7 @@ get typed, trimmed, defaulted data.
 
 | Limiter                          | Use for                                         | Window / max |
 | -------------------------------- | ----------------------------------------------- | ------------ |
-| `loginLimiter`                   | `/auth/login`                                   | 15 min / 10  |
+| `loginLimiter`                   | `/auth/login` (failures only)                   | 15 min / 30  |
 | `probeLimiter`                   | `/auth/session`, `/auth/needs-setup`            | 1 min / 120  |
 | `generalAuthLimiter`             | `/auth/logout`                                  | 1 min / 30   |
 | `apiLimiter`                     | default, per-IP                                 | 1 min / 100  |
@@ -105,6 +105,12 @@ get typed, trimmed, defaulted data.
 | `uploadLimiter`                  | multipart uploads                               | 1 min / 20   |
 | `tailscaleLimiter`               | tailscale orchestration                         | (per-domain) |
 | `createUserRateLimiter(max, ms)` | user-scoped (after auth)                        | factory      |
+
+`loginLimiter` carries `skipSuccessfulRequests`: a login that succeeds costs
+nothing. The sharp lock is per account — five failed attempts lock it for
+15 minutes (`record_login_attempt`, `002_auth_schema.sql`). Behind Traefik
+every request shares one IP, so a per-IP counter that also counted successes
+locked out an office, not an attacker.
 
 Disable in tests via `RATE_LIMIT_ENABLED=false`.
 

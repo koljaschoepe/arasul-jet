@@ -41,12 +41,38 @@ function createLimiter(name, windowMs, max, errorMessage, extraOptions = {}) {
   });
 }
 
-/** Login rate limiter - 10 attempts per 15 minutes per IP */
+/**
+ * Die Anmeldedrossel: 30 FEHLVERSUCHE je Viertelstunde und IP (Phase H7).
+ *
+ * WARUM SIE BIS H7 ZEHN ANMELDUNGEN ZAEHLTE UND WARUM DAS FALSCH WAR. Hinter
+ * Traefik ist jede Anfrage dieselbe IP -- ein Buero hinter einer NAT-Adresse
+ * ist EIN Zaehler fuer alle. Zehn je Viertelstunde hiess: der elfte Mensch,
+ * der morgens um acht sein Passwort richtig eintippt, kommt nicht herein. Und
+ * die Abnahmen dieses Repos sassen mit ihren zehn genau auf der Decke: drei
+ * Laeufe der Oberflaechen-Reihe kosten sechs, daneben melden sich Ueberordner
+ * und Rueckbau an, und ein Lauf wurde rot, weil ein anderer gerade fertig war.
+ *
+ * `skipSuccessfulRequests` ist die eigentliche Aenderung, nicht die Zahl: EINE
+ * GELUNGENE ANMELDUNG IST KEIN ANGRIFF. express-rate-limit zaehlt zuerst hoch
+ * und nimmt den Zaehler zurueck, sobald die Antwort unter 400 liegt; gezaehlt
+ * bleibt damit genau das, wonach ein Angreifer aussieht -- eine Reihe von
+ * Fehlschlaegen.
+ *
+ * DIE SCHARFE SPERRE STEHT WOANDERS, und sie weiss mehr als diese hier: fuenf
+ * Fehlversuche JE KONTO sperren es fuenfzehn Minuten
+ * (`services/postgres/init/002_auth_schema.sql`, `record_login_attempt`). Sie
+ * kennt den Namen, den jemand zu raten versucht; diese Drossel kennt nur eine
+ * IP, hinter der ein ganzes Haus sitzt. Ihre Aufgabe ist deshalb die andere:
+ * ein Sprayen ueber VIELE Konten bremsen, das der Kontosperre je einzeln nie
+ * auffiele. Dreissig Fehlschlaege je Viertelstunde und IP sind dafuer eng --
+ * es sind sechs gesperrte Konten in der Zeit, in der eines gesperrt bleibt.
+ */
 const loginLimiter = createLimiter(
   'Login',
   15 * 60 * 1000,
-  10,
-  'Too many login attempts from this IP, please try again after 15 minutes'
+  30,
+  'Too many failed login attempts from this IP, please try again after 15 minutes',
+  { skipSuccessfulRequests: true }
 );
 
 /** API rate limiter - 100 requests per minute per IP */

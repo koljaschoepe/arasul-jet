@@ -6,7 +6,8 @@
 #
 # WARUM ES DIESE DATEI GIBT
 #
-# `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde und IP, und dabei
+# `loginLimiter` erlaubt seit H7 dreissig FEHLGESCHLAGENE Anmeldungen je
+# Viertelstunde und IP -- eine gelungene kostet nichts. Dabei
 # bleibt es: die Drossel schuetzt das Erraten eines Passworts, und sie zu
 # lockern, damit die eigenen Messungen bequemer werden, hiesse das Geraet fuer
 # den Messaufbau zu schwaechen. Die Abnahmen brauchten zusammen mehr als zehn:
@@ -86,8 +87,12 @@ _arasul_drossel_py() {
 import json, os, re, sys, time
 
 DATEI = os.environ["ARASUL_DROSSEL_DATEI"]
+# `anmeldung` zaehlt seit H7 nur FEHLSCHLAEGE (`skipSuccessfulRequests` an
+# `loginLimiter`): eine gelungene Anmeldung gibt das Backend wieder frei,
+# nachdem die Kopfzeile schon geschrieben war. Siehe `merken`.
+NUR_FEHLSCHLAG = {"anmeldung"}
 DROSSELN = {
-    "anmeldung": (10, 15 * 60 * 1000),
+    "anmeldung": (30, 15 * 60 * 1000),
     "probe": (120, 60 * 1000),
     "auth": (30, 60 * 1000),
 }
@@ -143,6 +148,8 @@ def merken(methode, pfad, kopfdatei, status):
     stand = {"rest": rest or 0, "reset": int(time.time() * 1000 + (sek or 0) * 1000)}
     if status == 429:
         stand["rest"] = 0
+    elif name in NUR_FEHLSCHLAG and status < 400:
+        stand["rest"] += 1
     alles = lesen()
     alles[name] = stand
     try:

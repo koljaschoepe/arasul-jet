@@ -10,11 +10,17 @@
 # einmal an und gibt den Token an jede Abnahme weiter -- an die vier im Browser
 # ueber eine Playwright-Sitzungsdatei, an die anderen ueber `ARASUL_TOKEN`.
 # Vorher meldete sich jede selbst an, zusammen ueber ein Dutzend Mal, und die
-# Anmeldedrossel (`loginLimiter`, ZEHN je Viertelstunde und IP) griff mitten in
-# der Reihe. Die Abnahmen meldeten daraufhin Dinge ueber das GERAET, die nur
-# ueber den Messaufbau galten. Die Drossel bleibt bei zehn: sie schuetzt das
-# Erraten eines Passworts, und sie zu lockern, damit die eigenen Messungen
-# bequemer werden, hiesse das Geraet fuer den Messaufbau zu schwaechen.
+# Anmeldedrossel griff mitten in der Reihe. Die Abnahmen meldeten daraufhin
+# Dinge ueber das GERAET, die nur ueber den Messaufbau galten.
+#
+# SEIT H7 ZAEHLT DIE DROSSEL NUR FEHLSCHLAEGE (`skipSuccessfulRequests`,
+# dreissig je Viertelstunde und IP). Eine gelungene Anmeldung kostet nichts
+# mehr, also kann diese Reihe die Drossel gar nicht mehr fuellen. Das ist
+# keine Lockerung fuer den Messaufbau: die scharfe Sperre steht je KONTO
+# (fuenf Fehlversuche, `record_login_attempt`), und was diese Drossel bremsen
+# soll -- ein Sprayen ueber viele Konten -- besteht aus Fehlschlaegen.
+# Die geteilte Anmeldung bleibt trotzdem: sie spart dem Geraet Arbeit, und
+# jede Anmeldung, die keine Messung ist, ist eine Fehlerquelle mehr.
 #
 # Was sich NICHT teilen laesst, sind die Zugaenge, die eine Abnahme selbst
 # anlegt: `rollen-abnahme.sh` braucht einen eigenen Admin und einen eigenen
@@ -67,12 +73,12 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # Phase C4 (27.08.2026): `app-anmeldung` kommt dazu und steht direkt hinter
 # `apps` -- sie misst, was `apps` voraussetzt. Sie braucht ZWEI eigene
 # Anmeldungen, eine je Mensch; damit sitzt die Reihe auf der Grenze der
-# Anmeldedrossel (zwei fuer `rollen`, fuenf fuer `mitarbeiter`, zwei hier, eine
-# geteilte: genau zehn je Viertelstunde und IP).
+# Anmeldedrossel, wie sie bis H7 zaehlte (zwei fuer `rollen`, fuenf fuer
+# `mitarbeiter`, zwei hier, eine geteilte: genau zehn je Viertelstunde).
 #
 # Phase C8 (27.08.2026): `modelle` kommt dazu und braucht KEINE eigene
 # Anmeldung -- sie nimmt den geteilten Token und legt sich ihren Schluessel
-# selbst an. Die Reihe bleibt damit bei zehn Anmeldungen.
+# selbst an. Die Reihe blieb damit bei zehn Anmeldungen.
 #
 # Phase C9 (27.08.2026): `betrieb` kommt dazu und braucht KEINE eigene
 # Anmeldung. Sie steht am ENDE der Reihe, und das ist Absicht: sie stoesst eine
@@ -101,10 +107,13 @@ source "$WURZEL/scripts/test/anmeldung.sh"
 # fuer ihn -- einmal mit dem Startpasswort, einmal mit dem eigenen danach.
 # Beide SIND die Messung (die Ansichten „Anmeldung" und
 # „Startpasswort-Wechsel"), also lassen sie sich nicht teilen. In die Reihe
-# gestellt stuende sie bei zwoelf, und mitten darin fiele ein 429.
+# gestellt stuende sie bei zwoelf, und mitten darin fiel bis H7 ein 429.
 #
-# Nachgerechnet bleibt es damit bei zehn: zwei fuer `rollen`, fuenf fuer
-# `mitarbeiter`, zwei fuer `app-anmeldung`, eine geteilte.
+# Nachgerechnet bleibt es bei zehn: zwei fuer `rollen`, fuenf fuer
+# `mitarbeiter`, zwei fuer `app-anmeldung`, eine geteilte. SEIT H7 IST DAS
+# KEINE GRENZE MEHR (gelungene Anmeldungen zaehlen nicht), aber die Aufteilung
+# bleibt: jede der Browser-Abnahmen laeuft Minuten, und wer sie in eine Reihe
+# stellt, sucht einen Fehlschlag hinterher in einer einzigen langen Ausgabe.
 ALLE=(fernzugriff rueckmeldung auslieferung apps app-anmeldung rollen mitarbeiter modelle betrieb)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")

@@ -2,12 +2,14 @@
  * Die Drosseln des Geraets, aus Sicht einer Abnahme -- EINE Sache.
  *
  * Bis zum 28.08.2026 wusste `oberflaeche-abnahme.mjs` von genau einer
- * Drossel, der Anmeldedrossel (`loginLimiter`, zehn je Viertelstunde und IP):
+ * Drossel, der Anmeldedrossel (`loginLimiter`, seit H7 dreissig FEHLSCHLAEGE
+ * je Viertelstunde und IP):
  * sie merkte sich deren Kopfzeilen, wartete vor der Anmeldung und wiederholte
  * ein 429 am Formular einmal. Das Geraet hat aber mehr als eine auf den
  * Wegen, die jede Seitenladung nimmt (`middleware/rateLimit.js`):
  *
- *   anmeldung   POST /api/auth/login, /setup        10 je 15 min   loginLimiter
+ *   anmeldung   POST /api/auth/login, /setup        30 je 15 min   loginLimiter
+ *               ZAEHLT NUR FEHLSCHLAEGE (H7)
  *   probe       GET  /api/auth/session,             120 je 60 s    probeLimiter
  *               GET  /api/auth/needs-setup
  *   auth        POST /api/auth/logout               30 je 60 s     generalAuthLimiter
@@ -58,9 +60,15 @@ export const DROSSEL_DATEI =
 /** Was das Geraet drosselt, und woran eine Abnahme den Weg erkennt. */
 export const DROSSELN = {
   anmeldung: {
-    grenze: 10,
+    grenze: 30,
     fensterMs: 15 * 60 * 1000,
-    wort: 'zehn Anmeldungen je Viertelstunde und IP',
+    wort: 'dreissig FEHLGESCHLAGENE Anmeldungen je Viertelstunde und IP',
+    // Seit H7 traegt `loginLimiter` `skipSuccessfulRequests`: eine gelungene
+    // Anmeldung kostet nichts. Die Kopfzeile weiss davon nichts -- sie wird
+    // gesetzt, NACHDEM hochgezaehlt und BEVOR zurueckgenommen wurde. Ohne
+    // diese Zeile buchte die Reihe jede eigene Anmeldung als Verbrauch und
+    // wartete irgendwann vor einer Drossel, die offen steht.
+    nurFehlschlag: true,
     trifft: (methode, pfad) =>
       methode === 'POST' && (pfad === '/api/auth/login' || pfad === '/api/auth/setup'),
   },
@@ -160,6 +168,10 @@ export function drosselMerken(methode, pfad, kopf, status = 200) {
   if (status === 429) gedrosselt[name] = (gedrosselt[name] ?? 0) + 1;
   if (!stand) return null;
   if (status === 429) stand.rest = 0;
+  // Zaehlt die Drossel nur Fehlschlaege, gibt das Backend den Zaehler nach
+  // einer gelungenen Antwort wieder frei -- die Kopfzeile stand schon davor
+  // fest. Der wahre Rest ist also einer mehr, als sie sagt.
+  else if (DROSSELN[name].nurFehlschlag && status < 400) stand.rest += 1;
   engpass[name] = Math.min(engpass[name] ?? Number.POSITIVE_INFINITY, stand.rest);
   const alles = drosselLesen();
   alles[name] = stand;

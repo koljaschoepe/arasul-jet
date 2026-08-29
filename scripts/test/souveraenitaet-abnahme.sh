@@ -142,7 +142,7 @@ else
   # Seit Phase D6 kostet sie ZWEI Anmeldungen (sie legt sich einen
   # Wegwerf-Mitarbeiter an und meldet ihn zweimal an, einmal mit dem
   # Startpasswort und einmal danach). Wer diese Messung dreimal fahren will,
-  # rechnet sie gegen die Drossel: zehn je Viertelstunde und IP.
+  # rechnet sie gegen die Drossel: dreissig Fehlschlaege je Viertelstunde.
   ARBEIT='node scripts/test/oberflaeche-abnahme.mjs'
   WAS='die Oberflaechen-Abnahme'
 fi

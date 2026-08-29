@@ -31,7 +31,7 @@
 # darauf per `curl` gaebe es nicht.
 #
 # WARUM DIESE ABNAHME NEBEN `abnahmen.sh` STEHT, wie schon `shell-abnahme.sh`
-# und `dashboard-abnahme.sh`: `loginLimiter` erlaubt ZEHN Anmeldungen je
+# und `dashboard-abnahme.sh`: `loginLimiter` erlaubt DREISSIG Fehlschlaege je
 # Viertelstunde und IP, und die Reihe dort sitzt seit Phase C4 mit genau zehn
 # auf der Grenze. Dieser Lauf braucht DREI (eine als Administrator, zwei als
 # Mitarbeiter -- einmal mit dem Startpasswort, einmal nach dem Selbstwechsel);
