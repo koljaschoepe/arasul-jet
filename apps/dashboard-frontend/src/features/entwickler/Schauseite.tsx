@@ -220,7 +220,7 @@ function Schauseite() {
         </Zustand>
       </Schaustueck>
 
-      <Schaustueck name="Textarea" satz="Mehrere Zeilen — sonst dasselbe wie das Feld.">
+      <Schaustueck name="Textarea" satz="Mehrere Zeilen, sonst dasselbe wie das Feld.">
         <Zustand name="placeholder">
           <Textarea placeholder="Begründung" className="w-72" />
         </Zustand>
@@ -317,7 +317,7 @@ function Schauseite() {
         </Zustand>
       </Schaustueck>
 
-      <Schaustueck name="Switch" satz="Stellt etwas um, hier und jetzt — ohne Speichern-Knopf.">
+      <Schaustueck name="Switch" satz="Stellt etwas um, hier und jetzt, ohne Speichern-Knopf.">
         <Zustand name="an">
           <Switch checked={schalter} onCheckedChange={setSchalter} aria-label="Fernzugriff" />
         </Zustand>
@@ -520,7 +520,7 @@ function Schauseite() {
         </Zustand>
       </Schaustueck>
 
-      <Schaustueck name="Alert" satz="Ein Hinweis im Fluss der Seite — nicht darüber.">
+      <Schaustueck name="Alert" satz="Ein Hinweis im Fluss der Seite, nicht darüber.">
         <Zustand name="default">
           <Alert className="w-80">
             <Info />
@@ -553,7 +553,7 @@ function Schauseite() {
 
       <Schaustueck
         name="Avatar"
-        satz="Das Bild eines Menschen — und was dasteht, wenn es keines gibt."
+        satz="Das Bild eines Menschen, und was dasteht, wenn es keines gibt."
       >
         <Zustand name="Rückfall">
           <Avatar>
@@ -602,7 +602,7 @@ function Schauseite() {
         </Zustand>
       </Schaustueck>
 
-      <Schaustueck name="Progress" satz="Wie weit etwas ist — oder dass es unbekannt ist.">
+      <Schaustueck name="Progress" satz="Wie weit etwas ist, oder dass es unbekannt ist.">
         <Zustand name="0">
           <Progress value={0} className="w-56" />
         </Zustand>

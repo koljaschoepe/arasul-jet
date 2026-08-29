@@ -3,8 +3,9 @@
 > Das Design-Dokument des Jet-Repos (Überordner-Plan vom 26.08.2026, Zeile 21:
 > „shadcn und die Jet-Palette bleiben, ein knappes Design-Dokument"). Es ist
 > verbindlich für jede Änderung an der Oberfläche. Werte stehen hier nur, wo
-> sie eine Entscheidung tragen; die Quelle der Werte ist
-> `apps/dashboard-frontend/src/index.css`.
+> sie eine Entscheidung tragen; die Quelle der Werte ist seit Phase H3
+> `packages/marken/src/theme.css` — dort, wo die Primitive stehen, die sie
+> brauchen.
 
 ## Grundsatz
 
@@ -18,7 +19,10 @@ Drei Regeln, die ein Wächter hält:
 1. **Kein Farbliteral im Komponenten-Code.** Farben kommen aus Tokens
    (`bg-background`, `text-muted-foreground`, `border-border`), nie als
    `#rrggbb`. Die einzige Ausnahme ist die Diagrammpalette im `@theme`-Block.
-   Wächter: `scripts/test/check-design-system.js`.
+   Seit **H3** zählt Tailwinds eingebaute Palette mit dazu: `bg-black/50` und
+   `text-red-500` sind derselbe Fehler in anderer Schreibweise, denn sie
+   folgen keinem Thema. Wächter: `scripts/test/check-design-system.js` (CSS)
+   und `scripts/test/marken.py`, Punkt 6 (die Bausteine).
 2. **Eine Flächenfarbe.** Grundflächen (Sidebar, Mitte, rechte Spalte) tragen
    `bg-background`; `bg-card` ist erhabenen Elementen darauf vorbehalten
    (Karten, Popover, Dialoge, Eingabefelder, Tabellenköpfe). Der aktive Tab
@@ -30,8 +34,8 @@ Drei Regeln, die ein Wächter hält:
 ## Stack
 
 TypeScript, React 19, Tailwind v4 (Utility-First, Tokens über `@theme`),
-shadcn/ui (Radix-Primitive in `components/ui/shadcn/`, generiert),
-lucide-react für Symbole, `cn()` aus `lib/utils.ts` für bedingte Klassen.
+shadcn/ui (Radix-Primitive seit H3 in `packages/marken/src/primitive/`),
+lucide-react für Symbole, `cn()` aus `@marken` für bedingte Klassen.
 Inter als Schrift, JetBrains Mono für Code.
 
 ## Die Jet-Palette: zwei Themes
@@ -112,7 +116,24 @@ Bedeutung, die es nicht gibt.
 ## Das Designsystem für alle Apps (`packages/marken/`)
 
 Seit **Phase D7** (28.08.2026) liegen Schrift, Farben, Abstände und sechs
-Bausteine in einer Bibliothek, die die Shell **und jede App** benutzt:
+Bausteine in einer Bibliothek, die die Shell **und jede App** benutzt; seit
+**H3** (29.08.2026) dazu die **Tokens** (`theme.css`) und **sechsundzwanzig
+Primitive** (`src/primitive/`) — Button, Input, Dialog, Tabs, Badge und die
+übrigen.
+
+**Zwei Sätze, zwei Laufzeiten.** Die Primitive stehen auf Radix und Tailwind
+und brauchen einen Bau; die sechs Bausteine darunter stehen auf reinem CSS und
+laufen in einer App **ohne** Bau. Wer einen Bau hat, nimmt die Primitive. Das
+Bündel `browser/marken.js` trägt deshalb weiter nur die sechs.
+
+Die **Schauseite** unter `/entwickler/bausteine` zeigt jedes Primitiv in allen
+Zuständen, hell und dunkel; `scripts/test/schauseite.mjs` macht davon Bilder
+bei 390, 1024 und 1440 px. Ein Primitiv **ohne** Schaustück meldet
+`scripts/test/bausteine.py` — ein Baustein, den heute niemand benutzt, sieht in
+einem der beiden Themes falsch aus, und es merkt sonst erst der, der ihn in
+einem halben Jahr zum ersten Mal einsetzt.
+
+Die sechs Bausteine ohne Bau:
 
 | Baustein                      | Was er festlegt                                                                     |
 | ----------------------------- | ----------------------------------------------------------------------------------- |
@@ -148,7 +169,7 @@ den Vite-Alias `@marken` mit (kein npm-Paket, kein Lockfile-Eintrag); eine App
 ohne Bauschritt lädt `packages/marken/browser/marken.js`, in dem React
 mitliegt (`scripts/util/marken-beilegen.sh` legt es beim Einspielen daneben).
 `scripts/test/marken.py` hält Quelle und Bündel aneinander — und seit H2 auch
-**jeden Rückfall an seinem Token in `index.css`**: Hell gegen `:root`, Dunkel
+**jeden Rückfall an seinem Token in `theme.css`**: Hell gegen `:root`, Dunkel
 gegen `[data-theme='dark']`, in beiden Richtungen der Vollständigkeit. Ein
 Rückfall ist eine Kopie, und in der Shell gewinnt immer der Token; eine
 veraltete Kopie fällt dort nie auf, sondern nur in einer App. Einzelheiten:
@@ -216,7 +237,8 @@ sitzt seitdem im Benutzermenü der Kopfleiste.
 
 | Frage                                 | Ort                                                                            |
 | ------------------------------------- | ------------------------------------------------------------------------------ |
-| Wert eines Tokens                     | `apps/dashboard-frontend/src/index.css` (`@theme`, `:root`, Overrides)         |
+| Wert eines Tokens                     | `packages/marken/src/theme.css` (`@theme`, `@theme inline`, `:root`, Dunkel)   |
+| Ein neues Primitiv                    | `packages/marken/src/primitive/` + Barrel + Schaustück + `fassung.ts` heben    |
 | Neuer Token, neue Farbe, neuer Radius | dort ergänzen, hier nur, wenn es eine Regel ändert                             |
 | Frontend-Konventionen                 | [`apps/dashboard-frontend/CLAUDE.md`](../../apps/dashboard-frontend/CLAUDE.md) |
 | Wächter                               | `scripts/test/check-design-system.js`, `scripts/test/bausteine.py`             |
