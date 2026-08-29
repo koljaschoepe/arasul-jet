@@ -18,7 +18,6 @@
 import { useState } from 'react';
 import { AppWindow, FileText, ListOrdered, ScrollText, Trash2, Users } from 'lucide-react';
 import { Button, cn } from '@marken';
-import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { formatDate } from '@/utils/formatting';
@@ -41,6 +40,7 @@ import {
   type FlowDefinition,
   type ModellWunsch,
 } from './useAppVerwaltung';
+import { Feldgruppe, Formularseite } from '@marken';
 
 /** Was in der Mitte steht: die App selbst, ein Flow oder ein Lauf. */
 type Blick =
@@ -216,32 +216,32 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         </div>
       </div>
 
-      <SectionList>
-        <Section
-          title="Stände"
-          icon={<AppWindow />}
-          description="Gerollt wird in den Teststand; live schaltet ein Mensch."
+      <Formularseite>
+        <Feldgruppe
+          titel="Stände"
+          symbol={<AppWindow />}
+          beschreibung="Gerollt wird in den Teststand; live schaltet ein Mensch."
         >
           <AppStaende
             staende={app.staende}
             laeuft={schalten.isPending}
             onSchalten={handleSchalten}
           />
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Tester"
-          icon={<Users />}
-          description="Wer diese App sieht, und wer davon zusätzlich den Teststand bekommt."
+        <Feldgruppe
+          titel="Tester"
+          symbol={<Users />}
+          beschreibung="Wer diese App sieht, und wer davon zusätzlich den Teststand bekommt."
         >
           <AppTester appId={appId} hatTeststand={Boolean(app.staende.test)} />
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Flows"
-          icon={<FileText />}
-          description="Was die App kann. Die Dateien kommen aus ihrem Paket; das Modell entscheidest du."
-          action={
+        <Feldgruppe
+          titel="Flows"
+          symbol={<FileText />}
+          beschreibung="Was die App kann. Die Dateien kommen aus ihrem Paket; das Modell entscheidest du."
+          aktion={
             <StandWahl stand={stand} setStand={setStand} hatTest={Boolean(app.staende.test)} />
           }
         >
@@ -287,12 +287,12 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
               ))}
             </ul>
           )}
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Läufe"
-          icon={<ListOrdered />}
-          description="Was diese App hat laufen lassen, mit Schritten und Gedankengang."
+        <Feldgruppe
+          titel="Läufe"
+          symbol={<ListOrdered />}
+          beschreibung="Was diese App hat laufen lassen, mit Schritten und Gedankengang."
         >
           {!laeufe || laeufe.length === 0 ? (
             <p className="text-sm text-muted-foreground" data-testid="laeufe-leer">
@@ -324,13 +324,13 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
               ))}
             </ul>
           )}
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Logs"
-          icon={<ScrollText />}
-          description="Die letzten 200 Zeilen des App-Containers."
-          action={
+        <Feldgruppe
+          titel="Logs"
+          symbol={<ScrollText />}
+          beschreibung="Die letzten 200 Zeilen des App-Containers."
+          aktion={
             <Button
               variant="outline"
               size="sm"
@@ -360,8 +360,8 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
               {logs || '(keine Ausgabe)'}
             </pre>
           )}
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
 
       <ModellDialog
         fuer={modellFuer}

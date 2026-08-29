@@ -32,8 +32,9 @@ Was geprueft wird
 6. Kein Farbliteral in einem Baustein -- weder ein Hex noch ein `rgb()` noch
    eine Klasse aus Tailwinds eingebauter Palette (`bg-black/50`). Eine Farbe
    steht in `theme.css` und wird als Token benutzt (Phase H3).
-7. Kein Name zweimal. `index.ts` haengt zwei Barrels aneinander; gaeben beide
-   denselben Namen aus, gewaenne wortlos der letzte (Phase H3).
+7. Kein Name zweimal. `index.ts` haengt seit H4 DREI Barrels aneinander
+   (Bausteine, Primitive, Muster); gaeben zwei denselben Namen aus, gewaenne
+   wortlos der letzte (Phase H3, um die Muster erweitert in H4).
 
 Warum Punkt 5 (Phase H2, 29.08.2026)
 ------------------------------------
@@ -317,17 +318,23 @@ def farbliterale(quelle: Path) -> list[str]:
 
 
 def doppelte_ausgaben(quelle: Path) -> list[str]:
-    """Punkt 7: kein Primitiv zweimal (Phase H3).
+    """Punkt 7: kein Baustein zweimal (Phase H3, erweitert in H4).
 
-    `index.ts` haengt zwei Barrels aneinander (`bausteine`, `primitive`). Gibt
-    beide denselben Namen aus, gewinnt in JavaScript wortlos der letzte, und
-    welcher das ist, entscheidet die Reihenfolge zweier Zeilen. Der Aufrufer
-    bekommt einen anderen Baustein, als er meint, ohne dass irgendetwas rot
-    wird. Genau dieser Fall entsteht, wenn jemand ein Primitiv hinzufuegt, das
-    es unter einem anderen Namen schon gibt.
+    `index.ts` haengt seit H4 DREI Barrels aneinander (`bausteine`,
+    `primitive`, `muster`). Gibt eines denselben Namen aus wie ein anderes,
+    gewinnt in JavaScript wortlos der letzte, und welcher das ist, entscheidet
+    die Reihenfolge dreier Zeilen. Der Aufrufer bekommt einen anderen
+    Baustein, als er meint, ohne dass irgendetwas rot wird. Der Fall ist mit
+    den Mustern naeher gerueckt, nicht ferner: `Formular` (Baustein) und
+    `Formularseite` (Muster) stehen nebeneinander, `Kopf` und `Karte` ebenso.
     """
     befunde: list[str] = []
-    quellen = [quelle / "bausteine.ts", quelle / "primitive" / "index.ts", quelle / "cn.ts"]
+    quellen = [
+        quelle / "bausteine.ts",
+        quelle / "primitive" / "index.ts",
+        quelle / "muster" / "index.ts",
+        quelle / "cn.ts",
+    ]
     gesehen: dict[str, Path] = {}
     for datei in quellen:
         for name in sorted(namen_aus(datei)):
@@ -418,11 +425,13 @@ def main() -> int:
     befunde.extend(doppelte_ausgaben(quelle))
 
     primitive = sorted((quelle / "primitive").glob("*.tsx"))
+    muster = sorted((quelle / "muster").glob("*.tsx"))
     print("")
     print("===  Marken (Designsystem)  ===")
     print(
         f"  Bausteine: {len(sorted(quelle.glob('*.tsx')))}, "
         f"Primitive: {len(primitive)}, "
+        f"Muster: {len(muster)}, "
         f"Ausgaben im Buendel: {len(erwartet)}"
     )
     if befunde:

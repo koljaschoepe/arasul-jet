@@ -8,7 +8,6 @@ import Login from './features/system/Login';
 import CreateAdmin from './features/system/CreateAdmin';
 import ErrorBoundary, { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import NichtGefunden from './components/ui/NichtGefunden';
-import LoadingSpinner from './components/ui/LoadingSpinner';
 import PasswortWechseln from './features/system/PasswortWechseln';
 
 // PHASE 3: State Management - Contexts and Hooks
@@ -21,6 +20,7 @@ import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
 import { lazyNachladen } from './utils/lazyNachladen';
 import './index.css';
+import { Ladezustand } from '@marken';
 
 // Einstellungen und Store werden nicht mehr hier geladen, sondern
 // vom Arbeitsbereich (features/workspace/TabContent.tsx), seit die Legacy-Shell
@@ -202,7 +202,7 @@ function AppContent(): React.JSX.Element | null {
   // Show login screen if not authenticated
   if (!isAuthenticated) {
     if (authLoading || needsSetup === null) {
-      return <LoadingSpinner message="Prüfe Authentifizierung..." fullscreen={true} />;
+      return <Ladezustand meldung="Prüfe Authentifizierung..." ganzeSeite={true} />;
     }
     // Freshly bootstrapped box with no admin yet → first-run onboarding.
     if (needsSetup) {
@@ -267,7 +267,7 @@ function AppContent(): React.JSX.Element | null {
               element={
                 <RouteErrorBoundary routeName="Workspace">
                   <Suspense
-                    fallback={<LoadingSpinner message="Lade Workspace..." fullscreen={true} />}
+                    fallback={<Ladezustand meldung="Lade Workspace..." ganzeSeite={true} />}
                   >
                     <WorkspaceShell onLogout={handleLogout} />
                   </Suspense>
@@ -288,7 +288,7 @@ function AppContent(): React.JSX.Element | null {
               element={
                 <RouteErrorBoundary routeName="Bausteine">
                   <Suspense
-                    fallback={<LoadingSpinner message="Lade Bausteine..." fullscreen={true} />}
+                    fallback={<Ladezustand meldung="Lade Bausteine..." ganzeSeite={true} />}
                   >
                     <Schauseite />
                   </Suspense>

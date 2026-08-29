@@ -25,7 +25,8 @@ In allem unter `src/`, ausser `src/components/ui/`:
 4. `role="dialog"` von Hand   Ein Dialog gehoert in `Modal` (auf Radix).
 5. Ein Name, den `@marken` schon ausgibt, noch einmal in der Shell erklaert
    -- oder ein Import aus dem alten `components/ui/shadcn/` (Phase H3).
-6. Ein Primitiv ohne Schaustueck auf `/entwickler/bausteine` (Phase H3).
+6. Ein Primitiv ODER Muster ohne Schaustueck auf `/entwickler/bausteine`
+   (Phase H3, um die Muster erweitert in H4).
 
 Zur vierten Regel: am 20.08.2026 trugen fuenf Dateien `role="dialog"` selbst,
 waehrend fuenf andere den gemeinsamen `Modal` benutzen. VIER der fuenf
@@ -147,36 +148,63 @@ def primitive_doppelt(wurzel: Path) -> list[str]:
     return befunde
 
 
-SCHAUSEITE = 'apps/dashboard-frontend/src/features/entwickler/Schauseite.tsx'
+SCHAUSEITE = 'apps/dashboard-frontend/src/features/entwickler/'
+
+# Wo die Bausteine liegen, die ein Schaustueck brauchen -- und wie das Stueck
+# in der Meldung heisst. Seit H4 sind es zwei Saetze: die Primitive und die
+# MUSTER (`Datenliste`, `Suchauswahl`, …), die aus ihnen zusammengesetzt sind.
+# Ein Muster hat mehr Zustaende als ein Primitiv, nicht weniger -- leer,
+# gefuellt, gefiltert-und-leer, ladend, und unter 900 px eine andere Form --,
+# und genau die sieht sonst niemand an.
+SCHAU_ORDNER = [
+    ('packages/marken/src/primitive', 'Primitiv'),
+    ('packages/marken/src/muster', 'Muster'),
+]
+
 
 def schauseite_vollstaendig(wurzel: Path) -> list[str]:
-    """Jedes Primitiv steht auf der Schauseite (Phase H3).
+    """Jedes Primitiv und jedes Muster steht auf der Schauseite (H3, H4).
 
     Die Schauseite ist der einzige Ort, an dem ein Baustein, den heute niemand
     benutzt, ueberhaupt zu sehen ist -- und genau der ist der gefaehrliche: er
     sieht in einem der beiden Themes falsch aus, und es merkt erst der, der ihn
-    in einem halben Jahr zum ersten Mal einsetzt. Ein neues Primitiv ohne
+    in einem halben Jahr zum ersten Mal einsetzt. Ein neuer Baustein ohne
     Schaustueck faellt sonst durch jede Abnahme dieses Repos.
 
     Verglichen werden DATEINAMEN und nicht Ausgaben: `dialog.tsx` gibt zehn
     Namen aus, ist aber ein Stueck. Aus `alert-dialog` wird `AlertDialog`.
+
+    OHNE RUECKSICHT AUF GROSS- UND KLEINSCHREIBUNG. Der Dateiname sagt nicht,
+    wie der Baustein geschrieben wird: aus `input-otp.tsx` wuerde `InputOtp`,
+    und der Aufrufer tippt `InputOTP`. Das Schaustueck soll den Namen tragen,
+    den ein Mensch tippt; verglichen werden deshalb die Buchstaben, nicht ihre
+    Groesse.
+
+    GELESEN WIRD DER GANZE ORDNER `entwickler/` und nicht mehr die eine Datei:
+    seit H4 verteilt sich die Seite auf drei (Rahmen, H4-Stuecke, Muster),
+    weil dreiundfuenfzig Stuecke in einer Datei niemand mehr findet.
     """
-    ordner = wurzel / 'packages/marken/src/primitive'
-    seite = wurzel / SCHAUSEITE
-    if not ordner.is_dir() or not seite.is_file():
+    seiten = wurzel / SCHAUSEITE
+    if not seiten.is_dir():
         return []
-    erwartet = {
-        ''.join(teil.capitalize() for teil in datei.stem.split('-'))
-        for datei in ordner.glob('*.tsx')
-    }
-    text = seite.read_text(encoding='utf-8')
-    gezeigt = set(re.findall(r'name="([A-Z]\w+)"', text))
-    fehlen = sorted(erwartet - gezeigt)
-    return [
-        f'{SCHAUSEITE}  {name} hat kein Schaustueck -- ein Primitiv, das '
-        'niemand ansieht, ist eines, dessen Fehler niemand findet.'
-        for name in fehlen
-    ]
+    text = '\n'.join(
+        datei.read_text(encoding='utf-8') for datei in sorted(seiten.rglob('*.tsx'))
+    )
+    gezeigt = {name.lower() for name in re.findall(r'name="([A-Z]\w+)"', text)}
+
+    befunde: list[str] = []
+    for pfad, art in SCHAU_ORDNER:
+        ordner = wurzel / pfad
+        if not ordner.is_dir():
+            continue
+        for datei in sorted(ordner.glob('*.tsx')):
+            name = ''.join(teil.capitalize() for teil in datei.stem.split('-'))
+            if name.lower() not in gezeigt:
+                befunde.append(
+                    f'{SCHAUSEITE}  {name} hat kein Schaustueck -- ein {art}, das '
+                    'niemand ansieht, ist eines, dessen Fehler niemand findet.'
+                )
+    return befunde
 
 
 REGELN = [

@@ -6,7 +6,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Kopf } from '@marken';
 import { Alert, AlertDescription, Button, Input, Label, Textarea } from '@marken';
 import { extractIssues } from './validationIssues';
-import { Section, SectionList } from '@/components/ui/Section';
+import { Feldgruppe, Formularseite } from '@marken';
 
 /**
  * LLM-Standardwerte — raw column values as returned by GET /rag/settings.
@@ -245,16 +245,16 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
         beschreibung="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen."
       />
 
-      <SectionList>
-        <Section title="LLM-Standardwerte">
+      <Formularseite>
+        <Feldgruppe titel="LLM-Standardwerte">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {LLM_FIELDS.map(renderNumberField)}
           </div>
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Basis-System-Prompt"
-          description="Wird jedem LLM-Aufruf vorangestellt. Ein leeres Feld bedeutet: eingebauter Standard-Prompt."
+        <Feldgruppe
+          titel="Basis-System-Prompt"
+          beschreibung="Wird jedem LLM-Aufruf vorangestellt. Ein leeres Feld bedeutet: eingebauter Standard-Prompt."
         >
           <div className="space-y-4">
             <Textarea
@@ -276,7 +276,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
               <p className="text-xs text-destructive">{fieldErrors.llm_base_system_prompt}</p>
             )}
           </div>
-        </Section>
+        </Feldgruppe>
 
         {/* Load error (save feedback goes through toasts) */}
         {message && (
@@ -298,7 +298,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
             Speichern
           </Button>
         </div>
-      </SectionList>
+      </Formularseite>
     </div>
   );
 }

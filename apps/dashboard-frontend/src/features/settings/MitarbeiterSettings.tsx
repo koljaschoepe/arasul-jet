@@ -25,7 +25,6 @@ import { useState } from 'react';
 import { KeyRound, ShieldCheck, Trash2, UserPlus, Users, UserX } from 'lucide-react';
 import { Kopf } from '@marken';
 import { Button } from '@marken';
-import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -42,6 +41,7 @@ import {
   usePasswortSetzen,
   type Benutzer,
 } from './mitarbeiter/useMitarbeiter';
+import { Feldgruppe, Formularseite } from '@marken';
 
 export function MitarbeiterSettings() {
   const { user } = useAuth();
@@ -141,11 +141,11 @@ export function MitarbeiterSettings() {
         }
       />
 
-      <SectionList>
-        <Section
-          title="Menschen am Gerät"
-          icon={<Users />}
-          description="Ein vom Administrator gesetztes Passwort ist ein Startpasswort und wird beim ersten Anmelden gewechselt."
+      <Formularseite>
+        <Feldgruppe
+          titel="Menschen am Gerät"
+          symbol={<Users />}
+          beschreibung="Ein vom Administrator gesetztes Passwort ist ein Startpasswort und wird beim ersten Anmelden gewechselt."
         >
           {isLoading ? (
             <SkeletonText lines={4} />
@@ -208,16 +208,16 @@ export function MitarbeiterSettings() {
               }
             />
           )}
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Freigaben"
-          icon={<ShieldCheck />}
-          description="Ein Häkchen heißt: dieser Mensch sieht diese App. Auch ein Administrator sieht nur, was für ihn freigegeben ist."
+        <Feldgruppe
+          titel="Freigaben"
+          symbol={<ShieldCheck />}
+          beschreibung="Ein Häkchen heißt: dieser Mensch sieht diese App. Auch ein Administrator sieht nur, was für ihn freigegeben ist."
         >
           {isLoading ? <SkeletonText lines={3} /> : <FreigabeMatrix benutzer={liste} />}
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
 
       <MitarbeiterAnlegenDialog
         offen={anlegenOffen}

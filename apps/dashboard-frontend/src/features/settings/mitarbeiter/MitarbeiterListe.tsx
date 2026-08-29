@@ -17,7 +17,7 @@
  * ein Klick träfe die unsichtbare Hälfte.
  */
 import type { ReactNode } from 'react';
-import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
+import { useSchmalesFenster } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import type { Benutzer } from './useMitarbeiter';
 

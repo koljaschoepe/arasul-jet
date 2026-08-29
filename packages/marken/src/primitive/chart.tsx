@@ -1,6 +1,21 @@
 /**
  * Chart — Linien-Diagramm, und Sparkline — die kleine Form davon.
  *
+ * Seit **H4** liegt es in der Bibliothek und nicht mehr in der Shell. Ein
+ * Diagramm weiß nichts von Arasul: es bekommt Zahlen, Reihen und zwei
+ * Formatierer. Eine Fachanwendung, die einen Verlauf zeigt, hätte sich sonst
+ * ihr eigenes recharts zusammengesetzt — und dann gäbe es auf einem Bildschirm
+ * zwei Diagramme mit zwei Farbreihen und zwei Achsenformen.
+ *
+ * MIT DEM UMZUG SIND DIE TOKENS GEWECHSELT, UND ZWAR NOTGEDRUNGEN. Es stand
+ * auf `--text-muted`, `--bg-card`, `--text-primary` und `--shadow-md` — das
+ * sind Aliasse der Shell aus `index.css`, und die gibt es in einer App nicht.
+ * Jetzt stehen dort die Tokens aus `theme.css`, auf die diese Aliasse ohnehin
+ * zeigen (`--muted-foreground`, `--card`, `--foreground`). Der Schatten am
+ * Tooltip ist ersatzlos gefallen: `--shadow-md` gehört der Shell, und ein
+ * fester Wert an seiner Stelle wäre eine Farbe ohne Token. Der Rahmen und die
+ * Kartenfläche trennen ihn auch so vom Diagramm darunter.
+ *
  * Ersetzt zwei getrennte recharts-Aufbauten in `SystemStatus`: das Auslastungs-
  * Diagramm und den Temperaturverlauf in der Kachel. Beide setzten Achsen,
  * Gitter und Farben von Hand, mit unterschiedlichem Ergebnis.
@@ -28,21 +43,22 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { cn } from '@marken';
+import { cn } from '../cn';
 
 /**
- * Vier Werte von kraeftigem Blau nach Grau. Die Namen stammen aus zwei
- * Familien, und das bleibt so: recharts nimmt die rohe CSS-Variable, und
- * `--color-chart-1` ist der einzige Blauton dieser Reihe, der ueberhaupt einen
- * Tailwind-Namen hat. Die uebrigen drei gibt es nur unter ihrem rohen Namen.
- * `index.css` bildet beide Familien auf dieselben Werte ab; wer hier
- * vereinheitlicht, vereinheitlicht Namen, nicht Farben.
+ * Vier Werte von kraeftigem Blau nach Grau.
+ *
+ * Alle vier stehen in `theme.css` und folgen damit dem Thema -- recharts
+ * nimmt die rohe CSS-Variable und keine Tailwind-Klasse, also muss der Name
+ * hier der des Tokens sein und nicht der der Utility. Vier ist bewusst die
+ * Grenze: darueber lassen sich Linien derselben Einheit nicht mehr
+ * auseinanderhalten, und wer mehr Reihen uebergibt, bekommt Wiederholungen.
  */
 export const SERIENFARBEN = [
   'var(--color-chart-1)',
-  'var(--primary-color)',
-  'var(--text-secondary)',
-  'var(--text-muted)',
+  'var(--primary)',
+  'var(--foreground)',
+  'var(--muted-foreground)',
 ] as const;
 
 interface ChartSeries {
@@ -95,10 +111,10 @@ interface ChartProps<Datum extends object> {
 }
 
 const ACHSE = {
-  stroke: 'var(--text-muted)',
-  tick: { fill: 'var(--text-muted)', fontSize: '0.75rem' },
-  axisLine: { stroke: 'var(--text-muted)' },
-  tickLine: { stroke: 'var(--text-muted)' },
+  stroke: 'var(--muted-foreground)',
+  tick: { fill: 'var(--muted-foreground)', fontSize: '0.75rem' },
+  axisLine: { stroke: 'var(--muted-foreground)' },
+  tickLine: { stroke: 'var(--muted-foreground)' },
 } as const;
 
 export function Chart<Datum extends object>({
@@ -148,12 +164,11 @@ export function Chart<Datum extends object>({
           )}
           <Tooltip
             contentStyle={{
-              background: 'var(--bg-card)',
+              background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--shadow-md)',
             }}
-            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
+            labelStyle={{ color: 'var(--foreground)', fontWeight: 600 }}
             labelFormatter={wert => formatX(Number(wert))}
             formatter={(wert, name) => {
               const zahl = typeof wert === 'number' ? wert : Number(wert);

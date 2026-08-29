@@ -14,7 +14,11 @@
     "class-variance-authority",
     "clsx",
     "radix-ui",
-    "tailwind-merge"
+    "tailwind-merge",
+    "cmdk",
+    "embla-carousel-react",
+    "input-otp",
+    "react-day-picker"
   ],
   "ignoreBinaries": ["eslint"]
 }

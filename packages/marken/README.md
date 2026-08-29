@@ -1,31 +1,81 @@
 # Marken — das Designsystem des Geräts
 
-Die Tokens (`theme.css`), **sechsundzwanzig Primitive** auf Radix und Tailwind
-und **sechs Bausteine** auf reinem CSS. Sie tragen die Shell und jede App auf
-diesem Gerät.
+Die Tokens (`theme.css`), **sechsundvierzig Primitive** auf Radix und Tailwind,
+**sieben Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
+die Shell und jede App auf diesem Gerät.
 
-## Zwei Sätze, zwei Laufzeiten (Phase H3)
+## Drei Sätze, zwei Laufzeiten (Phasen H3 und H4)
 
-|                   | Primitive (H3)                                | Bausteine (D7)                              |
-| ----------------- | --------------------------------------------- | ------------------------------------------- |
-| Was               | Button, Input, Dialog, Tabs, Badge … (26)     | Kopf, Liste, Karte, Formular, Meldung, Menü |
-| Worauf            | Radix + Tailwind-Utilities aus `theme.css`    | reines CSS, Klassen `ara-*`                 |
-| Braucht einen Bau | **ja**                                        | nein                                        |
-| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage) | zusätzlich jede App **ohne** Bau            |
-| Wo                | `src/primitive/`                              | `src/*.tsx`                                 |
+|                   | Primitive (H3, H4)                              | Muster (H4)                                 | Bausteine (D7)                              |
+| ----------------- | ----------------------------------------------- | ------------------------------------------- | ------------------------------------------- |
+| Was               | Button, Input, Dialog, Tabelle, Kalender … (46) | Datenliste, Suchauswahl, Seitenleiste … (7) | Kopf, Liste, Karte, Formular, Meldung, Menü |
+| Höhe              | ein Teil                                        | eine **Form**, aus Teilen gebaut            | ein Teil, ohne Tailwind                     |
+| Worauf            | Radix + Tailwind-Utilities aus `theme.css`      | die Primitive                               | reines CSS, Klassen `ara-*`                 |
+| Braucht einen Bau | **ja**                                          | **ja**                                      | nein                                        |
+| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage)   | dieselben                                   | zusätzlich jede App **ohne** Bau            |
+| Wo                | `src/primitive/`                                | `src/muster/`                               | `src/*.tsx`                                 |
 
-Das ist keine Doppelung, sondern der Unterschied zwischen zwei Laufzeiten. Eine
-App ohne Bau hat keinen Tailwind, der die Klassen der Primitive erzeugt — sie
-bekäme sechsundzwanzig Bausteine, von denen kein einziger aussieht wie etwas.
-`browser.ts` gibt deshalb nur die Bausteine aus, `index.ts` beides. Wer die
-Primitive will, braucht einen Bau.
+Das ist keine Doppelung, sondern erstens der Unterschied zwischen zwei
+Laufzeiten und zweitens der zwischen zwei Höhen. Eine App ohne Bau hat keinen
+Tailwind, der die Klassen der Primitive erzeugt — sie bekäme sechsundvierzig
+Bausteine, von denen kein einziger aussieht wie etwas. `browser.ts` gibt
+deshalb nur die Bausteine aus, `index.ts` alle drei Sätze. Wer die Primitive
+oder die Muster will, braucht einen Bau.
+
+### Warum es die Muster gibt (Phase H4)
+
+Bis H3 hatte die Bibliothek nur Teile. Wer damit eine Fachanwendung baute,
+schrieb für eine sortierbare Liste mit Suchfeld, Leerzustand und einer Form
+für kleine Fenster rund zweihundert Zeilen — und die nächste Anwendung schrieb
+zweihundert andere. Genau daraus sind vor Plan 023 die zwanzig Kopfstellen mit
+derselben Klassenkette entstanden. Ein Muster ist die Antwort: **eine Form, an
+einer Stelle, mit einer Liste als Eingabe.**
+
+Sie wissen trotzdem nichts von Arasul. Kein Muster kennt eine Route, einen
+Endpunkt oder einen Benutzer — `Datenliste` bekommt Zeilen, `Seitenleiste`
+bekommt Einträge. Was über **dieses** Gerät Bescheid weiß (`Modal`,
+`FilterBar`, `AuthCard`, `SkeletonList`), bleibt in der Shell.
+
+### Was H4 bewusst NICHT gebaut hat
+
+shadcn führt zwei Bausteine, die dieses Gerät schon hat:
+
+| shadcn   | hier                                                             |
+| -------- | ---------------------------------------------------------------- |
+| `Drawer` | `Sheet side="bottom"` — dieselbe Sache, ein Paket weniger (vaul) |
+| `Sonner` | `Toast` samt der Warteschlange in `ToastContext`                 |
+
+Zwei Bausteine unter einer Sache sind die Verwechslung selbst; das ist derselbe
+Grund, aus dem `scripts/test/marken.py` (Punkt 7) keinen Namen zweimal duldet.
+Und `Combobox` ist kein eigener Name, sondern das Muster **`Suchauswahl`** —
+shadcn führt es ohnehin nur als Rezept aus `Popover` plus `Command`.
+
+### Vier Abhängigkeiten von außen
+
+`cmdk` (Suchliste), `react-day-picker` (Kalender), `embla-carousel-react`
+(Karussell) und `input-otp` (Einmalcode). Sie stehen in der `package.json` der
+Shell, weil die Bibliothek kein npm-Paket ist, und mit ihrem Grund in
+`apps/dashboard-frontend/knip.json` — knip sieht diesen Ordner nicht.
+Alles andere steht auf `radix-ui`, `react-hook-form`, `react-resizable-panels`
+und `recharts`, die schon im Lockfile standen.
+
+**`tw-animate-css` gehört dazu.** Die Bewegungen der Primitive (`animate-in`,
+`animate-accordion-down`, `animate-caret-blink`) kommen von dort, nicht aus
+`theme.css`; die Shell holt es in `index.css`, und eine App mit Bau braucht
+dieselbe Zeile. Nur die zwei Bilder des `Ladezustand` stehen in `theme.css` —
+sie gehören diesem Gerät und keinem Paket.
 
 **Die Schauseite** liegt in der Shell unter `/entwickler/bausteine` und zeigt
-jedes Primitiv in allen seinen Zuständen, hell und dunkel.
-`scripts/test/schauseite.mjs` macht davon Bilder bei 390, 1024 und 1440 px.
-`scripts/test/bausteine.py` meldet ein Primitiv ohne Schaustück: ein Baustein,
-den heute niemand benutzt, sieht in einem der beiden Themes falsch aus, und es
-merkt sonst erst der, der ihn in einem halben Jahr zum ersten Mal einsetzt.
+jedes Primitiv **und jedes Muster** in allen seinen Zuständen, hell und dunkel.
+Sie liegt seit H4 in drei Dateien (`Schauseite.tsx` als Rahmen mit den H3-Stücken,
+`SchaustueckeH4.tsx`, `SchaustueckeMuster.tsx`) — dreiundfünfzig Stücke in einer
+Datei findet niemand mehr. `scripts/test/schauseite.mjs` macht davon Bilder bei
+390, 1024 und 1440 px. `scripts/test/bausteine.py` meldet einen Baustein ohne
+Schaustück: einer, den heute niemand benutzt, sieht in einem der beiden Themes
+falsch aus, und es merkt sonst erst der, der ihn in einem halben Jahr zum ersten
+Mal einsetzt. Bei einem Muster ist das noch dringender — es hat mehr Zustände
+als ein Primitiv, nicht weniger: leer, gefüllt, gefiltert-und-leer, ladend, und
+unter 900 px eine andere Form.
 
 ## Die Tokens: `theme.css` (Phase H3)
 
@@ -85,11 +135,11 @@ Fehler.
 
 ## Zwei Wege hinein, eine Quelle
 
-| Wer                            | Wie                                                               |
-| ------------------------------ | ----------------------------------------------------------------- |
-| die Shell                      | `import { Button, Karte } from '@marken'` — Vite-Alias auf `src/` |
-| eine App **ohne** Bau          | `import { Karte } from './marken.js'` — `browser/marken.js`       |
-| eine App **mit** Bau (Kit, E5) | Spiegel dieses Ordners in die Vorlage, dann wie die Shell         |
+| Wer                            | Wie                                                                    |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| die Shell                      | `import { Button, Datenliste } from '@marken'` — Vite-Alias auf `src/` |
+| eine App **ohne** Bau          | `import { Karte } from './marken.js'` — `browser/marken.js`            |
+| eine App **mit** Bau (Kit, E5) | Spiegel dieses Ordners in die Vorlage, dann wie die Shell              |
 
 `@marken` ist ein **Pfad-Alias** wie `@`, kein npm-Paket: die Bibliothek wird
 mit der Shell übersetzt. Kein Eintrag im Wurzel-Lockfile, kein `dist/`, das
@@ -131,7 +181,16 @@ fällt sonst.
 
 ## Unter 900 px
 
-Die Bibliothek kennt dieselbe Schwelle wie die Shell (`useSchmalesFenster`):
-darunter **eine Spalte** und ein Strom (`.ara-strom`), das Menü als Fläche über
+Die Bibliothek kennt dieselbe Schwelle wie die Shell — und seit H4 **besitzt
+sie den Hook dazu**: `useSchmalesFenster` ist aus `apps/dashboard-frontend/src/hooks/`
+hierher gezogen, weil `Sidebar` und `Datenliste` ihn brauchen und ein Baustein
+dieser Bibliothek nicht aus der Shell importieren darf (`marken.py`, Punkt 4).
+Er steht bei den **Bausteinen**, nicht bei den Primitiven: er ist reines React
+und braucht keinen Bau, also bekommt ihn auch eine App ohne Bau. Es gibt keinen
+zweiten Schwellenwert im Produkt.
+
+Darunter **eine Spalte** und ein Strom (`.ara-strom`), das Menü als Fläche über
 der Seite; darüber die drei Spalten aus D1. Ein geschrumpfter Desktop ist kein
-Telefon-Aufbau.
+Telefon-Aufbau. Was das für die Muster heißt: `Datenliste` wird zur Kartenliste
+(immer nur **eine** Form im Dokument — mit beiden nebeneinander stünde jede
+Kennung doppelt da), `Sidebar` und `Seitenleiste` werden zu einem Blatt.

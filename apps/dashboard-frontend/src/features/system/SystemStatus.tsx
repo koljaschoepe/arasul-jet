@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { formatBytesBinaer } from '@/utils/formatting';
-import { Button } from '@marken';
-import { Chart, Sparkline } from '@/components/ui/Chart';
-import { Section, SectionList } from '@/components/ui/Section';
+import { Button, Chart, Sparkline } from '@marken';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useGeraetezustand } from './geraetezustand';
 import type {
   Geraetezustand,
@@ -16,6 +13,7 @@ import type {
 import type { Metrics } from '@/types';
 import { useMemoryBudget } from '@/hooks/useMemoryBudget';
 import { DashboardCard } from './DashboardCard';
+import { Feldgruppe, Formularseite, Ladezustand } from '@marken';
 
 /**
  * SystemStatus — die Live-System-Status-Ansicht (RAM/Swap/Storage/Temperatur-
@@ -288,10 +286,10 @@ function SystemStatusView({
           liest sich wie eine vergessene Formatierung, nicht wie Absicht.
         */}
         <DashboardCard className="col-span-full">
-          <SectionList>
-            <Section
-              title="Auslastung"
-              action={
+          <Formularseite>
+            <Feldgruppe
+              titel="Auslastung"
+              aktion={
                 <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
                   {timeRangeOptions.map((hours: number) => (
                     <button
@@ -344,8 +342,8 @@ function SystemStatusView({
                   </>
                 )}
               </div>
-            </Section>
-          </SectionList>
+            </Feldgruppe>
+          </Formularseite>
         </DashboardCard>
 
         <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>
@@ -363,7 +361,7 @@ export function SystemStatus(): React.JSX.Element {
   const data: Geraetezustand = useGeraetezustand(true);
 
   if (data.loading) {
-    return <LoadingSpinner message="Lade Systemstatus..." />;
+    return <Ladezustand meldung="Lade Systemstatus..." />;
   }
   if (data.error) {
     return (

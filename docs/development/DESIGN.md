@@ -34,7 +34,8 @@ Drei Regeln, die ein Wächter hält:
 ## Stack
 
 TypeScript, React 19, Tailwind v4 (Utility-First, Tokens über `@theme`),
-shadcn/ui (Radix-Primitive seit H3 in `packages/marken/src/primitive/`),
+shadcn/ui (Radix-Primitive seit H3 in `packages/marken/src/primitive/`, seit H4
+vollständig; die Muster darüber in `packages/marken/src/muster/`),
 lucide-react für Symbole, `cn()` aus `@marken` für bedingte Klassen.
 Inter als Schrift, JetBrains Mono für Code.
 
@@ -117,21 +118,46 @@ Bedeutung, die es nicht gibt.
 
 Seit **Phase D7** (28.08.2026) liegen Schrift, Farben, Abstände und sechs
 Bausteine in einer Bibliothek, die die Shell **und jede App** benutzt; seit
-**H3** (29.08.2026) dazu die **Tokens** (`theme.css`) und **sechsundzwanzig
-Primitive** (`src/primitive/`) — Button, Input, Dialog, Tabs, Badge und die
-übrigen.
+**H3** (29.08.2026) dazu die **Tokens** (`theme.css`) und die **Primitive**
+(`src/primitive/`) — Button, Input, Dialog, Tabs, Badge und die übrigen. Seit
+**H4** (29.08.2026) ist der Satz vollständig (**sechsundvierzig**), und über
+ihm stehen **sieben Muster** (`src/muster/`).
 
-**Zwei Sätze, zwei Laufzeiten.** Die Primitive stehen auf Radix und Tailwind
-und brauchen einen Bau; die sechs Bausteine darunter stehen auf reinem CSS und
+**Drei Sätze, zwei Laufzeiten, zwei Höhen.** Die Primitive stehen auf Radix
+und Tailwind und brauchen einen Bau; die Muster sind aus ihnen gebaut und
+brauchen ihn auch; die sechs Bausteine darunter stehen auf reinem CSS und
 laufen in einer App **ohne** Bau. Wer einen Bau hat, nimmt die Primitive. Das
-Bündel `browser/marken.js` trägt deshalb weiter nur die sechs.
+Bündel `browser/marken.js` trägt deshalb weiter nur die sechs — plus, seit H4,
+`useSchmalesFenster`, der reines React ist und die eine Schwelle des Produkts
+(900 px) trägt.
 
-Die **Schauseite** unter `/entwickler/bausteine` zeigt jedes Primitiv in allen
-Zuständen, hell und dunkel; `scripts/test/schauseite.mjs` macht davon Bilder
-bei 390, 1024 und 1440 px. Ein Primitiv **ohne** Schaustück meldet
-`scripts/test/bausteine.py` — ein Baustein, den heute niemand benutzt, sieht in
-einem der beiden Themes falsch aus, und es merkt sonst erst der, der ihn in
-einem halben Jahr zum ersten Mal einsetzt.
+Der Unterschied zwischen einem Primitiv und einem Muster ist die **Höhe**: ein
+Primitiv ist ein Teil (`Table`), ein Muster ist eine **Form** (`Datenliste` —
+Spalten-Spezifikation, Sortieren, Filtern, Leerzustand, Ladezustand, und unter
+900 px Karten statt Tabelle). Beide wissen nichts von Arasul; was eine Route,
+einen Endpunkt oder einen Benutzer kennt, bleibt in der Shell.
+
+| Muster                         | Wofür                                                          |
+| ------------------------------ | -------------------------------------------------------------- |
+| `Datenliste`                   | Zeilen zeigen, sortieren, durchsuchen; unter 900 px Karten     |
+| `Suchauswahl`                  | die Auswahl, die beim Tippen enger wird (anderswo »Combobox«)  |
+| `Dateiablage`                  | Dateien ziehen **oder** auswählen; sie lädt selbst nichts hoch |
+| `Seitenleiste`                 | Navigation aus einer Liste, auf dem Primitiv `Sidebar`         |
+| `Formularseite` / `Feldgruppe` | Abschnitte einer Seite; die Trennlinie gehört zwischen sie     |
+| `Leerzustand`                  | was an der Stelle einer leeren Liste steht — samt Einstieg     |
+| `Ladezustand`                  | der Kreisel, wenn die Form des Ergebnisses noch offen ist      |
+
+Die **Schauseite** unter `/entwickler/bausteine` zeigt jedes Primitiv **und
+jedes Muster** in allen Zuständen, hell und dunkel; sie liegt seit H4 in drei
+Dateien, und `scripts/test/schauseite.mjs` macht davon Bilder bei 390, 1024
+und 1440 px. Einen Baustein **ohne** Schaustück meldet
+`scripts/test/bausteine.py` — einer, den heute niemand benutzt, sieht in einem
+der beiden Themes falsch aus, und es merkt sonst erst der, der ihn in einem
+halben Jahr zum ersten Mal einsetzt.
+
+**Zwei Namen aus shadcns Liste fehlen mit Absicht:** `Drawer` ist
+`Sheet side="bottom"`, `Sonner` ist `Toast` samt `ToastContext`. Zwei
+Bausteine unter einer Sache sind die Verwechslung selbst.
 
 Die sechs Bausteine ohne Bau:
 
@@ -185,18 +211,23 @@ Fehler.
 
 ## Das gemeinsame Baustein-Set (`components/ui/`)
 
-| Baustein                  | Was er festlegt                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------- |
-| `FilterBar`               | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`) mit eigener Inhaltsfläche            |
-| `StatTile` / `StatGrid`   | Kennzahl ohne Symbol; Raster fest 1/2/4 Spalten, nie drei plus eins                |
-| `Chart` / `Sparkline`     | recharts-Linien in Serienfarben, ohne eigene Karte                                 |
-| `Section` / `SectionList` | Feldgruppe mit `h2`; die Liste setzt die Trennlinien zwischen, nicht an Abschnitte |
-| `EmptyState`              | leere Liste mit Titel und Einstieg                                                 |
-| `AuthCard`                | Rahmen der Seiten vor der Anmeldung; das einzige `h1`, das kein Seitentitel ist    |
+| Baustein                 | Was er festlegt                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `FilterBar`              | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`) mit eigener Inhaltsfläche         |
+| `StatTile` / `StatGrid`  | Kennzahl ohne Symbol; Raster fest 1/2/4 Spalten, nie drei plus eins             |
+| `Modal` / `ConfirmModal` | der Dialog dieses Geräts, auf `Dialog` aus `@marken`                            |
+| `SkeletonText/Card/List` | Platzhalter in der Form, die eine Liste auf DIESEM Gerät hat                    |
+| `AuthCard`               | Rahmen der Seiten vor der Anmeldung; das einzige `h1`, das kein Seitentitel ist |
 
-Eine neue Seite baut auf diesen Bausteinen auf, statt die Klassenkette zu
-kopieren. Ausnahmen stehen mit Grund in `AUSNAHMEN` von `bausteine.py`; ein
-Eintrag ohne Grund ist keiner.
+**Vier sind mit H4 in die Bibliothek gezogen**, weil sie nichts von Arasul
+wissen und eine Fachanwendung sie genauso braucht: `Chart`/`Sparkline` (jetzt
+ein Primitiv), `Section`/`SectionList` (jetzt `Feldgruppe`/`Formularseite`),
+`EmptyState` (jetzt `Leerzustand`) und `LoadingSpinner` (jetzt `Ladezustand`).
+Sie kommen aus `@marken`, nicht mehr aus `components/ui/`.
+
+Eine neue Seite baut auf diesen Bausteinen und auf `@marken` auf, statt die
+Klassenkette zu kopieren. Ausnahmen stehen mit Grund in `AUSNAHMEN` von
+`bausteine.py`; ein Eintrag ohne Grund ist keiner.
 
 ## Die Shell
 
@@ -239,6 +270,7 @@ sitzt seitdem im Benutzermenü der Kopfleiste.
 | ------------------------------------- | ------------------------------------------------------------------------------ |
 | Wert eines Tokens                     | `packages/marken/src/theme.css` (`@theme`, `@theme inline`, `:root`, Dunkel)   |
 | Ein neues Primitiv                    | `packages/marken/src/primitive/` + Barrel + Schaustück + `fassung.ts` heben    |
+| Ein neues Muster                      | `packages/marken/src/muster/` + Barrel + Schaustück + `fassung.ts` heben       |
 | Neuer Token, neue Farbe, neuer Radius | dort ergänzen, hier nur, wenn es eine Regel ändert                             |
 | Frontend-Konventionen                 | [`apps/dashboard-frontend/CLAUDE.md`](../../apps/dashboard-frontend/CLAUDE.md) |
 | Wächter                               | `scripts/test/check-design-system.js`, `scripts/test/bausteine.py`             |

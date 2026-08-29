@@ -9,7 +9,7 @@ import {
   nurFuerAdmin,
 } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
+import { useSchmalesFenster } from '@marken';
 import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';

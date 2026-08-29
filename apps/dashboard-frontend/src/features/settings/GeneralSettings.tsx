@@ -7,7 +7,7 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
-import { Section, SectionList } from '@/components/ui/Section';
+import { Feldgruppe, Formularseite } from '@marken';
 
 /**
  * Zwei Optionen (Phase H1). »Schwarz« ist gefallen: es unterschied sich von
@@ -75,11 +75,11 @@ export function GeneralSettings() {
     <div className="animate-in fade-in">
       <Kopf titel="Allgemein" beschreibung="Systeminformationen und Konfiguration" />
 
-      <SectionList>
-        <Section
-          title="Erscheinungsbild"
-          icon={theme === 'dark' ? <Moon /> : <Sun />}
-          description="Wähle zwischen hellem und dunklem Design"
+      <Formularseite>
+        <Feldgruppe
+          titel="Erscheinungsbild"
+          symbol={theme === 'dark' ? <Moon /> : <Sun />}
+          beschreibung="Wähle zwischen hellem und dunklem Design"
         >
           <RadioGroup
             value={theme}
@@ -123,12 +123,15 @@ export function GeneralSettings() {
               );
             })}
           </RadioGroup>
-        </Section>
+        </Feldgruppe>
 
         {loading ? (
           <SkeletonCard hasAvatar={false} lines={3} />
         ) : systemInfo ? (
-          <Section title="Systeminformationen" description="Aktuelle System- und Versionsangaben">
+          <Feldgruppe
+            titel="Systeminformationen"
+            beschreibung="Aktuelle System- und Versionsangaben"
+          >
             <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
               {[
                 // Beschriftungen deutsch. B7 hat die englischen aus dem
@@ -155,16 +158,19 @@ export function GeneralSettings() {
                 </div>
               ))}
             </div>
-          </Section>
+          </Feldgruppe>
         ) : (
-          <Section title="Systeminformationen">
+          <Feldgruppe titel="Systeminformationen">
             <p className="text-sm text-muted-foreground">
               Systeminformationen konnten nicht geladen werden.
             </p>
-          </Section>
+          </Feldgruppe>
         )}
 
-        <Section title={`Über ${PLATFORM_NAME}`} description="Edge-AI-Plattform für NVIDIA Jetson">
+        <Feldgruppe
+          titel={`Über ${PLATFORM_NAME}`}
+          beschreibung="Edge-AI-Plattform für NVIDIA Jetson"
+        >
           <p className="text-sm text-muted-foreground mb-4">
             {PLATFORM_NAME} ist eine autonome Edge-AI-Plattform, die auf NVIDIA Jetson AGX Orin
             läuft. Die Plattform bietet lokale KI-Funktionen, Multi-Jahres-Betrieb ohne Wartung und
@@ -205,8 +211,8 @@ export function GeneralSettings() {
               </a>
             </p>
           </div>
-        </Section>
-      </SectionList>
+        </Feldgruppe>
+      </Formularseite>
     </div>
   );
 }

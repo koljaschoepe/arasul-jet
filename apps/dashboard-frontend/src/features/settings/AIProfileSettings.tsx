@@ -21,7 +21,7 @@ import {
   SelectValue,
   Textarea,
 } from '@marken';
-import { Section, SectionList } from '@/components/ui/Section';
+import { Feldgruppe, Formularseite } from '@marken';
 
 const AI_INDUSTRIES = [
   'IT & Software',
@@ -342,8 +342,8 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
         beschreibung="Firmen- und KI-Verhalten konfigurieren. Diese Einstellungen werden automatisch bei jedem Chat als Kontext mitgegeben."
       />
 
-      <SectionList>
-        <Section title="Firmenprofil">
+      <Formularseite>
+        <Feldgruppe titel="Firmenprofil">
           <div className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="companyName">Firmenname</Label>
@@ -411,11 +411,11 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
               <p className="text-xs text-muted-foreground">Komma-getrennt eingeben</p>
             </div>
           </div>
-        </Section>
+        </Feldgruppe>
 
-        <Section
-          title="Zusatzkontext"
-          description="Beschreibung des Unternehmens, der Zielgruppen und Besonderheiten."
+        <Feldgruppe
+          titel="Zusatzkontext"
+          beschreibung="Beschreibung des Unternehmens, der Zielgruppen und Besonderheiten."
         >
           <div className="space-y-4">
             <Textarea
@@ -442,9 +442,9 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
               </p>
             )}
           </div>
-        </Section>
+        </Feldgruppe>
 
-        <Section title="KI-Verhalten">
+        <Feldgruppe titel="KI-Verhalten">
           <div className="space-y-5">
             <div className="space-y-2">
               <Label>Antwortlänge</Label>
@@ -490,7 +490,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
               </RadioGroup>
             </div>
           </div>
-        </Section>
+        </Feldgruppe>
 
         {/* Save Footer */}
         <div className="flex items-center justify-between py-2">
@@ -504,7 +504,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
             Speichern
           </Button>
         </div>
-      </SectionList>
+      </Formularseite>
     </div>
   );
 }

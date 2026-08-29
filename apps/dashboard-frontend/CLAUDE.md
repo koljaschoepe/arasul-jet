@@ -13,15 +13,31 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
 
 - `@/* → src/*`
 - `@marken → ../../packages/marken/src` — **das Designsystem**, geteilt mit
-  **jeder App** auf dem Gerät. Seit **H3** zwei Sätze und die Tokens:
-  - die **Primitive** (`src/primitive/`, 26 Stück): Button, Input, Textarea,
+  **jeder App** auf dem Gerät. Seit **H3/H4** drei Sätze und die Tokens:
+  - die **Primitive** (`src/primitive/`, 46 Stück): Button, Input, Textarea,
     Label, Select, Checkbox, RadioGroup, Switch, Dialog, AlertDialog, Sheet,
     Popover, Tooltip, DropdownMenu, ContextMenu, Tabs, Card, Badge, Alert,
-    Toast, Avatar, Separator, Skeleton, Progress, ScrollArea, Breadcrumb. Auf
-    Radix und Tailwind. **Sie sind der einzige Ort dafür** — ein zweiter
-    Button in der Shell ist ein Befund (`scripts/test/bausteine.py`).
+    Toast, Avatar, Separator, Skeleton, Progress, ScrollArea, Breadcrumb —
+    dazu seit **H4** Accordion, AspectRatio, Calendar, Carousel, Chart,
+    Collapsible, Command, DatePicker, Form, HoverCard, InputOTP, Menubar,
+    NavigationMenu, Pagination, Resizable, Sidebar, Slider, Table, Toggle,
+    ToggleGroup. Auf Radix und Tailwind. **Sie sind der einzige Ort dafür** —
+    ein zweiter Button in der Shell ist ein Befund
+    (`scripts/test/bausteine.py`). `Drawer` und `Sonner` gibt es bewusst
+    nicht: das eine ist `Sheet side="bottom"`, das andere `Toast`.
+  - die **Muster** (`src/muster/`, 7 Stück, H4): Datenliste, Suchauswahl,
+    Dateiablage, Seitenleiste, Formularseite mit Feldgruppe, Leerzustand,
+    Ladezustand. Zusammensetzungen aus Primitiven, die eine Aufgabe lösen,
+    nicht ein Teil liefern — und die trotzdem nichts von Arasul wissen.
+    `Section`/`SectionList`, `EmptyState` und `LoadingSpinner` der Shell sind
+    mit H4 dorthin gezogen und heißen jetzt `Feldgruppe`/`Formularseite`,
+    `Leerzustand` und `Ladezustand`; ihre Props sind deutsch (`titel`,
+    `symbol`, `beschreibung`, `aktion`, `meldung`, `ganzeSeite`, `groesse`).
   - die **Bausteine** aus D7 (Kopf, Liste, Karte, Formular/Feld/Knopf,
-    Meldung, Menü): reines CSS, laufen in einer App **ohne** Bau.
+    Meldung, Menü): reines CSS, laufen in einer App **ohne** Bau. Seit H4
+    gehört `useSchmalesFenster` dazu — er ist aus `hooks/` dorthin gezogen,
+    weil `Sidebar` und `Datenliste` ihn brauchen und ein Baustein der
+    Bibliothek nicht aus der Shell importieren darf.
   - `cn()` — er ist mit den Primitiven dorthin gezogen; `@/lib/utils` gibt es
     nicht mehr.
   - `theme.css` — die Tokens (`@theme`, `@theme inline`, `:root`,
@@ -107,10 +123,13 @@ src/
                    Liste leer, steht sie **gar nicht** da; ein Leerzustand wäre
                    auf der Übersicht eine Dauermeldung über etwas, das es nicht
                    gibt.
-    entwickler/    Die Schauseite der Bibliothek (H3): `/entwickler/bausteine`,
-                   jedes Primitiv aus `@marken` in allen Zuständen, hell und
-                   dunkel. In **keinem** Menü — sie ist für den, der eine App
-                   baut. Gemessen von `scripts/test/schauseite.mjs`.
+    entwickler/    Die Schauseite der Bibliothek (H3, erweitert in H4):
+                   `/entwickler/bausteine`, jedes Primitiv **und jedes Muster**
+                   aus `@marken` in allen Zuständen, hell und dunkel. Drei
+                   Dateien: `Schauseite.tsx` (Rahmen plus die H3-Stücke),
+                   `SchaustueckeH4.tsx`, `SchaustueckeMuster.tsx`. In
+                   **keinem** Menü — sie ist für den, der eine App baut.
+                   Gemessen von `scripts/test/schauseite.mjs`.
     notizen/       Der Zettel der rechten Spalte (D1). Ein Textfeld, speichert
                    nach einer Sekunde Ruhe gegen `PUT /api/notizen`.
     workspace/     Die Shell (ab 900 px Dreispalten-Raster, darunter der
@@ -232,12 +251,19 @@ src/
                    `docs/development/DESIGN.md`.
                    Seit H3 gibt es hier KEINE Primitive mehr: `shadcn/` ist
                    nach `packages/marken/src/primitive/` gezogen, `Checkbox`
-                   mit (jetzt auf Radix). Was blieb, sind die
-                   Zusammensetzungen — `Skeleton.tsx` etwa hält
+                   mit (jetzt auf Radix). Mit **H4** sind auch `Section`,
+                   `EmptyState`, `LoadingSpinner` und `Chart` gegangen — sie
+                   wissen nichts von Arasul, und eine Fachanwendung braucht
+                   sie genauso. Was blieb, sind die Zusammensetzungen, die es
+                   WOHL wissen: `Modal`, `FilterBar`, `StatTile`, `AuthCard`,
+                   `NichtGefunden`, `ErrorBoundary` und `Skeleton.tsx` (hält
                    SkeletonText/Card/List und holt den Platzhalter selbst aus
-                   `@marken`.
+                   `@marken`).
     mascot/        Das Maskottchen.
-  hooks/           Cross-feature hooks (useApi, useTheme, …). `useTheme` liest
+  hooks/           Cross-feature hooks (useApi, useTheme, …).
+                   `useSchmalesFenster` steht seit H4 NICHT mehr hier, sondern
+                   in `@marken` — es gibt genau eine Schwelle (900 px) im
+                   Produkt, und die Bibliothek braucht sie selbst. `useTheme` liest
                    seit H1 das Theme des Angemeldeten aus dem `AuthContext`
                    (`admin_users.theme`) und schreibt es über
                    `PUT /api/darstellung` — nicht mehr in den `localStorage`.
@@ -365,9 +391,11 @@ cd apps/dashboard-frontend && npx shadcn@latest add switch
 `primitive/index.ts` eintragen, ein Schaustück auf `/entwickler/bausteine`
 (sonst ist `bausteine.py` rot), `src/fassung.ts` heben.
 
-App-spezifische **Zusammensetzungen** — `Modal`, `Section`, `FilterBar`,
-`AuthCard`, `SkeletonList` — bleiben in `components/ui/`. Die Grenze: ein
-Primitiv weiß nichts von Arasul.
+App-spezifische **Zusammensetzungen** — `Modal`, `FilterBar`, `StatTile`,
+`AuthCard`, `SkeletonList` — bleiben in `components/ui/`. Die Grenze ist seit
+H4 zweistufig: ein **Primitiv** weiß nichts von Arasul, ein **Muster** auch
+nicht (es ist nur aus mehreren gemacht), und was eine Route, einen Endpunkt
+oder einen Benutzer kennt, bleibt in der Shell.
 
 ### 6. Code-splitting for non-critical routes
 
@@ -409,6 +437,7 @@ Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A theme token / new color/radius/font | `packages/marken/src/theme.css` (dort stehen sie) + `docs/development/DESIGN.md`                                                                                        |
 | Ein neues Primitiv                    | `packages/marken/src/primitive/index.ts` + ein Schaustück auf `/entwickler/bausteine` + `src/fassung.ts` heben                                                          |
+| Ein neues Muster                      | `packages/marken/src/muster/index.ts` + ein Schaustück (`SchaustueckeMuster.tsx`) + `src/fassung.ts` heben                                                              |
 | A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                                                                            |
 | Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                                                                   |
 | Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec + `NUR_ADMIN`, wenn er der Verwaltung gehört) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |

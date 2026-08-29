@@ -38,7 +38,8 @@ apps/dashboard-frontend/src/
     system/                  # UpdatePage, SelfHealingEvents, Login, CreateAdmin
 
   components/
-    ui/                      # Modal, Skeleton, LoadingSpinner, EmptyState, ErrorBoundary, Baustein-Set
+    ui/                      # Modal, Skeleton, StatTile, AuthCard, ErrorBoundary
+                             # (Leerzustand, Ladezustand, Feldgruppe, Chart: seit H4 in @marken)
                              # (die Primitive liegen seit H3 in packages/marken/src/primitive/)
     mascot/                  # Das Maskottchen
 
@@ -227,7 +228,7 @@ function SearchComponent() {
   return (
     <>
       <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Suchen..." />
-      {searching && <LoadingSpinner />}
+      {searching && <Ladezustand />}
       {results.map(item => (
         <div key={item.id}>{item.name}</div>
       ))}
@@ -358,7 +359,7 @@ const Settings = lazy(() => import('./features/settings/Settings'));
 const Store = lazy(() => import('./features/store'));
 
 // Wrapped in Suspense with fallback
-<Suspense fallback={<LoadingSpinner />}>
+<Suspense fallback={<Ladezustand />}>
   <Settings />
 </Suspense>;
 ```
@@ -444,10 +445,12 @@ trägt ihn in `primitive/index.ts` ein, gibt ihm ein Schaustück und hebt
 
 ```tsx
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import EmptyState from '@/components/ui/EmptyState';
 import Modal, { ConfirmModal } from '@/components/ui/Modal';
 import ConfirmIconButton from '@/components/ui/ConfirmIconButton';
+
+// Seit H4 aus der Bibliothek und nicht mehr aus der Shell -- eine
+// Fachanwendung braucht dieselben Formen:
+import { Ladezustand, Leerzustand, Datenliste, Formularseite, Feldgruppe } from '@marken';
 ```
 
 ### Feature Barrel Exports

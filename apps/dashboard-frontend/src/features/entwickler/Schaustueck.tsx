@@ -31,7 +31,20 @@ export function Schaustueck({
         <h2 className="text-ui-lg font-semibold text-foreground">{name}</h2>
         <p className="text-ui-sm text-muted-foreground">{satz}</p>
       </div>
-      <div className="flex flex-wrap items-start gap-ui-3">{children}</div>
+      {/* EIN EIGENER ROLLKASTEN JE SCHAUSTUECK (Phase H4).
+          Seit H4 stehen hier auch Stuecke, die eine Breite mitbringen -- eine
+          Tabelle, ein Kalender, ein Diagramm, eine Seitenleiste. Bei 390 px
+          passt keines davon in die Spalte, und ohne diesen Kasten schoebe es
+          die ganze SEITE breiter; die Abnahme fragt je Zelle danach und war
+          am Orin schon einmal genau daran rot (1024 px, hell). Was breiter
+          ist als die Seite, rollt jetzt in seinem eigenen Kasten -- dieselbe
+          Entscheidung wie bei den Verwaltungstabellen seit D4.
+
+          `relative` gehoert dazu: `overflow` klammert nur ab, was auch IN dem
+          Kasten liegt, und ein absolut gesetztes Kind (ein `.sr-only` in
+          einem Knopf) entkaeme sonst und zaehlte zur Rollbreite des
+          Dokuments -- der Fund der G1-Abnahme, in G2 zur Regel geworden. */}
+      <div className="relative flex flex-wrap items-start gap-ui-3 overflow-x-auto">{children}</div>
     </section>
   );
 }

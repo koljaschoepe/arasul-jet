@@ -2,7 +2,7 @@ import React from 'react';
 import { LogOut, Menu, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@marken';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
+import { useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
 
