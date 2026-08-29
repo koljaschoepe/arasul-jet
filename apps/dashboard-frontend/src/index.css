@@ -3456,7 +3456,10 @@ a:focus:not(:focus-visible),
   background: var(--bg-card, #121212);
   border: 1px solid var(--border-color, rgba(228, 228, 228, 0.08));
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  /* `--shadow-lg` statt eines festen Schwarz mit 0.3 (Phase H1): der Wert
+     stammt aus der Zeit der dunklen Vorgabe und ist auf heller Flaeche ein
+     Klotz. Die Schattenstufen sind je Theme gesetzt, hell deutlich weicher. */
+  box-shadow: var(--shadow-lg);
   animation: toast-slide-in 0.3s ease-out;
   pointer-events: auto;
 }
@@ -3501,8 +3504,13 @@ a:focus:not(:focus-visible),
   transition: all var(--transition-base);
 }
 
+/* `--accent` und nicht Weiss mit Alpha (Phase H1): der Schliessknopf einer
+   Meldung stand mit `rgba(255,255,255,0.1)` da, als die Vorgabe noch dunkel
+   war. Auf der hellen Flaeche ist Weiss auf Weiss nichts -- der Knopf haette
+   keinen sichtbaren Hover mehr gehabt. `--accent` IST der Hover-Wisch des
+   jeweiligen Themes. */
 .toast-close:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--accent);
   color: var(--text-primary, #F8FAFC);
 }
 
