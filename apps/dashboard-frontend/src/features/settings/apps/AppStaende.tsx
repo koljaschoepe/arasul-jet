@@ -14,8 +14,7 @@
  * indem man hin- und herklickt.
  */
 import { Activity, ArrowLeftRight, Rocket } from 'lucide-react';
-import { Button } from '@/components/ui/shadcn/button';
-import { cn } from '@/lib/utils';
+import { Button, cn } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import type { AppStandDetail, Backendzustand } from './useAppVerwaltung';
 

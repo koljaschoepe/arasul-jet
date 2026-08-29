@@ -1,5 +1,5 @@
 import React, { type ErrorInfo, type ReactNode } from 'react';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button } from '@marken';
 
 interface ErrorBoundaryProps {
   children: ReactNode;

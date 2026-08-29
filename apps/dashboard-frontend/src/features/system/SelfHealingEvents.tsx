@@ -17,8 +17,7 @@ import {
 } from 'lucide-react';
 import { formatRelativeDate } from '../../utils/formatting';
 import { Kopf } from '@marken';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button, cn } from '@marken';
 
 interface SelfHealingEvent {
   id: number;

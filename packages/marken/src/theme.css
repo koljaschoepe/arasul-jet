@@ -153,6 +153,12 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Der Schleier unter einem Dialog. Er ist seit H3 eine Utility (`bg-backdrop`),
+     weil sonst jeder Dialog seinen eigenen erfindet -- `bg-black/50` stand im
+     Dialog, `rgb(0 0 0 / 0.5)` in der Bibliothek, und keiner der beiden folgte
+     dem Thema. */
+  --color-backdrop: var(--backdrop-color);
 }
 
 /* -----------------------------------------------------------------------------

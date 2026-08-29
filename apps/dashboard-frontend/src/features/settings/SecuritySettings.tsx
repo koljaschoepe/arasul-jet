@@ -3,7 +3,7 @@ import { Download, LogOut, MonitorOff, ShieldCheck } from 'lucide-react';
 import PasswordManagement from './PasswordManagement';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Kopf } from '@marken';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button } from '@marken';
 import { Section, SectionList } from '@/components/ui/Section';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';

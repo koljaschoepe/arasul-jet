@@ -3,12 +3,8 @@ import { Eye, EyeOff, Check, X, AlertCircle, AlertTriangle, Info, Lock } from 'l
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
-import { Button } from '@/components/ui/shadcn/button';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
 import { Section } from '@/components/ui/Section';
-import { cn } from '@/lib/utils';
 
 interface PasswordRequirements {
   minLength: number;

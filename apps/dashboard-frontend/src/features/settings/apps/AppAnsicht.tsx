@@ -17,12 +17,11 @@
  */
 import { useState } from 'react';
 import { AppWindow, FileText, ListOrdered, ScrollText, Trash2, Users } from 'lucide-react';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button, cn } from '@marken';
 import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { formatDate } from '@/utils/formatting';
-import { cn } from '@/lib/utils';
 import type { Stand } from '../mitarbeiter/useAppFreigaben';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppStaende } from './AppStaende';

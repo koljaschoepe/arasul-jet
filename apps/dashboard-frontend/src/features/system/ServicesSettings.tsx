@@ -19,17 +19,18 @@ import {
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { Kopf } from '@marken';
-import { Button } from '@/components/ui/shadcn/button';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import {
+  Alert,
+  AlertDescription,
+  Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/shadcn/dialog';
-import { cn } from '@/lib/utils';
+} from '@marken';
 
 interface Service {
   id: string;

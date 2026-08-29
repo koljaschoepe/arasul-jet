@@ -17,9 +17,7 @@
  * ein Zweiter es kannte, will genau das.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Input } from '@/components/ui/shadcn/input';
-import { Button } from '@/components/ui/shadcn/button';
-import { Label } from '@/components/ui/shadcn/label';
+import { Button, Input, Label } from '@marken';
 import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
 import { useApi } from '@/hooks/useApi';
 

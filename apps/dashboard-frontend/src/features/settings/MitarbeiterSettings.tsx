@@ -24,7 +24,7 @@
 import { useState } from 'react';
 import { KeyRound, ShieldCheck, Trash2, UserPlus, Users, UserX } from 'lucide-react';
 import { Kopf } from '@marken';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button } from '@marken';
 import { Section, SectionList } from '@/components/ui/Section';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';

@@ -8,7 +8,7 @@
  * `POST /api/freigaben`.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { MitarbeiterSettings } from '../MitarbeiterSettings';
@@ -160,7 +160,11 @@ describe('MitarbeiterSettings', () => {
     render(<MitarbeiterSettings />, { wrapper: huelle() });
 
     const zelle = await screen.findByTestId('freigabe-urlaubsantrag-mia');
-    fireEvent.click(zelle.querySelector('input') as HTMLInputElement);
+    // Ueber die Rolle und nicht ueber `querySelector('input')`: das Haekchen
+    // ist seit H3 das Primitiv der Bibliothek (Radix), und das ist ein
+    // `<button role="checkbox">` -- ein `<input>` legt Radix nur in einem
+    // Formular an. Die Rolle ist ohnehin das, was der Mensch bedient.
+    fireEvent.click(within(zelle).getByRole('checkbox'));
 
     await waitFor(() =>
       expect(apiMock.post).toHaveBeenCalledWith('/freigaben', {
@@ -195,7 +199,11 @@ describe('MitarbeiterSettings', () => {
     expect(await screen.findByTestId('freigabe-stand-urlaubsantrag-mia')).toHaveTextContent('Test');
 
     const zelle = screen.getByTestId('freigabe-urlaubsantrag-mia');
-    fireEvent.click(zelle.querySelector('input') as HTMLInputElement);
+    // Ueber die Rolle und nicht ueber `querySelector('input')`: das Haekchen
+    // ist seit H3 das Primitiv der Bibliothek (Radix), und das ist ein
+    // `<button role="checkbox">` -- ein `<input>` legt Radix nur in einem
+    // Formular an. Die Rolle ist ohnehin das, was der Mensch bedient.
+    fireEvent.click(within(zelle).getByRole('checkbox'));
 
     await waitFor(() => expect(apiMock.del).toHaveBeenCalledWith('/freigaben/urlaubsantrag/7'));
   });

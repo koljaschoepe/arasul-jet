@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { User, SlidersHorizontal } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@marken';
 import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { AIProfileSettings } from './AIProfileSettings';

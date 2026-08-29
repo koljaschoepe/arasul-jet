@@ -10,9 +10,7 @@
  */
 import { useState, type FormEvent } from 'react';
 import Modal from '@/components/ui/Modal';
-import { Button } from '@/components/ui/shadcn/button';
-import { Input } from '@/components/ui/shadcn/input';
-import { Label } from '@/components/ui/shadcn/label';
+import { Button, Input, Label } from '@marken';
 
 interface Props {
   /** Welche App, oder `null` für „Dialog zu". */

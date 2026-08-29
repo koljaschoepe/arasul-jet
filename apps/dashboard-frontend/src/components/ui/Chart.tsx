@@ -28,7 +28,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { cn } from '@/lib/utils';
+import { cn } from '@marken';
 
 /**
  * Vier Werte von kraeftigem Blau nach Grau. Die Namen stammen aus zwei

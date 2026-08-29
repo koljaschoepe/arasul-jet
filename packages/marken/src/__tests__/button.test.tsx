@@ -7,7 +7,7 @@
  */
 
 import { render, screen } from '@testing-library/react';
-import { Button } from './button';
+import { Button } from '../primitive/button';
 
 describe('Button', () => {
   it('renders its children', () => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardCheck, Cpu, Download, ChevronsUpDown, Wifi } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@marken';
 import { useApi } from '@/hooks/useApi';
 import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
 import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';

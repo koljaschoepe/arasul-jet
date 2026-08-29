@@ -18,7 +18,7 @@ import { AppWindow, LayoutDashboard } from 'lucide-react';
 import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useMeineApps, zuEintraegen } from '@/features/apps/meineApps';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
+import { cn } from '@marken';
 import { SidebarView } from './SidebarView';
 
 export function AppsPanel() {

@@ -55,6 +55,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
     css: true,
+    // Die Bibliothek liegt NEBEN diesem Projekt und bringt seit H3 ihre
+    // eigenen Tests mit (Primitive, `cn`). Ohne diese Zeile sucht Vitest nur
+    // unterhalb der Vite-Wurzel und liefe gruen ueber Tests, die es gar nicht
+    // eingesammelt hat.
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      '../../packages/marken/src/**/*.{test,spec}.{ts,tsx}',
+    ],
     exclude: ['e2e/**', 'node_modules/**'],
     // Die Zeitzone gehoert zur Messung, nicht zur Maschine (28.08.2026).
     // `formatDate` schreibt einen Zeitpunkt in Ortszeit; ohne feste Zone misst

@@ -9,7 +9,7 @@
  */
 import idleUrl from '@/assets/mascot/idle.png';
 import winkUrl from '@/assets/mascot/wink.png';
-import { cn } from '@/lib/utils';
+import { cn } from '@marken';
 
 type MascotState = 'idle' | 'thinking';
 

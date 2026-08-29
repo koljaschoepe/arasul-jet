@@ -10,9 +10,8 @@
  * Daneben die eine Sache, die der Administrator hier ÄNDERT: das Modell.
  */
 import { ArrowLeft, Cpu, Globe } from 'lucide-react';
-import { Button } from '@/components/ui/shadcn/button';
+import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
 import type { Stand } from '../mitarbeiter/useAppFreigaben';
 import { useFlowDefinition, type FlowDefinition } from './useAppVerwaltung';
 

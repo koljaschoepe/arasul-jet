@@ -28,10 +28,9 @@
  */
 import { AppWindow } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
-import { Checkbox } from '@/components/ui/Checkbox';
+import { Checkbox, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
-import { cn } from '@/lib/utils';
 import type { Benutzer } from './useMitarbeiter';
 import {
   useAlleApps,

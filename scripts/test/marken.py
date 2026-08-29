@@ -29,6 +29,11 @@ Was geprueft wird
    `theme.css` traegt -- Hell gegen `:root`, Dunkel gegen
    `[data-theme='dark']`. Und kein Token, den `theme.css` im Dunkeln
    ueberschreibt, fehlt im Dunkel-Block der Bibliothek (Phase H2/H3).
+6. Kein Farbliteral in einem Baustein -- weder ein Hex noch ein `rgb()` noch
+   eine Klasse aus Tailwinds eingebauter Palette (`bg-black/50`). Eine Farbe
+   steht in `theme.css` und wird als Token benutzt (Phase H3).
+7. Kein Name zweimal. `index.ts` haengt zwei Barrels aneinander; gaeben beide
+   denselben Namen aus, gewaenne wortlos der letzte (Phase H3).
 
 Warum Punkt 5 (Phase H2, 29.08.2026)
 ------------------------------------
@@ -65,11 +70,36 @@ TYP_ZEILE = re.compile(r"^export\s+type\s")
 EXPORT_ZEILE = re.compile(r"^export\s+(?:const\s+(\w+)|function\s+(\w+)|\{([^}]*)\})")
 
 
-def namen_aus(quelle: Path) -> set[str]:
-    """Alles, was diese Datei als WERT ausgibt."""
+STERN_ZEILE = re.compile(r"""^export\s+\*\s+from\s+['"](\.[^'"]+)['"]""")
+
+
+def namen_aus(quelle: Path, gesehen: set[Path] | None = None) -> set[str]:
+    """Alles, was diese Datei als WERT ausgibt -- ueber `export *` hinweg.
+
+    Seit H3 sind die Barrels geschachtelt: `browser.ts` gibt
+    `export * from './bausteine'` aus, `index.ts` zusaetzlich
+    `export * from './primitive'`. Ohne das Weiterlesen zaehlte der Waechter
+    genau die drei Namen, die noch daneben stehen, und haette einen neuen
+    Baustein ohne neuen Bau nie bemerkt -- also genau den Fall, fuer den es
+    ihn gibt.
+    """
+    gesehen = gesehen if gesehen is not None else set()
+    quelle = quelle.resolve()
+    if quelle in gesehen or not quelle.is_file():
+        return set()
+    gesehen.add(quelle)
     namen: set[str] = set()
     for zeile in quelle.read_text(encoding="utf-8").splitlines():
         zeile = zeile.strip()
+        stern = STERN_ZEILE.match(zeile)
+        if stern:
+            ziel = quelle.parent / stern.group(1)
+            for endung in (".ts", ".tsx", "/index.ts"):
+                kandidat = Path(str(ziel) + endung)
+                if kandidat.is_file():
+                    namen |= namen_aus(kandidat, gesehen)
+                    break
+            continue
         if TYP_ZEILE.match(zeile):
             continue
         treffer = EXPORT_ZEILE.match(zeile)
@@ -238,6 +268,78 @@ def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
     return befunde
 
 
+# Eine Farbe, die kein Token ist. Drei Schreibweisen kommen vor: ein Hex im
+# TSX, ein `rgb()`/`hsl()` im TSX, und -- die haeufigste und unauffaelligste --
+# eine Klasse aus Tailwinds eingebauter Palette (`bg-black/50`, `text-red-500`).
+# `transparent`, `current` und `inherit` sind keine Palette, sondern Aussagen
+# ueber die Abwesenheit einer Farbe.
+FARB_LITERAL = re.compile(r"#[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{3})?\b|\b(?:rgba?|hsla?)\(")
+TAILWIND_PALETTE = re.compile(
+    r"\b(?:bg|text|border|fill|stroke|ring|outline|from|via|to|decoration|divide|"
+    r"accent|caret|placeholder|shadow)-"
+    r"(?:black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|"
+    r"green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)"
+    r"(?:-\d{2,3})?\b"
+)
+
+
+def farbliterale(quelle: Path) -> list[str]:
+    """Punkt 6: eine Farbe steht in `theme.css` oder gar nicht (Phase H3).
+
+    Warum das eine eigene Regel ist. Die Bibliothek hat zwei Themen, und ein
+    Baustein sieht immer nur in einem davon falsch aus -- wer sein Aussehen an
+    einer festen Farbe festmacht, merkt es in dem Thema, in dem er gerade
+    arbeitet, NIE. Bis H3 stand im Dialog `bg-black/50` als Schleier: im
+    hellen Thema ein Klotz, im dunklen zu blass, und nichts an der Oberflaeche
+    wurde davon rot. Seither gibt es dafuer `bg-backdrop`.
+
+    `theme.css` ist ausgenommen, denn dort stehen die Werte selbst.
+    `marken.css` ebenfalls: seine `--ara-*` sind Rueckfaelle, und die haelt
+    Punkt 5 an ihrem Token fest.
+    """
+    befunde: list[str] = []
+    for datei in sorted(list(quelle.rglob("*.tsx")) + list(quelle.rglob("*.ts"))):
+        if "__tests__" in datei.parts:
+            continue
+        for nr, zeile in enumerate(datei.read_text(encoding="utf-8").splitlines(), 1):
+            ohne_var = re.sub(r"var\(--[\w-]+", " ", zeile)
+            for treffer in FARB_LITERAL.findall(ohne_var):
+                befunde.append(
+                    f"{datei.relative_to(quelle)}:{nr} traegt die Farbe `{treffer}` -- "
+                    "eine Farbe steht in theme.css und wird als Token benutzt"
+                )
+            for treffer in TAILWIND_PALETTE.findall(ohne_var):
+                befunde.append(
+                    f"{datei.relative_to(quelle)}:{nr} traegt `{treffer}` aus Tailwinds "
+                    "Palette -- die folgt keinem Thema; nimm den Token"
+                )
+    return befunde
+
+
+def doppelte_ausgaben(quelle: Path) -> list[str]:
+    """Punkt 7: kein Primitiv zweimal (Phase H3).
+
+    `index.ts` haengt zwei Barrels aneinander (`bausteine`, `primitive`). Gibt
+    beide denselben Namen aus, gewinnt in JavaScript wortlos der letzte, und
+    welcher das ist, entscheidet die Reihenfolge zweier Zeilen. Der Aufrufer
+    bekommt einen anderen Baustein, als er meint, ohne dass irgendetwas rot
+    wird. Genau dieser Fall entsteht, wenn jemand ein Primitiv hinzufuegt, das
+    es unter einem anderen Namen schon gibt.
+    """
+    befunde: list[str] = []
+    quellen = [quelle / "bausteine.ts", quelle / "primitive" / "index.ts", quelle / "cn.ts"]
+    gesehen: dict[str, Path] = {}
+    for datei in quellen:
+        for name in sorted(namen_aus(datei)):
+            if name in gesehen and gesehen[name] != datei:
+                befunde.append(
+                    f"{name} steht in {gesehen[name].name} UND in {datei.name} -- "
+                    "index.ts haengt beide aneinander, und der letzte gewinnt wortlos"
+                )
+            gesehen[name] = datei
+    return befunde
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--wurzel", default=".")
@@ -259,7 +361,14 @@ def main() -> int:
     gebuendelt = buendel.read_text(encoding="utf-8")
 
     # 1. Jeder ausgegebene Name steht im Buendel.
-    erwartet = namen_aus(quelle / "index.ts") | namen_aus(quelle / "browser.ts")
+    #
+    # Gefragt wird `browser.ts` und NICHT `index.ts`: das Buendel wird aus
+    # `browser.ts` gebaut, und seit H3 sind die beiden nicht mehr dasselbe --
+    # die Primitive gehen in `index.ts` hinaus und absichtlich nicht ins
+    # Buendel (sie sind auf Tailwind geschrieben und saehen in einer App ohne
+    # Bau nach nichts aus). Wer `index.ts` fragte, verlangte einen Bau, der
+    # das Falsche traegt.
+    erwartet = namen_aus(quelle / "browser.ts")
     ausgegeben = set()
     for block in re.findall(r"export\s*\{([^}]*)\}", gebuendelt):
         for teil in block.split(","):
@@ -282,33 +391,46 @@ def main() -> int:
 
     # 3. Jede benutzte Klasse hat eine Regel.
     css = (quelle / "marken.css").read_text(encoding="utf-8")
-    for datei in sorted(quelle.glob("*.tsx")):
+    for datei in sorted(quelle.rglob("*.tsx")):
         text = datei.read_text(encoding="utf-8")
         for klasse in sorted(set(re.findall(r"['\"](ara-[\w-]+(?:__[\w-]+)?)['\"]", text))):
             if f".{klasse}" not in css:
-                befunde.append(f"{datei.name}: die Klasse {klasse} hat keine Regel in marken.css")
+                befunde.append(
+                    f"{datei.relative_to(quelle)}: die Klasse {klasse} hat keine Regel in marken.css"
+                )
 
     # 4. Keine Abhaengigkeit von der Shell.
-    for datei in sorted(list(quelle.glob("*.tsx")) + list(quelle.glob("*.ts"))):
+    for datei in sorted(list(quelle.rglob("*.tsx")) + list(quelle.rglob("*.ts"))):
         for nr, zeile in enumerate(datei.read_text(encoding="utf-8").splitlines(), 1):
             if re.search(r"from\s+['\"]@/", zeile):
                 befunde.append(
-                    f"{datei.name}:{nr} importiert aus der Shell (@/) -- "
+                    f"{datei.relative_to(quelle)}:{nr} importiert aus der Shell (@/) -- "
                     "die Bibliothek gehoert beiden Seiten"
                 )
 
-    # 5. Die Rueckfaelle stehen an ihrem Token in `index.css`.
+    # 5. Die Rueckfaelle stehen an ihrem Token in `theme.css`.
     befunde.extend(rueckfaelle_pruefen(css, wurzel))
 
+    # 6. Keine Farbe ohne Token.
+    befunde.extend(farbliterale(quelle))
+
+    # 7. Kein Name doppelt.
+    befunde.extend(doppelte_ausgaben(quelle))
+
+    primitive = sorted((quelle / "primitive").glob("*.tsx"))
     print("")
     print("===  Marken (Designsystem)  ===")
-    print(f"  Bausteine: {len(sorted(quelle.glob('*.tsx')))}, Ausgaben: {len(erwartet)}")
+    print(
+        f"  Bausteine: {len(sorted(quelle.glob('*.tsx')))}, "
+        f"Primitive: {len(primitive)}, "
+        f"Ausgaben im Buendel: {len(erwartet)}"
+    )
     if befunde:
         for b in befunde:
             print(f"  FAIL  {b}")
         print("\n  RESULT: FAILED")
         return 1
-    print("  PASS  Buendel, Fassung, Klassen, Grenzen und Rueckfaelle stimmen")
+    print("  PASS  Buendel, Fassung, Klassen, Grenzen, Rueckfaelle, Farben und Namen stimmen")
     print("\n  RESULT: PASSED")
     return 0
 
