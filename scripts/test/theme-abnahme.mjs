@@ -333,10 +333,21 @@ async function main() {
     anmeldungen += 1;
     await seiteB.fill('input#username, input[name="username"]', BENUTZER);
     await seiteB.fill('input[type="password"]', PASSWORT);
+    // Die Antwort wird mitgeschrieben, sonst fehlt der Buchfuehrung ueber die
+    // Anmeldedrossel genau die Anmeldung, die durch das Formular ging -- und
+    // der naechste Lauf liest einen Stand, der eine zu wenig kennt.
+    const antwortAufFormular = seiteB
+      .waitForResponse(r => r.url().includes('/api/auth/login'), { timeout: 30000 })
+      .then(r => {
+        drosselMerken('POST', '/api/auth/login', r.headers(), r.status());
+        return r.status();
+      })
+      .catch(() => 'keine Antwort');
     await seiteB.click('button[type="submit"]');
+    const codeB = await antwortAufFormular;
 
     const shellDa = await shellAbwarten(seiteB);
-    if (!pruefe('der zweite Kontext kommt in die Shell', shellDa)) {
+    if (!pruefe('der zweite Kontext kommt in die Shell', shellDa, `Anmeldung HTTP ${codeB}`)) {
       await seiteB.screenshot({ path: path.join(ZIEL, 'theme-zweiter-kontext-rot.png') }).catch(() => {});
       await ctxB.close();
       return;
@@ -365,7 +376,7 @@ async function main() {
     );
 
     // --- 4. Die Bilder ------------------------------------------------------
-    await bilderMachen(browser, token, seiteB, ctxB);
+    await bilderMachen(browser, token, seiteB);
     await ctxB.close();
   } catch (fehler) {
     pruefe('der Lauf kommt bis zum Ende', false, einzeilig(fehler.message));
@@ -393,7 +404,7 @@ async function main() {
  * umgestellt und die Seite neu geladen -- das ist derselbe Zustand, den ein
  * Mensch nach seiner Wahl vorfindet.
  */
-async function bilderMachen(browser, token, seite, ctx) {
+async function bilderMachen(browser, token, seite) {
   const kanal = await apiKanal(token);
   const gemacht = [];
   try {
