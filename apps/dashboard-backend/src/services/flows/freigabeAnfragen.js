@@ -492,6 +492,13 @@ async function listeOffeneFuer(benutzerId, { datenbank = db } = {}) {
  * Der Namensraum ist Pflicht und kommt aus dem Schluessel, nicht aus der
  * Anfrage -- dieselbe Regel wie bei den Flows (C6): eine App kann die
  * Freigaben einer anderen nicht einmal benennen.
+ *
+ * `zusammenhang` steht seit H7 dabei. Er fehlte, obwohl die Tabelle ihn fuehrt
+ * und die Oberflaeche des Geraets ihn zeigt -- und er ist der Text, AN DEM der
+ * Mensch entschieden hat. Eine App, die dokumentieren will, worauf eine Zusage
+ * beruht, bekam bis dahin nur den Titel und musste die Vorlage der Entscheidung
+ * erraten oder weglassen. Zurueckhalten liess er sich ohnehin nicht begruenden:
+ * er stammt aus IHREM eigenen Flow, sie hat ihn selbst geschrieben.
  */
 async function listeFuerApp({ appId, stand, runId = null, limit = 50 }, { datenbank = db } = {}) {
   const werte = [appId, stand];
@@ -502,8 +509,8 @@ async function listeFuerApp({ appId, stand, runId = null, limit = 50 }, { datenb
   }
   werte.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await datenbank.query(
-    `SELECT a.id, a.run_id, a.flow_name, a.titel, a.status, a.frist, a.angefragt_am,
-            a.entschieden_am, a.begruendung, b.username AS entschieden_von
+    `SELECT a.id, a.run_id, a.flow_name, a.titel, a.zusammenhang, a.status, a.frist,
+            a.angefragt_am, a.entschieden_am, a.begruendung, b.username AS entschieden_von
        FROM public.approvals a
        LEFT JOIN public.admin_users b ON b.id = a.entschieden_von
       WHERE a.app_id = $1 AND a.stand = $2 ${filter}

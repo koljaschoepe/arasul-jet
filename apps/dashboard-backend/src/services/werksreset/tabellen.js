@@ -53,6 +53,12 @@ const AUSLIEFERUNG = [
   ['public.api_key_usage', 'Nutzung der Schlüssel'],
   ['public.api_keys', 'Schlüssel für die Schnittstelle'],
   ['public.app_flows', 'Die Flows, die eine App mitgebracht hat'],
+  // Die ZEILE, nicht die Datenbank (Phase H7). Weggeworfen werden die
+  // Datenbanken selbst in `raeumeUmsysteme` ueber ihren Namenspraefix -- die
+  // Tabelle ist an dieser Stelle schon leer, und eine Aufraeumung, die sie
+  // fragte, liesse jede App-Datenbank auf einem angeblich frischen Geraet
+  // stehen.
+  ['public.app_datenbanken', 'Name und Zugang der Datenbank je App und Stand'],
   ['public.app_members', 'Freigaben: welcher Mitarbeiter sieht welche App'],
   ['public.app_staende', 'Test- und Livestand je App'],
   ['public.apps', 'Die Apps am Gerät'],

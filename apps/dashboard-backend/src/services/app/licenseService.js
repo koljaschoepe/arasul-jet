@@ -36,9 +36,14 @@ const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30'
  * dem Kunden ein anderes Produkt als das gekaufte.
  *
  * Was bleibt, ist das, was CLAUDE.md als Zielbild nennt: Zugaenge, Apps, die
- * externe Schnittstelle. `maxApps` ist neu und wird beim Einspielen einer App
- * durchgesetzt (`appStore.spieleEin`) — die einzige Zahl hier, hinter der ein
+ * externe Schnittstelle. `maxApps` ist die einzige Zahl hier, hinter der ein
  * Riegel steht.
+ *
+ * `maxApps` ZAEHLT APPS IM BETRIEB, also solche mit einem Livestand (seit
+ * H7, `appStore.pruefeLivegrenze`). Ein Teststand zaehlt nicht: er ist die
+ * Werkbank des Partners und nicht das, was ein Mitarbeiter benutzt. Bis H7
+ * zaehlte jede Zeile in `apps`, und am Orin standen drei von drei belegt, ohne
+ * dass eine einzige in Betrieb gewesen waere.
  *
  * `community` ist die Stufe eines Geraets OHNE Lizenzdatei. Sie ist kein
  * Verkaufspaket, sondern der Zustand vor dem ersten Schluessel.
