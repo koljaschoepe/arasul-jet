@@ -35,8 +35,11 @@ const pruefe = (was, ok, detail = '') => {
 /**
  * Wartet auf eine Rueckmeldung und gibt ihren Text zurueck.
  *
- * Rueckmeldungen sind `role="alert"` im Toast-Container. Verglichen werden die
- * TEXTE vor der Aktion, nicht ihre Anzahl.
+ * Rueckmeldungen sind `role="alert"` im Toast-Behaelter. Der heisst seit H3
+ * `[data-slot='toast-viewport']` und nicht mehr `.toast-container`: die
+ * Meldung ist ein Primitiv der Bibliothek geworden, damit eine App dieselbe
+ * zeigen kann. Verglichen werden die TEXTE vor der Aktion, nicht ihre
+ * Anzahl.
  *
  * Die Anzahl war falsch, und zwar auf eine Art, die nur manchmal auffiel: ein
  * Toast verschwindet nach ein paar Sekunden von selbst. Stand vor der Aktion
@@ -54,7 +57,7 @@ async function rueckmeldung(seite, vorherTexte, zeitlimitMs = 12000) {
   const bis = Date.now() + zeitlimitMs;
   const alt = new Set(vorherTexte);
   while (Date.now() < bis) {
-    const alle = await seite.locator('.toast-container [role="alert"]').allInnerTexts();
+    const alle = await seite.locator('[data-slot="toast-viewport"] [role="alert"]').allInnerTexts();
     const neu = alle.map(t => t.replace(/\s+/g, ' ').trim()).find(t => t && !alt.has(t));
     if (neu) {
       return neu;
@@ -66,7 +69,7 @@ async function rueckmeldung(seite, vorherTexte, zeitlimitMs = 12000) {
 
 /** Die Texte, die JETZT stehen. Alles Spaetere daneben ist neu. */
 const meldungsTexte = async seite =>
-  (await seite.locator('.toast-container [role="alert"]').allInnerTexts()).map(t =>
+  (await seite.locator('[data-slot="toast-viewport"] [role="alert"]').allInnerTexts()).map(t =>
     t.replace(/\s+/g, ' ').trim()
   );
 
