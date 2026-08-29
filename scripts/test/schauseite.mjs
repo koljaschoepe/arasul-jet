@@ -28,6 +28,22 @@
  *      aeussersten mit Waehler und Kante.
  *   4. SAGT DIE KONSOLE ETWAS. Ein fehlender Radix-Provider meldet sich dort
  *      und nirgends sonst -- der Baustein rendert, tut aber nichts.
+ *   5. HAELT DIE SEITENLEISTE IHRE SPALTE FREI. Der Fund vom 29.08.2026
+ *      (J31): `w-[--sidebar-breite]` war die Tailwind-3-Kurzform, und
+ *      Tailwind 4 macht daraus `width: --sidebar-breite` -- kein Wert. Der
+ *      Browser verwirft das wortlos, der Platzhalter faellt auf
+ *      `width: auto` zurueck, ist als leerer Kasten NULL breit, und die
+ *      Leiste daneben (absolut gesetzt, also aus dem Fluss) legt sich ueber
+ *      den Inhalt. Die vier Fragen darueber sagten dazu nichts: die Stuecke
+ *      standen da, die Flaeche stimmte, es rollte nicht, und die Konsole
+ *      schwieg -- eine verworfene Deklaration meldet niemand.
+ *
+ *      Gefragt wird nicht nach einer Zahl, sondern nach der Gleichheit:
+ *      Platzhalter und Leiste ziehen ihre Breite aus DERSELBEN Variablen,
+ *      also sind sie gleich breit, und beide sind es nicht mit null. Eine
+ *      Zahl hier waere `16rem` ein zweites Mal abgeschrieben; die Gleichheit
+ *      gilt auch fuer die zugeklappte Leiste (`--sidebar-breite-symbole`).
+ *      Unter 900 px gibt es beides nicht -- dort ist die Leiste ein Blatt.
  *
  * Dazu ein Bild je Zelle: sechs Stueck, hell und dunkel bei 390, 1024, 1440.
  *
@@ -218,7 +234,10 @@ async function standLesen(seite) {
       .slice(0, 3)
       .map(e => {
         const stueck = e.el.closest('[data-schaustueck]');
-        const klassen = String(e.el.className || '').split(/\s+/).filter(Boolean).slice(0, 3);
+        const klassen = String(e.el.className || '')
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 3);
         return (
           `${e.el.tagName.toLowerCase()}${klassen.length ? '.' + klassen.join('.') : ''}` +
           `${stueck ? ` in ${stueck.getAttribute('data-schaustueck')}` : ''} bis ${e.rechts}`
@@ -233,6 +252,15 @@ async function standLesen(seite) {
       rollbreite: document.documentElement.scrollWidth,
       sichtbreite,
       ueberhang,
+      // Je Seitenleiste ein Paar: der Platzhalter im Fluss und die Leiste
+      // darueber. Beide holen ihre Breite aus derselben Variablen.
+      leisten: [...document.querySelectorAll('[data-slot="sidebar-gap"]')].map(platz => {
+        const leiste = platz.parentElement?.querySelector('[data-slot="sidebar-container"]');
+        return {
+          platz: Math.round(platz.getBoundingClientRect().width),
+          leiste: leiste ? Math.round(leiste.getBoundingClientRect().width) : null,
+        };
+      }),
     };
   });
 }
@@ -249,9 +277,7 @@ async function main() {
   fs.mkdirSync(ZIEL, { recursive: true });
 
   const erwartet = bausteineAmOrt();
-  console.log(
-    `\n=== Schauseite (H3/H4) — ${erwartet.length} Bausteine, 2 Themes, 3 Breiten ===\n`
-  );
+  console.log(`\n=== Schauseite (H3/H4) — ${erwartet.length} Bausteine, 2 Themes, 3 Breiten ===\n`);
 
   const angemeldet = await anmelden(BENUTZER, PASSWORT);
   if (!pruefe('Anmeldung des Pruefbenutzers', angemeldet.code === 200, `HTTP ${angemeldet.code}`)) {
@@ -313,9 +339,7 @@ async function main() {
 
         const stand = await standLesen(seite);
         const datei = `schauseite-${theme.name}-${breite.px}.png`;
-        await seite
-          .screenshot({ path: path.join(ZIEL, datei), fullPage: true })
-          .catch(() => {});
+        await seite.screenshot({ path: path.join(ZIEL, datei), fullPage: true }).catch(() => {});
         gemacht.push(datei);
 
         const gezeigt = new Set(stand.stuecke.map(n => String(n).toLowerCase()));
@@ -341,15 +365,25 @@ async function main() {
           konsole.length === 0,
           konsole.slice(0, 3).join(' | ')
         );
+        // Unter 900 px ist die Leiste ein Blatt: es gibt keinen Platzhalter,
+        // und das ist kein Mangel, sondern der Aufbau aus D7.
+        if (breite.px >= 900) {
+          const schief = stand.leisten.filter(l => l.platz <= 0 || l.platz !== l.leiste);
+          pruefe(
+            `${breite.px} px · ${theme.name} · die Seitenleiste haelt ihre Spalte frei`,
+            stand.leisten.length > 0 && schief.length === 0,
+            stand.leisten.length === 0
+              ? 'kein Platzhalter gefunden — steht die Sidebar noch auf der Schauseite?'
+              : stand.leisten.map(l => `Platzhalter ${l.platz} / Leiste ${l.leiste}`).join(' | ')
+          );
+        }
       }
     }
     await ctx.close();
   } finally {
     // Immer, auch nach einem roten Lauf: das Geraet steht danach so da, wie es
     // vorher stand.
-    await kanal
-      .put('/api/darstellung', { data: { theme: 'light' } })
-      .catch(() => {});
+    await kanal.put('/api/darstellung', { data: { theme: 'light' } }).catch(() => {});
     await kanal.dispose();
     await browser.close();
   }
