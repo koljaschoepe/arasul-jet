@@ -62,6 +62,24 @@ window.ResizeObserver = class ResizeObserver {
   disconnect(): void {}
 } as unknown as typeof ResizeObserver;
 
+// Mock IntersectionObserver.
+// `embla-carousel` (das Karussell aus H4) haengt seinen Sichtbarkeitszaehler
+// beim Einhaengen daran; in jsdom gibt es ihn nicht, und der Fehler kommt aus
+// einem Effekt heraus -- also nicht als Fehlschlag des Bausteins, sondern als
+// Absturz der ganzen Seite, die ihn zeigt.
+window.IntersectionObserver = class IntersectionObserver {
+  callback: IntersectionObserverCallback;
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+  }
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+} as unknown as typeof IntersectionObserver;
+
 // Mock Element.scrollIntoView (not supported in jsdom)
 Element.prototype.scrollIntoView = vi.fn();
 

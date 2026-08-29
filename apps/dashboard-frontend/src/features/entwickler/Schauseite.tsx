@@ -21,6 +21,13 @@
  * JEDER ZUSTAND IST EINE ZEILE, KEINE ERZÄHLUNG. Was hier steht, ist die
  * Liste der Varianten und Größen, die das Primitiv wirklich kennt — nicht
  * eine Auswahl der hübschen. Fällt eine Variante weg, fällt sie hier auf.
+ *
+ * DREI DATEIEN, EINE SEITE (Phase H4). Diese hier ist der Rahmen und trägt
+ * die sechsundzwanzig Stücke aus H3; die zwanzig aus H4 stehen in
+ * `SchaustueckeH4.tsx`, die sieben Muster in `SchaustueckeMuster.tsx`. Der
+ * Grund ist Lesbarkeit und nichts sonst — eine Datei mit dreiundfünfzig
+ * Stücken findet niemand mehr etwas darin. `scripts/test/bausteine.py` liest
+ * deshalb den ganzen Ordner und nicht mehr die eine Datei.
  */
 import { useState } from 'react';
 import {
@@ -127,6 +134,8 @@ import {
   TooltipTrigger,
 } from '@marken';
 import { Schaustueck, Zustand } from './Schaustueck';
+import { SchaustueckeH4 } from './SchaustueckeH4';
+import { SchaustueckeMuster } from './SchaustueckeMuster';
 
 const KNOPF_ARTEN = [
   'default',
@@ -179,7 +188,7 @@ function Schauseite() {
     <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-ui-2 p-ui-4">
       <Kopf
         titel="Bausteine"
-        beschreibung="Jedes Primitiv aus @marken in allen seinen Zuständen. Diese Seite steht unter einem Entwicklerpfad und in keinem Menü."
+        beschreibung="Jedes Primitiv und jedes Muster aus @marken in allen seinen Zuständen. Diese Seite steht unter einem Entwicklerpfad und in keinem Menü."
       />
 
       <Schaustueck name="Button" satz="Zwölf Arten, acht Größen, dazu ladend und gesperrt.">
@@ -663,6 +672,9 @@ function Schauseite() {
           </Breadcrumb>
         </Zustand>
       </Schaustueck>
+
+      <SchaustueckeH4 />
+      <SchaustueckeMuster />
     </div>
   );
 }
