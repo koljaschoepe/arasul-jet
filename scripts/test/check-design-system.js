@@ -321,7 +321,26 @@ function checkRollkaesten(cssFiles) {
  *
  * NICHT gemeldet wird `[--name:wert]` -- das ist kein Utility, sondern das
  * SETZEN einer Variablen (`[--cell-size:2rem]`), und das gibt es in
- * Tailwind 4 unveraendert.
+ * Tailwind 4 unveraendert. *
+ * KEINE AUSNAHME FUER KOMMENTARE, und das ist der zweite Teil desselben
+ * Fundes. Der erste Entwurf nahm sie aus -- die Sorge war, der Waechter melde
+ * seine eigene Erklaerung, denn `fassung.ts` und diese Datei zitieren die
+ * falsche Schreibweise, um zu sagen, warum sie falsch ist. Die Sorge war
+ * richtig, die Ausnahme war es nicht: BEIDE Wurzeln, die hier gelesen werden,
+ * sind Tailwind-Quellen (die Shell durch ihre Lage, `packages/marken/src`
+ * durch das `@source` in `index.css`), und Tailwinds Scanner liest TEXT und
+ * kein JavaScript. In einer Tailwind-Quelle ist ein Kommentar kein Kommentar.
+ *
+ * Am gebauten CSS des Orin gemessen: nach der Reparatur stand dort weiter
+ * `.w-\[--sidebar-breite\]{width:--sidebar-breite}`, obwohl keine einzige
+ * Quelle die Klasse noch BENUTZTE. Sie kam aus dem Satz darueber, dass man
+ * sie nicht benutzen soll. Eine tote Regel ist kein Schaden -- aber ein
+ * Waechter, der die Schreibweise verbietet und den Weg offenlaesst, auf dem
+ * sie ins Ergebnis kommt, misst nicht, was er zu messen behauptet.
+ *
+ * Wer erklaeren will, warum die eckige Form falsch ist, schreibt sie
+ * AUSSERHALB einer Tailwind-Quelle aus: dieses Skript liegt unter `scripts/`,
+ * der Text der Bibliothek in `README.md`. Innerhalb umschreibt man sie.
  */
 const TW3_VARIABLE = /(^|[\s'"`:[])(-?[a-z][a-zA-Z0-9-]*(?:-[a-z]+)*)-\[(--[\w-]+)\]/g;
 
@@ -339,54 +358,11 @@ function findeQuelldateien(dir, files = []) {
   return files;
 }
 
-/**
- * Kommentare durch Leerzeichen ersetzen, Zeilen und Spalten behalten.
- *
- * Ohne das meldet der Waechter seine eigene Erklaerung: `fassung.ts` und diese
- * Datei ZITIEREN die falsche Schreibweise, um zu sagen, warum sie falsch ist.
- * Ein Waechter, der das Wort ueber eine Sache nicht von der Sache
- * unterscheidet, ist eine Aufforderung, die Erklaerung wegzulassen.
- *
- * Der Scanner kennt Zeichenketten, weil ein `//` in einer URL kein Kommentar
- * ist -- und in `className` steht genau der Text, um den es geht.
- */
-function ohneKommentare(quelle) {
-  let aus = '';
-  let i = 0;
-  while (i < quelle.length) {
-    const c = quelle[i];
-    const d = quelle[i + 1];
-    if (c === '/' && d === '*') {
-      const ende = quelle.indexOf('*/', i + 2);
-      const bis = ende === -1 ? quelle.length : ende + 2;
-      aus += quelle.slice(i, bis).replace(/[^\n]/g, ' ');
-      i = bis;
-    } else if (c === '/' && d === '/') {
-      let ende = quelle.indexOf('\n', i);
-      if (ende === -1) ende = quelle.length;
-      aus += ' '.repeat(ende - i);
-      i = ende;
-    } else if (c === '"' || c === "'" || c === '`') {
-      let j = i + 1;
-      while (j < quelle.length && quelle[j] !== c) {
-        if (quelle[j] === '\\') j++;
-        j++;
-      }
-      aus += quelle.slice(i, Math.min(j + 1, quelle.length));
-      i = j + 1;
-    } else {
-      aus += c;
-      i++;
-    }
-  }
-  return aus;
-}
-
 function checkTailwindVariablen() {
   const errors = [];
   for (const wurzel of CSS_WURZELN) {
     for (const datei of findeQuelldateien(wurzel)) {
-      const zeilen = ohneKommentare(fs.readFileSync(datei, 'utf8')).split('\n');
+      const zeilen = fs.readFileSync(datei, 'utf8').split('\n');
       zeilen.forEach((zeile, i) => {
         for (const [, , utility, variable] of zeile.matchAll(TW3_VARIABLE)) {
           errors.push(

@@ -142,6 +142,15 @@ Unberührt bleibt das **Setzen** einer Variablen: `[--cell-size:2rem]` ist kein
 Utility mit einem Wert, sondern eine Deklaration, und die gibt es in
 Tailwind 4 unverändert.
 
+Und ein Nachtrag, der beim Nachmessen am Gerät herausfiel: **in einer
+Tailwind-Quelle ist ein Kommentar kein Kommentar.** Der Scanner liest Text, kein
+JavaScript. Nach der Reparatur stand im fertigen Bau weiter
+`.w-\[--sidebar-breite\]{width:--sidebar-breite}`, obwohl keine Quelle die
+Klasse mehr benutzte — sie kam aus dem Satz darüber, dass man sie nicht benutzen
+soll. Der Wächter meldet die alte Schreibweise deshalb auch im Kommentar. Wer
+sie ausschreiben will, tut das außerhalb von `src/` (hier in dieser Datei etwa,
+oder unter `scripts/`); innerhalb umschreibt man sie.
+
 ## Zwei Themes, und Hell ist der Grund (Phase H2)
 
 `marken.css` hat dieselbe Form wie `theme.css`: `:root` **ist** Hell, und
