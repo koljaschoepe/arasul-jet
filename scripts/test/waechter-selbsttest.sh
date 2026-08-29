@@ -1234,16 +1234,38 @@ BEISPIEL
 pruefe "Designsystem: h-[--var] in der Shell ist rot" 1 \
   node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
 
-# Und der Waechter meldet nicht seine eigene Erklaerung: wer aufschreibt,
-# WARUM `w-[--x]` falsch ist, muss es hinschreiben duerfen.
+# Und AUCH im Kommentar ist sie rot. Das sieht nach Uebereifer aus und ist
+# der zweite Teil des Fundes: beide Wurzeln sind Tailwind-Quellen, und der
+# Scanner liest Text, kein JavaScript. Am gebauten CSS des Orin gemessen --
+# nach der Reparatur stand dort weiter `.w-\[--sidebar-breite\]`, und die
+# einzige Stelle, die sie noch trug, war der Satz darueber, dass man sie nicht
+# benutzen soll.
 cat > "$DS/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
 // Frueher stand hier `h-[--zellgroesse]`; Tailwind 4 kennt das nicht mehr.
-/* auch nicht als w-[--breite] im Block. */
 export function Seite() {
   return <div className="h-(--zellgroesse)" />;
 }
 BEISPIEL
-pruefe "Designsystem: die Kurzform im Kommentar ist gruen" 0 \
+pruefe "Designsystem: die Kurzform im Zeilenkommentar ist rot" 1 \
+  node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
+
+cat > "$DS/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+/* Auch im Block: w-[--breite] erzeugt eine tote Regel im Bau. */
+export function Seite() {
+  return <div className="h-(--zellgroesse)" />;
+}
+BEISPIEL
+pruefe "Designsystem: die Kurzform im Blockkommentar ist rot" 1 \
+  node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
+
+# Umschrieben darf man es: nur die Zeichenkette findet der Scanner.
+cat > "$DS/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+// Eckige Klammern um den Variablennamen kennt Tailwind 4 nicht mehr.
+export function Seite() {
+  return <div className="h-(--zellgroesse)" />;
+}
+BEISPIEL
+pruefe "Designsystem: umschrieben ist gruen" 0 \
   node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
 rm -rf "$DS"
 

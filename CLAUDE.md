@@ -938,6 +938,17 @@ nicht gilt. Er liest dafür jetzt auch TSX, nimmt Kommentare aus — sonst
 meldete er seine eigene Erklärung — und kennt `--wurzel`, damit
 `waechter-selbsttest.sh` ihn an einem Wegwerfbaum messen kann.
 
+Beim Nachmessen am Geraet fiel dazu noch heraus, dass **in einer
+Tailwind-Quelle ein Kommentar kein Kommentar ist**: der Scanner liest Text und
+kein JavaScript. Der fertige Bau trug nach der Reparatur weiter
+`.w-\[--sidebar-breite\]{width:--sidebar-breite}`, obwohl keine Quelle die
+Klasse mehr benutzte — sie kam aus dem Satz darueber, dass man sie nicht
+benutzen soll. Der Waechter nimmt Kommentare deshalb **nicht** aus; wer die
+alte Form ausschreiben will, tut das ausserhalb der beiden Quellwurzeln
+(`README.md` der Bibliothek, `scripts/`). Eine tote Regel ist kein Schaden —
+aber ein Waechter, der eine Schreibweise verbietet und den Weg offenlaesst, auf
+dem sie ins Ergebnis kommt, misst nicht, was er zu messen behauptet.
+
 Der Deploy dieses Auftrags hat gleich noch etwas gefunden, und es war der
 Grund, warum die Reparatur zunaechst nicht am Geraet ankam: **die Tabelle des
 Deploys war eine Behauptung ueber die Dockerfiles, und sie war falsch**. In
