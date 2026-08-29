@@ -21,5 +21,16 @@
  * `embla-carousel-react`, `input-otp`), und `useSchmalesFenster` ist aus der
  * Shell hierher gezogen. Auch das Buendel traegt ihn: `browser/marken.js`
  * gibt seit H4 einen Namen mehr aus.
+ *
+ * 3.1.0 (Phase H5): drei Muster kommen dazu -- `Dialogform`, `Bestaetigung`
+ * und `Kennzahl`/`Kennzahlen` --, und zwei Bausteine bekommen Eigenschaften:
+ * `Liste` kennt jetzt `dicht` (enge Zeilen fuer eine Spalte, die mit der
+ * Maus bedient wird), `ListenEintrag` `unterzeile` und `erklaerung`, `Kopf`
+ * `mittig`. Alle drei kamen aus der Shell, wo sie als `Modal`,
+ * `ConfirmModal` und `StatTile` standen und nichts von Arasul wussten.
+ *
+ * KEINE neue Hauptzahl: nichts ist weggefallen und nichts hat seine
+ * Bedeutung geaendert. Eine Vorlage auf 3.0 laeuft mit dieser Fassung
+ * unveraendert weiter -- sie kennt die drei neuen Formen nur nicht.
  */
-export const FASSUNG = '3.0.0';
+export const FASSUNG = '3.1.0';

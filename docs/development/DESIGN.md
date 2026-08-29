@@ -11,8 +11,18 @@
 
 Eine neutrale, monochrome Fläche und **ein** gedämpfter Akzent. Flächen
 trennen sich durch Linien, nicht durch eine zweite Flächenfarbe. Farbe
-bedeutet etwas: Akzent für die Primäraktion und den aktiven Zustand,
-Statusfarben nur, wenn ein Zustand gemeint ist. Alles andere ist Graustufe.
+bedeutet etwas: Akzent für die **Primäraktion und den Verweis**, Statusfarben
+nur, wenn ein Zustand gemeint ist. Alles andere ist Graustufe.
+
+**Der aktive Zustand ist keine Farbe** (verschärft in H5). Er ist Schriftstärke
+und, wo keine Schrift da ist, eine Linie. Bis H5 stand der Akzent an beiden
+Stellen — am gewählten Reiter, am aktiven Symbol der Aktivitätsleiste, an der
+Zeile, auf der man steht —, und daneben bedeutete `bg-accent` „hier ist gerade
+die Maus". Wer die Maus stehen ließ, sah zwei aktive Einträge. Und ein Akzent,
+der zugleich „tu das hier" und „hier bist du" heißt, heißt beides nicht mehr.
+Ebenso wenig trägt er einen Zustand: eine erfüllte Passwortregel ist
+`text-success`, ein gesunder Dienst ein grüner Punkt, ein Häkchen nach einer
+Aktualisierung grün.
 
 Drei Regeln, die ein Wächter hält:
 
@@ -28,8 +38,9 @@ Drei Regeln, die ein Wächter hält:
    (Karten, Popover, Dialoge, Eingabefelder, Tabellenköpfe). Der aktive Tab
    teilt die Flächenfarbe und hebt sich nur über die Schriftstärke ab.
 3. **Wiederkehrende Formen kommen aus dem Designsystem** (unten). Ein `h1`,
-   eine Feldgruppen-Trennlinie oder eine Tab-Leiste außerhalb von
-   `components/ui` und `packages/marken` meldet `scripts/test/bausteine.py`.
+   eine Feldgruppen-Trennlinie, eine Tab-Leiste oder ein handgebauter Dialog
+   außerhalb von `packages/marken` meldet `scripts/test/bausteine.py` — seit
+   **H5** überall unter `src/`, ohne Ausnahmeordner.
 
 ## Stack
 
@@ -121,7 +132,7 @@ Bausteine in einer Bibliothek, die die Shell **und jede App** benutzt; seit
 **H3** (29.08.2026) dazu die **Tokens** (`theme.css`) und die **Primitive**
 (`src/primitive/`) — Button, Input, Dialog, Tabs, Badge und die übrigen. Seit
 **H4** (29.08.2026) ist der Satz vollständig (**sechsundvierzig**), und über
-ihm stehen **sieben Muster** (`src/muster/`).
+ihm stehen die **Muster** (`src/muster/`) — seit **H5** neun.
 
 **Drei Sätze, zwei Laufzeiten, zwei Höhen.** Die Primitive stehen auf Radix
 und Tailwind und brauchen einen Bau; die Muster sind aus ihnen gebaut und
@@ -146,6 +157,8 @@ einen Endpunkt oder einen Benutzer kennt, bleibt in der Shell.
 | `Formularseite` / `Feldgruppe` | Abschnitte einer Seite; die Trennlinie gehört zwischen sie     |
 | `Leerzustand`                  | was an der Stelle einer leeren Liste steht — samt Einstieg     |
 | `Ladezustand`                  | der Kreisel, wenn die Form des Ergebnisses noch offen ist      |
+| `Dialogform` / `Bestaetigung`  | der Dialog (Titel, rollender Rumpf, Fuß) und die Frage (H5)    |
+| `Kennzahl` / `Kennzahlen`      | eine Zahl mit ihrer Beschriftung; Raster 1/2/4, nie drei (H5)  |
 
 Die **Schauseite** unter `/entwickler/bausteine` zeigt jedes Primitiv **und
 jedes Muster** in allen Zuständen, hell und dunkel; sie liegt seit H4 in drei
@@ -209,25 +222,42 @@ eigene. Der Mensch sieht beides in **einem** Rahmen übereinander — zwei
 Erscheinungsbilder auf einem Bildschirm sind kein Geschmack, sondern ein
 Fehler.
 
-## Das gemeinsame Baustein-Set (`components/ui/`)
+## Was in `components/ui/` übrig ist
 
-| Baustein                 | Was er festlegt                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| `FilterBar`              | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`) mit eigener Inhaltsfläche         |
-| `StatTile` / `StatGrid`  | Kennzahl ohne Symbol; Raster fest 1/2/4 Spalten, nie drei plus eins             |
-| `Modal` / `ConfirmModal` | der Dialog dieses Geräts, auf `Dialog` aus `@marken`                            |
-| `SkeletonText/Card/List` | Platzhalter in der Form, die eine Liste auf DIESEM Gerät hat                    |
-| `AuthCard`               | Rahmen der Seiten vor der Anmeldung; das einzige `h1`, das kein Seitentitel ist |
+Seit **H5** steht dort nur noch, was über **dieses Gerät** Bescheid weiß:
 
-**Vier sind mit H4 in die Bibliothek gezogen**, weil sie nichts von Arasul
-wissen und eine Fachanwendung sie genauso braucht: `Chart`/`Sparkline` (jetzt
-ein Primitiv), `Section`/`SectionList` (jetzt `Feldgruppe`/`Formularseite`),
-`EmptyState` (jetzt `Leerzustand`) und `LoadingSpinner` (jetzt `Ladezustand`).
-Sie kommen aus `@marken`, nicht mehr aus `components/ui/`.
+| Baustein                 | Warum er nicht in der Bibliothek steht                                        |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `AuthCard`               | kennt das Maskottchen und den Produktnamen; der Titel kommt aus `Kopf mittig` |
+| `SkeletonText/Card/List` | Platzhalter in der Form, die eine Liste auf DIESEM Gerät hat                  |
+| `NichtGefunden`          | kennt die Adresse des Arbeitsbereichs; die Form ist `Leerzustand` + `Button`  |
+| `ErrorBoundary`          | React-Mechanik plus die Hilfewege dieses Produkts                             |
 
-Eine neue Seite baut auf diesen Bausteinen und auf `@marken` auf, statt die
-Klassenkette zu kopieren. Ausnahmen stehen mit Grund in `AUSNAHMEN` von
-`bausteine.py`; ein Eintrag ohne Grund ist keiner.
+**Alles andere ist gegangen.** Mit **H4** `Chart`/`Sparkline` (jetzt ein
+Primitiv), `Section`/`SectionList` (jetzt `Feldgruppe`/`Formularseite`),
+`EmptyState` (jetzt `Leerzustand`), `LoadingSpinner` (jetzt `Ladezustand`).
+Mit **H5** `Modal` und `ConfirmModal` (jetzt die Muster `Dialogform` und
+`Bestaetigung`) und `StatTile`/`StatGrid` (jetzt `Kennzahl`/`Kennzahlen`) —
+keines von ihnen wusste je etwas von Arasul, und die erste Fachanwendung mit
+einem Dialog hätte sie noch einmal geschrieben.
+
+**`FilterBar` ist ganz gefallen.** Es war eine zweite Tab-Leiste neben dem
+Primitiv `Tabs`: dieselbe Form, dieselbe Semantik, eigene
+Tastaturmechanik — und die tut Radix schon, geprüft. Zwei Dinge unter einer
+Sache sind die Verwechslung selbst. `DashboardCard` desgleichen: eine zweite
+Karte neben `Card`, die dort, wo sie stand, nichts tat, was `Feldgruppe`
+nicht tut.
+
+**Der Wächter ist damit scharf** (`scripts/test/bausteine.py`): bis H4 war
+`components/ui/` von den Regeln ausgenommen, weil dort die Bausteine standen.
+Seit H5 stehen sie nicht mehr dort, also gilt die Regel überall unter `src/` —
+ein `h1`, eine Tab-Leiste, eine Feldgruppen-Trennlinie oder ein handgebauter
+Dialog ist an **jeder** Stelle ein Befund. Ein Ordner, in dem die Regel nicht
+gilt, ist der Ort, an dem der nächste zweite Baustein entsteht.
+
+Eine neue Seite baut auf `@marken` auf, statt die Klassenkette zu kopieren.
+Ausnahmen stehen mit Grund in `AUSNAHMEN` von `bausteine.py`; ein Eintrag ohne
+Grund ist keiner.
 
 ## Die Shell
 

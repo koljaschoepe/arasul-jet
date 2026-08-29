@@ -11,7 +11,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Login from '../Login';
-import { PLATFORM_NAME } from '@/config/branding';
+import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from '@/config/branding';
 
 // Mock useApi (replaces axios — Login uses useApi internally)
 const mockApi = {
@@ -37,7 +37,7 @@ describe('Login Component', () => {
       render(<Login onLoginSuccess={mockOnLoginSuccess} />);
 
       expect(screen.getByRole('heading', { name: PLATFORM_NAME })).toBeInTheDocument();
-      expect(screen.getByText('Edge-KI Verwaltungssystem')).toBeInTheDocument();
+      expect(screen.getByText(PLATFORM_DESCRIPTION)).toBeInTheDocument();
       expect(screen.getByLabelText(/benutzername/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/passwort/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /anmelden/i })).toBeInTheDocument();

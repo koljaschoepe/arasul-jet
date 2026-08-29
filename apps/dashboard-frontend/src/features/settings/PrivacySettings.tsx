@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Trash2, Info, HardDrive, RefreshCw } from 'lucide-react';
 import { Kopf } from '@marken';
-import { Alert, AlertDescription, Button, Input, Label } from '@marken';
-import Modal from '@/components/ui/Modal';
+import { Alert, AlertDescription, Button, Dialogform, Input, Label } from '@marken';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -259,16 +258,16 @@ export function PrivacySettings() {
         </Feldgruppe>
       </Formularseite>
 
-      <Modal
-        isOpen={tokenModalOpen}
-        onClose={() => setTokenModalOpen(false)}
-        title={
+      <Dialogform
+        offen={tokenModalOpen}
+        beiSchliessen={() => setTokenModalOpen(false)}
+        titel={
           <>
             <Trash2 className="size-4 text-destructive" /> Löschung bestätigen
           </>
         }
-        size="small"
-        footer={
+        groesse="klein"
+        fuss={
           <div className="flex gap-3 w-full justify-end">
             <Button type="button" variant="outline" onClick={() => setTokenModalOpen(false)}>
               Abbrechen
@@ -306,7 +305,7 @@ export function PrivacySettings() {
             autoComplete="off"
           />
         </form>
-      </Modal>
+      </Dialogform>
     </div>
   );
 }

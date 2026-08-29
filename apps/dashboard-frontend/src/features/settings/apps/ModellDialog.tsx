@@ -19,8 +19,7 @@
  * dann bleibt der hinterlegte stehen (Backend: `COALESCE`).
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import Modal from '@/components/ui/Modal';
-import { Button, cn, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
+import { Button, cn, Dialogform, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import type { CatalogModel } from '@/hooks/useStoreCatalog';
 import type { ExternesModell, ModellWunsch } from './useAppVerwaltung';
@@ -100,12 +99,12 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
   };
 
   return (
-    <Modal
-      isOpen={fuer !== null}
-      onClose={onSchliessen}
-      title={fuer ? `Modell für „${fuer.name}"` : 'Modell'}
-      size="medium"
-      footer={
+    <Dialogform
+      offen={fuer !== null}
+      beiSchliessen={onSchliessen}
+      titel={fuer ? `Modell für „${fuer.name}"` : 'Modell'}
+      groesse="mittel"
+      fuss={
         <div className="flex w-full justify-end gap-3">
           <Button type="button" variant="outline" onClick={onSchliessen}>
             Abbrechen
@@ -146,7 +145,9 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
               htmlFor={`quelle-${wert}`}
               className={cn(
                 'flex cursor-pointer items-start gap-3 rounded-md border p-ui-3 font-normal transition-colors',
-                quelle === wert ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50'
+                quelle === wert
+                  ? 'border-foreground font-medium'
+                  : 'border-border hover:bg-accent/50'
               )}
             >
               <RadioGroupItem
@@ -241,6 +242,6 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
           </div>
         )}
       </form>
-    </Modal>
+    </Dialogform>
   );
 }

@@ -9,8 +9,7 @@
  * Freigaben, die Schlüssel und die Dateien am Gerät.
  */
 import { useState, type FormEvent } from 'react';
-import Modal from '@/components/ui/Modal';
-import { Button, Input, Label } from '@marken';
+import { Button, Dialogform, Input, Label } from '@marken';
 
 interface Props {
   /** Welche App, oder `null` für „Dialog zu". */
@@ -37,12 +36,12 @@ export function AppEntfernenDialog({ fuer, laeuft, onSchliessen, onEntfernen }: 
   };
 
   return (
-    <Modal
-      isOpen={fuer !== null}
-      onClose={schliessen}
-      title={fuer ? `${fuer.name} entfernen` : 'App entfernen'}
-      size="small"
-      footer={
+    <Dialogform
+      offen={fuer !== null}
+      beiSchliessen={schliessen}
+      titel={fuer ? `${fuer.name} entfernen` : 'App entfernen'}
+      groesse="klein"
+      fuss={
         <div className="flex w-full justify-end gap-3">
           <Button type="button" variant="outline" onClick={schliessen}>
             Abbrechen
@@ -81,6 +80,6 @@ export function AppEntfernenDialog({ fuer, laeuft, onSchliessen, onEntfernen }: 
           />
         </div>
       </form>
-    </Modal>
+    </Dialogform>
   );
 }

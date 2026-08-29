@@ -1,7 +1,7 @@
+import { Liste, ListenEintrag } from '@marken';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from '@/features/settings/sections';
-import { cn } from '@marken';
 import { SidebarView } from './SidebarView';
 
 /**
@@ -10,6 +10,11 @@ import { SidebarView } from './SidebarView';
  * statt in einer zweiten Spalte innerhalb des Tabs. Ein Klick setzt die aktive
  * Sektion (settingsStore) und öffnet den Einstellungen-Mitte-Tab. Gleiches Muster
  * wie Flows/Store: erst Ziel setzen, dann `openTab`.
+ *
+ * SEIT H5 AUS DER BIBLIOTHEK, wie die zwei Spalten daneben. Der Satz unter dem
+ * Namen ist die `unterzeile` des Eintrags; der aktive hob sich bis dahin über
+ * `text-primary` am Symbol ab — der Akzent ist die Farbe der Primäraktion, und
+ * wenn er zugleich „hier bist du" bedeutet, bedeutet er beides nicht mehr.
  */
 export function SettingsPanel() {
   const openTab = useWorkspaceStore(s => s.openTab);
@@ -23,47 +28,21 @@ export function SettingsPanel() {
 
   return (
     <SidebarView title="Einstellungen">
-      <ul className="flex flex-col py-1">
-        {SETTINGS_SECTIONS.map(section => {
-          const active = activeSection === section.id;
-          return (
-            <li key={section.id}>
-              <button
-                type="button"
-                data-testid={`settings-open-${section.id}`}
-                aria-current={active ? 'true' : undefined}
-                onClick={() => open(section.id)}
-                className={cn(
-                  'flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-accent/50',
-                  active && 'bg-accent/60'
-                )}
-              >
-                <span
-                  className={cn(
-                    'mt-0.5 shrink-0 [&_svg]:size-4',
-                    active ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                >
-                  {section.icon}
-                </span>
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span
-                    className={cn(
-                      'truncate text-sm text-foreground',
-                      active ? 'font-semibold' : 'font-medium'
-                    )}
-                  >
-                    {section.label}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {section.description}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="py-1">
+        <Liste dicht>
+          {SETTINGS_SECTIONS.map(section => (
+            <ListenEintrag
+              key={section.id}
+              titel={section.label}
+              symbol={section.icon}
+              unterzeile={section.description}
+              aktiv={activeSection === section.id}
+              kennzeichen={`settings-open-${section.id}`}
+              onKlick={() => open(section.id)}
+            />
+          ))}
+        </Liste>
+      </div>
     </SidebarView>
   );
 }

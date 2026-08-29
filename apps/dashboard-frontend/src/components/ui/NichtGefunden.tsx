@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Compass } from 'lucide-react';
+import { Button, Leerzustand } from '@marken';
 
 /**
  * „Nicht gefunden" als Komponente, nicht als eigene Seite (Plan 023 B2).
@@ -10,6 +11,14 @@ import { Compass } from 'lucide-react';
  *
  * Bewusst ohne große Zahl und ohne Warnsymbol: eine falsche Adresse ist kein
  * Fehler des Nutzers und kein Zwischenfall, sondern ein Abzweig.
+ *
+ * SEIT H5 AUS DER BIBLIOTHEK. Die Form ist ein `Leerzustand` — ein Symbol,
+ * ein Satz, ein Weg weiter —, und der Weg weiter ist ein `Button`. Bis dahin
+ * standen hier ein handgebauter Knopf (`rounded-lg bg-primary px-5 py-2 …`,
+ * also eine zweite Antwort auf die Frage, wie ein Knopf aussieht) und die
+ * Alias-Farbe `text-text-secondary`, die eine App gar nicht hat. Was diese
+ * Datei behält, ist das, was sie wirklich weiß: dass es auf diesem Gerät
+ * einen Arbeitsbereich gibt, zu dem man zurückkann.
  */
 export default function NichtGefunden({
   ziel = '/workspace',
@@ -21,15 +30,16 @@ export default function NichtGefunden({
   hinweis?: string;
 }) {
   return (
-    <div className="flex h-full min-h-[60vh] w-full flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-      <Compass className="h-8 w-8 text-text-secondary" aria-hidden="true" />
-      <p className="text-sm text-text-secondary">{hinweis}</p>
-      <Link
-        to={ziel}
-        className="rounded-lg bg-primary px-5 py-2 text-sm text-primary-foreground no-underline transition-opacity hover:opacity-90"
-      >
-        {zielText}
-      </Link>
+    <div className="flex h-full min-h-[60vh] w-full items-center justify-center bg-background px-6">
+      <Leerzustand
+        symbol={<Compass />}
+        titel={hinweis}
+        aktion={
+          <Button asChild>
+            <Link to={ziel}>{zielText}</Link>
+          </Button>
+        }
+      />
     </div>
   );
 }

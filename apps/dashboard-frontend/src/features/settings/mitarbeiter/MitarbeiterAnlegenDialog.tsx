@@ -13,8 +13,7 @@
  * nicht weiß, hält die schwächere Regel für ein Versehen.
  */
 import { useState, type FormEvent } from 'react';
-import Modal from '@/components/ui/Modal';
-import { Button, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
+import { Button, Dialogform, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
 import type { NeuerBenutzer } from './useMitarbeiter';
 
 /** Dieselbe Untergrenze wie im Backend (`schemas/benutzer.js`). */
@@ -59,12 +58,12 @@ export function MitarbeiterAnlegenDialog({ offen, laeuft, onSchliessen, onAnlege
   };
 
   return (
-    <Modal
-      isOpen={offen}
-      onClose={schliessen}
-      title="Menschen anlegen"
-      size="small"
-      footer={
+    <Dialogform
+      offen={offen}
+      beiSchliessen={schliessen}
+      titel="Menschen anlegen"
+      groesse="klein"
+      fuss={
         <div className="flex w-full justify-end gap-3">
           <Button type="button" variant="outline" onClick={schliessen}>
             Abbrechen
@@ -143,6 +142,6 @@ export function MitarbeiterAnlegenDialog({ offen, laeuft, onSchliessen, onAnlege
           </RadioGroup>
         </div>
       </form>
-    </Modal>
+    </Dialogform>
   );
 }

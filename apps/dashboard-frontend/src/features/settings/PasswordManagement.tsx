@@ -237,13 +237,13 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
 
           {/* Password Requirements */}
           {requirements && passwords.new && (
-            <div className="border-l-2 border-primary/30 pl-4 space-y-2">
+            <div className="border-l-2 border-border pl-4 space-y-2">
               <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
               <ul className="space-y-1">
                 <li
                   className={cn(
                     'flex items-center gap-2 text-xs',
-                    validations.minLength ? 'text-primary' : 'text-muted-foreground'
+                    validations.minLength ? 'text-success' : 'text-muted-foreground'
                   )}
                 >
                   {validations.minLength ? (
@@ -257,7 +257,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.uppercase ? 'text-primary' : 'text-muted-foreground'
+                      validations.uppercase ? 'text-success' : 'text-muted-foreground'
                     )}
                   >
                     {validations.uppercase ? (
@@ -272,7 +272,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.lowercase ? 'text-primary' : 'text-muted-foreground'
+                      validations.lowercase ? 'text-success' : 'text-muted-foreground'
                     )}
                   >
                     {validations.lowercase ? (
@@ -287,7 +287,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.number ? 'text-primary' : 'text-muted-foreground'
+                      validations.number ? 'text-success' : 'text-muted-foreground'
                     )}
                   >
                     {validations.number ? (
@@ -302,7 +302,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.special ? 'text-primary' : 'text-muted-foreground'
+                      validations.special ? 'text-success' : 'text-muted-foreground'
                     )}
                   >
                     {validations.special ? (
@@ -316,7 +316,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
                 <li
                   className={cn(
                     'flex items-center gap-2 text-xs',
-                    validations.match ? 'text-primary' : 'text-muted-foreground'
+                    validations.match ? 'text-success' : 'text-muted-foreground'
                   )}
                 >
                   {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}

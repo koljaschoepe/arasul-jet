@@ -549,6 +549,70 @@ Wähler und Kante in die rote Zeile. Eine Zahl ohne Element ließ offen, ob es
 eine Tabelle war, ein `.sr-only` in einem Knopf oder ein Kasten mit fester
 Breite — drei Befunde mit drei verschiedenen Antworten.
 
+Seit **H5** (29.08.2026) steht die **Shell auf der Bibliothek**, und der
+Wächter darüber ist zum ersten Mal **scharf**. Drei Zusammensetzungen der
+Shell wussten nichts von Arasul und sind Muster geworden: `Modal` und
+`ConfirmModal` heißen `Dialogform` und `Bestaetigung` (die Frage steht seither
+auf `AlertDialog` statt auf einem Dialog mit Kreuz — Escape, ein Klick daneben
+und das Kreuz hießen alle drei stillschweigend „Abbrechen"), `StatTile` und
+`StatGrid` heißen `Kennzahl` und `Kennzahlen`. **`FilterBar` ist ganz
+gefallen**: es war eine zweite Tab-Leiste neben dem Primitiv `Tabs` — dieselbe
+Form, dieselbe Semantik, eine eigene Tastaturmechanik gegen eine geprüfte
+Bibliothek. **`DashboardCard` ebenso**, eine zweite Karte neben `Card`, die an
+ihrer Stelle nichts tat, was `Feldgruppe` nicht tut. Die drei Sidebar-Spalten
+zeigen jetzt dieselbe `Liste` wie das Hamburger-Menü aus D7 (bis dahin zweimal
+geschrieben); was der Bibliothek dafür fehlte, war `dicht` — fingerbreit ist
+richtig für ein Telefon und zu groß für eine Seitenspalte.
+Übrig in `components/ui/` sind **vier**, und jede weiß etwas über dieses Gerät:
+`AuthCard`, `Skeleton.tsx`, `NichtGefunden`, `ErrorBoundary`. Damit ist der
+Ausnahmeordner von `bausteine.py` weg, und ein `h1`, eine Tab-Leiste, eine
+Feldgruppen-Trennlinie oder ein handgebauter Dialog ist **überall** unter
+`src/` ein Befund. Er hat beim ersten scharfen Lauf gleich zwei `h1` gefunden;
+beide sind jetzt `Kopf mittig` — die Form einer Seite, die aus nichts als sich
+selbst besteht.
+**Der aktive Zustand ist keine Farbe mehr.** Er ist Schriftstärke und, wo keine
+Schrift steht, eine Linie: am Reiter (`border-foreground` statt
+`border-primary`), am Symbol der Aktivitätsleiste, an der Zeile der Sidebar.
+Der Grund ist nicht Geschmack — `bg-accent` bedeutete daneben „hier ist gerade
+die Maus", und wer sie stehen ließ, sah zwei aktive Einträge; ein Akzent, der
+zugleich „tu das hier" und „hier bist du" heißt, heißt beides nicht mehr.
+Ebenso wenig trägt er einen Zustand: eine erfüllte Passwortregel ist grün, ein
+gesunder Dienst ist grün, ein Häkchen nach einer Aktualisierung ist grün.
+Und die **Texte sagen, was das Gerät ist**: statt „Edge-KI Verwaltungssystem"
+und „Edge-AI-Plattform für NVIDIA Jetson, Multi-Jahres-Betrieb" steht dort
+jetzt, dass die Software im Haus läuft und die Apps hostet, die das
+Unternehmen braucht.
+**Das Bündel ist kleiner als vor H4**, und die Ursache war nicht die Zahl der
+Primitive. `App.tsx`, `Login` und fünf weitere Dateien werden nicht
+nachgeladen, sondern stehen im Einstieg, und jede holt etwas aus `@marken`;
+ohne die Auskunft „diese Bibliothek hat keine Seiteneffekte" behält Rollup
+jedes Modul, das über das Barrel erreichbar ist. Damit lag seit H4 der ganze
+Satz im ersten Bündel, mitsamt `recharts`, `cmdk`, `react-day-picker`,
+`embla-carousel` und `input-otp`. Die übliche Auskunft dafür wäre
+`"sideEffects": false` in einer `package.json` — die hat die Bibliothek mit
+Absicht nicht (Pfad-Alias, kein npm-Paket, Regel 7). Sie steht jetzt als
+`treeshake.moduleSideEffects` in `vite.config.ts`, an derselben Stelle wie der
+Alias. Am fertigen Bau gemessen (gzip, `index.html` plus alles, was es als
+`modulepreload` nennt): **H3 208,20 kB → H4 388,95 kB → H5 161,77 kB**. Es war
+nie etwas dazugekommen, was ein Mensch beim Anmelden braucht — es war von
+„später" nach „sofort" gerutscht.
+Zwei Meßgeräte kamen dazu. Der **Bilderbogen**
+(`scripts/test/bilderbogen.mjs`) ist eine **Kamera** und kein Messgerät: zwanzig
+Ansichten mal zwei Themes mal drei Breiten, einmal `--stand vorher` und einmal
+`--stand nachher`, damit ein Mensch sie nebeneinanderlegen kann. Er fragt
+nichts außer „steht die Ansicht da". Das Breitenraster und die Liste der
+Verwaltungsansichten teilt er sich mit der Oberflächen-Reihe über
+`scripts/test/ansichten.mjs` — zwei Leser sind der Augenblick, in dem eine
+Liste in zwei Dateien auseinanderläuft.
+Und der **eine rote Fleck der Theme-Abnahme ist zu**, seit H2. Die Zelle „im
+Hellen sagt das Dokument der App »hell«" war nicht rot, weil das Dokument im
+Hellen kein Attribut trägt — `themaAus` nimmt `null` seit H3 als »hell«, und
+zehn Zellen daneben melden genau so grün. Sie war rot, weil der Abschnitt
+davor — der Kern von H1 — das Gerät auf **dunkel** stellt und stehen lässt,
+und diese Probe mit „im Hellen" anfing, ohne es herzustellen. Sie stellt es
+jetzt selbst ein, wie jeder andere Abschnitt der Reihe: **47 von 47 grün**,
+gemessen am Orin.
+
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,
@@ -725,7 +789,7 @@ statt 700, ein Update hätte die Geheimnisse still lesbar gemacht. Siehe
 
 | Layer    | Stack                                                             | Path                                                                                              |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 7 Muster, 6 Bausteine) |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 9 Muster, 6 Bausteine) |
 | Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                                                         |
 | AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`                                             |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                                                     |

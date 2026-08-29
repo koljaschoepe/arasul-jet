@@ -39,9 +39,8 @@ import { getCsrfToken } from '../../utils/csrf';
 import { getValidToken } from '../../utils/token';
 import { useApi } from '../../hooks/useApi';
 import { formatBytes, formatDate } from '../../utils/formatting';
-import { Kopf } from '@marken';
+import { Kennzahl, Kennzahlen, Kopf } from '@marken';
 import { Button, cn } from '@marken';
-import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
 
 interface ValidationResult {
@@ -283,27 +282,27 @@ const UpdatePage = () => {
 
       <Formularseite>
         <Feldgruppe titel="Diese Fassung" symbol={<Package />}>
-          <StatGrid>
-            <StatTile
-              label="Fassung"
-              value={fassung?.anzeige ?? '—'}
-              note={
+          <Kennzahlen>
+            <Kennzahl
+              beschriftung="Fassung"
+              wert={fassung?.anzeige ?? '—'}
+              fussnote={
                 fassung?.bekannt === false
                   ? 'Dieses Gerät kennt seine Fassung nicht. Sie kommt aus dem Bau; ohne sie lässt sich nicht entscheiden, ob ein Paket neuer ist.'
                   : 'Aus dem Bau (Tag oder Datum plus Kurz-SHA).'
               }
             />
-            <StatTile
-              label="Bau"
-              value={info?.build_hash ? info.build_hash.substring(0, 7) : '—'}
+            <Kennzahl
+              beschriftung="Bau"
+              wert={info?.build_hash ? info.build_hash.substring(0, 7) : '—'}
             />
-            <StatTile label="JetPack" value={info?.jetpack_version || '—'} />
-            <StatTile
-              label="Letzte Aktualisierung"
-              value={letztes ? formatDate(letztes.started_at || letztes.timestamp || '') : 'keine'}
-              note={letztes ? `${letztes.version_from} auf ${letztes.version_to}` : undefined}
+            <Kennzahl beschriftung="JetPack" wert={info?.jetpack_version || '—'} />
+            <Kennzahl
+              beschriftung="Letzte Aktualisierung"
+              wert={letztes ? formatDate(letztes.started_at || letztes.timestamp || '') : 'keine'}
+              fussnote={letztes ? `${letztes.version_from} auf ${letztes.version_to}` : undefined}
             />
-          </StatGrid>
+          </Kennzahlen>
         </Feldgruppe>
 
         {!einspielenMoeglich ? (
@@ -458,7 +457,7 @@ const UpdatePage = () => {
               {schritt === 'geprueft' && geprueft && (
                 <div className="space-y-4">
                   <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <CheckCircle className="size-4 text-primary" />
+                    <CheckCircle className="size-4 text-success" />
                     Das Paket ist geprüft: Signatur und Manifest stimmen.
                   </p>
                   <ul className="divide-y divide-border rounded-lg border border-border text-sm">
@@ -518,7 +517,7 @@ const UpdatePage = () => {
 
               {schritt === 'fertig' && (
                 <div className="space-y-3 py-6 text-center">
-                  <CheckCircle className="mx-auto size-8 text-primary" />
+                  <CheckCircle className="mx-auto size-8 text-success" />
                   <p className="text-sm font-semibold text-foreground">
                     Eingespielt. Das Gerät läuft jetzt auf {geprueft?.version}.
                   </p>

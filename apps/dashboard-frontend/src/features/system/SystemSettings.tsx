@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Activity, DatabaseBackup, RotateCcw, Server, Upload, Wrench } from 'lucide-react';
-import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
+import type { LucideIcon } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@marken';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ServicesSettings } from './ServicesSettings';
 import UpdatePage from './UpdatePage';
@@ -20,7 +21,7 @@ type SubId = 'status' | 'services' | 'updates' | 'sicherung' | 'selfhealing' | '
  * „Sicherung" kommt mit Phase D5 dazu. Die Wege dahinter stehen seit C9; bis
  * dahin gab es sie nur für jemanden mit einer Konsole.
  */
-const subSections: FilterBarItem<SubId>[] = [
+const subSections: { id: SubId; label: string; icon: LucideIcon }[] = [
   { id: 'status', label: 'Auslastung', icon: Activity },
   { id: 'services', label: 'Dienste', icon: Server },
   { id: 'updates', label: 'Aktualisierungen', icon: Upload },
@@ -45,43 +46,46 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
   const [active, setActive] = useState<SubId>(initial ?? 'status');
 
   return (
-    <FilterBar
-      items={subSections}
-      active={active}
-      onChange={setActive}
-      label="System-Unterbereiche"
-      panelClassName="pt-6"
-    >
-      {active === 'status' && (
+    <Tabs value={active} onValueChange={wert => setActive(wert as SubId)}>
+      <TabsList aria-label="System-Unterbereiche">
+        {subSections.map(({ id, label, icon: Symbol }) => (
+          <TabsTrigger key={id} value={id}>
+            <Symbol />
+            {label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+
+      <TabsContent value="status" className="pt-6">
         <ComponentErrorBoundary componentName="Auslastung">
           <SystemStatus />
         </ComponentErrorBoundary>
-      )}
-      {active === 'services' && (
+      </TabsContent>
+      <TabsContent value="services" className="pt-6">
         <ComponentErrorBoundary componentName="Dienste">
           <ServicesSettings />
         </ComponentErrorBoundary>
-      )}
-      {active === 'updates' && (
+      </TabsContent>
+      <TabsContent value="updates" className="pt-6">
         <ComponentErrorBoundary componentName="Aktualisierungen">
           <UpdatePage />
         </ComponentErrorBoundary>
-      )}
-      {active === 'sicherung' && (
+      </TabsContent>
+      <TabsContent value="sicherung" className="pt-6">
         <ComponentErrorBoundary componentName="Sicherung">
           <Sicherung />
         </ComponentErrorBoundary>
-      )}
-      {active === 'selfhealing' && (
+      </TabsContent>
+      <TabsContent value="selfhealing" className="pt-6">
         <ComponentErrorBoundary componentName="Selbstheilung">
           <SelfHealingEvents />
         </ComponentErrorBoundary>
-      )}
-      {active === 'werksreset' && (
+      </TabsContent>
+      <TabsContent value="werksreset" className="pt-6">
         <ComponentErrorBoundary componentName="Werksreset">
           <Werksreset />
         </ComponentErrorBoundary>
-      )}
-    </FilterBar>
+      </TabsContent>
+    </Tabs>
   );
 }

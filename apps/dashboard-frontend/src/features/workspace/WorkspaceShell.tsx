@@ -220,7 +220,7 @@ export default function WorkspaceShell(props: ShellHandgriffe) {
           <Separator
             aria-hidden={!sidebarZeigen}
             data-shell-hidden={sidebarZeigen ? 'false' : 'true'}
-            className="w-px bg-border transition-colors hover:bg-primary/50"
+            className="w-px bg-border transition-colors hover:bg-foreground/30"
           />
           {/*
             Eine MINDESTBREITE in Pixeln und nicht in Prozent (Phase D4).
@@ -258,7 +258,7 @@ export default function WorkspaceShell(props: ShellHandgriffe) {
           <Separator
             aria-hidden={!notizenZeigen || schmal}
             data-shell-hidden={notizenZeigen && !schmal ? 'false' : 'true'}
-            className="w-px bg-border transition-colors hover:bg-primary/50"
+            className="w-px bg-border transition-colors hover:bg-foreground/30"
           />
           {/* Das Panel bleibt IMMER an dieser Stelle des Baums, auch wenn es
               unter 900 px die ganze Spalte fuellt: die Notizen schreiben nach

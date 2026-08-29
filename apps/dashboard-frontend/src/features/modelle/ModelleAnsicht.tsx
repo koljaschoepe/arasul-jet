@@ -19,9 +19,8 @@
  */
 import { useEffect } from 'react';
 import { Cpu } from 'lucide-react';
-import { Kopf } from '@marken';
+import { Kennzahl, Kennzahlen, Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import { useActivation } from '@/contexts/ActivationContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -72,12 +71,12 @@ function ModelleAnsicht() {
         beschreibung="Die Kurzliste dieses Geräts: vier Modelle, hier gemessen. Geladen wird nur, was hier steht."
       />
 
-      <StatGrid className="mb-6">
-        <StatTile
-          label="KI-RAM"
-          value={budget ? zuGb(budget.usedMb ?? 0) : '—'}
-          unit={budget ? `von ${zuGb(budget.totalBudgetMb ?? 0)} GB` : undefined}
-          note={kiRamZeile(budget)}
+      <Kennzahlen className="mb-6">
+        <Kennzahl
+          beschriftung="KI-RAM"
+          wert={budget ? zuGb(budget.usedMb ?? 0) : '—'}
+          einheit={budget ? `von ${zuGb(budget.totalBudgetMb ?? 0)} GB` : undefined}
+          fussnote={kiRamZeile(budget)}
         />
         {/*
           EIN ZUSTAND, UEBERALL GLEICH (Plan 023 D3, hier weitergeführt). Der
@@ -86,10 +85,10 @@ function ModelleAnsicht() {
           Speicher liegt, heißt „bereit" und nicht „keins": Ollama entlädt nach
           einer Ruhezeit von selbst, und das ist kein Fehler.
         */}
-        <StatTile
-          label="Modell"
-          value={lage.name || 'keins'}
-          note={
+        <Kennzahl
+          beschriftung="Modell"
+          wert={lage.name || 'keins'}
+          fussnote={
             <span data-testid="modelle-zustand">
               {lage.text}
               {lage.zustand === 'bereit' && ', wird bei Bedarf automatisch geladen'}
@@ -98,21 +97,21 @@ function ModelleAnsicht() {
             </span>
           }
         />
-        <StatTile
-          label="Standard der Flows"
-          value={standardName ?? 'keiner'}
-          note={
+        <Kennzahl
+          beschriftung="Standard der Flows"
+          wert={standardName ?? 'keiner'}
+          fussnote={
             standardName
               ? 'Damit rechnet ein Flow, der im Frontmatter keines nennt.'
               : 'Ohne Standard fällt jeder Flow ohne eigenes Modell aus.'
           }
         />
-        <StatTile
-          label="Am Gerät"
-          value={`${modelle.filter(isModelInstalled).length} von ${modelle.length}`}
-          note="Was nicht am Gerät liegt, lädt der Knopf in der Zeile."
+        <Kennzahl
+          beschriftung="Am Gerät"
+          wert={`${modelle.filter(isModelInstalled).length} von ${modelle.length}`}
+          fussnote="Was nicht am Gerät liegt, lädt der Knopf in der Zeile."
         />
-      </StatGrid>
+      </Kennzahlen>
 
       {/* Plan 023 D3: warum das Gerät zuletzt selbst etwas getan hat. Wer sein
           Modell aus dem Speicher verschwinden sieht, bekam dafür keine

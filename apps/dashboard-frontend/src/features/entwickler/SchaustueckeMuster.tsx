@@ -12,12 +12,16 @@ import { useState } from 'react';
 import { CalendarPlus, Inbox, LayoutDashboard, Package, Users } from 'lucide-react';
 import {
   Badge,
+  Bestaetigung,
   Button,
   Dateiablage,
   Datenliste,
+  Dialogform,
   Feldgruppe,
   Formularseite,
   Input,
+  Kennzahl,
+  Kennzahlen,
   Label,
   Ladezustand,
   Leerzustand,
@@ -90,6 +94,8 @@ const APPS = [
 export function SchaustueckeMuster() {
   const [app, setApp] = useState('');
   const [dateien, setDateien] = useState<File[]>([]);
+  const [dialogOffen, setDialogOffen] = useState(false);
+  const [frageOffen, setFrageOffen] = useState(false);
 
   return (
     <>
@@ -275,6 +281,93 @@ export function SchaustueckeMuster() {
           <div className="w-72 rounded-md border border-border">
             <Leerzustand titel="Keine Ereignisse" />
           </div>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Kennzahl"
+        satz="Eine Zahl mit ihrer Beschriftung; das Raster legt eins, zwei oder vier Spalten fest."
+      >
+        <Zustand name="einzeln, mit Einheit und Fußnote">
+          <div className="w-64">
+            <Kennzahl
+              beschriftung="Arbeitsspeicher"
+              wert="41,8"
+              einheit="%"
+              fussnote="25,5 von 61 GB"
+            />
+          </div>
+        </Zustand>
+        <Zustand name="vier im Raster">
+          <div className="w-full min-w-0">
+            <Kennzahlen>
+              <Kennzahl beschriftung="Arbeitsspeicher" wert="41,8" einheit="%" />
+              <Kennzahl beschriftung="Auslagerung" wert="0,4" einheit="%" />
+              <Kennzahl beschriftung="Speicherplatz" wert="63" einheit="%" />
+              <Kennzahl beschriftung="Temperatur" wert="47" einheit="°C" />
+            </Kennzahlen>
+          </div>
+        </Zustand>
+        <Zustand name="ohne Zahl">
+          <div className="w-64">
+            <Kennzahl beschriftung="Letzte Sicherung" wert="keine" fussnote="noch nie gelaufen" />
+          </div>
+        </Zustand>
+      </Schaustueck>
+
+      {/*
+        EIN DIALOG BRAUCHT EINEN KNOPF, der ihn aufmacht. Anders als jedes
+        andere Stück auf dieser Seite steht er nicht einfach da: er liegt über
+        allem, und ein Dutzend offener Dialoge nebeneinander wäre kein Bild,
+        sondern ein Stapel. Die Abnahme misst deshalb den Knopf; wer die
+        Seite ansieht, macht ihn auf.
+      */}
+      <Schaustueck
+        name="Dialogform"
+        satz="Titel, rollender Rumpf, Fuß mit den Knöpfen. Vier Breiten."
+      >
+        <Zustand name="mittel, mit Fuß">
+          <Button variant="outline" onClick={() => setDialogOffen(true)}>
+            Dialog öffnen
+          </Button>
+          <Dialogform
+            offen={dialogOffen}
+            beiSchliessen={() => setDialogOffen(false)}
+            titel={'Modell für „Urlaub prüfen"'}
+            groesse="mittel"
+            fuss={
+              <div className="flex w-full justify-end gap-3">
+                <Button variant="outline" onClick={() => setDialogOffen(false)}>
+                  Abbrechen
+                </Button>
+                <Button onClick={() => setDialogOffen(false)}>Übernehmen</Button>
+              </div>
+            }
+          >
+            <p className="text-ui-sm text-muted-foreground">
+              Der Rumpf rollt, wenn er länger wird als der Bildschirm; Kopf und Fuß bleiben stehen.
+            </p>
+          </Dialogform>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Bestaetigung"
+        satz="Die Frage mit zwei Antworten: kein Kreuz, kein Wegklicken daneben."
+      >
+        <Zustand name="gefährlich">
+          <Button variant="outline" onClick={() => setFrageOffen(true)}>
+            Frage öffnen
+          </Button>
+          <Bestaetigung
+            offen={frageOffen}
+            beiSchliessen={() => setFrageOffen(false)}
+            beiBestaetigen={() => setFrageOffen(false)}
+            titel="Eintrag löschen"
+            frage={'„Urlaub prüfen" wirklich entfernen? Das lässt sich nicht zurücknehmen.'}
+            jaText="Löschen"
+            art="gefahr"
+          />
         </Zustand>
       </Schaustueck>
 

@@ -188,7 +188,7 @@ export function FlowAnsicht({
             <pre
               className={cn(
                 'max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md',
-                'border border-border bg-card p-ui-3 font-mono text-ui-xs text-foreground'
+                'border border-border p-ui-3 font-mono text-ui-xs text-foreground'
               )}
               data-testid="flow-prompt"
             >

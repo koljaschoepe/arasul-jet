@@ -298,7 +298,7 @@ export function StatusBar() {
                         onClick={() => setDefault.mutate(m.id)}
                         aria-current={isDefault || undefined}
                         className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-accent disabled:opacity-60 ${
-                          isDefault ? 'bg-accent/60' : ''
+                          isDefault ? 'font-semibold text-foreground' : ''
                         }`}
                       >
                         <span
@@ -349,7 +349,7 @@ export function StatusBar() {
           onClick={() => {
             openTab({ type: 'modelle' });
           }}
-          className="flex items-center gap-1.5 rounded px-1 text-primary hover:bg-accent"
+          className="flex items-center gap-1.5 rounded px-1 text-foreground hover:bg-accent"
         >
           <Download className="h-3 w-3 shrink-0 animate-pulse" aria-hidden="true" />
           {laufendeDownloads.length === 1

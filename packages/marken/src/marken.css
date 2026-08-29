@@ -194,6 +194,22 @@
   border-bottom: 1px solid var(--ara-kante);
 }
 
+/* Die mittige Form (H5): eine Seite, die aus nichts als sich selbst besteht --
+   die Anmeldung, das erste Konto, ein Absturz. Ohne Trennlinie, denn darunter
+   kommt kein zweiter Abschnitt, von dem sie zu trennen waere. */
+.ara-kopf[data-mittig='true'] {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 0;
+  border-bottom: 0;
+  text-align: center;
+}
+
+.ara-kopf[data-mittig='true'] .ara-kopf__titel {
+  justify-content: center;
+}
+
 .ara-kopf__text {
   min-width: 0;
 }
@@ -281,9 +297,16 @@ a.ara-liste__eintrag:hover {
   background-color: var(--ara-wisch);
 }
 
+/* DER AKTIVE EINTRAG HEBT SICH UEBER SCHRIFTSTAERKE UND EINE LINIE AB (H5).
+   Bis dahin trug er `--ara-wisch` -- dieselbe Flaeche, die jeder Eintrag beim
+   Ueberfahren bekommt. „Hier bist du" und „hier ist gerade die Maus" sahen
+   damit gleich aus, und wer die Maus stehen liess, sah zwei aktive Eintraege.
+   Die Linie liegt als `inset`-Schatten IM Eintrag: sie kann nicht aus ihrem
+   Kasten ragen und damit auch nicht zur Rollbreite des Dokuments zaehlen
+   (der Fund der G1-Abnahme). */
 .ara-liste__eintrag[aria-current='true'],
 .ara-liste__eintrag[data-aktiv='true'] {
-  background-color: var(--ara-wisch);
+  box-shadow: inset 2px 0 0 var(--ara-text);
   color: var(--ara-text);
   font-weight: 600;
 }
@@ -299,12 +322,37 @@ a.ara-liste__eintrag:hover {
   height: 1.125rem;
 }
 
-.ara-liste__wort {
+/* Die dichte Form: eine Spalte, die mit der Maus bedient wird (H5). Sie ist
+   der Grund, aus dem es in der Shell keine zweite Liste mehr gibt. */
+.ara-liste[data-dicht='true'] .ara-liste__eintrag {
+  min-height: 0;
+  padding: var(--ara-abstand-1) var(--ara-abstand-2);
+  font-size: var(--ara-groesse-sm);
+}
+
+.ara-liste__text {
+  display: flex;
   min-width: 0;
   flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ara-liste__wort {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ara-liste__unterzeile {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--ara-groesse-xs);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ara-text-leise);
 }
 
 .ara-liste__hinweis {

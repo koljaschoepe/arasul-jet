@@ -65,14 +65,16 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
             <span
               className={cn(
                 'text-xs font-semibold uppercase tracking-wider',
-                isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
+                isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-muted-foreground'
               )}
             >
               {phaseLabels[downloadState.phase] || downloadState.phase}
             </span>
             <div className="flex items-center gap-2">
               {mengen && <span className="text-xs text-muted-foreground">{mengen}</span>}
-              <span className="text-xs text-primary font-semibold">{downloadState.progress}%</span>
+              <span className="text-xs font-semibold text-foreground">
+                {downloadState.progress}%
+              </span>
               {onCancel && !isComplete && (
                 <button
                   onClick={onCancel}
@@ -113,7 +115,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
     <div
       className={cn(
         'download-progress bg-muted rounded-md p-3.5 border border-border',
-        isComplete && 'border-primary bg-primary/10',
+        isComplete && 'border-success/40',
         isError && 'border-destructive/30 bg-destructive/10'
       )}
       role="presentation"
@@ -124,7 +126,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
         <span
           className={cn(
             'text-xs font-semibold uppercase tracking-wider',
-            isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
+            isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-muted-foreground'
           )}
         >
           {phaseLabels[downloadState.phase] || downloadState.phase}
@@ -134,7 +136,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
           <span
             className={cn(
               'text-sm font-semibold',
-              isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-primary'
+              isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-foreground'
             )}
           >
             {downloadState.progress}%
@@ -170,7 +172,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
       <div
         className={cn(
           'text-xs',
-          isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
+          isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-muted-foreground'
         )}
       >
         {downloadState.error || downloadState.status}

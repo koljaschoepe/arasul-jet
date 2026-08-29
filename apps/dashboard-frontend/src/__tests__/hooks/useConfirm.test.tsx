@@ -1,40 +1,20 @@
+/**
+ * `useConfirm` — die Frage, die eine Antwort verlangt.
+ *
+ * SEIT H5 OHNE MOCK. Der Test ersetzte bis dahin `ConfirmModal` durch eine
+ * Attrappe aus vier `div`, „um den shadcn-Dialog nicht mitzuziehen". Er
+ * prüfte damit den Hook gegen etwas, das es im Produkt nicht gibt: dass der
+ * Dialog wirklich aufgeht, dass Escape ihn schließt, dass der Fokus auf dem
+ * harmlosen der beiden Knöpfe liegt, sah er nie. Gefragt wird jetzt nach
+ * Rollen (`alertdialog`, `button`), und das ist genau das, was ein Mensch
+ * mit einem Screenreader vorfindet.
+ */
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import useConfirm from '../../hooks/useConfirm';
 
-// Mock the ConfirmModal component to avoid pulling in the full shadcn dialog stack
-vi.mock('../../components/ui/Modal', () => ({
-  ConfirmModal: ({
-    isOpen,
-    onClose,
-    onConfirm,
-    title,
-    message,
-    confirmText,
-    cancelText,
-  }: {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-    title: string;
-    message: string;
-    confirmText: string;
-    cancelText: string;
-    confirmVariant?: string;
-  }) =>
-    isOpen ? (
-      <div data-testid="confirm-modal">
-        <h2>{title}</h2>
-        <p>{message}</p>
-        <button onClick={onClose}>{cancelText}</button>
-        <button onClick={onConfirm}>{confirmText}</button>
-      </div>
-    ) : null,
-}));
-
-// Helper component to render the hook's dialog in the DOM
 function ConfirmTestHarness({ onResult }: { onResult: (result: boolean) => void }) {
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -64,75 +44,73 @@ describe('useConfirm', () => {
     vi.clearAllMocks();
   });
 
-  it('returns confirm function and ConfirmDialog', () => {
+  it('gibt eine Funktion und einen Dialog zurück', () => {
     const { result } = renderHook(() => useConfirm());
 
     expect(result.current.confirm).toBeInstanceOf(Function);
-    // ConfirmDialog should be null when no dialog is open
+    // Ohne offene Frage gibt es nichts zu zeigen.
     expect(result.current.ConfirmDialog).toBeNull();
   });
 
-  it('shows dialog when confirm is called', async () => {
+  it('zeigt den Dialog, sobald gefragt wird', async () => {
     const user = userEvent.setup();
-    const onResult = vi.fn();
+    render(<ConfirmTestHarness onResult={vi.fn()} />);
 
-    render(<ConfirmTestHarness onResult={onResult} />);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
 
-    // Dialog should not be visible initially
-    expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument();
-
-    // Click trigger to open dialog
     await user.click(screen.getByTestId('trigger'));
 
-    // Dialog should now be visible with correct content
-    expect(screen.getByTestId('confirm-modal')).toBeInTheDocument();
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText('Löschen?')).toBeInTheDocument();
     expect(screen.getByText('Möchten Sie diesen Eintrag wirklich löschen?')).toBeInTheDocument();
   });
 
-  it('resolves true when confirmed', async () => {
+  it('ist ein alertdialog und kein Dialog mit Kreuz', async () => {
+    // Der Unterschied ist der Grund, warum `Bestaetigung` auf `AlertDialog`
+    // steht: hier gibt es genau zwei Wege hinaus, und beide sind eine Antwort.
+    const user = userEvent.setup();
+    render(<ConfirmTestHarness onResult={vi.fn()} />);
+    await user.click(screen.getByTestId('trigger'));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog.querySelector('[aria-label="Dialog schließen"]')).toBeNull();
+  });
+
+  it('löst mit true auf, wenn bestätigt wird', async () => {
     const user = userEvent.setup();
     const onResult = vi.fn();
-
     render(<ConfirmTestHarness onResult={onResult} />);
 
-    // Open dialog
     await user.click(screen.getByTestId('trigger'));
-    expect(screen.getByTestId('confirm-modal')).toBeInTheDocument();
-
-    // Click confirm button
-    await user.click(screen.getByText('Ja, löschen'));
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Ja, löschen' }));
 
     await waitFor(() => {
       expect(onResult).toHaveBeenCalledWith(true);
     });
-
-    // Dialog should close after confirm
-    expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
   });
 
-  it('resolves false when cancelled', async () => {
+  it('löst mit false auf, wenn abgebrochen wird', async () => {
     const user = userEvent.setup();
     const onResult = vi.fn();
-
     render(<ConfirmTestHarness onResult={onResult} />);
 
-    // Open dialog
     await user.click(screen.getByTestId('trigger'));
-    expect(screen.getByTestId('confirm-modal')).toBeInTheDocument();
-
-    // Click cancel button
-    await user.click(screen.getByText('Nein'));
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Nein' }));
 
     await waitFor(() => {
       expect(onResult).toHaveBeenCalledWith(false);
     });
-
-    // Dialog should close after cancel
-    expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
   });
 
-  it('supports custom title and message', async () => {
+  it('nimmt eigene Beschriftungen an', async () => {
     const user = userEvent.setup();
     const onResult = vi.fn();
 
@@ -161,14 +139,13 @@ describe('useConfirm', () => {
     }
 
     render(<CustomHarness />);
-
     await user.click(screen.getByTestId('trigger-custom'));
 
-    expect(screen.getByText('Warnung!')).toBeInTheDocument();
+    expect(await screen.findByText('Warnung!')).toBeInTheDocument();
     expect(
       screen.getByText('Diese Aktion kann nicht rückgängig gemacht werden.')
     ).toBeInTheDocument();
-    expect(screen.getByText('Fortfahren')).toBeInTheDocument();
-    expect(screen.getByText('Zurück')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fortfahren' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zurück' })).toBeInTheDocument();
   });
 });

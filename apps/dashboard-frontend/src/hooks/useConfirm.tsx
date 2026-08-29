@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, type ReactNode } from 'react';
-import { ConfirmModal } from '../components/ui/Modal';
+import { Bestaetigung } from '@marken';
 
 interface ConfirmOptions {
   title?: string;
@@ -54,16 +54,18 @@ export default function useConfirm(): UseConfirmReturn {
     setState(null);
   }, []);
 
+  // `warning` und `primary` waren bis H5 zwei Wege zu demselben Knopf: nur
+  // `danger` faerbte ihn. Die Bibliothek kennt deshalb zwei Arten statt drei.
   const ConfirmDialog = state ? (
-    <ConfirmModal
-      isOpen={true}
-      onClose={handleClose}
-      onConfirm={handleConfirm}
-      title={state.title}
-      message={state.message}
-      confirmText={state.confirmText}
-      cancelText={state.cancelText}
-      confirmVariant={state.confirmVariant}
+    <Bestaetigung
+      offen={true}
+      beiSchliessen={handleClose}
+      beiBestaetigen={handleConfirm}
+      titel={state.title}
+      frage={state.message}
+      jaText={state.confirmText}
+      neinText={state.cancelText}
+      art={state.confirmVariant === 'danger' ? 'gefahr' : 'normal'}
     />
   ) : null;
 

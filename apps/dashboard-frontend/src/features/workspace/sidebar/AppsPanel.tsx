@@ -13,12 +13,22 @@
  *
  * Ganz oben die **Übersicht**: ohne sie gäbe es keinen Weg zurück aus einer
  * App, wenn jemand den Tab der Mitte geschlossen hat.
+ *
+ * SEIT H5 AUS DER BIBLIOTHEK. Diese Spalte und das Hamburger-Menü aus D7
+ * zeigen dieselbe Liste, und sie waren zweimal geschrieben: hier von Hand
+ * (`px-3 py-2 hover:bg-accent/50`, aktiv `bg-accent/60`), dort mit `Liste`
+ * aus `@marken`. Zwei Formen für eine Sache laufen auseinander, sobald eine
+ * von beiden angefasst wird — genau die Doppelung, gegen die dieses
+ * Designsystem gebaut ist. Was der Bibliothek dafür gefehlt hat, war die
+ * dichte Zeile (`dicht`): fingerbreit ist richtig für ein Telefon und zu
+ * groß für eine Seitenspalte.
  */
 import { AppWindow, LayoutDashboard } from 'lucide-react';
+import { Liste, ListenEintrag } from '@marken';
 import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useMeineApps, zuEintraegen } from '@/features/apps/meineApps';
+import { TeststandMarke } from '@/features/apps/TeststandMarke';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { cn } from '@marken';
 import { SidebarView } from './SidebarView';
 
 export function AppsPanel() {
@@ -30,74 +40,54 @@ export function AppsPanel() {
 
   return (
     <SidebarView title="Apps">
-      <ul className="flex flex-col py-1">
-        <li>
-          <button
-            type="button"
-            data-testid="apps-open-uebersicht"
-            aria-current={activeTabId === 'dashboard' ? 'true' : undefined}
-            onClick={() => openTab({ type: 'dashboard' })}
-            className={cn(
-              'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-accent/50',
-              activeTabId === 'dashboard' && 'bg-accent/60'
-            )}
-          >
-            <LayoutDashboard className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate text-foreground">Übersicht</span>
-          </button>
-        </li>
+      <div className="py-1">
+        <Liste dicht>
+          <ListenEintrag
+            titel="Übersicht"
+            symbol={<LayoutDashboard />}
+            aktiv={activeTabId === 'dashboard'}
+            kennzeichen="apps-open-uebersicht"
+            onKlick={() => openTab({ type: 'dashboard' })}
+          />
+
+          {eintraege.map(e => {
+            const id = tabId({ type: 'app', appId: e.id, stand: e.stand });
+            return (
+              <ListenEintrag
+                key={id}
+                titel={e.name}
+                symbol={<AppWindow />}
+                erklaerung={e.beschreibung || e.name}
+                aktiv={activeTabId === id}
+                kennzeichen={`apps-open-${e.id}-${e.stand}`}
+                hinweis={e.stand === 'test' ? <TeststandMarke /> : undefined}
+                onKlick={() => openTab({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
+              />
+            );
+          })}
+        </Liste>
 
         {isLoading && (
-          <li className="px-3 py-2">
+          <div className="px-3 py-2">
             <SkeletonText lines={2} />
-          </li>
+          </div>
         )}
 
         {/* Ein Fehler ist kein Leerzustand. „Keine Apps" und „ich konnte nicht
             fragen" sehen sonst gleich aus, und der zweite Fall schickt jemanden
             zum Administrator, der nichts falsch gemacht hat. */}
         {isError && (
-          <li className="px-3 py-2 text-sm text-muted-foreground" data-testid="apps-fehler">
+          <p className="px-3 py-2 text-sm text-muted-foreground" data-testid="apps-fehler">
             Die App-Liste ließ sich nicht laden.
-          </li>
+          </p>
         )}
 
         {!isLoading && !isError && eintraege.length === 0 && (
-          <li className="px-3 py-2 text-sm text-muted-foreground" data-testid="apps-leer">
+          <p className="px-3 py-2 text-sm text-muted-foreground" data-testid="apps-leer">
             Noch keine App für dich freigegeben.
-          </li>
+          </p>
         )}
-
-        {eintraege.map(e => {
-          const id = tabId({ type: 'app', appId: e.id, stand: e.stand });
-          return (
-            <li key={id}>
-              <button
-                type="button"
-                data-testid={`apps-open-${e.id}-${e.stand}`}
-                title={e.beschreibung || e.name}
-                aria-current={activeTabId === id ? 'true' : undefined}
-                onClick={() => openTab({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
-                className={cn(
-                  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-accent/50',
-                  activeTabId === id && 'bg-accent/60'
-                )}
-              >
-                <AppWindow className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate text-foreground">{e.name}</span>
-                {e.stand === 'test' && (
-                  <span
-                    className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning"
-                    title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
-                  >
-                    Test
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      </div>
     </SidebarView>
   );
 }
