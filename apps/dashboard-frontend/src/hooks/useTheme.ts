@@ -16,9 +16,11 @@ import { useAuth } from '@/contexts/AuthContext';
  *    hat, und nicht zu dem Rechner, vor dem er zufaellig sass. Der Wert steht
  *    in `admin_users.theme` (Migration 180) und faehrt mit der Sitzung mit.
  *
- * DOM-Vertrag auf `<html>`, unveraendert:
+ * DOM-Vertrag auf `<html>`:
  *   - `data-theme="dark"` → schaltet den Block `[data-theme='dark']` in
- *     `index.css`. Hell braucht kein Attribut: Hell IST `:root`.
+ *     `index.css`. Hell setzt GAR NICHTS: Hell ist `:root`, und ein Attribut
+ *     dafuer waere ein zweiter Name fuer den Normalfall. Bis H1 stand hier
+ *     `data-theme="black|dark|light"` plus eine Klasse `.light`.
  *   - Klasse `dark` → haelt die Tailwind-Utilities `dark:` am Leben.
  *
  * KEIN `toggleTheme` MEHR. Bei drei Werten war ein Durchschalten ein Weg; bei
