@@ -176,44 +176,75 @@ zustand_vorhanden() {
 # Abschalten passieren -- der alte Stapel merkt nichts davon. Liegen die
 # Verzeichnisse auf verschiedenen Dateisystemen, faellt es auf Kopieren zurueck
 # und loescht die Quelle erst nach dem Gelingen.
-zustand_umziehen() {
-  local alt="$1" neu="$2"
-  local pfad quelle ziel bewegt=0
+#
+# UMGEZOGEN WIRD EINTRAG FUER EINTRAG, nicht Ordner fuer Ordner. Der Grund ist
+# `config/secrets/`: das Artefakt bringt darin `README.md` und `.example/` mit,
+# also GIBT es den Ordner im Zielverzeichnis schon, waehrend die Geheimnisse
+# daneben im alten liegen. Wer nur auf die Existenz des Ordners sieht, meldet
+# dort einen Zusammenstoss, den es nicht gibt (29.08.2026, erster Lauf dieser
+# Abnahme).
+#
+# UND WO EINE DATEI WIRKLICH ZWEIMAL DA IST, GEWINNT DIE DES ARTEFAKTS. Das
+# Zielverzeichnis ist ein frisch ausgepacktes Artefakt -- das prueft der
+# Aufrufer, bevor er hier hereingeht --, also ist alles darin PROGRAMM und
+# nichts davon Zustand. `config/secrets/README.md` gibt es in beiden, und die
+# neue Fassung ist die richtige. Die alte wird nicht geloescht, sondern bleibt
+# liegen: sie ist Programm, sie wird mit dem alten Ordner weggeworfen, und
+# nichts zu loeschen ist immer die kleinere Behauptung.
+_umzug_stehen=0
 
-  for pfad in "${ARASUL_ZUSTAND[@]}"; do
-    quelle="${alt}/${pfad}"
-    ziel="${neu}/${pfad}"
-    [ -e "$quelle" ] || continue
+_umzug_eintrag() {
+  local quelle="$1" ziel="$2"
+  [ -e "$quelle" ] || return 0
 
-    if [ -e "$ziel" ]; then
-      # Halb umgezogen. Das ist kein Fall fuer Automatik: welche der beiden
-      # Fassungen die echte ist, weiss nur ein Mensch.
-      echo "Beide Verzeichnisse tragen ${pfad}:" >&2
-      echo "  ${quelle}" >&2
-      echo "  ${ziel}" >&2
-      echo "Welche die echte ist, entscheidet ein Mensch. Nichts wurde veraendert." >&2
-      return 1
-    fi
-
+  if [ ! -e "$ziel" ]; then
     mkdir -p "$(dirname "$ziel")"
     if mv "$quelle" "$ziel" 2>/dev/null; then
-      bewegt=$((bewegt + 1))
-      continue
+      return 0
     fi
-    # Anderes Dateisystem: kopieren, pruefen, dann erst loeschen.
+    # Anderes Dateisystem: kopieren, und die Quelle erst nach dem Gelingen weg.
     if cp -a "$quelle" "$ziel" 2>/dev/null && rm -rf "$quelle"; then
-      bewegt=$((bewegt + 1))
-      continue
+      return 0
     fi
     echo "Konnte ${quelle} nicht nach ${ziel} bringen." >&2
     return 1
-  done
+  fi
 
-  printf '%s\n' "$bewegt"
+  if [ -d "$quelle" ] && [ -d "$ziel" ]; then
+    local eintrag
+    for eintrag in "$quelle"/* "$quelle"/.[!.]*; do
+      [ -e "$eintrag" ] || continue
+      _umzug_eintrag "$eintrag" "${ziel}/$(basename "$eintrag")" || return 1
+    done
+    return 0
+  fi
+
+  # Zweimal dieselbe Datei: die des Artefakts steht schon am Ziel und bleibt.
+  _umzug_stehen=$((_umzug_stehen + 1))
   return 0
 }
 
-# Der Merkzettel im abgegebenen Verzeichnis.
+# Rueckgabe auf stdout: "<umgezogene Pfade> <stehengelassene Dateien>".
+zustand_umziehen() {
+  local alt="$1" neu="$2"
+  local pfad bewegt=0
+
+  _umzug_stehen=0
+  for pfad in "${ARASUL_ZUSTAND[@]}"; do
+    [ -e "${alt}/${pfad}" ] || continue
+    _umzug_eintrag "${alt}/${pfad}" "${neu}/${pfad}" || return 1
+    bewegt=$((bewegt + 1))
+  done
+
+  printf '%s %s\n' "$bewegt" "$_umzug_stehen"
+  return 0
+}
+
+
+# Der Merkzettel im abgegebenen Verzeichnis. `arasul` liest ihn und weigert
+# sich dort zu starten -- ein `docker compose up` im leergeraeumten Ordner
+# laesst Docker jede fehlende Bind-Quelle neu und leer anlegen, und das Geraet
+# stuende ohne Apps, ohne Zertifikat und ohne Sicherungen da.
 abgabe_vermerken() {
   local alt="$1" neu="$2"
   cat > "${alt}/${ARASUL_ABGEGEBEN}" <<VERMERK 2>/dev/null || true

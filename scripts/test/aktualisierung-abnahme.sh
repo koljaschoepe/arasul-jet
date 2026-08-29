@@ -189,16 +189,24 @@ probe "die Geraetekennung ist da" test -s "${B}/config/device/device-id"
 probe "der Abdruck des Administrators ist da" test -s "${B}/config/secrets/admin.hash"
 
 # --- Die Rechte stimmen noch ------------------------------------------------
-probe ".env hat weiterhin 600" \
-  test "$(stat -c '%a' "${B}/.env" 2>/dev/null || stat -f '%Lp' "${B}/.env")" = "600"
+rechte() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
+probe ".env hat weiterhin 600" test "$(rechte "${B}/.env")" = "600"
+# Der Ordner, den das Artefakt selbst mitbringt (README.md, .example/), kam mit
+# 755 aus dem Tar -- und traegt nach dem Umzug die Geheimnisse des Geraets.
+probe "config/secrets hat weiterhin 700" test "$(rechte "${B}/config/secrets")" = "700"
 
 # --- Und es gibt das Geraet genau einmal ------------------------------------
 # Zwei Kopien desselben Geraets waeren die Zweideutigkeit, gegen die der ganze
 # Weg gebaut ist: danach koennte niemand mehr sagen, welche die echte ist.
 probe "A hat keine .env mehr" test ! -e "${A}/.env"
-probe "A hat keine Geheimnisse mehr" test ! -e "${A}/config/secrets"
-probe "A hat keine Geraete-CA mehr" test ! -e "${A}/config/traefik/certs"
+# `config/secrets/` selbst bleibt stehen -- das Artefakt bringt darin
+# `.example/` mit. Was weg sein muss, sind die Geheimnisse darin.
+probe "A hat keine Geheimnisse mehr" test ! -e "${A}/config/secrets/postgres_password"
+probe "A hat auch den Abdruck des Administrators nicht mehr" \
+  test ! -e "${A}/config/secrets/admin.hash"
+probe "A hat keine Geraete-CA mehr" test ! -e "${A}/config/traefik/certs/arasul-ca.key"
 probe "A hat keine Daten mehr" test ! -e "${A}/data"
+probe "A hat keine Protokolle mehr" test ! -e "${A}/logs/bootstrap.log"
 probe "A sagt, wohin sein Geraet gezogen ist" grep -q "$B" "${A}/ABGEGEBEN.txt"
 probe "der Zeiger nennt jetzt B" grep -qx "$B" "$ARASUL_ZEIGER"
 

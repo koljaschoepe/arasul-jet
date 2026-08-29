@@ -153,7 +153,32 @@ else
   ALT="$(installation_finden)"
 fi
 
+# Ein Verzeichnis, das seinen Zustand schon abgegeben hat, ist kein Geraet
+# mehr -- auch wenn Docker es noch nennt. Genau dieser Fall tritt bei einem
+# zweiten Anlauf ein: die Uebernahme ist durch, die alten Container laufen
+# aber noch aus dem alten Ordner, weil der Bootstrap noch nicht so weit war.
+if [ -n "$ALT" ] && [ "$ALT" != "$WURZEL" ] && [ -f "${ALT}/${ARASUL_ABGEGEBEN}" ]; then
+  sagen "${ALT} hat sein Geraet bereits hierher abgegeben."
+  AKTUALISIERUNG=true
+  ALT=""
+fi
+
 if [ -n "$ALT" ] && [ "$ALT" != "$WURZEL" ]; then
+  # Zwei Zuhause. Hier liegt eine `.env`, und anderswo laeuft ein Geraet -- es
+  # gibt also zwei Verzeichnisse, die beide "das Geraet" sein koennten. Welches
+  # es ist, weiss nur ein Mensch, und ein Umzug in dieser Lage wuerde die
+  # Geheimnisse zweier Geraete vermengen.
+  if [ "$GERAET_HIER" = true ]; then
+    echo ""
+    fehler "Hier liegt schon eine .env, und ein Geraet laeuft aus ${ALT}."
+    fehler "  Zwei Verzeichnisse, die beide das Geraet sein koennten -- das"
+    fehler "  entscheidet ein Mensch, nicht der Installer."
+    fehler "  Ist ${WURZEL} das Geraet, dann halte den alten Stapel an:"
+    fehler "    cd ${ALT} && docker compose down"
+    fehler "  Ist es ${ALT}, dann installiere dort weiter."
+    exit 1
+  fi
+
   AKTUALISIERUNG=true
   echo ""
   sagen "Dieses Geraet gibt es schon: ${ALT}"
@@ -164,12 +189,28 @@ if [ -n "$ALT" ] && [ "$ALT" != "$WURZEL" ]; then
   # Inode, nicht am Namen -- der alte Stapel laeuft waehrenddessen unbeirrt
   # weiter und wird erst abgeschaltet, wenn die neuen Images gebaut sind
   # (`./arasul bootstrap --aktualisierung`).
-  if ! BEWEGT="$(zustand_umziehen "$ALT" "$WURZEL")"; then
-    fehler "Die Uebernahme ist nicht durchgelaufen. Das Geraet laeuft weiter aus ${ALT}."
+  if ! UMZUG="$(zustand_umziehen "$ALT" "$WURZEL")"; then
+    fehler "Die Uebernahme ist nicht durchgelaufen. Beide Verzeichnisse ansehen:"
+    fehler "  ${ALT}"
+    fehler "  ${WURZEL}"
     exit 1
   fi
+
+  # Die Rechte des Ordners kommen vom ARTEFAKT, nicht vom Geraet: beim
+  # eintragsweisen Umzug bleibt das Zielverzeichnis stehen, und mit ihm seine
+  # Rechte. `config/secrets/` ist der einzige Pfad dieser Liste, den das
+  # Artefakt ueberhaupt mitbringt (wegen `README.md` und `.example/`) -- er kam
+  # mit 755 aus dem Tar, waehrend er am alten Geraet 700 war. Ohne diese Zeile
+  # waere ein Update eine stille Lockerung: die Geheimnisse des Geraets lesbar
+  # fuer jeden, der auf dem Jetson ein Konto hat. Gemessen am 29.08.2026.
+  chmod 700 "${WURZEL}/config/secrets" 2>/dev/null || true
+
   abgabe_vermerken "$ALT" "$WURZEL"
-  gut "${BEWEGT} Zustandspfade uebernommen (Geheimnisse, Geraete-CA, Daten, Protokolle)"
+  gut "${UMZUG%% *} Zustandspfade uebernommen (Geheimnisse, Geraete-CA, Daten, Protokolle)"
+  if [ "${UMZUG##* }" != "0" ]; then
+    sagen "${UMZUG##* } Dateien lagen in beiden Ordnern und stammen aus dem Artefakt"
+    sagen "  (z. B. config/secrets/README.md) -- es gilt die neue Fassung."
+  fi
   if [ -f "${WURZEL}/.env" ]; then GERAET_HIER=true; fi
 elif [ -n "$ALT" ]; then
   sagen "Dieses Verzeichnis ist die Installation dieses Geraets."
