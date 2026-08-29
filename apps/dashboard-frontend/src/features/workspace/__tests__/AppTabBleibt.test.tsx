@@ -52,7 +52,7 @@ describe('welche Tabs im Dokument stehen', () => {
     useWorkspaceStore.setState({ tabs: [], activeTabId: null });
   });
 
-  it('ein App-Tab bleibt stehen, wenn ein anderer Tab vorn ist — nur versteckt', () => {
+  it('ein App-Tab bleibt stehen, wenn ein anderer Tab vorn ist, nur versteckt', () => {
     const store = useWorkspaceStore.getState();
     store.openTab({ type: 'app', appId: 'urlaub', stand: 'live' });
     store.openTab({ type: 'settings' });
