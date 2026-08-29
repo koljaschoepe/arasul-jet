@@ -426,9 +426,8 @@ und nicht mehr nur ein Stylesheet mit sechs Bausteinen. Die sechsundzwanzig
 Primitive, aus denen eine Oberfläche besteht — Button, Input, Textarea, Label,
 Select, Checkbox, RadioGroup, Switch, Dialog, AlertDialog, Sheet, Popover,
 Tooltip, DropdownMenu, ContextMenu, Tabs, Card, Badge, Alert, Toast, Avatar,
-Separator, Skeleton, Progress, ScrollArea, Breadcrumb —, lagen bis dahin unter
-`apps/dashboard-frontend/src/components/ui/shadcn/` und gehörten damit **der
-Shell allein**: eine App, die einen Knopf brauchte, baute ihren eigenen, und
+Separator, Skeleton, Progress, ScrollArea, Breadcrumb —, lagen bis dahin in
+einem Ordner `shadcn` unterhalb der Shell und gehörten damit **ihr allein**: eine App, die einen Knopf brauchte, baute ihren eigenen, und
 der sah anders aus. Sie stehen jetzt in `packages/marken/src/primitive/`, die
 Shell holt sie über `@marken` wie jeder andere auch. Dreizehn davon gab es
 noch nicht; alle auf `radix-ui`, das schon im Lockfile stand — **keine neue

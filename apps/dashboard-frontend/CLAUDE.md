@@ -348,8 +348,9 @@ Thema. Der Schleier unter jedem Dialog ist deshalb ein Token geworden
 import { Button, Dialog, DialogContent, Input, Label } from '@marken';
 ```
 
-Seit **H3** liegen sie in `packages/marken/src/primitive/`, nicht mehr unter
-`src/components/ui/shadcn/`. Wer einen Namen, den `@marken` schon ausgibt, in
+Seit **H3** liegen sie in `packages/marken/src/primitive/` und nicht mehr in
+dem Ordner `shadcn`, den es unter `components/ui` bis dahin gab. Wer einen
+Namen, den `@marken` schon ausgibt, in
 der Shell noch einmal erklärt, wird von `scripts/test/bausteine.py` gemeldet:
 zwei Bausteine unter einem Namen sind die Verwechslung selbst.
 
