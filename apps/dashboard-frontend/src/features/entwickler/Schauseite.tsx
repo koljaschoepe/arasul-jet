@@ -165,6 +165,11 @@ const ABZEICHEN_ARTEN = [
 
 const MELDUNGS_ARTEN = ['info', 'success', 'warning', 'error'] as const;
 
+/** Ein graues Quadrat, damit `AvatarImage` etwas zu laden hat, das da ist. */
+const BEISPIELBILD =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'>" +
+  "<rect width='40' height='40' fill='gray'/></svg>";
+
 function Schauseite() {
   const [haken, setHaken] = useState(true);
   const [schalter, setSchalter] = useState(true);
@@ -560,9 +565,19 @@ function Schauseite() {
             <AvatarFallback>MK</AvatarFallback>
           </Avatar>
         </Zustand>
-        <Zustand name="Bild fehlt">
+        <Zustand name="mit Bild">
+          {/* Ein Bild als Data-URI und keine Adresse: die Abnahme fragt je
+              Zelle, ob die Konsole schweigt, und ein 404 auf ein Beispielbild
+              waere dort ein roter Befund ueber nichts. */}
           <Avatar>
-            <AvatarImage src="/gibt-es-nicht.png" alt="" />
+            <AvatarImage src={BEISPIELBILD} alt="" />
+            <AvatarFallback>
+              <User className="size-4" />
+            </AvatarFallback>
+          </Avatar>
+        </Zustand>
+        <Zustand name="Rückfall mit Symbol">
+          <Avatar>
             <AvatarFallback>
               <User className="size-4" />
             </AvatarFallback>
