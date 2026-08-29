@@ -222,11 +222,11 @@ function checkIndexHtml() {
  * genauere Form derselben Idee.)
  *
  *   .navigation, .nav-bar, .modal-global, .msb-list
- *       Toter Code. Keine dieser Klassen steht am 29.08.2026 noch in einem
- *       `className` -- sie sind aus der Zeit vor der Shell aus D1 uebrig.
- *       Die Reparatur ist nicht `position`, sondern Loeschen; das ist eine
- *       eigene Aufgabe (die vier Familien haengen mit `.nav-link`, `.msb-*`
- *       und ihren Media-Queries an mehreren hundert Zeilen).
+ *       WAREN hier, seit H7 nicht mehr: sie waren toter Code aus der Zeit vor
+ *       der Shell aus D1, und die Reparatur war nicht `position`, sondern
+ *       Loeschen. Die vier Familien sind mit `.nav-link`, `.msb-*` und ihren
+ *       Media-Queries aus `index.css` verschwunden (493 Zeilen). Eine
+ *       Ausnahme, die einen toten Kasten am Leben haelt, ist selbst tot.
  *
  *   .ara-menue__inhalt
  *       Lebt, hat aber heute kein absolut gesetztes Kind: in
@@ -236,13 +236,7 @@ function checkIndexHtml() {
  *       und das erreicht eine schon ausgelieferte App ohnehin erst beim
  *       naechsten Deploy der App.
  */
-const ROLLKAESTEN_OHNE_POSITION = [
-  '.navigation',
-  '.nav-bar',
-  '.modal-global',
-  '.msb-list',
-  '.ara-menue__inhalt',
-];
+const ROLLKAESTEN_OHNE_POSITION = ['.ara-menue__inhalt'];
 
 /**
  * Ein Rollkasten (`overflow: auto|scroll`) muss ein enthaltender Block sein.
