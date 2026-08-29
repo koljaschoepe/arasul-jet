@@ -12,7 +12,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const REPO = path.join(__dirname, '..', '..');
+// `--wurzel` gibt es, damit `scripts/test/waechter-selbsttest.sh` diesen
+// Waechter an einem Wegwerfbaum messen kann. Ohne das Argument ist die Wurzel
+// dieses Repo -- so ruft ihn die CI und `code-quality-check.sh`.
+const WURZEL_ARG = process.argv.indexOf('--wurzel');
+const REPO =
+  WURZEL_ARG !== -1 && process.argv[WURZEL_ARG + 1]
+    ? path.resolve(process.argv[WURZEL_ARG + 1])
+    : path.join(__dirname, '..', '..');
 const SRC_PATH = path.join(REPO, 'apps', 'dashboard-frontend', 'src');
 
 // Seit Phase D7 liegt das Designsystem nicht mehr nur in der Shell: die sechs
@@ -284,6 +291,116 @@ function checkRollkaesten(cssFiles) {
   return errors;
 }
 
+// --- Breiten aus Variablen: die Tailwind-4-Schreibweise ----------------------
+
+/**
+ * Eine Variable in einem Utility steht in RUNDEN Klammern, nicht in eckigen.
+ *
+ * DER FUND VOM 29.08.2026 (Auftrag J31, im Rahmen des Orin gemessen).
+ * Tailwind 3 kannte eine Kurzform: `w-[--sidebar-breite]` bekam sein `var()`
+ * geschenkt. Tailwind 4 hat sie gestrichen -- dieselbe Klasse erzeugt seither
+ *
+ *     .w-\[--sidebar-breite\] { width: --sidebar-breite }
+ *
+ * und das ist keine Laenge, sondern ein Name. Der Browser verwirft die
+ * Deklaration WORTLOS, die Breite faellt auf `auto` zurueck, und ein leerer
+ * Platzhalter ist damit null Pixel breit. Genau so lag die Seitenleiste im
+ * Rahmen einer App ueber ihrem Inhalt, waehrend jede Uebersetzung gruen war:
+ * die Klasse existiert, die Regel existiert, nur ihr Inhalt ist Unsinn.
+ * Richtig ist `w-(--sidebar-breite)`.
+ *
+ * Das ist dieselbe Familie wie die zwei Regeln darueber (`index.html` ohne
+ * Schicht, ein Rollkasten ohne `position`): CSS, das dasteht und nicht gilt.
+ * Keine Uebersetzung, kein Test und keine Oberflaechen-Abnahme wird davon rot
+ * -- die Reihe misst Farben, Konsole und Rollbreite, aber keine Breiten.
+ *
+ * Gelesen werden BEIDE Wurzeln, Shell und Bibliothek. Die Bibliothek ist die
+ * gefaehrlichere (ihr CSS geht in jede App hinaus), aber die Ursache ist in
+ * beiden dieselbe: ein Schnipsel aus der shadcn-Vorlage, die fuer Tailwind 3
+ * geschrieben wurde.
+ *
+ * NICHT gemeldet wird `[--name:wert]` -- das ist kein Utility, sondern das
+ * SETZEN einer Variablen (`[--cell-size:2rem]`), und das gibt es in
+ * Tailwind 4 unveraendert.
+ */
+const TW3_VARIABLE = /(^|[\s'"`:[])(-?[a-z][a-zA-Z0-9-]*(?:-[a-z]+)*)-\[(--[\w-]+)\]/g;
+
+function findeQuelldateien(dir, files = []) {
+  if (!fs.existsSync(dir)) return files;
+  for (const item of fs.readdirSync(dir)) {
+    const fullPath = path.join(dir, item);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      if (item !== 'node_modules' && item !== '__tests__') findeQuelldateien(fullPath, files);
+    } else if (/\.(tsx?|jsx?)$/.test(item)) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+/**
+ * Kommentare durch Leerzeichen ersetzen, Zeilen und Spalten behalten.
+ *
+ * Ohne das meldet der Waechter seine eigene Erklaerung: `fassung.ts` und diese
+ * Datei ZITIEREN die falsche Schreibweise, um zu sagen, warum sie falsch ist.
+ * Ein Waechter, der das Wort ueber eine Sache nicht von der Sache
+ * unterscheidet, ist eine Aufforderung, die Erklaerung wegzulassen.
+ *
+ * Der Scanner kennt Zeichenketten, weil ein `//` in einer URL kein Kommentar
+ * ist -- und in `className` steht genau der Text, um den es geht.
+ */
+function ohneKommentare(quelle) {
+  let aus = '';
+  let i = 0;
+  while (i < quelle.length) {
+    const c = quelle[i];
+    const d = quelle[i + 1];
+    if (c === '/' && d === '*') {
+      const ende = quelle.indexOf('*/', i + 2);
+      const bis = ende === -1 ? quelle.length : ende + 2;
+      aus += quelle.slice(i, bis).replace(/[^\n]/g, ' ');
+      i = bis;
+    } else if (c === '/' && d === '/') {
+      let ende = quelle.indexOf('\n', i);
+      if (ende === -1) ende = quelle.length;
+      aus += ' '.repeat(ende - i);
+      i = ende;
+    } else if (c === '"' || c === "'" || c === '`') {
+      let j = i + 1;
+      while (j < quelle.length && quelle[j] !== c) {
+        if (quelle[j] === '\\') j++;
+        j++;
+      }
+      aus += quelle.slice(i, Math.min(j + 1, quelle.length));
+      i = j + 1;
+    } else {
+      aus += c;
+      i++;
+    }
+  }
+  return aus;
+}
+
+function checkTailwindVariablen() {
+  const errors = [];
+  for (const wurzel of CSS_WURZELN) {
+    for (const datei of findeQuelldateien(wurzel)) {
+      const zeilen = ohneKommentare(fs.readFileSync(datei, 'utf8')).split('\n');
+      zeilen.forEach((zeile, i) => {
+        for (const [, , utility, variable] of zeile.matchAll(TW3_VARIABLE)) {
+          errors.push(
+            `${path.relative(REPO, datei)}:${i + 1} — \`${utility}-[${variable}]\` ist die ` +
+              `Tailwind-3-Kurzform; sie erzeugt \`${variable}\` ohne \`var()\` und wird ` +
+              `wortlos verworfen. Schreibe \`${utility}-(${variable})\``
+          );
+        }
+      });
+    }
+  }
+  return errors;
+}
+
 // --- Main --------------------------------------------------------------------
 
 function main() {
@@ -298,6 +415,7 @@ function main() {
   const indexErrors = checkIndexCSS();
   const rollErrors = checkRollkaesten(cssFiles);
   const htmlErrors = checkIndexHtml();
+  const tailwindErrors = checkTailwindVariablen();
 
   let failed = false;
 
@@ -361,6 +479,14 @@ function main() {
     failed = true;
   } else {
     console.log('  PASS  index.html hat kein ungeschichtetes CSS');
+  }
+
+  // 8. Tailwind-4-Schreibweise fuer Variablen
+  if (tailwindErrors.length > 0) {
+    tailwindErrors.forEach(e => console.log(`  FAIL  ${e}`));
+    failed = true;
+  } else {
+    console.log('  PASS  Variablen in Utilities stehen in runden Klammern');
   }
 
   console.log('');
