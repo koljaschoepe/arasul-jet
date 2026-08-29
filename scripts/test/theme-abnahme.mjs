@@ -16,7 +16,11 @@
  *   3. WAS ES NICHT MEHR GIBT. Kein `data-theme="black"`, keine Klasse
  *      `.light` am Dokument, kein Schluessel `arasul_theme` im Speicher,
  *      nachdem die Oberflaeche einmal gelaufen ist.
- *   4. DIE APP IM RAHMEN (Phase H2). Eine App laeuft im `iframe` als eigenes
+ *   4. DIE APP IM RAHMEN (Phase H2). Sie stellt ihre Ausgangslage SELBST auf
+ *      hell -- der Abschnitt davor laesst das Geraet auf dunkel stehen, weil
+ *      genau das sein Gegenstand ist, und diese Probe hier fing bis H5 mit
+ *      „im Hellen" an, ohne es herzustellen. Eine von sechsundvierzig Zellen
+ *      war deshalb an jedem Lauf rot. Eine App laeuft im `iframe` als eigenes
  *      Dokument, und CSS-Variablen reichen nicht ueber eine Dokumentgrenze:
  *      bis H2 stand jede App auf den Rueckfallwerten von `marken.css`, und
  *      das waren die des dunklen Themas. Gemessen wird beides -- was im
@@ -386,7 +390,44 @@ async function rahmenAbwarten(seite, appId, erwartet, thema, grenze = 20000) {
  * am Produkt etwas waere. Der Weg hier ist der, den ein Mensch hat: Zahnrad,
  * »Dunkel«, Tab-Leiste zurueck.
  */
-async function rahmenOhneNeuladen(seite, appId) {
+async function rahmenOhneNeuladen(seite, appId, token) {
+  // ZUERST HELL, UND ZWAR AUSDRUECKLICH (Phase H5).
+  //
+  // Der Abschnitt darueber -- der KERN der Phase H1 -- stellt in den
+  // Einstellungen »Dunkel« ein und laesst es stehen; das muss er, denn er
+  // misst danach, dass ein ZWEITER Browserkontext dasselbe sieht. Diese Probe
+  // hier faengt aber mit „im Hellen" an, und bis H5 fragte sie einfach los.
+  // Sie las damit einen Zustand, den die Reihe selbst zwei Schritte vorher
+  // erzeugt hatte: `data-theme=dark`, Flaeche `rgb(20, 20, 20)` -- richtig
+  // gemessen, falsche Frage. Die Zelle war seit H2 rot, an jedem Lauf.
+  //
+  // Die Vermutung, es liege daran, dass das Dokument im Hellen KEIN Attribut
+  // traegt, hat nicht getragen: `themaAus` nimmt `null` seit H3 als »hell«,
+  // und die zehn Zellen des Bilderdurchgangs melden genau so gruen
+  // (`data-theme=null, Flaeche rgb(246, 246, 246)`). Es blieb also dabei,
+  // dass am Dokument der App Hell ohne Attribut steht -- ein ausdrueckliches
+  // `light` waere ein Wert, den die Shell an ihrem EIGENEN `<html>` nicht
+  // setzt, und damit zwei Wahrheiten ueber ein Theme. Wer den Wert benannt
+  // braucht, bekommt ihn ueber `postMessage` (H2).
+  //
+  // Jeder andere Abschnitt dieser Reihe stellt sein Theme selbst ein, bevor
+  // er misst. Dieser tut es jetzt auch.
+  const kanal = await apiKanal(token);
+  try {
+    const gesetzt = await kanal.put('/api/darstellung', { data: { theme: 'light' } });
+    if (
+      !pruefe(
+        'Ausgangslage fuer den Rahmen: hell',
+        gesetzt.status() === 200,
+        `HTTP ${gesetzt.status()}`
+      )
+    ) {
+      return;
+    }
+  } finally {
+    await kanal.dispose();
+  }
+
   await laden(seite, `${URL}/workspace/app/${appId}`);
   await shellAbwarten(seite);
   const steht = await seite
@@ -650,7 +691,7 @@ async function main() {
     ich = vorbereitet.ich;
     if (app) {
       console.log(`       gemessen wird die App ${app}`);
-      await rahmenOhneNeuladen(seiteB, app);
+      await rahmenOhneNeuladen(seiteB, app, token);
     } else {
       // Kein gruenes Feld fuer etwas, das nicht gemessen wurde: eine Zeile,
       // die in der Zaehlung nicht vorkommt.
