@@ -665,7 +665,7 @@ bleibt. Die Werkstatt hat den Ausweg von Hand genommen: Rolle und Datenbank
 per SSH im Plattform-Postgres, das Passwort in eine `.env`, die mit dem
 nächsten Arbeitsbaum verschwand. Seither legt das **Gerät** an: je App und
 **Stand** eine Datenbank samt eigener Rolle (`arasul_app_<id>_<stand>`,
-Migration 181, `services/app/appDatenbank.js`), Adresse als `ARASUL_DB_URL` in
+Migration 181, `apps/dashboard-backend/src/services/app/appDatenbank.js`), Adresse als `ARASUL_DB_URL` in
 der Umgebung des Containers. Je Stand, weil ein Probelauf die Daten des
 Livestandes nicht anfassen darf — dieselbe Trennung wie beim Schlüssel aus C4;
 der Livestand behält seine Daten über jeden Versionswechsel. **Es ist nur ein
