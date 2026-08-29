@@ -668,8 +668,18 @@ jobs:
   # Toter Code im Frontend (Phase B3 des Ueberordner-Plans vom 26.08.2026).
   # knip findet, was toter-code.sh nicht sieht: einzelne ungenutzte Exporte in
   # einer sonst genutzten Datei, ungenutzte Abhaengigkeiten, doppelte Exporte.
-  # Der Job ist rot, sobald knip EINEN Befund hat; Ausnahmen stehen mit Grund
-  # in apps/dashboard-frontend/knip.json.
+  # Der Job ist rot, sobald knip EINEN Befund hat; Ausnahmen stehen in
+  # apps/dashboard-frontend/knip.json.
+  #
+  # ER SIEHT DIE BIBLIOTHEK NICHT (Phase H3, 29.08.2026). knip laeuft aus
+  # apps/dashboard-frontend/ und kommt ueber dessen Wurzel nicht hinaus;
+  # packages/marken/ haengt an einem Vite-Alias und ist kein npm-Paket. Seit
+  # H3 stehen die Primitive dort, und damit auch die vier Pakete, die sie
+  # brauchen (radix-ui, class-variance-authority, clsx, tailwind-merge) --
+  # sie stehen deshalb in ignoreDependencies, obwohl sie benutzt werden.
+  # Toten Code IN der Bibliothek faengt scripts/test/marken.py (jeder Name
+  # genau einmal, jede Klasse mit Regel) und bausteine.py (jedes Primitiv auf
+  # der Schauseite).
   # ----------------------------------------------------------------------------
   dead-code:
     name: Dead code (knip)

@@ -327,18 +327,46 @@ async function rahmenStand(seite, appId) {
   }, appId);
 }
 
-/** Warten, bis der Rahmen sein Dokument hat und die Farbe darin steht. */
-async function rahmenAbwarten(seite, appId, erwartet, grenze = 20000) {
+/**
+ * Warten, bis der Rahmen sein Dokument hat, das Attribut traegt und die Farbe
+ * darin steht.
+ *
+ * ZUERST DAS ATTRIBUT (Phase H3). Bis dahin wurde nur auf die FARBE gewartet,
+ * und die ist bei einer App mit eigenem Stylesheet nie die erwartete -- der
+ * Aufruf lief in seine Zeitgrenze, und `rahmenStand` las danach ein
+ * `data-theme`, das `AppRahmen` noch gar nicht geschrieben hatte. Eine von
+ * sechsundvierzig Zellen war deshalb rot, wechselnd. Das Attribut kommt in
+ * JEDEM Fall von der Shell, also ist es die Bedingung, auf die man warten
+ * kann; die Farbe ist es nur bei einer App aus dieser Bibliothek.
+ *
+ * Und deshalb steht die Farbe in einem zweiten Aufruf mit KURZER Grenze: wer
+ * sein eigenes Stylesheet mitbringt, laeuft dort hinein, und das ist keine
+ * Aussage ueber das Produkt -- nur zwanzig verlorene Sekunden je Zelle.
+ */
+async function rahmenAbwarten(seite, appId, erwartet, thema, grenze = 20000) {
   await seite
     .waitForFunction(
       ({ id, soll }) => {
         const element = document.querySelector(`[data-testid="app-rahmen-${id}"]`);
         const dokument = element?.contentDocument;
         if (!dokument?.body || dokument.readyState !== 'complete') return false;
+        const attribut = dokument.documentElement.getAttribute('data-theme');
+        return (attribut === 'dark' ? 'dark' : 'light') === soll;
+      },
+      { id: appId, soll: thema },
+      { timeout: grenze }
+    )
+    .catch(() => {});
+  await seite
+    .waitForFunction(
+      ({ id, soll }) => {
+        const element = document.querySelector(`[data-testid="app-rahmen-${id}"]`);
+        const dokument = element?.contentDocument;
+        if (!dokument?.body) return false;
         return getComputedStyle(dokument.body).backgroundColor === soll;
       },
       { id: appId, soll: erwartet },
-      { timeout: grenze }
+      { timeout: 5000 }
     )
     .catch(() => {});
 }
@@ -367,7 +395,7 @@ async function rahmenOhneNeuladen(seite, appId) {
     .catch(() => false);
   if (!pruefe('Die App steht im Rahmen', steht, `/workspace/app/${appId}`)) return;
 
-  await rahmenAbwarten(seite, appId, THEMES[0].flaeche);
+  await rahmenAbwarten(seite, appId, THEMES[0].flaeche, THEMES[0].wert);
   const vorher = await rahmenStand(seite, appId);
   pruefe(
     'im Hellen sagt das Dokument der App »hell«',
@@ -423,7 +451,7 @@ async function rahmenOhneNeuladen(seite, appId) {
       .catch(() => false));
   if (!pruefe('und ueber die Tab-Leiste zurueck zur App', zurueck)) return;
 
-  await rahmenAbwarten(seite, appId, THEMES[1].flaeche);
+  await rahmenAbwarten(seite, appId, THEMES[1].flaeche, THEMES[1].wert);
   const nachher = await rahmenStand(seite, appId);
   pruefe(
     'DER RAHMEN HAT NICHT NEU GELADEN: die Marke steht noch am selben Fenster',
@@ -712,7 +740,7 @@ async function bilderMachen(browser, token, seite, app = '') {
             )
             .catch(() => {});
           await flaecheAbwarten(seite, theme.flaeche);
-          if (ansicht.app) await rahmenAbwarten(seite, ansicht.app, theme.flaeche);
+          if (ansicht.app) await rahmenAbwarten(seite, ansicht.app, theme.flaeche, theme.wert);
           const stand = await themeAmDokument(seite);
           const datei = `theme-${theme.name}-${ansicht.name}-${breite.px}.png`;
           await seite.screenshot({ path: path.join(ZIEL, datei) }).catch(() => {});

@@ -2,7 +2,6 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": ["src/index.tsx", "index.html", "src/**/*.test.{ts,tsx}", "src/__tests__/**/*.{ts,tsx}"],
   "project": ["src/**/*.{ts,tsx}"],
-  "ignore": ["src/components/ui/shadcn/**"],
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
@@ -11,7 +10,11 @@
     "eslint-plugin-react",
     "@typescript-eslint/eslint-plugin",
     "@typescript-eslint/parser",
-    "eslint-plugin-jsx-a11y"
+    "eslint-plugin-jsx-a11y",
+    "class-variance-authority",
+    "clsx",
+    "radix-ui",
+    "tailwind-merge"
   ],
   "ignoreBinaries": ["eslint"]
 }

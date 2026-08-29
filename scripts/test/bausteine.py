@@ -25,6 +25,7 @@ In allem unter `src/`, ausser `src/components/ui/`:
 4. `role="dialog"` von Hand   Ein Dialog gehoert in `Modal` (auf Radix).
 5. Ein Name, den `@marken` schon ausgibt, noch einmal in der Shell erklaert
    -- oder ein Import aus dem alten `components/ui/shadcn/` (Phase H3).
+6. Ein Primitiv ohne Schaustueck auf `/entwickler/bausteine` (Phase H3).
 
 Zur vierten Regel: am 20.08.2026 trugen fuenf Dateien `role="dialog"` selbst,
 waehrend fuenf andere den gemeinsamen `Modal` benutzen. VIER der fuenf
@@ -146,6 +147,38 @@ def primitive_doppelt(wurzel: Path) -> list[str]:
     return befunde
 
 
+SCHAUSEITE = 'apps/dashboard-frontend/src/features/entwickler/Schauseite.tsx'
+
+def schauseite_vollstaendig(wurzel: Path) -> list[str]:
+    """Jedes Primitiv steht auf der Schauseite (Phase H3).
+
+    Die Schauseite ist der einzige Ort, an dem ein Baustein, den heute niemand
+    benutzt, ueberhaupt zu sehen ist -- und genau der ist der gefaehrliche: er
+    sieht in einem der beiden Themes falsch aus, und es merkt erst der, der ihn
+    in einem halben Jahr zum ersten Mal einsetzt. Ein neues Primitiv ohne
+    Schaustueck faellt sonst durch jede Abnahme dieses Repos.
+
+    Verglichen werden DATEINAMEN und nicht Ausgaben: `dialog.tsx` gibt zehn
+    Namen aus, ist aber ein Stueck. Aus `alert-dialog` wird `AlertDialog`.
+    """
+    ordner = wurzel / 'packages/marken/src/primitive'
+    seite = wurzel / SCHAUSEITE
+    if not ordner.is_dir() or not seite.is_file():
+        return []
+    erwartet = {
+        ''.join(teil.capitalize() for teil in datei.stem.split('-'))
+        for datei in ordner.glob('*.tsx')
+    }
+    text = seite.read_text(encoding='utf-8')
+    gezeigt = set(re.findall(r'name="([A-Z]\w+)"', text))
+    fehlen = sorted(erwartet - gezeigt)
+    return [
+        f'{SCHAUSEITE}  {name} hat kein Schaustueck -- ein Primitiv, das '
+        'niemand ansieht, ist eines, dessen Fehler niemand findet.'
+        for name in fehlen
+    ]
+
+
 REGELN = [
     (
         re.compile(r'<h1[\s>]'),
@@ -209,7 +242,7 @@ def main() -> int:
     argumente = zerleger.parse_args()
     wurzel = Path(argumente.pfad).resolve()
 
-    befunde = pruefe(wurzel) + primitive_doppelt(wurzel)
+    befunde = pruefe(wurzel) + primitive_doppelt(wurzel) + schauseite_vollstaendig(wurzel)
     if not befunde:
         print('   Baustein-Set: eingehalten')
         return 0
