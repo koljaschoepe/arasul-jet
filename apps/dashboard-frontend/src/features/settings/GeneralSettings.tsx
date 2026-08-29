@@ -167,30 +167,39 @@ export function GeneralSettings() {
           </Feldgruppe>
         )}
 
+        {/*
+          DIESER TEXT SAGT SEIT H5, WAS DAS GERÄT IST. Bis dahin stand hier
+          „Edge-AI-Plattform für NVIDIA Jetson" und „Multi-Jahres-Betrieb ohne
+          Wartung" — Sätze aus der Zeit, in der das Produkt eine KI-Plattform
+          sein sollte. Es ist Standardsoftware, die interne Apps hostet; der
+          Jetson ist das Blech darunter und keine Eigenschaft, die einen
+          Mitarbeiter angeht. Was bleibt, ist, was er wirklich davon hat: es
+          läuft im Haus, es läuft weiter, und die Apps rechnen lokal.
+        */}
         <Feldgruppe
           titel={`Über ${PLATFORM_NAME}`}
-          beschreibung="Edge-AI-Plattform für NVIDIA Jetson"
+          beschreibung="Die Software, die eure Apps im Haus betreibt"
         >
           <p className="text-sm text-muted-foreground mb-4">
-            {PLATFORM_NAME} ist eine autonome Edge-AI-Plattform, die auf NVIDIA Jetson AGX Orin
-            läuft. Die Plattform bietet lokale KI-Funktionen, Multi-Jahres-Betrieb ohne Wartung und
-            ein einheitliches Dashboard-Interface.
+            {PLATFORM_NAME} läuft auf einem Gerät in eurem Unternehmen und hostet die Apps, die ihr
+            dort braucht. Wer sich anmeldet, sieht die Apps, die für ihn freigegeben sind. Alles
+            bleibt im Haus: Daten, Modelle und Protokolle verlassen das Gerät nicht.
           </p>
           <div className="flex flex-col gap-3">
             {[
               {
-                title: 'Offline-Verfügbarkeit',
-                desc: 'Funktioniert ohne Internetverbindung',
+                title: 'Läuft im Haus',
+                desc: 'Kein Konto bei einem Anbieter, keine Daten nach draußen',
                 icon: <Wifi className="size-4" />,
               },
               {
-                title: 'Selbstheilungs-System',
-                desc: 'Automatische Fehlerkorrektur und Recovery',
+                title: 'Betreut sich selbst',
+                desc: 'Sicherung, Selbstheilung und Aktualisierungen ohne Konsole',
                 icon: <ShieldCheck className="size-4" />,
               },
               {
-                title: 'GPU-beschleunigte KI',
-                desc: 'Lokale LLMs und Embedding-Modelle',
+                title: 'Rechnet vor Ort',
+                desc: 'Die Modelle, mit denen die Flows arbeiten, liegen auf diesem Gerät',
                 icon: <Cpu className="size-4" />,
               },
             ].map((feature, i) => (
