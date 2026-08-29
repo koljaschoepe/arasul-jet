@@ -25,11 +25,15 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
     ein zweiter Button in der Shell ist ein Befund
     (`scripts/test/bausteine.py`). `Drawer` und `Sonner` gibt es bewusst
     nicht: das eine ist `Sheet side="bottom"`, das andere `Toast`.
-  - die **Muster** (`src/muster/`, 7 Stück, H4): Datenliste, Suchauswahl,
+  - die **Muster** (`src/muster/`, **9 Stück**): Datenliste, Suchauswahl,
     Dateiablage, Seitenleiste, Formularseite mit Feldgruppe, Leerzustand,
-    Ladezustand. Zusammensetzungen aus Primitiven, die eine Aufgabe lösen,
-    nicht ein Teil liefern — und die trotzdem nichts von Arasul wissen.
-    `Section`/`SectionList`, `EmptyState` und `LoadingSpinner` der Shell sind
+    Ladezustand (H4) — dazu seit **H5** `Dialogform` (Titel, rollender Rumpf,
+    Fuß, vier Breiten), `Bestaetigung` (die Frage mit zwei Antworten, auf
+    `AlertDialog`) und `Kennzahl`/`Kennzahlen`. Die drei standen als `Modal`,
+    `ConfirmModal` und `StatTile`/`StatGrid` in der Shell und wussten dort
+    nichts von Arasul. Ein Muster ist eine Zusammensetzung aus Primitiven, die
+    eine Aufgabe löst, statt ein Teil zu liefern — und die trotzdem nichts von
+    Arasul weiß. `Section`/`SectionList`, `EmptyState` und `LoadingSpinner` sind
     mit H4 dorthin gezogen und heißen jetzt `Feldgruppe`/`Formularseite`,
     `Leerzustand` und `Ladezustand`; ihre Props sind deutsch (`titel`,
     `symbol`, `beschreibung`, `aktion`, `meldung`, `ganzeSeite`, `groesse`).
@@ -37,7 +41,12 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
     Meldung, Menü): reines CSS, laufen in einer App **ohne** Bau. Seit H4
     gehört `useSchmalesFenster` dazu — er ist aus `hooks/` dorthin gezogen,
     weil `Sidebar` und `Datenliste` ihn brauchen und ein Baustein der
-    Bibliothek nicht aus der Shell importieren darf.
+    Bibliothek nicht aus der Shell importieren darf. Seit **H5** kennt `Liste`
+    ein `dicht` (enge Zeilen für eine Spalte, die mit der Maus bedient wird —
+    fingerbreit ist richtig für ein Telefon und zu groß für eine Sidebar),
+    `ListenEintrag` ein `unterzeile` und ein `erklaerung`, und `Kopf` ein
+    `mittig` (die Form einer Seite, die aus nichts als sich selbst besteht:
+    Anmeldung, erstes Konto, Absturz).
   - `cn()` — er ist mit den Primitiven dorthin gezogen; `@/lib/utils` gibt es
     nicht mehr.
   - `theme.css` — die Tokens (`@theme`, `@theme inline`, `:root`,
@@ -234,31 +243,29 @@ src/
                      vorbehalten (siehe DESIGN.md, Regel „eine
                      Flächenfarbe").
   components/
-    ui/            App-wide primitives (Modal, ErrorBoundary, …). Darunter das
-                   Baustein-Set aus Plan 023 C1, das die wiederkehrenden Formen
-                   traegt: FilterBar (Tab-Leiste mit
-                   eigener Inhaltsflaeche), StatTile/StatGrid (Kennzahl, festes
-                   1/2/4-Raster), Chart/Sparkline (nur Blau nach Grau, ohne
-                   Karte), Section (Feldgruppe), EmptyState (leere Liste mit
-                   Einstieg) und AuthCard (Rahmen der beiden Seiten vor der
-                   Anmeldung, C3). Der Seitenkopf steht seit D7 NICHT mehr
-                   hier: `PageHeader` ist gefallen, `Kopf` aus `@marken` nimmt
-                   seinen Platz — zwei Seitenköpfe (einer für die Shell, einer
-                   für die Apps) wären genau die Doppelung, gegen die das
-                   Designsystem gebaut ist. Eine neue Seite baut auf diesen
-                   Bausteinen und auf `@marken` auf, statt die Klassenkette
-                   erneut zu schreiben; Festlegungen in
+    ui/            NUR NOCH, WAS ÜBER DIESES GERÄT BESCHEID WEISS (H5).
+                   Das Baustein-Set aus Plan 023 C1 stand hier; seine Formen
+                   sind über H3 bis H5 vollständig in `@marken` gewandert.
+                   Eine neue Seite baut auf `@marken` auf, statt die
+                   Klassenkette erneut zu schreiben; Festlegungen in
                    `docs/development/DESIGN.md`.
                    Seit H3 gibt es hier KEINE Primitive mehr: `shadcn/` ist
                    nach `packages/marken/src/primitive/` gezogen, `Checkbox`
                    mit (jetzt auf Radix). Mit **H4** sind auch `Section`,
-                   `EmptyState`, `LoadingSpinner` und `Chart` gegangen — sie
-                   wissen nichts von Arasul, und eine Fachanwendung braucht
-                   sie genauso. Was blieb, sind die Zusammensetzungen, die es
-                   WOHL wissen: `Modal`, `FilterBar`, `StatTile`, `AuthCard`,
-                   `NichtGefunden`, `ErrorBoundary` und `Skeleton.tsx` (hält
-                   SkeletonText/Card/List und holt den Platzhalter selbst aus
-                   `@marken`).
+                   `EmptyState`, `LoadingSpinner` und `Chart` gegangen. Mit
+                   **H5** `Modal`/`ConfirmModal` (jetzt `Dialogform` und
+                   `Bestaetigung`) und `StatTile`/`StatGrid` (jetzt
+                   `Kennzahl`/`Kennzahlen`); `FilterBar` ist ganz gefallen —
+                   es war eine zweite Tab-Leiste neben dem Primitiv `Tabs`,
+                   mit eigener Tastaturmechanik gegen eine geprüfte
+                   Bibliothek. Übrig sind VIER, und jede weiß etwas über
+                   dieses Gerät: `AuthCard` (Maskottchen, Produktname),
+                   `Skeleton.tsx` (die Form einer Zeile HIER),
+                   `NichtGefunden` (die Adresse des Arbeitsbereichs) und
+                   `ErrorBoundary`. Der Ordner ist deshalb seit H5 NICHT mehr
+                   von `bausteine.py` ausgenommen: ein `h1`, eine Tab-Leiste
+                   oder ein handgebauter Dialog ist überall unter `src/` ein
+                   Befund.
     mascot/        Das Maskottchen.
   hooks/           Cross-feature hooks (useApi, useTheme, …).
                    `useSchmalesFenster` steht seit H4 NICHT mehr hier, sondern
@@ -391,11 +398,14 @@ cd apps/dashboard-frontend && npx shadcn@latest add switch
 `primitive/index.ts` eintragen, ein Schaustück auf `/entwickler/bausteine`
 (sonst ist `bausteine.py` rot), `src/fassung.ts` heben.
 
-App-spezifische **Zusammensetzungen** — `Modal`, `FilterBar`, `StatTile`,
-`AuthCard`, `SkeletonList` — bleiben in `components/ui/`. Die Grenze ist seit
-H4 zweistufig: ein **Primitiv** weiß nichts von Arasul, ein **Muster** auch
-nicht (es ist nur aus mehreren gemacht), und was eine Route, einen Endpunkt
-oder einen Benutzer kennt, bleibt in der Shell.
+App-spezifische **Zusammensetzungen** — `AuthCard`, `SkeletonList`,
+`NichtGefunden`, `ErrorBoundary` — bleiben in `components/ui/`. Die Grenze ist
+seit H4 zweistufig: ein **Primitiv** weiß nichts von Arasul, ein **Muster**
+auch nicht (es ist nur aus mehreren gemacht), und was eine Route, einen
+Endpunkt, einen Benutzer oder die Marke kennt, bleibt in der Shell. Wer eine
+Zusammensetzung dort einträgt, prüft zuerst, ob sie diesen Test besteht: bei
+`Modal`, `FilterBar` und `StatTile` stand jahrelang, sie täten es, und keine
+von ihnen tat es.
 
 ### 6. Code-splitting for non-critical routes
 

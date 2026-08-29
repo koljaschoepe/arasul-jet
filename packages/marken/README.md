@@ -1,19 +1,19 @@
 # Marken — das Designsystem des Geräts
 
 Die Tokens (`theme.css`), **sechsundvierzig Primitive** auf Radix und Tailwind,
-**sieben Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
+**neun Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
 die Shell und jede App auf diesem Gerät.
 
 ## Drei Sätze, zwei Laufzeiten (Phasen H3 und H4)
 
-|                   | Primitive (H3, H4)                              | Muster (H4)                                 | Bausteine (D7)                              |
-| ----------------- | ----------------------------------------------- | ------------------------------------------- | ------------------------------------------- |
-| Was               | Button, Input, Dialog, Tabelle, Kalender … (46) | Datenliste, Suchauswahl, Seitenleiste … (7) | Kopf, Liste, Karte, Formular, Meldung, Menü |
-| Höhe              | ein Teil                                        | eine **Form**, aus Teilen gebaut            | ein Teil, ohne Tailwind                     |
-| Worauf            | Radix + Tailwind-Utilities aus `theme.css`      | die Primitive                               | reines CSS, Klassen `ara-*`                 |
-| Braucht einen Bau | **ja**                                          | **ja**                                      | nein                                        |
-| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage)   | dieselben                                   | zusätzlich jede App **ohne** Bau            |
-| Wo                | `src/primitive/`                                | `src/muster/`                               | `src/*.tsx`                                 |
+|                   | Primitive (H3, H4)                              | Muster (H4)                            | Bausteine (D7)                              |
+| ----------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------------------- |
+| Was               | Button, Input, Dialog, Tabelle, Kalender … (46) | Datenliste, Dialogform, Kennzahl … (9) | Kopf, Liste, Karte, Formular, Meldung, Menü |
+| Höhe              | ein Teil                                        | eine **Form**, aus Teilen gebaut       | ein Teil, ohne Tailwind                     |
+| Worauf            | Radix + Tailwind-Utilities aus `theme.css`      | die Primitive                          | reines CSS, Klassen `ara-*`                 |
+| Braucht einen Bau | **ja**                                          | **ja**                                 | nein                                        |
+| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage)   | dieselben                              | zusätzlich jede App **ohne** Bau            |
+| Wo                | `src/primitive/`                                | `src/muster/`                          | `src/*.tsx`                                 |
 
 Das ist keine Doppelung, sondern erstens der Unterschied zwischen zwei
 Laufzeiten und zweitens der zwischen zwei Höhen. Eine App ohne Bau hat keinen
@@ -33,8 +33,16 @@ einer Stelle, mit einer Liste als Eingabe.**
 
 Sie wissen trotzdem nichts von Arasul. Kein Muster kennt eine Route, einen
 Endpunkt oder einen Benutzer — `Datenliste` bekommt Zeilen, `Seitenleiste`
-bekommt Einträge. Was über **dieses** Gerät Bescheid weiß (`Modal`,
-`FilterBar`, `AuthCard`, `SkeletonList`), bleibt in der Shell.
+bekommt Einträge. Was über **dieses** Gerät Bescheid weiß (`AuthCard` mit dem
+Maskottchen und dem Produktnamen, `SkeletonList` mit der Form einer Zeile
+hier, `NichtGefunden`, `ErrorBoundary`), bleibt in der Shell.
+
+**Drei Einträge dieser Liste waren falsch, und H5 hat sie geholt.** `Modal`,
+`ConfirmModal` und `StatTile` standen in `components/ui/` der Shell und
+wussten nichts von Arasul — ein Titel mit einem Rumpf, eine Frage mit zwei
+Knöpfen, eine Zahl mit ihrer Beschriftung. Sie heißen jetzt `Dialogform`,
+`Bestaetigung` und `Kennzahl`. `FilterBar` ist dabei ganz gefallen: es war
+eine zweite Tab-Leiste neben dem Primitiv `Tabs`.
 
 ### Was H4 bewusst NICHT gebaut hat
 
