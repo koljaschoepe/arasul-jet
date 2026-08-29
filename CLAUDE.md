@@ -475,6 +475,80 @@ erklärt, und ein Primitiv **ohne Schaustück**. `knip` sieht die Bibliothek
 nicht (es kommt über die Wurzel des Frontends nicht hinaus), also stehen ihre
 vier Pakete mit diesem Grund in `ignoreDependencies`.
 
+Seit **H4** (29.08.2026) ist der Satz **vollständig**, und über ihm steht ein
+dritter. Die zwanzig Primitive, die noch fehlten — Accordion, AspectRatio,
+Calendar, Carousel, Chart, Collapsible, Command, DatePicker, Form, HoverCard,
+InputOTP, Menubar, NavigationMenu, Pagination, Resizable, Sidebar, Slider,
+Table, Toggle, ToggleGroup —, sind gebaut; das sind **46**. Zwei aus shadcns
+Liste sind es **nicht** und mit Absicht: `Drawer` ist `Sheet side="bottom"`,
+`Sonner` ist `Toast` samt der Warteschlange in `ToastContext`. Zwei Bausteine
+unter einer Sache sind die Verwechslung selbst — derselbe Grund, aus dem
+`marken.py` (Punkt 7) keinen Namen zweimal duldet. Und `Combobox` ist kein
+eigener Name, sondern das Muster **`Suchauswahl`**.
+
+Denn darüber steht seit H4 der dritte Satz: die **Muster**
+(`packages/marken/src/muster/`, sieben Stück) — Datenliste, Suchauswahl,
+Dateiablage, Seitenleiste, Formularseite mit Feldgruppe, Leerzustand,
+Ladezustand. Der Unterschied zu einem Primitiv ist die **Höhe**, nicht die
+Laufzeit: ein Primitiv ist ein Teil, ein Muster ist eine **Form**. Wer mit H3
+eine Fachanwendung baute, schrieb für eine sortierbare Liste mit Suchfeld,
+Leerzustand und einer Form für kleine Fenster rund zweihundert Zeilen, und die
+nächste Anwendung schrieb zweihundert andere — genau daraus sind vor Plan 023
+die zwanzig Kopfstellen mit derselben Klassenkette entstanden. Ein Muster weiß
+trotzdem nichts von Arasul: `Datenliste` bekommt Zeilen, `Seitenleiste` bekommt
+Einträge. Was eine Route, einen Endpunkt oder einen Benutzer kennt, bleibt in
+der Shell.
+
+**Vier der sieben Muster gab es schon, in der Shell.** `Section`/`SectionList`,
+`EmptyState` und `LoadingSpinner` wissen nichts von Arasul und sind
+umgezogen statt daneben gebaut worden — sie heißen jetzt
+`Feldgruppe`/`Formularseite`, `Leerzustand` und `Ladezustand`, und ihre Props
+sind deutsch wie die der übrigen Bibliothek. Dasselbe für `Chart`/`Sparkline`
+(jetzt ein Primitiv) und für `useSchmalesFenster`: der Hook trägt die **eine**
+Schwelle des Produkts (900 px), und `Sidebar` und `Datenliste` brauchen sie —
+ein Baustein der Bibliothek darf aber nicht aus der Shell importieren
+(`marken.py`, Punkt 4). Er steht bei den **Bausteinen**, weil er reines React
+ist und keinen Bau braucht; das Bündel `browser/marken.js` gibt ihn seither
+mit aus. Mit `Chart` sind auch seine Tokens gewechselt: es stand auf
+`--text-muted`, `--bg-card` und `--shadow-md`, und das sind Aliasse der Shell
+aus `index.css`, die es in einer App nicht gibt. Jetzt stehen dort die Tokens
+aus `theme.css`; der Schatten am Tooltip ist ersatzlos gefallen, denn ein
+fester Wert an seiner Stelle wäre eine Farbe ohne Token.
+
+**Vier Abhängigkeiten von außen** kamen dazu, und nur vier: `cmdk` (Suchliste),
+`react-day-picker` (Kalender), `embla-carousel-react` (Karussell), `input-otp`
+(Einmalcode). Alles andere steht auf `radix-ui`, `react-hook-form`,
+`react-resizable-panels` und `recharts`, die schon im Lockfile standen. Sie
+stehen mit ihrem Grund in `knip.json` — knip sieht die Bibliothek nicht.
+Gemessen am fertigen Bau kosten die drei, die nur die Schauseite braucht,
+**153 kB roh und 48 kB gzip**, und Vites selbsttätige Aufteilung legt sie in
+den gemeinsamen Brocken, den schon die Anmeldeseite lädt. Das steht als
+offener Punkt im PR und ist mit Absicht nicht behoben: `manualChunks` würde
+die in `vite.config.ts` festgehaltene Entscheidung umkehren, und die lässt
+sich ohne Browser nicht gegenprüfen.
+
+Die **Schauseite** liegt seither in drei Dateien (`Schauseite.tsx` als Rahmen
+mit den H3-Stücken, `SchaustueckeH4.tsx`, `SchaustueckeMuster.tsx`) —
+dreiundfünfzig Stücke in einer Datei findet niemand mehr; `bausteine.py` liest
+deshalb den ganzen Ordner `entwickler/`, verlangt auch je Muster ein
+Schaustück und vergleicht ohne Rücksicht auf Groß- und Kleinschreibung (aus
+`input-otp.tsx` würde sonst `InputOtp`, und der Aufrufer tippt `InputOTP`).
+Der Test dazu zählt seine Erwartung nicht mehr als Zahl, sondern liest die
+Ordner mit `import.meta.glob` — eine Zahl, die jemand von Hand nachzieht,
+misst irgendwann die Pflege statt das Produkt.
+
+Und der Fund vom Orin ist zu: **ein Schaustück rollt in seinem eigenen
+Kasten**. Die Zelle „1024 px · hell" meldete „1039 gegen 1024", und zu sehen
+war nichts; mit Tabelle, Kalender, Diagramm und Seitenleiste wäre das bei
+390 px die Regel geworden. Der Zustandsblock jedes Stücks trägt jetzt
+`overflow-x-auto` **und** `position: relative` (ohne das entkommt ein absolut
+gesetztes Kind dem Kasten und zählt zur Rollbreite des Dokuments — der Fund
+aus G1). Dazu **nennt die Reihe das Element**: sie fragt jedes, dessen rechter
+Rand über die Sichtbreite hinausragt, und schreibt die drei äußersten mit
+Wähler und Kante in die rote Zeile. Eine Zahl ohne Element ließ offen, ob es
+eine Tabelle war, ein `.sr-only` in einem Knopf oder ein Kasten mit fester
+Breite — drei Befunde mit drei verschiedenen Antworten.
+
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,
@@ -649,15 +723,15 @@ Eintrag umgezogen — und mit den Rechten dieses Ordners kam aus dem Tar 755
 statt 700, ein Update hätte die Geheimnisse still lesbar gemacht. Siehe
 [`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md).
 
-| Layer    | Stack                                                             | Path                                                          |
-| -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
-| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/`   |
-| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                     |
-| AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`         |
-| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                 |
-| Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/` |
-| DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                     |
-| Hardware | Jetson AGX Orin / Thor (ARM64, 32–128 GB, CUDA 8.7–10.0)          | Detection: `scripts/setup/detect-platform.sh`                 |
+| Layer    | Stack                                                             | Path                                                                                              |
+| -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 7 Muster, 6 Bausteine) |
+| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                                                         |
+| AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`                                             |
+| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                                                     |
+| Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/`                                     |
+| DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                                                         |
+| Hardware | Jetson AGX Orin / Thor (ARM64, 32–128 GB, CUDA 8.7–10.0)          | Detection: `scripts/setup/detect-platform.sh`                                                     |
 
 ## Non-negotiable rules
 

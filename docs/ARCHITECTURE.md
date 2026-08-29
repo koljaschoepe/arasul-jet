@@ -304,7 +304,7 @@ apps/dashboard-frontend/
 │   └── workspace/            # Shell: ActivityBar (Apps, Modelle), Sidebar, Tabs,
 │                             #   rechte Spalte (Notizen), StatusBar
 ├── src/components/
-│   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState, Baustein-Set
+│   ├── ui/                   # Modal, Skeleton, StatTile, AuthCard (Leerzustand und Ladezustand stehen seit H4 in @marken)
 │   └── mascot/               # Das Maskottchen
 ├── src/contexts/             # AuthContext, DownloadContext, ToastContext, ActivationContext
 ├── src/stores/               # zustand (workspaceStore: Tabs, Sidebar-Ansicht, Spalten)

@@ -198,7 +198,8 @@ src/features/documents/index.ts  → DocumentManager, SpaceModal
 src/features/settings/index.ts   → Settings, GeneralSettings
 ```
 
-Shared UI: `src/components/ui/` (Modal, Skeleton, LoadingSpinner, etc.)
+Shared UI: `src/components/ui/` (Modal, Skeleton, StatTile, …) und `@marken`
+(Primitive, Muster, Bausteine)
 
 ### Notifications & Dialogs
 
