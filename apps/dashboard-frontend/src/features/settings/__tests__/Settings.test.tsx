@@ -98,7 +98,7 @@ vi.mock('../../system/SelfHealingEvents', () => ({
 function renderSettings(route = '/settings') {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <Settings handleLogout={vi.fn()} theme="light" onToggleTheme={vi.fn()} />
+      <Settings handleLogout={vi.fn()} />
     </MemoryRouter>
   );
 }
@@ -110,7 +110,7 @@ function renderShell(route = '/settings') {
   return render(
     <MemoryRouter initialEntries={[route]}>
       <SettingsPanel />
-      <Settings handleLogout={vi.fn()} theme="light" onToggleTheme={vi.fn()} />
+      <Settings handleLogout={vi.fn()} />
     </MemoryRouter>
   );
 }

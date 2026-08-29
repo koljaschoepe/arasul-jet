@@ -5,8 +5,13 @@ Schrift, Farben, Abstände — und die sechs Bausteine, die daraus gebaut sind:
 jede App auf diesem Gerät.
 
 Kein neues Erscheinungsbild: die Werte stehen seit Plan 002 in
-`apps/dashboard-frontend/src/index.css` (Thema »Schwarz«) und sind hier als
-`--ara-*` mit genau diesen Rückfällen aufgenommen.
+`apps/dashboard-frontend/src/index.css` und sind hier als `--ara-*` mit genau
+diesen Rückfällen aufgenommen. Es sind die Werte des **dunklen** Themes (bei
+ihrer Aufnahme in D7 hieß es »Schwarz«; mit Phase H1 gibt es Hell und Dunkel).
+Eine App läuft im `iframe` als eigenes Dokument, und CSS-Variablen reichen
+nicht über eine Dokumentgrenze — sie steht deshalb immer auf diesen
+Rückfällen, auch wenn der Mensch die Shell hell eingestellt hat. Das ist eine
+offene Frage aus H1.
 
 ## Warum es das gibt (Phase D7, 28.08.2026)
 

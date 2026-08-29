@@ -298,7 +298,7 @@ Schrift, Farben und Abstände aus `index.css` und sechs Bausteine daraus —
 Kopf, Liste, Karte, Formular (mit Feld und Knopf), Meldung, Menü. Kein neues
 Erscheinungsbild, ein gemeinsames: jeder Wert steht als
 `var(--token-der-shell, <derselbe Wert>)`, also folgt die Bibliothek in der
-Shell dem Thema und steht in einer App allein auf »Schwarz«. Zwei Ausgänge,
+Shell dem Thema und steht in einer App allein auf dem Rückfall. Zwei Ausgänge,
 eine Quelle — die Shell übersetzt `src/` über den Vite-Alias `@marken` mit
 (**kein npm-Paket**, kein Lockfile-Eintrag, kein `dist/`, das jemand vergisst),
 eine App ohne Bau lädt das eingecheckte Bündel `browser/marken.js`, in dem
@@ -323,6 +323,35 @@ statt `blattZumachen`, die Station „eine Ansicht macht die Notizen zu" geht
 diesen Weg), und „es steht etwas da" zählt den Text **im Rahmen** mit —
 `innerText` endet am iframe, und bei 390 px hat die App die Spalte für sich.
 Ab 900 px bleiben die drei Spalten aus D1.
+Seit **H1** (29.08.2026) gehört das **Theme dem Menschen**, und es sind zwei
+statt drei. »Schwarz« ist gefallen: es unterschied sich von »Dunkel« um zwei
+Hintergrundstufen, und jede Farbentscheidung, jede Abnahmetabelle und jedes
+Bild gab es dreimal statt zweimal. Es bleiben **Hell** (Vorgabe) und
+**Dunkel**. Der Wert steht in `admin_users.theme` (Migration 180) statt im
+`localStorage` des Browsers — auf einer Standardsoftware, an der sich Menschen
+anmelden, gehört eine Einstellung zu dem, der sie gemacht hat, und nicht zu
+dem Rechner, vor dem er zufällig saß; wer sie an einem Gerät umstellt, sieht
+sie am nächsten wieder. Sie fährt in `GET /api/auth/session` mit (die Shell
+kennt sie damit, bevor sie das erste Mal malt, und braucht keine dritte
+Anfrage auf einem Seitenaufbau — die zwei, die es gibt, sind seit G2 die enge
+Stelle), gesetzt wird sie über `PUT /api/darstellung`. In `index.css` ist
+`:root` jetzt **Hell** und `[data-theme='dark']` trägt alles, was abweicht;
+die Klasse `.light` ist weg, denn Hell braucht keinen Selektor, und mit ihr
+44 Regeln, die auf Klassen zielten, die es im TSX seit dem Umbau nicht mehr
+gibt. Was dabei blieb und **entpräfixt** wurde: Tabellen, Formularfokus und
+der Druck — sie sind ganz in Theme-Variablen geschrieben, gelten also in
+beiden Themes, und der Druck kam bis dahin im dunklen Theme mit dunklem
+Hintergrund aus dem Drucker. Gefallen ist auch das Durchschalten
+(`toggleTheme` und die Prop-Kette `theme`/`onToggleTheme` durch vier Ebenen,
+die niemand mehr las) und das Theme-Skript in `index.html` — es konnte den
+Wert gar nicht mehr kennen, weil erst die Sitzungsprobe sagt, wer da ist.
+Der alte Browser-Wert wird **einmal übernommen**: der Schlüssel
+`arasul_theme` stand nur im Speicher, wenn jemand aktiv umgestellt hat, also
+ist seine Anwesenheit eine Entscheidung; `black` und `dark` werden beide zu
+`dark`, danach ist er weg. Offen bleibt, ob eine **App** dem Theme folgt: sie
+läuft im iframe als eigenes Dokument, CSS-Variablen reichen nicht über eine
+Dokumentgrenze, und `packages/marken/` steht dort auf seinen Rückfallwerten.
+
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,

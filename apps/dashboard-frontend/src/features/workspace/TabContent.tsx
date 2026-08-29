@@ -15,14 +15,21 @@ import { lazyNachladen } from '@/utils/lazyNachladen';
 const Settings = lazyNachladen(() => import('@/features/settings/Settings'));
 const ModelleAnsicht = lazyNachladen(() => import('@/features/modelle/ModelleAnsicht'));
 
-export interface TabThemeControls {
-  theme: string;
-  onToggleTheme: () => void;
+/**
+ * Was die Shell von aussen braucht: das Abmelden, und sonst nichts.
+ *
+ * Bis Phase H1 hiess das hier `TabThemeControls` und trug `theme` und
+ * `onToggleTheme` durch vier Ebenen bis in die Einstellungen -- wo sie
+ * niemand las: `GeneralSettings` nahm das Theme schon seit laengerem direkt
+ * aus `useTheme()`, und einen Knopf fuer `onToggleTheme` gab es nirgends.
+ * Seit H1 kommt das Theme ohnehin vom Angemeldeten und nicht aus der Shell.
+ */
+export interface ShellHandgriffe {
   onLogout: () => Promise<void>;
 }
 
 interface TabContentProps {
-  themeControls: TabThemeControls;
+  handgriffe: ShellHandgriffe;
 }
 
 /**
@@ -67,10 +74,10 @@ const EINSTELLUNGEN_PFAD = '/settings';
  */
 export function FeatureTabHost({
   tab,
-  themeControls,
+  handgriffe,
 }: {
   tab: WorkspaceTab;
-  themeControls: TabThemeControls;
+  handgriffe: ShellHandgriffe;
 }) {
   // Diese drei stehen VOR dem Router und nicht darin: sie haben keine
   // Legacy-Adresse, an die eine Brücke führen könnte. Diese Weiche ruft selbst
@@ -99,19 +106,13 @@ export function FeatureTabHost({
       </div>
     );
   }
-  return <EinstellungenTab tab={tab} themeControls={themeControls} />;
+  return <EinstellungenTab tab={tab} handgriffe={handgriffe} />;
 }
 
 /**
  * Der Einstellungen-Tab in seinem eigenen MemoryRouter.
  */
-function EinstellungenTab({
-  tab,
-  themeControls,
-}: {
-  tab: WorkspaceTab;
-  themeControls: TabThemeControls;
-}) {
+function EinstellungenTab({ tab, handgriffe }: { tab: WorkspaceTab; handgriffe: ShellHandgriffe }) {
   const resetTo = EINSTELLUNGEN_PFAD;
 
   // Der Suchteil der ECHTEN Adresse muss in den MemoryRouter dieses Tabs
@@ -139,16 +140,7 @@ function EinstellungenTab({
         {/* Kein Dashboard-Tab mehr (Plan 008): "/" fällt auf den Startpfad des
             jeweiligen Tabs zurück. */}
         <Route path="/" element={<Navigate to={resetTo} replace />} />
-        <Route
-          path="/settings"
-          element={
-            <Settings
-              handleLogout={themeControls.onLogout}
-              theme={themeControls.theme}
-              onToggleTheme={themeControls.onToggleTheme}
-            />
-          }
-        />
+        <Route path="/settings" element={<Settings handleLogout={handgriffe.onLogout} />} />
         {/* Ein Verweis aus den Einstellungen auf die Modelle öffnet den
             Modelle-Tab, statt ihn in diesen hineinzuziehen. */}
         <Route
@@ -166,7 +158,7 @@ function EinstellungenTab({
  * n8n-iframe ist mit Phase B5 gefallen) — ein Renderfehler in einem Tab darf die Shell
  * nicht mitreißen.
  */
-export function TabContent({ themeControls }: TabContentProps) {
+export function TabContent({ handgriffe }: TabContentProps) {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
   const tabs = useWorkspaceStore(s => s.tabs);
@@ -213,7 +205,7 @@ export function TabContent({ themeControls }: TabContentProps) {
                   </div>
                 }
               >
-                <FeatureTabHost tab={tab} themeControls={themeControls} />
+                <FeatureTabHost tab={tab} handgriffe={handgriffe} />
               </Suspense>
             )}
           </ComponentErrorBoundary>

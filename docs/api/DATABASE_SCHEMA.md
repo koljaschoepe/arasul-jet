@@ -15,6 +15,8 @@
 > `recovery_actions.action_type` kennt zusaetzlich `model_unload`.
 > Am 27.08.2026 von Hand ergaenzt (Migrationen 177/178, Phase D1): die Tabelle
 > `notizen` und die Spalte `admin_users.passwort_vom_admin`.
+> Am 29.08.2026 von Hand ergaenzt (Migration 180, Phase H1): die Spalte
+> `admin_users.theme`.
 
 ## Übersicht
 
@@ -68,6 +70,12 @@
 > `POST /api/auth/change-password` ist die einzige Stelle, die es auf `false`
 > setzt. Bestandszeilen bekamen `false`: wer das Passwort in der Vergangenheit
 > gesetzt hat, weiß die Spalte nicht.
+> `theme` (Migration 180, Phase H1) ist die Darstellung der Oberfläche für
+> diesen Menschen: `light` (Vorgabe) oder `dark`
+> (`CHECK admin_users_theme_check`). Vorher lag der Wert im `localStorage` des
+> Browsers, war also an den Rechner gebunden statt an den Menschen; »Schwarz«
+> als drittes Theme ist mit H1 gefallen. Geschrieben wird die Spalte über
+> `PUT /api/darstellung`, gelesen kommt sie mit `GET /api/auth/session` mit.
 
 | Column               | Type                     | Nullable | Default                                   |
 | -------------------- | ------------------------ | -------- | ----------------------------------------- |
@@ -83,6 +91,7 @@
 | `is_active`          | boolean                  | ✅       | `true`                                    |
 | `role`               | character varying        | ⛔       | `'admin'::character varying`              |
 | `passwort_vom_admin` | boolean                  | ⛔       | `false`                                   |
+| `theme`              | character varying        | ⛔       | `'light'::character varying`              |
 
 **Primary key:** `id`
 

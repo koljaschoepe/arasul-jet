@@ -34,26 +34,40 @@ shadcn/ui (Radix-Primitive in `components/ui/shadcn/`, generiert),
 lucide-react für Symbole, `cn()` aus `lib/utils.ts` für bedingte Klassen.
 Inter als Schrift, JetBrains Mono für Code.
 
-## Die Jet-Palette: drei Themes
+## Die Jet-Palette: zwei Themes
 
-Umschaltung über `useTheme` (`'black' | 'dark' | 'light'`, Voreinstellung
-`black`, `localStorage` `arasul_theme`): setzt `data-theme` und die Klasse
-`dark` bzw. `light` auf `<html>`. `:root` hält die Schwarz-Werte,
-`[data-theme='dark']` und `.light` überschreiben nur, was abweicht.
-Komponenten brauchen keine Theme-Zweige; wer Tokens benutzt, folgt dem Theme.
+Seit **Phase H1** (29.08.2026) gibt es **Hell** und **Dunkel**, und die Wahl
+gehört dem angemeldeten Menschen: sie steht in `admin_users.theme`
+(Migration 180), kommt mit `GET /api/auth/session` und wird über
+`PUT /api/darstellung` gesetzt. `useTheme` liest sie aus dem `AuthContext` und
+setzt `data-theme="dark"` samt Klasse `dark` auf `<html>`; **Hell braucht kein
+Attribut**, denn Hell IST `:root`. Ein `localStorage` ist nicht mehr die
+Quelle — eine Einstellung gehört zu dem, der sie gemacht hat, nicht zu dem
+Rechner, vor dem er zufällig saß.
 
-| Token                | Schwarz (`:root`)        | Dunkel        | Hell                  |
-| -------------------- | ------------------------ | ------------- | --------------------- |
-| `--background`       | `#0A0A0A`                | `#141414`     | `#F6F6F6`             |
-| `--card`             | `#121212`                | `#181818`     | `#FFFFFF`             |
-| `--popover`          | `#161616`                | `#1c1c1c`     | `#FFFFFF`             |
-| `--muted`            | `#161616`                | `#181818`     | `#ECECEC`             |
-| `--foreground`       | `#e6e6e6`                | erbt          | `#1a1a1a`             |
-| `--muted-foreground` | `rgba(228,228,228,0.55)` | erbt          | `#6b6b6b`             |
-| `--border`           | `rgba(228,228,228,0.08)` | erbt          | `rgba(16,16,16,0.10)` |
-| `--accent` (Hover)   | `rgba(228,228,228,0.07)` | erbt          | `rgba(16,16,16,0.05)` |
-| `--primary`          | `#81A1C1` (Graublau)     | erbt          | `#2D8FD9` (Blau)      |
-| `--ring`             | = `--primary`            | = `--primary` | = `--primary`         |
+Was mit H1 gefallen ist: das dritte Theme **»Schwarz«** (es unterschied sich
+von »Dunkel« um zwei Hintergrundstufen — ein Unterschied, den auf einem Bild
+niemand benennen kann, und jede Farbentscheidung gab es dreimal), die Klasse
+`.light` (Hell ist die Vorgabe und braucht keinen Selektor) und das
+Durchschalten `toggleTheme` (bei zwei Optionen in den Einstellungen wäre es
+ein zweiter Weg in denselben Zustand).
+
+`:root` hält die hellen Werte, `[data-theme='dark']` überschreibt **alles**,
+was abweicht. Komponenten brauchen keine Theme-Zweige; wer Tokens benutzt,
+folgt dem Theme.
+
+| Token                | Hell (`:root`, Vorgabe) | Dunkel                   |
+| -------------------- | ----------------------- | ------------------------ |
+| `--background`       | `#F6F6F6`               | `#141414`                |
+| `--card`             | `#FFFFFF`               | `#181818`                |
+| `--popover`          | `#FFFFFF`               | `#1c1c1c`                |
+| `--muted`            | `#ECECEC`               | `#181818`                |
+| `--foreground`       | `#1a1a1a`               | `#e6e6e6`                |
+| `--muted-foreground` | `#6b6b6b`               | `rgba(228,228,228,0.55)` |
+| `--border`           | `rgba(16,16,16,0.10)`   | `rgba(228,228,228,0.08)` |
+| `--accent` (Hover)   | `rgba(16,16,16,0.05)`   | `rgba(228,228,228,0.07)` |
+| `--primary`          | `#2D8FD9` (Blau)        | `#81A1C1` (Graublau)     |
+| `--ring`             | = `--primary`           | = `--primary`            |
 
 Eine Linienfarbe mit niedriger Alpha, keine zweite „dicke" Kante. Hover ist
 eine neutrale Alpha, kein eigener Farbton. Scrollbalken: Spur transparent,
@@ -98,9 +112,15 @@ Bausteine in einer Bibliothek, die die Shell **und jede App** benutzt:
 | `Meldung`                     | Hinweis, Erfolg, Warnung, Fehler — die Art steht auch im Text, nie nur in der Farbe |
 | `Menue`                       | die Fläche über der Seite hinter dem Hamburger-Knopf (unter 900 px)                 |
 
-**Kein neues Erscheinungsbild.** Die Werte sind die aus `index.css` (Thema
-»Schwarz«) und stehen als `var(--token-der-shell, <derselbe Wert>)`: in der
-Shell folgt die Bibliothek dem Thema, in einer App gilt der Rückfall.
+**Kein neues Erscheinungsbild.** Die Werte stehen als
+`var(--token-der-shell, <fester Wert>)`: in der Shell folgt die Bibliothek dem
+Thema, in einer App gilt der Rückfall. Die Rückfallwerte sind die des dunklen
+Themes (bei ihrer Aufnahme in D7 hieß es »Schwarz«). Eine App läuft im
+`iframe` als eigenes Dokument, und CSS-Variablen reichen nicht über eine
+Dokumentgrenze — **eine App folgt dem Theme des Menschen deshalb heute
+nicht**, sie steht immer auf dem Rückfall. Das ist eine offene Frage aus H1
+und keine Nebenwirkung: sie zu beantworten hieße, das Theme in die App
+hineinzureichen.
 
 Zwei Wege hinein, eine Quelle: die Shell übersetzt `packages/marken/src/` über
 den Vite-Alias `@marken` mit (kein npm-Paket, kein Lockfile-Eintrag); eine App

@@ -50,9 +50,11 @@ jede seiner IP-Adressen. Heisst das Geraet anders, gilt sein Name.
 
 ### Die Oberflaeche
 
-Die Oberflaeche nach der Anmeldung ist ein Dreispalten-Raster in drei Themes
-(Schwarz · Dunkel · Hell). Das Theme wird unter **Einstellungen →
-Erscheinungsbild** gewaehlt. Alle Flaechen (Sidebar, Mitte, rechte Spalte)
+Die Oberflaeche nach der Anmeldung ist ein Dreispalten-Raster in zwei Themes
+(Hell · Dunkel, Vorgabe Hell). Das Theme wird unter **Einstellungen →
+Erscheinungsbild** gewaehlt und gehoert dem angemeldeten Menschen: es gilt an
+jedem Rechner, an dem er sich anmeldet, und nicht nur in dem Browser, in dem
+er es umgestellt hat. Alle Flaechen (Sidebar, Mitte, rechte Spalte)
 teilen denselben Hintergrund; getrennt wird nur durch feine Linien. Links
 stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
 

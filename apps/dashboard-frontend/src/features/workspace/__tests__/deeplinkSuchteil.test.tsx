@@ -37,8 +37,6 @@ const einstellungenTab = {
 } as WorkspaceTab;
 
 const steuerung = {
-  theme: 'black',
-  onToggleTheme: () => {},
   onLogout: async () => {},
 };
 
@@ -48,7 +46,7 @@ async function zeige(adresse: string) {
       <Routes>
         <Route
           path="/workspace/settings"
-          element={<FeatureTabHost tab={einstellungenTab} themeControls={steuerung} />}
+          element={<FeatureTabHost tab={einstellungenTab} handgriffe={steuerung} />}
         />
       </Routes>
     </MemoryRouter>

@@ -117,12 +117,7 @@ describe('Fix: offene Dialoge lassen die Shell-Spalten sichtbar', () => {
       <>
         <MemoryRouter initialEntries={['/workspace/settings']}>
           <Routes>
-            <Route
-              path="/workspace/*"
-              element={
-                <WorkspaceShell theme="dark" onToggleTheme={() => {}} onLogout={async () => {}} />
-              }
-            />
+            <Route path="/workspace/*" element={<WorkspaceShell onLogout={async () => {}} />} />
           </Routes>
         </MemoryRouter>
         <ToastProvider>{dialog}</ToastProvider>

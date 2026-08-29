@@ -280,22 +280,31 @@ function SearchComponent() {
 }
 ```
 
-### `useTheme()` -- Theme Toggle
+### `useTheme()` -- die Darstellung des Angemeldeten
 
 ```tsx
 import { useTheme } from '@/hooks/useTheme';
 
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  return <button onClick={toggleTheme}>{theme === 'dark' ? <Sun /> : <Moon />}</button>;
+function ThemeWahl() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+      {theme === 'dark' ? <Sun /> : <Moon />}
+    </button>
+  );
 }
 ```
 
-- `theme`: `'dark' | 'light'`
-- `setTheme(theme)`: Set explicitly
-- `toggleTheme()`: Toggle between dark/light
-- Persists to `localStorage` key `arasul_theme`
-- Applies `.dark` on `<html>`, `.light-mode`/`.dark-mode` on `<body>`
+- `theme`: `'light' | 'dark'` -- Vorgabe `light`
+- `setTheme(theme)`: schreibt `PUT /api/darstellung` und zieht den Benutzer im
+  `AuthContext` nach. Gibt ein Versprechen zurueck; ein Fehler meldet sich
+  ueber `useApi` und der Bildschirm bleibt, wie er war.
+- Quelle ist `admin_users.theme` (Migration 180, Phase H1), NICHT der
+  `localStorage`. Der Wert kommt mit `GET /api/auth/session` herein.
+- Setzt `data-theme="dark"` und die Klasse `dark` auf `<html>`. Hell braucht
+  kein Attribut: Hell ist `:root`.
+- Kein `toggleTheme` mehr: bei zwei Optionen in den Einstellungen waere das
+  Durchschalten ein zweiter Weg in denselben Zustand.
 
 ### `useConfirm()` -- Confirmation Dialogs
 
@@ -560,13 +569,14 @@ renderWithProviders(<MyComponent />, { route: '/settings' });
 
 ---
 
-## Theme System
+## Theme System (Phase H1)
 
-- **Dark mode** = default. `:root` defines dark values. `<html class="dark">`.
-- **Light mode** = `.light-mode` CSS overrides on `<body>`. `<html>` has no `.dark` class.
-- `localStorage` key: `arasul_theme`
-- Use `@custom-variant dark` in CSS for dark-only styles
-- Tailwind `dark:` variant works because of `<html class="dark">`
+- Zwei Themes, **Hell ist die Vorgabe**: `:root` haelt die hellen Werte,
+  `[data-theme='dark']` auf `<html>` ueberschreibt sie.
+- Die Wahl gehoert dem Menschen (`admin_users.theme`), nicht dem Browser.
+  Kein `localStorage`, keine Klasse `.light`.
+- Die Klasse `dark` auf `<html>` bleibt: sie haelt die Tailwind-Utilities
+  `dark:` und `@custom-variant dark` am Leben.
 
 ---
 

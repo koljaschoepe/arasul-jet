@@ -133,9 +133,7 @@ describe('WorkspaceMenuBar', () => {
 
   it('bietet keine Design-/Theme-Auswahl in der Menüleiste', () => {
     render(<WorkspaceMenuBar onLogout={abmelden} />);
-    expect(
-      screen.queryByRole('menuitemradio', { name: /Schwarz|Dunkel|Hell/ })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio', { name: /Hell|Dunkel/ })).not.toBeInTheDocument();
   });
 
   it('zeigt einem Mitarbeiter kein Einstellungen-Zahnrad', () => {

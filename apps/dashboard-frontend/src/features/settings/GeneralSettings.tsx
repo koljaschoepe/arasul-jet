@@ -1,6 +1,6 @@
 import { formatUptime } from '../../utils/formatting';
 import { useState, useEffect, useCallback } from 'react';
-import { Moon, MoonStar, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
+import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
 import { Kopf } from '@marken';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
 import { Label } from '@/components/ui/shadcn/label';
@@ -10,6 +10,13 @@ import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { Section, SectionList } from '@/components/ui/Section';
 
+/**
+ * Zwei Optionen (Phase H1). »Schwarz« ist gefallen: es unterschied sich von
+ * »Dunkel« um zwei Hintergrundstufen, und drei Zeilen an dieser Stelle liessen
+ * einen Menschen zwischen zwei Dingen waehlen, die er auf dem Bildschirm nicht
+ * auseinanderhalten kann. Die Werte heissen `light` und `dark`, weil derselbe
+ * Wert im DOM als `data-theme` steht; deutsch ist die Beschriftung.
+ */
 const THEME_OPTIONS: ReadonlyArray<{
   value: Theme;
   label: string;
@@ -17,22 +24,16 @@ const THEME_OPTIONS: ReadonlyArray<{
   icon: typeof Moon;
 }> = [
   {
-    value: 'black',
-    label: 'Schwarz',
-    description: 'Tiefschwarzes Design mit maximalem Kontrast',
-    icon: MoonStar,
+    value: 'light',
+    label: 'Hell',
+    description: 'Helles Design für bessere Lesbarkeit bei Tageslicht',
+    icon: Sun,
   },
   {
     value: 'dark',
     label: 'Dunkel',
     description: 'Anthrazitfarbenes Design für reduzierte Augenbelastung',
     icon: Moon,
-  },
-  {
-    value: 'light',
-    label: 'Hell',
-    description: 'Helles Design für bessere Lesbarkeit bei Tageslicht',
-    icon: Sun,
   },
 ];
 
@@ -44,14 +45,7 @@ interface SystemInfo {
   build_hash: string;
 }
 
-interface GeneralSettingsProps {
-  /** @deprecated Theme kommt jetzt direkt aus useTheme(); Props bleiben für Aufrufer-Kompatibilität. */
-  theme?: string;
-  /** @deprecated s. theme */
-  onToggleTheme?: () => void;
-}
-
-export function GeneralSettings(_props: GeneralSettingsProps) {
+export function GeneralSettings() {
   const { theme, setTheme } = useTheme();
   const api = useApi();
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
@@ -85,15 +79,20 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
       <SectionList>
         <Section
           title="Erscheinungsbild"
-          icon={theme === 'light' ? <Sun /> : theme === 'dark' ? <Moon /> : <MoonStar />}
-          description="Wähle zwischen schwarzem, dunklem und hellem Design"
+          icon={theme === 'dark' ? <Moon /> : <Sun />}
+          description="Wähle zwischen hellem und dunklem Design"
         >
           <RadioGroup
             value={theme}
-            onValueChange={value => setTheme(value as Theme)}
+            onValueChange={value => {
+              // `setTheme` schreibt gegen das Gerät und meldet einen Fehler
+              // über `useApi` selbst; hier bleibt nur, die abgelehnte Zusage
+              // nicht als unbehandelt stehen zu lassen.
+              void setTheme(value as Theme).catch(() => {});
+            }}
             aria-label="Design auswählen"
             // Plan 009: Optionen konsequent linksbündig (guaranteed), damit
-            // Schwarz/Dunkel/Hell nicht mittig gegenüber dem übrigen linksbündigen
+            // Hell/Dunkel nicht mittig gegenüber dem übrigen linksbündigen
             // Inhalt stehen.
             className="items-start justify-items-start"
           >
@@ -110,7 +109,7 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
                     htmlFor={`theme-${option.value}`}
                     // items-start überschreibt das items-center der Basis-Label-
                     // Klasse — sonst zentriert flex-col die Kinder horizontal und
-                    // der kurze Titel („Schwarz") wirkt mittig (Plan 009, live bestätigt).
+                    // der kurze Titel („Hell") wirkt mittig (Plan 009, live bestätigt).
                     className="flex cursor-pointer flex-col items-start gap-0.5"
                   >
                     <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">

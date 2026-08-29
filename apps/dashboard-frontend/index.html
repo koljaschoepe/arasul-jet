@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de" class="dark">
+<html lang="de">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#101923" />
+    <meta name="theme-color" content="#F6F6F6" />
     <meta name="description" content="Arasul Platform Dashboard - Edge AI Management" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -13,9 +13,13 @@
       /* Minimal pre-CSS-load styles (loading screen only).
          Do NOT add * { margin/padding } here — it's un-layered CSS
          and would override ALL Tailwind @layer utilities. */
+      /* Die Farben der Vorgabe (Theme »Hell«, `:root` in index.css). Sie
+         stehen hier als Literale, weil dieser Block VOR dem Stylesheet gilt --
+         er faerbt genau die Zehntelsekunde zwischen erstem Byte und geladenem
+         CSS. Wer sie aendert, aendert sie dort mit. */
       body {
-        background: #101923;
-        color: #ffffff;
+        background: #f6f6f6;
+        color: #1a1a1a;
         margin: 0;
       }
       .loading {
@@ -24,24 +28,22 @@
         align-items: center;
         height: 100vh;
         font-size: 1.5rem;
-        color: #00ff88;
+        /* War #00FF88 -- die verbotene Gruenfarbe des alten Designsystems, auf
+           Schwarz gerade noch lesbar und auf der neuen hellen Vorgabe gar
+           nicht. `--muted-foreground` des Themes »Hell« (Phase H1). */
+        color: #6b6b6b;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       }
     </style>
   </head>
   <body>
-    <script>
-      // Apply saved theme BEFORE React loads to prevent white flash.
-      // Default is dark (class="dark" on <html>). Only switch if user explicitly chose light.
-      (function() {
-        var t = localStorage.getItem('arasul_theme');
-        if (t === 'light') {
-          document.documentElement.classList.remove('dark');
-          document.documentElement.classList.add('light');
-          document.body.style.background = '#FFFFFF';
-        }
-      })();
-    </script>
+    <!-- Kein Theme-Skript mehr (Phase H1). Das Theme gehoert seit H1 dem
+         angemeldeten Menschen (`admin_users.theme`) und nicht dem Browser; ein
+         Skript hier koennte es also gar nicht kennen, denn wer angemeldet ist,
+         sagt erst `GET /api/auth/session`. Ein weisses Aufblitzen entsteht
+         daraus nicht: die Seite faengt in der Vorgabe HELL an, und die Shell
+         malt ueberhaupt erst, wenn die Sitzungsprobe geantwortet hat
+         (`App.tsx` haelt bis dahin den Ladebildschirm). -->
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root">
       <div class="loading" id="loading-msg">Arasul Platform wird geladen...</div>

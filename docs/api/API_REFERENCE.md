@@ -2173,6 +2173,30 @@ leere Zettel, und zwei Wege in denselben Zustand sind einer zu viel.
 
 Administrator **und** Mitarbeiter — ein Zettel ist Arbeit, keine Verwaltung.
 
+### Darstellung (Phase H1)
+
+Die Darstellung der Oberfläche, **je Mensch**. Zwei Werte: `light` (Vorgabe)
+und `dark`. »Schwarz« ist mit H1 gefallen.
+
+| Method | Endpoint           | Description                                |
+| ------ | ------------------ | ------------------------------------------ |
+| PUT    | `/api/darstellung` | Meine Darstellung setzen, Body `{ theme }` |
+
+Antwort `{ data: { theme } }`. `theme` ist `light` oder `dark`; alles andere
+ist `400` (`schemas/darstellung.js`), nicht `500` aus dem CHECK der Spalte.
+
+**Nur ein Weg, und zwar der schreibende.** Gelesen wird die Darstellung dort,
+wo die Oberfläche ohnehin schon fragt, wer angemeldet ist: `theme` fährt in
+`GET /api/auth/session`, `GET /api/auth/me` und in der Antwort auf
+`POST /api/auth/login` mit. Ein eigener `GET` daneben wäre eine **dritte**
+Anfrage auf jedem Seitenaufbau — und die zwei, die es gibt, sind seit G2 die
+enge Stelle des Geräts. Er käme außerdem zu spät: die Shell braucht das Theme,
+bevor sie das erste Mal malt.
+
+**Keine Kennung in der Adresse**, dieselbe Linie wie `/api/notizen`. Ein
+Administrator stellt hier auch nichts für einen anderen ein: wie jemand seinen
+Bildschirm sieht, ist keine Verwaltungsfrage.
+
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
 > `werkzeuge`, `vorlagen`) is a reserved segment: a flow named
 > exactly `laeufe` could not be fetched via `GET /:name`.
