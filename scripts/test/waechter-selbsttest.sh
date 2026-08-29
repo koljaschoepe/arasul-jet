@@ -480,11 +480,16 @@ echo 'export const D = () => <div role="dialog" />;' > "$TIEF/Tief.tsx"
 pruefe "Bausteine: auch ausserhalb von features/ wird gesucht" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 rm "$TIEF/Tief.tsx"
 
-# components/ui/ ist der Ort der Bausteine selbst und bleibt ausgenommen.
+# components/ui/ ist seit H5 NICHT mehr ausgenommen. Bis H4 standen dort die
+# Bausteine selbst, und ein Waechter, der `FilterBar` meldet, weil `FilterBar`
+# eine Tab-Leiste ist, meldet die Loesung als Problem. Sie stehen dort nicht
+# mehr -- damit faellt der Grund, und ein Ordner, in dem die Regel nicht gilt,
+# ist der Ort, an dem der naechste zweite Baustein entsteht.
 UI="$TMP/bau/apps/dashboard-frontend/src/components/ui"
 mkdir -p "$UI"
-echo 'export const E = () => <div role="dialog" />;' > "$UI/Modal.tsx"
-pruefe "Bausteine: components/ui bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+echo 'export const E = () => <div role="dialog" />;' > "$UI/Handdialog.tsx"
+pruefe "Bausteine: components/ui ist nicht mehr ausgenommen" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$UI/Handdialog.tsx"
 
 # Regel 5 und 6 (Phase H3): kein Name der Bibliothek zweimal, kein Primitiv
 # ohne Schaustueck. Beide brauchen eine Bibliothek IM Pruefbaum -- ohne sie

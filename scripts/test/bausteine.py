@@ -10,23 +10,44 @@ dass die naechste Seite die Klassen der vorigen kopiert hat. Einmal von Hand
 aufraeumen haelt das nicht auf; morgen kopiert die uebernaechste Seite wieder.
 
 Geprueft wird deshalb die Abwesenheit der Handarbeit, nicht die Anwesenheit der
-Bausteine. Wer eine Seite baut, soll `Kopf`, `Section` und `FilterBar`
-benutzen, weil der Weg daran vorbei versperrt ist.
+Bausteine. Wer eine Seite baut, soll `Kopf`, `Feldgruppe` und `Tabs` aus
+`@marken` benutzen, weil der Weg daran vorbei versperrt ist.
 
 Was gemeldet wird
 -----------------
-In allem unter `src/`, ausser `src/components/ui/`:
+In ALLEM unter `src/`, ohne Ausnahme (siehe „Der Ausnahmeordner ist weg"):
 
 1. `<h1>`                     Der Seitentitel gehoert in `Kopf` (`@marken`).
 2. `pb-6 border-b border-border`
-   und `mb-8 pb-6 border-b`   Die Trennlinie einer Feldgruppe gehoert in `Section`.
+   und `mb-8 pb-6 border-b`   Die Trennlinie einer Feldgruppe gehoert in
+                              `Feldgruppe` (`@marken`).
 3. `border-b-2` an einem Knopf
-   in einer Leiste             Eine Tab-Leiste gehoert in `FilterBar`.
-4. `role="dialog"` von Hand   Ein Dialog gehoert in `Modal` (auf Radix).
+   in einer Leiste             Eine Tab-Leiste gehoert in `Tabs` (`@marken`).
+4. `role="dialog"` von Hand   Ein Dialog gehoert in `Dialogform` (`@marken`,
+                              auf Radix).
 5. Ein Name, den `@marken` schon ausgibt, noch einmal in der Shell erklaert
    -- oder ein Import aus dem alten `components/ui/shadcn/` (Phase H3).
 6. Ein Primitiv ODER Muster ohne Schaustueck auf `/entwickler/bausteine`
    (Phase H3, um die Muster erweitert in H4).
+
+Der Ausnahmeordner ist weg (Phase H5)
+-------------------------------------
+Bis H4 war `src/components/ui/` ausgenommen, und das war richtig, solange die
+Bausteine DORT standen: ein Waechter, der `FilterBar` meldet, weil `FilterBar`
+eine Tab-Leiste ist, meldet die Loesung als Problem.
+
+Seit H5 stehen sie nicht mehr dort. `Modal` und `ConfirmModal` heissen jetzt
+`Dialogform` und `Bestaetigung`, `StatTile`/`StatGrid` heissen `Kennzahl` und
+`Kennzahlen`, und `FilterBar` ist ganz gefallen -- es war eine zweite
+Tab-Leiste neben dem Primitiv `Tabs`. Was in `components/ui/` blieb, weiss
+ueber DIESES Geraet Bescheid (`AuthCard` mit dem Maskottchen und dem
+Produktnamen, `SkeletonList` mit der Form einer Zeile hier, `ErrorBoundary`,
+`NichtGefunden`) -- und keines davon braucht die Ausnahme.
+
+Damit ist der Waechter zum ersten Mal SCHARF: ein `h1`, eine Tab-Leiste, eine
+Feldgruppen-Trennlinie oder ein handgebauter Dialog ist ueberall in `src/` ein
+Befund. Ein Ordner, in dem die Regel nicht gilt, ist der Ort, an dem der
+naechste zweite Baustein entsteht.
 
 Zur vierten Regel: am 20.08.2026 trugen fuenf Dateien `role="dialog"` selbst,
 waehrend fuenf andere den gemeinsamen `Modal` benutzen. VIER der fuenf
@@ -40,8 +61,10 @@ Geschmack, sondern eine Wette gegen eine getestete Bibliothek.
 
 Was NICHT gemeldet wird
 -----------------------
-`src/components/ui/` selbst, denn dort stehen die Bausteine. Testdateien, denn
-ein Test darf pruefen, was er will. Bis zum 20.08.2026 blieben auch grosse
+`packages/marken/`, denn dort stehen die Bausteine: `Tabs` traegt `border-b-2`,
+`Kopf` traegt das `h1`, `Feldgruppe` traegt die Trennlinie. Der Waechter liest
+nur `apps/dashboard-frontend/src`, also gar nicht erst dorthin. Testdateien,
+denn ein Test darf pruefen, was er will. Bis zum 20.08.2026 blieben auch grosse
 Teile von `src/` ungeprueft, weil nur `features/` und `components/layout/`
 durchsucht wurden; darin verschwand ein handgebauter Dialog. Und `<h2>` bis `<h4>`: eine Ueberschrift
 innerhalb eines Abschnitts ist erlaubt, nur der Seitentitel ist es nicht.
@@ -214,32 +237,33 @@ REGELN = [
     ),
     (
         re.compile(r'pb-6 border-b border-border'),
-        'Feldgruppen-Trennlinie von Hand. Gehoert in Section (components/ui/Section.tsx).',
+        'Feldgruppen-Trennlinie von Hand. Gehoert in Feldgruppe (@marken).',
     ),
     (
         re.compile(r'border-b-2\b'),
-        'Tab-Leiste von Hand. Gehoert in FilterBar (components/ui/FilterBar.tsx).',
+        'Tab-Leiste von Hand. Gehoert in Tabs (@marken).',
     ),
     (
         # Fasst alle vier Schreibweisen: role="dialog", role='dialog',
         # role={'dialog'} und role={"dialog"}. Ein zur Laufzeit berechnetes
         # role bleibt unsichtbar, so wie bei den anderen Regeln auch.
         re.compile(r'''role=(?:['"]dialog['"]|\{\s*['"]dialog['"]\s*\})'''),
-        'Dialogmechanik von Hand. Gehoert in Modal (components/ui/Modal.tsx, auf Radix).',
+        'Dialogmechanik von Hand. Gehoert in Dialogform (@marken, auf Radix).',
     ),
 ]
 
-# Geprueft wird alles unter src/, ausser den Bausteinen selbst und den
-# generierten shadcn-Teilen. Bis zum 20.08.2026 standen hier nur `features` und
-# `components/layout`, und genau dadurch war `components/editor/tiptap/
-# TipTapEditor.tsx` unsichtbar: ein handgebauter Dialog, den derselbe PR in
-# seiner eigenen Beschreibung aufzaehlte. Ein Waechter, dessen Suchbereich
-# kleiner ist als sein Anspruch, meldet Ruhe, wo keine ist.
+# Geprueft wird ALLES unter src/. Bis zum 20.08.2026 standen hier nur
+# `features` und `components/layout`, und genau dadurch war
+# `components/editor/tiptap/TipTapEditor.tsx` unsichtbar: ein handgebauter
+# Dialog, den derselbe PR in seiner eigenen Beschreibung aufzaehlte. Ein
+# Waechter, dessen Suchbereich kleiner ist als sein Anspruch, meldet Ruhe, wo
+# keine ist.
+#
+# Seit H5 gilt das auch fuer `components/ui/`: die Bausteine stehen dort nicht
+# mehr, also gibt es keinen Grund mehr, die Regel dort auszusetzen.
 WURZELN = ['apps/dashboard-frontend/src']
 
-AUSGENOMMENE_ORDNER = (
-    'apps/dashboard-frontend/src/components/ui',  # dort stehen die Bausteine selbst
-)
+AUSGENOMMENE_ORDNER = ()
 
 
 def pruefe(wurzel: Path) -> list[str]:
