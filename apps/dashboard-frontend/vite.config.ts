@@ -47,8 +47,49 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    // No manualChunks — Vite's automatic splitting avoids circular
-    // dependency TDZ errors that manual splitting caused.
+    // Weiterhin KEIN `manualChunks`: Vites selbsttaetige Aufteilung vermeidet
+    // die TDZ-Fehler aus Ringschluessen, die eine Aufteilung von Hand einmal
+    // gebracht hat. Was hier steht, ist etwas anderes -- eine Auskunft ueber
+    // die Bibliothek, keine Zuordnung von Code zu Buendeln.
+    rollupOptions: {
+      treeshake: {
+        /**
+         * DIE BIBLIOTHEK HAT KEINE SEITENEFFEKTE (Phase H5).
+         *
+         * Jede Datei unter `packages/marken/src` ist eine reine Deklaration:
+         * eine Komponente, ein Typ, eine Funktion. Keine registriert etwas
+         * beim Laden, keine wird um ihrer Wirkung willen importiert. Rollup
+         * kann das nicht von selbst wissen -- die uebliche Auskunft dafuer
+         * ist `"sideEffects": false` in einer `package.json`, und die hat die
+         * Bibliothek mit Absicht nicht: sie ist ein PFAD-ALIAS und kein
+         * npm-Paket (`resolve.alias` oben, Regel 7 der Wurzel-`CLAUDE.md`).
+         * Ohne die Auskunft nimmt Rollup Seiteneffekte an und behaelt jedes
+         * Modul, das ueber das Barrel `@marken` erreichbar ist.
+         *
+         * WAS DAS GEKOSTET HAT. `App.tsx`, `Login`, `ErrorBoundary` und vier
+         * weitere Dateien werden NICHT nachgeladen, sondern stehen im
+         * Einstieg -- und jede von ihnen holt etwas aus `@marken`. Damit lag
+         * seit H4 der ganze Satz von sechsundvierzig Primitiven im ersten
+         * Buendel, mitsamt `recharts`, `cmdk`, `react-day-picker`,
+         * `embla-carousel` und `input-otp`. Am fertigen Bau gemessen (gzip,
+         * `index.html` plus alles, was es als `modulepreload` nennt):
+         *
+         *     H3 (3447ec19)   208,20 kB
+         *     H4 (e1359afd)   388,95 kB      +180,75
+         *     H5 mit dieser Zeile  161,77 kB   -227,18 gegen H4,
+         *                                      -46,43 gegen H3
+         *
+         * Es war also nie etwas dazugekommen, was ein Mensch beim Anmelden
+         * braucht -- es war von „spaeter" nach „sofort" gerutscht. Der
+         * Kalender, das Karussell und die Suchliste liegen jetzt wieder in
+         * dem Buendel, das sie benutzt.
+         *
+         * `.css` bleibt ausgenommen: ein Stylesheet IST sein Seiteneffekt.
+         */
+        moduleSideEffects: (id: string) =>
+          !id.includes('/packages/marken/src/') || id.endsWith('.css'),
+      },
+    },
   },
   test: {
     globals: true,
