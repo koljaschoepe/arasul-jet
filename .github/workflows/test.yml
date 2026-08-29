@@ -516,6 +516,17 @@ jobs:
       - name: Toter Code (Plan 023 B3)
         run: bash scripts/test/toter-code.sh
 
+      # Phase H6: die Bibliothek geht als PAKET hinaus -- an das Ara-Kit, das
+      # sie in seine App-Vorlage spiegelt, und an jede App, die ein Partner
+      # daraus baut. Ob das wirklich geht, beantwortet in diesem Repo niemand:
+      # hier steht die Shell daneben, mit ihrem Alias, ihrer package.json,
+      # ihrem index.css und ihrem node_modules. Deshalb baut diese Reihe
+      # AUSSERHALB des Repos ein frisches Vite-Projekt, holt die
+      # Abhaengigkeiten, die der Stempel nennt, und uebersetzt damit. Sie
+      # braucht Netz und steht darum nicht in `run-tests.sh`.
+      - name: Ein frisches Vite-Projekt nimmt das Marken-Paket und baut (H6)
+        run: bash scripts/test/marken-paket-abnahme.sh
+
   # ----------------------------------------------------------------------------
   # Installation aus dem Artefakt auf einem leeren Rechner (Phase C10,
   # 28.08.2026).
@@ -557,6 +568,15 @@ jobs:
           wurzel=$(find /tmp/geraet -maxdepth 1 -mindepth 1 -type d | head -1)
           echo "wurzel=$wurzel" >> "$GITHUB_OUTPUT"
           echo "Ausgepackt nach: $wurzel"
+
+      # Phase H6: das Artefakt ist der Traeger des Designsystems. Das Ara-Kit
+      # packt es nach `.ara/mirror/` aus und spiegelt `packages/marken/src/`
+      # in seine App-Vorlage; der Stempel daneben sagt, WAS dazugehoert.
+      # Gefragt wird am ausgepackten Baum und nicht am Bauplatz -- eine Zeile
+      # in der Aufraeumliste oben, die die Bibliothek mitnimmt, faellt sonst
+      # erst dem Partner auf.
+      - name: Das Artefakt traegt das Marken-Paket (H6)
+        run: python3 scripts/deploy/marken-paket.py --pruefen "${{ steps.auspacken.outputs.wurzel }}"
 
       # Der Lauf selbst. Das Passwort ist fest und offen: es lebt in einem
       # Wegwerf-Runner und wird von keinem Dienst angenommen.

@@ -21,6 +21,13 @@
 # Arbeitsverzeichnis. Ein Artefakt aus einem schmutzigen Baum gibt es damit
 # nicht, und zweimal derselbe Commit gibt zweimal denselben Inhalt.
 #
+# ES TRAEGT DAS DESIGNSYSTEM ALS PAKET (Phase H6). `packages/marken/` liegt
+# ohnehin darin -- die Shell wird am Geraet daraus gebaut --, und daneben
+# schreibt dieser Bau `packages/marken/marken.json`: die Fassung, die
+# Abhaengigkeiten und jede Datei mit ihrem sha256. Das Ara-Kit spiegelt von
+# dort in seine App-Vorlage; der Stempel ist die Auskunft, WAS zum Paket
+# gehoert. Siehe `scripts/deploy/marken-paket.py`.
+#
 # DER EINSTIEGSPUNKT NENNT SICH SELBST. Im Wurzelverzeichnis des Artefakts
 # liegen `install.sh` und `arasul-release.json`; die JSON-Datei nennt unter
 # `einstiegspunkt` den Dateinamen. Das Ara-Kit (`lib/install.mjs`) und der
@@ -124,11 +131,36 @@ cat > "${BAUM}/arasul-release.json" <<JSON
 }
 JSON
 
+# Das Designsystem als Paket (Phase H6, 29.08.2026). Das Artefakt IST der
+# Traeger: das Ara-Kit packt es nach `.ara/mirror/` aus und spiegelt
+# `packages/marken/src/` in seine App-Vorlage. Der Ordner liegt ohnehin darin
+# -- die Shell wird am Geraet daraus gebaut --, was fehlte, war die Auskunft,
+# WAS davon das Paket ist: die Fassung, die Abhaengigkeiten und jede Datei mit
+# ihrem Hash. Ohne sie liest ein Spiegel die oberste Ebene, laesst `primitive/`
+# und `muster/` liegen und traegt danach eine `index.ts`, die auf zwei Ordner
+# zeigt, die es bei ihm nicht gibt.
+#
+# Der Stempel steht NEBEN der Bibliothek und kopiert sie nicht: zwei Kopien
+# derselben Quelle in einem Artefakt waeren genau die zweite Wahrheit, gegen
+# die diese Bibliothek gebaut ist. Was der Stempel nicht nennt (`__tests__/`,
+# `browser.ts`, `vite.config.mjs`), gehoert nicht zum Paket.
+python3 "${WURZEL}/scripts/deploy/marken-paket.py" \
+  --wurzel "$BAUM" \
+  --stempel "${BAUM}/packages/marken/marken.json" \
+  --produktfassung "$FASSUNG" \
+  --commit "$COMMIT"
+
 if [ ! -f "${BAUM}/install.sh" ]; then
   echo "Im Artefakt fehlt install.sh -- der Einstiegspunkt, den die JSON-Datei nennt." >&2
   exit 1
 fi
 chmod +x "${BAUM}/install.sh" "${BAUM}/arasul"
+
+# Die Gegenprobe am fertigen Baum: jede Datei, die der Stempel nennt, liegt
+# darin und passt zu ihrem Hash. Sie kostet nichts und faengt den einen Fall,
+# den sonst erst ein Partner faende -- eine Aufraeumzeile weiter oben, die die
+# Bibliothek mitnimmt.
+python3 "${WURZEL}/scripts/deploy/marken-paket.py" --pruefen "$BAUM"
 
 mkdir -p "$AUSGABE"
 AUSGABE="$(cd "$AUSGABE" && pwd)"

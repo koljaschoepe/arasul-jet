@@ -1110,8 +1110,56 @@ pruefe "Marken: derselbe Name aus zwei Barrels ist rot" 1 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 cp "$TMP/bausteine.echt" "$MA_BAUSTEINE"
 
+# Punkt 8 (Phase H6): die Beispielapp nennt die Fassung, die sie beim
+# Einspielen wirklich bekommt. Ohne den Punkt haette die Auskunft, um die es
+# in H6 geht, ihr erstes falsches Beispiel im eigenen Repo.
+mkdir -p "$MA/tests/beispielapp"
+cp "$WURZEL/tests/beispielapp/app.json" "$MA/tests/beispielapp/app.json"
+pruefe "Marken: die Beispielapp steht auf dieser Fassung" 0 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+python3 - "$MA/tests/beispielapp/app.json" <<'PY_INNER'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+d = json.loads(p.read_text(encoding="utf-8"))
+d["marken"] = "0.0.1"
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+PY_INNER
+pruefe "Marken: eine veraltete Fassung im Manifest ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+python3 - "$MA/tests/beispielapp/app.json" <<'PY_INNER'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+d = json.loads(p.read_text(encoding="utf-8"))
+d.pop("marken", None)
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+PY_INNER
+pruefe "Marken: gar keine Fassung im Manifest ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$WURZEL/tests/beispielapp/app.json" "$MA/tests/beispielapp/app.json"
+
 pruefe "Marken: nach jeder Reparatur wieder gruen" 0 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+
+# --- marken-paket.py --------------------------------------------------------
+# Der Stempel im Auslieferungsartefakt sagt, WAS zum Paket gehoert. Ein
+# Stempel, der eine Datei nennt, die nicht mehr da ist -- oder eine, die
+# jemand von Hand nachgebessert hat --, faellt ohne diesen Waechter erst dem
+# Partner auf, der die Bibliothek spiegelt.
+cp "$WURZEL/apps/dashboard-frontend/package.json" "$MA/apps/dashboard-frontend/package.json"
+python3 "$WURZEL/scripts/deploy/marken-paket.py" --wurzel "$MA" \
+  --stempel "$MA/packages/marken/marken.json" >/dev/null
+pruefe "Marken-Paket: ein frisch gestempelter Baum traegt es" 0 \
+  python3 "$WURZEL/scripts/deploy/marken-paket.py" --pruefen "$MA"
+printf '\n/* von Hand */\n' >> "$MA/packages/marken/src/marken.css"
+pruefe "Marken-Paket: eine von Hand verstellte Datei ist rot" 1 \
+  python3 "$WURZEL/scripts/deploy/marken-paket.py" --pruefen "$MA"
+cp "$TMP/marken.css.echt" "$MA_CSS"
+rm -f "$MA/packages/marken/src/muster/Datenliste.tsx"
+pruefe "Marken-Paket: eine fehlende Datei aus muster/ ist rot" 1 \
+  python3 "$WURZEL/scripts/deploy/marken-paket.py" --pruefen "$MA"
+rm -f "$MA/packages/marken/marken.json"
+pruefe "Marken-Paket: ein Baum ohne Stempel ist rot" 1 \
+  python3 "$WURZEL/scripts/deploy/marken-paket.py" --pruefen "$MA"
 rm -rf "$MA"
 
 if [ "$FEHLER" = "0" ]; then

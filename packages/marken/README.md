@@ -167,6 +167,55 @@ Die Stylesheets gehören dazu und werden getrennt geladen:
 Eine Änderung nur an einem Stylesheet braucht keinen neuen Bau, aber sie
 erreicht eine App am Gerät erst beim nächsten Einspielen.
 
+## Die Auslieferung an Apps (Phase H6)
+
+Bis H5 hatte die Bibliothek einen Ausgang nach draußen: das eingecheckte
+Bündel für eine App ohne Bau. Wer eine App **mit** Bau schrieb, nahm „die
+Quelle" — und das hieß: irgendein Ordner in irgendeinem Checkout. Das Ara-Kit
+spiegelt sie aus dem Auslieferungsartefakt und las dort einen **flachen**
+Ordner; seit H3 liegen die Primitive in `primitive/`, seit H4 die Muster in
+`muster/`, und ein Spiegel, der nur die oberste Ebene mitnimmt, trägt eine
+`index.ts`, die auf zwei Ordner zeigt, die es bei ihm nicht gibt.
+
+Seit H6 gibt es das **Paket**, und es beantwortet die Frage, was dazugehört,
+einmal und nachprüfbar:
+
+```
+marken.json        Fassung, Abhängigkeiten und JEDE Datei mit ihrem sha256
+src/               die Quelle (ohne `__tests__/`, ohne `browser.ts`)
+browser/marken.js  das Bündel für eine App ohne Bau
+README.md          `EINBAU.md` — wie man es in ein Projekt einbaut
+```
+
+```bash
+python3 scripts/deploy/marken-paket.py --ausgabe dist/marken   # das Paket
+python3 scripts/deploy/marken-paket.py --pruefen <baum>        # trägt er es?
+bash scripts/test/marken-paket-abnahme.sh                      # baut es woanders?
+```
+
+**Das Paket ist, was `marken.json` nennt.** Deshalb gibt es zwei Aufrufe und
+trotzdem keine zwei Wahrheiten: `--ausgabe` legt es als eigenen Ordner hin,
+`--stempel` schreibt nur die `marken.json` — so trägt das
+Auslieferungsartefakt das Paket neben `packages/marken/`, ohne die Bibliothek
+ein zweites Mal mitzuschleppen (`scripts/deploy/artefakt-bauen.sh`).
+
+Die **Abhängigkeiten** sind nicht gepflegt, sondern gelesen: jeder Import aus
+`src/`, der kein relativer Pfad ist, muss in der `package.json` der Shell
+stehen, und von dort kommt die Version. Eine neue Abhängigkeit steht damit ohne
+Zutun im Paket; eine, die niemand installieren kann, bringt den Bau zum Stehen.
+
+Gemessen wird es **außerhalb dieses Repos**: `marken-paket-abnahme.sh` legt ein
+frisches Vite-Projekt in einem Temp-Ordner an, holt die Abhängigkeiten, die der
+Stempel nennt, kopiert `src/` hinein und übersetzt (`tsc --noEmit`,
+`vite build`). Hier baut die Bibliothek immer — die Shell steht daneben, mit
+ihrem Alias, ihrer `package.json` und ihrem `node_modules`. Ein Paket, das nur
+in seinem eigenen Repo baut, ist keins.
+
+Eine App **sagt in ihrem `app.json`**, auf welcher Fassung sie steht
+(`"marken": "3.1.0"`), und die App-Verwaltung des Geräts meldet eine, die älter
+ist als die Shell. `scripts/test/marken.py` (Punkt 8) hält die Angabe der
+Beispielapp an dieser Bibliothek fest.
+
 ## Das Bündel für Apps ohne Bau
 
 ```bash
