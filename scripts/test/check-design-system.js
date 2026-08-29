@@ -159,6 +159,52 @@ function checkIndexCSS() {
   return errors;
 }
 
+// --- index.html: nichts Ungeschichtetes --------------------------------------
+
+/**
+ * Der `<style>`-Block in `index.html` steht vollstaendig in einer Schicht.
+ *
+ * DER FUND VOM 29.08.2026 (Phase H2, am Orin gemessen). Dort stand
+ * `body { background: #f6f6f6; color: #1a1a1a }` OHNE Schicht, und
+ * ungeschichtetes CSS gewinnt gegen jede Schicht -- auch gegen
+ * `@layer base`, wo `body` seine Farbe aus `var(--background)` bekommt. Im
+ * dunklen Theme meldete `<html>` also `data-theme="dark"` und
+ * `--background: #141414`, waehrend der Hintergrund der Seite hell blieb und
+ * die geerbte Textfarbe fast schwarz. Jede dunkle Zelle der Theme-Abnahme war
+ * rot, und die Datei sagte selbst im Kommentar, warum das passieren kann
+ * („Do NOT add * { margin/padding } here") -- nur nicht ueber ihre eigene
+ * `body`-Regel.
+ *
+ * Der Block darf es geben: er faerbt die Zehntelsekunde vor dem Stylesheet.
+ * Er darf nur nicht gewinnen, sobald das Stylesheet da ist.
+ */
+function checkIndexHtml() {
+  const errors = [];
+  const htmlPath = path.join(REPO, 'apps', 'dashboard-frontend', 'index.html');
+  if (!fs.existsSync(htmlPath)) return errors;
+  const content = fs.readFileSync(htmlPath, 'utf8');
+
+  for (const block of content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
+    // Kommentare weg: sie enthalten Klammern und Selektoren als Beispiel.
+    const css = block[1].replace(/\/\*[\s\S]*?\*\//g, ' ');
+    // Was ausserhalb aller `@layer { ... }` uebrig bleibt.
+    let rest = css;
+    let vorher;
+    do {
+      vorher = rest;
+      rest = rest.replace(/@layer[^{]*\{(?:[^{}]|\{[^{}]*\})*\}/g, ' ');
+    } while (rest !== vorher);
+    const regel = rest.match(/([^{}]+)\{[^{}]*\}/);
+    if (regel) {
+      errors.push(
+        `index.html: \`${regel[1].trim().split('\n').pop().trim()}\` steht ohne Schicht — ` +
+          'ungeschichtetes CSS gewinnt gegen jede @layer, auch gegen das Theme'
+      );
+    }
+  }
+  return errors;
+}
+
 // --- Rollkaesten enthalten, was sie wegrollen --------------------------------
 
 /**
@@ -251,6 +297,7 @@ function main() {
   const loginErrors = checkLoginCSS();
   const indexErrors = checkIndexCSS();
   const rollErrors = checkRollkaesten(cssFiles);
+  const htmlErrors = checkIndexHtml();
 
   let failed = false;
 
@@ -306,6 +353,14 @@ function main() {
     failed = true;
   } else {
     console.log('  PASS  Jeder Rollkasten enthaelt, was er wegrollt');
+  }
+
+  // 7. index.html
+  if (htmlErrors.length > 0) {
+    htmlErrors.forEach(e => console.log(`  FAIL  ${e}`));
+    failed = true;
+  } else {
+    console.log('  PASS  index.html hat kein ungeschichtetes CSS');
   }
 
   console.log('');

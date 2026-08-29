@@ -400,6 +400,26 @@ ist **unverändert** — das Stylesheet liegt nicht im Bündel, und der Neubau
 liefert Byte für Byte dieselbe Datei. Eine App am Gerät bekommt die neue
 `marken.css` erst beim **nächsten Einspielen**: sie liegt neben der App und
 nicht in der Shell.
+Der Lauf der Theme-Abnahme gegen den Orin **vor** dem Deploy hat dabei einen
+Fund gemacht, der nicht der App gehörte, sondern der Shell: **jede dunkle
+Zelle war rot**, an jeder Breite, und `<html>` meldete brav
+`data-theme="dark"` samt `--background: #141414`, während
+`getComputedStyle(document.body).backgroundColor` bei `rgb(246, 246, 246)`
+blieb. Nicht der Übergang (`transition: background-color`, die Vermutung aus
+H1), sondern der `<style>`-Block in `index.html`, der die Zehntelsekunde vor
+dem Stylesheet färbt: er stand **ohne Schicht** da, und ungeschichtetes CSS
+gewinnt gegen jede `@layer` — auch gegen `@layer base`, wo `body` seine Farbe
+aus `var(--background)` bekommt. Der Hintergrund der Seite war damit auf
+`#f6f6f6` genagelt und die geerbte Textfarbe auf `#1a1a1a`, also fast schwarz
+auf dunkel. Die Datei warnte im eigenen Kommentar vor genau dieser Falle
+(„Do NOT add `* { margin/padding }` here") — nur nicht über ihre eigene
+`body`-Regel. Der Block steht jetzt in `@layer flackerschutz`, und weil er vor
+dem `<link>` steht, ist das die **unterste** Schicht: er färbt weiter, was er
+färben soll, und verliert, sobald das Stylesheet da ist. Am selben Bau
+gegengeprüft, einmal mit und einmal ohne Schicht: ohne bleibt `body` im
+dunklen Theme bei `rgb(246, 246, 246)`, mit steht `rgb(20, 20, 20)` da.
+`check-design-system.js` hält die Regel — kein ungeschichtetes CSS in
+`index.html`.
 
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 

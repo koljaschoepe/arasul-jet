@@ -56,6 +56,17 @@ ein zweiter Weg in denselben Zustand).
 was abweicht. Komponenten brauchen keine Theme-Zweige; wer Tokens benutzt,
 folgt dem Theme.
 
+**Ungeschichtetes CSS gewinnt gegen jede `@layer`** — auch gegen `@layer
+base`, wo `body` seine Farbe aus `var(--background)` bekommt, und damit gegen
+das Theme. Der `<style>`-Block in `index.html`, der die Zehntelsekunde vor dem
+Stylesheet färbt, stand bis Phase **H2** ohne Schicht da und nagelte den
+Hintergrund der Seite auf `#f6f6f6` und die geerbte Textfarbe auf `#1a1a1a`:
+im dunklen Theme meldete `<html>` `--background: #141414`, und `body` blieb
+hell. Er steht jetzt in `@layer flackerschutz`, und weil der Block **vor** dem
+`<link>` auf das Stylesheet kommt, ist das die unterste Schicht.
+`check-design-system.js` lässt in `index.html` nichts Ungeschichtetes mehr
+durch.
+
 | Token                | Hell (`:root`, Vorgabe) | Dunkel                   |
 | -------------------- | ----------------------- | ------------------------ |
 | `--background`       | `#F6F6F6`               | `#141414`                |
