@@ -214,6 +214,14 @@ probe "der Zeiger nennt jetzt B" grep -qx "$B" "$ARASUL_ZEIGER"
 # Docker jede fehlende Bind-Quelle LEER anlegen, waehrend die Datenbank im
 # gemeinsamen Volume weiterlebt -- die halbe Migration von der anderen Seite.
 probe "./arasul weigert sich in A" bash -c "! (cd '$A' && ./arasul status)"
+# Derselbe Riegel auf dem Weg nach einem Stromausfall: `ordered-startup.sh` ist
+# der ExecStart der systemd-Unit, und eine stehengebliebene Unit zeigt nach
+# einem abgebrochenen Update noch auf das alte Verzeichnis.
+# Gemessen wird die MELDUNG, nicht nur der Rueckgabewert: dieses Skript legt
+# gleich darauf `/arasul/logs` an und scheiterte auf einem Laeufer ohne das
+# Verzeichnis ohnehin -- der Riegel waere sonst gruen, ohne zu greifen.
+probe "ordered-startup.sh weigert sich in A" bash -c \
+  "grep -q 'nicht mehr das Geraet' <<<\"\$(bash '$A/scripts/system/ordered-startup.sh' --skip-pull 2>&1)\""
 
 # --- docker compose kommt mit der uebernommenen Konfiguration zurecht -------
 # Die Geheimnisse sind Dateien unter `config/secrets/`, und compose mountet sie
