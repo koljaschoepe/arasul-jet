@@ -1162,6 +1162,59 @@ pruefe "Marken-Paket: ein Baum ohne Stempel ist rot" 1 \
   python3 "$WURZEL/scripts/deploy/marken-paket.py" --pruefen "$MA"
 rm -rf "$MA"
 
+# --- check-design-system.js: die Tailwind-4-Schreibweise --------------------
+# Der Fund vom 29.08.2026 (J31): `w-[--sidebar-breite]` erzeugt unter
+# Tailwind 4 `width: --sidebar-breite`, und das verwirft der Browser wortlos.
+# Nichts wird davon rot -- die Klasse ist da, die Regel ist da, nur ihr Inhalt
+# ist kein Wert. Der Waechter muss deshalb DREI Dinge auseinanderhalten: die
+# alte Kurzform (rot), die richtige Schreibweise (gruen) und das SETZEN einer
+# Variablen `[--name:wert]`, das es in Tailwind 4 unveraendert gibt (gruen).
+DS="$TMP/ds"
+mkdir -p "$DS/apps/dashboard-frontend/src" "$DS/packages/marken/src"
+cp "$WURZEL/apps/dashboard-frontend/src/index.css" "$DS/apps/dashboard-frontend/src/index.css"
+cp "$WURZEL/apps/dashboard-frontend/index.html" "$DS/apps/dashboard-frontend/index.html"
+cp "$WURZEL/packages/marken/src/theme.css" "$DS/packages/marken/src/theme.css"
+cp "$WURZEL/packages/marken/src/marken.css" "$DS/packages/marken/src/marken.css"
+cat > "$DS/packages/marken/src/leiste.tsx" <<'BEISPIEL'
+export function Leiste() {
+  return <div className="p-3 [--breite:16rem] w-(--breite) min-h-(--hoehe)" />;
+}
+BEISPIEL
+pruefe "Designsystem: runde Klammern und ein gesetzter Wert sind gruen" 0 \
+  node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
+
+cat > "$DS/packages/marken/src/leiste.tsx" <<'BEISPIEL'
+export function Leiste() {
+  return <div className="p-3 [--breite:16rem] w-[--breite]" />;
+}
+BEISPIEL
+pruefe "Designsystem: w-[--var] in der Bibliothek ist rot" 1 \
+  node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
+rm "$DS/packages/marken/src/leiste.tsx"
+
+# Dieselbe Regel gilt in der Shell -- die Ursache ist dort dieselbe: ein
+# Schnipsel aus einer Vorlage, die fuer Tailwind 3 geschrieben wurde.
+cat > "$DS/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+export function Seite() {
+  return <div className="h-[--zellgroesse]" />;
+}
+BEISPIEL
+pruefe "Designsystem: h-[--var] in der Shell ist rot" 1 \
+  node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
+
+# Und der Waechter meldet nicht seine eigene Erklaerung: wer aufschreibt,
+# WARUM `w-[--x]` falsch ist, muss es hinschreiben duerfen.
+cat > "$DS/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+// Frueher stand hier `h-[--zellgroesse]`; Tailwind 4 kennt das nicht mehr.
+/* auch nicht als w-[--breite] im Block. */
+export function Seite() {
+  return <div className="h-(--zellgroesse)" />;
+}
+BEISPIEL
+pruefe "Designsystem: die Kurzform im Kommentar ist gruen" 0 \
+  node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
+rm -rf "$DS"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

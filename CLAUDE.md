@@ -913,6 +913,31 @@ Eintrag umgezogen — und mit den Rechten dieses Ordners kam aus dem Tar 755
 statt 700, ein Update hätte die Geheimnisse still lesbar gemacht. Siehe
 [`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md).
 
+Seit dem Auftrag **tailwind-4-variablenbreiten** (29.08.2026, J31) steht eine
+**Variable in einem Utility in runden Klammern**: `w-(--sidebar-breite)`.
+Tailwind 3 kannte eine Kurzform und schenkte der eckigen Form ihr `var()`;
+Tailwind 4 tut das nicht mehr, und dieselbe Klasse erzeugt seither
+`width: --sidebar-breite` — keine Länge, sondern ein Name. Der Browser
+verwirft die Deklaration **wortlos**, die Breite fällt auf `auto` zurück, und
+ein leerer Platzhalter ist damit null Pixel breit. Im Rahmen des Orin
+gemessen: die Seitenleiste lag über ihrem Inhalt, weil ihr Platzhalter die
+Spalte nicht mehr freihielt. Betroffen waren `sidebar`, `calendar`
+(`--cell-size` in sieben Klassen) und `Suchauswahl` (die Liste war nicht so
+breit wie ihr Feld) — drei Dateien der Bibliothek, und über sie die ganze
+Shell. Das **Setzen** einer Variablen bleibt, wie es war: `[--cell-size:2rem]`
+ist eine Deklaration und keine Kurzform. Die Bibliothek steht auf **3.1.1**,
+obwohl kein Baustein dazukommt: eine App auf 3.1.0 bekommt die drei kaputt,
+und der Spiegel des Ara-Kits hängt an dieser Zahl. Der Fehler ist deshalb der
+gefährlichste, den diese Bibliothek machen kann, weil **nichts** davon rot
+wird — keine Übersetzung, kein Test, und auch die Oberflächen-Reihe nicht: sie
+misst Farben, Konsole und Rollbreite, aber keine Breiten. Der Wächter steht in
+`check-design-system.js`, dessen Bereich schon beide Wurzeln sind, und gehört
+zur selben Familie wie die zwei Regeln daneben (der `<style>`-Block ohne
+Schicht aus H2, der Rollkasten ohne `position` aus G2): CSS, das dasteht und
+nicht gilt. Er liest dafür jetzt auch TSX, nimmt Kommentare aus — sonst
+meldete er seine eigene Erklärung — und kennt `--wurzel`, damit
+`waechter-selbsttest.sh` ihn an einem Wegwerfbaum messen kann.
+
 | Layer    | Stack                                                             | Path                                                                                              |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 9 Muster, 6 Bausteine) |
