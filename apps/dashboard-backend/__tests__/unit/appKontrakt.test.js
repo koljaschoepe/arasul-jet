@@ -146,10 +146,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     delete ohneSystemversion.arasul;
     const abdruck = crypto.createHash('sha256').update(stabil(ohneSystemversion)).digest('hex');
 
-    // Phase C7 (Kontrakt 3): `freigabe_anfordern` steht im Werkzeug-Schema,
-    // drei Regeln fuer Flows aus einem Paket kommen dazu, und ein Endpunkt --
-    // `GET /freigaben`. Ein Kit, das gegen Fassung 2 prueft, wiese einen
-    // gueltigen Flow ab; deshalb ist die Zahl mitgegangen.
-    expect(abdruck).toBe('6c5eefb0a92aad1787d8a7c48f6ce68e865061b4192d7f96edc3ac06a22f77b5');
+    // Phase H6 (Kontrakt 4): das Manifest kennt `marken`, die Fassung des
+    // Designsystems, auf der die App steht -- freiwillig, aber `.strict()`
+    // wies das Feld bis hierher ab. Ein Kit, das gegen Fassung 3 prueft,
+    // wiese ein gueltiges Manifest ab; deshalb ist die Zahl mitgegangen.
+    // (Davor Phase C7, Kontrakt 3: `freigabe_anfordern` im Werkzeug-Schema,
+    // drei Regeln fuer Flows aus einem Paket und `GET /freigaben`.)
+    expect(abdruck).toBe('6bb530d247d937f1cc90eae45f3be6cb067f74ba073d16e4e735400f70e193a8');
   });
 });

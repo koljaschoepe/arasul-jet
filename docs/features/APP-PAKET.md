@@ -248,6 +248,15 @@ einen Fingerabdruck des Kontraktes fest
 (`apps/dashboard-backend/__tests__/unit/appKontrakt.test.js`) und fällt um,
 sobald sich etwas ändert, ohne dass die Zahl mitgeht.
 
+**Fassung 4 (Phase H6):** das Manifest kennt `marken`, die Fassung des
+Designsystems, auf der die App steht (`"marken": "3.1.0"`). Freiwillig — jede
+App, die vor H6 gebaut wurde, hat sie nicht —, aber `.strict()` hat das Feld
+bis hierher abgewiesen, und ein Kit, das gegen Fassung 3 prüft, täte es auch.
+Woher ein Partner die richtige Zahl bekommt: aus dem **Paket**, das das
+Auslieferungsartefakt trägt (`packages/marken/marken.json`, siehe
+[AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md)). Das Gerät meldet in der
+App-Verwaltung einen Stand, der auf einer älteren Fassung steht als die Shell.
+
 ## Was schiefgehen kann
 
 | Antwort | Bedeutung                                                                                                                                                                                                                               |

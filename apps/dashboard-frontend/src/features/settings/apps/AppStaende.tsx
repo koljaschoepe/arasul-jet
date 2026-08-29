@@ -14,9 +14,71 @@
  * indem man hin- und herklickt.
  */
 import { Activity, ArrowLeftRight, Rocket } from 'lucide-react';
-import { Button, cn } from '@marken';
+import { Button, cn, FASSUNG } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import type { AppStandDetail, Backendzustand } from './useAppVerwaltung';
+
+/** Drei Zahlen als Zahlen: `3.10.0` steht hinter `3.9.0` und nicht davor. */
+function zahlen(fassung: string): number[] {
+  return fassung.split('.').map(teil => Number.parseInt(teil, 10) || 0);
+}
+
+/** Ist `a` älter als `b`? */
+function aelter(a: string, b: string): boolean {
+  const links = zahlen(a);
+  const rechts = zahlen(b);
+  for (let i = 0; i < Math.max(links.length, rechts.length); i += 1) {
+    const eins = links[i] ?? 0;
+    const zwei = rechts[i] ?? 0;
+    if (eins !== zwei) {
+      return eins < zwei;
+    }
+  }
+  return false;
+}
+
+/**
+ * Auf welcher Fassung des Designsystems diese App steht (Phase H6).
+ *
+ * Eine App trägt die Bibliothek als KOPIE — als Spiegel der Quelle in ihrem
+ * Frontend oder als beigelegtes `marken.js`. Die Shell zieht mit jedem Deploy
+ * nach, die App bleibt auf dem Stand ihres letzten Paketbaus, und der Mensch
+ * sieht beides in EINEM Rahmen übereinander. Nichts an einer laufenden App
+ * würde davon rot — deshalb steht es hier.
+ *
+ * KEIN ROT. Eine App mit einer alten Bibliothek läuft; sie sieht nur nicht
+ * mehr aus wie das Gerät um sie herum. Rot ist in dieser Karte reserviert
+ * für „ein Mensch klickt auf die Kachel und bekommt nichts".
+ *
+ * Verglichen wird gegen `FASSUNG` aus `@marken` und nicht gegen eine Zahl vom
+ * Backend: die Shell ÜBERSETZT die Bibliothek mit, also ist ihre Fassung die
+ * des Geräts. Eine zweite Zahl daneben wäre eine, die eines Tages etwas
+ * anderes sagt.
+ */
+function Bibliothek({ fassung }: { fassung: string | null }) {
+  if (!fassung) {
+    return (
+      <span className="text-warning" data-testid="marken-fassung">
+        nicht genannt: die App sagt nicht, worauf sie steht
+      </span>
+    );
+  }
+  if (fassung === FASSUNG) {
+    return (
+      <span className="font-mono text-foreground" data-testid="marken-fassung">
+        {fassung}
+      </span>
+    );
+  }
+  return (
+    <span className="text-warning" data-testid="marken-fassung">
+      <span className="font-mono">{fassung}</span>
+      {aelter(fassung, FASSUNG)
+        ? `, älter als das Gerät (${FASSUNG})`
+        : `, neuer als das Gerät (${FASSUNG})`}
+    </span>
+  );
+}
 
 /**
  * Der Zustand des App-Backends in einem Wort und einer Farbe.
@@ -126,6 +188,10 @@ function StandKarte({
           )}
           <dt className="text-muted-foreground">Flows</dt>
           <dd className="text-foreground">{detail.flows.length}</dd>
+          <dt className="text-muted-foreground">Bausteine</dt>
+          <dd>
+            <Bibliothek fassung={detail.marken} />
+          </dd>
           {detail.pfad && (
             <>
               <dt className="text-muted-foreground">Weg</dt>

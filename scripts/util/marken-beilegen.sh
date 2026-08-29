@@ -18,6 +18,12 @@
 # (`var(--token, <Wert>)`), und `scripts/test/marken.py` haelt die an
 # `theme.css` fest.
 #
+# WELCHE FASSUNG (Phase H6). Das Skript sagt am Ende, welche Fassung es
+# hingelegt hat. Dieselbe Zahl steht im `app.json` der App unter `marken`, und
+# die Verwaltung des Geraets meldet eine App, die auf einer aelteren steht als
+# die Shell -- eine Kopie veraltet lautlos, und nichts an einer laufenden App
+# wuerde davon rot.
+#
 # EINE STELLE DAFUER, und darum dieses Skript: es kopiert an zwei Orten
 # dasselbe (beim Einspielen am Geraet und beim Bauen eines Pakets fuer den
 # Deploy-Endpunkt). Zwei Kopierbefehle, die auseinanderlaufen, waeren eine App
@@ -49,4 +55,14 @@ fi
 
 cp "$BUENDEL" "$ZIEL/marken.js" || exit 1
 cp "$STIL" "$ZIEL/marken.css" || exit 1
-echo "beigelegt  marken.js und marken.css in $ZIEL"
+
+# Welche Fassung hier gerade hingelegt wurde (Phase H6). Sie steht im
+# `app.json` der App noch einmal, und die Verwaltung des Geraets meldet eine
+# App, die auf einer aelteren steht als die Shell. Wer im Deploy-Protokoll
+# nachsieht, welche Zahl wirklich neben der App liegt, soll sie hier finden
+# und nicht in einem Buendel nachschlagen muessen; `scripts/test/marken.py`
+# (Punkt 8) haelt beide aneinander.
+FASSUNG=$(sed -n "s/.*FASSUNG[[:space:]]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" \
+  "$WURZEL/packages/marken/src/fassung.ts")
+FASSUNG="${FASSUNG%%$'\n'*}"
+echo "beigelegt  marken.js und marken.css in $ZIEL (Fassung ${FASSUNG:-unbekannt})"

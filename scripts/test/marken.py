@@ -35,6 +35,12 @@ Was geprueft wird
 7. Kein Name zweimal. `index.ts` haengt seit H4 DREI Barrels aneinander
    (Bausteine, Primitive, Muster); gaeben zwei denselben Namen aus, gewaenne
    wortlos der letzte (Phase H3, um die Muster erweitert in H4).
+8. Die Beispielapp nennt in ihrem `app.json` die Fassung, die sie wirklich
+   bekommt. `scripts/test/beispielapp.sh` legt ihr das Buendel aus DIESEM
+   Ordner daneben; steht in ihrem Manifest eine andere Zahl, meldet die
+   Verwaltung des Geraets eine Fassung, die nirgends liegt -- und die eine
+   Auskunft, die H6 eingefuehrt hat, waere ab dem ersten Tag falsch
+   (Phase H6).
 
 Warum Punkt 5 (Phase H2, 29.08.2026)
 ------------------------------------
@@ -61,6 +67,7 @@ Rueckgabe 0, wenn alles stimmt, sonst 1.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -347,6 +354,41 @@ def doppelte_ausgaben(quelle: Path) -> list[str]:
     return befunde
 
 
+def beispielapp_pruefen(wurzel: Path, fassung: str | None) -> list[str]:
+    """Punkt 8: das Manifest der Beispielapp nennt die Fassung, die sie bekommt.
+
+    Seit H6 sagt eine App in ihrem `app.json`, auf welcher Fassung der
+    Bibliothek sie steht, und die Verwaltung des Geraets meldet eine, die
+    aelter ist als die Shell. Die Beispielapp ist die einzige App in diesem
+    Repo -- sie bekommt beim Einspielen das Buendel aus DIESEM Ordner
+    (`scripts/util/marken-beilegen.sh`), also ist ihre Angabe nachpruefbar und
+    nicht Vertrauenssache. Ohne diesen Punkt haette der Vorgang, fuer den H6
+    gebaut ist, sein erstes falsches Beispiel im eigenen Repo.
+
+    Fehlt die Datei, ist das kein Befund: die Beispielapp ist ein Testpaket
+    und gehoert nicht zum Auslieferungsumfang -- im Artefakt liegt sie nicht.
+    """
+    manifest = wurzel / "tests" / "beispielapp" / "app.json"
+    if not manifest.is_file() or not fassung:
+        return []
+    try:
+        gelesen = json.loads(manifest.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as fehler:
+        return [f"tests/beispielapp/app.json ist kein gueltiges JSON: {fehler}"]
+    genannt = gelesen.get("marken")
+    if genannt is None:
+        return [
+            "tests/beispielapp/app.json nennt kein `marken` -- die App bekommt "
+            f"das Buendel dieser Bibliothek ({fassung}) und sagt es nicht"
+        ]
+    if genannt != fassung:
+        return [
+            f"tests/beispielapp/app.json nennt Fassung {genannt}, die Bibliothek "
+            f"steht auf {fassung} -- sie bekommt beim Einspielen diese hier"
+        ]
+    return []
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--wurzel", default=".")
@@ -423,6 +465,9 @@ def main() -> int:
 
     # 7. Kein Name doppelt.
     befunde.extend(doppelte_ausgaben(quelle))
+
+    # 8. Die Beispielapp steht auf dieser Fassung (Phase H6).
+    befunde.extend(beispielapp_pruefen(wurzel, fassung.group(1) if fassung else None))
 
     primitive = sorted((quelle / "primitive").glob("*.tsx"))
     muster = sorted((quelle / "muster").glob("*.tsx"))

@@ -1013,6 +1013,7 @@ Derselbe Dienst wie `DELETE /api/v1/external/apps/:id`, dort mit der Rückfrage
         "dateien": { "manifest": true, "frontend": true },
         "lieferbar": true,
         "mangel": null,
+        "marken": "3.1.0",
         "modelle": [{ "name": "qwen3:14b-q8", "vorhanden": true }],
         "flows": [{ "name": "urlaub-pruefen", "modell": "qwen3:14b-q8", "version": "1.0.0" }]
       },
@@ -1034,6 +1035,14 @@ Satz; `GET /api/apps` trägt dieselben drei Felder je Stand. Ein
 `503 APP_DATEIEN_FEHLEN` statt `INTERNAL_ERROR`, und `GET /api/apps/meine`
 lässt ihn weg (siehe [APPS.md](../features/APPS.md), „Was ein Stand
 lieferbar nennt").
+
+`marken` ist seit Phase H6 die Fassung des Designsystems, auf der dieser Stand
+steht — das, was sein `app.json` unter `marken` sagt, oder `null`. Das Gerät
+**vergleicht hier nicht**: die Fassung der Bibliothek kennt die Shell, weil sie
+sie mitübersetzt (`FASSUNG` aus `@marken`), und die Verwaltung meldet einen
+Stand, der älter ist als sie. Kein Mangel — eine App mit einer alten
+Bibliothek läuft, sie sieht nur nicht mehr aus wie das Gerät um sie herum.
+`GET /api/apps` trägt das Feld je Stand ebenso.
 
 `modelle` sagt, was das Manifest **verlangt** und was davon am Gerät ist.
 Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte lädt,
@@ -2606,6 +2615,12 @@ sondern ein Verzeichnis — aus einer Forderung ist eine Lieferung geworden. Ein
 Kit, das noch `"flows": ["a","b"]` schreibt, bekommt vom Gerät ein `400`.
 `flow_frontmatter.regeln` sagt zusätzlich, was für einen Flow **aus einem
 Paket** gilt (Dateiname ist der Name, kein `ordner`, Namensraum je App).
+
+**Fassung 4 (Phase H6):** das Manifest kennt `marken`, die Fassung des
+Designsystems, auf der die App steht. Sie ist **freiwillig** — jedes Manifest
+von Fassung 3 bleibt gültig —, und die Zahl geht trotzdem mit: das Manifest ist
+`.strict()`, ein Kit, das gegen Fassung 3 prüft, wiese `marken` als unbekanntes
+Feld ab, obwohl das Gerät es nimmt und liest.
 
 **POST /api/v1/external/apps** — Multipart mit dem Feld `paket`, einem
 `.tar.gz` mit `app.json` im Wurzelverzeichnis. Das Gerät packt aus, prüft,

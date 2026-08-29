@@ -156,6 +156,36 @@ const Flows = z
   })
   .strict();
 
+/**
+ * Die Fassung des Designsystems, auf der diese App steht (Phase H6).
+ *
+ * Eine App traegt die Bibliothek des Geraets als KOPIE -- entweder als
+ * Spiegel der Quelle in ihrem Frontend (Kit-Vorlage, Bau) oder als
+ * beigelegtes `marken.js` (kein Bau). Eine Kopie veraltet lautlos: die Shell
+ * zieht mit jedem Deploy nach, die App bleibt auf dem Stand ihres letzten
+ * Paketbaus, und der Mensch sieht beides in EINEM Rahmen uebereinander --
+ * also genau die zwei Erscheinungsbilder, gegen die die Bibliothek gebaut ist.
+ * Nichts an einer laufenden App wuerde davon rot.
+ *
+ * Deshalb sagt sie es selbst. Die Angabe ist FREIWILLIG: jede App, die vor
+ * H6 gebaut wurde, hat sie nicht, und ein Manifest deswegen abzuweisen hiesse,
+ * eine laufende App an einer Auskunft scheitern zu lassen, die es zu ihrer
+ * Bauzeit nicht gab. Fehlt sie, sagt die Verwaltung genau das: die App nennt
+ * ihre Fassung nicht.
+ *
+ * Das Geraet VERGLEICHT hier nicht -- die Fassung der Bibliothek kennt die
+ * Shell, weil sie sie mituebersetzt (`FASSUNG` aus `@marken`). Das Backend
+ * liest, was im Manifest steht, und reicht es weiter.
+ */
+const MarkenFassung = z
+  .string({ error: 'Fassung des Designsystems fehlt' })
+  .trim()
+  .max(64, 'Fassung ist zu lang')
+  .regex(
+    /^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$/,
+    'Fassung des Designsystems: drei Zahlen mit Punkten, z. B. 3.1.0'
+  );
+
 const Ressourcen = z
   .object({
     speicher: Speicher.default('512m'),
@@ -197,6 +227,8 @@ const AppManifest = z
     // eine Lieferung: die Dateien liegen im Paket und werden beim Einspielen
     // je App und Stand registriert (`services/app/appFlows.js`).
     flows: Flows.optional(),
+    // Auf welcher Fassung des Designsystems die App steht (H6). Siehe oben.
+    marken: MarkenFassung.optional(),
   })
   .strict()
   .refine(m => m.frontend || m.backend, {

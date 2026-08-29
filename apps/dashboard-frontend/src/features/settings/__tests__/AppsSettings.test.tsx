@@ -8,9 +8,10 @@
  * zeigt seine Schritte samt Gedankengang.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { FASSUNG } from '@marken';
 import { AppsSettings } from '../AppsSettings';
 
 const apiMock = {
@@ -61,6 +62,7 @@ const APP_DETAIL = {
       dateien: { manifest: true, frontend: true },
       lieferbar: true,
       mangel: null,
+      marken: FASSUNG,
       modelle: [],
       flows: [FLOW],
     },
@@ -74,6 +76,7 @@ const APP_DETAIL = {
       dateien: { manifest: true, frontend: true },
       lieferbar: true,
       mangel: null,
+      marken: FASSUNG,
       modelle: [],
       flows: [FLOW],
     },
@@ -211,6 +214,65 @@ describe('AppsSettings', () => {
     fireEvent.click(screen.getByTestId('app-oeffnen-beispielapp'));
     await screen.findByTestId('app-ansicht-beispielapp');
     expect(screen.getByTestId('stand-mangel')).toHaveTextContent('Das Frontend fehlt am Geraet.');
+  });
+
+  /**
+   * Phase H6: eine App traegt die Bibliothek als Kopie, und eine Kopie
+   * veraltet lautlos. Die drei Faelle, die ein Betreiber auseinanderhalten
+   * koennen muss -- gleich, aelter, gar nicht genannt.
+   */
+  it('nennt die Fassung des Designsystems, auf der ein Stand steht', async () => {
+    antworte();
+    await oeffneApp();
+    const beide = screen.getAllByTestId('marken-fassung');
+    expect(beide).toHaveLength(2);
+    beide.forEach(zelle => expect(zelle).toHaveTextContent(FASSUNG));
+    // Gleiche Fassung heisst: nur die Zahl, keine Meldung darueber.
+    beide.forEach(zelle => expect(zelle.textContent).not.toMatch(/älter|neuer|nicht genannt/));
+  });
+
+  it('meldet eine App, die auf einer aelteren Bibliothek steht', async () => {
+    antworte({
+      '/apps': { data: [APP_ZEILE] },
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          staende: {
+            ...APP_DETAIL.staende,
+            live: { ...APP_DETAIL.staende.live, marken: '1.0.0' },
+          },
+        },
+      },
+    });
+    await oeffneApp();
+    const live = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
+    expect(live).toHaveTextContent('1.0.0');
+    expect(live).toHaveTextContent(`älter als das Gerät (${FASSUNG})`);
+    // Der Teststand daneben steht auf der Fassung des Geräts und sagt nichts.
+    expect(
+      within(screen.getByTestId('stand-test')).getByTestId('marken-fassung')
+    ).toHaveTextContent(FASSUNG);
+  });
+
+  it('meldet eine App, die gar keine Fassung nennt', async () => {
+    // Jede App, die vor H6 gebaut wurde. Sie laeuft -- man weiss nur nicht,
+    // wie alt ihr Erscheinungsbild ist, und genau das steht da.
+    antworte({
+      '/apps': { data: [APP_ZEILE] },
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          staende: {
+            ...APP_DETAIL.staende,
+            live: { ...APP_DETAIL.staende.live, marken: null },
+          },
+        },
+      },
+    });
+    await oeffneApp();
+    expect(
+      within(screen.getByTestId('stand-live')).getByTestId('marken-fassung')
+    ).toHaveTextContent('nicht genannt');
   });
 
   it('entfernt eine App erst, wenn ihre Kennung eingetippt ist, samt Dateien', async () => {
