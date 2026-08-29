@@ -12,7 +12,8 @@
  *
  *   1. Der MITARBEITER sieht die offene Freigabe auf seinem Dashboard (D2)
  *      und bestaetigt sie. Die Zeile geht weg, ohne Neuladen.
- *   2. Die App-Ansicht: beide Staende mit Version und Zustand des Containers.
+ *   2. Die App-Ansicht: beide Staende mit Version und Zustand des Containers,
+ *      und seit H6 die Fassung des Designsystems, auf der ein Stand steht.
  *   3. Der Lauf: Schritte, und der Gedankengang darunter.
  *   4. Das Modell des Flows: auf ein anderes aus der Kurzliste umstellen, in
  *      der Liste nachsehen, wieder auf das Paket zurueck.
@@ -52,6 +53,18 @@ const LAUF = process.env.ARASUL_LAUF || '';
 const FREIGABE = process.env.ARASUL_FREIGABE || '';
 /** Das Modell, auf das umgestellt und von dem zurueckgenommen wird. */
 const MODELL = process.env.ARASUL_MODELL || '';
+
+/**
+ * Die Fassung der Bibliothek, wie die Shell sie kennt (Phase H6).
+ *
+ * Aus der Quelle gelesen und nicht als Zahl hier hingeschrieben: die Shell
+ * uebersetzt genau diese Datei mit, also ist ihr Wert die Fassung, gegen die
+ * die Verwaltung im Browser vergleicht. Eine zweite Zahl hier waere eine, die
+ * beim naechsten Heben stehenbleibt.
+ */
+const FASSUNG = (fs
+  .readFileSync(path.join(WURZEL, 'packages/marken/src/fassung.ts'), 'utf8')
+  .match(/FASSUNG\s*=\s*['"]([^'"]+)['"]/) || [])[1];
 
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-app-admin-d4`);
@@ -168,6 +181,28 @@ try {
       // „laeuft" deckt beide gesunden Faelle ab: mit und ohne
       // Gesundheitspruefung im Manifest.
       pruefe('und den Zustand seines Containers', /läuft|steht|kein Backend/.test(stand));
+
+      // Phase H6: worauf steht diese App? Drei Antworten sind richtig, und
+      // die dritte ist am Orin die haeufigste -- eine App, die vor H6
+      // eingespielt wurde, nennt in ihrem `app.json` keine Fassung, und
+      // genau das ist die Auskunft, um die es geht: eine Kopie der
+      // Bibliothek veraltet lautlos, und bis hierher konnte das niemand
+      // sehen.
+      const bausteine = await seite
+        .locator('[data-testid="stand-live"] [data-testid="marken-fassung"]')
+        .innerText()
+        .catch(() => '');
+      pruefe(
+        'Der Livestand sagt, auf welcher Fassung des Designsystems er steht',
+        new RegExp(`^${FASSUNG}$|älter als das Gerät|neuer als das Gerät|nicht genannt`).test(
+          bausteine.trim()
+        ),
+        `„${bausteine.trim()}", die Shell steht auf ${FASSUNG}`
+      );
+      await seite
+        .locator('[data-testid="stand-live"]')
+        .screenshot({ path: path.join(ZIEL, 'bausteine-fassung.png') })
+        .catch(() => {});
       await seite.screenshot({ path: path.join(ZIEL, 'app-ansicht.png'), fullPage: true });
     }
   }
