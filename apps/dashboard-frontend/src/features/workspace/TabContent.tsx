@@ -154,9 +154,25 @@ function EinstellungenTab({ tab, handgriffe }: { tab: WorkspaceTab; handgriffe: 
 }
 
 /**
- * Rendert den aktiven Tab mit eigener ErrorBoundary (das Keep-Alive für den
- * n8n-iframe ist mit Phase B5 gefallen) — ein Renderfehler in einem Tab darf die Shell
- * nicht mitreißen.
+ * Rendert den aktiven Tab mit eigener ErrorBoundary — ein Renderfehler in
+ * einem Tab darf die Shell nicht mitreißen.
+ *
+ * EIN APP-TAB BLEIBT STEHEN, AUCH WENN ER NICHT VORN IST (Phase H2). Alle
+ * anderen Tabs sind Ansichten dieser Shell: sie holen ihre Daten aus React
+ * Query, und der Cache liegt über der Shell — was sie zeigen, ist nach einem
+ * Neuaufbau dasselbe. Eine App ist ein FREMDES Dokument in einem iframe. Wird
+ * sie abgeräumt, fängt sie von vorn an: ein halb ausgefülltes Formular ist
+ * weg, ein laufender Vorgang wird neu geholt, und beim Theme-Wechsel — der
+ * über den Einstellungen-Tab geht — lädt der Rahmen jedes Mal neu, obwohl der
+ * Wechsel selbst ihn gar nicht anfasst (`AppRahmen`, H2).
+ *
+ * Der `hidden`-Zweig darunter stand für das Keep-Alive des n8n-iframes (B5)
+ * schon da und lief seither leer; jetzt trägt er wieder etwas. Was nicht vorn
+ * steht, ist `display: none`: die App wird nicht mehr gezeichnet und bekommt
+ * kein Layout, aber sie bleibt im Dokument — deshalb lädt sie beim
+ * Zurückkommen nicht neu. Sie läuft dabei weiter (ein Zeitgeber in ihr tickt
+ * auch versteckt), und das ist der Preis: es sind die Apps, die der Mensch
+ * selbst geöffnet hat, und er schließt sie über die Tab-Leiste.
  */
 export function TabContent({ handgriffe }: TabContentProps) {
   const { user } = useAuth();
@@ -164,9 +180,11 @@ export function TabContent({ handgriffe }: TabContentProps) {
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
 
-  const mounted = tabs.filter(t => t.id === activeTabId);
+  const mounted = tabs.filter(t => t.id === activeTabId || t.type === 'app');
 
-  if (mounted.length === 0) {
+  // Ohne offenen Tab hat auch ein stehen gebliebener App-Tab nichts zu zeigen:
+  // `activeTabId` zeigt dann auf nichts, und jeder Gemountete wäre `hidden`.
+  if (!tabs.some(t => t.id === activeTabId)) {
     return (
       <div className="p-ui-4">
         <Meldung titel="Kein Tab geöffnet">Wähle links eine Ansicht, unter 900 px im Menü.</Meldung>

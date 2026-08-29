@@ -10,29 +10,48 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Arasul Platform</title>
     <style>
-      /* Minimal pre-CSS-load styles (loading screen only).
-         Do NOT add * { margin/padding } here — it's un-layered CSS
-         and would override ALL Tailwind @layer utilities. */
-      /* Die Farben der Vorgabe (Theme »Hell«, `:root` in index.css). Sie
-         stehen hier als Literale, weil dieser Block VOR dem Stylesheet gilt --
-         er faerbt genau die Zehntelsekunde zwischen erstem Byte und geladenem
-         CSS. Wer sie aendert, aendert sie dort mit. */
-      body {
-        background: #f6f6f6;
-        color: #1a1a1a;
-        margin: 0;
-      }
-      .loading {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        font-size: 1.5rem;
-        /* War #00FF88 -- die verbotene Gruenfarbe des alten Designsystems, auf
-           Schwarz gerade noch lesbar und auf der neuen hellen Vorgabe gar
-           nicht. `--muted-foreground` des Themes »Hell« (Phase H1). */
-        color: #6b6b6b;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      /* Die Zehntelsekunde zwischen erstem Byte und geladenem Stylesheet:
+         der Ladebildschirm und die Farben der Vorgabe (Theme »Hell«, `:root`
+         in index.css). Sie stehen hier als Literale, weil es zu diesem
+         Zeitpunkt noch keine Tokens gibt. Wer sie aendert, aendert sie dort
+         mit.
+
+         ALLES HIER STEHT IN EINER SCHICHT, UND ZWAR IN DER UNTERSTEN.
+         Ungeschichtetes CSS gewinnt gegen JEDE Schicht -- auch gegen die
+         Utilities, und auch gegen `@layer base`, wo `body` seine Farbe aus
+         `var(--background)` bekommt. Bis Phase H2 stand die Regel fuer `body`
+         hier ohne Schicht, und damit war der Hintergrund der Seite auf
+         `#f6f6f6` GENAGELT: im dunklen Theme meldete `<html>` brav
+         `data-theme="dark"` und `--background: #141414`, waehrend
+         `getComputedStyle(document.body).backgroundColor` bei
+         `rgb(246, 246, 246)` blieb -- und mit ihm die Textfarbe `#1a1a1a`,
+         also fast schwarz auf dunkel fuer alles, was seine Farbe von `body`
+         erbt. Am 29.08.2026 am Orin gemessen, an jeder dunklen Zelle der
+         Theme-Abnahme.
+
+         Die Schicht wird HIER zuerst genannt, und das ist der ganze Trick:
+         die Reihenfolge der Schichten entsteht in der Reihenfolge ihrer
+         ersten Nennung, dieser Block steht vor dem `<link>` auf das
+         Stylesheet, und wer zuerst genannt wird, steht unten. Sobald das
+         Stylesheet da ist, verliert alles hier. */
+      @layer flackerschutz {
+        body {
+          background: #f6f6f6;
+          color: #1a1a1a;
+          margin: 0;
+        }
+        .loading {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-size: 1.5rem;
+          /* War #00FF88 -- die verbotene Gruenfarbe des alten Designsystems,
+             auf Schwarz gerade noch lesbar und auf der neuen hellen Vorgabe
+             gar nicht. `--muted-foreground` des Themes »Hell« (Phase H1). */
+          color: #6b6b6b;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
       }
     </style>
   </head>

@@ -56,6 +56,17 @@ ein zweiter Weg in denselben Zustand).
 was abweicht. Komponenten brauchen keine Theme-Zweige; wer Tokens benutzt,
 folgt dem Theme.
 
+**Ungeschichtetes CSS gewinnt gegen jede `@layer`** — auch gegen `@layer
+base`, wo `body` seine Farbe aus `var(--background)` bekommt, und damit gegen
+das Theme. Der `<style>`-Block in `index.html`, der die Zehntelsekunde vor dem
+Stylesheet färbt, stand bis Phase **H2** ohne Schicht da und nagelte den
+Hintergrund der Seite auf `#f6f6f6` und die geerbte Textfarbe auf `#1a1a1a`:
+im dunklen Theme meldete `<html>` `--background: #141414`, und `body` blieb
+hell. Er steht jetzt in `@layer flackerschutz`, und weil der Block **vor** dem
+`<link>` auf das Stylesheet kommt, ist das die unterste Schicht.
+`check-design-system.js` lässt in `index.html` nichts Ungeschichtetes mehr
+durch.
+
 | Token                | Hell (`:root`, Vorgabe) | Dunkel                   |
 | -------------------- | ----------------------- | ------------------------ |
 | `--background`       | `#F6F6F6`               | `#141414`                |
@@ -114,20 +125,37 @@ Bausteine in einer Bibliothek, die die Shell **und jede App** benutzt:
 
 **Kein neues Erscheinungsbild.** Die Werte stehen als
 `var(--token-der-shell, <fester Wert>)`: in der Shell folgt die Bibliothek dem
-Thema, in einer App gilt der Rückfall. Die Rückfallwerte sind die des dunklen
-Themes (bei ihrer Aufnahme in D7 hieß es »Schwarz«). Eine App läuft im
-`iframe` als eigenes Dokument, und CSS-Variablen reichen nicht über eine
-Dokumentgrenze — **eine App folgt dem Theme des Menschen deshalb heute
-nicht**, sie steht immer auf dem Rückfall. Das ist eine offene Frage aus H1
-und keine Nebenwirkung: sie zu beantworten hieße, das Theme in die App
-hineinzureichen.
+Thema, in einer App gilt der Rückfall.
+
+**Und eine App folgt seit Phase H2 dem Theme des Menschen.** `marken.css`
+trägt dieselbe Form wie `index.css`: `:root` ist Hell, `[data-theme='dark']`
+überschreibt, was abweicht. Das Attribut schreibt `AppRahmen` in das Dokument
+des `iframe` — gleiche Herkunft, deshalb geht das, und deshalb steht am Rahmen
+kein `sandbox`. **Die App muss dafür nichts tun.** Wer mehr tut als Farben
+tauschen, hört zusätzlich auf `postMessage`
+(`{ typ: 'arasul:theme', theme: 'light' | 'dark' }`) oder liest `data-theme`
+am `<html>` des Elternfensters, so wie es die Vorlage des Ara-Kits tut. Der
+Wechsel lädt den Rahmen **nicht** neu: das Theme steht weder im `key` noch in
+der Adresse, und der App-Tab bleibt gemountet, während der Mensch in den
+Einstellungen ist.
+
+Bis H2 waren die Rückfallwerte die des dunklen Themes (bei ihrer Aufnahme in
+D7 hieß es »Schwarz«), und eine App stand immer darauf — auch in einer hellen
+Shell.
 
 Zwei Wege hinein, eine Quelle: die Shell übersetzt `packages/marken/src/` über
 den Vite-Alias `@marken` mit (kein npm-Paket, kein Lockfile-Eintrag); eine App
 ohne Bauschritt lädt `packages/marken/browser/marken.js`, in dem React
 mitliegt (`scripts/util/marken-beilegen.sh` legt es beim Einspielen daneben).
-`scripts/test/marken.py` hält Quelle und Bündel aneinander. Einzelheiten:
+`scripts/test/marken.py` hält Quelle und Bündel aneinander — und seit H2 auch
+**jeden Rückfall an seinem Token in `index.css`**: Hell gegen `:root`, Dunkel
+gegen `[data-theme='dark']`, in beiden Richtungen der Vollständigkeit. Ein
+Rückfall ist eine Kopie, und in der Shell gewinnt immer der Token; eine
+veraltete Kopie fällt dort nie auf, sondern nur in einer App. Einzelheiten:
 [`packages/marken/README.md`](../../packages/marken/README.md).
+
+**Eine App auf dem Gerät bekommt die neue `marken.css` erst beim nächsten
+Einspielen** — die Datei liegt neben ihr und nicht in der Shell.
 
 **Warum es das gibt:** bis D6 hatte Arasul seine Oberfläche und jede App ihre
 eigene. Der Mensch sieht beides in **einem** Rahmen übereinander — zwei

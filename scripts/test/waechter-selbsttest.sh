@@ -1025,6 +1025,40 @@ pruefe "Zustand: ein Reset ohne den Abschnittsmarker ist rot" 1 \
   python3 "$WURZEL/scripts/test/zustand.py" --wurzel "$ZU"
 rm -rf "$ZU"
 
+# --- marken.py --------------------------------------------------------------
+# Die Rueckfaelle in `marken.css` sind eine KOPIE der Werte aus `index.css`,
+# und in der Shell gewinnt immer der Token -- eine veraltete Kopie faellt dort
+# nie auf, sondern nur in einer App, die niemand gerade ansieht. Der Waechter
+# dagegen ist seit H2 da; hier steht, dass er wirklich zubeisst.
+MA="$TMP/marken"
+mkdir -p "$MA/packages" "$MA/apps/dashboard-frontend/src"
+cp -R "$WURZEL/packages/marken" "$MA/packages/marken"
+cp "$WURZEL/apps/dashboard-frontend/src/index.css" "$MA/apps/dashboard-frontend/src/index.css"
+MA_CSS="$MA/packages/marken/src/marken.css"
+cp "$MA_CSS" "$TMP/marken.css.echt"
+
+pruefe "Marken: die Kopie steht am Original" 0 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+
+# Ein Rueckfall, der nicht mehr der Wert seines Tokens ist.
+sed -i.bak 's/--ara-akzent: var(--primary, #2d8fd9)/--ara-akzent: var(--primary, #123456)/' "$MA_CSS"
+pruefe "Marken: ein verstellter Rueckfall ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$TMP/marken.css.echt" "$MA_CSS"
+
+# Ein Token, den `index.css` im Dunkeln ueberschreibt und die Bibliothek
+# nicht: die App steht dann im dunklen Thema auf einem hellen Wert.
+python3 - "$MA_CSS" <<'PY_INNER'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+p.write_text(p.read_text(encoding="utf-8").replace(
+    "  --ara-kante: var(--border, rgba(228, 228, 228, 0.08));\n", ""), encoding="utf-8")
+PY_INNER
+pruefe "Marken: ein fehlender Eintrag im Dunkel-Block ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$TMP/marken.css.echt" "$MA_CSS"
+rm -rf "$MA"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else
