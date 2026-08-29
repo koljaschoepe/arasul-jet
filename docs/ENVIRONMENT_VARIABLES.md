@@ -509,12 +509,12 @@ aktualisieren, und stehen hier, damit man sie findet: `install.sh`,
 `scripts/deploy/deploy-local.sh` und `scripts/lib/installation.sh`. Wer sie
 nicht setzt, merkt nichts von ihnen — das ist der Normalfall.
 
-| Variable             | Default                       | Description                                                                                                                                                                                                                                                                                                                            |
-| -------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ARASUL_INSTALLATION  | (leer)                        | Wo dieses Gerät steht. Übersteuert die Messung. Ohne sie wird gefragt: erst Docker (Etikett `com.docker.compose.project.working_dir`), dann der Zeiger. Siehe [ops/AUSLIEFERUNG.md](ops/AUSLIEFERUNG.md)                                                                                                                              |
-| ARASUL_ZEIGER        | `$HOME/.arasul/installation`  | Die Datei, in die `install.sh` schreibt, wo es installiert hat. Zweite Quelle für dieselbe Frage — sie hilft, solange kein Container läuft (frisch heruntergefahren, nach einem Werksreset, eine Prüfung ohne Stapel). Eine Abnahme setzt sie auf einen Wegwerfpfad, damit sie den Zeiger des Geräts nicht anfasst.                    |
-| ARASUL_PROJEKT       | arasul-platform               | Der Compose-Projektname, unter dem gesucht wird — Container und Volumes. Er steht als `name:` in `docker-compose.yml` und ist genau deshalb fest: ein zweites Verzeichnis übernimmt dieselben Volumes. Nur Abnahmen setzen ihn um, damit sie die Volumes des laufenden Geräts nicht sehen.                                            |
-| ARASUL_UEBERNEHMEN   | (leer)                        | Dasselbe wie `./install.sh --uebernehmen <pfad>`: die vorhandene Installation von Hand nennen, wenn sie sich nicht ermitteln lässt.                                                                                                                                                                                                    |
+| Variable            | Default                      | Description                                                                                                                                                                                                                                                                                                         |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ARASUL_INSTALLATION | (leer)                       | Wo dieses Gerät steht. Übersteuert die Messung. Ohne sie wird gefragt: erst Docker (Etikett `com.docker.compose.project.working_dir`), dann der Zeiger. Siehe [ops/AUSLIEFERUNG.md](ops/AUSLIEFERUNG.md)                                                                                                            |
+| ARASUL_ZEIGER       | `$HOME/.arasul/installation` | Die Datei, in die `install.sh` schreibt, wo es installiert hat. Zweite Quelle für dieselbe Frage — sie hilft, solange kein Container läuft (frisch heruntergefahren, nach einem Werksreset, eine Prüfung ohne Stapel). Eine Abnahme setzt sie auf einen Wegwerfpfad, damit sie den Zeiger des Geräts nicht anfasst. |
+| ARASUL_PROJEKT      | arasul-platform              | Der Compose-Projektname, unter dem gesucht wird — Container und Volumes. Er steht als `name:` in `docker-compose.yml` und ist genau deshalb fest: ein zweites Verzeichnis übernimmt dieselben Volumes. Nur Abnahmen setzen ihn um, damit sie die Volumes des laufenden Geräts nicht sehen.                          |
+| ARASUL_UEBERNEHMEN  | (leer)                       | Dasselbe wie `./install.sh --uebernehmen <pfad>`: die vorhandene Installation von Hand nennen, wenn sie sich nicht ermitteln lässt.                                                                                                                                                                                 |
 
 Dazu `DEPLOY_DIR` für `scripts/deploy/deploy-local.sh`: ohne Vorgabe. Gesetzt
 deployt das Skript dorthin, ungesetzt fragt es das Gerät — und wird rot, wenn
@@ -712,10 +712,11 @@ If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the 
 
 ## Die Umgebung einer App
 
-`ARASUL_API_URL` und `ARASUL_API_SCHLUESSEL` stehen bewusst **nicht** in diesem
-Dokument als Tabellenzeile: sie sind keine Stellschraube dieses Geräts, sondern
-zwei Werte, die das Gerät beim Einspielen in den Container einer App schreibt.
-Niemand trägt sie in eine `.env` ein, und `compose/` reicht sie nicht durch.
+`ARASUL_API_URL`, `ARASUL_API_SCHLUESSEL` und `ARASUL_DB_URL` stehen bewusst
+**nicht** in diesem Dokument als Tabellenzeile: sie sind keine Stellschraube
+dieses Geräts, sondern drei Werte, die das Gerät beim Einspielen in den
+Container einer App schreibt. Niemand trägt sie in eine `.env` ein, und
+`compose/` reicht sie nicht durch.
 
 Was drinsteht und warum, erklärt
 [docs/features/APPS.md](features/APPS.md#was-das-gerät-der-app-mitgibt).

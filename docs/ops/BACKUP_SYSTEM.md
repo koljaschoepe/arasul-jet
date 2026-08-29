@@ -4,17 +4,19 @@ Der Sicherungsdienst sichert vier Dinge, und die Frage dahinter ist jedes Mal
 dieselbe: **was bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn
 es hier fehlt?**
 
-| Teil       | Was                                                                                                                                                       |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `postgres` | Nutzer und Rollen, Apps und Stände, Freigaben, Schlüssel je App, Flow-Läufe mit Schritten, Freigabe-Anfragen, Modell-Überschreibungen, das Migrationsbuch |
-| `apps`     | Die **Pakete** der Apps (`/arasul/apps/<id>/<version>/`) — Manifest, fertiges Frontend, Dockerfile mit Kontext                                            |
-| `flows`    | Die Flow-Dateien, die ein Mensch am Gerät geschrieben hat (`/arasul/flows`)                                                                               |
-| `config`   | `.env`, Zertifikate, Traefik, Geheimnisse — **ohne** den Sicherungsschlüssel selbst                                                                       |
+| Teil       | Was                                                                                                                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `postgres` | Nutzer und Rollen, Apps und Stände, Freigaben, Schlüssel je App, Flow-Läufe mit Schritten, Freigabe-Anfragen, Modell-Überschreibungen, das Migrationsbuch — **und jede App-Datenbank** (seit H7) |
+| `apps`     | Die **Pakete** der Apps (`/arasul/apps/<id>/<version>/`) — Manifest, fertiges Frontend, Dockerfile mit Kontext                                                                                   |
+| `flows`    | Die Flow-Dateien, die ein Mensch am Gerät geschrieben hat (`/arasul/flows`)                                                                                                                      |
+| `config`   | `.env`, Zertifikate, Traefik, Geheimnisse — **ohne** den Sicherungsschlüssel selbst                                                                                                              |
 
 App-**Volumes** stehen nicht in dieser Liste, weil es keine gibt: eine App
 bekommt weder Bind-Mount noch benanntes Volume
-(`services/app/appContainer.js`); ein abgeschirmter Datenordner je App kommt
-mit den D-Phasen. Wer das dort ändert, ändert diese Seite mit.
+(`services/app/appContainer.js`). Ihren Speicher hat sie seit H7 trotzdem, und
+zwar als **Datenbank** — genau ein Ort je App und Stand, damit es auf die Frage
+„was wird gesichert" genau eine Antwort gibt. Wer einen zweiten Ort einführt,
+ändert diese Seite mit.
 
 App-**Images** werden ebenfalls nicht gesichert. Sie werden aus dem Paket **neu
 gebaut** — am Gerät, für das Gerät, dieselbe Entscheidung wie beim Deploy
@@ -83,6 +85,37 @@ pg_dump -h postgres-db -U arasul -d arasul_db \
 ```bash
 gzip -t /backups/postgres/arasul_db_latest.sql.gz
 ```
+
+#### Die Datenbanken der Apps (seit H7)
+
+Jede App mit Backend hat je Stand eine eigene Datenbank im selben Cluster
+(`arasul_app_<kennung>_<stand>`, siehe
+[APPS.md](../features/APPS.md#die-datenbank-einer-app-phase-h7)). Der Abzug
+oben sieht sie **nicht** — `pg_dump` nimmt eine Datenbank, und das ist
+`arasul_db`. Was ein Partner in seiner App ablegt, wäre sonst das Einzige, was
+ein Geräteverlust wirklich vernichtet.
+
+Gefragt wird der **Cluster** und nicht die Tabelle `app_datenbanken`: eine
+Sicherung, die eine Tabelle fragt, sichert nur, was dort steht — und eine
+Datenbank, deren Zeile jemand verloren hat, wäre unsichtbar _und_
+unwiederbringlich.
+
+```bash
+psql -tAc "SELECT datname FROM pg_database WHERE datname LIKE 'arasul\_app\_%'"
+# je Treffer:
+pg_dump -d "$APP_DB" --no-owner --no-acl --clean --if-exists \
+  | gzip > /backups/postgres/apps/${APP_DB}_$(date +%Y%m%d_%H%M%S).sql.gz
+```
+
+Ein Fehlschlag hier legt `BACKUP_OK` um — anders als ein fehlender Ordner: eine
+Datenbank, die der Cluster gerade genannt hat, muss sich auch abziehen lassen.
+Ein Gerät ohne Apps hat null davon und läuft still durch.
+
+Der Weg zurück (`wiederherstellen.sh`) legt Rolle und Datenbank wieder an und
+spielt die Abzüge ein. Das **Passwort** setzt er dabei zufällig — ein
+Shell-Skript kann das verschlüsselte aus `app_datenbanken` nicht lesen. Das
+richtige setzt das Backend beim nächsten Start (`appDatenbank.heileAlle`); die
+App im Container trägt noch die alte Adresse, und die soll wieder stimmen.
 
 ### 2. Flows
 

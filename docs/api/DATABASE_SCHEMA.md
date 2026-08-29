@@ -17,10 +17,12 @@
 > `notizen` und die Spalte `admin_users.passwort_vom_admin`.
 > Am 29.08.2026 von Hand ergaenzt (Migration 180, Phase H1): die Spalte
 > `admin_users.theme`.
+> Am 29.08.2026 von Hand ergaenzt (Migration 181, Phase H7): die Tabelle
+> `app_datenbanken`.
 
 ## Übersicht
 
-- Tabellen: **59**
+- Tabellen: **60**
 - Spalten gesamt: **817**
 - Foreign Keys: **52**
 - Indexes: **311**
@@ -423,6 +425,48 @@ darf die Erinnerung nicht überschreiben. Eine Tabelle mit dem ganzen Verlauf
 wäre eine zweite Antwort auf eine Frage, die niemand stellt: was am Gerät
 liegt, sagen die Ordner, und wer wann geschaltet hat, steht in
 `security_events`.
+
+---
+
+## `app_datenbanken`
+
+> Je App und Stand eine Datenbank im Postgres der Plattform: Name, Rolle und das verschluesselte Passwort. Die Datenbank selbst legt services/app/appDatenbank.js an (Phase H7)
+
+| Column        | Type                     | Nullable | Default |
+| ------------- | ------------------------ | -------- | ------- |
+| `app_id`      | text                     | ⛔       |         |
+| `stand`       | text                     | ⛔       |         |
+| `datenbank`   | text                     | ⛔       |         |
+| `rolle`       | text                     | ⛔       |         |
+| `passwort`    | bytea                    | ⛔       |         |
+| `angelegt_am` | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `app_id, stand`
+
+**Foreign Keys:**
+
+- `app_id` → `apps.id` (`ON DELETE CASCADE`)
+
+**Constraints:** `stand IN ('test', 'live')`, `datenbank` und `rolle` je eindeutig
+
+Der **Name** ließe sich jederzeit ausrechnen (`arasul_app_<kennung>_<stand>`);
+das **Passwort** nicht. Es muss über einen Neustart des Containers hinweg
+dasselbe bleiben — Docker startet mit `unless-stopped` neu und behält dabei die
+alte Umgebung —, also gehört es abgelegt. Es liegt verschlüsselt
+(AES-256-GCM aus `utils/tokenCrypto.js`, derselbe Weg wie
+`flow_settings.extern_schluessel` aus Migration 179) und kommt nur an eine
+Stelle heraus: in die Umgebung des App-Containers als `ARASUL_DB_URL`.
+
+`ON DELETE CASCADE` löscht die **Zeile**, nicht die Datenbank. Das Wegwerfen
+der Datenbank selbst steht in `services/app/appDatenbank.js` und geschieht
+vorher — `appStore.entferneApp` liest erst, was weg soll. Aus demselben Grund
+sucht der Werksreset über den Namenspräfix und nicht über diese Tabelle: er
+leert `apps`, und danach fände eine Aufräumung über die Tabelle nichts mehr.
+
+Migration 181 nimmt außerdem `CONNECT` auf `arasul_db` von `PUBLIC`. Ohne das
+dürfte jede Rolle des Clusters sich mit jeder Datenbank verbinden; eine
+App-Rolle käme zwar an keine Tabelle, aber sehr wohl an den Katalog. Alle
+Dienste der Plattform verbinden sich als `arasul`, dem die Datenbank gehört.
 
 ---
 

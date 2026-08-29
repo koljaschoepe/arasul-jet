@@ -57,7 +57,7 @@ Ordner der richtige ist, und weist das Paket mit genau diesem Hinweis ab.
 | **Gerätedateien, Sockets, FIFOs**      | Haben in einem App-Paket keinen denkbaren Zweck.                                                                                                                                                                                                                                                    |
 | **`node_modules/`**                    | Kein Verbot, aber die Grenzen greifen: 200 MB Archiv, 500 MB ausgepackt, 20 000 Einträge. Ein `.dockerignore` im Bau-Kontext hilft ohnehin mehr als ein großes Paket.                                                                                                                               |
 | **Geheimnisse in `backend.umgebung`**  | Das Manifest liegt im Paket **und** im Repository des Partners. Den API-Schlüssel setzt das Gerät (unten).                                                                                                                                                                                          |
-| **Ein `ordner:` in einer Flow-Datei**  | `ordner` sind absolute Pfade am Gerät. Ein Paket könnte `/arasul/config` deklarieren und die Umgebungsdatei mit `dateien_lesen` ausliefern lassen. Ein abgeschirmter Datenordner je App kommt mit den D-Phasen; bis dahin wird ein solcher Flow abgewiesen.                                         |
+| **Ein `ordner:` in einer Flow-Datei**  | `ordner` sind absolute Pfade am Gerät. Ein Paket könnte `/arasul/config` deklarieren und die Umgebungsdatei mit `dateien_lesen` ausliefern lassen. Der Speicher einer App ist ihre Datenbank (seit H7) und kein Ordner am Gerät; ein solcher Flow wird abgewiesen.                                  |
 
 ## Die Flows im Paket (seit Kontrakt 2, Phase C6)
 
@@ -223,18 +223,18 @@ curl -H "x-api-key: $ARASUL_SCHLUESSEL" https://arasul.local/api/v1/external/con
 `GET /api/v1/external/contract` ist die **einzige** Quelle, gegen die ein Kit
 seine Vorlage prüft. Er gibt aus:
 
-| Feld               | Was darin steht                                                           |
-| ------------------ | ------------------------------------------------------------------------- |
-| `kontrakt`         | Die Kontraktversion — die Zahl, an der ein Kit merkt, dass es nicht passt |
-| `arasul`           | Die Systemversion des Geräts (sagt nichts über den Vertrag)               |
-| `app_json`         | `app.json` als JSON-Schema, plus die Regeln, die kein Schema trägt        |
-| `flow_frontmatter` | Der YAML-Kopf einer Flow-Datei als JSON-Schema                            |
-| `koepfe`           | `X-Arasul-User`, `X-Arasul-Role` und die möglichen Rollen                 |
-| `umgebung`         | Was das Gerät dem Container einer App mitgibt                             |
-| `paket`            | Format, Packbefehl, Grenzen, Regeln                                       |
-| `apps`             | Die Pfade unter `/apps/<id>/` und die Namen, die der Plattform gehören    |
-| `schluessel`       | Kopfzeile, Präfix, alle Bereiche und die Vorgabe                          |
-| `endpunkte`        | Verb, Pfad und der Bereich, den jeder verlangt                            |
+| Feld               | Was darin steht                                                            |
+| ------------------ | -------------------------------------------------------------------------- |
+| `kontrakt`         | Die Kontraktversion — die Zahl, an der ein Kit merkt, dass es nicht passt  |
+| `arasul`           | Die Systemversion des Geräts (sagt nichts über den Vertrag)                |
+| `app_json`         | `app.json` als JSON-Schema, plus die Regeln, die kein Schema trägt         |
+| `flow_frontmatter` | Der YAML-Kopf einer Flow-Datei als JSON-Schema                             |
+| `koepfe`           | `X-Arasul-User`, `X-Arasul-Role` und die möglichen Rollen                  |
+| `umgebung`         | Was das Gerät dem Container einer App mitgibt                              |
+| `paket`            | Format, Packbefehl, Grenzen, Regeln                                        |
+| `apps`             | Die Pfade unter `/apps/<id>/` und die Namen, die der Plattform gehören     |
+| `schluessel`       | Kopfzeile, Präfix, alle Bereiche und die Vorgabe                           |
+| `endpunkte`        | Verb, Pfad, Pfad **relativ zur Basis** und der Bereich, den jeder verlangt |
 
 **`app_json.regeln` ist kein Beiwerk.** Zod übergeht seine `.refine`-Regeln
 beim Erzeugen des JSON-Schemas still, und im Manifest sind gerade das die
@@ -257,16 +257,51 @@ Auslieferungsartefakt trägt (`packages/marken/marken.json`, siehe
 [AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md)). Das Gerät meldet in der
 App-Verwaltung einen Stand, der auf einer älteren Fassung steht als die Shell.
 
+**Fassung 5 (Phase H7):** drei Änderungen, alle an dem, was das Gerät einer App
+mitgibt.
+
+`umgebung` **nennt die Namen in ihrer Rolle**:
+
+```json
+"umgebung": {
+  "basis": "ARASUL_API_URL",
+  "schluessel": "ARASUL_API_SCHLUESSEL",
+  "datenbank": "ARASUL_DB_URL",
+  "praefix": "/api/v1/external",
+  "basis_enthaelt_praefix": true,
+  "was": { "ARASUL_API_URL": "…", "ARASUL_API_SCHLUESSEL": "…", "ARASUL_DB_URL": "…" }
+}
+```
+
+Bis Fassung 4 stand der Name im **Schlüssel** einer Abbildung und die Erklärung
+im Wert. Das Ara-Kit liest `umgebung.basis` und `umgebung.schluessel`, fand dort
+nichts, und seine Vorlage ließ Adresse und Schlüssel `null` — die App rief gar
+nicht erst an, und das Ergebnis sah aus wie ein Gerät ohne Arasul. Kontrakt und
+Wirklichkeit stimmten dabei überein (`docker inspect` zeigt genau diese zwei
+Namen); es war allein die Form, über die sich Kit und Produkt nicht einig
+waren.
+
+**`endpunkte[].relativ`**: `ARASUL_API_URL` endet auf `/api/v1/external`, und
+`endpunkte[].pfad` fängt damit an. Wer beides aneinanderhängt — und das ist das
+Naheliegende —, ruft `/api/v1/external/api/v1/external/flows/freigabe/run` und
+bekommt einen `404`. Beide Angaben stimmten, der Kontrakt sagte nur nicht, dass
+es dasselbe Stück ist. **An die Adresse gehört `relativ`, nicht `pfad`.**
+
+**`umgebung.datenbank`**: eine App mit `backend` bekommt je Stand eine eigene
+Datenbank im PostgreSQL der Plattform. Sie steht im Manifest nicht — das Gerät
+legt sie an, nennt ihre Adresse und wirft sie mit der App wieder weg. Siehe
+[APPS.md](APPS.md#die-datenbank-einer-app-phase-h7).
+
 ## Was schiefgehen kann
 
-| Antwort | Bedeutung                                                                                                                                                                                                                               |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `401`   | Kein oder kein gültiger Schlüssel                                                                                                                                                                                                       |
-| `403`   | Der Schlüssel hat `app:deploy` nicht                                                                                                                                                                                                    |
-| `400`   | Das Paket geht nicht durch: kein `app.json` im Wurzelverzeichnis, ein Symlink darin, ein Feld, das es nicht gibt, ein fehlender Bauplan — oder der Bau am Gerät ist gescheitert (die letzten Zeilen der Bauausgabe stehen in `details`) |
-| `409`   | Diese Version ist gerade live; oder: es gibt keinen Teststand zum Schalten, keine vorige Version zum Zurückschalten, oder die Lizenz erlaubt keine weitere App                                                                          |
-| `413`   | Das Archiv ist größer als 200 MB                                                                                                                                                                                                        |
-| `429`   | Zu viele Uploads in kurzer Zeit                                                                                                                                                                                                         |
+| Antwort | Bedeutung                                                                                                                                                                                                                                          |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401`   | Kein oder kein gültiger Schlüssel                                                                                                                                                                                                                  |
+| `403`   | Der Schlüssel hat `app:deploy` nicht                                                                                                                                                                                                               |
+| `400`   | Das Paket geht nicht durch: kein `app.json` im Wurzelverzeichnis, ein Symlink darin, ein Feld, das es nicht gibt, ein fehlender Bauplan — oder der Bau am Gerät ist gescheitert (die letzten Zeilen der Bauausgabe stehen in `details`)            |
+| `409`   | Diese Version ist gerade live; oder: es gibt keinen Teststand zum Schalten, keine vorige Version zum Zurückschalten, oder die Lizenz erlaubt keine weitere App **im Betrieb** (seit H7 zählen nur Livestände; ein Deploy ins Testfeld läuft immer) |
+| `413`   | Das Archiv ist größer als 200 MB                                                                                                                                                                                                                   |
+| `429`   | Zu viele Uploads in kurzer Zeit                                                                                                                                                                                                                    |
 
 ## Gemessen wird das mit
 

@@ -117,11 +117,15 @@ async function leseAusPaket(manifest, ordner) {
 
     // KEINE ORDNER FUER APP-FLOWS (C6). `ordner` sind absolute Pfade am
     // Geraet, und ein Flow aus einem Paket koennte damit `/arasul/config`
-    // deklarieren und mit `dateien_lesen` die Umgebungsdatei ausliefern. Eine
-    // App bekommt einen eigenen, abgeschirmten Datenordner -- aber der ist ein
-    // eigener Beschluss mit Sicherung und Werksreset und gehoert in die
-    // D-Phasen, nicht nebenbei hierher. Bis dahin ist die ehrliche Antwort
-    // eine Abweisung mit Begruendung und kein halb gesperrter Pfad.
+    // deklarieren und mit `dateien_lesen` die Umgebungsdatei ausliefern.
+    //
+    // Den Speicher einer App gibt es seit H7, und er ist ihre DATENBANK
+    // (`services/app/appDatenbank.js`). Das aendert an dieser Abweisung
+    // nichts: die Datenbank erreicht die APP, aus ihrem eigenen Container --
+    // ein Flow laeuft im Backend des Geraets, und die Datei-Werkzeuge wollen
+    // einen Pfad DORT. Einen abgeschirmten Ordner daneben zu stellen hiesse,
+    // einen zweiten Ort einzufuehren, an dem Daten einer App liegen, und damit
+    // jede Frage des Betriebs zweimal zu beantworten.
     //
     // Praktisch trifft das nur Flows mit Datei-Werkzeugen: `schemas/flows.js`
     // verlangt fuer die ohnehin einen Ordner, und wer keine benutzt, nennt
