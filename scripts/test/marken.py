@@ -25,6 +25,21 @@ Was geprueft wird
    im Browser.
 4. Kein Baustein importiert aus der Shell (`@/`). Die Bibliothek gehoert
    beiden Seiten; was von der Shell abhaengt, gehoert nicht hinein.
+5. Jeder Rueckfall in `marken.css` ist der Wert, den derselbe Token in
+   `index.css` traegt -- Hell gegen `:root`, Dunkel gegen
+   `[data-theme='dark']`. Und kein Token, den `index.css` im Dunkeln
+   ueberschreibt, fehlt im Dunkel-Block der Bibliothek (Phase H2).
+
+Warum Punkt 5 (Phase H2, 29.08.2026)
+------------------------------------
+`marken.css` schreibt jeden Wert als `var(--token-der-shell, <Rueckfall>)`:
+in der Shell gilt der Token, in einer App der Rueckfall. Das ist eine Kopie,
+und eine Kopie veraltet lautlos -- dieselbe Klasse wie das Buendel oben, nur
+dass es hier NICHT auffaellt, weil in der Shell immer der Token gewinnt. Wer
+`--background` in `index.css` aendert, sieht die Shell sofort nachziehen und
+jede App auf dem alten Wert stehenbleiben. Seit H2 hat die Bibliothek zwei
+Themen, also gibt es diese Kopie zweimal, und die Frage wird doppelt so
+leicht falsch zu beantworten.
 
 Was er NICHT kann
 -----------------
@@ -72,6 +87,147 @@ def namen_aus(quelle: Path) -> set[str]:
                     continue
                 namen.add(teil.split(" as ")[-1].strip())
     return namen
+
+
+ARA_MIT_VAR = re.compile(r"^(--ara-[\w-]+)\s*:\s*var\(\s*(--[\w-]+)\s*,(.*)\)$", re.S)
+
+
+def ohne_kommentare(css: str) -> str:
+    """CSS ohne `/* ... */`.
+
+    Zuerst, und nicht nebenbei: ein Kommentar hinter einem Semikolon haengt
+    sonst an der NAECHSTEN Deklaration, und die faellt dann lautlos aus der
+    Buchfuehrung. In `index.css` steht hinter fast jeder Zeile der
+    Dichte-Skala einer.
+    """
+    return re.sub(r"/\*.*?\*/", " ", css, flags=re.S)
+
+
+def block(css: str, selektor: str) -> str:
+    """Der Inhalt ALLER Bloecke mit diesem Selektor, aneinandergehaengt.
+
+    Klammernzaehlend und nicht mit einem gierigen `.*?`: eine Regel wie
+    `@media` in einem Block wuerde den Text sonst mitten im Block enden
+    lassen, und die Werte danach fehlten lautlos. Und der Selektor muss
+    unmittelbar vor der Klammer stehen -- `@theme` faende sonst auch
+    `@theme inline`, und `[data-theme='dark']` faende sich selbst in einem
+    Satz und lieferte den naechstbesten Block.
+    """
+    stuecke: list[str] = []
+    for treffer in re.finditer(rf"(?:^|[\s}}]){re.escape(selektor)}\s*\{{", css):
+        auf = treffer.end() - 1
+        tiefe, i = 1, auf + 1
+        while i < len(css) and tiefe:
+            if css[i] == "{":
+                tiefe += 1
+            elif css[i] == "}":
+                tiefe -= 1
+            i += 1
+        stuecke.append(css[auf + 1 : i - 1])
+    return "\n".join(stuecke)
+
+
+def deklarationen(text: str) -> dict[str, str]:
+    """`--name: wert` aus einem Blockinhalt, Klammern und Zeilen egal."""
+    werte: dict[str, str] = {}
+    tiefe, teil = 0, []
+    for zeichen in text:
+        if zeichen == "(":
+            tiefe += 1
+        elif zeichen == ")":
+            tiefe -= 1
+        if zeichen == ";" and tiefe == 0:
+            teil_text = "".join(teil).strip()
+            teil = []
+            if teil_text.startswith("--") and ":" in teil_text:
+                name, wert = teil_text.split(":", 1)
+                werte[name.strip()] = wert.strip()
+            continue
+        teil.append(zeichen)
+    return werte
+
+
+def gleich(a: str, b: str) -> bool:
+    """Zwei CSS-Werte, ohne Ruecksicht auf Gross-/Kleinschreibung und Weissraum.
+
+    Ein Kommentar zaehlt nicht mit: `marken.css` erklaert seine Rueckfaelle,
+    `index.css` erklaert seine Werte, und die zwei Erklaerungen muessen nicht
+    dieselben sein.
+    """
+    def sauber(wert: str) -> str:
+        wert = re.sub(r"/\*.*?\*/", " ", wert, flags=re.S)
+        return re.sub(r"\s+", " ", wert).strip().lower().rstrip(";")
+
+    return sauber(a) == sauber(b)
+
+
+def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
+    """Punkt 5: jeder Rueckfall ist der Wert seines Tokens in `index.css`."""
+    marken_css = ohne_kommentare(marken_css)
+    index = wurzel / "apps" / "dashboard-frontend" / "src" / "index.css"
+    if not index.is_file():
+        return [f"{index} gibt es nicht -- ohne die Quelle ist kein Rueckfall zu pruefen"]
+    quelle = ohne_kommentare(index.read_text(encoding="utf-8"))
+
+    # `@theme` traegt Schrift, Rundungen und die Dichte-Skala, `:root` die
+    # Farben und alles andere. Beides ist das helle Thema.
+    hell = deklarationen(block(quelle, "@theme")) | deklarationen(block(quelle, ":root"))
+    dunkel = deklarationen(block(quelle, "[data-theme='dark']"))
+
+    befunde: list[str] = []
+    for name, selektor, quelle_werte in (
+        ("Hell", ":root", hell),
+        ("Dunkel", "[data-theme='dark']", {**hell, **dunkel}),
+    ):
+        for ara, wert in deklarationen(block(marken_css, selektor)).items():
+            treffer = ARA_MIT_VAR.match(f"{ara}: {wert}")
+            if not treffer:
+                # Ein Wert ohne Token (`--ara-schmal-bis`) gehoert der
+                # Bibliothek allein und hat in `index.css` nichts zu suchen.
+                continue
+            _, token, rueckfall = treffer.groups()
+            if token not in quelle_werte:
+                befunde.append(
+                    f"marken.css ({name}): {ara} zeigt auf {token}, "
+                    f"und den gibt es in index.css nicht"
+                )
+            elif not gleich(rueckfall, quelle_werte[token]):
+                befunde.append(
+                    f"marken.css ({name}): {ara} faellt auf "
+                    f"`{re.sub(r'\s+', ' ', rueckfall).strip()}` zurueck, "
+                    f"{token} traegt in index.css `{quelle_werte[token]}`"
+                )
+
+    # Die andere Richtung: was `index.css` im Dunkeln ueberschreibt, muss die
+    # Bibliothek im Dunkeln auch ueberschreiben. Sonst steht eine App im
+    # dunklen Thema auf einem hellen Wert -- und in der Shell faellt es nie
+    # auf, weil dort der Token gewinnt.
+    im_dunkeln = deklarationen(block(marken_css, "[data-theme='dark']"))
+    tokens_im_dunkeln = {
+        treffer.group(2)
+        for ara, wert in im_dunkeln.items()
+        if (treffer := ARA_MIT_VAR.match(f"{ara}: {wert}"))
+    }
+    for ara, wert in deklarationen(block(marken_css, ":root")).items():
+        treffer = ARA_MIT_VAR.match(f"{ara}: {wert}")
+        if not treffer:
+            continue
+        token = treffer.group(2)
+        if token in dunkel and token not in tokens_im_dunkeln:
+            befunde.append(
+                f"marken.css: {ara} zeigt auf {token}, und index.css gibt dem "
+                f"im Dunkeln einen anderen Wert -- der Dunkel-Block der "
+                f"Bibliothek laesst ihn aus"
+            )
+    for ara, wert in im_dunkeln.items():
+        treffer = ARA_MIT_VAR.match(f"{ara}: {wert}")
+        if treffer and treffer.group(2) not in dunkel:
+            befunde.append(
+                f"marken.css: {ara} steht im Dunkel-Block, aber "
+                f"{treffer.group(2)} weicht in index.css gar nicht ab -- "
+                f"eine Farbe, die es nur im Dunkeln gibt, fehlt im Hellen"
+            )
+    return befunde
 
 
 def main() -> int:
@@ -133,6 +289,9 @@ def main() -> int:
                     "die Bibliothek gehoert beiden Seiten"
                 )
 
+    # 5. Die Rueckfaelle stehen an ihrem Token in `index.css`.
+    befunde.extend(rueckfaelle_pruefen(css, wurzel))
+
     print("")
     print("===  Marken (Designsystem)  ===")
     print(f"  Bausteine: {len(sorted(quelle.glob('*.tsx')))}, Ausgaben: {len(erwartet)}")
@@ -141,7 +300,7 @@ def main() -> int:
             print(f"  FAIL  {b}")
         print("\n  RESULT: FAILED")
         return 1
-    print("  PASS  Buendel, Fassung, Klassen und Grenzen stimmen")
+    print("  PASS  Buendel, Fassung, Klassen, Grenzen und Rueckfaelle stimmen")
     print("\n  RESULT: PASSED")
     return 0
 

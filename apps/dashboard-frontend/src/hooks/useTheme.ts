@@ -62,8 +62,24 @@ function altenWertVergessen(): void {
   }
 }
 
-function amDokumentAnwenden(theme: Theme): void {
-  const root = document.documentElement;
+/**
+ * Das Theme an EIN Dokument schreiben -- an das der Shell oder an das einer
+ * App im Rahmen (Phase H2).
+ *
+ * Exportiert, weil es seit H2 zwei Dokumente gibt, die es tragen: die Shell
+ * selbst und der `iframe` einer App (`AppRahmen`). Beide bekommen denselben
+ * Vertrag, denn `packages/marken/marken.css` liest in beiden dasselbe
+ * Attribut -- zwei Schreibweisen fuer denselben Zustand waeren genau die
+ * zweite Wahrheit, gegen die die Bibliothek gebaut ist.
+ *
+ * Hell setzt GAR NICHTS. Das ist kein Sparen an einem Attribut, sondern die
+ * H1-Entscheidung: `:root` IST Hell, und ein Attribut dafuer waere ein
+ * zweiter Name fuer den Normalfall. Wer die Frage „was gilt hier?" ohne
+ * Vermutung beantwortet haben will, bekommt sie im Rahmen ausdruecklich --
+ * ueber die `postMessage` aus `AppRahmen`, die immer beide Werte nennt.
+ */
+export function themeAmDokument(dokument: Document, theme: Theme): void {
+  const root = dokument.documentElement;
   root.classList.toggle('dark', theme === 'dark');
   if (theme === 'dark') root.setAttribute('data-theme', 'dark');
   else root.removeAttribute('data-theme');
@@ -102,12 +118,14 @@ export function useTheme() {
   // danach weg ist. `uebernommen` haelt sie zusaetzlich innerhalb einer
   // Sitzung fest, damit der StrictMode-Doppelaufruf nicht zweimal schreibt.
   //
-  // Der Merker gehoert dem einzelnen Hook und nicht dem Modul. Beim Laden
-  // haelt `useTheme()` nur `App.tsx`; `GeneralSettings` kommt erst, wenn
-  // jemand die Einstellungen oeffnet, und da ist der Schluessel laengst weg.
-  // Waeren doch zwei zugleich gemountet, schickten sie zweimal DIESELBE
-  // Anfrage und raeumten zweimal denselben Schluessel weg -- ein Merker am
-  // Modul brauchte dafuer eine Naht, die nur die Tests zuruecksetzen.
+  // Der Merker gehoert dem einzelnen Hook und nicht dem Modul. Seit H2 halten
+  // den Hook drei Stellen: `App.tsx` beim Laden, `GeneralSettings`, wenn
+  // jemand die Einstellungen oeffnet, und `AppRahmen` je offenem App-Tab --
+  // die beiden letzten kommen erst, wenn eine Shell steht, und da ist der
+  // Schluessel laengst weg. Traefe es doch einmal zusammen, schickten sie
+  // zweimal DIESELBE Anfrage und raeumten zweimal denselben Schluessel weg;
+  // ein Merker am Modul brauchte dafuer eine Naht, die nur die Tests
+  // zuruecksetzen.
   const uebernommen = useRef(false);
   useEffect(() => {
     if (!isAuthenticated || uebernommen.current) return;
@@ -132,7 +150,7 @@ export function useTheme() {
   // Das Attribut am Dokument folgt dem Wert. Ein Effekt, eine Stelle -- auch
   // wenn mehrere Komponenten den Hook halten, schreiben sie denselben Wert.
   useEffect(() => {
-    amDokumentAnwenden(theme);
+    themeAmDokument(document, theme);
   }, [theme]);
 
   return { theme, setTheme } as const;
