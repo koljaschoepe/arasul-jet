@@ -123,6 +123,50 @@ weil `install.sh` und der Bootstrap am Ende auf
 Admin-Handbuch auf das Gerät gehört, auf dem es gebraucht wird. Ein Verweis ins
 Leere wäre schlimmer als kein Verweis.
 
+### Das Artefakt trägt das Designsystem (Phase H6)
+
+Es ist der **Träger** der Bibliothek an alle, die Apps für dieses Gerät bauen.
+Das Ara-Kit packt das Artefakt nach `.ara/mirror/` aus und spiegelt
+`packages/marken/src/` in seine App-Vorlage; jede App, die daraus entsteht,
+trägt dieselbe Kopie. Der Ordner liegt ohnehin im Artefakt — die Shell wird am
+Gerät daraus gebaut. Was fehlte, war die Auskunft, **was davon das Paket ist**:
+
+```
+packages/marken/
+  marken.json        Fassung, Abhängigkeiten, jede Datei mit ihrem sha256
+  src/               die Quelle: Tokens, Primitive, Muster, Bausteine
+  browser/marken.js  das Bündel für eine App ohne Bau
+  EINBAU.md          wie man es in ein Projekt einbaut
+```
+
+`marken.json` schreibt `scripts/deploy/marken-paket.py` beim Bau des Artefakts.
+Es **kopiert die Bibliothek nicht** — zwei Kopien derselben Quelle in einem
+Artefakt wären genau die zweite Wahrheit, gegen die diese Bibliothek gebaut
+ist. **Das Paket ist, was `marken.json` nennt**; was er nicht nennt
+(`__tests__/`, `browser.ts`, `vite.config.mjs`), gehört nicht dazu.
+
+Die Abhängigkeiten sind nicht abgeschrieben, sondern **gelesen**: jeder Import
+aus `src/`, der kein relativer Pfad ist, muss in der `package.json` der Shell
+stehen, und von dort kommt die Versionsangabe. Eine neue Abhängigkeit der
+Bibliothek steht damit ohne Zutun im Paket; eine, die niemand installieren
+kann, bringt den Bau zum Stehen.
+
+Zwei Messungen halten das:
+
+| Wo                    | Was                                                                                                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI-Job `Installation` | `marken-paket.py --pruefen` am **ausgepackten** Artefakt, jede Datei an ihrem Hash                                                                                                  |
+| CI-Job `Guards`       | `scripts/test/marken-paket-abnahme.sh`: ein frisches Vite-Projekt außerhalb des Repos nimmt das Paket, holt die genannten Abhängigkeiten und baut (`tsc --noEmit` und `vite build`) |
+
+Das zweite ist die eigentliche Frage. In diesem Repo baut die Bibliothek immer
+— hier steht die Shell daneben, mit ihrem Alias, ihrer `package.json`, ihrem
+`index.css` und ihrem `node_modules`. Ein Paket, das nur in seinem eigenen Repo
+baut, ist keins.
+
+Eine App am Gerät **sagt selbst**, auf welcher Fassung sie steht
+(`app.json`, Feld `marken`), und die App-Verwaltung meldet eine, die älter ist
+als die Shell — siehe [APPS.md](../features/APPS.md).
+
 ## Die Fassung kommt aus dem Bau
 
 Bis zum 27.08.2026 stand sie in einer Datei `VERSION`, und dort stand
@@ -200,11 +244,11 @@ geraten:
 `scripts/lib/installation.sh` beantwortet die Frage an **einer** Stelle, und
 zwar mit einer Messung statt einer Annahme:
 
-| Quelle                                                   | Was sie sagt                        |
-| -------------------------------------------------------- | ----------------------------------- |
-| `ARASUL_INSTALLATION`                                    | was ein Mensch von Hand gesagt hat  |
-| Docker, Etikett `com.docker.compose.project.working_dir` | woraus der Stapel **läuft**         |
-| `$HOME/.arasul/installation`                             | was zuletzt installiert wurde       |
+| Quelle                                                   | Was sie sagt                       |
+| -------------------------------------------------------- | ---------------------------------- |
+| `ARASUL_INSTALLATION`                                    | was ein Mensch von Hand gesagt hat |
+| Docker, Etikett `com.docker.compose.project.working_dir` | woraus der Stapel **läuft**        |
+| `$HOME/.arasul/installation`                             | was zuletzt installiert wurde      |
 
 Docker vor dem Zeiger: eine Datei sagt, was zuletzt installiert wurde, ein
 laufender Container sagt, was läuft. `docker compose ps` ist die Wahrheit, auch
@@ -449,12 +493,12 @@ ARASUL_PASSWORT=... bash scripts/test/auslieferung-abnahme.sh
 
 Drei Stufen, und jede misst etwas, das die anderen nicht sehen:
 
-| Wo                        | Was                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI, Job `Installation`    | Baut das Artefakt, packt es aus und startet `./install.sh --nur-vorbereiten` darin. Danach: `.env` da und mit 600, `SYSTEM_VERSION` aus dem Bau, `validate-dependencies.sh` findet seine Compose-Datei, `docker compose config` schweigt, `erstausgabe.sh` nennt beide Geheimnisse und legt `config/secrets/erstausgabe.txt` mit 600 an, `bootstrap-abnahme.sh --trocken` grün. |
+| Wo                              | Was                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CI, Job `Installation`          | Baut das Artefakt, packt es aus und startet `./install.sh --nur-vorbereiten` darin. Danach: `.env` da und mit 600, `SYSTEM_VERSION` aus dem Bau, `validate-dependencies.sh` findet seine Compose-Datei, `docker compose config` schweigt, `erstausgabe.sh` nennt beide Geheimnisse und legt `config/secrets/erstausgabe.txt` mit 600 an, `bootstrap-abnahme.sh --trocken` grün.                                                                                                                                                                                                |
 | CI, `aktualisierung-abnahme.sh` | Derselbe Job, zweiter Zug: Artefakt A installieren, den Zustand eines benutzten Geräts anlegen (Geheimnisse, Geräte-CA, eine App, ein Flow, eine Sicherung, Protokolle), Artefakt B daneben auspacken und `./install.sh` darin — **ohne** ihm zu sagen, wo A steht. Gemessen wird: dieselben Geheimnisse, jedes Zustandsstück da, neue Fassung, Rechte unverändert, A leer und mit `ABGEGEBEN.txt`, `./arasul` weigert sich dort. Dazu die Gegenprobe (Volumes ohne auffindbare Installation → Abbruch, ohne eine `.env` zu schreiben) und der Weg von Hand (`--uebernehmen`). |
-| `bootstrap-abnahme.sh`    | Am Gerät nach dem Reset: laufen alle Dienste bis `document-indexer` und `self-healing-agent`, gibt es einen gültigen Kit-Schlüssel, antwortet `/api/health`, sind die App-Container von vorher weg.                                                                                                                                                                             |
-| `auslieferung-abnahme.sh` | Über die Schnittstelle: Fassung, CA-Zertifikat, Namen im Zertifikat, TLS ohne SNI, Kit-Schlüssel.                                                                                                                                                                                                                                                                               |
+| `bootstrap-abnahme.sh`          | Am Gerät nach dem Reset: laufen alle Dienste bis `document-indexer` und `self-healing-agent`, gibt es einen gültigen Kit-Schlüssel, antwortet `/api/health`, sind die App-Container von vorher weg.                                                                                                                                                                                                                                                                                                                                                                            |
+| `auslieferung-abnahme.sh`       | Über die Schnittstelle: Fassung, CA-Zertifikat, Namen im Zertifikat, TLS ohne SNI, Kit-Schlüssel.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 Warum es den CI-Job gibt: bis zum 28.08.2026 prüfte die Auslieferung nur, ob
 die Dateien **im** Artefakt liegen. Ausgeführt wurde es nie. Von den fünf

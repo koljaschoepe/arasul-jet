@@ -613,6 +613,51 @@ und diese Probe mit „im Hellen" anfing, ohne es herzustellen. Sie stellt es
 jetzt selbst ein, wie jeder andere Abschnitt der Reihe: **47 von 47 grün**,
 gemessen am Orin.
 
+Seit **H6** (29.08.2026) geht die Bibliothek als **Paket** hinaus, und eine
+App sagt, worauf sie steht. Bis H5 hatte sie einen Ausgang nach draußen: das
+eingecheckte Bündel für eine App ohne Bau. Wer eine App **mit** Bau schrieb,
+nahm „die Quelle" — und das hieß irgendein Ordner in irgendeinem Checkout. Das
+Ara-Kit spiegelt sie aus dem Auslieferungsartefakt und liest dort einen
+**flachen** Ordner; seit H3 liegen die Primitive in `primitive/`, seit H4 die
+Muster in `muster/`, und ein Spiegel, der nur die oberste Ebene mitnimmt, trägt
+eine `index.ts`, die auf zwei Ordner zeigt, die es bei ihm nicht gibt.
+`scripts/deploy/marken-paket.py` beantwortet die Frage, **was dazugehört**,
+einmal und nachprüfbar: `marken.json` nennt die Fassung, die Abhängigkeiten und
+jede Datei mit ihrem sha256 — rekursiv. **Das Paket ist, was `marken.json`
+nennt**; was er nicht nennt (`__tests__/`, `browser.ts`, `vite.config.mjs`),
+gehört nicht dazu. Darum gibt es zwei Aufrufe und trotzdem keine zwei
+Wahrheiten: `--ausgabe` legt das Paket als eigenen Ordner hin (das nimmt ein
+fremdes Projekt, das spiegelt das Kit), `--stempel` schreibt nur die
+`marken.json` — so trägt das **Artefakt aus C10** das Paket, ohne die
+Bibliothek ein zweites Mal mitzuschleppen. Die **Abhängigkeiten sind gelesen,
+nicht gepflegt**: jeder Import aus `src/`, der kein relativer Pfad ist, muss in
+der `package.json` der Shell stehen, und von dort kommt die Version — eine
+neue Abhängigkeit steht ohne Zutun im Paket, eine, die niemand installieren
+kann, bringt den Bau zum Stehen. Gemessen wird **außerhalb dieses Repos**
+(`scripts/test/marken-paket-abnahme.sh`): ein frisches Vite-Projekt in einem
+Temp-Ordner, die Abhängigkeiten aus dem Stempel, `src/` hinein, `tsc --noEmit`
+und `vite build`, und danach die Frage, ob im Ergebnis wirklich die Bibliothek
+steht (`.ara-karte` aus `marken.css`, `--background` und der Dunkel-Block aus
+`theme.css`, `bg-secondary` als Beleg, dass Tailwind die Primitive gefunden
+hat). Hier baut die Bibliothek immer — die Shell steht daneben, mit ihrem
+Alias, ihrer `package.json` und ihrem `node_modules`; ein Paket, das nur im
+eigenen Repo baut, ist keins.
+Und **eine App sagt, auf welcher Fassung sie steht**: `app.json` kennt seit H6
+das freiwillige Feld `marken` (`"3.1.0"`), `GET /api/apps` und
+`GET /api/apps/:id` führen es je Stand mit, und die App-Verwaltung meldet in
+der Karte des Standes eine Fassung, die älter ist als die der Shell — oder gar
+keine. **Das Backend vergleicht nicht**: die Fassung der Bibliothek kennt die
+Shell, weil sie sie mitübersetzt (`FASSUNG` aus `@marken`), und eine zweite
+Zahl im Backend wäre eine, die eines Tages etwas anderes sagt. **Kein Rot**:
+eine App mit einer alten Bibliothek läuft, sie sieht nur nicht mehr aus wie das
+Gerät um sie herum — das ist etwas anderes als `lieferbar: false`. Freiwillig
+ist das Feld, weil jede App vor H6 es nicht hat und ein Manifest daran
+scheitern zu lassen hieße, eine laufende App an einer Auskunft zu messen, die
+es zu ihrer Bauzeit nicht gab. `marken.py` hat einen achten Punkt bekommen: die
+Beispielapp nennt die Fassung, die `marken-beilegen.sh` ihr wirklich danebenlegt
+— sonst hätte der Vorgang, für den H6 gebaut ist, sein erstes falsches Beispiel
+im eigenen Repo.
+
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,

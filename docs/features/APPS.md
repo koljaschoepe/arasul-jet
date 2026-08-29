@@ -74,6 +74,7 @@ Dienst.
 | `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                            |
 | `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                |
 | `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**). |
+| `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                |
 
 \* Mindestens eines von `frontend` und `backend`.
 
@@ -168,6 +169,43 @@ ausgefülltes Formular.
 
 **Eine App, die schon am Gerät liegt, bekommt die neue `marken.css` erst beim
 nächsten Einspielen.** Die Datei liegt neben ihr und nicht in der Shell.
+
+### Die App sagt, auf welcher Fassung sie steht (Phase H6)
+
+Eine App trägt die Bibliothek als **Kopie** — als Spiegel der Quelle in ihrem
+Frontend (mit Bau) oder als beigelegtes `marken.js` (ohne). Die Shell zieht mit
+jedem Deploy nach, die App bleibt auf dem Stand ihres letzten Paketbaus, und
+der Mensch sieht beides in **einem** Rahmen übereinander. Nichts an einer
+laufenden App würde davon rot.
+
+Deshalb sagt sie es selbst:
+
+```json
+{ "marken": "3.1.0" }
+```
+
+Was das Gerät daraus macht: `GET /api/apps` und `GET /api/apps/:id` führen die
+Zahl je Stand als `marken` mit (`null`, wenn das Manifest sie nicht nennt), und
+die App-Verwaltung zeigt sie in der Karte des Standes. Steht dort eine ältere
+Fassung als die der Shell — oder gar keine —, sagt sie das.
+
+**Das Gerät vergleicht im Backend nicht.** Die Fassung der Bibliothek kennt die
+Shell, weil sie sie mitübersetzt (`FASSUNG` aus `@marken`); eine zweite Zahl im
+Backend wäre eine, die eines Tages etwas anderes sagt.
+
+**Und es ist kein Mangel.** Eine App mit einer alten Bibliothek läuft; sie
+sieht nur nicht mehr aus wie das Gerät um sie herum. Das ist etwas anderes als
+`lieferbar: false`, und es steht deshalb an einer anderen Stelle.
+
+Die Angabe ist **freiwillig**: jede App, die vor H6 gebaut wurde, hat sie
+nicht, und ein Manifest deswegen abzuweisen hieße, eine laufende App an einer
+Auskunft scheitern zu lassen, die es zu ihrer Bauzeit nicht gab.
+
+Woher ein Partner die richtige Zahl bekommt: aus dem **Paket**, das das
+Auslieferungsartefakt trägt — `packages/marken/marken.json` nennt `fassung`,
+die Abhängigkeiten und jede Datei mit ihrem sha256
+(`scripts/deploy/marken-paket.py`, Einbauanleitung in
+`packages/marken/EINBAU.md`).
 
 ## Die Flows einer App (Phase C6)
 
@@ -375,6 +413,7 @@ Gerät die Gesundheit eines **Standes** selbst, aus beiden Quellen
 | `dateien`   | die Platte: `app.json` da, `index.html` des Frontends da (`null` ohne)   |
 | `lieferbar` | bekommt ein Mensch, der auf die Kachel klickt, diese App?                |
 | `mangel`    | wenn nicht: warum, als ein Satz                                          |
+| `marken`    | die Fassung des Designsystems aus dem Manifest, oder `null` (H6)         |
 
 `GET /api/apps` und `GET /api/apps/:id` tragen alle vier je Stand. Die
 Verwaltung (Einstellungen → Apps) zeigt einen Stand ohne `lieferbar` rot,
