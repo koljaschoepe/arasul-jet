@@ -17,9 +17,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
+import { Feldgruppe } from '@marken';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
-import { DashboardCard, DashboardCardTitle } from './DashboardCard';
 
 interface OpsOverview {
   status: 'OK' | 'WARNING' | 'CRITICAL';
@@ -113,19 +113,17 @@ const SystemHealthWidget: React.FC = () => {
 
   if (error && !data) {
     return (
-      <DashboardCard>
-        <DashboardCardTitle>System-Gesundheit</DashboardCardTitle>
-        <p className="text-ui text-text-muted">{error}</p>
-      </DashboardCard>
+      <Feldgruppe titel="System-Gesundheit">
+        <p className="text-ui text-muted-foreground">{error}</p>
+      </Feldgruppe>
     );
   }
 
   if (!data) {
     return (
-      <DashboardCard className="min-h-[200px]">
-        <DashboardCardTitle>System-Gesundheit</DashboardCardTitle>
-        <p className="text-ui text-text-muted">Lade…</p>
-      </DashboardCard>
+      <Feldgruppe titel="System-Gesundheit" className="min-h-[200px]">
+        <p className="text-ui text-muted-foreground">Lade…</p>
+      </Feldgruppe>
     );
   }
 
@@ -154,11 +152,9 @@ const SystemHealthWidget: React.FC = () => {
   const notifications = data.notifications ?? { unsent_critical_24h: 0 };
 
   return (
-    <DashboardCard>
-      <DashboardCardTitle>System-Gesundheit</DashboardCardTitle>
-
+    <Feldgruppe titel="System-Gesundheit">
       <div
-        className="mb-ui-3 flex min-w-0 items-center gap-ui-2 rounded-lg border bg-bg-subtle p-ui-2"
+        className="mb-ui-3 flex min-w-0 items-center gap-ui-2 rounded-lg border p-ui-2"
         style={{ borderColor: meta.color }}
       >
         <div className="shrink-0" style={{ color: meta.color }}>
@@ -169,10 +165,10 @@ const SystemHealthWidget: React.FC = () => {
             {meta.label}
           </div>
           {criticals.length > 0 && (
-            <div className="truncate text-ui-xs text-text-muted">{criticals[0]}</div>
+            <div className="truncate text-ui-xs text-muted-foreground">{criticals[0]}</div>
           )}
           {criticals.length === 0 && warnings.length > 0 && (
-            <div className="truncate text-ui-xs text-text-muted">{warnings[0]}</div>
+            <div className="truncate text-ui-xs text-muted-foreground">{warnings[0]}</div>
           )}
         </div>
       </div>
@@ -239,7 +235,7 @@ const SystemHealthWidget: React.FC = () => {
           </div>
         )}
       </div>
-    </DashboardCard>
+    </Feldgruppe>
   );
 };
 

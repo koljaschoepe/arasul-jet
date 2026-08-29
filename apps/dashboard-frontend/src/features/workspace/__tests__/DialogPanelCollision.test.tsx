@@ -16,7 +16,8 @@
  *
  * Der Explorer, dessen Dialoge den Fall ausgelöst hatten, ist mit B2
  * gefallen; die Regel gilt für jeden Dialog neben der Shell, deshalb bleibt
- * der Test mit Modal und ConfirmModal.
+ * der Test mit `Dialogform` und `Bestaetigung` aus `@marken` (bis H5:
+ * `Modal` und `ConfirmModal` der Shell).
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -25,7 +26,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { ToastProvider } from '@/contexts/ToastContext';
 import WorkspaceShell from '../WorkspaceShell';
-import Modal, { ConfirmModal } from '@/components/ui/Modal';
+import { Bestaetigung, Dialogform } from '@marken';
 
 // Schwere Shell-Kinder mocken — getestet wird die Panel-/Dialog-Interaktion.
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
@@ -69,9 +70,9 @@ describe('Ursache: Radix hideOthers ↔ aria-hidden-Kopplung', () => {
     document.body.appendChild(orphan);
 
     render(
-      <Modal isOpen onClose={() => {}} title="Neuer Eintrag" size="small">
+      <Dialogform offen beiSchliessen={() => {}} titel="Neuer Eintrag" groesse="klein">
         <p>Dialog-Inhalt</p>
-      </Modal>
+      </Dialogform>
     );
     await waitFor(() => expect(screen.getByText('Neuer Eintrag')).toBeInTheDocument());
 
@@ -89,23 +90,23 @@ describe('Fix: offene Dialoge lassen die Shell-Spalten sichtbar', () => {
     {
       name: 'Name-Dialog',
       dialog: (
-        <Modal isOpen onClose={() => {}} title="Neuer Eintrag" size="small">
+        <Dialogform offen beiSchliessen={() => {}} titel="Neuer Eintrag" groesse="klein">
           <p>Name</p>
-        </Modal>
+        </Dialogform>
       ),
       open: 'Neuer Eintrag',
     },
     {
       name: 'Bestätigungs-Dialog (Löschen)',
       dialog: (
-        <ConfirmModal
-          isOpen
-          onClose={() => {}}
-          onConfirm={() => {}}
-          title="Eintrag löschen"
-          message="„notiz“ wirklich löschen?"
-          confirmText="Löschen"
-          confirmVariant="danger"
+        <Bestaetigung
+          offen
+          beiSchliessen={() => {}}
+          beiBestaetigen={() => {}}
+          titel="Eintrag löschen"
+          frage="„notiz“ wirklich löschen?"
+          jaText="Löschen"
+          art="gefahr"
         />
       ),
       open: 'Eintrag löschen',

@@ -19,10 +19,9 @@
  */
 import { useState } from 'react';
 import { Archive, DatabaseBackup, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
-import { Kopf } from '@marken';
+import { Kennzahl, Kennzahlen, Kopf } from '@marken';
 import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import { useToast } from '@/contexts/ToastContext';
 import { formatBytes, formatDate } from '@/utils/formatting';
 import {
@@ -59,7 +58,7 @@ function MeldungsZeile({ meldung, testid }: { meldung: Meldung; testid: string }
       className={cn(
         'mt-4 rounded-md border-l-2 px-3 py-2 text-sm',
         meldung.gut
-          ? 'border-primary bg-primary/5 text-foreground'
+          ? 'border-foreground font-medium text-foreground'
           : 'border-destructive bg-destructive/5 text-foreground'
       )}
     >
@@ -177,11 +176,11 @@ export function Sicherung() {
               </Button>
             }
           >
-            <StatGrid>
-              <StatTile
-                label="Gerät"
-                value={status?.sichertWirklich ? 'sichert' : 'sichert nicht'}
-                note={
+            <Kennzahlen>
+              <Kennzahl
+                beschriftung="Gerät"
+                wert={status?.sichertWirklich ? 'sichert' : 'sichert nicht'}
+                fussnote={
                   status?.sichertWirklich
                     ? 'Die letzte Sicherung ist durchgelaufen und nicht veraltet.'
                     : letzte?.status === 'fehlt'
@@ -189,10 +188,10 @@ export function Sicherung() {
                       : 'Seit über 48 Stunden ist keine Sicherung durchgelaufen.'
                 }
               />
-              <StatTile
-                label="Letzte Sicherung"
-                value={letzte?.zeitpunkt ? formatDate(letzte.zeitpunkt) : 'keine'}
-                note={
+              <Kennzahl
+                beschriftung="Letzte Sicherung"
+                wert={letzte?.zeitpunkt ? formatDate(letzte.zeitpunkt) : 'keine'}
+                fussnote={
                   letzte?.alterStunden != null
                     ? `vor ${letzte.alterStunden} h${letzte.groesse ? `, ${letzte.groesse}` : ''}${
                         letzte.verschluesselt ? ', verschlüsselt' : ''
@@ -200,22 +199,22 @@ export function Sicherung() {
                     : 'Dieses Gerät hat noch nie gesichert.'
                 }
               />
-              <StatTile
-                label="Kopie außerhalb"
-                value={
+              <Kennzahl
+                beschriftung="Kopie außerhalb"
+                wert={
                   ausserhalb?.vorhanden && ausserhalb.zeitpunkt
                     ? formatDate(ausserhalb.zeitpunkt)
                     : 'noch nie'
                 }
-                note={
+                fussnote={
                   ausserhalb?.vorhanden
                     ? `${formatBytes(ausserhalb.bytes)}${ausserhalb.ziel ? ` auf ${ausserhalb.ziel}` : ''}`
                     : 'Eine Sicherung, die nur auf diesem Gerät liegt, überlebt das Gerät nicht.'
                 }
               />
-              <StatTile
-                label="Wiederherstellungstest"
-                value={
+              <Kennzahl
+                beschriftung="Wiederherstellungstest"
+                wert={
                   drill?.status === 'nie_gelaufen'
                     ? 'nie gelaufen'
                     : drill?.status === 'ok'
@@ -224,13 +223,13 @@ export function Sicherung() {
                         ? 'gescheitert'
                         : (drill?.status ?? 'unbekannt')
                 }
-                note={
+                fussnote={
                   drill?.zeitpunkt
                     ? `${formatDate(drill.zeitpunkt)}${drill.tabellen ? `, ${drill.tabellen} Tabellen geprüft` : ''}`
                     : 'Ungeprüft ist eine Sicherung eine Vermutung.'
                 }
               />
-            </StatGrid>
+            </Kennzahlen>
 
             {status?.laeuftGerade && !sichern.isPending && !test.isPending && (
               <p className="mt-4 text-sm text-muted-foreground" data-testid="sicherung-laeuft">

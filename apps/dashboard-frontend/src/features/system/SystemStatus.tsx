@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { formatBytesBinaer } from '@/utils/formatting';
-import { Button, Chart, Sparkline } from '@marken';
-import { StatGrid, StatTile } from '@/components/ui/StatTile';
+import {
+  Button,
+  Chart,
+  Kennzahl,
+  Kennzahlen,
+  Sparkline,
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@marken';
 import { useGeraetezustand } from './geraetezustand';
 import type {
   Geraetezustand,
@@ -12,7 +19,6 @@ import type {
 } from './geraetezustand';
 import type { Metrics } from '@/types';
 import { useMemoryBudget } from '@/hooks/useMemoryBudget';
-import { DashboardCard } from './DashboardCard';
 import { Feldgruppe, Formularseite, Ladezustand } from '@marken';
 
 /**
@@ -196,20 +202,20 @@ function SystemStatusView({
 
   return (
     <div className="flex min-w-0 flex-col gap-ui-3" data-testid="auslastung-seite">
-      <div className="text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
+      <div className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Systemstatus
       </div>
-      <StatGrid>
-        <StatTile
-          label="Arbeitsspeicher"
-          value={metrics?.ram?.toFixed(1) || 0}
-          unit="%"
-          note={
+      <Kennzahlen>
+        <Kennzahl
+          beschriftung="Arbeitsspeicher"
+          wert={metrics?.ram?.toFixed(1) || 0}
+          einheit="%"
+          fussnote={
             deviceInfo?.total_memory_gb ? (
               <>
                 {`${(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} von ${deviceInfo.total_memory_gb} GB im ganzen Gerät`}
                 {kiRamGb !== null && (
-                  <div className="mt-ui-1 text-ui-xs text-text-muted">
+                  <div className="mt-ui-1 text-ui-xs text-muted-foreground">
                     {`Davon ${kiRamGb} GB für KI-Modelle reserviert`}
                   </div>
                 )}
@@ -224,11 +230,11 @@ function SystemStatusView({
           }
         />
 
-        <StatTile
-          label="Auslagerung"
-          value={metrics?.swap?.toFixed(1) || 0}
-          unit="%"
-          note={
+        <Kennzahl
+          beschriftung="Auslagerung"
+          wert={metrics?.swap?.toFixed(1) || 0}
+          einheit="%"
+          fussnote={
             <span
               className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.swap || 0, 'swap').variant]}`}
             >
@@ -237,11 +243,11 @@ function SystemStatusView({
           }
         />
 
-        <StatTile
-          label="Speicherplatz"
-          value={metrics?.disk?.percent?.toFixed(0) || 0}
-          unit="%"
-          note={
+        <Kennzahl
+          beschriftung="Speicherplatz"
+          wert={metrics?.disk?.percent?.toFixed(0) || 0}
+          einheit="%"
+          fussnote={
             <>
               <div className="my-ui-1 h-1 w-full overflow-hidden rounded-full bg-border">
                 <div
@@ -260,11 +266,11 @@ function SystemStatusView({
           }
         />
 
-        <StatTile
-          label="Temperatur"
-          value={metrics?.temperature?.toFixed(0) || 0}
-          unit="°C"
-          note={
+        <Kennzahl
+          beschriftung="Temperatur"
+          wert={metrics?.temperature?.toFixed(0) || 0}
+          einheit="°C"
+          fussnote={
             <>
               <span
                 className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getTempStatusInfo(metrics?.temperature || 0).variant]}`}
@@ -275,7 +281,7 @@ function SystemStatusView({
             </>
           }
         />
-      </StatGrid>
+      </Kennzahlen>
 
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-ui-2">
         {/*
@@ -285,27 +291,35 @@ function SystemStatusView({
           darunter, beide als Karte. Ein einzelner flacher Block dazwischen
           liest sich wie eine vergessene Formatierung, nicht wie Absicht.
         */}
-        <DashboardCard className="col-span-full">
+        <div className="col-span-full min-w-0">
           <Formularseite>
             <Feldgruppe
               titel="Auslastung"
               aktion={
-                <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
+                /* SEIT H5 EIN `ToggleGroup` AUS DER BIBLIOTHEK. Bis dahin
+                   standen hier drei handgebaute Knoepfe auf einer zweiten
+                   Flaeche (`bg-secondary`), der gewaehlte im Akzent gefuellt
+                   und der Rest mit einem willkuerlichen
+                   `hover:bg-[var(--primary-alpha-10)]` -- eine Farbe, die an
+                   keinem Token haengt. Die Bibliothek kennt genau diese Form,
+                   und der gewaehlte Knopf hebt sich dort ab, wie ueberall
+                   sonst auch. */
+                <ToggleGroup
+                  type="single"
+                  value={String(chartTimeRange)}
+                  onValueChange={wert => wert && setChartTimeRange(Number(wert))}
+                  aria-label="Zeitraum der Auslastung"
+                >
                   {timeRangeOptions.map((hours: number) => (
-                    <button
+                    <ToggleGroupItem
                       key={hours}
-                      type="button"
-                      className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
-                        chartTimeRange === hours
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
-                      }`}
-                      onClick={() => setChartTimeRange(hours)}
+                      value={String(hours)}
+                      aria-label={`${hours} Stunden`}
                     >
                       {hours}h
-                    </button>
+                    </ToggleGroupItem>
                   ))}
-                </div>
+                </ToggleGroup>
               }
             >
               <Chart
@@ -344,9 +358,9 @@ function SystemStatusView({
               </div>
             </Feldgruppe>
           </Formularseite>
-        </DashboardCard>
+        </div>
 
-        <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>
+        <Suspense fallback={<div className="min-h-[200px]" />}>
           <SystemHealthWidget />
         </Suspense>
       </div>

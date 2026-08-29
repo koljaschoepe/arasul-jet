@@ -10,8 +10,7 @@
  * drücken denselben Knopf.
  */
 import { useState, type FormEvent } from 'react';
-import Modal from '@/components/ui/Modal';
-import { Button, Input, Label } from '@marken';
+import { Button, Dialogform, Input, Label } from '@marken';
 
 /** Dieselbe Untergrenze wie im Backend (`schemas/benutzer.js`). */
 const MINDESTLAENGE = 8;
@@ -40,12 +39,12 @@ export function PasswortSetzenDialog({ fuer, laeuft, onSchliessen, onSetzen }: P
   };
 
   return (
-    <Modal
-      isOpen={fuer !== null}
-      onClose={schliessen}
-      title={fuer ? `Startpasswort für ${fuer.username}` : 'Startpasswort'}
-      size="small"
-      footer={
+    <Dialogform
+      offen={fuer !== null}
+      beiSchliessen={schliessen}
+      titel={fuer ? `Startpasswort für ${fuer.username}` : 'Startpasswort'}
+      groesse="klein"
+      fuss={
         <div className="flex w-full justify-end gap-3">
           <Button type="button" variant="outline" onClick={schliessen}>
             Abbrechen
@@ -82,6 +81,6 @@ export function PasswortSetzenDialog({ fuer, laeuft, onSchliessen, onSetzen }: P
           Alle offenen Sitzungen dieses Menschen enden damit sofort.
         </p>
       </form>
-    </Modal>
+    </Dialogform>
   );
 }
