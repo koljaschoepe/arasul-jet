@@ -616,6 +616,15 @@ if (alsServerGestartet) {
       logger.warn(`App-Staende nicht pruefbar: ${err.message}`);
     }
 
+    // Und dass jede eingetragene App-Datenbank auch wirklich dasteht, mit dem
+    // Passwort, das in der Tabelle liegt (Phase H7). Der Fall dahinter ist der
+    // Weg zurueck: `wiederherstellen.sh` legt Rolle und Datenbank mit einem
+    // Zufallswert an, weil ein Shell-Skript das verschluesselte Passwort nicht
+    // lesen kann -- die App im Container traegt aber noch die alte Adresse.
+    // Wirft nicht: ein Postgres, der gerade keine Rolle anlegen will, darf das
+    // Backend nicht am Hochkommen hindern.
+    await require('./services/app/appDatenbank').heileAlle();
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

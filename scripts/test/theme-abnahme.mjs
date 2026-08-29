@@ -47,7 +47,8 @@
  * eine andere Frage, naemlich ob die Seite ueberhaupt in beiden Themes
  * lesbar ist. Im Bericht steht das dabei.
  *
- * ZWEI ANMELDUNGEN, nicht mehr. Das Geraet laesst zehn je Viertelstunde und
+ * ZWEI ANMELDUNGEN, nicht mehr. Das Geraet laesst dreissig Fehlschlaege je
+ * Viertelstunde und
  * IP zu (`loginLimiter`), und daneben laufen die anderen Abnahmen. Die erste
  * geht ueber die Schnittstelle (der Kontext bekommt ihr Sitzungscookie), die
  * zweite ueber das FORMULAR im zweiten Kontext -- denn genau die ist der

@@ -23,6 +23,7 @@ const { ConflictError, NotFoundError, ServiceUnavailableError } = require('../..
 const appManifest = require('./appManifest');
 const appContainer = require('./appContainer');
 const appSchluessel = require('./appSchluessel');
+const appDatenbank = require('./appDatenbank');
 const appFlows = require('./appFlows');
 
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
@@ -241,9 +242,29 @@ async function modellStand(namen) {
  * Der Container wird ersetzt, nicht neu gestartet — die Begruendung steht in
  * `appContainer.starte`.
  */
+/**
+ * Etwas aufraeumen, ohne den eigentlichen Fehler zu verlieren.
+ *
+ * Im `catch` eines fehlgeschlagenen Einspielens: wirft das Aufraeumen selbst,
+ * stuende im Protokoll und in der Antwort sein Fehler statt dem, weswegen das
+ * Einspielen scheiterte -- und der Partner suchte an der falschen Stelle.
+ */
+async function stillEntfernen(tun) {
+  try {
+    await tun();
+  } catch (err) {
+    logger.warn(`Aufraeumen nach fehlgeschlagenem Einspielen misslang: ${err.message}`);
+  }
+}
+
 async function spieleEin({ appId, version, stand, durch }) {
   const manifest = await appManifest.leseManifest(appId, version);
-  const neueApp = await pruefeAppGrenze(manifest.id);
+  const neueApp = await istNeueApp(manifest.id);
+  // Die Lizenzgrenze greift beim Schalten nach live und nicht hier -- siehe
+  // `pruefeLivegrenze`. Ein Teststand ist kein Betrieb.
+  if (stand === 'live') {
+    await pruefeLivegrenze(manifest.id);
+  }
   if (manifest.frontend) {
     await appManifest.frontendVerzeichnis(manifest);
   }
@@ -285,6 +306,11 @@ async function spieleEin({ appId, version, stand, durch }) {
 
   try {
     if (manifest.backend) {
+      // Die Datenbank dieses Standes (Phase H7). VOR dem Schluessel, weil
+      // beide in dieselbe Umgebung gehen und ein Container ohne seinen
+      // Speicher nicht starten soll. Idempotent: beim zweiten Einspielen
+      // steht sie schon da, mit ihren Daten -- angelegt wird nur, was fehlt.
+      const zugang = await appDatenbank.sorgeFuer({ appId: manifest.id, stand });
       // Je Stand ein frischer Schluessel, und er geht nur in EINE Richtung:
       // in die Umgebung dieses Containers. Danach gibt es ihn nur noch als
       // bcrypt-Abdruck (`services/app/appSchluessel.js`).
@@ -292,7 +318,7 @@ async function spieleEin({ appId, version, stand, durch }) {
       await appContainer.starte(
         manifest,
         stand,
-        appSchluessel.umgebungFuer(schluessel),
+        { ...appSchluessel.umgebungFuer(schluessel), ...appDatenbank.umgebungFuer(zugang) },
         versionsPfad
       );
     }
@@ -301,7 +327,13 @@ async function spieleEin({ appId, version, stand, durch }) {
     // App, die es vorher nicht gab, wuerde sonst als leere Zeile stehen
     // bleiben und dauerhaft einen Platz der Lizenzgrenze belegen. Der DELETE
     // nimmt ueber ON DELETE CASCADE auch den eben angelegten Schluessel mit.
+    //
+    // Die DATENBANK nimmt er nicht mit -- sie ist kein Eintrag, sondern ein
+    // Ding im Cluster. Sie faellt deshalb ausdruecklich, und nur bei einer
+    // App, die es vorher nicht gab: eine bestehende App, deren Update
+    // scheitert, behaelt ihre Daten.
     if (neueApp) {
+      await stillEntfernen(() => appDatenbank.entferne(manifest.id));
       await db.query('DELETE FROM public.apps WHERE id = $1', [manifest.id]);
     }
     throw fehler;
@@ -419,36 +451,56 @@ async function schalte({ appId, ziel, durch }) {
 }
 
 /**
+ * Ob es diese App am Geraet noch gar nicht gibt.
+ *
+ * `spieleEin` braucht die Antwort, um bei einem Fehlschlag zu wissen, ob es
+ * die Zeile in `apps` wieder wegraeumen darf -- sie an zweiter Stelle noch
+ * einmal zu erfragen waere dieselbe Abfrage und ein Fenster dazwischen.
+ */
+async function istNeueApp(appId) {
+  const vorhanden = await db.query('SELECT 1 FROM public.apps WHERE id = $1', [appId]);
+  return vorhanden.rows.length === 0;
+}
+
+/**
  * Die Lizenzgrenze fuer die Zahl der Apps.
  *
- * Sie greift nur bei einer NEUEN App: eine neue Version einer App, die schon
- * am Geraet ist, aendert die Zahl nicht, und ein abgelaufener Schluessel darf
- * kein Update blockieren, das vielleicht genau den Fehler behebt, wegen dem
- * jemand anruft.
+ * EIN TESTSTAND ZAEHLT NICHT (Entscheidung H7, 29.08.2026). Gezaehlt werden
+ * Apps mit einem LIVESTAND, und geprueft wird beim Schalten nach live -- nicht
+ * beim Einspielen.
+ *
+ * Der Grund steht in der Vision: die Lizenz kauft den BETRIEB. Was ein
+ * Mitarbeiter benutzt, ist der Livestand; den Teststand sieht, wer als Tester
+ * eingetragen ist, und er ist die Werkbank des Partners. Bis H7 zaehlte jede
+ * Zeile in `apps`, und am Orin standen am 29.08.2026 drei von drei belegt --
+ * `beispielapp`, `angebot`, `urlaubsantrag`, keine davon in Betrieb. Ein
+ * Partner mit drei gekauften Apps haette die vierte nicht einmal BAUEN
+ * koennen, um eine der drei zu ersetzen; er haette erst wegwerfen muessen, was
+ * laeuft. Eine Grenze, die das Ausprobieren verbietet, misst nicht, was
+ * verkauft wurde.
+ *
+ * Der Riegel steht damit an der Stelle, an der aus einem Versuch Betrieb wird,
+ * und das ist genau der Augenblick, in dem ein Mensch entscheidet -- ein
+ * Deploy des Kits kommt nie dorthin. Zurueckgeschaltet (`zurueck`) wird nicht
+ * geprueft: die App war schon live, die Zahl aendert sich nicht.
  *
  * `maxApps` ist die einzige Zahl aus `FEATURE_TIERS`, hinter der ein Riegel
  * steht. Die anderen sind Angaben; diese ist eine Zusage.
- *
- * @returns {Promise<boolean>} ob die App neu ist. `spieleEin` braucht die
- *   Antwort, um bei einem Fehlschlag zu wissen, ob es die Zeile in `apps`
- *   wieder wegraeumen darf -- sie an zweiter Stelle noch einmal zu erfragen
- *   waere dieselbe Abfrage und ein Fenster dazwischen.
  */
-async function pruefeAppGrenze(appId) {
-  const vorhanden = await db.query('SELECT 1 FROM public.apps WHERE id = $1', [appId]);
-  if (vorhanden.rows.length > 0) {
-    return false;
-  }
-  const { rows } = await db.query('SELECT count(*)::int AS n FROM public.apps');
+async function pruefeLivegrenze(appId) {
+  const { rows } = await db.query(
+    `SELECT count(*)::int AS n FROM public.app_staende WHERE stand = 'live' AND app_id <> $1`,
+    [appId]
+  );
   const licenseService = require('./licenseService');
   const grenze = await licenseService.checkLimit('maxApps', rows[0].n);
   if (!grenze.allowed) {
     throw new ConflictError(
-      `Die Lizenz dieses Geraets erlaubt ${grenze.limit} Apps, es sind ${grenze.current}. ` +
-        'Eine App entfernen oder die Lizenz erweitern.'
+      `Die Lizenz dieses Geraets erlaubt ${grenze.limit} Apps im Betrieb, es sind ${grenze.current}. ` +
+        'Eine App zuruecknehmen oder entfernen, oder die Lizenz erweitern. ' +
+        'Teststaende zaehlen nicht.'
     );
   }
-  return true;
 }
 
 /**
@@ -524,6 +576,17 @@ async function entferneApp(appId, { dateien = false } = {}) {
   // Erst der Container, dann sein Image: andersherum weist Docker mit 409 ab.
   const entfernteImages = await appContainer.entferneImages(appId, images);
 
+  // Und die Datenbanken beider Staende (Phase H7). VOR dem DELETE auf `apps`:
+  // die Zeile in `app_datenbanken` haengt mit ON DELETE CASCADE daran, und
+  // danach wuesste niemand mehr, wie sie hiessen. Nach dem Container, damit
+  // keine Verbindung mehr offen ist.
+  //
+  // Sie gehen IMMER mit, auch ohne `dateien`. `dateien` entscheidet ueber die
+  // Pakete auf der Platte -- die kann ein Partner neu einspielen. Eine
+  // Datenbank, die zu einer App gehoert, die es nicht mehr gibt, koennte
+  // niemand mehr benutzen und niemand mehr finden.
+  const entfernteDatenbanken = await appDatenbank.entferne(appId);
+
   // `app_staende`, `app_members`, `app_flows`, `flow_settings` und die
   // App-Schluessel haengen mit ON DELETE CASCADE daran: wer eine App
   // entfernt, entfernt sie ganz.
@@ -535,12 +598,14 @@ async function entferneApp(appId, { dateien = false } = {}) {
   logger.info(
     `App entfernt: ${appId}` +
       `${dateien ? ` (samt ${versionen.length} Version(en))` : ''}` +
-      `${entfernteImages.length ? `, ${entfernteImages.length} Image(s)` : ''}`
+      `${entfernteImages.length ? `, ${entfernteImages.length} Image(s)` : ''}` +
+      `${entfernteDatenbanken.length ? `, ${entfernteDatenbanken.length} Datenbank(en)` : ''}`
   );
   return {
     id: appId,
     dateien_entfernt: dateien ? versionen : null,
     images_entfernt: entfernteImages,
+    datenbanken_entfernt: entfernteDatenbanken,
   };
 }
 

@@ -1778,8 +1778,8 @@ bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn es fehlt?
 
 App-**Volumes** stehen nicht in dieser Liste, weil es keine gibt: eine App
 bekommt weder Bind-Mount noch benanntes Volume
-(`services/app/appContainer.js`); ein abgeschirmter Datenordner je App kommt
-mit den D-Phasen.
+(`services/app/appContainer.js`). Ihren Speicher hat sie seit H7 als
+**Datenbank**, und die geht mit dem `postgres`-Teil mit.
 
 **GET /api/backup/status Response:**
 
@@ -2405,12 +2405,12 @@ scope is `flow:run` (included in the default endpoint set for new keys).
 | ------ | ---------------------------------- | ------- | ------------------------------------------------------------ |
 | GET    | `/api/v1/external/flows`           | API Key | List available flows                                         |
 | POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default                  |
-| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `annahmen`)                |
+| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `schritte`, `annahmen`)    |
 | GET    | `/api/v1/external/freigaben`       | API Key | Die Freigaben dieser App nachlesen (`?lauf=<id>`); nur lesen |
 
 **POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
-state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
+state and returns `{ success, run_id, status, result, error, steps_used, schritte, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
 are owned by the API key's creator; an orphaned key (creator deleted) gets
 `403 FORBIDDEN`.
@@ -2448,12 +2448,26 @@ eingespielt hat, und über `user_id` allein sähe die App dessen eigene Läufe
 und die jeder anderen App desselben Geräts. Ein Lauf trägt seit Migration 173
 `app_id` und `stand` mit.
 
+**Seit H7 liefert er die Schritte** (`schritte`), und damit hält er, was der
+Kontrakt seit C5 zusagt: »Der Lauf eines Flows, mit seinen Schritten«. Bis
+dahin kamen `status`, `result`, `error`, `steps_used` und `annahmen` — kein
+einziger Schritt, und `steps_used` ist eine **Zahl**, keine Kette. Eine App
+konnte sagen, _dass_ es einen Lauf gab, und nicht, was darin geschah. Je
+Schritt: `position`, `art`, `name`, `status`, `modell`, `eingabe`, `ausgabe`,
+`begonnen_am`, `beendet_am`. Die inneren Kennungen der Datenbank bleiben
+draußen — was eine App braucht, ist die Reihenfolge, und die steht in
+`position`.
+
 `GET /api/v1/external/freigaben` (Phase C7) beantwortet die eine Frage, die
 eine App zu einem wartenden Lauf hat: **worauf** wartet er? Der Namensraum
 kommt wieder aus dem Schlüssel — ein Schlüssel eines Menschen (`app_id IS
 NULL`) bekommt `403` mit dem Hinweis auf `/api/freigabe-anfragen`. Antwort:
-`{ success, app, stand, freigaben: [{ id, run_id, flow_name, titel, status,
-frist, angefragt_am, entschieden_am, entschieden_von, begruendung }] }`.
+`{ success, app, stand, freigaben: [{ id, run_id, flow_name, titel,
+zusammenhang, status, frist, angefragt_am, entschieden_am, entschieden_von,
+begruendung }] }`. `zusammenhang` steht seit H7 dabei: er ist der Text, **an
+dem** der Mensch entschieden hat, und er stammt aus dem eigenen Flow der App —
+sie hat ihn selbst geschrieben. Ohne ihn konnte eine App nicht dokumentieren,
+worauf eine Zusage beruht.
 **Nur lesen.** Entschieden wird über die Sitzung eines Menschen; eine App, die
 ihre eigene Freigabe erteilen könnte, wäre keine.
 
@@ -2621,6 +2635,29 @@ Designsystems, auf der die App steht. Sie ist **freiwillig** — jedes Manifest
 von Fassung 3 bleibt gültig —, und die Zahl geht trotzdem mit: das Manifest ist
 `.strict()`, ein Kit, das gegen Fassung 3 prüft, wiese `marken` als unbekanntes
 Feld ab, obwohl das Gerät es nimmt und liest.
+
+**Fassung 5 (Phase H7):** drei Änderungen, alle an dem, was das Gerät einer App
+_mitgibt_.
+
+- **`umgebung` nennt die Namen in ihrer Rolle.** Bis Fassung 4 stand der Name im
+  Schlüssel einer Abbildung und die Erklärung im Wert
+  (`{"ARASUL_API_URL": "Die externe Schnittstelle …"}`). Das Ara-Kit liest
+  `umgebung.basis` und `umgebung.schluessel` und fand dort nichts; sein
+  `--check` meldete am Orin »umgebung.basis fehlt im Kontrakt oder ist kein
+  Name«, und die Vorlage ließ zwei Felder `null` und startete keinen Flow.
+  Kontrakt und Wirklichkeit stimmten überein — es war allein die Form. Jetzt:
+  `umgebung.basis`, `umgebung.schluessel`, `umgebung.datenbank`, die
+  Erklärungen daneben unter `umgebung.was`.
+- **Jeder Endpunkt trägt seinen Weg auch relativ zur Basis** (`relativ`).
+  `ARASUL_API_URL` endet auf `/api/v1/external`, und `endpunkte[].pfad` fängt
+  damit an; wer beides aneinanderhängt, ruft
+  `/api/v1/external/api/v1/external/flows/…` und bekommt einen 404. Dazu
+  `umgebung.praefix` und `umgebung.basis_enthaelt_praefix`. Ein Endpunkt
+  außerhalb des Präfixes bekäme `relativ: null` — die OpenAI-kompatible
+  Schnittstelle unter `/v1` ließe sich gegen `ARASUL_API_URL` gar nicht
+  ausdrücken, und eine ausgerechnete Antwort wäre eine falsche.
+- **`umgebung.datenbank`** kommt dazu: die Adresse der Datenbank dieser App und
+  dieses Standes (siehe [APPS.md](../features/APPS.md#die-datenbank-einer-app-phase-h7)).
 
 **POST /api/v1/external/apps** — Multipart mit dem Feld `paket`, einem
 `.tar.gz` mit `app.json` im Wurzelverzeichnis. Das Gerät packt aus, prüft,

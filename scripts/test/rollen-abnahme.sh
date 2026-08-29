@@ -25,7 +25,7 @@
 # ANMELDUNGEN: zwei eigene (Abnahme-Admin, Abnahme-Mitarbeiter) plus die des
 # Administrators. Die dritte entfaellt, wenn `abnahmen.sh` den Lauf startet:
 # seit dem 27.08.2026 teilt sich die ganze Reihe einen Token, und diese Abnahme
-# nimmt ihn aus `ARASUL_TOKEN`. Die Drossel bleibt bei zehn je Viertelstunde
+# nimmt ihn aus `ARASUL_TOKEN`. Die Drossel bleibt bei dreissig Fehlschlaege je Viertelstunde
 # und IP; die zwei eigenen Zugaenge lassen sich nicht teilen, sie sind der Kern
 # dessen, was hier gemessen wird.
 #
@@ -82,7 +82,7 @@ print(d if isinstance(d, (str, int)) else "")' "$1" 2>/dev/null
 # stillgelegtem Konto sahen dabei alle gleich aus.
 #
 # Das ist die wahrscheinlichste Erklaerung fuer den einen Fall, der beim ersten
-# Lauf rot und beim zweiten gruen war: `loginLimiter` erlaubt ZEHN Anmeldungen
+# Lauf rot und beim zweiten gruen war: `loginLimiter` erlaubt DREISSIG Fehlschlaege
 # je Viertelstunde und IP, diese Abnahme braucht drei, und wer sich vorher im
 # Browser ein paarmal angemeldet hat, hat sieben davon schon verbraucht. Der
 # zweite Lauf eine Viertelstunde spaeter trifft ein leeres Fenster und ist
@@ -176,7 +176,7 @@ pruefe 'Abnahme-Admin meldet sich an' "$([ -n "$TOK_ADMIN" ] && echo ja || echo 
 # der Vision, "Mitarbeiter melden sich mit E-Mail und Passwort an".
 TOK_MITARB=$(hole_token "$ABN_MITARB@abnahme.local" "$ABN_PASS")
 pruefe 'Abnahme-Mitarbeiter meldet sich mit E-Mail an' "$([ -n "$TOK_MITARB" ] && echo ja || echo nein)" "HTTP $(anm_code)"
-[ -z "$TOK_ADMIN" ] || [ -z "$TOK_MITARB" ] && { echo; echo "Ohne beide Sitzungen gibt es nichts zu messen (letzter Anmeldecode $(anm_code); 429 heisst Anmeldedrossel, zehn je Viertelstunde und IP)."; exit 1; }
+[ -z "$TOK_ADMIN" ] || [ -z "$TOK_MITARB" ] && { echo; echo "Ohne beide Sitzungen gibt es nichts zu messen (letzter Anmeldecode $(anm_code); 429 heisst Anmeldedrossel, dreissig Fehlschlaege je Viertelstunde und IP)."; exit 1; }
 
 ROLLE=$(curl -sk -H "authorization: Bearer $TOK_MITARB" "$BASIS/api/auth/me" | json_feld user.role)
 pruefe 'Mitarbeiter sieht seine Rolle' "$([ "$ROLLE" = "mitarbeiter" ] && echo ja || echo nein)" "role=$ROLLE"

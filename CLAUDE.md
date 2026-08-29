@@ -658,6 +658,87 @@ Beispielapp nennt die Fassung, die `marken-beilegen.sh` ihr wirklich danebenlegt
 — sonst hätte der Vorgang, für den H6 gebaut ist, sein erstes falsches Beispiel
 im eigenen Repo.
 
+Seit **H7** (29.08.2026) **hat eine App einen Speicher, und der Kontrakt sagt,
+wie ihre Werte heißen**. Bis dahin bekam eine App ein Netz, eine
+Speichergrenze und zwei Umgebungswerte — keinen Ort, an dem etwas liegen
+bleibt. Die Werkstatt hat den Ausweg von Hand genommen: Rolle und Datenbank
+per SSH im Plattform-Postgres, das Passwort in eine `.env`, die mit dem
+nächsten Arbeitsbaum verschwand. Seither legt das **Gerät** an: je App und
+**Stand** eine Datenbank samt eigener Rolle (`arasul_app_<id>_<stand>`,
+Migration 181, `apps/dashboard-backend/src/services/app/appDatenbank.js`), Adresse als `ARASUL_DB_URL` in
+der Umgebung des Containers. Je Stand, weil ein Probelauf die Daten des
+Livestandes nicht anfassen darf — dieselbe Trennung wie beim Schlüssel aus C4;
+der Livestand behält seine Daten über jeden Versionswechsel. **Es ist nur ein
+Ort**, und das ist die Entscheidung: kein Datenordner daneben, denn zwei Orte
+hießen zwei Antworten auf jede Frage des Betriebs (was wird gesichert, was
+holt ein Weg zurück wieder herein, was fällt beim Entfernen weg) — eine
+hochgeladene Datei gehört damit in eine Spalte und ist mitgesichert, ohne dass
+jemand daran denken muss. Das Passwort würfelt **nicht** jedes Einspielen neu,
+anders als der API-Schlüssel: Docker startet mit `unless-stopped` neu und
+behält die alte Umgebung, ein neues Passwort wäre für den Container ein
+verlorener Zugang; es liegt verschlüsselt in `app_datenbanken`. Der ganze Weg
+ist zu — die Sicherung nimmt jede App-Datenbank mit (gefragt wird
+`pg_database` nach dem Präfix und **nicht** die Tabelle: eine Datenbank, deren
+Zeile jemand verloren hat, wäre sonst unsichtbar _und_ unwiederbringlich), der
+Weg zurück legt sie wieder an und spielt sie ein, das Backend setzt beim Start
+das richtige Passwort dazu, `DELETE /apps/:id` wirft sie weg, der Werksreset
+räumt jede mit dem Präfix. Dazu verbindet sich mit `arasul_db` nur noch ihr
+Eigentümer: eine App-Rolle käme an keine Tabelle, aber sehr wohl an den
+Katalog.
+Der **Kontrakt ist Fassung 5** und ändert drei Dinge, alle an dem, was das
+Gerät mitgibt. `umgebung` nennt die Namen **in ihrer Rolle** (`basis`,
+`schluessel`, `datenbank`) statt als Schlüssel einer Abbildung — das Kit las
+`umgebung.basis`, fand nichts, und seine Vorlage ließ Adresse und Schlüssel
+`null`: die App rief gar nicht erst an, und das Ergebnis sah aus wie ein Gerät
+ohne Arasul. Kontrakt und Wirklichkeit stimmten dabei überein, es war allein
+die Form. Jeder Endpunkt trägt seinen Weg **auch relativ zur Basis**
+(`endpunkte[].relativ`, dazu `umgebung.praefix`): `ARASUL_API_URL` endet auf
+`/api/v1/external` und die Pfade fangen damit an, aneinandergehängt ergab das
+`/api/v1/external/api/v1/external/…` und einen 404 — zwei Angaben, die einzeln
+stimmen, und ein Weg, den es nicht gibt. Ein Endpunkt außerhalb bekäme `null`;
+die OpenAI-kompatible Schnittstelle unter `/v1` lässt sich gegen diese Basis
+gar nicht ausdrücken, und eine ausgerechnete Antwort wäre eine falsche.
+Und **zwei Zusagen hält die Route jetzt**: `GET /flows/runs/:id` liefert
+`schritte` (versprochen seit C5, geliefert wurde `steps_used` — eine **Zahl**,
+keine Kette; eine App konnte sagen, _dass_ es einen Lauf gab, nicht was darin
+geschah), `GET /freigaben` liefert `zusammenhang`, den Text, **an dem**
+entschieden wurde.
+**Die Lizenz zählt Apps im Betrieb, nicht Teststände.** Der Riegel steht seit
+H7 beim Schalten nach live und nicht beim Einspielen. Am Orin standen drei von
+drei belegt — `beispielapp`, `angebot`, `urlaubsantrag` —, ohne dass eine
+einzige in Betrieb gewesen wäre; ein Partner mit drei gekauften Apps hätte die
+vierte nicht einmal **bauen** können, um eine der drei zu ersetzen. Was ein
+Mitarbeiter benutzt, ist der Livestand; der Teststand ist die Werkbank.
+**Das Standardmodell schickte ein Schema statt der Werte**, achtmal in drei
+Läufen (`freigabe_anfordern`, Werkstatt W4). Zwei Stellen im Produkt gehören
+dazu, beide zu: die Werkzeug-Antwort sagt jetzt, **zu welchem Aufruf** sie
+gehört (`tool_name` für Ollama, `tool_call_id` und `name` für OpenAI) — ohne
+das kann ein Modell mit mehreren Werkzeugen die Rückmeldung, an der es seinen
+Fehler merken soll, keinem Aufruf zuordnen; und der Assistenten-Zug geht an ein
+externes Modell **wortgleich** zurück statt in der übersetzten Ollama-Form ohne
+`id` und mit Argumenten als Objekt. Dazu eine **Notbremse**: kommen die
+Argumente als Hülle (`properties` mit den Werten eine Ebene tiefer, notfalls
+als Zeichenkette), packt die Schleife sie einmal aus, statt achtmal gegen
+dieselbe Wand zu fahren — und nur dann, wenn darunter die Namen liegen, die das
+Werkzeug wirklich kennt. Gemeldet wird, was **ankam**.
+**Die Anmeldedrossel zählt Fehlschläge, nicht Menschen.** Zehn Anmeldungen je
+Viertelstunde und IP waren hinter Traefik zehn für das ganze Haus — dort ist
+jede Anfrage dieselbe Adresse, und der elfte Mensch, der morgens sein Passwort
+_richtig_ eintippt, kam nicht herein. `skipSuccessfulRequests` ist die
+Änderung, nicht die Zahl (jetzt 30): eine gelungene Anmeldung ist kein Angriff.
+Die scharfe Sperre steht woanders und weiß mehr — fünf Fehlversuche **je Konto**
+sperren es fünfzehn Minuten (`record_login_attempt`); die Drossel kennt nur eine
+IP, ihre Aufgabe ist das Sprayen über viele Konten. Die Buchführung der
+Abnahmen zieht mit: die Kopfzeile wird geschrieben, _nachdem_ hochgezählt und
+_bevor_ zurückgenommen wurde, der wahre Rest ist nach einer gelungenen Anmeldung
+also einer mehr.
+Und die **vier toten CSS-Familien aus G2 sind weg** (`.navigation`,
+`.nav-bar`/`.nav-link`, `.msb-*`, `.modal-global`, dazu `.modal-overlay-global`):
+508 Zeilen aus `index.css` samt ihren Media-Queries. Wo eine Regel mehrere
+Selektoren führte, fiel nur der tote. `ROLLKAESTEN_OHNE_POSITION` in
+`check-design-system.js` trägt damit noch **einen** Namen, und der lebt — eine
+Ausnahme, die einen toten Kasten am Leben hält, ist selbst tot.
+
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,

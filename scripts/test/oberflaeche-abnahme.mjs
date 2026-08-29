@@ -17,7 +17,7 @@
  * Daneben waren in D1 bis D5 fuenf weitere Bilder-Skripte entstanden, und
  * jedes trug DIESELBE Breitenschleife mit denselben vier Fragen. Sechs Stellen
  * mit einer Wahrheit ueber das Breitenraster, jede mit eigener Anmeldezahl:
- * zusammen sprengten sie die Anmeldedrossel (zehn je Viertelstunde und IP),
+ * zusammen sprengten sie die Anmeldedrossel (damals zehn je Viertelstunde),
  * und die Abnahmen meldeten daraufhin Dinge ueber den MESSAUFBAU, die wie
  * Aussagen ueber das Geraet aussahen.
  *
@@ -92,7 +92,7 @@
  * SEIT DEM 28.08.2026 GILT DAS FUER JEDE DROSSEL, nicht nur fuer die Anmeldung
  * (`scripts/test/drossel.mjs`): jede Antwort, die eine traegt, wird gemerkt,
  * und vor jeder Seitenladung (`laden`) fragt die Reihe, ob noch Platz ist.
- * Fuenf Laeufe ohne Pause sind zehn Anmeldungen -- genau das Fenster; der
+ * Fuenf Laeufe ohne Pause sind zehn Anmeldungen -- bis H7 genau das Fenster; der
  * sechste wartet, und sagt es.
  *
  * UND WO WARTEN NICHT REICHT, WIRD WIEDERHOLT. Die Buchfuehrung aus den
@@ -1114,7 +1114,7 @@ try {
     // Tabelle. `process.exit` uebergeht das `finally`.
     throw new Error(
       'Ohne den Administrator gibt es nichts vorzubereiten. 429 heisst ' +
-        'Anmeldedrossel: zehn je Viertelstunde und IP.'
+        'Anmeldedrossel: dreissig Fehlschlaege je Viertelstunde und IP.'
     );
   }
   const adminApi = await apiKanal(admin.token);
@@ -1253,7 +1253,7 @@ try {
     await seiteM.screenshot({ path: path.join(ZIEL, '1440-erste-anmeldung.png') }).catch(() => {});
     throw new Error(
       `Die Anmeldung des Mitarbeiters kam nicht durch (HTTP ${ersteAnmeldung.status}). ` +
-        'HTTP 429 heisst Anmeldedrossel: zehn je Viertelstunde und IP, das sagt ' +
+        'HTTP 429 heisst Anmeldedrossel: dreissig Fehlschlaege je Viertelstunde und IP, das sagt ' +
         'nichts ueber das Geraet.'
     );
   }

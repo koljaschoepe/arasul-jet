@@ -3,7 +3,7 @@
  *
  * Die Drossel-Logik entscheidet, ob eine Abnahme am Orin wartet oder rot
  * wird, und sie laesst sich dort nur messen, indem man die Drossel wirklich
- * fuellt: zehn Anmeldungen, eine Viertelstunde. Hier stattdessen mit
+ * fuellt: dreissig fehlgeschlagene Anmeldungen, eine Viertelstunde. Hier mit
  * gefaelschten Kopfzeilen, in Sekunden, bei jedem Zug.
  *
  * Aufruf: node scripts/test/drossel-selbsttest.mjs
@@ -57,13 +57,32 @@ pruefe(
   a?.name === 'auth' && a.rest === 0 && a.reset > Date.now() + 50000,
   JSON.stringify(a)
 );
+// Eine FEHLGESCHLAGENE Anmeldung: die Kopfzeile gilt, wie sie dasteht.
+const lf = d.drosselMerken(
+  'POST',
+  '/api/auth/login',
+  { ratelimit: 'limit=30, remaining=9, reset=880' },
+  401
+);
+pruefe(
+  'die gebuendelte Kopfzeile wird gelesen',
+  lf?.name === 'anmeldung' && lf.rest === 9,
+  JSON.stringify(lf)
+);
+// Eine GELUNGENE kostet seit H7 nichts: `skipSuccessfulRequests` nimmt den
+// Zaehler zurueck, nachdem die Kopfzeile schon geschrieben war. Der wahre
+// Rest ist einer mehr, als sie sagt.
 const l = d.drosselMerken(
   'POST',
   '/api/auth/login',
-  { ratelimit: 'limit=10, remaining=9, reset=880' },
+  { ratelimit: 'limit=30, remaining=9, reset=880' },
   200
 );
-pruefe('die gebuendelte Kopfzeile wird gelesen', l?.name === 'anmeldung' && l.rest === 9, JSON.stringify(l));
+pruefe(
+  'eine gelungene Anmeldung gibt ihren Platz wieder frei',
+  l?.name === 'anmeldung' && l.rest === 10,
+  JSON.stringify(l)
+);
 const alles = d.drosselLesen();
 pruefe(
   'alle drei stehen in einer Datei',

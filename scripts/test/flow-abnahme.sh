@@ -197,7 +197,7 @@ echo
 # ADMINISTRATOR (`PUT /api/apps/:id/flows/:name/modell`), und die Freigabe, mit
 # der die Seite der App ueberhaupt erreichbar ist, ebenso. Sie kommt aus
 # `anmeldung.sh`, also aus dem geteilten Token der Abnahme-Reihe -- die
-# Anmeldedrossel laesst zehn je Viertelstunde und IP zu.
+# Anmeldedrossel laesst dreissig Fehlschlaege je Viertelstunde und IP zu.
 TOK=$(arasul_token)
 pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" \
   "${ARASUL_TOKEN:+geteilter Token}${ARASUL_TOKEN:-HTTP $(arasul_anmeldecode)}"

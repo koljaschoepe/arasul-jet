@@ -30,7 +30,7 @@
  *
  * KEINE EIGENE ANMELDUNG. Der Aufrufer legt die Sitzung des Administrators als
  * `storageState` unter `$ARASUL_SITZUNG` ab (`arasul_sitzung_bauen`). Die
- * Drossel laesst zehn Anmeldungen je Viertelstunde und IP durch, und dieser
+ * Drossel laesst dreissig Fehlschlaege je Viertelstunde und IP durch, und dieser
  * Lauf soll keine davon verbrauchen.
  *
  * Aufruf (der Regelfall ist ueber `admin-abnahme.sh`):

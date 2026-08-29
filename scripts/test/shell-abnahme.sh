@@ -33,7 +33,7 @@
 # Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin.
 #
 # WARUM DIESE ABNAHME NEBEN `abnahmen.sh` STEHT UND NICHT DARIN.
-# `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde und IP, und die
+# `loginLimiter` erlaubt DREISSIG Fehlschlaege je Viertelstunde und IP, und die
 # Reihe in `abnahmen.sh` sitzt seit Phase C4 mit GENAU ZEHN auf dieser Grenze
 # (zwei fuer `rollen`, fuenf fuer `mitarbeiter`, zwei fuer `app-anmeldung`, eine
 # geteilte -- nachgerechnet im Kopf von `anmeldung.sh`). Dieser Lauf braucht

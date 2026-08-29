@@ -25,7 +25,7 @@
 # sicherte er mit `docker exec`.
 #
 # WARUM DIESE ABNAHME NEBEN `abnahmen.sh` STEHT, wie `shell-`, `dashboard-`,
-# `admin-` und `app-admin-abnahme.sh`: `loginLimiter` erlaubt ZEHN Anmeldungen
+# `admin-` und `app-admin-abnahme.sh`: `loginLimiter` erlaubt DREISSIG Fehlschlaege
 # je Viertelstunde und IP, und die Reihe dort sitzt seit C4 mit genau zehn auf
 # der Grenze. Dieser Lauf braucht EINE (den Administrator); der Browser bekommt
 # seine Sitzung fertig gereicht und meldet sich gar nicht an.

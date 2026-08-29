@@ -21,7 +21,7 @@
 # gibt es nicht (Entscheidung aus C2), und dass es das nicht gibt, gehoert
 # gemessen.
 #
-# ANMELDEDROSSEL: `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde und
+# ANMELDEDROSSEL: `loginLimiter` erlaubt DREISSIG Fehlschlaege je Viertelstunde und
 # IP. Dieser Lauf braucht ZWEI eigene, eine je Mensch. Zusammen mit
 # `rollen-abnahme.sh` (zwei), `mitarbeiter-abnahme.sh` (fuenf) und der einen
 # geteilten Anmeldung der Reihe sind das genau zehn -- die Reihe sitzt damit
@@ -204,7 +204,7 @@ pruefe 'Der andere meldet sich an' "$([ -n "$TOK_DRAUSSEN" ] && echo ja || echo 
 if [ -z "$TOK_DRIN" ] || [ -z "$TOK_DRAUSSEN" ]; then
   echo
   echo "Ohne beide Sitzungen gibt es nichts zu messen (429 heisst Anmeldedrossel:"
-  echo "zehn je Viertelstunde und IP, eine Viertelstunde warten)."
+  echo "dreissig Fehlschlaege je Viertelstunde und IP, eine Viertelstunde warten)."
   exit 1
 fi
 

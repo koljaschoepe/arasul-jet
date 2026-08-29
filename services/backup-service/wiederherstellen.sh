@@ -226,6 +226,69 @@ DB_ZEILEN=$(psql "${PGH[@]}" -d "$POSTGRES_DB" -tAc \
 DB_ZEILEN="${DB_ZEILEN:-0}"
 protokoll "Datenbank zurueck: ${DB_ZEILEN} Tabellen"
 
+# --- Die Datenbanken der Apps (Phase H7) -------------------------------------
+# Seit H7 hat jede App je Stand eine eigene Datenbank im selben Cluster. Die
+# NAMEN stehen im Klartext in `app_datenbanken` und sind eben zurueckgekommen;
+# das PASSWORT steht daneben verschluesselt, und ein Shell-Skript kann es nicht
+# lesen -- der Schluessel steckt in `JWT_SECRET` und die Verschluesselung in
+# `utils/tokenCrypto.js`.
+#
+# Deshalb die Arbeitsteilung: hier entstehen Rolle und Datenbank mit einem
+# Zufallswert, damit die Daten hineinpassen. Das RICHTIGE Passwort setzt das
+# Backend beim naechsten Start (`appDatenbank.heileAlle`) -- die App im
+# Container traegt noch die alte Adresse, und die soll wieder stimmen.
+#
+# Eine fehlende Sicherung ist hier kein Abbruch: eine App, die seit der letzten
+# Nacht dazugekommen ist, hat noch keine. Sie steht dann leer da, und das ist
+# richtiger als ein Weg zurueck, der an ihr scheitert.
+APP_DB_ZURUECK=0
+APP_DB_FEHLER=0
+if [ "$DB_ZEILEN" -gt 0 ]; then
+    while IFS='|' read -r APP_DB APP_ROLLE; do
+        [ -n "$APP_DB" ] || continue
+        WORT=$(head -c 24 /dev/urandom | base64 | tr -d '+/=')
+        psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 >>"$PROTOKOLL" 2>&1 <<SQL || true
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${APP_ROLLE}') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+                   '${APP_ROLLE}', '${WORT}');
+  END IF;
+END
+\$\$;
+SQL
+        # `grep -q <<<"$(…)"` und nicht `… | grep -q`: grep steigt beim ersten
+        # Treffer aus, der Erzeuger schreibt weiter, und unter `pipefail` ist
+        # das Rohr danach zerrissen (`scripts/test/rohrbruch.py`).
+        if ! grep -q 1 <<<"$(psql "${PGH[@]}" -d postgres -tAc \
+             "SELECT 1 FROM pg_database WHERE datname = '${APP_DB}'" 2>/dev/null)"; then
+            psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
+                 -c "CREATE DATABASE \"${APP_DB}\" OWNER \"${APP_ROLLE}\"" >>"$PROTOKOLL" 2>&1 || true
+            psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
+                 -c "REVOKE ALL ON DATABASE \"${APP_DB}\" FROM PUBLIC" >>"$PROTOKOLL" 2>&1 || true
+            psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
+                 -c "GRANT CONNECT, TEMPORARY ON DATABASE \"${APP_DB}\" TO \"${APP_ROLLE}\"" \
+                 >>"$PROTOKOLL" 2>&1 || true
+        fi
+        APP_ABZUG="${BACKUP_DIR}/postgres/apps/${APP_DB}_latest.sql.gz"
+        if [ ! -e "$APP_ABZUG" ]; then
+            protokoll "${APP_DB}: keine Sicherung vorhanden — leer angelegt"
+            continue
+        fi
+        if lies_sicherung "$(readlink -f "$APP_ABZUG")" | zcat \
+             | psql "${PGH[@]}" -d "$APP_DB" -v ON_ERROR_STOP=1 >>"$PROTOKOLL" 2>&1; then
+            APP_DB_ZURUECK=$((APP_DB_ZURUECK + 1))
+        else
+            protokoll "FEHLER: ${APP_DB} liess sich nicht einspielen"
+            APP_DB_FEHLER=$((APP_DB_FEHLER + 1))
+        fi
+    done < <(psql "${PGH[@]}" -d "$POSTGRES_DB" -tAF'|' -c \
+             'SELECT datenbank, rolle FROM public.app_datenbanken ORDER BY datenbank' 2>/dev/null)
+fi
+if [ "$APP_DB_ZURUECK" -gt 0 ] || [ "$APP_DB_FEHLER" -gt 0 ]; then
+    protokoll "App-Datenbanken: ${APP_DB_ZURUECK} zurueck, ${APP_DB_FEHLER} fehlgeschlagen"
+fi
+
 # --- Die Dateien -------------------------------------------------------------
 # Ein Archiv wird ueber eine ZWISCHENDATEI ausgepackt und nicht ueber eine
 # Variable: es ist binaer, und eine Kommandosubstitution verliert NUL-Bytes.
@@ -317,6 +380,11 @@ fi
 DAUER=$(( $(date +%s) - START ))
 if [ "$DATEI_FEHLER" = "1" ]; then
     schreibe_bericht teilweise "datenbank zurueck, Dateien nicht vollstaendig" "$DAUER"
+    exit 1
+fi
+if [ "$APP_DB_FEHLER" -gt 0 ]; then
+    schreibe_bericht teilweise \
+        "datenbank und dateien zurueck, ${APP_DB_FEHLER} App-Datenbank(en) nicht" "$DAUER"
     exit 1
 fi
 

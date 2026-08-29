@@ -29,6 +29,18 @@ jest.mock('../../src/utils/logger', () => ({
   debug: jest.fn(),
 }));
 jest.mock('../../src/utils/auditLog', () => ({ logSecurityEvent: jest.fn() }));
+jest.mock('../../src/services/app/appDatenbank', () => ({
+  // Die Datenbank je App (H7). Sie legt im Cluster an und fragt `pg_database`;
+  // gemessen wird hier der Weg des Einspielens, nicht ihr Anlegen.
+  sorgeFuer: jest.fn(async ({ appId, stand }) => ({
+    datenbank: `arasul_app_${appId}_${stand}`,
+    rolle: `arasul_app_${appId}_${stand}`,
+    url: `postgresql://u:p@postgres-db:5432/arasul_app_${appId}_${stand}`,
+  })),
+  umgebungFuer: jest.fn(z => (z ? { ARASUL_DB_URL: z.url } : {})),
+  entferne: jest.fn(async () => []),
+}));
+
 jest.mock('../../src/services/core/docker', () => ({
   docker: {
     getContainer: jest.fn(() => ({

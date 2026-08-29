@@ -6,7 +6,7 @@
  * gelesen wird (`scripts/test/anmeldung.sh`, `arasul_sitzung_bauen`). Vorher
  * hatten Browser und Kommandozeile je eine eigene Anmeldung.
  *
- * Jede Abnahme meldete sich selbst an. Das Geraet erlaubt zehn Anmeldungen je
+ * Jede Abnahme meldete sich selbst an. Das Geraet erlaubte dreissig Fehlschlaege je
  * Viertelstunde und IP (`loginLimiter`), also stand nach der sechsten oder
  * siebten Messung HTTP 429 im Weg — und die Abnahmen meldeten daraufhin
  * Dinge ueber das GERAET, die nur ueber den Messaufbau galten. Ein falsches
@@ -84,7 +84,7 @@ export async function angemeldeteSeite(kontextBauen, { url, benutzer, passwort }
       seite,
       angemeldet: false,
       grund:
-        'Die Anmeldung kam nicht durch. Haeufigste Ursache: zehn Anmeldungen ' +
+        'Die Anmeldung kam nicht durch. Haeufigste Ursache: dreissig Fehlschlaege ' +
         'je Viertelstunde und IP sind aufgebraucht (HTTP 429). Das sagt nichts ' +
         'ueber das Geraet.',
     };
@@ -152,7 +152,7 @@ export async function sitzungMerken(kontext) {
  * Sitzung ist es das nicht, und der Aufruf tut nichts.
  *
  * Liefert `{ angemeldet, neu, grund }`. `angemeldet: false` heisst: die
- * Anmeldung kam nicht durch, meist weil die zehn Versuche je Viertelstunde
+ * Anmeldung kam nicht durch, meist weil die Fehlversuche je Viertelstunde
  * aufgebraucht sind. Das sagt nichts ueber das Geraet, und die Abnahme soll
  * genau das schreiben koennen.
  */
@@ -172,7 +172,7 @@ export async function anmeldenFallsNoetig(seite, kontext, { url, benutzer, passw
       angemeldet: false,
       neu: true,
       grund:
-        'Die Anmeldung kam nicht durch. Haeufigste Ursache: zehn Anmeldungen ' +
+        'Die Anmeldung kam nicht durch. Haeufigste Ursache: dreissig Fehlschlaege ' +
         'je Viertelstunde und IP sind aufgebraucht (HTTP 429). Das sagt nichts ' +
         'ueber das Geraet.',
     };

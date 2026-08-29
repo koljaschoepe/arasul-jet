@@ -146,12 +146,33 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     delete ohneSystemversion.arasul;
     const abdruck = crypto.createHash('sha256').update(stabil(ohneSystemversion)).digest('hex');
 
-    // Phase H6 (Kontrakt 4): das Manifest kennt `marken`, die Fassung des
-    // Designsystems, auf der die App steht -- freiwillig, aber `.strict()`
-    // wies das Feld bis hierher ab. Ein Kit, das gegen Fassung 3 prueft,
-    // wiese ein gueltiges Manifest ab; deshalb ist die Zahl mitgegangen.
-    // (Davor Phase C7, Kontrakt 3: `freigabe_anfordern` im Werkzeug-Schema,
-    // drei Regeln fuer Flows aus einem Paket und `GET /freigaben`.)
-    expect(abdruck).toBe('6bb530d247d937f1cc90eae45f3be6cb067f74ba073d16e4e735400f70e193a8');
+    // Phase H7 (Kontrakt 5): `umgebung` nennt die Namen in ihrer Rolle statt
+    // als Schluessel einer Abbildung, jeder Endpunkt traegt seinen Weg auch
+    // relativ zur Basis, und `umgebung.datenbank` kommt dazu. Alle drei sind
+    // Zusagen, auf die sich ein Kit verlassen soll, also ist die Zahl
+    // mitgegangen.
+    // (Davor H6, Kontrakt 4: `marken` im Manifest. Davor C7, Kontrakt 3:
+    // `freigabe_anfordern` im Werkzeug-Schema und `GET /freigaben`.)
+    expect(abdruck).toBe('69e07027d98471974eccdb8b5cdaef94f3f73e0a3c336085336f214c364dd545');
+  });
+
+  /**
+   * Das Praefix steht an zwei Stellen, und es muss beide Male dasselbe sein.
+   *
+   * `appKontrakt.PRAEFIX` rechnet jeden `relativ`-Weg aus; `appSchluessel.API_URL`
+   * ist die Adresse, die die App wirklich bekommt. Laufen die beiden
+   * auseinander, ist `relativ` ueberall falsch -- und zwar auf genau die Art,
+   * die am Orin einen 404 erzeugt hat: ein Weg, den es nicht gibt, aus zwei
+   * Angaben, die einzeln stimmen.
+   */
+  it('das Praefix des Kontraktes ist das Ende der Adresse, die eine App bekommt', () => {
+    const appSchluessel = require('../../src/services/app/appSchluessel');
+    expect(appSchluessel.API_URL.endsWith(appKontrakt.PRAEFIX)).toBe(true);
+  });
+
+  it('jeder Endpunkt unter dem Praefix nennt seinen Weg auch relativ', () => {
+    for (const e of appKontrakt.ENDPUNKTE) {
+      expect(`${appKontrakt.PRAEFIX}${e.relativ}`).toBe(e.pfad);
+    }
   });
 });

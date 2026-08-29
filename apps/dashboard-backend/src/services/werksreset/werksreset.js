@@ -407,6 +407,15 @@ async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
     ergebnis.appContainer = await stillEntfernen('App-Container', async () => ({
       entfernt: await require('../app/appContainer').entferneAlle(),
     }));
+
+    // Die Datenbanken der Apps (Phase H7). Gesucht wird ueber den Praefix
+    // `arasul_app_` und nicht ueber `app_datenbanken` -- die Tabelle ist an
+    // dieser Stelle schon geleert, und eine Datenbank mit den Daten des alten
+    // Kunden auf einem angeblich fabrikneuen Geraet waere derselbe Rest wie
+    // ein weiterlaufender Container.
+    ergebnis.appDatenbanken = await stillEntfernen('App-Datenbanken', async () => ({
+      entfernt: await require('../app/appDatenbank').entferneAlle(),
+    }));
   }
 
   if (modelleLoeschen) {

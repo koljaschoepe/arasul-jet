@@ -16,7 +16,7 @@ const pruefe = (was, ok, detail = '') => {
 };
 
 const browser = await chromium.launch({ headless: true });
-// Gespeicherte Sitzung wiederverwenden: zehn Anmeldungen je Viertelstunde und
+// Gespeicherte Sitzung wiederverwenden: dreissig Fehlschlaege je Viertelstunde und
 // IP sind aufgebraucht, wenn mehrere Abnahmen hintereinander laufen (23.08.2026).
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,

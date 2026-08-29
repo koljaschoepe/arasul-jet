@@ -192,6 +192,11 @@ async function imContainer(befehl, zeitlimitMs) {
 async function sicherungen() {
   const arten = [
     ['postgres', 'postgres', '.sql.gz', 'Datenbank'],
+    // Je App und Stand eine, im Unterordner (Phase H7). Sie stehen als eigene
+    // Art da und nicht unter `postgres`: fuer den, der das Geraet betreibt,
+    // sind es verschiedene Dinge -- die eine Zeile ist das Geraet, die anderen
+    // sind die Daten je App, und wie viele es davon gibt, ist eine Auskunft.
+    ['app-datenbanken', 'postgres/apps', '.sql.gz', 'Die Datenbanken der Apps'],
     ['apps', 'apps', '.tar.gz', 'Die Pakete der Apps'],
     ['flows', 'flows', '.tar.gz', 'Flow-Dateien am Geraet'],
     ['config', 'config', '.tar.gz', 'Konfiguration ohne den Sicherungsschluessel'],

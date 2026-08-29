@@ -238,10 +238,13 @@ Was für einen Flow **aus einem Paket** zusätzlich gilt:
 | Höchstens 50 Flows je Paket                        | Dieselbe Vorsicht wie bei der Größe des Archivs.                                                                   |
 
 Weil `ordner` nicht geht, hat ein App-Flow heute **keine Datei-Werkzeuge**
-(`schemas/flows.js` verlangt für die ohnehin einen Ordner). Ein abgeschirmter
-Datenordner je App braucht ein Volume, einen Platz in der Sicherung und einen
-im Werksreset — ein eigener Beschluss, kein Nebeneffekt. Bis dahin ist die
-ehrliche Antwort eine Abweisung mit Begründung und kein halb gesperrter Pfad.
+(`schemas/flows.js` verlangt für die ohnehin einen Ordner). Den Speicher einer
+App gibt es seit H7, und er ist ihre **Datenbank** — das ändert an dieser
+Abweisung nichts: die Datenbank erreicht die App aus ihrem eigenen Container,
+ein Flow läuft im Backend des Geräts, und die Datei-Werkzeuge wollen einen Pfad
+dort. Einen Ordner daneben zu stellen hieße, einen zweiten Ort einzuführen, an
+dem Daten einer App liegen, und damit jede Frage des Betriebs zweimal zu
+beantworten.
 
 ### Wer entscheidet, mit welchem Modell ein Flow läuft
 
@@ -500,13 +503,28 @@ jeden angemeldeten Menschen abzählbar.
 
 ## Was das Gerät der App mitgibt
 
-Beim Einspielen setzt das Gerät zwei Umgebungsvariablen in den Container, über
+Beim Einspielen setzt das Gerät drei Umgebungsvariablen in den Container, über
 das hinaus, was `backend.umgebung` im Manifest nennt:
 
-| Variable                | Inhalt                                          |
-| ----------------------- | ----------------------------------------------- |
-| `ARASUL_API_URL`        | `http://dashboard-backend:3001/api/v1/external` |
-| `ARASUL_API_SCHLUESSEL` | Der API-Schlüssel dieser App und dieses Standes |
+| Variable                | Inhalt                                                |
+| ----------------------- | ----------------------------------------------------- |
+| `ARASUL_API_URL`        | `http://dashboard-backend:3001/api/v1/external`       |
+| `ARASUL_API_SCHLUESSEL` | Der API-Schlüssel dieser App und dieses Standes       |
+| `ARASUL_DB_URL`         | Die Datenbank dieser App und dieses Standes (seit H7) |
+
+Wie sie **heißen**, steht im Kontrakt (`GET /api/v1/external/contract`), und
+zwar in ihrer Rolle: `umgebung.basis`, `umgebung.schluessel`,
+`umgebung.datenbank`. Bis Kontrakt 4 stand der Name im Schlüssel einer
+Abbildung und die Erklärung im Wert — wer den Namen zu `basis` suchte, fand
+nichts, und die Vorlage des Ara-Kits ließ zwei Felder `null` und startete
+keinen Flow.
+
+**`ARASUL_API_URL` endet auf `/api/v1/external`, und die Pfade unter
+`endpunkte` fangen damit an.** Wer beides aneinanderhängt, ruft
+`/api/v1/external/api/v1/external/flows/…` und bekommt einen 404. Der Kontrakt
+sagt es seit H7 zweimal: als `umgebung.praefix` samt
+`umgebung.basis_enthaelt_praefix` und als fertigen Weg `endpunkte[].relativ`.
+An die Adresse gehört `relativ`, nicht `pfad`.
 
 Damit kann eine App ein Sprachmodell fragen, Text aus einer Datei holen und
 einen Flow anstoßen — dieselben Wege, die eine Automatisierung von außen geht,
@@ -521,6 +539,42 @@ await fetch(`${process.env.ARASUL_API_URL}/models`, {
 **Je Stand einer**, nicht je App einer: der Teststand ist eine andere Version,
 die jemand gerade ausprobiert, und was dort in einem Protokoll landet, soll den
 Livestand nichts kosten.
+
+### Die Datenbank einer App (Phase H7)
+
+Eine App mit `backend` bekommt je Stand eine eigene Datenbank im PostgreSQL der
+Plattform, mit eigener Rolle: `arasul_app_<kennung>_<stand>`. Ihre Adresse steht
+in `ARASUL_DB_URL` als `postgresql://…`, eine Zeile, die jeder Treiber versteht.
+
+```js
+import pg from 'pg';
+const db = new pg.Pool({ connectionString: process.env.ARASUL_DB_URL });
+```
+
+**Das ist der Speicher einer App, und es ist nur einer.** Sie bekommt weiterhin
+keinen Bind-Mount und kein Volume. Zwei Orte hießen zwei Antworten auf jede
+Frage des Betriebs — was wird gesichert, was holt ein Weg zurück wieder herein,
+was fällt beim Entfernen weg. Eine hochgeladene Datei gehört deshalb in eine
+Spalte; sie wird damit mitgesichert, ohne dass jemand daran denken muss.
+
+**Je App und Stand eine.** Ein Probelauf im Teststand darf die Daten des
+Livestandes nicht anfassen. Der Livestand behält seine Daten über jeden
+Versionswechsel: angelegt wird nur, was fehlt.
+
+**Das Passwort wechselt nicht bei jedem Einspielen**, anders als der
+API-Schlüssel. Ein Neustart durch Docker behält die Umgebung des Containers,
+und ein neues Passwort wäre für ihn ein verlorener Zugang. Es liegt deshalb
+verschlüsselt in `app_datenbanken` und kommt beim nächsten Einspielen wieder
+heraus.
+
+**Wer sie anfasst und wer nicht.** Die Rolle darf sich anmelden und in ihre
+eigene Datenbank schreiben, sonst nichts (`NOSUPERUSER NOCREATEDB NOCREATEROLE`,
+`REVOKE ALL … FROM PUBLIC`); an `arasul_db` kommt seit H7 nur noch ihr
+Eigentümer. Die nächtliche Sicherung nimmt jede App-Datenbank mit
+(`services/backup-service/backup.sh`), der Weg zurück legt sie wieder an und
+spielt sie ein, `DELETE /api/apps/:id` wirft sie weg — immer, auch ohne
+`?dateien=true`: die Pakete kann ein Partner neu einspielen, eine Datenbank
+ohne App könnte niemand mehr finden.
 
 **Bei jedem Einspielen ein neuer.** In der Datenbank steht nur der
 bcrypt-Abdruck; den Klartext gibt es genau einmal, im Augenblick des Anlegens.

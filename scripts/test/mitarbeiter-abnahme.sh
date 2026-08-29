@@ -21,7 +21,7 @@
 #
 # Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin.
 #
-# ANMELDEDROSSEL: `loginLimiter` erlaubt ZEHN Anmeldungen je Viertelstunde und
+# ANMELDEDROSSEL: `loginLimiter` erlaubt DREISSIG Fehlschlaege je Viertelstunde und
 # IP, und dabei bleibt es. Dieser Lauf braucht FUENF eigene -- der Mitarbeiter
 # meldet sich mehrfach an, und genau das ist der Punkt der Messung. Die sechste,
 # die des Administrators, entfaellt seit dem 27.08.2026, wenn `abnahmen.sh` den

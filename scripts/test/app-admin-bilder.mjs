@@ -24,7 +24,7 @@
  * und dort fuer jede Verwaltungsansicht statt fuer diese eine.
  *
  * KEINE EIGENE ANMELDUNG. Der Aufrufer legt beide Sitzungen als `storageState`
- * ab (`arasul_sitzung_bauen`). Die Drossel laesst zehn Anmeldungen je
+ * ab (`arasul_sitzung_bauen`). Die Drossel laesst dreissig Fehlschlaege je
  * Viertelstunde und IP durch, und dieser Lauf soll keine davon verbrauchen.
  *
  * Aufruf (der Regelfall ist ueber `app-admin-abnahme.sh`):

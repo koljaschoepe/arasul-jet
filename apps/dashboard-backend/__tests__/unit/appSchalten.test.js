@@ -41,6 +41,18 @@ jest.mock('../../src/services/app/appSchluessel', () => ({
   erneuere: jest.fn().mockResolvedValue('aras_abc'),
   umgebungFuer: () => ({ ARASUL_API_SCHLUESSEL: 'aras_abc' }),
 }));
+jest.mock('../../src/services/app/appDatenbank', () => ({
+  // Die Datenbank je App (H7). Sie legt im Cluster an und fragt `pg_database`;
+  // gemessen wird hier der Weg des Einspielens, nicht ihr Anlegen.
+  sorgeFuer: jest.fn(async ({ appId, stand }) => ({
+    datenbank: `arasul_app_${appId}_${stand}`,
+    rolle: `arasul_app_${appId}_${stand}`,
+    url: `postgresql://u:p@postgres-db:5432/arasul_app_${appId}_${stand}`,
+  })),
+  umgebungFuer: jest.fn(z => (z ? { ARASUL_DB_URL: z.url } : {})),
+  entferne: jest.fn(async () => []),
+}));
+
 
 const db = require('../../src/database');
 const appStore = require('../../src/services/app/appStore');
@@ -82,13 +94,18 @@ function staende(zeilen) {
  * Die Abfragen, die `spieleEin` danach stellt, in ihrer Reihenfolge:
  * Lizenzgrenze (SELECT 1), Zahl der Apps, INSERT apps, INSERT app_staende.
  */
-function spieleEinLaeuftDurch(version) {
-  db.query
-    .mockResolvedValueOnce({ rows: [{ id: 'urlaub' }] }) // App gibt es schon
-    .mockResolvedValueOnce({ rows: [] }) // INSERT apps
-    .mockResolvedValueOnce({
-      rows: [{ app_id: 'urlaub', stand: 'live', version, vorige_version: null }],
-    });
+function spieleEinLaeuftDurch(version, stand = 'live') {
+  db.query.mockResolvedValueOnce({ rows: [{ id: 'urlaub' }] }); // App gibt es schon
+  if (stand === 'live') {
+    // Die Lizenzgrenze zaehlt seit H7 die ANDEREN Apps im Livestand, und sie
+    // wird nur beim Schalten nach live gefragt -- ein Teststand ist kein
+    // Betrieb (`appStore.pruefeLivegrenze`).
+    db.query.mockResolvedValueOnce({ rows: [{ n: 0 }] });
+  }
+  db.query.mockResolvedValueOnce({ rows: [] }); // INSERT apps
+  db.query.mockResolvedValueOnce({
+    rows: [{ app_id: 'urlaub', stand, version, vorige_version: null }],
+  });
 }
 
 describe('schalte', () => {
@@ -223,7 +240,7 @@ describe('spieleEin fuehrt Buch ueber die vorige Version', () => {
   });
 
   test('das Image entsteht nach der Regel des Manifests, nicht nach der des Aufrufers', async () => {
-    spieleEinLaeuftDurch('1.1.0');
+    spieleEinLaeuftDurch('1.1.0', 'test');
     await appStore.spieleEin({ appId: 'urlaub', version: '1.1.0', stand: 'test', durch: 1 });
 
     // Der Versionsordner geht mit: ohne ihn wuesste `sorgeFuerImage` nicht,

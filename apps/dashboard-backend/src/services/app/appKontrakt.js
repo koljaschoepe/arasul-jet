@@ -49,7 +49,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 4;
+const KONTRAKT_VERSION = 5;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -70,6 +70,33 @@ const KONTRAKT_VERSION = 4;
  * demselben Grund wie bei 3: das Manifest ist `.strict()`, ein Kit, das gegen
  * Fassung 3 prueft, wiese `marken` als unbekanntes Feld ab, obwohl das Geraet
  * es nimmt und liest. Der Vertrag sagt hier, dass es angekommen ist.
+ *
+ * Fassung 5 (Phase H7, 29.08.2026): drei Aenderungen, alle an derselben
+ * Stelle -- an dem, was das Geraet einer App MITGIBT.
+ *
+ *   1. `umgebung` nennt die Namen in IHRER ROLLE. Bis Fassung 4 stand der Name
+ *      im Schluessel einer Abbildung und die Erklaerung im Wert
+ *      (`{"ARASUL_API_URL": "Die externe Schnittstelle …"}`). Das Kit liest
+ *      `umgebung.basis` und `umgebung.schluessel` und fand dort nichts; sein
+ *      `--check` meldete am 29.08.2026 am Orin „umgebung.basis fehlt im
+ *      Kontrakt oder ist kein Name", und die Vorlage liess zwei Felder `null`
+ *      und startete keinen Flow. Kontrakt und Wirklichkeit stimmten ueberein --
+ *      `docker inspect` zeigt genau diese zwei Namen --, es war allein die
+ *      Form, ueber die sich Kit und Produkt nicht einig waren. Die Erklaerungen
+ *      stehen jetzt daneben, unter `was`.
+ *
+ *   2. Jeder Endpunkt traegt seinen Weg AUCH relativ zur Basis (`relativ`).
+ *      `ARASUL_API_URL` endet auf `/api/v1/external`, und die Pfade unter
+ *      `endpunkte` fangen damit an. Beide Angaben stimmen; wer sie
+ *      aneinanderhaengt, bekommt
+ *      `/api/v1/external/api/v1/external/flows/…` und einen 404. Der Kontrakt
+ *      sagte nicht, dass es dasselbe Stueck ist. Jetzt sagt er es zweimal: als
+ *      `umgebung.praefix` samt `basis_enthaelt_praefix` und als fertiger
+ *      relativer Weg an jedem Endpunkt.
+ *
+ *   3. `umgebung.datenbank` kommt dazu: die Adresse der Datenbank dieser App
+ *      und dieses Standes. Ein Kit, das gegen Fassung 4 prueft, kennt sie
+ *      nicht -- die App laeuft trotzdem, sie hat nur keinen Speicher.
  */
 
 /**
@@ -90,6 +117,7 @@ const MANIFEST_REGELN = Object.freeze([
   '`modelle` ist eine Forderung, keine Lieferung: das Geraet installiert kein Modell nach, es sagt beim Einspielen, welches fehlt.',
   '`flows` ist umgekehrt eine LIEFERUNG (seit Kontrakt 2): das Paket bringt die Dateien mit, das Geraet registriert sie je App und Stand.',
   '`marken` nennt die Fassung des Designsystems, auf der die App steht (seit Kontrakt 4, freiwillig). Das Geraet vergleicht sie mit seiner eigenen und meldet in der App-Verwaltung eine, die aelter ist -- eine Kopie der Bibliothek veraltet lautlos.',
+  'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an.',
 ]);
 
 /** Die Namen, die unter `/apps/<id>/` der Plattform gehoeren. */
@@ -100,106 +128,143 @@ const VERGEBENE_PFADE = Object.freeze([
 ]);
 
 /**
+ * Das Wegstueck, unter dem die externe Schnittstelle haengt.
+ *
+ * Es steht an zwei Stellen im Kontrakt und muss beide Male dasselbe sein: am
+ * Anfang jedes `pfad` unter `endpunkte`, und am Ende der Adresse, die eine App
+ * als `ARASUL_API_URL` bekommt (`services/app/appSchluessel.js`, `API_URL`).
+ * `relativZurBasis` rechnet das eine aus dem anderen aus, damit niemand die
+ * beiden von Hand aneinanderhalten muss.
+ */
+const PRAEFIX = '/api/v1/external';
+
+/**
+ * Derselbe Weg, aber von der Adresse aus gerechnet, die die App bekommen hat.
+ *
+ * DER FUND VOM ORIN (Werkstatt W2, 29.08.2026). `ARASUL_API_URL` endet auf
+ * `/api/v1/external`, die Pfade hier fangen damit an. Wer beides
+ * aneinanderhaengt -- und das ist das Naheliegende --, ruft
+ * `/api/v1/external/api/v1/external/flows/freigabe/run` und bekommt einen 404.
+ * Beide Angaben waren richtig, der Kontrakt sagte nur nicht, dass es dasselbe
+ * Stueck ist. Jede App loeste die Ueberschneidung selbst auf, und jede anders.
+ *
+ * Ein Endpunkt, der NICHT unter dem Praefix liegt, bekommt `null`. Die
+ * OpenAI-kompatible Schnittstelle unter `/v1` ist so einer: sie haengt am
+ * Wurzelverzeichnis, weil fremde Werkzeuge dort eine Basis-URL erwarten, und
+ * laesst sich gegen `ARASUL_API_URL` gar nicht ausdruecken. `null` ist die
+ * ehrliche Antwort darauf; eine ausgerechnete waere eine falsche.
+ */
+function relativZurBasis(pfad) {
+  return pfad.startsWith(`${PRAEFIX}/`) ? pfad.slice(PRAEFIX.length) : null;
+}
+
+/**
  * Was ein Kit am Geraet aufrufen kann.
  *
  * Der Bereich (`bereich`) ist der Wert, der in `allowed_endpoints` eines
  * Schluessels stehen muss. Ein Kit sieht damit auf einen Blick, welchen
  * Schluessel es braucht -- und ein Geraet, das einen Bereich noch nicht kennt,
  * nennt ihn hier auch nicht.
+ *
+ * `relativ` kommt aus `relativZurBasis` und steht nicht in der Liste: eine
+ * zweite Schreibweise desselben Weges waere die naechste Stelle, an der zwei
+ * Angaben auseinanderlaufen.
  */
-const ENDPUNKTE = Object.freeze([
-  { verb: 'GET', pfad: '/api/v1/external/contract', bereich: null, was: 'Dieser Kontrakt' },
-  {
-    verb: 'POST',
-    pfad: '/api/v1/external/apps',
-    bereich: 'app:deploy',
-    was: 'Ein Paket einspielen; rollt IMMER in den Teststand',
-  },
-  {
-    verb: 'POST',
-    pfad: '/api/v1/external/apps/:id/schalten',
-    bereich: 'app:deploy',
-    was: 'Livestand schalten: `{"ziel":"live"}` oder `{"ziel":"zurueck"}`',
-  },
-  {
-    verb: 'GET',
-    pfad: '/api/v1/external/apps/:id',
-    bereich: 'app:deploy',
-    was: 'Was das Geraet ueber diese App weiss, beide Staende',
-  },
-  {
-    verb: 'DELETE',
-    pfad: '/api/v1/external/apps/:id?bestaetigung=<id>&dateien=<true|false>',
-    bereich: 'app:deploy',
-    was: 'App weg: beide Container samt Volumes, beide Staende, alle Freigaben',
-  },
-  {
-    verb: 'POST',
-    pfad: '/api/v1/external/llm/chat',
-    bereich: 'llm:chat',
-    was: 'Sprachmodell fragen',
-  },
-  {
-    verb: 'GET',
-    pfad: '/api/v1/external/llm/job/:jobId',
-    bereich: 'llm:status',
-    was: 'Stand eines Auftrags',
-  },
-  {
-    verb: 'GET',
-    pfad: '/api/v1/external/llm/queue',
-    bereich: 'llm:status',
-    was: 'Die Warteschlange',
-  },
-  {
-    verb: 'GET',
-    pfad: '/api/v1/external/models',
-    bereich: 'llm:status',
-    was: 'Welche Modelle am Geraet sind',
-  },
-  {
-    verb: 'POST',
-    pfad: '/api/v1/external/document/extract',
-    bereich: 'document:extract',
-    was: 'Text aus einer Datei holen',
-  },
-  {
-    verb: 'POST',
-    pfad: '/api/v1/external/document/extract-structured',
-    bereich: 'document:extract',
-    was: 'Text mit Struktur (Seiten, Abschnitte)',
-  },
-  {
-    verb: 'POST',
-    pfad: '/api/v1/external/document/analyze',
-    bereich: 'document:analyze',
-    was: 'Datei holen und vom Modell auswerten lassen',
-  },
-  {
-    verb: 'GET',
-    pfad: '/api/v1/external/flows',
-    bereich: 'flow:run',
-    was: 'Welche Flows dieser Schluessel starten darf. Mit dem Schluessel einer App: NUR ihre eigenen, im Stand ihres Containers',
-  },
-  {
-    verb: 'POST',
-    pfad: '/api/v1/external/flows/:name/run',
-    bereich: 'flow:run',
-    was: 'Einen Flow anstossen. Gesucht wird im Namensraum des Schluessels',
-  },
-  {
-    verb: 'GET',
-    pfad: '/api/v1/external/flows/runs/:id',
-    bereich: 'flow:run',
-    was: 'Der Lauf eines Flows, mit seinen Schritten',
-  },
-  {
-    verb: 'GET',
-    pfad: '/api/v1/external/freigaben?lauf=<id>',
-    bereich: 'flow:run',
-    was: 'Die Freigaben dieser App nachlesen. Nur lesen: entschieden wird ueber die Sitzung eines Menschen',
-  },
-]);
+const ENDPUNKTE = Object.freeze(
+  [
+    { verb: 'GET', pfad: '/api/v1/external/contract', bereich: null, was: 'Dieser Kontrakt' },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/apps',
+      bereich: 'app:deploy',
+      was: 'Ein Paket einspielen; rollt IMMER in den Teststand',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/apps/:id/schalten',
+      bereich: 'app:deploy',
+      was: 'Livestand schalten: `{"ziel":"live"}` oder `{"ziel":"zurueck"}`',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/apps/:id',
+      bereich: 'app:deploy',
+      was: 'Was das Geraet ueber diese App weiss, beide Staende',
+    },
+    {
+      verb: 'DELETE',
+      pfad: '/api/v1/external/apps/:id?bestaetigung=<id>&dateien=<true|false>',
+      bereich: 'app:deploy',
+      was: 'App weg: beide Container samt Volumes, beide Staende, alle Freigaben',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/llm/chat',
+      bereich: 'llm:chat',
+      was: 'Sprachmodell fragen',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/llm/job/:jobId',
+      bereich: 'llm:status',
+      was: 'Stand eines Auftrags',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/llm/queue',
+      bereich: 'llm:status',
+      was: 'Die Warteschlange',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/models',
+      bereich: 'llm:status',
+      was: 'Welche Modelle am Geraet sind',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/document/extract',
+      bereich: 'document:extract',
+      was: 'Text aus einer Datei holen',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/document/extract-structured',
+      bereich: 'document:extract',
+      was: 'Text mit Struktur (Seiten, Abschnitte)',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/document/analyze',
+      bereich: 'document:analyze',
+      was: 'Datei holen und vom Modell auswerten lassen',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/flows',
+      bereich: 'flow:run',
+      was: 'Welche Flows dieser Schluessel starten darf. Mit dem Schluessel einer App: NUR ihre eigenen, im Stand ihres Containers',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/flows/:name/run',
+      bereich: 'flow:run',
+      was: 'Einen Flow anstossen. Gesucht wird im Namensraum des Schluessels',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/flows/runs/:id',
+      bereich: 'flow:run',
+      was: 'Der Lauf eines Flows, mit seinen Schritten (`schritte`: position, art, name, status, modell, eingabe, ausgabe, Zeiten). `steps_used` ist ihre Anzahl, nicht die Kette',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/freigaben?lauf=<id>',
+      bereich: 'flow:run',
+      was: 'Die Freigaben dieser App nachlesen, samt `zusammenhang` -- dem Text, an dem entschieden wurde. Nur lesen: entschieden wird ueber die Sitzung eines Menschen',
+    },
+  ].map(e => Object.freeze({ ...e, relativ: relativZurBasis(e.pfad) }))
+);
 
 /**
  * Ein Zod-Schema als JSON-Schema, aus Sicht dessen, der es SCHREIBT.
@@ -242,7 +307,7 @@ function kontrakt() {
         'Eine Datei je Flow unter `flows.verzeichnis`, Endung `.md`. Der Dateiname IST der Name.',
         'Steht im Kopf ein `name:`, muss er derselbe sein wie der Dateiname.',
         'Das Standardmodell steht im Kopf (`modell:`). Der Administrator am Geraet darf es je Flow ueberschreiben; seine Ueberschreibung liegt in der Datenbank und ueberlebt ein App-Update.',
-        '`ordner` ist fuer einen Flow aus einem Paket nicht erlaubt: die Datei-Werkzeuge brauchen einen abgeschirmten Datenordner je App, und den gibt es noch nicht.',
+        '`ordner` ist fuer einen Flow aus einem Paket nicht erlaubt: die Datei-Werkzeuge brauchen einen abgeschirmten Datenordner je App, und den gibt es nicht. Der Speicher einer App ist ihre DATENBANK (`umgebung.datenbank`, seit Kontrakt 5), und die erreicht die App selbst -- nicht ein Flow, der im Backend des Geraets laeuft.',
         `Hoechstens ${appFlows.MAX_FLOWS} Flows je Paket.`,
         'Der Namensraum ist die App: zwei Apps duerfen denselben Flow-Namen tragen.',
         'Das Werkzeug `freigabe_anfordern` haelt den Lauf an, bis ein Mensch bestaetigt (Status `wartend`). Ablehnung beendet ihn als `abgebrochen`, Fristablauf als `abgelaufen`.',
@@ -260,10 +325,29 @@ function kontrakt() {
         "Buffer.from(kopf, 'latin1').toString('utf8').",
     },
     umgebung: {
-      ARASUL_API_URL: 'Die externe Schnittstelle im Docker-Netz, ohne Umweg ueber Traefik',
-      ARASUL_API_SCHLUESSEL:
-        'Der Schluessel dieser App und dieses Standes, bei jedem Einspielen neu',
-      hinweis: 'Beides setzt das Geraet in den Container, zusaetzlich zu `backend.umgebung`.',
+      // DIE NAMEN IN IHRER ROLLE (Kontrakt 5). Bis Fassung 4 stand der Name im
+      // Schluessel und die Erklaerung im Wert -- wer den Namen zu `basis`
+      // suchte, fand nichts. Die Rolle ist das, was ein Kit kennt; der Name
+      // ist das, was dieses Geraet daraus macht.
+      basis: 'ARASUL_API_URL',
+      schluessel: 'ARASUL_API_SCHLUESSEL',
+      datenbank: 'ARASUL_DB_URL',
+      was: {
+        ARASUL_API_URL: 'Die externe Schnittstelle im Docker-Netz, ohne Umweg ueber Traefik',
+        ARASUL_API_SCHLUESSEL:
+          'Der Schluessel dieser App und dieses Standes, bei jedem Einspielen neu',
+        ARASUL_DB_URL:
+          'Die Datenbank dieser App und dieses Standes, als postgresql://…; nur mit `backend`',
+      },
+      // Und was `basis` bereits ENTHAELT. Ohne diese zwei Zeilen haengt jeder
+      // die Pfade aus `endpunkte` an die Adresse und ruft den Weg zweimal.
+      praefix: PRAEFIX,
+      basis_enthaelt_praefix: true,
+      hinweis:
+        'Alle drei setzt das Geraet in den Container, zusaetzlich zu `backend.umgebung`. ' +
+        '`basis` endet auf `praefix`: an sie gehoert `endpunkte[].relativ`, nicht ' +
+        '`endpunkte[].pfad`. `datenbank` fehlt bei einer App ohne `backend` -- ' +
+        'sie hat keinen Container, in den sie ginge.',
     },
     paket: {
       format: 'tar.gz',
@@ -311,6 +395,7 @@ function kontrakt() {
 
 module.exports = {
   KONTRAKT_VERSION,
+  PRAEFIX,
   MANIFEST_REGELN,
   ENDPUNKTE,
   VERGEBENE_PFADE,

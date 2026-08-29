@@ -374,6 +374,19 @@ jest.mock('../../src/utils/auditLog', () => ({ logSecurityEvent: jest.fn() }));
 jest.mock('../../src/services/app/licenseService', () => ({
   checkLimit: jest.fn().mockResolvedValue({ allowed: true, limit: -1, current: 0 }),
 }));
+// Die Datenbank je App (H7) legt im Cluster an und fragt `pg_database`. Das
+// hat mit den Wegen dieser Datei nichts zu tun -- gemessen wird hier, dass
+// ihre Adresse in die Umgebung des Containers kommt, nicht wie sie entsteht.
+// `services/app/__tests__` misst das Anlegen selbst.
+jest.mock('../../src/services/app/appDatenbank', () => ({
+  sorgeFuer: jest.fn(async ({ appId, stand }) => ({
+    datenbank: `arasul_app_${appId}_${stand}`,
+    rolle: `arasul_app_${appId}_${stand}`,
+    url: `postgresql://arasul_app_${appId}_${stand}:wort@postgres-db:5432/arasul_app_${appId}_${stand}`,
+  })),
+  umgebungFuer: jest.fn(z => (z ? { ARASUL_DB_URL: z.url } : {})),
+  entferne: jest.fn(async () => []),
+}));
 jest.mock('../../src/services/core/docker', () => ({
   docker: {
     getContainer: jest.fn(() => ({
@@ -464,7 +477,11 @@ afterAll(() => fs.rmSync(APPS_DIR, { recursive: true, force: true }));
 
 beforeEach(() => {
   db.query.mockReset();
-  docker.createContainer.mockClear();
+  // `mockReset` und nicht `mockClear`: ein `mockRejectedValueOnce`, das der
+  // vorige Test nicht verbraucht hat (weil er schon vorher scheiterte), stuende
+  // sonst als erste Antwort im naechsten -- und der waere rot an einer Stelle,
+  // die mit ihm nichts zu tun hat.
+  docker.createContainer.mockReset();
   docker.createContainer.mockResolvedValue({ start: jest.fn().mockResolvedValue(undefined) });
   licenseService.checkLimit.mockClear();
   licenseService.checkLimit.mockResolvedValue({ allowed: true, limit: -1, current: 0 });
@@ -553,7 +570,8 @@ describe('/api/apps/meine', () => {
 
 /**
  * Die Abfragen eines erfolgreichen Einspielens, in ihrer Reihenfolge:
- *   1. gibt es die App schon (Lizenzgrenze)
+ *   1. gibt es die App schon (`istNeueApp`)
+ *   1a. NUR bei `live`: wie viele ANDERE Apps sind live (Lizenzgrenze, H7)
  *   2. die Zeile in `apps` -- seit C4 VOR dem Container, weil der Schluessel
  *      als Fremdschluessel an ihr haengt
  *   3. der alte Schluessel dieses Standes weg
@@ -561,8 +579,11 @@ describe('/api/apps/meine', () => {
  *   5. der Stand
  */
 function einspielenAntworten(stand = 'test') {
+  db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
+  if (stand === 'live') {
+    db.query.mockResolvedValueOnce({ rows: [{ n: 0 }] });
+  }
   db.query
-    .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] })
     .mockResolvedValueOnce({ rows: [] })
     .mockResolvedValueOnce({ rowCount: 0 })
     .mockResolvedValueOnce({ rows: [{ id: 7 }] })
@@ -611,7 +632,6 @@ describe('POST /api/apps/:id/einspielen', () => {
     docker.createContainer.mockRejectedValueOnce(new Error('kein Image'));
     db.query
       .mockResolvedValueOnce({ rows: [] }) // die App gibt es noch nicht
-      .mockResolvedValueOnce({ rows: [{ n: 0 }] })
       .mockResolvedValueOnce({ rows: [] }) // apps upsert
       .mockResolvedValueOnce({ rowCount: 0 }) // alter Schluessel weg
       .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // neuer Schluessel
@@ -641,28 +661,45 @@ describe('POST /api/apps/:id/einspielen', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
-  test('die Lizenzgrenze haelt eine NEUE App auf', async () => {
+  test('ein TESTSTAND faellt nicht unter die Lizenzgrenze (H7)', async () => {
+    // Die Werkbank des Partners ist kein Betrieb. Bis H7 zaehlte jede Zeile in
+    // `apps`, und am Orin standen drei von drei belegt, ohne dass eine einzige
+    // in Betrieb gewesen waere -- der Partner haette die vierte nicht einmal
+    // bauen koennen, um eine der drei zu ersetzen.
     licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 3, current: 3 });
-    db.query
-      .mockResolvedValueOnce({ rows: [] }) // die App gibt es noch nicht
-      .mockResolvedValueOnce({ rows: [{ n: 3 }] });
-    const res = await request(verwaltung())
-      .post('/api/apps/urlaub/einspielen')
-      .send({ version: '1.0.0' });
-    expect(res.status).toBe(409);
-    expect(licenseService.checkLimit).toHaveBeenCalledWith('maxApps', 3);
-  });
-
-  test('eine neue VERSION einer bekannten App faellt nicht unter die Grenze', async () => {
-    // Sonst blockierte ein abgelaufener Schluessel ein Update, das vielleicht
-    // genau den Fehler behebt, wegen dem jemand anruft.
-    licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 1, current: 1 });
     einspielenAntworten();
     const res = await request(verwaltung())
       .post('/api/apps/urlaub/einspielen')
       .send({ version: '1.0.0' });
     expect(res.status).toBe(201);
     expect(licenseService.checkLimit).not.toHaveBeenCalled();
+  });
+
+  test('die Lizenzgrenze haelt das Schalten nach LIVE auf', async () => {
+    licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 3, current: 3 });
+    db.query
+      .mockResolvedValueOnce({ rows: [] }) // die App gibt es noch nicht
+      .mockResolvedValueOnce({ rows: [{ n: 3 }] }); // drei andere sind live
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/einspielen')
+      .send({ version: '1.0.0', stand: 'live' });
+    expect(res.status).toBe(409);
+    expect(licenseService.checkLimit).toHaveBeenCalledWith('maxApps', 3);
+  });
+
+  test('eine App, die schon live ist, zaehlt sich nicht selbst', async () => {
+    // Sonst blockierte ein volles Geraet jedes Update genau der App, die
+    // vielleicht den Fehler hat, wegen dem jemand anruft.
+    licenseService.checkLimit.mockResolvedValue({ allowed: true, limit: 3, current: 2 });
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }); // App bekannt
+    einspielenAntworten('live');
+    await request(verwaltung())
+      .post('/api/apps/urlaub/einspielen')
+      .send({ version: '1.0.0', stand: 'live' });
+    const gezaehlt = db.query.mock.calls.find(
+      ([sql]) => sql.includes('app_staende') && sql.includes("stand = 'live'")
+    );
+    expect(gezaehlt[1]).toEqual(['urlaub']);
   });
 });
 

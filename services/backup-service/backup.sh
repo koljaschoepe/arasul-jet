@@ -11,6 +11,11 @@
 #              des Administrators je Flow, das Migrationsbuch. Das ganze
 #              Datenmodell aus den Phasen B bis C8 steckt darin -- `pg_dump`
 #              nimmt jedes Schema mit, es steht keine Tabellenliste im Weg.
+#              DAZU JEDE APP-DATENBANK (Phase H7): seit H7 bekommt jede App je
+#              Stand eine eigene Datenbank im selben Cluster, und `pg_dump` des
+#              Plattform-Abzugs sieht sie nicht -- er nimmt eine Datenbank, und
+#              das ist `arasul_db`. Was ein Partner in seiner App ablegt, waere
+#              sonst das Einzige, was ein Geraeteverlust wirklich vernichtet.
 #   apps       Die PAKETE der Apps (`/arasul/apps/<id>/<version>/`): Manifest,
 #              fertiges Frontend, Dockerfile mit Kontext. Bis Phase C9 stand
 #              das in keinem Archiv, und das war das groesste Loch: die
@@ -26,9 +31,10 @@
 #              einem leeren Geraet kein einziger Container hoch.
 #
 # NICHT gesichert werden App-Volumes: es gibt keine. Eine App bekommt weder
-# Bind-Mount noch benanntes Volume (`services/app/appContainer.js`); ein
-# abgeschirmter Datenordner je App kommt mit den D-Phasen. Wer diese Zeile
-# aendert, aendert dort etwas.
+# Bind-Mount noch benanntes Volume (`services/app/appContainer.js`). Ihren
+# Speicher hat sie seit H7 trotzdem, und zwar als Datenbank -- genau ein Ort je
+# App und Stand, damit es auf die Frage „was wird gesichert" genau eine Antwort
+# gibt. Wer einen zweiten Ort einfuehrt, aendert diese Zeile.
 #
 # DER SICHERUNGSSCHLUESSEL IST NICHT IM ARCHIV. `config/secrets/backup_encryption_key`
 # wird ausgenommen, und zwar nicht aus Vorsicht, sondern weil es sonst sinnlos
@@ -92,7 +98,10 @@ BACKUP_OK=true
 
 # PostgreSQL backup (use .pgpass to avoid password in process listing)
 mkdir -p /backups/postgres /backups/postgres/weekly
-echo "$POSTGRES_HOST:${POSTGRES_PORT:-5432}:$POSTGRES_DB:$POSTGRES_USER:$POSTGRES_PASSWORD" > ~/.pgpass
+# `*` als Datenbank und nicht `$POSTGRES_DB`: seit H7 wird auch je App eine
+# Datenbank im selben Cluster abgezogen, und ein Eintrag, der nur `arasul_db`
+# nennt, gaebe dort kein Passwort her.
+echo "$POSTGRES_HOST:${POSTGRES_PORT:-5432}:*:$POSTGRES_USER:$POSTGRES_PASSWORD" > ~/.pgpass
 chmod 600 ~/.pgpass
 if pg_dump \
   -h "$POSTGRES_HOST" \
@@ -117,7 +126,6 @@ else
     echo "[$TIMESTAMP] [ERROR] PostgreSQL backup failed"
     BACKUP_OK=false
 fi
-rm -f ~/.pgpass
 # `|| true`, weil `set -e` sonst genau hier aussteigt: `encrypt_file` gibt bei
 # fehlgeschlagener Verschluesselung 1 zurueck, und dieser Aufruf steht am
 # Zeilenanfang. Das Skript waere ohne Bericht abgebrochen -- und der
@@ -127,6 +135,41 @@ rm -f ~/.pgpass
 # BACKUP_OK dafuer um.
 encrypt_file /backups/postgres/arasul_db_$TIMESTAMP.sql.gz || true
 ln -sf arasul_db_$TIMESTAMP.sql.gz /backups/postgres/arasul_db_latest.sql.gz
+
+# -----------------------------------------------------------------------------
+# Die Datenbanken der Apps (Phase H7)
+# -----------------------------------------------------------------------------
+# GEFRAGT WIRD DER CLUSTER, NICHT DIE TABELLE. Die Namen stuenden auch in
+# `app_datenbanken`, aber eine Sicherung, die eine Tabelle fragt, sichert nur,
+# was dort steht -- und eine Datenbank, deren Zeile jemand verloren hat, waere
+# unsichtbar UND unwiederbringlich. Der Praefix ist die Wahrheit; er ist
+# dieselbe Zeichenkette wie `PRAEFIX` in `services/app/appDatenbank.js`.
+#
+# EIN FEHLSCHLAG HIER IST EIN FEHLSCHLAG. Anders als bei einem fehlenden
+# Ordner: eine Datenbank, die der Cluster gerade genannt hat, muss sich auch
+# abziehen lassen. Ein Geraet ohne Apps hat null davon und laeuft still durch.
+mkdir -p /backups/postgres/apps
+APP_DBS=$(psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+  "SELECT datname FROM pg_database WHERE datname LIKE 'arasul\\_app\\_%' ORDER BY datname" \
+  2>/dev/null || true)
+APP_DB_ANZAHL=0
+for APP_DB in $APP_DBS; do
+    ZIEL="/backups/postgres/apps/${APP_DB}_${TIMESTAMP}.sql.gz"
+    if pg_dump -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$APP_DB" \
+         --no-owner --no-acl --clean --if-exists | gzip > "$ZIEL" \
+       && gunzip -t "$ZIEL" 2>/dev/null; then
+        encrypt_file "$ZIEL" || true
+        ln -sf "$(basename "$ZIEL")" "/backups/postgres/apps/${APP_DB}_latest.sql.gz"
+        APP_DB_ANZAHL=$((APP_DB_ANZAHL + 1))
+    else
+        echo "[$TIMESTAMP] [ERROR] App-Datenbank ${APP_DB} liess sich nicht sichern"
+        BACKUP_OK=false
+    fi
+done
+# `|| true`: unter `set -e` beendet ein `[ ] && echo` mit falschem Test das
+# Skript -- und null App-Datenbanken sind der Normalfall auf einem neuen Geraet.
+[ "$APP_DB_ANZAHL" -gt 0 ] && echo "[$TIMESTAMP] ${APP_DB_ANZAHL} App-Datenbank(en) gesichert" || true
+rm -f ~/.pgpass
 
 # Weekly snapshot: copy Sunday's backup to weekly dir (kept longer)
 if [ "$DAY_OF_WEEK" = "7" ]; then
@@ -391,6 +434,17 @@ if [ "$BACKUP_OK" = true ]; then
     }
 
     schuetze_neueste /backups/postgres "*.sql.gz" arasul_db_latest.sql.gz
+    # Je App-Datenbank ein eigenes `*_latest` (Phase H7): `schuetze_neueste`
+    # kennt genau eines je Ordner, also wird je Datenbank einmal aufgerufen.
+    # Sonst schuetzte der Aufruf die neueste EINER App und liesse die letzte
+    # Sicherung jeder anderen ueber die Frist altern.
+    if [ -d /backups/postgres/apps ]; then
+        for zeiger in /backups/postgres/apps/*_latest.sql.gz; do
+            [ -e "$zeiger" ] || continue
+            schuetze_neueste /backups/postgres/apps \
+                "$(basename "${zeiger%_latest.sql.gz}")_*.sql.gz" "$(basename "$zeiger")"
+        done
+    fi
     for name in apps flows config; do
         [ -d "/backups/${name}" ] && schuetze_neueste "/backups/${name}" "*.tar.gz" "${name}_latest.tar.gz"
     done

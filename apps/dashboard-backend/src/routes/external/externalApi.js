@@ -878,6 +878,7 @@ router.post(
       result: run.result || null,
       error: run.error || null,
       steps_used: run.steps_used ?? null,
+      schritte: schritteFuerApp(run),
       // Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2).
       annahmen: run.annahmen ?? null,
       processing_time_ms: Date.now() - startTime,
@@ -917,6 +918,9 @@ router.get(
       result: run.result || null,
       error: run.error || null,
       steps_used: run.steps_used ?? null,
+      // Die Kette selbst (Phase H7): `steps_used` ist ihre Laenge, `schritte`
+      // ist sie. Der Kontrakt verspricht sie seit C5.
+      schritte: schritteFuerApp(run),
       // Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2) — auch der
       // externe Aufrufer sieht, welche Annahmen statt Rückfragen getroffen wurden.
       annahmen: run.annahmen ?? null,
@@ -970,6 +974,40 @@ router.get(
     });
   })
 );
+
+/**
+ * Die Schritte eines Laufs, wie eine App sie lesen darf (Phase H7).
+ *
+ * DER KONTRAKT VERSPRACH SIE SEIT C5. `GET /flows/runs/:id` steht dort als
+ * „Der Lauf eines Flows, mit seinen Schritten", und die Route lieferte
+ * `status`, `result`, `error`, `steps_used` und `annahmen` -- keinen einzigen
+ * Schritt. `steps_used` ist eine ZAHL, keine Kette, und genau diese
+ * Verwechslung hat die Werkstatt am 29.08.2026 eine Anzeige gekostet: eine App
+ * konnte sagen, DASS es einen Lauf gab, und nicht, was darin geschah. Ein
+ * Kontrakt, der mehr zusagt als die Route haelt, ist schlimmer als einer, der
+ * schweigt -- eine App wird darauf gebaut.
+ *
+ * DEUTSCHE NAMEN, und `schritte` neben `steps_used`: die beiden bedeuten
+ * Verschiedenes, und wer sie nebeneinander liest, soll das sehen.
+ *
+ * Die inneren Kennungen bleiben drin: `id` und `parent_step_id` gehoeren der
+ * Datenbank dieses Geraets, und eine App, die sie kennt, faengt an, mit ihnen
+ * zu rechnen. Was sie braucht, ist die Reihenfolge, und die steht in
+ * `position`.
+ */
+function schritteFuerApp(run) {
+  return (run.steps || []).map(s => ({
+    position: s.position,
+    art: s.kind,
+    name: s.name,
+    status: s.status,
+    modell: s.modell ?? null,
+    eingabe: s.input ?? null,
+    ausgabe: s.output ?? null,
+    begonnen_am: s.created_at ?? null,
+    beendet_am: s.finished_at ?? null,
+  }));
+}
 
 /**
  * Helper: Wartet auf das Ende eines Flow-Laufs (Terminal-Status) mit Timeout.
