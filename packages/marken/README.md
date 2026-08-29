@@ -6,12 +6,31 @@ jede App auf diesem Gerät.
 
 Kein neues Erscheinungsbild: die Werte stehen seit Plan 002 in
 `apps/dashboard-frontend/src/index.css` und sind hier als `--ara-*` mit genau
-diesen Rückfällen aufgenommen. Es sind die Werte des **dunklen** Themes (bei
-ihrer Aufnahme in D7 hieß es »Schwarz«; mit Phase H1 gibt es Hell und Dunkel).
+diesen Rückfällen aufgenommen.
+
+## Zwei Themes, und Hell ist der Grund (Phase H2)
+
+`marken.css` hat dieselbe Form wie `index.css`: `:root` **ist** Hell, und
+`[data-theme='dark']` trägt die zehn Werte, die im Dunkeln abweichen. Was
+`index.css` in seinem Dunkel-Block nicht überschreibt (Fehler, Erfolg,
+Warnung, Schrift, Abstände, Rundungen), steht auch hier nur einmal — eine
+Farbe, die es nur im Dunkeln gibt, ist eine, die im Hellen fehlt.
+
 Eine App läuft im `iframe` als eigenes Dokument, und CSS-Variablen reichen
-nicht über eine Dokumentgrenze — sie steht deshalb immer auf diesen
-Rückfällen, auch wenn der Mensch die Shell hell eingestellt hat. Das ist eine
-offene Frage aus H1.
+nicht über eine Dokumentgrenze. Das Attribut kommt deshalb von außen: die
+Shell schreibt es in das Dokument des Rahmens (`AppRahmen`, gleiche Herkunft).
+**Die App muss dafür nichts tun** — sie lädt `marken.css` und geht mit. Wer
+mehr tut als Farben tauschen, hört zusätzlich auf
+`postMessage {typ: 'arasul:theme', theme}` am eigenen Fenster.
+
+Bis H2 waren die Rückfälle die Werte des dunklen Themes (bei ihrer Aufnahme
+in D7 hieß es »Schwarz«), und eine App stand immer darauf — auch in einer
+hellen Shell. Das war die offene Frage aus H1.
+
+`scripts/test/marken.py` hält **jeden** Rückfall an seinem Token in
+`index.css` fest. Ohne diesen Wächter läuft die Kopie lautlos auseinander: in
+der Shell gewinnt immer der Token, also sieht man dort nichts, und in der App
+sieht es niemand, der gerade `index.css` ändert.
 
 ## Warum es das gibt (Phase D7, 28.08.2026)
 
@@ -35,6 +54,9 @@ jemand vergisst.
 
 Das Stylesheet gehört dazu und wird getrennt geladen — die Shell holt es in
 `index.css`, eine App über ein `<link rel="stylesheet" href="marken.css">`.
+Es liegt **nicht** im Bündel (`vite.config.mjs` sagt das ausdrücklich): eine
+Änderung nur an `marken.css` braucht deshalb keinen neuen Bau, aber sie
+erreicht eine App am Gerät erst beim nächsten Einspielen.
 
 ## Das Bündel für Apps ohne Bau
 

@@ -357,10 +357,49 @@ Frage, ob die Fläche wirklich die des Themes ist (zwei Bilder, die gleich
 aussehen, sind der häufigste stille Fehlschlag eines Theme-Umbaus). Die Reihe
 läuft **neben** `abnahmen.sh` wie die fünf Browser-Abnahmen aus D2 bis D6 und
 kostet zwei Anmeldungen. Die **Anmeldeseite hat kein Theme**, und das ist kein
-Mangel: vor der Anmeldung ist kein Mensch da, also gilt die Vorgabe. Offen
-bleibt, ob eine **App** dem Theme folgt: sie läuft im iframe als eigenes
-Dokument, CSS-Variablen reichen nicht über eine Dokumentgrenze, und
-`packages/marken/` steht dort auf seinen Rückfallwerten.
+Mangel: vor der Anmeldung ist kein Mensch da, also gilt die Vorgabe. Die
+Frage, ob eine **App** dem Theme folgt, hat **H2** beantwortet.
+
+Seit **H2** (29.08.2026) **folgt die App im Rahmen dem Theme, und der Wechsel
+lädt sie nicht neu**. Eine App läuft im iframe als eigenes Dokument, und
+CSS-Variablen reichen nicht über eine Dokumentgrenze — bis H2 stand jede App
+auf den Rückfallwerten von `packages/marken/`, und die waren die des dunklen
+Themes: eine helle Shell mit einer dunklen App darin, und der Mensch sieht
+beides als ein Ding. Deshalb hat `marken.css` jetzt **dieselbe Form wie
+`index.css`**: `:root` ist Hell, `[data-theme='dark']` trägt die zehn Werte,
+die abweichen. Nur die zehn — was `index.css` im Dunkeln nicht überschreibt
+(Fehler, Erfolg, Warnung, Schrift, Abstände), steht auch hier nur einmal.
+Hineingereicht wird es über die **gleiche Herkunft**, die es zwischen Shell
+und Rahmen ohnehin gibt (deshalb steht am iframe kein `sandbox`, C4):
+`AppRahmen` schreibt `data-theme` in das Dokument der App, bei jedem Wechsel
+und bei jedem `load` — **die App muss dafür nichts tun**, die Beispielapp hat
+keine Zeile dafür. Dazu geht `postMessage {typ:'arasul:theme', theme}` an ihr
+Fenster, für eine App, die mehr tut als Farben tauschen; und weil am Dokument
+Hell **ohne** Attribut steht (H1), ist die Nachricht der einzige Weg, der den
+Wert ausdrücklich nennt. Die Vorlage des Ara-Kits liest daneben das `<html>`
+des Elternfensters mit einem `MutationObserver` — dieselbe Sache aus einer
+dritten Richtung, und sie braucht von hier nichts.
+**Ohne Neuladen** war dabei nicht die Frage, wo das Theme steht, sondern eine
+Frage an die Shell: das Theme steht weder im `key` noch in der Adresse des
+iframes, aber der Weg eines Menschen zum Schalter führt in den
+**Einstellungs-Tab** — und `TabContent` mountete nur den aktiven Tab, also
+starb der App-Tab dabei, egal was `AppRahmen` tut. **Ein App-Tab bleibt jetzt
+stehen**, auch wenn er nicht vorn ist; jede andere Ansicht wird weiter
+abgeräumt, denn ihr Zustand liegt im Query-Cache über der Shell. Eine App
+verliert damit auch kein halb ausgefülltes Formular mehr, wenn jemand
+kurz auf seine Notizen sieht.
+Und die **eine Quelle ist prüfbar geworden**: jeder `--ara-*`-Rückfall in
+`marken.css` ist eine Kopie eines Tokens aus `index.css`, und in der Shell
+gewinnt immer der Token — eine veraltete Kopie fällt dort **nie** auf,
+sondern nur in einer App, die gerade niemand ansieht. `scripts/test/marken.py`
+hält deshalb jeden Rückfall an seinem Token fest (Hell gegen `:root`, Dunkel
+gegen `[data-theme='dark']`) und beide Richtungen der Vollständigkeit; beim
+ersten Lauf hat er gleich ein Auseinanderlaufen gefunden
+(`--ara-schrift-fest` ließ zwei Schriften der Shell weg). `browser/marken.js`
+ist **unverändert** — das Stylesheet liegt nicht im Bündel, und der Neubau
+liefert Byte für Byte dieselbe Datei. Eine App am Gerät bekommt die neue
+`marken.css` erst beim **nächsten Einspielen**: sie liegt neben der App und
+nicht in der Shell.
 
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 

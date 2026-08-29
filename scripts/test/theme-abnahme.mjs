@@ -16,6 +16,25 @@
  *   3. WAS ES NICHT MEHR GIBT. Kein `data-theme="black"`, keine Klasse
  *      `.light` am Dokument, kein Schluessel `arasul_theme` im Speicher,
  *      nachdem die Oberflaeche einmal gelaufen ist.
+ *   4. DIE APP IM RAHMEN (Phase H2). Eine App laeuft im `iframe` als eigenes
+ *      Dokument, und CSS-Variablen reichen nicht ueber eine Dokumentgrenze:
+ *      bis H2 stand jede App auf den Rueckfallwerten von `marken.css`, und
+ *      das waren die des dunklen Themas. Gemessen wird beides -- was im
+ *      Dokument der App steht (`data-theme`) und welche Flaeche daraus wird
+ *      --, in beiden Themes bei 390 und 1440 px, mit Bild.
+ *   5. UND DER WECHSEL LAEDT DEN RAHMEN NICHT NEU. Gemessen auf dem Weg, den
+ *      ein Mensch geht: App offen, ueber das Zahnrad in die Einstellungen,
+ *      dort »Dunkel«, ueber die Tab-Leiste zurueck. Der Beleg ist eine Marke
+ *      am `contentWindow` des Rahmens -- ueberlebt sie, war es dasselbe
+ *      Fenster, und die App hat nichts verloren.
+ *
+ * DIE FLAECHE WIRD ERST NACH DEM UEBERGANG GELESEN. `body` traegt
+ * `transition: background-color var(--transition-slow)` (0,3 s), und die
+ * H1-Messung las mitten darin: `#f6f6f6` bei `data-theme=dark`, dreimal rot
+ * an einem Geraet, das richtig war. Die Reihe wartet jetzt darauf, dass die
+ * Farbe steht, und misst DANN -- Bild und Zahl kommen aus demselben
+ * Augenblick. Abgeschaltet wird der Uebergang nicht: was gemessen wird, soll
+ * das sein, was der Mensch sieht.
  *
  * DIE ANMELDUNG DER ANMELDESEITE HAT KEIN THEME, und das ist kein Mangel:
  * das Theme gehoert einem Menschen, und vor der Anmeldung ist keiner da. Die
@@ -63,6 +82,8 @@ const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'pruefer';
 const PASSWORT = process.env.ARASUL_PASSWORT || '';
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
+/** Welche App im Rahmen gemessen wird. Ohne Angabe sucht die Reihe selbst. */
+const WUNSCH_APP = process.env.ARASUL_APP || '';
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-oberflaeche`);
 const gastgeber = new global.URL(URL).hostname;
 
@@ -87,6 +108,7 @@ const THEMES = [
 ];
 
 const ergebnisse = [];
+const uebersprungen = [];
 function pruefe(was, ok, detail = '') {
   ergebnisse.push({ was, ok });
   console.log(`${ok ? 'gruen' : 'ROT  '}  ${was}${detail ? `  (${detail})` : ''}`);
@@ -176,6 +198,22 @@ async function laden(seite, adresse) {
   return seite.goto(adresse, { waitUntil: 'domcontentloaded', timeout: 60000 });
 }
 
+/**
+ * Warten, bis die Flaeche steht.
+ *
+ * Der Uebergang laeuft 0,3 s; gewartet wird laenger und trotzdem mit Grenze.
+ * Laeuft sie ab, wird gemessen, was dasteht -- die Zeile darunter nennt den
+ * Wert und ist dann rot, und das ist die richtige Auskunft. Ein `catch`, das
+ * schweigt, waere hier ein Verstecken.
+ */
+async function flaecheAbwarten(seite, erwartet, grenze = 4000) {
+  await seite
+    .waitForFunction(soll => getComputedStyle(document.body).backgroundColor === soll, erwartet, {
+      timeout: grenze,
+    })
+    .catch(() => {});
+}
+
 /** Was `<html>` gerade traegt, und welche Flaeche daraus wird. */
 async function themeAmDokument(seite) {
   return seite.evaluate(() => ({
@@ -206,6 +244,200 @@ async function shellAbwarten(seite, grenze = 30000) {
 }
 
 // ---------------------------------------------------------------------------
+// Die App im Rahmen (Phase H2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Eine App, die dasteht und dem Pruefbenutzer freigegeben ist.
+ *
+ * Gesucht wird eine mit LIVESTAND: der Rahmen zeigt nur, was auch freigegeben
+ * ist, und `POST /api/freigaben` gibt den Livestand frei. Die Beispielapp
+ * zuerst -- ihr Frontend gehoert diesem Repo, also ist die Flaeche, die sie
+ * zeigt, eine Aussage ueber `marken.css` und nicht ueber ein fremdes
+ * Stylesheet.
+ *
+ * Findet sich keine, fallen die Zellen weg. Gemeldet und nicht rot: ein
+ * Geraet ohne App ist kein Fehler dieser Phase.
+ */
+async function appVorbereiten(token) {
+  const kanal = await apiKanal(token);
+  try {
+    const sitzung = await kanal.get('/api/auth/session');
+    const wer = await sitzung.json().catch(() => ({}));
+    const ich = wer?.user?.id;
+
+    const antwort = await kanal.get('/api/apps');
+    const apps = antwort.ok() ? ((await antwort.json()).data ?? []) : [];
+    const mitLive = apps.filter(a => a.staende?.live);
+    const app = WUNSCH_APP || mitLive.find(a => a.id === 'beispielapp')?.id || mitLive[0]?.id || '';
+    if (!app || !ich) return { app: '', selbstFreigegeben: false, ich };
+
+    // 201 heisst neu, 200 heisst „stand schon da". Nur was dieser Lauf
+    // angelegt hat, raeumt er am Ende auch wieder weg.
+    const frei = await kanal.post('/api/freigaben', {
+      data: { app_id: app, benutzer_id: ich, stand: 'live' },
+    });
+    return { app, selbstFreigegeben: frei.status() === 201, ich };
+  } finally {
+    await kanal.dispose();
+  }
+}
+
+/**
+ * Welches Thema ein `data-theme` benennt.
+ *
+ * `dark` heisst dunkel, ALLES andere heisst hell -- kein Attribut (so
+ * schreibt es die Shell seit H1, `:root` IST Hell) und ein ausdrueckliches
+ * `light` (so schreibt es eine App, die ihr eigenes Dokument fuehrt, wie die
+ * Vorlage des Ara-Kits) sind dieselbe Aussage. Die Reihe fragt danach, WAS
+ * dasteht, und nicht danach, wer es geschrieben hat.
+ */
+function themaAus(attribut) {
+  return attribut === 'dark' ? 'dark' : 'light';
+}
+
+/**
+ * Was im Dokument der App steht -- und ob sie ueberhaupt aus der Bibliothek
+ * gebaut ist.
+ *
+ * `.ara-seite` am `<body>` ist das Merkmal einer App OHNE Bau, die
+ * `marken.css` dieses Repos laedt. Nur bei ihr ist die Flaeche eine Aussage
+ * ueber diese Phase; eine App mit eigenem Bau bringt ihre eigene Kopie mit,
+ * und die kann aelter sein. Das `data-theme` dagegen kommt in JEDEM Fall von
+ * der Shell, und danach wird immer gefragt.
+ */
+async function rahmenStand(seite, appId) {
+  return seite.evaluate(id => {
+    const element = document.querySelector(`[data-testid="app-rahmen-${id}"]`);
+    if (!element) return { da: false };
+    let dokument = null;
+    try {
+      dokument = element.contentDocument;
+    } catch {
+      return { da: true, fremd: true };
+    }
+    if (!dokument?.body) return { da: true, leer: true };
+    return {
+      da: true,
+      attribut: dokument.documentElement.getAttribute('data-theme'),
+      flaeche: getComputedStyle(dokument.body).backgroundColor,
+      ausDerBibliothek: dokument.body.classList.contains('ara-seite'),
+      marke: element.contentWindow?.__araMarke ?? null,
+    };
+  }, appId);
+}
+
+/** Warten, bis der Rahmen sein Dokument hat und die Farbe darin steht. */
+async function rahmenAbwarten(seite, appId, erwartet, grenze = 20000) {
+  await seite
+    .waitForFunction(
+      ({ id, soll }) => {
+        const element = document.querySelector(`[data-testid="app-rahmen-${id}"]`);
+        const dokument = element?.contentDocument;
+        if (!dokument?.body || dokument.readyState !== 'complete') return false;
+        return getComputedStyle(dokument.body).backgroundColor === soll;
+      },
+      { id: appId, soll: erwartet },
+      { timeout: grenze }
+    )
+    .catch(() => {});
+}
+
+/**
+ * Der Wechsel laedt den Rahmen nicht neu -- gemessen auf dem Weg eines
+ * Menschen (Phase H2).
+ *
+ * Der Beleg ist eine Marke am `contentWindow` des Rahmens. Sie ueberlebt
+ * weder ein Neuladen des iframes noch ein Abraeumen des Tabs; steht sie
+ * hinterher noch da, war es dasselbe Fenster, und die App hat nichts
+ * verloren. Ein Bildvergleich koennte das nie sagen: eine App, die neu laedt
+ * und wieder dasselbe zeigt, sieht genauso aus.
+ *
+ * GEKLICKT WIRD, NICHT NAVIGIERT. `page.goto` auf die Einstellungen laedt die
+ * ganze Shell neu und damit auch den Rahmen -- die Probe waere rot, ohne dass
+ * am Produkt etwas waere. Der Weg hier ist der, den ein Mensch hat: Zahnrad,
+ * »Dunkel«, Tab-Leiste zurueck.
+ */
+async function rahmenOhneNeuladen(seite, appId) {
+  await laden(seite, `${URL}/workspace/app/${appId}`);
+  await shellAbwarten(seite);
+  const steht = await seite
+    .waitForSelector(`[data-testid="app-rahmen-${appId}"]`, { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!pruefe('Die App steht im Rahmen', steht, `/workspace/app/${appId}`)) return;
+
+  await rahmenAbwarten(seite, appId, THEMES[0].flaeche);
+  const vorher = await rahmenStand(seite, appId);
+  pruefe(
+    'im Hellen sagt das Dokument der App »hell«',
+    !vorher.leer && !vorher.fremd && themaAus(vorher.attribut) === 'light',
+    `data-theme=${vorher.attribut}, Flaeche ${vorher.flaeche}`
+  );
+
+  // Welcher Tab gerade vorn ist -- gemerkt als Platz in der Leiste. Der Titel
+  // eines App-Tabs steht anfangs auf »App« und wird nachgetragen, sobald der
+  // Name da ist; ein Klick nach Text traefe je nach Augenblick etwas anderes.
+  const appTabPlatz = await seite
+    .locator('[role="tab"]')
+    .evaluateAll(tabs => tabs.findIndex(t => t.getAttribute('aria-selected') === 'true'))
+    .catch(() => -1);
+
+  const markiert = await seite.evaluate(id => {
+    const element = document.querySelector(`[data-testid="app-rahmen-${id}"]`);
+    if (!element?.contentWindow) return false;
+    element.contentWindow.__araMarke = 'h2';
+    return true;
+  }, appId);
+  if (!pruefe('eine Marke sitzt am Fenster des Rahmens', markiert)) return;
+
+  // Zahnrad in der Aktivitaetsleiste -- nicht das in der Kopfleiste, damit
+  // die Zeile nennt, welcher der beiden Wege gemessen wurde.
+  const insZahnrad = await seite
+    .locator('nav[aria-label="Workspace-Navigation"] [aria-label="Einstellungen"]')
+    .first()
+    .click({ timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!pruefe('der Weg in die Einstellungen geht ueber das Zahnrad', insZahnrad)) return;
+
+  const dunkel = seite.getByRole('radio', { name: /Dunkel/ });
+  const umgestellt = await dunkel
+    .click({ timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!pruefe('»Dunkel« ist in den Einstellungen angeklickt', umgestellt)) return;
+  await seite
+    .waitForFunction(() => document.documentElement.getAttribute('data-theme') === 'dark', {
+      timeout: 15000,
+    })
+    .catch(() => {});
+
+  const zurueck =
+    appTabPlatz >= 0 &&
+    (await seite
+      .locator('[role="tab"]')
+      .nth(appTabPlatz)
+      .click({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false));
+  if (!pruefe('und ueber die Tab-Leiste zurueck zur App', zurueck)) return;
+
+  await rahmenAbwarten(seite, appId, THEMES[1].flaeche);
+  const nachher = await rahmenStand(seite, appId);
+  pruefe(
+    'DER RAHMEN HAT NICHT NEU GELADEN: die Marke steht noch am selben Fenster',
+    nachher.marke === 'h2',
+    `Marke = ${JSON.stringify(nachher.marke)}`
+  );
+  pruefe(
+    'und die App ist dabei dunkel geworden, ohne dass sie etwas dafuer tut',
+    themaAus(nachher.attribut) === 'dark',
+    `data-theme=${nachher.attribut}, Flaeche ${nachher.flaeche}`
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Die Messung
 // ---------------------------------------------------------------------------
 
@@ -219,6 +451,9 @@ async function main() {
 
   const browser = await chromium.launch({ headless: true });
   let token = '';
+  let app = '';
+  let selbstFreigegeben = false;
+  let ich = null;
 
   try {
     // --- 1. Anmeldung Nummer eins, ueber die Schnittstelle -------------------
@@ -258,11 +493,13 @@ async function main() {
     // Ausgangslage: hell. Damit misst der Lauf immer denselben Weg, egal was
     // ein vorheriger stehen liess.
     const zurueckgesetzt = await kanal.put('/api/darstellung', { data: { theme: 'light' } });
-    if (!pruefe(
-      'Ausgangslage hell gesetzt',
-      zurueckgesetzt.status() === 200,
-      `HTTP ${zurueckgesetzt.status()}`
-    )) {
+    if (
+      !pruefe(
+        'Ausgangslage hell gesetzt',
+        zurueckgesetzt.status() === 200,
+        `HTTP ${zurueckgesetzt.status()}`
+      )
+    ) {
       await kanal.dispose();
       return;
     }
@@ -348,11 +585,14 @@ async function main() {
 
     const shellDa = await shellAbwarten(seiteB);
     if (!pruefe('der zweite Kontext kommt in die Shell', shellDa, `Anmeldung HTTP ${codeB}`)) {
-      await seiteB.screenshot({ path: path.join(ZIEL, 'theme-zweiter-kontext-rot.png') }).catch(() => {});
+      await seiteB
+        .screenshot({ path: path.join(ZIEL, 'theme-zweiter-kontext-rot.png') })
+        .catch(() => {});
       await ctxB.close();
       return;
     }
 
+    await flaecheAbwarten(seiteB, THEMES[1].flaeche);
     const standB = await themeAmDokument(seiteB);
     pruefe(
       'DER KERN: der zweite Kontext sieht Dunkel, ohne dass jemand etwas eingestellt hat',
@@ -375,8 +615,23 @@ async function main() {
       `arasul_theme = ${JSON.stringify(standB.alterSchluessel)}`
     );
 
-    // --- 4. Die Bilder ------------------------------------------------------
-    await bilderMachen(browser, token, seiteB);
+    // --- 4. Die App im Rahmen, und der Wechsel ohne Neuladen ---------------
+    const vorbereitet = await appVorbereiten(token);
+    app = vorbereitet.app;
+    selbstFreigegeben = vorbereitet.selbstFreigegeben;
+    ich = vorbereitet.ich;
+    if (app) {
+      console.log(`       gemessen wird die App ${app}`);
+      await rahmenOhneNeuladen(seiteB, app);
+    } else {
+      // Kein gruenes Feld fuer etwas, das nicht gemessen wurde: eine Zeile,
+      // die in der Zaehlung nicht vorkommt.
+      console.log('uebersprungen  Die App im Rahmen: keine App mit Livestand am Geraet');
+      uebersprungen.push('Die App im Rahmen (keine App mit Livestand am Geraet)');
+    }
+
+    // --- 5. Die Bilder ------------------------------------------------------
+    await bilderMachen(browser, token, seiteB, app);
     await ctxB.close();
   } catch (fehler) {
     pruefe('der Lauf kommt bis zum Ende', false, einzeilig(fehler.message));
@@ -385,10 +640,20 @@ async function main() {
     // Lauf erwartet.
     if (token) {
       const kanal = await apiKanal(token);
-      const zurueck = await kanal.put('/api/darstellung', { data: { theme: 'light' } }).catch(() => null);
+      const zurueck = await kanal
+        .put('/api/darstellung', { data: { theme: 'light' } })
+        .catch(() => null);
       console.log(
         `\n       aufgeraeumt: theme = light (HTTP ${zurueck ? zurueck.status() : 'kein Ruf'})`
       );
+      // Nur was dieser Lauf angelegt hat. Eine Freigabe, die schon stand,
+      // gehoert einem Menschen und nicht dieser Reihe.
+      if (selbstFreigegeben && app && ich) {
+        const weg = await kanal.delete(`/api/freigaben/${app}/${ich}`).catch(() => null);
+        console.log(
+          `       aufgeraeumt: Freigabe ${app} zurueckgenommen (HTTP ${weg ? weg.status() : 'kein Ruf'})`
+        );
+      }
       await kanal.dispose();
     }
     await browser.close();
@@ -404,26 +669,50 @@ async function main() {
  * umgestellt und die Seite neu geladen -- das ist derselbe Zustand, den ein
  * Mensch nach seiner Wahl vorfindet.
  */
-async function bilderMachen(browser, token, seite) {
+async function bilderMachen(browser, token, seite, app = '') {
   const kanal = await apiKanal(token);
   const gemacht = [];
   try {
     for (const theme of THEMES) {
       const gesetzt = await kanal.put('/api/darstellung', { data: { theme: theme.wert } });
-      if (!pruefe(`Theme »${theme.name}« gesetzt`, gesetzt.status() === 200, `HTTP ${gesetzt.status()}`)) {
+      if (
+        !pruefe(
+          `Theme »${theme.name}« gesetzt`,
+          gesetzt.status() === 200,
+          `HTTP ${gesetzt.status()}`
+        )
+      ) {
         continue;
       }
 
       for (const breite of BREITEN) {
         await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
 
-        for (const ansicht of [
+        // Die App im Rahmen kommt bei 390 und 1440 dazu (H2) und nicht bei
+        // 1024: die Frage dort ist dieselbe wie bei 1440, und jede Zelle
+        // kostet eine Seitenladung an der Drossel.
+        const ansichten = [
           { name: 'uebersicht', adresse: `${URL}/workspace` },
           { name: 'einstellungen', adresse: `${URL}/workspace/settings?tab=general` },
-        ]) {
+        ];
+        if (app && breite.px !== 1024) {
+          ansichten.push({ name: 'app-im-rahmen', adresse: `${URL}/workspace/app/${app}`, app });
+        }
+
+        for (const ansicht of ansichten) {
           await laden(seite, ansicht.adresse);
           await shellAbwarten(seite);
-          await seite.waitForTimeout(600);
+          // Erst das Attribut (es kommt aus der Sitzungsprobe, also nach dem
+          // ersten Malen), dann die Farbe -- dazwischen liegt der Uebergang.
+          await seite
+            .waitForFunction(
+              soll => document.documentElement.getAttribute('data-theme') === soll,
+              theme.attribut,
+              { timeout: 15000 }
+            )
+            .catch(() => {});
+          await flaecheAbwarten(seite, theme.flaeche);
+          if (ansicht.app) await rahmenAbwarten(seite, ansicht.app, theme.flaeche);
           const stand = await themeAmDokument(seite);
           const datei = `theme-${theme.name}-${ansicht.name}-${breite.px}.png`;
           await seite.screenshot({ path: path.join(ZIEL, datei) }).catch(() => {});
@@ -433,6 +722,25 @@ async function bilderMachen(browser, token, seite) {
             stand.attribut === theme.attribut && stand.flaeche === theme.flaeche,
             `data-theme=${stand.attribut}, Flaeche ${stand.flaeche}`
           );
+
+          // Und im Rahmen dieselbe Frage noch einmal, an einem zweiten
+          // Dokument. `data-theme` kommt in jedem Fall von der Shell; die
+          // FLAECHE ist nur dann eine Aussage ueber diese Phase, wenn die App
+          // die `marken.css` dieses Repos laedt (`.ara-seite` am `<body>`) --
+          // eine App mit eigenem Bau bringt ihre eigene Kopie mit, und die
+          // kann aelter sein als dieser Stand.
+          if (ansicht.app) {
+            const imRahmen = await rahmenStand(seite, ansicht.app);
+            const flaecheZaehlt = imRahmen.ausDerBibliothek === true;
+            pruefe(
+              `${breite.px} px · App im Rahmen · ${theme.name}`,
+              imRahmen.da === true &&
+                themaAus(imRahmen.attribut) === theme.wert &&
+                (!flaecheZaehlt || imRahmen.flaeche === theme.flaeche),
+              `data-theme=${imRahmen.attribut}, Flaeche ${imRahmen.flaeche}` +
+                (flaecheZaehlt ? '' : ' (eigenes Stylesheet, Flaeche nur zur Kenntnis)')
+            );
+          }
         }
       }
     }
@@ -463,7 +771,11 @@ async function bilderMachen(browser, token, seite) {
       await seiteL.screenshot({ path: path.join(ZIEL, dateiD) }).catch(() => {});
       gemacht.push(dateiD);
     }
-    pruefe('die Anmeldeseite ist in beiden Breitenreihen abgelichtet', true, `${BREITEN.length} × 2`);
+    pruefe(
+      'die Anmeldeseite ist in beiden Breitenreihen abgelichtet',
+      true,
+      `${BREITEN.length} × 2`
+    );
     await anonym.close();
   } finally {
     await kanal.dispose();
@@ -475,8 +787,14 @@ await main();
 
 const rot = ergebnisse.filter(e => !e.ok);
 console.log('\n-----------------------------------------------------------');
-console.log(`${ergebnisse.length - rot.length} von ${ergebnisse.length} gruen, ${anmeldungen} Anmeldungen ausgegeben.`);
+console.log(
+  `${ergebnisse.length - rot.length} von ${ergebnisse.length} gruen, ${anmeldungen} Anmeldungen ausgegeben.`
+);
 console.log(drosselBilanz());
+if (uebersprungen.length) {
+  console.log('\nUebersprungen:');
+  for (const u of uebersprungen) console.log(`  - ${u}`);
+}
 if (rot.length) {
   console.log('\nRot:');
   for (const e of rot) console.log(`  - ${e.was}`);

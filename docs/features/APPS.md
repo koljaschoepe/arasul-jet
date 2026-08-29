@@ -133,6 +133,42 @@ dieses Geräts. `scripts/util/marken-beilegen.sh` legt die zwei Dateien beim
 Einspielen daneben; `tests/beispielapp/` zeigt beides an einem Beispiel, das
 läuft.
 
+### Die App folgt dem Theme des Menschen (Phase H2)
+
+Das Theme gehört seit H1 dem angemeldeten Menschen (`admin_users.theme`, Hell
+oder Dunkel). Eine App läuft im `iframe` als eigenes Dokument, und
+CSS-Variablen reichen nicht über eine Dokumentgrenze — bis H2 stand jede App
+deshalb auf den Rückfallwerten von `marken.css`, unabhängig davon, was der
+Mensch eingestellt hatte.
+
+Seit H2 reicht die Shell es hinein. Der Rahmen hat dieselbe Herkunft wie die
+Shell (deshalb steht an ihm kein `sandbox`, siehe C4), also gibt es zwei Wege,
+und beide gehen von der Shell aus:
+
+| Weg                                  | Was dort steht                                        |
+| ------------------------------------ | ----------------------------------------------------- |
+| `data-theme` am `<html>` der App     | `dark`, oder **gar nichts** — Hell ist der Grund (H1) |
+| `postMessage` an das Fenster der App | `{ typ: 'arasul:theme', theme: 'light' \| 'dark' }`   |
+
+**Eine App muss dafür nichts tun.** `marken.css` trägt seit H2 einen Block
+`[data-theme='dark']`, also färbt sich alles, was aus der Bibliothek gebaut
+ist, von selbst um — die Beispielapp geht diesen Weg und hat keine Zeile
+dafür. Die Nachricht ist für eine App, die mehr tut als Farben tauschen (ein
+Bild, ein Diagramm): sie nennt den Wert ausdrücklich, während „kein Attribut"
+für fremden Code keine Auskunft ist.
+
+Ein dritter Weg braucht von der Shell nichts und steht der App frei: das
+`<html>` des **Elternfensters** lesen und mit einem `MutationObserver` darauf
+hören. So macht es die Vorlage des Ara-Kits.
+
+Der Wechsel **lädt den Rahmen nicht neu**: das Theme steht weder im `key` noch
+in der Adresse des `iframe`, und der App-Tab bleibt stehen, während der Mensch
+in den Einstellungen ist. Eine App verliert dabei also nichts — auch kein halb
+ausgefülltes Formular.
+
+**Eine App, die schon am Gerät liegt, bekommt die neue `marken.css` erst beim
+nächsten Einspielen.** Die Datei liegt neben ihr und nicht in der Shell.
+
 ## Die Flows einer App (Phase C6)
 
 Bis C5 war `flows` eine Liste von Namen und damit eine **Forderung**: „diese

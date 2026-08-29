@@ -74,7 +74,13 @@ src/
                    **Kein `sandbox` am iframe** — es nähme ihm die eigene
                    Herkunft und damit das Sitzungscookie, an dem die
                    Forward-Auth aus C4 hängt. Den Rahmen setzt die CSP des
-                   Geräts (`frame-src 'self'`).
+                   Geräts (`frame-src 'self'`). Dieselbe Herkunft trägt seit
+                   **H2** das **Theme** in die App: `AppRahmen` schreibt
+                   `data-theme` in das Dokument des Rahmens (bei jedem `load`
+                   und bei jedem Wechsel) und schickt dazu
+                   `postMessage {typ:'arasul:theme', theme}`. Das Theme steht
+                   **weder im `key` noch in der Adresse** — beides tauschte
+                   das iframe-Element aus, und die App finge von vorn an.
     freigaben/     Die offenen Freigaben aus C7, entschieden in der Übersicht
                    (D2): `OffeneFreigaben.tsx` (Liste mit Titel, Zusammenhang,
                    Restzeit, Bestätigen und Ablehnen-mit-Begründung) und
@@ -109,6 +115,14 @@ src/
                    D5 gilt das nur noch für die Einstellungen, die drei
                    anderen rendern direkt. Cross-Feature-Links übersetzt die
                    TabBridge in Tab-Öffnungen.
+                   • **Ein App-Tab bleibt gemountet (H2)**, auch wenn er
+                     nicht vorn ist (`hidden`); jeder andere Tab wird
+                     abgeräumt. Eine App ist ein FREMDES Dokument — abräumen
+                     heißt: sie fängt von vorn an, ein halb ausgefülltes
+                     Formular ist weg, und der Theme-Wechsel (der über den
+                     Einstellungen-Tab geht) lädt den Rahmen jedes Mal neu.
+                     Eine Ansicht der Shell holt ihre Daten dagegen aus dem
+                     Query-Cache und sieht nach dem Neuaufbau genauso aus.
                    • **Tab-Typen** — `dashboard`, `app`, `settings`, `modelle`
                      (`stores/workspaceStore.ts`, v10). Alle bis auf `app` sind
                      Singletons, `tabId()` ist dann der Typ; eine App trägt
@@ -284,6 +298,14 @@ Seit **Phase H1** gibt es zwei Themes: `:root` ist **Hell** (die Vorgabe),
 auftaucht. Die Klasse `dark` bleibt, sie hält die `dark:`-Utilities am
 Leben. Eine neue Farbe gehört in **beide** Blöcke; eine, die es nur im
 dunklen gibt, ist eine, die im hellen fehlt.
+
+Seit **Phase H2** hat `packages/marken/src/marken.css` dieselbe Form —
+`:root` ist Hell, `[data-theme='dark']` überschreibt —, damit eine App im
+iframe dem Theme folgen kann. Jeder `--ara-*`-Wert dort ist eine **Kopie**
+des Tokens aus `index.css` (`var(--token, <Rückfall>)`), und in der Shell
+gewinnt immer der Token: eine veraltete Kopie fällt hier nie auf, sondern
+nur in einer App. Wer einen Token in `index.css` ändert, ändert den
+Rückfall mit — `scripts/test/marken.py` hält beides aneinander.
 
 ### 5. shadcn/ui via `@/components/ui/shadcn/<name>`
 
