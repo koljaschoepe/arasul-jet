@@ -348,9 +348,19 @@ Wert gar nicht mehr kennen, weil erst die Sitzungsprobe sagt, wer da ist.
 Der alte Browser-Wert wird **einmal übernommen**: der Schlüssel
 `arasul_theme` stand nur im Speicher, wenn jemand aktiv umgestellt hat, also
 ist seine Anwesenheit eine Entscheidung; `black` und `dark` werden beide zu
-`dark`, danach ist er weg. Offen bleibt, ob eine **App** dem Theme folgt: sie
-läuft im iframe als eigenes Dokument, CSS-Variablen reichen nicht über eine
-Dokumentgrenze, und `packages/marken/` steht dort auf seinen Rückfallwerten.
+`dark`, danach ist er weg. Gemessen wird das mit
+`scripts/test/theme-abnahme.mjs`: ein Mensch stellt in den Einstellungen
+Dunkel ein, meldet sich in einem **zweiten Browserkontext** neu an — eigene
+Cookies, eigener Speicher — und sieht Dunkel; dazu Übersicht und
+Einstellungen in beiden Themes bei 390, 1024 und 1440 px, jeweils mit der
+Frage, ob die Fläche wirklich die des Themes ist (zwei Bilder, die gleich
+aussehen, sind der häufigste stille Fehlschlag eines Theme-Umbaus). Die Reihe
+läuft **neben** `abnahmen.sh` wie die fünf Browser-Abnahmen aus D2 bis D6 und
+kostet zwei Anmeldungen. Die **Anmeldeseite hat kein Theme**, und das ist kein
+Mangel: vor der Anmeldung ist kein Mensch da, also gilt die Vorgabe. Offen
+bleibt, ob eine **App** dem Theme folgt: sie läuft im iframe als eigenes
+Dokument, CSS-Variablen reichen nicht über eine Dokumentgrenze, und
+`packages/marken/` steht dort auf seinen Rückfallwerten.
 
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 

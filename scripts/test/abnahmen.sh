@@ -30,10 +30,14 @@
 #   ARASUL_PASSWORT=... bash scripts/test/abnahmen.sh          alle
 #   ARASUL_PASSWORT=... bash scripts/test/abnahmen.sh apps rollen  nur diese
 #
-# NICHT in dieser Reihe: die fuenf Browser-Abnahmen aus D2 bis D6
-# (`dashboard-`, `admin-`, `app-admin-`, `system-` und `oberflaeche-`). Jede
-# braucht eigene Anmeldungen, und zusammen sprengten sie die Drossel; sie
-# laufen daneben und nicht zwei davon in derselben Viertelstunde.
+# NICHT in dieser Reihe: die Browser-Abnahmen aus D2 bis D6 (`dashboard-`,
+# `admin-`, `app-admin-`, `system-` und `oberflaeche-`) und seit H1
+# `theme-abnahme.mjs`. Jede braucht eigene Anmeldungen, und zusammen sprengten
+# sie die Drossel; sie laufen daneben und nicht zwei davon in derselben
+# Viertelstunde. `theme-abnahme.mjs` kostet ZWEI: eine ueber die
+# Schnittstelle, um das Theme umzustellen, und eine ueber das Formular in
+# einem zweiten, frischen Browserkontext -- und genau die zweite IST die
+# Messung (das Theme kommt vom Geraet, nicht aus dem Browser).
 #
 # Rueckgabe 0, wenn jede Abnahme gruen war, sonst 1.
 # =============================================================================
