@@ -114,6 +114,34 @@ sonst; ein `bg-black/50` in einem Primitiv ist derselbe Fehler mit anderer
 Schreibweise, denn Tailwinds eingebaute Palette folgt keinem Thema.
 `scripts/test/marken.py` (Punkt 6) meldet beides.
 
+## Eine Variable in einem Utility steht in runden Klammern (J31)
+
+`w-(--sidebar-breite)`, nicht `w-[--sidebar-breite]`. Tailwind 3 kannte eine
+Kurzform und schenkte der eckigen Form ihr `var()`; **Tailwind 4 tut das
+nicht mehr**. Dieselbe Klasse erzeugt seither
+
+```css
+.w-\[--sidebar-breite\] {
+  width: --sidebar-breite;
+}
+```
+
+— keine Länge, sondern ein Name. Der Browser verwirft die Deklaration
+**wortlos**, die Breite fällt auf `auto` zurück, und ein leerer Platzhalter ist
+damit null Pixel breit. Genau so lag die Seitenleiste im Rahmen einer App am
+29.08.2026 über ihrem Inhalt: die Klasse war da, die Regel war da, nur ihr
+Inhalt war kein Wert.
+
+Das ist der gefährlichste Fehler, den diese Bibliothek machen kann, weil
+**nichts** davon rot wird — keine Übersetzung, kein Test, und auch die
+Oberflächen-Abnahme nicht: sie misst Farben, Konsole und Rollbreite, aber
+keine Breiten. `scripts/test/check-design-system.js` meldet die alte
+Schreibweise, in dieser Bibliothek und in der Shell.
+
+Unberührt bleibt das **Setzen** einer Variablen: `[--cell-size:2rem]` ist kein
+Utility mit einem Wert, sondern eine Deklaration, und die gibt es in
+Tailwind 4 unverändert.
+
 ## Zwei Themes, und Hell ist der Grund (Phase H2)
 
 `marken.css` hat dieselbe Form wie `theme.css`: `:root` **ist** Hell, und
