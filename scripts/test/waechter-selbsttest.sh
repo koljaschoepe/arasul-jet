@@ -983,6 +983,48 @@ pruefe "Kurzliste: eine fehlende .env-Vorlage ist rot" 1 \
   python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
 rm -rf "$KL"
 
+# --- zustand.py -------------------------------------------------------------
+# Was der Werksreset als Zustand des Geraets loescht, muss die Uebernahme beim
+# Update mittragen. Beide Richtungen: ein fehlender Pfad ist rot, ein
+# zusaetzlich getragener harmlos.
+ZU="$TMP/zustand"
+mkdir -p "$ZU/scripts/setup" "$ZU/scripts/lib"
+
+zu_reset() {
+  cat > "$ZU/scripts/setup/factory-reset.sh" <<'RESET'
+#!/bin/bash
+echo "  Loesche Kundendaten und Konfiguration..."
+rm -f .env
+rm -rf config/geheim/ data/
+RESET
+}
+
+zu_uebernahme() {
+  { echo 'ARASUL_ZUSTAND=('; printf "  '%s'\n" "$@"; echo ')'; } \
+    > "$ZU/scripts/lib/installation.sh"
+}
+
+zu_reset
+zu_uebernahme '.env' 'config/geheim' 'data'
+pruefe "Zustand: was der Reset loescht, wird getragen -> gruen" 0 \
+  python3 "$WURZEL/scripts/test/zustand.py" --wurzel "$ZU"
+
+zu_uebernahme '.env' 'config/geheim' 'data' 'logs'
+pruefe "Zustand: ein zusaetzlich getragener Pfad ist harmlos" 0 \
+  python3 "$WURZEL/scripts/test/zustand.py" --wurzel "$ZU"
+
+zu_uebernahme '.env' 'data'
+pruefe "Zustand: ein nur geloeschter Pfad ist rot" 1 \
+  python3 "$WURZEL/scripts/test/zustand.py" --wurzel "$ZU"
+
+# Der Marker ist die Klammer um den Abschnitt. Verschwindet er, ist der
+# Waechter blind — und soll das sagen, statt gruen zu melden.
+zu_uebernahme '.env' 'config/geheim' 'data'
+printf '#!/bin/bash\nrm -rf data/\n' > "$ZU/scripts/setup/factory-reset.sh"
+pruefe "Zustand: ein Reset ohne den Abschnittsmarker ist rot" 1 \
+  python3 "$WURZEL/scripts/test/zustand.py" --wurzel "$ZU"
+rm -rf "$ZU"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

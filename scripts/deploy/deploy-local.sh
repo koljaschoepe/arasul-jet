@@ -3,13 +3,22 @@
 # deploy-local.sh — GitOps-Deploy auf dem Jetson (self-hosted Runner)
 # =============================================================================
 # Wird von .github/workflows/deploy.yml aufgerufen, nachdem ein Merge auf `main`
-# gepusht wurde. Deployt AUSSCHLIESSLICH aus dem kanonischen Deploy-Verzeichnis
-# ($DEPLOY_DIR), damit .env / config/ / data/ und alle Bind-Mounts intakt
-# bleiben — NIEMALS aus dem Runner-_work-Checkout (dort fehlen diese Daten).
+# gepusht wurde. Deployt AUSSCHLIESSLICH in das Verzeichnis, aus dem der
+# laufende Stapel wirklich kommt, damit .env / config/ / data/ und alle
+# Bind-Mounts intakt bleiben — NIEMALS aus dem Runner-_work-Checkout (dort
+# fehlen diese Daten).
+#
+# WELCHES Verzeichnis das ist, wird ERFRAGT und nicht angenommen (Schritt 0):
+# Docker nennt es ueber das Etikett `com.docker.compose.project.working_dir`.
+# Bis zum 29.08.2026 stand ein fester Pfad im Workflow, und seit der Orin ueber
+# das Ara-Kit installiert wurde, zeigte er auf ein Verzeichnis, in dem gar kein
+# Geraet mehr stand.
 #
 # Ablauf:
-#   1. Objekte des neuen Commits aus dem _work-Checkout in $DEPLOY_DIR ziehen
-#      (auth-frei, da actions/checkout bereits authentifiziert hat).
+#   0. Die Installation finden (scripts/lib/installation.sh).
+#   1. Objekte des neuen Commits aus dem _work-Checkout dorthin ziehen
+#      (auth-frei, da actions/checkout bereits authentifiziert hat). Ein aus
+#      dem Artefakt installiertes Geraet bekommt dabei sein `git init`.
 #   2. Nur GEAENDERTE Services ermitteln (git diff PREV..NEW).
 #   3. Vor Backend-/Migrations-Aenderungen: DB-Dump.
 #   4. Aktuelle Images als :rollback taggen.
@@ -24,7 +33,6 @@
 set -uo pipefail
 
 # --- Konfiguration -----------------------------------------------------------
-DEPLOY_DIR="${DEPLOY_DIR:-/home/arasul/arasul/arasul-jet}"
 SRC="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE nicht gesetzt}"   # _work-Checkout @ NEW
 NEW_SHA="${GITHUB_SHA:?GITHUB_SHA nicht gesetzt}"
 PROJECT="arasul-platform"
@@ -38,6 +46,40 @@ warn() { printf '\033[1;33m⚠ %s\033[0m\n' "$*"; }
 err()  { printf '\033[1;31mx %s\033[0m\n' "$*" >&2; }
 
 summary() { [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$*" >> "$GITHUB_STEP_SUMMARY" || true; }
+
+# --- 0. Wo steht das Geraet? -------------------------------------------------
+# Bis zum 29.08.2026 stand hier ein Pfad, und zwar im Workflow:
+# `/home/arasul/arasul/arasul-jet`. Das war eine Annahme, und sie ist falsch
+# geworden, ohne dass sich hier eine Zeile geaendert haette -- seit der Orin
+# ueber das Ara-Kit installiert wurde, laeuft der Live-Stapel aus
+# `/home/arasul/arasul-<Fassung>`. Der Deploy arbeitete danach in einem
+# Verzeichnis ohne Geheimnisse, `docker compose up` brach ab (Lauf 33221221851),
+# und es kam nichts mehr automatisch auf das Geraet.
+#
+# DAS IST DIESELBE WURZEL WIE BEIM KUNDENWEG: wer nicht weiss, wo der Zustand
+# liegt, raet. Gefragt wird deshalb dasselbe wie in `install.sh` -- Docker,
+# dann der Zeiger (`scripts/lib/installation.sh`). `DEPLOY_DIR` bleibt als
+# Uebersteuerung von Hand, aber ohne Vorgabe: ein Deploy, der nicht weiss,
+# wohin, deployt NICHT. Ins Leere zu bauen und gruen zu melden ist der
+# schlimmere Ausgang.
+INSTALL_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/installation.sh"
+if ! source "$INSTALL_LIB"; then
+  echo "ABBRUCH: ${INSTALL_LIB} nicht ladbar." >&2
+  exit 1
+fi
+DEPLOY_DIR="${DEPLOY_DIR:-$(installation_finden)}"
+if [ -z "$DEPLOY_DIR" ] || [ ! -d "$DEPLOY_DIR" ]; then
+  err "Auf diesem Geraet ist keine Installation zu finden."
+  err "  Gefragt wurde Docker (Etikett com.docker.compose.project=${ARASUL_PROJEKT})"
+  err "  und der Zeiger ${ARASUL_ZEIGER}."
+  err "  Laeuft der Stapel? \`docker compose -p ${ARASUL_PROJEKT} ps\`"
+  err "  Von Hand: DEPLOY_DIR=/pfad/zur/installation bash scripts/deploy/deploy-local.sh"
+  summary "❌ **Deploy rot**: keine Installation gefunden, es wurde nichts angefasst."
+  exit 1
+fi
+cd "$DEPLOY_DIR" || { err "DEPLOY_DIR $DEPLOY_DIR fehlt"; exit 1; }
+ok "Installation: $DEPLOY_DIR"
+
 
 # --- Wartungsfenster ---------------------------------------------------------
 # Waehrend `docker compose up` steht der alte Container noch da und ist
@@ -76,8 +118,6 @@ declare -A PATH2SVC=(
   ["libs/"]="dashboard-backend"
 )
 
-cd "$DEPLOY_DIR" || { err "DEPLOY_DIR $DEPLOY_DIR fehlt"; exit 1; }
-
 # --- 1. Neuen Stand in den kanonischen Checkout holen ------------------------
 # Der Vergleichsstand kommt von GitHub (`github.event.before`), NICHT aus dem
 # Arbeitsverzeichnis. Bis zum 20.08.2026 stand hier `git rev-parse HEAD`, und
@@ -95,10 +135,58 @@ cd "$DEPLOY_DIR" || { err "DEPLOY_DIR $DEPLOY_DIR fehlt"; exit 1; }
 # anderthalb Minuten. Ein Deploy, der nicht ausrechnen kann, was sich geaendert
 # hat, muss ALLES bauen und nicht nichts. Diese Richtung ist die einzige, die
 # sich nicht als Erfolg tarnt.
+# Ein aus dem Artefakt installiertes Geraet hat kein `.git` -- das Artefakt
+# kommt aus `git archive` und traegt keine Historie. Der Deploy legt sie hier
+# an, und danach ist dieses Verzeichnis genau das, was es fuer den Deploy
+# immer war: ein Arbeitsbaum, den ein `git reset --hard` auf den neuen Stand
+# stellt. Der ZUSTAND ueberlebt das unangetastet -- `.env`, `config/secrets`,
+# `config/traefik/certs`, `data/` und `logs/` stehen in der `.gitignore`, sind
+# also unversioniert, und `git reset --hard` fasst Unversioniertes nicht an.
+#
+# So treffen sich die beiden Wege: der Kunde legt ein Artefakt ueber sein
+# Geraet (`install.sh`), Kolja legt einen Commit darueber (dieser Deploy) --
+# beide arbeiten in DEMSELBEN Verzeichnis, dem, das Docker nennt. Zwei
+# verschiedene Mechanismen, und das bleibt auch so: ein Deploy je Merge, der
+# den ganzen Bootstrap mit Hardwarepruefung, zwoelf Images und Rauchtest
+# fuehre, waere am Orin ein Tagesgeschaeft aus Vollbauten (schon einmal elf
+# Deploys in 66 Minuten). Der Deploy baut, was sich geaendert hat; das
+# Artefakt richtet ein Geraet ein. Verschiedene Aufgaben, ein Ort.
+OHNE_HISTORIE=0
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  log "Kein Git in $DEPLOY_DIR (aus dem Artefakt installiert) — Arbeitsbaum wird angelegt"
+  git init -q || { err "git init in $DEPLOY_DIR fehlgeschlagen"; exit 1; }
+  OHNE_HISTORIE=1
+fi
+if ! git rev-parse HEAD >/dev/null 2>&1; then
+  OHNE_HISTORIE=1
+fi
+
+# `arasul-release.json` sagt "dieser Baum kommt aus Artefakt X", und
+# `fassung_aus_bau` liest sie VOR Git (scripts/lib/fassung.sh). Nach einem
+# Deploy stimmt der Satz nicht mehr: der Code ist ein anderer. Bliebe die
+# Datei liegen, meldete `/api/health` fuer immer die Fassung des Artefakts,
+# waehrend der Stand daneben weiterlaeuft -- genau die Sorte Behauptung, gegen
+# die die Fassung aus dem Bau gebaut wurde. Sie ist unversioniert, also raeumt
+# sie kein `git reset` weg; hier wird sie es.
+if [ -f "$DEPLOY_DIR/arasul-release.json" ]; then
+  rm -f "$DEPLOY_DIR/arasul-release.json"
+  ok "arasul-release.json entfernt — die Fassung kommt ab jetzt aus Git"
+fi
+
 PREV_SHA="${GITHUB_EVENT_BEFORE:-}"
 ALLES_BAUEN=0
 NULLEN='0000000000000000000000000000000000000000'
-if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "$NULLEN" ]; then
+if [ "$OHNE_HISTORIE" -eq 1 ]; then
+  # Der erste Deploy in ein Artefakt-Verzeichnis. `PREV..NEW` waere hier die
+  # falsche Frage: sie beantwortet "was hat sich seit dem letzten Push
+  # geaendert", waehrend das Geraet auf dem Stand eines TAGS steht, der
+  # zwanzig Merges zurueckliegen kann. Alles, was in diesem Fenster nicht
+  # angefasst wurde, bliebe auf einem alten Abbild stehen, ohne dass es
+  # irgendwo auffiele.
+  warn "Kein bisheriger Stand in $DEPLOY_DIR. Es werden alle Services gebaut."
+  ALLES_BAUEN=1
+  PREV_SHA="$NEW_SHA"
+elif [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "$NULLEN" ]; then
   warn "Kein Vergleichsstand von GitHub. Es werden alle Services gebaut."
   ALLES_BAUEN=1
   PREV_SHA="$(git rev-parse HEAD)"
@@ -130,7 +218,13 @@ log "Deploy $PREV_SHA → $NEW_SHA (in $DEPLOY_DIR)"
 # Nebengewinn: GERAET_SHA liegt garantiert lokal vor, PREV_SHA nicht
 # unbedingt. Auf einem Geraet mit Loechern in der Historie (siehe den Kommentar
 # an rollback()) scheiterte `git reset --hard "$PREV_SHA"` genau daran.
-GERAET_SHA="$(git rev-parse HEAD)"
+# Ohne Historie gibt es keinen Stand, auf den ein Rollback zurueckgehen
+# koennte. Leer und nicht geraten: `rollback()` laesst den git-Schritt dann
+# aus und sagt das auch, statt an einem `git reset --hard ""` zu scheitern.
+GERAET_SHA=""
+if [ "$OHNE_HISTORIE" -eq 0 ]; then
+  GERAET_SHA="$(git rev-parse HEAD)"
+fi
 
 if ! git fetch --quiet "$SRC" "$NEW_SHA"; then
   err "git fetch aus _work-Checkout fehlgeschlagen"; exit 1
@@ -310,7 +404,9 @@ rollback() {
   # Auf GERAET_SHA, nicht auf PREV_SHA: git muss auf den Stand zeigen, aus dem
   # die gerade zurueckgetaggten Images gebaut wurden. Siehe die Begruendung an
   # der Stelle, wo GERAET_SHA gesetzt wird.
-  if ! git reset --hard "$GERAET_SHA"; then
+  if [ -z "$GERAET_SHA" ]; then
+    warn "Kein voriger Git-Stand (erster Deploy in dieses Verzeichnis) — nur die Images gehen zurueck."
+  elif ! git reset --hard "$GERAET_SHA"; then
     misslungen+=("git reset auf $GERAET_SHA")
   fi
 

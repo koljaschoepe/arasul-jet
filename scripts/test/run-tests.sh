@@ -278,6 +278,20 @@ run_werksreset_tabellen_check() {
   fi
 }
 
+# Derselbe Begriff von "Zustand", von der anderen Seite: was der Werksreset
+# loescht, traegt die Uebernahme beim Update mit. Faellt ein Pfad aus der
+# einen Liste, laesst ein Artefakt-Update ihn im alten Verzeichnis liegen --
+# waehrend die Datenbank ueber den festen Projektnamen mitkommt.
+run_zustand_check() {
+  echo ""
+  echo "-> Pruefe, ob die Uebernahme traegt, was der Reset loescht..."
+  if python3 "${PROJECT_ROOT}/scripts/test/zustand.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Drei Waechter liefen bisher NUR in der CI. Wer lokal `run-tests.sh` aufruft,
 # sah sie nicht — und ein Zug, der die CI umgeht (Weboberflaeche, --no-verify,
 # ein Workflow, der selbst committet), sieht sie dann gar nicht. Am 24.08.2026
@@ -572,6 +586,7 @@ run_einheiten_check
 run_durchreichung_check
 run_datenordner_check
 run_werksreset_tabellen_check
+run_zustand_check
 run_rollback_meldung_check
 run_pfadfilter_check
 run_routenregeln_check

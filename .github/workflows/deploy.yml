@@ -53,7 +53,19 @@ jobs:
 
       - name: Deploy ausfuehren
         env:
-          DEPLOY_DIR: /home/arasul/arasul/arasul-jet
+          # KEIN `DEPLOY_DIR` mehr. Hier stand bis zum 29.08.2026
+          # `/home/arasul/arasul/arasul-jet`, und das war eine Annahme in einer
+          # Datei, die niemand ansieht, wenn sich am Geraet etwas aendert. Seit
+          # der Orin ueber das Ara-Kit installiert wurde, laeuft der Live-Stapel
+          # aus `/home/arasul/arasul-<Fassung>`; der Deploy arbeitete danach in
+          # einem Verzeichnis ohne Geheimnisse und war rot (Lauf 33221221851),
+          # ohne dass sich hier eine Zeile geaendert haette.
+          #
+          # `deploy-local.sh` fragt das Geraet jetzt selbst, wo es steht --
+          # Docker, dann der Zeiger (`scripts/lib/installation.sh`). Wer es doch
+          # von Hand sagen will, setzt `DEPLOY_DIR` hier wieder; die Vorgabe ist
+          # bewusst leer, damit ein Deploy ohne Antwort ROT wird statt in ein
+          # leeres Verzeichnis zu bauen.
           HEALTH_TIMEOUT: '240'
           # Der Vergleichsstand kommt von GitHub, nicht aus dem Arbeits-
           # verzeichnis auf dem Geraet. Warum, steht in deploy-local.sh
