@@ -459,12 +459,43 @@ Backend, und `drossel.mjs` zählt 429 **ohne** Kopfzeilen getrennt und nennt sie
 in der Schlusszeile — das ist das Merkmal, an dem die beiden zu unterscheiden
 sind.
 
-Nebenbei am Gerät gefunden: der Live-Stack läuft aus dem **Artefakt**
-(`/home/arasul/arasul-0.4.0`) und nicht aus dem Git-Checkout, auf den
-`deploy.yml` zeigt. Ein `docker compose up` im Checkout will `postgres-db` neu
-anlegen und scheitert an den Secrets, die dort nicht liegen. Das ist die Karte
-`artefakt-aktualisiert-nicht` und kommt nach G2 — bis dahin geht ein Deploy an
-diesem Gerät von Hand im Artefakt-Verzeichnis.
+Seit dem Auftrag **artefakt-aktualisiert-nicht** (29.08.2026, M2)
+**aktualisiert das Artefakt**. Die Wurzel dahinter trug zwei Fehler auf einmal:
+ein Gerät hat sein **Programm** und seinen **Zustand** im selben Verzeichnis,
+jedes Artefakt bringt ein neues mit, und wer nicht weiß, wo der Zustand liegt,
+rät. Der Kundenweg riet — ohne `.env` erzeugte `interactive_setup.sh`
+bedingungslos neue Geheimnisse, während der feste Projektname
+(`arasul-platform`) dieselben Volumes übernahm: alte Datenbank, neues Passwort,
+und Geräte-CA, `data/apps`, Flows und Sicherungen blieben im alten Ordner
+liegen. Und `deploy.yml` riet auch: es trug `/home/arasul/arasul/arasul-jet`
+fest im Workflow, während der Live-Stapel aus `/home/arasul/arasul-<Fassung>`
+lief — seit dem Werksreset war der Deploy rot (Lauf 33221221851) und es kam
+nichts mehr automatisch auf das Gerät.
+Seither wird **gefragt statt geraten**: `scripts/lib/installation.sh` liest, aus
+welchem Verzeichnis der Stapel wirklich läuft (Dockers Etikett
+`com.docker.compose.project.working_dir`), sonst einen Zeiger unter
+`$HOME/.arasul`. `install.sh` übernimmt damit eine vorhandene Installation — der
+Zustand **zieht um** statt kopiert zu werden (ein `rename`, die Bind-Mounts der
+laufenden Container hängen am Inode), das alte Verzeichnis bekommt
+`ABGEGEBEN.txt` und `./arasul` weigert sich dort; `--aktualisierung` baut die
+Images, **während der alte Stapel noch läuft**, und schaltet ihn erst danach mit
+`down --remove-orphans` ab (`up` hätte `docker-proxy` mit dem alten
+`working_dir` stehenlassen, wie am 28.08. geschehen). Wo es zweideutig ist, hält
+der Installer an: Volumes ohne auffindbare Installation, oder eine `.env` hier
+und ein laufendes Gerät dort. **Was der Zustand ist, sagt die Liste des
+Werksresets, rückwärts gelesen** — `scripts/test/zustand.py` hält beide
+aneinander. Der Deploy fragt seit demselben Tag dasselbe und arbeitet damit im
+selben Verzeichnis (ein Artefakt-Ordner bekommt sein `git init`, beim ersten Mal
+werden alle Dienste gebaut, `arasul-release.json` fällt); **zusammengelegt sind
+die zwei Wege nicht, und das mit Absicht** — ein Bootstrap je Merge wäre am Orin
+ein Tagesgeschäft aus Vollbauten. Gemessen wird in der CI, nicht am Gerät
+(`scripts/test/aktualisierung-abnahme.sh`: Artefakt A, Zustand anlegen, Artefakt
+B darüber, nachzählen), weil A7 lief; der Lauf am Orin steht noch aus. Zwei
+Funde am eigenen Werk sind schon eingearbeitet: das Artefakt bringt
+`config/secrets/` selbst mit (`README.md`, `.example/`), also wird Eintrag für
+Eintrag umgezogen — und mit den Rechten dieses Ordners kam aus dem Tar 755
+statt 700, ein Update hätte die Geheimnisse still lesbar gemacht. Siehe
+[`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md).
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |

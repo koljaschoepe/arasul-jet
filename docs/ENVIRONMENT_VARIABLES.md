@@ -501,6 +501,27 @@ optional; die Defaults passen zu diesen Mounts.
 
 ---
 
+## Installation und Aktualisierung
+
+Diese vier stehen **nicht** in der `.env` und werden von keinem Container
+gelesen. Sie sind Stellschrauben der Skripte, die ein Gerät einrichten oder
+aktualisieren, und stehen hier, damit man sie findet: `install.sh`,
+`scripts/deploy/deploy-local.sh` und `scripts/lib/installation.sh`. Wer sie
+nicht setzt, merkt nichts von ihnen — das ist der Normalfall.
+
+| Variable             | Default                       | Description                                                                                                                                                                                                                                                                                                                            |
+| -------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ARASUL_INSTALLATION  | (leer)                        | Wo dieses Gerät steht. Übersteuert die Messung. Ohne sie wird gefragt: erst Docker (Etikett `com.docker.compose.project.working_dir`), dann der Zeiger. Siehe [ops/AUSLIEFERUNG.md](ops/AUSLIEFERUNG.md)                                                                                                                              |
+| ARASUL_ZEIGER        | `$HOME/.arasul/installation`  | Die Datei, in die `install.sh` schreibt, wo es installiert hat. Zweite Quelle für dieselbe Frage — sie hilft, solange kein Container läuft (frisch heruntergefahren, nach einem Werksreset, eine Prüfung ohne Stapel). Eine Abnahme setzt sie auf einen Wegwerfpfad, damit sie den Zeiger des Geräts nicht anfasst.                    |
+| ARASUL_PROJEKT       | arasul-platform               | Der Compose-Projektname, unter dem gesucht wird — Container und Volumes. Er steht als `name:` in `docker-compose.yml` und ist genau deshalb fest: ein zweites Verzeichnis übernimmt dieselben Volumes. Nur Abnahmen setzen ihn um, damit sie die Volumes des laufenden Geräts nicht sehen.                                            |
+| ARASUL_UEBERNEHMEN   | (leer)                        | Dasselbe wie `./install.sh --uebernehmen <pfad>`: die vorhandene Installation von Hand nennen, wenn sie sich nicht ermitteln lässt.                                                                                                                                                                                                    |
+
+Dazu `DEPLOY_DIR` für `scripts/deploy/deploy-local.sh`: ohne Vorgabe. Gesetzt
+deployt das Skript dorthin, ungesetzt fragt es das Gerät — und wird rot, wenn
+es keine Antwort bekommt. Ein Deploy, der nicht weiß wohin, deployt nicht.
+
+---
+
 ## Jetson Device Configuration
 
 These variables configure the platform for different NVIDIA Jetson devices. Use `./scripts/setup/detect-platform.sh` to auto-detect and generate optimal values.

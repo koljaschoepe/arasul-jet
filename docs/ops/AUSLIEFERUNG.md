@@ -1,7 +1,9 @@
 # Auslieferung
 
-> Wie ein Stand dieses Repos auf ein Gerät beim Kunden kommt.
-> Stand: 28.08.2026 (Phase C10 des Umbaus vom 26.08.2026; Tag-Pruefung 28.08.).
+> Wie ein Stand dieses Repos auf ein Gerät beim Kunden kommt — und wie der
+> nächste auf dasselbe Gerät.
+> Stand: 29.08.2026 (Phase C10 des Umbaus vom 26.08.2026; Tag-Prüfung 28.08.,
+> Aktualisierung 29.08.).
 
 Ein Satz vorweg: **das Artefakt ist der Bauplan, nicht das Gebäude.** Es
 enthält den Quellstand, keine Docker-Images. Die Images tragen CUDA, laufen auf
@@ -150,87 +152,140 @@ wechselt bei jedem Deploy (sie trägt den SHA); den ganzen Stapel deswegen
 durchzusehen, hätte dieses Repo schon einmal elf Deploys in 66 Minuten
 gekostet.
 
-## Das Artefakt installiert. Es aktualisiert **nicht**.
+## Das Artefakt aktualisiert
 
-> Gemessen am 28.08.2026 am Orin, beim Update von 0.3.0 auf 0.4.0
-> (Auftrag `release-v040`). Das ist eine offene Lücke, keine Anleitung.
+> Gebaut am 29.08.2026 (Auftrag `artefakt-aktualisiert-nicht`, Bezug M2),
+> gemessen in der CI bei jedem Zug (`scripts/test/aktualisierung-abnahme.sh`).
+> Der Lauf am Orin steht noch aus — er folgt, wenn der Dauerlauf A7 durch ist.
 
-Es gibt derzeit **keinen Weg, auf dem ein Kunde von einer Fassung auf die
-nächste kommt.** Wer das wissen muss, bevor er einem Kunden ein Update
-verspricht:
-
-- **`install.sh` kennt nur sein eigenes Verzeichnis.** Findet es dort keine
-  `.env`, erzeugt `interactive_setup.sh` bedingungslos neue Geheimnisse. Am
-  Orin nachgerechnet (sha256, gekürzt): `POSTGRES_PASSWORD` alt `4b5ff99ff49e`
-  gegen frisch `7a8ecc928624`, `JWT_SECRET` alt `abf318256610` gegen frisch
-  `6f3b8c582d82`.
-- **Der Projektname steht fest** (`name: arasul-platform` in
-  `docker-compose.yml`). Ein zweites Verzeichnis übernimmt deshalb _dieselben_
-  Volumes — `arasul-platform_arasul-postgres` mit der alten Datenbank — und
-  fährt sie mit dem neuen Passwort an. Postgres beachtet `POSTGRES_PASSWORD`
-  nur beim ersten Anlegen. Das Backend käme an seine eigene Datenbank nicht
-  mehr heran.
-- **Im Installationsverzeichnis liegt Zustand**, den das Artefakt nicht kennt
-  und nicht mitbringt (aus den Bind-Mounts der laufenden Container gelesen):
-
-  | Was                                                           | Warum es weh tut, wenn es fehlt                                                     |
-  | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-  | `config/secrets/`                                             | alle Geheimnisse, `admin.hash`, `erstausgabe.txt`                                   |
-  | `config/traefik/certs/`                                       | die Geräte-CA. Eine neue heißt: jeder Admin bekommt wieder eine Zertifikatswarnung. |
-  | `data/apps/`                                                  | die App-Dateien. Fehlen sie, ist es die App-Leiche (`503 APP_DATEIEN_FEHLEN`).      |
-  | `data/flows`, `data/backups`, `data/ssh-keys`, `data/updates` | Läufe, Sicherungen, Schlüssel                                                       |
-  | `logs/`                                                       | die Vorgeschichte des Geräts                                                        |
-
-  Eine Installation daneben behält also die Datenbank (Volume) und wirft alles
-  andere weg — eine **halbe Migration**, schlimmer als beides Ganze.
-
-- **Die systemd-Unit zeigt auf das Verzeichnis.**
-  `arasul-platform.service` trägt `WorkingDirectory=…/arasul-<Fassung>`. Wer
-  den Stapel von Hand umhängt und die Unit vergisst, hat nach dem nächsten
-  Stromausfall wieder den alten Stand. `install.sh` schreibt sie mit,
-  `./arasul update` nicht.
-- **`./arasul update` ist kein Update.** Es baut nur den lokalen Baum neu
-  (`docker compose pull|build|up`) und holt keinen neuen Stand.
-  `updateService.wegPruefen()` sagt über den Weg in der Oberfläche selbst, dass
-  er an diesem Gerät nicht geht (kein `docker`-Programm im Backend-Container).
-
-### Wie der Orin trotzdem auf 0.4.0 kam
-
-Das ist die Liste dessen, was ein Update-Weg tun müsste — von Hand
-ausgeführt, nicht als Anleitung für Kunden gedacht:
+Ein Gerät mit Daten nimmt ein neueres Artefakt an und läuft danach mit
+denselben Geheimnissen, derselben Datenbank, denselben Apps und Sicherungen
+weiter:
 
 ```bash
-# 1. Artefakt holen und die Prüfsumme prüfen, dann auspacken
-curl -sSLO https://github.com/…/releases/download/v0.4.0/arasul-0.4.0.tar.gz
-sha256sum -c arasul-0.4.0.tar.gz.sha256
-tar xzf arasul-0.4.0.tar.gz -C /home/arasul
-
-# 2. Den Zustand hinübertragen, den das Artefakt nicht mitbringt
-A=/home/arasul/arasul-0.3.0; N=/home/arasul/arasul-0.4.0
-cp -a "$A/.env" "$N/.env"
-cp -a "$A/config/secrets/."     "$N/config/secrets/"
-cp -a "$A/config/traefik/certs" "$N/config/traefik/"
-cp -a "$A/data" "$N/data"; cp -a "$A/logs" "$N/logs"
-
-# 3. Bilder bauen, SOLANGE DER ALTE STAPEL NOCH LÄUFT
-cd "$N" && docker compose build
-
-# 4. Erst jetzt umschalten: install.sh sieht die .env vor, lässt sie stehen,
-#    setzt SYSTEM_VERSION, hängt die systemd-Unit um, übergibt an den Bootstrap
-./install.sh
+curl -sSLO https://github.com/…/releases/download/v0.6.0/arasul-0.6.0.tar.gz
+sha256sum -c arasul-0.6.0.tar.gz.sha256
+tar xzf arasul-0.6.0.tar.gz -C /home/arasul
+cd /home/arasul/arasul-0.6.0 && ./install.sh
 ```
 
-Schritt 3 ist kein Beiwerk: ein Baufehler nach dem Abschalten lässt das Gerät
-unten. So gebaut lief der Wechsel am Orin in rund zwei Minuten Ausfall, acht
-Images in 90 Sekunden.
+Dieselben vier Zeilen wie bei einer Erstinstallation. Was `install.sh` daraus
+macht, entscheidet **das Gerät**, nicht die Hand des Menschen davor.
 
-Zwei Dinge, die dabei auffielen und in einen echten Update-Weg gehören:
-`docker compose` legt nur neu an, was sich geändert hat — `docker-proxy` lief
-danach als einziger Container noch mit `working_dir` des **alten**
-Verzeichnisses weiter (und hielt damit die A7-Uhr auf dem alten Stand), bis ein
-`--force-recreate` darauf folgte. Und der Bootstrap meldet auf einem Gerät mit
-bestehender `.env` `ADMIN_PASSWORD nicht verfügbar` — harmlos, der
-Administrator ist längst angelegt, aber es steht als Fehler im Bericht.
+### Die Wurzel: wo ein Gerät steht, wurde geraten
+
+Ein Gerät hat sein **Programm** und seinen **Zustand** im selben Verzeichnis,
+und jedes Artefakt bringt ein neues Verzeichnis mit. Wer nicht weiß, wo der
+Zustand liegt, rät — und bis zum 29.08.2026 haben **beide** Wege auf ein Gerät
+geraten:
+
+- **Der Kundenweg.** `install.sh` kannte nur sein eigenes Verzeichnis. Fand es
+  dort keine `.env`, erzeugte `interactive_setup.sh` bedingungslos neue
+  Geheimnisse, während der feste Projektname (`name: arasul-platform`)
+  dieselben Volumes übernahm. Am Orin am 28.08.2026 nachgerechnet (sha256,
+  gekürzt): `POSTGRES_PASSWORD` alt `4b5ff99ff49e` gegen frisch `7a8ecc928624`,
+  `JWT_SECRET` alt `abf318256610` gegen frisch `6f3b8c582d82`. Postgres beachtet
+  `POSTGRES_PASSWORD` nur beim ersten Anlegen: **alte Datenbank, neues
+  Passwort**, und das Backend kommt an seine eigene Datenbank nicht mehr heran.
+  Dazu blieben Geräte-CA, `data/apps`, Flows und Sicherungen im alten Ordner
+  liegen — eine halbe Migration, schlimmer als beides Ganze.
+- **Der Entwicklungsweg.** `deploy.yml` trug `/home/arasul/arasul/arasul-jet`
+  fest im Workflow, der Live-Stapel lief aber aus `/home/arasul/arasul-0.4.0`.
+  Seit der Installation durch das Kit fehlten dem Checkout die Geheimnisse,
+  `docker compose up` brach ab (Lauf 33221221851), und es kam nichts mehr
+  automatisch auf das Gerät — ohne dass sich eine Zeile geändert hätte.
+
+### Die Antwort: das Gerät wird gefragt
+
+`scripts/lib/installation.sh` beantwortet die Frage an **einer** Stelle, und
+zwar mit einer Messung statt einer Annahme:
+
+| Quelle                                                   | Was sie sagt                        |
+| -------------------------------------------------------- | ----------------------------------- |
+| `ARASUL_INSTALLATION`                                    | was ein Mensch von Hand gesagt hat  |
+| Docker, Etikett `com.docker.compose.project.working_dir` | woraus der Stapel **läuft**         |
+| `$HOME/.arasul/installation`                             | was zuletzt installiert wurde       |
+
+Docker vor dem Zeiger: eine Datei sagt, was zuletzt installiert wurde, ein
+laufender Container sagt, was läuft. `docker compose ps` ist die Wahrheit, auch
+für diese Frage.
+
+### Was `install.sh` dann tut
+
+1. **Es findet die vorhandene Installation** und zieht ihren Zustand hierher
+   um. Der Umzug ist ein `rename` und kostet nichts, auch bei Modellen von
+   zweistelligen Gigabytes; die Bind-Mounts der laufenden Container hängen am
+   Inode, der alte Stapel läuft unbeirrt weiter.
+2. **Kopiert wird nicht.** Zwei Kopien desselben Geräts wären genau die
+   Zweideutigkeit, gegen die der Weg gebaut ist — danach könnte niemand mehr
+   sagen, welche die echte ist. Das alte Verzeichnis bekommt `ABGEGEBEN.txt`,
+   und `./arasul` weigert sich dort zu starten.
+3. **Die `.env` bleibt, wie sie ist** — bis auf `SYSTEM_VERSION`, `BUILD_HASH`
+   und `MDNS_NAME`. Die Geheimnisse werden nicht angefasst.
+4. **Die systemd-Unit hängt mit um.** `arasul-platform.service` trägt
+   `WorkingDirectory=<Fassungsordner>`; überschrieben wird dieselbe Datei, also
+   gibt es die alte danach nicht mehr.
+5. **`./arasul bootstrap --aktualisierung`** baut die Images, **während der
+   alte Stapel noch läuft** — ein Baufehler nach dem Abschalten ließe das Gerät
+   unten. Erst danach `docker compose down --remove-orphans` (ohne `-v`, die
+   Volumes bleiben) und der geordnete Start aus dem neuen Verzeichnis.
+   Administrator und Kit-Schlüssel bleiben, wie sie sind.
+
+Warum `down` und nicht `up --force-recreate`: `docker compose up` legt nur neu
+an, was sich geändert hat. Beim Wechsel von 0.3.0 auf 0.4.0 lief `docker-proxy`
+danach als einziger Container mit dem `working_dir` des **alten** Verzeichnisses
+weiter — seine Mounts hatten sich nicht geändert, also sah compose keinen Grund.
+Genau dieses Etikett ist inzwischen die Auskunft darüber, wo das Gerät steht.
+
+### Was der Zustand ist
+
+Es ist die Liste des Werksresets, rückwärts gelesen: `factory-reset.sh` löscht
+diese Pfade, um aus einem benutzten Gerät ein leeres zu machen, die Übernahme
+trägt sie mit, um aus einem neuen Artefakt dasselbe Gerät zu machen.
+`scripts/test/zustand.py` hält beide Listen aneinander — fällt ein Pfad aus
+einer, ist es beim nächsten Mal Datenverlust auf der anderen Seite.
+
+`.env` · `config/device` · `config/traefik/certs` · `config/ssh` ·
+`config/secrets` · `config/.traefik-credentials` · `data` · `logs` · `cache` ·
+`updates`
+
+### Wenn es nicht eindeutig ist, hält der Installer an
+
+- **Zustand ohne Zuhause.** Es gibt Volumes dieses Projekts, aber weder hier
+  noch anderswo eine passende Installation. Früher lief der Installer hier
+  weiter und erzeugte frische Geheimnisse für eine fremde Datenbank; jetzt
+  bricht er ab, **bevor** er eine `.env` schreibt, und nennt den Weg:
+  `./install.sh --uebernehmen /pfad/zur/alten` oder den Werksreset.
+- **Zwei Zuhause.** Hier liegt eine `.env`, und anderswo läuft ein Gerät. Das
+  entscheidet ein Mensch. (Ein zweiter Anlauf nach geglückter Übernahme ist
+  davon ausgenommen — das alte Verzeichnis trägt dann `ABGEGEBEN.txt`, und das
+  ist eine Antwort, keine Zweideutigkeit.)
+
+### Zwei Wege, eine Wurzel — und derselbe Ort
+
+Der Deploy nach `main` fragt seit dem 29.08.2026 dasselbe (`deploy-local.sh`,
+Schritt 0) und arbeitet damit im selben Verzeichnis wie das Artefakt. Ein aus
+dem Artefakt installiertes Gerät hat kein `.git`; der Deploy legt es an
+(`git init`), und `git reset --hard` fasst den Zustand nicht an, weil er
+unversioniert ist. Beim ersten Deploy in ein solches Verzeichnis werden **alle**
+Dienste gebaut: `PREV..NEW` beantwortet die Frage „was hat sich seit dem letzten
+Push geändert", während das Gerät auf dem Stand eines Tags steht, der zwanzig
+Merges zurückliegen kann. Dabei fällt `arasul-release.json`, denn der Satz „dieser
+Baum kommt aus Artefakt X" stimmt danach nicht mehr — sonst meldete `/api/health`
+für immer die Fassung des Artefakts.
+
+**Zusammengelegt sind die beiden Wege nicht, und das mit Absicht.** Ein Deploy je
+Merge, der den ganzen Bootstrap führte — Hardwareprüfung, zwölf Images,
+Rauchtest —, wäre am Orin ein Tagesgeschäft aus Vollbauten; dieses Repo hatte
+schon einmal elf Deploys in 66 Minuten. Der Deploy baut, was sich geändert hat;
+das Artefakt richtet ein Gerät ein. Verschiedene Aufgaben, ein Ort.
+
+### `./arasul update` ist weiterhin kein Update
+
+Es baut nur den lokalen Baum neu (`docker compose pull|build|up`) und holt
+keinen neuen Stand. `updateService.wegPruefen()` sagt über den Weg in der
+Oberfläche selbst, dass er an diesem Gerät nicht geht (kein `docker`-Programm
+im Backend-Container). Der Weg auf eine neue Fassung ist das Artefakt.
 
 ## Die Adresse des Artefakts
 
@@ -267,19 +322,29 @@ Bootstrap voraussetzt und was ein unbeaufsichtigter Lauf nicht erfragen kann:
    Monate später auf.
 2. Voraussetzungen prüfen: `docker`, `docker compose`, `openssl`, `curl`, und
    ob der Docker-Dienst diesem Benutzer antwortet.
-3. `.env` schreiben (`scripts/interactive_setup.sh --non-interactive`). Ohne
-   `--passwort` erzeugt es ein Startpasswort.
-4. Netzname setzen (`scripts/setup/setup-mdns.sh`): System-Hostname für DHCP
+3. **Nachsehen, ob es dieses Gerät schon gibt** (`scripts/lib/installation.sh`).
+   Läuft es in einem anderen Verzeichnis, zieht sein Zustand hierher um und aus
+   der Installation wird eine Aktualisierung — siehe
+   [Das Artefakt aktualisiert](#das-artefakt-aktualisiert). Gibt es Volumes
+   dieses Projekts, aber keine dazu passende Installation, **hält es an**.
+4. `.env` schreiben (`scripts/interactive_setup.sh --non-interactive`). Ohne
+   `--passwort` erzeugt es ein Startpasswort. Eine vorhandene bleibt, wie sie
+   ist — bis auf `SYSTEM_VERSION`, `BUILD_HASH` und `MDNS_NAME`.
+5. Netzname setzen (`scripts/setup/setup-mdns.sh`): System-Hostname für DHCP
    plus Avahi für `.local`. Siehe
    [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md).
-5. `arasul-platform.service` installieren, damit das Gerät nach einem Neustart
+6. `arasul-platform.service` installieren, damit das Gerät nach einem Neustart
    von selbst hochkommt (in der richtigen Reihenfolge, nicht dreizehn Container
    gleichzeitig auf einem gerade gestarteten Orin). **Vor** dem Bootstrap, weil
    der Bootstrap mit der Erstausgabe endet und nichts sie nach oben schieben
-   soll.
-6. `./arasul bootstrap` — Hardware, Zertifikate, Images bauen, Datenbank,
+   soll. Bei einer Aktualisierung ist derselbe Schritt der, der die Unit vom
+   alten auf das neue Verzeichnis umhängt.
+7. `./arasul bootstrap` — Hardware, Zertifikate, Images bauen, Datenbank,
    Dienste, Admin, **Kit-Schlüssel**, Rauchtest, **Erstausgabe**. Der Bootstrap
-   sagt das letzte Wort; `install.sh` gibt an ihn ab (`exec`).
+   sagt das letzte Wort; `install.sh` gibt an ihn ab (`exec`). Bei einer
+   Aktualisierung `--aktualisierung`: dann bleiben Administrator und
+   Kit-Schlüssel, wie sie sind, und der alte Stapel wird erst abgeschaltet,
+   wenn die neuen Images stehen.
 
 Optionen:
 
@@ -287,6 +352,7 @@ Optionen:
 ./install.sh                          # Passwort wird erzeugt und einmal gezeigt
 ./install.sh --passwort 'Geheim123'   # Passwort vorgeben
 ./install.sh --name werkstatt         # anderer Netzname als `arasul`
+./install.sh --uebernehmen /pfad/alt  # die vorhandene Installation von Hand nennen
 ./install.sh --nur-vorbereiten        # bis vor den Bootstrap, für die Prüfung
 ```
 
@@ -386,6 +452,7 @@ Drei Stufen, und jede misst etwas, das die anderen nicht sehen:
 | Wo                        | Was                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CI, Job `Installation`    | Baut das Artefakt, packt es aus und startet `./install.sh --nur-vorbereiten` darin. Danach: `.env` da und mit 600, `SYSTEM_VERSION` aus dem Bau, `validate-dependencies.sh` findet seine Compose-Datei, `docker compose config` schweigt, `erstausgabe.sh` nennt beide Geheimnisse und legt `config/secrets/erstausgabe.txt` mit 600 an, `bootstrap-abnahme.sh --trocken` grün. |
+| CI, `aktualisierung-abnahme.sh` | Derselbe Job, zweiter Zug: Artefakt A installieren, den Zustand eines benutzten Geräts anlegen (Geheimnisse, Geräte-CA, eine App, ein Flow, eine Sicherung, Protokolle), Artefakt B daneben auspacken und `./install.sh` darin — **ohne** ihm zu sagen, wo A steht. Gemessen wird: dieselben Geheimnisse, jedes Zustandsstück da, neue Fassung, Rechte unverändert, A leer und mit `ABGEGEBEN.txt`, `./arasul` weigert sich dort. Dazu die Gegenprobe (Volumes ohne auffindbare Installation → Abbruch, ohne eine `.env` zu schreiben) und der Weg von Hand (`--uebernehmen`). |
 | `bootstrap-abnahme.sh`    | Am Gerät nach dem Reset: laufen alle Dienste bis `document-indexer` und `self-healing-agent`, gibt es einen gültigen Kit-Schlüssel, antwortet `/api/health`, sind die App-Container von vorher weg.                                                                                                                                                                             |
 | `auslieferung-abnahme.sh` | Über die Schnittstelle: Fassung, CA-Zertifikat, Namen im Zertifikat, TLS ohne SNI, Kit-Schlüssel.                                                                                                                                                                                                                                                                               |
 
@@ -396,4 +463,19 @@ Wegewechsel und eine Zuweisung, alle ohne Jetson-Hardware messbar.
 
 Was auch der CI-Job nicht beweisen kann: dass die Installation aus dem Artefakt
 kam **und** dass zwölf ARM64-Images sich am Gerät bauen lassen. Dafür bleibt
-der Ablauf oben.
+der Ablauf oben. Für die Aktualisierung heißt das dasselbe: der Umzug des
+Zustands, der Abbruch bei Zweideutigkeit und die Rechte danach sind gemessen;
+was am Gerät noch aussteht, ist der Neubau der Images und der Start aus dem
+neuen Verzeichnis. Der Lauf folgt, wenn der Dauerlauf A7 durch ist.
+
+```bash
+# Am Gerät, wenn A7 durch ist (Kundenweg, von einer Fassung auf die nächste):
+tar xzf arasul-<neu>.tar.gz -C /home/arasul
+cd /home/arasul/arasul-<neu> && ./install.sh
+docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' \
+  $(docker ps -q --filter label=com.docker.compose.project=arasul-platform) | sort -u
+```
+
+Die letzte Zeile ist die Probe darauf, dass **kein** Container mehr aus dem
+alten Verzeichnis läuft — genau das war am 28.08.2026 bei `docker-proxy` der
+Fall.

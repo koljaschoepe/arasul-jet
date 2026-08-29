@@ -368,9 +368,35 @@ dann laesst sich auch nicht entscheiden, ob ein Paket neuer ist.
 
 **Wenn dieses Geraet nicht ueber die Oberflaeche einspielen kann, sagt es das.**
 Der Weg dahinter braucht ein `docker`-Programm im Backend-Container, und das
-gibt es dort nicht; aktualisiert wird dann ueber den Deploy
-(`scripts/deploy/deploy-local.sh`) oder `./arasul update` am Geraet selbst.
-Statt Knoepfen, die zuverlaessig scheitern, steht der Grund da.
+gibt es dort nicht. Statt Knoepfen, die zuverlaessig scheitern, steht der Grund
+da.
+
+### Auf eine neue Fassung, am Geraet
+
+Der Weg auf eine neue Fassung ist das Artefakt, und er sieht genauso aus wie
+eine Erstinstallation:
+
+```bash
+tar xzf arasul-<neue Fassung>.tar.gz -C /home/arasul
+cd /home/arasul/arasul-<neue Fassung>
+./install.sh
+```
+
+`install.sh` sucht sich das vorhandene Geraet selbst, zieht seinen Zustand
+herueber -- Geheimnisse, Geraete-CA, Datenbankzugang, Apps, Flows, Sicherungen,
+Protokolle -- und faehrt danach von hier. **Es wird nichts kopiert:** danach
+gibt es das Geraet genau einmal, das alte Verzeichnis traegt `ABGEGEBEN.txt`
+und darf weg, sobald die neue Fassung laeuft.
+
+Was dabei gleich bleibt: das Administratorpasswort, der Kit-Schluessel, das
+Zertifikat (kein Browser warnt neu) und die Datenbank. Was sich aendert: die
+Fassung.
+
+Die Images werden gebaut, **waehrend das Geraet noch laeuft**; abgeschaltet
+wird erst danach, und der Wechsel kostet ein paar Minuten. Findet `install.sh`
+etwas Zweideutiges -- Daten ohne auffindbares Geraet, oder zwei Verzeichnisse,
+die beide das Geraet sein koennten --, haelt es an und sagt, was zu tun ist.
+Es installiert dann lieber nicht, als eine Datenbank unbrauchbar zu machen.
 
 ### Paket einspielen (wenn der Weg offen ist)
 
