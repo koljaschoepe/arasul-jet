@@ -199,7 +199,10 @@ src/
                    `docs/development/DESIGN.md`.
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
     mascot/        Das Maskottchen.
-  hooks/           Cross-feature hooks (useApi, useTheme, …).
+  hooks/           Cross-feature hooks (useApi, useTheme, …). `useTheme` liest
+                   seit H1 das Theme des Angemeldeten aus dem `AuthContext`
+                   (`admin_users.theme`) und schreibt es über
+                   `PUT /api/darstellung` — nicht mehr in den `localStorage`.
   contexts/        Global state (Auth, Toast, Download, Activation).
   stores/          zustand stores (workspaceStore: Tabs, Sidebar-Ansicht, Spalten).
   lib/             queryClient, cn() helper.
@@ -274,6 +277,13 @@ shadcn's CSS variables. Always reference via Tailwind utilities
 (`bg-bg-card`, `text-text-primary`, `border-border-subtle`) or
 `var(--…)` in `style={}`. **Never** inline `#1a2330` etc. — that bypasses
 the theme and breaks light-mode / future re-skins.
+
+Seit **Phase H1** gibt es zwei Themes: `:root` ist **Hell** (die Vorgabe),
+`[data-theme='dark']` auf `<html>` überschreibt. Es gibt keine Klasse
+`.light` mehr — `check-design-system.js` schlägt fehl, sobald eine
+auftaucht. Die Klasse `dark` bleibt, sie hält die `dark:`-Utilities am
+Leben. Eine neue Farbe gehört in **beide** Blöcke; eine, die es nur im
+dunklen gibt, ist eine, die im hellen fehlt.
 
 ### 5. shadcn/ui via `@/components/ui/shadcn/<name>`
 

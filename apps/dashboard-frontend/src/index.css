@@ -82,8 +82,9 @@
 /* ========================================
    Semantic Color Mappings (shadcn/ui + Arasul)
    Maps runtime CSS variables to Tailwind utilities so every
-   utility is theme-aware (dark/light). Single source of truth
-   for the values: the :root block (dark) + .light overrides.
+   utility is theme-aware. Single source of truth for the values:
+   `:root` (Theme »Hell«, die Vorgabe) plus die Überschreibungen
+   in `[data-theme='dark']`.
    e.g. bg-primary, text-muted-foreground, bg-bg-card, text-danger
    ======================================== */
 @theme inline {
@@ -176,43 +177,51 @@
 
 :root {
   /* ========================================
-     shadcn/ui Semantic Colors — Theme »Schwarz« (Default)
+     shadcn/ui Semantic Colors — Theme »HELL« (Vorgabe, Phase H1)
      Cursor-Prinzip: zwei Hintergrundstufen (Chrome vs. Fläche),
-     EINE Border-Farbe mit niedriger Alpha, Hover als Weiß-Alpha,
-     Akzent (gedämpftes Graublau) nur für Primäraktionen.
-     Weitere Themes: [data-theme="dark"] + .light weiter unten.
+     EINE Border-Farbe mit niedriger Alpha, Hover als Schwarz-Alpha,
+     Akzent (Arasul-Blau) nur für Primäraktionen.
+
+     `:root` IST das Theme »Hell«, es gibt keine Klasse dafür. Das eine
+     andere Theme steht als [data-theme='dark'] weiter unten und
+     überschreibt von hier aus. Bis H1 war es umgekehrt (`:root` =
+     »Schwarz«, plus ein Block `[data-theme='dark']`, plus eine Klasse
+     `.light`) — drei Themes, zwei davon auf einem Bild nicht zu
+     unterscheiden, und Hell als Sonderfall, der jede Regel zweimal
+     brauchte. Wer eine Farbe ändert, ändert sie hier; wer sie im
+     Dunkeln anders will, schreibt EINE Zeile in den Block unten.
      ======================================== */
-  --background: #0A0A0A;
-  --foreground: #e6e6e6;
-  --card: #121212;
-  --card-foreground: #e6e6e6;
-  --popover: #161616;
-  --popover-foreground: #e6e6e6;
-  --primary: #81A1C1;
-  --primary-foreground: #0A0A0A;
-  --secondary: #161616;
-  --secondary-foreground: #e6e6e6;
-  --muted: #161616;
-  --muted-foreground: rgba(228, 228, 228, 0.55); /* ≈ #8f8f8f */
-  --accent: rgba(228, 228, 228, 0.07); /* hover wash, ≈ #1a1a1a on #0A0A0A */
-  --accent-foreground: #e6e6e6;
+  --background: #F6F6F6;
+  --foreground: #1a1a1a;
+  --card: #FFFFFF;
+  --card-foreground: #1a1a1a;
+  --popover: #FFFFFF;
+  --popover-foreground: #1a1a1a;
+  --primary: #2D8FD9;
+  --primary-foreground: #FFFFFF;
+  --secondary: #ECECEC;
+  --secondary-foreground: #1a1a1a;
+  --muted: #ECECEC;
+  --muted-foreground: #6b6b6b;
+  --accent: rgba(16, 16, 16, 0.05); /* hover wash */
+  --accent-foreground: #1a1a1a;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --success: #10B981;
   --success-foreground: #FFFFFF;
   --warning: #F59E0B;
-  --warning-foreground: #121212;
-  --border: rgba(228, 228, 228, 0.08);
-  --input: rgba(228, 228, 228, 0.1);
-  --ring: #81A1C1;
+  --warning-foreground: #1a1a1a;
+  --border: rgba(16, 16, 16, 0.1);
+  --input: rgba(16, 16, 16, 0.12);
+  --ring: #2D8FD9;
 
   /* Syntax Highlighting */
-  --code-keyword: #ff7b72;
-  --code-string: #a5d6ff;
-  --code-comment: #8b949e;
-  --code-number: #79c0ff;
-  --code-variable: #ffa657;
-  --code-symbol: #7ee787;
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-comment: #6e7781;
+  --code-number: #0550ae;
+  --code-variable: #953800;
+  --code-symbol: #116329;
 
   /* Sidebar widths */
   --sidebar-width: 260px;
@@ -264,10 +273,10 @@
 
   /* Accent Colors - Design System (aliases onto the shadcn set above) */
   --primary-color: var(--primary);
-  --primary-hover: #93b1cd;
-  --primary-active: #6e91b4;
-  --primary-light: #93b1cd;
-  --primary-muted: var(--primary-alpha-15);
+  --primary-hover: #4AA3E4;
+  --primary-active: #2478B8;
+  --primary-light: #4AA3E4;
+  --primary-muted: rgba(45, 143, 217, 0.12);
   --text-on-primary: var(--primary-foreground);
   --danger-color: var(--destructive);
   --danger-hover: #DC2626;
@@ -278,18 +287,18 @@
   --error-color: var(--danger-color);
 
   /* Status Colors - Semantic */
-  --status-neutral: #94A3B8;        /* Grey — neutral / informational */
-  --status-neutral-bg: rgba(148, 163, 184, 0.15);
-  --status-neutral-border: rgba(148, 163, 184, 0.3);
-  --status-critical: #EF4444;       /* Red — critical / error */
-  --status-critical-bg: rgba(239, 68, 68, 0.15);
-  --status-critical-border: rgba(239, 68, 68, 0.3);
-  --status-warning: #F59E0B;        /* Amber — warning */
-  --status-warning-bg: rgba(245, 158, 11, 0.15);
-  --status-warning-border: rgba(245, 158, 11, 0.3);
-  --status-performance: #81A1C1;    /* Accent — performance metric */
-  --status-performance-bg: rgba(129, 161, 193, 0.15);
-  --status-performance-border: rgba(129, 161, 193, 0.3);
+  --status-neutral: #6b6b6b;
+  --status-neutral-bg: rgba(107, 107, 107, 0.12);
+  --status-neutral-border: rgba(107, 107, 107, 0.25);
+  --status-critical: #DC2626;       /* Red for critical / error in light mode */
+  --status-critical-bg: rgba(220, 38, 38, 0.12);
+  --status-critical-border: rgba(220, 38, 38, 0.25);
+  --status-warning: #D97706;        /* Amber for warning in light mode */
+  --status-warning-bg: rgba(217, 119, 6, 0.12);
+  --status-warning-border: rgba(217, 119, 6, 0.25);
+  --status-performance: #2D8FD9;    /* Accent blue — performance metric */
+  --status-performance-bg: rgba(45, 143, 217, 0.12);
+  --status-performance-border: rgba(45, 143, 217, 0.25);
 
   /* Background Colors (aliases where the shadcn set already defines the value) */
   --bg-dark: var(--background);
@@ -297,8 +306,8 @@
   --bg-card: var(--card);
   --bg-card-hover: var(--accent);
   --bg-sidebar: var(--background);
-  --bg-elevated: #1e1e1e;
-  --bg-subtle: #121212;
+  --bg-elevated: #FFFFFF;
+  --bg-subtle: #FAFAFA;
 
   /* Border Colors */
   --border-color: var(--border);
@@ -307,15 +316,15 @@
 
   /* Text Colors */
   --text-primary: var(--foreground);
-  --text-secondary: #c2c2c2;
+  --text-secondary: #3d3d3d;
   --text-muted: var(--muted-foreground);
-  --text-disabled: #6b6b6b;
+  --text-disabled: #a3a3a3;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px var(--primary-alpha-10);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px var(--primary-alpha-20);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px var(--primary-alpha-30);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
 
   /* ========================================
      TRANSITION SCALE
@@ -328,56 +337,56 @@
   --transition-slow: 0.3s ease;
 
   /* Gradients - Design System (accent) */
-  --gradient-primary: linear-gradient(135deg, #81A1C1 0%, #6e91b4 100%);
-  --gradient-card: linear-gradient(135deg, #121212 0%, #161616 100%);
+  --gradient-primary: linear-gradient(135deg, #2D8FD9 0%, #2478B8 100%);
+  --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFAFA 100%);
 
   /* Terminal Background */
 
   /* Additional Background Colors for Components */
   --bg-input: var(--background);
   --bg-table-header: var(--primary-alpha-5);
-  --bg-table-row-hover: rgba(228, 228, 228, 0.04);
+  --bg-table-row-hover: rgba(16, 16, 16, 0.03);
   --bg-table-row-active: var(--primary-alpha-8);
   --bg-dropzone: var(--primary-alpha-5);
   --bg-dropzone-hover: var(--primary-alpha-8);
   --bg-dropzone-active: var(--primary-alpha-15);
-  --bg-code: rgba(228, 228, 228, 0.05);
+  --bg-code: rgba(45, 143, 217, 0.05);
   --bg-modal: var(--card);
 
   /* Additional Border Colors */
   --border-dropzone: var(--primary-alpha-30);
   --border-dropzone-hover: var(--primary-alpha-50);
   --border-dropzone-active: var(--primary);
-  --border-input: var(--primary-alpha-15);
+  --border-input: rgba(16, 16, 16, 0.14);
   --border-input-focus: var(--primary-alpha-40);
   --border-table: var(--primary-alpha-10);
   --border-modal: var(--primary-alpha-20);
 
   /* Modal Backdrop */
-  --backdrop-color: rgba(0, 0, 0, 0.7);
+  --backdrop-color: rgba(0, 0, 0, 0.4);
 
   /* Select Option Background (for dropdowns) */
   --bg-option: var(--card);
 
   /* Scrollbar colors — neutral, no gradient, transparent track */
   --scrollbar-track: transparent;
-  --scrollbar-thumb: rgba(228, 228, 228, 0.14);
-  --scrollbar-thumb-hover: rgba(228, 228, 228, 0.28);
+  --scrollbar-thumb: rgba(16, 16, 16, 0.18);
+  --scrollbar-thumb-hover: rgba(16, 16, 16, 0.32);
 
   /* ========================================
      PRIMARY COLOR ALPHA SCALE
      Use these instead of hardcoded rgba(129,161,193,...)
      ======================================== */
-  --primary-alpha-5: rgba(129, 161, 193, 0.05);
-  --primary-alpha-8: rgba(129, 161, 193, 0.08);
-  --primary-alpha-10: rgba(129, 161, 193, 0.1);
-  --primary-alpha-12: rgba(129, 161, 193, 0.12);
-  --primary-alpha-15: rgba(129, 161, 193, 0.15);
-  --primary-alpha-20: rgba(129, 161, 193, 0.2);
-  --primary-alpha-25: rgba(129, 161, 193, 0.25);
-  --primary-alpha-30: rgba(129, 161, 193, 0.3);
-  --primary-alpha-40: rgba(129, 161, 193, 0.4);
-  --primary-alpha-50: rgba(129, 161, 193, 0.5);
+  --primary-alpha-5: rgba(45, 143, 217, 0.05);
+  --primary-alpha-8: rgba(45, 143, 217, 0.08);
+  --primary-alpha-10: rgba(45, 143, 217, 0.1);
+  --primary-alpha-12: rgba(45, 143, 217, 0.12);
+  --primary-alpha-15: rgba(45, 143, 217, 0.15);
+  --primary-alpha-20: rgba(45, 143, 217, 0.2);
+  --primary-alpha-25: rgba(45, 143, 217, 0.25);
+  --primary-alpha-30: rgba(45, 143, 217, 0.3);
+  --primary-alpha-40: rgba(45, 143, 217, 0.4);
+  --primary-alpha-50: rgba(45, 143, 217, 0.5);
 
   /* Danger alpha variants (red #EF4444) */
   --danger-alpha-8: rgba(239, 68, 68, 0.08);
@@ -429,132 +438,111 @@
 }
 
 /* ========================================
-   THEME »DUNKEL« - Override ([data-theme="dark"] on <html>)
-   Cursor-artiges Anthrazit: hellere Hintergrundstufen als Schwarz,
-   identische Border-/Text-/Akzent-Systematik (erbt aus :root).
+   THEME »DUNKEL« - Override ([data-theme="dark"] auf <html>)
+
+   Der EINE Gegenentwurf zur Vorgabe, und der Block trägt seit Phase H1 alles,
+   was ihn von ihr unterscheidet — vorher erbte er das meiste aus einem
+   `:root`, das selbst dunkel war, und stand nur für die zwei
+   Hintergrundstufen da, die »Dunkel« von »Schwarz« trennten. »Schwarz« ist
+   mit H1 gefallen; die drei Anthrazit-Stufen dieses Themes sind die von
+   »Dunkel«, die Text-, Border- und Akzentfarben die des alten `:root`.
+
+   Nichts unter dieser Zeile ist eine neue Farbe. Wer eine ändert, prüft die
+   Vorgabe oben mit: eine Farbe, die es nur hier gibt, ist eine Farbe, die im
+   hellen Theme fehlt.
    ======================================== */
 [data-theme='dark'] {
+  /* shadcn/ui Semantic Colors */
   --background: #141414;
+  --foreground: #e6e6e6;
   --card: #181818;
   --card-foreground: #e6e6e6;
   --popover: #1c1c1c;
+  --popover-foreground: #e6e6e6;
+  --primary: #81A1C1;
+  --primary-foreground: #0A0A0A;
   --secondary: #181818;
+  --secondary-foreground: #e6e6e6;
   --muted: #181818;
+  --muted-foreground: rgba(228, 228, 228, 0.55);
+  --accent: rgba(228, 228, 228, 0.07);
+  --accent-foreground: #e6e6e6;
+  --warning-foreground: #121212;
+  --border: rgba(228, 228, 228, 0.08);
+  --input: rgba(228, 228, 228, 0.1);
+  --ring: #81A1C1;
 
-  /* Backgrounds */
+  /* Syntax Highlighting */
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-comment: #8b949e;
+  --code-number: #79c0ff;
+  --code-variable: #ffa657;
+  --code-symbol: #7ee787;
+
+  /* Akzent-Aliasse */
+  --primary-hover: #93b1cd;
+  --primary-active: #6e91b4;
+  --primary-light: #93b1cd;
+  --primary-muted: var(--primary-alpha-15);
+
+  /* Status Colors - Semantic */
+  --status-neutral: #94A3B8;
+  --status-neutral-bg: rgba(148, 163, 184, 0.15);
+  --status-neutral-border: rgba(148, 163, 184, 0.3);
+  --status-critical: #EF4444;
+  --status-critical-bg: rgba(239, 68, 68, 0.15);
+  --status-critical-border: rgba(239, 68, 68, 0.3);
+  --status-warning: #F59E0B;
+  --status-warning-bg: rgba(245, 158, 11, 0.15);
+  --status-warning-border: rgba(245, 158, 11, 0.3);
+  --status-performance: #81A1C1;
+  --status-performance-bg: rgba(129, 161, 193, 0.15);
+  --status-performance-border: rgba(129, 161, 193, 0.3);
+
+  /* Background Colors */
   --bg-elevated: #242424;
   --bg-subtle: #181818;
   --bg-input: #1c1c1c;
+  --bg-table-row-hover: rgba(228, 228, 228, 0.04);
+  --bg-code: rgba(228, 228, 228, 0.05);
+
+  /* Text Colors */
+  --text-secondary: #c2c2c2;
+  --text-disabled: #6b6b6b;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px var(--primary-alpha-10);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px var(--primary-alpha-20);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px var(--primary-alpha-30);
 
   /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #81A1C1 0%, #6e91b4 100%);
   --gradient-card: linear-gradient(135deg, #181818 0%, #1c1c1c 100%);
 
-  /* Terminal Background */
+  /* Border Colors */
+  --border-input: var(--primary-alpha-15);
+
+  /* Modal Backdrop */
+  --backdrop-color: rgba(0, 0, 0, 0.7);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(228, 228, 228, 0.14);
+  --scrollbar-thumb-hover: rgba(228, 228, 228, 0.28);
+
+  /* Primary Color Alpha Scale */
+  --primary-alpha-5: rgba(129, 161, 193, 0.05);
+  --primary-alpha-8: rgba(129, 161, 193, 0.08);
+  --primary-alpha-10: rgba(129, 161, 193, 0.1);
+  --primary-alpha-12: rgba(129, 161, 193, 0.12);
+  --primary-alpha-15: rgba(129, 161, 193, 0.15);
+  --primary-alpha-20: rgba(129, 161, 193, 0.2);
+  --primary-alpha-25: rgba(129, 161, 193, 0.25);
+  --primary-alpha-30: rgba(129, 161, 193, 0.3);
+  --primary-alpha-40: rgba(129, 161, 193, 0.4);
+  --primary-alpha-50: rgba(129, 161, 193, 0.5);
 }
-
-/* ========================================
-   THEME »HELL« - Override (.light on <html>)
-   Only overrides values that actually differ from black/dark.
-   Aliased legacy vars (--bg-card → --card, …) follow automatically.
-   ======================================== */
-.light {
-  /* shadcn/ui Semantic Colors (Light Theme) */
-  --background: #F6F6F6;
-  --foreground: #1a1a1a;
-  --card: #FFFFFF;
-  --card-foreground: #1a1a1a;
-  --popover: #FFFFFF;
-  --popover-foreground: #1a1a1a;
-  --primary: #2D8FD9;
-  --primary-foreground: #FFFFFF;
-  --secondary: #ECECEC;
-  --secondary-foreground: #1a1a1a;
-  --muted: #ECECEC;
-  --muted-foreground: #6b6b6b;
-  --accent: rgba(16, 16, 16, 0.05); /* hover wash */
-  --accent-foreground: #1a1a1a;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --success: #10B981;
-  --success-foreground: #FFFFFF;
-  --warning: #F59E0B;
-  --warning-foreground: #1a1a1a;
-  --border: rgba(16, 16, 16, 0.1);
-  --input: rgba(16, 16, 16, 0.12);
-  --ring: #2D8FD9;
-
-  /* Accent aliases (entschärftes Arasul-Blau) */
-  --primary-hover: #4AA3E4;
-  --primary-active: #2478B8;
-  --primary-light: #4AA3E4;
-
-  /* Syntax Highlighting — Light */
-  --code-keyword: #cf222e;
-  --code-string: #0a3069;
-  --code-comment: #6e7781;
-  --code-number: #0550ae;
-  --code-variable: #953800;
-  --code-symbol: #116329;
-
-  /* Backgrounds without a dark-set equivalent */
-  --bg-elevated: #FFFFFF;
-  --bg-subtle: #FAFAFA;
-  --bg-table-row-hover: rgba(16, 16, 16, 0.03);
-
-  /* Scrollbar — neutral dark alphas on light surfaces */
-  --scrollbar-thumb: rgba(16, 16, 16, 0.18);
-  --scrollbar-thumb-hover: rgba(16, 16, 16, 0.32);
-
-  /* Text without a dark-set equivalent */
-  --text-secondary: #3d3d3d;
-  --text-disabled: #a3a3a3;
-
-  /* Shadows - softer in light mode */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
-
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #2D8FD9 0%, #2478B8 100%);
-  --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFAFA 100%);
-
-  /* Terminal Background */
-
-  /* Values that differ subtly from dark */
-  --primary-muted: rgba(45, 143, 217, 0.12);
-  --bg-code: rgba(45, 143, 217, 0.05);
-  --border-input: rgba(16, 16, 16, 0.14);
-  --backdrop-color: rgba(0, 0, 0, 0.4);
-
-  /* Primary alpha scale (light accent) */
-  --primary-alpha-5: rgba(45, 143, 217, 0.05);
-  --primary-alpha-8: rgba(45, 143, 217, 0.08);
-  --primary-alpha-10: rgba(45, 143, 217, 0.1);
-  --primary-alpha-12: rgba(45, 143, 217, 0.12);
-  --primary-alpha-15: rgba(45, 143, 217, 0.15);
-  --primary-alpha-20: rgba(45, 143, 217, 0.2);
-  --primary-alpha-25: rgba(45, 143, 217, 0.25);
-  --primary-alpha-30: rgba(45, 143, 217, 0.3);
-  --primary-alpha-40: rgba(45, 143, 217, 0.4);
-  --primary-alpha-50: rgba(45, 143, 217, 0.5);
-
-  /* Status Colors - Semantic (Light Mode) */
-  --status-neutral: #6b6b6b;
-  --status-neutral-bg: rgba(107, 107, 107, 0.12);
-  --status-neutral-border: rgba(107, 107, 107, 0.25);
-  --status-critical: #DC2626;       /* Red for critical / error in light mode */
-  --status-critical-bg: rgba(220, 38, 38, 0.12);
-  --status-critical-border: rgba(220, 38, 38, 0.25);
-  --status-warning: #D97706;        /* Amber for warning in light mode */
-  --status-warning-bg: rgba(217, 119, 6, 0.12);
-  --status-warning-border: rgba(217, 119, 6, 0.25);
-  --status-performance: #2D8FD9;    /* Accent blue — performance metric */
-  --status-performance-bg: rgba(45, 143, 217, 0.12);
-  --status-performance-border: rgba(45, 143, 217, 0.25);
-}
-
-/* Light Mode - Animated background override (disabled) */
 
 /* ========================================
    ALL COMPONENT CSS IN @layer components
@@ -563,248 +551,46 @@
    ======================================== */
 @layer components {
 
-/* Light Mode - Status colors with better contrast */
-.light .status-ok {
-  background: var(--status-neutral-bg);
-  color: var(--status-neutral);
-  border: 1px solid var(--status-neutral-border);
-}
-
-.light .status-ok::before {
-  background: var(--status-neutral);
-}
-
-.light .status-warning {
-  background: var(--warning-alpha-10);
-  color: var(--status-warning);
-  border: 1px solid var(--warning-alpha-20);
-}
-
-.light .status-warning::before {
-  background: var(--status-warning);
-}
-
-.light .status-critical {
-  background: var(--danger-alpha-10);
-  color: var(--status-critical);
-  border: 1px solid var(--danger-alpha-20);
-}
-
-.light .status-critical::before {
-  background: var(--status-critical);
-}
-
-/* Light Mode - Status dots */
-.light .status-dot-ok {
-  background: var(--status-neutral);
-  box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
-}
-
-.light .status-dot-error {
-  background: var(--danger-hover);
-  box-shadow: 0 0 8px var(--danger-alpha-30);
-}
-
-/* Light Mode - Service indicators */
-.light .service-healthy {
-  background: var(--status-neutral);
-  box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
-}
-
-.light .service-error {
-  background: var(--status-critical);
-  box-shadow: 0 0 8px var(--danger-alpha-30);
-}
-
-/* Light Mode - ALL Badges unified gray (like version badges) */
-.light .badge-success,
-.light .badge-warning,
-.light .badge-error,
-.light .badge-info {
-  background: var(--secondary);
-  color: var(--text-secondary);
-  border: none;
-  font-weight: 500;
-}
-
-/* Light Mode - Status indicator utility class */
-.light .status-indicator.success,
-.light .status-indicator.normal {
-  background: var(--status-neutral);
-  box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
-}
-
-.light .status-indicator.critical {
-  background: var(--status-critical);
-  box-shadow: 0 0 8px var(--danger-alpha-30);
-}
-
-.light .status-indicator.warning {
-  background: var(--status-warning);
-  box-shadow: 0 0 8px var(--warning-alpha-30);
-}
-
-.light .status-indicator.error {
-  background: var(--status-critical);
-  box-shadow: 0 0 8px var(--danger-alpha-30);
-}
-
-/* Light Mode - Progress bar container */
-.light .progress-bar-container {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* Light Mode - Sidebar header gradient */
-.light .sidebar-header {
-  background: transparent;
-}
-
-/* Light Mode - Sidebar footer gradient */
-.light .sidebar-footer {
-  background: transparent;
-}
-
-/* Light Mode - Theme Toggle Switch */
-.light .theme-toggle-switch {
-  border-color: var(--border);
-}
-
-.light .theme-toggle-switch:hover {
-  background: var(--primary-alpha-5);
-  border-color: var(--primary-alpha-30);
-}
-
-.light .theme-toggle-track {
-  background: var(--secondary);
-  border-color: var(--border);
-}
-
-.light .theme-toggle-label {
-  color: var(--text-secondary);
-}
-
-/* Light Mode - Navigation hover state */
-.light .nav-link:hover {
-  background: var(--primary-alpha-5);
-}
-
-.light .nav-link.active {
-  background: var(--primary-alpha-10);
-}
-
-/* Light Mode - Circular progress styling */
-.light .circular-bg {
-  stroke: var(--primary-alpha-10);
-}
-
-/* Light Mode - Print override */
+/* Gedruckt wird auf Papier, und Papier ist weiss (Phase H1).
+   Bis H1 stand hier `.light body` — wer im dunklen Theme druckte, bekam den
+   dunklen Hintergrund mitgedruckt. Die Regel gilt fuer beide Themes. */
 @media print {
-  .light body {
+  body {
     background: white;
     color: black;
   }
 }
 
-/* Light Mode - Global Page Title Icons: BLACK instead of blue */
-.light .card-title svg {
-  color: var(--foreground);
-}
-
-.light .page-title svg,
-.light .page-header svg,
-.light [class*="-title"] > svg:first-child {
-  color: var(--foreground);
-}
-
-/* Light Mode - ALL Badges unified gray (like version badges) */
-.light .badge,
-.light .badge-primary,
-.light .badge-default,
-.light .badge-success,
-.light .badge-warning,
-.light .badge-error,
-.light .badge-danger,
-.light .badge-info {
-  background: var(--secondary);
-  color: var(--text-secondary);
-  border: none;
-  font-weight: 500;
-}
-
-/* Light Mode - Cards */
-.light .metric-card,
-.light .info-card {
-  background: var(--card);
-  border-color: var(--border);
-}
-
-.light .metric-card:hover,
-.light .info-card:hover {
-  border-color: var(--primary-alpha-30);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-/* Light Mode - Card Content */
-.light .card-value {
-  color: var(--foreground);
-}
-
-.light .card-label {
-  color: var(--muted-foreground);
-}
-
-.light .card-description {
-  color: var(--muted-foreground);
-}
-
-/* Light Mode - Sidebar nav icons should be dark gray */
-.light .nav-link svg {
-  color: var(--text-secondary);
-}
-
-.light .nav-link:hover svg,
-.light .nav-link.active svg {
-  color: var(--primary-color);
-}
-
-/* Light Mode - Dashboard specific metrics */
-.light .metric-icon {
-  background: var(--secondary);
-  color: var(--text-secondary);
-}
-
-.light .metric-trend.positive {
-  color: var(--status-neutral);
-}
-
-.light .metric-trend.negative {
-  color: var(--status-critical);
-}
-
-/* Light Mode - Ensure tables are readable */
-.light table {
+/* Tabellen: Flaeche, abgesetzter Kopf, Zeile unter dem Zeiger.
+   Bis Phase H1 galt das nur im hellen Theme, weil die Vorgabe dunkel war und
+   die Regel dort nachbesserte. Sie ist durchgehend in Theme-Variablen
+   geschrieben, also stimmt sie in beiden Themes — und eine Tabelle, die im
+   Dunkeln anders gebaut ist als im Hellen, waeren zwei Tabellen. */
+table {
   background: var(--card);
 }
 
-.light th {
+th {
   background: var(--bg-subtle);
   color: var(--foreground);
   border-color: var(--border);
 }
 
-.light td {
+td {
   color: var(--text-secondary);
   border-color: var(--border);
 }
 
-.light tr:hover {
+tr:hover {
   background: var(--bg-subtle);
 }
 
-/* Light Mode - Form focus states */
-.light input:focus,
-.light select:focus,
-.light textarea:focus {
+/* Ein Feld, in dem der Cursor steht, traegt den Akzent — in beiden Themes
+   (bis Phase H1 nur im hellen). `--primary-color` und `--primary-alpha-10`
+   sind je Theme gesetzt, die Regel ist es einmal. */
+input:focus,
+select:focus,
+textarea:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
@@ -1288,129 +1074,6 @@ a:focus:not(:focus-visible),
 
 .logout-button:active {
   transform: scale(0.95);
-}
-
-/* Theme Toggle Button */
-.theme-toggle-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  transition: all var(--transition-base);
-  white-space: nowrap;
-}
-
-.theme-toggle-btn:hover {
-  background: var(--primary-muted);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-.theme-toggle-btn svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-/* Theme toggle in collapsed sidebar */
-.sidebar.collapsed .theme-toggle-btn {
-  width: 36px;
-  height: 36px;
-  padding: 0.5rem;
-}
-
-.sidebar.collapsed .theme-toggle-btn span {
-  display: none;
-}
-
-/* ===================================
-   iOS-STYLE THEME TOGGLE SWITCH
-   =================================== */
-
-/* Container für den Toggle */
-.theme-toggle-switch {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.875rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  width: 100%;
-  transition: all var(--transition-base);
-}
-
-/* iOS-Style Track */
-.theme-toggle-track {
-  width: 44px;
-  height: 24px;
-  background: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  position: relative;
-  flex-shrink: 0;
-  transition: all var(--transition-slow);
-}
-
-/* Beweglicher Kreis (Knob) */
-.theme-toggle-track::after {
-  content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  top: 1px;
-  left: 2px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* Light mode: Knob nach rechts, Track heller */
-.light .theme-toggle-track {
-  background: var(--primary-muted);
-  border-color: var(--primary-color);
-}
-
-.light .theme-toggle-track::after {
-  transform: translateX(18px);
-}
-
-/* Label-Text */
-.theme-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-/* Hover-Effekt */
-.theme-toggle-switch:hover {
-  background: var(--primary-muted);
-  border-color: var(--primary-color);
-}
-
-.theme-toggle-switch:hover .theme-toggle-track {
-  border-color: var(--primary-color);
-}
-
-/* Collapsed sidebar: Nur Toggle, kein Label */
-.sidebar.collapsed .theme-toggle-switch {
-  padding: 0.5rem;
-  justify-content: center;
-}
-
-.sidebar.collapsed .theme-toggle-label {
-  display: none;
 }
 
 /* Settings Link im Footer */
@@ -3793,7 +3456,10 @@ a:focus:not(:focus-visible),
   background: var(--bg-card, #121212);
   border: 1px solid var(--border-color, rgba(228, 228, 228, 0.08));
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  /* `--shadow-lg` statt eines festen Schwarz mit 0.3 (Phase H1): der Wert
+     stammt aus der Zeit der dunklen Vorgabe und ist auf heller Flaeche ein
+     Klotz. Die Schattenstufen sind je Theme gesetzt, hell deutlich weicher. */
+  box-shadow: var(--shadow-lg);
   animation: toast-slide-in 0.3s ease-out;
   pointer-events: auto;
 }
@@ -3838,8 +3504,13 @@ a:focus:not(:focus-visible),
   transition: all var(--transition-base);
 }
 
+/* `--accent` und nicht Weiss mit Alpha (Phase H1): der Schliessknopf einer
+   Meldung stand mit `rgba(255,255,255,0.1)` da, als die Vorgabe noch dunkel
+   war. Auf der hellen Flaeche ist Weiss auf Weiss nichts -- der Knopf haette
+   keinen sichtbaren Hover mehr gehabt. `--accent` IST der Hover-Wisch des
+   jeweiligen Themes. */
 .toast-close:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--accent);
   color: var(--text-primary, #F8FAFC);
 }
 

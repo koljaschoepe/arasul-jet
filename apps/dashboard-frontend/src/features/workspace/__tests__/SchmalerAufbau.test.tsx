@@ -82,12 +82,7 @@ function renderShell(pfad = '/workspace') {
   return render(
     <MemoryRouter initialEntries={[pfad]}>
       <Routes>
-        <Route
-          path="/workspace/*"
-          element={
-            <WorkspaceShell theme="dark" onToggleTheme={() => {}} onLogout={async () => {}} />
-          }
-        />
+        <Route path="/workspace/*" element={<WorkspaceShell onLogout={async () => {}} />} />
       </Routes>
     </MemoryRouter>
   );

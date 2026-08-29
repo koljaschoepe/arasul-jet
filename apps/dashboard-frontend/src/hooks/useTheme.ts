@@ -1,76 +1,139 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useApi } from './useApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
- * Drei-Theme-System: Schwarz (Default) · Dunkel · Hell.
+ * Zwei Themes: Hell (Vorgabe) und Dunkel — und sie gehoeren dem MENSCHEN.
  *
- * DOM contract on <html>:
- *   - data-theme="black|dark|light"  → drives the [data-theme=…] CSS blocks
- *   - class "dark" for black+dark    → keeps Tailwind `dark:` utilities alive
- *   - class "light" for light        → keeps the legacy `.light` CSS rules alive
+ * Bis Phase H1 lagen drei Themes im `localStorage` des Browsers. Beides ist
+ * hier gefallen:
+ *
+ *  - »Schwarz« faellt. Es unterschied sich von »Dunkel« um zwei
+ *    Hintergrundstufen, und jede Farbentscheidung, jede Abnahmetabelle und
+ *    jedes Bild gab es dreimal statt zweimal.
+ *  - Der `localStorage` faellt als QUELLE. Auf einer Standardsoftware, an der
+ *    sich Menschen anmelden, gehoert eine Einstellung zu dem, der sie gemacht
+ *    hat, und nicht zu dem Rechner, vor dem er zufaellig sass. Der Wert steht
+ *    in `admin_users.theme` (Migration 180) und faehrt mit der Sitzung mit.
+ *
+ * DOM-Vertrag auf `<html>`:
+ *   - `data-theme="dark"` → schaltet den Block `[data-theme='dark']` in
+ *     `index.css`. Hell setzt GAR NICHTS: Hell ist `:root`, und ein Attribut
+ *     dafuer waere ein zweiter Name fuer den Normalfall. Bis H1 stand hier
+ *     `data-theme="black|dark|light"` plus eine Klasse `.light`.
+ *   - Klasse `dark` → haelt die Tailwind-Utilities `dark:` am Leben.
+ *
+ * KEIN `toggleTheme` MEHR. Bei drei Werten war ein Durchschalten ein Weg; bei
+ * zwei Optionen in den Einstellungen waere es ein zweiter Weg in denselben
+ * Zustand, und einen Knopf dafuer gab es zuletzt ohnehin nirgends.
  */
-export type Theme = 'black' | 'dark' | 'light';
+export type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = 'arasul_theme';
+/** Ohne Sitzung und ohne gesetzten Wert: hell (Spaltenvorgabe, Migration 180). */
+const THEME_VORGABE: Theme = 'light';
 
-/** Cycle order for toggleTheme(): black → dark → light → black */
-const NEXT_THEME: Record<Theme, Theme> = {
-  black: 'dark',
-  dark: 'light',
-  light: 'black',
-};
+/**
+ * Der alte Schluessel — nur noch, um ihn EINMAL zu uebernehmen und dann zu
+ * loeschen. Er stand nur dann im Speicher, wenn jemand das Theme aktiv
+ * umgestellt hat (die alte Vorgabe »Schwarz« wurde nie geschrieben), also ist
+ * seine Anwesenheit eine Entscheidung und keine Vermutung. `black` und `dark`
+ * werden beide zu `dark`.
+ */
+const ALTER_SCHLUESSEL = 'arasul_theme';
 
-function isTheme(value: string | null): value is Theme {
-  return value === 'black' || value === 'dark' || value === 'light';
+function altenWertLesen(): Theme | null {
+  let alt: string | null = null;
+  try {
+    alt = localStorage.getItem(ALTER_SCHLUESSEL);
+  } catch {
+    // Ein Browser ohne Speicher hat auch nichts zu uebernehmen.
+    return null;
+  }
+  if (alt === 'black' || alt === 'dark') return 'dark';
+  if (alt === 'light') return 'light';
+  return null;
 }
 
-function getInitialTheme(): Theme {
-  // Migration: stored 'dark'/'light' keep their meaning; missing or unknown
-  // values fall back to the new default 'black'.
-  const saved = localStorage.getItem(STORAGE_KEY);
-  return isTheme(saved) ? saved : 'black';
+function altenWertVergessen(): void {
+  try {
+    localStorage.removeItem(ALTER_SCHLUESSEL);
+  } catch {
+    /* s. o. */
+  }
 }
 
-// Module-level pub/sub so every mounted useTheme() instance (App shell,
-// WorkspaceMenuBar, Settings, terminals) stays in sync without a provider.
-const listeners = new Set<(theme: Theme) => void>();
-
-function broadcast(theme: Theme) {
-  listeners.forEach(listener => listener(theme));
+function amDokumentAnwenden(theme: Theme): void {
+  const root = document.documentElement;
+  root.classList.toggle('dark', theme === 'dark');
+  if (theme === 'dark') root.setAttribute('data-theme', 'dark');
+  else root.removeAttribute('data-theme');
 }
 
+/**
+ * Das Theme des Angemeldeten, lesen und setzen.
+ *
+ * Es gibt keinen eigenen Zustand daneben: die Quelle ist der Benutzer aus dem
+ * `AuthContext`, und der kommt aus derselben Antwort, die auch sagt, ob eine
+ * Sitzung besteht. Wer nicht angemeldet ist (Anmeldung, Passwortwechsel),
+ * sieht die Vorgabe.
+ */
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const { user, isAuthenticated, benutzerAktualisieren } = useAuth();
+  const api = useApi();
 
-  // Keep a ref for stable-toggle without functional-update side effects
-  const themeRef = useRef(theme);
-  themeRef.current = theme;
+  const theme: Theme = user?.theme === 'dark' ? 'dark' : THEME_VORGABE;
 
-  // Subscribe to theme changes made by other useTheme() instances
+  const setTheme = useCallback(
+    async (neu: Theme) => {
+      // Erst schreiben, dann anzeigen: die Oberflaeche zeigt das, was das
+      // Geraet bestaetigt hat. Ein Fehler meldet sich ueber `useApi` selbst,
+      // und der Bildschirm bleibt, wie er war -- das ist die ehrlichere
+      // Auskunft als ein Umschalten, das den naechsten Seitenaufbau nicht
+      // ueberlebt.
+      const antwort = await api.put<{ data: { theme: Theme } }>('/darstellung', { theme: neu });
+      benutzerAktualisieren({ theme: antwort?.data?.theme ?? neu });
+    },
+    [api, benutzerAktualisieren]
+  );
+
+  // Einmalige Uebernahme des alten Browser-Werts (Phase H1). Sie laeuft nur
+  // fuer einen Angemeldeten -- ohne Sitzung gibt es niemanden, dem der Wert
+  // gehoeren koennte -- und genau einmal je Browser, weil der Schluessel
+  // danach weg ist. `uebernommen` haelt sie zusaetzlich innerhalb einer
+  // Sitzung fest, damit der StrictMode-Doppelaufruf nicht zweimal schreibt.
+  //
+  // Der Merker gehoert dem einzelnen Hook und nicht dem Modul. Beim Laden
+  // haelt `useTheme()` nur `App.tsx`; `GeneralSettings` kommt erst, wenn
+  // jemand die Einstellungen oeffnet, und da ist der Schluessel laengst weg.
+  // Waeren doch zwei zugleich gemountet, schickten sie zweimal DIESELBE
+  // Anfrage und raeumten zweimal denselben Schluessel weg -- ein Merker am
+  // Modul brauchte dafuer eine Naht, die nur die Tests zuruecksetzen.
+  const uebernommen = useRef(false);
   useEffect(() => {
-    const listener = (next: Theme) => setThemeState(next);
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }, []);
+    if (!isAuthenticated || uebernommen.current) return;
+    const alt = altenWertLesen();
+    if (!alt) return;
+    uebernommen.current = true;
+    if (alt === theme) {
+      // Nichts zu schreiben, nur aufzuraeumen.
+      altenWertVergessen();
+      return;
+    }
+    setTheme(alt)
+      .then(altenWertVergessen)
+      .catch(() => {
+        // Der Schluessel bleibt liegen, der naechste Seitenaufbau versucht es
+        // wieder. Etwas zu loeschen, dessen Uebernahme misslungen ist, waere
+        // der einzige Weg, den Wert endgueltig zu verlieren.
+        uebernommen.current = false;
+      });
+  }, [isAuthenticated, theme, setTheme]);
 
-  const setTheme = useCallback((newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem(STORAGE_KEY, newTheme);
-    broadcast(newTheme);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme(NEXT_THEME[themeRef.current]);
-  }, [setTheme]);
-
-  // Apply theme to <html>: data-theme attribute + dark/light classes
+  // Das Attribut am Dokument folgt dem Wert. Ein Effekt, eine Stelle -- auch
+  // wenn mehrere Komponenten den Hook halten, schreiben sie denselben Wert.
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'black' || theme === 'dark');
-    root.classList.toggle('light', theme === 'light');
-    root.setAttribute('data-theme', theme);
+    amDokumentAnwenden(theme);
   }, [theme]);
 
-  return { theme, setTheme, toggleTheme } as const;
+  return { theme, setTheme } as const;
 }

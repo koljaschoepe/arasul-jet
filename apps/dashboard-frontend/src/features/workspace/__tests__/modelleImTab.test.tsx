@@ -23,8 +23,6 @@ import { FeatureTabHost } from '../TabContent';
 import type { WorkspaceTab } from '@/stores/workspaceStore';
 
 const steuerung = {
-  theme: 'black',
-  onToggleTheme: () => {},
   onLogout: async () => {},
 };
 
@@ -35,7 +33,7 @@ test('der Modelle-Tab rendert die Kurzliste, nicht die Bruecke', async () => {
       <Routes>
         <Route
           path="/workspace/modelle"
-          element={<FeatureTabHost tab={tab} themeControls={steuerung} />}
+          element={<FeatureTabHost tab={tab} handgriffe={steuerung} />}
         />
       </Routes>
     </MemoryRouter>

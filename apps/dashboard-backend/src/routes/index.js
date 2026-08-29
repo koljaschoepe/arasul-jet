@@ -87,6 +87,10 @@ router.use('/docs', require('./docs'));
 // und nicht unter `admin/`: er gehoert dem Angemeldeten, jeder hat einen, und
 // niemand verwaltet den eines anderen.
 router.use('/notizen', require('./notizen'));
+// Die Darstellung der Oberflaeche, je Mensch (Phase H1). Danebengestellt aus
+// demselben Grund wie die Notizen: sie gehoert dem Angemeldeten. Gelesen wird
+// sie ueber `/auth/session`, hier steht nur der schreibende Weg.
+router.use('/darstellung', require('./darstellung'));
 
 // --- System ---
 router.use('/system', require('./system/system'));

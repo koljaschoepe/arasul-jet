@@ -18,8 +18,6 @@ import { SystemSettings } from '../system/SystemSettings';
 
 interface SettingsProps {
   handleLogout: () => void;
-  theme: string;
-  onToggleTheme: () => void;
 }
 
 /**
@@ -28,7 +26,7 @@ interface SettingsProps {
  * Sektion — keine zweite Spalte / kein „Tab im Tab" mehr. Die aktive Sektion
  * steht im settingsStore, den beide Seiten teilen.
  */
-function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
+function Settings({ handleLogout }: SettingsProps) {
   const api = useApi();
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
@@ -84,7 +82,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
       case 'general':
         return (
           <ComponentErrorBoundary componentName="Allgemein">
-            <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />
+            <GeneralSettings />
           </ComponentErrorBoundary>
         );
       case 'apps':
@@ -137,7 +135,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
       default:
         return (
           <ComponentErrorBoundary componentName="Allgemein">
-            <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />
+            <GeneralSettings />
           </ComponentErrorBoundary>
         );
     }

@@ -93,7 +93,7 @@ async function requireAuth(req, res, next) {
     let result;
     try {
       result = await db.query(
-        'SELECT id, username, email, role, is_active, passwort_vom_admin FROM admin_users WHERE id = $1',
+        'SELECT id, username, email, role, is_active, passwort_vom_admin, theme FROM admin_users WHERE id = $1',
         [decoded.userId]
       );
     } catch (dbError) {
@@ -204,7 +204,7 @@ async function optionalAuth(req, res, next) {
   // Database errors should be logged as they indicate infrastructure issues
   try {
     const result = await db.query(
-      'SELECT id, username, email, role, is_active, passwort_vom_admin FROM admin_users WHERE id = $1',
+      'SELECT id, username, email, role, is_active, passwort_vom_admin, theme FROM admin_users WHERE id = $1',
       [decoded.userId]
     );
 

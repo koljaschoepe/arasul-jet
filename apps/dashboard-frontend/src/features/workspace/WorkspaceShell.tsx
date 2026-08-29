@@ -14,7 +14,7 @@ import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
 import { TabContent } from './TabContent';
-import type { TabThemeControls } from './TabContent';
+import type { ShellHandgriffe } from './TabContent';
 import { ActivityBar } from './ActivityBar';
 import { SidebarHost } from './SidebarHost';
 import { RightPanel } from './RightPanel';
@@ -64,7 +64,7 @@ import { SchmalMenue } from './SchmalMenue';
  * ein Panel als Nachbarn markierte. `aria-hidden` wird für die A11y weiter
  * gespiegelt, steuert aber die Darstellung nicht mehr.
  */
-export default function WorkspaceShell(props: TabThemeControls) {
+export default function WorkspaceShell(props: ShellHandgriffe) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -251,7 +251,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
                   wieder aufzieht, findet sie unverändert vor. */}
               {!schmal && <TabBar />}
               <div className="min-h-0 flex-1 overflow-hidden rounded-tl-md bg-background">
-                <TabContent themeControls={props} />
+                <TabContent handgriffe={props} />
               </div>
             </div>
           </Panel>

@@ -65,7 +65,7 @@ router.post(
     // bekommt vom Administrator beides und soll sich nicht merken muessen,
     // welches davon das Anmelde-Merkmal ist.
     const result = await db.query(
-      `SELECT id, username, password_hash, email, role, is_active, passwort_vom_admin
+      `SELECT id, username, password_hash, email, role, is_active, passwort_vom_admin, theme
          FROM admin_users WHERE username = $1 OR email = $1`,
       [username]
     );
@@ -166,6 +166,12 @@ router.post(
         // einzeln kennen, und der eine Weg, den sie offenlassen muesste, ist
         // ausgerechnet der Passwortwechsel.
         passwortWechselNoetig: user.passwort_vom_admin === true,
+        // Die Darstellung dieses Menschen (Phase H1, `admin_users.theme`).
+        // Sie faehrt mit der Anmeldung, mit `/auth/me` und mit `/auth/session`
+        // mit, damit die Shell sie kennt, BEVOR sie zum ersten Mal malt --
+        // eine eigene Anfrage dafuer waere eine dritte auf jedem Seitenaufbau,
+        // und die zwei, die es gibt, sind schon die enge Stelle (G2).
+        theme: user.theme,
       },
       timestamp: new Date().toISOString(),
     });
@@ -239,7 +245,16 @@ router.post(
       token: tokenData.token,
       expiresAt: tokenData.expiresAt,
       expiresIn: tokenData.expiresIn,
-      user: { id: user.id, username: user.username, email: user.email, role: 'admin' },
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: 'admin',
+        // Frisch angelegt, also die Spaltenvorgabe (Migration 180). Steht hier
+        // ausgeschrieben und nicht als `user.theme`, weil `createFirstAdmin`
+        // die Spalte nicht zurueckgibt.
+        theme: 'light',
+      },
       timestamp: new Date().toISOString(),
     });
   })
@@ -391,6 +406,7 @@ router.get(
         email: req.user.email,
         role: req.user.role,
         passwortWechselNoetig: req.user.passwort_vom_admin === true,
+        theme: req.user.theme,
       },
       timestamp: new Date().toISOString(),
     });
@@ -430,6 +446,7 @@ router.get(
             email: req.user.email,
             role: req.user.role,
             passwortWechselNoetig: req.user.passwort_vom_admin === true,
+            theme: req.user.theme,
           }
         : null,
       timestamp: new Date().toISOString(),

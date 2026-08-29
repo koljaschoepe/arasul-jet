@@ -32,15 +32,24 @@ vi.mock('../../contexts/ToastContext', () => ({
   ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// Das Theme des Angemeldeten (Phase H1): es kommt aus dem Benutzer, nicht mehr
+// aus dem `localStorage`. `benutzerAktualisieren` traegt die Antwort des
+// Geraets zurueck, `mitTheme` sagt je Test, womit der Mensch hereinkommt.
+let mitTheme: 'light' | 'dark' = 'light';
+const benutzerAktualisieren = vi.fn((teil: { theme?: 'light' | 'dark' }) => {
+  if (teil.theme) mitTheme = teil.theme;
+});
+
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 1, username: 'admin' },
+    user: { id: 1, username: 'admin', theme: mitTheme },
     isAuthenticated: true,
     loading: false,
     login: vi.fn(),
     logout: vi.fn(),
     checkAuth: vi.fn(),
     setLoadingComplete: vi.fn(),
+    benutzerAktualisieren,
   }),
 }));
 
@@ -60,8 +69,6 @@ vi.mock('../../hooks/useConfirm', () => ({
 function renderSettings(props: Partial<Parameters<typeof Settings>[0]> = {}) {
   const defaultProps = {
     handleLogout: vi.fn(),
-    theme: 'dark' as string,
-    onToggleTheme: vi.fn(),
   };
 
   return {
@@ -80,6 +87,9 @@ function renderSettings(props: Partial<Parameters<typeof Settings>[0]> = {}) {
 describe('Settings integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mitTheme = 'light';
+    document.documentElement.classList.remove('dark');
+    document.documentElement.removeAttribute('data-theme');
     // Reset the shared active-section store so section state never leaks between
     // tests (the store is a module-level singleton).
     useSettingsStore.setState({ activeSection: 'general' });
@@ -164,40 +174,48 @@ describe('Settings integration', () => {
     });
   });
 
-  it('shows the three theme options in General settings (black checked by default)', async () => {
-    localStorage.removeItem('arasul_theme');
+  it('zwei Optionen, Hell ist die Vorgabe (Phase H1: »Schwarz« ist gefallen)', async () => {
+    mitTheme = 'light';
     renderSettings();
 
     await waitFor(() => {
       expect(screen.getByText('Erscheinungsbild')).toBeInTheDocument();
     });
 
-    expect(screen.getByRole('radio', { name: /Schwarz/ })).toBeChecked();
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByRole('radio', { name: /Hell/ })).toBeChecked();
     expect(screen.getByRole('radio', { name: /Dunkel/ })).not.toBeChecked();
-    expect(screen.getByRole('radio', { name: /Hell/ })).not.toBeChecked();
+    expect(screen.queryByRole('radio', { name: /Schwarz/ })).not.toBeInTheDocument();
   });
 
-  it('selecting a theme option applies theme and persists it', async () => {
+  it('eine Wahl geht an das Geraet und steht danach am Dokument', async () => {
     const user = userEvent.setup();
+    mitTheme = 'light';
+    vi.mocked(mockApi.put).mockResolvedValue({ data: { theme: 'dark' } });
     renderSettings();
 
     await waitFor(() => {
-      expect(screen.getByRole('radio', { name: /Hell/ })).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /Dunkel/ })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('radio', { name: /Hell/ }));
+    await user.click(screen.getByRole('radio', { name: /Dunkel/ }));
 
-    expect(localStorage.getItem('arasul_theme')).toBe('light');
-    expect(document.documentElement.classList.contains('light')).toBe(true);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    // Was danach am Dokument steht, prueft der Hook selbst
+    // (`__tests__/hooks/useTheme.test.tsx`). Hier geht es um die Seite: der
+    // Klick auf »Dunkel« schickt genau eine Anfrage, und uebernommen wird die
+    // Antwort des Geraets.
+    await waitFor(() => {
+      expect(mockApi.put).toHaveBeenCalledWith('/darstellung', { theme: 'dark' });
+    });
+    expect(benutzerAktualisieren).toHaveBeenCalledWith({ theme: 'dark' });
   });
 
-  it('shows light option checked when stored theme is light', async () => {
-    localStorage.setItem('arasul_theme', 'light');
+  it('wer mit »dunkel« hereinkommt, sieht »Dunkel« angehakt', async () => {
+    mitTheme = 'dark';
     renderSettings();
 
     await waitFor(() => {
-      expect(screen.getByRole('radio', { name: /Hell/ })).toBeChecked();
+      expect(screen.getByRole('radio', { name: /Dunkel/ })).toBeChecked();
     });
   });
 
@@ -320,7 +338,7 @@ describe('Settings integration', () => {
   it('deep-links via ?tab=system to the System tab', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=system']}>
-        <Settings handleLogout={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
+        <Settings handleLogout={vi.fn()} />
       </MemoryRouter>
     );
 
@@ -332,7 +350,7 @@ describe('Settings integration', () => {
   it('maps the legacy ?tab=selfhealing deep-link onto the System tab with the Selbstheilung sub-section active', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=selfhealing']}>
-        <Settings handleLogout={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
+        <Settings handleLogout={vi.fn()} />
       </MemoryRouter>
     );
 

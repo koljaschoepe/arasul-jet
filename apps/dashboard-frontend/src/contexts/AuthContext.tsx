@@ -31,6 +31,13 @@ interface User {
    * Schluss zieht wie die Anmeldung selbst.
    */
   passwortWechselNoetig?: boolean;
+  /**
+   * Die Darstellung der Oberflaeche fuer diesen Menschen (Phase H1,
+   * `admin_users.theme`). Sie faehrt in derselben Antwort mit, die sagt, ob
+   * eine Sitzung besteht -- die Shell kennt sie damit, bevor sie das erste Mal
+   * malt, und braucht keine eigene Anfrage dafuer.
+   */
+  theme?: 'light' | 'dark';
   [key: string]: unknown;
 }
 
@@ -47,6 +54,16 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   checkAuth: (signal?: AbortSignal) => Promise<boolean>;
   setLoadingComplete: () => void;
+  /**
+   * Eine Eigenschaft des Angemeldeten nachziehen, nachdem das GERAET sie
+   * bestaetigt hat (heute: das Theme, `hooks/useTheme.ts`).
+   *
+   * Nicht `setUser`: eine offene Schreibstelle waere gross genug, um von
+   * aussen eine Sitzung zu behaupten, die es gar nicht gibt. Wer hier
+   * schreibt, aendert etwas an einem Menschen, der schon angemeldet IST --
+   * ohne Sitzung passiert nichts.
+   */
+  benutzerAktualisieren: (teil: Partial<User>) => void;
 }
 
 // Context
@@ -328,6 +345,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  // Eine Eigenschaft des Angemeldeten nachziehen. Begruendung an der
+  // Schnittstelle oben.
+  //
+  // Der `localStorage`-Eintrag `arasul_user` geht mit: er ist der Abklatsch
+  // derselben Antwort, und zwei Staende desselben Menschen im Browser waeren
+  // genau die Doppelung, die hier nicht sein soll.
+  const benutzerAktualisieren = useCallback((teil: Partial<User>) => {
+    setUser(vorher => {
+      if (!vorher) return vorher;
+      const naechster = { ...vorher, ...teil };
+      localStorage.setItem('arasul_user', JSON.stringify(naechster));
+      return naechster;
+    });
+  }, []);
+
   // Mark loading as complete (called by App.js after data fetch)
   const setLoadingComplete = useCallback(() => {
     setLoading(false);
@@ -390,8 +422,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       logout,
       checkAuth,
       setLoadingComplete,
+      benutzerAktualisieren,
     }),
-    [user, isAuthenticated, loading, login, logout, checkAuth, setLoadingComplete]
+    [
+      user,
+      isAuthenticated,
+      loading,
+      login,
+      logout,
+      checkAuth,
+      setLoadingComplete,
+      benutzerAktualisieren,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

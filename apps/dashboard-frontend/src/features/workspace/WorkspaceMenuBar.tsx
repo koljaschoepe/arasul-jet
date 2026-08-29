@@ -44,8 +44,8 @@ interface WorkspaceMenuBarProps {
 /**
  * Schlanke Top-Menüleiste der Shell, bewusst minimal: links die Marke, rechts
  * die zwei Layout-Toggles (Sidebar / rechte Spalte), das Benutzermenü und —
- * für den Administrator — die Einstellungen. Das Theme (Schwarz/Dunkel/Hell)
- * wird ausschließlich in den Einstellungen → Erscheinungsbild gesetzt
+ * für den Administrator — die Einstellungen. Das Theme (Hell/Dunkel) wird
+ * ausschließlich in den Einstellungen → Erscheinungsbild gesetzt
  * (Plan 005 · Schritt 1).
  *
  * Das Datei-Menü (Ordner anlegen, Terminal, Dokumente hochladen) und der

@@ -131,11 +131,31 @@ function checkIndexCSS() {
   // The value source is the shadcn set (--primary / --background); the Arasul
   // aliases (--primary-color / --bg-dark) now point at those via var(). Check the
   // real values where they actually live, not the aliased names.
-  // Canonical values = Theme »Schwarz« (:root default), see
-  // docs/development/DESIGN.md (Plan 001 »Cursor-Feinschliff«).
-  if (!lower.includes('--primary: #81a1c1')) errors.push('Primary nicht #81A1C1 (Theme Schwarz)');
-  if (!lower.includes('--background: #0a0a0a')) errors.push('Background Schwarz nicht #0A0A0A');
+  //
+  // Seit Phase H1 gibt es ZWEI Themes, und `:root` ist das helle: die Vorgabe
+  // steht ohne Selektor da, `[data-theme='dark']` ueberschreibt sie. Geprueft
+  // werden deshalb beide Seiten -- ein Wert, den nur eines der beiden Themes
+  // hat, ist ein Wert, der im anderen fehlt.
+  // Siehe docs/development/DESIGN.md.
+  if (!lower.includes('--primary: #2d8fd9')) errors.push('Primary (Hell) nicht #2D8FD9');
+  if (!lower.includes('--background: #f6f6f6')) errors.push('Background (Hell) nicht #F6F6F6');
+  if (!lower.includes('--primary: #81a1c1')) errors.push('Primary (Dunkel) nicht #81A1C1');
+  if (!lower.includes('--background: #141414')) errors.push('Background (Dunkel) nicht #141414');
   if (!lower.includes('--text-primary')) errors.push('--text-primary Variable fehlt');
+
+  // »Schwarz« ist mit H1 gefallen, und mit ihm die Klasse `.light`: Hell IST
+  // `:root`. Beides steht hier, weil beides von selbst zurueckkommt -- ein
+  // `.light`-Selektor sieht wie eine harmlose Theme-Regel aus und ist seit H1
+  // eine Regel, die NIE greift (die Klasse setzt niemand mehr), und ein
+  // dritter Theme-Block waere die dritte Spalte in jeder Abnahmetabelle.
+  if (/(^|[\s,>+~])\.light\b/m.test(content)) {
+    errors.push('index.css: `.light`-Selektor — die Klasse setzt seit H1 niemand mehr');
+  }
+  const themeBloecke = [...content.matchAll(/\[data-theme=['"]([\w-]+)['"]\]/g)].map(m => m[1]);
+  const fremde = [...new Set(themeBloecke)].filter(t => t !== 'dark');
+  if (fremde.length) {
+    errors.push(`index.css: unbekanntes Theme [data-theme=${fremde.join(', ')}] — es gibt Hell und Dunkel`);
+  }
   return errors;
 }
 

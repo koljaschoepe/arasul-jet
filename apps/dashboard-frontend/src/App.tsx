@@ -96,8 +96,12 @@ function AppContent(): React.JSX.Element | null {
     return () => clearInterval(id);
   }, [isAuthenticated]);
 
-  // Theme: useTheme hook handles localStorage, system preference, and DOM classes
-  const { theme, toggleTheme } = useTheme();
+  // Das Theme des Angemeldeten am Dokument (Phase H1). Der Hook wird hier
+  // gehalten, weil `AppContent` die eine Komponente ist, die IMMER steht --
+  // Anmeldung, Passwortwechsel und Shell hängen darunter. Ohne Sitzung ist es
+  // die Vorgabe (hell); sobald die Sitzungsprobe geantwortet hat, steht der
+  // Wert des Menschen da, und zwar bevor die Shell zum ersten Mal malt.
+  useTheme();
 
   // P2.5.1: prevent the browser from navigating to a file when the user drops
   // it outside of a designated drop zone. Without this, a stray drop on the
@@ -258,11 +262,7 @@ function AppContent(): React.JSX.Element | null {
                   <Suspense
                     fallback={<LoadingSpinner message="Lade Workspace..." fullscreen={true} />}
                   >
-                    <WorkspaceShell
-                      theme={theme}
-                      onToggleTheme={toggleTheme}
-                      onLogout={handleLogout}
-                    />
+                    <WorkspaceShell onLogout={handleLogout} />
                   </Suspense>
                 </RouteErrorBoundary>
               }
