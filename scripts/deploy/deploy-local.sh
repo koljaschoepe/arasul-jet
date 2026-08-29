@@ -151,6 +151,16 @@ declare -A PATH2SVC=(
 # fuehre, waere am Orin ein Tagesgeschaeft aus Vollbauten (schon einmal elf
 # Deploys in 66 Minuten). Der Deploy baut, was sich geaendert hat; das
 # Artefakt richtet ein Geraet ein. Verschiedene Aufgaben, ein Ort.
+#
+# Was der erste Deploy in ein solches Verzeichnis NICHT aufraeumt: Dateien der
+# alten Fassung, die es im neuen Stand nicht mehr gibt. Sie sind unversioniert,
+# also fasst `git reset --hard` sie nicht an, und sie bleiben als tote Skripte
+# liegen. Ein `git clean -fd` wuerde sie treffen (`.env`, `data/`, `logs/` und
+# `config/secrets/` stehen in der `.gitignore` und ueberleben es) -- es wuerde
+# aber auch alles andere treffen, was ein Mensch dort abgelegt hat, und ein
+# Deploy, der ungefragt loescht, ist der falsche Ort fuer diese Entscheidung.
+# Ab dem ZWEITEN Deploy loescht `git reset --hard` ordentlich mit, weil die
+# Dateien dann versioniert sind.
 OHNE_HISTORIE=0
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
   log "Kein Git in $DEPLOY_DIR (aus dem Artefakt installiert) — Arbeitsbaum wird angelegt"
