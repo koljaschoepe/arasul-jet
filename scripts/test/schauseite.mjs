@@ -1,14 +1,14 @@
 /**
  * Die Schauseite der Bibliothek: die Abnahme (Phase H3, 29.08.2026).
  *
- * WAS GEMESSEN WIRD. Sechsundzwanzig Primitive, zwei Themes, drei Breiten --
- * und je Zelle vier Fragen:
+ * WAS GEMESSEN WIRD. Jedes Primitiv und jedes Muster, zwei Themes, drei
+ * Breiten -- und je Zelle vier Fragen:
  *
- *   1. STEHT JEDES STUECK DA. Die Seite traegt je Primitiv ein
+ *   1. STEHT JEDES STUECK DA. Die Seite traegt je Baustein ein
  *      `data-schaustueck`; gezaehlt wird gegen die Dateien in
- *      `packages/marken/src/primitive/`. Ein Baustein, der beim Rendern
- *      wirft, hinterlaesst auf einem Bild einen Fleck, der wie Abstand
- *      aussieht -- gezaehlt faellt er auf.
+ *      `packages/marken/src/primitive/` UND `.../muster/` (Phase H4). Ein
+ *      Baustein, der beim Rendern wirft, hinterlaesst auf einem Bild einen
+ *      Fleck, der wie Abstand aussieht -- gezaehlt faellt er auf.
  *   2. IST DIE FLAECHE DIE DES THEMES. `--background` ist im Hellen
  *      `#F6F6F6` und im Dunklen `#141414`. Zwei Bilder, die gleich aussehen,
  *      sind der haeufigste stille Fehlschlag eines Theme-Umbaus (H1), und bei
@@ -17,6 +17,15 @@
  *   3. ROLLT DIE SEITE WAAGERECHT. Dieselbe Frage wie in der
  *      Oberflaechen-Abnahme, und aus demselben Grund: ein Baustein, der bei
  *      390 px eine feste Breite mitbringt, schiebt die ganze Seite.
+ *
+ *      SIE NENNT SEIT H4 DAS ELEMENT. Der Lauf am Orin vom 29.08.2026 war
+ *      an genau einer Zelle rot -- „1024 px, hell, 1039 gegen 1024" --, und
+ *      zu sehen war nichts. Eine Zahl ohne Element laesst offen, ob es eine
+ *      Tabelle war, ein `.sr-only` in einem Knopf (der Fund aus G1) oder ein
+ *      Kasten mit fester Breite; drei Befunde mit drei verschiedenen
+ *      Antworten. Gefragt wird deshalb jedes Element, dessen rechter Rand
+ *      ueber die Sichtbreite hinausragt, und in die Zeile kommen die drei
+ *      aeussersten mit Waehler und Kante.
  *   4. SAGT DIE KONSOLE ETWAS. Ein fehlender Radix-Provider meldet sich dort
  *      und nirgends sonst -- der Baustein rendert, tut aber nichts.
  *
@@ -94,21 +103,28 @@ function einzeilig(text, laenge = 160) {
 }
 
 /**
- * Wie viele Primitive es gibt -- gezaehlt an den Dateien, nicht an einer Zahl
+ * Wie viele Bausteine es gibt -- gezaehlt an den Dateien, nicht an einer Zahl
  * in dieser Datei. Eine Abnahme, die ihre eigene Erwartung pflegt, misst
  * irgendwann die Pflege statt das Produkt.
+ *
+ * Zwei Ordner seit H4: die Primitive und die Muster. Verglichen wird KLEIN
+ * geschrieben -- aus `input-otp.tsx` wuerde `InputOtp`, und der Aufrufer
+ * tippt `InputOTP`; das Schaustueck soll den Namen tragen, den ein Mensch
+ * tippt. Dieselbe Regel wie in `scripts/test/bausteine.py`.
  */
-function primitiveAmOrt() {
-  const ordner = path.join(WURZEL, 'packages/marken/src/primitive');
-  return fs
-    .readdirSync(ordner)
-    .filter(n => n.endsWith('.tsx'))
-    .map(n => n.replace(/\.tsx$/, ''))
-    .map(n =>
-      n
-        .split('-')
-        .map(t => t[0].toUpperCase() + t.slice(1))
-        .join('')
+function bausteineAmOrt() {
+  return ['packages/marken/src/primitive', 'packages/marken/src/muster']
+    .flatMap(unterordner =>
+      fs
+        .readdirSync(path.join(WURZEL, unterordner))
+        .filter(n => n.endsWith('.tsx'))
+        .map(n => n.replace(/\.tsx$/, ''))
+        .map(n =>
+          n
+            .split('-')
+            .map(t => t[0].toUpperCase() + t.slice(1))
+            .join('')
+        )
     )
     .sort();
 }
@@ -180,17 +196,45 @@ async function flaecheAbwarten(seite, erwartet, grenze = 4000) {
     .catch(() => {});
 }
 
-/** Was die Seite ueber sich sagt: Theme, Flaeche, Stuecke, Rollbreite. */
+/**
+ * Was die Seite ueber sich sagt: Theme, Flaeche, Stuecke, Rollbreite -- und
+ * WER ueber den Rand haengt.
+ *
+ * Die Ueberhaenger werden mit `elementsFromPoint` nicht gefunden (sie liegen
+ * ausserhalb), also wird der ganze Baum abgefragt. Das ist einmal je Zelle
+ * und dauert Millisekunden; die Auskunft ist den Preis wert, denn ohne sie
+ * ist ein rotes Feld hier eine Zahl ohne Ursache.
+ */
 async function standLesen(seite) {
-  return seite.evaluate(() => ({
-    attribut: document.documentElement.getAttribute('data-theme'),
-    flaeche: getComputedStyle(document.body).backgroundColor,
-    stuecke: [...document.querySelectorAll('[data-schaustueck]')].map(el =>
-      el.getAttribute('data-schaustueck')
-    ),
-    rollbreite: document.documentElement.scrollWidth,
-    sichtbreite: document.documentElement.clientWidth,
-  }));
+  return seite.evaluate(() => {
+    const sichtbreite = document.documentElement.clientWidth;
+    const ueberhang = [...document.querySelectorAll('body *')]
+      .map(el => {
+        const kasten = el.getBoundingClientRect();
+        return { el, rechts: Math.round(kasten.right), breite: Math.round(kasten.width) };
+      })
+      .filter(e => e.rechts > sichtbreite + 1 && e.breite > 0)
+      .sort((a, b) => b.rechts - a.rechts)
+      .slice(0, 3)
+      .map(e => {
+        const stueck = e.el.closest('[data-schaustueck]');
+        const klassen = String(e.el.className || '').split(/\s+/).filter(Boolean).slice(0, 3);
+        return (
+          `${e.el.tagName.toLowerCase()}${klassen.length ? '.' + klassen.join('.') : ''}` +
+          `${stueck ? ` in ${stueck.getAttribute('data-schaustueck')}` : ''} bis ${e.rechts}`
+        );
+      });
+    return {
+      attribut: document.documentElement.getAttribute('data-theme'),
+      flaeche: getComputedStyle(document.body).backgroundColor,
+      stuecke: [...document.querySelectorAll('[data-schaustueck]')].map(el =>
+        el.getAttribute('data-schaustueck')
+      ),
+      rollbreite: document.documentElement.scrollWidth,
+      sichtbreite,
+      ueberhang,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -204,8 +248,10 @@ async function main() {
   }
   fs.mkdirSync(ZIEL, { recursive: true });
 
-  const erwartet = primitiveAmOrt();
-  console.log(`\n=== Schauseite (H3) — ${erwartet.length} Primitive, 2 Themes, 3 Breiten ===\n`);
+  const erwartet = bausteineAmOrt();
+  console.log(
+    `\n=== Schauseite (H3/H4) — ${erwartet.length} Bausteine, 2 Themes, 3 Breiten ===\n`
+  );
 
   const angemeldet = await anmelden(BENUTZER, PASSWORT);
   if (!pruefe('Anmeldung des Pruefbenutzers', angemeldet.code === 200, `HTTP ${angemeldet.code}`)) {
@@ -272,7 +318,8 @@ async function main() {
           .catch(() => {});
         gemacht.push(datei);
 
-        const fehlen = erwartet.filter(n => !stand.stuecke.includes(n));
+        const gezeigt = new Set(stand.stuecke.map(n => String(n).toLowerCase()));
+        const fehlen = erwartet.filter(n => !gezeigt.has(n.toLowerCase()));
         pruefe(
           `${breite.px} px · ${theme.name} · alle ${erwartet.length} Stuecke`,
           fehlen.length === 0,
@@ -286,7 +333,8 @@ async function main() {
         pruefe(
           `${breite.px} px · ${theme.name} · rollt nicht waagerecht`,
           stand.rollbreite <= stand.sichtbreite + 1,
-          `${stand.rollbreite} gegen ${stand.sichtbreite}`
+          `${stand.rollbreite} gegen ${stand.sichtbreite}` +
+            (stand.ueberhang.length ? ` — ${stand.ueberhang.join(' | ')}` : '')
         );
         pruefe(
           `${breite.px} px · ${theme.name} · die Konsole schweigt`,
