@@ -257,8 +257,11 @@ BEGIN
 END
 \$\$;
 SQL
-        if ! psql "${PGH[@]}" -d postgres -tAc \
-             "SELECT 1 FROM pg_database WHERE datname = '${APP_DB}'" 2>/dev/null | grep -q 1; then
+        # `grep -q <<<"$(…)"` und nicht `… | grep -q`: grep steigt beim ersten
+        # Treffer aus, der Erzeuger schreibt weiter, und unter `pipefail` ist
+        # das Rohr danach zerrissen (`scripts/test/rohrbruch.py`).
+        if ! grep -q 1 <<<"$(psql "${PGH[@]}" -d postgres -tAc \
+             "SELECT 1 FROM pg_database WHERE datname = '${APP_DB}'" 2>/dev/null)"; then
             psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
                  -c "CREATE DATABASE \"${APP_DB}\" OWNER \"${APP_ROLLE}\"" >>"$PROTOKOLL" 2>&1 || true
             psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
