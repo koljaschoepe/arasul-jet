@@ -171,8 +171,25 @@ async function sorgeFuer({ appId, stand }) {
     'SELECT passwort FROM public.app_datenbanken WHERE app_id = $1 AND stand = $2',
     [appId, stand]
   );
-  const passwort =
-    vorhanden.rows.length > 0 ? decryptToken(vorhanden.rows[0].passwort) : wuerfelePasswort();
+  let passwort;
+  if (vorhanden.rows.length > 0) {
+    try {
+      passwort = decryptToken(vorhanden.rows[0].passwort);
+    } catch (err) {
+      // Der Schluessel kommt aus `JWT_SECRET`. Wurde er gewechselt, laesst sich
+      // das Passwort nicht mehr lesen -- und ein neues zu wuerfeln waere hier
+      // falsch: der laufende Container traegt noch das alte in seiner Umgebung,
+      // und wir naehmen ihm den Zugang zu seinen eigenen Daten, ohne dass
+      // jemand es merkt. Lieber laut und mit dem Grund.
+      throw new Error(
+        `Das Passwort der Datenbank von ${appId}/${stand} laesst sich nicht entschluesseln ` +
+          `(${err.message}). Wurde JWT_SECRET gewechselt? Dann ist auch der Zugang jeder ` +
+          'laufenden App dahin, und beide Staende muessen neu eingespielt werden.'
+      );
+    }
+  } else {
+    passwort = wuerfelePasswort();
+  }
 
   if (!(await rolleDa(name))) {
     await db.query(
