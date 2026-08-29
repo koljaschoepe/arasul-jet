@@ -152,6 +152,7 @@ import {
   seitenladungAbwarten,
 } from './drossel.mjs';
 import { pruefbenutzerAnlegen } from './anmeldung.mjs';
+import { BREITEN, SCHMAL_AB_PX, VERWALTUNG } from './ansichten.mjs';
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
@@ -221,15 +222,9 @@ const TOKEN_DATEI =
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-oberflaeche`);
 
-/** Die drei Breiten aus dem Auftrag der Phase (wie in D1 bis D5). */
-const BREITEN = [
-  { px: 390, hoehe: 844, name: 'telefon' },
-  { px: 1024, hoehe: 768, name: 'tablet' },
-  { px: 1440, hoehe: 900, name: 'arbeitsplatz' },
-];
-
-/** Unter dieser Fensterbreite gibt es keine drei Spalten (`useSchmalesFenster`). */
-const SCHMAL_AB_PX = 900;
+// Die drei Breiten und die Verwaltungsansichten stehen seit H5 in
+// `ansichten.mjs`: der Bilderbogen fotografiert dieselben, und zwei Leser
+// sind der Augenblick, in dem eine Liste in zwei Dateien auseinanderlaeuft.
 
 const STEMPEL = Date.now();
 const MITARB = `abnahme-d7-${STEMPEL}`;
@@ -1184,7 +1179,7 @@ try {
   // Vor jeder Anmeldung, weil sie an keiner haengen. Bis zum 22.08.2026 trug
   // das Dokument als einziges keine Policy, waehrend jeder API-Pfad eine
   // hatte; genau das soll nie wieder unbemerkt passieren.
-  const erste = await laden(seiteM,URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const erste = await laden(seiteM, URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const kopf = erste?.headers() ?? {};
   const policy = kopf['content-security-policy'] || kopf['content-security-policy-report-only'];
   pruefe(
@@ -1214,7 +1209,7 @@ try {
       breite,
       kennzeichen: 'input#username',
       oeffnen: async () => {
-        await laden(seiteM,URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM, URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
       },
     });
   }
@@ -1277,7 +1272,7 @@ try {
       breite,
       kennzeichen: '[data-testid="passwort-wechseln"]',
       oeffnen: async () => {
-        await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM, `${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       },
       warum: async () =>
         [
@@ -1419,7 +1414,7 @@ try {
       breite,
       kennzeichen: '[data-testid="uebersicht-seite"]',
       oeffnen: async () => {
-        await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM, `${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       },
     });
     if (ok) {
@@ -1481,7 +1476,7 @@ try {
   {
     const telefon = BREITEN[0];
     await seiteM.setViewportSize({ width: telefon.px, height: telefon.hoehe });
-    await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await laden(seiteM, `${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
 
     // --- Das Menue ---------------------------------------------------------
@@ -1489,16 +1484,15 @@ try {
       seiteM,
       seiteM.locator('[data-testid="workspace-menue-knopf"]')
     );
-    const menueDa = menueAuf && (await steht(seiteM, '[data-testid="workspace-schmal-menue"]', 15000));
+    const menueDa =
+      menueAuf && (await steht(seiteM, '[data-testid="workspace-schmal-menue"]', 15000));
     pruefe(
       `${telefon.px} px: der Hamburger oeffnet das Menue`,
       menueDa,
       menueAuf ? '' : 'der Klick auf den Hamburger kam nicht durch'
     );
     if (menueDa) {
-      await seiteM
-        .screenshot({ path: path.join(ZIEL, `${telefon.px}-menue.png`) })
-        .catch(() => {});
+      await seiteM.screenshot({ path: path.join(ZIEL, `${telefon.px}-menue.png`) }).catch(() => {});
       // Was drinsteht: der Weg zurueck und die eigenen Apps. Ein Menue ohne
       // die Uebersicht waere unter 900 px eine Sackgasse -- es gibt dort
       // weder Aktivitaetsleiste noch Tab-Leiste, die zurueckfuehrt.
@@ -1528,7 +1522,7 @@ try {
       kennzeichen: '#notizen-feld',
       notizenZu: false,
       oeffnen: async () => {
-        await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await laden(seiteM, `${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await steht(seiteM, '[data-testid="uebersicht-seite"]', 30000);
         await seiteM
           .locator('[aria-label="Notizen einblenden"]')
@@ -1638,7 +1632,7 @@ try {
         breite,
         kennzeichen: `[data-testid="app-rahmen-${app}"]`,
         oeffnen: async () => {
-          await laden(seiteM,`${URL}/workspace/app/${app}`, {
+          await laden(seiteM, `${URL}/workspace/app/${app}`, {
             waitUntil: 'domcontentloaded',
             timeout: 60000,
           });
@@ -1655,7 +1649,7 @@ try {
   // Reihenfolge soll der Fokus laufen. Ein Halt in einer eingeklappten Spalte
   // oder in einem versteckten Tab springt zurueck und faellt hier auf.
   await seiteM.setViewportSize({ width: 1440, height: 900 });
-  await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM, `${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await steht(seiteM, '[data-testid="workspace-shell"]', 45000);
   await seiteM.waitForTimeout(1500);
   await seiteM.evaluate(() => {
@@ -1688,7 +1682,7 @@ try {
   // Ausblenden und keine Berechtigung -- `requireRole` antwortet ihm auf jeden
   // Weg dahinter ohnehin mit 403.
   konsole = [];
-  await laden(seiteM,`${URL}/workspace/settings`, {
+  await laden(seiteM, `${URL}/workspace/settings`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
@@ -1715,7 +1709,7 @@ try {
   // Eine Adresse, die es nicht gibt: ein Satz und ein Weg zurueck, keine
   // weisse Flaeche. `/dokumente` ist ein Alt-Tab -- das Dokumentensystem ist
   // mit B2 gefallen, die Adresse steht noch in manchem Lesezeichen.
-  await laden(seiteM,`${URL}/dokumente`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM, `${URL}/dokumente`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await seiteM.waitForTimeout(2000);
   const vierNullVier = await seiteM.evaluate(() => (document.body.innerText || '').trim());
   pruefe(
@@ -1730,7 +1724,7 @@ try {
   // was los ist. (Die abgewuergten Anfragen schreiben selbst rote Zeilen in
   // die Konsole; die zaehlen hier ausdruecklich nicht, sie SIND die Messung.)
   await seiteM.route('**/api/**', route => route.abort());
-  await laden(seiteM,URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM, URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await seiteM.waitForTimeout(3000);
   const ohneBackend = await seiteM.evaluate(() => (document.body.innerText || '').trim());
   pruefe(
@@ -1762,7 +1756,7 @@ try {
   // Das Benutzermenue der Kopfleiste, und nicht die Einstellungen: die sind
   // seit D1 eine Admin-Seite, und ein Mitarbeiter kaeme sonst nicht mehr
   // hinaus (D1, `WorkspaceMenuBar`).
-  await laden(seiteM,`${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await laden(seiteM, `${URL}/workspace`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const shellFuersAbmelden = await steht(seiteM, '[data-testid="workspace-shell"]', 45000);
   if (shellFuersAbmelden) {
     const menueAuf = await klickFrei(
@@ -1800,53 +1794,8 @@ try {
   const seiteA = await ctxA.newPage();
   await fensterHorchen(ctxA, seiteA);
 
-  /** Die acht Verwaltungsansichten, jede ueber ihre eigene Adresse. */
-  const VERWALTUNG = [
-    [
-      'Einstellungen · Mitarbeiter',
-      'einstellungen-mitarbeiter',
-      '/workspace/settings?tab=benutzer',
-      '[data-testid="mitarbeiter-seite"]',
-    ],
-    [
-      'Einstellungen · Apps',
-      'einstellungen-apps',
-      '/workspace/settings?tab=apps',
-      '[data-testid="apps-seite"]',
-    ],
-    [
-      'Einstellungen · Sicherheit',
-      'einstellungen-sicherheit',
-      '/workspace/settings?tab=security',
-      '[data-testid="sicherheit-seite"]',
-    ],
-    ['Modelle', 'modelle', '/workspace/modelle', '[data-testid="modelle-seite"]'],
-    [
-      'System · Auslastung',
-      'system-auslastung',
-      '/workspace/settings?tab=system',
-      '[data-testid="auslastung-seite"]',
-    ],
-    [
-      'System · Dienste',
-      'system-dienste',
-      '/workspace/settings?tab=services',
-      '[data-testid="dienste-seite"]',
-    ],
-    [
-      'System · Aktualisierungen',
-      'system-aktualisierungen',
-      '/workspace/settings?tab=updates',
-      '[data-testid="update-seite"]',
-    ],
-    [
-      'System · Sicherung',
-      'system-sicherung',
-      '/workspace/settings?tab=sicherung',
-      '[data-testid="sicherung-seite"]',
-    ],
-  ];
-
+  // Die acht Verwaltungsansichten, jede ueber ihre eigene Adresse -- die
+  // Liste steht seit H5 in `ansichten.mjs`.
   for (const [name, dateiname, pfad, kennzeichen] of VERWALTUNG) {
     for (const breite of BREITEN) {
       const ok = await ansichtMessen(seiteA, {
@@ -1855,7 +1804,7 @@ try {
         breite,
         kennzeichen,
         oeffnen: async () => {
-          await laden(seiteA,`${URL}${pfad}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await laden(seiteA, `${URL}${pfad}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
         },
       });
       // Der Fund der D3-Abnahme, verallgemeinert: bei 1440 px MIT offener
@@ -1871,7 +1820,7 @@ try {
   // Aufruf sieht (C10). Gemessen wird, dass der Knopf da ist und die Datei
   // wirklich kommt -- ein Knopf, der nichts herunterlaedt, sieht genauso aus.
   await seiteA.setViewportSize({ width: 1440, height: 900 });
-  await laden(seiteA,`${URL}/workspace/settings?tab=security`, {
+  await laden(seiteA, `${URL}/workspace/settings?tab=security`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
@@ -1892,7 +1841,7 @@ try {
   }
 
   // --- Escape schliesst einen Dialog ---------------------------------------
-  await laden(seiteA,`${URL}/workspace/settings?tab=benutzer`, {
+  await laden(seiteA, `${URL}/workspace/settings?tab=benutzer`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
