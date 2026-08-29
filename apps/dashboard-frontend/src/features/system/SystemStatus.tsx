@@ -285,11 +285,18 @@ function SystemStatusView({
 
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-ui-2">
         {/*
-          Die Karte steht hier beim Aufrufer, nicht im Diagramm. Der Baustein
-          bleibt flaechenlos, wie Plan 023 C5 es verlangt; auf dieser Seite
-          liegen aber vier Kennzahlkacheln darueber und die System-Gesundheit
-          darunter, beide als Karte. Ein einzelner flacher Block dazwischen
-          liest sich wie eine vergessene Formatierung, nicht wie Absicht.
+          SEIT H5 OHNE KARTE (Plan 023 C5 hat den Baustein flaechenlos
+          gehalten, und der Aufrufer legte eine Karte darum, weil darueber
+          vier Kennzahlkacheln und darunter die System-Gesundheit standen --
+          beide als Karte). Beides ist jetzt keine Karte mehr: die Kachel
+          traegt ihren Rand, die Gesundheit ist eine Feldgruppe. Der flache
+          Block dazwischen liest sich damit nicht mehr als vergessene
+          Formatierung, sondern als das, was er ist.
+
+          BEIDE FELDGRUPPEN LIEGEN IN EINER `Formularseite`, damit die
+          Trennlinie zwischen ihnen steht und die letzte keine hat. `Suspense`
+          erzeugt kein Element, also ist die `section` der Gesundheit ein
+          unmittelbares Kind -- und der Waehler `:last-child` greift.
         */}
         <div className="col-span-full min-w-0">
           <Formularseite>
@@ -357,12 +364,11 @@ function SystemStatusView({
                 )}
               </div>
             </Feldgruppe>
+            <Suspense fallback={<div className="min-h-[200px]" />}>
+              <SystemHealthWidget />
+            </Suspense>
           </Formularseite>
         </div>
-
-        <Suspense fallback={<div className="min-h-[200px]" />}>
-          <SystemHealthWidget />
-        </Suspense>
       </div>
     </div>
   );
