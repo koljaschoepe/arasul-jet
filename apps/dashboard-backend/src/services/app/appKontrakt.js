@@ -49,7 +49,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 3;
+const KONTRAKT_VERSION = 4;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -63,6 +63,13 @@ const KONTRAKT_VERSION = 3;
  * ungueltig ab, obwohl das Geraet ihn nimmt -- und der Partner suchte den
  * Fehler in seiner Datei. Dazu ein Endpunkt: eine App darf nachlesen, woran
  * ihr Lauf haengt (`GET /freigaben`).
+ *
+ * Fassung 4 (Phase H6, 29.08.2026): das Manifest kennt `marken`, die Fassung
+ * des Designsystems, auf der die App steht. Sie ist FREIWILLIG, also bleibt
+ * jedes Manifest von Fassung 3 gueltig -- die Zahl geht trotzdem mit, und aus
+ * demselben Grund wie bei 3: das Manifest ist `.strict()`, ein Kit, das gegen
+ * Fassung 3 prueft, wiese `marken` als unbekanntes Feld ab, obwohl das Geraet
+ * es nimmt und liest. Der Vertrag sagt hier, dass es angekommen ist.
  */
 
 /**
@@ -82,6 +89,7 @@ const MANIFEST_REGELN = Object.freeze([
   'Unbekannte Felder werden abgewiesen, nicht ignoriert.',
   '`modelle` ist eine Forderung, keine Lieferung: das Geraet installiert kein Modell nach, es sagt beim Einspielen, welches fehlt.',
   '`flows` ist umgekehrt eine LIEFERUNG (seit Kontrakt 2): das Paket bringt die Dateien mit, das Geraet registriert sie je App und Stand.',
+  '`marken` nennt die Fassung des Designsystems, auf der die App steht (seit Kontrakt 4, freiwillig). Das Geraet vergleicht sie mit seiner eigenen und meldet in der App-Verwaltung eine, die aelter ist -- eine Kopie der Bibliothek veraltet lautlos.',
 ]);
 
 /** Die Namen, die unter `/apps/<id>/` der Plattform gehoeren. */

@@ -66,6 +66,13 @@ export interface AppStandDetail {
   lieferbar: boolean;
   /** Warum nicht — ein Satz, oder null. */
   mangel: string | null;
+  /**
+   * Auf welcher Fassung des Designsystems die App steht (Phase H6) — `null`,
+   * wenn ihr Manifest es nicht sagt. Verglichen wird hier, nicht im Backend:
+   * die Fassung des Geräts kennt die Shell, weil sie die Bibliothek
+   * mitübersetzt (`FASSUNG` aus `@marken`).
+   */
+  marken: string | null;
   modelle: Array<{ name: string; vorhanden: boolean }>;
   flows: AppFlow[];
 }

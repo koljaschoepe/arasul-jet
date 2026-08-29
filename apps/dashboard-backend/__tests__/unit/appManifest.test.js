@@ -76,6 +76,28 @@ describe('Schema app.json v1', () => {
     expect(AppManifest.safeParse(roh).success).toBe(false);
   });
 
+  /**
+   * Die Fassung des Designsystems (Phase H6). Sie ist FREIWILLIG, und das ist
+   * die eigentliche Zusage: jede App, die vor H6 gebaut wurde, hat sie nicht,
+   * und ein Manifest deswegen abzuweisen hiesse, eine laufende App an einer
+   * Auskunft scheitern zu lassen, die es zu ihrer Bauzeit nicht gab.
+   */
+  test('nimmt die Fassung des Designsystems', () => {
+    expect(AppManifest.parse({ ...GUELTIG, marken: '3.1.0' }).marken).toBe('3.1.0');
+    expect(AppManifest.parse({ ...GUELTIG, marken: '3.1.0-rc1' }).marken).toBe('3.1.0-rc1');
+  });
+
+  test('eine App ohne Angabe zum Designsystem ist gueltig', () => {
+    expect(AppManifest.parse(GUELTIG).marken).toBeUndefined();
+  });
+
+  test.each([['3'], ['3.1'], ['neu'], ['v3.1.0']])(
+    'weist `marken: %s` ab -- eine Fassung sind drei Zahlen',
+    fassung => {
+      expect(AppManifest.safeParse({ ...GUELTIG, marken: fassung }).success).toBe(false);
+    }
+  );
+
   test('eine App darf auch nur ein Frontend haben', () => {
     const m = AppManifest.parse({ schema: 1, id: 'a', name: 'A', version: '1.0.0', frontend: {} });
     expect(m.frontend.verzeichnis).toBe('frontend');

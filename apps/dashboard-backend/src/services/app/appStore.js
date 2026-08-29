@@ -84,7 +84,18 @@ async function standZustand(appId, stand, manifest) {
   const backend = manifest.backend ? await appContainer.zustand(appId, stand) : null;
   const dateien = await appManifest.dateienVorhanden(manifest);
   const mangel = beschreibeMangel({ manifest, backend, dateien });
-  return { backend, dateien, lieferbar: mangel === null, mangel };
+  return {
+    backend,
+    dateien,
+    lieferbar: mangel === null,
+    mangel,
+    // Auf welcher Fassung des Designsystems dieser Stand steht (Phase H6) --
+    // `null`, wenn das Manifest es nicht sagt. Und NICHT Teil von `mangel`:
+    // eine App mit einer alten Bibliothek laeuft, sie sieht nur nicht mehr
+    // aus wie das Geraet um sie herum. Wer das mit "nicht lieferbar" in einen
+    // Topf wuerfe, haette einen roten Punkt, der zweierlei heisst.
+    marken: manifest.marken ?? null,
+  };
 }
 
 /**

@@ -27,5 +27,6 @@
   "modelle": [],
   "flows": {
     "verzeichnis": "flows"
-  }
+  },
+  "marken": "3.1.0"
 }
