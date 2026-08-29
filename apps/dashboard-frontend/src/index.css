@@ -13,125 +13,25 @@
    los, und genau das erwartet niemand, der `className` daran schreibt. */
 @import "../../../packages/marken/src/marken.css" layer(components);
 
+/* Die Jet-Tokens (Phase H3). Sie standen bis H2 in dieser Datei; seit die
+   Primitive (Button, Input, Dialog …) in der Bibliothek liegen und auf
+   Tailwind geschrieben sind, braucht sie AUCH eine App -- also gehoeren sie
+   dorthin, wo die Primitive stehen, und die Shell holt sie von dort.
+
+   OHNE SCHICHT, und das ist keine Nachlaessigkeit: `@theme` in einem
+   `layer(...)`-Import waere kein `@theme` mehr, und `bg-primary` gaebe es
+   nicht. Die Datei setzt selbst nur Variablen und faerbt nichts, kann also
+   auch nichts ungeschichtet gewinnen. */
+@import "../../../packages/marken/src/theme.css";
+
+/* Tailwind sucht seine Klassen von der Wurzel dieses Vite-Projekts aus, und
+   die Bibliothek liegt DANEBEN. Ohne diese Zeile findet es kein
+   `bg-secondary` aus `packages/marken/src/primitive/` -- die Primitive
+   staenden in der Shell ohne jede Regel da, und nichts an der Uebersetzung
+   waere rot. (Phase H3) */
+@source "../../../packages/marken/src";
+
 @custom-variant dark (&:is(.dark *));
-
-/* ========================================
-   TAILWIND THEME - Arasul Design Tokens
-   Custom tokens that don't overlap with shadcn/ui.
-   e.g. --color-bg-card → bg-bg-card, --color-danger → text-danger
-   ======================================== */
-@theme {
-  /* Border Radius */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-
-  /* Fonts */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', source-code-pro, Menlo, Monaco, Consolas, monospace;
-
-  /* Chart palette (FE-06) — recharts / dashboards reference these tokens. */
-  --color-chart-1: #45ADFF;
-  --color-chart-2: #A78BFA;
-  --color-chart-3: #F97316;
-  --color-chart-4: #22D3EE;
-  --color-chart-5: #F472B6;
-
-  /* ========================================
-     DICHTE-SKALA (Plan 002 »Cursor-Shell«, Komfort-Kalibrierung Plan 004)
-     Komfort-Skala: 14px-Basistext + 5/10/14/18px-Abstandsstufen.
-     Zusätzlich hebt ein globaler Root-Hebel (html { font-size }, siehe
-     @layer base) alle rem-Einheiten plattformweit an, damit auch Nicht-
-     Shell-Flächen (Einstellungen, Chat, Datenbank, Legacy) mitwachsen.
-     Text-Utilities: text-ui-xs / text-ui-sm / text-ui / text-ui-lg.
-     Abstands-Utilities: p-ui-1…4, gap-ui-1…4, m-ui-*, space-y-ui-* usw.
-     Neue/normierte Ansichten (Workspace-Shell, Dashboard, Extensions)
-     bauen ausschließlich auf dieser Skala auf.
-     ======================================== */
-  --text-ui-xs: 0.75rem;               /* 12px — Badges, Metadaten */
-  --text-ui-xs--line-height: 1.125rem; /* 18px */
-  --text-ui-sm: 0.8125rem;             /* 13px — Sekundärtext, Labels */
-  --text-ui-sm--line-height: 1.25rem;  /* 20px */
-  --text-ui: 0.875rem;                 /* 14px — Basistext kompakter Flächen */
-  --text-ui--line-height: 1.375rem;    /* 22px */
-  --text-ui-lg: 1rem;                  /* 16px — Karten-/Abschnittstitel */
-  --text-ui-lg--line-height: 1.5rem;   /* 24px */
-
-  --spacing-ui-1: 0.3125rem; /* 5px  — Stufe 1 */
-  --spacing-ui-2: 0.625rem;  /* 10px — Stufe 2 */
-  --spacing-ui-3: 0.875rem;  /* 14px — Stufe 3 */
-  --spacing-ui-4: 1.125rem;  /* 18px — Stufe 4 */
-
-  /* Cursor-Eichung (Plan 009): kompakte Zeilenhöhe für Baum-/Listenzeilen
-     (Explorer, Store-Facetten, Tab-Leiste). Cursor nutzt ~22px; hier als
-     rem, damit der globale Root-Hebel (html{font-size}) mitzieht.
-     Utility: h-ui-row / min-h-ui-row. Die feine Trennlinie ist bereits
-     --border (rgba …, ~8–10% Alpha) — kein zweiter Kanten-Token nötig. */
-  --spacing-ui-row: 1.375rem;  /* ~22px kompakte Baum-/Listenzeile */
-
-  /* Plan 016: EIN gemeinsamer Kopfzeilen-Höhen-Token für alle Panel-Köpfe
-     (Arbeitsbereich, Viewer, Flow-Editor, Chat, Sidebar). Vorher liefen die
-     Köpfe auseinander (h-8/h-9/h-11/h-14); jetzt teilen sie diesen Wert, damit
-     der Arbeitsbereich »aus einem Guss« wirkt. Deckungsgleich mit der bisher
-     ruhigsten Shell-Höhe (h-9 = 36px). Utility: h-ui-header / min-h-ui-header. */
-  --spacing-ui-header: 2.25rem; /* 36px — einheitliche Panel-Kopfhöhe */
-}
-
-/* ========================================
-   Semantic Color Mappings (shadcn/ui + Arasul)
-   Maps runtime CSS variables to Tailwind utilities so every
-   utility is theme-aware. Single source of truth for the values:
-   `:root` (Theme »Hell«, die Vorgabe) plus die Überschreibungen
-   in `[data-theme='dark']`.
-   e.g. bg-primary, text-muted-foreground, bg-bg-card, text-danger
-   ======================================== */
-@theme inline {
-  /* Arasul custom tokens */
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-active: var(--primary-active);
-  --color-danger: var(--danger-color);
-  --color-danger-hover: var(--danger-hover);
-  --color-warning-hover: var(--warning-hover);
-  --color-bg-dark: var(--bg-dark);
-  --color-bg-card: var(--bg-card);
-  --color-bg-card-hover: var(--bg-card-hover);
-  --color-bg-elevated: var(--bg-elevated);
-  --color-bg-subtle: var(--bg-subtle);
-  --color-bg-input: var(--bg-input);
-  --color-bg-modal: var(--bg-modal);
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
-  --color-text-disabled: var(--text-disabled);
-  --color-border-subtle: var(--border-subtle);
-
-  /* shadcn/ui semantic tokens */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-}
 
 @layer base {
   * {
@@ -176,44 +76,12 @@
 }
 
 :root {
-  /* ========================================
-     shadcn/ui Semantic Colors — Theme »HELL« (Vorgabe, Phase H1)
-     Cursor-Prinzip: zwei Hintergrundstufen (Chrome vs. Fläche),
-     EINE Border-Farbe mit niedriger Alpha, Hover als Schwarz-Alpha,
-     Akzent (Arasul-Blau) nur für Primäraktionen.
-
-     `:root` IST das Theme »Hell«, es gibt keine Klasse dafür. Das eine
-     andere Theme steht als [data-theme='dark'] weiter unten und
-     überschreibt von hier aus. Bis H1 war es umgekehrt (`:root` =
-     »Schwarz«, plus ein Block `[data-theme='dark']`, plus eine Klasse
-     `.light`) — drei Themes, zwei davon auf einem Bild nicht zu
-     unterscheiden, und Hell als Sonderfall, der jede Regel zweimal
-     brauchte. Wer eine Farbe ändert, ändert sie hier; wer sie im
-     Dunkeln anders will, schreibt EINE Zeile in den Block unten.
-     ======================================== */
-  --background: #F6F6F6;
-  --foreground: #1a1a1a;
-  --card: #FFFFFF;
-  --card-foreground: #1a1a1a;
-  --popover: #FFFFFF;
-  --popover-foreground: #1a1a1a;
-  --primary: #2D8FD9;
-  --primary-foreground: #FFFFFF;
-  --secondary: #ECECEC;
-  --secondary-foreground: #1a1a1a;
-  --muted: #ECECEC;
-  --muted-foreground: #6b6b6b;
-  --accent: rgba(16, 16, 16, 0.05); /* hover wash */
-  --accent-foreground: #1a1a1a;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --success: #10B981;
-  --success-foreground: #FFFFFF;
-  --warning: #F59E0B;
-  --warning-foreground: #1a1a1a;
-  --border: rgba(16, 16, 16, 0.1);
-  --input: rgba(16, 16, 16, 0.12);
-  --ring: #2D8FD9;
+  /* DIE SEMANTIK STEHT NICHT MEHR HIER (Phase H3). `--background`,
+     `--primary`, `--border` und die andern shadcn-Tokens sind nach
+     `packages/marken/src/theme.css` gezogen, zusammen mit den beiden
+     `@theme`-Bloecken -- dort, wo die Primitive stehen, die sie brauchen.
+     Was hier blieb, ist das, was nur die Shell hat: die Aliasse darauf, die
+     Alpha-Skalen, Schatten, Verlaeufe und die Syntaxfarben. */
 
   /* Syntax Highlighting */
   --code-keyword: #cf222e;
@@ -249,18 +117,6 @@
   --space-sm-md: 0.75rem;   /* 12px */
   --space-md-lg: 1.25rem;   /* 20px */
   --space-lg-xl: 1.75rem;   /* 28px */
-
-  /* Font-size scale */
-  --text-2xs: 0.65rem;      /* 10.4px */
-  --text-xs: 0.75rem;       /* 12px */
-  --text-sm: 0.8125rem;     /* 13px */
-  --text-base: 0.875rem;    /* 14px */
-  --text-md: 0.9375rem;     /* 15px */
-  --text-lg: 1rem;          /* 16px */
-  --text-xl: 1.125rem;      /* 18px */
-  --text-2xl: 1.25rem;      /* 20px */
-  --text-3xl: 1.5rem;       /* 24px */
-  --text-4xl: 2rem;         /* 32px */
 
   /* Icon-size scale (Komfort-Kalibrierung Plan 004 — feste px, skalieren
      nicht mit dem Root-Hebel, daher hier eine Stufe angehoben) */
@@ -326,16 +182,6 @@
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
 
-  /* ========================================
-     TRANSITION SCALE
-     The one source for interaction timings. Component CSS should
-     reference these (e.g. transition: color var(--transition-base))
-     instead of hardcoding 0.15s/0.2s/0.3s per rule.
-     ======================================== */
-  --transition-fast: 0.15s ease;
-  --transition-base: 0.2s ease;
-  --transition-slow: 0.3s ease;
-
   /* Gradients - Design System (accent) */
   --gradient-primary: linear-gradient(135deg, #2D8FD9 0%, #2478B8 100%);
   --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFAFA 100%);
@@ -361,9 +207,6 @@
   --border-input-focus: var(--primary-alpha-40);
   --border-table: var(--primary-alpha-10);
   --border-modal: var(--primary-alpha-20);
-
-  /* Modal Backdrop */
-  --backdrop-color: rgba(0, 0, 0, 0.4);
 
   /* Select Option Background (for dropdowns) */
   --bg-option: var(--card);
@@ -452,25 +295,8 @@
    hellen Theme fehlt.
    ======================================== */
 [data-theme='dark'] {
-  /* shadcn/ui Semantic Colors */
-  --background: #141414;
-  --foreground: #e6e6e6;
-  --card: #181818;
-  --card-foreground: #e6e6e6;
-  --popover: #1c1c1c;
-  --popover-foreground: #e6e6e6;
-  --primary: #81A1C1;
-  --primary-foreground: #0A0A0A;
-  --secondary: #181818;
-  --secondary-foreground: #e6e6e6;
-  --muted: #181818;
-  --muted-foreground: rgba(228, 228, 228, 0.55);
-  --accent: rgba(228, 228, 228, 0.07);
-  --accent-foreground: #e6e6e6;
-  --warning-foreground: #121212;
-  --border: rgba(228, 228, 228, 0.08);
-  --input: rgba(228, 228, 228, 0.1);
-  --ring: #81A1C1;
+  /* Auch hier: die shadcn-Semantik des dunklen Themas steht seit H3 in
+     `packages/marken/src/theme.css`. Was hier steht, hat die Shell allein. */
 
   /* Syntax Highlighting */
   --code-keyword: #ff7b72;
@@ -523,9 +349,6 @@
 
   /* Border Colors */
   --border-input: var(--primary-alpha-15);
-
-  /* Modal Backdrop */
-  --backdrop-color: rgba(0, 0, 0, 0.7);
 
   /* Scrollbar */
   --scrollbar-thumb: rgba(228, 228, 228, 0.14);

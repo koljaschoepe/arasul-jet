@@ -125,7 +125,13 @@ function checkIndexCSS() {
   const errors = [];
   const indexPath = path.join(SRC_PATH, 'index.css');
   if (!fs.existsSync(indexPath)) { errors.push('index.css nicht gefunden'); return errors; }
-  const content = fs.readFileSync(indexPath, 'utf8');
+  // Seit Phase H3 stehen die Farbwerte nicht mehr in `index.css`, sondern in
+  // `packages/marken/src/theme.css` -- dort, wo die Primitive stehen, die sie
+  // brauchen. Geprueft werden beide Dateien zusammen: WO ein Wert steht, ist
+  // eine Frage des Aufbaus, WELCHER es ist, eine des Designsystems.
+  const themePath = path.join(REPO, 'packages', 'marken', 'src', 'theme.css');
+  if (!fs.existsSync(themePath)) { errors.push('packages/marken/src/theme.css nicht gefunden'); return errors; }
+  const content = fs.readFileSync(indexPath, 'utf8') + '\n' + fs.readFileSync(themePath, 'utf8');
   const lower = content.toLowerCase();
 
   // The value source is the shadcn set (--primary / --background); the Arasul
@@ -149,12 +155,12 @@ function checkIndexCSS() {
   // eine Regel, die NIE greift (die Klasse setzt niemand mehr), und ein
   // dritter Theme-Block waere die dritte Spalte in jeder Abnahmetabelle.
   if (/(^|[\s,>+~])\.light\b/m.test(content)) {
-    errors.push('index.css: `.light`-Selektor — die Klasse setzt seit H1 niemand mehr');
+    errors.push('Theme-CSS: `.light`-Selektor — die Klasse setzt seit H1 niemand mehr');
   }
   const themeBloecke = [...content.matchAll(/\[data-theme=['"]([\w-]+)['"]\]/g)].map(m => m[1]);
   const fremde = [...new Set(themeBloecke)].filter(t => t !== 'dark');
   if (fremde.length) {
-    errors.push(`index.css: unbekanntes Theme [data-theme=${fremde.join(', ')}] — es gibt Hell und Dunkel`);
+    errors.push(`Theme-CSS: unbekanntes Theme [data-theme=${fremde.join(', ')}] — es gibt Hell und Dunkel`);
   }
   return errors;
 }

@@ -26,9 +26,9 @@ Was geprueft wird
 4. Kein Baustein importiert aus der Shell (`@/`). Die Bibliothek gehoert
    beiden Seiten; was von der Shell abhaengt, gehoert nicht hinein.
 5. Jeder Rueckfall in `marken.css` ist der Wert, den derselbe Token in
-   `index.css` traegt -- Hell gegen `:root`, Dunkel gegen
-   `[data-theme='dark']`. Und kein Token, den `index.css` im Dunkeln
-   ueberschreibt, fehlt im Dunkel-Block der Bibliothek (Phase H2).
+   `theme.css` traegt -- Hell gegen `:root`, Dunkel gegen
+   `[data-theme='dark']`. Und kein Token, den `theme.css` im Dunkeln
+   ueberschreibt, fehlt im Dunkel-Block der Bibliothek (Phase H2/H3).
 
 Warum Punkt 5 (Phase H2, 29.08.2026)
 ------------------------------------
@@ -36,8 +36,8 @@ Warum Punkt 5 (Phase H2, 29.08.2026)
 in der Shell gilt der Token, in einer App der Rueckfall. Das ist eine Kopie,
 und eine Kopie veraltet lautlos -- dieselbe Klasse wie das Buendel oben, nur
 dass es hier NICHT auffaellt, weil in der Shell immer der Token gewinnt. Wer
-`--background` in `index.css` aendert, sieht die Shell sofort nachziehen und
-jede App auf dem alten Wert stehenbleiben. Seit H2 hat die Bibliothek zwei
+`--background` in `theme.css` aendert, sieht die Shell sofort nachziehen und
+jede App ohne Bau auf dem alten Wert stehenbleiben. Seit H2 hat die Bibliothek zwei
 Themen, also gibt es diese Kopie zweimal, und die Frage wird doppelt so
 leicht falsch zu beantworten.
 
@@ -162,9 +162,17 @@ def gleich(a: str, b: str) -> bool:
 
 
 def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
-    """Punkt 5: jeder Rueckfall ist der Wert seines Tokens in `index.css`."""
+    """Punkt 5: jeder Rueckfall ist der Wert seines Tokens in `theme.css`.
+
+    Bis H2 stand die Quelle in `apps/dashboard-frontend/src/index.css`, und die
+    Bibliothek trug die Kopie. Seit H3 ist es umgekehrt: `theme.css` liegt
+    NEBEN `marken.css` in derselben Bibliothek, und die Shell holt sie von
+    dort. Die Kopie gibt es trotzdem noch -- eine App OHNE Bau laedt nur
+    `marken.css` und steht dann auf den Rueckfaellen --, also wird sie weiter
+    gehalten, nur eben gegen die Datei nebenan.
+    """
     marken_css = ohne_kommentare(marken_css)
-    index = wurzel / "apps" / "dashboard-frontend" / "src" / "index.css"
+    index = wurzel / "packages" / "marken" / "src" / "theme.css"
     if not index.is_file():
         return [f"{index} gibt es nicht -- ohne die Quelle ist kein Rueckfall zu pruefen"]
     quelle = ohne_kommentare(index.read_text(encoding="utf-8"))
@@ -189,13 +197,13 @@ def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
             if token not in quelle_werte:
                 befunde.append(
                     f"marken.css ({name}): {ara} zeigt auf {token}, "
-                    f"und den gibt es in index.css nicht"
+                    f"und den gibt es in theme.css nicht"
                 )
             elif not gleich(rueckfall, quelle_werte[token]):
                 befunde.append(
                     f"marken.css ({name}): {ara} faellt auf "
                     f"`{re.sub(r'\s+', ' ', rueckfall).strip()}` zurueck, "
-                    f"{token} traegt in index.css `{quelle_werte[token]}`"
+                    f"{token} traegt in theme.css `{quelle_werte[token]}`"
                 )
 
     # Die andere Richtung: was `index.css` im Dunkeln ueberschreibt, muss die
@@ -215,7 +223,7 @@ def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
         token = treffer.group(2)
         if token in dunkel and token not in tokens_im_dunkeln:
             befunde.append(
-                f"marken.css: {ara} zeigt auf {token}, und index.css gibt dem "
+                f"marken.css: {ara} zeigt auf {token}, und theme.css gibt dem "
                 f"im Dunkeln einen anderen Wert -- der Dunkel-Block der "
                 f"Bibliothek laesst ihn aus"
             )
