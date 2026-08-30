@@ -92,7 +92,7 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
   return (
     <AuthCard
       title={`Willkommen bei ${PLATFORM_NAME}`}
-      description="Lege dein Administrator-Konto an, danach ist das Gerät bereit."
+      description="Legen Sie Ihr Administrator-Konto an, danach ist das Gerät bereit."
       footer={
         <p className="text-xs text-muted-foreground">
           Dieses Konto ist der erste Administrator dieses Geräts. Danach ist diese Seite gesperrt.

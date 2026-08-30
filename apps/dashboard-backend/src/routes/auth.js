@@ -28,6 +28,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
 const { LoginBody, ChangePasswordBody, SetupAdminBody } = require('../schemas/auth');
 const { isSetupNeeded, createFirstAdmin } = require('../services/auth/setupService');
+const systemSettings = require('../services/system-settings/systemSettingsService');
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const { generateCsrfToken, CSRF_COOKIE } = require('../middleware/csrf');
 const logger = require('../utils/logger');
@@ -186,12 +187,20 @@ router.post(
 // every page load, exactly like /session, and 30 a minute for a whole office
 // behind one NAT was the binding limit on the box. Reasoning and measurement
 // in `middleware/rateLimit.js`.
+//
+// `firmenname` faehrt seit dem 30.08.2026 mit: die Anmeldeseite zeigt den Namen
+// des Unternehmens, das dieses Geraet betreibt (Fallback im Frontend: der
+// Produktname). Ein eigener Weg dafuer waere eine DRITTE Anfrage auf jeder
+// Seitenladung, und die zwei, die es gibt, sind die enge Stelle (G2). Der Wert
+// kommt aus dem Cache des systemSettingsService, nicht aus Postgres. Er ist
+// kein Geheimnis: er steht spaeter fuer jeden lesbar ueber dem Anmeldeformular.
 router.get(
   '/needs-setup',
   probeLimiter,
   asyncHandler(async (req, res) => {
     const needsSetup = await isSetupNeeded();
-    res.json({ needsSetup, timestamp: new Date().toISOString() });
+    const firmenname = systemSettings.get('company_name', null) || null;
+    res.json({ needsSetup, firmenname, timestamp: new Date().toISOString() });
   })
 );
 

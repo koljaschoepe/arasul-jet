@@ -240,7 +240,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         <Feldgruppe
           titel="Flows"
           symbol={<FileText />}
-          beschreibung="Was die App kann. Die Dateien kommen aus ihrem Paket; das Modell entscheidest du."
+          beschreibung="Was die App kann. Die Dateien kommen aus ihrem Paket; das Modell entscheiden Sie."
           aktion={
             <StandWahl stand={stand} setStand={setStand} hatTest={Boolean(app.staende.test)} />
           }
@@ -347,7 +347,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             // anschaut, will sie meistens nicht sehen.
             <p className="text-sm text-muted-foreground">
               {detail?.backend
-                ? 'Ausgeblendet, bis du sie brauchst.'
+                ? 'Ausgeblendet, bis Sie sie brauchen.'
                 : 'Diese App hat kein Backend, das etwas sagen könnte.'}
             </p>
           ) : logsLaden ? (

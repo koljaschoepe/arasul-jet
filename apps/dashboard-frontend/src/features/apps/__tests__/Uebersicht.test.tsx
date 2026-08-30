@@ -71,7 +71,7 @@ describe('Uebersicht', () => {
   it('ohne Freigabe steht dort, wie man zu einer App kommt', async () => {
     antworten({ apps: [] });
     render(<Uebersicht />, { wrapper: huelle() });
-    expect(await screen.findByText('Noch keine App für dich')).toBeInTheDocument();
+    expect(await screen.findByText('Noch keine App für Sie')).toBeInTheDocument();
   });
 
   /**

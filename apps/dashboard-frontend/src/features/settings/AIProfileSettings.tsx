@@ -429,7 +429,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
                   return rest;
                 });
               }}
-              placeholder="Beschreibe dein Unternehmen, Kunden, Besonderheiten..."
+              placeholder="Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten …"
               spellCheck={false}
               aria-invalid={Boolean(fieldErrors.context)}
             />

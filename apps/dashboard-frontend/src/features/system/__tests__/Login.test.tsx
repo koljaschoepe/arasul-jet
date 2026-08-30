@@ -11,7 +11,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Login from '../Login';
-import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from '@/config/branding';
+import { PLATFORM_NAME } from '@/config/branding';
 
 // Mock useApi (replaces axios — Login uses useApi internally)
 const mockApi = {
@@ -37,10 +37,28 @@ describe('Login Component', () => {
       render(<Login onLoginSuccess={mockOnLoginSuccess} />);
 
       expect(screen.getByRole('heading', { name: PLATFORM_NAME })).toBeInTheDocument();
-      expect(screen.getByText(PLATFORM_DESCRIPTION)).toBeInTheDocument();
       expect(screen.getByLabelText(/benutzername/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/passwort/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /anmelden/i })).toBeInTheDocument();
+    });
+
+    // Auftrag anmeldung-ohne-slogan (30.08.2026): ueber dem Formular steht
+    // der Name des Unternehmens aus den Einstellungen, kein Slogan; der
+    // Hersteller klein in der Fusszeile.
+    test('zeigt den Firmennamen statt eines Slogans', () => {
+      render(<Login onLoginSuccess={mockOnLoginSuccess} firmenname="Muster GmbH" />);
+
+      expect(screen.getByRole('heading', { name: 'Muster GmbH' })).toBeInTheDocument();
+      expect(screen.getByText(`Betrieben mit ${PLATFORM_NAME}`)).toBeInTheDocument();
+      expect(screen.queryByText(/eure apps/i)).not.toBeInTheDocument();
+    });
+
+    test('ohne Firmenname steht der Produktname da, und zwar nur einmal', () => {
+      render(<Login onLoginSuccess={mockOnLoginSuccess} firmenname={null} />);
+
+      expect(screen.getByRole('heading', { name: PLATFORM_NAME })).toBeInTheDocument();
+      expect(screen.queryByText(/betrieben mit/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/eure apps/i)).not.toBeInTheDocument();
     });
 
     // F-01: Weder als Fusszeile noch als Platzhalter. Der frueheste Bildschirm

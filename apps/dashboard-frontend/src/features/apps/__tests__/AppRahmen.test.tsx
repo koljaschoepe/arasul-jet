@@ -87,7 +87,7 @@ describe('AppRahmen', () => {
     render(<AppRahmen appId="urlaub" stand="test" />, { wrapper: huelle() });
 
     await waitFor(() =>
-      expect(screen.getByText('urlaub ist dir nicht freigegeben')).toBeInTheDocument()
+      expect(screen.getByText('urlaub ist Ihnen nicht freigegeben')).toBeInTheDocument()
     );
     expect(screen.queryByTestId('app-rahmen-urlaub')).not.toBeInTheDocument();
   });
@@ -96,7 +96,7 @@ describe('AppRahmen', () => {
     apiMock.get.mockResolvedValue({ data: [] });
     render(<AppRahmen appId="geheim" stand="live" />, { wrapper: huelle() });
     await waitFor(() =>
-      expect(screen.getByText('geheim ist dir nicht freigegeben')).toBeInTheDocument()
+      expect(screen.getByText('geheim ist Ihnen nicht freigegeben')).toBeInTheDocument()
     );
   });
 

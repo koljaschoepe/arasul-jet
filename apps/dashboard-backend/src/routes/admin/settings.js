@@ -23,7 +23,8 @@ const {
 } = require('../../utils/errors');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { validateBody } = require('../../middleware/validate');
-const { PasswordChangeBody } = require('../../schemas/admin-settings');
+const { PasswordChangeBody, FirmennameBody } = require('../../schemas/admin-settings');
+const systemSettings = require('../../services/system-settings/systemSettingsService');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
 const execFilePromise = util.promisify(execFile);
@@ -156,6 +157,56 @@ router.post(
       requireRelogin: true,
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+/**
+ * GET /api/settings/firmenname
+ * PUT /api/settings/firmenname
+ *
+ * Der Name des Unternehmens, das dieses Geraet betreibt (Auftrag
+ * anmeldung-ohne-slogan, 30.08.2026). Er steht ueber dem Anmeldeformular
+ * statt eines Slogans: ein Mitarbeiter, der „Eure Apps, auf eurem Geraet"
+ * liest, haelt die Software fuer ein Bastelprodukt; der Name seiner Firma
+ * sagt ihm, dass er am richtigen Ort ist.
+ *
+ * Die Spalte `company_name` in `system_settings` gibt es seit Migration 038;
+ * sie gehoerte dem Einrichtungsassistenten, der in D4 gefallen ist, und
+ * seitdem hat sie niemand mehr gelesen oder geschrieben. Gelesen wird sie
+ * oeffentlich ueber `GET /api/auth/needs-setup` (aus dem Cache), geschrieben
+ * hier -- nur vom Administrator, mit `reload()`, damit die naechste
+ * Seitenladung den neuen Namen sieht. Leer speichert NULL: dann zeigt die
+ * Anmeldeseite den Produktnamen.
+ */
+router.get(
+  '/firmenname',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const { rows } = await db.query('SELECT company_name FROM system_settings WHERE id = 1');
+    res.json({ firmenname: rows[0]?.company_name || null });
+  })
+);
+
+router.put(
+  '/firmenname',
+  requireAuth,
+  requireRole('admin'),
+  validateBody(FirmennameBody),
+  asyncHandler(async (req, res) => {
+    const firmenname = req.body.firmenname || null;
+    await db.query('UPDATE system_settings SET company_name = $1 WHERE id = 1', [firmenname]);
+    await systemSettings.reload();
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'settings_change',
+      details: { target: 'firmenname', firmenname },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.json({ firmenname });
   })
 );
 

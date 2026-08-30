@@ -219,7 +219,7 @@ describe('PasswordManagement Component', () => {
       renderPasswordManagement();
 
       expect(
-        screen.getByText(/Zur Sicherheit wird dein aktuelles Passwort benötigt/)
+        screen.getByText(/Zur Sicherheit wird Ihr aktuelles Passwort benötigt/)
       ).toBeInTheDocument();
     });
   });
@@ -361,7 +361,9 @@ describe('PasswordManagement Component', () => {
       renderPasswordManagement();
 
       expect(
-        screen.getByText(/Nach dem Ändern des Dashboard-Passworts wirst du automatisch abgemeldet/)
+        screen.getByText(
+          /Nach dem Ändern des Dashboard-Passworts werden Sie automatisch abgemeldet/
+        )
       ).toBeInTheDocument();
     });
   });

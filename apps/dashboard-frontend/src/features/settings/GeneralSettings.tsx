@@ -1,10 +1,11 @@
 import { formatUptime } from '../../utils/formatting';
 import { useState, useEffect, useCallback } from 'react';
-import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
+import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu, Building2 } from 'lucide-react';
 import { Kopf } from '@marken';
-import { Label, RadioGroup, RadioGroupItem } from '@marken';
+import { Button, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
+import { useToast } from '../../contexts/ToastContext';
 import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { Feldgruppe, Formularseite } from '@marken';
@@ -44,11 +45,69 @@ interface SystemInfo {
   build_hash: string;
 }
 
+/** Antwort von GET/PUT /settings/firmenname. */
+interface FirmennameAntwort {
+  firmenname: string | null;
+}
+
+/** So lang darf der Name sein; dieselbe Zahl wie im Schema des Backends. */
+const FIRMENNAME_MAX = 120;
+
 export function GeneralSettings() {
   const { theme, setTheme } = useTheme();
   const api = useApi();
+  const toast = useToast();
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Der Firmenname: er steht ueber dem Anmeldeformular (Auftrag
+  // anmeldung-ohne-slogan, 30.08.2026). `gespeichert` ist der Stand vom
+  // Geraet, `firmenname` das Feld; der Knopf ist nur an, wenn beides
+  // auseinanderliegt.
+  const [firmenname, setFirmenname] = useState('');
+  const [gespeichert, setGespeichert] = useState('');
+  const [firmennameSpeichert, setFirmennameSpeichert] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    api
+      .get<FirmennameAntwort>('/settings/firmenname', {
+        signal: controller.signal,
+        showError: false,
+      })
+      .then(d => {
+        const wert = d.firmenname ?? '';
+        setFirmenname(wert);
+        setGespeichert(wert);
+      })
+      .catch(() => {
+        // Ohne Antwort bleibt das Feld leer; der Fehler stuende sonst beim
+        // Laden jeder Einstellungsseite als Meldung da.
+      });
+    return () => controller.abort();
+  }, [api]);
+
+  const firmennameSpeichern = async () => {
+    setFirmennameSpeichert(true);
+    try {
+      const d = await api.put<FirmennameAntwort>('/settings/firmenname', {
+        firmenname: firmenname.trim(),
+      });
+      const wert = d.firmenname ?? '';
+      setFirmenname(wert);
+      setGespeichert(wert);
+      toast.success(
+        wert
+          ? `Die Anmeldeseite zeigt jetzt „${wert}".`
+          : `Die Anmeldeseite zeigt jetzt den Produktnamen „${PLATFORM_NAME}".`
+      );
+    } catch {
+      // useApi hat die Meldung schon gezeigt.
+    } finally {
+      setFirmennameSpeichert(false);
+    }
+  };
+  const firmennameGeaendert = firmenname.trim() !== gespeichert;
 
   const fetchSystemInfo = useCallback(
     async (signal?: AbortSignal) => {
@@ -77,9 +136,44 @@ export function GeneralSettings() {
 
       <Formularseite>
         <Feldgruppe
+          titel="Unternehmen"
+          symbol={<Building2 />}
+          beschreibung="Der Name steht über dem Anmeldeformular. Ohne Namen steht dort der Produktname."
+        >
+          <form
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={e => {
+              e.preventDefault();
+              if (firmennameGeaendert && !firmennameSpeichert) void firmennameSpeichern();
+            }}
+          >
+            <div className="flex-1">
+              <Label htmlFor="firmenname" className="mb-1.5 block text-sm font-medium">
+                Firmenname
+              </Label>
+              <Input
+                id="firmenname"
+                value={firmenname}
+                maxLength={FIRMENNAME_MAX}
+                autoComplete="organization"
+                onChange={e => setFirmenname(e.target.value)}
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="solid"
+              loading={firmennameSpeichert}
+              disabled={!firmennameGeaendert}
+            >
+              Speichern
+            </Button>
+          </form>
+        </Feldgruppe>
+
+        <Feldgruppe
           titel="Erscheinungsbild"
           symbol={theme === 'dark' ? <Moon /> : <Sun />}
-          beschreibung="Wähle zwischen hellem und dunklem Design"
+          beschreibung="Wählen Sie zwischen hellem und dunklem Design"
         >
           <RadioGroup
             value={theme}
@@ -178,11 +272,11 @@ export function GeneralSettings() {
         */}
         <Feldgruppe
           titel={`Über ${PLATFORM_NAME}`}
-          beschreibung="Die Software, die eure Apps im Haus betreibt"
+          beschreibung="Die Software, die Ihre Apps im Haus betreibt"
         >
           <p className="text-sm text-muted-foreground mb-4">
-            {PLATFORM_NAME} läuft auf einem Gerät in eurem Unternehmen und hostet die Apps, die ihr
-            dort braucht. Wer sich anmeldet, sieht die Apps, die für ihn freigegeben sind. Alles
+            {PLATFORM_NAME} läuft auf einem Gerät in Ihrem Unternehmen und hostet die Apps, die Sie
+            dort brauchen. Wer sich anmeldet, sieht die Apps, die für ihn freigegeben sind. Alles
             bleibt im Haus: Daten, Modelle und Protokolle verlassen das Gerät nicht.
           </p>
           <div className="flex flex-col gap-3">

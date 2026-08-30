@@ -83,7 +83,7 @@ export function trennFrage(ueberFernzugriff: boolean): {
       title: 'Fernzugriff trennen und diese Sitzung verlieren?',
       message:
         'Du bist gerade ÜBER diese Verbindung angemeldet. Nach dem Trennen ist ' +
-        'diese Seite nicht mehr erreichbar, und du kommst nur noch im lokalen ' +
+        'diese Seite nicht mehr erreichbar, und Sie kommen nur noch im lokalen ' +
         'Netz an das Gerät. Wieder verbinden geht dann nur dort.',
       confirmText: 'Trotzdem trennen',
     };

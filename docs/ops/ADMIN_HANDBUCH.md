@@ -162,7 +162,7 @@ kam mit der neuen Oberflaeche dazu):
 
 | Reiter          | Inhalt                                                          |
 | --------------- | --------------------------------------------------------------- |
-| **Allgemein**   | Systeminformationen, Theme                                      |
+| **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen               |
 | **Mitarbeiter** | Konten anlegen, Startpasswort setzen, App-Freigaben             |
 | **KI**          | Zwei Unterbereiche: _Firmenprofil & Kontext_ und _Sprachmodell_ |
 | **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden        |
@@ -178,9 +178,12 @@ Wege ueber die Schnittstelle stehen.
 
 ### Allgemein
 
-- **System-Name:** Name Ihrer Arasul-Installation
-- **Sprache:** Standardmaessig Deutsch
-- **Theme:** Dunkles Design (Standard)
+- **Firmenname:** der Name Ihres Unternehmens. Er steht ueber dem
+  Anmeldeformular, unter dem Maskottchen; ohne Namen steht dort der
+  Produktname. Einen Slogan zeigt die Anmeldeseite nicht (seit 30.08.2026).
+- **Erscheinungsbild:** Hell (Vorgabe) oder Dunkel, gehoert dem angemeldeten
+  Menschen (siehe oben).
+- **Systeminformationen:** Version, Geraetename, JetPack, Build, Laufzeit.
 
 ### KI → Firmenprofil & Kontext
 

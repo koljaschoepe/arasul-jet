@@ -46,7 +46,7 @@ function Settings({ handleLogout }: SettingsProps) {
   const confirmThenLogout = async () => {
     const ok = await confirm({
       title: 'Abmelden',
-      message: 'Möchtest du dich von diesem Gerät abmelden?',
+      message: 'Möchten Sie sich von diesem Gerät abmelden?',
       confirmText: 'Abmelden',
       cancelText: 'Abbrechen',
       confirmVariant: 'warning',

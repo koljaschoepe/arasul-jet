@@ -18,7 +18,7 @@ export function TeststandMarke() {
   return (
     <Badge
       variant="warning"
-      title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
+      title="Teststand: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
     >
       Test
     </Badge>

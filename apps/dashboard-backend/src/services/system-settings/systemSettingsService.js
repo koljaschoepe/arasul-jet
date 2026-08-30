@@ -19,7 +19,14 @@ const logger = require('../../utils/logger');
 // Die dreizehn Spalten mit `rag_`-Praefix sind am 24.08.2026 entfallen. Sie
 // stellten Abruf, Rerank und Wissensraum-Routing der Qdrant-Suche ein; mit dem
 // Ausbau von Qdrant hat sie niemand mehr gelesen.
+//
+// `company_name` ist seit dem 30.08.2026 dabei (Auftrag anmeldung-ohne-slogan):
+// die Anmeldeseite zeigt den Namen des Unternehmens statt eines Slogans, und
+// sie fragt ihn ueber `GET /api/auth/needs-setup` bei JEDER Seitenladung --
+// aus dem Cache, nicht aus Postgres. Geschrieben wird er ueber
+// `PUT /api/settings/firmenname`, das danach `reload()` ruft.
 const SETTINGS_COLUMNS = [
+  'company_name',
   'llm_num_ctx_default',
   'llm_keep_alive_seconds',
   'llm_num_predict_default',

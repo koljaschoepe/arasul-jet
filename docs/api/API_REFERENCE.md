@@ -83,7 +83,7 @@ Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 
 | Method | Endpoint                    | Description                                                       | Rate Limit    |
 | ------ | --------------------------- | ----------------------------------------------------------------- | ------------- |
-| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin?                        | 120/min       |
+| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin? Plus `firmenname`      | 120/min       |
 | POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin                      | 10/15min      |
 | POST   | `/api/auth/login`           | Login with username/password (sets cookie)                        | 10/15min      |
 | GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated`                  | 120/min       |
@@ -350,6 +350,17 @@ gerade gezeigt hat.
 
 Ob ein Gerät noch **gar keinen Administrator** hat, sagt weiterhin
 `GET /api/auth/needs-setup` — das ist eine andere Frage und ein anderer Weg.
+
+Seit dem 30.08.2026 (Auftrag anmeldung-ohne-slogan) fährt in derselben Antwort
+`firmenname` mit (`string | null`): der Name des Unternehmens, den die
+Anmeldeseite über dem Formular zeigt — Fallback ist der Produktname. Er kommt
+aus dem Cache der Systemeinstellungen (`company_name`, Migration 038) und
+kostet keine Abfrage; ein eigener Weg wäre eine dritte Anfrage auf jeder
+Seitenladung. Gesetzt wird er über `PUT /api/settings/firmenname`.
+
+```json
+{ "needsSetup": false, "firmenname": "Muster GmbH", "timestamp": "…" }
+```
 
 ### Metrics
 
@@ -715,10 +726,19 @@ Gegen das Gerät misst das `scripts/test/mitarbeiter-abnahme.sh`.
 
 ### Settings / Passwords
 
-| Method | Endpoint                              | Description               | Rate Limit |
-| ------ | ------------------------------------- | ------------------------- | ---------- |
-| POST   | `/api/settings/password/dashboard`    | Change Dashboard password | 3/15min    |
-| GET    | `/api/settings/password-requirements` | Get password rules        | -          |
+| Method | Endpoint                              | Description                              | Rate Limit |
+| ------ | ------------------------------------- | ---------------------------------------- | ---------- |
+| POST   | `/api/settings/password/dashboard`    | Change Dashboard password                | 3/15min    |
+| GET    | `/api/settings/password-requirements` | Get password rules                       | -          |
+| GET    | `/api/settings/firmenname`            | Firmenname der Anmeldeseite (admin)      | -          |
+| PUT    | `/api/settings/firmenname`            | Firmenname setzen, leer = keiner (admin) | -          |
+
+**PUT /api/settings/firmenname** (Auftrag anmeldung-ohne-slogan, 30.08.2026):
+`{ "firmenname": "Muster GmbH" }`, höchstens 120 Zeichen, wird getrimmt; ein
+leerer Name speichert `NULL`, und die Anmeldeseite zeigt dann den Produktnamen.
+Antwort `{ "firmenname": "Muster GmbH" | null }`. Die Spalte ist
+`system_settings.company_name`; gelesen wird sie öffentlich über
+`GET /api/auth/needs-setup`.
 
 **POST /api/settings/password/\*:**
 

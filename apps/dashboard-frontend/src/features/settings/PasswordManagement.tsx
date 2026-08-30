@@ -230,7 +230,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
             'current',
             'Aktuelles Dashboard-Passwort',
             'Dashboard-Passwort eingeben',
-            'Zur Sicherheit wird dein aktuelles Passwort benötigt'
+            'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
           )}
           {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
           {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
@@ -355,11 +355,11 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
                 Weg nach draußen.
               </p>
               <p>
-                Melde dich am Gerät an, wechsle in den Ordner, in den Arasul installiert wurde, und
-                starte dort:
+                Melden Sie sich am Gerät an, wechseln Sie in den Ordner, in den Arasul installiert
+                wurde, und starte dort:
               </p>
               <code className="block w-fit rounded bg-muted px-1.5 py-1 font-mono text-foreground">
-                ./scripts/security/reset-password.sh dein-benutzername
+                ./scripts/security/reset-password.sh ihr-benutzername
               </code>
               <p>
                 Ohne Benutzernamen nimmt das Skript <code className="font-mono">admin</code>. Es
@@ -370,7 +370,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
 
           <p className="text-xs text-muted-foreground">
             <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Dashboard-Passworts
-            wirst du automatisch abgemeldet.
+            werden Sie automatisch abgemeldet.
           </p>
         </form>
       </Feldgruppe>

@@ -94,7 +94,7 @@ export function MitarbeiterSettings() {
         title: `${b.username} stilllegen?`,
         message:
           'Er kommt danach nicht mehr herein. Seine Läufe und Protokolle bleiben stehen, ' +
-          'und du kannst ihn jederzeit wieder zulassen.',
+          'und Sie können ihn jederzeit wieder zulassen.',
         confirmText: 'Stilllegen',
         confirmVariant: 'warning',
       });

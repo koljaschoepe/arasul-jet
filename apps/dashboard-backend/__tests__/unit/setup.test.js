@@ -77,9 +77,11 @@ describe('Setup-on-first-login', () => {
         .mockResolvedValueOnce({ rows: [{ id: 1, username: 'boss', email: null }] })
         .mockRejectedValueOnce(new Error('relation "arasul.geraet" does not exist'));
 
-      await expect(
-        createFirstAdmin({ username: 'boss', password: 'secret12' })
-      ).resolves.toEqual({ id: 1, username: 'boss', email: null });
+      await expect(createFirstAdmin({ username: 'boss', password: 'secret12' })).resolves.toEqual({
+        id: 1,
+        username: 'boss',
+        email: null,
+      });
     });
 
     test('rejects with ConflictError when the race is lost (insert wrote nothing)', async () => {
@@ -107,6 +109,26 @@ describe('Setup-on-first-login', () => {
       expect(res.status).toBe(200);
       expect(res.body.needsSetup).toBe(false);
     });
+
+    // Der Firmenname faehrt mit, damit die Anmeldeseite keine dritte Anfrage
+    // braucht. Ohne geladenen Cache ist er null, nicht undefined: das
+    // Frontend soll den Fall „keiner gesetzt" von „altes Backend" trennen.
+    test('firmenname null, solange keiner gesetzt ist', async () => {
+      db.query.mockReset();
+      db.query.mockResolvedValueOnce({ rows: [{ count: 1 }] });
+      const res = await request(app).get('/api/auth/needs-setup');
+      expect(res.body.firmenname).toBeNull();
+    });
+
+    test('firmenname aus dem Cache der Systemeinstellungen', async () => {
+      const systemSettings = require('../../src/services/system-settings/systemSettingsService');
+      systemSettings._setForTest({ company_name: 'Muster GmbH' });
+      db.query.mockReset();
+      db.query.mockResolvedValueOnce({ rows: [{ count: 1 }] });
+      const res = await request(app).get('/api/auth/needs-setup');
+      expect(res.body.firmenname).toBe('Muster GmbH');
+      systemSettings._setForTest({ company_name: null });
+    });
   });
 
   describe('POST /api/auth/setup', () => {
@@ -116,7 +138,9 @@ describe('Setup-on-first-login', () => {
     });
 
     test('400 when password too short', async () => {
-      const res = await request(app).post('/api/auth/setup').send({ username: 'boss', password: 'x' });
+      const res = await request(app)
+        .post('/api/auth/setup')
+        .send({ username: 'boss', password: 'x' });
       expect(res.status).toBe(400);
     });
 

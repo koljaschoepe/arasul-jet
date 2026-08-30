@@ -95,7 +95,7 @@ export function SecuritySettings({
         <Feldgruppe
           titel="Sitzungen"
           symbol={<LogOut />}
-          beschreibung="Beende die aktuelle Sitzung oder melde dich auf allen Geräten ab."
+          beschreibung="Beenden Sie die aktuelle Sitzung oder melden Sie sich auf allen Geräten ab."
         >
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" onClick={handleLogout}>

@@ -42,7 +42,7 @@ function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () 
         eintrag.stand === 'test' ? (
           <span
             className="text-warning"
-            title="Teststand: diese Fassung ist noch nicht live. Was du hier tust, ist ein Test."
+            title="Teststand: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
           >
             Test
           </span>
@@ -77,7 +77,7 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
     <div className="ara-strom" data-testid="uebersicht-seite">
       <Kopf
         titel={user?.username ? `Guten Tag, ${user.username}` : 'Guten Tag'}
-        beschreibung="Die Apps, die für dich freigegeben sind. Alles läuft auf diesem Gerät."
+        beschreibung="Die Apps, die für Sie freigegeben sind. Alles läuft auf diesem Gerät."
       />
 
       {/* Zuerst das, was auf eine ANTWORT wartet, danach das, was offen
@@ -90,8 +90,8 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
       ) : eintraege.length === 0 ? (
         <Leerzustand
           symbol={<AppWindow />}
-          titel="Noch keine App für dich"
-          beschreibung="Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für dich dabei ist, steht sie hier und links in der Leiste."
+          titel="Noch keine App für Sie"
+          beschreibung="Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für Sie dabei ist, steht sie hier und links in der Leiste."
         />
       ) : (
         <div className="grid grid-cols-1 gap-ui-2 min-[900px]:grid-cols-2">
