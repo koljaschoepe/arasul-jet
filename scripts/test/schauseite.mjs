@@ -2,7 +2,7 @@
  * Die Schauseite der Bibliothek: die Abnahme (Phase H3, 29.08.2026).
  *
  * WAS GEMESSEN WIRD. Jedes Primitiv und jedes Muster, zwei Themes, drei
- * Breiten -- und je Zelle vier Fragen:
+ * Breiten -- und je Zelle sechs Fragen:
  *
  *   1. STEHT JEDES STUECK DA. Die Seite traegt je Baustein ein
  *      `data-schaustueck`; gezaehlt wird gegen die Dateien in
@@ -44,6 +44,21 @@
  *      Zahl hier waere `16rem` ein zweites Mal abgeschrieben; die Gleichheit
  *      gilt auch fuer die zugeklappte Leiste (`--sidebar-breite-symbole`).
  *      Unter 900 px gibt es beides nicht -- dort ist die Leiste ein Blatt.
+ *
+ *   6. STEHT NEBEN DER LEISTE NOCH ETWAS. Der Fund vom 30.08.2026 (J31):
+ *      nach der Reparatur der Breiten hielt der Platzhalter seine Spalte
+ *      wieder frei, und genau deshalb blieb im 20rem-Kasten des
+ *      Schaustuecks fuer die Flaeche daneben ein Rest von gut 60 px uebrig
+ *      -- aus „Inhalt" wurde „Inl". Frage 5 war dabei gruen, denn sie fragt
+ *      die Leiste und nicht das, was neben ihr steht.
+ *
+ *      Gefragt wird auch hier keine Zahl, sondern ob der RAHMEN um Leiste
+ *      und Flaeche abklammert (`scrollWidth` gegen `clientWidth`). Nicht die
+ *      Flaeche selbst: ein Flex-Kind schrumpft nicht unter seinen eigenen
+ *      Mindestinhalt, sie bleibt also so breit, wie „Inhalt" es verlangt,
+ *      und schiebt den Ueberschuss aus dem Rahmen -- am Kasten gemessen
+ *      99 px in einem Rahmen, der 66 px frei hatte. Eine Mindestbreite waere
+ *      geraten; ein abgeschnittenes Wort ist der Schaden selbst.
  *
  * Dazu ein Bild je Zelle: sechs Stueck, hell und dunkel bei 390, 1024, 1440.
  *
@@ -261,6 +276,16 @@ async function standLesen(seite) {
           leiste: leiste ? Math.round(leiste.getBoundingClientRect().width) : null,
         };
       }),
+      // Der Rahmen um Leiste und Flaeche. Er sagt, ob neben der Leiste
+      // ueberhaupt noch Platz war: klemmt er, steht die Flaeche breiter da,
+      // als er ihr geben kann, und ihr Inhalt ist abgeschnitten.
+      rahmen: [...document.querySelectorAll('[data-slot="sidebar-wrapper"]')].map(el => {
+        const flaeche = el.querySelector('[data-slot="sidebar-inset"]');
+        return {
+          breite: flaeche ? Math.round(flaeche.getBoundingClientRect().width) : null,
+          klemmt: el.scrollWidth > el.clientWidth + 1,
+        };
+      }),
     };
   });
 }
@@ -377,6 +402,16 @@ async function main() {
               : stand.leisten.map(l => `Platzhalter ${l.platz} / Leiste ${l.leiste}`).join(' | ')
           );
         }
+        // Frage 6 gilt an jeder Breite: unter 900 px ist die Leiste ein Blatt,
+        // der Rahmen und die Flaeche darin sind dieselben.
+        const eng = stand.rahmen.filter(r => r.klemmt);
+        pruefe(
+          `${breite.px} px · ${theme.name} · neben der Leiste steht noch etwas`,
+          stand.rahmen.length > 0 && eng.length === 0,
+          stand.rahmen.length === 0
+            ? 'kein Rahmen gefunden — steht die Sidebar noch auf der Schauseite?'
+            : stand.rahmen.map(r => `${r.breite} px${r.klemmt ? ' (klemmt)' : ''}`).join(' | ')
+        );
       }
     }
     await ctx.close();

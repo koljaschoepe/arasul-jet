@@ -175,7 +175,19 @@ export function SchaustueckeMuster() {
         satz="Die Navigation aus einer Liste. Wer aktiv ist, sagt die Anwendung."
       >
         <Zustand name="eingebettet">
-          <SidebarProvider eingebettet className="h-48 w-80 rounded-md border border-border">
+          {/* BREIT GENUG, DASS DANEBEN NOCH ETWAS STEHT (J31, 30.08.2026).
+            Die Leiste ist 16rem breit, und das Schaustueck soll nicht sie
+            zeigen, sondern das NEBENEINANDER. Im 20rem-Kasten blieb daneben
+            weniger frei, als `SidebarInset` fuer seinen eigenen Inhalt
+            braucht (gemessen 66 px frei gegen 99 px Mindestbreite): die
+            Flaeche schrumpft nicht unter ihren Inhalt, sie schiebt ihn aus
+            dem Rahmen, und aus „Inhalt" wurde „Inl". Wer die Bibliothek hier
+            lernt, sah damit einen Baustein ohne seine Wirkung. 30rem lassen
+            der Flaeche eine eigene Spalte. Unter 900 px gibt es das
+            Nebeneinander nicht (dort ist die Leiste ein Blatt, D7), und was
+            dann breiter ist als die Seite, rollt im Kasten des
+            Schaustuecks. */}
+          <SidebarProvider eingebettet className="h-48 w-[30rem] rounded-md border border-border">
             <Seitenleiste
               gruppen={[
                 {
@@ -205,7 +217,7 @@ export function SchaustueckeMuster() {
           </SidebarProvider>
         </Zustand>
         <Zustand name="lädt">
-          <SidebarProvider eingebettet className="h-48 w-80 rounded-md border border-border">
+          <SidebarProvider eingebettet className="h-48 w-[30rem] rounded-md border border-border">
             <Seitenleiste gruppen={[]} laedt />
             <SidebarInset>
               <div className="p-ui-2 text-ui-sm text-muted-foreground">Inhalt</div>

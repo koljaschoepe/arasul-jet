@@ -972,6 +972,24 @@ Pfadfilter der CI an denselben Dockerfiles haelt, denn es ist dieselbe Frage
 an zwei Stellen. Gegengeprueft: gegen die alte Tabelle meldet er genau diese
 neun Befunde.
 
+Und die Reparatur der Breiten hat am Tag darauf (30.08.2026) das **Schaustueck
+Seitenleiste** unbrauchbar gemacht, gerade weil sie wirkte: der Platzhalter
+hielt seine Spalte wieder frei, und im 20rem-Kasten der Schauseite blieb neben
+den 16rem der Leiste weniger frei, als `SidebarInset` fuer seinen eigenen
+Inhalt braucht (gemessen 66 px frei gegen 99 px Mindestbreite). **Eine Flaeche
+als Flex-Kind schrumpft nicht unter ihren Mindestinhalt, sie schiebt ihn aus
+dem Rahmen** — aus „Inhalt" wurde „Inl", und wer die Bibliothek an dieser
+Seite lernt, sah einen Baustein ohne seine Wirkung. Die drei eingebetteten
+Kaesten stehen jetzt auf 30rem (das Muster `Seitenleiste` **und** das Primitiv
+`Sidebar` daneben, dessen Kasten mit 18rem noch enger war); an der Bibliothek
+aendert sich nichts, die Fassung bleibt 3.1.1. `schauseite.mjs` hat dafuer
+eine **sechste Frage** bekommen: die fuenf davor sagten dazu nichts — die
+Stuecke standen da, die Flaeche stimmte, es rollte nicht, die Konsole schwieg,
+und Frage 5 aus J31 fragt die **Leiste**, nicht das, was neben ihr steht.
+Gefragt wird auch hier keine Zahl, sondern ob der Rahmen um Leiste und Flaeche
+abklammert (`scrollWidth` gegen `clientWidth`); eine Mindestbreite waere
+geraten, ein abgeschnittenes Wort ist der Schaden selbst.
+
 | Layer    | Stack                                                             | Path                                                                                              |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 9 Muster, 6 Bausteine) |
