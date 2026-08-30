@@ -294,14 +294,14 @@ legt sie an, nennt ihre Adresse und wirft sie mit der App wieder weg. Siehe
 
 ## Was schiefgehen kann
 
-| Antwort | Bedeutung                                                                                                                                                                                                                                          |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `401`   | Kein oder kein gültiger Schlüssel                                                                                                                                                                                                                  |
-| `403`   | Der Schlüssel hat `app:deploy` nicht                                                                                                                                                                                                               |
-| `400`   | Das Paket geht nicht durch: kein `app.json` im Wurzelverzeichnis, ein Symlink darin, ein Feld, das es nicht gibt, ein fehlender Bauplan — oder der Bau am Gerät ist gescheitert (die letzten Zeilen der Bauausgabe stehen in `details`)            |
-| `409`   | Diese Version ist gerade live; oder: es gibt keinen Teststand zum Schalten, keine vorige Version zum Zurückschalten, oder die Lizenz erlaubt keine weitere App **im Betrieb** (seit H7 zählen nur Livestände; ein Deploy ins Testfeld läuft immer) |
-| `413`   | Das Archiv ist größer als 200 MB                                                                                                                                                                                                                   |
-| `429`   | Zu viele Uploads in kurzer Zeit                                                                                                                                                                                                                    |
+| Antwort | Bedeutung                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401`   | Kein oder kein gültiger Schlüssel                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `403`   | Der Schlüssel hat `app:deploy` nicht                                                                                                                                                                                                                                                                                                                                                                                               |
+| `400`   | Das Paket geht nicht durch: kein `app.json` im Wurzelverzeichnis, ein Symlink darin, ein Feld, das es nicht gibt, ein fehlender Bauplan — oder der Bau am Gerät ist gescheitert (die letzten Zeilen der Bauausgabe stehen in `details`)                                                                                                                                                                                            |
+| `409`   | Diese Version ist gerade live; oder: es gibt keinen Teststand zum Schalten, keine vorige Version zum Zurückschalten, oder das **Lizenzkontingent ist voll** (seit dem 30.08.2026 zählen Test- und Livestand zusammen: jede eingespielte App belegt einen Platz, eine neue Version einer bekannten App geht immer durch). Die Meldung nennt die Zahl und die Apps, `details` trägt sie als `grenze`, `belegt`, `apps`, `abgewiesen` |
+| `413`   | Das Archiv ist größer als 200 MB                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `429`   | Zu viele Uploads in kurzer Zeit                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Gemessen wird das mit
 
@@ -313,3 +313,10 @@ Es geht den ganzen Weg über die externe API — Kontrakt, Deploy, Schalten,
 Zurückschalten, Rückfrage, Entfernen — und räumt am Ende alles weg, was es
 angelegt hat. Ohne `ARASUL_KIT_SCHLUESSEL` meldet es sich einmal als
 Administrator an, legt sich einen Wegwerf-Schlüssel an und widerruft ihn.
+
+Die **Lizenzgrenze** misst `scripts/test/lizenz-abnahme.sh` daneben: sie fragt
+das Gerät, wie viele Apps seine Lizenz trägt (`GET /api/license/info`), zählt
+die, die dastehen, und schickt danach Wegwerf-Pakete gegen die Grenze — von
+unten (eines geht durch) und von oben (das nächste bekommt 409). Die Zahl steht
+in keiner Zeile des Skripts; eine Abnahme, die „3" erwartet, misst ihre eigene
+Erinnerung. Auch sie räumt hinter sich auf.

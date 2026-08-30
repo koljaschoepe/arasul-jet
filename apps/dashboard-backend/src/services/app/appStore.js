@@ -260,10 +260,10 @@ async function stillEntfernen(tun) {
 async function spieleEin({ appId, version, stand, durch }) {
   const manifest = await appManifest.leseManifest(appId, version);
   const neueApp = await istNeueApp(manifest.id);
-  // Die Lizenzgrenze greift beim Schalten nach live und nicht hier -- siehe
-  // `pruefeLivegrenze`. Ein Teststand ist kein Betrieb.
-  if (stand === 'live') {
-    await pruefeLivegrenze(manifest.id);
+  // Die Lizenzgrenze greift HIER, bei jedem Stand -- siehe `pruefeAppGrenze`.
+  // `neueApp` ist schon da, also kostet sie bei einer bekannten App nichts.
+  if (neueApp) {
+    await pruefeAppGrenze(manifest.id);
   }
   if (manifest.frontend) {
     await appManifest.frontendVerzeichnis(manifest);
@@ -465,42 +465,56 @@ async function istNeueApp(appId) {
 /**
  * Die Lizenzgrenze fuer die Zahl der Apps.
  *
- * EIN TESTSTAND ZAEHLT NICHT (Entscheidung H7, 29.08.2026). Gezaehlt werden
- * Apps mit einem LIVESTAND, und geprueft wird beim Schalten nach live -- nicht
- * beim Einspielen.
+ * JEDE EINGESPIELTE APP BELEGT EINEN PLATZ, Test- und Livestand zusammen
+ * (Entscheidung Kolja vom 30.08.2026). Geprueft wird beim EINSPIELEN, also an
+ * der Stelle, an der eine App auf das Geraet kommt -- und nur bei einer NEUEN
+ * App: eine neue Version einer App, die schon da ist, aendert die Zahl nicht,
+ * und ein abgelaufener Schluessel darf kein Update blockieren, das vielleicht
+ * genau den Fehler behebt, wegen dem jemand anruft.
  *
- * Der Grund steht in der Vision: die Lizenz kauft den BETRIEB. Was ein
- * Mitarbeiter benutzt, ist der Livestand; den Teststand sieht, wer als Tester
- * eingetragen ist, und er ist die Werkbank des Partners. Bis H7 zaehlte jede
- * Zeile in `apps`, und am Orin standen am 29.08.2026 drei von drei belegt --
- * `beispielapp`, `angebot`, `urlaubsantrag`, keine davon in Betrieb. Ein
- * Partner mit drei gekauften Apps haette die vierte nicht einmal BAUEN
- * koennen, um eine der drei zu ersetzen; er haette erst wegwerfen muessen, was
- * laeuft. Eine Grenze, die das Ausprobieren verbietet, misst nicht, was
- * verkauft wurde.
+ * H7 hatte den Riegel auf das Schalten nach live verschoben, mit dem Argument,
+ * die Lizenz kaufe den BETRIEB und der Teststand sei die Werkbank des
+ * Partners. Das Argument stimmt fuer den Menschen und nicht fuer das Geraet:
+ * eine App im Teststand hat dort ein Image, einen Container, eine Datenbank je
+ * Stand und einen Ordner. Vor allem aber war der Riegel damit da, wo ihn
+ * niemand trifft -- am 30.08.2026 lagen drei Apps am Orin, die Lizenz traegt
+ * drei, und `--deploy` einer vierten ging ohne Widerspruch durch. Eine Grenze,
+ * die beim Einspielen nicht greift, ist kein Verkaufsargument, sondern ein
+ * Fund, den ein Partner als Erster meldet.
  *
- * Der Riegel steht damit an der Stelle, an der aus einem Versuch Betrieb wird,
- * und das ist genau der Augenblick, in dem ein Mensch entscheidet -- ein
- * Deploy des Kits kommt nie dorthin. Zurueckgeschaltet (`zurueck`) wird nicht
- * geprueft: die App war schon live, die Zahl aendert sich nicht.
+ * Gezaehlt werden die Zeilen in `apps` und nicht die Staende: eine App mit
+ * beiden Staenden ist eine App und kein Paar. `<> $1` LAESST DIE EIGENE WEG,
+ * und daran haengt die Regel oben: eine App, die schon am Geraet steht, zaehlt
+ * sich bei ihrem eigenen Update nicht mit und geht auch auf einem vollen Geraet
+ * durch. `appPaket.nimmAn` verlaesst sich darauf -- es ruft hier an, bevor es
+ * baut, und weiss zu dem Zeitpunkt nicht, ob die App neu ist.
+ *
+ * WAS ZU TUN IST, STEHT IN DER MELDUNG, und die Zahlen stehen zusaetzlich in
+ * `details`: das Kit gibt beides wortgleich aus (`reason()` in seinem
+ * `lib/arasul.mjs`), und ein Partner soll nicht raten muessen, welche App er
+ * wegnehmen kann.
  *
  * `maxApps` ist die einzige Zahl aus `FEATURE_TIERS`, hinter der ein Riegel
  * steht. Die anderen sind Angaben; diese ist eine Zusage.
  */
-async function pruefeLivegrenze(appId) {
-  const { rows } = await db.query(
-    `SELECT count(*)::int AS n FROM public.app_staende WHERE stand = 'live' AND app_id <> $1`,
-    [appId]
-  );
+async function pruefeAppGrenze(appId) {
+  // Die NAMEN und nicht `count(*)`: gezaehlt wird ihre Anzahl, und im Fall der
+  // Abweisung stehen sie in der Meldung. Zwei Abfragen waeren zwei Augenblicke
+  // und eine Meldung, deren Zahl nicht zu ihrer Liste passt.
+  const { rows } = await db.query('SELECT id FROM public.apps WHERE id <> $1 ORDER BY id', [appId]);
   const licenseService = require('./licenseService');
-  const grenze = await licenseService.checkLimit('maxApps', rows[0].n);
-  if (!grenze.allowed) {
-    throw new ConflictError(
-      `Die Lizenz dieses Geraets erlaubt ${grenze.limit} Apps im Betrieb, es sind ${grenze.current}. ` +
-        'Eine App zuruecknehmen oder entfernen, oder die Lizenz erweitern. ' +
-        'Teststaende zaehlen nicht.'
-    );
+  const grenze = await licenseService.checkLimit('maxApps', rows.length);
+  if (grenze.allowed) {
+    return;
   }
+  const namen = rows.map(z => z.id);
+  throw new ConflictError(
+    `Die Lizenz dieses Geraets traegt ${grenze.limit} Apps, es sind ${grenze.current}: ` +
+      `${namen.join(', ')}. ${appId} kommt nicht dazu. Test- und Livestand zaehlen zusammen, ` +
+      'jede eingespielte App belegt einen Platz. Eine App entfernen (Einstellungen -> Apps -> ' +
+      'App entfernen, oder DELETE /api/v1/external/apps/<id>) oder die Lizenz erweitern.',
+    { grenze: grenze.limit, belegt: grenze.current, apps: namen, abgewiesen: appId }
+  );
 }
 
 /**
@@ -734,4 +748,5 @@ module.exports = {
   pruefeStaende,
   standZustand,
   staendeVon,
+  pruefeAppGrenze,
 };

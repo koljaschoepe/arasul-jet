@@ -293,6 +293,15 @@ async function nimmAn({ archivPfad, durch }) {
     const manifest = await leseManifestAusPaket(ordner);
     await pruefePaketInhalt(manifest, ordner);
 
+    // Die Lizenzgrenze, BEVOR gebaut wird (30.08.2026). Sie steht auch in
+    // `appStore.spieleEin` -- das ist der Riegel, und der gilt fuer beide Wege
+    // ins Geraet. Hier steht sie ein zweites Mal, weil `spieleEin` erst ganz
+    // unten kommt: dazwischen liegt der Bau des Images, und der dauert am Orin
+    // Minuten. Ein Partner soll nicht erst bauen lassen, um dann zu erfahren,
+    // dass diese App gar nicht hierher darf. Es ist zwei Abfragen und keine
+    // zweite Logik: dieselbe Funktion, dieselbe Meldung.
+    await appStore.pruefeAppGrenze(manifest.id);
+
     // Eine Version, die gerade LIVE ist, wird nicht ueberschrieben. Der Deploy
     // rollt in den Teststand, aber die Dateien liegen je Version und nicht je
     // Stand -- dieselbe Nummer noch einmal zu schicken hiesse, die Seite zu

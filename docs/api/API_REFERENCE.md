@@ -985,7 +985,8 @@ Container starten, erst danach schreiben. Ein Stand, der in der Antwort steht,
 ist einer, der wirklich hochgekommen ist. Antworten: `201` mit dem Stand,
 `404` wenn die Version nicht auf der Platte liegt, `400` wenn das Manifest
 nicht durchgeht, `409` wenn die Lizenz keine weitere App erlaubt (die Grenze
-greift nur bei einer neuen App, nicht bei einer neuen Version).
+greift nur bei einer neuen App, nicht bei einer neuen Version; Test- und
+Livestand zählen zusammen — siehe [APPS.md](../features/APPS.md#grenzen)).
 
 **GET /api/apps/:id/logs:** Query `?stand=live|test&zeilen=1..2000`.
 
@@ -2666,11 +2667,19 @@ Dockerfile im Paket**, registriert die Flows aus `flows/*.md` (C6) und spielt
 in den Teststand ein. Antworten: `201` mit dem Stand und den registrierten
 Flows, `400` bei einem Paket, das nicht durchgeht (Symlink, fehlendes
 `app.json`, fehlender Bauplan, fehlgeschlagener Bau, unlesbarer Flow), `409`
-wenn diese Version gerade **live** ist (neue Fassung, neue Nummer), `413` wenn
-das Archiv über 200 MB liegt.
+wenn diese Version gerade **live** ist (neue Fassung, neue Nummer) oder wenn
+das **Lizenzkontingent voll** ist, `413` wenn das Archiv über 200 MB liegt.
 
-Die Flows werden **vor** dem Bau geprüft: eine kaputte YAML-Kopfzeile findet
-sich in Millisekunden, ein Image zu bauen dauert am Jetson Minuten.
+Bei vollem Kontingent nennt die Meldung die Zahl, die die Lizenz trägt, und die
+Apps, die die Plätze belegen; dieselben Zahlen stehen als `details`
+(`grenze`, `belegt`, `apps`, `abgewiesen`). Test- und Livestand zählen
+zusammen, eine neue Version einer App, die schon da ist, geht immer durch —
+siehe [APPS.md](../features/APPS.md#grenzen).
+
+Die Lizenzgrenze und die Flows werden **vor** dem Bau geprüft: eine kaputte
+YAML-Kopfzeile findet sich in Millisekunden, ein Image zu bauen dauert am
+Jetson Minuten — und eine App, die gar nicht auf das Gerät darf, soll den Bau
+nicht erst abwarten müssen.
 
 Einen Parameter für den Stand gibt es nicht. Live schaltet ein Mensch.
 

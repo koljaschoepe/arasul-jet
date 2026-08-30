@@ -107,9 +107,7 @@ describe('Die Flows einer App (Phase C6)', () => {
     // „Das Feld fehlt" und „setz es auf nichts" muessen sich unterscheiden
     // lassen, sonst gaebe es keinen Weg zurueck.
     auth.__setUser(ADMIN);
-    const res = await request(verwaltung())
-      .put('/api/apps/urlaub/flows/bericht/modell')
-      .send({});
+    const res = await request(verwaltung()).put('/api/apps/urlaub/flows/bericht/modell').send({});
     expect(res.status).toBe(400);
   });
 });
@@ -238,7 +236,9 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
     db.query.mockResolvedValueOnce({ rows: [{ stand: 'test', version: '1.0.0' }] }); // staendeVon
     einspielenAntworten('live');
 
-    const res = await request(verwaltung()).post('/api/apps/urlaub/schalten').send({ ziel: 'live' });
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/schalten')
+      .send({ ziel: 'live' });
 
     expect(res.status).toBe(200);
     expect(res.body.data.stand).toBe('live');
@@ -247,7 +247,9 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
 
   test('live schalten ohne Teststand ist 409 und keine stille Nullnummer', async () => {
     db.query.mockResolvedValueOnce({ rows: [] }); // staendeVon: nichts da
-    const res = await request(verwaltung()).post('/api/apps/urlaub/schalten').send({ ziel: 'live' });
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/schalten')
+      .send({ ziel: 'live' });
     expect(res.status).toBe(409);
   });
 
@@ -571,17 +573,22 @@ describe('/api/apps/meine', () => {
 /**
  * Die Abfragen eines erfolgreichen Einspielens, in ihrer Reihenfolge:
  *   1. gibt es die App schon (`istNeueApp`)
- *   1a. NUR bei `live`: wie viele ANDERE Apps sind live (Lizenzgrenze, H7)
+ *   1a. NUR bei einer NEUEN App: welche anderen Apps stehen am Geraet
+ *       (Lizenzgrenze, 30.08.2026 -- unabhaengig vom Stand)
  *   2. die Zeile in `apps` -- seit C4 VOR dem Container, weil der Schluessel
  *      als Fremdschluessel an ihr haengt
  *   3. der alte Schluessel dieses Standes weg
  *   4. der neue Schluessel
  *   5. der Stand
+ *
+ * `bekannt` ist die Vorgabe: die Beispiel-App dieser Datei gibt es schon, also
+ * faellt die Lizenzabfrage weg. `einspielenAntworten(stand, { neu: true })`
+ * setzt den anderen Fall.
  */
-function einspielenAntworten(stand = 'test') {
-  db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
-  if (stand === 'live') {
-    db.query.mockResolvedValueOnce({ rows: [{ n: 0 }] });
+function einspielenAntworten(stand = 'test', { neu = false } = {}) {
+  db.query.mockResolvedValueOnce({ rows: neu ? [] : [{ '?column?': 1 }] });
+  if (neu) {
+    db.query.mockResolvedValueOnce({ rows: [] }); // keine andere App am Geraet
   }
   db.query
     .mockResolvedValueOnce({ rows: [] })
@@ -632,6 +639,7 @@ describe('POST /api/apps/:id/einspielen', () => {
     docker.createContainer.mockRejectedValueOnce(new Error('kein Image'));
     db.query
       .mockResolvedValueOnce({ rows: [] }) // die App gibt es noch nicht
+      .mockResolvedValueOnce({ rows: [] }) // Lizenzgrenze: keine andere App
       .mockResolvedValueOnce({ rows: [] }) // apps upsert
       .mockResolvedValueOnce({ rowCount: 0 }) // alter Schluessel weg
       .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // neuer Schluessel
@@ -661,45 +669,73 @@ describe('POST /api/apps/:id/einspielen', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
-  test('ein TESTSTAND faellt nicht unter die Lizenzgrenze (H7)', async () => {
-    // Die Werkbank des Partners ist kein Betrieb. Bis H7 zaehlte jede Zeile in
-    // `apps`, und am Orin standen drei von drei belegt, ohne dass eine einzige
-    // in Betrieb gewesen waere -- der Partner haette die vierte nicht einmal
-    // bauen koennen, um eine der drei zu ersetzen.
-    licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 3, current: 3 });
-    einspielenAntworten();
-    const res = await request(verwaltung())
-      .post('/api/apps/urlaub/einspielen')
-      .send({ version: '1.0.0' });
-    expect(res.status).toBe(201);
-    expect(licenseService.checkLimit).not.toHaveBeenCalled();
-  });
-
-  test('die Lizenzgrenze haelt das Schalten nach LIVE auf', async () => {
+  test('bei vollem Kontingent kommt eine NEUE App nicht auf das Geraet', async () => {
+    // Der Riegel steht beim EINSPIELEN (30.08.2026) und nicht mehr beim
+    // Schalten nach live: am 30.08. lagen drei Apps am Orin, die Lizenz traegt
+    // drei, und `--deploy` einer vierten ging ohne Widerspruch durch.
     licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 3, current: 3 });
     db.query
       .mockResolvedValueOnce({ rows: [] }) // die App gibt es noch nicht
-      .mockResolvedValueOnce({ rows: [{ n: 3 }] }); // drei andere sind live
+      .mockResolvedValueOnce({
+        rows: [{ id: 'angebot' }, { id: 'beispielapp' }, { id: 'urlaub2' }],
+      });
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/einspielen')
+      .send({ version: '1.0.0' });
+    expect(res.status).toBe(409);
+    expect(licenseService.checkLimit).toHaveBeenCalledWith('maxApps', 3);
+    // Die Meldung nennt die Zahl, die die Lizenz traegt, und die Apps, die den
+    // Platz belegen -- das Kit gibt sie wortgleich aus.
+    expect(res.body.error.message).toMatch(/traegt 3 Apps, es sind 3/);
+    expect(res.body.error.message).toMatch(/angebot, beispielapp, urlaub2/);
+    expect(res.body.error.details).toEqual({
+      grenze: 3,
+      belegt: 3,
+      apps: ['angebot', 'beispielapp', 'urlaub2'],
+      abgewiesen: 'urlaub',
+    });
+    // Und geschrieben wurde nichts.
+    const geschrieben = db.query.mock.calls
+      .map(c => String(c[0]))
+      .filter(a => /INSERT|UPDATE|DELETE/.test(a));
+    expect(geschrieben).toEqual([]);
+  });
+
+  test('ein TESTSTAND zaehlt genauso -- er belegt einen Platz', async () => {
+    // Die Ruecknahme der H7-Entscheidung: eine App im Teststand hat am Geraet
+    // ein Image, einen Container, eine Datenbank je Stand und einen Ordner.
+    licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 3, current: 3 });
+    db.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] });
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/einspielen')
+      .send({ version: '1.0.0', stand: 'test' });
+    expect(res.status).toBe(409);
+  });
+
+  test('eine App, die schon da ist, zaehlt sich nicht selbst', async () => {
+    // Sonst blockierte ein volles Geraet jedes Update genau der App, die
+    // vielleicht den Fehler hat, wegen dem jemand anruft.
+    licenseService.checkLimit.mockResolvedValue({ allowed: false, limit: 3, current: 3 });
+    einspielenAntworten('live');
     const res = await request(verwaltung())
       .post('/api/apps/urlaub/einspielen')
       .send({ version: '1.0.0', stand: 'live' });
-    expect(res.status).toBe(409);
-    expect(licenseService.checkLimit).toHaveBeenCalledWith('maxApps', 3);
+    expect(res.status).toBe(201);
+    // Gar nicht erst gefragt: `istNeueApp` hat schon nein gesagt.
+    expect(licenseService.checkLimit).not.toHaveBeenCalled();
   });
 
-  test('eine App, die schon live ist, zaehlt sich nicht selbst', async () => {
-    // Sonst blockierte ein volles Geraet jedes Update genau der App, die
-    // vielleicht den Fehler hat, wegen dem jemand anruft.
+  test('gezaehlt werden die ANDEREN Apps, nicht die Staende', async () => {
     licenseService.checkLimit.mockResolvedValue({ allowed: true, limit: 3, current: 2 });
-    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }); // App bekannt
-    einspielenAntworten('live');
-    await request(verwaltung())
-      .post('/api/apps/urlaub/einspielen')
-      .send({ version: '1.0.0', stand: 'live' });
+    einspielenAntworten('test', { neu: true });
+    await request(verwaltung()).post('/api/apps/urlaub/einspielen').send({ version: '1.0.0' });
     const gezaehlt = db.query.mock.calls.find(
-      ([sql]) => sql.includes('app_staende') && sql.includes("stand = 'live'")
+      ([sql]) => sql.includes('FROM public.apps') && sql.includes('id <> $1')
     );
     expect(gezaehlt[1]).toEqual(['urlaub']);
+    expect(gezaehlt[0]).not.toContain('app_staende');
   });
 });
 

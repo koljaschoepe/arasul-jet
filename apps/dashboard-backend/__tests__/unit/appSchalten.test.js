@@ -53,7 +53,6 @@ jest.mock('../../src/services/app/appDatenbank', () => ({
   entferne: jest.fn(async () => []),
 }));
 
-
 const db = require('../../src/database');
 const appStore = require('../../src/services/app/appStore');
 const appContainer = require('../../src/services/app/appContainer');
@@ -92,16 +91,14 @@ function staende(zeilen) {
 
 /**
  * Die Abfragen, die `spieleEin` danach stellt, in ihrer Reihenfolge:
- * Lizenzgrenze (SELECT 1), Zahl der Apps, INSERT apps, INSERT app_staende.
+ * gibt es die App schon (SELECT 1), INSERT apps, INSERT app_staende.
+ *
+ * KEINE LIZENZGRENZE: die wird seit dem 30.08.2026 beim EINSPIELEN gefragt und
+ * nur bei einer neuen App (`appStore.pruefeAppGrenze`). Schalten ist beides
+ * nicht -- die App steht schon am Geraet, die Zahl aendert sich nicht.
  */
 function spieleEinLaeuftDurch(version, stand = 'live') {
   db.query.mockResolvedValueOnce({ rows: [{ id: 'urlaub' }] }); // App gibt es schon
-  if (stand === 'live') {
-    // Die Lizenzgrenze zaehlt seit H7 die ANDEREN Apps im Livestand, und sie
-    // wird nur beim Schalten nach live gefragt -- ein Teststand ist kein
-    // Betrieb (`appStore.pruefeLivegrenze`).
-    db.query.mockResolvedValueOnce({ rows: [{ n: 0 }] });
-  }
   db.query.mockResolvedValueOnce({ rows: [] }); // INSERT apps
   db.query.mockResolvedValueOnce({
     rows: [{ app_id: 'urlaub', stand, version, vorige_version: null }],
@@ -193,11 +190,13 @@ Schreibe einen Bericht.
     // alten -- und niemand saehe der App an, welche Fassung gilt.
     legeAb('2.0.0', { 'bericht.md': '---\nname: [kaputt\n---\nRumpf\n' });
 
-    await expect(appStore.spieleEin({ appId: 'urlaub', version: '2.0.0', stand: 'test' })).rejects.toThrow();
+    await expect(
+      appStore.spieleEin({ appId: 'urlaub', version: '2.0.0', stand: 'test' })
+    ).rejects.toThrow();
 
     expect(appContainer.sorgeFuerImage).not.toHaveBeenCalled();
     expect(appContainer.starte).not.toHaveBeenCalled();
-    // Gelesen wurde (die Lizenzgrenze fragt nach), geschrieben nichts.
+    // Gelesen wurde (`istNeueApp` fragt nach), geschrieben nichts.
     const geschrieben = db.query.mock.calls
       .map(c => String(c[0]))
       .filter(a => /INSERT|UPDATE|DELETE/.test(a));

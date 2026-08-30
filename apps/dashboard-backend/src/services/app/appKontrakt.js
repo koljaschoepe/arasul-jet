@@ -97,6 +97,16 @@ const KONTRAKT_VERSION = 5;
  *   3. `umgebung.datenbank` kommt dazu: die Adresse der Datenbank dieser App
  *      und dieses Standes. Ein Kit, das gegen Fassung 4 prueft, kennt sie
  *      nicht -- die App laeuft trotzdem, sie hat nur keinen Speicher.
+ *
+ * Fassung 5 BLEIBT am 30.08.2026, obwohl `paket.regeln` einen Satz dazubekommen
+ * hat (die Lizenzgrenze beim Einspielen, J30). Die Zahl geht mit, wenn ein Kit
+ * ohne sie etwas falsch macht; hier macht sie nur etwas sichtbar, was das
+ * Geraet ohnehin tut -- ein Kit, das den Satz nicht liest, bekommt dieselbe
+ * Abweisung mit derselben Begruendung, es hat sie nur nicht vorher gewusst.
+ * Und sie zu erhoehen waere hier der SCHADEN: das Kit haelt an, sobald ein
+ * Geraet eine hoehere Nummer traegt als es kennt (`.ara/knowledge/deploy.md`).
+ * Aus einem zusaetzlichen Hinweis wuerde damit ein Geraet, auf das gar nichts
+ * mehr einspielen kann, bis jemand das Kit nachzieht.
  */
 
 /**
@@ -369,6 +379,7 @@ function kontrakt() {
         'Ein Deploy rollt immer in den Teststand. Live schaltet ein Mensch.',
         'Eine Version, die gerade live ist, wird nicht ueberschrieben: neue Fassung, neue Nummer.',
         'Mit `flows` im Manifest muss der Ordner da sein und wenigstens eine .md enthalten.',
+        'Jede eingespielte App belegt einen Platz der Lizenz, Test- und Livestand zusammen. Ist das Kontingent voll, weist das Geraet das Paket einer NEUEN App ab (409), und zwar bevor es baut; eine neue Version einer App, die schon da ist, geht immer durch.',
       ],
     },
     apps: {
