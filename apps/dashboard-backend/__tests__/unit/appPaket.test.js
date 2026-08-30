@@ -26,6 +26,10 @@ jest.mock('../../src/services/app/appContainer', () => ({
 }));
 jest.mock('../../src/services/app/appStore', () => ({
   staendeVon: jest.fn().mockResolvedValue({ test: null, live: null }),
+  // Die Lizenzgrenze steht in `appStore` und wird hier ZWEIMAL gerufen: einmal
+  // frueh (vor dem Bau) und einmal in `spieleEin`. Was sie prueft, misst
+  // `apps.test.js`; hier zaehlt nur, dass sie VOR `baueImage` steht.
+  pruefeAppGrenze: jest.fn().mockResolvedValue(undefined),
   spieleEin: jest.fn(async ({ appId, version, stand }) => ({
     app_id: appId,
     version,
@@ -83,6 +87,8 @@ afterAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   appStore.staendeVon.mockResolvedValue({ test: null, live: null });
+  appStore.pruefeAppGrenze.mockReset();
+  appStore.pruefeAppGrenze.mockResolvedValue(undefined);
   appStore.spieleEin.mockImplementation(async ({ appId, version, stand }) => ({
     app_id: appId,
     version,
@@ -217,6 +223,25 @@ describe('nimmAn', () => {
     const kontext = appContainer.baueImage.mock.calls[0][1];
     expect(kontext.startsWith(appPaket.eingangsOrdner())).toBe(true);
     expect(kontext.endsWith(path.join('backend'))).toBe(true);
+  });
+
+  it('fragt die Lizenzgrenze, BEVOR es baut', async () => {
+    // Ein Bau dauert am Orin Minuten. Ein Partner soll nicht erst warten, um
+    // dann zu erfahren, dass diese App gar nicht auf das Geraet darf.
+    const { ConflictError } = require('../../src/utils/errors');
+    appStore.pruefeAppGrenze.mockRejectedValue(new ConflictError('Die Lizenz traegt 3 Apps'));
+    const archiv = packe('lizenz', vollstaendig);
+    const kopie = path.join(WERKSTATT, 'lizenz-kopie.tgz');
+    fs.copyFileSync(archiv, kopie);
+
+    await expect(appPaket.nimmAn({ archivPfad: kopie, durch: null })).rejects.toThrow(
+      /Die Lizenz traegt 3 Apps/
+    );
+    expect(appStore.pruefeAppGrenze).toHaveBeenCalledWith('probeapp');
+    expect(appContainer.baueImage).not.toHaveBeenCalled();
+    expect(appStore.spieleEin).not.toHaveBeenCalled();
+    // Und der Eingang ist leer: was ausgepackt war, gehoert niemandem mehr.
+    expect(fs.readdirSync(appPaket.eingangsOrdner())).toEqual([]);
   });
 
   it('ueberschreibt keine Version, die gerade live ist', async () => {

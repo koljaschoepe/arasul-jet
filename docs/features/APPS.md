@@ -624,9 +624,45 @@ Sitzung statt eines Schlüssels — zwei Wege in das Gerät, eine Logik dahinter
 ## Grenzen
 
 `maxApps` aus `FEATURE_TIERS` (`services/app/licenseService.js`) greift beim
-Einspielen einer **neuen** App. Eine neue Version einer App, die schon am Gerät
-ist, fällt nicht darunter: ein abgelaufener Schlüssel darf kein Update
-blockieren, das vielleicht genau den Fehler behebt, wegen dem jemand anruft.
+Einspielen einer **neuen** App — auf beiden Wegen, dem des Kits
+(`POST /api/v1/external/apps`) und dem der Sitzung
+(`POST /api/apps/:id/einspielen`), denn dahinter steht derselbe Dienst.
+Eine neue Version einer App, die schon am Gerät ist, fällt nicht darunter: ein
+abgelaufener Schlüssel darf kein Update blockieren, das vielleicht genau den
+Fehler behebt, wegen dem jemand anruft.
+
+**Test- und Livestand zählen zusammen: jede eingespielte App belegt einen
+Platz** (Entscheidung Kolja vom 30.08.2026, J30). Gezählt werden die Zeilen in
+`apps` und nicht die Stände — eine App mit beiden Ständen ist eine App und kein
+Paar. Phase H7 hatte den Riegel auf das Schalten nach live verschoben, mit dem
+Argument, die Lizenz kaufe den Betrieb; am 30.08.2026 lagen daraufhin drei Apps
+am Orin, die Lizenz trägt drei, und `--deploy` einer vierten ging ohne
+Widerspruch durch. Eine Grenze, die beim Einspielen nicht greift, ist kein
+Verkaufsargument, sondern ein Fund, den ein Partner als Erster meldet.
+
+Bei vollem Kontingent antwortet das Gerät mit **409** und nennt die Zahl, die
+die Lizenz trägt, die Apps, die die Plätze belegen, und den Weg heraus:
+
+```
+Die Lizenz dieses Geraets traegt 3 Apps, es sind 3: angebot, beispielapp,
+urlaubsantrag. probeapp kommt nicht dazu. Test- und Livestand zaehlen zusammen,
+jede eingespielte App belegt einen Platz. Eine App entfernen (Einstellungen →
+Apps → App entfernen, oder DELETE /api/v1/external/apps/<id>) oder die Lizenz
+erweitern.
+```
+
+Dieselben Zahlen stehen als `details` daneben (`grenze`, `belegt`, `apps`,
+`abgewiesen`); das Kit gibt Meldung und Details wortgleich aus. Gefragt wird
+**bevor gebaut wird** (`appPaket.nimmAn`): ein Bau dauert am Orin Minuten, und
+ein Partner soll nicht erst warten, um dann zu erfahren, dass diese App gar
+nicht auf das Gerät darf. Der Riegel selbst sitzt in `appStore.spieleEin` und
+gilt damit für jeden Weg hinein.
+
+Was die Lizenz dieses Geräts trägt, sagt es selbst:
+`GET /api/license/info` → `features.maxApps` (`-1` heißt unbegrenzt). Der Wert
+kommt aus der Lizenzdatei; ohne eine steht das Gerät auf `community`, und das
+sind drei. Gemessen wird das gegen das laufende Gerät mit
+`scripts/test/lizenz-abnahme.sh`.
 
 ## Die Beispielapp
 
@@ -643,6 +679,7 @@ bash scripts/test/beispielapp.sh entfernen
 bash scripts/test/apps-abnahme.sh           # misst beide Pfade (C3)
 bash scripts/test/app-anmeldung-abnahme.sh  # misst die Anmeldung (C4)
 bash scripts/test/deploy-abnahme.sh         # misst den Deploy-Endpunkt (C5)
+bash scripts/test/lizenz-abnahme.sh        # misst die Lizenzgrenze (J30)
 ```
 
 `deploy-abnahme.sh` spielt den Inhalt der Beispielapp unter einer **eigenen

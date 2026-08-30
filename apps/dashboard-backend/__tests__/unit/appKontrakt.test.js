@@ -153,7 +153,14 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // mitgegangen.
     // (Davor H6, Kontrakt 4: `marken` im Manifest. Davor C7, Kontrakt 3:
     // `freigabe_anfordern` im Werkzeug-Schema und `GET /freigaben`.)
-    expect(abdruck).toBe('69e07027d98471974eccdb8b5cdaef94f3f73e0a3c336085336f214c364dd545');
+    //
+    // 30.08.2026 (J30): `paket.regeln` hat einen Satz dazubekommen -- die
+    // Lizenzgrenze greift wieder beim Einspielen, und das Geraet sagt es jetzt
+    // vorher. Die Kontraktversion geht NICHT mit, und der Grund steht in
+    // `appKontrakt.js`: ein Kit ohne diesen Satz bekommt dieselbe Abweisung mit
+    // derselben Begruendung, aber ein Kit vor einer hoeheren Nummer als es
+    // kennt haelt an und spielt gar nichts mehr ein.
+    expect(abdruck).toBe('87d84ad32c862140cbe3a06780558a0f415aebc19d2baf6e05fc61ac68d12d43');
   });
 
   /**

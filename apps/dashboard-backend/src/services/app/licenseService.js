@@ -39,11 +39,17 @@ const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30'
  * externe Schnittstelle. `maxApps` ist die einzige Zahl hier, hinter der ein
  * Riegel steht.
  *
- * `maxApps` ZAEHLT APPS IM BETRIEB, also solche mit einem Livestand (seit
- * H7, `appStore.pruefeLivegrenze`). Ein Teststand zaehlt nicht: er ist die
- * Werkbank des Partners und nicht das, was ein Mitarbeiter benutzt. Bis H7
- * zaehlte jede Zeile in `apps`, und am Orin standen drei von drei belegt, ohne
- * dass eine einzige in Betrieb gewesen waere.
+ * `maxApps` ZAEHLT JEDE EINGESPIELTE APP, Test- und Livestand zusammen
+ * (Entscheidung Kolja vom 30.08.2026, `appStore.pruefeAppGrenze`). Eine App
+ * belegt einen Platz, sobald sie am Geraet steht -- sie hat dort ein Image,
+ * einen Container, eine Datenbank je Stand und einen Ordner, und das alles
+ * kostet das Geraet, ob ein Mitarbeiter sie benutzt oder nicht.
+ *
+ * H7 hatte den Riegel auf den Livestand verschoben und dabei den Riegel
+ * verloren: geprueft wurde nur noch beim Schalten nach live, und ein Deploy
+ * ging immer durch. Am 30.08.2026 lagen drei Apps am Orin und die vierte kam
+ * ohne Widerspruch dazu. Eine Grenze, die beim Einspielen nicht greift, ist
+ * kein Verkaufsargument; sie ist ein Fund, den ein Partner als Erster meldet.
  *
  * `community` ist die Stufe eines Geraets OHNE Lizenzdatei. Sie ist kein
  * Verkaufspaket, sondern der Zustand vor dem ersten Schluessel.
