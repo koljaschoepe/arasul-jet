@@ -71,6 +71,11 @@ function AppContent(): React.JSX.Element | null {
   // First-run onboarding: null = still checking, true = box has no admin yet
   // (show CreateAdmin instead of Login), false = normal login.
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+  // Der Name des Unternehmens ueber dem Anmeldeformular. Faehrt in derselben
+  // Antwort mit wie `needsSetup`, damit die Anmeldeseite keine dritte Anfrage
+  // auf jeder Seitenladung braucht (G2). null: keiner gesetzt, der
+  // Produktname steht da.
+  const [firmenname, setFirmenname] = useState<string | null>(null);
 
   // Auto-update notification: poll /api/health every 5 min for build hash change
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -146,9 +151,13 @@ function AppContent(): React.JSX.Element | null {
   useEffect(() => {
     let cancelled = false;
     api
-      .get<{ needsSetup: boolean }>('/auth/needs-setup', { showError: false })
+      .get<{ needsSetup: boolean; firmenname?: string | null }>('/auth/needs-setup', {
+        showError: false,
+      })
       .then(d => {
-        if (!cancelled) setNeedsSetup(d.needsSetup);
+        if (cancelled) return;
+        setNeedsSetup(d.needsSetup);
+        setFirmenname(d.firmenname ?? null);
       })
       .catch(() => {
         // Old backend without the endpoint → assume an admin exists.
@@ -208,7 +217,7 @@ function AppContent(): React.JSX.Element | null {
     if (needsSetup) {
       return <CreateAdmin onCreated={handleLoginSuccess} />;
     }
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    return <Login onLoginSuccess={handleLoginSuccess} firmenname={firmenname} />;
   }
 
   // Startpasswort wechseln, bevor irgendetwas anderes kommt (Phase D1).
@@ -224,7 +233,7 @@ function AppContent(): React.JSX.Element | null {
           // `POST /api/auth/change-password` entwertet alle Sitzungen des
           // Betroffenen. Eine neue Anmeldung ist deshalb keine Hoeflichkeit,
           // sondern der Zustand: der alte Token traegt nicht mehr.
-          toast.success('Passwort geändert. Bitte melde dich neu an.');
+          toast.success('Passwort geändert. Bitte melden Sie sich neu an.');
           void logout();
         }}
         onAbmelden={() => {

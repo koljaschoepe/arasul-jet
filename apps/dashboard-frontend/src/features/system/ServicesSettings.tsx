@@ -165,7 +165,7 @@ export function ServicesSettings() {
     <div className="animate-in fade-in" data-testid="dienste-seite">
       <Kopf
         titel="Services"
-        beschreibung="Die Dienste der Arasul-Plattform. Hier siehst du den Zustand und startest einen Dienst bei Bedarf neu."
+        beschreibung="Die Dienste der Arasul-Plattform. Hier sehen Sie den Zustand und starten einen Dienst bei Bedarf neu."
         aktionen={
           <Button
             variant="outline"

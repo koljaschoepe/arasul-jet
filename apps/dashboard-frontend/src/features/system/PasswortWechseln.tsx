@@ -112,7 +112,7 @@ function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
     <AuthCard
       mascot
       title="Neues Passwort"
-      description="Dein bisheriges Passwort hat jemand anderes vergeben. Wähle eines, das nur du kennst."
+      description="Ihr bisheriges Passwort hat jemand anderes vergeben. Wählen Sie eines, das nur Sie kennen."
       footer={
         <button
           type="button"
@@ -161,7 +161,7 @@ function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
                   ? `Mindestens ${anforderungen.minLength} Zeichen${
                       anforderungen.requireNumbers ? ', darunter eine Ziffer' : ''
                     }.`
-                  : 'Wähle ein Passwort, das nur du kennst.'
+                  : 'Wählen Sie ein Passwort, das nur Sie kennen.'
                 : offen.length > 0
                   ? `Es fehlt noch: ${offen.join(', ')}.`
                   : 'Das Passwort erfüllt die Regeln.'}
@@ -200,7 +200,7 @@ function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
         </Button>
 
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          Danach meldest du dich einmal neu an.
+          Danach melden Sie sich einmal neu an.
         </p>
       </form>
     </AuthCard>

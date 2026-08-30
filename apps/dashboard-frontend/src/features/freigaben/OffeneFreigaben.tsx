@@ -234,8 +234,8 @@ export function OffeneFreigaben() {
       <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
         <ClipboardCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         {data.length === 1
-          ? 'Eine Freigabe wartet auf deine Entscheidung'
-          : `${data.length} Freigaben warten auf deine Entscheidung`}
+          ? 'Eine Freigabe wartet auf Ihre Entscheidung'
+          : `${data.length} Freigaben warten auf Ihre Entscheidung`}
       </h2>
       <ul className="flex flex-col gap-ui-2">
         {data.map(f => (

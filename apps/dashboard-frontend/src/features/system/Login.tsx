@@ -5,12 +5,7 @@ import { z } from 'zod';
 import { useApi } from '../../hooks/useApi';
 import { Button, Input, Label } from '@marken';
 import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
-import {
-  PLATFORM_NAME,
-  PLATFORM_DESCRIPTION,
-  SUPPORT_EMAIL,
-  PLATFORM_WEBSITE,
-} from '@/config/branding';
+import { PLATFORM_NAME, SUPPORT_EMAIL, PLATFORM_WEBSITE } from '@/config/branding';
 
 const LoginSchema = z.object({
   username: z.string().min(1),
@@ -26,9 +21,15 @@ interface LoginResponseData {
 
 interface LoginProps {
   onLoginSuccess: (data: LoginResponseData) => void;
+  /**
+   * Der Name des Unternehmens, das dieses Geraet betreibt, aus den
+   * Einstellungen (`GET /api/auth/needs-setup`). Ohne ihn steht der
+   * Produktname da.
+   */
+  firmenname?: string | null;
 }
 
-function Login({ onLoginSuccess }: LoginProps) {
+function Login({ onLoginSuccess, firmenname }: LoginProps) {
   const api = useApi();
   const [error, setError] = useState('');
   // P2.9.3: AbortController + mounted-flag so the login fetch does not write
@@ -103,13 +104,21 @@ function Login({ onLoginSuccess }: LoginProps) {
     }
   };
 
+  // Ueber dem Formular steht, WESSEN Geraet das ist: das Maskottchen und der
+  // Name des Unternehmens. Kein Slogan darunter (Auftrag anmeldung-ohne-slogan,
+  // 30.08.2026): „Eure Apps, auf eurem Geraet" liess die Software wie ein
+  // Bastelprodukt aussehen. Wer die Software gemacht hat, steht klein in der
+  // Fusszeile -- und nur, wenn oben nicht ohnehin schon der Produktname steht.
+  const titel = firmenname?.trim() || PLATFORM_NAME;
+  const betriebenMit = titel !== PLATFORM_NAME;
+
   return (
     <AuthCard
       mascot
-      title={PLATFORM_NAME}
-      description={PLATFORM_DESCRIPTION}
+      title={titel}
       footer={
         <p className="text-xs text-muted-foreground">
+          {betriebenMit && <span className="mb-1 block">Betrieben mit {PLATFORM_NAME}</span>}
           Passwort vergessen? Anleitung auf{' '}
           <a
             href={PLATFORM_WEBSITE}

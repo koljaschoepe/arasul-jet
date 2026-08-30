@@ -371,16 +371,15 @@ the backup-related **environment variables** above.
 
 ## Dashboard
 
-| Variable                  | Default                   | Description                                                                                                                                                                                                     |
-| ------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PORT                      | 3001                      | Backend port                                                                                                                                                                                                    |
-| ALLOWED_ORIGINS           | (empty)                   | Extra CORS origins. Usually stays empty: LAN (RFC-1918 IPs + `*.local`), `localhost`, and Tailscale (CGNAT `100.64.0.0/10` + `*.ts.net`) are allowed automatically. Only add here for an unusual custom domain. |
-| VITE_API_URL              | /api                      | Frontend API URL                                                                                                                                                                                                |
-| VITE_WS_URL               | (auto)                    | Frontend WebSocket URL                                                                                                                                                                                          |
-| VITE_PLATFORM_NAME        | Arasul                    | Platform brand name (white-label)                                                                                                                                                                               |
-| VITE_PLATFORM_DESCRIPTION | Edge-KI Verwaltungssystem | Description shown on login page                                                                                                                                                                                 |
-| VITE_SUPPORT_EMAIL        | info@arasul.de            | Support email (login & settings)                                                                                                                                                                                |
-| RATE_LIMIT_ENABLED        | true                      | Enable API rate limiting                                                                                                                                                                                        |
+| Variable           | Default        | Description                                                                                                                                                                                                     |
+| ------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PORT               | 3001           | Backend port                                                                                                                                                                                                    |
+| ALLOWED_ORIGINS    | (empty)        | Extra CORS origins. Usually stays empty: LAN (RFC-1918 IPs + `*.local`), `localhost`, and Tailscale (CGNAT `100.64.0.0/10` + `*.ts.net`) are allowed automatically. Only add here for an unusual custom domain. |
+| VITE_API_URL       | /api           | Frontend API URL                                                                                                                                                                                                |
+| VITE_WS_URL        | (auto)         | Frontend WebSocket URL                                                                                                                                                                                          |
+| VITE_PLATFORM_NAME | Arasul         | Platform brand name (white-label)                                                                                                                                                                               |
+| VITE_SUPPORT_EMAIL | info@arasul.de | Support email (login & settings)                                                                                                                                                                                |
+| RATE_LIMIT_ENABLED | true           | Enable API rate limiting                                                                                                                                                                                        |
 
 ---
 

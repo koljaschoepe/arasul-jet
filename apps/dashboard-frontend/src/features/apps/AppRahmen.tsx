@@ -105,11 +105,11 @@ export function AppRahmen({ appId, stand }: AppRahmenProps) {
     return (
       <Leerzustand
         symbol={<AppWindow />}
-        titel={`${appId} ist dir nicht freigegeben`}
+        titel={`${appId} ist Ihnen nicht freigegeben`}
         beschreibung={
           stand === 'test'
             ? 'Den Teststand sieht nur, wer als Tester eingetragen ist. Ein Administrator kann das ändern.'
-            : 'Ein Administrator gibt Apps für einzelne Menschen frei. Sprich ihn an, wenn du sie brauchst.'
+            : 'Ein Administrator gibt Apps für einzelne Menschen frei. Sprechen Sie ihn an, wenn Sie sie brauchen.'
         }
       />
     );

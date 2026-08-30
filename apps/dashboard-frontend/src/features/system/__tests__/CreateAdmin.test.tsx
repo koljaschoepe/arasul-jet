@@ -39,14 +39,16 @@ describe('CreateAdmin', () => {
     expect(screen.getByLabelText(/^benutzername$/i)).not.toHaveAttribute('placeholder');
   });
 
-  // F-20. Die Seite hat vorher gesiezt („Legen Sie Ihr Administrator-Konto an")
-  // und das Geraet „Box" genannt.
-  test('duzt und nennt das Geraet beim Namen', () => {
+  // F-20 nannte das Geraet „Box" und die Seite duzte danach eine Weile. Seit
+  // dem Auftrag anmeldung-ohne-slogan (30.08.2026) spricht die ganze Shell in
+  // der Sie-Form: ein Mitarbeiter, der geduzt wird, haelt die Software fuer
+  // ein Bastelprodukt. Das Geraet heisst weiter nicht „Box".
+  test('siezt und nennt das Geraet beim Namen', () => {
     const { container } = render(<CreateAdmin onCreated={onCreated} />);
 
-    expect(screen.getByText(/lege dein administrator-konto an/i)).toBeInTheDocument();
+    expect(screen.getByText(/legen sie ihr administrator-konto an/i)).toBeInTheDocument();
     expect(container.innerHTML).not.toMatch(/\bBox\b/);
-    expect(container.innerHTML).not.toMatch(/Legen Sie|Ihr Administrator/);
+    expect(container.innerHTML).not.toMatch(/\b(du|dich|dein|deine)\b/i);
   });
 
   test('setzt genau eine Ueberschrift und nennt das Produkt', () => {

@@ -38,7 +38,7 @@ function Name({ b, ichSelbst }: { b: Benutzer; ichSelbst: boolean }) {
           stillgelegt
         </span>
       )}
-      {ichSelbst && <span className="ml-2 text-ui-xs text-muted-foreground">du</span>}
+      {ichSelbst && <span className="ml-2 text-ui-xs text-muted-foreground">Sie</span>}
     </>
   );
 }

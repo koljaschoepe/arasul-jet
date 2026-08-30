@@ -187,7 +187,9 @@ export function TabContent({ handgriffe }: TabContentProps) {
   if (!tabs.some(t => t.id === activeTabId)) {
     return (
       <div className="p-ui-4">
-        <Meldung titel="Kein Tab geöffnet">Wähle links eine Ansicht, unter 900 px im Menü.</Meldung>
+        <Meldung titel="Kein Tab geöffnet">
+          Wählen Sie links eine Ansicht, unter 900 px im Menü.
+        </Meldung>
       </div>
     );
   }

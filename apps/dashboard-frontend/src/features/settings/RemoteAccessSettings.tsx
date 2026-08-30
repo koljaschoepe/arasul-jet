@@ -323,7 +323,7 @@ export function RemoteAccessSettings() {
       <div className="animate-in fade-in">
         <Kopf
           titel="Fernzugriff"
-          beschreibung="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
+          beschreibung="Greifen Sie sicher von überall auf Ihr Gerät zu, über Tailscale VPN."
         />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
@@ -353,7 +353,7 @@ export function RemoteAccessSettings() {
       {ConfirmDialog}
       <Kopf
         titel="Fernzugriff"
-        beschreibung="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
+        beschreibung="Greifen Sie sicher von überall auf Ihr Gerät zu, über Tailscale VPN."
         aktionen={
           <Button
             variant="ghost"
@@ -440,7 +440,7 @@ export function RemoteAccessSettings() {
             beschreibung={
               installing || installError
                 ? undefined
-                : 'Tailscale wird direkt auf deinem Gerät installiert. Die Installation dauert ein bis zwei Minuten und benötigt eine Internetverbindung.'
+                : 'Tailscale wird direkt auf Ihrem Gerät installiert. Die Installation dauert ein bis zwei Minuten und benötigt eine Internetverbindung.'
             }
           >
             <div className="space-y-4">
@@ -468,7 +468,7 @@ export function RemoteAccessSettings() {
                   <AlertDescription className="space-y-2">
                     <p>{installError}</p>
                     <p className="text-xs opacity-80">
-                      Falls die automatische Installation nicht funktioniert, kannst du Tailscale
+                      Falls die automatische Installation nicht funktioniert, können Sie Tailscale
                       manuell per SSH installieren:
                     </p>
                     <code className="block text-xs px-2 py-1.5 rounded border border-border bg-muted/30 font-mono">
@@ -512,8 +512,8 @@ export function RemoteAccessSettings() {
             titel="Schritt 2: Mit Tailscale verbinden"
             beschreibung={
               <>
-                Tailscale ist installiert{status?.version ? ` (v${status.version})` : ''}. Erstelle
-                einen Auth-Key in deinem{' '}
+                Tailscale ist installiert{status?.version ? ` (v${status.version})` : ''}. Erstellen
+                Sie einen Auth-Key in Ihrem{' '}
                 <a
                   href="https://login.tailscale.com/admin/settings/keys"
                   target="_blank"
@@ -575,7 +575,7 @@ export function RemoteAccessSettings() {
                   </div>
                   {[
                     <>
-                      Öffne{' '}
+                      Öffnen Sie{' '}
                       <a
                         href="https://login.tailscale.com"
                         target="_blank"
@@ -587,12 +587,13 @@ export function RemoteAccessSettings() {
                       (Konto erstellen falls nötig)
                     </>,
                     <>
-                      Gehe zu <strong>Settings → Keys → Generate auth key</strong>
+                      Gehen Sie zu <strong>Settings → Keys → Generate auth key</strong>
                     </>,
                     <>
-                      Wähle <strong>Reusable</strong> und klicke <strong>Generate key</strong>
+                      Wählen Sie <strong>Reusable</strong> und klicken Sie{' '}
+                      <strong>Generate key</strong>
                     </>,
-                    'Kopiere den Key und füge ihn oben ein',
+                    'Kopieren Sie den Key und fügen Sie ihn oben ein',
                   ].map((text, i) => (
                     <div key={i} className="flex gap-2 text-xs text-muted-foreground">
                       <span className="text-foreground font-medium shrink-0">{i + 1}.</span>
@@ -609,7 +610,7 @@ export function RemoteAccessSettings() {
         {currentStep === 3 && status && (
           <Formularseite>
             {/* Ein stabiler Name je Zusammenhang, die IP nur als Rueckfalltuer. */}
-            <Feldgruppe titel="So erreichst du Arasul" symbol={<ExternalLink />}>
+            <Feldgruppe titel="So erreichen Sie Arasul" symbol={<ExternalLink />}>
               <div className="border border-border/50 rounded-lg divide-y divide-border/50">
                 {lanName && (
                   <div className="flex items-center justify-between gap-2 px-4 py-2.5">
@@ -805,7 +806,7 @@ export function RemoteAccessSettings() {
             {/* Der Dashboard-Zugriff steht schon in der Karte darueber. */}
             {status.ip && (
               /* Ein Randhinweis, kein Abschnitt: er steht nicht auf derselben
-                 Ebene wie "So erreichst du Arasul" und "Verbunden". */
+                 Ebene wie "So erreichen Sie Arasul" und "Verbunden". */
               <div className="space-y-1 border-l-2 border-border pl-4">
                 <p className="text-xs font-medium text-foreground">SSH-Zugriff:</p>
                 <code className="rounded border border-border px-1 py-0.5 text-xs text-muted-foreground">

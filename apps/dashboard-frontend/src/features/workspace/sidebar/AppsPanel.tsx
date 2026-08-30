@@ -84,7 +84,7 @@ export function AppsPanel() {
 
         {!isLoading && !isError && eintraege.length === 0 && (
           <p className="px-3 py-2 text-sm text-muted-foreground" data-testid="apps-leer">
-            Noch keine App für dich freigegeben.
+            Noch keine App für Sie freigegeben.
           </p>
         )}
       </div>

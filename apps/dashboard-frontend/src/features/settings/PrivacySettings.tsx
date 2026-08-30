@@ -160,7 +160,7 @@ export function PrivacySettings() {
         body: { confirm: typedToken },
         showError: false,
       });
-      toast.success('Konto gelöscht, du wirst abgemeldet.');
+      toast.success('Konto gelöscht, Sie werden abgemeldet.');
       // Wait briefly for toast to render, then logout (server already invalidated session).
       setTimeout(() => {
         logout().finally(() => {
@@ -187,7 +187,7 @@ export function PrivacySettings() {
         <Feldgruppe
           titel="Meine Daten exportieren"
           symbol={<Download />}
-          beschreibung="Lädt eine JSON-Datei mit allen zu deinem Konto gespeicherten Daten herunter: Profil, Chats, Dokument-Metadaten, Projekte, API-Schlüssel, Prüfprotokoll."
+          beschreibung="Lädt eine JSON-Datei mit allen zu Ihrem Konto gespeicherten Daten herunter: Profil, Chats, Dokument-Metadaten, Projekte, API-Schlüssel, Prüfprotokoll."
         >
           <div className="flex flex-col gap-3">
             <Button onClick={handleExport} disabled={exporting} variant="outline">
@@ -248,7 +248,7 @@ export function PrivacySettings() {
           <Alert variant="destructive">
             <Info className="size-4" />
             <AlertDescription>
-              Diese Aktion löscht dein Konto und alle damit verbundenen Daten unwiderruflich. Eine
+              Diese Aktion löscht Ihr Konto und alle damit verbundenen Daten unwiderruflich. Eine
               Wiederherstellung ist nicht möglich.
             </AlertDescription>
           </Alert>
@@ -291,7 +291,7 @@ export function PrivacySettings() {
           }}
         >
           <Label htmlFor="delete-confirm-token">
-            Tippe zur Bestätigung genau{' '}
+            Tippen Sie zur Bestätigung genau{' '}
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
               {DELETE_CONFIRMATION_TOKEN}
             </code>{' '}
