@@ -465,7 +465,11 @@ export function SchaustueckeH4() {
         satz="Die Mechanik einer Seitenleiste: auf, zu, und unter 900 px ein Blatt."
       >
         <Zustand name="eingebettet, offen">
-          <SidebarProvider eingebettet className="h-48 w-72 rounded-md border border-border">
+          {/* Dieselbe Breite und derselbe Grund wie beim Muster `Seitenleiste`
+              (J31): im 18rem-Kasten blieb neben der 16rem breiten Leiste ein
+              Rest, in dem kein Wort mehr ganz stand, und ein Schaustueck ohne
+              die Flaeche daneben zeigt von dieser Mechanik die Haelfte. */}
+          <SidebarProvider eingebettet className="h-48 w-[30rem] rounded-md border border-border">
             <Sidebar einklappen="symbole">
               <SidebarContent>
                 <SidebarGroup>
