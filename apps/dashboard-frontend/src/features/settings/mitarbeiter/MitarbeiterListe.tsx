@@ -34,7 +34,7 @@ function Name({ b, ichSelbst }: { b: Benutzer; ichSelbst: boolean }) {
     <>
       <span className="text-foreground">{b.username}</span>
       {!b.is_active && (
-        <span className="ml-2 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning">
+        <span className="ml-2 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs font-medium text-muted-foreground">
           stillgelegt
         </span>
       )}
@@ -50,7 +50,7 @@ function Name({ b, ichSelbst }: { b: Benutzer; ichSelbst: boolean }) {
 function Passwort({ b }: { b: Benutzer }) {
   return b.passwort_vom_admin ? (
     <span
-      className="text-warning"
+      className="text-muted-foreground"
       data-testid={`startpasswort-${b.username}`}
       title="Wird beim nächsten Anmelden gewechselt."
     >

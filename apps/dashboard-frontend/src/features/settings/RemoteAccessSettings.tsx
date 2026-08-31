@@ -631,7 +631,7 @@ export function RemoteAccessSettings() {
                         onClick={() => copyValue(`https://${lanName}`, 'lan')}
                       >
                         {copiedKey === 'lan' ? (
-                          <Check className="size-3 text-success" />
+                          <Check className="size-3 text-primary" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -660,7 +660,7 @@ export function RemoteAccessSettings() {
                         }
                       >
                         {copiedKey === 'remote' ? (
-                          <Check className="size-3 text-success" />
+                          <Check className="size-3 text-primary" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -680,7 +680,7 @@ export function RemoteAccessSettings() {
                         onClick={() => status.ip && copyValue(`https://${status.ip}`, 'ip')}
                       >
                         {copiedKey === 'ip' ? (
-                          <Check className="size-3 text-success" />
+                          <Check className="size-3 text-primary" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -737,7 +737,7 @@ export function RemoteAccessSettings() {
                         onClick={() => status.ip && copyValue(status.ip, 'ip')}
                       >
                         {copiedKey === 'ip' ? (
-                          <Check className="size-3 text-success" />
+                          <Check className="size-3 text-primary" />
                         ) : (
                           <Copy className="size-3" />
                         )}
@@ -792,7 +792,7 @@ export function RemoteAccessSettings() {
                           <div
                             className={cn(
                               'size-2 rounded-full',
-                              peer.online ? 'bg-success' : 'bg-muted-foreground/30'
+                              peer.online ? 'bg-primary' : 'bg-muted-foreground/30'
                             )}
                           />
                         </div>

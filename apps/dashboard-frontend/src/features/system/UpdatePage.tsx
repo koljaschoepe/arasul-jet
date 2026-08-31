@@ -457,7 +457,7 @@ const UpdatePage = () => {
               {schritt === 'geprueft' && geprueft && (
                 <div className="space-y-4">
                   <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <CheckCircle className="size-4 text-success" />
+                    <CheckCircle className="size-4 text-primary" />
                     Das Paket ist geprüft: Signatur und Manifest stimmen.
                   </p>
                   <ul className="divide-y divide-border rounded-lg border border-border text-sm">
@@ -517,7 +517,7 @@ const UpdatePage = () => {
 
               {schritt === 'fertig' && (
                 <div className="space-y-3 py-6 text-center">
-                  <CheckCircle className="mx-auto size-8 text-success" />
+                  <CheckCircle className="mx-auto size-8 text-primary" />
                   <p className="text-sm font-semibold text-foreground">
                     Eingespielt. Das Gerät läuft jetzt auf {geprueft?.version}.
                   </p>

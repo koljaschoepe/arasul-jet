@@ -40,7 +40,7 @@ interface Service {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
-  healthy: { label: 'Aktiv', dot: 'bg-success' },
+  healthy: { label: 'Aktiv', dot: 'bg-primary' },
   starting: { label: 'Startet...', dot: 'bg-muted-foreground animate-pulse' },
   restarting: { label: 'Neustart...', dot: 'bg-muted-foreground animate-pulse' },
   failed: { label: 'Fehler', dot: 'bg-foreground/40' },

@@ -496,7 +496,9 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
         <div className="flex items-center justify-between py-2">
           <div>
             {hasChanges && (
-              <span className="text-xs text-warning font-medium">Ungespeicherte Änderungen</span>
+              <span className="text-xs text-muted-foreground font-medium">
+                Ungespeicherte Änderungen
+              </span>
             )}
           </div>
           <Button onClick={handleSave} loading={saving} disabled={!hasChanges}>

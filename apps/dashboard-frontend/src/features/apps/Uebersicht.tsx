@@ -41,7 +41,7 @@ function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () 
       hinweis={
         eintrag.stand === 'test' ? (
           <span
-            className="text-warning"
+            className="text-muted-foreground"
             title="Teststand: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
           >
             Test

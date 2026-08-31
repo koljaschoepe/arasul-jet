@@ -58,7 +58,7 @@ function aelter(a: string, b: string): boolean {
 function Bibliothek({ fassung }: { fassung: string | null }) {
   if (!fassung) {
     return (
-      <span className="text-warning" data-testid="marken-fassung">
+      <span className="text-muted-foreground" data-testid="marken-fassung">
         nicht genannt: die App sagt nicht, worauf sie steht
       </span>
     );
@@ -71,7 +71,7 @@ function Bibliothek({ fassung }: { fassung: string | null }) {
     );
   }
   return (
-    <span className="text-warning" data-testid="marken-fassung">
+    <span className="text-muted-foreground" data-testid="marken-fassung">
       <span className="font-mono">{fassung}</span>
       {aelter(fassung, FASSUNG)
         ? `, älter als das Gerät (${FASSUNG})`
@@ -128,7 +128,7 @@ function Gesundheit({
     <span
       className={cn(
         'inline-flex items-center gap-1.5',
-        gut ? 'text-success' : 'text-destructive',
+        gut ? 'text-primary' : 'text-destructive',
         backend.laeuft && !backend.gesundheit && 'text-muted-foreground'
       )}
     >

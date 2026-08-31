@@ -515,6 +515,34 @@ printf 'export function Schalter() { return null; }\n' > "$DUP/schalter.tsx"
 pruefe "Bausteine: ein Primitiv ohne Schaustueck ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 rm "$DUP/schalter.tsx"
 
+# Regel 7 (Auftrag farben-blau-grau-rot, 30.08.2026): keine Farbe ausserhalb
+# der Palette. Drei Stellen, drei Proben -- und eine vierte dafuer, dass Blau,
+# Rot und Grau durchgehen, sonst misst der Waechter die Palette selbst rot.
+printf 'export const F = () => <p className="text-green-500">ok</p>;\n' > "$BAU/Gruen.tsx"
+pruefe "Bausteine: eine gruene Tailwind-Klasse ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU/Gruen.tsx"
+
+printf 'export const G = () => <p style={{ color: "#10b981" }}>ok</p>;\n' > "$BAU/Hex.tsx"
+pruefe "Bausteine: ein Hex im TSX ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU/Hex.tsx"
+
+BAU_CSS="$TMP/bau/apps/dashboard-frontend/src/index.css"
+printf ':root {\n  --meins: #2d8fd9;\n  --rot: #ef4444;\n  --grau: rgba(16, 16, 16, 0.1);\n}\n' > "$BAU_CSS"
+pruefe "Bausteine: Blau, Rot und Grau als Token sind gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf ':root {\n  --warnung: #f59e0b;\n}\n' > "$BAU_CSS"
+pruefe "Bausteine: ein oranger Token in index.css ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf '.ding {\n  color: #2d8fd9;\n}\n' > "$BAU_CSS"
+pruefe "Bausteine: ein Hex in einer Regel ausserhalb von theme.css ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU_CSS"
+
+# theme.css ist die Quelle und darf Hex tragen -- aber kein Gruen.
+BAU_THEME="$TMP/bau/packages/marken/src/theme.css"
+printf ':root {\n  --primary: #2d8fd9;\n}\n' > "$BAU_THEME"
+pruefe "Bausteine: ein Hex in theme.css ist gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf ':root {\n  --success: #10b981;\n}\n' > "$BAU_THEME"
+pruefe "Bausteine: ein gruener Token in theme.css ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU_THEME"
+
 # --- modellnamen.py ---------------------------------------------------------
 MOD="$TMP/mod/apps/dashboard-frontend/src/features/beispiel"
 mkdir -p "$MOD"

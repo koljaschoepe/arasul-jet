@@ -77,6 +77,8 @@ describe('Chart', () => {
     const alle = striche(container).join(' ');
     expect(alle).not.toContain('--color-chart-2');
     expect(alle).not.toContain('--color-chart-3');
+    // Seit dem 30.08.2026 gibt es gar keine Diagrammpalette mehr.
+    expect(alle).not.toContain('--color-chart');
   });
 
   // Eine Reihe mit anderer Einheit auf einer fremden Achse zeichnet eine

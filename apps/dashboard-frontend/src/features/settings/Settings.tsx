@@ -153,7 +153,7 @@ function Settings({ handleLogout }: SettingsProps) {
         <Mascot state="idle" label="Arasul" className="h-8 w-8 shrink-0" />
         <div className="min-w-0 text-lg font-bold leading-tight text-foreground">Einstellungen</div>
         {isDirty && (
-          <span className="ml-auto shrink-0 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
+          <span className="ml-auto shrink-0 rounded-full bg-muted-foreground/15 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             Ungespeicherte Änderungen
           </span>
         )}

@@ -28,14 +28,14 @@ export function ModellZeile({
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5 text-sm">
       {extern ? (
-        <Globe className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
+        <Globe className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : (
         <Cpu className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       )}
       <span className="font-mono text-foreground">{modell ?? 'Standardmodell'}</span>
       {extern && (
         <span
-          className="rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs font-medium text-warning"
+          className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs font-medium text-muted-foreground"
           title={`${extern.anbieter}, ${extern.basis_url}${
             extern.endet_auf ? `, Schlüssel endet auf ${extern.endet_auf}` : ', ohne Schlüssel'
           }`}

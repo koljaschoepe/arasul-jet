@@ -56,7 +56,7 @@ function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => voi
           <span className="text-muted-foreground">nicht live</span>
         )}
         {app.staende.test && (
-          <span className="rounded bg-warning/15 px-1.5 py-0.5 font-mono font-medium text-warning">
+          <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-mono font-medium text-muted-foreground">
             test {app.staende.test.version}
           </span>
         )}

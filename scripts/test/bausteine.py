@@ -29,6 +29,17 @@ In ALLEM unter `src/`, ohne Ausnahme (siehe „Der Ausnahmeordner ist weg"):
    -- oder ein Import aus dem alten `components/ui/shadcn/` (Phase H3).
 6. Ein Primitiv ODER Muster ohne Schaustueck auf `/entwickler/bausteine`
    (Phase H3, um die Muster erweitert in H4).
+7. Eine Farbe ausserhalb der Palette (Auftrag farben-blau-grau-rot,
+   30.08.2026). Die Palette ist Blau, Grau, Rot -- Gruen und Orange sind
+   gestrichen, weil jede weitere Farbe von einer App als Freibrief fuer
+   eigene gelesen wird. Gemessen wird an DREI Stellen: im TSX der Shell darf
+   kein Hex, kein `rgb()` und keine Klasse aus Tailwinds Palette stehen
+   (`text-green-500` ist ein Farbliteral in anderer Schreibweise); in jedem
+   CSS ausser `theme.css` steht ein Hex nur als Wert eines Tokens (in
+   `marken.css` nur als Rueckfall `var(--x, #hex)`); und JEDER Farbwert in
+   irgendeinem CSS -- auch in `theme.css` -- hat den Farbton von Blau, Rot
+   oder gar keinen. Ein gruener Token, den niemand benutzt, ist morgen der,
+   den jemand benutzt.
 
 Der Ausnahmeordner ist weg (Phase H5)
 -------------------------------------
@@ -265,6 +276,155 @@ WURZELN = ['apps/dashboard-frontend/src']
 
 AUSGENOMMENE_ORDNER = ()
 
+# --------------------------------------------------------------------------
+# Die siebte Regel: keine Farbe ausserhalb der Palette (30.08.2026)
+# --------------------------------------------------------------------------
+# `packages/marken/src/theme.css` ist die eine Quelle aller Farben. Was ein
+# Farbwert ausserhalb davon tut, haengt davon ab, wo er steht:
+#
+#   TSX/TS der Shell      gar nicht. Ein Hex, ein `rgb()` oder eine Klasse aus
+#                         Tailwinds Palette ist ein Befund -- dieselbe Regel,
+#                         die `marken.py` (Punkt 6) fuer die Bibliothek haelt.
+#   CSS ausser theme.css  nur als Wert eines Tokens (`--x: #hex`), in
+#                         `marken.css` nur als Rueckfall `var(--x, #hex)`.
+#                         Eine Regel `color: #hex` ist ein Befund.
+#   JEDES CSS             der Farbton ist Blau, Rot oder keiner (Grau).
+#
+# Der Farbton wird gerechnet, nicht geraten: ein Hex oder `rgb()` wird zu HSL,
+# und was gesaettigt ist und weder im Blau (190 bis 250 Grad) noch im Rot
+# (340 bis 20 Grad) liegt, ist gruen, orange, gelb, violett -- und faellt.
+# Farbworte (`white`, `black`, `transparent`, `currentColor`) sind keine
+# Palette und werden nicht gelesen.
+CSS_WURZELN = ['apps/dashboard-frontend/src', 'packages/marken/src']
+FARBQUELLE = 'packages/marken/src/theme.css'
+HEX = re.compile(r'#([0-9A-Fa-f]{3,8})\b')
+RGB = re.compile(r'\brgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)')
+FARB_LITERAL = re.compile(r'#[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{3})?\b|\b(?:rgba?|hsla?)\(')
+TAILWIND_PALETTE = re.compile(
+    r'\b(?:bg|text|border|fill|stroke|ring|outline|from|via|to|decoration|divide|'
+    r'accent|caret|placeholder|shadow)-'
+    r'(?:black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|'
+    r'green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)'
+    r'(?:-\d{2,3})?\b'
+)
+TOKEN_DEFINITION = re.compile(r'^\s*--[\w-]+\s*:')
+RUECKFALL = re.compile(r'var\(\s*--[\w-]+\s*,\s*(#[0-9A-Fa-f]{3,8}|rgba?\([^)]*\))\s*\)')
+
+
+def farbton(r: int, g: int, b: int) -> tuple[float, float]:
+    """Farbton in Grad und Saettigung (0 bis 1) nach HSL."""
+    r_, g_, b_ = r / 255, g / 255, b / 255
+    gross, klein = max(r_, g_, b_), min(r_, g_, b_)
+    spanne = gross - klein
+    licht = (gross + klein) / 2
+    if spanne == 0:
+        return 0.0, 0.0
+    saettigung = spanne / (1 - abs(2 * licht - 1))
+    if gross == r_:
+        ton = ((g_ - b_) / spanne) % 6
+    elif gross == g_:
+        ton = (b_ - r_) / spanne + 2
+    else:
+        ton = (r_ - g_) / spanne + 4
+    return ton * 60, saettigung
+
+
+def in_der_palette(r: int, g: int, b: int) -> bool:
+    ton, saettigung = farbton(r, g, b)
+    if saettigung < 0.15:
+        return True  # Grau, Schwarz, Weiss
+    return 190 <= ton <= 250 or ton >= 340 or ton <= 20  # Blau oder Rot
+
+
+def rgb_aus(wert: str) -> tuple[int, int, int] | None:
+    hexe = HEX.fullmatch(wert)
+    if hexe:
+        h = hexe.group(1)
+        if len(h) in (3, 4):
+            h = ''.join(z * 2 for z in h[:3])
+        elif len(h) == 8:
+            h = h[:6]
+        elif len(h) != 6:
+            return None
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    rgb = RGB.match(wert)
+    if rgb:
+        return tuple(int(x) for x in rgb.groups())  # type: ignore[return-value]
+    return None
+
+
+def ohne_kommentare(text: str) -> str:
+    """CSS ohne `/* ... */`, aber mit denselben Zeilennummern.
+
+    Ein Kommentar wird durch seine Zeilenumbrueche ersetzt und nicht durch
+    ein Leerzeichen -- sonst nennt der Befund eine Zeile, die es so nicht
+    gibt, und wer ihn liest, sucht an der falschen Stelle.
+    """
+    return re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), text, flags=re.S)
+
+
+def farben_pruefen(wurzel: Path) -> list[str]:
+    befunde: list[str] = []
+
+    # a) Das TSX der Shell: kein Farbliteral, keine Palette-Klasse.
+    for basis in WURZELN:
+        ordner = wurzel / basis
+        if not ordner.is_dir():
+            continue
+        for datei in sorted(list(ordner.rglob('*.tsx')) + list(ordner.rglob('*.ts'))):
+            if '__tests__' in datei.parts or datei.name.endswith(('.test.tsx', '.test.ts')):
+                continue
+            relativ = datei.relative_to(wurzel).as_posix()
+            for nr, zeile in enumerate(datei.read_text(encoding='utf-8').splitlines(), 1):
+                ohne_var = re.sub(r'var\(--[\w-]+', ' ', zeile)
+                for treffer in FARB_LITERAL.findall(ohne_var):
+                    befunde.append(
+                        f'{relativ}:{nr}  Farbe `{treffer}` im Code. Eine Farbe steht in '
+                        'theme.css und wird als Token benutzt.'
+                    )
+                for treffer in TAILWIND_PALETTE.findall(ohne_var):
+                    befunde.append(
+                        f'{relativ}:{nr}  `{treffer}` aus Tailwinds Palette folgt keinem '
+                        'Thema. Nimm den Token.'
+                    )
+
+    # b) und c) Jedes CSS: Hex nur als Token, jeder Farbwert in der Palette.
+    for basis in CSS_WURZELN:
+        ordner = wurzel / basis
+        if not ordner.is_dir():
+            continue
+        for datei in sorted(ordner.rglob('*.css')):
+            relativ = datei.relative_to(wurzel).as_posix()
+            ist_quelle = relativ == FARBQUELLE
+            ist_marken = datei.name == 'marken.css'
+            text = ohne_kommentare(datei.read_text(encoding='utf-8'))
+            for nr, zeile in enumerate(text.splitlines(), 1):
+                literale = HEX.findall(zeile)
+                if literale and not ist_quelle:
+                    erlaubt = (
+                        len(RUECKFALL.findall(zeile)) >= len(literale)
+                        if ist_marken
+                        else bool(TOKEN_DEFINITION.match(zeile))
+                    )
+                    if not erlaubt:
+                        befunde.append(
+                            f'{relativ}:{nr}  Hex ausserhalb von theme.css. Eine Farbe steht '
+                            'dort und wird hier als Token benutzt.'
+                        )
+                werte = [f'#{h}' for h in literale] + [
+                    m.group(0) for m in RGB.finditer(zeile)
+                ]
+                for wert in werte:
+                    rgb = rgb_aus(wert)
+                    if rgb and not in_der_palette(*rgb):
+                        ton, _ = farbton(*rgb)
+                        befunde.append(
+                            f'{relativ}:{nr}  `{wert}` (Farbton {ton:.0f} Grad) ist weder '
+                            'Blau noch Rot noch Grau. Die Palette kennt kein Gruen und '
+                            'kein Orange.'
+                        )
+    return befunde
+
 
 def pruefe(wurzel: Path) -> list[str]:
     befunde = []
@@ -294,7 +454,12 @@ def main() -> int:
     argumente = zerleger.parse_args()
     wurzel = Path(argumente.pfad).resolve()
 
-    befunde = pruefe(wurzel) + primitive_doppelt(wurzel) + schauseite_vollstaendig(wurzel)
+    befunde = (
+        pruefe(wurzel)
+        + primitive_doppelt(wurzel)
+        + schauseite_vollstaendig(wurzel)
+        + farben_pruefen(wurzel)
+    )
     if not befunde:
         print('   Baustein-Set: eingehalten')
         return 0

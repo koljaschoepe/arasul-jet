@@ -181,7 +181,7 @@ function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
               onChange={e => setWiederholung(e.target.value)}
             />
             {wiederholung.length > 0 && !passtZusammen && (
-              <p className="mt-1.5 text-xs text-warning">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 Die beiden Eingaben stimmen nicht überein.
               </p>
             )}

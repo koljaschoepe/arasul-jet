@@ -97,7 +97,7 @@ export function ModellZeile({
           {imSpeicherMb !== null && (
             <span
               data-testid={`im-speicher-${modell.id}`}
-              className="rounded bg-success/15 px-1.5 py-0.5 text-ui-xs font-medium text-success"
+              className="rounded bg-primary/15 px-1.5 py-0.5 text-ui-xs font-medium text-primary"
             >
               im Speicher
             </span>

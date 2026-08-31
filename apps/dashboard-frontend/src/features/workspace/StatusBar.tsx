@@ -164,8 +164,8 @@ export function StatusBar() {
     : data === undefined
       ? 'var(--status-neutral)'
       : data.status === 'OK'
-        ? 'var(--success)'
-        : 'var(--warning)';
+        ? 'var(--primary)'
+        : 'var(--muted-foreground)';
 
   const loadedModels = budget?.loadedModels ?? [];
   const hasModel = loadedModels.length > 0;
@@ -309,7 +309,7 @@ export function StatusBar() {
                           {modellAnzeigeName(m)}
                         </span>
                         {active && (
-                          <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-success">
+                          <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-primary">
                             im RAM
                           </span>
                         )}
