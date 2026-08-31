@@ -43,7 +43,7 @@ function Herkunft({ f }: { f: OffeneFreigabe }) {
       <span className="font-medium text-foreground/80">{f.app_id}</span>
       {f.stand === 'test' && (
         <span
-          className="rounded bg-warning/15 px-1.5 py-0.5 font-medium text-warning"
+          className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
           title="Teststand: diese Fassung der App ist noch nicht live"
         >
           Test
@@ -134,7 +134,7 @@ function FreigabeKarte({ f }: { f: OffeneFreigabe }) {
         kennzeichen={`freigabe-${f.id}`}
         hinweis={
           <span
-            className={`flex items-center gap-1 ${knapp ? 'text-warning' : ''}`}
+            className={`flex items-center gap-1 ${knapp ? 'text-muted-foreground' : ''}`}
             data-testid={`freigabe-${f.id}-frist`}
             title={`Frist: ${new Date(f.frist).toLocaleString('de-DE')}`}
           >

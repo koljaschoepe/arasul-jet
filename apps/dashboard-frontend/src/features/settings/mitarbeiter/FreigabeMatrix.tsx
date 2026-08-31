@@ -86,7 +86,7 @@ function Zelle({
           className={cn(
             'rounded px-1.5 py-0.5 text-ui-xs transition-colors hover:bg-accent',
             freigabe.stand === 'test'
-              ? 'bg-warning/15 font-medium text-warning'
+              ? 'bg-muted-foreground/15 font-medium text-muted-foreground'
               : 'text-muted-foreground'
           )}
         >

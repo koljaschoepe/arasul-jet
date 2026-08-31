@@ -65,7 +65,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
             <span
               className={cn(
                 'text-xs font-semibold uppercase tracking-wider',
-                isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-muted-foreground'
+                isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
               )}
             >
               {phaseLabels[downloadState.phase] || downloadState.phase}
@@ -115,7 +115,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
     <div
       className={cn(
         'download-progress bg-muted rounded-md p-3.5 border border-border',
-        isComplete && 'border-success/40',
+        isComplete && 'border-primary/40',
         isError && 'border-destructive/30 bg-destructive/10'
       )}
       role="presentation"
@@ -126,7 +126,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
         <span
           className={cn(
             'text-xs font-semibold uppercase tracking-wider',
-            isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-muted-foreground'
+            isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
           )}
         >
           {phaseLabels[downloadState.phase] || downloadState.phase}
@@ -136,7 +136,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
           <span
             className={cn(
               'text-sm font-semibold',
-              isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-foreground'
+              isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-foreground'
             )}
           >
             {downloadState.progress}%
@@ -172,7 +172,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
       <div
         className={cn(
           'text-xs',
-          isComplete ? 'text-success' : isError ? 'text-destructive' : 'text-muted-foreground'
+          isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
         )}
       >
         {downloadState.error || downloadState.status}

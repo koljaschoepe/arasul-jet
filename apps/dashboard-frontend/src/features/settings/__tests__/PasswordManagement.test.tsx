@@ -315,10 +315,10 @@ describe('PasswordManagement Component', () => {
 
       await user.type(screen.getByPlaceholderText(NEW_PLACEHOLDER), 'TestPass123!');
 
-      // Seit H5 ist eine erfuellte Anforderung GRUEN und nicht mehr im
-      // Akzent: der Akzent ist die Farbe der Primaeraktion, „erfuellt" ist
-      // ein Zustand.
-      const validItems = container.querySelectorAll('li.text-success');
+      // Seit H5 ist eine erfuellte Anforderung ein Zustand und keine
+      // Primaeraktion; seit dem 30.08.2026 (Palette Blau, Grau, Rot) ist
+      // dieser Zustand Blau -- Gruen gibt es nicht mehr.
+      const validItems = container.querySelectorAll('li.text-primary');
       expect(validItems.length).toBeGreaterThan(0);
     });
 

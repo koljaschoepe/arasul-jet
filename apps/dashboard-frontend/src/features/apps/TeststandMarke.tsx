@@ -5,7 +5,7 @@ import { Badge } from '@marken';
  *
  * ES STEHT AN EINER STELLE, weil es an zwei Orten erscheint: in der
  * Sidebar-Spalte ab 900 px und im Hamburger-Menü darunter (D7). Bis H5 war es
- * zweimal geschrieben — dort ein `span` mit `bg-warning/15 text-warning` und
+ * zweimal geschrieben — dort ein `span` mit einem eigenen farbigen Wisch und
  * einem Satz im `title`, hier das nackte Wort „Test" ohne Erklärung. Zwei
  * Formen für eine Sache laufen auseinander, sobald eine von beiden angefasst
  * wird; und die zweite hat den Satz, auf den es ankommt, gar nicht getragen.

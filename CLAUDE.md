@@ -990,6 +990,26 @@ Gefragt wird auch hier keine Zahl, sondern ob der Rahmen um Leiste und Flaeche
 abklammert (`scrollWidth` gegen `clientWidth`); eine Mindestbreite waere
 geraten, ein abgeschnittenes Wort ist der Schaden selbst.
 
+Seit dem Auftrag **farben-blau-grau-rot** (30.08.2026, M2) **kennt die
+Bibliothek nur Blau, Grau und Rot**. `--success` (Gruen) und `--warning`
+(Orange) sind aus `theme.css` gestrichen, mit ihnen `--ara-erfolg` und
+`--ara-warnung` in `marken.css`, die Diagrammpalette `--color-chart-*`, die
+Syntaxfarben und die Ampel-Tripel der Shell. Annahme dahinter: jede weitere
+Farbe liest eine App als Freibrief fuer eigene, und das Bild aus Shell und
+Apps zerfaellt. **Erfolg ist Blau, eine Warnung ist Grau mit Text, ein Fehler
+ist Rot** -- die Varianten `success`/`warning`/`erfolg`/`warnung` an Badge,
+Toast, Button und Meldung bleiben als Bedeutung und bekommen diese Farben;
+`Chart` zeichnet Blau, Schwarz, Grau. Die Bibliothek steht deshalb auf
+**4.0.0**: eine App auf 3.x, die `text-success` schreibt, bekommt dafuer
+nichts mehr, und der Spiegel des Kits haengt an der Zahl. Der Waechter dazu ist
+`scripts/test/bausteine.py`, Punkt 7: im TSX der Shell kein Hex, kein `rgb()`
+und keine Klasse aus Tailwinds Palette; in jedem CSS ausser `theme.css` ein
+Hex nur als Token (in `marken.css` nur als Rueckfall); und **jeder** Farbwert
+in jedem CSS -- auch in `theme.css` -- wird zu HSL gerechnet und muss Blau,
+Rot oder ungesaettigt sein. Gegen `origin/main` vor dem Auftrag meldet er 30
+Befunde; `check-design-system.js` steht mit seiner Ratsche auf null, weil auch
+der Druckblock jetzt Tokens nimmt.
+
 | Layer    | Stack                                                             | Path                                                                                              |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 9 Muster, 6 Bausteine) |

@@ -65,7 +65,7 @@ export function AppTester({ appId, hatTeststand }: { appId: string; hatTeststand
                 <span className="ml-2 text-ui-xs text-muted-foreground">Admin</span>
               )}
               {!b.is_active && (
-                <span className="ml-2 rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs text-warning">
+                <span className="ml-2 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs text-muted-foreground">
                   stillgelegt
                 </span>
               )}
@@ -98,7 +98,7 @@ export function AppTester({ appId, hatTeststand }: { appId: string; hatTeststand
                 className={cn(
                   'rounded px-2 py-1 text-ui-xs transition-colors hover:bg-accent',
                   freigabe.stand === 'test'
-                    ? 'bg-warning/15 font-medium text-warning'
+                    ? 'bg-muted-foreground/15 font-medium text-muted-foreground'
                     : 'text-muted-foreground'
                 )}
               >

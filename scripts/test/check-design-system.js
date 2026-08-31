@@ -48,9 +48,10 @@ const ALLOWED_COLORS = [
 // --- Thresholds (ratchet — never increase) -----------------------------------
 // Ratcheted down after the Cursor-Shell rebuild (Plan 002): custom-property
 // definitions (`--token: #hex`) no longer count as hardcoded — they ARE the
-// token source. Remaining 2 hits live in the @media print block (deliberate
-// literal print colors).
-const HARDCODED_COLOR_THRESHOLD = 2;
+// token source. Seit dem 30.08.2026 (Auftrag farben-blau-grau-rot) null:
+// auch der Druckblock nimmt Tokens, und einen Farbwert ausserhalb von
+// `theme.css` misst daneben `scripts/test/bausteine.py` (Punkt 7).
+const HARDCODED_COLOR_THRESHOLD = 0;
 const MISSING_TRANSITION_THRESHOLD = 48;
 
 // --- Helpers -----------------------------------------------------------------

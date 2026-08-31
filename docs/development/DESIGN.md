@@ -20,19 +20,28 @@ Stellen — am gewählten Reiter, am aktiven Symbol der Aktivitätsleiste, an de
 Zeile, auf der man steht —, und daneben bedeutete `bg-accent` „hier ist gerade
 die Maus". Wer die Maus stehen ließ, sah zwei aktive Einträge. Und ein Akzent,
 der zugleich „tu das hier" und „hier bist du" heißt, heißt beides nicht mehr.
-Ebenso wenig trägt er einen Zustand: eine erfüllte Passwortregel ist
-`text-success`, ein gesunder Dienst ein grüner Punkt, ein Häkchen nach einer
-Aktualisierung grün.
+Ebenso wenig trägt er einen Zustand — und ein Zustand trägt seit dem
+30.08.2026 (Auftrag farben-blau-grau-rot) auch kein Grün und kein Orange mehr.
+**Die Palette ist Blau, Grau, Rot.** Eine erfüllte Passwortregel ist
+`text-primary`, ein gesunder Dienst ein blauer Punkt, ein Häkchen nach einer
+Aktualisierung blau; eine Warnung ist `text-muted-foreground` mit einem Wort
+daneben; ein Fehler ist `text-destructive`. Grund: jede weitere Farbe liest
+eine App als Freibrief für eigene, und das Bild aus Shell und Apps zerfällt.
 
 Drei Regeln, die ein Wächter hält:
 
 1. **Kein Farbliteral im Komponenten-Code.** Farben kommen aus Tokens
    (`bg-background`, `text-muted-foreground`, `border-border`), nie als
-   `#rrggbb`. Die einzige Ausnahme ist die Diagrammpalette im `@theme`-Block.
+   `#rrggbb`. Ein Hex steht in `packages/marken/src/theme.css` und sonst
+   nirgends (in `index.css` und `marken.css` nur als Wert eines Tokens oder
+   als Rückfall). Die Diagrammpalette ist gefallen: `Chart` nimmt Blau,
+   Schwarz und Grau aus denselben Tokens.
    Seit **H3** zählt Tailwinds eingebaute Palette mit dazu: `bg-black/50` und
    `text-red-500` sind derselbe Fehler in anderer Schreibweise, denn sie
-   folgen keinem Thema. Wächter: `scripts/test/check-design-system.js` (CSS)
-   und `scripts/test/marken.py`, Punkt 6 (die Bausteine).
+   folgen keinem Thema. Wächter: `scripts/test/check-design-system.js` (CSS),
+   `scripts/test/marken.py`, Punkt 6 (die Bausteine) und
+   `scripts/test/bausteine.py`, Punkt 7 (die Shell und jedes CSS — er rechnet
+   den Farbton jedes Werts und lässt nur Blau, Rot und Grau durch).
 2. **Eine Flächenfarbe.** Grundflächen (Sidebar, Mitte, rechte Spalte) tragen
    `bg-background`; `bg-card` ist erhabenen Elementen darauf vorbehalten
    (Karten, Popover, Dialoge, Eingabefelder, Tabellenköpfe). Der aktive Tab
@@ -100,15 +109,18 @@ Eine Linienfarbe mit niedriger Alpha, keine zweite „dicke" Kante. Hover ist
 eine neutrale Alpha, kein eigener Farbton. Scrollbalken: Spur transparent,
 Griff neutral.
 
-**Statusfarben** nur für Zustände: `--success` (`#10B981`), `--warning`
-(`#F59E0B`), `--destructive` (`#EF4444`), Info = Akzent. Für Text auf hellem
-Alpha-Grund die Tripel `--status-{neutral,critical,warning,performance}` mit
-`-bg` und `-border`; sie sind im hellen Theme dunkler und kontraststark.
+**Statusfarben** nur für Zustände, und es sind zwei: `--destructive`
+(`#EF4444`) für einen Fehler, `--primary` für Erfolg und Hinweis. Eine
+Warnung ist `--muted-foreground` mit Text. `--success` und `--warning` gibt
+es seit dem 30.08.2026 nicht mehr; die Varianten `success`/`warning` an
+`Badge`, `Toast`, `Button` und `Meldung` bleiben als Bedeutung und bekommen
+Blau beziehungsweise Grau. Für Text auf hellem Alpha-Grund die Tripel
+`--status-{neutral,critical,performance}` mit `-bg` und `-border`.
 
 **Diagramme** nehmen die Serienfarben in fester Reihenfolge
-(`--color-chart-1` → `--primary-color` → `--text-secondary` → `--text-muted`):
-Blau nach Grau. Drei Farben für drei Werte derselben Einheit behaupten eine
-Bedeutung, die es nicht gibt.
+(`--primary` → `--foreground` → `--muted-foreground`): Blau, Schwarz, Grau.
+Drei Farben für drei Werte derselben Einheit behaupten eine Bedeutung, die es
+nicht gibt.
 
 ## Maße
 

@@ -71,16 +71,13 @@ const STAT_BADGE_BASE =
   'mt-ui-1 inline-flex w-fit items-center gap-ui-1 rounded-xs border px-ui-1 py-px ' +
   'text-ui-xs font-semibold uppercase tracking-wide';
 
-// Theme-aware Status-Tokens (--status-*): haben in Light-Mode eigene,
-// kontraststarke Werte (#DC2626/#D97706) — --danger/--warning wären dort
-// zu hell (Kontrast ~2:1 auf hellem Alpha-Hintergrund).
+// Drei Zustände, drei Formen — und nur zwei Farben (30.08.2026): »Normal«
+// ist eine Linie ohne Fläche, »Warnung« ein grauer Wisch, »Kritisch« Rot.
+// Orange gibt es in der Palette nicht mehr; was der Zustand ist, steht im Wort.
 const STAT_BADGE_VARIANTS = {
-  positive:
-    'border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral)]',
-  negative:
-    'border-[var(--status-critical-border)] bg-[var(--status-critical-bg)] text-[var(--status-critical)]',
-  warning:
-    'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning)]',
+  positive: 'border-border bg-transparent text-muted-foreground',
+  negative: 'border-destructive/25 bg-destructive/10 text-destructive',
+  warning: 'border-muted-foreground/30 bg-muted-foreground/10 text-muted-foreground',
 } as const;
 
 type StatBadgeVariant = keyof typeof STAT_BADGE_VARIANTS;
@@ -193,7 +190,7 @@ function SystemStatusView({
   const getProgressColor = (value: number, metric: string = 'cpu'): string => {
     const threshold = t[metric] || { warning: 70, critical: 90 };
     if (value >= threshold.critical) return 'var(--danger-color)';
-    if (value >= threshold.warning) return 'var(--warning-color)';
+    if (value >= threshold.warning) return 'var(--muted-foreground)';
     return 'var(--primary-color)';
   };
 

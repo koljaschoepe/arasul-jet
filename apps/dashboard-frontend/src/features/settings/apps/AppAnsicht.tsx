@@ -312,7 +312,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
                     <span className="text-sm font-medium text-foreground">{l.flow_name}</span>
                     <LaufZustand status={l.status} />
                     {l.stand === 'test' && (
-                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-ui-xs text-warning">
+                      <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs text-muted-foreground">
                         Test
                       </span>
                     )}

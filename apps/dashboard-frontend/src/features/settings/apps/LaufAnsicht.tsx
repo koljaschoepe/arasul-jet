@@ -26,11 +26,11 @@ import { useAppLauf } from './useAppVerwaltung';
 export function LaufZustand({ status }: { status: string }) {
   const farbe =
     status === 'fertig'
-      ? 'bg-success/15 text-success'
+      ? 'bg-primary/15 text-primary'
       : status === 'wartend' || status === 'laeuft'
         ? 'border border-border text-muted-foreground'
         : status === 'abgelaufen'
-          ? 'bg-warning/15 text-warning'
+          ? 'bg-muted-foreground/15 text-muted-foreground'
           : 'bg-destructive/15 text-destructive';
   const wort =
     status === 'laeuft'

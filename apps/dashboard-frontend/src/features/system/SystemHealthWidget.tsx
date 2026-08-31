@@ -61,12 +61,12 @@ const statusMeta: Record<
   OK: {
     icon: <ShieldCheck size={20} />,
     label: 'Alle Systeme OK',
-    color: 'var(--success-color)',
+    color: 'var(--primary)',
   },
   WARNING: {
     icon: <ShieldAlert size={20} />,
     label: 'Warnung',
-    color: 'var(--warning-color)',
+    color: 'var(--muted-foreground)',
   },
   CRITICAL: {
     icon: <ShieldX size={20} />,
@@ -178,7 +178,7 @@ const SystemHealthWidget: React.FC = () => {
           <span className="min-w-0 truncate">Letztes Backup</span>
           <span
             className="shrink-0 whitespace-nowrap"
-            style={{ color: backup.stale ? 'var(--danger-color)' : 'var(--success-color)' }}
+            style={{ color: backup.stale ? 'var(--danger-color)' : 'var(--primary)' }}
           >
             {backup.status === 'missing'
               ? 'fehlt'
@@ -195,8 +195,8 @@ const SystemHealthWidget: React.FC = () => {
             style={{
               color:
                 restoreDrill.status === 'never_run' || restoreDrill.stale
-                  ? 'var(--warning-color)'
-                  : 'var(--success-color)',
+                  ? 'var(--muted-foreground)'
+                  : 'var(--primary)',
             }}
           >
             {restoreDrill.status === 'never_run'
@@ -209,7 +209,7 @@ const SystemHealthWidget: React.FC = () => {
           <span className="min-w-0 truncate">Dienste</span>
           <span
             className="shrink-0 whitespace-nowrap"
-            style={{ color: services.down > 0 ? 'var(--danger-color)' : 'var(--success-color)' }}
+            style={{ color: services.down > 0 ? 'var(--danger-color)' : 'var(--primary)' }}
           >
             {services.healthy}/{services.total} healthy
             {services.down > 0 && ` · ${services.down} down`}
@@ -220,7 +220,7 @@ const SystemHealthWidget: React.FC = () => {
           <span className="min-w-0 truncate">Aktive Alerts</span>
           <span
             className="shrink-0 whitespace-nowrap"
-            style={{ color: alerts.active > 0 ? 'var(--warning-color)' : 'var(--success-color)' }}
+            style={{ color: alerts.active > 0 ? 'var(--muted-foreground)' : 'var(--primary)' }}
           >
             {alerts.active}
           </span>

@@ -8566,7 +8566,7 @@ function Rd(o = 900) {
     return d(), typeof R.addEventListener == "function" ? (R.addEventListener("change", d), () => R.removeEventListener("change", d)) : (R.addListener?.(d), () => R.removeListener?.(d));
   }, [o]), M;
 }
-var jd = "3.1.1", Gd = Et.createElement;
+var jd = "4.0.0", Gd = Et.createElement;
 function Xd(o, M) {
   (0, Od.createRoot)(M).render(o);
 }
