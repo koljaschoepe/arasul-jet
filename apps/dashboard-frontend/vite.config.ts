@@ -2,6 +2,11 @@ import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+// Die Stuetzdateien der Dokumentanzeige (Worker, WASM, Schriften) muessen
+// neben den Chunks liegen -- die Bibliothek loest sie zur Laufzeit relativ
+// zu `import.meta.url` auf. EIN Kopierschritt fuer Buendel und Shell,
+// Begruendung im Plugin selbst.
+import { pdfDateienBeilegen } from '../../packages/marken/pdf-dateien.mjs';
 
 /**
  * Remove 'crossorigin' from <script> and <link> tags in built HTML.
@@ -19,7 +24,15 @@ function removeCrossOrigin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [tailwindcss(), react(), removeCrossOrigin()],
+  plugins: [
+    tailwindcss(),
+    react(),
+    removeCrossOrigin(),
+    // Die Chunks liegen unter `dist/assets/`, also gehoert `pdf-dateien/`
+    // dorthin: `new URL('pdf-dateien/…', import.meta.url)` zeigt aus jedem
+    // Chunk auf `/assets/pdf-dateien/…`.
+    pdfDateienBeilegen(() => path.resolve(__dirname, 'dist/assets')),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

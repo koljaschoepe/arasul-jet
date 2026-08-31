@@ -91,7 +91,12 @@ GLEICHLAUF = ('react', 'react-dom')
 # `tw-animate-css`.
 STYLESHEET_BRAUCHT = ('tailwindcss', 'tw-animate-css')
 
-IMPORT = re.compile(r"""from\s+['"]([^'"]+)['"]""")
+# Beide Formen eines Imports: `from '...'` UND das dynamische `import('...')`.
+# Die zweite kam mit der Dokumentanzeige (Fassung 4.1.0): sie holt
+# `pdfjs-dist` erst mit der ersten PDF-Quelle -- ein Leser, der nur `from`
+# kennt, liesse die Abhaengigkeit aus dem Stempel, und ein frisches Projekt
+# fiele beim Bauen darueber.
+IMPORT = re.compile(r"""(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]""")
 BLOCK_KOMMENTAR = re.compile(r'/\*.*?\*/', re.S)
 ZEILEN_KOMMENTAR = re.compile(r'^\s*//.*$', re.M)
 
@@ -113,6 +118,12 @@ def paket_dateien(quelle: Path) -> list[str]:
     Fest sortiert, weil der Stempel in ein Artefakt geht: zweimal derselbe
     Stand soll zweimal dieselbe Datei ergeben, sonst waere jede Pruefsumme
     darueber wertlos (dieselbe Regel wie `--sort=name` im Tarball).
+
+    `browser/` wird GANZ gelesen und nicht als eine feste Datei: seit der
+    Dokumentanzeige (Fassung 4.1.0) liegen dort auch `marken-pdf.js` und der
+    Ordner `pdf-dateien/` (Worker, WASM, Schriften, CMaps, ICC), und eine App
+    ohne Bau braucht sie alle nebeneinander. Eine Liste von Hand waere die,
+    die beim naechsten Brocken auseinanderlaeuft.
     """
     dateien = []
     for pfad in sorted(quelle.rglob('*')):
@@ -124,7 +135,16 @@ def paket_dateien(quelle: Path) -> list[str]:
         if any(teil in NICHT_INS_PAKET_ORDNER for teil in rel.parts):
             continue
         dateien.append(f'src/{rel.as_posix()}')
-    return dateien + ['browser/marken.js']
+    browser = quelle.parent / 'browser'
+    if browser.is_dir():
+        dateien += [
+            f'browser/{pfad.relative_to(browser).as_posix()}'
+            for pfad in sorted(browser.rglob('*'))
+            if pfad.is_file()
+        ]
+    else:
+        dateien.append('browser/marken.js')
+    return dateien
 
 
 def hash_von(pfad: Path) -> str:

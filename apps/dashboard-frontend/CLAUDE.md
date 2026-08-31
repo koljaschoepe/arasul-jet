@@ -25,7 +25,7 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
     ein zweiter Button in der Shell ist ein Befund
     (`scripts/test/bausteine.py`). `Drawer` und `Sonner` gibt es bewusst
     nicht: das eine ist `Sheet side="bottom"`, das andere `Toast`.
-  - die **Muster** (`src/muster/`, **9 Stück**): Datenliste, Suchauswahl,
+  - die **Muster** (`src/muster/`, **10 Stück**): Datenliste, Suchauswahl,
     Dateiablage, Seitenleiste, Formularseite mit Feldgruppe, Leerzustand,
     Ladezustand (H4) — dazu seit **H5** `Dialogform` (Titel, rollender Rumpf,
     Fuß, vier Breiten), `Bestaetigung` (die Frage mit zwei Antworten, auf
@@ -33,7 +33,13 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
     `ConfirmModal` und `StatTile`/`StatGrid` in der Shell und wussten dort
     nichts von Arasul. Ein Muster ist eine Zusammensetzung aus Primitiven, die
     eine Aufgabe löst, statt ein Teil zu liefern — und die trotzdem nichts von
-    Arasul weiß. `Section`/`SectionList`, `EmptyState` und `LoadingSpinner` sind
+    Arasul weiß. Seit dem Auftrag **bibliothek-dokumentanzeige** (31.08.2026)
+    gehört die `Dokumentanzeige` dazu: PDF (pdf.js als nachgeladener Chunk,
+    CSP-konform ohne eval, Worker gleicher Herkunft aus
+    `dist/assets/pdf-dateien/`) und Bilder mit Seitenblättern, Zoom und
+    Vollbild — als einziges Muster auf reinem CSS, damit auch eine App ohne
+    Bau sie hat; die `Dateiablage` zeigt damit eine Vorschau der gewählten
+    Datei. `Section`/`SectionList`, `EmptyState` und `LoadingSpinner` sind
     mit H4 dorthin gezogen und heißen jetzt `Feldgruppe`/`Formularseite`,
     `Leerzustand` und `Ladezustand`; ihre Props sind deutsch (`titel`,
     `symbol`, `beschreibung`, `aktion`, `meldung`, `ganzeSeite`, `groesse`).

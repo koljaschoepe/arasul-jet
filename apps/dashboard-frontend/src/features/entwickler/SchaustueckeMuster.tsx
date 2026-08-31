@@ -17,6 +17,7 @@ import {
   Dateiablage,
   Datenliste,
   Dialogform,
+  Dokumentanzeige,
   Feldgruppe,
   Formularseite,
   Input,
@@ -34,6 +35,7 @@ import {
   type Spalte,
 } from '@marken';
 import { Schaustueck, Zustand } from './Schaustueck';
+import { PROBE_BILD, probePdf, probePdfDatei } from './probeDokumente';
 
 interface Lauf {
   id: string;
@@ -94,6 +96,10 @@ const APPS = [
 export function SchaustueckeMuster() {
   const [app, setApp] = useState('');
   const [dateien, setDateien] = useState<File[]>([]);
+  // Einmal gebaut, nicht je Render: eine neue Quelle je Render liesse die
+  // Dokumentanzeige bei jedem Tastendruck auf dieser Seite neu laden.
+  const [probeBlob] = useState(probePdf);
+  const [vorschauDateien, setVorschauDateien] = useState<File[]>(() => [probePdfDatei()]);
   const [dialogOffen, setDialogOffen] = useState(false);
   const [frageOffen, setFrageOffen] = useState(false);
 
@@ -166,6 +172,41 @@ export function SchaustueckeMuster() {
         <Zustand name="disabled">
           <div className="w-72">
             <Dateiablage dateien={[]} aufDateien={() => undefined} disabled />
+          </div>
+        </Zustand>
+        <Zustand name="mit Vorschau">
+          <div className="w-96">
+            <Dateiablage
+              dateien={vorschauDateien}
+              aufDateien={setVorschauDateien}
+              akzeptiert=".pdf,image/*"
+            />
+          </div>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Dokumentanzeige"
+        satz="PDF und Bilder im Kasten der Anwendung. pdf.js kommt erst mit der ersten PDF-Quelle."
+      >
+        <Zustand name="leer">
+          <div className="w-96">
+            <Dokumentanzeige hoehe="12rem" />
+          </div>
+        </Zustand>
+        <Zustand name="Bild">
+          <div className="w-96">
+            <Dokumentanzeige quelle={PROBE_BILD} name="probe.svg" hoehe="16rem" />
+          </div>
+        </Zustand>
+        <Zustand name="PDF">
+          {/* Das PDF entsteht beim Rendern (`probeDokumente.ts`) und misst
+              den ganzen Weg: eigener Brocken, Worker gleicher Herkunft,
+              Standardschriften aus `pdf-dateien/` -- unter der CSP des
+              Geraets. Eine Warnung auf diesem Weg landet in der Konsole,
+              und danach fragt `schauseite.mjs` in jeder Zelle. */}
+          <div className="w-96">
+            <Dokumentanzeige quelle={probeBlob} name="probe.pdf" hoehe="20rem" />
           </div>
         </Zustand>
       </Schaustueck>
