@@ -1,19 +1,19 @@
 # Marken — das Designsystem des Geräts
 
 Die Tokens (`theme.css`), **sechsundvierzig Primitive** auf Radix und Tailwind,
-**neun Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
+**zehn Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
 die Shell und jede App auf diesem Gerät.
 
 ## Drei Sätze, zwei Laufzeiten (Phasen H3 und H4)
 
-|                   | Primitive (H3, H4)                              | Muster (H4)                            | Bausteine (D7)                              |
-| ----------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------------------- |
-| Was               | Button, Input, Dialog, Tabelle, Kalender … (46) | Datenliste, Dialogform, Kennzahl … (9) | Kopf, Liste, Karte, Formular, Meldung, Menü |
-| Höhe              | ein Teil                                        | eine **Form**, aus Teilen gebaut       | ein Teil, ohne Tailwind                     |
-| Worauf            | Radix + Tailwind-Utilities aus `theme.css`      | die Primitive                          | reines CSS, Klassen `ara-*`                 |
-| Braucht einen Bau | **ja**                                          | **ja**                                 | nein                                        |
-| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage)   | dieselben                              | zusätzlich jede App **ohne** Bau            |
-| Wo                | `src/primitive/`                                | `src/muster/`                          | `src/*.tsx`                                 |
+|                   | Primitive (H3, H4)                              | Muster (H4)                             | Bausteine (D7)                              |
+| ----------------- | ----------------------------------------------- | --------------------------------------- | ------------------------------------------- |
+| Was               | Button, Input, Dialog, Tabelle, Kalender … (46) | Datenliste, Dialogform, Kennzahl … (10) | Kopf, Liste, Karte, Formular, Meldung, Menü |
+| Höhe              | ein Teil                                        | eine **Form**, aus Teilen gebaut        | ein Teil, ohne Tailwind                     |
+| Worauf            | Radix + Tailwind-Utilities aus `theme.css`      | die Primitive                           | reines CSS, Klassen `ara-*`                 |
+| Braucht einen Bau | **ja**                                          | **ja**                                  | nein                                        |
+| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage)   | dieselben                               | zusätzlich jede App **ohne** Bau            |
+| Wo                | `src/primitive/`                                | `src/muster/`                           | `src/*.tsx`                                 |
 
 Das ist keine Doppelung, sondern erstens der Unterschied zwischen zwei
 Laufzeiten und zweitens der zwischen zwei Höhen. Eine App ohne Bau hat keinen
@@ -21,6 +21,21 @@ Tailwind, der die Klassen der Primitive erzeugt — sie bekäme sechsundvierzig
 Bausteine, von denen kein einziger aussieht wie etwas. `browser.ts` gibt
 deshalb nur die Bausteine aus, `index.ts` alle drei Sätze. Wer die Primitive
 oder die Muster will, braucht einen Bau.
+
+**Die eine Ausnahme ist die `Dokumentanzeige`** (Auftrag
+bibliothek-dokumentanzeige, 31.08.2026): ein Muster nach seiner Höhe — PDF
+und Bilder mit Seitenblättern, Zoom und Vollbild sind eine Form, kein Teil —,
+aber auf reinem CSS geschrieben, weil eine App ohne Bau Dokumente genauso
+zeigt wie eine mit. Sie geht als einziges Muster mit ins Bündel. pdf.js
+(~150 kB gzip) liegt dabei **nicht** in `marken.js`, sondern als eigener
+Brocken `marken-pdf.js` daneben und lädt per `import()` erst mit der ersten
+PDF-Quelle; die Stützdateien (Worker, WASM für gescannte PDFs,
+Standardschriften, CMaps, ICC-Profil) liegen als Ordner
+`browser/pdf-dateien/` dabei und werden zur Laufzeit relativ zu
+`import.meta.url` gefunden — der Worker ist damit eine Datei **gleicher
+Herkunft**, wie die CSP des Geräts es verlangt (kein `eval`, kein
+blob:-/data:-Skript). Jeder Bau, der die Bibliothek übersetzt, legt den
+Ordner neben seine Ausgabe (`pdf-dateien.mjs`, ein Vite-Plugin für beide).
 
 ### Warum es die Muster gibt (Phase H4)
 

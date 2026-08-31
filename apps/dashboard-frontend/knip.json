@@ -18,7 +18,8 @@
     "cmdk",
     "embla-carousel-react",
     "input-otp",
-    "react-day-picker"
+    "react-day-picker",
+    "pdfjs-dist"
   ],
   "ignoreBinaries": ["eslint"]
 }

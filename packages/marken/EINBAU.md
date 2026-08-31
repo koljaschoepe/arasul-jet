@@ -1,20 +1,22 @@
 # Marken — das Designsystem von Arasul
 
 Dieses Paket ist die Bibliothek, die die Oberfläche des Geräts trägt: die
-Tokens beider Themes, sechsundvierzig Primitive auf Radix und Tailwind, neun
+Tokens beider Themes, sechsundvierzig Primitive auf Radix und Tailwind, zehn
 Muster darüber und sechs Bausteine auf reinem CSS.
 
 Was darin liegt:
 
-| Ort                 | Was                                                                 |
-| ------------------- | ------------------------------------------------------------------- |
-| `marken.json`       | Fassung, Abhängigkeiten und jede Datei mit ihrem sha256             |
-| `src/theme.css`     | die Tokens beider Themes — Pflicht für die Primitive und die Muster |
-| `src/marken.css`    | die Regeln der sechs Bausteine (Klassen `ara-*`)                    |
-| `src/primitive/`    | Button, Input, Dialog, Tabelle, Kalender … (46)                     |
-| `src/muster/`       | Datenliste, Suchauswahl, Dialogform, Kennzahl … (9)                 |
-| `src/*.tsx`         | die sechs Bausteine — sie laufen auch ohne Tailwind                 |
-| `browser/marken.js` | dieselben sechs Bausteine samt React, für eine App **ohne** Bau     |
+| Ort                    | Was                                                                 |
+| ---------------------- | ------------------------------------------------------------------- |
+| `marken.json`          | Fassung, Abhängigkeiten und jede Datei mit ihrem sha256             |
+| `src/theme.css`        | die Tokens beider Themes — Pflicht für die Primitive und die Muster |
+| `src/marken.css`       | die Regeln der Bausteine und der Dokumentanzeige (Klassen `ara-*`)  |
+| `src/primitive/`       | Button, Input, Dialog, Tabelle, Kalender … (46)                     |
+| `src/muster/`          | Datenliste, Suchauswahl, Dialogform, Dokumentanzeige … (10)         |
+| `src/*.tsx`            | die sechs Bausteine — sie laufen auch ohne Tailwind                 |
+| `browser/marken.js`    | die Bausteine und die Dokumentanzeige samt React, für eine App **ohne** Bau |
+| `browser/marken-pdf.js`| pdf.js als eigener Brocken — die Dokumentanzeige holt ihn per `import()` |
+| `browser/pdf-dateien/` | Worker, WASM, Schriften, CMaps, ICC für pdf.js                      |
 
 **Das Paket ist, was `marken.json` nennt.** Wer wissen will, ob eine Kopie
 noch die ist, die ausgeliefert wurde, rechnet die Hashes nach; wer wissen
@@ -62,14 +64,34 @@ seines Vite-Projekts liegen hat — innerhalb findet Tailwind sie von selbst.
 import { Button, Datenliste, Kopf } from './marken';
 ```
 
+**5. Nur wer die `Dokumentanzeige` benutzt:** die Stützdateien von pdf.js
+(Worker, WASM, Schriften, CMaps, ICC) müssen nach dem Bau als Ordner
+`pdf-dateien/` **neben den JavaScript-Chunks** liegen — die Bibliothek löst
+sie zur Laufzeit relativ zu `import.meta.url` auf, absichtlich ohne
+Vite-Asset-Import (ein data:-Worker fällt an der CSP des Geräts). Das Plugin
+dafür liegt neben diesem Paket (`pdf-dateien.mjs`); in der `vite.config`:
+
+```ts
+import { pdfDateienBeilegen } from './pdf-dateien.mjs';
+// …
+plugins: [react(), pdfDateienBeilegen(() => path.resolve(__dirname, 'dist/assets'))],
+```
+
+Ohne die Dateien zeigt die Dokumentanzeige Bilder weiterhin; ein PDF endet
+im Fehlerzustand („Das Dokument ließ sich nicht öffnen").
+
 ## Eine App ohne Bau
 
-Sie bekommt die sechs Bausteine, und sie braucht dafür weder Tailwind noch
-einen Bündler. Zwei Dateien neben die App legen:
+Sie bekommt die sechs Bausteine **und die Dokumentanzeige**, und sie braucht
+dafür weder Tailwind noch einen Bündler. Den Inhalt von `browser/` und das
+Stylesheet neben die App legen (`scripts/util/marken-beilegen.sh` tut genau
+das):
 
 ```
-browser/marken.js   →  marken.js
-src/marken.css      →  marken.css
+browser/marken.js       →  marken.js
+browser/marken-pdf.js   →  marken-pdf.js      (lädt erst mit der ersten PDF-Quelle)
+browser/pdf-dateien/    →  pdf-dateien/
+src/marken.css          →  marken.css
 ```
 
 ```html

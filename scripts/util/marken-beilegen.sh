@@ -8,8 +8,13 @@
 # und jede kleine App, die ein Mensch im Unternehmen selbst hinlegt --,
 # bekommt die zwei fertigen Dateien daneben gelegt:
 #
-#   marken.js    das Buendel, React liegt darin (eingecheckt, `npm run marken`)
-#   marken.css   dieselbe Datei, die die Shell laedt
+#   marken.js      das Buendel, React liegt darin (eingecheckt, `npm run marken`)
+#   marken-pdf.js  pdf.js als eigener Brocken -- die Dokumentanzeige holt ihn
+#                  per `import()` erst mit der ersten PDF-Quelle
+#   pdf-dateien/   Worker, WASM, Schriften, CMaps, ICC fuer pdf.js; der
+#                  Worker MUSS gleiche Herkunft haben (CSP), also liegt er
+#                  als Datei neben der App
+#   marken.css     dieselbe Datei, die die Shell laedt
 #
 # `theme.css` ist ABSICHTLICH NICHT dabei (Phase H3). Es traegt die Tokens fuer
 # die Primitive, und die stehen auf Tailwind: eine App ohne Buendler hat kein
@@ -53,7 +58,12 @@ if [ ! -f "$STIL" ]; then
   exit 1
 fi
 
-cp "$BUENDEL" "$ZIEL/marken.js" || exit 1
+# ALLES aus `browser/`, nicht nur `marken.js`: seit der Dokumentanzeige
+# (Fassung 4.1.0) liegen dort auch `marken-pdf.js` und `pdf-dateien/`, und
+# ein `import("./marken-pdf.js")` aus dem Buendel findet seinen Brocken nur,
+# wenn er danebenliegt. Ein Kopierbefehl je Datei waere die Liste, die beim
+# naechsten Brocken auseinanderlaeuft.
+cp -R "$WURZEL/packages/marken/browser/." "$ZIEL/" || exit 1
 cp "$STIL" "$ZIEL/marken.css" || exit 1
 
 # Welche Fassung hier gerade hingelegt wurde (Phase H6). Sie steht im

@@ -28,6 +28,17 @@ import type { ReactNode } from 'react';
 
 export * from './bausteine';
 
+/**
+ * Das EINE Muster, das ohne Bau laeuft: die Dokumentanzeige ist auf reinem
+ * CSS geschrieben (`marken.css`), damit eine App ohne Bau PDFs und Bilder
+ * genauso zeigt wie eine mit. pdf.js liegt NICHT hier drin, sondern kommt
+ * per `import()` als eigener Brocken (`marken-pdf.js`, liegt daneben),
+ * erst wenn die erste PDF-Quelle gesetzt ist -- eine App, die nie ein
+ * Dokument zeigt, laedt weiter nur dieses Buendel.
+ */
+export { Dokumentanzeige } from './muster/Dokumentanzeige';
+export type { DokumentanzeigeProps, DokumentArt } from './muster/Dokumentanzeige';
+
 /** `React.createElement`, kurz -- der Ersatz fuer JSX. */
 export const h = createElement;
 

@@ -1010,9 +1010,37 @@ Rot oder ungesaettigt sein. Gegen `origin/main` vor dem Auftrag meldet er 30
 Befunde; `check-design-system.js` steht mit seiner Ratsche auf null, weil auch
 der Druckblock jetzt Tokens nimmt.
 
+Seit dem Auftrag **bibliothek-dokumentanzeige** (31.08.2026, M2) **zeigt das
+Geraet Dokumente statt sie nur anzunehmen**: das Muster `Dokumentanzeige`
+(`packages/marken/src/muster/Dokumentanzeige.tsx`) zeigt PDF und Bilder mit
+Seitenblaettern, Zoom, Vollbild, Lade-, Leer- und Fehlerzustand, und die
+`Dateiablage` zeigt darunter die gewaehlte Datei als Vorschau (`vorschau`,
+abwaehlbar). Es ist das **einzige Muster auf reinem CSS** und geht deshalb als
+einziges mit ins Buendel -- eine App ohne Bau zeigt Dokumente genauso wie eine
+mit. Drei Entscheidungen tragen das: **pdf.js liegt nicht im Buendel**,
+sondern als eigener Brocken (`browser/marken-pdf.js`, im Vite-Bau ein eigener
+Chunk) und laedt per `import()` erst mit der ersten PDF-Quelle -- der
+Einstieg der Shell blieb gemessen bei 134 kB gzip, Dokumentanzeige und pdf.js
+liegen in nachgeladenen Chunks. **Der Worker ist eine Datei gleicher
+Herkunft**: pdfjs-dist 6 ist eval-frei, aber Vites Lib-Modus bettet jedes
+Asset als data:-URI ein, und einen data:-Worker laesst `script-src 'self'`
+nicht zu; die Stuetzdateien (Worker als `.js` -- nginx kennt fuer `.mjs`
+keinen JavaScript-MIME-Typ --, WASM fuer JBIG2/JPX aus Scannern,
+Standardschriften, CMaps, ICC) liegen deshalb als Ordner `pdf-dateien/` neben
+dem uebersetzten JavaScript und werden zur Laufzeit ueber `import.meta.url`
+gefunden. **Ein Kopierschritt fuer alle Baue** (`packages/marken/pdf-dateien.mjs`):
+das Buendel legt sie nach `browser/pdf-dateien/` (eingecheckt), die Shell nach
+`dist/assets/pdf-dateien/`, `marken-beilegen.sh` kopiert seither ganz
+`browser/` neben eine App ohne Bau. `marken-paket.py` liest seit diesem
+Auftrag auch **dynamische** Importe (sonst fehlte `pdfjs-dist` im Stempel und
+ein frisches Projekt fiele beim Bauen) und nennt jede Datei unter `browser/`.
+Die Bibliothek steht auf **4.1.0**; das Schaustueck baut sein Probe-PDF beim
+Rendern selbst (Helvetica absichtlich nicht eingebettet -- so misst die
+Schauseite auch den Weg zu den Standardschriften unter der scharfen CSP).
+
 | Layer    | Stack                                                             | Path                                                                                              |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 9 Muster, 6 Bausteine) |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |
 | Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                                                         |
 | AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`                                             |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                                                     |
