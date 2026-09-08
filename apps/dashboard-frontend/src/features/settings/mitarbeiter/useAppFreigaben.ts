@@ -29,11 +29,19 @@ export interface Freigabe {
   freigegeben_am: string;
 }
 
-/** Ein Stand in der Liste: die Version, und ob er ausgeliefert werden kann. */
-interface StandKurz {
+/**
+ * Ein Stand in der Liste: die Version, ob er ausgeliefert werden kann, und
+ * auf welcher Fassung des Designsystems er steht (H6; in der Liste seit dem
+ * Auftrag geraet-zeigt-bibliotheksstand). `dateien.frontend` ist `null`, wenn
+ * das Manifest kein Frontend nennt — dann gibt es auch keine Bibliothek, über
+ * die zu warnen wäre.
+ */
+export interface StandKurz {
   version: string;
   lieferbar?: boolean;
   mangel?: string | null;
+  marken: string | null;
+  dateien: { manifest: boolean; frontend: boolean | null };
 }
 
 /** Eine App am Gerät, so wie `GET /api/apps` sie liefert (nur was hier zählt). */

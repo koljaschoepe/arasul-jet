@@ -189,6 +189,19 @@ Zahl je Stand als `marken` mit (`null`, wenn das Manifest sie nicht nennt), und
 die App-Verwaltung zeigt sie in der Karte des Standes. Steht dort eine ältere
 Fassung als die der Shell — oder gar keine —, sagt sie das.
 
+**Seit dem Auftrag geraet-zeigt-bibliotheksstand (08.09.2026) steht sie auch in
+der Liste** (Einstellungen → Apps, Spalte **Bibliothek**), vor jedem Klick:
+ohne Sicht darauf merkt niemand, dass eine App seit Monaten auf einer alten
+Bibliothek steht. Sagen beide Stände dasselbe, steht es einmal da, sonst je
+Stand. Eine Fassung, die **älter** ist als die des Geräts, und eine, die
+**fehlt**, sind eine **Warnung** — Grau mit Text und Dreieck, kein Rot, kein
+Verbot: einspielen und live schalten geht weiter, das Kit erzwingt beim Bau,
+das Gerät zeigt. Und nur bei Apps mit **Frontend**: ein fremder Container, der
+nur ein Backend mitbringt (`dateien.frontend: null`), hat kein
+Erscheinungsbild, braucht keine Bibliothek und bekommt keine Warnung — dort
+steht „kein Frontend". Die Logik liegt an einer Stelle
+(`features/settings/apps/Bibliothek.tsx`), Liste und Karte lesen sie beide.
+
 **Das Gerät vergleicht im Backend nicht.** Die Fassung der Bibliothek kennt die
 Shell, weil sie sie mitübersetzt (`FASSUNG` aus `@marken`); eine zweite Zahl im
 Backend wäre eine, die eines Tages etwas anderes sagt.

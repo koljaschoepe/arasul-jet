@@ -1061,9 +1061,12 @@ lieferbar nennt").
 steht — das, was sein `app.json` unter `marken` sagt, oder `null`. Das Gerät
 **vergleicht hier nicht**: die Fassung der Bibliothek kennt die Shell, weil sie
 sie mitübersetzt (`FASSUNG` aus `@marken`), und die Verwaltung meldet einen
-Stand, der älter ist als sie. Kein Mangel — eine App mit einer alten
+Stand, der älter ist als sie oder keine nennt — seit dem Auftrag
+geraet-zeigt-bibliotheksstand (08.09.2026) als Spalte **Bibliothek** schon in
+der Liste, als Warnung und nicht als Verbot, und nur für Stände mit Frontend
+(`dateien.frontend` ist `null` ohne). Kein Mangel — eine App mit einer alten
 Bibliothek läuft, sie sieht nur nicht mehr aus wie das Gerät um sie herum.
-`GET /api/apps` trägt das Feld je Stand ebenso.
+`GET /api/apps` trägt `marken` und `dateien` je Stand ebenso.
 
 `modelle` sagt, was das Manifest **verlangt** und was davon am Gerät ist.
 Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte lädt,

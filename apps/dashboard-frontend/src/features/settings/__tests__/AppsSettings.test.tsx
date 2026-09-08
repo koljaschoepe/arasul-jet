@@ -28,11 +28,15 @@ const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn(
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => toast }));
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 
+const DATEIEN = { manifest: true, frontend: true };
 const APP_ZEILE = {
   id: 'beispielapp',
   name: 'Beispielapp',
   beschreibung: 'Die kleinste App.',
-  staende: { test: { version: '1.1.0' }, live: { version: '1.0.0' } },
+  staende: {
+    test: { version: '1.1.0', marken: FASSUNG, dateien: DATEIEN },
+    live: { version: '1.0.0', marken: FASSUNG, dateien: DATEIEN },
+  },
 };
 
 const FLOW = {
@@ -88,7 +92,13 @@ const LEICHE_ZEILE = {
   ...APP_ZEILE,
   staende: {
     test: null,
-    live: { version: '1.0.0', lieferbar: false, mangel: 'Das Frontend fehlt am Geraet.' },
+    live: {
+      version: '1.0.0',
+      lieferbar: false,
+      mangel: 'Das Frontend fehlt am Geraet.',
+      marken: FASSUNG,
+      dateien: { manifest: false, frontend: false },
+    },
   },
 };
 const LEICHE_DETAIL = {
@@ -248,6 +258,7 @@ describe('AppsSettings', () => {
     const live = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
     expect(live).toHaveTextContent('1.0.0');
     expect(live).toHaveTextContent(`älter als das Gerät (${FASSUNG})`);
+    expect(live).toHaveAttribute('data-warnung', 'true');
     // Der Teststand daneben steht auf der Fassung des Geräts und sagt nichts.
     expect(
       within(screen.getByTestId('stand-test')).getByTestId('marken-fassung')
@@ -270,9 +281,118 @@ describe('AppsSettings', () => {
       },
     });
     await oeffneApp();
-    expect(
-      within(screen.getByTestId('stand-live')).getByTestId('marken-fassung')
-    ).toHaveTextContent('nicht genannt');
+    const live = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
+    expect(live).toHaveTextContent('nicht genannt');
+    expect(live).toHaveAttribute('data-warnung', 'true');
+  });
+
+  /**
+   * Auftrag geraet-zeigt-bibliotheksstand (08.09.2026): die Fassung steht in
+   * der LISTE, nicht erst in der Karte nach dem Klick -- ohne Sicht darauf
+   * merkt niemand, dass eine App seit Monaten auf einer alten Bibliothek
+   * steht. Gewarnt wird bei aelter oder fehlend, und nur bei Apps mit
+   * Frontend; ein Verbot ist es nie.
+   */
+  it('zeigt in der Liste die Spalte Bibliothek, einmal, wenn beide Staende dasselbe sagen', async () => {
+    antworte();
+    render(<AppsSettings />, { wrapper: huelle() });
+    const spalte = await screen.findByTestId('app-bibliothek-beispielapp');
+    expect(spalte).toHaveTextContent('Bibliothek');
+    expect(spalte).toHaveTextContent(FASSUNG);
+    // Beide Staende auf der Fassung des Geraets: ein Abzeichen, keine Warnung.
+    expect(within(spalte).getAllByTestId(/app-bibliothek-beispielapp-/)).toHaveLength(1);
+    expect(spalte.querySelector('[data-warnung]')).toBeNull();
+  });
+
+  it('warnt in der Liste bei einem Stand auf einer aelteren Bibliothek, je Stand', async () => {
+    antworte({
+      '/apps': {
+        data: [
+          {
+            ...APP_ZEILE,
+            staende: {
+              ...APP_ZEILE.staende,
+              live: { ...APP_ZEILE.staende.live, marken: '1.0.0' },
+            },
+          },
+        ],
+      },
+    });
+    render(<AppsSettings />, { wrapper: huelle() });
+    const live = await screen.findByTestId('app-bibliothek-beispielapp-live');
+    expect(live).toHaveTextContent('1.0.0, älter als das Gerät');
+    expect(live).toHaveAttribute('data-warnung', 'true');
+    // Der Teststand daneben steht auf der Fassung des Geraets und warnt nicht.
+    const test = screen.getByTestId('app-bibliothek-beispielapp-test');
+    expect(test).toHaveTextContent(FASSUNG);
+    expect(test).not.toHaveAttribute('data-warnung');
+    // Kein Verbot: die Zeile laesst sich weiter oeffnen, nichts ist rot.
+    expect(screen.queryByTestId('app-mangel-beispielapp')).toBeNull();
+    fireEvent.click(screen.getByTestId('app-oeffnen-beispielapp'));
+    await screen.findByTestId('app-ansicht-beispielapp');
+  });
+
+  it('warnt in der Liste, wenn eine App mit Frontend keine Fassung nennt', async () => {
+    antworte({
+      '/apps': {
+        data: [
+          {
+            ...APP_ZEILE,
+            staende: {
+              test: null,
+              live: { ...APP_ZEILE.staende.live, marken: null },
+            },
+          },
+        ],
+      },
+    });
+    render(<AppsSettings />, { wrapper: huelle() });
+    const live = await screen.findByTestId('app-bibliothek-beispielapp-live');
+    expect(live).toHaveTextContent('nicht genannt');
+    expect(live).toHaveAttribute('data-warnung', 'true');
+  });
+
+  it('warnt nicht bei einem fremden Container ohne Frontend, in Liste und Karte', async () => {
+    // Ein Backend ohne Oberflaeche hat kein Erscheinungsbild und braucht keine
+    // Bibliothek. `dateien.frontend: null` heisst: das Manifest nennt keines.
+    const ohneFrontend = { manifest: true, frontend: null };
+    antworte({
+      '/apps': {
+        data: [
+          {
+            ...APP_ZEILE,
+            staende: {
+              test: null,
+              live: { ...APP_ZEILE.staende.live, marken: null, dateien: ohneFrontend },
+            },
+          },
+        ],
+      },
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          staende: {
+            test: null,
+            live: {
+              ...APP_DETAIL.staende.live,
+              pfad: null,
+              marken: null,
+              dateien: ohneFrontend,
+            },
+          },
+        },
+      },
+    });
+    render(<AppsSettings />, { wrapper: huelle() });
+    const live = await screen.findByTestId('app-bibliothek-beispielapp-live');
+    expect(live).toHaveTextContent('kein Frontend');
+    expect(live).not.toHaveAttribute('data-warnung');
+
+    fireEvent.click(screen.getByTestId('app-oeffnen-beispielapp'));
+    await screen.findByTestId('app-ansicht-beispielapp');
+    const karte = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
+    expect(karte).toHaveTextContent('kein Frontend');
+    expect(karte).not.toHaveAttribute('data-warnung');
   });
 
   it('entfernt eine App erst, wenn ihre Kennung eingetippt ist, samt Dateien', async () => {
