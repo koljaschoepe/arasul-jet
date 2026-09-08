@@ -80,7 +80,10 @@ src/
                    `?tab=updates` sind Tieflinks darauf. Seit D4
                    gehört die Sektion **Apps** dazu (`AppsSettings.tsx` plus
                    `apps/`): die Liste der Apps am Gerät, und je App die
-                   Stände mit Schalter (`AppStaende.tsx`), die Tester
+                   Stände mit Schalter (`AppStaende.tsx`), die Bibliothek
+                   je Stand (`Bibliothek.tsx`: Fassung, Warnung bei älter
+                   oder fehlend, nur mit Frontend — in der Liste als Spalte
+                   und in der Karte, eine Logik), die Tester
                    (`AppTester.tsx`, dieselben Hooks wie die Matrix), die Flows
                    mit ihrem Modell (`FlowAnsicht.tsx`, `ModellDialog.tsx`),
                    die Läufe mit Schritten und Gedankengang

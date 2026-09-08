@@ -1038,15 +1038,31 @@ Die Bibliothek steht auf **4.1.0**; das Schaustueck baut sein Probe-PDF beim
 Rendern selbst (Helvetica absichtlich nicht eingebettet -- so misst die
 Schauseite auch den Weg zu den Standardschriften unter der scharfen CSP).
 
-| Layer    | Stack                                                             | Path                                                                                              |
-| -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+Seit dem Auftrag **geraet-zeigt-bibliotheksstand** (08.09.2026, M2) **zeigt
+die Verwaltung je App die Bibliotheksfassung in der Liste** (Einstellungen →
+Apps, Spalte Bibliothek) und warnt, wenn sie aelter ist als die des Geraets
+oder fehlt -- ohne abzulehnen. Seit H6 stand die Zahl in der Karte des
+Standes, also erst nach dem Klick; dort sieht nur, wer schon etwas sucht, und
+ohne Sicht auf die Fassung merkt niemand, dass eine App seit Monaten auf einer
+alten Bibliothek steht. Das Kit erzwingt beim Bau, das Geraet zeigt: die
+Warnung ist Grau mit Text (30.08.2026), kein Rot und kein Deploy-Verbot.
+**Fremde Container ohne Frontend bekommen keine Warnung** -- ein Backend ohne
+Oberflaeche braucht keine Bibliothek; ob ein Stand ein Frontend hat, sagt
+`dateien.frontend` (`null` ohne), das `GET /api/apps` seit dem Auftrag
+app-leiche je Stand traegt. Das Backend vergleicht weiter nicht (H6); die
+Logik liegt an einer Stelle (`features/settings/apps/Bibliothek.tsx`), Liste
+und Karte lesen sie beide, und `app-admin-bilder.mjs` fotografiert die Spalte
+(`bibliothek-liste.png`).
+
+| Layer    | Stack                                                             | Path                                                                                               |
+| -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |
-| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                                                         |
-| AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`                                             |
-| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                                                     |
-| Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/`                                     |
-| DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                                                         |
-| Hardware | Jetson AGX Orin / Thor (ARM64, 32–128 GB, CUDA 8.7–10.0)          | Detection: `scripts/setup/detect-platform.sh`                                                     |
+| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                                                          |
+| AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`                                              |
+| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                                                      |
+| Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/`                                      |
+| DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                                                          |
+| Hardware | Jetson AGX Orin / Thor (ARM64, 32–128 GB, CUDA 8.7–10.0)          | Detection: `scripts/setup/detect-platform.sh`                                                      |
 
 ## Non-negotiable rules
 

@@ -24,10 +24,57 @@ import { AppWindow, ChevronRight } from 'lucide-react';
 import { Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { AppAnsicht } from './apps/AppAnsicht';
-import { useAlleApps, type AppZeile } from './mitarbeiter/useAppFreigaben';
+import { Bibliothek, bibliothekBefund } from './apps/Bibliothek';
+import { useAlleApps, type AppZeile, type StandKurz } from './mitarbeiter/useAppFreigaben';
 import { Leerzustand } from '@marken';
 
-/** Eine App in der Liste: Name, Kennung, die zwei Fassungen. */
+/**
+ * Die Spalte Bibliothek einer Zeile (Auftrag geraet-zeigt-bibliotheksstand,
+ * 08.09.2026): auf welcher Fassung des Designsystems die App steht, und eine
+ * Warnung, wenn sie älter ist als die des Geräts oder fehlt — bei Apps mit
+ * Frontend. Ohne Sicht darauf merkt niemand, dass eine App seit Monaten auf
+ * einer alten Bibliothek steht; in der Karte nach dem Klick stand es seit H6,
+ * aber dort klickt nur, wer schon etwas sucht.
+ *
+ * Sagen beide Stände dasselbe, steht es einmal da. Sonst je Stand mit seinem
+ * Namen davor — ein Teststand auf der neuen Bibliothek neben einem Livestand
+ * auf der alten ist genau das Bild vor dem Live-Schalten.
+ */
+function BibliothekSpalte({ app }: { app: AppZeile }) {
+  const staende = (['live', 'test'] as const)
+    .map(stand => [stand, app.staende[stand]] as const)
+    .filter((paar): paar is readonly ['live' | 'test', StandKurz] => paar[1] !== null);
+  const erster = staende[0];
+  if (!erster) {
+    return null;
+  }
+  const hatFrontend = (stand: StandKurz) => stand.dateien.frontend !== null;
+  const befunde = staende.map(([, stand]) => bibliothekBefund(stand.marken, hatFrontend(stand)));
+  const einer = befunde.length === 1 || JSON.stringify(befunde[0]) === JSON.stringify(befunde[1]);
+  const zeigen = einer ? [erster] : staende;
+
+  return (
+    <span
+      className="flex shrink-0 flex-wrap items-center gap-1.5 text-ui-xs"
+      data-testid={`app-bibliothek-${app.id}`}
+    >
+      <span className="text-muted-foreground">Bibliothek</span>
+      {zeigen.map(([stand, detail]) => (
+        <span key={stand} className="inline-flex items-center gap-1">
+          {!einer && <span className="text-muted-foreground">{stand}</span>}
+          <Bibliothek
+            knapp
+            fassung={detail.marken}
+            hatFrontend={hatFrontend(detail)}
+            data-testid={`app-bibliothek-${app.id}-${stand}`}
+          />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Eine App in der Liste: Name, Kennung, die zwei Fassungen, die Bibliothek. */
 function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => void }) {
   return (
     <button
@@ -71,6 +118,7 @@ function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => voi
           </span>
         )}
       </span>
+      <BibliothekSpalte app={app} />
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>
   );

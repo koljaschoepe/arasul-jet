@@ -166,6 +166,29 @@ try {
   const zeile = await steht(seite, `[data-testid="app-oeffnen-${APP}"]`);
   pruefe(`Die Liste nennt ${APP}`, zeile);
 
+  // Auftrag geraet-zeigt-bibliotheksstand (08.09.2026): die Spalte Bibliothek
+  // steht in der LISTE, vor jedem Klick. Was drinsteht, sagt die App; ob
+  // gewarnt wird, sagt `data-warnung` -- gefragt wird hier beides, und das
+  // Bild ist der Nachweis am Orin.
+  if (zeile) {
+    const spalte = seite.locator(`[data-testid="app-bibliothek-${APP}"]`);
+    const spalteDa = await steht(seite, `[data-testid="app-bibliothek-${APP}"]`, 10000);
+    const text = spalteDa ? (await spalte.innerText().catch(() => '')).replace(/\s+/g, ' ') : '';
+    const warnungen = spalteDa ? await spalte.locator('[data-warnung="true"]').count() : 0;
+    pruefe(
+      'Die Liste zeigt die Spalte Bibliothek',
+      spalteDa &&
+        new RegExp(
+          `${FASSUNG}|älter als das Gerät|neuer als das Gerät|nicht genannt|kein Frontend`
+        ).test(text),
+      `„${text.trim()}", ${warnungen} Warnung(en), die Shell steht auf ${FASSUNG}`
+    );
+    await seite
+      .locator('[data-testid="app-liste"]')
+      .screenshot({ path: path.join(ZIEL, 'bibliothek-liste.png') })
+      .catch(() => {});
+  }
+
   if (zeile) {
     await seite.locator(`[data-testid="app-oeffnen-${APP}"]`).click();
     const ansicht = await steht(seite, `[data-testid="app-ansicht-${APP}"]`, 30000);
@@ -177,7 +200,11 @@ try {
         .locator('[data-testid="stand-live"]')
         .innerText()
         .catch(() => '');
-      pruefe('Der Livestand nennt seine Version', /\d+\.\d+\.\d+/.test(stand), stand.split('\n')[1]);
+      pruefe(
+        'Der Livestand nennt seine Version',
+        /\d+\.\d+\.\d+/.test(stand),
+        stand.split('\n')[1]
+      );
       // „laeuft" deckt beide gesunden Faelle ab: mit und ohne
       // Gesundheitspruefung im Manifest.
       pruefe('und den Zustand seines Containers', /läuft|steht|kein Backend/.test(stand));
@@ -194,9 +221,9 @@ try {
         .catch(() => '');
       pruefe(
         'Der Livestand sagt, auf welcher Fassung des Designsystems er steht',
-        new RegExp(`^${FASSUNG}$|älter als das Gerät|neuer als das Gerät|nicht genannt`).test(
-          bausteine.trim()
-        ),
+        new RegExp(
+          `^${FASSUNG}$|älter als das Gerät|neuer als das Gerät|nicht genannt|kein Frontend`
+        ).test(bausteine.trim()),
         `„${bausteine.trim()}", die Shell steht auf ${FASSUNG}`
       );
       await seite
