@@ -104,6 +104,14 @@ jobs:
         working-directory: apps/dashboard-backend
         run: npx jest --coverage --maxWorkers=2
 
+      # Auftrag J32 (17.09.2026): ohne gueltige Signatur bleibt jedes Geraet
+      # community. Drei Faelle am echten Dienst (Schluessel fehlt, Signatur
+      # falsch, Signatur richtig), dazu der Schluessel im Repo und die
+      # Compose-Ablage. Steht hier und nicht bei den Waechtern, weil der
+      # Dienst winston braucht und dieser Job das einzige `npm ci` hat.
+      - name: Lizenz ohne Schluessel bleibt community (J32)
+        run: node scripts/test/lizenz-signatur.js
+
       # Advisory: reports high/critical vulnerabilities so they show up in the
       # Actions summary without blocking the pipeline. Run from workspace root
       # so the single root lockfile is audited once per CI run.

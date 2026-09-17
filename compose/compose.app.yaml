@@ -123,6 +123,13 @@ services:
       # Ohne eigene Datei wuerde ein Reset auf dem Pruefstand das Erstpasswort
       # des Normalbetriebs mit entwerten.
       - ${ENV_DATEI:-../.env}:/arasul/config/.env
+      # Der oeffentliche Lizenzschluessel (Auftrag J32, 17.09.2026). Er liegt
+      # im Repo und damit im Artefakt und in jedem Deploy; hier bekommt er den
+      # Pfad, den `services/app/licenseService.js` liest. Ohne ihn prueft das
+      # Geraet keine Lizenz und bleibt `community` -- der Grace-Mode, der
+      # frueher an seiner Stelle `professional` vergab, ist gestrichen. Nur
+      # lesbar: das Geraet erhaelt ihn, es erzeugt ihn nicht.
+      - ../config/public_license_key.pem:/arasul/config/public_license_key.pem:ro
       - ../config:/config:ro
       # JetPack-Version: dpkg-query fragt ein HOST-Paket ab und schlaegt im
       # Container immer fehl. Ohne diesen Mount zeigt die Einstellungsseite

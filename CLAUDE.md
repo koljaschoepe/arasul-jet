@@ -1054,6 +1054,34 @@ Logik liegt an einer Stelle (`features/settings/apps/Bibliothek.tsx`), Liste
 und Karte lesen sie beide, und `app-admin-bilder.mjs` fotografiert die Spalte
 (`bibliothek-liste.png`).
 
+Seit dem Auftrag **lizenz-ohne-schluessel-bleibt-community** (17.09.2026, J32)
+**bleibt jedes Geraet ohne gueltige Signatur community**. Bis dahin prueft
+`licenseService.js` die Signatur nur, wenn `public_license_key.pem` am Geraet
+lag -- und fehlte er, vergab ein Grace-Mode fest `professional` mit
+`maxApps -1`, ohne Kryptographie. Ein Geraet ohne diesen Schluessel war dabei
+der Normalfall: der Orin trug keinen, das Artefakt lieferte keinen, also
+schaltete jede Zeichenkette mit einem Punkt die bezahlte Stufe frei. Seither
+gibt es **ein RSA-Schluesselpaar (4096 Bit) fuer Lizenzen**: die oeffentliche
+Haelfte liegt als `config/public_license_key.pem` im Repo (Ausnahme von
+`*.pem` in `.gitignore`), damit im Artefakt und in jedem Deploy, und
+`compose.app.yaml` reicht sie nur lesbar nach
+`/arasul/config/public_license_key.pem` -- den Pfad, den der Dienst liest. Die
+private Haelfte liegt **nur im macOS-Schluesselbund von Kolja** (Konto
+`arasul`, Dienst `Arasul Lizenz privat`, als eine Zeile base64 der PEM-Datei),
+nie im Repo, nie am Geraet. Der Grace-Mode ist gestrichen: ohne Schluessel
+oder mit falscher Signatur antwortet `POST /api/license/activate` mit 400 und
+einer Meldung, die den Grund nennt, `GET /api/license/info` bleibt `community`
+mit `maxApps 3`. Und **geprueft wird, bevor geschrieben wird**: bis dahin kam
+jede Zeichenkette zwischen 10 und 4096 Zeichen roh auf die Platte und wurde
+bei Ablehnung wieder geloescht; jetzt hinterlaesst eine abgelehnte Lizenz
+nichts, und die gueltige davor bleibt liegen. Der Grace-Mode, der bleibt, ist
+ein anderer: eine abgelaufene, aber geprueft echte Lizenz laeuft
+`LICENSE_GRACE_PERIOD_DAYS` weiter. Gemessen wird das mit
+`scripts/test/lizenz-signatur.js` am echten Dienst in einem Wegwerfordner
+(Schluessel fehlt, Signatur falsch, Signatur richtig, dazu der Schluessel im
+Repo und die Compose-Ablage), im CI-Job `Backend` und in `run-tests.sh`. Das
+Signierwerkzeug ist **nicht** Teil davon (eigene Karte testlizenz-ohne-stripe).
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |

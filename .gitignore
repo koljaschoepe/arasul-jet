@@ -59,6 +59,15 @@ postgres_data/
 # Secrets
 *.pem
 *.key
+# Der private Lizenzschluessel (Auftrag J32): nie im Repo, nie am Geraet. Er
+# liegt allein im macOS-Schluesselbund von Kolja (Konto arasul, Dienst
+# 'Arasul Lizenz privat'). Ausdruecklich, obwohl `*.pem` ihn schon deckt --
+# wer die Regel oben eines Tages lockert, soll hier stehen sehen, warum nicht.
+private_license_key.pem
+# Die oeffentliche Haelfte ist kein Geheimnis: sie gehoert ins Repo, ins
+# Artefakt und ueber den Deploy auf jedes Geraet. Ohne sie prueft das Geraet
+# keine Lizenz und bleibt community.
+!config/public_license_key.pem
 admin.hash
 config/secrets/
 !config/secrets/.example/

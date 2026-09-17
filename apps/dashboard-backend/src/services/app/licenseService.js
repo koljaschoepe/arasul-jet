@@ -9,6 +9,24 @@
  * a specific Jetson device and cannot be transferred without re-issuance.
  *
  * All validation is offline — no phone-home required.
+ *
+ * OHNE GUELTIGE SIGNATUR BLEIBT JEDES GERAET `community` (Auftrag J32,
+ * 17.09.2026). Bis dahin gab es einen Grace-Mode: fehlte der oeffentliche
+ * Schluessel am Geraet, galt jede Lizenzdatei mit einem Punkt darin als
+ * `professional` -- ohne Kryptographie. Und ein Geraet ohne
+ * `public_license_key.pem` war der Normalfall, nicht die Ausnahme: der Orin
+ * trug keinen, das Artefakt lieferte keinen, also vergab jedes so
+ * installierte Geraet die bezahlte Stufe an jeden Admin, der eine beliebige
+ * Zeichenkette mit einem Punkt aktivierte.
+ *
+ * Seither kommt der oeffentliche Schluessel mit dem Artefakt
+ * (`config/public_license_key.pem`, per Compose nach
+ * `/arasul/config/public_license_key.pem` gereicht), und fehlt er trotzdem,
+ * ist das ein Fehler mit Grund und keine Freischaltung. Der private
+ * Schluessel liegt nie im Repo und nie am Geraet. Eine Lizenz wird GEPRUEFT,
+ * BEVOR sie auf die Platte kommt: was nicht besteht, hinterlaesst keine Datei.
+ * Der Grace-Mode, der bleibt, ist ein anderer: eine abgelaufene Lizenz
+ * laeuft `LICENSE_GRACE_PERIOD_DAYS` lang weiter -- geprueft, nur abgelaufen.
  */
 
 const crypto = require('crypto');
@@ -17,7 +35,6 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../../utils/logger');
-const db = require('../../database');
 
 const execFileAsync = promisify(execFile);
 
@@ -173,49 +190,67 @@ class LicenseService {
       return this._cachedLicense;
     }
 
+    let licenseData;
     try {
-      // Check if license file exists
-      let licenseData;
-      try {
-        licenseData = (await fs.readFile(LICENSE_FILE, 'utf8')).trim();
-      } catch {
-        return this._cacheResult({
-          valid: false,
-          error: 'No license file found',
-          tier: 'community',
-          features: FEATURE_TIERS.community,
-        });
-      }
+      licenseData = (await fs.readFile(LICENSE_FILE, 'utf8')).trim();
+    } catch {
+      return this._cacheResult({
+        valid: false,
+        error: 'No license file found',
+        tier: 'community',
+        features: FEATURE_TIERS.community,
+      });
+    }
 
+    return this._cacheResult(await this._pruefeLizenz(licenseData));
+  }
+
+  /**
+   * Prueft eine Lizenz-Zeichenkette gegen den oeffentlichen Schluessel des
+   * Geraets. Schreibt nichts und liest keinen Cache -- `validateLicense` und
+   * `activateLicense` teilen sich diese eine Pruefung, damit eine Lizenz, die
+   * nicht besteht, auch nie auf die Platte kommt.
+   *
+   * Jede Ablehnung nennt ihren Grund: die Meldung geht ueber
+   * `POST /api/license/activate` als 400 an den Menschen, der den Schluessel
+   * eingegeben hat.
+   */
+  async _pruefeLizenz(licenseData) {
+    const abgelehnt = (error, extra = {}) => ({
+      valid: false,
+      error,
+      tier: 'community',
+      features: FEATURE_TIERS.community,
+      ...extra,
+    });
+
+    try {
       // Parse license: payload.signature
       const parts = licenseData.split('.');
       if (parts.length !== 2) {
-        return this._cacheResult({
-          valid: false,
-          error: 'Invalid license format',
-          tier: 'community',
-          features: FEATURE_TIERS.community,
-        });
+        return abgelehnt(
+          'Die Lizenz hat nicht die Form <Nutzlast>.<Signatur>. Das Geraet bleibt community.'
+        );
       }
 
       const [payloadB64, signatureB64] = parts;
       const payloadBuffer = Buffer.from(payloadB64, 'base64');
       const signature = Buffer.from(signatureB64, 'base64');
 
-      // Verify signature
+      // Ohne oeffentlichen Schluessel gibt es keine Pruefung, und ohne
+      // Pruefung keine Stufe. Kein Grace-Mode: der war die Freischaltung
+      // fuer jeden, der einen Punkt tippen kann (J32).
       let publicKey;
       try {
         publicKey = await fs.readFile(LICENSE_PUBLIC_KEY, 'utf8');
       } catch {
-        // No public key = can't verify, but allow grace mode
-        logger.warn('License public key not found, running in grace mode');
-        return this._cacheResult({
-          valid: true,
-          graceMode: true,
-          tier: 'professional',
-          features: FEATURE_TIERS.professional,
-          warning: 'License key not configured, grace period active',
-        });
+        logger.warn(
+          `Oeffentlicher Lizenzschluessel fehlt (${LICENSE_PUBLIC_KEY}); Geraet bleibt community`
+        );
+        return abgelehnt(
+          `Der oeffentliche Lizenzschluessel fehlt am Geraet (${LICENSE_PUBLIC_KEY}). ` +
+            'Ohne ihn laesst sich keine Lizenz pruefen; das Geraet bleibt community.'
+        );
       }
 
       const isValid = crypto.verify(
@@ -226,12 +261,10 @@ class LicenseService {
       );
 
       if (!isValid) {
-        return this._cacheResult({
-          valid: false,
-          error: 'Invalid license signature',
-          tier: 'community',
-          features: FEATURE_TIERS.community,
-        });
+        return abgelehnt(
+          'Die Signatur der Lizenz ist ungueltig: sie stammt nicht vom Lizenzschluessel ' +
+            'dieses Produkts. Das Geraet bleibt community.'
+        );
       }
 
       // Parse payload
@@ -240,11 +273,7 @@ class LicenseService {
       // Check hardware fingerprint
       const fingerprint = await this.getHardwareFingerprint();
       if (license.hardware_id && license.hardware_id !== fingerprint) {
-        return this._cacheResult({
-          valid: false,
-          error: 'License is bound to a different device',
-          tier: 'community',
-          features: FEATURE_TIERS.community,
+        return abgelehnt('License is bound to a different device', {
           expectedDevice: license.hardware_id,
           currentDevice: fingerprint,
         });
@@ -256,20 +285,17 @@ class LicenseService {
       const graceDeadline = new Date(expiresAt.getTime() + GRACE_PERIOD_DAYS * 86400_000);
 
       if (now > graceDeadline) {
-        return this._cacheResult({
-          valid: false,
-          error: `License expired on ${expiresAt.toISOString().split('T')[0]} (grace period ended)`,
-          tier: 'community',
-          features: FEATURE_TIERS.community,
-          expiredAt: license.expires_at,
-        });
+        return abgelehnt(
+          `License expired on ${expiresAt.toISOString().split('T')[0]} (grace period ended)`,
+          { expiredAt: license.expires_at }
+        );
       }
 
       const isExpired = now > expiresAt;
       const tier = license.tier || 'professional';
       const features = FEATURE_TIERS[tier] || FEATURE_TIERS.professional;
 
-      return this._cacheResult({
+      return {
         valid: true,
         graceMode: isExpired,
         tier,
@@ -283,15 +309,10 @@ class LicenseService {
         warning: isExpired
           ? `License expired, grace period ends ${graceDeadline.toISOString().split('T')[0]}`
           : undefined,
-      });
+      };
     } catch (error) {
       logger.error(`License validation error: ${error.message}`);
-      return this._cacheResult({
-        valid: false,
-        error: error.message,
-        tier: 'community',
-        features: FEATURE_TIERS.community,
-      });
+      return abgelehnt(error.message);
     }
   }
 
@@ -327,27 +348,25 @@ class LicenseService {
   }
 
   /**
-   * Activate a license key (write to disk + validate).
+   * Activate a license key: erst pruefen, dann schreiben.
+   *
+   * Bis J32 stand die Reihenfolge andersherum -- jede Zeichenkette zwischen
+   * 10 und 4096 Zeichen kam roh auf die Platte und wurde bei Ablehnung wieder
+   * geloescht. Was nicht besteht, hinterlaesst jetzt nichts, und die
+   * Lizenz, die vorher galt, bleibt liegen.
    * @param {string} licenseKey - The license key string
    * @returns {{ success: boolean, license?: object, error?: string }}
    */
   async activateLicense(licenseKey) {
-    // Invalidate cache
-    this._cachedLicense = null;
-    this._cacheExpiry = 0;
+    const result = await this._pruefeLizenz(licenseKey.trim());
+    if (!result.valid && !result.graceMode) {
+      return { success: false, error: result.error };
+    }
 
-    // Write license file
     const dir = path.dirname(LICENSE_FILE);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(LICENSE_FILE, licenseKey.trim(), 'utf8');
-
-    // Validate
-    const result = await this.validateLicense();
-    if (!result.valid && !result.graceMode) {
-      // Remove invalid license
-      await fs.unlink(LICENSE_FILE).catch(() => {});
-      return { success: false, error: result.error };
-    }
+    this._cacheResult(result);
 
     logger.info(`License activated: tier=${result.tier}, customer=${result.customer}`);
     return { success: true, license: result };
