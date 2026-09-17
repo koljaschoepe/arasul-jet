@@ -95,6 +95,16 @@ run_backend_tests() {
       fi
       rm -f "$BACKEND_LOG"
       cd "$PROJECT_ROOT"
+      # Auftrag J32: ohne gueltige Signatur bleibt jedes Geraet community.
+      # Laeuft am echten Dienst in einem Wegwerfordner; braucht nur die
+      # node_modules, die Jest gerade auch gebraucht hat.
+      echo ""
+      echo "-> Lizenz: ohne Schluessel oder mit falscher Signatur bleibt es community (J32)..."
+      if node "${PROJECT_ROOT}/scripts/test/lizenz-signatur.js"; then
+        :
+      else
+        EXIT_CODE=1
+      fi
     elif command -v docker &> /dev/null; then
       echo "   Building backend test image (--target test) ..."
       if ! docker build --target test \

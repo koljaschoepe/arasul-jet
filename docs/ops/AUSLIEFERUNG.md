@@ -123,6 +123,16 @@ weil `install.sh` und der Bootstrap am Ende auf
 Admin-Handbuch auf das Gerät gehört, auf dem es gebraucht wird. Ein Verweis ins
 Leere wäre schlimmer als kein Verweis.
 
+**Das Artefakt trägt den öffentlichen Lizenzschlüssel** (Auftrag J32,
+17.09.2026): `config/public_license_key.pem` liegt im Repo, also in jedem
+Artefakt und in jedem Deploy, und `compose/compose.app.yaml` reicht ihn nur
+lesbar nach `/arasul/config/public_license_key.pem` in das Backend. Ohne ihn
+prüft das Gerät keine Lizenz und bleibt `community`; den Grace-Mode, der an
+seiner Stelle `professional` vergab, gibt es nicht mehr. Der Schlüssel ist
+Programm, nicht Zustand: eine Aktualisierung bringt ihn mit, der Werksreset
+lässt ihn liegen. Die private Hälfte liegt nirgends in diesem Repo und auf
+keinem Gerät.
+
 ### Das Artefakt trägt das Designsystem (Phase H6)
 
 Es ist der **Träger** der Bibliothek an alle, die Apps für dieses Gerät bauen.

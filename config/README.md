@@ -7,6 +7,10 @@ This directory contains configuration files for the Arasul Platform.
 ````
 config/
 ├── README.md                   # This file
+├── public_license_key.pem     # Oeffentlicher Lizenzschluessel (J32): im Repo,
+│                              #   im Artefakt, per Compose im Backend unter
+│                              #   /arasul/config/. Ohne ihn bleibt es community.
+│                              #   Die private Haelfte liegt NIE hier.
 ├── .env.template              # Template for environment variables
 ├── traefik/                   # Traefik reverse proxy configuration
 │   ├── traefik.yml

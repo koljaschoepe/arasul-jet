@@ -1661,6 +1661,33 @@ All endpoints require admin authentication (`requireAuth` + `requireRole('admin'
 }
 ```
 
+Eine Lizenz ist `base64(JSON-Nutzlast).base64(RSA-PSS-Signatur, sha256)` und
+wird gegen den oeffentlichen Lizenzschluessel des Geraets geprueft
+(`/arasul/config/public_license_key.pem`, kommt mit dem Artefakt). **Geprueft
+wird, bevor geschrieben wird** (Auftrag J32, 17.09.2026): fehlt der
+Schluessel am Geraet oder stimmt die Signatur nicht, antwortet der Weg mit
+`400 VALIDATION_ERROR`, die Meldung nennt den Grund, es bleibt keine Datei
+zurueck, und `GET /api/license/info` bleibt `community` mit `maxApps: 3`.
+Einen Grace-Mode ohne Schluessel gibt es nicht mehr.
+
+```json
+// 400 ohne oeffentlichen Schluessel am Geraet
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Der oeffentliche Lizenzschluessel fehlt am Geraet (/arasul/config/public_license_key.pem). Ohne ihn laesst sich keine Lizenz pruefen; das Geraet bleibt community."
+  }
+}
+
+// 400 mit falscher Signatur (auch: eine erratene Zeichenkette mit Punkt)
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Die Signatur der Lizenz ist ungueltig: sie stammt nicht vom Lizenzschluessel dieses Produkts. Das Geraet bleibt community."
+  }
+}
+```
+
 **GET /api/license/check/:feature Response:**
 
 ```json

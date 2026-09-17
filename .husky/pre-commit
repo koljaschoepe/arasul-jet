@@ -11,7 +11,17 @@ echo "Running pre-commit checks..."
 
 # Check for accidentally staged .env files or secrets
 FORBIDDEN_PATTERNS='.env$|\.env\.local$|\.env\.[a-z]+\.local$|config/secrets/|\.pem$|admin\.hash$'
-STAGED_SECRETS=$(git diff --cached --name-only | grep -E "$FORBIDDEN_PATTERNS" || true)
+# Die eine Ausnahme: der OEFFENTLICHE Lizenzschluessel (Auftrag J32). Er
+# gehoert ins Repo, ins Artefakt und auf jedes Geraet -- ohne ihn prueft das
+# Geraet keine Lizenz. Ausgenommen wird die Datei nur, solange sie keinen
+# privaten Schluessel traegt; die private Haelfte liegt nie im Repo.
+OEFFENTLICHER_LIZENZSCHLUESSEL='config/public_license_key.pem'
+STAGED_SECRETS=$(git diff --cached --name-only | grep -E "$FORBIDDEN_PATTERNS" | grep -vx "$OEFFENTLICHER_LIZENZSCHLUESSEL" || true)
+if git diff --cached --name-only | grep -qx "$OEFFENTLICHER_LIZENZSCHLUESSEL" \
+   && git show ":$OEFFENTLICHER_LIZENZSCHLUESSEL" | grep -q 'PRIVATE KEY'; then
+  STAGED_SECRETS="$STAGED_SECRETS
+$OEFFENTLICHER_LIZENZSCHLUESSEL (traegt einen PRIVATEN Schluessel)"
+fi
 
 if [ -n "$STAGED_SECRETS" ]; then
   echo ""
