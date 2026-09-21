@@ -208,6 +208,10 @@ pruefe 'und die Regel, die kein Schema traegt (writes an PUT/PATCH/DELETE)' \
 # Version traegt den Zeitstempel, ueberschreibt also nichts; der Livestand
 # bleibt, wo er ist, denn ein Deploy rollt immer in den Teststand.
 PAKET_APP="${ARASUL_BEISPIELAPP:-beispielapp}"
+# Die Version, die live ist -- der Teststand wird am Ende darauf zurueckgestellt.
+hole "/api/apps/$PAKET_APP" "$TOK"
+LIVE_VERSION=$(feld data.staende.live.version)
+TESTSTAND_GESETZT=""
 if [ -n "$SCHLUESSEL" ]; then
   PAKET_DIR="$(mktemp -d)"
   PAKET_DATEI="$PAKET_DIR/paket.tgz"
@@ -263,6 +267,7 @@ try:
     print(" ".join(r["method"] + " " + r["path"] for r in routen))
 except Exception:
     print("")' 2>/dev/null)
+    TESTSTAND_GESETZT=ja
     # Der Stand traegt das Feld -- nicht nur der Upload ging durch.
     pruefe 'und der Teststand traegt die Routen' "$(enthaelt "$ROUTEN" 'DELETE weg')" \
       "${ROUTEN:-nicht im Stand}"
@@ -348,11 +353,22 @@ aufraeumen() {
   rm -f "$RUMPF_DATEI" "$KOPF_DATEI" "$ANM_DATEI"
   [ -n "$PAKET_DATEI" ] && rm -rf "$(dirname "$PAKET_DATEI")"
   # Die App selbst wird NICHT entfernt: es ist die Beispielapp, und ihr
-  # Livestand traegt die Abnahmen aus C3 und C4. Was die Messung hinterlaesst,
-  # ist ein Teststand mit einer Versionsnummer, die es nie gab -- der naechste
-  # Deploy derselben App ersetzt ihn. Einen Weg, einen Teststand allein
-  # wegzunehmen, gibt es nicht, und einen dafuer zu bauen waere eine Tuer fuer
-  # eine Messung.
+  # Livestand traegt die Abnahmen aus C3 und C4. Einen Weg, einen Teststand
+  # ALLEIN wegzunehmen, gibt es nicht, und einen dafuer zu bauen waere eine
+  # Tuer fuer eine Messung. Stattdessen wird der Teststand auf die Version
+  # gestellt, die live ist: dieselbe Seite, die auch sonst dort steht, statt
+  # der leeren Huelse dieser Messung. `POST /:id/einspielen` nimmt eine
+  # Version, die am Geraet schon liegt (C3) -- es wird nichts gebaut und
+  # nichts geladen.
+  if [ -n "${LIVE_VERSION:-}" ] && [ -n "${TESTSTAND_GESETZT:-}" ]; then
+    local zurueck
+    zurueck=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 120 -X POST \
+      -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+      -d "{\"version\":\"$LIVE_VERSION\",\"stand\":\"test\"}" \
+      "$BASIS/api/apps/$PAKET_APP/einspielen")
+    printf 'aufgeraeumt  Teststand von %s zurueck auf %s (HTTP %s)\n' \
+      "$PAKET_APP" "$LIVE_VERSION" "$zurueck"
+  fi
   local id code
   for id in "$ID_DRIN" "$ID_DRAUSSEN"; do
     [ -z "$id" ] && continue
