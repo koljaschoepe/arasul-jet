@@ -752,7 +752,16 @@ bash scripts/test/apps-abnahme.sh           # misst beide Pfade (C3)
 bash scripts/test/app-anmeldung-abnahme.sh  # misst die Anmeldung (C4)
 bash scripts/test/deploy-abnahme.sh         # misst den Deploy-Endpunkt (C5)
 bash scripts/test/lizenz-abnahme.sh        # misst die Lizenzgrenze (J30)
+bash scripts/test/ausweis-abnahme.sh        # misst die Brücke: `agent` und den Ausweis (J34)
 ```
+
+`ausweis-abnahme.sh` misst beide Hälften der Brücke: den Kontrakt samt Feld
+`agent` und ein Wegwerf-Paket mit einem **kaputten** `agent` (das kostet keinen
+Bau — das Manifest wird geprüft, bevor Docker anfängt), dazu den Ausweis mit
+**zwei** Menschen, von denen nur einer die App freigegeben hat. Sie läuft
+**neben** `abnahmen.sh`: sie braucht drei gelungene Anmeldungen, und die kosten
+seit H7 nichts an der Drossel (`skipSuccessfulRequests`), rechnen aber in der
+Reihe dort nicht mit.
 
 `deploy-abnahme.sh` spielt den Inhalt der Beispielapp unter einer **eigenen
 Kennung** (`beispielapp-deploy`) ein und räumt am Ende alles weg, was es
