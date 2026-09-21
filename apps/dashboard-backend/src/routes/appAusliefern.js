@@ -30,12 +30,30 @@
  * Ein Umzug auf die Anmeldeseite waere fuer ein `fetch` der App genau der
  * Fall, vor dem der Absatz darueber warnt: sie bekaeme HTML, wo sie JSON
  * erwartet, und meldete einen Fehler, der nach ihrem eigenen aussieht.
+ *
+ * UND SEIT DER BRUECKE (21.09.2026) GILT HIER EIN AUSWEIS -- aber nur an der
+ * SCHNITTSTELLE, nicht an der Seite. Gefunden bei der Messung am Orin: ein
+ * Agent mit einem Ausweis kam an `/apps/<id>/api/me` nicht vorbei, obwohl er
+ * durch die Forward-Auth vor dem Container der App kommt. Der Grund ist die
+ * Ausnahme oben -- dieser eine Weg unter `api/` gehoert der Plattform
+ * (Traefik gibt ihn hierher, `apps-me`, Zahl 50), und hier stand nur
+ * `optionalAuth`, das einen Ausweis nicht kennt. „Wer bin ich" ist die erste
+ * Frage, die ein Agent an eine App stellt, und sie ausgerechnet an dem einen
+ * Weg zu verweigern, den die Plattform selbst beantwortet, waere ein Loch in
+ * der Mitte der Zusage.
+ *
+ * DIE SEITE BLEIBT ZU, und das ist Absicht: ein Ausweis oeffnet
+ * App-Schnittstellen, und eine statische Seite ist keine. Sie ist fuer einen
+ * Menschen in einem Browser, und der hat eine Sitzung. Ein Programm, das HTML
+ * bekommt, wo es JSON erwartet, ist ausserdem genau der Fall, vor dem der
+ * Absatz darueber warnt.
  */
 
 const express = require('express');
 const router = express.Router();
 const { asyncHandler } = require('../middleware/errorHandler');
 const { optionalAuth } = require('../middleware/auth');
+const { ausweisProbe } = require('../middleware/ausweis');
 const { NotFoundError, UnauthorizedError } = require('../utils/errors');
 const { AppId } = require('../schemas/apps');
 const appStore = require('../services/app/appStore');
@@ -107,7 +125,14 @@ function pfadErkennen(req, res, next) {
     return res.redirect(301, `${req.baseUrl}${req.path}/`);
   }
 
-  req.appPfad = { kennung, stand: testTeil ? 'test' : 'live', rest };
+  req.appPfad = {
+    kennung,
+    stand: testTeil ? 'test' : 'live',
+    rest,
+    // Einmal ausgerechnet, zweimal gebraucht: die Ausweis-Probe unten und die
+    // Entscheidung „Seite oder Schnittstelle" fragen dasselbe.
+    istSchnittstelle: rest === 'api' || rest.startsWith('api/'),
+  };
   return next();
 }
 
@@ -119,12 +144,26 @@ function pfadErkennen(req, res, next) {
 // Menschen ist das eine indizierte Abfrage auf `admin_users`; sie
 // zwischenzuspeichern hiesse, eine zurueckgenommene Freigabe noch eine Minute
 // lang gelten zu lassen.
+/**
+ * Ein Ausweis gilt hier nur an der Schnittstelle (Bruecke, 21.09.2026).
+ *
+ * Er steht HINTER `optionalAuth` und tritt nur an, wenn dort niemand gefunden
+ * wurde -- eine Sitzung ist die genauere Auskunft. Und er tritt gar nicht an,
+ * wenn die Seite gefragt wurde: dort soll ein Ausweis nichts oeffnen.
+ */
+function ausweisNurAnDerSchnittstelle(req, res, next) {
+  if (req.user || !req.appPfad?.istSchnittstelle) {
+    return next();
+  }
+  return ausweisProbe(req, res, next);
+}
+
 router.use(
   pfadErkennen,
   optionalAuth,
+  ausweisNurAnDerSchnittstelle,
   asyncHandler(async (req, res, next) => {
-    const { kennung, stand, rest } = req.appPfad;
-    const istSchnittstelle = rest === 'api' || rest.startsWith('api/');
+    const { kennung, stand, rest, istSchnittstelle } = req.appPfad;
 
     if (!req.user) {
       if (istSchnittstelle) {
