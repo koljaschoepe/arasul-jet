@@ -1,0 +1,21 @@
+0
+1 ohne Sitzung (kein Cookie)                       : 401  
+2 mit Sitzung, Kopfzeilen X-Arasul-User=anna kommen an: 401  
+3 mit Sitzung + selbst mitgeschickte Kopfzeilen (X-Arasul-User, Remote-User, X-Forwarded-User): 401  
+4 mit Sitzung + Basic-Anmeldung anna am Dienst      : 200  {"displayName":"anna","id":"50142f72-5a29-4082-8b57-4681e0bf8919","identities":[{"issuer":"https://localhost:1
+5 ohne Sitzung, aber Basic-Anmeldung (Sync-Klient)  : 401  
+--- was der Dienst als Anmeldeweg anbietet (well-known)
+  issuer: https://localhost:18082
+  Anmeldeweg: OIDC (eingebauter Anbieter idp), Code-Flow mit PKCE
+/var/lib/opencloud/idm:
+idm.boltdb
+
+/var/lib/opencloud/idp:
+--- Weg "Arasul spiegelt Nutzer und Passwort per Graph" (vom Mac ueber den Tunnel, als admin)
+PATCH Passwort 200
+Anmeldung neues Passwort 200
+Anmeldung altes Passwort 401
+Nutzer per Graph anlegen (neuer Nutzer 'chef') 201
+Nutzer per Graph loeschen 204
+Anmeldung chef nach Loeschen 401
+anna zurueck auf altes Passwort 200

@@ -1,0 +1,38 @@
+=== Vorbereitung: konflikt/d1..d3 anlegen, beide Rechner holen sie
+Sync succeeded
+Sync succeeded
+/tmp/j33-k-a:
+
+/tmp/j33-k-b:
+
+=== Variante 1: beide aendern dieselbe Datei in derselben Sekunde, gleichen gleichzeitig ab
+nach dem ersten Abgleich:
+  Server: d1.md = Fassung von A, kurz 
+  A: d1.md = Fassung von A, kurz 
+  B: d1.md = Fassung von B, etwas laenger 
+nach dem zweiten Abgleich:
+  Server: d1.md = Fassung von A, kurz 
+  A: d1.md = Fassung von A, kurz 
+  B: d1.md = Fassung von B, etwas laenger 
+
+=== Variante 2: Aenderungen drei Sekunden auseinander, Abgleich gleichzeitig
+nach dem ersten Abgleich:
+  Server: d2.md = B um 14:40:32, drei Sekunden spaeter 
+  A: d2.md = A um 14:40:29 
+  B: d2.md = B um 14:40:32, drei Sekunden spaeter 
+nach dem zweiten Abgleich:
+  Server: d2.md = B um 14:40:32, drei Sekunden spaeter 
+  A: d2.md = B um 14:40:32, drei Sekunden spaeter 
+  B: d2.md = B um 14:40:32, drei Sekunden spaeter 
+
+=== Variante 3: nacheinander -- A gleicht ab, B hatte den Stand nicht geholt und aendert ebenfalls
+nach B:
+  Server: d3.md = A aendert und gleicht ab 
+  A: d3.md = A aendert und gleicht ab 
+  B: d3 (conflicted copy 2026-09-21 144209).md = B aendert auf altem Stand, laenger als A 
+  B: d3.md = A aendert und gleicht ab 
+nach dem zweiten Abgleich:
+  Server: d3.md = A aendert und gleicht ab 
+  A: d3.md = A aendert und gleicht ab 
+  B: d3 (conflicted copy 2026-09-21 144209).md = B aendert auf altem Stand, laenger als A 
+  B: d3.md = A aendert und gleicht ab 

@@ -1,0 +1,24 @@
+1 ohne Sitzung (kein Cookie), WebDAV                 : 401  
+2 Sitzung (Cookie), OHNE Nextcloud-Passwort, WebDAV  : 207  <?xml version="1.0"?> <d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns
+3 dasselbe, Ordner Firma/ des Teamordners            : 207  <?xml version="1.0"?> <d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns
+4 Web-Oberflaeche /apps/files/ mit Sitzung           : 401  {"message":"Current user is not logged in"}
+5 mit Sitzung als anna, aber Kopfzeile X-Arasul-User: admin selbst mitgeschickt (Forward-Auth ueberschreibt?): 207  <?xml version="1.0"?> <d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns
+6 SPOOF: mit Sitzung, dazu X_Arasul_User: admin (Unterstrich statt Bindestrich), Ziel /files/admin/: 207  <?xml version="1.0"?> <d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns
+7 SPOOF ohne Sitzung: nur X_Arasul_User: admin      : 401  
+8 Umgehung der Forward-Auth: Kopfzeile direkt am Dienst (Port 18081, nicht ueber Traefik): 207  <?xml version="1.0"?> <d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns
+9 Basic-Anmeldung durch Traefik (Sync-Klient ohne Sitzung): 401  
+wacht-ok
+Sitzung anna                                           -> -- niemand --
+Sitzung anna + eigene X-Arasul-User: admin             -> -- niemand --
+Sitzung anna + X_Arasul_User: admin (Unterstrich)      -> -- niemand --
+keine Sitzung + X_Arasul_User: admin (Unterstrich)     -> -- niemand --
+keine Sitzung + X-Arasul-User: admin                   -> -- niemand --
+direkt am Dienst (18081) + X-Arasul-User: admin        -> -- niemand --
+--- die Web-Oberflaeche (Browser) mit Sitzung: Weiterleitung?
+GET /index.php/apps/files/ (Sitzung anna): 401 -> 
+GET /login (Sitzung anna): 302 -> http://127.0.0.1:18083/apps/user_saml/saml/login?originalUrl=&idp=&requesttoken=7jrbw5yg3oDzYIdjQPJROv4EeooTFdCtCtRPNxkTk2I%3D:uwuol9fLmdiULdVRN7ghTdVsFOlCYeXLRZoVYG9Hpyw%3D
+Sitzung anna, keine Zusatzkopfzeile                       : admins Ordner liefert 1 Eintraege
+Sitzung anna + X-Arasul-User: admin (Bindestrich)         : 1 Eintraege
+Sitzung anna + X_Arasul_User: admin (Unterstrich)         : 1 Eintraege
+Sitzung anna + X.Arasul.User: admin (Punkt)               : 1 Eintraege
+(zum Vergleich) direkt am Dienst mit X-Arasul-User: admin : 12 Eintraege

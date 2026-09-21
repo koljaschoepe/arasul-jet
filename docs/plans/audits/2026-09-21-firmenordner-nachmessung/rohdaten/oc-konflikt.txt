@@ -1,0 +1,50 @@
+=== Vorbereitung: konflikt/d1..d3 anlegen, beide Rechner holen sie
+PUT d1 201
+PUT d2 201
+PUT d3 201
+Warning: Sync error: OCC::SyncFileItem::NormalError "Error transferring https://localhost:18082/dav/spaces/7bdf3569-e845-4d2d-b3b0-7c0e125a7284$20fe1951-12af-450d-ae51-86e27fdc34b1 - server replied with status code 500"
+Warning: Failed to sync
+Warning: Sync error: OCC::SyncFileItem::Message "Local file changed during sync. It will be resumed."
+Sync succeeded
+A:
+d1.md
+d2.md
+d3.md
+B:
+d1.md
+d2.md
+d3.md
+
+=== Variante 1: beide aendern dieselbe Datei in derselben Sekunde, gleichen gleichzeitig ab
+nach dem ersten Abgleich:
+  Server: d1.md = Fassung von B, etwas laenger 
+  A: d1.md = Fassung von A, kurz 
+  B: d1.md = Fassung von B, etwas laenger 
+nach dem zweiten Abgleich:
+  Server: d1.md = Fassung von B, etwas laenger 
+  A: d1 (conflicted copy 2026-09-21 144253).md = Fassung von A, kurz 
+  A: d1.md = Fassung von B, etwas laenger 
+  B: d1.md = Fassung von B, etwas laenger 
+
+=== Variante 2: Aenderungen drei Sekunden auseinander, Abgleich gleichzeitig
+nach dem ersten Abgleich:
+  Server: d2.md = B um 14:44:00, drei Sekunden spaeter 
+  A: d2.md = A um 14:43:57 
+  B: d2.md = B um 14:44:00, drei Sekunden spaeter 
+nach dem zweiten Abgleich:
+  Server: d2.md = B um 14:44:00, drei Sekunden spaeter 
+  A: d2 (conflicted copy 2026-09-21 144357).md = A um 14:43:57 
+  A: d2.md = B um 14:44:00, drei Sekunden spaeter 
+  B: d2.md = B um 14:44:00, drei Sekunden spaeter 
+
+=== Variante 3: nacheinander -- A gleicht ab, B hatte den Stand nicht geholt und aendert ebenfalls
+nach B:
+  Server: d3.md = A aendert und gleicht ab 
+  A: d3.md = A aendert und gleicht ab 
+  B: d3 (conflicted copy 2026-09-21 144416).md = B aendert auf altem Stand, laenger als A 
+  B: d3.md = A aendert und gleicht ab 
+nach dem zweiten Abgleich:
+  Server: d3.md = A aendert und gleicht ab 
+  A: d3.md = A aendert und gleicht ab 
+  B: d3 (conflicted copy 2026-09-21 144416).md = B aendert auf altem Stand, laenger als A 
+  B: d3.md = A aendert und gleicht ab 

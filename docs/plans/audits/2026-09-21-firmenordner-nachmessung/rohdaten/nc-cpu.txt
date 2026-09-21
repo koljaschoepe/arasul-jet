@@ -1,0 +1,8 @@
+Grenze vorher: 2000000000 NanoCpus
+zwoelf Kerne (= ohne Grenze): 12000000000 NanoCpus
+hoch: 619 Anfragen/Dateien, 109.7 MB, 0 Fehler, 223.9 s, 4 Verbindungen
+704 MiB Spitze, 385 % CPU Spitze (71 Proben)
+Grenze wieder: 2000000000 NanoCpus
+wacht-ok
+nextcloud-hoch: 565 MiB Spitze, 284 % CPU Spitze (58 Proben)
+nextcloud-frei: 704 MiB Spitze, 385 % CPU Spitze (71 Proben)

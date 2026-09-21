@@ -1,0 +1,35 @@
+# Nachmessung J33, Kandidat Nextcloud. Daten unter ~/j33nach/nextcloud/ am Geraet
+# (Bind-Mount, damit die Dateien lesbar sind), CPU-Grenze `cpus: 2`, RAM 2 GB.
+# Zwei zusaetzliche Bind-Mounts fuer die Proben "von aussen geaendert"
+# (extern/, als lokaler Speicher eingebunden) und "nur am Geraet lesbar" (geraet/).
+name: j33nach-nextcloud
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: j33nach-nextcloud-db
+    mem_limit: 1g
+    cpus: 1
+    restart: 'no'
+    environment: { POSTGRES_DB: nextcloud, POSTGRES_USER: nextcloud, POSTGRES_PASSWORD: j33nach-db }
+    volumes: [db:/var/lib/postgresql/data]
+  server:
+    image: nextcloud:latest
+    container_name: j33nach-nextcloud-server
+    mem_limit: 2g
+    cpus: 2
+    restart: 'no'
+    depends_on: [db]
+    ports: ['127.0.0.1:18081:80']
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: j33nach-db
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD: j33nach-Admin-2026
+      NEXTCLOUD_TRUSTED_DOMAINS: 'j33nach-nextcloud-server localhost:18081 localhost 127.0.0.1'
+    volumes:
+      - /home/arasul/j33nach/nextcloud/html:/var/www/html
+      - /home/arasul/j33nach/nextcloud/extern:/mnt/extern
+      - /home/arasul/j33nach/nextcloud/geraet:/mnt/geraet
+volumes: { db: {} }

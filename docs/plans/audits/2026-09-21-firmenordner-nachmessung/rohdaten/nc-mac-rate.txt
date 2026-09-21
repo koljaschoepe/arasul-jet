@@ -1,0 +1,8 @@
+Dateien:       60, 396 KB; Ping zum Orin: round-trip min/avg/max/stddev = 2.687/3.295/3.927/0.433 ms
+hoch:
+  -> 15 s
+runter:
+  -> 8 s
+ohne Aenderung:
+  -> 2 s
+Dateien unten:       60

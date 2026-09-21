@@ -1,0 +1,26 @@
+Baum: 619 Dateien, 112 MB, 134 Ordner
+--- Leerlauf (5 Proben ueber 10 s)
+343 0 j33nach-nextcloud-server=299,j33nach-nextcloud-db=44
+343 0 j33nach-nextcloud-server=299,j33nach-nextcloud-db=44
+343 0 j33nach-nextcloud-server=299,j33nach-nextcloud-db=44
+343 0 j33nach-nextcloud-server=299,j33nach-nextcloud-db=44
+343 0 j33nach-nextcloud-server=299,j33nach-nextcloud-db=44
+Platte des Dienstes vorher: 130 MB
+hoch: 619 Anfragen/Dateien, 109.7 MB, 0 Fehler, 176.9 s, 4 Verbindungen
+565 MiB Spitze, 284 % CPU Spitze (58 Proben)
+RAM nach 30 s Ruhe:
+391 1 j33nach-nextcloud-server=344,j33nach-nextcloud-db=48
+Platte des Dienstes nachher: 241 MB
+abgleich: 19 Anfragen/Dateien, 0.0 MB, 0 Fehler, 6.5 s, 1 Verbindungen
+465 MiB Spitze, 99 % CPU Spitze (3 Proben)
+runter: 619 Anfragen/Dateien, 109.7 MB, 0 Fehler, 97.3 s, 4 Verbindungen
+671 MiB Spitze, 243 % CPU Spitze (33 Proben)
+Vergleich hoch/runter: 1 Abweichungen
+wacht-ok
+nextcloud-hoch: 565 MiB Spitze, 284 % CPU Spitze (58 Proben)
+nextcloud-abgleich: 465 MiB Spitze, 99 % CPU Spitze (3 Proben)
+nextcloud-runter: 671 MiB Spitze, 243 % CPU Spitze (33 Proben)
+74
+abgleich: 134 Anfragen/Dateien, 0.0 MB, 0 Fehler, 45.0 s, 1 Verbindungen
+482 MiB Spitze, 100 % CPU Spitze (15 Proben)
+482 MiB Spitze, 100 % CPU Spitze (15 Proben)

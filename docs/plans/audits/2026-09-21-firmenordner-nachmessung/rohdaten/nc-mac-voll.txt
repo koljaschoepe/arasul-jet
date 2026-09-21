@@ -1,0 +1,8 @@
+Ping zum Orin vorher:  3.323/52.029/243.245/95.609 ms
+hoch: 350 s
+533 MiB Spitze, 245 % CPU Spitze (111 Proben)
+runter: 645 s
+517 MiB Spitze, 226 % CPU Spitze (204 Proben)
+Abgleich ohne Aenderung: 3 s
+Dateien unten:      619 von      619
+Ping zum Orin nachher:  3.194/9.190/25.995/8.530 ms

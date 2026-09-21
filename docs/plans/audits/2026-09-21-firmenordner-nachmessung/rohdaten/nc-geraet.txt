@@ -1,0 +1,12 @@
+--- (a) lokaler Speicher /mnt/geraet, nur fuer admin eingebunden (anna nicht)
+Storage created with id 2
+am Geraet ohne sudo lesbar: akte   (~/j33nach/nextcloud/geraet/akte.txt)
+admin sieht Geraet/akte.txt: 200   anna: 404
+--- (b) Unterordner INNERHALB des Teamordners Firma, per ACL fuer anna unsichtbar (Entziehen nach unten)
+MKCOL Kundenakten 201
+PUT akte 201
+PROPPATCH ACL anna=nichts 207
+anna GET Firma/Kundenakten/akte.txt: 404   anna liest Firma/Arbeitsbaum: 207
+anna sieht in Firma/:  konflikt/ Arbeitsbaum/ 
+am Geraet (sudo): arasul
+wacht-ok

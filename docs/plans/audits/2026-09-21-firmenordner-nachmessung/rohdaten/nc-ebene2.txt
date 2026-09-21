@@ -1,0 +1,32 @@
+user ben added
+=== (a) NUR VERGEBEN: Wurzel Firma fuer ben gesperrt, nur das Blatt 010-firmenordner frei
+  ACL ben=0 auf : 207
+  ACL ben=31 auf Arbeitsbaum/experiments/010-firmenordner: 207
+ben sieht in Firma/:                               
+ben liest Firma/Arbeitsbaum/company/goal.md:        404
+ben liest .../010-firmenordner/experiment.md:       500
+--- (b) Kette darueber lesbar: Arbeitsbaum und experiments nur lesen (1); Blatt bleibt 31
+  ACL ben=1 auf Arbeitsbaum: 207
+  ACL ben=1 auf Arbeitsbaum/experiments: 207
+ben sieht in Firma/Arbeitsbaum:                    
+ben sieht in .../experiments:                      
+ben liest Arbeitsbaum/company/goal.md:              404   (Geschwister der Kette)
+ben liest .../experiments/STIMME.md:                404   (Datei neben dem Blatt)
+ben liest .../experiments/003-partnerumfrage:       404   (Geschwisterordner)
+ben schreibt in die Kette (.../experiments/x.md):   404
+ben schreibt ins Blatt (.../010-firmenordner/y.md): 404
+--- (c) Klient am Mac fuer ben: --path /Firma  ->  /tmp/j33-nben
+09-21 15:24:10:627 [ warning default ]:	Sync error: "You don’t have access to this resource. If you think this is a mistake, please contact your server administrator."
+09-21 15:24:10:627 [ info nextcloud.sync.engine ]:	Sync run took  97 ms
+09-21 15:24:10:628 [ info nextcloud.sync.database ]:	Closing DB "/tmp/j33-nben/.sync_19dca732d725.db"
+lokaler Baum:
+.
+--- (d) ben legt lokal in der Kette eine Datei an und im Blatt eine; Abgleich
+schritte/nc-ebene2.sh: line 32: /tmp/j33-nben/Arbeitsbaum/experiments/nur-lokal.md: No such file or directory
+schritte/nc-ebene2.sh: line 32: /tmp/j33-nben/Arbeitsbaum/experiments/010-firmenordner/lokal-neu.md: No such file or directory
+09-21 15:24:12:918 [ warning default ]:	Sync error: "You don’t have access to this resource. If you think this is a mistake, please contact your server administrator."
+09-21 15:24:12:918 [ info nextcloud.sync.engine ]:	Sync run took  105 ms
+09-21 15:24:12:919 [ info nextcloud.sync.database ]:	Closing DB "/tmp/j33-nben/.sync_19dca732d725.db"
+  Server Kette-Datei: 404   Blatt-Datei: 404
+ls: /tmp/j33-nben/Arbeitsbaum/experiments: No such file or directory
+  lokal nach dem Abgleich: 

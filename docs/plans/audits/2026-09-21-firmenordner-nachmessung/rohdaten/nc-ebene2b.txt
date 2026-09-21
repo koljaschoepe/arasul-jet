@@ -1,0 +1,25 @@
+=== Kette lesbar (Wurzel, Arbeitsbaum, experiments = nur lesen), Blatt frei, alle Geschwister gesperrt
+207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 207 
+Regeln gesetzt (PROPPATCH): 26
+ben sieht in Firma/:                Arbeitsbaum/ 
+ben sieht in Arbeitsbaum/:         Arbeitsbaum/ Arbeitsbaum/experiments/ 
+ben sieht in .../experiments/:     Arbeitsbaum/experiments/ Arbeitsbaum/experiments/010-firmenordner/ 
+ben liest company/goal.md: 404   experiments/STIMME.md: 404   003-partnerumfrage: 404   Blatt/experiment.md: 200
+ben schreibt in die Kette (experiments/x.md): 403   ins Blatt (y.md): 204
+--- Klient am Mac fuer ben: --path /Firma -> /tmp/j33-nben3
+lokaler Baum:
+.
+./Arbeitsbaum
+./Arbeitsbaum/experiments
+./Arbeitsbaum/experiments/010-firmenordner
+./Arbeitsbaum/experiments/010-firmenordner/dashboard.html
+./Arbeitsbaum/experiments/010-firmenordner/experiment.md
+./Arbeitsbaum/experiments/010-firmenordner/lokal-neu.md
+./Arbeitsbaum/experiments/010-firmenordner/messung.csv
+./Arbeitsbaum/experiments/010-firmenordner/y.md
+--- ben legt lokal in der Kette (experiments/) und im Blatt je eine Datei an; Abgleich
+schritte/nc-ebene2b.sh: line 25: /tmp/j33-nben3/Arbeitsbaum/experiments/nur-lokal.md: Permission denied
+  Server Kette-Datei: 404   Blatt-Datei: 200
+  lokal in experiments/ danach: 010-firmenordner 
+ben liest den NEUEN Ordner: 200
+ben liest neu-in-der-wurzel: 207

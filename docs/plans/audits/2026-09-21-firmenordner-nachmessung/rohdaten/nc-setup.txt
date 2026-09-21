@@ -1,0 +1,16 @@
+--- App groupfolders
+groupfolders 23.0.1 installed
+groupfolders enabled
+Display name set to "anna"
+Display name set to "ben"
+user admin added
+user anna added
+Teamordner-ID: 1
++-----------+-------+--------+-----------+------+----------------------+-----------------------------+
+| Folder Id | Name  | Groups | Quota     | Size | Advanced Permissions | Manage advanced permissions |
++-----------+-------+--------+-----------+------+----------------------+-----------------------------+
+| 1         | Firma | alle:  | Unlimited | 0    | Enabled              |                             |
++-----------+-------+--------+-----------+------+----------------------+-----------------------------+
+  - activity: 8.0.0
+  - groupfolders: 23.0.1
+wacht-ok
