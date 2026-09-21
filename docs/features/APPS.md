@@ -57,7 +57,16 @@ Dienst.
   "ports": { "backend": 8080 },
   "ressourcen": { "speicher": "512m", "cpus": 1 },
   "modelle": ["qwen3:14b-q8"],
-  "flows": { "verzeichnis": "flows" }
+  "flows": { "verzeichnis": "flows" },
+  "agent": [
+    {
+      "method": "GET",
+      "path": "antraege",
+      "purpose": "Alle Anträge mit dem Stand ihrer Freigabe.",
+      "params": [],
+      "writes": false
+    }
+  ]
 }
 ```
 
@@ -75,6 +84,7 @@ Dienst.
 | `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                |
 | `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**). |
 | `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                |
+| `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.         |
 
 \* Mindestens eines von `frontend` und `backend`.
 
@@ -219,6 +229,55 @@ Auslieferungsartefakt trägt — `packages/marken/marken.json` nennt `fassung`,
 die Abhängigkeiten und jede Datei mit ihrem sha256
 (`scripts/deploy/marken-paket.py`, Einbauanleitung in
 `packages/marken/EINBAU.md`).
+
+### Die App sagt, welche Routen ein Agent aufrufen darf (Brücke, 21.09.2026)
+
+Eine App läuft am Gerät hinter der Forward-Auth, und ein Mensch kommt mit dem
+Browser hinein. Ein **Agent** am Rechner eines Mitarbeiters kommt nicht hinein,
+solange er nicht weiß, welche Wege es gibt und was sie tun — eine
+Schnittstelle, die man erraten muss, ist keine.
+
+`agent` ist diese Auskunft, und sie steht im Manifest, weil sie zur App gehört
+und nicht zum Gerät: das Gerät schreibt sie nicht und ändert sie nicht, es
+nimmt sie an.
+
+```json
+"agent": [
+  {
+    "method": "GET",
+    "path": "antraege",
+    "purpose": "Alle Anträge mit dem Stand ihrer Freigabe.",
+    "params": [],
+    "writes": false
+  }
+]
+```
+
+Die Form steht im Vertrag der Brücke und ist in drei Repositorien dieselbe: das
+Ara-Kit liest sie (`arasul.mjs`), eine App schreibt sie, und dieses Gerät prüft
+sie. Die Felder und ihre Grenzen stehen in
+[APP-PAKET.md](APP-PAKET.md) unter **Fassung 6**; durchgesetzt werden sie in
+`apps/dashboard-backend/src/schemas/apps.js`. **Ein kaputtes Feld weist das
+Gerät beim Einspielen ab**, mit dem Weg zum Befund (`agent.1.params.0.type`)
+und einem Satz dazu.
+
+**Ausgeliefert wird das Feld von der App selbst**, unter `GET agent` an ihrer
+Schnittstelle (`/apps/<id>/api/agent`), samt `id`, `name` und Version — durch
+dieselbe Forward-Auth wie alles andere, also sieht es nur, wem die App
+freigegeben ist. Das Gerät hält **keine zweite Kopie** bereit: eine App, die
+ihre Wege ändert und ihr Manifest nachzieht, sähe sonst zwei verschiedene
+Beschreibungen ihrer selbst, je nachdem, wen man fragt.
+
+**Was dort nicht steht, ruft das CLI nicht auf.** Die Liste ist keine
+Dokumentation, sondern die Erlaubnis — daher die Strenge. Und `writes: true`
+verlangt am CLI ein ausdrückliches `--write`, an dem die Rückfrage an den
+Menschen hängt.
+
+Die Angabe ist **freiwillig**, aus demselben Grund wie `marken`: jede App davor
+hat sie nicht. Eine App ohne `agent` ist eine App, die ein Mensch bedient.
+
+Womit ein Agent sich ausweist, steht in
+[docs/api/API_REFERENCE.md](../api/API_REFERENCE.md#ausweise-brücke-21092026).
 
 ## Die Flows einer App (Phase C6)
 

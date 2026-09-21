@@ -109,7 +109,7 @@ export function AusweiseDialog({ offen, beiSchliessen }: AusweiseDialogProps) {
       title: `Ausweis „${wie}“ widerrufen?`,
       message:
         'Der Rechner, auf dem er liegt, kommt danach nicht mehr an Ihre Apps. ' +
-        'Zurückholen lässt er sich nicht — nur ein neuer ausstellen.',
+        'Zurückholen lässt er sich nicht, nur ein neuer ausstellen.',
       confirmText: 'Widerrufen',
       confirmVariant: 'warning',
     });
@@ -138,7 +138,7 @@ export function AusweiseDialog({ offen, beiSchliessen }: AusweiseDialogProps) {
       >
         <div className="space-y-4" data-testid="ausweise-dialog">
           <p className="text-sm text-muted-foreground">
-            Ein Ausweis lässt ein Programm auf Ihrem Rechner — etwa das CLI in Ihrem Firmenordner —
+            Ein Ausweis lässt ein Programm auf Ihrem Rechner, etwa das CLI in Ihrem Firmenordner,
             mit den Apps sprechen, die Ihnen freigegeben sind. Er gilt nur für Sie und nur für diese
             Apps. Legen Sie je Rechner einen an, dann können Sie einen einzelnen widerrufen, wenn
             der Rechner abhanden kommt.
@@ -149,8 +149,9 @@ export function AusweiseDialog({ offen, beiSchliessen }: AusweiseDialogProps) {
               <AlertTitle>„{frisch.name}“ ist ausgestellt</AlertTitle>
               <AlertDescription>
                 <span>
-                  Dieser Wert steht genau einmal hier. Auch dieses Gerät kennt ihn danach nicht mehr
-                  — es hat nur seine Prüfsumme. Legen Sie ihn auf dem Rechner ab, für den er ist.
+                  Dieser Wert steht genau einmal hier. Auch dieses Gerät kennt ihn danach nicht
+                  mehr: es hat nur seine Prüfsumme. Legen Sie ihn auf dem Rechner ab, für den er
+                  ist.
                 </span>
                 <code
                   className="mt-2 block w-full break-all rounded border border-border bg-muted p-2 font-mono text-ui-xs"
@@ -263,7 +264,7 @@ export function AusweiseDialog({ offen, beiSchliessen }: AusweiseDialogProps) {
               <h3 className="text-sm font-medium text-foreground">Alle Ausweise am Gerät</h3>
               <p className="mt-1 text-ui-xs text-muted-foreground">
                 Was Sie hier sehen, ist der Betrieb und nicht Ihre Arbeit: wer wo einen Ausweis
-                liegen hat und wann er zuletzt gebraucht wurde. Widerrufen können Sie jeden — ein
+                liegen hat und wann er zuletzt gebraucht wurde. Widerrufen können Sie jeden: ein
                 Rechner, der abhanden kommt, gehört jemandem, der vielleicht gerade nicht am Gerät
                 ist. Ausstellen kann ihn nur sein Mensch selbst.
               </p>

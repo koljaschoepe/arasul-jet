@@ -19,10 +19,12 @@
 > `admin_users.theme`.
 > Am 29.08.2026 von Hand ergaenzt (Migration 181, Phase H7): die Tabelle
 > `app_datenbanken`.
+> Am 21.09.2026 von Hand ergaenzt (Migration 182, Bruecke): die Tabelle
+> `mitarbeiter_ausweise`.
 
 ## Übersicht
 
-- Tabellen: **60**
+- Tabellen: **61**
 - Spalten gesamt: **817**
 - Foreign Keys: **52**
 - Indexes: **311**
@@ -1144,6 +1146,52 @@ Slug-Kennung, legt ein Direkt-Pull daneben eine zweite Zeile an (Migration
 - `idx_login_attempts_username` — `CREATE INDEX idx_login_attempts_username ON public.login_attempts USING btree (username)`
 - `idx_login_attempts_username_time` — `CREATE INDEX idx_login_attempts_username_time ON public.login_attempts USING btree (username, attempted_at DESC)`
 - `login_attempts_pkey` — `CREATE UNIQUE INDEX login_attempts_pkey ON public.login_attempts USING btree (id)`
+
+---
+
+## `mitarbeiter_ausweise`
+
+> Der Ausweis eines Menschen **außerhalb des Browsers** (Migration 182,
+> Brücke vom 21.09.2026). Je Mensch und **Rechner** eine Zeile, gesendet als
+> `Authorization: Bearer ausweis_…`. Wer an drei Rechnern arbeitet, hat drei
+> mit drei Namen; geht einer verloren, fällt nur dieser weg.
+
+| Column               | Type                     | Nullable | Default   |
+| -------------------- | ------------------------ | -------- | --------- |
+| `id`                 | bigint                   | ⛔       | `nextval` |
+| `user_id`            | bigint                   | ⛔       |           |
+| `name`               | text                     | ⛔       |           |
+| `praefix`            | text                     | ⛔       |           |
+| `pruefsumme`         | text                     | ⛔       |           |
+| `angelegt_am`        | timestamp with time zone | ⛔       | `now()`   |
+| `zuletzt_benutzt_am` | timestamp with time zone | ✅       |           |
+
+**Primary key:** `id`
+**Unique:** `pruefsumme`, `(user_id, name)`
+**Foreign keys:** `user_id` → `admin_users(id)` `ON DELETE CASCADE` — wer das
+Gerät verlässt, nimmt seine Ausweise mit. Das ist auch die Antwort der
+DSGVO-Löschung, ohne dass sie diese Tabelle kennen muss.
+
+`pruefsumme` ist **sha256** des Klartexts (hex), nicht bcrypt. Die Wahl ist
+hier eine andere als beim API-Schlüssel einer App, und der Grund steht in der
+Last: dieser Wert wird bei **jedem** Aufruf an **jede** App geprüft, weil die
+Forward-Auth vor jedem Aufruf steht; bcrypt mit Kostenfaktor 10 wäre eine
+Zehntelsekunde darauf. Sha-256 ist hier nicht schwach, weil das Geheimnis kein
+Passwort ist, sondern 32 zufällige Bytes aus `crypto.randomBytes` — nichts, was
+sich raten oder nachschlagen ließe. Deshalb steht die Spalte auch `UNIQUE`: sie
+ist der Schlüssel, über den gesucht wird, ein Index und ein Doppelausschluss in
+einem.
+
+`praefix` sind die ersten Zeichen des Klartexts. Kein Geheimnis, sondern die
+Art, zwei Zeilen auseinanderzuhalten, ohne den Wert zu kennen.
+
+`zuletzt_benutzt_am` wird höchstens **einmal je Minute** nachgeführt (die
+Bedingung steht in der Abfrage selbst, `services/auth/mitarbeiterAusweis.js`).
+`NULL` heißt „noch nie benutzt" und ist eine Auskunft, kein Fehlwert.
+
+**Widerrufen heißt löschen.** Kein `is_active` daneben: „gilt nicht mehr" und
+„gibt es nicht" sind dieselbe Auskunft. Was geschah, steht im Prüfprotokoll;
+was gilt, steht hier.
 
 ---
 
