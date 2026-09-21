@@ -184,6 +184,7 @@ function geraet() {
   const a = express();
   a.use(express.json());
   a.use('/api/apps', require('../../src/routes/store/apps'));
+  a.use('/apps', require('../../src/routes/appAusliefern'));
   a.use('/api/ausweise', require('../../src/routes/ausweise'));
   a.use('/api/benutzer', require('../../src/routes/admin/benutzer'));
   a.use('/api/notizen', require('../../src/routes/notizen'));
@@ -246,6 +247,35 @@ describe('Was ein Ausweis oeffnet -- und was nicht', () => {
     const res = await mitAusweis('/api/apps/belege/zugang?stand=live');
     expect(res.status).toBe(401);
     expect(res.body.error.message).toMatch(/widerrufen/i);
+  });
+
+  test('`/apps/<id>/api/me` -- der eine Weg unter api/, der der Plattform gehoert', async () => {
+    // FUND DER MESSUNG AM ORIN (21.09.2026). Traefik gibt genau diesen Weg an
+    // Arasul (`apps-me`, Zahl 50) und nicht an den Container der App, und dort
+    // stand nur `optionalAuth` -- ein Ausweis kam nicht vorbei. „Wer bin ich"
+    // ist die erste Frage, die ein Agent an eine App stellt.
+    db.query
+      .mockResolvedValueOnce(ausweisGehoert(ANNA)) // pruefe
+      .mockResolvedValueOnce({ rows: [{ stand: 'live' }] }) // app_members
+      .mockResolvedValueOnce({ rows: [{ x: 1 }] }); // app_staende
+    const res = await mitAusweis('/apps/belege/api/me');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ app_id: 'belege', benutzer: 'anna', rolle: 'mitarbeiter' });
+  });
+
+  test('dort ohne Freigabe: 403', async () => {
+    db.query.mockResolvedValueOnce(ausweisGehoert(ANNA)).mockResolvedValueOnce({ rows: [] });
+    expect((await mitAusweis('/apps/fremd/api/me')).status).toBe(403);
+  });
+
+  test('die SEITE der App bleibt zu -- ein Ausweis ist kein Browser', async () => {
+    // Ein Ausweis oeffnet App-SCHNITTSTELLEN; eine statische Seite ist keine.
+    // Ohne Sitzung zieht dieser Weg auf die Anmeldung um (302) -- und dass er
+    // das auch mit einem Ausweis tut, ist die Grenze der Zusage.
+    const res = await mitAusweis('/apps/belege/');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/');
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   test('keine Admin-Route -- 401, nicht 403', async () => {

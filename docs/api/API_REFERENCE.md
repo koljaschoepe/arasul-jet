@@ -2289,16 +2289,30 @@ sondern die Bauweise: nur wer `middleware/ausweis.js` einbindet, nimmt ihn an.
 Überall sonst ist er kein gültiger JWT und bekommt `401` — auch auf den
 Routen oben, auch auf `/api/notizen`.
 
-| Weg                        | Wofür                                        |
-| -------------------------- | -------------------------------------------- |
-| `GET /api/apps/:id/zugang` | die Forward-Auth vor dem Backend einer App   |
-| `GET /api/apps/meine`      | welche Apps diesem Menschen freigegeben sind |
-| `GET /api/auth/session`    | ob dieser Ausweis gilt, und wem er gehört    |
+| Weg                        | Wofür                                               |
+| -------------------------- | --------------------------------------------------- |
+| `GET /api/apps/:id/zugang` | die Forward-Auth vor dem Backend einer App          |
+| `GET /apps/<id>/api/me`    | der eine Weg unter `api/`, der der Plattform gehört |
+| `GET /api/apps/meine`      | welche Apps diesem Menschen freigegeben sind        |
+| `GET /api/auth/session`    | ob dieser Ausweis gilt, und wem er gehört           |
 
-Die dritte öffnet nichts: sie antwortet in beiden Fällen `200` und sagt, wer
+Die letzte öffnet nichts: sie antwortet in beiden Fällen `200` und sagt, wer
 da ist. Das CLI der Brücke fragt dort nach, bevor es ein Token ablegt
 (`arasul.mjs login --token-stdin`) und bei jedem `status` — eine Auskunft über
 den Ausweis selbst ist kein Zugang, den er gewährt.
+
+**`/apps/<id>/api/me` steht dort, weil es ein Sonderfall ist**, gefunden bei
+der Messung am Orin am 21.09.2026. Alles unter `/apps/<id>/api/` geht durch
+Traefik an den Container der App und damit durch die Forward-Auth — dieser eine
+Weg nicht: Traefik gibt ihn an Arasul (`apps-me`, Zahl 50), und dort stand nur
+`optionalAuth`. Ein Agent kam also durch die Forward-Auth in die App hinein,
+aber nicht an die Auskunft „wer bin ich" heran, und das ist die erste Frage,
+die er stellt.
+
+**Die statische Seite einer App bleibt zu**, auch mit einem Ausweis: sie
+antwortet `302` auf die Anmeldung. Ein Ausweis öffnet App-**Schnittstellen**,
+und eine Seite ist keine — sie ist für einen Menschen in einem Browser, und der
+hat eine Sitzung.
 
 An der Forward-Auth ändert ein Ausweis nichts: die Freigabe entscheidet. Eine
 App, die diesem Menschen nicht freigegeben ist, antwortet `403`; ein

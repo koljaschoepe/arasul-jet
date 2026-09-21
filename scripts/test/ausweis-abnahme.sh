@@ -154,18 +154,22 @@ echo "--- Das Feld agent im Manifest ---"
 
 # Der Kontrakt ist die eine Quelle. Gefragt wird mit einem Schluessel, denn
 # `GET /contract` steht hinter `requireApiKey` -- irgendein gueltiger genuegt.
+# Der Weg zum Schluessel ist derselbe wie in `deploy-abnahme.sh`:
+# `POST /api/v1/external/api-keys` mit der Sitzung des Administrators, und die
+# Antwort nennt ihn `api_key` samt `key_id`.
 SCHLUESSEL="${ARASUL_KIT_SCHLUESSEL:-}"
+KEY_ID=""
 if [ -z "$SCHLUESSEL" ]; then
-  SCHLUESSEL=$(mit_sitzung POST /api/settings/api-keys "$TOK" \
-    "{\"name\":\"ausweis-abnahme-$STEMPEL\",\"allowed_endpoints\":[\"app:deploy\"]}" |
-    python3 -c 'import sys,json
-try:
-    d = json.load(sys.stdin)
-    print(d.get("data", {}).get("key") or d.get("key") or "")
-except Exception: print("")' 2>/dev/null)
-  SCHLUESSEL_WEGWERF="$SCHLUESSEL"
-else
-  SCHLUESSEL_WEGWERF=""
+  ANTWORT=$(mit_sitzung POST /api/v1/external/api-keys "$TOK" \
+    "{\"name\":\"ausweis-abnahme-$STEMPEL\",\"allowed_endpoints\":[\"app:deploy\"]}")
+  SCHLUESSEL=$(python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("api_key") or "")
+except Exception: print("")' <<<"$ANTWORT" 2>/dev/null)
+  KEY_ID=$(python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("key_id") or "")
+except Exception: print("")' <<<"$ANTWORT" 2>/dev/null)
+  pruefe 'Ein Wegwerf-Schluessel mit app:deploy entsteht' \
+    "$([ -n "$SCHLUESSEL" ] && echo ja || echo nein)" "${SCHLUESSEL:0:12}…${SCHLUESSEL:+}${SCHLUESSEL:-$ANTWORT}"
 fi
 
 hole /api/v1/external/contract '' "x-api-key: $SCHLUESSEL"
@@ -196,7 +200,14 @@ pruefe 'und die Regel, die kein Schema traegt (writes an PUT/PATCH/DELETE)' \
 #
 #   kaputt  ein DELETE mit `writes: false`  -> 400, und die Meldung nennt das Feld
 #   gut     dieselbe Route mit true         -> rollt in den Teststand, mit dem Feld
-PAKET_APP="ausweis-abnahme"
+#
+# DIE KENNUNG IST DIE DER BEISPIELAPP, und das ist ein Fund der ersten Messung
+# am Orin (21.09.2026): eine EIGENE Kennung bekam dort 409, weil die Lizenz drei
+# Apps traegt und drei dastanden (J30). Eine neue VERSION einer App, die schon
+# da ist, geht immer durch -- also wird der positive Weg an ihr gemessen. Die
+# Version traegt den Zeitstempel, ueberschreibt also nichts; der Livestand
+# bleibt, wo er ist, denn ein Deploy rollt immer in den Teststand.
+PAKET_APP="${ARASUL_BEISPIELAPP:-beispielapp}"
 if [ -n "$SCHLUESSEL" ]; then
   PAKET_DIR="$(mktemp -d)"
   PAKET_DATEI="$PAKET_DIR/paket.tgz"
@@ -210,7 +221,7 @@ if [ -n "$SCHLUESSEL" ]; then
   "schema": 1,
   "id": "$PAKET_APP",
   "name": "Abnahme der Bruecke",
-  "version": "0.0.$STEMPEL",
+  "version": "999.0.$STEMPEL",
   "frontend": { "verzeichnis": "frontend" },
   "agent": [
     {
@@ -305,7 +316,10 @@ def pruefe(wert, schema, wo=""):
         fehler.append(f"{wo}: kein Wahrheitswert")
     return fehler
 
-kontrakt = json.load(open(sys.argv[1]))["data"]
+roh = json.load(open(sys.argv[1]))
+# Der Umschlag heisst `data`; ein Geraet, das den Kontrakt flach ausgibt, waere
+# eine andere Fassung, und dann soll die Probe sagen, dass sie nichts findet.
+kontrakt = roh.get("data", roh)
 manifest = json.load(open(os.environ["ARASUL_MANIFEST"]))
 befunde = pruefe(manifest, kontrakt["app_json"]["schema"])
 print("; ".join(befunde) if befunde else "keine")
@@ -333,15 +347,12 @@ ID_DRAUSSEN=""
 aufraeumen() {
   rm -f "$RUMPF_DATEI" "$KOPF_DATEI" "$ANM_DATEI"
   [ -n "$PAKET_DATEI" ] && rm -rf "$(dirname "$PAKET_DATEI")"
-  # Die Wegwerf-App mitsamt ihren Dateien. Sie belegt sonst einen Platz der
-  # Lizenz, und drei sind es am Orin insgesamt (J30).
-  if [ -n "${SCHLUESSEL:-}" ]; then
-    local weg
-    weg=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 60 -X DELETE \
-      -H "x-api-key: $SCHLUESSEL" \
-      "$BASIS/api/v1/external/apps/$PAKET_APP?bestaetigung=$PAKET_APP&dateien=true")
-    printf 'aufgeraeumt  Wegwerf-App %s entfernt (HTTP %s)\n' "$PAKET_APP" "$weg"
-  fi
+  # Die App selbst wird NICHT entfernt: es ist die Beispielapp, und ihr
+  # Livestand traegt die Abnahmen aus C3 und C4. Was die Messung hinterlaesst,
+  # ist ein Teststand mit einer Versionsnummer, die es nie gab -- der naechste
+  # Deploy derselben App ersetzt ihn. Einen Weg, einen Teststand allein
+  # wegzunehmen, gibt es nicht, und einen dafuer zu bauen waere eine Tuer fuer
+  # eine Messung.
   local id code
   for id in "$ID_DRIN" "$ID_DRAUSSEN"; do
     [ -z "$id" ] && continue
@@ -352,25 +363,18 @@ aufraeumen() {
       -H "authorization: Bearer $TOK" "$BASIS/api/benutzer/$id")
     printf 'aufgeraeumt  Benutzer %s geloescht (HTTP %s)\n' "$id" "$code"
   done
-  if [ -n "${SCHLUESSEL_WEGWERF:-}" ]; then
-    printf 'aufgeraeumt  Wegwerf-Schluessel widerrufen\n'
-    mit_sitzung GET /api/settings/api-keys "$TOK" | python3 -c '
-import sys, json
-try: schluessel = json.load(sys.stdin).get("data", [])
-except Exception: schluessel = []
-for s in schluessel if isinstance(schluessel, list) else []:
-    if str(s.get("name", "")).startswith("ausweis-abnahme-"):
-        print(s.get("id"))' 2>/dev/null | while read -r kid; do
-      [ -n "$kid" ] && curl -sk -o /dev/null -X DELETE \
-        -H "authorization: Bearer $TOK" "$BASIS/api/settings/api-keys/$kid"
-    done
+  if [ -n "${KEY_ID:-}" ]; then
+    local kcode
+    kcode=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 -X DELETE \
+      -H "authorization: Bearer $TOK" "$BASIS/api/v1/external/api-keys/$KEY_ID")
+    printf 'aufgeraeumt  Wegwerf-Schluessel %s widerrufen (HTTP %s)\n' "$KEY_ID" "$kcode"
   fi
 }
 trap aufraeumen EXIT
 
 anlegen() {
   mit_sitzung POST /api/benutzer "$TOK" \
-    "{\"username\":\"$1\",\"password\":\"$PASSWORT\",\"email\":\"$1@abnahme.local\",\"role\":\"mitarbeiter\"}" |
+    "{\"username\":\"$1\",\"password\":\"$PASSWORT\",\"email\":\"$1@abnahme.local\",\"rolle\":\"mitarbeiter\"}" |
     python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("data",{}).get("id") or "")
 except Exception: print("")' 2>/dev/null
@@ -427,15 +431,37 @@ CODE_DOPPELT=$(curl -sk -o /dev/null -w '%{http_code}' -X POST --max-time 30 \
 pruefe 'derselbe Name ein zweites Mal ist 409' "$(ja_nein "$CODE_DOPPELT" 409)" "HTTP $CODE_DOPPELT"
 
 # --- Was der Ausweis oeffnet ----------------------------------------------
+#
+# ZWEI WEGE UNTER `/apps/<id>/api/`, UND SIE GEHEN AN ZWEI STELLEN HIN. Das ist
+# der zweite Fund der ersten Messung am Orin: `api/me` gehoert der PLATTFORM
+# (Traefik `apps-me`, Zahl 50, beantwortet von `routes/appAusliefern.js`), alles
+# andere dem CONTAINER der App (Forward-Auth, Zahl 40/45). Beide muessen den
+# Ausweis nehmen, und beide werden hier gemessen -- eine Messung an nur einem
+# von ihnen haette das Loch nicht gefunden.
 echo
 hole "/apps/$APP/api/me" "$AUS_DRIN"
-pruefe "der Ausweis oeffnet die Schnittstelle von $APP" "$(ja_nein "$CODE" 200)" "HTTP $CODE"
-pruefe 'und die App sieht genau diesen Menschen' "$(ja_nein "$(feld data.benutzer)" "$DRIN")" \
+pruefe "der Ausweis oeffnet api/me von $APP (die Plattform)" "$(ja_nein "$CODE" 200)" "HTTP $CODE"
+pruefe 'und die Plattform nennt genau diesen Menschen' "$(ja_nein "$(feld data.benutzer)" "$DRIN")" \
   "benutzer=$(feld data.benutzer)"
 pruefe 'samt seiner Rolle' "$(ja_nein "$(feld data.rolle)" mitarbeiter)" "rolle=$(feld data.rolle)"
 
 hole "/apps/$APP/api/me" "$AUS_DRAUSSEN"
-pruefe 'der Ausweis des anderen bekommt 403' "$(ja_nein "$CODE" 403)" "HTTP $CODE"
+pruefe 'der Ausweis des anderen bekommt dort 403' "$(ja_nein "$CODE" 403)" "HTTP $CODE"
+
+# Und der Weg in den Container: die Forward-Auth. `ARASUL_APP_WEG` nennt einen
+# Weg, den das Backend der App wirklich hat (Vorgabe `gesund`, den hat jede App
+# mit Gesundheitspfad). Ein 404 waere hier KEIN Befund ueber den Ausweis --
+# durch die Forward-Auth ist er dann gekommen, die App kennt den Weg nur nicht.
+APP_WEG="${ARASUL_APP_WEG:-gesund}"
+hole "/apps/$APP/api/$APP_WEG" "$AUS_DRIN"
+pruefe "der Ausweis kommt durch die Forward-Auth vor $APP" \
+  "$([ "$CODE" != "401" ] && [ "$CODE" != "403" ] && echo ja || echo nein)" "HTTP $CODE an api/$APP_WEG"
+hole "/apps/$APP/api/$APP_WEG" "$AUS_DRAUSSEN"
+pruefe 'und der andere kommt dort nicht durch' "$(ja_nein "$CODE" 403)" "HTTP $CODE"
+
+# Die SEITE bleibt zu: ein Ausweis oeffnet Schnittstellen, keine Seiten.
+hole "/apps/$APP/" "$AUS_DRIN"
+pruefe 'die Seite der App bleibt zu (302 auf die Anmeldung)' "$(ja_nein "$CODE" 302)" "HTTP $CODE"
 
 hole /api/apps/meine "$AUS_DRIN"
 pruefe 'GET /api/apps/meine nimmt den Ausweis' "$(ja_nein "$CODE" 200)" "HTTP $CODE"
@@ -493,7 +519,12 @@ if [ -n "$NUMMER" ]; then
   pruefe 'der Administrator widerruft ihn' "$(ja_nein "$CODE_WIDERRUF" 200)" "HTTP $CODE_WIDERRUF"
   hole "/apps/$APP/api/me" "$AUS_DRIN"
   pruefe 'danach ist derselbe Ausweis 401' "$(ja_nein "$CODE" 401)" "HTTP $CODE"
-  pruefe 'und die Meldung sagt, dass er widerrufen ist' \
+  # Die Meldung „widerrufen" kommt aus `middleware/ausweis.js`, und die steht
+  # am Weg in den Container. An `api/me` antwortet die Plattform mit ihrem
+  # eigenen Satz („es braucht eine Anmeldung"), weil der Ausweis dort still
+  # nicht gilt -- beides ist 401, aber nur eines nennt den Grund.
+  hole "/apps/$APP/api/$APP_WEG" "$AUS_DRIN"
+  pruefe 'und am Weg in den Container sagt die Meldung, dass er widerrufen ist' \
     "$(enthaelt "$(feld error.message)" 'widerrufen')" "$(feld error.message)"
   # Die Sitzung des Menschen lebt weiter: ein Ausweis ist keine Sitzung.
   hole "/apps/$APP/api/me" "$TOK_DRIN"
