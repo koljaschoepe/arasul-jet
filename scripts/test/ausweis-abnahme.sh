@@ -189,41 +189,132 @@ pruefe 'die Regeln nennen das Feld' "$(enthaelt "$REGELN" '`agent` nennt die Rou
 pruefe 'und die Regel, die kein Schema traegt (writes an PUT/PATCH/DELETE)' \
   "$(enthaelt "$REGELN" '`writes: true` tragen')"
 
-# Ein kaputtes Feld wird abgewiesen, und die Meldung sagt WO. Ohne Bau: das
-# Manifest wird geprueft, bevor Docker anfaengt -- das Paket traegt deshalb
-# kein Dockerfile und braucht keines.
+# Und jetzt zwei Pakete, die den Weg wirklich gehen. OHNE BACKEND, und das ist
+# hier der Kern der Messung und nicht Bequemlichkeit: ein Paket mit `backend`
+# laesst das Geraet ein Image bauen, und das dauert am Orin Minuten. Gemessen
+# werden soll das MANIFEST, und dessen Pruefung steht vor dem Bau.
+#
+#   kaputt  ein DELETE mit `writes: false`  -> 400, und die Meldung nennt das Feld
+#   gut     dieselbe Route mit true         -> rollt in den Teststand, mit dem Feld
+PAKET_APP="ausweis-abnahme"
 if [ -n "$SCHLUESSEL" ]; then
   PAKET_DIR="$(mktemp -d)"
   PAKET_DATEI="$PAKET_DIR/paket.tgz"
   mkdir -p "$PAKET_DIR/inhalt/frontend"
   echo '<!doctype html><title>Abnahme</title>' > "$PAKET_DIR/inhalt/frontend/index.html"
-  cat > "$PAKET_DIR/inhalt/app.json" <<JSON
+
+  # $1 ist der Wert von `writes` an einer DELETE-Route.
+  paket_bauen() {
+    cat > "$PAKET_DIR/inhalt/app.json" <<JSON
 {
   "schema": 1,
-  "id": "ausweis-abnahme",
+  "id": "$PAKET_APP",
   "name": "Abnahme der Bruecke",
   "version": "0.0.$STEMPEL",
   "frontend": { "verzeichnis": "frontend" },
   "agent": [
-    { "method": "DELETE", "path": "weg", "purpose": "Loescht etwas.", "params": [], "writes": false }
+    {
+      "method": "GET",
+      "path": "lage",
+      "purpose": "Sagt, in welchem Zustand die App ist.",
+      "params": [{ "name": "seit", "type": "integer", "required": false }],
+      "writes": false
+    },
+    { "method": "DELETE", "path": "weg", "purpose": "Loescht etwas.", "params": [], "writes": $1 }
   ]
 }
 JSON
-  tar czf "$PAKET_DATEI" -C "$PAKET_DIR/inhalt" .
-  hole_paket() {
-    CODE=$(curl -sk -o "$RUMPF_DATEI" -w '%{http_code}' --max-time 120 \
+    rm -f "$PAKET_DATEI"
+    tar czf "$PAKET_DATEI" -C "$PAKET_DIR/inhalt" .
+  }
+  paket_schicken() {
+    CODE=$(curl -sk -o "$RUMPF_DATEI" -w '%{http_code}' --max-time 300 \
       -H "x-api-key: $SCHLUESSEL" -F "paket=@$PAKET_DATEI" \
       "$BASIS/api/v1/external/apps")
   }
-  hole_paket
+
+  paket_bauen false
+  paket_schicken
   pruefe 'ein kaputtes `agent` weist das Geraet ab' "$(ja_nein "$CODE" 400)" "HTTP $CODE"
   MELDUNG=$(feld error.message)
-  pruefe 'und die Meldung nennt das Feld' "$(enthaelt "$MELDUNG" 'agent.0.writes')" "$MELDUNG"
+  pruefe 'und die Meldung nennt das Feld' "$(enthaelt "$MELDUNG" 'agent.1.writes')" "$MELDUNG"
   pruefe 'und sagt, was daran falsch ist' "$(enthaelt "$MELDUNG" 'writes muss true sein')"
-  rm -rf "$PAKET_DIR"
-  PAKET_DATEI=""
+
+  paket_bauen true
+  paket_schicken
+  pruefe 'ein gueltiges `agent` rollt aus' "$(ja_nein "$CODE" 201)" "HTTP $CODE $(feld error.message)"
+  if [ "$CODE" = "201" ]; then
+    hole "/api/v1/external/apps/$PAKET_APP" '' "x-api-key: $SCHLUESSEL"
+    ROUTEN=$(rumpf | python3 -c 'import sys, json
+try:
+    stand = json.load(sys.stdin)["data"]["staende"]["test"]
+    routen = (stand.get("manifest") or {}).get("agent") or stand.get("agent") or []
+    print(" ".join(r["method"] + " " + r["path"] for r in routen))
+except Exception:
+    print("")' 2>/dev/null)
+    # Der Stand traegt das Feld -- nicht nur der Upload ging durch.
+    pruefe 'und der Teststand traegt die Routen' "$(enthaelt "$ROUTEN" 'DELETE weg')" \
+      "${ROUTEN:-nicht im Stand}"
+  fi
 else
   pruefe 'ein kaputtes `agent` weist das Geraet ab' nein 'kein API-Schluessel'
+fi
+
+# Und die Gegenprobe an der WIRKLICHEN App, um die es geht: das `app.json` von
+# `belege` 0.3.0 aus PR 11 der Werkstatt, gegen das Schema, das DIESES Geraet
+# ausgibt. Ohne es einzuspielen -- der Teststand von belege traegt am Orin
+# Koljas Daten, und der Deploy gehoert dem Menschen, der ihn macht.
+# ARASUL_BELEGE_MANIFEST zeigt auf die Datei; ohne sie wird die Probe genannt
+# und uebersprungen, statt still zu fehlen.
+BELEGE_MANIFEST="${ARASUL_BELEGE_MANIFEST:-}"
+if [ -n "$BELEGE_MANIFEST" ] && [ -f "$BELEGE_MANIFEST" ]; then
+  hole /api/v1/external/contract '' "x-api-key: $SCHLUESSEL"
+  BEFUND=$(ARASUL_MANIFEST="$BELEGE_MANIFEST" python3 - "$RUMPF_DATEI" <<'PY'
+import json, os, sys
+
+# Der Ausschnitt von JSON-Schema, den dieses Manifest braucht -- genau wie im
+# Kit: geprueft wird, was das Geraet heute benutzt, und was hier fehlt, wird
+# genannt statt uebergangen.
+def pruefe(wert, schema, wo=""):
+    fehler = []
+    art = schema.get("type")
+    if art == "object":
+        if not isinstance(wert, dict):
+            return [f"{wo or 'wurzel'}: kein Objekt"]
+        for pflicht in schema.get("required", []):
+            if pflicht not in wert:
+                fehler.append(f"{wo}.{pflicht}: fehlt")
+        if schema.get("additionalProperties") is False:
+            for name in wert:
+                if name not in schema.get("properties", {}):
+                    fehler.append(f"{wo}.{name}: unbekanntes Feld")
+        for name, unter in schema.get("properties", {}).items():
+            if name in wert:
+                fehler += pruefe(wert[name], unter, f"{wo}.{name}")
+    elif art == "array":
+        if not isinstance(wert, list):
+            return [f"{wo}: keine Liste"]
+        for i, eintrag in enumerate(wert):
+            fehler += pruefe(eintrag, schema.get("items", {}), f"{wo}[{i}]")
+    elif art == "string":
+        if not isinstance(wert, str):
+            fehler.append(f"{wo}: kein Text")
+        elif schema.get("enum") and wert not in schema["enum"]:
+            fehler.append(f"{wo}: {wert!r} steht nicht in {schema['enum']}")
+    elif art == "boolean" and not isinstance(wert, bool):
+        fehler.append(f"{wo}: kein Wahrheitswert")
+    return fehler
+
+kontrakt = json.load(open(sys.argv[1]))["data"]
+manifest = json.load(open(os.environ["ARASUL_MANIFEST"]))
+befunde = pruefe(manifest, kontrakt["app_json"]["schema"])
+print("; ".join(befunde) if befunde else "keine")
+PY
+)
+  pruefe 'belege 0.3.0 aus PR 11 passt zum Schema DIESES Geraets' \
+    "$(ja_nein "$BEFUND" keine)" "$BEFUND"
+else
+  echo 'uebersprungen  belege 0.3.0 gegen das Schema (ARASUL_BELEGE_MANIFEST nicht gesetzt)'
 fi
 
 # ===========================================================================
@@ -242,6 +333,15 @@ ID_DRAUSSEN=""
 aufraeumen() {
   rm -f "$RUMPF_DATEI" "$KOPF_DATEI" "$ANM_DATEI"
   [ -n "$PAKET_DATEI" ] && rm -rf "$(dirname "$PAKET_DATEI")"
+  # Die Wegwerf-App mitsamt ihren Dateien. Sie belegt sonst einen Platz der
+  # Lizenz, und drei sind es am Orin insgesamt (J30).
+  if [ -n "${SCHLUESSEL:-}" ]; then
+    local weg
+    weg=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 60 -X DELETE \
+      -H "x-api-key: $SCHLUESSEL" \
+      "$BASIS/api/v1/external/apps/$PAKET_APP?bestaetigung=$PAKET_APP&dateien=true")
+    printf 'aufgeraeumt  Wegwerf-App %s entfernt (HTTP %s)\n' "$PAKET_APP" "$weg"
+  fi
   local id code
   for id in "$ID_DRIN" "$ID_DRAUSSEN"; do
     [ -z "$id" ] && continue
