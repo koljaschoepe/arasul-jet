@@ -1,0 +1,24 @@
+http:
+  routers:
+    r-dienst:
+      {
+        rule: 'PathPrefix(`/`)',
+        entryPoints: [web],
+        middlewares: [arasul-auth, wie-https],
+        service: s-dienst,
+      }
+  middlewares:
+    wie-https:
+      headers: { customRequestHeaders: { X-Forwarded-Proto: https } }
+    arasul-auth:
+      forwardAuth:
+        address: http://j33nach-authstub:8080/
+        authRequestHeaders: [Cookie]
+        authResponseHeaders: [X-Arasul-User, X-Arasul-Role]
+  services:
+    s-dienst:
+      loadBalancer:
+        serversTransport: unsicher
+        servers: [{ url: '__ZIEL__' }]
+  serversTransports:
+    unsicher: { insecureSkipVerify: true }

@@ -1,0 +1,25 @@
+--- Pfad am Geraet: /home/arasul/j33nach/opencloud/daten/posix/projects/20fe1951-12af-450d-ae51-86e27fdc34b1
+total 92
+drwxr-x--- 10 arasul arasul 4096 Sep 21 14:27 .
+drwxr-xr-x  3 arasul arasul 4096 Sep 21 14:19 ..
+drwx------  3 arasul arasul 4096 Sep 21 14:21 archive
+drwx------  8 arasul arasul 4096 Sep 21 14:21 .claude
+drwx------  2 arasul arasul 4096 Sep 21 14:21 company
+drwx------  2 arasul arasul 4096 Sep 21 14:19 experiments
+Eigentuemer arasul (1000), Rechte 750
+--- Dateien dort (ohne .oc-nodes) und Metadaten
+/home/arasul/j33nach/opencloud/daten/posix/projects/20fe1951-12af-450d-ae51-86e27fdc34b1/.claude/state.json
+/home/arasul/j33nach/opencloud/daten/posix/projects/20fe1951-12af-450d-ae51-86e27fdc34b1/.claude/tagesstand.txt
+/home/arasul/j33nach/opencloud/daten/posix/projects/20fe1951-12af-450d-ae51-86e27fdc34b1/.claude/agents/researcher.md
+/home/arasul/j33nach/opencloud/daten/posix/projects/20fe1951-12af-450d-ae51-86e27fdc34b1/.oc-nodes
+Probedatei: .claude/agents/researcher.md
+--- Aenderung von aussen: an eine vorhandene Datei anhaengen
+Groesse laut API vorher: 2235
+Groesse laut API nachher: 2257, nach 1.1 s (Schleifen: 2)
+--- neue Datei von aussen anlegen
+GET von-aussen.txt: 200 nach 1.1 s
+--- Datei von aussen loeschen
+GET nach Loeschen: 404 nach 0.0 s
+--- Ordner von aussen anlegen mit Datei
+GET Datei im neuen Ordner: 200 nach 1.1 s
+wacht-ok

@@ -1,0 +1,43 @@
+=== (a) ben bekommt NUR Arbeitsbaum/experiments/010-firmenordner (Bearbeiten)
+   -> ok
+Laufwerke von ben:
+   virtual Shares a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668
+   personal ben 7bdf3569-e845-4d2d-b3b0-7c0e125a7284$d9ee13e7-c0a2-49df-a842-0c802c059bd8
+   mountpoint 010-firmenordner a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668!7bdf3569-e845-4d2d-b3b0-7c0e125a7284:20fe1951-12af-450d-ae51-86e27fdc34b1:99456a36-1f8a-43bd-8692-6eb8a82093a6
+Was in Shares liegt:
+/dav/spaces/a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668/
+/dav/spaces/a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668/010-firmenordner/
+--- Klient von ben in /tmp/j33-ben/experiments (Raum: Shares)
+Warning: Sync error: OCC::SyncFileItem::NormalError "Not allowed because you don't have permission to add files in that folder"
+Warning: Sync error: OCC::SyncFileItem::NormalError "Not allowed because you don't have permission to add files in that folder"
+Warning: Failed to sync
+lokaler Baum von ben:
+.
+./experiments
+./experiments/.sync_journal.db
+./experiments/.sync_journal.db-wal
+./experiments/010-firmenordner
+./experiments/010-firmenordner/dashboard.html
+./experiments/010-firmenordner/experiment.md
+./experiments/010-firmenordner/messung.csv
+--- Rechte von ben gegenprobiert (Raum Firma)
+  lesen  Arbeitsbaum/company/goal.md            : 404
+  lesen  Arbeitsbaum/experiments/003-partnerumfrage : 404
+  lesen  .../010-firmenordner/experiment.md      : 200
+  schreiben .../010-firmenordner/von-ben.md      : 201
+  schreiben Arbeitsbaum/experiments/von-ben.md   : 404
+--- ben schreibt lokal in die Kette darueber (experiments/) und in den Ordner; Abgleich
+Warning: Sync error: OCC::SyncFileItem::BlacklistedError "Not allowed because you don't have permission to add files in that folder"
+Warning: Sync error: OCC::SyncFileItem::NormalError "Not allowed because you don't have permission to add files in that folder"
+Warning: Failed to sync
+  Server Ordner-Datei: 200   Kette-Datei (Arbeitsbaum/experiments): 404
+
+=== (b) zusaetzlich: die Kette darueber lesbar machen = 'Arbeitsbaum/experiments' als Betrachter
+   -> ok
+  ben liest jetzt Arbeitsbaum/experiments/003-partnerumfrage : 207   (Geschwisterordner, den ben nicht haben sollte)
+  ben liest Arbeitsbaum/experiments/STIMME.md : 200
+  ben liest Arbeitsbaum/company/goal.md (Ebene darueber, nicht freigegeben): 404
+  Shares von ben jetzt:
+/dav/spaces/a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668/
+/dav/spaces/a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668/010-firmenordner/
+/dav/spaces/a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668/experiments/

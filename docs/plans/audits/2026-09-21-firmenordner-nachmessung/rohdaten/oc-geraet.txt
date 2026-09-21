@@ -1,0 +1,13 @@
+--- eigener Raum 'Geraet', an niemanden freigegeben (ausser dem Administrator, der ihn anlegt)
+MKCOL 201
+PUT 201
+am Geraet lesbar: arasul  (/home/arasul/j33nach/opencloud/daten/posix/projects/9e17ba10-934a-495d-9116-a384dcbde6b8/Kundenakten/akte.txt)
+--- was anna (Mitglied von 'Firma') sieht
+   virtual Shares
+   personal anna
+   project Firma
+anna GET Geraet/Kundenakten/akte.txt: 404
+anna PROPFIND Geraet: 404
+--- ein Unterordner INNERHALB von 'Firma', den Mitglied anna nicht sieht: geht das? Es gibt nur Erweitern (Einladung), keine Sperre nach unten.
+  (Rolle 'Denied' aus oCIS wird abgelehnt -- siehe erste Messung)
+wacht-ok

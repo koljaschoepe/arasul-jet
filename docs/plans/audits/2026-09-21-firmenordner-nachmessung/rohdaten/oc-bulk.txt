@@ -1,0 +1,19 @@
+Baum: 619 Dateien, 112 MB, 134 Ordner
+--- Leerlauf (5 Proben ueber 10 s)
+356 0 j33nach-opencloud-server=356
+357 0 j33nach-opencloud-server=357
+357 0 j33nach-opencloud-server=357
+357 0 j33nach-opencloud-server=357
+357 0 j33nach-opencloud-server=357
+Platte des Dienstes vorher: 181 MB
+hoch: 619 Anfragen/Dateien, 109.7 MB, 0 Fehler, 75.5 s, 4 Verbindungen
+RAM nach 30 s Ruhe:
+389 0 j33nach-opencloud-server=389
+Platte des Dienstes nachher: 308 MB
+abgleich: 134 Anfragen/Dateien, 0.0 MB, 0 Fehler, 9.5 s, 1 Verbindungen
+runter: 619 Anfragen/Dateien, 109.7 MB, 0 Fehler, 41.5 s, 4 Verbindungen
+Vergleich hoch/runter: 1 Abweichungen
+wacht-ok
+opencloud-hoch: 870 MiB Spitze, 216 % CPU Spitze (26 Proben)
+opencloud-abgleich: 514 MiB Spitze, 207 % CPU Spitze (4 Proben)
+opencloud-runter: 979 MiB Spitze, 210 % CPU Spitze (15 Proben)

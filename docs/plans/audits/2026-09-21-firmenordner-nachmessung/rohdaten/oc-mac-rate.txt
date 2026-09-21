@@ -1,0 +1,12 @@
+Dateien:       60, 396 KB; Ping zum Orin: round-trip min/avg/max/stddev = 43.570/199.302/539.901/200.130 ms
+hoch:
+Sync succeeded
+  -> 113 s
+runter:
+Sync succeeded
+  -> 94 s
+ohne Aenderung:
+Warning: Sync error: OCC::SyncFileItem::Conflict "Conflict: Server version downloaded, local copy renamed and not uploaded."
+Sync succeeded
+  -> 4 s
+Dateien unten:       60

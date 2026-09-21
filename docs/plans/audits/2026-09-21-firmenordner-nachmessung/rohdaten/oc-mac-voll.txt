@@ -1,0 +1,11 @@
+Ping zum Orin vorher:  2.885/6.759/18.951/6.142 ms
+Warning: Failed to sync
+hoch: 267 s
+968 MiB Spitze, 215 % CPU Spitze (85 Proben)
+Warning: Failed to sync
+runter: 313 s
+1226 MiB Spitze, 217 % CPU Spitze (100 Proben)
+Warning: Failed to sync
+Abgleich ohne Aenderung: 11 s
+Dateien unten:      619 von      619
+Ping zum Orin nachher:  3.187/12.674/31.441/10.221 ms

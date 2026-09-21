@@ -1,0 +1,52 @@
+=== Vorbereitung: konflikt/d1..d3 anlegen, beide Rechner holen sie
+PUT d1 201
+PUT d2 201
+PUT d3 201
+09-21 15:21:59:793 [ info nextcloud.sync.engine ]:	Sync run took  270 ms
+09-21 15:21:59:793 [ info nextcloud.sync.database ]:	Closing DB "/tmp/j33-nk-a/.sync_5d95ece393c0.db"
+09-21 15:22:01:997 [ info nextcloud.sync.engine ]:	Sync run took  330 ms
+09-21 15:22:01:997 [ info nextcloud.sync.database ]:	Closing DB "/tmp/j33-nk-b/.sync_e8ff5c725680.db"
+A:
+d1.md
+d2.md
+d3.md
+B:
+d1.md
+d2.md
+d3.md
+
+=== Variante 1: beide aendern dieselbe Datei in derselben Sekunde, gleichen gleichzeitig ab
+nach dem ersten Abgleich:
+  Server: d1.md = Fassung von A, kurz 
+  A: d1.md = Fassung von A, kurz 
+  B: d1 (conflicted copy 2026-09-21 152202).md = Fassung von B, etwas laenger 
+  B: d1.md = Fassung von A, kurz 
+nach dem zweiten Abgleich:
+  Server: d1.md = Fassung von A, kurz 
+  A: d1.md = Fassung von A, kurz 
+  B: d1 (conflicted copy 2026-09-21 152202).md = Fassung von B, etwas laenger 
+  B: d1.md = Fassung von A, kurz 
+
+=== Variante 2: Aenderungen drei Sekunden auseinander, Abgleich gleichzeitig
+nach dem ersten Abgleich:
+  Server: d2.md = B um 15:22:18, drei Sekunden spaeter 
+  A: d2 (conflicted copy 2026-09-21 152215).md = A um 15:22:15 
+  A: d2.md = B um 15:22:18, drei Sekunden spaeter 
+  B: d2.md = B um 15:22:18, drei Sekunden spaeter 
+nach dem zweiten Abgleich:
+  Server: d2.md = B um 15:22:18, drei Sekunden spaeter 
+  A: d2 (conflicted copy 2026-09-21 152215).md = A um 15:22:15 
+  A: d2.md = B um 15:22:18, drei Sekunden spaeter 
+  B: d2.md = B um 15:22:18, drei Sekunden spaeter 
+
+=== Variante 3: nacheinander -- A gleicht ab, B hatte den Stand nicht geholt und aendert ebenfalls
+nach B:
+  Server: d3.md = A aendert und gleicht ab 
+  A: d3.md = A aendert und gleicht ab 
+  B: d3 (conflicted copy 2026-09-21 152234).md = B aendert auf altem Stand, laenger als A 
+  B: d3.md = A aendert und gleicht ab 
+nach dem zweiten Abgleich:
+  Server: d3.md = A aendert und gleicht ab 
+  A: d3.md = A aendert und gleicht ab 
+  B: d3 (conflicted copy 2026-09-21 152234).md = B aendert auf altem Stand, laenger als A 
+  B: d3.md = A aendert und gleicht ab 

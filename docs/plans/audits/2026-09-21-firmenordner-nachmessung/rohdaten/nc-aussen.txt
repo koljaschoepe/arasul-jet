@@ -1,0 +1,24 @@
+--- Pfad am Geraet ohne sudo:
+ls: cannot access '/home/arasul/j33nach/nextcloud/html/data/__groupfolders/1': Permission denied
+www-data:www-data 770
+--- Pfad am Geraet mit sudo:
+files
+trash
+versions
+Eigentuemer www-data (33), Rechte 755
+Probedatei: Arbeitsbaum/roadmap/arasul-werkstatt.md
+--- (a) Datei im Teamordner von aussen veraendern (als www-data, wie ein anderer Prozess mit Recht dort)
+Groesse laut API vorher: 2416
+Groesse auf der Platte jetzt: 2427
+NICHT gesehen in 60 s
+--- (b) nach occ groupfolders:scan 1
+| 1 - trashbin | 1       | 0     | 0      | 00:00:00     |
++--------------+---------+-------+--------+--------------+
+Groesse laut API: 2427
+--- (a2) neue Datei von aussen
+gesehen nach 0.4 s
+--- (c) lokaler Speicher /mnt/extern mit Pruefung bei jedem Zugriff
+Anna sieht: <d:href>/remote.php/dav/files/anna/Extern/ <d:href>/remote.php/dav/files/anna/Extern/a.txt <d:href>/remote.php/dav/files/anna/Extern/b.txt 
+gesehen nach 0.4 s
+a.txt laut API: eins|zweiter Inhalt von aussen|
+wacht-ok
