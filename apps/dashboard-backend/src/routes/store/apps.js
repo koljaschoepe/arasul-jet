@@ -17,6 +17,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
+const { ausweisOderSitzung } = require('../../middleware/ausweis');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
 const {
@@ -49,10 +50,16 @@ const { NotFoundError } = require('../../utils/errors');
  * einzige, die keine Verwaltung ist: sie beantwortet die Frage aus der Vision,
  * „welche Apps sehe ich". Sie steht VOR `/:id`, sonst waere `meine` eine
  * App-Kennung.
+ *
+ * EINE DER DREI ROUTEN, DIE EINEN AUSWEIS ANNEHMEN (Bruecke, 21.09.2026).
+ * Das CLI am Rechner eines Mitarbeiters fragt hier, welche Apps es ueberhaupt
+ * gibt, bevor es eine anruft -- ohne diese Auskunft muesste es Kennungen
+ * raten. Sie gibt genau das her, was auch der Browser sieht: die Apps DIESES
+ * Menschen, mit ihrer Adresse.
  */
 router.get(
   '/meine',
-  requireAuth,
+  ausweisOderSitzung,
   requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const data = await appStore.appsFuerNutzer(req.user.id);
@@ -79,11 +86,19 @@ router.get(
  * daneben waere ein zweiter Ort, an dem dieselbe Regel steht.
  *
  * Beide Rollen duerfen fragen. Ob jemand eine App benutzen darf, entscheidet
- * die Freigabe und nicht die Rolle (Entscheidung aus C2).
+ * die Freigabe und nicht die Rolle (Entscheidung aus C2). *
+ * UND SEIT DER BRUECKE (21.09.2026) AUCH EIN AUSWEIS. Traefik reicht die
+ * Kopfzeile `Authorization` an diese Route weiter (`authRequestHeaders` am
+ * Container, C4), also kommt ein `Bearer ausweis_…` hier an wie ein JWT --
+ * das ist die ganze Verdrahtung. Was danach passiert, ist unveraendert: die
+ * Freigabe entscheidet, nicht der Ausweis. Ein Agent am Rechner eines
+ * Mitarbeiters sieht damit genau die Apps, die dieser Mensch sieht, und die
+ * App dahinter bekommt dieselben zwei Kopfzeilen wie bei einem Browser --
+ * sie merkt den Unterschied nicht und soll ihn nicht merken.
  */
 router.get(
   '/:id/zugang',
-  requireAuth,
+  ausweisOderSitzung,
   requireRole('admin', 'mitarbeiter'),
   validateParams(AppParams),
   validateQuery(ZugangQuery),

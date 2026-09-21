@@ -630,6 +630,14 @@ async function entferneApp(appId, { dateien = false } = {}) {
  * Apps, die ein Admin ihnen freigegeben hat." Eine App ohne Livestand steht
  * nicht darin — freigegeben zu sein heisst nichts, wenn nichts laeuft; ein
  * Tester sieht zusaetzlich den Teststand, wenn es einen gibt.
+ *
+ * JE STAND ZWEI ADRESSEN (Bruecke, 21.09.2026): `pfad` ist die Seite, die ein
+ * Mensch im Browser aufmacht, `api` die Schnittstelle, die ein Agent anruft.
+ * Bis hierher stand nur die erste da, und das CLI der Bruecke rechnete sich
+ * die zweite aus -- also stand dieselbe Regel in zwei Repositorien, und die
+ * eine haette die andere eines Tages vergessen. `api` ist `null`, wenn die
+ * App kein Backend hat: dann gibt es dort nichts anzurufen, und eine Adresse,
+ * hinter der nichts lauscht, waere eine Zusage, die nicht haelt.
  */
 async function appsFuerNutzer(benutzerId) {
   const result = await db.query(
@@ -652,11 +660,19 @@ async function appsFuerNutzer(benutzerId) {
       beschreibung: z.beschreibung,
       live:
         z.live_version && (await seiteDa(z.live_manifest))
-          ? { version: z.live_version, pfad: `/apps/${z.id}/` }
+          ? {
+              version: z.live_version,
+              pfad: `/apps/${z.id}/`,
+              api: z.live_manifest?.backend ? `/apps/${z.id}/api/` : null,
+            }
           : null,
       test:
         z.freigegeben_bis === 'test' && z.test_version && (await seiteDa(z.test_manifest))
-          ? { version: z.test_version, pfad: `/apps/${z.id}/test/` }
+          ? {
+              version: z.test_version,
+              pfad: `/apps/${z.id}/test/`,
+              api: z.test_manifest?.backend ? `/apps/${z.id}/test/api/` : null,
+            }
           : null,
     });
   }

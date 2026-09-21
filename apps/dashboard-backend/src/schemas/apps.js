@@ -186,6 +186,132 @@ const MarkenFassung = z
     'Fassung des Designsystems: drei Zahlen mit Punkten, z. B. 3.1.0'
   );
 
+/**
+ * Das Feld `agent`: was eine App einem Agenten von sich erzaehlt (Bruecke,
+ * 21.09.2026, Vertrag aus `company/plattform.md` des Ueberordners).
+ *
+ * Eine App laeuft am Geraet hinter der Forward-Auth, und ein Mensch kommt mit
+ * dem Browser hinein. Ein Agent an seinem Rechner kommt nicht hinein, solange
+ * er nicht weiss, WELCHE Wege es gibt und was sie tun -- eine Schnittstelle,
+ * die man erraten muss, ist keine. `agent` ist diese Auskunft, und sie steht
+ * im Manifest, weil sie zur App gehoert und nicht zum Geraet: das Geraet
+ * schreibt sie nicht und aendert sie nicht, es nimmt sie an und gibt sie
+ * weiter.
+ *
+ * AUSGELIEFERT WIRD SIE VON DER APP SELBST, unter `GET agent` an ihrer
+ * Schnittstelle -- also durch dieselbe Forward-Auth wie alles andere. Das
+ * Geraet haelt hier keine zweite Kopie bereit: eine App, die ihre Wege aendert
+ * und ihr Manifest nachzieht, saehe sonst zwei verschiedene Beschreibungen
+ * ihrer selbst, je nachdem, wen man fragt.
+ *
+ * WAS DORT NICHT STEHT, RUFT DAS CLI NICHT AUF. Das ist der Grund fuer die
+ * Strenge unten: die Liste ist keine Dokumentation, sondern die Erlaubnis.
+ *
+ * DIE FORM IST NICHT HIER ENTSCHIEDEN WORDEN. Sie steht im Vertrag der
+ * Bruecke und ist in zwei anderen Repositorien bereits gebaut: das Ara-Kit
+ * liest sie in `arasul.mjs` (`readAgent`), die Werkstatt schreibt sie in
+ * `apps/belege/app.json`. Dieses Schema ist die dritte Stelle, und die drei
+ * muessen dasselbe sagen -- deshalb steht hier Zeichen fuer Zeichen, was das
+ * Kit prueft, und nicht eine grosszuegigere Fassung davon. Ein Geraet, das
+ * mehr annimmt als das Kit, laesst ein Manifest durch, mit dem das CLI
+ * nichts anfangen kann.
+ */
+
+/** Die Verben, die eine Route tragen darf. */
+const AGENT_METHODEN = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+
+/** Die Verben, die etwas aendern. Sie MUESSEN `writes: true` tragen. */
+const AGENT_METHODEN_SCHREIBEND = ['PUT', 'PATCH', 'DELETE'];
+
+/**
+ * Ein Weg relativ zur Schnittstelle der App.
+ *
+ * Ohne fuehrenden Schraegstrich, ohne Anfrage, ohne `..`: das CLI haengt ihn
+ * an `/apps/<id>/api/` an, und ein absoluter Weg oder ein `..` darin zeigte
+ * damit irgendwohin am Geraet -- am ehesten auf die Plattform selbst. Ein
+ * fuehrender Schraegstrich wird abgeschnitten und nicht abgewiesen, genau wie
+ * im Kit: `"/lage"` und `"lage"` meinen dasselbe, und wer das eine schreibt,
+ * hat nichts falsch gemacht.
+ */
+const AgentPfad = z
+  .string({ error: 'path fehlt' })
+  .transform(v => v.replace(/^\/+/, ''))
+  .refine(v => v.length > 0 && v.length <= 200, 'path ist leer oder laenger als 200 Zeichen')
+  .refine(
+    v => /^[A-Za-z0-9._~\-/]+$/.test(v),
+    'path: Buchstaben, Ziffern, Punkt, Unterstrich, Tilde, Bindestrich und Schraegstrich; keine Anfrage'
+  )
+  .refine(
+    v => !v.split('/').some(teil => teil === '' || teil === '.' || teil === '..'),
+    'path fuehrt aus der Schnittstelle der App heraus oder hat ein leeres Stueck'
+  );
+
+/**
+ * Ein Parameter einer Route: Name, Art, Pflicht.
+ *
+ * `type` kennt vier Arten und keine Objekte. Ein Agent tippt diese Werte auf
+ * einer Kommandozeile ab; was sich dort nicht als ein Wort schreiben laesst,
+ * gehoert in den Rumpf der Anfrage und nicht in die Beschreibung.
+ */
+const AgentParam = z
+  .object({
+    name: z
+      .string({ error: 'name fehlt' })
+      .regex(
+        /^[A-Za-z_][A-Za-z0-9_]{0,63}$/,
+        'name muss eine einfache Kennung sein: Buchstabe oder Unterstrich, dann Buchstaben, Ziffern, Unterstriche'
+      ),
+    type: z.enum(['string', 'number', 'integer', 'boolean'], {
+      error: 'type ist string, number, integer oder boolean',
+    }),
+    required: z.boolean({ error: 'required ist true oder false' }),
+  })
+  .strict();
+
+const AgentRoute = z
+  .object({
+    method: z.enum(AGENT_METHODEN, {
+      error: `method ist eines von ${AGENT_METHODEN.join(', ')}`,
+    }),
+    path: AgentPfad,
+    // Ein Satz, eine Zeile. Der Zweck steht in der Ausgabe des CLI neben dem
+    // Weg; was ueber zwei Zeilen geht, ist eine Anleitung und gehoert in die
+    // README der App.
+    purpose: z
+      .string({ error: 'purpose fehlt' })
+      .trim()
+      .min(1, 'purpose fehlt')
+      .max(200, 'purpose ist ein Satz in einer Zeile, hoechstens 200 Zeichen')
+      .refine(v => !/[\r\n]/.test(v), 'purpose steht in einer Zeile'),
+    // Eine Liste, leer wenn die Route keine nimmt. NICHT `.optional()`: das
+    // Kit verlangt das Feld, und ein Manifest, das hier durchkaeme und dort
+    // nicht, waere genau die Abweichung, gegen die dieses Schema steht.
+    params: z.array(AgentParam).max(30, 'hoechstens 30 Parameter je Route'),
+    writes: z.boolean({ error: 'writes ist true oder false' }),
+  })
+  .strict()
+  .refine(r => !AGENT_METHODEN_SCHREIBEND.includes(r.method) || r.writes === true, {
+    message: `${AGENT_METHODEN_SCHREIBEND.join(', ')} aendern etwas: writes muss true sein`,
+    path: ['writes'],
+  })
+  .refine(r => new Set(r.params.map(p => p.name)).size === r.params.length, {
+    message: 'Ein Parametername steht zweimal da',
+    path: ['params'],
+  });
+
+/**
+ * Die Liste selbst. `method` und `path` zusammen duerfen nur einmal
+ * vorkommen: zwei Eintraege fuer denselben Weg waeren zwei Zwecke fuer
+ * dieselbe Sache, und das CLI muesste sich einen aussuchen.
+ */
+const AgentRouten = z
+  .array(AgentRoute)
+  .max(50, 'hoechstens 50 Routen im Feld `agent`')
+  .refine(
+    routen => new Set(routen.map(r => `${r.method} ${r.path}`)).size === routen.length,
+    'Dieselbe Route steht zweimal da (method und path zusammen)'
+  );
+
 const Ressourcen = z
   .object({
     speicher: Speicher.default('512m'),
@@ -229,6 +355,12 @@ const AppManifest = z
     flows: Flows.optional(),
     // Auf welcher Fassung des Designsystems die App steht (H6). Siehe oben.
     marken: MarkenFassung.optional(),
+    // Was die App einem Agenten von sich erzaehlt (Bruecke, 21.09.2026).
+    // FREIWILLIG, aus demselben Grund wie `marken`: jede App vor der Bruecke
+    // hat das Feld nicht, und ein Manifest daran scheitern zu lassen hiesse,
+    // eine laufende App an einer Auskunft zu messen, die es zu ihrer Bauzeit
+    // nicht gab. Eine App ohne `agent` ist eine App, die ein Mensch bedient.
+    agent: AgentRouten.optional(),
   })
   .strict()
   .refine(m => m.frontend || m.backend, {
@@ -470,6 +602,7 @@ module.exports = {
   Stand,
   Version,
   AppManifest,
+  AgentRouten,
   AppParams,
   AppFlowParams,
   AppLaufParams,
