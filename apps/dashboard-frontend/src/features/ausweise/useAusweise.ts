@@ -32,8 +32,11 @@ export interface FremderAusweis extends Ausweis {
   role: 'admin' | 'mitarbeiter';
 }
 
-export const AUSWEISE_KEY = ['ausweise'] as const;
-export const AUSWEISE_ALLE_KEY = ['ausweise', 'alle'] as const;
+// Nicht exportiert: niemand ausserhalb dieser Datei entwertet diese Abfragen,
+// weil jede Mutation, die sie veraltet, auch hier steht. So wie der
+// Benutzer-Schluessel in `settings/mitarbeiter/useMitarbeiter.ts`.
+const AUSWEISE_KEY = ['ausweise'] as const;
+const AUSWEISE_ALLE_KEY = ['ausweise', 'alle'] as const;
 
 /** Meine Ausweise. */
 export function useAusweise(aktiv = true) {
