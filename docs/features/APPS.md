@@ -57,7 +57,16 @@ Dienst.
   "ports": { "backend": 8080 },
   "ressourcen": { "speicher": "512m", "cpus": 1 },
   "modelle": ["qwen3:14b-q8"],
-  "flows": { "verzeichnis": "flows" }
+  "flows": { "verzeichnis": "flows" },
+  "agent": [
+    {
+      "method": "GET",
+      "path": "antraege",
+      "purpose": "Alle Anträge mit dem Stand ihrer Freigabe.",
+      "params": [],
+      "writes": false
+    }
+  ]
 }
 ```
 
@@ -75,6 +84,7 @@ Dienst.
 | `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                |
 | `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**). |
 | `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                |
+| `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.         |
 
 \* Mindestens eines von `frontend` und `backend`.
 
@@ -219,6 +229,55 @@ Auslieferungsartefakt trägt — `packages/marken/marken.json` nennt `fassung`,
 die Abhängigkeiten und jede Datei mit ihrem sha256
 (`scripts/deploy/marken-paket.py`, Einbauanleitung in
 `packages/marken/EINBAU.md`).
+
+### Die App sagt, welche Routen ein Agent aufrufen darf (Brücke, 21.09.2026)
+
+Eine App läuft am Gerät hinter der Forward-Auth, und ein Mensch kommt mit dem
+Browser hinein. Ein **Agent** am Rechner eines Mitarbeiters kommt nicht hinein,
+solange er nicht weiß, welche Wege es gibt und was sie tun — eine
+Schnittstelle, die man erraten muss, ist keine.
+
+`agent` ist diese Auskunft, und sie steht im Manifest, weil sie zur App gehört
+und nicht zum Gerät: das Gerät schreibt sie nicht und ändert sie nicht, es
+nimmt sie an.
+
+```json
+"agent": [
+  {
+    "method": "GET",
+    "path": "antraege",
+    "purpose": "Alle Anträge mit dem Stand ihrer Freigabe.",
+    "params": [],
+    "writes": false
+  }
+]
+```
+
+Die Form steht im Vertrag der Brücke und ist in drei Repositorien dieselbe: das
+Ara-Kit liest sie (`arasul.mjs`), eine App schreibt sie, und dieses Gerät prüft
+sie. Die Felder und ihre Grenzen stehen in
+[APP-PAKET.md](APP-PAKET.md) unter **Fassung 6**; durchgesetzt werden sie in
+`apps/dashboard-backend/src/schemas/apps.js`. **Ein kaputtes Feld weist das
+Gerät beim Einspielen ab**, mit dem Weg zum Befund (`agent.1.params.0.type`)
+und einem Satz dazu.
+
+**Ausgeliefert wird das Feld von der App selbst**, unter `GET agent` an ihrer
+Schnittstelle (`/apps/<id>/api/agent`), samt `id`, `name` und Version — durch
+dieselbe Forward-Auth wie alles andere, also sieht es nur, wem die App
+freigegeben ist. Das Gerät hält **keine zweite Kopie** bereit: eine App, die
+ihre Wege ändert und ihr Manifest nachzieht, sähe sonst zwei verschiedene
+Beschreibungen ihrer selbst, je nachdem, wen man fragt.
+
+**Was dort nicht steht, ruft das CLI nicht auf.** Die Liste ist keine
+Dokumentation, sondern die Erlaubnis — daher die Strenge. Und `writes: true`
+verlangt am CLI ein ausdrückliches `--write`, an dem die Rückfrage an den
+Menschen hängt.
+
+Die Angabe ist **freiwillig**, aus demselben Grund wie `marken`: jede App davor
+hat sie nicht. Eine App ohne `agent` ist eine App, die ein Mensch bedient.
+
+Womit ein Agent sich ausweist, steht in
+[docs/api/API_REFERENCE.md](../api/API_REFERENCE.md#ausweise-brücke-21092026).
 
 ## Die Flows einer App (Phase C6)
 
@@ -693,7 +752,16 @@ bash scripts/test/apps-abnahme.sh           # misst beide Pfade (C3)
 bash scripts/test/app-anmeldung-abnahme.sh  # misst die Anmeldung (C4)
 bash scripts/test/deploy-abnahme.sh         # misst den Deploy-Endpunkt (C5)
 bash scripts/test/lizenz-abnahme.sh        # misst die Lizenzgrenze (J30)
+bash scripts/test/ausweis-abnahme.sh        # misst die Brücke: `agent` und den Ausweis (J34)
 ```
+
+`ausweis-abnahme.sh` misst beide Hälften der Brücke: den Kontrakt samt Feld
+`agent` und ein Wegwerf-Paket mit einem **kaputten** `agent` (das kostet keinen
+Bau — das Manifest wird geprüft, bevor Docker anfängt), dazu den Ausweis mit
+**zwei** Menschen, von denen nur einer die App freigegeben hat. Sie läuft
+**neben** `abnahmen.sh`: sie braucht drei gelungene Anmeldungen, und die kosten
+seit H7 nichts an der Drossel (`skipSuccessfulRequests`), rechnen aber in der
+Reihe dort nicht mit.
 
 `deploy-abnahme.sh` spielt den Inhalt der Beispielapp unter einer **eigenen
 Kennung** (`beispielapp-deploy`) ein und räumt am Ende alles weg, was es

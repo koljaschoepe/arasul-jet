@@ -160,7 +160,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // `appKontrakt.js`: ein Kit ohne diesen Satz bekommt dieselbe Abweisung mit
     // derselben Begruendung, aber ein Kit vor einer hoeheren Nummer als es
     // kennt haelt an und spielt gar nichts mehr ein.
-    expect(abdruck).toBe('87d84ad32c862140cbe3a06780558a0f415aebc19d2baf6e05fc61ac68d12d43');
+    //
+    // 21.09.2026 (Bruecke, Kontrakt 6): das Manifest kennt `agent`, die Liste
+    // der Routen, die eine App einem Agenten nennt. Die Zahl geht mit, und
+    // zwar aus dem Grund, aus dem J30 sie stehen liess -- hier IST ein Kit auf
+    // der alten Fassung falsch: es wiese das Feld als unbekannt ab, so wie das
+    // Geraet es bis heute tat.
+    expect(abdruck).toBe('5637af47512ba378ae3692f37aeaf22d9fc3ae172d75caf9109c447cb4ffb8c8');
   });
 
   /**

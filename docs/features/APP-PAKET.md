@@ -292,6 +292,64 @@ Datenbank im PostgreSQL der Plattform. Sie steht im Manifest nicht — das Gerä
 legt sie an, nennt ihre Adresse und wirft sie mit der App wieder weg. Siehe
 [APPS.md](APPS.md#die-datenbank-einer-app-phase-h7).
 
+**Fassung 6 (Brücke, 21.09.2026):** das Manifest kennt **`agent`** — die Liste
+der Routen, die eine App einem Agenten anbietet. Freiwillig wie `marken`, und
+die Zahl geht aus demselben Grund mit: `.strict()` hat das Feld bis hierher
+abgewiesen, und genau das ist am 21.09.2026 am Orin passiert, als die Werkstatt
+es in `apps/belege/app.json` schrieb.
+
+```json
+"agent": [
+  {
+    "method": "GET",
+    "path": "lage",
+    "purpose": "Sagt, in welchem Zustand die App ist.",
+    "params": [],
+    "writes": false
+  },
+  {
+    "method": "POST",
+    "path": "vorgaenge",
+    "purpose": "Einen Vorgang einreichen und damit den Flow freigabe starten.",
+    "params": [
+      { "name": "titel", "type": "string", "required": true },
+      { "name": "text", "type": "string", "required": false }
+    ],
+    "writes": true
+  }
+]
+```
+
+| Feld      | Bedeutung                                                                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `method`  | `GET`, `POST`, `PUT`, `PATCH` oder `DELETE`                                                                                                                                    |
+| `path`    | **relativ** zur Schnittstelle der App (`/apps/<id>/api/`): ohne Anfrage, ohne `..`, höchstens 200 Zeichen. Ein führender `/` wird abgeschnitten, nicht abgewiesen              |
+| `purpose` | Ein Satz in **einer** Zeile, höchstens 200 Zeichen                                                                                                                             |
+| `params`  | Eine Liste, **leer** wenn die Route keine nimmt (nicht weggelassen). Je Eintrag `name` (einfache Kennung), `type` aus `string`, `number`, `integer`, `boolean`, und `required` |
+| `writes`  | Ändert die Route etwas? `PUT`, `PATCH` und `DELETE` **müssen** `true` tragen                                                                                                   |
+
+Keine Route zweimal (`method` und `path` zusammen), kein Parametername zweimal
+je Route, kein unbekanntes Feld. Die Regeln, die das JSON-Schema nicht trägt,
+stehen als Satz in `app_json.regeln` — genau dafür gibt es diese Liste.
+
+**Warum `writes` scharf ist:** was in `agent` nicht steht, ruft das CLI der
+Brücke gar nicht erst auf, und für eine Route mit `writes: true` verlangt es
+ein ausdrückliches `--write`. Daran hängt die Rückfrage an den Menschen. Eine
+ändernde Route, die sich als lesend ausgibt, hebt genau diese Rückfrage auf.
+
+**Ausgeliefert wird das Feld von der APP**, unter `GET agent` an ihrer eigenen
+Schnittstelle, samt `id`, `name` und Version — durch dieselbe Forward-Auth wie
+alles andere. Das Gerät hält **keine zweite Kopie** bereit: eine App, die ihre
+Wege ändert und ihr Manifest nachzieht, sähe sonst zwei verschiedene
+Beschreibungen ihrer selbst, je nachdem, wen man fragt.
+
+**Folge für das Kit:** `KIT_CONTRACT_VERSIONS` in
+`.ara/tools/lib/contract.mjs` endete am 21.09.2026 bei 5, und das Kit hält mit
+Rückgabe 1 an, sobald ein Gerät höher steht — bei **jeder** App, nicht nur bei
+einer mit `agent`. Das ist die eingebaute Ordnung („erst das Kit, dann dieses
+Gerät") und kein Versehen; sie kostet aber einen Zug im Kit, bevor wieder etwas
+auf ein Gerät mit dieser Fassung kommt.
+
 ## Was schiefgehen kann
 
 | Antwort | Bedeutung                                                                                                                                                                                                                                                                                                                                                                                                                          |

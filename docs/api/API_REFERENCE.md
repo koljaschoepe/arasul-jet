@@ -1090,7 +1090,11 @@ in diesem Stand vor der jetzigen lief, oder `null`. Darauf schaltet
     {
       "id": "urlaub",
       "name": "Urlaubsantrag",
-      "live": { "version": "1.0.0", "pfad": "/apps/urlaub/" },
+      "live": {
+        "version": "1.0.0",
+        "pfad": "/apps/urlaub/",
+        "api": "/apps/urlaub/api/"
+      },
       "test": null
     }
   ],
@@ -1100,6 +1104,16 @@ in diesem Stand vor der jetzigen lief, oder `null`. Darauf schaltet
 
 `test` ist nur gefüllt, wenn die Freigabe dieses Menschen den Stand `test`
 trägt — er ist dann Tester (siehe `POST /api/freigaben`).
+
+**Zwei Adressen je Stand** (Brücke, 21.09.2026): `pfad` ist die Seite, die ein
+Mensch im Browser aufmacht, `api` die Schnittstelle, die ein Agent anruft.
+`api` ist `null`, wenn die App kein Backend hat — dann gibt es dort nichts
+anzurufen, und eine Adresse, hinter der nichts lauscht, wäre eine Zusage, die
+nicht hält. Bis hierher stand nur `pfad` da und das CLI der Brücke rechnete
+sich die zweite aus; dieselbe Regel stand damit in zwei Repositorien.
+
+Diese Route nimmt seit der Brücke auch einen **Ausweis** an (siehe
+[Ausweise](#ausweise-brücke-21092026)).
 
 #### Die Flows einer App (Phase C6)
 
@@ -2232,6 +2246,65 @@ leere Zettel, und zwei Wege in denselben Zustand sind einer zu viel.
 `inhalt` fasst höchstens 20 000 Zeichen (`schemas/notizen.js`), darüber `400`.
 
 Administrator **und** Mitarbeiter — ein Zettel ist Arbeit, keine Verwaltung.
+
+### Ausweise (Brücke, 21.09.2026)
+
+Der Ausweis eines Menschen **außerhalb des Browsers**: je Mensch und Rechner
+einer, gesendet als `Authorization: Bearer ausweis_…`. Er sagt „ich bin dieser
+Mensch" und nichts weiter; was er damit darf, entscheidet wie immer die
+Freigabe (`app_members`).
+
+| Method | Endpoint             | Description                                         |
+| ------ | -------------------- | --------------------------------------------------- |
+| GET    | `/api/ausweise`      | Meine Ausweise, ohne Werte                          |
+| POST   | `/api/ausweise`      | Einen ausstellen, Body `{ name }` — Wert **einmal** |
+| GET    | `/api/ausweise/alle` | Alle am Gerät, mit Eigentümer (Administrator)       |
+| DELETE | `/api/ausweise/:id`  | Widerrufen: meinen, als Administrator jeden         |
+
+Ein Ausweis in der Liste: `{ id, name, praefix, angelegt_am,
+zuletzt_benutzt_am }`. `zuletzt_benutzt_am: null` heißt „noch nie benutzt" und
+ist eine Auskunft, kein Fehlwert — ein Ausweis, der seit Wochen daliegt und nie
+gebraucht wurde, gehört widerrufen. Nachgeführt wird der Zeitpunkt höchstens
+einmal je Minute: die Forward-Auth steht vor **jedem** Aufruf an **jede** App.
+
+`POST` antwortet `201` mit zusätzlich `ausweis` — dem Klartext. **Er steht
+genau in dieser einen Antwort**, danach nirgends mehr: am Gerät liegt nur
+sein sha256. Weder das Prüfprotokoll noch eine Logzeile nennt ihn; dort steht
+`praefix`, an dem ein Mensch die Zeile wiedererkennt. Ein Name, den es schon
+gibt, ist `409` (je Mensch eindeutig).
+
+**Ausstellen kann jeder nur für sich**, auch der Administrator. Der Wert wird
+einmal gezeigt, und zwar dem, der vor dem Bildschirm sitzt; ein Ausweis, den
+ein Administrator weiterreicht, hat auf dem Weg dorthin in einer Mail
+gestanden. Widerrufen darf er dagegen jeden — ein Rechner, der abhanden kommt,
+gehört jemandem, der vielleicht gerade nicht am Gerät ist. Ein fremder Ausweis
+und ein Ausweis, den es nicht gibt, sind für einen Mitarbeiter **dieselbe**
+Antwort: `404`. Sonst wäre die Nummernfolge eine Auskunft darüber, wie viele
+Ausweise am Gerät liegen. Widerrufen heißt **löschen**: „gilt nicht mehr" und
+„gibt es nicht" sind dieselbe Auskunft, und zwei Zustände dafür wären zwei
+Stellen, an denen die Antwort später auseinanderläuft.
+
+**Was ein Ausweis öffnet, sind genau drei Wege**, und das ist keine Liste,
+sondern die Bauweise: nur wer `middleware/ausweis.js` einbindet, nimmt ihn an.
+Überall sonst ist er kein gültiger JWT und bekommt `401` — auch auf den
+Routen oben, auch auf `/api/notizen`.
+
+| Weg                        | Wofür                                        |
+| -------------------------- | -------------------------------------------- |
+| `GET /api/apps/:id/zugang` | die Forward-Auth vor dem Backend einer App   |
+| `GET /api/apps/meine`      | welche Apps diesem Menschen freigegeben sind |
+| `GET /api/auth/session`    | ob dieser Ausweis gilt, und wem er gehört    |
+
+Die dritte öffnet nichts: sie antwortet in beiden Fällen `200` und sagt, wer
+da ist. Das CLI der Brücke fragt dort nach, bevor es ein Token ablegt
+(`arasul.mjs login --token-stdin`) und bei jedem `status` — eine Auskunft über
+den Ausweis selbst ist kein Zugang, den er gewährt.
+
+An der Forward-Auth ändert ein Ausweis nichts: die Freigabe entscheidet. Eine
+App, die diesem Menschen nicht freigegeben ist, antwortet `403`; ein
+widerrufener Ausweis `401`. Die App dahinter bekommt dieselben zwei Kopfzeilen
+wie bei einem Browser (`X-Arasul-User`, `X-Arasul-Role`) und merkt den
+Unterschied nicht.
 
 ### Darstellung (Phase H1)
 

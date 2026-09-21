@@ -49,7 +49,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 5;
+const KONTRAKT_VERSION = 6;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -107,6 +107,25 @@ const KONTRAKT_VERSION = 5;
  * Geraet eine hoehere Nummer traegt als es kennt (`.ara/knowledge/deploy.md`).
  * Aus einem zusaetzlichen Hinweis wuerde damit ein Geraet, auf das gar nichts
  * mehr einspielen kann, bis jemand das Kit nachzieht.
+ *
+ * Fassung 6 (Bruecke, 21.09.2026): das Manifest kennt `agent` -- die Liste der
+ * Routen, die eine App einem Agenten nennt. Sie ist FREIWILLIG wie `marken`,
+ * also bleibt jedes Manifest von Fassung 5 gueltig; die Zahl geht trotzdem
+ * mit, und zwar aus dem Grund, aus dem es diese Karte ueberhaupt gibt: das
+ * Manifest ist `.strict()`, und ein Geraet auf Fassung 5 weist ein Paket mit
+ * `agent` beim Einspielen ab. Genau das ist am 21.09.2026 passiert -- die
+ * Werkstatt schrieb das Feld in `apps/belege/app.json` (ihr PR 11), und
+ * `app.mjs --check` bekam vom Orin „`agent` kennt das Geraet nicht.
+ * Unbekannte Felder werden abgewiesen." Ein Kit, das gegen Fassung 5 prueft,
+ * wuerde das Feld aus demselben Grund abweisen wie das alte Geraet. Der
+ * Vertrag sagt hier, dass es angekommen ist.
+ *
+ * FOLGE FUER DAS KIT, und sie ist nicht klein: `KIT_CONTRACT_VERSIONS` in
+ * `.ara/tools/lib/contract.mjs` endet bei 5, und das Kit haelt mit Rueckgabe 1
+ * an, sobald ein Geraet hoeher steht -- nicht nur beim Manifest mit `agent`,
+ * sondern bei jeder App. Das ist die eingebaute Ordnung („erst das Kit, dann
+ * dieses Geraet") und kein Versehen; sie kostet aber einen Zug im Kit, bevor
+ * wieder etwas auf ein Geraet mit dieser Fassung kommt.
  */
 
 /**
@@ -127,6 +146,13 @@ const MANIFEST_REGELN = Object.freeze([
   '`modelle` ist eine Forderung, keine Lieferung: das Geraet installiert kein Modell nach, es sagt beim Einspielen, welches fehlt.',
   '`flows` ist umgekehrt eine LIEFERUNG (seit Kontrakt 2): das Paket bringt die Dateien mit, das Geraet registriert sie je App und Stand.',
   '`marken` nennt die Fassung des Designsystems, auf der die App steht (seit Kontrakt 4, freiwillig). Das Geraet vergleicht sie mit seiner eigenen und meldet in der App-Verwaltung eine, die aelter ist -- eine Kopie der Bibliothek veraltet lautlos.',
+  '`agent` nennt die Routen, die diese App einem Agenten anbietet (seit Kontrakt 6, freiwillig). Eine Liste; je Eintrag `method`, `path`, `purpose`, `params` und `writes`, und nichts sonst.',
+  '`agent[].path` ist RELATIV zur Schnittstelle der App (`/apps/<id>/api/`): ohne Anfrage, ohne `..`, ohne leeres Stueck, hoechstens 200 Zeichen. Ein fuehrender Schraegstrich wird abgeschnitten, nicht abgewiesen.',
+  '`agent[].purpose` ist ein Satz in EINER Zeile, hoechstens 200 Zeichen.',
+  '`agent[].params` ist eine Liste, leer wenn die Route keine nimmt -- nicht weggelassen. Je Eintrag `name` (einfache Kennung), `type` aus string, number, integer oder boolean, und `required`.',
+  '`PUT`, `PATCH` und `DELETE` muessen `writes: true` tragen: eine Route, die etwas aendert, darf sich nicht als lesend ausgeben. Das CLI verlangt fuer `writes: true` ein ausdrueckliches --write.',
+  'Innerhalb von `agent` steht keine Route zweimal (`method` und `path` zusammen) und kein Parametername zweimal je Route.',
+  'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Geraet haelt keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an.',
 ]);
 

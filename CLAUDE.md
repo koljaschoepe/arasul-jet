@@ -739,6 +739,46 @@ Selektoren führte, fiel nur der tote. `ROLLKAESTEN_OHNE_POSITION` in
 `check-design-system.js` trägt damit noch **einen** Namen, und der lebt — eine
 Ausnahme, die einen toten Kasten am Leben hält, ist selbst tot.
 
+Seit dem Auftrag **bruecke-mitarbeiter-ausweis** (21.09.2026, J34) steht die
+**Brücke zwischen Firmenordner und Apps** mit ihren zwei Jet-Hälften, und die
+Form beider stand vorher fest: sie kommt aus dem Vertrag der Brücke im
+Überordner, und Kit und Werkstatt bauen dagegen.
+Erstens kennt das Manifest das Feld **`agent`** (`app.json`, **Kontrakt 5 →
+6**): eine Liste der Routen, die eine App einem Agenten anbietet, je Eintrag
+`method`, `path` relativ zur Schnittstelle, `purpose` als ein Satz, `params`
+und `writes`. Das Schema nimmt Zeichen für Zeichen an, was das Kit annimmt
+(`readAgent` in dessen `arasul.mjs`), und weist ab, was es abweist — ein Gerät,
+das **mehr** annimmt, ließe ein Manifest durch, mit dem das CLI nachher nichts
+anfangen kann. Was JSON-Schema nicht trägt (der Pfad ohne `..` und ohne
+Anfrage, die eine Zeile, `writes: true` an PUT/PATCH/DELETE), steht als Satz in
+`app_json.regeln`, wie seit C5 üblich. Das Feld ist **freiwillig** wie `marken`;
+die Kontraktversion geht trotzdem mit, weil das Manifest `.strict()` ist —
+genau daran ist am 21.09.2026 am Orin ein Paket der Werkstatt gescheitert
+(„`agent` kennt das Gerät nicht"). **Ausgeliefert wird das Feld von der App**,
+unter `GET agent` an ihrer Schnittstelle; das Gerät hält keine zweite Kopie.
+**Folge im Kit:** dessen `KIT_CONTRACT_VERSIONS` endete bei 5, und es hält bei
+jedem Gerät mit höherer Zahl an — ein Zug dort steht aus.
+Zweitens hat ein Mitarbeiter einen **Ausweis** (Migration 182,
+`mitarbeiter_ausweise`): je Mensch und **Rechner** einer, im Benutzermenü der
+Kopfleiste ausgestellt, **einmal** angezeigt und am Gerät nur als sha256
+abgelegt — sha und nicht bcrypt, weil die Forward-Auth vor **jedem** Aufruf
+steht und das Geheimnis kein Passwort ist, sondern 32 zufällige Bytes.
+Gesendet wird er als `Authorization: Bearer ausweis_…`; Traefik reicht die
+Kopfzeile an die Forward-Auth schon seit C4 weiter, das war die ganze
+Verdrahtung. Er öffnet **genau drei Wege**, und das ist keine Liste, sondern
+die Bauweise — nur wer `middleware/ausweis.js` einbindet, nimmt ihn an, überall
+sonst ist er kein gültiger JWT und bekommt 401: die Forward-Auth
+(`GET /api/apps/:id/zugang`), die eigenen Apps (`GET /api/apps/meine`, die je
+Stand jetzt auch `api` nennt — bis dahin rechnete das CLI diese Adresse selbst
+aus) und die Sitzungsprobe (`GET /api/auth/session`), die nichts öffnet: sie
+sagt ja/nein und den Namen, und das CLI fragt dort nach, bevor es ein Token
+ablegt. **Widerrufen heißt löschen**; „gilt nicht mehr" und „gibt es nicht"
+sind dieselbe Auskunft. **Ausstellen kann jeder nur für sich**, auch der
+Administrator: der Wert wird einmal gezeigt, und zwar dem, der vor dem
+Bildschirm sitzt. Er **sieht** dafür alle Ausweise am Gerät und darf jeden
+widerrufen — als zweiter Abschnitt desselben Dialogs und nicht als eigene
+Einstellungs-Sektion, denn er hat beide Rollen in einer Person.
+
 Der Rest der neuen Oberfläche kommt mit den weiteren D-Phasen.
 
 Vier Läufe der D6-Reihe am Orin nach dem D7-Deploy (28.08.2026: 90/91, 91/91,

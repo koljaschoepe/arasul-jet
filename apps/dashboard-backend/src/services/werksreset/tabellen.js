@@ -60,6 +60,14 @@ const AUSLIEFERUNG = [
   // stehen.
   ['public.app_datenbanken', 'Name und Zugang der Datenbank je App und Stand'],
   ['public.app_members', 'Freigaben: welcher Mitarbeiter sieht welche App'],
+  // Stufe 2 und nicht Stufe 1 (Bruecke, 21.09.2026). Ein Ausweis ist kein
+  // Inhalt, sondern ein Zugang -- er steht bei den Sitzungen und Schluesseln
+  // daneben und nicht bei den Notizen. Wer die INHALTE zuruecksetzt, will
+  // nicht, dass anschliessend jeder Rechner im Haus ausgesperrt ist; wer den
+  // Auslieferungszustand herstellt, will genau das. Mit `admin_users` faellt
+  // die Zeile ohnehin (ON DELETE CASCADE, Migration 182); sie steht hier,
+  // damit der Reset das nicht der Reihenfolge ueberlassen muss.
+  ['public.mitarbeiter_ausweise', 'Die Ausweise fuer Programme ausserhalb des Browsers'],
   ['public.app_staende', 'Test- und Livestand je App'],
   ['public.apps', 'Die Apps am Gerät'],
   ['public.audit_log_health', 'Selbstprüfung des Prüfprotokolls'],

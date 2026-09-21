@@ -1,10 +1,11 @@
-import React from 'react';
-import { LogOut, Menu, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { IdCard, LogOut, Menu, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@marken';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
+import { AusweiseDialog } from '@/features/ausweise/AusweiseDialog';
 
 /** Icon-Toggle für die zwei Layout-Flächen (Sidebar/rechte Spalte). */
 function LayoutToggleButton({
@@ -57,6 +58,10 @@ interface WorkspaceMenuBarProps {
  * eine Admin-Seite. Ein Mitarbeiter hätte sich sonst nicht mehr abmelden
  * können — die Rolle hätte nicht nur ausgeblendet, sondern eingesperrt.
  *
+ * Aus demselben Grund stehen seit der Brücke (21.09.2026) die **Ausweise**
+ * hier: sie gehören dem Angemeldeten, jeder darf welche haben, und sie sind
+ * gerade für den Mitarbeiter gebaut — die Einstellungen sieht er nicht.
+ *
  * UNTER 900 PX IST DIESE LEISTE DIE GANZE NAVIGATION (Phase D7): links der
  * Hamburger-Knopf, daneben der Name der Ansicht, die gerade dasteht — dort
  * gibt es weder Aktivitätsleiste noch Tab-Leiste, und ohne den Namen wüsste
@@ -79,6 +84,8 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const selectView = useWorkspaceStore(s => s.selectView);
+
+  const [ausweiseOffen, setAusweiseOffen] = useState(false);
 
   // EIN Knopf für die Notizen, zwei Zustände dahinter (Phase D6): über 900 px
   // ist es die Spalte, darunter das Blatt über der Mitte. Der Mensch drückt
@@ -198,6 +205,15 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
           <div className="my-1 h-px bg-border" aria-hidden="true" />
           <button
             type="button"
+            data-testid="workspace-ausweise"
+            onClick={() => setAusweiseOffen(true)}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground hover:bg-accent"
+          >
+            <IdCard className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Meine Ausweise
+          </button>
+          <button
+            type="button"
             data-testid="workspace-abmelden"
             onClick={() => {
               void onLogout();
@@ -209,6 +225,17 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
           </button>
         </PopoverContent>
       </Popover>
+
+      {/*
+        Ausserhalb des Popovers: es schliesst beim Klick, und ein Dialog, der
+        mit seinem Ausloeser verschwindet, waere keiner.
+
+        UND ERST BEIM OEFFNEN GEMOUNTET. Diese Leiste steht auf jeder Seite;
+        ein Dialog, der immer im Baum haengt, haengt seine Hooks mit hinein --
+        eine Abfrage und den Toast-Kontext, fuer etwas, das die meisten
+        Menschen nie aufmachen.
+      */}
+      {ausweiseOffen && <AusweiseDialog offen beiSchliessen={() => setAusweiseOffen(false)} />}
     </header>
   );
 }

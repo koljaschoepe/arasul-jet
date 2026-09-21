@@ -18,6 +18,7 @@ const {
 const { verifyPassword } = require('../utils/password');
 const { changeDashboardPassword } = require('../services/auth/passwordService');
 const { requireAuth, optionalAuth, requireRole } = require('../middleware/auth');
+const { ausweisProbe } = require('../middleware/ausweis');
 const {
   loginLimiter,
   generalAuthLimiter,
@@ -441,10 +442,19 @@ router.get(
 //
 // optionalAuth reads the Bearer header AND the arasul_session cookie, so this
 // answers correctly for both the normal and the LAN/cookie-only path.
+//
+// `ausweisProbe` dahinter (Bruecke, 21.09.2026): das CLI der Bruecke fragt
+// hier, ob ein Ausweis noch gilt und wem er gehoert -- bevor es ihn ablegt
+// (`login --token-stdin`) und bei jedem `status`. Diese Route OEFFNET damit
+// nichts: sie antwortet in beiden Faellen 200 und sagt, wer da ist. Eine
+// Auskunft ueber den Ausweis selbst ist kein Zugang, den er gewaehrt. Sie
+// steht HINTER `optionalAuth` und tritt nur an, wenn dort niemand gefunden
+// wurde: eine Sitzung ist die genauere Auskunft.
 router.get(
   '/session',
   probeLimiter,
   optionalAuth,
+  ausweisProbe,
   asyncHandler((req, res) => {
     res.json({
       authenticated: Boolean(req.user),
