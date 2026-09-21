@@ -305,8 +305,11 @@ AUS_DRIN=$(ausstellen "$TOK_DRIN" "Rechner von $DRIN")
 AUS_DRAUSSEN=$(ausstellen "$TOK_DRAUSSEN" "Rechner von $DRAUSSEN")
 pruefe 'Beide stellen sich einen Ausweis aus' \
   "$([ -n "$AUS_DRIN" ] && [ -n "$AUS_DRAUSSEN" ] && echo ja || echo nein)"
+# `<<<` und nicht `printf … | grep -q`: grep steigt beim ersten Treffer aus,
+# der Erzeuger schreibt in ein geschlossenes Rohr und endet unter `pipefail`
+# mit 141 -- gerade WEIL der gesuchte Text da ist (`scripts/test/rohrbruch.py`).
 pruefe 'der Wert traegt den Vorsatz ausweis_' \
-  "$(printf '%s' "$AUS_DRIN" | grep -qE '^ausweis_[0-9a-f]{64}$' && echo ja || echo nein)" \
+  "$(grep -qE '^ausweis_[0-9a-f]{64}$' <<<"$AUS_DRIN" && echo ja || echo nein)" \
   "${AUS_DRIN:0:14}…"
 [ -z "$AUS_DRIN" ] || [ -z "$AUS_DRAUSSEN" ] && { echo; echo "Ohne Ausweise gibt es nichts zu messen."; exit 1; }
 
