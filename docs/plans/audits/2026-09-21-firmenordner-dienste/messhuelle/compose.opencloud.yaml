@@ -1,0 +1,27 @@
+# Messung J33, Kandidat OpenCloud (Abspaltung von ownCloud Infinite Scale, Go,
+# ein Prozess, keine Datenbank). TLS mit dem selbst erzeugten Zertifikat des
+# Dienstes: ohne https startet sein Anmeldedienst nicht ("invalid iss value").
+name: j33mess-opencloud
+x-klient: &klient
+  image: j33mess-client:2  # owncloudcmd 5.3, siehe client-neu/Dockerfile
+  mem_limit: 1g
+  restart: "no"
+services:
+  server:
+    image: opencloudeu/opencloud-rolling:latest
+    container_name: j33mess-opencloud-server
+    mem_limit: 2g
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c", "opencloud init || true; exec opencloud server"]
+    ports: ["127.0.0.1:18082:9200"]
+    environment:
+      OC_URL: https://j33mess-opencloud-server:9200
+      OC_INSECURE: "true"
+      PROXY_ENABLE_BASIC_AUTH: "true"
+      IDM_ADMIN_PASSWORD: j33mess-Admin-2026
+      IDM_CREATE_DEMO_USERS: "false"
+      OC_LOG_LEVEL: warn
+    volumes: [config:/etc/opencloud, daten:/var/lib/opencloud]
+  klient-a: { <<: *klient, container_name: j33mess-opencloud-klient-a, volumes: [klient-a:/arbeit] }
+  klient-b: { <<: *klient, container_name: j33mess-opencloud-klient-b, volumes: [klient-b:/arbeit] }
+volumes: { config: {}, daten: {}, klient-a: {}, klient-b: {} }

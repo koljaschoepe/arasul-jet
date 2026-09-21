@@ -1,0 +1,34 @@
+# Messung J33, Kandidat Nextcloud. Eigenes Projekt, eigenes Netz, eigene Volumes,
+# jeder Container mit RAM-Grenze. Nichts davon beruehrt das Produkt.
+name: j33mess-nextcloud
+x-klient: &klient
+  image: j33mess-client:1
+  mem_limit: 1g
+  restart: "no"
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: j33mess-nextcloud-db
+    mem_limit: 1g
+    restart: "no"
+    environment: { POSTGRES_DB: nextcloud, POSTGRES_USER: nextcloud, POSTGRES_PASSWORD: j33mess-db }
+    volumes: [db:/var/lib/postgresql/data]
+  server:
+    image: nextcloud:latest
+    container_name: j33mess-nextcloud-server
+    mem_limit: 2g
+    restart: "no"
+    depends_on: [db]
+    ports: ["127.0.0.1:18081:80"]
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: j33mess-db
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD: j33mess-Admin-2026
+      NEXTCLOUD_TRUSTED_DOMAINS: "j33mess-nextcloud-server localhost 127.0.0.1"
+    volumes: [daten:/var/www/html]
+  klient-a: { <<: *klient, container_name: j33mess-nextcloud-klient-a, volumes: [klient-a:/arbeit] }
+  klient-b: { <<: *klient, container_name: j33mess-nextcloud-klient-b, volumes: [klient-b:/arbeit] }
+volumes: { db: {}, daten: {}, klient-a: {}, klient-b: {} }

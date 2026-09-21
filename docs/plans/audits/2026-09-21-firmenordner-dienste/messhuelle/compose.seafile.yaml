@@ -1,0 +1,64 @@
+# Messung J33, Kandidat Seafile 13 Community. Nach der amtlichen
+# seafile-server.yml (manual.seafile.com/13.0), ohne Caddy und ohne SeaDoc.
+name: j33mess-seafile
+x-klient: &klient
+  image: j33mess-client:1
+  mem_limit: 1g
+  restart: "no"
+services:
+  db:
+    image: mariadb:10.11
+    container_name: j33mess-seafile-db
+    mem_limit: 1g
+    restart: "no"
+    environment: { MYSQL_ROOT_PASSWORD: j33mess-root, MYSQL_LOG_CONSOLE: "true", MARIADB_AUTO_UPGRADE: "1" }
+    volumes: [db:/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "--connect", "--mariadbupgrade", "--innodb_initialized"]
+      interval: 10s
+      start_period: 30s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    container_name: j33mess-seafile-redis
+    mem_limit: 256m
+    restart: "no"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+  server:
+    image: seafileltd/seafile-mc:13.0-latest
+    container_name: j33mess-seafile-server
+    mem_limit: 2g
+    restart: "no"
+    ports: ["127.0.0.1:18083:80"]
+    networks: { default: { aliases: [seafile.j33mess.test] } }
+    depends_on: { db: { condition: service_healthy }, redis: { condition: service_started } }
+    environment:
+      SEAFILE_MYSQL_DB_HOST: db
+      SEAFILE_MYSQL_DB_PORT: "3306"
+      SEAFILE_MYSQL_DB_USER: seafile
+      SEAFILE_MYSQL_DB_PASSWORD: j33mess-db
+      INIT_SEAFILE_MYSQL_ROOT_PASSWORD: j33mess-root
+      SEAFILE_MYSQL_DB_CCNET_DB_NAME: ccnet_db
+      SEAFILE_MYSQL_DB_SEAFILE_DB_NAME: seafile_db
+      SEAFILE_MYSQL_DB_SEAHUB_DB_NAME: seahub_db
+      TIME_ZONE: Europe/Berlin
+      INIT_SEAFILE_ADMIN_EMAIL: admin@j33mess.test
+      INIT_SEAFILE_ADMIN_PASSWORD: j33mess-Admin-2026
+      SEAFILE_SERVER_HOSTNAME: seafile.j33mess.test  # die Einrichtung verlangt einen Namen mit Punkt
+      SEAFILE_SERVER_PROTOCOL: http
+      SITE_ROOT: /
+      NON_ROOT: "false"
+      JWT_PRIVATE_KEY: j33mess-jwt-0123456789abcdef0123456789abcdef
+      SEAFILE_LOG_TO_STDOUT: "false"
+      ENABLE_GO_FILESERVER: "true"
+      ENABLE_SEADOC: "false"
+      CACHE_PROVIDER: redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      ENABLE_NOTIFICATION_SERVER: "false"
+      ENABLE_SEAFILE_AI: "false"
+    volumes: [daten:/shared]
+  klient-a: { <<: *klient, container_name: j33mess-seafile-klient-a, volumes: [klient-a:/arbeit] }
+  klient-b: { <<: *klient, container_name: j33mess-seafile-klient-b, volumes: [klient-b:/arbeit] }
+volumes: { db: {}, daten: {}, klient-a: {}, klient-b: {} }
