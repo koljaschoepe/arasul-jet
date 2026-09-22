@@ -395,7 +395,8 @@ describe('Die Wurzel (Auftrag firmenordner-rechte-im-frontend, 22.09.2026)', () 
     });
   });
 
-  it('faellt, wenn sie der letzte Ordner ist', async () => {
+  it('faellt, wenn sie der letzte Ordner ist -- als RAUM, nicht als Unterordner', async () => {
+    firmenordnerAn();
     mitWurzel({ andere: 0 });
     global.fetch.mockResolvedValue({ ok: true, status: 204, text: async () => '' });
     await expect(verwaltung.loescheOrdner({ ordnerId: 1 })).resolves.toEqual({
@@ -403,6 +404,15 @@ describe('Die Wurzel (Auftrag firmenordner-rechte-im-frontend, 22.09.2026)', () 
       ebene: 0,
       art: 'wurzel',
     });
+    // Der Raum-Weg (Graph, zwei DELETE, das zweite mit Purge) und nicht der
+    // WebDAV-Weg fuer einen Ordner darin: der antwortet auf die Wurzel eines
+    // Raums mit 405 (22.09.2026 am Orin, beim Aufraeumen der Abnahme).
+    const wege = global.fetch.mock.calls
+      .filter(([, o]) => o?.method === 'DELETE')
+      .map(([url]) => String(url));
+    expect(wege.length).toBeGreaterThanOrEqual(2);
+    expect(wege.every(w => w.includes('/graph/v1.0/drives/'))).toBe(true);
+    expect(wege.some(w => w.includes('/dav/spaces/'))).toBe(false);
   });
 
   it('gibt es nur einmal', async () => {

@@ -357,8 +357,13 @@ async function loescheOrdner({ ordnerId }) {
   }
 
   if (ordner.raum_id) {
+    // EIN RAUM IST, WAS KEINEN ELTERNTEIL HAT -- die Wurzel (Ebene 0) so gut
+    // wie ein Bereich (Ebene 1). Bis zum 22.09.2026 fragte diese Weiche
+    // `ebene === 1`, und die Wurzel lief in den WebDAV-Weg fuer einen
+    // Unterordner: `DELETE /dav/spaces/<raum>/` antwortet 405, die Zeile
+    // blieb stehen, und die Abnahme meldete es beim Aufraeumen.
     const offen = await mitDienst(`Ordner ${ordner.kennung} wegwerfen`, () =>
-      ordner.ebene === 1
+      ordner.eltern_id === null
         ? dienst.loescheRaum(ordner.raum_id)
         : dienst.loescheOrdner(ordner.raum_id, ordner.pfad)
     );
