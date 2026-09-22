@@ -29,7 +29,7 @@ import {
 import { alsBaum, type Ordner } from './useFirmenordner';
 
 /** Das Wort zur Art, an einer Stelle. */
-export function artWort(art: Ordner['art']): string {
+function artWort(art: Ordner['art']): string {
   if (art === 'wurzel') return 'Wurzel';
   if (art === 'am_geraet') return 'am Gerät';
   return 'geteilt';

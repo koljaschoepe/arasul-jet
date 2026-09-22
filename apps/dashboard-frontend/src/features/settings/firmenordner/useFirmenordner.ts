@@ -20,7 +20,7 @@ import { useApi, type ApiError } from '@/hooks/useApi';
 import type { BenutzerId } from '../mitarbeiter/useMitarbeiter';
 
 /** Die drei Arten eines Ordners am Gerät. */
-export type OrdnerArt = 'wurzel' | 'geteilt' | 'am_geraet';
+type OrdnerArt = 'wurzel' | 'geteilt' | 'am_geraet';
 
 /** Die zwei Stufen, die eine Zeile tragen kann. „keine" ist keine Zeile. */
 export type Recht = 'lesen' | 'schreiben';
