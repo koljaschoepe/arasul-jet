@@ -1,0 +1,41 @@
+# Messung J33 „Wegwerfen und Grenzen", 22.09.2026.
+#
+# EIN NEBENCONTAINER UND NICHT DAS PRODUKT. Am Orin laeuft die Belege-App
+# (Schutzregel vom 21.09.2026): eigener Namensvorsatz `j33grenze-`, eigenes
+# Compose-Projekt, eigene Volumes unter ~/j33grenze/, Port nur auf 127.0.0.1,
+# `restart: no`, und hinterher restlos weg.
+#
+# Die Umgebung ist Zeile fuer Zeile die von `compose/compose.firmenordner.yaml`
+# -- sonst misst man etwas anderes als das Produkt. Die zwei Unterschiede sind
+# das Administratorpasswort (hier aus der Umgebung statt aus der Geheimnisdatei)
+# und der veroeffentlichte Port (hier noetig, weil kein Traefik davorsteht).
+name: j33grenze
+services:
+  server:
+    image: opencloudeu/opencloud-rolling:8.0.1
+    container_name: j33grenze-firmenordner
+    mem_limit: ${J33_RAM:-2g}
+    cpus: ${J33_CPUS:-2}
+    restart: 'no'
+    entrypoint: ['/bin/sh', '-c', 'opencloud init || true; exec opencloud server']
+    ports: ['127.0.0.1:18083:9200']
+    environment:
+      OC_URL: https://localhost:18083
+      PROXY_TLS: 'true'
+      OC_INSECURE: 'true'
+      PROXY_ENABLE_BASIC_AUTH: 'true'
+      IDM_ADMIN_PASSWORD: ${J33_ADMIN_PASSWORT:-j33grenze-Admin-2026}
+      IDM_CREATE_DEMO_USERS: 'false'
+      OC_LOG_LEVEL: ${J33_LOG:-warn}
+      OC_LOG_COLOR: 'false'
+      OC_TRACING_ENABLED: 'false'
+      STORAGE_USERS_DRIVER: posix
+      STORAGE_USERS_POSIX_ROOT: /var/lib/opencloud/posix
+      STORAGE_USERS_POSIX_WATCH_FS: 'true'
+      STORAGE_USERS_ID_CACHE_STORE: nats-js-kv
+      STORAGE_USERS_POSIX_PERSONAL_SPACE_PATH_TEMPLATE: 'users/{{.User.Username}}'
+      STORAGE_USERS_POSIX_GENERAL_SPACE_PATH_TEMPLATE: 'projects/{{.SpaceName}}'
+      GOMEMLIMIT: ${J33_GOMEMLIMIT:-off}
+    volumes:
+      - /home/arasul/j33grenze/konfiguration:/etc/opencloud
+      - /home/arasul/j33grenze/ablage:/var/lib/opencloud
