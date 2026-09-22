@@ -29,6 +29,13 @@ WAS HIER GEPRUEFT WIRD, dreierlei:
   3. DAUERLAUF. Die Soll-Dienste in `dauerlauf-bericht.sh` sind genau die
      Dienste ohne Profil. Was nicht in dieser Liste steht, kann sieben Tage
      lang tot sein, ohne dass der Bericht es meldet.
+  4. GESUNDHEIT. Ein `healthcheck:`-Block ohne `test:` ist KEINER -- Docker
+     legt die Zahlen an (Intervall, Zeitgrenze, Versuche) und prueft nichts,
+     und `docker inspect` hat danach gar keinen Schluessel `Health`. Am
+     22.09.2026 genau so passiert: beim Berichtigen eines Healthchecks fiel
+     die `test:`-Zeile weg, der Container meldete nichts mehr, und `docker ps`
+     schrieb schlicht „Up 28 seconds". Das ist die stillste Art, eine
+     Ueberwachung zu verlieren -- gruen und tot sehen gleich aus.
 
 `profiles:` ist die Ausnahme und bleibt eine: `cloudflared` faehrt nur mit
 `--profile tunnel` und soll beim Bootstrap gerade NICHT hochkommen.
@@ -70,13 +77,27 @@ def compose_lesen(datei: Path) -> dict[str, dict]:
         if einzug == 2 and zeile.rstrip().endswith(":"):
             name = zeile.strip().rstrip(":")
             schluessel = None
-            dienste.setdefault(name, {"build": False, "profil": False, "depends_on": set()})
+            dienste.setdefault(
+                name,
+                {
+                    "build": False,
+                    "profil": False,
+                    "healthcheck": False,
+                    "healthcheck_test": False,
+                    "depends_on": set(),
+                },
+            )
         elif einzug == 4 and name:
             schluessel = zeile.strip().split(":", 1)[0]
             if schluessel == "build":
                 dienste[name]["build"] = True
             elif schluessel == "profiles":
                 dienste[name]["profil"] = True
+            elif schluessel == "healthcheck":
+                dienste[name]["healthcheck"] = True
+        elif einzug == 6 and name and schluessel == "healthcheck":
+            if zeile.strip().startswith("test:"):
+                dienste[name]["healthcheck_test"] = True
         elif einzug >= 6 and name and schluessel == "depends_on":
             # Beide Formen: `- postgres-db` und `postgres-db:` mit `condition:`.
             eintrag = zeile.strip()
@@ -97,6 +118,8 @@ def compose(wurzel: Path) -> dict[str, dict]:
                 # ueberschreibt nichts, also wird nur dazugelegt.
                 gesamt[name]["build"] |= stand["build"]
                 gesamt[name]["profil"] |= stand["profil"]
+                gesamt[name]["healthcheck"] |= stand["healthcheck"]
+                gesamt[name]["healthcheck_test"] |= stand["healthcheck_test"]
                 gesamt[name]["depends_on"] |= stand["depends_on"]
             else:
                 gesamt[name] = stand
@@ -172,11 +195,20 @@ def main() -> int:
         print(f"ZUVIEL dauerlauf-bericht.sh SOLL_DIENSTE: {name} gibt es im Compose nicht")
         fehler += 1
 
+    # Ein Healthcheck-Block ohne `test:` prueft nichts. Gefragt werden ALLE
+    # Dienste, auch die mit Profil: gerade dort faellt es niemandem auf.
+    for name, stand in sorted(dienste.items()):
+        if stand["healthcheck"] and not stand["healthcheck_test"]:
+            print(f"LEER   {name}: healthcheck: ohne test: -- Docker prueft nichts")
+            fehler += 1
+
     if fehler:
         return 1
+    mit_probe = sum(1 for s in dienste.values() if s["healthcheck_test"])
     print(
         f"OK  {len(soll)} Dienste ohne Profil: alle gestartet, "
-        f"{len(zu_bauen)} davon gebaut, alle im Dauerlauf-Bericht"
+        f"{len(zu_bauen)} davon gebaut, alle im Dauerlauf-Bericht; "
+        f"{mit_probe} Healthchecks mit einer Probe"
     )
     return 0
 

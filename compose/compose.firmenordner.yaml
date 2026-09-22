@@ -175,6 +175,7 @@ services:
       # dabei auf jede Anfrage). Und nicht der Port 9200: ein Port, der
       # antwortet, ist noch kein Dienst, der BEREIT ist -- derselbe Fund wie
       # beim zweiten Werksreset am 28.08.2026. `readyz` sagt genau das.
+      test: ['CMD-SHELL', 'curl -sf http://127.0.0.1:9205/readyz >/dev/null || exit 1']
       interval: 30s
       timeout: 5s
       retries: 3
