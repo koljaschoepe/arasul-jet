@@ -244,7 +244,48 @@ http:
         - websecure
       tls: {}
 
+    # Der Firmenordner (J33, 22.09.2026).
+    #
+    # ALLEIN AUF SEINEM EINSTIEGSPUNKT, und das ist die ganze Abschottung: jeder
+    # andere Router dieser Datei nennt `websecure` und nur `websecure`, dieser
+    # nennt `firmenordner` und nur `firmenordner`. Auf Port 8443 gibt es damit
+    # weder das Dashboard noch eine App noch die Schnittstelle; auf 443 gibt es
+    # den Firmenordner nicht.
+    #
+    # KEINE FORWARD-AUTH DAVOR, und das ist gemessen und nicht vergessen
+    # (21.09.2026): der Dienst ignoriert `X-Arasul-User` und meldet 401 -- eine
+    # Forward-Auth waere also eine Tuer vor einer zweiten Tuer, die beide
+    # denselben Menschen fragen. Schlimmer: der Kommandozeilen-Klient am Rechner
+    # eines Mitarbeiters hat das Sitzungs-Cookie nie und kaeme GAR NICHT durch.
+    # Wer hier hereinkommt, entscheidet der Dienst selbst -- mit den Nutzern,
+    # die Arasul in ihn hineinspiegelt (docs/features/FIRMENORDNER.md).
+    #
+    # KEINE `security-headers`. Die Middleware dieses Geraets setzt
+    # `frameDeny` und eine Content-Security-Policy, die fuer die Oberflaeche
+    # von Arasul geschrieben ist; der Dienst bringt seine eigene mit und wuerde
+    # unter dieser hier nicht laden. `compress` faellt aus demselben Grund weg:
+    # was hier laeuft, sind Dateiuebertragungen, und die sind schon gepackt
+    # oder nicht komprimierbar.
+    firmenordner:
+      rule: 'PathPrefix(`/`)'
+      service: firmenordner-service
+      priority: 1
+      entryPoints:
+        - firmenordner
+      tls: {}
+
   services:
+    # Der Firmenordner. Kein `healthCheck`: der Dienst faehrt nur mit dem Profil
+    # hoch, und ein Traefik, der alle zehn Sekunden gegen einen Dienst pingt,
+    # den es auf diesem Geraet gar nicht gibt, schreibt nur Fehlerzeilen.
+    # `firmenordner-transport` gibt dem Hochladen einer grossen Datei Zeit.
+    firmenordner-service:
+      loadBalancer:
+        servers:
+          - url: 'http://firmenordner:9200'
+        passHostHeader: true
+        serversTransport: firmenordner-transport
+
     # Dashboard Frontend
     dashboard-frontend-service:
       loadBalancer:

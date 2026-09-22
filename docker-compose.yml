@@ -54,4 +54,9 @@ include:
       - ./compose/compose.app.yaml
       - ./compose/compose.monitoring.yaml
       - ./compose/compose.external.yaml
+      # Der Firmenordner (J33, 22.09.2026). Er traegt `profiles: [firmenordner]`
+      # und faehrt deshalb nur hoch, wenn die `.env` des Geraets
+      # `COMPOSE_PROFILES=firmenordner` setzt -- die Begruendung steht im Kopf
+      # der Datei.
+      - ./compose/compose.firmenordner.yaml
       - ./compose/compose.secrets.yaml

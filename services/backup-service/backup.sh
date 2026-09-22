@@ -27,6 +27,21 @@
 #   flows      Die Flow-Dateien unter `/arasul/flows`, die ein Mensch am Geraet
 #              geschrieben hat. Die Flows, die eine App MITBRINGT, liegen im
 #              App-Paket und kommen mit `apps`.
+#   firmenordner
+#              Die Dateien der Firma (J33, 22.09.2026). Das ist der Ordner,
+#              den die Mitarbeiter an ihren Rechnern abgleichen -- Vertraege,
+#              Angebote, Regeln, alles, was im Haus entsteht. Er ist von den
+#              vier hier der einzige, in dem AUSSCHLIESSLICH Dinge liegen, die
+#              es nirgendwo sonst gibt: die Apps lassen sich neu einspielen,
+#              die Flows neu schreiben, die Konfiguration neu erzeugen. Was
+#              hier fehlt, ist weg.
+#              GESICHERT WIRD DER BAUM, NICHT DER DIENST. Die Ablage `posix`
+#              haelt echte Dateien (genau darum ist dieser Dienst gewaehlt
+#              worden, 21.09.2026) -- ein `tar` darueber ist deshalb wirklich
+#              der Inhalt und nicht eine Blocksammlung, die ohne ihren Dienst
+#              nichts bedeutet. Mitgenommen wird auch `.oc-nodes`, die
+#              Verwaltung des Dienstes: ohne sie stuenden die Dateien nach dem
+#              Weg zurueck zwar da, aber der Dienst kennte ihre Rechte nicht.
 #   config     `.env`, Zertifikate, Traefik, Geheimnisse. Ohne sie faehrt auf
 #              einem leeren Geraet kein einziger Container hoch.
 #
@@ -260,6 +275,14 @@ FLOWS_SRC=${FLOWS_BACKUP_DIR:-/arasul/flows}
 sichere_ordner flows "$FLOWS_SRC" || true
 FLOWS_OK="$ARCHIV_STATUS"
 
+# Der Firmenordner (J33, 22.09.2026). Ein Geraet ohne das Profil
+# `firmenordner` hat diesen Mount nicht -- `sichere_ordner` ueberspringt ihn
+# dann mit einer Warnung und laesst BACKUP_OK in Ruhe, wie bei `apps` auf
+# einem Geraet ohne App.
+FIRMENORDNER_SRC=${FIRMENORDNER_BACKUP_DIR:-/arasul/firmenordner}
+sichere_ordner firmenordner "$FIRMENORDNER_SRC" || true
+FIRMENORDNER_OK="$ARCHIV_STATUS"
+
 # Die Konfiguration: `.env`, Zertifikate, Traefik, Geheimnisse. Ohne sie faehrt
 # auf einem leeren Geraet nichts hoch.
 #
@@ -364,6 +387,7 @@ kopiere_nach_aussen() {
         /backups/postgres/arasul_db_latest.sql.gz \
         /backups/apps/apps_latest.tar.gz \
         /backups/flows/flows_latest.tar.gz \
+        /backups/firmenordner/firmenordner_latest.tar.gz \
         /backups/config/config_latest.tar.gz; do
         [ -e "$quelle" ] || continue
         # Ueber den Link hinweg auf die echte Datei: ein Symlink auf dem Stick
@@ -445,7 +469,7 @@ if [ "$BACKUP_OK" = true ]; then
                 "$(basename "${zeiger%_latest.sql.gz}")_*.sql.gz" "$(basename "$zeiger")"
         done
     fi
-    for name in apps flows config; do
+    for name in apps flows config firmenordner; do
         [ -d "/backups/${name}" ] && schuetze_neueste "/backups/${name}" "*.tar.gz" "${name}_latest.tar.gz"
     done
 
@@ -470,7 +494,7 @@ if [ "$BACKUP_OK" = true ]; then
     # Cleanup: weekly backups (longer retention)
     find /backups/postgres/weekly -name "*.sql.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/postgres/monthly -name "*.sql.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
-    for name in apps flows config; do
+    for name in apps flows config firmenordner; do
         find "/backups/${name}/weekly" -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
         find "/backups/${name}/monthly" -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     done
@@ -508,6 +532,8 @@ cat > /backups/backup_report.json << EOF
   "apps_backups": $(zaehle /backups/apps '*.tar.gz'),
   "flows_status": "$FLOWS_OK",
   "flows_backups": $(zaehle /backups/flows '*.tar.gz'),
+  "firmenordner_status": "$FIRMENORDNER_OK",
+  "firmenordner_backups": $(zaehle /backups/firmenordner '*.tar.gz'),
   "config_status": "$CONFIG_OK",
   "config_backups": $(zaehle /backups/config '*.tar.gz'),
   "extern_status": "$EXTERN_STATUS",

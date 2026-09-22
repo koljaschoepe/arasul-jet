@@ -737,6 +737,18 @@ ENVEOF
     fi
     # --------------------------------------------------------------------------
 
+    # --- J33: das Administratorpasswort des Firmenordners ---------------------
+    # Auch auf einem Geraet ohne das Profil `firmenordner`. Der Grund steht in
+    # `setup_secrets()` im `arasul`-Skript, das dieselbe Datei anlegt: ein
+    # Dienst, der einmal mit leerem Passwort hochgefahren ist, hat ein
+    # Administratorkonto, das sich ohne Verlust der Ablage nicht mehr heilen
+    # laesst. Nur wenn sie fehlt -- ein neuer Wert passte nicht mehr zu dem
+    # Konto, das schon da ist.
+    if [ ! -s "$secrets_dir/firmenordner_admin_password" ]; then
+        generate_password 32 | tr -d '\n' > "$secrets_dir/firmenordner_admin_password"
+    fi
+    # --------------------------------------------------------------------------
+
     chmod 600 "$secrets_dir"/*
 
     echo ""

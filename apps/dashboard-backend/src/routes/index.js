@@ -50,6 +50,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/freigabe-anfragen', group: 'ai' },
   { prefix: '/notizen', group: 'core' },
   { prefix: '/ausweise', group: 'core' },
+  { prefix: '/firmenordner', group: 'core' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
@@ -96,6 +97,10 @@ router.use('/darstellung', require('./darstellung'));
 // Auch hier bei den Kern-Wegen: er gehoert dem Angemeldeten, jeder darf einen
 // haben, und niemand stellt einen fuer einen anderen aus.
 router.use('/ausweise', require('./ausweise'));
+// Der Firmenordner (J33, 22.09.2026). Bei den Kern-Wegen, weil sein erster
+// Weg einem MITARBEITER sagt, wo sein Ordner liegt und welche er hat -- die
+// Verwaltung darunter ist Admin-Sache, aber der Gegenstand ist einer.
+router.use('/firmenordner', require('./firmenordner'));
 
 // --- System ---
 router.use('/system', require('./system/system'));

@@ -24,6 +24,12 @@
 #   apps        die Pakete unter /arasul/apps -- daraus baut das Backend die
 #               Container neu (`POST /api/backup/wiederherstellung`).
 #   flows       die Flow-Dateien unter /arasul/flows.
+#   firmenordner die Dateien der Firma unter /arasul/firmenordner (J33). Der
+#               Dienst muss dafuer STEHEN -- `entpacke_nach` raeumt das Ziel
+#               leer, bevor es den Baum zurueckschreibt, und ein laufender
+#               OpenCloud sieht dabei mit `inotify` zu, wie ihm der Boden
+#               weggezogen wird. Der Weg steht in docs/ops/DISASTER_RECOVERY.md
+#               und in docs/features/FIRMENORDNER.md.
 #
 # WAS ES NICHT ANFASST: die Konfiguration (`.env`, Zertifikate, Geheimnisse).
 # Sie WIRD gesichert, aber sie zurueckzuspielen heisst, einem laufenden Geraet
@@ -39,7 +45,7 @@
 # Aufruf (im Container):
 #   /usr/local/bin/wiederherstellen.sh                  neueste Sicherung
 #   /usr/local/bin/wiederherstellen.sh --datei <name>   eine bestimmte
-#   /usr/local/bin/wiederherstellen.sh --nur-datenbank  ohne apps und flows
+#   /usr/local/bin/wiederherstellen.sh --nur-datenbank  ohne die Ordner
 #   /usr/local/bin/wiederherstellen.sh --probe          nur pruefen, nichts tun
 #
 # Rueckgabe 0, wenn alles zurueckgekommen ist, sonst 1. Der Bericht steht in
@@ -55,6 +61,7 @@ BACKUP_ENCRYPT_KEY_FILE="${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encrypti
 
 APPS_ZIEL="${APPS_BACKUP_DIR:-/arasul/apps}"
 FLOWS_ZIEL="${FLOWS_BACKUP_DIR:-/arasul/flows}"
+FIRMENORDNER_ZIEL="${FIRMENORDNER_BACKUP_DIR:-/arasul/firmenordner}"
 
 DATEI=""
 NUR_DATENBANK=false
@@ -84,6 +91,7 @@ json_text() {
 DB_ZEILEN=0
 APPS_STATUS=uebersprungen
 FLOWS_STATUS=uebersprungen
+FIRMENORDNER_STATUS=uebersprungen
 VOR_ABZUG=""
 
 schreibe_bericht() {
@@ -96,6 +104,7 @@ schreibe_bericht() {
   "tabellen": ${DB_ZEILEN},
   "apps": "$(json_text "$APPS_STATUS")",
   "flows": "$(json_text "$FLOWS_STATUS")",
+  "firmenordner": "$(json_text "$FIRMENORDNER_STATUS")",
   "vorher_gesichert": "$(json_text "$(basename "${VOR_ABZUG:-}" 2>/dev/null || echo '')")",
   "dauer_sekunden": ${dauer},
   "zeitpunkt": "$(date -Iseconds)"
@@ -375,6 +384,8 @@ if [ "$NUR_DATENBANK" = "false" ]; then
     APPS_STATUS="$ERGEBNIS"
     entpacke_nach flows "$FLOWS_ZIEL" || DATEI_FEHLER=1
     FLOWS_STATUS="$ERGEBNIS"
+    entpacke_nach firmenordner "$FIRMENORDNER_ZIEL" || DATEI_FEHLER=1
+    FIRMENORDNER_STATUS="$ERGEBNIS"
 fi
 
 DAUER=$(( $(date +%s) - START ))

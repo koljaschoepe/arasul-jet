@@ -21,10 +21,12 @@
 > `app_datenbanken`.
 > Am 21.09.2026 von Hand ergaenzt (Migration 182, Bruecke): die Tabelle
 > `mitarbeiter_ausweise`.
+> Am 22.09.2026 von Hand ergaenzt (Migration 183, J33): die drei Tabellen
+> `firmenordner_nutzer`, `firmenordner_ordner` und `firmenordner_rechte`.
 
 ## Übersicht
 
-- Tabellen: **61**
+- Tabellen: **64**
 - Spalten gesamt: **817**
 - Foreign Keys: **52**
 - Indexes: **311**
@@ -1192,6 +1194,120 @@ Bedingung steht in der Abfrage selbst, `services/auth/mitarbeiterAusweis.js`).
 **Widerrufen heißt löschen.** Kein `is_active` daneben: „gilt nicht mehr" und
 „gibt es nicht" sind dieselbe Auskunft. Was geschah, steht im Prüfprotokoll;
 was gilt, steht hier.
+
+---
+
+## `firmenordner_nutzer`
+
+> Die Spiegelung eines Menschen aus `admin_users` in den Dateidienst
+> (Migration 183, J33 vom 22.09.2026). **Kein Passwort.**
+
+| Column                | Type                     | Nullable | Default |
+| --------------------- | ------------------------ | -------- | ------- |
+| `user_id`             | bigint                   | ⛔       |         |
+| `dienst_id`           | text                     | ⛔       |         |
+| `dienst_name`         | text                     | ⛔       |         |
+| `passwort_gespiegelt` | boolean                  | ⛔       | `false` |
+| `abgleich_offen`      | text                     | ✅       |         |
+| `angelegt_am`         | timestamp with time zone | ⛔       | `now()` |
+| `abgeglichen_am`      | timestamp with time zone | ✅       |         |
+
+**Primary key:** `user_id`
+**Unique:** `dienst_id`
+**Foreign keys:** `user_id` → `admin_users(id)` `ON DELETE CASCADE`
+
+**Warum es diese Tabelle gibt.** Der Dateidienst hat seine eigene Anmeldung und
+nimmt die Kopfzeile der Forward-Auth nicht an (am 21.09.2026 am Orin gemessen:
+`401`). Arasul legt den Menschen deshalb dort an und setzt dasselbe Passwort.
+**Das ist eine zweite Passwortablage**, und sie ist einseitig: das Gerät
+schreibt, der Dienst antwortet. Der Klartext kommt dabei nur durch, er bleibt
+nicht — das Gerät kennt ihn ohnehin in genau den zwei Augenblicken, in denen er
+gesetzt wird. Hier steht die Kennung im Dienst und sonst nichts.
+
+`passwort_gespiegelt = false` heißt: der Nutzer ist dort angelegt, sein
+Passwort aber nicht bekannt. Das ist der Zustand nach einem Abgleich, der einen
+Menschen nachträgt, den es vor dem Firmenordner schon gab — sein Passwort liegt
+am Gerät nur als Hash. Er kommt hinein, sobald jemand es einmal setzt.
+
+`abgleich_offen` ist der ehrliche Teil: ein Dienst, der gerade nicht läuft, darf
+das Anlegen eines Mitarbeiters nicht aufhalten. Die Zeile merkt sich dann, was
+noch fehlt, und `POST /api/firmenordner/abgleich` holt es nach. `NULL` heißt,
+dass nichts offen ist.
+
+---
+
+## `firmenordner_ordner`
+
+> Die Ordner des Firmenordners auf zwei Ebenen (Migration 183, J33).
+
+| Column         | Type                     | Nullable | Default     |
+| -------------- | ------------------------ | -------- | ----------- |
+| `id`           | bigint                   | ⛔       | `nextval`   |
+| `kennung`      | text                     | ⛔       |             |
+| `name`         | text                     | ⛔       |             |
+| `ebene`        | smallint                 | ⛔       |             |
+| `eltern_id`    | bigint                   | ✅       |             |
+| `art`          | text                     | ⛔       | `'geteilt'` |
+| `raum_id`      | text                     | ✅       |             |
+| `pfad`         | text                     | ⛔       | `''`        |
+| `angelegt_am`  | timestamp with time zone | ⛔       | `now()`     |
+| `angelegt_von` | bigint                   | ✅       |             |
+
+**Primary key:** `id`
+**Unique:** `(eltern_id, kennung)`, dazu ein partieller Index auf `kennung`
+für `eltern_id IS NULL` (NULL ist in einem UNIQUE nicht gleich NULL, sonst
+gäbe es zwei Ordner der Ebene 1 mit demselben Namen).
+**Foreign keys:** `eltern_id` → `firmenordner_ordner(id)` `ON DELETE CASCADE`,
+`angelegt_von` → `admin_users(id)` `ON DELETE SET NULL`
+
+**Im Dienst sind die zwei Ebenen verschiedene Dinge**, und das folgt aus der
+Messung: OpenCloud kann Rechte nur **erweitern**, nie unterhalb entziehen. Wer
+also einen Ordner nicht sehen soll, darf nicht Mitglied des Ordners darüber
+sein. Ebene 1 ist deshalb ein **Raum** (Mitgliedschaft), Ebene 2 ein **Ordner
+darin** (einzelne Einladung).
+
+`art = 'am_geraet'` ist die vierte Rechtestufe aus dem Zielbild: ein Ordner,
+der nie abgeglichen wird und den nur Flows und Apps am Gerät lesen. Im Dienst
+ist er ein eigener Raum **ohne Mitglieder** — als unsichtbarer Unterordner
+eines geteilten Raums geht es nicht (die Rolle „Denied" lehnt die Graph-API
+ab). Deshalb die Bedingung `art = 'geteilt' OR ebene = 1`.
+
+`raum_id` ist `NULL`, solange der Dienst den Raum noch nicht kennt — angelegt
+während der Container stand. `POST /api/firmenordner/abgleich` holt es nach.
+
+---
+
+## `firmenordner_rechte`
+
+> Ein Recht je Ordner und Person (Migration 183, J33).
+
+| Column           | Type                     | Nullable | Default |
+| ---------------- | ------------------------ | -------- | ------- |
+| `ordner_id`      | bigint                   | ⛔       |         |
+| `user_id`        | bigint                   | ⛔       |         |
+| `recht`          | text                     | ⛔       |         |
+| `erteilt_am`     | timestamp with time zone | ⛔       | `now()` |
+| `erteilt_von`    | bigint                   | ✅       |         |
+| `abgleich_offen` | text                     | ✅       |         |
+
+**Primary key:** `(ordner_id, user_id)`
+**Foreign keys:** `ordner_id` → `firmenordner_ordner(id)` `ON DELETE CASCADE`,
+`user_id` → `admin_users(id)` `ON DELETE CASCADE`,
+`erteilt_von` → `admin_users(id)` `ON DELETE SET NULL`
+
+**Zwei Stufen, `lesen` und `schreiben`, und keine dritte namens „keine".**
+„Keine" ist die Abwesenheit einer Zeile, und genau das macht einen Ordner ohne
+Recht unsichtbar — auch seinen Namen. Eine Zeile, die ein Recht _wegnimmt_, gibt
+es mit Absicht nicht: **Rechte werden nur vergeben, nie unterhalb wieder
+entzogen** (Überordner, 21.09.2026), und der gewählte Dienst kann es ohnehin
+nicht.
+
+Daraus folgt, und die Schnittstelle setzt es durch: wer auf Ebene 1
+`schreiben` hat, hat es auf allem darunter. Eine Zeile, die demselben Menschen
+auf einem Kind **weniger** gibt, ist kein gültiger Zustand — `POST
+/api/firmenordner/rechte` weist sie mit `409` ab, statt sie anzunehmen und
+stillschweigend nicht auszuführen. **Mehr** auf dem Kind ist erlaubt und der
+Normalfall.
 
 ---
 

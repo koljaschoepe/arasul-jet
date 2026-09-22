@@ -26,6 +26,12 @@ const {
 } = require('../../utils/password');
 const { ValidationError, UnauthorizedError, NotFoundError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
+// Der Firmenordner (J33, 22.09.2026). Der Dateidienst hat seine eigene
+// Anmeldung, und `schreibePasswort` ist der EINE Schreibweg fuer ein Passwort
+// am Geraet -- also die einzige Stelle, an der der Klartext fuer beide Ablagen
+// vorbeikommt. Steht die Spiegelung woanders, gibt es einen vierten Weg zum
+// Passwort, der sie vergisst.
+const firmenordner = require('../firmenordner/ordnerVerwaltung');
 
 /**
  * Change dashboard admin password
@@ -191,6 +197,24 @@ async function schreibePasswort(userId, newPassword, { changedBy, ipAddress, vom
   // stand es immer richtig; hier nicht, und wer bei einem Vorfall die Logs
   // liest, liest zuerst hier.
   logger.info(`Passwort geaendert fuer Benutzer id=${userId} (durch ${changedBy || 'ihn selbst'})`);
+
+  // ZWEITE PASSWORTABLAGE, und hier ist die Stelle. `istAn()` steht davor,
+  // weil der Name des Menschen in dieser Funktion nicht vorliegt und dafuer
+  // eine EIGENE Abfrage noetig ist -- auf einem Geraet ohne Firmenordner soll
+  // ein Passwortwechsel keine zusaetzliche Runde zur Datenbank kosten.
+  if (firmenordner.istAn()) {
+    const { rows } = await db.query('SELECT id, username, email FROM admin_users WHERE id = $1', [
+      userId,
+    ]);
+    if (rows[0]) {
+      await firmenordner.spiegleNutzer({
+        benutzerId: rows[0].id,
+        username: rows[0].username,
+        email: rows[0].email,
+        passwort: newPassword,
+      });
+    }
+  }
 
   return newPasswordHash;
 }

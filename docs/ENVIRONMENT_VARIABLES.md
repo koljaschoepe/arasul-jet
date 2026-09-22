@@ -557,6 +557,7 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 | RAM_LIMIT_FRONTEND         | 256M    | Dashboard frontend memory    |
 | RAM_LIMIT_BACKUP           | 256M    | Backup service memory        |
 | RAM_LIMIT_BACKEND          | 1G      | Dashboard backend memory     |
+| RAM_LIMIT_FIRMENORDNER     | 2G      | Firmenordner (Dateidienst)   |
 
 ### CPU Limits
 
@@ -565,6 +566,7 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 | CPU_LIMIT_LLM       | 8       | LLM service CPU cores       |
 | CPU_LIMIT_EMBEDDING | 4       | Embedding service CPU cores |
 | CPU_LIMIT_DASHBOARD | 4       | Dashboard backend CPU cores |
+| FIRMENORDNER_CPUS   | 2.0     | Firmenordner (Dateidienst)  |
 
 ### Device Profiles
 
@@ -698,14 +700,51 @@ chmod 600 config/secrets/*
 
 ### Supported Secrets
 
-| Secret File         | Services                                                                              | Resolves To         |
-| ------------------- | ------------------------------------------------------------------------------------- | ------------------- |
-| `postgres_password` | postgres-db, dashboard-backend, metrics-collector, self-healing-agent, backup-service | `POSTGRES_PASSWORD` |
-| `jwt_secret`        | dashboard-backend                                                                     | `JWT_SECRET`        |
+| Secret File                   | Services                                                                              | Resolves To                   |
+| ----------------------------- | ------------------------------------------------------------------------------------- | ----------------------------- |
+| `postgres_password`           | postgres-db, dashboard-backend, metrics-collector, self-healing-agent, backup-service | `POSTGRES_PASSWORD`           |
+| `jwt_secret`                  | dashboard-backend                                                                     | `JWT_SECRET`                  |
+| `firmenordner_admin_password` | firmenordner (Bind-Mount), dashboard-backend (Pfad in `/config`)                      | `FIRMENORDNER_ADMIN_PASSWORT` |
 
 ### Precedence
 
 If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the env var). Remove the plain env var from `.env` when switching to secrets.
+
+---
+
+## Der Firmenordner (J33, 22.09.2026)
+
+Der Dateidienst am Gerät. Er läuft **nur, wenn `COMPOSE_PROFILES` ihn nennt** —
+das ist der eine Schalter, und alles Weitere hängt daran. Die ganze Sache steht
+in [docs/features/FIRMENORDNER.md](features/FIRMENORDNER.md).
+
+| Variable                   | Default                      | Description                                              |
+| -------------------------- | ---------------------------- | -------------------------------------------------------- |
+| COMPOSE_PROFILES           | _(leer)_                     | `firmenordner` schaltet den Dienst an. Der eine Schalter |
+| FIRMENORDNER_PORT          | 8443                         | Der Port draußen; im Container steht 8443 fest           |
+| FIRMENORDNER_ADRESSE       | `https://<MDNS_NAME>:<PORT>` | Was das Gerät einem Menschen und seinem Klienten nennt   |
+| FIRMENORDNER_INTERN        | `http://firmenordner:9200`   | Wo das Backend ihn im Docker-Netz erreicht               |
+| FIRMENORDNER_ADMIN         | admin                        | Anmeldename des Dienst-Administrators                    |
+| FIRMENORDNER_VERSION       | 8.0.1                        | Die Fassung des Abbilds — fest, und die gemessene        |
+| FIRMENORDNER_LOG_LEVEL     | warn                         | Protokollstufe des Dienstes                              |
+| FIRMENORDNER_ZEITGRENZE_MS | 10000                        | Wie lange das Backend auf ihn wartet                     |
+
+**Das Passwort steht in keiner dieser Zeilen.** Es liegt in
+`config/secrets/firmenordner_admin_password` — einer Datei, die der Dienst
+selbst liest (als Bind-Mount) und die das Backend über den `config/`-Mount
+findet. **Ein Geheimnis, ein Ort:** zwei Dateien wären zwei Werte, die
+irgendwann auseinanderlaufen, und dann legt Arasul Nutzer an, die der Dienst
+nicht annimmt. Erzeugt wird sie von `./arasul bootstrap` und von
+`scripts/interactive_setup.sh`, **auch auf einem Gerät ohne das Profil**: sie
+kostet 32 Byte, und ein Dienst, der einmal mit leerem Passwort hochgefahren
+ist, hat ein Administratorkonto, das sich ohne Verlust der Ablage nicht mehr
+heilen lässt.
+
+`FIRMENORDNER_ADMIN_PASSWORT_FILE` ist die einzige `_FILE`-Variable dieses
+Geräts, die **kein** Docker-Secret ist. Der Grund ist ein Ausfallrisiko: ein
+`secrets:`-Eintrag verlangt die Datei, sobald der Container angelegt wird — auf
+jedem Gerät, auch auf einem ohne Firmenordner. Ein Gerät, das dieses Artefakt
+einspielt und die Datei nicht hat, bekäme also kein Backend mehr.
 
 ---
 

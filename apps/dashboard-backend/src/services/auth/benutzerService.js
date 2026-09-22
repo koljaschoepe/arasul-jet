@@ -21,6 +21,14 @@ const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { invalidateUserCache, ROLLEN } = require('../../middleware/auth');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
+// Der Firmenordner (J33, 22.09.2026). Ein Mensch am Geraet ist auch ein
+// Mensch im Dateidienst -- der hat seine eigene Anmeldung und nimmt die
+// Kopfzeile der Forward-Auth nicht an (21.09.2026 gemessen). Drei der vier
+// Ereignisse eines Kontos gehen deshalb hier mit; das vierte (Passwort)
+// haengt an `passwordService`, weil nur dort der Klartext vorbeikommt.
+// JEDER Aufruf faengt seinen Fehler selbst: ein Dateidienst, der gerade nicht
+// laeuft, darf die Benutzerverwaltung nicht aufhalten.
+const firmenordner = require('../firmenordner/ordnerVerwaltung');
 
 /**
  * Platzhalter fuer anonymisierte Spalten, die NOT NULL sind.
@@ -78,6 +86,16 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
     [username, passwordHash, email || null, rolle]
   );
   logger.info(`Benutzer ${username} angelegt (Rolle ${rolle})`);
+  // Mit dem Startpasswort: es ist der einzige Augenblick, in dem das Geraet
+  // es im Klartext hat. Wer hier spaeter etwas umbaut und diese Zeile
+  // vergisst, legt einen Menschen an, der in den Firmenordner nicht
+  // hineinkommt -- sichtbar wird das erst an seinem Rechner.
+  await firmenordner.spiegleNutzer({
+    benutzerId: result.rows[0].id,
+    username,
+    email: email || null,
+    passwort: password,
+  });
   return result.rows[0];
 }
 
@@ -151,6 +169,8 @@ async function setzeAktiv({ userId, aktiv }) {
   }
   invalidateUserCache(userId);
 
+  await firmenordner.spiegleAktiv({ benutzerId: userId, aktiv });
+
   logger.warn(
     `Benutzer ${ziel.username} (id=${userId}) ${aktiv ? 'wieder zugelassen' : 'stillgelegt'}`
   );
@@ -181,6 +201,13 @@ async function loescheBenutzer({ userId, username, role }) {
   // aktuelle Token bliebe bis zu 60s aus dem Cache gueltig. Bei Rollback der
   // Transaktion ist der Nutzer nur ausgeloggt (Konto bleibt): sicheres Fail.
   await blacklistAllUserTokens(userId);
+
+  // VOR der Transaktion, und zwar aus demselben Grund wie die Zeile darueber:
+  // die Zeile in `firmenordner_nutzer` faellt gleich per ON DELETE CASCADE,
+  // und mit ihr die Kennung im Dateidienst. Danach stuende dort ein Konto, von
+  // dem niemand mehr weiss, wem es gehoerte. Seine DATEIEN bleiben liegen --
+  // sie gehoeren der Firma, nicht ihm.
+  await firmenordner.spiegleLoeschung(userId);
 
   const summary = await db.transaction(async client => {
     const counts = {};

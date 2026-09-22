@@ -228,3 +228,13 @@ http:
       forwardingTimeouts:
         responseHeaderTimeout: 300s
         idleConnTimeout: 300s
+
+    # Der Firmenordner (J33, 22.09.2026). Eine grosse Datei ueber ein WLAN
+    # braucht laenger als die Vorgabe: gemessen am 21.09.2026 lud derselbe Baum
+    # am Geraet in 75 s und ueber das WLAN eines Bueros in 267 s, und das war
+    # der ganze Baum -- eine einzelne Datei von ein paar hundert Megabyte ist
+    # die Zahl, an der eine Vorgabe von 60 s abschneidet.
+    firmenordner-transport:
+      forwardingTimeouts:
+        responseHeaderTimeout: 600s
+        idleConnTimeout: 600s
