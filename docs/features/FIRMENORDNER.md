@@ -23,6 +23,13 @@ Schalter** — auch das Backend liest ihn (`COMPOSE_PROFILES` ist in
 `compose.app.yaml` durchgereicht), damit es nicht einen Dienst spiegelt, den
 es auf diesem Gerät nicht gibt.
 
+**Und genau deshalb muss beim Einschalten auch das Backend neu angelegt
+werden.** Eine Umgebungsvariable erreicht einen Container, der schon läuft,
+nicht; am 22.09.2026 am Orin gemessen: der Dateidienst lief, und
+`GET /api/firmenordner` sagte weiter „auf diesem Gerät läuft kein
+Firmenordner". `docker compose up -d firmenordner dashboard-backend` ist der
+Befehl — nicht nur der erste Name.
+
 ---
 
 ## Was darunter läuft
@@ -394,9 +401,9 @@ des Geräts.
 ## Ablauf: einen Firmenordner einrichten
 
 ```bash
-# 1. Anschalten
+# 1. Anschalten -- und BEIDE Container anfassen
 echo 'COMPOSE_PROFILES=firmenordner' >> .env
-docker compose up -d firmenordner
+docker compose up -d firmenordner dashboard-backend
 
 # 2. Die Menschen, die es schon gibt, nachtragen
 curl -sk -X POST https://arasul/api/firmenordner/abgleich \

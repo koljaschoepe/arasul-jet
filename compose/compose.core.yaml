@@ -129,8 +129,10 @@ services:
       # Der Port steht IM Container fest (`config/traefik/traefik.yml` ist
       # statische Konfiguration und kennt keine Variablen), draussen ist er
       # verschiebbar. Er ist auch dann offen, wenn das Profil `firmenordner`
-      # nicht laeuft -- dann antwortet Traefik dort mit 404, und das ist die
-      # richtige Auskunft: es gibt diesen Dienst auf diesem Geraet nicht.
+      # nicht laeuft -- dann antwortet Traefik dort mit 502 (am 22.09.2026 am
+      # Orin gemessen): der Router steht, der Dienst dahinter nicht. Das ist
+      # die ehrliche Auskunft und kein Mangel; wer 8443 dicht haben will, hat
+      # dafuer die Firewall des Hauses.
       - '${FIRMENORDNER_PORT:-8443}:8443'
       - '127.0.0.1:${TRAEFIK_DASHBOARD_PORT:-8080}:8080'
     volumes:

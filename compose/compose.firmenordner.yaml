@@ -169,10 +169,12 @@ services:
       # Dieselbe Datei liest das Backend (`compose.secrets.yaml`).
       - ${SECRETS_PFAD:-../config/secrets}/firmenordner_admin_password:/run/secrets/firmenordner_admin_password:ro
     healthcheck:
-      # Der Dienst bringt seine eigene Probe mit. Sie fragt den Prozess, nicht
-      # den Port -- ein Port, der antwortet, ist noch kein Dienst, der bereit
-      # ist (der Fund aus dem zweiten Werksreset, 28.08.2026).
-      test: ['CMD', 'opencloud', 'health']
+      # `/readyz` AUF DEM DEBUG-PORT, und nicht `opencloud health`: diesen
+      # Unterbefehl gibt es nicht (am 22.09.2026 am Orin gemessen, der
+      # Container stand eine Viertelstunde auf `unhealthy` und antwortete
+      # dabei auf jede Anfrage). Und nicht der Port 9200: ein Port, der
+      # antwortet, ist noch kein Dienst, der BEREIT ist -- derselbe Fund wie
+      # beim zweiten Werksreset am 28.08.2026. `readyz` sagt genau das.
       interval: 30s
       timeout: 5s
       retries: 3
