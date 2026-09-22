@@ -87,14 +87,40 @@ const steht = (seite, waehler, grenze = 20000) =>
 
 /**
  * Eine Stufe in einer Zelle der Matrix waehlen. Das Auswahlfeld ist Radix'
- * `Select`: ein Klick auf den Ausloeser oeffnet die Liste in einem Portal,
- * die Eintraege tragen ihre eigene Kennung.
+ * `Select`: ein Klick auf den Ausloeser oeffnet die Liste in einem Portal.
+ *
+ * ANFAHREN, DRUECKEN, LOSLASSEN -- und nicht `click()` auf den Eintrag, und
+ * nicht die Tastatur. Beides ist am 22.09.2026 am Orin gemessen: der Klick
+ * auf „schreiben" liess die Liste offen stehen (das Bild zeigt sie mit dem
+ * alten Haken, am Geraet entstand keine Zeile), und Enter nach einer
+ * Vorauswahl per Buchstabe aenderte nichts. Radix waehlt einen Eintrag beim
+ * Loslassen der Maus, aber nur, wenn es die Maus vorher ueber ihm gesehen
+ * hat (`onPointerMove` setzt die Art des Zeigers); Playwrights `click()`
+ * faehrt zwar hin, ist aber schneller, als die Liste ihren Zeiger merkt.
+ * `hover()` und danach `mouse.down()`/`mouse.up()` an derselben Stelle traf
+ * dreimal von dreimal (POST 201).
+ *
+ * Gewartet wird auf die ANTWORT des Geraets, nicht auf das Bild: die Zelle
+ * kann „schreiben" schon vorher sagen („wie oben: schreiben").
  */
 async function stufeWaehlen(seite, zelle, stufe) {
   await seite.getByTestId(zelle).click();
+  const liste = seite.getByRole('listbox');
+  await liste.waitFor({ timeout: 10000 });
   const eintrag = seite.getByTestId(`${zelle}-${stufe}`);
   await eintrag.waitFor({ timeout: 10000 });
-  await eintrag.click();
+  const antwort = seite
+    .waitForResponse(
+      r => r.url().includes('/api/firmenordner/rechte') && r.request().method() !== 'GET',
+      { timeout: 30000 }
+    )
+    .catch(() => null);
+  await eintrag.hover();
+  await seite.mouse.down();
+  await seite.mouse.up();
+  await liste.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+  const r = await antwort;
+  return r ? r.status() : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,22 +193,30 @@ try {
 
       // 3. Eine Stufe einstellen: WEIT bekommt auf dem Projekt `schreiben`.
       const zelle = `recht-${PROJEKT}-${WEIT}`;
-      await stufeWaehlen(seite, zelle, 'schreiben');
-      const gesetzt = await seite
-        .getByTestId(zelle)
-        .filter({ hasText: 'schreiben' })
-        .waitFor({ timeout: 30000 })
-        .then(() => true)
-        .catch(() => false);
-      pruefe(`${WEIT} bekommt im Browser „schreiben" auf ${PROJEKT}`, gesetzt);
+      const status = await stufeWaehlen(seite, zelle, 'schreiben');
+      await seite.waitForTimeout(1000);
+      const wort = (
+        await seite
+          .getByTestId(zelle)
+          .innerText()
+          .catch(() => '')
+      ).trim();
+      // Genau „schreiben", nicht „wie oben: schreiben": das eine ist eine
+      // eigene Zeile, das andere die Vererbung.
+      pruefe(
+        `${WEIT} bekommt im Browser „schreiben" auf ${PROJEKT}`,
+        status === 201 && wort === 'schreiben',
+        `POST -> ${status}, Zelle sagt „${wort}"`
+      );
       await seite.screenshot({
         path: path.join(ZIEL, 'matrix-nach-der-vergabe.png'),
         fullPage: true,
       });
 
       // 4. Weniger als oben: 409 mit Ausweg.
-      await stufeWaehlen(seite, zelle, 'lesen');
+      const status409 = await stufeWaehlen(seite, zelle, 'lesen');
       const fehler = await steht(seite, '[data-testid="rechte-fehler"]', 30000);
+      pruefe('das Geraet antwortet darauf mit 409', status409 === 409, `POST -> ${status409}`);
       const satz = fehler
         ? await seite
             .getByTestId('rechte-fehler')
