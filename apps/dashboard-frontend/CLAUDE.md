@@ -102,6 +102,17 @@ src/
                    Fehler. Die Verwaltung liegt hier und nicht als eigene
                    Ansicht in der ActivityBar: deren Einträge tragen die Arbeit
                    (Apps, Modelle), das Zahnrad darunter das Einrichten.
+                   Seit dem Auftrag firmenordner-rechte-im-frontend
+                   (22.09.2026) gehört die Sektion **Firmenordner** dazu
+                   (`FirmenordnerSettings.tsx` plus `firmenordner/`): der
+                   Ordnerbaum (`OrdnerBaum.tsx`), Anlegen und Wegwerfen
+                   (zwei Dialoge, Kennung abtippen), die **Rechte-Matrix**
+                   Menschen mal Ordner mit einer Stufe je Zelle
+                   (`RechteMatrix.tsx`; ein Ordner am Gerät und die Wurzel
+                   haben keine Spalte, ein 409 steht als Satz über der
+                   Matrix) und je Ordner die letzten Änderungen aus dem
+                   Dienst (`AenderungenDialog.tsx`). Abfragen und
+                   Mutationen in `firmenordner/useFirmenordner.ts`.
     modelle/       Die Kurzliste des Geräts (D5): `ModelleAnsicht.tsx` (die
                    Seite des `modelle`-Tabs), `ModellZeile.tsx` (ein Modell mit
                    seinen Handgriffen), `useModelle.ts` (Abfragen und
@@ -130,6 +141,12 @@ src/
                    `postMessage {typ:'arasul:theme', theme}`. Das Theme steht
                    **weder im `key` noch in der Adresse** — beides tauschte
                    das iframe-Element aus, und die App finge von vorn an.
+    firmenordner/  Mein Firmenordner, für jeden (Auftrag
+                   firmenordner-rechte-im-frontend): ein Dialog im
+                   Benutzermenü der Kopfleiste, neben den Ausweisen — die
+                   Adresse des Dienstes und die eigenen Ordner mit Stufe aus
+                   `GET /api/firmenordner`. Ein 503 heißt „hier gibt es
+                   keinen" und ist eine Auskunft, kein Fehler.
     freigaben/     Die offenen Freigaben aus C7, entschieden in der Übersicht
                    (D2): `OffeneFreigaben.tsx` (Liste mit Titel, Zusammenhang,
                    Restzeit, Bestätigen und Ablehnen-mit-Begründung) und

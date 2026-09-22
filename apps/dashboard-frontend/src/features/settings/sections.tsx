@@ -1,4 +1,14 @@
-import { AppWindow, Info, Lock, Server, Globe, ShieldAlert, Sparkles, Users } from 'lucide-react';
+import {
+  AppWindow,
+  FolderTree,
+  Info,
+  Lock,
+  Server,
+  Globe,
+  ShieldAlert,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /**
@@ -9,7 +19,15 @@ import type { ReactNode } from 'react';
  * der Verwender bestimmt die Größe.
  */
 export type SettingsSectionId =
-  'general' | 'apps' | 'benutzer' | 'ki' | 'security' | 'privacy' | 'system' | 'remote-access';
+  | 'general'
+  | 'apps'
+  | 'benutzer'
+  | 'firmenordner'
+  | 'ki'
+  | 'security'
+  | 'privacy'
+  | 'system'
+  | 'remote-access';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -37,6 +55,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: 'Mitarbeiter',
     icon: <Users />,
     description: 'Konten, Startpasswort, App-Freigaben',
+  },
+  // Direkt nach den Menschen (Auftrag firmenordner-rechte-im-frontend,
+  // 22.09.2026): wer welchen Ordner sieht, ist dieselbe Frage wie wer welche
+  // App sieht -- nur mit drei Stufen statt einem Haken.
+  {
+    id: 'firmenordner',
+    label: 'Firmenordner',
+    icon: <FolderTree />,
+    description: 'Ordner, Rechte je Person, letzte Änderungen',
   },
   { id: 'ki', label: 'KI', icon: <Sparkles />, description: 'Firmenprofil, Kontext & RAG/LLM' },
   { id: 'security', label: 'Sicherheit', icon: <Lock />, description: 'Passwörter und Zugriff' },

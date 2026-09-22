@@ -10,6 +10,7 @@ import { resolveTab, resolveSystemSub } from './sections';
 import { GeneralSettings } from './GeneralSettings';
 import { AppsSettings } from './AppsSettings';
 import { MitarbeiterSettings } from './MitarbeiterSettings';
+import { FirmenordnerSettings } from './FirmenordnerSettings';
 import { KISettings } from './KISettings';
 import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
@@ -95,6 +96,12 @@ function Settings({ handleLogout }: SettingsProps) {
         return (
           <ComponentErrorBoundary componentName="Mitarbeiter">
             <MitarbeiterSettings />
+          </ComponentErrorBoundary>
+        );
+      case 'firmenordner':
+        return (
+          <ComponentErrorBoundary componentName="Firmenordner">
+            <FirmenordnerSettings />
           </ComponentErrorBoundary>
         );
       case 'ki':
