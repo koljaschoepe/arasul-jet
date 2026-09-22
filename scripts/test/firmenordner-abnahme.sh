@@ -255,13 +255,18 @@ pruefe 'der Dienst zeigt das Zertifikat der Geraete-CA' \
 # (`content-type: text/html`, darin sein `WEB_APPS_MAP`). Ein Statuscode
 # allein kann die zwei nicht auseinanderhalten; der Name des Dienstes im
 # JSON-Koerper schon.
-API_DORT=$(curl -sk --max-time 15 "$DIENST/api/health" 2>/dev/null | head -c 400)
+#
+# ERST LESEN, DANN KUERZEN, und nicht `curl … | head -c`: `head` schliesst das
+# Rohr beim ersten Treffer, curl bekommt SIGPIPE, und unter `pipefail` traegt
+# die Ersetzung die 141 nach draussen (`scripts/test/rohrbruch.py`). Die
+# Antwort des Dateidienstes ist eine ganze Oberflaeche -- also genau die
+# Groesse, bei der das zuschlaegt.
+API_DORT=$(curl -sk --max-time 15 "$DIENST/api/health" 2>/dev/null)
 pruefe 'auf dem Port des Firmenordners gibt es die Schnittstelle des Geraets nicht' \
-  "$(ja_nein "$(enthaelt "$API_DORT" 'dashboard-backend')" nein)" \
-  "$(echo "$API_DORT" | head -c 60)"
-API_HIER=$(curl -sk --max-time 15 "$BASIS/api/health" 2>/dev/null | head -c 400)
+  "$(ja_nein "$(enthaelt "$API_DORT" 'dashboard-backend')" nein)" "${API_DORT:0:60}"
+API_HIER=$(curl -sk --max-time 15 "$BASIS/api/health" 2>/dev/null)
 pruefe 'auf 443 dagegen schon -- sonst misst die Zeile darueber nichts' \
-  "$(enthaelt "$API_HIER" 'dashboard-backend')" "$(echo "$API_HIER" | head -c 60)"
+  "$(enthaelt "$API_HIER" 'dashboard-backend')" "${API_HIER:0:60}"
 
 # ===========================================================================
 # 2. Ein Mensch wird gespiegelt
