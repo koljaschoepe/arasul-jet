@@ -1122,6 +1122,40 @@ ein anderer: eine abgelaufene, aber geprueft echte Lizenz laeuft
 Repo und die Compose-Ablage), im CI-Job `Backend` und in `run-tests.sh`. Das
 Signierwerkzeug ist **nicht** Teil davon (eigene Karte testlizenz-ohne-stripe).
 
+Seit dem Auftrag **firmenordner-rechte-im-frontend** (22.09.2026, J33) **verwaltet
+der Administrator den Firmenordner in der Oberflaeche**, und der Firmenordner hat
+eine **Wurzel**. Einstellungen → Firmenordner (`features/settings/FirmenordnerSettings.tsx`
+plus `firmenordner/`): der Ordnerbaum mit Kennung, Name und Art, Anlegen und
+Wegwerfen ueber die Wege aus PR 765 (Kennung abtippen wie beim Kit), die
+Rechte-Matrix Menschen mal Ordner mit einer Stufe je Zelle -- keine, lesen,
+schreiben --, vererbt von Ebene 1 auf 2 und dort nur mehr; weniger weist das
+Backend mit 409 ab, und der Satz mit dem Ausweg steht ueber der Matrix. Ein
+Ordner am Geraet hat keine Rechtespalte. Neu am Backend die **Wurzel**
+(Migration 184, `art = 'wurzel'`, Ebene 0, genau eine je Geraet): das Zielbild
+hat ueber den zwei Ebenen ein `firma/`, in dem die Regeln liegen, und im
+Dateidienst gibt es ueber einem Raum nichts -- also ist sie ein eigener Raum,
+den das CLI der Wurzel oben in den lokalen Baum legt. **Wer sie liest, steht in
+keiner Rechte-Zeile**: jeder aktive Mensch liest, jeder Administrator schreibt,
+das folgt aus `admin_users.role` und wird im Dienst als Einladung je Mensch
+gehalten (`spiegleWurzelMitglieder`, beim Anlegen, beim Spiegeln eines
+Menschen, bei jedem Abgleich; gemessen ueber WebDAV: PUT eines Mitarbeiters
+403, eines Administrators 201). Sie faellt zuletzt, solange ein anderer Ordner
+besteht. `GET /api/firmenordner` fuehrt sie zuerst, mit `pfad` leer und `art`
+an jedem Eintrag. Dazu **`sicht.md`** (Regel 3 der sieben Regeln): `GET
+/api/firmenordner/sicht` erzeugt je Mensch aus seinen Rechten und Freigaben
+eine Seite -- seine Ordner mit Stufe, seine Apps mit Verweis auf
+`apps/<id>/APP.md`, die Orte aus `.claude/places.json` der Wurzel --, mit
+Ausweis wie die vierte Route, und sie nennt nichts, was er nicht hat. Und die
+**Uebersicht je Ordner** (`GET .../ordner/:id/aenderungen`) liest, wer zuletzt
+wann etwas geaendert hat, aus dem Protokoll des Dienstes
+(`org.libregraph/activities`): auf der Platte gehoert jede Datei dem Konto des
+Geraets, und ein `PROPFIND` nennt nur den Eigentuemer des Raums, nie den, der
+geschrieben hat (22.09.2026 am Orin gemessen). Der Mitarbeiter sieht seine
+Ordner unter **Mein Firmenordner** im Benutzermenue, neben seinen Ausweisen.
+Abnahme: `scripts/test/firmenordner-abnahme.sh`, seither mit Wurzel, `sicht.md`
+und dem Klick im Browser (`scripts/test/firmenordner-bilder.mjs`); Abschnitt 8
+wartet, bis der Suchindex steht, statt ihn zu frueh zu messen.
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |
