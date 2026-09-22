@@ -314,7 +314,16 @@ fi
 # hineinschreibt (Phase C10, Erneuerung des Geraetezertifikats). Ein Ordner,
 # den Docker beim Start selbst anlegt, gehoert root -- und dann scheitert die
 # Erneuerung erst in zwei Jahren, an einem Geraet, an dem niemand mehr sitzt.
-for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps" "$DEPLOY_DIR/config/traefik/certs"; do
+# `data/firmenordner/{ablage,konfiguration}` kam mit J33 (22.09.2026) dazu.
+# Der Dateidienst laeuft als uid 1000 und legt seine ganze Ablage dort an;
+# gehoert der Ordner root, kommt er beim ersten Start nicht hinein -- und weil
+# er nur mit dem Profil `firmenordner` hochfaehrt, faellt das erst dem auf, der
+# das Profil Wochen spaeter einschaltet. Beide Ordner, auch auf einem Geraet
+# ohne das Profil: das Backend haengt `ablage` ohnehin nur-lesend ein, und ein
+# leerer Ordner kostet nichts.
+for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps" \
+  "$DEPLOY_DIR/data/firmenordner/ablage" "$DEPLOY_DIR/data/firmenordner/konfiguration" \
+  "$DEPLOY_DIR/config/traefik/certs"; do
   mkdir -p "$ordner"
   [ -w "$ordner" ] && continue
   # Ein Ordner, den Docker vor diesem Deploy angelegt hat, gehoert root. Der
@@ -329,6 +338,22 @@ done
 
 SECRETS_DIR="$DEPLOY_DIR/config/secrets"
 mkdir -p "$SECRETS_DIR"; chmod 700 "$SECRETS_DIR" 2>/dev/null || true
+
+# Das Administratorpasswort des Firmenordners (J33, 22.09.2026). Genau der
+# Fall, fuer den der Block 1b darueber gedacht ist: eine Geheimnisdatei, die
+# es auf Bestandsgeraeten noch nicht gibt. Sie wird hier erzeugt und NIE
+# ueberschrieben -- ein neuer Wert passte nicht mehr zu dem Konto, das der
+# Dienst schon angelegt hat, und Arasul kaeme an seine Graph-API nicht mehr
+# heran. Auch ohne das Profil: sie kostet 32 Byte, und der Bind-Mount des
+# Dienstes wuerde aus einer fehlenden Datei ein VERZEICHNIS machen.
+# Keine Sonderzeichen -- der Wert geht ueber eine Shell-Zeile in den Container.
+if [ ! -s "$SECRETS_DIR/firmenordner_admin_password" ]; then
+  rm -rf "$SECRETS_DIR/firmenordner_admin_password"
+  openssl rand -base64 48 2>/dev/null | tr -d '/+=\n' | cut -c1-32 \
+    > "$SECRETS_DIR/firmenordner_admin_password"
+  chmod 600 "$SECRETS_DIR/firmenordner_admin_password"
+  ok "Firmenordner: Administratorpasswort erzeugt"
+fi
 
 # --- 2. Geaenderte Dateien -> Services ---------------------------------------
 # Der Rueckgabewert von `git diff` wird ausgewertet. Ohne das schluckt
@@ -358,6 +383,14 @@ MIGRATION_CHANGE=0
 for f in "${CHANGED[@]}"; do
   case "$f" in
     compose/*|docker-compose.yml|.env|.env.*) INFRA_CHANGE=1 ;;
+    # Die STATISCHE Traefik-Konfiguration (J33, 22.09.2026). Sie steht hier und
+    # `config/traefik/dynamic/` NICHT: den Ordner `dynamic` liest Traefik
+    # selbst neu (`watch: true`), diese Datei aber nur beim Start -- ein neuer
+    # Einstiegspunkt darin gilt sonst erst nach dem naechsten Neustart, der
+    # vielleicht Wochen spaeter kommt. Dieselbe Klasse wie die Tabelle
+    # darueber, die vor J31 zu wenig baute: ein Deploy, der zu wenig anwendet,
+    # ist gruen.
+    config/traefik/traefik.yml) INFRA_CHANGE=1 ;;
     services/postgres/init/*) MIGRATION_CHANGE=1; SVC_SET["dashboard-backend"]=1 ;;
   esac
   for p in "${!PATH2SVC[@]}"; do
