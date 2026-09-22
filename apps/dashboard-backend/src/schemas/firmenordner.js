@@ -27,10 +27,17 @@ const OrdnerBody = z
   .object({
     kennung: Kennung,
     name: z.string().trim().min(1).max(80),
+    /**
+     * Ebene 1 und 2 -- und seit dem Auftrag firmenordner-rechte-im-frontend
+     * (22.09.2026) die 0 fuer die eine Wurzel. Sie darf weggelassen werden,
+     * wenn `art` sie ohnehin sagt: das CLI der Wurzel legt sie mit
+     * `art: 'wurzel'` an und muss die Null nicht kennen.
+     */
     ebene: z.coerce
       .number()
       .int()
-      .refine(n => n === 1 || n === 2, 'Es gibt Ebene 1 und Ebene 2'),
+      .refine(n => n === 0 || n === 1 || n === 2, 'Es gibt die Wurzel (0), Ebene 1 und Ebene 2')
+      .optional(),
     /** Nur auf Ebene 2, und dort Pflicht — die Verwaltung prueft das mit Satz. */
     eltern: Kennung.optional(),
     /**
@@ -39,10 +46,42 @@ const OrdnerBody = z
      * Ebene 1, weil er im Dienst ein eigener Raum OHNE Mitglieder ist --
      * innerhalb eines geteilten Raums laesst sich nichts verbergen
      * (21.09.2026 gemessen).
+     *
+     * `wurzel` ist die Ebene 0: genau eine je Geraet, jeder aktive Mensch
+     * liest sie, Administratoren schreiben, keine Rechte-Zeile.
      */
-    art: z.enum(['geteilt', 'am_geraet']).default('geteilt'),
+    art: z.enum(['geteilt', 'am_geraet', 'wurzel']).default('geteilt'),
   })
-  .strict();
+  .strict()
+  .superRefine((wert, ctx) => {
+    const ebene = wert.ebene ?? (wert.art === 'wurzel' ? 0 : undefined);
+    if (ebene === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['ebene'], message: 'Die Ebene fehlt' });
+      return;
+    }
+    if (wert.art === 'wurzel' && ebene !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ebene'],
+        message: 'Die Wurzel ist Ebene 0',
+      });
+    }
+    if (wert.art !== 'wurzel' && ebene === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['art'],
+        message: 'Ebene 0 ist allein die Wurzel (art: wurzel)',
+      });
+    }
+    if (wert.art === 'am_geraet' && ebene !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ebene'],
+        message: 'Ein Ordner am Geraet liegt auf Ebene 1',
+      });
+    }
+  })
+  .transform(wert => ({ ...wert, ebene: wert.ebene ?? (wert.art === 'wurzel' ? 0 : 1) }));
 
 const OrdnerParams = z.object({ id: z.coerce.number().int().positive() }).strict();
 

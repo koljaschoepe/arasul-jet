@@ -1245,7 +1245,7 @@ dass nichts offen ist.
 | `id`           | bigint                   | ⛔       | `nextval`   |
 | `kennung`      | text                     | ⛔       |             |
 | `name`         | text                     | ⛔       |             |
-| `ebene`        | smallint                 | ⛔       |             |
+| `ebene`        | smallint                 | ⛔       | 0, 1 oder 2 |
 | `eltern_id`    | bigint                   | ✅       |             |
 | `art`          | text                     | ⛔       | `'geteilt'` |
 | `raum_id`      | text                     | ✅       |             |
@@ -1270,7 +1270,22 @@ darin** (einzelne Einladung).
 der nie abgeglichen wird und den nur Flows und Apps am Gerät lesen. Im Dienst
 ist er ein eigener Raum **ohne Mitglieder** — als unsichtbarer Unterordner
 eines geteilten Raums geht es nicht (die Rolle „Denied" lehnt die Graph-API
-ab). Deshalb die Bedingung `art = 'geteilt' OR ebene = 1`.
+ab).
+
+`art = 'wurzel'` ist die **Ebene 0** (Migration 184, Auftrag
+firmenordner-rechte-im-frontend, 22.09.2026): `firma/` aus dem Zielbild, die
+Regeln, Skills und Agents der Firma. Im Dienst ein eigener Raum, weil über
+einem Raum dort nichts liegt; das CLI der Wurzel legt ihn oben in den lokalen
+Baum. **Genau eine je Gerät** — ein partieller Eindeutigkeitsindex
+(`idx_firmenordner_ordner_wurzel`, über `(true) WHERE art = 'wurzel'`) hält
+das fest. **Keine Rechte-Zeile:** jeder aktive Mensch liest sie, jeder
+Administrator schreibt, das folgt aus `admin_users.role`. Sie fällt erst,
+wenn kein anderer Ordner mehr besteht.
+
+Die drei benannten CHECKs seit 184 (`_ebene_chk`, `_art_chk`,
+`_ebene_eltern_chk`) halten Ebene, Elternteil und Art in genau drei Formen
+zusammen: Ebene 0 ohne Elternteil und `wurzel`; Ebene 1 ohne Elternteil und
+`geteilt` oder `am_geraet`; Ebene 2 mit Elternteil und `geteilt`.
 
 `raum_id` ist `NULL`, solange der Dienst den Raum noch nicht kennt — angelegt
 während der Container stand. `POST /api/firmenordner/abgleich` holt es nach.

@@ -636,6 +636,110 @@ async function nimmEinladungZurueck({ raumId, ordnerId, dienstNutzerId }) {
 }
 
 /**
+ * Wer in einem Raum Mitglied ist -- als Liste der Berechtigungen an seiner
+ * Wurzel.
+ *
+ * FUER DIE WURZEL DES FIRMENORDNERS (Auftrag firmenordner-rechte-im-frontend,
+ * 22.09.2026): dort steht kein Mensch in `firmenordner_rechte`, jeder aktive
+ * Mensch liest, jeder Administrator schreibt. Was der Dienst davon schon
+ * weiss, sagt nur er selbst -- und wer das nicht fragt, laedt bei jedem
+ * Abgleich jeden Menschen noch einmal ein.
+ *
+ * Gibt je Berechtigung die Kennung des Menschen im Dienst und die Rollen
+ * zurueck; Berechtigungen ohne Menschen (Links, Gruppen) fallen weg.
+ */
+async function mitglieder(raumId) {
+  const daten = await anfrage(
+    `/graph/v1beta1/drives/${encodeURIComponent(raumId)}/root/permissions`
+  );
+  return (daten?.value || [])
+    .filter(recht => recht?.grantedToV2?.user?.id)
+    .map(recht => ({
+      permissionId: recht.id,
+      dienstNutzerId: recht.grantedToV2.user.id,
+      rollen: Array.isArray(recht.roles) ? recht.roles : [],
+    }));
+}
+
+/** Eine einzelne Berechtigung an der Wurzel eines Raums wegnehmen. */
+async function entferneMitglied(raumId, permissionId) {
+  await anfrage(
+    `/graph/v1beta1/drives/${encodeURIComponent(raumId)}/root/permissions/${encodeURIComponent(permissionId)}`,
+    { methode: 'DELETE' }
+  );
+}
+
+/**
+ * Wer zuletzt wann etwas geaendert hat -- aus dem Aenderungsprotokoll des
+ * Dienstes.
+ *
+ * DER DIENST WEISS ES, DAS GERAET NICHT. Auf der Platte gehoert jede Datei
+ * dem Konto des Geraets (uid 1000, `posix`); wer sie hochgeladen hat, steht
+ * nirgends im Dateisystem. Der Dienst fuehrt dagegen je Element ein
+ * Protokoll (`activitylog`), und die Graph-Erweiterung
+ * `org.libregraph/activities` gibt es heraus -- am 22.09.2026 am Orin
+ * gemessen: nach einem `PUT` eines Menschen steht dort binnen Sekunden
+ * `{user} added {resource} to {folder}` mit seinem Anzeigenamen und der
+ * Zeit. Ein `PROPFIND` dagegen nennt nur `getlastmodified` und den
+ * EIGENTUEMER des Raums, nie den, der geschrieben hat.
+ *
+ * `kql=itemid:<kennung>` -- fuer einen Raum die Kennung des Raums, fuer einen
+ * Ordner darin die Kennung des Ordners. Die Antwort ist eine Vorlage mit
+ * Platzhaltern (`{user}`, `{resource}`, `{folder}`, `{space}`, `{sharee}`)
+ * und ihren Werten; hier wird sie zu einem Satz aufgeloest, damit die
+ * Oberflaeche nichts von dieser Form wissen muss.
+ *
+ * Neueste zuerst, hoechstens `grenze` Eintraege.
+ */
+async function aenderungen(itemId, grenze = 20) {
+  const daten = await anfrage(
+    `/graph/v1beta1/extensions/org.libregraph/activities?kql=${encodeURIComponent(`itemid:${itemId}`)}`
+  );
+  const liste = (daten?.value || [])
+    .map(eintrag => {
+      const vorlage = eintrag?.template || {};
+      const werte = vorlage.variables || {};
+      const wer = werte.user?.displayName || werte.user?.id || null;
+      const text = String(vorlage.message || '').replace(/\{(\w+)\}/g, (_, name) => {
+        const wert = werte[name];
+        if (!wert || typeof wert !== 'object') {
+          return name;
+        }
+        return wert.displayName || wert.name || wert.id || name;
+      });
+      return {
+        wann: eintrag?.times?.recordedTime || null,
+        wer,
+        text,
+        datei: werte.resource?.name || null,
+      };
+    })
+    .filter(e => e.wann)
+    .sort((a, b) => String(b.wann).localeCompare(String(a.wann)));
+  return liste.slice(0, grenze);
+}
+
+/**
+ * Eine Datei aus einem Raum lesen, als Text. `null`, wenn es sie nicht gibt.
+ *
+ * Fuer `places.json` in der Wurzel (`sicht.md`, Regel 3 des Zielbildes): die
+ * Orte pflegt das Haus in seiner Wurzel, das Geraet liest sie nur. Ueber
+ * WebDAV mit dem Konto des Geraets, weil der Firmenordner-Mount des Backends
+ * den Raum nur unter dem Namen kennt, den der Dienst ihm auf der Platte
+ * gegeben hat -- und der ist bei einem Raum, der vor der Pfadvorlage
+ * angelegt wurde, eine UUID.
+ */
+async function leseDatei(raumId, pfad, grenzeBytes = 64 * 1024) {
+  const teile = String(pfad).split('/').filter(Boolean).map(pfadTeil).join('/');
+  const antwort = await davAnfrage('GET', `/dav/spaces/${pfadTeil(raumId)}/${teile}`, [404]);
+  if (antwort.status === 404) {
+    return null;
+  }
+  const text = await antwort.text();
+  return text.length > grenzeBytes ? text.slice(0, grenzeBytes) : text;
+}
+
+/**
  * Was der Dienst gerade von sich gibt: die Fassung und ob er antwortet.
  *
  * FUER DIE OBERFLAECHE UND FUER DIE ABNAHME, nicht fuer den Betrieb. Wer
@@ -687,6 +791,11 @@ module.exports = {
   raumSteht,
   ladeEin,
   nimmEinladungZurueck,
+  mitglieder,
+  entferneMitglied,
+  rolleFuer,
+  aenderungen,
+  leseDatei,
   zustand,
   // Nur fuer die Tests: der Zwischenspeicher der Rollen haelt sonst ueber
   // Testfaelle hinweg, und ein Test faende die Antwort des vorigen.

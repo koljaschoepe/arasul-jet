@@ -2,7 +2,9 @@
  * Der Firmenordner (J33, 22.09.2026).
  *
  *   GET    /api/firmenordner                          wo er liegt und was ICH habe
+ *   GET    /api/firmenordner/sicht                    meine sicht.md (Ausweis oder Sitzung)
  *   GET    /api/firmenordner/ordner                   alle Ordner (Administrator)
+ *   GET    /api/firmenordner/ordner/:id/aenderungen   wer zuletzt wann (Administrator)
  *   POST   /api/firmenordner/ordner                   einen anlegen (Administrator)
  *   GET    /api/firmenordner/rechte                   alle Rechte (Administrator)
  *   POST   /api/firmenordner/rechte                   eins vergeben (Administrator)
@@ -109,7 +111,7 @@ router.get(
           'Er wird mit dem Profil `firmenordner` eingeschaltet (docs/features/FIRMENORDNER.md).'
       );
     }
-    const ordner = await verwaltung.meineOrdner(req.user.id);
+    const ordner = await verwaltung.meineOrdner(req.user.id, req.user.role);
     res.json({
       data: {
         adresse: lage.adresse,
@@ -123,6 +125,44 @@ router.get(
   })
 );
 
+/**
+ * GET /api/firmenordner/sicht — meine `sicht.md`, als Text.
+ *
+ * REGEL 3 DES ZIELBILDES: „Was es gibt, steht in sicht.md, je Mitarbeiter
+ * vom Geraet erzeugt aus seinen Rechten: seine Ordner mit Recht, seine Apps
+ * mit Verweis auf ihre APP.md, die fremden Orte. Hoechstens eine
+ * Bildschirmseite. Niemand pflegt Kontext je Rolle von Hand."
+ *
+ * DIE FUENFTE ROUTE MIT AUSWEIS, aus demselben Grund wie die vierte darueber:
+ * das CLI holt sie beim Abgleich und legt sie unter `.claude/sicht.md` in
+ * die Wurzel am Rechner des Menschen. `text/markdown` und kein JSON, weil
+ * sie so abgelegt wird, wie sie kommt -- ein Umschlag darum waere eine
+ * zweite Form fuer dieselbe Datei.
+ *
+ * Und sie nennt nichts, was der Mensch nicht hat -- dieselben zwei Abfragen
+ * wie `GET /` und `GET /api/apps/meine`, nur als Satz.
+ */
+router.get(
+  '/sicht',
+  ausweisOderSitzung,
+  requireRole('admin', 'mitarbeiter'),
+  asyncHandler(async (req, res) => {
+    const lage = await verwaltung.zustand();
+    if (!lage.an) {
+      throw new ServiceUnavailableError(
+        'Auf diesem Geraet laeuft kein Firmenordner. ' +
+          'Er wird mit dem Profil `firmenordner` eingeschaltet (docs/features/FIRMENORDNER.md).'
+      );
+    }
+    const text = await verwaltung.sichtFuer({
+      benutzerId: req.user.id,
+      username: req.user.username,
+      rolle: req.user.role,
+    });
+    res.type('text/markdown; charset=utf-8').send(text);
+  })
+);
+
 /** GET /api/firmenordner/ordner — alle Ordner am Geraet, mit ihrer Ebene. */
 router.get(
   '/ordner',
@@ -131,6 +171,26 @@ router.get(
   asyncHandler(async (req, res) => {
     const data = await verwaltung.listeOrdner();
     res.json({ data, zustand: await verwaltung.zustand(), timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/firmenordner/ordner/:id/aenderungen — wer zuletzt wann etwas
+ * geaendert hat, aus dem Protokoll des Dienstes.
+ *
+ * Fuer die Uebersicht je Ordner in der Verwaltung. Das Geraet fuehrt kein
+ * eigenes Protokoll: auf der Platte gehoert jede Datei dem Konto des
+ * Geraets, und wer sie hochgeladen hat, weiss allein der Dienst. Steht er
+ * gerade nicht, ist die Liste leer -- und das ist eine Antwort, kein Fehler.
+ */
+router.get(
+  '/ordner/:id/aenderungen',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(OrdnerParams),
+  asyncHandler(async (req, res) => {
+    const data = await verwaltung.aenderungenVon(req.params.id);
+    res.json({ data, timestamp: new Date().toISOString() });
   })
 );
 
