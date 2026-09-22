@@ -138,6 +138,16 @@ Ort", und sie wird hier nicht schöngeredet.
    (`services/auth/benutzerService.js`) — was hier fehlt, ist ein Konto, das
    nach dem Ausscheiden noch an die Dateien der Firma kommt.
 
+**Eine Sperre wirkt im Dateidienst nicht sofort**, und das gehört gesagt. Am
+Orin gemessen (22.09.2026): `accountEnabled` steht im selben Augenblick auf
+`false`, der Dienst lässt den Menschen aber noch **zwanzig bis vierzig
+Sekunden** herein — er hält einen angemeldeten Nutzer im Zwischenspeicher. Am
+Gerät selbst ist die Sperre sofort scharf (die Sitzungen fallen mit
+`blacklistAllUserTokens`); am Dateidienst dauert es unter einer Minute. Ein
+**Passwortwechsel** dagegen wirkt sofort — das alte Wort ist im selben
+Augenblick `401`. Wer jemanden auf der Stelle aussperren muss, setzt ihm also
+ein Passwort und sperrt danach.
+
 **Was das Gerät nicht heilen kann:** einen Menschen, den es schon vor dem
 Firmenordner gab. Sein Passwort liegt nur als Hash da. `POST
 /api/firmenordner/abgleich` legt ihm ein Konto mit einem zufälligen Passwort
@@ -260,6 +270,10 @@ Gesichert wird der **Baum**, nicht der Dienst — mit `posix` ist ein `tar`
 darüber wirklich der Inhalt und nicht eine Blocksammlung, die ohne ihren Dienst
 nichts bedeutet. `.oc-nodes` kommt mit: ohne sie stünden die Dateien nach dem
 Weg zurück zwar da, aber der Dienst kennte ihre Rechte nicht.
+
+Belegt ist das, nicht behauptet: die Abnahme löst eine Sicherung aus, liest im
+Bericht `firmenordner: true`, **öffnet das Archiv mit dem Schlüssel dieses
+Geräts** in einem Wegwerfordner und sieht nach, ob der Baum darin steht.
 
 Zurück geht es mit `wiederherstellen.sh` im Sicherungs-Container, wie bei
 `apps` und `flows`. **Der Dienst muss dafür stehen:** `entpacke_nach` räumt

@@ -266,6 +266,13 @@ async function status() {
           apps: bericht.apps_status ?? null,
           flows: bericht.flows_status ?? null,
           konfiguration: bericht.config_status ?? null,
+          // Der Firmenordner (J33, 22.09.2026). Er steht hier und nicht nur im
+          // Bericht auf der Platte, weil er der einzige der vier Toepfe ist, in
+          // dem AUSSCHLIESSLICH Dinge liegen, die es nirgendwo sonst gibt:
+          // Apps lassen sich neu einspielen, Flows neu schreiben, die
+          // Konfiguration neu erzeugen. `null` heisst „dieses Geraet hat
+          // keinen" -- das ist eine Auskunft und kein Fehlwert.
+          firmenordner: bericht.firmenordner_status ?? null,
         }
       : { status: 'fehlt', zeitpunkt: null, alterStunden: null, veraltet: true },
     // Leer, wenn noch nie eine Kopie ausserhalb entstanden ist.

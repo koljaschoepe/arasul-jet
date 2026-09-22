@@ -137,17 +137,21 @@ dienst_code() {
 
 # Dasselbe, aber mit Geduld auf einen ERWARTETEN Code.
 #
-# DER GRUND IST GEMESSEN (22.09.2026 am Orin): der Dienst haelt einen Nutzer
-# kurz im Zwischenspeicher. Direkt nach `accountEnabled=false` kam noch ein
-# `207`, drei Sekunden spaeter der `401`. Eine Abnahme, die sofort misst,
-# meldet also Rot fuer etwas, das richtig ist -- und, schlimmer, sie koennte
+# DER GRUND IST GEMESSEN (22.09.2026 am Orin, zweimal): der Dienst haelt einen
+# angemeldeten Nutzer im Zwischenspeicher. Ein PASSWORTWECHSEL wirkt sofort
+# (das alte Wort ist im selben Augenblick 401), eine SPERRE dagegen erst nach
+# **zwanzig bis vierzig Sekunden** -- `accountEnabled` steht dabei sofort auf
+# `false`, der Dienst liest es nur noch nicht. Eine Abnahme, die sofort misst,
+# meldet also Rot fuer etwas, das richtig ist; und, schlimmer, sie koennte
 # umgekehrt ein `207` als „zugelassen" lesen, das nur der alte Stand war.
+# Deshalb wartet sie auf den ERWARTETEN Code und nicht eine feste Zeit.
 dienst_code_bis() {
-  local erwartet="$1" name="$2" wort="$3" code=""
-  for _ in 1 2 3 4 5 6 7 8; do
+  local erwartet="$1" name="$2" wort="$3" grenze="${4:-8}" code="" i=0
+  while [ "$i" -lt "$grenze" ]; do
     code=$(dienst_code "$name" "$wort")
     [ "$code" = "$erwartet" ] && break
-    sleep 1
+    i=$((i + 1))
+    sleep 2
   done
   echo "$code"
 }
@@ -243,9 +247,21 @@ pruefe 'der Dienst zeigt das Zertifikat der Geraete-CA' \
 # Und was es auf diesem Einstiegspunkt NICHT gibt. Traefik schickt dort jeden
 # Weg an den Dateidienst; das Dashboard und die Schnittstelle des Geraets
 # haengen an `websecure` und nur dort.
-API_DORT=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 15 "$DIENST/api/health")
+#
+# GEMESSEN WIRD DER KOERPER UND NICHT DER STATUS, und das ist ein Fund des
+# ersten Laufs (22.09.2026): `GET https://…:8443/api/health` antwortet **200**
+# -- nicht, weil dort die Schnittstelle des Geraets liegt, sondern weil der
+# Dateidienst jeden unbekannten Weg mit seiner eigenen Oberflaeche beantwortet
+# (`content-type: text/html`, darin sein `WEB_APPS_MAP`). Ein Statuscode
+# allein kann die zwei nicht auseinanderhalten; der Name des Dienstes im
+# JSON-Koerper schon.
+API_DORT=$(curl -sk --max-time 15 "$DIENST/api/health" 2>/dev/null | head -c 400)
 pruefe 'auf dem Port des Firmenordners gibt es die Schnittstelle des Geraets nicht' \
-  "$(nicht "$API_DORT" 200)" "GET /api/health -> HTTP $API_DORT"
+  "$(ja_nein "$(enthaelt "$API_DORT" 'dashboard-backend')" nein)" \
+  "$(echo "$API_DORT" | head -c 60)"
+API_HIER=$(curl -sk --max-time 15 "$BASIS/api/health" 2>/dev/null | head -c 400)
+pruefe 'auf 443 dagegen schon -- sonst misst die Zeile darueber nichts' \
+  "$(enthaelt "$API_HIER" 'dashboard-backend')" "$(echo "$API_HIER" | head -c 60)"
 
 # ===========================================================================
 # 2. Ein Mensch wird gespiegelt
@@ -276,7 +292,8 @@ pruefe 'und mit einem falschen Passwort nicht' "$(nicht "$CODE_FALSCH" 207)" \
 # Sperren am Geraet sperrt im Dienst. Danach wieder zulassen, denn der Lauf
 # braucht diesen Menschen noch.
 ruf PUT "/api/benutzer/$ID_WEIT/aktiv" "$TOK" '{"aktiv":false}'
-CODE_GESPERRT=$(dienst_code_bis 401 "$WEIT" "$PASSWORT")
+# Bis zu 90 s: gemessen waren es 20 bis 40 (siehe `dienst_code_bis`).
+CODE_GESPERRT=$(dienst_code_bis 401 "$WEIT" "$PASSWORT" 45)
 pruefe 'wer am Geraet gesperrt wird, kommt auch im Dateidienst nicht mehr herein' \
   "$(nicht "$CODE_GESPERRT" 207)" "HTTP $CODE_GESPERRT"
 ruf PUT "/api/benutzer/$ID_WEIT/aktiv" "$TOK" '{"aktiv":true}'
@@ -396,11 +413,49 @@ fi
 echo
 echo "--- Sicherung ---"
 
+# ERST SICHERN, DANN FRAGEN. Der Status liest den Bericht der LETZTEN
+# Sicherung; auf einem Geraet, das den Firmenordner gerade erst bekommen hat,
+# ist die letzte Nacht aelter als er. Ein Rot dafuer waere eine Aussage ueber
+# den Kalender und nicht ueber das Produkt (Fund des ersten Laufs).
+# `POST /api/backup/sicherung` antwortet erst, wenn sie durch ist -- das kann
+# Minuten dauern, und genau deshalb steht die Zeitgrenze hier bei zehn.
+CODE=$(curl -sk -o "$RUMPF" -w '%{http_code}' --max-time 600 -X POST \
+  -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+  "$BASIS/api/backup/sicherung")
+pruefe 'eine Sicherung laeuft auf Zuruf' "$(ja_nein "$CODE" 200)" "HTTP $CODE"
 ruf GET "/api/backup/status" "$TOK"
-BERICHT=$(cat "$RUMPF")
-pruefe 'der Sicherungsbericht nennt den Firmenordner' \
-  "$(enthaelt "$BERICHT" 'firmenordner')" \
-  "$(feld data.letzteSicherung.firmenordner)"
+FO=$(feld data.letzteSicherung.firmenordner)
+pruefe 'und ihr Bericht nennt den Firmenordner' "$(ja_nein "$FO" true)" \
+  "firmenordner=${FO:-fehlt}"
+
+# DER WEG ZURUECK, und zwar als Beleg und nicht als Behauptung.
+#
+# GEOEFFNET WIRD IN EINEM WEGWERFORDNER IM SICHERUNGS-CONTAINER, nicht ueber
+# `wiederherstellen.sh`: der spielt die ganze Datenbank und die Apps mit
+# zurueck, und das ist auf einem Geraet im Betrieb keine Messung, sondern ein
+# Eingriff. Was hier gefragt wird, ist die Frage, an der eine Sicherung
+# wirklich scheitert: laesst sich das Archiv mit dem Schluessel dieses Geraets
+# OEFFNEN, und steht der Baum darin? Der Rest des Weges -- auspacken und an
+# seinen Platz legen -- ist derselbe Code, den `apps` und `flows` seit C9
+# gehen (`entpacke_nach`), und der Wiederherstellungstest misst ihn.
+if [ -n "${ARASUL_GERAET:-}" ]; then
+  ZURUECK=$(ssh "$ARASUL_GERAET" 'docker exec '"${ARASUL_SICHERUNG:-backup-service}"' sh -c "
+    set -e
+    rm -rf /tmp/j33zurueck && mkdir -p /tmp/j33zurueck
+    openssl enc -d -aes-256-cbc -pbkdf2 \
+      -in /backups/firmenordner/firmenordner_latest.tar.gz \
+      -pass file:/run/secrets/backup_encryption_key 2>/dev/null \
+      > /tmp/j33zurueck/klartext.tar.gz
+    tar -xzf /tmp/j33zurueck/klartext.tar.gz -C /tmp/j33zurueck
+    ls /tmp/j33zurueck/posix/projects 2>/dev/null | tr \"\\n\" \" \"
+    rm -rf /tmp/j33zurueck"' 2>/dev/null)
+  pruefe 'das Archiv laesst sich mit dem Schluessel dieses Geraets oeffnen' \
+    "$(nicht "$ZURUECK" '')" "Raeume darin: ${ZURUECK:-nichts}"
+  pruefe 'und der Bereich dieser Abnahme steht darin' \
+    "$(enthaelt "$ZURUECK" "$BEREICH")" "${ZURUECK:-nichts}"
+else
+  echo "   (Weg zurueck uebersprungen: ARASUL_GERAET nicht gesetzt)"
+fi
 
 # ===========================================================================
 # 7. Der Riegel am Wegwerfen
