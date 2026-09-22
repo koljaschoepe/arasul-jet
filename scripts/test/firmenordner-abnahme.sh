@@ -58,6 +58,7 @@ STEMPEL="$(date +%s)"
 BEREICH="j33b-$STEMPEL"
 PROJEKT="j33p-$STEMPEL"
 GERAETORDNER="j33g-$STEMPEL"
+GROSS="j33gross-$STEMPEL"   # der Raum mit tausenden Dateien
 WEIT="j33-weit-$STEMPEL"   # sieht den ganzen Bereich
 ENG="j33-eng-$STEMPEL"     # sieht nur das Projekt darin
 PASSWORT="Firmenordner-$STEMPEL"
@@ -93,6 +94,18 @@ ruf() {
     -H "authorization: Bearer $token" -H 'content-type: application/json')
   [ -n "$leib" ] && a+=(-d "$leib")
   CODE=$(curl "${a[@]}" "$BASIS$pfad")
+}
+
+# Derselbe Aufruf, aber mit Geduld. DAS WEGWERFEN IST DIE EINZIGE STELLE
+# DIESER KARTE, DIE LANGE DAUERN DARF: es loescht jede Datei im Ordner, und
+# seine Dauer haengt an ihrer Zahl (gemessen am 22.09.2026: 11,4 s fuer 6.000
+# Dateien). Dreissig Sekunden waeren hier genau der Schnitt, gegen den diese
+# Abnahme gebaut ist.
+ruf_geduldig() {
+  local verb="$1" pfad="$2" token="$3"
+  CODE=$(curl -sk -o "$RUMPF" -w '%{http_code}' --max-time "${ARASUL_WEGWERF_GRENZE:-1200}" \
+    -X "$verb" -H "authorization: Bearer $token" -H 'content-type: application/json' \
+    "$BASIS$pfad")
 }
 
 feld() {
@@ -193,7 +206,7 @@ for u in d:
       echo "   Benutzer $name weg (HTTP $CODE)"
     fi
   done
-  for kennung in "$PROJEKT" "$BEREICH" "$GERAETORDNER"; do
+  for kennung in "$PROJEKT" "$BEREICH" "$GERAETORDNER" "$GROSS"; do
     ruf GET "/api/firmenordner/ordner" "$TOK"
     id=$(python3 -c 'import sys,json
 try: d = json.load(sys.stdin)["data"]
@@ -201,7 +214,7 @@ except Exception: raise SystemExit
 for o in d:
     if o.get("kennung") == sys.argv[1]: print(o["id"])' "$kennung" < "$RUMPF" 2>/dev/null)
     if [ -n "$id" ]; then
-      ruf DELETE "/api/firmenordner/ordner/$id?kennung=$kennung" "$TOK"
+      ruf_geduldig DELETE "/api/firmenordner/ordner/$id?kennung=$kennung" "$TOK"
       echo "   Ordner $kennung weg (HTTP $CODE)"
     fi
   done
@@ -474,6 +487,141 @@ pruefe 'ohne die richtige Kennung geht nichts weg' "$(ja_nein "$CODE" 400)" "HTT
 ruf DELETE "/api/firmenordner/ordner/$ID_BEREICH?kennung=$BEREICH" "$TOK"
 pruefe 'und solange ein Ordner der Ebene 2 darin liegt, auch nicht' \
   "$(ja_nein "$CODE" 409)" "HTTP $CODE"
+
+# ===========================================================================
+# 8. Ein GROSSER Raum geht weg -- in einem Zug, ohne Neustart
+# ===========================================================================
+# DIE MESSUNG DIESES ABSCHNITTS IST DIE DAUER, und dass niemand sie
+# abschneidet. Am 22.09.2026 hat ein Raum mit 6.076 Dateien am Orin `500 grpc
+# error` gegeben: das Backend schnitt nach zehn Sekunden ab, der Dienst
+# raeumte weiter zu Ende, und uebrig blieben ein Raum ohne Dateien, eine Zeile
+# am Geraet, die ihn weiter fuehrte, und ein Dienst, der auf jeden zweiten
+# Versuch `grpc error` sagte, bis jemand ihn neu startete. Vier Fragen also:
+# geht er weg, sind die Dateien von der Platte, ist die Zeile gefallen -- und
+# lief der Container dabei durch?
+#
+# OHNE `ARASUL_GERAET` FAELLT DER ABSCHNITT WEG. Die Dateien muessen auf die
+# Platte, und das geht nur am Geraet; sechstausend Dateien durch einen Tunnel
+# hochzuladen waere eine Messung der Leitung.
+echo
+echo "--- Ein grosser Raum ---"
+
+if [ -n "${ARASUL_GERAET:-}" ]; then
+  DATEIEN="${ARASUL_FIRMENORDNER_DATEIEN:-6000}"
+  ABLAGE="${ARASUL_ABLAGE:-\$HOME/arasul*/data/firmenordner/ablage}"
+  MARKE="j33gross$STEMPEL"
+
+  ruf POST "/api/firmenordner/ordner" "$TOK" \
+    "{\"kennung\":\"$GROSS\",\"name\":\"Abnahme gross\",\"ebene\":1}"
+  pruefe 'ein Raum fuer die grosse Messung entsteht' "$(ja_nein "$CODE" 201)" "HTTP $CODE"
+  ID_GROSS=$(feld data.id)
+
+  # DIE DATEIEN KOMMEN UEBER DIE PLATTE, nicht ueber WebDAV: der Beobachter
+  # des Dienstes (`STORAGE_USERS_POSIX_WATCH_FS`) nimmt sie auf, und das ist
+  # derselbe Baum, den ein Abgleich erzeugt -- nur in Sekunden statt in einer
+  # Viertelstunde.
+  ssh "$ARASUL_GERAET" "python3 - $DATEIEN $MARKE $ABLAGE/posix/projects/$GROSS <<'PY'
+import os, sys
+anzahl, marke, ziel = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+if not os.path.isdir(ziel):
+    raise SystemExit('kein Raumordner: ' + ziel)
+for n in range(anzahl):
+    unter = os.path.join(ziel, 'teil%02d' % (n % 20))
+    os.makedirs(unter, exist_ok=True)
+    open(os.path.join(unter, '%s-%05d.md' % (marke, n)), 'w').write('# Messdatei\\n')
+PY" >/dev/null 2>&1
+  # GEZAEHLT WIRD NUR, WAS DIESE ABNAHME ANGELEGT HAT. Der Dienst legt neben
+  # jeder Datei Eigenes an (`.oc-nodes`), also zaehlt ein blosses `find` schon
+  # nach Sekunden etwas anderes als das, was hier hingelegt wurde.
+  AUF_PLATTE=$(ssh "$ARASUL_GERAET" "find $ABLAGE/posix/projects/$GROSS -type f -name '$MARKE-*' 2>/dev/null | wc -l" 2>/dev/null)
+  pruefe "$DATEIEN Dateien liegen im Raum" "$(ja_nein "$AUF_PLATTE" "$DATEIEN")" \
+    "auf der Platte: ${AUF_PLATTE:-0}"
+
+  # Warten, bis der Suchdienst sie hat -- sonst misst die Frage nach dem Index
+  # unten einen Index, der sie nie kannte.
+  INDEX_VORHER=0
+  for _ in $(seq 1 30); do
+    INDEX_VORHER=$(ssh "$ARASUL_GERAET" "grep -roa '$MARKE-[0-9]*' $ABLAGE/search 2>/dev/null | wc -l" 2>/dev/null)
+    [ "${INDEX_VORHER:-0}" -gt 0 ] && break
+    sleep 10
+  done
+  pruefe 'und der Suchindex kennt ihre Namen' "$(ja_nein "$([ "${INDEX_VORHER:-0}" -gt 0 ] && echo ja || echo nein)" ja)" \
+    "$INDEX_VORHER Treffer"
+
+  # Ein Symlink daneben -- die Frage, was der Dienst mit ihm macht.
+  ssh "$ARASUL_GERAET" "cd $ABLAGE/posix/projects/$GROSS && echo echt > echt-$STEMPEL.txt && ln -sfn echt-$STEMPEL.txt link-$STEMPEL.txt" >/dev/null 2>&1
+  sleep 5
+  RAUM_GROSS=$(ruf GET "/api/firmenordner/ordner" "$TOK"; python3 -c 'import sys,json
+try: d = json.load(sys.stdin)["data"]
+except Exception: raise SystemExit
+for o in d:
+    if o.get("kennung") == sys.argv[1]: print(o.get("raum_id") or "")' "$GROSS" < "$RUMPF" 2>/dev/null)
+  # GEFRAGT WIRD MIT DEN AUGEN EINES MENSCHEN, nicht mit denen des
+  # Dienst-Administrators: dessen Passwort kennt diese Abnahme nicht, und sie
+  # soll es auch nicht. `$WEIT` bekommt den Raum dafuer kurz -- und vor dem
+  # Wegwerfen wieder weggenommen, denn ein Ordner mit Rechten geht nicht weg
+  # (der Riegel aus Abschnitt 7).
+  ruf POST "/api/firmenordner/rechte" "$TOK" \
+    "{\"ordner_id\":$ID_GROSS,\"benutzer_id\":$ID_WEIT,\"recht\":\"lesen\"}"
+  BAUM=$(curl -sk --max-time 30 -u "$WEIT:$PASSWORT" -X PROPFIND -H 'Depth: 1' \
+    "$DIENST/dav/spaces/$RAUM_GROSS" 2>/dev/null)
+  pruefe 'eine echte Datei im Raum steht beim Dienst' "$(enthaelt "$BAUM" "echt-$STEMPEL.txt")" \
+    "PROPFIND ${#BAUM} Zeichen"
+  pruefe 'ein Symlink daneben NICHT -- und genau das sagt die Route' \
+    "$(ja_nein "$(enthaelt "$BAUM" "link-$STEMPEL.txt")" nein)"
+
+  ruf DELETE "/api/firmenordner/rechte/$ID_GROSS/$ID_WEIT" "$TOK"
+  pruefe 'das Leserecht ist vor dem Wegwerfen wieder weg' "$(ja_nein "$CODE" 200)" "HTTP $CODE"
+
+  # Lief der Container durch? Die Startzeit ist die ehrlichere Frage als der
+  # Zaehler: ein `docker compose restart` laesst `RestartCount` bei null.
+  START_VORHER=$(ssh "$ARASUL_GERAET" "docker inspect -f '{{.State.StartedAt}} {{.RestartCount}}' ${ARASUL_FIRMENORDNER_CONTAINER:-firmenordner}" 2>/dev/null)
+
+  ANFANG=$(date +%s)
+  ruf_geduldig DELETE "/api/firmenordner/ordner/$ID_GROSS?kennung=$GROSS" "$TOK"
+  DAUER=$(( $(date +%s) - ANFANG ))
+  pruefe "ein Raum mit $DATEIEN Dateien geht in EINEM Zug weg" "$(ja_nein "$CODE" 200)" \
+    "HTTP $CODE nach ${DAUER}s"
+
+  REST=$(ssh "$ARASUL_GERAET" "find $ABLAGE/posix/projects/$GROSS -type f 2>/dev/null | wc -l" 2>/dev/null)
+  # Hier ohne `-name`: nach dem Wegwerfen soll UEBERHAUPT nichts mehr
+  # dastehen, auch nicht der Papierkorb und nicht das, was der Dienst daneben
+  # angelegt hat.
+  pruefe 'und seine Dateien sind von der Platte' "$(ja_nein "${REST:-0}" 0)" \
+    "noch ${REST:-?} Dateien"
+
+  ruf GET "/api/firmenordner/ordner" "$TOK"
+  pruefe 'und die Zeile am Geraet ist gefallen' \
+    "$(ja_nein "$(enthaelt "$(cat "$RUMPF")" "\"$GROSS\"")" nein)"
+
+  START_NACHHER=$(ssh "$ARASUL_GERAET" "docker inspect -f '{{.State.StartedAt}} {{.RestartCount}}' ${ARASUL_FIRMENORDNER_CONTAINER:-firmenordner}" 2>/dev/null)
+  pruefe 'ohne dass der Dateidienst dafuer neu starten musste' \
+    "$(ja_nein "$START_NACHHER" "$START_VORHER")" "$START_VORHER -> $START_NACHHER"
+
+  # DER SUCHINDEX. Gemessen wird beides, und die zwei sagen Verschiedenes:
+  # die SUCHE ist das, was ein Mensch findet -- sie ist nach dem Wegwerfen
+  # leer, auch ohne diese Reparatur, weil der Dienst den Raum nicht mehr
+  # kennt. Der GREP ist das, was auf der Platte steht, und nur er sieht den
+  # Unterschied: ohne die Reparatur bleiben die Namen VOLLSTAENDIG stehen (der
+  # Suchdienst erfaehrt von der Loeschung nie), mit ihr faellt der
+  # allergroesste Teil sofort weg. Was uebrig bleibt, sind Bytes in einem
+  # bleve-Segment, das noch nicht verschmolzen ist -- gemessen am 22.09.2026:
+  # von 11.567 Treffern blieben 968 (8 %). Deshalb fragt diese Zeile nicht
+  # „null", sondern „deutlich weniger als vorher": „null" waere eine Zusage
+  # ueber den Verschmelzungsplan einer fremden Bibliothek.
+  sleep 10
+  INDEX_NACHHER=$(ssh "$ARASUL_GERAET" "grep -roa '$MARKE-[0-9]*' $ABLAGE/search 2>/dev/null | wc -l" 2>/dev/null)
+  pruefe 'und der Suchindex haelt die Dateinamen des Raums nicht mehr' \
+    "$([ "${INDEX_NACHHER:-1}" -lt $(( ${INDEX_VORHER:-2} / 2 )) ] && echo ja || echo nein)" \
+    "$INDEX_VORHER -> $INDEX_NACHHER Treffer"
+else
+  echo "   (uebersprungen: ARASUL_GERAET nicht gesetzt -- ohne SSH kommen die Dateien nicht auf die Platte)"
+fi
+
+# Und die Route sagt von sich aus, was sie NICHT abgleicht.
+ruf GET "/api/firmenordner" "$TOK"
+pruefe 'die Route nennt den Symlink als nicht abgeglichen' \
+  "$(enthaelt "$(cat "$RUMPF")" 'symlink')" "$(feld data.nicht_abgeglichen.0.art)"
 
 echo
 echo "$gruen gruen, $rot rot"
