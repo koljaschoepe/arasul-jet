@@ -302,6 +302,62 @@ sagt, _welche_ Ordner es gibt, nicht _wie_ jemand sie abgleicht.
 
 ---
 
+## Was am Gerät gemessen wurde, bevor es hier stand
+
+Am 22.09.2026 lief eine Wegwerf-Instanz (`j33karte-*`, eigenes
+Compose-Projekt, Port nur auf `127.0.0.1`, `mem_limit`, `restart: no`,
+hinterher restlos entfernt) neben dem Produkt am Orin, und jeder Aufruf, den
+`ordnerdienst.js` macht, wurde einmal wirklich gestellt. **Fünf davon waren
+falsch**, und alle fünf hätten erst am Gerät gefehlt:
+
+| Was                    | Erwartet                            | Gemessen                                                       |
+| ---------------------- | ----------------------------------- | -------------------------------------------------------------- |
+| Die Rollen holen       | `/graph/v1.0/roleManagement/…`      | **404** — es ist `v1beta1`                                     |
+| Die Rolle wählen       | ein Name, eine Rolle                | **„Can view" zweimal, „Can edit" dreimal**, gleicher Name      |
+| Einen Ordner anlegen   | `POST /drives/<raum>/root/children` | **404** — es ist `MKCOL /dav/spaces/<raum>/<pfad>`             |
+| Einen Ordner wegwerfen | `DELETE /drives/<raum>/items/<id>`  | **405** — es ist `DELETE /dav/spaces/<raum>/<pfad>`            |
+| Einen Raum wegwerfen   | ein `DELETE`                        | **204, und der Raum bleibt** — erst ein zweites mit `Purge: T` |
+
+Die zweite und die fünfte sind die, die ohne Messung jahrelang unbemerkt
+geblieben wären.
+
+**Gleicher Name, verschiedene Rolle.** Was die gleichnamigen Rollen
+unterscheidet, ist die Bedingung ihrer Berechtigungen — und sie ist genau
+unsere Ebene:
+
+```
+Can view   exists @Resource.Root     ein ganzer Raum    (Ebene 1)
+Can view   exists @Resource.Folder   ein Ordner darin   (Ebene 2)
+Can edit   exists @Resource.Root     ein ganzer Raum
+Can edit   exists @Resource.Folder   ein Ordner darin
+Can edit   exists @Resource.File     eine einzelne Datei (hier nie)
+```
+
+Die erste passende zu nehmen wäre eine Wette auf die Reihenfolge, in der der
+Dienst sie aufzählt — und die Wette wäre schon beim ersten Lauf verloren
+gewesen: dort stand die Ordner-Rolle vor der Raum-Rolle.
+
+**Ein `204`, das nichts löscht.** Das erste `DELETE` auf einen Raum antwortet
+`204` und liest sich als „erledigt". Der Raum steht danach mit
+`root.deleted.state = "trashed"` weiter in der Liste, und seine Dateien liegen
+unverändert auf der Platte — nachgesehen, beide Richtungen. Erst ein zweites
+`DELETE` mit `Purge: T` nimmt ihn wirklich weg. Deshalb macht `loescheRaum`
+**immer beide** Aufrufe.
+
+**Und was richtig war und nun belegt ist:** ein über die Graph-API angelegter
+Mensch meldet sich mit demselben Passwort am WebDAV an (`207`); ein `PATCH`
+auf das Passwort macht das alte sofort ungültig (`401`) und das neue gültig;
+`accountEnabled: false` sperrt — **nach rund drei Sekunden**, der Dienst hält
+einen Nutzer kurz im Zwischenspeicher (die Abnahme wartet das deshalb ab, statt
+sofort zu messen); ein Mensch mit einem Recht **nur** auf einem Ordner der
+Ebene 2 sieht den Raum darüber nicht (`404` auf dessen Wurzel, und er steht
+nicht in `me/drives`); ein Raum ohne Mitglieder taucht bei niemandem auf; und
+eine hochgeladene Datei liegt als
+`posix/projects/<raum>/<ordner>/<datei>` auf der Platte, Eigentümer das Konto
+des Geräts.
+
+---
+
 ## Was nicht in dieser Karte steht
 
 - **Die Verwaltung im Frontend.** Ordner anlegen und Rechte vergeben geht

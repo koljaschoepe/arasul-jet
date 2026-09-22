@@ -312,34 +312,113 @@ describe('Was ein Mensch sieht', () => {
 });
 
 describe('Die Rollen des Dienstes', () => {
-  it('werden geholt und nicht geraten', async () => {
-    firmenordnerAn();
+  /**
+   * Die Antwort, die der Orin am 22.09.2026 wirklich gegeben hat -- gekuerzt
+   * auf das, was hier entscheidet. ZWEIMAL „Can view", DREIMAL „Can edit",
+   * und die Ordner-Rolle steht VOR der Raum-Rolle: wer die erste passende
+   * nimmt, laedt auf einen Raum mit einer Ordner-Rolle ein.
+   */
+  const ROLLEN = {
+    value: [
+      {
+        id: 'view-folder',
+        displayName: 'Can view',
+        rolePermissions: [
+          { condition: 'exists @Resource.File' },
+          { condition: 'exists @Resource.Folder' },
+        ],
+      },
+      {
+        id: 'view-root',
+        displayName: 'Can view',
+        rolePermissions: [{ condition: 'exists @Resource.Root' }],
+      },
+      {
+        id: 'edit-folder',
+        displayName: 'Can edit',
+        rolePermissions: [{ condition: 'exists @Resource.Folder' }],
+      },
+      {
+        id: 'edit-root',
+        displayName: 'Can edit',
+        rolePermissions: [{ condition: 'exists @Resource.Root' }],
+      },
+      {
+        id: 'edit-file',
+        displayName: 'Can edit',
+        rolePermissions: [{ condition: 'exists @Resource.File' }],
+      },
+      {
+        id: 'manage-root',
+        displayName: 'Can manage',
+        rolePermissions: [{ condition: 'exists @Resource.Root' }],
+      },
+    ],
+  };
+
+  function dienstMitRollen(rollen = ROLLEN) {
     global.fetch.mockImplementation(async url => {
       if (String(url).includes('roleDefinitions')) {
-        return {
-          ok: true,
-          status: 200,
-          text: async () =>
-            JSON.stringify({
-              value: [
-                { id: 'rolle-lesen', displayName: 'Can view' },
-                { id: 'rolle-schreiben', displayName: 'Can edit' },
-              ],
-            }),
-        };
+        return { ok: true, status: 200, text: async () => JSON.stringify(rollen) };
       }
       return { ok: true, status: 200, text: async () => '{}' };
     });
+  }
 
+  /** Die Rolle, mit der die Einladung wirklich hinausging. */
+  function rolleDerEinladung() {
+    const ruf = global.fetch.mock.calls.find(([url]) => String(url).includes('/invite'));
+    return JSON.parse(ruf[1].body).roles[0];
+  }
+
+  it('holt die Kennungen und raet sie nicht', async () => {
+    firmenordnerAn();
+    dienstMitRollen();
     await dienst.ladeEin({
       raumId: 'r1',
       ordnerId: null,
       dienstNutzerId: 'u-3',
       recht: 'schreiben',
     });
+    const gefragt = global.fetch.mock.calls.find(([url]) =>
+      String(url).includes('roleDefinitions')
+    );
+    // `v1beta1` und nicht `v1.0`: der Weg unter v1.0 antwortet 404 (gemessen).
+    expect(String(gefragt[0])).toContain('/graph/v1beta1/roleManagement');
+  });
 
-    const einladung = global.fetch.mock.calls.find(([url]) => String(url).includes('/invite'));
-    expect(JSON.parse(einladung[1].body).roles).toEqual(['rolle-schreiben']);
+  it('nimmt fuer einen RAUM die Rolle mit @Resource.Root', async () => {
+    firmenordnerAn();
+    dienstMitRollen();
+    await dienst.ladeEin({
+      raumId: 'r1',
+      ordnerId: null,
+      dienstNutzerId: 'u-3',
+      recht: 'schreiben',
+    });
+    expect(rolleDerEinladung()).toBe('edit-root');
+  });
+
+  it('und fuer einen ORDNER die mit @Resource.Folder', async () => {
+    firmenordnerAn();
+    dienstMitRollen();
+    await dienst.ladeEin({
+      raumId: 'r1',
+      ordnerId: 'o1',
+      dienstNutzerId: 'u-3',
+      recht: 'schreiben',
+    });
+    // Beide heissen „Can edit". Die erste passende zu nehmen waere eine Wette
+    // auf die Reihenfolge -- und die Ordner-Rolle steht hier vor der
+    // Raum-Rolle, also waere die Wette beim Raum verloren gewesen.
+    expect(rolleDerEinladung()).toBe('edit-folder');
+  });
+
+  it('unterscheidet auch beim Lesen', async () => {
+    firmenordnerAn();
+    dienstMitRollen();
+    await dienst.ladeEin({ raumId: 'r1', ordnerId: null, dienstNutzerId: 'u-3', recht: 'lesen' });
+    expect(rolleDerEinladung()).toBe('view-root');
   });
 
   it('wirft mit Satz, wenn der Dienst die Rolle nicht kennt', async () => {
@@ -347,14 +426,49 @@ describe('Die Rollen des Dienstes', () => {
     // Eine fest im Code stehende UUID waere genau so lange richtig, bis der
     // Dienst eine Fassung weiter ist -- und dann wuerde die Einladung nur
     // abgelehnt, ohne dass jemand erfaehrt, warum.
-    global.fetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () => JSON.stringify({ value: [] }),
-    });
+    dienstMitRollen({ value: [] });
     await expect(
       dienst.ladeEin({ raumId: 'r1', ordnerId: null, dienstNutzerId: 'u-3', recht: 'lesen' })
     ).rejects.toThrow(/nennt keine Rolle/);
+  });
+});
+
+describe('Anlegen und Wegwerfen im Dienst', () => {
+  it('legt einen Ordner der Ebene 2 ueber WebDAV an, nicht ueber die Graph-API', async () => {
+    firmenordnerAn();
+    global.fetch.mockResolvedValue({ ok: true, status: 201, text: async () => '' });
+    await dienst.legeOrdnerAn('r1', 'vicona');
+    const [url, opt] = global.fetch.mock.calls[0];
+    // `POST /graph/v1.0/drives/<raum>/root/children` antwortet 404 -- den Weg
+    // aus Microsofts Graph gibt es hier nicht (gemessen am 22.09.2026).
+    expect(opt.method).toBe('MKCOL');
+    expect(String(url)).toContain('/dav/spaces/r1/vicona');
+  });
+
+  it('nimmt „gibt es schon" beim Anlegen hin', async () => {
+    firmenordnerAn();
+    global.fetch.mockResolvedValue({ ok: false, status: 405, text: async () => '' });
+    await expect(dienst.legeOrdnerAn('r1', 'vicona')).resolves.toBeUndefined();
+  });
+
+  it('wirft einen Raum in ZWEI Schritten weg -- beide immer', async () => {
+    firmenordnerAn();
+    global.fetch.mockResolvedValue({ ok: true, status: 204, text: async () => '' });
+    await dienst.loescheRaum('r1');
+    // Das erste DELETE antwortet 204 und sieht aus wie Erfolg; der Raum steht
+    // danach als `trashed` in der Liste und seine Dateien liegen unveraendert
+    // auf der Platte. Erst `Purge: T` nimmt ihn wirklich weg.
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[0][1].headers.Purge).toBeUndefined();
+    expect(global.fetch.mock.calls[1][1].headers.Purge).toBe('T');
+  });
+
+  it('setzt eine Raumkennung mit $ und ! richtig in den Weg', async () => {
+    firmenordnerAn();
+    global.fetch.mockResolvedValue({ ok: true, status: 204, text: async () => '' });
+    await dienst.loescheOrdner('9eb$2c2c!155b', 'vicona');
+    // Eine Raumkennung traegt `$` und `!`; `encodeURI` liesse beide stehen.
+    expect(String(global.fetch.mock.calls[0][0])).toContain('9eb%242c2c!155b');
   });
 });
 

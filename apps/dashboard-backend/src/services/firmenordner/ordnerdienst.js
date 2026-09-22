@@ -219,74 +219,93 @@ async function legeRaumAn(kennung) {
   return daten.id;
 }
 
-/** Einen Ordner in einem Raum anlegen (Ebene 2). */
+/**
+ * Einen Ordner in einem Raum anlegen (Ebene 2).
+ *
+ * UEBER WEBDAV UND NICHT UEBER DIE GRAPH-API, und das ist gemessen:
+ * `POST /graph/v1.0/drives/<raum>/root/children` antwortet 404 -- den Weg aus
+ * Microsofts Graph gibt es hier nicht. `MKCOL` auf `/dav/spaces/<raum>/<pfad>`
+ * antwortet 201, und der Ordner liegt danach als echter Ordner auf der Platte
+ * (am 22.09.2026 am Orin nachgesehen).
+ *
+ * `405 Method Not Allowed` heisst „gibt es schon" und ist hier kein Fehler:
+ * `holeNach()` legt einen Ordner nach, von dem es nicht weiss, ob er da ist.
+ */
 async function legeOrdnerAn(raumId, kennung) {
-  await anfrage(`/graph/v1.0/drives/${encodeURIComponent(raumId)}/root/children`, {
-    methode: 'POST',
-    koerper: { name: kennung, folder: {}, '@microsoft.graph.conflictBehavior': 'replace' },
-  });
+  await davAnfrage('MKCOL', `/dav/spaces/${pfadTeil(raumId)}/${pfadTeil(kennung)}`, [405]);
 }
 
 /**
  * Einen Raum wegwerfen -- im Geraetemodell ein Ordner der Ebene 1 samt allem
  * darin.
  *
- * ZWEI SCHRITTE, UND DER ERSTE IST NICHT WEGZULASSEN. Der Dienst loescht einen
- * Raum nur, wenn er vorher abgeschaltet wurde; ein `DELETE` auf einen
- * laufenden Raum antwortet mit einer Begruendung und tut nichts. `Purge: T`
- * ist die zweite Haelfte derselben Vorsicht: ohne sie landet der Raum im
- * Papierkorb des Dienstes und die Dateien liegen weiter auf der Platte.
+ * ZWEI AUFRUFE, UND BEIDE IMMER. Das erste `DELETE` antwortet `204` und sieht
+ * damit aus wie Erfolg -- der Raum steht danach aber mit
+ * `root.deleted.state = "trashed"` weiter in der Liste, und seine Dateien
+ * liegen unveraendert auf der Platte. Erst ein zweites `DELETE` mit
+ * `Purge: T` nimmt ihn wirklich weg. Am 22.09.2026 am Orin nachgemessen,
+ * beide Richtungen: nach dem ersten Aufruf lag `projects/projekte` noch da,
+ * nach dem zweiten war der Ordner weg.
  *
- * Ein 404 ist auch hier kein Fehler: „gibt es nicht" ist das Ziel.
+ * DAS IST DIE GEFAEHRLICHE SORTE FEHLER, und deshalb steht sie hier so
+ * ausfuehrlich: ein `204` auf einen Loeschbefehl liest sich als „erledigt",
+ * und wer nicht auf der Platte nachsieht, merkt jahrelang nichts.
+ *
+ * Ein `404` ist kein Fehler: „gibt es nicht" ist das Ziel.
  */
 async function loescheRaum(raumId) {
-  const weg = `/graph/v1.0/drives/${encodeURIComponent(raumId)}`;
-  try {
-    await anfrage(weg, { methode: 'DELETE' });
-  } catch (err) {
-    if (/ antwortete 404 /.test(err.message)) {
-      return;
-    }
-    // Noch nicht abgeschaltet. Das ist der Normalfall beim ersten Versuch --
-    // der Dienst verlangt es so.
-    await anfrage(weg, { methode: 'PATCH', koerper: { name: `geloescht-${Date.now()}` } });
-    await anfrageMitKopf(weg, 'DELETE', { Purge: 'T' });
+  const weg = `/graph/v1.0/drives/${pfadTeil(raumId)}`;
+  await davAnfrage('DELETE', weg, [404]);
+  await davAnfrage('DELETE', weg, [404], { Purge: 'T' });
+}
+
+/**
+ * Ein Aufruf, der keine JSON-Antwort erwartet: WebDAV-Methoden und die
+ * Loeschwege. `erlaubt` nennt die Fehlercodes, die hier eine ANTWORT sind und
+ * kein Fehler -- `404` bei „weg damit", `405` bei „gibt es schon".
+ *
+ * Eine eigene Funktion neben `anfrage`, weil sie eine andere Frage stellt:
+ * `anfrage` will einen Koerper und gibt ihn zurueck, diese will nur wissen,
+ * ob es geklappt hat.
+ */
+async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}) {
+  const basis = basisIntern();
+  if (!basis) {
+    throw new Error('Auf diesem Geraet laeuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
+  }
+  const antwort = await fetch(`${basis}${weg}`, {
+    method: methode,
+    signal: AbortSignal.timeout(ZEITGRENZE_MS),
+    headers: { Authorization: adminKopf(), ...kopfzeilen },
+  });
+  if (!antwort.ok && !erlaubt.includes(antwort.status)) {
+    throw new Error(
+      `Firmenordner: ${methode} ${weg} antwortete ${antwort.status} ` +
+        `${(await antwort.text()).slice(0, 400)}`
+    );
   }
 }
 
 /**
- * Wie `anfrage`, nur mit einer zusaetzlichen Kopfzeile. Eine eigene Funktion
- * statt eines weiteren Schalters an `anfrage`: sie wird an genau einer Stelle
- * gebraucht, und ein Schalter, den nur ein Aufrufer setzt, ist ein Schalter zu
- * viel.
+ * Ein Stueck Pfad, wie es in eine Adresse gehoert.
+ *
+ * `encodeURIComponent` und nicht `encodeURI`: eine Raumkennung traegt ein
+ * `$` und ein `!` (`9eb604df-…$2c2c511d-…!155b8d0e-…`), und ein Ordnername
+ * darf alles enthalten, was ein Dateisystem hergibt. `/` gehoert dabei NICHT
+ * dazu -- ein Weg mit mehreren Teilen wird Teil fuer Teil zusammengesetzt.
  */
-async function anfrageMitKopf(weg, methode, kopfzeilen) {
-  const basis = basisIntern();
-  const antwort = await fetch(`${basis}${weg}`, {
-    method: methode,
-    signal: AbortSignal.timeout(ZEITGRENZE_MS),
-    headers: { Authorization: adminKopf(), Accept: 'application/json', ...kopfzeilen },
-  });
-  if (!antwort.ok && antwort.status !== 404) {
-    throw new Error(
-      `Firmenordner: ${methode} ${weg} antwortete ${antwort.status} ${(await antwort.text()).slice(0, 400)}`
-    );
-  }
+function pfadTeil(wert) {
+  return encodeURIComponent(String(wert));
 }
 
-/** Einen Ordner in einem Raum wegwerfen (Ebene 2). */
+/**
+ * Einen Ordner in einem Raum wegwerfen (Ebene 2).
+ *
+ * Auch hier ueber WebDAV: `DELETE` auf den Graph-Weg des Elements antwortet
+ * `405` (gemessen). `404` heisst „gibt es nicht" und ist das Ziel.
+ */
 async function loescheOrdner(raumId, pfad) {
-  try {
-    const id = await ordnerKennung(raumId, pfad);
-    await anfrage(
-      `/graph/v1.0/drives/${encodeURIComponent(raumId)}/items/${encodeURIComponent(id)}`,
-      { methode: 'DELETE' }
-    );
-  } catch (err) {
-    if (!/ antwortete 404 /.test(err.message)) {
-      throw err;
-    }
-  }
+  await davAnfrage('DELETE', `/dav/spaces/${pfadTeil(raumId)}/${pfadTeil(pfad)}`, [404]);
 }
 
 /** Die Kennung eines Ordners im Raum, ueber seinen Weg. */
@@ -298,48 +317,81 @@ async function ordnerKennung(raumId, pfad) {
 }
 
 /**
- * Die Kennung der Rolle, die der Dienst fuer ein Recht des Geraets kennt.
+ * Die Kennung der Rolle, die der Dienst fuer ein Recht des Geraets kennt --
+ * UND FUER DIE EBENE, auf der es gelten soll.
  *
- * ZWEI RECHTE, DREI ROLLEN, UND KEINE VIERTE. „Keine" gibt es im Dienst
- * nicht -- die Rolle „Denied" aus seiner Abstammung lehnt die Graph-API ab
- * (`Field validation for 'Roles' failed on the 'available_role' tag`,
+ * ZWEI RECHTE MAL ZWEI EBENEN, UND KEINE STUFE „KEINE". Letztere gibt es im
+ * Dienst nicht -- die Rolle „Denied" aus seiner Abstammung lehnt die Graph-API
+ * ab (`Field validation for 'Roles' failed on the 'available_role' tag`,
  * gemessen am 21.09.2026). Genau deshalb ist ein Ordner ohne Recht hier eine
  * ABWESENHEIT und keine Zeile, und genau deshalb ist Ebene 1 ein Raum: wer
  * nicht Mitglied ist, sieht ihn nicht.
  *
+ * DIE EBENE GEHOERT DAZU, und das ist der Fund vom 22.09.2026 am Orin: der
+ * Dienst fuehrt „Can view" ZWEIMAL und „Can edit" DREIMAL, mit demselben
+ * Anzeigenamen und verschiedenen Kennungen. Was sie unterscheidet, steht in
+ * der Bedingung ihrer Berechtigungen:
+ *
+ *     Can view  exists @Resource.Root      -> ein ganzer Raum   (Ebene 1)
+ *     Can view  exists @Resource.Folder    -> ein Ordner darin  (Ebene 2)
+ *     Can edit  exists @Resource.Root      -> ein ganzer Raum
+ *     Can edit  exists @Resource.Folder    -> ein Ordner darin
+ *     Can edit  exists @Resource.File      -> eine einzelne Datei (nie hier)
+ *
+ * Die erste passende zu nehmen waere also eine Wette darauf, in welcher
+ * Reihenfolge der Dienst sie aufzaehlt -- und die Wette waere schon beim
+ * ersten Lauf verloren gewesen: dort stand die Ordner-Rolle vor der
+ * Raum-Rolle.
+ *
  * DIE KENNUNGEN STEHEN NICHT IM CODE, sondern werden geholt. Eine UUID einer
  * eingebauten Rolle ist die Sorte Wert, die so lange stimmt, bis der Dienst
  * eine Fassung weiter ist -- und dann sagt niemand Bescheid, die Einladung
- * wird nur abgelehnt. Gesucht wird ueber den Namen, den der Dienst selbst
- * vergibt; findet sich keiner, ist das ein Fehler mit Satz und keine stille
- * Einladung mit der falschen Rolle.
+ * wird nur abgelehnt. Findet sich keine passende, ist das ein Fehler mit Satz
+ * und keine stille Einladung mit der falschen Rolle.
+ *
+ * `v1beta1` UND NICHT `v1.0`: der Weg unter `v1.0` antwortet 404 (gemessen).
  */
 const ROLLENNAMEN = {
   lesen: ['can view', 'viewer'],
   schreiben: ['can edit', 'editor'],
 };
 
+/** Welche Bedingung eine Rolle tragen muss, damit sie fuer diese Ebene gilt. */
+const EBENENMARKE = { raum: '@resource.root', ordner: '@resource.folder' };
+
 let rollenZwischenspeicher = null;
-async function rolleFuer(recht) {
+async function rolleFuer(recht, ebene) {
   if (!rollenZwischenspeicher) {
-    const daten = await anfrage('/graph/v1.0/roleManagement/permissions/roleDefinitions');
+    const daten = await anfrage('/graph/v1beta1/roleManagement/permissions/roleDefinitions');
     const liste = Array.isArray(daten) ? daten : daten?.value || [];
     const gefunden = {};
     for (const rolle of liste) {
       const name = String(rolle.displayName || '').toLowerCase();
-      for (const [schluessel, namen] of Object.entries(ROLLENNAMEN)) {
-        if (namen.includes(name) && !gefunden[schluessel]) {
-          gefunden[schluessel] = rolle.id;
+      const bedingungen = (rolle.rolePermissions || [])
+        .map(p => String(p.condition || '').toLowerCase())
+        .join(' ');
+      for (const [wasNennen, namen] of Object.entries(ROLLENNAMEN)) {
+        if (!namen.includes(name)) {
+          continue;
+        }
+        for (const [wo, marke] of Object.entries(EBENENMARKE)) {
+          // `@Resource.Root` steht nie in derselben Rolle wie
+          // `@Resource.Folder` -- der Dienst trennt sie. Eine Rolle, die
+          // beides naennte, waere hier zweimal eingetragen, und das waere
+          // richtig: sie gilt dann auch fuer beides.
+          if (bedingungen.includes(marke)) {
+            gefunden[`${wasNennen}:${wo}`] ??= rolle.id;
+          }
         }
       }
     }
     rollenZwischenspeicher = gefunden;
   }
-  const id = rollenZwischenspeicher[recht];
+  const id = rollenZwischenspeicher[`${recht}:${ebene}`];
   if (!id) {
     throw new Error(
-      `Der Firmenordner nennt keine Rolle fuer „${recht}". Bekannt sind: ` +
-        `${Object.keys(rollenZwischenspeicher).join(', ') || '(keine)'}`
+      `Der Firmenordner nennt keine Rolle fuer „${recht}" auf einem ${ebene}. ` +
+        `Bekannt sind: ${Object.keys(rollenZwischenspeicher).join(', ') || '(keine)'}`
     );
   }
   return id;
@@ -360,7 +412,7 @@ async function ladeEin({ raumId, ordnerId, dienstNutzerId, recht }) {
     methode: 'POST',
     koerper: {
       recipients: [{ objectId: dienstNutzerId, '@libre.graph.recipient.type': 'user' }],
-      roles: [await rolleFuer(recht)],
+      roles: [await rolleFuer(recht, ordnerId ? 'ordner' : 'raum')],
     },
   });
 }

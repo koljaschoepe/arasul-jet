@@ -135,6 +135,23 @@ dienst_code() {
     -X PROPFIND -H 'Depth: 0' "$DIENST${3:-/remote.php/dav/files/$1}"
 }
 
+# Dasselbe, aber mit Geduld auf einen ERWARTETEN Code.
+#
+# DER GRUND IST GEMESSEN (22.09.2026 am Orin): der Dienst haelt einen Nutzer
+# kurz im Zwischenspeicher. Direkt nach `accountEnabled=false` kam noch ein
+# `207`, drei Sekunden spaeter der `401`. Eine Abnahme, die sofort misst,
+# meldet also Rot fuer etwas, das richtig ist -- und, schlimmer, sie koennte
+# umgekehrt ein `207` als „zugelassen" lesen, das nur der alte Stand war.
+dienst_code_bis() {
+  local erwartet="$1" name="$2" wort="$3" code=""
+  for _ in 1 2 3 4 5 6 7 8; do
+    code=$(dienst_code "$name" "$wort")
+    [ "$code" = "$erwartet" ] && break
+    sleep 1
+  done
+  echo "$code"
+}
+
 if ! arasul_geraet_erreichbar "$BASIS"; then
   echo "Kein Geraet unter $BASIS. Erst: ssh -f -N -L 8443:localhost:443 jetson"
   exit 1
@@ -248,7 +265,7 @@ ID_ENG=$(feld data.id)
 # DIE KERNMESSUNG DIESES ABSCHNITTS: niemand hat im Dateidienst etwas
 # eingerichtet. Wenn der Mensch dort hereinkommt, hat die Spiegelung
 # funktioniert -- und zwar Nutzer UND Passwort.
-CODE_DIENST=$(dienst_code "$WEIT" "$PASSWORT")
+CODE_DIENST=$(dienst_code_bis 207 "$WEIT" "$PASSWORT")
 pruefe "$WEIT meldet sich am Dateidienst mit demselben Passwort an" \
   "$(ja_nein "$CODE_DIENST" 207)" "PROPFIND -> HTTP $CODE_DIENST"
 
@@ -259,11 +276,11 @@ pruefe 'und mit einem falschen Passwort nicht' "$(nicht "$CODE_FALSCH" 207)" \
 # Sperren am Geraet sperrt im Dienst. Danach wieder zulassen, denn der Lauf
 # braucht diesen Menschen noch.
 ruf PUT "/api/benutzer/$ID_WEIT/aktiv" "$TOK" '{"aktiv":false}'
-CODE_GESPERRT=$(dienst_code "$WEIT" "$PASSWORT")
+CODE_GESPERRT=$(dienst_code_bis 401 "$WEIT" "$PASSWORT")
 pruefe 'wer am Geraet gesperrt wird, kommt auch im Dateidienst nicht mehr herein' \
   "$(nicht "$CODE_GESPERRT" 207)" "HTTP $CODE_GESPERRT"
 ruf PUT "/api/benutzer/$ID_WEIT/aktiv" "$TOK" '{"aktiv":true}'
-CODE_ZURUECK=$(dienst_code "$WEIT" "$PASSWORT")
+CODE_ZURUECK=$(dienst_code_bis 207 "$WEIT" "$PASSWORT")
 pruefe 'und nach dem Zulassen wieder' "$(ja_nein "$CODE_ZURUECK" 207)" "HTTP $CODE_ZURUECK"
 
 # ===========================================================================
