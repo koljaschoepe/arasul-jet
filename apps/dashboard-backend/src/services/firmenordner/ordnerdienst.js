@@ -36,6 +36,34 @@ const logger = require('../../utils/logger');
 /** Wie lange eine Anfrage an den Dienst hoechstens dauern darf. */
 const ZEITGRENZE_MS = Number(process.env.FIRMENORDNER_ZEITGRENZE_MS || 10000);
 
+/**
+ * WEGWERFEN IST KEINE ANFRAGE WIE DIE ANDEREN, und deshalb hat es eine eigene
+ * Zahl.
+ *
+ * Jeder andere Aufruf hier fragt oder traegt etwas ein -- ein Nutzer, eine
+ * Einladung, ein Ordner --, und zehn Sekunden sind dafuer reichlich. Das
+ * Wegwerfen eines Raums loescht dagegen jede Datei darin, und seine Dauer
+ * haengt an ihrer Zahl: am 22.09.2026 am Orin gemessen (Nebeninstanz, 6.000
+ * Dateien in zwanzig Ordnern) brauchte der Purge **11,4 s** -- also knapp
+ * ueber der alten Grenze, und ein Arbeitsbaum ist schnell doppelt so gross.
+ *
+ * DAS WAR DER FEHLER VOM 22.09.2026, und er sah nicht nach einer Zeitgrenze
+ * aus: das Backend schnitt nach zehn Sekunden ab, der Dienst raeumte
+ * weiter zu Ende, und was hinterher dastand, war ein Raum ohne Dateien, eine
+ * Zeile am Geraet, die ihn weiter fuehrte, und ein `500 grpc error` auf jeden
+ * zweiten Versuch. Nachgestellt, beide Richtungen.
+ *
+ * 15 MINUTEN, UND NICHT „SO LANGE ES DAUERT". Bei gemessenen ~1,9 ms je Datei
+ * reicht das fuer ein paar hunderttausend; was darueber hinausgeht, ist kein
+ * Ordner mehr, den jemand aus Versehen wegwirft, und soll anschlagen. Die
+ * Route setzt dieselbe Zahl noch einmal auf ihre Antwort (`res.setTimeout`) --
+ * sonst schnitte das Sicherheitsnetz aus `index.js` nach 60 s ab, und die
+ * Grenze hier waere eine Behauptung.
+ */
+const ZEITGRENZE_LOESCHEN_MS = Number(
+  process.env.FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS || 15 * 60 * 1000
+);
+
 /** Wo der Dienst im Docker-Netz liegt. */
 function basisIntern() {
   const wert = (process.env.FIRMENORDNER_INTERN || '').trim();
@@ -252,11 +280,90 @@ async function legeOrdnerAn(raumId, kennung) {
  * und wer nicht auf der Platte nachsieht, merkt jahrelang nichts.
  *
  * Ein `404` ist kein Fehler: „gibt es nicht" ist das Ziel.
+ *
+ * UND AM ENDE WIRD NACHGESEHEN, NICHT GEGLAUBT. Ein Raum mit tausenden
+ * Dateien braucht dafuer Sekunden bis Minuten, und in dieser Zeit kann
+ * zwischen hier und dem Dienst alles Moegliche schiefgehen -- am 22.09.2026
+ * war es die eigene Zeitgrenze, danach ein `500 grpc error` auf den zweiten
+ * Versuch. Die einzige Frage, die zaehlt, ist trotzdem eine andere: steht der
+ * Raum noch in der Liste des Dienstes? Steht er nicht, ist er weg, und was
+ * die Antwort dazu sagte, ist eine Fussnote fuer das Protokoll. Steht er
+ * noch, fliegt der Fehler weiter und die Zeile am Geraet bleibt.
+ *
+ * Das ist derselbe Satz wie oben, eine Stufe spaeter: ein Statuscode ist
+ * keine Auskunft ueber die Platte.
  */
 async function loescheRaum(raumId) {
   const weg = `/graph/v1.0/drives/${pfadTeil(raumId)}`;
-  await davAnfrage('DELETE', weg, [404]);
-  await davAnfrage('DELETE', weg, [404], { Purge: 'T' });
+  try {
+    await davAnfrage('DELETE', weg, [404], {}, ZEITGRENZE_LOESCHEN_MS);
+    await davAnfrage('DELETE', weg, [404], { Purge: 'T' }, ZEITGRENZE_LOESCHEN_MS);
+  } catch (err) {
+    if (await raumSteht(raumId)) {
+      throw err;
+    }
+    logger.warn(
+      `Firmenordner: das Wegwerfen von ${raumId} meldete „${err.message}" -- ` +
+        'der Raum steht aber nicht mehr in der Liste des Dienstes, ist also weg.'
+    );
+  }
+}
+
+/**
+ * Steht dieser Raum noch in der Liste des Dienstes?
+ *
+ * UEBER DIE LISTE UND NICHT UEBER DEN EINZELNEN RAUM, und das ist gemessen:
+ * `GET /graph/v1.0/drives/<weggeworfener raum>` antwortet `500 grpc error`
+ * und nicht `404` -- aus dieser Antwort laesst sich „gibt es nicht" nicht von
+ * „ging gerade schief" unterscheiden. Die Liste antwortet auf beide Fragen
+ * dasselbe: er ist darin oder er ist es nicht.
+ *
+ * Kommt die Liste selbst nicht, ist das ein `true`: wer nicht nachsehen
+ * konnte, behauptet nicht, es sei weg.
+ *
+ * UND SIE WIRD BIS ZUM ENDE GELESEN. Die Graph-API darf ihre Antwort in
+ * Seiten schneiden (`@odata.nextLink`); wer nur die erste liest, haelt auf
+ * einem Geraet mit vielen Raeumen einen Raum fuer weggeworfen, der auf Seite
+ * zwei steht -- und wirft die letzte Zeile weg, die ihn noch kennt. Das ist
+ * genau die Sorte Leiche aus dem Auftrag `app-leiche`, also wird hier
+ * geblaettert, solange der Dienst eine naechste Seite nennt.
+ */
+async function raumSteht(raumId) {
+  try {
+    let weg = '/graph/v1.0/drives';
+    // Eine Schranke, damit ein Dienst, der immer dieselbe Seite nennt, dieses
+    // Backend nicht im Kreis laufen laesst.
+    for (let seite = 0; weg && seite < 50; seite += 1) {
+      const daten = await anfrage(weg);
+      if ((daten?.value || []).some(raum => raum?.id === raumId)) {
+        return true;
+      }
+      weg = naechsteSeite(daten);
+    }
+    return false;
+  } catch (err) {
+    logger.warn(`Firmenordner: die Liste der Raeume kam nicht (${err.message})`);
+    return true;
+  }
+}
+
+/**
+ * Der Weg zur naechsten Seite, relativ zum Dienst -- oder `null`.
+ *
+ * `@odata.nextLink` ist eine ganze Adresse; `anfrage()` will einen Weg. Zeigt
+ * sie woandershin als zu diesem Dienst, wird ihr nicht gefolgt: eine Liste,
+ * die auf einen fremden Rechner verweist, ist keine Antwort auf unsere Frage.
+ */
+function naechsteSeite(daten) {
+  const link = daten?.['@odata.nextLink'];
+  if (!link) {
+    return null;
+  }
+  if (link.startsWith('/')) {
+    return link;
+  }
+  const basis = basisIntern();
+  return basis && link.startsWith(`${basis}/`) ? link.slice(basis.length) : null;
 }
 
 /**
@@ -268,14 +375,14 @@ async function loescheRaum(raumId) {
  * `anfrage` will einen Koerper und gibt ihn zurueck, diese will nur wissen,
  * ob es geklappt hat.
  */
-async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}) {
+async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}, grenze = ZEITGRENZE_MS) {
   const basis = basisIntern();
   if (!basis) {
     throw new Error('Auf diesem Geraet laeuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
   }
   const antwort = await fetch(`${basis}${weg}`, {
     method: methode,
-    signal: AbortSignal.timeout(ZEITGRENZE_MS),
+    signal: AbortSignal.timeout(grenze),
     headers: { Authorization: adminKopf(), ...kopfzeilen },
   });
   if (!antwort.ok && !erlaubt.includes(antwort.status)) {
@@ -284,6 +391,7 @@ async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}) {
         `${(await antwort.text()).slice(0, 400)}`
     );
   }
+  return antwort;
 }
 
 /**
@@ -303,9 +411,96 @@ function pfadTeil(wert) {
  *
  * Auch hier ueber WebDAV: `DELETE` auf den Graph-Weg des Elements antwortet
  * `405` (gemessen). `404` heisst „gibt es nicht" und ist das Ziel.
+ *
+ * ZWEI SCHRITTE, AUS DEMSELBEN GRUND WIE BEIM RAUM. Ein `DELETE` ueber WebDAV
+ * ist kein Wegwerfen, sondern ein Verschieben: der Ordner liegt danach unter
+ * `<raum>/.Trash/files/<kennung>.trashitem/` und jede Datei darin ist noch da
+ * (am 22.09.2026 am Orin nachgesehen, beide Richtungen). Die Route verspricht
+ * „samt allem, was darin liegt"; ein Papierkorb, den niemand leert, ist genau
+ * das Gegenteil -- die naechtliche Sicherung traegt ihn Nacht fuer Nacht mit,
+ * und auf der Platte steht ein Ordner, den am Geraet keine Zeile mehr nennt.
  */
 async function loescheOrdner(raumId, pfad) {
-  await davAnfrage('DELETE', `/dav/spaces/${pfadTeil(raumId)}/${pfadTeil(pfad)}`, [404]);
+  await davAnfrage(
+    'DELETE',
+    `/dav/spaces/${pfadTeil(raumId)}/${pfadTeil(pfad)}`,
+    [404],
+    {},
+    ZEITGRENZE_LOESCHEN_MS
+  );
+  await leerePapierkorb(raumId, pfad);
+}
+
+/**
+ * Den einen Eintrag aus dem Papierkorb des Raums nehmen, der gerade
+ * hineingefallen ist.
+ *
+ * NUR DEN EINEN, und nicht den Papierkorb. Darin liegt auch, was ein Mensch
+ * geloescht hat und morgen zurueckholen will -- den Papierkorb ganz zu leeren
+ * waere ein zweites Wegwerfen, das niemand bestellt hat.
+ *
+ * Gefunden wird er ueber `oc:trashbin-original-location`: das ist der Weg, an
+ * dem er lag, und bei einem Ordner der Ebene 2 ist das genau seine Kennung.
+ * Die Kennung IM PAPIERKORB ist eine andere (eine UUID), sie steht im `href`.
+ *
+ * GELESEN WIRD MIT EINEM MUSTER UND NICHT MIT EINEM XML-BAUM, und das ist
+ * eine Abwaegung: eine XML-Bibliothek waere eine neue Abhaengigkeit des
+ * Backends fuer vier Zeilen Antwort eines Dienstes, dessen Form wir kennen
+ * und messen. Was das Muster nicht findet, wird nicht geloescht -- der Fehler
+ * dieser Richtung ist ein Ordner, der im Papierkorb liegen bleibt, und nicht
+ * einer, der faelschlich verschwindet.
+ */
+async function leerePapierkorb(raumId, pfad) {
+  const wurzel = `/dav/spaces/trash-bin/${pfadTeil(raumId)}`;
+  const antwort = await davAnfrage(
+    'PROPFIND',
+    wurzel,
+    [404],
+    { Depth: '1' },
+    ZEITGRENZE_LOESCHEN_MS
+  );
+  if (antwort.status === 404) {
+    return;
+  }
+  for (const eintrag of papierkorbEintraege(await antwort.text())) {
+    if (eintrag.ort === pfad) {
+      await davAnfrage(
+        'DELETE',
+        `${wurzel}/${pfadTeil(eintrag.id)}`,
+        [404],
+        {},
+        ZEITGRENZE_LOESCHEN_MS
+      );
+    }
+  }
+}
+
+/** Die Eintraege einer Papierkorb-Antwort: ihre Kennung und wo sie herkamen. */
+function papierkorbEintraege(xml) {
+  const eintraege = [];
+  // Der Namensraum-Vorsatz wird nicht festgenagelt (`d:response`): er ist die
+  // Wahl des Servers und keine Zusage.
+  for (const block of String(xml)
+    .split(/<[a-z0-9]*:?response[\s>]/i)
+    .slice(1)) {
+    const weg = block.match(/<[a-z0-9]*:?href[^>]*>([^<]*)</i)?.[1];
+    const ort = block.match(/<[a-z0-9]*:?trashbin-original-location[^>]*>([^<]*)</i)?.[1];
+    if (!weg || !ort) {
+      continue;
+    }
+    const id = weg.replace(/\/+$/, '').split('/').pop();
+    eintraege.push({ id: sicherEntschluesseln(id), ort: sicherEntschluesseln(ort) });
+  }
+  return eintraege;
+}
+
+/** `%20` zurueck zu einem Leerzeichen -- und ein einzelnes `%` bleibt, was es ist. */
+function sicherEntschluesseln(wert) {
+  try {
+    return decodeURIComponent(wert);
+  } catch {
+    return wert;
+  }
 }
 
 /** Die Kennung eines Ordners im Raum, ueber seinen Weg. */
@@ -476,6 +671,7 @@ async function zustand() {
 }
 
 module.exports = {
+  ZEITGRENZE_LOESCHEN_MS,
   istAn,
   basisAussen,
   basisIntern,
@@ -488,6 +684,7 @@ module.exports = {
   loescheRaum,
   loescheOrdner,
   ordnerKennung,
+  raumSteht,
   ladeEin,
   nimmEinladungZurueck,
   zustand,

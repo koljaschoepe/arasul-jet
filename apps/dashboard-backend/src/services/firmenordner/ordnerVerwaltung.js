@@ -698,6 +698,12 @@ module.exports = {
   RECHTE,
   /** Gibt es auf diesem Geraet einen Firmenordner? Die Frage der Aufrufer. */
   istAn: dienst.istAn,
+  /**
+   * Wie lange das Wegwerfen dauern darf. Steht im Dienst daneben und wird hier
+   * nur weitergereicht: die Route braucht dieselbe Zahl fuer die Frist ihrer
+   * eigenen Antwort, und zwei Zahlen fuer dieselbe Geduld laufen auseinander.
+   */
+  ZEITGRENZE_LOESCHEN_MS: dienst.ZEITGRENZE_LOESCHEN_MS,
   listeOrdner,
   holeOrdner,
   listeRechte,

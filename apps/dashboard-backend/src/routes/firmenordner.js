@@ -145,6 +145,15 @@ router.post(
  * zuerst weg muss. Beides ist kein Schutz vor Versehen, sondern vor einem
  * Ordner, der unter den Fuessen von jemandem verschwindet, der gerade darin
  * arbeitet.
+ *
+ * DIE EINZIGE ROUTE DES GERAETS, DIE LANGE DAUERN DARF, und sie sagt es
+ * selbst. `index.js` schneidet jede Antwort nach 60 s ab (TIMEOUT-001) --
+ * richtig fuer alles, was eine Frage beantwortet, falsch fuer das Wegwerfen
+ * eines Ordners mit zehntausend Dateien: der Dienst raeumt dann weiter, der
+ * Mensch bekommt ein `408`, und am Geraet steht eine Zeile fuer einen Raum,
+ * den es nicht mehr gibt (am 22.09.2026 am Orin genau so passiert, nur eine
+ * Stufe tiefer). Die Zahl kommt aus dem Dienst und nicht von hier -- zwei
+ * Zahlen fuer dieselbe Geduld laufen auseinander.
  */
 router.delete(
   '/ordner/:id',
@@ -153,6 +162,7 @@ router.delete(
   validateParams(OrdnerParams),
   validateQuery(OrdnerLoeschenQuery),
   asyncHandler(async (req, res) => {
+    res.setTimeout(verwaltung.ZEITGRENZE_LOESCHEN_MS + 30000);
     const ordner = await verwaltung.holeOrdner(req.params.id);
     if (req.query.kennung !== ordner.kennung) {
       throw new ValidationError(
