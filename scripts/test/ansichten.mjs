@@ -47,6 +47,12 @@ export const VERWALTUNG = [
     '[data-testid="apps-seite"]',
   ],
   [
+    'Einstellungen · Firmenordner',
+    'einstellungen-firmenordner',
+    '/workspace/settings?tab=firmenordner',
+    '[data-testid="firmenordner-seite"]',
+  ],
+  [
     'Einstellungen · Sicherheit',
     'einstellungen-sicherheit',
     '/workspace/settings?tab=security',

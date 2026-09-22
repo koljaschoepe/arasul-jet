@@ -38,6 +38,29 @@ const dienst = require('./ordnerdienst');
 /** Die zwei Rechte, in der Reihenfolge „weniger, mehr". */
 const RECHTE = ['lesen', 'schreiben'];
 
+/**
+ * DIE WURZEL (Auftrag firmenordner-rechte-im-frontend, 22.09.2026).
+ *
+ * Das Zielbild hat ueber den zwei Ebenen eine Ebene 0: `firma/`, alle lesen,
+ * nur der Administrator schreibt. Darin liegen die Regeln, Skills und Agents
+ * der Firma, die Liste der fremden Orte und die je Mensch erzeugte
+ * `sicht.md`. Im Dienst gibt es ueber einem Raum nichts, also ist die Wurzel
+ * ein EIGENER Raum mit der Art `wurzel`, den das CLI der Wurzel am Rechner
+ * des Menschen oben in den Baum legt. Genau eine je Geraet (Migration 184).
+ *
+ * WER SIE LIEST, STEHT IN KEINER RECHTE-ZEILE. Jeder aktive Mensch liest,
+ * jeder Administrator schreibt -- das folgt aus `admin_users.role`. Im
+ * Dienst wird es zu einer Einladung je Mensch mit der passenden Rolle, und
+ * `spiegleWurzelMitglieder` haelt beides aneinander: beim Anlegen der Wurzel,
+ * beim Spiegeln eines neuen Menschen und bei jedem Abgleich.
+ */
+const ART_WURZEL = 'wurzel';
+
+/** Welche Stufe ein Mensch auf der Wurzel hat -- aus seiner Rolle. */
+function wurzelRecht(rolle) {
+  return rolle === 'admin' ? 'schreiben' : 'lesen';
+}
+
 /** Ist `a` mindestens so viel wie `b`? */
 function mindestens(a, b) {
   return RECHTE.indexOf(a) >= RECHTE.indexOf(b);
@@ -74,6 +97,15 @@ async function holeOrdner(id) {
   return rows[0];
 }
 
+/** Die eine Wurzel, oder `null`, solange niemand sie angelegt hat. */
+async function holeWurzel() {
+  const { rows } = await db.query(
+    `SELECT ${SPALTEN} FROM public.firmenordner_ordner o WHERE o.art = $1`,
+    [ART_WURZEL]
+  );
+  return rows[0] || null;
+}
+
 async function listeRechte({ ordnerId, benutzerId } = {}) {
   const { rows } = await db.query(
     `SELECT r.ordner_id, r.user_id, r.recht, r.erteilt_am, r.abgleich_offen,
@@ -107,7 +139,7 @@ async function listeRechte({ ordnerId, benutzerId } = {}) {
  * das ist die ganze Durchsetzung: es gibt nichts zu filtern, weil es nichts
  * gibt.
  */
-async function meineOrdner(benutzerId) {
+async function meineOrdner(benutzerId, rolle = 'mitarbeiter') {
   const { rows } = await db.query(
     `SELECT o.kennung, o.name, o.ebene, o.art, r.recht,
             e.kennung AS eltern_kennung,
@@ -120,14 +152,35 @@ async function meineOrdner(benutzerId) {
       ORDER BY pfad`,
     [benutzerId]
   );
-  return rows.map(z => ({
+  const ordner = rows.map(z => ({
     kennung: z.kennung,
     name: z.name,
     ebene: z.ebene,
+    art: z.art,
     eltern: z.eltern_kennung || null,
     pfad: z.pfad,
     recht: z.recht,
   }));
+  // DIE WURZEL ZUERST, mit leerem Pfad: sie liegt ueber allem, und wer sie
+  // liest, steht in keiner Zeile -- jeder aktive Mensch tut es, der
+  // Administrator schreibt. Ein Geraet ohne Wurzel nennt keine; das CLI
+  // legt dann keine oben hin.
+  const wurzel = await holeWurzel();
+  if (!wurzel) {
+    return ordner;
+  }
+  return [
+    {
+      kennung: wurzel.kennung,
+      name: wurzel.name,
+      ebene: 0,
+      art: ART_WURZEL,
+      eltern: null,
+      pfad: '',
+      recht: wurzelRecht(rolle),
+    },
+    ...ordner,
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +197,9 @@ async function meineOrdner(benutzerId) {
  * `holeNach()` ein.
  */
 async function legeOrdnerAn({ kennung, name, ebene, elternKennung, art, durch }) {
+  if (art === ART_WURZEL) {
+    return legeWurzelAn({ kennung, name, durch });
+  }
   let eltern = null;
   if (ebene === 2) {
     if (!elternKennung) {
@@ -200,6 +256,41 @@ async function legeOrdnerAn({ kennung, name, ebene, elternKennung, art, durch })
 }
 
 /**
+ * Die Wurzel anlegen: Ebene 0, genau eine.
+ *
+ * Danach bekommt jeder gespiegelte Mensch seine Einladung darauf --
+ * Administratoren als Schreiber, alle anderen als Leser. Das ist die eine
+ * Stelle, an der „alle lesen, nur der Admin schreibt" fuer die Menschen
+ * gilt, die es VOR der Wurzel schon gab; wer danach kommt, bekommt sie in
+ * `spiegleNutzer`.
+ */
+async function legeWurzelAn({ kennung, name, durch }) {
+  const vorhanden = await holeWurzel();
+  if (vorhanden) {
+    throw new ConflictError(
+      `Dieses Geraet hat schon eine Wurzel („${vorhanden.kennung}"). Es gibt genau eine.`
+    );
+  }
+  const { rows } = await db.query(
+    `INSERT INTO public.firmenordner_ordner
+       (kennung, name, ebene, eltern_id, art, raum_id, pfad, angelegt_von)
+     VALUES ($1, $2, 0, NULL, $3, NULL, '', $4)
+     RETURNING id`,
+    [kennung, name, ART_WURZEL, durch || null]
+  );
+  const id = rows[0].id;
+  await mitDienst(`Wurzel ${kennung} anlegen`, async () => {
+    const raumId = await dienst.legeRaumAn(kennung);
+    await db.query('UPDATE public.firmenordner_ordner SET raum_id = $2 WHERE id = $1', [
+      id,
+      raumId,
+    ]);
+  });
+  await spiegleWurzelMitglieder();
+  return holeOrdner(id);
+}
+
+/**
  * Einen Ordner wegwerfen -- **samt allem, was darin liegt**.
  *
  * DREI RIEGEL, UND JEDER HAT EINEN GRUND.
@@ -223,6 +314,23 @@ async function legeOrdnerAn({ kennung, name, ebene, elternKennung, art, durch })
  */
 async function loescheOrdner({ ordnerId }) {
   const ordner = await holeOrdner(ordnerId);
+
+  // DIE WURZEL FAELLT ZULETZT. Solange ein anderer Ordner besteht, haengt an
+  // ihr die Kette nach oben, die jeder Mensch mit irgendeinem Recht liest
+  // (Regel 1 des Zielbildes) -- ohne sie staende jeder Ordner ohne seine
+  // Regeln da. Ein Geraet, das nur noch die Wurzel hat, darf sie wegwerfen.
+  if (ordner.art === ART_WURZEL) {
+    const { rows: andere } = await db.query(
+      'SELECT COUNT(*)::int AS n FROM public.firmenordner_ordner WHERE id <> $1',
+      [ordnerId]
+    );
+    if (andere[0].n > 0) {
+      throw new ConflictError(
+        `„${ordner.kennung}" ist die Wurzel, und es gibt noch ${andere[0].n} andere Ordner. ` +
+          'Sie faellt erst, wenn kein anderer Ordner mehr besteht.'
+      );
+    }
+  }
 
   const { rows: kinder } = await db.query(
     'SELECT kennung FROM public.firmenordner_ordner WHERE eltern_id = $1',
@@ -289,6 +397,12 @@ async function gibRecht({ ordnerId, benutzerId, recht, durch }) {
     throw new ValidationError(`Unbekanntes Recht „${recht}"; es gibt ${RECHTE.join(' und ')}`);
   }
   const ordner = await holeOrdner(ordnerId);
+  if (ordner.art === ART_WURZEL) {
+    throw new ValidationError(
+      `„${ordner.kennung}" ist die Wurzel. Jeder aktive Mensch liest sie, Administratoren ` +
+        'schreiben -- das folgt aus der Rolle, nicht aus einem Recht je Person.'
+    );
+  }
   if (ordner.art === 'am_geraet') {
     throw new ValidationError(
       `„${ordner.kennung}" ist ein Ordner am Geraet. Er wird nie abgeglichen und bekommt ` +
@@ -369,7 +483,7 @@ async function nimmRechtZurueck({ ordnerId, benutzerId }) {
 
 async function holeNutzer(benutzerId) {
   const { rows } = await db.query(
-    'SELECT id, username, email, is_active FROM public.admin_users WHERE id = $1',
+    'SELECT id, username, email, role, is_active FROM public.admin_users WHERE id = $1',
     [benutzerId]
   );
   if (rows.length === 0) {
@@ -461,6 +575,99 @@ async function spiegleNutzer({ benutzerId, username, email, passwort }) {
            abgeglichen_am = NOW()`,
     [benutzerId, angelegt.id, angelegt.name]
   );
+  // Und auf die Wurzel, wenn es eine gibt: ein neuer Mensch liest sie vom
+  // ersten Tag an, ohne dass jemand ein Recht vergibt.
+  await spiegleWurzelMitglieder({ nurBenutzerId: benutzerId });
+}
+
+/**
+ * Die Mitglieder der Wurzel im Dienst an die Menschen am Geraet angleichen.
+ *
+ * SOLL: jeder gespiegelte, aktive Mensch -- Administratoren mit
+ * `schreiben`, alle anderen mit `lesen`. IST: was der Dienst an der Wurzel
+ * des Raums als Berechtigungen fuehrt. Wer fehlt, wird eingeladen; wer die
+ * falsche Rolle traegt, verliert sie und bekommt die richtige; wer am
+ * Geraet stillgelegt ist, verliert sie. Berechtigungen, die zu keinem
+ * gespiegelten Menschen gehoeren (das Konto des Geraets, das den Raum
+ * angelegt hat), bleiben unangetastet.
+ *
+ * `nurBenutzerId` schraenkt auf einen Menschen ein -- fuer den Augenblick,
+ * in dem er angelegt wird. Ohne die Einschraenkung ist es der Abgleich.
+ *
+ * Wirft nie: was nicht geht, steht im Log und beim naechsten Abgleich noch
+ * einmal an. Es gibt hier keine Zeile, an der ein Vermerk haengen koennte,
+ * und das ist richtig so -- die Wahrheit ueber die Wurzel steht in
+ * `admin_users.role`, nicht in einer zweiten Tabelle.
+ */
+async function spiegleWurzelMitglieder({ nurBenutzerId = null } = {}) {
+  if (!dienst.istAn()) {
+    return { eingeladen: 0, geaendert: 0, entfernt: 0 };
+  }
+  const wurzel = await holeWurzel();
+  if (!wurzel || !wurzel.raum_id) {
+    return { eingeladen: 0, geaendert: 0, entfernt: 0 };
+  }
+  const bericht = { eingeladen: 0, geaendert: 0, entfernt: 0 };
+  const { rows: menschen } = await db.query(
+    `SELECT f.user_id, f.dienst_id, u.username, u.role, u.is_active
+       FROM public.firmenordner_nutzer f
+       JOIN public.admin_users u ON u.id = f.user_id
+      WHERE ($1::bigint IS NULL OR f.user_id = $1)
+      ORDER BY f.user_id`,
+    [nurBenutzerId]
+  );
+  if (menschen.length === 0) {
+    return bericht;
+  }
+
+  let ist = null;
+  const offen = await mitDienst('Mitglieder der Wurzel lesen', async () => {
+    ist = await dienst.mitglieder(wurzel.raum_id);
+  });
+  if (offen || !ist) {
+    return bericht;
+  }
+
+  for (const mensch of menschen) {
+    const vorhanden = ist.find(m => m.dienstNutzerId === mensch.dienst_id);
+    if (!mensch.is_active) {
+      if (vorhanden) {
+        await mitDienst(`${mensch.username} von der Wurzel nehmen`, () =>
+          dienst.entferneMitglied(wurzel.raum_id, vorhanden.permissionId)
+        );
+        bericht.entfernt += 1;
+      }
+      continue;
+    }
+    const recht = wurzelRecht(mensch.role);
+    let rolleId = null;
+    const ohneRolle = await mitDienst(`Rolle fuer ${recht} auf der Wurzel`, async () => {
+      rolleId = await dienst.rolleFuer(recht, 'raum');
+    });
+    if (ohneRolle || !rolleId) {
+      continue;
+    }
+    if (vorhanden && vorhanden.rollen.includes(rolleId)) {
+      continue;
+    }
+    if (vorhanden) {
+      await mitDienst(`${mensch.username} auf der Wurzel umstellen`, () =>
+        dienst.entferneMitglied(wurzel.raum_id, vorhanden.permissionId)
+      );
+      bericht.geaendert += 1;
+    } else {
+      bericht.eingeladen += 1;
+    }
+    await mitDienst(`${mensch.username} auf die Wurzel einladen (${recht})`, () =>
+      dienst.ladeEin({
+        raumId: wurzel.raum_id,
+        ordnerId: null,
+        dienstNutzerId: mensch.dienst_id,
+        recht,
+      })
+    );
+  }
+  return bericht;
 }
 
 /**
@@ -489,6 +696,10 @@ async function spiegleAktiv({ benutzerId, aktiv }) {
         SET abgleich_offen = $2, abgeglichen_am = NOW() WHERE user_id = $1`,
     [benutzerId, offen]
   );
+  // Die Sperre im Dienst wirkt erst nach Sekunden (gemessen 20 bis 40); die
+  // Einladung auf die Wurzel faellt sofort, und beim Zulassen kommt sie
+  // zurueck.
+  await spiegleWurzelMitglieder({ nurBenutzerId: benutzerId });
 }
 
 /**
@@ -667,7 +878,139 @@ async function holeNach() {
     bericht.rechte += 1;
   }
 
+  // 5. Die Wurzel: jeder aktive Mensch liest, Administratoren schreiben.
+  bericht.wurzel = await spiegleWurzelMitglieder();
+
   return bericht;
+}
+
+// ---------------------------------------------------------------------------
+// Die Sicht eines Menschen und die Aenderungen eines Ordners
+// ---------------------------------------------------------------------------
+
+/**
+ * Was zuletzt in einem Ordner geschah -- wer wann, aus dem Protokoll des
+ * Dienstes.
+ *
+ * Fuer einen Raum (Ebene 0 und 1) ist die Kennung des Elements die des Raums,
+ * fuer einen Ordner darin (Ebene 2) die des Ordners. Ein Ordner ohne Raum
+ * (angelegt, waehrend der Dienst stand) hat kein Protokoll: leere Liste.
+ */
+async function aenderungenVon(ordnerId) {
+  const ordner = await holeOrdner(ordnerId);
+  if (!dienst.istAn() || !ordner.raum_id) {
+    return { ordner: ordner.kennung, aenderungen: [] };
+  }
+  const itemId =
+    ordner.ebene === 2 ? await dienst.ordnerKennung(ordner.raum_id, ordner.pfad) : ordner.raum_id;
+  const aenderungen = await dienst.aenderungen(itemId);
+  return { ordner: ordner.kennung, aenderungen };
+}
+
+/** Hoechstens so viele Zeilen je Abschnitt, damit die Sicht EINE Seite bleibt. */
+const SICHT_ZEILEN = { ordner: 25, apps: 10, orte: 10 };
+
+/**
+ * Die Orte aus `.claude/places.json` der Wurzel, gelesen ueber den Dienst.
+ *
+ * Die Form ist die des CLI der Wurzel (`arasul.mjs`): `{ places: [{ name,
+ * description?, local?, write? }] }`. Was nicht so aussieht, wird
+ * uebergangen -- die Sicht ist eine Auskunft, kein Pruefskript.
+ */
+async function orteAusWurzel(wurzel) {
+  if (!wurzel?.raum_id || !dienst.istAn()) {
+    return [];
+  }
+  let text = null;
+  await mitDienst('places.json der Wurzel lesen', async () => {
+    text = await dienst.leseDatei(wurzel.raum_id, '.claude/places.json');
+  });
+  if (!text) {
+    return [];
+  }
+  let daten;
+  try {
+    daten = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  const liste = Array.isArray(daten) ? daten : Array.isArray(daten?.places) ? daten.places : [];
+  return liste
+    .filter(o => o && typeof o === 'object' && typeof o.name === 'string' && o.name.trim())
+    .map(o => ({
+      name: o.name.trim().slice(0, 60),
+      beschreibung: typeof o.description === 'string' ? o.description.trim().slice(0, 120) : '',
+      schreiben: o.write === true,
+    }));
+}
+
+/** Eine Liste auf ihre Zeilenzahl kuerzen und den Rest zaehlen. */
+function gekuerzt(zeilen, grenze) {
+  if (zeilen.length <= grenze) {
+    return zeilen;
+  }
+  return [...zeilen.slice(0, grenze), `- … und ${zeilen.length - grenze} weitere`];
+}
+
+/**
+ * `sicht.md` fuer einen Menschen: seine Ordner mit Stufe, seine Apps mit dem
+ * Verweis auf ihre `APP.md`, die Orte der Wurzel. Regel 3 des Zielbildes --
+ * „Was es gibt, steht in sicht.md, je Mitarbeiter vom Geraet erzeugt aus
+ * seinen Rechten. Hoechstens eine Bildschirmseite. Niemand pflegt Kontext je
+ * Rolle von Hand."
+ *
+ * SIE NENNT NICHTS, WAS ER NICHT HAT. Die Ordner kommen aus `meineOrdner`
+ * (nur seine Rechte, nie „am Geraet"), die Apps aus `appsFuerNutzer` (nur
+ * seine Freigaben). Ein fremder Ordner steht hier so wenig wie in der
+ * Antwort von `GET /api/firmenordner` -- auch sein Name nicht.
+ *
+ * `apps` wird hier lazy geholt, nicht oben: `appStore` zieht Docker und die
+ * Manifeste mit, und diese Datei soll auf einem Geraet ohne Firmenordner
+ * nichts davon laden.
+ */
+async function sichtFuer({ benutzerId, username, rolle }) {
+  const ordner = await meineOrdner(benutzerId, rolle);
+  const wurzel = ordner.find(o => o.art === ART_WURZEL) || null;
+  const appStore = require('../app/appStore');
+  const apps = await appStore.appsFuerNutzer(benutzerId);
+  const orte = await orteAusWurzel(wurzel ? await holeWurzel() : null);
+  const heute = new Date().toISOString().slice(0, 10);
+
+  const ordnerZeilen = ordner.map(o => {
+    const weg = o.art === ART_WURZEL ? `/ (Wurzel „${o.kennung}")` : `${o.pfad}/`;
+    return `- \`${weg}\`: ${o.recht} — ${o.name}`;
+  });
+  const appZeilen = apps.map(
+    a => `- ${a.id} (${a.name}) — \`apps/${a.id}/APP.md\`${a.test ? ' · auch der Teststand' : ''}`
+  );
+  const orteZeilen = orte.map(
+    o =>
+      `- ${o.name}${o.beschreibung ? ` — ${o.beschreibung}` : ''} · ${
+        o.schreiben ? 'darf ändern' : 'nur lesen'
+      }`
+  );
+
+  const zeilen = [
+    `# Sicht von ${username}`,
+    '',
+    `Erzeugt vom Gerät am ${heute} aus deinen Rechten und Freigaben. Nicht bearbeiten: ` +
+      'der nächste Abgleich schreibt sie neu. Was hier nicht steht, gibt es für dich nicht.',
+    '',
+    '## Deine Ordner',
+    ...(ordnerZeilen.length
+      ? gekuerzt(ordnerZeilen, SICHT_ZEILEN.ordner)
+      : ['- keine. Bitte den Administrator um ein Recht auf einen Ordner.']),
+    '',
+    '## Deine Apps',
+    ...(appZeilen.length ? gekuerzt(appZeilen, SICHT_ZEILEN.apps) : ['- keine freigegeben']),
+    '',
+    '## Orte außerhalb',
+    ...(orteZeilen.length
+      ? gekuerzt(orteZeilen, SICHT_ZEILEN.orte)
+      : ['- keine in `.claude/places.json` der Wurzel genannt']),
+    '',
+  ];
+  return zeilen.join('\n');
 }
 
 /**
@@ -689,13 +1032,15 @@ async function zustand() {
          AS nutzer_offen,
        (SELECT COUNT(*) FROM public.firmenordner_rechte)::int AS rechte,
        (SELECT COUNT(*) FROM public.firmenordner_rechte WHERE abgleich_offen IS NOT NULL)::int
-         AS rechte_offen`
+         AS rechte_offen,
+       (SELECT kennung FROM public.firmenordner_ordner WHERE art = 'wurzel' LIMIT 1) AS wurzel`
   );
   return { ...grund, adresse: dienst.basisAussen(), ...rows[0] };
 }
 
 module.exports = {
   RECHTE,
+  ART_WURZEL,
   /** Gibt es auf diesem Geraet einen Firmenordner? Die Frage der Aufrufer. */
   istAn: dienst.istAn,
   /**
@@ -706,8 +1051,12 @@ module.exports = {
   ZEITGRENZE_LOESCHEN_MS: dienst.ZEITGRENZE_LOESCHEN_MS,
   listeOrdner,
   holeOrdner,
+  holeWurzel,
   listeRechte,
   meineOrdner,
+  aenderungenVon,
+  sichtFuer,
+  spiegleWurzelMitglieder,
   legeOrdnerAn,
   loescheOrdner,
   gibRecht,

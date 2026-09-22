@@ -13,6 +13,9 @@
  *      steht der Mensch trotzdem in `admin_users` -- und was fehlt, steht als
  *      Satz in der Datenbank.
  *   4. WAS EIN MENSCH SIEHT. Ein Ordner am Geraet kommt nie vor.
+ *   5. DIE WURZEL (Auftrag firmenordner-rechte-im-frontend, 22.09.2026). Genau
+ *      eine, ohne Rechte-Zeile, zuerst in der Antwort, nie loeschbar, solange
+ *      ein anderer Ordner besteht -- und `sicht.md` nennt nichts Fremdes.
  */
 
 process.env.JWT_SECRET =
@@ -269,8 +272,15 @@ describe('Der Dienst darf ausfallen', () => {
 });
 
 describe('Was ein Mensch sieht', () => {
+  /** Ohne Wurzel: die Frage nach ihr bekommt keine Zeile. */
+  function ohneWurzel(zeilen) {
+    db.query.mockImplementation(async sql =>
+      sql.includes('o.art = $1') ? { rows: [] } : { rows: zeilen }
+    );
+  }
+
   it('fragt nur nach seinen eigenen Ordnern und schliesst „am Geraet" aus', async () => {
-    db.query.mockResolvedValue({ rows: [] });
+    ohneWurzel([]);
     await verwaltung.meineOrdner(3);
     const [sql, params] = db.query.mock.calls[0];
     // Beide Bedingungen, und beide sind wichtig: die erste macht einen
@@ -282,19 +292,17 @@ describe('Was ein Mensch sieht', () => {
   });
 
   it('nennt den Pfad der Ebene 2 an seiner echten Stelle im Baum', async () => {
-    db.query.mockResolvedValue({
-      rows: [
-        {
-          kennung: 'vicona',
-          name: 'Vicona',
-          ebene: 2,
-          art: 'geteilt',
-          recht: 'schreiben',
-          eltern_kennung: 'projekte',
-          pfad: 'projekte/vicona',
-        },
-      ],
-    });
+    ohneWurzel([
+      {
+        kennung: 'vicona',
+        name: 'Vicona',
+        ebene: 2,
+        art: 'geteilt',
+        recht: 'schreiben',
+        eltern_kennung: 'projekte',
+        pfad: 'projekte/vicona',
+      },
+    ]);
     const ordner = await verwaltung.meineOrdner(3);
     // Auch wenn der Mensch `projekte` gar nicht sieht: der Ordner liegt bei
     // ihm an seiner echten Stelle (Regel 1 des Zielbildes).
@@ -303,11 +311,330 @@ describe('Was ein Mensch sieht', () => {
         kennung: 'vicona',
         name: 'Vicona',
         ebene: 2,
+        art: 'geteilt',
         eltern: 'projekte',
         pfad: 'projekte/vicona',
         recht: 'schreiben',
       },
     ]);
+  });
+});
+
+describe('Die Wurzel (Auftrag firmenordner-rechte-im-frontend, 22.09.2026)', () => {
+  const WURZEL = {
+    id: 1,
+    kennung: 'firma',
+    name: 'Firma',
+    ebene: 0,
+    eltern_id: null,
+    art: 'wurzel',
+    raum_id: 'r-wurzel',
+    pfad: '',
+  };
+
+  /** Ein Geraet mit Wurzel, ohne andere Ordner und ohne Rechte. */
+  function mitWurzel({ andere = 0 } = {}) {
+    db.query.mockImplementation(async (sql, params) => {
+      if (sql.includes('o.art = $1')) {
+        return { rows: [WURZEL] };
+      }
+      if (sql.includes('FROM public.firmenordner_ordner o WHERE o.id')) {
+        return Number(params[0]) === 1 ? { rows: [WURZEL] } : { rows: [] };
+      }
+      if (sql.includes('COUNT(*)::int AS n FROM public.firmenordner_ordner WHERE id <>')) {
+        return { rows: [{ n: andere }] };
+      }
+      if (sql.includes('FROM public.admin_users WHERE id')) {
+        return {
+          rows: [{ id: 3, username: 'mia', email: null, role: 'mitarbeiter', is_active: true }],
+        };
+      }
+      return { rows: [] };
+    });
+  }
+
+  it('steht ZUERST in der Antwort, mit leerem Pfad und art wurzel', async () => {
+    mitWurzel();
+    const ordner = await verwaltung.meineOrdner(3, 'mitarbeiter');
+    expect(ordner[0]).toEqual({
+      kennung: 'firma',
+      name: 'Firma',
+      ebene: 0,
+      art: 'wurzel',
+      eltern: null,
+      pfad: '',
+      recht: 'lesen',
+    });
+  });
+
+  it('liest jeder Mitarbeiter, und der Administrator schreibt -- aus der Rolle, nicht aus einer Zeile', async () => {
+    mitWurzel();
+    const [alsMitarbeiter] = await verwaltung.meineOrdner(3, 'mitarbeiter');
+    const [alsAdmin] = await verwaltung.meineOrdner(3, 'admin');
+    expect(alsMitarbeiter.recht).toBe('lesen');
+    expect(alsAdmin.recht).toBe('schreiben');
+    // Keine Abfrage der Rechte-Tabelle nach der Wurzel: es gibt dort keine
+    // Zeile fuer sie, und es soll keine geben.
+    const rechteFragen = db.query.mock.calls.filter(
+      ([sql]) => sql.includes('firmenordner_rechte') && sql.includes('r-wurzel')
+    );
+    expect(rechteFragen).toHaveLength(0);
+  });
+
+  it('bekommt kein Recht je Person', async () => {
+    mitWurzel();
+    await expect(
+      verwaltung.gibRecht({ ordnerId: 1, benutzerId: 3, recht: 'lesen', durch: 1 })
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('faellt nicht, solange ein anderer Ordner besteht', async () => {
+    mitWurzel({ andere: 2 });
+    await expect(verwaltung.loescheOrdner({ ordnerId: 1 })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+  });
+
+  it('faellt, wenn sie der letzte Ordner ist', async () => {
+    mitWurzel({ andere: 0 });
+    global.fetch.mockResolvedValue({ ok: true, status: 204, text: async () => '' });
+    await expect(verwaltung.loescheOrdner({ ordnerId: 1 })).resolves.toEqual({
+      kennung: 'firma',
+      ebene: 0,
+      art: 'wurzel',
+    });
+  });
+
+  it('gibt es nur einmal', async () => {
+    mitWurzel();
+    await expect(
+      verwaltung.legeOrdnerAn({
+        kennung: 'zweite',
+        name: 'Zweite',
+        ebene: 0,
+        art: 'wurzel',
+        durch: 1,
+      })
+    ).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('bekommt beim Abgleich jeden aktiven Menschen als Mitglied -- Administratoren als Schreiber', async () => {
+    firmenordnerAn();
+    db.query.mockImplementation(async sql => {
+      if (sql.includes('o.art = $1')) {
+        return { rows: [WURZEL] };
+      }
+      if (sql.includes('FROM public.firmenordner_nutzer f')) {
+        return {
+          rows: [
+            { user_id: 1, dienst_id: 'u-1', username: 'admin', role: 'admin', is_active: true },
+            { user_id: 3, dienst_id: 'u-3', username: 'mia', role: 'mitarbeiter', is_active: true },
+            {
+              user_id: 4,
+              dienst_id: 'u-4',
+              username: 'weg',
+              role: 'mitarbeiter',
+              is_active: false,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    global.fetch.mockImplementation(async (url, opts = {}) => {
+      const weg = String(url);
+      if (weg.includes('roleDefinitions')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({
+              value: [
+                {
+                  id: 'view-root',
+                  displayName: 'Can view',
+                  rolePermissions: [{ condition: 'exists @Resource.Root' }],
+                },
+                {
+                  id: 'edit-root',
+                  displayName: 'Can edit',
+                  rolePermissions: [{ condition: 'exists @Resource.Root' }],
+                },
+              ],
+            }),
+        };
+      }
+      if (weg.endsWith('/root/permissions') && (opts.method || 'GET') === 'GET') {
+        // `mia` ist schon Leserin, `weg` ist noch Mitglied, obwohl stillgelegt.
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({
+              value: [
+                { id: 'p-3', roles: ['view-root'], grantedToV2: { user: { id: 'u-3' } } },
+                { id: 'p-4', roles: ['view-root'], grantedToV2: { user: { id: 'u-4' } } },
+                { id: 'p-geraet', roles: ['manage'], grantedToV2: { user: { id: 'u-geraet' } } },
+              ],
+            }),
+        };
+      }
+      return { ok: true, status: 200, text: async () => '{}' };
+    });
+
+    const bericht = await verwaltung.spiegleWurzelMitglieder();
+    expect(bericht).toEqual({ eingeladen: 1, geaendert: 0, entfernt: 1 });
+
+    const einladungen = global.fetch.mock.calls.filter(([url]) => String(url).includes('/invite'));
+    expect(einladungen).toHaveLength(1);
+    const koerper = JSON.parse(einladungen[0][1].body);
+    expect(koerper.recipients[0].objectId).toBe('u-1');
+    expect(koerper.roles).toEqual(['edit-root']);
+
+    const entfernt = global.fetch.mock.calls.filter(
+      ([url, o]) => (o?.method || 'GET') === 'DELETE' && String(url).includes('/permissions/')
+    );
+    // Nur `weg` (stillgelegt) faellt -- das Konto des Geraets bleibt unangetastet.
+    expect(entfernt.map(([url]) => String(url).split('/').pop())).toEqual(['p-4']);
+  });
+});
+
+describe('sicht.md (Regel 3 des Zielbildes)', () => {
+  it('nennt seine Ordner mit Stufe, seine Apps mit APP.md und die Orte -- und nichts Fremdes', async () => {
+    firmenordnerAn();
+    const WURZEL = {
+      id: 1,
+      kennung: 'firma',
+      name: 'Firma',
+      ebene: 0,
+      eltern_id: null,
+      art: 'wurzel',
+      raum_id: 'r-w',
+      pfad: '',
+    };
+    db.query.mockImplementation(async sql => {
+      if (sql.includes('o.art = $1')) {
+        return { rows: [WURZEL] };
+      }
+      if (sql.includes('FROM public.firmenordner_rechte r') && sql.includes('r.user_id = $1')) {
+        return {
+          rows: [
+            {
+              kennung: 'vicona',
+              name: 'Vicona',
+              ebene: 2,
+              art: 'geteilt',
+              recht: 'schreiben',
+              eltern_kennung: 'projekte',
+              pfad: 'projekte/vicona',
+            },
+          ],
+        };
+      }
+      if (sql.includes('FROM public.app_members f')) {
+        return {
+          rows: [
+            {
+              id: 'belege',
+              name: 'Belege',
+              beschreibung: null,
+              freigegeben_bis: 'live',
+              live_version: '1.0.0',
+              test_version: null,
+              live_manifest: { backend: {} },
+              test_manifest: null,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    global.fetch.mockImplementation(async url => {
+      if (String(url).includes('places.json')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({
+              places: [{ name: 'github-firma', description: 'Der Quellcode', write: false }],
+            }),
+        };
+      }
+      return { ok: false, status: 404, text: async () => '' };
+    });
+
+    const text = await verwaltung.sichtFuer({
+      benutzerId: 3,
+      username: 'mia',
+      rolle: 'mitarbeiter',
+    });
+    expect(text).toContain('# Sicht von mia');
+    expect(text).toContain('`/ (Wurzel „firma")`: lesen');
+    expect(text).toContain('`projekte/vicona/`: schreiben');
+    expect(text).toContain('`apps/belege/APP.md`');
+    expect(text).toContain('github-firma — Der Quellcode · nur lesen');
+    // Der Bereich `projekte` steht NICHT als eigener Ordner da: mia hat auf
+    // ihm kein Recht, und ein Ordner ohne Recht ist unsichtbar, auch sein Name.
+    expect(text).not.toMatch(/`projekte\/`/);
+    // Hoechstens eine Bildschirmseite.
+    expect(text.split('\n').length).toBeLessThanOrEqual(50);
+  });
+});
+
+describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
+  it('loest die Vorlage des Protokolls zu einem Satz auf, neueste zuerst', async () => {
+    firmenordnerAn();
+    global.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          value: [
+            {
+              id: 'a',
+              template: {
+                message: '{user} added {sharee} as member of {space}',
+                variables: {
+                  user: { id: 'u-1', displayName: 'Admin' },
+                  sharee: { id: 'u-3', displayName: 'mia' },
+                  space: { id: 'r', name: 'projekte' },
+                },
+              },
+              times: { recordedTime: '2026-09-22T17:59:19Z' },
+            },
+            {
+              id: 'b',
+              template: {
+                message: '{user} added {resource} to {folder}',
+                variables: {
+                  user: { id: 'u-3', displayName: 'mia' },
+                  resource: { id: 'x', name: 'angebot.md' },
+                  folder: { id: 'r', name: 'projekte' },
+                },
+              },
+              times: { recordedTime: '2026-09-22T17:59:22Z' },
+            },
+          ],
+        }),
+    });
+    const liste = await dienst.aenderungen('r');
+    expect(liste).toEqual([
+      {
+        wann: '2026-09-22T17:59:22Z',
+        wer: 'mia',
+        text: 'mia added angebot.md to projekte',
+        datei: 'angebot.md',
+      },
+      {
+        wann: '2026-09-22T17:59:19Z',
+        wer: 'Admin',
+        text: 'Admin added mia as member of projekte',
+        datei: null,
+      },
+    ]);
+    expect(String(global.fetch.mock.calls[0][0])).toContain(
+      'org.libregraph/activities?kql=itemid%3Ar'
+    );
   });
 });
 
@@ -518,7 +845,12 @@ describe('Wegwerfen ist keine Anfrage wie die anderen (J33, 22.09.2026)', () => 
     // einen Dienst, der auf jeden weiteren Versuch `500 grpc error` sagt --
     // waehrend die Dateien laengst weg sind.
     antworten([
-      { methode: 'DELETE', purge: true, status: 500, koerper: '{"error":{"message":"grpc error"}}' },
+      {
+        methode: 'DELETE',
+        purge: true,
+        status: 500,
+        koerper: '{"error":{"message":"grpc error"}}',
+      },
       { methode: 'GET', enthaelt: '/graph/v1.0/drives', status: 200, koerper: LISTE_OHNE },
       { status: 204 },
     ]);
@@ -608,10 +940,7 @@ describe('Wegwerfen ist keine Anfrage wie die anderen (J33, 22.09.2026)', () => 
     // Ein WebDAV-DELETE ist ein Verschieben: der Ordner liegt danach unter
     // `.Trash/files/…` und jede Datei darin ist noch da (am 22.09.2026 am
     // Orin nachgesehen). Die Route verspricht „samt allem, was darin liegt".
-    antworten([
-      { methode: 'PROPFIND', status: 207, koerper: PAPIERKORB },
-      { status: 204 },
-    ]);
+    antworten([{ methode: 'PROPFIND', status: 207, koerper: PAPIERKORB }, { status: 204 }]);
     await dienst.loescheOrdner('r1', 'vicona');
     const wege = global.fetch.mock.calls.map(([u, o]) => `${o.method} ${String(u)}`);
     expect(wege).toEqual([
@@ -623,10 +952,7 @@ describe('Wegwerfen ist keine Anfrage wie die anderen (J33, 22.09.2026)', () => 
 
   it('laesst liegen, was ein Mensch selbst in den Papierkorb gelegt hat', async () => {
     firmenordnerAn();
-    antworten([
-      { methode: 'PROPFIND', status: 207, koerper: PAPIERKORB },
-      { status: 204 },
-    ]);
+    antworten([{ methode: 'PROPFIND', status: 207, koerper: PAPIERKORB }, { status: 204 }]);
     await dienst.loescheOrdner('r1', 'gibt-es-nicht-im-papierkorb');
     // Den Papierkorb GANZ zu leeren waere ein zweites Wegwerfen, das niemand
     // bestellt hat.

@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
-import { IdCard, LogOut, Menu, Settings, PanelLeft, PanelRight, User } from 'lucide-react';
+import {
+  FolderTree,
+  IdCard,
+  LogOut,
+  Menu,
+  PanelLeft,
+  PanelRight,
+  Settings,
+  User,
+} from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@marken';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
 import { AusweiseDialog } from '@/features/ausweise/AusweiseDialog';
+import { MeinFirmenordnerDialog } from '@/features/firmenordner/MeinFirmenordnerDialog';
 
 /** Icon-Toggle für die zwei Layout-Flächen (Sidebar/rechte Spalte). */
 function LayoutToggleButton({
@@ -86,6 +96,7 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const selectView = useWorkspaceStore(s => s.selectView);
 
   const [ausweiseOffen, setAusweiseOffen] = useState(false);
+  const [firmenordnerOffen, setFirmenordnerOffen] = useState(false);
 
   // EIN Knopf für die Notizen, zwei Zustände dahinter (Phase D6): über 900 px
   // ist es die Spalte, darunter das Blatt über der Mitte. Der Mensch drückt
@@ -212,6 +223,17 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
             <IdCard className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Meine Ausweise
           </button>
+          {/* Aus demselben Grund hier: welche Ordner ICH habe, gehoert jedem,
+              nicht der Verwaltung (Auftrag firmenordner-rechte-im-frontend). */}
+          <button
+            type="button"
+            data-testid="workspace-firmenordner"
+            onClick={() => setFirmenordnerOffen(true)}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground hover:bg-accent"
+          >
+            <FolderTree className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Mein Firmenordner
+          </button>
           <button
             type="button"
             data-testid="workspace-abmelden"
@@ -236,6 +258,9 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
         Menschen nie aufmachen.
       */}
       {ausweiseOffen && <AusweiseDialog offen beiSchliessen={() => setAusweiseOffen(false)} />}
+      {firmenordnerOffen && (
+        <MeinFirmenordnerDialog offen beiSchliessen={() => setFirmenordnerOffen(false)} />
+      )}
     </header>
   );
 }

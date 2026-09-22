@@ -18,6 +18,13 @@
 #      weniger zu geben als auf dem Bereich, wird abgewiesen.
 #   4. DER ORDNER AM GERAET IST KEINEM SICHTBAR. Er taucht in keiner Antwort
 #      auf, und der Dienst gibt ihn keinem Nutzer heraus.
+#   5. DIE WURZEL, DIE SICHT UND DER BROWSER (Auftrag
+#      firmenordner-rechte-im-frontend, 22.09.2026): die Wurzel liest jedes
+#      Konto und schreibt nur der Administrator (WebDAV PUT 403 gegen 201);
+#      `sicht.md` nennt einem Menschen seine Ordner, seine Apps und die Orte --
+#      und nichts Fremdes, auch keinen Namen; und die Rechte-Vergabe in der
+#      Verwaltung erzeugt dieselbe Zeile wie `POST /api/firmenordner/rechte`
+#      (`firmenordner-bilder.mjs`, Playwright).
 #
 # DIE WICHTIGSTEN MESSUNGEN SIND DIE NEGATIVEN, wie immer: „sieht nicht",
 # „kommt nicht herein", „taucht nicht auf". Eine Schnittstelle, die etwas
@@ -61,7 +68,17 @@ GERAETORDNER="j33g-$STEMPEL"
 GROSS="j33gross-$STEMPEL"   # der Raum mit tausenden Dateien
 WEIT="j33-weit-$STEMPEL"   # sieht den ganzen Bereich
 ENG="j33-eng-$STEMPEL"     # sieht nur das Projekt darin
+CHEF="j33-chef-$STEMPEL"   # ein Wegwerf-Administrator: schreibt in die Wurzel
 PASSWORT="Firmenordner-$STEMPEL"
+# Die Wurzel gehoert dem Geraet, nicht dieser Abnahme. Gibt es schon eine,
+# wird sie benutzt und bleibt; legt die Abnahme sie an, nimmt sie sie am Ende
+# wieder weg -- und zwar als LETZTES, denn sie faellt erst, wenn kein anderer
+# Ordner mehr besteht.
+WURZEL_ANGELEGT=false
+WURZEL_ID=""
+WURZEL_RAUM=""
+SITZUNG_A="${TMPDIR:-/tmp}/arasul-j33-admin.json"
+SITZUNG_M="${TMPDIR:-/tmp}/arasul-j33-mitarbeiter.json"
 
 NUR_AUFRAEUMEN=false
 [ "${1:-}" = "--nur-aufraeumen" ] && NUR_AUFRAEUMEN=true
@@ -194,7 +211,7 @@ aufraeumen() {
   echo
   echo "--- Aufraeumen ---"
   local id
-  for name in "$ENG" "$WEIT"; do
+  for name in "$ENG" "$WEIT" "$CHEF"; do
     ruf GET "/api/benutzer" "$TOK"
     id=$(python3 -c 'import sys,json
 try: d = json.load(sys.stdin)["data"]
@@ -218,6 +235,11 @@ for o in d:
       echo "   Ordner $kennung weg (HTTP $CODE)"
     fi
   done
+  if [ "$WURZEL_ANGELEGT" = true ] && [ -n "$WURZEL_ID" ]; then
+    ruf_geduldig DELETE "/api/firmenordner/ordner/$WURZEL_ID?kennung=firma" "$TOK"
+    echo "   Wurzel firma weg (HTTP $CODE)"
+  fi
+  rm -f "$SITZUNG_A" "$SITZUNG_M"
 }
 
 if [ "$NUR_AUFRAEUMEN" = true ]; then
@@ -538,11 +560,20 @@ PY" >/dev/null 2>&1
     "auf der Platte: ${AUF_PLATTE:-0}"
 
   # Warten, bis der Suchdienst sie hat -- sonst misst die Frage nach dem Index
-  # unten einen Index, der sie nie kannte.
+  # unten einen Index, der sie nie kannte. UND ZWAR BIS ER STEHT, nicht bis er
+  # anfaengt (Fund vom 22.09.2026): der erste Treffer kam, waehrend der
+  # Dienst noch indizierte, und ein `INDEX_VORHER` von ein paar Dutzend gegen
+  # ein `INDEX_NACHHER` aus dem fertigen Segment machte die Zeile unten rot
+  # ueber etwas, das richtig war. Fertig heisst: alle Namen sind da, oder die
+  # Zahl hat sich in zwanzig Sekunden nicht mehr bewegt.
   INDEX_VORHER=0
-  for _ in $(seq 1 30); do
+  LETZTER=-1
+  for _ in $(seq 1 45); do
     INDEX_VORHER=$(ssh "$ARASUL_GERAET" "grep -roa '$MARKE-[0-9]*' $ABLAGE/search 2>/dev/null | wc -l" 2>/dev/null)
-    [ "${INDEX_VORHER:-0}" -gt 0 ] && break
+    INDEX_VORHER=$((${INDEX_VORHER:-0} + 0))
+    [ "$INDEX_VORHER" -ge "$DATEIEN" ] && break
+    [ "$INDEX_VORHER" -gt 0 ] && [ "$INDEX_VORHER" -eq "$LETZTER" ] && break
+    LETZTER=$INDEX_VORHER
     sleep 10
   done
   pruefe 'und der Suchindex kennt ihre Namen' "$(ja_nein "$([ "${INDEX_VORHER:-0}" -gt 0 ] && echo ja || echo nein)" ja)" \
@@ -622,6 +653,182 @@ fi
 ruf GET "/api/firmenordner" "$TOK"
 pruefe 'die Route nennt den Symlink als nicht abgeglichen' \
   "$(enthaelt "$(cat "$RUMPF")" 'symlink')" "$(feld data.nicht_abgeglichen.0.art)"
+
+# ===========================================================================
+# 9. Die Wurzel: jeder liest, nur der Administrator schreibt
+# ===========================================================================
+# Auftrag firmenordner-rechte-im-frontend (22.09.2026). Die Wurzel ist die
+# Ebene 0 des Zielbildes, im Dienst ein eigener Raum mit `art = 'wurzel'`,
+# genau einer je Geraet. Gemessen wird nicht die Tabelle, sondern die TUER:
+# ein Mitarbeiter bekommt auf ein `PUT` in die Wurzel 403, ein Administrator
+# 201. Dafuer gibt es den Wegwerf-Administrator `$CHEF` -- das Passwort des
+# Administrators, mit dem diese Abnahme laeuft, kennt sie nicht und soll es
+# nicht.
+echo
+echo "--- Die Wurzel ---"
+
+ruf GET "/api/firmenordner/ordner" "$TOK"
+WURZEL_ID=$(python3 -c 'import sys,json
+try: d = json.load(sys.stdin)["data"]
+except Exception: raise SystemExit
+for o in d:
+    if o.get("art") == "wurzel": print(o["id"])' < "$RUMPF" 2>/dev/null)
+if [ -z "$WURZEL_ID" ]; then
+  ruf POST "/api/firmenordner/ordner" "$TOK" '{"kennung":"firma","name":"Firma","art":"wurzel"}'
+  pruefe 'die Wurzel entsteht ueber POST /ordner mit art wurzel, ohne ebene' \
+    "$(ja_nein "$CODE" 201)" "HTTP $CODE"
+  WURZEL_ID=$(feld data.id)
+  [ -n "$WURZEL_ID" ] && WURZEL_ANGELEGT=true
+else
+  echo "   (die Wurzel gibt es schon, id=$WURZEL_ID -- sie wird benutzt und bleibt)"
+fi
+ruf GET "/api/firmenordner/ordner" "$TOK"
+WURZEL_RAUM=$(python3 -c 'import sys,json
+try: d = json.load(sys.stdin)["data"]
+except Exception: raise SystemExit
+for o in d:
+    if o.get("art") == "wurzel": print(o.get("raum_id") or "")' < "$RUMPF" 2>/dev/null)
+pruefe 'und der Dienst kennt ihren Raum' "$(nicht "$WURZEL_RAUM" '')" "raum_id=$WURZEL_RAUM"
+
+ruf POST "/api/firmenordner/ordner" "$TOK" '{"kennung":"zweite","name":"Zweite","art":"wurzel"}'
+pruefe 'eine zweite Wurzel gibt es nicht' "$(ja_nein "$CODE" 409)" "HTTP $CODE"
+
+ruf POST "/api/firmenordner/rechte" "$TOK" \
+  "{\"ordner_id\":$WURZEL_ID,\"benutzer_id\":$ID_ENG,\"recht\":\"lesen\"}"
+pruefe 'auf die Wurzel gibt es kein Recht je Person' "$(ja_nein "$CODE" 400)" "HTTP $CODE"
+
+ruf_geduldig DELETE "/api/firmenordner/ordner/$WURZEL_ID?kennung=firma" "$TOK"
+pruefe 'und sie faellt nicht, solange ein anderer Ordner besteht' \
+  "$(ja_nein "$CODE" 409)" "HTTP $CODE"
+
+# Jedes Konto liest sie: zuerst in der Antwort, mit leerem Pfad.
+ruf GET "/api/firmenordner" "$TOK_ENG"
+ERSTER=$(python3 -c 'import sys,json
+try: o = json.load(sys.stdin)["data"]["ordner"][0]
+except Exception: print(""); raise SystemExit
+print(f"{o.get(\"art\")}|{o.get(\"pfad\")}|{o.get(\"recht\")}")' < "$RUMPF" 2>/dev/null)
+pruefe "$ENG sieht die Wurzel zuerst, mit leerem Pfad, lesend" \
+  "$(ja_nein "$ERSTER" 'wurzel||lesen')" "$ERSTER"
+ruf GET "/api/firmenordner" "$TOK_WEIT"
+ERSTER=$(python3 -c 'import sys,json
+try: o = json.load(sys.stdin)["data"]["ordner"][0]
+except Exception: print(""); raise SystemExit
+print(f"{o.get(\"art\")}|{o.get(\"pfad\")}|{o.get(\"recht\")}")' < "$RUMPF" 2>/dev/null)
+pruefe "$WEIT ebenso" "$(ja_nein "$ERSTER" 'wurzel||lesen')" "$ERSTER"
+
+# Die Tuer selbst, ueber WebDAV. Der Mitarbeiter ist seit dem Anlegen der
+# Wurzel eingeladen; der Dienst braucht dafuer einen Augenblick.
+ruf POST "/api/firmenordner/abgleich" "$TOK"
+DATEI="abnahme-$STEMPEL.txt"
+PUT_ENG=$(for _ in $(seq 1 8); do
+  c=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 -u "$ENG:$PASSWORT" \
+    -X PUT -H 'content-type: text/plain' -d 'darf nicht' \
+    "$DIENST/dav/spaces/$WURZEL_RAUM/$DATEI")
+  [ "$c" = "403" ] && { echo "$c"; exit; }
+  sleep 2
+done; echo "$c")
+pruefe "$ENG kann in der Wurzel lesen, aber nicht schreiben (WebDAV PUT)" \
+  "$(ja_nein "$PUT_ENG" 403)" "HTTP $PUT_ENG"
+LESEN_ENG=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 -u "$ENG:$PASSWORT" \
+  -X PROPFIND -H 'Depth: 0' "$DIENST/dav/spaces/$WURZEL_RAUM/")
+pruefe 'und er liest sie' "$(ja_nein "$LESEN_ENG" 207)" "PROPFIND -> HTTP $LESEN_ENG"
+
+ruf POST "/api/benutzer" "$TOK" \
+  "{\"username\":\"$CHEF\",\"password\":\"$PASSWORT\",\"rolle\":\"admin\"}"
+pruefe "ein Wegwerf-Administrator $CHEF entsteht" "$(ja_nein "$CODE" 201)" "HTTP $CODE"
+PUT_CHEF=$(for _ in $(seq 1 8); do
+  c=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 -u "$CHEF:$PASSWORT" \
+    -X PUT -H 'content-type: text/plain' -d 'darf' \
+    "$DIENST/dav/spaces/$WURZEL_RAUM/$DATEI")
+  [ "$c" = "201" ] && { echo "$c"; exit; }
+  sleep 2
+done; echo "$c")
+pruefe 'ein Administrator schreibt in die Wurzel (WebDAV PUT)' \
+  "$(ja_nein "$PUT_CHEF" 201)" "HTTP $PUT_CHEF"
+# Die Datei wieder weg -- die Wurzel gehoert dem Haus.
+curl -sk -o /dev/null --max-time 30 -u "$CHEF:$PASSWORT" -X DELETE \
+  "$DIENST/dav/spaces/$WURZEL_RAUM/$DATEI" 2>/dev/null
+
+# ===========================================================================
+# 10. sicht.md: was es fuer diesen Menschen gibt -- und nichts sonst
+# ===========================================================================
+# Regel 3 des Zielbildes. Geholt mit einem AUSWEIS, wie das CLI es tut.
+echo
+echo "--- sicht.md ---"
+
+ruf POST "/api/ausweise" "$TOK_ENG" "{\"name\":\"abnahme-$STEMPEL\"}"
+AUSWEIS=$(feld data.ausweis)
+pruefe "$ENG stellt sich einen Ausweis aus" "$(nicht "$AUSWEIS" '')" "HTTP $CODE"
+
+SICHT="$(mktemp)"
+CODE=$(curl -sk -o "$SICHT" -w '%{http_code}' --max-time 30 \
+  -H "authorization: Bearer $AUSWEIS" "$BASIS/api/firmenordner/sicht")
+TYP=$(curl -sk -o /dev/null -w '%{content_type}' --max-time 30 \
+  -H "authorization: Bearer $AUSWEIS" "$BASIS/api/firmenordner/sicht")
+pruefe 'GET /api/firmenordner/sicht antwortet dem Ausweis' "$(ja_nein "$CODE" 200)" "HTTP $CODE"
+pruefe 'als Markdown' "$(enthaelt "$TYP" 'text/markdown')" "$TYP"
+INHALT=$(cat "$SICHT")
+pruefe "sie nennt $ENG beim Namen" "$(enthaelt "$INHALT" "Sicht von $ENG")"
+pruefe 'sie nennt die Wurzel' "$(enthaelt "$INHALT" 'Wurzel')"
+pruefe 'sie nennt das Projekt an seiner echten Stelle, mit Stufe' \
+  "$(enthaelt "$INHALT" "\`$BEREICH/$PROJEKT/\`: schreiben")"
+pruefe 'den Bereich aber NICHT als eigenen Ordner' \
+  "$(ja_nein "$(enthaelt "$INHALT" "\`$BEREICH/\`")" nein)"
+pruefe 'und den Ordner am Geraet nirgends, auch nicht als Name' \
+  "$(ja_nein "$(enthaelt "$INHALT" "$GERAETORDNER")" nein)"
+pruefe 'sie nennt die Apps mit dem Verweis auf APP.md' "$(enthaelt "$INHALT" 'Deine Apps')"
+ZEILEN=$(wc -l < "$SICHT" | tr -d ' ')
+pruefe 'und bleibt eine Bildschirmseite' "$([ "$ZEILEN" -le 50 ] && echo ja || echo nein)" "$ZEILEN Zeilen"
+rm -f "$SICHT"
+CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 \
+  -H "authorization: Bearer ausweis_$(printf '%064d' 0)" "$BASIS/api/firmenordner/sicht")
+pruefe 'ein erfundener Ausweis bekommt sie nicht' "$(ja_nein "$CODE" 401)" "HTTP $CODE"
+
+# ===========================================================================
+# 11. Im Browser: die Vergabe erzeugt dieselbe Zeile wie POST /rechte
+# ===========================================================================
+echo
+echo "--- Im Browser ---"
+
+if node -e 'require.resolve("playwright")' 2>/dev/null; then
+  (
+    # shellcheck disable=SC2034  # von `arasul_sitzung_bauen` aus der Umgebung gelesen
+    ARASUL_SITZUNG="$SITZUNG_A"
+    arasul_sitzung_bauen "$TOK"
+  )
+  (
+    # shellcheck disable=SC2034
+    ARASUL_SITZUNG="$SITZUNG_M"
+    # shellcheck disable=SC2034  # kein Cookie-Jar fuer diesen Menschen
+    ARASUL_TOKEN_DATEI="${TMPDIR:-/tmp}/arasul-j33-eng"
+    arasul_sitzung_bauen "$TOK_ENG"
+  )
+  pruefe 'beide Sitzungen fuer den Browser stehen' \
+    "$([ -s "$SITZUNG_A" ] && [ -s "$SITZUNG_M" ] && echo ja || echo nein)"
+  if ARASUL_URL="$BASIS" ARASUL_SITZUNG_ADMIN="$SITZUNG_A" ARASUL_SITZUNG_MITARBEITER="$SITZUNG_M" \
+     ARASUL_BEREICH="$BEREICH" ARASUL_PROJEKT="$PROJEKT" ARASUL_GERAETORDNER="$GERAETORDNER" \
+     ARASUL_WEIT="$WEIT" ARASUL_ENG="$ENG" node "$WURZEL/scripts/test/firmenordner-bilder.mjs"; then
+    pruefe 'Firmenordner im Browser: Baum, Matrix, 409, Protokoll, Mitarbeiter-Sicht' ja
+  else
+    pruefe 'Firmenordner im Browser: Baum, Matrix, 409, Protokoll, Mitarbeiter-Sicht' nein \
+      'firmenordner-bilder.mjs war rot'
+  fi
+
+  # Was der Browser angerichtet hat: dieselbe Zeile, die POST /rechte macht.
+  ruf GET "/api/firmenordner/rechte?ordner_id=$ID_PROJEKT&benutzer_id=$ID_WEIT" "$TOK"
+  ZEILE=$(python3 -c 'import sys,json
+try: d = json.load(sys.stdin)["data"]
+except Exception: print(""); raise SystemExit
+print(",".join(f"{z.get(\"ordner_kennung\")}:{z.get(\"username\")}:{z.get(\"recht\")}" for z in d))' < "$RUMPF" 2>/dev/null)
+  pruefe 'die Vergabe im Browser steht als Zeile wie nach POST /rechte' \
+    "$(ja_nein "$ZEILE" "$PROJEKT:$WEIT:schreiben")" "${ZEILE:-keine Zeile}"
+  # Und die Regel hat gehalten: WEIT hat auf dem Projekt NICHT weniger als auf
+  # dem Bereich.
+  pruefe 'und der 409 hat nichts geschrieben' \
+    "$(ja_nein "$(enthaelt "$ZEILE" ':lesen')" nein)" "$ZEILE"
+else
+  echo "   (uebersprungen: Playwright fehlt -- npm ci, dann npm i --no-save playwright)"
+fi
 
 echo
 echo "$gruen gruen, $rot rot"

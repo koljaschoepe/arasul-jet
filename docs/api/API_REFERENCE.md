@@ -2333,16 +2333,18 @@ Die ganze Sache — warum es diesen Dienst gibt, wie ein Mensch hineinkommt,
 warum es eine **zweite Passwortablage** ist und wie sie geschützt ist — steht
 in [`docs/features/FIRMENORDNER.md`](../features/FIRMENORDNER.md).
 
-| Method | Endpoint                                         | Description                                        |
-| ------ | ------------------------------------------------ | -------------------------------------------------- |
-| GET    | `/api/firmenordner`                              | Wo der Dienst liegt und welche Ordner **ich** habe |
-| GET    | `/api/firmenordner/ordner`                       | Alle Ordner am Gerät (Administrator)               |
-| POST   | `/api/firmenordner/ordner`                       | Einen anlegen (Administrator)                      |
-| DELETE | `/api/firmenordner/ordner/:id`                   | Wegwerfen, samt Inhalt (Administrator)             |
-| GET    | `/api/firmenordner/rechte`                       | Wer auf welchem Ordner was darf (Administrator)    |
-| POST   | `/api/firmenordner/rechte`                       | Ein Recht vergeben (Administrator)                 |
-| DELETE | `/api/firmenordner/rechte/:ordnerId/:benutzerId` | Ein Recht zurücknehmen (Administrator)             |
-| POST   | `/api/firmenordner/abgleich`                     | Nachholen, was der Dienst noch nicht weiß          |
+| Method | Endpoint                                         | Description                                         |
+| ------ | ------------------------------------------------ | --------------------------------------------------- |
+| GET    | `/api/firmenordner`                              | Wo der Dienst liegt und welche Ordner **ich** habe  |
+| GET    | `/api/firmenordner/sicht`                        | Meine `sicht.md`, als Text (Ausweis oder Sitzung)   |
+| GET    | `/api/firmenordner/ordner`                       | Alle Ordner am Gerät (Administrator)                |
+| POST   | `/api/firmenordner/ordner`                       | Einen anlegen (Administrator)                       |
+| GET    | `/api/firmenordner/ordner/:id/aenderungen`       | Wer zuletzt wann etwas geändert hat (Administrator) |
+| DELETE | `/api/firmenordner/ordner/:id`                   | Wegwerfen, samt Inhalt (Administrator)              |
+| GET    | `/api/firmenordner/rechte`                       | Wer auf welchem Ordner was darf (Administrator)     |
+| POST   | `/api/firmenordner/rechte`                       | Ein Recht vergeben (Administrator)                  |
+| DELETE | `/api/firmenordner/rechte/:ordnerId/:benutzerId` | Ein Recht zurücknehmen (Administrator)              |
+| POST   | `/api/firmenordner/abgleich`                     | Nachholen, was der Dienst noch nicht weiß           |
 
 **Der erste Weg ist der einzige für einen Mitarbeiter**, und er ist der Grund
 für die Karte. Er **nimmt einen Ausweis** (Brücke, J34) — die vierte Route, die
@@ -2358,9 +2360,19 @@ schickt und welche Ordner es anlegen darf.
     "benutzer": "mia",
     "ordner": [
       {
+        "kennung": "firma",
+        "name": "Firma",
+        "ebene": 0,
+        "art": "wurzel",
+        "eltern": null,
+        "pfad": "",
+        "recht": "lesen"
+      },
+      {
         "kennung": "projekte",
         "name": "Projekte",
         "ebene": 1,
+        "art": "geteilt",
         "eltern": null,
         "pfad": "projekte",
         "recht": "lesen"
@@ -2369,6 +2381,7 @@ schickt und welche Ordner es anlegen darf.
         "kennung": "vicona",
         "name": "Vicona",
         "ebene": 2,
+        "art": "geteilt",
         "eltern": "projekte",
         "pfad": "projekte/vicona",
         "recht": "schreiben"
@@ -2411,6 +2424,38 @@ vor: er hat keine Rechte-Zeile, und die Abfrage schneidet zusätzlich auf
 **Zwei Ebenen, zwei Rechte.** Ebene 1 ist ein Bereich, Ebene 2 ein Projekt
 darin; die Rechte heißen `lesen` und `schreiben`. Ein drittes namens „keine"
 gibt es nicht — keine Rechte ist keine Zeile.
+
+**Die Wurzel steht zuerst, mit leerem Pfad** (Auftrag
+firmenordner-rechte-im-frontend, 22.09.2026). Sie ist die Ebene 0 des
+Zielbildes — `firma/`, die Regeln, Skills und Agents der Firma —, und im
+Dienst ein eigener Raum mit `art = 'wurzel'`, weil über einem Raum dort nichts
+liegt; das CLI der Wurzel legt ihn **oben** in den lokalen Baum. Genau eine je
+Gerät (`POST /ordner` mit `art: "wurzel"`, `ebene` darf dann fehlen; die
+zweite ist `409`). **Wer sie liest, steht in keiner Rechte-Zeile:** jeder
+aktive Mensch liest, jeder Administrator schreibt — `recht` folgt aus
+`admin_users.role`, und `POST /rechte` auf die Wurzel ist `400`. Im Dienst
+wird das zu einer Einladung je Mensch (Leser oder Schreiber), gesetzt beim
+Spiegeln eines Menschen und bei jedem `POST /abgleich`. Sie **fällt zuletzt**:
+`DELETE` antwortet `409`, solange ein anderer Ordner besteht. Ein Gerät ohne
+Wurzel nennt keine.
+
+**`GET /sicht` ist die `sicht.md`** (Regel 3 des Zielbildes): `text/markdown`,
+je Mensch aus seinen Rechten und Freigaben erzeugt — seine Ordner mit Stufe
+(die Wurzel als `/`), seine Apps mit dem Verweis auf `apps/<id>/APP.md`, die
+Orte aus `.claude/places.json` der Wurzel (gelesen über den Dienst; Form wie im
+CLI: `{ places: [{ name, description?, local?, write? }] }`). Höchstens eine
+Bildschirmseite: jeder Abschnitt ist gekürzt, und der Rest steht als Zahl.
+Sie nennt nichts, was der Mensch nicht hat — dieselben zwei Abfragen wie
+`GET /` und `GET /api/apps/meine`. Nimmt einen **Ausweis** wie `GET /`; das
+CLI legt sie beim Abgleich unter `.claude/sicht.md` ab. `503` ohne
+Firmenordner.
+
+**`GET /ordner/:id/aenderungen` liest das Protokoll des Dienstes**, nicht des
+Geräts: auf der Platte gehört jede Datei dem Konto des Geräts, wer sie
+hochgeladen hat, weiß allein der Dateidienst (`activitylog`, am 22.09.2026 am
+Orin gemessen). Antwort `{ ordner, aenderungen: [{ wann, wer, text, datei }] }`,
+neueste zuerst, höchstens zwanzig; leer, wenn der Dienst steht oder den Ordner
+noch nicht kennt.
 
 **Rechte werden nur vergeben, nie unterhalb wieder entzogen.** `POST
 /rechte` antwortet deshalb `409`, wenn die Bitte einem Menschen auf einem

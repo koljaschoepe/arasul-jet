@@ -211,13 +211,17 @@ liest, wenn diese Karte jemals rückgängig gemacht wird.
 ## Die Ordner: eine Wurzel, zwei Ebenen
 
 ```
+firma/               Ebene 0 — die Wurzel. Im Dienst: ein eigener RAUM der
+  .claude/                     Art `wurzel`; alle lesen, Administratoren
+  .claude/sicht.md             schreiben. Genau eine je Gerät.
 projekte/            Ebene 1 — ein Bereich. Im Dienst: ein RAUM.
   vicona/            Ebene 2 — ein Projekt darin. Im Dienst: ein ORDNER,
   intern/                      einzeln eingeladen.
 ```
 
 **Zwei Ebenen und nicht mehr.** So hat der Überordner es am 21.09.2026
-festgelegt.
+festgelegt. Die Wurzel darüber ist keine dritte Ebene, sondern der Ort, an
+dem die Regeln liegen (siehe unten).
 
 **Im Dienst sind die beiden verschiedene Dinge**, und das ist nicht Geschmack,
 sondern eine Folge der Messung: OpenCloud kann Rechte nur **erweitern**, nie
@@ -244,6 +248,67 @@ sähe in seiner Liste „lesen", während der Mensch schreibt.
 
 Ein Recht **zurücknehmen** (`DELETE`) ist kein Widerspruch dazu: es nimmt
 genau das Recht zurück, das hier vergeben wurde.
+
+### Die Wurzel
+
+> Seit dem Auftrag `firmenordner-rechte-im-frontend` (22.09.2026), Migration 184.
+
+Das Zielbild (`company/plattform.md`) hat über den zwei Ebenen eine **Ebene
+0**: `firma/`, alle lesen, nur der Administrator schreibt. Darin liegen die
+`CLAUDE.md` der Firma, ihre Skills und Agents, die Liste der fremden Orte
+(`.claude/places.json`) und die je Mitarbeiter erzeugte `.claude/sicht.md`.
+
+**Im Dienst gibt es über einem Raum nichts.** Die Wurzel ist deshalb ein
+eigener Raum mit `art = 'wurzel'`, und das CLI der Wurzel am Rechner des
+Menschen legt ihn **oben** in den lokalen Baum, nicht in einen Unterordner;
+die Räume der Ebene 1 kommen darunter an ihre echte Stelle. `GET
+/api/firmenordner` führt sie zuerst, mit `pfad` leer und `ebene` 0.
+
+**Wer sie liest, steht in keiner Rechte-Zeile.** Jeder aktive Mensch liest,
+jeder Administrator schreibt — das folgt aus `admin_users.role`, und eine
+zweite Tabelle dafür wäre eine Kopie, die auseinanderläuft. Im Dienst wird es
+zu einer Einladung je Mensch (Leser oder Schreiber): gesetzt beim Anlegen der
+Wurzel für alle, die es schon gibt, beim Spiegeln eines neuen Menschen, beim
+Stilllegen und Zulassen, und bei jedem `POST /abgleich`
+(`spiegleWurzelMitglieder`). Ein Recht je Person auf die Wurzel gibt es nicht
+(`POST /rechte` antwortet 400). Gemessen wird das über WebDAV: ein
+Mitarbeiter bekommt auf `PUT` in die Wurzel 403, ein Administrator 201.
+
+**Genau eine je Gerät**, und sie **fällt zuletzt**: solange ein anderer
+Ordner besteht, hängt an ihr die Kette nach oben, die jeder Mensch mit
+irgendeinem Recht liest (Regel 1). Angelegt wird sie in der Verwaltung mit
+einem Knopf oder vom CLI der Wurzel beim Ausrollen (`POST /ordner` mit
+`art: "wurzel"`).
+
+### `sicht.md`: was es für diesen Menschen gibt
+
+Regel 3 des Zielbildes: „Was es gibt, steht in `sicht.md`, je Mitarbeiter
+vom Gerät erzeugt aus seinen Rechten: seine Ordner mit Recht, seine Apps mit
+Verweis auf ihre `APP.md`, die fremden Orte. Höchstens eine Bildschirmseite.
+Niemand pflegt Kontext je Rolle von Hand."
+
+`GET /api/firmenordner/sicht` liefert sie als `text/markdown`, mit Ausweis
+oder Sitzung; das CLI legt sie beim Abgleich unter `.claude/sicht.md` ab. Sie
+entsteht aus denselben zwei Abfragen wie `GET /api/firmenordner` und
+`GET /api/apps/meine` — also nennt sie **nichts, was der Mensch nicht hat**,
+auch keinen Namen. Die Orte kommen aus `.claude/places.json` der Wurzel,
+gelesen über den Dienst (Form wie im CLI: `{ places: [{ name, description?,
+local?, write? }] }`). Jeder Abschnitt ist auf seine Zeilen gekürzt, der Rest
+steht als Zahl.
+
+### Wer zuletzt wann etwas geändert hat
+
+Die Verwaltung zeigt je Ordner die letzten Änderungen — **gelesen aus dem
+Dienst**, nicht aus dem Gerät. Auf der Platte gehört jede Datei dem Konto des
+Geräts (uid 1000, `posix`); wer sie hochgeladen hat, steht nirgends im
+Dateisystem. Der Dienst führt dagegen je Element ein Protokoll
+(`activitylog`), und die Graph-Erweiterung `org.libregraph/activities` gibt es
+heraus: am 22.09.2026 am Orin gemessen steht nach einem `PUT` eines Menschen
+binnen Sekunden `{user} added {resource} to {folder}` mit seinem Anzeigenamen
+und der Zeit darin — ein `PROPFIND` nennt dagegen nur `getlastmodified` und
+den **Eigentümer des Raums**, nie den, der geschrieben hat.
+`GET /api/firmenordner/ordner/:id/aenderungen` löst die Vorlage zu einem Satz
+auf; leer, wenn der Dienst steht oder den Ordner noch nicht kennt.
 
 ### Die Stufe „am Gerät"
 
@@ -529,11 +594,30 @@ des Geräts.
 
 ---
 
+## Die Verwaltung im Frontend
+
+> Seit dem Auftrag `firmenordner-rechte-im-frontend` (22.09.2026).
+
+**Einstellungen → Firmenordner** (`/workspace/settings?tab=firmenordner`,
+`features/settings/FirmenordnerSettings.tsx` plus `firmenordner/`): der
+Ordnerbaum mit Kennung, Name und Art, Anlegen (Bereich, Projekt, am Gerät)
+und Wegwerfen (Kennung abtippen, wie beim Kit-Weg), die **Rechte-Matrix**
+Menschen mal Ordner mit einer Stufe je Zelle — keine, lesen, schreiben —, und
+je Ordner die letzten Änderungen. Ein Ordner am Gerät hat **keine
+Rechtespalte**, die Wurzel auch nicht (ihre Regel steht als Satz über der
+Matrix). Ein Projekt, dessen Bereich der Mensch schon hat, sagt in der Zelle
+„wie oben: lesen" und bietet trotzdem mehr an; **weniger** weist das Backend
+mit 409 ab, und der Satz mit dem Ausweg steht dann über der Matrix. Die
+Vergabe erzeugt dieselbe Zeile wie `POST /api/firmenordner/rechte` — die
+Abnahme misst genau das.
+
+**Der Mitarbeiter** sieht seine Ordner im Benutzermenü der Kopfleiste unter
+**Mein Firmenordner** (`features/firmenordner/`), neben seinen Ausweisen: die
+Adresse des Dienstes und die Liste aus `GET /api/firmenordner`, mit Stufe. Ein
+Ordner ohne Recht steht dort nicht, auch sein Name nicht.
+
 ## Was nicht in dieser Karte steht
 
-- **Die Verwaltung im Frontend.** Ordner anlegen und Rechte vergeben geht
-  über die Schnittstelle; eine Oberfläche dafür ist ausdrücklich nicht Teil
-  dieser Karte.
 - **Der Tailnet-Gast.** Die Frage war: „Ein Gast im Tailnet erreicht nur
   diesen Dienst und die Anmeldung, nicht die Belege-App und nicht SSH."
 
@@ -579,7 +663,11 @@ curl -sk -X POST https://arasul/api/firmenordner/ordner … \
 curl -sk -X POST https://arasul/api/firmenordner/ordner … \
   -d '{"kennung":"vicona","name":"Vicona","ebene":2,"eltern":"projekte"}'
 
-# 4. Und den Ordner, den nur das Gerät liest
+# 4. Die Wurzel (genau eine; die Verwaltung hat dafür einen Knopf)
+curl -sk -X POST https://arasul/api/firmenordner/ordner … \
+  -d '{"kennung":"firma","name":"Firma","art":"wurzel"}'
+
+# 5. Und den Ordner, den nur das Gerät liest
 curl -sk -X POST https://arasul/api/firmenordner/ordner … \
   -d '{"kennung":"geraet","name":"Am Gerät","ebene":1,"art":"am_geraet"}'
 
