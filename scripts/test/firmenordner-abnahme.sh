@@ -571,7 +571,9 @@ PY" >/dev/null 2>&1
   for _ in $(seq 1 45); do
     INDEX_VORHER=$(ssh "$ARASUL_GERAET" "grep -roa '$MARKE-[0-9]*' $ABLAGE/search 2>/dev/null | wc -l" 2>/dev/null)
     INDEX_VORHER=$((${INDEX_VORHER:-0} + 0))
-    [ "$INDEX_VORHER" -ge "$DATEIEN" ] && break
+    # Nicht „mindestens so viele wie Dateien": grep zaehlt einen Namen in
+    # mehreren Segmenten (8.446 Treffer fuer 6.000 Dateien, 22.09.2026). Nur
+    # eine Zahl, die sich nicht mehr bewegt, ist ein fertiger Index.
     [ "$INDEX_VORHER" -gt 0 ] && [ "$INDEX_VORHER" -eq "$LETZTER" ] && break
     LETZTER=$INDEX_VORHER
     sleep 10
@@ -640,8 +642,22 @@ for o in d:
   # von 11.567 Treffern blieben 968 (8 %). Deshalb fragt diese Zeile nicht
   # „null", sondern „deutlich weniger als vorher": „null" waere eine Zusage
   # ueber den Verschmelzungsplan einer fremden Bibliothek.
-  sleep 10
-  INDEX_NACHHER=$(ssh "$ARASUL_GERAET" "grep -roa '$MARKE-[0-9]*' $ABLAGE/search 2>/dev/null | wc -l" 2>/dev/null)
+  # UND AUCH HIER WARTEN, BIS ES STEHT (22.09.2026, zweiter Fund derselben
+  # Sorte): der Suchdienst nimmt die Loeschung Datei fuer Datei aus dem Index,
+  # und zehn Sekunden nach dem Wegwerfen war er mittendrin (8.446 -> 5.262
+  # Treffer, eine Minute spaeter unter zehn Prozent). Gemessen wird deshalb,
+  # wenn die Zahl in zwanzig Sekunden nicht mehr gefallen ist -- oder sobald
+  # sie unter der Haelfte liegt, denn dann ist die Frage beantwortet.
+  INDEX_NACHHER=$INDEX_VORHER
+  LETZTER=-1
+  for _ in $(seq 1 30); do
+    sleep 10
+    INDEX_NACHHER=$(ssh "$ARASUL_GERAET" "grep -roa '$MARKE-[0-9]*' $ABLAGE/search 2>/dev/null | wc -l" 2>/dev/null)
+    INDEX_NACHHER=$((${INDEX_NACHHER:-0} + 0))
+    [ "$INDEX_NACHHER" -lt $((INDEX_VORHER / 2)) ] && break
+    [ "$INDEX_NACHHER" -eq "$LETZTER" ] && break
+    LETZTER=$INDEX_NACHHER
+  done
   pruefe 'und der Suchindex haelt die Dateinamen des Raums nicht mehr' \
     "$([ "${INDEX_NACHHER:-1}" -lt $(( ${INDEX_VORHER:-2} / 2 )) ] && echo ja || echo nein)" \
     "$INDEX_VORHER -> $INDEX_NACHHER Treffer"
@@ -706,14 +722,14 @@ ruf GET "/api/firmenordner" "$TOK_ENG"
 ERSTER=$(python3 -c 'import sys,json
 try: o = json.load(sys.stdin)["data"]["ordner"][0]
 except Exception: print(""); raise SystemExit
-print(f"{o.get(\"art\")}|{o.get(\"pfad\")}|{o.get(\"recht\")}")' < "$RUMPF" 2>/dev/null)
+print("%s|%s|%s" % (o.get("art"), o.get("pfad"), o.get("recht")))' < "$RUMPF" 2>/dev/null)
 pruefe "$ENG sieht die Wurzel zuerst, mit leerem Pfad, lesend" \
   "$(ja_nein "$ERSTER" 'wurzel||lesen')" "$ERSTER"
 ruf GET "/api/firmenordner" "$TOK_WEIT"
 ERSTER=$(python3 -c 'import sys,json
 try: o = json.load(sys.stdin)["data"]["ordner"][0]
 except Exception: print(""); raise SystemExit
-print(f"{o.get(\"art\")}|{o.get(\"pfad\")}|{o.get(\"recht\")}")' < "$RUMPF" 2>/dev/null)
+print("%s|%s|%s" % (o.get("art"), o.get("pfad"), o.get("recht")))' < "$RUMPF" 2>/dev/null)
 pruefe "$WEIT ebenso" "$(ja_nein "$ERSTER" 'wurzel||lesen')" "$ERSTER"
 
 # Die Tuer selbst, ueber WebDAV. Der Mitarbeiter ist seit dem Anlegen der
@@ -791,6 +807,18 @@ echo
 echo "--- Im Browser ---"
 
 if node -e 'require.resolve("playwright")' 2>/dev/null; then
+  # DER MITARBEITER TRAEGT NOCH SEIN STARTPASSWORT, und die Shell zeigt ihm
+  # dann den Wechsel statt des Arbeitsplatzes (D1). Ueber die Schnittstelle
+  # merkt man das nicht -- der erste Lauf am 22.09.2026 stand im Browser vor
+  # „Passwort wechseln" und meldete „kommt nicht in seine Shell". Also
+  # wechselt er hier, wie ein Mensch es taete; der Wechsel entwertet seine
+  # Sitzungen, deshalb danach neu anmelden.
+  PASSWORT_ENG="Eigenes-$STEMPEL-Ab1"
+  ruf POST "/api/auth/change-password" "$TOK_ENG" \
+    "{\"currentPassword\":\"$PASSWORT\",\"newPassword\":\"$PASSWORT_ENG\"}"
+  pruefe "$ENG wechselt sein Startpasswort" "$(ja_nein "$CODE" 200)" "HTTP $CODE"
+  TOK_ENG=$(anmelden "$ENG" "$PASSWORT_ENG")
+  pruefe 'und meldet sich mit dem eigenen neu an' "$([ -n "$TOK_ENG" ] && echo ja || echo nein)"
   (
     # shellcheck disable=SC2034  # von `arasul_sitzung_bauen` aus der Umgebung gelesen
     ARASUL_SITZUNG="$SITZUNG_A"
@@ -819,7 +847,7 @@ if node -e 'require.resolve("playwright")' 2>/dev/null; then
   ZEILE=$(python3 -c 'import sys,json
 try: d = json.load(sys.stdin)["data"]
 except Exception: print(""); raise SystemExit
-print(",".join(f"{z.get(\"ordner_kennung\")}:{z.get(\"username\")}:{z.get(\"recht\")}" for z in d))' < "$RUMPF" 2>/dev/null)
+print(",".join("%s:%s:%s" % (z.get("ordner_kennung"), z.get("username"), z.get("recht")) for z in d))' < "$RUMPF" 2>/dev/null)
   pruefe 'die Vergabe im Browser steht als Zeile wie nach POST /rechte' \
     "$(ja_nein "$ZEILE" "$PROJEKT:$WEIT:schreiben")" "${ZEILE:-keine Zeile}"
   # Und die Regel hat gehalten: WEIT hat auf dem Projekt NICHT weniger als auf
