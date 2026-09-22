@@ -69,6 +69,24 @@ const AUSLIEFERUNG = [
   // damit der Reset das nicht der Reihenfolge ueberlassen muss.
   ['public.mitarbeiter_ausweise', 'Die Ausweise fuer Programme ausserhalb des Browsers'],
   ['public.app_staende', 'Test- und Livestand je App'],
+  // Die drei Tabellen des Firmenordners (J33, 22.09.2026). STUFE 2 und nicht
+  // Stufe 1, und die Ueberlegung dazu ist die schwerste in dieser Datei:
+  //
+  //   Die Ordner und Rechte sind die EINRICHTUNG des Hauses -- wer welchen
+  //   Bereich sieht --, also gehoeren sie hierher, zu Benutzern, Freigaben
+  //   und Schluesseln. Sie sind gerade NICHT Inhalt: die Inhalte sind die
+  //   Dateien, und die liegen unter `data/firmenordner`, wo keine Stufe
+  //   dieses Resets sie anfasst. Der ganze Werksreset (`factory-reset.sh`)
+  //   raeumt `data/` weg, die zwei Stufen hier nicht.
+  //
+  // WAS DAS HEISST, WENN JEMAND STUFE 2 FAEHRT: die Zeilen sind weg, die
+  // Dateien liegen noch da, und im Dateidienst stehen Raeume, die das Geraet
+  // nicht mehr kennt. Genau dafuer gibt es `POST /api/firmenordner/abgleich`
+  // nicht -- der legt Fehlendes an, er raeumt nichts weg. Der vollstaendige
+  // Weg ist der Werksreset selbst, und der nimmt den Dienst samt Ablage mit.
+  ['public.firmenordner_rechte', 'Wer auf welchem Ordner des Firmenordners was darf'],
+  ['public.firmenordner_ordner', 'Die Ordner des Firmenordners auf zwei Ebenen'],
+  ['public.firmenordner_nutzer', 'Die Spiegelung eines Menschen in den Dateidienst'],
   ['public.apps', 'Die Apps am Gerät'],
   ['public.audit_log_health', 'Selbstprüfung des Prüfprotokolls'],
   ['public.audit_logs', 'Prüfprotokoll'],

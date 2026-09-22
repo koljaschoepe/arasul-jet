@@ -191,6 +191,12 @@ services:
       # das Datenbankpasswort und zieht jede Nacht die ganze Datenbank ab.
       - ${DATA_PATH:-../data}/apps:/arasul/apps
       - ${DATA_PATH:-../data}/flows:/arasul/flows
+      # Der Firmenordner (J33, 22.09.2026). SCHREIBBAR aus demselben Grund wie
+      # die zwei darueber: der Weg zurueck (`wiederherstellen.sh`) laeuft hier.
+      # Gesichert wird die ABLAGE, nicht die Konfiguration des Dienstes --
+      # die schreibt sein `init` auf einem leeren Geraet neu, waehrend die
+      # Dateien der Firma nirgendwo sonst stehen.
+      - ${DATA_PATH:-../data}/firmenordner/ablage:/arasul/firmenordner
       # Die Konfiguration nur-lesend: `.env`, Zertifikate, Traefik, Geheimnisse.
       # Ohne sie faehrt auf einem leeren Geraet kein Container hoch. Der
       # Sicherungsschluessel selbst bleibt aus dem Archiv (siehe backup.sh).

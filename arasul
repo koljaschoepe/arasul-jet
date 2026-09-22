@@ -619,6 +619,13 @@ create_directories() {
     # zuschlaegt.
     mkdir -p data/flows
     mkdir -p data/projects
+    # Der Firmenordner (J33, 22.09.2026). Beide Ordner, auch wenn der Dienst
+    # nur mit dem Profil `firmenordner` hochfaehrt: Docker legt eine fehlende
+    # Bind-Quelle als root an, und der Dienst laeuft als uid 1000 -- er kaeme
+    # dann in seine eigene Ablage nicht hinein. Wer das Profil einschaltet,
+    # soll nichts nachholen muessen.
+    mkdir -p data/firmenordner/konfiguration
+    mkdir -p data/firmenordner/ablage
     mkdir -p cache
     mkdir -p updates
 
@@ -817,6 +824,28 @@ setup_secrets() {
     # n8n-Owner, n8n-Runner-Token, n8n-Basic-Auth und das SearXNG-Geheimnis
     # wurden hier bis zum 26.08.2026 (Phase B5 des Rueckbaus) erzeugt; die
     # Dienste sind weg, es gibt nichts mehr anzulegen.
+
+    # Das Administratorpasswort des Firmenordners (J33, 22.09.2026).
+    #
+    # IMMER ERZEUGT, AUCH OHNE DAS PROFIL. Es kostet 32 Byte, und der Fall,
+    # den es verhindert, ist der teure: jemand schaltet `COMPOSE_PROFILES`
+    # ein, der Dienst faehrt hoch, legt sein Administratorkonto mit einem
+    # LEEREN Passwort an -- und ein leeres Passwort laesst sich nicht
+    # nachtraeglich heilen, ohne die Ablage wegzuwerfen.
+    #
+    # NUR WENN SIE FEHLT. Dasselbe Argument wie beim Sicherungsschluessel: ein
+    # neuer Wert passt nicht mehr zu dem Konto, das der Dienst schon angelegt
+    # hat, und Arasul kaeme an seine Graph-API nicht mehr heran.
+    #
+    # KEINE SONDERZEICHEN. Der Wert geht ueber eine Shell-Zeile in den
+    # Container (`compose/compose.firmenordner.yaml`); `tr -d` nimmt heraus,
+    # was dort etwas bedeuten koennte.
+    if [ ! -s config/secrets/firmenordner_admin_password ]; then
+        openssl rand -base64 48 2>/dev/null | tr -d '/+=\n' | cut -c1-32 \
+            > config/secrets/firmenordner_admin_password
+        chmod 600 config/secrets/firmenordner_admin_password
+        log_info "Firmenordner: Administratorpasswort erzeugt"
+    fi
 
     log_success "Secrets konfiguriert"
 }

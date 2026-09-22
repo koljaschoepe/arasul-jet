@@ -117,6 +117,21 @@ services:
       # Sicherungsdienst des Betriebs an (Phase C9,
       # `services/betrieb/sicherungsdienst.js`).
       CONTAINER_PREFIX: ${CONTAINER_PREFIX:-}
+      # ----- Der Firmenordner (J33, 22.09.2026) ---------------------------
+      # DER SCHALTER IST `COMPOSE_PROFILES`, und er wird deshalb DURCHGEREICHT.
+      # Das Backend spiegelt Nutzer in den Dateidienst (er hat seine eigene
+      # Anmeldung, 21.09.2026 gemessen) -- und es muss wissen, ob es auf
+      # diesem Geraet ueberhaupt einen gibt. Ein zweiter Schalter daneben
+      # waere ein Zustand, in dem der Container laeuft und das Backend ihn
+      # nicht kennt: die Benutzer werden angelegt, nur eben nicht dort.
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-}
+      # Wo das Backend ihn im Docker-Netz erreicht -- nicht ueber Traefik: es
+      # spricht den Container an, ein Mensch kommt von aussen.
+      FIRMENORDNER_INTERN: ${FIRMENORDNER_INTERN:-http://firmenordner:9200}
+      # Und die Adresse, die es einem MENSCHEN nennt (`GET /api/firmenordner`).
+      FIRMENORDNER_ADRESSE: ${FIRMENORDNER_ADRESSE:-https://${MDNS_NAME:-arasul}:${FIRMENORDNER_PORT:-8443}}
+      FIRMENORDNER_ADMIN: ${FIRMENORDNER_ADMIN:-admin}
+      FIRMENORDNER_ZEITGRENZE_MS: ${FIRMENORDNER_ZEITGRENZE_MS:-10000}
     volumes:
       # Sechste Trennung fuer den Pruefstand (siehe compose/pruefstand.vars):
       # der Werksreset SCHREIBT in diese Datei, er entwertet ADMIN_PASSWORD.
@@ -149,6 +164,21 @@ services:
       # Definition damit nicht ueberschreiben. Schreibbar, weil der Anlege-
       # Dialog hier Dateien erzeugt; ueberlebt Rebuilds und wandert ins Backup.
       - ${DATA_PATH:-../data}/flows:/arasul/flows
+      # Der Firmenordner (J33, 22.09.2026), NUR LESEND. Das ist die Zusage aus
+      # dem Zielbild: „echte Dateien auf der Platte des Geraets ... damit Flows
+      # sie lesen". Ein Flow deklariert einen Ordner darunter und arbeitet
+      # darin wie in jedem anderen (`services/flows/pathSafe.js`).
+      #
+      # LESEND UND NICHT SCHREIBEND, und das ist eine Entscheidung: jede Datei
+      # im Firmenordner hat einen MENSCHEN als Urheber (Zielbild, „Apps
+      # bekommen keinen Dateizugriff"). Ein Flow, der hineinschreibt, legt eine
+      # Datei an, die auf jedem Rechner des Hauses auftaucht und die niemand
+      # bestellt hat. Der Weg dafuer ist die Freigabe (C7): der Flow fragt, ein
+      # Mensch bestaetigt, und der Mensch legt sie ab.
+      #
+      # `ablage` und nicht der ganze Ordner: die Konfiguration des Dienstes
+      # (Schluessel, Zertifikate) geht Flows nichts an.
+      - ${DATA_PATH:-../data}/firmenordner/ablage:/arasul/firmenordner:ro
       # Projektablage: ein echter Geraete-Ordner je Projekt (/arasul/projects/
       # <uuid>) — Datei-API des Explorers, Arbeitsverzeichnis fuer Flows,
       # Mount fuer Sandboxes. Auch der Git-Sync-Checkout (PROJECT_GIT_DIR)

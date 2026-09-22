@@ -31,6 +31,28 @@ entryPoints:
     http:
       tls: {} # Uses self-signed cert from tls.yml
 
+  # Der Firmenordner (J33, 22.09.2026) — ein EIGENER Einstiegspunkt.
+  #
+  # WARUM NICHT EIN PFAD AUF 443. OpenCloud stammt von ownCloud Infinite Scale
+  # ab und laeuft nur auf einer WURZEL: seine Oberflaeche, sein Anmeldedienst
+  # und seine WebDAV-Wege rechnen alle mit `/` und nicht mit `/firmenordner/`.
+  # Ein Praefix davorzulegen hiesse, in jeder Antwort Pfade umzuschreiben.
+  #
+  # WARUM NICHT EIN ZWEITER HOSTNAME. Der braeuchte einen DNS-Eintrag im
+  # Kundennetz und ein neues Geraetezertifikat mit diesem Namen darin. Ein
+  # zweiter PORT braucht keins von beidem: das Zertifikat aus der Geraete-CA
+  # traegt `arasul`, `arasul.local`, `localhost` und jede IP des Geraets schon,
+  # und es gilt hier genauso wie auf 443 (der Speicher `default` aus
+  # `dynamic/tls.yml` haengt nicht am Einstiegspunkt).
+  #
+  # UND ES MACHT DIE GRENZE SAGBAR. „Ein Gast im Netz erreicht den
+  # Firmenordner, aber nicht die Apps" ist mit zwei Ports eine Regel in der
+  # Firewall; mit einem Port waere es eine Regel ueber Pfade.
+  firmenordner:
+    address: ':8443'
+    http:
+      tls: {}
+
   # Traefik dashboard
   traefik:
     address: ':8080'

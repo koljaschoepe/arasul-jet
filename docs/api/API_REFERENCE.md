@@ -2320,6 +2320,114 @@ widerrufener Ausweis `401`. Die App dahinter bekommt dieselben zwei Kopfzeilen
 wie bei einem Browser (`X-Arasul-User`, `X-Arasul-Role`) und merkt den
 Unterschied nicht.
 
+### Firmenordner (J33, 22.09.2026)
+
+Der Dateidienst am Gerät (OpenCloud mit der Ablage `posix`) und die Ordner, die
+darin liegen. Er läuft **nur mit dem Profil `firmenordner`**; ohne ihn
+antwortet der erste Weg `503` mit dem Satz, dass es auf diesem Gerät keinen
+gibt — und nicht mit einer leeren Liste. „Du hast keine Ordner" und „hier gibt
+es keinen Dienst" sind zwei verschiedene Auskünfte, und ein CLI, das die erste
+bekommt, räumt den Ordner auf dem Rechner des Menschen leer.
+
+Die ganze Sache — warum es diesen Dienst gibt, wie ein Mensch hineinkommt,
+warum es eine **zweite Passwortablage** ist und wie sie geschützt ist — steht
+in [`docs/features/FIRMENORDNER.md`](../features/FIRMENORDNER.md).
+
+| Method | Endpoint                                         | Description                                        |
+| ------ | ------------------------------------------------ | -------------------------------------------------- |
+| GET    | `/api/firmenordner`                              | Wo der Dienst liegt und welche Ordner **ich** habe |
+| GET    | `/api/firmenordner/ordner`                       | Alle Ordner am Gerät (Administrator)               |
+| POST   | `/api/firmenordner/ordner`                       | Einen anlegen (Administrator)                      |
+| DELETE | `/api/firmenordner/ordner/:id`                   | Wegwerfen, samt Inhalt (Administrator)             |
+| GET    | `/api/firmenordner/rechte`                       | Wer auf welchem Ordner was darf (Administrator)    |
+| POST   | `/api/firmenordner/rechte`                       | Ein Recht vergeben (Administrator)                 |
+| DELETE | `/api/firmenordner/rechte/:ordnerId/:benutzerId` | Ein Recht zurücknehmen (Administrator)             |
+| POST   | `/api/firmenordner/abgleich`                     | Nachholen, was der Dienst noch nicht weiß          |
+
+**Der erste Weg ist der einzige für einen Mitarbeiter**, und er ist der Grund
+für die Karte. Er **nimmt einen Ausweis** (Brücke, J34) — die vierte Route, die
+das tut: das CLI der Wurzel läuft am Rechner eines Menschen, hat keine Sitzung
+und muss vor dem ersten Abgleich wissen, wohin es den Kommandozeilen-Klienten
+schickt und welche Ordner es anlegen darf.
+
+```json
+{
+  "data": {
+    "adresse": "https://arasul:8443",
+    "erreichbar": true,
+    "benutzer": "mia",
+    "ordner": [
+      {
+        "kennung": "projekte",
+        "name": "Projekte",
+        "ebene": 1,
+        "eltern": null,
+        "pfad": "projekte",
+        "recht": "lesen"
+      },
+      {
+        "kennung": "vicona",
+        "name": "Vicona",
+        "ebene": 2,
+        "eltern": "projekte",
+        "pfad": "projekte/vicona",
+        "recht": "schreiben"
+      }
+    ]
+  }
+}
+```
+
+`pfad` ist die **echte Stelle im Baum**, auch wenn der Mensch den Ordner
+darüber gar nicht sieht: ein Ordner der Ebene 2 heißt immer
+`<eltern>/<kennung>`. Das CLI legt die Kette darüber lokal an; der Dienst kennt
+sie für diesen Menschen nicht, und schreiben darf er dort nicht (am 21.09.2026
+am Gerät gemessen).
+
+**Ein Ordner ohne Recht kommt in dieser Antwort nicht vor — auch sein Name
+nicht.** Das wird nicht gefiltert, sondern nie gelesen: die Abfrage geht von
+der Rechte-Tabelle dieses Menschen aus, es gibt also keine Liste, aus der
+etwas herausfallen könnte. Und ein Ordner der Stufe **am Gerät** kommt nie
+vor: er hat keine Rechte-Zeile, und die Abfrage schneidet zusätzlich auf
+`art = 'geteilt'` zu.
+
+**Zwei Ebenen, zwei Rechte.** Ebene 1 ist ein Bereich, Ebene 2 ein Projekt
+darin; die Rechte heißen `lesen` und `schreiben`. Ein drittes namens „keine"
+gibt es nicht — keine Rechte ist keine Zeile.
+
+**Rechte werden nur vergeben, nie unterhalb wieder entzogen.** `POST
+/rechte` antwortet deshalb `409`, wenn die Bitte einem Menschen auf einem
+Ordner der Ebene 2 **weniger** gäbe, als er auf dem Ordner darüber schon hat.
+Der Grund steht im Satz der Antwort samt dem Ausweg (das Recht auf dem
+Elternordner zurücknehmen und die Ordner darunter einzeln vergeben). Es ist
+keine Vorsicht, sondern eine Tatsache über den Dienst: er kennt kein Entziehen
+nach unten, und eine Schnittstelle, die es annähme und nicht ausführte, wäre
+schlimmer als eine, die es ablehnt.
+
+`DELETE /rechte/…` ist **kein** Widerspruch dazu: es nimmt genau das Recht
+zurück, das hier vergeben wurde.
+
+**Einen Ordner wegwerfen** braucht seine Kennung als Abfrage
+(`?kennung=projekte`) — derselbe Riegel wie beim Entfernen einer App (C5): wer
+sie tippt, hat dabei gelesen, was er wegwirft. Es geht **samt allem, was darin
+liegt**, und deshalb nicht, solange darin noch ein Ordner der Ebene 2 liegt
+(`409`) oder darauf noch jemand ein Recht hat (`409`). Beides ist kein Schutz
+vor Versehen, sondern vor einem Ordner, der unter den Füßen von jemandem
+verschwindet, der gerade darin arbeitet — sein Klient löscht ihn am nächsten
+Morgen auf seinem Rechner hinterher.
+
+**`POST /abgleich` legt an, es räumt nicht weg.** Was der Dienst noch nicht
+weiß, steht in der Datenbank (`abgleich_offen` an der Nutzer- und an der
+Rechte-Zeile) — es geht also nichts verloren, wenn der Dienst gerade neu
+startet. Dieser Weg holt es nach: fehlende Nutzer, fehlende Räume, fehlende
+Einladungen. Die Antwort ist der Bericht darüber, was passiert ist.
+
+**Ein Passwort kann er nicht nachholen.** Das Gerät hat es nur als Hash. Ein
+Mensch, den es vor dem Firmenordner schon gab, bekommt dort ein Konto mit einem
+zufälligen Passwort, das niemand kennt, und `passwort_gespiegelt = false`; er
+kommt hinein, sobald jemand sein Passwort einmal setzt oder er es selbst
+wechselt.
+
 ### Darstellung (Phase H1)
 
 Die Darstellung der Oberfläche, **je Mensch**. Zwei Werte: `light` (Vorgabe)

@@ -1,0 +1,218 @@
+# Arasul Platform — Der Firmenordner (J33, 22.09.2026)
+# =============================================================================
+# OpenCloud mit der Ablage `posix`: der Dateidienst, in dem die Firma ihre
+# Ordner haelt. Gewaehlt am 21.09.2026 nach zwei Messungen am Orin
+# (`docs/plans/audits/2026-09-21-firmenordner-dienste/` und
+# `…-firmenordner-nachmessung/`); die Begruendung steht dort und in
+# `docs/features/FIRMENORDNER.md`.
+#
+# EIGENE DATEI, UND DAS IST KEINE ORDNUNGSFRAGE. Dieser Dienst ist der einzige
+# des Geraets, der nicht von Arasul gebaut wird: ein fremdes Abbild, das an
+# sein eigenes Versionsrad haengt. Er steht deshalb fuer sich, damit man ihn in
+# einem Stueck lesen, abschalten und austauschen kann.
+#
+# PROFIL `firmenordner`, ALSO NICHT VON SELBST. Drei Gruende, jeder fuer sich
+# ausreichend:
+#
+#   1. Er kostet. Gemessen am 21.09.2026 mit dem Klienten am Mac: 1,2 GB RAM
+#      im Gipfel und, ohne Grenze, sieben bis zehn der zwoelf Kerne. Neben
+#      Ollama und den Apps ist das nichts, was ein Geraet nebenbei mitnimmt --
+#      ein Kunde, der keinen Firmenordner gekauft hat, soll ihn nicht tragen.
+#   2. Der Werkstattschutz. Ein Merge auf `main` rollt auf das Geraet; ein
+#      Dienst, der dabei VON SELBST neben der Buchhaltung hochfaehrt, waere
+#      genau die Ueberraschung, gegen die die Schutzregel vom 21.09.2026 steht.
+#   3. `scripts/test/dienste.py` nimmt einen Dienst mit Profil aus, und das ist
+#      die ehrliche Form: er faehrt beim Bootstrap wirklich nicht hoch.
+#
+# ANGESCHALTET wird er in der `.env` des Geraets:
+#
+#     COMPOSE_PROFILES=firmenordner
+#
+# Danach nimmt jedes `docker compose up -d` ihn mit. Einmalig geht auch
+# `docker compose --profile firmenordner up -d firmenordner`.
+#
+# KEIN VEROEFFENTLICHTER PORT. Der Dienst haengt allein am Netz
+# `arasul-frontend`, also an Traefik, und ist von aussen nur ueber den
+# Einstiegspunkt `firmenordner` zu erreichen (`config/traefik/traefik.yml`,
+# `dynamic/routes.yml`). Das ist dieselbe Regel wie bei jedem anderen Dienst
+# hier und hat denselben Grund: was einen eigenen Port hat, umgeht jede
+# Kopfzeile, jede Drossel und jedes Zertifikat.
+# =============================================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    # KLEINER ALS DIE ANDEREN, und das ist ein Fund der Messung: OpenCloud
+    # schreibt auch bei `OC_LOG_LEVEL=warn` je angefasster Datei eine Zeile auf
+    # Stufe `trace` (`skip already known item`). Bei einem Abgleich mit ein paar
+    # tausend Dateien sind das ein paar tausend Zeilen. Zwei mal 20 MB ist
+    # genug, um einen Vorfall zu lesen, und wenig genug, um die Platte nicht
+    # langsam zu fuellen.
+    max-size: '20m'
+    max-file: '2'
+
+services:
+  firmenordner:
+    # GENAU DIE FASSUNG, DIE GEMESSEN WURDE, und sie steht fest.
+    #
+    # `opencloud-rolling:8.0.1` ist das Abbild der Nachmessung vom 21.09.2026 --
+    # `rolling` ist die Reihe, `8.0.1` die Nummer darin. Beides ist eine
+    # Entscheidung: die Reihe, weil die Ablage `posix` und die Vorlage fuer den
+    # Raumpfad dort gemessen sind (die stabile 7.2.4 ist vier Monate aelter und
+    # hat beides nicht unter derselben Messung); die Nummer, weil ein
+    # Dateidienst, der sich beim naechsten `pull` von selbst weiterdreht, auf
+    # einem Geraet mit fuenf Jahren unbeaufsichtigtem Betrieb kein Dienst ist,
+    # sondern ein Risiko. Wer sie hebt, misst vorher nach.
+    image: opencloudeu/opencloud-rolling:${FIRMENORDNER_VERSION:-8.0.1}
+    container_name: ${CONTAINER_PREFIX:-}firmenordner
+    hostname: firmenordner
+    restart: unless-stopped
+    networks:
+      - arasul-frontend
+    # `init` startet den Dienst, wenn er noch nie lief, und faellt danach
+    # durch; `server` ist der eigentliche Lauf. Ohne den ersten Schritt fehlt
+    # die Konfiguration im Datenverzeichnis, mit ihm bei jedem Start waere der
+    # zweite Start ein Fehler -- deshalb `--force-overwrite` NICHT, sondern
+    # `|| true`: der zweite Aufruf sagt „gibt es schon" und darf das.
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      # DAS PASSWORT KOMMT AUS DER DATEI, NICHT AUS DER UMGEBUNG. OpenCloud
+      # kennt kein `IDM_ADMIN_PASSWORD_FILE`; ein Geheimnis in der Compose-Datei
+      # oder in der `.env` waere aber ein ZWEITER Ort neben
+      # `config/secrets/firmenordner_admin_password`, aus dem das Backend liest
+      # -- und zwei Orte fuer ein Geheimnis laufen auseinander. Die vier Zeichen
+      # `$$(` sind Absicht: `$$` ist in Compose das entwertete Dollarzeichen,
+      # die Shell im Container sieht `$(`.
+      - 'set -e; [ -s /run/secrets/firmenordner_admin_password ] || { echo "config/secrets/firmenordner_admin_password fehlt oder ist leer -- ohne sie hat dieser Dienst kein Administratorkonto und Arasul keinen Weg hinein. Siehe docs/features/FIRMENORDNER.md."; exit 1; }; export IDM_ADMIN_PASSWORD="$$(cat /run/secrets/firmenordner_admin_password)"; opencloud init || true; exec opencloud server'
+    environment:
+      # ----- Wer der Dienst nach aussen ist ---------------------------------
+      # Die Adresse MUSS `https://` sein und die sein, die der Browser sieht:
+      # der Anmeldedienst von OpenCloud verweigert sonst den Start
+      # (`invalid iss value, URL must start with https://`, gemessen am
+      # 21.09.2026). Sie traegt den Port, weil der Dienst auf einem eigenen
+      # Einstiegspunkt steht -- siehe Kopf dieser Datei.
+      OC_URL: https://${MDNS_NAME:-arasul}:${FIRMENORDNER_PORT:-8443}
+      # Traefik beendet TLS, dahinter ist es gewoehnliches HTTP. Ohne diese
+      # Zeile spricht der Dienst selbst HTTPS mit einem eigenen Zertifikat --
+      # so lief die Messung, weil dort kein Traefik davor stand. Im Produkt
+      # waere es ein zweites Zertifikat, dem niemand traut, hinter einem, dem
+      # alle trauen.
+      PROXY_TLS: 'false'
+      OC_INSECURE: 'true'
+      # DER WEG DES KLIENTEN UND DER DER GRAPH-API. Beide melden sich mit Name
+      # und Passwort an, nicht mit einem Anmeldefenster: der
+      # Kommandozeilen-Klient am Rechner des Mitarbeiters hat keinen Browser,
+      # und das Backend des Geraets auch nicht. Ohne diese Zeile gibt es nur
+      # den Code-Flow ueber den eingebauten Anmeldedienst, und beide kaemen
+      # nicht herein.
+      PROXY_ENABLE_BASIC_AUTH: 'true'
+      OC_LOG_LEVEL: ${FIRMENORDNER_LOG_LEVEL:-warn}
+      OC_LOG_COLOR: 'false'
+
+      # ----- Die Ablage: echte Dateien --------------------------------------
+      # DER GRUND, WARUM ES DIESER DIENST GEWORDEN IST. Die Vorgabe
+      # (`decomposed`) legt jede Datei als Block mit Metadatei ab -- ein Flow
+      # am Geraet faende dort nichts, was wie eine Datei aussieht. Mit `posix`
+      # liegt der Baum so da, wie ein Mensch ihn kennt.
+      STORAGE_USERS_DRIVER: posix
+      # Die Wurzel der Ablage im Container. Sie liegt UNTER dem Datenmount,
+      # damit die Sicherung einen Ordner nimmt und nicht zwei.
+      STORAGE_USERS_POSIX_ROOT: /var/lib/opencloud/posix
+      # Der Beobachter: eine am Geraet geaenderte Datei kennt der Dienst
+      # danach nach gut einer Sekunde, ohne dass jemand einen Scan faehrt
+      # (gemessen: 1,1 s). Das ist der Unterschied, an dem Nextcloud
+      # gescheitert ist.
+      STORAGE_USERS_POSIX_WATCH_FS: 'true'
+      STORAGE_USERS_ID_CACHE_STORE: nats-js-kv
+      # DER PFAD TRAEGT DEN NAMEN, NICHT DIE KENNUNG. Ohne diese Vorlage
+      # heisst der Ordner eines Raums nach seiner UUID -- am Geraet lesbar,
+      # aber nicht auffindbar, und ein Flow muesste die Zuordnung raten.
+      # ACHTUNG: sie gilt fuer NEUE Raeume; schon angelegte behalten ihren Pfad.
+      STORAGE_USERS_POSIX_GENERAL_SPACE_PATH_TEMPLATE: 'projects/{{.SpaceName}}'
+      # Dasselbe fuer den persoenlichen Ordner eines Menschen. Er ist im
+      # Firmenordner nicht der Gegenstand -- gearbeitet wird in den Raeumen --,
+      # aber jeder Nutzer bekommt einen, und `users/<name>` ist am Geraet
+      # lesbar, `users/<uuid>` nicht.
+      STORAGE_USERS_POSIX_PERSONAL_SPACE_PATH_TEMPLATE: 'users/{{.User.Username}}'
+
+      # ----- Die Anmeldung ---------------------------------------------------
+      # Der Dienst hat seine eigene. Arasul spiegelt Nutzer und Passwort ueber
+      # die Graph-API hinein (`services/firmenordner/ordnerdienst.js`); warum
+      # es keinen anderen Weg gibt, steht in docs/features/FIRMENORDNER.md.
+      # `IDM_ADMIN_PASSWORD` steht NICHT hier, sondern kommt oben aus dem
+      # Geheimnis -- siehe `command`.
+      # Kein Demo-Nutzer. Die Vorgabe des Abbilds legt `einstein`, `marie` und
+      # `richard` an -- drei Konten mit bekanntem Passwort auf einem Geraet,
+      # das beim Kunden steht.
+      IDM_CREATE_DEMO_USERS: 'false'
+      # Keine Telemetrie aus dem Kundennetz heraus.
+      OC_TRACING_ENABLED: 'false'
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      # EIN ORT, UND ER LIEGT UNTER `data/`. Damit ist er in jeder der drei
+      # Listen, die es fuer den Zustand eines Geraets gibt, ohne dass jemand
+      # eine vierte pflegen muesste: der Werksreset raeumt `data/`, die
+      # Uebernahme eines neuen Artefakts traegt `data/` mit
+      # (`scripts/lib/installation.sh`, gehalten von `scripts/test/zustand.py`),
+      # und die naechtliche Sicherung bekommt ihn als eigenen Mount.
+      # Die Konfiguration, die `opencloud init` beim ersten Start schreibt:
+      # Schluessel, Zertifikate des Dienstes, seine Dienstliste. Sie liegt
+      # daneben und nicht im Datenmount, weil der Dienst sie selbst erzeugt und
+      # die Sicherung sie nicht braucht -- ein `init` auf einem leeren Geraet
+      # schreibt sie neu.
+      - ${DATA_PATH:-../data}/firmenordner/konfiguration:/etc/opencloud
+      - ${DATA_PATH:-../data}/firmenordner/ablage:/var/lib/opencloud
+      # Das Geheimnis als Datei, und KEIN `secrets:`-Eintrag: ein solcher
+      # verlangt die Datei beim Anlegen JEDES Containers des Projekts -- ein
+      # Geraet ohne Firmenordner braeuchte sie dann trotzdem. Als Bind-Mount
+      # dieses einen Dienstes wird sie nur gebraucht, wenn er auch laeuft.
+      # Dieselbe Datei liest das Backend (`compose.secrets.yaml`).
+      - ${SECRETS_PFAD:-../config/secrets}/firmenordner_admin_password:/run/secrets/firmenordner_admin_password:ro
+    healthcheck:
+      # Der Dienst bringt seine eigene Probe mit. Sie fragt den Prozess, nicht
+      # den Port -- ein Port, der antwortet, ist noch kein Dienst, der bereit
+      # ist (der Fund aus dem zweiten Werksreset, 28.08.2026).
+      test: ['CMD', 'opencloud', 'health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Der erste Start legt seine Konfiguration an und erzeugt Schluessel;
+      # gemessen war er nach 4 s bereit, aber das war ein warmes Abbild.
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          # DIE ZWEI GRENZEN SIND BEIDE GEMESSEN, keine geschaetzt.
+          #
+          # RAM: der Gipfel lag bei 1.226 MiB, und zwar beim Herunterladen mit
+          # dem Klienten am Mac -- nicht bei den 870 MiB, die das Messwerkzeug
+          # am Geraet erzeugte. Die groessere Zahl ist die richtige, 2 GB
+          # lassen Luft.
+          #
+          # CPU: ohne Grenze nahm derselbe Upload 752 % (sieben bis acht von
+          # zwoelf Kernen) fuer 23,5 s. Mit `cpus: 2` dauert er 75,5 s und
+          # nimmt zwei. Auf einem Geraet, auf dem daneben ein Modell rechnet,
+          # ist die zweite Zahl die gewollte: ein Abgleich darf laenger
+          # dauern, aber er darf dem Geraet nicht die Kerne nehmen.
+          cpus: '${FIRMENORDNER_CPUS:-2.0}'
+          memory: ${RAM_LIMIT_FIRMENORDNER:-2G}
+          pids: 512
+    labels:
+      # Der Router steht in der statischen Konfiguration
+      # (`config/traefik/dynamic/routes.yml`), nicht als Etikett: er haengt an
+      # einem eigenen Einstiegspunkt, und der wird dort ohnehin beschrieben.
+      - 'traefik.enable=false'
+      # DAS ETIKETT IST DER GRIFF DES WERKSRESETS. Er raeumt jeden Container
+      # mit Namen `arasul-*` ODER Etikett `arasul.*`
+      # (`scripts/setup/factory-reset.sh`, Schritt 3) -- und dieser hier heisst
+      # `firmenordner` und nicht `arasul-firmenordner`, weil sein Hostname im
+      # Docker-Netz derselbe Name ist und Traefik ihn so anspricht. Ohne diese
+      # Zeile haenge er also an genau einem Faden: dass
+      # `docker compose down --remove-orphans` ihn mitnimmt. Der Werksreset vom
+      # 28.08.2026 hat gezeigt, wie duenn dieser Faden ist.
+      - 'arasul.dienst=firmenordner'
+    profiles:
+      - firmenordner
+    logging: *default-logging
