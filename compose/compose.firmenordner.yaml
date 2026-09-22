@@ -14,10 +14,10 @@
 # PROFIL `firmenordner`, ALSO NICHT VON SELBST. Drei Gruende, jeder fuer sich
 # ausreichend:
 #
-#   1. Er kostet. Gemessen am 21.09.2026 mit dem Klienten am Mac: 1,2 GB RAM
-#      im Gipfel und, ohne Grenze, sieben bis zehn der zwoelf Kerne. Neben
-#      Ollama und den Apps ist das nichts, was ein Geraet nebenbei mitnimmt --
-#      ein Kunde, der keinen Firmenordner gekauft hat, soll ihn nicht tragen.
+#   1. Er kostet. Gemessen am 22.09.2026 am Orin: bis zu 4 GB RAM unter Last
+#      und, ohne Grenze, sieben bis zehn der zwoelf Kerne. Neben Ollama und
+#      den Apps ist das nichts, was ein Geraet nebenbei mitnimmt -- ein Kunde,
+#      der keinen Firmenordner gekauft hat, soll ihn nicht tragen.
 #   2. Der Werkstattschutz. Ein Merge auf `main` rollt auf das Geraet; ein
 #      Dienst, der dabei VON SELBST neben der Buchhaltung hochfaehrt, waere
 #      genau die Ueberraschung, gegen die die Schutzregel vom 21.09.2026 steht.
@@ -189,18 +189,41 @@ services:
         limits:
           # DIE ZWEI GRENZEN SIND BEIDE GEMESSEN, keine geschaetzt.
           #
-          # RAM: der Gipfel lag bei 1.226 MiB, und zwar beim Herunterladen mit
-          # dem Klienten am Mac -- nicht bei den 870 MiB, die das Messwerkzeug
-          # am Geraet erzeugte. Die groessere Zahl ist die richtige, 2 GB
-          # lassen Luft.
+          # RAM: 4 GiB SEIT DEM 22.09.2026, und die zwei davor waren nicht zu
+          # wenig geschaetzt, sondern falsch GELESEN. „Gipfel 1.226 MiB" klang
+          # nach Bedarf; es war der Stand, den der Go-Laufzeitkern gerade
+          # HIELT. Am Nebencontainer gegengemessen: derselbe Lauf (6,4 GB, 64
+          # gleichzeitige Uebertragungen) meldet 2.048 MiB unter einer
+          # 2-GiB-Grenze, 3.030 unter 3 GiB und 3.895 unter 4 GiB -- die Zahl
+          # folgt der Grenze und nicht der Last, weil Go freigegebene Seiten
+          # erst unter Druck zurueckgibt.
+          #
+          # WAS WIRKLICH ZAEHLT, IST DER AUSGANG, und bei 2 GiB ist er Zufall.
+          # Zweimal derselbe Lauf: einmal vom Kernel erschlagen (`OOMKilled`,
+          # 388 verlorene Uebertragungen), einmal durchgekommen -- mit
+          # 79,7 statt 170 MB/s. Bei 3 GiB lief er durch, bei 4 GiB auch mit
+          # der doppelten Zahl gleichzeitiger Uebertragungen (128), jedes Mal
+          # mit vollem Durchsatz. Vierundsechzig gleichzeitige Uebertragungen
+          # sind dabei kein Extremfall: der Klient des Herstellers nimmt sechs
+          # je Rechner, das sind zehn Menschen im Haus, die morgens ihren
+          # Ordner abgleichen.
+          #
+          # `GOMEMLIMIT` WAERE DER NAHELIEGENDE ZWEITE KNOPF und steht
+          # absichtlich nicht da: gemessen half er in einem Bereich (viele
+          # kleine Dateien: Gipfel 2.005 -> 1.684 MiB, Durchsatz 87,7 ->
+          # 104,4 MB/s) und in dem, der wehtut, gar nicht (64 parallel:
+          # 3.756 gegen 3.895 MiB). Ein zweiter Wert, der der Grenze von Hand
+          # nachgezogen werden muss, damit er ueberhaupt etwas tut, ist genau
+          # die Sorte Doppelung, die eines Tages auseinanderlaeuft.
           #
           # CPU: ohne Grenze nahm derselbe Upload 752 % (sieben bis acht von
           # zwoelf Kernen) fuer 23,5 s. Mit `cpus: 2` dauert er 75,5 s und
           # nimmt zwei. Auf einem Geraet, auf dem daneben ein Modell rechnet,
           # ist die zweite Zahl die gewollte: ein Abgleich darf laenger
-          # dauern, aber er darf dem Geraet nicht die Kerne nehmen.
+          # dauern, aber er darf dem Geraet nicht die Kerne nehmen. SIE ist der
+          # Schutz des Geraets, nicht die RAM-Grenze.
           cpus: '${FIRMENORDNER_CPUS:-2.0}'
-          memory: ${RAM_LIMIT_FIRMENORDNER:-2G}
+          memory: ${RAM_LIMIT_FIRMENORDNER:-4G}
           pids: 512
     labels:
       # Der Router steht in der statischen Konfiguration

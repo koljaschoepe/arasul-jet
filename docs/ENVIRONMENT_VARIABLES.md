@@ -557,7 +557,7 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 | RAM_LIMIT_FRONTEND         | 256M    | Dashboard frontend memory    |
 | RAM_LIMIT_BACKUP           | 256M    | Backup service memory        |
 | RAM_LIMIT_BACKEND          | 1G      | Dashboard backend memory     |
-| RAM_LIMIT_FIRMENORDNER     | 2G      | Firmenordner (Dateidienst)   |
+| RAM_LIMIT_FIRMENORDNER     | 4G      | Firmenordner (Dateidienst)   |
 
 ### CPU Limits
 
@@ -718,16 +718,24 @@ Der Dateidienst am Gerät. Er läuft **nur, wenn `COMPOSE_PROFILES` ihn nennt** 
 das ist der eine Schalter, und alles Weitere hängt daran. Die ganze Sache steht
 in [docs/features/FIRMENORDNER.md](features/FIRMENORDNER.md).
 
-| Variable                   | Default                      | Description                                              |
-| -------------------------- | ---------------------------- | -------------------------------------------------------- |
-| COMPOSE_PROFILES           | _(leer)_                     | `firmenordner` schaltet den Dienst an. Der eine Schalter |
-| FIRMENORDNER_PORT          | 8443                         | Der Port draußen; im Container steht 8443 fest           |
-| FIRMENORDNER_ADRESSE       | `https://<MDNS_NAME>:<PORT>` | Was das Gerät einem Menschen und seinem Klienten nennt   |
-| FIRMENORDNER_INTERN        | `http://firmenordner:9200`   | Wo das Backend ihn im Docker-Netz erreicht               |
-| FIRMENORDNER_ADMIN         | admin                        | Anmeldename des Dienst-Administrators                    |
-| FIRMENORDNER_VERSION       | 8.0.1                        | Die Fassung des Abbilds — fest, und die gemessene        |
-| FIRMENORDNER_LOG_LEVEL     | warn                         | Protokollstufe des Dienstes                              |
-| FIRMENORDNER_ZEITGRENZE_MS | 10000                        | Wie lange das Backend auf ihn wartet                     |
+| Variable                            | Default                      | Description                                              |
+| ----------------------------------- | ---------------------------- | -------------------------------------------------------- |
+| COMPOSE_PROFILES                    | _(leer)_                     | `firmenordner` schaltet den Dienst an. Der eine Schalter |
+| FIRMENORDNER_PORT                   | 8443                         | Der Port draußen; im Container steht 8443 fest           |
+| FIRMENORDNER_ADRESSE                | `https://<MDNS_NAME>:<PORT>` | Was das Gerät einem Menschen und seinem Klienten nennt   |
+| FIRMENORDNER_INTERN                 | `http://firmenordner:9200`   | Wo das Backend ihn im Docker-Netz erreicht               |
+| FIRMENORDNER_ADMIN                  | admin                        | Anmeldename des Dienst-Administrators                    |
+| FIRMENORDNER_VERSION                | 8.0.1                        | Die Fassung des Abbilds — fest, und die gemessene        |
+| FIRMENORDNER_LOG_LEVEL              | warn                         | Protokollstufe des Dienstes                              |
+| FIRMENORDNER_ZEITGRENZE_MS          | 10000                        | Wie lange das Backend auf ihn wartet                     |
+| FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS | 900000                       | Wie lange das **Wegwerfen** dauern darf (15 min)         |
+
+**Wegwerfen hat seine eigene Geduld**, und das ist keine Doppelung: jeder
+andere Aufruf fragt oder trägt etwas ein, das Wegwerfen löscht jede Datei im
+Ordner, und seine Dauer hängt an ihrer Zahl (gemessen: 11,4 s für 6.000
+Dateien, also rund 1,9 ms je Datei). Mit den zehn Sekunden darüber war ein
+Arbeitsbaum mittlerer Größe nicht wegzuwerfen — siehe
+[docs/features/FIRMENORDNER.md](features/FIRMENORDNER.md#wegwerfen-was-dabei-wirklich-passiert).
 
 **Das Passwort steht in keiner dieser Zeilen.** Es liegt in
 `config/secrets/firmenordner_admin_password` — einer Datei, die der Dienst
