@@ -132,6 +132,13 @@ services:
       FIRMENORDNER_ADRESSE: ${FIRMENORDNER_ADRESSE:-https://${MDNS_NAME:-arasul}:${FIRMENORDNER_PORT:-8443}}
       FIRMENORDNER_ADMIN: ${FIRMENORDNER_ADMIN:-admin}
       FIRMENORDNER_ZEITGRENZE_MS: ${FIRMENORDNER_ZEITGRENZE_MS:-10000}
+      # WEGWERFEN HAT SEINE EIGENE GEDULD, weil es als einziges an der Zahl der
+      # Dateien haengt und nicht an der Antwortzeit eines Dienstes: gemessen am
+      # 22.09.2026 am Orin brauchte ein Raum mit 6.000 Dateien 11,4 s -- gerade
+      # ueber den zehn Sekunden darueber. Ein abgeschnittenes Wegwerfen
+      # hinterliess einen Raum ohne Dateien, eine Zeile, die ihn weiter fuehrte,
+      # und einen Dienst, der auf jeden zweiten Versuch `grpc error` sagte.
+      FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS: ${FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS:-900000}
     volumes:
       # Sechste Trennung fuer den Pruefstand (siehe compose/pruefstand.vars):
       # der Werksreset SCHREIBT in diese Datei, er entwertet ADMIN_PASSWORD.

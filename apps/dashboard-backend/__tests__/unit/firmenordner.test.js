@@ -472,6 +472,168 @@ describe('Anlegen und Wegwerfen im Dienst', () => {
   });
 });
 
+describe('Wegwerfen ist keine Anfrage wie die anderen (J33, 22.09.2026)', () => {
+  /**
+   * Eine Antwort des Dienstes, die sich nach Weg und Methode richtet -- beim
+   * Wegwerfen sind es drei bis vier Aufrufe hintereinander, und welcher
+   * welchen bekommt, ist genau die Frage.
+   */
+  function antworten(regeln) {
+    global.fetch.mockImplementation((url, opt = {}) => {
+      const weg = String(url);
+      const methode = opt.method || 'GET';
+      const purge = Boolean(opt.headers?.Purge);
+      for (const regel of regeln) {
+        if (regel.methode && regel.methode !== methode) continue;
+        if (regel.enthaelt && !weg.includes(regel.enthaelt)) continue;
+        if (regel.purge !== undefined && regel.purge !== purge) continue;
+        return Promise.resolve({
+          ok: regel.status < 400,
+          status: regel.status,
+          text: async () => regel.koerper || '',
+        });
+      }
+      return Promise.resolve({ ok: true, status: 204, text: async () => '' });
+    });
+  }
+
+  const LISTE_MIT = JSON.stringify({ value: [{ id: 'r1' }, { id: 'r2' }] });
+  const LISTE_OHNE = JSON.stringify({ value: [{ id: 'r2' }] });
+
+  it('gibt dem Wegwerfen eine eigene, groessere Zeitgrenze', async () => {
+    firmenordnerAn();
+    const uhr = jest.spyOn(AbortSignal, 'timeout');
+    antworten([{ status: 204 }]);
+    await dienst.loescheRaum('r1');
+    // Zehn Sekunden haben am 22.09.2026 fuer 6.076 Dateien nicht gereicht
+    // (gemessen: 11,4 s fuer 6.000). Der Purge braucht seine eigene Geduld.
+    expect(uhr).toHaveBeenCalledWith(dienst.ZEITGRENZE_LOESCHEN_MS);
+    expect(uhr).not.toHaveBeenCalledWith(10000);
+    uhr.mockRestore();
+  });
+
+  it('nimmt einen Fehler hin, wenn der Raum danach nicht mehr in der Liste steht', async () => {
+    firmenordnerAn();
+    // Genau der Fall vom 22.09.2026: der abgeschnittene Purge hinterlaesst
+    // einen Dienst, der auf jeden weiteren Versuch `500 grpc error` sagt --
+    // waehrend die Dateien laengst weg sind.
+    antworten([
+      { methode: 'DELETE', purge: true, status: 500, koerper: '{"error":{"message":"grpc error"}}' },
+      { methode: 'GET', enthaelt: '/graph/v1.0/drives', status: 200, koerper: LISTE_OHNE },
+      { status: 204 },
+    ]);
+    await expect(dienst.loescheRaum('r1')).resolves.toBeUndefined();
+  });
+
+  it('meldet den Fehler weiter, solange der Raum noch in der Liste steht', async () => {
+    firmenordnerAn();
+    antworten([
+      { methode: 'DELETE', purge: true, status: 500, koerper: 'grpc error' },
+      { methode: 'GET', enthaelt: '/graph/v1.0/drives', status: 200, koerper: LISTE_MIT },
+      { status: 204 },
+    ]);
+    await expect(dienst.loescheRaum('r1')).rejects.toThrow(/grpc error/);
+  });
+
+  it('blaettert die Liste zu Ende, bevor es „weg" sagt', async () => {
+    firmenordnerAn();
+    // Eine Liste in zwei Seiten, und `r1` steht auf der zweiten. Wer nur die
+    // erste liest, wirft die letzte Zeile weg, die den Raum noch kennt --
+    // dieselbe Leiche wie im Auftrag `app-leiche`, nur andersherum.
+    global.fetch.mockImplementation((url, opt = {}) => {
+      const weg = String(url);
+      if ((opt.method || 'GET') === 'GET' && weg.includes('/graph/v1.0/drives')) {
+        const zweite = weg.includes('$skiptoken');
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify(
+              zweite
+                ? { value: [{ id: 'r1' }] }
+                : {
+                    value: [{ id: 'r9' }],
+                    '@odata.nextLink': 'http://firmenordner:9200/graph/v1.0/drives?$skiptoken=2',
+                  }
+            ),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 500, text: async () => 'grpc error' });
+    });
+    await expect(dienst.loescheRaum('r1')).rejects.toThrow(/grpc error/);
+  });
+
+  it('folgt einer naechsten Seite nicht, die woandershin zeigt', async () => {
+    firmenordnerAn();
+    antworten([
+      { methode: 'DELETE', purge: true, status: 500, koerper: 'grpc error' },
+      {
+        methode: 'GET',
+        enthaelt: '/graph/v1.0/drives',
+        status: 200,
+        koerper: JSON.stringify({
+          value: [{ id: 'r2' }],
+          '@odata.nextLink': 'https://fremder-rechner/graph/v1.0/drives?$skiptoken=2',
+        }),
+      },
+      { status: 204 },
+    ]);
+    // Eine Liste, die auf einen fremden Rechner verweist, ist keine Antwort
+    // auf unsere Frage -- also gilt, was dieser Dienst gesagt hat: `r1` ist
+    // nicht darin.
+    await expect(dienst.loescheRaum('r1')).resolves.toBeUndefined();
+  });
+
+  it('behauptet nichts, wenn die Liste selbst nicht kommt', async () => {
+    firmenordnerAn();
+    antworten([
+      { methode: 'DELETE', purge: true, status: 500, koerper: 'grpc error' },
+      { methode: 'GET', enthaelt: '/graph/v1.0/drives', status: 503, koerper: 'weg' },
+      { status: 204 },
+    ]);
+    await expect(dienst.loescheRaum('r1')).rejects.toThrow(/grpc error/);
+  });
+
+  /** Ein Papierkorb mit zwei Eintraegen, einer davon unserer. */
+  const PAPIERKORB = `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
+    <d:response><d:href>/dav/spaces/trash-bin/r1/</d:href></d:response>
+    <d:response><d:href>/dav/spaces/trash-bin/r1/aaa-111/</d:href>
+      <oc:trashbin-original-location>vicona</oc:trashbin-original-location></d:response>
+    <d:response><d:href>/dav/spaces/trash-bin/r1/bbb-222/</d:href>
+      <oc:trashbin-original-location>notizen.md</oc:trashbin-original-location></d:response>
+  </d:multistatus>`;
+
+  it('leert den einen Eintrag aus dem Papierkorb, den es gerade hineingeworfen hat', async () => {
+    firmenordnerAn();
+    // Ein WebDAV-DELETE ist ein Verschieben: der Ordner liegt danach unter
+    // `.Trash/files/…` und jede Datei darin ist noch da (am 22.09.2026 am
+    // Orin nachgesehen). Die Route verspricht „samt allem, was darin liegt".
+    antworten([
+      { methode: 'PROPFIND', status: 207, koerper: PAPIERKORB },
+      { status: 204 },
+    ]);
+    await dienst.loescheOrdner('r1', 'vicona');
+    const wege = global.fetch.mock.calls.map(([u, o]) => `${o.method} ${String(u)}`);
+    expect(wege).toEqual([
+      'DELETE http://firmenordner:9200/dav/spaces/r1/vicona',
+      'PROPFIND http://firmenordner:9200/dav/spaces/trash-bin/r1',
+      'DELETE http://firmenordner:9200/dav/spaces/trash-bin/r1/aaa-111',
+    ]);
+  });
+
+  it('laesst liegen, was ein Mensch selbst in den Papierkorb gelegt hat', async () => {
+    firmenordnerAn();
+    antworten([
+      { methode: 'PROPFIND', status: 207, koerper: PAPIERKORB },
+      { status: 204 },
+    ]);
+    await dienst.loescheOrdner('r1', 'gibt-es-nicht-im-papierkorb');
+    // Den Papierkorb GANZ zu leeren waere ein zweites Wegwerfen, das niemand
+    // bestellt hat.
+    expect(global.fetch.mock.calls.filter(([, o]) => o.method === 'DELETE')).toHaveLength(1);
+  });
+});
+
 describe('Der Fehler des Dienstes traegt seine Begruendung', () => {
   it('nimmt den Koerper der Antwort mit in die Meldung', async () => {
     firmenordnerAn();

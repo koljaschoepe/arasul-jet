@@ -2373,10 +2373,27 @@ schickt und welche Ordner es anlegen darf.
         "pfad": "projekte/vicona",
         "recht": "schreiben"
       }
+    ],
+    "nicht_abgeglichen": [
+      {
+        "art": "symlink",
+        "text": "Ein Symlink im Baum wird nicht uebertragen -- weder die Verknuepfung noch das, worauf sie zeigt. …"
+      }
     ]
   }
 }
 ```
+
+**`nicht_abgeglichen` sagt, was am Abgleich lautlos vorbeigeht.** Gemessen am
+22.09.2026 am Orin mit vier Sorten Symlink im Baum — auf eine Datei daneben,
+auf einen Ordner daneben, ins Leere, nach draußen: **keiner** steht im
+`PROPFIND`, **keiner** ist herunterzuladen (`404`), **keiner** steht in der
+Suche, und es gibt keine Fehlermeldung, an der jemand es merken könnte. Das
+Gerät kann das nicht heilen — was der Dateidienst nicht kennt, kennt auch das
+Backend nicht —, also **sagt** es es: das CLI am Rechner eines Menschen läuft
+ohnehin über den Baum und ist die einzige Stelle, die einen Symlink sehen
+kann. Die Liste ist eine Liste, damit der nächste Fund dieser Sorte daneben
+steht und nicht als zweites Feld irgendwo.
 
 `pfad` ist die **echte Stelle im Baum**, auch wenn der Mensch den Ordner
 darüber gar nicht sieht: ein Ordner der Ebene 2 heißt immer
@@ -2415,6 +2432,21 @@ liegt**, und deshalb nicht, solange darin noch ein Ordner der Ebene 2 liegt
 vor Versehen, sondern vor einem Ordner, der unter den Füßen von jemandem
 verschwindet, der gerade darin arbeitet — sein Klient löscht ihn am nächsten
 Morgen auf seinem Rechner hinterher.
+
+**Dieser Weg darf als einziger lange dauern.** Er löscht jede Datei im Ordner,
+und seine Dauer hängt an ihrer Zahl: gemessen **11,4 s für 6.000 Dateien**
+(rund 1,9 ms je Datei). Das Gerät wartet bis zu 15 Minuten auf den Dienst
+(`FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS`) und hebt für diese eine Route auch die
+60-Sekunden-Frist seiner eigenen Antwort an. Ein Aufrufer setzt seine
+Zeitgrenze entsprechend — `curl --max-time 30` ist hier zu wenig.
+
+**Und am Ende wird nachgesehen, nicht geglaubt:** meldet der Dienst einen
+Fehler, fragt das Gerät die Liste seiner Räume; steht der Raum nicht mehr
+darin, ist er weg, und die Antwort ist `200`. Der Grund steht in
+[docs/features/FIRMENORDNER.md](../features/FIRMENORDNER.md#wegwerfen-was-dabei-wirklich-passiert)
+— ein abgeschnittenes Wegwerfen hinterließ am 22.09.2026 einen Raum ohne
+Dateien, eine Zeile, die ihn weiter führte, und ein `500 grpc error` auf jeden
+zweiten Versuch.
 
 **`POST /abgleich` legt an, es räumt nicht weg.** Was der Dienst noch nicht
 weiß, steht in der Datenbank (`abgleich_offen` an der Nutzer- und an der

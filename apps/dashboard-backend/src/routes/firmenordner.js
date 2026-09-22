@@ -45,6 +45,37 @@ const { logSecurityEvent } = require('../utils/auditLog');
 const { ServiceUnavailableError, ValidationError } = require('../utils/errors');
 
 /**
+ * Was am Abgleich vorbeigeht, und zwar lautlos.
+ *
+ * ES STEHT IN DER ANTWORT UND NICHT NUR IN DER KARTE, weil es sonst der
+ * falsche liest. Das CLI am Rechner eines Menschen laeuft ueber den Baum --
+ * es ist die einzige Stelle, die einen Symlink ueberhaupt SEHEN kann. Das
+ * Geraet kann es nicht: was der Dateidienst nicht kennt, kennt auch das
+ * Backend nicht, und ein Lauf ueber hunderttausend Dateien je Anfrage waere
+ * ein Preis fuer eine Auskunft, die nichts heilt.
+ *
+ * Gemessen am 22.09.2026 am Orin (Nebeninstanz, vier Sorten Symlink im Baum:
+ * auf eine Datei daneben, auf einen Ordner daneben, ins Leere, nach
+ * draussen): KEINER steht im `PROPFIND`, KEINER ist herunterzuladen (`404`),
+ * KEINER steht in der Suche. Der Ablagetreiber `posix` geht an ihnen vorbei,
+ * ohne ein Wort -- es gibt keine Fehlermeldung, an der jemand es merken
+ * koennte, und auf dem Rechner des Menschen sieht der Ordner vollstaendig
+ * aus.
+ *
+ * EINE LISTE UND KEIN FELD, damit der naechste Fund dieser Sorte daneben
+ * steht und nicht als zweites Feld irgendwohin.
+ */
+const NICHT_ABGEGLICHEN = [
+  {
+    art: 'symlink',
+    text:
+      'Ein Symlink im Baum wird nicht uebertragen -- weder die Verknuepfung noch das, worauf ' +
+      'sie zeigt. Der Dateidienst geht an ihm vorbei, ohne es zu melden. Wer den Inhalt ' +
+      'braucht, legt ihn als echte Datei ab.',
+  },
+];
+
+/**
  * GET /api/firmenordner — wo der Dienst liegt und welche Ordner ich habe.
  *
  * DIE EINZIGE ROUTE HIER, DIE EIN MITARBEITER DARF, und die einzige, die
@@ -85,6 +116,7 @@ router.get(
         erreichbar: lage.erreichbar,
         benutzer: req.user.username,
         ordner,
+        nicht_abgeglichen: NICHT_ABGEGLICHEN,
       },
       timestamp: new Date().toISOString(),
     });
@@ -145,6 +177,15 @@ router.post(
  * zuerst weg muss. Beides ist kein Schutz vor Versehen, sondern vor einem
  * Ordner, der unter den Fuessen von jemandem verschwindet, der gerade darin
  * arbeitet.
+ *
+ * DIE EINZIGE ROUTE DES GERAETS, DIE LANGE DAUERN DARF, und sie sagt es
+ * selbst. `index.js` schneidet jede Antwort nach 60 s ab (TIMEOUT-001) --
+ * richtig fuer alles, was eine Frage beantwortet, falsch fuer das Wegwerfen
+ * eines Ordners mit zehntausend Dateien: der Dienst raeumt dann weiter, der
+ * Mensch bekommt ein `408`, und am Geraet steht eine Zeile fuer einen Raum,
+ * den es nicht mehr gibt (am 22.09.2026 am Orin genau so passiert, nur eine
+ * Stufe tiefer). Die Zahl kommt aus dem Dienst und nicht von hier -- zwei
+ * Zahlen fuer dieselbe Geduld laufen auseinander.
  */
 router.delete(
   '/ordner/:id',
@@ -153,6 +194,7 @@ router.delete(
   validateParams(OrdnerParams),
   validateQuery(OrdnerLoeschenQuery),
   asyncHandler(async (req, res) => {
+    res.setTimeout(verwaltung.ZEITGRENZE_LOESCHEN_MS + 30000);
     const ordner = await verwaltung.holeOrdner(req.params.id);
     if (req.query.kennung !== ordner.kennung) {
       throw new ValidationError(

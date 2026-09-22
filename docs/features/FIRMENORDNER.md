@@ -11,8 +11,8 @@ Verträge, Angebote, Regeln, die `CLAUDE.md` der Firma. Die Mitarbeiter
 gleichen ihn an ihren Rechnern ab, Flows am Gerät lesen ihn, die nächtliche
 Sicherung nimmt ihn mit.
 
-**Er läuft nicht von selbst.** Er kostet 2 GB RAM und zwei Kerne, und nicht
-jedes Gerät hat einen. Eingeschaltet wird er mit einer Zeile in der `.env`:
+**Er läuft nicht von selbst.** Er kostet unter Last bis zu 4 GB RAM und zwei
+Kerne, und nicht jedes Gerät hat einen. Eingeschaltet wird er mit einer Zeile in der `.env`:
 
 ```
 COMPOSE_PROFILES=firmenordner
@@ -75,15 +75,49 @@ nennt `firmenordner` und nur `firmenordner`.
 
 Beide sind gemessen, keine geschätzt:
 
-| Grenze                   | Wert | Woher                                                           |
-| ------------------------ | ---- | --------------------------------------------------------------- |
-| `RAM_LIMIT_FIRMENORDNER` | 2G   | Gipfel 1.226 MiB beim Herunterladen mit dem Klienten am Mac     |
-| `FIRMENORDNER_CPUS`      | 2.0  | Ohne Grenze 752 % (sieben bis acht von zwölf Kernen) für 23,5 s |
+| Grenze                   | Wert | Woher                                                              |
+| ------------------------ | ---- | ------------------------------------------------------------------ |
+| `RAM_LIMIT_FIRMENORDNER` | 4G   | Bei 2G einmal `OOMKilled`, einmal halber Durchsatz — derselbe Lauf |
+| `FIRMENORDNER_CPUS`      | 2.0  | Ohne Grenze 752 % (sieben bis acht von zwölf Kernen) für 23,5 s    |
 
 Die CPU-Grenze **kostet Zeit und ist trotzdem richtig**: derselbe Upload
 braucht mit zwei Kernen 75,5 s statt 23,5 s. Auf einem Gerät, auf dem daneben
 ein Modell rechnet, darf ein Abgleich länger dauern — er darf dem Gerät nicht
-die Kerne nehmen.
+die Kerne nehmen. **Sie** ist der Schutz des Geräts, nicht die RAM-Grenze.
+
+#### Warum die RAM-Grenze am 22.09.2026 von 2G auf 4G gegangen ist
+
+Die alte Begründung lautete „Gipfel 1.226 MiB beim Herunterladen" — und die
+Zahl war richtig gemessen und falsch **gelesen**. Was `docker stats` meldet,
+ist nicht der Bedarf, sondern der Stand, den der Go-Laufzeitkern gerade
+**hält**: er gibt freigegebene Seiten erst unter Druck zurück. Am
+Nebencontainer gegengemessen, immer derselbe Lauf (6,4 GB in 16-MB-Dateien,
+64 gleichzeitige Übertragungen):
+
+| Grenze | Gipfel        | Durchsatz     | Ausgang                                         |
+| ------ | ------------- | ------------- | ----------------------------------------------- |
+| 2 GiB  | **2.048 MiB** | —             | **`OOMKilled`, 388 Übertragungen verloren**     |
+| 2 GiB  | **2.048 MiB** | **79,7 MB/s** | durchgekommen, halber Durchsatz                 |
+| 3 GiB  | 3.030 MiB     | 170,6 MB/s    | durch                                           |
+| 4 GiB  | 3.895 MiB     | 169,9 MB/s    | durch                                           |
+| 4 GiB  | 3.923 MiB     | 170,0 MB/s    | durch, mit **128** gleichzeitigen Übertragungen |
+
+**Die Zahl folgt der Grenze, nicht der Last** — deshalb sagt ein einzelner
+Gipfelwert nichts. Was etwas sagt, ist der Ausgang, und bei 2 GiB ist er
+**Zufall**: zwei identische Läufe, einmal vom Kernel erschlagen, einmal
+durchgekommen mit halber Geschwindigkeit.
+
+**Vierundsechzig gleichzeitige Übertragungen sind kein Extremfall.** Der
+Klient des Herstellers nimmt sechs je Rechner; das sind zehn Menschen im Haus,
+die morgens ihren Ordner abgleichen — also der Normalfall eines
+Firmengeräts und nicht sein schlimmster Tag.
+
+**`GOMEMLIMIT` wäre der naheliegende zweite Knopf**, und er steht absichtlich
+nicht da. Gemessen hilft er in einem Bereich (viele kleine Dateien: Gipfel
+2.005 → 1.684 MiB, Durchsatz 87,7 → 104,4 MB/s) und in dem, der wehtut, gar
+nicht (64 parallel: 3.756 statt 3.895 MiB). Ein zweiter Wert, der der Grenze
+von Hand nachgezogen werden muss, damit er überhaupt etwas tut, ist genau die
+Sorte Doppelung, die eines Tages auseinanderläuft.
 
 ---
 
@@ -288,6 +322,122 @@ docker compose --profile firmenordner up -d firmenordner
 
 Die Kopie **außerhalb** des Geräts (USB oder SMB, C9) nimmt
 `firmenordner_latest.tar.gz` mit.
+
+---
+
+## Wegwerfen: was dabei wirklich passiert
+
+> Gemessen am 22.09.2026 am Orin, Auftrag `firmenordner-wegwerfen-und-grenzen`
+> (J33) — die Zahlen und die Messhülle liegen unter
+> [`docs/plans/audits/2026-09-22-firmenordner-grenzen/`](../plans/audits/2026-09-22-firmenordner-grenzen/MESSUNG.md).
+
+`DELETE /api/firmenordner/ordner/:id` wirft einen Ordner **samt allem, was
+darin liegt** weg. Das ist die einzige Zusage dieser Karte, die lange dauern
+darf, und sie hat drei Stufen, die man einzeln kennen muss.
+
+**Ein Raum (Ebene 1) braucht zwei `DELETE`, und beide immer.** Das erste
+antwortet `204` und lässt ihn als `trashed` in der Liste stehen — seine
+Dateien liegen unverändert da. Erst ein zweites mit `Purge: T` nimmt ihn weg.
+
+**Ein Ordner (Ebene 2) braucht ebenfalls zwei Schritte**, und der zweite ist
+neu seit diesem Auftrag: ein WebDAV-`DELETE` ist kein Wegwerfen, sondern ein
+Verschieben. Der Ordner liegt danach unter
+`projects/<raum>/.Trash/files/<uuid>.trashitem/` und **jede Datei darin ist
+noch da**. Das Gerät leert deshalb genau diesen einen Eintrag hinterher
+(`oc:trashbin-original-location` nennt, woher er kam) — **nicht** den ganzen
+Papierkorb: darin liegt auch, was ein Mensch gelöscht hat und morgen
+zurückholen will.
+
+**Die Dauer hängt an der Zahl der Dateien, nicht an der des Dienstes.**
+Gemessen: **11,4 s für 6.000 Dateien** in zwanzig Ordnern, also rund 1,9 ms je
+Datei. Die alte Zeitgrenze des Backends lag bei zehn Sekunden — knapp darunter,
+und damit war ein Arbeitsbaum mittlerer Größe nicht wegzuwerfen.
+
+### Der Fehler vom 22.09.2026, und warum er so schwer zu lesen war
+
+Ein Raum mit 6.076 Dateien antwortete `500 grpc error`, im Log stand
+`context canceled`. Nachgestellt, beide Richtungen:
+
+| Was                            | Mit Zeit (11,8 s) | Nach 10 s abgeschnitten |
+| ------------------------------ | ----------------- | ----------------------- |
+| Dateien auf der Platte         | 0                 | **0**                   |
+| Raum in `/graph/v1.0/drives`   | weg               | **weg**                 |
+| Antwort an den Aufrufer        | `204`             | **Abbruch**             |
+| Zweiter Versuch danach         | —                 | **`500 grpc error`**    |
+| Namen im Suchindex (von 11.9k) | 968 (8 %)         | **11.927 (100 %)**      |
+
+Der Dienst räumte also **zu Ende**, während das Backend schon abgeschnitten
+hatte. Übrig blieb: ein Raum ohne Dateien, eine Zeile am Gerät, die ihn weiter
+führte, ein Suchindex, der jeden Dateinamen behielt, und ein `500` auf jeden
+weiteren Versuch, bis jemand den Container neu startete. **Eine Ursache, drei
+Symptome** — und keines davon sah nach einer Zeitgrenze aus.
+
+Drei Dinge halten das jetzt:
+
+1. **Wegwerfen hat seine eigene Geduld.** `FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS`
+   steht bei **15 Minuten** (bei 1,9 ms je Datei reicht das für ein paar
+   hunderttausend), die zehn Sekunden gelten weiter für alles andere.
+2. **Die Route setzt dieselbe Zahl auf ihre eigene Antwort.** `index.js`
+   schneidet jede Antwort nach 60 s ab (TIMEOUT-001); ohne dieses
+   `res.setTimeout` wäre die Grenze darüber eine Behauptung.
+3. **Am Ende wird nachgesehen, nicht geglaubt.** Meldet der Dienst einen
+   Fehler, fragt das Gerät die **Liste** der Räume — steht er nicht mehr
+   darin, ist er weg, und der Statuscode ist eine Fußnote fürs Protokoll.
+   Über die Liste und nicht über den einzelnen Raum: `GET /drives/<weg>`
+   antwortet `500 grpc error` und nicht `404`, und daraus ist „gibt es nicht"
+   von „ging gerade schief" nicht zu unterscheiden. Kommt die Liste selbst
+   nicht, ist das ein „steht noch da" — wer nicht nachsehen konnte, behauptet
+   nichts.
+
+### Der Suchindex
+
+Der Suchdienst hält seinen bleve-Index unter `data/firmenordner/ablage/search`.
+Nach einem **vollständigen** Wegwerfen verliert er die Dateinamen des Raums;
+nach einem **abgeschnittenen** behält er jeden einzelnen, denn er erfährt von
+der Löschung nie. Das ist derselbe Fehler wie oben, eine Stufe weiter.
+
+**Zwei Messgeräte, zwei Antworten — und man muss sie auseinanderhalten:**
+
+- **Die Suche** (`REPORT /dav/spaces` mit `oc:search-files`) findet nach dem
+  Wegwerfen **nichts**, in beiden Fällen: der Dienst kennt den Raum nicht mehr
+  und gibt nichts aus ihm heraus. Das ist, was ein Mensch sieht.
+- **`grep` über die Indexdateien** sieht, was auf der Platte steht, und nur er
+  sieht den Unterschied: 11.567 → **968** Treffer mit Reparatur, 11.927 →
+  **11.927** ohne.
+
+Die 968, die bleiben, sind **Bytes gelöschter Dokumente in einem
+bleve-Segment, das noch nicht verschmolzen ist**. Dass es Leichen sind und
+keine lebenden Einträge, sagt genau der Vergleich: eine Löschung im Index ist
+je Dokument ganz oder gar nicht — 92 % verschwinden nicht, wenn die Dokumente
+noch da wären. Gegengemessen über sechs Minuten unter Indexlast (8.000 neue Dateien
+daneben, acht statt vier Segmente): die Zahl
+bleibt bei 968, bis bleve dieses Segment anfasst; einen Befehl, der das
+erzwingt, gibt es nicht.
+
+**Wer wirklich null will**, nimmt den Index einmal ganz weg — er ist
+abgeleitet, nicht Nutzdaten, und der Dienst baut ihn neu auf:
+
+```bash
+docker compose stop firmenordner
+rm -rf data/firmenordner/ablage/search
+docker compose --profile firmenordner up -d firmenordner
+```
+
+Das ist ein Neustart und deshalb **kein** Teil des Wegwerfens.
+
+### Symlinks werden nicht abgeglichen
+
+Gemessen mit vier Sorten im Baum — auf eine Datei daneben, auf einen Ordner
+daneben, ins Leere, nach draußen (`/etc/hostname`): **keiner** steht im
+`PROPFIND`, **keiner** ist herunterzuladen (`404`), **keiner** steht in der
+Suche. Der Ablagetreiber `posix` geht an ihnen vorbei, und zwar **wortlos** —
+es gibt keine Fehlermeldung, an der jemand es merken könnte, und auf dem
+Rechner des Menschen sieht der Ordner vollständig aus.
+
+Das Gerät kann das nicht heilen: was der Dateidienst nicht kennt, kennt auch
+das Backend nicht. Es **sagt** es deshalb — `GET /api/firmenordner` führt
+`nicht_abgeglichen` mit, und das CLI am Rechner eines Menschen ist die einzige
+Stelle, die beim Lauf über den Baum einen Symlink wirklich sehen kann.
 
 ---
 

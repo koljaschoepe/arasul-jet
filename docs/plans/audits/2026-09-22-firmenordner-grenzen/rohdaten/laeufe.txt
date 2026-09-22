@@ -1,0 +1,102 @@
+Messung J33 „Wegwerfen und Grenzen", 22.09.2026, Orin, Nebencontainer
+j33grenze-firmenordner (opencloudeu/opencloud-rolling:8.0.1, posix, cpus 2).
+Ausgaben der Schritte unter messhuelle/, unveraendert.
+
+=== 1. Wegwerfen eines Raums mit 6.000 Dateien (schritte/02-wegwerfen.sh) ===
+vorher: 11741 Dateien, 9277 Indexeintraege, 1x in der Liste
+<<status 204 dauer 0.073184>>   (erstes DELETE, Papierkorb)
+nach dem ersten DELETE: 11741 Dateien, 1x in der Liste
+<<status 204 dauer 11.406754>>  (zweites DELETE, Purge: T)
+nach dem Purge: 0 Dateien, 9343 Indexeintraege, 0x in der Liste
+RAM-Gipfel  trash 316MiB / 2GiB 209.10%   purge 481.1MiB / 2GiB 206.42%
+
+=== 2. Derselbe Purge nach 10 s abgeschnitten (schritte/03-abgebrochen.sh) ===
+vorher: 11560 Dateien, 1x in der Liste
+trash  <<status 204 dauer 0.277381>>
+purge  <<status 000 dauer 10.001668>>     (curl --max-time 10)
+danach: Dateien 0, 0x in der Liste
+Wiederholung des Purge, sofort:
+  {"error":{"code":"generalException","innererror":{"date":"2026-09-22T13:38:50Z",
+   "request-id":"c4775d2718f3/2xINOxABIS-000048"},"message":"grpc error"}}
+  <<status 500>>  nach 0,130 s
+
+=== 3. Suchindex, zwei Laeufe gegeneinander (schritte/04, schritte/07) ===
+Raum „sauber", Purge mit Zeit (11,8 s):
+  vorher : 12041 Dateien, 11567 Indexbytes, 200 Suchtreffer
+  nachher:     0 Dateien,   968 Indexbytes,   0 Suchtreffer
+  +5s/+30s/+60s/+180s/+300s: 968 / 968 / 968 / 968 / 968
+Raum „kurz", Purge nach 10 s abgeschnitten:
+  vorher : 12041 Dateien, 11927 Indexbytes, 500 Suchtreffer
+  nachher:     0 Dateien, 11927 Indexbytes,   0 Suchtreffer, 0x in der Liste
+Gegenprobe auf Verschmelzung (8.000 neue Dateien daneben indiziert):
+  +1min sauber=968 kurz=11926 segmente=4
+  +2min sauber=968 kurz=11926 segmente=5
+  +3min sauber=968 kurz=11926 segmente=8
+  +4min sauber=968 kurz=11926 segmente=8
+  +5min sauber=968 kurz=11926 segmente=8
+  +6min sauber=968 kurz=11926 segmente=8
+Kontrolle, dass die Suche ueberhaupt etwas findet (lebender Raum „probe"):
+  /dav/spaces/…$b5a4c6bc…/teil04/messdatei-00004.md   (und vier weitere)
+Kontrolle am normalen Loeschweg (Ordner „teil04" ueber WebDAV geloescht):
+  grep vorher 6, nachher 4; Suche danach: kein Treffer
+
+=== 4. Der Papierkorb bei einem Ordner der Ebene 2 ===
+DELETE /dav/spaces/<raum>/teil04 -> 204
+auf der Platte danach:
+  projects/probe/.Trash/files/761f25a9-….trashitem/messdatei-00004.md
+PROPFIND /dav/spaces/trash-bin/<raum> Depth 1:
+  761f25a9-8821-4046-9b29-b8cbe14cf871 | teil04     (oc:trashbin-original-location)
+DELETE /dav/spaces/trash-bin/<raum>/761f25a9-… -> 204, danach nichts mehr unter .Trash
+
+=== 5. Symlinks (schritte/06-symlinks.sh) ===
+auf der Platte: echt.txt, echter-ordner/, link-auf-datei.txt -> echt.txt,
+  link-auf-ordner -> echter-ordner, link-ins-leere.txt -> /gibt-es-nicht,
+  link-nach-draussen.txt -> /etc/hostname
+PROPFIND Tiefe 1: teil00…teil19, echter-ordner/, echt.txt  -- kein einziger Link
+GET link-auf-datei.txt      -> 404
+GET link-ins-leere.txt      -> 404
+GET link-nach-draussen.txt  -> 404
+GET link-auf-ordner/drin.txt-> 404
+Suche nach „link": kein Treffer
+
+=== 6. RAM (schritte/05-runterlauf.py), je Lauf frischer Container ===
+Grenze  GOMEMLIMIT  Last                        Dauer   Durchsatz   Gipfel   Ausgang
+2 GiB   off          500 MB,  8 par,  1-MB      38,0s   13,2 MB/s   1691 MiB ok
+2 GiB   off         1000 MB,  8 par,  1-MB      72,0s   13,9 MB/s   1889 MiB ok
+2 GiB   off         2000 MB, 16 par,  1-MB     142,0s   14,1 MB/s   2005 MiB ok
+2 GiB   1500MiB     2000 MB, 16 par,  1-MB     131,6s   15,2 MB/s   1684 MiB ok
+2 GiB   1500MiB     4000 MB, 24 par,  8-MB      38,3s  104,4 MB/s   1722 MiB ok
+2 GiB   off         4000 MB, 24 par,  8-MB      45,6s   87,7 MB/s   2048 MiB ok
+2 GiB   off         6400 MB, 32 par, 16-MB      36,6s  174,7 MB/s   1971 MiB ok
+2 GiB   1500MiB     6400 MB, 32 par, 16-MB      37,0s  173,0 MB/s   1970 MiB ok
+8 GiB   off         6400 MB, 32 par, 16-MB      36,5s  175,2 MB/s   3079 MiB ok
+4 GiB   3000MiB     6400 MB, 32 par, 16-MB      37,1s  172,7 MB/s   3389 MiB ok
+4 GiB   3000MiB     6400 MB, 64 par, 16-MB      36,5s  175,2 MB/s   3756 MiB ok
+2 GiB   off         6400 MB, 64 par, 16-MB      15,1s        --     2048 MiB OOMKilled=true, 388 Fehler
+2 GiB   off         6400 MB, 64 par, 16-MB (2.) 80,4s   79,7 MB/s   2048 MiB ok
+3 GiB   off         6400 MB, 64 par, 16-MB      37,5s  170,6 MB/s   3030 MiB ok
+4 GiB   off         6400 MB, 64 par, 16-MB      37,7s  169,9 MB/s   3895 MiB ok
+4 GiB   off         6400 MB,128 par, 16-MB      37,6s  170,0 MB/s   3923 MiB ok
+
+=== 7. Der Code des Geraets gegen den echten Dienst (messhuelle/nodeprobe) ===
+ordnerdienst.js unveraendert, node:22-alpine im Netz des Nebencontainers.
+
+a) Raum mit 6.000 Dateien:
+   loescheRaum kam durch nach 11.7 s
+   steht er noch in der Liste? false
+   Dateien danach: 0
+
+b) Ordner der Ebene 2 mit 2.000 Dateien:
+   loescheOrdner kam durch nach 2.9 s
+   im Raum danach: 0      im Papierkorb: 0
+
+c) Der Fall vom Ernten -- Purge von aussen nach 10 s abgeschnitten, dann das
+   Geraet auf denselben Raum:
+   trash 204 / purge 000 (abgeschnitten)
+   warn  Firmenordner: das Wegwerfen von …$6adcde54-… meldete „… antwortete 500
+         {"error":{"code":"generalException","innererror":{"date":"2026-09-22T14:43:51Z",
+          "request-id":"810a7ca54b32/wPDrAJqCM7-001258"},"message":"grpc error"}}"
+         -- der Raum steht aber nicht mehr in der Liste des Dienstes, ist also weg.
+   loescheRaum kam durch nach 0.3 s
+   steht er noch in der Liste? false
+   Dateien danach: 0
