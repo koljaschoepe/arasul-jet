@@ -82,6 +82,34 @@ router.post(
   })
 );
 
+// DELETE /api/license - Lizenz vom Geraet nehmen, danach community (J32).
+// Der Weg zurueck fuer eine Testlizenz: ohne ihn hiesse "wieder community"
+// eine Shell im Container und fuenf Minuten Cache, die noch die alte Stufe
+// melden.
+router.delete(
+  '/',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const { entfernt, license } = await licenseService.deactivateLicense();
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'license_remove',
+      details: { entfernt, tier: license.tier },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.json({
+      success: true,
+      entfernt,
+      license,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
 // GET /api/license/check/:feature - Check if a feature is allowed
 router.get(
   '/check/:feature',

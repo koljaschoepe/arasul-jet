@@ -27,11 +27,19 @@
  *      Ein Schluessel, der im Repo liegt und im Container fehlt, waere Fall 1
  *      auf jedem Geraet, und nichts hier wuerde rot.
  *
+ *   6. Das Signierwerkzeug (`scripts/util/lizenz-signieren.js`, 23.09.2026)
+ *      gibt eine Lizenz aus, die besteht, und `maxApps` aus der Nutzlast
+ *      ersetzt die Zahl der Stufe; eine unzulaessige Zahl oder eine
+ *      unbekannte Stufe wird abgelehnt.
+ *   7. `deactivateLicense` nimmt die Datei weg und meldet sofort community,
+ *      und die Datei liegt in einem Mount statt im Container.
+ *
  * Aufruf: node scripts/test/lizenz-signatur.js   (braucht node_modules des
  * Backends fuer winston; laeuft im CI-Job "Backend" und in run-tests.sh)
  * Rueckgabe 0, wenn jede Pruefung gruen war, sonst 1.
  */
 const crypto = require('crypto');
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -41,6 +49,8 @@ const DIENST = path.join(WURZEL, 'apps/dashboard-backend/src/services/app/licens
 const SCHLUESSEL_IM_REPO = path.join(WURZEL, 'config/public_license_key.pem');
 const COMPOSE = path.join(WURZEL, 'compose/compose.app.yaml');
 const PFAD_IM_CONTAINER = '/arasul/config/public_license_key.pem';
+const LIZENZ_IM_CONTAINER = '/arasul/lizenz/license.key';
+const WERKZEUG = path.join(WURZEL, 'scripts/util/lizenz-signieren.js');
 
 process.env.LOG_LEVEL = 'error';
 const ARBEIT = fs.mkdtempSync(path.join(os.tmpdir(), 'arasul-lizenz-'));
@@ -233,6 +243,122 @@ async function main() {
     'licenseService.js kennt keinen Grace-Mode ohne Schluessel mehr',
     !/running in grace mode/.test(dienstText) && !/grace period active/.test(dienstText)
   );
+
+  // --- 6. Das Signierwerkzeug und maxApps aus der Nutzlast (23.09.2026) ----
+  // Das Werkzeug wird mit einem Wegwerf-Paar gemessen: der private Schluessel
+  // kommt ueber STDIN (so wie er im Schluesselbund liegt: base64 der PEM),
+  // der oeffentliche ueber dieselbe Variable wie im Dienst.
+  console.log('\n--- 6. Das Signierwerkzeug, maxApps aus der Nutzlast');
+  fs.writeFileSync(SCHLUESSEL, A.publicKey);
+  const werkzeug = (args, schluessel = A.privateKey) =>
+    spawnSync(process.execPath, [WERKZEUG, '--schluessel-stdin', ...args], {
+      input: Buffer.from(schluessel).toString('base64'),
+      encoding: 'utf8',
+      env: { ...process.env, LICENSE_PUBLIC_KEY_PATH: SCHLUESSEL },
+    });
+  let lauf = werkzeug(['--kunde', 'Testlizenz', '--max-apps', '5', '--tage', '1']);
+  const ausWerkzeug = lauf.stdout.trim();
+  pruefe(
+    'Das Werkzeug gibt eine Zeile <Nutzlast>.<Signatur> aus',
+    lauf.status === 0 && /^[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/.test(ausWerkzeug),
+    lauf.stderr.trim()
+  );
+  pruefe(
+    'und der private Schluessel steht in keiner seiner Ausgaben',
+    !/PRIVATE KEY/.test(lauf.stdout + lauf.stderr) &&
+      !(lauf.stdout + lauf.stderr).includes(
+        Buffer.from(A.privateKey).toString('base64').slice(40, 120)
+      )
+  );
+  ergebnis = await frisch().activateLicense(ausWerkzeug);
+  pruefe(
+    'Die Lizenz aus dem Werkzeug besteht, und maxApps kommt aus der Nutzlast',
+    ergebnis.success === true && ergebnis.license?.features?.maxApps === 5,
+    `tier=${ergebnis.license?.tier}, maxApps=${ergebnis.license?.features?.maxApps}`
+  );
+  const grenze = await frisch().checkLimit('maxApps', 5);
+  pruefe(
+    'und die Grenze greift bei genau dieser Zahl (5 belegt: keine sechste)',
+    grenze.allowed === false && grenze.limit === 5,
+    JSON.stringify(grenze)
+  );
+  pruefe(
+    'die uebrigen Werte der Stufe bleiben, wie sie sind',
+    ergebnis.license?.features?.maxUsers === 5 && ergebnis.license?.features?.externalApi === true
+  );
+  aufraeumen();
+
+  fs.writeFileSync(SCHLUESSEL, A.publicKey);
+  lauf = werkzeug(['--kunde', 'Testlizenz'], B.privateKey);
+  pruefe(
+    'Mit einem fremden privaten Schluessel gibt das Werkzeug nichts aus',
+    lauf.status !== 0 && lauf.stdout.trim() === '' && /besteht nicht/.test(lauf.stderr),
+    lauf.stderr.trim()
+  );
+  lauf = werkzeug(['--kunde', 'Testlizenz', '--max-apps', '0']);
+  pruefe('--max-apps 0 lehnt das Werkzeug ab', lauf.status !== 0 && lauf.stdout.trim() === '');
+
+  for (const [zahl, was] of [
+    [0, 'maxApps 0'],
+    [-2, 'maxApps -2'],
+    [2.5, 'maxApps 2.5'],
+    ['4', 'maxApps als Zeichenkette'],
+  ]) {
+    ergebnis = await frisch().activateLicense(
+      signiere(A.privateKey, { ...NUTZLAST, maxApps: zahl })
+    );
+    pruefe(
+      `Eine signierte Lizenz mit ${was} wird abgelehnt, mit Grund`,
+      ergebnis.success === false && /maxApps/.test(ergebnis.error || ''),
+      ergebnis.error
+    );
+  }
+  pruefe('Es liegt danach keine Lizenzdatei', !fs.existsSync(LIZENZ));
+  ergebnis = await frisch().activateLicense(
+    signiere(A.privateKey, { ...NUTZLAST, tier: 'platin' })
+  );
+  pruefe(
+    'Eine unbekannte Stufe faellt nicht mehr still auf professional',
+    ergebnis.success === false && /platin/.test(ergebnis.error || ''),
+    ergebnis.error
+  );
+  ergebnis = await frisch().activateLicense(signiere(A.privateKey, { ...NUTZLAST, maxApps: -1 }));
+  pruefe(
+    'maxApps -1 heisst unbegrenzt',
+    ergebnis.success === true && ergebnis.license?.features?.maxApps === -1
+  );
+
+  // --- 7. Entfernen und die Ablage der Lizenzdatei -------------------------
+  console.log('\n--- 7. Entfernen, und die Lizenzdatei liegt in einem Mount');
+  dienst = frisch();
+  await dienst.activateLicense(signiere(A.privateKey, { ...NUTZLAST, maxApps: 4 }));
+  pruefe('Vor dem Entfernen: maxApps 4', (await dienst.getLicenseInfo()).features.maxApps === 4);
+  const weg = await dienst.deactivateLicense();
+  info = await dienst.getLicenseInfo();
+  pruefe(
+    'Entfernen nimmt die Datei weg, und DIESELBE Instanz meldet sofort community',
+    weg.entfernt === true &&
+      !fs.existsSync(LIZENZ) &&
+      info.tier === 'community' &&
+      info.features.maxApps === 3,
+    `tier=${info.tier}, maxApps=${info.features.maxApps}`
+  );
+  const nochmal = await dienst.deactivateLicense();
+  pruefe('Entfernen ohne Datei ist kein Fehler', nochmal.entfernt === false);
+  pruefe(
+    `licenseService.js legt die Lizenz unter ${LIZENZ_IM_CONTAINER} ab`,
+    dienstText.includes(`'${LIZENZ_IM_CONTAINER}'`)
+  );
+  pruefe(
+    'und compose.app.yaml haengt dort data/lizenz ein (sonst ist sie nach dem Deploy weg)',
+    compose.includes(`\${DATA_PATH:-../data}/lizenz:${path.dirname(LIZENZ_IM_CONTAINER)}\n`)
+  );
+  const deploy = fs.readFileSync(path.join(WURZEL, 'scripts/deploy/deploy-local.sh'), 'utf8');
+  pruefe(
+    'deploy-local.sh legt data/lizenz vorher an (sonst gehoert er root)',
+    deploy.includes('"$DEPLOY_DIR/data/lizenz"')
+  );
+  aufraeumen();
 }
 
 main()

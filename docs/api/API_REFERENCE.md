@@ -1630,6 +1630,7 @@ All endpoints require admin authentication (`requireAuth` + `requireRole('admin'
 | GET    | `/api/license/info`           | Get current license status + HW fingerprint |
 | GET    | `/api/license/fingerprint`    | Get device hardware fingerprint             |
 | POST   | `/api/license/activate`       | Activate a license key                      |
+| DELETE | `/api/license`                | Lizenz entfernen, Geraet wieder community   |
 | GET    | `/api/license/check/:feature` | Check if a feature gate is allowed          |
 
 **GET /api/license/info Response:**
@@ -1683,6 +1684,35 @@ Schluessel am Geraet oder stimmt die Signatur nicht, antwortet der Weg mit
 `400 VALIDATION_ERROR`, die Meldung nennt den Grund, es bleibt keine Datei
 zurueck, und `GET /api/license/info` bleibt `community` mit `maxApps: 3`.
 Einen Grace-Mode ohne Schluessel gibt es nicht mehr.
+
+**Die Nutzlast** (J32, 23.09.2026): `customer`, `tier` (`professional` oder
+`enterprise`, fehlt sie: `professional`; eine unbekannte Stufe wird mit 400
+abgelehnt statt still auf `professional` zu fallen), `issued_at`,
+`expires_at`, optional `hardware_id` (aus `GET /api/license/fingerprint`) und
+optional **`maxApps`** — eine ganze Zahl ab 1 oder `-1` fuer unbegrenzt. Steht
+sie da, ersetzt sie die Zahl der Stufe in `features.maxApps`, und die
+Lizenzgrenze beim Einspielen (`appStore.pruefeAppGrenze`) rechnet mit ihr. Eine
+andere Zahl (0, -2, 2.5, `"4"`) lehnt der Weg mit 400 ab. Signiert wird mit
+`scripts/util/lizenz-signieren.js`; der private Schluessel liegt nur im
+Schluesselbund.
+
+Die Lizenzdatei liegt seit J32 unter `/arasul/lizenz/license.key`, einem Mount
+auf `data/lizenz/` — sie ueberlebt ein neues Erzeugen des Containers und zieht
+mit einer Aktualisierung um. Der Werksreset loescht sie mit `data/`.
+
+**DELETE /api/license** nimmt die Lizenz vom Geraet: die Datei faellt, der
+Fuenf-Minuten-Cache auch, und die Antwort traegt schon den neuen Stand. Ohne
+Datei ist das kein Fehler (`entfernt: false`). Protokolliert als
+`license_remove`.
+
+```json
+{
+  "success": true,
+  "entfernt": true,
+  "license": { "valid": false, "tier": "community", "features": { "maxApps": 3, "...": "..." } },
+  "timestamp": "2026-09-23T10:00:00.000Z"
+}
+```
 
 ```json
 // 400 ohne oeffentlichen Schluessel am Geraet
