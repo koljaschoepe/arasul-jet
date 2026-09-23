@@ -176,8 +176,10 @@ echo
 
 # --- 1. Anmeldung ------------------------------------------------------------
 TOK=$(arasul_token)
+# Nicht `${ARASUL_TOKEN:-…}` in der Meldung: das ist der Token selbst, wenn er
+# gesetzt ist, und stand so im Protokoll jeder Reihe mit geteiltem Token.
 pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" \
-  "${ARASUL_TOKEN:+geteilter Token}${ARASUL_TOKEN:-HTTP $(arasul_anmeldecode)}"
+  "$(if [ -n "${ARASUL_TOKEN:-}" ]; then echo 'geteilter Token'; else echo "HTTP $(arasul_anmeldecode)"; fi)"
 [ -z "$TOK" ] && {
   echo
   echo "Ohne Anmeldung gibt es nichts zu messen."
