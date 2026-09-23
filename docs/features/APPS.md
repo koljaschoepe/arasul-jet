@@ -736,6 +736,17 @@ kommt aus der Lizenzdatei; ohne eine steht das Gerät auf `community`, und das
 sind drei. Gemessen wird das gegen das laufende Gerät mit
 `scripts/test/lizenz-abnahme.sh`.
 
+**Die Zahl kann aus der Lizenz selbst kommen** (J32, 23.09.2026): trägt die
+signierte Nutzlast `maxApps`, ersetzt sie die Zahl der Stufe — sonst kennten
+die bezahlten Stufen nur `-1`, und ob eine Lizenz die Grenze wirklich hebt,
+ließe sich nie von oben messen. Signiert wird mit
+`scripts/util/lizenz-signieren.js` (privater Schlüssel aus dem Schlüsselbund,
+ohne Stripe und ohne Kauf); `scripts/test/testlizenz-abnahme.sh` spielt am
+Gerät eine Testlizenz mit `belegt + 1` ein, lässt `lizenz-abnahme.sh` die
+Grenze von unten und oben messen und nimmt sie danach mit
+`DELETE /api/license` wieder weg — gemessen bis zurück auf `community`. Die
+Lizenzdatei liegt seither in `data/lizenz/` und überlebt einen Deploy.
+
 ## Die Beispielapp
 
 `tests/beispielapp/` ist die kleinste App, die beide Wege ausübt. Sie gehört
@@ -752,6 +763,7 @@ bash scripts/test/apps-abnahme.sh           # misst beide Pfade (C3)
 bash scripts/test/app-anmeldung-abnahme.sh  # misst die Anmeldung (C4)
 bash scripts/test/deploy-abnahme.sh         # misst den Deploy-Endpunkt (C5)
 bash scripts/test/lizenz-abnahme.sh        # misst die Lizenzgrenze (J30)
+bash scripts/test/testlizenz-abnahme.sh     # Testlizenz rein, Grenze messen, wieder community (J32)
 bash scripts/test/ausweis-abnahme.sh        # misst die Brücke: `agent` und den Ausweis (J34)
 ```
 

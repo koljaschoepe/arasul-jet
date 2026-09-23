@@ -1122,6 +1122,25 @@ ein anderer: eine abgelaufene, aber geprueft echte Lizenz laeuft
 Repo und die Compose-Ablage), im CI-Job `Backend` und in `run-tests.sh`. Das
 Signierwerkzeug ist **nicht** Teil davon (eigene Karte testlizenz-ohne-stripe).
 
+Seit dem Auftrag **testlizenz-ohne-stripe** (23.09.2026, J32) **stellt das
+Repo Lizenzen selbst aus**, ohne Stripe und ohne Kauf:
+`scripts/util/lizenz-signieren.js` liest den privaten Schluessel aus dem
+Schluesselbund in den Speicher (oder ueber STDIN, nie als Argument, nie in
+eine Datei), signiert `base64(Nutzlast).base64(RSA-PSS)` und gibt nichts aus,
+was nicht gegen `config/public_license_key.pem` besteht. Die Nutzlast darf
+**`maxApps`** nennen (ganze Zahl ab 1 oder -1), und die ersetzt die Zahl der
+Stufe -- die bezahlten Stufen kannten nur -1, und eine Grenze, die es nicht
+gibt, laesst sich nicht von oben messen. Eine unbekannte Stufe faellt nicht
+mehr still auf `professional`, sondern wird abgelehnt. `DELETE /api/license`
+nimmt die Lizenz wieder vom Geraet (Datei und Cache, danach `community`). Und
+die Lizenzdatei **ueberlebt einen Deploy**: sie lag unter
+`/arasul/config/license.key` im Dateisystem des Containers (und das Backend
+als `node` kam dort nicht einmal hinein), jetzt in `data/lizenz/`, eingehaengt
+nach `/arasul/lizenz/`, angelegt von Bootstrap und Deploy. Gemessen am Orin mit
+`scripts/test/testlizenz-abnahme.sh`: nur von `community` aus, Testlizenz mit
+`belegt + 1` an dieses Geraet gebunden und einen Tag gueltig,
+`lizenz-abnahme.sh` von unten und oben, danach entfernt und wieder `community`.
+
 Seit dem Auftrag **firmenordner-rechte-im-frontend** (22.09.2026, J33) **verwaltet
 der Administrator den Firmenordner in der Oberflaeche**, und der Firmenordner hat
 eine **Wurzel**. Einstellungen → Firmenordner (`features/settings/FirmenordnerSettings.tsx`

@@ -27,6 +27,10 @@
 #   unbegrenzt  Diese Lizenz kennt keine Grenze. Dann gibt es hier nichts zu
 #               messen, und das ist kein Fehlschlag.
 #
+# Eine ENDLICHE Zahl ueber community hinaus misst `testlizenz-abnahme.sh`: sie
+# signiert eine Testlizenz mit `belegt + 1`, ruft dieses Skript und nimmt die
+# Lizenz danach wieder weg (J32, 23.09.2026).
+#
 # Am Orin darf `urlaubsantrag` weg, wenn ein Platz fuer den Nachweis fehlt
 # (Entscheidung Kolja vom 30.08.2026); `angebot` und `beispielapp` bleiben.
 #

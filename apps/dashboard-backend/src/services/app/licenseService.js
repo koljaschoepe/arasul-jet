@@ -38,7 +38,13 @@ const logger = require('../../utils/logger');
 
 const execFileAsync = promisify(execFile);
 
-const LICENSE_FILE = process.env.LICENSE_FILE || '/arasul/config/license.key';
+// Die Lizenzdatei liegt in einem EIGENEN MOUNT (`data/lizenz`, J32 vom
+// 23.09.2026). Bis dahin stand sie unter `/arasul/config/license.key`, und
+// dieser Pfad war kein Mount, sondern das Dateisystem des Containers: eine
+// eingespielte Lizenz ueberlebte kein neues Erzeugen des Containers, also
+// keinen Deploy. Und weil das Backend als `node` laeuft und Docker
+// `/arasul/config` als root anlegt, kam sie dort gar nicht erst hin.
+const LICENSE_FILE = process.env.LICENSE_FILE || '/arasul/lizenz/license.key';
 const LICENSE_PUBLIC_KEY =
   process.env.LICENSE_PUBLIC_KEY_PATH || '/arasul/config/public_license_key.pem';
 const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30', 10);
@@ -67,6 +73,9 @@ const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30'
  * ging immer durch. Am 30.08.2026 lagen drei Apps am Orin und die vierte kam
  * ohne Widerspruch dazu. Eine Grenze, die beim Einspielen nicht greift, ist
  * kein Verkaufsargument; sie ist ein Fund, den ein Partner als Erster meldet.
+ *
+ * Die Zahl hier ist die VORGABE der Stufe. Traegt die signierte Nutzlast
+ * selbst `maxApps`, gilt deren Zahl (J32, 23.09.2026, `_pruefeLizenz`).
  *
  * `community` ist die Stufe eines Geraets OHNE Lizenzdatei. Sie ist kein
  * Verkaufspaket, sondern der Zustand vor dem ersten Schluessel.
@@ -291,9 +300,33 @@ class LicenseService {
         );
       }
 
-      const isExpired = now > expiresAt;
       const tier = license.tier || 'professional';
-      const features = FEATURE_TIERS[tier] || FEATURE_TIERS.professional;
+      if (!Object.prototype.hasOwnProperty.call(FEATURE_TIERS, tier)) {
+        return abgelehnt(
+          `Die Lizenz nennt die Stufe "${tier}", die dieses Geraet nicht kennt ` +
+            `(bekannt: ${Object.keys(FEATURE_TIERS).join(', ')}). Das Geraet bleibt community.`
+        );
+      }
+
+      // `maxApps` AUS DER NUTZLAST (J32, 23.09.2026). Die Stufe gibt die
+      // Vorgabe, die signierte Lizenz darf die Zahl selbst nennen -- sonst
+      // kennten die bezahlten Stufen nur -1, und ob eine Lizenz die Grenze
+      // wirklich hebt, liesse sich nie von oben messen. Die Zahl ist
+      // unterschrieben wie alles andere darin; eine ganze Zahl ab 1, oder
+      // -1 fuer unbegrenzt.
+      const features = { ...FEATURE_TIERS[tier] };
+      if (license.maxApps !== undefined) {
+        const zahl = license.maxApps;
+        if (!Number.isInteger(zahl) || (zahl < 1 && zahl !== -1)) {
+          return abgelehnt(
+            `Die Lizenz nennt maxApps ${JSON.stringify(zahl)}; erlaubt ist eine ganze Zahl ` +
+              'ab 1 oder -1 fuer unbegrenzt. Das Geraet bleibt community.'
+          );
+        }
+        features.maxApps = zahl;
+      }
+
+      const isExpired = now > expiresAt;
 
       return {
         valid: true,
@@ -370,6 +403,31 @@ class LicenseService {
 
     logger.info(`License activated: tier=${result.tier}, customer=${result.customer}`);
     return { success: true, license: result };
+  }
+
+  /**
+   * Nimmt die Lizenz vom Geraet: die Datei faellt, der Cache auch, und das
+   * Geraet steht danach auf `community`. Der Weg zurueck fuer eine
+   * Testlizenz (J32) -- und fuer einen Menschen, der eine falsche Lizenz
+   * eingespielt hat. Ohne Datei ist das kein Fehler: das Ergebnis ist
+   * dasselbe.
+   * @returns {Promise<{ entfernt: boolean, license: object }>}
+   */
+  async deactivateLicense() {
+    let entfernt = true;
+    try {
+      await fs.unlink(LICENSE_FILE);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+      entfernt = false;
+    }
+    this._cachedLicense = null;
+    this._cacheExpiry = 0;
+    const license = await this.validateLicense();
+    logger.info(`License removed (file present: ${entfernt}); tier now ${license.tier}`);
+    return { entfernt, license };
   }
 
   /**
