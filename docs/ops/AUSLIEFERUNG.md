@@ -133,6 +133,12 @@ Programm, nicht Zustand: eine Aktualisierung bringt ihn mit, der Werksreset
 lässt ihn liegen. Die private Hälfte liegt nirgends in diesem Repo und auf
 keinem Gerät.
 
+**Die Lizenzdatei ist Zustand** (J32, 23.09.2026): sie liegt in
+`data/lizenz/license.key`, eingehängt nach `/arasul/lizenz/`. Bis dahin lag sie
+im Dateisystem des Containers und war mit dem nächsten Deploy weg. Unter
+`data/` zieht sie mit einer Aktualisierung um, und der Werksreset löscht sie
+mit dem Rest des Kunden.
+
 ### Das Artefakt trägt das Designsystem (Phase H6)
 
 Es ist der **Träger** der Bibliothek an alle, die Apps für dieses Gerät bauen.

@@ -619,6 +619,8 @@ create_directories() {
     # zuschlaegt.
     mkdir -p data/flows
     mkdir -p data/projects
+    # Die Lizenzdatei (J32, 23.09.2026). Das Backend schreibt sie als uid 1000.
+    mkdir -p data/lizenz
     # Der Firmenordner (J33, 22.09.2026). Beide Ordner, auch wenn der Dienst
     # nur mit dem Profil `firmenordner` hochfaehrt: Docker legt eine fehlende
     # Bind-Quelle als root an, und der Dienst laeuft als uid 1000 -- er kaeme

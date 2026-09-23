@@ -152,6 +152,13 @@ services:
       # frueher an seiner Stelle `professional` vergab, ist gestrichen. Nur
       # lesbar: das Geraet erhaelt ihn, es erzeugt ihn nicht.
       - ../config/public_license_key.pem:/arasul/config/public_license_key.pem:ro
+      # Die Lizenzdatei selbst (J32, 23.09.2026). Bis dahin lag sie unter
+      # `/arasul/config/license.key` im Dateisystem des CONTAINERS, und eine
+      # eingespielte Lizenz war mit dem naechsten Deploy weg. Unter `data/`,
+      # damit sie mit einer Aktualisierung umzieht und der Werksreset sie
+      # mit dem Rest des Kunden loescht. Schreibbar: `POST /api/license/activate`
+      # legt sie hier ab, `DELETE /api/license` nimmt sie weg.
+      - ${DATA_PATH:-../data}/lizenz:/arasul/lizenz
       - ../config:/config:ro
       # JetPack-Version: dpkg-query fragt ein HOST-Paket ab und schlaegt im
       # Container immer fehl. Ohne diesen Mount zeigt die Einstellungsseite

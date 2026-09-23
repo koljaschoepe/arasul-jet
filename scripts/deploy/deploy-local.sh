@@ -321,7 +321,10 @@ fi
 # das Profil Wochen spaeter einschaltet. Beide Ordner, auch auf einem Geraet
 # ohne das Profil: das Backend haengt `ablage` ohnehin nur-lesend ein, und ein
 # leerer Ordner kostet nichts.
-for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps" \
+# `data/lizenz` kam mit J32 (23.09.2026) dazu: dort legt das Backend die
+# Lizenzdatei ab. Gehoert der Ordner root, scheitert das Aktivieren einer
+# gekauften Lizenz -- beim Kunden, nicht hier.
+for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps" "$DEPLOY_DIR/data/lizenz" \
   "$DEPLOY_DIR/data/firmenordner/ablage" "$DEPLOY_DIR/data/firmenordner/konfiguration" \
   "$DEPLOY_DIR/config/traefik/certs"; do
   mkdir -p "$ordner"
