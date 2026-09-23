@@ -159,6 +159,11 @@ services:
       # mit dem Rest des Kunden loescht. Schreibbar: `POST /api/license/activate`
       # legt sie hier ab, `DELETE /api/license` nimmt sie weg.
       - ${DATA_PATH:-../data}/lizenz:/arasul/lizenz
+      # Die machine-id des HOSTS, fuer den Fingerabdruck, an den eine Lizenz
+      # gebunden ist (J32, 23.09.2026). Ohne sie sieht das Backend nur die
+      # MAC seines Containers, und die ist nach jedem Deploy eine andere:
+      # eine gekaufte Lizenz galt bis zum naechsten Update. Nur lesbar.
+      - ${MACHINE_ID_DATEI:-/etc/machine-id}:/arasul/host/machine-id:ro
       - ../config:/config:ro
       # JetPack-Version: dpkg-query fragt ein HOST-Paket ab und schlaegt im
       # Container immer fehl. Ohne diesen Mount zeigt die Einstellungsseite

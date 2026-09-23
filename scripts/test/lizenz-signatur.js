@@ -33,6 +33,8 @@
  *      unbekannte Stufe wird abgelehnt.
  *   7. `deactivateLicense` nimmt die Datei weg und meldet sofort community,
  *      und die Datei liegt in einem Mount statt im Container.
+ *   8. Der Fingerabdruck haengt an der machine-id des Hosts und nicht an der
+ *      MAC des Containers -- sonst stirbt jede gebundene Lizenz beim Deploy.
  *
  * Aufruf: node scripts/test/lizenz-signatur.js   (braucht node_modules des
  * Backends fuer winston; laeuft im CI-Job "Backend" und in run-tests.sh)
@@ -359,6 +361,47 @@ async function main() {
     deploy.includes('"$DEPLOY_DIR/data/lizenz"')
   );
   aufraeumen();
+
+  // --- 8. Der Fingerabdruck ueberlebt einen neuen Container ---------------
+  // Am Orin gemessen (23.09.2026): nach dem Deploy war die Testlizenz "bound
+  // to a different device". Im Container fehlten alle stabilen Kennungen,
+  // und der Rueckfall nahm die MAC des Containers -- die Docker bei jedem
+  // neuen Container neu wuerfelt. Hier: dieselbe machine-id, eine andere MAC
+  // und ein anderer Hostname, und der Fingerabdruck bleibt.
+  console.log('\n--- 8. Der Fingerabdruck haengt an der machine-id des Hosts, nicht am Container');
+  const MID = path.join(ARBEIT, 'machine-id');
+  fs.writeFileSync(MID, 'abcdef0123456789abcdef0123456789\n');
+  process.env.LICENSE_MACHINE_ID_PATH = MID;
+  const echtNetz = os.networkInterfaces;
+  const echtName = os.hostname;
+  const alsContainer = (mac, name) => {
+    os.networkInterfaces = () => ({
+      eth0: [{ internal: false, mac, address: '172.30.0.9', family: 'IPv4' }],
+    });
+    os.hostname = () => name;
+  };
+  let vorher;
+  let nachher;
+  try {
+    alsContainer('02:42:ac:1e:00:09', 'a1b2c3d4e5f6');
+    vorher = await frisch().getHardwareFingerprint();
+    alsContainer('02:42:ac:1e:00:0a', 'f6e5d4c3b2a1');
+    nachher = await frisch().getHardwareFingerprint();
+  } finally {
+    os.networkInterfaces = echtNetz;
+    os.hostname = echtName;
+    delete process.env.LICENSE_MACHINE_ID_PATH;
+  }
+  pruefe(
+    'Neue MAC, neuer Hostname, dieselbe machine-id: derselbe Fingerabdruck',
+    vorher === nachher && /^[0-9a-f]{32}$/.test(vorher),
+    `${vorher} / ${nachher}`
+  );
+  pruefe(
+    'compose.app.yaml reicht die machine-id des Hosts nur lesbar herein',
+    compose.includes('${MACHINE_ID_DATEI:-/etc/machine-id}:/arasul/host/machine-id:ro') &&
+      dienstText.includes("'/arasul/host/machine-id'")
+  );
 }
 
 main()

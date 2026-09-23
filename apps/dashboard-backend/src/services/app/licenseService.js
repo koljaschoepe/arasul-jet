@@ -47,6 +47,8 @@ const execFileAsync = promisify(execFile);
 const LICENSE_FILE = process.env.LICENSE_FILE || '/arasul/lizenz/license.key';
 const LICENSE_PUBLIC_KEY =
   process.env.LICENSE_PUBLIC_KEY_PATH || '/arasul/config/public_license_key.pem';
+// Die machine-id des HOSTS, per Compose nur lesbar hereingereicht (J32).
+const MACHINE_ID_DATEI = process.env.LICENSE_MACHINE_ID_PATH || '/arasul/host/machine-id';
 const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30', 10);
 
 /**
@@ -123,14 +125,26 @@ class LicenseService {
 
     const components = [];
 
-    // 1. Machine ID (systemd)
-    try {
-      const machineId = (await fs.readFile('/etc/machine-id', 'utf8')).trim();
-      if (machineId) {
-        components.push(`mid:${machineId}`);
+    // 1. Machine ID (systemd) -- DIE DES HOSTS, nicht die des Containers.
+    //
+    // Im Container gibt es weder `/etc/machine-id` noch den Device-Tree noch
+    // eine CPU-Seriennummer (am Orin 23.09.2026 gemessen). Bis dahin fiel der
+    // Fingerabdruck deshalb IMMER auf Hostname und MAC zurueck -- und die MAC
+    // wuerfelt Docker bei jedem neuen Container neu. Eine an das Geraet
+    // gebundene Lizenz galt damit bis zum naechsten Deploy und danach als
+    // "bound to a different device" (J32). Compose reicht die machine-id des
+    // Hosts nur lesbar herein; `/etc/machine-id` bleibt als Rueckfall fuer
+    // einen Dienst, der ohne Container laeuft.
+    for (const pfad of [MACHINE_ID_DATEI, '/etc/machine-id']) {
+      try {
+        const machineId = (await fs.readFile(pfad, 'utf8')).trim();
+        if (machineId) {
+          components.push(`mid:${machineId}`);
+          break;
+        }
+      } catch {
+        /* not available */
       }
-    } catch {
-      /* not available */
     }
 
     // 2. CPU serial (Jetson-specific, from /proc/cpuinfo)

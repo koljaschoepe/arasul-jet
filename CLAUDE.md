@@ -1140,6 +1140,12 @@ nach `/arasul/lizenz/`, angelegt von Bootstrap und Deploy. Gemessen am Orin mit
 `scripts/test/testlizenz-abnahme.sh`: nur von `community` aus, Testlizenz mit
 `belegt + 1` an dieses Geraet gebunden und einen Tag gueltig,
 `lizenz-abnahme.sh` von unten und oben, danach entfernt und wieder `community`.
+Der Deploy danach hat gezeigt, dass die Datei ueberlebt, die **Bindung aber
+nicht**: im Container fehlen machine-id, Device-Tree und CPU-Seriennummer, der
+Fingerabdruck fiel auf die MAC des Containers zurueck, und die wuerfelt Docker
+bei jedem neuen Container neu -- jede gebundene Lizenz galt nur bis zum
+naechsten Update. Seither reicht Compose die machine-id des Hosts nur lesbar
+nach `/arasul/host/machine-id`, und der Fingerabdruck haengt an ihr.
 
 Seit dem Auftrag **firmenordner-rechte-im-frontend** (22.09.2026, J33) **verwaltet
 der Administrator den Firmenordner in der Oberflaeche**, und der Firmenordner hat
