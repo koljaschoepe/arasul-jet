@@ -137,7 +137,11 @@ keinem Gerät.
 `data/lizenz/license.key`, eingehängt nach `/arasul/lizenz/`. Bis dahin lag sie
 im Dateisystem des Containers und war mit dem nächsten Deploy weg. Unter
 `data/` zieht sie mit einer Aktualisierung um, und der Werksreset löscht sie
-mit dem Rest des Kunden.
+mit dem Rest des Kunden. Der **Fingerabdruck**, an den eine Lizenz gebunden
+ist, kommt aus der machine-id des Hosts (`/etc/machine-id`, nur lesbar nach
+`/arasul/host/machine-id`), nicht aus dem Container — dessen MAC ist nach jedem
+Deploy eine andere. Er ändert sich mit einer Neuinstallation des
+Betriebssystems, nicht mit einem Update von Arasul.
 
 ### Das Artefakt trägt das Designsystem (Phase H6)
 
