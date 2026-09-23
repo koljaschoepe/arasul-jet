@@ -93,8 +93,10 @@ echo "=== Abnahme der Testlizenz (J32) gegen $BASIS, Stempel $STEMPEL ==="
 echo
 
 TOK=$(arasul_token)
+# Nicht `${ARASUL_TOKEN:-…}` in der Meldung: das ist der Token selbst, wenn er
+# gesetzt ist, und stand so im Protokoll jeder Reihe mit geteiltem Token.
 pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" \
-  "${ARASUL_TOKEN:+geteilter Token}${ARASUL_TOKEN:-HTTP $(arasul_anmeldecode)}"
+  "$(if [ -n "${ARASUL_TOKEN:-}" ]; then echo 'geteilter Token'; else echo "HTTP $(arasul_anmeldecode)"; fi)"
 [ -z "$TOK" ] && exit 1
 # Die Lizenz-Abnahme darunter nimmt denselben Token, statt sich neu anzumelden.
 export ARASUL_TOKEN="$TOK"
