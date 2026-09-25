@@ -301,6 +301,14 @@ Beides ist additiv: ein Kit, das die Abschnitte nicht liest, startet Läufe wie
 bisher. Eine 7 hätte jedes Kit bis 6 angehalten, ohne dass es etwas falsch
 machte.
 
+**`protokoll` (J35, 26.09.2026), Fassung bleibt 6:** jeder Modellaufruf über
+die Schnittstelle — auch `document/extract-structured`, das kein Flow ist —
+steht im Protokoll des Geräts, mit App, Stand, Mensch, Modell und Dauer, ohne
+Inhalt. Der Abschnitt nennt die Wege und wie eine App den Menschen nennt: die
+Kopfzeile `X-Arasul-User` aus der Forward-Auth unverändert weiterreichen (oder
+`einreicher`, an `/v1` `user`). Nennt sie niemanden, steht der Aufruf ohne
+Menschen da. Additiv, darum keine 7.
+
 **Fassung 6 (Brücke, 21.09.2026):** das Manifest kennt **`agent`** — die Liste
 der Routen, die eine App einem Agenten anbietet. Freiwillig wie `marken`, und
 die Zahl geht aus demselben Grund mit: `.strict()` hat das Feld bis hierher

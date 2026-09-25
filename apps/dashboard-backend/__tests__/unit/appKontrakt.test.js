@@ -147,6 +147,15 @@ describe('Daten und Freigaben im Kontrakt (J35)', () => {
   });
 });
 
+describe('Das Protokoll der Modellaufrufe im Kontrakt (J35)', () => {
+  it('nennt die Wege, den Kopf und dass kein Inhalt gespeichert wird', () => {
+    const { protokoll } = appKontrakt.kontrakt();
+    expect(protokoll.wege).toContain('document/extract-structured');
+    expect(protokoll.einreicher.kopf).toBe('X-Arasul-User');
+    expect(protokoll.regeln.join(' ')).toMatch(/Ohne Inhalt/);
+  });
+});
+
 describe('Der Fingerabdruck des Kontraktes', () => {
   /** JSON mit sortierten Schluesseln -- sonst haengt der Abdruck an der Reihenfolge. */
   function stabil(wert) {
@@ -193,7 +202,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // bleibt bei 6: beides ist freiwillig und additiv, ein Kit ohne die
     // Abschnitte startet Laeufe wie bisher -- und eine 7 hielte das Kit am
     // Orin an, an dem an diesem Tag ein anderer Agent damit baute.
-    expect(abdruck).toBe('1fb6de3116f7d68d2f1431026e773146576e67c1bc26d900488501d47bee2579');
+    //
+    // 26.09.2026 (J35, ki-aufrufe-einer-app-im-protokoll): der Abschnitt
+    // `protokoll` kommt dazu -- welche Wege protokolliert werden und wie eine
+    // App den Menschen nennt. Die Zahl bleibt bei 6, aus demselben Grund wie
+    // am Vortag: freiwillig und additiv, eine App ohne den Kopf wird
+    // trotzdem protokolliert.
+    expect(abdruck).toBe('f98f8119ea14ac685c1f0d3064235e15c14f79625ad303fec24f526844e3e784');
   });
 
   /**

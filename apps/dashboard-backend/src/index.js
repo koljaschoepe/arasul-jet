@@ -607,6 +607,14 @@ if (alsServerGestartet) {
       logger.error(`Failed to clean up orphaned flow runs: ${err.message}`);
     }
 
+    // Dasselbe fuer das Protokoll der Modellaufrufe (J35): eine Zeile, deren
+    // Aufruf ein frueherer Prozess begonnen hat, schliesst nach ihrem Auftrag,
+    // statt fuer immer auf `laeuft` zu stehen. Wirft nicht. Danach alle zehn
+    // Minuten fuer Zeilen, die laenger offen sind, als jemand ihnen folgt.
+    const kiProtokoll = require('./services/app/kiProtokoll');
+    await kiProtokoll.schliesseVerwaiste({ beimStart: true });
+    globalIntervals.push(setInterval(() => kiProtokoll.schliesseVerwaiste(), 10 * 60 * 1000));
+
     // Und einmal nachsehen, ob jeder App-Stand seine Dateien hat (Auftrag
     // app-leiche, 28.08.2026). Nur eine Warnung im Protokoll -- warum nicht
     // mehr, steht bei `appStore.pruefeStaende`.

@@ -244,6 +244,16 @@ function relativZurBasis(pfad) {
 }
 
 /**
+ * Das Protokoll der Modellaufrufe (J35), als Saetze fuer einen Menschen.
+ */
+const PROTOKOLL_REGELN = Object.freeze([
+  'Jeder Modellaufruf ueber diese Schnittstelle steht im Protokoll des Geraets: App, Stand, Mensch, Weg, Modell, Beginn, Dauer, Ausgang. Der Administrator liest es unter Einstellungen -> Apps.',
+  'Ohne Inhalt: kein Dateiname, kein Text, kein Prompt, keine Antwort. Von der Antwort steht nur ihr sha256 da, dazu der Auftrag (`job_id`), den die Antwort der Route nennt -- wer einen Vorschlag aufbewahrt, kann ihn damit seinem Aufruf zuordnen.',
+  'Fuer wen die App fragt, nennt sie mit der Kopfzeile X-Arasul-User (den Wert aus der Forward-Auth unveraendert weiterreichen) oder mit dem Feld `einreicher`; an `/v1` mit dem Feld `user`. Der Name muss ein aktives Konto sein, dem die App freigegeben ist, sonst 400 und kein Aufruf.',
+  'Nennt die App niemanden, wird der Aufruf trotzdem protokolliert, ohne Menschen.',
+]);
+
+/**
  * Was ein Kit am Geraet aufrufen kann.
  *
  * Der Bereich (`bereich`) ist der Wert, der in `allowed_endpoints` eines
@@ -489,6 +499,24 @@ function kontrakt() {
       rollen: ['admin'],
       regeln: FREIGABE_REGELN,
     },
+    // Das Protokoll der Modellaufrufe (26.09.2026, J35). Additiv, die
+    // Kontraktversion bleibt: eine App, die niemanden nennt, wird trotzdem
+    // protokolliert -- nur ohne Menschen.
+    protokoll: {
+      wege: [
+        'llm/chat',
+        'document/analyze',
+        'document/extract-structured',
+        'v1/chat/completions',
+        'v1/embeddings',
+      ],
+      einreicher: {
+        kopf: KOPF_BENUTZER,
+        feld: 'einreicher',
+        feld_openai: 'user',
+      },
+      regeln: PROTOKOLL_REGELN,
+    },
     endpunkte: ENDPUNKTE,
   };
 }
@@ -499,6 +527,7 @@ module.exports = {
   MANIFEST_REGELN,
   DATEN_REGELN,
   FREIGABE_REGELN,
+  PROTOKOLL_REGELN,
   ENDPUNKTE,
   VERGEBENE_PFADE,
   kontrakt,

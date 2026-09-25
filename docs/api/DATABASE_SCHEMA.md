@@ -1124,6 +1124,44 @@ wie sie gerechnet wurden).
 
 ---
 
+## `ki_aufrufe`
+
+> Jeder Modellaufruf über die externe Schnittstelle: wer, wann, welches Modell, wie lange. Ohne Inhalt. (Migration 187, J35)
+
+| Column            | Type                     | Nullable | Default                                  |
+| ----------------- | ------------------------ | -------- | ---------------------------------------- |
+| `id`              | bigint                   | ⛔       | `nextval('ki_aufrufe_id_seq'::regclass)` |
+| `begonnen_am`     | timestamp with time zone | ⛔       | `now()`                                  |
+| `beendet_am`      | timestamp with time zone | ✅       |                                          |
+| `dauer_ms`        | integer                  | ✅       |                                          |
+| `app_id`          | text                     | ✅       |                                          |
+| `stand`           | text                     | ✅       |                                          |
+| `schluessel_name` | text                     | ✅       |                                          |
+| `benutzer_id`     | bigint                   | ✅       |                                          |
+| `benutzer_name`   | text                     | ✅       |                                          |
+| `endpunkt`        | text                     | ⛔       |                                          |
+| `modell`          | text                     | ✅       |                                          |
+| `job_id`          | uuid                     | ✅       |                                          |
+| `status`          | text                     | ⛔       | `'laeuft'::text`                         |
+| `fehler`          | text                     | ✅       |                                          |
+| `antwort_sha256`  | text                     | ✅       |                                          |
+| `datei_typ`       | text                     | ✅       |                                          |
+| `datei_bytes`     | integer                  | ✅       |                                          |
+
+**Primary key:** `id`
+
+Kein Fremdschlüssel auf `admin_users`, `api_keys` oder `apps`: der Nachweis
+überlebt Mensch, Schlüssel und App; Namen stehen als Abschrift daneben. Kein
+Dateiname, kein Text, keine Antwort — nur deren sha256. Werksreset: Stufe 2.
+
+**Indexes:**
+
+- `idx_ki_aufrufe_app` — `CREATE INDEX idx_ki_aufrufe_app ON public.ki_aufrufe USING btree (app_id, begonnen_am DESC)`
+- `idx_ki_aufrufe_begonnen` — `CREATE INDEX idx_ki_aufrufe_begonnen ON public.ki_aufrufe USING btree (begonnen_am DESC)`
+- `ki_aufrufe_pkey` — `CREATE UNIQUE INDEX ki_aufrufe_pkey ON public.ki_aufrufe USING btree (id)`
+
+---
+
 ## `llm_model_switches`
 
 > History of model switches for analytics

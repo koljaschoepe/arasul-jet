@@ -93,6 +93,10 @@ const AUSLIEFERUNG = [
   ['public.bot_audit_log', 'Prüfprotokoll der Bots'],
   ['public.component_updates', 'Aktualisierungsstand der Bestandteile'],
   ['public.flow_settings', 'Was der Administrator an den Flows einer App eingestellt hat'],
+  // Stufe 2 und nicht Stufe 1 (J35, Migration 187): das Protokoll der
+  // Modellaufrufe ist ein Nachweis wie `audit_logs`, kein Inhalt -- wer die
+  // Inhalte zuruecksetzt, will nicht zugleich belegen koennen, dass nichts war.
+  ['public.ki_aufrufe', 'Protokoll der Modellaufrufe ueber die Schnittstelle'],
   ['public.llm_model_switches', 'Wechsel des aktiven Modells'],
   ['public.login_attempts', 'Anmeldeversuche'],
   ['public.metrics_cpu', 'Messwerte, Prozessor'],

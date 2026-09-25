@@ -119,6 +119,28 @@ export interface AppLauf {
   error: string | null;
 }
 
+/**
+ * Ein Modellaufruf der App über die Schnittstelle (J35). Ohne Inhalt: kein
+ * Dateiname, kein Text, keine Antwort — nur deren sha256.
+ */
+export interface KiAufruf {
+  id: number;
+  begonnen_am: string;
+  beendet_am: string | null;
+  dauer_ms: number | null;
+  stand: Stand;
+  benutzer_id: number | null;
+  benutzer_name: string | null;
+  endpunkt: string;
+  modell: string | null;
+  job_id: string | null;
+  status: 'laeuft' | 'fertig' | 'fehler';
+  fehler: string | null;
+  antwort_sha256: string | null;
+  datei_typ: string | null;
+  datei_bytes: number | null;
+}
+
 /** Ein Schritt eines Laufs. `modell` ist der Gedankengang. */
 export interface LaufSchritt {
   id: number;
@@ -165,6 +187,7 @@ export function useKurzliste() {
 
 const appKey = (id: string) => ['apps', 'detail', id] as const;
 const laeufeKey = (id: string) => ['apps', 'laeufe', id] as const;
+const kiAufrufeKey = (id: string) => ['apps', 'ki-aufrufe', id] as const;
 const laufKey = (id: string, runId: number) => ['apps', 'lauf', id, runId] as const;
 const flowKey = (id: string, stand: Stand, name: string) =>
   ['apps', 'flow', id, stand, name] as const;
@@ -197,6 +220,23 @@ export function useAppLaeufe(appId: string | null) {
     queryKey: laeufeKey(appId ?? ''),
     queryFn: async () => {
       const res = await api.get<{ data?: AppLauf[] }>(`/apps/${appId}/laeufe?limit=25`);
+      return res.data ?? [];
+    },
+    enabled: Boolean(appId),
+    staleTime: 5_000,
+  });
+}
+
+/**
+ * Die Modellaufrufe einer App, neueste zuerst (J35) — auch die, die kein Flow
+ * sind, etwa `document/extract-structured`.
+ */
+export function useKiAufrufe(appId: string | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: kiAufrufeKey(appId ?? ''),
+    queryFn: async () => {
+      const res = await api.get<{ data?: KiAufruf[] }>(`/apps/${appId}/ki-aufrufe?limit=50`);
       return res.data ?? [];
     },
     enabled: Boolean(appId),

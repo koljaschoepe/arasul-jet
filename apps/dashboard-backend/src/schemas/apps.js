@@ -531,6 +531,14 @@ const FlowModellBody = z.union(
  * "was hat diese App getan" meint zuerst beide Staende, und wer nur den einen
  * sucht, sagt es.
  */
+// GET /api/apps/:id/ki-aufrufe — das Protokoll der Modellaufrufe (J35).
+const KiAufrufeQuery = z
+  .object({
+    stand: Stand.optional(),
+    limit: z.coerce.number().int().min(1).max(500).default(100),
+  })
+  .strict();
+
 const LaeufeQuery = z
   .object({
     stand: Stand.optional(),
@@ -608,6 +616,7 @@ module.exports = {
   AppLaufParams,
   FlowModellBody,
   FlowQuery,
+  KiAufrufeQuery,
   LaeufeQuery,
   LaufQuery,
   EinspielenBody,

@@ -28,6 +28,7 @@ const {
   EinspielenBody,
   EntfernenSitzungQuery,
   FlowQuery,
+  KiAufrufeQuery,
   LaeufeQuery,
   LaufQuery,
   LogsQuery,
@@ -40,6 +41,7 @@ const appFlows = require('../../services/app/appFlows');
 const appZugang = require('../../services/app/appZugang');
 const flowSettings = require('../../services/flows/flowSettings');
 const runStore = require('../../services/flows/runStore');
+const kiProtokoll = require('../../services/app/kiProtokoll');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { NotFoundError } = require('../../utils/errors');
 
@@ -367,6 +369,35 @@ router.get(
       stand: req.query.stand ?? null,
       flowName: req.query.flow ?? null,
       status: req.query.status ?? null,
+      limit: req.query.limit,
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/apps/:id/ki-aufrufe — jeder Modellaufruf dieser App (J35).
+ *
+ * Die Laeufe zeigen, was ein FLOW getan hat. Ein Aufruf von
+ * `document/extract-structured` ist keiner und stand bis hierher nirgends,
+ * wo ein Administrator ihn sah. Hier steht je Aufruf: wann, welcher Stand,
+ * fuer wen, welcher Weg, welches Modell, wie lange, wie es ausging -- ohne
+ * Inhalt (`services/app/kiProtokoll.js`).
+ *
+ * KEIN `pruefeVorhanden`, anders als die Laeufe: das Protokoll ueberlebt die
+ * App mit Absicht (Migration 187), und nach dem Entfernen muss es sich weiter
+ * lesen lassen. Eine Kennung mit Tippfehler bekommt eine leere Liste.
+ */
+router.get(
+  '/:id/ki-aufrufe',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppParams),
+  validateQuery(KiAufrufeQuery),
+  asyncHandler(async (req, res) => {
+    const data = await kiProtokoll.listeFuerApp({
+      appId: req.params.id,
+      stand: req.query.stand ?? null,
       limit: req.query.limit,
     });
     res.json({ data, timestamp: new Date().toISOString() });

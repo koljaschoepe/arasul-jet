@@ -227,6 +227,50 @@ describe('AppsSettings', () => {
   });
 
   /**
+   * J35: ein Aufruf von `document/extract-structured` ist kein Flow und stand
+   * deshalb unter keinem Lauf. Er steht jetzt mit Mensch, Modell und Dauer in
+   * der App -- und ohne Inhalt, denn das Backend kennt keinen.
+   */
+  it('zeigt die Modellaufrufe der App, auch ohne Flow', async () => {
+    antworte({
+      '/apps/beispielapp/ki-aufrufe?limit=50': {
+        data: [
+          {
+            id: 7,
+            begonnen_am: '2026-09-26T09:30:05.000Z',
+            beendet_am: '2026-09-26T09:30:17.400Z',
+            dauer_ms: 12400,
+            stand: 'live',
+            benutzer_id: 5,
+            benutzer_name: 'anna',
+            endpunkt: 'document/extract-structured',
+            modell: 'qwen3.8:27b-q4_K_M',
+            job_id: '0b7c2c1e-0000-4000-8000-000000000001',
+            status: 'fertig',
+            fehler: null,
+            antwort_sha256: 'ab'.repeat(32),
+            datei_typ: 'application/pdf',
+            datei_bytes: 120000,
+          },
+        ],
+      },
+    });
+    await oeffneApp();
+    const zeile = await screen.findByTestId('ki-aufruf-7');
+    expect(zeile).toHaveTextContent('document/extract-structured');
+    expect(zeile).toHaveTextContent('qwen3.8:27b-q4_K_M');
+    expect(zeile).toHaveTextContent('für anna');
+    expect(zeile).toHaveTextContent('12,4 s');
+    expect(zeile).toHaveTextContent('PDF, 120 KB');
+  });
+
+  it('sagt, wenn eine App noch kein Modell gefragt hat', async () => {
+    antworte();
+    await oeffneApp();
+    expect(await screen.findByTestId('ki-aufrufe-leer')).toBeInTheDocument();
+  });
+
+  /**
    * Phase H6: eine App traegt die Bibliothek als Kopie, und eine Kopie
    * veraltet lautlos. Die drei Faelle, die ein Betreiber auseinanderhalten
    * koennen muss -- gleich, aelter, gar nicht genannt.
