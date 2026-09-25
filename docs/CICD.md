@@ -105,3 +105,4 @@ scripts/deploy/deploy-local.sh
   `main`. Der Deploy auf den Orin stempelt seine Fassung deshalb aus Git
   (`JJJJMMTT-<sha>`); eine Nummer wie `1.2.0` trägt nur ein Gerät, das aus
   einem getaggten Artefakt installiert wurde.
+
