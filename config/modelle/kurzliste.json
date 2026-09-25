@@ -1,5 +1,5 @@
 {
-  "stand": "2026-08-27",
+  "stand": "2026-09-25",
   "quelle": "Entscheidung Kolja 27.08.2026, festgelegt an `ollama list` auf dem Orin",
   "warum": [
     "Der Katalog trug siebzehn Eintraege, von denen vier benutzt wurden. Jeder",
@@ -12,32 +12,46 @@
     "sie hier noch einmal zu fuehren hiesse, eine zweite Wahrheit anzulegen,",
     "die niemand prueft. Was geprueft wird, ist die Liste der Kennungen:",
     "`scripts/test/kurzliste.py` haelt Migration 175, die Empfehlungskarte in",
-    "utils/hardware.js, die Plattformprofile und detect-platform.sh daran."
+    "utils/hardware.js, die Plattformprofile und detect-platform.sh daran.",
+    "",
+    "Seit 25.09.2026 (J35) traegt jeder Eintrag seinen `digest`: den sha256",
+    "des Manifests in der Ollama-Registry, derselbe Wert, den `/api/tags` am",
+    "Geraet als `digest` meldet. Die Installation holt das Standardmodell selbst",
+    "(`scripts/util/modell-holen.sh`) und prueft danach genau diesen Wert;",
+    "`scripts/test/modell-digest.py` fragt die Registry vor jedem Release.",
+    "Das Standardmodell kommt deshalb aus der offiziellen Ollama-Bibliothek und",
+    "nicht mehr von Hugging Face: dort erzeugt `hf.co/...` das Manifest beim",
+    "Abruf, der config-Blob war am 25.09.2026 ein 404 und die Kennung zeigte auf",
+    "eine andere Datei (14,25 GB statt 15,7 GB) -- nichts daran war wiederholbar."
   ],
   "modelle": [
     {
-      "id": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
+      "id": "qwen3.8:27b-q4_K_M",
       "aufgabe": "text",
       "standard": true,
-      "wofuer": "Der Standard. Die Flows laufen darauf."
+      "wofuer": "Der Standard. Die Flows laufen darauf.",
+      "digest": "sha256:25b843619e944cd0ae6069f94ff4e5e26a16e109ccbc0a66a0f05979ed70098e"
     },
     {
       "id": "gemma4:e4b",
       "aufgabe": "text",
       "standard": false,
-      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es."
+      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es.",
+      "digest": "sha256:c6eb396dbd5992bbe3f5cdb947e8bbc0ee413d7c17e2beaae69f5d569cf982eb"
     },
     {
       "id": "nomic-embed-text",
       "aufgabe": "embedding",
       "standard": true,
-      "wofuer": "Einbettungen. /v1/embeddings arbeitet damit."
+      "wofuer": "Einbettungen. /v1/embeddings arbeitet damit.",
+      "digest": "sha256:0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f"
     },
     {
       "id": "llava-phi3",
       "aufgabe": "vision",
       "standard": true,
-      "wofuer": "Bilder und eingescannter Text."
+      "wofuer": "Bilder und eingescannter Text.",
+      "digest": "sha256:c7edd7b8759394f9995a9394b97a29aeff7ee9c921054a210347326287d300f2"
     }
   ]
 }
