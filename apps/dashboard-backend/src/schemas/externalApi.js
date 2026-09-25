@@ -14,6 +14,9 @@ const ExternalLlmChatBody = z
     thinking: z.boolean().optional(),
     wait_for_result: z.boolean().optional(),
     timeout_seconds: z.number().int().positive().max(600).optional(),
+    // Fuer wen die App fragt (J35): der Benutzername aus `X-Arasul-User`. Er
+    // steht im Protokoll der Modellaufrufe; die Kopfzeile selbst tut es auch.
+    einreicher: z.string().trim().min(1).max(100).optional(),
   })
   .strict();
 

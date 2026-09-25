@@ -46,11 +46,27 @@ jest.mock('../../src/services/llm/modelService', () => ({
   getLoadedModel: jest.fn()
 }));
 
+// Das Protokoll der Modellaufrufe (J35) hat seinen eigenen Test
+// (kiProtokoll.test.js). Hier reicht es durch und merkt sich, was es bekam.
+jest.mock('../../src/services/app/kiProtokoll', () => ({
+  einreicherAus: jest.requireActual('../../src/services/app/kiProtokoll').einreicherAus,
+  einreihen: jest.fn((_kontext, fn) => fn())
+}));
+
+jest.mock('../../src/services/documents/extractionService', () => ({
+  extractFromBuffer: jest.fn()
+}));
+
 // Mock apiKeyAuth middleware
 jest.mock('../../src/middleware/apiKeyAuth', () => ({
   requireApiKey: jest.fn((req, res, next) => {
     if (req.headers['x-api-key'] === 'valid-api-key') {
-      req.apiKey = { id: 1, userId: 1, name: 'Test API Key', allowed_endpoints: ['llm:chat', 'llm:status'] };
+      req.apiKey = {
+        id: 1,
+        userId: 1,
+        name: 'Test API Key',
+        allowed_endpoints: ['llm:chat', 'llm:status', 'document:extract']
+      };
       next();
     } else {
       res.status(401).json({ error: 'Invalid API key' });
@@ -67,6 +83,8 @@ jest.mock('../../src/middleware/apiKeyAuth', () => ({
 }));
 
 const db = require('../../src/database');
+const kiProtokoll = require('../../src/services/app/kiProtokoll');
+const extractionService = require('../../src/services/documents/extractionService');
 const llmQueueService = require('../../src/services/llm/llmQueueService');
 const llmJobService = require('../../src/services/llm/llmJobService');
 const modelService = require('../../src/services/llm/modelService');
@@ -221,6 +239,42 @@ describe('External API Routes', () => {
         expect.objectContaining({
           model: 'custom-model'
         })
+      );
+    });
+  });
+
+  // ============================================================================
+  // POST /api/v1/external/document/extract-structured (J35: im Protokoll)
+  // ============================================================================
+  describe('POST /api/v1/external/document/extract-structured', () => {
+    test('der Aufruf steht im Protokoll: Weg, Mensch, Datei ohne Namen', async () => {
+      extractionService.extractFromBuffer.mockResolvedValueOnce({
+        text: 'Rechnung 12 EUR',
+        metadata: {}
+      });
+      llmQueueService.enqueue.mockResolvedValueOnce({ jobId: 'job-s', model: 'gemma4:e4b' });
+      llmJobService.getJob.mockResolvedValueOnce({
+        id: 'job-s',
+        status: 'completed',
+        content: '{"betrag": 12}'
+      });
+
+      const response = await request(app)
+        .post('/api/v1/external/document/extract-structured')
+        .set('X-API-Key', apiKey)
+        .set('X-Arasul-User', 'anna')
+        .field('schema', JSON.stringify({ betrag: 'number' }))
+        .attach('file', Buffer.from('%PDF-1.4'), 'Rechnung.pdf');
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual({ betrag: 12 });
+      expect(kiProtokoll.einreihen).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpunkt: 'document/extract-structured',
+          einreicher: 'anna',
+          datei: expect.objectContaining({ size: 8 })
+        }),
+        expect.any(Function)
       );
     });
   });

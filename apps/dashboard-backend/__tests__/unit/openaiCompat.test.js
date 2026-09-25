@@ -101,6 +101,16 @@ jest.mock('axios', () => ({
   create: jest.fn(() => ({ post: jest.fn(), get: jest.fn() })),
 }));
 
+// Das Protokoll der Modellaufrufe (J35) hat seinen eigenen Test
+// (kiProtokoll.test.js). Hier reicht es durch und merkt sich, was es bekam.
+jest.mock('../../src/services/app/kiProtokoll', () => ({
+  einreicherAus: jest.requireActual('../../src/services/app/kiProtokoll').einreicherAus,
+  werFragt: jest.fn().mockResolvedValue({ benutzerId: 1, benutzerName: 'admin' }),
+  einreihen: jest.fn((_kontext, fn) => fn()),
+  messen: jest.fn(async (_kontext, fn) => (await fn()).ergebnis),
+}));
+
+const kiProtokoll = require('../../src/services/app/kiProtokoll');
 const llmQueueService = require('../../src/services/llm/llmQueueService');
 const llmJobService = require('../../src/services/llm/llmJobService');
 const modelService = require('../../src/services/llm/modelService');
@@ -239,6 +249,11 @@ describe('OpenAI-compatible routes', () => {
       expect(res.body.usage).toHaveProperty('prompt_tokens');
       expect(res.body.usage).toHaveProperty('completion_tokens');
       expect(res.body.usage).toHaveProperty('total_tokens');
+      // Und der Aufruf steht im Protokoll des Geraets (J35).
+      expect(kiProtokoll.einreihen).toHaveBeenCalledWith(
+        expect.objectContaining({ endpunkt: 'v1/chat/completions', modell: 'gemma4:26b-q4' }),
+        expect.any(Function)
+      );
     });
 
     test('uses requested model over default', async () => {

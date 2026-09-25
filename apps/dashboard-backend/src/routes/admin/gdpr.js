@@ -109,6 +109,7 @@ router.get(
       auditResult,
       securityAuditResult,
       freigabenResult,
+      kiAufrufeResult,
     ] = await nacheinander([
       // 1. User profile
       () =>
@@ -186,6 +187,17 @@ router.get(
             ORDER BY app_id`,
           [userId]
         ),
+
+      // 12. Modellaufrufe (J35, Migration 187): fuer wen eine App ein Modell
+      //     gefragt hat. Ohne Inhalt -- mehr steht dort auch nicht.
+      () =>
+        hole(
+          'ki_aufrufe',
+          `SELECT begonnen_am, dauer_ms, app_id, stand, endpunkt, modell, status
+             FROM public.ki_aufrufe WHERE benutzer_id = $1
+            ORDER BY begonnen_am DESC LIMIT 1000`,
+          [userId]
+        ),
     ]);
 
     const exportData = {
@@ -228,6 +240,12 @@ router.get(
       }),
       securityEvents: block('sicherheitsereignisse', securityAuditResult),
       freigaben: block('freigaben', freigabenResult),
+      kiAufrufe: block('ki_aufrufe', kiAufrufeResult, {
+        note:
+          kiAufrufeResult.rows.length >= 1000
+            ? 'Export limited to 1,000 most recent entries'
+            : undefined,
+      }),
     };
 
     const filename = `arasul-gdpr-export-${req.user.username}-${new Date().toISOString().split('T')[0]}.json`;

@@ -43,6 +43,7 @@ const flowRunner = require('../../services/flows/flowRunner');
 const flowRunStore = require('../../services/flows/runStore');
 const freigabeAnfragen = require('../../services/flows/freigabeAnfragen');
 const { resolveArguments } = require('../../services/flows/runFlow');
+const kiProtokoll = require('../../services/app/kiProtokoll');
 
 // Multer for document upload endpoints (50MB limit)
 const upload = multer(
@@ -145,15 +146,26 @@ router.post(
     const messages = [{ role: 'user', content: prompt }];
 
     // Enqueue the job
+    // Jeder Modellaufruf steht im Protokoll des Geraets (J35), auch der, auf
+    // dessen Ergebnis hier niemand wartet.
     const {
       jobId,
       queuePosition,
       model: resolvedModel,
-    } = await llmQueueService.enqueue(
-      userId,
-      'chat',
-      { messages, temperature, max_tokens, thinking },
-      { model, priority: 0 }
+    } = await kiProtokoll.einreihen(
+      {
+        apiKey: req.apiKey,
+        endpunkt: 'llm/chat',
+        einreicher: kiProtokoll.einreicherAus(req),
+        modell: model,
+      },
+      () =>
+        llmQueueService.enqueue(
+          userId,
+          'chat',
+          { messages, temperature, max_tokens, thinking },
+          { model, priority: 0 }
+        )
     );
 
     logger.info(
@@ -511,16 +523,26 @@ router.post(
     const userId = besitzerOderAbweisen(req.apiKey);
 
     const messages = [{ role: 'user', content: analysisPrompt }];
-    const { jobId, model: resolvedModel } = await llmQueueService.enqueue(
-      userId,
-      'chat',
+    const { jobId, model: resolvedModel } = await kiProtokoll.einreihen(
       {
-        messages,
-        temperature: parseFloat(temperature) || 0.7,
-        max_tokens: parseInt(max_tokens) || 4096,
-        thinking: false,
+        apiKey: req.apiKey,
+        endpunkt: 'document/analyze',
+        einreicher: kiProtokoll.einreicherAus(req),
+        modell: model,
+        datei: file,
       },
-      { model: model || null, priority: 0 }
+      () =>
+        llmQueueService.enqueue(
+          userId,
+          'chat',
+          {
+            messages,
+            temperature: parseFloat(temperature) || 0.7,
+            max_tokens: parseInt(max_tokens) || 4096,
+            thinking: false,
+          },
+          { model: model || null, priority: 0 }
+        )
     );
 
     // 4. Wait for result
@@ -634,17 +656,29 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
     // 3. Enqueue LLM job
     const userId = besitzerOderAbweisen(req.apiKey);
 
+    // Kein Flow, und trotzdem ein Vorschlag eines Modells: er steht mit App,
+    // Mensch, Modell und Dauer im Protokoll des Geraets, ohne die Datei (J35).
     const messages = [{ role: 'user', content: structuredPrompt }];
-    const { jobId, model: resolvedModel } = await llmQueueService.enqueue(
-      userId,
-      'chat',
+    const { jobId, model: resolvedModel } = await kiProtokoll.einreihen(
       {
-        messages,
-        temperature: 0.1, // Low temperature for structured extraction
-        max_tokens: 4096,
-        thinking: false,
+        apiKey: req.apiKey,
+        endpunkt: 'document/extract-structured',
+        einreicher: kiProtokoll.einreicherAus(req),
+        modell: model,
+        datei: file,
       },
-      { model: model || null, priority: 0 }
+      () =>
+        llmQueueService.enqueue(
+          userId,
+          'chat',
+          {
+            messages,
+            temperature: 0.1, // Low temperature for structured extraction
+            max_tokens: 4096,
+            thinking: false,
+          },
+          { model: model || null, priority: 0 }
+        )
     );
 
     // 4. Wait for result

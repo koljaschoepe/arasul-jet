@@ -26,6 +26,7 @@ const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
 const ollamaReadiness = require('../../services/llm/ollamaReadiness');
+const kiProtokoll = require('../../services/app/kiProtokoll');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ServiceUnavailableError } = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
@@ -166,13 +167,26 @@ router.post(
       });
     }
 
+    // Wer fragt, steht im Protokoll der Modellaufrufe (J35); OpenAI nennt das
+    // Feld `user`, und die Kopfzeile `X-Arasul-User` gilt auch hier. Ein
+    // unbekannter Name ist ein 400 VOR dem Auftrag, darum ausserhalb des try.
+    const kontext = {
+      apiKey: req.apiKey,
+      endpunkt: 'v1/chat/completions',
+      einreicher: kiProtokoll.einreicherAus(req, 'user'),
+      modell: resolvedModel,
+    };
+    await kiProtokoll.werFragt(req.apiKey, kontext.einreicher);
+
     let jobInfo;
     try {
-      jobInfo = await llmQueueService.enqueue(
-        req.apiKey.userId,
-        'chat',
-        { messages: normalizedMessages, temperature, max_tokens, thinking: false },
-        { model: resolvedModel, priority: 0 }
+      jobInfo = await kiProtokoll.einreihen(kontext, () =>
+        llmQueueService.enqueue(
+          req.apiKey.userId,
+          'chat',
+          { messages: normalizedMessages, temperature, max_tokens, thinking: false },
+          { model: resolvedModel, priority: 0 }
+        )
       );
     } catch (err) {
       logger.warn(`[OpenAI compat] enqueue failed: ${err.message}`);
@@ -347,24 +361,36 @@ router.post(
     const { input, model: requestedModel } = req.body;
     const inputs = Array.isArray(input) ? input : [input];
 
-    let response;
-    try {
-      response = await axios.post(
-        `${EMBEDDING_SERVICE_URL}/embed`,
-        { texts: inputs },
-        { timeout: 30000 }
-      );
-    } catch (err) {
-      logger.warn(`[OpenAI compat] embedding service error: ${err.message}`);
-      throw new ServiceUnavailableError('Embedding service unavailable');
-    }
-
-    const vectors = response.data.vectors || response.data.embeddings || [];
-    if (!Array.isArray(vectors) || vectors.length !== inputs.length) {
-      throw new ServiceUnavailableError('Embedding service returned malformed payload');
-    }
-
     const reportedModel = requestedModel || process.env.EMBEDDING_MODEL || 'BAAI/bge-m3';
+
+    // Auch eine Einbettung ist ein Modellaufruf (J35). Keine Warteschlange,
+    // also misst das Protokoll hier selbst: Zeile davor, Zeile danach.
+    const vectors = await kiProtokoll.messen(
+      {
+        apiKey: req.apiKey,
+        endpunkt: 'v1/embeddings',
+        einreicher: kiProtokoll.einreicherAus(req, 'user'),
+        modell: reportedModel,
+      },
+      async () => {
+        let response;
+        try {
+          response = await axios.post(
+            `${EMBEDDING_SERVICE_URL}/embed`,
+            { texts: inputs },
+            { timeout: 30000 }
+          );
+        } catch (err) {
+          logger.warn(`[OpenAI compat] embedding service error: ${err.message}`);
+          throw new ServiceUnavailableError('Embedding service unavailable');
+        }
+        const ergebnis = response.data.vectors || response.data.embeddings || [];
+        if (!Array.isArray(ergebnis) || ergebnis.length !== inputs.length) {
+          throw new ServiceUnavailableError('Embedding service returned malformed payload');
+        }
+        return { ergebnis };
+      }
+    );
     const promptTokens = inputs.reduce((sum, t) => sum + estimateTokens(t), 0);
 
     res.json({
