@@ -92,22 +92,22 @@ for k in sys.argv[1].split("."):
 print("" if d is None else (d if isinstance(d,(str,int,float)) else json.dumps(d, ensure_ascii=False)))' "$1" 2>/dev/null
 }
 
-# Das Skript am Geraet, per SSH, wie es das Ara-Kit ruft. `$SSH_CODE` ist
-# seine Rueckgabe, die Ausgabe die eine Zeile JSON.
+# Das Skript am Geraet, per SSH, wie es das Ara-Kit ruft. Ergebnis in zwei
+# Variablen, `$SSH_AUS` (die eine Zeile JSON) und `$SSH_CODE` (Rueckgabe) --
+# NICHT ueber die Standardausgabe: eine Kommandosubstitution ist eine
+# Subshell, und `$SSH_CODE` waere danach wieder leer (der erste Lauf am Orin
+# meldete deshalb dreimal rot, obwohl das Geraet 0 und 1 zurueckgab).
+SSH_AUS=""
 SSH_CODE=""
 am_geraet() {
-  local ausgabe
-  ausgabe=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$GERAET" \
+  SSH_AUS=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$GERAET" \
     "$ORDNER/scripts/util/lizenz-geraet.sh $*" </dev/null 2>/dev/null)
   SSH_CODE=$?
-  printf '%s' "$ausgabe"
 }
 einspielen_am_geraet() {
-  local ausgabe
-  ausgabe=$(printf '%s' "$1" | ssh -o BatchMode=yes -o ConnectTimeout=10 "$GERAET" \
+  SSH_AUS=$(printf '%s' "$1" | ssh -o BatchMode=yes -o ConnectTimeout=10 "$GERAET" \
     "$ORDNER/scripts/util/lizenz-geraet.sh einspielen" 2>/dev/null)
   SSH_CODE=$?
-  printf '%s' "$ausgabe"
 }
 eine_zeile_json() {
   python3 -c 'import sys,json
@@ -172,7 +172,8 @@ pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" 
 
 # --- 1. SSH: fingerabdruck und status -----------------------------------------
 echo "--- 1. lizenz-geraet.sh per SSH"
-FP_SSH=$(am_geraet fingerabdruck)
+am_geraet fingerabdruck
+FP_SSH="$SSH_AUS"
 pruefe 'fingerabdruck: eine Zeile JSON, Rueckgabe 0' \
   "$([ "$(eine_zeile_json "$FP_SSH")" = ja ] && [ "$SSH_CODE" = 0 ] && echo ja || echo nein)" "$FP_SSH"
 ruf GET /api/license/fingerprint
@@ -180,7 +181,8 @@ FP_API=$(rumpf | feld hardwareFingerprint)
 pruefe 'derselbe Wert wie GET /api/license/fingerprint' \
   "$(ja_wenn "$(printf '%s' "$FP_SSH" | feld fingerabdruck)" "$FP_API")" "$FP_API"
 
-STATUS_VORHER=$(am_geraet status)
+am_geraet status
+STATUS_VORHER="$SSH_AUS"
 pruefe 'status: eine Zeile JSON, Rueckgabe 0' \
   "$([ "$(eine_zeile_json "$STATUS_VORHER")" = ja ] && [ "$SSH_CODE" = 0 ] && echo ja || echo nein)" \
   "$STATUS_VORHER"
@@ -222,7 +224,8 @@ aufraeumen() {
   [ -n "$KEY_ID" ] && curl -sk -o /dev/null --max-time 30 -X DELETE \
     -H "authorization: Bearer $TOK" "$BASIS/api/v1/external/api-keys/$KEY_ID"
   local nachher
-  nachher=$(am_geraet status)
+  am_geraet status
+  nachher="$SSH_AUS"
   pruefe 'Danach steht das Geraet wie vorher' "$(ja_wenn "$nachher" "$STATUS_VORHER")" "$nachher"
   rm -f "$RUMPF_DATEI"
   rm -rf "$ARBEIT"
@@ -277,15 +280,17 @@ pruefe 'und die Meldung zeigt auf die Lizenz' "$(enthaelt "$MELDUNG" 'Lizenz')" 
 # --- 3. SSH: professional -----------------------------------------------------------
 echo
 echo "--- 3. professional, per SSH eingespielt"
-AUSGABE=$(einspielen_am_geraet 'eyJmYWxzY2giOnRydWV9.ZmFsc2No')
+einspielen_am_geraet 'eyJmYWxzY2giOnRydWV9.ZmFsc2No'
+AUSGABE="$SSH_AUS"
 pruefe 'Eine falsche Lizenz: {"ok":false,...}, Rueckgabe 1' \
   "$([ "$(printf '%s' "$AUSGABE" | feld ok)" = False ] && [ "$SSH_CODE" = 1 ] && echo ja || echo nein)" "$AUSGABE"
 LIZENZ=$(node "$WURZEL/scripts/util/lizenz-signieren.js" --kunde "$STEMPEL" \
   --stufe professional --tage 1 --geraet "$FP_API" 2>/dev/null)
 pruefe 'lizenz-signieren.js signiert professional, gebunden an dieses Geraet' "$([ -n "$LIZENZ" ] && echo ja || echo nein)"
-AUSGABE=$(einspielen_am_geraet "$LIZENZ")
+einspielen_am_geraet "$LIZENZ"
+AUSGABE="$SSH_AUS"
 pruefe 'lizenz-geraet.sh einspielen: {"ok":true,"stufe":"professional"}' \
-  "$(ja_wenn "$AUSGABE" '{"ok":true,"stufe":"professional"}')" "$AUSGABE, Rueckgabe $SSH_CODE"
+  "$(ja_wenn "$AUSGABE|$SSH_CODE" '{"ok":true,"stufe":"professional"}|0')" "$AUSGABE, Rueckgabe $SSH_CODE"
 ruf GET /api/license/info
 pruefe 'Das laufende Backend sieht sie sofort' "$(ja_wenn "$(rumpf | feld tier)" professional)" \
   "$(rumpf | feld nutzung)"
@@ -301,11 +306,13 @@ echo
 echo "--- 4. enterprise, per SSH eingespielt"
 LIZENZ=$(node "$WURZEL/scripts/util/lizenz-signieren.js" --kunde "$STEMPEL" \
   --stufe enterprise --tage 1 --geraet "$FP_API" 2>/dev/null)
-AUSGABE=$(einspielen_am_geraet "$LIZENZ")
+einspielen_am_geraet "$LIZENZ"
+AUSGABE="$SSH_AUS"
 unset LIZENZ
 pruefe 'enterprise: {"ok":true,"stufe":"enterprise"}' \
   "$(ja_wenn "$AUSGABE" '{"ok":true,"stufe":"enterprise"}')" "$AUSGABE"
-STATUS=$(am_geraet status)
+am_geraet status
+STATUS="$SSH_AUS"
 pruefe 'status: Konten und Apps ohne Grenze' \
   "$([ "$(printf '%s' "$STATUS" | feld konten.grenze)" = -1 ] && [ "$(printf '%s' "$STATUS" | feld apps.grenze)" = -1 ] && echo ja || echo nein)" "$STATUS"
 lege_konto_an "$STEMPEL-k6"
@@ -321,7 +328,8 @@ for id in $KONTEN_ANGELEGT; do
   [ -z "$ERSTES" ] && ERSTES="$id"
   ruf PUT "/api/benutzer/$id/aktiv" '{"aktiv":false}'
 done
-STATUS=$(am_geraet status)
+am_geraet status
+STATUS="$SSH_AUS"
 pruefe 'Stillgelegte Konten zaehlt die Lizenz nicht' \
   "$(ja_wenn "$(printf '%s' "$STATUS" | feld konten.belegt)" "$(printf '%s' "$STATUS_VORHER" | feld konten.belegt)")" \
   "$STATUS"
