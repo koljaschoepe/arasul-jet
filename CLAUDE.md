@@ -1147,6 +1147,41 @@ bei jedem neuen Container neu -- jede gebundene Lizenz galt nur bis zum
 naechsten Update. Seither reicht Compose die machine-id des Hosts nur lesbar
 nach `/arasul/host/machine-id`, und der Fingerabdruck haengt an ihr.
 
+Seit dem Auftrag **lizenz-stufen-und-freischaltung** (25.09.2026, J35)
+**setzt das Gerät die Stufen durch, zeigt die Lizenz und lässt sich per SSH
+freischalten**. Beschluss vom selben Tag: `community` (ohne Lizenz) trägt
+**drei Konten und drei Apps**, `professional` ist die bezahlte Stufe ohne
+Grenzen, `enterprise` gilt weiter und hat dieselben Rechte. `maxUsers` stand
+seit Jahren in `FEATURE_TIERS` und kein Aufruf prüfte es; jetzt zählt
+`benutzerService.pruefeKontenGrenze` die **aktiven** Konten (der
+Administrator zählt mit, ein stillgelegtes nicht) beim Anlegen **und** beim
+Wiederzulassen, unter einer benannten Sperre in derselben Transaktion — zwei
+gleichzeitige Klicks kommen nicht beide am letzten Platz vorbei. Die Meldung
+zeigt auf **Einstellungen → Lizenz**: Stufe, Konten und Apps je „x von y"
+(`nutzung` in `GET /api/license/info`, dieselben Zählungen wie die Riegel),
+der Fingerabdruck zum Kopieren und ein Feld zum Einspielen
+(`features/settings/LizenzSettings.tsx`). Eine Lizenz darf `maxUsers` wie
+`maxApps` selbst nennen (`lizenz-signieren.js --max-konten`). Für den Weg
+**ohne Passwort des Kunden** gibt es `scripts/util/lizenz-geraet.sh
+fingerabdruck | status | einspielen` — ein Vertrag mit dem Ara-Kit, genau eine
+Zeile JSON je Aufruf, derselbe Dienst im Backend-Container
+(`src/cli/lizenz.js`, Logger still, sonst stünde vor dem JSON eine Logzeile).
+Weil dort ein **zweiter Prozess** die Datei schreibt, hängt der Cache des
+Lizenzdienstes jetzt an Änderungszeit und Größe der Datei statt an fünf
+Minuten allein — sonst hätte das Backend die neue Stufe erst nach fünf Minuten
+gesehen. Und die **systemd-Einheiten** zeigen auf das Gerät, das sie
+starten: am Orin endete `arasul-platform.service` in 203/EXEC, obwohl das
+Skript dalag (`ProtectHome=yes` versteckt `/home`), und Deadman-Switch und
+Watchdog zeigten auf `/opt/arasul`. `scripts/system/einheiten-installieren.sh`
+schreibt alle fünf aus den Vorlagen (`ProtectHome=read-only` unter `/home`),
+gerufen von `install.sh` (nur die Plattform, vor dem Bootstrap), vom
+Bootstrap (alle, nach dem Rauchtest) und vom Deploy (alle, damit ein
+Bestandsgerät heilt); `ordered-startup.sh` fragt Compose nach dem Container
+statt nach `arasul-platform-<dienst>-1` und schreibt sein Log in den
+Fassungsordner, der Deadman-Switch fragt den Docker-Healthcheck des Agenten
+statt eines Ports, den der Host nicht hat. Wächter:
+`scripts/test/systemd-einheiten.sh`.
+
 Seit dem Auftrag **firmenordner-rechte-im-frontend** (22.09.2026, J33) **verwaltet
 der Administrator den Firmenordner in der Oberflaeche**, und der Firmenordner hat
 eine **Wurzel**. Einstellungen → Firmenordner (`features/settings/FirmenordnerSettings.tsx`

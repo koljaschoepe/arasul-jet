@@ -650,9 +650,9 @@ stillgelegt werden, und niemand kann sich selbst stilllegen.
 | Method | Endpoint                     | Description                                                                                                    |
 | ------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/benutzer`              | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login`              |
-| POST   | `/api/benutzer`              | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name              |
+| POST   | `/api/benutzer`              | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name oder Lizenz  |
 | PUT    | `/api/benutzer/:id/passwort` | Passwort setzen: `{ password }` (≥ 8 Zeichen); beendet alle Sitzungen; 400 für das eigene Konto, 404 unbekannt |
-| PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin                |
+| PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin, 409 Lizenz    |
 | DELETE | `/api/benutzer/:id`          | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                                           |
 
 ```json
@@ -667,6 +667,31 @@ stillgelegt werden, und niemand kann sich selbst stilllegen.
     "passwort_vom_admin": true
   },
   "timestamp": "2026-08-27T09:00:00.000Z"
+}
+```
+
+**Die Lizenz zählt die Konten** (J35, 25.09.2026). Anlegen und Wiederzulassen
+gehen durch `pruefeKontenGrenze`: gezählt werden die **aktiven** Konten, der
+Administrator zählt mit, ein stillgelegtes nicht. Ohne Lizenz (`community`)
+sind es drei; `professional` und `enterprise` kennen keine Grenze, und eine
+Lizenz darf `maxUsers` selbst nennen. Gezählt wird unter einer Sperre in
+derselben Transaktion wie das Schreiben — zwei gleichzeitige Anfragen kommen
+nicht beide am letzten Platz vorbei.
+
+```json
+// POST /api/benutzer → 409, wenn die Lizenz voll ist
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Die Lizenz dieses Geraets (community) traegt 3 Konten, aktiv sind 3: admin, mia, tom. ute kommt nicht dazu. Der Administrator zaehlt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Einstellungen -> Mitarbeiter) oder die Lizenz erweitern (Einstellungen -> Lizenz).",
+    "details": {
+      "grenze": 3,
+      "belegt": 3,
+      "stufe": "community",
+      "konten": ["admin", "mia", "tom"],
+      "abgewiesen": "ute"
+    }
+  }
 }
 ```
 
@@ -1641,11 +1666,26 @@ All endpoints require admin authentication (`requireAuth` + `requireRole('admin'
   "tier": "professional",
   "customer": "Muster GmbH",
   "expiresAt": "2027-01-01T00:00:00.000Z",
-  "features": { "maxUsers": 5, "maxApps": -1, "externalApi": true, "customModels": false },
-  "hardwareFingerprint": "sha256:abc...",
+  "features": { "maxUsers": -1, "maxApps": -1, "externalApi": true, "customModels": true },
+  "hardwareFingerprint": "0123456789abcdef0123456789abcdef",
+  "nutzung": {
+    "stufe": "professional",
+    "konten": { "belegt": 5, "grenze": -1 },
+    "apps": { "belegt": 4, "grenze": -1 }
+  },
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
+
+**Die Stufen** (Beschluss vom 25.09.2026, J35): `community` — das Gerät ohne
+Lizenz — trägt **drei Konten und drei Apps**, beides durchgesetzt
+(`POST /api/benutzer` und das Einspielen einer App antworten 409 mit einem Satz,
+der auf die Lizenz zeigt). `professional` ist die bezahlte Stufe, ohne Grenzen;
+`enterprise` nimmt das Gerät weiter an, mit denselben Rechten. `nutzung` nennt
+je Konten und Apps, was belegt ist und was die Lizenz trägt (`-1` unbegrenzt) —
+dieselben Zählungen wie die Riegel und dieselbe Antwort wie
+`scripts/util/lizenz-geraet.sh status`. Die Seite **Einstellungen → Lizenz**
+zeigt sie.
 
 **GET /api/license/fingerprint Response:**
 
@@ -1689,16 +1729,25 @@ Einen Grace-Mode ohne Schluessel gibt es nicht mehr.
 `enterprise`, fehlt sie: `professional`; eine unbekannte Stufe wird mit 400
 abgelehnt statt still auf `professional` zu fallen), `issued_at`,
 `expires_at`, optional `hardware_id` (aus `GET /api/license/fingerprint`) und
-optional **`maxApps`** — eine ganze Zahl ab 1 oder `-1` fuer unbegrenzt. Steht
-sie da, ersetzt sie die Zahl der Stufe in `features.maxApps`, und die
-Lizenzgrenze beim Einspielen (`appStore.pruefeAppGrenze`) rechnet mit ihr. Eine
-andere Zahl (0, -2, 2.5, `"4"`) lehnt der Weg mit 400 ab. Signiert wird mit
+optional **`maxApps`** und seit J35 **`maxUsers`** — je eine ganze Zahl ab 1
+oder `-1` fuer unbegrenzt. Steht sie da, ersetzt sie die Zahl der Stufe in
+`features`, und die Riegel (`appStore.pruefeAppGrenze`,
+`benutzerService.pruefeKontenGrenze`) rechnen mit ihr. Eine andere Zahl (0, -2,
+2.5, `"4"`) lehnt der Weg mit 400 ab. Signiert wird mit
 `scripts/util/lizenz-signieren.js`; der private Schluessel liegt nur im
 Schluesselbund.
 
 Die Lizenzdatei liegt seit J32 unter `/arasul/lizenz/license.key`, einem Mount
 auf `data/lizenz/` — sie ueberlebt ein neues Erzeugen des Containers und zieht
 mit einer Aktualisierung um. Der Werksreset loescht sie mit `data/`.
+
+**Ohne Sitzung, per SSH** (J35): `scripts/util/lizenz-geraet.sh fingerabdruck |
+status | einspielen <lizenz>` ruft denselben Dienst im Backend-Container und
+gibt genau eine Zeile JSON aus — `{"fingerabdruck":"<hex>"}`, die Form von
+`nutzung` oben, `{"ok":true,"stufe":"professional"}` oder
+`{"ok":false,"fehler":"..."}` mit Rueckgabe 1. Der Cache des Dienstes haengt an
+der Lizenzdatei, also gilt eine so eingespielte Lizenz im laufenden Backend
+sofort. Protokolliert als `license_activate` mit `quelle: lizenz-geraet.sh`.
 
 **DELETE /api/license** nimmt die Lizenz vom Geraet: die Datei faellt, der
 Fuenf-Minuten-Cache auch, und die Antwort traegt schon den neuen Stand. Ohne
