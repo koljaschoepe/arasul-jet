@@ -130,7 +130,10 @@ services:
       FIRMENORDNER_INTERN: ${FIRMENORDNER_INTERN:-http://firmenordner:9200}
       # Und die Adresse, die es einem MENSCHEN nennt (`GET /api/firmenordner`).
       FIRMENORDNER_ADRESSE: ${FIRMENORDNER_ADRESSE:-https://${MDNS_NAME:-arasul}:${FIRMENORDNER_PORT:-8443}}
-      FIRMENORDNER_ADMIN: ${FIRMENORDNER_ADMIN:-admin}
+      # KEIN `FIRMENORDNER_ADMIN` mehr (26.09.2026): der Name des
+      # Dienst-Administrators steht fest im Backend (`ordnerdienst.DIENST_ADMIN`),
+      # weil `admin` dem Menschen gehoert, der das Geraet eingerichtet hat. Eine
+      # `.env`, die noch `FIRMENORDNER_ADMIN=admin` traegt, aendert daran nichts.
       FIRMENORDNER_ZEITGRENZE_MS: ${FIRMENORDNER_ZEITGRENZE_MS:-10000}
       # WEGWERFEN HAT SEINE EIGENE GEDULD, weil es als einziges an der Zahl der
       # Dateien haengt und nicht an der Antwortzeit eines Dienstes: gemessen am

@@ -12,6 +12,8 @@
 #   2. AI Services: llm-service, embedding-service
 #   3. Application: dashboard-backend, dashboard-frontend, reverse-proxy
 #   4. Monitoring: metrics-collector, self-healing-agent, backup-service, document-indexer
+#   5. Profile: was Compose mit den gesetzten `COMPOSE_PROFILES` darueber
+#      hinaus kennt -- heute der Firmenordner (J33)
 #
 # MinIO, Loki und Promtail sind am 26.08.2026 (Phase B4 des Rueckbaus) aus
 # den Phasen gefallen; sie gibt es im Compose nicht mehr.
@@ -67,6 +69,29 @@ PHASE1_SERVICES="postgres-db"
 PHASE2_SERVICES="llm-service embedding-service"
 PHASE3_SERVICES="dashboard-backend dashboard-frontend reverse-proxy"
 PHASE4_SERVICES="metrics-collector self-healing-agent backup-service document-indexer"
+
+# Phase 5 ist KEINE Liste, sondern eine Frage an Compose (J33, 26.09.2026).
+#
+# Der Firmenordner traegt `profiles: [firmenordner]` und stand in keiner der
+# vier Listen. `ExecStop` (`docker compose down`) nimmt beim Herunterfahren
+# jeden Container des Projekts weg, auch ihn -- und dieses Skript legte nach
+# dem Hochfahren nur an, was es beim Namen kannte. Jeder Neustart eines Geraets
+# mit Firmenordner verlor also den Dateidienst, bis jemand
+# `docker compose up -d firmenordner` tippte (Kundendurchlauf 2, 25.09.2026,
+# am Orin). Eine fuenfte Liste mit `firmenordner` darin haette denselben
+# Fehler fuer das naechste Profil wieder angelegt; `docker compose config
+# --services` nennt genau die Dienste, die die `.env` des Geraets einschaltet,
+# und was davon in keiner Phase steht, kommt hier.
+profile_services() {
+    local alle svc
+    alle=$(cd "$PROJECT_DIR" && docker compose config --services 2>/dev/null) || return 0
+    for svc in $alle; do
+        case " $PHASE1_SERVICES $PHASE2_SERVICES $PHASE3_SERVICES $PHASE4_SERVICES " in
+            *" $svc "*) ;;
+            *) printf '%s\n' "$svc" ;;
+        esac
+    done
+}
 
 
 log() {
@@ -195,6 +220,15 @@ main() {
     start_phase 3 "Application" $PHASE3_SERVICES
     # shellcheck disable=SC2086
     start_phase 4 "Monitoring" $PHASE4_SERVICES
+
+    local phase5
+    phase5=$(profile_services | tr '\n' ' ')
+    if [ -n "${phase5// /}" ]; then
+        # shellcheck disable=SC2086
+        start_phase 5 "Profile" $phase5
+    else
+        log "INFO" "=== Phase 5: Profile === nichts darueber hinaus (COMPOSE_PROFILES=${COMPOSE_PROFILES:-})"
+    fi
 
     local total_elapsed=$((SECONDS - total_start))
     log "INFO" "============================================"

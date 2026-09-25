@@ -17,6 +17,7 @@ const {
 } = require('../utils/jwt');
 const { verifyPassword } = require('../utils/password');
 const { changeDashboardPassword } = require('../services/auth/passwordService');
+const firmenordner = require('../services/firmenordner/ordnerVerwaltung');
 const { requireAuth, optionalAuth, requireRole } = require('../middleware/auth');
 const { ausweisProbe } = require('../middleware/ausweis');
 const {
@@ -110,6 +111,15 @@ router.post(
 
       throw new UnauthorizedError('Invalid username or password');
     }
+
+    // Der Firmenordner bekommt das Passwort, wenn er es noch nicht hat
+    // (`spiegleBeiAnmeldung`: nur dann, und es wirft nie).
+    await firmenordner.spiegleBeiAnmeldung({
+      benutzerId: user.id,
+      username: user.username,
+      email: user.email,
+      passwort: password,
+    });
 
     // Record successful login
     await db.query('SELECT record_login_attempt($1, $2, $3, $4)', [

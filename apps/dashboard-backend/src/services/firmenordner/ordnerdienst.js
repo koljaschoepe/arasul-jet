@@ -102,6 +102,40 @@ function istAn() {
 }
 
 /**
+ * Der Name des Dienst-Administrators -- fest, und KEIN Name eines Menschen.
+ *
+ * OPENCLOUD NENNT SEINEN ADMINISTRATOR `admin`, UND DAS LAESST SICH NICHT
+ * EINSTELLEN (`services/idm/pkg/command/server.go`, 8.0.1: `Name: "admin"`
+ * steht dort als Literal; einstellbar sind nur Kennung und Passwort). Der
+ * Installer nennt den ersten Administrator des Geraets aber ebenfalls `admin`
+ * -- also war genau der Mensch, mit dem ein Geraet eingerichtet wird, im
+ * Dateidienst schon vergeben: sein Konto dort anzulegen endete mit 409 („a
+ * user with that name already exists"), und `arasul.mjs sync` mit 401
+ * (Kundendurchlauf 2, 25.09.2026, am Orin).
+ *
+ * DESHALB WIRD DER DIENST-ADMINISTRATOR UMBENANNT, UND NICHT DER MENSCH. Der
+ * Mensch meldet sich am Dateidienst mit demselben Namen an wie am Geraet --
+ * das CLI kennt nur einen (`benutzer` in `GET /api/firmenordner`), und ein
+ * zweiter Name nur fuer den Firmenordner waere einer, den er sich merken
+ * muss. Das Konto des Dienstes dagegen benutzt ausser diesem Backend niemand.
+ * Die Graph-API benennt einen Nutzer um (`PATCH …/users/<id>` mit
+ * `onPremisesSamAccountName`); die Rolle haengt an der Kennung
+ * (`IDM_ADMIN_USER_ID`), also bleibt er Administrator. Am 26.09.2026 am Orin
+ * an einem Wegwerf-Container gemessen: umbenannt 200, `admin` danach 401 fuer
+ * den Dienst und frei, ein Mensch `admin` 201 mit WebDAV 207 und OHNE
+ * Administratorrechte (einen Raum anlegen: 403), und nach einem Neustart
+ * alles noch so -- das Anlegen des Administrators laeuft nur, wenn es die
+ * Datenbank des Dienstes noch nicht gibt.
+ *
+ * `umbenennenWennNoetig` tut es beim ersten Kontakt, auf einem frischen Geraet
+ * wie auf einem, das seinen Firmenordner schon hatte: ein und derselbe Weg.
+ * Reserviert ist der Name auch am Geraet (`benutzerService.legeBenutzerAn`).
+ */
+const DIENST_ADMIN = 'arasul-dienst';
+/** So heisst er, wie OpenCloud ihn anlegt. */
+const ANFANGS_ADMIN = 'admin';
+
+/**
  * Der Kopf fuer den Dienst-Administrator.
  *
  * BASIC UND NICHT OIDC, und das ist gemessen: der Dienst laeuft mit
@@ -109,10 +143,85 @@ function istAn() {
  * weil weder dieses Backend noch der Kommandozeilen-Klient am Rechner eines
  * Menschen ein Anmeldefenster oeffnen kann.
  */
-function adminKopf() {
-  const name = process.env.FIRMENORDNER_ADMIN || 'admin';
+function adminKopf(name = DIENST_ADMIN) {
   const wort = process.env.FIRMENORDNER_ADMIN_PASSWORT || '';
   return `Basic ${Buffer.from(`${name}:${wort}`).toString('base64')}`;
+}
+
+/** Laeuft gerade eine Umbenennung, warten alle anderen auf dieselbe. */
+let umbenennung = null;
+
+/**
+ * Den Dienst-Administrator von `admin` auf `DIENST_ADMIN` umbenennen, falls er
+ * noch so heisst. Gibt `true` zurueck, wenn umbenannt wurde.
+ *
+ * GEFRAGT WIRD NUR NACH EINEM 401, nicht vor jeder Anfrage: auf einem Geraet,
+ * das einmal umgestellt ist, kostet das nichts mehr. Und der 401 ist genau die
+ * Auskunft, die beide Faelle traegt -- ein frisch angelegter Dienst (er kennt
+ * `DIENST_ADMIN` noch nicht) und ein zurueckgesetzter (`data/firmenordner`
+ * geleert, waehrend das Backend lief).
+ *
+ * `admin` MIT DEM PASSWORT DES DIENSTES, und nur damit: ist `admin` schon ein
+ * Mensch, passt dieses Passwort nicht, und es wird nichts angefasst.
+ */
+function umbenennenWennNoetig() {
+  if (!umbenennung) {
+    umbenennung = (async () => {
+      const basis = basisIntern();
+      const kopf = { Authorization: adminKopf(ANFANGS_ADMIN), Accept: 'application/json' };
+      const ich = await fetch(`${basis}/graph/v1.0/me`, {
+        headers: kopf,
+        signal: AbortSignal.timeout(ZEITGRENZE_MS),
+      });
+      if (ich.status === 401) {
+        return false;
+      }
+      if (!ich.ok) {
+        throw new Error(`Firmenordner: GET /graph/v1.0/me antwortete ${ich.status}`);
+      }
+      const { id } = await ich.json();
+      const weg = `/graph/v1.0/users/${encodeURIComponent(id)}`;
+      const antwort = await fetch(`${basis}${weg}`, {
+        method: 'PATCH',
+        headers: { ...kopf, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onPremisesSamAccountName: DIENST_ADMIN }),
+        signal: AbortSignal.timeout(ZEITGRENZE_MS),
+      });
+      if (!antwort.ok) {
+        throw new Error(
+          `Firmenordner: den Dienst-Administrator in ${DIENST_ADMIN} umbenennen ging nicht -- ` +
+            `PATCH ${weg} antwortete ${antwort.status} ${(await antwort.text()).slice(0, 400)}`
+        );
+      }
+      logger.info(
+        `Firmenordner: Dienst-Administrator von ${ANFANGS_ADMIN} in ${DIENST_ADMIN} umbenannt ` +
+          `-- der Name ${ANFANGS_ADMIN} gehoert jetzt dem Menschen am Geraet`
+      );
+      return true;
+    })().finally(() => {
+      umbenennung = null;
+    });
+  }
+  return umbenennung;
+}
+
+/**
+ * `fetch` als Dienst-Administrator, mit EINER Wiederholung nach der
+ * Umbenennung. Der Koerper ist eine Zeichenkette, also ein zweites Mal
+ * sendbar.
+ */
+async function alsAdmin(adresse, init, grenze = ZEITGRENZE_MS) {
+  const versuch = () =>
+    fetch(adresse, {
+      ...init,
+      signal: AbortSignal.timeout(grenze),
+      headers: { ...init.headers, Authorization: adminKopf() },
+    });
+  const antwort = await versuch();
+  if (antwort.status !== 401 || !(await umbenennenWennNoetig())) {
+    return antwort;
+  }
+  return versuch();
 }
 
 /**
@@ -130,12 +239,9 @@ async function anfrage(weg, { methode = 'GET', koerper = null } = {}) {
   if (!basis) {
     throw new Error('Auf diesem Geraet laeuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
   }
-  const abbruch = AbortSignal.timeout(ZEITGRENZE_MS);
-  const antwort = await fetch(`${basis}${weg}`, {
+  const antwort = await alsAdmin(`${basis}${weg}`, {
     method: methode,
-    signal: abbruch,
     headers: {
-      Authorization: adminKopf(),
       Accept: 'application/json',
       ...(koerper ? { 'Content-Type': 'application/json' } : {}),
     },
@@ -380,11 +486,11 @@ async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}, grenze = 
   if (!basis) {
     throw new Error('Auf diesem Geraet laeuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
   }
-  const antwort = await fetch(`${basis}${weg}`, {
-    method: methode,
-    signal: AbortSignal.timeout(grenze),
-    headers: { Authorization: adminKopf(), ...kopfzeilen },
-  });
+  const antwort = await alsAdmin(
+    `${basis}${weg}`,
+    { method: methode, headers: kopfzeilen },
+    grenze
+  );
   if (!antwort.ok && !erlaubt.includes(antwort.status)) {
     throw new Error(
       `Firmenordner: ${methode} ${weg} antwortete ${antwort.status} ` +
@@ -776,6 +882,7 @@ async function zustand() {
 
 module.exports = {
   ZEITGRENZE_LOESCHEN_MS,
+  DIENST_ADMIN,
   istAn,
   basisAussen,
   basisIntern,

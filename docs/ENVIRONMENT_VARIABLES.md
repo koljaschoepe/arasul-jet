@@ -728,11 +728,16 @@ in [docs/features/FIRMENORDNER.md](features/FIRMENORDNER.md).
 | FIRMENORDNER_PORT                   | 8443                         | Der Port draußen; im Container steht 8443 fest           |
 | FIRMENORDNER_ADRESSE                | `https://<MDNS_NAME>:<PORT>` | Was das Gerät einem Menschen und seinem Klienten nennt   |
 | FIRMENORDNER_INTERN                 | `http://firmenordner:9200`   | Wo das Backend ihn im Docker-Netz erreicht               |
-| FIRMENORDNER_ADMIN                  | admin                        | Anmeldename des Dienst-Administrators                    |
 | FIRMENORDNER_VERSION                | 8.0.1                        | Die Fassung des Abbilds — fest, und die gemessene        |
 | FIRMENORDNER_LOG_LEVEL              | warn                         | Protokollstufe des Dienstes                              |
 | FIRMENORDNER_ZEITGRENZE_MS          | 10000                        | Wie lange das Backend auf ihn wartet                     |
 | FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS | 900000                       | Wie lange das **Wegwerfen** dauern darf (15 min)         |
+
+**`FIRMENORDNER_ADMIN` gibt es nicht mehr** (26.09.2026). Der
+Dienst-Administrator heißt fest `arasul-dienst`, und das Backend benennt ihn
+beim ersten Kontakt von `admin` dorthin um — `admin` gehört dem Menschen, der
+das Gerät eingerichtet hat. Eine `.env`, die die Zeile noch trägt, ist
+harmlos: Compose reicht sie nicht mehr durch.
 
 **Wegwerfen hat seine eigene Geduld**, und das ist keine Doppelung: jeder
 andere Aufruf fragt oder trägt etwas ein, das Wegwerfen löscht jede Datei im
