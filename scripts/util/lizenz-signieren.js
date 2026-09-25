@@ -22,7 +22,7 @@
  *
  * Aufruf:
  *   node scripts/util/lizenz-signieren.js --kunde "Muster GmbH" \
- *     --stufe professional --max-apps 5 --tage 365 \
+ *     --stufe professional [--max-apps 5] [--max-konten 10] --tage 365 \
  *     [--geraet <hardwareFingerprint>] [--aus lizenz.key]
  *
  * Ohne `--aus` steht die Lizenz auf STDOUT (eine Zeile), alles andere auf
@@ -69,6 +69,9 @@ function argumente(argv) {
       case '--max-apps':
         a.maxApps = wert();
         break;
+      case '--max-konten':
+        a.maxUsers = wert();
+        break;
       case '--tage':
         a.tage = wert();
         break;
@@ -101,12 +104,21 @@ function argumente(argv) {
   if (!STUFEN.includes(a.stufe)) {
     abbruch(`--stufe ${a.stufe} gibt es nicht (${STUFEN.join(', ')})`);
   }
-  if (a.maxApps !== undefined) {
-    const zahl = Number(a.maxApps);
-    if (!Number.isInteger(zahl) || (zahl < 1 && zahl !== -1)) {
-      abbruch(`--max-apps ${a.maxApps}: eine ganze Zahl ab 1, oder -1 fuer unbegrenzt`);
+  // Beide Grenzen duerfen in der Nutzlast stehen und muessen nicht (J35):
+  // ohne sie gilt die Vorgabe der Stufe, und die ist fuer professional und
+  // enterprise unbegrenzt.
+  for (const [feld, schalter] of [
+    ['maxApps', '--max-apps'],
+    ['maxUsers', '--max-konten'],
+  ]) {
+    if (a[feld] === undefined) {
+      continue;
     }
-    a.maxApps = zahl;
+    const zahl = Number(a[feld]);
+    if (!Number.isInteger(zahl) || (zahl < 1 && zahl !== -1)) {
+      abbruch(`${schalter} ${a[feld]}: eine ganze Zahl ab 1, oder -1 fuer unbegrenzt`);
+    }
+    a[feld] = zahl;
   }
   const tage = Number(a.tage);
   if (!Number.isInteger(tage) || tage < 1) {
@@ -181,6 +193,9 @@ function main() {
   if (a.maxApps !== undefined) {
     nutzlast.maxApps = a.maxApps;
   }
+  if (a.maxUsers !== undefined) {
+    nutzlast.maxUsers = a.maxUsers;
+  }
   if (a.geraet) {
     nutzlast.hardware_id = a.geraet;
   }
@@ -207,6 +222,7 @@ function main() {
   }
   process.stderr.write(
     `lizenz-signieren: ${nutzlast.tier}, maxApps ${a.maxApps ?? '(Vorgabe der Stufe)'}, ` +
+      `maxUsers ${a.maxUsers ?? '(Vorgabe der Stufe)'}, ` +
       `fuer "${nutzlast.customer}", bis ${nutzlast.expires_at.slice(0, 10)}` +
       `${a.geraet ? `, gebunden an ${a.geraet}` : ', an kein Geraet gebunden'}` +
       `${a.aus ? ` -> ${a.aus}` : ''}\n`

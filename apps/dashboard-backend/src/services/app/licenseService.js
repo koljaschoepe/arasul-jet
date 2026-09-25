@@ -54,15 +54,19 @@ const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30'
 /**
  * Was eine Lizenzstufe freischaltet.
  *
- * Bis Phase C3 (27.08.2026) standen hier `rag`, `maxDocuments` und
- * `maxWorkflows`. Alle drei beschrieben ein Produkt, das es nicht mehr gibt:
- * Dokumente und RAG sind in Phase B4 gefallen, die n8n-Workflows in B5. Eine
- * Lizenz, die Grenzen fuer Dinge zieht, die das Geraet nicht kann, verspricht
- * dem Kunden ein anderes Produkt als das gekaufte.
+ * DER BESCHLUSS VOM 25.09.2026 (J35): `community` traegt drei Konten und drei
+ * Apps, und beides ist durchgesetzt. Die bezahlte Stufe ist `professional`,
+ * ohne Grenzen. `enterprise` nimmt das Geraet weiter an -- eine Lizenz, die so
+ * signiert ist, soll nicht an einem Wort scheitern --, mit denselben Rechten.
+ * Zwei Stufen mit verschiedenen Rechten waeren zwei Produkte, und verkauft
+ * wird eines.
  *
- * Was bleibt, ist das, was CLAUDE.md als Zielbild nennt: Zugaenge, Apps, die
- * externe Schnittstelle. `maxApps` ist die einzige Zahl hier, hinter der ein
- * Riegel steht.
+ * Bis dahin stand hier `maxUsers` (community 1, professional 5), und kein
+ * Aufruf pruefte es: jedes Geraet ohne Lizenz trug beliebig viele Konten.
+ * Seither zaehlt `benutzerService.pruefeKontenGrenze` die AKTIVEN Konten --
+ * der Administrator zaehlt mit, ein stillgelegtes nicht. Stilllegen ist der
+ * Weg, einen Platz freizumachen, ohne jemandes Laeufe und Protokolle zu
+ * loeschen.
  *
  * `maxApps` ZAEHLT JEDE EINGESPIELTE APP, Test- und Livestand zusammen
  * (Entscheidung Kolja vom 30.08.2026, `appStore.pruefeAppGrenze`). Eine App
@@ -70,46 +74,43 @@ const GRACE_PERIOD_DAYS = parseInt(process.env.LICENSE_GRACE_PERIOD_DAYS || '30'
  * einen Container, eine Datenbank je Stand und einen Ordner, und das alles
  * kostet das Geraet, ob ein Mitarbeiter sie benutzt oder nicht.
  *
- * H7 hatte den Riegel auf den Livestand verschoben und dabei den Riegel
- * verloren: geprueft wurde nur noch beim Schalten nach live, und ein Deploy
- * ging immer durch. Am 30.08.2026 lagen drei Apps am Orin und die vierte kam
- * ohne Widerspruch dazu. Eine Grenze, die beim Einspielen nicht greift, ist
- * kein Verkaufsargument; sie ist ein Fund, den ein Partner als Erster meldet.
- *
- * Die Zahl hier ist die VORGABE der Stufe. Traegt die signierte Nutzlast
- * selbst `maxApps`, gilt deren Zahl (J32, 23.09.2026, `_pruefeLizenz`).
+ * Die Zahlen hier sind die VORGABE der Stufe. Traegt die signierte Nutzlast
+ * selbst `maxApps` oder `maxUsers`, gilt deren Zahl (J32 fuer `maxApps`, J35
+ * fuer `maxUsers`, `_pruefeLizenz`).
  *
  * `community` ist die Stufe eines Geraets OHNE Lizenzdatei. Sie ist kein
  * Verkaufspaket, sondern der Zustand vor dem ersten Schluessel.
  */
+const UNBEGRENZT = {
+  maxUsers: -1,
+  maxApps: -1,
+  externalApi: true,
+  customModels: true,
+};
 const FEATURE_TIERS = {
   community: {
-    maxUsers: 1,
+    maxUsers: 3,
     maxApps: 3,
     externalApi: false,
     customModels: false,
     priority: 0,
   },
-  professional: {
-    maxUsers: 5,
-    maxApps: -1, // unbegrenzt
-    externalApi: true,
-    customModels: false,
-    priority: 1,
-  },
-  enterprise: {
-    maxUsers: -1, // unbegrenzt
-    maxApps: -1,
-    externalApi: true,
-    customModels: true,
-    priority: 2,
-  },
+  professional: { ...UNBEGRENZT, priority: 1 },
+  enterprise: { ...UNBEGRENZT, priority: 1 },
 };
+
+/**
+ * Die Grenzen, die eine signierte Nutzlast selbst nennen darf. Jede ist eine
+ * ganze Zahl ab 1 oder -1 fuer unbegrenzt; eine Null oder ein Bruch waere
+ * eine Lizenz, die weniger erlaubt als gar keine.
+ */
+const GRENZEN_AUS_NUTZLAST = ['maxApps', 'maxUsers'];
 
 class LicenseService {
   constructor() {
     this._cachedLicense = null;
     this._cacheExpiry = 0;
+    this._cacheKennung = null;
     this._hardwareFingerprint = null;
   }
 
@@ -208,10 +209,19 @@ class LicenseService {
    * @returns {{ valid: boolean, license?: object, error?: string, graceMode?: boolean }}
    */
   async validateLicense() {
-    // Cache for 5 minutes to avoid disk/crypto on every request
-    if (this._cachedLicense && Date.now() < this._cacheExpiry) {
+    // DER CACHE HAENGT AN DER DATEI (J35). Bis dahin galt er fuenf Minuten
+    // ohne Rueckfrage, und das war richtig, solange nur dieser Prozess die
+    // Datei schrieb. Seither schreibt auch `scripts/util/lizenz-geraet.sh`
+    // sie, in einem EIGENEN Prozess im selben Container -- und das Backend
+    // meldete danach fuenf Minuten lang die alte Stufe und liess das vierte
+    // Konto nicht zu, obwohl die Lizenz schon dalag. Ein `stat` je Aufruf
+    // kostet nichts; die Kryptographie bleibt im Cache. Die fuenf Minuten
+    // bleiben daneben, weil ein Ablaufdatum auch ohne neue Datei eintritt.
+    const kennung = await this._dateiKennung();
+    if (this._cachedLicense && Date.now() < this._cacheExpiry && this._cacheKennung === kennung) {
       return this._cachedLicense;
     }
+    this._cacheKennung = kennung;
 
     let licenseData;
     try {
@@ -226,6 +236,16 @@ class LicenseService {
     }
 
     return this._cacheResult(await this._pruefeLizenz(licenseData));
+  }
+
+  /** Aenderungszeit und Groesse der Lizenzdatei, oder `fehlt`. */
+  async _dateiKennung() {
+    try {
+      const st = await fs.stat(LICENSE_FILE);
+      return `${st.mtimeMs}:${st.size}`;
+    } catch {
+      return 'fehlt';
+    }
   }
 
   /**
@@ -322,22 +342,24 @@ class LicenseService {
         );
       }
 
-      // `maxApps` AUS DER NUTZLAST (J32, 23.09.2026). Die Stufe gibt die
-      // Vorgabe, die signierte Lizenz darf die Zahl selbst nennen -- sonst
-      // kennten die bezahlten Stufen nur -1, und ob eine Lizenz die Grenze
-      // wirklich hebt, liesse sich nie von oben messen. Die Zahl ist
-      // unterschrieben wie alles andere darin; eine ganze Zahl ab 1, oder
-      // -1 fuer unbegrenzt.
+      // DIE GRENZEN AUS DER NUTZLAST (`maxApps` seit J32, `maxUsers` seit
+      // J35). Die Stufe gibt die Vorgabe, die signierte Lizenz darf die Zahl
+      // selbst nennen -- sonst kennte die bezahlte Stufe nur -1, und ob eine
+      // Lizenz eine Grenze wirklich hebt, liesse sich nie von oben messen. Die
+      // Zahl ist unterschrieben wie alles andere darin.
       const features = { ...FEATURE_TIERS[tier] };
-      if (license.maxApps !== undefined) {
-        const zahl = license.maxApps;
+      for (const schluessel of GRENZEN_AUS_NUTZLAST) {
+        if (license[schluessel] === undefined) {
+          continue;
+        }
+        const zahl = license[schluessel];
         if (!Number.isInteger(zahl) || (zahl < 1 && zahl !== -1)) {
           return abgelehnt(
-            `Die Lizenz nennt maxApps ${JSON.stringify(zahl)}; erlaubt ist eine ganze Zahl ` +
-              'ab 1 oder -1 fuer unbegrenzt. Das Geraet bleibt community.'
+            `Die Lizenz nennt ${schluessel} ${JSON.stringify(zahl)}; erlaubt ist eine ganze ` +
+              'Zahl ab 1 oder -1 fuer unbegrenzt. Das Geraet bleibt community.'
           );
         }
-        features.maxApps = zahl;
+        features[schluessel] = zahl;
       }
 
       const isExpired = now > expiresAt;
@@ -413,6 +435,7 @@ class LicenseService {
     const dir = path.dirname(LICENSE_FILE);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(LICENSE_FILE, licenseKey.trim(), 'utf8');
+    this._cacheKennung = await this._dateiKennung();
     this._cacheResult(result);
 
     logger.info(`License activated: tier=${result.tier}, customer=${result.customer}`);
@@ -439,6 +462,7 @@ class LicenseService {
     }
     this._cachedLicense = null;
     this._cacheExpiry = 0;
+    this._cacheKennung = null;
     const license = await this.validateLicense();
     logger.info(`License removed (file present: ${entfernt}); tier now ${license.tier}`);
     return { entfernt, license };
@@ -455,6 +479,33 @@ class LicenseService {
       ...license,
       hardwareFingerprint: fingerprint,
       featureTiers: Object.keys(FEATURE_TIERS),
+    };
+  }
+
+  /**
+   * Was die Lizenz traegt und was davon belegt ist: die eine Antwort fuer die
+   * Seite Lizenz in den Einstellungen und fuer `lizenz-geraet.sh status`
+   * (J35). Dieselben Zaehlungen wie die beiden Riegel -- aktive Konten
+   * (`benutzerService.pruefeKontenGrenze`), jede Zeile in `apps`
+   * (`appStore.pruefeAppGrenze`); eine Anzeige, die anders zaehlt als der
+   * Riegel, zeigt "2 von 3" und weist trotzdem ab.
+   *
+   * `db` wird erst hier geholt: der Dienst selbst laeuft auch ohne Datenbank
+   * (`scripts/test/lizenz-signatur.js` misst ihn in einem Wegwerfordner).
+   * @returns {Promise<{stufe: string, konten: {belegt: number, grenze: number},
+   *   apps: {belegt: number, grenze: number}}>} -1 heisst unbegrenzt
+   */
+  async nutzung() {
+    const db = require('../../database');
+    const lizenz = await this.validateLicense();
+    const [konten, apps] = await Promise.all([
+      db.query('SELECT COUNT(*)::int AS n FROM public.admin_users WHERE is_active = true'),
+      db.query('SELECT COUNT(*)::int AS n FROM public.apps'),
+    ]);
+    return {
+      stufe: lizenz.tier,
+      konten: { belegt: konten.rows[0].n, grenze: lizenz.features.maxUsers },
+      apps: { belegt: apps.rows[0].n, grenze: lizenz.features.maxApps },
     };
   }
 

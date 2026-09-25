@@ -19,7 +19,8 @@ const db = require('../../database');
 const { hashPassword } = require('../../utils/password');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { invalidateUserCache, ROLLEN } = require('../../middleware/auth');
-const { NotFoundError, ValidationError } = require('../../utils/errors');
+const { ConflictError, NotFoundError, ValidationError } = require('../../utils/errors');
+const licenseService = require('../app/licenseService');
 const logger = require('../../utils/logger');
 // Der Firmenordner (J33, 22.09.2026). Ein Mensch am Geraet ist auch ein
 // Mensch im Dateidienst -- der hat seine eigene Anmeldung und nimmt die
@@ -65,8 +66,52 @@ async function holeBenutzer(userId) {
 }
 
 /**
+ * Der Riegel der Lizenz fuer Konten (J35, Beschluss vom 25.09.2026).
+ *
+ * `FEATURE_TIERS.maxUsers` stand seit Jahren im Lizenzdienst, und kein Aufruf
+ * pruefte es: ein Geraet ohne Lizenz trug beliebig viele Konten. Gezaehlt
+ * werden die AKTIVEN -- der Administrator zaehlt mit (er ist ein Mensch, der
+ * sich anmeldet), ein stillgelegtes Konto nicht. Stilllegen ist damit der Weg,
+ * einen Platz freizumachen, ohne die Laeufe und Protokolle eines Menschen
+ * wegzuwerfen; wer ihn wieder zulaesst, geht durch denselben Riegel.
+ *
+ * GEZAEHLT WIRD UNTER EINER SPERRE, in derselben Transaktion wie das
+ * Schreiben: zwei Administratoren, die in derselben Sekunde das dritte Konto
+ * anlegen, saehen sonst beide die Zwei und kaemen beide durch. Der Riegel ist
+ * eine Zusage an den, der die Lizenz verkauft; eine, die bei gleichzeitigen
+ * Klicks nicht gilt, ist keine. Die Sperre ist benannt und transaktionsweit
+ * (`pg_advisory_xact_lock`), sie faellt mit dem COMMIT.
+ *
+ * Was zu tun ist, steht in der Meldung, und die Zahlen stehen in `details`
+ * -- dieselbe Form wie bei der App-Grenze (`appStore.pruefeAppGrenze`).
+ *
+ * @param {object} client ein Client in einer offenen Transaktion
+ * @param {string} wer    der Name, der dazukommen soll (fuer die Meldung)
+ */
+async function pruefeKontenGrenze(client, wer) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('arasul:kontengrenze'))");
+  const { rows } = await client.query(
+    'SELECT username FROM public.admin_users WHERE is_active = true ORDER BY id'
+  );
+  const grenze = await licenseService.checkLimit('maxUsers', rows.length);
+  if (grenze.allowed) {
+    return;
+  }
+  const { tier } = await licenseService.validateLicense();
+  const namen = rows.map(z => z.username);
+  throw new ConflictError(
+    `Die Lizenz dieses Geraets (${tier}) traegt ${grenze.limit} Konten, aktiv sind ` +
+      `${grenze.current}: ${namen.join(', ')}. ${wer} kommt nicht dazu. Der Administrator ` +
+      'zaehlt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Einstellungen -> ' +
+      'Mitarbeiter) oder die Lizenz erweitern (Einstellungen -> Lizenz).',
+    { grenze: grenze.limit, belegt: grenze.current, stufe: tier, konten: namen, abgewiesen: wer }
+  );
+}
+
+/**
  * Einen Benutzer anlegen. Ein doppelter Name wird vom Fehler-Handler als
- * 409 CONFLICT gemeldet (PG 23505), hier wird nichts vorab geprueft.
+ * 409 CONFLICT gemeldet (PG 23505), hier wird nichts vorab geprueft --
+ * ausser der Grenze der Lizenz (`pruefeKontenGrenze`).
  */
 async function legeBenutzerAn({ username, password, email, rolle }) {
   if (!ROLLEN.includes(rolle)) {
@@ -78,25 +123,29 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
   // Komplexitaetsregeln hier nicht). Die Oberflaeche verlangt beim ersten
   // Anmelden einen Wechsel, danach kennt es nur noch der Mitarbeiter selbst
   // (Phase D1, Migration 178).
-  const result = await db.query(
-    `INSERT INTO admin_users (username, password_hash, email, role, is_active,
-                              passwort_vom_admin, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, true, true, NOW(), NOW())
-     RETURNING ${SPALTEN}`,
-    [username, passwordHash, email || null, rolle]
-  );
+  const zeile = await db.transaction(async client => {
+    await pruefeKontenGrenze(client, username);
+    const result = await client.query(
+      `INSERT INTO admin_users (username, password_hash, email, role, is_active,
+                                passwort_vom_admin, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, true, true, NOW(), NOW())
+       RETURNING ${SPALTEN}`,
+      [username, passwordHash, email || null, rolle]
+    );
+    return result.rows[0];
+  });
   logger.info(`Benutzer ${username} angelegt (Rolle ${rolle})`);
   // Mit dem Startpasswort: es ist der einzige Augenblick, in dem das Geraet
   // es im Klartext hat. Wer hier spaeter etwas umbaut und diese Zeile
   // vergisst, legt einen Menschen an, der in den Firmenordner nicht
   // hineinkommt -- sichtbar wird das erst an seinem Rechner.
   await firmenordner.spiegleNutzer({
-    benutzerId: result.rows[0].id,
+    benutzerId: zeile.id,
     username,
     email: email || null,
     passwort: password,
   });
-  return result.rows[0];
+  return zeile;
 }
 
 /**
@@ -159,10 +208,18 @@ async function setzeAktiv({ userId, aktiv }) {
     );
   }
 
-  const result = await db.query(
-    `UPDATE admin_users SET is_active = $2, updated_at = NOW() WHERE id = $1 RETURNING ${SPALTEN}`,
-    [userId, aktiv]
-  );
+  // Wieder zulassen belegt einen Platz der Lizenz (J35): ein Konto, das
+  // stillgelegt nicht zaehlte, zaehlt danach wieder. Ohne den Riegel hier
+  // waere Stilllegen, Anlegen, Wiederzulassen der Weg um die Grenze herum.
+  const result = await db.transaction(async client => {
+    if (aktiv && !ziel.is_active) {
+      await pruefeKontenGrenze(client, ziel.username);
+    }
+    return client.query(
+      `UPDATE admin_users SET is_active = $2, updated_at = NOW() WHERE id = $1 RETURNING ${SPALTEN}`,
+      [userId, aktiv]
+    );
+  });
 
   if (!aktiv) {
     await blacklistAllUserTokens(userId);
@@ -297,6 +354,7 @@ module.exports = {
   listeBenutzer,
   holeBenutzer,
   legeBenutzerAn,
+  pruefeKontenGrenze,
   setzeAktiv,
   loescheBenutzer,
   ANONYM,
