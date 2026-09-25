@@ -34,11 +34,22 @@ function dauer(ms: number | null): string | null {
   return `${(ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} s`;
 }
 
+/** Die Dateiarten, die `document/*` annimmt, mit ihrem kurzen Namen. */
+const ARTEN: Record<string, string> = {
+  'application/pdf': 'PDF',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+  'text/plain': 'Text',
+  'text/markdown': 'Markdown',
+  'image/png': 'PNG',
+  'image/jpeg': 'JPEG',
+  'image/tiff': 'TIFF',
+  'image/bmp': 'BMP',
+};
+
 /** `application/pdf` → `PDF`; was keinen kurzen Namen hat, bleibt, wie es ist. */
 function dateiArt(typ: string | null): string | null {
   if (!typ) return null;
-  const teil = typ.split('/').pop() ?? typ;
-  return teil.length <= 5 ? teil.toUpperCase() : typ;
+  return ARTEN[typ] ?? typ;
 }
 
 export function KiAufrufe({ aufrufe }: { aufrufe: KiAufruf[] | undefined }) {

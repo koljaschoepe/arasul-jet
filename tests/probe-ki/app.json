@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "probe-ki",
+  "name": "Probe: KI-Aufrufe im Protokoll",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/ki-aufrufe-abnahme.sh: liest einen Beleg ueber document/extract-structured aus, ohne Flow, und reicht X-Arasul-User weiter.",
+  "backend": {
+    "image": "arasul-probe-ki:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
+    "gesundheit": "/gesund",
+    "umgebung": {
+      "PROBE_VERSION": "1.0.0"
+    }
+  },
+  "ports": {
+    "backend": 8080
+  },
+  "ressourcen": {
+    "speicher": "128m",
+    "cpus": 0.25
+  },
+  "modelle": []
+}
