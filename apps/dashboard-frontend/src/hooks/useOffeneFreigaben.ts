@@ -36,6 +36,12 @@ export interface OffeneFreigabe {
   zusammenhang: string | null;
   frist: string;
   angefragt_am: string;
+  /** Wer den Lauf ausgelöst hat (J35), sofern die App es genannt hat. */
+  einreicher?: string | null;
+  /** Der Einreicher ist vom Entscheiden ausgeschlossen (Vier-Augen-Prinzip). */
+  ohne_einreicher?: boolean;
+  /** Nur benannte Entscheider sehen diese Anfrage (Rolle oder Konten). */
+  benannt?: boolean;
 }
 
 /**

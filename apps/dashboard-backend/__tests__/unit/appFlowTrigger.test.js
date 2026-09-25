@@ -114,7 +114,48 @@ describe('POST /flows/:name/run', () => {
       userId: 1,
       appId: 'urlaub',
       stand: 'live',
+      einreicherId: null,
+      freigabeRegel: null,
     });
+  });
+
+  it('prueft Einreicher und Freigaberegel VOR dem Start und schreibt sie an den Lauf (J35)', async () => {
+    const db = require('../../src/database');
+    appFlows.lade.mockResolvedValue({ name: 'bericht', argumente: [] });
+    flowRunner.starten.mockResolvedValue({ runId: 6 });
+    db.query.mockResolvedValue({
+      rows: [
+        { id: 3, username: 'anna', role: 'mitarbeiter' },
+        { id: 4, username: 'bernd', role: 'mitarbeiter' },
+      ],
+    });
+
+    const res = await request(server())
+      .post('/api/v1/external/flows/bericht/run')
+      .set('x-api-key', 'app')
+      .send({ wait_for_result: false, einreicher: 'anna', freigabe: { ohne_einreicher: true } });
+
+    expect(res.status).toBe(202);
+    expect(flowRunner.starten).toHaveBeenCalledWith(
+      expect.objectContaining({
+        einreicherId: 3,
+        freigabeRegel: { ohne_einreicher: true, entscheider_rolle: null, entscheider_ids: null },
+      })
+    );
+  });
+
+  it('weist eine Regel ab, nach der niemand entscheiden koennte -- 400, kein Lauf', async () => {
+    const db = require('../../src/database');
+    appFlows.lade.mockResolvedValue({ name: 'bericht', argumente: [] });
+    db.query.mockResolvedValue({ rows: [{ id: 3, username: 'anna', role: 'mitarbeiter' }] });
+
+    const res = await request(server())
+      .post('/api/v1/external/flows/bericht/run')
+      .set('x-api-key', 'app')
+      .send({ wait_for_result: false, einreicher: 'anna', freigabe: { ohne_einreicher: true } });
+
+    expect(res.status).toBe(400);
+    expect(flowRunner.starten).not.toHaveBeenCalled();
   });
 
   it('findet den Flow einer FREMDEN App nicht -- 404 statt Start', async () => {

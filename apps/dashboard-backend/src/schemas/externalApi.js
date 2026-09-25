@@ -20,11 +20,36 @@ const ExternalLlmChatBody = z
 // POST /flows/:name/run — einen Flow extern auslösen (Plan 013, B8).
 // Argumentwerte kommen als name→Wert (Strings/Zahlen/Booleans, wie im Chat);
 // der Runner prüft sie gegen die Deklaration des Flows.
+/**
+ * Wer die Freigaben eines Laufs entscheiden darf (J35). Steht als eigenes
+ * Schema da, weil der Kontrakt es dem Kit zeigt (`kontrakt().freigaben`).
+ * `entscheider` nennt entweder `rolle` oder `konten`; dass es genau eines ist
+ * und dass es die Konten gibt, prueft der Dienst (`pruefeRegel`).
+ */
+const FreigabeRegel = z
+  .object({
+    ohne_einreicher: z.boolean().optional(),
+    entscheider: z
+      .object({
+        rolle: z.enum(['admin']).optional(),
+        konten: z.array(z.string().trim().min(1).max(100)).min(1).max(50).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 const ExternalFlowRunBody = z
   .object({
     args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
     wait_for_result: z.boolean().optional(),
     timeout_seconds: z.number().int().positive().max(1800).optional(),
+    // Wer den Lauf ausgeloest hat, und wer seine Freigaben entscheiden darf
+    // (J35). Beides setzt die APP, die den Menschen aus `X-Arasul-User` kennt;
+    // gegen die Konten am Geraet geprueft wird im Dienst
+    // (`freigabeAnfragen.pruefeRegel`), hier nur die Form.
+    einreicher: z.string().trim().min(1).max(100).optional(),
+    freigabe: FreigabeRegel.optional(),
   })
   .strict();
 
@@ -54,5 +79,6 @@ const CreateApiKeyBody = z
 module.exports = {
   ExternalLlmChatBody,
   ExternalFlowRunBody,
+  FreigabeRegel,
   CreateApiKeyBody,
 };

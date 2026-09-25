@@ -7,7 +7,9 @@
  * damit ist der Weg von C7 zum ersten Mal ganz begehbar, ohne `curl`.
  *
  * WER HIER ETWAS SIEHT, ist nicht nach Rolle bestimmt: `GET /api/freigabe-anfragen`
- * verbindet mit `app_members` (C2), und der JOIN IST die Berechtigung.
+ * verbindet mit `app_members` (C2), und der JOIN IST die Berechtigung. Seit
+ * J35 kann ein Lauf den Kreis enger ziehen (ohne Einreicher, nur benannte
+ * Entscheider); auch das entscheidet das Backend, hier steht nur der Hinweis.
  * Administrator und Mitarbeiter bekommen dieselbe Abfrage — freigeben ist
  * Arbeit und keine Verwaltung. Dieses Bauteil blendet deshalb nichts nach
  * Rolle aus; es gäbe nichts auszublenden.
@@ -51,6 +53,24 @@ function Herkunft({ f }: { f: OffeneFreigabe }) {
       )}
       <span aria-hidden="true">·</span>
       <span>Flow {f.flow_name}</span>
+      {f.einreicher && (
+        <>
+          <span aria-hidden="true">·</span>
+          <span>eingereicht von {f.einreicher}</span>
+        </>
+      )}
+      {(f.ohne_einreicher || f.benannt) && (
+        <span
+          className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
+          title={
+            f.ohne_einreicher
+              ? 'Wer eingereicht hat, entscheidet nicht mit'
+              : 'Nur benannte Entscheider sehen diese Freigabe'
+          }
+        >
+          {f.ohne_einreicher ? 'Vier Augen' : 'Benannt'}
+        </span>
+      )}
     </span>
   );
 }
