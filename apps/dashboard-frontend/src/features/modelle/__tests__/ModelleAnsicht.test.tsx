@@ -52,7 +52,7 @@ vi.mock('@/contexts/ActivationContext', () => ({
 /** Die Kurzliste aus C8, so wie `GET /api/models/catalog` sie liefert. */
 const KURZLISTE = [
   {
-    id: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
+    id: 'qwen3.8:27b-q4_K_M',
     name: 'Qwen 3.8 27B',
     description: 'Der Standard. Die Flows laufen darauf.',
     size_bytes: 16_000_000_000,
@@ -100,8 +100,8 @@ const BUDGET = {
   safetyBufferMb: 2_048,
   loadedModels: [
     {
-      id: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
-      ollamaName: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
+      id: 'qwen3.8:27b-q4_K_M',
+      ollamaName: 'qwen3.8:27b-q4_K_M',
       name: 'Qwen 3.8 27B',
       ramMb: 20_480,
     },
@@ -119,8 +119,7 @@ function huelle() {
 function antworte() {
   apiMock.get.mockImplementation(async (pfad: string) => {
     if (pfad === '/models/catalog') return { models: KURZLISTE };
-    if (pfad === '/models/default')
-      return { default_model: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS' };
+    if (pfad === '/models/default') return { default_model: 'qwen3.8:27b-q4_K_M' };
     if (pfad === '/models/status') return { loaded_model: null };
     if (pfad === '/models/memory-budget') return BUDGET;
     throw new Error(`unerwarteter Pfad: ${pfad}`);
@@ -146,9 +145,7 @@ describe('Modelle', () => {
   it('sagt, welches Modell der Standard ist, und nur bei einem', async () => {
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
-    expect(
-      await screen.findByTestId('standard-hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS')
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('standard-qwen3.8:27b-q4_K_M')).toBeInTheDocument();
     expect(screen.queryByTestId('standard-gemma4:e4b')).not.toBeInTheDocument();
     // Und im Kopf steht derselbe Name.
     expect(screen.getAllByText('Qwen 3.8 27B').length).toBeGreaterThan(1);
@@ -160,9 +157,7 @@ describe('Modelle', () => {
     expect(
       await screen.findByText('20,0 von 32,0 GB belegt, 2,0 GB Reserve, frei 10,0 GB')
     ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('im-speicher-hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('im-speicher-qwen3.8:27b-q4_K_M')).toBeInTheDocument();
   });
 
   it('bietet Laden nur fuer ein Modell an, das nicht am Geraet liegt', async () => {

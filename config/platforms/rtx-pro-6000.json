@@ -7,13 +7,8 @@
     "confirmed": false
   },
   "memory_budget_gb": 90,
-  "default_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
-  "models": [
-    "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS",
-    "gemma4:e4b",
-    "nomic-embed-text",
-    "llava-phi3"
-  ],
+  "default_model": "qwen3.8:27b-q4_K_M",
+  "models": ["qwen3.8:27b-q4_K_M", "gemma4:e4b", "nomic-embed-text", "llava-phi3"],
   "precision": "fp8",
   "engine": "vllm",
   "gpu_query": "nvidia-smi",

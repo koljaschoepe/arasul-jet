@@ -118,7 +118,7 @@ anstossen.
 
 - **Modelle (nur Administrator):** in der Mitte die **Kurzliste** des Geraets,
   vier Modelle und keine Suche daneben: eines fuer die Flows
-  (`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS`, der Standard), ein kleines
+  (`qwen3.8:27b-q4_K_M`, der Standard, aus der Ollama-Bibliothek), ein kleines
   schnelles (`gemma4:e4b`), eines fuer Einbettungen (`nomic-embed-text`) und
   eines fuer Bilder und eingescannten Text (`llava-phi3`). Je Zeile steht,
   wofuer das Modell da ist, wie gross es ist und ob es am Geraet liegt; die

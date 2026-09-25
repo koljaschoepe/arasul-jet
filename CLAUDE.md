@@ -59,9 +59,11 @@ er als `abgebrochen` mit Begründung, ohne Entscheidung nach der Frist als
 Seit C8 ist der **Modellkatalog die Kurzliste**: vier Modelle, festgelegt an
 `ollama list` am Orin und einmal notiert in
 [`config/modelle/kurzliste.json`](config/modelle/kurzliste.json) — das
-Standardmodell der Flows (`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS`), ein kleines
-schnelles (`gemma4:e4b`), eines für Einbettungen (`nomic-embed-text`), eines für
-Bilder und eingescannten Text (`llava-phi3`). Geladen wird nur, was darin steht;
+Standardmodell der Flows (`qwen3.8:27b-q4_K_M` — seit J35 aus der
+Ollama-Bibliothek statt von Hugging Face, mit Digest je Eintrag, Migration 186),
+ein kleines schnelles (`gemma4:e4b`), eines für Einbettungen
+(`nomic-embed-text`), eines für Bilder und eingescannten Text (`llava-phi3`).
+Geladen wird nur, was darin steht;
 der Katalog kommt ausschließlich aus Migrationen, und die Plattformprofile
 (`config/platforms/*.json`, `utils/hardware.js`, `detect-platform.sh`) tragen
 dieselbe Liste — `scripts/test/kurzliste.py` hält sie aneinander. Gestrichene

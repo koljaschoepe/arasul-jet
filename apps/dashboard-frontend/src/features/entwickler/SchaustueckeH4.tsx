@@ -127,7 +127,7 @@ const REIHEN = [
 ];
 
 const MODELLE = [
-  { wert: 'qwen', name: 'Qwen3.8 27B', hinweis: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS' },
+  { wert: 'qwen', name: 'Qwen 3.8 27B', hinweis: 'qwen3.8:27b-q4_K_M' },
   { wert: 'gemma', name: 'Gemma4 e4b', hinweis: 'klein und schnell' },
   { wert: 'nomic', name: 'Nomic Embed Text', hinweis: 'für Einbettungen' },
   { wert: 'llava', name: 'LLaVA-Phi3', hinweis: 'Bilder und eingescannter Text' },

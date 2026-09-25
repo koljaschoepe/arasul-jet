@@ -9,6 +9,9 @@
 # Stage 1: Extract Ollama binary and CUDA runners from official image
 # 0.32.12 ist die erste Version mit Qwen3.8-27B-Support (Hybrid-/Gated-DeltaNet-
 # Attention); 0.20.5 konnte die Architektur nicht laden (Plan 021 Schritt 3).
+# Seit 25.09.2026 (J35) kommt das Standardmodell als `qwen3.8:27b-q4_K_M` aus
+# der Ollama-Bibliothek statt von Hugging Face -- dieselbe Architektur, also
+# bleibt diese Version; eine neuere waere ein eigener Zug mit eigener Messung.
 ARG OLLAMA_VERSION=0.32.12
 FROM ollama/ollama:${OLLAMA_VERSION} AS ollama-source
 

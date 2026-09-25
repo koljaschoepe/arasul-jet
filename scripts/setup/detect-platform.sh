@@ -11,10 +11,11 @@
 # MODELLE (Phase C8, 27.08.2026): `LLM_MODEL` und `RECOMMENDED_MODELS` tragen
 # die Kurzliste aus `config/modelle/kurzliste.json` -- vier Modelle, auf jedem
 # Profil dieselben. Ein Profil entscheidet nur noch, ob das Standardmodell mit
-# seinen 22 GB hineinpasst; wo nicht, fuehrt das kleine schnelle. Vorher stand
+# seinen 24 GB hineinpasst; wo nicht, fuehrt das kleine schnelle. Vorher stand
 # hier je Profil eine eigene Auswahl, und acht der siebzehn genannten Kennungen
 # gab es im Katalog gar nicht. `scripts/test/kurzliste.py` haelt Skript,
-# Profile, Migration 175 und `utils/hardware.js` aneinander.
+# Profile, die Migrationen der Kurzliste (175, seit J35 auch 186) und
+# `utils/hardware.js` aneinander.
 # =============================================================================
 
 set -euo pipefail
@@ -409,7 +410,7 @@ CPU_LIMIT_BACKEND=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
+LLM_MODEL=qwen3.8:27b-q4_K_M
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=900
@@ -420,7 +421,7 @@ EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=200
 
 # Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
-RECOMMENDED_MODELS="hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS,gemma4:e4b,nomic-embed-text,llava-phi3"
+RECOMMENDED_MODELS="qwen3.8:27b-q4_K_M,gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -451,7 +452,7 @@ CPU_LIMIT_BACKEND=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
+LLM_MODEL=qwen3.8:27b-q4_K_M
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=600
@@ -462,7 +463,7 @@ EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=100
 
 # Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
-RECOMMENDED_MODELS="hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS,gemma4:e4b,nomic-embed-text,llava-phi3"
+RECOMMENDED_MODELS="qwen3.8:27b-q4_K_M,gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 
@@ -493,7 +494,7 @@ CPU_LIMIT_BACKEND=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
+LLM_MODEL=qwen3.8:27b-q4_K_M
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=600
@@ -504,7 +505,7 @@ EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=100
 
 # Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
-RECOMMENDED_MODELS="hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS,gemma4:e4b,nomic-embed-text,llava-phi3"
+RECOMMENDED_MODELS="qwen3.8:27b-q4_K_M,gemma4:e4b,nomic-embed-text,llava-phi3"
 EOF
             ;;
 

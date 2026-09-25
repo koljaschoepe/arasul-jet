@@ -1408,15 +1408,19 @@ das Abzeichen „Standard" saß auf `llava-phi3`).
 
 `GET /api/models/catalog` zeigt genau vier Modelle, und mehr gibt es nicht:
 
-| Kennung                                 | Aufgabe   | RAM   | Wofür                             |
-| --------------------------------------- | --------- | ----- | --------------------------------- |
-| `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` | text      | 22 GB | Standard, die Flows laufen darauf |
-| `gemma4:e4b`                            | text      | 10 GB | das kleine schnelle               |
-| `nomic-embed-text`                      | embedding | 2 GB  | Einbettungen (`/v1/embeddings`)   |
-| `llava-phi3`                            | vision    | 4 GB  | Bilder und eingescannter Text     |
+| Kennung              | Aufgabe   | RAM   | Wofür                             |
+| -------------------- | --------- | ----- | --------------------------------- |
+| `qwen3.8:27b-q4_K_M` | text      | 24 GB | Standard, die Flows laufen darauf |
+| `gemma4:e4b`         | text      | 10 GB | das kleine schnelle               |
+| `nomic-embed-text`   | embedding | 2 GB  | Einbettungen (`/v1/embeddings`)   |
+| `llava-phi3`         | vision    | 4 GB  | Bilder und eingescannter Text     |
 
 Die Liste steht in `config/modelle/kurzliste.json` und kommt über Migration 175
-in den Katalog. Sie ist eine **Zusage** über vier auf diesem Gerät gemessene
+in den Katalog; den Standard hat Migration 186 (25.09.2026, J35) von
+`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` auf `qwen3.8:27b-q4_K_M` aus der
+Ollama-Bibliothek gezogen — die Hugging-Face-Kennung zeigte nicht verlässlich
+auf dieselbe Datei, die neue trägt einen festen Digest (`digest` je Eintrag in
+der Kurzliste). Sie ist eine **Zusage** über vier auf diesem Gerät gemessene
 Modelle, kein Vorschlag: `POST /api/models/download` nimmt nur, was im Katalog
 steht, und der Katalog wird nur noch von Migrationen geschrieben.
 

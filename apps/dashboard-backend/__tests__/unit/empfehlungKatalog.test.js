@@ -27,7 +27,7 @@ const database = require('../../src/database');
 const logger = require('../../src/utils/logger');
 const { getRecommendedModel } = require('../../src/utils/hardware');
 
-const STANDARD = 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS';
+const STANDARD = 'qwen3.8:27b-q4_K_M';
 const SCHNELL = 'gemma4:e4b';
 const SEHEN = 'llava-phi3';
 const EINBETTUNG = 'nomic-embed-text';
@@ -73,7 +73,7 @@ describe('getRecommendedModel gegen den Katalog', () => {
   });
 
   /**
-   * Unter 64 GB reichen die 22 GB des Standardmodells nicht. Das ist die
+   * Unter 64 GB reichen die 24 GB des Standardmodells nicht. Das ist die
    * einzige Unterscheidung, die ein Profil seit C8 noch trifft.
    */
   test('auf einem kleinen Geraet fuehrt das kleine schnelle Modell', async () => {

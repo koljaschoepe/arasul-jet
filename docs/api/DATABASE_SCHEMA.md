@@ -1101,7 +1101,12 @@ Modell per Link eintragen konnte, ebenfalls. Damit hat die Spalte
 `selbst_hinzugefuegt` aus Migration 160 nichts mehr zu trennen und ist
 gefallen. Die `id` ist bei allen vier der Ollama-Name — steht dort eine
 Slug-Kennung, legt ein Direkt-Pull daneben eine zweite Zeile an (Migration
-141).
+141). Seit Migration 186 (25.09.2026, J35) ist der Standard für `text`
+`qwen3.8:27b-q4_K_M` aus der Ollama-Bibliothek; die Zeile
+`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` ist gefallen, und Verweise darauf in
+`flow_settings.modell`, `app_flows.definition->'modell'` und
+`system_settings.selected_model` sind mitgezogen (Läufe und Schritte bleiben,
+wie sie gerechnet wurden).
 
 **Primary key:** `id`
 

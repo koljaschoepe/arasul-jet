@@ -24,7 +24,7 @@ import { modellAnzeigeName } from '@/utils/modelDisplay';
 
 /** Katalog-Eintrag mit gepflegtem Namen und einer rohen Kennung. */
 const GEPFLEGT = {
-  id: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
+  id: 'qwen3.8:27b-q4_K_M',
   name: 'Qwen 3.8 27B',
   description: 'Allrounder',
   size_bytes: 16_000_000_000,
