@@ -92,7 +92,9 @@ for k in sys.argv[1].split("."):
     elif isinstance(d, dict): d = d.get(k)
     else: d = None
     if d is None: break
-print("" if d is None else (d if isinstance(d,(str,int,float)) else json.dumps(d)))' "$1" 2>/dev/null
+# Ein Wahrheitswert kommt als JSON heraus (`true`), nicht als Python (`True`):
+# der erste Lauf am Orin meldete viermal Rot an Werten, die stimmten.
+print("" if d is None else (json.dumps(d) if isinstance(d,(bool,dict,list)) else d))' "$1" 2>/dev/null
 }
 
 # Die Nummer der offenen Freigabe zu einem Lauf, aus `GET /api/freigabe-anfragen`.
