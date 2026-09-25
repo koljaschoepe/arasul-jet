@@ -1042,6 +1042,7 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                             |
 | GET    | `/api/apps/:id/laeufe`             | Die Flow-Läufe dieser App (Phase D4)                                                       |
 | GET    | `/api/apps/:id/laeufe/:runId`      | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                        |
+| GET    | `/api/apps/:id/ki-aufrufe`         | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                           |
 | POST   | `/api/apps/:id/schalten`           | Den Teststand live schalten oder zurücknehmen (Phase D4)                                   |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
@@ -1265,6 +1266,44 @@ die des **angemeldeten Menschen**. Ein App-Lauf trägt als Nutzer den, dem der
 App-Schlüssel gehört — also den Administrator, der die App eingespielt hat. Ein
 zweiter Administrator sähe die Läufe der App dort nie, obwohl beide dasselbe
 Gerät verwalten.
+
+#### Die Modellaufrufe einer App (J35, 26.09.2026)
+
+**GET /api/apps/:id/ki-aufrufe:** Query `?stand=test|live`, `?limit=1..500`
+(Vorgabe 100). Neueste zuerst. Je Aufruf über die externe Schnittstelle
+(`llm/chat`, `document/analyze`, `document/extract-structured`,
+`/v1/chat/completions`, `/v1/embeddings`) eine Zeile aus `ki_aufrufe`:
+
+```json
+{
+  "data": [
+    {
+      "id": 7,
+      "begonnen_am": "2026-09-26T09:30:05.000Z",
+      "beendet_am": "2026-09-26T09:30:17.400Z",
+      "dauer_ms": 12400,
+      "app_id": "faktum",
+      "stand": "live",
+      "benutzer_id": 5,
+      "benutzer_name": "anna",
+      "endpunkt": "document/extract-structured",
+      "modell": "qwen3.8:27b-q4_K_M",
+      "job_id": "0b7c2c1e-…",
+      "status": "fertig",
+      "fehler": null,
+      "antwort_sha256": "9f86d0…",
+      "datei_typ": "application/pdf",
+      "datei_bytes": 120000
+    }
+  ]
+}
+```
+
+**Ohne Inhalt**: kein Dateiname, kein Text, kein Prompt, keine Antwort — nur
+deren sha256, mit dem ein aufbewahrter Vorschlag seinem Aufruf zugeordnet
+werden kann. `status` ist `laeuft`, `fertig` oder `fehler`. Anders als die
+Läufe prüft dieser Weg nicht, ob es die App noch gibt: das Protokoll überlebt
+die App, und eine entfernte App liest sich weiter.
 
 **GET /api/apps/:id/laeufe/:runId:** Query `?raw=1` liefert zusätzlich die
 Rohdaten der Schritte (sie können je Subagent einige Dutzend Kilobyte sein).
@@ -3070,6 +3109,15 @@ Request: `multipart/form-data` with `file` field only.
 | `instructions`    | string | No       | Additional extraction instructions    |
 | `model`           | string | No       | Model to use                          |
 | `timeout_seconds` | string | No       | Max wait time (default: "300")        |
+| `einreicher`      | string | No       | Für wen die App fragt (J35)           |
+
+Seit J35 (26.09.2026) steht jeder Aufruf dieses Weges — und jeder andere
+Modellaufruf über die Schnittstelle — im Protokoll des Geräts
+(`GET /api/apps/:id/ki-aufrufe`). Den Menschen nennt die App mit der
+Kopfzeile `X-Arasul-User` (aus der Forward-Auth unverändert weitergereicht)
+oder dem Feld `einreicher`; an `/v1` mit dem Feld `user`. Er muss ein aktives
+Konto sein, dem die App freigegeben ist, sonst `400` und kein Aufruf.
+`POST /llm/chat` nimmt `einreicher` im JSON-Körper.
 
 ```json
 // Response:

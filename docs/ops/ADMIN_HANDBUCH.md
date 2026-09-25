@@ -608,13 +608,23 @@ Seit August 2026 muessen Sie dafuer keine Befehlszeile mehr aufmachen.
 **Einstellungen → Apps** zeigt jede App am Geraet mit beiden Fassungen; ein
 Klick darauf oeffnet ihre Ansicht:
 
-| Abschnitt   | Was dort steht                                                                                                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Staende** | Version je Stand, ob der Container laeuft und ob er sich gesund meldet. Darunter **Live schalten** (nimmt die Version aus dem Teststand) und **Zurueck** (die, die vorher live war). |
-| **Tester**  | Wer diese App sieht, und wer davon zusaetzlich den Teststand bekommt.                                                                                                                |
-| **Flows**   | Was die App kann, und mit welchem Modell. Ein Klick oeffnet die Flow-Datei samt Auftrag an das Modell.                                                                               |
-| **Laeufe**  | Was die App getan hat. Ein Klick oeffnet den Lauf mit seinen Schritten und dem Gedankengang dazwischen.                                                                              |
-| **Logs**    | Die letzten 200 Zeilen des Containers, auf Klick.                                                                                                                                    |
+| Abschnitt      | Was dort steht                                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Staende**    | Version je Stand, ob der Container laeuft und ob er sich gesund meldet. Darunter **Live schalten** (nimmt die Version aus dem Teststand) und **Zurueck** (die, die vorher live war). |
+| **Tester**     | Wer diese App sieht, und wer davon zusaetzlich den Teststand bekommt.                                                                                                                |
+| **Flows**      | Was die App kann, und mit welchem Modell. Ein Klick oeffnet die Flow-Datei samt Auftrag an das Modell.                                                                               |
+| **Laeufe**     | Was die App getan hat. Ein Klick oeffnet den Lauf mit seinen Schritten und dem Gedankengang dazwischen.                                                                              |
+| **KI-Aufrufe** | Jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, fuer wen, welches Modell, wie lange, wie es ausging. Ohne Inhalt der Datei.                       |
+| **Logs**       | Die letzten 200 Zeilen des Containers, auf Klick.                                                                                                                                    |
+
+**Welches Modell hat diesen Vorschlag gemacht?** Die **KI-Aufrufe** beantworten
+das auch fuer Vorschlaege, die kein Flow sind. Das Geraet schreibt die Zeile
+selbst, bevor es das Modell fragt; die App muss dafuer nichts tun, sie nennt nur
+den Menschen (Kopfzeile `X-Arasul-User`). Gespeichert werden weder Dateiname
+noch Text noch Antwort, nur Art und Groesse der Datei, die Nummer des Auftrags
+und der sha256 der Antwort — hat die App den Vorschlag aufbewahrt, laesst er
+sich damit genau diesem Aufruf zuordnen. Das Protokoll bleibt, auch wenn die
+App entfernt wird, und geht erst mit dem Auslieferungszustand.
 
 **Das Modell eines Flows umstellen.** Der Knopf „Modell" neben einem Flow
 fragt, womit er rechnen soll: mit dem, was im Paket steht, mit einem Modell von
