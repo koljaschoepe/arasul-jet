@@ -2,6 +2,7 @@ import {
   AppWindow,
   FolderTree,
   Info,
+  KeyRound,
   Lock,
   Server,
   Globe,
@@ -27,6 +28,7 @@ export type SettingsSectionId =
   | 'security'
   | 'privacy'
   | 'system'
+  | 'lizenz'
   | 'remote-access';
 
 export interface SettingsSection {
@@ -78,6 +80,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: 'System',
     icon: <Server />,
     description: 'Auslastung, Updates, Sicherung, Selbstheilung',
+  },
+  // Neben dem System (J35): was das Geraet traegt, ist eine Frage an das
+  // Geraet und nicht an einen Menschen -- und wer nach dem Grund sucht, warum
+  // das vierte Konto nicht ging, sucht dort.
+  {
+    id: 'lizenz',
+    label: 'Lizenz',
+    icon: <KeyRound />,
+    description: 'Stufe, Konten und Apps, Fingerabdruck, einspielen',
   },
   {
     id: 'remote-access',
