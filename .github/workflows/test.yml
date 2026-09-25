@@ -1,29 +1,36 @@
 name: CI
 
-# Reine Dokumentation loest keinen Lauf aus. Die Sperre sitzt bewusst hier am
-# AUSLOESER und nicht als `if:` an den einzelnen Jobs: GitHub laesst einen
-# Pflicht-Check, dessen ganzer Workflow durch `paths-ignore` uebersprungen
-# wurde, automatisch als erfuellt durchgehen. Ein uebersprungener EINZELJOB
-# bekommt diese Behandlung NICHT und wuerde einen reinen Doku-PR fuer immer
-# blockieren.
+# EIN WORKFLOW, EIN „CI Summary". Das ist die Regel dieser Datei, und der
+# Grund ist ein roter main.
 #
-# WER BRANCH-SCHUTZ EINSCHALTET, muss das vorher einmal echt ausprobieren:
-# einen PR aufmachen, der nur eine .md-Datei aendert, und nachsehen, ob der
-# Merge-Knopf freigegeben wird. Ein falscher Griff faellt hier nicht auf, er
-# blockiert lautlos. Stand 21.08.2026 hat dieses Repo weder Branch-Schutz noch
-# Rulesets, nachgemessen ueber die API. P9-3 im Master-Plan verlangt aber, "CI
-# Summary" zum Pflicht-Check zu machen, also wird der Fall kommen.
+# Bis zum 25.09.2026 lief reine Dokumentation hier gar nicht erst an
+# (`paths-ignore` am Ausloeser), und ein zweiter Workflow `doku-summary.yml`
+# meldete fuer solche PRs einen leeren Check desselben Namens — denn ein
+# Ruleset wartet auf einen Pflicht-Check, dessen Workflow uebersprungen wurde,
+# fuer immer (am 24.08.2026 an #697 gemessen). Die zwei Pfadlisten waren
+# komplementaer, aber nicht ausschliessend: ein PR, der Doku UND Code aendert,
+# loeste beide aus. Der Kopf von `doku-summary.yml` nannte den Fall offen und
+# ungeprueft. Am 25.09.2026 trat er ein: PR #774 bekam zwei Checks namens
+# „CI Summary", der leere war nach 2 Sekunden gruen, und das genuegte dem
+# Ruleset — `gh pr merge --auto` mergte zwanzig Sekunden nach dem Einschalten,
+# waehrend hier Knip und Guards rot wurden. main war rot bis #775.
+#
+# Seither laeuft dieser Workflow bei JEDEM PR und jedem Push auf main. Ob es
+# etwas zu testen gibt, entscheidet der Job `changes` (Ausgabe `code`), und
+# jeder Job haengt mit `if:` daran. Das ist kein Widerspruch zum alten Befund:
+# ein uebersprungener Einzeljob blockiert nur, wenn ER der Pflicht-Check ist.
+# Pflicht ist allein `CI Summary`, und das laeuft mit `if: always()` immer
+# und wartet ueber `needs` auf jeden Job.
+#
+# WER EINEN ZWEITEN JOB ODER WORKFLOW „CI Summary" NENNT, macht das Loch wieder
+# auf: das Ruleset kennt nur den Namen, nicht den Workflow. Es ist deshalb
+# ausserdem an die App „GitHub Actions" gebunden (integration_id 15368), damit
+# kein Commit-Status von aussen den Namen tragen kann.
 on:
   push:
     branches: [main]
-    paths-ignore: &nur_doku
-      - '**/*.md'
-      - 'docs/**'
-      - '.claude/**'
-      - 'LICENSE'
   pull_request:
     branches: [main]
-    paths-ignore: *nur_doku
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -31,25 +38,31 @@ concurrency:
 
 jobs:
   # ----------------------------------------------------------------------------
-  # Welche Pfade sind betroffen. Grund: am 21.08.2026 gemessen, dass 26 von 135
-  # Commits reine Dokumentation waren und trotzdem alle dreizehn Jobs samt
-  # fuenf Docker-Bauten ausgeloest haben. Die grobe Sperre dafuer ist
-  # `paths-ignore` oben; dieser Job entscheidet zusaetzlich, ob die Bauten
-  # ueberhaupt noetig sind.
+  # Welche Pfade sind betroffen, zwei Fragen.
+  #
+  # `code`: aendert der Lauf mehr als Dokumentation (`*.md`, `docs/`,
+  # `.claude/`, `LICENSE` — die Liste, die bis zum 25.09.2026 als
+  # `paths-ignore` am Ausloeser stand)? Ohne `code` wird jeder Job
+  # uebersprungen, und `CI Summary` ist trotzdem gruen.
+  #
+  # `docker`: sind die Bauten noetig? Grund: am 21.08.2026 gemessen, dass 26
+  # von 135 Commits reine Dokumentation waren und trotzdem alle dreizehn Jobs
+  # samt fuenf Docker-Bauten ausgeloest haben.
   #
   # `packages/` und `libs/` stehen mit im Filter, weil die Dockerfiles
   # `packages/shared-schemas` und `libs/shared-python/structured_logging.py` in
   # die Images kopieren. Beim ersten Entwurf fehlten sie, und eine Aenderung nur
   # dort haette den Bau stillschweigend uebersprungen.
   #
-  # IM ZWEIFEL WIRD GEBAUT. Ein Filter, der faelschlich ueberspringt, ist genau
-  # das stille Loch, das dieser Datei schon zweimal passiert ist. Ein Filter,
-  # der zu oft baut, kostet nur Zeit.
+  # IM ZWEIFEL WIRD GETESTET UND GEBAUT. Ein Filter, der faelschlich
+  # ueberspringt, ist genau das stille Loch, das dieser Datei schon dreimal
+  # passiert ist. Ein Filter, der zu oft baut, kostet nur Zeit.
   # ----------------------------------------------------------------------------
   changes:
     name: Betroffene Pfade
     runs-on: ubuntu-latest
     outputs:
+      code: ${{ steps.pruefen.outputs.code }}
       docker: ${{ steps.pruefen.outputs.docker }}
     steps:
       - uses: actions/checkout@v7
@@ -62,7 +75,13 @@ jobs:
           SPITZE: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -u
-          bauen() { echo "docker=true" >> "$GITHUB_OUTPUT"; echo "Ergebnis: bauen"; exit 0; }
+          ergebnis() {
+            echo "code=$1" >> "$GITHUB_OUTPUT"
+            echo "docker=$2" >> "$GITHUB_OUTPUT"
+            echo "Ergebnis: code=$1 docker=$2"
+            exit 0
+          }
+          bauen() { ergebnis true true; }
           if [ -z "${BASIS}" ] || [ "${BASIS}" = "0000000000000000000000000000000000000000" ]; then
             echo "Keine belastbare Vergleichsbasis."; bauen
           fi
@@ -74,8 +93,15 @@ jobs:
           if printf '%s\n' "${geaendert}" | grep -qE '^(apps/|services/|packages/|libs/|\.github/workflows/)|(^|/)Dockerfile|(^|/)\.dockerignore$|^package(-lock)?\.json$'; then
             echo "Docker-relevante Pfade betroffen."; bauen
           fi
-          echo "docker=false" >> "$GITHUB_OUTPUT"
-          echo "Ergebnis: ueberspringen"
+          # Eine Zeile, die NICHT Doku ist, genuegt. Eine leere Liste ist auch
+          # eine solche Zeile — im Zweifel wird getestet.
+          if printf '%s\n' "${geaendert}" | grep -vE '\.md$|^docs/|^\.claude/|^LICENSE$' | grep -q .; then
+            echo "Code betroffen, keine Docker-Pfade."; ergebnis true false
+          fi
+          if [ -z "${geaendert}" ]; then
+            echo "Keine geaenderten Dateien gefunden."; ergebnis true false
+          fi
+          echo "Nur Dokumentation."; ergebnis false false
 
   # ----------------------------------------------------------------------------
   # Backend: lint + full Jest suite (coverage thresholds enforced via
@@ -84,6 +110,8 @@ jobs:
   # ----------------------------------------------------------------------------
   backend:
     name: Backend (lint + jest)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -131,6 +159,8 @@ jobs:
   # ----------------------------------------------------------------------------
   frontend:
     name: Frontend (lint + vitest)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -257,6 +287,8 @@ jobs:
   # ----------------------------------------------------------------------------
   lockfile-guard:
     name: Lockfile drift guard
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -285,6 +317,8 @@ jobs:
   # ----------------------------------------------------------------------------
   migrationen:
     name: Migrationskette (leere Datenbank)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -306,6 +340,8 @@ jobs:
   # ----------------------------------------------------------------------------
   python-services:
     name: Python · ${{ matrix.service }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -377,6 +413,8 @@ jobs:
   # ----------------------------------------------------------------------------
   guards:
     name: Guards (Design, toter Code, Bausteine)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -423,6 +461,9 @@ jobs:
 
       - name: Pfadfilter deckt die Kopierquellen ab (aus der Review von #454)
         run: python3 scripts/test/pfadfilter.py --pfad .
+
+      - name: Genau ein CI Summary, und es wartet auf jeden Job (PR 774)
+        run: python3 scripts/test/ci-summary.py --pfad .
 
       - name: Durchreichung der Stellschrauben (Plan 023 E1)
         run: python3 scripts/test/durchreichung.py --wurzel .
@@ -562,6 +603,8 @@ jobs:
   # ----------------------------------------------------------------------------
   installation:
     name: Installation (install.sh aus dem Artefakt)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -718,6 +761,8 @@ jobs:
   # ----------------------------------------------------------------------------
   dead-code:
     name: Dead code (knip)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -762,6 +807,7 @@ jobs:
           # dazu. Jeder Job steht jetzt genau einmal, in einer Zeile, und wer
           # einen vergisst, sieht die Luecke statt sie in einer Kette aus
           # Bindestrichen zu uebersehen.
+          CODE: ${{ needs.changes.outputs.code }}
           ERGEBNISSE: |
             Pfadpruefung=${{ needs.changes.result }}
             Backend=${{ needs.backend.result }}
@@ -787,6 +833,14 @@ jobs:
             # gar nicht erzwingt. Aus der Review von #454.
             if [ "$name" = "Docker" ] && [ "$ergebnis" = "skipped" ]; then
               printf '%-13s %s (keine betroffenen Pfade)\n' "$name" "$ergebnis"
+              continue
+            fi
+            # Nur Doku: jeder Job ausser der Pfadpruefung ist uebersprungen,
+            # und das ist hier das richtige Ergebnis. `CODE` ist nur dann
+            # `false`, wenn die Pfadpruefung selbst gelaufen ist und es gesagt
+            # hat — faellt sie aus, ist es leer und alles muss bestehen.
+            if [ "$CODE" = "false" ] && [ "$name" != "Pfadpruefung" ] && [ "$ergebnis" = "skipped" ]; then
+              printf '%-13s %s (nur Dokumentation)\n' "$name" "$ergebnis"
               continue
             fi
             printf '%-13s %s\n' "$name" "$ergebnis"

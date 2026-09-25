@@ -671,6 +671,25 @@ pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
 
+# Genau ein „CI Summary" (J35, 25.09.2026, PR #774). Die drei Faelle, die das
+# Loch wieder aufmachen: ein zweiter Traeger des Namens, ein Pfadfilter am
+# Ausloeser, ein Job, auf den die Zusammenfassung nicht wartet.
+pruefe "CI Summary: der echte Workflow ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/ci-summary.py" --pfad "$PF"
+printf 'on: pull_request\njobs:\n  leer:\n    name: CI Summary\n    runs-on: ubuntu-latest\n' \
+  > "$PF/.github/workflows/doku-summary.yml"
+pruefe "CI Summary: ein zweiter Workflow mit dem Namen ist rot" 1 \
+  python3 "$WURZEL/scripts/test/ci-summary.py" --pfad "$PF"
+rm "$PF/.github/workflows/doku-summary.yml"
+sed -i.sicherung "s|^    branches: \[main\]$|    branches: [main]\n    paths-ignore: ['docs/**']|" "$PF/.github/workflows/test.yml"
+pruefe "CI Summary: paths-ignore am Ausloeser ist rot" 1 \
+  python3 "$WURZEL/scripts/test/ci-summary.py" --pfad "$PF"
+mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
+sed -i.sicherung '/^        dead-code,$/d' "$PF/.github/workflows/test.yml"
+pruefe "CI Summary: ein Job fehlt in needs ist rot" 1 \
+  python3 "$WURZEL/scripts/test/ci-summary.py" --pfad "$PF"
+mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
+
 # Die Tabelle des Deploys (J31, 29.08.2026). Der Fall, der wirklich passiert
 # ist: `packages/marken/` liegt im Image des Frontends, die Tabelle schickte
 # `packages/` an das Backend, der Deploy meldete Erfolg und das Geraet lief
