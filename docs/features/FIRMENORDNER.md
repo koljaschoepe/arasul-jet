@@ -151,15 +151,26 @@ Ort", und sie wird hier nicht schöngeredet.
 
 1. **Einseitig.** Das Gerät schreibt, der Dienst antwortet. Es gibt keinen
    Weg, auf dem ein Passwort aus dem Dienst zurückkäme.
-2. **Der Klartext kommt nur durch, er bleibt nicht.** Gespiegelt wird in genau
-   den zwei Augenblicken, in denen das Gerät ihn ohnehin in der Hand hat: der
-   Administrator vergibt ein Startpasswort, der Mensch wechselt es. Beide Wege
+2. **Der Klartext kommt nur durch, er bleibt nicht.** Gespiegelt wird in den
+   Augenblicken, in denen das Gerät ihn ohnehin in der Hand hat: der
+   Administrator vergibt ein Startpasswort, der Mensch wechselt es — beide Wege
    laufen durch `services/auth/passwordService.js` → `schreibePasswort`, den
-   **einen** Schreibweg für ein Passwort an diesem Gerät. In
-   `firmenordner_nutzer` steht kein Passwort; dort steht die Kennung im Dienst.
+   **einen** Schreibweg für ein Passwort an diesem Gerät —, und seit dem
+   26.09.2026 die **Anmeldung**, aber nur, solange das Passwort im Dienst noch
+   fehlt (`ordnerVerwaltung.spiegleBeiAnmeldung`). In `firmenordner_nutzer`
+   steht kein Passwort; dort steht die Kennung im Dienst.
 3. **Der Dienst steht nicht im Netz.** Kein veröffentlichter Port, nur Traefik
    davor, und der nur mit dem Zertifikat der Geräte-CA.
-4. **Das Administratorkonto des Dienstes gehört dem Gerät.** Sein Passwort
+4. **Das Administratorkonto des Dienstes gehört dem Gerät**, und es heißt
+   `arasul-dienst`, nicht `admin`. OpenCloud legt es fest als `admin` an —
+   derselbe Name, den der Installer dem ersten Menschen gibt; der kam deshalb
+   nicht in den Dateidienst (409 beim Anlegen, 401 beim Abgleich,
+   Kundendurchlauf 2 am 25.09.2026). Das Backend benennt es beim ersten
+   Kontakt über die Graph-API um (`ordnerdienst.umbenennenWennNoetig`, nach
+   einem 401 und nur mit dem Passwort des Dienstes); die Rolle hängt an der
+   Kennung, es bleibt Administrator. Frisches und bestehendes Gerät gehen
+   denselben Weg, ohne Handgriff, und am Gerät kann niemand `arasul-dienst`
+   heißen. Sein Passwort
    liegt in `config/secrets/firmenordner_admin_password` (0600, Ordner 0700),
    wird beim Bootstrap gewürfelt und steht in keiner `.env` und in keiner
    Compose-Datei. Der Dienst liest die Datei selbst (Bind-Mount), das Backend
@@ -182,11 +193,13 @@ Gerät selbst ist die Sperre sofort scharf (die Sitzungen fallen mit
 Augenblick `401`. Wer jemanden auf der Stelle aussperren muss, setzt ihm also
 ein Passwort und sperrt danach.
 
-**Was das Gerät nicht heilen kann:** einen Menschen, den es schon vor dem
-Firmenordner gab. Sein Passwort liegt nur als Hash da. `POST
-/api/firmenordner/abgleich` legt ihm ein Konto mit einem zufälligen Passwort
-an, das niemand kennt, und setzt `passwort_gespiegelt = false`. Er kommt
-hinein, sobald jemand sein Passwort einmal setzt oder er es selbst wechselt.
+**Ein Mensch, den es schon vor dem Firmenordner gab**, hat am Gerät nur einen
+Hash. `POST /api/firmenordner/abgleich` legt ihm ein Konto mit einem
+zufälligen Passwort an, das niemand kennt, und setzt `passwort_gespiegelt =
+false`. Seit dem 26.09.2026 heilt das seine **nächste Anmeldung** — in der
+Oberfläche oder über `arasul.mjs login`: wer sich anmeldet, hat das Passwort
+gerade bewiesen, und das Gerät spiegelt es dann einmal. Vorher kam er erst
+herein, wenn jemand sein Passwort setzte oder er es wechselte.
 
 ### Der Sync-Klient kommt nicht durch eine Forward-Auth
 

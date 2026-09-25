@@ -16,7 +16,11 @@
 #      $HOME unter /home liegt -- auf dem CI-Laeufer ist das so);
 #   4. install.sh, ./arasul und der Deploy rufen genau dieses Skript;
 #   5. die Skripte hinter den Einheiten nennen keinen ausgedachten
-#      Containernamen und keinen Port, den der Host nicht hat.
+#      Containernamen und keinen Port, den der Host nicht hat;
+#   6. nach einem Neustart kommt auch hoch, was ein gesetztes Profil
+#      einschaltet (J33, 26.09.2026: der Firmenordner war nach jedem `reboot`
+#      weg) -- gemessen an `ordered-startup.sh` selbst, mit einem falschen
+#      `docker` davor, das mitschreibt, was gestartet wird.
 #
 # Rueckgabe 0, wenn alles gruen ist.
 # =============================================================================
@@ -94,6 +98,35 @@ pruefe "ordered-startup.sh fragt Compose nach dem Container, nicht arasul-platfo
   "$(ja bash -c "! grep -q -- '-\${service}-1\|arasul-platform-.*-1' '$WURZEL/scripts/system/ordered-startup.sh'")"
 pruefe "deadman-switch.sh fragt keinen Port 9200 am Host und keinen erfundenen Namen" \
   "$(ja bash -c "! grep -q '9200\|arasul-platform-self-healing' '$WURZEL/scripts/system/deadman-switch.sh'")"
+
+# 6.
+ATTRAPPE="$AUS/attrappe"
+mkdir -p "$ATTRAPPE/bin"
+cat >"$ATTRAPPE/bin/docker" <<'ATTRAPPE_ENDE'
+#!/bin/bash
+# Compose kennt, was die `.env` einschaltet: hier die zwoelf Dienste samt
+# `firmenordner`. Alles andere antwortet so, dass jede Phase sofort gesund ist.
+case "$*" in
+  "compose config --services")
+    printf '%s\n' postgres-db docker-proxy llm-service embedding-service document-indexer \
+      dashboard-backend dashboard-frontend reverse-proxy metrics-collector \
+      self-healing-agent backup-service firmenordner ;;
+  "compose up -d "*) aufruf="$*"; echo "${aufruf#compose up -d }" >>"$ATTRAPPE_LOG" ;;
+  "compose ps -q "*) echo "id-${*##* }" ;;
+  inspect*) echo healthy ;;
+esac
+exit 0
+ATTRAPPE_ENDE
+chmod +x "$ATTRAPPE/bin/docker"
+ATTRAPPE_LOG="$ATTRAPPE/gestartet" PATH="$ATTRAPPE/bin:$PATH" STABILIZE_WAIT=0 \
+  ARASUL_LOG_DIR="$ATTRAPPE/logs" bash "$WURZEL/scripts/system/ordered-startup.sh" --skip-pull \
+  >"$ATTRAPPE/ausgabe" 2>&1
+GESTARTET="$(tr ' ' '\n' <"$ATTRAPPE/gestartet" 2>/dev/null)"
+pruefe "ordered-startup.sh startet nach Phase 4 den Dienst eines gesetzten Profils" \
+  "$(ja grep -qx 'firmenordner' <<<"$GESTARTET")" \
+  "gestartet: $(tr '\n' '|' <"$ATTRAPPE/gestartet" 2>/dev/null)"
+pruefe "und keinen Dienst zweimal" "$(ja [ -z "$(sort <<<"$GESTARTET" | uniq -d)" ])" \
+  "$(sort <<<"$GESTARTET" | uniq -d | tr '\n' ' ')"
 
 echo ""
 if [ "$rot" -eq 0 ]; then

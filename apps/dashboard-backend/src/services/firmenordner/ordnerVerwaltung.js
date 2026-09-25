@@ -586,6 +586,40 @@ async function spiegleNutzer({ benutzerId, username, email, passwort }) {
 }
 
 /**
+ * Beim Anmelden nachtragen, was nur mit dem Klartext geht.
+ *
+ * DER DRITTE AUGENBLICK, IN DEM DAS GERAET DAS PASSWORT IN DER HAND HAT, und
+ * bis zum 26.09.2026 der einzige, der ungenutzt blieb. Ein Mensch, den es vor
+ * dem Firmenordner schon gab, hatte im Dienst ein Konto mit einem Passwort,
+ * das niemand kennt (`holeNach`), und kam erst herein, nachdem jemand sein
+ * Passwort einmal setzte -- am Orin traf das genau den Administrator, mit dem
+ * das Geraet eingerichtet wurde: `arasul.mjs login` ging, `sync` endete mit
+ * 401. Wer sich anmeldet, hat sein Passwort gerade bewiesen; es ist dasselbe,
+ * das `setzePasswort` gespiegelt haette.
+ *
+ * NUR, WENN ES FEHLT. Ist das Passwort schon gespiegelt, kostet eine Anmeldung
+ * eine Abfrage und keine Anfrage an den Dienst -- wer es seither am Dienst
+ * vorbei geaendert hat, kann das nicht, der Dienst hat keinen eigenen Weg dafuer.
+ *
+ * WIRFT NIE. Eine Anmeldung darf nicht daran scheitern, dass der Firmenordner
+ * gerade nicht antwortet; was nicht ging, steht in `abgleich_offen`.
+ */
+async function spiegleBeiAnmeldung({ benutzerId, username, email, passwort }) {
+  if (!dienst.istAn()) {
+    return;
+  }
+  try {
+    const vorhanden = await spiegelZeile(benutzerId);
+    if (vorhanden && vorhanden.passwort_gespiegelt) {
+      return;
+    }
+    await spiegleNutzer({ benutzerId, username, email, passwort });
+  } catch (err) {
+    logger.warn(`Firmenordner: ${username} beim Anmelden nachtragen ging nicht -- ${err.message}`);
+  }
+}
+
+/**
  * Die Mitglieder der Wurzel im Dienst an die Menschen am Geraet angleichen.
  *
  * SOLL: jeder gespiegelte, aktive Mensch -- Administratoren mit
@@ -1067,6 +1101,7 @@ module.exports = {
   gibRecht,
   nimmRechtZurueck,
   spiegleNutzer,
+  spiegleBeiAnmeldung,
   spiegleAktiv,
   spiegleLoeschung,
   holeNach,

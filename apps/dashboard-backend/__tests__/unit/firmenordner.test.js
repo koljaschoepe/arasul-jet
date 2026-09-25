@@ -990,3 +990,105 @@ describe('Der Fehler des Dienstes traegt seine Begruendung', () => {
     await expect(dienst.loescheNutzer('u-weg')).resolves.toBeUndefined();
   });
 });
+
+describe('Der Dienst-Administrator heisst nicht admin (26.09.2026)', () => {
+  /** Wer sich mit welchem Namen meldet, aus dem Basic-Kopf gelesen. */
+  function nameAus(opt) {
+    const kopf = opt.headers.Authorization.replace(/^Basic /, '');
+    return Buffer.from(kopf, 'base64').toString('utf8').split(':')[0];
+  }
+
+  it('benennt einen Dienst, der noch admin heisst, beim ersten 401 um und fragt noch einmal', async () => {
+    firmenordnerAn();
+    let umbenannt = false;
+    global.fetch.mockImplementation(async (url, opt = {}) => {
+      const name = nameAus(opt);
+      const weg = String(url).replace('http://firmenordner:9200', '');
+      if (name === 'admin' && weg === '/graph/v1.0/me') {
+        return umbenannt
+          ? { ok: false, status: 401, text: async () => '' }
+          : { ok: true, status: 200, json: async () => ({ id: 'dienst-1' }) };
+      }
+      if (name === 'admin' && opt.method === 'PATCH' && weg === '/graph/v1.0/users/dienst-1') {
+        expect(JSON.parse(opt.body)).toEqual({ onPremisesSamAccountName: dienst.DIENST_ADMIN });
+        umbenannt = true;
+        return { ok: true, status: 200, text: async () => '{}' };
+      }
+      if (name === dienst.DIENST_ADMIN && umbenannt) {
+        return {
+          ok: true,
+          status: 201,
+          text: async () => JSON.stringify({ id: 'mensch-1', onPremisesSamAccountName: 'admin' }),
+        };
+      }
+      return { ok: false, status: 401, text: async () => '' };
+    });
+
+    // Der Mensch heisst admin -- genau der Fall vom Orin.
+    const angelegt = await dienst.legeNutzerAn({
+      name: 'admin',
+      anzeige: 'admin',
+      email: null,
+      passwort: 'x',
+    });
+    expect(angelegt).toEqual({ id: 'mensch-1', name: 'admin' });
+    expect(umbenannt).toBe(true);
+    // Und beim naechsten Mal geht es ohne Umweg: ein Aufruf, ein Name.
+    global.fetch.mockClear();
+    await dienst.legeNutzerAn({ name: 'mia', anzeige: 'mia', email: null, passwort: 'x' });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(nameAus(global.fetch.mock.calls[0][1])).toBe(dienst.DIENST_ADMIN);
+  });
+
+  it('fasst nichts an, wenn admin schon ein Mensch ist -- das Passwort des Dienstes passt dort nicht', async () => {
+    firmenordnerAn();
+    global.fetch.mockResolvedValue({ ok: false, status: 401, text: async () => 'unauthorized' });
+    await expect(dienst.legeRaumAn('projekte')).rejects.toThrow(/401/);
+    const methoden = global.fetch.mock.calls.map(([, o]) => o.method || 'GET');
+    expect(methoden).not.toContain('PATCH');
+  });
+});
+
+describe('Die Anmeldung traegt ein fehlendes Passwort nach (26.09.2026)', () => {
+  it('spiegelt, solange das Passwort im Dienst fehlt', async () => {
+    firmenordnerAn();
+    db.query.mockImplementation(async sql => {
+      if (sql.includes('SELECT * FROM public.firmenordner_nutzer')) {
+        return { rows: [{ user_id: 1, dienst_id: 'u-1', passwort_gespiegelt: false }] };
+      }
+      return { rows: [] };
+    });
+    global.fetch.mockResolvedValue({ ok: true, status: 204, text: async () => '' });
+    await verwaltung.spiegleBeiAnmeldung({
+      benutzerId: 1,
+      username: 'admin',
+      email: null,
+      passwort: 'richtig',
+    });
+    const [url, opt] = global.fetch.mock.calls[0];
+    expect(String(url)).toContain('/graph/v1.0/users/u-1');
+    expect(JSON.parse(opt.body)).toEqual({ passwordProfile: { password: 'richtig' } });
+  });
+
+  it('fragt den Dienst nicht, wenn es schon gespiegelt ist', async () => {
+    firmenordnerAn();
+    db.query.mockResolvedValue({
+      rows: [{ user_id: 1, dienst_id: 'u-1', passwort_gespiegelt: true }],
+    });
+    await verwaltung.spiegleBeiAnmeldung({
+      benutzerId: 1,
+      username: 'admin',
+      email: null,
+      passwort: 'x',
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('wirft nie -- eine Anmeldung scheitert nicht am Firmenordner', async () => {
+    firmenordnerAn();
+    db.query.mockRejectedValue(new Error('db weg'));
+    await expect(
+      verwaltung.spiegleBeiAnmeldung({ benutzerId: 1, username: 'a', email: null, passwort: 'x' })
+    ).resolves.toBeUndefined();
+  });
+});

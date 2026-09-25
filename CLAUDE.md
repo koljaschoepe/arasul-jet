@@ -1267,6 +1267,25 @@ Abnahme: `scripts/test/firmenordner-abnahme.sh`, seither mit Wurzel, `sicht.md`
 und dem Klick im Browser (`scripts/test/firmenordner-bilder.mjs`); Abschnitt 8
 wartet, bis der Suchindex steht, statt ihn zu frueh zu messen.
 
+Seit dem Auftrag **firmenordner-nach-neustart-und-admin** (26.09.2026, J33)
+**kommt der Firmenordner nach einem Neustart wieder, und der Mensch `admin`
+kommt hinein**. `ordered-startup.sh` hat eine fuenfte Phase, die keine Liste
+ist: was `docker compose config --services` mit den gesetzten
+`COMPOSE_PROFILES` kennt und keine Phase nennt, wird danach gestartet — bis
+dahin nahm `ExecStop` (`docker compose down`) den Dateidienst bei jedem
+Herunterfahren weg, und niemand legte ihn wieder an
+(`scripts/test/systemd-einheiten.sh` Punkt 6, mit einem falschen `docker`).
+Und OpenCloud nennt seinen Administrator fest `admin`, genau wie der Installer
+den ersten Menschen: der kam mit 409 nicht in den Dienst. Das Backend benennt
+den **Dienst-Administrator** beim ersten 401 ueber die Graph-API in
+`arasul-dienst` um (`ordnerdienst.umbenennenWennNoetig`, am Orin an einem
+Wegwerf-Container gemessen, Rolle haengt an der Kennung), frisches und
+bestehendes Geraet auf demselben Weg; `FIRMENORDNER_ADMIN` ist weg, und am
+Geraet kann niemand `arasul-dienst` heissen. Dazu spiegelt die **Anmeldung**
+ein Passwort, das im Dienst noch fehlt (`spiegleBeiAnmeldung`) — ein Mensch,
+den es vor dem Firmenordner gab, kommt damit nach seiner naechsten Anmeldung
+hinein statt erst nach einem Passwortwechsel.
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |

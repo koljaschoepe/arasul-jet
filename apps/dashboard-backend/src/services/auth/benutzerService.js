@@ -30,6 +30,7 @@ const logger = require('../../utils/logger');
 // JEDER Aufruf faengt seinen Fehler selbst: ein Dateidienst, der gerade nicht
 // laeuft, darf die Benutzerverwaltung nicht aufhalten.
 const firmenordner = require('../firmenordner/ordnerVerwaltung');
+const { DIENST_ADMIN } = require('../firmenordner/ordnerdienst');
 
 /**
  * Platzhalter fuer anonymisierte Spalten, die NOT NULL sind.
@@ -116,6 +117,16 @@ async function pruefeKontenGrenze(client, wer) {
 async function legeBenutzerAn({ username, password, email, rolle }) {
   if (!ROLLEN.includes(rolle)) {
     throw new ValidationError(`Unbekannte Rolle ${rolle}; erlaubt sind ${ROLLEN.join(', ')}`);
+  }
+  // Der Name des Kontos, mit dem das Geraet den Firmenordner verwaltet
+  // (`ordnerdienst.DIENST_ADMIN`). Ein Mensch dieses Namens kaeme dort nie
+  // hinein -- dieselbe Falle, derentwegen der Dienst-Administrator nicht mehr
+  // `admin` heisst.
+  if (String(username).trim().toLowerCase() === DIENST_ADMIN) {
+    throw new ConflictError(
+      `Der Name ${DIENST_ADMIN} ist vergeben: so heisst das Konto, mit dem das Geraet ` +
+        'den Firmenordner verwaltet. Bitte einen anderen waehlen.'
+    );
   }
   const passwordHash = await hashPassword(password);
   // `passwort_vom_admin = true`: was hier vergeben wird, ist ein Startpasswort
