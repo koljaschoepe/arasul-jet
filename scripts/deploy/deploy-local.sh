@@ -339,20 +339,6 @@ for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps" "$DEPLOY_DIR/dat
   summary "⚠️ \`$ordner\` ist nicht schreibbar (gehoert root). \`sudo chown -R $(id -u):$(id -g) $ordner\`"
 done
 
-# --- 1d. Die systemd-Einheiten zeigen auf DIESES Verzeichnis ----------------
-# (J35, 25.09.2026.) Am Orin zeigte `arasul-platform.service` auf den Ordner,
-# aus dem das Geraet laeuft, und endete trotzdem in 203/EXEC (`ProtectHome=yes`
-# versteckt /home), Deadman-Switch und Watchdog zeigten auf `/opt/arasul`. Ein
-# Neustart haette die Plattform nicht geordnet hochgebracht, und nichts davon
-# war rot. Das Skript ist idempotent und kostet eine Sekunde; ohne sudo ohne
-# Rueckfrage bleibt es bei einer Warnung.
-if einheiten_ausgabe="$(bash "$DEPLOY_DIR/scripts/system/einheiten-installieren.sh" 2>&1)"; then
-  ok "$einheiten_ausgabe"
-else
-  warn "systemd-Einheiten nicht geschrieben: $einheiten_ausgabe"
-  summary "⚠️ systemd-Einheiten nicht geschrieben: $einheiten_ausgabe"
-fi
-
 SECRETS_DIR="$DEPLOY_DIR/config/secrets"
 mkdir -p "$SECRETS_DIR"; chmod 700 "$SECRETS_DIR" 2>/dev/null || true
 
@@ -684,6 +670,25 @@ if [ -z "$BUCH_STAND" ]; then
   exit 1
 fi
 ok "Migrationsbuch: keine gescheiterte Migration, $HOECHSTE angewendet"
+
+# --- 8. Die systemd-Einheiten zeigen auf DIESES Verzeichnis -----------------
+# (J35, 25.09.2026.) Am Orin zeigte `arasul-platform.service` auf den Ordner,
+# aus dem das Geraet laeuft, und endete trotzdem in 203/EXEC (`ProtectHome=yes`
+# versteckt /home), Deadman-Switch und Watchdog zeigten auf `/opt/arasul`. Ein
+# Neustart haette die Plattform nicht geordnet hochgebracht, und nichts davon
+# war rot. Das Skript ist idempotent; ohne sudo ohne Rueckfrage bleibt es bei
+# einer Warnung.
+#
+# AM ENDE und nicht vorn: eine Einheit, die bisher in ihrer Neustartschleife
+# hing, startet mit der richtigen Datei beim naechsten Versuch
+# `ordered-startup.sh` -- also `docker compose up`. Waehrend der Deploy selbst
+# noch baut und hochfaehrt, waeren das zwei Haende am selben Stapel.
+if einheiten_ausgabe="$(bash "$DEPLOY_DIR/scripts/system/einheiten-installieren.sh" 2>&1)"; then
+  ok "$einheiten_ausgabe"
+else
+  warn "systemd-Einheiten nicht geschrieben: $einheiten_ausgabe"
+  summary "⚠️ systemd-Einheiten nicht geschrieben: $einheiten_ausgabe"
+fi
 
 # --- Erfolg ------------------------------------------------------------------
 ok "Deploy erfolgreich: $NEW_SHA"
