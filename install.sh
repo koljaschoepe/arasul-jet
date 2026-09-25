@@ -281,10 +281,10 @@ installation_merken "$WURZEL"
 # 4. Netzname
 # -----------------------------------------------------------------------------
 # Unter welchem Namen ein Mitarbeiter das Geraet erreicht. `setup-mdns.sh`
-# setzt beides: den Hostnamen des Systems -- den meldet der DHCP-Client dem
-# Router an, und daher kommt `https://arasul/` OHNE `.local` -- und Avahi fuer
-# den Rueckfall `https://arasul.local/`, falls der Router keine Namen aus DHCP
-# aufloest.
+# setzt beides, OHNE den Systemnamen anzufassen (J35): den Namen, den
+# NetworkManager dem Router per DHCP meldet -- daher kommt `https://arasul/`
+# OHNE `.local` -- und Avahi fuer den Rueckfall `https://arasul.local/`, falls
+# der Router keine Namen aus DHCP aufloest.
 #
 # Vor dem Bootstrap, weil das Zertifikat auf diesen Namen ausgestellt wird.
 # Braucht root; ohne sudo ohne Rueckfrage bleibt es beim Namen, den das System
@@ -292,10 +292,14 @@ installation_merken "$WURZEL"
 if [ "$NUR_VORBEREITEN" = true ]; then
   sagen "Netzname wird nicht gesetzt (--nur-vorbereiten)."
 elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-  if sudo MDNS_NAME="$NETZNAME" bash "${WURZEL}/scripts/setup/setup-mdns.sh" >/dev/null 2>&1; then
-    gut "Netzname ${NETZNAME} gesetzt (DHCP-Hostname und mDNS)"
+  # Die Ausgabe wird gelesen und nicht weggeworfen: scheitert es, steht der
+  # Grund da (bis J35 hiess es nur "nicht gesetzt").
+  if mdns_ausgabe="$(sudo -n MDNS_NAME="$NETZNAME" bash "${WURZEL}/scripts/setup/setup-mdns.sh" 2>&1)"; then
+    gut "Netzname ${NETZNAME} gesetzt (DHCP-Name und mDNS, Systemname bleibt $(hostname))"
+    printf '%s\n' "$mdns_ausgabe" | grep -E 'DHCP|nmcli|Warn|⚠' | sed 's/^/    /' || true
   else
-    achtung "Netzname nicht gesetzt. Das Geraet bleibt ueber seine IP erreichbar."
+    achtung "Warnung: Netzname nicht gesetzt: $(printf '%s\n' "$mdns_ausgabe" | awk 'NF { z = $0 } END { print z }')"
+    achtung "Das Geraet bleibt ueber seine IP erreichbar."
   fi
 else
   achtung "Kein sudo ohne Rueckfrage: Netzname nicht gesetzt. Nachholen mit"

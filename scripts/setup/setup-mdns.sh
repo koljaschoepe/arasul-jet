@@ -75,23 +75,36 @@ else
     success "Avahi already installed"
 fi
 
-# Configure hostname
-info "Setting system hostname to: $MDNS_HOSTNAME"
-hostnamectl set-hostname "$MDNS_HOSTNAME" 2>/dev/null || {
-    echo "$MDNS_HOSTNAME" > /etc/hostname
-    hostname "$MDNS_HOSTNAME"
-}
-success "Hostname set"
-
-# Update /etc/hosts
-if ! grep -q "$MDNS_HOSTNAME" /etc/hosts; then
-    info "Updating /etc/hosts..."
-    cat >> /etc/hosts << EOF
-
-# Arasul Platform
-127.0.1.1    $MDNS_HOSTNAME
-EOF
-    success "/etc/hosts updated"
+# Den Systemnamen NICHT anfassen (J35, 25.09.2026).
+#
+# Bis dahin stand hier `hostnamectl set-hostname`, dazu ein Eintrag in
+# /etc/hosts. Das Geraet ist aber auch ein Rechner eines Kunden: sein Name
+# steht in Tailscale, in Protokollen, in der Ueberwachung seiner IT, und ein
+# Installer, der ihn umbenennt, fasst etwas an, das ihm nicht gehoert. Beide
+# Wege zu `arasul` gehen ohne:
+#
+#   * mDNS: Avahi veroeffentlicht den Namen aus `host-name=` in seiner eigenen
+#     Konfiguration (unten), unabhaengig vom Systemnamen.
+#   * DHCP: NetworkManager meldet dem Router je Verbindung einen eigenen Namen
+#     (`ipv4.dhcp-hostname`). Daher kommt `https://arasul/` ohne `.local`. Es
+#     wirkt ab der naechsten Erneuerung der Adresse -- das Netz wird dafuer
+#     nicht neu aufgebaut, die laufende Sitzung des Installers haengt daran.
+info "Systemname bleibt $(hostname) -- mDNS und DHCP melden ${MDNS_HOSTNAME}"
+if command -v nmcli &> /dev/null; then
+    while IFS=: read -r verbindung art; do
+        case "$art" in
+            *ethernet*|*wireless*) ;;
+            *) continue ;;
+        esac
+        if nmcli connection modify "$verbindung" \
+                ipv4.dhcp-send-hostname yes ipv4.dhcp-hostname "$MDNS_HOSTNAME" 2>/dev/null; then
+            success "DHCP meldet ${MDNS_HOSTNAME} ueber '${verbindung}' (ab der naechsten Erneuerung)"
+        else
+            warn "DHCP-Name fuer '${verbindung}' nicht gesetzt -- der Router kennt das Geraet weiter als $(hostname)"
+        fi
+    done < <(nmcli -t -f NAME,TYPE connection show --active 2>/dev/null)
+else
+    warn "nmcli fehlt: der Router kennt das Geraet weiter als $(hostname); ${MDNS_HOSTNAME}.local geht ueber mDNS"
 fi
 
 # Configure Avahi daemon

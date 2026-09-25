@@ -419,6 +419,16 @@ run_systemd_einheiten_check() {
   fi
 }
 
+run_installation_haertet_und_holt_check() {
+  echo ""
+  echo "-> Pruefe Modell-Holen, Healthcheck ohne Modell und Haertung (J35)..."
+  if bash "${PROJECT_ROOT}/scripts/test/installation-haertet-und-holt.sh"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_wurzelpfad_check() {
   echo ""
   echo "-> Pruefe, ob jedes Skript sein Wurzelverzeichnis richtig ausrechnet..."
@@ -629,6 +639,7 @@ run_rohrbruch_check
 run_eigenbezug_check
 run_wurzelpfad_check
 run_systemd_einheiten_check
+run_installation_haertet_und_holt_check
 run_dienste_check
 run_endpunkte_check
 run_anleitungen_check

@@ -534,6 +534,13 @@ jobs:
       - name: systemd-Einheiten (zeigen auf das Geraet, das sie starten)
         run: bash scripts/test/systemd-einheiten.sh
 
+      # 25.09.2026 (J35): die Installation holte kein Modell, der Healthcheck
+      # hielt ein Geraet ohne Modell fuer krank (die Selbstheilung startete
+      # llm-service mitten im Download neu), die Haertung lief ohne sudo und
+      # schwieg darueber, und setup-mdns.sh benannte das System um.
+      - name: Installation holt das Modell und haertet ohne stille Fehler
+        run: bash scripts/test/installation-haertet-und-holt.sh
+
       # Der Schwesterfall, 27.08.2026: `docker logs … | grep -q …` unter
       # `pipefail`. grep steigt beim ersten Treffer aus, docker logs schreibt
       # in ein geschlossenes Rohr und endet mit 141, und die Bedingung wird
