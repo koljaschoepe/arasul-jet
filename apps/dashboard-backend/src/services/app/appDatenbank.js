@@ -47,6 +47,7 @@ const crypto = require('crypto');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { encryptToken, decryptToken } = require('../../utils/tokenCrypto');
+const appContainer = require('./appContainer');
 
 /**
  * Der Praefix, an dem eine App-Datenbank erkennbar ist.
@@ -340,8 +341,52 @@ async function heileAlle() {
   return geheilt;
 }
 
+/**
+ * Fehlt die Datenbank, die fuer diesen Stand eingetragen ist? (J35, 26.09.2026)
+ *
+ * `false`, wenn der Stand nie eine bekommen hat -- ein fremder Container, der
+ * keine will, hat keinen Mangel. `true` nur, wenn die Zeile in
+ * `app_datenbanken` steht und `pg_database` den Namen nicht kennt: dann laeuft
+ * die App ohne ihre Daten, und ihr eigener Healthcheck sagt das nicht
+ * unbedingt.
+ */
+async function fehlt(appId, stand) {
+  const { rows } = await db.query(
+    `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = d.datenbank) AS da
+       FROM public.app_datenbanken d
+      WHERE d.app_id = $1 AND d.stand = $2`,
+    [appId, stand]
+  );
+  return rows.length > 0 && rows[0].da === false;
+}
+
+/** Seit wann die Datenbank antwortet: der Start des Postgres-Prozesses. */
+async function antwortetSeit() {
+  const { rows } = await db.query('SELECT pg_postmaster_start_time() AS seit');
+  return new Date(rows[0].seit);
+}
+
+/**
+ * Jeden App-Container neu starten, der vor der Datenbank hochkam (J35).
+ * Warum, steht bei `appContainer.starteNeuWasVorher`. Wirft nicht: ein
+ * Postgres oder Docker, das gerade nicht antwortet, ist beim naechsten
+ * Durchgang wieder dran.
+ */
+async function appsNachDerDatenbank() {
+  try {
+    const seit = await antwortetSeit();
+    return await appContainer.starteNeuWasVorher(seit);
+  } catch (err) {
+    logger.warn(`App-Container nach der Datenbank nicht pruefbar: ${err.message}`);
+    return [];
+  }
+}
+
 module.exports = {
   PRAEFIX,
+  fehlt,
+  antwortetSeit,
+  appsNachDerDatenbank,
   namenFuer,
   sorgeFuer,
   umgebungFuer,

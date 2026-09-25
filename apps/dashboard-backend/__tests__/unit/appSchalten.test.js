@@ -50,6 +50,7 @@ jest.mock('../../src/services/app/appDatenbank', () => ({
     url: `postgresql://u:p@postgres-db:5432/arasul_app_${appId}_${stand}`,
   })),
   umgebungFuer: jest.fn(z => (z ? { ARASUL_DB_URL: z.url } : {})),
+  fehlt: jest.fn(async () => false),
   entferne: jest.fn(async () => []),
 }));
 

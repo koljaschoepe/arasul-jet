@@ -429,6 +429,59 @@ async function logs(appId, stand, zeilen = 200) {
 }
 
 /**
+ * Jeden laufenden App-Container neu starten, der VOR `seit` gestartet ist
+ * (Auftrag apps-starten-nach-der-datenbank, 26.09.2026, J35).
+ *
+ * Der Befund am Orin nach einem Neustart: Docker startet jeden Container mit
+ * `unless-stopped` selbst, sobald der Dienst steht -- die App-Container also
+ * Sekunden nach dem Hochfahren. `postgres-db` dagegen legt erst
+ * `ordered-startup.sh` an (`ExecStop` hat es mit `docker compose down`
+ * weggenommen), und zwar spaeter. Die Faktum-App fand beim Start keine
+ * Datenbank, lief weiter und meldete sich gesund.
+ *
+ * Gefragt wird die Startzeit, nicht ein Zustand: ein Container, der vor seiner
+ * Datenbank gestartet ist, ist der Fall, und nur der. Nach einem Deploy des
+ * Backends ist jeder App-Container juenger als Postgres und bleibt stehen.
+ * Ein angehaltener Container bleibt angehalten -- `unless-stopped` heisst, dass
+ * ein Mensch ihn so wollte.
+ *
+ * @param {Date} seit ab wann die Datenbank antwortet
+ * @returns {Promise<string[]>} die Namen der neu gestarteten Container
+ */
+async function starteNeuWasVorher(seit) {
+  const grenze = seit.getTime();
+  const liste = await docker.listContainers({ filters: { label: ['arasul.app'] } });
+  const neu = [];
+  for (const eintrag of liste) {
+    const container = docker.getContainer(eintrag.Id);
+    let info;
+    try {
+      info = await container.inspect();
+    } catch (err) {
+      if (err.statusCode === 404) {
+        continue; // inzwischen weg
+      }
+      throw err;
+    }
+    const gestartet = Date.parse(info.State?.StartedAt || '');
+    if (info.State?.Running !== true || !(gestartet < grenze)) {
+      continue;
+    }
+    const name = (info.Name || eintrag.Id).replace(/^\//, '');
+    try {
+      await container.restart();
+      neu.push(name);
+      logger.info(`App-Container vor seiner Datenbank gestartet, neu gestartet: ${name}`);
+    } catch (err) {
+      // Einer, der nicht will, haelt die anderen nicht auf; der naechste
+      // Durchgang fragt wieder.
+      logger.warn(`App-Container ${name} liess sich nicht neu starten: ${err.message}`);
+    }
+  }
+  return neu;
+}
+
+/**
  * Alle App-Container entfernen. Der Werksreset braucht das: die Zeilen in
  * `apps` sind danach weg, und ein Container, der weiterlaeuft, waere ein
  * Rest des alten Kunden auf einem Geraet, das als frisch gilt.
@@ -500,5 +553,6 @@ module.exports = {
   starte,
   entferne,
   entferneAlle,
+  starteNeuWasVorher,
   logs,
 };

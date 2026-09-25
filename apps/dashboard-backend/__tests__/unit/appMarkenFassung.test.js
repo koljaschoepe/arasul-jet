@@ -33,6 +33,10 @@ jest.mock('../../src/utils/logger', () => ({
   debug: jest.fn(),
 }));
 jest.mock('../../src/utils/auditLog', () => ({ logSecurityEvent: jest.fn() }));
+// Ob die Datenbank eines Standes fehlt (J35), ist hier nicht die Frage.
+jest.mock('../../src/services/app/appDatenbank', () => ({
+  fehlt: jest.fn(async () => false),
+}));
 jest.mock('../../src/services/core/docker', () => ({
   docker: {
     getContainer: jest.fn(() => ({

@@ -15,6 +15,12 @@
 #   5. Profile: was Compose mit den gesetzten `COMPOSE_PROFILES` darueber
 #      hinaus kennt -- heute der Firmenordner (J33)
 #
+# Die App-Container stehen in keiner Phase: sie sind kein Dienst des Compose,
+# Docker startet sie (`unless-stopped`) selbst und damit VOR Postgres. Neu
+# gestartet werden sie vom Backend in Phase 3, sobald es die App-Datenbanken
+# geheilt hat (`appDatenbank.appsNachDerDatenbank`, J35) -- dort, weil erst
+# danach die Rolle das Passwort traegt, das in der Umgebung der App steht.
+#
 # MinIO, Loki und Promtail sind am 26.08.2026 (Phase B4 des Rueckbaus) aus
 # den Phasen gefallen; sie gibt es im Compose nicht mehr.
 

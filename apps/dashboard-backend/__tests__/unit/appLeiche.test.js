@@ -38,6 +38,7 @@ jest.mock('../../src/services/app/appDatenbank', () => ({
     url: `postgresql://u:p@postgres-db:5432/arasul_app_${appId}_${stand}`,
   })),
   umgebungFuer: jest.fn(z => (z ? { ARASUL_DB_URL: z.url } : {})),
+  fehlt: jest.fn(async () => false),
   entferne: jest.fn(async () => []),
 }));
 
@@ -178,6 +179,21 @@ describe('Ein Stand sagt, ob er ausgeliefert werden kann', () => {
     const res = await request(verwaltung()).get('/api/apps/urlaubsantrag');
     expect(res.body.data.staende.live.dateien).toEqual({ manifest: true, frontend: false });
     expect(res.body.data.staende.live.mangel).toMatch(/Frontend fehlt/);
+  });
+
+  test('die Datenbank fehlt, der Container meldet gesund: NICHT lieferbar (J35)', async () => {
+    // Der Befund aus dem Kundendurchlauf 2: die App lief ohne ihre Datenbank
+    // und ihr eigener Healthcheck sagte `healthy`. Das Geraet weiss es selbst.
+    dateienHinlegen();
+    appMitLivestand();
+    const appDatenbank = require('../../src/services/app/appDatenbank');
+    appDatenbank.fehlt.mockResolvedValueOnce(true);
+    const res = await request(verwaltung()).get('/api/apps/urlaubsantrag');
+    const live = res.body.data.staende.live;
+    expect(live.backend.gesundheit).toBe('healthy');
+    expect(live.lieferbar).toBe(false);
+    expect(live.mangel).toMatch(/Datenbank dieser App fehlt/);
+    expect(appDatenbank.fehlt).toHaveBeenCalledWith('urlaubsantrag', 'live');
   });
 
   test('die Liste aller Apps traegt dieselbe Aussage', async () => {
