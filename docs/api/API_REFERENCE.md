@@ -185,22 +185,51 @@ Invalidates every active session for the current user by blacklisting all their 
 
 **POST /api/auth/change-password:**
 
-Changes the current user's own password. All existing sessions are invalidated afterward — the user must log in again with the new password.
+Der Mensch wechselt **sein eigenes** Passwort (Administrator und Mitarbeiter).
+Die Oberfläche nimmt diesen Weg für den erzwungenen Startpasswort-Wechsel
+(`features/system/PasswortWechseln.tsx`); Einstellungen → Sicherheit nimmt den
+gleichwertigen `POST /api/settings/password/dashboard`. Anmeldung und CSRF
+nötig, Drossel drei Versuche je Viertelstunde **je Benutzer** — jeder Versuch
+zählt, auch ein gelungener.
+
+Rumpf (JSON, `ChangePasswordBody` in `schemas/auth.js`, `.strict()` — ein
+weiteres Feld ist ein 400):
+
+| Feld              | Typ    | Regel                                                                                                                  |
+| ----------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `currentPassword` | string | Pflicht, 1 bis 256 Zeichen; das Passwort, mit dem der Mensch gerade angemeldet ist                                     |
+| `newPassword`     | string | Pflicht, 8 bis 256 Zeichen, mindestens eine Ziffer (`GET /api/settings/password-requirements`), nicht gleich dem alten |
 
 ```json
 // Request
 {
-  "currentPassword": "current-password",
-  "newPassword": "new-password"
+  "currentPassword": "Start-123",
+  "newPassword": "Eigenes-456"
 }
 
-// Response
+// Response 200
 {
   "success": true,
   "message": "Password changed successfully. Please log in again with your new password.",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
+
+Danach gilt: **alle Sitzungen des Menschen sind entwertet**, auch die, mit der
+er gerade gewechselt hat — die Oberfläche meldet ab (`POST /api/auth/logout`
+nimmt das tote Token an) und der Mensch meldet sich mit dem neuen Passwort an.
+`passwort_vom_admin` steht auf `false`, und seit J35 (25.09.2026) sagt das
+**schon die nächste Anfrage**: der Zwischenspeicher von `requireAuth` (60 s je
+Benutzer) wird beim Schreiben verworfen. Vorher meldete `GET /api/auth/me` mit
+dem frischen Token noch bis zu einer Minute `passwortWechselNoetig: true`.
+
+| Status | `error.code`       | Wann                                                                                                                            |
+| ------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR` | Feld fehlt, zu kurz/lang oder unbekannt (`details` je Feld); Regel verletzt (`details` als Liste der Sätze); neues gleich altem |
+| 401    | `UNAUTHORIZED`     | `currentPassword` stimmt nicht — oder keine gültige Sitzung (`TOKEN_REVOKED`, `TOKEN_EXPIRED`, …)                               |
+| 403    | `CSRF_INVALID`     | CSRF-Token fehlt oder veraltet (`useApi` holt einen frischen und wiederholt einmal)                                             |
+| 404    | `NOT_FOUND`        | Den Benutzer gibt es nicht mehr                                                                                                 |
+| 429    | `RATE_LIMITED`     | Mehr als drei Versuche in fünfzehn Minuten                                                                                      |
 
 **POST /api/auth/refresh-cookie:**
 
