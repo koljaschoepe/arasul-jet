@@ -116,6 +116,17 @@ spielt die Abzüge ein. Das **Passwort** setzt er dabei zufällig — ein
 Shell-Skript kann das verschlüsselte aus `app_datenbanken` nicht lesen. Das
 richtige setzt das Backend beim nächsten Start (`appDatenbank.heileAlle`); die
 App im Container trägt noch die alte Adresse, und die soll wieder stimmen.
+Eingespielt wird **als Rolle der App** (`SET ROLE` vor dem Abzug): der Abzug
+ist mit `--no-owner` gezogen, und spielte ihn `arasul` ein, gehörte danach jede
+Tabelle `arasul` und die App bekäme auf ihre eigenen Daten „permission denied“.
+
+**Nur eine App** (J35): `POST /api/backup/wiederherstellung/app/:id` ruft
+`wiederherstellen.sh --app-datenbank arasul_app_<id>_<stand>` je gesichertem
+Stand. Angefasst wird genau diese Datenbank — vorher abgezogen nach
+`vor_wiederherstellung/<name>_vorher_<zeit>.sql.gz`, dann neu angelegt (ein
+Abzug mit `--clean` räumt nur weg, was er kennt) und eingespielt. Keine
+Plattform-Tabelle, kein Ordner, kein Bericht des ganzen Weges. Das geht auch,
+wenn die App gerade entfernt ist; das nächste Einspielen findet die Daten vor.
 
 ### 2. Flows
 

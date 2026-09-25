@@ -1902,13 +1902,14 @@ eine eigene Anwendung dagegen baute, schloss daraus, die Sicherung sei aus.
 Seit Phase C9 heißt die Antwort auf die erste Frage `sichertWirklich`, und die
 zweite hat eine eigene: `ausserhalb`.
 
-| Method | Endpoint                        | Beschreibung                                               |
-| ------ | ------------------------------- | ---------------------------------------------------------- |
-| GET    | `/api/backup/status`            | Sichert das Gerät? Wann lag zuletzt eine Kopie außer Haus? |
-| GET    | `/api/backup/sicherungen`       | Was liegt da — Name, Art, Größe, Datum                     |
-| POST   | `/api/backup/sicherung`         | Jetzt sichern (dauert Minuten, antwortet erst danach)      |
-| POST   | `/api/backup/wiederherstellung` | Zurück auf eine Sicherung, danach laufen die Apps wieder   |
-| POST   | `/api/backup/test`              | Wiederherstellungstest gegen eine Wegwerf-Datenbank        |
+| Method | Endpoint                                | Beschreibung                                               |
+| ------ | --------------------------------------- | ---------------------------------------------------------- |
+| GET    | `/api/backup/status`                    | Sichert das Gerät? Wann lag zuletzt eine Kopie außer Haus? |
+| GET    | `/api/backup/sicherungen`               | Was liegt da — Name, Art, Größe, Datum                     |
+| POST   | `/api/backup/sicherung`                 | Jetzt sichern (dauert Minuten, antwortet erst danach)      |
+| POST   | `/api/backup/wiederherstellung`         | Zurück auf eine Sicherung, danach laufen die Apps wieder   |
+| POST   | `/api/backup/wiederherstellung/app/:id` | Nur die Daten **einer** App zurück (J35)                   |
+| POST   | `/api/backup/test`                      | Wiederherstellungstest gegen eine Wegwerf-Datenbank        |
 
 Gesichert werden vier Dinge, und die Frage dahinter ist jedes Mal dieselbe: was
 bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn es fehlt?
@@ -2056,6 +2057,52 @@ Grund in `apps` und `erfolg` ist dann `false`.
 Wiederherstellungslauf läuft. `503 SERVICE_UNAVAILABLE`, wenn der
 Sicherungsdienst nicht läuft — ohne ihn lässt sich weder sichern noch
 zurückspielen.
+
+**POST /api/backup/wiederherstellung/app/:id** (J35, 25.09.2026) — die Daten
+**einer** App aus der letzten Sicherung, und sonst nichts:
+
+```json
+{ "bestaetigung": "probe-daten", "stand": "live" }
+```
+
+`bestaetigung` ist die Kennung der App, abgetippt wie beim Entfernen; `stand`
+engt auf einen Stand ein, ohne ihn kommen beide, soweit gesichert. Der ganze
+Weg zurück darüber ersetzt die **ganze** Datenbank des Geräts und nähme jeder
+anderen App und jedem Menschen, was seit der Sicherung geschah — dieser Weg
+fasst je Stand genau die eine Datenbank `arasul_app_<id>_<stand>` an: vorher
+abgezogen nach `vor_wiederherstellung/`, dann neu angelegt und **als Rolle der
+App** eingespielt (sonst gehörten die Tabellen `arasul`, und die App bekäme auf
+ihre eigenen Daten „permission denied").
+
+Er geht auch, wenn die App **gerade entfernt** ist: die Namen kommen aus der
+Kennung, nicht aus einer Tabelle. Die Daten liegen dann bereit, und das nächste
+Einspielen findet Rolle und Datenbank vor. Ist die App eingespielt, setzt der
+Aufruf ihr Passwort und startet ihren Container neu.
+
+```json
+{
+  "data": {
+    "erfolg": true,
+    "app": "probe-daten",
+    "staende": [
+      {
+        "stand": "live",
+        "datenbank": "arasul_app_probe_daten_live",
+        "erfolg": true,
+        "neu_gestartet": true,
+        "ausgabe": "…"
+      }
+    ]
+  }
+}
+```
+
+**Fehler:** `400`, wenn `bestaetigung` nicht die Kennung ist. `404`, wenn es
+von keinem Stand der App eine Sicherung gibt. `409` und `503` wie oben.
+
+`GET /api/backup/sicherungen` nennt seit J35 bei jeder Zeile der Art
+`app-datenbanken` auch `datenbank` — welche es ist, aus dem Dateinamen, denn
+nach dem Entfernen einer App gibt es keine Zeile mehr, die es sagte.
 
 ---
 
@@ -2281,9 +2328,17 @@ Sitzung, nicht über einen Schlüssel.
 | POST   | `/api/freigabe-anfragen/:id/ablehnen`    | Nein, Body `{ begruendung }` (Pflicht). Der Lauf endet als `abgebrochen` |
 
 **Wer darf entscheiden.** Jeder, dem die App freigegeben ist (`app_members`,
-Phase C2) — Administrator **und** Mitarbeiter. Der Flow nennt keine Person und
-kein Rollenmodell (Entscheidung vom 27.08.2026): er beschreibt die Sache, nicht
-die Zuständigkeit. Wer die App nicht freigegeben hat, bekommt `403`; eine
+Phase C2) — Administrator **und** Mitarbeiter. Die Flow-Datei nennt keine
+Person und kein Rollenmodell (Entscheidung vom 27.08.2026): sie beschreibt die
+Sache, nicht die Zuständigkeit. **Seit J35 kann die App beim Start des Laufs
+den Kreis enger ziehen** (`einreicher`, `freigabe` an
+`POST /api/v1/external/flows/:name/run`): mit `ohne_einreicher` entscheidet
+nicht, wer eingereicht hat, mit `entscheider` nur die Rolle `admin` oder die
+genannten Konten. Wer danach nicht im Kreis steht, sieht die Anfrage in
+`GET /api/freigabe-anfragen` nicht und bekommt beim Entscheiden `403` mit dem
+Grund (»selbst eingereicht« oder »benannten Entscheidern vorbehalten«). Die
+Liste nennt je Anfrage zusätzlich `einreicher`, `ohne_einreicher` und
+`benannt`. Wer die App nicht freigegeben hat, bekommt `403`; eine
 Anfrage, die es nicht gibt, `404`; eine, die nicht mehr offen oder deren Frist
 abgelaufen ist, `409` — vier Gründe, vier Meldungen, weil der Mensch am anderen
 Ende gerade auf „Bestätigen" gedrückt hat.
@@ -2810,7 +2865,26 @@ scope is `flow:run` (included in the default endpoint set for new keys).
 | GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `schritte`, `annahmen`)    |
 | GET    | `/api/v1/external/freigaben`       | API Key | Die Freigaben dieser App nachlesen (`?lauf=<id>`); nur lesen |
 
-**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
+**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "einreicher"?: "anna", "freigabe"?: {…} }`.
+
+`einreicher` und `freigabe` (J35) gelten nur für den Schlüssel einer App und
+regeln, wer die Freigaben dieses Laufs entscheidet:
+
+```json
+{
+  "einreicher": "anna",
+  "freigabe": { "ohne_einreicher": true, "entscheider": { "rolle": "admin" } }
+}
+```
+
+`einreicher` ist der Benutzername aus `X-Arasul-User`; er muss ein aktives
+Konto sein, dem die App freigegeben ist. `ohne_einreicher` schließt ihn vom
+Entscheiden aus und braucht `einreicher`. `entscheider` nennt **entweder**
+`{"rolle":"admin"}` **oder** `{"konten":["bernd","clara"]}` — jedes Konto muss
+die App freigegeben haben. Bleibt nach der Regel niemand, der entscheiden
+könnte, antwortet der Start mit `400` und legt keinen Lauf an. Die Regel steht
+am Lauf (`flow_runs.einreicher_id`, `freigabe_regel`) und an jeder Freigabe
+darin (Migration 185).
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
 state and returns `{ success, run_id, status, result, error, steps_used, schritte, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
@@ -2866,7 +2940,8 @@ kommt wieder aus dem Schlüssel — ein Schlüssel eines Menschen (`app_id IS
 NULL`) bekommt `403` mit dem Hinweis auf `/api/freigabe-anfragen`. Antwort:
 `{ success, app, stand, freigaben: [{ id, run_id, flow_name, titel,
 zusammenhang, status, frist, angefragt_am, entschieden_am, entschieden_von,
-begruendung }] }`. `zusammenhang` steht seit H7 dabei: er ist der Text, **an
+begruendung, einreicher, ohne_einreicher, entscheider }] }` — `entscheider`
+ist `{ rolle }`, `{ konten: [...] }` oder `null` (J35). `zusammenhang` steht seit H7 dabei: er ist der Text, **an
 dem** der Mensch entschieden hat, und er stammt aus dem eigenen Flow der App —
 sie hat ihn selbst geschrieben. Ohne ihn konnte eine App nicht dokumentieren,
 worauf eine Zusage beruht.

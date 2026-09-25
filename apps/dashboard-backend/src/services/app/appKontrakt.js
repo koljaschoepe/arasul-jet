@@ -27,6 +27,7 @@ const { z } = require('zod');
 const { versionFuerAnzeige } = require('../../utils/version');
 const { AppManifest } = require('../../schemas/apps');
 const { FlowDefinition } = require('../../schemas/flows');
+const { ExternalFlowRunBody, FreigabeRegel } = require('../../schemas/externalApi');
 const { VORGABE_ENDPUNKTE, ALLE_ENDPUNKTE } = require('../../config/apiBereiche');
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 const appPaket = require('./appPaket');
@@ -120,6 +121,15 @@ const KONTRAKT_VERSION = 6;
  * wuerde das Feld aus demselben Grund abweisen wie das alte Geraet. Der
  * Vertrag sagt hier, dass es angekommen ist.
  *
+ * Fassung 6 BLEIBT am 25.09.2026 (J35), obwohl zwei Abschnitte dazukommen:
+ * `freigaben` (ein Lauf nennt seinen Einreicher und kann den Kreis der
+ * Entscheider enger ziehen) und `daten` (was eine App dauerhaft behaelt und
+ * was nicht). Beides ist FREIWILLIG und additiv: ein Kit, das die Abschnitte
+ * nicht liest, startet Laeufe wie bisher und bekommt Freigaben wie bisher.
+ * Die Zahl zu erhoehen waere derselbe Schaden wie am 30.08. -- das Kit haelt
+ * bei einer Fassung an, die es nicht kennt, und am Orin baute an diesem Tag
+ * ein anderer Agent mit genau diesem Kit.
+ *
  * FOLGE FUER DAS KIT, und sie ist nicht klein: `KIT_CONTRACT_VERSIONS` in
  * `.ara/tools/lib/contract.mjs` endet bei 5, und das Kit haelt mit Rueckgabe 1
  * an, sobald ein Geraet hoeher steht -- nicht nur beim Manifest mit `agent`,
@@ -153,7 +163,46 @@ const MANIFEST_REGELN = Object.freeze([
   '`PUT`, `PATCH` und `DELETE` muessen `writes: true` tragen: eine Route, die etwas aendert, darf sich nicht als lesend ausgeben. Das CLI verlangt fuer `writes: true` ein ausdrueckliches --write.',
   'Innerhalb von `agent` steht keine Route zweimal (`method` und `path` zusammen) und kein Parametername zweimal je Route.',
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Geraet haelt keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
-  'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an.',
+  'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
+]);
+
+/**
+ * Was eine App dauerhaft behaelt (J35, 25.09.2026).
+ *
+ * Das Kit sagte an zwei Stellen Verschiedenes: seine Wissensseite, eine
+ * SQLite-Datei ueberlebe das naechste Einspielen nicht, und sein Werkzeug,
+ * eine eigene Datenbank komme mit. Beides stimmt -- es sind zwei Orte, und
+ * der Kontrakt nannte bis hierher nur den einen. Gemessen wird beides mit
+ * `scripts/test/daten-vier-augen-abnahme.sh`: eine Zeile in der Datenbank
+ * ueberlebt Einspielen und Schalten, eine Datei im Container nicht.
+ */
+const DATEN_REGELN = Object.freeze([
+  'Dauerhaft ist GENAU EIN Ort: die Datenbank aus `umgebung.datenbank`. Sie ueberlebt jedes Einspielen, jedes Schalten, jeden Neustart des Containers und des Geraets.',
+  'Das Dateisystem des Containers ueberlebt das naechste Einspielen NICHT. Der Container wird dabei ersetzt, samt seiner anonymen Volumes -- auch derer aus `VOLUME` im Dockerfile. Eine SQLite-Datei oder ein Upload-Ordner darin ist nach dem Update weg. Eine hochgeladene Datei gehoert in eine Spalte (`bytea`).',
+  'Test- und Livestand haben je eine eigene Datenbank. Schalten nach live nimmt die Daten des Teststandes NICHT mit; der Livestand behaelt seine eigenen ueber jeden Versionswechsel.',
+  'Die Datenbank beginnt leer, und ihr Schema legt die App selbst an (beim Start `CREATE TABLE IF NOT EXISTS` oder eigene Migrationen). Die Rolle der App ist Eigentuemerin ihrer Datenbank und darf das; an eine andere Datenbank kommt sie nicht.',
+  'Gesichert wird jede Nacht und auf Anforderung, je App und Stand ein Abzug. Zurueck kommen die Daten EINER App ueber `POST /api/backup/wiederherstellung/app/:id` (Administrator, `bestaetigung` ist die Kennung) -- auch nachdem die App entfernt wurde; das naechste Einspielen findet sie dann vor.',
+  'Entfernen der App wirft ihre Datenbanken weg. Die Sicherungen davon bleiben liegen.',
+]);
+
+/**
+ * Wer die Freigaben eines Laufs entscheidet (J35, 25.09.2026).
+ *
+ * Bis hierher jeder, dem die App freigegeben ist -- auch der, der den Vorgang
+ * eingereicht hat. Fuer eine Kanzlei ist das genau der Fall, den sie
+ * ausschliessen muss: niemand gibt seinen eigenen Vorschlag frei. Die Regel
+ * setzt die APP beim Start des Laufs; sie kennt den Menschen aus
+ * `X-Arasul-User`. Nicht das Modell und nicht die Flow-Datei: ein Werkzeug-
+ * Parameter, den das Modell setzt, waere eine Regel, die das Modell auch
+ * weglassen kann.
+ */
+const FREIGABE_REGELN = Object.freeze([
+  'Der Kreis ist, wem die App freigegeben ist. Ein Lauf kann ihn beim Start enger ziehen, nie weiter.',
+  '`einreicher` ist der Benutzername des Menschen, der den Lauf ausloest -- der Wert aus `X-Arasul-User`. Er muss ein aktives Konto sein, dem die App freigegeben ist, sonst 400.',
+  '`freigabe.ohne_einreicher: true` schliesst ihn vom Entscheiden aus (Vier-Augen-Prinzip). Er sieht die Anfrage nicht unter /api/freigabe-anfragen, und entscheidet er trotzdem, antwortet das Geraet 403. Braucht `einreicher`.',
+  '`freigabe.entscheider` nennt ENTWEDER `{"rolle":"admin"}` ODER `{"konten":["name",…]}`. Nur diese Menschen sehen und entscheiden die Anfrage; jeder andere sieht sie nicht und bekommt beim Entscheiden 403. Jedes Konto muss die App freigegeben haben, sonst 400.',
+  'Bleibt nach der Regel niemand, der entscheiden koennte, weist das Geraet den Start mit 400 ab -- statt eine Freigabe anzulegen, die in ihre Frist laeuft.',
+  'Die Regel gilt fuer jede Freigabe dieses Laufs. `GET /freigaben` nennt je Anfrage `einreicher`, `ohne_einreicher` und `entscheider` (Rolle oder Konten).',
 ]);
 
 /** Die Namen, die unter `/apps/<id>/` der Plattform gehoeren. */
@@ -231,7 +280,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'DELETE',
       pfad: '/api/v1/external/apps/:id?bestaetigung=<id>&dateien=<true|false>',
       bereich: 'app:deploy',
-      was: 'App weg: beide Container samt Volumes, beide Staende, alle Freigaben',
+      was: 'App weg: beide Container samt Volumes, beide Staende, alle Freigaben, ihre Datenbanken (die Sicherungen davon bleiben)',
     },
     {
       verb: 'POST',
@@ -285,7 +334,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'POST',
       pfad: '/api/v1/external/flows/:name/run',
       bereich: 'flow:run',
-      was: 'Einen Flow anstossen. Gesucht wird im Namensraum des Schluessels',
+      was: 'Einen Flow anstossen. Gesucht wird im Namensraum des Schluessels. Optional `einreicher` und `freigabe` (siehe `freigaben`)',
     },
     {
       verb: 'GET',
@@ -347,7 +396,7 @@ function kontrakt() {
         `Hoechstens ${appFlows.MAX_FLOWS} Flows je Paket.`,
         'Der Namensraum ist die App: zwei Apps duerfen denselben Flow-Namen tragen.',
         'Das Werkzeug `freigabe_anfordern` haelt den Lauf an, bis ein Mensch bestaetigt (Status `wartend`). Ablehnung beendet ihn als `abgebrochen`, Fristablauf als `abgelaufen`.',
-        'Entscheiden darf jeder, dem die App freigegeben ist. Ein Flow nennt dafuer keine Person und keine Rolle.',
+        'Entscheiden darf, wem die App freigegeben ist. Die Flow-Datei nennt dafuer keine Person und keine Rolle; den Kreis enger ziehen kann die APP beim Start des Laufs (`freigaben`, seit 25.09.2026).',
         'Die Frist steht als `frist_minuten` in den `parameter` des Schritts; ohne Angabe gilt die Vorgabe des Geraets.',
       ],
     },
@@ -426,6 +475,20 @@ function kontrakt() {
         'Der Schluessel des Kits traegt `app:deploy` und wird am Geraet angelegt ' +
         '(scripts/util/kit-schluessel.sh); ein Administrator kann ihn widerrufen.',
     },
+    daten: {
+      ort: 'datenbank',
+      je_stand: true,
+      ueberlebt: ['einspielen', 'schalten', 'neustart', 'sicherung'],
+      ueberlebt_nicht: ['dateisystem_des_containers', 'anonyme_volumes', 'entfernen_der_app'],
+      wiederherstellen: '/api/backup/wiederherstellung/app/:id',
+      regeln: DATEN_REGELN,
+    },
+    freigaben: {
+      start: alsJsonSchema(ExternalFlowRunBody),
+      regel: alsJsonSchema(FreigabeRegel),
+      rollen: ['admin'],
+      regeln: FREIGABE_REGELN,
+    },
     endpunkte: ENDPUNKTE,
   };
 }
@@ -434,6 +497,8 @@ module.exports = {
   KONTRAKT_VERSION,
   PRAEFIX,
   MANIFEST_REGELN,
+  DATEN_REGELN,
+  FREIGABE_REGELN,
   ENDPUNKTE,
   VERGEBENE_PFADE,
   kontrakt,

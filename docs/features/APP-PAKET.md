@@ -292,6 +292,15 @@ Datenbank im PostgreSQL der Plattform. Sie steht im Manifest nicht — das Gerä
 legt sie an, nennt ihre Adresse und wirft sie mit der App wieder weg. Siehe
 [APPS.md](APPS.md#die-datenbank-einer-app-phase-h7).
 
+**`daten` und `freigaben` (J35, 25.09.2026), Fassung bleibt 6:** `daten` sagt,
+was eine App dauerhaft behält (die Datenbank, je Stand) und was nicht (das
+Dateisystem des Containers, anonyme Volumes) und wie die Daten einer App aus
+der Sicherung zurückkommen. `freigaben` nennt die zwei freiwilligen Felder am
+Start eines Laufs — `einreicher` und `freigabe` — als Schema und als Sätze.
+Beides ist additiv: ein Kit, das die Abschnitte nicht liest, startet Läufe wie
+bisher. Eine 7 hätte jedes Kit bis 6 angehalten, ohne dass es etwas falsch
+machte.
+
 **Fassung 6 (Brücke, 21.09.2026):** das Manifest kennt **`agent`** — die Liste
 der Routen, die eine App einem Agenten anbietet. Freiwillig wie `marken`, und
 die Zahl geht aus demselben Grund mit: `.strict()` hat das Feld bis hierher

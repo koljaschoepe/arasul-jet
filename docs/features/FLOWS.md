@@ -329,6 +329,37 @@ Freigabe, mit der jemand die App überhaupt benutzen darf. Eine Freigabe gehört
 deshalb immer einer App: ein Flow der Plattform kann keine anfordern und
 bekommt einen Satz, der das sagt.
 
+### Vier Augen (J35, 25.09.2026)
+
+Den Kreis enger ziehen kann die **App**, beim Start des Laufs — nicht die
+Flow-Datei und nicht das Modell (ein Werkzeug-Parameter, den das Modell setzt,
+wäre eine Regel, die es auch weglassen kann):
+
+```json
+POST /api/v1/external/flows/beleg-buchen/run
+{
+  "args": { "beleg": "4711" },
+  "wait_for_result": false,
+  "einreicher": "anna",
+  "freigabe": { "ohne_einreicher": true, "entscheider": { "rolle": "admin" } }
+}
+```
+
+| Feld                                      | Wirkung                                                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `einreicher`                              | Wer den Lauf ausgelöst hat — der Benutzername aus `X-Arasul-User`. Muss die App freigegeben haben. |
+| `freigabe.ohne_einreicher: true`          | Der Einreicher sieht die Anfrage nicht und bekommt beim Entscheiden `403`. Braucht `einreicher`.   |
+| `freigabe.entscheider: {"rolle":"admin"}` | Nur Administratoren, denen die App freigegeben ist.                                                |
+| `freigabe.entscheider: {"konten":[…]}`    | Nur diese Konten; jedes muss die App freigegeben haben.                                            |
+
+Die Regel engt `app_members` ein, sie erweitert nie. Bleibt danach niemand,
+der entscheiden könnte, weist der Start mit `400` ab — statt eine Freigabe
+anzulegen, die einen Tag lang in ihre Frist läuft. Sie gilt für jede Freigabe
+des Laufs und steht an Lauf und Anfrage (Migration 185); `GET
+/api/v1/external/freigaben` nennt je Anfrage `einreicher`, `ohne_einreicher`
+und `entscheider`. Die Übersicht zeigt »eingereicht von …« und ein Zeichen
+»Vier Augen« oder »Benannt«. Der Kontrakt nennt beides unter `freigaben`.
+
 Die Frist steht als `frist_minuten` am Schritt, ohne Angabe gilt
 `FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 1440 = ein Tag). Das Warten kostet keine
 GPU — dieselbe Begründung wie bei der Rückfrage.

@@ -1182,6 +1182,29 @@ Fassungsordner, der Deadman-Switch fragt den Docker-Healthcheck des Agenten
 statt eines Ports, den der Host nicht hat. Wächter:
 `scripts/test/systemd-einheiten.sh`.
 
+Seit dem Auftrag **apps-halten-daten-und-vier-augen** (25.09.2026, J35)
+**sagt der Kontrakt, was eine App behaelt, und niemand gibt seinen eigenen
+Vorschlag frei**. Das Kit behauptete beides: eine SQLite-Datei ueberlebe das
+naechste Einspielen nicht, und eine eigene Datenbank komme mit. Beides stimmt,
+es sind zwei Orte -- der Kontrakt nennt sie jetzt unter `daten` (dauerhaft ist
+nur `umgebung.datenbank`, je Stand; das Dateisystem des Containers samt
+anonymer Volumes faellt bei jedem Einspielen). Die Daten **einer** App kommen
+ueber `POST /api/backup/wiederherstellung/app/:id` aus der Sicherung zurueck,
+auch nach dem Entfernen, ohne den Rest des Geraets anzufassen
+(`wiederherstellen.sh --app-datenbank`). Dabei fiel ein Fehler aus H7 auf: der
+Weg zurueck spielte die mit `--no-owner` gezogenen Abzuege als `arasul` ein,
+und danach gehoerte keine Tabelle mehr der Rolle der App -- jetzt mit
+`SET ROLE`. Und eine **Freigabe kann den Kreis enger ziehen** (Migration 185):
+die App nennt beim Start eines Laufs `einreicher` (aus `X-Arasul-User`) und
+`freigabe` -- `ohne_einreicher` (vier Augen) und/oder `entscheider` als Rolle
+`admin` oder Liste von Konten, immer innerhalb von `app_members`. Wer nicht im
+Kreis steht, sieht die Anfrage nicht und bekommt 403; ein leerer Kreis ist ein
+400 beim Start. Die Regel setzt die App, nicht das Modell und nicht die
+Flow-Datei. Der Kontrakt bleibt bei **6** (additiv, und eine 7 hielte das Kit
+an); er nennt beides unter `freigaben`. Abnahme:
+`scripts/test/daten-vier-augen-abnahme.sh` mit der Proben-App
+`tests/probe-daten/`.
+
 Seit dem Auftrag **firmenordner-rechte-im-frontend** (22.09.2026, J33) **verwaltet
 der Administrator den Firmenordner in der Oberflaeche**, und der Firmenordner hat
 eine **Wurzel**. Einstellungen → Firmenordner (`features/settings/FirmenordnerSettings.tsx`
