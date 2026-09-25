@@ -8,6 +8,7 @@
  *   Tester   wer sieht den Teststand
  *   Flows    was kann diese App, und womit rechnet sie
  *   Läufe    was hat sie getan
+ *   KI       welches Modell hat sie wann für wen gefragt, auch ohne Flow (J35)
  *   Logs     was sagt ihr Container
  *
  * Flow und Lauf ÖFFNEN SICH AN DERSELBEN STELLE statt in einem Dialog: beide
@@ -16,7 +17,7 @@
  * Knopf, wie in der Modell-Detailseite (Plan 012).
  */
 import { useState } from 'react';
-import { AppWindow, FileText, ListOrdered, ScrollText, Trash2, Users } from 'lucide-react';
+import { AppWindow, Brain, FileText, ListOrdered, ScrollText, Trash2, Users } from 'lucide-react';
 import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
@@ -26,6 +27,7 @@ import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppStaende } from './AppStaende';
 import { AppTester } from './AppTester';
 import { FlowAnsicht, ModellZeile } from './FlowAnsicht';
+import { KiAufrufe } from './KiAufrufe';
 import { LaufAnsicht, LaufZustand } from './LaufAnsicht';
 import { ModellDialog } from './ModellDialog';
 import {
@@ -33,6 +35,7 @@ import {
   useAppLaeufe,
   useAppLogs,
   useEntfernen,
+  useKiAufrufe,
   useFlowModell,
   useKurzliste,
   useSchalten,
@@ -83,6 +86,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const toast = useToast();
   const { data: app, isLoading, isError } = useApp(appId);
   const { data: laeufe } = useAppLaeufe(appId);
+  const { data: kiAufrufe } = useKiAufrufe(appId);
   const schalten = useSchalten(appId);
   const entfernen = useEntfernen(appId);
   const modellSetzen = useFlowModell(appId);
@@ -324,6 +328,14 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
               ))}
             </ul>
           )}
+        </Feldgruppe>
+
+        <Feldgruppe
+          titel="KI-Aufrufe"
+          symbol={<Brain />}
+          beschreibung="Jeder Modellaufruf dieser App, auch ohne Flow: wann, für wen, welches Modell, wie lange. Ohne Inhalt."
+        >
+          <KiAufrufe aufrufe={kiAufrufe} />
         </Feldgruppe>
 
         <Feldgruppe
