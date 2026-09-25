@@ -17,6 +17,9 @@
  *   POST /api/backup/wiederherstellung   Zurueck -- und danach laufen die Apps
  *                                        wieder, aus ihren gesicherten Paketen
  *                                        neu gebaut.
+ *   POST /api/backup/wiederherstellung/app/:id
+ *                                        Nur die Daten EINER App (J35), ohne
+ *                                        den Rest des Geraets anzufassen.
  *   POST /api/backup/test                Der Wiederherstellungstest, ohne den
  *                                        Betrieb anzufassen.
  *
@@ -28,11 +31,16 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { validateBody } = require('../../middleware/validate');
+const { validateBody, validateParams } = require('../../middleware/validate');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const logger = require('../../utils/logger');
 const sicherungsdienst = require('../../services/betrieb/sicherungsdienst');
-const { WiederherstellungBody } = require('../../schemas/admin-backup');
+const {
+  WiederherstellungBody,
+  AppWiederherstellungParams,
+  AppWiederherstellungBody,
+} = require('../../schemas/admin-backup');
+const { ValidationError } = require('../../utils/errors');
 
 /**
  * GET /api/backup/status
@@ -153,6 +161,50 @@ router.post(
         apps: ergebnis.apps,
         ausgabe: ergebnis.ausgabe,
       },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/backup/wiederherstellung/app/:id
+ *
+ * Die Daten einer App aus der letzten Sicherung, und nur sie (J35). Geht auch,
+ * wenn die App gerade entfernt ist: dann liegen die Daten bereit, und das
+ * naechste Einspielen findet sie vor. Die jetzige Datenbank der App wird
+ * vorher abgezogen (`vor_wiederherstellung/` im Sicherungsordner).
+ *
+ * `bestaetigung` ist die Kennung der App -- getippt, nicht angeklickt.
+ */
+router.post(
+  '/wiederherstellung/app/:id',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppWiederherstellungParams),
+  validateBody(AppWiederherstellungBody),
+  asyncHandler(async (req, res) => {
+    const appId = req.params.id;
+    if (req.body.bestaetigung !== appId) {
+      throw new ValidationError(
+        `Zum Bestaetigen muss \`bestaetigung\` die Kennung der App enthalten ("${appId}"). ` +
+          'Dieser Aufruf ersetzt ihre Daten durch die der letzten Sicherung.'
+      );
+    }
+    logger.warn(`Daten der App ${appId} werden zurueckgeholt, von ${req.user.username}`);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'app_daten_wiederhergestellt',
+      details: { app_id: appId, stand: req.body.stand ?? null },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    const ergebnis = await sicherungsdienst.stelleAppWiederHer({
+      appId,
+      stand: req.body.stand ?? null,
+    });
+    res.status(ergebnis.erfolg ? 200 : 500).json({
+      data: ergebnis,
       timestamp: new Date().toISOString(),
     });
   })

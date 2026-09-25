@@ -14,6 +14,17 @@
  * Das eine ist die Voraussetzung fuer das andere: wer die App freigegeben hat,
  * darf ihre Freigabe-Anfragen entscheiden.
  *
+ * VIER AUGEN (J35, 25.09.2026). Innerhalb dieses Kreises kann der LAUF den
+ * Kreis enger ziehen, nie weiter -- gesetzt von der App beim Start, nicht vom
+ * Modell und nicht vom Flow (Migration 185, `pruefeRegel` unten):
+ *
+ *   ohne_einreicher   wer den Lauf ausgeloest hat, entscheidet nicht
+ *   entscheider       nur die Rolle `admin` ODER nur diese Konten
+ *
+ * Wer danach nicht im Kreis steht, sieht die Anfrage nicht und bekommt beim
+ * Entscheiden 403. Die Regel steht an EINER Stelle (`KREIS`), und Liste,
+ * Entscheidung und Fehlererklaerung lesen sie alle drei von dort.
+ *
  * WARUM IN DER DATENBANK, im Unterschied zur Rueckfrage (`frageStore.js`)?
  * Eine Rueckfrage richtet sich an den, der gerade zusieht, und ist nach einer
  * halben Stunde gegenstandslos. Eine Freigabe ist eine AUFGABE: sie hat einen
@@ -73,6 +84,135 @@ const VORGABE_FRIST_MINUTEN = Number(process.env.FLOW_FREIGABE_FRIST_MINUTEN || 
  */
 const MIN_FRIST_MINUTEN = 0.1;
 const MAX_FRIST_MINUTEN = 14 * 24 * 60;
+
+/**
+ * Wer eine Anfrage `a` entscheiden darf, als SQL -- `$n` ist der Mensch.
+ *
+ * Vier Bedingungen, und alle muessen gelten: die App ist ihm freigegeben (C7),
+ * er ist nicht der gesperrte Einreicher, er steht auf der Liste (falls es eine
+ * gibt), er hat die Rolle (falls eine verlangt ist). Eine Funktion und kein
+ * fester Text, weil die drei Aufrufer den Menschen an verschiedenen Stellen
+ * ihrer Parameter fuehren.
+ */
+function kreis(n) {
+  const wer = `$${n}::bigint`;
+  return `(
+        EXISTS (SELECT 1 FROM public.app_members m
+                 WHERE m.app_id = a.app_id AND m.user_id = ${wer})
+    AND NOT (a.ohne_einreicher AND a.einreicher_id IS NOT DISTINCT FROM ${wer})
+    AND (a.entscheider_ids IS NULL OR ${wer} = ANY (a.entscheider_ids))
+    AND (a.entscheider_rolle IS NULL
+         OR EXISTS (SELECT 1 FROM public.admin_users u
+                     WHERE u.id = ${wer} AND u.role = a.entscheider_rolle)))`;
+}
+
+/** Die Rolle, die als Entscheider-Kreis taugt. Mehr gibt es an diesem Geraet nicht zu verlangen. */
+const ENTSCHEIDER_ROLLEN = Object.freeze(['admin']);
+
+/**
+ * Die Regel eines Laufs pruefen und in die Form bringen, in der sie am Lauf
+ * steht -- BEIM START, solange die App noch eine Antwort lesen kann.
+ *
+ * Alles, was hier scheitert, ist ein 400 an die App und kein toter Lauf: eine
+ * Freigabe, die niemand entscheiden kann, laeuft sonst stumm in ihre Frist, und
+ * der Mensch, der eingereicht hat, wartet einen Tag auf nichts.
+ *
+ * @param {object} was
+ * @param {string} was.appId
+ * @param {string|null} [was.einreicher]  Benutzername, wie die App ihn aus `X-Arasul-User` kennt
+ * @param {{ohne_einreicher?: boolean, entscheider?: {rolle?: string, konten?: string[]}}|null} [was.freigabe]
+ * @returns {Promise<{einreicherId: number|null, regel: object|null}>}
+ */
+async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { datenbank = db } = {}) {
+  const ohneEinreicher = freigabe?.ohne_einreicher === true;
+  const entscheider = freigabe?.entscheider ?? null;
+
+  if (!einreicher && !freigabe) {
+    return { einreicherId: null, regel: null };
+  }
+  if (!appId) {
+    throw new ValidationError(
+      '`einreicher` und `freigabe` gelten fuer den Lauf einer App. Dieser Schluessel gehoert keiner.'
+    );
+  }
+
+  // Wer darf die App ueberhaupt -- der Kreis, den die Regel nur enger ziehen kann.
+  const { rows: mitglieder } = await datenbank.query(
+    `SELECT u.id, u.username, u.role
+       FROM public.app_members m
+       JOIN public.admin_users u ON u.id = m.user_id
+      WHERE m.app_id = $1 AND u.is_active = TRUE`,
+    [appId]
+  );
+  const nachName = new Map(mitglieder.map(u => [u.username, u]));
+
+  let einreicherId = null;
+  if (einreicher) {
+    const wer = nachName.get(einreicher);
+    if (!wer) {
+      throw new ValidationError(
+        `Einreicher "${einreicher}": kein aktives Konto, dem die App ${appId} freigegeben ist. ` +
+          'Gemeint ist der Benutzername aus der Kopfzeile X-Arasul-User.'
+      );
+    }
+    einreicherId = Number(wer.id);
+  }
+  if (ohneEinreicher && einreicherId == null) {
+    throw new ValidationError(
+      '`freigabe.ohne_einreicher` braucht `einreicher`: wer ausgeschlossen werden soll, muss genannt sein.'
+    );
+  }
+
+  let kandidaten = mitglieder;
+  let entscheiderRolle = null;
+  let entscheiderIds = null;
+  if (entscheider) {
+    const { rolle, konten } = entscheider;
+    if ((rolle == null) === (konten == null)) {
+      throw new ValidationError(
+        '`freigabe.entscheider` nennt ENTWEDER `rolle` ODER `konten`, genau eines von beiden.'
+      );
+    }
+    if (rolle != null) {
+      if (!ENTSCHEIDER_ROLLEN.includes(rolle)) {
+        throw new ValidationError(
+          `Entscheider-Rolle "${rolle}" gibt es nicht. Erlaubt: ${ENTSCHEIDER_ROLLEN.join(', ')}.`
+        );
+      }
+      entscheiderRolle = rolle;
+      kandidaten = kandidaten.filter(u => u.role === rolle);
+    } else {
+      const fehlend = konten.filter(k => !nachName.has(k));
+      if (fehlend.length > 0) {
+        throw new ValidationError(
+          `Entscheider ohne Zugang zur App ${appId}: ${fehlend.join(', ')}. ` +
+            'Entscheiden kann nur, wem die App freigegeben ist.'
+        );
+      }
+      entscheiderIds = [...new Set(konten.map(k => Number(nachName.get(k).id)))];
+      kandidaten = kandidaten.filter(u => entscheiderIds.includes(Number(u.id)));
+    }
+  }
+  if (ohneEinreicher) {
+    kandidaten = kandidaten.filter(u => Number(u.id) !== einreicherId);
+  }
+  if (kandidaten.length === 0) {
+    throw new ValidationError(
+      'Nach dieser Regel koennte niemand die Freigabe entscheiden: der Kreis ist leer. ' +
+        'Einem weiteren Menschen die App freigeben oder die Regel lockern.'
+    );
+  }
+
+  const regel =
+    ohneEinreicher || entscheiderRolle || entscheiderIds
+      ? {
+          ohne_einreicher: ohneEinreicher,
+          entscheider_rolle: entscheiderRolle,
+          entscheider_ids: entscheiderIds,
+        }
+      : null;
+  return { einreicherId, regel };
+}
 
 /** Die Zustaende einer Anfrage. `offen` ist der einzige, aus dem heraus entschieden wird. */
 const ZUSTAENDE = Object.freeze(['offen', 'bestaetigt', 'abgelehnt', 'abgelaufen', 'verfallen']);
@@ -200,9 +340,24 @@ async function anfordern(
 
   const minuten = fristMinuten(frist);
 
+  // Die Regel des Laufs (Migration 185) kommt in DERSELBEN Anweisung mit: sie
+  // steht am Lauf, und die Anfrage traegt eine Abschrift, weil sie dort
+  // beantwortet und spaeter nachgelesen wird. `LEFT JOIN`, damit ein Lauf ohne
+  // Regel eine Anfrage ohne Regel bekommt und nicht gar keine.
   const { rows } = await datenbank.query(
-    `INSERT INTO public.approvals (run_id, app_id, stand, flow_name, titel, zusammenhang, frist)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW() + ($7 || ' minutes')::interval)
+    `INSERT INTO public.approvals (run_id, app_id, stand, flow_name, titel, zusammenhang, frist,
+                                   einreicher_id, ohne_einreicher, entscheider_rolle,
+                                   entscheider_ids)
+     SELECT $1, $2, $3, $4, $5, $6, NOW() + ($7 || ' minutes')::interval,
+            r.einreicher_id,
+            COALESCE((r.freigabe_regel->>'ohne_einreicher')::boolean, FALSE),
+            r.freigabe_regel->>'entscheider_rolle',
+            (SELECT array_agg(k::bigint)
+               FROM jsonb_array_elements_text(
+                      CASE WHEN jsonb_typeof(r.freigabe_regel->'entscheider_ids') = 'array'
+                           THEN r.freigabe_regel->'entscheider_ids' END) AS k)
+       FROM (SELECT 1) AS eins
+       LEFT JOIN flow_runs r ON r.id = $1
      RETURNING id, titel, frist, angefragt_am`,
     [
       runId,
@@ -386,8 +541,7 @@ async function entscheide({ id, benutzerId, status, begruendung = null }, deps =
       WHERE a.id = $1
         AND a.status = 'offen'
         AND a.frist > NOW()
-        AND EXISTS (SELECT 1 FROM public.app_members m
-                     WHERE m.app_id = a.app_id AND m.user_id = $2)
+        AND ${kreis(2)}
       RETURNING a.id, a.run_id, a.app_id, a.stand, a.flow_name, a.titel, a.status,
                 a.frist, a.entschieden_am`,
     [id, benutzerId, status, grund]
@@ -433,7 +587,9 @@ async function erklaereFehlschlag({ id, benutzerId, datenbank }) {
   const { rows } = await datenbank.query(
     `SELECT a.status, a.app_id, a.frist < NOW() AS abgelaufen,
             EXISTS (SELECT 1 FROM public.app_members m
-                     WHERE m.app_id = a.app_id AND m.user_id = $2) AS darf
+                     WHERE m.app_id = a.app_id AND m.user_id = $2) AS darf,
+            (a.ohne_einreicher AND a.einreicher_id IS NOT DISTINCT FROM $2::bigint) AS eingereicht,
+            ${kreis(2)} AS im_kreis
        FROM public.approvals a
       WHERE a.id = $1`,
     [id, benutzerId]
@@ -445,6 +601,19 @@ async function erklaereFehlschlag({ id, benutzerId, datenbank }) {
   if (!a.darf) {
     throw new ForbiddenError(
       `Die App ${a.app_id} ist Ihnen nicht freigegeben. Entscheiden darf, wer sie benutzen darf.`
+    );
+  }
+  // Vier Augen (Migration 185). `im_kreis` fehlt in Zeilen einer Datenbank ohne
+  // die Spalten nicht -- die Migration laeuft vor dem Backend --, aber ein
+  // `undefined` hier heisst „nicht ausgeschlossen" und nicht „verboten".
+  if (a.eingereicht) {
+    throw new ForbiddenError(
+      'Diesen Vorgang haben Sie selbst eingereicht. Freigeben muss ein anderer Mensch (Vier-Augen-Prinzip).'
+    );
+  }
+  if (a.im_kreis === false) {
+    throw new ForbiddenError(
+      'Diese Freigabe ist benannten Entscheidern vorbehalten, und Sie gehoeren nicht dazu.'
     );
   }
   if (a.status !== 'offen') {
@@ -467,19 +636,24 @@ async function nameVon(benutzerId, datenbank = db) {
 /**
  * Die offenen Freigaben der Apps, die diesem Menschen freigegeben sind.
  *
- * Der JOIN auf `app_members` IST die Berechtigung. Eine Liste, die erst alles
- * holt und dann siebt, waere zwei Stellen, an denen dieselbe Regel steht.
+ * Der Kreis (`kreis`) IST die Berechtigung. Eine Liste, die erst alles holt
+ * und dann siebt, waere zwei Stellen, an denen dieselbe Regel steht. Seit J35
+ * sieht deshalb der Einreicher einer Vier-Augen-Freigabe sie hier nicht, und
+ * wer nicht benannt ist, auch nicht.
  * Abgelaufene stehen nicht darin, auch wenn ihre Zeile noch `offen` sagt: der
  * Zeitgeber schreibt sie erst, wenn der Lauf sie braucht.
  */
 async function listeOffeneFuer(benutzerId, { datenbank = db } = {}) {
   const { rows } = await datenbank.query(
     `SELECT a.id, a.run_id, a.app_id, a.stand, a.flow_name, a.titel, a.zusammenhang,
-            a.frist, a.angefragt_am
+            a.frist, a.angefragt_am,
+            e.username AS einreicher, a.ohne_einreicher,
+            (a.entscheider_rolle IS NOT NULL OR a.entscheider_ids IS NOT NULL) AS benannt
        FROM public.approvals a
-       JOIN public.app_members m ON m.app_id = a.app_id AND m.user_id = $1
+       LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
       WHERE a.status = 'offen'
         AND a.frist > NOW()
+        AND ${kreis(1)}
       ORDER BY a.frist ASC`,
     [benutzerId]
   );
@@ -510,9 +684,19 @@ async function listeFuerApp({ appId, stand, runId = null, limit = 50 }, { datenb
   werte.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await datenbank.query(
     `SELECT a.id, a.run_id, a.flow_name, a.titel, a.zusammenhang, a.status, a.frist,
-            a.angefragt_am, a.entschieden_am, a.begruendung, b.username AS entschieden_von
+            a.angefragt_am, a.entschieden_am, a.begruendung, b.username AS entschieden_von,
+            e.username AS einreicher, a.ohne_einreicher,
+            CASE
+              WHEN a.entscheider_rolle IS NOT NULL
+                THEN jsonb_build_object('rolle', a.entscheider_rolle)
+              WHEN a.entscheider_ids IS NOT NULL
+                THEN jsonb_build_object('konten',
+                       (SELECT COALESCE(jsonb_agg(u.username ORDER BY u.username), '[]'::jsonb)
+                          FROM public.admin_users u WHERE u.id = ANY (a.entscheider_ids)))
+            END AS entscheider
        FROM public.approvals a
        LEFT JOIN public.admin_users b ON b.id = a.entschieden_von
+       LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
       WHERE a.app_id = $1 AND a.stand = $2 ${filter}
       ORDER BY a.id DESC
       LIMIT $${werte.length}`,
@@ -556,6 +740,8 @@ function _reset() {
 
 module.exports = {
   anfordern,
+  pruefeRegel,
+  ENTSCHEIDER_ROLLEN,
   entscheide,
   listeOffeneFuer,
   listeFuerApp,

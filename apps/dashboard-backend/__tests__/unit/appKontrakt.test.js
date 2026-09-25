@@ -126,6 +126,27 @@ describe('Der Kontrakt sagt, was das Kit wissen muss', () => {
  * `arasul` bleibt aussen vor: das ist die Systemversion, sie aendert sich mit
  * jedem Release und sagt nichts ueber den Vertrag.
  */
+describe('Daten und Freigaben im Kontrakt (J35)', () => {
+  it('nennt den einen dauerhaften Ort und was ihn nicht ueberlebt', () => {
+    const { daten } = appKontrakt.kontrakt();
+    expect(daten.ort).toBe('datenbank');
+    expect(daten.je_stand).toBe(true);
+    expect(daten.ueberlebt).toEqual(expect.arrayContaining(['einspielen', 'schalten']));
+    expect(daten.ueberlebt_nicht).toContain('dateisystem_des_containers');
+    expect(daten.regeln.join(' ')).toMatch(/SQLite/);
+    expect(daten.wiederherstellen).toBe('/api/backup/wiederherstellung/app/:id');
+  });
+
+  it('nennt Einreicher und Entscheider als Schema und als Satz', () => {
+    const { freigaben } = appKontrakt.kontrakt();
+    expect(freigaben.start.properties).toHaveProperty('einreicher');
+    expect(freigaben.start.properties).toHaveProperty('freigabe');
+    expect(freigaben.regel.properties).toHaveProperty('ohne_einreicher');
+    expect(freigaben.regel.properties.entscheider.properties.rolle.enum).toEqual(['admin']);
+    expect(freigaben.regeln.join(' ')).toMatch(/403/);
+  });
+});
+
 describe('Der Fingerabdruck des Kontraktes', () => {
   /** JSON mit sortierten Schluesseln -- sonst haengt der Abdruck an der Reihenfolge. */
   function stabil(wert) {
@@ -166,7 +187,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // zwar aus dem Grund, aus dem J30 sie stehen liess -- hier IST ein Kit auf
     // der alten Fassung falsch: es wiese das Feld als unbekannt ab, so wie das
     // Geraet es bis heute tat.
-    expect(abdruck).toBe('5637af47512ba378ae3692f37aeaf22d9fc3ae172d75caf9109c447cb4ffb8c8');
+    //
+    // 25.09.2026 (J35): zwei Abschnitte kommen dazu, `daten` und `freigaben`,
+    // dazu zwei Saetze an Endpunkten und einer in den Flow-Regeln. Die Zahl
+    // bleibt bei 6: beides ist freiwillig und additiv, ein Kit ohne die
+    // Abschnitte startet Laeufe wie bisher -- und eine 7 hielte das Kit am
+    // Orin an, an dem an diesem Tag ein anderer Agent damit baute.
+    expect(abdruck).toBe('1fb6de3116f7d68d2f1431026e773146576e67c1bc26d900488501d47bee2579');
   });
 
   /**

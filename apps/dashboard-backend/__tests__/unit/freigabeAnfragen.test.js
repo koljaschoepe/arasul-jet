@@ -397,3 +397,178 @@ describe('verwaisteSchliessen', () => {
     expect(sql).toMatch(/status IN \('laeuft', 'wartend'\)/);
   });
 });
+
+/**
+ * Vier Augen (J35). Der Kreis steht an EINER Stelle im SQL; hier wird
+ * gemessen, dass alle drei Leser ihn benutzen und dass der Start eine Regel
+ * abweist, nach der niemand entscheiden koennte. Ob Postgres die Bedingung so
+ * auswertet, wie sie dasteht, misst die Abnahme am Orin -- eine Attrappe kann
+ * das nicht.
+ */
+describe('der Kreis der Entscheider (J35)', () => {
+  const mitglieder = [
+    { id: 3, username: 'anna', role: 'mitarbeiter' },
+    { id: 4, username: 'bernd', role: 'mitarbeiter' },
+    { id: 1, username: 'admin', role: 'admin' },
+  ];
+  const mitDb = () => db.query.mockResolvedValue({ rows: mitglieder });
+
+  it('laesst einen Lauf ohne Regel ohne Regel und fragt nichts', async () => {
+    expect(await freigabeAnfragen.pruefeRegel({ appId: 'kanzlei' })).toEqual({
+      einreicherId: null,
+      regel: null,
+    });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('kennt den Einreicher nur, wenn ihm die App freigegeben ist', async () => {
+    mitDb();
+    await expect(
+      freigabeAnfragen.pruefeRegel({ appId: 'kanzlei', einreicher: 'fremd' })
+    ).rejects.toThrow(ValidationError);
+    expect(await freigabeAnfragen.pruefeRegel({ appId: 'kanzlei', einreicher: 'anna' })).toEqual({
+      einreicherId: 3,
+      regel: null,
+    });
+  });
+
+  it('verlangt fuer „ohne Einreicher" einen Einreicher', async () => {
+    mitDb();
+    await expect(
+      freigabeAnfragen.pruefeRegel({ appId: 'kanzlei', freigabe: { ohne_einreicher: true } })
+    ).rejects.toThrow(/braucht `einreicher`/);
+  });
+
+  it('nimmt Rolle ODER Konten, nie beides', async () => {
+    mitDb();
+    await expect(
+      freigabeAnfragen.pruefeRegel({
+        appId: 'kanzlei',
+        freigabe: { entscheider: { rolle: 'admin', konten: ['anna'] } },
+      })
+    ).rejects.toThrow(/ENTWEDER/);
+  });
+
+  it('weist Konten ab, denen die App nicht freigegeben ist', async () => {
+    mitDb();
+    await expect(
+      freigabeAnfragen.pruefeRegel({
+        appId: 'kanzlei',
+        freigabe: { entscheider: { konten: ['bernd', 'zoe'] } },
+      })
+    ).rejects.toThrow(/zoe/);
+  });
+
+  it('weist eine Regel ab, nach der der Kreis leer ist', async () => {
+    mitDb();
+    await expect(
+      freigabeAnfragen.pruefeRegel({
+        appId: 'kanzlei',
+        einreicher: 'bernd',
+        freigabe: { ohne_einreicher: true, entscheider: { konten: ['bernd'] } },
+      })
+    ).rejects.toThrow(/Kreis ist leer/);
+  });
+
+  it('bringt Rolle und Konten in die Form, die am Lauf steht', async () => {
+    mitDb();
+    expect(
+      await freigabeAnfragen.pruefeRegel({
+        appId: 'kanzlei',
+        einreicher: 'anna',
+        freigabe: { ohne_einreicher: true, entscheider: { rolle: 'admin' } },
+      })
+    ).toEqual({
+      einreicherId: 3,
+      regel: { ohne_einreicher: true, entscheider_rolle: 'admin', entscheider_ids: null },
+    });
+    mitDb();
+    expect(
+      (
+        await freigabeAnfragen.pruefeRegel({
+          appId: 'kanzlei',
+          freigabe: { entscheider: { konten: ['bernd', 'bernd', 'admin'] } },
+        })
+      ).regel
+    ).toEqual({ ohne_einreicher: false, entscheider_rolle: null, entscheider_ids: [4, 1] });
+  });
+
+  it('schreibt die Regel des Laufs in derselben Anweisung an die Anfrage', async () => {
+    const calls = fakeDb();
+    const wartet = freigabeAnfragen.anfordern({
+      runId: 7,
+      appId: 'kanzlei',
+      stand: 'live',
+      titel: 'Beleg buchen?',
+    });
+    await new Promise(setImmediate);
+    expect(calls[0].sql).toMatch(/einreicher_id, ohne_einreicher, entscheider_rolle/);
+    expect(calls[0].sql).toMatch(/LEFT JOIN flow_runs r ON r\.id = \$1/);
+    freigabeAnfragen._reset();
+    wartet.catch(() => {});
+  });
+
+  it('liest den Kreis in Liste und Entscheidung aus derselben Bedingung', async () => {
+    const calls = fakeDb();
+    await freigabeAnfragen.listeOffeneFuer(3);
+    await freigabeAnfragen.entscheide({ id: 42, benutzerId: 3, status: 'bestaetigt' });
+    const kreisSql = /a\.ohne_einreicher AND a\.einreicher_id IS NOT DISTINCT FROM/;
+    expect(calls[0].sql).toMatch(kreisSql);
+    expect(calls[0].sql).toMatch(/ANY \(a\.entscheider_ids\)/);
+    expect(calls.find(c => /UPDATE public\.approvals a/.test(c.sql)).sql).toMatch(kreisSql);
+  });
+
+  it('sagt dem Einreicher, warum er nicht darf -- 403 mit Grund', async () => {
+    db.query.mockImplementation(async sql => {
+      if (/UPDATE public\.approvals a/.test(sql)) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (/FROM public\.approvals a\s+WHERE a\.id/.test(sql)) {
+        return {
+          rows: [
+            {
+              status: 'offen',
+              app_id: 'kanzlei',
+              abgelaufen: false,
+              darf: true,
+              eingereicht: true,
+              im_kreis: false,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    await expect(
+      freigabeAnfragen.entscheide({ id: 42, benutzerId: 3, status: 'bestaetigt' })
+    ).rejects.toThrow(/selbst eingereicht/);
+  });
+
+  it('sagt einem, der nicht benannt ist, dass er nicht darf -- 403', async () => {
+    db.query.mockImplementation(async sql => {
+      if (/UPDATE public\.approvals a/.test(sql)) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (/FROM public\.approvals a\s+WHERE a\.id/.test(sql)) {
+        return {
+          rows: [
+            {
+              status: 'offen',
+              app_id: 'kanzlei',
+              abgelaufen: false,
+              darf: true,
+              eingereicht: false,
+              im_kreis: false,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const fehler = await freigabeAnfragen
+      .entscheide({ id: 42, benutzerId: 4, status: 'bestaetigt' })
+      .catch(e => e);
+    expect(fehler).toBeInstanceOf(ForbiddenError);
+    expect(fehler.message).toMatch(/benannten Entscheidern/);
+  });
+});

@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { AppId } = require('./apps');
 
 /**
  * POST /api/backup/wiederherstellung (Phase C9)
@@ -33,4 +34,21 @@ const WiederherstellungBody = z
   })
   .strict();
 
-module.exports = { WiederherstellungBody };
+/**
+ * POST /api/backup/wiederherstellung/app/:id (J35)
+ *
+ * Die Daten EINER App. `bestaetigung` ist ihre Kennung, abgetippt -- wie beim
+ * Entfernen einer App: der Aufruf wirft die jetzige Datenbank der App weg
+ * (vorher abgezogen) und legt die gesicherte an ihre Stelle. `stand` engt auf
+ * einen Stand ein; ohne ihn kommen beide, soweit gesichert.
+ */
+const AppWiederherstellungParams = z.object({ id: AppId }).strict();
+
+const AppWiederherstellungBody = z
+  .object({
+    bestaetigung: z.string().trim().min(1).max(100),
+    stand: z.enum(['test', 'live']).optional(),
+  })
+  .strict();
+
+module.exports = { WiederherstellungBody, AppWiederherstellungParams, AppWiederherstellungBody };

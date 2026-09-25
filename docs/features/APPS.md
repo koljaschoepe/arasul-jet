@@ -631,7 +631,14 @@ Spalte; sie wird damit mitgesichert, ohne dass jemand daran denken muss.
 
 **Je App und Stand eine.** Ein Probelauf im Teststand darf die Daten des
 Livestandes nicht anfassen. Der Livestand behält seine Daten über jeden
-Versionswechsel: angelegt wird nur, was fehlt.
+Versionswechsel: angelegt wird nur, was fehlt. Schalten nach live nimmt die
+Daten des Teststandes **nicht** mit.
+
+**Was nicht bleibt** (J35): das Dateisystem des Containers. Jedes Einspielen
+und jedes Schalten **ersetzt** den Container, samt seiner anonymen Volumes —
+auch derer, die ein `VOLUME` im Dockerfile anlegt. Eine SQLite-Datei oder ein
+Upload-Ordner im Container ist nach dem Update weg. Der Kontrakt sagt das unter
+`daten`, damit das Kit es nicht aus zwei Stellen erraten muss.
 
 **Das Passwort wechselt nicht bei jedem Einspielen**, anders als der
 API-Schlüssel. Ein Neustart durch Docker behält die Umgebung des Containers,
@@ -644,7 +651,10 @@ eigene Datenbank schreiben, sonst nichts (`NOSUPERUSER NOCREATEDB NOCREATEROLE`,
 `REVOKE ALL … FROM PUBLIC`); an `arasul_db` kommt seit H7 nur noch ihr
 Eigentümer. Die nächtliche Sicherung nimmt jede App-Datenbank mit
 (`services/backup-service/backup.sh`), der Weg zurück legt sie wieder an und
-spielt sie ein, `DELETE /api/apps/:id` wirft sie weg — immer, auch ohne
+spielt sie ein — als Rolle der App, sonst gehörten die Tabellen danach
+`arasul` —, `POST /api/backup/wiederherstellung/app/:id` holt die Daten
+**einer** App zurück, auch nachdem sie entfernt wurde (J35),
+`DELETE /api/apps/:id` wirft sie weg — immer, auch ohne
 `?dateien=true`: die Pakete kann ein Partner neu einspielen, eine Datenbank
 ohne App könnte niemand mehr finden.
 

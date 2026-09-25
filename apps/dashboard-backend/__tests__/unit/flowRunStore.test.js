@@ -49,7 +49,7 @@ describe('createRun', () => {
     expect(params[2]).toBeNull();
     expect(params[3]).toBeNull();
     expect(JSON.parse(params[4])).toEqual({ thema: 'x' });
-    expect(params).toHaveLength(5);
+    expect(params).toHaveLength(7);
   });
 
   it('verträgt fehlende Argumente', async () => {
@@ -57,7 +57,7 @@ describe('createRun', () => {
     await runStore.createRun({ userId: 1, flowName: 'notiz' }, { db });
     const { params } = db.calls[0];
     expect(JSON.parse(params[4])).toEqual({});
-    expect(params).toHaveLength(5);
+    expect(params).toHaveLength(7);
   });
 
   it('schreibt App und Stand mit, wenn der Lauf einer App gehört (C6)', async () => {
@@ -69,6 +69,29 @@ describe('createRun', () => {
     const { params } = db.calls[0];
     expect(params[2]).toBe('urlaub');
     expect(params[3]).toBe('test');
+  });
+
+  it('haelt Einreicher und Freigaberegel fest (J35)', async () => {
+    const db = fakeDb({ rows: [{ id: 10 }] });
+    await runStore.createRun(
+      {
+        userId: 1,
+        flowName: 'bericht',
+        appId: 'urlaub',
+        stand: 'live',
+        einreicherId: 3,
+        freigabeRegel: { ohne_einreicher: true, entscheider_rolle: null, entscheider_ids: null },
+      },
+      { db }
+    );
+    const { sql, params } = db.calls[0];
+    expect(sql).toMatch(/einreicher_id, freigabe_regel/);
+    expect(params[5]).toBe(3);
+    expect(JSON.parse(params[6])).toEqual({
+      ohne_einreicher: true,
+      entscheider_rolle: null,
+      entscheider_ids: null,
+    });
   });
 });
 

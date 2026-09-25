@@ -579,21 +579,25 @@ die Zeile ganz — samt Schlüssel.
 
 > Freigabe-Anfragen aus Flow-Läufen (Phase C7): der Lauf hält an, ein Mensch bestätigt oder lehnt ab, nach der Frist läuft sie ab. Seit 174
 
-| Column            | Type                     | Nullable | Default                                 |
-| ----------------- | ------------------------ | -------- | --------------------------------------- |
-| `id`              | bigint                   | ⛔       | `nextval('approvals_id_seq'::regclass)` |
-| `run_id`          | bigint                   | ⛔       |                                         |
-| `app_id`          | text                     | ⛔       |                                         |
-| `stand`           | text                     | ⛔       |                                         |
-| `flow_name`       | text                     | ⛔       |                                         |
-| `titel`           | text                     | ⛔       |                                         |
-| `zusammenhang`    | text                     | ✅       |                                         |
-| `status`          | text                     | ⛔       | `'offen'`                               |
-| `frist`           | timestamp with time zone | ⛔       |                                         |
-| `angefragt_am`    | timestamp with time zone | ⛔       | `now()`                                 |
-| `entschieden_von` | bigint                   | ✅       |                                         |
-| `entschieden_am`  | timestamp with time zone | ✅       |                                         |
-| `begruendung`     | text                     | ✅       |                                         |
+| Column              | Type                     | Nullable | Default                                 |
+| ------------------- | ------------------------ | -------- | --------------------------------------- |
+| `id`                | bigint                   | ⛔       | `nextval('approvals_id_seq'::regclass)` |
+| `run_id`            | bigint                   | ⛔       |                                         |
+| `app_id`            | text                     | ⛔       |                                         |
+| `stand`             | text                     | ⛔       |                                         |
+| `flow_name`         | text                     | ⛔       |                                         |
+| `titel`             | text                     | ⛔       |                                         |
+| `zusammenhang`      | text                     | ✅       |                                         |
+| `status`            | text                     | ⛔       | `'offen'`                               |
+| `frist`             | timestamp with time zone | ⛔       |                                         |
+| `angefragt_am`      | timestamp with time zone | ⛔       | `now()`                                 |
+| `entschieden_von`   | bigint                   | ✅       |                                         |
+| `entschieden_am`    | timestamp with time zone | ✅       |                                         |
+| `begruendung`       | text                     | ✅       |                                         |
+| `einreicher_id`     | bigint                   | ✅       |                                         |
+| `ohne_einreicher`   | boolean                  | ⛔       | `false`                                 |
+| `entscheider_rolle` | text                     | ✅       |                                         |
+| `entscheider_ids`   | bigint[]                 | ✅       |                                         |
 
 **Primary key:** `id`
 
@@ -601,10 +605,23 @@ die Zeile ganz — samt Schlüssel.
 
 - `run_id` → `flow_runs.id` (`ON DELETE CASCADE`)
 - `entschieden_von` → `admin_users.id` (`ON DELETE SET NULL`)
+- `einreicher_id` → `admin_users.id` (`ON DELETE SET NULL`)
 
 **Constraints:** `stand IN ('test','live')` ·
 `status IN ('offen','bestaetigt','abgelehnt','abgelaufen','verfallen')` ·
-`(status = 'offen') = (entschieden_am IS NULL)`
+`(status = 'offen') = (entschieden_am IS NULL)` ·
+`approvals_entscheider_rolle_chk`: `entscheider_rolle` ist `NULL` oder
+`'admin'`, nie zusammen mit `entscheider_ids`, und eine Liste ist nie leer
+
+> **Vier Augen** (Migration 185, J35): `einreicher_id`, `ohne_einreicher` und
+> der Entscheider-Kreis (`entscheider_rolle` **oder** `entscheider_ids`) sind
+> die Abschrift der Regel, die die App beim Start des Laufs gesetzt hat
+> (`flow_runs.freigabe_regel`). Sie ziehen den Kreis aus `app_members` enger,
+> nie weiter: entscheiden darf, wem die App freigegeben ist, **und** wer nicht
+> der ausgeschlossene Einreicher ist, **und** wer auf der Liste steht bzw. die
+> Rolle hat. Die Bedingung steht einmal im Code (`freigabeAnfragen.kreis`).
+> An der Anfrage und nicht nur am Lauf, weil sie hier beantwortet und später
+> nachgelesen wird.
 
 **Indexes:** `idx_approvals_offen` — `(app_id, stand) WHERE status = 'offen'` ·
 `idx_approvals_run` — `(run_id)` ·
@@ -1873,22 +1890,31 @@ Ollama und keine Selbstheilung.
 
 > Skill-Läufe (Plan 011, Schritt 9): ein Lauf je Aufruf von /name. Überlebt das Schließen des Tabs, damit die Live-Übertragung wiederverbinden kann.
 
-| Column        | Type                     | Nullable | Default                                 |
-| ------------- | ------------------------ | -------- | --------------------------------------- |
-| `id`          | bigint                   | ⛔       | `nextval('flow_runs_id_seq'::regclass)` |
-| `user_id`     | bigint                   | ⛔       |                                         |
-| `flow_name`   | character varying        | ⛔       |                                         |
-| `app_id`      | text                     | ✅       |                                         |
-| `stand`       | text                     | ✅       |                                         |
-| `arguments`   | jsonb                    | ⛔       | `'{}'::jsonb`                           |
-| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`             |
-| `result`      | text                     | ✅       |                                         |
-| `error`       | text                     | ✅       |                                         |
-| `steps_used`  | integer                  | ⛔       | `0`                                     |
-| `changes`     | jsonb                    | ✅       |                                         |
-| `annahmen`    | jsonb                    | ✅       |                                         |
-| `created_at`  | timestamp with time zone | ⛔       | `now()`                                 |
-| `finished_at` | timestamp with time zone | ✅       |                                         |
+| Column           | Type                     | Nullable | Default                                 |
+| ---------------- | ------------------------ | -------- | --------------------------------------- |
+| `id`             | bigint                   | ⛔       | `nextval('flow_runs_id_seq'::regclass)` |
+| `user_id`        | bigint                   | ⛔       |                                         |
+| `flow_name`      | character varying        | ⛔       |                                         |
+| `app_id`         | text                     | ✅       |                                         |
+| `stand`          | text                     | ✅       |                                         |
+| `arguments`      | jsonb                    | ⛔       | `'{}'::jsonb`                           |
+| `status`         | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`             |
+| `result`         | text                     | ✅       |                                         |
+| `error`          | text                     | ✅       |                                         |
+| `steps_used`     | integer                  | ⛔       | `0`                                     |
+| `changes`        | jsonb                    | ✅       |                                         |
+| `annahmen`       | jsonb                    | ✅       |                                         |
+| `einreicher_id`  | bigint                   | ✅       |                                         |
+| `freigabe_regel` | jsonb                    | ✅       |                                         |
+| `created_at`     | timestamp with time zone | ⛔       | `now()`                                 |
+| `finished_at`    | timestamp with time zone | ✅       |                                         |
+
+> `einreicher_id`/`freigabe_regel` (Migration 185, J35): wer den Lauf einer App
+> ausgelöst hat (aus `X-Arasul-User`, von der App genannt) und wer seine
+> Freigaben entscheiden darf —
+> `{ohne_einreicher, entscheider_rolle, entscheider_ids}`, geprüft beim Start
+> (`freigabeAnfragen.pruefeRegel`). `NULL` = keine Regel, es gilt der Kreis aus
+> `app_members`. Ohne Fremdschlüssel wie `app_id`: ein Lauf ist Geschichte.
 
 > `annahmen` (Migration 131, Plan 014 Phase 2): Annahmen-Protokoll des
 > Prüfschritts — JSON-Array von Klartext-Sätzen (Annahmen der Prüfrunde +

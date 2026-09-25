@@ -63,6 +63,9 @@ async function starten(
     // (siehe stepExecutor.berechneVorabErgebnisse) — nur durchgereicht.
     vorabErgebnisse = null,
     vorabQuelleLaufId = null,
+    // Einreicher und Freigaberegel (J35) -- nur festgehalten, siehe `createRun`.
+    einreicherId = null,
+    freigabeRegel = null,
   },
   deps = {}
 ) {
@@ -76,6 +79,8 @@ async function starten(
     appId,
     stand,
     arguments: args,
+    einreicherId,
+    freigabeRegel,
   });
   // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
   // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem

@@ -47,6 +47,10 @@
 #   /usr/local/bin/wiederherstellen.sh --datei <name>   eine bestimmte
 #   /usr/local/bin/wiederherstellen.sh --nur-datenbank  ohne die Ordner
 #   /usr/local/bin/wiederherstellen.sh --probe          nur pruefen, nichts tun
+#   /usr/local/bin/wiederherstellen.sh --app-datenbank <name> [--datei <name>]
+#                                                       NUR die Daten EINER
+#                                                       App und eines Standes
+#                                                       (J35, siehe unten)
 #
 # Rueckgabe 0, wenn alles zurueckgekommen ist, sonst 1. Der Bericht steht in
 # `/backups/wiederherstellung_bericht.json`.
@@ -66,13 +70,15 @@ FIRMENORDNER_ZIEL="${FIRMENORDNER_BACKUP_DIR:-/arasul/firmenordner}"
 DATEI=""
 NUR_DATENBANK=false
 PROBE=false
+APP_DATENBANK=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --datei) DATEI="$2"; shift 2 ;;
         --nur-datenbank) NUR_DATENBANK=true; shift ;;
         --probe) PROBE=true; shift ;;
-        -h|--help) sed -n '1,50p' "$0"; exit 0 ;;
+        --app-datenbank) APP_DATENBANK="$2"; shift 2 ;;
+        -h|--help) sed -n '1,55p' "$0"; exit 0 ;;
         *) echo "Unbekanntes Argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -140,6 +146,144 @@ lies_sicherung() {
 START=$(date +%s)
 mkdir -p "$BACKUP_DIR"
 
+# --- Zugang zur Datenbank ----------------------------------------------------
+# Mit Vorgaben, obwohl Compose alle drei setzt: unter `set -u` waere eine
+# fehlende Variable ein "unbound variable" mitten im Lauf -- ohne Bericht, ohne
+# Zeile im Protokoll, und wer danach sucht, findet eine Wiederherstellung, die
+# scheinbar nichts getan hat. Ein sprechender Fehlschlag ist besser als ein
+# stummer Abbruch.
+[ -f "${POSTGRES_PASSWORD_FILE:-}" ] && POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
+export PGPASSWORD="${POSTGRES_PASSWORD:-}"
+PGH=(-h "${POSTGRES_HOST:-postgres-db}" -U "${POSTGRES_USER:-arasul}")
+POSTGRES_DB="${POSTGRES_DB:-arasul_db}"
+
+# --- Rolle und Datenbank einer App (Phase H7) --------------------------------
+# Legt an, was fehlt, mit einem Zufallswert als Passwort: ein Shell-Skript kann
+# das verschluesselte aus `app_datenbanken` nicht lesen. Das richtige setzt das
+# Backend danach (`appDatenbank.sorgeFuer`).
+lege_app_an() {
+    local db="$1" rolle="$2" wort
+    wort=$(head -c 24 /dev/urandom | base64 | tr -d '+/=')
+    psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 >>"$PROTOKOLL" 2>&1 <<SQL || true
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${rolle}') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+                   '${rolle}', '${wort}');
+  END IF;
+END
+\$\$;
+SQL
+    # `grep -q <<<"$(…)"` und nicht `… | grep -q`: grep steigt beim ersten
+    # Treffer aus, der Erzeuger schreibt weiter, und unter `pipefail` ist
+    # das Rohr danach zerrissen (`scripts/test/rohrbruch.py`).
+    if ! grep -q 1 <<<"$(psql "${PGH[@]}" -d postgres -tAc \
+         "SELECT 1 FROM pg_database WHERE datname = '${db}'" 2>/dev/null)"; then
+        psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
+             -c "CREATE DATABASE \"${db}\" OWNER \"${rolle}\"" >>"$PROTOKOLL" 2>&1 || true
+        psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
+             -c "REVOKE ALL ON DATABASE \"${db}\" FROM PUBLIC" >>"$PROTOKOLL" 2>&1 || true
+        psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
+             -c "GRANT CONNECT, TEMPORARY ON DATABASE \"${db}\" TO \"${rolle}\"" \
+             >>"$PROTOKOLL" 2>&1 || true
+    fi
+}
+
+# Einen Abzug ALS DIE ROLLE DER APP einspielen.
+#
+# Der Abzug ist mit `--no-owner` gezogen und nennt keinen Eigentuemer. Spielt
+# ihn `arasul` ein, gehoert danach jede Tabelle `arasul` -- und die App, deren
+# Rolle kein Superuser ist, bekommt auf ihre eigenen Daten
+# „permission denied". Bis J35 war das der Zustand nach jedem Weg zurueck:
+# die Daten waren da, und die App kam nicht heran.
+# `SET ROLE` vor dem Abzug macht die Rolle zum Eigentuemer von allem, was er
+# anlegt, und das ist dieselbe Lage wie vor der Sicherung.
+spiele_app_ein() {
+    local db="$1" rolle="$2" abzug="$3"
+    { printf 'SET ROLE "%s";\n' "$rolle"; lies_sicherung "$abzug" | zcat; } \
+        | psql "${PGH[@]}" -d "$db" -v ON_ERROR_STOP=1 >>"$PROTOKOLL" 2>&1
+}
+
+# --- Nur eine App (J35, 25.09.2026) ------------------------------------------
+# Der ganze Weg zurueck ersetzt die GANZE Datenbank des Geraets. Wer die Daten
+# einer einzigen App zurueckhaben will -- weil sie entfernt wurde, weil ein
+# Update sie verdorben hat --, nimmt damit jedem anderen Menschen und jeder
+# anderen App alles, was seit der Sicherung geschah. Dieser Zweig fasst genau
+# EINE App-Datenbank an und sonst nichts: keine Plattform-Tabelle, keinen
+# Ordner, keinen Bericht des ganzen Weges.
+#
+# Die Datenbank wird VORHER abgezogen (vor_wiederherstellung/) und dann neu
+# angelegt statt ueberschrieben: `--clean` im Abzug raeumt nur weg, was er
+# selbst kennt, und eine Tabelle, die erst nach der Sicherung dazukam, bliebe
+# sonst stehen -- ein Stand, den es nie gab.
+if [ -n "$APP_DATENBANK" ]; then
+    if ! [[ "$APP_DATENBANK" =~ ^arasul_app_[a-z0-9_]+$ ]] || [ "${#APP_DATENBANK}" -gt 63 ]; then
+        protokoll "FEHLER: ${APP_DATENBANK} ist kein Name einer App-Datenbank"
+        exit 2
+    fi
+    APP_ORDNER="${POSTGRES_DIR}/apps"
+    if [ -z "$DATEI" ]; then
+        ABZUG="${APP_ORDNER}/${APP_DATENBANK}_latest.sql.gz"
+    else
+        case "$DATEI" in
+            "${APP_DATENBANK}_"*.sql.gz) ABZUG="${APP_ORDNER}/${DATEI}" ;;
+            *) protokoll "FEHLER: ${DATEI} ist keine Sicherung von ${APP_DATENBANK}"
+               exit 2 ;;
+        esac
+    fi
+    if [ ! -e "$ABZUG" ]; then
+        protokoll "FEHLER: keine Sicherung von ${APP_DATENBANK} (${ABZUG##*/})"
+        exit 1
+    fi
+    ABZUG="$(readlink -f "$ABZUG")"
+    if ! lies_sicherung "$ABZUG" | gunzip -t 2>/dev/null; then
+        protokoll "FEHLER: ${ABZUG##*/} laesst sich nicht lesen"
+        exit 1
+    fi
+    if [ "$PROBE" = "true" ]; then
+        protokoll "Probe: ${ABZUG##*/} ist lesbar, nichts angefasst"
+        exit 0
+    fi
+    if ! psql "${PGH[@]}" -d postgres -tAc 'SELECT 1' >/dev/null 2>&1; then
+        protokoll "FEHLER: die Datenbank antwortet nicht"
+        exit 1
+    fi
+    protokoll "Nur ${APP_DATENBANK} aus ${ABZUG##*/}"
+
+    if grep -q 1 <<<"$(psql "${PGH[@]}" -d postgres -tAc \
+         "SELECT 1 FROM pg_database WHERE datname = '${APP_DATENBANK}'" 2>/dev/null)"; then
+        mkdir -p "${BACKUP_DIR}/vor_wiederherstellung"
+        VOR_ABZUG="${BACKUP_DIR}/vor_wiederherstellung/${APP_DATENBANK}_vorher_$(date +%Y%m%d_%H%M%S).sql.gz"
+        if pg_dump "${PGH[@]}" -d "$APP_DATENBANK" --no-owner --no-acl --clean --if-exists \
+              | gzip > "$VOR_ABZUG" && gunzip -t "$VOR_ABZUG" 2>/dev/null; then
+            protokoll "Stand von jetzt gesichert: $(basename "$VOR_ABZUG")"
+        else
+            # Hier IST es ein Abbruch, anders als beim ganzen Weg: die Datenbank
+            # gibt es, sie hat Daten, und gleich faellt sie. Ohne Kopie davon
+            # waere ein falscher Aufruf nicht mehr gutzumachen.
+            rm -f "$VOR_ABZUG"
+            protokoll "FEHLER: der Stand von jetzt liess sich nicht sichern -- nichts angefasst"
+            exit 1
+        fi
+        psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
+             -c "DROP DATABASE IF EXISTS \"${APP_DATENBANK}\" WITH (FORCE)" >>"$PROTOKOLL" 2>&1 || {
+            protokoll "FEHLER: ${APP_DATENBANK} liess sich nicht neu anlegen"
+            exit 1
+        }
+    fi
+    lege_app_an "$APP_DATENBANK" "$APP_DATENBANK"
+    if spiele_app_ein "$APP_DATENBANK" "$APP_DATENBANK" "$ABZUG"; then
+        TABELLEN=$(psql "${PGH[@]}" -d "$APP_DATENBANK" -tAc \
+          "SELECT count(*) FROM information_schema.tables
+            WHERE table_type='BASE TABLE'
+              AND table_schema NOT IN ('pg_catalog','information_schema')" 2>/dev/null | tr -d ' ')
+        protokoll "${APP_DATENBANK}: zurueck (${TABELLEN:-?} Tabellen) in $(( $(date +%s) - START ))s"
+        exit 0
+    fi
+    protokoll "FEHLER: ${APP_DATENBANK} liess sich nicht einspielen. Der vorige Stand liegt in ${VOR_ABZUG:-(keiner)}"
+    exit 1
+fi
+
 # --- Welche Sicherung? -------------------------------------------------------
 if [ -z "$DATEI" ]; then
     DATEI="${POSTGRES_DIR}/arasul_db_latest.sql.gz"
@@ -178,17 +322,7 @@ if [ "$PROBE" = "true" ]; then
     exit 0
 fi
 
-# --- Zugang zur Datenbank ----------------------------------------------------
-# Mit Vorgaben, obwohl Compose alle drei setzt: unter `set -u` waere eine
-# fehlende Variable ein "unbound variable" mitten im Lauf -- ohne Bericht, ohne
-# Zeile im Protokoll, und wer danach sucht, findet eine Wiederherstellung, die
-# scheinbar nichts getan hat. Ein sprechender Fehlschlag ist besser als ein
-# stummer Abbruch.
-[ -f "${POSTGRES_PASSWORD_FILE:-}" ] && POSTGRES_PASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
-export PGPASSWORD="${POSTGRES_PASSWORD:-}"
-PGH=(-h "${POSTGRES_HOST:-postgres-db}" -U "${POSTGRES_USER:-arasul}")
-POSTGRES_DB="${POSTGRES_DB:-arasul_db}"
-
+# --- Erreicht? ----------------------------------------------------------------
 if ! psql "${PGH[@]}" -d "$POSTGRES_DB" -tAc 'SELECT 1' >/dev/null 2>&1; then
     protokoll "FEHLER: die Datenbank antwortet nicht"
     schreibe_bericht fehler "datenbank_nicht_erreichbar"
@@ -255,37 +389,13 @@ APP_DB_FEHLER=0
 if [ "$DB_ZEILEN" -gt 0 ]; then
     while IFS='|' read -r APP_DB APP_ROLLE; do
         [ -n "$APP_DB" ] || continue
-        WORT=$(head -c 24 /dev/urandom | base64 | tr -d '+/=')
-        psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 >>"$PROTOKOLL" 2>&1 <<SQL || true
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${APP_ROLLE}') THEN
-    EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
-                   '${APP_ROLLE}', '${WORT}');
-  END IF;
-END
-\$\$;
-SQL
-        # `grep -q <<<"$(…)"` und nicht `… | grep -q`: grep steigt beim ersten
-        # Treffer aus, der Erzeuger schreibt weiter, und unter `pipefail` ist
-        # das Rohr danach zerrissen (`scripts/test/rohrbruch.py`).
-        if ! grep -q 1 <<<"$(psql "${PGH[@]}" -d postgres -tAc \
-             "SELECT 1 FROM pg_database WHERE datname = '${APP_DB}'" 2>/dev/null)"; then
-            psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
-                 -c "CREATE DATABASE \"${APP_DB}\" OWNER \"${APP_ROLLE}\"" >>"$PROTOKOLL" 2>&1 || true
-            psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
-                 -c "REVOKE ALL ON DATABASE \"${APP_DB}\" FROM PUBLIC" >>"$PROTOKOLL" 2>&1 || true
-            psql "${PGH[@]}" -d postgres -v ON_ERROR_STOP=1 \
-                 -c "GRANT CONNECT, TEMPORARY ON DATABASE \"${APP_DB}\" TO \"${APP_ROLLE}\"" \
-                 >>"$PROTOKOLL" 2>&1 || true
-        fi
+        lege_app_an "$APP_DB" "$APP_ROLLE"
         APP_ABZUG="${BACKUP_DIR}/postgres/apps/${APP_DB}_latest.sql.gz"
         if [ ! -e "$APP_ABZUG" ]; then
             protokoll "${APP_DB}: keine Sicherung vorhanden — leer angelegt"
             continue
         fi
-        if lies_sicherung "$(readlink -f "$APP_ABZUG")" | zcat \
-             | psql "${PGH[@]}" -d "$APP_DB" -v ON_ERROR_STOP=1 >>"$PROTOKOLL" 2>&1; then
+        if spiele_app_ein "$APP_DB" "$APP_ROLLE" "$(readlink -f "$APP_ABZUG")"; then
             APP_DB_ZURUECK=$((APP_DB_ZURUECK + 1))
         else
             protokoll "FEHLER: ${APP_DB} liess sich nicht einspielen"

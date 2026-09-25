@@ -55,14 +55,34 @@ const LAEUFT_NOCH = new Set(['laeuft', 'wartend']);
  * @returns {Promise<object>} Die angelegte Lauf-Zeile.
  */
 async function createRun(
-  { userId, flowName, appId = null, stand = null, arguments: args = {} },
+  {
+    userId,
+    flowName,
+    appId = null,
+    stand = null,
+    arguments: args = {},
+    // Wer ausgeloest hat und wer freigeben darf (J35, Migration 185). Geprueft
+    // ist beides schon (`freigabeAnfragen.pruefeRegel`); hier wird es nur
+    // festgehalten.
+    einreicherId = null,
+    freigabeRegel = null,
+  },
   { db = database } = {}
 ) {
   const { rows } = await db.query(
-    `INSERT INTO flow_runs (user_id, flow_name, app_id, stand, arguments)
-     VALUES ($1, $2, $3, $4, $5::jsonb)
+    `INSERT INTO flow_runs (user_id, flow_name, app_id, stand, arguments,
+                            einreicher_id, freigabe_regel)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)
      RETURNING *`,
-    [userId, flowName, appId, stand, JSON.stringify(args || {})]
+    [
+      userId,
+      flowName,
+      appId,
+      stand,
+      JSON.stringify(args || {}),
+      einreicherId,
+      freigabeRegel ? JSON.stringify(freigabeRegel) : null,
+    ]
   );
   return rows[0];
 }

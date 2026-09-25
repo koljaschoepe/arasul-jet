@@ -852,7 +852,24 @@ router.post(
       : await flowRegistry.loadFlow(flowName);
     resolveArguments(flow.argumente, args);
 
-    const { runId } = await flowRunner.starten({ flowName, args, userId, appId, stand });
+    // Wer eingereicht hat und wer freigeben darf (J35). Ebenfalls FRUEH: eine
+    // Regel, nach der niemand entscheiden kann, ist ein 400 an die App und
+    // kein Lauf, der einen Tag lang auf nichts wartet.
+    const { einreicherId, regel } = await freigabeAnfragen.pruefeRegel({
+      appId,
+      einreicher: req.body.einreicher ?? null,
+      freigabe: req.body.freigabe ?? null,
+    });
+
+    const { runId } = await flowRunner.starten({
+      flowName,
+      args,
+      userId,
+      appId,
+      stand,
+      einreicherId,
+      freigabeRegel: regel,
+    });
 
     logger.info(
       `[External API] Flow "${flowName}"${appId ? ` von App ${appId}/${stand}` : ''} ` +
