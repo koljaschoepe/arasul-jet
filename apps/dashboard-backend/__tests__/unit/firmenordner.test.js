@@ -1000,6 +1000,7 @@ describe('Der Dienst-Administrator heisst nicht admin (26.09.2026)', () => {
 
   it('benennt einen Dienst, der noch admin heisst, beim ersten 401 um und fragt noch einmal', async () => {
     firmenordnerAn();
+    dienst._wartenNachUmbenennen(0);
     let umbenannt = false;
     global.fetch.mockImplementation(async (url, opt = {}) => {
       const name = nameAus(opt);
@@ -1038,6 +1039,34 @@ describe('Der Dienst-Administrator heisst nicht admin (26.09.2026)', () => {
     await dienst.legeNutzerAn({ name: 'mia', anzeige: 'mia', email: null, passwort: 'x' });
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(nameAus(global.fetch.mock.calls[0][1])).toBe(dienst.DIENST_ADMIN);
+  });
+
+  it('wartet nach dem Umbenennen, bevor der Name neu vergeben wird', async () => {
+    firmenordnerAn();
+    dienst._wartenNachUmbenennen(150);
+    let umbenanntUm = null;
+    let angelegtUm = null;
+    global.fetch.mockImplementation(async (url, opt = {}) => {
+      const name = nameAus(opt);
+      if (name === 'admin' && String(url).endsWith('/graph/v1.0/me')) {
+        return { ok: true, status: 200, json: async () => ({ id: 'dienst-1' }) };
+      }
+      if (opt.method === 'PATCH') {
+        umbenanntUm = Date.now();
+        return { ok: true, status: 200, text: async () => '{}' };
+      }
+      if (name === dienst.DIENST_ADMIN && umbenanntUm) {
+        angelegtUm = Date.now();
+        return { ok: true, status: 201, text: async () => JSON.stringify({ id: 'm' }) };
+      }
+      return { ok: false, status: 401, text: async () => '' };
+    });
+    await dienst.legeNutzerAn({ name: 'admin', anzeige: 'admin', email: null, passwort: 'x' });
+    // Der Dienst ordnet `admin` noch eine Weile dem alten Konto zu (gemessen
+    // am Orin, rund zehn Sekunden): wer den Namen sofort bekaeme, meldete sich
+    // mit seinem Passwort als Dienst-Administrator an.
+    expect(angelegtUm - umbenanntUm).toBeGreaterThanOrEqual(100);
+    dienst._wartenNachUmbenennen(0);
   });
 
   it('fasst nichts an, wenn admin schon ein Mensch ist -- das Passwort des Dienstes passt dort nicht', async () => {
