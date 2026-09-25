@@ -318,6 +318,18 @@ run_pfadfilter_check() {
   fi
 }
 
+# Am 25.09.2026 mergte Auto-Merge PR #774 ueber einen leeren, gleichnamigen
+# Check aus einem zweiten Workflow, waehrend Knip und Guards rot wurden.
+run_ci_summary_check() {
+  echo ""
+  echo "-> Pruefe, dass genau ein CI Summary auf alle Jobs wartet..."
+  if python3 "${PROJECT_ROOT}/scripts/test/ci-summary.py" --pfad "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_routenregeln_check() {
   echo ""
   echo "-> Pruefe Regel 1 (asyncHandler, keine nackten Fehler in Routen)..."
@@ -609,6 +621,7 @@ run_werksreset_tabellen_check
 run_zustand_check
 run_rollback_meldung_check
 run_pfadfilter_check
+run_ci_summary_check
 run_routenregeln_check
 run_rollenregeln_check
 run_stiller_tod_check
