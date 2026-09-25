@@ -456,7 +456,11 @@ Ohne Anmeldung, per SSH am Geraet (so spielt das Ara-Kit sie ein):
 ~/arasul-<fassung>/scripts/util/lizenz-geraet.sh fingerabdruck
 ~/arasul-<fassung>/scripts/util/lizenz-geraet.sh status
 ~/arasul-<fassung>/scripts/util/lizenz-geraet.sh einspielen '<lizenz>'
+~/arasul-<fassung>/scripts/util/lizenz-geraet.sh entfernen
 ```
+
+`entfernen` nimmt die Lizenz wieder vom Geraet, wie **DELETE /api/license**:
+danach steht es auf Community (Stand 25.09.2026).
 
 ### Benutzer anlegen, sperren und loeschen
 

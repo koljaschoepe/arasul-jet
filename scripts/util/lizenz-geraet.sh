@@ -22,9 +22,16 @@
 #   lizenz-geraet.sh einspielen <lizenz>    (oder die Lizenz auf STDIN)
 #       {"ok":true,"stufe":"professional"}
 #       {"ok":false,"fehler":"..."}         mit Rueckgabe 1
+#   lizenz-geraet.sh entfernen             (seit 25.09.2026)
+#       {"ok":true,"entfernt":true,"stufe":"community"}
+#                                           dasselbe wie DELETE /api/license:
+#                                           Datei und Cache weg, danach
+#                                           community; `entfernt: false` heisst,
+#                                           es lag keine -- kein Fehler
 #
 # Andere Fehler (Container laeuft nicht, kein Docker) sind {"fehler":"..."}
-# mit Rueckgabe 1; bei `einspielen` in der Form {"ok":false,"fehler":"..."}.
+# mit Rueckgabe 1; bei `einspielen` und `entfernen` in der Form
+# {"ok":false,"fehler":"..."}.
 #
 # Aufruf vom Arbeitsrechner:
 #   ssh arasul@arasul '~/arasul-<fassung>/scripts/util/lizenz-geraet.sh status'
@@ -51,7 +58,7 @@ json_text() {
 
 fehler() {
   local meldung="$1" code="${2:-1}"
-  if [ "$BEFEHL" = "einspielen" ]; then
+  if [ "$BEFEHL" = "einspielen" ] || [ "$BEFEHL" = "entfernen" ]; then
     printf '{"ok":false,"fehler":%s}\n' "$(json_text "$meldung")"
   else
     printf '{"fehler":%s}\n' "$(json_text "$meldung")"
@@ -60,9 +67,9 @@ fehler() {
 }
 
 case "$BEFEHL" in
-  fingerabdruck | status | einspielen) ;;
+  fingerabdruck | status | einspielen | entfernen) ;;
   *)
-    fehler "Aufruf: lizenz-geraet.sh fingerabdruck | status | einspielen <lizenz>" 2
+    fehler "Aufruf: lizenz-geraet.sh fingerabdruck | status | einspielen <lizenz> | entfernen" 2
     ;;
 esac
 

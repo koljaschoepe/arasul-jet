@@ -1775,12 +1775,15 @@ auf `data/lizenz/` — sie ueberlebt ein neues Erzeugen des Containers und zieht
 mit einer Aktualisierung um. Der Werksreset loescht sie mit `data/`.
 
 **Ohne Sitzung, per SSH** (J35): `scripts/util/lizenz-geraet.sh fingerabdruck |
-status | einspielen <lizenz>` ruft denselben Dienst im Backend-Container und
-gibt genau eine Zeile JSON aus — `{"fingerabdruck":"<hex>"}`, die Form von
-`nutzung` oben, `{"ok":true,"stufe":"professional"}` oder
+status | einspielen <lizenz> | entfernen` ruft denselben Dienst im
+Backend-Container und gibt genau eine Zeile JSON aus — `{"fingerabdruck":"<hex>"}`,
+die Form von `nutzung` oben, `{"ok":true,"stufe":"professional"}` oder
 `{"ok":false,"fehler":"..."}` mit Rueckgabe 1. Der Cache des Dienstes haengt an
 der Lizenzdatei, also gilt eine so eingespielte Lizenz im laufenden Backend
 sofort. Protokolliert als `license_activate` mit `quelle: lizenz-geraet.sh`.
+`entfernen` (seit 25.09.2026) ist dasselbe wie **DELETE /api/license** unten:
+`{"ok":true,"entfernt":true,"stufe":"community"}`, `entfernt: false`, wenn keine
+Datei lag; protokolliert als `license_remove` mit `quelle: lizenz-geraet.sh`.
 
 **DELETE /api/license** nimmt die Lizenz vom Geraet: die Datei faellt, der
 Fuenf-Minuten-Cache auch, und die Antwort traegt schon den neuen Stand. Ohne
