@@ -86,7 +86,8 @@ log() {
 is_service_healthy() {
     local service="$1"
     local id health
-    id=$(cd "$PROJECT_DIR" && docker compose ps -q "$service" 2>/dev/null | head -n 1)
+    id=$(cd "$PROJECT_DIR" && docker compose ps -q "$service" 2>/dev/null) || true
+    id="${id%%$'\n'*}"
     [ -n "$id" ] || return 1
     health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || echo "missing")
 
