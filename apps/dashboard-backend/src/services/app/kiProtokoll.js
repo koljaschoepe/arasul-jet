@@ -22,14 +22,19 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const llmJobService = require('../llm/llmJobService');
 const { ValidationError } = require('../../utils/errors');
+const { KOPF_BENUTZER } = require('./appZugang');
 
-const KOPF_BENUTZER = 'x-arasul-user';
+// Node liefert Kopfzeilen klein geschrieben.
+const KOPF = KOPF_BENUTZER.toLowerCase();
 const ENDZUSTAENDE = new Set(['completed', 'error', 'cancelled']);
 const TAKT_MS = 1000;
 // Laenger wartet keine Route auf einen Auftrag (externalApi: 10 Minuten). Was
 // danach noch laeuft, steht als `laeuft` da -- ehrlicher als ein Ende, das
 // niemand gesehen hat.
 const HOECHSTENS_MS = 15 * 60 * 1000;
+// Was vor diesem Zeitpunkt begann, hat ein anderer Prozess angefangen -- und
+// der verfolgt es nicht mehr (`schliesseVerwaiste`).
+const PROZESS_START = new Date(Date.now() - process.uptime() * 1000);
 
 /**
  * Der Mensch, fuer den eine App fragt.
@@ -44,7 +49,7 @@ function einreicherAus(req, feld = 'einreicher') {
   if (typeof imKoerper === 'string' && imKoerper.trim()) {
     return imKoerper.trim();
   }
-  const kopf = req.headers?.[KOPF_BENUTZER];
+  const kopf = req.headers?.[KOPF];
   if (typeof kopf === 'string' && kopf.trim()) {
     return Buffer.from(kopf.trim(), 'latin1').toString('utf8');
   }
@@ -140,16 +145,19 @@ function sha256(text) {
  */
 async function beende(
   id,
-  { status, fehler = null, antwort = null, modell = null },
+  { status, fehler = null, antwort = null, modell = null, jobId = null },
   { datenbank = db } = {}
 ) {
   try {
+    // `job_id` und `modell` noch einmal: stand der Auftrag beim Einreihen
+    // nicht in der Zeile (`setzeAuftrag` scheiterte), kommt er hier nach.
     await datenbank.query(
       `UPDATE public.ki_aufrufe
           SET status = $2,
               fehler = $3,
               antwort_sha256 = $4,
               modell = COALESCE($5, modell),
+              job_id = COALESCE(job_id, $6::uuid),
               beendet_am = NOW(),
               dauer_ms = GREATEST(0, (EXTRACT(EPOCH FROM (NOW() - begonnen_am)) * 1000)::int)
         WHERE id = $1 AND status = 'laeuft'`,
@@ -159,6 +167,7 @@ async function beende(
         fehler ? String(fehler).slice(0, 500) : null,
         antwort == null ? null : sha256(antwort),
         modell,
+        jobId,
       ]
     );
   } catch (err) {
@@ -166,22 +175,69 @@ async function beende(
   }
 }
 
-/** Den Auftrag der Warteschlange eintragen, sobald es ihn gibt. */
+/**
+ * Den Auftrag der Warteschlange eintragen, sobald es ihn gibt.
+ *
+ * Wirft nicht, aus demselben Grund wie `beende`: der Auftrag ist schon
+ * eingereiht und rechnet. `verfolge` traegt ihn beim Schliessen nach.
+ */
 async function setzeAuftrag(id, { jobId, modell }, { datenbank = db } = {}) {
-  await datenbank.query(
-    'UPDATE public.ki_aufrufe SET job_id = $2, modell = COALESCE($3, modell) WHERE id = $1',
-    [id, jobId, modell || null]
-  );
+  try {
+    await datenbank.query(
+      'UPDATE public.ki_aufrufe SET job_id = $2, modell = COALESCE($3, modell) WHERE id = $1',
+      [id, jobId, modell || null]
+    );
+  } catch (err) {
+    logger.error(`[KI-Protokoll] Zeile ${id}: Auftrag ${jobId} nicht eingetragen: ${err.message}`);
+  }
+}
+
+/**
+ * Die Zeile nach dem Stand ihres Auftrags schliessen. `true`, wenn der
+ * Auftrag zu Ende ist (oder nicht mehr da) und die Zeile damit geschlossen.
+ */
+async function schliesseNachAuftrag(id, jobId, job, { modell = null, datenbank = db } = {}) {
+  if (!job) {
+    await beende(
+      id,
+      { status: 'fehler', fehler: 'Auftrag verschwunden', jobId, modell },
+      { datenbank }
+    );
+    return true;
+  }
+  if (!ENDZUSTAENDE.has(job.status)) {
+    return false;
+  }
+  if (job.status === 'completed') {
+    await beende(
+      id,
+      { status: 'fertig', antwort: job.content ?? '', jobId, modell },
+      { datenbank }
+    );
+  } else {
+    await beende(
+      id,
+      {
+        status: 'fehler',
+        fehler: job.status === 'cancelled' ? 'abgebrochen' : job.error_message || 'Fehler',
+        jobId,
+        modell,
+      },
+      { datenbank }
+    );
+  }
+  return true;
 }
 
 /**
  * Dem Auftrag folgen, bis er fertig ist, und die Zeile dann schliessen.
- * Laeuft losgeloest; ein Fehler beim Nachsehen beendet nur das Nachsehen.
+ * Laeuft losgeloest. Ein Fehler beim Nachsehen ist ein Aussetzer, kein Ende:
+ * gefragt wird im naechsten Takt wieder.
  */
 async function verfolge(
   id,
   jobId,
-  { jobs = llmJobService, takt = TAKT_MS, hoechstens = HOECHSTENS_MS } = {}
+  { jobs = llmJobService, takt = TAKT_MS, hoechstens = HOECHSTENS_MS, modell = null } = {}
 ) {
   const ende = Date.now() + hoechstens;
   const warte = () =>
@@ -198,24 +254,76 @@ async function verfolge(
       job = await jobs.getJob(jobId);
     } catch (err) {
       logger.warn(`[KI-Protokoll] Auftrag ${jobId} nicht lesbar: ${err.message}`);
-      return;
+      continue;
     }
-    if (!job) {
-      await beende(id, { status: 'fehler', fehler: 'Auftrag verschwunden' });
-      return;
-    }
-    if (ENDZUSTAENDE.has(job.status)) {
-      if (job.status === 'completed') {
-        await beende(id, { status: 'fertig', antwort: job.content ?? '' });
-      } else {
-        await beende(id, {
-          status: 'fehler',
-          fehler: job.status === 'cancelled' ? 'abgebrochen' : job.error_message || 'Fehler',
-        });
-      }
+    if (await schliesseNachAuftrag(id, jobId, job, { modell })) {
       return;
     }
   }
+}
+
+/**
+ * Zeilen schliessen, denen niemand mehr folgt.
+ *
+ * `verfolge` lebt im Prozess. Jeder Deploy startet das Backend neu, und was
+ * in dem Augenblick lief, stuende sonst fuer immer auf `laeuft` -- in einem
+ * Nachweis nicht zu unterscheiden von einem Aufruf, der haengt. Beim Start
+ * (`beimStart`) wird jede Zeile aus einem frueheren Prozess nachgesehen: ist
+ * ihr Auftrag zu Ende, schliesst sie danach, laeuft er noch, folgt ihm dieser
+ * Prozess weiter, und ohne Auftrag ist sie `fehler`. Danach alle zehn Minuten
+ * dasselbe fuer Zeilen, die laenger offen sind, als `verfolge` wartet.
+ */
+async function schliesseVerwaiste(
+  { beimStart = false } = {},
+  { datenbank = db, jobs = llmJobService } = {}
+) {
+  let rows;
+  try {
+    ({ rows } = await datenbank.query(
+      `SELECT id, job_id, modell, begonnen_am < $1 AS aus_frueherem_prozess
+         FROM public.ki_aufrufe
+        WHERE status = 'laeuft'
+          AND (begonnen_am < $1 OR begonnen_am < NOW() - $2::int * INTERVAL '1 millisecond')`,
+      [PROZESS_START, HOECHSTENS_MS]
+    ));
+  } catch (err) {
+    logger.warn(`[KI-Protokoll] offene Zeilen nicht lesbar: ${err.message}`);
+    return 0;
+  }
+  let geschlossen = 0;
+  for (const z of rows) {
+    const id = Number(z.id);
+    if (!z.job_id) {
+      await beende(
+        id,
+        {
+          status: 'fehler',
+          fehler: 'unterbrochen: das Backend startete neu, bevor der Aufruf endete',
+        },
+        { datenbank }
+      );
+      geschlossen += 1;
+      continue;
+    }
+    let job;
+    try {
+      job = await jobs.getJob(z.job_id);
+    } catch (err) {
+      logger.warn(`[KI-Protokoll] Auftrag ${z.job_id} nicht lesbar: ${err.message}`);
+      continue;
+    }
+    if (await schliesseNachAuftrag(id, z.job_id, job, { datenbank })) {
+      geschlossen += 1;
+    } else if (beimStart && z.aus_frueherem_prozess) {
+      verfolge(id, z.job_id, { jobs }).catch(err =>
+        logger.warn(`[KI-Protokoll] Zeile ${id}: ${err.message}`)
+      );
+    }
+  }
+  if (geschlossen > 0) {
+    logger.info(`[KI-Protokoll] ${geschlossen} offene Zeile(n) geschlossen`);
+  }
+  return geschlossen;
 }
 
 /**
@@ -235,7 +343,7 @@ async function einreihen(kontext, einreihenFn) {
     throw err;
   }
   await setzeAuftrag(id, { jobId: auftrag.jobId, modell: auftrag.model });
-  verfolge(id, auftrag.jobId).catch(err =>
+  verfolge(id, auftrag.jobId, { modell: auftrag.model || null }).catch(err =>
     logger.warn(`[KI-Protokoll] Zeile ${id}: ${err.message}`)
   );
   return auftrag;
@@ -284,6 +392,7 @@ module.exports = {
   beginne,
   beende,
   verfolge,
+  schliesseVerwaiste,
   einreihen,
   messen,
   listeFuerApp,

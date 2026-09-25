@@ -28,7 +28,7 @@ const modelService = require('../../services/llm/modelService');
 const ollamaReadiness = require('../../services/llm/ollamaReadiness');
 const kiProtokoll = require('../../services/app/kiProtokoll');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ServiceUnavailableError } = require('../../utils/errors');
+const { ApiError, ServiceUnavailableError } = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { ChatCompletionsBody, EmbeddingsBody } = require('../../schemas/openaiCompat');
@@ -168,15 +168,13 @@ router.post(
     }
 
     // Wer fragt, steht im Protokoll der Modellaufrufe (J35); OpenAI nennt das
-    // Feld `user`, und die Kopfzeile `X-Arasul-User` gilt auch hier. Ein
-    // unbekannter Name ist ein 400 VOR dem Auftrag, darum ausserhalb des try.
+    // Feld `user`, und die Kopfzeile `X-Arasul-User` gilt auch hier.
     const kontext = {
       apiKey: req.apiKey,
       endpunkt: 'v1/chat/completions',
       einreicher: kiProtokoll.einreicherAus(req, 'user'),
       modell: resolvedModel,
     };
-    await kiProtokoll.werFragt(req.apiKey, kontext.einreicher);
 
     let jobInfo;
     try {
@@ -189,6 +187,11 @@ router.post(
         )
       );
     } catch (err) {
+      // Ein unbekannter Mensch ist ein 400 und bleibt es; nur was die
+      // Warteschlange sagt, heisst hier 503.
+      if (err instanceof ApiError && err.statusCode < 500) {
+        throw err;
+      }
       logger.warn(`[OpenAI compat] enqueue failed: ${err.message}`);
       throw new ServiceUnavailableError(err.message || 'LLM enqueue failed');
     }

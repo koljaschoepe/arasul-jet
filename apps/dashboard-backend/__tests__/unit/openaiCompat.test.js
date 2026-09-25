@@ -105,7 +105,6 @@ jest.mock('axios', () => ({
 // (kiProtokoll.test.js). Hier reicht es durch und merkt sich, was es bekam.
 jest.mock('../../src/services/app/kiProtokoll', () => ({
   einreicherAus: jest.requireActual('../../src/services/app/kiProtokoll').einreicherAus,
-  werFragt: jest.fn().mockResolvedValue({ benutzerId: 1, benutzerName: 'admin' }),
   einreihen: jest.fn((_kontext, fn) => fn()),
   messen: jest.fn(async (_kontext, fn) => (await fn()).ergebnis),
 }));

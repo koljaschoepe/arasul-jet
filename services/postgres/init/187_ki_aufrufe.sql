@@ -51,7 +51,10 @@ CREATE TABLE IF NOT EXISTS public.ki_aufrufe (
   datei_bytes     INTEGER DEFAULT NULL,
   CONSTRAINT ki_aufrufe_status_chk CHECK (status IN ('laeuft', 'fertig', 'fehler')),
   CONSTRAINT ki_aufrufe_stand_chk CHECK (
-    (app_id IS NULL AND stand IS NULL) OR (app_id IS NOT NULL AND stand IN ('test', 'live'))
+    -- `stand IS NOT NULL` ausdruecklich: ein CHECK, der NULL ergibt, gilt als
+    -- erfuellt, und `NULL IN (...)` ist NULL.
+    (app_id IS NULL AND stand IS NULL)
+    OR (app_id IS NOT NULL AND stand IS NOT NULL AND stand IN ('test', 'live'))
   )
 );
 

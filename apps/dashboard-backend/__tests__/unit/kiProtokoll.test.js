@@ -160,6 +160,67 @@ describe('einreihen', () => {
   });
 });
 
+describe('ein Auftrag, der nicht in die Zeile kam', () => {
+  test('scheitert setzeAuftrag, geht der Aufruf trotzdem durch und die Zeile schliesst mit ihm', async () => {
+    db.query.mockImplementation(async sql => {
+      if (sql.includes('INSERT INTO public.ki_aufrufe')) return { rows: [{ id: 42 }] };
+      if (sql.includes('SET job_id')) throw new Error('Pool voll');
+      return { rows: [] };
+    });
+    llmJobService.getJob.mockResolvedValue({ status: 'completed', content: 'x' });
+
+    const auftrag = await kiProtokoll.einreihen(
+      { apiKey: MENSCHEN_SCHLUESSEL, endpunkt: 'llm/chat' },
+      async () => ({ jobId: 'job-9', model: 'gemma4:e4b' })
+    );
+    expect(auftrag.jobId).toBe('job-9');
+
+    // Der losgeloeste Verfolger schliesst die Zeile und traegt den Auftrag nach.
+    await kiProtokoll.verfolge(42, 'job-9', { takt: 1, modell: 'gemma4:e4b' });
+    const schluss = aufrufe('beendet_am = NOW()').pop();
+    expect(schluss[0]).toContain('COALESCE(job_id, $6::uuid)');
+    expect(schluss[1].slice(1, 2)).toEqual(['fertig']);
+    expect(schluss[1][4]).toBe('gemma4:e4b');
+    expect(schluss[1][5]).toBe('job-9');
+  });
+});
+
+describe('schliesseVerwaiste', () => {
+  test('ein fertiger Auftrag schliesst, einer ohne Auftrag ist unterbrochen, ein laufender wird verfolgt', async () => {
+    db.query.mockImplementation(async sql => {
+      if (sql.includes('FROM public.ki_aufrufe') && sql.includes("status = 'laeuft'")) {
+        return {
+          rows: [
+            { id: '1', job_id: 'job-fertig', aus_frueherem_prozess: true },
+            { id: '2', job_id: null, aus_frueherem_prozess: true },
+            { id: '3', job_id: 'job-laeuft', aus_frueherem_prozess: true },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const jobs = {
+      getJob: jest.fn(async jobId =>
+        jobId === 'job-fertig' ? { status: 'completed', content: 'a' } : { status: 'processing' }
+      ),
+    };
+
+    const geschlossen = await kiProtokoll.schliesseVerwaiste({ beimStart: true }, { jobs });
+
+    expect(geschlossen).toBe(2);
+    const schluesse = aufrufe('beendet_am = NOW()').map(([, w]) => [w[0], w[1]]);
+    expect(schluesse).toEqual([
+      [1, 'fertig'],
+      [2, 'fehler'],
+    ]);
+  });
+
+  test('eine unlesbare Tabelle haelt den Start nicht auf', async () => {
+    db.query.mockRejectedValue(new Error('keine Tabelle'));
+    await expect(kiProtokoll.schliesseVerwaiste({ beimStart: true })).resolves.toBe(0);
+  });
+});
+
 describe('verfolge', () => {
   test('ein fertiger Auftrag schliesst die Zeile mit dem sha256 der Antwort, nicht der Antwort', async () => {
     llmJobService.getJob
@@ -174,6 +235,15 @@ describe('verfolge', () => {
     expect(werte[1]).toBe('fertig');
     expect(werte[3]).toBe(crypto.createHash('sha256').update('{"betrag": 12}').digest('hex'));
     expect(JSON.stringify(werte)).not.toContain('betrag');
+  });
+
+  test('ein Aussetzer beim Nachsehen ist kein Ende', async () => {
+    llmJobService.getJob
+      .mockRejectedValueOnce(new Error('Verbindung weg'))
+      .mockResolvedValueOnce({ status: 'completed', content: 'ok' });
+    await kiProtokoll.verfolge(42, 'job-1', { takt: 1 });
+    const [[, werte]] = aufrufe('UPDATE public.ki_aufrufe');
+    expect(werte[1]).toBe('fertig');
   });
 
   test('ein abgebrochener Auftrag ist ein fehler', async () => {
