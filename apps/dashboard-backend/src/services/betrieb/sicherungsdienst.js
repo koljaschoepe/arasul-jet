@@ -30,6 +30,7 @@ const path = require('path');
 
 const db = require('../../database');
 const logger = require('../../utils/logger');
+const { entflechter } = require('../../utils/dockerAusgabe');
 const {
   ConflictError,
   NotFoundError,
@@ -88,22 +89,6 @@ function alterIn(stat) {
 }
 
 /**
- * Steuerzeichen raus, Zeilenumbrueche und Tabulatoren bleiben.
- *
- * Kein regulaerer Ausdruck: einer mit Steuerzeichen darin ist schwer zu lesen
- * und die Regel `no-control-regex` verbietet ihn zu Recht. Hier steht in einer
- * Zeile, was gemeint ist.
- */
-function ohneSteuerzeichen(text) {
-  return Array.from(text)
-    .filter(zeichen => {
-      const nummer = zeichen.codePointAt(0);
-      return nummer > 31 || nummer === 9 || nummer === 10;
-    })
-    .join('');
-}
-
-/**
  * Ein Skript im Sicherungs-Container laufen lassen.
  *
  * Ueber dockerode und den Proxy, nicht ueber ein `docker`-Programm: im
@@ -145,10 +130,15 @@ async function imContainer(befehl, zeitlimitMs) {
     Cmd: befehl,
     AttachStdout: true,
     AttachStderr: true,
+    // Ausdruecklich ohne Terminal: mit einem schrieben Werkzeuge Farben und
+    // Fortschrittsbalken, und gelesen wird das in der Oberflaeche.
+    Tty: false,
   });
   const strom = await exec.start({ hijack: true, stdin: false });
 
-  const zeilen = [];
+  // Der Strom traegt je Block acht Byte Vorspann (J35, 25.09.2026): sie
+  // werden entflochten, nicht gefiltert -- siehe `utils/dockerAusgabe.js`.
+  const ausgabeStrom = entflechter();
   await new Promise((fertig, scheitern) => {
     const uhr = setTimeout(() => {
       scheitern(
@@ -157,15 +147,7 @@ async function imContainer(befehl, zeitlimitMs) {
         )
       );
     }, zeitlimitMs);
-    strom.on('data', stueck => {
-      // Docker mischt stdout und stderr in EINEN Strom und stellt jedem Block
-      // acht Byte Vorspann voran (Stream-Kennung und Laenge). Ein Protokoll
-      // braucht davon nichts: die Steuerzeichen fliegen raus, die Zeilen
-      // bleiben lesbar. Ein sauberes Demultiplexen waere hier mehr Code als
-      // Nutzen -- wer die Trennung von stdout und stderr braucht, liest die
-      // Protokolldatei im Sicherungsordner.
-      zeilen.push(ohneSteuerzeichen(stueck.toString('utf8')));
-    });
+    strom.on('data', stueck => ausgabeStrom.schreibe(stueck));
     strom.on('end', () => {
       clearTimeout(uhr);
       fertig();
@@ -177,7 +159,7 @@ async function imContainer(befehl, zeitlimitMs) {
   });
 
   const ergebnis = await exec.inspect();
-  const ausgabe = zeilen.join('').trim();
+  const ausgabe = ausgabeStrom.text().trim();
   return {
     code: ergebnis.ExitCode ?? -1,
     ausgabe: ausgabe.length > 4000 ? `…${ausgabe.slice(-4000)}` : ausgabe,
