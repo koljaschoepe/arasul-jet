@@ -434,6 +434,30 @@ E-Mail-Adresse oder Benutzername und Passwort an und sieht, was ihm freigegeben
 ist, dazu seine eigenen Flow-Laeufe. Alles andere beantwortet das Geraet mit
 „Diese Funktion ist dem Administrator vorbehalten" (HTTP 403).
 
+### Die Lizenz
+
+**Einstellungen > Lizenz** zeigt, was das Geraet traegt: die **Stufe**, die
+**Konten** und die **Apps**, je mit „belegt von Grenze". Ohne Lizenz steht das
+Geraet auf **Community**: drei Konten, drei Apps. Der Administrator zaehlt mit,
+ein stillgelegtes Konto nicht; bei den Apps zaehlt jede eingespielte App, Test-
+und Livestand zusammen. Ist eine Grenze erreicht, lehnt das Geraet das vierte
+Konto (und die vierte App) mit einem Satz ab, der hierher zeigt. Einen Platz
+machen Sie frei, indem Sie ein Konto stilllegen oder eine App entfernen.
+
+Mit einer gekauften Lizenz (**Professional**) gibt es keine Grenze. Die Lizenz
+ist eine Zeile Text; sie geht in das Feld **Lizenz einspielen** und wird
+geprueft, bevor sie gilt. Ist sie an ein Geraet gebunden, braucht der
+Aussteller dessen **Fingerabdruck** — er steht auf derselben Seite zum
+Kopieren.
+
+Ohne Anmeldung, per SSH am Geraet (so spielt das Ara-Kit sie ein):
+
+```bash
+~/arasul-<fassung>/scripts/util/lizenz-geraet.sh fingerabdruck
+~/arasul-<fassung>/scripts/util/lizenz-geraet.sh status
+~/arasul-<fassung>/scripts/util/lizenz-geraet.sh einspielen '<lizenz>'
+```
+
 ### Benutzer anlegen, sperren und loeschen
 
 **In der Oberflaeche: Einstellungen > Mitarbeiter.** Das Zahnrad unten in der

@@ -397,6 +397,16 @@ run_dienste_check() {
   fi
 }
 
+run_systemd_einheiten_check() {
+  echo ""
+  echo "-> Pruefe, ob die systemd-Einheiten auf das Geraet zeigen..."
+  if bash "${PROJECT_ROOT}/scripts/test/systemd-einheiten.sh"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_wurzelpfad_check() {
   echo ""
   echo "-> Pruefe, ob jedes Skript sein Wurzelverzeichnis richtig ausrechnet..."
@@ -605,6 +615,7 @@ run_stiller_tod_check
 run_rohrbruch_check
 run_eigenbezug_check
 run_wurzelpfad_check
+run_systemd_einheiten_check
 run_dienste_check
 run_endpunkte_check
 run_anleitungen_check

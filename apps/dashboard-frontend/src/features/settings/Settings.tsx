@@ -16,6 +16,7 @@ import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
 import { PrivacySettings } from './PrivacySettings';
 import { SystemSettings } from '../system/SystemSettings';
+import { LizenzSettings } from './LizenzSettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -131,6 +132,12 @@ function Settings({ handleLogout }: SettingsProps) {
         return (
           <ComponentErrorBoundary componentName="System">
             <SystemSettings initial={resolveSystemSub(searchParams.get('tab'))} />
+          </ComponentErrorBoundary>
+        );
+      case 'lizenz':
+        return (
+          <ComponentErrorBoundary componentName="Lizenz">
+            <LizenzSettings />
           </ComponentErrorBoundary>
         );
       case 'remote-access':

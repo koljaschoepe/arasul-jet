@@ -338,21 +338,19 @@ fi
 # `WorkingDirectory=<Fassungsordner>`, und wer sie vergisst, hat nach dem
 # naechsten Stromausfall wieder den alten Stand. Ueberschrieben wird dieselbe
 # Datei, also gibt es die alte danach nicht mehr.
+#
+# Geschrieben wird sie von `scripts/system/einheiten-installieren.sh` (J35),
+# demselben Skript, das Bootstrap und Deploy rufen. Hier NUR die Plattform:
+# Deadman-Switch und Watchdog kommen erst nach dem Rauchtest dazu, sonst
+# startete der Schalter einen Agenten neu, den der Bootstrap gerade baut.
 if command -v systemctl >/dev/null 2>&1; then
-  UNIT_QUELLE="${WURZEL}/packaging/arasul-platform/etc/systemd/system/arasul-platform.service"
-  if [ -f "$UNIT_QUELLE" ]; then
-    if sed -e "s|/opt/arasul|${WURZEL}|g" \
-           -e "s|^User=.*|User=$(id -un)|" \
-           -e "s|^Group=.*|Group=$(id -gn)|" \
-           "$UNIT_QUELLE" | sudo tee /etc/systemd/system/arasul-platform.service >/dev/null 2>&1; then
-      sudo systemctl daemon-reload >/dev/null 2>&1 || true
-      sudo systemctl enable arasul-platform.service >/dev/null 2>&1 || true
-      gut "Startet nach einem Neustart von selbst (arasul-platform.service)"
-    else
-      achtung "arasul-platform.service nicht installiert (kein sudo ohne Rueckfrage)."
-      achtung "  Ohne sie startet die Plattform nach einem Stromausfall trotzdem"
-      achtung "  (die Container tragen restart: always), aber ohne geordnete Reihenfolge."
-    fi
+  if bash "${WURZEL}/scripts/system/einheiten-installieren.sh" --nur-plattform >/dev/null 2>&1; then
+    gut "Startet nach einem Neustart von selbst (arasul-platform.service)"
+  else
+    achtung "arasul-platform.service nicht installiert (kein sudo ohne Rueckfrage)."
+    achtung "  Ohne sie startet die Plattform nach einem Stromausfall trotzdem"
+    achtung "  (die Container tragen restart: always), aber ohne geordnete Reihenfolge."
+    achtung "  Nachholen: bash ${WURZEL}/scripts/system/einheiten-installieren.sh"
   fi
 fi
 

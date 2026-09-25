@@ -43,6 +43,7 @@ jest.mock('../../src/middleware/auth', () => {
 
 const db = require('../../src/database');
 const auth = require('../../src/middleware/auth');
+const licenseService = require('../../src/services/app/licenseService');
 const router = require('../../src/routes/admin/benutzer');
 const { errorHandler } = require('../../src/middleware/errorHandler');
 
@@ -63,10 +64,30 @@ const ADMIN = { id: '1', username: 'admin', role: 'admin' };
 const MITARBEITER = { id: '2', username: 'mia', role: 'mitarbeiter' };
 
 describe('/api/benutzer', () => {
+  // Die aktiven Konten, die `pruefeKontenGrenze` in der Transaktion zaehlt
+  // (J35). Die Sperre und die Zaehlung beantwortet der Client selbst; alles
+  // andere geht an `db.query`, damit die Tests davor unveraendert lesen, was
+  // geschrieben wurde.
+  let aktiveKonten;
   beforeEach(() => {
     db.query.mockReset();
     db.transaction.mockReset();
+    aktiveKonten = [];
+    db.transaction.mockImplementation(async cb =>
+      cb({
+        query: jest.fn(async (sql, params) => {
+          if (sql.includes('pg_advisory_xact_lock')) {
+            return { rows: [] };
+          }
+          if (sql.includes('WHERE is_active = true ORDER BY id')) {
+            return { rows: aktiveKonten.map(username => ({ username })) };
+          }
+          return db.query(sql, params);
+        }),
+      })
+    );
     auth.__setUser(ADMIN);
+    jest.restoreAllMocks();
   });
 
   test('GET listet alle Benutzer mit Rolle', async () => {
@@ -119,6 +140,67 @@ describe('/api/benutzer', () => {
       .post('/api/benutzer')
       .send({ username: 'admin', password: 'Startpasswort1!', rolle: 'admin' });
     expect(res.status).toBe(409);
+  });
+
+  // --- Die Grenze der Lizenz (J35) ------------------------------------------
+
+  const NEU = { username: 'vierte', password: 'Startpasswort1!', rolle: 'mitarbeiter' };
+
+  test('POST: community traegt drei aktive Konten, das vierte ist 409 mit Hinweis auf die Lizenz', async () => {
+    aktiveKonten = ['admin', 'mia', 'tom'];
+    const res = await request(app()).post('/api/benutzer').send(NEU);
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toMatch(/Lizenz dieses Geraets \(community\) traegt 3 Konten/);
+    expect(res.body.error.message).toMatch(/Einstellungen -> Lizenz/);
+    expect(res.body.error.details).toMatchObject({ grenze: 3, belegt: 3, stufe: 'community' });
+    // Nichts geschrieben: das INSERT kommt gar nicht erst an.
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test('POST: mit zwei aktiven Konten geht das dritte durch (der Administrator zaehlt mit)', async () => {
+    aktiveKonten = ['admin', 'mia'];
+    db.query.mockResolvedValueOnce({ rows: [{ id: '3', username: 'vierte' }] });
+    const res = await request(app()).post('/api/benutzer').send(NEU);
+    expect(res.status).toBe(201);
+  });
+
+  test.each(['professional', 'enterprise'])(
+    'POST: %s kennt keine Grenze, Konto 4 und 5 gehen durch',
+    async tier => {
+      jest.spyOn(licenseService, 'validateLicense').mockResolvedValue({
+        valid: true,
+        tier,
+        features: licenseService.FEATURE_TIERS[tier],
+      });
+      aktiveKonten = ['admin', 'mia', 'tom', 'ute'];
+      db.query.mockResolvedValue({ rows: [{ id: '5', username: 'vierte' }] });
+      const res = await request(app()).post('/api/benutzer').send(NEU);
+      expect(res.status).toBe(201);
+    }
+  );
+
+  test('PUT /:id/aktiv: wieder zulassen belegt einen Platz und geht durch dieselbe Grenze', async () => {
+    aktiveKonten = ['admin', 'mia', 'tom'];
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 4, username: 'ute', role: 'mitarbeiter', is_active: false }],
+    });
+    const res = await request(app()).put('/api/benutzer/4/aktiv').send({ aktiv: true });
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toMatch(/ute kommt nicht dazu/);
+    expect(db.query.mock.calls.some(c => c[0].includes('UPDATE admin_users SET is_active'))).toBe(
+      false
+    );
+  });
+
+  test('PUT /:id/aktiv: stilllegen fragt die Grenze nicht, auch auf einem vollen Geraet', async () => {
+    aktiveKonten = ['admin', 'mia', 'tom', 'ute'];
+    db.query
+      .mockResolvedValueOnce({
+        rows: [{ id: 4, username: 'ute', role: 'mitarbeiter', is_active: true }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: 4, username: 'ute', is_active: false }] });
+    const res = await request(app()).put('/api/benutzer/4/aktiv').send({ aktiv: false });
+    expect(res.status).toBe(200);
   });
 
   // --- Passwort setzen (C2) -------------------------------------------------

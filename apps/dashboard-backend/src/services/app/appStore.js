@@ -512,7 +512,8 @@ async function pruefeAppGrenze(appId) {
     `Die Lizenz dieses Geraets traegt ${grenze.limit} Apps, es sind ${grenze.current}: ` +
       `${namen.join(', ')}. ${appId} kommt nicht dazu. Test- und Livestand zaehlen zusammen, ` +
       'jede eingespielte App belegt einen Platz. Eine App entfernen (Einstellungen -> Apps -> ' +
-      'App entfernen, oder DELETE /api/v1/external/apps/<id>) oder die Lizenz erweitern.',
+      'App entfernen, oder DELETE /api/v1/external/apps/<id>) oder die Lizenz erweitern ' +
+      '(Einstellungen -> Lizenz).',
     { grenze: grenze.limit, belegt: grenze.current, apps: namen, abgewiesen: appId }
   );
 }

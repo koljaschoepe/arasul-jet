@@ -35,6 +35,11 @@
  *      und die Datei liegt in einem Mount statt im Container.
  *   8. Der Fingerabdruck haengt an der machine-id des Hosts und nicht an der
  *      MAC des Containers -- sonst stirbt jede gebundene Lizenz beim Deploy.
+ *   9. Die Stufen aus dem Beschluss vom 25.09.2026 (J35): community drei
+ *      Konten und drei Apps, professional ohne Grenzen, enterprise wie
+ *      professional; `maxUsers` aus der Nutzlast ersetzt die Zahl der Stufe;
+ *      und der Cache folgt der DATEI -- was ein zweiter Prozess einspielt
+ *      (`lizenz-geraet.sh`), sieht das laufende Backend sofort.
  *
  * Aufruf: node scripts/test/lizenz-signatur.js   (braucht node_modules des
  * Backends fuer winston; laeuft im CI-Job "Backend" und in run-tests.sh)
@@ -286,7 +291,7 @@ async function main() {
   );
   pruefe(
     'die uebrigen Werte der Stufe bleiben, wie sie sind',
-    ergebnis.license?.features?.maxUsers === 5 && ergebnis.license?.features?.externalApi === true
+    ergebnis.license?.features?.maxUsers === -1 && ergebnis.license?.features?.externalApi === true
   );
   aufraeumen();
 
@@ -402,6 +407,84 @@ async function main() {
     compose.includes('${MACHINE_ID_DATEI:-/etc/machine-id}:/arasul/host/machine-id:ro') &&
       dienstText.includes("'/arasul/host/machine-id'")
   );
+
+  // --- 9. Die Stufen und der Cache an der Datei (J35) ---------------------
+  console.log(
+    '\n--- 9. community 3/3, professional und enterprise ohne Grenzen, Cache an der Datei'
+  );
+  aufraeumen();
+  fs.writeFileSync(SCHLUESSEL, A.publicKey);
+  dienst = frisch();
+  info = await dienst.getLicenseInfo();
+  pruefe(
+    'Ohne Lizenz: community mit drei Konten und drei Apps',
+    info.tier === 'community' && info.features.maxUsers === 3 && info.features.maxApps === 3,
+    `maxUsers=${info.features.maxUsers}, maxApps=${info.features.maxApps}`
+  );
+  const viertesKonto = await dienst.checkLimit('maxUsers', 3);
+  pruefe(
+    'und das vierte Konto geht nicht',
+    viertesKonto.allowed === false,
+    JSON.stringify(viertesKonto)
+  );
+  for (const tier of ['professional', 'enterprise']) {
+    ergebnis = await frisch().activateLicense(signiere(A.privateKey, { ...NUTZLAST, tier }));
+    const f = ergebnis.license?.features || {};
+    pruefe(
+      `${tier}: keine Grenze fuer Konten und Apps`,
+      ergebnis.success === true &&
+        ergebnis.license.tier === tier &&
+        f.maxUsers === -1 &&
+        f.maxApps === -1,
+      `maxUsers=${f.maxUsers}, maxApps=${f.maxApps}`
+    );
+  }
+  const P = frisch().FEATURE_TIERS;
+  pruefe(
+    'enterprise hat dieselben Rechte wie professional',
+    ['maxUsers', 'maxApps', 'externalApi', 'customModels'].every(
+      k => P.enterprise[k] === P.professional[k]
+    )
+  );
+  ergebnis = await frisch().activateLicense(signiere(A.privateKey, { ...NUTZLAST, maxUsers: 7 }));
+  pruefe(
+    'maxUsers aus der Nutzlast ersetzt die Zahl der Stufe',
+    ergebnis.success === true && ergebnis.license?.features?.maxUsers === 7,
+    `maxUsers=${ergebnis.license?.features?.maxUsers}`
+  );
+  ergebnis = await frisch().activateLicense(signiere(A.privateKey, { ...NUTZLAST, maxUsers: 0 }));
+  pruefe(
+    'maxUsers 0 wird abgelehnt',
+    ergebnis.success === false && /maxUsers/.test(ergebnis.error || ''),
+    ergebnis.error
+  );
+  lauf = werkzeug(['--kunde', 'Testlizenz', '--max-konten', '6']);
+  ergebnis = await frisch().activateLicense(lauf.stdout.trim());
+  pruefe(
+    'Das Werkzeug schreibt --max-konten als maxUsers in die Nutzlast',
+    lauf.status === 0 && ergebnis.license?.features?.maxUsers === 6,
+    lauf.stderr.trim()
+  );
+  aufraeumen();
+  fs.writeFileSync(SCHLUESSEL, A.publicKey);
+  const laufend = frisch();
+  const vorEinspielen = await laufend.validateLicense();
+  // Ein ZWEITER Prozess spielt ein -- hier eine zweite Instanz, die die Datei
+  // schreibt; die erste hat ihren Fuenf-Minuten-Cache schon gefuellt.
+  delete require.cache[require.resolve(DIENST)];
+  await require(DIENST).activateLicense(lizenzVonA);
+  const nachEinspielen = await laufend.validateLicense();
+  pruefe(
+    'Der laufende Dienst sieht eine Lizenz, die ein anderer Prozess eingespielt hat, sofort',
+    vorEinspielen.tier === 'community' && nachEinspielen.tier === 'professional',
+    `${vorEinspielen.tier} -> ${nachEinspielen.tier}`
+  );
+  fs.rmSync(LIZENZ);
+  pruefe(
+    'und ebenso, dass sie wieder weg ist',
+    (await laufend.validateLicense()).tier === 'community'
+  );
+  aufraeumen();
 }
 
 main()

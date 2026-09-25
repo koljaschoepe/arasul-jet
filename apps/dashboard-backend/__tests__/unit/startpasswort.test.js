@@ -75,6 +75,17 @@ describe('Ein Zweiter kennt das Passwort', () => {
 
   it('beim Anlegen eines Benutzers → Kennzeichen true', async () => {
     db.query.mockResolvedValue({ rows: [{ id: '7', username: 'mia', role: 'mitarbeiter' }] });
+    // Seit J35 laeuft das Anlegen in einer Transaktion hinter der Kontengrenze:
+    // Sperre und Zaehlung beantwortet der Client, das INSERT geht an `db.query`.
+    db.transaction.mockImplementation(async fn =>
+      fn({
+        query: jest.fn(async (text, werte) =>
+          text.includes('pg_advisory_xact_lock') || text.includes('WHERE is_active = true')
+            ? { rows: [] }
+            : db.query(text, werte)
+        ),
+      })
+    );
 
     await benutzerService.legeBenutzerAn({
       username: 'mia',

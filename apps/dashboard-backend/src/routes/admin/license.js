@@ -15,15 +15,20 @@ const licenseService = require('../../services/app/licenseService');
 const logger = require('../../utils/logger');
 
 // GET /api/license/info - Get current license status and hardware fingerprint
+//
+// `nutzung` (J35): Stufe, Konten und Apps je mit belegt und Grenze -- die
+// Zahlen der Seite Lizenz, dieselbe Antwort wie `lizenz-geraet.sh status`.
 router.get(
   '/info',
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const info = await licenseService.getLicenseInfo();
+    const nutzung = await licenseService.nutzung();
 
     res.json({
       ...info,
+      nutzung,
       timestamp: new Date().toISOString(),
     });
   })

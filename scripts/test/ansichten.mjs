@@ -83,4 +83,10 @@ export const VERWALTUNG = [
     '/workspace/settings?tab=sicherung',
     '[data-testid="sicherung-seite"]',
   ],
+  [
+    'Einstellungen · Lizenz',
+    'einstellungen-lizenz',
+    '/workspace/settings?tab=lizenz',
+    '[data-testid="lizenz-seite"]',
+  ],
 ];
