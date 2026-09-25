@@ -1,25 +1,31 @@
 #!/bin/bash
 # ARASUL PLATFORM - Deadman's Switch for Self-Healing Agent
-# Monitors the self-healing agent's heartbeat endpoint.
+# Monitors the self-healing agent's Docker healthcheck.
 # If the agent is unresponsive for > 120s, restarts its container.
 # If still unresponsive after restart, triggers system reboot (if enabled).
 #
 # Designed to run via systemd timer every 30 seconds.
-# Relies on the heartbeat HTTP endpoint at port 9200.
+# Relies on its healthcheck (heartbeat.py --test), not on a port on the host.
 
 set -euo pipefail
 
 LOG_DIR="/arasul/logs"
 LOG_FILE="${LOG_DIR}/deadman-switch.log"
 STATE_FILE="/tmp/deadman-switch-state"
-HEARTBEAT_URL="http://127.0.0.1:9200/health"
-CONTAINER_NAME="arasul-platform-self-healing-agent-1"
+# Der Container heisst, wie Compose ihn nennt (`container_name`), und nicht
+# wie ein Stapel ohne `container_name` ihn nennen wuerde (J35). Und gefragt
+# wird sein Docker-Healthcheck (`heartbeat.py --test`, derselbe, den der
+# Rauchtest liest) statt seines Heartbeat-Ports am Host: der ist nicht
+# veroeffentlicht, die Probe schlug also IMMER fehl, und der Schalter haette
+# den Agenten alle paar Minuten neu gestartet und mit
+# SELF_HEALING_REBOOT_ENABLED=true das Geraet.
+CONTAINER_NAME="${ARASUL_SELF_HEALING_CONTAINER:-self-healing-agent}"
 MAX_UNHEALTHY_BEFORE_RESTART=120   # seconds
 MAX_UNHEALTHY_BEFORE_REBOOT=300    # seconds
 
-# Repo root: /opt/arasul on production appliances, override via ARASUL_REPO_DIR
-# for non-default installs. Falls back to a path resolved from this script's
-# location so the dev-environment install (~/arasul-jet) keeps working.
+# Der Fassungsordner, in dem dieses Skript liegt. Die Unit ruft es dort auf
+# (`scripts/system/einheiten-installieren.sh` schreibt den Pfad hinein), also
+# ist er das Geraet; `ARASUL_REPO_DIR` bleibt als Ueberschreibung.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${ARASUL_REPO_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 
@@ -38,17 +44,11 @@ if [ -f "$LOG_FILE" ] && [ "$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)" -gt 
     mv "$LOG_FILE" "${LOG_FILE}.1"
 fi
 
-# Check self-healing agent health via HTTP
+# Check self-healing agent health via its Docker healthcheck
 check_health() {
-    local response
-    response=$(curl -sf --connect-timeout 5 --max-time 10 "$HEARTBEAT_URL" 2>/dev/null) || return 1
-
-    # Parse healthy field from JSON
-    local healthy
-    healthy=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('healthy', False))" 2>/dev/null) || return 1
-
-    [ "$healthy" = "True" ] && return 0
-    return 1
+    local health
+    health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$CONTAINER_NAME" 2>/dev/null) || return 1
+    [ "$health" = "healthy" ]
 }
 
 # Check if self-healing container is running
@@ -98,7 +98,7 @@ if [ "$ELAPSED" -ge "$MAX_UNHEALTHY_BEFORE_RESTART" ] && [ "$RESTART_DONE" != "t
         done
     else
         log "WARN" "Container not running, attempting docker compose restart"
-        cd /opt/arasul 2>/dev/null || cd "$REPO_ROOT"
+        cd "$REPO_ROOT"
         docker compose up -d self-healing-agent 2>&1 | while IFS= read -r line; do
             log "INFO" "  compose: $line"
         done
@@ -109,8 +109,7 @@ fi
 # Stage 2: Reboot if still unhealthy after restart
 if [ "$ELAPSED" -ge "$MAX_UNHEALTHY_BEFORE_REBOOT" ] && [ "$RESTART_DONE" = "true" ]; then
     # Check if reboot is enabled
-    REBOOT_ENABLED=$(grep -oP 'SELF_HEALING_REBOOT_ENABLED=\K.*' /opt/arasul/.env 2>/dev/null || \
-                     grep -oP 'SELF_HEALING_REBOOT_ENABLED=\K.*' "$REPO_ROOT/.env" 2>/dev/null || \
+    REBOOT_ENABLED=$(grep -oP 'SELF_HEALING_REBOOT_ENABLED=\K.*' "$REPO_ROOT/.env" 2>/dev/null || \
                      echo "false")
 
     if [ "$REBOOT_ENABLED" = "true" ]; then

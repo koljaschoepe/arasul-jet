@@ -486,6 +486,13 @@ jobs:
       - name: Wurzelpfad (Skripte, die ihr Wurzelverzeichnis falsch ausrechnen)
         run: python3 scripts/test/wurzelpfad.py --wurzel .
 
+      # 25.09.2026 (J35): arasul-platform.service stand am Orin in einer
+      # Neustartschleife (203/EXEC, ProtectHome=yes vor /home), Deadman-Switch
+      # und Watchdog zeigten auf /opt/arasul. Ein Neustart haette die Plattform
+      # nicht geordnet hochgebracht, und nichts davon war rot.
+      - name: systemd-Einheiten (zeigen auf das Geraet, das sie starten)
+        run: bash scripts/test/systemd-einheiten.sh
+
       # Der Schwesterfall, 27.08.2026: `docker logs … | grep -q …` unter
       # `pipefail`. grep steigt beim ersten Treffer aus, docker logs schreibt
       # in ein geschlossenes Rohr und endet mit 141, und die Bedingung wird

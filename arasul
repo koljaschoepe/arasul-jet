@@ -1373,43 +1373,25 @@ harden_production_security() {
 }
 
 # Install systemd watchdog and deadman-switch timers
+#
+# Alle Einheiten, auf DIESEN Fassungsordner geschrieben
+# (`scripts/system/einheiten-installieren.sh`, J35). Bis dahin kopierte diese
+# Funktion Deadman-Switch und Watchdog mit `/opt/arasul` im ExecStart, einem
+# Ordner, den es auf keinem Geraet gibt -- am Orin standen beide auf failed.
 install_systemd_timers() {
     if [ "${INSTALL_SYSTEMD_TIMERS:-true}" != "true" ]; then
         log_info "Systemd-Timer-Installation uebersprungen (INSTALL_SYSTEMD_TIMERS=false)"
         return 0
     fi
 
-    log_info "Installiere Systemd-Timer (Watchdog, Deadman-Switch)..."
-
-    local installed=0
-
-    # Copy timer files
-    for timer_file in packaging/arasul-platform/etc/systemd/system/*.timer; do
-        if [ -f "$timer_file" ]; then
-            sudo cp "$timer_file" /etc/systemd/system/ 2>/dev/null || true
-            installed=$((installed + 1))
-        fi
-    done
-
-    # Copy associated service files
-    for service_file in packaging/arasul-platform/etc/systemd/system/docker-watchdog.service \
-                        packaging/arasul-platform/etc/systemd/system/deadman-switch.service; do
-        if [ -f "$service_file" ]; then
-            sudo cp "$service_file" /etc/systemd/system/ 2>/dev/null || true
-            installed=$((installed + 1))
-        fi
-    done
-
-    if [ $installed -gt 0 ]; then
-        sudo systemctl daemon-reload 2>/dev/null || true
-        sudo systemctl enable --now docker-watchdog.timer deadman-switch.timer 2>/dev/null || {
-            log_warning "Systemd-Timer konnten nicht aktiviert werden"
-            return 0
-        }
-        log_success "Systemd-Timer installiert und aktiviert ($installed Dateien)"
+    log_info "Installiere Systemd-Einheiten (Plattform, Watchdog, Deadman-Switch)..."
+    local ausgabe
+    if ausgabe="$(bash "${SCRIPT_DIR}/scripts/system/einheiten-installieren.sh" 2>&1)"; then
+        log_success "$ausgabe"
     else
-        log_warning "Keine Systemd-Timer-Dateien gefunden"
+        log_warning "Systemd-Einheiten nicht installiert: ${ausgabe}"
     fi
+    return 0
 }
 
 # Bootstrap command

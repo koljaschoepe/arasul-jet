@@ -42,11 +42,14 @@ if [ -f "${PROJECT_DIR}/${ARASUL_ABGEGEBEN}" ]; then
 fi
 
 # Configuration
-COMPOSE_PROJECT="arasul-platform"
 PHASE_TIMEOUT=${PHASE_TIMEOUT:-300}       # 5 min per phase
 STABILIZE_WAIT=${STABILIZE_WAIT:-10}      # 10s between phases
 HEALTH_POLL_INTERVAL=5                    # Check every 5s
-LOG_DIR="/arasul/logs"
+# Im Fassungsordner und nicht unter `/arasul/logs` (J35): die Unit laeuft als
+# der Mensch, der installiert hat, mit `ProtectSystem=strict`, und schreiben
+# darf sie nur in ihrem `ReadWritePaths` -- dem Fassungsordner. Ein `mkdir`
+# ausserhalb brach das Skript unter `set -e` ab, bevor es einen Dienst anfasste.
+LOG_DIR="${ARASUL_LOG_DIR:-${PROJECT_DIR}/logs}"
 LOG_FILE="${LOG_DIR}/startup.log"
 SKIP_PULL=false
 
@@ -74,14 +77,22 @@ log() {
 }
 
 # Check if a service is healthy
+#
+# Den Container fragt Compose und nicht ein ausgedachter Name (J35): jeder
+# Dienst traegt `container_name`, also hiess nie einer
+# `${COMPOSE_PROJECT}-<dienst>-1`, und jede Phase wartete ihre vollen fuenf
+# Minuten auf einen Container, den es nicht gibt. Ein Dienst ohne
+# Healthcheck gilt als gesund, sobald er laeuft.
 is_service_healthy() {
     local service="$1"
-    local health
-    health=$(docker inspect --format='{{.State.Health.Status}}' "${COMPOSE_PROJECT}-${service}-1" 2>/dev/null || echo "missing")
+    local id health
+    id=$(cd "$PROJECT_DIR" && docker compose ps -q "$service" 2>/dev/null | head -n 1)
+    [ -n "$id" ] || return 1
+    health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || echo "missing")
 
     case "$health" in
-        healthy) return 0 ;;
-        *)       return 1 ;;
+        healthy|running) return 0 ;;
+        *)               return 1 ;;
     esac
 }
 
