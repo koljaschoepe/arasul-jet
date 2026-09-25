@@ -10,7 +10,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
 
-export const LIZENZ_KEY = ['lizenz', 'info'] as const;
+const LIZENZ_KEY = ['lizenz', 'info'] as const;
 
 /** Die Stufen, die das Gerät kennt. `community` ist das Gerät ohne Lizenz. */
 export type Stufe = 'community' | 'professional' | 'enterprise';
