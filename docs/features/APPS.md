@@ -497,6 +497,14 @@ weg, damit kein Mitarbeiter eine Kachel bekommt, hinter der nichts ist; und
 `GET /apps/<id>/` antwortet mit **`503 APP_DATEIEN_FEHLEN`** und dem Satz,
 was zu tun ist, statt mit `INTERNAL_ERROR`.
 
+**Eine App ohne ihre Datenbank ist krank** (J35, 26.09.2026). Steht für einen
+Stand eine Zeile in `app_datenbanken` und kennt `pg_database` den Namen nicht,
+ist der Stand nicht `lieferbar`, mit dem Mangel „Die Datenbank dieser App fehlt
+am Geraet" — auch wenn der Container `healthy` meldet. Ob der Healthcheck
+einer App ihre Datenbank prüft, liegt an ihrem Gerüst (das Kit); das Gerät
+weiß es selbst und sagt es. Ein Stand, der nie eine Datenbank bekommen hat,
+hat keinen Mangel.
+
 **Aufgeräumt wird nicht von selbst.** Beim Start sieht das Backend einmal
 nach und schreibt je Stand ohne Dateien eine Warnung ins Protokoll
 (`appStore.pruefeStaende`) — mehr nicht. Docker legt eine fehlende Bind-Quelle
@@ -645,6 +653,18 @@ API-Schlüssel. Ein Neustart durch Docker behält die Umgebung des Containers,
 und ein neues Passwort wäre für ihn ein verlorener Zugang. Es liegt deshalb
 verschlüsselt in `app_datenbanken` und kommt beim nächsten Einspielen wieder
 heraus.
+
+**Nach einem Neustart des Geräts startet eine App nach ihrer Datenbank**
+(J35, 26.09.2026). Docker startet die App-Container (`unless-stopped`) selbst,
+sobald der Dienst steht — Postgres dagegen legt erst `ordered-startup.sh` an,
+und zwar später. Am Orin kam `belege-live` 40 Sekunden vor `postgres-db` hoch,
+und die Faktum-App lief danach ohne Datenbank weiter. Deshalb startet das
+Backend, nachdem es die App-Datenbanken geheilt hat (`heileAlle`), jeden
+laufenden App-Container neu, der **vor** `pg_postmaster_start_time()`
+gestartet ist (`appDatenbank.appsNachDerDatenbank`), und fragt danach jede
+Minute noch einmal — startet Postgres allein neu, ist es derselbe Fall. Ein
+Container, der nach der Datenbank startete, bleibt stehen: ein Deploy des
+Backends fasst keine App an. Ein angehaltener bleibt angehalten.
 
 **Wer sie anfasst und wer nicht.** Die Rolle darf sich anmelden und in ihre
 eigene Datenbank schreiben, sonst nichts (`NOSUPERUSER NOCREATEDB NOCREATEROLE`,

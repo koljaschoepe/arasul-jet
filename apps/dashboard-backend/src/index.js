@@ -625,6 +625,18 @@ if (alsServerGestartet) {
     // Backend nicht am Hochkommen hindern.
     await require('./services/app/appDatenbank').heileAlle();
 
+    // Und erst DANACH jeden App-Container neu starten, der vor der Datenbank
+    // hochkam (J35, 26.09.2026): nach einem Neustart des Geraets startet
+    // Docker die Apps selbst, Sekunden bevor `ordered-startup.sh` Postgres
+    // anlegt, und eine App, die ihre Datenbank beim Start nicht fand, lief
+    // ohne sie weiter. Nach dem Heilen, weil die Rolle erst dann das Passwort
+    // traegt, das in der Umgebung der App steht. Und jede Minute noch einmal:
+    // startet Postgres allein neu (Selbstheilung), ist der Fall derselbe, und
+    // das Backend bekommt davon keinen Neustart mit.
+    const { appsNachDerDatenbank } = require('./services/app/appDatenbank');
+    await appsNachDerDatenbank();
+    globalIntervals.push(setInterval(appsNachDerDatenbank, 60 * 1000));
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

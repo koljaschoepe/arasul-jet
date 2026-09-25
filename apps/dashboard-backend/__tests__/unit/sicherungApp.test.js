@@ -27,6 +27,7 @@ jest.mock('../../src/services/app/appStore', () => ({ spieleEin: jest.fn() }));
 jest.mock('../../src/services/app/appDatenbank', () => ({
   namenFuer: (appId, stand) => `arasul_app_${appId.replace(/-/g, '_')}_${stand}`,
   sorgeFuer: jest.fn(),
+  fehlt: jest.fn(async () => false),
 }));
 jest.mock('../../src/services/app/appContainer', () => ({
   containerName: (appId, stand) => `app-${appId}-${stand}`,

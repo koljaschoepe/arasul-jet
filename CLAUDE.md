@@ -1286,6 +1286,19 @@ ein Passwort, das im Dienst noch fehlt (`spiegleBeiAnmeldung`) — ein Mensch,
 den es vor dem Firmenordner gab, kommt damit nach seiner naechsten Anmeldung
 hinein statt erst nach einem Passwortwechsel.
 
+Seit dem Auftrag **apps-starten-nach-der-datenbank** (26.09.2026, J35)
+**startet eine App nach einem Neustart erst mit ihrer Datenbank, und eine App
+ohne Datenbank ist krank**. Docker startet die App-Container
+(`unless-stopped`) selbst, Postgres legt erst `ordered-startup.sh` an — am Orin
+kam `belege-live` 40 s vor `postgres-db` hoch, und die Faktum-App lief ohne
+Datenbank weiter und meldete gesund. Das Backend startet deshalb nach
+`heileAlle` jeden laufenden App-Container neu, der vor
+`pg_postmaster_start_time()` gestartet ist, und fragt jede Minute wieder
+(`appDatenbank.appsNachDerDatenbank`); ein Deploy des Backends fasst keine App
+an. Und `standZustand` fragt `pg_database`: fehlt die eingetragene Datenbank
+eines Standes, ist er nicht `lieferbar`, auch bei `healthy` — ob der
+Healthcheck einer App ihre Datenbank prüft, ist Sache des Kits.
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |

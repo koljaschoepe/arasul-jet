@@ -48,7 +48,7 @@ async function staendeVon(appId) {
  * Auftrag vom 28.08.2026. Ein Satz, kein Katalog: wer ihn liest, soll wissen,
  * was zu tun ist (entfernen oder neu einspielen), nicht eine Liste abhaken.
  */
-function beschreibeMangel({ manifest, backend, dateien }) {
+function beschreibeMangel({ manifest, backend, dateien, datenbankFehlt = false }) {
   if (!dateien.manifest) {
     return 'Die Dateien dieser Version fehlen am Geraet (kein app.json).';
   }
@@ -61,6 +61,12 @@ function beschreibeMangel({ manifest, backend, dateien }) {
     }
     if (!backend.laeuft) {
       return `Der Container laeuft nicht (${backend.status}).`;
+    }
+    // Vor dem Healthcheck (J35, 26.09.2026): eine App ohne ihre Datenbank
+    // laeuft ohne ihre Daten, und ob ihre eigene Pruefung das merkt, liegt am
+    // Geruest der App. Das Geraet weiss es selbst und sagt es.
+    if (datenbankFehlt) {
+      return 'Die Datenbank dieser App fehlt am Geraet; sie laeuft ohne ihre Daten.';
     }
     if (backend.gesundheit === 'unhealthy') {
       return 'Der Container meldet sich krank.';
@@ -84,7 +90,8 @@ function beschreibeMangel({ manifest, backend, dateien }) {
 async function standZustand(appId, stand, manifest) {
   const backend = manifest.backend ? await appContainer.zustand(appId, stand) : null;
   const dateien = await appManifest.dateienVorhanden(manifest);
-  const mangel = beschreibeMangel({ manifest, backend, dateien });
+  const datenbankFehlt = manifest.backend ? await appDatenbank.fehlt(appId, stand) : false;
+  const mangel = beschreibeMangel({ manifest, backend, dateien, datenbankFehlt });
   return {
     backend,
     dateien,
