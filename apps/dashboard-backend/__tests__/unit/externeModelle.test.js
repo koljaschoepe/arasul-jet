@@ -14,7 +14,15 @@ const { zeileDeuten } = require('../../src/services/llm/extern/adapter');
 
 describe('providerRegistry: die Trennlinie zwischen lokal und extern', () => {
   test('eine lokale Kennung ist nicht extern', () => {
-    for (const id of ['qwen3-coder:30b', 'gemma3:4b', 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS']) {
+    // Die hf.co-Form bleibt drin, obwohl die Kurzliste sie seit J35 nicht mehr
+    // fuehrt: sie traegt einen Schraegstrich, und genau der darf eine lokale
+    // Kennung nicht zur externen machen.
+    for (const id of [
+      'qwen3-coder:30b',
+      'gemma3:4b',
+      'qwen3.8:27b-q4_K_M',
+      'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
+    ]) {
       expect(registry.istExtern(id)).toBe(false);
       expect(registry.zerlegeId(id)).toBeNull();
     }

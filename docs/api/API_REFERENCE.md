@@ -185,22 +185,51 @@ Invalidates every active session for the current user by blacklisting all their 
 
 **POST /api/auth/change-password:**
 
-Changes the current user's own password. All existing sessions are invalidated afterward — the user must log in again with the new password.
+Der Mensch wechselt **sein eigenes** Passwort (Administrator und Mitarbeiter).
+Die Oberfläche nimmt diesen Weg für den erzwungenen Startpasswort-Wechsel
+(`features/system/PasswortWechseln.tsx`); Einstellungen → Sicherheit nimmt den
+gleichwertigen `POST /api/settings/password/dashboard`. Anmeldung und CSRF
+nötig, Drossel drei Versuche je Viertelstunde **je Benutzer** — jeder Versuch
+zählt, auch ein gelungener.
+
+Rumpf (JSON, `ChangePasswordBody` in `schemas/auth.js`, `.strict()` — ein
+weiteres Feld ist ein 400):
+
+| Feld              | Typ    | Regel                                                                                                                  |
+| ----------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `currentPassword` | string | Pflicht, 1 bis 256 Zeichen; das Passwort, mit dem der Mensch gerade angemeldet ist                                     |
+| `newPassword`     | string | Pflicht, 8 bis 256 Zeichen, mindestens eine Ziffer (`GET /api/settings/password-requirements`), nicht gleich dem alten |
 
 ```json
 // Request
 {
-  "currentPassword": "current-password",
-  "newPassword": "new-password"
+  "currentPassword": "Start-123",
+  "newPassword": "Eigenes-456"
 }
 
-// Response
+// Response 200
 {
   "success": true,
   "message": "Password changed successfully. Please log in again with your new password.",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
+
+Danach gilt: **alle Sitzungen des Menschen sind entwertet**, auch die, mit der
+er gerade gewechselt hat — die Oberfläche meldet ab (`POST /api/auth/logout`
+nimmt das tote Token an) und der Mensch meldet sich mit dem neuen Passwort an.
+`passwort_vom_admin` steht auf `false`, und seit J35 (25.09.2026) sagt das
+**schon die nächste Anfrage**: der Zwischenspeicher von `requireAuth` (60 s je
+Benutzer) wird beim Schreiben verworfen. Vorher meldete `GET /api/auth/me` mit
+dem frischen Token noch bis zu einer Minute `passwortWechselNoetig: true`.
+
+| Status | `error.code`       | Wann                                                                                                                            |
+| ------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR` | Feld fehlt, zu kurz/lang oder unbekannt (`details` je Feld); Regel verletzt (`details` als Liste der Sätze); neues gleich altem |
+| 401    | `UNAUTHORIZED`     | `currentPassword` stimmt nicht — oder keine gültige Sitzung (`TOKEN_REVOKED`, `TOKEN_EXPIRED`, …)                               |
+| 403    | `CSRF_INVALID`     | CSRF-Token fehlt oder veraltet (`useApi` holt einen frischen und wiederholt einmal)                                             |
+| 404    | `NOT_FOUND`        | Den Benutzer gibt es nicht mehr                                                                                                 |
+| 429    | `RATE_LIMITED`     | Mehr als drei Versuche in fünfzehn Minuten                                                                                      |
 
 **POST /api/auth/refresh-cookie:**
 
@@ -1379,15 +1408,19 @@ das Abzeichen „Standard" saß auf `llava-phi3`).
 
 `GET /api/models/catalog` zeigt genau vier Modelle, und mehr gibt es nicht:
 
-| Kennung                                 | Aufgabe   | RAM   | Wofür                             |
-| --------------------------------------- | --------- | ----- | --------------------------------- |
-| `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` | text      | 22 GB | Standard, die Flows laufen darauf |
-| `gemma4:e4b`                            | text      | 10 GB | das kleine schnelle               |
-| `nomic-embed-text`                      | embedding | 2 GB  | Einbettungen (`/v1/embeddings`)   |
-| `llava-phi3`                            | vision    | 4 GB  | Bilder und eingescannter Text     |
+| Kennung              | Aufgabe   | RAM   | Wofür                             |
+| -------------------- | --------- | ----- | --------------------------------- |
+| `qwen3.8:27b-q4_K_M` | text      | 24 GB | Standard, die Flows laufen darauf |
+| `gemma4:e4b`         | text      | 10 GB | das kleine schnelle               |
+| `nomic-embed-text`   | embedding | 2 GB  | Einbettungen (`/v1/embeddings`)   |
+| `llava-phi3`         | vision    | 4 GB  | Bilder und eingescannter Text     |
 
 Die Liste steht in `config/modelle/kurzliste.json` und kommt über Migration 175
-in den Katalog. Sie ist eine **Zusage** über vier auf diesem Gerät gemessene
+in den Katalog; den Standard hat Migration 186 (25.09.2026, J35) von
+`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` auf `qwen3.8:27b-q4_K_M` aus der
+Ollama-Bibliothek gezogen — die Hugging-Face-Kennung zeigte nicht verlässlich
+auf dieselbe Datei, die neue trägt einen festen Digest (`digest` je Eintrag in
+der Kurzliste). Sie ist eine **Zusage** über vier auf diesem Gerät gemessene
 Modelle, kein Vorschlag: `POST /api/models/download` nimmt nur, was im Katalog
 steht, und der Katalog wird nur noch von Migrationen geschrieben.
 
@@ -1742,12 +1775,15 @@ auf `data/lizenz/` — sie ueberlebt ein neues Erzeugen des Containers und zieht
 mit einer Aktualisierung um. Der Werksreset loescht sie mit `data/`.
 
 **Ohne Sitzung, per SSH** (J35): `scripts/util/lizenz-geraet.sh fingerabdruck |
-status | einspielen <lizenz>` ruft denselben Dienst im Backend-Container und
-gibt genau eine Zeile JSON aus — `{"fingerabdruck":"<hex>"}`, die Form von
-`nutzung` oben, `{"ok":true,"stufe":"professional"}` oder
+status | einspielen <lizenz> | entfernen` ruft denselben Dienst im
+Backend-Container und gibt genau eine Zeile JSON aus — `{"fingerabdruck":"<hex>"}`,
+die Form von `nutzung` oben, `{"ok":true,"stufe":"professional"}` oder
 `{"ok":false,"fehler":"..."}` mit Rueckgabe 1. Der Cache des Dienstes haengt an
 der Lizenzdatei, also gilt eine so eingespielte Lizenz im laufenden Backend
 sofort. Protokolliert als `license_activate` mit `quelle: lizenz-geraet.sh`.
+`entfernen` (seit 25.09.2026) ist dasselbe wie **DELETE /api/license** unten:
+`{"ok":true,"entfernt":true,"stufe":"community"}`, `entfernt: false`, wenn keine
+Datei lag; protokolliert als `license_remove` mit `quelle: lizenz-geraet.sh`.
 
 **DELETE /api/license** nimmt die Lizenz vom Geraet: die Datei faellt, der
 Fuenf-Minuten-Cache auch, und die Antwort traegt schon den neuen Stand. Ohne

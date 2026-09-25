@@ -105,6 +105,16 @@ check_gpu_availability() {
 
 # Check 3: Model Loaded
 # LOW-PRIORITY-FIX 4.3: Use jq for JSON parsing if available, fallback to grep
+#
+# KEIN MODELL IST NICHT KRANK (25.09.2026, J35). Bis dahin war "No models
+# loaded" ein kritischer Fehlschlag. Auf einem frischen Geraet ist genau das
+# der Zustand der ersten Stunde: die Installation holt das Standardmodell
+# (17 GB), und bis es liegt, meldet `/api/tags` eine leere Liste. Der Container
+# stand damit auf `unhealthy`, die Selbstheilung startete llm-service alle fuenf
+# Minuten neu -- mitten im Download. Die Teildatei blieb leer, jeder weitere
+# Pull endete mit EOF, und das Geraet bekam nie ein Modell. Ein Dienst, der
+# antwortet und nur noch nichts zu rechnen hat, ist gesund; dass das Modell
+# fehlt, meldet der Rauchtest des Bootstraps und die Modellansicht.
 check_model_loaded() {
     log "Checking if model is loaded..."
 
@@ -122,8 +132,8 @@ check_model_loaded() {
         MODEL_COUNT=$(echo "$MODELS_RESPONSE" | jq '.models | length' 2>/dev/null || echo "0")
 
         if [ "$MODEL_COUNT" -eq 0 ]; then
-            error "No models loaded"
-            return 1
+            warning "Noch kein Modell geladen (frisches Geraet oder Download laeuft) -- nicht krank"
+            return 0
         fi
 
         # Check if default model is available
@@ -150,8 +160,8 @@ check_model_loaded() {
         MODEL_COUNT=$(echo "$MODELS_RESPONSE" | grep -o '"name"' | wc -l)
 
         if [ "$MODEL_COUNT" -eq 0 ]; then
-            error "No models loaded"
-            return 1
+            warning "Noch kein Modell geladen (frisches Geraet oder Download laeuft) -- nicht krank"
+            return 0
         fi
 
         # Check if default model is available
@@ -237,7 +247,7 @@ main() {
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
     else
         log "Model loaded check failed"
-        CRITICAL_FAIL=$((CRITICAL_FAIL + 1))  # No model = no inference
+        CRITICAL_FAIL=$((CRITICAL_FAIL + 1))  # Modellliste nicht lesbar (leere Liste ist gesund, s.o.)
     fi
 
     # Prompt test removed - we don't want to load the model for health checks

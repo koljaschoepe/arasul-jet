@@ -1166,9 +1166,12 @@ run_smoke_tests() {
         modelle=$(grep -o '"name"' <<<"$antwort" | wc -l || true)
         if [ "${modelle:-0}" -gt 0 ]; then
             log_success "LLM Models: ${modelle} model(s) available"
+        elif [ -n "${MODELL_LOG:-}" ]; then
+            # Kein Mangel, sondern der Zustand der ersten Stunde.
+            log_info "LLM Models: noch keins -- das Standardmodell wird gerade geholt (${MODELL_LOG})"
         else
-            log_warning "LLM Models: keins geladen (auf einem frischen Geraet normal)"
-            log_info "Modell laden: docker compose exec llm-service ollama pull <Kennung aus config/modelle/kurzliste.json>"
+            log_warning "LLM Models: keins geladen"
+            log_info "Nachholen: ./arasul modell"
             warnings=1
         fi
     fi
@@ -1246,6 +1249,7 @@ show_completion_summary() {
     # welche. Was sie zu sagen hat, ist die Fassung, und dass die alten
     # weitergelten. "ist installiert" waere an dieser Stelle schlicht falsch.
     [ "${AKTUALISIERUNG:-false}" = "true" ] && zusatz+=(--aktualisierung)
+    [ -n "${MODELL_LOG:-}" ] && zusatz+=(--modell-log "$MODELL_LOG")
     bash "${SCRIPT_DIR}/scripts/util/erstausgabe.sh" \
         --passwort "${STARTPASSWORT:-}" \
         --schluessel "${KIT_SCHLUESSEL:-}" \
@@ -1334,42 +1338,13 @@ setup_tailscale() {
 }
 
 # Production security hardening (SSH + Firewall)
-# Non-critical: failures warn but don't block bootstrap
+#
+# Steht in `scripts/security/haerten.sh` (J35, 25.09.2026): mit `sudo -n`
+# statt ohne sudo, mit sichtbarer Ausgabe statt `2>/dev/null`, und ein
+# geaenderter SSH-Port wird gemeldet. Nicht kritisch -- das Skript gibt immer 0
+# zurueck und sagt stattdessen, was nicht ging und wie man es nachholt.
 harden_production_security() {
-    local node_env
-    node_env=$(env_wert NODE_ENV)
-
-    # SSH Hardening (production only, opt-out via ENABLE_SSH_HARDENING=false)
-    if [ "${ENABLE_SSH_HARDENING:-true}" = "true" ] && [ "${node_env}" = "production" ]; then
-        log_info "SSH-Hardening wird angewendet..."
-        if [ -f "scripts/security/harden-ssh.sh" ]; then
-            bash scripts/security/harden-ssh.sh --port "${SSH_PORT:-2222}" --non-interactive 2>/dev/null || {
-                log_warning "SSH-Hardening fehlgeschlagen (nicht kritisch)"
-            }
-        else
-            log_warning "SSH-Hardening-Script nicht gefunden: scripts/security/harden-ssh.sh"
-        fi
-    elif [ "${ENABLE_SSH_HARDENING:-true}" != "true" ]; then
-        log_info "SSH-Hardening uebersprungen (ENABLE_SSH_HARDENING=false)"
-    else
-        log_info "SSH-Hardening uebersprungen (NODE_ENV != production)"
-    fi
-
-    # Firewall Setup (production only, opt-out via ENABLE_FIREWALL=false)
-    if [ "${ENABLE_FIREWALL:-true}" = "true" ] && [ "${node_env}" = "production" ]; then
-        log_info "Firewall wird konfiguriert..."
-        if [ -f "scripts/security/setup-firewall.sh" ]; then
-            bash scripts/security/setup-firewall.sh --ssh-port "${SSH_PORT:-2222}" --non-interactive 2>/dev/null || {
-                log_warning "Firewall-Setup fehlgeschlagen (nicht kritisch)"
-            }
-        else
-            log_warning "Firewall-Script nicht gefunden: scripts/security/setup-firewall.sh"
-        fi
-    elif [ "${ENABLE_FIREWALL:-true}" != "true" ]; then
-        log_info "Firewall-Setup uebersprungen (ENABLE_FIREWALL=false)"
-    else
-        log_info "Firewall-Setup uebersprungen (NODE_ENV != production)"
-    fi
+    bash "${SCRIPT_DIR}/scripts/security/haerten.sh" || true
 }
 
 # Install systemd watchdog and deadman-switch timers
@@ -1392,6 +1367,49 @@ install_systemd_timers() {
         log_warning "Systemd-Einheiten nicht installiert: ${ausgabe}"
     fi
     return 0
+}
+
+# Das Standardmodell (J35, 25.09.2026).
+#
+# Bis dahin holte der Bootstrap kein Modell und gab nur einen Hinweis aus; ein
+# Kunde, der das Geraet einschaltet, hatte kein antwortendes Modell. Jetzt holt
+# `scripts/util/modell-holen.sh` das Modell aus `LLM_MODEL`, mit dem Digest aus
+# der Kurzliste, unter dem Wartungsfenster.
+#
+# IM HINTERGRUND und nicht im Bootstrap: am Orin dauert es rund eine Stunde.
+# Die Oberflaeche, das Startpasswort und der Kit-Schluessel sollen nicht eine
+# Stunde auf ein Modell warten, das der Mensch in dieser Stunde noch gar nicht
+# braucht. Losgeloest mit `setsid` und eigener Logdatei: das Terminal des
+# Bootstraps darf zugehen, der Download laeuft weiter.
+#
+# `MODELL_HOLEN=false` laesst es aus (Pruefstand, CI).
+MODELL_LOG=""
+standardmodell_holen() {
+    MODELL_LOG=""
+    if [ "${MODELL_HOLEN:-$(env_wert MODELL_HOLEN true)}" != "true" ]; then
+        log_info "Standardmodell wird nicht geholt (MODELL_HOLEN=false)"
+        return 0
+    fi
+    local skript="${SCRIPT_DIR}/scripts/util/modell-holen.sh"
+    if bash "$skript" --pruefen >/dev/null 2>&1; then
+        log_success "Standardmodell $(env_wert LLM_MODEL) liegt schon am Geraet (Digest stimmt)"
+        return 0
+    fi
+    MODELL_LOG="${SCRIPT_DIR}/logs/modell-holen.log"
+    mkdir -p "${SCRIPT_DIR}/logs"
+    log_info "Standardmodell $(env_wert LLM_MODEL) wird im Hintergrund geholt -- Fortschritt: tail -f ${MODELL_LOG}"
+    if command -v setsid >/dev/null 2>&1; then
+        setsid nohup bash "$skript" --env-nachziehen >> "$MODELL_LOG" 2>&1 < /dev/null &
+    else
+        nohup bash "$skript" --env-nachziehen >> "$MODELL_LOG" 2>&1 < /dev/null &
+    fi
+    disown 2>/dev/null || true
+}
+
+# `./arasul modell [kennung]`: dasselbe im Vordergrund, zum Nachholen.
+cmd_modell() {
+    shift || true
+    bash "${SCRIPT_DIR}/scripts/util/modell-holen.sh" --env-nachziehen "$@"
 }
 
 # Bootstrap command
@@ -1437,6 +1455,11 @@ cmd_bootstrap() {
 
     # 4. Jetson-Profil anwenden
     apply_jetson_profile
+
+    # 4b. LLM_MODEL auf die Kurzliste: ein Geraet vor J35 traegt die
+    # Hugging-Face-Kennung, die es nicht mehr gibt. VOR dem Start der Dienste,
+    # denn die Container lesen LLM_MODEL beim Anlegen.
+    bash "${SCRIPT_DIR}/scripts/util/modell-holen.sh" --nur-env || true
 
     # 5. Konfiguration validieren
     log_info "Validiere Konfiguration..."
@@ -1574,6 +1597,9 @@ cmd_bootstrap() {
         # password must remain in .env — for a retry or for the backend to use.
         log_warning "Admin noch nicht abschliessend angelegt (Fehler oder Backend-Erstgenerierung) — Klartext-Passwort bleibt in .env"
     fi
+
+    # 15c. Das Standardmodell, im Hintergrund (siehe standardmodell_holen).
+    standardmodell_holen
 
     # 16. Smoke Tests
     local rauchtest=0
@@ -1862,6 +1888,7 @@ cmd_help() {
     echo "  logs [service]    - Show logs (optionally for a specific service)"
     echo "  update            - Update to latest version"
     echo "  mdns              - Configure mDNS (arasul.local)"
+    echo "  modell [kennung]  - Standardmodell holen und Digest pruefen (Vorgabe: LLM_MODEL)"
     echo "  zertifikat        - Geraetezertifikat neu ausstellen (nach Namens-/Netzwechsel)"
     echo "  reset-password [user] - Reset admin password + clear account lock (default: admin)"
     echo "  validate-config   - Validate .env configuration"
@@ -1942,6 +1969,9 @@ case "${1:-help}" in
         ;;
     zertifikat)
         cmd_zertifikat
+        ;;
+    modell)
+        cmd_modell "$@"
         ;;
     reset-password)
         shift

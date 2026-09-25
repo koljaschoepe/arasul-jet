@@ -130,7 +130,7 @@ curl -k -X POST https://arasul.local/api/backup/wiederherstellung \
   -d '{"bestaetigung":"wiederherstellen"}'
 
 # 7. Modelle erneut laden (die Kurzliste, C8)
-docker exec llm-service ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
+docker exec llm-service ollama pull qwen3.8:27b-q4_K_M
 ```
 
 **Erwartete Recovery-Zeit**: 1-2 Stunden (inkl. Model-Download)
@@ -301,9 +301,9 @@ docker exec reverse-proxy traefik healthcheck
 
 ## 4. Kontakt & Eskalation
 
-| Stufe | Trigger                         | Aktion                               |
-| ----- | ------------------------------- | ------------------------------------ |
-| L1    | Service unhealthy               | Automatischer Restart (Self-Healing) |
-| L2    | Mehrfach-Restart fehlgeschlagen | GPU-Reset oder Container-Neubau      |
-| L3    | System nicht recoverable        | Restore aus Backup                   |
+| Stufe | Trigger                         | Aktion                                |
+| ----- | ------------------------------- | ------------------------------------- |
+| L1    | Service unhealthy               | Automatischer Restart (Self-Healing)  |
+| L2    | Mehrfach-Restart fehlgeschlagen | GPU-Reset oder Container-Neubau       |
+| L3    | System nicht recoverable        | Restore aus Backup                    |
 | L4    | Hardware-Defekt                 | Artefakt auf neuem Gerät installieren |

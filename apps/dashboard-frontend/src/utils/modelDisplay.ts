@@ -66,7 +66,7 @@ export function istChatModell(m: ModellAnzeige): boolean {
 
 /**
  * Sieht der String wie eine rohe Ollama-/hf.co-Modell-Id aus (statt eines
- * Namens)? Ein Name mit Leerzeichen ist NIE eine rohe Id ("Qwen3.8 27B" bleibt
+ * Namens)? Ein Name mit Leerzeichen ist NIE eine rohe Id ("Qwen 3.8 27B" bleibt
  * unangetastet); sonst gelten Pfad-Schrägstrich ODER Ollama-`name:tag` als roh
  * (z. B. "qwen3-coder:30b" — genau die Form, die der Direkt-Pull erzeugt).
  */
@@ -80,8 +80,9 @@ function istRoheId(s: string): boolean {
 /**
  * Aus einer Ollama-/hf.co-Id einen lesbaren Namen ableiten, falls der Katalog
  * keinen sauberen Namen liefert — z. B.
- * "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS" → "Qwen3.8 27B",
- * "qwen3-coder:30b" → "Qwen3 Coder 30B". Wörter werden groß angesetzt und eine
+ * "qwen3.8:27b-q4_K_M" → "Qwen 3.8 27B" (der Standard der Kurzliste seit J35),
+ * "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS" → "Qwen 3.8 27B",
+ * "qwen3-coder:30b" → "Qwen 3 Coder 30B". Wörter werden groß angesetzt und eine
  * Größenangabe (…B) aus dem Tag angehängt, damit die Anzeige zum Rest passt.
  */
 function humanisiereId(id: string): string {

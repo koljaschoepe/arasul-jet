@@ -118,7 +118,7 @@ anstossen.
 
 - **Modelle (nur Administrator):** in der Mitte die **Kurzliste** des Geraets,
   vier Modelle und keine Suche daneben: eines fuer die Flows
-  (`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS`, der Standard), ein kleines
+  (`qwen3.8:27b-q4_K_M`, der Standard, aus der Ollama-Bibliothek), ein kleines
   schnelles (`gemma4:e4b`), eines fuer Einbettungen (`nomic-embed-text`) und
   eines fuer Bilder und eingescannten Text (`llava-phi3`). Je Zeile steht,
   wofuer das Modell da ist, wie gross es ist und ob es am Geraet liegt; die
@@ -456,7 +456,11 @@ Ohne Anmeldung, per SSH am Geraet (so spielt das Ara-Kit sie ein):
 ~/arasul-<fassung>/scripts/util/lizenz-geraet.sh fingerabdruck
 ~/arasul-<fassung>/scripts/util/lizenz-geraet.sh status
 ~/arasul-<fassung>/scripts/util/lizenz-geraet.sh einspielen '<lizenz>'
+~/arasul-<fassung>/scripts/util/lizenz-geraet.sh entfernen
 ```
+
+`entfernen` nimmt die Lizenz wieder vom Geraet, wie **DELETE /api/license**:
+danach steht es auf Community (Stand 25.09.2026).
 
 ### Benutzer anlegen, sperren und loeschen
 

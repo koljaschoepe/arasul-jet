@@ -191,21 +191,23 @@ function getLlmRamGB() {
  * Kurzliste macht die Fallunterscheidung gegenstandslos: es gibt vier Modelle,
  * und die Frage ist nicht mehr "welches", sondern "passt der Standard noch in
  * dieses Geraet". Genau das steht jetzt hier -- ein Profil kippt den Standard
- * auf das kleine schnelle Modell, sobald der Speicher fuer die 22 GB des
- * Standardmodells nicht reicht. Die Kurzliste selbst kommt aus
- * `config/modelle/kurzliste.json`; `scripts/test/kurzliste.py` haelt sie fest.
+ * auf das kleine schnelle Modell, sobald der Speicher fuer die 24 GB des
+ * Standardmodells nicht reicht (seit 25.09.2026, J35, `qwen3.8:27b-q4_K_M` aus
+ * der Ollama-Bibliothek statt der 22 GB der Hugging-Face-Datei). Die
+ * Kurzliste selbst kommt aus `config/modelle/kurzliste.json`;
+ * `scripts/test/kurzliste.py` haelt sie fest.
  *
  * @returns {Promise<{model: string, fast_model: string, vision_model: string|null, embedding_model: string, profile: string, models: string[]}>}
  */
 async function getRecommendedModel() {
   // Die vier Modelle der Kurzliste (config/modelle/kurzliste.json).
-  const STANDARD = 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS';
+  const STANDARD = 'qwen3.8:27b-q4_K_M';
   const SCHNELL = 'gemma4:e4b';
   const SEHEN = 'llava-phi3';
   const EINBETTUNG = 'nomic-embed-text';
 
   // Ein Profil sagt nur noch, ob das Standardmodell hineinpasst. Es braucht
-  // 22 GB; wo weniger fuer die Modelle uebrig ist, fuehrt das kleine schnelle.
+  // 24 GB; wo weniger fuer die Modelle uebrig ist, fuehrt das kleine schnelle.
   const GROSS = {
     model: STANDARD,
     fast_model: SCHNELL,
@@ -225,7 +227,7 @@ async function getRecommendedModel() {
     thor_128gb: GROSS,
     thor_64gb: GROSS,
     agx_orin_64gb: GROSS,
-    // Ab hier reicht der Speicher fuer die 22 GB des Standardmodells nicht.
+    // Ab hier reicht der Speicher fuer die 24 GB des Standardmodells nicht.
     agx_orin_32gb: KLEIN,
     orin_nx_16gb: KLEIN,
     xavier_agx: KLEIN,

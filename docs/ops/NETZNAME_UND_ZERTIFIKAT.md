@@ -6,12 +6,12 @@
 
 ## Kurz
 
-| Adresse                             | Woher der Name kommt                   | Wann sie geht                                      |
-| ----------------------------------- | -------------------------------------- | -------------------------------------------------- |
-| `https://arasul/`                   | DHCP-Hostname, der Router löst ihn auf | fast immer (Fritzbox und die meisten Firmenrouter) |
-| `https://arasul.local/`             | mDNS über Avahi                        | immer, auch ohne mitspielenden Router              |
-| `https://192.168.1.50/`             | die IP selbst                          | immer                                              |
-| `https://<gerät>.<tailnet>.ts.net/` | Tailscale MagicDNS                     | von unterwegs, mit browser-vertrautem Schloss      |
+| Adresse                             | Woher der Name kommt               | Wann sie geht                                      |
+| ----------------------------------- | ---------------------------------- | -------------------------------------------------- |
+| `https://arasul/`                   | DHCP-Name, der Router löst ihn auf | fast immer (Fritzbox und die meisten Firmenrouter) |
+| `https://arasul.local/`             | mDNS über Avahi                    | immer, auch ohne mitspielenden Router              |
+| `https://192.168.1.50/`             | die IP selbst                      | immer                                              |
+| `https://<gerät>.<tailnet>.ts.net/` | Tailscale MagicDNS                 | von unterwegs, mit browser-vertrautem Schloss      |
 
 Alle vier zeigen auf dasselbe Traefik. Alle vier stehen im Zertifikat des
 Geräts — bis auf die letzte, die Tailscale selbst absichert.
@@ -21,11 +21,14 @@ Geräts — bis auf die letzte, die Tailscale selbst absichert.
 Das Gerät heißt schlicht **`arasul`**. Diesen Namen setzt
 `scripts/setup/setup-mdns.sh` an zwei Stellen:
 
-1. **System-Hostname** (`hostnamectl set-hostname arasul`). Der DHCP-Client
-   meldet ihn beim Router an, und ein Router, der DHCP-Namen in seinen DNS
-   einträgt — eine Fritzbox tut das, die meisten Firmenrouter auch — löst
-   danach `arasul` im ganzen Netz auf. Daher `https://arasul/` **ohne**
-   `.local`.
+1. **DHCP-Name** (NetworkManager, `ipv4.dhcp-hostname arasul` je aktiver
+   Verbindung). Er wird beim Router angemeldet, und ein Router, der DHCP-Namen
+   in seinen DNS einträgt — eine Fritzbox tut das, die meisten Firmenrouter
+   auch — löst danach `arasul` im ganzen Netz auf. Daher `https://arasul/`
+   **ohne** `.local`. Er wirkt ab der nächsten Erneuerung der Adresse; das Netz
+   wird dafür nicht neu aufgebaut. **Der Systemname bleibt, wie er ist**
+   (seit J35, 25.09.2026 — bis dahin stand hier `hostnamectl set-hostname`,
+   und der Installer benannte einen Rechner des Kunden um).
 2. **Avahi** (`/etc/avahi/avahi-daemon.conf`, `host-name=arasul`). Das ist der
    Rückfall: mDNS braucht keinen Router, der mitspielt, sondern nur ein
    Betriebssystem, das mDNS kann. Windows 10 ab 1809, macOS, iOS und Android

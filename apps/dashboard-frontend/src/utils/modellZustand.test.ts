@@ -58,9 +58,9 @@ describe('modellage (Plan 023 D3)', () => {
       budget({
         loadedModels: [
           {
-            id: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
-            ollamaName: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
-            name: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS',
+            id: 'qwen3.8:27b-q4_K_M',
+            ollamaName: 'qwen3.8:27b-q4_K_M',
+            name: 'qwen3.8:27b-q4_K_M',
             ramMb: 15500,
           },
         ],

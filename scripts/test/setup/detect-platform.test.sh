@@ -167,11 +167,11 @@ teardown() {
 # =============================================================================
 
 # Phase C8: der Standard der Kurzliste, ueberall derselbe, solange der Speicher
-# fuer seine 22 GB reicht. `config/modelle/kurzliste.json` ist die Quelle,
+# fuer seine 24 GB reicht. `config/modelle/kurzliste.json` ist die Quelle,
 # `scripts/test/kurzliste.py` haelt beide aneinander.
 @test "get_config_for_profile: thor_128gb sets correct LLM model" {
     result=$(get_config_for_profile "thor_128gb")
-    echo "$result" | grep -q "LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS"
+    echo "$result" | grep -q "LLM_MODEL=qwen3.8:27b-q4_K_M"
 }
 
 @test "get_config_for_profile: thor_128gb sets 88G LLM RAM limit" {
@@ -181,7 +181,7 @@ teardown() {
 
 @test "get_config_for_profile: agx_orin_64gb sets correct LLM model" {
     result=$(get_config_for_profile "agx_orin_64gb")
-    echo "$result" | grep -q "LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS"
+    echo "$result" | grep -q "LLM_MODEL=qwen3.8:27b-q4_K_M"
 }
 
 # Und die Gegenprobe: unter 64 GB fuehrt das kleine schnelle Modell.

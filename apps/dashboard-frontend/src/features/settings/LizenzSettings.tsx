@@ -45,10 +45,23 @@ function belegt(b: Belegung): string {
   return b.grenze === -1 ? `${b.belegt}` : `${b.belegt} von ${b.grenze}`;
 }
 
+/**
+ * Das Ablaufdatum als Kalenderdatum, oder „unbegrenzt" (J35, 25.09.2026).
+ *
+ * Eine Lizenz nennt ihren Ablauf als Tag, und `lizenz-signieren.js` schreibt
+ * ihn als Mitternacht UTC. In Ortszeit formatiert rutschte er östlich von
+ * Greenwich nach vorn: aus `9999-12-31T23:59:59Z` wurde am Orin
+ * „1.1.10000". Gelesen wird deshalb in UTC — der Tag, der dasteht, ist der
+ * Tag, der gemeint ist. Und 9999 ist kein Datum, sondern die Art, wie eine
+ * Lizenz ohne Ablauf ihr Pflichtfeld füllt: ab diesem Jahr steht
+ * „unbegrenzt" da.
+ */
 function datum(iso?: string): string | null {
   if (!iso) return null;
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('de-DE');
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getUTCFullYear() >= 9999) return 'unbegrenzt';
+  return d.toLocaleDateString('de-DE', { timeZone: 'UTC' });
 }
 
 export function LizenzSettings() {
@@ -109,7 +122,12 @@ export function LizenzSettings() {
               wert={<span data-testid="lizenz-stufe">{STUFEN_NAME[n.stufe] ?? n.stufe}</span>}
               fussnote={
                 data.valid
-                  ? [data.customer, bis ? `gültig bis ${bis}` : null].filter(Boolean).join(' · ')
+                  ? [
+                      data.customer,
+                      bis === 'unbegrenzt' ? 'unbegrenzt gültig' : bis ? `gültig bis ${bis}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
                   : 'ohne Lizenz'
               }
             />

@@ -80,6 +80,17 @@ ufw allow 80/tcp comment "HTTP via Traefik"
 echo "  Allowing HTTPS (443)..."
 ufw allow 443/tcp comment "HTTPS via Traefik"
 
+# mDNS und Tailscale (J35, 25.09.2026). Das Geraet heisst im Firmennetz
+# `arasul` und faellt auf `arasul.local` zurueck (C10) -- ohne 5353/udp gibt es
+# diesen Rueckfall nach der Haertung nicht mehr. Und Tailscale ist der
+# Fernzugriff des Betriebs: `deny incoming` gilt auch fuer tailscale0.
+echo "  Allowing mDNS (5353/udp, arasul.local)..."
+ufw allow 5353/udp comment "mDNS arasul.local"
+if ip link show tailscale0 >/dev/null 2>&1; then
+    echo "  Allowing Tailscale interface (tailscale0)..."
+    ufw allow in on tailscale0 comment "Tailscale Fernzugriff"
+fi
+
 # 5. Allow Docker internal network
 echo "[5/6] Allowing Docker internal network traffic..."
 # Allow all traffic from Docker bridge networks (frontend/backend/monitoring)

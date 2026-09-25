@@ -40,6 +40,10 @@
  *      professional; `maxUsers` aus der Nutzlast ersetzt die Zahl der Stufe;
  *      und der Cache folgt der DATEI -- was ein zweiter Prozess einspielt
  *      (`lizenz-geraet.sh`), sieht das laufende Backend sofort.
+ *  10. Der Einstieg hinter `lizenz-geraet.sh` (`src/cli/lizenz.js`) kennt
+ *      seit dem 25.09.2026 auch `entfernen`: genau eine Zeile JSON, die
+ *      Datei ist weg, danach community -- und ein zweites Mal ist kein
+ *      Fehler. Gemessen als eigener Prozess, wie ihn `docker exec` startet.
  *
  * Aufruf: node scripts/test/lizenz-signatur.js   (braucht node_modules des
  * Backends fuer winston; laeuft im CI-Job "Backend" und in run-tests.sh)
@@ -58,6 +62,7 @@ const COMPOSE = path.join(WURZEL, 'compose/compose.app.yaml');
 const PFAD_IM_CONTAINER = '/arasul/config/public_license_key.pem';
 const LIZENZ_IM_CONTAINER = '/arasul/lizenz/license.key';
 const WERKZEUG = path.join(WURZEL, 'scripts/util/lizenz-signieren.js');
+const EINSTIEG = path.join(WURZEL, 'apps/dashboard-backend/src/cli/lizenz.js');
 
 process.env.LOG_LEVEL = 'error';
 const ARBEIT = fs.mkdtempSync(path.join(os.tmpdir(), 'arasul-lizenz-'));
@@ -483,6 +488,52 @@ async function main() {
   pruefe(
     'und ebenso, dass sie wieder weg ist',
     (await laufend.validateLicense()).tier === 'community'
+  );
+  aufraeumen();
+
+  // --- 10. lizenz-geraet.sh entfernen, ueber den Einstieg im Container ------
+  console.log('\n--- 10. Der Einstieg hinter lizenz-geraet.sh: entfernen');
+  fs.writeFileSync(SCHLUESSEL, A.publicKey);
+  await frisch().activateLicense(lizenzVonA);
+  // Die Datenbank ist hier nicht da: das Protokoll (`logSecurityEvent`)
+  // schluckt den Fehler, also zeigt der Port ins Leere statt auf ein Geraet.
+  const cli = befehl =>
+    spawnSync(process.execPath, [EINSTIEG, befehl], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        POSTGRES_PASSWORD: 'unbenutzt',
+        POSTGRES_HOST: '127.0.0.1',
+        POSTGRES_PORT: '1',
+      },
+    });
+  const zeilenAus = lauf => lauf.stdout.split('\n').filter(Boolean);
+  let cliLauf = cli('entfernen');
+  let zeilen = zeilenAus(cliLauf);
+  let antwort = zeilen.length === 1 ? JSON.parse(zeilen[0]) : null;
+  pruefe(
+    'entfernen: genau eine Zeile {"ok":true,"entfernt":true,"stufe":"community"}, Datei weg',
+    cliLauf.status === 0 &&
+      antwort?.ok === true &&
+      antwort.entfernt === true &&
+      antwort.stufe === 'community' &&
+      !fs.existsSync(LIZENZ),
+    cliLauf.stdout.trim() || cliLauf.stderr.trim()
+  );
+  cliLauf = cli('entfernen');
+  zeilen = zeilenAus(cliLauf);
+  antwort = zeilen.length === 1 ? JSON.parse(zeilen[0]) : null;
+  pruefe(
+    'entfernen ohne Datei: ok, entfernt false -- kein Fehler',
+    cliLauf.status === 0 && antwort?.ok === true && antwort.entfernt === false,
+    cliLauf.stdout.trim() || cliLauf.stderr.trim()
+  );
+  const skript = fs.readFileSync(path.join(WURZEL, 'scripts/util/lizenz-geraet.sh'), 'utf8');
+  pruefe(
+    'lizenz-geraet.sh laesst entfernen durch und beschreibt es im Vertrag',
+    /fingerabdruck \| status \| einspielen \| entfernen\)/.test(skript) &&
+      skript.includes('lizenz-geraet.sh entfernen')
   );
   aufraeumen();
 }

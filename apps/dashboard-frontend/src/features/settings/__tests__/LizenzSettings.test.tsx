@@ -7,7 +7,7 @@
  * `licenseKey` an `POST /api/license/activate`; eine, die nicht besteht,
  * nennt den Grund unter dem Feld.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -57,8 +57,15 @@ function mitAbfrage(ui: ReactNode) {
 }
 
 describe('LizenzSettings', () => {
+  // Das Geraet steht in Berlin; der Fehler lag in der Ortszeit, also misst
+  // der Test in ihr und nicht im UTC der CI.
+  const tzVorher = process.env.TZ;
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.TZ = 'Europe/Berlin';
+  });
+  afterEach(() => {
+    process.env.TZ = tzVorher;
   });
 
   it('zeigt Stufe, Konten x von y, Apps x von y und den Fingerabdruck', async () => {
@@ -82,6 +89,23 @@ describe('LizenzSettings', () => {
     expect(screen.getByTestId('lizenz-konten')).toHaveTextContent(/^5$/);
     expect(screen.getAllByText('unbegrenzt')).toHaveLength(2);
     expect(screen.getByText(/Muster GmbH/)).toBeInTheDocument();
+  });
+
+  it('zeigt das Ablaufdatum als Kalendertag, unabhaengig von der Zeitzone', async () => {
+    // Mitternacht UTC ist in Berlin 01:00 -- und kurz vor Mitternacht UTC
+    // waere es dort schon der naechste Tag. Gemeint ist der Tag, der dasteht.
+    apiMock.get.mockResolvedValue({ ...PROFESSIONAL, expiresAt: '2027-12-31T23:59:59.000Z' });
+    mitAbfrage(<LizenzSettings />);
+    expect(await screen.findByText(/gültig bis 31\.12\.2027/)).toBeInTheDocument();
+  });
+
+  it('zeigt einen Ablauf im Jahr 9999 als unbegrenzt statt als 1.1.10000', async () => {
+    // Der Fund vom Orin (25.09.2026): 9999-12-31T23:59:59Z in Ortszeit.
+    apiMock.get.mockResolvedValue({ ...PROFESSIONAL, expiresAt: '9999-12-31T23:59:59.000Z' });
+    mitAbfrage(<LizenzSettings />);
+    expect(await screen.findByText(/Muster GmbH · unbegrenzt gültig/)).toBeInTheDocument();
+    expect(screen.queryByText(/10000/)).toBeNull();
+    expect(screen.queryByText(/9999/)).toBeNull();
   });
 
   it('kopiert den Fingerabdruck', async () => {

@@ -1002,8 +1002,10 @@ kl_baum() {
   cat > "$KL/config/modelle/kurzliste.json" <<'BEISPIEL'
 {
   "modelle": [
-    { "id": "hf.co/wer/Was-GGUF:IQ4_XS", "aufgabe": "text", "standard": true },
-    { "id": "klein:e4b", "aufgabe": "text", "standard": false }
+    { "id": "hf.co/wer/Was-GGUF:IQ4_XS", "aufgabe": "text", "standard": true,
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+    { "id": "klein:e4b", "aufgabe": "text", "standard": false,
+      "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
   ]
 }
 BEISPIEL
@@ -1088,6 +1090,48 @@ pruefe "Kurzliste: ein Rueckfall mit fremdem Modell ist rot" 1 \
 kl_baum
 rm -f "$KL/.env.example"
 pruefe "Kurzliste: eine fehlende .env-Vorlage ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+# Seit J35 (25.09.2026) traegt jeder Eintrag den Digest seines Manifests --
+# ohne ihn zeigt eine Kennung wieder auf das, was die Quelle heute liefert.
+kl_baum
+sed -i.bak 's/"sha256:2222[0-9]*"/"sha256:kurz"/' "$KL/config/modelle/kurzliste.json" \
+  && rm -f "$KL/config/modelle/kurzliste.json.bak"
+pruefe "Kurzliste: ein Eintrag ohne gueltigen Digest ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+# Und der Standard darf wechseln, ohne 175 anzufassen (eine Migration ist
+# unveraenderlich): eine spaetere Migration mit der Marke setzt ihn. Fehlt die
+# Marke, kennt der Waechter die Migration nicht; nennt die juengste markierte
+# den Standard nicht, gilt am Geraet ein anderer als in der Liste.
+kl_neuer_standard() {
+  kl_baum
+  for datei in config/modelle/kurzliste.json apps/dashboard-backend/src/utils/hardware.js \
+    config/platforms/eins.json scripts/setup/detect-platform.sh; do
+    sed -i.bak 's#hf.co/wer/Was-GGUF:IQ4_XS#neu:27b-q4#g' "$KL/$datei" && rm -f "$KL/$datei.bak"
+  done
+}
+kl_neuer_standard
+printf '%s\n' '-- Waechter: scripts/test/kurzliste.py liest diese Migration.' \
+  "INSERT INTO llm_model_catalog (id) VALUES ('neu:27b-q4');" \
+  > "$KL/services/postgres/init/186_neuer_standard.sql"
+pruefe "Kurzliste: ein neuer Standard in einer markierten spaeteren Migration ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_neuer_standard
+echo "INSERT INTO llm_model_catalog (id) VALUES ('neu:27b-q4');" \
+  > "$KL/services/postgres/init/186_neuer_standard.sql"
+pruefe "Kurzliste: ein neuer Standard in einer Migration ohne Marke ist rot" 1 \
+  python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
+
+kl_neuer_standard
+printf '%s\n' '-- Waechter: scripts/test/kurzliste.py liest diese Migration.' \
+  "INSERT INTO llm_model_catalog (id) VALUES ('neu:27b-q4');" \
+  > "$KL/services/postgres/init/186_neuer_standard.sql"
+printf '%s\n' '-- Waechter: scripts/test/kurzliste.py liest diese Migration.' \
+  "UPDATE llm_model_catalog SET name = 'x' WHERE id = 'klein:e4b';" \
+  > "$KL/services/postgres/init/187_danach.sql"
+pruefe "Kurzliste: eine juengste markierte Migration ohne den Standard ist rot" 1 \
   python3 "$WURZEL/scripts/test/kurzliste.py" --wurzel "$KL"
 rm -rf "$KL"
 

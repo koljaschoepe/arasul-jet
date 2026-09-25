@@ -164,13 +164,13 @@ ADMIN_PASSWORD='YourSecurePass1' \
 
 #### Optional environment overrides
 
-| Variable         | Default              | Purpose                                    |
-| ---------------- | -------------------- | ------------------------------------------ |
-| `ADMIN_PASSWORD` | **(required)**       | Admin password (≥ 8 chars, A-Z, a-z, 0-9). |
-| `ADMIN_USERNAME` | `admin`              | Admin login name.                          |
-| `ADMIN_EMAIL`    | `admin@arasul.local` | Admin email.                               |
-| `LLM_MODEL`      | _(auto-detected)_    | Override the device-recommended model.     |
-| `ARASUL_NETZNAME` | `arasul`            | Netzname (DHCP-Hostname und mDNS).         |
+| Variable          | Default              | Purpose                                    |
+| ----------------- | -------------------- | ------------------------------------------ |
+| `ADMIN_PASSWORD`  | **(required)**       | Admin password (≥ 8 chars, A-Z, a-z, 0-9). |
+| `ADMIN_USERNAME`  | `admin`              | Admin login name.                          |
+| `ADMIN_EMAIL`     | `admin@arasul.local` | Admin email.                               |
+| `LLM_MODEL`       | _(auto-detected)_    | Override the device-recommended model.     |
+| `ARASUL_NETZNAME` | `arasul`             | Netzname (DHCP-Hostname und mDNS).         |
 
 #### Bootstrap flags
 
@@ -267,7 +267,7 @@ Apply changes: `./arasul restart`. Full reference: [`ENVIRONMENT_VARIABLES.md`](
 - [ ] JetPack 6.x installed.
 - [ ] NVIDIA Container Runtime configured.
 - [ ] Docker Compose V2 installed.
-- [ ] Hostname set: `hostnamectl set-hostname arasul-<customer>`.
+- [ ] Netzname: `./install.sh --name <name>` (DHCP-Name und mDNS; der Systemname bleibt).
 
 ### Configuration
 

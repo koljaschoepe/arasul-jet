@@ -112,6 +112,29 @@ describe('stelleWiederHer', () => {
     expect(ergebnis.ausgabe).toMatch(/nicht lesen/);
   });
 
+  it('gibt die Ausgabe als Text zurueck, ohne den Vorspann des Docker-Stroms (J35)', async () => {
+    // So kommt es am Geraet an: ohne Terminal stellt Docker jedem Block acht
+    // Byte voran, und das letzte davon (die Laenge) ist fast immer druckbar.
+    const block = text => {
+      const kopf = Buffer.alloc(8);
+      kopf[0] = 1;
+      kopf.writeUInt32BE(Buffer.byteLength(text), 4);
+      return Buffer.concat([kopf, Buffer.from(text)]);
+    };
+    // Laengen von 32 Byte an: darunter waere das Laengenbyte ein
+    // Steuerzeichen, und der Fehler zeigte sich nicht.
+    const zeilen = [
+      '[2026-09-25 12:00:00] Sicherung 20260925_110000 gelesen\n',
+      '[2026-09-25 12:00:04] Datenbank arasul_db zurueckgespielt\n',
+      '[2026-09-25 12:00:09] Fertig in 9s.\n',
+    ];
+    containerLauf(1, Buffer.concat(zeilen.map(block)));
+
+    const ergebnis = await sicherungsdienst.stelleWiederHer({});
+
+    expect(ergebnis.ausgabe).toBe(zeilen.join('').trim());
+  });
+
   it('nimmt einen Pfad als Namen der Sicherung nicht an', async () => {
     containerLauf(0);
     await expect(sicherungsdienst.stelleWiederHer({ datei: '../../etc/passwd' })).rejects.toThrow(

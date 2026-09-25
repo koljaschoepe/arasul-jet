@@ -363,12 +363,13 @@ router.post(
 );
 
 // POST /api/auth/change-password
-// DEPRECATED: functional duplicate of POST /api/settings/password/dashboard
-// (see routes/settings). The Settings > Sicherheit UI uses that route; this one
-// is only still consumed by the first-run SetupWizard (features/system/SetupWizard.tsx),
-// which forces the initial admin-password change before /settings is reachable.
-// Do not add new consumers — migrate to /settings/password/dashboard and remove
-// this route once SetupWizard is switched over.
+// Gleichwertig zu POST /api/settings/password/dashboard (Einstellungen →
+// Sicherheit). Diesen Weg nimmt der erzwungene Startpasswort-Wechsel
+// (features/system/PasswortWechseln.tsx, Phase D1) -- den SetupWizard, der ihn
+// frueher als einziger rief, gibt es seit D4 nicht mehr. Rumpf, Regeln und
+// Fehler: docs/api/API_REFERENCE.md. Den Zwischenspeicher von `requireAuth`
+// verwirft `schreibePasswort` (J35, 25.09.2026), damit die naechste Anfrage
+// `passwortWechselNoetig: false` sagt.
 router.post(
   '/change-password',
   requireAuth,

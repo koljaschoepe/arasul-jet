@@ -47,22 +47,22 @@ carry `confirmed:false` in the catalog and are **not** hardwired in code.
 
 Seit Phase C8 (27.08.2026) gibt es **eine** Modell-Liste für alle Geräte, die
 Kurzliste aus `config/modelle/kurzliste.json`. Ein Profil entscheidet nur noch,
-ob das Standardmodell mit seinen 22 GB hineinpasst — wo nicht, führt das kleine
+ob das Standardmodell mit seinen 24 GB hineinpasst — wo nicht, führt das kleine
 schnelle. Die Spalte „Default LLM" hat deshalb genau zwei Werte:
 
-| Device          | RAM   | GPU       | Status          | Default LLM                             |
-| --------------- | ----- | --------- | --------------- | --------------------------------------- |
-| Thor 128GB      | 128GB | Blackwell | Planned         | `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` |
-| Thor 64GB       | 64GB  | Blackwell | Planned         | `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` |
-| AGX Orin 64GB   | 64GB  | Ampere    | Fully Supported | `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` |
-| AGX Orin 32GB   | 32GB  | Ampere    | Fully Supported | `gemma4:e4b`                            |
-| Orin NX 16GB    | 16GB  | Ampere    | Fully Supported | `gemma4:e4b`                            |
-| Orin NX 8GB     | 8GB   | Ampere    | Supported       | `gemma4:e4b`                            |
-| Orin Nano 8GB   | 8GB   | Ampere    | Supported       | `gemma4:e4b`                            |
-| Orin Nano 4GB   | 4GB   | Ampere    | Limited         | `gemma4:e4b`                            |
-| Xavier AGX      | 32GB  | Volta     | Supported       | `gemma4:e4b`                            |
-| Xavier NX 8GB   | 8GB   | Volta     | Supported       | `gemma4:e4b`                            |
-| Jetson Nano 4GB | 4GB   | Maxwell   | Limited         | `gemma4:e4b`                            |
+| Device          | RAM   | GPU       | Status          | Default LLM          |
+| --------------- | ----- | --------- | --------------- | -------------------- |
+| Thor 128GB      | 128GB | Blackwell | Planned         | `qwen3.8:27b-q4_K_M` |
+| Thor 64GB       | 64GB  | Blackwell | Planned         | `qwen3.8:27b-q4_K_M` |
+| AGX Orin 64GB   | 64GB  | Ampere    | Fully Supported | `qwen3.8:27b-q4_K_M` |
+| AGX Orin 32GB   | 32GB  | Ampere    | Fully Supported | `gemma4:e4b`         |
+| Orin NX 16GB    | 16GB  | Ampere    | Fully Supported | `gemma4:e4b`         |
+| Orin NX 8GB     | 8GB   | Ampere    | Supported       | `gemma4:e4b`         |
+| Orin Nano 8GB   | 8GB   | Ampere    | Supported       | `gemma4:e4b`         |
+| Orin Nano 4GB   | 4GB   | Ampere    | Limited         | `gemma4:e4b`         |
+| Xavier AGX      | 32GB  | Volta     | Supported       | `gemma4:e4b`         |
+| Xavier NX 8GB   | 8GB   | Volta     | Supported       | `gemma4:e4b`         |
+| Jetson Nano 4GB | 4GB   | Maxwell   | Limited         | `gemma4:e4b`         |
 
 **Ehrlich zu den beiden letzten Zeilen:** `gemma4:e4b` braucht rund 10 GB. Auf
 einem 4-GB-Gerät läuft es nicht. Vorher stand dort `tinyllama:1.1b` — ein
@@ -126,7 +126,7 @@ CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 
 # LLM Configuration
-LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
+LLM_MODEL=qwen3.8:27b-q4_K_M
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=900
@@ -137,7 +137,7 @@ TORCH_CUDA_ARCH_LIST=10.0
 L4T_PYTORCH_TAG=r36.4.0  # Fallback; update to r37.0.0 when dustynv publishes JetPack 7.x image
 
 # Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
-# - hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS (16GB) - Standard, die Flows laufen darauf
+# - qwen3.8:27b-q4_K_M (17.7GB) - Standard, die Flows laufen darauf
 # - gemma4:e4b (10GB) - das kleine schnelle
 # - nomic-embed-text (0.3GB) - Einbettungen
 # - llava-phi3 (2.9GB) - Bilder und eingescannter Text
@@ -168,7 +168,7 @@ CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 
 # LLM Configuration
-LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
+LLM_MODEL=qwen3.8:27b-q4_K_M
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=600
@@ -179,7 +179,7 @@ TORCH_CUDA_ARCH_LIST=10.0
 L4T_PYTORCH_TAG=r36.4.0  # Fallback; update to r37.0.0 when dustynv publishes JetPack 7.x image
 
 # Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
-# - hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS (16GB) - Standard, die Flows laufen darauf
+# - qwen3.8:27b-q4_K_M (17.7GB) - Standard, die Flows laufen darauf
 # - gemma4:e4b (10GB) - das kleine schnelle
 # - nomic-embed-text (0.3GB) - Einbettungen
 # - llava-phi3 (2.9GB) - Bilder und eingescannter Text
@@ -193,12 +193,12 @@ RAM_LIMIT_LLM=38G
 RAM_LIMIT_EMBEDDING=6G
 
 # LLM Configuration
-LLM_MODEL=hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS
+LLM_MODEL=qwen3.8:27b-q4_K_M
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 
 # Recommended Models: die Kurzliste (config/modelle/kurzliste.json)
-# - hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS (16GB) - Standard, die Flows laufen darauf
+# - qwen3.8:27b-q4_K_M (17.7GB) - Standard, die Flows laufen darauf
 # - gemma4:e4b (10GB) - das kleine schnelle
 # - nomic-embed-text (0.3GB) - Einbettungen
 # - llava-phi3 (2.9GB) - Bilder und eingescannter Text

@@ -32,6 +32,7 @@ const logger = require('../../utils/logger');
 // vorbeikommt. Steht die Spiegelung woanders, gibt es einen vierten Weg zum
 // Passwort, der sie vergisst.
 const firmenordner = require('../firmenordner/ordnerVerwaltung');
+const { invalidateUserCache } = require('../../middleware/auth');
 
 /**
  * Change dashboard admin password
@@ -197,6 +198,16 @@ async function schreibePasswort(userId, newPassword, { changedBy, ipAddress, vom
   // stand es immer richtig; hier nicht, und wer bei einem Vorfall die Logs
   // liest, liest zuerst hier.
   logger.info(`Passwort geaendert fuer Benutzer id=${userId} (durch ${changedBy || 'ihn selbst'})`);
+
+  // Der Zwischenspeicher von `requireAuth` haelt die Zeile samt
+  // `passwort_vom_admin` 60 s lang, und er haengt an der Kennung, nicht am
+  // Token. Der Fund vom Orin (J35, 25.09.2026): nach dem Startpasswort-Wechsel
+  // meldet sich der Mensch mit dem NEUEN Passwort neu an und bekommt ein
+  // frisches Token -- aber `GET /api/auth/me` las die alte Zeile aus dem
+  // Speicher und sagte noch eine Minute lang „Passwortwechsel noetig". Hier
+  // wird das Kennzeichen geschrieben, also wird hier verworfen: beide Wege
+  // (Selbstwechsel und Setzen durch den Administrator) kommen hier vorbei.
+  invalidateUserCache(userId);
 
   // ZWEITE PASSWORTABLAGE, und hier ist die Stelle. `istAn()` steht davor,
   // weil der Name des Menschen in dieser Funktion nicht vorliegt und dafuer

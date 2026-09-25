@@ -24,9 +24,15 @@
  *                       "apps":{"belegt":1,"grenze":3}}      (-1 = unbegrenzt)
  *   einspielen         Lizenz auf STDIN; {"ok":true,"stufe":"professional"}
  *                      oder {"ok":false,"fehler":"..."} mit Rueckgabe 1
+ *   entfernen          {"ok":true,"entfernt":true,"stufe":"community"}
+ *                      (seit 25.09.2026, Installationsdurchlauf am Orin):
+ *                      dasselbe wie `DELETE /api/license` -- Datei und Cache
+ *                      weg, danach community. `entfernt: false` heisst, es
+ *                      lag keine Datei da; das ist kein Fehler.
  *
  * Ein Fehler bei `fingerabdruck` oder `status` ist {"fehler":"..."} mit
- * Rueckgabe 1, ein unbekannter Befehl dasselbe mit Rueckgabe 2.
+ * Rueckgabe 1, ein unbekannter Befehl dasselbe mit Rueckgabe 2; bei
+ * `einspielen` und `entfernen` steht der Fehler als {"ok":false,"fehler":"..."}.
  */
 
 // STDOUT GEHOERT DEM JSON. Der Logger schreibt sonst auf dieselbe Leitung
@@ -97,9 +103,25 @@ async function main(befehl) {
     return antworte({ ok: true, stufe: ergebnis.license.tier });
   }
 
+  if (befehl === 'entfernen') {
+    // Bis hierher gab es das Zuruecknehmen nur an der Schnittstelle, und wer
+    // per SSH eine Testlizenz eingespielt hatte, brauchte fuer den Rueckweg
+    // doch wieder das Passwort des Kunden. Derselbe Dienst wie
+    // `DELETE /api/license`, also dieselbe Wirkung: der Cache des laufenden
+    // Backends haengt an der Datei und sieht sofort community.
+    const { entfernt, license } = await licenseService.deactivateLicense();
+    const { logSecurityEvent } = require('../utils/auditLog');
+    await logSecurityEvent({
+      userId: null,
+      action: 'license_remove',
+      details: { quelle: 'lizenz-geraet.sh', entfernt, tier: license.tier },
+    });
+    return antworte({ ok: true, entfernt, stufe: license.tier });
+  }
+
   return antworte(
     {
-      fehler: `Unbekannter Befehl ${JSON.stringify(befehl ?? '')}: fingerabdruck, status, einspielen`,
+      fehler: `Unbekannter Befehl ${JSON.stringify(befehl ?? '')}: fingerabdruck, status, einspielen, entfernen`,
     },
     2
   );
@@ -107,7 +129,7 @@ async function main(befehl) {
 
 main(process.argv[2]).catch(fehler => {
   const befehl = process.argv[2];
-  if (befehl === 'einspielen') {
+  if (befehl === 'einspielen' || befehl === 'entfernen') {
     antworte({ ok: false, fehler: fehler.message }, 1);
   }
   antworte({ fehler: fehler.message }, 1);

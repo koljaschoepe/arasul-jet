@@ -60,6 +60,15 @@ jobs:
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           bash scripts/deploy/tag-pruefen.sh "${GITHUB_REF_NAME}" origin/main
 
+      # Die Installation holt das Standardmodell selbst und prueft danach den
+      # Digest aus `config/modelle/kurzliste.json` (J35, 25.09.2026). Liefert
+      # die Registry unter einer Kennung inzwischen etwas anderes, faellt das
+      # HIER auf und nicht erst am Geraet eines Kunden, eine Stunde nach der
+      # Installation. Geprueft wird ohne Gigabytes zu laden: Manifest-Digest,
+      # jeder Blob abrufbar in der Laenge des Manifests, die kleinen ganz.
+      - name: Modelle der Kurzliste in der Registry pruefen
+        run: python3 scripts/test/modell-digest.py
+
       - name: Fassung bestimmen
         id: fassung
         env:

@@ -26,13 +26,22 @@ describe('istChatModell (Plan 022)', () => {
 
 describe('modellAnzeigeName (Plan 022)', () => {
   it('bevorzugt den sauberen Katalog-Namen', () => {
-    expect(
-      modellAnzeigeName({ id: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS', name: 'Qwen 3.8 27B' })
-    ).toBe('Qwen 3.8 27B');
+    expect(modellAnzeigeName({ id: 'qwen3.8:27b-q4_K_M', name: 'Qwen 3.8 27B' })).toBe(
+      'Qwen 3.8 27B'
+    );
   });
 
   it('humanisiert eine rohe hf.co-Id, wenn kein Name da ist', () => {
     expect(modellAnzeigeName({ id: 'hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS' })).toBe('Qwen 3.8 27B');
+  });
+
+  it('leitet aus dem Standard der Kurzliste denselben Namen ab wie der Katalog', () => {
+    // Seit J35 (25.09.2026) ist der Standard `qwen3.8:27b-q4_K_M` aus der
+    // Ollama-Bibliothek. Der Tag traegt die Quantisierung (`q4_K_M`); die darf
+    // weder als Groesse gelesen werden noch im Namen landen. Migration 186
+    // schreibt denselben Namen in den Katalog, also sagen beide Wege dasselbe.
+    expect(modellAnzeigeName({ id: 'qwen3.8:27b-q4_K_M' })).toBe('Qwen 3.8 27B');
+    expect(modellAnzeigeName('qwen3.8:27b-q4_K_M')).toBe('Qwen 3.8 27B');
   });
 
   it('humanisiert, wenn der Name selbst eine rohe Id ist', () => {
@@ -76,7 +85,7 @@ describe('modellAnzeigeName (Plan 022)', () => {
   it('nimmt auch eine blosse Kennung als Zeichenkette', () => {
     // Die Statusleiste bekommt von Ollama nur die Kennung. Ohne diese Form
     // baute sich jeder Aufrufer sein eigenes Objekt zusammen.
-    expect(modellAnzeigeName('hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS')).toBe('Qwen 3.8 27B');
+    expect(modellAnzeigeName('qwen3.8:27b-q4_K_M')).toBe('Qwen 3.8 27B');
     expect(modellAnzeigeName('Gemma 4 Kompakt')).toBe('Gemma 4 Kompakt');
   });
 
