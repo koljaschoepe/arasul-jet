@@ -1165,7 +1165,7 @@ der Fingerabdruck zum Kopieren und ein Feld zum Einspielen
 (`features/settings/LizenzSettings.tsx`). Eine Lizenz darf `maxUsers` wie
 `maxApps` selbst nennen (`lizenz-signieren.js --max-konten`). Für den Weg
 **ohne Passwort des Kunden** gibt es `scripts/util/lizenz-geraet.sh
-fingerabdruck | status | einspielen` — ein Vertrag mit dem Ara-Kit, genau eine
+fingerabdruck | status | einspielen | entfernen` — ein Vertrag mit dem Ara-Kit, genau eine
 Zeile JSON je Aufruf, derselbe Dienst im Backend-Container
 (`src/cli/lizenz.js`, Logger still, sonst stünde vor dem JSON eine Logzeile).
 Weil dort ein **zweiter Prozess** die Datei schreibt, hängt der Cache des
@@ -1206,6 +1206,32 @@ Flow-Datei. Der Kontrakt bleibt bei **6** (additiv, und eine 7 hielte das Kit
 an); er nennt beides unter `freigaben`. Abnahme:
 `scripts/test/daten-vier-augen-abnahme.sh` mit der Proben-App
 `tests/probe-daten/`.
+
+Seit dem Auftrag **installation-bringt-das-modell** (25.09.2026, J35) **hat
+ein Gerät nach der Installation ein antwortendes Modell, ohne Handarbeit**.
+Bis dahin gab der Bootstrap nur einen Hinweis aus, und der Healthcheck von
+`llm-service` hielt ein Gerät ohne Modell für krank: die Selbstheilung startete
+den Dienst alle fünf Minuten neu, mitten im Download, und jeder weitere Pull
+endete mit EOF. Seither ist **eine leere Modellliste gesund**, und der
+Bootstrap holt `LLM_MODEL` **im Hintergrund** (`scripts/util/modell-holen.sh`,
+`logs/modell-holen.log`, von Hand `./arasul modell`) — unter dem
+Wartungsfenster, mit Wiederholung und danach mit **Digest-Prüfung**. Das
+Standardmodell kommt dafür aus der **Ollama-Bibliothek**
+(`qwen3.8:27b-q4_K_M`, Migration 186) statt von Hugging Face, das sein
+Manifest beim Abruf erzeugt und am 25.09.2026 für den config-Blob 404 lieferte;
+`config/modelle/kurzliste.json` trägt je Modell den `digest`, und
+`scripts/test/modell-digest.py` fragt die Registry vor jedem Release. Die
+**Härtung** läuft mit `sudo -n` oder sagt, warum nicht
+(`scripts/security/haerten.sh`), und ein **geänderter SSH-Port** steht als
+Warnung, als `ARASUL_SSH_PORT=` und in der Erstausgabe — das Kit klopft sonst
+auf 22. `setup-mdns.sh` **benennt das System nicht mehr um**: der DHCP-Name
+geht über NetworkManager, `.local` über Avahi. Dazu vier kleine: das
+Lizenzende 9999-12-31 stand als „1.1.10000" da (Ortszeit), `/api/auth/me`
+meldete nach dem Passwortwechsel noch eine Minute „Wechsel nötig" (Cache in
+`requireAuth`), Sicherung und Rückspielen zeigten vor jeder Zeile das
+Längenbyte des Docker-Stroms (`utils/dockerAusgabe.js`), und
+`lizenz-geraet.sh` kennt `entfernen`. Wächter:
+`scripts/test/installation-haertet-und-holt.sh`.
 
 Seit dem Auftrag **firmenordner-rechte-im-frontend** (22.09.2026, J33) **verwaltet
 der Administrator den Firmenordner in der Oberflaeche**, und der Firmenordner hat

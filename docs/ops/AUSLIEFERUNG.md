@@ -394,8 +394,9 @@ Bootstrap voraussetzt und was ein unbeaufsichtigter Lauf nicht erfragen kann:
 4. `.env` schreiben (`scripts/interactive_setup.sh --non-interactive`). Ohne
    `--passwort` erzeugt es ein Startpasswort. Eine vorhandene bleibt, wie sie
    ist — bis auf `SYSTEM_VERSION`, `BUILD_HASH` und `MDNS_NAME`.
-5. Netzname setzen (`scripts/setup/setup-mdns.sh`): System-Hostname für DHCP
-   plus Avahi für `.local`. Siehe
+5. Netzname setzen (`scripts/setup/setup-mdns.sh`): DHCP-Name über
+   NetworkManager plus Avahi für `.local`; **der Systemname bleibt** (J35).
+   Scheitert es, steht der Grund da. Siehe
    [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md).
 6. `arasul-platform.service` installieren, damit das Gerät nach einem Neustart
    von selbst hochkommt (in der richtigen Reihenfolge, nicht dreizehn Container
@@ -404,7 +405,8 @@ Bootstrap voraussetzt und was ein unbeaufsichtigter Lauf nicht erfragen kann:
    soll. Bei einer Aktualisierung ist derselbe Schritt der, der die Unit vom
    alten auf das neue Verzeichnis umhängt.
 7. `./arasul bootstrap` — Hardware, Zertifikate, Images bauen, Datenbank,
-   Dienste, Admin, **Kit-Schlüssel**, Rauchtest, **Erstausgabe**. Der Bootstrap
+   Dienste, Admin, Kit-Schlüssel, **Standardmodell** (im Hintergrund, siehe
+   unten), Rauchtest, Härtung, **Erstausgabe**. Der Bootstrap
    sagt das letzte Wort; `install.sh` gibt an ihn ab (`exec`). Bei einer
    Aktualisierung `--aktualisierung`: dann bleiben Administrator und
    Kit-Schlüssel, wie sie sind, und der alte Stapel wird erst abgeschaltet,
@@ -419,6 +421,49 @@ Optionen:
 ./install.sh --uebernehmen /pfad/alt  # die vorhandene Installation von Hand nennen
 ./install.sh --nur-vorbereiten        # bis vor den Bootstrap, für die Prüfung
 ```
+
+### Das Standardmodell kommt mit (J35, 25.09.2026)
+
+Bis zum 25.09.2026 holte die Installation **kein** Modell. Der Bootstrap gab
+einen Hinweis aus, und wer ihn befolgte, lief in den zweiten Fehler: der
+Healthcheck von `llm-service` verlangte ein geladenes Modell, die
+Selbstheilung startete den Dienst alle fünf Minuten neu — mitten im Download
+—, die Teildatei blieb leer, und jeder weitere Pull endete mit EOF. Ein Kunde,
+der das Gerät einschaltete, hatte kein antwortendes Modell.
+
+Seither:
+
+- **Ein Gerät ohne Modell ist gesund.** `services/llm-service/healthcheck.sh`
+  meldet eine leere Modellliste als Warnung, nicht als Ausfall.
+- **Der Bootstrap holt `LLM_MODEL` selbst**, im Hintergrund
+  (`scripts/util/modell-holen.sh`, Log unter `logs/modell-holen.log`, am Orin
+  rund eine Stunde für 17,7 GB). Die Erstausgabe nennt die Logdatei. Während
+  des Downloads steht das Wartungsfenster (`logs/wartung.aktiv`, Grund
+  `modell-holen <kennung>`), ein abgebrochener Download wird wiederholt, und
+  danach wird der **Digest** geprüft. Von Hand: `./arasul modell`.
+  `MODELL_HOLEN=false` lässt den Schritt aus.
+- **Der Pull ist wiederholbar.** Das Standardmodell kommt aus der offiziellen
+  Ollama-Bibliothek (`qwen3.8:27b-q4_K_M`), und `config/modelle/kurzliste.json`
+  trägt je Modell den sha256 des Manifests. Hugging Face (`hf.co/…`) erzeugt
+  sein Manifest beim Abruf — am 25.09.2026 lieferte der config-Blob 404, und
+  die Kennung zeigte auf eine andere Datei. Eine alte `hf.co`-Kennung in der
+  `.env` eines Bestandsgeräts zieht der Bootstrap auf den Standard nach.
+- **Vor jedem Release** fragt `scripts/test/modell-digest.py` die Registry
+  (Schritt in `release.yml`): Manifest-Digest, jeder Blob abrufbar in der
+  Länge des Manifests, die kleinen ganz nachgerechnet.
+
+### Die Härtung meldet, was sie tut (J35)
+
+`scripts/security/haerten.sh` (vom Bootstrap gerufen) härtet SSH und setzt die
+Firewall, **mit `sudo -n`** — eine Passwortfrage gibt es nicht. Geht das nicht,
+steht eine Warnung mit Grund und dem Befehl zum Nachholen da; bis J35 lief sie
+ohne sudo, und `2>/dev/null` verschluckte den Grund. **Ändert sich der
+SSH-Port** (Vorgabe `SSH_PORT=2222`), steht eine Warnung „SSH-Port geändert"
+in der Ausgabe (das Ara-Kit sammelt solche Zeilen ein), die Zeile
+`ARASUL_SSH_PORT=<port>`, der Port in `config/ssh-port` und in der
+Erstausgabe. Die Firewall lässt mDNS (5353/udp) und die Tailscale-Schnittstelle
+offen. Abschalten: `ENABLE_SSH_HARDENING=false`, `ENABLE_FIREWALL=false` in
+der `.env` oder der Umgebung.
 
 ## Was der Werksreset tut, und was er ausdrücklich nicht tut
 
