@@ -38,6 +38,8 @@ const {
 } = require('../../utils/errors');
 const dockerService = require('../core/docker');
 const appStore = require('../app/appStore');
+const appDatenbank = require('../app/appDatenbank');
+const appContainer = require('../app/appContainer');
 
 /** Wo die Sicherungen fuer DIESEN Prozess liegen (nur lesend eingehaengt). */
 const SICHERUNGS_ORDNER = process.env.BACKUP_REPORT_PATH
@@ -223,6 +225,12 @@ async function sicherungen() {
         art,
         zweck,
         name,
+        // Bei den Datenbanken der Apps: WELCHE (J35). Aus dem Dateinamen, denn
+        // nach dem Entfernen einer App gibt es keine Zeile mehr, die es sagte
+        // -- und genau dann fragt jemand danach.
+        ...(art === 'app-datenbanken'
+          ? { datenbank: name.replace(/_\d{8}_\d{6}\.sql\.gz$/, '') }
+          : {}),
         bytes: stat.size,
         zeitpunkt: stat.mtime.toISOString(),
       });
@@ -384,6 +392,104 @@ async function stelleWiederHer({ datei = null, durch = null } = {}) {
 }
 
 /**
+ * Die Daten EINER App zurueckholen, und nur sie (J35, 25.09.2026).
+ *
+ * Der ganze Weg zurueck (`stelleWiederHer`) ersetzt die ganze Datenbank des
+ * Geraets -- wer die Daten einer entfernten App zurueckhaben will, naehme
+ * damit jedem anderen Menschen und jeder anderen App, was seit der Sicherung
+ * geschah. Dieser Weg fasst je Stand genau die eine Datenbank der App an
+ * (`wiederherstellen.sh --app-datenbank`), vorher abgezogen.
+ *
+ * ES GEHT AUCH, WENN ES DIE APP GERADE NICHT GIBT. Die Namen kommen aus
+ * `appDatenbank.namenFuer` und nicht aus einer Tabelle: nach dem Entfernen
+ * gibt es keine Zeile mehr, und genau dann wird dieser Weg gebraucht. Die Rolle
+ * steht danach mit einem Zufallswert da; das naechste Einspielen der App
+ * findet Rolle und Datenbank vor und setzt sein Passwort (`sorgeFuer`) -- die
+ * Daten bleiben, wie sie sind. Ist die App eingespielt, setzt dieser Aufruf
+ * das Passwort selbst und startet ihren Container neu: seine offenen
+ * Verbindungen hat das Neuanlegen der Datenbank getrennt.
+ *
+ * @param {{appId: string, stand?: 'test'|'live'|null, durch?: number|null}} was
+ */
+async function stelleAppWiederHer({ appId, stand = null }) {
+  if (laeuftGerade) {
+    throw new ConflictError(`Es laeuft gerade: ${laeuftGerade}`);
+  }
+  const staende = stand ? [stand] : ['test', 'live'];
+  const vorhanden = [];
+  for (const s of staende) {
+    const name = appDatenbank.namenFuer(appId, s);
+    const zeiger = path.join(SICHERUNGS_ORDNER, 'postgres', 'apps', `${name}_latest.sql.gz`);
+    // `stat` folgt dem Zeiger: ein Zeiger auf eine geloeschte Datei ist keine Sicherung.
+    const da = await fs.stat(zeiger).then(
+      st => st.isFile(),
+      () => false
+    );
+    if (da) {
+      vorhanden.push({ stand: s, datenbank: name });
+    }
+  }
+  if (vorhanden.length === 0) {
+    throw new NotFoundError(
+      `Fuer die App ${appId}${stand ? ` (${stand})` : ''} liegt keine Sicherung ihrer Daten vor. ` +
+        'Gesichert wird jede Nacht und mit POST /api/backup/sicherung.'
+    );
+  }
+
+  laeuftGerade = 'wiederherstellung einer app';
+  try {
+    const ergebnisse = [];
+    for (const { stand: s, datenbank } of vorhanden) {
+      const { code, ausgabe } = await imContainer(
+        ['/usr/local/bin/wiederherstellen.sh', '--app-datenbank', datenbank],
+        30 * 60_000
+      );
+      const eintrag = { stand: s, datenbank, erfolg: code === 0, ausgabe, neu_gestartet: false };
+      if (code === 0) {
+        eintrag.neu_gestartet = await verbindeWieder(appId, s);
+      } else {
+        logger.error(`Daten von ${appId}/${s} kamen nicht zurueck`, { code, ausgabe });
+      }
+      ergebnisse.push(eintrag);
+    }
+    const gescheitert = ergebnisse.filter(e => !e.erfolg);
+    logger.info(
+      `Daten von ${appId} zurueck: ${ergebnisse.length - gescheitert.length} von ${ergebnisse.length} Stand/Staenden`
+    );
+    return { erfolg: gescheitert.length === 0, app: appId, staende: ergebnisse };
+  } finally {
+    laeuftGerade = null;
+  }
+}
+
+/**
+ * Nach dem Zurueckholen einer App-Datenbank: das richtige Passwort setzen und
+ * den Container neu starten -- aber nur, wenn die App in diesem Stand
+ * eingespielt ist. Sonst tut es das naechste Einspielen.
+ *
+ * Wirft nicht: die Daten SIND zurueck, und ein Container, der sich nicht neu
+ * starten laesst, ist eine Auskunft in der Antwort und kein Fehlschlag des
+ * Weges.
+ */
+async function verbindeWieder(appId, stand) {
+  try {
+    const { rows } = await db.query(
+      'SELECT 1 FROM public.app_datenbanken WHERE app_id = $1 AND stand = $2',
+      [appId, stand]
+    );
+    if (rows.length === 0) {
+      return false;
+    }
+    await appDatenbank.sorgeFuer({ appId, stand });
+    await dockerService.docker.getContainer(appContainer.containerName(appId, stand)).restart();
+    return true;
+  } catch (fehler) {
+    logger.warn(`${appId}/${stand}: nach dem Zurueckholen nicht neu verbunden: ${fehler.message}`);
+    return false;
+  }
+}
+
+/**
  * Jeden App-Stand aus seinem zurueckgeholten Paket neu aufbauen.
  *
  * Nacheinander und nicht gleichzeitig: `spieleEin` baut Images, und zwei
@@ -445,6 +551,7 @@ module.exports = {
   sicherungen,
   sichereJetzt,
   stelleWiederHer,
+  stelleAppWiederHer,
   testeWiederherstellung,
   baueAppsNeu,
 };
