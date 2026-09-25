@@ -55,6 +55,8 @@ NUR_DATEI=false
 # dasselbe Geraet mit derselben CA, demselben Administrator und demselben
 # Kit-Schluessel, nur mit neuer Fassung.
 AKTUALISIERUNG=false
+# Die Logdatei, in die das Standardmodell gerade geholt wird (J35), sonst leer.
+MODELL_LOG=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -63,6 +65,7 @@ while [ $# -gt 0 ]; do
     --datei)      DATEI="${2:-}"; shift 2 ;;
     --nur-datei)  NUR_DATEI=true; shift ;;
     --aktualisierung) AKTUALISIERUNG=true; shift ;;
+    --modell-log) MODELL_LOG="${2:-}"; shift 2 ;;
     --hilfe|-h)   sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unbekannte Option: $1" >&2; exit 2 ;;
   esac
@@ -86,6 +89,16 @@ env_wert() {
 BENUTZER="$(env_wert ADMIN_USERNAME admin)"
 NETZNAME="$(env_wert MDNS_NAME arasul)"
 FASSUNG="$(env_wert SYSTEM_VERSION)"
+
+# Der SSH-Port, wenn die Haertung ihn geaendert hat (J35, 25.09.2026).
+# `scripts/security/haerten.sh` schreibt ihn nach `config/ssh-port`. Steht dort
+# etwas anderes als 22, gehoert es hierher: das Ara-Kit liest diese Ausgabe mit,
+# und ein Kit, das weiter auf 22 klopft, steht vor einer Wand.
+SSH_PORT_NEU=""
+if [ -f config/ssh-port ]; then
+  SSH_PORT_NEU="$(tr -dc '0-9' < config/ssh-port)"
+  [ "$SSH_PORT_NEU" = "22" ] && SSH_PORT_NEU=""
+fi
 
 # Der MagicDNS-Name, falls das Geraet in einem Tailnet ist. Dort antwortet
 # Traefik selbst -- `tailscale serve` ist seit dem 28.08.2026 gestrichen, weil
@@ -127,6 +140,17 @@ if [ "$NUR_DATEI" = false ]; then
     echo "                Ins Kit eintragen. Ein neuer geht ueber"
     echo "                bash scripts/util/kit-schluessel.sh anlegen"
   fi
+  if [ -n "$SSH_PORT_NEU" ]; then
+    echo ""
+    echo -e "  ${GELB}Warnung: SSH-Port geaendert, SSH laeuft auf Port ${SSH_PORT_NEU}${AUS}"
+    echo "                Im Ara-Kit: --port ${SSH_PORT_NEU}; von Hand: ssh -p ${SSH_PORT_NEU} ..."
+  fi
+  if [ -n "$MODELL_LOG" ]; then
+    echo ""
+    echo "  Standardmodell $(env_wert LLM_MODEL)"
+    echo "                wird im Hintergrund geholt (am Orin rund eine Stunde)."
+    echo "                Fortschritt: tail -f ${MODELL_LOG}"
+  fi
   echo ""
   if [ "$AKTUALISIERUNG" = false ]; then
     echo "  Der Browser warnt beim ersten Aufruf vor dem Zertifikat. Das hoert"
@@ -167,6 +191,8 @@ chmod 600 "$DATEI" 2>/dev/null || true
   echo ""
   echo "Oberflaeche     https://${NETZNAME}/   (Rueckfall https://${NETZNAME}.local/)"
   [ -n "$TAILNETZ" ] && echo "Von unterwegs   https://${TAILNETZ}"
+  echo ""
+  [ -n "$SSH_PORT_NEU" ] && echo "SSH             Port ${SSH_PORT_NEU} (nach der Haertung; im Ara-Kit --port ${SSH_PORT_NEU})"
   echo ""
   echo "Administrator   ${BENUTZER}"
   if [ -n "$PASSWORT" ]; then
