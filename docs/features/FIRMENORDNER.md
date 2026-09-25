@@ -168,7 +168,10 @@ Ort", und sie wird hier nicht schöngeredet.
    Kundendurchlauf 2 am 25.09.2026). Das Backend benennt es beim ersten
    Kontakt über die Graph-API um (`ordnerdienst.umbenennenWennNoetig`, nach
    einem 401 und nur mit dem Passwort des Dienstes); die Rolle hängt an der
-   Kennung, es bleibt Administrator. Frisches und bestehendes Gerät gehen
+   Kennung, es bleibt Administrator. Danach **wartet sie 20 s**: der Dienst
+   ordnet den Namen `admin` rund zehn Sekunden lang noch dem alten Konto zu
+   (am Orin gemessen), und wer sich in der Zeit als der neue Mensch `admin`
+   anmeldet, wäre mit seinem Passwort Dienst-Administrator. Frisches und bestehendes Gerät gehen
    denselben Weg, ohne Handgriff, und am Gerät kann niemand `arasul-dienst`
    heißen. Sein Passwort
    liegt in `config/secrets/firmenordner_admin_password` (0600, Ordner 0700),

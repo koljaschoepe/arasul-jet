@@ -152,6 +152,25 @@ function adminKopf(name = DIENST_ADMIN) {
 let umbenennung = null;
 
 /**
+ * Wie lange nach der Frage an `admin` niemand den Namen neu bekommen darf.
+ *
+ * DER DIENST HAELT EINEN NAMEN IM ZWISCHENSPEICHER, UND ZWAR DEN ALTEN. Am
+ * 26.09.2026 am Orin gemessen, zweimal (einmal am Geraet, einmal an einem
+ * Wegwerf-Container): wer sich nach der Umbenennung als der NEUE Mensch
+ * `admin` anmeldet, mit SEINEM Passwort, bekommt rund zehn Sekunden lang das
+ * Konto des Dienstes zurueck -- samt dessen Rolle. Die Anmeldung prueft das
+ * Passwort richtig, die Zuordnung Name -> Konto kommt aber aus dem Speicher,
+ * den die Frage `GET /me` als `admin` gerade gefuellt hat (bei 7 s noch das
+ * alte Konto, bei 10 s das neue). Einmal im Leben eines Geraets, aber genau
+ * dann meldet sich der Administrator ueber `arasul.mjs` an und gleicht ab.
+ * Deshalb wartet die Umbenennung, bevor sie zurueckkehrt, und mit ihr jeder,
+ * der den Namen gleich darauf anlegen wuerde. 20 s ist das Doppelte des
+ * Gemessenen; eine Frage, an der man das Ende erkennen koennte, gibt es ohne
+ * das Passwort des Menschen nicht.
+ */
+let wartenNachUmbenennenMs = 20000;
+
+/**
  * Den Dienst-Administrator von `admin` auf `DIENST_ADMIN` umbenennen, falls er
  * noch so heisst. Gibt `true` zurueck, wenn umbenannt wurde.
  *
@@ -169,6 +188,7 @@ function umbenennenWennNoetig() {
     umbenennung = (async () => {
       const basis = basisIntern();
       const kopf = { Authorization: adminKopf(ANFANGS_ADMIN), Accept: 'application/json' };
+      const gefragt = Date.now();
       const ich = await fetch(`${basis}/graph/v1.0/me`, {
         headers: kopf,
         signal: AbortSignal.timeout(ZEITGRENZE_MS),
@@ -197,6 +217,12 @@ function umbenennenWennNoetig() {
         `Firmenordner: Dienst-Administrator von ${ANFANGS_ADMIN} in ${DIENST_ADMIN} umbenannt ` +
           `-- der Name ${ANFANGS_ADMIN} gehoert jetzt dem Menschen am Geraet`
       );
+      const rest = gefragt + wartenNachUmbenennenMs - Date.now();
+      if (rest > 0) {
+        await new Promise(fertig => {
+          setTimeout(fertig, rest);
+        });
+      }
       return true;
     })().finally(() => {
       umbenennung = null;
@@ -908,5 +934,9 @@ module.exports = {
   // Testfaelle hinweg, und ein Test faende die Antwort des vorigen.
   _rollenVergessen: () => {
     rollenZwischenspeicher = null;
+  },
+  // Nur fuer die Tests: zwanzig Sekunden je Testfall misst niemand.
+  _wartenNachUmbenennen: ms => {
+    wartenNachUmbenennenMs = ms;
   },
 };
