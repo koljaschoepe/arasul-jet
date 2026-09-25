@@ -268,7 +268,28 @@ pruefe 'und steht ohne Menschen im Protokoll' \
 ruf "$TOK_M1" GET "/api/apps/$APP/ki-aufrufe"
 pruefe 'Ein Mitarbeiter liest das Protokoll nicht: 403' "$(ja_wenn "$CODE" 403)" "HTTP $CODE"
 
-# --- 6. Das Protokoll ueberlebt die App --------------------------------------
+# --- 6. Im Browser des Administrators ----------------------------------------
+# Solange die App noch da ist: die Verwaltung oeffnet sie ueber ihre Liste.
+SITZUNG_A="${TMPDIR:-/tmp}/arasul-ki-aufrufe-sitzung.json"
+(
+  # shellcheck disable=SC2034  # von `arasul_sitzung_bauen` aus der Umgebung gelesen
+  ARASUL_SITZUNG="$SITZUNG_A"
+  arasul_sitzung_bauen "$TOK"
+)
+if ! node -e "require.resolve('playwright')" 2>/dev/null; then
+  pruefe 'Im Browser: der Aufruf in Einstellungen -> Apps' nein \
+    'playwright fehlt: npm install --no-save playwright'
+elif ARASUL_URL="$BASIS" ARASUL_SITZUNG_ADMIN="$SITZUNG_A" ARASUL_APP="$APP" \
+  ARASUL_JOB="$JOB" ARASUL_MENSCH="$M1" ARASUL_MODELL="$MODELL_ANTWORT" \
+  ARASUL_VERBOTEN="Honorarnote-Geheim-$STEMPEL|$DATEINAME" \
+  node "$WURZEL/scripts/test/ki-aufrufe-bilder.mjs"; then
+  pruefe 'Im Browser: der Aufruf in Einstellungen -> Apps' ja 'docs/plans/audits/'
+else
+  pruefe 'Im Browser: der Aufruf in Einstellungen -> Apps' nein 'ki-aufrufe-bilder.mjs war rot'
+fi
+rm -f "$SITZUNG_A"
+
+# --- 7. Das Protokoll ueberlebt die App --------------------------------------
 ruf "schluessel:$SCHLUESSEL" DELETE "/api/v1/external/apps/$APP?bestaetigung=$APP&dateien=true"
 pruefe 'Die App wird entfernt' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
 ruf "$TOK" GET "/api/apps/$APP/ki-aufrufe"
