@@ -42,6 +42,32 @@ export interface OffeneFreigabe {
   ohne_einreicher?: boolean;
   /** Nur benannte Entscheider sehen diese Anfrage (Rolle oder Konten). */
   benannt?: boolean;
+  /** Der Name der App aus ihrem Manifest (26.09.2026); `app_id` ist die Kennung. */
+  app_name?: string | null;
+  /** Die Regel: nur die Rolle oder nur diese Konten; `null` heißt ohne Einengung. */
+  entscheider?: { rolle: 'admin' } | { konten: string[] } | null;
+  /** Die Konten, die diese Anfrage jetzt entscheiden können. */
+  kreis?: string[];
+}
+
+/**
+ * Eine offene Anfrage, die ICH eingereicht habe (26.09.2026), so wie
+ * `GET /api/freigabe-anfragen/eingereicht` sie liefert. Kein Zusammenhang und
+ * keine Knöpfe: wer eingereicht hat, will wissen, bei wem es liegt.
+ */
+export interface EingereichteFreigabe {
+  id: number;
+  run_id: number;
+  app_id: string;
+  app_name: string | null;
+  stand: 'live' | 'test';
+  flow_name: string;
+  titel: string;
+  frist: string;
+  angefragt_am: string;
+  ohne_einreicher: boolean;
+  entscheider: { rolle: 'admin' } | { konten: string[] } | null;
+  kreis: string[];
 }
 
 /**
@@ -63,7 +89,9 @@ export interface FreigabeEntschieden {
   benutzer: string;
 }
 
-const OFFENE_FREIGABEN_KEY = ['freigabe-anfragen', 'offen'] as const;
+const FREIGABEN_KEY = ['freigabe-anfragen'] as const;
+const OFFENE_FREIGABEN_KEY = [...FREIGABEN_KEY, 'offen'] as const;
+const EINGEREICHTE_FREIGABEN_KEY = [...FREIGABEN_KEY, 'eingereicht'] as const;
 
 export function useOffeneFreigaben() {
   const api = useApi();
@@ -75,6 +103,30 @@ export function useOffeneFreigaben() {
       const res = await api.get<{ data?: OffeneFreigabe[] }>('/freigabe-anfragen', {
         showError: false,
       });
+      return res.data ?? [];
+    },
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+/**
+ * Was ich eingereicht habe und noch offen ist (26.09.2026).
+ *
+ * Unter einem eigenen Schlüssel, damit der Zähler der Statusleiste nicht
+ * mitzählt, was gar nicht auf mich wartet — aber unter demselben Präfix, damit
+ * eine Entscheidung beide Listen entwertet.
+ */
+export function useEingereichteFreigaben() {
+  const api = useApi();
+  return useQuery({
+    queryKey: EINGEREICHTE_FREIGABEN_KEY,
+    queryFn: async () => {
+      const res = await api.get<{ data?: EingereichteFreigabe[] }>(
+        '/freigabe-anfragen/eingereicht',
+        { showError: false }
+      );
       return res.data ?? [];
     },
     refetchInterval: 120_000,
@@ -114,7 +166,7 @@ export function useFreigabeEntscheiden() {
       return res.data;
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: OFFENE_FREIGABEN_KEY });
+      void qc.invalidateQueries({ queryKey: FREIGABEN_KEY });
     },
   });
 }

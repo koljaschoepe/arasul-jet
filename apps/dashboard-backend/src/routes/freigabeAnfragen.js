@@ -47,6 +47,24 @@ router.get(
 );
 
 /**
+ * GET /api/freigabe-anfragen/eingereicht — was ich eingereicht habe und was
+ * noch offen ist, mit dem Kreis, der entscheiden kann (J35, 26.09.2026).
+ *
+ * Bei vier Augen sieht der Einreicher seine Anfrage in der Liste oben nicht,
+ * und das ist richtig; ohne diesen Weg wusste er aber auch nicht, bei wem sie
+ * liegt. Nur lesen, nur die eigenen.
+ */
+router.get(
+  '/eingereicht',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  asyncHandler(async (req, res) => {
+    const data = await freigabeAnfragen.listeEingereichtVon(req.user.id);
+    res.json({ data, ...freigabeAnfragen.ENTSCHEIDUNGSORT, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
  * POST /api/freigabe-anfragen/:id/bestaetigen — ja.
  *
  * Der Lauf laeuft danach weiter, ab dem Schritt, an dem er angehalten hat.

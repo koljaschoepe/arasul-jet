@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Probe: Wer entscheidet</title>
+    <!-- marken.css legt die Abnahme beim Paketbau daneben. -->
+    <link rel="stylesheet" href="marken.css" />
+  </head>
+  <body class="ara-seite">
+    <main class="ara-strom">
+      <h1>Wochenbericht einreichen</h1>
+      <p>Der Bericht geht erst hinaus, wenn ihn ein anderer Mensch freigibt.</p>
+      <button type="button" id="einreichen" data-testid="einreichen">Einreichen</button>
+      <p id="stand" data-testid="stand" aria-live="polite"></p>
+      <p id="wer" data-testid="wer-entscheidet"></p>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

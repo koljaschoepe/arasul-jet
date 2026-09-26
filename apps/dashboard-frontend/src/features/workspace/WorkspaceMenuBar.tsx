@@ -10,7 +10,7 @@ import {
   User,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@marken';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useWorkspaceStore, sidebarSichtbar, notizenSichtbar } from '@/stores/workspaceStore';
 import { useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
@@ -83,8 +83,8 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
   const openTab = useWorkspaceStore(s => s.openTab);
-  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
-  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const sidebarVisible = useWorkspaceStore(sidebarSichtbar);
+  const rightPanelVisible = useWorkspaceStore(notizenSichtbar);
   const notizenAnsichtOffen = useWorkspaceStore(s => s.notizenAnsichtOffen);
   const menueOffen = useWorkspaceStore(s => s.menueOffen);
   const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
@@ -213,6 +213,18 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
               {user?.role === 'admin' ? 'Administrator' : 'Mitarbeiter'}
             </p>
           </div>
+          {/* Für einen Mitarbeiter fehlt das Zahnrad daneben. Ohne diesen Satz
+              war das Stille: wer die Einstellungen sucht, fand nichts und
+              keinen Grund (J35, 26.09.2026). */}
+          {!istAdmin && (
+            <p
+              className="flex items-center gap-2 px-2 pb-1.5 text-muted-foreground"
+              data-testid="workspace-einstellungen-gesperrt"
+            >
+              <Settings className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              Einstellungen verwaltet Ihr Administrator.
+            </p>
+          )}
           <div className="my-1 h-px bg-border" aria-hidden="true" />
           <button
             type="button"

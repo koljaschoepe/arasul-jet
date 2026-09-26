@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppWindow, Cpu, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useWorkspaceStore, sidebarSichtbar } from '@/stores/workspaceStore';
 import type { ActivityView } from '@/stores/workspaceStore';
 
 interface ActivityButtonProps {
@@ -88,7 +88,7 @@ export function ActivityBar() {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
   const activeView = useWorkspaceStore(s => s.activeView);
-  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
+  const sidebarVisible = useWorkspaceStore(sidebarSichtbar);
   const selectView = useWorkspaceStore(s => s.selectView);
   const openTab = useWorkspaceStore(s => s.openTab);
   const handleView = (view: ActivityView) => {

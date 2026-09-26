@@ -52,7 +52,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppWindow } from 'lucide-react';
 import { useTheme, themeAmDokument } from '@/hooks/useTheme';
-import { appPfad, type AppStand } from '@/stores/workspaceStore';
+import { appPfad, tabId, useWorkspaceStore, type AppStand } from '@/stores/workspaceStore';
 import { useMeineApps } from './meineApps';
 import { Ladezustand, Leerzustand } from '@marken';
 
@@ -91,9 +91,18 @@ export function AppRahmen({ appId, stand }: AppRahmenProps) {
   // und sonst an nichts.
   useEffect(themeReichen, [themeReichen]);
 
+  // Der NAME der App, sobald die Liste ihn kennt (J35, 26.09.2026). Ein Tab,
+  // der über eine Adresse kam (`/workspace/app/<id>`), hieß bis dahin „App",
+  // und Rahmen und Meldungen nannten die Kennung — einen Pfad, kein Wort.
+  const name = apps?.find(a => a.id === appId)?.name ?? null;
+  const updateTabTitle = useWorkspaceStore(s => s.updateTabTitle);
+  useEffect(() => {
+    if (name) updateTabTitle(tabId({ type: 'app', appId, stand }), name);
+  }, [name, appId, stand, updateTabTitle]);
+
   // Alle Hooks stehen oben, also darf ab hier vorzeitig zurueckgekehrt werden.
   if (isLoading) {
-    return <Ladezustand meldung={`${appId} wird geöffnet …`} />;
+    return <Ladezustand meldung="Die App wird geöffnet …" />;
   }
 
   // Ein Fehler beim Laden der Liste ist KEIN „nicht freigegeben". Die App
@@ -125,7 +134,7 @@ export function AppRahmen({ appId, stand }: AppRahmenProps) {
       key={`${appId}:${stand}`}
       ref={rahmen}
       src={appPfad(appId, stand)}
-      title={appId}
+      title={name ?? appId}
       // Jedes Dokument, das in diesem Rahmen ankommt, bekommt das Theme —
       // auch das zweite, wenn die App in sich weiternavigiert. Ein Effekt
       // allein reichte dafür nicht: er läuft, wenn sich das Theme ändert,

@@ -52,3 +52,34 @@ export function istKnapp(frist: string, jetzt: number = Date.now()): boolean {
   if (!Number.isFinite(ziel)) return false;
   return ziel - jetzt < KNAPP_MS;
 }
+
+/**
+ * Wie lange wartet eine Anfrage schon? (J35, 26.09.2026)
+ *
+ * Die Gegenrichtung zur Restzeit, mit denselben Stufen. Wer entscheidet, will
+ * wissen, wie lange jemand anderes schon auf ihn wartet; wer eingereicht hat,
+ * will wissen, ob „liegt noch" eine Stunde heißt oder drei Tage.
+ *
+ * @param angefragt ISO-Zeitpunkt aus `approvals.angefragt_am`
+ * @param jetzt Vergleichszeitpunkt (der Test setzt ihn, sonst „jetzt")
+ */
+export function wartetSeit(angefragt: string, jetzt: number = Date.now()): string {
+  const beginn = new Date(angefragt).getTime();
+  if (!Number.isFinite(beginn)) return 'wartet';
+
+  const minuten = Math.floor(Math.max(0, jetzt - beginn) / 60_000);
+  if (minuten < 1) return 'wartet seit eben';
+  if (minuten < 60) return `wartet seit ${minuten === 1 ? 'einer Minute' : `${minuten} Minuten`}`;
+
+  const stunden = Math.floor(minuten / 60);
+  if (stunden < 24) return `wartet seit ${stunden === 1 ? 'einer Stunde' : `${stunden} Stunden`}`;
+
+  const tage = Math.floor(stunden / 24);
+  return `wartet seit ${tage === 1 ? 'einem Tag' : `${tage} Tagen`}`;
+}
+
+/** Namen in einem Satz: „a", „a oder b", „a, b oder c" — wie das Backend. */
+export function oderListe(namen: string[]): string {
+  if (namen.length <= 1) return namen.join('');
+  return `${namen.slice(0, -1).join(', ')} oder ${namen[namen.length - 1]}`;
+}

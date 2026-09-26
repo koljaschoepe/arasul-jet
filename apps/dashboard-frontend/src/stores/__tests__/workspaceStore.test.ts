@@ -6,6 +6,8 @@ import {
   pathToTabSpec,
   appPfad,
   nurFuerAdmin,
+  sidebarSichtbar,
+  notizenSichtbar,
   type WorkspaceTabSpec,
 } from '../workspaceStore';
 
@@ -25,6 +27,9 @@ function reset() {
     activeView: 'apps',
     sidebarVisible: true,
     rightPanelVisible: true,
+    spaltenNebenAppZu: false,
+    sidebarNebenApp: false,
+    notizenNebenApp: false,
   });
   localStorage.clear();
 }
@@ -409,5 +414,49 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
     expect(pathToTabSpec('/gibt-es-nicht')).toBeNull();
     expect(pathToTabSpec('')).toBeNull();
     expect(pathToTabSpec('/ext')).toBeNull();
+  });
+});
+
+/**
+ * Neben einer App gehören die Spalten beim Mitarbeiter der App (J35,
+ * 26.09.2026): sie starten zu, ein Klick öffnet sie für diesen Tab, und die
+ * gespeicherte Aufteilung bleibt unberührt.
+ */
+describe('workspaceStore, Spalten neben einer App', () => {
+  beforeEach(reset);
+
+  const st = () => useWorkspaceStore.getState();
+
+  it('lässt beim Administrator alles, wie er es eingerichtet hat', () => {
+    st().openTab({ type: 'app', appId: 'faktum', stand: 'live', title: 'Faktum' });
+    expect(sidebarSichtbar(st())).toBe(true);
+    expect(notizenSichtbar(st())).toBe(true);
+  });
+
+  it('macht beim Mitarbeiter beide Spalten zu, solange eine App vorn steht', () => {
+    st().setSpaltenNebenAppZu(true);
+    st().openTab({ type: 'dashboard' });
+    expect(notizenSichtbar(st())).toBe(true);
+    st().openTab({ type: 'app', appId: 'faktum', stand: 'live', title: 'Faktum' });
+    expect(sidebarSichtbar(st())).toBe(false);
+    expect(notizenSichtbar(st())).toBe(false);
+    st().activateTab('dashboard');
+    expect(notizenSichtbar(st())).toBe(true);
+  });
+
+  it('öffnet die Notizen neben der App auf Wunsch, ohne die gespeicherte Aufteilung zu ändern', () => {
+    st().setSpaltenNebenAppZu(true);
+    st().openTab({ type: 'app', appId: 'faktum', stand: 'live', title: 'Faktum' });
+    st().toggleRightPanel();
+    expect(notizenSichtbar(st())).toBe(true);
+    expect(st().rightPanelVisible).toBe(true);
+    st().toggleRightPanel();
+    expect(notizenSichtbar(st())).toBe(false);
+    expect(st().rightPanelVisible).toBe(true);
+    st().selectView('apps');
+    expect(sidebarSichtbar(st())).toBe(true);
+    expect(st().sidebarVisible).toBe(true);
+    st().spaltenNebenAppZuruecksetzen();
+    expect(sidebarSichtbar(st())).toBe(false);
   });
 });

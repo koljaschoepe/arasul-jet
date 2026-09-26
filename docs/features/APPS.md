@@ -495,7 +495,10 @@ Verwaltung (Einstellungen → Apps) zeigt einen Stand ohne `lieferbar` rot,
 schon in der Liste; `GET /api/apps/meine` lässt einen Stand ohne Frontend
 weg, damit kein Mitarbeiter eine Kachel bekommt, hinter der nichts ist; und
 `GET /apps/<id>/` antwortet mit **`503 APP_DATEIEN_FEHLEN`** und dem Satz,
-was zu tun ist, statt mit `INTERNAL_ERROR`.
+was zu tun ist, statt mit `INTERNAL_ERROR`. Ein Browser, der die Seite lädt,
+bekommt dafür — wie für „nicht freigegeben" und „nur Tester" — seit dem
+26.09.2026 eine Seite mit einem Satz und dem Weg zur Übersicht statt JSON
+(`services/app/appSperrseite.js`); die Schnittstelle bleibt JSON.
 
 **Eine App ohne ihre Datenbank ist krank** (J35, 26.09.2026). Steht für einen
 Stand eine Zeile in `app_datenbanken` und kennt `pg_database` den Namen nicht,

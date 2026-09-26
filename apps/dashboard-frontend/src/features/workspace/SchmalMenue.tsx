@@ -132,6 +132,20 @@ export function SchmalMenue() {
           />
         </Liste>
       )}
+
+      {/* Für einen Mitarbeiter steht die Verwaltung nicht als Loch da, sondern
+          als Satz (J35, 26.09.2026): wer nach den Einstellungen sucht, soll
+          lesen, wer sie hat, statt zu glauben, sie seien verschwunden. */}
+      {!istAdmin && (
+        <Liste beschriftung="Verwaltung">
+          <ListenEintrag
+            titel="Einstellungen"
+            symbol={<Settings />}
+            unterzeile="verwaltet Ihr Administrator"
+            kennzeichen="menue-einstellungen-gesperrt"
+          />
+        </Liste>
+      )}
     </Menue>
   );
 }

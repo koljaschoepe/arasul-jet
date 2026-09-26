@@ -7,7 +7,7 @@
  * einen Satz ergeben, den jemand vor dem Knopf lesen kann.
  */
 import { describe, it, expect } from 'vitest';
-import { restzeit, istKnapp } from '../frist';
+import { restzeit, istKnapp, wartetSeit, oderListe } from '../frist';
 
 const JETZT = Date.parse('2026-08-28T12:00:00.000Z');
 const in_ = (ms: number) => new Date(JETZT + ms).toISOString();
@@ -48,5 +48,24 @@ describe('istKnapp', () => {
   it('ist knapp innerhalb der letzten Stunde', () => {
     expect(istKnapp(in_(59 * 60_000), JETZT)).toBe(true);
     expect(istKnapp(in_(61 * 60_000), JETZT)).toBe(false);
+  });
+});
+
+describe('wartetSeit', () => {
+  it('zählt rückwärts in denselben Stufen wie die Restzeit, im Dativ', () => {
+    expect(wartetSeit(in_(-30_000), JETZT)).toBe('wartet seit eben');
+    expect(wartetSeit(in_(-60_000), JETZT)).toBe('wartet seit einer Minute');
+    expect(wartetSeit(in_(-5 * 60_000), JETZT)).toBe('wartet seit 5 Minuten');
+    expect(wartetSeit(in_(-60 * 60_000), JETZT)).toBe('wartet seit einer Stunde');
+    expect(wartetSeit(in_(-26 * 60 * 60_000), JETZT)).toBe('wartet seit einem Tag');
+    expect(wartetSeit(in_(-3 * 24 * 60 * 60_000), JETZT)).toBe('wartet seit 3 Tagen');
+  });
+});
+
+describe('oderListe', () => {
+  it('schreibt Namen wie einen Satz', () => {
+    expect(oderListe(['a'])).toBe('a');
+    expect(oderListe(['a', 'b'])).toBe('a oder b');
+    expect(oderListe(['a', 'b', 'c'])).toBe('a, b oder c');
   });
 });

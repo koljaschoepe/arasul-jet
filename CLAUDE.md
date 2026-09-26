@@ -1319,6 +1319,26 @@ Diagramm — gemessen **690 kB roh / 210 kB gzip** im Einstieg vorher,
 App mit Bau braucht `@marken/*` in ihrer `tsconfig.json`. Das Kit zieht mit
 `marken.mjs --sync` nach (eigene Karte dort).
 
+Seit dem Auftrag **freigabe-sagt-wer-entscheidet** (26.09.2026, J35) **sehen
+beide Seiten einer Freigabe, wer dran ist**. `GET /flows/runs/:id` nennt unter
+`freigabe` Einreicher, Regel, den **Kreis** (die Konten, die jetzt entscheiden
+koennen), den Ort und einen fertigen `satz` — eine App muss die Regel nicht
+selbst in Worte fassen; der Kontrakt bleibt bei 6 (`freigaben.lauf`,
+additiv). Die Freigabekarte traegt den Namen der App statt ihrer Kennung, den
+Einreicher, „wartet seit" und vier Augen als Satz; leer steht auf der
+Uebersicht **eine** leise Zeile statt nichts, und darunter sieht der
+Einreicher unter `GET /api/freigabe-anfragen/eingereicht`, bei wem sein
+Vorgang liegt. `/apps/<id>/` ohne Recht ist fuer einen Browser eine Seite im
+Stil des Geraets mit einem Satz und dem Weg zur Uebersicht
+(`apps/dashboard-backend/src/services/app/appSperrseite.js`, `fetch` und `curl` bekommen weiter JSON);
+gesperrte Einstellungen nennen den Administrator. Und **neben einer App
+gehoeren dem Mitarbeiter die Spalten nicht**: Sidebar und Notizen starten zu,
+solange eine App vorn steht (`spaltenNebenAppZu`, nicht persistiert) — am Orin
+bekam der Rahmen bei 1440 px sonst 778 px (App in schmaler Form) oder 1052 px
+(ihr Inhalt 100 px ueber dem Rand, weil die Datenliste das Fenster misst und
+nicht den Platz neben der Seitenleiste der App). Abnahme:
+`scripts/test/freigabe-wer-entscheidet-abnahme.sh` mit `tests/probe-freigabe`.
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |

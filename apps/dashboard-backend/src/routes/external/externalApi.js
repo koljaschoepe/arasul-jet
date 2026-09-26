@@ -933,6 +933,16 @@ router.post(
       error: run.error || null,
       steps_used: run.steps_used ?? null,
       schritte: schritteFuerApp(run),
+      // Wer entscheidet und wo (J35) -- siehe GET /flows/runs/:id. Aus den
+      // Werten des Starts und nicht aus `run`: laeuft das Warten ab, weil der
+      // Lauf auf eine Freigabe wartet, ist `run` nur ein Platzhalter -- und
+      // genau dann braucht die App die Auskunft.
+      freigabe: await freigabeAnfragen.freigabeZumLauf({
+        id: runId,
+        app_id: appId,
+        einreicher_id: einreicherId,
+        freigabe_regel: regel,
+      }),
       // Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2).
       annahmen: run.annahmen ?? null,
       processing_time_ms: Date.now() - startTime,
@@ -975,6 +985,10 @@ router.get(
       // Die Kette selbst (Phase H7): `steps_used` ist ihre Laenge, `schritte`
       // ist sie. Der Kontrakt verspricht sie seit C5.
       schritte: schritteFuerApp(run),
+      // Wer eingereicht hat, wer entscheidet und wo (J35, 26.09.2026). Ein
+      // Lauf auf `wartend` war bis dahin fuer die App eine Sackgasse: sie
+      // konnte ihrem Menschen sagen, DASS er wartet, nicht auf wen.
+      freigabe: await freigabeAnfragen.freigabeZumLauf(run),
       // Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2) — auch der
       // externe Aufrufer sieht, welche Annahmen statt Rückfragen getroffen wurden.
       annahmen: run.annahmen ?? null,

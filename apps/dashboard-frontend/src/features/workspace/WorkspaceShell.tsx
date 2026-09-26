@@ -7,6 +7,8 @@ import {
   tabToPath,
   tabId,
   nurFuerAdmin,
+  sidebarSichtbar,
+  notizenSichtbar,
 } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchmalesFenster } from '@marken';
@@ -73,10 +75,28 @@ export default function WorkspaceShell(props: ShellHandgriffe) {
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const openTab = useWorkspaceStore(s => s.openTab);
-  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
-  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const sidebarVisible = useWorkspaceStore(sidebarSichtbar);
+  const rightPanelVisible = useWorkspaceStore(notizenSichtbar);
   const notizenAnsichtOffen = useWorkspaceStore(s => s.notizenAnsichtOffen);
   const activeView = useWorkspaceStore(s => s.activeView);
+
+  // Neben einer App gehören die Spalten beim Mitarbeiter der App (J35,
+  // `spaltenNebenAppZu` im Store). Und jeder Tab, der nach vorn kommt,
+  // fängt wieder mit ihnen zu an.
+  useEffect(() => {
+    useWorkspaceStore.getState().setSpaltenNebenAppZu(!istAdmin);
+  }, [istAdmin]);
+  useEffect(() => {
+    useWorkspaceStore.getState().spaltenNebenAppZuruecksetzen();
+  }, [activeTabId]);
+
+  // Der Titel des Browser-Tabs sagt, was vorn steht (J35, 26.09.2026). Bis
+  // dahin hieß jeder Tab „Arasul Platform" — wer drei offen hatte, fand die
+  // App nicht, in der er gerade gearbeitet hat.
+  const vornTitel = tabs.find(t => t.id === activeTabId)?.title;
+  useEffect(() => {
+    document.title = vornTitel ? `${vornTitel} – Arasul` : 'Arasul';
+  }, [vornTitel]);
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab.
   //

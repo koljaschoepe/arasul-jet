@@ -572,3 +572,104 @@ describe('der Kreis der Entscheider (J35)', () => {
     expect(fehler.message).toMatch(/benannten Entscheidern/);
   });
 });
+
+/**
+ * Wer entscheidet, aus der Sicht dessen, der eingereicht hat (J35, 26.09.2026).
+ *
+ * Die Regel selbst misst der Block davor; hier die Auskunft darueber: eine App
+ * muss ihrem Menschen sagen koennen, bei wem sein Vorgang liegt, und zwar
+ * schon bevor der Flow anhaelt.
+ */
+describe('freigabeZumLauf', () => {
+  const mitglieder = [
+    { id: 1, username: 'admin', role: 'admin' },
+    { id: 3, username: 'anna', role: 'mitarbeiter' },
+    { id: 4, username: 'bernd', role: 'mitarbeiter' },
+  ];
+  const ohneOffene = () =>
+    db.query.mockImplementation(async sql =>
+      /FROM public\.approvals a/.test(sql) ? { rows: [] } : { rows: mitglieder }
+    );
+
+  it('sagt fuer einen Lauf ohne App nichts', async () => {
+    expect(await freigabeAnfragen.freigabeZumLauf({ id: 7, app_id: null })).toBeNull();
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('nennt ohne Regel alle, denen die App freigegeben ist', async () => {
+    ohneOffene();
+    const f = await freigabeAnfragen.freigabeZumLauf({ id: 7, app_id: 'kanzlei' });
+    expect(f.kreis).toEqual(['admin', 'anna', 'bernd']);
+    expect(f.entscheider).toBeNull();
+    expect(f.offen).toBeNull();
+    expect(f.adresse).toBe('/workspace');
+    expect(f.satz).toMatch(/^Entscheidet: admin, anna oder bernd, in Arasul auf der Übersicht/);
+  });
+
+  it('nimmt bei vier Augen den Einreicher aus dem Kreis und sagt es', async () => {
+    ohneOffene();
+    const f = await freigabeAnfragen.freigabeZumLauf({
+      id: 7,
+      app_id: 'kanzlei',
+      einreicher_id: 3,
+      freigabe_regel: { ohne_einreicher: true, entscheider_rolle: null, entscheider_ids: null },
+    });
+    expect(f.einreicher).toBe('anna');
+    expect(f.ohne_einreicher).toBe(true);
+    expect(f.kreis).toEqual(['admin', 'bernd']);
+    expect(f.satz).toMatch(/anna hat eingereicht und entscheidet nicht mit \(Vier-Augen-Prinzip\)/);
+  });
+
+  it('nennt Rolle oder Konten so, wie die Regel sie setzt', async () => {
+    ohneOffene();
+    const rolle = await freigabeAnfragen.freigabeZumLauf({
+      id: 7,
+      app_id: 'kanzlei',
+      freigabe_regel: { entscheider_rolle: 'admin' },
+    });
+    expect(rolle.entscheider).toEqual({ rolle: 'admin' });
+    expect(rolle.kreis).toEqual(['admin']);
+    expect(rolle.satz).toMatch(/ein Administrator \(admin\)/);
+
+    ohneOffene();
+    const konten = await freigabeAnfragen.freigabeZumLauf({
+      id: 7,
+      app_id: 'kanzlei',
+      freigabe_regel: { entscheider_ids: [4, 1] },
+    });
+    expect(konten.entscheider).toEqual({ konten: ['admin', 'bernd'] });
+    expect(konten.kreis).toEqual(['admin', 'bernd']);
+  });
+
+  it('liest waehrend einer offenen Anfrage deren Zeile', async () => {
+    db.query.mockImplementation(async sql => {
+      if (/FROM public\.approvals a/.test(sql)) {
+        return {
+          rows: [
+            {
+              id: 12,
+              titel: 'Rechnung buchen?',
+              frist: 'morgen',
+              angefragt_am: 'eben',
+              ohne_einreicher: true,
+              entscheider_rolle: null,
+              einreicher: 'anna',
+              entscheider: null,
+              kreis: ['bernd'],
+            },
+          ],
+        };
+      }
+      throw new Error(`unerwartet: ${sql}`);
+    });
+    const f = await freigabeAnfragen.freigabeZumLauf({ id: 7, app_id: 'kanzlei' });
+    expect(f.offen).toEqual({
+      id: 12,
+      titel: 'Rechnung buchen?',
+      frist: 'morgen',
+      angefragt_am: 'eben',
+    });
+    expect(f.kreis).toEqual(['bernd']);
+    expect(f.satz).toMatch(/^Entscheidet: bernd,/);
+  });
+});

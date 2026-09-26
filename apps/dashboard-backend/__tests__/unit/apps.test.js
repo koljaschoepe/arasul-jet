@@ -908,6 +908,52 @@ describe('Auslieferung unter /apps/<id>/: die Freigabe steht davor (C4)', () => 
   });
 });
 
+/**
+ * Eine Grenze im Browser ist eine Seite mit einem Satz (J35, 26.09.2026).
+ * Der Browser nennt `text/html`; `fetch` und `curl` nennen `*\/*` und
+ * bekommen weiter JSON -- das messen die Tests darueber.
+ */
+describe('Auslieferung unter /apps/<id>/: der Browser bekommt eine Seite statt JSON', () => {
+  const BROWSER = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+
+  test('nicht freigegeben: 403 als Seite mit einem Satz und dem Weg zur Uebersicht', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(auslieferung()).get('/apps/urlaub/').set('Accept', BROWSER);
+    expect(res.status).toBe(403);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.text).toContain('Diese App ist für Sie nicht freigegeben');
+    expect(res.text).toContain('href="/workspace" target="_top"');
+    // Kein Fehlercode und keine Kennung im Text.
+    expect(res.text).not.toContain('FORBIDDEN');
+    expect(res.text).not.toContain('Sonderregel');
+  });
+
+  test('nur Tester: der Satz nennt den Weg zur freigegebenen Fassung', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ stand: 'live' }] });
+    const res = await request(auslieferung()).get('/apps/urlaub/test/').set('Accept', BROWSER);
+    expect(res.status).toBe(403);
+    expect(res.text).toContain('nur ihre Tester');
+    expect(res.text).toContain('href="/apps/urlaub/"');
+  });
+
+  test('das Theme des Menschen gilt auch hier', async () => {
+    auth.__setUser({ ...MITARBEITER, theme: 'dark' });
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(auslieferung()).get('/apps/urlaub/').set('Accept', BROWSER);
+    expect(res.text).toContain('<html lang="de" data-theme="dark">');
+  });
+
+  test('Schnittstelle und Dateien bleiben JSON, auch fuer einen Browser', async () => {
+    for (const pfad of ['/apps/urlaub/api/me', '/apps/urlaub/app.js']) {
+      db.query.mockReset();
+      db.query.mockResolvedValueOnce({ rows: [] });
+      const res = await request(auslieferung()).get(pfad).set('Accept', BROWSER);
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    }
+  });
+});
+
 describe('Was NICHT die Anfrage an eine App ist, faellt aus dem Router', () => {
   // `pfadErkennen` verlaesst den Router mit `next('router')`. Ein einfaches
   // `next()` liefe in die naechste Middleware DIESES Routers, also in die
