@@ -324,7 +324,9 @@ Objekt oder `null` ist und **nicht** gegen das mitgeschickte `schema` geprüft
 wird. `bilder` sagt, wie eine App ein Foto **selbst** an ein Modell gibt:
 `images` an `llm/chat`, Base64, PNG oder JPEG; ohne `model` nimmt das Gerät
 sein Bildmodell, ein Textmodell weist es mit `400` ab. Das Auslesen bleibt
-dabei der Weg über die Texterkennung — für eine Quittung meist der genauere.
+dabei der Weg über die Texterkennung. Welcher Weg ein Foto besser liest, hängt
+am Modell (gemessen: `gemma4:e4b` mit Bild 6 von 6, Texterkennung 5 von 6,
+`llava-phi3` 2 von 6, siehe API-Referenz); eine App nennt `model` und misst.
 Additiv, darum keine 7.
 
 **Fassung 6 (Brücke, 21.09.2026):** das Manifest kennt **`agent`** — die Liste

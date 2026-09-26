@@ -289,7 +289,7 @@ const BILDER_REGELN = Object.freeze([
   'Ohne `model` nimmt das Geraet sein Bildmodell (zuerst das der Aufgabe `vision`, in der Kurzliste `llava-phi3`). Gibt es keines, antwortet es mit 503.',
   'Mit `model` muss es ein Modell sein, das Bilder liest; ein Textmodell weist das Geraet mit 400 ab und nennt die Bildmodelle, die es hat. Das Bild wird nie still weggelassen und nie gegen eine Beschreibung getauscht.',
   '`GET models` nennt je Modell `supports_vision_input`.',
-  'Ein Foto, auf dem es nur um den Text geht (Quittung, Brief), liest `document/extract-structured` ueber die Texterkennung meist genauer und schneller; das Bildmodell ist fuer das, was kein Text ist.',
+  'Das Bildmodell ohne `model` ist das der Aufgabe `vision`, und das ist nicht unbedingt das, das ein Dokument am besten liest. Wer Felder aus einem Foto lesen laesst, nennt `model` ausdruecklich und misst am Geraet des Kunden; `document/extract-structured` (Texterkennung, dann Textmodell) ist der zweite Weg zum Vergleich.',
 ]);
 
 /**
