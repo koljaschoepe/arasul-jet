@@ -11,7 +11,7 @@
  */
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Datenliste, type Spalte } from '../muster/Datenliste';
+import { Datenliste, LISTE_SCHMAL_AB_PX, type Spalte } from '../muster/Datenliste';
 
 interface Lauf {
   id: string;
@@ -309,5 +309,74 @@ describe('Datenliste', () => {
     const gewaehlt = knoepfe.filter(k => k.getAttribute('aria-current') === 'true');
     expect(gewaehlt).toHaveLength(1);
     expect(gewaehlt[0]).toHaveTextContent('Rechnung buchen');
+  });
+
+  describe('misst ihren Kasten und nicht das Fenster (5.1.0)', () => {
+    const originalRO = globalThis.ResizeObserver;
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    let breite = 0;
+    let tabellenBreite = 0;
+
+    beforeEach(() => {
+      tabellenBreite = 0;
+      globalThis.ResizeObserver = class {
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      } as unknown as typeof ResizeObserver;
+      HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+        const w = this.tagName === 'TABLE' ? tabellenBreite : breite;
+        return { width: w, height: 10 } as DOMRect;
+      };
+    });
+
+    afterEach(() => {
+      globalThis.ResizeObserver = originalRO;
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+    });
+
+    it('zeigt Karten in einem schmalen Kasten, auch wenn das Fenster breit ist', () => {
+      // Der Fall vom Orin: Rahmen breit, daneben die Seitenleiste der App.
+      schmalStellen(false);
+      breite = LISTE_SCHMAL_AB_PX - 1;
+      render(
+        <Datenliste daten={DATEN} spalten={SPALTEN} kennung={l => l.id} beschriftung="Läufe" />
+      );
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.getByRole('list', { name: 'Läufe' })).toBeInTheDocument();
+    });
+
+    it('zeigt die Tabelle in einem Kasten ab der Schwelle', () => {
+      schmalStellen(false);
+      breite = LISTE_SCHMAL_AB_PX;
+      render(
+        <Datenliste daten={DATEN} spalten={SPALTEN} kennung={l => l.id} beschriftung="Läufe" />
+      );
+      expect(screen.getByRole('table')).toBeInTheDocument();
+    });
+
+    it('zeigt Karten, wenn die Tabelle nicht in ihren Kasten passt', () => {
+      // Ein Dateiname mit Unterstrichen bricht nicht um: die Tabelle will
+      // breiter sein als ihr Kasten, und im Rollkasten saehe niemand die
+      // Spalten rechts.
+      schmalStellen(false);
+      breite = 800;
+      tabellenBreite = 950;
+      render(
+        <Datenliste daten={DATEN} spalten={SPALTEN} kennung={l => l.id} beschriftung="Läufe" />
+      );
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.getByRole('list', { name: 'Läufe' })).toBeInTheDocument();
+    });
+
+    it('bleibt Tabelle, wenn sie passt', () => {
+      schmalStellen(false);
+      breite = 800;
+      tabellenBreite = 800;
+      render(
+        <Datenliste daten={DATEN} spalten={SPALTEN} kennung={l => l.id} beschriftung="Läufe" />
+      );
+      expect(screen.getByRole('table')).toBeInTheDocument();
+    });
   });
 });
