@@ -189,6 +189,32 @@ export interface WorkspaceState {
    * ein Menue ist ein Handgriff und kein Zustand des Arbeitsplatzes.
    */
   menueOffen: boolean;
+  /**
+   * Gehören die Seitenspalten, solange eine App vorn steht, der App? (J35,
+   * 26.09.2026) Die Shell setzt es aus der Rolle: für einen Mitarbeiter ja.
+   *
+   * Gemessen am Orin mit der Faktum-App bei 1440 px: mit Sidebar und Notizen
+   * bekam der Rahmen 778 px, die App fiel in ihre schmale Form und versteckte
+   * ihre Navigation hinter einem Menü; ohne Notizen blieben 1052 px, und ihr
+   * Inhalt ragte 100 px über den Rand. Ein Mitarbeiter hat neben einer App
+   * nichts in den Spalten, was er dort gerade braucht — die Liste seiner
+   * Apps steht in den Tabs, die Notizen einen Klick entfernt. Der
+   * Administrator richtet sich seinen Arbeitsplatz selbst ein und behält ihn.
+   *
+   * NICHT persistiert, samt den zwei Schaltern darunter: „startet zu" heißt,
+   * jede App, die nach vorn kommt, beginnt mit der ganzen Breite. Wer eine
+   * Spalte daneben öffnet, hat sie offen, bis er den Tab wechselt — und seine
+   * gespeicherte Aufteilung für alles andere bleibt unberührt.
+   */
+  spaltenNebenAppZu: boolean;
+  /** Die Sidebar neben einer App, wenn `spaltenNebenAppZu` gilt. */
+  sidebarNebenApp: boolean;
+  /** Die Notizen neben einer App, wenn `spaltenNebenAppZu` gilt. */
+  notizenNebenApp: boolean;
+  /** Die Shell sagt, ob die Regel gilt (aus der Rolle). */
+  setSpaltenNebenAppZu: (zu: boolean) => void;
+  /** Beide Spalten neben einer App wieder zu — beim Wechsel des Tabs. */
+  spaltenNebenAppZuruecksetzen: () => void;
   openTab: (spec: WorkspaceTabSpec) => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
@@ -219,6 +245,22 @@ export interface WorkspaceState {
   toggleMenue: () => void;
   /** Das Menue zumachen. Jede Ansicht, die kommt, macht es zu. */
   schliesseMenue: () => void;
+}
+
+/** Gilt gerade die Regel „die Spalten gehören der App"? */
+function appHatSpalten(s: WorkspaceState): boolean {
+  if (!s.spaltenNebenAppZu) return false;
+  return s.tabs.find(t => t.id === s.activeTabId)?.type === 'app';
+}
+
+/** Steht die Sidebar im breiten Aufbau da? Liest die Regel neben einer App mit. */
+export function sidebarSichtbar(s: WorkspaceState): boolean {
+  return appHatSpalten(s) ? s.sidebarNebenApp : s.sidebarVisible;
+}
+
+/** Stehen die Notizen im breiten Aufbau da? Liest die Regel neben einer App mit. */
+export function notizenSichtbar(s: WorkspaceState): boolean {
+  return appHatSpalten(s) ? s.notizenNebenApp : s.rightPanelVisible;
 }
 
 /** Persistierte Felder (partialize) — Basis für die migrate-Signatur. */
@@ -321,6 +363,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       rightPanelVisible: true,
       notizenAnsichtOffen: false,
       menueOffen: false,
+      spaltenNebenAppZu: false,
+      sidebarNebenApp: false,
+      notizenNebenApp: false,
+
+      setSpaltenNebenAppZu: zu =>
+        set(state => (state.spaltenNebenAppZu === zu ? state : { spaltenNebenAppZu: zu })),
+      spaltenNebenAppZuruecksetzen: () =>
+        set(state =>
+          state.sidebarNebenApp || state.notizenNebenApp
+            ? { sidebarNebenApp: false, notizenNebenApp: false }
+            : state
+        ),
 
       openTab: spec => {
         const id = tabId(spec);
@@ -387,21 +441,40 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       updateTabTitle: (id, title) => {
-        set(state => ({
-          tabs: state.tabs.map(t => (t.id === id ? { ...t, title } : t)),
-        }));
+        set(state =>
+          state.tabs.some(t => t.id === id && t.title !== title)
+            ? { tabs: state.tabs.map(t => (t.id === id ? { ...t, title } : t)) }
+            : state
+        );
       },
 
-      toggleSidebar: () => set(state => ({ sidebarVisible: !state.sidebarVisible })),
-      setSidebarVisible: visible => set({ sidebarVisible: visible }),
-      selectView: view =>
+      // Jeder Schalter schreibt in den Zustand, den man gerade SIEHT: neben
+      // einer App (für einen Mitarbeiter) in den der Sitzung, sonst in die
+      // gespeicherte Aufteilung.
+      toggleSidebar: () =>
         set(state =>
-          state.sidebarVisible && state.activeView === view
-            ? { sidebarVisible: false }
-            : { activeView: view, sidebarVisible: true }
+          appHatSpalten(state)
+            ? { sidebarNebenApp: !state.sidebarNebenApp }
+            : { sidebarVisible: !state.sidebarVisible }
         ),
+      setSidebarVisible: visible =>
+        set(state =>
+          appHatSpalten(state) ? { sidebarNebenApp: visible } : { sidebarVisible: visible }
+        ),
+      selectView: view =>
+        set(state => {
+          const feld = appHatSpalten(state) ? 'sidebarNebenApp' : 'sidebarVisible';
+          return sidebarSichtbar(state) && state.activeView === view
+            ? { [feld]: false }
+            : { activeView: view, [feld]: true };
+        }),
       setActiveView: view => set({ activeView: view }),
-      toggleRightPanel: () => set(state => ({ rightPanelVisible: !state.rightPanelVisible })),
+      toggleRightPanel: () =>
+        set(state =>
+          appHatSpalten(state)
+            ? { notizenNebenApp: !state.notizenNebenApp }
+            : { rightPanelVisible: !state.rightPanelVisible }
+        ),
       toggleNotizenAnsicht: () =>
         set(state => ({ notizenAnsichtOffen: !state.notizenAnsichtOffen })),
       schliesseNotizenAnsicht: () =>

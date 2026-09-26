@@ -205,12 +205,15 @@ export function TabContent({ handgriffe }: TabContentProps) {
         >
           <ComponentErrorBoundary componentName={`Tab ${tab.title}`}>
             {/* Ein Admin-Tab, der im gespeicherten Stand eines Mitarbeiters
-                liegt (er war einmal Administrator), zeigt einen Satz statt
-                einer Seite, die bei jedem Handgriff 403 sagt. */}
+                liegt (er war einmal Administrator) oder über eine Adresse
+                kam, zeigt einen Satz statt einer Seite, die bei jedem
+                Handgriff 403 sagt. Der Satz sagt, WER es verwaltet — „die
+                Wege dahinter antworten mit 403" stand hier bis J35 und war
+                eine Auskunft für Entwickler. */}
             {!istAdmin && nurFuerAdmin(tab.type) ? (
               <div className="p-ui-4" data-testid="tab-nur-admin">
-                <Meldung titel={`${tab.title} ist der Verwaltung vorbehalten.`}>
-                  Die Wege dahinter antworten mit 403, unabhängig davon, was hier steht.
+                <Meldung titel={`Die ${tab.title} verwaltet Ihr Administrator.`}>
+                  Soll hier etwas anders sein, sprechen Sie ihn an.
                 </Meldung>
               </div>
             ) : (
