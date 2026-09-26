@@ -26,11 +26,12 @@ const useVorDemBild = typeof window === 'undefined' ? useEffect : useLayoutEffec
 
 /**
  * @param grenze Breite des Behaelters in Pixeln, unterhalb derer „schmal" gilt
- * @returns `[ref, schmal]` -- den `ref` an den Kasten haengen, dessen Breite zaehlt
+ * @returns `[ref, schmal, breite]` -- den `ref` an den Kasten haengen, dessen
+ *   Breite zaehlt; `breite` ist das Mass in Pixeln oder `null` ohne Mass
  */
 export function useSchmalerBehaelter<E extends HTMLElement = HTMLDivElement>(
   grenze: number
-): [(element: E | null) => void, boolean] {
+): [(element: E | null) => void, boolean, number | null] {
   const fensterSchmal = useSchmalesFenster(grenze);
   const [element, setElement] = useState<E | null>(null);
   const [breite, setBreite] = useState<number | null>(null);
@@ -53,5 +54,5 @@ export function useSchmalerBehaelter<E extends HTMLElement = HTMLDivElement>(
     return () => beobachter.disconnect();
   }, [element]);
 
-  return [ref, breite === null ? fensterSchmal : breite < grenze];
+  return [ref, breite === null ? fensterSchmal : breite < grenze, breite];
 }

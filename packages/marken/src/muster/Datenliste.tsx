@@ -122,10 +122,17 @@ export interface DatenlisteProps<Zeile> {
 type Richtung = 'auf' | 'ab';
 
 /**
- * Unter dieser Breite ihres EIGENEN Kastens zeigt die Liste Karten. 640 px
- * sind ein Telefon quer und die Mitte einer App mit Seitenleiste in einem
- * Rahmen von knapp 900 px -- dort traegt eine Tabelle noch vier bis fuenf
- * Spalten, und was mehr braucht, rollt in ihrem eigenen Kasten.
+ * Unter dieser Breite ihres EIGENEN Kastens zeigt die Liste immer Karten.
+ * 640 px sind ein Telefon quer und die Mitte einer App mit Seitenleiste in
+ * einem Rahmen von knapp 900 px.
+ *
+ * DARUEBER ENTSCHEIDET DIE TABELLE SELBST. Passt sie nicht in ihren Kasten
+ * (ein Dateiname mit Unterstrichen bricht nicht um, eine Adresse auch
+ * nicht), wird die Liste ebenfalls zu Karten, bis der Kasten die gemessene
+ * Breite der Tabelle wieder hat. Am Orin mit der Kit-Vorlage gemessen: bei
+ * 1000 px Rahmen stand die Tabelle sonst in ihrem Rollkasten, und zwei der
+ * vier Spalten sah nur, wer dort seitlich rollt. Eine Spalte mit `kuerzen`
+ * waechst nie ueber ihren Kasten und haelt die Tabelle damit stehen.
  */
 export const LISTE_SCHMAL_AB_PX = 640;
 
@@ -171,7 +178,13 @@ export function Datenliste<Zeile>({
   gewaehlt,
   className,
 }: DatenlisteProps<Zeile>) {
-  const [behaelter, schmal] = useSchmalerBehaelter<HTMLDivElement>(LISTE_SCHMAL_AB_PX);
+  const [behaelter, zuSchmal, breite] = useSchmalerBehaelter<HTMLDivElement>(LISTE_SCHMAL_AB_PX);
+  // Wie breit die Tabelle mindestens sein will -- gemessen, als sie zuletzt
+  // dastand und nicht in ihren Kasten passte. Siehe `LISTE_SCHMAL_AB_PX`.
+  const tabelle = React.useRef<HTMLTableElement>(null);
+  const [tabellenBreite, setTabellenBreite] = React.useState<number | null>(null);
+  const schmal =
+    zuSchmal || (breite !== null && tabellenBreite !== null && breite < tabellenBreite);
   const [suche, setSuche] = React.useState('');
   const [sortierung, setSortierung] = React.useState<{
     schluessel: string;
@@ -201,6 +214,19 @@ export function Datenliste<Zeile>({
       return sortierung.richtung === 'auf' ? ergebnis : -ergebnis;
     });
   }, [gefiltert, sortierung, spalten]);
+
+  // Neue Zeilen, neue Spalten, eine andere Suche: die Tabelle bekommt einen
+  // neuen Versuch. Gemessen wird vor dem Bild (`useLayoutEffect`), also
+  // sieht niemand eine Tabelle, die gleich wieder zu Karten wird.
+  React.useLayoutEffect(() => {
+    setTabellenBreite(null);
+  }, [sortiert, spalten]);
+
+  React.useLayoutEffect(() => {
+    if (schmal || breite === null || !tabelle.current) return;
+    const noetig = tabelle.current.getBoundingClientRect().width;
+    if (noetig > breite + 1) setTabellenBreite(Math.ceil(noetig));
+  });
 
   const umschalten = (schluessel: string) =>
     setSortierung(zuvor =>
@@ -335,7 +361,7 @@ export function Datenliste<Zeile>({
           })}
         </ul>
       ) : (
-        <Table>
+        <Table ref={tabelle}>
           <TableCaption>{beschriftung}</TableCaption>
           <TableHeader>
             <TableRow>

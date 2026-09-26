@@ -100,7 +100,8 @@
  * Rahmen 1052 px breit, die Datenliste zeigte ihre Tabelle und stand 100 px
  * ueber dem Rand. Neu `useSchmalerBehaelter` (ResizeObserver am eigenen
  * Kasten, auch im Buendel); die `Datenliste` misst damit sich selbst und
- * schaltet unter `LISTE_SCHMAL_AB_PX` (640 px ihres Kastens) auf Karten;
+ * schaltet unter `LISTE_SCHMAL_AB_PX` (640 px ihres Kastens) auf Karten --
+ * und darueber auch dann, wenn ihre Tabelle nicht in den Kasten passt;
  * `SidebarInset` traegt `min-w-0`, damit ein breiter Inhalt in seinem
  * eigenen Rollkasten bleibt; der Kopf der `Karte` bricht um, statt mit einem
  * langen Hinweis die Seite zu verbreitern. Keine neue Hauptzahl: kein Name

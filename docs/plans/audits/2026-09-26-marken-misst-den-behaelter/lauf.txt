@@ -1,0 +1,35 @@
+=== Abnahme Bibliothek misst den Behaelter (J35) gegen https://192.168.0.197 ===
+
+gruen  Anmeldung als Administrator
+gruen  Wegwerf-Schluessel mit app:deploy
+gruen  Kontrakt gelesen (umgebung.datenbank)  (ARASUL_DB_URL)
+gruen  probe-behaelter-neu in den Teststand  (HTTP 201)
+gruen  probe-behaelter-neu live  (HTTP 200)
+gruen  probe-behaelter-neu dem Administrator freigegeben  (HTTP 201)
+gruen  probe-behaelter-neu antwortet (die Tabelle steht)  (HTTP 200)
+gruen  probe-behaelter-neu mit acht Vorgaengen gefuellt  (arasul_app_probe_behaelter_neu_live)
+gruen  probe-behaelter-alt in den Teststand  (HTTP 201)
+gruen  probe-behaelter-alt live  (HTTP 200)
+gruen  probe-behaelter-alt dem Administrator freigegeben  (HTTP 201)
+gruen  probe-behaelter-alt antwortet (die Tabelle steht)  (HTTP 200)
+gruen  probe-behaelter-alt mit acht Vorgaengen gefuellt  (arasul_app_probe_behaelter_alt_live)
+gruen  admin meldet sich an  (HTTP 200)
+gruen  probe-behaelter-neu · Rahmen 900 px · ohne Notizen  (Rahmen 901, Fenster 1242, scrollWidth 901 gegen clientWidth 901, Liste als karten)
+gruen  probe-behaelter-neu · Rahmen 1000 px · ohne Notizen  (Rahmen 999, Fenster 1370, scrollWidth 999 gegen clientWidth 999, Liste als karten)
+gruen  probe-behaelter-neu · Rahmen 1150 px · ohne Notizen  (Rahmen 1150, Fenster 1571, scrollWidth 1150 gegen clientWidth 1150, Liste als karten)
+gruen  probe-behaelter-neu · Rahmen 900 px · mit Notizen  (Rahmen 899, Fenster 1659, scrollWidth 899 gegen clientWidth 899, Liste als karten)
+gruen  probe-behaelter-neu · Rahmen 1000 px · mit Notizen  (Rahmen 1000, Fenster 1838, scrollWidth 1000 gegen clientWidth 1000, Liste als karten)
+gruen  probe-behaelter-neu · Rahmen 1150 px · mit Notizen  (Rahmen 1149, Fenster 2105, scrollWidth 1149 gegen clientWidth 1149, Liste als karten)
+rot    probe-behaelter-alt · Rahmen 900 px · ohne Notizen  (Rahmen 901, Fenster 1242, scrollWidth 1152 gegen clientWidth 901, Liste als tabelle (rollt im eigenen Kasten), ragt: table.w-full r=1438, caption.mt-ui-2 r=1438, thead.[&_tr]:border-b r=1438)
+rot    probe-behaelter-alt · Rahmen 1000 px · ohne Notizen  (Rahmen 999, Fenster 1370, scrollWidth 1152 gegen clientWidth 999, Liste als tabelle (rollt im eigenen Kasten), ragt: table.w-full r=1438, caption.mt-ui-2 r=1438, thead.[&_tr]:border-b r=1438)
+rot    probe-behaelter-alt · Rahmen 1150 px · ohne Notizen  (Rahmen 1150, Fenster 1571, scrollWidth 1152 gegen clientWidth 1150, Liste als tabelle (rollt im eigenen Kasten), ragt: table.w-full r=1438, caption.mt-ui-2 r=1438, thead.[&_tr]:border-b r=1438)
+gruen  probe-behaelter-alt · Rahmen 900 px · mit Notizen  (Rahmen 899, Fenster 1659, scrollWidth 899 gegen clientWidth 899, Liste als karten)
+rot    probe-behaelter-alt · Rahmen 1000 px · mit Notizen  (Rahmen 1000, Fenster 1838, scrollWidth 1152 gegen clientWidth 1000, Liste als tabelle (rollt im eigenen Kasten), ragt: table.w-full r=1438, caption.mt-ui-2 r=1438, thead.[&_tr]:border-b r=1438)
+rot    probe-behaelter-alt · Rahmen 1150 px · mit Notizen  (Rahmen 1149, Fenster 2105, scrollWidth 1152 gegen clientWidth 1149, Liste als tabelle (rollt im eigenen Kasten), ragt: table.w-full r=1438, caption.mt-ui-2 r=1438, thead.[&_tr]:border-b r=1438)
+
+Browser: 7 von 7 gruen, Bilder unter docs/plans/audits/2026-09-26-marken-misst-den-behaelter
+gruen  Browser: jeder Rahmen des Nachher ohne Abschneiden
+
+Ergebnis: 16 gruen, 0 rot
+aufgeraeumt  probe-behaelter-neu probe-behaelter-alt entfernt, Wegwerf-Schluessel widerrufen
+rc=0

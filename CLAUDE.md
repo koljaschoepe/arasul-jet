@@ -1362,7 +1362,7 @@ Die **Dienste haben deutsche Namen** aus einer Tabelle
 Angaben"; vorn steht eine datierte Fassung als „Stand 26.09.2026"
 (`fassungLesbar`, gleiche Regel im Backend). **Zahlen gehen über de-DE**
 (`formatZahl`, Laufzeit „2 Tage, 5 Stunden", Größen aus dem Sicherungsbericht);
-die Bibliothek steht dafür auf **5.0.1** (Diagramm-Tooltip, Größe unter der
+die Bibliothek stand dafür auf **5.0.1** (Diagramm-Tooltip, Größe unter der
 `Dateiablage`). Der **Firmenordner** zeigt leer drei nummerierte Schritte und
 „Jetzt nachholen" nur, wenn etwas offen ist; Checkbox, Radio und Schalter
 bekommen am Handy keine 44-px-Mindestmaße mehr (sie wurden oval). Bilder bei
@@ -1389,6 +1389,28 @@ der Auftrag nach `timeout_seconds` noch, kommt **202** mit `job_id` und
 `llm/job/:jobId`. Der Kontrakt nennt es unter `warten` und
 `auslesen.laeuft`/`abgeholt`, Version bleibt 6. Abnahme:
 `scripts/test/auslesen-und-flows-abnahme.sh` mit `tests/probe-auslesen`.
+
+Seit dem Auftrag **marken-misst-den-behaelter** (26.09.2026, J35) **richtet
+sich die Bibliothek nach dem Behälter, nicht nach dem Fenster** (5.1.0). Eine
+App im Rahmen teilt ihr Fenster noch einmal mit der eigenen Seitenleiste: am
+Orin war der Rahmen bei 1440 px 1052 px breit, die `Datenliste` zeigte ihre
+Tabelle, und neben der Leiste standen 100 px über dem Rand. Neu ist
+`useSchmalerBehaelter` (ResizeObserver am eigenen Kasten, ohne Maß gilt das
+Fenster; auch im Bündel); die `Datenliste` misst damit sich selbst und zeigt
+unter `LISTE_SCHMAL_AB_PX` (640 px **ihres Kastens**) Karten, darüber auch
+dann, wenn ihre Tabelle nicht in den Kasten passt (sonst sähe die Spalten
+rechts nur, wer im Rollkasten seitlich rollt) — die 900 px
+bleiben die Schwelle der Shell und der `Sidebar`, denn die fragen, ob Spalten
+ins **Fenster** passen, und im iframe ist das Fenster der Rahmen.
+`SidebarInset` trägt `min-w-0`: ohne das wuchs die Fläche als Flex-Kind mit
+ihrem Inhalt, und der Rollkasten der Tabelle kam nie zum Zug. Und der Kopf der
+`Karte` bricht um (Titel mit Grundbreite 12rem, Hinweis darunter mit Umbruch)
+statt mit einem langen Hinweis die Seite bei 390 px auf 501 px zu schieben.
+Abnahme: `scripts/test/behaelter-abnahme.sh` baut eine App aus der
+**Kit-Vorlage** mit dem Spiegel dieses Stands (und mit `ARASUL_VORHER` eine
+zweite aus dem Stand davor), spielt sie ein und misst im Rahmen bei 900, 1000
+und 1150 px, mit und ohne Notizspalte (`behaelter-bilder.mjs`); danach ist
+alles wieder weg. Das Kit zieht mit `marken.mjs --sync` nach.
 
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |

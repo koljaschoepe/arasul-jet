@@ -8592,7 +8592,11 @@ function ns(y) {
     if (X(), typeof ResizeObserver != "function") return;
     const Q = new ResizeObserver(X);
     return Q.observe(U), () => Q.disconnect();
-  }, [U]), [x, s === null ? A : s < y];
+  }, [U]), [
+    x,
+    s === null ? A : s < y,
+    s
+  ];
 }
 var es = "5.1.0", Zy = 0.25, Ly = 4, Vy = 24;
 function ud(y) {
