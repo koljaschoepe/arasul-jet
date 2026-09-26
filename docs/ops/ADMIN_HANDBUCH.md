@@ -161,15 +161,15 @@ Die Einstellungen sind in **7 Reiter** gegliedert (frueher 9, verwandte Bereiche
 wurden zusammengelegt, damit die Navigation uebersichtlich bleibt; „Mitarbeiter"
 kam mit der neuen Oberflaeche dazu):
 
-| Reiter          | Inhalt                                                          |
-| --------------- | --------------------------------------------------------------- |
-| **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen               |
-| **Mitarbeiter** | Konten anlegen, Startpasswort setzen, App-Freigaben             |
-| **KI**          | Standardwerte der Sprachmodelle                                 |
-| **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden        |
-| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung                     |
-| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_       |
-| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                                |
+| Reiter          | Inhalt                                                    |
+| --------------- | --------------------------------------------------------- |
+| **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen         |
+| **Mitarbeiter** | Konten anlegen, Startpasswort setzen, App-Freigaben       |
+| **KI**          | Standardwerte der Sprachmodelle                           |
+| **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden  |
+| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung               |
+| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_ |
+| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                          |
 
 Der Reiter **Mitarbeiter** ist in Kapitel 7 beschrieben, weil dort auch die
 Wege ueber die Schnittstelle stehen.
