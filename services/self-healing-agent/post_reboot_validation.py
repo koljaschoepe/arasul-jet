@@ -15,6 +15,8 @@ import requests
 from datetime import datetime
 from typing import Dict, Optional
 
+from sprache import komma
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -161,38 +163,38 @@ def validate_post_reboot_state() -> tuple[bool, str]:
 
     for service_name in CRITICAL_SERVICES:
         if service_name not in services:
-            validation_results.append(f"❌ Service {service_name} not found")
+            validation_results.append(f"❌ Dienst {service_name} nicht gefunden")
             all_passed = False
         elif not services[service_name]['running']:
-            validation_results.append(f"❌ Service {service_name} not running (status: {services[service_name]['status']})")
+            validation_results.append(f"❌ Dienst {service_name} läuft nicht (Zustand: {services[service_name]['status']})")
             all_passed = False
         elif services[service_name]['health'] == 'unhealthy':
-            validation_results.append(f"⚠️  Service {service_name} unhealthy")
+            validation_results.append(f"⚠️  Dienst {service_name} antwortet nicht")
             all_passed = False
         else:
-            validation_results.append(f"✅ Service {service_name} healthy")
+            validation_results.append(f"✅ Dienst {service_name} gesund")
 
     # 2. Check database connectivity
     logger.info("Checking database connectivity...")
     try:
         conn = connect_db(max_retries=3)
         if conn:
-            validation_results.append("✅ Database accessible")
+            validation_results.append("✅ Datenbank erreichbar")
             conn.close()
         else:
-            validation_results.append("❌ Database not accessible")
+            validation_results.append("❌ Datenbank nicht erreichbar")
             all_passed = False
     except Exception as e:
-        validation_results.append(f"❌ Database error: {e}")
+        validation_results.append(f"❌ Fehler der Datenbank: {e}")
         all_passed = False
 
     # 3. Check metrics collector
     logger.info("Checking metrics collector...")
     metrics = get_current_metrics()
     if metrics.get('cpu', 0) >= 0:
-        validation_results.append("✅ Metrics collector responding")
+        validation_results.append("✅ Messwerte antworten")
     else:
-        validation_results.append("❌ Metrics collector not responding")
+        validation_results.append("❌ Messwerte antworten nicht")
         all_passed = False
 
     # 4. Check disk space
@@ -200,12 +202,12 @@ def validate_post_reboot_state() -> tuple[bool, str]:
     try:
         disk = psutil.disk_usage('/')
         if disk.percent < 95:
-            validation_results.append(f"✅ Disk usage acceptable ({disk.percent}%)")
+            validation_results.append(f"✅ Speicher ausreichend frei ({komma(disk.percent)} % belegt)")
         else:
-            validation_results.append(f"⚠️  Disk usage still high ({disk.percent}%)")
+            validation_results.append(f"⚠️  Speicher weiter fast voll ({komma(disk.percent)} % belegt)")
             all_passed = False
     except Exception as e:
-        validation_results.append(f"❌ Disk check failed: {e}")
+        validation_results.append(f"❌ Speicher ließ sich nicht prüfen: {e}")
         all_passed = False
 
     # 5. Check GPU availability
@@ -217,12 +219,12 @@ def validate_post_reboot_state() -> tuple[bool, str]:
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
-            validation_results.append(f"✅ GPU available: {result.stdout.strip()}")
+            validation_results.append(f"✅ Grafikprozessor vorhanden: {result.stdout.strip()}")
         else:
-            validation_results.append("⚠️  GPU not detected")
+            validation_results.append("⚠️  Kein Grafikprozessor erkannt")
             # Not a failure - might be running without GPU
     except Exception as e:
-        validation_results.append(f"⚠️  GPU check skipped: {e}")
+        validation_results.append(f"⚠️  Grafikprozessor nicht geprüft: {e}")
 
     summary = "\n".join(validation_results)
     return all_passed, summary
@@ -256,7 +258,7 @@ def log_validation_event(conn, validation_passed: bool, summary: str):
         """, (
             'post_reboot_validation',
             'INFO' if validation_passed else 'WARNING',
-            f'Post-reboot validation {"passed" if validation_passed else "failed"}',
+            'Prüfung nach dem Neustart bestanden' if validation_passed else 'Prüfung nach dem Neustart nicht bestanden',
             summary,
             validation_passed
         ))

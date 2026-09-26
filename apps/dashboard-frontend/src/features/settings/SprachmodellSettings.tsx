@@ -9,15 +9,13 @@ import { extractIssues } from './validationIssues';
 import { Feldgruppe, Formularseite } from '@marken';
 
 /**
- * LLM-Standardwerte — raw column values as returned by GET /rag/settings.
- * Bounds mirror UpdateRagSettingsBody in apps/dashboard-backend/src/schemas/rag.js.
+ * Die Standardwerte, mit denen das Gerät ein Modell fragt
+ * (`GET/PATCH /api/settings/sprachmodell`, Spalten in `system_settings`).
+ * Die Grenzen stehen gleich in `SprachmodellBody`
+ * (apps/dashboard-backend/src/schemas/admin-settings.js).
  *
- * Plan 021 (agentic RAG): Die semantische Vektor-Suche (Qdrant + Embeddings) ist
- * abgelöst — der Agent findet sich per dateien_suchen/symbol_suche selbst durch
- * die Projektdateien. Die früheren Retrieval-/Rerank-/Space-Routing-Regler haben
- * deshalb keine Wirkung mehr und sind aus dieser Oberfläche entfernt; nur die
- * LLM-Standardwerte bleiben. Die zugehörigen Backend-Spalten verschwinden mit
- * dem Ausbau des klassischen RAG (Schritt 8).
+ * Bis Phase B4 lag der Weg unter `/rag/settings` und fiel mit dem RAG, obwohl
+ * das Backend die Werte weiter liest; diese Seite bekam danach 404 (J35).
  */
 interface LlmSettings {
   llm_num_ctx_default: number | null;
@@ -26,8 +24,8 @@ interface LlmSettings {
   llm_base_system_prompt: string | null;
 }
 
-/** GET /rag/settings envelope (liefert weiterhin alle Spalten; wir lesen nur die LLM-Werte). */
-interface RagSettingsResponse {
+/** Antwort von GET und PATCH /settings/sprachmodell. */
+interface SprachmodellResponse {
   data: LlmSettings;
 }
 
@@ -44,7 +42,7 @@ interface NumberFieldMeta {
   nullable?: boolean;
 }
 
-// Bounds are copied verbatim from UpdateRagSettingsBody (Zod schema).
+// Grenzen wie in SprachmodellBody (Zod-Schema im Backend).
 const LLM_FIELDS: NumberFieldMeta[] = [
   {
     key: 'llm_num_predict_default',
@@ -79,11 +77,11 @@ function buildNumberValues(settings: LlmSettings): NumberValues {
   return values;
 }
 
-interface RagLlmSettingsProps {
+interface SprachmodellSettingsProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
+export function SprachmodellSettings({ onDirtyChange }: SprachmodellSettingsProps = {}) {
   const api = useApi();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -101,7 +99,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
   const fetchSettings = useCallback(
     async (signal: AbortSignal) => {
       try {
-        const res = await api.get<RagSettingsResponse>('/rag/settings', {
+        const res = await api.get<SprachmodellResponse>('/settings/sprachmodell', {
           signal,
           showError: false,
         });
@@ -181,7 +179,9 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
     setFieldErrors({});
 
     try {
-      await api.patch<RagSettingsResponse>('/rag/settings', patchBody, { showError: false });
+      await api.patch<SprachmodellResponse>('/settings/sprachmodell', patchBody, {
+        showError: false,
+      });
 
       if (numberValues) setOriginalNumberValues({ ...numberValues });
       setOriginalBasePrompt(basePrompt);

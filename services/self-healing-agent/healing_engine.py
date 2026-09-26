@@ -27,6 +27,7 @@ from config import (
     WARTUNG_NACHLAUF_SEKUNDEN, logger
 )
 from db import DatabaseMixin
+from sprache import komma, tausender
 from recovery_actions import RecoveryActionsMixin
 from category_handlers import CategoryHandlersMixin
 
@@ -388,8 +389,8 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             severity = 'CRITICAL' if error_type in ['critical_health', 'gpu_hang'] else 'WARNING'
             self.log_event(
                 'gpu_error_detected', severity,
-                f'GPU Error: {error_type}',
-                error_msg or 'GPU error detected',
+                f'Fehler am Grafikprozessor: {error_type}',
+                error_msg or 'Fehler am Grafikprozessor erkannt',
                 'llm-service', True
             )
 
@@ -415,15 +416,15 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             if success:
                 self.log_event(
                     'gpu_recovery_success', 'INFO',
-                    f'GPU recovery successful: {action.value}',
-                    f'Recovered from {error_type} in {duration_ms}ms',
+                    f'Grafikprozessor wiederhergestellt: {action.value}',
+                    f'{error_type} behoben in {duration_ms} ms',
                     'llm-service', True
                 )
             else:
                 self.log_event(
                     'gpu_recovery_failed', 'ERROR',
-                    f'GPU recovery failed: {action.value}',
-                    f'Failed to recover from {error_type}',
+                    f'Grafikprozessor ließ sich nicht wiederherstellen: {action.value}',
+                    f'{error_type} nicht behoben',
                     'llm-service', False
                 )
 
@@ -442,17 +443,17 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             logger.warning("Tailscale VPN connection lost")
             self.log_event(
                 'tailscale_disconnected', 'WARNING',
-                'Tailscale VPN connection lost unexpectedly',
-                'Logged warning - manual reconnection may be required',
+                'Fernzugriff (Tailscale) unerwartet getrennt',
+                'Warnung festgehalten, eventuell muss jemand den Fernzugriff neu verbinden',
                 'tailscale', True
             )
 
         if self._tailscale_was_connected is False and connected:
-            logger.info(f"Tailscale VPN reconnected (IP: {ts.get('ip')})")
+            logger.info(f"Fernzugriff (Tailscale) wieder verbunden, Adresse {ts.get('ip')}")
             self.log_event(
                 'tailscale_reconnected', 'INFO',
-                f"Tailscale VPN reconnected (IP: {ts.get('ip')})",
-                'Connection restored', 'tailscale', True
+                f"Fernzugriff (Tailscale) wieder verbunden, Adresse {ts.get('ip')}",
+                'Verbindung steht wieder', 'tailscale', True
             )
 
         self._tailscale_was_connected = connected
@@ -539,9 +540,9 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     )
                     self.log_event(
                         'memory_trend', 'WARNING',
-                        f'{name}: +{slope_mb_per_hour:.1f} MB/h over 24h '
-                        f'(current: {ys[-1]:.0f} MB)',
-                        'Potential memory leak — consider restart if trend continues',
+                        f'{name}: über 24 Stunden +{komma(slope_mb_per_hour)} MB je Stunde '
+                        f'(jetzt {ys[-1]:.0f} MB)',
+                        'Vermutlich ein Speicherleck: hält der Anstieg an, den Dienst neu starten',
                         # `success` sagt, ob der EINGRIFF geklappt hat. Hier gab
                         # es keinen, das ist eine Beobachtung. Mit False stand
                         # sie in jedem G7-Bericht als fehlgeschlagene Heilung
@@ -596,8 +597,8 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     logger.warning(f"DB connection saturation: {active}/{max_conn} ({utilization:.0%})")
                     self.log_event(
                         'db_connections', 'WARNING',
-                        f'Connection utilization {utilization:.0%} ({active}/{max_conn})',
-                        'Monitor - may need max_connections increase',
+                        f'Verbindungen zu {round(utilization * 100)} % belegt ({active} von {max_conn})',
+                        'Beobachten, eventuell braucht die Datenbank mehr Verbindungen (max_connections)',
                         'postgres-db', False
                     )
                 # Check for long-running idle-in-transaction connections (>5 min)
@@ -624,8 +625,8 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                 logger.warning(f"DB table bloat detected: {', '.join(tables)}")
                 self.log_event(
                     'db_bloat', 'WARNING',
-                    f'High dead tuple ratio in: {", ".join(tables)}',
-                    'Autovacuum may be falling behind',
+                    f'Viele verwaiste Zeilen in: {", ".join(tables)}',
+                    'Das selbsttätige Aufräumen der Datenbank kommt vermutlich nicht nach',
                     'postgres-db', True  # Beobachtung, kein Eingriff
                 )
 
@@ -649,15 +650,15 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                         if ok:
                             self.log_event(
                                 'db_xid_wraparound', 'CRITICAL',
-                                f'Database {db_name} XID age {xid_age:,} — VACUUM FREEZE executed',
-                                'Automatic VACUUM FREEZE triggered to prevent wraparound',
+                                f'Datenbank {db_name}: Transaktionszähler bei {tausender(xid_age)}, VACUUM FREEZE ausgeführt',
+                                'VACUUM FREEZE selbst ausgelöst, damit der Zähler nicht überläuft',
                                 'postgres-db', True
                             )
                         else:
                             self.log_event(
                                 'db_xid_wraparound', 'CRITICAL',
-                                f'Database {db_name} XID age {xid_age:,} approaching wraparound',
-                                'VACUUM FREEZE failed (see logs)',
+                                f'Datenbank {db_name}: Transaktionszähler bei {tausender(xid_age)}, kurz vor dem Überlauf',
+                                'VACUUM FREEZE gescheitert, Näheres im Protokoll',
                                 'postgres-db', False
                             )
                     elif xid_age > 500_000_000:  # ~23% of limit
@@ -686,8 +687,8 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     renewed = self._renew_tls_cert()
                     self.log_event(
                         'tls_cert_renewal', severity,
-                        f'TLS certificate expires in {days_left} days',
-                        'Auto-renewed successfully' if renewed else 'Auto-renewal failed — manual action required',
+                        f'Das Zertifikat läuft in {days_left} Tagen ab',
+                        'Selbst erneuert' if renewed else 'Erneuern gescheitert, jemand muss es von Hand erneuern',
                         'reverse-proxy', renewed
                     )
                     self.record_recovery_action(
@@ -809,15 +810,15 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             if health == 'critical':
                 self.log_event(
                     'storage_wear_critical', 'CRITICAL',
-                    f'Storage {device} spare at {spare}% — replacement needed',
-                    'No automated action — hardware replacement required',
+                    f'Speicher {device}: noch {spare} % Reserve, er muss getauscht werden',
+                    'Kein Eingriff möglich, der Speicher muss getauscht werden',
                     'storage', False
                 )
             elif health == 'warning':
                 self.log_event(
                     'storage_wear_warning', 'WARNING',
-                    f'Storage {device} spare at {spare}% — plan replacement',
-                    'Monitor closely — schedule maintenance window',
+                    f'Speicher {device}: noch {spare} % Reserve, Tausch einplanen',
+                    'Genau beobachten und ein Wartungsfenster einplanen',
                     'storage', True
                 )
             else:
@@ -853,8 +854,8 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                         self.metrics_down_since = time.time()
                         self.log_event(
                             'metrics_recovery', 'WARNING',
-                            'Metrics collector down > 1min',
-                            'Restarted metrics-collector',
+                            'Messwerte seit über einer Minute ausgefallen',
+                            'Messwerte neu gestartet',
                             'metrics-collector', True
                         )
                     except Exception as e:
@@ -964,8 +965,8 @@ def main():
 
     engine.log_event(
         'engine_started', 'INFO',
-        'Self-Healing Engine v2.0 started successfully',
-        'Monitoring all services with advanced failure tracking',
+        'Selbstheilung gestartet',
+        'Überwacht alle Dienste',
         None, True
     )
 
@@ -985,8 +986,8 @@ def main():
                 logger.info("Self-Healing Engine stopped by user")
                 engine.log_event(
                     'engine_stopped', 'INFO',
-                    'Self-Healing Engine stopped by user',
-                    f'Completed {cycle_count} healing cycles',
+                    'Selbstheilung angehalten',
+                    f'{cycle_count} Durchläufe abgeschlossen',
                     None, True
                 )
                 break

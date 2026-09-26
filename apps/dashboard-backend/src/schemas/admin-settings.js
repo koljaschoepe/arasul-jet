@@ -25,7 +25,23 @@ const FirmennameBody = z
   })
   .strict();
 
+// PATCH /sprachmodell — die Standardwerte, mit denen das Geraet ein Modell
+// fragt (system_settings, gelesen von llmOllamaStream und systemPromptBuilder).
+// Die Grenzen sind dieselben, die bis Phase B4 unter /api/rag/settings galten.
+// Nur was mitkommt, wird geschrieben; null beim Kontextfenster heisst
+// „Vorgabe des Modells", ein leerer Basis-Prompt heisst „eingebauter Prompt".
+const SprachmodellBody = z
+  .object({
+    llm_num_ctx_default: z.number().int().min(512).max(131072).nullable().optional(),
+    llm_keep_alive_seconds: z.number().int().min(0).max(86400).optional(),
+    llm_num_predict_default: z.number().int().min(64).max(16384).optional(),
+    llm_base_system_prompt: z.string().trim().max(4000).nullable().optional(),
+  })
+  .strict()
+  .refine(body => Object.keys(body).length > 0, { message: 'Keine Einstellung angegeben' });
+
 module.exports = {
   PasswordChangeBody,
   FirmennameBody,
+  SprachmodellBody,
 };

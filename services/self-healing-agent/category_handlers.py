@@ -13,6 +13,8 @@ import requests
 from datetime import datetime
 from typing import Dict
 
+from sprache import komma
+
 from config import (
     REBOOT_ENABLED, MAX_REBOOTS_PER_HOUR, MAX_FAILURES_IN_WINDOW,
     FAILURE_WINDOW_MINUTES, CRITICAL_WINDOW_MINUTES, MAX_CRITICAL_EVENTS,
@@ -276,8 +278,8 @@ class CategoryHandlersMixin:
         if self._is_restart_rate_limited(service_name):
             self.log_event(
                 'service_restart_rate_limited', 'CRITICAL',
-                f'{service_name} exceeded {self.MAX_RESTARTS_PER_30MIN} restarts in 30min',
-                'Entering alert-only mode — manual intervention required',
+                f'{service_name} wurde in 30 Minuten öfter als {self.MAX_RESTARTS_PER_30MIN}-mal neu gestartet',
+                'Kein weiterer Neustart, nur noch Warnung: jemand muss nachsehen',
                 service_name, False
             )
             self._notify_quarantine(service_name)
@@ -302,8 +304,8 @@ class CategoryHandlersMixin:
 
                 self.log_event(
                     'service_restart', 'WARNING',
-                    f'{service_name} unhealthy, performing restart (running={is_running})',
-                    f'container.restart() + {backoff}s backoff', service_name, is_running
+                    f'{service_name} antwortet nicht ({"läuft" if is_running else "läuft nicht"}), Neustart',
+                    f'Neu gestartet, danach {backoff} Sekunden Wartezeit', service_name, is_running
                 )
                 self.record_recovery_action(
                     'service_restart', service_name,
@@ -323,8 +325,8 @@ class CategoryHandlersMixin:
 
                 self.log_event(
                     'service_stop_start', 'WARNING',
-                    f'{service_name} still unhealthy, performing stop+start',
-                    f'container.stop()+start() + {backoff}s backoff', service_name, True
+                    f'{service_name} antwortet weiter nicht, anhalten und neu starten',
+                    f'Angehalten und neu gestartet, danach {backoff} Sekunden Wartezeit', service_name, True
                 )
                 self.record_recovery_action(
                     'service_restart', service_name,
@@ -349,11 +351,11 @@ class CategoryHandlersMixin:
                 )
                 self.log_event(
                     'service_escalation', 'CRITICAL',
-                    f'{service_name} failed {failure_count} times, escalating to hard recovery',
-                    'Triggering Category C recovery', service_name, True
+                    f'{service_name} ist {failure_count}-mal ausgefallen, stärkere Wiederherstellung',
+                    'Wiederherstellung der Stufe C eingeleitet', service_name, True
                 )
                 self.handle_category_c_critical(
-                    f"Service {service_name} failed {failure_count} times in {FAILURE_WINDOW_MINUTES} minutes"
+                    f"{service_name} ist in {FAILURE_WINDOW_MINUTES} Minuten {failure_count}-mal ausgefallen"
                 )
 
         except Exception as e:
@@ -387,7 +389,7 @@ class CategoryHandlersMixin:
                 )
                 self.log_event(
                     'service_recovery_verified', 'INFO',
-                    f'{service_name}: Aufruf riss ab, Dienst laeuft wieder',
+                    f'{service_name}: Aufruf riss ab, Dienst läuft wieder',
                     'Nachgesehen statt eskaliert', service_name, True
                 )
                 self.record_recovery_action(
@@ -399,8 +401,8 @@ class CategoryHandlersMixin:
             logger.error(f"Failed to recover {service_name}: {e}")
             self.log_event(
                 'service_recovery_failed', 'CRITICAL',
-                f'Failed to recover {service_name}: {str(e)}',
-                'Escalating to critical', service_name, False
+                f'{service_name} ließ sich nicht wiederherstellen: {str(e)}',
+                'Als kritisch gemeldet', service_name, False
             )
             self.record_recovery_action(
                 'service_restart', service_name,
@@ -429,8 +431,8 @@ class CategoryHandlersMixin:
                 logger.warning(f"CPU overload detected: {cpu}% - clearing LLM cache")
                 success = self.clear_llm_cache()
                 self.log_event(
-                    'cpu_overload', 'WARNING', f'CPU usage at {cpu}%',
-                    'Cleared LLM cache' if success else 'Failed to clear cache',
+                    'cpu_overload', 'WARNING', f'Prozessor zu {cpu} % ausgelastet',
+                    'Zwischenspeicher der Sprachmodelle geleert' if success else 'Zwischenspeicher ließ sich nicht leeren',
                     'llm-service', success
                 )
                 self.record_recovery_action('llm_cache_clear', 'llm-service', f'CPU overload: {cpu}%', success)
@@ -465,7 +467,7 @@ class CategoryHandlersMixin:
                 entladen = ergebnis['entladen']
                 if entladen:
                     self.log_event(
-                        'ram_overload', 'WARNING', f'RAM usage at {ram}%',
+                        'ram_overload', 'WARNING', f'Arbeitsspeicher zu {ram} % belegt',
                         f'Modell entladen: {", ".join(entladen)}',
                         'llm-service', True
                     )
@@ -477,13 +479,13 @@ class CategoryHandlersMixin:
                     # eine Erfolgsmeldung waere die falsche Auskunft: sie
                     # verhindert die Eskalation an einen Menschen.
                     self.log_event(
-                        'ram_overload', 'WARNING', f'RAM usage at {ram}%',
-                        'No action: kein Modell geladen, der Speicher liegt woanders',
+                        'ram_overload', 'WARNING', f'Arbeitsspeicher zu {ram} % belegt',
+                        'Kein Eingriff: kein Modell geladen, der Speicher liegt woanders',
                         'system', False
                     )
                 else:
                     self.log_event(
-                        'ram_overload', 'WARNING', f'RAM usage at {ram}%',
+                        'ram_overload', 'WARNING', f'Arbeitsspeicher zu {ram} % belegt',
                         f'Entladen fehlgeschlagen: {ergebnis["meldung"]}',
                         'llm-service', False
                     )
@@ -514,8 +516,8 @@ class CategoryHandlersMixin:
                     success = self.reset_gpu_session()
                     self.log_event(
                         'gpu_overload', 'CRITICAL',
-                        f'GPU usage at {gpu}% with unresponsive Ollama',
-                        'Reset GPU session' if success else 'Failed to reset session',
+                        f'Grafikprozessor zu {gpu} % ausgelastet, die Sprachmodelle antworten nicht',
+                        'Sitzung am Grafikprozessor zurückgesetzt' if success else 'Sitzung am Grafikprozessor ließ sich nicht zurücksetzen',
                         'llm-service', success
                     )
                     self.record_recovery_action('gpu_session_reset', 'llm-service', f'GPU wedged: {gpu}%', success)
@@ -567,8 +569,8 @@ class CategoryHandlersMixin:
 
                 self.log_event(
                     'thermal_emergency', 'CRITICAL',
-                    f'Emergency thermal shutdown at {avg_temp:.1f}°C (threshold: {TEMP_SHUTDOWN_THRESHOLD}°C)',
-                    'Stopped LLM service' if success else 'Failed to stop service',
+                    f'Notabschaltung bei {komma(avg_temp)} °C (Grenze {TEMP_SHUTDOWN_THRESHOLD} °C)',
+                    'Sprachmodelle angehalten' if success else 'Sprachmodelle ließen sich nicht anhalten',
                     'llm-service', success
                 )
                 self.record_recovery_action(
@@ -593,8 +595,8 @@ class CategoryHandlersMixin:
 
                 self.log_event(
                     'thermal_critical', 'CRITICAL',
-                    f'System temperature at {avg_temp:.1f}°C avg (threshold: {TEMP_RESTART_THRESHOLD}°C)',
-                    'Restarted LLM service' if success else 'Failed to restart service',
+                    f'Gerät im Mittel {komma(avg_temp)} °C warm (Grenze {TEMP_RESTART_THRESHOLD} °C)',
+                    'Sprachmodelle neu gestartet' if success else 'Sprachmodelle ließen sich nicht neu starten',
                     'llm-service', success
                 )
                 self.record_recovery_action(
@@ -612,8 +614,8 @@ class CategoryHandlersMixin:
                 success = self.throttle_gpu()
                 self.log_event(
                     'thermal_warning', 'WARNING',
-                    f'System temperature at {avg_temp:.1f}°C avg (threshold: {TEMP_THROTTLE_THRESHOLD}°C)',
-                    'Applied GPU throttling' if success else 'Failed to throttle GPU',
+                    f'Gerät im Mittel {komma(avg_temp)} °C warm (Grenze {TEMP_THROTTLE_THRESHOLD} °C)',
+                    'Grafikprozessor gedrosselt' if success else 'Grafikprozessor ließ sich nicht drosseln',
                     None, success
                 )
                 self.record_recovery_action('gpu_throttle', None, f'High temperature: {avg_temp:.1f}°C', success)
@@ -632,7 +634,7 @@ class CategoryHandlersMixin:
 
         logger.critical(f"CRITICAL EVENT: {reason}")
 
-        self.log_event('critical_event', 'CRITICAL', reason, 'Initiating Category C recovery', None, True)
+        self.log_event('critical_event', 'CRITICAL', reason, 'Wiederherstellung der Stufe C eingeleitet', None, True)
 
         critical_count = self.get_critical_events_count()
         logger.info(f"Critical events in last {CRITICAL_WINDOW_MINUTES}min: {critical_count}")
@@ -660,7 +662,7 @@ class CategoryHandlersMixin:
 
         if critical_count >= MAX_CRITICAL_EVENTS:
             logger.critical(f"Multiple critical events detected ({critical_count}), escalating to reboot")
-            self.handle_category_d_reboot(f"Multiple critical failures: {critical_count} events in {CRITICAL_WINDOW_MINUTES}min")
+            self.handle_category_d_reboot(f"{critical_count} kritische Vorfälle in {CRITICAL_WINDOW_MINUTES} Minuten")
 
     # ========================================================================
     # CATEGORY D: SYSTEM REBOOT
@@ -726,7 +728,7 @@ class CategoryHandlersMixin:
         logger.critical(f"SYSTEM REBOOT TRIGGERED: {reason}")
 
         # Hier stand bis zum 23.08.2026 EIN Eintrag, und zwar vor jeder
-        # Pruefung: 'Saving state and initiating reboot', success=True. Am
+        # Pruefung: 'Zustand festgehalten, Neustart eingeleitet', success=True. Am
         # 23.08. um 09:32 UTC stand er so im Protokoll des Orin, und das Geraet
         # lief seit vier Tagen ununterbrochen weiter — `REBOOT_ENABLED` ist ab
         # Werk aus. Der Eintrag behauptete etwas, das nicht geschah, und zwar
@@ -738,8 +740,8 @@ class CategoryHandlersMixin:
             logger.error("Reboot safety checks failed - aborting reboot")
             self.log_event(
                 'system_reboot_abgebrochen', 'CRITICAL',
-                f'Neustart verworfen, Sicherheitspruefung: {reason}',
-                'Kein Neustart, Sicherheitspruefung schlug fehl', None, False
+                f'Neustart verworfen, Sicherheitsprüfung: {reason}',
+                'Kein Neustart, die Sicherheitsprüfung schlug fehl', None, False
             )
             return
 
@@ -752,15 +754,15 @@ class CategoryHandlersMixin:
             logger.critical("Enable reboots by setting SELF_HEALING_REBOOT_ENABLED=true")
             self.log_event(
                 'system_reboot_unterdrueckt', 'CRITICAL',
-                f'Neustart waere faellig gewesen: {reason}',
-                'Kein Neustart, SELF_HEALING_REBOOT_ENABLED ist aus', None, False
+                f'Neustart wäre fällig gewesen: {reason}',
+                'Kein Neustart, der selbsttätige Neustart ist ausgeschaltet (SELF_HEALING_REBOOT_ENABLED)', None, False
             )
             return
 
         self.log_event(
             'system_reboot', 'EMERGENCY',
-            f'System reboot triggered: {reason}',
-            'Saving state and initiating reboot', None, True
+            f'Gerät wird neu gestartet: {reason}',
+            'Zustand festgehalten, Neustart eingeleitet', None, True
         )
         logger.critical("Initiating system reboot in 10 seconds...")
         time.sleep(10)
@@ -772,7 +774,7 @@ class CategoryHandlersMixin:
             self.log_event(
                 'system_reboot_gescheitert', 'EMERGENCY',
                 f'Neustartbefehl scheiterte: {e}',
-                'Handeingriff noetig', None, False
+                'Handeingriff nötig', None, False
             )
 
     def perform_reboot_safety_checks(self, reason: str) -> bool:
@@ -795,8 +797,8 @@ class CategoryHandlersMixin:
                     logger.error(f"Safety check failed: {recent_count} reboots in last hour (max {MAX_REBOOTS_PER_HOUR})")
                     self.log_event(
                         'reboot_safety_check_failed', 'CRITICAL',
-                        f'Too many recent reboots: {recent_count} in last hour (limit: {MAX_REBOOTS_PER_HOUR})',
-                        'Reboot aborted - possible reboot loop detected', None, False
+                        f'Zu viele Neustarts: {recent_count} in der letzten Stunde (Grenze {MAX_REBOOTS_PER_HOUR})',
+                        'Neustart abgebrochen, das Gerät startet vermutlich immer wieder neu', None, False
                     )
                     return False
             finally:
@@ -858,14 +860,14 @@ class CategoryHandlersMixin:
 
             if percent >= DISK_REBOOT:
                 logger.critical(f"Disk usage critical for reboot: {percent}%")
-                self.handle_category_d_reboot(f"Disk usage at {percent}%")
+                self.handle_category_d_reboot(f"Speicher zu {percent} % belegt")
 
             elif percent >= DISK_CRITICAL:
                 logger.critical(f"Disk usage critical: {percent}%")
                 self.log_event(
                     'disk_critical', 'CRITICAL',
-                    f'Disk usage at {percent}%',
-                    'Performing emergency cleanup', None, True
+                    f'Speicher zu {percent} % belegt',
+                    'Speicher wird im Notfall aufgeräumt', None, True
                 )
                 self.perform_disk_cleanup()
 

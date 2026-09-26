@@ -71,7 +71,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'ki',
     label: 'KI',
     icon: <Sparkles />,
-    description: 'Firmenprofil und Einstellungen der Modelle',
+    description: 'Standardwerte der Sprachmodelle',
   },
   { id: 'security', label: 'Sicherheit', icon: <Lock />, description: 'Passwörter und Zugriff' },
   {
