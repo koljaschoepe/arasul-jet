@@ -12,11 +12,12 @@
  *   - clicking a section in `SettingsPanel` sets the store and mounts the right
  *     section content in `Settings`,
  *   - `?tab=` deep-links (incl. legacy ids) resolve to the right section,
- *   - the KI and System sections expose their internal sub-navigation.
+ *   - the System section exposes its internal sub-navigation; KI shows the
+ *     Sprachmodell settings directly.
  *
  * The heavy leaf components (which each do their own data fetching) are mocked
  * with lightweight stubs so the shell can be tested in isolation. The detailed
- * behaviour of AIProfileSettings lives in its own AIProfileSettings.test.tsx.
+ * behaviour of SprachmodellSettings lives in its own SprachmodellSettings.test.tsx.
  */
 
 import React from 'react';
@@ -62,9 +63,8 @@ vi.mock('../../../hooks/useConfirm', () => ({
 
 // ---- Leaf component stubs ----
 // Each stub renders a testid so we can assert which section is mounted without
-// pulling in the real component's data fetching. AIProfileSettings / RagLlmSettings
-// / the System leaves stay stubbed so KISettings + SystemSettings still render
-// their *own* sub-navigation (kept real).
+// pulling in the real component's data fetching. The System leaves stay stubbed
+// so SystemSettings still renders its *own* sub-navigation (kept real).
 
 function stub(testId: string, label: string) {
   const Stub = () => React.createElement('div', { 'data-testid': testId }, label);
@@ -78,11 +78,9 @@ vi.mock('../PrivacySettings', () => ({ PrivacySettings: stub('privacy-settings',
 vi.mock('../RemoteAccessSettings', () => ({
   RemoteAccessSettings: stub('remote-access-settings', 'Remote Access'),
 }));
-// Leaves inside the (real) KISettings wrapper.
-vi.mock('../AIProfileSettings', () => ({
-  AIProfileSettings: stub('ai-profile-settings', 'Profile'),
+vi.mock('../SprachmodellSettings', () => ({
+  SprachmodellSettings: stub('sprachmodell-settings', 'Modell'),
 }));
-vi.mock('../RagLlmSettings', () => ({ RagLlmSettings: stub('rag-llm-settings', 'RAG') }));
 // Leaves inside the (real) SystemSettings wrapper.
 vi.mock('../../system/SystemStatus', () => ({ SystemStatus: stub('system-status', 'Status') }));
 vi.mock('../../system/ServicesSettings', () => ({
@@ -206,28 +204,15 @@ describe('Settings shell', () => {
   });
 
   describe('KI section', () => {
-    test('mounts the KI wrapper with its Firmenprofil / Sprachmodell sub-navigation', async () => {
+    // Seit J35 nur noch die Standardwerte des Modells: das Firmenprofil hing
+    // an Wegen, die mit B4 gefallen sind, und bekam am Gerät 404.
+    test('mounts the Sprachmodell settings directly, without a sub-navigation', async () => {
       const user = userEvent.setup();
       renderShell();
       await user.click(screen.getByTestId('settings-open-ki'));
 
-      await waitFor(() => {
-        expect(screen.getByText('Firmenprofil & Kontext')).toBeInTheDocument();
-        expect(screen.getByText('Sprachmodell')).toBeInTheDocument();
-      });
-      // Profile sub-section is shown by default.
-      expect(screen.getByTestId('ai-profile-settings')).toBeInTheDocument();
-    });
-
-    test('switches to the Sprachmodell sub-section', async () => {
-      const user = userEvent.setup();
-      renderShell();
-      await user.click(screen.getByTestId('settings-open-ki'));
-      await user.click(screen.getByText('Sprachmodell'));
-
-      // Both sub-sections stay mounted; RAG becomes visible.
-      expect(screen.getByTestId('rag-llm-settings')).toBeInTheDocument();
-      expect(screen.getByTestId('ai-profile-settings')).toBeInTheDocument();
+      expect(await screen.findByTestId('sprachmodell-settings')).toBeInTheDocument();
+      expect(screen.queryByText('Firmenprofil & Kontext')).not.toBeInTheDocument();
     });
   });
 
@@ -271,7 +256,7 @@ describe('Settings shell', () => {
     test('?tab=ki opens the KI tab', async () => {
       renderSettings('/settings?tab=ki');
       await waitFor(() => {
-        expect(screen.getByTestId('ai-profile-settings')).toBeInTheDocument();
+        expect(screen.getByTestId('sprachmodell-settings')).toBeInTheDocument();
       });
     });
 
@@ -288,7 +273,7 @@ describe('Settings shell', () => {
     test('legacy ?tab=ai-profile maps onto the KI tab', async () => {
       renderSettings('/settings?tab=ai-profile');
       await waitFor(() => {
-        expect(screen.getByTestId('ai-profile-settings')).toBeInTheDocument();
+        expect(screen.getByTestId('sprachmodell-settings')).toBeInTheDocument();
       });
     });
 

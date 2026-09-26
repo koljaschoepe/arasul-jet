@@ -6,6 +6,8 @@
  * - GET  /api/settings/password-requirements - Get password requirements
  * - GET  /api/settings/firmenname         - Firmenname ueber dem Anmeldeformular
  * - PUT  /api/settings/firmenname         - Firmenname setzen (leer = keiner)
+ * - GET  /api/settings/sprachmodell       - Standardwerte fuer das Modell
+ * - PATCH /api/settings/sprachmodell      - Standardwerte setzen
  */
 
 const request = require('supertest');
@@ -201,6 +203,89 @@ describe('Settings Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ firmenname: 'x'.repeat(121) });
       expect(res.status).toBe(400);
+    });
+  });
+
+  // ============================================================================
+  // Sprachmodell (J35): bis B4 unter /api/rag/settings, danach 404
+  // ============================================================================
+  describe('/api/settings/sprachmodell', () => {
+    const WERTE = {
+      llm_num_predict_default: 2048,
+      llm_num_ctx_default: null,
+      llm_keep_alive_seconds: 3600,
+      llm_base_system_prompt: null,
+    };
+
+    test('GET ohne Anmeldung ist 401', async () => {
+      const res = await request(app).get('/api/settings/sprachmodell');
+      expect(res.status).toBe(401);
+    });
+
+    test('GET liefert die vier Werte', async () => {
+      setupMocksWithAuth(query => {
+        if (query.includes('FROM system_settings')) {
+          return Promise.resolve({ rows: [WERTE] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+      const res = await request(app)
+        .get('/api/settings/sprachmodell')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual(WERTE);
+    });
+
+    test('PATCH schreibt nur, was mitkommt, und laedt den Cache neu', async () => {
+      const systemSettings = require('../../src/services/system-settings/systemSettingsService');
+      const updates = [];
+      setupMocksWithAuth((query, params) => {
+        if (query.includes('UPDATE system_settings')) {
+          updates.push({ query, params });
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('FROM system_settings')) {
+          return Promise.resolve({ rows: [{ ...WERTE, llm_num_predict_default: 4096 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+      const res = await request(app)
+        .patch('/api/settings/sprachmodell')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ llm_num_predict_default: 4096, llm_base_system_prompt: '' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.llm_num_predict_default).toBe(4096);
+      expect(updates).toHaveLength(1);
+      expect(updates[0].query).toContain('llm_num_predict_default = $1');
+      expect(updates[0].query).toContain('llm_base_system_prompt = $2');
+      expect(updates[0].query).not.toContain('llm_keep_alive_seconds');
+      // leerer Prompt heisst: eingebauter Prompt, also NULL
+      expect(updates[0].params).toEqual([4096, null]);
+      expect(systemSettings.getNumber('llm_num_predict_default')).toBe(4096);
+      systemSettings._setForTest({ llm_num_predict_default: null });
+    });
+
+    test('PATCH ausserhalb der Grenzen ist 400', async () => {
+      setupMocksWithAuth();
+      const res = await request(app)
+        .patch('/api/settings/sprachmodell')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ llm_num_predict_default: 10 });
+      expect(res.status).toBe(400);
+    });
+
+    test('PATCH ohne Feld oder mit fremdem Feld ist 400', async () => {
+      setupMocksWithAuth();
+      const leer = await request(app)
+        .patch('/api/settings/sprachmodell')
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+      expect(leer.status).toBe(400);
+      const fremd = await request(app)
+        .patch('/api/settings/sprachmodell')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ company_name: 'x' });
+      expect(fremd.status).toBe(400);
     });
   });
 

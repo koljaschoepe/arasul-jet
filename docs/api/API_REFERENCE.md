@@ -796,6 +796,8 @@ Gegen das Gerät misst das `scripts/test/mitarbeiter-abnahme.sh`.
 | GET    | `/api/settings/password-requirements` | Get password rules                       | -          |
 | GET    | `/api/settings/firmenname`            | Firmenname der Anmeldeseite (admin)      | -          |
 | PUT    | `/api/settings/firmenname`            | Firmenname setzen, leer = keiner (admin) | -          |
+| GET    | `/api/settings/sprachmodell`          | Standardwerte für das Modell (admin)     | -          |
+| PATCH  | `/api/settings/sprachmodell`          | Standardwerte setzen (admin)             | -          |
 
 **PUT /api/settings/firmenname** (Auftrag anmeldung-ohne-slogan, 30.08.2026):
 `{ "firmenname": "Muster GmbH" }`, höchstens 120 Zeichen, wird getrimmt; ein
@@ -803,6 +805,17 @@ leerer Name speichert `NULL`, und die Anmeldeseite zeigt dann den Produktnamen.
 Antwort `{ "firmenname": "Muster GmbH" | null }`. Die Spalte ist
 `system_settings.company_name`; gelesen wird sie öffentlich über
 `GET /api/auth/needs-setup`.
+
+**GET/PATCH /api/settings/sprachmodell** (J35, 26.09.2026): die vier Werte in
+`system_settings`, mit denen das Gerät ein Modell fragt —
+`llm_num_predict_default` (64 bis 16384), `llm_num_ctx_default` (512 bis
+131072, `null` = Vorgabe des Modells), `llm_keep_alive_seconds` (0 bis 86400)
+und `llm_base_system_prompt` (höchstens 4000 Zeichen, leer = eingebauter
+Prompt). Antwort in beiden Fällen `{ "data": { …die vier Werte… } }`. PATCH
+schreibt nur die Felder, die mitkommen, ohne Feld oder mit einem fremden ist
+es 400. Bis Phase B4 lag derselbe Weg unter `/api/rag/settings` und fiel mit
+dem RAG, obwohl `llmOllamaStream.js` und `systemPromptBuilder.js` die Werte
+weiter lesen; die Einstellungsseite „KI" bekam dort 404.
 
 **POST /api/settings/password/\*:**
 

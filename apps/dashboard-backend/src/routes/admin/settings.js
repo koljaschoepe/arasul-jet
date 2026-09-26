@@ -23,7 +23,11 @@ const {
 } = require('../../utils/errors');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { validateBody } = require('../../middleware/validate');
-const { PasswordChangeBody, FirmennameBody } = require('../../schemas/admin-settings');
+const {
+  PasswordChangeBody,
+  FirmennameBody,
+  SprachmodellBody,
+} = require('../../schemas/admin-settings');
 const systemSettings = require('../../services/system-settings/systemSettingsService');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
@@ -207,6 +211,67 @@ router.put(
     });
 
     res.json({ firmenname });
+  })
+);
+
+/**
+ * GET /api/settings/sprachmodell
+ * PATCH /api/settings/sprachmodell
+ *
+ * Die Standardwerte, mit denen das Geraet ein Modell fragt: Antwortlaenge,
+ * Kontextfenster, wie lange ein Modell im Speicher bleibt, und der
+ * Basis-Prompt vor jedem Aufruf. Gelesen werden sie seit jeher aus
+ * `system_settings` (`llmOllamaStream.js`, `systemPromptBuilder.js`);
+ * geschrieben wurden sie bis Phase B4 ueber `/api/rag/settings`, und der Weg
+ * fiel mit dem RAG, obwohl die Werte blieben. Die Oberflaeche fragte ihn
+ * weiter und bekam 404 (J35, 26.09.2026).
+ */
+const SPRACHMODELL_SPALTEN = [
+  'llm_num_predict_default',
+  'llm_num_ctx_default',
+  'llm_keep_alive_seconds',
+  'llm_base_system_prompt',
+];
+
+async function sprachmodellLesen() {
+  const { rows } = await db.query(
+    `SELECT ${SPRACHMODELL_SPALTEN.join(', ')} FROM system_settings WHERE id = 1`
+  );
+  return rows[0] || {};
+}
+
+router.get(
+  '/sprachmodell',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await sprachmodellLesen() });
+  })
+);
+
+router.patch(
+  '/sprachmodell',
+  requireAuth,
+  requireRole('admin'),
+  validateBody(SprachmodellBody),
+  asyncHandler(async (req, res) => {
+    const felder = SPRACHMODELL_SPALTEN.filter(spalte => spalte in req.body);
+    const werte = felder.map(spalte =>
+      spalte === 'llm_base_system_prompt' ? req.body[spalte] || null : req.body[spalte]
+    );
+    const setzen = felder.map((spalte, i) => `${spalte} = $${i + 1}`).join(', ');
+    await db.query(`UPDATE system_settings SET ${setzen} WHERE id = 1`, werte);
+    await systemSettings.reload();
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'settings_change',
+      details: { target: 'sprachmodell', felder },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.json({ data: await sprachmodellLesen() });
   })
 );
 

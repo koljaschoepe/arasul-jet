@@ -11,7 +11,7 @@ import { GeneralSettings } from './GeneralSettings';
 import { AppsSettings } from './AppsSettings';
 import { MitarbeiterSettings } from './MitarbeiterSettings';
 import { FirmenordnerSettings } from './FirmenordnerSettings';
-import { KISettings } from './KISettings';
+import { SprachmodellSettings } from './SprachmodellSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
 import { PrivacySettings } from './PrivacySettings';
@@ -107,8 +107,8 @@ function Settings({ handleLogout }: SettingsProps) {
         );
       case 'ki':
         return (
-          <ComponentErrorBoundary componentName="KI">
-            <KISettings onDirtyChange={setIsDirty} />
+          <ComponentErrorBoundary componentName="Sprachmodell">
+            <SprachmodellSettings onDirtyChange={setIsDirty} />
           </ComponentErrorBoundary>
         );
       case 'security':

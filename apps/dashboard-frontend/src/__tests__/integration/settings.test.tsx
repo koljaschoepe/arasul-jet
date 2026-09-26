@@ -311,18 +311,32 @@ describe('Settings integration', () => {
     expect(screen.getAllByText('Einstellungen').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('opens the KI tab with its Firmenprofil / Sprachmodell sub-navigation', async () => {
+  it('opens the KI tab straight on the Sprachmodell settings (J35)', async () => {
     const user = userEvent.setup();
+    vi.mocked(mockApi.get).mockImplementation((path: string) => {
+      if (path === '/settings/sprachmodell') {
+        return Promise.resolve({
+          data: {
+            llm_num_predict_default: 2048,
+            llm_num_ctx_default: null,
+            llm_keep_alive_seconds: 3600,
+            llm_base_system_prompt: null,
+          },
+        });
+      }
+      return Promise.resolve({});
+    });
     renderSettings();
 
     await user.click(screen.getByTestId('settings-open-ki'));
 
     await waitFor(() => {
-      // Sub-nav labels rendered by the (real) KISettings wrapper. "Sprachmodell"
-      // also appears as a heading inside the RagLlmSettings leaf, so match >=1.
-      expect(screen.getByText('Firmenprofil & Kontext')).toBeInTheDocument();
-      expect(screen.getAllByText('Sprachmodell').length).toBeGreaterThanOrEqual(1);
+      expect(mockApi.get).toHaveBeenCalledWith('/settings/sprachmodell', expect.any(Object));
+      expect(screen.getByLabelText('Max. Tokens (LLM-Default)')).toHaveValue(2048);
     });
+    // Das Firmenprofil hing an Wegen, die mit B4 gefallen sind.
+    expect(screen.queryByText('Firmenprofil & Kontext')).not.toBeInTheDocument();
+    expect(mockApi.get).not.toHaveBeenCalledWith('/memory/profile', expect.anything());
   });
 
   it('opens the System tab with its Dienste / Aktualisierungen / Selbstheilung sub-navigation', async () => {

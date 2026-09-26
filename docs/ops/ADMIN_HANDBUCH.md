@@ -165,7 +165,7 @@ kam mit der neuen Oberflaeche dazu):
 | --------------- | --------------------------------------------------------------- |
 | **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen               |
 | **Mitarbeiter** | Konten anlegen, Startpasswort setzen, App-Freigaben             |
-| **KI**          | Zwei Unterbereiche: _Firmenprofil & Kontext_ und _Sprachmodell_ |
+| **KI**          | Standardwerte der Sprachmodelle                                 |
 | **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden        |
 | **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung                     |
 | **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_       |
@@ -186,15 +186,9 @@ Wege ueber die Schnittstelle stehen.
   Menschen (siehe oben).
 - **Systeminformationen:** Version, Geraetename, JetPack, Build, Laufzeit.
 
-### KI → Firmenprofil & Kontext
-
-- **Standard-Modell:** Voreingestelltes KI-Modell
-- **Temperatur:** Kreativitaet der Antworten (0.0-1.0)
-- **Max Tokens:** Maximale Antwortlaenge
-
 ### KI → Sprachmodell (Experten-Tunables)
 
-Der Unterbereich **Einstellungen → KI → „Sprachmodell"** (nur fuer Administratoren) macht die
+Der Reiter **Einstellungen → KI** (nur fuer Administratoren) macht die
 Feinjustierung der LLM-Standardwerte ohne Neustart moeglich. Aenderungen wirken
 sofort. Alle Werte haben sinnvolle Standardwerte, nur anpassen, wenn Sie die
 Auswirkung kennen.
@@ -204,6 +198,10 @@ Auswirkung kennen.
   (wie lange ein geladenes Modell im Speicher bleibt).
 - **Basis-System-Prompt:** frei editierbarer Grundtext, der jedem KI-Kontext
   vorangestellt wird. **Feld leeren = eingebauter Standard-Prompt.**
+
+Den frueheren Unterbereich _Firmenprofil & Kontext_ gibt es seit dem
+26.09.2026 nicht mehr: er gehoerte zum Chat und den Wissensraeumen, die mit dem
+Umbau im August gefallen sind, und bekam am Geraet nur noch eine Fehlermeldung.
 
 ### Sicherheit
 
@@ -242,7 +240,11 @@ Das System ueberwacht alle Dienste automatisch:
 
 - Abgestuerzte Dienste werden automatisch neu gestartet
 - Bei Ressourcen-Engpaessen werden Massnahmen ergriffen
-- Alle Ereignisse werden im Event-Log protokolliert
+- Alle Ereignisse stehen unter **Einstellungen → System → Selbstheilung**:
+  vorn, was geschah und an welchem Dienst, darunter unter „Technische
+  Angaben" Meldung und Massnahme im Wortlaut. Seit dem 26.09.2026 schreibt die
+  Selbstheilung diese Saetze deutsch; aeltere Eintraege bleiben englisch, bis
+  sie nach 30 Tagen aus dem Protokoll fallen.
 
 ---
 

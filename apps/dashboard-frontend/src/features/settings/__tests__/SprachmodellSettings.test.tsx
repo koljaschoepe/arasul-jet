@@ -1,18 +1,16 @@
 /**
- * RagLlmSettings Component Tests
+ * SprachmodellSettings: die Standardwerte, mit denen das Gerät ein Modell fragt.
  *
- * Tests für RagLlmSettings (Plan 021: agentic RAG — nur noch LLM-Standardwerte):
- * - Laden der Tunables via GET /rag/settings
- * - Rendern der LLM-Felder mit min/max aus dem Zod-Schema
- * - KEINE Retrieval-/Space-Routing-/Vektor-Regler mehr
- * - Speichern geänderter Felder via PATCH /rag/settings (nur Teilmenge)
+ * - Laden über GET /settings/sprachmodell (bis B4: /rag/settings, danach 404, J35)
+ * - Rendern der Felder mit min/max aus dem Zod-Schema
+ * - Speichern geänderter Felder über PATCH /settings/sprachmodell (nur Teilmenge)
  * - Reset des Basis-Prompts (leeres Feld)
  */
 
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import type { ApiMethods } from '../../../hooks/useApi';
-import { RagLlmSettings } from '../RagLlmSettings';
+import { SprachmodellSettings } from '../SprachmodellSettings';
 
 // ---- useApi mock ----
 const mockApi = {
@@ -28,16 +26,7 @@ vi.mock('../../../hooks/useApi', () => ({
   useApi: () => mockApi,
 }));
 
-// Das Backend liefert weiterhin alle Spalten; die Oberfläche liest nur die
-// LLM-Werte. Die Vektor-/Retrieval-Spalten sind hier bewusst mit dabei, um zu
-// belegen, dass sie NICHT gerendert werden.
 const MOCK_SETTINGS = {
-  rag_temperature: 0.7,
-  rag_num_predict: 1024,
-  rag_top_k: 20,
-  rag_final_k: 5,
-  rag_hybrid_search: true,
-  rag_rerank_enabled: true,
   llm_num_ctx_default: 8192,
   llm_keep_alive_seconds: 300,
   llm_num_predict_default: 2048,
@@ -48,32 +37,32 @@ function mockGetSettings(settings = MOCK_SETTINGS) {
   mockApi.get.mockResolvedValue({ data: settings });
 }
 
-// RagLlmSettings calls useToast, so renders need the real ToastProvider.
-function renderRagLlmSettings() {
+// SprachmodellSettings calls useToast, so renders need the real ToastProvider.
+function renderSprachmodellSettings() {
   return render(
     <ToastProvider>
-      <RagLlmSettings />
+      <SprachmodellSettings />
     </ToastProvider>
   );
 }
 
-describe('RagLlmSettings Component', () => {
+describe('SprachmodellSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSettings();
     mockApi.patch.mockResolvedValue({ data: MOCK_SETTINGS });
   });
 
-  test('lädt Einstellungen von GET /rag/settings', async () => {
-    renderRagLlmSettings();
+  test('lädt Einstellungen von GET /settings/sprachmodell', async () => {
+    renderSprachmodellSettings();
 
     await waitFor(() => {
-      expect(mockApi.get).toHaveBeenCalledWith('/rag/settings', expect.any(Object));
+      expect(mockApi.get).toHaveBeenCalledWith('/settings/sprachmodell', expect.any(Object));
     });
   });
 
   test('rendert die LLM-Felder mit geladenen Werten', async () => {
-    renderRagLlmSettings();
+    renderSprachmodellSettings();
 
     await waitFor(() => {
       expect(screen.getByText('LLM-Standardwerte')).toBeInTheDocument();
@@ -88,22 +77,8 @@ describe('RagLlmSettings Component', () => {
     );
   });
 
-  test('zeigt KEINE Vektor-/Retrieval-Regler mehr (agentic RAG)', async () => {
-    renderRagLlmSettings();
-
-    await waitFor(() => {
-      expect(screen.getByText('LLM-Standardwerte')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByText('Retrieval')).not.toBeInTheDocument();
-    expect(screen.queryByText('Space-Routing')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Temperatur (RAG)')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Final-K (finale Treffer)')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Hybride Suche')).not.toBeInTheDocument();
-  });
-
   test('spiegelt min/max aus dem Zod-Schema in den Zahlen-Inputs', async () => {
-    renderRagLlmSettings();
+    renderSprachmodellSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Max. Tokens (LLM-Default)')).toBeInTheDocument();
@@ -115,7 +90,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('Speichern-Button ist ohne Änderungen deaktiviert', async () => {
-    renderRagLlmSettings();
+    renderSprachmodellSettings();
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Speichern/ })).toBeInTheDocument();
@@ -124,8 +99,8 @@ describe('RagLlmSettings Component', () => {
     expect(screen.getByRole('button', { name: /Speichern/ })).toBeDisabled();
   });
 
-  test('PATCH /rag/settings nur mit geänderter Teilmenge', async () => {
-    renderRagLlmSettings();
+  test('PATCH /settings/sprachmodell nur mit geänderter Teilmenge', async () => {
+    renderSprachmodellSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Keep-Alive (Sekunden)')).toBeInTheDocument();
@@ -140,7 +115,7 @@ describe('RagLlmSettings Component', () => {
 
     await waitFor(() => {
       expect(mockApi.patch).toHaveBeenCalledWith(
-        '/rag/settings',
+        '/settings/sprachmodell',
         { llm_keep_alive_seconds: 600 },
         expect.any(Object)
       );
@@ -152,7 +127,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('leerer Basis-Prompt wird als leerer String gesendet (Reset auf Default)', async () => {
-    renderRagLlmSettings();
+    renderSprachmodellSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Basis-System-Prompt')).toBeInTheDocument();
@@ -166,7 +141,7 @@ describe('RagLlmSettings Component', () => {
 
     await waitFor(() => {
       expect(mockApi.patch).toHaveBeenCalledWith(
-        '/rag/settings',
+        '/settings/sprachmodell',
         { llm_base_system_prompt: '' },
         expect.any(Object)
       );
@@ -174,7 +149,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('leeres Kontextfenster wird als NULL gesendet (Modell-Default)', async () => {
-    renderRagLlmSettings();
+    renderSprachmodellSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Kontextfenster (LLM-Default)')).toBeInTheDocument();
@@ -188,7 +163,7 @@ describe('RagLlmSettings Component', () => {
 
     await waitFor(() => {
       expect(mockApi.patch).toHaveBeenCalledWith(
-        '/rag/settings',
+        '/settings/sprachmodell',
         { llm_num_ctx_default: null },
         expect.any(Object)
       );
