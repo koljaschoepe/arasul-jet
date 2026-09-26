@@ -53,7 +53,26 @@ async function beleg(anfrage, q) {
   const form = new FormData();
   const text = q.get('text') || 'Rechnung Nr. 1 ueber 12,00 EUR';
   form.append('file', new Blob([text], { type: 'text/plain' }), 'beleg.txt');
-  form.append('schema', JSON.stringify({ betrag: 'number', nummer: 'string' }));
+  // Zwoelf Felder wie auf einem echten Beleg: die Dauer eines Auslesens
+  // haengt an der Laenge der Antwort, und sechs Belege mit zwei Feldern waren
+  // am Orin in 54 s durch -- zu schnell, um das alte 60-s-Netz zu messen.
+  form.append(
+    'schema',
+    JSON.stringify({
+      nummer: 'string',
+      datum: 'string',
+      lieferant: 'string',
+      anschrift: 'string',
+      steuernummer: 'string',
+      netto: 'number',
+      steuersatz: 'number',
+      steuer: 'number',
+      brutto: 'number',
+      zahlungsziel: 'string',
+      iban: 'string',
+      positionen: [{ bezeichnung: 'string', menge: 'number', preis: 'number' }],
+    })
+  );
   if (q.get('warten')) {
     form.append('timeout_seconds', q.get('warten'));
   }

@@ -531,7 +531,7 @@ describe('External API Routes', () => {
       kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce({ modell: 'gemma4:e4b' });
       llmJobService.getJob.mockResolvedValueOnce({
         id: JOB,
-        user_id: 1,
+        user_id: '1', // bigint aus pg
         status: 'completed',
         content: '```json\n{"betrag": 7}\n```',
         queued_at: '2026-09-26T09:00:00Z',
@@ -622,7 +622,10 @@ describe('External API Routes', () => {
       kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce({ modell: 'm' });
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-uuid',
-        user_id: 1,
+        // So kommt es aus pg: `llm_jobs.user_id` ist bigint, also eine
+        // Zeichenkette; der Schluessel traegt `created_by` (integer) als Zahl.
+        // Mit `!==` war das nie gleich (Fund am Orin, 26.09.2026).
+        user_id: '1',
         status: 'completed',
         content: 'Antwort'
       });
