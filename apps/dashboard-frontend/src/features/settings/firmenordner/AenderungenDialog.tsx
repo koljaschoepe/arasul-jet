@@ -40,7 +40,8 @@ export function AenderungenDialog({ fuer, onSchliessen }: Props) {
           <SkeletonText lines={4} />
         ) : isError ? (
           <p className="text-sm text-muted-foreground" data-testid="aenderungen-fehler">
-            Das Protokoll ließ sich nicht lesen. Läuft der Dateidienst?
+            Die letzten Änderungen ließen sich gerade nicht lesen. Versuchen Sie es in einer Minute
+            noch einmal.
           </p>
         ) : liste.length === 0 ? (
           <Leerzustand

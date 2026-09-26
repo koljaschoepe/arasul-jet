@@ -61,12 +61,12 @@ export function OrdnerEntfernenDialog({ fuer, laeuft, fehler, onSchliessen, onWe
     >
       <form id="ordner-wegwerfen" className="flex flex-col gap-4" onSubmit={absenden}>
         <p className="text-sm text-foreground">
-          Es fällt der Ordner samt allem, was darin liegt: auf dem Gerät und beim nächsten Abgleich
-          auf jedem Rechner, der ihn hatte. Zurück kommt er nur aus der Sicherung.
+          Es fällt der Ordner samt allem, was darin liegt: auf dem Gerät und danach auf jedem
+          Rechner, der ihn hatte. Zurück kommt er nur aus der Sicherung.
           {fuer?.ebene === 1 &&
             ' Ein Bereich mit Projekten darin geht nicht; räumen Sie ihn von unten.'}
           {fuer?.art === 'wurzel' &&
-            ' Die Wurzel fällt erst, wenn kein anderer Ordner mehr besteht.'}
+            ' Der Hauptordner fällt erst, wenn kein anderer Ordner mehr besteht.'}
         </p>
         {fehler && (
           <Alert variant="destructive" data-testid="ordner-wegwerfen-fehler">

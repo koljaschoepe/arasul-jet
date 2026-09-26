@@ -5,14 +5,19 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const {
-  versionFuerVergleich,
-  versionBekannt,
-  istReleaseNummer,
-} = require('../../utils/version');
+const { versionFuerVergleich, versionBekannt, istReleaseNummer } = require('../../utils/version');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../../utils/logger');
+
+/**
+ * Was ein Administrator liest, wenn dieses Geraet ein Paket nicht selbst
+ * einspielen kann (J35): in seiner Sprache, ohne Pfad und ohne Befehl. Das
+ * Technische dazu steht im Log.
+ */
+const GRUND_KEIN_EINSPIELEN =
+  'Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein, nicht diese Seite. ' +
+  'Ein Paket prüfen und herunterladen können Sie hier weiterhin.';
 const db = require('../../database');
 const { spawnFromFile } = require('../../utils/processHelpers');
 const { verifySignature } = require('./updateSignatureService');
@@ -191,16 +196,20 @@ class UpdateService {
     try {
       await execFileAsync('docker', ['version', '--format', '{{.Server.Version}}']);
     } catch (fehler) {
+      // Das Technische gehoert ins Log, nicht vor den Menschen (J35): wer die
+      // Seite liest, betreibt eine Kanzlei und kein Rechenzentrum. Ein Satz
+      // mit Skriptpfad und Backticks laesst das Geraet unfertig wirken.
       const warum =
         fehler.code === 'ENOENT'
           ? 'im Backend-Container gibt es kein `docker`-Programm'
           : `docker antwortet nicht (${fehler.message})`;
+      logger.info(
+        `Einspielen ueber die Schnittstelle nicht moeglich: ${warum}. ` +
+          'Aktualisiert wird ueber den Deploy (scripts/deploy/deploy-local.sh) oder `./arasul update`.'
+      );
       return {
         moeglich: false,
-        grund:
-          `Ein Paket laesst sich an diesem Geraet nicht ueber die Schnittstelle einspielen: ${warum}. ` +
-          'Aktualisiert wird ueber den Deploy (scripts/deploy/deploy-local.sh) oder `./arasul update` ' +
-          'am Geraet selbst. Pruefen und Herunterladen eines Pakets geht hier weiterhin.',
+        grund: GRUND_KEIN_EINSPIELEN,
       };
     }
     return { moeglich: true, grund: null };
