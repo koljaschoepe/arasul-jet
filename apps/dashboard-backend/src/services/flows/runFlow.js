@@ -435,7 +435,7 @@ async function runFlow(
         throw new ValidationError(
           `Werkzeug "${werkzeug}" ist nicht verfügbar` +
             (werkzeug === 'frage_nutzer' && flow.betriebsart !== 'rueckfragen'
-              ? '. "frage_nutzer" braucht die Betriebsart "rueckfragen".'
+              ? '. "frage_nutzer" braucht die Betriebsart "rückfragen".'
               : '')
         );
       }

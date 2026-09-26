@@ -168,7 +168,7 @@ describe('FirmenordnerSettings', () => {
     ]);
     expect(within(baum).getByTestId('ordner-vicona')).toHaveTextContent('projekte/vicona');
     expect(within(baum).getByTestId('ordner-art-geraet')).toHaveTextContent('am Gerät');
-    expect(within(baum).getByTestId('ordner-art-firma')).toHaveTextContent('Wurzel');
+    expect(within(baum).getByTestId('ordner-art-firma')).toHaveTextContent('Hauptordner');
   });
 
   it('gibt einem Ordner am Geraet und der Wurzel keine Rechtespalte', async () => {
@@ -345,5 +345,64 @@ describe('FirmenordnerSettings', () => {
 
     expect(await screen.findByText(/läuft kein Firmenordner/)).toBeInTheDocument();
     expect(screen.queryByTestId('ordner-anlegen-oeffnen')).not.toBeInTheDocument();
+    // J35: kein Befehl, keine Umgebungsvariable, kein Pfad vor dem Menschen.
+    expect(screen.getByTestId('firmenordner-seite').textContent).not.toMatch(
+      /COMPOSE_PROFILES|docker|\.env|docs\//
+    );
+  });
+
+  /**
+   * J35: ein leerer Firmenordner zeigt die Einrichtung als nummerierte
+   * Schritte, in der Reihenfolge, in der sie gehen -- und ohne die Woerter
+   * Wurzel, Skills, Agents, CLI.
+   */
+  it('zeigt einem leeren Firmenordner drei nummerierte Schritte', async () => {
+    antworte({ ordner: [], zustand: { ...ZUSTAND, wurzel: null, ordner: 0, am_geraet: 0 } });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+
+    const schritte = await screen.findByTestId('firmenordner-schritte');
+    expect(schritte.tagName).toBe('OL');
+    const punkte = within(schritte).getAllByRole('listitem');
+    expect(punkte.map(p => p.getAttribute('data-testid'))).toEqual([
+      'schritt-hauptordner',
+      'schritt-bereich',
+      'schritt-rechte',
+    ]);
+    expect(punkte[0]).toHaveTextContent('1');
+    expect(punkte[2]).toHaveTextContent('3');
+    expect(screen.getByTestId('firmenordner-seite').textContent).not.toMatch(
+      /Wurzel|Skills|Agents|CLI|Dateidienst/
+    );
+  });
+
+  it('hakt den Hauptordner ab und laesst die Schritte weg, wenn alles steht', async () => {
+    antworte({ ordner: [WURZEL] });
+    const { unmount } = render(<FirmenordnerSettings />, { wrapper: huelle() });
+    expect(await screen.findByTestId('schritt-hauptordner')).toHaveAttribute('data-erledigt', 'ja');
+    expect(screen.queryByTestId('wurzel-anlegen')).not.toBeInTheDocument();
+    unmount();
+
+    antworte();
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await screen.findByTestId('ordner-baum');
+    expect(screen.queryByTestId('firmenordner-schritte')).not.toBeInTheDocument();
+  });
+
+  /** J35: „Nachholen" steht nur da, wenn etwas offen ist -- und sagt, was. */
+  it('bietet das Nachholen nur an, wenn etwas offen ist', async () => {
+    antworte();
+    const { unmount } = render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await screen.findByTestId('ordner-baum');
+    expect(screen.queryByTestId('firmenordner-abgleich')).not.toBeInTheDocument();
+    unmount();
+
+    antworte({ zustand: { ...ZUSTAND, rechte_offen: 2 } });
+    apiMock.post.mockResolvedValue({
+      data: { an: true, nutzer: 0, raeume: 0, rechte: 2, offen: [] },
+    });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    expect(await screen.findByTestId('firmenordner-offen')).toHaveTextContent('2 Änderungen');
+    fireEvent.click(screen.getByTestId('firmenordner-abgleich'));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/firmenordner/abgleich'));
   });
 });

@@ -20,7 +20,8 @@
  * trägt `requireRole('admin')`.
  */
 import { useState } from 'react';
-import { FolderPlus, FolderTree, RefreshCw, ShieldCheck } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Check, FolderPlus, FolderTree, ListOrdered, RefreshCw, ShieldCheck } from 'lucide-react';
 import {
   Alert,
   AlertDescription,
@@ -78,7 +79,7 @@ export function FirmenordnerSettings() {
         toast.success(
           o.raum_id
             ? `„${o.kennung}“ angelegt.`
-            : `„${o.kennung}“ angelegt. Der Dateidienst kennt ihn noch nicht; der Abgleich holt das nach.`
+            : `„${o.kennung}“ angelegt. Er kommt bei den Mitarbeitern an, sobald Sie „Jetzt nachholen“ wählen.`
         );
       },
     });
@@ -89,7 +90,9 @@ export function FirmenordnerSettings() {
       { kennung: 'firma', name: 'Firma', ebene: 0, art: 'wurzel' },
       {
         onSuccess: () =>
-          toast.success('Die Wurzel „firma“ steht. Jeder liest sie, Administratoren schreiben.'),
+          toast.success(
+            'Der Hauptordner „firma“ steht. Alle lesen ihn, Administratoren schreiben.'
+          ),
       }
     );
   };
@@ -115,9 +118,10 @@ export function FirmenordnerSettings() {
         data: { an: boolean; nutzer: number; raeume: number; rechte: number; offen: string[] };
       }>('/firmenordner/abgleich');
       const b = res.data;
+      const zahl = (n: number) => n.toLocaleString('de-DE');
       toast.success(
-        `Abgleich: ${b.nutzer} Menschen, ${b.raeume} Räume, ${b.rechte} Rechte nachgetragen` +
-          (b.offen.length ? `, ${b.offen.length} offen.` : '.')
+        `Nachgeholt: ${zahl(b.nutzer)} Konten, ${zahl(b.raeume)} Ordner, ${zahl(b.rechte)} Rechte` +
+          (b.offen.length ? `; ${zahl(b.offen.length)} noch offen.` : '.')
       );
     } finally {
       setAbgleichLaeuft(false);
@@ -128,6 +132,18 @@ export function FirmenordnerSettings() {
 
   const an = zustand?.an ?? true;
 
+  // Nachholen nur, wenn es etwas nachzuholen gibt (J35): ein Knopf, der immer
+  // dasteht, fragt den Administrator, ob er ihn druecken muss -- und er weiss
+  // es nicht. Offen ist, was der Dienst noch nicht kennt.
+  const offen =
+    (zustand?.nutzer_offen ?? 0) +
+    (zustand?.rechte_offen ?? 0) +
+    ordner.filter(o => !o.raum_id).length;
+
+  // Die Schritte stehen, bis Hauptordner und ein Bereich da sind; danach ist
+  // die Rechte-Matrix selbst die Anleitung.
+  const eingerichtet = Boolean(wurzel) && bereiche.length > 0;
+
   return (
     <div className="animate-in fade-in" data-testid="firmenordner-seite">
       <Kopf
@@ -136,22 +152,10 @@ export function FirmenordnerSettings() {
         beschreibung="Die Ordner der Firma auf dem Gerät, und wer darin liest oder schreibt."
         aktionen={
           an && !isError ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => void handleAbgleich()}
-                disabled={abgleichLaeuft}
-                data-testid="firmenordner-abgleich"
-                title="Nachholen, was der Dateidienst noch nicht weiß"
-              >
-                <RefreshCw className="size-4" aria-hidden="true" />
-                Abgleich
-              </Button>
-              <Button onClick={() => setAnlegenOffen(true)} data-testid="ordner-anlegen-oeffnen">
-                <FolderPlus className="size-4" aria-hidden="true" />
-                Ordner anlegen
-              </Button>
-            </>
+            <Button onClick={() => setAnlegenOffen(true)} data-testid="ordner-anlegen-oeffnen">
+              <FolderPlus className="size-4" aria-hidden="true" />
+              Ordner anlegen
+            </Button>
           ) : null
         }
       />
@@ -166,41 +170,85 @@ export function FirmenordnerSettings() {
         <Leerzustand
           symbol={<FolderTree />}
           titel="Auf diesem Gerät läuft kein Firmenordner"
-          beschreibung="Er wird mit COMPOSE_PROFILES=firmenordner in der .env eingeschaltet; danach docker compose up -d firmenordner dashboard-backend. Siehe docs/features/FIRMENORDNER.md."
+          beschreibung="Der Firmenordner ist auf diesem Gerät nicht eingeschaltet. Ihr Betreuer schaltet ihn ein."
         />
       ) : (
         <Formularseite>
           {zustand && !zustand.erreichbar && (
             <Alert variant="destructive" data-testid="firmenordner-nicht-erreichbar">
-              <AlertTitle>Der Dateidienst antwortet nicht</AlertTitle>
+              <AlertTitle>Der Firmenordner ist gerade nicht erreichbar</AlertTitle>
               <AlertDescription>
-                {zustand.grund ?? 'Er läuft, aber Arasul erreicht ihn gerade nicht.'} Ordner und
-                Rechte lassen sich trotzdem anlegen; der Abgleich holt nach, was fehlt.
+                Ordner und Rechte lassen sich trotzdem anlegen. Sobald er wieder antwortet, steht
+                hier „Jetzt nachholen“, und was fehlt, kommt bei den Mitarbeitern an.
               </AlertDescription>
             </Alert>
           )}
 
-          {!wurzel && (
-            <Alert data-testid="firmenordner-ohne-wurzel">
-              <AlertTitle>Noch keine Wurzel</AlertTitle>
+          {zustand?.erreichbar !== false && offen > 0 && (
+            <Alert data-testid="firmenordner-offen">
+              <AlertTitle>Noch nicht alles bei den Mitarbeitern angekommen</AlertTitle>
               <AlertDescription>
                 <span>
-                  Die Wurzel ist der eine Ordner über allem: die Regeln, Skills und Agents der
-                  Firma. Jeder aktive Mensch liest sie, Administratoren schreiben. Ohne sie legt das
-                  CLI der Wurzel nichts oben in den Baum.
+                  {offen === 1 ? 'Eine Änderung' : `${offen.toLocaleString('de-DE')} Änderungen`} an
+                  Ordnern, Konten oder Rechten {offen === 1 ? 'ist' : 'sind'} noch nicht im
+                  Firmenordner angekommen. Das passiert, wenn er kurz nicht erreichbar war. „Jetzt
+                  nachholen“ überträgt sie.
                 </span>
                 <span className="mt-2 block">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleAbgleich()}
+                    disabled={abgleichLaeuft}
+                    data-testid="firmenordner-abgleich"
+                  >
+                    <RefreshCw className="size-4" aria-hidden="true" />
+                    {abgleichLaeuft ? 'Holt nach…' : 'Jetzt nachholen'}
+                  </Button>
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {!eingerichtet && (
+            <Feldgruppe titel="So richten Sie den Firmenordner ein" symbol={<ListOrdered />}>
+              <ol className="flex flex-col gap-ui-3 text-sm" data-testid="firmenordner-schritte">
+                <Schritt
+                  nummer={1}
+                  erledigt={Boolean(wurzel)}
+                  titel="Hauptordner anlegen"
+                  text="Der oberste Ordner „Firma“. Alle lesen ihn, Administratoren schreiben."
+                  kennzeichen="schritt-hauptordner"
+                >
                   <Button
                     size="sm"
                     onClick={handleWurzel}
                     disabled={anlegen.isPending}
                     data-testid="wurzel-anlegen"
                   >
-                    Wurzel „firma“ anlegen
+                    Hauptordner anlegen
                   </Button>
-                </span>
-              </AlertDescription>
-            </Alert>
+                </Schritt>
+                <Schritt
+                  nummer={2}
+                  erledigt={bereiche.length > 0}
+                  titel="Einen Bereich anlegen"
+                  text="Zum Beispiel „Projekte“ oder „Buchhaltung“. Darin lassen sich später Projekte anlegen."
+                  kennzeichen="schritt-bereich"
+                >
+                  <Button size="sm" variant="outline" onClick={() => setAnlegenOffen(true)}>
+                    Bereich anlegen
+                  </Button>
+                </Schritt>
+                <Schritt
+                  nummer={3}
+                  erledigt={false}
+                  titel="Rechte vergeben"
+                  text="Unten unter „Rechte“ wählen Sie je Mitarbeiter: keine, lesen oder schreiben."
+                  kennzeichen="schritt-rechte"
+                />
+              </ol>
+            </Feldgruppe>
           )}
 
           <Feldgruppe
@@ -208,8 +256,8 @@ export function FirmenordnerSettings() {
             symbol={<FolderTree />}
             beschreibung={
               zustand?.adresse
-                ? `Der Dateidienst liegt unter ${zustand.adresse}. Ebene 1 ist ein Bereich, Ebene 2 ein Projekt darin; ein Ordner „am Gerät“ wird nie abgeglichen.`
-                : 'Ebene 1 ist ein Bereich, Ebene 2 ein Projekt darin; ein Ordner „am Gerät“ wird nie abgeglichen.'
+                ? `Erreichbar unter ${zustand.adresse}. Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter.`
+                : 'Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter.'
             }
           >
             {ordner.length === 0 ? (
@@ -231,11 +279,11 @@ export function FirmenordnerSettings() {
             titel="Rechte"
             symbol={<ShieldCheck />}
             beschreibung={
-              'Je Mensch und Ordner eine Stufe: keine, lesen, schreiben. Ein Recht auf einem Bereich gilt für jedes Projekt darin und wird dort nie weniger. ' +
+              'Je Mitarbeiter und Ordner eine Stufe: keine, lesen, schreiben. Ein Recht auf einem Bereich gilt für jedes Projekt darin und wird dort nie weniger. ' +
               (wurzel
-                ? `Die Wurzel „${wurzel.kennung}“ liest jeder aktive Mensch, Administratoren schreiben. `
+                ? `Den Hauptordner „${wurzel.kennung}“ lesen alle, Administratoren schreiben. `
                 : '') +
-              'Ein Ordner am Gerät hat keine Spalte: ihn liest niemand außer Flows und Apps.'
+              'Ein Ordner am Gerät hat keine Spalte: ihn lesen nur die Apps.'
             }
           >
             <RechteMatrix benutzer={benutzer ?? []} ordner={ordner} />
@@ -262,5 +310,50 @@ export function FirmenordnerSettings() {
       />
       <AenderungenDialog fuer={aenderungen} onSchliessen={() => setAenderungen(null)} />
     </div>
+  );
+}
+
+/**
+ * Ein Schritt der Einrichtung: Nummer, was zu tun ist, und der Knopf dazu --
+ * oder ein Haken, wenn er getan ist (J35). Drei Handlungen ohne Reihenfolge
+ * standen vorher nebeneinander, und wer zum ersten Mal kam, wusste nicht, wo
+ * anfangen.
+ */
+function Schritt({
+  nummer,
+  erledigt,
+  titel,
+  text,
+  kennzeichen,
+  children,
+}: {
+  nummer: number;
+  erledigt: boolean;
+  titel: string;
+  text: string;
+  kennzeichen: string;
+  children?: ReactNode;
+}) {
+  return (
+    <li
+      className="flex items-start gap-ui-3"
+      data-testid={kennzeichen}
+      data-erledigt={erledigt ? 'ja' : 'nein'}
+    >
+      <span
+        className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-ui-xs font-semibold"
+        aria-hidden="true"
+      >
+        {erledigt ? <Check className="size-3.5" /> : nummer}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="font-medium text-foreground">
+          {titel}
+          {erledigt && <span className="sr-only"> (erledigt)</span>}
+        </span>
+        <span className="text-muted-foreground">{text}</span>
+        {!erledigt && children && <span className="mt-1">{children}</span>}
+      </span>
+    </li>
   );
 }

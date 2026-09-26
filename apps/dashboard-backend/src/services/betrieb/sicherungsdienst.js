@@ -114,15 +114,15 @@ async function imContainer(befehl, zeitlimitMs) {
   } catch (fehler) {
     if (fehler.statusCode === 404) {
       throw new ServiceUnavailableError(
-        `Den Sicherungsdienst (${CONTAINER}) gibt es an diesem Geraet nicht. ` +
-          'Ohne ihn laesst sich weder sichern noch wiederherstellen.'
+        `Den Sicherungsdienst (${CONTAINER}) gibt es an diesem Gerät nicht. ` +
+          'Ohne ihn lässt sich weder sichern noch wiederherstellen.'
       );
     }
     throw fehler;
   }
   if (!laeuft) {
     throw new ServiceUnavailableError(
-      `Der Sicherungsdienst (${CONTAINER}) laeuft nicht. ` + 'Erst starten, dann noch einmal.'
+      `Der Sicherungsdienst (${CONTAINER}) läuft nicht. ` + 'Erst starten, dann noch einmal.'
     );
   }
 
@@ -141,9 +141,13 @@ async function imContainer(befehl, zeitlimitMs) {
   const ausgabeStrom = entflechter();
   await new Promise((fertig, scheitern) => {
     const uhr = setTimeout(() => {
+      // Befehl und Pfad nur im Log (J35).
+      logger.warn(`${befehl[0]} hat nach ${Math.round(zeitlimitMs / 1000)}s nicht geantwortet`);
       scheitern(
         new ServiceUnavailableError(
-          `${befehl[0]} hat nach ${Math.round(zeitlimitMs / 1000)}s nicht geantwortet`
+          `Die Sicherung hat nach ${Math.round(zeitlimitMs / 60000).toLocaleString('de-DE')} ` +
+            'Minuten nicht geantwortet. Sehen Sie später unter „Sicherung“ nach, ob sie noch ' +
+            'fertig wurde.'
         )
       );
     }, zeitlimitMs);
@@ -300,7 +304,7 @@ async function status() {
 /** Jetzt sichern. Dauert am Jetson Minuten, nicht Sekunden. */
 async function sichereJetzt() {
   if (laeuftGerade) {
-    throw new ConflictError(`Es laeuft gerade: ${laeuftGerade}`);
+    throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
   }
   laeuftGerade = 'sicherung';
   try {
@@ -338,7 +342,7 @@ async function sichereJetzt() {
  */
 async function stelleWiederHer({ datei = null, durch = null } = {}) {
   if (laeuftGerade) {
-    throw new ConflictError(`Es laeuft gerade: ${laeuftGerade}`);
+    throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
   }
   // Ein Dateiname, kein Pfad. Das Skript prueft es noch einmal, aber ein
   // Aufruf, der `../` durchreicht, hat hier schon nichts verloren.
@@ -395,7 +399,7 @@ async function stelleWiederHer({ datei = null, durch = null } = {}) {
  */
 async function stelleAppWiederHer({ appId, stand = null }) {
   if (laeuftGerade) {
-    throw new ConflictError(`Es laeuft gerade: ${laeuftGerade}`);
+    throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
   }
   const staende = stand ? [stand] : ['test', 'live'];
   const vorhanden = [];
@@ -413,8 +417,8 @@ async function stelleAppWiederHer({ appId, stand = null }) {
   }
   if (vorhanden.length === 0) {
     throw new NotFoundError(
-      `Fuer die App ${appId}${stand ? ` (${stand})` : ''} liegt keine Sicherung ihrer Daten vor. ` +
-        'Gesichert wird jede Nacht und mit POST /api/backup/sicherung.'
+      `Für die App ${appId}${stand ? ` (${stand})` : ''} liegt keine Sicherung ihrer Daten vor. ` +
+        'Gesichert wird jede Nacht und mit „Jetzt sichern“ unter Einstellungen → System → Sicherung.'
     );
   }
 
@@ -512,7 +516,7 @@ async function baueAppsNeu(durch) {
  */
 async function testeWiederherstellung() {
   if (laeuftGerade) {
-    throw new ConflictError(`Es laeuft gerade: ${laeuftGerade}`);
+    throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
   }
   laeuftGerade = 'wiederherstellungstest';
   try {

@@ -87,4 +87,10 @@
  * `import { Chart } from '@marken'` findet nichts mehr, und eine App mit Bau
  * braucht den Pfad `@marken/*` in ihrer `tsconfig.json`.
  */
-export const FASSUNG = '5.0.0';
+/*
+ * 5.0.1 (J35, 26.09.2026): Zahlen auf Deutsch. Der Tooltip von `Chart` und
+ * die Groesse unter der `Dateiablage` schrieben mit `toFixed` „1.5 MB" statt
+ * „1,5 MB"; jetzt `toLocaleString('de-DE')`. Keine neue Eigenschaft, kein
+ * neuer Name -- eine App auf 5.0.0 zeigt nur die Zahlen noch mit Punkt.
+ */
+export const FASSUNG = '5.0.1';

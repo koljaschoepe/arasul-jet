@@ -9,7 +9,7 @@
  * - Loading/Error states
  */
 
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SelfHealingEvents from '../SelfHealingEvents';
 
@@ -38,6 +38,8 @@ describe('SelfHealingEvents Component', () => {
       description: 'Service llm-service wurde neu gestartet',
       action_taken: 'Docker container restart',
       service_name: 'llm-service',
+      dienst_anzeige: 'KI-Modelle',
+      duration_ms: 2500,
       timestamp: new Date().toISOString(),
     },
     {
@@ -103,7 +105,9 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Systemwiederherstellung und Wartung')).toBeInTheDocument();
+        expect(
+          screen.getByText('Was das Gerät selbst repariert hat, und wann')
+        ).toBeInTheDocument();
       });
     });
 
@@ -119,7 +123,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Auto (15s)')).toBeInTheDocument();
+        expect(screen.getByText('Selbst aktualisieren')).toBeInTheDocument();
       });
     });
   });
@@ -141,12 +145,12 @@ describe('SelfHealingEvents Component', () => {
       expect(statsContainer).toHaveTextContent('3');
     });
 
-    test('zeigt Info Count', async () => {
+    test('zeigt Hinweise Count', async () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        // Info appears in both stat section and filter button
-        expect(screen.getAllByText('Info').length).toBeGreaterThanOrEqual(1);
+        // Hinweise appears in both stat section and filter button
+        expect(screen.getAllByText('Hinweise').length).toBeGreaterThanOrEqual(2);
       });
     });
 
@@ -178,8 +182,9 @@ describe('SelfHealingEvents Component', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Alle' })).toBeInTheDocument();
-        // Info appears multiple times (stat + filter)
-        expect(screen.getAllByText('Info').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByRole('button', { name: 'Hinweise' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Warnungen' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Kritisch' })).toBeInTheDocument();
       });
     });
 
@@ -203,7 +208,7 @@ describe('SelfHealingEvents Component', () => {
       // Find filter buttons by aria-pressed attribute
       const filterButtons = screen.getAllByRole('button');
       const infoFilter = filterButtons.find(
-        btn => btn.textContent === 'Info' && btn.hasAttribute('aria-pressed')
+        btn => btn.textContent === 'Hinweise' && btn.hasAttribute('aria-pressed')
       );
 
       expect(infoFilter).toBeDefined();
@@ -258,61 +263,91 @@ describe('SelfHealingEvents Component', () => {
   // Events List
   // =====================================================
   describe('Events List', () => {
-    test('zeigt Event-Beschreibungen', async () => {
+    // Seit J35 steht der englische Satz des Agenten nicht mehr vorn, sondern
+    // zugeklappt unter „Technische Angaben" -- erst nach dem Klick zu sehen.
+    test('zeigt Event-Beschreibungen erst unter Technische Angaben', async () => {
       render(<SelfHealingEvents />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Service llm-service wurde neu gestartet')).toBeInTheDocument();
-      });
+      const knopf = await screen.findByTestId('ereignis-1-technisch-knopf');
+      expect(screen.queryByText('Service llm-service wurde neu gestartet')).not.toBeInTheDocument();
+
+      fireEvent.click(knopf);
+      const angaben = screen.getByTestId('ereignis-1-technisch');
+      expect(within(angaben).getByText('Meldung')).toBeInTheDocument();
+      expect(
+        within(angaben).getByText('Service llm-service wurde neu gestartet')
+      ).toBeInTheDocument();
     });
 
-    test('zeigt Event-Types formatiert (underscores replaced with spaces)', async () => {
+    test('zeigt Event-Types als deutsches Wort', async () => {
       render(<SelfHealingEvents />);
 
-      await waitFor(() => {
-        // Component replaces underscores: event_type.replace(/_/g, ' ')
-        expect(screen.getByText('service restart')).toBeInTheDocument();
-      });
+      expect(await screen.findByText('Dienst neu gestartet')).toBeInTheDocument();
+      expect(screen.getByText('Arbeitsspeicher knapp')).toBeInTheDocument();
+      expect(screen.getByText('Dienst ausgefallen')).toBeInTheDocument();
+      expect(screen.queryByText('service restart')).not.toBeInTheDocument();
+      expect(screen.queryByText('service_restart')).not.toBeInTheDocument();
     });
 
-    test('zeigt Severity als Text', async () => {
+    test('zeigt einen unbekannten Event-Type als „Ereignis" statt roh', async () => {
+      mockApi.get.mockResolvedValue({
+        events: [{ ...mockEvents[1], id: 9, event_type: 'etwas_neues' }],
+      });
       render(<SelfHealingEvents />);
 
-      await waitFor(() => {
-        // Severity is rendered as text spans (INFO, WARNING, CRITICAL)
-        expect(screen.getByText('INFO')).toBeInTheDocument();
-        expect(screen.getByText('WARNING')).toBeInTheDocument();
-        expect(screen.getByText('CRITICAL')).toBeInTheDocument();
-      });
+      expect(await screen.findByText('Ereignis')).toBeInTheDocument();
+      expect(screen.queryByText('etwas_neues')).not.toBeInTheDocument();
     });
 
-    test('zeigt Massnahme wenn vorhanden', async () => {
+    test('zeigt Severity als deutsches Wort', async () => {
       render(<SelfHealingEvents />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Docker container restart')).toBeInTheDocument();
-      });
-
-      // "Massnahme:" is rendered as a <strong> inside a span
-      expect(screen.getByText(/Maßnahme:/)).toBeInTheDocument();
+      expect(await screen.findByText('Hinweis')).toBeInTheDocument();
+      expect(screen.getByText('Warnung')).toBeInTheDocument();
+      // „Kritisch" steht auch in der Statistik und am Filter.
+      expect(screen.getAllByText('Kritisch').length).toBeGreaterThanOrEqual(3);
+      expect(screen.queryByText('INFO')).not.toBeInTheDocument();
+      expect(screen.queryByText('WARNING')).not.toBeInTheDocument();
+      expect(screen.queryByText('CRITICAL')).not.toBeInTheDocument();
     });
 
-    test('zeigt Service-Name wenn vorhanden', async () => {
+    test('zeigt Massnahme unter Technische Angaben', async () => {
       render(<SelfHealingEvents />);
 
-      await waitFor(() => {
-        expect(screen.getAllByText(/Service:/).length).toBeGreaterThan(0);
-        expect(screen.getByText('llm-service')).toBeInTheDocument();
-      });
+      fireEvent.click(await screen.findByTestId('ereignis-1-technisch-knopf'));
+      const angaben = screen.getByTestId('ereignis-1-technisch');
+      expect(within(angaben).getByText('Maßnahme')).toBeInTheDocument();
+      expect(within(angaben).getByText('Docker container restart')).toBeInTheDocument();
     });
 
-    test('zeigt Fehler-Message wenn vorhanden', async () => {
+    test('zeigt den deutschen Dienstnamen, sonst die Kennung', async () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        // Error message is rendered directly in a span (no "Fehler:" prefix)
-        expect(screen.getByText('Connection refused')).toBeInTheDocument();
+        expect(screen.getAllByText(/Dienst:/).length).toBe(2);
       });
+      // Ereignis 1 bringt `dienst_anzeige` mit, Ereignis 3 nur `service_name`.
+      expect(screen.getByText('KI-Modelle')).toBeInTheDocument();
+      expect(screen.queryByText('llm-service')).not.toBeInTheDocument();
+      expect(screen.getByText('postgres-db')).toBeInTheDocument();
+    });
+
+    test('zeigt die Dauer in Sekunden', async () => {
+      render(<SelfHealingEvents />);
+
+      expect(await screen.findByText(/2,5\s+Sekunden/)).toBeInTheDocument();
+    });
+
+    test('zeigt Fehler-Message unter Technische Angaben', async () => {
+      render(<SelfHealingEvents />);
+
+      const knopf = await screen.findByTestId('ereignis-3-technisch-knopf');
+      expect(screen.queryByText('Connection refused')).not.toBeInTheDocument();
+
+      fireEvent.click(knopf);
+      const angaben = screen.getByTestId('ereignis-3-technisch');
+      expect(within(angaben).getByText('Fehler')).toBeInTheDocument();
+      expect(within(angaben).getByText('Connection refused')).toBeInTheDocument();
     });
   });
 
@@ -327,7 +362,7 @@ describe('SelfHealingEvents Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Keine Ereignisse')).toBeInTheDocument();
-        expect(screen.getByText(/Das System läuft einwandfrei/)).toBeInTheDocument();
+        expect(screen.getByText(/Das Gerät läuft einwandfrei/)).toBeInTheDocument();
       });
     });
 
@@ -350,8 +385,9 @@ describe('SelfHealingEvents Component', () => {
       expect(criticalFilter).toBeDefined();
       await user.click(criticalFilter!);
 
-      // No critical events — component shows "Keine CRITICAL-Ereignisse"
-      expect(screen.getByText('Keine CRITICAL-Ereignisse')).toBeInTheDocument();
+      // Keine kritischen Ereignisse -- in Worten, nicht mit dem Rohwert
+      expect(screen.getByText('Keine kritischen Ereignisse')).toBeInTheDocument();
+      expect(screen.getByText('Es gibt gerade keine kritischen Ereignisse.')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Alle anzeigen' })).toBeInTheDocument();
     });
   });

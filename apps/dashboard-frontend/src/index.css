@@ -1735,12 +1735,15 @@
 
   /* Mobile Touch Targets - Ensure minimum 44px for all interactive elements */
   @media (pointer: coarse) {
-    button,
+    /* Auswahlknoepfe (Checkbox, Radio, Schalter) NICHT (J35, 26.09.2026):
+       Radix rendert sie als `button` mit fester Groesse und runder oder
+       eckiger Form; 44 px Mindesthoehe und -breite zogen den Kreis eines
+       Radios am Handy zum Oval und die Checkbox zum Klotz. Ihre Trefferflaeche
+       ist die Zeile mit dem Label daneben. */
+    button:not([role='checkbox']):not([role='radio']):not([role='switch']),
     [role='button'],
     a,
     select,
-    input[type='checkbox'],
-    input[type='radio'],
     .filter-btn,
     .dm-pagination button {
       min-height: var(--touch-target-min);
@@ -1875,7 +1878,8 @@
 
   /* Touch-friendly spacing */
   @media (max-width: 768px) {
-    button,
+    /* Ohne Auswahlknoepfe, aus demselben Grund wie oben (J35). */
+    button:not([role='checkbox']):not([role='radio']):not([role='switch']),
     .btn {
       min-height: var(--touch-target-min);
     }

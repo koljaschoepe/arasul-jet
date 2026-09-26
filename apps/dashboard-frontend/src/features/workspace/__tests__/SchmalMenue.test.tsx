@@ -12,6 +12,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { SchmalMenue } from '../SchmalMenue';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { SETTINGS_SECTIONS } from '@/features/settings/sections';
 import { angemeldet } from '@/__tests__/helpers/authMock';
 
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
@@ -106,14 +108,35 @@ describe('Das Hamburger-Menue', () => {
 
   it('zeigt einem Mitarbeiter keine Verwaltung und dem Administrator beides', () => {
     zeige();
-    expect(screen.queryByTestId('menue-einstellungen')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menue-einstellungen-general')).not.toBeInTheDocument();
     expect(screen.queryByTestId('menue-modelle')).not.toBeInTheDocument();
 
     angemeldet({ role: 'admin', username: 'admin' });
     zeige();
-    expect(screen.getAllByTestId('menue-einstellungen').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('menue-einstellungen-general').length).toBeGreaterThan(0);
     expect(screen.getAllByTestId('menue-modelle').length).toBeGreaterThan(0);
   });
+
+  /**
+   * J35: unter 900 px gibt es keine Sidebar, und nur dort standen die
+   * Einstellungsbereiche. Jeder Bereich muss mit einem Tipp erreichbar sein
+   * -- gezaehlt an `SETTINGS_SECTIONS`, nicht an einer Zahl hier.
+   */
+  it.each(SETTINGS_SECTIONS.map(b => [b.id, b.label]))(
+    'fuehrt den Administrator mit einem Tipp in den Bereich %s',
+    (id, label) => {
+      angemeldet({ role: 'admin', username: 'admin' });
+      useSettingsStore.setState({ activeSection: 'general' });
+      zeige();
+      const eintrag = screen.getByTestId(`menue-einstellungen-${id}`);
+      expect(eintrag).toHaveTextContent(label);
+      fireEvent.click(eintrag);
+      expect(useSettingsStore.getState().activeSection).toBe(id);
+      const stand = useWorkspaceStore.getState();
+      expect(stand.activeTabId).toBe('settings');
+      expect(stand.menueOffen).toBe(false);
+    }
+  );
 
   it('geht mit Escape zu -- wer es aufmacht, muss auch wieder heraus', () => {
     zeige();

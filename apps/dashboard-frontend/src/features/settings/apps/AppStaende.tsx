@@ -51,7 +51,7 @@ function Gesundheit({
     );
   }
   if (!backend) {
-    return <span className="text-muted-foreground">kein Backend</span>;
+    return <span className="text-muted-foreground">kein Server-Teil</span>;
   }
   const gut = backend.laeuft && backend.gesundheit !== 'unhealthy';
   const wort = !backend.laeuft
@@ -108,8 +108,8 @@ function StandKarte({
       {!detail ? (
         <p className="text-sm text-muted-foreground">
           {stand === 'live'
-            ? 'Noch nichts live. Was im Teststand steht, schaltet der Knopf daneben.'
-            : 'Kein Teststand. Der Partner rollt eine Version mit dem Ara-Kit hierher.'}
+            ? 'Noch nichts live. Was in Test steht, schaltet der Knopf daneben live.'
+            : 'Nichts in Test. Eine neue Fassung bringt Ihr Partner auf das Gerät.'}
         </p>
       ) : (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">

@@ -59,7 +59,7 @@ function Herkunft({ f }: { f: OffeneFreigabe }) {
       {f.stand === 'test' && (
         <span
           className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
-          title="Teststand: diese Fassung der App ist noch nicht live"
+          title="Test: diese Fassung der App ist noch nicht live"
         >
           Test
         </span>

@@ -51,7 +51,7 @@ async function bildmodellFuer(modell) {
   if (!modell) {
     if (vorhanden.length === 0) {
       throw new ServiceUnavailableError(
-        'An diesem Geraet liegt kein Bildmodell. Ein Administrator laedt eines unter Modelle (llava-phi3).'
+        'An diesem Gerät liegt kein Bildmodell. Ein Administrator lädt eines unter Modelle (llava-phi3).'
       );
     }
     return vorhanden[0];
@@ -64,8 +64,8 @@ async function bildmodellFuer(modell) {
   if (ergebnis.rows[0]?.supports_vision_input !== true) {
     const liste = vorhanden.length > 0 ? vorhanden.join(', ') : 'keines';
     throw new ValidationError(
-      `Modell "${modell}" liest keine Bilder. Bildmodelle an diesem Geraet: ${liste}. ` +
-        'Ohne `model` nimmt das Geraet sein Bildmodell selbst.'
+      `Modell "${modell}" liest keine Bilder. Bildmodelle an diesem Gerät: ${liste}. ` +
+        'Ohne `model` nimmt das Gerät sein Bildmodell selbst.'
     );
   }
   return modell;

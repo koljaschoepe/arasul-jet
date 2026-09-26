@@ -219,7 +219,7 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
   }
   if (!appId) {
     throw new ValidationError(
-      '`einreicher` und `freigabe` gelten fuer den Lauf einer App. Dieser Schluessel gehoert keiner.'
+      '`einreicher` und `freigabe` gelten für den Lauf einer App. Dieser Schlüssel gehört keiner.'
     );
   }
 
@@ -285,7 +285,7 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
   });
   if (kandidaten.length === 0) {
     throw new ValidationError(
-      'Nach dieser Regel koennte niemand die Freigabe entscheiden: der Kreis ist leer. ' +
+      'Nach dieser Regel könnte niemand die Freigabe entscheiden: der Kreis ist leer. ' +
         'Einem weiteren Menschen die App freigeben oder die Regel lockern.'
     );
   }
@@ -411,7 +411,7 @@ async function anfordern(
     throw new ValidationError('Eine Freigabe braucht einen Titel: worum geht es?');
   }
   if (!runId) {
-    throw new ValidationError('Eine Freigabe gehoert zu einem Lauf, und hier laeuft keiner.');
+    throw new ValidationError('Eine Freigabe gehört zu einem Lauf, und hier läuft keiner.');
   }
   // OHNE APP KEINE FREIGABE, und das ist keine technische Huerde, sondern die
   // Frage „wer duerfte das entscheiden". Der Kreis der Entscheider ist
@@ -421,7 +421,7 @@ async function anfordern(
   if (!appId || !stand) {
     throw new ValidationError(
       'Eine Freigabe braucht eine App: entscheiden darf, wem sie freigegeben ist. ' +
-        'Dieser Flow gehoert der Plattform, nicht einer App.'
+        'Dieser Flow gehört der Plattform, nicht einer App.'
     );
   }
 
@@ -615,7 +615,7 @@ async function schliesseAb({ id, status, datenbank = db }) {
 async function entscheide({ id, benutzerId, status, begruendung = null }, deps = {}) {
   const { datenbank = db } = deps;
   if (status !== 'bestaetigt' && status !== 'abgelehnt') {
-    throw new ValidationError(`"${status}" ist keine Entscheidung ueber eine Freigabe`);
+    throw new ValidationError(`"${status}" ist keine Entscheidung über eine Freigabe`);
   }
   const grund = begruendung == null ? null : String(begruendung).trim().slice(0, 2000);
 
@@ -700,7 +700,7 @@ async function erklaereFehlschlag({ id, benutzerId, datenbank }) {
   }
   if (a.im_kreis === false) {
     throw new ForbiddenError(
-      'Diese Freigabe ist benannten Entscheidern vorbehalten, und Sie gehoeren nicht dazu.'
+      'Diese Freigabe ist benannten Entscheidern vorbehalten, und Sie gehören nicht dazu.'
     );
   }
   if (a.status !== 'offen') {
@@ -710,7 +710,7 @@ async function erklaereFehlschlag({ id, benutzerId, datenbank }) {
     throw new ConflictError('Die Frist dieser Freigabe ist abgelaufen');
   }
   // Kein bekannter Grund: dann ist es einer, den dieser Code noch nicht kennt.
-  throw new ConflictError('Diese Freigabe liess sich nicht entscheiden');
+  throw new ConflictError('Diese Freigabe ließ sich nicht entscheiden');
 }
 
 async function nameVon(benutzerId, datenbank = db) {

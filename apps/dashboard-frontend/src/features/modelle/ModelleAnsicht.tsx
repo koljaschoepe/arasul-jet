@@ -73,7 +73,7 @@ function ModelleAnsicht() {
 
       <Kennzahlen className="mb-6">
         <Kennzahl
-          beschriftung="KI-RAM"
+          beschriftung="Speicher für KI"
           wert={budget ? zuGb(budget.usedMb ?? 0) : '—'}
           einheit={budget ? `von ${zuGb(budget.totalBudgetMb ?? 0)} GB` : undefined}
           fussnote={kiRamZeile(budget)}

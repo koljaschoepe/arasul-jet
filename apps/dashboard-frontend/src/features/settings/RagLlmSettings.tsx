@@ -242,7 +242,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
     <div className="animate-in fade-in">
       <Kopf
         titel="Sprachmodell"
-        beschreibung="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen."
+        beschreibung="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen nimmt das Gerät nicht an."
       />
 
       <Formularseite>

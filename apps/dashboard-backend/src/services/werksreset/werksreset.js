@@ -285,9 +285,9 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
       delete process.env.ADMIN_PASSWORD;
     } catch (err) {
       throw new ConflictError(
-        `Werksreset abgebrochen, bevor etwas geloescht wurde: das Erstpasswort ` +
-          `laesst sich nicht entwerten (${err.message}). Ohne das legt das Geraet ` +
-          `beim naechsten Start den alten Zugang mit dem alten Passwort wieder an.`
+        `Werksreset abgebrochen, bevor etwas gelöscht wurde: das Erstpasswort ` +
+          `lässt sich nicht entwerten (${err.message}). Ohne das legt das Gerät ` +
+          `beim nächsten Start den alten Zugang mit dem alten Passwort wieder an.`
       );
     }
   }

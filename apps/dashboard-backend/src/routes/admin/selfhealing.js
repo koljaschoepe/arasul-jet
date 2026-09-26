@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const { dienstName } = require('../../utils/dienstNamen');
 const router = express.Router();
 const db = require('../../database');
 const { requireAuth, requireRole } = require('../../middleware/auth');
@@ -81,7 +82,8 @@ router.get(
     const totalCount = parseInt(countResult.rows[0].count);
 
     res.json({
-      events: result.rows,
+      // Je Ereignis der deutsche Name des Dienstes (J35, `utils/dienstNamen`).
+      events: result.rows.map(e => ({ ...e, dienst_anzeige: dienstName(e.service_name) })),
       count: result.rows.length,
       total: totalCount,
       limit: boundLimit(limit),

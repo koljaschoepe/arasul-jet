@@ -23,7 +23,7 @@ import { Kennzahl, Kennzahlen, Kopf } from '@marken';
 import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
-import { formatBytes, formatDate } from '@/utils/formatting';
+import { duGroesseLesbar, formatBytes, formatDate, formatZahl } from '@/utils/formatting';
 import {
   useJetztSichern,
   useSicherungen,
@@ -103,7 +103,7 @@ export function Sicherung() {
           return;
         }
         const groesse = ergebnis.bericht?.total_size;
-        const text = `Sicherung fertig${groesse ? `, ${groesse}` : ''}. Sie steht unten in der Liste.`;
+        const text = `Sicherung fertig${groesse ? `, ${duGroesseLesbar(groesse)}` : ''}. Sie steht unten in der Liste.`;
         setSicherungsMeldung({ gut: true, text });
         toast.success('Sicherung fertig');
       },
@@ -193,7 +193,7 @@ export function Sicherung() {
                 wert={letzte?.zeitpunkt ? formatDate(letzte.zeitpunkt) : 'keine'}
                 fussnote={
                   letzte?.alterStunden != null
-                    ? `vor ${letzte.alterStunden} h${letzte.groesse ? `, ${letzte.groesse}` : ''}${
+                    ? `vor ${letzte.alterStunden === 1 ? '1 Stunde' : `${formatZahl(letzte.alterStunden)} Stunden`}${letzte.groesse ? `, ${duGroesseLesbar(letzte.groesse)}` : ''}${
                         letzte.verschluesselt ? ', verschlüsselt' : ''
                       }`
                     : 'Dieses Gerät hat noch nie gesichert.'

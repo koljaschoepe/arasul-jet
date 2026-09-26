@@ -54,13 +54,19 @@ interface OpsOverview {
 
 const REFRESH_INTERVAL_MS = 30_000;
 
+// Zahlen und Zeiten, wie man sie in Deutschland liest (J35): „vor 3 Stunden“
+// statt „vor 3h“, „1.024“ statt „1024“.
+const zahl = (n: number | undefined) => (n ?? 0).toLocaleString('de-DE');
+const stunden = (n: number) => (n === 1 ? '1 Stunde' : `${zahl(n)} Stunden`);
+const tage = (n: number | undefined) => (n === 1 ? '1 Tag' : `${zahl(n)} Tagen`);
+
 const statusMeta: Record<
   OpsOverview['status'],
   { icon: React.ReactNode; label: string; color: string }
 > = {
   OK: {
     icon: <ShieldCheck size={20} />,
-    label: 'Alle Systeme OK',
+    label: 'Alles in Ordnung',
     color: 'var(--primary)',
   },
   WARNING: {
@@ -113,7 +119,7 @@ const SystemHealthWidget: React.FC = () => {
 
   if (error && !data) {
     return (
-      <Feldgruppe titel="System-Gesundheit">
+      <Feldgruppe titel="Zustand des Geräts">
         <p className="text-ui text-muted-foreground">{error}</p>
       </Feldgruppe>
     );
@@ -121,8 +127,8 @@ const SystemHealthWidget: React.FC = () => {
 
   if (!data) {
     return (
-      <Feldgruppe titel="System-Gesundheit" className="min-h-[200px]">
-        <p className="text-ui text-muted-foreground">Lade…</p>
+      <Feldgruppe titel="Zustand des Geräts" className="min-h-[200px]">
+        <p className="text-ui text-muted-foreground">Lädt…</p>
       </Feldgruppe>
     );
   }
@@ -131,7 +137,7 @@ const SystemHealthWidget: React.FC = () => {
   // a malformed /ops/overview response must not crash the whole view.
   const meta = statusMeta[data.status] ?? {
     icon: <ShieldAlert size={20} />,
-    label: 'Status unbekannt',
+    label: 'Zustand unbekannt',
     color: 'var(--text-muted)',
   };
 
@@ -152,7 +158,7 @@ const SystemHealthWidget: React.FC = () => {
   const notifications = data.notifications ?? { unsent_critical_24h: 0 };
 
   return (
-    <Feldgruppe titel="System-Gesundheit">
+    <Feldgruppe titel="Zustand des Geräts">
       <div
         className="mb-ui-3 flex min-w-0 items-center gap-ui-2 rounded-lg border p-ui-2"
         style={{ borderColor: meta.color }}
@@ -175,7 +181,7 @@ const SystemHealthWidget: React.FC = () => {
 
       <div className="grid min-w-0 gap-ui-1 text-ui">
         <div className="flex min-w-0 items-center justify-between gap-ui-2">
-          <span className="min-w-0 truncate">Letztes Backup</span>
+          <span className="min-w-0 truncate">Letzte Sicherung</span>
           <span
             className="shrink-0 whitespace-nowrap"
             style={{ color: backup.stale ? 'var(--danger-color)' : 'var(--primary)' }}
@@ -183,13 +189,13 @@ const SystemHealthWidget: React.FC = () => {
             {backup.status === 'missing'
               ? 'fehlt'
               : backup.ageHours !== undefined
-                ? `vor ${backup.ageHours}h`
-                : backup.status}
+                ? `vor ${stunden(backup.ageHours)}`
+                : 'unbekannt'}
           </span>
         </div>
 
         <div className="flex min-w-0 items-center justify-between gap-ui-2">
-          <span className="min-w-0 truncate">Restore-Drill</span>
+          <span className="min-w-0 truncate">Wiederherstellungstest</span>
           <span
             className="shrink-0 whitespace-nowrap"
             style={{
@@ -201,7 +207,7 @@ const SystemHealthWidget: React.FC = () => {
           >
             {restoreDrill.status === 'never_run'
               ? 'nie ausgeführt'
-              : `vor ${restoreDrill.ageDays}d`}
+              : `vor ${tage(restoreDrill.ageDays)}`}
           </span>
         </div>
 
@@ -211,26 +217,26 @@ const SystemHealthWidget: React.FC = () => {
             className="shrink-0 whitespace-nowrap"
             style={{ color: services.down > 0 ? 'var(--danger-color)' : 'var(--primary)' }}
           >
-            {services.healthy}/{services.total} healthy
-            {services.down > 0 && ` · ${services.down} down`}
+            {zahl(services.healthy)} von {zahl(services.total)} laufen
+            {services.down > 0 && ` · ${zahl(services.down)} ausgefallen`}
           </span>
         </div>
 
         <div className="flex min-w-0 items-center justify-between gap-ui-2">
-          <span className="min-w-0 truncate">Aktive Alerts</span>
+          <span className="min-w-0 truncate">Offene Warnungen</span>
           <span
             className="shrink-0 whitespace-nowrap"
             style={{ color: alerts.active > 0 ? 'var(--muted-foreground)' : 'var(--primary)' }}
           >
-            {alerts.active}
+            {zahl(alerts.active)}
           </span>
         </div>
 
         {notifications.unsent_critical_24h > 0 && (
           <div className="flex min-w-0 items-center justify-between gap-ui-2">
-            <span className="min-w-0 truncate">Unversandte kritische Events</span>
+            <span className="min-w-0 truncate">Nicht zugestellte Warnungen</span>
             <span className="shrink-0 whitespace-nowrap" style={{ color: 'var(--danger-color)' }}>
-              {notifications.unsent_critical_24h}
+              {zahl(notifications.unsent_critical_24h)}
             </span>
           </div>
         )}

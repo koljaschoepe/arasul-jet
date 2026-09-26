@@ -48,7 +48,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'apps',
     label: 'Apps',
     icon: <AppWindow />,
-    description: 'Fassungen, Zustand, Flows und Laeufe',
+    description: 'Fassungen, Zustand, Flows und Läufe',
   },
   // Menschen anlegen und Apps freigeben ist der Handgriff, den ein
   // Administrator am haeufigsten tut (Phase D3).
@@ -67,7 +67,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: <FolderTree />,
     description: 'Ordner, Rechte je Person, letzte Änderungen',
   },
-  { id: 'ki', label: 'KI', icon: <Sparkles />, description: 'Firmenprofil, Kontext & RAG/LLM' },
+  {
+    id: 'ki',
+    label: 'KI',
+    icon: <Sparkles />,
+    description: 'Firmenprofil und Einstellungen der Modelle',
+  },
   { id: 'security', label: 'Sicherheit', icon: <Lock />, description: 'Passwörter und Zugriff' },
   {
     id: 'privacy',
@@ -79,7 +84,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'system',
     label: 'System',
     icon: <Server />,
-    description: 'Auslastung, Updates, Sicherung, Selbstheilung',
+    description: 'Auslastung, Aktualisierungen, Sicherung, Selbstheilung',
   },
   // Neben dem System (J35): was das Geraet traegt, ist eine Frage an das
   // Geraet und nicht an einen Menschen -- und wer nach dem Grund sucht, warum
@@ -94,7 +99,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'remote-access',
     label: 'Fernzugriff',
     icon: <Globe />,
-    description: 'Tailscale VPN und Remote-Zugriff',
+    description: 'Zugriff von unterwegs',
   },
 ];
 

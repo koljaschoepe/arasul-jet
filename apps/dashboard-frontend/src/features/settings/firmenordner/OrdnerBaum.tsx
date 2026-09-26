@@ -30,7 +30,7 @@ import { alsBaum, type Ordner } from './useFirmenordner';
 
 /** Das Wort zur Art, an einer Stelle. */
 function artWort(art: Ordner['art']): string {
-  if (art === 'wurzel') return 'Wurzel';
+  if (art === 'wurzel') return 'Hauptordner';
   if (art === 'am_geraet') return 'am Gerät';
   return 'geteilt';
 }
@@ -143,9 +143,9 @@ export function OrdnerBaum({ ordner, onAenderungen, onWegwerfen }: Props) {
                 {!o.raum_id && (
                   <span
                     className="ml-2 text-ui-xs text-muted-foreground"
-                    title="Der Dienst kennt diesen Ordner noch nicht; der Abgleich holt ihn nach."
+                    title="Noch nicht bei den Mitarbeitern angekommen. Oben auf „Jetzt nachholen“ tippen."
                   >
-                    noch nicht im Dienst
+                    noch nicht angekommen
                   </span>
                 )}
               </TableCell>
@@ -157,10 +157,10 @@ export function OrdnerBaum({ ordner, onAenderungen, onWegwerfen }: Props) {
                 {o.art === 'wurzel'
                   ? 'alle lesen, Administratoren schreiben'
                   : o.art === 'am_geraet'
-                    ? 'nur Flows und Apps am Gerät'
+                    ? 'nur die Apps am Gerät'
                     : o.rechte_anzahl === 1
-                      ? '1 Mensch'
-                      : `${o.rechte_anzahl} Menschen`}
+                      ? '1 Person'
+                      : `${o.rechte_anzahl.toLocaleString('de-DE')} Personen`}
               </TableCell>
               <TableCell className="text-right">
                 <Handgriffe

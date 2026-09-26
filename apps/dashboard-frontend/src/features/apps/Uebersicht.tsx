@@ -42,7 +42,7 @@ function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () 
         eintrag.stand === 'test' ? (
           <span
             className="text-muted-foreground"
-            title="Teststand: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
+            title="Test: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
           >
             Test
           </span>

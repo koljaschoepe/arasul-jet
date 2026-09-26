@@ -138,7 +138,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
       <Leerzustand
         symbol={<FolderTree />}
         titel="Noch kein geteilter Ordner"
-        beschreibung="Legen Sie einen Bereich an, dann steht er hier als Spalte, und je Mensch lässt sich eine Stufe wählen."
+        beschreibung="Legen Sie einen Bereich an, dann steht er hier als Spalte, und je Person lässt sich eine Stufe wählen."
       />
     );
   }
@@ -209,7 +209,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
           <thead>
             <tr className="border-b border-border">
               <th scope="col" className="p-2 text-left font-medium text-muted-foreground">
-                Mensch
+                Mitarbeiter
               </th>
               {spalten.map(o => (
                 <th

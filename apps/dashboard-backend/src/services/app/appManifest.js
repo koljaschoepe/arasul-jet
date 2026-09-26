@@ -44,7 +44,7 @@ function verzeichnisFuer(appId, version) {
   }
   const ziel = path.resolve(APPS_DIR, kennung.data, fassung.data);
   if (ziel !== path.join(APPS_DIR, kennung.data, fassung.data)) {
-    throw new ValidationError(`Pfad fuehrt aus ${APPS_DIR} heraus: ${appId}/${version}`);
+    throw new ValidationError(`Pfad führt aus ${APPS_DIR} heraus: ${appId}/${version}`);
   }
   return ziel;
 }
@@ -73,7 +73,7 @@ async function leseManifest(appId, version) {
     roh = await fs.readFile(datei, 'utf8');
   } catch (err) {
     if (err.code === 'ENOENT') {
-      throw new NotFoundError(`Kein app.json fuer ${appId} in Version ${version}`);
+      throw new NotFoundError(`Kein app.json für ${appId} in Version ${version}`);
     }
     throw err;
   }

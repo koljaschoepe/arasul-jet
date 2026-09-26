@@ -9,10 +9,20 @@ const {
   versionFuerVergleich,
   versionBekannt,
   istReleaseNummer,
+  fassungLesbar,
 } = require('../../utils/version');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../../utils/logger');
+
+/**
+ * Was ein Administrator liest, wenn dieses Geraet ein Paket nicht selbst
+ * einspielen kann (J35): in seiner Sprache, ohne Pfad und ohne Befehl. Das
+ * Technische dazu steht im Log.
+ */
+const GRUND_KEIN_EINSPIELEN =
+  'Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein, nicht diese Seite. ' +
+  'Ein Paket prüfen und herunterladen können Sie hier weiterhin.';
 const db = require('../../database');
 const { spawnFromFile } = require('../../utils/processHelpers');
 const { verifySignature } = require('./updateSignatureService');
@@ -110,11 +120,9 @@ class UpdateService {
         return {
           valid: false,
           error:
-            'Dieses Geraet kennt seine eigene Fassung nicht (SYSTEM_VERSION ist nicht gesetzt). ' +
-            `Ob ${manifest.version} dazu passt, laesst sich damit nicht entscheiden -- ` +
-            'weder ob es neuer ist noch ob die verlangte Mindestfassung ' +
-            `(${manifest.min_version}) erreicht ist. Die Fassung kommt aus dem Bau; ` +
-            'bis dahin wird an diesem Geraet nicht ueber die Schnittstelle aktualisiert.',
+            'Dieses Gerät kennt seine eigene Fassung nicht. ' +
+            `Ob ${manifest.version} dazu passt, lässt sich damit nicht entscheiden. ` +
+            'Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein.',
           versionBekannt: false,
         };
       }
@@ -132,10 +140,10 @@ class UpdateService {
         return {
           valid: false,
           error:
-            `Dieses Geraet traegt die Fassung ${currentVersion} aus dem Bau, keine ` +
-            `Release-Nummer. Ob ${manifest.version} neuer ist, laesst sich damit nicht ` +
-            'entscheiden. Pakete gelten fuer ausgelieferte Staende; dieses Geraet ' +
-            'aktualisiert ueber den Deploy (scripts/deploy/deploy-local.sh).',
+            `Dieses Gerät trägt einen Zwischenstand (${fassungLesbar(currentVersion)}), ` +
+            'keine ausgelieferte Fassung. ' +
+            `Ob ${manifest.version} neuer ist, lässt sich damit nicht entscheiden. ` +
+            'Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein.',
           versionBekannt: true,
         };
       }
@@ -191,16 +199,20 @@ class UpdateService {
     try {
       await execFileAsync('docker', ['version', '--format', '{{.Server.Version}}']);
     } catch (fehler) {
+      // Das Technische gehoert ins Log, nicht vor den Menschen (J35): wer die
+      // Seite liest, betreibt eine Kanzlei und kein Rechenzentrum. Ein Satz
+      // mit Skriptpfad und Backticks laesst das Geraet unfertig wirken.
       const warum =
         fehler.code === 'ENOENT'
           ? 'im Backend-Container gibt es kein `docker`-Programm'
           : `docker antwortet nicht (${fehler.message})`;
+      logger.info(
+        `Einspielen ueber die Schnittstelle nicht moeglich: ${warum}. ` +
+          'Aktualisiert wird ueber den Deploy (scripts/deploy/deploy-local.sh) oder `./arasul update`.'
+      );
       return {
         moeglich: false,
-        grund:
-          `Ein Paket laesst sich an diesem Geraet nicht ueber die Schnittstelle einspielen: ${warum}. ` +
-          'Aktualisiert wird ueber den Deploy (scripts/deploy/deploy-local.sh) oder `./arasul update` ' +
-          'am Geraet selbst. Pruefen und Herunterladen eines Pakets geht hier weiterhin.',
+        grund: GRUND_KEIN_EINSPIELEN,
       };
     }
     return { moeglich: true, grund: null };
@@ -775,8 +787,8 @@ class UpdateService {
         versionBekannt: false,
         channel: UPDATE_CHANNEL,
         error:
-          'Dieses Geraet kennt seine eigene Fassung nicht (SYSTEM_VERSION ist nicht gesetzt). ' +
-          'Solange sie nicht aus dem Bau kommt, laesst sich nicht sagen, ob es etwas Neueres gibt.',
+          'Dieses Gerät kennt seine eigene Fassung nicht. ' +
+          'Solange das so ist, lässt sich nicht sagen, ob es etwas Neueres gibt.',
       };
     }
 
@@ -792,8 +804,8 @@ class UpdateService {
         versionBekannt: true,
         channel: UPDATE_CHANNEL,
         error:
-          `Dieses Geraet traegt die Fassung ${currentVersion} aus dem Bau, keine ` +
-          'Release-Nummer. Es aktualisiert ueber den Deploy, nicht ueber ein Paket.',
+          `Dieses Gerät trägt einen Zwischenstand (${fassungLesbar(currentVersion)}), ` +
+          'keine ausgelieferte Fassung. Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein.',
       };
     }
 

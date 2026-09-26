@@ -65,7 +65,7 @@ function zeige() {
 describe('SystemStatus', () => {
   it('sagt bei der Speicherkachel, worauf sich die Zahl bezieht', () => {
     zeige();
-    expect(screen.getByText(/24\.5 von 61 GB im ganzen Gerät/)).toBeInTheDocument();
+    expect(screen.getByText(/24,5 von 61 GB im ganzen Gerät/)).toBeInTheDocument();
   });
 
   it('erklaert die zweite Speicherzahl, die die Statusleiste zeigt (F-24)', async () => {

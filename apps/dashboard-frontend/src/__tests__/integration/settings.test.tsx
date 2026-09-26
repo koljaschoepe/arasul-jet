@@ -140,9 +140,13 @@ describe('Settings integration', () => {
 
     // Old top-level tabs no longer exist as nav items (general is active, so the
     // KI / System sub-section labels are not mounted).
+    // (Nach Kennung und nicht nach Text: „Selbstheilung“ steht seit J35 in
+    // der Begriffsliste unter Allgemein.)
+    expect(screen.queryByTestId('settings-open-ai-profile')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('settings-open-rag-llm')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('settings-open-selfhealing')).not.toBeInTheDocument();
     expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
     expect(screen.queryByText('Sprachmodell')).not.toBeInTheDocument();
-    expect(screen.queryByText('Selbstheilung')).not.toBeInTheDocument();
   });
 
   it('shows General section by default', async () => {

@@ -1,4 +1,6 @@
-import { formatUptime } from '../../utils/formatting';
+import { fassungLesbar, formatUptime } from '../../utils/formatting';
+import { TechnischeAngaben } from '../system/TechnischeAngaben';
+import { BEGRIFFE } from '../../begriffe';
 import { useState, useEffect, useCallback } from 'react';
 import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu, Building2 } from 'lucide-react';
 import { Kopf } from '@marken';
@@ -224,16 +226,16 @@ export function GeneralSettings() {
         ) : systemInfo ? (
           <Feldgruppe
             titel="Systeminformationen"
-            beschreibung="Aktuelle System- und Versionsangaben"
+            beschreibung="Welche Fassung läuft und wie lange schon"
           >
             <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
               {[
                 // Beschriftungen deutsch. B7 hat die englischen aus dem
                 // System-Bereich geholt und diese fünf uebersehen.
-                { label: 'Version', value: systemInfo.version },
+                // J35: JetPack, Bau und Versionskennung stehen darunter unter
+                // „Technische Angaben"; vorn steht, was ein Administrator liest.
+                { label: 'Fassung', value: fassungLesbar(systemInfo.version) },
                 { label: 'Gerätename', value: systemInfo.hostname },
-                { label: 'JetPack', value: systemInfo.jetpack_version },
-                { label: 'Build', value: systemInfo.build_hash },
                 {
                   label: 'Laufzeit',
                   value: formatUptime(systemInfo.uptime_seconds),
@@ -252,6 +254,15 @@ export function GeneralSettings() {
                 </div>
               ))}
             </div>
+            <div className="mt-3">
+              <TechnischeAngaben
+                angaben={[
+                  { beschriftung: 'Versionskennung', wert: systemInfo.version },
+                  { beschriftung: 'Bau', wert: systemInfo.build_hash },
+                  { beschriftung: 'JetPack', wert: systemInfo.jetpack_version },
+                ]}
+              />
+            </div>
           </Feldgruppe>
         ) : (
           <Feldgruppe titel="Systeminformationen">
@@ -260,6 +271,28 @@ export function GeneralSettings() {
             </p>
           </Feldgruppe>
         )}
+
+        {/*
+          Die Begriffsliste (J35) steht nicht nur im Wächter, sondern auch hier:
+          wer ein Wort der Oberfläche nicht kennt, schlägt es an derselben
+          Stelle nach, an der die Oberfläche es herhat.
+        */}
+        <Feldgruppe
+          titel="Begriffe"
+          beschreibung="Die Wörter, die diese Oberfläche benutzt, und was sie meinen"
+        >
+          <dl
+            className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[auto_1fr]"
+            data-testid="begriffe"
+          >
+            {BEGRIFFE.map(b => (
+              <div key={b.wort} className="contents">
+                <dt className="font-medium text-foreground">{b.wort}</dt>
+                <dd className="text-muted-foreground max-sm:mb-2">{b.bedeutung}</dd>
+              </div>
+            ))}
+          </dl>
+        </Feldgruppe>
 
         {/*
           DIESER TEXT SAGT SEIT H5, WAS DAS GERÄT IST. Bis dahin stand hier

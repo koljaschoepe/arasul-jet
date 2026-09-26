@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
-import { formatBytesBinaer } from '@/utils/formatting';
+import { formatBytesBinaer, formatZahl } from '@/utils/formatting';
 import { Button, Kennzahl, Kennzahlen, ToggleGroup, ToggleGroupItem } from '@marken';
 import { Chart, Sparkline } from '@marken/diagramm';
 import { useGeraetezustand } from './geraetezustand';
@@ -103,7 +103,7 @@ function SystemStatusView({
   // des Geraets). Beide Zahlen waren richtig, keine erklaerte die andere.
   const { data: kiBudget } = useMemoryBudget();
   const kiRamGb =
-    kiBudget?.totalBudgetMb != null ? (kiBudget.totalBudgetMb / 1024).toFixed(0) : null;
+    kiBudget?.totalBudgetMb != null ? formatZahl(kiBudget.totalBudgetMb / 1024) : null;
 
   const defaultThresholds: Thresholds = {
     cpu: { warning: 70, critical: 90 },
@@ -198,12 +198,12 @@ function SystemStatusView({
       <Kennzahlen>
         <Kennzahl
           beschriftung="Arbeitsspeicher"
-          wert={metrics?.ram?.toFixed(1) || 0}
+          wert={formatZahl(metrics?.ram ?? 0, 1)}
           einheit="%"
           fussnote={
             deviceInfo?.total_memory_gb ? (
               <>
-                {`${(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} von ${deviceInfo.total_memory_gb} GB im ganzen Gerät`}
+                {`${formatZahl(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb, 1)} von ${formatZahl(deviceInfo.total_memory_gb)} GB im ganzen Gerät`}
                 {kiRamGb !== null && (
                   <div className="mt-ui-1 text-ui-xs text-muted-foreground">
                     {`Davon ${kiRamGb} GB für KI-Modelle reserviert`}
@@ -222,7 +222,7 @@ function SystemStatusView({
 
         <Kennzahl
           beschriftung="Auslagerung"
-          wert={metrics?.swap?.toFixed(1) || 0}
+          wert={formatZahl(metrics?.swap ?? 0, 1)}
           einheit="%"
           fussnote={
             <span
@@ -235,7 +235,7 @@ function SystemStatusView({
 
         <Kennzahl
           beschriftung="Speicherplatz"
-          wert={metrics?.disk?.percent?.toFixed(0) || 0}
+          wert={formatZahl(metrics?.disk?.percent ?? 0)}
           einheit="%"
           fussnote={
             <>
@@ -258,7 +258,7 @@ function SystemStatusView({
 
         <Kennzahl
           beschriftung="Temperatur"
-          wert={metrics?.temperature?.toFixed(0) || 0}
+          wert={formatZahl(metrics?.temperature ?? 0)}
           einheit="°C"
           fussnote={
             <>
@@ -311,9 +311,9 @@ function SystemStatusView({
                     <ToggleGroupItem
                       key={hours}
                       value={String(hours)}
-                      aria-label={`${hours} Stunden`}
+                      aria-label={hours === 1 ? '1 Stunde' : `${hours} Stunden`}
                     >
-                      {hours}h
+                      {hours} Std.
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
@@ -334,9 +334,9 @@ function SystemStatusView({
                 formatX={ts =>
                   new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
                 }
-                formatY={wert => `${wert}%`}
+                formatY={wert => `${formatZahl(wert)} %`}
                 yDomain={[0, 100]}
-                formatYRechts={wert => `${wert} °C`}
+                formatYRechts={wert => `${formatZahl(wert)} °C`}
                 yDomainRechts={TEMPERATUR_ACHSE}
                 // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
                 // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
@@ -347,9 +347,9 @@ function SystemStatusView({
               <div className="sr-only" role="status">
                 {metrics && (
                   <>
-                    Arbeitsspeicher: {metrics.ram?.toFixed(1)}%, Auslagerung:{' '}
-                    {metrics.swap?.toFixed(1)}
-                    %, Temperatur: {metrics.temperature?.toFixed(1)}°C
+                    Arbeitsspeicher: {formatZahl(metrics.ram, 1)} %, Auslagerung:{' '}
+                    {formatZahl(metrics.swap, 1)}
+                    %, Temperatur: {formatZahl(metrics.temperature, 1)} °C
                   </>
                 )}
               </div>

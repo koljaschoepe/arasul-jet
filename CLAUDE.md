@@ -1339,6 +1339,34 @@ bekam der Rahmen bei 1440 px sonst 778 px (App in schmaler Form) oder 1052 px
 nicht den Platz neben der Seitenleiste der App). Abnahme:
 `scripts/test/freigabe-wer-entscheidet-abnahme.sh` mit `tests/probe-freigabe`.
 
+Seit dem Auftrag **oberflaeche-am-handy-und-in-kundensprache** (26.09.2026,
+J35) **erreicht der Administrator am Handy jeden Einstellungsbereich, und die
+Oberfläche spricht die Sprache einer Kanzlei**. Unter 900 px gab es die
+Bereiche nur in der Sidebar, und die gibt es dort nicht; das Hamburger-Menü
+führt jetzt `SETTINGS_SECTIONS` selbst, ein Tipp je Bereich (Test je Bereich
+in `SchmalMenue.test.tsx`). Die Sprache hat **eine Begriffsliste**
+(`apps/dashboard-frontend/src/begriffe.ts`: Sicherung, Wiederherstellungstest,
+Mitarbeiter, Fassung, Test und Live, Warnungen, Dienste, Protokoll, …), die
+unter Einstellungen → Allgemein auch sichtbar steht, und **zwei Wächter**:
+`src/__tests__/begriffe.test.ts` liest jeden sichtbaren Text der Shell und der
+Bibliothek (JSX-Text, Zeichenketten mit Leerzeichen oder an lesbaren Stellen)
+auf die verdrängten Wörter und auf ae/oe/ue; `__tests__/unit/kundensprache.test.js`
+liest jede Meldung eines Fehlers aus `utils/errors.js` und jeden `grund`,
+`mangel`, `zweck`, `hinweis`, `satz` im Backend auf Pfade, Befehle und API-Wege
+(die stehen im Log) und auf ae/oe/ue, ausgenommen die Schnittstelle des Kits.
+Die **Dienste haben deutsche Namen** aus einer Tabelle
+(`utils/dienstNamen.js`; `anzeige` in `GET /api/services/all`,
+`dienst_anzeige` je Selbstheilungs-Ereignis, die Sätze von `/api/ops/overview`).
+**JetPack, Bau und Versionskennung** stehen zugeklappt unter „Technische
+Angaben"; vorn steht eine datierte Fassung als „Stand 26.09.2026"
+(`fassungLesbar`, gleiche Regel im Backend). **Zahlen gehen über de-DE**
+(`formatZahl`, Laufzeit „2 Tage, 5 Stunden", Größen aus dem Sicherungsbericht);
+die Bibliothek steht dafür auf **5.0.1** (Diagramm-Tooltip, Größe unter der
+`Dateiablage`). Der **Firmenordner** zeigt leer drei nummerierte Schritte und
+„Jetzt nachholen" nur, wenn etwas offen ist; Checkbox, Radio und Schalter
+bekommen am Handy keine 44-px-Mindestmaße mehr (sie wurden oval). Bilder bei
+390 und 1440 px: `docs/plans/audits/2026-09-26-oberflaeche-kundensprache/`.
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |

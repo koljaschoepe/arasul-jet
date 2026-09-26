@@ -85,8 +85,8 @@ export function AppTester({ appId, hatTeststand }: { appId: string; hatTeststand
                 data-testid={`tester-stand-${zelle}`}
                 title={
                   freigabe.stand === 'test'
-                    ? 'Tester: sieht zusätzlich den Teststand. Klicken für nur Livestand.'
-                    : 'Sieht den Livestand. Klicken, um ihn zum Tester zu machen.'
+                    ? 'Tester: sieht zusätzlich Test. Klicken für nur Live.'
+                    : 'Sieht Live. Klicken, um ihn zum Tester zu machen.'
                 }
                 onClick={() =>
                   setzen.mutate({
@@ -102,7 +102,7 @@ export function AppTester({ appId, hatTeststand }: { appId: string; hatTeststand
                     : 'text-muted-foreground'
                 )}
               >
-                {freigabe.stand === 'test' ? 'Tester' : 'nur Livestand'}
+                {freigabe.stand === 'test' ? 'Tester' : 'nur Live'}
               </button>
             )}
           </li>

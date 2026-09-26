@@ -759,7 +759,7 @@ export function RemoteAccessSettings() {
                 )}
                 {status.version && (
                   <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-muted-foreground">Version</span>
+                    <span className="text-xs text-muted-foreground">Fassung</span>
                     <span className="text-sm text-foreground">{status.version}</span>
                   </div>
                 )}

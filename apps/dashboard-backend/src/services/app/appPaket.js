@@ -155,7 +155,7 @@ async function entpacke(archivPfad, zielOrdner) {
   }
   if (abgewiesen.length > 0) {
     throw new ValidationError(
-      'Das Paket enthaelt Eintraege, die ein App-Paket nicht enthalten darf: ' +
+      'Das Paket enthält Einträge, die ein App-Paket nicht enthalten darf: ' +
         abgewiesen.slice(0, 10).join(', '),
       { abgewiesen: abgewiesen.slice(0, 50) }
     );
@@ -238,7 +238,7 @@ async function pruefePaketInhalt(manifest, ordner) {
     } catch {
       throw new ValidationError(
         `Das Manifest verspricht ein Frontend, im Paket fehlt ${manifest.frontend.verzeichnis}/index.html. ` +
-          'Das Kit baut das Frontend, das Geraet liefert es nur aus.'
+          'Das Kit baut das Frontend, das Gerät liefert es nur aus.'
       );
     }
   }
@@ -249,7 +249,7 @@ async function pruefePaketInhalt(manifest, ordner) {
   if (!manifest.backend.bauen) {
     throw new ValidationError(
       'Ein Paket bringt seinen Bauplan mit: `backend.bauen` fehlt im Manifest. ' +
-        'Fertige Images nimmt dieser Weg nicht an -- gebaut wird am Geraet, fuer das Geraet.'
+        'Fertige Images nimmt dieser Weg nicht an -- gebaut wird am Gerät, für das Gerät.'
     );
   }
   const bauplan = path.join(

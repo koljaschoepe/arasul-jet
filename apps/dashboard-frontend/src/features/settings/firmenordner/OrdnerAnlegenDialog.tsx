@@ -111,7 +111,7 @@ export function OrdnerAnlegenDialog({ offen, laeuft, bereiche, onSchliessen, onA
             </Label>
             <Label htmlFor="form-am-geraet" className="flex items-center gap-2 font-normal">
               <RadioGroupItem value="am_geraet" id="form-am-geraet" />
-              Am Gerät: nie abgeglichen, nur Flows und Apps lesen ihn
+              Am Gerät: bleibt auf dem Gerät, nur die Apps lesen ihn
             </Label>
           </RadioGroup>
         </div>

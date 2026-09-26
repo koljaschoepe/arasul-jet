@@ -156,7 +156,7 @@ export function AppsSettings() {
         <Leerzustand
           symbol={<AppWindow />}
           titel="Noch keine App am Gerät"
-          beschreibung="Apps baut ein Partner mit dem Ara-Kit und rollt sie hierher. Sobald eine ankommt, steht sie hier, zuerst im Teststand."
+          beschreibung="Apps baut Ihr Partner und bringt sie auf das Gerät. Sobald eine ankommt, steht sie hier, zuerst in Test."
         />
       ) : (
         <ul className="rounded-md border border-border" data-testid="app-liste">

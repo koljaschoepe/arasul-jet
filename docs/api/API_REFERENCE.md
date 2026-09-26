@@ -419,9 +419,11 @@ Seitenladung. Gesetzt wird er über `PUT /api/settings/firmenname`.
 
 **GET /api/services/all:**
 
-Auth: erforderlich. Liste statt Objekt, mit `id`, `name`, `status`, `health`,
-`state` und `canRestart`. `canRestart` ist keine Vermutung, sondern die
-Zugehörigkeit zur Liste unten.
+Auth: erforderlich. Liste statt Objekt, mit `id`, `name`, `anzeige`, `status`,
+`health`, `state` und `canRestart`. `canRestart` ist keine Vermutung, sondern die
+Zugehörigkeit zur Liste unten. `anzeige` ist der deutsche Name des Dienstes
+(„Datenbank" statt `postgres-db`, seit J35), aus der einen Tabelle
+`utils/dienstNamen.js`; ein unbekannter Dienst behält seinen `name`.
 
 **POST /api/services/llm/models/pull:**
 
@@ -491,6 +493,14 @@ bis zu den D-Phasen des Überordner-Plans nicht.
 | GET    | `/api/self-healing/metrics`          | Verfügbarkeit, Erfolgsquote, Verlauf (7 d) |
 
 Die vier unteren verlangen **Admin**, nicht nur eine Anmeldung.
+
+**GET /api/self-healing/events:** jedes Ereignis trägt seit J35 zusätzlich
+`dienst_anzeige`, den deutschen Namen zu `service_name` (dieselbe Tabelle wie
+`GET /api/services/all`).
+
+**GET /api/ops/overview:** `criticals` und `warnings` sind seit J35 deutsche
+Sätze für einen Menschen („Die letzte Sicherung ist 50 Stunden alt", „Ein Dienst
+ist ausgefallen: Datenbank"), keine Logzeilen.
 
 **GET /api/self-healing/recovery-actions, /service-failures, /reboot-history:**
 

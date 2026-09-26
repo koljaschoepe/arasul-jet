@@ -145,7 +145,7 @@ describe('stelleWiederHer', () => {
 
   it('sagt es, wenn der Sicherungsdienst gar nicht laeuft', async () => {
     mockInspect.mockResolvedValue({ State: { Running: false } });
-    await expect(sicherungsdienst.stelleWiederHer({})).rejects.toThrow(/laeuft nicht/);
+    await expect(sicherungsdienst.stelleWiederHer({})).rejects.toThrow(/läuft nicht/);
   });
 });
 
@@ -167,7 +167,7 @@ describe('nur eines zur Zeit', () => {
     // Kurz warten, damit der erste Lauf den Merker gesetzt hat.
     await new Promise(fertig => setImmediate(fertig));
 
-    await expect(sicherungsdienst.stelleWiederHer({})).rejects.toThrow(/laeuft gerade: sicherung/);
+    await expect(sicherungsdienst.stelleWiederHer({})).rejects.toThrow(/läuft gerade: sicherung/);
 
     freigeben();
     await erster;

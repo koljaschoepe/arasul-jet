@@ -7,7 +7,7 @@
  * einspielen) steht nur da, wenn er auch gehen kann.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import UpdatePage from '../UpdatePage';
@@ -34,7 +34,7 @@ const STATUS_NICHT_EINSPIELBAR = {
   ...STATUS_EINSPIELBAR,
   einspielenMoeglich: false,
   einspielenGrund:
-    'Ein Paket laesst sich an diesem Geraet nicht ueber die Schnittstelle einspielen: im Backend-Container gibt es kein `docker`-Programm.',
+    'Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein, nicht diese Seite. Ein Paket prüfen und herunterladen können Sie hier weiterhin.',
 };
 
 function huelle() {
@@ -64,7 +64,21 @@ describe('Aktualisierungen', () => {
     render(<UpdatePage />, { wrapper: huelle() });
 
     expect(await screen.findByText('0.3.0')).toBeInTheDocument();
-    expect(await screen.findByText('abcdef1')).toBeInTheDocument();
+    // J35: Bau und JetPack stehen unter „Technische Angaben“, zugeklappt.
+    expect(screen.queryByText('abcdef1234')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('technische-angaben-knopf'));
+    expect(await screen.findByText('abcdef1234')).toBeInTheDocument();
+    expect(screen.getByText('6.0')).toBeInTheDocument();
+  });
+
+  it('zeigt eine datierte Fassung als Stand und die Kennung nur unter Technische Angaben', async () => {
+    antworte({
+      ...STATUS_EINSPIELBAR,
+      fassung: { version: '20260926-dc1272c', anzeige: '20260926-dc1272c', bekannt: true },
+    });
+    render(<UpdatePage />, { wrapper: huelle() });
+    expect(await screen.findByText('Stand 26.09.2026')).toBeInTheDocument();
+    expect(screen.queryByText('20260926-dc1272c')).not.toBeInTheDocument();
   });
 
   it('sagt es, wenn das Geraet nicht ueber die Schnittstelle einspielen kann', async () => {
@@ -72,7 +86,7 @@ describe('Aktualisierungen', () => {
     render(<UpdatePage />, { wrapper: huelle() });
 
     const satz = await screen.findByTestId('einspielen-nicht-moeglich');
-    expect(satz.textContent).toContain('docker');
+    expect(satz.textContent).toContain('Betreuer');
     // Und dann steht der Weg zum Einspielen NICHT da: ein Knopf, der
     // zuverlaessig scheitert, ist schlimmer als keiner.
     expect(screen.queryByText('Hochladen und prüfen')).not.toBeInTheDocument();

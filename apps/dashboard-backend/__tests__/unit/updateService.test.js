@@ -492,8 +492,10 @@ describe('UpdateService', () => {
       const ergebnis = await updateService.validateUpdate('/tmp/update.araupdate');
 
       expect(ergebnis.valid).toBe(false);
-      expect(ergebnis.error).toMatch(/20260827-a1b2c3d/);
-      expect(ergebnis.error).toMatch(/keine Release-Nummer/);
+      // J35: die Fassung des Geraets als Stand, kein Pfad, kein Fachwort.
+      expect(ergebnis.error).toMatch(/Stand 27\.08\.2026/);
+      expect(ergebnis.error).toMatch(/keine ausgelieferte Fassung/);
+      expect(ergebnis.error).not.toMatch(/deploy-local|scripts\//);
       expect(ergebnis.error).not.toMatch(/Invalid version format/);
 
       updateService.verifySignature = origVerify;
@@ -509,7 +511,7 @@ describe('UpdateService', () => {
       expect(ergebnis.available).toBe(false);
       expect(ergebnis.versionBekannt).toBe(true);
       expect(ergebnis.currentVersion).toBe('20260827-a1b2c3d');
-      expect(ergebnis.error).toMatch(/ueber den Deploy/);
+      expect(ergebnis.error).toMatch(/Betreuer/);
       expect(axios.get).not.toHaveBeenCalled();
     });
 
@@ -548,8 +550,10 @@ describe('UpdateService', () => {
       const weg = await updateService.wegPruefen();
 
       expect(weg.moeglich).toBe(false);
-      expect(weg.grund).toMatch(/kein `docker`-Programm/);
-      expect(weg.grund).toMatch(/deploy-local\.sh/);
+      // J35: der Satz ist fuer einen Menschen -- kein Pfad, kein Befehl,
+      // keine Backticks. Das Technische steht im Log.
+      expect(weg.grund).toMatch(/Betreuer/);
+      expect(weg.grund).not.toMatch(/[`/]|docker|deploy|arasul update/);
     });
 
     it('applyUpdate bricht ab, bevor irgendetwas gesichert oder ersetzt wird', async () => {

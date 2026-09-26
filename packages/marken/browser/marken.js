@@ -8577,7 +8577,7 @@ function ah(y = 900) {
     return h(), typeof Y.addEventListener == "function" ? (Y.addEventListener("change", h), () => Y.removeEventListener("change", h)) : (Y.addListener?.(h), () => Y.removeListener?.(h));
   }, [y]), A;
 }
-var uh = "5.0.0", Xy = 0.25, Qy = 4, Zy = 24;
+var uh = "5.0.1", Xy = 0.25, Qy = 4, Zy = 24;
 function ud(y) {
   return Math.min(Qy, Math.max(Xy, y));
 }

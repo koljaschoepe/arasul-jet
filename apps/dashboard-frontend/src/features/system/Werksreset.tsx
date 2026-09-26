@@ -5,6 +5,7 @@ import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { formatZahl } from '../../utils/formatting';
 
 /**
  * Werksreset (Plan 023 B5).
@@ -201,7 +202,7 @@ export function Werksreset() {
             />
             <span>
               Auch die heruntergeladenen Modelle löschen. Ohne Modelle kann das Gerät bis zum
-              nächsten Download weder antworten noch Dokumente durchsuchen.
+              nächsten Herunterladen weder antworten noch Dokumente durchsuchen.
             </span>
           </label>
         </fieldset>
@@ -303,7 +304,7 @@ export function Werksreset() {
                     {bericht.stufe === 'inhalte' ? 'Inhalte zurücksetzen' : 'Auslieferungszustand'}{' '}
                     abgeschlossen: {bericht.zeilenGesamt.toLocaleString('de-DE')} Zeilen in{' '}
                     {Object.keys(bericht.tabellen).length} Tabellen,{' '}
-                    {Math.round(bericht.dauerMs / 100) / 10} Sekunden.
+                    {formatZahl(bericht.dauerMs / 1000, 1)} Sekunden.
                     {offen.length === 0 &&
                       bericht.stufe === 'auslieferung' &&
                       ' Diese Sitzung wird gleich beendet, danach startet die Ersteinrichtung.'}

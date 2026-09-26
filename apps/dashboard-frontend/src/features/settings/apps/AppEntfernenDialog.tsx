@@ -60,9 +60,8 @@ export function AppEntfernenDialog({ fuer, laeuft, onSchliessen, onEntfernen }: 
     >
       <form id="app-entfernen" className="flex flex-col gap-4" onSubmit={absenden}>
         <p className="text-sm text-foreground">
-          Es fallen beide Container mitsamt ihren Volumes, beide Stände, alle Freigaben, die
-          Schlüssel der App und ihre Dateien auf diesem Gerät. Zurück kommt sie nur, wenn der
-          Partner sie neu einspielt.
+          Es fallen beide Stände samt ihren Daten, alle Freigaben, die Schlüssel der App und ihre
+          Dateien auf diesem Gerät. Zurück kommt sie nur, wenn der Partner sie neu einspielt.
         </p>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="app-entfernen-kennung">

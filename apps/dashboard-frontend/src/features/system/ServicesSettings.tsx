@@ -37,32 +37,41 @@ interface Service {
   name: string;
   status: string;
   canRestart?: boolean;
+  /** Der deutsche Name des Dienstes, vom Gerät (J35). */
+  anzeige?: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
-  healthy: { label: 'Aktiv', dot: 'bg-primary' },
-  starting: { label: 'Startet...', dot: 'bg-muted-foreground animate-pulse' },
-  restarting: { label: 'Neustart...', dot: 'bg-muted-foreground animate-pulse' },
+  healthy: { label: 'Läuft', dot: 'bg-primary' },
+  starting: { label: 'Startet…', dot: 'bg-muted-foreground animate-pulse' },
+  restarting: { label: 'Startet neu…', dot: 'bg-muted-foreground animate-pulse' },
   failed: { label: 'Fehler', dot: 'bg-foreground/40' },
   unhealthy: { label: 'Fehler', dot: 'bg-foreground/40' },
   exited: { label: 'Beendet', dot: 'bg-foreground/40' },
 };
 
-const SERVICE_INFO: Record<string, { icon: LucideIcon; displayName: string }> = {
-  'postgres-db': { icon: Database, displayName: 'PostgreSQL' },
-  'llm-service': { icon: Bot, displayName: 'LLM Service' },
-  'embedding-service': { icon: Sparkles, displayName: 'Embeddings' },
-  'document-indexer': { icon: FileSearch, displayName: 'Document Indexer' },
-  'reverse-proxy': { icon: Globe, displayName: 'Reverse Proxy' },
-  'dashboard-backend': { icon: Server, displayName: 'Dashboard API' },
-  'dashboard-frontend': { icon: Monitor, displayName: 'Dashboard UI' },
-  'metrics-collector': { icon: BarChart3, displayName: 'Metrics' },
-  'self-healing-agent': { icon: Wrench, displayName: 'Selbstheilung' },
-  'backup-service': { icon: Archive, displayName: 'Backup' },
+/**
+ * Je Dienst das Symbol. Der NAME kommt vom Gerät (`anzeige` aus
+ * `GET /api/services/all`, eine Tabelle in `utils/dienstNamen.js` des
+ * Backends, J35) -- bis dahin standen hier „LLM Service", „Document Indexer"
+ * und „Dashboard UI", und dieselbe Sache hieß in der Selbstheilung wieder
+ * anders.
+ */
+const DIENST_SYMBOL: Record<string, LucideIcon> = {
+  'postgres-db': Database,
+  'llm-service': Bot,
+  'embedding-service': Sparkles,
+  'document-indexer': FileSearch,
+  'reverse-proxy': Globe,
+  'dashboard-backend': Server,
+  'dashboard-frontend': Monitor,
+  'metrics-collector': BarChart3,
+  'self-healing-agent': Wrench,
+  'backup-service': Archive,
 };
 
-function getServiceInfo(name: string) {
-  return SERVICE_INFO[name] || { icon: Server, displayName: name };
+function dienstName(service: Service): string {
+  return service.anzeige || service.name;
 }
 
 export function ServicesSettings() {
@@ -118,6 +127,7 @@ export function ServicesSettings() {
     if (!confirmRestart) return;
 
     const serviceName = confirmRestart.name;
+    const anzeige = dienstName(confirmRestart);
     setRestartingService(serviceName);
     setConfirmRestart(null);
     setMessage(null);
@@ -131,7 +141,10 @@ export function ServicesSettings() {
       );
       setMessage({
         type: 'success',
-        text: `Service "${getServiceInfo(serviceName).displayName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`,
+        text:
+          data.duration_ms !== undefined
+            ? `„${anzeige}“ ist neu gestartet (${(data.duration_ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} Sekunden).`
+            : `„${anzeige}“ ist neu gestartet.`,
       });
       setTimeout(fetchServices, 2000);
     } catch (error: unknown) {
@@ -144,7 +157,10 @@ export function ServicesSettings() {
       } else {
         setMessage({
           type: 'error',
-          text: err.data?.message || err.message || 'Netzwerkfehler beim Neustart des Service',
+          text:
+            err.data?.message ||
+            err.message ||
+            'Der Dienst ließ sich nicht neu starten. Versuchen Sie es in einer Minute noch einmal.',
         });
       }
     } finally {
@@ -155,7 +171,7 @@ export function ServicesSettings() {
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <Kopf titel="Services" />
+        <Kopf titel="Dienste" />
         <SkeletonCard hasAvatar={false} lines={6} />
       </div>
     );
@@ -164,8 +180,8 @@ export function ServicesSettings() {
   return (
     <div className="animate-in fade-in" data-testid="dienste-seite">
       <Kopf
-        titel="Services"
-        beschreibung="Die Dienste der Arasul-Plattform. Hier sehen Sie den Zustand und starten einen Dienst bei Bedarf neu."
+        titel="Dienste"
+        beschreibung="Die Teile des Geräts, die im Hintergrund laufen. Hier sehen Sie ihren Zustand und starten einen bei Bedarf neu."
         aktionen={
           <Button
             variant="outline"
@@ -209,8 +225,7 @@ export function ServicesSettings() {
             label: 'Unbekannt',
             dot: 'bg-muted-foreground',
           };
-          const info = getServiceInfo(service.name);
-          const ServiceIcon = info.icon;
+          const ServiceIcon = DIENST_SYMBOL[service.name] ?? Server;
           const isRestarting = restartingService === service.name;
 
           return (
@@ -221,7 +236,7 @@ export function ServicesSettings() {
               <div className="flex items-center gap-3 min-w-0">
                 <ServiceIcon className="size-4 shrink-0 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground truncate">
-                  {info.displayName}
+                  {dienstName(service)}
                 </span>
               </div>
 
@@ -243,7 +258,7 @@ export function ServicesSettings() {
                     loading={isRestarting}
                   >
                     {!isRestarting && <RefreshCw className="size-3.5" />}
-                    {isRestarting ? 'Neustart...' : 'Neustart'}
+                    {isRestarting ? 'Startet neu…' : 'Neu starten'}
                   </Button>
                 )}
               </div>
@@ -254,31 +269,26 @@ export function ServicesSettings() {
 
       {/* Hints */}
       <p className="mt-4 text-xs text-muted-foreground leading-relaxed">
-        Während eines Neustarts ist der Dienst kurzzeitig nicht verfügbar. Jeder Dienst kann maximal
-        einmal pro Minute neugestartet werden. Alle Neustarts werden im Self-Healing Event-Log
-        protokolliert.
+        Während eines Neustarts ist der Dienst kurz nicht verfügbar. Jeder Dienst lässt sich
+        höchstens einmal pro Minute neu starten. Jeder Neustart steht danach unter Selbstheilung.
       </p>
 
       {/* Confirmation Dialog */}
       <Dialog open={!!confirmRestart} onOpenChange={open => !open && setConfirmRestart(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Service neustarten?</DialogTitle>
+            <DialogTitle>Dienst neu starten?</DialogTitle>
             <DialogDescription>
-              Soll der Dienst{' '}
-              <strong>
-                {confirmRestart ? getServiceInfo(confirmRestart.name).displayName : ''}
-              </strong>{' '}
-              wirklich neustarten? Der Dienst wird während des Neustarts kurzzeitig nicht verfügbar
-              sein.
+              Soll der Dienst <strong>{confirmRestart ? dienstName(confirmRestart) : ''}</strong>{' '}
+              wirklich neu starten? Er ist dabei kurz nicht verfügbar.
             </DialogDescription>
           </DialogHeader>
           {confirmRestart && SELF_RESTART_SERVICES.includes(confirmRestart.name) && (
             <Alert variant="destructive">
               <AlertCircle className="size-4" />
               <AlertDescription>
-                Achtung: Ein Neustart dieses Dienstes trennt kurzzeitig die Verbindung zum
-                Dashboard.
+                Achtung: Während dieser Dienst neu startet, ist diese Oberfläche kurz nicht
+                erreichbar.
               </AlertDescription>
             </Alert>
           )}
@@ -288,7 +298,7 @@ export function ServicesSettings() {
             </Button>
             <Button onClick={handleConfirmRestart}>
               <RefreshCw className="size-4" />
-              Neustarten
+              Neu starten
             </Button>
           </DialogFooter>
         </DialogContent>
