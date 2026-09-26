@@ -1112,6 +1112,15 @@ Satz; `GET /api/apps` trägt dieselben drei Felder je Stand. Ein
 lässt ihn weg (siehe [APPS.md](../features/APPS.md), „Was ein Stand
 lieferbar nennt").
 
+**Ein Browser bekommt an der Grenze eine Seite, kein JSON** (J35,
+26.09.2026). Fragt eine Anfrage an die **Seite** einer App (nicht `api/…`,
+keine Datei) mit `Accept: text/html` vor `application/json`, kommen 403
+(nicht freigegeben, nur Tester), 404 (Stand fehlt, kein Frontend) und
+`503 APP_DATEIEN_FEHLEN` als HTML-Seite im Stil des Geräts: ein Satz, ein Weg
+„Zur Übersicht" (`/workspace`, `target="_top"`), im Theme des Menschen, mit
+demselben Status. `fetch` und `curl` (`*/*`) bekommen weiter die JSON-Hülle
+(`services/app/appSperrseite.js`).
+
 `marken` ist seit Phase H6 die Fassung des Designsystems, auf der dieser Stand
 steht — das, was sein `app.json` unter `marken` sagt, oder `null`. Das Gerät
 **vergleicht hier nicht**: die Fassung der Bibliothek kennt die Shell, weil sie

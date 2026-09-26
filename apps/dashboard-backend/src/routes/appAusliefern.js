@@ -58,6 +58,8 @@ const { NotFoundError, UnauthorizedError } = require('../utils/errors');
 const { AppId } = require('../schemas/apps');
 const appStore = require('../services/app/appStore');
 const appZugang = require('../services/app/appZugang');
+const appSperrseite = require('../services/app/appSperrseite');
+const { ApiError } = require('../utils/errors');
 
 // `/apps/<id>` oder `/apps/<id>/test`, dahinter der Rest. Der Rest darf leer
 // sein: `/apps/<id>/` ist die Startseite.
@@ -199,9 +201,11 @@ router.use(
 
     const ziel = await appStore.ausliefernAus(kennung, stand);
     if (!ziel) {
-      throw new NotFoundError(
+      const fehler = new NotFoundError(
         `${kennung} bringt in diesem Stand kein Frontend mit; sie hat nur ein Backend unter /apps/${kennung}/api/`
       );
+      fehler.grund = 'ohne_seite';
+      throw fehler;
     }
 
     if (rest && istDateiPfad(rest)) {
@@ -226,5 +230,33 @@ router.use(
     });
   })
 );
+
+/**
+ * Eine Grenze im Browser ist eine Seite mit einem Satz, kein JSON (J35,
+ * 26.09.2026). Nur fuer die Seite einer App und nur fuer die Fehler, die
+ * `appSperrseite.satzFuer` kennt — alles andere geht unveraendert an den
+ * Fehlerbehandler. Siehe `services/app/appSperrseite.js`.
+ */
+router.use((fehler, req, res, next) => {
+  const pfad = req.appPfad;
+  if (
+    !pfad ||
+    !(fehler instanceof ApiError) ||
+    !appSperrseite.willSeite(req, {
+      istSchnittstelle: pfad.istSchnittstelle,
+      istDatei: Boolean(pfad.rest) && istDateiPfad(pfad.rest),
+    })
+  ) {
+    return next(fehler);
+  }
+  const text = appSperrseite.satzFuer(fehler, pfad);
+  if (!text) {
+    return next(fehler);
+  }
+  return res
+    .status(fehler.statusCode)
+    .type('html')
+    .send(appSperrseite.sperrseite({ ...text, theme: req.user?.theme }));
+});
 
 module.exports = router;

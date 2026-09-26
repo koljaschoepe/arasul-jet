@@ -80,10 +80,14 @@ async function pruefe({ benutzerId, appId, stand }) {
     [appId, benutzerId]
   );
   if (freigabe.rows.length === 0) {
-    throw new ForbiddenError(
+    const fehler = new ForbiddenError(
       `Die App ${appId} ist Ihnen nicht freigegeben. Ein Administrator gibt sie frei, ` +
         'auch fuer sich selbst: eine Sonderregel fuer Administratoren gibt es nicht.'
     );
+    // Der Grund fuer die Seite, die ein Browser sieht (`appSperrseite.js`);
+    // die JSON-Antwort bleibt, wie sie war.
+    fehler.grund = 'nicht_freigegeben';
+    throw fehler;
   }
   const freigegebenBis = freigabe.rows[0].stand;
 
@@ -91,9 +95,11 @@ async function pruefe({ benutzerId, appId, stand }) {
   // (`docs/features/APPS.md`). `stand = 'test'` sieht beide Staende, `'live'`
   // nur den Livestand.
   if (stand === 'test' && freigegebenBis !== 'test') {
-    throw new ForbiddenError(
+    const fehler = new ForbiddenError(
       `Der Teststand von ${appId} ist den Testern vorbehalten. Der Livestand liegt unter /apps/${appId}/.`
     );
+    fehler.grund = 'nur_tester';
+    throw fehler;
   }
 
   const vorhanden = await db.query(
