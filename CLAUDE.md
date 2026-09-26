@@ -1368,6 +1368,28 @@ die Bibliothek steht dafür auf **5.0.1** (Diagramm-Tooltip, Größe unter der
 bekommen am Handy keine 44-px-Mindestmaße mehr (sie wurden oval). Bilder bei
 390 und 1440 px: `docs/plans/audits/2026-09-26-oberflaeche-kundensprache/`.
 
+Seit dem Auftrag **flows-im-ki-protokoll-und-auslesen-408** (26.09.2026, J35)
+**steht jeder Modellschritt eines Flows im KI-Protokoll, und ein Auslesen, das
+länger braucht, geht der App nicht verloren**. Die App-Bau-Probe desselben
+Tages fand beides: nach einer Freigabe schrieb ein Flow einen Satz mit dem
+Modell, und in `ki_aufrufe` standen nur die Auslesungen; bei sechs
+gleichzeitigen Auslesungen bekam ein Foto nach 60 s ein 408, und das Gerät
+hatte es zehn Sekunden später fertig. Erstens geht jede Runde der Flow-Schleife
+über `kiProtokoll.flowSchritt` (`toolLoop.modellFragen`): App, Stand, der
+**Einreicher** aus dem Start des Laufs, Modell, Dauer und `lauf_id`
+(Migration 189), Weg `flows/<name>`. Zweitens war die Ursache nicht die
+Warteschlange, sondern TIMEOUT-001 in `index.js`: 60 s für alles außer
+`/api/llm/`, auch für die äußeren Wege, die bis 600 s versprechen. Die Frist
+steht jetzt je Pfad in `utils/anfrageFrist.js` (äußere Wege: 31 min, das
+längste Warten plus eine Minute), und die **Route antwortet selbst**: rechnet
+der Auftrag nach `timeout_seconds` noch, kommt **202** mit `job_id` und
+`abholen` statt 500 — bei `document/extract-structured` der neue Weg
+`GET document/extract-structured/:jobId` (an App und Stand gebunden über
+`ki_aufrufe`, eine Stunde abholbar), bei `llm/chat` und `document/analyze`
+`llm/job/:jobId`. Der Kontrakt nennt es unter `warten` und
+`auslesen.laeuft`/`abgeholt`, Version bleibt 6. Abnahme:
+`scripts/test/auslesen-und-flows-abnahme.sh` mit `tests/probe-auslesen`.
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |
