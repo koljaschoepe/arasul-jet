@@ -77,6 +77,8 @@ const ART_WORT: Record<string, string> = {
   database_migration: 'Datenbank erweitert',
   schema_upgrade: 'Datenbank erweitert',
   engine_started: 'Selbstheilung gestartet',
+  engine_stopped: 'Selbstheilung angehalten',
+  post_reboot_validation: 'Prüfung nach dem Neustart',
   self_healing: 'Selbstheilung',
   critical_event: 'Kritisches Ereignis',
   system_reboot: 'Gerät neu gestartet',
@@ -397,10 +399,13 @@ const SelfHealingEvents = () => {
                           </span>
                         </div>
 
-                        {/* Die Sätze darunter schreibt der Agent für das
-                            Protokoll, auf Englisch und mit Kennungen. Vorn
-                            steht, was geschah und wo; der Rest steht unter
-                            „Technische Angaben“ für den Betreuer (J35). */}
+                        {/* Vorn steht, was geschah und wo; die Sätze des
+                            Agenten stehen darunter unter „Technische
+                            Angaben“, weil sie Kennungen und Messwerte
+                            tragen. Seit J35 schreibt er sie deutsch
+                            (`tests/test_meldungen_deutsch.py`); ältere
+                            Zeilen bleiben englisch und stehen deshalb
+                            nirgends weiter vorn. */}
                         <div className="pl-7 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           {event.service_name && (
                             <span>
