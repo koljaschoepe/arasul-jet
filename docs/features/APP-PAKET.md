@@ -234,6 +234,11 @@ seine Vorlage prüft. Er gibt aus:
 | `paket`            | Format, Packbefehl, Grenzen, Regeln                                        |
 | `apps`             | Die Pfade unter `/apps/<id>/` und die Namen, die der Plattform gehören     |
 | `schluessel`       | Kopfzeile, Präfix, alle Bereiche und die Vorgabe                           |
+| `daten`            | Was eine App dauerhaft behält und was nicht (J35)                          |
+| `freigaben`        | Einreicher und Entscheider am Start eines Laufs (J35)                      |
+| `protokoll`        | Welche Modellaufrufe im Protokoll stehen und wie der Mensch genannt wird   |
+| `auslesen`         | Anfrage, Antwort und Fehlschlag von `document/extract-structured` (J35)    |
+| `bilder`           | Wie ein Bild über `llm/chat` an ein Bildmodell geht (J35)                  |
 | `endpunkte`        | Verb, Pfad, Pfad **relativ zur Basis** und der Bereich, den jeder verlangt |
 
 **`app_json.regeln` ist kein Beiwerk.** Zod übergeht seine `.refine`-Regeln
@@ -308,6 +313,19 @@ Inhalt. Der Abschnitt nennt die Wege und wie eine App den Menschen nennt: die
 Kopfzeile `X-Arasul-User` aus der Forward-Auth unverändert weiterreichen (oder
 `einreicher`, an `/v1` `user`). Nennt sie niemanden, steht der Aufruf ohne
 Menschen da. Additiv, darum keine 7.
+
+**`auslesen` und `bilder` (J35, 26.09.2026), Fassung bleibt 6:** das Kit hat
+die Antwort von `document/extract-structured` bis hierher geraten und am
+25.09.2026 als offene Stelle gemeldet. `auslesen.anfrage`, `auslesen.antwort`
+und `auslesen.fehlschlag` sind JSON-Schemas aus denselben Zod-Schemas, gegen
+die der Test die echte Antwort der Route prüft; die Sätze in
+`auslesen.regeln` sagen, was ein Schema nicht sagt — vor allem, dass `data` ein
+Objekt oder `null` ist und **nicht** gegen das mitgeschickte `schema` geprüft
+wird. `bilder` sagt, wie eine App ein Foto **selbst** an ein Modell gibt:
+`images` an `llm/chat`, Base64, PNG oder JPEG; ohne `model` nimmt das Gerät
+sein Bildmodell, ein Textmodell weist es mit `400` ab. Das Auslesen bleibt
+dabei der Weg über die Texterkennung — für eine Quittung meist der genauere.
+Additiv, darum keine 7.
 
 **Fassung 6 (Brücke, 21.09.2026):** das Manifest kennt **`agent`** — die Liste
 der Routen, die eine App einem Agenten anbietet. Freiwillig wie `marken`, und
