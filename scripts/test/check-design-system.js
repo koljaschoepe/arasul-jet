@@ -36,10 +36,10 @@ const FORBIDDEN_COLORS = [
 ];
 
 const ALLOWED_COLORS = [
-  '#45adff', '#6ec4ff', '#2d8fd9',
+  '#45adff', '#6ec4ff', '#2d8fd9', '#1e6aa4',
   '#101923', '#1a2330', '#222d3d', '#2a3544', '#3a4554',
   '#f8fafc', '#cbd5e1', '#94a3b8', '#64748b',
-  '#22c55e', '#f59e0b', '#ef4444',
+  '#22c55e', '#f59e0b', '#ef4444', '#c42020',
   '#10b981', '#3498db',
   '#000', '#000000', '#fff', '#ffffff',
   '#1d2835',
@@ -151,7 +151,9 @@ function checkIndexCSS() {
   // werden deshalb beide Seiten -- ein Wert, den nur eines der beiden Themes
   // hat, ist ein Wert, der im anderen fehlt.
   // Siehe docs/development/DESIGN.md.
-  if (!lower.includes('--primary: #2d8fd9')) errors.push('Primary (Hell) nicht #2D8FD9');
+  // Hell seit 26.09.2026 #1E6AA4 statt #2D8FD9: das alte Blau hielt 3,2:1 auf
+  // dem hellen Grund, verlangt sind 4,5:1 (`marken.py`, Punkt 9).
+  if (!lower.includes('--primary: #1e6aa4')) errors.push('Primary (Hell) nicht #1E6AA4');
   if (!lower.includes('--background: #f6f6f6')) errors.push('Background (Hell) nicht #F6F6F6');
   if (!lower.includes('--primary: #81a1c1')) errors.push('Primary (Dunkel) nicht #81A1C1');
   if (!lower.includes('--background: #141414')) errors.push('Background (Dunkel) nicht #141414');

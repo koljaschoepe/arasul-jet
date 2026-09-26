@@ -1193,9 +1193,20 @@ pruefe "Marken: die Kopie steht am Original" 0 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 
 # Ein Rueckfall, der nicht mehr der Wert seines Tokens ist.
-sed -i.bak 's/--ara-akzent: var(--primary, #2d8fd9)/--ara-akzent: var(--primary, #123456)/' "$MA_CSS"
+sed -i.bak 's/--ara-akzent: var(--primary, #1e6aa4)/--ara-akzent: var(--primary, #123456)/' "$MA_CSS"
 pruefe "Marken: ein verstellter Rueckfall ist rot" 1 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$TMP/marken.css.echt" "$MA_CSS"
+
+# Das alte Blau, in Token UND Rueckfall -- Punkt 5 bleibt also still, und nur
+# der Kontrast (Punkt 9) kann es melden: 3,2:1 auf dem hellen Grund.
+MA_THEME="$MA/packages/marken/src/theme.css"
+cp "$MA_THEME" "$TMP/theme.css.echt"
+sed -i.bak 's/--primary: #1e6aa4;/--primary: #2d8fd9;/' "$MA_THEME"
+sed -i.bak 's/var(--primary, #1e6aa4)/var(--primary, #2d8fd9)/' "$MA_CSS"
+pruefe "Marken: Blau unter 4,5:1 auf dem hellen Grund ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+cp "$TMP/theme.css.echt" "$MA_THEME"
 cp "$TMP/marken.css.echt" "$MA_CSS"
 
 # Ein Token, den `index.css` im Dunkeln ueberschreibt und die Bibliothek

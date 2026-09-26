@@ -141,13 +141,13 @@
 
   /* Accent Colors - Design System (aliases onto the shadcn set above) */
   --primary-color: var(--primary);
-  --primary-hover: #4aa3e4;
-  --primary-active: #2478b8;
-  --primary-light: #4aa3e4;
-  --primary-muted: rgba(45, 143, 217, 0.12);
+  --primary-hover: #2677b6;
+  --primary-active: #185a8c;
+  --primary-light: #2677b6;
+  --primary-muted: rgba(30, 106, 164, 0.12);
   --text-on-primary: var(--primary-foreground);
   --danger-color: var(--destructive);
-  --danger-hover: #dc2626;
+  --danger-hover: #a81b1b;
   --danger-light: #fca5a5;
   --error-color: var(--danger-color);
 
@@ -155,12 +155,12 @@
   --status-neutral: #6b6b6b;
   --status-neutral-bg: rgba(107, 107, 107, 0.12);
   --status-neutral-border: rgba(107, 107, 107, 0.25);
-  --status-critical: #dc2626; /* Red for critical / error in light mode */
-  --status-critical-bg: rgba(220, 38, 38, 0.12);
-  --status-critical-border: rgba(220, 38, 38, 0.25);
-  --status-performance: #2d8fd9; /* Accent blue — performance metric */
-  --status-performance-bg: rgba(45, 143, 217, 0.12);
-  --status-performance-border: rgba(45, 143, 217, 0.25);
+  --status-critical: var(--destructive); /* Red for critical / error in light mode */
+  --status-critical-bg: rgba(196, 32, 32, 0.12);
+  --status-critical-border: rgba(196, 32, 32, 0.25);
+  --status-performance: var(--primary); /* Accent blue — performance metric */
+  --status-performance-bg: rgba(30, 106, 164, 0.12);
+  --status-performance-border: rgba(30, 106, 164, 0.25);
 
   /* Background Colors (aliases where the shadcn set already defines the value) */
   --bg-dark: var(--background);
@@ -189,7 +189,7 @@
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
 
   /* Gradients - Design System (accent) */
-  --gradient-primary: linear-gradient(135deg, #2d8fd9 0%, #2478b8 100%);
+  --gradient-primary: linear-gradient(135deg, #1e6aa4 0%, #185a8c 100%);
   --gradient-card: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
 
   /* Terminal Background */
@@ -202,7 +202,7 @@
   --bg-dropzone: var(--primary-alpha-5);
   --bg-dropzone-hover: var(--primary-alpha-8);
   --bg-dropzone-active: var(--primary-alpha-15);
-  --bg-code: rgba(45, 143, 217, 0.05);
+  --bg-code: rgba(30, 106, 164, 0.05);
   --bg-modal: var(--card);
 
   /* Additional Border Colors */
@@ -226,23 +226,23 @@
      PRIMARY COLOR ALPHA SCALE
      Use these instead of hardcoded rgba(129,161,193,...)
      ======================================== */
-  --primary-alpha-5: rgba(45, 143, 217, 0.05);
-  --primary-alpha-8: rgba(45, 143, 217, 0.08);
-  --primary-alpha-10: rgba(45, 143, 217, 0.1);
-  --primary-alpha-12: rgba(45, 143, 217, 0.12);
-  --primary-alpha-15: rgba(45, 143, 217, 0.15);
-  --primary-alpha-20: rgba(45, 143, 217, 0.2);
-  --primary-alpha-25: rgba(45, 143, 217, 0.25);
-  --primary-alpha-30: rgba(45, 143, 217, 0.3);
-  --primary-alpha-40: rgba(45, 143, 217, 0.4);
-  --primary-alpha-50: rgba(45, 143, 217, 0.5);
+  --primary-alpha-5: rgba(30, 106, 164, 0.05);
+  --primary-alpha-8: rgba(30, 106, 164, 0.08);
+  --primary-alpha-10: rgba(30, 106, 164, 0.1);
+  --primary-alpha-12: rgba(30, 106, 164, 0.12);
+  --primary-alpha-15: rgba(30, 106, 164, 0.15);
+  --primary-alpha-20: rgba(30, 106, 164, 0.2);
+  --primary-alpha-25: rgba(30, 106, 164, 0.25);
+  --primary-alpha-30: rgba(30, 106, 164, 0.3);
+  --primary-alpha-40: rgba(30, 106, 164, 0.4);
+  --primary-alpha-50: rgba(30, 106, 164, 0.5);
 
-  /* Danger alpha variants (red #EF4444) */
-  --danger-alpha-8: rgba(239, 68, 68, 0.08);
-  --danger-alpha-10: rgba(239, 68, 68, 0.1);
-  --danger-alpha-15: rgba(239, 68, 68, 0.15);
-  --danger-alpha-20: rgba(239, 68, 68, 0.2);
-  --danger-alpha-30: rgba(239, 68, 68, 0.3);
+  /* Danger alpha variants (das Rot aus `--destructive`) */
+  --danger-alpha-8: rgba(196, 32, 32, 0.08);
+  --danger-alpha-10: rgba(196, 32, 32, 0.1);
+  --danger-alpha-15: rgba(196, 32, 32, 0.15);
+  --danger-alpha-20: rgba(196, 32, 32, 0.2);
+  --danger-alpha-30: rgba(196, 32, 32, 0.3);
 
   /* Neutral alpha variants */
   --neutral-alpha-2: rgba(148, 163, 184, 0.02);
@@ -348,6 +348,15 @@
   --primary-alpha-30: rgba(129, 161, 193, 0.3);
   --primary-alpha-40: rgba(129, 161, 193, 0.4);
   --primary-alpha-50: rgba(129, 161, 193, 0.5);
+
+  /* Das Rot des dunklen Themas ist das alte (`theme.css`), also auch sein
+     Wisch und sein Hover. */
+  --danger-hover: #dc2626;
+  --danger-alpha-8: rgba(239, 68, 68, 0.08);
+  --danger-alpha-10: rgba(239, 68, 68, 0.1);
+  --danger-alpha-15: rgba(239, 68, 68, 0.15);
+  --danger-alpha-20: rgba(239, 68, 68, 0.2);
+  --danger-alpha-30: rgba(239, 68, 68, 0.3);
 }
 
 /* ========================================

@@ -41,6 +41,13 @@ Was geprueft wird
    Verwaltung des Geraets eine Fassung, die nirgends liegt -- und die eine
    Auskunft, die H6 eingefuehrt hat, waere ab dem ersten Tag falsch
    (Phase H6).
+9. Text in Farbe haelt im hellen Thema 4,5:1 (WCAG AA): `--primary`,
+   `--destructive` und `--muted-foreground` auf `--background`, `--card`,
+   `--secondary` und auf ihrem eigenen 10-%-Wisch ueber Seite und Karte (so stehen sie in Badge,
+   Knopf und Meldung), dazu `--primary-foreground` auf `--primary` -- die
+   Schrift auf dem vollen Knopf (Auftrag marken-liste-auswahl-und-kontrast,
+   26.09.2026). Das Audit des Kit-Geruests fand Blau bei 3,2:1 und Rot bei
+   3,5:1 auf dem hellen Grund, und jede App erbt diese Werte.
 
 Warum Punkt 5 (Phase H2, 29.08.2026)
 ------------------------------------
@@ -354,6 +361,71 @@ def doppelte_ausgaben(quelle: Path) -> list[str]:
     return befunde
 
 
+def _leuchtdichte(hexwert: str) -> float:
+    teile = [int(hexwert[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in teile]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _mischen(vorn: str, hinten: str, anteil: float) -> str:
+    return "#" + "".join(
+        f"{round(int(vorn[i:i+2], 16) * anteil + int(hinten[i:i+2], 16) * (1 - anteil)):02x}"
+        for i in (1, 3, 5)
+    )
+
+
+def kontrast(a: str, b: str) -> float:
+    hell, dunkel = sorted((_leuchtdichte(a), _leuchtdichte(b)), reverse=True)
+    return (hell + 0.05) / (dunkel + 0.05)
+
+
+def kontrast_pruefen(wurzel: Path) -> list[str]:
+    """Punkt 9: Text in Farbe haelt im hellen Thema 4,5:1.
+
+    Gefragt wird nur `:root`, das helle Thema. Nur Hex-Werte sind rechenbar;
+    ein Token, der kein Hex ist, ist fuer diese Frage selbst ein Befund --
+    sonst wuerde eine Umstellung auf `rgba()` den Waechter lautlos
+    abschalten.
+    """
+    theme = ohne_kommentare(
+        (wurzel / "packages" / "marken" / "src" / "theme.css").read_text(encoding="utf-8")
+    )
+    hell = deklarationen(block(theme, ":root"))
+    befunde: list[str] = []
+
+    def wert(name: str) -> str | None:
+        roh = hell.get(name, "").strip().lower()
+        if re.fullmatch(r"#[0-9a-f]{6}", roh):
+            return roh
+        befunde.append(f"theme.css: {name} ist kein sechsstelliges Hex ({roh!r}) -- Punkt 9 kann nicht rechnen")
+        return None
+
+    gruende = {n: wert(n) for n in ("--background", "--card", "--secondary")}
+    for text in ("--primary", "--destructive", "--muted-foreground"):
+        farbe = wert(text)
+        if not farbe:
+            continue
+        flaechen = {n: g for n, g in gruende.items() if g}
+        # Der Wisch auf `--secondary` ist keine Lage, die vorkommt: Badge und
+        # Meldung stehen auf der Seite oder in einer Karte.
+        for n in ("--background", "--card"):
+            if not flaechen.get(n):
+                continue
+            g = flaechen[n]
+            flaechen[f"10-%-Wisch auf {n}"] = _mischen(farbe, g, 0.1)
+        for n, g in flaechen.items():
+            k = kontrast(farbe, g)
+            if k < 4.5:
+                befunde.append(f"theme.css: {text} auf {n} hat {k:.2f}:1, verlangt sind 4,5:1")
+    vorn, knopf = wert("--primary-foreground"), wert("--primary")
+    if vorn and knopf and kontrast(vorn, knopf) < 4.5:
+        befunde.append(
+            f"theme.css: --primary-foreground auf --primary hat {kontrast(vorn, knopf):.2f}:1, "
+            "verlangt sind 4,5:1"
+        )
+    return befunde
+
+
 def beispielapp_pruefen(wurzel: Path, fassung: str | None) -> list[str]:
     """Punkt 8: das Manifest der Beispielapp nennt die Fassung, die sie bekommt.
 
@@ -469,6 +541,9 @@ def main() -> int:
     # 8. Die Beispielapp steht auf dieser Fassung (Phase H6).
     befunde.extend(beispielapp_pruefen(wurzel, fassung.group(1) if fassung else None))
 
+    # 9. Text in Farbe haelt 4,5:1 im hellen Thema.
+    befunde.extend(kontrast_pruefen(wurzel))
+
     primitive = sorted((quelle / "primitive").glob("*.tsx"))
     muster = sorted((quelle / "muster").glob("*.tsx"))
     print("")
@@ -484,7 +559,7 @@ def main() -> int:
             print(f"  FAIL  {b}")
         print("\n  RESULT: FAILED")
         return 1
-    print("  PASS  Buendel, Fassung, Klassen, Grenzen, Rueckfaelle, Farben und Namen stimmen")
+    print("  PASS  Buendel, Fassung, Klassen, Grenzen, Rueckfaelle, Farben, Namen und Kontrast stimmen")
     print("\n  RESULT: PASSED")
     return 0
 
