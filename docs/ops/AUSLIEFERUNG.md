@@ -294,6 +294,11 @@ für diese Frage.
    unten. Erst danach `docker compose down --remove-orphans` (ohne `-v`, die
    Volumes bleiben) und der geordnete Start aus dem neuen Verzeichnis.
    Administrator und Kit-Schlüssel bleiben, wie sie sind.
+   Zum Start gehört seit J35 auch, was die `.env` per Profil einschaltet
+   (`COMPOSE_PROFILES`, etwa `firmenordner`): am 26.09.2026 nahm das `down`
+   bei der Aktualisierung von 0.8.10 auf 0.8.11 am Orin den Firmenordner weg,
+   und der Bootstrap legte ihn nicht wieder an. `start_services` fragt jetzt
+   Compose, was es kennt und noch nicht läuft.
 
 Warum `down` und nicht `up --force-recreate`: `docker compose up` legt nur neu
 an, was sich geändert hat. Beim Wechsel von 0.3.0 auf 0.4.0 lief `docker-proxy`

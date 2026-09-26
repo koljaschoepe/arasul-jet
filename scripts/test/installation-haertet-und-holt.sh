@@ -289,7 +289,26 @@ pruefe 'installation.sh: ... und genannt wird nur die Datenbank' \
 pruefe 'factory-reset.sh: fuehrt keine eigene Liste, sondern liest installation.sh' \
   "$(ja bash -c "! grep -qE '^(modell|arasul)_volumes\\(\\)' '$WURZEL/scripts/setup/factory-reset.sh' && grep -q 'scripts/lib/installation.sh' '$WURZEL/scripts/setup/factory-reset.sh'")"
 
-# --- 5. Quelltext -----------------------------------------------------------
+# --- 5. Der Bootstrap startet, was die Profile einschalten (J35) ------------
+# Die Aktualisierung 0.8.10 -> 0.8.11 am Orin nahm den Firmenordner mit `down`
+# weg, und `start_services` legte ihn nicht wieder an. Die Funktion dahinter
+# wird aus `arasul` gelesen und gegen eine Attrappe gefragt.
+P="$TMP/p"; mkdir -p "$P/bin"
+cat > "$P/bin/docker" <<'SH'
+#!/bin/bash
+case "$*" in
+  "compose config --services") printf 'postgres-db\nfirmenordner\ndashboard-backend\n' ;;
+  "compose ps --status running --services") printf 'postgres-db\ndashboard-backend\n' ;;
+esac
+SH
+chmod +x "$P/bin/docker"
+funktion="$(sed -n '/^profil_dienste_ohne_schicht()/,/^}/p' "$WURZEL/arasul")"
+aus=$(PATH="$P/bin:$PATH" bash -c "$funktion"$'\n'"profil_dienste_ohne_schicht")
+pruefe 'bootstrap: ein Profil-Dienst, der nicht laeuft, wird gestartet' "$(ja [ "$aus" = firmenordner ])" "$aus"
+pruefe 'bootstrap: start_services fragt danach' \
+  "$(ja bash -c "sed -n '/^start_services()/,/^}/p' '$WURZEL/arasul' | grep -q 'profil_dienste_ohne_schicht'")"
+
+# --- 6. Quelltext -----------------------------------------------------------
 pruefe 'setup-mdns.sh ruft kein hostnamectl set-hostname' \
   "$(ja bash -c "! grep -qE 'hostnamectl|/etc/hostname|^[[:space:]]*hostname ' <<<\"\$(grep -v '^[[:space:]]*#' '$WURZEL/scripts/setup/setup-mdns.sh')\"")"
 pruefe './arasul ruft die Haertung ueber haerten.sh, ohne 2>/dev/null' \
