@@ -179,7 +179,9 @@ export function SprachmodellSettings({ onDirtyChange }: SprachmodellSettingsProp
     setFieldErrors({});
 
     try {
-      await api.patch<SprachmodellResponse>('/settings/sprachmodell', patchBody, { showError: false });
+      await api.patch<SprachmodellResponse>('/settings/sprachmodell', patchBody, {
+        showError: false,
+      });
 
       if (numberValues) setOriginalNumberValues({ ...numberValues });
       setOriginalBasePrompt(basePrompt);
