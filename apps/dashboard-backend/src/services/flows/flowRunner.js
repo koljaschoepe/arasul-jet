@@ -117,6 +117,9 @@ async function starten(
       onEvent,
       existingRunId: runId,
       signal: controller.signal,
+      // Fuer das Protokoll der Modellaufrufe (J35, Migration 189): jeder
+      // Modellschritt steht dort mit dem Menschen, fuer den der Lauf laeuft.
+      einreicherId,
       vorabErgebnisse,
       vorabQuelleLaufId,
     },

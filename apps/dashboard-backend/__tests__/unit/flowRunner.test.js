@@ -51,6 +51,16 @@ describe('starten', () => {
     expect(flowRunner.istAktiv(7)).toBe(true);
   });
 
+  it('reicht den Einreicher an den Lauf weiter (Protokoll der Modellaufrufe, J35)', async () => {
+    const store = { createRun: jest.fn(async () => ({ id: 9 })), finishRun: jest.fn() };
+    const run = jest.fn(() => new Promise(() => {}));
+    await flowRunner.starten(
+      { flowName: 'bescheid', userId: 1, appId: 'abschluss', stand: 'live', einreicherId: 5 },
+      { run, store }
+    );
+    expect(run.mock.calls[0][0]).toMatchObject({ appId: 'abschluss', einreicherId: 5 });
+  });
+
   it('findet den Lauf, auch wenn Postgres die ID als STRING liefert und die Route eine ZAHL nutzt', async () => {
     // Der Fehler, der nur auf dem Gerät auftrat: createRun gibt "8" (String,
     // BIGSERIAL), die SSE-Route wandelt ihren Pfad-Parameter in die Zahl 8.

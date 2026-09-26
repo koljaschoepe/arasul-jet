@@ -9,6 +9,10 @@
  * und zwar OHNE Inhalt: kein Dateiname, kein Text, keine Antwort, nur deren
  * sha256.
  *
+ * Seit Migration 189 steht auch jeder Modellschritt eines Flows hier
+ * (`flowSchritt`), mit seinem Lauf: ein Nachweis an einer Stelle, nicht an
+ * zweien.
+ *
  * DIE ZEILE ENTSTEHT VOR DEM AUFRUF. Scheitert sie, fragt niemand das Modell:
  * ein Aufruf ohne Zeile waere genau die Luecke, die das Protokoll schliessen
  * soll. Danach geht die Zeile mit dem Auftrag der Warteschlange mit, bis er
@@ -367,12 +371,103 @@ async function messen(kontext, arbeit) {
 }
 
 /**
+ * Der Modellschritt eines Flow-Laufs (26.09.2026, J35, Migration 189).
+ *
+ * Ein Flow hat seinen Lauf mit Schritten, und bis hierher stand er deshalb
+ * NICHT in diesem Protokoll. Die App-Bau-Probe vom 26.09.2026 fand genau
+ * diese Luecke: nach einer Freigabe schrieb ein Flow einen Satz mit dem
+ * Modell, und im Protokoll standen nur die Auslesungen. Ein Nachweis, der die
+ * Haelfte der Vorschlaege an einer anderen Stelle fuehrt -- und dort ohne den
+ * Menschen, fuer den der Lauf lief --, weist nichts nach.
+ *
+ * Kein Schluessel: der Lauf kennt App, Stand und Einreicher selbst
+ * (`flowRunner.starten`), und `werFragt` wurde beim Start schon gefragt
+ * (`freigabeAnfragen.pruefeRegel`). Hier steht nur noch der Name dazu.
+ *
+ * ANDERS ALS `beginne` WIRFT DIESE ZEILE NIE. Ein Flow ist schon unterwegs,
+ * wenn er das Modell fragt, und ihn an der Buchfuehrung abbrechen hiesse,
+ * einen halben Lauf mit einem geschriebenen, aber unbeantworteten Schritt zu
+ * hinterlassen. Scheitert die Zeile, steht der Schritt im Lauf, und das Log
+ * sagt, dass er hier fehlt.
+ *
+ * @param {object} lauf
+ * @param {number|string} lauf.runId
+ * @param {string} lauf.flowName
+ * @param {string|null} [lauf.appId]
+ * @param {'test'|'live'|null} [lauf.stand]
+ * @param {number|null} [lauf.einreicherId]  wer den Lauf ausgeloest hat
+ * @param {number|null} [lauf.userId]        ohne App: der Mensch, dem der Lauf gehoert
+ * @param {string|null} modell
+ * @param {() => Promise<object>} arbeit  der Aufruf; liefert das `message`-Objekt
+ * @returns {Promise<object>} was `arbeit` liefert
+ */
+async function flowSchritt(lauf, modell, arbeit, { datenbank = db } = {}) {
+  let id = null;
+  try {
+    // Mit einer App ist es der Einreicher -- NICHT der Besitzer des
+    // Schluessels, der ist ein Administrator, der die App eingespielt hat.
+    // Ohne App ist der Lauf der eines Menschen, und er ist es selbst.
+    const benutzerId = lauf.appId ? (lauf.einreicherId ?? null) : (lauf.userId ?? null);
+    let benutzerName = null;
+    if (benutzerId != null) {
+      const { rows } = await datenbank.query(
+        'SELECT username FROM public.admin_users WHERE id = $1',
+        [benutzerId]
+      );
+      benutzerName = rows[0]?.username ?? null;
+    }
+    const { rows } = await datenbank.query(
+      `INSERT INTO public.ki_aufrufe
+         (app_id, stand, benutzer_id, benutzer_name, endpunkt, modell, lauf_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id`,
+      [
+        lauf.appId || null,
+        lauf.appId ? lauf.stand : null,
+        benutzerId == null ? null : Number(benutzerId),
+        benutzerName,
+        `flows/${lauf.flowName}`,
+        modell || null,
+        lauf.runId == null ? null : Number(lauf.runId),
+      ]
+    );
+    id = Number(rows[0].id);
+  } catch (err) {
+    logger.error(
+      `[KI-Protokoll] Modellschritt von Lauf ${lauf.runId} nicht eingetragen: ${err.message}`
+    );
+  }
+
+  let message;
+  try {
+    message = await arbeit();
+  } catch (err) {
+    if (id != null) {
+      await beende(id, { status: 'fehler', fehler: err.message }, { datenbank });
+    }
+    throw err;
+  }
+  if (id != null) {
+    // Die Antwort ist, was das Modell sagte, und, wenn es ein Werkzeug rief,
+    // welches mit welchen Argumenten -- auch das ist ein Vorschlag.
+    const aufrufe = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+    const antwort =
+      aufrufe.length > 0
+        ? JSON.stringify({ content: message?.content || '', tool_calls: aufrufe })
+        : message?.content || '';
+    await beende(id, { status: 'fertig', antwort }, { datenbank });
+  }
+  return message;
+}
+
+/**
  * Die Aufrufe einer App, neueste zuerst -- fuer den Administrator.
  */
 async function listeFuerApp({ appId, stand = null, limit = 50 }, { datenbank = db } = {}) {
   const { rows } = await datenbank.query(
     `SELECT id, begonnen_am, beendet_am, dauer_ms, app_id, stand, benutzer_id, benutzer_name,
-            endpunkt, modell, job_id, status, fehler, antwort_sha256, datei_typ, datei_bytes
+            endpunkt, modell, job_id, lauf_id, status, fehler, antwort_sha256, datei_typ,
+            datei_bytes
        FROM public.ki_aufrufe
       WHERE app_id = $1 AND ($2::text IS NULL OR stand = $2)
       ORDER BY begonnen_am DESC, id DESC
@@ -383,6 +478,7 @@ async function listeFuerApp({ appId, stand = null, limit = 50 }, { datenbank = d
     ...r,
     id: Number(r.id),
     benutzer_id: r.benutzer_id == null ? null : Number(r.benutzer_id),
+    lauf_id: r.lauf_id == null ? null : Number(r.lauf_id),
   }));
 }
 
@@ -395,5 +491,6 @@ module.exports = {
   schliesseVerwaiste,
   einreihen,
   messen,
+  flowSchritt,
   listeFuerApp,
 };

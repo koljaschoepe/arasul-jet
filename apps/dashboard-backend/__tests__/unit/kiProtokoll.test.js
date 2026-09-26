@@ -269,12 +269,107 @@ describe('messen', () => {
 describe('listeFuerApp', () => {
   test('nach App und Stand, neueste zuerst', async () => {
     db.query.mockResolvedValueOnce({
-      rows: [{ id: '3', benutzer_id: '5', modell: 'gemma4:e4b', endpunkt: 'llm/chat' }],
+      rows: [
+        { id: '3', benutzer_id: '5', modell: 'gemma4:e4b', endpunkt: 'llm/chat', lauf_id: null },
+        { id: '4', benutzer_id: null, modell: 'qwen', endpunkt: 'flows/brief', lauf_id: '12' },
+      ],
     });
     const liste = await kiProtokoll.listeFuerApp({ appId: 'faktum', stand: 'live', limit: 10 });
-    expect(liste).toEqual([{ id: 3, benutzer_id: 5, modell: 'gemma4:e4b', endpunkt: 'llm/chat' }]);
+    expect(liste).toEqual([
+      { id: 3, benutzer_id: 5, modell: 'gemma4:e4b', endpunkt: 'llm/chat', lauf_id: null },
+      { id: 4, benutzer_id: null, modell: 'qwen', endpunkt: 'flows/brief', lauf_id: 12 },
+    ]);
     const [sql, werte] = db.query.mock.calls[0];
     expect(sql).toContain('ORDER BY begonnen_am DESC');
     expect(werte).toEqual(['faktum', 'live', 10]);
+  });
+});
+
+describe('flowSchritt (Migration 189)', () => {
+  const LAUF = {
+    runId: '12',
+    flowName: 'bescheid',
+    appId: 'abschluss',
+    stand: 'live',
+    einreicherId: 5,
+    userId: 1,
+  };
+
+  test('App, Stand, Einreicher, Modell und Lauf -- und die Zeile vor dem Aufruf', async () => {
+    let zeileDa = false;
+    const message = await kiProtokoll.flowSchritt(LAUF, 'qwen3.8:27b-q4_K_M', async () => {
+      zeileDa = aufrufe('INSERT INTO public.ki_aufrufe').length === 1;
+      return { content: 'Die Freigabe ist erteilt.' };
+    });
+    expect(zeileDa).toBe(true);
+    expect(message).toEqual({ content: 'Die Freigabe ist erteilt.' });
+
+    const [[sql, werte]] = aufrufe('INSERT INTO public.ki_aufrufe');
+    expect(sql).toContain('lauf_id');
+    // Der Name kommt aus dem Konto, nach der Kennung des Einreichers.
+    expect(aufrufe('FROM public.admin_users')[0][1]).toEqual([5]);
+    expect(werte).toEqual([
+      'abschluss',
+      'live',
+      5,
+      'admin',
+      'flows/bescheid',
+      'qwen3.8:27b-q4_K_M',
+      12,
+    ]);
+
+    const [[, schluss]] = aufrufe('UPDATE public.ki_aufrufe');
+    expect(schluss[1]).toBe('fertig');
+    expect(schluss[3]).toBe(
+      crypto.createHash('sha256').update('Die Freigabe ist erteilt.', 'utf8').digest('hex')
+    );
+  });
+
+  test('ein App-Lauf ohne Einreicher steht ohne Menschen da, nicht mit dem Schluesselbesitzer', async () => {
+    await kiProtokoll.flowSchritt({ ...LAUF, einreicherId: null }, 'm', async () => ({
+      content: 'x',
+    }));
+    expect(aufrufe('FROM public.admin_users')).toHaveLength(0);
+    const [[, werte]] = aufrufe('INSERT INTO public.ki_aufrufe');
+    expect(werte.slice(2, 4)).toEqual([null, null]);
+  });
+
+  test('ein Lauf der Plattform steht mit dem Menschen da, dem er gehoert', async () => {
+    await kiProtokoll.flowSchritt(
+      { runId: 3, flowName: 'wochenbericht', userId: 1, appId: null, stand: null },
+      'm',
+      async () => ({ content: 'x' })
+    );
+    const [[, werte]] = aufrufe('INSERT INTO public.ki_aufrufe');
+    expect(werte.slice(0, 4)).toEqual([null, null, 1, 'admin']);
+  });
+
+  test('ein Werkzeugaufruf ist auch ein Vorschlag: sein sha256 deckt ihn mit ab', async () => {
+    const rufe = [{ function: { name: 'freigabe_anfordern', arguments: { titel: 'T' } } }];
+    await kiProtokoll.flowSchritt(LAUF, 'm', async () => ({ content: '', tool_calls: rufe }));
+    const [[, schluss]] = aufrufe('UPDATE public.ki_aufrufe');
+    expect(schluss[3]).toBe(
+      crypto
+        .createHash('sha256')
+        .update(JSON.stringify({ content: '', tool_calls: rufe }), 'utf8')
+        .digest('hex')
+    );
+  });
+
+  test('scheitert das Modell, steht der Schritt als fehler da, und der Fehler geht weiter', async () => {
+    await expect(
+      kiProtokoll.flowSchritt(LAUF, 'm', async () => {
+        throw new Error('Ollama weg');
+      })
+    ).rejects.toThrow('Ollama weg');
+    const [[, schluss]] = aufrufe('UPDATE public.ki_aufrufe');
+    expect(schluss[1]).toBe('fehler');
+    expect(schluss[2]).toBe('Ollama weg');
+  });
+
+  test('scheitert die Zeile, laeuft der Flow trotzdem weiter', async () => {
+    db.query.mockRejectedValue(new Error('Datenbank weg'));
+    const message = await kiProtokoll.flowSchritt(LAUF, 'm', async () => ({ content: 'ok' }));
+    expect(message).toEqual({ content: 'ok' });
   });
 });
