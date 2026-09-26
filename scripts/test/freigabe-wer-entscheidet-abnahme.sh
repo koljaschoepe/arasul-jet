@@ -280,10 +280,13 @@ ARASUL_M1="$M1" ARASUL_M1_PASSWORT="$M1_PASS" ARASUL_M2="$M2" ARASUL_M2_PASSWORT
 BROWSER=$?
 pruefe 'Der Browser-Teil' "$(ja_wenn "$BROWSER" 0)"
 
-# Die Freigabe ist nach dem Browser-Teil bestaetigt: bei M2 steht nichts mehr.
-ruf "$TOK_M2" GET /api/freigabe-anfragen
-pruefe 'Nach dem Bestaetigen ist die Anfrage aus der Liste von M2' \
-  "$([ -z "$(rumpf | anfrage_zu_lauf "$LAUF")" ] && echo ja || echo nein)"
+# Die Freigabe ist nach dem Browser-Teil bestaetigt. Gefragt wird der Lauf
+# selbst: eine leere Liste hiesse sonst auch „die Anfrage ist gescheitert".
+ruf "$TOK_M1" GET "$LIVE/lauf?lauf=$LAUF"
+STATUS=$(rumpf | feld status)
+pruefe 'Nach dem Bestaetigen wartet der Lauf nicht mehr' \
+  "$([ "$CODE" = 200 ] && [ -n "$STATUS" ] && [ "$STATUS" != wartend ] && echo ja || echo nein)" \
+  "HTTP $CODE $STATUS"
 
 echo
 echo "$gruen von $((gruen + rot)) gruen"
