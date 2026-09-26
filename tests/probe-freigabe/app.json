@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "probe-freigabe",
+  "name": "Probe: Wer entscheidet",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/freigabe-wer-entscheidet-abnahme.sh: reicht einen Vorgang mit Vier-Augen-Regel ein und zeigt, was das Geraet zum Lauf sagt -- wer entscheidet und wo.",
+  "frontend": {
+    "verzeichnis": "frontend"
+  },
+  "backend": {
+    "image": "arasul-probe-freigabe:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
+    "gesundheit": "/gesund",
+    "umgebung": {
+      "PROBE_VERSION": "1.0.0"
+    }
+  },
+  "ports": {
+    "backend": 8080
+  },
+  "ressourcen": {
+    "speicher": "64m",
+    "cpus": 0.25
+  },
+  "modelle": [],
+  "flows": {
+    "verzeichnis": "flows"
+  }
+}
