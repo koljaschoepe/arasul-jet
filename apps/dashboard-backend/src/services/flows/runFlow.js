@@ -94,6 +94,9 @@ function buildUserInput(declared = [], werte = {}) {
  *   ist es ein Flow der Plattform.
  * @param {'test'|'live'|null} [p.stand] - Ihr Stand. Zusammen mit `appId`
  *   gesetzt oder beide nicht.
+ * @param {number|null} [p.einreicherId] - Der Mensch, fuer den eine App den
+ *   Lauf ausgeloest hat (J35). Er steht an jedem Modellschritt im Protokoll
+ *   der Modellaufrufe (`kiProtokoll.flowSchritt`).
  * @param {(evt:object)=>void} [p.onEvent] - Live-Ereignisse (Schritt 12 hängt sich hier ein).
  * @param {object} [deps] - Für Tests austauschbar.
  * @returns {Promise<object>} Der abgeschlossene Lauf (aus runStore).
@@ -105,6 +108,7 @@ async function runFlow(
     userId,
     appId = null,
     stand = null,
+    einreicherId = null,
     onEvent,
     existingRunId = null,
     signal,
@@ -196,7 +200,17 @@ async function runFlow(
   //    braucht denselben Namensraum wie der Orchestrator. Ohne sie forderte
   //    sie eine Freigabe an, die niemandem gehoert -- und bekaeme dieselbe
   //    Abweisung wie ein Flow der Plattform.
-  const roleContextBase = { userId, roots: flow.ordner, slug: flowName, appId, stand };
+  //
+  //    `einreicherId` aus demselben Grund (J35): jeder Modellschritt, auch der
+  //    einer Rolle, steht mit dem Menschen im Protokoll der Modellaufrufe.
+  const roleContextBase = {
+    userId,
+    roots: flow.ordner,
+    slug: flowName,
+    appId,
+    stand,
+    einreicherId,
+  };
 
   // 5. Lauf anlegen — ODER einen bereits angelegten weiterverwenden. Der
   //    Lauf-Verwalter (Schritt 12) legt den Lauf VOR dem Start an, damit seine

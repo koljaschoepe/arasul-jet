@@ -860,6 +860,44 @@ describe('Ein Flow rechnet extern (Phase D4)', () => {
     // Auch die Rollen erben ihn — sonst rechnete eine Delegation wieder hier.
     expect(deps.runLoop.mock.calls[0][0].context.extern).toEqual(ZUGANG);
   });
+
+  it('der Einreicher steht im Kontext, auch in dem der Rollen (Protokoll, J35)', async () => {
+    const deps = {
+      store: {
+        createRun: jest.fn(async () => ({ id: 3 })),
+        startStep: jest.fn(async () => ({ id: 1 })),
+        finishStep: jest.fn(async () => ({})),
+        bumpSteps: jest.fn(async () => 1),
+        finishRun: jest.fn(async () => ({})),
+        getRun: jest.fn(async () => ({ id: 3, steps: [] })),
+      },
+      loadFlow: jest.fn(async () => ({
+        systemPrompt: 'p',
+        argumente: [],
+        werkzeuge: [],
+        ordner: [],
+        grenzen: { werkzeug_runden: 3, zeitlimit_s: 60, max_aufrufe: 10 },
+        modell: 'm',
+      })),
+      makeTools: jest.fn(() => []),
+      runLoop: jest.fn(async () => ({ result: 'R', runden: 1 })),
+      tracker: {
+        snapshot: jest.fn(async () => new Map()),
+        berechneAenderungen: jest.fn(() => ({ aenderungen: [], abgeschnitten: false })),
+      },
+      resolveModel: jest.fn(async () => 'default-model'),
+    };
+
+    await runFlow(
+      { flowName: 'f', args: {}, userId: 1, appId: 'urlaub', stand: 'live', einreicherId: 5 },
+      deps
+    );
+
+    const ctx = deps.runLoop.mock.calls[0][0].context;
+    expect(ctx).toMatchObject({ appId: 'urlaub', stand: 'live', einreicherId: 5, slug: 'f' });
+    expect(ctx.runId).toBeDefined();
+    expect(ctx.roleContextBase).toMatchObject({ einreicherId: 5, runId: ctx.runId });
+  });
 });
 
 describe('buildUserInput', () => {

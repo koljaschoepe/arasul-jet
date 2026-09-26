@@ -101,11 +101,12 @@ app.use((req, res, next) => {
 });
 
 // TIMEOUT-001: Request timeout safety net (prevents indefinitely hanging requests)
-// SSE/streaming endpoints (RAG, LLM) get a longer timeout since reranking can take 120s+
+// Die Frist je Pfad steht in utils/anfrageFrist.js: 60 s regulaer, 5 min fuer
+// Stroeme, und fuer die aeussere Schnittstelle das laengste Warten ihrer
+// Routen plus eine Minute -- dort antwortet die Route selbst (J35).
+const { fristFuer } = require('./utils/anfrageFrist');
 app.use((req, res, next) => {
-  const isStreamingEndpoint = req.path.startsWith('/api/rag/') || req.path.startsWith('/api/llm/');
-  const timeout = isStreamingEndpoint ? 300000 : 60000; // 5min for streaming, 60s for regular
-  res.setTimeout(timeout, () => {
+  res.setTimeout(fristFuer(req.path), () => {
     if (!res.headersSent) {
       res.status(408).json({
         error: { code: 'REQUEST_TIMEOUT', message: 'Request timeout' },

@@ -11,6 +11,10 @@
  * weder Dateinamen noch Text noch Antwort, nur Art und Größe der Datei und den
  * sha256 der Antwort. Mit ihm lässt sich ein Vorschlag, den die App
  * aufbewahrt hat, genau diesem Aufruf zuordnen.
+ *
+ * Auch jeder Modellschritt eines Flows steht hier (Migration 189), mit seinem
+ * Lauf: der Satz, den ein Flow nach einer Freigabe schreibt, ist ebenso ein
+ * Vorschlag wie eine Auslesung.
  */
 import { formatBytes } from '@/utils/formatting';
 import { LaufZustand } from './LaufAnsicht';
@@ -56,8 +60,8 @@ export function KiAufrufe({ aufrufe }: { aufrufe: KiAufruf[] | undefined }) {
   if (!aufrufe || aufrufe.length === 0) {
     return (
       <p className="text-sm text-muted-foreground" data-testid="ki-aufrufe-leer">
-        Noch kein Modellaufruf. Jeder Aufruf dieser App über die Schnittstelle erscheint hier, mit
-        Modell, Mensch und Dauer.
+        Noch kein Modellaufruf. Jeder Aufruf dieser App über die Schnittstelle und jeder
+        Modellschritt ihrer Flows erscheint hier, mit Modell, Mensch und Dauer.
       </p>
     );
   }
@@ -100,11 +104,15 @@ export function KiAufrufe({ aufrufe }: { aufrufe: KiAufruf[] | undefined }) {
               </span>
             </p>
             {a.fehler && <p className="text-ui-xs text-destructive">{a.fehler}</p>}
-            {(a.job_id || a.antwort_sha256) && (
+            {(a.job_id || a.lauf_id != null || a.antwort_sha256) && (
               <p className="break-all font-mono text-ui-xs text-muted-foreground">
-                {a.job_id && `Auftrag ${a.job_id}`}
-                {a.job_id && a.antwort_sha256 && ' · '}
-                {a.antwort_sha256 && `Antwort sha256 ${a.antwort_sha256}`}
+                {[
+                  a.lauf_id != null && `Lauf ${a.lauf_id}`,
+                  a.job_id && `Auftrag ${a.job_id}`,
+                  a.antwort_sha256 && `Antwort sha256 ${a.antwort_sha256}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </p>
             )}
           </li>

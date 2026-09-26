@@ -1291,7 +1291,11 @@ Gerät verwalten.
 **GET /api/apps/:id/ki-aufrufe:** Query `?stand=test|live`, `?limit=1..500`
 (Vorgabe 100). Neueste zuerst. Je Aufruf über die externe Schnittstelle
 (`llm/chat`, `document/analyze`, `document/extract-structured`,
-`/v1/chat/completions`, `/v1/embeddings`) eine Zeile aus `ki_aufrufe`:
+`/v1/chat/completions`, `/v1/embeddings`) eine Zeile aus `ki_aufrufe`. Seit
+Migration 189 steht dort auch **jeder Modellschritt eines Flows** der App, als
+`endpunkt` `flows/<name>` mit `lauf_id` und dem Menschen, den die App beim
+Start als `einreicher` nannte (ohne App: der Mensch, dem der Lauf gehört);
+`job_id` ist dann `null`, `lauf_id` bei allen anderen Wegen:
 
 ```json
 {
@@ -1308,6 +1312,7 @@ Gerät verwalten.
       "endpunkt": "document/extract-structured",
       "modell": "qwen3.8:27b-q4_K_M",
       "job_id": "0b7c2c1e-…",
+      "lauf_id": null,
       "status": "fertig",
       "fehler": null,
       "antwort_sha256": "9f86d0…",
@@ -3138,11 +3143,12 @@ behält seine Rollen (`promptAusNachrichten` in `services/llm/llmJobProcessor.js
 
 ### Document Processing
 
-| Method | Endpoint                                       | Auth    | Permission         | Description                          |
-| ------ | ---------------------------------------------- | ------- | ------------------ | ------------------------------------ |
-| POST   | `/api/v1/external/document/extract`            | API Key | `document:extract` | Pure text extraction (OCR if needed) |
-| POST   | `/api/v1/external/document/analyze`            | API Key | `document:analyze` | Extract text + LLM analysis          |
-| POST   | `/api/v1/external/document/extract-structured` | API Key | `document:extract` | Extract + structured JSON output     |
+| Method | Endpoint                                              | Auth    | Permission         | Description                          |
+| ------ | ----------------------------------------------------- | ------- | ------------------ | ------------------------------------ |
+| POST   | `/api/v1/external/document/extract`                   | API Key | `document:extract` | Pure text extraction (OCR if needed) |
+| POST   | `/api/v1/external/document/analyze`                   | API Key | `document:analyze` | Extract text + LLM analysis          |
+| POST   | `/api/v1/external/document/extract-structured`        | API Key | `document:extract` | Extract + structured JSON output     |
+| GET    | `/api/v1/external/document/extract-structured/:jobId` | API Key | `document:extract` | Ein Auslesen abholen (J35)           |
 
 All endpoints accept `multipart/form-data` with a `file` field.
 
@@ -3240,6 +3246,58 @@ heißt, das Modell hat kein JSON-Objekt geliefert, seine Antwort steht dann in
 `{ success: false, error, job_id, processing_time_ms, timestamp }`. Das Modell
 sieht den **Text** der Datei, bei Fotos aus der Texterkennung, nicht das Bild;
 wer das Bild selbst an ein Modell geben will, nimmt `llm/chat` mit `images`.
+
+#### Warten und Abholen (J35, 26.09.2026)
+
+`llm/chat`, `document/analyze` und `document/extract-structured` warten
+`timeout_seconds` auf das Modell (Vorgabe 300, höchstens 600). Bis zum
+26.09.2026 schnitt das Sicherheitsnetz des Backends (TIMEOUT-001) jede Anfrage
+unter `/api/v1/external/` nach **60 s** mit `408` ab, ganz gleich, was die
+Route versprach; die App-Bau-Probe bekam so bei sechs gleichzeitigen
+Auslesungen ein `408`, und das Gerät hatte das Ergebnis zehn Sekunden später
+fertig. Das Netz gibt den äußeren Wegen jetzt ihr längstes Versprechen plus
+eine Minute (`utils/anfrageFrist.js`: 31 min, weil `flows/:name/run` bis
+1800 s wartet), und **die Route antwortet selbst**:
+
+Rechnet der Auftrag nach `timeout_seconds` noch, kommt **`202`** statt `500`
+„Job timed out", und der Auftrag läuft weiter:
+
+```json
+{
+  "success": false,
+  "status": "laeuft",
+  "job_id": "0b7c2c1e-…",
+  "abholen": "document/extract-structured/0b7c2c1e-…",
+  "model": "qwen3.8:27b-q4_K_M",
+  "processing_time_ms": 300004,
+  "timestamp": "…",
+  "extracted_text": "…",
+  "filename": "beleg.jpg",
+  "char_count": 812,
+  "metadata": { "ocr_used": true }
+}
+```
+
+`abholen` ist relativ zur Basis `ARASUL_API_URL`. Bei `llm/chat` und
+`document/analyze` ist es `llm/job/<job_id>` (das 202 von `llm/chat` ohne die
+Felder der Texterkennung). **`llm/job` antwortet immer mit `200`** und nennt
+den Stand in `status` (`pending` … `completed`, `error`, `cancelled`); die
+Antwort des Modells steht dann in `content`, nicht in `response`. Mit dem
+Schlüssel einer App sieht `llm/job` seit J35 nur die Aufträge dieser App in
+diesem Stand (gelesen aus `ki_aufrufe`), sonst `404` — `user_id` allein ist
+bei zwei Apps desselben Administrators derselbe Mensch. Bei
+`document/extract-structured` ist `abholen` der neue Weg:
+
+**GET /api/v1/external/document/extract-structured/:jobId** — `202` in derselben
+Form (ohne die Felder der Texterkennung), solange es rechnet; `200` mit
+`{ success: true, status: "fertig", data, raw_response, model, job_id,
+processing_time_ms, timestamp }`, wenn es fertig ist (`data` wie oben: Objekt
+oder `null`); `500` als Fehlschlag; `404` nach einer Stunde
+(`cleanupOldJobs`) oder für einen Auftrag, der nicht dieser App in diesem
+Stand gehört — gelesen aus `ki_aufrufe`, nicht aus dem Schlüssel, der je
+Einspielen neu gewürfelt wird. `400` für eine Kennung, die keine UUID ist.
+Im Kontrakt: `warten`, `auslesen.laeuft`, `auslesen.abholen`,
+`auslesen.abgeholt`. Die Kontraktversion bleibt bei 6.
 
 ### Deploy für das Ara-Kit (Phase C5)
 

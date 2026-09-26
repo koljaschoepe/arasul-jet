@@ -1158,17 +1158,22 @@ wie sie gerechnet wurden).
 | `antwort_sha256`  | text                     | ✅       |                                          |
 | `datei_typ`       | text                     | ✅       |                                          |
 | `datei_bytes`     | integer                  | ✅       |                                          |
+| `lauf_id`         | bigint                   | ✅       |                                          |
 
 **Primary key:** `id`
 
 Kein Fremdschlüssel auf `admin_users`, `api_keys` oder `apps`: der Nachweis
 überlebt Mensch, Schlüssel und App; Namen stehen als Abschrift daneben. Kein
 Dateiname, kein Text, keine Antwort — nur deren sha256. Werksreset: Stufe 2.
+Seit Migration 189 steht auch jeder Modellschritt eines Flows hier
+(`endpunkt` `flows/<name>`, `lauf_id` der Lauf, ebenfalls ohne
+Fremdschlüssel).
 
 **Indexes:**
 
 - `idx_ki_aufrufe_app` — `CREATE INDEX idx_ki_aufrufe_app ON public.ki_aufrufe USING btree (app_id, begonnen_am DESC)`
 - `idx_ki_aufrufe_begonnen` — `CREATE INDEX idx_ki_aufrufe_begonnen ON public.ki_aufrufe USING btree (begonnen_am DESC)`
+- `idx_ki_aufrufe_lauf` — `CREATE INDEX idx_ki_aufrufe_lauf ON public.ki_aufrufe USING btree (lauf_id) WHERE (lauf_id IS NOT NULL)`
 - `ki_aufrufe_pkey` — `CREATE UNIQUE INDEX ki_aufrufe_pkey ON public.ki_aufrufe USING btree (id)`
 
 ---

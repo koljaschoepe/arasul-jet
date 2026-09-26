@@ -29,6 +29,7 @@ const logger = require('../../utils/logger');
 const { withGpuLock } = require('./gpuQueue');
 const { ServiceUnavailableError } = require('../../utils/errors');
 const { parseTextToolCalls, enthaeltToolSyntax } = require('../llm/textToolCalls');
+const kiProtokoll = require('../app/kiProtokoll');
 
 // Eine eigene Variable, und zwar seit dem 22.08.2026 wirklich eine eigene.
 //
@@ -282,6 +283,38 @@ async function callOllama({ model, messages, tools, think = false, extern = null
 }
 
 /**
+ * Ein Modellschritt eines Laufs, mit seiner Zeile im Protokoll der
+ * Modellaufrufe (J35, Migration 189).
+ *
+ * HIER und nicht in `callOllama`: `callOllama` kennt keinen Lauf, und jede
+ * Schleife -- Orchestrator, Rolle, Pruefschritt, Synthese -- kommt hier mit
+ * ihrem Kontext vorbei, der App, Stand, Einreicher und Lauf traegt
+ * (`runFlow`, `roleContextBase`). Ohne Lauf im Kontext (ein Test, eine
+ * Schleife ausserhalb eines Flows) steht nichts im Protokoll.
+ */
+async function modellFragen({ model, messages, toolDefs, think, extern, context }) {
+  const aufruf = () => callOllama({ model, messages, tools: toolDefs, think, extern });
+  if (!context || context.runId == null) {
+    return aufruf();
+  }
+  // Wer draussen rechnet, steht mit dem Anbieter da: „qwen3" allein waere
+  // falsch, wenn der Satz von einem Modell eines anderen Hauses kam.
+  const modell = extern ? `${extern.anbieter}/${extern.modell}` : model;
+  return kiProtokoll.flowSchritt(
+    {
+      runId: context.runId,
+      flowName: context.slug,
+      appId: context.appId ?? null,
+      stand: context.stand ?? null,
+      einreicherId: context.einreicherId ?? null,
+      userId: context.userId ?? null,
+    },
+    modell,
+    aufruf
+  );
+}
+
+/**
  * Treibt einen Flow-Lauf bis zur Antwort (oder bis eine Grenze greift).
  *
  * @param {object} args
@@ -360,7 +393,7 @@ async function runFlowLoop({
         return { result: note, runden: runde, truncated: true };
       }
 
-      const message = await callOllama({ model, messages, tools: toolDefs, think, extern });
+      const message = await modellFragen({ model, messages, toolDefs, think, extern, context });
       const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
       let rundenContent = message.content || '';
 

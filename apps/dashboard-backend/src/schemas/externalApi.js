@@ -145,7 +145,10 @@ const ExtractStructuredFelder = z.object({
     .string()
     .regex(/^\d+$/)
     .optional()
-    .describe('Wartezeit in Sekunden, Vorgabe 300, hoechstens 600'),
+    .describe(
+      'Wartezeit in Sekunden, Vorgabe 300, hoechstens 600. Rechnet der Auftrag danach noch, ' +
+        'antwortet das Geraet mit 202 und dem Weg zum Abholen'
+    ),
   einreicher: z
     .string()
     .max(100)
@@ -188,6 +191,64 @@ const ExtractStructuredFehlschlag = z
   })
   .strict();
 
+/**
+ * Wenn die Wartezeit der Anfrage (`timeout_seconds`) vorbei ist und der
+ * Auftrag noch rechnet: HTTP 202 mit dem Weg, auf dem die App ihn abholt
+ * (J35, 26.09.2026). Bis dahin kam hier 500 „Job timed out" -- oder, vor der
+ * Reparatur von TIMEOUT-001, schon nach 60 s ein 408 --, und eine App, die
+ * das Ergebnis haben wollte, las dieselbe Datei ein zweites Mal, waehrend das
+ * Geraet die erste Antwort gerade fertig hatte.
+ *
+ * Was die Texterkennung gelesen hat, steht schon hier: sie ist vor dem Modell
+ * fertig, und die App muss dafuer nicht warten.
+ */
+const ExtractStructuredLaeuft = z
+  .object({
+    success: z.literal(false),
+    status: z.literal('laeuft').describe('Der Auftrag rechnet noch'),
+    job_id: z.string(),
+    abholen: z
+      .string()
+      .describe(
+        'Der Weg zum Ergebnis relativ zur Basis, z. B. `document/extract-structured/<job_id>`'
+      ),
+    extracted_text: z.string(),
+    filename: z.string(),
+    char_count: z.number().int(),
+    metadata: z.record(z.string(), z.unknown()),
+    model: z.string().nullable().describe('Das Modell, das rechnet'),
+    processing_time_ms: z.number().int(),
+    timestamp: z.string(),
+  })
+  .strict();
+
+/**
+ * `GET /document/extract-structured/:job_id`, wenn der Auftrag fertig ist.
+ * Ohne `extracted_text` und `filename`: die hatte die App schon mit dem 202,
+ * und das Geraet behaelt die Datei nicht.
+ */
+const ExtractStructuredAbgeholt = z
+  .object({
+    success: z.literal(true),
+    status: z.literal('fertig'),
+    data: z.record(z.string(), z.unknown()).nullable(),
+    raw_response: z.string(),
+    model: z.string().nullable(),
+    job_id: z.string(),
+    processing_time_ms: z
+      .number()
+      .int()
+      .nullable()
+      .describe('Vom Einreihen bis zum Ende des Auftrags'),
+    timestamp: z.string(),
+  })
+  .strict();
+
+/** `:job_id` der Abholwege: die Kennung eines Auftrags der Warteschlange. */
+const AuftragParams = z.object({
+  jobId: z.string().uuid('job_id ist keine Kennung eines Auftrags'),
+});
+
 module.exports = {
   BILD_MAX_ANZAHL,
   BILD_MAX_ZEICHEN,
@@ -195,6 +256,9 @@ module.exports = {
   ExtractStructuredFelder,
   ExtractStructuredAntwort,
   ExtractStructuredFehlschlag,
+  ExtractStructuredLaeuft,
+  ExtractStructuredAbgeholt,
+  AuftragParams,
   ExternalFlowRunBody,
   FreigabeRegel,
   CreateApiKeyBody,

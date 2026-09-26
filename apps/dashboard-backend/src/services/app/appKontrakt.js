@@ -33,6 +33,8 @@ const {
   ExtractStructuredFelder,
   ExtractStructuredAntwort,
   ExtractStructuredFehlschlag,
+  ExtractStructuredLaeuft,
+  ExtractStructuredAbgeholt,
   BILD_MAX_ANZAHL,
   BILD_MAX_ZEICHEN,
 } = require('../../schemas/externalApi');
@@ -260,6 +262,26 @@ const PROTOKOLL_REGELN = Object.freeze([
   'Ohne Inhalt: kein Dateiname, kein Text, kein Prompt, keine Antwort. Von der Antwort steht nur ihr sha256 da, dazu der Auftrag (`job_id`), den die Antwort der Route nennt -- wer einen Vorschlag aufbewahrt, kann ihn damit seinem Aufruf zuordnen.',
   'Fuer wen die App fragt, nennt sie mit der Kopfzeile X-Arasul-User (den Wert aus der Forward-Auth unveraendert weiterreichen) oder mit dem Feld `einreicher`; an `/v1` mit dem Feld `user`. Der Name muss ein aktives Konto sein, dem die App freigegeben ist, sonst 400 und kein Aufruf.',
   'Nennt die App niemanden, wird der Aufruf trotzdem protokolliert, ohne Menschen.',
+  'Auch jeder Modellschritt eines Flows dieser App steht dort, als Weg `flows/<name>` mit seinem Lauf (`run_id`) und dem Menschen, den die App beim Start als `einreicher` nannte -- auch der Satz, den ein Flow nach einer Freigabe schreibt. Ein Flow braucht dafuer nichts zu tun.',
+]);
+
+/**
+ * Wie lange ein Weg wartet, und was danach kommt (J35, 26.09.2026).
+ *
+ * Bis hierher antwortete das Geraet nach 60 s mit 408, auch wenn die Route
+ * 600 s versprach (TIMEOUT-001, `utils/anfrageFrist.js`), und nach ihrer
+ * eigenen Wartezeit mit 500 „Job timed out". Beides liess eine App ohne
+ * Ergebnis zurueck, das das Geraet Sekunden spaeter fertig hatte -- sie las
+ * doppelt. Jetzt antwortet die Route selbst, mit 202 und dem Weg zum Abholen.
+ */
+const WARTEN_REGELN = Object.freeze([
+  '`llm/chat`, `document/analyze` und `document/extract-structured` warten `timeout_seconds` auf das Modell (Vorgabe 300, hoechstens 600). Das Geraet schneidet keine dieser Anfragen vorher ab; ein 408 gibt es auf diesen Wegen nicht mehr.',
+  'Rechnet der Auftrag nach der Wartezeit noch, antwortet das Geraet mit HTTP 202: `success: false`, `status: "laeuft"`, `job_id` und `abholen` -- der Weg zum Ergebnis relativ zur Basis. Der Auftrag laeuft weiter; die Datei NICHT noch einmal schicken.',
+  '`abholen` ist bei `document/extract-structured` der Weg `document/extract-structured/<job_id>` (Antwort wie `auslesen.abgeholt`), bei `llm/chat` und `document/analyze` `llm/job/<job_id>`. Das 202 von `document/extract-structured` und `document/analyze` traegt schon `extracted_text`, `filename`, `char_count` und `metadata`.',
+  'Abholen bei `document/extract-structured`: GET auf `abholen`. 202 heisst weiter warten (ein paar Sekunden, nicht im Takt der Millisekunden), 200 ist das Ergebnis in der Form `auslesen.abgeholt`, 500 der Fehlschlag.',
+  'Abholen bei `llm/chat` und `document/analyze`: `llm/job/<job_id>` antwortet immer mit 200 und nennt den Stand in `status` (`pending`, `processing`, `completed`, `error`, `cancelled`); die Antwort des Modells steht bei `completed` in `content` (nicht in `response`), ein Fehler in `error`.',
+  'Ein fertiges Ergebnis liegt eine Stunde, danach 404. Abholen kann nur dieselbe App im selben Stand; ein fremder Auftrag ist 404.',
+  'Schliesst die App die Verbindung, bevor die Antwort kommt, bricht das Geraet den Auftrag ab. Wer nicht warten will, setzt eine kleine `timeout_seconds` und holt ab.',
 ]);
 
 /**
@@ -276,7 +298,8 @@ const AUSLESEN_REGELN = Object.freeze([
   'Das Geraet liest zuerst den TEXT der Datei (bei Fotos und Scans ueber seine Texterkennung) und gibt dem Modell diesen Text samt `schema`. Das Modell sieht kein Bild; wer das Bild selbst an ein Modell geben will, nimmt `llm/chat` mit `images` (siehe `bilder`).',
   '`data` ist ein Objekt oder null. Es ist NICHT gegen `schema` geprueft: ein Feld kann fehlen, einen anderen Typ haben oder dazukommen. Die App prueft die Felder selbst, bevor sie etwas daraus macht.',
   '`data` ist null, wenn die Antwort des Modells kein JSON-Objekt war; sie steht dann unveraendert in `raw_response`.',
-  'Scheitert das Modell (Zeitgrenze, Fehler), antwortet das Geraet mit HTTP 500 in der Form von `fehlschlag` -- ohne den Fehler-Umschlag der uebrigen Fehler.',
+  'Scheitert das Modell, antwortet das Geraet mit HTTP 500 in der Form von `fehlschlag` -- ohne den Fehler-Umschlag der uebrigen Fehler.',
+  'Rechnet das Modell nach `timeout_seconds` noch, ist das kein Fehlschlag: HTTP 202 in der Form von `laeuft`, mit `abholen` (`document/extract-structured/<job_id>`). Ein GET dort liefert 202, solange es rechnet, dann 200 in der Form von `abgeholt` oder 500 als `fehlschlag` (siehe `warten`).',
   'Fehlt `file` oder `schema`, oder ist `schema` kein JSON, antwortet es mit 400 im Fehler-Umschlag (`error.code` VALIDATION_ERROR).',
   'Ein Vorschlag des Modells ist kein Beleg: `job_id` ordnet ihn seinem Eintrag im Protokoll des Geraets zu (siehe `protokoll`).',
 ]);
@@ -342,7 +365,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'GET',
       pfad: '/api/v1/external/llm/job/:jobId',
       bereich: 'llm:status',
-      was: 'Stand eines Auftrags',
+      was: 'Stand eines Auftrags; der Abholweg nach einem 202 von `llm/chat` und `document/analyze`',
     },
     {
       verb: 'GET',
@@ -366,7 +389,13 @@ const ENDPUNKTE = Object.freeze(
       verb: 'POST',
       pfad: '/api/v1/external/document/extract-structured',
       bereich: 'document:extract',
-      was: 'Felder nach einem Schema aus einer Datei lesen (Anfrage und Antwort unter `auslesen`)',
+      was: 'Felder nach einem Schema aus einer Datei lesen (Anfrage und Antwort unter `auslesen`). Rechnet das Modell nach `timeout_seconds` noch: 202 mit `abholen` (siehe `warten`)',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/document/extract-structured/:jobId',
+      bereich: 'document:extract',
+      was: 'Ein Auslesen abholen, das nach seiner Wartezeit noch rechnete: 202 rechnet noch, 200 fertig, 500 gescheitert (siehe `warten`)',
     },
     {
       verb: 'POST',
@@ -563,6 +592,7 @@ function kontrakt() {
         'document/extract-structured',
         'v1/chat/completions',
         'v1/embeddings',
+        'flows/:name/run',
       ],
       einreicher: {
         kopf: KOPF_BENUTZER,
@@ -580,7 +610,24 @@ function kontrakt() {
       anfrage: alsJsonSchema(ExtractStructuredFelder),
       antwort: alsJsonSchema(ExtractStructuredAntwort),
       fehlschlag: alsJsonSchema(ExtractStructuredFehlschlag),
+      // Die Wartezeit ist um, das Modell rechnet noch (J35): 202, und der Weg
+      // zum Ergebnis. Additiv, die Kontraktversion bleibt bei 6.
+      laeuft: alsJsonSchema(ExtractStructuredLaeuft),
+      abholen: 'document/extract-structured/:job_id',
+      abgeholt: alsJsonSchema(ExtractStructuredAbgeholt),
       regeln: AUSLESEN_REGELN,
+    },
+    warten: {
+      status: 202,
+      wege: {
+        'llm/chat': 'llm/job/:job_id',
+        'document/analyze': 'llm/job/:job_id',
+        'document/extract-structured': 'document/extract-structured/:job_id',
+      },
+      hoechstens_sekunden: 600,
+      vorgabe_sekunden: 300,
+      aufbewahrt_sekunden: 3600,
+      regeln: WARTEN_REGELN,
     },
     bilder: {
       weg: 'llm/chat',

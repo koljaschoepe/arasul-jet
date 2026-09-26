@@ -246,6 +246,7 @@ describe('AppsSettings', () => {
             endpunkt: 'document/extract-structured',
             modell: 'qwen3.8:27b-q4_K_M',
             job_id: '0b7c2c1e-0000-4000-8000-000000000001',
+            lauf_id: null,
             status: 'fertig',
             fehler: null,
             antwort_sha256: 'ab'.repeat(32),
@@ -262,6 +263,43 @@ describe('AppsSettings', () => {
     expect(zeile).toHaveTextContent('für anna');
     expect(zeile).toHaveTextContent('12,4 s');
     expect(zeile).toHaveTextContent('PDF, 120 KB');
+  });
+
+  /**
+   * J35, Migration 189: auch der Modellschritt eines Flows steht hier, mit
+   * seinem Lauf -- der Satz nach einer Freigabe ist ein Vorschlag wie jeder.
+   */
+  it('zeigt den Modellschritt eines Flows mit seinem Lauf', async () => {
+    antworte({
+      '/apps/beispielapp/ki-aufrufe?limit=50': {
+        data: [
+          {
+            id: 8,
+            begonnen_am: '2026-09-26T09:31:00.000Z',
+            beendet_am: '2026-09-26T09:31:08.000Z',
+            dauer_ms: 8000,
+            stand: 'live',
+            benutzer_id: 5,
+            benutzer_name: 'anna',
+            endpunkt: 'flows/bescheid',
+            modell: 'qwen3.8:27b-q4_K_M',
+            job_id: null,
+            lauf_id: 12,
+            status: 'fertig',
+            fehler: null,
+            antwort_sha256: 'cd'.repeat(32),
+            datei_typ: null,
+            datei_bytes: null,
+          },
+        ],
+      },
+    });
+    await oeffneApp();
+    const zeile = await screen.findByTestId('ki-aufruf-8');
+    expect(zeile).toHaveTextContent('flows/bescheid');
+    expect(zeile).toHaveTextContent('für anna');
+    expect(zeile).toHaveTextContent('Lauf 12');
+    expect(zeile.textContent).not.toMatch(/Auftrag/);
   });
 
   it('sagt, wenn eine App noch kein Modell gefragt hat', async () => {

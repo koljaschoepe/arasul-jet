@@ -134,6 +134,8 @@ export interface KiAufruf {
   endpunkt: string;
   modell: string | null;
   job_id: string | null;
+  /** Der Flow-Lauf, zu dem ein Modellschritt gehört (`endpunkt` ist dann `flows/<name>`). */
+  lauf_id: number | null;
   status: 'laeuft' | 'fertig' | 'fehler';
   fehler: string | null;
   antwort_sha256: string | null;
