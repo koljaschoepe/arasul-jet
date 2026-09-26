@@ -150,16 +150,50 @@ installation_merken() {
   return 0
 }
 
+# -----------------------------------------------------------------------------
+# Welche Volumes Modelle sind und keine Daten
+# -----------------------------------------------------------------------------
+# EINE LISTE FUER ZWEI LESER. Der Werksreset (`scripts/setup/factory-reset.sh`)
+# sichert genau diese Volumes vor dem Aufraeumen und legt sie danach zurueck --
+# ein neu aufgesetztes Geraet soll nicht 30 GB Modelle neu laden. Der Installer
+# muss dieselben Volumes danach als das erkennen, was sie sind: Gewichte ohne
+# Kundendaten, keine Spur eines Geraets. Bis J35 hatte nur der Reset die Liste,
+# und `zustand_vorhanden` zaehlte die zurueckgelegten Modelle als Datenbank
+# eines fremden Geraets: der Installer brach auf dem frisch zurueckgesetzten
+# Orin mit "Zustand ohne Zuhause" ab (Durchlauf 3, 26.09.2026). Deshalb stehen
+# beide Funktionen HIER, und der Reset liest sie von hier
+# (`scripts/test/zustand.py` haelt fest, dass er keine eigene fuehrt).
+#
+# Gesucht wird am Namen des Volumes selbst, mit oder ohne Projekt davor: der
+# Projektname stand frueher auf dem Verzeichnisnamen, heute auf
+# `arasul-platform` (docker-compose.yml), und die Volumes aus der Zeit davor
+# heissen `arasul-jet_arasul-postgres` statt `arasul-platform_arasul-postgres`.
+ARASUL_MODELL_VOLUMES='(arasul-llm-models|arasul-embeddings-models)$'
+
+arasul_volumes() {
+  docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E '(^|_)arasul-[a-z0-9-]+$' || true
+}
+
+modell_volumes() {
+  arasul_volumes | grep -E "$ARASUL_MODELL_VOLUMES" || true
+}
+
+# Die Volumes dieses Projekts, die ein Geraet ausmachen: alle ausser den
+# Modellen. Leer, wenn es keine gibt.
+zustand_volumes() {
+  command -v docker >/dev/null 2>&1 || return 0
+  docker volume ls -q --filter "name=^${ARASUL_PROJEKT}_" 2>/dev/null \
+    | grep -vE "$ARASUL_MODELL_VOLUMES" || true
+}
+
 # Gibt es auf diesem Rechner schon einen Zustand dieses Projekts? Gefragt wird
 # nach den Volumes, nicht nach Containern: Container kommen und gehen, ein
 # Volume ist die Datenbank. Genau dieses Volume hat die halbe Migration
 # ermoeglicht -- `arasul-platform_arasul-postgres` blieb liegen, waehrend das
-# Passwort daneben neu erzeugt wurde.
+# Passwort daneben neu erzeugt wurde. Die Modelle zaehlen nicht (siehe oben).
 zustand_vorhanden() {
   command -v docker >/dev/null 2>&1 || return 1
-  local volumes
-  volumes="$(docker volume ls -q --filter "name=^${ARASUL_PROJEKT}_" 2>/dev/null || true)"
-  [ -n "$volumes" ]
+  [ -n "$(zustand_volumes)" ]
 }
 
 # -----------------------------------------------------------------------------

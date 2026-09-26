@@ -75,6 +75,13 @@ wartung_herzschlag_an() {
   # muss, um zu sehen, ob nachgefasst wird. Ein Herzschlag, den niemand
   # geprueft hat, ist nur eine Behauptung.
   local takt="${WARTUNG_TAKT_SEKUNDEN:-60}"
-  ( while kill -0 "$$" 2>/dev/null; do sleep "$takt"; wartung_an; done ) &
+  # Nach dem Schlaf noch einmal fragen, ob der Aufrufer lebt: ist er in der
+  # Zwischenzeit geendet, hat `wartung_aus` schon `ende=` geschrieben, und ein
+  # letzter Herzschlag danach machte das Fenster wieder auf (J35).
+  ( while kill -0 "$$" 2>/dev/null; do
+      sleep "$takt"
+      kill -0 "$$" 2>/dev/null || break
+      wartung_an
+    done ) &
   WARTUNG_HERZ=$!
 }

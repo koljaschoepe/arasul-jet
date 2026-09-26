@@ -224,7 +224,7 @@ fi
 if [ "$GERAET_HIER" = false ] && zustand_vorhanden; then
   echo ""
   fehler "Auf diesem Rechner liegen schon Daten des Projekts ${ARASUL_PROJEKT}:"
-  docker volume ls --filter "name=^${ARASUL_PROJEKT}_" --format '    {{.Name}}' 2>/dev/null || true
+  zustand_volumes | sed 's/^/    /'
   fehler "  Wo das zugehoerige Verzeichnis steht, ist nicht zu ermitteln (kein"
   fehler "  Container dieses Projekts, kein Zeiger unter ${ARASUL_ZEIGER})."
   fehler ""

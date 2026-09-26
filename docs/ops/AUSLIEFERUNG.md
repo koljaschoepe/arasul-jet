@@ -442,6 +442,21 @@ Seither:
   `modell-holen <kennung>`), ein abgebrochener Download wird wiederholt, und
   danach wird der **Digest** geprüft. Von Hand: `./arasul modell`.
   `MODELL_HOLEN=false` lässt den Schritt aus.
+- **Ein stehender Download wird erkannt** (J35, 26.09.2026). Bis dahin durfte
+  ein Versuch vier Stunden dauern, und am Orin stand einer mit DNS-Fehler im
+  Container bei 15 % — Ollama schickte weiter Zeilen, der Stand bewegte sich
+  nicht. Jetzt gilt ein Versuch nach fünf Minuten ohne Fortschritt als stehend
+  (`MODELL_HOLEN_STILLSTAND_SEKUNDEN`): der Pull wird im Container beendet,
+  `llm-service` neu gestartet (Ollama lädt eine Schicht sonst im Hintergrund
+  weiter, und der nächste Versuch hinge am selben Download), und es geht an
+  den schon geladenen Teilen weiter. Nach `SIGTERM`, `SIGINT` oder `SIGHUP`
+  ist das Wartungsfenster zu, und kein letzter Herzschlag macht es wieder auf.
+- **Zurückgelegte Modelle sind keine Daten eines Geräts.** Der Werksreset
+  behält die Modell-Volumes, und `install.sh` zählt sie seit J35 nicht mehr
+  als Spur eines fremden Geräts — vorher brach der Installer nach einem Reset
+  mit „Zustand ohne Zuhause" ab. Welche Volumes Modelle sind, steht einmal in
+  `scripts/lib/installation.sh` (`modell_volumes`); der Werksreset liest es
+  von dort.
 - **Der Pull ist wiederholbar.** Das Standardmodell kommt aus der offiziellen
   Ollama-Bibliothek (`qwen3.8:27b-q4_K_M`), und `config/modelle/kurzliste.json`
   trägt je Modell den sha256 des Manifests. Hugging Face (`hf.co/…`) erzeugt
