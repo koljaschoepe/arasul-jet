@@ -164,4 +164,150 @@ describe('Datenliste', () => {
     await nutzer.click(screen.getAllByRole('button')[0]!);
     expect(gerufen).toHaveBeenCalledTimes(1);
   });
+
+  it('markiert die gewählte Zeile mit aria-selected und data-state', () => {
+    render(
+      <Datenliste
+        daten={DATEN}
+        spalten={SPALTEN}
+        kennung={l => l.id}
+        beschriftung="Läufe"
+        aufZeile={vi.fn()}
+        gewaehlt="r2"
+      />
+    );
+    const zeilen = screen.getAllByRole('row').slice(1);
+    const gewaehlt = zeilen.find(z => z.textContent?.includes('Angebot'))!;
+    expect(gewaehlt).toHaveAttribute('aria-selected', 'true');
+    expect(gewaehlt).toHaveAttribute('data-state', 'selected');
+    // Die Klasse, die den Hintergrund traegt -- ohne sie ist `aria-selected`
+    // eine Auskunft nur fuer das Vorlesewerkzeug.
+    expect(gewaehlt.className).toContain('data-[state=selected]:bg-foreground/8');
+    for (const andere of zeilen.filter(z => z !== gewaehlt)) {
+      expect(andere).toHaveAttribute('aria-selected', 'false');
+      expect(andere).not.toHaveAttribute('data-state');
+    }
+  });
+
+  it('setzt kein aria-selected, wenn der Aufrufer keine Auswahl führt', () => {
+    render(<Datenliste daten={DATEN} spalten={SPALTEN} kennung={l => l.id} beschriftung="Läufe" />);
+    for (const zeile of screen.getAllByRole('row').slice(1)) {
+      expect(zeile).not.toHaveAttribute('aria-selected');
+      expect(zeile).not.toHaveAttribute('tabindex');
+    }
+  });
+
+  it('erreicht die Zeile per Tab und wählt sie mit Enter und Leertaste', async () => {
+    const nutzer = userEvent.setup();
+    const gerufen = vi.fn();
+    render(
+      <Datenliste
+        daten={DATEN}
+        spalten={[{ schluessel: 'flow', titel: 'Flow', zelle: l => l.flow }]}
+        kennung={l => l.id}
+        beschriftung="Läufe"
+        aufZeile={gerufen}
+      />
+    );
+
+    await nutzer.tab();
+    const erste = screen.getAllByRole('row')[1]!;
+    expect(erste).toHaveFocus();
+    await nutzer.keyboard('{Enter}');
+    expect(gerufen).toHaveBeenLastCalledWith(DATEN[0]);
+
+    await nutzer.tab();
+    await nutzer.keyboard(' ');
+    expect(gerufen).toHaveBeenLastCalledWith(DATEN[1]);
+    expect(gerufen).toHaveBeenCalledTimes(2);
+  });
+
+  it('lässt einem Knopf in der Zelle seine eigene Taste', async () => {
+    const nutzer = userEvent.setup();
+    const zeile = vi.fn();
+    const knopf = vi.fn();
+    render(
+      <Datenliste
+        daten={DATEN.slice(0, 1)}
+        spalten={[
+          {
+            schluessel: 'aktion',
+            titel: 'Aktion',
+            zelle: () => (
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  knopf();
+                }}
+              >
+                Löschen
+              </button>
+            ),
+          },
+        ]}
+        kennung={l => l.id}
+        beschriftung="Läufe"
+        aufZeile={zeile}
+      />
+    );
+    screen.getByRole('button', { name: 'Löschen' }).focus();
+    await nutzer.keyboard('{Enter}');
+    expect(knopf).toHaveBeenCalledTimes(1);
+    expect(zeile).not.toHaveBeenCalled();
+  });
+
+  it('kürzt eine lange Zelle und nennt den vollen Text im title', () => {
+    const lang = 'Ein sehr langer Titel, der die Spalte daneben aus der Tabelle schieben würde';
+    render(
+      <Datenliste
+        daten={[{ id: 'x', flow: lang, dauer: 1 }]}
+        spalten={[
+          { ...SPALTEN[0]!, kuerzen: true },
+          { ...SPALTEN[1]!, breite: '6rem' },
+        ]}
+        kennung={l => l.id}
+        beschriftung="Läufe"
+      />
+    );
+    const [titel, dauer] = screen.getAllByRole('cell');
+    expect(['0', '0px']).toContain(titel!.style.maxWidth);
+    const innen = titel!.firstElementChild as HTMLElement;
+    expect(innen.className).toContain('truncate');
+    expect(innen).toHaveAttribute('title', lang);
+    expect(dauer!.style.width).toBe('6rem');
+    expect(screen.getByRole('columnheader', { name: /Dauer/ }).style.width).toBe('6rem');
+  });
+
+  it('hält mit kuerzen und breite die Breite fest', () => {
+    render(
+      <Datenliste
+        daten={DATEN}
+        spalten={[{ ...SPALTEN[0]!, kuerzen: true, breite: '12rem' }]}
+        kennung={l => l.id}
+        beschriftung="Läufe"
+      />
+    );
+    const zelle = screen.getAllByRole('cell')[0]!;
+    expect(zelle.style.width).toBe('12rem');
+    expect(zelle.style.maxWidth).toBe('12rem');
+  });
+
+  it('zeigt die gewählte Karte unter 900 px mit aria-current', () => {
+    schmalStellen(true);
+    render(
+      <Datenliste
+        daten={DATEN}
+        spalten={SPALTEN}
+        kennung={l => l.id}
+        beschriftung="Läufe"
+        aufZeile={vi.fn()}
+        gewaehlt="r3"
+      />
+    );
+    const knoepfe = screen.getAllByRole('button');
+    const gewaehlt = knoepfe.filter(k => k.getAttribute('aria-current') === 'true');
+    expect(gewaehlt).toHaveLength(1);
+    expect(gewaehlt[0]).toHaveTextContent('Rechnung buchen');
+  });
 });
