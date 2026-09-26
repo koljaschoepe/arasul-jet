@@ -76,7 +76,8 @@ export ARASUL_ZEIGER="${TMP}/zeiger"
 export ARASUL_PROJEKT="arasul-abnahme-$$"
 
 aufraeumen() {
-  docker volume rm "${ARASUL_PROJEKT}_probe" >/dev/null 2>&1 || true
+  docker volume rm "${ARASUL_PROJEKT}_probe" "${ARASUL_PROJEKT}_arasul-llm-models" \
+    "${ARASUL_PROJEKT}_arasul-embeddings-models" >/dev/null 2>&1 || true
   if [ "$BEHALTEN" = true ]; then
     echo ""
     echo "   Ordner bleibt stehen: $TMP"
@@ -238,6 +239,24 @@ probe "docker compose liest B ohne Meckern" bash -c \
 # Installer frueher weiter und erzeugte frische Geheimnisse fuer eine fremde
 # Datenbank. Er muss anhalten, und zwar BEVOR er eine `.env` schreibt.
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  # Erst die Modelle allein (J35, Durchlauf 3). Der Werksreset legt die
+  # Modell-Volumes zurueck, damit ein neu aufgesetztes Geraet nicht 30 GB neu
+  # laedt -- und bis J35 hielt der Installer genau sie fuer die Datenbank
+  # eines fremden Geraets und brach ab. Sie sind Gewichte, keine Daten.
+  rm -f "$ARASUL_ZEIGER"
+  docker volume create "${ARASUL_PROJEKT}_arasul-llm-models" >/dev/null 2>&1
+  docker volume create "${ARASUL_PROJEKT}_arasul-embeddings-models" >/dev/null 2>&1
+  D="${TMP}/geraet/nach-werksreset"
+  mkdir -p "$D"
+  tar xzf "${TMP}/dist/arasul-${NEU_FASSUNG}.tar.gz" -C "$D" --strip-components=1
+  (cd "$D" && ./install.sh --nur-vorbereiten --passwort 'AbnahmeCi2026x') \
+    >"${TMP}/install-d.log" 2>&1
+  ausgang=$?
+  probe "nur zurueckgelegte Modelle: die Installation laeuft durch" test "$ausgang" -eq 0
+  probe "und schreibt ihre .env" test -f "${D}/.env"
+  probe "und die Modelle liegen danach noch da" \
+    docker volume inspect "${ARASUL_PROJEKT}_arasul-llm-models"
+
   C="${TMP}/geraet/waise"
   mkdir -p "$C"
   tar xzf "${TMP}/dist/arasul-${NEU_FASSUNG}.tar.gz" -C "$C" --strip-components=1
@@ -250,6 +269,8 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   probe "eine Installation ohne auffindbares Geraet bricht ab" test "$ausgang" -ne 0
   probe "und sie schreibt dabei keine .env" test ! -e "${C}/.env"
   probe "und sie nennt den Weg (--uebernehmen)" grep -q -- '--uebernehmen' "${TMP}/install-c.log"
+  probe "und sie nennt die Modelle nicht als Daten" \
+    bash -c "! grep -q 'arasul-llm-models' '${TMP}/install-c.log'"
 
   # Und mit dem Hinweis von Hand laeuft derselbe Ordner durch.
   (cd "$C" && ./install.sh --nur-vorbereiten --uebernehmen "$B") \

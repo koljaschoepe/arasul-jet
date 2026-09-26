@@ -52,7 +52,7 @@ export interface SicherungStatus {
 
 /** Eine Datei im Sicherungsordner (`GET /api/backup/sicherungen`). */
 export interface Sicherungsdatei {
-  art: 'postgres' | 'apps' | 'flows' | 'config';
+  art: 'postgres' | 'app-datenbanken' | 'apps' | 'flows' | 'config' | 'firmenordner';
   zweck: string;
   name: string;
   bytes: number;

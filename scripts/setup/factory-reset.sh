@@ -48,18 +48,12 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
-# Die Volumes dieses Geraets. Bewusst NICHT ueber den Projektnamen: der stand
-# frueher auf dem Verzeichnisnamen, heute auf `arasul-platform`
-# (docker-compose.yml), und die Volumes aus der Zeit davor heissen deshalb
-# `arasul-jet_arasul-postgres` statt `arasul-platform_arasul-postgres`.
-# Gesucht wird am Namen des Volumes selbst, mit oder ohne Projekt davor.
-arasul_volumes() {
-  docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E '(^|_)arasul-[a-z0-9-]+$' || true
-}
-
-modell_volumes() {
-  arasul_volumes | grep -E '(arasul-llm-models|arasul-embeddings-models)$' || true
-}
+# Die Volumes dieses Geraets und welche davon Modelle sind: `arasul_volumes`
+# und `modell_volumes` stehen in `scripts/lib/installation.sh`, weil der
+# Installer dieselben Modelle nach dem Reset als Modelle erkennen muss und
+# nicht als Daten eines fremden Geraets (J35). Eine Liste, zwei Leser.
+# shellcheck source=../lib/installation.sh
+source "${PROJECT_ROOT}/scripts/lib/installation.sh"
 
 echo -e "${ROT}${FETT}"
 echo "============================================"

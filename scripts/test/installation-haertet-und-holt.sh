@@ -11,12 +11,16 @@
 #   1. modell-holen.sh: Digest stimmt -> 0; Digest weicht ab -> 3; Kennung
 #      nicht in der Kurzliste -> 1; ein abgebrochener Pull wird wiederholt;
 #      die Ausgabe traegt keine Steuerzeichen; waehrend des Pulls steht das
-#      Wartungsfenster; --nur-env zieht eine alte LLM_MODEL-Kennung nach.
+#      Wartungsfenster; ein stehender Pull wird erkannt, beendet und nach
+#      einem Neustart von llm-service wiederholt; nach SIGTERM ist das Fenster
+#      zu und bleibt es; --nur-env zieht eine alte LLM_MODEL-Kennung nach.
 #   2. healthcheck.sh: eine leere Modellliste ist gesund.
 #   3. haerten.sh: ohne passwortloses sudo steht der Grund da; mit sudo und
 #      einem Portwechsel steht "SSH-Port geaendert", ARASUL_SSH_PORT und
 #      config/ssh-port; ein scheiterndes Skript nennt seine letzte Zeile.
-#   4. setup-mdns.sh ruft kein hostnamectl und schreibt nicht /etc/hostname;
+#   4. Zurueckgelegte Modell-Volumes zaehlen nicht als Zustand eines Geraets
+#      (installation.sh, dieselbe Liste wie im Werksreset).
+#   5. setup-mdns.sh ruft kein hostnamectl und schreibt nicht /etc/hostname;
 #      ./arasul ruft die Haertung nicht mehr mit 2>/dev/null.
 #
 # Rueckgabe 0, wenn alles gruen ist.
@@ -65,21 +69,41 @@ docker_attrappe() {
 #!/bin/bash
 zustand="$ATTRAPPE"
 [ "$1" = inspect ] && exit 1
+if [ "$1" = volume ]; then
+  # `volume ls` mit oder ohne Filter: die Namen stehen in einer Datei, der
+  # Filter `name=^<projekt>_` wird hier nachgebaut.
+  filter=$(printf '%s\n' "$@" | sed -n 's/^name=//p')
+  if [ -n "$filter" ]; then grep -E "$filter" "$zustand/volumes" || true; else cat "$zustand/volumes"; fi
+  exit 0
+fi
 [ "$1" = compose ] || exit 1
 shift
 case "$1" in
   ps) echo llm-service; exit 0 ;;
+  restart) echo "$2" >> "$zustand/neustarts"; exit 0 ;;
   exec)
     shift; shift; shift   # exec -T llm-service
     case "$*" in
+      kill\ *) kill "$@" 2>/dev/null; echo "$*" >> "$zustand/getoetet" ;;
+      *api/version*) echo '{"version":"0"}' ;;
       *api/tags*) cat "$zustand/tags" ;;
       *api/pull*)
         echo "versuch" >> "$zustand/versuche"
         [ -f "$zustand/wartung-gesehen" ] || cp "$zustand/../logs/wartung.aktiv" "$zustand/wartung-gesehen" 2>/dev/null
         plan=$(head -1 "$zustand/pull-plan"); sed -i.bak 1d "$zustand/pull-plan"
+        # Wie `sh -c 'echo $$; exec curl ...'` im Container: zuerst die PID,
+        # ueber die modell-holen.sh den Pull dort beendet.
+        echo "$$"
+        echo "$$" > "$zustand/pull-pid"
         printf '{"status":"pulling manifest"}\n'
         printf '{"status":"pulling abc","digest":"sha256:abcdef0123456789","total":1000,"completed":500}\n'
-        if [ "$plan" = fehler ]; then
+        if [ "$plan" = haengt ]; then
+          # Wie am Orin: Ollama schickt weiter Zeilen, der Stand bewegt sich nicht.
+          while :; do
+            printf '{"status":"pulling abc","digest":"sha256:abcdef0123456789","total":1000,"completed":150}\n'
+            sleep 0.2
+          done
+        elif [ "$plan" = fehler ]; then
           printf '{"error":"unexpected EOF"}\n'
         else
           printf '{"status":"pulling abc","digest":"sha256:abcdef0123456789","total":1000,"completed":1000}\n'
@@ -127,6 +151,44 @@ pruefe 'modell-holen: der Fehler des Pulls steht in der Ausgabe' "$(ja grep -q '
 pruefe 'modell-holen: waehrend des Pulls stand das Wartungsfenster' \
   "$(ja grep -q 'modell-holen gross:27b' "$B/z/wartung-gesehen")"
 pruefe 'modell-holen: danach ist das Fenster zu (ende=)' "$(ja grep -q 'ende=' "$B/logs/wartung.aktiv")"
+
+# Ein Pull, der stehenbleibt: Zeilen kommen, der Stand nicht (J35, Orin 15 %).
+rm -f "$B/z/versuche" "$B/z/neustarts" "$B/z/getoetet"
+printf '{"models":[]}\n' > "$B/z/tags"
+printf 'haengt\nok\n' > "$B/z/pull-plan"
+beginn=$(date +%s)
+aus=$(cd "$B" && PATH="$B/bin:$PATH" ATTRAPPE="$B/z" MODELL_HOLEN_PAUSE_SEKUNDEN=0 \
+  MODELL_HOLEN_STILLSTAND_SEKUNDEN=2 WARTUNG_TAKT_SEKUNDEN=1 bash scripts/util/modell-holen.sh 2>&1); rc=$?
+dauer=$(( $(date +%s) - beginn ))
+versuche=$(wc -l < "$B/z/versuche" | tr -d ' ')
+pruefe 'modell-holen: ein stehender Download wird erkannt und wiederholt -> 0' \
+  "$(ja [ "$rc" = 0 ] && [ "$versuche" = 2 ])" "rc=$rc versuche=$versuche $aus"
+pruefe 'modell-holen: ... nach Sekunden, nicht nach Stunden' "$(ja [ "$dauer" -lt 30 ])" "${dauer}s"
+pruefe 'modell-holen: ... und sagt es' "$(ja grep -q 'Kein Fortschritt seit 2 s' <<<"$aus")"
+pruefe 'modell-holen: ... der Pull im Container wird ueber seine PID beendet' \
+  "$(ja grep -q '^kill -TERM [0-9]' "$B/z/getoetet")"
+pruefe 'modell-holen: ... und llm-service vor dem naechsten Versuch neu gestartet' \
+  "$(ja grep -qx llm-service "$B/z/neustarts")"
+
+# SIGTERM mitten im Download: das Fenster geht zu, und es bleibt zu.
+rm -f "$B/z/versuche" "$B/z/getoetet" "$B/logs/wartung.aktiv"
+printf '{"models":[]}\n' > "$B/z/tags"
+printf 'haengt\n' > "$B/z/pull-plan"
+(cd "$B" && PATH="$B/bin:$PATH" ATTRAPPE="$B/z" MODELL_HOLEN_STILLSTAND_SEKUNDEN=600 \
+  WARTUNG_TAKT_SEKUNDEN=1 exec bash scripts/util/modell-holen.sh >"$B/z/term.log" 2>&1) &
+pid=$!
+for _ in $(seq 1 50); do [ -s "$B/z/versuche" ] && break; sleep 0.2; done
+sleep 1
+kill -TERM "$pid"
+wait "$pid"; rc=$?
+pruefe 'modell-holen: SIGTERM endet mit 143' "$(ja [ "$rc" = 143 ])" "rc=$rc $(cat "$B/z/term.log")"
+pruefe 'modell-holen: nach SIGTERM ist das Fenster zu (ende=)' "$(ja grep -q 'ende=' "$B/logs/wartung.aktiv")"
+sleep 3
+pruefe 'modell-holen: ... und kein Herzschlag macht es danach wieder auf' \
+  "$(ja grep -q 'ende=' "$B/logs/wartung.aktiv")" "$(cat "$B/logs/wartung.aktiv")"
+haengt_noch=nein
+kill -0 "$(cat "$B/z/pull-pid")" 2>/dev/null && haengt_noch=ja
+pruefe 'modell-holen: ... und der Pull im Container laeuft nicht als Waise weiter' "$(ja [ "$haengt_noch" = nein ])"
 
 # --nur-env: eine Kennung, die die Kurzliste nicht mehr fuehrt.
 printf 'A=1\nLLM_MODEL=hf.co/unsloth/Alt-GGUF:IQ4_XS\nB="x$y"\n' > "$B/.env"
@@ -204,7 +266,30 @@ pruefe 'haerten: die Firewall bekommt den Port NACH der Haertung' \
 aus=$(cd "$H" && NODE_ENV=development ARASUL_SUDO="$H/bin/sudo-ja" bash scripts/security/haerten.sh 2>&1)
 pruefe 'haerten: ausserhalb von production wird es gesagt' "$(ja grep -q 'uebersprungen: NODE_ENV' <<<"$aus")"
 
-# --- 4. Quelltext -----------------------------------------------------------
+# --- 4. Zurueckgelegte Modelle sind keine Daten eines Geraets (J35) ----------
+# Der Werksreset legt die Modell-Volumes zurueck; der Installer darf sie danach
+# nicht als Datenbank eines fremden Geraets zaehlen. Beide lesen dieselbe
+# Liste aus scripts/lib/installation.sh -- hier gegen die docker-Attrappe.
+V="$TMP/v"; mkdir -p "$V/bin" "$V/z"; docker_attrappe "$V"
+zustand() {
+  PATH="$V/bin:$PATH" ATTRAPPE="$V/z" ARASUL_PROJEKT=arasul-platform bash -c \
+    "source '$WURZEL/scripts/lib/installation.sh'; $1"
+}
+printf 'arasul-platform_arasul-llm-models\narasul-platform_arasul-embeddings-models\n' > "$V/z/volumes"
+nur_modelle=ja
+zustand zustand_vorhanden && nur_modelle=nein
+pruefe 'installation.sh: nur Modell-Volumes -> kein Zustand eines Geraets' "$nur_modelle"
+pruefe 'installation.sh: modell_volumes nennt beide' \
+  "$(ja [ "$(zustand modell_volumes | wc -l | tr -d ' ')" = 2 ])"
+printf 'arasul-platform_arasul-llm-models\narasul-platform_arasul-postgres\n' > "$V/z/volumes"
+pruefe 'installation.sh: mit der Datenbank daneben -> Zustand vorhanden' \
+  "$(ja zustand zustand_vorhanden)"
+pruefe 'installation.sh: ... und genannt wird nur die Datenbank' \
+  "$(ja [ "$(zustand zustand_volumes)" = arasul-platform_arasul-postgres ])"
+pruefe 'factory-reset.sh: fuehrt keine eigene Liste, sondern liest installation.sh' \
+  "$(ja bash -c "! grep -qE '^(modell|arasul)_volumes\\(\\)' '$WURZEL/scripts/setup/factory-reset.sh' && grep -q 'scripts/lib/installation.sh' '$WURZEL/scripts/setup/factory-reset.sh'")"
+
+# --- 5. Quelltext -----------------------------------------------------------
 pruefe 'setup-mdns.sh ruft kein hostnamectl set-hostname' \
   "$(ja bash -c "! grep -qE 'hostnamectl|/etc/hostname|^[[:space:]]*hostname ' <<<\"\$(grep -v '^[[:space:]]*#' '$WURZEL/scripts/setup/setup-mdns.sh')\"")"
 pruefe './arasul ruft die Haertung ueber haerten.sh, ohne 2>/dev/null' \

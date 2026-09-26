@@ -29,7 +29,9 @@
 #      Steuerzeichen, und im Log der Installation stand danach je Sekunde eine
 #      Zeile voller `ESC[K`. Hier kommt eine Zeile je fuenf Prozent.
 #   5. Bricht der Download ab (EOF, Netz weg), wird wiederholt; Ollama setzt
-#      an den schon geladenen Teilen wieder an.
+#      an den schon geladenen Teilen wieder an. STEHT er (kein Fortschritt seit
+#      MODELL_HOLEN_STILLSTAND_SEKUNDEN, Vorgabe fuenf Minuten), wird der
+#      Versuch beendet, llm-service neu gestartet und wiederholt.
 #   6. Danach wird der Digest geprueft, den `/api/tags` meldet. Das ist der
 #      sha256 des Manifests aus der Registry -- stimmt er nicht, hat die
 #      Registry unter derselben Kennung etwas anderes geliefert, und das wird
@@ -214,59 +216,187 @@ fi
 WARTUNG_GRUND="modell-holen ${kennung}"
 WARTUNG_FALLBACK_DIR="${WURZEL}/logs"
 wartung_herzschlag_an
-trap 'wartung_aus' EXIT
 
-# Ein Versuch: streamt `/api/pull` und macht daraus eine Zeile je fuenf
-# Prozent und je neuer Schicht. Rueckgabe 0 nur bei `"status":"success"`.
-ein_versuch() {
-    local rumpf
-    rumpf=$(printf '{"model":"%s","stream":true}' "$kennung")
-    im_dienst curl -sN --max-time 14400 "${OLLAMA}/api/pull" -d "$rumpf" 2>&1 \
-        | python3 -u -c '
-import json, sys
-schicht, stufe, ok = None, -1, False
-for zeile in sys.stdin:
-    zeile = zeile.strip()
-    if not zeile:
-        continue
+# Das Fenster schliesst auf JEDEM Weg hinaus, auch nach SIGTERM, SIGINT und
+# SIGHUP (J35, Durchlauf 3). Ein EXIT-Trap allein raeumte den Versuch nicht
+# weg: der Pull im Container und die Wache davor liefen als Waisen weiter, und
+# ein zweiter Aufruf haengte sich an denselben Download. Der Handler beendet
+# den laufenden Versuch (die Wache beendet den Pull im Container selbst),
+# schliesst das Fenster und endet mit dem ueblichen Code 128+Signal.
+VERSUCH_PID=""
+abbruch() {
+    local signal="$1" code="$2"
+    trap - EXIT TERM INT HUP
+    if [ -n "$VERSUCH_PID" ]; then
+        kill -TERM "$VERSUCH_PID" 2>/dev/null
+        wait "$VERSUCH_PID" 2>/dev/null
+    fi
+    wartung_aus
+    meldung "abgebrochen (${signal}) -- Wartungsfenster geschlossen. Nachholen: ./arasul modell"
+    exit "$code"
+}
+trap 'wartung_aus' EXIT
+trap 'abbruch TERM 143' TERM
+trap 'abbruch INT 130' INT
+trap 'abbruch HUP 129' HUP
+
+# Nach wie vielen Sekunden ohne Fortschritt ein Versuch als stehend gilt.
+# Fortschritt heisst: eine Zeile, die etwas NEUES sagt (andere Schicht, mehr
+# Bytes, ein anderer Status). Die Zahl der Zeilen sagt nichts -- Ollama
+# schickt waehrend eines Pulls laufend Zeilen, auch wenn nichts mehr ankommt.
+# Fuenf Minuten reichen fuer die stillen Abschnitte eines gesunden Pulls
+# (sha256 ueber 17 GB am Orin: unter einer Minute).
+STILLSTAND="${MODELL_HOLEN_STILLSTAND_SEKUNDEN:-300}"
+
+# Ein Versuch. Python startet den Pull selbst (`/api/pull` ueber `curl` im
+# Container) und wacht ueber ihn: eine Zeile je fuenf Prozent und je neuer
+# Schicht, und steht der Stand STILLSTAND Sekunden lang, beendet es den Pull
+# -- IM Container ueber seine PID (ein beendeter `docker exec`-Klient beendet
+# den Prozess darin nicht) und dann den Klienten. Bis J35 lief hier ein
+# `curl --max-time 14400` in einer Pipeline: ein Versuch durfte vier Stunden
+# dauern, und ein Download mit DNS-Fehler im Container stand am Orin bei 15 %,
+# ohne dass es jemand merkte.
+#
+# Im Hintergrund gestartet und mit `wait` abgewartet, damit ein Signal an
+# dieses Skript sofort den Trap ausloest statt erst nach dem Versuch.
+# Rueckgabe: 0 bei `"status":"success"`, 1 bei Fehler, 4 bei Stillstand.
+WACHE="$(cat <<'PY'
+import json, queue, signal, subprocess, sys, threading, time
+
+stillstand, rumpf, ollama = float(sys.argv[1]), sys.argv[2], sys.argv[3]
+# `echo $$` und dann `exec curl`: die erste Zeile ist die PID des curl im
+# Container, und nur ueber sie ist er dort zu beenden.
+innen = 'echo "$$"; exec curl -sN "$1/api/pull" -d "$2"'
+proc = subprocess.Popen(
+    ['docker', 'compose', 'exec', '-T', 'llm-service', 'sh', '-c', innen, 'pull', ollama, rumpf],
+    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+)
+zeilen = queue.Queue()
+def lesen():
+    for z in proc.stdout:
+        zeilen.put(z)
+    zeilen.put(None)
+threading.Thread(target=lesen, daemon=True).start()
+
+innen_pid = None
+def beenden():
+    if innen_pid:
+        try:
+            subprocess.run(
+                ['docker', 'compose', 'exec', '-T', 'llm-service', 'kill', '-TERM', innen_pid],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
+            )
+        except Exception:
+            pass
     try:
-        d = json.loads(zeile)
-    except ValueError:
-        print("  " + zeile[:200], flush=True); continue
-    if "error" in d:
-        print("  Fehler: " + str(d["error"]), flush=True); continue
-    status = d.get("status", "")
-    if status == "success":
-        ok = True
-    total, done = d.get("total"), d.get("completed")
-    if total and d.get("digest"):
-        if d["digest"] != schicht:
-            schicht, stufe = d["digest"], -1
-            print("  Schicht %s, %.2f GB" % (d["digest"][7:19], total / 1e9), flush=True)
-        p = int((done or 0) * 100 / total) // 5 * 5
-        if p > stufe:
-            stufe = p
-            print("  %3d %%  %.2f / %.2f GB" % (p, (done or 0) / 1e9, total / 1e9), flush=True)
-    elif status and not status.startswith("pulling "):
-        print("  " + status, flush=True)
+        proc.terminate()
+        proc.wait(timeout=10)
+    except Exception:
+        proc.kill()
+
+def signal_ende(*_):
+    beenden()
+    sys.exit(1)
+signal.signal(signal.SIGTERM, signal_ende)
+
+schicht, stufe, ok = None, -1, False
+letzter_stand, seit = None, time.monotonic()
+while True:
+    try:
+        zeile = zeilen.get(timeout=1)
+    except queue.Empty:
+        zeile = ''
+    if zeile is None:
+        break
+    zeile = zeile.strip()
+    if zeile and innen_pid is None and zeile.isdigit():
+        innen_pid = zeile
+        continue
+    if zeile:
+        try:
+            d = json.loads(zeile)
+        except ValueError:
+            print("  " + zeile[:200], flush=True)
+            d = None
+        if isinstance(d, dict):
+            if "error" in d:
+                print("  Fehler: " + str(d["error"]), flush=True)
+            status = d.get("status", "")
+            if status == "success":
+                ok = True
+            stand = (status, d.get("digest"), d.get("completed"))
+            if stand != letzter_stand:
+                letzter_stand, seit = stand, time.monotonic()
+            total, done = d.get("total"), d.get("completed")
+            if total and d.get("digest"):
+                if d["digest"] != schicht:
+                    schicht, stufe = d["digest"], -1
+                    print("  Schicht %s, %.2f GB" % (d["digest"][7:19], total / 1e9), flush=True)
+                p = int((done or 0) * 100 / total) // 5 * 5
+                if p > stufe:
+                    stufe = p
+                    print("  %3d %%  %.2f / %.2f GB" % (p, (done or 0) / 1e9, total / 1e9), flush=True)
+            elif status and not status.startswith("pulling "):
+                print("  " + status, flush=True)
+    if not ok and time.monotonic() - seit > stillstand:
+        print("  Kein Fortschritt seit %d s -- der Download steht, dieser Versuch wird beendet" % stillstand, flush=True)
+        beenden()
+        sys.exit(4)
+proc.wait()
 sys.exit(0 if ok else 1)
-'
+PY
+)"
+
+ein_versuch() {
+    local rumpf rc=0
+    rumpf=$(printf '{"model":"%s","stream":true}' "$kennung")
+    python3 -u -c "$WACHE" "$STILLSTAND" "$rumpf" "$OLLAMA" &
+    VERSUCH_PID=$!
+    wait "$VERSUCH_PID" || rc=$?
+    VERSUCH_PID=""
+    return "$rc"
+}
+
+# Nach einem Stillstand wird llm-service neu gestartet, bevor es weitergeht.
+# Ollama laedt eine Schicht im Hintergrund weiter, auch wenn niemand mehr
+# zusieht, und ein neuer Pull haengt sich an DENSELBEN Download -- einen, der
+# steht, erbte der naechste Versuch. Ein Neustart wirft ihn weg; die schon
+# geladenen Teile liegen auf der Platte, und Ollama setzt dort wieder an. Das
+# Wartungsfenster steht, die Selbstheilung haelt still.
+llm_neu_starten() {
+    meldung "starte llm-service neu, damit der stehende Download verworfen wird"
+    docker compose restart llm-service >/dev/null 2>&1 || true
+    local _
+    for _ in $(seq 1 "${MODELL_HOLEN_NEUSTART_PROBEN:-60}"); do
+        if im_dienst curl -sf --max-time 5 "${OLLAMA}/api/version" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 2
+    done
+    meldung "llm-service antwortet nach dem Neustart noch nicht -- der naechste Versuch probiert es trotzdem"
 }
 
 meldung "hole '${kennung}' (erwarteter Digest ${soll:7:12}) -- das dauert, am Orin rund eine Stunde"
 versuch=1
 while :; do
-    if ein_versuch; then
+    rc=0
+    ein_versuch || rc=$?
+    if [ "$rc" = 0 ]; then
         break
     fi
     if [ "$versuch" -ge "$VERSUCHE" ]; then
         meldung "Download nach ${VERSUCHE} Versuchen gescheitert."
-        meldung "Nachholen: bash scripts/util/modell-holen.sh ${kennung}"
+        meldung "Nachholen: ./arasul modell ${kennung}"
         exit 2
     fi
-    meldung "Versuch ${versuch} von ${VERSUCHE} abgebrochen, in ${PAUSE}s geht es weiter (Ollama setzt an)"
+    if [ "$rc" = 4 ]; then
+        meldung "Versuch ${versuch} von ${VERSUCHE} stand still"
+        llm_neu_starten
+    else
+        meldung "Versuch ${versuch} von ${VERSUCHE} abgebrochen, in ${PAUSE}s geht es weiter (Ollama setzt an)"
+        sleep "$PAUSE"
+    fi
     versuch=$((versuch + 1))
-    sleep "$PAUSE"
 done
 
 pruefen

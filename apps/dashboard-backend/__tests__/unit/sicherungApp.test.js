@@ -143,4 +143,22 @@ describe('sicherungen', () => {
     const eintrag = liste.find(s => s.art === 'app-datenbanken');
     expect(eintrag.datenbank).toBe('arasul_app_probe_live');
   });
+
+  it('fuehrt die Sicherung des Firmenordners (J35)', async () => {
+    const ordner = path.join(ORDNER, 'firmenordner');
+    fs.mkdirSync(ordner, { recursive: true });
+    fs.writeFileSync(path.join(ordner, 'firmenordner_20260926_020000.tar.gz'), 'x');
+    fs.symlinkSync(
+      'firmenordner_20260926_020000.tar.gz',
+      path.join(ordner, 'firmenordner_latest.tar.gz')
+    );
+    try {
+      const liste = await sicherungsdienst.sicherungen();
+      const eintraege = liste.filter(s => s.art === 'firmenordner');
+      expect(eintraege).toHaveLength(1);
+      expect(eintraege[0].zweck).toBe('Die Dateien des Firmenordners');
+    } finally {
+      fs.rmSync(ordner, { recursive: true, force: true });
+    }
+  });
 });

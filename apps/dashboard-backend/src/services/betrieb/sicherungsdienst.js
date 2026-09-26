@@ -178,20 +178,43 @@ async function imContainer(befehl, zeitlimitMs) {
  * Das ist nicht dasselbe -- eine geloeschte Datei aendert den Bericht nicht.
  */
 async function sicherungen() {
+  // Als Objekte mit `zweck`, nicht als Tupel: `zweck` ist ein Satz, den die
+  // Oberflaeche zeigt, und `__tests__/unit/kundensprache.test.js` liest ihn nur
+  // unter diesem Schluessel. In einem Tupel stand er an ihm vorbei, und zwei
+  // Beschriftungen mit ae/ue kamen so bis in die Liste (J35, Durchlauf 3).
   const arten = [
-    ['postgres', 'postgres', '.sql.gz', 'Datenbank'],
+    { art: 'postgres', ordner: 'postgres', endung: '.sql.gz', zweck: 'Datenbank' },
     // Je App und Stand eine, im Unterordner (Phase H7). Sie stehen als eigene
     // Art da und nicht unter `postgres`: fuer den, der das Geraet betreibt,
     // sind es verschiedene Dinge -- die eine Zeile ist das Geraet, die anderen
     // sind die Daten je App, und wie viele es davon gibt, ist eine Auskunft.
-    ['app-datenbanken', 'postgres/apps', '.sql.gz', 'Die Datenbanken der Apps'],
-    ['apps', 'apps', '.tar.gz', 'Die Pakete der Apps'],
-    ['flows', 'flows', '.tar.gz', 'Flow-Dateien am Geraet'],
-    ['config', 'config', '.tar.gz', 'Konfiguration ohne den Sicherungsschluessel'],
+    {
+      art: 'app-datenbanken',
+      ordner: 'postgres/apps',
+      endung: '.sql.gz',
+      zweck: 'Die Datenbanken der Apps',
+    },
+    { art: 'apps', ordner: 'apps', endung: '.tar.gz', zweck: 'Die Pakete der Apps' },
+    { art: 'flows', ordner: 'flows', endung: '.tar.gz', zweck: 'Flow-Dateien am Gerät' },
+    {
+      art: 'config',
+      ordner: 'config',
+      endung: '.tar.gz',
+      zweck: 'Konfiguration ohne den Sicherungsschlüssel',
+    },
+    // Der Firmenordner (J33): `backup.sh` sichert ihn seit dem 22.09.2026 nach
+    // `firmenordner/`, die Liste fuehrte ihn bis J35 nicht -- wer nachsah, ob
+    // die Dateien der Firma gesichert sind, fand keine Zeile dafuer.
+    {
+      art: 'firmenordner',
+      ordner: 'firmenordner',
+      endung: '.tar.gz',
+      zweck: 'Die Dateien des Firmenordners',
+    },
   ];
 
   const liste = [];
-  for (const [art, ordner, endung, zweck] of arten) {
+  for (const { art, ordner, endung, zweck } of arten) {
     let eintraege;
     try {
       eintraege = await fs.readdir(path.join(SICHERUNGS_ORDNER, ordner));
