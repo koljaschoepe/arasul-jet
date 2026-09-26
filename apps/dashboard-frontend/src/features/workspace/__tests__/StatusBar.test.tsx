@@ -279,7 +279,7 @@ describe('StatusBar', () => {
     });
     renderStatusBar();
 
-    expect(await screen.findByText('Llama 3 · KI-RAM 8,0/24,0 GB')).toBeInTheDocument();
+    expect(await screen.findByText('Llama 3 · Speicher für KI 8,0/24,0 GB')).toBeInTheDocument();
   });
 
   it('zählt weitere geladene Modelle mit +N', async () => {
@@ -298,7 +298,9 @@ describe('StatusBar', () => {
     });
     renderStatusBar();
 
-    expect(await screen.findByText('Llama 3 +1 · KI-RAM 12,0/24,0 GB')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Llama 3 +1 · Speicher für KI 12,0/24,0 GB')
+    ).toBeInTheDocument();
   });
 
   it('öffnet das Verbindungs-Popover mit Verbindung, Fassung und KI-RAM', async () => {
@@ -326,8 +328,8 @@ describe('StatusBar', () => {
     expect(screen.queryByText('Backend')).not.toBeInTheDocument();
     // Die Fassung steht sowohl in der Fußzeile als auch im Popover-Inhalt.
     expect(screen.getAllByText('1.2.3').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('KI-RAM')).toBeInTheDocument();
-    expect(screen.getByText('Modelle im RAM')).toBeInTheDocument();
+    expect(screen.getByText('Speicher für KI')).toBeInTheDocument();
+    expect(screen.getByText('Modelle im Speicher')).toBeInTheDocument();
     expect(screen.getByText('Alles läuft lokal auf dem Gerät, keine Cloud.')).toBeInTheDocument();
   });
 
@@ -337,8 +339,12 @@ describe('StatusBar', () => {
     mockApi({ health: { status: 'OK', version: '20260828-8794a42' } });
     renderStatusBar();
 
-    fireEvent.click(await screen.findByTitle('Verbindung anzeigen'));
+    // Die Statusleiste selbst und das Popover sagen beide „Stand …“, keines
+    // mehr die rohe Kennung.
     expect(await screen.findByText('Stand 28.08.2026')).toBeInTheDocument();
+    fireEvent.click(await screen.findByTitle('Verbindung anzeigen'));
+    expect(await screen.findAllByText('Stand 28.08.2026')).toHaveLength(2);
+    expect(screen.queryByText('20260828-8794a42')).not.toBeInTheDocument();
   });
 
   it('listet heruntergeladene Modelle im Modell-Popover und markiert das Standardmodell', async () => {
@@ -360,8 +366,8 @@ describe('StatusBar', () => {
     expect(await screen.findByText('Llama 3')).toBeInTheDocument();
     expect(screen.getByText('Qwen 3')).toBeInTheDocument();
     expect(screen.queryByText('Gemma')).not.toBeInTheDocument();
-    // geladenes Modell trägt das „im RAM"-Badge
-    expect(screen.getByText('im RAM')).toBeInTheDocument();
+    // geladenes Modell trägt das Abzeichen „geladen"
+    expect(screen.getByText('geladen')).toBeInTheDocument();
     expect(get).toHaveBeenCalledWith('/models/catalog', { showError: false });
   });
 

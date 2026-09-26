@@ -180,7 +180,7 @@ export function StatusBar() {
   // gemeinsamen Lage (D3). Angehängt wird hier nur, was hier hingehört: die
   // KI-RAM-Zahl, für die im Raster ein Balken steht.
   const modelLabel = hasModel
-    ? `${lage.name}${lage.weitere > 0 ? ` +${lage.weitere}` : ''} · KI-RAM ${zuGb(
+    ? `${lage.name}${lage.weitere > 0 ? ` +${lage.weitere}` : ''} · Speicher für KI ${zuGb(
         budget?.usedMb ?? 0
       )}/${zuGb(budget?.totalBudgetMb ?? 0)} GB`
     : lage.text;
@@ -233,13 +233,13 @@ export function StatusBar() {
             )}
             {budget !== undefined && (
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">KI-RAM</dt>
+                <dt className="text-muted-foreground">Speicher für KI</dt>
                 <dd className="text-foreground">{kiRamZeile(budget)}</dd>
               </div>
             )}
             {loadedModels.length > 0 && (
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-muted-foreground">Modelle im RAM</dt>
+                <dt className="text-muted-foreground">Modelle im Speicher</dt>
                 <dd className="text-right text-foreground">
                   {loadedModels
                     .map(m => `${modellAnzeigeName(m.name)} (${zuGb(m.ramMb)} GB)`)
@@ -258,7 +258,7 @@ export function StatusBar() {
           solange keine gesetzt ist, und „vVorserie" waere Unsinn. Schmal steht
           sie nicht hier, sondern im Popover darüber (D6). */}
       {!schmal && data?.version && (
-        <span className="shrink-0 text-muted-foreground/70">{data.version}</span>
+        <span className="shrink-0 text-muted-foreground/70">{fassungLesbar(data.version)}</span>
       )}
 
       {/* Modell — klickbar: heruntergeladenes Modell als Standard wählen. */}
@@ -311,7 +311,7 @@ export function StatusBar() {
                         </span>
                         {active && (
                           <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-primary">
-                            im RAM
+                            geladen
                           </span>
                         )}
                         <span className="shrink-0 text-muted-foreground">

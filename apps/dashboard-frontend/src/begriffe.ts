@@ -90,6 +90,11 @@ export const BEGRIFFE: Begriff[] = [
     statt: ['Backend'],
   },
   {
+    wort: 'Speicher für KI',
+    bedeutung: 'Der Teil des Arbeitsspeichers, den die Modelle belegen dürfen.',
+    statt: ['RAM'],
+  },
+  {
     wort: 'Herunterladen',
     bedeutung: 'Ein Modell oder ein Paket auf das Gerät holen.',
     statt: ['Download', 'Pull'],

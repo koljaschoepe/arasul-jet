@@ -311,9 +311,9 @@ function SystemStatusView({
                     <ToggleGroupItem
                       key={hours}
                       value={String(hours)}
-                      aria-label={`${hours} Stunden`}
+                      aria-label={hours === 1 ? '1 Stunde' : `${hours} Stunden`}
                     >
-                      {hours}h
+                      {hours} Std.
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
