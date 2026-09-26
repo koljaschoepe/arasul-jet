@@ -32,12 +32,29 @@ const EINE = {
   id: 7,
   run_id: 42,
   app_id: 'beispielapp',
+  app_name: 'Beispielapp',
   stand: 'live' as const,
   flow_name: 'freigabe',
   titel: 'Wochenbericht fuer KW 34 versenden',
   zusammenhang: 'Der Bericht ist fertig und soll an die Belegschaft gehen.',
   frist: IN_EINER_STUNDE,
-  angefragt_am: new Date().toISOString(),
+  angefragt_am: new Date(Date.now() - 3 * 60 * 60_000 - 60_000).toISOString(),
+  einreicher: 'anna',
+};
+
+const EINGEREICHT = {
+  id: 9,
+  run_id: 43,
+  app_id: 'faktum',
+  app_name: 'Faktum',
+  stand: 'live' as const,
+  flow_name: 'buchen',
+  titel: 'Rechnung 4711 buchen',
+  frist: IN_EINER_STUNDE,
+  angefragt_am: new Date(Date.now() - 5 * 60_000 - 1000).toISOString(),
+  ohne_einreicher: true,
+  entscheider: null,
+  kreis: ['admin', 'bernd'],
 };
 
 function huelle() {
@@ -51,6 +68,7 @@ function huelle() {
 function listen(...runden: unknown[][]) {
   let n = 0;
   apiMock.get.mockImplementation(async (pfad: string) => {
+    if (pfad === '/freigabe-anfragen/eingereicht') return { data: eingereicht };
     if (pfad !== '/freigabe-anfragen') return {};
     const runde = runden[Math.min(n, runden.length - 1)];
     n += 1;
@@ -58,8 +76,11 @@ function listen(...runden: unknown[][]) {
   });
 }
 
+let eingereicht: unknown[] = [];
+
 describe('OffeneFreigaben', () => {
   beforeEach(() => {
+    eingereicht = [];
     apiMock.get.mockReset();
     apiMock.post.mockReset();
     toast.success.mockReset();
@@ -71,21 +92,46 @@ describe('OffeneFreigaben', () => {
     render(<OffeneFreigaben />, { wrapper: huelle() });
     expect(await screen.findByText(EINE.titel)).toBeInTheDocument();
     expect(screen.getByText(/an die Belegschaft/)).toBeInTheDocument();
-    expect(screen.getByText('beispielapp')).toBeInTheDocument();
-    expect(screen.getByText('Flow freigabe')).toBeInTheDocument();
+    // Der Name der App, nicht ihre Kennung; der Flow nicht in der Zeile.
+    expect(screen.getByText('Beispielapp')).toBeInTheDocument();
+    expect(screen.queryByText('beispielapp')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Flow freigabe/)).not.toBeInTheDocument();
+    expect(screen.getByText('eingereicht von anna')).toBeInTheDocument();
+    expect(screen.getByTestId('freigabe-7-seit')).toHaveTextContent('wartet seit 3 Stunden');
     expect(screen.getByTestId('freigabe-7-frist')).toHaveTextContent('noch 1 Stunde');
+    expect(screen.queryByTestId('freigabe-7-regel')).not.toBeInTheDocument();
+  });
+
+  it('sagt die Vier-Augen-Regel als Satz', async () => {
+    listen([{ ...EINE, ohne_einreicher: true, entscheider: { konten: ['bernd', 'clara'] } }]);
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    expect(await screen.findByTestId('freigabe-7-regel')).toHaveTextContent(
+      'Vier-Augen-Prinzip: anna hat eingereicht und entscheidet nicht mit. ' +
+        'Entscheiden dürfen nur bernd oder clara.'
+    );
   });
 
   /**
-   * Steht die Liste leer, steht sie gar nicht da. Ein Leerzustand wäre auf der
-   * Übersicht eines Mitarbeiters, der nie eine Freigabe bekommt, eine
-   * Dauermeldung über etwas, das es nicht gibt.
+   * Steht die Liste leer, steht dort EINE leise Zeile und kein Leerzustand:
+   * wer eingereicht hat, soll die Stelle kennen, an der Freigaben stehen.
    */
-  it('schweigt, wenn nichts wartet', async () => {
+  it('sagt in einer Zeile, wenn nichts wartet', async () => {
     listen([]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
-    await waitFor(() => expect(apiMock.get).toHaveBeenCalled());
-    expect(screen.queryByTestId('offene-freigaben')).not.toBeInTheDocument();
+    const zeile = await screen.findByTestId('offene-freigaben');
+    expect(zeile).toHaveAttribute('data-leer', 'true');
+    expect(zeile).toHaveTextContent('Freigaben: keine wartet auf Ihre Entscheidung.');
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
+  it('zeigt dem Einreicher, bei wem sein Vorgang liegt', async () => {
+    eingereicht = [EINGEREICHT];
+    listen([]);
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    expect(await screen.findByTestId('eingereicht-9')).toHaveTextContent(
+      'Ihr Vorgang „Rechnung 4711 buchen“ (Faktum) wartet seit 5 Minuten auf admin oder bernd. ' +
+        'Vier-Augen-Prinzip: Sie entscheiden nicht mit.'
+    );
   });
 
   it('bestätigt über den Weg aus C7 und verschwindet danach ohne Neuladen', async () => {

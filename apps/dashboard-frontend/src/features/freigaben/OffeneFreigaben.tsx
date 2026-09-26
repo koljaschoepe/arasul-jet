@@ -27,22 +27,35 @@
  * das noch da" bei jedem Blick neu gestellt.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ClipboardCheck, Clock } from 'lucide-react';
+import { ClipboardCheck, Clock, Send } from 'lucide-react';
 import { Formular, Karte, Knopf } from '@marken';
 import { Textarea } from '@marken';
 import { useToast } from '@/contexts/ToastContext';
 import {
   useOffeneFreigaben,
+  useEingereichteFreigaben,
   useFreigabeEntscheiden,
   type OffeneFreigabe,
 } from '@/hooks/useOffeneFreigaben';
-import { restzeit, istKnapp } from './frist';
+import { restzeit, istKnapp, wartetSeit, oderListe } from './frist';
 
-/** Woher die Anfrage kommt: App, Stand, Flow — in einer Zeile. */
+/**
+ * Woher die Anfrage kommt und wie lange sie schon wartet, in einer Zeile.
+ *
+ * Der NAME der App und nicht ihre Kennung (26.09.2026): „faktum" ist ein Pfad,
+ * „Faktum" ist das, was der Mensch links in seiner Leiste sieht. Der Flow steht
+ * nicht mehr in der Zeile, sondern im Hinweis über dem Namen — wer entscheidet,
+ * urteilt über die Sache, nicht über die Datei, die sie ausgelöst hat.
+ */
 function Herkunft({ f }: { f: OffeneFreigabe }) {
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ui-xs text-muted-foreground">
-      <span className="font-medium text-foreground/80">{f.app_id}</span>
+      <span
+        className="font-medium text-foreground/80"
+        title={`App ${f.app_id}, Flow ${f.flow_name}`}
+      >
+        {f.app_name || f.app_id}
+      </span>
       {f.stand === 'test' && (
         <span
           className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
@@ -51,28 +64,49 @@ function Herkunft({ f }: { f: OffeneFreigabe }) {
           Test
         </span>
       )}
-      <span aria-hidden="true">·</span>
-      <span>Flow {f.flow_name}</span>
       {f.einreicher && (
         <>
           <span aria-hidden="true">·</span>
           <span>eingereicht von {f.einreicher}</span>
         </>
       )}
-      {(f.ohne_einreicher || f.benannt) && (
-        <span
-          className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
-          title={
-            f.ohne_einreicher
-              ? 'Wer eingereicht hat, entscheidet nicht mit'
-              : 'Nur benannte Entscheider sehen diese Freigabe'
-          }
-        >
-          {f.ohne_einreicher ? 'Vier Augen' : 'Benannt'}
-        </span>
-      )}
+      <span aria-hidden="true">·</span>
+      <span
+        data-testid={`freigabe-${f.id}-seit`}
+        title={`Angefragt: ${new Date(f.angefragt_am).toLocaleString('de-DE')}`}
+      >
+        {wartetSeit(f.angefragt_am)}
+      </span>
     </span>
   );
+}
+
+/**
+ * Die Regel des Laufs als Satz, oder nichts (26.09.2026).
+ *
+ * Bis dahin stand hier ein Abzeichen „Vier Augen" mit der Erklärung im
+ * `title` — also nur für den, der mit der Maus darüberfährt, und nie am
+ * Telefon. Wer entscheidet, soll lesen, WARUM ausgerechnet er gefragt ist.
+ */
+function regelSatz(f: {
+  einreicher?: string | null;
+  ohne_einreicher?: boolean;
+  entscheider?: OffeneFreigabe['entscheider'];
+}): string | null {
+  const teile: string[] = [];
+  if (f.ohne_einreicher) {
+    teile.push(
+      f.einreicher
+        ? `Vier-Augen-Prinzip: ${f.einreicher} hat eingereicht und entscheidet nicht mit.`
+        : 'Vier-Augen-Prinzip: wer eingereicht hat, entscheidet nicht mit.'
+    );
+  }
+  if (f.entscheider && 'rolle' in f.entscheider) {
+    teile.push('Entscheiden darf nur ein Administrator.');
+  } else if (f.entscheider && 'konten' in f.entscheider) {
+    teile.push(`Entscheiden dürfen nur ${oderListe(f.entscheider.konten)}.`);
+  }
+  return teile.length > 0 ? teile.join(' ') : null;
 }
 
 /** Eine Anfrage: worum es geht, wie lange Zeit bleibt, und die zwei Knöpfe. */
@@ -165,6 +199,15 @@ function FreigabeKarte({ f }: { f: OffeneFreigabe }) {
       >
         <Herkunft f={f} />
 
+        {regelSatz(f) && (
+          <p
+            className="mt-1 text-ui-xs text-muted-foreground"
+            data-testid={`freigabe-${f.id}-regel`}
+          >
+            {regelSatz(f)}
+          </p>
+        )}
+
         {f.zusammenhang && (
           <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap">{f.zusammenhang}</p>
         )}
@@ -235,19 +278,74 @@ function FreigabeKarte({ f }: { f: OffeneFreigabe }) {
 }
 
 /**
- * Die Liste. Steht sie leer, steht sie GAR NICHT da.
+ * Was ich eingereicht habe und noch offen ist: eine Zeile je Vorgang, mit dem
+ * Kreis, bei dem er liegt (26.09.2026).
  *
- * Ein Leerzustand („keine offenen Freigaben") wäre auf der Übersicht eines
- * Mitarbeiters, der nie eine bekommt, eine Dauermeldung über etwas, das es
- * nicht gibt. Die Apps darunter sind das, wofür er die Seite öffnet.
+ * Bei vier Augen sieht der Einreicher seine Anfrage in der Liste darüber NICHT
+ * — richtig, er darf sie nicht entscheiden. Aber bis hierher erfuhr er auch
+ * nirgends, dass sie existiert und bei wem sie liegt; aus seiner Sicht war der
+ * Vorgang nach dem Absenden verschwunden. Keine Karte, keine Knöpfe: zu tun
+ * gibt es hier nichts, nur zu wissen.
+ */
+function Eingereicht() {
+  const { data } = useEingereichteFreigaben();
+  if (!data || data.length === 0) return null;
+  return (
+    <ul className="mt-2 flex flex-col gap-1" data-testid="eingereichte-freigaben">
+      {data.map(e => (
+        <li
+          key={e.id}
+          className="flex items-start gap-2 text-ui-sm text-muted-foreground"
+          data-testid={`eingereicht-${e.id}`}
+        >
+          <Send className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            Ihr Vorgang <span className="font-medium text-foreground">„{e.titel}“</span> (
+            {e.app_name || e.app_id}) {wartetSeit(e.angefragt_am)}
+            {e.kreis.length > 0
+              ? ` auf ${oderListe(e.kreis)}.`
+              : ' — niemand kann ihn entscheiden.'}
+            {e.ohne_einreicher && ' Vier-Augen-Prinzip: Sie entscheiden nicht mit.'}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Die Liste. Steht sie leer, steht dort EINE Zeile (26.09.2026).
+ *
+ * Bis dahin stand sie leer gar nicht da, mit Absicht: ein Leerzustand mit
+ * Symbol und Erklärung wäre auf der Übersicht eines Mitarbeiters, der nie eine
+ * Freigabe bekommt, eine Dauermeldung über etwas, das es nicht gibt. Die
+ * Absicht gilt weiter — deshalb kein Leerzustand, sondern eine leise Zeile
+ * unter derselben Überschrift. Was sich geändert hat, ist die Gegenseite: seit
+ * vier Augen reicht jemand ein und entscheidet nicht selbst, und wer
+ * eingereicht hat, muss wissen, WO Freigaben stehen. Eine Stelle, die nur
+ * erscheint, wenn es etwas zu tun gibt, kann man niemandem zeigen. Und „nichts
+ * wartet auf Sie" ist eine Auskunft, kein Rauschen.
  */
 export function OffeneFreigaben() {
-  const { data, isLoading } = useOffeneFreigaben();
+  const { data, isLoading, isError } = useOffeneFreigaben();
 
   // Beim ersten Laden bleibt der Platz leer statt ein Skelett zu zeigen: in
-  // aller Regel ist die Liste leer, und ein Skelett, das zu nichts aufklappt,
-  // hat nur Unruhe gestiftet.
-  if (isLoading || !data || data.length === 0) return null;
+  // aller Regel ist die Liste leer, und ein Skelett, das zu einer Zeile
+  // zusammenfällt, stiftet nur Unruhe. Nach einem Fehler steht ebenfalls
+  // nichts da — „keine Freigabe" wäre dann eine Behauptung, keine Auskunft.
+  if (isLoading || isError || !data) return null;
+
+  if (data.length === 0) {
+    return (
+      <section className="mb-6" data-testid="offene-freigaben" data-leer="true">
+        <p className="flex items-center gap-2 text-ui-sm text-muted-foreground">
+          <ClipboardCheck className="size-4 shrink-0" aria-hidden="true" />
+          Freigaben: keine wartet auf Ihre Entscheidung.
+        </p>
+        <Eingereicht />
+      </section>
+    );
+  }
 
   return (
     <section className="mb-6" data-testid="offene-freigaben">
@@ -262,6 +360,7 @@ export function OffeneFreigaben() {
           <FreigabeKarte key={f.id} f={f} />
         ))}
       </ul>
+      <Eingereicht />
     </section>
   );
 }
