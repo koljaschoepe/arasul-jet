@@ -3285,7 +3285,11 @@ den Stand in `status` (`pending` … `completed`, `error`, `cancelled`); die
 Antwort des Modells steht dann in `content`, nicht in `response`. Mit dem
 Schlüssel einer App sieht `llm/job` seit J35 nur die Aufträge dieser App in
 diesem Stand (gelesen aus `ki_aufrufe`), sonst `404` — `user_id` allein ist
-bei zwei Apps desselben Administrators derselbe Mensch. Bei
+bei zwei Apps desselben Administrators derselbe Mensch. Und `llm/job`
+antwortet überhaupt erst seit dem 26.09.2026: `llm_jobs.user_id` (bigint)
+kommt aus pg als Zeichenkette, `api_keys.created_by` (integer) als Zahl, und
+der Vergleich mit `!==` gab seit Migration 165 jedem ein `404` — am Orin
+gefunden, als das Abholen nach einem `202` den Weg zum ersten Mal ging. Bei
 `document/extract-structured` ist `abholen` der neue Weg:
 
 **GET /api/v1/external/document/extract-structured/:jobId** — `202` in derselben

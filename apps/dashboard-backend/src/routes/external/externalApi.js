@@ -257,7 +257,7 @@ router.get(
     // deleted (api_keys.created_by ON DELETE SET NULL). Without this guard,
     // null !== null is false → two orphan-keyed requests could read each
     // other's jobs. `job.user_id` steht seit Migration 165 am Auftrag selbst.
-    if (!job || !req.apiKey.userId || job.user_id !== req.apiKey.userId) {
+    if (!job || !gehoertDemSchluessel(job, req.apiKey)) {
       throw new NotFoundError('Job not found');
     }
 
@@ -795,7 +795,7 @@ router.get(
       endpunkt: 'document/extract-structured',
     });
     const job = aufruf ? await llmJobService.getJob(jobId) : null;
-    if (!job || !req.apiKey.userId || job.user_id !== req.apiKey.userId) {
+    if (!job || !gehoertDemSchluessel(job, req.apiKey)) {
       throw new NotFoundError(
         'Kein Auftrag mit dieser Kennung fuer diese App. Ein fertiges Ergebnis liegt eine Stunde.'
       );
@@ -837,6 +837,25 @@ router.get(
     });
   })
 );
+
+/**
+ * Ob ein Auftrag dem Besitzer dieses Schluessels gehoert.
+ *
+ * ALS ZEICHENKETTE VERGLICHEN. `llm_jobs.user_id` ist `bigint`, und pg liefert
+ * es als Zeichenkette („1"); `api_keys.created_by` ist `integer` und kommt als
+ * Zahl. Mit `!==` war das nie gleich: `GET llm/job/:jobId` antwortete seit
+ * Migration 165 JEDEM mit 404 -- gefunden am 26.09.2026 am Orin, als das
+ * Abholen nach einem 202 zum ersten Mal diesen Weg ging (J35). Die Tests
+ * hatten `user_id` als Zahl gemockt.
+ *
+ * `userId` leer heisst: der Mensch, der den Schluessel angelegt hat, ist
+ * geloescht (`ON DELETE SET NULL`) -- dann gehoert ihm auch kein Auftrag.
+ */
+function gehoertDemSchluessel(job, apiKey) {
+  return (
+    apiKey.userId != null && job.user_id != null && String(job.user_id) === String(apiKey.userId)
+  );
+}
 
 /**
  * Die Felder aus der Antwort eines Modells: ein Objekt oder null.

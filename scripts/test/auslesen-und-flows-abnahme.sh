@@ -219,7 +219,7 @@ BEGINN=$SECONDS
 for i in $(seq 1 "$PARALLEL"); do
   (
     TEXT_Q=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' \
-      "Rechnung Nr. R-$STEMPEL-$i ueber $((i * 11)),00 EUR")
+      "Rechnung Nr. R-$STEMPEL-$i vom 2$i.09.2026. Buerobedarf Schulze GmbH, Hauptstrasse $i, 10115 Berlin, St-Nr. 27/123/4567$i. Positionen: $i x Druckerpapier A4 zu 4,90 EUR; 2 x Toner schwarz zu 39,90 EUR; 1 x Ordner-Set zu 12,50 EUR; 3 x Kugelschreiber zu 1,20 EUR. Netto $((i + 100)),40 EUR, USt 19 %, Brutto $((i + 120)),08 EUR. Zahlbar bis 10.10.2026 auf DE89 3704 0044 0532 0130 0$i.")
     curl -sk -o "$ARBEIT/beleg-$i.json" -w '%{http_code}' --max-time "$GEDULD" -X POST \
       -H "authorization: Bearer $TOK_M1" "$BASIS$LIVE/beleg?text=$TEXT_Q$MODELL_Q" \
       >"$ARBEIT/beleg-$i.code"
