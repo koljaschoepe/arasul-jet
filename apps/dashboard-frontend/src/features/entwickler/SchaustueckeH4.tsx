@@ -34,7 +34,6 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-  Chart,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -96,7 +95,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
   Slider,
-  Sparkline,
   Table,
   TableBody,
   TableCaption,
@@ -108,6 +106,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@marken';
+import { Chart, Sparkline } from '@marken/diagramm';
 import { useForm } from 'react-hook-form';
 import { Schaustueck, Zustand } from './Schaustueck';
 

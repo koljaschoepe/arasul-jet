@@ -1299,6 +1299,26 @@ an. Und `standZustand` fragt `pg_database`: fehlt die eingetragene Datenbank
 eines Standes, ist er nicht `lieferbar`, auch bei `healthy` — ob der
 Healthcheck einer App ihre Datenbank prüft, ist Sache des Kits.
 
+Seit dem Auftrag **marken-liste-auswahl-und-kontrast** (26.09.2026, J35)
+**steht die Bibliothek auf 5.0.0**, mit vier Befunden aus dem Audit des
+Kit-Gerüsts, die nur sie lösen kann. `Datenliste` nimmt `gewaehlt` (die Zeile
+trägt `aria-selected`, `data-state="selected"`, Hintergrund und eine Linie am
+Anfang; unter 900 px die Karte `aria-current`), und die ganze Zeile ist per
+Tastatur erreichbar (Tab, Enter, Leertaste — ein Knopf in der Zelle behält
+seine Taste). Eine `Spalte` nimmt `kuerzen` (Ellipse, voller Text im `title`,
+die Spalte nimmt nur den Rest) und `breite`. Die Farben des hellen Themas
+halten **4,5:1**: `--primary` `#1e6aa4`, `--destructive` `#c42020` (im Dunkeln
+bleibt `#ef4444`), `--muted-foreground` `#666666`; `marken.py` rechnet das als
+Punkt 9 nach, und die abgeleiteten Wische der Shell in `index.css` ziehen mit.
+Und **`Chart`, `Sparkline` und `SERIENFARBEN` stehen nicht mehr im
+Sammelexport**, sondern unter `@marken/diagramm`: `recharts` hat Seiteneffekte
+beim Laden, und ohne `sideEffects`-Angabe (die Bibliothek hat keine
+`package.json`, Regel 7) behielt eine App aus dem Gerüst es auch ohne ein
+Diagramm — gemessen **690 kB roh / 210 kB gzip** im Einstieg vorher,
+**410 kB / 127 kB** danach. Das ist der Bruch hinter der neuen Hauptzahl; eine
+App mit Bau braucht `@marken/*` in ihrer `tsconfig.json`. Das Kit zieht mit
+`marken.mjs --sync` nach (eigene Karte dort).
+
 | Layer    | Stack                                                             | Path                                                                                               |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |

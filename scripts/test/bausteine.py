@@ -137,6 +137,11 @@ AUSNAHMEN = {
 # nicht die Abwesenheit von Handarbeit -- ein Name ist das, was ein Aufrufer
 # tippt, und zwei Dinge unter einem Namen sind die Verwechslung selbst.
 PRIMITIV_BARREL = 'packages/marken/src/primitive/index.ts'
+# Seit 5.0.0 hat das Diagramm einen eigenen Einstieg (`@marken/diagramm`),
+# damit eine App ohne Diagramm `recharts` nicht mitbaut. Seine Namen sind
+# trotzdem Primitive -- ein zweites `Chart` in der Shell waere dieselbe
+# Verwechslung wie vorher.
+PRIMITIV_EINSTIEGE = (PRIMITIV_BARREL, 'packages/marken/src/diagramm.ts')
 SHELL_DEKLARATION = re.compile(
     r'^export\s+(?:default\s+)?(?:function|const|class)\s+(\w+)\b'
 )
@@ -144,16 +149,18 @@ ALTER_SHADCN_PFAD = re.compile(r"""from\s+['"][^'"]*components/ui/shadcn/""")
 
 
 def primitivnamen(wurzel: Path) -> set[str]:
-    """Die Namen, die `packages/marken/src/primitive/index.ts` ausgibt."""
-    datei = wurzel / PRIMITIV_BARREL
-    if not datei.is_file():
-        return set()
+    """Die Namen, die die Einstiege der Primitive ausgeben."""
     namen: set[str] = set()
-    for gruppe in re.findall(r'export\s+(?:type\s+)?\{([^}]*)\}', datei.read_text(encoding='utf-8')):
-        for teil in gruppe.split(','):
-            teil = teil.strip()
-            if teil and not teil.startswith('type '):
-                namen.add(teil.split(' as ')[-1].strip())
+    for einstieg in PRIMITIV_EINSTIEGE:
+        datei = wurzel / einstieg
+        if not datei.is_file():
+            continue
+        text = datei.read_text(encoding='utf-8')
+        for gruppe in re.findall(r'export\s+(?:type\s+)?\{([^}]*)\}', text):
+            for teil in gruppe.split(','):
+                teil = teil.strip()
+                if teil and not teil.startswith('type '):
+                    namen.add(teil.split(' as ')[-1].strip())
     return namen
 
 

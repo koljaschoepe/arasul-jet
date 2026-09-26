@@ -87,6 +87,26 @@ const SPALTEN: Array<Spalte<Lauf>> = [
   },
 ];
 
+// Seit 5.0.0: ein langer Titel endet mit „…" statt die Spalten rechts von
+// ihm aus der Tabelle zu schieben, und `Dauer` hat eine feste Breite.
+const SPALTEN_GEKUERZT: Array<Spalte<Lauf>> = SPALTEN.map(spalte =>
+  spalte.schluessel === 'flow'
+    ? { ...spalte, kuerzen: true }
+    : spalte.schluessel === 'dauer'
+      ? { ...spalte, breite: '5rem' }
+      : spalte
+);
+
+const LAEUFE_LANG: Lauf[] = [
+  ...LAEUFE.slice(0, 2),
+  {
+    id: 'r5',
+    flow: 'Eingangsrechnungen des Monats prüfen, kontieren und zur Freigabe vorlegen',
+    zustand: 'wartend',
+    dauer: 61,
+  },
+];
+
 const APPS = [
   { wert: 'urlaubsantrag', name: 'Urlaubsantrag', hinweis: 'Livestand 1.4.0' },
   { wert: 'angebot', name: 'Angebot', hinweis: 'Teststand 0.9.2' },
@@ -95,6 +115,7 @@ const APPS = [
 
 export function SchaustueckeMuster() {
   const [app, setApp] = useState('');
+  const [gewaehlt, setGewaehlt] = useState<string | null>('r2');
   const [dateien, setDateien] = useState<File[]>([]);
   // Einmal gebaut, nicht je Render: eine neue Quelle je Render liesse die
   // Dokumentanzeige bei jedem Tastendruck auf dieser Seite neu laden.
@@ -117,6 +138,18 @@ export function SchaustueckeMuster() {
               kennung={lauf => lauf.id}
               beschriftung="Die letzten Läufe"
               filter
+            />
+          </div>
+        </Zustand>
+        <Zustand name="gewählte Zeile, lange Zelle gekürzt">
+          <div className="w-96">
+            <Datenliste
+              daten={LAEUFE_LANG}
+              spalten={SPALTEN_GEKUERZT}
+              kennung={lauf => lauf.id}
+              beschriftung="Läufe, eine Zeile gewählt"
+              aufZeile={lauf => setGewaehlt(lauf.id)}
+              gewaehlt={gewaehlt}
             />
           </div>
         </Zustand>

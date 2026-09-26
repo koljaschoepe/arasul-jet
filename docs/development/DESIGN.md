@@ -99,18 +99,23 @@ durch.
 | `--popover`          | `#FFFFFF`               | `#1c1c1c`                |
 | `--muted`            | `#ECECEC`               | `#181818`                |
 | `--foreground`       | `#1a1a1a`               | `#e6e6e6`                |
-| `--muted-foreground` | `#6b6b6b`               | `rgba(228,228,228,0.55)` |
+| `--muted-foreground` | `#666666`               | `rgba(228,228,228,0.55)` |
 | `--border`           | `rgba(16,16,16,0.10)`   | `rgba(228,228,228,0.08)` |
 | `--accent` (Hover)   | `rgba(16,16,16,0.05)`   | `rgba(228,228,228,0.07)` |
-| `--primary`          | `#2D8FD9` (Blau)        | `#81A1C1` (Graublau)     |
+| `--primary`          | `#1E6AA4` (Blau)        | `#81A1C1` (Graublau)     |
 | `--ring`             | = `--primary`           | = `--primary`            |
+
+**Text in Farbe hält im hellen Thema 4,5:1** (seit 26.09.2026, J35): Blau,
+Rot und das Textgrau auf Seite, Karte, `--secondary` und ihrem eigenen
+10-%-Wisch, Weiß auf dem vollen Blau. Das alte Blau `#2D8FD9` hielt 3,2:1,
+das alte Rot 3,5:1. `scripts/test/marken.py` rechnet es nach (Punkt 9).
 
 Eine Linienfarbe mit niedriger Alpha, keine zweite „dicke" Kante. Hover ist
 eine neutrale Alpha, kein eigener Farbton. Scrollbalken: Spur transparent,
 Griff neutral.
 
 **Statusfarben** nur für Zustände, und es sind zwei: `--destructive`
-(`#EF4444`) für einen Fehler, `--primary` für Erfolg und Hinweis. Eine
+(`#C42020` hell, `#EF4444` dunkel) für einen Fehler, `--primary` für Erfolg und Hinweis. Eine
 Warnung ist `--muted-foreground` mit Text. `--success` und `--warning` gibt
 es seit dem 30.08.2026 nicht mehr; die Varianten `success`/`warning` an
 `Badge`, `Toast`, `Button` und `Meldung` bleiben als Bedeutung und bekommen
