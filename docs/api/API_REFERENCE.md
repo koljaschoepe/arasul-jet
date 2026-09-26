@@ -2023,15 +2023,16 @@ zweite hat eine eigene: `ausserhalb`.
 | POST   | `/api/backup/wiederherstellung/app/:id` | Nur die Daten **einer** App zurück (J35)                   |
 | POST   | `/api/backup/test`                      | Wiederherstellungstest gegen eine Wegwerf-Datenbank        |
 
-Gesichert werden vier Dinge, und die Frage dahinter ist jedes Mal dieselbe: was
+Gesichert werden fünf Dinge, und die Frage dahinter ist jedes Mal dieselbe: was
 bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn es fehlt?
 
-| Art        | Was                                                                                                                                                                             |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `postgres` | Nutzer und Rollen, Apps und Stände, Freigaben, Schlüssel je App, Flow-Läufe mit Schritten, Freigabe-Anfragen, Modell-Überschreibungen, das Migrationsbuch                       |
-| `apps`     | Die **Pakete** der Apps (`/arasul/apps/<id>/<version>/`) — Manifest, fertiges Frontend, Dockerfile mit Kontext. Die Images werden nicht gesichert, sie werden daraus neu gebaut |
-| `flows`    | Die Flow-Dateien, die ein Mensch am Gerät geschrieben hat (`/arasul/flows`)                                                                                                     |
-| `config`   | `.env`, Zertifikate, Traefik, Geheimnisse — **ohne** den Sicherungsschlüssel selbst                                                                                             |
+| Art            | Was                                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postgres`     | Nutzer und Rollen, Apps und Stände, Freigaben, Schlüssel je App, Flow-Läufe mit Schritten, Freigabe-Anfragen, Modell-Überschreibungen, das Migrationsbuch                       |
+| `apps`         | Die **Pakete** der Apps (`/arasul/apps/<id>/<version>/`) — Manifest, fertiges Frontend, Dockerfile mit Kontext. Die Images werden nicht gesichert, sie werden daraus neu gebaut |
+| `flows`        | Die Flow-Dateien, die ein Mensch am Gerät geschrieben hat (`/arasul/flows`)                                                                                                     |
+| `config`       | `.env`, Zertifikate, Traefik, Geheimnisse — **ohne** den Sicherungsschlüssel selbst                                                                                             |
+| `firmenordner` | Die Dateien des Firmenordners (`/arasul/firmenordner`, J33), nur auf einem Gerät mit dem Profil `firmenordner`; seit J35 auch in `GET /api/backup/sicherungen`                  |
 
 App-**Volumes** stehen nicht in dieser Liste, weil es keine gibt: eine App
 bekommt weder Bind-Mount noch benanntes Volume
@@ -2117,6 +2118,9 @@ das; `letzterVersuch` nennt dann den Grund (`kein_ziel`, `nicht_eingehaengt`,
 
 Gelesen wird die Platte, nicht der Bericht der letzten Nacht: der Bericht sagt,
 was getan wurde, die Platte sagt, was heute noch zurückspielbar ist.
+
+`art` ist eine von `postgres`, `app-datenbanken` (je App und Stand, dazu
+`datenbank`), `apps`, `flows`, `config` und `firmenordner`.
 
 **POST /api/backup/wiederherstellung:**
 
