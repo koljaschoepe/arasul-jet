@@ -3049,6 +3049,14 @@ eine Beschreibung eines anderen Modells getauscht (`services/llm/bildmodell.js`)
 Welches Modell Bilder liest, sagt `GET /api/v1/external/models` je Eintrag in
 `supports_vision_input`. Dasselbe steht im Kontrakt unter `bilder`.
 
+Gemessen am Orin (26.09.2026, ein erfundenes, leicht schräges Foto einer
+Tankquittung, sechs Felder, einmal je Weg): `gemma4:e4b` mit dem Bild 6 von 6
+in 28 s; `document/extract-structured` (Texterkennung, dann
+`qwen3.8:27b-q4_K_M`) 5 von 6 in 39 s, die Belegnummer hatte die
+Texterkennung verlesen; `llava-phi3`, das Bildmodell ohne `model`, 2 von 6 in
+9 s. Wer Felder aus einem Foto lesen lässt, nennt `model` deshalb ausdrücklich
+und misst am Gerät des Kunden.
+
 **Response (wait_for_result=true):**
 
 ```json

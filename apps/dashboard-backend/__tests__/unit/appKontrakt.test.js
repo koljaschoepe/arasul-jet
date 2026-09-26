@@ -237,8 +237,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // (Anfrage, Antwort und Fehlschlag von document/extract-structured als
     // JSON-Schema) und `bilder` (`images` an llm/chat) kommen dazu, zwei
     // Endpunkte sagen genauer, was sie tun. Die Zahl bleibt bei 6: additiv,
-    // eine App, die raet, bekommt dieselbe Antwort wie gestern.
-    expect(abdruck).toBe('0e02246d67aef399cbab1924bdd3f64e9505934832b3bb11ce2ad46a2868a572');
+    // eine App, die raet, bekommt dieselbe Antwort wie gestern. Am selben
+    // Tag ein Satz in `bilder.regeln` praeziser: gemessen am Orin liest das
+    // Bildmodell der Aufgabe `vision` ein Quittungsfoto schlechter als
+    // gemma4:e4b, also sagt der Kontrakt nicht mehr, welcher Weg genauer ist,
+    // sondern dass eine App `model` nennt und misst. Nur Beschreibung.
+    expect(abdruck).toBe('f68f12c13c15d4bd9347f09aeef8b7a58a5a6ea91c17ff707d1aa3be9639668e');
   });
 
   /**
