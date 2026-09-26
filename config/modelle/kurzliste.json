@@ -36,7 +36,7 @@
       "id": "gemma4:e4b",
       "aufgabe": "text",
       "standard": false,
-      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es.",
+      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es. Es liest auch die Bilder, die eine App ohne Modellangabe schickt (Bildvorgabe, Migration 188, gemessen an fuenf Belegfotos).",
       "digest": "sha256:c6eb396dbd5992bbe3f5cdb947e8bbc0ee413d7c17e2beaae69f5d569cf982eb"
     },
     {
@@ -50,7 +50,7 @@
       "id": "llava-phi3",
       "aufgabe": "vision",
       "standard": true,
-      "wofuer": "Bilder und eingescannter Text.",
+      "wofuer": "Kleiner Rueckfall fuer Bilder, wenn gemma4:e4b nicht am Geraet liegt. Belege liest es kaum (26.09.2026: 1 von 90 Feldern).",
       "digest": "sha256:c7edd7b8759394f9995a9394b97a29aeff7ee9c921054a210347326287d300f2"
     }
   ]

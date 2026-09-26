@@ -1080,6 +1080,7 @@ Ausbau des RAG (162, 163) immer NULL.
 | `quantization`          | character varying        | ✅       |                                 |
 | `license`               | character varying        | ✅       |                                 |
 | `profile_read_at`       | timestamp with time zone | ✅       |                                 |
+| `bildvorgabe`           | boolean                  | ❌       | `false`                         |
 
 `task` und `is_task_default` stammen aus Migration 151 (Plan 023 D5). `task`
 sagt, wofür ein Modell vorgesehen ist (`text`, `coding`, `vision`, `ocr`,
@@ -1087,6 +1088,16 @@ sagt, wofür ein Modell vorgesehen ist (`text`, `coding`, `vision`, `ocr`,
 Teil-Index `idx_llm_catalog_task_default` erzwingt **höchstens einen Standard je
 Aufgabe**; die Vorgängerspalte `is_platform_default` stand bei drei Modellen auf
 `true` und hatte keinen einzigen Leser, sie ist in derselben Migration entfallen.
+
+`bildvorgabe` stammt aus Migration 188 (26.09.2026, J35) und sagt, welches
+Modell ein Bild bekommt, wenn eine App bei `llm/chat` kein `model` nennt
+(`services/llm/bildmodell.js`: zuerst die Bildvorgabe, dann der Standard der
+Aufgabe `vision`, dann jedes andere Modell, das Bilder liest). Der Teil-Index
+`idx_llm_catalog_bildvorgabe` lässt höchstens eines zu. Es ist eine eigene
+Spalte und nicht `is_task_default`, weil das gemessene Modell `gemma4:e4b` die
+Aufgabe `text` hat und behält; gesetzt ist sie auf `gemma4:e4b`, das am Orin
+fünf erfundene Belegfotos fehlerfrei las (90 von 90 Feldern), `llava-phi3`
+1 von 90.
 
 Die vier davor stammen aus Migration 148 (Plan 023 D2) und werden nicht
 gepflegt, sondern beim Modell-Abgleich aus Ollamas `/api/show` gelesen.

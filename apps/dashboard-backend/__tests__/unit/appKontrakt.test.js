@@ -256,7 +256,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // (`freigaben.lauf`, ein Satz in `freigaben.regeln`, der Endpunkt sagt
     // es), und `GET /freigaben` fuehrt `kreis` mit. Die Zahl bleibt bei 6:
     // additiv, eine App, die das Feld nicht liest, bekommt dieselbe Antwort.
-    expect(abdruck).toBe('a90978d5eca87d50265c5b862862517bed71aa6f223f1ffe54bdf4c42dd64414');
+    //
+    // 26.09.2026 (J35, bildmodell-vorgabe-und-format): ohne `model` bekommt
+    // ein Bild die gemessene Bildvorgabe `gemma4:e4b` (Migration 188) statt
+    // `llava-phi3`; zwei Saetze in `bilder.regeln` sagen das. Die Zahl bleibt
+    // bei 6: dieselbe Anfrage, dieselbe Form der Antwort, nur ein besseres Modell.
+    expect(abdruck).toBe('9993e77006c0940afd94caea21c8dd00060bc7150f5ce614587b7f6866c59d58');
   });
 
   /**

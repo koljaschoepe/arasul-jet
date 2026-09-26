@@ -1469,9 +1469,9 @@ das Abzeichen „Standard" saß auf `llava-phi3`).
 | Kennung              | Aufgabe   | RAM   | Wofür                             |
 | -------------------- | --------- | ----- | --------------------------------- |
 | `qwen3.8:27b-q4_K_M` | text      | 24 GB | Standard, die Flows laufen darauf |
-| `gemma4:e4b`         | text      | 10 GB | das kleine schnelle               |
+| `gemma4:e4b`         | text      | 10 GB | das kleine schnelle, Bildvorgabe  |
 | `nomic-embed-text`   | embedding | 2 GB  | Einbettungen (`/v1/embeddings`)   |
-| `llava-phi3`         | vision    | 4 GB  | Bilder und eingescannter Text     |
+| `llava-phi3`         | vision    | 4 GB  | Rückfall für Bilder               |
 
 Die Liste steht in `config/modelle/kurzliste.json` und kommt über Migration 175
 in den Katalog; den Standard hat Migration 186 (25.09.2026, J35) von
@@ -3090,21 +3090,39 @@ ihre eigene Freigabe erteilen könnte, wäre keine.
 **Bilder (J35, 26.09.2026).** `images` gibt bis zu vier Bilder an ein
 **Bildmodell** — Base64, PNG oder JPEG, je Bild höchstens 9 000 000 Zeichen
 (der Körper insgesamt höchstens 10 MB); ein Vorsatz `data:image/png;base64,`
-darf davorstehen. Ohne `model` nimmt das Gerät sein Bildmodell (zuerst das der
-Aufgabe `vision`, in der Kurzliste `llava-phi3`), ohne eines antwortet es mit
-`503`. Ein `model`, das keine Bilder liest, weist es mit `400` ab und nennt die
+darf davorstehen. Ohne `model` nimmt das Gerät seine **Bildvorgabe**
+(`bildvorgabe` im Katalog, Migration 188: `gemma4:e4b`), liegt die nicht am
+Gerät, das Modell der Aufgabe `vision` (`llava-phi3`); ohne eines antwortet es
+mit `503`. Ein `model`, das keine Bilder liest, weist es mit `400` ab und nennt die
 Bildmodelle, die es hat — das Bild wird nie still weggelassen und nie gegen
 eine Beschreibung eines anderen Modells getauscht (`services/llm/bildmodell.js`).
 Welches Modell Bilder liest, sagt `GET /api/v1/external/models` je Eintrag in
 `supports_vision_input`. Dasselbe steht im Kontrakt unter `bilder`.
 
-Gemessen am Orin (26.09.2026, ein erfundenes, leicht schräges Foto einer
-Tankquittung, sechs Felder, einmal je Weg): `gemma4:e4b` mit dem Bild 6 von 6
-in 28 s; `document/extract-structured` (Texterkennung, dann
-`qwen3.8:27b-q4_K_M`) 5 von 6 in 39 s, die Belegnummer hatte die
-Texterkennung verlesen; `llava-phi3`, das Bildmodell ohne `model`, 2 von 6 in
-9 s. Wer Felder aus einem Foto lesen lässt, nennt `model` deshalb ausdrücklich
-und misst am Gerät des Kunden.
+Die Bildvorgabe ist **gemessen** (26.09.2026, J35): fünf erfundene Belegfotos
+aus `tests/belege/` — Tankquittung, Rechnung, Kassenbon, Bewirtung und ein
+schräges Handyfoto im Schatten —, je sechs Felder (Händler, Datum, Brutto,
+Netto, Steuersatz, Steuerbetrag), über `llm/chat` am Orin, drei Läufe je Beleg
+und Modell, Zeit ohne das erste Laden des Modells
+(`scripts/test/bildmodelle-messen.sh`):
+
+| Weg                                    | Felder richtig | Zeit je Beleg |
+| -------------------------------------- | -------------- | ------------- |
+| Bild an `gemma4:e4b`                   | 90 von 90      | rund 5 s      |
+| Bild an `llava-phi3`                   | 1 von 90 ¹     | rund 28 s     |
+| Texterkennung + `qwen3.8:27b-q4_K_M` ² | 16 von 30      | rund 14 s     |
+
+¹ Fünf der fünfzehn Aufrufe endeten nach 60 s ohne Antwort, das Modell redete
+sich fest; sie zählen mit null Feldern. ² `document/extract-structured`,
+ein Lauf je Beleg: die Texterkennung verliert auf Kassenbon, Bewirtung und dem
+schrägen Foto die Beträge. Wer sich auf die Vorgabe nicht verlassen will, nennt
+`model` und misst mit demselben Skript am Gerät des Kunden.
+
+**Eine Frage geht wörtlich an das Modell.** Bis zum 26.09.2026 schrieb die
+Warteschlange `user: ` vor eine einzelne Frage; `llava-phi3` zählte daraufhin
+bei einer Farbfrage Möglichkeiten auf („1. Red and Blue 2. Red and Orange …"),
+direkt am Modelldienst antwortete es sauber. Ein Verlauf mit mehreren Zügen
+behält seine Rollen (`promptAusNachrichten` in `services/llm/llmJobProcessor.js`).
 
 **Response (wait_for_result=true):**
 

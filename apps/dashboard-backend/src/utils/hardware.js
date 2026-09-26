@@ -181,7 +181,11 @@ function getLlmRamGB() {
  * Returns four model slots:
  *   - model            primary chat-quality default for the detected hardware
  *   - fast_model       small companion for short steps where speed beats depth
- *   - vision_model     Bilder und eingescannter Text
+ *   - vision_model     Bilder und eingescannter Text -- seit 26.09.2026 (J35,
+ *                      Migration 188) das kleine schnelle Modell: `gemma4:e4b`
+ *                      las am Orin fuenf erfundene Belegfotos fehlerfrei,
+ *                      `llava-phi3` fast nichts. Fehlt es im Katalog, faellt
+ *                      die Rolle auf das Modell der Aufgabe `vision` zurueck.
  *   - embedding_model  Einbettungen (/v1/embeddings)
  *
  * SEIT PHASE C8 IST DIE LISTE UEBERALL DIESELBE. Vorher trug diese Karte
@@ -211,14 +215,14 @@ async function getRecommendedModel() {
   const GROSS = {
     model: STANDARD,
     fast_model: SCHNELL,
-    vision_model: SEHEN,
+    vision_model: SCHNELL,
     embedding_model: EINBETTUNG,
     models: [STANDARD, SCHNELL, SEHEN, EINBETTUNG],
   };
   const KLEIN = {
     model: SCHNELL,
     fast_model: SCHNELL,
-    vision_model: SEHEN,
+    vision_model: SCHNELL,
     embedding_model: EINBETTUNG,
     models: [SCHNELL, SEHEN, EINBETTUNG],
   };

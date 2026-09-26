@@ -67,7 +67,8 @@ describe('getRecommendedModel gegen den Katalog', () => {
 
     expect(e.model).toBe(STANDARD);
     expect(e.fast_model).toBe(SCHNELL);
-    expect(e.vision_model).toBe(SEHEN);
+    // Die Bildvorgabe ist gemessen (Migration 188): gemma4:e4b liest Belege.
+    expect(e.vision_model).toBe(SCHNELL);
     expect(e.embedding_model).toBe(EINBETTUNG);
     expect(logger.warn).not.toHaveBeenCalled();
   });
@@ -118,9 +119,18 @@ describe('getRecommendedModel gegen den Katalog', () => {
     }
   });
 
+  test('ohne die Bildvorgabe faellt die Rolle auf das Modell der Aufgabe vision', async () => {
+    process.env.JETSON_PROFILE = 'agx_orin_64gb';
+    katalog(...KURZLISTE.filter(m => m.id !== SCHNELL));
+
+    const e = await getRecommendedModel();
+
+    expect(e.vision_model).toBe(SEHEN);
+  });
+
   test('ohne Ersatz bleibt die Rolle leer, statt ins Leere zu zeigen', async () => {
     process.env.JETSON_PROFILE = 'agx_orin_64gb';
-    katalog(...KURZLISTE.filter(m => m.task !== 'vision'));
+    katalog(...KURZLISTE.filter(m => m.task !== 'vision' && m.id !== SCHNELL));
 
     const e = await getRecommendedModel();
 

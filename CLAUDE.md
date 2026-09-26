@@ -61,8 +61,9 @@ Seit C8 ist der **Modellkatalog die Kurzliste**: vier Modelle, festgelegt an
 [`config/modelle/kurzliste.json`](config/modelle/kurzliste.json) — das
 Standardmodell der Flows (`qwen3.8:27b-q4_K_M` — seit J35 aus der
 Ollama-Bibliothek statt von Hugging Face, mit Digest je Eintrag, Migration 186),
-ein kleines schnelles (`gemma4:e4b`), eines für Einbettungen
-(`nomic-embed-text`), eines für Bilder und eingescannten Text (`llava-phi3`).
+ein kleines schnelles (`gemma4:e4b`, seit J35 auch die **Bildvorgabe**), eines
+für Einbettungen (`nomic-embed-text`), ein kleines Bildmodell als Rückfall
+(`llava-phi3`).
 Geladen wird nur, was darin steht;
 der Katalog kommt ausschließlich aus Migrationen, und die Plattformprofile
 (`config/platforms/*.json`, `utils/hardware.js`, `detect-platform.sh`) tragen

@@ -323,10 +323,11 @@ die der Test die echte Antwort der Route prüft; die Sätze in
 Objekt oder `null` ist und **nicht** gegen das mitgeschickte `schema` geprüft
 wird. `bilder` sagt, wie eine App ein Foto **selbst** an ein Modell gibt:
 `images` an `llm/chat`, Base64, PNG oder JPEG; ohne `model` nimmt das Gerät
-sein Bildmodell, ein Textmodell weist es mit `400` ab. Das Auslesen bleibt
-dabei der Weg über die Texterkennung. Welcher Weg ein Foto besser liest, hängt
-am Modell (gemessen: `gemma4:e4b` mit Bild 6 von 6, Texterkennung 5 von 6,
-`llava-phi3` 2 von 6, siehe API-Referenz); eine App nennt `model` und misst.
+seine Bildvorgabe, ein Textmodell weist es mit `400` ab. Das Auslesen bleibt
+dabei der Weg über die Texterkennung. Die Bildvorgabe ist gemessen: an fünf
+erfundenen Belegfotos las `gemma4:e4b` 90 von 90 Feldern, `llava-phi3` (bis
+zum 26.09.2026 die Vorgabe) 1 von 90, die Texterkennung 16 von 30 (siehe
+API-Referenz); wer sich nicht darauf verlassen will, nennt `model` und misst.
 Additiv, darum keine 7.
 
 **Fassung 6 (Brücke, 21.09.2026):** das Manifest kennt **`agent`** — die Liste
