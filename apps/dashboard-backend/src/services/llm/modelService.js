@@ -23,7 +23,7 @@ const { NotFoundError, ValidationError, ConflictError } = require('../../utils/e
 const readFileAsync = promisify(fs.readFile);
 
 const { createDownloadHelpers } = require('./modelDownloadHelpers');
-const { createSyncHelpers } = require('./modelSyncHelpers');
+const { createSyncHelpers, inOllama } = require('./modelSyncHelpers');
 const { steckbriefeAnstossen } = require('./modelProfile');
 const { merkeEntladung } = require('./unloadRegistry');
 
@@ -1166,7 +1166,11 @@ function createModelService(deps = {}) {
         const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 10000 });
         const ollamaModels = (response.data.models || []).map(m => m.name);
 
-        if (ollamaModels.includes(ollamaName)) {
+        // `llava-phi3` im Katalog ist `llava-phi3:latest` in `/api/tags`. Der
+        // Abgleich kannte das seit 27.07.2026, diese Pruefung nicht: jedes
+        // Modell ohne Tag war ueber die Warteschlange ein 503 (J35, am Orin
+        // gefunden, als zum ersten Mal ein Bild an llava-phi3 ging).
+        if (inOllama(ollamaModels, ollamaName)) {
           return { available: true };
         }
 
