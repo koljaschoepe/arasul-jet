@@ -11,7 +11,8 @@
  *   Uebersicht      der Weg zurueck, immer der erste
  *   die eigenen Apps  dieselbe Liste wie die Sidebar (`GET /api/apps/meine`)
  *   Notizen         der Zettel, unter 900 px eine eigene Ansicht
- *   Modelle, Einstellungen   nur fuer den Administrator
+ *   Modelle         nur fuer den Administrator
+ *   Einstellungen   jeder Bereich ein Eintrag, nur fuer den Administrator
  *
  * Die Rolle blendet aus, das Backend entscheidet: `requireRole` antwortet
  * einem Mitarbeiter auf jeden Weg hinter den letzten beiden mit 403, ob dieser
@@ -26,6 +27,8 @@ import { AppWindow, Cpu, LayoutDashboard, NotepadText, Settings } from 'lucide-r
 import { Liste, ListenEintrag, Menue } from '@marken';
 import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { SETTINGS_SECTIONS } from '@/features/settings/sections';
 import { useMeineApps, zuEintraegen } from '@/features/apps/meineApps';
 import { TeststandMarke } from '@/features/apps/TeststandMarke';
 
@@ -40,6 +43,8 @@ export function SchmalMenue() {
   const notizenAnsichtOffen = useWorkspaceStore(s => s.notizenAnsichtOffen);
   const toggleNotizenAnsicht = useWorkspaceStore(s => s.toggleNotizenAnsicht);
   const schliesseNotizenAnsicht = useWorkspaceStore(s => s.schliesseNotizenAnsicht);
+  const aktiverBereich = useSettingsStore(s => s.activeSection);
+  const setzeBereich = useSettingsStore(s => s.setActiveSection);
 
   // Die Liste wird nur geholt, wenn das Menue offen ist -- `useMeineApps`
   // laeuft ohnehin schon fuer die Uebersicht, der Schluessel ist derselbe.
@@ -118,18 +123,35 @@ export function SchmalMenue() {
               })
             }
           />
-          <ListenEintrag
-            titel="Einstellungen"
-            symbol={<Settings />}
-            aktiv={activeTabId === 'settings' && !notizenAnsichtOffen}
-            kennzeichen="menue-einstellungen"
-            onKlick={() =>
-              gehZu(() => {
-                selectView('settings');
-                openTab({ type: 'settings' });
-              })
-            }
-          />
+        </Liste>
+      )}
+
+      {/* Die Einstellungen als ihre Bereiche, nicht als ein Eintrag (J35,
+          26.09.2026). Unter 900 px gibt es keine Sidebar, und nur dort
+          standen die Bereiche -- am Handy kam der Administrator auf
+          „Allgemein" und von dort nirgendwohin. Dieselbe Liste wie die
+          Sidebar (`SETTINGS_SECTIONS`), damit kein Bereich in einer der
+          beiden fehlt. */}
+      {istAdmin && (
+        <Liste beschriftung="Einstellungen">
+          {SETTINGS_SECTIONS.map(bereich => (
+            <ListenEintrag
+              key={bereich.id}
+              titel={bereich.label}
+              symbol={bereich.icon}
+              aktiv={
+                activeTabId === 'settings' && aktiverBereich === bereich.id && !notizenAnsichtOffen
+              }
+              kennzeichen={`menue-einstellungen-${bereich.id}`}
+              onKlick={() =>
+                gehZu(() => {
+                  setzeBereich(bereich.id);
+                  selectView('settings');
+                  openTab({ type: 'settings' });
+                })
+              }
+            />
+          ))}
         </Liste>
       )}
 
