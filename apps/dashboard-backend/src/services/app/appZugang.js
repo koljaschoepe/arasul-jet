@@ -82,7 +82,7 @@ async function pruefe({ benutzerId, appId, stand }) {
   if (freigabe.rows.length === 0) {
     const fehler = new ForbiddenError(
       `Die App ${appId} ist Ihnen nicht freigegeben. Ein Administrator gibt sie frei, ` +
-        'auch fuer sich selbst: eine Sonderregel fuer Administratoren gibt es nicht.'
+        'auch für sich selbst: eine Sonderregel für Administratoren gibt es nicht.'
     );
     // Der Grund fuer die Seite, die ein Browser sieht (`appSperrseite.js`);
     // die JSON-Antwort bleibt, wie sie war.
@@ -108,7 +108,7 @@ async function pruefe({ benutzerId, appId, stand }) {
   );
   if (vorhanden.rows.length === 0) {
     throw new NotFoundError(
-      stand === 'test' ? `Kein Teststand von ${appId} am Geraet` : `Keine App ${appId} am Geraet`
+      stand === 'test' ? `Kein Teststand von ${appId} am Gerät` : `Keine App ${appId} am Gerät`
     );
   }
 

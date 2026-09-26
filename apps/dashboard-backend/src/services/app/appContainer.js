@@ -336,7 +336,7 @@ async function baueImage(manifest, kontextPfad) {
         }
         const grund = typeof fehler === 'string' ? fehler : fehler.message || String(fehler);
         ab(
-          new ValidationError(`Das Image ${image} liess sich am Geraet nicht bauen: ${grund}`, {
+          new ValidationError(`Das Image ${image} ließ sich am Gerät nicht bauen: ${grund}`, {
             ausgabe: ausgabe.slice(-25),
           })
         );
@@ -422,7 +422,7 @@ async function logs(appId, stand, zeilen = 200) {
     return rohe.toString('utf8');
   } catch (err) {
     if (err.statusCode === 404) {
-      throw new NotFoundError(`Kein Container fuer ${appId} im Stand ${stand}`);
+      throw new NotFoundError(`Kein Container für ${appId} im Stand ${stand}`);
     }
     throw err;
   }

@@ -13,7 +13,7 @@
  */
 import { Cpu, Download, Loader2, Power, Trash2, Zap } from 'lucide-react';
 import { Button, cn } from '@marken';
-import { formatBytes } from '@/utils/formatting';
+import { formatBytes, formatZahl } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import type { CatalogModel } from '@/hooks/useStoreCatalog';
 import DownloadProgress from './DownloadProgress';
@@ -112,7 +112,9 @@ export function ModellZeile({
         <span className="flex flex-wrap gap-x-3 text-ui-xs text-muted-foreground">
           {aufgabe && <span>{aufgabe}</span>}
           <span>{formatBytes(modell.size_bytes)}</span>
-          {modell.ram_required_gb ? <span>{modell.ram_required_gb} GB im Speicher</span> : null}
+          {modell.ram_required_gb ? (
+            <span>{formatZahl(modell.ram_required_gb)} GB im Speicher</span>
+          ) : null}
         </span>
       </span>
 

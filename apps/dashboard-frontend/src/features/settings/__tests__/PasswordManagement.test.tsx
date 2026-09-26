@@ -2,7 +2,7 @@
  * PasswordManagement Component Tests
  *
  * Tests für PasswordManagement:
- * - Nur das Dashboard-Passwort (MinIO ist seit Phase B4 weg, der n8n-Hinweis seit B5)
+ * - Nur das eigene Passwort (MinIO ist seit Phase B4 weg, der n8n-Hinweis seit B5)
  * - Formular-Rendering
  * - Password-Validierung
  * - Toggle-Sichtbarkeit
@@ -25,7 +25,7 @@ vi.mock('../../../contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-const DASHBOARD_CURRENT_PLACEHOLDER = 'Dashboard-Passwort eingeben';
+const CURRENT_PLACEHOLDER = 'Aktuelles Passwort eingeben';
 const NEW_PLACEHOLDER = 'Neues Passwort eingeben';
 const CONFIRM_PLACEHOLDER = 'Neues Passwort bestätigen';
 
@@ -110,7 +110,9 @@ describe('PasswordManagement Component', () => {
     test('rendert Beschreibung', async () => {
       renderPasswordManagement();
 
-      expect(screen.getByText(/Ändere das Passwort für das Dashboard/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Ändern Sie Ihr Passwort für die Anmeldung an diesem Gerät/)
+      ).toBeInTheDocument();
     });
 
     test('zeigt Lock-Icon', async () => {
@@ -192,7 +194,7 @@ describe('PasswordManagement Component', () => {
     test('zeigt Aktuelles-Passwort Feld', async () => {
       renderPasswordManagement();
 
-      expect(screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(CURRENT_PLACEHOLDER)).toBeInTheDocument();
     });
 
     test('zeigt Neues-Passwort Feld', async () => {
@@ -210,7 +212,7 @@ describe('PasswordManagement Component', () => {
     test('Felder sind initiell leer', async () => {
       renderPasswordManagement();
 
-      expect(screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER)).toHaveValue('');
+      expect(screen.getByPlaceholderText(CURRENT_PLACEHOLDER)).toHaveValue('');
       expect(screen.getByPlaceholderText(NEW_PLACEHOLDER)).toHaveValue('');
       expect(screen.getByPlaceholderText(CONFIRM_PLACEHOLDER)).toHaveValue('');
     });
@@ -231,7 +233,7 @@ describe('PasswordManagement Component', () => {
     test('Passwörter sind initial versteckt', async () => {
       renderPasswordManagement();
 
-      const currentField = screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER);
+      const currentField = screen.getByPlaceholderText(CURRENT_PLACEHOLDER);
       expect(currentField).toHaveAttribute('type', 'password');
     });
 
@@ -245,7 +247,7 @@ describe('PasswordManagement Component', () => {
         .filter((btn): btn is HTMLButtonElement => btn !== null);
       await user.click(toggleButtons[0]!);
 
-      const currentField = screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER);
+      const currentField = screen.getByPlaceholderText(CURRENT_PLACEHOLDER);
       expect(currentField).toHaveAttribute('type', 'text');
     });
 
@@ -260,7 +262,7 @@ describe('PasswordManagement Component', () => {
       await user.click(toggleButtons[0]!); // Show
       await user.click(toggleButtons[0]!); // Hide
 
-      const currentField = screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER);
+      const currentField = screen.getByPlaceholderText(CURRENT_PLACEHOLDER);
       expect(currentField).toHaveAttribute('type', 'password');
     });
   });
@@ -357,13 +359,11 @@ describe('PasswordManagement Component', () => {
   // Warning Messages
   // =====================================================
   describe('Warning Messages', () => {
-    test('zeigt Dashboard-Logout Warnung', async () => {
+    test('zeigt Abmelde-Warnung', async () => {
       renderPasswordManagement();
 
       expect(
-        screen.getByText(
-          /Nach dem Ändern des Dashboard-Passworts werden Sie automatisch abgemeldet/
-        )
+        screen.getByText(/Nach dem Ändern des Passworts werden Sie automatisch abgemeldet/)
       ).toBeInTheDocument();
     });
   });
@@ -380,7 +380,7 @@ describe('PasswordManagement Component', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
-      await user.type(screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER), 'OldPass1x');
+      await user.type(screen.getByPlaceholderText(CURRENT_PLACEHOLDER), 'OldPass1x');
       await user.type(screen.getByPlaceholderText(NEW_PLACEHOLDER), 'NewPass1x');
       await user.type(screen.getByPlaceholderText(CONFIRM_PLACEHOLDER), 'NewPass1x');
 
@@ -409,7 +409,7 @@ describe('PasswordManagement Component', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
-      await user.type(screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER), 'OldPass1x');
+      await user.type(screen.getByPlaceholderText(CURRENT_PLACEHOLDER), 'OldPass1x');
       await user.type(screen.getByPlaceholderText(NEW_PLACEHOLDER), 'NewPass1x');
       await user.type(screen.getByPlaceholderText(CONFIRM_PLACEHOLDER), 'NewPass1x');
 
@@ -433,7 +433,7 @@ describe('PasswordManagement Component', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
-      await user.type(screen.getByPlaceholderText(DASHBOARD_CURRENT_PLACEHOLDER), 'WrongPass1');
+      await user.type(screen.getByPlaceholderText(CURRENT_PLACEHOLDER), 'WrongPass1');
       await user.type(screen.getByPlaceholderText(NEW_PLACEHOLDER), 'NewPass1x');
       await user.type(screen.getByPlaceholderText(CONFIRM_PLACEHOLDER), 'NewPass1x');
 

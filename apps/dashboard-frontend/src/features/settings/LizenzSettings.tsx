@@ -141,7 +141,7 @@ export function LizenzSettings() {
             <Kennzahl
               beschriftung="Apps"
               wert={<span data-testid="lizenz-apps">{belegt(n.apps)}</span>}
-              fussnote={n.apps.grenze === -1 ? 'unbegrenzt' : 'Test- und Livestand zählen zusammen'}
+              fussnote={n.apps.grenze === -1 ? 'unbegrenzt' : 'Test und Live zählen zusammen'}
             />
           </Kennzahlen>
 

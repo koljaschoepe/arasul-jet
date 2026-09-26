@@ -250,7 +250,7 @@ function AppContent(): React.JSX.Element | null {
           {/* Update available banner (overlay) */}
           {updateAvailable && (
             <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
-              <span>Update verfügbar, Seite neu laden</span>
+              <span>Eine neue Fassung ist da.</span>
               <button
                 className="underline font-semibold hover:opacity-80"
                 onClick={() => window.location.reload()}
@@ -259,7 +259,7 @@ function AppContent(): React.JSX.Element | null {
               </button>
               <button
                 type="button"
-                aria-label="Update-Benachrichtigung schließen"
+                aria-label="Hinweis auf die neue Fassung schließen"
                 className="ml-2 opacity-70 hover:opacity-100"
                 onClick={() => {
                   setUpdateAvailable(false);

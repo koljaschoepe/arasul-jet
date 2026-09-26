@@ -223,13 +223,13 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
       <Feldgruppe
         titel="Passwortverwaltung"
         symbol={<Lock />}
-        beschreibung="Ändere das Passwort für das Dashboard"
+        beschreibung="Ändern Sie Ihr Passwort für die Anmeldung an diesem Gerät"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {renderPasswordField(
             'current',
-            'Aktuelles Dashboard-Passwort',
-            'Dashboard-Passwort eingeben',
+            'Aktuelles Passwort',
+            'Aktuelles Passwort eingeben',
             'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
           )}
           {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
@@ -369,8 +369,8 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Dashboard-Passworts
-            werden Sie automatisch abgemeldet.
+            <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Passworts werden Sie
+            automatisch abgemeldet.
           </p>
         </form>
       </Feldgruppe>

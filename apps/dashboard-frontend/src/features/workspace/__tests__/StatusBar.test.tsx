@@ -301,7 +301,7 @@ describe('StatusBar', () => {
     expect(await screen.findByText('Llama 3 +1 · KI-RAM 12,0/24,0 GB')).toBeInTheDocument();
   });
 
-  it('öffnet das Verbindungs-Popover mit Backend-Status, Version und KI-RAM', async () => {
+  it('öffnet das Verbindungs-Popover mit Verbindung, Fassung und KI-RAM', async () => {
     mockApi({
       budget: {
         totalBudgetMb: 24_576,
@@ -319,13 +319,26 @@ describe('StatusBar', () => {
     fireEvent.click(trigger);
 
     // Popover-Inhalt (Portal) — eindeutige Texte des Detailbereichs.
-    expect(await screen.findByText('Backend')).toBeInTheDocument();
-    expect(screen.getByText('Version')).toBeInTheDocument();
-    // Die Version steht sowohl in der Fußzeile als auch im Popover-Inhalt.
+    // Seit J35 in Kundensprache: „Verbindung" statt „Backend", „Fassung"
+    // statt „Version" (die Überschrift heißt ebenfalls „Verbindung").
+    expect(await screen.findByText('Verbindung', { selector: 'dt' })).toBeInTheDocument();
+    expect(screen.getByText('Fassung', { selector: 'dt' })).toBeInTheDocument();
+    expect(screen.queryByText('Backend')).not.toBeInTheDocument();
+    // Die Fassung steht sowohl in der Fußzeile als auch im Popover-Inhalt.
     expect(screen.getAllByText('1.2.3').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('KI-RAM')).toBeInTheDocument();
     expect(screen.getByText('Modelle im RAM')).toBeInTheDocument();
     expect(screen.getByText('Alles läuft lokal auf dem Gerät, keine Cloud.')).toBeInTheDocument();
+  });
+
+  // J35: eine Fassung aus Datum und SHA liest im Popover niemand; dort steht
+  // sie als „Stand TT.MM.JJJJ" (`fassungLesbar`).
+  it('zeigt im Verbindungs-Popover eine datierte Fassung lesbar', async () => {
+    mockApi({ health: { status: 'OK', version: '20260828-8794a42' } });
+    renderStatusBar();
+
+    fireEvent.click(await screen.findByTitle('Verbindung anzeigen'));
+    expect(await screen.findByText('Stand 28.08.2026')).toBeInTheDocument();
   });
 
   it('listet heruntergeladene Modelle im Modell-Popover und markiert das Standardmodell', async () => {

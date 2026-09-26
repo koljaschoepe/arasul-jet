@@ -81,7 +81,7 @@ describe('resolveWithinRoots — erlaubte Zugriffe', () => {
 });
 
 describe('resolveWithinRoots — Ausbrüche', () => {
-  const verboten = (p, muster = /ausserhalb/i) => {
+  const verboten = (p, muster = /außerhalb/i) => {
     expect(() => resolveWithinRoots(roots(), p)).toThrow(muster);
   };
 
@@ -119,7 +119,7 @@ describe('resolveRealWithinRoots — Symlinks', () => {
     fs.symlinkSync(aussen, link);
     try {
       expect(() => resolveRealWithinRoots(roots(), 'ausbruch/geheim.txt')).toThrow(
-        /verlaesst die erlaubten Ordner/i
+        /verlässt die erlaubten Ordner/i
       );
     } finally {
       fs.unlinkSync(link);

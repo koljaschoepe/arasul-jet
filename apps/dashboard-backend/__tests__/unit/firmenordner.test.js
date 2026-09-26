@@ -92,7 +92,7 @@ describe('Der eine Schalter', () => {
     expect(lage).toEqual({
       an: false,
       erreichbar: false,
-      grund: 'Auf diesem Geraet laeuft kein Firmenordner',
+      grund: 'Auf diesem Gerät läuft kein Firmenordner.',
     });
   });
 
@@ -105,7 +105,9 @@ describe('Der eine Schalter', () => {
     // Menschen, der es beheben kann.
     expect(lage.an).toBe(true);
     expect(lage.erreichbar).toBe(false);
-    expect(lage.grund).toMatch(/firmenordner_admin_password/);
+    // J35: der Pfad der Datei steht im Log, vor dem Menschen der Satz.
+    expect(lage.grund).toMatch(/nicht vollständig eingerichtet/);
+    expect(lage.grund).not.toMatch(/config\/secrets/);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });
@@ -217,7 +219,7 @@ describe('Rechte werden nur vergeben', () => {
     });
     await expect(
       verwaltung.gibRecht({ ordnerId: 9, benutzerId: 3, recht: 'lesen', durch: 1 })
-    ).rejects.toThrow(/am Geraet/);
+    ).rejects.toThrow(/am Gerät/);
   });
 });
 

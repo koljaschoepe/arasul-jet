@@ -8,6 +8,9 @@
  * @param dateString - ISO date string
  * @returns Formatted date string (DD.MM.YYYY, HH:mm)
  */
+/** Platzhalter für „kein Wert“ in einer Zelle. */
+const KEIN_WERT = '—';
+
 export const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return '-';
   const date = new Date(dateString);
@@ -42,7 +45,7 @@ export const formatDate = (dateString: string | null | undefined): string => {
 export const formatBytes = (bytes: number | null | undefined): string => {
   // Null ist eine bekannte Groesse, keine unbekannte: am Anfang eines
   // Downloads ist noch nichts geladen, und "N/A von 16,4 GB" waere Unsinn.
-  if (bytes === null || bytes === undefined) return 'N/A';
+  if (bytes === null || bytes === undefined) return 'unbekannt';
   // Unter einem Kilobyte in Bytes, genau wie `formatBytesBinaer`: "0 KB" sagt
   // fuer eine Datei mit zwoelf Zeichen nichts, "12 B" schon. Zwei
   // Schwesterfunktionen, die bei derselben Zahl verschiedene Einheiten
@@ -79,7 +82,7 @@ export const formatBytes = (bytes: number | null | undefined): string => {
  * schon in Megabyte hereinkommt und die Zahl dort ohne Einheit gebraucht wird.
  */
 export const formatBytesBinaer = (bytes: number | null | undefined): string => {
-  if (bytes === null || bytes === undefined) return 'N/A';
+  if (bytes === null || bytes === undefined) return 'unbekannt';
   if (bytes < 1024) return `${bytes} B`;
   const gib = 1024 ** 3;
   const mib = 1024 ** 2;
@@ -93,22 +96,37 @@ export const formatBytesBinaer = (bytes: number | null | undefined): string => {
 };
 
 /**
- * Format uptime in seconds to human-readable format
- * @param seconds - Uptime in seconds
- * @returns Formatted uptime (e.g., "2d 5h 30m")
+ * Eine Laufzeit, wie man sie liest (J35): „2 Tage, 5 Stunden" statt
+ * „2d 5h 30m". Zwei Stellen reichen -- wer seit zwei Tagen läuft, fragt
+ * nicht nach den Minuten.
  */
 export const formatUptime = (seconds: number | null | undefined): string => {
   if (!seconds || seconds < 0) return '-';
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+  const teil = (n: number, eins: string, mehr: string) =>
+    n === 1 ? `1 ${eins}` : `${n.toLocaleString('de-DE')} ${mehr}`;
 
   const parts: string[] = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+  if (days > 0) parts.push(teil(days, 'Tag', 'Tage'));
+  if (hours > 0) parts.push(teil(hours, 'Stunde', 'Stunden'));
+  if (days === 0 && (minutes > 0 || parts.length === 0))
+    parts.push(teil(minutes, 'Minute', 'Minuten'));
 
-  return parts.join(' ');
+  return parts.slice(0, 2).join(', ');
+};
+
+/**
+ * Eine Zahl, wie man sie in Deutschland liest (J35): Komma statt Punkt,
+ * Punkt als Tausendertrenner. `toFixed` kennt kein Land und schreibt „1.5".
+ */
+export const formatZahl = (n: number | null | undefined, stellen = 0): string => {
+  if (n === null || n === undefined || Number.isNaN(n)) return KEIN_WERT;
+  return n.toLocaleString('de-DE', {
+    minimumFractionDigits: stellen,
+    maximumFractionDigits: stellen,
+  });
 };
 
 /**
@@ -131,4 +149,34 @@ export const formatRelativeDate = (dateString: string | null | undefined): strin
   if (diffDays < 7) return `vor ${diffDays} ${diffDays === 1 ? 'Tag' : 'Tagen'}`;
 
   return date.toLocaleString('de-DE');
+};
+
+/**
+ * Die Fassung, wie ein Mensch sie liest (J35).
+ *
+ * Aus dem Bau kommt entweder eine Releasenummer (`1.2.0`) oder Datum plus
+ * Kurz-SHA (`20260926-dc1272c`, `scripts/lib/fassung.sh`). Die zweite Form
+ * ist eine Versionskennung fuer den Betreuer, keine Auskunft fuer eine
+ * Kanzlei; vorn steht deshalb „Stand 26.09.2026", und die Kennung selbst
+ * steht unter „Technische Angaben".
+ */
+export const fassungLesbar = (fassung: string | null | undefined): string => {
+  if (!fassung) return KEIN_WERT;
+  const datiert = /^(\d{4})(\d{2})(\d{2})-[0-9a-f]{4,}$/i.exec(fassung.trim());
+  if (datiert) return `Stand ${datiert[3]}.${datiert[2]}.${datiert[1]}`;
+  return fassung.trim();
+};
+
+/**
+ * Eine Groesse im Format von `du -h` („240.1M", „1.5G") auf Deutsch (J35):
+ * „240,1 MB". Der Sicherungsbericht schreibt so; was sich nicht lesen laesst,
+ * bleibt, wie es kam.
+ */
+export const duGroesseLesbar = (roh: string | null | undefined): string => {
+  if (!roh) return '';
+  const m = /^\s*([\d.]+)\s*([KMGT])i?B?\s*$/i.exec(roh);
+  if (!m) return roh;
+  const zahl = Number(m[1]);
+  if (Number.isNaN(zahl)) return roh;
+  return `${zahl.toLocaleString('de-DE', { maximumFractionDigits: 1 })} ${(m[2] ?? '').toUpperCase()}B`;
 };

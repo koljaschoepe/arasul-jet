@@ -429,13 +429,13 @@ describe('AppsSettings', () => {
     });
     render(<AppsSettings />, { wrapper: huelle() });
     const live = await screen.findByTestId('app-bibliothek-beispielapp-live');
-    expect(live).toHaveTextContent('kein Frontend');
+    expect(live).toHaveTextContent('ohne Oberfläche');
     expect(live).not.toHaveAttribute('data-warnung');
 
     fireEvent.click(screen.getByTestId('app-oeffnen-beispielapp'));
     await screen.findByTestId('app-ansicht-beispielapp');
     const karte = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
-    expect(karte).toHaveTextContent('kein Frontend');
+    expect(karte).toHaveTextContent('ohne Oberfläche');
     expect(karte).not.toHaveAttribute('data-warnung');
   });
 

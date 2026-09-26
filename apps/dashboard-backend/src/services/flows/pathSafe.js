@@ -158,7 +158,7 @@ function resolveWithinRoots(roots, relPath) {
     const treffer = projektAbsolutAufloesen(list, projektRest);
     if (!treffer) {
       throw new ValidationError(
-        `Pfad "${relPath}" liegt ausserhalb der erlaubten Ordner (${list.join(', ')})`
+        `Pfad "${relPath}" liegt außerhalb der erlaubten Ordner (${list.join(', ')})`
       );
     }
     return treffer;
@@ -174,7 +174,7 @@ function resolveWithinRoots(roots, relPath) {
       }
     }
     throw new ValidationError(
-      `Pfad "${relPath}" liegt ausserhalb der erlaubten Ordner (${list.join(', ')})`
+      `Pfad "${relPath}" liegt außerhalb der erlaubten Ordner (${list.join(', ')})`
     );
   }
 
@@ -185,7 +185,7 @@ function resolveWithinRoots(roots, relPath) {
   const workdir = list[0];
   const hit = within(workdir, path.resolve(workdir, raw || '.'));
   if (!hit) {
-    throw new ValidationError(`Pfad "${relPath}" liegt ausserhalb des Arbeitsverzeichnisses`);
+    throw new ValidationError(`Pfad "${relPath}" liegt außerhalb des Arbeitsverzeichnisses`);
   }
   return hit;
 }
@@ -248,7 +248,7 @@ function resolveRealWithinRoots(roots, relPath) {
         cur = parent;
         continue;
       }
-      throw new ValidationError(`Pfad "${relPath}" kann nicht aufgeloest werden`);
+      throw new ValidationError(`Pfad "${relPath}" kann nicht aufgelöst werden`);
     }
 
     const full = tail.length ? path.join(real, ...tail) : real;
@@ -257,11 +257,11 @@ function resolveRealWithinRoots(roots, relPath) {
         return full;
       }
     }
-    throw new ValidationError(`Pfad "${relPath}" verlaesst die erlaubten Ordner (Symlink)`);
+    throw new ValidationError(`Pfad "${relPath}" verlässt die erlaubten Ordner (Symlink)`);
   }
 
   // Unerreichbar, solange mindestens eine Wurzel existiert — fail closed.
-  throw new ValidationError(`Pfad "${relPath}" kann nicht aufgeloest werden`);
+  throw new ValidationError(`Pfad "${relPath}" kann nicht aufgelöst werden`);
 }
 
 /**

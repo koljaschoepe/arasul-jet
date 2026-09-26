@@ -101,10 +101,10 @@ async function pruefeKontenGrenze(client, wer) {
   const { tier } = await licenseService.validateLicense();
   const namen = rows.map(z => z.username);
   throw new ConflictError(
-    `Die Lizenz dieses Geraets (${tier}) traegt ${grenze.limit} Konten, aktiv sind ` +
+    `Die Lizenz dieses Geräts (${tier}) trägt ${grenze.limit} Konten, aktiv sind ` +
       `${grenze.current}: ${namen.join(', ')}. ${wer} kommt nicht dazu. Der Administrator ` +
-      'zaehlt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Einstellungen -> ' +
-      'Mitarbeiter) oder die Lizenz erweitern (Einstellungen -> Lizenz).',
+      'zählt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Einstellungen → ' +
+      'Mitarbeiter) oder die Lizenz erweitern (Einstellungen → Lizenz).',
     { grenze: grenze.limit, belegt: grenze.current, stufe: tier, konten: namen, abgewiesen: wer }
   );
 }
@@ -124,8 +124,8 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
   // `admin` heisst.
   if (String(username).trim().toLowerCase() === DIENST_ADMIN) {
     throw new ConflictError(
-      `Der Name ${DIENST_ADMIN} ist vergeben: so heisst das Konto, mit dem das Geraet ` +
-        'den Firmenordner verwaltet. Bitte einen anderen waehlen.'
+      `Der Name ${DIENST_ADMIN} ist vergeben: so heißt das Konto, mit dem das Gerät ` +
+        'den Firmenordner verwaltet. Bitte einen anderen wählen.'
     );
   }
   const passwordHash = await hashPassword(password);
@@ -215,7 +215,7 @@ async function setzeAktiv({ userId, aktiv }) {
 
   if (!aktiv && (await istLetzterAktiverAdmin(ziel.role))) {
     throw new ValidationError(
-      'Der letzte aktive Administrator kann nicht stillgelegt werden; das Geraet waere unbedienbar'
+      'Der letzte aktive Administrator kann nicht stillgelegt werden; das Gerät wäre unbedienbar'
     );
   }
 

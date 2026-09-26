@@ -94,7 +94,7 @@ describe('leseAusPaket', () => {
     // ihn unter dem anderen.
     const ordner = paketMit({ 'bericht.md': BERICHT.replace('name: bericht', 'name: anders') });
     await expect(appFlows.leseAusPaket(MANIFEST, ordner)).rejects.toThrow(
-      /Dateiname und "name" muessen dasselbe sagen/
+      /Dateiname und "name" müssen dasselbe sagen/
     );
   });
 
@@ -111,7 +111,7 @@ Lies alles.
 `;
     await expect(
       appFlows.leseAusPaket(MANIFEST, paketMit({ 'leck.md': boese }))
-    ).rejects.toThrow(/ohne Ordner am Geraet/);
+    ).rejects.toThrow(/ohne Ordner am Gerät/);
   });
 
   it('weist einen Dateinamen ab, der kein Flow-Name ist', async () => {

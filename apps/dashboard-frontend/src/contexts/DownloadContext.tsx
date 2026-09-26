@@ -79,11 +79,11 @@ const interpretDownloadStatus = (status: string): StatusInterpretation => {
   if (statusLower.includes('pulling manifest')) {
     return { phase: 'init', label: 'Lade Manifest...' };
   } else if (statusLower.includes('pulling') || statusLower.includes('downloading')) {
-    return { phase: 'download', label: 'Download läuft...' };
+    return { phase: 'download', label: 'Wird heruntergeladen…' };
   } else if (statusLower.includes('verifying')) {
-    return { phase: 'verify', label: 'Verifiziere Daten...' };
+    return { phase: 'verify', label: 'Prüft die Daten…' };
   } else if (statusLower.includes('writing') || statusLower.includes('extracting')) {
-    return { phase: 'verify', label: 'Schreibe Daten...' };
+    return { phase: 'verify', label: 'Schreibt die Daten…' };
   } else if (statusLower.includes('success')) {
     return { phase: 'complete', label: 'Abgeschlossen!' };
   }
@@ -147,7 +147,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
           downloading.forEach(m => {
             newDownloads[m.id] = {
               progress: m.download_progress || 0,
-              status: 'Download läuft...',
+              status: 'Wird heruntergeladen…',
               phase: 'download',
               error: null,
               modelName: modellAnzeigeName(m),
@@ -211,7 +211,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                   ...current,
                   progress: 0,
                   phase: 'error',
-                  error: model.install_error || 'Download fehlgeschlagen',
+                  error: model.install_error || 'Herunterladen gescheitert',
                 };
                 hasChanges = true;
               } else if (model.install_status === 'downloading') {
@@ -286,7 +286,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         ...prev,
         [modelId]: {
           progress: 0,
-          status: 'Starte Download...',
+          status: 'Herunterladen beginnt…',
           phase: 'init',
           error: null,
           // Plan 023 D1: nie die rohe Kennung, auch nicht als Rueckfall.
@@ -329,7 +329,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                 [modelId]: {
                   ...existing,
                   progress: data.progress || 0,
-                  status: 'Download läuft bereits...',
+                  status: 'Wird schon heruntergeladen…',
                   phase: 'download',
                 },
               };
@@ -464,7 +464,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                   ...existing,
                   phase: 'error',
                   error:
-                    'Verbindung zum Server verloren. Der Download läuft möglicherweise im Hintergrund weiter.',
+                    'Verbindung zum Server verloren. Das Herunterladen läuft möglicherweise im Hintergrund weiter.',
                 },
               };
             });

@@ -882,19 +882,20 @@ async function leseDatei(raumId, pfad, grenzeBytes = 64 * 1024) {
  */
 async function zustand() {
   if (!istAn()) {
-    return { an: false, erreichbar: false, grund: 'Auf diesem Geraet laeuft kein Firmenordner' };
+    return { an: false, erreichbar: false, grund: 'Auf diesem Gerät läuft kein Firmenordner.' };
   }
   if (!process.env.FIRMENORDNER_ADMIN_PASSWORT) {
     // EIGENE ANTWORT UND KEIN „AUS". Das Profil laeuft, der Container steht
     // da -- es fehlt nur das Geheimnis, mit dem das Backend an seine
     // Graph-API kommt. Das als „gibt es hier nicht" zu melden waere die
     // falsche Auskunft an genau den Menschen, der sie beheben kann.
+    logger.warn('Firmenordner: config/secrets/firmenordner_admin_password fehlt oder ist leer');
     return {
       an: true,
       erreichbar: false,
+      // Pfad und Datei nur im Log (J35); vor dem Menschen steht, was folgt.
       grund:
-        'config/secrets/firmenordner_admin_password fehlt oder ist leer. ' +
-        'Ohne sie kann Arasul keine Nutzer in den Dateidienst spiegeln.',
+        'Der Firmenordner ist noch nicht vollständig eingerichtet. Ihr Betreuer richtet ihn ein.',
     };
   }
   try {
@@ -902,7 +903,12 @@ async function zustand() {
     return { an: true, erreichbar: true, grund: null };
   } catch (err) {
     logger.warn(`Firmenordner nicht erreichbar: ${err.message}`);
-    return { an: true, erreichbar: false, grund: err.message };
+    // Die rohe Antwort (Methode, Pfad, Status) steht im Log (J35).
+    return {
+      an: true,
+      erreichbar: false,
+      grund: 'Der Firmenordner antwortet gerade nicht. Er läuft vermutlich gerade an.',
+    };
   }
 }
 

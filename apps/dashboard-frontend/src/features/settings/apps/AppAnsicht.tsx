@@ -224,7 +224,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         <Feldgruppe
           titel="Stände"
           symbol={<AppWindow />}
-          beschreibung="Gerollt wird in den Teststand; live schaltet ein Mensch."
+          beschreibung="Eine neue Fassung kommt zuerst in Test; Live schaltet ein Administrator."
         >
           <AppStaende
             staende={app.staende}
@@ -236,7 +236,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         <Feldgruppe
           titel="Tester"
           symbol={<Users />}
-          beschreibung="Wer diese App sieht, und wer davon zusätzlich den Teststand bekommt."
+          beschreibung="Wer diese App sieht, und wer davon zusätzlich Test bekommt."
         >
           <AppTester appId={appId} hatTeststand={Boolean(app.staende.test)} />
         </Feldgruppe>
@@ -339,9 +339,9 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         </Feldgruppe>
 
         <Feldgruppe
-          titel="Logs"
+          titel="Protokoll"
           symbol={<ScrollText />}
-          beschreibung="Die letzten 200 Zeilen des App-Containers."
+          beschreibung="Die letzten 200 Zeilen, die die App über sich aufgeschrieben hat."
           aktion={
             <Button
               variant="outline"
@@ -349,7 +349,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
               onClick={() => setLogsAn(a => !a)}
               data-testid="logs-schalter"
             >
-              {logsAn ? 'Zuklappen' : 'Logs zeigen'}
+              {logsAn ? 'Zuklappen' : 'Protokoll zeigen'}
             </Button>
           }
         >
@@ -360,7 +360,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             <p className="text-sm text-muted-foreground">
               {detail?.backend
                 ? 'Ausgeblendet, bis Sie sie brauchen.'
-                : 'Diese App hat kein Backend, das etwas sagen könnte.'}
+                : 'Diese App hat keinen Server-Teil, der etwas aufschreiben könnte.'}
             </p>
           ) : logsLaden ? (
             <SkeletonText lines={4} />

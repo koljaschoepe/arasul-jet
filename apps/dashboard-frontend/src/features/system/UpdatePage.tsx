@@ -38,7 +38,8 @@ import { API_BASE } from '../../config/api';
 import { getCsrfToken } from '../../utils/csrf';
 import { getValidToken } from '../../utils/token';
 import { useApi } from '../../hooks/useApi';
-import { formatBytes, formatDate } from '../../utils/formatting';
+import { formatBytes, formatDate, fassungLesbar } from '../../utils/formatting';
+import { TechnischeAngaben } from './TechnischeAngaben';
 import { Kennzahl, Kennzahlen, Kopf } from '@marken';
 import { Button, cn } from '@marken';
 import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
@@ -88,7 +89,7 @@ interface HistoryEntry {
 }
 
 /** Der Ablauf, den es gibt. Kein Zustand mehr für das, was die Abfrage weiß. */
-type Schritt = 'ruhe' | 'laedt hoch' | 'geprueft' | 'spielt ein' | 'fertig' | 'fehler';
+type Schritt = 'ruhe' | 'lädt hoch' | 'geprueft' | 'spielt ein' | 'fertig' | 'fehler';
 
 const STATUS_KEY = ['update', 'status'] as const;
 const HISTORY_KEY = ['update', 'history'] as const;
@@ -100,7 +101,7 @@ const VERLAUF_STATUS: Record<string, string> = {
   in_progress: 'In Bearbeitung',
   validated: 'Geprüft',
   rolled_back: 'Zurückgesetzt',
-  signature_verified: 'Signatur OK',
+  signature_verified: 'Signatur geprüft',
 };
 
 const UpdatePage = () => {
@@ -185,7 +186,7 @@ const UpdatePage = () => {
       setFehler('Paket und Signaturdatei werden beide gebraucht');
       return;
     }
-    setSchritt('laedt hoch');
+    setSchritt('lädt hoch');
     setFehler('');
     setFortschritt(0);
 
@@ -209,7 +210,7 @@ const UpdatePage = () => {
             setFortschritt(100);
             fertig();
           } else {
-            let meldung = 'Upload fehlgeschlagen';
+            let meldung = 'Das Paket kam nicht an';
             try {
               const koerper = JSON.parse(xhr.responseText);
               meldung = koerper?.error?.message || koerper?.error || meldung;
@@ -219,7 +220,9 @@ const UpdatePage = () => {
             scheitern(new Error(meldung));
           }
         });
-        xhr.addEventListener('error', () => scheitern(new Error('Netzwerkfehler beim Upload')));
+        xhr.addEventListener('error', () =>
+          scheitern(new Error('Das Paket kam nicht an: keine Verbindung zum Gerät'))
+        );
         xhr.open('POST', `${API_BASE}/update/upload`);
         if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         const csrf = getCsrfToken();
@@ -228,13 +231,13 @@ const UpdatePage = () => {
       });
     } catch (err: unknown) {
       setSchritt('fehler');
-      setFehler(err instanceof Error ? err.message : 'Upload fehlgeschlagen');
+      setFehler(err instanceof Error ? err.message : 'Das Paket kam nicht an');
       setFortschritt(0);
     }
   };
 
   const vomStick = async (stick: UsbDevice) => {
-    setSchritt('laedt hoch');
+    setSchritt('lädt hoch');
     setFortschritt(50);
     setFehler('');
     try {
@@ -285,24 +288,30 @@ const UpdatePage = () => {
           <Kennzahlen>
             <Kennzahl
               beschriftung="Fassung"
-              wert={fassung?.anzeige ?? '—'}
+              wert={fassungLesbar(fassung?.anzeige)}
               fussnote={
                 fassung?.bekannt === false
-                  ? 'Dieses Gerät kennt seine Fassung nicht. Sie kommt aus dem Bau; ohne sie lässt sich nicht entscheiden, ob ein Paket neuer ist.'
-                  : 'Aus dem Bau (Tag oder Datum plus Kurz-SHA).'
+                  ? 'Dieses Gerät kennt seine Fassung nicht. Ohne sie lässt sich nicht entscheiden, ob ein Paket neuer ist.'
+                  : undefined
               }
             />
             <Kennzahl
-              beschriftung="Bau"
-              wert={info?.build_hash ? info.build_hash.substring(0, 7) : '—'}
-            />
-            <Kennzahl beschriftung="JetPack" wert={info?.jetpack_version || '—'} />
-            <Kennzahl
               beschriftung="Letzte Aktualisierung"
               wert={letztes ? formatDate(letztes.started_at || letztes.timestamp || '') : 'keine'}
-              fussnote={letztes ? `${letztes.version_from} auf ${letztes.version_to}` : undefined}
+              fussnote={
+                letztes
+                  ? `${fassungLesbar(letztes.version_from)} auf ${fassungLesbar(letztes.version_to)}`
+                  : undefined
+              }
             />
           </Kennzahlen>
+          <TechnischeAngaben
+            angaben={[
+              { beschriftung: 'Versionskennung', wert: fassung?.anzeige },
+              { beschriftung: 'Bau', wert: info?.build_hash },
+              { beschriftung: 'JetPack', wert: info?.jetpack_version },
+            ]}
+          />
         </Feldgruppe>
 
         {!einspielenMoeglich ? (
@@ -316,7 +325,7 @@ const UpdatePage = () => {
           <Feldgruppe titel="Einspielen über diese Seite" symbol={<AlertCircle />}>
             <p className="text-sm text-muted-foreground" data-testid="einspielen-nicht-moeglich">
               {status?.einspielenGrund ??
-                'Dieses Gerät kann ein Paket nicht über die Schnittstelle einspielen.'}
+                'Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein, nicht diese Seite.'}
             </p>
           </Feldgruppe>
         ) : (
@@ -441,7 +450,7 @@ const UpdatePage = () => {
                 </div>
               )}
 
-              {schritt === 'laedt hoch' && (
+              {schritt === 'lädt hoch' && (
                 <div className="py-6">
                   <p className="mb-3 text-sm text-muted-foreground">Lädt hoch …</p>
                   <div className="h-1.5 overflow-hidden rounded-full bg-muted">

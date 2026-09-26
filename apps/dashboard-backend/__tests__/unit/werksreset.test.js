@@ -384,7 +384,7 @@ describe('Erstpasswort als Vorbedingung', () => {
 
     await expect(
       werksreset.ausfuehren({ stufe: 'auslieferung', bestaetigung: 'orin-vorfuehrer' })
-    ).rejects.toThrow(/bevor etwas geloescht wurde/);
+    ).rejects.toThrow(/bevor etwas gelöscht wurde/);
 
     expect(db.transaction).not.toHaveBeenCalled();
   });
@@ -440,7 +440,7 @@ describe('Entwertung nachlesen', () => {
 
     await expect(
       werksreset.ausfuehren({ stufe: 'auslieferung', bestaetigung: 'orin-vorfuehrer' })
-    ).rejects.toThrow(/bevor etwas geloescht wurde/);
+    ).rejects.toThrow(/bevor etwas gelöscht wurde/);
 
     expect(db.transaction).not.toHaveBeenCalled();
   });

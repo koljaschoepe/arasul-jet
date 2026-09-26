@@ -399,7 +399,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
 
             <div className="space-y-2">
               <Label htmlFor="products">
-                Produkte & Services{' '}
+                Produkte & Dienstleistungen{' '}
                 <span className="text-muted-foreground text-xs">(optional)</span>
               </Label>
               <Input

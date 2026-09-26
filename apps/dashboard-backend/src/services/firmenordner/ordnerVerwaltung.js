@@ -203,7 +203,7 @@ async function legeOrdnerAn({ kennung, name, ebene, elternKennung, art, durch })
   let eltern = null;
   if (ebene === 2) {
     if (!elternKennung) {
-      throw new ValidationError('Ein Ordner der Ebene 2 braucht einen Ordner der Ebene 1 darueber');
+      throw new ValidationError('Ein Ordner der Ebene 2 braucht einen Ordner der Ebene 1 darüber');
     }
     const { rows } = await db.query(
       `SELECT ${SPALTEN} FROM public.firmenordner_ordner o
@@ -216,7 +216,7 @@ async function legeOrdnerAn({ kennung, name, ebene, elternKennung, art, durch })
     eltern = rows[0];
     if (eltern.art === 'am_geraet') {
       throw new ValidationError(
-        `„${elternKennung}" ist ein Ordner am Geraet. Darunter gibt es keine Ebene 2, ` +
+        `„${elternKennung}" ist ein Ordner am Gerät. Darunter gibt es keine Ebene 2, ` +
           'weil niemand ihn abgleicht.'
       );
     }
@@ -268,7 +268,7 @@ async function legeWurzelAn({ kennung, name, durch }) {
   const vorhanden = await holeWurzel();
   if (vorhanden) {
     throw new ConflictError(
-      `Dieses Geraet hat schon eine Wurzel („${vorhanden.kennung}"). Es gibt genau eine.`
+      `Dieses Gerät hat schon eine Wurzel („${vorhanden.kennung}"). Es gibt genau eine.`
     );
   }
   const { rows } = await db.query(
@@ -327,7 +327,7 @@ async function loescheOrdner({ ordnerId }) {
     if (andere[0].n > 0) {
       throw new ConflictError(
         `„${ordner.kennung}" ist die Wurzel, und es gibt noch ${andere[0].n} andere Ordner. ` +
-          'Sie faellt erst, wenn kein anderer Ordner mehr besteht.'
+          'Sie fällt erst, wenn kein anderer Ordner mehr besteht.'
       );
     }
   }
@@ -339,7 +339,7 @@ async function loescheOrdner({ ordnerId }) {
   if (kinder.length > 0) {
     throw new ConflictError(
       `In „${ordner.kennung}" liegen noch ${kinder.length} Ordner der Ebene 2 ` +
-        `(${kinder.map(k => k.kennung).join(', ')}). Raeumen Sie ihn von unten.`
+        `(${kinder.map(k => k.kennung).join(', ')}). Räumen Sie ihn von unten.`
     );
   }
 
@@ -352,7 +352,7 @@ async function loescheOrdner({ ordnerId }) {
   if (rechte.length > 0) {
     throw new ConflictError(
       `Auf „${ordner.kennung}" haben noch ${rechte.length} Menschen ein Recht ` +
-        `(${rechte.map(r => r.username).join(', ')}). Nehmen Sie es zuerst zurueck.`
+        `(${rechte.map(r => r.username).join(', ')}). Nehmen Sie es zuerst zurück.`
     );
   }
 
@@ -368,10 +368,12 @@ async function loescheOrdner({ ordnerId }) {
         : dienst.loescheOrdner(ordner.raum_id, ordner.pfad)
     );
     if (offen) {
+      // Die Antwort des Dienstes (Methode, Pfad, Koerper) gehoert ins Log,
+      // nicht vor den Menschen (J35).
+      logger.warn(`Firmenordner: „${ordner.kennung}" nicht weggeworfen: ${offen}`);
       throw new ConflictError(
-        `Der Dateidienst hat „${ordner.kennung}" nicht weggeworfen: ${offen}. ` +
-          'Die Zeile bleibt stehen, sonst gaebe es dort einen Raum, den dieses ' +
-          'Geraet nicht mehr kennt.'
+        `„${ordner.kennung}" ließ sich im Firmenordner gerade nicht entfernen. ` +
+          'Er bleibt deshalb auch hier stehen. Versuchen Sie es in ein paar Minuten noch einmal.'
       );
     }
   }
@@ -410,8 +412,8 @@ async function gibRecht({ ordnerId, benutzerId, recht, durch }) {
   }
   if (ordner.art === 'am_geraet') {
     throw new ValidationError(
-      `„${ordner.kennung}" ist ein Ordner am Geraet. Er wird nie abgeglichen und bekommt ` +
-        'deshalb keine Rechte -- nur Flows und Apps am Geraet lesen ihn.'
+      `„${ordner.kennung}" ist ein Ordner am Gerät. Er wird nie abgeglichen und bekommt ` +
+        'deshalb keine Rechte -- nur Flows und Apps am Gerät lesen ihn.'
     );
   }
 
@@ -427,8 +429,8 @@ async function gibRecht({ ordnerId, benutzerId, recht, durch }) {
       const eltern = await holeOrdner(ordner.eltern_id);
       throw new ConflictError(
         `${nutzer.username} hat auf „${eltern.kennung}" schon „${rows[0].recht}", und ein Recht ` +
-          `wird nie unterhalb wieder entzogen. „${recht}" auf „${ordner.kennung}" waere weniger. ` +
-          `Nehmen Sie stattdessen das Recht auf „${eltern.kennung}" zurueck und vergeben Sie die ` +
+          `wird nie unterhalb wieder entzogen. „${recht}" auf „${ordner.kennung}" wäre weniger. ` +
+          `Nehmen Sie stattdessen das Recht auf „${eltern.kennung}" zurück und vergeben Sie die ` +
           'Ordner darunter einzeln.'
       );
     }

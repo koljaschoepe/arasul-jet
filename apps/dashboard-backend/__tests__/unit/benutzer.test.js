@@ -150,8 +150,8 @@ describe('/api/benutzer', () => {
     aktiveKonten = ['admin', 'mia', 'tom'];
     const res = await request(app()).post('/api/benutzer').send(NEU);
     expect(res.status).toBe(409);
-    expect(res.body.error.message).toMatch(/Lizenz dieses Geraets \(community\) traegt 3 Konten/);
-    expect(res.body.error.message).toMatch(/Einstellungen -> Lizenz/);
+    expect(res.body.error.message).toMatch(/Lizenz dieses Geräts \(community\) trägt 3 Konten/);
+    expect(res.body.error.message).toMatch(/Einstellungen → Lizenz/);
     expect(res.body.error.details).toMatchObject({ grenze: 3, belegt: 3, stufe: 'community' });
     // Nichts geschrieben: das INSERT kommt gar nicht erst an.
     expect(db.query).not.toHaveBeenCalled();
@@ -241,7 +241,7 @@ describe('/api/benutzer', () => {
       .put('/api/benutzer/1/passwort')
       .send({ password: 'Startpasswort1!' });
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/change-password/);
+    expect(res.body.error.message).toMatch(/Einstellungen → Sicherheit/);
     expect(db.query).not.toHaveBeenCalled();
   });
 
@@ -354,7 +354,7 @@ describe('/api/benutzer', () => {
   test('DELETE des eigenen Kontos wird auf /gdpr/me verwiesen (400)', async () => {
     const res = await request(app()).delete('/api/benutzer/1');
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/gdpr\/me/);
+    expect(res.body.error.message).toMatch(/Einstellungen → Datenschutz/);
     expect(db.query).not.toHaveBeenCalled();
   });
 

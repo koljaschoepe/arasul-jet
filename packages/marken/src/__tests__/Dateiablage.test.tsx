@@ -57,7 +57,7 @@ describe('Dateiablage', () => {
     render(<Dateiablage dateien={[datei('antrag.txt', 2048)]} aufDateien={gerufen} />);
 
     expect(screen.getByText('antrag.txt')).toBeInTheDocument();
-    expect(screen.getByText('2.0 kB')).toBeInTheDocument();
+    expect(screen.getByText('2 KB')).toBeInTheDocument();
 
     await nutzer.click(screen.getByRole('button', { name: 'antrag.txt entfernen' }));
     expect(gerufen).toHaveBeenCalledWith([]);

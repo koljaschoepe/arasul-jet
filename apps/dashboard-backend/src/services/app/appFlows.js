@@ -82,8 +82,8 @@ async function leseAusPaket(manifest, ordner) {
 
   if (dateien.length === 0) {
     throw new ValidationError(
-      `${manifest.flows.verzeichnis}/ enthaelt keine einzige .md-Datei. ` +
-        'Ein Manifest, das Flows ankuendigt, soll welche mitbringen -- sonst gehoert `flows` nicht hinein.'
+      `${manifest.flows.verzeichnis}/ enthält keine einzige .md-Datei. ` +
+        'Ein Manifest, das Flows ankündigt, soll welche mitbringen -- sonst gehört `flows` nicht hinein.'
     );
   }
   if (dateien.length > MAX_FLOWS) {
@@ -111,7 +111,7 @@ async function leseAusPaket(manifest, ordner) {
     // sucht ihn unter dem anderen.
     if (definition.name !== name) {
       throw new ValidationError(
-        `${datei} nennt sich im Kopf "${definition.name}". Dateiname und "name" muessen dasselbe sagen.`
+        `${datei} nennt sich im Kopf "${definition.name}". Dateiname und "name" müssen dasselbe sagen.`
       );
     }
 
@@ -133,7 +133,7 @@ async function leseAusPaket(manifest, ordner) {
     if (definition.ordner.length > 0) {
       throw new ValidationError(
         `${datei} deklariert Ordner (${definition.ordner.join(', ')}). Ein Flow aus einem ` +
-          'App-Paket arbeitet ohne Ordner am Geraet; die Datei-Werkzeuge kommen mit den D-Phasen.'
+          'App-Paket arbeitet ohne Ordner am Gerät; die Datei-Werkzeuge kommen mit den D-Phasen.'
       );
     }
 

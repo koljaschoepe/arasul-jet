@@ -150,7 +150,7 @@ describe('Sicherung', () => {
 
     const meldung = await screen.findByTestId('sicherung-meldung');
     expect(meldung.textContent).toContain('Sicherung fertig');
-    expect(meldung.textContent).toContain('5.1G');
+    expect(meldung.textContent).toContain('5,1 GB');
     expect(toast.success).toHaveBeenCalled();
     expect(apiMock.post).toHaveBeenCalledWith(
       '/backup/sicherung',

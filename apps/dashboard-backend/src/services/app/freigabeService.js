@@ -106,7 +106,7 @@ async function nimmZurueck({ appId, benutzerId }) {
     [appId, benutzerId]
   );
   if (result.rowCount === 0) {
-    throw new NotFoundError(`Keine Freigabe von ${appId} fuer Benutzer ${benutzerId}`);
+    throw new NotFoundError(`Keine Freigabe von ${appId} für Benutzer ${benutzerId}`);
   }
   logger.info(`Freigabe zurueckgenommen: App ${appId} fuer Benutzer ${benutzerId}`);
   return { app_id: appId, user_id: benutzerId };

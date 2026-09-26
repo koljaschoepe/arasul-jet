@@ -107,8 +107,7 @@ router.get(
     const lage = await verwaltung.zustand();
     if (!lage.an) {
       throw new ServiceUnavailableError(
-        'Auf diesem Geraet laeuft kein Firmenordner. ' +
-          'Er wird mit dem Profil `firmenordner` eingeschaltet (docs/features/FIRMENORDNER.md).'
+        'Auf diesem Gerät läuft kein Firmenordner. Ihr Administrator kann ihn einschalten lassen.'
       );
     }
     const ordner = await verwaltung.meineOrdner(req.user.id, req.user.role);
@@ -150,8 +149,7 @@ router.get(
     const lage = await verwaltung.zustand();
     if (!lage.an) {
       throw new ServiceUnavailableError(
-        'Auf diesem Geraet laeuft kein Firmenordner. ' +
-          'Er wird mit dem Profil `firmenordner` eingeschaltet (docs/features/FIRMENORDNER.md).'
+        'Auf diesem Gerät läuft kein Firmenordner. Ihr Administrator kann ihn einschalten lassen.'
       );
     }
     const text = await verwaltung.sichtFuer({

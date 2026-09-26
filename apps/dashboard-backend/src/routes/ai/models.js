@@ -689,7 +689,7 @@ router.post(
     const aufgabe = rows[0]?.task ?? null;
     if (aufgabe && aufgabe !== 'text' && aufgabe !== 'coding') {
       throw new ValidationError(
-        `${model_id} ist fuer die Aufgabe "${aufgabe}" vorgesehen und kann nicht der Standard der Flows sein`
+        `${model_id} ist für die Aufgabe "${aufgabe}" vorgesehen und kann nicht der Standard der Flows sein`
       );
     }
 

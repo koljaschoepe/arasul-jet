@@ -117,7 +117,7 @@ router.put(
     // dauerhaftes Passwort setzen statt nur den geliehenen Token zu haben.
     if (istEigenesKonto(req)) {
       throw new ValidationError(
-        'Das eigene Passwort wird ueber POST /api/auth/change-password gewechselt'
+        'Ihr eigenes Passwort ändern Sie unter Einstellungen → Sicherheit.'
       );
     }
     const ziel = await setzePasswort(req.params.id, req.body.password, {
@@ -177,7 +177,7 @@ router.delete(
   validateParams(BenutzerIdParams),
   asyncHandler(async (req, res) => {
     if (istEigenesKonto(req)) {
-      throw new ValidationError('Das eigene Konto wird ueber DELETE /api/gdpr/me geloescht');
+      throw new ValidationError('Ihr eigenes Konto löschen Sie unter Einstellungen → Datenschutz.');
     }
     const ziel = await benutzerService.holeBenutzer(req.params.id);
     const { summary, zugangBleibt } = await benutzerService.loescheBenutzer({

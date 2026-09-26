@@ -86,4 +86,21 @@ function istReleaseNummer(fassung) {
   return /^\d+\.\d+\.\d+$/.test(String(fassung || '').trim());
 }
 
-module.exports = { versionFuerAnzeige, versionFuerVergleich, versionBekannt, istReleaseNummer };
+/**
+ * Eine Fassung, wie ein Mensch sie liest (J35): aus `20260926-dc1272c` wird
+ * „Stand 26.09.2026", eine Releasenummer bleibt, wie sie ist. Gleiche Regel
+ * wie `fassungLesbar` im Frontend.
+ */
+function fassungLesbar(fassung) {
+  const roh = String(fassung || '').trim();
+  const datiert = /^(\d{4})(\d{2})(\d{2})-[0-9a-f]{4,}$/i.exec(roh);
+  return datiert ? `Stand ${datiert[3]}.${datiert[2]}.${datiert[1]}` : roh;
+}
+
+module.exports = {
+  versionFuerAnzeige,
+  versionFuerVergleich,
+  versionBekannt,
+  istReleaseNummer,
+  fassungLesbar,
+};

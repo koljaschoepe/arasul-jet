@@ -634,14 +634,14 @@ router.get(
       pem = await fs.readFile(CA_ZERTIFIKAT_PFAD, 'utf8');
     } catch {
       throw new NotFoundError(
-        'Dieses Geraet hat noch kein CA-Zertifikat. Es entsteht beim Einrichten; ' +
-          'nachholen laesst es sich am Geraet mit `./arasul zertifikat`.'
+        // Der Befehl dazu (`./arasul zertifikat`) steht im Handbuch, nicht hier (J35).
+        'Dieses Gerät hat noch kein Zertifikat. Ihr Betreuer stellt es aus.'
       );
     }
 
     if (!pem.includes('BEGIN CERTIFICATE')) {
       throw new NotFoundError(
-        'Die Datei mit dem CA-Zertifikat ist unlesbar. Neu ausstellen: `./arasul zertifikat`.'
+        'Das Zertifikat dieses Geräts ist beschädigt. Ihr Betreuer stellt es neu aus.'
       );
     }
 

@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const { dienstName } = require('../../utils/dienstNamen');
 const router = express.Router();
 const dockerService = require('../../services/core/docker');
 const logger = require('../../utils/logger');
@@ -365,6 +366,7 @@ router.get(
     const services = Object.entries(statuses).map(([key, value]) => ({
       id: key,
       name: value.containerName || key,
+      anzeige: dienstName(value.containerName || key),
       status: value.status,
       health: value.health,
       state: value.state,

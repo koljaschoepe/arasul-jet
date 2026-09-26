@@ -38,7 +38,7 @@ interface DownloadProgressProps {
 const phaseLabels: Record<string, string> = {
   init: 'Initialisiere',
   download: 'Lädt herunter',
-  pull: 'Image-Download',
+  pull: 'Herunterladen',
   setup: 'Einrichtung',
   verify: 'Verifiziere',
   complete: 'Fertig',
@@ -79,8 +79,8 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
                 <button
                   onClick={onCancel}
                   className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded"
-                  title="Download abbrechen"
-                  aria-label="Download abbrechen"
+                  title="Herunterladen abbrechen"
+                  aria-label="Herunterladen abbrechen"
                 >
                   <X className="size-3.5" />
                 </button>
@@ -145,8 +145,8 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
             <button
               onClick={onCancel}
               className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded"
-              title="Download abbrechen"
-              aria-label="Download abbrechen"
+              title="Herunterladen abbrechen"
+              aria-label="Herunterladen abbrechen"
             >
               <X className="size-3.5" />
             </button>

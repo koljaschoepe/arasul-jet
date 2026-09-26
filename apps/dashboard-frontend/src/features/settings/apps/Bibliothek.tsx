@@ -86,7 +86,7 @@ function warnt(befund: BibliothekBefund): boolean {
 function wortlaut(befund: BibliothekBefund, knapp: boolean): string {
   switch (befund.art) {
     case 'ohne-frontend':
-      return knapp ? 'kein Frontend' : 'kein Frontend, braucht keine Bibliothek';
+      return knapp ? 'ohne Oberfläche' : 'ohne Oberfläche, braucht keine Bibliothek';
     case 'gleich':
       return befund.fassung;
     case 'aelter':

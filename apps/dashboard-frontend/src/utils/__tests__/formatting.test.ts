@@ -37,8 +37,8 @@ describe('formatBytes', () => {
     // einem PR ueber Einheiten, die bei derselben Zahl verschieden schreiben,
     // waeren das falsche Vorbild.
     expect(formatBytes(0)).toBe('0 B');
-    expect(formatBytes(null)).toBe('N/A');
-    expect(formatBytes(undefined)).toBe('N/A');
+    expect(formatBytes(null)).toBe('unbekannt');
+    expect(formatBytes(undefined)).toBe('unbekannt');
   });
 
   it('die Grenzen liegen bei glatten Tausenderschritten', () => {
@@ -72,9 +72,9 @@ describe('formatBytesBinaer', () => {
     expect(formatBytesBinaer(0)).toBe('0 B');
   });
 
-  it('ohne Angabe steht N/A da', () => {
-    expect(formatBytesBinaer(null)).toBe('N/A');
-    expect(formatBytesBinaer(undefined)).toBe('N/A');
+  it('ohne Angabe steht unbekannt da', () => {
+    expect(formatBytesBinaer(null)).toBe('unbekannt');
+    expect(formatBytesBinaer(undefined)).toBe('unbekannt');
   });
 });
 
@@ -96,5 +96,26 @@ describe('formatDate', () => {
     expect(formatDate(null)).toBe('-');
     expect(formatDate(undefined)).toBe('-');
     expect(formatDate('')).toBe('-');
+  });
+});
+
+describe('J35: Zahlen und Zeiten auf Deutsch', () => {
+  it('formatZahl schreibt Komma und Tausenderpunkt', async () => {
+    const { formatZahl } = await import('../formatting');
+    expect(formatZahl(1234.5, 1)).toBe('1.234,5');
+    expect(formatZahl(42)).toBe('42');
+    expect(formatZahl(undefined)).toBe('—');
+  });
+  it('formatUptime schreibt Tage und Stunden aus', async () => {
+    const { formatUptime } = await import('../formatting');
+    expect(formatUptime(2 * 86400 + 5 * 3600 + 30 * 60)).toBe('2 Tage, 5 Stunden');
+    expect(formatUptime(3600 + 60)).toBe('1 Stunde, 1 Minute');
+    expect(formatUptime(90)).toBe('1 Minute');
+  });
+  it('fassungLesbar macht aus Datum plus SHA einen Stand', async () => {
+    const { fassungLesbar } = await import('../formatting');
+    expect(fassungLesbar('20260926-dc1272c')).toBe('Stand 26.09.2026');
+    expect(fassungLesbar('1.2.0')).toBe('1.2.0');
+    expect(fassungLesbar('Vorserie')).toBe('Vorserie');
   });
 });

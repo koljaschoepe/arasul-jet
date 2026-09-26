@@ -177,7 +177,7 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
     db.query.mockResolvedValueOnce({ rows: [] });
     const res = await request(verwaltung()).get('/api/apps/gibtsnicht/flows/bericht');
     expect(res.status).toBe(404);
-    expect(res.body.error.message).toMatch(/gibt es am Geraet nicht/);
+    expect(res.body.error.message).toMatch(/gibt es am Gerät nicht/);
   });
 
   test('GET /:id/laeufe siebt nach App und nicht nach Nutzer', async () => {
@@ -687,7 +687,7 @@ describe('POST /api/apps/:id/einspielen', () => {
     expect(licenseService.checkLimit).toHaveBeenCalledWith('maxApps', 3);
     // Die Meldung nennt die Zahl, die die Lizenz traegt, und die Apps, die den
     // Platz belegen -- das Kit gibt sie wortgleich aus.
-    expect(res.body.error.message).toMatch(/traegt 3 Apps, es sind 3/);
+    expect(res.body.error.message).toMatch(/trägt 3 Apps, es sind 3/);
     expect(res.body.error.message).toMatch(/angebot, beispielapp, urlaub2/);
     expect(res.body.error.details).toEqual({
       grenze: 3,

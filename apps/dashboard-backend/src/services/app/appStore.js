@@ -162,7 +162,7 @@ async function listeApps() {
 async function pruefeVorhanden(appId) {
   const { rows } = await db.query('SELECT 1 FROM public.apps WHERE id = $1', [appId]);
   if (rows.length === 0) {
-    throw new NotFoundError(`App ${appId} gibt es am Geraet nicht`);
+    throw new NotFoundError(`App ${appId} gibt es am Gerät nicht`);
   }
 }
 
@@ -174,7 +174,7 @@ async function pruefeVorhanden(appId) {
 async function holeApp(appId) {
   const zeile = await db.query('SELECT * FROM public.apps WHERE id = $1', [appId]);
   if (zeile.rows.length === 0) {
-    throw new NotFoundError(`App ${appId} gibt es am Geraet nicht`);
+    throw new NotFoundError(`App ${appId} gibt es am Gerät nicht`);
   }
   const staende = await staendeVon(appId);
   const ergebnis = {
@@ -438,7 +438,7 @@ async function schalte({ appId, ziel, durch }) {
   }
 
   if (!staende.live) {
-    throw new ConflictError(`App ${appId} hat keinen Livestand, es gibt nichts zurueckzunehmen.`);
+    throw new ConflictError(`App ${appId} hat keinen Livestand, es gibt nichts zurückzunehmen.`);
   }
   if (!staende.live.vorige_version) {
     throw new ConflictError(
@@ -516,11 +516,10 @@ async function pruefeAppGrenze(appId) {
   }
   const namen = rows.map(z => z.id);
   throw new ConflictError(
-    `Die Lizenz dieses Geraets traegt ${grenze.limit} Apps, es sind ${grenze.current}: ` +
-      `${namen.join(', ')}. ${appId} kommt nicht dazu. Test- und Livestand zaehlen zusammen, ` +
-      'jede eingespielte App belegt einen Platz. Eine App entfernen (Einstellungen -> Apps -> ' +
-      'App entfernen, oder DELETE /api/v1/external/apps/<id>) oder die Lizenz erweitern ' +
-      '(Einstellungen -> Lizenz).',
+    `Die Lizenz dieses Geräts trägt ${grenze.limit} Apps, es sind ${grenze.current}: ` +
+      `${namen.join(', ')}. „${appId}“ kommt nicht dazu. Test und Live zählen zusammen, ` +
+      'jede eingespielte App belegt einen Platz. Entfernen Sie eine App (Einstellungen → Apps → ' +
+      'App entfernen) oder erweitern Sie die Lizenz (Einstellungen → Lizenz).',
     { grenze: grenze.limit, belegt: grenze.current, apps: namen, abgewiesen: appId }
   );
 }
@@ -588,7 +587,7 @@ async function imageNamenVon(appId, staende) {
 async function entferneApp(appId, { dateien = false } = {}) {
   const vorhanden = await db.query('SELECT id FROM public.apps WHERE id = $1', [appId]);
   if (vorhanden.rows.length === 0) {
-    throw new NotFoundError(`App ${appId} gibt es am Geraet nicht`);
+    throw new NotFoundError(`App ${appId} gibt es am Gerät nicht`);
   }
   const images = await imageNamenVon(appId, await staendeVon(appId));
 
@@ -723,8 +722,8 @@ async function ausliefernAus(appId, stand) {
   const dateien = await appManifest.dateienVorhanden(manifest);
   if (!dateien.frontend) {
     throw new ServiceUnavailableError(
-      `${appId} ${version} steht als ${stand}, aber die Dateien fehlen am Geraet. ` +
-        'Die App entfernen oder neu einspielen (Einstellungen -> Apps).',
+      `${appId} ${version} steht als ${stand}, aber die Dateien fehlen am Gerät. ` +
+        'Die App entfernen oder neu einspielen (Einstellungen → Apps).',
       { code: 'APP_DATEIEN_FEHLEN' }
     );
   }

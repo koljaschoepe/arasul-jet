@@ -89,7 +89,7 @@ describe('GET /api/system/ca-zertifikat', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(antwort.status).toBe(404);
-    expect(JSON.stringify(antwort.body)).toContain('arasul zertifikat');
+    expect(JSON.stringify(antwort.body)).toContain('Betreuer');
   });
 
   test('eine unlesbare Datei gilt nicht als Zertifikat', async () => {

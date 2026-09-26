@@ -79,8 +79,8 @@ function Zelle({
           data-testid={`freigabe-stand-${zelle}`}
           title={
             freigabe.stand === 'test'
-              ? 'Tester: sieht zusätzlich den Teststand. Klicken für nur Livestand.'
-              : 'Sieht den Livestand. Klicken, um ihn zum Tester zu machen.'
+              ? 'Tester: sieht zusätzlich Test. Klicken für nur Live.'
+              : 'Sieht Live. Klicken, um ihn zum Tester zu machen.'
           }
           onClick={() => setzen(freigabe.stand === 'test' ? 'live' : 'test')}
           className={cn(

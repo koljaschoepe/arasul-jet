@@ -186,7 +186,7 @@ router.post(
     const appId = req.params.id;
     if (req.body.bestaetigung !== appId) {
       throw new ValidationError(
-        `Zum Bestaetigen muss \`bestaetigung\` die Kennung der App enthalten ("${appId}"). ` +
+        `Zum Bestätigen muss \`bestaetigung\` die Kennung der App enthalten ("${appId}"). ` +
           'Dieser Aufruf ersetzt ihre Daten durch die der letzten Sicherung.'
       );
     }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { TechnischeAngaben } from './TechnischeAngaben';
 import { useApi } from '../../hooks/useApi';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import {
@@ -26,12 +27,78 @@ interface SelfHealingEvent {
   description: string;
   action_taken?: string;
   service_name?: string;
+  /** Der deutsche Name des Dienstes, vom Gerät (J35). */
+  dienst_anzeige?: string;
   duration_ms?: number;
   error_message?: string;
   timestamp: string;
 }
 
 type SeverityFilter = 'all' | 'INFO' | 'WARNING' | 'CRITICAL';
+
+/**
+ * Die Wörter zu den Rohwerten der Selbstheilung (J35). Der Agent schreibt
+ * `service_restart` und `CRITICAL` in seine Tabelle; ein Mensch liest
+ * „Dienst neu gestartet" und „Kritisch". Ein unbekannter Wert bleibt als
+ * „Ereignis" stehen, statt roh durchzurutschen.
+ */
+const ART_WORT: Record<string, string> = {
+  service_restart: 'Dienst neu gestartet',
+  service_stop_start: 'Dienst angehalten und neu gestartet',
+  service_down: 'Dienst ausgefallen',
+  service_escalation: 'Dienst fällt wiederholt aus',
+  service_recovery_verified: 'Dienst läuft wieder',
+  service_recovery_failed: 'Dienst ließ sich nicht wiederherstellen',
+  service_restart_rate_limited: 'Neustart zurückgestellt',
+  service_replacement_detected: 'Dienst wurde ersetzt',
+  recovery_action: 'Wiederhergestellt',
+  metrics_recovery: 'Messwerte wieder da',
+  gpu_error: 'Fehler am Grafikprozessor',
+  gpu_error_detected: 'Fehler am Grafikprozessor',
+  gpu_overload: 'Grafikprozessor ausgelastet',
+  gpu_recovery_success: 'Grafikprozessor wieder in Ordnung',
+  gpu_recovery_failed: 'Grafikprozessor ließ sich nicht wiederherstellen',
+  cpu_overload: 'Prozessor ausgelastet',
+  ram_overload: 'Arbeitsspeicher voll',
+  memory_warning: 'Arbeitsspeicher knapp',
+  memory_trend: 'Arbeitsspeicher wird knapp',
+  disk_cleanup: 'Speicher aufgeräumt',
+  disk_critical: 'Speicher fast voll',
+  storage_wear_warning: 'Speicher nutzt sich ab',
+  storage_wear_critical: 'Speicher stark abgenutzt',
+  temperature_warning: 'Gerät zu warm',
+  thermal_warning: 'Gerät wird warm',
+  thermal_critical: 'Gerät zu heiß',
+  thermal_emergency: 'Gerät überhitzt',
+  db_connections: 'Datenbank stark belegt',
+  db_bloat: 'Datenbank aufgeräumt',
+  db_xid_wraparound: 'Datenbank braucht Wartung',
+  database_init: 'Datenbank eingerichtet',
+  database_migration: 'Datenbank erweitert',
+  schema_upgrade: 'Datenbank erweitert',
+  engine_started: 'Selbstheilung gestartet',
+  self_healing: 'Selbstheilung',
+  critical_event: 'Kritisches Ereignis',
+  system_reboot: 'Gerät neu gestartet',
+  system_reboot_abgebrochen: 'Neustart des Geräts abgebrochen',
+  system_reboot_gescheitert: 'Neustart des Geräts gescheitert',
+  system_reboot_unterdrueckt: 'Neustart des Geräts zurückgehalten',
+  reboot_safety_check_failed: 'Neustart des Geräts nicht sicher',
+  tls_cert_renewal: 'Zertifikat erneuert',
+  tailscale_disconnected: 'Fernzugriff getrennt',
+  tailscale_reconnected: 'Fernzugriff wieder verbunden',
+  model_unload: 'Modell aus dem Speicher genommen',
+};
+const STUFE_WORT: Record<string, string> = {
+  INFO: 'Hinweis',
+  WARNING: 'Warnung',
+  CRITICAL: 'Kritisch',
+};
+const STUFE_MEHRZAHL: Record<string, string> = {
+  INFO: 'Hinweise',
+  WARNING: 'Warnungen',
+  CRITICAL: 'kritischen Ereignisse',
+};
 
 const SelfHealingEvents = () => {
   const api = useApi();
@@ -184,7 +251,7 @@ const SelfHealingEvents = () => {
       {/* Header */}
       <Kopf
         titel="Selbstheilung"
-        beschreibung="Systemwiederherstellung und Wartung"
+        beschreibung="Was das Gerät selbst repariert hat, und wann"
         aktionen={
           <div className="flex gap-2 items-center">
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -194,7 +261,7 @@ const SelfHealingEvents = () => {
                 onChange={e => setAutoRefresh(e.target.checked)}
                 className="cursor-pointer size-3.5 accent-primary"
               />
-              Auto (15s)
+              Selbst aktualisieren
             </label>
             <Button
               variant="outline"
@@ -217,7 +284,7 @@ const SelfHealingEvents = () => {
         </div>
         <div>
           <span className="text-lg font-bold text-foreground">{stats.INFO}</span>
-          <span className="text-muted-foreground ml-1.5">Info</span>
+          <span className="text-muted-foreground ml-1.5">Hinweise</span>
         </div>
         <div>
           <span className="text-lg font-bold text-muted-foreground">{stats.WARNING}</span>
@@ -233,7 +300,7 @@ const SelfHealingEvents = () => {
       <div className="flex gap-1.5 mb-6">
         {[
           { value: 'all' as SeverityFilter, label: 'Alle' },
-          { value: 'INFO' as SeverityFilter, label: 'Info' },
+          { value: 'INFO' as SeverityFilter, label: 'Hinweise' },
           { value: 'WARNING' as SeverityFilter, label: 'Warnungen' },
           { value: 'CRITICAL' as SeverityFilter, label: 'Kritisch' },
         ].map(({ value, label }) => (
@@ -262,11 +329,11 @@ const SelfHealingEvents = () => {
       {filteredEvents.length === 0 ? (
         <Leerzustand
           symbol={<CheckCircle />}
-          titel={filter === 'all' ? 'Keine Ereignisse' : `Keine ${filter}-Ereignisse`}
+          titel={filter === 'all' ? 'Keine Ereignisse' : `Keine ${STUFE_MEHRZAHL[filter]}`}
           beschreibung={
             filter === 'all'
-              ? 'Das System läuft einwandfrei. Es wurden keine Selbstheilungs-Ereignisse aufgezeichnet.'
-              : `Es sind keine Ereignisse mit Schweregrad \u201e${filter}\u201c vorhanden.`
+              ? 'Das Gerät läuft einwandfrei. Die Selbstheilung musste bisher nicht eingreifen.'
+              : `Es gibt gerade keine ${STUFE_MEHRZAHL[filter]}.`
           }
           aktion={
             filter !== 'all' ? (
@@ -313,7 +380,7 @@ const SelfHealingEvents = () => {
                             {getEventTypeIcon(event.event_type)}
                           </div>
                           <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
-                            {event.event_type?.replace(/_/g, ' ')}
+                            {ART_WORT[event.event_type] ?? 'Ereignis'}
                           </span>
                           <span className="text-xs text-muted-foreground shrink-0">
                             {formatRelativeDate(event.timestamp)}
@@ -326,40 +393,41 @@ const SelfHealingEvents = () => {
                               event.severity === 'CRITICAL' && 'text-foreground'
                             )}
                           >
-                            {event.severity}
+                            {STUFE_WORT[event.severity] ?? event.severity}
                           </span>
                         </div>
 
-                        <p className="text-sm text-muted-foreground pl-7">{event.description}</p>
-
-                        {(event.action_taken ||
-                          event.service_name ||
-                          event.duration_ms ||
-                          event.error_message) && (
-                          <div className="pl-7 mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            {event.action_taken && (
-                              <span>
-                                <strong className="text-foreground">Maßnahme:</strong>{' '}
-                                {event.action_taken}
-                              </span>
-                            )}
-                            {event.service_name && (
-                              <span>
-                                <strong className="text-foreground">Service:</strong>{' '}
-                                {event.service_name}
-                              </span>
-                            )}
-                            {event.duration_ms && (
-                              <span>
-                                <strong className="text-foreground">Dauer:</strong>{' '}
-                                {event.duration_ms}ms
-                              </span>
-                            )}
-                            {event.error_message && (
-                              <span className="basis-full text-foreground/60 font-mono">
-                                {event.error_message}
-                              </span>
-                            )}
+                        {/* Die Sätze darunter schreibt der Agent für das
+                            Protokoll, auf Englisch und mit Kennungen. Vorn
+                            steht, was geschah und wo; der Rest steht unter
+                            „Technische Angaben“ für den Betreuer (J35). */}
+                        <div className="pl-7 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          {event.service_name && (
+                            <span>
+                              <strong className="text-foreground">Dienst:</strong>{' '}
+                              {event.dienst_anzeige ?? event.service_name}
+                            </span>
+                          )}
+                          {event.duration_ms ? (
+                            <span>
+                              <strong className="text-foreground">Dauer:</strong>{' '}
+                              {(event.duration_ms / 1000).toLocaleString('de-DE', {
+                                maximumFractionDigits: 1,
+                              })}{' '}
+                              Sekunden
+                            </span>
+                          ) : null}
+                        </div>
+                        {(event.description || event.action_taken || event.error_message) && (
+                          <div className="pl-7 mt-1">
+                            <TechnischeAngaben
+                              kennzeichen={`ereignis-${event.id}-technisch`}
+                              angaben={[
+                                { beschriftung: 'Meldung', wert: event.description },
+                                { beschriftung: 'Maßnahme', wert: event.action_taken },
+                                { beschriftung: 'Fehler', wert: event.error_message },
+                              ].filter(a => a.wert)}
+                            />
                           </div>
                         )}
                       </div>

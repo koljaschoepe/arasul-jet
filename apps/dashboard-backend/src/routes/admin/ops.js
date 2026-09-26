@@ -7,6 +7,7 @@
  */
 
 const express = require('express');
+const { dienstName } = require('../../utils/dienstNamen');
 const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
@@ -152,36 +153,47 @@ router.get(
     const criticals = [];
     const warnings = [];
 
+    // Saetze fuer einen Menschen, nicht fuer ein Log (J35): deutsch, mit den
+    // Woertern der Begriffsliste (Sicherung, Wiederherstellungstest, Dienste,
+    // Warnungen) und Zahlen wie man sie hier liest.
+    const zahl = n => Number(n).toLocaleString('de-DE');
     if (backup.stale) {
       criticals.push(
-        `Backup ${backup.status === 'missing' ? 'missing' : 'stale'} (${backup.ageHours ?? '?'}h old)`
+        backup.status === 'missing' || backup.ageHours === undefined
+          ? 'Es gibt keine aktuelle Sicherung'
+          : `Die letzte Sicherung ist ${zahl(backup.ageHours)} Stunden alt`
       );
     }
     if (drill.status === 'never_run') {
-      warnings.push('Restore-Drill wurde nie ausgeführt');
+      warnings.push('Der Wiederherstellungstest ist noch nie gelaufen');
     } else if (drill.stale) {
-      warnings.push(`Letzter Restore-Drill ${drill.ageDays} Tage alt`);
+      warnings.push(`Der letzte Wiederherstellungstest ist ${zahl(drill.ageDays)} Tage her`);
     }
     if (serviceHealth.down > 0) {
+      const namen = serviceHealth.down_services.map(dienstName).join(', ');
       criticals.push(
-        `${serviceHealth.down} Service(s) offline: ${serviceHealth.down_services.join(', ')}`
+        serviceHealth.down === 1
+          ? `Ein Dienst ist ausgefallen: ${namen}`
+          : `${zahl(serviceHealth.down)} Dienste sind ausgefallen: ${namen}`
       );
     }
     if (alerts.length > 0) {
-      warnings.push(`${alerts.length} unbestätigte Alerts`);
+      warnings.push(
+        alerts.length === 1 ? 'Eine offene Warnung' : `${zahl(alerts.length)} offene Warnungen`
+      );
     }
     if (unsent.unsent_critical > 0) {
-      criticals.push(`${unsent.unsent_critical} kritische Benachrichtigungen unversandt`);
+      criticals.push(`${zahl(unsent.unsent_critical)} Warnungen konnten nicht zugestellt werden`);
     }
     if (metrics.disk_percent > 90) {
-      criticals.push(`Disk-Nutzung kritisch (${metrics.disk_percent}%)`);
+      criticals.push(`Der Speicher ist fast voll (${zahl(metrics.disk_percent)} %)`);
     } else if (metrics.disk_percent > 80) {
-      warnings.push(`Disk-Nutzung hoch (${metrics.disk_percent}%)`);
+      warnings.push(`Der Speicher wird knapp (${zahl(metrics.disk_percent)} %)`);
     }
     if (metrics.temperature > 85) {
-      criticals.push(`Temperatur kritisch (${metrics.temperature}°C)`);
+      criticals.push(`Das Gerät ist zu heiß (${zahl(metrics.temperature)} °C)`);
     } else if (metrics.temperature > 80) {
-      warnings.push(`Temperatur hoch (${metrics.temperature}°C)`);
+      warnings.push(`Das Gerät wird warm (${zahl(metrics.temperature)} °C)`);
     }
 
     let status = 'OK';

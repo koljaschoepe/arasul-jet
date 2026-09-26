@@ -170,7 +170,7 @@ router.use(
     if (!req.user) {
       if (istSchnittstelle) {
         throw new UnauthorizedError(
-          `Fuer ${kennung} braucht es eine Anmeldung an Arasul. Die Anmeldung steht unter /.`
+          `Für ${kennung} braucht es eine Anmeldung an Arasul. Die Anmeldung steht unter /.`
         );
       }
       return res.redirect(302, '/');
@@ -195,14 +195,14 @@ router.use(
 
     if (istSchnittstelle) {
       throw new NotFoundError(
-        `${kennung} hat unter ${req.path} keine Schnittstelle: entweder bringt die App kein Backend mit, oder ihr Container laeuft nicht`
+        `${kennung} hat unter ${req.path} keine Schnittstelle: entweder bringt die App kein Backend mit, oder ihr Container läuft nicht`
       );
     }
 
     const ziel = await appStore.ausliefernAus(kennung, stand);
     if (!ziel) {
       const fehler = new NotFoundError(
-        `${kennung} bringt in diesem Stand kein Frontend mit; sie hat nur ein Backend unter /apps/${kennung}/api/`
+        `${kennung} hat in diesem Stand keine Oberfläche, die sich im Browser öffnen ließe.`
       );
       fehler.grund = 'ohne_seite';
       throw fehler;

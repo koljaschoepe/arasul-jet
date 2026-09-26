@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
+import { fassungLesbar, formatZahl } from '@/utils/formatting';
 import {
   isModelInstalled,
   isModelActive,
@@ -214,7 +215,7 @@ export function StatusBar() {
           </div>
           <dl className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-muted-foreground">Backend</dt>
+              <dt className="text-muted-foreground">Verbindung</dt>
               <dd className="flex items-center gap-1.5 text-foreground">
                 <span
                   className="inline-block h-1.5 w-1.5 rounded-full"
@@ -226,8 +227,8 @@ export function StatusBar() {
             </div>
             {data?.version && (
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Version</dt>
-                <dd className="text-foreground">{data.version}</dd>
+                <dt className="text-muted-foreground">Fassung</dt>
+                <dd className="text-foreground">{fassungLesbar(data.version)}</dd>
               </div>
             )}
             {budget !== undefined && (
@@ -314,7 +315,7 @@ export function StatusBar() {
                           </span>
                         )}
                         <span className="shrink-0 text-muted-foreground">
-                          {m.ram_required_gb} GB
+                          {formatZahl(m.ram_required_gb)} GB
                         </span>
                       </button>
                     </li>
