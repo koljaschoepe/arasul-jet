@@ -2399,6 +2399,7 @@ Sitzung, nicht über einen Schlüssel.
 | Method | Endpoint                                 | Description                                                              |
 | ------ | ---------------------------------------- | ------------------------------------------------------------------------ |
 | GET    | `/api/freigabe-anfragen`                 | Die offenen Freigaben der Apps, die dem Aufrufer freigegeben sind        |
+| GET    | `/api/freigabe-anfragen/eingereicht`     | Was der Aufrufer eingereicht hat und noch offen ist, mit dem Kreis       |
 | POST   | `/api/freigabe-anfragen/:id/bestaetigen` | Ja. Der Lauf läuft ab dem angehaltenen Schritt weiter (Body `{}`)        |
 | POST   | `/api/freigabe-anfragen/:id/ablehnen`    | Nein, Body `{ begruendung }` (Pflicht). Der Lauf endet als `abgebrochen` |
 
@@ -2412,8 +2413,14 @@ nicht, wer eingereicht hat, mit `entscheider` nur die Rolle `admin` oder die
 genannten Konten. Wer danach nicht im Kreis steht, sieht die Anfrage in
 `GET /api/freigabe-anfragen` nicht und bekommt beim Entscheiden `403` mit dem
 Grund (»selbst eingereicht« oder »benannten Entscheidern vorbehalten«). Die
-Liste nennt je Anfrage zusätzlich `einreicher`, `ohne_einreicher` und
-`benannt`. Wer die App nicht freigegeben hat, bekommt `403`; eine
+Liste nennt je Anfrage zusätzlich `app_name`, `einreicher`, `ohne_einreicher`,
+`benannt`, `entscheider` (`{ rolle }`, `{ konten }` oder `null`) und `kreis` —
+die Benutzernamen, die sie **jetzt** entscheiden können (seit 26.09.2026).
+`GET /api/freigabe-anfragen/eingereicht` ist die Gegenseite: die offenen
+Anfragen, deren Einreicher der Aufrufer ist, mit `app_name`, `titel`,
+`angefragt_am`, `frist`, `ohne_einreicher`, `entscheider` und `kreis`, dazu
+`wo` und `adresse` des Ortes, an dem entschieden wird. Bei vier Augen sieht der
+Einreicher seine Anfrage oben nicht — hier sieht er, bei wem sie liegt. Wer die App nicht freigegeben hat, bekommt `403`; eine
 Anfrage, die es nicht gibt, `404`; eine, die nicht mehr offen oder deren Frist
 abgelaufen ist, `409` — vier Gründe, vier Meldungen, weil der Mensch am anderen
 Ende gerade auf „Bestätigen" gedrückt hat.
@@ -2937,7 +2944,7 @@ scope is `flow:run` (included in the default endpoint set for new keys).
 | ------ | ---------------------------------- | ------- | ------------------------------------------------------------ |
 | GET    | `/api/v1/external/flows`           | API Key | List available flows                                         |
 | POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default                  |
-| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `schritte`, `annahmen`)    |
+| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (`schritte`, `freigabe`, …)       |
 | GET    | `/api/v1/external/freigaben`       | API Key | Die Freigaben dieser App nachlesen (`?lauf=<id>`); nur lesen |
 
 **POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "einreicher"?: "anna", "freigabe"?: {…} }`.
@@ -2961,7 +2968,7 @@ könnte, antwortet der Start mit `400` und legt keinen Lauf an. Die Regel steht
 am Lauf (`flow_runs.einreicher_id`, `freigabe_regel`) und an jeder Freigabe
 darin (Migration 185).
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
-state and returns `{ success, run_id, status, result, error, steps_used, schritte, annahmen }`; with
+state and returns `{ success, run_id, status, result, error, steps_used, schritte, freigabe, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
 are owned by the API key's creator; an orphaned key (creator deleted) gets
 `403 FORBIDDEN`.
@@ -3009,14 +3016,37 @@ Schritt: `position`, `art`, `name`, `status`, `modell`, `eingabe`, `ausgabe`,
 draußen — was eine App braucht, ist die Reihenfolge, und die steht in
 `position`.
 
+**Seit dem 26.09.2026 (J35) sagt er, wer entscheidet und wo** (`freigabe`,
+`null` für einen Lauf ohne App):
+
+```json
+{
+  "einreicher": "anna",
+  "ohne_einreicher": true,
+  "entscheider": { "rolle": "admin" },
+  "kreis": ["admin", "bernd"],
+  "wo": "In Arasul auf der Übersicht, unter „Freigaben“",
+  "adresse": "/workspace",
+  "offen": { "id": 12, "titel": "Rechnung 4711 freigeben", "frist": "…", "angefragt_am": "…" },
+  "satz": "Entscheidet: ein Administrator (admin oder bernd), in Arasul auf der Übersicht, unter „Freigaben“. anna hat eingereicht und entscheidet nicht mit (Vier-Augen-Prinzip)."
+}
+```
+
+`kreis` sind die Konten, die **jetzt** entscheiden können — die Regel des
+Laufs, gezogen über die aktiven Menschen, denen die App freigegeben ist. Vor
+der ersten Anfrage kommt sie aus der Regel am Lauf, während einer offenen
+Anfrage aus deren Zeile; `offen` ist dann die Anfrage, sonst `null`. `satz`
+ist zum Anzeigen gedacht: eine App muss die Regel nicht selbst in Worte fassen.
+
 `GET /api/v1/external/freigaben` (Phase C7) beantwortet die eine Frage, die
 eine App zu einem wartenden Lauf hat: **worauf** wartet er? Der Namensraum
 kommt wieder aus dem Schlüssel — ein Schlüssel eines Menschen (`app_id IS
 NULL`) bekommt `403` mit dem Hinweis auf `/api/freigabe-anfragen`. Antwort:
 `{ success, app, stand, freigaben: [{ id, run_id, flow_name, titel,
 zusammenhang, status, frist, angefragt_am, entschieden_am, entschieden_von,
-begruendung, einreicher, ohne_einreicher, entscheider }] }` — `entscheider`
-ist `{ rolle }`, `{ konten: [...] }` oder `null` (J35). `zusammenhang` steht seit H7 dabei: er ist der Text, **an
+begruendung, einreicher, ohne_einreicher, entscheider, kreis }] }` — `entscheider`
+ist `{ rolle }`, `{ konten: [...] }` oder `null` (J35), `kreis` die Konten,
+die eine **offene** Anfrage jetzt entscheiden können (sonst `null`). `zusammenhang` steht seit H7 dabei: er ist der Text, **an
 dem** der Mensch entschieden hat, und er stammt aus dem eigenen Flow der App —
 sie hat ihn selbst geschrieben. Ohne ihn konnte eine App nicht dokumentieren,
 worauf eine Zusage beruht.

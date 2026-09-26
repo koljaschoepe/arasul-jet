@@ -145,6 +145,14 @@ describe('Daten und Freigaben im Kontrakt (J35)', () => {
     expect(freigaben.regel.properties.entscheider.properties.rolle.enum).toEqual(['admin']);
     expect(freigaben.regeln.join(' ')).toMatch(/403/);
   });
+
+  it('sagt, wo eine App zum Lauf liest, wer entscheidet', () => {
+    const { freigaben } = appKontrakt.kontrakt();
+    expect(freigaben.lauf.weg).toBe('/api/v1/external/flows/runs/:id');
+    expect(freigaben.lauf.felder).toEqual(
+      expect.arrayContaining(['einreicher', 'entscheider', 'kreis', 'satz'])
+    );
+  });
 });
 
 describe('Das Protokoll der Modellaufrufe im Kontrakt (J35)', () => {
@@ -242,7 +250,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Bildmodell der Aufgabe `vision` ein Quittungsfoto schlechter als
     // gemma4:e4b, also sagt der Kontrakt nicht mehr, welcher Weg genauer ist,
     // sondern dass eine App `model` nennt und misst. Nur Beschreibung.
-    expect(abdruck).toBe('f68f12c13c15d4bd9347f09aeef8b7a58a5a6ea91c17ff707d1aa3be9639668e');
+    //
+    // 26.09.2026 (J35, freigabe-sagt-wer-entscheidet): `GET /flows/runs/:id`
+    // nennt unter `freigabe`, wer eingereicht hat, wer entscheidet und wo
+    // (`freigaben.lauf`, ein Satz in `freigaben.regeln`, der Endpunkt sagt
+    // es), und `GET /freigaben` fuehrt `kreis` mit. Die Zahl bleibt bei 6:
+    // additiv, eine App, die das Feld nicht liest, bekommt dieselbe Antwort.
+    expect(abdruck).toBe('a90978d5eca87d50265c5b862862517bed71aa6f223f1ffe54bdf4c42dd64414');
   });
 
   /**

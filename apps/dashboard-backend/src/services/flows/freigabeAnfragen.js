@@ -95,7 +95,11 @@ const MAX_FRIST_MINUTEN = 14 * 24 * 60;
  * ihrer Parameter fuehren.
  */
 function kreis(n) {
-  const wer = `$${n}::bigint`;
+  return kreisFuer(`$${n}::bigint`);
+}
+
+/** Dieselbe Regel fuer einen beliebigen SQL-Ausdruck, der einen Menschen nennt. */
+function kreisFuer(wer) {
   return `(
         EXISTS (SELECT 1 FROM public.app_members m
                  WHERE m.app_id = a.app_id AND m.user_id = ${wer})
@@ -108,6 +112,89 @@ function kreis(n) {
 
 /** Die Rolle, die als Entscheider-Kreis taugt. Mehr gibt es an diesem Geraet nicht zu verlangen. */
 const ENTSCHEIDER_ROLLEN = Object.freeze(['admin']);
+
+/**
+ * Wer die Anfrage `a` JETZT entscheiden kann, als JSON-Liste von
+ * Benutzernamen -- dieselbe Regel (`kreisFuer`), einmal ueber alle aktiven
+ * Mitglieder der App gezogen.
+ *
+ * WARUM DIE NAMEN UND NICHT NUR DIE REGEL (J35, 26.09.2026): „ohne Einreicher"
+ * und „alle, denen die App freigegeben ist" sind fuer den, der eingereicht hat,
+ * keine Antwort auf die Frage „bei wem liegt das jetzt". Die Regel steht
+ * daneben (`ohne_einreicher`, `entscheider`); die Namen sind das, was ein
+ * Mensch weitersagen kann.
+ */
+const KREIS_NAMEN_SQL = `(
+  SELECT COALESCE(jsonb_agg(k.username ORDER BY k.username), '[]'::jsonb)
+    FROM public.app_members km
+    JOIN public.admin_users k ON k.id = km.user_id
+   WHERE km.app_id = a.app_id
+     AND k.is_active = TRUE
+     AND ${kreisFuer('k.id')})`;
+
+/** Die Regel einer Anfrage `a` so, wie eine App sie liest: Rolle, Konten oder nichts. */
+const ENTSCHEIDER_SQL = `CASE
+    WHEN a.entscheider_rolle IS NOT NULL
+      THEN jsonb_build_object('rolle', a.entscheider_rolle)
+    WHEN a.entscheider_ids IS NOT NULL
+      THEN jsonb_build_object('konten',
+             (SELECT COALESCE(jsonb_agg(u.username ORDER BY u.username), '[]'::jsonb)
+                FROM public.admin_users u WHERE u.id = ANY (a.entscheider_ids)))
+  END`;
+
+/**
+ * Wo ein Mensch eine Freigabe entscheidet. Eine Stelle am Geraet und keine
+ * App: entschieden wird mit einer Sitzung, nie mit dem Schluessel der App.
+ */
+const ENTSCHEIDUNGSORT = Object.freeze({
+  wo: 'In Arasul auf der Übersicht, unter „Freigaben“',
+  adresse: '/workspace',
+});
+
+/**
+ * Der Kreis aus einer Mitgliederliste, in JavaScript -- fuer die Stellen, an
+ * denen es noch keine Zeile in `approvals` gibt (der Start eines Laufs und
+ * der Lauf, bevor er anhaelt). Die Regel ist dieselbe wie in `kreisFuer`:
+ * Rolle, Liste, Einreicher.
+ */
+function kreisAus(
+  mitglieder,
+  { einreicherId = null, ohneEinreicher = false, rolle = null, ids = null }
+) {
+  return mitglieder.filter(
+    u =>
+      (rolle == null || u.role === rolle) &&
+      (ids == null || ids.map(Number).includes(Number(u.id))) &&
+      !(ohneEinreicher && einreicherId != null && Number(u.id) === Number(einreicherId))
+  );
+}
+
+/** Namen in einem Satz: „a", „a oder b", „a, b oder c". */
+function oderListe(namen) {
+  if (namen.length <= 1) {
+    return namen.join('');
+  }
+  return `${namen.slice(0, -1).join(', ')} oder ${namen[namen.length - 1]}`;
+}
+
+/**
+ * Der Satz, den eine App ihrem Menschen zeigen kann, ohne selbst zu
+ * formulieren. Ein Satz aus dem Geraet und nicht aus dem Kit: die Regel
+ * steht hier, und wer sie aendert, aendert den Satz mit.
+ */
+function satzZumKreis({ kreis, einreicher, ohneEinreicher, rolle }) {
+  const teile = [];
+  if (kreis.length === 0) {
+    teile.push('Niemand kann diese Freigabe mehr entscheiden: der Kreis ist leer.');
+  } else {
+    const wer = rolle === 'admin' ? `ein Administrator (${oderListe(kreis)})` : oderListe(kreis);
+    teile.push(`Entscheidet: ${wer}, ${ENTSCHEIDUNGSORT.wo.replace(/^In/, 'in')}.`);
+  }
+  if (ohneEinreicher && einreicher) {
+    teile.push(`${einreicher} hat eingereicht und entscheidet nicht mit (Vier-Augen-Prinzip).`);
+  }
+  return teile.join(' ');
+}
 
 /**
  * Die Regel eines Laufs pruefen und in die Form bringen, in der sie am Lauf
@@ -163,7 +250,6 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
     );
   }
 
-  let kandidaten = mitglieder;
   let entscheiderRolle = null;
   let entscheiderIds = null;
   if (entscheider) {
@@ -180,7 +266,6 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
         );
       }
       entscheiderRolle = rolle;
-      kandidaten = kandidaten.filter(u => u.role === rolle);
     } else {
       const fehlend = konten.filter(k => !nachName.has(k));
       if (fehlend.length > 0) {
@@ -190,12 +275,14 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
         );
       }
       entscheiderIds = [...new Set(konten.map(k => Number(nachName.get(k).id)))];
-      kandidaten = kandidaten.filter(u => entscheiderIds.includes(Number(u.id)));
     }
   }
-  if (ohneEinreicher) {
-    kandidaten = kandidaten.filter(u => Number(u.id) !== einreicherId);
-  }
+  const kandidaten = kreisAus(mitglieder, {
+    einreicherId,
+    ohneEinreicher,
+    rolle: entscheiderRolle,
+    ids: entscheiderIds,
+  });
   if (kandidaten.length === 0) {
     throw new ValidationError(
       'Nach dieser Regel koennte niemand die Freigabe entscheiden: der Kreis ist leer. ' +
@@ -645,12 +732,15 @@ async function nameVon(benutzerId, datenbank = db) {
  */
 async function listeOffeneFuer(benutzerId, { datenbank = db } = {}) {
   const { rows } = await datenbank.query(
-    `SELECT a.id, a.run_id, a.app_id, a.stand, a.flow_name, a.titel, a.zusammenhang,
-            a.frist, a.angefragt_am,
+    `SELECT a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
+            a.zusammenhang, a.frist, a.angefragt_am,
             e.username AS einreicher, a.ohne_einreicher,
-            (a.entscheider_rolle IS NOT NULL OR a.entscheider_ids IS NOT NULL) AS benannt
+            (a.entscheider_rolle IS NOT NULL OR a.entscheider_ids IS NOT NULL) AS benannt,
+            ${ENTSCHEIDER_SQL} AS entscheider,
+            ${KREIS_NAMEN_SQL} AS kreis
        FROM public.approvals a
        LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
+       LEFT JOIN public.apps ap ON ap.id = a.app_id
       WHERE a.status = 'offen'
         AND a.frist > NOW()
         AND ${kreis(1)}
@@ -658,6 +748,128 @@ async function listeOffeneFuer(benutzerId, { datenbank = db } = {}) {
     [benutzerId]
   );
   return rows;
+}
+
+/**
+ * Die offenen Freigaben, die dieser Mensch EINGEREICHT hat (J35, 26.09.2026).
+ *
+ * Die Gegenseite von `listeOffeneFuer`. Bei vier Augen sieht der Einreicher
+ * seine Anfrage dort gerade NICHT -- und verlor sie damit aus den Augen: sein
+ * Vorgang lag irgendwo, und niemand sagte ihm, bei wem. Hier steht er mit dem
+ * Kreis, der jetzt entscheiden kann. Zu entscheiden gibt es an dieser Liste
+ * nichts; wer auch im Kreis steht, findet dieselbe Anfrage zusaetzlich oben.
+ */
+async function listeEingereichtVon(benutzerId, { datenbank = db } = {}) {
+  const { rows } = await datenbank.query(
+    `SELECT a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
+            a.frist, a.angefragt_am, a.ohne_einreicher,
+            ${ENTSCHEIDER_SQL} AS entscheider,
+            ${KREIS_NAMEN_SQL} AS kreis
+       FROM public.approvals a
+       LEFT JOIN public.apps ap ON ap.id = a.app_id
+      WHERE a.status = 'offen'
+        AND a.frist > NOW()
+        AND a.einreicher_id = $1::bigint
+      ORDER BY a.angefragt_am ASC`,
+    [benutzerId]
+  );
+  return rows;
+}
+
+/**
+ * Wer ueber einen LAUF entscheidet, fuer die App (J35, 26.09.2026).
+ *
+ * `GET /flows/runs/:id` trug bis dahin nichts davon, und eine App konnte ihrem
+ * Menschen nach dem Einreichen nur „wartet" sagen -- nicht, auf wen und wo.
+ * Die Antwort gibt es VOR der ersten Anfrage (aus der Regel am Lauf und den
+ * Mitgliedern der App) und WAEHREND einer offenen Anfrage (aus deren Zeile,
+ * die eine Abschrift der Regel traegt). Nach dem Ende steht `offen: null`; wer
+ * nachlesen will, wer entschieden hat, fragt `GET /freigaben?lauf=`.
+ *
+ * `null` fuer einen Lauf ohne App: dort gibt es keine Freigabe (`anfordern`).
+ *
+ * @param {{id:number, app_id:string|null, einreicher_id?:number|null, freigabe_regel?:object|null}} lauf
+ */
+async function freigabeZumLauf(lauf, { datenbank = db } = {}) {
+  if (!lauf || !lauf.app_id) {
+    return null;
+  }
+  const regel = lauf.freigabe_regel || {};
+  const einreicherId = lauf.einreicher_id == null ? null : Number(lauf.einreicher_id);
+
+  const { rows: offen } = await datenbank.query(
+    `SELECT a.id, a.titel, a.frist, a.angefragt_am, a.ohne_einreicher, a.entscheider_rolle,
+            e.username AS einreicher,
+            ${ENTSCHEIDER_SQL} AS entscheider,
+            ${KREIS_NAMEN_SQL} AS kreis
+       FROM public.approvals a
+       LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
+      WHERE a.run_id = $1 AND a.status = 'offen' AND a.frist > NOW()
+      ORDER BY a.id DESC
+      LIMIT 1`,
+    [lauf.id]
+  );
+
+  if (offen.length > 0) {
+    const a = offen[0];
+    const kreis = a.kreis || [];
+    return {
+      einreicher: a.einreicher ?? null,
+      ohne_einreicher: Boolean(a.ohne_einreicher),
+      entscheider: a.entscheider ?? null,
+      kreis,
+      ...ENTSCHEIDUNGSORT,
+      offen: { id: a.id, titel: a.titel, frist: a.frist, angefragt_am: a.angefragt_am },
+      satz: satzZumKreis({
+        kreis,
+        einreicher: a.einreicher,
+        ohneEinreicher: a.ohne_einreicher,
+        rolle: a.entscheider_rolle,
+      }),
+    };
+  }
+
+  // Noch keine (oder keine offene) Anfrage: die Regel steht am Lauf.
+  const { rows: mitglieder } = await datenbank.query(
+    `SELECT u.id, u.username, u.role
+       FROM public.app_members m
+       JOIN public.admin_users u ON u.id = m.user_id
+      WHERE m.app_id = $1 AND u.is_active = TRUE
+      ORDER BY u.username`,
+    [lauf.app_id]
+  );
+  const ids = Array.isArray(regel.entscheider_ids) ? regel.entscheider_ids.map(Number) : null;
+  const rolle = regel.entscheider_rolle ?? null;
+  const ohneEinreicher = regel.ohne_einreicher === true;
+  const kreis = kreisAus(mitglieder, { einreicherId, ohneEinreicher, rolle, ids }).map(
+    u => u.username
+  );
+  const nachId = new Map(mitglieder.map(u => [Number(u.id), u.username]));
+  let einreicher = einreicherId == null ? null : (nachId.get(einreicherId) ?? null);
+  if (einreicherId != null && einreicher == null) {
+    // Der Einreicher hat die App inzwischen nicht mehr -- sein Name bleibt eine Auskunft.
+    einreicher = await nameVon(einreicherId, datenbank);
+  }
+  let entscheider = null;
+  if (rolle) {
+    entscheider = { rolle };
+  } else if (ids) {
+    entscheider = {
+      konten: ids
+        .map(id => nachId.get(id))
+        .filter(Boolean)
+        .sort(),
+    };
+  }
+  return {
+    einreicher,
+    ohne_einreicher: ohneEinreicher,
+    entscheider,
+    kreis,
+    ...ENTSCHEIDUNGSORT,
+    offen: null,
+    satz: satzZumKreis({ kreis, einreicher, ohneEinreicher, rolle }),
+  };
 }
 
 /**
@@ -686,14 +898,8 @@ async function listeFuerApp({ appId, stand, runId = null, limit = 50 }, { datenb
     `SELECT a.id, a.run_id, a.flow_name, a.titel, a.zusammenhang, a.status, a.frist,
             a.angefragt_am, a.entschieden_am, a.begruendung, b.username AS entschieden_von,
             e.username AS einreicher, a.ohne_einreicher,
-            CASE
-              WHEN a.entscheider_rolle IS NOT NULL
-                THEN jsonb_build_object('rolle', a.entscheider_rolle)
-              WHEN a.entscheider_ids IS NOT NULL
-                THEN jsonb_build_object('konten',
-                       (SELECT COALESCE(jsonb_agg(u.username ORDER BY u.username), '[]'::jsonb)
-                          FROM public.admin_users u WHERE u.id = ANY (a.entscheider_ids)))
-            END AS entscheider
+            ${ENTSCHEIDER_SQL} AS entscheider,
+            CASE WHEN a.status = 'offen' THEN ${KREIS_NAMEN_SQL} END AS kreis
        FROM public.approvals a
        LEFT JOIN public.admin_users b ON b.id = a.entschieden_von
        LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
@@ -744,7 +950,10 @@ module.exports = {
   ENTSCHEIDER_ROLLEN,
   entscheide,
   listeOffeneFuer,
+  listeEingereichtVon,
+  freigabeZumLauf,
   listeFuerApp,
+  ENTSCHEIDUNGSORT,
   verwaisteSchliessen,
   beendeLauf,
   LaufBeendet,

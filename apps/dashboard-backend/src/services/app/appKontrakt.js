@@ -210,7 +210,8 @@ const FREIGABE_REGELN = Object.freeze([
   '`freigabe.ohne_einreicher: true` schliesst ihn vom Entscheiden aus (Vier-Augen-Prinzip). Er sieht die Anfrage nicht unter /api/freigabe-anfragen, und entscheidet er trotzdem, antwortet das Geraet 403. Braucht `einreicher`.',
   '`freigabe.entscheider` nennt ENTWEDER `{"rolle":"admin"}` ODER `{"konten":["name",…]}`. Nur diese Menschen sehen und entscheiden die Anfrage; jeder andere sieht sie nicht und bekommt beim Entscheiden 403. Jedes Konto muss die App freigegeben haben, sonst 400.',
   'Bleibt nach der Regel niemand, der entscheiden koennte, weist das Geraet den Start mit 400 ab -- statt eine Freigabe anzulegen, die in ihre Frist laeuft.',
-  'Die Regel gilt fuer jede Freigabe dieses Laufs. `GET /freigaben` nennt je Anfrage `einreicher`, `ohne_einreicher` und `entscheider` (Rolle oder Konten).',
+  'Die Regel gilt fuer jede Freigabe dieses Laufs. `GET /freigaben` nennt je Anfrage `einreicher`, `ohne_einreicher`, `entscheider` (Rolle oder Konten) und `kreis`.',
+  '`GET /flows/runs/:id` nennt unter `freigabe`, wer eingereicht hat und wer entscheidet: `einreicher`, `ohne_einreicher`, `entscheider`, `kreis` (die Konten, die JETZT entscheiden koennen), `wo` und `adresse` (entschieden wird in Arasul, nie in der App), `offen` (die wartende Anfrage oder null) und `satz` -- ein fertiger Satz fuer den Menschen, der eingereicht hat. Ohne App ist `freigabe` null.',
 ]);
 
 /** Die Namen, die unter `/apps/<id>/` der Plattform gehoeren. */
@@ -389,7 +390,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'GET',
       pfad: '/api/v1/external/flows/runs/:id',
       bereich: 'flow:run',
-      was: 'Der Lauf eines Flows, mit seinen Schritten (`schritte`: position, art, name, status, modell, eingabe, ausgabe, Zeiten). `steps_used` ist ihre Anzahl, nicht die Kette',
+      was: 'Der Lauf eines Flows, mit seinen Schritten (`schritte`: position, art, name, status, modell, eingabe, ausgabe, Zeiten) und `freigabe` (wer eingereicht hat, wer entscheidet und wo, siehe `freigaben`). `steps_used` ist ihre Anzahl, nicht die Kette',
     },
     {
       verb: 'GET',
@@ -536,6 +537,20 @@ function kontrakt() {
       start: alsJsonSchema(ExternalFlowRunBody),
       regel: alsJsonSchema(FreigabeRegel),
       rollen: ['admin'],
+      lauf: {
+        feld: 'freigabe',
+        weg: '/api/v1/external/flows/runs/:id',
+        felder: [
+          'einreicher',
+          'ohne_einreicher',
+          'entscheider',
+          'kreis',
+          'wo',
+          'adresse',
+          'offen',
+          'satz',
+        ],
+      },
       regeln: FREIGABE_REGELN,
     },
     // Das Protokoll der Modellaufrufe (26.09.2026, J35). Additiv, die
