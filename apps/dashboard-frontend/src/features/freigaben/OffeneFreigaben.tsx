@@ -302,9 +302,7 @@ function Eingereicht() {
           <span>
             Ihr Vorgang <span className="font-medium text-foreground">„{e.titel}“</span> (
             {e.app_name || e.app_id}) {wartetSeit(e.angefragt_am)}
-            {e.kreis.length > 0
-              ? ` auf ${oderListe(e.kreis)}.`
-              : ' — niemand kann ihn entscheiden.'}
+            {e.kreis.length > 0 ? ` auf ${oderListe(e.kreis)}.` : '; niemand kann ihn entscheiden.'}
             {e.ohne_einreicher && ' Vier-Augen-Prinzip: Sie entscheiden nicht mit.'}
           </span>
         </li>

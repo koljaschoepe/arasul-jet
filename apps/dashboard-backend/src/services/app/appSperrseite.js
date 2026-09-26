@@ -76,16 +76,16 @@ function satzFuer(fehler, pfad) {
     };
   }
   if (fehler.grund === 'ohne_seite') {
-    return { satz: 'Diese App hat keine eigene Seite – sie arbeitet im Hintergrund.' };
+    return { satz: 'Diese App hat keine eigene Seite, sie arbeitet im Hintergrund.' };
   }
   if (fehler.statusCode === 403) {
     return {
-      satz: 'Diese App ist für Sie nicht freigegeben – das kann ein Administrator ändern.',
+      satz: 'Diese App ist für Sie nicht freigegeben, ein Administrator kann das ändern.',
     };
   }
   if (fehler.code === 'APP_DATEIEN_FEHLEN') {
     return {
-      satz: 'Diese App ist auf dem Gerät gerade nicht vollständig – ein Administrator spielt sie neu ein.',
+      satz: 'Diese App ist auf dem Gerät gerade nicht vollständig, ein Administrator spielt sie neu ein.',
     };
   }
   if (fehler.statusCode === 404) {
