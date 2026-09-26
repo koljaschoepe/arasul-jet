@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { formatBytesBinaer } from '@/utils/formatting';
-import {
-  Button,
-  Chart,
-  Kennzahl,
-  Kennzahlen,
-  Sparkline,
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@marken';
+import { Button, Kennzahl, Kennzahlen, ToggleGroup, ToggleGroupItem } from '@marken';
+import { Chart, Sparkline } from '@marken/diagramm';
 import { useGeraetezustand } from './geraetezustand';
 import type {
   Geraetezustand,

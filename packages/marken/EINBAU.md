@@ -6,17 +6,17 @@ Muster darüber und sechs Bausteine auf reinem CSS.
 
 Was darin liegt:
 
-| Ort                    | Was                                                                 |
-| ---------------------- | ------------------------------------------------------------------- |
-| `marken.json`          | Fassung, Abhängigkeiten und jede Datei mit ihrem sha256             |
-| `src/theme.css`        | die Tokens beider Themes — Pflicht für die Primitive und die Muster |
-| `src/marken.css`       | die Regeln der Bausteine und der Dokumentanzeige (Klassen `ara-*`)  |
-| `src/primitive/`       | Button, Input, Dialog, Tabelle, Kalender … (46)                     |
-| `src/muster/`          | Datenliste, Suchauswahl, Dialogform, Dokumentanzeige … (10)         |
-| `src/*.tsx`            | die sechs Bausteine — sie laufen auch ohne Tailwind                 |
-| `browser/marken.js`    | die Bausteine und die Dokumentanzeige samt React, für eine App **ohne** Bau |
-| `browser/marken-pdf.js`| pdf.js als eigener Brocken — die Dokumentanzeige holt ihn per `import()` |
-| `browser/pdf-dateien/` | Worker, WASM, Schriften, CMaps, ICC für pdf.js                      |
+| Ort                     | Was                                                                         |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `marken.json`           | Fassung, Abhängigkeiten und jede Datei mit ihrem sha256                     |
+| `src/theme.css`         | die Tokens beider Themes — Pflicht für die Primitive und die Muster         |
+| `src/marken.css`        | die Regeln der Bausteine und der Dokumentanzeige (Klassen `ara-*`)          |
+| `src/primitive/`        | Button, Input, Dialog, Tabelle, Kalender … (46)                             |
+| `src/muster/`           | Datenliste, Suchauswahl, Dialogform, Dokumentanzeige … (10)                 |
+| `src/*.tsx`             | die sechs Bausteine — sie laufen auch ohne Tailwind                         |
+| `browser/marken.js`     | die Bausteine und die Dokumentanzeige samt React, für eine App **ohne** Bau |
+| `browser/marken-pdf.js` | pdf.js als eigener Brocken — die Dokumentanzeige holt ihn per `import()`    |
+| `browser/pdf-dateien/`  | Worker, WASM, Schriften, CMaps, ICC für pdf.js                              |
 
 **Das Paket ist, was `marken.json` nennt.** Wer wissen will, ob eine Kopie
 noch die ist, die ausgeliefert wurde, rechnet die Hashes nach; wer wissen
@@ -62,6 +62,20 @@ seines Vite-Projekts liegen hat — innerhalb findet Tailwind sie von selbst.
 
 ```tsx
 import { Button, Datenliste, Kopf } from './marken';
+```
+
+**Das Diagramm hat seit 5.0.0 einen eigenen Einstieg:** `Chart`,
+`Sparkline` und `SERIENFARBEN` stehen nicht im Sammelexport, sondern in
+`diagramm.ts` — `recharts` hat Seiteneffekte beim Laden, und über das Barrel
+baute jede App 280 kB davon mit, auch ohne ein einziges Diagramm. Mit Alias
+braucht die `tsconfig` dafür den Pfad mit Stern:
+
+```jsonc
+"paths": { "@marken": ["./src/marken/index.ts"], "@marken/*": ["./src/marken/*"] }
+```
+
+```tsx
+import { Chart, Sparkline } from '@marken/diagramm'; // oder './marken/diagramm'
 ```
 
 **5. Nur wer die `Dokumentanzeige` benutzt:** die Stützdateien von pdf.js

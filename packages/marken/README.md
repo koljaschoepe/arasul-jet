@@ -195,11 +195,17 @@ Fehler.
 
 ## Zwei Wege hinein, eine Quelle
 
-| Wer                            | Wie                                                                    |
-| ------------------------------ | ---------------------------------------------------------------------- |
-| die Shell                      | `import { Button, Datenliste } from '@marken'` — Vite-Alias auf `src/` |
-| eine App **ohne** Bau          | `import { Karte } from './marken.js'` — `browser/marken.js`            |
-| eine App **mit** Bau (Kit, E5) | Spiegel dieses Ordners in die Vorlage, dann wie die Shell              |
+| Wer                            | Wie                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| die Shell                      | `import { Button, Datenliste } from '@marken'` — Vite-Alias auf `src/`  |
+| eine App **ohne** Bau          | `import { Karte } from './marken.js'` — `browser/marken.js`             |
+| eine App **mit** Bau (Kit, E5) | Spiegel dieses Ordners in die Vorlage, dann wie die Shell               |
+| ein Diagramm (seit 5.0.0)      | `import { Chart, Sparkline } from '@marken/diagramm'` — nicht im Barrel |
+
+Das Diagramm steht mit Absicht **nicht** im Sammelexport: `recharts` hat
+Seiteneffekte beim Laden, und ohne `sideEffects`-Angabe (die Bibliothek hat
+keine `package.json`) behielt der Bau einer App aus dem Kit-Gerüst es auch ohne
+ein Diagramm — gemessen 690 kB statt 410 kB roh im Einstieg.
 
 `@marken` ist ein **Pfad-Alias** wie `@`, kein npm-Paket: die Bibliothek wird
 mit der Shell übersetzt. Kein Eintrag im Wurzel-Lockfile, kein `dist/`, das
