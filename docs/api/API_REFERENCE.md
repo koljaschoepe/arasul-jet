@@ -3279,8 +3279,14 @@ Rechnet der Auftrag nach `timeout_seconds` noch, kommt **`202`** statt `500`
 ```
 
 `abholen` ist relativ zur Basis `ARASUL_API_URL`. Bei `llm/chat` und
-`document/analyze` ist es `llm/job/<job_id>` (dort ohne die Felder der
-Texterkennung bei `llm/chat`), bei `document/extract-structured` der neue Weg:
+`document/analyze` ist es `llm/job/<job_id>` (das 202 von `llm/chat` ohne die
+Felder der Texterkennung). **`llm/job` antwortet immer mit `200`** und nennt
+den Stand in `status` (`pending` … `completed`, `error`, `cancelled`); die
+Antwort des Modells steht dann in `content`, nicht in `response`. Mit dem
+Schlüssel einer App sieht `llm/job` seit J35 nur die Aufträge dieser App in
+diesem Stand (gelesen aus `ki_aufrufe`), sonst `404` — `user_id` allein ist
+bei zwei Apps desselben Administrators derselbe Mensch. Bei
+`document/extract-structured` ist `abholen` der neue Weg:
 
 **GET /api/v1/external/document/extract-structured/:jobId** — `202` in derselben
 Form (ohne die Felder der Texterkennung), solange es rechnet; `200` mit

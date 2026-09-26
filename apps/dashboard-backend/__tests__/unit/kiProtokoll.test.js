@@ -398,4 +398,12 @@ describe('aufrufZumAuftrag (J35, abholen)', () => {
     expect(zeile).toBeNull();
     expect(db.query.mock.calls[0][1]).toEqual(['j', 'document/extract-structured', null, null]);
   });
+
+  test('ohne Weg: gleich, ob llm/chat oder document/analyze eingereiht hat', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ modell: null }] });
+    await kiProtokoll.aufrufZumAuftrag({ jobId: 'j', apiKey: APP_SCHLUESSEL });
+    const [sql, werte] = db.query.mock.calls[0];
+    expect(sql).toContain('$2::text IS NULL OR endpunkt = $2');
+    expect(werte).toEqual(['j', null, 'faktum', 'live']);
+  });
 });

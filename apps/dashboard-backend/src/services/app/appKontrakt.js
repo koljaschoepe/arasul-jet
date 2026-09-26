@@ -278,7 +278,9 @@ const WARTEN_REGELN = Object.freeze([
   '`llm/chat`, `document/analyze` und `document/extract-structured` warten `timeout_seconds` auf das Modell (Vorgabe 300, hoechstens 600). Das Geraet schneidet keine dieser Anfragen vorher ab; ein 408 gibt es auf diesen Wegen nicht mehr.',
   'Rechnet der Auftrag nach der Wartezeit noch, antwortet das Geraet mit HTTP 202: `success: false`, `status: "laeuft"`, `job_id` und `abholen` -- der Weg zum Ergebnis relativ zur Basis. Der Auftrag laeuft weiter; die Datei NICHT noch einmal schicken.',
   '`abholen` ist bei `document/extract-structured` der Weg `document/extract-structured/<job_id>` (Antwort wie `auslesen.abgeholt`), bei `llm/chat` und `document/analyze` `llm/job/<job_id>`. Das 202 von `document/extract-structured` und `document/analyze` traegt schon `extracted_text`, `filename`, `char_count` und `metadata`.',
-  'Abholen: GET auf `abholen`. 202 heisst weiter warten (ein paar Sekunden, nicht im Takt der Millisekunden), 200 ist das Ergebnis, 500 der Fehlschlag. Ein fertiges Ergebnis liegt eine Stunde, danach 404. Abholen kann nur dieselbe App im selben Stand.',
+  'Abholen bei `document/extract-structured`: GET auf `abholen`. 202 heisst weiter warten (ein paar Sekunden, nicht im Takt der Millisekunden), 200 ist das Ergebnis in der Form `auslesen.abgeholt`, 500 der Fehlschlag.',
+  'Abholen bei `llm/chat` und `document/analyze`: `llm/job/<job_id>` antwortet immer mit 200 und nennt den Stand in `status` (`pending`, `processing`, `completed`, `error`, `cancelled`); die Antwort des Modells steht bei `completed` in `content` (nicht in `response`), ein Fehler in `error`.',
+  'Ein fertiges Ergebnis liegt eine Stunde, danach 404. Abholen kann nur dieselbe App im selben Stand; ein fremder Auftrag ist 404.',
   'Schliesst die App die Verbindung, bevor die Antwort kommt, bricht das Geraet den Auftrag ab. Wer nicht warten will, setzt eine kleine `timeout_seconds` und holt ab.',
 ]);
 

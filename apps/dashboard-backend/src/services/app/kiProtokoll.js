@@ -470,14 +470,17 @@ async function flowSchritt(lauf, modell, arbeit, { datenbank = db } = {}) {
  * hat, sehen einander so nicht: `llm_jobs.user_id` allein waere bei beiden
  * derselbe Mensch.
  *
+ * `endpunkt` null heisst: gleich, ueber welchen Weg eingereicht wurde
+ * (`llm/job` holt ab, was `llm/chat` und `document/analyze` einreihen).
+ *
  * @returns {Promise<{modell: string|null}|null>}
  */
-async function aufrufZumAuftrag({ jobId, apiKey, endpunkt }, { datenbank = db } = {}) {
+async function aufrufZumAuftrag({ jobId, apiKey, endpunkt = null }, { datenbank = db } = {}) {
   const { rows } = await datenbank.query(
     `SELECT modell
        FROM public.ki_aufrufe
       WHERE job_id = $1
-        AND endpunkt = $2
+        AND ($2::text IS NULL OR endpunkt = $2)
         AND app_id IS NOT DISTINCT FROM $3
         AND stand IS NOT DISTINCT FROM $4
       ORDER BY id DESC

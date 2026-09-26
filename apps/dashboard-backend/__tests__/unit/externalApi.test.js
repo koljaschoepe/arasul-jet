@@ -69,6 +69,17 @@ jest.mock('../../src/middleware/apiKeyAuth', () => ({
         allowed_endpoints: ['llm:chat', 'llm:status', 'document:extract']
       };
       next();
+    } else if (req.headers['x-api-key'] === 'app-api-key') {
+      // Der Schluessel einer App (C4): derselbe Besitzer, dazu App und Stand.
+      req.apiKey = {
+        id: 2,
+        userId: 1,
+        name: 'app faktum/live',
+        appId: 'faktum',
+        stand: 'live',
+        allowed_endpoints: ['llm:chat', 'llm:status', 'document:extract']
+      };
+      next();
     } else {
       res.status(401).json({ error: 'Invalid API key' });
     }
@@ -598,6 +609,34 @@ describe('External API Routes', () => {
   // GET /api/v1/external/llm/job/:jobId
   // ============================================================================
   describe('GET /api/v1/external/llm/job/:jobId', () => {
+    test('der Schluessel einer App sieht keinen Auftrag einer anderen App (J35)', async () => {
+      kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce(null);
+      const response = await request(app)
+        .get('/api/v1/external/llm/job/job-uuid')
+        .set('X-API-Key', 'app-api-key');
+      expect(response.status).toBe(404);
+      expect(llmJobService.getJob).not.toHaveBeenCalled();
+    });
+
+    test('und sieht den eigenen, gebunden an App und Stand', async () => {
+      kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce({ modell: 'm' });
+      llmJobService.getJob.mockResolvedValueOnce({
+        id: 'job-uuid',
+        user_id: 1,
+        status: 'completed',
+        content: 'Antwort'
+      });
+      const response = await request(app)
+        .get('/api/v1/external/llm/job/job-uuid')
+        .set('X-API-Key', 'app-api-key');
+      expect(response.status).toBe(200);
+      expect(response.body.content).toBe('Antwort');
+      expect(kiProtokoll.aufrufZumAuftrag).toHaveBeenCalledWith({
+        jobId: 'job-uuid',
+        apiKey: expect.objectContaining({ appId: 'faktum', stand: 'live' })
+      });
+    });
+
     test('should return 401 without API key', async () => {
       const response = await request(app)
         .get('/api/v1/external/llm/job/job-uuid');

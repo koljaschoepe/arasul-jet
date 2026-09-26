@@ -236,6 +236,21 @@ router.get(
   requireApiKey,
   requireEndpoint('llm:status'),
   asyncHandler(async (req, res) => {
+    // Der Schluessel einer App sieht nur die Auftraege SEINER App in SEINEM
+    // Stand (J35): `llm_jobs.user_id` ist bei jeder App, die derselbe
+    // Administrator eingespielt hat, derselbe Mensch. Seit ein 202 von
+    // `llm/chat` und `document/analyze` hierher zum Abholen zeigt, ist das
+    // mehr als eine Statusabfrage. Ein Schluessel eines Menschen bleibt bei
+    // der Pruefung darunter.
+    if (req.apiKey.appId) {
+      const aufruf = await kiProtokoll.aufrufZumAuftrag({
+        jobId: req.params.jobId,
+        apiKey: req.apiKey,
+      });
+      if (!aufruf) {
+        throw new NotFoundError('Job not found');
+      }
+    }
     const job = await llmJobService.getJob(req.params.jobId);
 
     // null-guard: req.apiKey.userId can be NULL when the original key creator was

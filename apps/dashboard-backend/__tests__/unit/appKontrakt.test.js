@@ -267,10 +267,11 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // `document/analyze` und `document/extract-structured` mit 202 und
     // `abholen` statt mit 500 (oder nach 60 s mit 408); neu sind `warten`,
     // `auslesen.laeuft`/`abholen`/`abgeholt`, der Abholweg unter `endpunkte`
-    // und `flows/:name/run` unter `protokoll.wege`. Die Zahl bleibt bei 6:
+    // und `flows/:name/run` unter `protokoll.wege`; `llm/job` sieht mit dem
+    // Schluessel einer App nur deren Auftraege. Die Zahl bleibt bei 6:
     // eine App, die nur 200 liest, bekam vorher an dieser Stelle einen Fehler,
     // und eine 7 hielte das Kit an.
-    expect(abdruck).toBe('cab586f8d10dda1fe67e152dcaae33352322fb96d0bdab5d2e945c71176800b1');
+    expect(abdruck).toBe('866e36671d8136950949291f1d094569c63db2b36c111b27a80323c21d196d69');
   });
 
   /**
