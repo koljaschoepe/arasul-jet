@@ -195,8 +195,12 @@ pruefe '… von einem Bildmodell, das das Geraet selbst gewaehlt hat' \
 pruefe '… und zwar von der gemessenen Bildvorgabe' \
   "$(ja_wenn "$MODELL" "${ARASUL_BILDVORGABE:-gemma4:e4b}")" "model=$MODELL"
 printf '       Antwort: %s\n' "$(printf '%s' "$TEXT" | tr '\n' ' ' | cut -c1-200)"
+# In beiden Sprachen: die Frage ist englisch, der Systemprompt des Geraets
+# deutsch, und gemma4:e4b (die Bildvorgabe seit Migration 188) antwortet
+# deutsch -- „Die Abbildung zeigt die Farben Rot und Blau." ist dieselbe
+# Aussage wie „Red and blue.".
 pruefe '… und sie hat das Bild gesehen (rot und blau)' \
-  "$(grep -qi 'red' <<<"$TEXT" && grep -qi 'blue' <<<"$TEXT" && echo ja || echo nein)"
+  "$(grep -Eqi 'red|rot' <<<"$TEXT" && grep -Eqi 'blue|blau' <<<"$TEXT" && echo ja || echo nein)"
 
 # --- 5. llava-phi3 ueber die Warteschlange: eine Antwort, keine Aufzaehlung ---
 # Dieselbe Frage mit `model: llava-phi3`, zehnmal. Rot ist eine Antwort, die
