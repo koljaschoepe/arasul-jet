@@ -156,6 +156,30 @@ describe('Das Protokoll der Modellaufrufe im Kontrakt (J35)', () => {
   });
 });
 
+describe('Auslesen und Bilder im Kontrakt (J35)', () => {
+  it('nennt Anfrage, Antwort und Fehlschlag des Auslesens als JSON-Schema', () => {
+    const { auslesen } = appKontrakt.kontrakt();
+    expect(auslesen.weg).toBe('document/extract-structured');
+    expect(auslesen.anfrage.required).toEqual(['schema']);
+    expect(auslesen.antwort.properties).toHaveProperty('data');
+    expect(auslesen.antwort.properties).toHaveProperty('job_id');
+    expect(auslesen.antwort.additionalProperties).toBe(false);
+    expect(auslesen.fehlschlag.properties.success.const).toBe(false);
+    expect(auslesen.regeln.join(' ')).toMatch(/NICHT gegen `schema` geprueft/);
+    // Der Weg steht auch unter `endpunkte`, mit demselben Bereich.
+    const e = appKontrakt.ENDPUNKTE.find(x => x.relativ === `/${auslesen.weg}`);
+    expect(e.bereich).toBe(auslesen.bereich);
+  });
+
+  it('sagt, wie ein Bild an ein Bildmodell geht', () => {
+    const { bilder } = appKontrakt.kontrakt();
+    expect(bilder.weg).toBe('llm/chat');
+    expect(bilder.feld).toBe('images');
+    expect(bilder.formate).toEqual(['png', 'jpeg']);
+    expect(bilder.regeln.join(' ')).toMatch(/400/);
+  });
+});
+
 describe('Der Fingerabdruck des Kontraktes', () => {
   /** JSON mit sortierten Schluesseln -- sonst haengt der Abdruck an der Reihenfolge. */
   function stabil(wert) {
@@ -208,7 +232,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // App den Menschen nennt. Die Zahl bleibt bei 6, aus demselben Grund wie
     // am Vortag: freiwillig und additiv, eine App ohne den Kopf wird
     // trotzdem protokolliert.
-    expect(abdruck).toBe('f98f8119ea14ac685c1f0d3064235e15c14f79625ad303fec24f526844e3e784');
+    //
+    // 26.09.2026 (J35, kontrakt-auslesen-schema-und-bilder): `auslesen`
+    // (Anfrage, Antwort und Fehlschlag von document/extract-structured als
+    // JSON-Schema) und `bilder` (`images` an llm/chat) kommen dazu, zwei
+    // Endpunkte sagen genauer, was sie tun. Die Zahl bleibt bei 6: additiv,
+    // eine App, die raet, bekommt dieselbe Antwort wie gestern.
+    expect(abdruck).toBe('0e02246d67aef399cbab1924bdd3f64e9505934832b3bb11ce2ad46a2868a572');
   });
 
   /**

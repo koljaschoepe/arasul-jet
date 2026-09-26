@@ -91,6 +91,26 @@ const modelService = require('../../src/services/llm/modelService');
 const { generateApiKey } = require('../../src/middleware/apiKeyAuth');
 const { app } = require('../../src/server');
 const { generateTestToken } = require('../helpers/authMock');
+const {
+  ExtractStructuredAntwort,
+  ExtractStructuredFehlschlag
+} = require('../../src/schemas/externalApi');
+
+// Ein PNG mit einem Pixel, als Base64 -- genug fuer die Pruefung des Formats.
+const PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+/** Der Katalog fuer die Wahl des Bildmodells: llava-phi3 und gemma4 lesen Bilder. */
+function katalogMitBildmodellen(query, params) {
+  if (query.includes('llm_installed_models')) {
+    return Promise.resolve({ rows: [{ id: 'llava-phi3' }, { id: 'gemma4:e4b' }] });
+  }
+  if (query.includes('supports_vision_input FROM llm_model_catalog')) {
+    const liest = ['llava-phi3', 'gemma4:e4b'].includes(params[0]);
+    return Promise.resolve({ rows: [{ supports_vision_input: liest }] });
+  }
+  return Promise.resolve({ rows: [] });
+}
 
 // Mock user and session for auth
 const mockUser = { id: 1, username: 'admin', role: 'admin', is_active: true };
@@ -244,6 +264,92 @@ describe('External API Routes', () => {
   });
 
   // ============================================================================
+  // POST /api/v1/external/llm/chat mit Bildern (J35)
+  // ============================================================================
+  describe('POST /api/v1/external/llm/chat mit images', () => {
+    beforeEach(() => {
+      db.query.mockImplementation(katalogMitBildmodellen);
+      llmQueueService.enqueue.mockResolvedValue({ jobId: 'job-b', queuePosition: 1 });
+    });
+
+    test('ohne model nimmt das Geraet sein Bildmodell, das Bild geht in den Auftrag', async () => {
+      const response = await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({
+          prompt: 'Was steht auf der Quittung?',
+          images: [`data:image/png;base64,${PNG}`],
+          wait_for_result: false
+        });
+
+      expect(response.status).toBe(200);
+      expect(llmQueueService.enqueue).toHaveBeenCalledWith(
+        1,
+        'chat',
+        expect.objectContaining({ images: [PNG] }),
+        expect.objectContaining({ model: 'llava-phi3' })
+      );
+    });
+
+    test('ein genanntes Bildmodell bleibt', async () => {
+      await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({ prompt: 'Was?', images: [PNG], model: 'gemma4:e4b', wait_for_result: false });
+
+      expect(llmQueueService.enqueue).toHaveBeenCalledWith(
+        1,
+        'chat',
+        expect.any(Object),
+        expect.objectContaining({ model: 'gemma4:e4b' })
+      );
+    });
+
+    test('ein Textmodell wird mit 400 abgewiesen, statt das Bild fallen zu lassen', async () => {
+      const response = await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({ prompt: 'Was?', images: [PNG], model: 'qwen3.8:27b-q4_K_M' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toMatch(/liest keine Bilder/);
+      expect(response.body.error.message).toMatch(/llava-phi3/);
+      expect(llmQueueService.enqueue).not.toHaveBeenCalled();
+    });
+
+    test('ohne Bildmodell am Geraet: 503', async () => {
+      db.query.mockImplementation(() => Promise.resolve({ rows: [] }));
+      const response = await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({ prompt: 'Was?', images: [PNG] });
+
+      expect(response.status).toBe(503);
+      expect(llmQueueService.enqueue).not.toHaveBeenCalled();
+    });
+
+    test('nur PNG und JPEG', async () => {
+      const gif = Buffer.from('GIF89a......').toString('base64');
+      const response = await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({ prompt: 'Was?', images: [gif] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toMatch(/PNG oder JPEG/);
+    });
+
+    test('ohne images bleibt der Auftrag ohne Bilder', async () => {
+      await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({ prompt: 'Hallo', wait_for_result: false });
+
+      expect(llmQueueService.enqueue.mock.calls[0][2]).not.toHaveProperty('images');
+    });
+  });
+
+  // ============================================================================
   // POST /api/v1/external/document/extract-structured (J35: im Protokoll)
   // ============================================================================
   describe('POST /api/v1/external/document/extract-structured', () => {
@@ -268,6 +374,8 @@ describe('External API Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data).toEqual({ betrag: 12 });
+      // Die Antwort ist genau die Form, die der Kontrakt nennt (J35).
+      expect(ExtractStructuredAntwort.safeParse(response.body).success).toBe(true);
       expect(kiProtokoll.einreihen).toHaveBeenCalledWith(
         expect.objectContaining({
           endpunkt: 'document/extract-structured',
@@ -276,6 +384,48 @@ describe('External API Routes', () => {
         }),
         expect.any(Function)
       );
+    });
+
+    test('eine Liste ist kein Objekt: data ist null, die Antwort steht in raw_response', async () => {
+      extractionService.extractFromBuffer.mockResolvedValueOnce({ text: 'x', metadata: {} });
+      llmQueueService.enqueue.mockResolvedValueOnce({ jobId: 'job-l', model: 'gemma4:e4b' });
+      llmJobService.getJob.mockResolvedValueOnce({ status: 'completed', content: '[1, 2]' });
+
+      const response = await request(app)
+        .post('/api/v1/external/document/extract-structured')
+        .set('X-API-Key', apiKey)
+        .field('schema', '{}')
+        .attach('file', Buffer.from('x'), 'a.txt');
+
+      expect(response.body.data).toBeNull();
+      expect(response.body.raw_response).toBe('[1, 2]');
+      expect(ExtractStructuredAntwort.safeParse(response.body).success).toBe(true);
+    });
+
+    test('scheitert das Modell, hat die 500 die Form des Fehlschlags', async () => {
+      extractionService.extractFromBuffer.mockResolvedValueOnce({ text: 'x', metadata: {} });
+      llmQueueService.enqueue.mockResolvedValueOnce({ jobId: 'job-f', model: 'gemma4:e4b' });
+      llmJobService.getJob.mockResolvedValueOnce({ status: 'error', error_message: 'kaputt' });
+
+      const response = await request(app)
+        .post('/api/v1/external/document/extract-structured')
+        .set('X-API-Key', apiKey)
+        .field('schema', '{}')
+        .attach('file', Buffer.from('x'), 'a.txt');
+
+      expect(response.status).toBe(500);
+      expect(ExtractStructuredFehlschlag.safeParse(response.body).success).toBe(true);
+    });
+
+    test('ohne schema: 400 im Fehler-Umschlag', async () => {
+      const response = await request(app)
+        .post('/api/v1/external/document/extract-structured')
+        .set('X-API-Key', apiKey)
+        .attach('file', Buffer.from('x'), 'a.txt');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+      expect(response.body.error.message).toMatch(/schema is required/);
     });
   });
 

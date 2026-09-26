@@ -36,7 +36,9 @@ const {
   ExternalLlmChatBody,
   ExternalFlowRunBody,
   CreateApiKeyBody,
+  ExtractStructuredFelder,
 } = require('../../schemas/externalApi');
+const { bildmodellFuer } = require('../../services/llm/bildmodell');
 const flowRegistry = require('../../services/flows/flowRegistry');
 const appFlows = require('../../services/app/appFlows');
 const flowRunner = require('../../services/flows/flowRunner');
@@ -103,6 +105,8 @@ function besitzerOderAbweisen(apiKey) {
  *   "thinking": false,           // Optional, disabled by default for integrations
  *   "wait_for_result": true      // Optional, waits for completion (default: true)
  *   "timeout_seconds": 300       // Optional, max wait time (default: 300)
+ *   "images": ["<base64>"]       // Optional (J35): PNG/JPEG fuer ein Bildmodell;
+ *                                // ohne `model` nimmt das Geraet sein Bildmodell
  * }
  *
  * Response (wait_for_result=true):
@@ -132,13 +136,17 @@ router.post(
 
     const {
       prompt,
-      model,
       temperature = 0.7,
       max_tokens = 2048,
       thinking = false,
       wait_for_result = true,
       timeout_seconds = 300,
+      images,
     } = req.body;
+    // Ein Bild geht nur an ein Modell, das es lesen kann (J35) -- die Wahl
+    // steht vor dem Einreihen, damit ein Textmodell mit 400 antwortet statt
+    // das Bild still gegen eine Beschreibung zu tauschen.
+    const model = images ? await bildmodellFuer(req.body.model) : req.body.model;
 
     const userId = besitzerOderAbweisen(req.apiKey);
 
@@ -163,7 +171,7 @@ router.post(
         llmQueueService.enqueue(
           userId,
           'chat',
-          { messages, temperature, max_tokens, thinking },
+          { messages, temperature, max_tokens, thinking, ...(images ? { images } : {}) },
           { model, priority: 0 }
         )
     );
@@ -291,6 +299,8 @@ router.get(
         name: m.name,
         category: m.category,
         ram_required_gb: m.ram_required_gb,
+        // Ob das Modell `images` aus `llm/chat` liest (J35).
+        supports_vision_input: m.supports_vision_input === true,
         is_default: m.id === defaultModel,
       })),
       default_model: defaultModel,
@@ -580,27 +590,20 @@ router.post(
  * Upload a document and get structured JSON data via LLM.
  * Designed for invoice processing, form extraction, etc.
  *
- * Request: multipart/form-data
- *   - file: The document
- *   - schema: JSON schema describing desired output structure
- *   - instructions: (optional) Additional extraction instructions
- *   - model: (optional) Which model to use
- *   - timeout_seconds: (optional) Default 300
+ * Request: multipart/form-data, `file` plus the fields of
+ * `ExtractStructuredFelder` (schemas/externalApi.js).
  *
- * Response:
- * {
- *   "success": true,
- *   "data": { ... structured JSON ... },
- *   "raw_response": "LLM raw text",
- *   "filename": "invoice.pdf",
- *   "model": "qwen3:14b-q8"
- * }
+ * Response: `ExtractStructuredAntwort`, on a failed model `ExtractStructuredFehlschlag`
+ * (HTTP 500). Both stand in the contract (`kontrakt().auslesen`, J35) -- an app
+ * does not have to guess them any more. `data` is an object or null and is NOT
+ * checked against `schema`.
  */
 router.post(
   '/document/extract-structured',
   requireApiKey,
   requireEndpoint('document:extract'),
   upload.single('file'),
+  validateBody(ExtractStructuredFelder),
   asyncHandler(async (req, res) => {
     const startTime = Date.now();
 
@@ -611,10 +614,6 @@ router.post(
     const file = req.file;
     const filename = file.originalname;
     const { schema, instructions, model, timeout_seconds = '300' } = req.body;
-
-    if (!schema) {
-      throw new ValidationError('schema is required, JSON schema describing desired output');
-    }
 
     // Validate schema is valid JSON
     let parsedSchema;
@@ -704,7 +703,11 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
         .replace(/^```(?:json)?\s*\n?/m, '')
         .replace(/\n?\s*```\s*$/m, '')
         .trim();
-      structuredData = JSON.parse(cleaned);
+      const geparst = JSON.parse(cleaned);
+      // Der Kontrakt sagt: ein Objekt oder null. Eine Liste oder eine Zahl ist
+      // keine Antwort auf ein Schema mit Feldern (J35).
+      structuredData =
+        geparst && typeof geparst === 'object' && !Array.isArray(geparst) ? geparst : null;
     } catch {
       // LLM didn't return valid JSON — return raw response for client to handle
       logger.warn(`[External API] Structured extract: LLM returned non-JSON for ${filename}`);

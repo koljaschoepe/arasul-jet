@@ -3033,9 +3033,21 @@ ihre eigene Freigabe erteilen könnte, wäre keine.
   "max_tokens": 2048, // Optional
   "thinking": false, // Optional
   "wait_for_result": true, // Optional (default: true)
-  "timeout_seconds": 300 // Optional (default: 300)
+  "timeout_seconds": 300, // Optional (default: 300)
+  "images": ["iVBORw0KGgo…"] // Optional (J35): PNG/JPEG als Base64
 }
 ```
+
+**Bilder (J35, 26.09.2026).** `images` gibt bis zu vier Bilder an ein
+**Bildmodell** — Base64, PNG oder JPEG, je Bild höchstens 9 000 000 Zeichen
+(der Körper insgesamt höchstens 10 MB); ein Vorsatz `data:image/png;base64,`
+darf davorstehen. Ohne `model` nimmt das Gerät sein Bildmodell (zuerst das der
+Aufgabe `vision`, in der Kurzliste `llava-phi3`), ohne eines antwortet es mit
+`503`. Ein `model`, das keine Bilder liest, weist es mit `400` ab und nennt die
+Bildmodelle, die es hat — das Bild wird nie still weggelassen und nie gegen
+eine Beschreibung eines anderen Modells getauscht (`services/llm/bildmodell.js`).
+Welches Modell Bilder liest, sagt `GET /api/v1/external/models` je Eintrag in
+`supports_vision_input`. Dasselbe steht im Kontrakt unter `bilder`.
 
 **Response (wait_for_result=true):**
 
@@ -3132,10 +3144,27 @@ Konto sein, dem die App freigegeben ist, sonst `400` und kein Aufruf.
   "raw_response": "{ ... LLM raw text ... }",
   "extracted_text": "Raw extracted text...",
   "filename": "invoice.pdf",
-  "model": "gemma4:26b-q4",
-  "processing_time_ms": 8901
+  "char_count": 4521,
+  "metadata": { "ocr_used": false },
+  "model": "qwen3.8:27b-q4_K_M",
+  "job_id": "0b7c2c1e-…",
+  "processing_time_ms": 8901,
+  "timestamp": "2026-09-26T09:30:17.400Z"
 }
 ```
+
+**Die Antwort steht seit J35 (26.09.2026) als JSON-Schema im Kontrakt**
+(`GET /api/v1/external/contract` → `auslesen.antwort`, dazu `auslesen.anfrage`
+und `auslesen.fehlschlag`), aus denselben Zod-Schemas
+(`ExtractStructuredFelder`, `ExtractStructuredAntwort`,
+`ExtractStructuredFehlschlag` in `schemas/externalApi.js`), gegen die der Test
+die echte Antwort der Route prüft. `data` ist ein **Objekt oder `null`** und
+wird **nicht** gegen `schema` geprüft — die App prüft die Felder selbst; `null`
+heißt, das Modell hat kein JSON-Objekt geliefert, seine Antwort steht dann in
+`raw_response`. Scheitert das Modell, kommt `500` mit
+`{ success: false, error, job_id, processing_time_ms, timestamp }`. Das Modell
+sieht den **Text** der Datei, bei Fotos aus der Texterkennung, nicht das Bild;
+wer das Bild selbst an ein Modell geben will, nimmt `llm/chat` mit `images`.
 
 ### Deploy für das Ara-Kit (Phase C5)
 

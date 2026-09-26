@@ -27,7 +27,15 @@ const { z } = require('zod');
 const { versionFuerAnzeige } = require('../../utils/version');
 const { AppManifest } = require('../../schemas/apps');
 const { FlowDefinition } = require('../../schemas/flows');
-const { ExternalFlowRunBody, FreigabeRegel } = require('../../schemas/externalApi');
+const {
+  ExternalFlowRunBody,
+  FreigabeRegel,
+  ExtractStructuredFelder,
+  ExtractStructuredAntwort,
+  ExtractStructuredFehlschlag,
+  BILD_MAX_ANZAHL,
+  BILD_MAX_ZEICHEN,
+} = require('../../schemas/externalApi');
 const { VORGABE_ENDPUNKTE, ALLE_ENDPUNKTE } = require('../../config/apiBereiche');
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 const appPaket = require('./appPaket');
@@ -254,6 +262,37 @@ const PROTOKOLL_REGELN = Object.freeze([
 ]);
 
 /**
+ * Das Auslesen eines Dokuments nach einem Schema (J35, 26.09.2026).
+ *
+ * Das Kit hat die Antwort bis hierher geraten: seine Probe vom 25.09.2026 las
+ * `data` richtig, weil sie es so erwartet hatte, und meldete danach als offene
+ * Stelle, dass die Form nirgends steht (K21). Sie steht jetzt als JSON-Schema
+ * unter `auslesen.antwort` -- aus demselben Zod-Schema, gegen das der Test die
+ * echte Antwort der Route prueft --, und das, was ein Schema nicht sagt, hier.
+ */
+const AUSLESEN_REGELN = Object.freeze([
+  'Die Datei geht als multipart/form-data unter `file`, dazu die Felder aus `anfrage` (alles Zeichenketten). PDF, DOCX, Text und Bilder (PNG, JPEG, TIFF, BMP), hoechstens 50 MB.',
+  'Das Geraet liest zuerst den TEXT der Datei (bei Fotos und Scans ueber seine Texterkennung) und gibt dem Modell diesen Text samt `schema`. Das Modell sieht kein Bild; wer das Bild selbst an ein Modell geben will, nimmt `llm/chat` mit `images` (siehe `bilder`).',
+  '`data` ist ein Objekt oder null. Es ist NICHT gegen `schema` geprueft: ein Feld kann fehlen, einen anderen Typ haben oder dazukommen. Die App prueft die Felder selbst, bevor sie etwas daraus macht.',
+  '`data` ist null, wenn die Antwort des Modells kein JSON-Objekt war; sie steht dann unveraendert in `raw_response`.',
+  'Scheitert das Modell (Zeitgrenze, Fehler), antwortet das Geraet mit HTTP 500 in der Form von `fehlschlag` -- ohne den Fehler-Umschlag der uebrigen Fehler.',
+  'Fehlt `file` oder `schema`, oder ist `schema` kein JSON, antwortet es mit 400 im Fehler-Umschlag (`error.code` VALIDATION_ERROR).',
+  'Ein Vorschlag des Modells ist kein Beleg: `job_id` ordnet ihn seinem Eintrag im Protokoll des Geraets zu (siehe `protokoll`).',
+]);
+
+/**
+ * Ein Bild an ein Bildmodell (J35, 26.09.2026). Siehe `services/llm/bildmodell.js`.
+ */
+const BILDER_REGELN = Object.freeze([
+  '`POST llm/chat` nimmt `images`: eine Liste von Bildern als Base64, PNG oder JPEG. Der Vorsatz einer data:-URL (`data:image/png;base64,`) darf davorstehen, das Geraet schneidet ihn ab.',
+  `Hoechstens ${BILD_MAX_ANZAHL} Bilder je Aufruf, je Bild hoechstens ${BILD_MAX_ZEICHEN} Zeichen Base64; der ganze Koerper hoechstens 10 MB.`,
+  'Ohne `model` nimmt das Geraet sein Bildmodell (zuerst das der Aufgabe `vision`, in der Kurzliste `llava-phi3`). Gibt es keines, antwortet es mit 503.',
+  'Mit `model` muss es ein Modell sein, das Bilder liest; ein Textmodell weist das Geraet mit 400 ab und nennt die Bildmodelle, die es hat. Das Bild wird nie still weggelassen und nie gegen eine Beschreibung getauscht.',
+  '`GET models` nennt je Modell `supports_vision_input`.',
+  'Ein Foto, auf dem es nur um den Text geht (Quittung, Brief), liest `document/extract-structured` ueber die Texterkennung meist genauer und schneller; das Bildmodell ist fuer das, was kein Text ist.',
+]);
+
+/**
  * Was ein Kit am Geraet aufrufen kann.
  *
  * Der Bereich (`bereich`) ist der Wert, der in `allowed_endpoints` eines
@@ -296,7 +335,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'POST',
       pfad: '/api/v1/external/llm/chat',
       bereich: 'llm:chat',
-      was: 'Sprachmodell fragen',
+      was: 'Sprachmodell fragen; mit `images` ein Bildmodell (siehe `bilder`)',
     },
     {
       verb: 'GET',
@@ -326,7 +365,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'POST',
       pfad: '/api/v1/external/document/extract-structured',
       bereich: 'document:extract',
-      was: 'Text mit Struktur (Seiten, Abschnitte)',
+      was: 'Felder nach einem Schema aus einer Datei lesen (Anfrage und Antwort unter `auslesen`)',
     },
     {
       verb: 'POST',
@@ -517,6 +556,26 @@ function kontrakt() {
       },
       regeln: PROTOKOLL_REGELN,
     },
+    // Anfrage und Antwort des Auslesens, und wie ein Bild an ein Modell geht
+    // (26.09.2026, J35). Additiv, die Kontraktversion bleibt -- aus demselben
+    // Grund wie bei `protokoll`.
+    auslesen: {
+      weg: 'document/extract-structured',
+      bereich: 'document:extract',
+      anfrage: alsJsonSchema(ExtractStructuredFelder),
+      antwort: alsJsonSchema(ExtractStructuredAntwort),
+      fehlschlag: alsJsonSchema(ExtractStructuredFehlschlag),
+      regeln: AUSLESEN_REGELN,
+    },
+    bilder: {
+      weg: 'llm/chat',
+      bereich: 'llm:chat',
+      feld: 'images',
+      formate: ['png', 'jpeg'],
+      max_anzahl: BILD_MAX_ANZAHL,
+      max_zeichen: BILD_MAX_ZEICHEN,
+      regeln: BILDER_REGELN,
+    },
     endpunkte: ENDPUNKTE,
   };
 }
@@ -528,6 +587,8 @@ module.exports = {
   DATEN_REGELN,
   FREIGABE_REGELN,
   PROTOKOLL_REGELN,
+  AUSLESEN_REGELN,
+  BILDER_REGELN,
   ENDPUNKTE,
   VERGEBENE_PFADE,
   kontrakt,
