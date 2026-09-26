@@ -131,6 +131,33 @@ async function findVisionFallbackModel(database, primaryModelId, logger) {
 }
 
 /**
+ * Der Text, der als `prompt` an `/api/generate` geht.
+ *
+ * Eine einzelne Frage geht so, wie sie gestellt wurde. Bis zum 26.09.2026 (J35)
+ * stand auch vor ihr `user: `, und das ist KEIN Rollenwechsel im Sinn des
+ * Modells: die Vorlage des Modells legt den Prompt ohnehin in den Zug des
+ * Nutzers, das Präfix steht dann als Wort darin. `llava-phi3` las daraus eine
+ * Aufgabe mit mehreren Antworten und zählte Möglichkeiten auf („1. Red and Blue
+ * 2. Red and Orange 3. …"); direkt am Modelldienst, ohne Präfix, antwortete es
+ * sauber. Am Orin gemessen, dieselbe Farbfrage mit Bild und demselben
+ * Systemprompt: mit Präfix 9 von 70 Antworten als Liste oder mit „Answer:",
+ * ohne 2 von 70 und keine einzige Aufzählung.
+ *
+ * Ein Verlauf mit mehreren Zügen behält die Rollen, sonst wüsste das Modell
+ * nicht, was es selbst gesagt hat.
+ *
+ * @param {Array<{role: string, content: string}>} messages
+ * @returns {string}
+ */
+function promptAusNachrichten(messages) {
+  const zuege = (messages || []).filter(m => m && m.role !== 'system');
+  if (zuege.length === 1 && zuege[0].role === 'user') {
+    return String(zuege[0].content ?? '');
+  }
+  return zuege.map(m => `${m.role}: ${m.content}`).join('\n');
+}
+
+/**
  * Process a chat job
  * @param {Object} ctx - Context with dependencies
  * @param {Object} job - The job record from database
@@ -205,10 +232,7 @@ async function processChatJob(ctx, job) {
   // stand hier ein Kontext-Haushalt mit Fensterung und Verdichtung
   // (compaction_log); er ist mit dem Memory gefallen. Was ueber `num_ctx`
   // hinausgeht, kuerzt Ollama selbst am Anfang des Prompts.
-  const prompt = (messages || [])
-    .filter(m => m && m.role !== 'system')
-    .map(m => `${m.role}: ${m.content}`)
-    .join('\n');
+  const prompt = promptAusNachrichten(messages);
 
   // Vision handling — three paths:
   //   1. Primary supports vision → images pass through unchanged.
@@ -311,4 +335,5 @@ module.exports = {
   // Plan 023 D5: die Abfrage, die entscheidet, welches Modell ein Bild liest.
   // Der Plan nennt sie als Abnahmekriterium, also gehoert sie unter Test.
   findVisionFallbackModel,
+  promptAusNachrichten,
 };

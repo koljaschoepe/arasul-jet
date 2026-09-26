@@ -100,10 +100,14 @@ const {
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-/** Der Katalog fuer die Wahl des Bildmodells: llava-phi3 und gemma4 lesen Bilder. */
+/**
+ * Der Katalog fuer die Wahl des Bildmodells: llava-phi3 und gemma4 lesen Bilder.
+ * Die Reihenfolge ist die, die Postgres mit `bildvorgabe` (Migration 188) liefert:
+ * gemma4:e4b zuerst.
+ */
 function katalogMitBildmodellen(query, params) {
   if (query.includes('llm_installed_models')) {
-    return Promise.resolve({ rows: [{ id: 'llava-phi3' }, { id: 'gemma4:e4b' }] });
+    return Promise.resolve({ rows: [{ id: 'gemma4:e4b' }, { id: 'llava-phi3' }] });
   }
   if (query.includes('supports_vision_input FROM llm_model_catalog')) {
     const liest = ['llava-phi3', 'gemma4:e4b'].includes(params[0]);
@@ -287,21 +291,35 @@ describe('External API Routes', () => {
         1,
         'chat',
         expect.objectContaining({ images: [PNG] }),
-        expect.objectContaining({ model: 'llava-phi3' })
+        expect.objectContaining({ model: 'gemma4:e4b' })
       );
+    });
+
+    test('die Bildvorgabe steht in der Rangfolge vor der Aufgabe vision', async () => {
+      await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({ prompt: 'Was?', images: [PNG], wait_for_result: false });
+
+      const sql = db.query.mock.calls
+        .map(([q]) => q)
+        .find(q => q.includes('llm_installed_models') && q.includes('ORDER BY'));
+      const rang = sql.slice(sql.indexOf('ORDER BY'));
+      expect(rang.indexOf('c.bildvorgabe DESC')).toBeGreaterThan(-1);
+      expect(rang.indexOf('c.bildvorgabe DESC')).toBeLessThan(rang.indexOf("c.task = 'vision'"));
     });
 
     test('ein genanntes Bildmodell bleibt', async () => {
       await request(app)
         .post('/api/v1/external/llm/chat')
         .set('X-API-Key', apiKey)
-        .send({ prompt: 'Was?', images: [PNG], model: 'gemma4:e4b', wait_for_result: false });
+        .send({ prompt: 'Was?', images: [PNG], model: 'llava-phi3', wait_for_result: false });
 
       expect(llmQueueService.enqueue).toHaveBeenCalledWith(
         1,
         'chat',
         expect.any(Object),
-        expect.objectContaining({ model: 'gemma4:e4b' })
+        expect.objectContaining({ model: 'llava-phi3' })
       );
     });
 

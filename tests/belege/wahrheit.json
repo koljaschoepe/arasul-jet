@@ -1,0 +1,47 @@
+{
+  "tankquittung": {
+    "art": "Tankquittung",
+    "haendler": "Nordlicht Tankstelle",
+    "datum": "14.08.2026",
+    "brutto": 69.42,
+    "netto": 58.34,
+    "mwst_satz": 19,
+    "mwst_betrag": 11.08
+  },
+  "rechnung": {
+    "art": "Rechnung",
+    "haendler": "Bergmann & Soehne Buerotechnik GmbH",
+    "datum": "02.09.2026",
+    "brutto": 1487.5,
+    "netto": 1250.0,
+    "mwst_satz": 19,
+    "mwst_betrag": 237.5
+  },
+  "kassenbon": {
+    "art": "Kassenbon",
+    "haendler": "Frischmarkt",
+    "datum": "21.09.2026",
+    "brutto": 23.2,
+    "netto": 21.68,
+    "mwst_satz": 7,
+    "mwst_betrag": 1.52
+  },
+  "bewirtung": {
+    "art": "Bewirtung",
+    "haendler": "Gasthaus Zur Linde",
+    "datum": "11.09.2026",
+    "brutto": 52.4,
+    "netto": 44.03,
+    "mwst_satz": 19,
+    "mwst_betrag": 8.37
+  },
+  "handyfoto-schraeg": {
+    "art": "Handyfoto schraeg",
+    "haendler": "Holz + Hammer Baumarkt",
+    "datum": "16.09.2026",
+    "brutto": 43.99,
+    "netto": 36.97,
+    "mwst_satz": 19,
+    "mwst_betrag": 7.02
+  }
+}

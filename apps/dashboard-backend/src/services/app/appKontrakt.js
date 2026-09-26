@@ -287,10 +287,10 @@ const AUSLESEN_REGELN = Object.freeze([
 const BILDER_REGELN = Object.freeze([
   '`POST llm/chat` nimmt `images`: eine Liste von Bildern als Base64, PNG oder JPEG. Der Vorsatz einer data:-URL (`data:image/png;base64,`) darf davorstehen, das Geraet schneidet ihn ab.',
   `Hoechstens ${BILD_MAX_ANZAHL} Bilder je Aufruf, je Bild hoechstens ${BILD_MAX_ZEICHEN} Zeichen Base64; der ganze Koerper hoechstens 10 MB.`,
-  'Ohne `model` nimmt das Geraet sein Bildmodell (zuerst das der Aufgabe `vision`, in der Kurzliste `llava-phi3`). Gibt es keines, antwortet es mit 503.',
+  'Ohne `model` nimmt das Geraet seine Bildvorgabe (in der Kurzliste `gemma4:e4b`), liegt die nicht am Geraet, das Modell der Aufgabe `vision` (`llava-phi3`). Gibt es keines, antwortet es mit 503.',
   'Mit `model` muss es ein Modell sein, das Bilder liest; ein Textmodell weist das Geraet mit 400 ab und nennt die Bildmodelle, die es hat. Das Bild wird nie still weggelassen und nie gegen eine Beschreibung getauscht.',
   '`GET models` nennt je Modell `supports_vision_input`.',
-  'Das Bildmodell ohne `model` ist das der Aufgabe `vision`, und das ist nicht unbedingt das, das ein Dokument am besten liest. Wer Felder aus einem Foto lesen laesst, nennt `model` ausdruecklich und misst am Geraet des Kunden; `document/extract-structured` (Texterkennung, dann Textmodell) ist der zweite Weg zum Vergleich.',
+  'Die Bildvorgabe ist gemessen: am Orin las `gemma4:e4b` mit fuenf erfundenen Belegfotos (Tankquittung, Rechnung, Kassenbon, Bewirtung, schraeges Handyfoto) alle sechs Felder in rund 5 s je Beleg, `llava-phi3` fast keines. Wer sich darauf nicht verlassen will, nennt `model` und misst am Geraet des Kunden; `document/extract-structured` (Texterkennung, dann Textmodell) ist der zweite Weg zum Vergleich.',
 ]);
 
 /**
