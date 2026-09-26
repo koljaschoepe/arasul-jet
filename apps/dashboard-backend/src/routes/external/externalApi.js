@@ -31,12 +31,13 @@ const {
   ForbiddenError,
   ServiceUnavailableError,
 } = require('../../utils/errors');
-const { validateBody } = require('../../middleware/validate');
+const { validateBody, validateParams } = require('../../middleware/validate');
 const {
   ExternalLlmChatBody,
   ExternalFlowRunBody,
   CreateApiKeyBody,
   ExtractStructuredFelder,
+  AuftragParams,
 } = require('../../schemas/externalApi');
 const { bildmodellFuer } = require('../../services/llm/bildmodell');
 const flowRegistry = require('../../services/flows/flowRegistry');
@@ -198,6 +199,12 @@ router.post(
     const result = await waitForJobCompletion(jobId, timeoutMs, req);
 
     const processingTime = Date.now() - startTime;
+
+    if (result.laeuft) {
+      return res
+        .status(202)
+        .json(laeuftNoch({ jobId, abholen: `llm/job/${jobId}`, model: resolvedModel, startTime }));
+    }
 
     if (result.error) {
       return res.status(500).json({
@@ -559,6 +566,16 @@ router.post(
     const timeoutMs = Math.min(parseInt(timeout_seconds) * 1000 || 300000, 600000);
     const result = await waitForJobCompletion(jobId, timeoutMs, req);
 
+    if (result.laeuft) {
+      return res.status(202).json({
+        ...laeuftNoch({ jobId, abholen: `llm/job/${jobId}`, model: resolvedModel, startTime }),
+        extracted_text: extractedText,
+        filename,
+        char_count: extractedText.length,
+        metadata: extraction.metadata,
+      });
+    }
+
     if (result.error) {
       return res.status(500).json({
         success: false,
@@ -684,6 +701,24 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
     const timeoutMs = Math.min(parseInt(timeout_seconds) * 1000 || 300000, 600000);
     const result = await waitForJobCompletion(jobId, timeoutMs, req);
 
+    // Die Wartezeit ist um, der Auftrag rechnet weiter: 202 mit dem Weg zum
+    // Ergebnis (J35). Die App liest die Datei NICHT ein zweites Mal -- sie
+    // holt ab, was das Geraet ohnehin gleich fertig hat.
+    if (result.laeuft) {
+      return res.status(202).json({
+        ...laeuftNoch({
+          jobId,
+          abholen: `document/extract-structured/${jobId}`,
+          model: resolvedModel,
+          startTime,
+        }),
+        extracted_text: extractedText,
+        filename,
+        char_count: extractedText.length,
+        metadata: extraction.metadata,
+      });
+    }
+
     if (result.error) {
       return res.status(500).json({
         success: false,
@@ -695,21 +730,9 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
     }
 
     // 5. Parse structured response
-    let structuredData = null;
     const rawResponse = result.content || '';
-    try {
-      // Strip markdown code fences if present
-      const cleaned = rawResponse
-        .replace(/^```(?:json)?\s*\n?/m, '')
-        .replace(/\n?\s*```\s*$/m, '')
-        .trim();
-      const geparst = JSON.parse(cleaned);
-      // Der Kontrakt sagt: ein Objekt oder null. Eine Liste oder eine Zahl ist
-      // keine Antwort auf ein Schema mit Feldern (J35).
-      structuredData =
-        geparst && typeof geparst === 'object' && !Array.isArray(geparst) ? geparst : null;
-    } catch {
-      // LLM didn't return valid JSON — return raw response for client to handle
+    const structuredData = felderAus(rawResponse);
+    if (structuredData === null) {
       logger.warn(`[External API] Structured extract: LLM returned non-JSON for ${filename}`);
     }
 
@@ -728,6 +751,115 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
     });
   })
 );
+
+/**
+ * GET /api/v1/external/document/extract-structured/:jobId - ein Ergebnis
+ * abholen (J35, 26.09.2026).
+ *
+ * Der Weg, den das 202 von `POST document/extract-structured` nennt. Rechnet
+ * der Auftrag noch, kommt wieder 202 (ohne die Texterkennung, die hatte die
+ * App schon); ist er fertig, 200 mit `data` und `raw_response`; ist er
+ * gescheitert, 500 in der Form `fehlschlag`. Ein fertiges Ergebnis liegt eine
+ * Stunde (`llmJobService.cleanupOldJobs`), danach 404.
+ *
+ * Abholen darf nur, wer eingereicht hat: dieselbe App im selben Stand (oder
+ * derselbe Schluessel eines Menschen), gelesen aus dem Protokoll der
+ * Modellaufrufe -- ein fremder Auftrag ist ein 404, kein 403, denn schon
+ * seine Existenz geht die andere App nichts an.
+ */
+router.get(
+  '/document/extract-structured/:jobId',
+  requireApiKey,
+  requireEndpoint('document:extract'),
+  validateParams(AuftragParams),
+  asyncHandler(async (req, res) => {
+    const { jobId } = req.params;
+    const aufruf = await kiProtokoll.aufrufZumAuftrag({
+      jobId,
+      apiKey: req.apiKey,
+      endpunkt: 'document/extract-structured',
+    });
+    const job = aufruf ? await llmJobService.getJob(jobId) : null;
+    if (!job || !req.apiKey.userId || job.user_id !== req.apiKey.userId) {
+      throw new NotFoundError(
+        'Kein Auftrag mit dieser Kennung fuer diese App. Ein fertiges Ergebnis liegt eine Stunde.'
+      );
+    }
+    const dauer = job.completed_at
+      ? new Date(job.completed_at).getTime() - new Date(job.queued_at || job.created_at).getTime()
+      : Date.now() - new Date(job.queued_at || job.created_at).getTime();
+
+    if (job.status === 'completed') {
+      const rawResponse = job.content || '';
+      return res.json({
+        success: true,
+        status: 'fertig',
+        data: felderAus(rawResponse),
+        raw_response: rawResponse,
+        model: aufruf.modell,
+        job_id: jobId,
+        processing_time_ms: Number.isFinite(dauer) ? Math.max(0, Math.round(dauer)) : null,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    if (job.status === 'error' || job.status === 'cancelled') {
+      return res.status(500).json({
+        success: false,
+        error: job.status === 'cancelled' ? 'Job was cancelled' : job.error_message || 'Job failed',
+        job_id: jobId,
+        processing_time_ms: Number.isFinite(dauer) ? Math.max(0, Math.round(dauer)) : 0,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    return res.status(202).json({
+      success: false,
+      status: 'laeuft',
+      job_id: jobId,
+      abholen: `document/extract-structured/${jobId}`,
+      model: aufruf.modell,
+      processing_time_ms: Number.isFinite(dauer) ? Math.max(0, Math.round(dauer)) : 0,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * Die Felder aus der Antwort eines Modells: ein Objekt oder null.
+ *
+ * Ein Zaun aus ```json darf drumstehen. Eine Liste oder eine Zahl ist keine
+ * Antwort auf ein Schema mit Feldern (J35) und wird zu null; die Antwort steht
+ * dann unveraendert in `raw_response`.
+ */
+function felderAus(rawResponse) {
+  const cleaned = String(rawResponse || '')
+    .replace(/^```(?:json)?\s*\n?/m, '')
+    .replace(/\n?\s*```\s*$/m, '')
+    .trim();
+  try {
+    const geparst = JSON.parse(cleaned);
+    return geparst && typeof geparst === 'object' && !Array.isArray(geparst) ? geparst : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Der Kopf einer 202-Antwort: die Wartezeit ist um, der Auftrag rechnet
+ * weiter, und `abholen` ist der Weg relativ zur Basis, auf dem die App ihn
+ * holt (J35). `success: false`, weil kein Ergebnis dabei ist -- eine App,
+ * die nur `success` liest, haelt ein 202 so nicht fuer eine Antwort.
+ */
+function laeuftNoch({ jobId, abholen, model, startTime }) {
+  return {
+    success: false,
+    status: 'laeuft',
+    job_id: jobId,
+    abholen,
+    model: model || null,
+    processing_time_ms: Date.now() - startTime,
+    timestamp: new Date().toISOString(),
+  };
+}
 
 /**
  * Helper: Wait for job completion with timeout.
@@ -781,7 +913,10 @@ async function waitForJobCompletion(jobId, timeoutMs, req) {
     });
   }
 
-  return { error: 'Job timed out' };
+  // Die Wartezeit ist um, der Auftrag laeuft weiter (J35): die Route
+  // antwortet mit 202 und dem Weg zum Abholen statt mit einem Fehler, und
+  // der Auftrag wird NICHT abgebrochen -- sein Ergebnis soll ja ankommen.
+  return { laeuft: true };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

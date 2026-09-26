@@ -461,6 +461,33 @@ async function flowSchritt(lauf, modell, arbeit, { datenbank = db } = {}) {
 }
 
 /**
+ * Die Zeile zu einem Auftrag, wenn er diesem Schluessel gehoert.
+ *
+ * Fuer das Abholen eines Ergebnisses (J35): gesucht wird nach App und Stand
+ * des Schluessels, nicht nach dem Schluessel selbst -- der einer App wuerfelt
+ * jedes Einspielen neu, und ein Auftrag, der waehrenddessen fertig wird,
+ * gehoert trotzdem der App. Zwei Apps, die derselbe Administrator eingespielt
+ * hat, sehen einander so nicht: `llm_jobs.user_id` allein waere bei beiden
+ * derselbe Mensch.
+ *
+ * @returns {Promise<{modell: string|null}|null>}
+ */
+async function aufrufZumAuftrag({ jobId, apiKey, endpunkt }, { datenbank = db } = {}) {
+  const { rows } = await datenbank.query(
+    `SELECT modell
+       FROM public.ki_aufrufe
+      WHERE job_id = $1
+        AND endpunkt = $2
+        AND app_id IS NOT DISTINCT FROM $3
+        AND stand IS NOT DISTINCT FROM $4
+      ORDER BY id DESC
+      LIMIT 1`,
+    [jobId, endpunkt, apiKey.appId || null, apiKey.appId ? apiKey.stand : null]
+  );
+  return rows[0] ? { modell: rows[0].modell ?? null } : null;
+}
+
+/**
  * Die Aufrufe einer App, neueste zuerst -- fuer den Administrator.
  */
 async function listeFuerApp({ appId, stand = null, limit = 50 }, { datenbank = db } = {}) {
@@ -492,5 +519,6 @@ module.exports = {
   einreihen,
   messen,
   flowSchritt,
+  aufrufZumAuftrag,
   listeFuerApp,
 };

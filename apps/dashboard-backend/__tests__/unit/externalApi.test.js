@@ -50,7 +50,8 @@ jest.mock('../../src/services/llm/modelService', () => ({
 // (kiProtokoll.test.js). Hier reicht es durch und merkt sich, was es bekam.
 jest.mock('../../src/services/app/kiProtokoll', () => ({
   einreicherAus: jest.requireActual('../../src/services/app/kiProtokoll').einreicherAus,
-  einreihen: jest.fn((_kontext, fn) => fn())
+  einreihen: jest.fn((_kontext, fn) => fn()),
+  aufrufZumAuftrag: jest.fn()
 }));
 
 jest.mock('../../src/services/documents/extractionService', () => ({
@@ -93,7 +94,9 @@ const { app } = require('../../src/server');
 const { generateTestToken } = require('../helpers/authMock');
 const {
   ExtractStructuredAntwort,
-  ExtractStructuredFehlschlag
+  ExtractStructuredFehlschlag,
+  ExtractStructuredLaeuft,
+  ExtractStructuredAbgeholt
 } = require('../../src/schemas/externalApi');
 
 // Ein PNG mit einem Pixel, als Base64 -- genug fuer die Pruefung des Formats.
@@ -166,6 +169,25 @@ describe('External API Routes', () => {
         .send({ prompt: 'Hello' });
 
       expect(response.status).toBe(401);
+    });
+
+    test('rechnet das Modell nach der Wartezeit noch: 202 mit llm/job als Weg (J35)', async () => {
+      llmQueueService.enqueue.mockResolvedValueOnce({ jobId: 'job-w', model: 'm' });
+      llmJobService.getJob.mockResolvedValue({ status: 'pending' });
+
+      const response = await request(app)
+        .post('/api/v1/external/llm/chat')
+        .set('X-API-Key', apiKey)
+        .send({ prompt: 'Hallo', timeout_seconds: 1 });
+      llmJobService.getJob.mockReset();
+
+      expect(response.status).toBe(202);
+      expect(response.body).toMatchObject({
+        success: false,
+        status: 'laeuft',
+        job_id: 'job-w',
+        abholen: 'llm/job/job-w'
+      });
     });
 
     test('should return 400 if prompt is missing', async () => {
@@ -435,6 +457,46 @@ describe('External API Routes', () => {
       expect(ExtractStructuredFehlschlag.safeParse(response.body).success).toBe(true);
     });
 
+    /**
+     * Die App-Bau-Probe vom 26.09.2026: sechs Belege gleichzeitig, einer
+     * bekam nach 60 s ein 408, und das Geraet hatte ihn zehn Sekunden spaeter
+     * fertig. Rechnet der Auftrag nach der Wartezeit noch, ist das jetzt 202
+     * mit dem Weg zum Abholen -- und der Auftrag wird nicht abgebrochen.
+     */
+    test('rechnet das Modell nach der Wartezeit noch: 202 mit dem Weg zum Abholen', async () => {
+      extractionService.extractFromBuffer.mockResolvedValueOnce({
+        text: 'Beleg 7 EUR',
+        metadata: { ocr_used: true }
+      });
+      llmQueueService.enqueue.mockResolvedValueOnce({
+        jobId: '0b7c2c1e-0000-4000-8000-000000000001',
+        model: 'qwen3.8:27b-q4_K_M'
+      });
+      llmJobService.getJob.mockResolvedValue({ status: 'processing' });
+      llmQueueService.cancelJob = jest.fn(async () => {});
+
+      const response = await request(app)
+        .post('/api/v1/external/document/extract-structured')
+        .set('X-API-Key', apiKey)
+        .field('schema', '{}')
+        .field('timeout_seconds', '1')
+        .attach('file', Buffer.from('x'), 'beleg.jpg');
+      llmJobService.getJob.mockReset();
+
+      expect(response.status).toBe(202);
+      expect(ExtractStructuredLaeuft.safeParse(response.body).success).toBe(true);
+      expect(response.body).toMatchObject({
+        success: false,
+        status: 'laeuft',
+        job_id: '0b7c2c1e-0000-4000-8000-000000000001',
+        abholen: 'document/extract-structured/0b7c2c1e-0000-4000-8000-000000000001',
+        extracted_text: 'Beleg 7 EUR',
+        filename: 'beleg.jpg',
+        model: 'qwen3.8:27b-q4_K_M'
+      });
+      expect(llmQueueService.cancelJob).not.toHaveBeenCalled();
+    });
+
     test('ohne schema: 400 im Fehler-Umschlag', async () => {
       const response = await request(app)
         .post('/api/v1/external/document/extract-structured')
@@ -444,6 +506,91 @@ describe('External API Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
       expect(response.body.error.message).toMatch(/schema is required/);
+    });
+  });
+
+  // ============================================================================
+  // GET /api/v1/external/document/extract-structured/:jobId (J35: abholen)
+  // ============================================================================
+  describe('GET /api/v1/external/document/extract-structured/:jobId', () => {
+    const JOB = '0b7c2c1e-0000-4000-8000-000000000002';
+    const WEG = `/api/v1/external/document/extract-structured/${JOB}`;
+
+    test('fertig: 200 mit data, in der Form, die der Kontrakt nennt', async () => {
+      kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce({ modell: 'gemma4:e4b' });
+      llmJobService.getJob.mockResolvedValueOnce({
+        id: JOB,
+        user_id: 1,
+        status: 'completed',
+        content: '```json\n{"betrag": 7}\n```',
+        queued_at: '2026-09-26T09:00:00Z',
+        completed_at: '2026-09-26T09:01:10Z'
+      });
+
+      const response = await request(app).get(WEG).set('X-API-Key', apiKey);
+
+      expect(response.status).toBe(200);
+      expect(ExtractStructuredAbgeholt.safeParse(response.body).success).toBe(true);
+      expect(response.body).toMatchObject({
+        status: 'fertig',
+        data: { betrag: 7 },
+        model: 'gemma4:e4b',
+        processing_time_ms: 70000
+      });
+      expect(kiProtokoll.aufrufZumAuftrag).toHaveBeenCalledWith(
+        expect.objectContaining({ jobId: JOB, endpunkt: 'document/extract-structured' })
+      );
+    });
+
+    test('rechnet noch: wieder 202 mit demselben Weg', async () => {
+      kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce({ modell: 'gemma4:e4b' });
+      llmJobService.getJob.mockResolvedValueOnce({
+        user_id: 1,
+        status: 'pending',
+        queued_at: new Date().toISOString()
+      });
+
+      const response = await request(app).get(WEG).set('X-API-Key', apiKey);
+
+      expect(response.status).toBe(202);
+      expect(response.body).toMatchObject({
+        success: false,
+        status: 'laeuft',
+        abholen: `document/extract-structured/${JOB}`
+      });
+    });
+
+    test('gescheitert: 500 in der Form des Fehlschlags', async () => {
+      kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce({ modell: 'm' });
+      llmJobService.getJob.mockResolvedValueOnce({
+        user_id: 1,
+        status: 'error',
+        error_message: 'kaputt',
+        queued_at: '2026-09-26T09:00:00Z',
+        completed_at: '2026-09-26T09:00:05Z'
+      });
+
+      const response = await request(app).get(WEG).set('X-API-Key', apiKey);
+
+      expect(response.status).toBe(500);
+      expect(ExtractStructuredFehlschlag.safeParse(response.body).success).toBe(true);
+    });
+
+    test('ein Auftrag einer anderen App ist ein 404, und das Geraet sieht gar nicht erst nach', async () => {
+      kiProtokoll.aufrufZumAuftrag.mockResolvedValueOnce(null);
+
+      const response = await request(app).get(WEG).set('X-API-Key', apiKey);
+
+      expect(response.status).toBe(404);
+      expect(llmJobService.getJob).not.toHaveBeenCalled();
+    });
+
+    test('keine Kennung eines Auftrags: 400', async () => {
+      const response = await request(app)
+        .get('/api/v1/external/document/extract-structured/nicht-da')
+        .set('X-API-Key', apiKey);
+
+      expect(response.status).toBe(400);
     });
   });
 

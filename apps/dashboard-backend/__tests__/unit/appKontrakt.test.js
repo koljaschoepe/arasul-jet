@@ -261,7 +261,16 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // ein Bild die gemessene Bildvorgabe `gemma4:e4b` (Migration 188) statt
     // `llava-phi3`; zwei Saetze in `bilder.regeln` sagen das. Die Zahl bleibt
     // bei 6: dieselbe Anfrage, dieselbe Form der Antwort, nur ein besseres Modell.
-    expect(abdruck).toBe('9993e77006c0940afd94caea21c8dd00060bc7150f5ce614587b7f6866c59d58');
+    //
+    // 26.09.2026 (J35, flows-im-ki-protokoll-und-auslesen-408): rechnet das
+    // Modell nach `timeout_seconds` noch, antworten `llm/chat`,
+    // `document/analyze` und `document/extract-structured` mit 202 und
+    // `abholen` statt mit 500 (oder nach 60 s mit 408); neu sind `warten`,
+    // `auslesen.laeuft`/`abholen`/`abgeholt`, der Abholweg unter `endpunkte`
+    // und `flows/:name/run` unter `protokoll.wege`. Die Zahl bleibt bei 6:
+    // eine App, die nur 200 liest, bekam vorher an dieser Stelle einen Fehler,
+    // und eine 7 hielte das Kit an.
+    expect(abdruck).toBe('cab586f8d10dda1fe67e152dcaae33352322fb96d0bdab5d2e945c71176800b1');
   });
 
   /**

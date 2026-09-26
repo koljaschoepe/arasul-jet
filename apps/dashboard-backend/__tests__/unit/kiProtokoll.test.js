@@ -373,3 +373,29 @@ describe('flowSchritt (Migration 189)', () => {
     expect(message).toEqual({ content: 'ok' });
   });
 });
+
+describe('aufrufZumAuftrag (J35, abholen)', () => {
+  test('gesucht wird nach App und Stand, nicht nach dem Schluessel', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ modell: 'gemma4:e4b' }] });
+    const zeile = await kiProtokoll.aufrufZumAuftrag({
+      jobId: 'j',
+      apiKey: { ...APP_SCHLUESSEL, id: 99 },
+      endpunkt: 'document/extract-structured',
+    });
+    expect(zeile).toEqual({ modell: 'gemma4:e4b' });
+    const [sql, werte] = db.query.mock.calls[0];
+    expect(sql).toContain('app_id IS NOT DISTINCT FROM');
+    expect(werte).toEqual(['j', 'document/extract-structured', 'faktum', 'live']);
+  });
+
+  test('der Schluessel eines Menschen sucht unter den Zeilen ohne App; keine Zeile ist null', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const zeile = await kiProtokoll.aufrufZumAuftrag({
+      jobId: 'j',
+      apiKey: MENSCHEN_SCHLUESSEL,
+      endpunkt: 'document/extract-structured',
+    });
+    expect(zeile).toBeNull();
+    expect(db.query.mock.calls[0][1]).toEqual(['j', 'document/extract-structured', null, null]);
+  });
+});

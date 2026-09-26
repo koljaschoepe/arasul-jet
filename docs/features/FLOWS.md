@@ -131,6 +131,23 @@ Gedankengang ist sein Weg dorthin. Gelesen wird er in der App-Ansicht
 Er entsteht nur, wo das Modell überhaupt frei entscheidet. Ein Flow mit einer
 festen `schritte`-Kette hat keinen; dort steht die Reihenfolge in der Datei.
 
+### Jeder Modellschritt im Protokoll der Modellaufrufe (J35, 26.09.2026)
+
+Der Lauf zeigt, **was** ein Flow getan hat. Nachweisen muss eine Kanzlei aber
+jeden Vorschlag eines Modells an **einer** Stelle, auch den Satz, den ein Flow
+nach einer Freigabe schreibt — und das ist `ki_aufrufe`, wo seit Migration 187
+schon jede Auslesung steht. Seit Migration 189 geht jede Runde der
+Werkzeug-Schleife (Orchestrator, Rolle, Prüfschritt, Synthese) über
+`kiProtokoll.flowSchritt` (`toolLoop.modellFragen`): eine Zeile mit App,
+Stand, dem **Einreicher** aus dem Start des Laufs, Modell (extern als
+`anbieter/modell`), Dauer, Ausgang, `lauf_id` und dem sha256 dessen, was das
+Modell sagte (mit einem Werkzeugaufruf: Text und Aufrufe zusammen). `endpunkt`
+ist `flows/<name>`. Ein Flow der Plattform steht mit dem Menschen da, dem der
+Lauf gehört. Scheitert die Zeile, läuft der Flow weiter — anders als bei den
+Wegen der Schnittstelle, wo ohne Zeile kein Aufruf stattfindet: ein halber
+Lauf wäre der größere Schaden. Gelesen wird es unter Einstellungen → Apps →
+Modellaufrufe, mit „Lauf N".
+
 **`runden` je Rolle.** Eine Rolle erbt ohne eigene Angabe die
 `werkzeug_runden` des Flows, und zwar bei **jeder** Delegation. Mit
 `runden: <1..20>` bekommt sie ein eigenes, kleineres Budget; größer als das
