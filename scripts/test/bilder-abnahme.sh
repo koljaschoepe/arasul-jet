@@ -13,6 +13,12 @@
 #   3. `llm/chat` mit einem PNG und ohne `model` antwortet, und zwar von einem
 #      Modell, das laut `GET models` Bilder liest.
 #   4. Dasselbe mit einem Textmodell ist ein 400, das die Bildmodelle nennt.
+#   5. (bildmodell-vorgabe-und-format) Das Modell ohne `model` ist die gemessene
+#      Bildvorgabe `gemma4:e4b` (Migration 188), und `llava-phi3` beantwortet
+#      ueber die Warteschlange eine Farbfrage in zehn Anlaeufen kein einziges
+#      Mal mit einer nummerierten Liste von Moeglichkeiten. Genau das tat es,
+#      solange vor der Frage `user: ` stand (am Orin 9 von 70 Antworten als
+#      Liste oder mit „Answer:", direkt am Modelldienst sauber).
 #
 # WAS ES ANLEGT, RAEUMT ES WEG: einen Wegwerf-Schluessel. Keine App, kein
 # Container, kein Konto. Die Zeilen im Protokoll der Modellaufrufe bleiben --
@@ -21,7 +27,7 @@
 # Aufruf vom Arbeitsrechner ueber einen SSH-Tunnel:
 #   ssh -f -N -L 8443:localhost:443 arasul@192.168.0.197
 #   ARASUL_PASSWORT=... bash scripts/test/bilder-abnahme.sh
-# Optional ARASUL_TEXTMODELL (Vorgabe gemma4:e4b, fuer das Auslesen -- schneller
+# Optional ARASUL_BILDVORGABE (Vorgabe gemma4:e4b), ARASUL_TEXTMODELL (Vorgabe gemma4:e4b, fuer das Auslesen -- schneller
 # als das Standardmodell) und ARASUL_GEGENPROBE_MODELL (Vorgabe das
 # Standardmodell der Flows; gemma4 liest auch Bilder und taugt dafuer nicht).
 #
@@ -186,11 +192,42 @@ pruefe 'llm/chat mit einem PNG antwortet' \
 pruefe '… von einem Bildmodell, das das Geraet selbst gewaehlt hat' \
   "$([ -n "$MODELL" ] && grep -qw -- "$MODELL" <<<"$BILDMODELLE" && echo ja || echo nein)" \
   "model=$MODELL"
+pruefe '… und zwar von der gemessenen Bildvorgabe' \
+  "$(ja_wenn "$MODELL" "${ARASUL_BILDVORGABE:-gemma4:e4b}")" "model=$MODELL"
 printf '       Antwort: %s\n' "$(printf '%s' "$TEXT" | tr '\n' ' ' | cut -c1-200)"
 pruefe '… und sie hat das Bild gesehen (rot und blau)' \
   "$(grep -qi 'red' <<<"$TEXT" && grep -qi 'blue' <<<"$TEXT" && echo ja || echo nein)"
 
-# --- 5. Gegenprobe: ein Textmodell nimmt kein Bild ---------------------------
+# --- 5. llava-phi3 ueber die Warteschlange: eine Antwort, keine Aufzaehlung ---
+# Dieselbe Frage mit `model: llava-phi3`, zehnmal. Rot ist eine Antwort, die
+# Moeglichkeiten nummeriert („1. Red and Blue\n2. Red and Orange …"). Mit dem
+# alten Praefix kam eine Liste in rund jeder achten Antwort vor; zehn Anlaeufe
+# finden das in gut sieben von zehn Laeufen, ohne Praefix kam keine einzige.
+python3 - "$ARBEIT/mit-bild.json" "$ARBEIT/llava.json" <<'PY'
+import json, sys
+leib = json.load(open(sys.argv[1]))
+leib["model"] = "llava-phi3"
+json.dump(leib, open(sys.argv[2], "w"))
+PY
+aufzaehlungen=0
+beantwortet=0
+beispiel=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  ruf POST /llm/chat "$ARBEIT/llava.json"
+  [ "$CODE" = "200" ] || continue
+  beantwortet=$((beantwortet + 1))
+  ANTWORT_LLAVA=$(rumpf | feld response)
+  if grep -Eq '^[[:space:]]*[0-9]+[.)][[:space:]]' <<<"$ANTWORT_LLAVA"; then
+    aufzaehlungen=$((aufzaehlungen + 1))
+    beispiel=$(printf '%s' "$ANTWORT_LLAVA" | tr '\n' ' ' | cut -c1-80)
+  fi
+done
+pruefe 'llava-phi3 ueber llm/chat antwortet zehnmal' "$(ja_wenn "$beantwortet" 10)" \
+  "$beantwortet von 10"
+pruefe '… und zaehlt keine Moeglichkeiten auf' "$(ja_wenn "$aufzaehlungen" 0)" \
+  "$aufzaehlungen von $beantwortet nummeriert${beispiel:+, z. B. „${beispiel}“}"
+
+# --- 6. Gegenprobe: ein Textmodell nimmt kein Bild ---------------------------
 # Abgewiesen wird vor dem Einreihen: die Gegenprobe kostet keine Rechenzeit.
 TEXTMODELL="${ARASUL_GEGENPROBE_MODELL:-qwen3.8:27b-q4_K_M}"
 python3 - "$ARBEIT/mit-bild.json" "$ARBEIT/textmodell.json" "$TEXTMODELL" <<'PY'
