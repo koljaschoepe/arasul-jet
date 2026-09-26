@@ -129,8 +129,21 @@ pruefe(
 );
 await bild(m2.page, '3-m2-freigabekarte');
 
-const bestaetigen = m2.page.locator('[data-testid$="-bestaetigen"]').first();
-await bestaetigen.click();
+// Zwei Vorgaenge warten: der, den die Abnahme ueber die Schnittstelle
+// eingereicht hat, und der aus dem Browser. M2 bestaetigt beide, eine Karte
+// nach der anderen, und jede verschwindet ohne Neuladen.
+const knoepfe = m2.page.locator('[data-testid$="-bestaetigen"]');
+for (let runde = 0; runde < 5 && (await knoepfe.count()) > 0; runde += 1) {
+  const vorher = await knoepfe.count();
+  await knoepfe.first().click();
+  await m2.page
+    .waitForFunction(
+      n => document.querySelectorAll('[data-testid$="-bestaetigen"]').length < n,
+      vorher,
+      { timeout: 20000 }
+    )
+    .catch(() => {});
+}
 const leer = await sichtbar(m2.page.locator('[data-testid="offene-freigaben"][data-leer="true"]'), 20000);
 pruefe('Nach dem Bestätigen steht bei M2 die leere Zeile, ohne Neuladen', leer);
 await bild(m2.page, '4-m2-leer-nach-bestaetigen');
