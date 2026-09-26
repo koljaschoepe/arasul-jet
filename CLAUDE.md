@@ -1330,7 +1330,7 @@ Uebersicht **eine** leise Zeile statt nichts, und darunter sieht der
 Einreicher unter `GET /api/freigabe-anfragen/eingereicht`, bei wem sein
 Vorgang liegt. `/apps/<id>/` ohne Recht ist fuer einen Browser eine Seite im
 Stil des Geraets mit einem Satz und dem Weg zur Uebersicht
-(`services/app/appSperrseite.js`, `fetch` und `curl` bekommen weiter JSON);
+(`apps/dashboard-backend/src/services/app/appSperrseite.js`, `fetch` und `curl` bekommen weiter JSON);
 gesperrte Einstellungen nennen den Administrator. Und **neben einer App
 gehoeren dem Mitarbeiter die Spalten nicht**: Sidebar und Notizen starten zu,
 solange eine App vorn steht (`spaltenNebenAppZu`, nicht persistiert) — am Orin
