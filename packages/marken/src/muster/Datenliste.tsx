@@ -4,7 +4,7 @@ import * as React from 'react';
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, SearchIcon } from 'lucide-react';
 
 import { cn } from '../cn';
-import { useSchmalesFenster } from '../useSchmalesFenster';
+import { useSchmalerBehaelter } from '../useSchmalerBehaelter';
 import { Input } from '../primitive/input';
 import { Skeleton } from '../primitive/skeleton';
 import {
@@ -27,12 +27,19 @@ import { Leerzustand } from './Leerzustand';
  * gehen". Das sind vier Dinge, und jede Seite, die sie einzeln loest, loest
  * sie anders.
  *
- * UNTER 900 PX WIRD AUS DER TABELLE EINE KARTENLISTE, und das ist die
- * eigentliche Arbeit dieses Bausteins. Eine Tabelle mit sechs Spalten passt
- * auf keinem Telefon; sie waagerecht rollen zu lassen heisst, dass niemand
- * die Spalte findet, die ihn interessiert. Dieselbe Entscheidung wie in der
- * Verwaltung des Geraets seit D5 (`useSchmalesFenster`), und dieselbe
- * Schwelle -- es gibt keinen zweiten Schwellenwert im Produkt.
+ * IN EINEM SCHMALEN BEHAELTER WIRD AUS DER TABELLE EINE KARTENLISTE, und das
+ * ist die eigentliche Arbeit dieses Bausteins. Eine Tabelle mit sechs
+ * Spalten passt auf keinem Telefon; sie waagerecht rollen zu lassen heisst,
+ * dass niemand die Spalte findet, die ihn interessiert.
+ *
+ * GEMESSEN WIRD DER BEHAELTER, NICHT DAS FENSTER (seit 5.1.0). Bis dahin
+ * fragte die Liste `useSchmalesFenster` -- und eine App im Rahmen des Geraets
+ * hat neben ihr noch ihre eigene Seitenleiste. Am Orin bei 1440 px: Rahmen
+ * 1052 px, also Tabelle, und 100 px davon abgeschnitten. Die Schwelle ist
+ * deshalb eine andere Frage als die 900 px der Shell: die fragen, ob DREI
+ * SPALTEN ins Fenster passen; diese fragt, ob eine TABELLE in ihren Kasten
+ * passt (`LISTE_SCHMAL_AB_PX`). Was darueber noch zu breit ist, rollt im
+ * eigenen Kasten der Tabelle und nicht mit der Seite.
  *
  * IMMER NUR EINE FORM IM DOKUMENT. Nicht beide mit `hidden` nebeneinander:
  * jede Kennung staende dann doppelt da, und ein Screenreader liest die
@@ -114,6 +121,14 @@ export interface DatenlisteProps<Zeile> {
 
 type Richtung = 'auf' | 'ab';
 
+/**
+ * Unter dieser Breite ihres EIGENEN Kastens zeigt die Liste Karten. 640 px
+ * sind ein Telefon quer und die Mitte einer App mit Seitenleiste in einem
+ * Rahmen von knapp 900 px -- dort traegt eine Tabelle noch vier bis fuenf
+ * Spalten, und was mehr braucht, rollt in ihrem eigenen Kasten.
+ */
+export const LISTE_SCHMAL_AB_PX = 640;
+
 function vergleiche(a: unknown, b: unknown): number {
   if (a == null && b == null) return 0;
   if (a == null) return -1;
@@ -156,7 +171,7 @@ export function Datenliste<Zeile>({
   gewaehlt,
   className,
 }: DatenlisteProps<Zeile>) {
-  const schmal = useSchmalesFenster();
+  const [behaelter, schmal] = useSchmalerBehaelter<HTMLDivElement>(LISTE_SCHMAL_AB_PX);
   const [suche, setSuche] = React.useState('');
   const [sortierung, setSortierung] = React.useState<{
     schluessel: string;
@@ -213,7 +228,11 @@ export function Datenliste<Zeile>({
 
   if (laedt) {
     return (
-      <div className={cn('flex flex-col gap-ui-2', className)} data-slot="datenliste">
+      <div
+        ref={behaelter}
+        className={cn('flex min-w-0 flex-col gap-ui-2', className)}
+        data-slot="datenliste"
+      >
         {suchfeld}
         <div
           className="flex flex-col gap-2"
@@ -230,7 +249,11 @@ export function Datenliste<Zeile>({
 
   if (sortiert.length === 0) {
     return (
-      <div className={cn('flex flex-col gap-ui-2', className)} data-slot="datenliste">
+      <div
+        ref={behaelter}
+        className={cn('flex min-w-0 flex-col gap-ui-2', className)}
+        data-slot="datenliste"
+      >
         {suchfeld}
         {suche.trim() ? (
           <Leerzustand titel={leerGefiltert} symbol={<SearchIcon />} />
@@ -247,7 +270,8 @@ export function Datenliste<Zeile>({
 
   return (
     <div
-      className={cn('flex flex-col gap-ui-2', className)}
+      className={cn('flex min-w-0 flex-col gap-ui-2', className)}
+      ref={behaelter}
       data-slot="datenliste"
       data-form={schmal ? 'karten' : 'tabelle'}
     >
