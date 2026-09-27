@@ -207,7 +207,9 @@ export function OrdnerBaum({
               <TableCell>
                 <ArtBadge o={o} />
               </TableCell>
-              <TableCell className="text-muted-foreground">
+              {/* Der Satz darf umbrechen: mit der Spalte Papierkorb (J34) schob er bei
+                  1440 px mit offener Notizspalte die Handgriffe aus dem Kasten. */}
+              <TableCell className="whitespace-normal text-muted-foreground">
                 {o.art === 'wurzel'
                   ? 'alle lesen, Administratoren schreiben'
                   : o.art === 'am_geraet'
