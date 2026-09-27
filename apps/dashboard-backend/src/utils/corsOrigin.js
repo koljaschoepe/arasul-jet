@@ -9,6 +9,11 @@
 //   - an origin explicitly listed in ALLOWED_ORIGINS
 //   - a local/private network origin (RFC 1918, localhost, docker service name)
 //   - an *.local mDNS hostname (LAN standard access path)
+//   - the bare Netzname of the device (MDNS_NAME, default `arasul`): the DHCP
+//     name the router resolves, `https://arasul/`. It is in the device
+//     certificate and the first address a customer types. Without it a login
+//     under that name was a 403 (J34, 27.09.2026). Only this one name — any
+//     other dotless host stays foreign.
 //   - a Tailscale CGNAT IP (100.64.0.0/10, RFC 6598) — remote access via tailnet
 //   - a MagicDNS *.ts.net hostname — remote access with browser-trusted cert
 //
@@ -37,13 +42,30 @@ const _mdnsRegex = /^https?:\/\/[a-zA-Z0-9-]+\.local(:\d+)?$/;
 const _tailscaleDNSRegex = /^https?:\/\/[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.ts\.net(:\d+)?$/;
 
 /**
+ * Is `origin` the device under its bare Netzname (`https://arasul`, any port)?
+ * Compared exactly, case-insensitive — never as a prefix: `https://arasul.evil`
+ * and `https://arasulx` are someone else.
+ */
+function istNetzname(origin, netzname) {
+  const name = String(netzname || 'arasul')
+    .trim()
+    .toLowerCase()
+    .replace(/\.local$/, '');
+  if (!/^[a-z0-9-]+$/.test(name)) {
+    return false;
+  }
+  return new RegExp(`^https?:\\/\\/${name}(:\\d+)?$`, 'i').test(origin);
+}
+
+/**
  * Decide whether a CORS request origin is allowed.
  *
  * @param {string|undefined} origin - the request Origin header (undefined for same-origin/curl)
  * @param {string[]} [allowedOrigins] - explicit origins from ALLOWED_ORIGINS
+ * @param {string} [netzname] - MDNS_NAME of the device (default `arasul`)
  * @returns {boolean}
  */
-function isAllowedOrigin(origin, allowedOrigins = []) {
+function isAllowedOrigin(origin, allowedOrigins = [], netzname = 'arasul') {
   // No origin → same-origin request, curl, or server-to-server: allow.
   if (!origin) {
     return true;
@@ -60,7 +82,8 @@ function isAllowedOrigin(origin, allowedOrigins = []) {
     origin.includes('://127.0.0.1') ||
     origin.includes('://dashboard-frontend') ||
     _mdnsRegex.test(origin) ||
-    _tailscaleDNSRegex.test(origin)
+    _tailscaleDNSRegex.test(origin) ||
+    istNetzname(origin, netzname)
   );
 }
 

@@ -65,9 +65,16 @@ class TokenRevokedError extends ApiError {
   }
 }
 
+/**
+ * 403. Der Code ist `FORBIDDEN`, ausser ein Aufrufer nennt einen engeren
+ * (`ACCOUNT_LOCKED`, `ACCOUNT_DISABLED`, `ORIGIN_NOT_ALLOWED`): ein Klient,
+ * der nur den Status liest, kann ein gesperrtes Konto nicht von einer
+ * abgewiesenen Herkunft unterscheiden und schickt einen Menschen auf die
+ * falsche Fährte (J34).
+ */
 class ForbiddenError extends ApiError {
-  constructor(message = 'Access denied') {
-    super(message, { statusCode: 403, code: 'FORBIDDEN' });
+  constructor(message = 'Access denied', code = 'FORBIDDEN') {
+    super(message, { statusCode: 403, code });
   }
 }
 

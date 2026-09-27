@@ -209,6 +209,78 @@ describe('Login integration', () => {
     });
   });
 
+  // J34: unter https://arasul wies die CORS-Regel die Anmeldung mit 403 ab,
+  // und die Seite meldete ein gesperrtes Konto.
+  it('meldet eine abgewiesene Herkunft nicht als gesperrtes Konto', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mockApi.post).mockRejectedValueOnce(
+      Object.assign(new Error('Origin not allowed by CORS policy'), {
+        status: 403,
+        code: 'ORIGIN_NOT_ALLOWED',
+      })
+    );
+
+    renderLogin();
+
+    await user.type(screen.getByLabelText(/benutzername/i), 'admin');
+    await user.type(screen.getByLabelText(/passwort/i), 'secret');
+    await user.click(screen.getByRole('button', { name: /anmelden/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/alles in Ordnung/);
+    });
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/gesperrt/i);
+  });
+
+  it('meldet ein gesperrtes Konto nur mit ACCOUNT_LOCKED', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mockApi.post).mockRejectedValueOnce(
+      Object.assign(new Error('Account is temporarily locked'), {
+        status: 403,
+        code: 'ACCOUNT_LOCKED',
+      })
+    );
+
+    renderLogin();
+
+    await user.type(screen.getByLabelText(/benutzername/i), 'admin');
+    await user.type(screen.getByLabelText(/passwort/i), 'wrong');
+    await user.click(screen.getByRole('button', { name: /anmelden/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/gesperrt/);
+    });
+  });
+
+  it('bricht eine hängende Anmeldung nach der Frist ab und sagt es', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      vi.mocked(mockApi.post).mockImplementationOnce(
+        (_pfad: string, _body: unknown, opts?: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            opts?.signal?.addEventListener('abort', () =>
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+            );
+          })
+      );
+
+      renderLogin();
+
+      await user.type(screen.getByLabelText(/benutzername/i), 'admin');
+      await user.type(screen.getByLabelText(/passwort/i), 'secret');
+      await user.click(screen.getByRole('button', { name: /anmelden/i }));
+
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/nicht rechtzeitig/);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows platform name in the header', () => {
     renderLogin();
 

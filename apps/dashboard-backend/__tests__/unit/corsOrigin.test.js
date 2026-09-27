@@ -53,6 +53,35 @@ describe('isAllowedOrigin', () => {
     });
   });
 
+  // J34 (27.09.2026): unter https://arasul — dem DHCP-Namen, den der Router
+  // aufloest und der im Geraetezertifikat steht — war jede Anmeldung ein 403.
+  describe('the bare Netzname (MDNS_NAME)', () => {
+    it('allows the default Netzname arasul, any scheme/port, any case', () => {
+      expect(isAllowedOrigin('https://arasul')).toBe(true);
+      expect(isAllowedOrigin('http://arasul')).toBe(true);
+      expect(isAllowedOrigin('https://arasul:8443')).toBe(true);
+      expect(isAllowedOrigin('https://Arasul')).toBe(true);
+    });
+
+    it('follows a configured Netzname, with or without .local', () => {
+      expect(isAllowedOrigin('https://kanzlei', [], 'kanzlei')).toBe(true);
+      expect(isAllowedOrigin('https://kanzlei', [], 'kanzlei.local')).toBe(true);
+      expect(isAllowedOrigin('https://arasul', [], 'kanzlei')).toBe(false);
+    });
+
+    it('allows only that exact name — no prefix, no other dotless host', () => {
+      expect(isAllowedOrigin('https://arasulx')).toBe(false);
+      expect(isAllowedOrigin('https://arasul.evil.com')).toBe(false);
+      expect(isAllowedOrigin('https://evil')).toBe(false);
+      expect(isAllowedOrigin('https://arasul/pfad')).toBe(false);
+    });
+
+    it('ignores a Netzname that is not a plain host label', () => {
+      expect(isAllowedOrigin('https://a', [], '.*')).toBe(false);
+      expect(isAllowedOrigin('https://evil.com', [], 'evil.com')).toBe(false);
+    });
+  });
+
   describe('*.local mDNS hostnames', () => {
     it('allows <name>.local', () => {
       expect(isAllowedOrigin('https://arasul.local')).toBe(true);

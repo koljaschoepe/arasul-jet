@@ -52,6 +52,17 @@ All error responses follow this consistent structure:
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CSRF_INVALID` | CSRF token missing or mismatched on a state-changing request. Recoverable: fetch `GET /api/auth/csrf`, retry once (`useApi` does this automatically). Distinct from `FORBIDDEN` (a genuine permission denial that must **not** be retried). |
 
+**Narrower 403 codes** (since J34, 27.09.2026). A client dispatches on the code,
+never on the status alone: before J34 the login page read every 403 as a locked
+account, and a login refused by the CORS rule under `https://arasul` sent a
+person with a healthy account to the administrator.
+
+| Code                 | When                                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ACCOUNT_LOCKED`     | `POST /api/auth/login`: five failed passwords locked the account for 15 minutes (`record_login_attempt`). The only code that says „gesperrt". |
+| `ACCOUNT_DISABLED`   | `POST /api/auth/login`: the account is deactivated (`is_active = false`).                                                                     |
+| `ORIGIN_NOT_ALLOWED` | Any route: the request's `Origin` is not one of the device's addresses (`utils/corsOrigin.js`). Technical, says nothing about the account.    |
+
 ---
 
 ## HTTP Status Codes

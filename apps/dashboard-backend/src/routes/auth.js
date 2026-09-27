@@ -59,7 +59,8 @@ router.post(
     if (lockCheck.rows[0].locked) {
       logger.warn(`Login attempt for locked account: ${username} from ${ipAddress}`);
       throw new ForbiddenError(
-        'Account is temporarily locked due to too many failed login attempts'
+        'Account is temporarily locked due to too many failed login attempts',
+        'ACCOUNT_LOCKED'
       );
     }
 
@@ -92,7 +93,7 @@ router.post(
     // Check if user is active
     if (!user.is_active) {
       logger.warn(`Login attempt for inactive account: ${username} from ${ipAddress}`);
-      throw new ForbiddenError('Account is disabled');
+      throw new ForbiddenError('Account is disabled', 'ACCOUNT_DISABLED');
     }
 
     // Verify password
