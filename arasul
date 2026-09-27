@@ -1010,6 +1010,22 @@ init_kit_schluessel() {
     fi
 }
 
+# Was Compose mit den Profilen der `.env` kennt und nach den Schichten von
+# `start_services` noch nicht laeuft. Gefragt, nicht aufgezaehlt: eine zweite
+# Liste neben den Schichten liefe beim naechsten Profil auseinander.
+profil_dienste_ohne_schicht() {
+    local alle laeuft dienst aus=""
+    alle="$(docker compose config --services 2>/dev/null)" || { printf '%s\n' ''; return 0; }
+    laeuft=" $(docker compose ps --status running --services 2>/dev/null | tr '\n' ' ') "
+    for dienst in $alle; do
+        case "$laeuft" in
+            *" $dienst "*) ;;
+            *) aus="${aus:+$aus }$dienst" ;;
+        esac
+    done
+    printf '%s\n' "$aus"
+}
+
 # Start all services
 start_services() {
     log_info "Starting all services in deterministic order..."
@@ -1064,6 +1080,28 @@ start_services() {
     # Bootstrap wirklich steuert, kannte ihn nicht. Vier Orte, drei richtig:
     # deshalb haelt `scripts/test/dienste.py` sie ab jetzt aneinander.
     docker compose up -d self-healing-agent backup-service
+
+    # Layer 8: was die `.env` per Profil einschaltet (J35, 26.09.2026).
+    #
+    # KEINE Liste, sondern eine Frage an Compose, wie Phase 5 in
+    # `scripts/system/ordered-startup.sh`. Der Firmenordner traegt
+    # `profiles: [firmenordner]` und stand hier nicht: die Aktualisierung von
+    # 0.8.10 auf 0.8.11 am Orin nahm ihn mit `down --remove-orphans` weg, und
+    # der Bootstrap legte danach nur an, was er beim Namen kannte -- der
+    # Dateidienst der Firma war nach einem Update, das ein Kunde ohne
+    # Zuschauer einspielt, einfach weg. `config --services` nennt genau die
+    # Dienste, die `COMPOSE_PROFILES` der `.env` einschaltet.
+    local profil_dienste
+    profil_dienste="$(profil_dienste_ohne_schicht)"
+    if [ -n "$profil_dienste" ]; then
+        log_info "Starte, was die Profile einschalten: ${profil_dienste}"
+        # shellcheck disable=SC2086
+        docker compose up -d $profil_dienste
+        local dienst
+        for dienst in $profil_dienste; do
+            wait_for_healthy "$dienst" 180 || true
+        done
+    fi
 
     # Noch einmal: `up` legt jede Bind-Quelle an, die zwischendurch verschwunden
     # ist, und legt sie als root an.
