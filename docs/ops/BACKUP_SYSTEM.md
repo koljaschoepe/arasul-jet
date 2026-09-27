@@ -189,6 +189,41 @@ Quelle: `CONFIG_BACKUP_DIR` (Vorgabe `/arasul/konfiguration`, nur lesend
 eingehängt), Ausgabe `/backups/config/config_YYYYMMDD_HHMMSS.tar.gz`, Bericht
 `config_status`.
 
+### 4a. Firmenordner
+
+Die Dateien der Firma (J33), nur auf einem Gerät mit dem Profil
+`firmenordner`. Quelle: `FIRMENORDNER_BACKUP_DIR` (Vorgabe
+`/arasul/firmenordner`, die Ablage des Dateidienstes samt `.oc-nodes`),
+Ausgabe `/backups/firmenordner/firmenordner_YYYYMMDD_HHMMSS.tar.gz`, Bericht
+`firmenordner_status`.
+
+**Wer während der Sicherung schreibt, lässt sie nicht scheitern** (J35,
+27.09.2026). Im Alltag legt jemand genau dann eine Datei ab, wenn gesichert
+wird. GNU tar endet dann mit 1 („file changed as we read it", „File removed
+before we read it"), und bis J35 hieß jede Zahl außer 0 „Archiv ließ sich
+nicht anlegen": der Bericht stand auf `partial_failure`, der Healthcheck fiel,
+und am 27.09.2026 rollte deshalb ein Deploy zurück. Seither gilt für alle
+Ordner-Sicherungen:
+
+- tar 0 oder 1 → das Archiv wird gegengelesen (`tar -tzf`) und zählt;
+- tar 2 und mehr (fehlendes Recht, volle Platte) → Fehlschlag wie bisher;
+- was sich während des Laufs bewegt hat, steht im Bericht:
+  `firmenordner_geaendert` (Zahl) und `firmenordner_geaendert_dateien`
+  (höchstens hundert Pfade). Gefragt wird die **ctime** gegen einen Stempel
+  vor dem ersten Lesen, nicht die mtime — der Abgleichsklient setzt die mtime
+  auf die seines Rechners. Dazu kommen die Pfade, die tar verschwinden sah.
+
+Jede Datei, die vor dem Lauf da war und nicht angefasst wurde, ist vollständig
+im Archiv; eine Datei, die erst während des Laufs kam, vielleicht nicht — sie
+kommt mit der nächsten Sicherung. Gemessen mit
+`scripts/test/sicherung-waehrend-schreiben.sh` (CI, Guards).
+
+**Die Sicherungen gehören dem, dem `data/backups` gehört.** Der Dienst läuft
+als root; am Ende jedes Laufs gibt `backup.sh` alles unter `/backups` (außer
+dem Postgres-Volume `/backups/wal`) dem Eigentümer des Ordners zurück. Bis
+dahin gehörte die Sicherung, die der Dienst beim Start zieht — also mitten im
+Bootstrap einer Aktualisierung —, root.
+
 ### 5. Die Kopie außerhalb des Geräts
 
 Eine Sicherung, die auf derselben Platte liegt wie das Original, überlebt genau

@@ -11,7 +11,7 @@ cloud target) when one is mounted.
 | Property        | Value                                                                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Base image      | `alpine:3.19`                                                                                                                                                                              |
-| Tools installed | `postgresql16-client`, `docker-cli`, `gzip`, `tar`, `curl`, `bash`, `openssl`                                                                                                              |
+| Tools installed | `postgresql16-client`, `docker-cli`, `gzip`, `tar`, `curl`, `bash`, `openssl`, `findutils`, `jq`                                                                                           |
 | Compose entry   | [`compose/compose.monitoring.yaml`](../../compose/compose.monitoring.yaml) (build) + [`compose/compose.secrets.yaml`](../../compose/compose.secrets.yaml) (postgres-password secret mount) |
 | Schedule        | Cron-driven inside the container (see `entrypoint.sh`)                                                                                                                                     |
 | Backup target   | Mounted host volume — see `BACKUP_DIR` env var (defaults to `/home/arasul/arasul/arasul-jet/data/backups`)                                                                                 |

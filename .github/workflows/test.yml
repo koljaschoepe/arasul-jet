@@ -566,6 +566,12 @@ jobs:
       - name: Der Deploy-Rollback sagt die Wahrheit ueber sich
         run: bash scripts/test/rollback-meldung.sh
 
+      # J35, 27.09.2026: wer waehrend der Sicherung schreibt, liess tar mit 1
+      # enden, backup-service wurde krank und der Deploy von PR 801 rollte
+      # zurueck. Der Test stellt den Fall her und verlangt Gruen.
+      - name: Die Sicherung haelt Schreiben waehrend des Laufs aus
+        run: bash scripts/test/sicherung-waehrend-schreiben.sh
+
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh
 

@@ -11,7 +11,12 @@ RUN apk add --no-cache \
     # `openssl enc -aes-256-cbc`. Ohne dieses Paket griff encrypt_file still in
     # den Warnzweig und sicherte weiter im Klartext, waehrend der Bericht
     # "encrypted" meldete.
-    openssl
+    openssl \
+    # J35: `find -cnewer -printf` fuer die Liste der Dateien, die sich waehrend
+    # der Sicherung bewegt haben (busybox-find kennt beides nicht), und `jq`,
+    # damit ein Dateiname mit Anfuehrungszeichen den Bericht nicht zerbricht.
+    findutils \
+    jq
 
 # Backup volume mount inside the container — keep in sync with the volume
 # mount target in compose/compose.monitoring.yaml. The drill scripts default

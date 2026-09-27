@@ -30,6 +30,8 @@ export interface SicherungStatus {
     apps?: string | null;
     flows?: string | null;
     konfiguration?: string | null;
+    /** Was sich im Firmenordner während der Sicherung bewegt hat (J35). */
+    firmenordnerGeaendert?: { anzahl: number; dateien: string[] } | null;
   };
   /** Die letzte Kopie AUSSERHALB des Geräts. Leer, wenn es nie eine gab. */
   ausserhalb: {

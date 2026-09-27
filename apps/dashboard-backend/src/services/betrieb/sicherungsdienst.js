@@ -290,6 +290,21 @@ async function status() {
           // Konfiguration neu erzeugen. `null` heisst „dieses Geraet hat
           // keinen" -- das ist eine Auskunft und kein Fehlwert.
           firmenordner: bericht.firmenordner_status ?? null,
+          // Was sich im Firmenordner WAEHREND der Sicherung bewegt hat (J35,
+          // 27.09.2026). Das ist kein Fehler -- jemand hat eine Datei
+          // abgelegt, waehrend die Nacht sicherte --, aber eine Datei, die
+          // erst waehrend des Laufs kam, steht vielleicht nicht im Archiv, und
+          // das soll man sehen statt vermuten. `null` bei einem Bericht von
+          // vor J35.
+          firmenordnerGeaendert:
+            typeof bericht.firmenordner_geaendert === 'number'
+              ? {
+                  anzahl: bericht.firmenordner_geaendert,
+                  dateien: Array.isArray(bericht.firmenordner_geaendert_dateien)
+                    ? bericht.firmenordner_geaendert_dateien
+                    : [],
+                }
+              : null,
         }
       : { status: 'fehlt', zeitpunkt: null, alterStunden: null, veraltet: true },
     // Leer, wenn noch nie eine Kopie ausserhalb entstanden ist.
