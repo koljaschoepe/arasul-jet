@@ -85,7 +85,7 @@ export function PapierkorbDialog({ fuer, onSchliessen }: Props) {
       <Dialogform
         offen={fuer !== null}
         beiSchliessen={schliessen}
-        titel={fuer ? `Papierkorb von ${weg}` : 'Papierkorb'}
+        titel={fuer ? `Papierkorb von „${fuer.name}“` : 'Papierkorb'}
         groesse="mittel"
         fuss={
           <div className="flex w-full flex-wrap justify-end gap-3">
@@ -200,7 +200,9 @@ export function PapierkorbDialog({ fuer, onSchliessen }: Props) {
       <Bestaetigung
         offen={leerenFragen}
         beiSchliessen={() => setLeerenFragen(false)}
-        beiBestaetigen={() => tu('leeren', null, `Der Papierkorb von ${weg} ist leer.`)}
+        beiBestaetigen={() =>
+          tu('leeren', null, `Der Papierkorb von „${fuer?.name ?? weg}“ ist leer.`)
+        }
         titel="Papierkorb leeren?"
         frage={`${eintraegeWort(liste.length)} verschwinden endgültig vom Gerät. Zurück kommen sie nur aus einer Sicherung, die älter ist als jetzt.`}
         jaText="Endgültig leeren"

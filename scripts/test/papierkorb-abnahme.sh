@@ -51,6 +51,9 @@ pruefe() {
   fi
 }
 ja_nein() { if [ "$1" = "$2" ]; then echo ja; else echo nein; fi; }
+# Als Funktion und nicht als `case` in `$(...)`: die Bash 3.2 von macOS liest
+# das `)` des Musters dort als Ende der Ersetzung.
+enthaelt() { case "$1" in *"$2"*) echo ja ;; *) echo nein ;; esac; }
 
 RUMPF="$(mktemp)"
 trap 'rm -f "$RUMPF"' EXIT
@@ -90,6 +93,17 @@ dav() {
     curl -sk -K - -o "$RUMPF" -w '%{http_code}' --max-time 60 -X "$verb" "$@" "$DIENST$weg"
 }
 
+# Eine Datei mit Inhalt hochladen. Der Inhalt geht ueber eine Datei und nicht
+# ueber STDIN: dort steht schon die Anmeldung (`-K -`), und curl liest STDIN
+# nur einmal -- die Datei kaeme leer an.
+hochladen() {
+  local weg="$1" inhalt="$2" datei
+  datei="$(mktemp)"
+  printf '%s\n' "$inhalt" > "$datei"
+  dav PUT "$weg" --data-binary "@$datei"
+  rm -f "$datei"
+}
+
 # Wie viele Eintraege der Papierkorb eines Raums im PROPFIND traegt (ohne ihn selbst).
 papierkorb_zahl() {
   dav PROPFIND "/dav/spaces/trash-bin/$RAUM_URL" -H 'Depth: 1' > /dev/null
@@ -121,12 +135,19 @@ pruefe "adresse folgt dem Namen dieses Laufs ($AUFRUFER_HOST)" \
   "$(python3 -c 'import sys,urllib.parse; print("ja" if urllib.parse.urlsplit(sys.argv[1]).hostname==sys.argv[2] else "nein")' "$ADRESSE" "$AUFRUFER_HOST")" \
   "$ADRESSE"
 pruefe "adressen nennt den mDNS-Namen" \
-  "$(case "$ADRESSEN" in *'.local:'*) echo ja ;; *) echo nein ;; esac)" "$ADRESSEN"
+  "$(enthaelt "$ADRESSEN" '.local:')" "$ADRESSEN"
 for a in $(python3 -c 'import sys,json; print(" ".join(json.loads(sys.argv[1] or "[]")))' "$ADRESSEN"); do
   code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 -X PROPFIND "$a/dav/spaces/")
   # 401 heisst: der Dateidienst selbst hat geantwortet (Traefik kennt auf 8443
   # nur ihn). 000 heisst: der Name loest nicht auf oder nichts antwortet.
-  pruefe "von hier erreichbar: $a" "$(ja_nein "$code" 401)" "$code"
+  # Die ERSTE muss gehen -- sie ist die, die das Kit nimmt. Die uebrigen sind
+  # eine Auskunft: ohne Tailscale loest `arasul` womoeglich nicht auf, und
+  # genau deshalb stehen sie daneben.
+  if [ "$a" = "$ADRESSE" ]; then
+    pruefe "die genannte Adresse ist von hier erreichbar: $a" "$(ja_nein "$code" 401)" "$code"
+  else
+    printf 'info   daneben genannt: %s  (%s)\n' "$a" "$code"
+  fi
 done
 DIENST="${ARASUL_FIRMENORDNER:-$ADRESSE}"
 
@@ -158,12 +179,12 @@ pruefe "Papierkorb vorher ohne fremde Eintraege" ja "PROPFIND 0"
 # Drei Dateien und ein Ordner mit einer Datei, alle mit Stempel, alle geloescht.
 N=0
 for i in 1 2 3; do
-  code=$(printf 'Probe %s\n' "$STEMPEL" | dav PUT "/dav/spaces/$RAUM_URL/$STEMPEL-$i.txt" --data-binary @-)
+  code=$(hochladen "/dav/spaces/$RAUM_URL/$STEMPEL-$i.txt" "Probe $STEMPEL")
   pruefe "PUT $STEMPEL-$i.txt als $ARASUL_BENUTZER" "$(ja_nein "$code" 201)" "$code"
 done
 code=$(dav MKCOL "/dav/spaces/$RAUM_URL/$STEMPEL-ordner")
 pruefe "MKCOL $STEMPEL-ordner" "$(ja_nein "$code" 201)" "$code"
-code=$(printf 'drin\n' | dav PUT "/dav/spaces/$RAUM_URL/$STEMPEL-ordner/drin.txt" --data-binary @-)
+code=$(hochladen "/dav/spaces/$RAUM_URL/$STEMPEL-ordner/drin.txt" drin)
 for w in "$STEMPEL-1.txt" "$STEMPEL-2.txt" "$STEMPEL-3.txt" "$STEMPEL-ordner"; do
   code=$(dav DELETE "/dav/spaces/$RAUM_URL/$w")
   [ "$code" = "204" ] && N=$((N + 1))
@@ -198,7 +219,7 @@ pruefe "die Datei liegt wieder an ihrer Stelle" "$(ja_nein "$code" 200)" "$code"
 code=$(dav DELETE "/dav/spaces/$RAUM_URL/$STEMPEL-1.txt")
 
 # Ueberschrieben wird nie: liegt am alten Ort etwas, ist es 409.
-code=$(printf 'neu\n' | dav PUT "/dav/spaces/$RAUM_URL/$STEMPEL-2.txt" --data-binary @-)
+code=$(hochladen "/dav/spaces/$RAUM_URL/$STEMPEL-2.txt" neu)
 ruf POST "/api/firmenordner/ordner/$WURZEL_ID/papierkorb/$E2/wiederherstellen" '{}'
 pruefe "Zurueckholen auf einen besetzten Ort ist 409" "$(ja_nein "$CODE" 409)" "$CODE $(feld error.message)"
 code=$(dav DELETE "/dav/spaces/$RAUM_URL/$STEMPEL-2.txt")
@@ -229,10 +250,38 @@ if [ -n "${ARASUL_GERAET:-}" ]; then
   ZEILEN="$(ssh -o BatchMode=yes "$ARASUL_GERAET" \
     "docker exec postgres-db psql -U arasul -d arasul_db -At -c \"SELECT action FROM audit_logs WHERE action LIKE 'firmenordner_papierkorb_%' AND timestamp >= '$BEGINN' ORDER BY timestamp\"" 2>/dev/null)"
   for a in firmenordner_papierkorb_wiederhergestellt firmenordner_papierkorb_eintrag_entfernt firmenordner_papierkorb_geleert; do
-    pruefe "audit_logs: $a" "$(case "$ZEILEN" in *"$a"*) echo ja ;; *) echo nein ;; esac)"
+    pruefe "audit_logs: $a" "$(enthaelt "$ZEILEN" "$a")"
   done
 else
   echo "(ohne ARASUL_GERAET kein Blick in audit_logs)"
+fi
+
+# --- 4. Im Browser, am Handy und am Rechner ------------------------------------
+# Nur mit Playwright; ohne wird der Abschnitt uebersprungen und das gesagt.
+echo "-- 4. Im Browser"
+if node -e 'require.resolve("playwright")' 2>/dev/null; then
+  for i in 1 2; do
+    code=$(hochladen "/dav/spaces/$RAUM_URL/$STEMPEL-bild-$i.txt" "Bild $STEMPEL")
+    code=$(dav DELETE "/dav/spaces/$RAUM_URL/$STEMPEL-bild-$i.txt")
+  done
+  VOR_BILD="$(papierkorb_zahl)"
+  # shellcheck disable=SC2034  # von `arasul_sitzung_bauen` aus der Umgebung gelesen
+  ARASUL_SITZUNG="${TMPDIR:-/tmp}/arasul-j34-papierkorb.json"
+  arasul_sitzung_bauen "$TOKEN"
+  if ARASUL_URL="$BASIS" ARASUL_SITZUNG_ADMIN="$ARASUL_SITZUNG" ARASUL_ANZAHL="$VOR_BILD" \
+    ARASUL_WURZEL_KENNUNG="$(python3 -c 'import sys,json
+d=json.load(open(sys.argv[1]))
+print(next(o["kennung"] for o in d["data"] if o.get("art")=="wurzel"))' <(curl -sk -H "authorization: Bearer $TOKEN" "$BASIS/api/firmenordner/ordner"))" \
+    node "$WURZEL/scripts/test/papierkorb-bilder.mjs"; then
+    pruefe "Browser: Zahl, Dialog, Rueckfrage, geleert" ja
+  else
+    pruefe "Browser: Zahl, Dialog, Rueckfrage, geleert" nein
+  fi
+  rm -f "$ARASUL_SITZUNG"
+  NACH_BILD="$(papierkorb_zahl)"
+  pruefe "PROPFIND nach dem Leeren im Browser: 0" "$(ja_nein "$NACH_BILD" 0)" "vorher $VOR_BILD, nachher $NACH_BILD"
+else
+  echo "(ohne Playwright keine Bilder)"
 fi
 
 echo "== $gruen gruen, $rot rot"
