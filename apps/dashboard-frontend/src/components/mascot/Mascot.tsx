@@ -6,9 +6,16 @@
  *   - state="idle"     → seltenes Blinzeln, die KI ist bereit.
  *   - state="thinking" → schnelleres Zwinkern + sanftes Wippen, die KI arbeitet.
  * Respektiert `prefers-reduced-motion` (dann statisches Idle-Bild).
+ *
+ * `?inline`: beide Frames stehen als data:-URI im Bündel und sind da, sobald
+ * die Seite steht. Als eigene Datei (288 px, 51 kB) lud das Idle-Bild nach dem
+ * ersten Malen und baute sich zeilenweise auf — auf der Anmeldung war auf den
+ * Bildern vom 27.09.2026 nur die obere Kante des Vogels zu sehen. Die Frames
+ * sind deshalb 96 px (doppelt so groß wie die größte Anzeige, h-12) und
+ * je unter 5 kB; die CSP erlaubt `img-src data:`.
  */
-import idleUrl from '@/assets/mascot/idle.png';
-import winkUrl from '@/assets/mascot/wink.png';
+import idleUrl from '@/assets/mascot/idle.png?inline';
+import winkUrl from '@/assets/mascot/wink.png?inline';
 import { cn } from '@marken';
 
 type MascotState = 'idle' | 'thinking';
