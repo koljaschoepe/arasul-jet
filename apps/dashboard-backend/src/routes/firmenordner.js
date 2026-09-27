@@ -9,6 +9,11 @@
  *   GET    /api/firmenordner/rechte                   alle Rechte (Administrator)
  *   POST   /api/firmenordner/rechte                   eins vergeben (Administrator)
  *   DELETE /api/firmenordner/ordner/:id               wegwerfen, samt Inhalt
+ *   GET    /api/firmenordner/papierkorb               wie viel in welchem liegt
+ *   GET    /api/firmenordner/ordner/:id/papierkorb    was darin liegt
+ *   DELETE /api/firmenordner/ordner/:id/papierkorb    ihn leeren, endgueltig
+ *   POST   /api/firmenordner/ordner/:id/papierkorb/:eintrag/wiederherstellen
+ *   DELETE /api/firmenordner/ordner/:id/papierkorb/:eintrag   einen endgueltig
  *   DELETE /api/firmenordner/rechte/:ordnerId/:benutzerId   zuruecknehmen
  *   POST   /api/firmenordner/abgleich                 nachholen, was offen ist
  *
@@ -38,6 +43,7 @@ const {
   OrdnerBody,
   OrdnerParams,
   OrdnerLoeschenQuery,
+  PapierkorbParams,
   RechtBody,
   RechtParams,
   RechteQuery,
@@ -45,6 +51,9 @@ const {
 const verwaltung = require('../services/firmenordner/ordnerVerwaltung');
 const { logSecurityEvent } = require('../utils/auditLog');
 const { ServiceUnavailableError, ValidationError } = require('../utils/errors');
+
+/** Wie eine Route den Namen erfaehrt, unter dem der Aufrufer das Geraet erreicht hat. */
+const host = req => ({ host: req.hostname || null });
 
 /**
  * Was am Abgleich vorbeigeht, und zwar lautlos.
@@ -104,7 +113,7 @@ router.get(
   ausweisOderSitzung,
   requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
-    const lage = await verwaltung.zustand();
+    const lage = await verwaltung.zustand(host(req));
     if (!lage.an) {
       throw new ServiceUnavailableError(
         'Auf diesem Gerät läuft kein Firmenordner. Ihr Administrator kann ihn einschalten lassen.'
@@ -114,6 +123,7 @@ router.get(
     res.json({
       data: {
         adresse: lage.adresse,
+        adressen: lage.adressen,
         erreichbar: lage.erreichbar,
         benutzer: req.user.username,
         ordner,
@@ -168,7 +178,11 @@ router.get(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const data = await verwaltung.listeOrdner();
-    res.json({ data, zustand: await verwaltung.zustand(), timestamp: new Date().toISOString() });
+    res.json({
+      data,
+      zustand: await verwaltung.zustand(host(req)),
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 
@@ -263,6 +277,104 @@ router.delete(
     logSecurityEvent({
       userId: req.user.id,
       action: 'firmenordner_ordner_entfernt',
+      details: data,
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * Der Papierkorb (Auftrag papierkorb-und-adresse-des-firmenordners,
+ * 27.09.2026, J34).
+ *
+ * WAS VERSEHENTLICH IN EINEN ORDNER GING, NIMMT DER ADMINISTRATOR SELBST
+ * WIEDER HERAUS. Im Dateidienst ist er nur Editor, und ein Editor darf den
+ * Papierkorb nicht leeren (Generalprobe 27.09.2026: 38-mal `403`) -- also
+ * tut es das Konto des Geraets fuer ihn, und diese Wege entscheiden, wer
+ * darf: Administratoren, sonst niemand. Jeder Handgriff, der etwas
+ * veraendert, steht im Audit-Protokoll mit Ordner und Eintrag.
+ *
+ * Ein Papierkorb gehoert zu einem Hauptordner oder Bereich; ein Projekt hat
+ * keinen eigenen (`400` mit Satz).
+ */
+router.get(
+  '/papierkorb',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const data = await verwaltung.papierkorbUebersicht();
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+router.get(
+  '/ordner/:id/papierkorb',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(OrdnerParams),
+  asyncHandler(async (req, res) => {
+    const data = await verwaltung.papierkorbVon(req.params.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * DELETE /api/firmenordner/ordner/:id/papierkorb — leeren, endgueltig.
+ *
+ * Darf lange dauern wie das Wegwerfen (am Orin lagen 700 MB darin), und
+ * setzt deshalb dieselbe Frist auf die eigene Antwort.
+ */
+router.delete(
+  '/ordner/:id/papierkorb',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(OrdnerParams),
+  asyncHandler(async (req, res) => {
+    res.setTimeout(verwaltung.ZEITGRENZE_LOESCHEN_MS + 30000);
+    const data = await verwaltung.leerePapierkorb(req.params.id);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'firmenordner_papierkorb_geleert',
+      details: data,
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+router.post(
+  '/ordner/:id/papierkorb/:eintrag/wiederherstellen',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(PapierkorbParams),
+  asyncHandler(async (req, res) => {
+    res.setTimeout(verwaltung.ZEITGRENZE_LOESCHEN_MS + 30000);
+    const data = await verwaltung.stelleAusPapierkorbWiederHer(req.params.id, req.params.eintrag);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'firmenordner_papierkorb_wiederhergestellt',
+      details: data,
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+router.delete(
+  '/ordner/:id/papierkorb/:eintrag',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(PapierkorbParams),
+  asyncHandler(async (req, res) => {
+    res.setTimeout(verwaltung.ZEITGRENZE_LOESCHEN_MS + 30000);
+    const data = await verwaltung.entferneAusPapierkorb(req.params.id, req.params.eintrag);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'firmenordner_papierkorb_eintrag_entfernt',
       details: data,
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
