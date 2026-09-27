@@ -195,6 +195,12 @@ export function Sicherung() {
                   letzte?.alterStunden != null
                     ? `vor ${letzte.alterStunden === 1 ? '1 Stunde' : `${formatZahl(letzte.alterStunden)} Stunden`}${letzte.groesse ? `, ${duGroesseLesbar(letzte.groesse)}` : ''}${
                         letzte.verschluesselt ? ', verschlüsselt' : ''
+                      }${
+                        letzte.firmenordnerGeaendert?.anzahl
+                          ? `; ${formatZahl(letzte.firmenordnerGeaendert.anzahl)} ${
+                              letzte.firmenordnerGeaendert.anzahl === 1 ? 'Datei' : 'Dateien'
+                            } im Firmenordner während der Sicherung geändert`
+                          : ''
                       }`
                     : 'Dieses Gerät hat noch nie gesichert.'
                 }

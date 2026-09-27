@@ -278,6 +278,17 @@ run_rollback_meldung_check() {
   fi
 }
 
+# Wer waehrend der Sicherung schreibt, liess sie scheitern (J35, 27.09.2026).
+run_sicherung_schreiben_check() {
+  echo ""
+  echo "-> Pruefe, ob die Sicherung Schreiben waehrend des Laufs aushaelt..."
+  if bash "${PROJECT_ROOT}/scripts/test/sicherung-waehrend-schreiben.sh"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_werksreset_tabellen_check() {
   echo ""
   echo "-> Pruefe, ob jede Tabelle im Werksreset eingeordnet ist..."
@@ -630,6 +641,7 @@ run_datenordner_check
 run_werksreset_tabellen_check
 run_zustand_check
 run_rollback_meldung_check
+run_sicherung_schreiben_check
 run_pfadfilter_check
 run_ci_summary_check
 run_routenregeln_check

@@ -221,13 +221,37 @@ fi
 # mit einem Eintrag, und genau das ist die richtige Antwort auf "es gibt hier
 # nichts": naechste Nacht steht vielleicht etwas drin.
 #
-# Setzt $ARCHIV_STATUS auf true | false | skipped.
+# WER WAEHREND DES LAUFS SCHREIBT, LAESST DIE SICHERUNG NICHT SCHEITERN (J35,
+# 27.09.2026). Am Orin schrieb der Abgleich eines Rechners knapp tausend Dateien
+# in den Firmenordner, waehrend `backup-service` neu startete und sicherte.
+# GNU tar endet dann mit 1 ("file changed as we read it", "File removed before
+# we read it") -- das Archiv ist trotzdem vollstaendig fuer alles, was sich
+# nicht bewegt hat. Bis dahin hiess jede Zahl ausser 0 hier "Archiv liess sich
+# nicht anlegen", der Bericht stand auf `partial_failure`, der Healthcheck fiel
+# und der Deploy von PR 801 rollte zurueck. Im Alltag ist genau das der
+# Normalfall: jemand legt eine Datei ab, waehrend die Nacht sichert.
+# Deshalb: 1 ist "es hat sich etwas bewegt", 2 und mehr bleiben ein Fehlschlag
+# (fehlendes Recht, volle Platte, kaputte Quelle), und in beiden Faellen wird
+# das Archiv danach gegengelesen. WAS sich bewegt hat, steht im Bericht
+# (`<name>_geaendert`, `<name>_geaendert_dateien`) -- eine Datei, die erst
+# waehrend des Laufs kam, ist vielleicht nicht im Archiv, und das muss man
+# sehen koennen, statt es zu vermuten.
+#
+# Gefragt wird nach der CTIME und nicht nach der mtime: der Abgleichsklient
+# setzt die mtime einer Datei auf die seines Rechners, eine gerade abgelegte
+# Datei kann also "von gestern" sein. Die ctime setzt nur der Kern.
+#
+# Setzt $ARCHIV_STATUS auf true | false | skipped und $ARCHIV_GEAENDERT auf die
+# Liste der Pfade (relativ zur Quelle, eine Zeile je Pfad), die sich waehrend
+# des Laufs bewegt haben.
 ARCHIV_STATUS=skipped
+ARCHIV_GEAENDERT=""
 sichere_ordner() {
     local name="$1" quelle="$2"
     shift 2
     local ziel="/backups/${name}/${name}_${TIMESTAMP}.tar.gz"
     ARCHIV_STATUS=skipped
+    ARCHIV_GEAENDERT=""
 
     if [ ! -d "$quelle" ]; then
         echo "[$TIMESTAMP] [WARNING] ${name}: ${quelle} nicht eingehaengt — uebersprungen"
@@ -235,13 +259,43 @@ sichere_ordner() {
     fi
 
     mkdir -p "/backups/${name}" "/backups/${name}/weekly"
+
+    # Der Stempel VOR dem ersten Lesen: alles, dessen ctime danach liegt, hat
+    # sich waehrend des Laufs bewegt.
+    local stempel meldungen rc=0
+    stempel=$(mktemp)
+    meldungen=$(mktemp)
+    tar -czf "$ziel" -C "$quelle" "$@" . 2>"$meldungen" || rc=$?
+
+    if [ "$rc" -le 1 ]; then
+        # Was waehrend des Laufs kam oder sich aenderte (find), und was tar
+        # verschwinden sah (seine Meldungen) -- das Zweite findet `find` nicht
+        # mehr, weil es nicht mehr da ist.
+        ARCHIV_GEAENDERT=$(
+            {
+                find "$quelle" -mindepth 1 -type f -cnewer "$stempel" -printf './%P\n' 2>/dev/null || true
+                sed -nE 's/^tar: (.*): (file changed as we read it|File removed before we read it|file shrank by .*)$/\1/p' "$meldungen"
+            } | sort -u
+        )
+    fi
+    if [ "$rc" -gt 1 ]; then
+        sed "s/^/[$TIMESTAMP] ${name}: /" "$meldungen" | head -20
+    fi
+    rm -f "$stempel" "$meldungen"
+
     # Erst packen, dann GEGENLESEN. Ein `tar`, das ohne Fehler zurueckkommt,
     # sagt nichts darueber, ob sich das Archiv wieder oeffnen laesst.
-    if tar -czf "$ziel" -C "$quelle" "$@" . 2>/dev/null \
-       && tar -tzf "$ziel" >/dev/null 2>&1; then
-        local bytes
+    if [ "$rc" -le 1 ] && tar -tzf "$ziel" >/dev/null 2>&1; then
+        local bytes anzahl=0
         bytes=$(stat -c%s "$ziel" 2>/dev/null || echo "0")
-        echo "[$TIMESTAMP] ${name}: gesichert und gegengelesen (${bytes} Bytes)"
+        if [ -n "$ARCHIV_GEAENDERT" ]; then
+            anzahl=$(printf '%s\n' "$ARCHIV_GEAENDERT" | wc -l)
+        fi
+        if [ "$rc" = 1 ] || [ "$anzahl" -gt 0 ]; then
+            echo "[$TIMESTAMP] ${name}: gesichert und gegengelesen (${bytes} Bytes, tar ${rc}), ${anzahl} Datei(en) haben sich waehrend des Laufs geaendert"
+        else
+            echo "[$TIMESTAMP] ${name}: gesichert und gegengelesen (${bytes} Bytes)"
+        fi
         encrypt_file "$ziel"
         ln -sf "$(basename "$ziel")" "/backups/${name}/${name}_latest.tar.gz"
         [ "$DAY_OF_WEEK" = "7" ] && cp "$ziel" "/backups/${name}/weekly/"
@@ -253,7 +307,7 @@ sichere_ordner() {
         return 0
     fi
 
-    echo "[$TIMESTAMP] [ERROR] ${name}: Archiv liess sich nicht anlegen oder nicht wieder oeffnen"
+    echo "[$TIMESTAMP] [ERROR] ${name}: Archiv liess sich nicht anlegen oder nicht wieder oeffnen (tar ${rc})"
     rm -f "$ziel"
     ARCHIV_STATUS=false
     BACKUP_OK=false
@@ -282,6 +336,15 @@ FLOWS_OK="$ARCHIV_STATUS"
 FIRMENORDNER_SRC=${FIRMENORDNER_BACKUP_DIR:-/arasul/firmenordner}
 sichere_ordner firmenordner "$FIRMENORDNER_SRC" || true
 FIRMENORDNER_OK="$ARCHIV_STATUS"
+# Was sich waehrend des Laufs bewegt hat, fuer den Bericht: die Zahl und
+# hoechstens hundert Pfade. Tausend Pfade machten den Bericht nicht klueger,
+# nur die Seite langsamer, die ihn liest; die Zahl sagt, wie viele es waren.
+FIRMENORDNER_GEAENDERT=0
+FIRMENORDNER_GEAENDERT_DATEIEN='[]'
+if [ -n "$ARCHIV_GEAENDERT" ]; then
+    FIRMENORDNER_GEAENDERT=$(printf '%s\n' "$ARCHIV_GEAENDERT" | wc -l)
+    FIRMENORDNER_GEAENDERT_DATEIEN=$(printf '%s\n' "$ARCHIV_GEAENDERT" | head -n 100 | jq -R . | jq -sc .)
+fi
 
 # Die Konfiguration: `.env`, Zertifikate, Traefik, Geheimnisse. Ohne sie faehrt
 # auf einem leeren Geraet nichts hoch.
@@ -534,6 +597,8 @@ cat > /backups/backup_report.json << EOF
   "flows_backups": $(zaehle /backups/flows '*.tar.gz'),
   "firmenordner_status": "$FIRMENORDNER_OK",
   "firmenordner_backups": $(zaehle /backups/firmenordner '*.tar.gz'),
+  "firmenordner_geaendert": $FIRMENORDNER_GEAENDERT,
+  "firmenordner_geaendert_dateien": $FIRMENORDNER_GEAENDERT_DATEIEN,
   "config_status": "$CONFIG_OK",
   "config_backups": $(zaehle /backups/config '*.tar.gz'),
   "extern_status": "$EXTERN_STATUS",
@@ -550,6 +615,21 @@ cat > /backups/backup_report.json << EOF
   "total_size": "$TOTAL_SIZE"
 }
 EOF
+# DIE SICHERUNGEN GEHOEREN DEM, DEM `data/backups` GEHOERT (J35). Dieser
+# Dienst laeuft als root, und alles, was er anlegt, gehoerte bis dahin root --
+# auch die Sicherung, die er beim Start zieht, also mitten im Bootstrap einer
+# Aktualisierung, NACH `gib_data_dem_benutzer` in `arasul`. Der Mensch, der das
+# Geraet installiert hat, konnte seine eigenen Sicherungen danach nicht
+# wegraeumen oder mitnehmen. Gefragt wird der Eigentuemer des Ordners selbst:
+# gehoert er root (ein Geraet ohne Menschen dahinter), aendert sich nichts.
+# `/backups/wal` bleibt draussen -- das ist das Volume von Postgres, und dessen
+# Dateien gehoeren Postgres.
+BACKUP_EIGNER=$(stat -c '%u:%g' /backups 2>/dev/null || echo "0:0")
+if [ "$BACKUP_EIGNER" != "0:0" ]; then
+    find /backups -path /backups/wal -prune -o ! -user "${BACKUP_EIGNER%%:*}" \
+        -exec chown -h "$BACKUP_EIGNER" {} + 2>/dev/null || true
+fi
+
 if [ "$BACKUP_OK" = true ]; then
     echo "[$TIMESTAMP] Backup completed successfully (total: ${TOTAL_SIZE})"
 else

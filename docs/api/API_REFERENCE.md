@@ -2054,7 +2054,9 @@ bekommt weder Bind-Mount noch benanntes Volume
       "groesse": "4.9G",
       "apps": "true",
       "flows": "true",
-      "konfiguration": "true"
+      "konfiguration": "true",
+      "firmenordner": "true",
+      "firmenordnerGeaendert": { "anzahl": 2, "dateien": ["./Angebote/neu.pdf", "./Regeln.md"] }
     },
     "ausserhalb": {
       "vorhanden": true,
@@ -2071,6 +2073,13 @@ bekommt weder Bind-Mount noch benanntes Volume
   "timestamp": "2026-08-27T10:00:00.000Z"
 }
 ```
+
+`firmenordnerGeaendert` nennt, was sich im Firmenordner **während** der
+Sicherung bewegt hat (J35): die Zahl und höchstens hundert Pfade relativ zum
+Firmenordner, `null` bei einem Bericht von vor J35. Das ist kein Fehlschlag —
+jemand hat eine Datei abgelegt, während gesichert wurde, und `status` bleibt
+`completed`. Eine Datei, die erst während des Laufs kam, steht aber vielleicht
+nicht im Archiv; alles, was vorher da war und unberührt blieb, schon.
 
 `ausserhalb` beantwortet die Frage „wann lag zuletzt eine Kopie **außerhalb**
 des Geräts" — auf einem USB-Datenträger oder einer SMB-Freigabe im Kundennetz.
