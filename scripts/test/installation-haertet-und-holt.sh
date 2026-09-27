@@ -229,16 +229,18 @@ exec "$@"
 SH
 cat > "$H/bin/sshd" <<'SH'
 #!/bin/bash
-[ "$1" = -T ] && echo "port $(cat "$ATTRAPPE/port")"
+[ "$1" = -T ] && { echo "port $(cat "$ATTRAPPE/port")"; echo "passwordauthentication yes"; }
 SH
 chmod +x "$H/bin/"*
 mkdir -p "$H/z"; echo 22 > "$H/z/port"
 cat > "$H/scripts/security/harden-ssh.sh" <<'SH'
 echo "[3/7] Setting SSH port to $2..."
 echo "$2" > "$ATTRAPPE/port"
+echo "ssh" >> "$ATTRAPPE/angefasst"
 SH
 cat > "$H/scripts/security/setup-firewall.sh" <<'SH'
 echo "ERROR: ufw kaputt"
+echo "ufw" >> "$ATTRAPPE/angefasst"
 exit 1
 SH
 
@@ -262,9 +264,56 @@ pruefe 'haerten: eine gescheiterte Firewall nennt ihren Grund' \
   "$(ja grep -q 'Firewall-Setup fehlgeschlagen: ERROR: ufw kaputt' <<<"$aus")"
 pruefe 'haerten: die Firewall bekommt den Port NACH der Haertung' \
   "$(ja grep -q 'SSH 2222' <<<"$aus")"
+pruefe 'haerten: der Satz der Erstinstallation nennt den Wechsel' \
+  "$(ja grep -q '^SSH gehaertet: Port 22 -> 2222' "$H/config/ssh-satz")" "$(cat "$H/config/ssh-satz" 2>/dev/null)"
 
 aus=$(cd "$H" && NODE_ENV=development ARASUL_SUDO="$H/bin/sudo-ja" bash scripts/security/haerten.sh 2>&1)
 pruefe 'haerten: ausserhalb von production wird es gesagt' "$(ja grep -q 'uebersprungen: NODE_ENV' <<<"$aus")"
+
+# Eine Aktualisierung haertet nicht nach (J35, 27.09.2026): am Orin legte das
+# Update auf 0.8.11 SSH ungefragt auf 2222. SSH auf 22, Passwort erlaubt:
+rm -f "$H/z/angefasst" "$H/config/ssh-satz"; echo 22 > "$H/z/port"
+aus=$(cd "$H" && ARASUL_SUDO="$H/bin/sudo-ja" ARASUL_SSHD="$H/bin/sshd" ATTRAPPE="$H/z" \
+  bash scripts/security/haerten.sh --aktualisierung 2>&1); rc=$?
+pruefe 'haerten --aktualisierung: fasst weder SSH noch Firewall an' \
+  "$(ja [ ! -e "$H/z/angefasst" ] && [ "$(cat "$H/z/port")" = 22 ])" "$aus"
+pruefe 'haerten --aktualisierung: sagt es in einem Satz, mit Port und Anmeldung' \
+  "$(ja grep -q '^SSH bleibt, wie es ist (Port 22, Anmeldung mit Passwort erlaubt): eine Aktualisierung haertet nicht nach' "$H/config/ssh-satz")" \
+  "$(cat "$H/config/ssh-satz" 2>/dev/null)"
+pruefe 'haerten --aktualisierung: meldet den wirklichen Port (22) fuer das Kit' \
+  "$(ja [ "$(grep -x 'ARASUL_SSH_PORT=[0-9]*' <<<"$aus")" = ARASUL_SSH_PORT=22 ] && grep -qx 22 "$H/config/ssh-port")"
+pruefe 'haerten --aktualisierung: keine Warnung ueber einen Portwechsel' \
+  "$(ja bash -c '! grep -q "SSH-Port geaendert" <<<"$1"' _ "$aus")"
+
+rm -f "$H/z/angefasst"
+aus=$(cd "$H" && ARASUL_HAERTEN=ja ARASUL_SUDO="$H/bin/sudo-ja" ARASUL_SSHD="$H/bin/sshd" ATTRAPPE="$H/z" \
+  bash scripts/security/haerten.sh --aktualisierung 2>&1)
+pruefe 'haerten --aktualisierung mit ARASUL_HAERTEN=ja: haertet ausdruecklich' \
+  "$(ja grep -qx ssh "$H/z/angefasst")" "$aus"
+
+rm -f "$H/z/angefasst"; echo 22 > "$H/z/port"
+aus=$(cd "$H" && ENABLE_SSH_HARDENING=false ENABLE_FIREWALL=false ARASUL_SUDO="$H/bin/sudo-ja" \
+  ARASUL_SSHD="$H/bin/sshd" ATTRAPPE="$H/z" bash scripts/security/haerten.sh 2>&1)
+pruefe 'haerten abgewaehlt (--ssh-behalten/--keep-ssh): fasst nichts an und sagt warum' \
+  "$(ja [ ! -e "$H/z/angefasst" ] && grep -q 'die Haertung ist abgewaehlt' "$H/config/ssh-satz")" "$aus"
+
+# install.sh kennt die Schalter, ./arasul reicht --aktualisierung weiter, und
+# die Schlussmeldung zeigt den Satz.
+pruefe 'install.sh: --ssh-behalten, --keep-ssh und --haerten' \
+  "$(ja bash -c "grep -q -- '--ssh-behalten|--keep-ssh)' '$WURZEL/install.sh' && grep -q -- '--haerten) export ARASUL_HAERTEN=ja' '$WURZEL/install.sh'")"
+pruefe './arasul: die Haertung bekommt --aktualisierung' \
+  "$(ja grep -q 'zusatz+=(--aktualisierung)' <<<"$(sed -n '/^harden_production_security()/,/^}/p' "$WURZEL/arasul")")"
+E="$TMP/e"; mkdir -p "$E/scripts/util" "$E/config"
+cp "$WURZEL/scripts/util/erstausgabe.sh" "$E/scripts/util/"
+printf 'SYSTEM_VERSION=9.9.9\n' > "$E/.env"; echo 22 > "$E/config/ssh-port"
+echo 'SSH bleibt, wie es ist (Port 22): eine Aktualisierung haertet nicht nach.' > "$E/config/ssh-satz"
+aus=$(cd "$E" && bash scripts/util/erstausgabe.sh --aktualisierung 2>&1)
+pruefe 'erstausgabe: die Schlussmeldung nennt den SSH-Satz' \
+  "$(ja grep -q 'SSH  *SSH bleibt, wie es ist (Port 22)' <<<"$aus")" "$aus"
+echo 2222 > "$E/config/ssh-port"
+aus=$(cd "$E" && bash scripts/util/erstausgabe.sh --aktualisierung 2>&1)
+pruefe 'erstausgabe: ein alter Port 2222 ohne Haertung in diesem Lauf ist keine Warnung' \
+  "$(ja bash -c '! grep -q "SSH-Port geaendert" <<<"$1"' _ "$aus")" "$aus"
 
 # --- 4. Zurueckgelegte Modelle sind keine Daten eines Geraets (J35) ----------
 # Der Werksreset legt die Modell-Volumes zurueck; der Installer darf sie danach

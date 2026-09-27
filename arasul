@@ -1381,8 +1381,13 @@ setup_tailscale() {
 # statt ohne sudo, mit sichtbarer Ausgabe statt `2>/dev/null`, und ein
 # geaenderter SSH-Port wird gemeldet. Nicht kritisch -- das Skript gibt immer 0
 # zurueck und sagt stattdessen, was nicht ging und wie man es nachholt.
+#
+# Bei einer Aktualisierung mit `--aktualisierung` (J35, 27.09.2026): dann
+# bleiben SSH, ufw und fail2ban, wie sie sind, ausser `ARASUL_HAERTEN=ja`.
 harden_production_security() {
-    bash "${SCRIPT_DIR}/scripts/security/haerten.sh" || true
+    local zusatz=()
+    [ "${AKTUALISIERUNG:-false}" = "true" ] && zusatz+=(--aktualisierung)
+    bash "${SCRIPT_DIR}/scripts/security/haerten.sh" "${zusatz[@]+"${zusatz[@]}"}" || true
 }
 
 # Install systemd watchdog and deadman-switch timers
@@ -1456,6 +1461,10 @@ cmd_bootstrap() {
     local logdir="${SCRIPT_DIR}/logs"
     local logfile="${logdir}/bootstrap_$(date +%Y-%m-%d_%H-%M-%S).log"
     mkdir -p "$logdir"
+    # Der SSH-Satz der Schlussmeldung gilt nur fuer DIESEN Lauf: die Haertung
+    # schreibt ihn neu, und laeuft sie nicht (roter Rauchtest), sagt die
+    # Schlussmeldung lieber nichts als einen Satz von gestern (J35).
+    rm -f "${SCRIPT_DIR}/config/ssh-satz"
     chmod 700 "$logdir" 2>/dev/null || true
     # Terminal- und Log-Ausgabe parallel (tee), bleibt auch bei Fehlern erhalten
     exec > >(tee -a "$logfile") 2>&1
