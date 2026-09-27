@@ -306,7 +306,7 @@ funktion="$(sed -n '/^profil_dienste_ohne_schicht()/,/^}/p' "$WURZEL/arasul")"
 aus=$(PATH="$P/bin:$PATH" bash -c "$funktion"$'\n'"profil_dienste_ohne_schicht")
 pruefe 'bootstrap: ein Profil-Dienst, der nicht laeuft, wird gestartet' "$(ja [ "$aus" = firmenordner ])" "$aus"
 pruefe 'bootstrap: start_services fragt danach' \
-  "$(ja bash -c "sed -n '/^start_services()/,/^}/p' '$WURZEL/arasul' | grep -q 'profil_dienste_ohne_schicht'")"
+  "$(ja grep -q 'profil_dienste_ohne_schicht' <<<"$(sed -n '/^start_services()/,/^}/p' "$WURZEL/arasul")")"
 
 # --- 6. Quelltext -----------------------------------------------------------
 pruefe 'setup-mdns.sh ruft kein hostnamectl set-hostname' \
