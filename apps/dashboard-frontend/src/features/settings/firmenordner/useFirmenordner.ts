@@ -46,7 +46,10 @@ export interface Zustand {
   an: boolean;
   erreichbar: boolean;
   grund: string | null;
+  /** Die Adresse, die ein Mitarbeiter nehmen soll: die, unter der dieses Fenster das Gerät erreicht. */
   adresse: string | null;
+  /** Alle Adressen des Firmenordners, die erste zuerst (J34, 27.09.2026). */
+  adressen?: string[];
   ordner: number;
   am_geraet: number;
   nutzer: number;
@@ -79,7 +82,28 @@ export interface Aenderung {
   datei: string | null;
 }
 
+/** Ein Eintrag im Papierkorb eines Hauptordners oder Bereichs (J34, 27.09.2026). */
+export interface PapierkorbEintrag {
+  id: string;
+  /** Wo er lag, relativ zum Ordner — bei einem Projekt `<projekt>/…`. */
+  ort: string;
+  name: string;
+  geloescht_am: string | null;
+  ordner: boolean;
+  /** Bytes einer Datei; bei einem Ordner `null`. */
+  groesse: number | null;
+}
+
+/** Wie viel in einem Papierkorb liegt; `anzahl: null`, wenn er gerade nicht antwortet. */
+export interface PapierkorbStand {
+  ordner_id: number | string;
+  kennung: string;
+  anzahl: number | null;
+  groesse: number | null;
+}
+
 export const ORDNER_KEY = ['firmenordner', 'ordner'] as const;
+const PAPIERKORB_KEY = ['firmenordner', 'papierkorb'] as const;
 export const RECHTE_KEY = ['firmenordner', 'rechte'] as const;
 
 export function useOrdner() {
@@ -122,6 +146,71 @@ export function useAenderungen(ordnerId: Ordner['id'] | null) {
         `/firmenordner/ordner/${ordnerId}/aenderungen`
       );
       return res.data?.aenderungen ?? [];
+    },
+  });
+}
+
+/**
+ * Wie viel in welchem Papierkorb liegt — je Hauptordner und Bereich, für die
+ * Spalte im Ordnerbaum. Eine Anfrage für alle, nicht eine je Zeile.
+ */
+export function usePapierkorbUebersicht(an: boolean) {
+  const api = useApi();
+  return useQuery({
+    queryKey: PAPIERKORB_KEY,
+    enabled: an,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const res = await api.get<{ data?: PapierkorbStand[] }>('/firmenordner/papierkorb', {
+        showError: false,
+      });
+      return res.data ?? [];
+    },
+  });
+}
+
+/** Was im Papierkorb eines Ordners liegt — erst geholt, wenn ihn jemand öffnet. */
+export function usePapierkorb(ordnerId: Ordner['id'] | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...PAPIERKORB_KEY, String(ordnerId)],
+    enabled: ordnerId !== null,
+    staleTime: 0,
+    queryFn: async () => {
+      const res = await api.get<{ data?: { ordner: string; eintraege: PapierkorbEintrag[] } }>(
+        `/firmenordner/ordner/${ordnerId}/papierkorb`,
+        { showError: false }
+      );
+      return res.data?.eintraege ?? [];
+    },
+  });
+}
+
+/**
+ * Leeren, einen Eintrag endgültig entfernen oder ihn zurückholen. Eine
+ * Mutation für alle drei, weil sie dasselbe entwerten: den Papierkorb und die
+ * Zahl daneben. `showError: false` — der Dialog zeigt den Satz des Geräts an
+ * der Stelle, an der geklickt wurde (ein 409 sagt, was im Weg liegt).
+ */
+export function usePapierkorbHandgriff() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation<
+    unknown,
+    ApiError,
+    { ordnerId: Ordner['id']; was: 'leeren' | 'entfernen' | 'wiederherstellen'; eintrag?: string }
+  >({
+    mutationFn: async ({ ordnerId, was, eintrag }) => {
+      const weg = `/firmenordner/ordner/${ordnerId}/papierkorb`;
+      // Das Leeren darf lange dauern wie das Wegwerfen (am Gerät lagen 700 MB darin).
+      const lang = { showError: false, signal: AbortSignal.timeout(16 * 60 * 1000) };
+      if (was === 'leeren') return api.del(weg, lang);
+      const stueck = encodeURIComponent(eintrag ?? '');
+      if (was === 'entfernen') return api.del(`${weg}/${stueck}`, lang);
+      return api.post(`${weg}/${stueck}/wiederherstellen`, {}, lang);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: PAPIERKORB_KEY });
     },
   });
 }

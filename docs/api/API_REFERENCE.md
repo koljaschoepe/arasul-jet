@@ -2599,18 +2599,23 @@ Die ganze Sache — warum es diesen Dienst gibt, wie ein Mensch hineinkommt,
 warum es eine **zweite Passwortablage** ist und wie sie geschützt ist — steht
 in [`docs/features/FIRMENORDNER.md`](../features/FIRMENORDNER.md).
 
-| Method | Endpoint                                         | Description                                         |
-| ------ | ------------------------------------------------ | --------------------------------------------------- |
-| GET    | `/api/firmenordner`                              | Wo der Dienst liegt und welche Ordner **ich** habe  |
-| GET    | `/api/firmenordner/sicht`                        | Meine `sicht.md`, als Text (Ausweis oder Sitzung)   |
-| GET    | `/api/firmenordner/ordner`                       | Alle Ordner am Gerät (Administrator)                |
-| POST   | `/api/firmenordner/ordner`                       | Einen anlegen (Administrator)                       |
-| GET    | `/api/firmenordner/ordner/:id/aenderungen`       | Wer zuletzt wann etwas geändert hat (Administrator) |
-| DELETE | `/api/firmenordner/ordner/:id`                   | Wegwerfen, samt Inhalt (Administrator)              |
-| GET    | `/api/firmenordner/rechte`                       | Wer auf welchem Ordner was darf (Administrator)     |
-| POST   | `/api/firmenordner/rechte`                       | Ein Recht vergeben (Administrator)                  |
-| DELETE | `/api/firmenordner/rechte/:ordnerId/:benutzerId` | Ein Recht zurücknehmen (Administrator)              |
-| POST   | `/api/firmenordner/abgleich`                     | Nachholen, was der Dienst noch nicht weiß           |
+| Method | Endpoint                                                            | Description                                          |
+| ------ | ------------------------------------------------------------------- | ---------------------------------------------------- |
+| GET    | `/api/firmenordner`                                                 | Wo der Dienst liegt und welche Ordner **ich** habe   |
+| GET    | `/api/firmenordner/sicht`                                           | Meine `sicht.md`, als Text (Ausweis oder Sitzung)    |
+| GET    | `/api/firmenordner/ordner`                                          | Alle Ordner am Gerät (Administrator)                 |
+| POST   | `/api/firmenordner/ordner`                                          | Einen anlegen (Administrator)                        |
+| GET    | `/api/firmenordner/ordner/:id/aenderungen`                          | Wer zuletzt wann etwas geändert hat (Administrator)  |
+| DELETE | `/api/firmenordner/ordner/:id`                                      | Wegwerfen, samt Inhalt (Administrator)               |
+| GET    | `/api/firmenordner/papierkorb`                                      | Wie viel in welchem Papierkorb liegt (Administrator) |
+| GET    | `/api/firmenordner/ordner/:id/papierkorb`                           | Was im Papierkorb liegt (Administrator)              |
+| DELETE | `/api/firmenordner/ordner/:id/papierkorb`                           | Den Papierkorb leeren, endgültig (Administrator)     |
+| POST   | `/api/firmenordner/ordner/:id/papierkorb/:eintrag/wiederherstellen` | Einen Eintrag zurückholen (Administrator)            |
+| DELETE | `/api/firmenordner/ordner/:id/papierkorb/:eintrag`                  | Einen Eintrag endgültig entfernen (Administrator)    |
+| GET    | `/api/firmenordner/rechte`                                          | Wer auf welchem Ordner was darf (Administrator)      |
+| POST   | `/api/firmenordner/rechte`                                          | Ein Recht vergeben (Administrator)                   |
+| DELETE | `/api/firmenordner/rechte/:ordnerId/:benutzerId`                    | Ein Recht zurücknehmen (Administrator)               |
+| POST   | `/api/firmenordner/abgleich`                                        | Nachholen, was der Dienst noch nicht weiß            |
 
 **Der erste Weg ist der einzige für einen Mitarbeiter**, und er ist der Grund
 für die Karte. Er **nimmt einen Ausweis** (Brücke, J34) — die vierte Route, die
@@ -2622,6 +2627,7 @@ schickt und welche Ordner es anlegen darf.
 {
   "data": {
     "adresse": "https://arasul:8443",
+    "adressen": ["https://arasul:8443", "https://arasul.local:8443"],
     "erreichbar": true,
     "benutzer": "mia",
     "ordner": [
@@ -2673,6 +2679,19 @@ Backend nicht —, also **sagt** es es: das CLI am Rechner eines Menschen läuft
 ohnehin über den Baum und ist die einzige Stelle, die einen Symlink sehen
 kann. Die Liste ist eine Liste, damit der nächste Fund dieser Sorte daneben
 steht und nicht als zweites Feld irgendwo.
+
+**`adresse` folgt dem Aufrufer, `adressen` nennt alle** (Auftrag
+papierkorb-und-adresse-des-firmenordners, 27.09.2026, J34). Bis dahin stand
+hier allein `FIRMENORDNER_ADRESSE` (`https://arasul:8443`), und `arasul` löste
+in der Generalprobe am Mac nur über Tailscale auf — der DHCP-Name braucht
+einen Router, der ihn in seinen DNS einträgt. Jetzt ist `adresse` die Adresse
+mit dem Namen, unter dem der Aufrufer das Gerät **gerade** erreicht hat,
+sofern er im Zertifikat des Geräts steht (Netzname, `<netzname>.local`, eine
+private IPv4 oder eine aus 100.64.0.0/10); sonst die eingestellte. `adressen`
+nennt dieselbe zuerst, danach die eingestellte und den mDNS-Namen, ohne
+Doppelte. Am Orin gemessen: `arasul`, `arasul.local` und `192.168.0.197`
+antworten auf 8443 alle mit `207` — es ist dieselbe Traefik-Instanz mit
+demselben Zertifikat. `GET /ordner` trägt beides in `zustand`.
 
 `pfad` ist die **echte Stelle im Baum**, auch wenn der Mensch den Ordner
 darüber gar nicht sieht: ein Ordner der Ebene 2 heißt immer
@@ -2758,6 +2777,38 @@ darin, ist er weg, und die Antwort ist `200`. Der Grund steht in
 — ein abgeschnittenes Wegwerfen hinterließ am 22.09.2026 einen Raum ohne
 Dateien, eine Zeile, die ihn weiter führte, und ein `500 grpc error` auf jeden
 zweiten Versuch.
+
+**Der Papierkorb** (Auftrag papierkorb-und-adresse-des-firmenordners,
+27.09.2026, J34). Was ein Mensch in einem Ordner löscht, liegt im Papierkorb
+seines **Raums** — also des Hauptordners oder Bereichs; ein Projekt der
+Ebene 2 hat keinen eigenen (`400` mit Satz), sein Gelöschtes liegt beim
+Bereich mit `ort` = `<projekt>/…`. Im Dateidienst ist ein Administrator nur
+Bearbeiter und darf den Papierkorb nicht leeren (Generalprobe 27.09.2026:
+38-mal `403`); diese Wege lassen es das Konto des Geräts für ihn tun und
+schreiben jeden verändernden Handgriff ins Audit-Protokoll
+(`firmenordner_papierkorb_geleert`, `…_wiederhergestellt`,
+`…_eintrag_entfernt`, mit Ordner und Eintrag).
+
+- `GET /papierkorb` → `{ data: [{ ordner_id, kennung, anzahl, groesse }] }`
+  je Hauptordner und Bereich, den der Dienst kennt. Antwortet ein Papierkorb
+  nicht, steht dort `anzahl: null`, statt die Liste zu kippen.
+- `GET /ordner/:id/papierkorb` → `{ data: { ordner, eintraege: [{ id, ort,
+name, geloescht_am, ordner, groesse }] } }`, neueste zuerst. `groesse` in
+  Bytes, bei einem Ordner `null` (der Dienst nennt dort 4096, die Größe des
+  Eintrags und nicht seines Inhalts).
+- `DELETE /ordner/:id/papierkorb` → `{ data: { ordner, vorher, nachher: 0 } }`.
+  Ein `DELETE` auf den Papierkorb selbst; danach fragt das Gerät nach. Liegt
+  dann noch etwas darin, ist die Antwort `503` mit der Zahl, kein Erfolg. Darf
+  lange dauern wie das Wegwerfen (dieselbe Frist).
+- `POST /ordner/:id/papierkorb/:eintrag/wiederherstellen` legt den Eintrag an
+  seine alte Stelle (`MOVE`, `Overwrite: F`). Liegt dort inzwischen etwas,
+  oder ist der Ordner darüber selbst gelöscht, ist es `409` mit dem Ausweg;
+  überschrieben wird nie. `404`, wenn es den Eintrag nicht mehr gibt.
+- `DELETE /ordner/:id/papierkorb/:eintrag` nimmt einen einzelnen Eintrag
+  endgültig weg; `404` wie oben.
+
+`503`, wenn auf dem Gerät kein Firmenordner läuft oder er gerade nicht
+antwortet (der rohe Fehler steht im Log).
 
 **`POST /abgleich` legt an, es räumt nicht weg.** Was der Dienst noch nicht
 weiß, steht in der Datenbank (`abgleich_offen` an der Nutzer- und an der

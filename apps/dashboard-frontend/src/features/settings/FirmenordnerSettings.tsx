@@ -42,6 +42,7 @@ import { AenderungenDialog } from './firmenordner/AenderungenDialog';
 import { OrdnerAnlegenDialog } from './firmenordner/OrdnerAnlegenDialog';
 import { OrdnerBaum } from './firmenordner/OrdnerBaum';
 import { OrdnerEntfernenDialog } from './firmenordner/OrdnerEntfernenDialog';
+import { PapierkorbDialog } from './firmenordner/PapierkorbDialog';
 import { RechteMatrix } from './firmenordner/RechteMatrix';
 import {
   ORDNER_KEY,
@@ -49,6 +50,7 @@ import {
   useOrdner,
   useOrdnerAnlegen,
   useOrdnerLoeschen,
+  usePapierkorbUebersicht,
   type Ordner,
 } from './firmenordner/useFirmenordner';
 
@@ -65,6 +67,7 @@ export function FirmenordnerSettings() {
   const [wegwerfen, setWegwerfen] = useState<Ordner | null>(null);
   const [wegwerfenFehler, setWegwerfenFehler] = useState<string | null>(null);
   const [aenderungen, setAenderungen] = useState<Ordner | null>(null);
+  const [papierkorbFuer, setPapierkorbFuer] = useState<Ordner | null>(null);
   const [abgleichLaeuft, setAbgleichLaeuft] = useState(false);
 
   const ordner = data?.ordner ?? [];
@@ -131,6 +134,12 @@ export function FirmenordnerSettings() {
   };
 
   const an = zustand?.an ?? true;
+  const { data: papierkorb } = usePapierkorbUebersicht(Boolean(zustand?.an && zustand.erreichbar));
+  const adressen = zustand?.adressen?.length
+    ? zustand.adressen
+    : zustand?.adresse
+      ? [zustand.adresse]
+      : [];
 
   // Nachholen nur, wenn es etwas nachzuholen gibt (J35): ein Knopf, der immer
   // dasteht, fragt den Administrator, ob er ihn druecken muss -- und er weiss
@@ -254,12 +263,26 @@ export function FirmenordnerSettings() {
           <Feldgruppe
             titel="Ordner"
             symbol={<FolderTree />}
-            beschreibung={
-              zustand?.adresse
-                ? `Erreichbar unter ${zustand.adresse}. Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter.`
-                : 'Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter.'
-            }
+            beschreibung="Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter. Was ein Mitarbeiter löscht, liegt im Papierkorb seines Bereichs, bis Sie ihn leeren."
           >
+            {adressen.length > 0 && (
+              <p className="text-sm text-muted-foreground" data-testid="firmenordner-adressen">
+                Erreichbar unter{' '}
+                <span className="font-mono break-all text-foreground">{adressen[0]}</span>
+                {adressen.length > 1 && (
+                  <>
+                    , im Netz der Firma auch unter{' '}
+                    {adressen.slice(1).map((a, i) => (
+                      <span key={a}>
+                        {i > 0 && ' oder '}
+                        <span className="font-mono break-all text-foreground">{a}</span>
+                      </span>
+                    ))}
+                  </>
+                )}
+                .
+              </p>
+            )}
             {ordner.length === 0 ? (
               <Leerzustand
                 symbol={<FolderTree />}
@@ -269,8 +292,10 @@ export function FirmenordnerSettings() {
             ) : (
               <OrdnerBaum
                 ordner={ordner}
+                papierkorb={papierkorb}
                 onAenderungen={setAenderungen}
                 onWegwerfen={setWegwerfen}
+                onPapierkorb={setPapierkorbFuer}
               />
             )}
           </Feldgruppe>
@@ -309,6 +334,7 @@ export function FirmenordnerSettings() {
         onWegwerfen={handleWegwerfen}
       />
       <AenderungenDialog fuer={aenderungen} onSchliessen={() => setAenderungen(null)} />
+      <PapierkorbDialog fuer={papierkorbFuer} onSchliessen={() => setPapierkorbFuer(null)} />
     </div>
   );
 }

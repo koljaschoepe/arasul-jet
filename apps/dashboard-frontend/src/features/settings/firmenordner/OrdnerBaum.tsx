@@ -14,7 +14,7 @@
  * nur Flows und Apps lesen). Ein Stand ohne Raum im Dienst (`raum_id` leer)
  * steht als Hinweis daneben — der Abgleich holt ihn nach.
  */
-import { FolderLock, FolderTree, History, Trash2 } from 'lucide-react';
+import { FolderLock, FolderTree, History, Trash, Trash2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -26,7 +26,7 @@ import {
   TableRow,
   useSchmalesFenster,
 } from '@marken';
-import { alsBaum, type Ordner } from './useFirmenordner';
+import { alsBaum, type Ordner, type PapierkorbStand } from './useFirmenordner';
 
 /** Das Wort zur Art, an einer Stelle. */
 function artWort(art: Ordner['art']): string {
@@ -43,8 +43,53 @@ export function ordnerWeg(o: Ordner): string {
 
 interface Props {
   ordner: Ordner[];
+  /** Wie viel in welchem Papierkorb liegt (J34); fehlt, solange es nicht geladen ist. */
+  papierkorb?: PapierkorbStand[];
   onAenderungen: (o: Ordner) => void;
   onWegwerfen: (o: Ordner) => void;
+  onPapierkorb: (o: Ordner) => void;
+}
+
+/**
+ * Der Knopf zum Papierkorb eines Hauptordners oder Bereichs, mit der Zahl
+ * darin (J34, 27.09.2026). Ein Projekt hat keinen eigenen — was darin
+ * gelöscht wird, liegt im Papierkorb seines Bereichs —, und ein Ordner, den
+ * der Firmenordner noch nicht kennt, auch nicht.
+ */
+function PapierkorbKnopf({
+  o,
+  papierkorb,
+  onPapierkorb,
+}: {
+  o: Ordner;
+  papierkorb?: PapierkorbStand[];
+  onPapierkorb: (o: Ordner) => void;
+}) {
+  if (o.ebene === 2 || !o.raum_id) return null;
+  const stand = papierkorb?.find(p => String(p.ordner_id) === String(o.id));
+  const anzahl = stand?.anzahl ?? null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => onPapierkorb(o)}
+      data-testid={`ordner-papierkorb-${o.kennung}`}
+      data-anzahl={anzahl ?? ''}
+      title="Papierkorb öffnen"
+    >
+      <Trash className="size-4" aria-hidden="true" />
+      <span className={anzahl ? 'tabular-nums' : 'tabular-nums text-muted-foreground'}>
+        {anzahl === null ? '–' : anzahl.toLocaleString('de-DE')}
+      </span>
+      <span className="sr-only">
+        {anzahl === null
+          ? 'Papierkorb'
+          : anzahl === 1
+            ? 'Eintrag im Papierkorb'
+            : 'Einträge im Papierkorb'}
+      </span>
+    </Button>
+  );
 }
 
 function ArtBadge({ o }: { o: Ordner }) {
@@ -86,7 +131,13 @@ function Handgriffe({ o, onAenderungen, onWegwerfen }: Props & { o: Ordner }) {
   );
 }
 
-export function OrdnerBaum({ ordner, onAenderungen, onWegwerfen }: Props) {
+export function OrdnerBaum({
+  ordner,
+  papierkorb,
+  onAenderungen,
+  onWegwerfen,
+  onPapierkorb,
+}: Props) {
   const schmal = useSchmalesFenster();
   const baum = alsBaum(ordner);
 
@@ -104,12 +155,14 @@ export function OrdnerBaum({ ordner, onAenderungen, onWegwerfen }: Props) {
             <span className="font-mono text-sm text-foreground">{ordnerWeg(o)}</span>
             <span className="text-sm text-muted-foreground">{o.name}</span>
             <ArtBadge o={o} />
-            <span className="ml-auto">
+            <span className="ml-auto inline-flex items-center gap-1">
+              <PapierkorbKnopf o={o} papierkorb={papierkorb} onPapierkorb={onPapierkorb} />
               <Handgriffe
                 o={o}
                 ordner={ordner}
                 onAenderungen={onAenderungen}
                 onWegwerfen={onWegwerfen}
+                onPapierkorb={onPapierkorb}
               />
             </span>
           </li>
@@ -127,6 +180,7 @@ export function OrdnerBaum({ ordner, onAenderungen, onWegwerfen }: Props) {
             <TableHead>Name</TableHead>
             <TableHead>Art</TableHead>
             <TableHead>Rechte</TableHead>
+            <TableHead>Papierkorb</TableHead>
             <TableHead className="text-right">
               <span className="sr-only">Handgriffe</span>
             </TableHead>
@@ -162,12 +216,16 @@ export function OrdnerBaum({ ordner, onAenderungen, onWegwerfen }: Props) {
                       ? '1 Person'
                       : `${o.rechte_anzahl.toLocaleString('de-DE')} Personen`}
               </TableCell>
+              <TableCell>
+                <PapierkorbKnopf o={o} papierkorb={papierkorb} onPapierkorb={onPapierkorb} />
+              </TableCell>
               <TableCell className="text-right">
                 <Handgriffe
                   o={o}
                   ordner={ordner}
                   onAenderungen={onAenderungen}
                   onWegwerfen={onWegwerfen}
+                  onPapierkorb={onPapierkorb}
                 />
               </TableCell>
             </TableRow>

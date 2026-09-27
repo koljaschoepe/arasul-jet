@@ -64,6 +64,18 @@ Pfad unter 443.
   `localhost` und jede IP des Geräts schon, und der Speicher `default` aus
   `config/traefik/dynamic/tls.yml` hängt nicht am Einstiegspunkt.
 
+**Welche Adresse das Gerät nennt** (seit dem Auftrag
+`papierkorb-und-adresse-des-firmenordners`, 27.09.2026): bis dahin allein
+`FIRMENORDNER_ADRESSE`, also `https://arasul:8443`, und `arasul` löste in der
+Generalprobe am Mac nur über Tailscale MagicDNS auf — der DHCP-Name hängt an
+einem Router, der ihn in seinen DNS einträgt. Weil jeder Name aus dem
+Zertifikat auf 8443 genauso antwortet (am Orin gemessen: `arasul`,
+`arasul.local`, `192.168.0.197`, alle `207`), nennt `GET /api/firmenordner`
+jetzt als `adresse` den Namen, unter dem der Aufrufer das Gerät gerade
+erreicht hat, und unter `adressen` daneben die eingestellte und den
+mDNS-Namen `<netzname>.local`. Ein Name außerhalb des Zertifikats (ein
+`*.ts.net`, eine öffentliche IP) wird nie genannt.
+
 Der Dienst selbst hat **keinen veröffentlichten Port** und hängt allein am
 Netz `arasul-frontend`. Wer ihn erreichen will, geht durch Traefik.
 
@@ -434,6 +446,36 @@ Gemessen: **11,4 s für 6.000 Dateien** in zwanzig Ordnern, also rund 1,9 ms je
 Datei. Die alte Zeitgrenze des Backends lag bei zehn Sekunden — knapp darunter,
 und damit war ein Arbeitsbaum mittlerer Größe nicht wegzuwerfen.
 
+### Der Papierkorb gehört dem Administrator
+
+> Auftrag `papierkorb-und-adresse-des-firmenordners` (27.09.2026, J34).
+
+Was ein Mensch löscht, liegt im Papierkorb des **Raums** (Hauptordner oder
+Bereich) unter `.Trash/files` und `.Trash/info`, bis ihn jemand leert. Leeren
+darf im Dienst nur der Eigentümer des Raums — das Konto des Geräts, das ihn
+angelegt hat. Ein Administrator ist dort **Bearbeiter**, und ein Bearbeiter
+bekommt auf `DELETE /dav/spaces/trash-bin/…` ein `403` (Generalprobe
+27.09.2026: 38-mal; ein Leser sieht den Papierkorb gar nicht). In der Probe
+lagen danach 116 Einträge darin, darunter Kopien von Schlüsseln, und nur ein
+Skript über das Konto des Geräts kam an sie heran.
+
+Deshalb tut es seither das Gerät für ihn: **Einstellungen → Firmenordner**
+zeigt je Hauptordner und Bereich die Zahl im Papierkorb, ein Klick öffnet
+ihn — jeder Eintrag mit Name, altem Ort, Zeitpunkt und Größe, zurückholen oder
+endgültig entfernen, und darunter **Papierkorb leeren** nach einer Rückfrage.
+Jeder dieser Handgriffe steht im Audit-Protokoll. Die Wege stehen in der
+[API-Referenz](../api/API_REFERENCE.md); am Orin gemessen:
+
+| Handgriff       | Aufruf an den Dienst                                      | Ergebnis                                                                            |
+| --------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| lesen           | `PROPFIND` auf `/dav/spaces/trash-bin/<raum>`, `Depth: 1` | `207`, je Eintrag Name, Ort, Zeit                                                   |
+| leeren          | `DELETE` auf `/dav/spaces/trash-bin/<raum>`               | `204`, danach `PROPFIND` leer, `.Trash/files` und `.Trash/info` auf der Platte leer |
+| zurückholen     | `MOVE` des Eintrags an den alten Ort, `Overwrite: F`      | `201`, die Datei liegt wieder da                                                    |
+| einen entfernen | `DELETE` auf den Eintrag                                  | `204`                                                                               |
+
+Beim Leeren fragt das Gerät danach nach, statt dem `204` zu glauben — liegt
+dann noch etwas darin, antwortet es `503` mit der Zahl.
+
 ### Der Fehler vom 22.09.2026, und warum er so schwer zu lesen war
 
 Ein Raum mit 6.076 Dateien antwortete `500 grpc error`, im Log stand
@@ -619,7 +661,8 @@ des Geräts.
 Ordnerbaum mit Kennung, Name und Art, Anlegen (Bereich, Projekt, am Gerät)
 und Wegwerfen (Kennung abtippen, wie beim Kit-Weg), die **Rechte-Matrix**
 Menschen mal Ordner mit einer Stufe je Zelle — keine, lesen, schreiben —, und
-je Ordner die letzten Änderungen. Ein Ordner am Gerät hat **keine
+je Ordner die letzten Änderungen und je Hauptordner und Bereich der
+**Papierkorb** (siehe oben). Ein Ordner am Gerät hat **keine
 Rechtespalte**, die Wurzel auch nicht (ihre Regel steht als Satz über der
 Matrix). Ein Projekt, dessen Bereich der Mensch schon hat, sagt in der Zelle
 „wie oben: lesen" und bietet trotzdem mehr an; **weniger** weist das Backend
