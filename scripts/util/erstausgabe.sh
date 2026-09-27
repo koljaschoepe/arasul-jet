@@ -99,6 +99,11 @@ if [ -f config/ssh-port ]; then
   SSH_PORT_NEU="$(tr -dc '0-9' < config/ssh-port)"
   [ "$SSH_PORT_NEU" = "22" ] && SSH_PORT_NEU=""
 fi
+# Und was mit SSH in DIESEM Lauf geschah, als ein Satz (J35, 27.09.2026). Ohne
+# Satz stand hier bei jeder Aktualisierung eines einmal gehaerteten Geraets
+# "SSH-Port geaendert", obwohl nichts geaendert wurde.
+SSH_SATZ=""
+[ -f config/ssh-satz ] && SSH_SATZ="$(head -1 config/ssh-satz)"
 
 # Der MagicDNS-Name, falls das Geraet in einem Tailnet ist. Dort antwortet
 # Traefik selbst -- `tailscale serve` ist seit dem 28.08.2026 gestrichen, weil
@@ -140,7 +145,14 @@ if [ "$NUR_DATEI" = false ]; then
     echo "                Ins Kit eintragen. Ein neuer geht ueber"
     echo "                bash scripts/util/kit-schluessel.sh anlegen"
   fi
-  if [ -n "$SSH_PORT_NEU" ]; then
+  if [ -n "$SSH_SATZ" ]; then
+    echo ""
+    echo "  SSH           ${SSH_SATZ}"
+  fi
+  if [ -n "$SSH_PORT_NEU" ] && grep -q 'gehaertet' <<<"$SSH_SATZ"; then
+    echo -e "  ${GELB}Warnung: SSH-Port geaendert, SSH laeuft auf Port ${SSH_PORT_NEU}${AUS}"
+    echo "                Im Ara-Kit: --port ${SSH_PORT_NEU}; von Hand: ssh -p ${SSH_PORT_NEU} ..."
+  elif [ -n "$SSH_PORT_NEU" ] && [ -z "$SSH_SATZ" ]; then
     echo ""
     echo -e "  ${GELB}Warnung: SSH-Port geaendert, SSH laeuft auf Port ${SSH_PORT_NEU}${AUS}"
     echo "                Im Ara-Kit: --port ${SSH_PORT_NEU}; von Hand: ssh -p ${SSH_PORT_NEU} ..."

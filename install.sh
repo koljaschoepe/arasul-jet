@@ -29,6 +29,9 @@
 #   ./install.sh --name werkstatt             anderer Netzname als `arasul`
 #   ./install.sh --nur-vorbereiten            .env schreiben, Bootstrap NICHT starten
 #   ./install.sh --uebernehmen /pfad/alt      vorhandene Installation von Hand nennen
+#   ./install.sh --ssh-behalten               SSH, ufw und fail2ban nicht haerten
+#                                             (auch --keep-ssh, wie im Ara-Kit)
+#   ./install.sh --haerten                    auch bei einer Aktualisierung haerten
 #   ./install.sh --hilfe
 #
 # UND ES AKTUALISIERT. Findet dieses Artefakt eine vorhandene Installation in
@@ -77,6 +80,9 @@ while [ $# -gt 0 ]; do
     --name)     NETZNAME="$2"; shift 2 ;;
     --nur-vorbereiten) NUR_VORBEREITEN=true; shift ;;
     --uebernehmen) UEBERNEHMEN="$2"; shift 2 ;;
+    --ssh-behalten|--keep-ssh)
+      export ENABLE_SSH_HARDENING=false ENABLE_FIREWALL=false; shift ;;
+    --haerten) export ARASUL_HAERTEN=ja; shift ;;
     --hilfe|-h)
       sed -n '2,52p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
@@ -367,6 +373,20 @@ fi
 # (scripts/util/erstausgabe.sh). Sie stand hier bis zum 28.08.2026 ein zweites
 # Mal -- an zwei Orten, von denen der eine bei rotem Rauchtest gar nicht erst
 # erreicht wurde. Jetzt sagt sie der Bootstrap, und nur der.
+# Was mit SSH geschieht, in einem Satz und VOR dem Bootstrap (J35,
+# 27.09.2026): eine Aktualisierung haertet nicht nach -- am 26.09.2026 legte
+# das Update auf 0.8.11 am Orin SSH ungefragt auf 2222 und sperrte Passwoerter.
+# Gehaertet wird bei der Erstinstallation, abwaehlbar mit --ssh-behalten, und
+# bei einer Aktualisierung nur mit --haerten. Was wirklich geschah, sagt die
+# Schlussmeldung (`config/ssh-satz`, geschrieben von scripts/security/haerten.sh).
+if [ "${ENABLE_SSH_HARDENING:-true}" = false ] && [ "${ENABLE_FIREWALL:-true}" = false ]; then
+  sagen "SSH: bleibt, wie es ist -- die Haertung ist abgewaehlt (--ssh-behalten)."
+elif [ "$AKTUALISIERUNG" = true ] && [ "${ARASUL_HAERTEN:-nein}" != ja ]; then
+  sagen "SSH: bleibt bei dieser Aktualisierung, wie es ist (auch ufw und fail2ban); haerten nur mit --haerten."
+else
+  sagen "SSH: wird gehaertet (Port 2222, Anmeldung nur mit Schluessel, fail2ban, Firewall); abwaehlen mit --ssh-behalten."
+fi
+
 if [ "$AKTUALISIERUNG" = true ]; then
   sagen "Aktualisierung laeuft. Die Images werden hier gebaut, WAEHREND der alte"
   sagen "Stapel noch laeuft; abgeschaltet wird erst danach."

@@ -101,7 +101,7 @@ ruft den Einstiegspunkt `install.sh` darin auf. Von Hand, direkt aus dem
 GitHub-Release:
 
 ```bash
-curl -fsSLO https://github.com/Arasul-GmbH/arasul-jet/releases/download/v1.2.0/arasul-1.2.0.tar.gz
+curl -fsSLO https://github.com/koljaschoepe/arasul-jet/releases/download/v1.2.0/arasul-1.2.0.tar.gz
 tar xzf arasul-1.2.0.tar.gz && cd arasul-1.2.0
 ./install.sh                        # Startpasswort wird erzeugt und einmal gezeigt
 ./install.sh --passwort 'Geheim123' --name werkstatt

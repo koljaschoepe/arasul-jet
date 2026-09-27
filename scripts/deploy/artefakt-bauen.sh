@@ -121,13 +121,19 @@ rm -rf \
 #             NICHT von hier, sondern aus apps/dashboard-backend/openapi.yaml.)
 
 GEBAUT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# `repo` ist, wo das Release WIRKLICH liegt (J35, 27.09.2026). Hier stand fest
+# `Arasul-GmbH/arasul-jet`, und unter dieser Adresse gab es nie ein Release --
+# `releases/download/...` antwortete 404, die Releases haengen an dem Repo, in
+# dem `release.yml` laeuft. In der CI sagt das `GITHUB_REPOSITORY`; ein Bau am
+# Arbeitsrechner nimmt dieselbe Vorgabe.
+RELEASE_REPO="${ARASUL_RELEASE_REPO:-${GITHUB_REPOSITORY:-koljaschoepe/arasul-jet}}"
 cat > "${BAUM}/arasul-release.json" <<JSON
 {
   "fassung": "${FASSUNG}",
   "commit": "${COMMIT}",
   "gebaut": "${GEBAUT}",
   "einstiegspunkt": "install.sh",
-  "repo": "${ARASUL_RELEASE_REPO:-Arasul-GmbH/arasul-jet}"
+  "repo": "${RELEASE_REPO}"
 }
 JSON
 

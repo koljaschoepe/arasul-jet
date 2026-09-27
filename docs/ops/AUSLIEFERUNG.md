@@ -106,9 +106,16 @@ ausgepackten Artefakt in
   "commit": "a1b2c3d",
   "gebaut": "2026-08-27T20:15:00Z",
   "einstiegspunkt": "install.sh",
-  "repo": "Arasul-GmbH/arasul-jet"
+  "repo": "koljaschoepe/arasul-jet"
 }
 ```
+
+`repo` nennt, wo das Release liegt: das Repo, in dem `release.yml` läuft
+(`GITHUB_REPOSITORY`). Bis J35 stand dort fest `Arasul-GmbH/arasul-jet`, und
+unter dieser Adresse lieferte `releases/download` 404 — die Releases liegen
+unter `koljaschoepe/arasul-jet`. Gelesen wird das Feld weder vom Kit (es
+installiert aus seinem Spiegel) noch von einem Skript dieses Repos; es ist eine
+Auskunft für den Menschen, und die soll stimmen.
 
 **Der Einstiegspunkt nennt sich selbst.** Das Ara-Kit (`lib/install.mjs`) und
 `/api/install` der Website lesen `einstiegspunkt` aus dieser Datei und rufen
@@ -362,7 +369,7 @@ Die Website bekommt **eine** Umgebungsvariable, `ARA_INSTALLER_URL`, und sie
 zeigt auf die Release-Datei:
 
 ```
-https://github.com/Arasul-GmbH/arasul-jet/releases/download/v<Fassung>/arasul-<Fassung>.tar.gz
+https://github.com/koljaschoepe/arasul-jet/releases/download/v<Fassung>/arasul-<Fassung>.tar.gz
 ```
 
 `arasul.de/api/download` streamt diese Datei hinter dem Kunden-Token;
@@ -373,8 +380,8 @@ nur die Form der Adresse, das Website-Repo zieht eine eigene Phase nach.
 Solange die Website die Adresse noch nicht hat, geht es direkt:
 
 ```bash
-curl -fsSLO https://github.com/Arasul-GmbH/arasul-jet/releases/download/v1.2.0/arasul-1.2.0.tar.gz
-curl -fsSLO https://github.com/Arasul-GmbH/arasul-jet/releases/download/v1.2.0/arasul-1.2.0.tar.gz.sha256
+curl -fsSLO https://github.com/koljaschoepe/arasul-jet/releases/download/v1.2.0/arasul-1.2.0.tar.gz
+curl -fsSLO https://github.com/koljaschoepe/arasul-jet/releases/download/v1.2.0/arasul-1.2.0.tar.gz.sha256
 sha256sum -c arasul-1.2.0.tar.gz.sha256
 tar xzf arasul-1.2.0.tar.gz
 cd arasul-1.2.0
@@ -484,6 +491,25 @@ in der Ausgabe (das Ara-Kit sammelt solche Zeilen ein), die Zeile
 Erstausgabe. Die Firewall lässt mDNS (5353/udp) und die Tailscale-Schnittstelle
 offen. Abschalten: `ENABLE_SSH_HARDENING=false`, `ENABLE_FIREWALL=false` in
 der `.env` oder der Umgebung.
+
+**Eine Aktualisierung härtet nicht nach** (J35, 27.09.2026). Das Update von
+0.8.10 auf 0.8.11 am Orin hat SSH ungefragt von 22 auf 2222 gelegt, Passwörter
+gesperrt und ufw samt fail2ban eingeschaltet; das Kit klopfte danach ins Leere.
+Seither gilt:
+
+| Lauf                                  | SSH, ufw, fail2ban                            |
+| ------------------------------------- | --------------------------------------------- |
+| Erstinstallation                      | gehärtet (Port 2222, nur Schlüssel, Firewall) |
+| Erstinstallation mit `--ssh-behalten` | bleiben, wie sie sind (Kit: `--keep-ssh`)     |
+| Aktualisierung (vorhandenes Gerät)    | bleiben, wie sie sind                         |
+| Aktualisierung mit `--haerten`        | gehärtet                                      |
+
+`install.sh` sagt vor dem Bootstrap in einem Satz, was es an SSH tun wird, und
+die Schlussmeldung sagt, was geschah (`config/ssh-satz`, geschrieben von
+`scripts/security/haerten.sh`), etwa: „SSH bleibt, wie es ist (Port 22,
+Anmeldung mit Passwort erlaubt): eine Aktualisierung härtet nicht nach." Der
+Port steht weiter als `ARASUL_SSH_PORT=` in der Ausgabe und in
+`config/ssh-port` — bei einer Aktualisierung der wirkliche, nicht der Sollwert.
 
 ## Was der Werksreset tut, und was er ausdrücklich nicht tut
 
