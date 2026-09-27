@@ -94,6 +94,23 @@ const OrdnerParams = z.object({ id: z.coerce.number().int().positive() }).strict
  */
 const OrdnerLoeschenQuery = z.object({ kennung: z.string().trim().min(1) }).strict();
 
+/**
+ * Ein Eintrag im Papierkorb eines Ordners (J34, 27.09.2026). Die Kennung
+ * vergibt der Dienst (eine UUID, am Orin gemessen); sie geht als ein
+ * Pfadstueck an ihn weiter, also kein `/` und kein `..`.
+ */
+const PapierkorbParams = z
+  .object({
+    id: z.coerce.number().int().positive(),
+    eintrag: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._!$-]*$/, 'Keine gültige Kennung eines Eintrags'),
+  })
+  .strict();
+
 const RechtBody = z
   .object({
     ordner_id: z.coerce.number().int().positive(),
@@ -120,6 +137,7 @@ module.exports = {
   OrdnerBody,
   OrdnerParams,
   OrdnerLoeschenQuery,
+  PapierkorbParams,
   RechtBody,
   RechtParams,
   RechteQuery,

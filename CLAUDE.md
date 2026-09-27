@@ -1287,6 +1287,21 @@ ein Passwort, das im Dienst noch fehlt (`spiegleBeiAnmeldung`) — ein Mensch,
 den es vor dem Firmenordner gab, kommt damit nach seiner naechsten Anmeldung
 hinein statt erst nach einem Passwortwechsel.
 
+Seit dem Auftrag **papierkorb-und-adresse-des-firmenordners** (27.09.2026,
+J34) **leert der Administrator den Papierkorb eines Ordners selbst, und das
+Gerät nennt eine Adresse, die auch im LAN auflöst**. Im Dateidienst ist er nur
+Bearbeiter und bekam auf den Papierkorb `403` (Generalprobe: 116 Einträge,
+darunter Kopien von Schlüsseln, nur über das Dienstkonto zu entfernen); jetzt
+tut es das Konto des Geräts für ihn über `…/ordner/:id/papierkorb` (lesen,
+leeren, einen zurückholen per `MOVE` ohne Überschreiben, einen entfernen), je
+Hauptordner und Bereich, mit Audit-Eintrag und einer Rückfrage in der
+Oberfläche (Spalte **Papierkorb** im Ordnerbaum, `PapierkorbDialog.tsx`).
+Nach dem Leeren wird nachgefragt, nicht dem `204` geglaubt. Und
+`https://arasul:8443` löste am Mac nur über Tailscale auf: `adresse` in
+`GET /api/firmenordner` folgt jetzt dem Namen, unter dem der Aufrufer das
+Gerät erreicht (nur Namen aus dem Zertifikat), und `adressen` nennt daneben
+die eingestellte und `<netzname>.local` — alle antworten auf 8443 mit `207`.
+
 Seit dem Auftrag **apps-starten-nach-der-datenbank** (26.09.2026, J35)
 **startet eine App nach einem Neustart erst mit ihrer Datenbank, und eine App
 ohne Datenbank ist krank**. Docker startet die App-Container

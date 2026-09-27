@@ -24,6 +24,8 @@ export interface MeinOrdner {
 
 export interface MeinFirmenordner {
   adresse: string | null;
+  /** Weitere Adressen im Netz der Firma, die erste ist `adresse` (J34, 27.09.2026). */
+  adressen?: string[];
   erreichbar: boolean;
   benutzer: string;
   ordner: MeinOrdner[];

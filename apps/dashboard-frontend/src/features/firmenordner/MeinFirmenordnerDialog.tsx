@@ -67,6 +67,17 @@ export function MeinFirmenordnerDialog({ offen, beiSchliessen }: Props) {
               <code className="font-mono text-foreground" data-testid="mein-firmenordner-adresse">
                 {data.adresse ?? 'unbekannt'}
               </code>
+              {(data.adressen ?? []).slice(1).length > 0 && (
+                <>
+                  , im Netz der Firma auch unter{' '}
+                  {(data.adressen ?? []).slice(1).map((a, i) => (
+                    <span key={a}>
+                      {i > 0 && ' oder '}
+                      <code className="font-mono break-all text-foreground">{a}</code>
+                    </span>
+                  ))}
+                </>
+              )}
               . Angemeldet wird dort mit demselben Namen und Passwort wie hier; das CLI der Wurzel
               legt die Ordner unten an ihre Stelle im Baum.
             </p>

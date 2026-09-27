@@ -82,6 +82,95 @@ function basisAussen() {
 }
 
 /**
+ * Ein Name, unter dem ein Rechner das Geraet erreicht hat -- oder `null`, wenn
+ * er nicht im Zertifikat des Geraets steht.
+ *
+ * DAS ZERTIFIKAT ENTSCHEIDET, NICHT DIE ANFRAGE. Es traegt den Netznamen, ihn
+ * mit `.local`, `localhost` und die Adressen des Geraets
+ * (`scripts/security/geraete-zertifikat.sh`); ein Name ausserhalb davon --
+ * ein MagicDNS-Name von Tailscale, eine oeffentliche Adresse hinter einer
+ * Portweiterleitung -- waere eine Adresse, an der der Klient das Schloss
+ * verweigert. Eine IP gilt deshalb nur aus den privaten Bereichen und dem von
+ * Tailscale (100.64.0.0/10): das sind die, die das Zertifikat kennen kann.
+ */
+function nameImZertifikat(host) {
+  const name = String(host || '')
+    .trim()
+    .toLowerCase()
+    .replace(/:\d+$/, '')
+    .replace(/\.$/, '');
+  if (!name) {
+    return null;
+  }
+  const netzname = (process.env.MDNS_NAME || 'arasul')
+    .trim()
+    .toLowerCase()
+    .replace(/\.local$/, '');
+  if (name === netzname || name === `${netzname}.local` || name === 'localhost') {
+    return name;
+  }
+  const teile = name.split('.').map(Number);
+  if (teile.length !== 4 || !/^[\d.]+$/.test(name) || teile.some(t => t > 255)) {
+    return null;
+  }
+  const [a, b] = teile;
+  const privat =
+    a === 10 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127);
+  return privat ? name : null;
+}
+
+/**
+ * Die Adressen des Firmenordners, die dem Aufrufer genannt werden --
+ * die erste ist die, die er nehmen soll.
+ *
+ * DER BEFUND (Generalprobe 27.09.2026): das Geraet nannte allein
+ * `https://arasul:8443`, und `arasul` loeste am Mac nur ueber Tailscale
+ * MagicDNS auf. Der DHCP-Name braucht einen Router, der ihn in seinen DNS
+ * eintraegt, und nicht jeder tut das (`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`).
+ * Ein Rechner im Firmennetz ohne Tailscale kam also an den Firmenordner
+ * nicht heran, obwohl er das Geraet selbst erreichte.
+ *
+ * DESHALB ZUERST DER NAME, UNTER DEM DER AUFRUFER GERADE HIER IST. Wer das
+ * Dashboard oder die Schnittstelle unter `https://192.168.0.197` erreicht,
+ * erreicht auch Port 8443 unter derselben Adresse -- das ist dieselbe
+ * Traefik-Instanz, dasselbe Zertifikat (am Orin gemessen: `arasul`,
+ * `arasul.local` und die LAN-IP antworten auf 8443 alle mit `207`). Danach
+ * die eingestellte Adresse und danach der mDNS-Name, der ohne mitspielenden
+ * Router aufloest. Doppelte fallen weg.
+ *
+ * Ohne Aufrufer (oder mit einem Namen ausserhalb des Zertifikats) steht die
+ * eingestellte Adresse vorn -- das ist genau das Verhalten vor dem Auftrag.
+ */
+function adressenFuer(host) {
+  const eingestellt = basisAussen();
+  if (!eingestellt) {
+    return [];
+  }
+  let url;
+  try {
+    url = new URL(eingestellt);
+  } catch {
+    return [eingestellt];
+  }
+  const mitName = name => {
+    const neu = new URL(url.href);
+    neu.hostname = name;
+    return neu.href.replace(/\/+$/, '');
+  };
+  const netzname = (process.env.MDNS_NAME || 'arasul').trim().replace(/\.local$/, '');
+  const aufrufer = nameImZertifikat(host);
+  const liste = [
+    ...(aufrufer && aufrufer !== 'localhost' ? [mitName(aufrufer)] : []),
+    eingestellt,
+    mitName(`${netzname}.local`),
+  ];
+  return [...new Set(liste)];
+}
+
+/**
  * Gibt es auf diesem Geraet einen Firmenordner?
  *
  * EINE FRAGE AN EINEN SCHALTER, NICHT AN ZWEI. Der Dienst faehrt hoch, wenn
@@ -607,23 +696,147 @@ async function leerePapierkorb(raumId, pfad) {
   }
 }
 
-/** Die Eintraege einer Papierkorb-Antwort: ihre Kennung und wo sie herkamen. */
+/**
+ * Die Eintraege einer Papierkorb-Antwort: ihre Kennung, wo sie herkamen, und
+ * seit dem Auftrag papierkorb-und-adresse-des-firmenordners (27.09.2026, J34)
+ * auch Name, Zeitpunkt, Groesse und ob es ein Ordner war -- fuer die
+ * Verwaltung, die sie einem Menschen zeigt.
+ *
+ * Die Form ist am Orin gemessen (27.09.2026, OpenCloud 8.0.1, PROPFIND ohne
+ * Koerper): `oc:trashbin-original-filename`, `…-original-location`,
+ * `…-delete-timestamp` (Sekunden), `d:getcontentlength` bei einer Datei,
+ * `d:collection` in `d:resourcetype` bei einem Ordner -- dessen `oc:size` ist
+ * 4096 und damit die Groesse des Eintrags, nicht seines Inhalts; sie wird
+ * deshalb nicht genannt. Die erste Antwort ist der Papierkorb selbst, mit
+ * leerem Ort, und faellt weg.
+ */
 function papierkorbEintraege(xml) {
   const eintraege = [];
+  const feld = (block, name) =>
+    block.match(new RegExp(`<[a-z0-9]*:?${name}[^>]*>([^<]*)<`, 'i'))?.[1];
   // Der Namensraum-Vorsatz wird nicht festgenagelt (`d:response`): er ist die
   // Wahl des Servers und keine Zusage.
   for (const block of String(xml)
     .split(/<[a-z0-9]*:?response[\s>]/i)
     .slice(1)) {
-    const weg = block.match(/<[a-z0-9]*:?href[^>]*>([^<]*)</i)?.[1];
-    const ort = block.match(/<[a-z0-9]*:?trashbin-original-location[^>]*>([^<]*)</i)?.[1];
+    const weg = feld(block, 'href');
+    const ort = feld(block, 'trashbin-original-location');
     if (!weg || !ort) {
       continue;
     }
     const id = weg.replace(/\/+$/, '').split('/').pop();
-    eintraege.push({ id: sicherEntschluesseln(id), ort: sicherEntschluesseln(ort) });
+    const sekunden = Number(feld(block, 'trashbin-delete-timestamp'));
+    const ordner = /<[a-z0-9]*:?collection\s*\/?>/i.test(block);
+    const laenge = feld(block, 'getcontentlength');
+    eintraege.push({
+      id: sicherEntschluesseln(id),
+      ort: sicherEntschluesseln(ort),
+      name: sicherEntschluesseln(feld(block, 'trashbin-original-filename') || ort.split('/').pop()),
+      geloescht_am:
+        Number.isFinite(sekunden) && sekunden > 0 ? new Date(sekunden * 1000).toISOString() : null,
+      ordner,
+      groesse: !ordner && laenge !== undefined && laenge !== '' ? Number(laenge) : null,
+    });
   }
   return eintraege;
+}
+
+/** Der Weg zum Papierkorb eines Raums, fuer WebDAV. */
+function papierkorbWeg(raumId) {
+  return `/dav/spaces/trash-bin/${pfadTeil(raumId)}`;
+}
+
+/**
+ * Was im Papierkorb eines Raums liegt.
+ *
+ * NUR DAS KONTO DES GERAETS SIEHT IHN GANZ. Ein Mensch mit „schreiben" ist im
+ * Raum Editor, und ein Editor darf den Papierkorb weder leeren noch einzelne
+ * Eintraege endgueltig loeschen (Generalprobe 27.09.2026: 38-mal `403
+ * Permission denied to delete`); ein Leser sieht ihn gar nicht (`207` ohne
+ * Eintraege). Der Raum gehoert dem Konto, das ihn angelegt hat -- also diesem
+ * Backend --, und deshalb laeuft der Papierkorb ueber diesen Weg und nicht
+ * ueber den Menschen.
+ *
+ * Ein `404` ist ein leerer Papierkorb: einen Raum, den es im Dienst nicht
+ * (mehr) gibt, hat auch keinen.
+ */
+async function papierkorb(raumId) {
+  const antwort = await davAnfrage('PROPFIND', papierkorbWeg(raumId), [404], { Depth: '1' });
+  if (antwort.status === 404) {
+    return [];
+  }
+  return papierkorbEintraege(await antwort.text());
+}
+
+/**
+ * Den ganzen Papierkorb eines Raums leeren -- endgueltig.
+ *
+ * EIN AUFRUF AUF DEN PAPIERKORB SELBST, nicht einer je Eintrag. Am 27.09.2026
+ * am Orin gemessen: `DELETE` auf `/dav/spaces/trash-bin/<raum>` antwortet
+ * `204`, danach ist das `PROPFIND` leer und `.Trash/files` und `.Trash/info`
+ * auf der Platte auch. Eintrag fuer Eintrag waere bei den 116 Eintraegen der
+ * Generalprobe 116 Anfragen gewesen, und dazwischen koennte jemand etwas
+ * Neues hineinwerfen, das dann stehen bliebe oder nicht, je nach Reihenfolge.
+ *
+ * UND DANACH WIRD NACHGESEHEN, NICHT GEGLAUBT -- derselbe Satz wie bei
+ * `loescheRaum`: ein Statuscode ist keine Auskunft ueber die Platte. Die
+ * Zeitgrenze ist die des Wegwerfens, denn die Dauer haengt auch hier an der
+ * Zahl der Dateien (am Orin lagen 700 MB darin).
+ */
+async function leereGanzenPapierkorb(raumId) {
+  await davAnfrage('DELETE', papierkorbWeg(raumId), [404], {}, ZEITGRENZE_LOESCHEN_MS);
+  return papierkorb(raumId);
+}
+
+/**
+ * Einen einzelnen Eintrag endgueltig aus dem Papierkorb nehmen. `false`, wenn
+ * es ihn nicht (mehr) gibt.
+ */
+async function entferneAusPapierkorb(raumId, eintragId) {
+  const antwort = await davAnfrage(
+    'DELETE',
+    `${papierkorbWeg(raumId)}/${pfadTeil(eintragId)}`,
+    [404],
+    {},
+    ZEITGRENZE_LOESCHEN_MS
+  );
+  return antwort.status !== 404;
+}
+
+/**
+ * Einen Eintrag an die Stelle zurueckholen, an der er lag.
+ *
+ * `MOVE` VOM PAPIERKORB AN DEN ALTEN ORT, mit `Overwrite: F`: am 27.09.2026 am
+ * Orin gemessen, `201` und die Datei liegt wieder da. Ueberschrieben wird
+ * nichts -- liegt an der Stelle inzwischen etwas anderes, ist das eine Frage
+ * an den Menschen und keine, die dieses Backend fuer ihn beantwortet.
+ *
+ * Gibt zurueck, was geschah: `wiederhergestellt`, `fehlt` (den Eintrag gibt
+ * es nicht mehr), `besetzt` (am alten Ort liegt etwas) oder `eltern_fehlt`
+ * (der Ordner darueber ist selbst weg -- WebDAV sagt dazu `409`).
+ */
+async function stelleWiederHer(raumId, eintragId, ort) {
+  const teile = String(ort).split('/').filter(Boolean).map(pfadTeil).join('/');
+  const antwort = await davAnfrage(
+    'MOVE',
+    `${papierkorbWeg(raumId)}/${pfadTeil(eintragId)}`,
+    [404, 409, 412],
+    {
+      Destination: `${basisIntern()}/dav/spaces/${pfadTeil(raumId)}/${teile}`,
+      Overwrite: 'F',
+    },
+    ZEITGRENZE_LOESCHEN_MS
+  );
+  if (antwort.status === 404) {
+    return 'fehlt';
+  }
+  if (antwort.status === 412) {
+    return 'besetzt';
+  }
+  if (antwort.status === 409) {
+    return 'eltern_fehlt';
+  }
+  return 'wiederhergestellt';
 }
 
 /** `%20` zurueck zu einem Leerzeichen -- und ein einzelnes `%` bleibt, was es ist. */
@@ -917,6 +1130,7 @@ module.exports = {
   DIENST_ADMIN,
   istAn,
   basisAussen,
+  adressenFuer,
   basisIntern,
   legeNutzerAn,
   setzePasswort,
@@ -928,6 +1142,10 @@ module.exports = {
   loescheOrdner,
   ordnerKennung,
   raumSteht,
+  papierkorb,
+  leereGanzenPapierkorb,
+  entferneAusPapierkorb,
+  stelleWiederHer,
   ladeEin,
   nimmEinladungZurueck,
   mitglieder,

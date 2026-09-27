@@ -645,6 +645,31 @@ Der Schluessel wird verschluesselt abgelegt und danach nie wieder angezeigt;
 sichtbar bleiben nur seine letzten vier Zeichen. Wollen Sie nur den Modellnamen
 aendern, lassen Sie das Schluesselfeld leer — der hinterlegte bleibt stehen.
 
+### Firmenordner: Papierkorb und Adresse
+
+Was ein Mitarbeiter im Firmenordner loescht, liegt im **Papierkorb** des
+Hauptordners oder Bereichs, bis Sie ihn leeren. Unter **Einstellungen →
+Firmenordner** steht in der Spalte **Papierkorb** je Hauptordner und Bereich
+die Zahl der Eintraege; ein Klick oeffnet ihn. Je Eintrag koennen Sie
+
+- **zurueckholen** — er liegt danach wieder an seiner alten Stelle. Liegt dort
+  inzwischen etwas anderes, sagt das Geraet es und ueberschreibt nichts;
+- **endgueltig entfernen** — nach einer Rueckfrage.
+
+**Papierkorb leeren** nimmt nach einer Rueckfrage alles darin endgueltig vom
+Geraet. Zurueck kommt es dann nur aus einer Sicherung, die aelter ist. Jeder
+dieser Handgriffe steht im Protokoll. Das ist der Weg, wenn versehentlich
+etwas in einen Ordner ging, das dort nicht hingehoert (etwa ein Schluessel):
+erst loeschen, dann den Papierkorb leeren.
+
+Ein Projekt hat keinen eigenen Papierkorb; was darin geloescht wird, liegt im
+Papierkorb seines Bereichs, mit dem Projekt im Ort.
+
+Ueber der Ordnerliste steht, **unter welcher Adresse** der Firmenordner zu
+erreichen ist — zuerst die, unter der Sie das Geraet gerade erreichen, dahinter
+die weiteren im Netz der Firma (etwa `https://arasul.local:8443`). Loest
+`https://arasul:8443` auf einem Rechner nicht auf, nimmt er eine der anderen.
+
 ### Anmelden
 
 Angemeldet wird mit **Benutzername oder E-Mail-Adresse** und Passwort. Beides

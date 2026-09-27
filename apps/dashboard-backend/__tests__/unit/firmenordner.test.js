@@ -1123,3 +1123,211 @@ describe('Die Anmeldung traegt ein fehlendes Passwort nach (26.09.2026)', () => 
     ).resolves.toBeUndefined();
   });
 });
+
+describe('Der Papierkorb (J34, 27.09.2026)', () => {
+  /** Die Antwort des Orin vom 27.09.2026, gekuerzt: ein Ordner, eine Datei. */
+  const GEMESSEN = `<?xml version="1.0" encoding="utf-8"?><d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns:oc="http://owncloud.org/ns"><d:response><d:href>/dav/spaces/trash-bin/r1/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat><d:propstat><d:prop><oc:trashbin-original-filename></oc:trashbin-original-filename><oc:trashbin-original-location></oc:trashbin-original-location></d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat></d:response><d:response><d:href>/dav/spaces/trash-bin/r1/283cf8a8-fd91/</d:href><d:propstat><d:prop><oc:trashbin-original-filename>pk-probe-ordner</oc:trashbin-original-filename><oc:trashbin-original-location>pk-probe-ordner</oc:trashbin-original-location><oc:trashbin-delete-timestamp>1790515757</oc:trashbin-delete-timestamp><d:resourcetype><d:collection/></d:resourcetype><oc:size>4096</oc:size></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/dav/spaces/trash-bin/r1/c1eefa34-8d0d</d:href><d:propstat><d:prop><oc:trashbin-original-filename>schl%C3%BCssel.pem</oc:trashbin-original-filename><oc:trashbin-original-location>projekt/schl%C3%BCssel.pem</oc:trashbin-original-location><oc:trashbin-delete-timestamp>1790515758</oc:trashbin-delete-timestamp><d:resourcetype></d:resourcetype><d:getcontentlength>5</d:getcontentlength></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>`;
+
+  const LEER = `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/spaces/trash-bin/r1/</d:href></d:response></d:multistatus>`;
+
+  /** Antworten der Reihe nach, und jede Anfrage wird mitgeschrieben. */
+  function reihe(...antworten) {
+    const liste = [...antworten];
+    global.fetch.mockImplementation(() => {
+      const a = liste.shift() || { status: 204 };
+      return Promise.resolve({
+        ok: a.status < 400,
+        status: a.status,
+        text: async () => a.koerper || '',
+        json: async () => JSON.parse(a.koerper || '{}'),
+      });
+    });
+  }
+  const aufrufe = () =>
+    global.fetch.mock.calls.map(([u, o]) => ({ weg: `${o.method} ${String(u)}`, kopf: o.headers }));
+
+  it('liest Name, Ort, Zeit, Groesse und Art so, wie der Dienst sie am Orin nannte', async () => {
+    firmenordnerAn();
+    reihe({ status: 207, koerper: GEMESSEN });
+    const eintraege = await dienst.papierkorb('r1');
+    expect(eintraege).toEqual([
+      {
+        id: '283cf8a8-fd91',
+        ort: 'pk-probe-ordner',
+        name: 'pk-probe-ordner',
+        geloescht_am: new Date(1790515757 * 1000).toISOString(),
+        ordner: true,
+        // 4096 ist der Eintrag, nicht sein Inhalt -- also keine Zahl.
+        groesse: null,
+      },
+      {
+        id: 'c1eefa34-8d0d',
+        ort: 'projekt/schlüssel.pem',
+        name: 'schlüssel.pem',
+        geloescht_am: new Date(1790515758 * 1000).toISOString(),
+        ordner: false,
+        groesse: 5,
+      },
+    ]);
+    expect(aufrufe()[0].weg).toBe('PROPFIND http://firmenordner:9200/dav/spaces/trash-bin/r1');
+  });
+
+  it('leert mit einem Aufruf auf den Papierkorb und fragt danach nach', async () => {
+    firmenordnerAn();
+    reihe({ status: 204 }, { status: 207, koerper: LEER });
+    const danach = await dienst.leereGanzenPapierkorb('r1');
+    expect(danach).toEqual([]);
+    expect(aufrufe().map(a => a.weg)).toEqual([
+      'DELETE http://firmenordner:9200/dav/spaces/trash-bin/r1',
+      'PROPFIND http://firmenordner:9200/dav/spaces/trash-bin/r1',
+    ]);
+  });
+
+  it('holt zurueck an den alten Ort und ueberschreibt nie', async () => {
+    firmenordnerAn();
+    reihe({ status: 201 });
+    await expect(
+      dienst.stelleWiederHer('r1', 'c1eefa34-8d0d', 'projekt/schlüssel.pem')
+    ).resolves.toBe('wiederhergestellt');
+    const [a] = aufrufe();
+    expect(a.weg).toBe('MOVE http://firmenordner:9200/dav/spaces/trash-bin/r1/c1eefa34-8d0d');
+    expect(a.kopf.Overwrite).toBe('F');
+    expect(a.kopf.Destination).toBe(
+      'http://firmenordner:9200/dav/spaces/r1/projekt/schl%C3%BCssel.pem'
+    );
+  });
+
+  it.each([
+    [412, 'besetzt'],
+    [409, 'eltern_fehlt'],
+    [404, 'fehlt'],
+  ])('sagt bei %i „%s" statt zu werfen', async (status, wort) => {
+    firmenordnerAn();
+    reihe({ status });
+    await expect(dienst.stelleWiederHer('r1', 'x', 'a/b')).resolves.toBe(wort);
+  });
+
+  /** Die Datenbank kennt einen Bereich (id 1) und ein Projekt darin (id 2). */
+  function baum() {
+    db.query.mockImplementation(async (sql, params) => {
+      if (sql.includes('WHERE o.id')) {
+        return Number(params[0]) === 1
+          ? { rows: [{ id: 1, kennung: 'firma', ebene: 0, art: 'wurzel', raum_id: 'r1' }] }
+          : { rows: [{ id: 2, kennung: 'vicona', ebene: 2, art: 'geteilt', raum_id: 'r1' }] };
+      }
+      return {
+        rows: [
+          { id: 1, kennung: 'firma', ebene: 0, art: 'wurzel', raum_id: 'r1' },
+          { id: 2, kennung: 'vicona', ebene: 2, art: 'geteilt', raum_id: 'r1' },
+          { id: 3, kennung: 'neu', ebene: 1, art: 'geteilt', raum_id: null },
+        ],
+      };
+    });
+  }
+
+  it('meldet vorher n und nachher 0', async () => {
+    firmenordnerAn();
+    baum();
+    reihe({ status: 207, koerper: GEMESSEN }, { status: 204 }, { status: 207, koerper: LEER });
+    await expect(verwaltung.leerePapierkorb(1)).resolves.toEqual({
+      ordner: 'firma',
+      vorher: 2,
+      nachher: 0,
+    });
+  });
+
+  it('nennt es keinen Erfolg, wenn danach noch etwas darin liegt', async () => {
+    firmenordnerAn();
+    baum();
+    reihe({ status: 207, koerper: GEMESSEN }, { status: 204 }, { status: 207, koerper: GEMESSEN });
+    await expect(verwaltung.leerePapierkorb(1)).rejects.toMatchObject({ statusCode: 503 });
+  });
+
+  it('schickt die Frage nach einem Projekt an seinen Bereich', async () => {
+    firmenordnerAn();
+    baum();
+    await expect(verwaltung.papierkorbVon(2)).rejects.toMatchObject({ statusCode: 400 });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('antwortet mit 409 und Satz, wenn am alten Ort schon etwas liegt', async () => {
+    firmenordnerAn();
+    baum();
+    reihe({ status: 207, koerper: GEMESSEN }, { status: 412 });
+    await expect(verwaltung.stelleAusPapierkorbWiederHer(1, 'c1eefa34-8d0d')).rejects.toMatchObject(
+      { statusCode: 409 }
+    );
+  });
+
+  it('kennt keinen Eintrag, der nicht im Papierkorb steht', async () => {
+    firmenordnerAn();
+    baum();
+    reihe({ status: 207, koerper: GEMESSEN });
+    await expect(verwaltung.entferneAusPapierkorb(1, 'gibt-es-nicht')).rejects.toMatchObject({
+      statusCode: 404,
+    });
+    expect(global.fetch.mock.calls.filter(([, o]) => o.method === 'DELETE')).toHaveLength(0);
+  });
+
+  it('zaehlt je Hauptordner und Bereich, ohne Projekte und ohne Ordner ohne Raum', async () => {
+    firmenordnerAn();
+    baum();
+    reihe({ status: 207, koerper: GEMESSEN });
+    await expect(verwaltung.papierkorbUebersicht()).resolves.toEqual([
+      { ordner_id: 1, kennung: 'firma', anzahl: 2, groesse: 5 },
+    ]);
+  });
+
+  it('laesst eine Zeile leer, wenn ein Papierkorb nicht antwortet', async () => {
+    firmenordnerAn();
+    baum();
+    reihe({ status: 500, koerper: 'grpc error' });
+    await expect(verwaltung.papierkorbUebersicht()).resolves.toEqual([
+      { ordner_id: 1, kennung: 'firma', anzahl: null, groesse: null },
+    ]);
+  });
+});
+
+describe('Die Adressen des Firmenordners (J34, 27.09.2026)', () => {
+  afterEach(() => {
+    delete process.env.MDNS_NAME;
+  });
+
+  it('nennt ohne Aufrufer die eingestellte zuerst und daneben den mDNS-Namen', () => {
+    firmenordnerAn();
+    expect(dienst.adressenFuer(null)).toEqual(['https://arasul:8443', 'https://arasul.local:8443']);
+  });
+
+  it('nennt zuerst die LAN-Adresse, unter der der Aufrufer das Geraet erreicht hat', () => {
+    firmenordnerAn();
+    // Der Befund der Generalprobe: `arasul` loeste am Mac nur ueber Tailscale
+    // auf. Wer das Geraet unter seiner IP erreicht, erreicht 8443 dort auch.
+    expect(dienst.adressenFuer('192.168.0.197')).toEqual([
+      'https://192.168.0.197:8443',
+      'https://arasul:8443',
+      'https://arasul.local:8443',
+    ]);
+    expect(dienst.adressenFuer('arasul.local')[0]).toBe('https://arasul.local:8443');
+    expect(dienst.adressenFuer('ARASUL')).toEqual([
+      'https://arasul:8443',
+      'https://arasul.local:8443',
+    ]);
+  });
+
+  it('nennt keinen Namen, der nicht im Zertifikat des Geraets steht', () => {
+    firmenordnerAn();
+    for (const fremd of ['arasul.tail746d9b.ts.net', '203.0.113.7', 'localhost', 'boese.example']) {
+      expect(dienst.adressenFuer(fremd)[0]).toBe('https://arasul:8443');
+    }
+  });
+
+  it('folgt einem anderen Netznamen', () => {
+    firmenordnerAn();
+    process.env.MDNS_NAME = 'werkstatt';
+    process.env.FIRMENORDNER_ADRESSE = 'https://werkstatt:8443';
+    expect(dienst.adressenFuer('werkstatt.local')).toEqual([
+      'https://werkstatt.local:8443',
+      'https://werkstatt:8443',
+    ]);
+  });
+});

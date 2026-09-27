@@ -32,7 +32,13 @@
 const crypto = require('crypto');
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const {
+  ApiError,
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  ServiceUnavailableError,
+} = require('../../utils/errors');
 const dienst = require('./ordnerdienst');
 
 /** Die zwei Rechte, in der Reihenfolge „weniger, mehr". */
@@ -948,6 +954,182 @@ async function aenderungenVon(ordnerId) {
   return { ordner: ordner.kennung, aenderungen };
 }
 
+// ---------------------------------------------------------------------------
+// Papierkorb (Auftrag papierkorb-und-adresse-des-firmenordners, 27.09.2026, J34)
+// ---------------------------------------------------------------------------
+
+/**
+ * WAS EINMAL VERSEHENTLICH IN EINEN ORDNER GING, MUSS DER ADMINISTRATOR
+ * SELBST ENDGUELTIG ENTFERNEN KOENNEN. Am 27.09.2026 lagen im Papierkorb des
+ * Hauptordners 116 Eintraege aus zwei Proben, darunter Kopien von Schluesseln
+ * -- und der Administrator konnte sie nicht wegnehmen: er ist im Raum Editor,
+ * leeren darf nur der Eigentuemer, und das ist das Konto des Geraets. Also
+ * geht der Papierkorb ueber dieses Backend, und die Route entscheidet, wer
+ * fragen darf.
+ *
+ * EIN PAPIERKORB JE RAUM, ALSO JE HAUPTORDNER UND BEREICH. Ein Projekt der
+ * Ebene 2 liegt im Raum seines Bereichs, und was darin geloescht wird, liegt
+ * im Papierkorb des Bereichs (mit `ort` = `<projekt>/…`). Die Frage nach dem
+ * Papierkorb eines Projekts ist deshalb ein `400` mit dem Satz, wo er liegt.
+ */
+async function papierkorbRaum(ordnerId) {
+  const ordner = await holeOrdner(ordnerId);
+  if (ordner.ebene === 2) {
+    throw new ValidationError(
+      'Ein Projekt hat keinen eigenen Papierkorb. Was darin gelöscht wurde, liegt im Papierkorb seines Bereichs.'
+    );
+  }
+  if (!dienst.istAn()) {
+    throw new ServiceUnavailableError('Auf diesem Gerät läuft kein Firmenordner.');
+  }
+  return ordner;
+}
+
+/** Ein Fehler des Dienstes als Satz fuer den Menschen; der rohe steht im Log. */
+async function papierkorbAnfrage(was, tuEs) {
+  try {
+    return await tuEs();
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    logger.warn(`Firmenordner: ${was} ging nicht -- ${err.message}`);
+    throw new ServiceUnavailableError(
+      'Der Firmenordner antwortet gerade nicht. Versuchen Sie es in einer Minute noch einmal.'
+    );
+  }
+}
+
+/**
+ * Wie viel in welchem Papierkorb liegt -- je Hauptordner und Bereich, fuer
+ * die Liste der Verwaltung.
+ *
+ * NEBENEINANDER GEFRAGT, und ein Raum, der nicht antwortet, steht mit
+ * `anzahl: null` da statt die ganze Liste zu kippen. Ein Ordner, den der
+ * Dienst noch nicht kennt (`raum_id` leer), hat keinen Papierkorb und fehlt.
+ */
+async function papierkorbUebersicht() {
+  if (!dienst.istAn()) {
+    return [];
+  }
+  const raeume = (await listeOrdner()).filter(o => o.ebene <= 1 && o.raum_id);
+  return Promise.all(
+    raeume.map(async o => {
+      try {
+        const eintraege = await dienst.papierkorb(o.raum_id);
+        return {
+          ordner_id: o.id,
+          kennung: o.kennung,
+          anzahl: eintraege.length,
+          groesse: eintraege.reduce((s, e) => s + (e.groesse || 0), 0),
+        };
+      } catch (err) {
+        logger.warn(`Firmenordner: Papierkorb von ${o.kennung} kam nicht -- ${err.message}`);
+        return { ordner_id: o.id, kennung: o.kennung, anzahl: null, groesse: null };
+      }
+    })
+  );
+}
+
+/** Was im Papierkorb eines Hauptordners oder Bereichs liegt, neueste zuerst. */
+async function papierkorbVon(ordnerId) {
+  const ordner = await papierkorbRaum(ordnerId);
+  if (!ordner.raum_id) {
+    return { ordner: ordner.kennung, eintraege: [] };
+  }
+  const eintraege = await papierkorbAnfrage('den Papierkorb lesen', () =>
+    dienst.papierkorb(ordner.raum_id)
+  );
+  eintraege.sort((a, b) => String(b.geloescht_am).localeCompare(String(a.geloescht_am)));
+  return { ordner: ordner.kennung, eintraege };
+}
+
+/**
+ * Den Papierkorb eines Hauptordners oder Bereichs leeren.
+ *
+ * Gibt die Zahl davor und danach zurueck -- danach aus einer zweiten Frage an
+ * den Dienst, nicht aus der Antwort auf das Loeschen. Steht danach noch etwas
+ * darin, ist das ein Fehler mit Satz und kein Erfolg mit Fussnote.
+ */
+async function leerePapierkorb(ordnerId) {
+  const ordner = await papierkorbRaum(ordnerId);
+  if (!ordner.raum_id) {
+    return { ordner: ordner.kennung, vorher: 0, nachher: 0 };
+  }
+  const vorher = await papierkorbAnfrage('den Papierkorb lesen', () =>
+    dienst.papierkorb(ordner.raum_id)
+  );
+  const nachher = await papierkorbAnfrage('den Papierkorb leeren', () =>
+    dienst.leereGanzenPapierkorb(ordner.raum_id)
+  );
+  if (nachher.length > 0) {
+    logger.warn(
+      `Firmenordner: Papierkorb von ${ordner.kennung} geleert, danach noch ${nachher.length} Einträge`
+    );
+    throw new ServiceUnavailableError(
+      `Der Papierkorb von „${ordner.kennung}“ ist nicht leer geworden, es liegen noch ${nachher.length} Einträge darin. Versuchen Sie es noch einmal.`
+    );
+  }
+  return { ordner: ordner.kennung, vorher: vorher.length, nachher: 0 };
+}
+
+/** Einen Eintrag im Papierkorb suchen, oder `404` mit Satz. */
+async function papierkorbEintrag(ordner, eintragId) {
+  const eintraege = ordner.raum_id
+    ? await papierkorbAnfrage('den Papierkorb lesen', () => dienst.papierkorb(ordner.raum_id))
+    : [];
+  const eintrag = eintraege.find(e => e.id === eintragId);
+  if (!eintrag) {
+    throw new NotFoundError('Diesen Eintrag gibt es im Papierkorb nicht mehr.');
+  }
+  return eintrag;
+}
+
+/** Einen Eintrag endgueltig aus dem Papierkorb nehmen. */
+async function entferneAusPapierkorb(ordnerId, eintragId) {
+  const ordner = await papierkorbRaum(ordnerId);
+  const eintrag = await papierkorbEintrag(ordner, eintragId);
+  await papierkorbAnfrage('einen Eintrag aus dem Papierkorb nehmen', () =>
+    dienst.entferneAusPapierkorb(ordner.raum_id, eintragId)
+  );
+  return {
+    ordner: ordner.kennung,
+    eintrag: { id: eintrag.id, name: eintrag.name, ort: eintrag.ort },
+  };
+}
+
+/**
+ * Einen Eintrag an seinen alten Ort zurueckholen.
+ *
+ * Ueberschrieben wird nie: liegt dort inzwischen etwas, ist das ein `409`
+ * mit dem Ausweg, und genauso, wenn der Ordner darueber selbst geloescht ist
+ * -- dann zuerst ihn.
+ */
+async function stelleAusPapierkorbWiederHer(ordnerId, eintragId) {
+  const ordner = await papierkorbRaum(ordnerId);
+  const eintrag = await papierkorbEintrag(ordner, eintragId);
+  const ergebnis = await papierkorbAnfrage('einen Eintrag wiederherstellen', () =>
+    dienst.stelleWiederHer(ordner.raum_id, eintragId, eintrag.ort)
+  );
+  if (ergebnis === 'fehlt') {
+    throw new NotFoundError('Diesen Eintrag gibt es im Papierkorb nicht mehr.');
+  }
+  if (ergebnis === 'besetzt') {
+    throw new ConflictError(
+      `An der alten Stelle „${eintrag.ort}“ liegt inzwischen etwas anderes. Benennen Sie es um oder verschieben Sie es, dann geht es.`
+    );
+  }
+  if (ergebnis === 'eltern_fehlt') {
+    throw new ConflictError(
+      `Der Ordner, in dem „${eintrag.name}“ lag, ist selbst gelöscht. Stellen Sie zuerst ihn wieder her.`
+    );
+  }
+  return {
+    ordner: ordner.kennung,
+    eintrag: { id: eintrag.id, name: eintrag.name, ort: eintrag.ort },
+  };
+}
+
 /** Hoechstens so viele Zeilen je Abschnitt, damit die Sicht EINE Seite bleibt. */
 const SICHT_ZEILEN = { ordner: 25, apps: 10, orte: 10 };
 
@@ -1062,7 +1244,7 @@ async function sichtFuer({ benutzerId, username, rolle }) {
  * beides: `an: false` heisst „gibt es hier nicht", `erreichbar: false` heisst
  * „gibt es, antwortet aber nicht".
  */
-async function zustand() {
+async function zustand({ host = null } = {}) {
   const grund = await dienst.zustand();
   const { rows } = await db.query(
     `SELECT
@@ -1076,7 +1258,8 @@ async function zustand() {
          AS rechte_offen,
        (SELECT kennung FROM public.firmenordner_ordner WHERE art = 'wurzel' LIMIT 1) AS wurzel`
   );
-  return { ...grund, adresse: dienst.basisAussen(), ...rows[0] };
+  const adressen = dienst.adressenFuer(host);
+  return { ...grund, adresse: adressen[0] ?? null, adressen, ...rows[0] };
 }
 
 module.exports = {
@@ -1096,6 +1279,11 @@ module.exports = {
   listeRechte,
   meineOrdner,
   aenderungenVon,
+  papierkorbUebersicht,
+  papierkorbVon,
+  leerePapierkorb,
+  entferneAusPapierkorb,
+  stelleAusPapierkorbWiederHer,
   sichtFuer,
   spiegleWurzelMitglieder,
   legeOrdnerAn,

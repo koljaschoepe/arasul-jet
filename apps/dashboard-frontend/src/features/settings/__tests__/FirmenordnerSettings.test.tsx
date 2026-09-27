@@ -103,6 +103,26 @@ const ZUSTAND = {
   wurzel: 'firma',
 };
 
+/** Zwei Einträge im Papierkorb der Wurzel, wie das Gerät sie am 27.09.2026 nannte. */
+const PAPIERKORB = [
+  {
+    id: 'c1eefa34',
+    ort: 'probe/private_update_key.pem',
+    name: 'private_update_key.pem',
+    geloescht_am: '2026-09-27T13:29:18.000Z',
+    ordner: false,
+    groesse: 3243,
+  },
+  {
+    id: '283cf8a8',
+    ort: 'pk-probe-ordner',
+    name: 'pk-probe-ordner',
+    geloescht_am: '2026-09-27T13:29:17.000Z',
+    ordner: true,
+    groesse: null,
+  },
+];
+
 function huelle() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Huelle({ children }: { children: ReactNode }) {
@@ -119,6 +139,15 @@ function antworte({
     if (pfad === '/firmenordner/ordner') return { data: ordner, zustand };
     if (pfad === '/firmenordner/rechte') return { data: rechte };
     if (pfad === '/benutzer') return { data: [ADMIN, MIA] };
+    if (pfad === '/firmenordner/papierkorb') {
+      return {
+        data: [
+          { ordner_id: 1, kennung: 'firma', anzahl: 2, groesse: 5 },
+          { ordner_id: 2, kennung: 'projekte', anzahl: 0, groesse: 0 },
+        ],
+      };
+    }
+    if (pfad.endsWith('/papierkorb')) return { data: { ordner: 'firma', eintraege: PAPIERKORB } };
     if (pfad.endsWith('/aenderungen')) {
       return {
         data: {
@@ -404,5 +433,82 @@ describe('FirmenordnerSettings', () => {
     expect(await screen.findByTestId('firmenordner-offen')).toHaveTextContent('2 Änderungen');
     fireEvent.click(screen.getByTestId('firmenordner-abgleich'));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/firmenordner/abgleich'));
+  });
+
+  /** J34, 27.09.2026: der Administrator leert den Papierkorb selbst. */
+  it('zeigt je Hauptordner und Bereich die Zahl im Papierkorb, einem Projekt keine', async () => {
+    antworte();
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await screen.findByTestId('ordner-baum');
+    expect(await screen.findByTestId('ordner-papierkorb-firma')).toHaveAttribute(
+      'data-anzahl',
+      '2'
+    );
+    expect(screen.getByTestId('ordner-papierkorb-projekte')).toHaveAttribute('data-anzahl', '0');
+    expect(screen.queryByTestId('ordner-papierkorb-vicona')).not.toBeInTheDocument();
+  });
+
+  it('leert den Papierkorb erst nach der Rückfrage', async () => {
+    antworte();
+    apiMock.del.mockResolvedValue({ data: { ordner: 'firma', vorher: 2, nachher: 0 } });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    fireEvent.click(await screen.findByTestId('ordner-papierkorb-firma'));
+    const dialog = await screen.findByTestId('papierkorb');
+    expect(await within(dialog).findAllByTestId('papierkorb-eintrag')).toHaveLength(2);
+    expect(dialog).toHaveTextContent('lag in probe');
+    expect(apiMock.get).toHaveBeenCalledWith(
+      '/firmenordner/ordner/1/papierkorb',
+      expect.anything()
+    );
+
+    fireEvent.click(screen.getByTestId('papierkorb-leeren'));
+    const frage = await screen.findByRole('alertdialog');
+    expect(frage).toHaveTextContent('2 Einträge');
+    expect(apiMock.del).not.toHaveBeenCalled();
+    fireEvent.click(within(frage).getByRole('button', { name: 'Endgültig leeren' }));
+    await waitFor(() =>
+      expect(apiMock.del).toHaveBeenCalledWith(
+        '/firmenordner/ordner/1/papierkorb',
+        expect.objectContaining({ showError: false })
+      )
+    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  });
+
+  it('holt einen Eintrag zurück und zeigt ein 409 als Satz', async () => {
+    antworte();
+    apiMock.post.mockRejectedValue({
+      status: 409,
+      message: 'An der alten Stelle „pk-probe-ordner“ liegt inzwischen etwas anderes.',
+    });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    fireEvent.click(await screen.findByTestId('ordner-papierkorb-firma'));
+    fireEvent.click(await screen.findByTestId('papierkorb-zurueck-283cf8a8'));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/firmenordner/ordner/1/papierkorb/283cf8a8/wiederherstellen',
+        {},
+        expect.objectContaining({ showError: false })
+      )
+    );
+    expect(await screen.findByTestId('papierkorb-fehler')).toHaveTextContent('liegt inzwischen');
+  });
+
+  it('nennt neben der Adresse die im Netz der Firma', async () => {
+    antworte({
+      zustand: {
+        ...ZUSTAND,
+        adresse: 'https://192.168.0.197:8443',
+        adressen: [
+          'https://192.168.0.197:8443',
+          'https://arasul:8443',
+          'https://arasul.local:8443',
+        ],
+      },
+    });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    const zeile = await screen.findByTestId('firmenordner-adressen');
+    expect(zeile).toHaveTextContent('Erreichbar unter https://192.168.0.197:8443');
+    expect(zeile).toHaveTextContent('https://arasul.local:8443');
   });
 });
