@@ -1,0 +1,116 @@
+{
+  "datum": "2026-09-27T18:48:55.061Z",
+  "adressen": ["https://arasul", "https://arasul.local", "https://192.168.0.197"],
+  "zellen": [
+    {
+      "name": "Anmeldung 390 px · https://arasul",
+      "gruen": false,
+      "befund": "403 FORBIDDEN „Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.\""
+    },
+    {
+      "name": "Anmeldung 1440 px · https://arasul",
+      "gruen": false,
+      "befund": "403 FORBIDDEN „Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.\""
+    },
+    {
+      "name": "Anmeldung 390 px · https://arasul.local",
+      "gruen": true,
+      "befund": ""
+    },
+    {
+      "name": "Anmeldung 1440 px · https://arasul.local",
+      "gruen": true,
+      "befund": ""
+    },
+    {
+      "name": "Anmeldung 390 px · https://192.168.0.197",
+      "gruen": true,
+      "befund": ""
+    },
+    {
+      "name": "Anmeldung 1440 px · https://192.168.0.197",
+      "gruen": true,
+      "befund": ""
+    },
+    {
+      "name": "fremde Herkunft https://fremd.example abgewiesen",
+      "gruen": false,
+      "befund": "403 FORBIDDEN"
+    },
+    {
+      "name": "fremde Herkunft https://arasul.fremd.example abgewiesen",
+      "gruen": false,
+      "befund": "403 FORBIDDEN"
+    },
+    {
+      "name": "eigene Herkunft https://arasul zugelassen",
+      "gruen": false,
+      "befund": "403"
+    },
+    {
+      "name": "eigene Herkunft https://arasul.local zugelassen",
+      "gruen": true,
+      "befund": "200"
+    },
+    {
+      "name": "eigene Herkunft https://192.168.0.197 zugelassen",
+      "gruen": true,
+      "befund": "200"
+    },
+    {
+      "name": "technisch 390 px · kein Netz",
+      "gruen": false,
+      "befund": "„Verbindung zum Server fehlgeschlagen. Bitte die Netzwerkverbindung prüfen.\""
+    },
+    {
+      "name": "technisch 390 px · Zeitüberschreitung",
+      "gruen": false,
+      "befund": "„Verbindung zum Server fehlgeschlagen. Bitte die Netzwerkverbindung prüfen.\""
+    },
+    {
+      "name": "technisch 390 px · abgewiesene Herkunft",
+      "gruen": false,
+      "befund": "„Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.\""
+    },
+    {
+      "name": "technisch 390 px · 403 ohne engeren Code",
+      "gruen": false,
+      "befund": "„Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.\""
+    },
+    {
+      "name": "technisch 390 px · Gerät nicht bereit",
+      "gruen": false,
+      "befund": "„Der Server ist derzeit nicht erreichbar. Bitte später erneut versuchen.\""
+    },
+    {
+      "name": "technisch 1440 px · kein Netz",
+      "gruen": false,
+      "befund": "„Verbindung zum Server fehlgeschlagen. Bitte die Netzwerkverbindung prüfen.\""
+    },
+    {
+      "name": "technisch 1440 px · Zeitüberschreitung",
+      "gruen": false,
+      "befund": "„Verbindung zum Server fehlgeschlagen. Bitte die Netzwerkverbindung prüfen.\""
+    },
+    {
+      "name": "technisch 1440 px · abgewiesene Herkunft",
+      "gruen": false,
+      "befund": "„Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.\""
+    },
+    {
+      "name": "technisch 1440 px · 403 ohne engeren Code",
+      "gruen": false,
+      "befund": "„Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.\""
+    },
+    {
+      "name": "technisch 1440 px · Gerät nicht bereit",
+      "gruen": false,
+      "befund": "„Der Server ist derzeit nicht erreichbar. Bitte später erneut versuchen.\""
+    },
+    {
+      "name": "wirkliche Sperre",
+      "gruen": false,
+      "befund": "ARASUL_SPERRKONTO fehlt, nicht gemessen"
+    }
+  ]
+}

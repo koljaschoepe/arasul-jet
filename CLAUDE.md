@@ -1302,6 +1302,22 @@ Nach dem Leeren wird nachgefragt, nicht dem `204` geglaubt. Und
 Gerät erreicht (nur Namen aus dem Zertifikat), und `adressen` nennt daneben
 die eingestellte und `<netzname>.local` — alle antworten auf 8443 mit `207`.
 
+Seit dem Auftrag **login-unter-jeder-adresse** (27.09.2026, J34) **meldet
+man sich unter jeder Adresse an, die das Gerät nennt, und ein technischer
+Fehler heißt nie „gesperrt"**. Unter `https://arasul` war jede Anmeldung ein
+403: die CORS-Regel (`utils/corsOrigin.js`) kannte RFC 1918, `*.local` und
+Tailscale, aber nicht den **nackten Netznamen** (`MDNS_NAME`) — jetzt genau
+diesen, exakt verglichen. Und die Anmeldeseite las **jeden** 403 als Sperre;
+das Backend nennt seither engere Codes (`ACCOUNT_LOCKED`, `ACCOUNT_DISABLED`,
+`ORIGIN_NOT_ALLOWED`, ein optionaler zweiter Wert an `ForbiddenError`), die
+Seite unterscheidet danach (`features/system/anmeldeFehler.ts`): „gesperrt"
+nur nach `ACCOUNT_LOCKED`, jeder technische Grund sagt, dass mit dem Konto
+alles in Ordnung ist, und eine hängende Anmeldung endet nach 30 s mit einem
+Satz statt nie. Abnahme: `scripts/test/login-adressen-abnahme.sh` (drei
+Adressen mal 390 und 1440 px, fremde Herkunft, fünf technische Fehler im
+Browser, eine wirkliche Sperre an einem Wegwerf-Konto); jedes Bild geht durch
+`fotografieren`, das Passwortfelder leert und das Bild sonst verweigert.
+
 Seit dem Auftrag **apps-starten-nach-der-datenbank** (26.09.2026, J35)
 **startet eine App nach einem Neustart erst mit ihrer Datenbank, und eine App
 ohne Datenbank ist krank**. Docker startet die App-Container
