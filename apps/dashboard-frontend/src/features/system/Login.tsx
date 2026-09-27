@@ -6,6 +6,10 @@ import { useApi } from '../../hooks/useApi';
 import { Button, Input, Label } from '@marken';
 import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
 import { PLATFORM_NAME, SUPPORT_EMAIL, PLATFORM_WEBSITE } from '@/config/branding';
+import { anmeldeFehlerText, type AnmeldeFehler } from './anmeldeFehler';
+
+/** So lange wartet die Anmeldung auf das Gerät (wie `useApi` ohne eigenes Signal). */
+const ANMELDE_FRIST_MS = 30_000;
 
 const LoginSchema = z.object({
   username: z.string().min(1),
@@ -68,11 +72,19 @@ function Login({ onLoginSuccess, firmenname }: LoginProps) {
   const onSubmit = async (values: LoginFormValues) => {
     setError('');
     submitAbortRef.current?.abort();
-    submitAbortRef.current = new AbortController();
+    const abbruch = new AbortController();
+    submitAbortRef.current = abbruch;
+    // Ein eigenes Signal ersetzt in `useApi` dessen 30-s-Grenze; ohne diese
+    // hier bliebe eine hängende Anmeldung für immer bei „Anmeldung läuft".
+    let zeitUm = false;
+    const frist = setTimeout(() => {
+      zeitUm = true;
+      abbruch.abort();
+    }, ANMELDE_FRIST_MS);
     try {
       const data = await api.post<LoginResponseData>('/auth/login', values, {
         showError: false,
-        signal: submitAbortRef.current.signal,
+        signal: abbruch.signal,
       });
       if (!mountedRef.current) return;
       localStorage.setItem('arasul_token', data.token);
@@ -80,27 +92,13 @@ function Login({ onLoginSuccess, firmenname }: LoginProps) {
       onLoginSuccess(data);
     } catch (err: unknown) {
       if (!mountedRef.current) return;
-      if ((err as Error)?.name === 'AbortError') return;
+      if ((err as Error)?.name === 'AbortError' && !zeitUm) return;
       console.error('Login error:', err);
-      const e = err as { message?: string; status?: number };
-      // Meaningful, distinct German messages instead of the backend's raw
-      // (English) text. The /auth/login response is not intercepted by the
-      // useApi 401-handler, so it reaches us here with a status to dispatch on.
-      let message: string;
-      if (e.status === 401) {
-        message = 'Benutzername oder Passwort ist falsch.';
-      } else if (e.status === 403) {
-        message = 'Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.';
-      } else if (e.status === 429) {
-        message = 'Zu viele Anmeldeversuche. Bitte einen Moment warten und erneut versuchen.';
-      } else if (typeof e.status === 'number' && e.status >= 500) {
-        message = 'Der Server ist derzeit nicht erreichbar. Bitte später erneut versuchen.';
-      } else if (e.status === undefined) {
-        message = 'Verbindung zum Server fehlgeschlagen. Bitte die Netzwerkverbindung prüfen.';
-      } else {
-        message = e.message || 'Anmeldung fehlgeschlagen. Bitte die Zugangsdaten prüfen.';
-      }
-      setError(message);
+      // Die /auth/login-Antwort fängt der 401-Handler von useApi nicht ab; sie
+      // kommt mit Status und Code hier an (`anmeldeFehler.ts`).
+      setError(anmeldeFehlerText(err as AnmeldeFehler, zeitUm));
+    } finally {
+      clearTimeout(frist);
     }
   };
 

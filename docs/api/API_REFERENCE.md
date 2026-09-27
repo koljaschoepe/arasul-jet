@@ -682,7 +682,7 @@ gibt das nicht preis: es sagt nur, dass ein Zweiter das Passwort kennt, und
 genau deshalb muss es gewechselt werden.
 
 Stilllegen ist nicht Löschen. Ein stillgelegter Benutzer kommt nicht mehr
-herein (`POST /api/auth/login` antwortet 403 `Account is disabled`), seine
+herein (`POST /api/auth/login` antwortet 403 `ACCOUNT_DISABLED`), seine
 Läufe und Protokolle bleiben stehen. Der letzte aktive Administrator kann nicht
 stillgelegt werden, und niemand kann sich selbst stilllegen.
 

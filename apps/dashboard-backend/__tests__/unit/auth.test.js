@@ -90,6 +90,8 @@ describe('Authentication Routes', () => {
 
       expect(response.status).toBe(403);
       expect(response.body.error.message).toContain('locked');
+      // J34: nur dieser Code darf in der Oberflaeche „gesperrt" heissen.
+      expect(response.body.error.code).toBe('ACCOUNT_LOCKED');
     });
 
     test('should return 401 if user does not exist', async () => {
@@ -126,6 +128,7 @@ describe('Authentication Routes', () => {
 
       expect(response.status).toBe(403);
       expect(response.body.error.message).toContain('disabled');
+      expect(response.body.error.code).toBe('ACCOUNT_DISABLED');
     });
 
     test('should return 401 if password is incorrect', async () => {

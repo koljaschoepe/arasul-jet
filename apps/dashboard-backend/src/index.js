@@ -119,7 +119,8 @@ app.use((req, res, next) => {
 
 // SEC-007 FIX: Restrict CORS to specific origins + allow local/tailnet access.
 // Origin-matching rules live in utils/corsOrigin.js as a pure, unit-tested
-// function (LAN via RFC-1918 + *.local, remote via Tailscale CGNAT + *.ts.net).
+// function (LAN via RFC-1918 + *.local + the bare Netzname, remote via
+// Tailscale CGNAT + *.ts.net).
 const { isAllowedOrigin } = require('./utils/corsOrigin');
 
 const corsOptions = {
@@ -131,14 +132,14 @@ const corsOptions = {
 
     // Allow if: no origin (same-origin/curl), explicitly allowed, local network,
     // or a Tailscale tailnet address (CGNAT IP / *.ts.net MagicDNS name).
-    if (isAllowedOrigin(origin, allowedOrigins)) {
+    if (isAllowedOrigin(origin, allowedOrigins, process.env.MDNS_NAME)) {
       callback(null, true);
     } else {
       require('./utils/logger').warn(`CORS blocked origin: ${origin}`);
       const { ForbiddenError } = require('./utils/errors');
       // ApiError → global errorHandler serializes this as 403/FORBIDDEN with a
       // clear message, instead of a generic 500 from a plain Error.
-      callback(new ForbiddenError('Origin not allowed by CORS policy'));
+      callback(new ForbiddenError('Origin not allowed by CORS policy', 'ORIGIN_NOT_ALLOWED'));
     }
   },
   credentials: true,
