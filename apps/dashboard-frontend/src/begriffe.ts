@@ -99,4 +99,10 @@ export const BEGRIFFE: Begriff[] = [
     bedeutung: 'Ein Modell oder ein Paket auf das Gerät holen.',
     statt: ['Download', 'Pull'],
   },
+  {
+    wort: 'Grenze',
+    bedeutung:
+      'Wie viel ein Bereich des Firmenordners höchstens aufnimmt; ohne Grenze bis zum freien Platz des Geräts.',
+    statt: ['Quota', 'Quote'],
+  },
 ];

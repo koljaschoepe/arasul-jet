@@ -38,7 +38,9 @@ import type { ApiError } from '@/hooks/useApi';
 import { useApi } from '@/hooks/useApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBenutzer } from './mitarbeiter/useMitarbeiter';
+import { formatBytes } from '@/utils/formatting';
 import { AenderungenDialog } from './firmenordner/AenderungenDialog';
+import { GrenzeDialog } from './firmenordner/GrenzeDialog';
 import { OrdnerAnlegenDialog } from './firmenordner/OrdnerAnlegenDialog';
 import { OrdnerBaum } from './firmenordner/OrdnerBaum';
 import { OrdnerEntfernenDialog } from './firmenordner/OrdnerEntfernenDialog';
@@ -51,6 +53,7 @@ import {
   useOrdnerAnlegen,
   useOrdnerLoeschen,
   usePapierkorbUebersicht,
+  usePlatz,
   useRechte,
   type Ordner,
 } from './firmenordner/useFirmenordner';
@@ -70,6 +73,7 @@ export function FirmenordnerSettings() {
   const [wegwerfenFehler, setWegwerfenFehler] = useState<string | null>(null);
   const [aenderungen, setAenderungen] = useState<Ordner | null>(null);
   const [papierkorbFuer, setPapierkorbFuer] = useState<Ordner | null>(null);
+  const [grenzeFuer, setGrenzeFuer] = useState<Ordner | null>(null);
   const [abgleichLaeuft, setAbgleichLaeuft] = useState(false);
 
   const ordner = data?.ordner ?? [];
@@ -142,6 +146,11 @@ export function FirmenordnerSettings() {
 
   const an = zustand?.an ?? true;
   const { data: papierkorb } = usePapierkorbUebersicht(Boolean(zustand?.an && zustand.erreichbar));
+  const { data: platz } = usePlatz(Boolean(zustand?.an && zustand.erreichbar));
+  // Die Warnung steht über dem Baum, bevor ein Abgleich an der Grenze scheitert
+  // (J33): „knapp" ab 90 % der Grenze oder unter 10 GB frei auf dem Gerät.
+  const eng = (platz?.ordner ?? []).filter(p => p.stufe !== 'gut');
+  const voll = eng.some(p => p.stufe === 'voll');
   const adressen = zustand?.adressen?.length
     ? zustand.adressen
     : zustand?.adresse
@@ -270,8 +279,37 @@ export function FirmenordnerSettings() {
           <Feldgruppe
             titel="Ordner"
             symbol={<FolderTree />}
-            beschreibung="Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter. Was ein Mitarbeiter löscht, liegt im Papierkorb seines Bereichs, bis Sie ihn leeren."
+            beschreibung={`Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter. Was ein Mitarbeiter löscht, liegt im Papierkorb seines Bereichs, bis Sie ihn leeren. Jeder Bereich hat eine Grenze, wie viel er aufnimmt${platz ? ` (neue Bereiche: ${formatBytes(platz.vorgabe)})` : ''}; ein Klick auf „Platz“ stellt sie ein.`}
           >
+            {eng.length > 0 && (
+              <Alert
+                variant={voll ? 'destructive' : 'default'}
+                data-testid="firmenordner-platz-warnung"
+              >
+                <AlertTitle>
+                  {voll ? 'Ein Bereich ist voll' : 'Ein Bereich wird bald voll'}
+                </AlertTitle>
+                <AlertDescription>
+                  <ul className="flex flex-col gap-1">
+                    {eng.map(p => (
+                      <li key={String(p.ordner_id)}>
+                        „{p.kennung}“:{' '}
+                        {p.begrenzt_durch === 'platte'
+                          ? `auf dem Gerät sind nur noch ${formatBytes(p.frei)} frei.`
+                          : `${formatBytes(p.belegt)} von ${formatBytes(p.grenze)} belegt, frei ${formatBytes(p.frei)}.`}
+                      </li>
+                    ))}
+                  </ul>
+                  <span className="mt-1 block">
+                    Ein Abgleich, der mehr bringt, wird abgewiesen. Heben Sie die Grenze in der
+                    Spalte „Platz“ an
+                    {eng.some(p => p.begrenzt_durch === 'platte')
+                      ? ' oder sprechen Sie mit Ihrem Betreuer über mehr Platz auf dem Gerät.'
+                      : '.'}
+                  </span>
+                </AlertDescription>
+              </Alert>
+            )}
             {adressen.length > 0 && (
               <p className="text-sm text-muted-foreground" data-testid="firmenordner-adressen">
                 Erreichbar unter{' '}
@@ -300,6 +338,8 @@ export function FirmenordnerSettings() {
               <OrdnerBaum
                 ordner={ordner}
                 papierkorb={papierkorb}
+                platz={platz?.ordner}
+                onGrenze={setGrenzeFuer}
                 onAenderungen={setAenderungen}
                 onWegwerfen={setWegwerfen}
                 onPapierkorb={setPapierkorbFuer}
@@ -345,6 +385,16 @@ export function FirmenordnerSettings() {
       />
       <AenderungenDialog fuer={aenderungen} onSchliessen={() => setAenderungen(null)} />
       <PapierkorbDialog fuer={papierkorbFuer} onSchliessen={() => setPapierkorbFuer(null)} />
+      <GrenzeDialog
+        fuer={grenzeFuer}
+        platz={
+          grenzeFuer
+            ? (platz?.ordner.find(p => String(p.ordner_id) === String(grenzeFuer.id)) ?? null)
+            : null
+        }
+        platteFrei={platz?.platte.frei ?? null}
+        onSchliessen={() => setGrenzeFuer(null)}
+      />
     </div>
   );
 }
