@@ -43,8 +43,9 @@ if [ "${1:-}" = "--nur-aufraeumen" ]; then
 fi
 PRAEFIX="j34r-$STEMPEL"
 # Acht Namen, zwei davon lang -- die Matrix soll an ihnen umbrechen, nicht
-# abschneiden.
-NAMEN=(kunden company buchhaltung projekte personalakten-und-vertraege marketing
+# abschneiden. Mit dem Praefix (16 Zeichen) bleibt jede Kennung unter den 40,
+# die das Schema erlaubt.
+NAMEN=(kunden company buchhaltung projekte personal-und-vertraege marketing
   einkauf-und-lieferanten geschaeftsleitung)
 BILDER="${ARASUL_BILDER:-${TMPDIR:-/tmp}/bereich-recht-$STEMPEL}"
 SITZUNG="${TMPDIR:-/tmp}/arasul-j34r-admin.json"
@@ -158,8 +159,11 @@ echo "--- 4. sicht.md ---"
 ruf GET /api/firmenordner/sicht
 HEUTE="$(TZ=Europe/Berlin date +%F)"
 ZEILE="$(grep -m1 'Erzeugt vom Gerät am' "$RUMPF")"
+# `[[ ]]` statt `case` in einer Kommandosubstitution: Bash 3.2 am Mac liest
+# das `)` des Musters als Ende der Substitution. Und keine Pipe in `grep -q`:
+# unter `pipefail` zerreisst sie beim ersten Treffer (`rohrbruch.py`).
 pruefe "sicht.md traegt das Datum in Ortszeit ($HEUTE)" \
-  "$(case "$ZEILE" in *"am $HEUTE "*) echo ja ;; *) echo nein ;; esac)" "${ZEILE:0:60}"
+  "$([[ "$ZEILE" == *"am $HEUTE "* ]] && echo ja || echo nein)" "${ZEILE:0:60}"
 PROBE_IN_SICHT="$(grep -c "$PRAEFIX-company/" "$RUMPF")"
 pruefe "und nennt dem Administrator seinen neuen Bereich" \
   "$([ "$PROBE_IN_SICHT" -ge 1 ] && echo ja || echo nein)"
