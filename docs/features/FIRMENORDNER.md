@@ -515,6 +515,15 @@ der Frage des Kits vor einem Abgleich — sie weist mit
 Platte hat (gelesen per `statfs` auf der Ablage im Backend). Die Wege stehen in
 der [API-Referenz](../api/API_REFERENCE.md).
 
+**Ein Upload darf länger dauern als 60 Sekunden.** Die Abnahme dieses Auftrags
+fand nebenbei, dass Traefik 2.11 je Einstiegspunkt `readTimeout: 60s` setzt:
+am Orin vom Mac über das LAN (rund 3 MB/s) gingen 60 MB in 19 s durch, 250 MB
+brachen nach genau 60,1 s mit `502` ab. Der Einstiegspunkt `firmenordner`
+(8443) liest deshalb eine Stunde lang (`config/traefik/traefik.yml`), 443 bleibt
+bei 60 s. Und weil Traefik diese Datei nur beim Start liest, startet der Deploy
+`reverse-proxy` neu, sobald sie sich ändert — `up -d` allein sieht eine
+geänderte eingehängte Datei nicht.
+
 ### Der Fehler vom 22.09.2026, und warum er so schwer zu lesen war
 
 Ein Raum mit 6.076 Dateien antwortete `500 grpc error`, im Log stand
