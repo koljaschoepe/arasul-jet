@@ -51,6 +51,7 @@ import {
   useOrdnerAnlegen,
   useOrdnerLoeschen,
   usePapierkorbUebersicht,
+  useRechte,
   type Ordner,
 } from './firmenordner/useFirmenordner';
 
@@ -62,6 +63,7 @@ export function FirmenordnerSettings() {
   const { data: benutzer, isLoading: benutzerLaden } = useBenutzer();
   const anlegen = useOrdnerAnlegen();
   const loeschen = useOrdnerLoeschen();
+  const { data: rechte } = useRechte();
 
   const [anlegenOffen, setAnlegenOffen] = useState(false);
   const [wegwerfen, setWegwerfen] = useState<Ordner | null>(null);
@@ -105,9 +107,14 @@ export function FirmenordnerSettings() {
     loeschen.mutate(
       { id: o.id, kennung: o.kennung },
       {
-        onSuccess: () => {
+        onSuccess: res => {
           setWegwerfen(null);
-          toast.success(`„${o.kennung}“ ist weg.`);
+          const entzogen = res.data?.rechte_entzogen ?? [];
+          toast.success(
+            entzogen.length > 0
+              ? `„${o.kennung}“ ist weg, und mit ihm die Rechte von ${entzogen.join(', ')}.`
+              : `„${o.kennung}“ ist weg.`
+          );
         },
         onError: err => setWegwerfenFehler((err as ApiError).message),
       }
@@ -325,6 +332,9 @@ export function FirmenordnerSettings() {
       />
       <OrdnerEntfernenDialog
         fuer={wegwerfen}
+        rechte={
+          wegwerfen ? (rechte ?? []).filter(r => String(r.ordner_id) === String(wegwerfen.id)) : []
+        }
         laeuft={loeschen.isPending}
         fehler={wegwerfenFehler}
         onSchliessen={() => {

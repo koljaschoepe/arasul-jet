@@ -232,8 +232,11 @@ export function useOrdnerAnlegen() {
       const res = await api.post<{ data: Ordner }>('/firmenordner/ordner', neu);
       return res.data;
     },
+    // Auch die Rechte: wer einen Bereich anlegt, schreibt seither darin
+    // (J34, 28.09.2026), und die Matrix soll das zeigen, ohne neu zu laden.
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ORDNER_KEY });
+      void qc.invalidateQueries({ queryKey: RECHTE_KEY });
     },
   });
 }
@@ -243,19 +246,26 @@ export function useOrdnerAnlegen() {
  * derselbe Riegel wie beim Entfernen einer App: wer sie tippt, hat gelesen,
  * was er wegwirft. `showError: false`, weil der Dialog den Satz selbst zeigt
  * (ein 409 sagt, was zuerst weg muss).
+ *
+ * `rechte=entziehen` (J34, 28.09.2026): die Rückfrage nennt jeden, der ein
+ * Recht auf dem Ordner hat, und wer danach die Kennung tippt, nimmt die
+ * Rechte mit dem Ordner weg — in einem Schritt statt erst Zelle für Zelle.
  */
 export function useOrdnerLoeschen() {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, kennung }: { id: Ordner['id']; kennung: string }) =>
-      api.del(`/firmenordner/ordner/${id}?kennung=${encodeURIComponent(kennung)}`, {
-        showError: false,
-        // Das Wegwerfen darf lange dauern (bis zu 15 Minuten, siehe die Route);
-        // die 30 s von `useApi` wären hier genau der Schnitt, gegen den es
-        // gebaut ist.
-        signal: AbortSignal.timeout(16 * 60 * 1000),
-      }),
+      api.del<{ data: { kennung: string; rechte_entzogen?: string[] } }>(
+        `/firmenordner/ordner/${id}?kennung=${encodeURIComponent(kennung)}&rechte=entziehen`,
+        {
+          showError: false,
+          // Das Wegwerfen darf lange dauern (bis zu 15 Minuten, siehe die Route);
+          // die 30 s von `useApi` wären hier genau der Schnitt, gegen den es
+          // gebaut ist.
+          signal: AbortSignal.timeout(16 * 60 * 1000),
+        }
+      ),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ORDNER_KEY });
       void qc.invalidateQueries({ queryKey: RECHTE_KEY });

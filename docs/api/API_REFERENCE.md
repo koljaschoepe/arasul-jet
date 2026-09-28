@@ -2763,6 +2763,21 @@ vor Versehen, sondern vor einem Ordner, der unter den Füßen von jemandem
 verschwindet, der gerade darin arbeitet — sein Klient löscht ihn am nächsten
 Morgen auf seinem Rechner hinterher.
 
+**Rechte fallen in einem Schritt mit** (J34, 28.09.2026): trägt die Abfrage
+`rechte=entziehen`, nimmt das Gerät zuerst jedes Recht auf dem Ordner zurück
+und wirft ihn danach weg; die Antwort nennt unter `rechte_entzogen`, wessen.
+Die Oberfläche schickt den Wert immer, weil ihre Rückfrage jeden mit Recht
+nennt. Ohne ihn bleibt ein Ordner mit Rechten ein `409`. Scheitert danach das
+Wegwerfen im Dienst, sind die Rechte trotzdem zurückgenommen, und der Satz des
+`409` sagt das.
+
+**Wer anlegt, schreibt darin** (J34, 28.09.2026): `POST /ordner` gibt dem
+anlegenden Administrator auf einem geteilten Ordner `schreiben` als
+gewöhnliche Zeile (in `GET /rechte` und in der Matrix sichtbar,
+zurücknehmbar). Nicht auf einem Ordner am Gerät und nicht auf einem Projekt,
+dessen Bereich er schon schreibt. `sicht.md` trägt ihr Datum seit demselben
+Auftrag in der Ortszeit des Geräts (`TZ`) statt in UTC.
+
 **Dieser Weg darf als einziger lange dauern.** Er löscht jede Datei im Ordner,
 und seine Dauer hängt an ihrer Zahl: gemessen **11,4 s für 6.000 Dateien**
 (rund 1,9 ms je Datei). Das Gerät wartet bis zu 15 Minuten auf den Dienst

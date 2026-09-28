@@ -23,6 +23,14 @@
  * Ausweg steht dann unter der Matrix, an der Stelle, an der geklickt wurde,
  * und nicht in einer Meldung, die nach fünf Sekunden weg ist.
  *
+ * VIELE ORDNER ROLLEN, DIE NAMEN NICHT (J34, 28.09.2026). Ab fünf Bereichen
+ * ist die Matrix breiter als die Spalte und rollt in ihrem eigenen Kasten —
+ * und mit ihr rollte die Spalte der Mitarbeiter weg: rechts stand eine
+ * Stufe, und niemand sah mehr, wessen. Die erste Spalte klebt deshalb am
+ * linken Rand, mit eigener Fläche (der Kopf trägt seine aus `index.css`),
+ * und bricht einen langen Namen um, statt ihn abzuschneiden; die Köpfe der
+ * Ordner brechen an ihren Bindestrichen um.
+ *
  * BEI 390 PX IST EINE MATRIX KEINE (D5). Unter 900 px steht dieselbe Auskunft
  * als Liste: eine Gruppe je Ordner, darin die Menschen. Nur eine der beiden
  * Formen steht im Dokument.
@@ -169,7 +177,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
         {meldung}
         {spalten.map(o => (
           <section key={String(o.id)} className="rounded-md border border-border">
-            <h3 className="border-b border-border p-ui-3 font-mono text-sm font-semibold text-foreground">
+            <h3 className="border-b border-border p-ui-3 font-mono text-sm font-semibold text-foreground wrap-anywhere">
               {ordnerWeg(o)}
               <span className="ml-2 font-sans font-normal text-muted-foreground">{o.name}</span>
             </h3>
@@ -208,14 +216,17 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
         <table className="w-full min-w-fit border-collapse text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th scope="col" className="p-2 text-left font-medium text-muted-foreground">
+              <th
+                scope="col"
+                className="sticky left-0 z-10 p-2 text-left font-medium text-muted-foreground"
+              >
                 Mitarbeiter
               </th>
               {spalten.map(o => (
                 <th
                   key={String(o.id)}
                   scope="col"
-                  className="p-2 text-left font-mono font-medium text-foreground"
+                  className="min-w-28 p-2 text-left align-bottom font-mono font-medium text-foreground"
                   title={o.name}
                 >
                   {ordnerWeg(o)}
@@ -226,10 +237,15 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
           <tbody>
             {benutzer.map(b => (
               <tr key={String(b.id)} className="border-b border-border last:border-b-0">
-                <th scope="row" className="p-2 text-left font-normal">
+                <th
+                  scope="row"
+                  className="sticky left-0 z-10 min-w-40 max-w-56 bg-card p-2 text-left font-normal wrap-anywhere"
+                >
                   <span className="text-foreground">{b.username}</span>
                   {b.role === 'admin' && (
-                    <span className="ml-2 text-ui-xs text-muted-foreground">Admin</span>
+                    <span className="ml-2 whitespace-nowrap text-ui-xs text-muted-foreground">
+                      Admin
+                    </span>
                   )}
                 </th>
                 {spalten.map(o => (
