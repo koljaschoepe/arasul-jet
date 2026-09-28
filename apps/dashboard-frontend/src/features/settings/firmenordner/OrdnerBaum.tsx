@@ -42,8 +42,9 @@ import { alsBaum, type Ordner, type PapierkorbStand, type PlatzStand } from './u
 
 /**
  * Ab welcher Breite des Kastens die Tabelle steht. Sieben Spalten mit Platz
- * und Papierkorb brauchen gemessen rund 820 px, bevor Kennung oder Name
- * mitten im Wort umbrechen.
+ * und Papierkorb brauchen mit acht Bereichen gemessen 802 px (28.09.2026,
+ * lokaler Bau, 1440 px mit Notizspalte: der Kasten ist 728 px, die Tabelle
+ * rollte dort bei einer Schwelle von 700 px).
  */
 const TABELLE_AB_PX = 820;
 

@@ -1318,6 +1318,23 @@ Adressen mal 390 und 1440 px, fremde Herkunft, fünf technische Fehler im
 Browser, eine wirkliche Sperre an einem Wegwerf-Konto); jedes Bild geht durch
 `fotografieren`, das Passwortfelder leert und das Bild sonst verweigert.
 
+Seit dem Auftrag **bereich-quote-sichtbar** (28.09.2026, J33) **ist die
+Größengrenze eines Bereichs sichtbar, einstellbar und warnt vorher**. Jeder
+Raum des Firmenordners hatte still die 1 GB des Dienstes, und ein Abgleich des
+Kits scheiterte mit „exceeds the quota for the folder". Neue Bereiche bekommen
+seither **100 GB** vom Backend (Begründung in `docs/features/FIRMENORDNER.md`:
+die Grenze schützt das Gerät, nicht den Ordner), bestehende behalten ihre.
+Einstellungen → Firmenordner zeigt je Hauptordner und Bereich die Spalte
+**Platz** (belegt, Grenze, fast voll ab 90 % oder unter 10 GB frei auf der
+Platte) und stellt die Grenze ein oder nimmt sie weg
+(`PUT /api/firmenordner/ordner/:id/grenze`, `GET /platz`);
+`GET /api/firmenordner` nennt `platz` je Ordner für das Kit, und
+`GET /api/firmenordner/passt?pfad=&bytes=` weist vorab mit
+`409 GRENZE_ERREICHT` und einem Satz ab. Der Ordnerbaum misst seinen Kasten
+(`useSchmalerBehaelter`, 820 px) statt des Fensters und rollt bei 1024 px mit
+offener Notizspalte nicht mehr seitlich. Abnahme:
+`scripts/test/bereich-quote-abnahme.sh`.
+
 Seit dem Auftrag **apps-starten-nach-der-datenbank** (26.09.2026, J35)
 **startet eine App nach einem Neustart erst mit ihrer Datenbank, und eine App
 ohne Datenbank ist krank**. Docker startet die App-Container

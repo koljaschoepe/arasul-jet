@@ -670,6 +670,26 @@ erreichen ist — zuerst die, unter der Sie das Geraet gerade erreichen, dahinte
 die weiteren im Netz der Firma (etwa `https://arasul.local:8443`). Loest
 `https://arasul:8443` auf einem Rechner nicht auf, nimmt er eine der anderen.
 
+### Firmenordner: wie viel ein Bereich aufnimmt
+
+Jeder Hauptordner und jeder Bereich hat eine **Grenze**, wie viel er
+aufnimmt. Unter **Einstellungen → Firmenordner** steht sie in der Spalte
+**Platz**: belegt, Grenze und ein Balken, dazu „fast voll" ab 90 % der Grenze
+oder wenn auf dem Geraet weniger als 10 GB frei sind, und „voll", wenn nichts
+mehr hineinpasst. Dann steht ueber der Ordnerliste auch eine Warnung — ein
+Abgleich, der mehr bringt, wird abgewiesen.
+
+Ein Klick auf **Platz** stellt die Grenze ein: eine Zahl mit MB, GB oder TB,
+oder **ohne Grenze** — dann nimmt der Bereich auf, bis das Geraet voll ist.
+Unter das, was schon darin liegt, laesst sie sich nicht setzen. Ein Projekt
+teilt sich die Grenze seines Bereichs.
+
+**Neue Bereiche bekommen 100 GB.** Das reicht fuer den gewachsenen
+Aktenbestand eines Bueros und verhindert, dass ein einzelner Bereich, in den
+versehentlich etwas sehr Grosses gezogen wird, das Geraet vollschreibt.
+Bereiche, die vor dem 28.09.2026 angelegt wurden, haben noch 1 GB — sehen Sie
+dort nach und heben Sie die Grenze an, wo es noetig ist.
+
 ### Anmelden
 
 Angemeldet wird mit **Benutzername oder E-Mail-Adresse** und Passwort. Beides
