@@ -52,6 +52,20 @@ entryPoints:
     address: ':8443'
     http:
       tls: {}
+    # EIN UPLOAD DARF LAENGER DAUERN ALS 60 SEKUNDEN (J33, 28.09.2026).
+    # Traefik 2.11 setzt seit 2.11.2 je Einstiegspunkt `readTimeout: 60s`:
+    # wer den Rumpf einer Anfrage nicht in 60 s geschickt hat, bekommt `502`.
+    # Am Orin gemessen vom Mac ueber das LAN (rund 3 MB/s): 60 MB in 19 s
+    # gingen durch, 250 MB brachen nach genau 60,1 s mit 502 ab -- jede Datei
+    # ueber etwa 180 MB, ueber ein WLAN schon viel kleinere. `firmenordner-
+    # transport` gibt nur dem Weg zum Dienst Zeit, nicht dem Lesen hier.
+    #
+    # NUR HIER und nicht auf 443: dort laeuft keine Anfrage mit grossem Rumpf,
+    # und die 60 s schuetzen gegen langsam tropfende Verbindungen. Eine
+    # Stunde traegt 5 GB bei 1,5 MB/s.
+    transport:
+      respondingTimeouts:
+        readTimeout: 3600s
 
   # Traefik dashboard
   traefik:

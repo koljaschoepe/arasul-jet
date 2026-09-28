@@ -148,7 +148,7 @@ pruefe "GET /platz sagt danach 50 MB" "$(ja "$GRENZE" $((50 * MB)))" "$GRENZE"
 
 # 3. Ueber der Grenze abgewiesen ------------------------------------------------
 echo "--- 3. Ueber der Grenze ---"
-dd if=/dev/zero of="$GROSS" bs=1000000 count=60 2>/dev/null
+head -c $((60 * MB)) /dev/zero >"$GROSS"
 ruf GET "/api/firmenordner/passt?pfad=$KENNUNG&bytes=$((60 * MB))"
 SATZ="$(lies "d['error']['message']")"
 FEHLERCODE="$(lies "d['error']['code']")"

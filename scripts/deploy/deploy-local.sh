@@ -383,6 +383,7 @@ fi
 declare -A SVC_SET=()
 INFRA_CHANGE="${INFRA_CHANGE_ERZWUNGEN:-0}"
 MIGRATION_CHANGE=0
+TRAEFIK_CHANGE=0
 for f in "${CHANGED[@]}"; do
   case "$f" in
     compose/*|docker-compose.yml|.env|.env.*) INFRA_CHANGE=1 ;;
@@ -393,7 +394,7 @@ for f in "${CHANGED[@]}"; do
     # vielleicht Wochen spaeter kommt. Dieselbe Klasse wie die Tabelle
     # darueber, die vor J31 zu wenig baute: ein Deploy, der zu wenig anwendet,
     # ist gruen.
-    config/traefik/traefik.yml) INFRA_CHANGE=1 ;;
+    config/traefik/traefik.yml) INFRA_CHANGE=1; TRAEFIK_CHANGE=1 ;;
     services/postgres/init/*) MIGRATION_CHANGE=1; SVC_SET["dashboard-backend"]=1 ;;
   esac
   for p in "${!PATH2SVC[@]}"; do
@@ -520,6 +521,16 @@ if [ "$INFRA_CHANGE" -eq 1 ]; then
   # und `docker ps` haette die Phase nicht bestanden. Betrifft nur Container
   # dieses Compose-Projekts, nicht jetcam oder den Pruefstand.
   "${COMPOSE[@]}" up -d --no-build --remove-orphans || rollback
+fi
+# `up -d` ALLEIN STARTET TRAEFIK NICHT NEU (J33, 28.09.2026). Die statische
+# Konfiguration liegt als Bind-Mount im Container, und Compose vergleicht die
+# Definition des Dienstes, nicht den Inhalt einer eingehaengten Datei -- eine
+# geaenderte `traefik.yml` galt also erst nach dem naechsten Neustart des
+# Geraets, und der Deploy war gruen. Ein Neustart kostet ein paar Sekunden
+# ohne Verbindung.
+if [ "$TRAEFIK_CHANGE" -eq 1 ]; then
+  log "traefik.yml geaendert — starte reverse-proxy neu"
+  "${COMPOSE[@]}" restart reverse-proxy || rollback
 fi
 
 # --- 6. Healthcheck ----------------------------------------------------------
