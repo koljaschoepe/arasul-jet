@@ -245,10 +245,12 @@ router.post(
  * und muss stimmen — derselbe Riegel wie beim Entfernen einer App (C5): wer
  * sie tippt, hat dabei gelesen, was er wegwirft.
  *
- * Ein Ordner mit Kindern oder mit Rechten ist `409`, und der Satz sagt, was
- * zuerst weg muss. Beides ist kein Schutz vor Versehen, sondern vor einem
- * Ordner, der unter den Fuessen von jemandem verschwindet, der gerade darin
- * arbeitet.
+ * Ein Ordner mit Kindern ist `409`, und der Satz sagt, was zuerst weg muss.
+ * Ein Ordner mit Rechten ebenso -- es sei denn, die Abfrage traegt
+ * `rechte=entziehen` (J34, 28.09.2026): dann fallen die Rechte mit ihm, in
+ * einem Schritt, und `rechte_entzogen` nennt, wessen. Beides ist kein Schutz
+ * vor Versehen, sondern vor einem Ordner, der unter den Fuessen von jemandem
+ * verschwindet, der gerade darin arbeitet.
  *
  * DIE EINZIGE ROUTE DES GERAETS, DIE LANGE DAUERN DARF, und sie sagt es
  * selbst. `index.js` schneidet jede Antwort nach 60 s ab (TIMEOUT-001) --
@@ -273,7 +275,10 @@ router.delete(
         `Zum Wegwerfen muss die Kennung „${ordner.kennung}" abgetippt werden.`
       );
     }
-    const data = await verwaltung.loescheOrdner({ ordnerId: req.params.id });
+    const data = await verwaltung.loescheOrdner({
+      ordnerId: req.params.id,
+      rechteEntziehen: req.query.rechte === 'entziehen',
+    });
     logSecurityEvent({
       userId: req.user.id,
       action: 'firmenordner_ordner_entfernt',

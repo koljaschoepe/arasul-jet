@@ -189,8 +189,12 @@ export function OrdnerBaum({
         <TableBody>
           {baum.map(o => (
             <TableRow key={String(o.id)} data-testid={`ordner-${o.kennung}`}>
+              {/* Kennung und Name brechen um, auch mitten im Wort (J34, 28.09.2026):
+                  mit acht Bereichen und langen Kennungen schob die Tabelle sonst
+                  Papierkorb und Handgriffe aus dem Kasten, und rollen soll auf
+                  dieser Seite nur die Rechte-Matrix. */}
               <TableCell
-                className="font-mono"
+                className="font-mono whitespace-normal wrap-anywhere"
                 style={{ paddingLeft: `calc(var(--spacing) * ${2 + o.ebene * 5})` }}
               >
                 {ordnerWeg(o)}
@@ -203,7 +207,7 @@ export function OrdnerBaum({
                   </span>
                 )}
               </TableCell>
-              <TableCell>{o.name}</TableCell>
+              <TableCell className="whitespace-normal wrap-anywhere">{o.name}</TableCell>
               <TableCell>
                 <ArtBadge o={o} />
               </TableCell>

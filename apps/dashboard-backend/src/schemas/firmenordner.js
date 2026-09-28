@@ -92,7 +92,16 @@ const OrdnerParams = z.object({ id: z.coerce.number().int().positive() }).strict
  * tippt, hat dabei gelesen, was er wegwirft. Ein Bestaetigungsfeld mit `true`
  * waere ein zweiter Klick, kein zweiter Gedanke.
  */
-const OrdnerLoeschenQuery = z.object({ kennung: z.string().trim().min(1) }).strict();
+const OrdnerLoeschenQuery = z
+  .object({
+    kennung: z.string().trim().min(1),
+    // `entziehen` nimmt die Rechte mit dem Ordner weg (J34, 28.09.2026). Ohne
+    // den Wert bleibt ein Ordner mit Rechten ein 409 -- ein Aufrufer, der die
+    // Menschen nicht vorher genannt hat, wirft niemandem etwas unter den
+    // Fuessen weg.
+    rechte: z.enum(['entziehen']).optional(),
+  })
+  .strict();
 
 /**
  * Ein Eintrag im Papierkorb eines Ordners (J34, 27.09.2026). Die Kennung

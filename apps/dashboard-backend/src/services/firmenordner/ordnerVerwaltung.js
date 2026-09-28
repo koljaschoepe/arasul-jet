@@ -258,7 +258,40 @@ async function legeOrdnerAn({ kennung, name, ebene, elternKennung, art, durch })
     }
   });
 
+  await gibAnlegerRecht({ ordnerId: id, art: art || 'geteilt', eltern, durch });
   return holeOrdner(id);
+}
+
+/**
+ * WER EINEN ORDNER ANLEGT, SCHREIBT DARIN (Auftrag
+ * bereich-anlegen-gibt-dem-admin-recht, 28.09.2026, J34).
+ *
+ * Im Dienst legt das Konto des Geraets den Raum an, nicht der Mensch -- bis
+ * dahin stand der Administrator also auf „keine" in dem Bereich, den er
+ * gerade angelegt hatte, und musste sich sein erstes Recht selbst geben
+ * (zweite Generalprobe, 28.09.2026: `kunden` und `company`). Jetzt bekommt er
+ * „schreiben" mit dem Anlegen, als gewoehnliche Zeile: sichtbar in der
+ * Matrix, zuruecknehmbar wie jedes andere Recht.
+ *
+ * NICHT, wenn er darueber schon schreibt: ein Projekt in einem Bereich, auf
+ * dem er „schreiben" hat, hat er schon -- eine zweite Einladung eine Ebene
+ * tiefer waere dieselbe Sache zweimal im Dienst. Und nie auf einem Ordner am
+ * Geraet: der bekommt keine Rechte (`gibRecht` weist das ab).
+ */
+async function gibAnlegerRecht({ ordnerId, art, eltern, durch }) {
+  if (!durch || art !== 'geteilt') {
+    return;
+  }
+  if (eltern) {
+    const { rows } = await db.query(
+      `SELECT recht FROM public.firmenordner_rechte WHERE ordner_id = $1 AND user_id = $2`,
+      [eltern.id, durch]
+    );
+    if (rows.length > 0 && mindestens(rows[0].recht, 'schreiben')) {
+      return;
+    }
+  }
+  await gibRecht({ ordnerId, benutzerId: durch, recht: 'schreiben', durch });
 }
 
 /**
@@ -308,9 +341,13 @@ async function legeWurzelAn({ kennung, name, durch }) {
  *      `CASCADE` der Migration wuerde sie mitnehmen, und der Mensch, der
  *      „projekte" abtippt, meint nicht auch „vicona" und „intern". Wer den
  *      Bereich wirklich wegwerfen will, raeumt ihn von unten.
- *   3. Ein Ordner mit RECHTEN geht nicht. Sonst verschwindet ein Ordner unter
- *      den Fuessen von jemandem, der gerade darin arbeitet -- und sein Klient
- *      loescht ihn am naechsten Morgen auf seinem Rechner hinterher.
+ *   3. Ein Ordner mit RECHTEN geht nur mit `rechteEntziehen`. Sonst
+ *      verschwindet ein Ordner unter den Fuessen von jemandem, der gerade
+ *      darin arbeitet -- und sein Klient loescht ihn am naechsten Morgen auf
+ *      seinem Rechner hinterher. Bis zum 28.09.2026 hiess das: erst jedes
+ *      Recht einzeln zuruecknehmen, dann wegwerfen. Seither nennt die
+ *      Rueckfrage der Oberflaeche jeden, der ein Recht hat, und wer danach
+ *      die Kennung abtippt, nimmt beides in einem Schritt weg (J34).
  *
  * DIE ZEILE FAELLT AUCH DANN, WENN DER DIENST NICHT ANTWORTET, und das ist die
  * andere Richtung als beim Anlegen: dort ist der schlimmste Fall eine Zeile
@@ -318,7 +355,7 @@ async function legeWurzelAn({ kennung, name, durch }) {
  * fuer den Menschen unsichtbar und fuer niemanden loeschbar -- deshalb zuerst
  * der Dienst und erst danach die Zeile.
  */
-async function loescheOrdner({ ordnerId }) {
+async function loescheOrdner({ ordnerId, rechteEntziehen = false }) {
   const ordner = await holeOrdner(ordnerId);
 
   // DIE WURZEL FAELLT ZULETZT. Solange ein anderer Ordner besteht, haengt an
@@ -350,16 +387,26 @@ async function loescheOrdner({ ordnerId }) {
   }
 
   const { rows: rechte } = await db.query(
-    `SELECT u.username FROM public.firmenordner_rechte r
+    `SELECT r.user_id, u.username FROM public.firmenordner_rechte r
        JOIN public.admin_users u ON u.id = r.user_id
-      WHERE r.ordner_id = $1`,
+      WHERE r.ordner_id = $1
+      ORDER BY u.username`,
     [ordnerId]
   );
-  if (rechte.length > 0) {
+  if (rechte.length > 0 && !rechteEntziehen) {
     throw new ConflictError(
       `Auf „${ordner.kennung}" haben noch ${rechte.length} Menschen ein Recht ` +
         `(${rechte.map(r => r.username).join(', ')}). Nehmen Sie es zuerst zurück.`
     );
+  }
+  // IN EINEM SCHRITT (J34, 28.09.2026): wer die Rueckfrage gesehen hat -- sie
+  // nennt jeden, der ein Recht hat --, nimmt die Rechte mit dem Ordner weg.
+  // ZUERST DIE RECHTE, DANN DER ORDNER: bei einem Projekt haengt die
+  // Einladung am Ordner im Dienst, und nach dem Wegwerfen gibt es nichts
+  // mehr, an dem man sie finden koennte. Scheitert danach das Wegwerfen, sind
+  // die Rechte trotzdem weg, und der Satz unten sagt das.
+  for (const r of rechte) {
+    await nimmRechtZurueck({ ordnerId, benutzerId: r.user_id });
   }
 
   if (ordner.raum_id) {
@@ -379,13 +426,23 @@ async function loescheOrdner({ ordnerId }) {
       logger.warn(`Firmenordner: „${ordner.kennung}" nicht weggeworfen: ${offen}`);
       throw new ConflictError(
         `„${ordner.kennung}" ließ sich im Firmenordner gerade nicht entfernen. ` +
-          'Er bleibt deshalb auch hier stehen. Versuchen Sie es in ein paar Minuten noch einmal.'
+          'Er bleibt deshalb auch hier stehen. ' +
+          (rechte.length > 0
+            ? `Die Rechte darauf (${rechte.map(r => r.username).join(', ')}) sind schon ` +
+              'zurückgenommen. '
+            : '') +
+          'Versuchen Sie es in ein paar Minuten noch einmal.'
       );
     }
   }
 
   await db.query('DELETE FROM public.firmenordner_ordner WHERE id = $1', [ordnerId]);
-  return { kennung: ordner.kennung, ebene: ordner.ebene, art: ordner.art };
+  return {
+    kennung: ordner.kennung,
+    ebene: ordner.ebene,
+    art: ordner.art,
+    rechte_entzogen: rechte.map(r => r.username),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1167,6 +1224,30 @@ async function orteAusWurzel(wurzel) {
     }));
 }
 
+/**
+ * Das Datum in der Ortszeit des Geraets, als `JJJJ-MM-TT`.
+ *
+ * NICHT `toISOString()`: das ist UTC, und zwischen Mitternacht und zwei Uhr
+ * trug `sicht.md` in Deutschland den Vortag (zweite Generalprobe,
+ * 28.09.2026). Die Zone kommt aus `TZ` wie bei den Zeitplaenen der Flows
+ * (Compose setzt `Europe/Berlin`); ICU kennt sie auch im Container ohne
+ * tzdata. Eine unbekannte Zone faellt auf Berlin statt auf einen Fehler.
+ */
+function datumOrtszeit(zeitpunkt) {
+  const teile = zone =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: zone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(zeitpunkt);
+  try {
+    return teile(process.env.TZ || 'Europe/Berlin');
+  } catch {
+    return teile('Europe/Berlin');
+  }
+}
+
 /** Eine Liste auf ihre Zeilenzahl kuerzen und den Rest zaehlen. */
 function gekuerzt(zeilen, grenze) {
   if (zeilen.length <= grenze) {
@@ -1197,7 +1278,7 @@ async function sichtFuer({ benutzerId, username, rolle }) {
   const appStore = require('../app/appStore');
   const apps = await appStore.appsFuerNutzer(benutzerId);
   const orte = await orteAusWurzel(wurzel ? await holeWurzel() : null);
-  const heute = new Date().toISOString().slice(0, 10);
+  const heute = datumOrtszeit(new Date());
 
   const ordnerZeilen = ordner.map(o => {
     const weg = o.art === ART_WURZEL ? `/ (Wurzel „${o.kennung}")` : `${o.pfad}/`;
@@ -1285,6 +1366,7 @@ module.exports = {
   entferneAusPapierkorb,
   stelleAusPapierkorbWiederHer,
   sichtFuer,
+  datumOrtszeit,
   spiegleWurzelMitglieder,
   legeOrdnerAn,
   loescheOrdner,

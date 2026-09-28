@@ -334,8 +334,58 @@ describe('FirmenordnerSettings', () => {
 
     await waitFor(() =>
       expect(apiMock.del).toHaveBeenCalledWith(
-        '/firmenordner/ordner/3?kennung=vicona',
+        '/firmenordner/ordner/3?kennung=vicona&rechte=entziehen',
         expect.objectContaining({ showError: false })
+      )
+    );
+  });
+
+  it('nennt vor dem Wegwerfen jeden, der ein Recht hat, und nimmt die Rechte in einem Schritt mit', async () => {
+    antworte({
+      rechte: [
+        {
+          ordner_id: '3',
+          user_id: '7',
+          recht: 'schreiben',
+          erteilt_am: '2026-09-28T00:00:00Z',
+          abgleich_offen: null,
+          ordner_kennung: 'vicona',
+          ebene: 2,
+          art: 'geteilt',
+          eltern_kennung: 'projekte',
+          username: 'mia',
+        },
+        {
+          ordner_id: '2',
+          user_id: '1',
+          recht: 'lesen',
+          erteilt_am: '2026-09-28T00:00:00Z',
+          abgleich_offen: null,
+          ordner_kennung: 'projekte',
+          ebene: 1,
+          art: 'geteilt',
+          eltern_kennung: null,
+          username: 'admin',
+        },
+      ],
+    });
+    apiMock.del.mockResolvedValue({ data: { kennung: 'vicona', rechte_entzogen: ['mia'] } });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+
+    await screen.findByTestId('rechte-matrix');
+    fireEvent.click(screen.getByTestId('ordner-wegwerfen-vicona'));
+    const liste = await screen.findByTestId('ordner-wegwerfen-rechte');
+    // Nur die Rechte auf diesem Ordner, nicht die auf dem Bereich darueber.
+    expect(liste).toHaveTextContent('mia: schreiben');
+    expect(liste).not.toHaveTextContent('admin');
+
+    fireEvent.change(screen.getByTestId('ordner-wegwerfen-kennung'), {
+      target: { value: 'vicona' },
+    });
+    fireEvent.click(screen.getByTestId('ordner-wegwerfen-absenden'));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        '„vicona“ ist weg, und mit ihm die Rechte von mia.'
       )
     );
   });

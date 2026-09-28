@@ -405,6 +405,7 @@ describe('Die Wurzel (Auftrag firmenordner-rechte-im-frontend, 22.09.2026)', () 
       kennung: 'firma',
       ebene: 0,
       art: 'wurzel',
+      rechte_entzogen: [],
     });
     // Der Raum-Weg (Graph, zwei DELETE, das zweite mit Purge) und nicht der
     // WebDAV-Weg fuer einen Ordner darin: der antwortet auf die Wurzel eines
@@ -1329,5 +1330,153 @@ describe('Die Adressen des Firmenordners (J34, 27.09.2026)', () => {
       'https://werkstatt.local:8443',
       'https://werkstatt:8443',
     ]);
+  });
+});
+
+describe('Anlegen gibt Recht, Wegwerfen nimmt es mit (J34, 28.09.2026)', () => {
+  const BEREICH = {
+    id: 7,
+    kennung: 'kunden',
+    name: 'Kunden',
+    ebene: 1,
+    eltern_id: null,
+    art: 'geteilt',
+    raum_id: null,
+    pfad: '',
+  };
+  const ADMIN = { id: 1, username: 'admin', email: null, role: 'admin', is_active: true };
+
+  /** Ein Geraet ohne Dienst; `rechte` sind die Zeilen auf dem Ordner. */
+  function geraet({ ordner = BEREICH, rechte = [], elternRecht = null } = {}) {
+    db.query.mockImplementation(async (sql, params) => {
+      if (sql.includes('INSERT INTO public.firmenordner_ordner')) {
+        return { rows: [{ id: ordner.id }] };
+      }
+      if (sql.includes('FROM public.firmenordner_ordner o WHERE o.id')) {
+        return { rows: [ordner] };
+      }
+      if (sql.includes('WHERE o.kennung = $1 AND o.eltern_id IS NULL')) {
+        return { rows: [{ ...BEREICH, id: 2, kennung: 'projekte' }] };
+      }
+      if (sql.includes('SELECT recht FROM public.firmenordner_rechte')) {
+        return { rows: elternRecht ? [{ recht: elternRecht }] : [] };
+      }
+      if (sql.includes('FROM public.admin_users WHERE id')) {
+        return { rows: [ADMIN] };
+      }
+      if (sql.includes('INSERT INTO public.firmenordner_rechte')) {
+        return { rows: [{ neu: true }] };
+      }
+      if (sql.includes('SELECT kennung FROM public.firmenordner_ordner WHERE eltern_id')) {
+        return { rows: [] };
+      }
+      if (sql.includes('SELECT r.user_id, u.username FROM public.firmenordner_rechte')) {
+        return { rows: rechte };
+      }
+      if (sql.includes('DELETE FROM public.firmenordner_rechte')) {
+        return { rowCount: 1, rows: [] };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+  }
+
+  const rechtVergeben = () =>
+    db.query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO public.firmenordner_rechte'));
+
+  it('gibt dem, der einen Bereich anlegt, schreiben -- als gewoehnliche Zeile', async () => {
+    geraet();
+    await verwaltung.legeOrdnerAn({ kennung: 'kunden', name: 'Kunden', ebene: 1, durch: 1 });
+    const zeilen = rechtVergeben();
+    expect(zeilen).toHaveLength(1);
+    expect(zeilen[0][1]).toEqual([7, 1, 'schreiben', 1]);
+  });
+
+  it('gibt kein zweites Recht auf ein Projekt, wenn er den Bereich darueber schon schreibt', async () => {
+    geraet({
+      ordner: { ...BEREICH, id: 8, kennung: 'vicona', ebene: 2, eltern_id: 2 },
+      elternRecht: 'schreiben',
+    });
+    await verwaltung.legeOrdnerAn({
+      kennung: 'vicona',
+      name: 'Vicona',
+      ebene: 2,
+      elternKennung: 'projekte',
+      durch: 1,
+    });
+    expect(rechtVergeben()).toHaveLength(0);
+  });
+
+  it('gibt schreiben auf ein Projekt, wenn er den Bereich darueber nur liest', async () => {
+    geraet({
+      ordner: { ...BEREICH, id: 8, kennung: 'vicona', ebene: 2, eltern_id: 2 },
+      elternRecht: 'lesen',
+    });
+    await verwaltung.legeOrdnerAn({
+      kennung: 'vicona',
+      name: 'Vicona',
+      ebene: 2,
+      elternKennung: 'projekte',
+      durch: 1,
+    });
+    expect(rechtVergeben()).toHaveLength(1);
+  });
+
+  it('gibt auf einen Ordner am Geraet kein Recht', async () => {
+    geraet({ ordner: { ...BEREICH, art: 'am_geraet' } });
+    await verwaltung.legeOrdnerAn({
+      kennung: 'kunden',
+      name: 'Kunden',
+      ebene: 1,
+      art: 'am_geraet',
+      durch: 1,
+    });
+    expect(rechtVergeben()).toHaveLength(0);
+  });
+
+  it('wirft einen Ordner mit Rechten ohne `rechteEntziehen` nicht weg', async () => {
+    geraet({ rechte: [{ user_id: 1, username: 'admin' }] });
+    await expect(verwaltung.loescheOrdner({ ordnerId: 7 })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    const geloescht = db.query.mock.calls.filter(([sql]) => sql.startsWith('DELETE'));
+    expect(geloescht).toHaveLength(0);
+  });
+
+  it('nimmt mit `rechteEntziehen` jedes Recht und danach den Ordner, in einem Schritt', async () => {
+    geraet({
+      rechte: [
+        { user_id: 1, username: 'admin' },
+        { user_id: 3, username: 'mia' },
+      ],
+    });
+    const ergebnis = await verwaltung.loescheOrdner({ ordnerId: 7, rechteEntziehen: true });
+    expect(ergebnis.rechte_entzogen).toEqual(['admin', 'mia']);
+    const loeschungen = db.query.mock.calls
+      .filter(([sql]) => sql.startsWith('DELETE'))
+      .map(([sql, p]) => [sql.includes('firmenordner_rechte') ? 'recht' : 'ordner', p]);
+    expect(loeschungen).toEqual([
+      ['recht', [7, 1]],
+      ['recht', [7, 3]],
+      ['ordner', [7]],
+    ]);
+  });
+});
+
+describe('sicht.md traegt das Datum in Ortszeit (J34, 28.09.2026)', () => {
+  const vorher = process.env.TZ;
+  afterEach(() => {
+    if (vorher === undefined) delete process.env.TZ;
+    else process.env.TZ = vorher;
+  });
+
+  it('nennt kurz nach Mitternacht in Berlin schon den neuen Tag', () => {
+    process.env.TZ = 'Europe/Berlin';
+    // 27.09.2026, 23:30 UTC ist in Berlin (Sommerzeit) der 28.09., 01:30.
+    expect(verwaltung.datumOrtszeit(new Date('2026-09-27T23:30:00Z'))).toBe('2026-09-28');
+  });
+
+  it('faellt bei einer unbekannten Zone auf Berlin statt auf einen Fehler', () => {
+    process.env.TZ = 'Nirgendwo/Gibtsnicht';
+    expect(verwaltung.datumOrtszeit(new Date('2026-09-27T23:30:00Z'))).toBe('2026-09-28');
   });
 });
