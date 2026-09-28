@@ -159,10 +159,11 @@ echo "--- 4. sicht.md ---"
 ruf GET /api/firmenordner/sicht
 HEUTE="$(TZ=Europe/Berlin date +%F)"
 ZEILE="$(grep -m1 'Erzeugt vom Gerät am' "$RUMPF")"
-# grep statt `case` in einer Kommandosubstitution: Bash 3.2 am Mac liest das
-# `)` des Musters als Ende der Substitution.
+# `[[ ]]` statt `case` in einer Kommandosubstitution: Bash 3.2 am Mac liest
+# das `)` des Musters als Ende der Substitution. Und keine Pipe in `grep -q`:
+# unter `pipefail` zerreisst sie beim ersten Treffer (`rohrbruch.py`).
 pruefe "sicht.md traegt das Datum in Ortszeit ($HEUTE)" \
-  "$(printf '%s' "$ZEILE" | grep -q "am $HEUTE " && echo ja || echo nein)" "${ZEILE:0:60}"
+  "$([[ "$ZEILE" == *"am $HEUTE "* ]] && echo ja || echo nein)" "${ZEILE:0:60}"
 PROBE_IN_SICHT="$(grep -c "$PRAEFIX-company/" "$RUMPF")"
 pruefe "und nennt dem Administrator seinen neuen Bereich" \
   "$([ "$PROBE_IN_SICHT" -ge 1 ] && echo ja || echo nein)"
