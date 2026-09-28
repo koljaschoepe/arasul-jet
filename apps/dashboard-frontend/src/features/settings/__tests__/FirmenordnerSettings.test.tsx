@@ -376,7 +376,7 @@ describe('FirmenordnerSettings', () => {
     fireEvent.click(screen.getByTestId('ordner-wegwerfen-vicona'));
     const liste = await screen.findByTestId('ordner-wegwerfen-rechte');
     // Nur die Rechte auf diesem Ordner, nicht die auf dem Bereich darueber.
-    expect(liste).toHaveTextContent('mia — schreiben');
+    expect(liste).toHaveTextContent('mia: schreiben');
     expect(liste).not.toHaveTextContent('admin');
 
     fireEvent.change(screen.getByTestId('ordner-wegwerfen-kennung'), {

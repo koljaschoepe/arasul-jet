@@ -94,7 +94,7 @@ export function OrdnerEntfernenDialog({
               {rechte.map(r => (
                 <li key={String(r.user_id)} className="break-words text-foreground">
                   {r.username}
-                  <span className="text-muted-foreground"> — {r.recht}</span>
+                  <span className="text-muted-foreground">: {r.recht}</span>
                 </li>
               ))}
             </ul>
