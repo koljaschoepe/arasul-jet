@@ -30,6 +30,7 @@
  */
 
 const crypto = require('crypto');
+const fs = require('fs');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const {
@@ -37,6 +38,7 @@ const {
   ValidationError,
   NotFoundError,
   ConflictError,
+  GrenzeErreichtError,
   ServiceUnavailableError,
 } = require('../../utils/errors');
 const dienst = require('./ordnerdienst');
@@ -1317,6 +1319,277 @@ async function sichtFuer({ benutzerId, username, rolle }) {
   return zeilen.join('\n');
 }
 
+// ---------------------------------------------------------------------------
+// Platz: belegt, Grenze, frei (J33, 28.09.2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * Wo die Ablage des Firmenordners im Backend haengt (nur lesend,
+ * `compose.app.yaml`) -- dieselbe Platte, auf die der Dienst schreibt. Ihr
+ * freier Platz ist die Grenze eines Bereichs OHNE eigene Grenze.
+ */
+const ABLAGE = '/arasul/firmenordner';
+
+/**
+ * Ab wann das Geraet warnt: 90 % der Grenze belegt, oder weniger als 10 GB
+ * frei auf der Platte. Eine Stelle fuer beide Leser -- die Verwaltung zeigt
+ * `stufe`, das Kit bekommt dieselbe Zahl.
+ */
+const KNAPP_ANTEIL = 0.9;
+const KNAPP_PLATTE_BYTES = 10 * 1000 * 1000 * 1000;
+
+/**
+ * Die kleinste Grenze, die sich setzen laesst. Darunter ist ein Bereich
+ * nicht mehr zu gebrauchen, und eine Zahl wie „5" waere vermutlich als
+ * Gigabyte gemeint und als Byte angekommen.
+ */
+const GRENZE_MINDESTENS_BYTES = 1000 * 1000;
+
+/** Bytes, wie ein Mensch sie liest: dezimal wie der Dienst, deutsche Zahl. */
+function groesseLesbar(bytes) {
+  const n = Number(bytes) || 0;
+  const stufen = [
+    [1e12, 'TB'],
+    [1e9, 'GB'],
+    [1e6, 'MB'],
+    [1e3, 'kB'],
+  ];
+  for (const [teiler, einheit] of stufen) {
+    if (Math.abs(n) >= teiler) {
+      const wert = n / teiler;
+      const stellen = wert >= 100 ? 0 : 1;
+      return `${wert.toLocaleString('de-DE', { maximumFractionDigits: stellen })} ${einheit}`;
+    }
+  }
+  return `${n.toLocaleString('de-DE')} Bytes`;
+}
+
+/**
+ * Wie viel auf der Platte des Firmenordners frei ist, in Bytes -- oder
+ * `null`, wenn es sich nicht lesen laesst (ein Geraet ohne die Ablage im
+ * Backend). `bavail` und nicht `bfree`: was root vorbehalten ist, bekommt
+ * der Dienst nicht.
+ */
+async function freiAufDerPlatte() {
+  try {
+    const stat = await fs.promises.statfs(ABLAGE);
+    return Number(stat.bavail) * Number(stat.bsize);
+  } catch (err) {
+    logger.warn(`Firmenordner: freier Platz unter ${ABLAGE} nicht lesbar -- ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Aus belegt, Grenze und dem freien Platz der Platte das, was ein Leser
+ * braucht. `frei` ist, was noch hineinpasst: bis zur Grenze, aber nie mehr,
+ * als die Platte hat -- eine Grenze von 2 TB auf einer Platte mit 300 GB
+ * waere sonst eine Zusage, die das Geraet nicht halten kann.
+ *
+ * `stufe`: `gut`, `knapp` (ab 90 % der Grenze oder unter 10 GB frei auf der
+ * Platte) oder `voll` (nichts passt mehr hinein). `begrenzt_durch` sagt,
+ * welche der beiden Zahlen gerade die engere ist -- die Grenze kann der
+ * Administrator anheben, die Platte nicht.
+ */
+function platzAus({ belegt, grenze }, platte) {
+  const bisGrenze = grenze === null ? null : Math.max(0, grenze - belegt);
+  let frei = bisGrenze;
+  let begrenztDurch = grenze === null ? 'platte' : 'grenze';
+  if (platte !== null && (frei === null || platte < frei)) {
+    frei = platte;
+    begrenztDurch = 'platte';
+  }
+  let stufe = 'gut';
+  if (frei !== null && frei <= 0) {
+    stufe = 'voll';
+  } else if (
+    (grenze !== null && belegt >= grenze * KNAPP_ANTEIL) ||
+    (platte !== null && platte < KNAPP_PLATTE_BYTES)
+  ) {
+    stufe = 'knapp';
+  }
+  return { belegt, grenze, frei, begrenzt_durch: begrenztDurch, stufe };
+}
+
+/** Die Groessen aller Raeume und die Platte, nebeneinander gefragt. */
+async function groessenUndPlatte() {
+  const [groessen, platte] = await Promise.all([dienst.groessen(), freiAufDerPlatte()]);
+  return { groessen, platte };
+}
+
+/**
+ * Belegt, Grenze und frei je Hauptordner und Bereich -- fuer die Spalte
+ * „Platz" der Verwaltung. Ein Projekt fehlt: es liegt im Raum seines
+ * Bereichs und teilt dessen Grenze. Ein Ordner, den der Dienst noch nicht
+ * kennt, fehlt ebenfalls.
+ *
+ * Antwortet der Dienst nicht, ist die Liste leer und `erreichbar: false` --
+ * die Verwaltung zeigt dann einen Strich statt einer erfundenen Null.
+ */
+async function platzUebersicht() {
+  const platte = await freiAufDerPlatte();
+  const leer = {
+    platte: { frei: platte },
+    vorgabe: dienst.GRENZE_VORGABE_BYTES,
+    ordner: [],
+    erreichbar: false,
+  };
+  if (!dienst.istAn()) {
+    return leer;
+  }
+  let groessen;
+  try {
+    groessen = await dienst.groessen();
+  } catch (err) {
+    logger.warn(`Firmenordner: die Groessen der Raeume kamen nicht -- ${err.message}`);
+    return leer;
+  }
+  const raeume = (await listeOrdner()).filter(o => o.ebene <= 1 && o.raum_id);
+  return {
+    platte: { frei: platte },
+    vorgabe: dienst.GRENZE_VORGABE_BYTES,
+    erreichbar: true,
+    ordner: raeume
+      .filter(o => groessen.has(o.raum_id))
+      .map(o => ({
+        ordner_id: o.id,
+        kennung: o.kennung,
+        ...platzAus(groessen.get(o.raum_id), platte),
+      })),
+  };
+}
+
+/**
+ * Die Grenze eines Hauptordners oder Bereichs setzen; `null` heisst ohne
+ * Grenze, also bis zum freien Platz des Geraets.
+ *
+ * Unter dem, was schon darin liegt, ist ein `409` mit Satz: der Dienst naehme
+ * es an, und danach liesse sich in dem Bereich nichts mehr ablegen -- nicht
+ * einmal eine kleinere Fassung einer Datei, die schon darin liegt.
+ */
+async function setzeGrenze(ordnerId, bytes) {
+  const ordner = await holeOrdner(ordnerId);
+  if (ordner.ebene === 2) {
+    throw new ValidationError(
+      'Ein Projekt hat keine eigene Grenze. Es teilt sich die Grenze seines Bereichs.'
+    );
+  }
+  if (!dienst.istAn()) {
+    throw new ServiceUnavailableError('Auf diesem Gerät läuft kein Firmenordner.');
+  }
+  if (!ordner.raum_id) {
+    throw new ConflictError(
+      `„${ordner.kennung}“ ist noch nicht bei den Mitarbeitern angekommen. Oben auf „Jetzt nachholen“ tippen, danach lässt sich die Grenze setzen.`
+    );
+  }
+  const { groessen, platte } = await papierkorbAnfrage('die Größen lesen', groessenUndPlatte);
+  const vorher = groessen.get(ordner.raum_id) || { belegt: 0, grenze: null };
+  if (bytes !== null && bytes < vorher.belegt) {
+    throw new ConflictError(
+      `In „${ordner.kennung}“ liegen schon ${groesseLesbar(vorher.belegt)}. Eine Grenze darunter lässt sich nicht setzen, sonst passt dort nichts mehr hinein.`
+    );
+  }
+  const nachher = await papierkorbAnfrage('die Grenze setzen', () =>
+    dienst.setzeGrenze(ordner.raum_id, bytes)
+  );
+  return {
+    ordner_id: ordner.id,
+    kennung: ordner.kennung,
+    vorher: vorher.grenze,
+    ...platzAus(nachher, platte),
+  };
+}
+
+/**
+ * Die eigenen Ordner, jeder mit `platz` -- fuer `GET /api/firmenordner`, die
+ * Frage des Kits vor einem Abgleich.
+ *
+ * EIN PROJEKT NENNT NUR `frei`. Es teilt sich die Grenze seines Bereichs, und
+ * wer nur das Projekt hat, sieht den Bereich nicht (Regel 2) -- auch nicht,
+ * wie viel darin liegt. Was noch hineinpasst, braucht das Kit trotzdem, also
+ * steht genau das da, und `im_bereich` sagt, dass es die Zahl des Bereichs
+ * ist.
+ *
+ * Antwortet der Dienst nicht, steht `platz: null` an jedem Ordner -- die
+ * Liste selbst kommt trotzdem, sie ist die wichtigere Auskunft.
+ */
+async function meineOrdnerMitPlatz(benutzerId, rolle) {
+  const ordner = await meineOrdner(benutzerId, rolle);
+  let groessen = null;
+  let platte = null;
+  try {
+    ({ groessen, platte } = await groessenUndPlatte());
+  } catch (err) {
+    logger.warn(`Firmenordner: die Groessen der Raeume kamen nicht -- ${err.message}`);
+  }
+  const raeume = new Map(
+    (await listeOrdner()).filter(o => o.ebene <= 1).map(o => [o.kennung, o.raum_id])
+  );
+  return ordner.map(o => {
+    const raumKennung = o.ebene === 2 ? o.eltern : o.kennung;
+    const groesse = groessen?.get(raeume.get(raumKennung));
+    if (!groesse) {
+      return { ...o, platz: null };
+    }
+    const platz = platzAus(groesse, platte);
+    if (o.ebene === 2) {
+      return {
+        ...o,
+        platz: {
+          belegt: null,
+          grenze: null,
+          frei: platz.frei,
+          begrenzt_durch: platz.begrenzt_durch,
+          stufe: platz.stufe,
+          im_bereich: true,
+        },
+      };
+    }
+    return { ...o, platz: { ...platz, im_bereich: false } };
+  });
+}
+
+/**
+ * Passt das noch hinein? Die Frage des Kits VOR einem Abgleich, damit er
+ * nicht erst an der Grenze scheitert (Befund 28.09.2026: „exceeds the quota
+ * for the folder" aus einem Lauf, den niemand beobachtete).
+ *
+ * Gefragt wird nach einem Ordner, den der Mensch HAT (`pfad` wie in
+ * `GET /api/firmenordner`, die Wurzel ist der leere Pfad); einen anderen gibt
+ * es fuer ihn nicht, dieselbe Antwort wie fuer einen, den es nicht gibt.
+ * Passt es nicht, ist das ein `409 GRENZE_ERREICHT` mit einem Satz, den das
+ * Kit so zeigen kann, wie er kommt.
+ */
+async function passt({ benutzerId, rolle, pfad, bytes }) {
+  const ordner = await meineOrdnerMitPlatz(benutzerId, rolle);
+  const o = ordner.find(x => x.pfad === pfad);
+  if (!o) {
+    throw new NotFoundError(`Einen Ordner „${pfad}“ gibt es für Sie nicht.`);
+  }
+  if (!o.platz) {
+    throw new ServiceUnavailableError(
+      'Der Firmenordner antwortet gerade nicht. Versuchen Sie es in einer Minute noch einmal.'
+    );
+  }
+  const { frei } = o.platz;
+  const name = o.ebene === 0 ? 'Der Hauptordner' : `„${o.pfad}“`;
+  if (frei !== null && bytes > frei) {
+    const bereich = o.ebene === 2 ? `Der Bereich, in dem „${o.pfad}“ liegt,` : name;
+    const satz =
+      o.platz.begrenzt_durch === 'platte'
+        ? `Auf dem Gerät ist nicht mehr genug Platz: frei sind noch ${groesseLesbar(frei)}, gebraucht werden ${groesseLesbar(bytes)}. Bitte sprechen Sie mit Ihrem Betreuer.`
+        : `${bereich} ist zu voll: frei sind noch ${groesseLesbar(frei)}, gebraucht werden ${groesseLesbar(bytes)}. Ihr Administrator kann die Grenze unter Einstellungen → Firmenordner anheben.`;
+    throw new GrenzeErreichtError(satz, {
+      pfad: o.pfad,
+      bytes,
+      frei,
+      belegt: o.platz.belegt,
+      grenze: o.platz.grenze,
+    });
+  }
+  return { pfad: o.pfad, bytes, passt: true, ...o.platz };
+}
+
 /**
  * Der Zustand, wie die Oberflaeche und die Abnahme ihn brauchen.
  *
@@ -1359,6 +1632,12 @@ module.exports = {
   holeWurzel,
   listeRechte,
   meineOrdner,
+  meineOrdnerMitPlatz,
+  passt,
+  platzUebersicht,
+  setzeGrenze,
+  groesseLesbar,
+  GRENZE_MINDESTENS_BYTES,
   aenderungenVon,
   papierkorbUebersicht,
   papierkorbVon,

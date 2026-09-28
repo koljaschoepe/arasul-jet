@@ -63,6 +63,12 @@ person with a healthy account to the administrator.
 | `ACCOUNT_DISABLED`   | `POST /api/auth/login`: the account is deactivated (`is_active = false`).                                                                     |
 | `ORIGIN_NOT_ALLOWED` | Any route: the request's `Origin` is not one of the device's addresses (`utils/corsOrigin.js`). Technical, says nothing about the account.    |
 
+**A narrower 409 code** (since J33, 28.09.2026, `GrenzeErreichtError`).
+
+| Code              | When                                                                                                                                                                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GRENZE_ERREICHT` | `GET /api/firmenordner/passt`: what the caller wants to upload does not fit into the folder — its size limit or the free space of the device. The message is a sentence for the person; `details` carries `pfad`, `bytes`, `frei`, `belegt`, `grenze`. Not a 5xx on purpose: retrying does not help. |
+
 ---
 
 ## HTTP Status Codes
