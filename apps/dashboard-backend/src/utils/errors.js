@@ -101,6 +101,19 @@ class ConflictError extends ApiError {
   }
 }
 
+/**
+ * Es passt nicht mehr hinein (J33, 28.09.2026): die Groessengrenze eines
+ * Bereichs im Firmenordner oder der freie Platz des Geraets. 409 und nicht
+ * 507, obwohl der Dateidienst selbst mit 507 abweist: eine 5xx liest jeder
+ * Klient als „Server kaputt, noch einmal versuchen" -- und ein zweiter
+ * Versuch passt genauso wenig. Der eigene Code sagt dem Kit, was es ist.
+ */
+class GrenzeErreichtError extends ApiError {
+  constructor(message = 'Das passt nicht mehr hinein', details = null) {
+    super(message, { statusCode: 409, code: 'GRENZE_ERREICHT', details });
+  }
+}
+
 class RateLimitError extends ApiError {
   constructor(message = 'Too many requests', retryAfter = null) {
     super(message, {
@@ -155,6 +168,7 @@ module.exports = {
   CsrfError,
   NotFoundError,
   ConflictError,
+  GrenzeErreichtError,
   RateLimitError,
   ServiceUnavailableError,
   NotImplementedError,

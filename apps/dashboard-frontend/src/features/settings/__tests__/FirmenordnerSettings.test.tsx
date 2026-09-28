@@ -123,6 +123,33 @@ const PAPIERKORB = [
   },
 ];
 
+/** Belegt und Grenze, wie `GET /api/firmenordner/platz` sie nennt (J33, 28.09.2026). */
+const PLATZ = {
+  platte: { frei: 1_300_000_000_000 },
+  vorgabe: 100_000_000_000,
+  erreichbar: true,
+  ordner: [
+    {
+      ordner_id: 1,
+      kennung: 'firma',
+      belegt: 950_000_000,
+      grenze: 1_000_000_000,
+      frei: 50_000_000,
+      begrenzt_durch: 'grenze',
+      stufe: 'knapp',
+    },
+    {
+      ordner_id: 2,
+      kennung: 'projekte',
+      belegt: 31,
+      grenze: null,
+      frei: 1_300_000_000_000,
+      begrenzt_durch: 'platte',
+      stufe: 'gut',
+    },
+  ],
+};
+
 function huelle() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Huelle({ children }: { children: ReactNode }) {
@@ -134,9 +161,11 @@ function antworte({
   ordner = [WURZEL, PROJEKTE, VICONA, GERAET] as unknown[],
   zustand = ZUSTAND as unknown,
   rechte = [] as unknown[],
+  platz = PLATZ as unknown,
 } = {}) {
   apiMock.get.mockImplementation(async (pfad: string) => {
     if (pfad === '/firmenordner/ordner') return { data: ordner, zustand };
+    if (pfad === '/firmenordner/platz') return { data: platz };
     if (pfad === '/firmenordner/rechte') return { data: rechte };
     if (pfad === '/benutzer') return { data: [ADMIN, MIA] };
     if (pfad === '/firmenordner/papierkorb') {
@@ -542,6 +571,84 @@ describe('FirmenordnerSettings', () => {
       )
     );
     expect(await screen.findByTestId('papierkorb-fehler')).toHaveTextContent('liegt inzwischen');
+  });
+
+  /** J33, 28.09.2026: die Grenze eines Bereichs ist sichtbar und einstellbar. */
+  it('zeigt je Hauptordner und Bereich belegt und Grenze, einem Projekt keine', async () => {
+    antworte();
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    const firma = await screen.findByTestId('ordner-platz-firma');
+    await waitFor(() => expect(firma).toHaveAttribute('data-stufe', 'knapp'));
+    expect(firma).toHaveTextContent('950 MB von 1 GB');
+    expect(firma).toHaveTextContent('fast voll');
+    const projekte = screen.getByTestId('ordner-platz-projekte');
+    expect(projekte).toHaveAttribute('data-grenze', 'ohne');
+    expect(projekte).toHaveTextContent('ohne Grenze');
+    expect(screen.queryByTestId('ordner-platz-vicona')).not.toBeInTheDocument();
+    // Die Warnung steht, bevor ein Abgleich scheitert -- grau mit Text, nicht rot.
+    const warnung = screen.getByTestId('firmenordner-platz-warnung');
+    expect(warnung).toHaveTextContent('„firma“: 950 MB von 1 GB belegt, frei 50 MB.');
+    expect(warnung).toHaveTextContent('Ein Bereich wird bald voll');
+    // Die Vorgabe für neue Bereiche steht in der Beschreibung.
+    expect(screen.getByText(/neue Bereiche: 100 GB/)).toBeInTheDocument();
+  });
+
+  it('ohne engen Bereich steht keine Warnung', async () => {
+    antworte({ platz: { ...PLATZ, ordner: [PLATZ.ordner[1]] } });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await screen.findByTestId('ordner-platz-projekte');
+    await waitFor(() =>
+      expect(screen.getByTestId('ordner-platz-projekte')).toHaveAttribute('data-stufe', 'gut')
+    );
+    expect(screen.queryByTestId('firmenordner-platz-warnung')).not.toBeInTheDocument();
+  });
+
+  it('stellt die Grenze ein: Zahl mit Einheit, nie unter dem Belegten', async () => {
+    antworte();
+    apiMock.put.mockResolvedValue({ data: {} });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    const knopf = await screen.findByTestId('ordner-platz-firma');
+    await waitFor(() => expect(knopf).toHaveAttribute('data-stufe', 'knapp'));
+    fireEvent.click(knopf);
+    const zahl = await screen.findByTestId('grenze-zahl');
+    // Es steht da, was gerade gilt.
+    expect(zahl).toHaveValue('1');
+
+    fireEvent.change(zahl, { target: { value: '0,5' } });
+    expect(screen.getByTestId('grenze-zu-klein')).toHaveTextContent('schon 950 MB');
+    expect(screen.getByTestId('grenze-absenden')).toBeDisabled();
+
+    fireEvent.change(zahl, { target: { value: '2,5' } });
+    fireEvent.click(screen.getByTestId('grenze-absenden'));
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith(
+        '/firmenordner/ordner/1/grenze',
+        { grenze: 2_500_000_000 },
+        expect.objectContaining({ showError: false })
+      )
+    );
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('2,5 GB'))
+    );
+  });
+
+  it('nimmt die Grenze weg und zeigt ein 409 als Satz', async () => {
+    antworte();
+    apiMock.put.mockRejectedValue({ status: 409, message: 'In „firma“ liegen schon 950 MB.' });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    const knopf = await screen.findByTestId('ordner-platz-firma');
+    await waitFor(() => expect(knopf).toHaveAttribute('data-stufe', 'knapp'));
+    fireEvent.click(knopf);
+    fireEvent.click(await screen.findByTestId('grenze-ohne'));
+    fireEvent.click(screen.getByTestId('grenze-absenden'));
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith(
+        '/firmenordner/ordner/1/grenze',
+        { grenze: null },
+        expect.anything()
+      )
+    );
+    expect(await screen.findByTestId('grenze-fehler')).toHaveTextContent('liegen schon');
   });
 
   it('nennt neben der Adresse die im Netz der Firma', async () => {

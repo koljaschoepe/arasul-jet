@@ -463,9 +463,109 @@ async function loescheNutzer(dienstId) {
 async function legeRaumAn(kennung) {
   const daten = await anfrage('/graph/v1.0/drives', {
     methode: 'POST',
-    koerper: { name: kennung, description: 'Arasul Firmenordner' },
+    koerper: {
+      name: kennung,
+      description: 'Arasul Firmenordner',
+      quota: { total: GRENZE_VORGABE_BYTES },
+    },
   });
   return daten.id;
+}
+
+// ---------------------------------------------------------------------------
+// Groessengrenze je Raum (J33, 28.09.2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * DIE VORGABE FUER EINEN NEUEN RAUM: 100 GB, und sie steht HIER und nicht in
+ * der Konfiguration des Dienstes.
+ *
+ * Bis zum 28.09.2026 bekam jeder Raum still die Vorgabe des Dienstes,
+ * **1 GB** (`GRAPH_SPACES_DEFAULT_QUOTA`), und niemand am Geraet wusste es.
+ * Ein gewachsener Ordner eines Kunden ist schnell groesser: am selben Tag
+ * scheiterte ein Abgleich des Kits aus launchd mit „exceeds the quota for
+ * the folder", weil zwei Datensaetze nicht mehr hineinpassten.
+ *
+ * WARUM 100 GB UND NICHT „OHNE GRENZE". Eine Grenze schuetzt das GERAET, nicht
+ * den Ordner: ohne sie kann ein einziger Bereich, in den jemand aus Versehen
+ * ein Festplattenabbild zieht, die Platte fuellen, und dann stehen Datenbank,
+ * Sicherung und Modelle mit ihm -- das Gegenteil von fuenf Jahren ohne
+ * Aufsicht. 100 GB tragen den gewachsenen Aktenbestand einer Kanzlei oder
+ * eines Planungsbueros (typisch 10 bis 60 GB), und fuenf Bereiche damit
+ * belegen auf dem Orin (1,8 TB) weniger als ein Drittel. Wer mehr braucht,
+ * hebt die Grenze in der Verwaltung an oder nimmt sie weg; die Oberflaeche
+ * und `GET /api/firmenordner` warnen, lange bevor sie erreicht ist.
+ *
+ * AM ANLEGEN UND NICHT IN DER COMPOSE-DATEI: die Umgebung des Dienstes
+ * aendern hiesse, den Container des Firmenordners bei einem Deploy neu zu
+ * erzeugen, und ein Raum, den das Backend anlegt, soll nicht davon abhaengen,
+ * welche Vorgabe dort gerade steht. Bestehende Raeume behalten ihre Grenze --
+ * sie gehoert dem Administrator, nicht dem Deploy.
+ *
+ * Dezimal wie der Dienst selbst: seine 1 GB sind 1.000.000.000 Bytes.
+ */
+const GRENZE_VORGABE_BYTES = 100 * 1000 * 1000 * 1000;
+
+/**
+ * Was der Dienst fuer „ohne Grenze" meldet: `total: 0`, und `remaining` ist
+ * dann die groesste Zahl eines int64 (am Orin gemessen, 28.09.2026) -- in
+ * JavaScript nicht einmal genau darstellbar und keine Auskunft ueber die
+ * Platte.
+ */
+function grenzeAus(quota) {
+  const total = Number(quota?.total);
+  return Number.isFinite(total) && total > 0 ? total : null;
+}
+
+/**
+ * Belegt und Grenze JEDES Raums, aus EINER Liste des Dienstes.
+ *
+ * Aus der Liste und nicht je Raum: eine Frage fuer alle, und
+ * `GET /graph/v1.0/drives/<id>` antwortet auf einen gerade weggeworfenen
+ * Raum `500` (siehe `raumSteht`). Geblaettert wird wie dort.
+ *
+ * Gibt eine `Map` von Raum-Kennung auf `{ belegt, grenze, zustand }` zurueck;
+ * `grenze: null` heisst ohne Grenze. `zustand` ist das Wort des Dienstes
+ * (`normal`, `nearing`, `critical`, `exceeded`) und steht nur fuer das Log
+ * da -- die Schwelle, ab der das Geraet warnt, rechnet es selbst.
+ */
+async function groessen() {
+  const ergebnis = new Map();
+  let weg = '/graph/v1.0/drives';
+  for (let seite = 0; weg && seite < 50; seite += 1) {
+    const daten = await anfrage(weg);
+    for (const raum of daten?.value || []) {
+      if (raum?.driveType !== 'project' || !raum.quota) {
+        continue;
+      }
+      ergebnis.set(raum.id, {
+        belegt: Number(raum.quota.used) || 0,
+        grenze: grenzeAus(raum.quota),
+        zustand: raum.quota.state || null,
+      });
+    }
+    weg = naechsteSeite(daten);
+  }
+  return ergebnis;
+}
+
+/**
+ * Die Grenze eines Raums setzen, in Bytes; `null` nimmt sie weg.
+ *
+ * `PATCH` mit `quota.total`, und `0` heisst beim Dienst „ohne Grenze" -- am
+ * 28.09.2026 am Orin gemessen, beide Richtungen: bei 2 MB wies er ein
+ * `PUT` von 3 MB mit `507` ab, nach `total: 0` nahm er es an. Gibt zurueck,
+ * was der Dienst DANACH meldet, nicht was hier verlangt wurde.
+ */
+async function setzeGrenze(raumId, bytes) {
+  const daten = await anfrage(`/graph/v1.0/drives/${pfadTeil(raumId)}`, {
+    methode: 'PATCH',
+    koerper: { quota: { total: bytes === null ? 0 : bytes } },
+  });
+  return {
+    belegt: Number(daten?.quota?.used) || 0,
+    grenze: grenzeAus(daten?.quota),
+  };
 }
 
 /**
@@ -1137,6 +1237,9 @@ module.exports = {
   setzeAktiv,
   loescheNutzer,
   legeRaumAn,
+  GRENZE_VORGABE_BYTES,
+  groessen,
+  setzeGrenze,
   legeOrdnerAn,
   loescheRaum,
   loescheOrdner,

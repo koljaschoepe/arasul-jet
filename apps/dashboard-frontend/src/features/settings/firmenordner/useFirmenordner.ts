@@ -102,7 +102,33 @@ export interface PapierkorbStand {
   groesse: number | null;
 }
 
+/**
+ * Belegt, Grenze und frei eines Hauptordners oder Bereichs (J33, 28.09.2026),
+ * alles in Bytes. `grenze: null` heißt ohne Grenze, also bis zum freien Platz
+ * des Geräts; `frei` ist, was noch hineinpasst, nie mehr als die Platte hat.
+ */
+export interface PlatzStand {
+  ordner_id: number | string;
+  kennung: string;
+  belegt: number;
+  grenze: number | null;
+  frei: number | null;
+  /** Welche Zahl die engere ist: die Grenze kann der Administrator anheben, die Platte nicht. */
+  begrenzt_durch: 'grenze' | 'platte';
+  stufe: 'gut' | 'knapp' | 'voll';
+}
+
+/** Was `GET /api/firmenordner/platz` liefert. */
+export interface PlatzUebersicht {
+  platte: { frei: number | null };
+  /** Die Grenze, die ein neuer Bereich bekommt. */
+  vorgabe: number;
+  erreichbar: boolean;
+  ordner: PlatzStand[];
+}
+
 export const ORDNER_KEY = ['firmenordner', 'ordner'] as const;
+const PLATZ_KEY = ['firmenordner', 'platz'] as const;
 const PAPIERKORB_KEY = ['firmenordner', 'papierkorb'] as const;
 export const RECHTE_KEY = ['firmenordner', 'rechte'] as const;
 
@@ -165,6 +191,42 @@ export function usePapierkorbUebersicht(an: boolean) {
         showError: false,
       });
       return res.data ?? [];
+    },
+  });
+}
+
+/**
+ * Belegt, Grenze und frei je Hauptordner und Bereich — für die Spalte „Platz"
+ * im Ordnerbaum und die Warnung darüber. Eine Anfrage für alle.
+ */
+export function usePlatz(an: boolean) {
+  const api = useApi();
+  return useQuery({
+    queryKey: PLATZ_KEY,
+    enabled: an,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const res = await api.get<{ data?: PlatzUebersicht }>('/firmenordner/platz', {
+        showError: false,
+      });
+      return res.data ?? null;
+    },
+  });
+}
+
+/**
+ * Die Grenze setzen (`grenze` in Bytes) oder wegnehmen (`null`).
+ * `showError: false`: der Dialog zeigt den Satz des Geräts selbst (ein 409
+ * sagt, wie viel schon darin liegt).
+ */
+export function useGrenzeSetzen() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation<unknown, ApiError, { ordnerId: Ordner['id']; grenze: number | null }>({
+    mutationFn: async ({ ordnerId, grenze }) =>
+      api.put(`/firmenordner/ordner/${ordnerId}/grenze`, { grenze }, { showError: false }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: PLATZ_KEY });
     },
   });
 }
@@ -237,6 +299,7 @@ export function useOrdnerAnlegen() {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ORDNER_KEY });
       void qc.invalidateQueries({ queryKey: RECHTE_KEY });
+      void qc.invalidateQueries({ queryKey: PLATZ_KEY });
     },
   });
 }

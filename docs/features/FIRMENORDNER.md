@@ -476,6 +476,45 @@ Jeder dieser Handgriffe steht im Audit-Protokoll. Die Wege stehen in der
 Beim Leeren fragt das Gerät danach nach, statt dem `204` zu glauben — liegt
 dann noch etwas darin, antwortet es `503` mit der Zahl.
 
+### Die Größengrenze eines Bereichs
+
+> Auftrag `bereich-quote-sichtbar` (28.09.2026, J33).
+
+Jeder Raum im Dienst — also die Wurzel und jeder Bereich — hat eine
+**Größengrenze** (`quota.total` in der Graph-API). Bis zum 28.09.2026 bekam
+jeder still die Vorgabe des Dienstes, **1 GB** (`GRAPH_SPACES_DEFAULT_QUOTA`),
+und niemand am Gerät wusste davon: am selben Tag scheiterte ein Abgleich des
+Kits aus launchd mit „exceeds the quota for the folder", weil zwei Datensätze
+nicht mehr hineinpassten. Ein Projekt der Ebene 2 liegt im Raum seines
+Bereichs und teilt dessen Grenze.
+
+Am Orin gemessen (Probe-Raum, danach weg): `PATCH /graph/v1.0/drives/<raum>`
+mit `quota.total` setzt sie, `total: 0` heißt ohne Grenze (`remaining` ist dann
+die größte int64-Zahl, keine Auskunft über die Platte), und ein `PUT` über der
+Grenze antwortet `507`.
+
+**Die Vorgabe für neue Bereiche ist 100 GB**, gesetzt vom Backend beim Anlegen
+(`GRENZE_VORGABE_BYTES` in `ordnerdienst.js`) und nicht in der Umgebung des
+Dienstes — die zu ändern hieße, seinen Container bei einem Deploy neu zu
+erzeugen. Warum eine Grenze und nicht „ohne": sie schützt das **Gerät**. Ohne
+sie kann ein einziger Bereich, in den jemand versehentlich ein
+Festplattenabbild zieht, die Platte füllen, und dann stehen Datenbank,
+Sicherung und Modelle mit ihm. Warum 100 GB: das trägt den gewachsenen
+Aktenbestand einer Kanzlei oder eines Planungsbüros (typisch 10 bis 60 GB),
+und fünf Bereiche damit belegen auf dem Orin (1,8 TB) weniger als ein Drittel.
+**Bestehende Bereiche behalten ihre Grenze** — sie gehört dem Administrator,
+nicht dem Deploy; die Verwaltung zeigt sie, und er hebt sie an.
+
+Sichtbar ist sie an drei Stellen: in der Verwaltung (Spalte **Platz**, Dialog
+zum Einstellen, Warnung über dem Baum ab 90 % oder unter 10 GB frei auf der
+Platte), in `GET /api/firmenordner` (`platz` je Ordner, damit das Kit im Plan
+warnen kann; ein Projekt nennt nur `frei`, sonst verriete es, wie voll ein
+Bereich ist, den der Mensch nicht sieht) und in `GET /api/firmenordner/passt`,
+der Frage des Kits vor einem Abgleich — sie weist mit
+`409 GRENZE_ERREICHT` und einem Satz ab. `frei` ist dabei nie mehr, als die
+Platte hat (gelesen per `statfs` auf der Ablage im Backend). Die Wege stehen in
+der [API-Referenz](../api/API_REFERENCE.md).
+
 ### Der Fehler vom 22.09.2026, und warum er so schwer zu lesen war
 
 Ein Raum mit 6.076 Dateien antwortete `500 grpc error`, im Log stand
@@ -662,7 +701,7 @@ Ordnerbaum mit Kennung, Name und Art, Anlegen (Bereich, Projekt, am Gerät)
 und Wegwerfen (Kennung abtippen, wie beim Kit-Weg), die **Rechte-Matrix**
 Menschen mal Ordner mit einer Stufe je Zelle — keine, lesen, schreiben —, und
 je Ordner die letzten Änderungen und je Hauptordner und Bereich der
-**Papierkorb** (siehe oben). Ein Ordner am Gerät hat **keine
+**Papierkorb** und der **Platz** mit der Grenze (siehe oben). Ein Ordner am Gerät hat **keine
 Rechtespalte**, die Wurzel auch nicht (ihre Regel steht als Satz über der
 Matrix). Ein Projekt, dessen Bereich der Mensch schon hat, sagt in der Zelle
 „wie oben: lesen" und bietet trotzdem mehr an; **weniger** weist das Backend

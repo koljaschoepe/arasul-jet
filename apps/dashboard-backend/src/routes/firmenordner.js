@@ -3,6 +3,9 @@
  *
  *   GET    /api/firmenordner                          wo er liegt und was ICH habe
  *   GET    /api/firmenordner/sicht                    meine sicht.md (Ausweis oder Sitzung)
+ *   GET    /api/firmenordner/passt?pfad=&bytes=       passt das noch hinein? (Ausweis oder Sitzung)
+ *   GET    /api/firmenordner/platz                    belegt, Grenze, frei je Raum (Administrator)
+ *   PUT    /api/firmenordner/ordner/:id/grenze        die Grenze setzen oder wegnehmen
  *   GET    /api/firmenordner/ordner                   alle Ordner (Administrator)
  *   GET    /api/firmenordner/ordner/:id/aenderungen   wer zuletzt wann (Administrator)
  *   POST   /api/firmenordner/ordner                   einen anlegen (Administrator)
@@ -40,6 +43,8 @@ const { ausweisOderSitzung } = require('../middleware/ausweis');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const {
+  GrenzeBody,
+  PasstQuery,
   OrdnerBody,
   OrdnerParams,
   OrdnerLoeschenQuery,
@@ -119,7 +124,7 @@ router.get(
         'Auf diesem Gerät läuft kein Firmenordner. Ihr Administrator kann ihn einschalten lassen.'
       );
     }
-    const ordner = await verwaltung.meineOrdner(req.user.id, req.user.role);
+    const ordner = await verwaltung.meineOrdnerMitPlatz(req.user.id, req.user.role);
     res.json({
       data: {
         adresse: lage.adresse,
@@ -168,6 +173,81 @@ router.get(
       rolle: req.user.role,
     });
     res.type('text/markdown; charset=utf-8').send(text);
+  })
+);
+
+/**
+ * GET /api/firmenordner/passt?pfad=<pfad>&bytes=<n> — passt das noch hinein?
+ *
+ * DIE FRAGE DES KITS VOR EINEM ABGLEICH (J33, 28.09.2026). Bis dahin
+ * erfuhr es von der Groessengrenze eines Bereichs erst, wenn der Dateidienst
+ * mitten im Abgleich mit „exceeds the quota for the folder" abbrach -- in
+ * einem Lauf aus launchd, den niemand ansah. Jetzt fragt es vorher, mit der
+ * Summe dessen, was es hochladen will, und bekommt `200` oder
+ * `409 GRENZE_ERREICHT` mit einem Satz fuer den Menschen.
+ *
+ * MIT AUSWEIS wie `GET /` und `sicht`: das Kit laeuft am Rechner eines
+ * Menschen und hat keine Sitzung. Gefragt werden kann nur nach einem Ordner,
+ * den der Mensch hat.
+ */
+router.get(
+  '/passt',
+  ausweisOderSitzung,
+  requireRole('admin', 'mitarbeiter'),
+  validateQuery(PasstQuery),
+  asyncHandler(async (req, res) => {
+    if (!verwaltung.istAn()) {
+      throw new ServiceUnavailableError(
+        'Auf diesem Gerät läuft kein Firmenordner. Ihr Administrator kann ihn einschalten lassen.'
+      );
+    }
+    const data = await verwaltung.passt({
+      benutzerId: req.user.id,
+      rolle: req.user.role,
+      pfad: req.query.pfad,
+      bytes: req.query.bytes,
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/firmenordner/platz — belegt, Grenze und frei je Hauptordner und
+ * Bereich, dazu der freie Platz des Geraets und die Vorgabe fuer neue
+ * Bereiche. Eine Anfrage fuer die ganze Spalte, wie beim Papierkorb.
+ */
+router.get(
+  '/platz',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const data = await verwaltung.platzUebersicht();
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * PUT /api/firmenordner/ordner/:id/grenze — die Groessengrenze setzen
+ * (`{ grenze: <bytes> }`) oder wegnehmen (`{ grenze: null }`, dann gilt der
+ * freie Platz des Geraets). Nur Hauptordner und Bereich; ein Projekt teilt
+ * die Grenze seines Bereichs.
+ */
+router.put(
+  '/ordner/:id/grenze',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(OrdnerParams),
+  validateBody(GrenzeBody),
+  asyncHandler(async (req, res) => {
+    const data = await verwaltung.setzeGrenze(req.params.id, req.body.grenze);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'firmenordner_grenze_gesetzt',
+      details: { kennung: data.kennung, vorher: data.vorher, grenze: data.grenze },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
   })
 );
 

@@ -142,7 +142,38 @@ const RechteQuery = z
   })
   .strict();
 
+/**
+ * Die Groessengrenze eines Hauptordners oder Bereichs (J33, 28.09.2026), in
+ * Bytes; `null` heisst ohne Grenze, also bis zum freien Platz des Geraets.
+ * Bytes und keine Einheit: die Oberflaeche rechnet um, und eine Zahl mit
+ * Einheit waere eine zweite Stelle, an der jemand 1024 gegen 1000 verwechselt.
+ * Mindestens 1 MB -- darunter war die Zahl vermutlich als Gigabyte gemeint.
+ */
+const GrenzeBody = z
+  .object({
+    grenze: z
+      .number()
+      .int()
+      .min(1000 * 1000, 'Die Grenze ist mindestens 1 MB')
+      .max(Number.MAX_SAFE_INTEGER)
+      .nullable(),
+  })
+  .strict();
+
+/**
+ * Passt das hinein? `pfad` wie in `GET /api/firmenordner` (die Wurzel ist der
+ * leere Pfad), `bytes` die Groesse dessen, was dazukommen soll.
+ */
+const PasstQuery = z
+  .object({
+    pfad: z.string().trim().max(200).default(''),
+    bytes: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
+
 module.exports = {
+  GrenzeBody,
+  PasstQuery,
   OrdnerBody,
   OrdnerParams,
   OrdnerLoeschenQuery,

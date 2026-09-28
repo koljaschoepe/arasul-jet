@@ -2603,6 +2603,9 @@ in [`docs/features/FIRMENORDNER.md`](../features/FIRMENORDNER.md).
 | ------ | ------------------------------------------------------------------- | ---------------------------------------------------- |
 | GET    | `/api/firmenordner`                                                 | Wo der Dienst liegt und welche Ordner **ich** habe   |
 | GET    | `/api/firmenordner/sicht`                                           | Meine `sicht.md`, als Text (Ausweis oder Sitzung)    |
+| GET    | `/api/firmenordner/passt?pfad=&bytes=`                              | Passt das noch hinein? (Ausweis oder Sitzung)        |
+| GET    | `/api/firmenordner/platz`                                           | Belegt, Grenze, frei je Raum (Administrator)         |
+| PUT    | `/api/firmenordner/ordner/:id/grenze`                               | Die Größengrenze setzen oder wegnehmen (Admin.)      |
 | GET    | `/api/firmenordner/ordner`                                          | Alle Ordner am Gerät (Administrator)                 |
 | POST   | `/api/firmenordner/ordner`                                          | Einen anlegen (Administrator)                        |
 | GET    | `/api/firmenordner/ordner/:id/aenderungen`                          | Wer zuletzt wann etwas geändert hat (Administrator)  |
@@ -2656,7 +2659,15 @@ schickt und welche Ordner es anlegen darf.
         "art": "geteilt",
         "eltern": "projekte",
         "pfad": "projekte/vicona",
-        "recht": "schreiben"
+        "recht": "schreiben",
+        "platz": {
+          "belegt": null,
+          "grenze": null,
+          "frei": 40000000,
+          "begrenzt_durch": "grenze",
+          "stufe": "gut",
+          "im_bereich": true
+        }
       }
     ],
     "nicht_abgeglichen": [
@@ -2692,6 +2703,30 @@ nennt dieselbe zuerst, danach die eingestellte und den mDNS-Namen, ohne
 Doppelte. Am Orin gemessen: `arasul`, `arasul.local` und `192.168.0.197`
 antworten auf 8443 alle mit `207` — es ist dieselbe Traefik-Instanz mit
 demselben Zertifikat. `GET /ordner` trägt beides in `zustand`.
+
+**`platz` sagt, wie viel noch hineinpasst** (Auftrag bereich-quote-sichtbar,
+28.09.2026, J33). Jeder Hauptordner und Bereich ist im Dateidienst ein Raum
+mit einer **Größengrenze**; bis dahin war sie still 1 GB, und ein Abgleich des
+Kits scheiterte mitten im Lauf mit „exceeds the quota for the folder". Je
+Ordner stehen `belegt` und `grenze` in Bytes (`grenze: null` heißt ohne Grenze,
+also bis zum freien Platz des Geräts), `frei` ist, was noch hineinpasst — bis
+zur Grenze, aber nie mehr, als die Platte hat —, `begrenzt_durch` sagt, welche
+der beiden Zahlen die engere ist (`grenze` kann der Administrator anheben,
+`platte` nicht), `stufe` ist `gut`, `knapp` (ab 90 % der Grenze oder unter
+10 GB frei auf der Platte) oder `voll`. **Ein Projekt nennt nur `frei`**
+(`im_bereich: true`): es teilt sich die Grenze seines Bereichs, und wer nur
+das Projekt hat, sieht den Bereich nicht — auch nicht, wie voll er ist.
+Antwortet der Dienst nicht, ist `platz` `null`; die Liste kommt trotzdem.
+
+**`GET /passt?pfad=<pfad>&bytes=<n>` ist die Frage des Kits vor einem
+Abgleich**, mit Ausweis wie der erste Weg. `pfad` wie in `ordner[].pfad` (die
+Wurzel ist der leere Pfad), `bytes` die Summe dessen, was dazukommen soll.
+Passt es, `200` mit `{ passt: true, …platz }`; passt es nicht,
+`409 GRENZE_ERREICHT` mit einem Satz, den das Kit so zeigen kann, wie er kommt
+(„„projekte“ ist zu voll: frei sind noch 40 MB, gebraucht werden 60 MB. Ihr
+Administrator kann die Grenze unter Einstellungen → Firmenordner anheben."),
+und `details: { pfad, bytes, frei, belegt, grenze }`. Ein Ordner, den der
+Mensch nicht hat, ist `404` wie einer, den es nicht gibt.
 
 `pfad` ist die **echte Stelle im Baum**, auch wenn der Mensch den Ordner
 darüber gar nicht sieht: ein Ordner der Ebene 2 heißt immer
@@ -2824,6 +2859,21 @@ name, geloescht_am, ordner, groesse }] } }`, neueste zuerst. `groesse` in
 
 `503`, wenn auf dem Gerät kein Firmenordner läuft oder er gerade nicht
 antwortet (der rohe Fehler steht im Log).
+
+**Die Größengrenze** (Auftrag bereich-quote-sichtbar, 28.09.2026, J33). Je
+Hauptordner und Bereich eine; ein Projekt teilt die seines Bereichs.
+
+- `GET /platz` → `{ data: { platte: { frei }, vorgabe, erreichbar, ordner:
+[{ ordner_id, kennung, belegt, grenze, frei, begrenzt_durch, stufe }] } }` je
+  Hauptordner und Bereich, den der Dienst kennt; `vorgabe` ist die Grenze,
+  die ein neuer Bereich bekommt (100 GB). Antwortet der Dienst nicht, ist
+  `ordner` leer und `erreichbar: false`.
+- `PUT /ordner/:id/grenze` mit `{ "grenze": <bytes> }` (mindestens 1 MB) oder
+  `{ "grenze": null }` (ohne Grenze) → `{ data: { ordner_id, kennung, vorher,
+belegt, grenze, frei, begrenzt_durch, stufe } }`, die Zahlen so, wie der
+  Dienst sie danach meldet. `400` für ein Projekt, `409` für eine Grenze unter
+  dem, was schon darin liegt, und für einen Bereich, den der Dienst noch nicht
+  kennt. Audit: `firmenordner_grenze_gesetzt` mit vorher und nachher.
 
 **`POST /abgleich` legt an, es räumt nicht weg.** Was der Dienst noch nicht
 weiß, steht in der Datenbank (`abgleich_offen` an der Nutzer- und an der
