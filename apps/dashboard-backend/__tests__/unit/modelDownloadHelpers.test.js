@@ -74,3 +74,32 @@ describe('verifyDownloadComplete', () => {
     expect(deps.database.query).not.toHaveBeenCalled();
   });
 });
+
+describe('autoSetDefault (J4)', () => {
+  it('macht ein gemessenes Modell zum Standard, wenn es noch keinen gibt', async () => {
+    const deps = makeDeps();
+    deps.database.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
+    const client = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    deps.database.transaction = jest.fn(async fn => fn(client));
+
+    const { autoSetDefault } = createDownloadHelpers(deps);
+    await autoSetDefault('gemma4:e4b');
+
+    expect(client.query).toHaveBeenCalledWith(
+      'UPDATE llm_installed_models SET is_default = true WHERE id = $1',
+      ['gemma4:e4b']
+    );
+  });
+
+  it('macht ein ungemessenes Modell nie von selbst zum Standard', async () => {
+    const deps = makeDeps();
+    // Die Katalogfrage `jetson_tested = true` findet nichts.
+    deps.database.query.mockResolvedValueOnce({ rows: [] });
+    deps.database.transaction = jest.fn();
+
+    const { autoSetDefault } = createDownloadHelpers(deps);
+    await autoSetDefault('qwen3:0.6b');
+
+    expect(deps.database.transaction).not.toHaveBeenCalled();
+  });
+});
