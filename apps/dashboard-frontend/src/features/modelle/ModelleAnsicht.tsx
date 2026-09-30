@@ -13,6 +13,10 @@
  * es, welches liegt am Gerät, welches ist gerade im Speicher, wie viel KI-RAM
  * ist übrig, und welches treibt die Flows (der Standard).
  *
+ * Seit J4 (30.09.2026) ist der Katalog wieder offen: unter der Liste der
+ * Kurzliste steht das Feld „Weiteres Modell laden", und was dort geladen wird,
+ * erscheint in derselben Liste mit der Kennzeichnung „ungemessen".
+ *
  * Die Rolle blendet aus, das Backend entscheidet: jeder Weg dieser Seite trägt
  * `requireRole('admin')` und antwortet einem Mitarbeiter mit 403, ob die
  * Ansicht für ihn sichtbar ist oder nicht.
@@ -28,6 +32,7 @@ import { isModelInstalled } from '@/hooks/useStoreCatalog';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import { kiRamZeile, modellage, wechselGrund, zuGb } from '@/utils/modellZustand';
 import { ModellZeile } from './ModellZeile';
+import { WeiteresModell } from './WeiteresModell';
 import { useModelle, useModellAktionen } from './useModelle';
 
 function ModelleAnsicht() {
@@ -68,7 +73,7 @@ function ModelleAnsicht() {
       <Kopf
         titel="Modelle"
         symbol={<Cpu />}
-        beschreibung="Die Kurzliste dieses Geräts: vier Modelle, hier gemessen. Geladen wird nur, was hier steht."
+        beschreibung="Die Kurzliste dieses Geräts: vier Modelle, hier gemessen. Jedes weitere offene Modell lässt sich laden und ist als ungemessen gekennzeichnet."
       />
 
       <Kennzahlen className="mb-6">
@@ -121,6 +126,8 @@ function ModelleAnsicht() {
           {modellAnzeigeName(budget.lastSwitch.model)} wurde {grund}.
         </p>
       )}
+
+      <WeiteresModell busy={busy} onGestartet={entwerten} />
 
       {isLoading ? (
         <SkeletonText lines={4} />

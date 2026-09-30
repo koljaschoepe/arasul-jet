@@ -15,6 +15,10 @@
 > `recovery_actions.action_type` kennt zusaetzlich `model_unload`.
 > Am 27.08.2026 von Hand ergaenzt (Migrationen 177/178, Phase D1): die Tabelle
 > `notizen` und die Spalte `admin_users.passwort_vom_admin`.
+> Am 30.09.2026 von Hand ergaenzt (Migration 190, J4): `llm_model_catalog.frei_geladen`
+> (`boolean NOT NULL DEFAULT false`) — die Zeile entstand beim Laden einer
+> beliebigen Kennung, `jetson_tested = false` heisst "ungemessen", und beim
+> Entfernen des Modells geht die Zeile mit.
 > Am 29.08.2026 von Hand ergaenzt (Migration 180, Phase H1): die Spalte
 > `admin_users.theme`.
 > Am 29.08.2026 von Hand ergaenzt (Migration 181, Phase H7): die Tabelle

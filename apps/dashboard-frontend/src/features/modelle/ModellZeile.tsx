@@ -102,6 +102,15 @@ export function ModellZeile({
               im Speicher
             </span>
           )}
+          {modell.jetson_tested === false && (
+            <span
+              data-testid={`ungemessen-${modell.id}`}
+              title="Läuft, aber auf diesem Gerät hat niemand geprüft, wie gut und wie schnell."
+              className="rounded border border-dashed border-border px-1.5 py-0.5 text-ui-xs text-muted-foreground"
+            >
+              ungemessen
+            </span>
+          )}
           {!installiert && (
             <span className="rounded bg-muted px-1.5 py-0.5 text-ui-xs text-muted-foreground">
               nicht am Gerät

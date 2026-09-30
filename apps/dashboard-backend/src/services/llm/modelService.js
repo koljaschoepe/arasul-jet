@@ -806,6 +806,12 @@ function createModelService(deps = {}) {
 
         // Remove from installed models
         await database.query('DELETE FROM llm_installed_models WHERE id = $1', [modelId]);
+        // Ein frei geladenes Modell (Migration 190) steht nur im Katalog,
+        // solange es geladen ist; die vier der Kurzliste bleiben.
+        await database.query(
+          'DELETE FROM llm_model_catalog WHERE id = $1 AND frei_geladen = true',
+          [modelId]
+        );
         modelAvailabilityCache.delete(modelId);
 
         logger.info(`Model ${modelId} (Ollama: ${ollamaName}) deleted`);

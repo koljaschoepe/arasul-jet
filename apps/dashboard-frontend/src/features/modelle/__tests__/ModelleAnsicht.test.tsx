@@ -182,6 +182,49 @@ describe('Modelle', () => {
     expect(screen.queryByTestId('standard-setzen-gemma4:e4b')).not.toBeInTheDocument();
   });
 
+  it('J4: laedt eine Kennung ausserhalb der Kurzliste', async () => {
+    render(<ModelleAnsicht />, { wrapper: huelle() });
+
+    const feld = await screen.findByTestId('weiteres-modell-kennung');
+    expect(screen.getByTestId('weiteres-modell-laden')).toBeDisabled();
+    fireEvent.change(feld, { target: { value: '  mistral:7b ' } });
+    fireEvent.click(screen.getByTestId('weiteres-modell-laden'));
+
+    expect(startDownload).toHaveBeenCalledWith('mistral:7b', 'mistral:7b');
+  });
+
+  it('J4: kennzeichnet nur Modelle ausserhalb der Kurzliste als ungemessen', async () => {
+    apiMock.get.mockImplementation(async (pfad: string) => {
+      if (pfad === '/models/catalog')
+        return {
+          models: [
+            ...KURZLISTE.map(m => ({ ...m, jetson_tested: true })),
+            {
+              id: 'mistral:7b',
+              name: 'mistral (7b)',
+              description: 'Frei geladen.',
+              size_bytes: 4_100_000_000,
+              ram_required_gb: 5,
+              category: 'medium',
+              task: 'text',
+              install_status: 'available',
+              jetson_tested: false,
+              frei_geladen: true,
+            },
+          ],
+        };
+      if (pfad === '/models/default') return { default_model: 'qwen3.8:27b-q4_K_M' };
+      if (pfad === '/models/status') return { loaded_model: null };
+      if (pfad === '/models/memory-budget') return BUDGET;
+      throw new Error(`unerwarteter Pfad: ${pfad}`);
+    });
+    render(<ModelleAnsicht />, { wrapper: huelle() });
+
+    expect(await screen.findByTestId('ungemessen-mistral:7b')).toBeInTheDocument();
+    expect(screen.queryByTestId('ungemessen-gemma4:e4b')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ungemessen-qwen3.8:27b-q4_K_M')).not.toBeInTheDocument();
+  });
+
   it('entfernt ein Modell ueber DELETE /models/:id', async () => {
     apiMock.del.mockResolvedValue({});
     render(<ModelleAnsicht />, { wrapper: huelle() });

@@ -33,6 +33,7 @@ AUSNAHMEN=(
   "src/setupTests.ts|von vite.config.ts als setupFiles geladen"
   "src/index.js|Einstiegspunkt des Dienstes"
   "src/cli/lizenz.js|Einstiegspunkt fuer scripts/util/lizenz-geraet.sh (docker exec, J35)"
+  "src/cli/modell.js|Einstiegspunkt fuer scripts/util/modell-geraet.sh (docker exec, J4)"
 )
 
 # Nur von Tests benutzt, bewusst behalten. Jede Zeile: Pfad|Grund.

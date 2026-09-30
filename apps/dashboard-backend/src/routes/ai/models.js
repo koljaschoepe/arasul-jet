@@ -19,9 +19,16 @@
  * Was hier NICHT mehr steht (Phase C8, 27.08.2026): `POST /quelle/pruefen`,
  * `POST /katalog` und `DELETE /katalog/*`. Ueber sie konnte ein Administrator
  * ein beliebiges Modell von HuggingFace in den Katalog holen und danach laden.
- * Seit der Kurzliste (`config/modelle/kurzliste.json`, Migration 175) ist der
- * Katalog eine Zusage ueber vier gemessene Modelle, und ein Weg daran vorbei
- * waere genau die Zusage, die das Geraet nicht halten kann.
+ * Seit der Kurzliste (`config/modelle/kurzliste.json`, Migration 175) war der
+ * Katalog eine Zusage ueber vier gemessene Modelle.
+ *
+ * SEIT J4 (30.09.2026) IST `POST /download` WIEDER OFFEN, und zwar anders als
+ * vor C8: jede Kennung aus der Ollama-Bibliothek und von Hugging Face ist
+ * ladbar, aber die Kurzliste bleibt als gemessen markiert und alles andere
+ * traegt `jetson_tested: false` ("ungemessen"). Das Geraet prueft vorher die
+ * Groesse gegen das Speicherbudget und weist mit Grund ab
+ * (`services/llm/freiesModell.js`). Die Umkehr gilt fuer den Katalog, nicht
+ * fuer die Vorgabe: der Standard der Flows bleibt ein gemessenes Modell.
  */
 
 const express = require('express');
@@ -37,6 +44,7 @@ const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
 const externeModelle = require('../../services/llm/extern/externeModelle');
+const freiesModell = require('../../services/llm/freiesModell');
 
 // Cache keys
 const CACHE_KEYS = {
@@ -304,7 +312,12 @@ router.post(
   requireRole('admin'),
   validateBody(DownloadBody),
   asyncHandler(async (req, res) => {
-    const { model_id } = req.body;
+    // J4: eine Kennung ausserhalb der Kurzliste wird hier, VOR dem Strom,
+    // geprueft (gibt es sie, wie gross ist sie, passt sie in den Speicher) und
+    // erst dann in den Katalog aufgenommen. Eine Abweisung ist deshalb eine
+    // gewoehnliche JSON-Antwort mit Grund und kein halber Ereignisstrom.
+    const vorbereitet = await freiesModell.vorbereiten(req.body.model_id);
+    const model_id = vorbereitet.modelId;
 
     // Check if model exists in catalog
     const modelInfo = await modelService.getModelInfo(model_id);
@@ -388,7 +401,15 @@ router.post(
     });
 
     // Send initial event
-    res.write(`data: ${JSON.stringify({ status: 'starting', model_id, progress: 0 })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        status: 'starting',
+        model_id,
+        progress: 0,
+        gemessen: vorbereitet.gemessen,
+        digest_vorab: vorbereitet.digestVorab,
+      })}\n\n`
+    );
 
     // DL-001: Heartbeat to keep connection alive during slow Ollama manifest fetches
     const heartbeatInterval = setInterval(() => {
@@ -442,6 +463,12 @@ router.post(
         logger.info(`[Download] Model ${model_id} download aborted (client disconnected)`);
       } else {
         logger.error(`Error downloading model ${model_id}: ${error.message}`);
+      }
+      // Ein frei gewaehltes Modell, das nicht ankam, hinterlaesst keine Zeile:
+      // der Katalog fuehrt nur, was am Geraet liegt oder liegen soll.
+      if (vorbereitet.neu) {
+        await freiesModell.nachFehlschlag(model_id);
+        cacheService.invalidatePattern('models:*');
       }
       if (connection.isConnected()) {
         res.write(

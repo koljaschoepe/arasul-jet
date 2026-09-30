@@ -311,7 +311,14 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // J4: eine Abweisung vor dem Strom (zu groß, gibt es nicht) kommt als
+          // JSON mit einem Satz vom Gerät; der gehört dem Menschen, nicht
+          // „HTTP 400".
+          const fehler = await response
+            .json()
+            .then((d: { error?: { message?: string } }) => d?.error?.message)
+            .catch(() => undefined);
+          throw new Error(fehler || `HTTP ${response.status}: ${response.statusText}`);
         }
 
         // DL-FE-003: Handle "already downloading" response from backend

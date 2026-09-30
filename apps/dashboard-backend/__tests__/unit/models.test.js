@@ -49,6 +49,18 @@ jest.mock('../../src/services/llm/modelService', () => ({
   syncWithOllama: jest.fn()
 }));
 
+// J4: die Vorpruefung einer freien Kennung (Manifest, Budget) hat einen eigenen
+// Test (freiesModell.test.js); hier zaehlt nur, dass die Route sie ruft.
+jest.mock('../../src/services/llm/freiesModell', () => ({
+  vorbereiten: jest.fn(async kennung => ({
+    modelId: kennung,
+    neu: false,
+    gemessen: true,
+    digestVorab: true
+  })),
+  nachFehlschlag: jest.fn().mockResolvedValue(undefined)
+}));
+
 // Mock cacheService
 jest.mock('../../src/services/core/cacheService', () => ({
   cacheService: {
@@ -62,6 +74,8 @@ jest.mock('../../src/services/core/cacheService', () => ({
 
 const db = require('../../src/database');
 const modelService = require('../../src/services/llm/modelService');
+const freiesModell = require('../../src/services/llm/freiesModell');
+const { ValidationError } = require('../../src/utils/errors');
 const { app } = require('../../src/server');
 
 const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');
@@ -203,6 +217,65 @@ describe('Models Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toMatch(/text\/event-stream/);
+    });
+
+    test('J4: eine Kennung ausserhalb der Kurzliste geht durch die Vorpruefung und traegt ungemessen', async () => {
+      freiesModell.vorbereiten.mockResolvedValueOnce({
+        modelId: 'mistral:7b',
+        neu: true,
+        gemessen: false,
+        digestVorab: false
+      });
+      modelService.getModelInfo.mockResolvedValue({ id: 'mistral:7b', name: 'mistral (7b)' });
+      modelService.downloadModel.mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .post('/api/models/download')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ model_id: 'mistral:7b' });
+
+      expect(response.status).toBe(200);
+      expect(freiesModell.vorbereiten).toHaveBeenCalledWith('mistral:7b');
+      expect(response.text).toContain('"gemessen":false');
+      expect(response.text).toContain('"digest_vorab":false');
+    });
+
+    test('J4: ein zu grosses Modell wird vor dem Strom mit Grund abgewiesen', async () => {
+      freiesModell.vorbereiten.mockRejectedValueOnce(
+        new ValidationError('"llama3.1:405b" ist zu gross fuer dieses Geraet', {
+          grund: 'ZU_GROSS',
+          memory_budget_gb: 32
+        })
+      );
+
+      const response = await request(app)
+        .post('/api/models/download')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ model_id: 'llama3.1:405b' });
+
+      expect(response.status).toBe(400);
+      expect(response.headers['content-type']).toMatch(/json/);
+      expect(response.body.error.message).toMatch(/zu gross/);
+      expect(response.body.error.details.grund).toBe('ZU_GROSS');
+      expect(modelService.downloadModel).not.toHaveBeenCalled();
+    });
+
+    test('J4: scheitert das Laden einer neuen Kennung, bleibt keine Katalogzeile', async () => {
+      freiesModell.vorbereiten.mockResolvedValueOnce({
+        modelId: 'tippfehler:1b',
+        neu: true,
+        gemessen: false,
+        digestVorab: false
+      });
+      modelService.getModelInfo.mockResolvedValue({ id: 'tippfehler:1b', name: 'tippfehler' });
+      modelService.downloadModel.mockRejectedValue(new Error('pull fehlgeschlagen'));
+
+      await request(app)
+        .post('/api/models/download')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ model_id: 'tippfehler:1b' });
+
+      expect(freiesModell.nachFehlschlag).toHaveBeenCalledWith('tippfehler:1b');
     });
 
     test('should reject OCR models with 400 (never triggers an Ollama pull)', async () => {

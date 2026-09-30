@@ -1497,8 +1497,9 @@ in den Katalog; den Standard hat Migration 186 (25.09.2026, J35) von
 Ollama-Bibliothek gezogen — die Hugging-Face-Kennung zeigte nicht verlässlich
 auf dieselbe Datei, die neue trägt einen festen Digest (`digest` je Eintrag in
 der Kurzliste). Sie ist eine **Zusage** über vier auf diesem Gerät gemessene
-Modelle, kein Vorschlag: `POST /api/models/download` nimmt nur, was im Katalog
-steht, und der Katalog wird nur noch von Migrationen geschrieben.
+Modelle, kein Vorschlag — **seit J4 (30.09.2026) gilt sie für den Katalog nicht
+mehr als Sperre, sondern als Kennzeichnung**: siehe „Jedes offene Modell laden"
+unten. Der Standard der Flows bleibt ein gemessenes Modell.
 
 Bis zum 27.08.2026 gab es zwei Wege daran vorbei, und beide sind weg:
 
@@ -1508,6 +1509,49 @@ Bis zum 27.08.2026 gab es zwei Wege daran vorbei, und beide sind weg:
 - Der Abgleich mit Ollama trug jedes Modell nach, das nur dort lag
   (`importUnknownModels`). Er tut es nicht mehr; ein Modell, das jemand am CLI
   zieht, bleibt für die Plattform unsichtbar.
+
+### Jedes offene Modell laden (J4, 30.09.2026)
+
+`POST /api/models/download` (Administrator, SSE) nimmt **jede Kennung** aus der
+Ollama-Bibliothek (`name:tag`, `nutzer/name:tag`) und von Hugging Face
+(`hf.co/nutzer/repo:quant`), nicht nur die vier der Kurzliste. Vor dem Strom,
+also als gewöhnliche JSON-Antwort:
+
+| Fall                                            | Antwort                                                                                                                                |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Kennung ohne gültige Form                       | `400 VALIDATION_ERROR`                                                                                                                 |
+| gibt es bei der Registry nicht                  | `404 NOT_FOUND` mit Satz                                                                                                               |
+| Registry nicht erreichbar (Größe unbekannt)     | `503 SERVICE_UNAVAILABLE` — ohne Größe wird nicht geladen                                                                              |
+| zu groß für das Speicherbudget (`RAM_LIMIT_LLM`) | `400 VALIDATION_ERROR`, `details`: `grund: "ZU_GROSS"`, `groesse_gb`, `benoetigt_gb`, `memory_budget_gb`, `verfuegbar_gb` |
+
+Die Größe kommt aus dem Manifest der Registry (Konfiguration plus Schichten),
+im Speicher zählen 15 % Aufschlag für Kontext und Rechenpuffer, abzüglich des
+Sicherheitspuffers von `GET /api/models/memory-budget`. Passt es, legt das
+Gerät eine Katalogzeile an (`llm_model_catalog.frei_geladen = true`,
+`jetson_tested = false`) und lädt. Der erste Ereignisblock nennt
+`gemessen` und `digest_vorab`. Scheitert das Laden, geht die Zeile wieder weg;
+`DELETE /api/models/:id` nimmt sie mit dem Modell mit. Die vier der Kurzliste
+bleiben im Katalog, auch ohne Gewicht.
+
+**Gemessen** heißt: in `config/modelle/kurzliste.json`. `GET /api/models/catalog`
+trägt `jetson_tested` (`false` = ungemessen) und `frei_geladen`, die Ansicht
+Modelle zeigt „ungemessen". Ein geladenes Modell steht in `GET /api/models/installed`,
+ist in der Flow-Modellwahl wählbar und für Apps über `llm/chat` mit `model`
+(Katalog-Kennung oder Ollama-Name) nutzbar.
+
+**Digest.** Die Kurzliste trägt je Modell einen Digest, den die Installation nach
+dem Holen prüft. Für ein frei gewähltes Modell gibt es keinen Sollwert, den ein
+Mensch vorab festgelegt hätte; die Prüfung wird nicht still abgeschaltet,
+sondern ausgewiesen (`digest_vorab: false`). Der Digest des Manifests steht im
+Protokoll des Geräts.
+
+**Ohne Sitzung, für das Ara-Kit** (Schlüssel mit `app:deploy`, aber kein
+Passwort): `scripts/util/modell-geraet.sh laden <kennung> | liste | entfernen
+<kennung>` per SSH auf dem Gerät, derselbe Dienst im Backend-Container
+(`src/cli/modell.js`), je Aufruf eine Zeile JSON auf STDOUT
+(`{"ok":true,"modell":"…","gemessen":false,"digest_vorab":false}`, bei
+Abweisung `{"ok":false,"fehler":"…","grund":"ZU_GROSS",…}` mit Rückgabe 1), der
+Fortschritt auf STDERR.
 
 Was am Gerät liegt, bleibt liegen — die Migration räumt die Datenbank, nicht
 die Platte. Die gestrichenen Gewichte nimmt
