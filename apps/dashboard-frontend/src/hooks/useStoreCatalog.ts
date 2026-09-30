@@ -59,6 +59,14 @@ export interface CatalogModel {
   task?: string | null;
   /** Voreingestellt fuer seine Aufgabe. Hoechstens eines je Aufgabe. */
   is_task_default?: boolean;
+  /**
+   * J4: an diesem Gerät gemessen. Nur die Kurzliste ist es; jedes frei
+   * geladene Modell steht hier auf `false` und heißt in der Oberfläche
+   * „ungemessen".
+   */
+  jetson_tested?: boolean;
+  /** J4: die Zeile entstand beim Laden einer beliebigen Kennung. */
+  frei_geladen?: boolean;
   /** Plan 023 D3: Stand eines laufenden Downloads in Bytes, aus llm_installed_models. */
   bytes_completed?: number | null;
   bytes_total?: number | null;

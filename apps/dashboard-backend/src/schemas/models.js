@@ -4,7 +4,7 @@ const ModelIdField = z
   .string()
   .trim()
   .min(1)
-  .max(200)
+  .max(100)
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/, {
     message: 'Ungültige model_id (erlaubt: Buchstaben, Ziffern, . : - _ /)',
   });

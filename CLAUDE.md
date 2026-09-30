@@ -71,6 +71,20 @@ dieselbe Liste — `scripts/test/kurzliste.py` hält sie aneinander. Gestrichene
 Gewichte nimmt `scripts/util/modelle-aufraeumen.sh` von Hand vom Gerät, nicht
 der Deploy. Bei RAM-Überlast entlädt die Selbstheilung jetzt das Modell (der
 Idle-Unload bleibt daneben bestehen).
+Seit dem Auftrag **modelle-frei-herunterladbar** (30.09.2026, J4) ist der
+Katalog **wieder offen, aber gekennzeichnet**: `POST /api/models/download`
+nimmt jede Kennung aus der Ollama-Bibliothek und von Hugging Face, das Gerät
+liest vorher die Größe aus dem Manifest der Registry, hält sie gegen das
+Speicherbudget (`RAM_LIMIT_LLM`) und weist mit Grund ab
+(`apps/dashboard-backend/src/services/llm/freiesModell.js`). Die Kurzliste bleibt als **gemessen**
+markiert, alles andere steht mit `jetson_tested = false` als **ungemessen**
+im Katalog (Migration 190, `frei_geladen`; die Zeile geht mit dem Modell).
+Das kehrt die Entscheidung vom 27.08.2026 für den Katalog um, nicht für die
+Vorgabe: der Standard der Flows bleibt ein gemessenes Modell. Ein Digest liegt
+für ein frei gewähltes Modell nicht vorab fest; `digest_vorab: false` sagt es,
+statt die Prüfung still abzuschalten. Für das Kit gibt es den Weg ohne Sitzung:
+`scripts/util/modell-geraet.sh laden|liste|entfernen` (eine Zeile JSON,
+derselbe Dienst wie die Schnittstelle).
 Seit C9 nimmt die **Sicherung** Apps und Konfiguration mit, ein Weg zurück holt
 sie samt Containern wieder.
 Seit C10 gibt es die **Auslieferung**: die CI baut aus einem Tag ein
