@@ -76,7 +76,7 @@ Katalog **wieder offen, aber gekennzeichnet**: `POST /api/models/download`
 nimmt jede Kennung aus der Ollama-Bibliothek und von Hugging Face, das Gerät
 liest vorher die Größe aus dem Manifest der Registry, hält sie gegen das
 Speicherbudget (`RAM_LIMIT_LLM`) und weist mit Grund ab
-(`services/llm/freiesModell.js`). Die Kurzliste bleibt als **gemessen**
+(`apps/dashboard-backend/src/services/llm/freiesModell.js`). Die Kurzliste bleibt als **gemessen**
 markiert, alles andere steht mit `jetson_tested = false` als **ungemessen**
 im Katalog (Migration 190, `frei_geladen`; die Zeile geht mit dem Modell).
 Das kehrt die Entscheidung vom 27.08.2026 für den Katalog um, nicht für die
