@@ -162,9 +162,23 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
 
   /**
    * Auto-set model as default if no default exists yet (atomic)
+   *
+   * J4 (30.09.2026): nur ein GEMESSENES Modell wird von selbst Standard. Mit dem
+   * offenen Katalog kann das erste geladene Modell ein ungemessenes sein
+   * (`jetson_tested = false`), und am Orin wurde `qwen3:0.6b` genau so Standard
+   * der Flows, obwohl der Standard gemessen bleiben soll. Wer ein ungemessenes
+   * Modell zum Standard machen will, setzt es selbst (`POST /api/models/default`).
    * @param {string} modelId
    */
   async function autoSetDefault(modelId) {
+    const gemessen = await database.query(
+      'SELECT 1 FROM llm_model_catalog WHERE id = $1 AND jetson_tested = true',
+      [modelId]
+    );
+    if (gemessen.rows.length === 0) {
+      logger.info(`[DOWNLOAD] ${modelId} ist ungemessen und wird nicht von selbst Standard`);
+      return;
+    }
     await database.transaction(async client => {
       const hasDefault = await client.query(
         'SELECT id FROM llm_installed_models WHERE is_default = true FOR UPDATE'
@@ -360,6 +374,7 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
     streamModelDownload,
     updateDownloadProgress,
     verifyDownloadComplete,
+    autoSetDefault,
   };
 }
 
