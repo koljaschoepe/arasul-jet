@@ -358,6 +358,7 @@ router.delete(
     const data = await verwaltung.loescheOrdner({
       ordnerId: req.params.id,
       rechteEntziehen: req.query.rechte === 'entziehen',
+      durch: req.user.id,
     });
     logSecurityEvent({
       userId: req.user.id,

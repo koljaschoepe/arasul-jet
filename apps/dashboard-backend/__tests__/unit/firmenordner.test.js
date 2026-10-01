@@ -1433,13 +1433,39 @@ describe('Anlegen gibt Recht, Wegwerfen nimmt es mit (J34, 28.09.2026)', () => {
     expect(rechtVergeben()).toHaveLength(0);
   });
 
-  it('wirft einen Ordner mit Rechten ohne `rechteEntziehen` nicht weg', async () => {
+  it('wirft einen Ordner mit dem Recht eines anderen Kontos ohne `rechteEntziehen` nicht weg und nennt es', async () => {
+    geraet({
+      rechte: [
+        { user_id: 1, username: 'probe-admin' },
+        { user_id: 3, username: 'mia' },
+      ],
+    });
+    await expect(verwaltung.loescheOrdner({ ordnerId: 7, durch: 1 })).rejects.toMatchObject({
+      statusCode: 409,
+      message: expect.stringContaining('mia'),
+    });
+    const geloescht = db.query.mock.calls.filter(([sql]) => sql.startsWith('DELETE'));
+    expect(geloescht).toHaveLength(0);
+  });
+
+  it('wirft einen Bereich weg, auf dem nur der wegwerfende Admin ein Recht hat, und nimmt sein Recht mit', async () => {
+    geraet({ rechte: [{ user_id: 1, username: 'probe-admin' }] });
+    const ergebnis = await verwaltung.loescheOrdner({ ordnerId: 7, durch: 1 });
+    expect(ergebnis.rechte_entzogen).toEqual(['probe-admin']);
+    const loeschungen = db.query.mock.calls
+      .filter(([sql]) => sql.startsWith('DELETE'))
+      .map(([sql, p]) => [sql.includes('firmenordner_rechte') ? 'recht' : 'ordner', p]);
+    expect(loeschungen).toEqual([
+      ['recht', [7, 1]],
+      ['ordner', [7]],
+    ]);
+  });
+
+  it('kennt ohne `durch` kein eigenes Recht', async () => {
     geraet({ rechte: [{ user_id: 1, username: 'admin' }] });
     await expect(verwaltung.loescheOrdner({ ordnerId: 7 })).rejects.toMatchObject({
       statusCode: 409,
     });
-    const geloescht = db.query.mock.calls.filter(([sql]) => sql.startsWith('DELETE'));
-    expect(geloescht).toHaveLength(0);
   });
 
   it('nimmt mit `rechteEntziehen` jedes Recht und danach den Ordner, in einem Schritt', async () => {

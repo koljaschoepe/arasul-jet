@@ -343,13 +343,14 @@ async function legeWurzelAn({ kennung, name, durch }) {
  *      `CASCADE` der Migration wuerde sie mitnehmen, und der Mensch, der
  *      „projekte" abtippt, meint nicht auch „vicona" und „intern". Wer den
  *      Bereich wirklich wegwerfen will, raeumt ihn von unten.
- *   3. Ein Ordner mit RECHTEN geht nur mit `rechteEntziehen`. Sonst
+ *   3. Ein Ordner mit RECHTEN ANDERER geht nur mit `rechteEntziehen`. Sonst
  *      verschwindet ein Ordner unter den Fuessen von jemandem, der gerade
  *      darin arbeitet -- und sein Klient loescht ihn am naechsten Morgen auf
- *      seinem Rechner hinterher. Bis zum 28.09.2026 hiess das: erst jedes
- *      Recht einzeln zuruecknehmen, dann wegwerfen. Seither nennt die
- *      Rueckfrage der Oberflaeche jeden, der ein Recht hat, und wer danach
- *      die Kennung abtippt, nimmt beides in einem Schritt weg (J34).
+ *      seinem Rechner hinterher. Das EIGENE Recht des Wegwerfenden (`durch`)
+ *      zaehlt nicht: seit „bereich-anlegen-gibt-dem-admin-recht" hat der
+ *      Anlegende automatisch `schreiben`, und der Schutz soll fremde Rechte
+ *      meinen, nicht das eigene (J33, 28.09.2026, dritte Generalprobe). Es
+ *      faellt mit dem Ordner, ohne Zusatz.
  *
  * DIE ZEILE FAELLT AUCH DANN, WENN DER DIENST NICHT ANTWORTET, und das ist die
  * andere Richtung als beim Anlegen: dort ist der schlimmste Fall eine Zeile
@@ -357,7 +358,7 @@ async function legeWurzelAn({ kennung, name, durch }) {
  * fuer den Menschen unsichtbar und fuer niemanden loeschbar -- deshalb zuerst
  * der Dienst und erst danach die Zeile.
  */
-async function loescheOrdner({ ordnerId, rechteEntziehen = false }) {
+async function loescheOrdner({ ordnerId, rechteEntziehen = false, durch = null }) {
   const ordner = await holeOrdner(ordnerId);
 
   // DIE WURZEL FAELLT ZULETZT. Solange ein anderer Ordner besteht, haengt an
@@ -395,14 +396,16 @@ async function loescheOrdner({ ordnerId, rechteEntziehen = false }) {
       ORDER BY u.username`,
     [ordnerId]
   );
-  if (rechte.length > 0 && !rechteEntziehen) {
+  const fremde = rechte.filter(r => durch === null || String(r.user_id) !== String(durch));
+  if (fremde.length > 0 && !rechteEntziehen) {
     throw new ConflictError(
-      `Auf „${ordner.kennung}" haben noch ${rechte.length} Menschen ein Recht ` +
-        `(${rechte.map(r => r.username).join(', ')}). Nehmen Sie es zuerst zurück.`
+      `Auf „${ordner.kennung}" ${fremde.length === 1 ? 'hat' : 'haben'} noch ` +
+        `${fremde.length} ${fremde.length === 1 ? 'Konto' : 'Konten'} ein Recht ` +
+        `(${fremde.map(r => r.username).join(', ')}). Nehmen Sie es zuerst zurück.`
     );
   }
-  // IN EINEM SCHRITT (J34, 28.09.2026): wer die Rueckfrage gesehen hat -- sie
-  // nennt jeden, der ein Recht hat --, nimmt die Rechte mit dem Ordner weg.
+  // IN EINEM SCHRITT: das eigene Recht des Wegwerfenden faellt immer mit, die
+  // Rechte anderer nur mit `rechteEntziehen` (J34).
   // ZUERST DIE RECHTE, DANN DER ORDNER: bei einem Projekt haengt die
   // Einladung am Ordner im Dienst, und nach dem Wegwerfen gibt es nichts
   // mehr, an dem man sie finden koennte. Scheitert danach das Wegwerfen, sind

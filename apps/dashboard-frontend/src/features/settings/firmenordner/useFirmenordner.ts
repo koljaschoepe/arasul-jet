@@ -310,9 +310,9 @@ export function useOrdnerAnlegen() {
  * was er wegwirft. `showError: false`, weil der Dialog den Satz selbst zeigt
  * (ein 409 sagt, was zuerst weg muss).
  *
- * `rechte=entziehen` (J34, 28.09.2026): die Rückfrage nennt jeden, der ein
- * Recht auf dem Ordner hat, und wer danach die Kennung tippt, nimmt die
- * Rechte mit dem Ordner weg — in einem Schritt statt erst Zelle für Zelle.
+ * Das eigene Recht des Administrators fällt mit dem Ordner (das Backend kennt
+ * `durch`). Das Recht eines anderen Kontos nicht: das bleibt ein 409, der die
+ * Konten nennt (J33, 28.09.2026) — darum geht hier kein `rechte=entziehen` mit.
  */
 export function useOrdnerLoeschen() {
   const api = useApi();
@@ -320,7 +320,7 @@ export function useOrdnerLoeschen() {
   return useMutation({
     mutationFn: async ({ id, kennung }: { id: Ordner['id']; kennung: string }) =>
       api.del<{ data: { kennung: string; rechte_entzogen?: string[] } }>(
-        `/firmenordner/ordner/${id}?kennung=${encodeURIComponent(kennung)}&rechte=entziehen`,
+        `/firmenordner/ordner/${id}?kennung=${encodeURIComponent(kennung)}`,
         {
           showError: false,
           // Das Wegwerfen darf lange dauern (bis zu 15 Minuten, siehe die Route);

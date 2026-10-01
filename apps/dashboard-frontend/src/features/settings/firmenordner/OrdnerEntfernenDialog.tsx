@@ -9,13 +9,13 @@
  * fällt zuletzt — steht hier als Satz, nicht in einer Meldung, die nach fünf
  * Sekunden weg ist.
  *
- * RECHTE FALLEN MIT (J34, 28.09.2026). Bis dahin verlangte ein Ordner mit
- * Rechten, dass der Administrator erst jede Zelle der Matrix auf „keine"
- * stellt. Jetzt nennt die Rückfrage jeden, der ein Recht hat, mit seiner
- * Stufe — und wer danach die Kennung tippt, hat gelesen, wem er den Ordner
- * wegnimmt.
+ * DAS EIGENE RECHT FÄLLT MIT (J33, 28.09.2026). Wer einen Bereich anlegt,
+ * bekommt darauf „schreiben"; das darf das Wegwerfen nicht sperren. Das Recht
+ * eines anderen Kontos schon: es steht als Hindernis da, und das Backend
+ * antwortet auch dann mit 409, wenn jemand die Schaltfläche trotzdem erreicht.
  */
 import { useState, type FormEvent } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription, Button, Dialogform, Input, Label } from '@marken';
 import type { Ordner, RechtZeile } from './useFirmenordner';
 
@@ -37,8 +37,11 @@ export function OrdnerEntfernenDialog({
   onSchliessen,
   onWegwerfen,
 }: Props) {
+  const { user } = useAuth();
   const [eingabe, setEingabe] = useState('');
-  const passt = fuer !== null && eingabe.trim() === fuer.kennung;
+  const fremde = rechte.filter(r => String(r.user_id) !== String(user?.id));
+  const eigene = rechte.length - fremde.length;
+  const passt = fuer !== null && fremde.length === 0 && eingabe.trim() === fuer.kennung;
 
   const schliessen = () => {
     setEingabe('');
@@ -83,15 +86,15 @@ export function OrdnerEntfernenDialog({
           {fuer?.art === 'wurzel' &&
             ' Der Hauptordner fällt erst, wenn kein anderer Ordner mehr besteht.'}
         </p>
-        {rechte.length > 0 && (
+        {fremde.length > 0 && (
           <div className="flex flex-col gap-1.5 text-sm" data-testid="ordner-wegwerfen-rechte">
             <p className="text-foreground">
-              {rechte.length === 1
-                ? 'Dabei verliert dieser Mitarbeiter sein Recht darauf:'
-                : `Dabei verlieren diese ${rechte.length} Mitarbeiter ihr Recht darauf:`}
+              {fremde.length === 1
+                ? 'Dieses Konto hat noch ein Recht darauf. Nehmen Sie es zuerst zurück:'
+                : `Diese ${fremde.length} Konten haben noch ein Recht darauf. Nehmen Sie es zuerst zurück:`}
             </p>
             <ul className="flex flex-col gap-0.5 pl-ui-3">
-              {rechte.map(r => (
+              {fremde.map(r => (
                 <li key={String(r.user_id)} className="break-words text-foreground">
                   {r.username}
                   <span className="text-muted-foreground">: {r.recht}</span>
@@ -99,6 +102,11 @@ export function OrdnerEntfernenDialog({
               ))}
             </ul>
           </div>
+        )}
+        {eigene > 0 && fremde.length === 0 && (
+          <p className="text-sm text-muted-foreground" data-testid="ordner-wegwerfen-eigenes">
+            Ihr eigenes Recht darauf fällt dabei mit weg.
+          </p>
         )}
         {fehler && (
           <Alert variant="destructive" data-testid="ordner-wegwerfen-fehler">
