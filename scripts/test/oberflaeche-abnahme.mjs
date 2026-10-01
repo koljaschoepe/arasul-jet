@@ -1347,8 +1347,8 @@ try {
   mitarbeiterToken = await seiteM.evaluate(() => localStorage.getItem('arasul_token') || '');
 
   // --- 6. Eine offene Freigabe herstellen ----------------------------------
-  // Die Uebersicht zeigt die Liste NUR, wenn etwas darin steht (ein
-  // Leerzustand waere eine Dauermeldung ueber etwas, das es nicht gibt).
+  // Der Mitarbeiter bekommt an der Kachel seiner App eine Zahl (J36), sobald
+  // etwas auf seine Entscheidung wartet; die Liste hat nur der Administrator.
   // Der erste Schritt des Flows `freigabe` ist ein fester Werkzeug-Schritt --
   // er haelt in Sekunden an und braucht das Modell nicht.
   if (app && mitarbeiterToken) {
@@ -1395,7 +1395,9 @@ try {
     }
     await mApi.dispose();
     if (anfrage) {
-      console.log(`bereit    Eine offene Freigabe (${anfrage}) wartet auf der Uebersicht`);
+      console.log(
+        `bereit    Eine offene Freigabe (${anfrage}) wartet, an der Kachel steht ihre Zahl`
+      );
     } else {
       ueberspringe(
         'Die Uebersicht mit einer offenen Freigabe',
@@ -1448,18 +1450,33 @@ try {
         zettelDa ? (zettelSichtbar ? 'sichtbar' : 'da, aber zu') : 'kein #notizen-feld'
       );
 
+      // Seit J36 (02.10.2026) zeigt die Statusleiste einem Mitarbeiter keine
+      // Technik, gleich ob eine Freigabe wartet.
+      const leiste = (
+        (await seiteM
+          .getByTestId('workspace-statusbar')
+          .innerText()
+          .catch(() => '')) ?? ''
+      ).trim();
+      pruefe(
+        `${breite.px} px: die Statusleiste des Mitarbeiters zeigt keine Technik`,
+        !/Verbunden|Verbindet|Eingeschr|Fassung|Stand \d|Vorserie|Modell|Freigabe/.test(leiste),
+        JSON.stringify(leiste)
+      );
+
       if (anfrage) {
-        const karte = await steht(seiteM, `[data-testid="freigabe-${anfrage}"]`, 20000);
-        const frist = karte
-          ? await seiteM
-              .locator(`[data-testid="freigabe-${anfrage}-frist"]`)
-              .innerText()
-              .catch(() => '')
-          : '';
+        // Und keine Freigabenliste auf der Uebersicht: eine Freigabe entscheidet
+        // er in der App, an deren Kachel hoechstens eine Zahl steht.
+        const zahl = await steht(
+          seiteM,
+          '[data-testid^="uebersicht-app-"][data-testid$="-wartend"]',
+          20000
+        );
+        const liste = await seiteM.locator('[data-testid="offene-freigaben"]').count();
         pruefe(
-          `${breite.px} px: die offene Freigabe steht mit ihrer Restzeit da`,
-          karte && /noch|Frist|abgelaufen/i.test(frist),
-          frist || 'keine Karte'
+          `${breite.px} px: an der Kachel der App steht eine Zahl, keine Freigabenliste`,
+          zahl && liste === 0,
+          zahl ? `${liste} Listen` : 'keine Zahl an der Kachel'
         );
       }
     }
