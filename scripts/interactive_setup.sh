@@ -732,8 +732,30 @@ ENVEOF
     # ACHTUNG beim Betrieb: dieser Schluessel liegt auf demselben Geraet wie die
     # Sicherungen. Gegen Diebstahl der Platte schuetzt das, gegen Verlust des
     # Geraets nicht. Er gehoert zusaetzlich ausser Haus.
+    #
+    # J37 (02.10.2026): der Schluessel ist zugleich der WIEDERHERSTELLUNGSCODE.
+    # Ein neues Geraet bekommt einen kurzen (32 Zeichen Base32), den die
+    # Erstausgabe einmal zeigt. Wer ein Geraet NEU aufsetzt und frueher
+    # gemachte Sicherungen weiter lesen will, nennt den alten Code
+    # (`./install.sh --wiederherstellungscode ...`, ARASUL_WIEDERHERSTELLUNGSCODE):
+    # dann wird er geschrieben statt eines neuen. Am 26.09.2026 erzeugte eine
+    # Neuinstallation still einen neuen Schluessel, und jede Sicherung auf dem
+    # Stick war Papier.
     if [ ! -s "$secrets_dir/backup_encryption_key" ]; then
-        generate_secret 32 | tr -d '\n' > "$secrets_dir/backup_encryption_key"
+        # shellcheck source=lib/wiederherstellungscode.sh
+        source "${PROJECT_ROOT}/scripts/lib/wiederherstellungscode.sh"
+        if [ -n "${ARASUL_WIEDERHERSTELLUNGSCODE:-}" ]; then
+            if ist_wiederherstellungscode "$ARASUL_WIEDERHERSTELLUNGSCODE"; then
+                printf '%s' "$(schluessel_aus_code "$ARASUL_WIEDERHERSTELLUNGSCODE")" > "$secrets_dir/backup_encryption_key"
+                echo "Wiederherstellungscode uebernommen: fruehere Sicherungen bleiben lesbar."
+            else
+                echo "FEHLER: Das ist kein Wiederherstellungscode (erwartet: 8 Gruppen zu vier Zeichen, ABCD-EFGH-...)." >&2
+                exit 1
+            fi
+        else
+            printf '%s' "$(neuer_sicherungsschluessel)" > "$secrets_dir/backup_encryption_key"
+        fi
+        chmod 600 "$secrets_dir/backup_encryption_key" 2>/dev/null || true
     fi
     # --------------------------------------------------------------------------
 

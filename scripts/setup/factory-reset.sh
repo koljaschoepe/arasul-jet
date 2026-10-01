@@ -79,6 +79,46 @@ if [ "$CONFIRM" != "ja" ]; then
   exit 1
 fi
 
+# -----------------------------------------------------------------------------
+# Der Wiederherstellungscode (J37, 02.10.2026)
+# -----------------------------------------------------------------------------
+# `config/secrets/` wird gleich geloescht, und mit ihm der Sicherungsschluessel.
+# Am 26.09.2026 hat genau das jede Sicherung auf dem Stick unlesbar gemacht: die
+# Neuinstallation erzeugte einen neuen Schluessel, und niemand hatte den alten.
+# Der Wiederherstellungscode IST dieser Schluessel (scripts/lib/wiederherstellungscode.sh).
+# Darum fragt der Reset danach, statt ihn zu loeschen und zu schweigen:
+#   - Code getippt und richtig -> weiter; die Neuinstallation nimmt ihn wieder
+#     (./install.sh --wiederherstellungscode <Code>), alle Sicherungen bleiben lesbar.
+#   - 'ohne' -> weiter, aber mit der ausdruecklichen Warnung.
+if [ -s config/secrets/backup_encryption_key ]; then
+  echo ""
+  echo -e "${FETT}  Wiederherstellungscode${AUS}"
+  echo "  Mit dem Schluessel dieses Geraets sind alle Sicherungen (auch die auf"
+  echo "  einem Datentraeger) verschluesselt. Der Reset loescht ihn."
+  echo "  Der Wiederherstellungscode ist dieser Schluessel; mit ihm laesst sich"
+  echo "  jede Sicherung auch nach der Neuinstallation oeffnen."
+  echo "  Anzeigen am Geraet: bash scripts/util/wiederherstellungscode.sh"
+  echo ""
+  read -rp "  Wiederherstellungscode eingeben (oder 'ohne' zum Verzicht): " CODE_EINGABE
+  if [ "$CODE_EINGABE" = "ohne" ]; then
+    echo ""
+    echo -e "  ${ROT}${FETT}WARNUNG:${AUS} Ohne den Code sind ALLE bisherigen Sicherungen nach dem Reset"
+    echo -e "  ${ROT}unlesbar${AUS} -- auch die auf dem Datentraeger. Das laesst sich nicht nachholen."
+    read -rp "  Wirklich ohne Code fortfahren? 'ja' eingeben: " OHNE_CODE
+    if [ "$OHNE_CODE" != "ja" ]; then
+      echo "Abgebrochen."
+      exit 1
+    fi
+  elif ! bash "${PROJECT_ROOT}/scripts/util/wiederherstellungscode.sh" --pruefen "$CODE_EINGABE"; then
+    echo -e "  ${ROT}Der Code passt nicht zu diesem Geraet. Abgebrochen, es wurde nichts veraendert.${AUS}"
+    echo "  Anzeigen: bash scripts/util/wiederherstellungscode.sh"
+    exit 1
+  else
+    echo -e "  ${GRUEN}Der Code stimmt.${AUS} Nach dem Reset: ./install.sh --wiederherstellungscode <Code>"
+    NACHRICHT_CODE=true
+  fi
+fi
+
 echo ""
 
 # -----------------------------------------------------------------------------
@@ -247,6 +287,12 @@ echo ""
 echo "      ./install.sh"
 echo ""
 echo "  Sie schreibt die .env, setzt den Netznamen und ruft den Bootstrap."
+if [ "${NACHRICHT_CODE:-false}" = true ]; then
+  echo ""
+  echo "  Damit die bisherigen Sicherungen lesbar bleiben:"
+  echo "      ./install.sh --wiederherstellungscode <Ihr Wiederherstellungscode>"
+fi
+echo ""
 echo "  Am Ende nennt sie einmal das Startpasswort und den Kit-Schluessel."
 echo "  Nachzulesen: docs/ops/AUSLIEFERUNG.md"
 echo ""

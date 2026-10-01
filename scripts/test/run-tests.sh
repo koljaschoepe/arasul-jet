@@ -430,6 +430,16 @@ run_systemd_einheiten_check() {
   fi
 }
 
+run_sicherung_wege_check() {
+  echo ""
+  echo "-> Pruefe Wiederherstellungscode, Werksreset-Frage und Datentraeger-Einhaengen (J37)..."
+  if bash "${PROJECT_ROOT}/scripts/test/sicherung-wege.sh"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_installation_haertet_und_holt_check() {
   echo ""
   echo "-> Pruefe Modell-Holen, Healthcheck ohne Modell und Haertung (J35)..."
@@ -651,6 +661,7 @@ run_rohrbruch_check
 run_eigenbezug_check
 run_wurzelpfad_check
 run_systemd_einheiten_check
+run_sicherung_wege_check
 run_installation_haertet_und_holt_check
 run_dienste_check
 run_endpunkte_check

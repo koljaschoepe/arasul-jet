@@ -1288,6 +1288,13 @@ show_completion_summary() {
     # weitergelten. "ist installiert" waere an dieser Stelle schlicht falsch.
     [ "${AKTUALISIERUNG:-false}" = "true" ] && zusatz+=(--aktualisierung)
     [ -n "${MODELL_LOG:-}" ] && zusatz+=(--modell-log "$MODELL_LOG")
+    # Der Wiederherstellungscode (J37): einmal bei der Einrichtung, nie bei
+    # einer Aktualisierung. Er ist der Sicherungsschluessel in Gruppen zu vier.
+    if [ "${AKTUALISIERUNG:-false}" != "true" ] && [ -s config/secrets/backup_encryption_key ]; then
+        # shellcheck source=scripts/lib/wiederherstellungscode.sh
+        source "${SCRIPT_DIR}/scripts/lib/wiederherstellungscode.sh"
+        zusatz+=(--wiederherstellungscode "$(code_aus_schluessel "$(cat config/secrets/backup_encryption_key)")")
+    fi
     bash "${SCRIPT_DIR}/scripts/util/erstausgabe.sh" \
         --passwort "${STARTPASSWORT:-}" \
         --schluessel "${KIT_SCHLUESSEL:-}" \
