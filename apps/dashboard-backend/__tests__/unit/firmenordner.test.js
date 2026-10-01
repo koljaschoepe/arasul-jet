@@ -650,10 +650,10 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
     );
     // das engste Fenster zuerst: ein Vorfilter auf die Zeit, nicht nur ein limit
     const kql = decodeURIComponent(String(global.fetch.mock.calls[0][0]).split('kql=')[1]);
-    expect(kql).toMatch(/^itemid:r AND limit:\d+ AND sort:desc AND mtime>=\d{4}-\d{2}-\d{2}$/);
+    expect(kql).toMatch(/^itemid:r AND sort:desc AND mtime>=\d{4}-\d{2}-\d{2}$/);
   });
 
-  it('weitet das Zeitfenster nur aus, wenn das engere leer war', async () => {
+  it('weitet das Zeitfenster aus, bis genug da sind, und haelt bei einem Fehler des weiteren', async () => {
     firmenordnerAn();
     const leer = { ok: true, status: 200, text: async () => JSON.stringify({ value: [] }) };
     const eintrag = {
@@ -672,10 +672,38 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
           ],
         }),
     };
-    global.fetch.mockResolvedValueOnce(leer).mockResolvedValueOnce(eintrag);
+    global.fetch.mockReset();
+    global.fetch.mockResolvedValueOnce(leer).mockResolvedValue(eintrag);
     const liste = await dienst.aenderungen('r');
     expect(liste).toHaveLength(1);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(7);
+  });
+
+  it('gibt die Treffer des engeren Fensters, wenn das weitere am Dienst scheitert', async () => {
+    firmenordnerAn();
+    const eintrag = {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          value: [
+            {
+              template: {
+                message: '{user} added {resource}',
+                variables: { user: { displayName: 'mia' }, resource: { name: 'a.md' } },
+              },
+              times: { recordedTime: '2026-10-01T10:00:00Z' },
+            },
+          ],
+        }),
+    };
+    const kaputt = { ok: false, status: 500, text: async () => 'larger than max' };
+    global.fetch.mockReset();
+    global.fetch.mockResolvedValueOnce(eintrag).mockResolvedValue(kaputt);
+    expect(await dienst.aenderungen('r')).toHaveLength(1);
+    global.fetch.mockReset();
+    global.fetch.mockResolvedValue(kaputt);
+    await expect(dienst.aenderungen('r')).rejects.toThrow(/500/);
   });
 });
 

@@ -1144,26 +1144,36 @@ async function entferneMitglied(raumId, permissionId) {
  * `services/activitylog/pkg/service/http/service.go`). Ein `limit:` allein
  * hilft nicht -- er wird erst NACH dem Holen angewendet. Was vor dem Holen
  * greift, ist ein Zeitfenster (`mtime>=<Datum>`, ein Vorfilter auf die
- * Zeit des Eintrags). Also: das engste Fenster zuerst, das naechste nur,
- * wenn das davor leer war. Die Grenze der go-micro-Nachricht per Einstellung
- * zu heben haette das Problem nur auf den naechsten, groesseren Ordner
- * verschoben.
+ * Zeit des Eintrags). Am Orin gemessen (`firma`): ab dem 28.09. 1 888
+ * Eintraege (200), ab dem 26.09. 500. Also von eng nach weit: ein Tag, drei,
+ * sieben, ... und weiter, bis genug beisammen sind. Scheitert ein weiteres
+ * Fenster, gilt, was das engere schon brachte; scheitert schon das erste,
+ * ist es ein Fehler. Die Grenze der Nachricht per Einstellung zu heben haette
+ * das Problem nur auf den naechsten, groesseren Ordner verschoben.
  */
-const AENDERUNGEN_FENSTER_TAGE = [7, 90, 365, null];
+const AENDERUNGEN_FENSTER_TAGE = [1, 3, 7, 30, 90, 365, null];
 
 async function aenderungen(itemId, grenze = 20) {
   let werte = [];
   for (const tage of AENDERUNGEN_FENSTER_TAGE) {
-    const teile = [`itemid:${itemId}`, `limit:${Math.max(1, grenze) * 5}`, 'sort:desc'];
+    const teile = [`itemid:${itemId}`, 'sort:desc'];
     if (tage !== null) {
       const ab = new Date(Date.now() - tage * 24 * 3600 * 1000).toISOString().slice(0, 10);
       teile.push(`mtime>=${ab}`);
     }
-    const daten = await anfrage(
-      `/graph/v1beta1/extensions/org.libregraph/activities?kql=${encodeURIComponent(teile.join(' AND '))}`
-    );
+    let daten;
+    try {
+      daten = await anfrage(
+        `/graph/v1beta1/extensions/org.libregraph/activities?kql=${encodeURIComponent(teile.join(' AND '))}`
+      );
+    } catch (fehler) {
+      if (werte.length > 0) {
+        break;
+      }
+      throw fehler;
+    }
     werte = daten?.value || [];
-    if (werte.length > 0) {
+    if (werte.length >= grenze) {
       break;
     }
   }
