@@ -446,6 +446,49 @@ Gemessen: **11,4 s für 6.000 Dateien** in zwanzig Ordnern, also rund 1,9 ms je
 Datei. Die alte Zeitgrenze des Backends lag bei zehn Sekunden — knapp darunter,
 und damit war ein Arbeitsbaum mittlerer Größe nicht wegzuwerfen.
 
+### Revisionen und abgebrochene Uploads wachsen nicht still
+
+> Auftrag `firmenordner-waechst-nicht-still` (01.10.2026, J33), Lücke 5 der
+> dritten Generalprobe.
+
+Was OpenCloud selbst anbietet, am Orin an einem Wegwerf-Container der Fassung
+8.0.1 gemessen:
+
+| Frage                                | Antwort des Dienstes                                                                                                                                                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Räumt er abgebrochene Uploads auf?   | **Nie von selbst.** Jede Sitzung hat einen Ablauf (`STORAGE_USERS_UPLOAD_EXPIRATION`, 24 h), danach liegt sie bis zum Befehl `opencloud storage-users uploads sessions --expired --clean` (am Orin: 98 MB von vor drei Tagen). Laufende Sitzungen fasst er nicht an. |
+| Begrenzt er Revisionen je Datei?     | **Nein.** Keine Anzahl, kein Alter. `opencloud revisions purge` kennt nur „alle"; sein `-r` je Datei greift auf `posix` nicht („no nodes found"), `DELETE …/dav/meta/<id>/v/<rev>` antwortet `501`.                                                          |
+| Zählt `quota.used` Revisionen mit?   | **Nein.** Fünf Fassungen einer Datei: `used` bleibt bei einer. Der Papierkorb zählt auch nicht. Die Spalte „Platz" war als Grenze richtig und als Auskunft über die Platte unvollständig.                                                                    |
+| Was waren die 9 647 Dateien?         | `.oc-nodes/locks/` — je Knoten eine leere `.mlock`-Datei, die bleibt (siehe unten).                                                                                                                                                                         |
+
+Daraus folgt, was das Gerät tut (`services/firmenordner/ordnerPflege.js`):
+
+- **Uploads:** stündlich ruft das Backend den Befehl des Dienstes im Container
+  auf. Nachweis am Orin mit einem absichtlich abgebrochenen Upload (6 MB von
+  30 MB, Ablauf in der `.info`-Datei künstlich in die Vergangenheit gesetzt):
+  vor dem Befehl lag er da, `--expired --clean` entfernte Daten und `.info`,
+  ein nicht abgelaufener Upload blieb liegen.
+- **Revisionen:** je Datei bleiben die **zehn neuesten**
+  (`FIRMENORDNER_REVISIONEN_MAX`), alle sechs Stunden werden die älteren
+  entfernt — und zwar genau so, wie `purge` es im Kern tut: die Datei
+  `.oc-nodes/…/<knoten>.REV.<zeit>` und ihre Sperrdatei
+  `locks/<knoten>.REV.<zeit>.mlock`, mit `rm` im Container des Dienstes.
+  *Warum zehn und nicht „alle" oder „keine":* „alle" ist das Ende von „frühere
+  Fassung wiederherstellen", „keine Grenze" lässt einen täglich abgeglichenen
+  Ordner über Jahre die Platte füllen; zehn Fassungen sind bei täglichem
+  Abgleich gut zwei Wochen Rückblick. Gemessen: die verbleibende Fassung
+  bleibt in der Liste und lässt sich zurückholen, eine neue legt sich normal
+  an, der Dienst meldet nichts. Wer eine Einstellung in der Oberfläche braucht,
+  meldet das; eine Zahl in der `.env` genügte, weil sie sich nur selten ändert.
+- **Platz:** die Spalte zeigt daneben „+ x MB frühere Fassungen"
+  (`revisionen` je Bereich in `GET /api/firmenordner/platz`), von der Platte
+  gelesen und für fünf Minuten gemerkt. `belegt` bleibt, was der Dienst meldet
+  — die sichtbaren Dateien, und nur die zählen zur Grenze.
+
+Den Papierkorb leert das nicht (das tut weiter der Administrator); und die
+Sperrdateien von Knoten, die es nicht mehr gibt, räumt das Gerät noch nicht
+weg (leer, nur Verzeichniseinträge; offener Punkt unter „Unterwegs gefunden").
+
 ### Der Papierkorb gehört dem Administrator
 
 > Auftrag `papierkorb-und-adresse-des-firmenordners` (27.09.2026, J34).

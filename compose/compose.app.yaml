@@ -128,6 +128,9 @@ services:
       # Wo das Backend ihn im Docker-Netz erreicht -- nicht ueber Traefik: es
       # spricht den Container an, ein Mensch kommt von aussen.
       FIRMENORDNER_INTERN: ${FIRMENORDNER_INTERN:-http://firmenordner:9200}
+      # Wie viele fruehere Fassungen je Datei bleiben (J33, 01.10.2026), siehe
+      # `services/firmenordner/ordnerPflege.js`.
+      FIRMENORDNER_REVISIONEN_MAX: ${FIRMENORDNER_REVISIONEN_MAX:-10}
       # Und die Adresse, die es einem MENSCHEN nennt (`GET /api/firmenordner`).
       FIRMENORDNER_ADRESSE: ${FIRMENORDNER_ADRESSE:-https://${MDNS_NAME:-arasul}:${FIRMENORDNER_PORT:-8443}}
       # KEIN `FIRMENORDNER_ADMIN` mehr (26.09.2026): der Name des

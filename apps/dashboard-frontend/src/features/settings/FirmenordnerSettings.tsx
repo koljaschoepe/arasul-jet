@@ -274,7 +274,7 @@ export function FirmenordnerSettings() {
           <Feldgruppe
             titel="Ordner"
             symbol={<FolderTree />}
-            beschreibung={`Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter. Was ein Mitarbeiter löscht, liegt im Papierkorb seines Bereichs, bis Sie ihn leeren. Jeder Bereich hat eine Grenze, wie viel er aufnimmt${platz ? ` (neue Bereiche: ${formatBytes(platz.vorgabe)})` : ''}; ein Klick auf „Platz“ stellt sie ein.`}
+            beschreibung={`Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter. Was ein Mitarbeiter löscht, liegt im Papierkorb seines Bereichs, bis Sie ihn leeren. Jeder Bereich hat eine Grenze, wie viel er aufnimmt${platz ? ` (neue Bereiche: ${formatBytes(platz.vorgabe)})` : ''}; ein Klick auf „Platz“ stellt sie ein. Frühere Fassungen einer Datei stehen daneben und zählen nicht zur Grenze${platz?.revisionen_je_datei ? `; das Gerät behält je Datei die letzten ${platz.revisionen_je_datei}` : ''}.`}
           >
             {eng.length > 0 && (
               <Alert

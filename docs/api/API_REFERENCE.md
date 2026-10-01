@@ -2648,7 +2648,7 @@ in [`docs/features/FIRMENORDNER.md`](../features/FIRMENORDNER.md).
 | GET    | `/api/firmenordner`                                                 | Wo der Dienst liegt und welche Ordner **ich** habe   |
 | GET    | `/api/firmenordner/sicht`                                           | Meine `sicht.md`, als Text (Ausweis oder Sitzung)    |
 | GET    | `/api/firmenordner/passt?pfad=&bytes=`                              | Passt das noch hinein? (Ausweis oder Sitzung)        |
-| GET    | `/api/firmenordner/platz`                                           | Belegt, Grenze, frei je Raum (Administrator)         |
+| GET    | `/api/firmenordner/platz`                                           | Belegt, Grenze, frei und `revisionen` (Anzahl, Bytes früherer Fassungen auf der Platte, nicht in `belegt`) je Raum (Administrator) |
 | PUT    | `/api/firmenordner/ordner/:id/grenze`                               | Die Größengrenze setzen oder wegnehmen (Admin.)      |
 | GET    | `/api/firmenordner/ordner`                                          | Alle Ordner am Gerät (Administrator)                 |
 | POST   | `/api/firmenordner/ordner`                                          | Einen anlegen (Administrator)                        |

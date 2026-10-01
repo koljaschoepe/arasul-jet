@@ -116,6 +116,12 @@ export interface PlatzStand {
   /** Welche Zahl die engere ist: die Grenze kann der Administrator anheben, die Platte nicht. */
   begrenzt_durch: 'grenze' | 'platte';
   stufe: 'gut' | 'knapp' | 'voll';
+  /**
+   * Frühere Fassungen von Dateien, die auf der Platte liegen, aber nicht in
+   * `belegt` zählen (der Dienst rechnet nur sichtbare Dateien). `null`, wenn
+   * das Gerät sie nicht lesen kann.
+   */
+  revisionen?: { anzahl: number; bytes: number } | null;
 }
 
 /** Was `GET /api/firmenordner/platz` liefert. */
@@ -124,6 +130,8 @@ export interface PlatzUebersicht {
   /** Die Grenze, die ein neuer Bereich bekommt. */
   vorgabe: number;
   erreichbar: boolean;
+  /** Wie viele frühere Fassungen das Gerät je Datei behält. */
+  revisionen_je_datei?: number;
   ordner: PlatzStand[];
 }
 

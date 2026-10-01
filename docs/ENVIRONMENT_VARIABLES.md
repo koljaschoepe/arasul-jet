@@ -735,6 +735,7 @@ in [docs/features/FIRMENORDNER.md](features/FIRMENORDNER.md).
 | FIRMENORDNER_INTERN                 | `http://firmenordner:9200`   | Wo das Backend ihn im Docker-Netz erreicht               |
 | FIRMENORDNER_VERSION                | 8.0.1                        | Die Fassung des Abbilds — fest, und die gemessene        |
 | FIRMENORDNER_LOG_LEVEL              | warn                         | Protokollstufe des Dienstes                              |
+| FIRMENORDNER_REVISIONEN_MAX         | 10                           | Frühere Fassungen je Datei, die das Gerät behält (≥ 1)   |
 | FIRMENORDNER_ZEITGRENZE_MS          | 10000                        | Wie lange das Backend auf ihn wartet                     |
 | FIRMENORDNER_ZEITGRENZE_LOESCHEN_MS | 900000                       | Wie lange das **Wegwerfen** dauern darf (15 min)         |
 

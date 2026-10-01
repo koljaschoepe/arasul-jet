@@ -42,6 +42,7 @@ const {
   ServiceUnavailableError,
 } = require('../../utils/errors');
 const dienst = require('./ordnerdienst');
+const pflege = require('./ordnerPflege');
 
 /** Die zwei Rechte, in der Reihenfolge „weniger, mehr". */
 const RECHTE = ['lesen', 'schreiben'];
@@ -1448,16 +1449,23 @@ async function platzUebersicht() {
     return leer;
   }
   const raeume = (await listeOrdner()).filter(o => o.ebene <= 1 && o.raum_id);
+  // Revisionen liegen auf der Platte, zaehlen aber nicht in `belegt` (der
+  // Dienst rechnet nur sichtbare Dateien) -- sie stehen getrennt daneben.
+  // `null`, wenn die Ablage hier nicht lesbar ist: dann sagt die Verwaltung
+  // nichts, statt eine Null zu erfinden.
+  const revisionen = await pflege.revisionenJeBereich();
   return {
     platte: { frei: platte },
     vorgabe: dienst.GRENZE_VORGABE_BYTES,
     erreichbar: true,
+    revisionen_je_datei: pflege.maxRevisionen(),
     ordner: raeume
       .filter(o => groessen.has(o.raum_id))
       .map(o => ({
         ordner_id: o.id,
         kennung: o.kennung,
         ...platzAus(groessen.get(o.raum_id), platte),
+        revisionen: revisionen?.[o.kennung] ?? null,
       })),
   };
 }
