@@ -55,7 +55,7 @@ if [ "$NUR_PLATTFORM" = true ]; then
   EINHEITEN=(arasul-platform.service)
 else
   EINHEITEN=(arasul-platform.service deadman-switch.service deadman-switch.timer
-    docker-watchdog.service docker-watchdog.timer)
+    docker-watchdog.service docker-watchdog.timer "arasul-sicherung@.service")
 fi
 
 # Wer den Stapel betreibt: der Mensch, dem der Fassungsordner gehoert -- nicht
@@ -119,6 +119,14 @@ for e in "${EINHEITEN[@]}"; do
   "${ALS_ROOT[@]}" install -m 0644 "${ZWISCHEN}/${e}" "/etc/systemd/system/${e}"
 done
 "${ALS_ROOT[@]}" systemctl daemon-reload
+# Die Erkennung des Sicherungs-Datentraegers (J37): eine udev-Regel, die beim
+# Anstecken `arasul-sicherung@<geraet>.service` startet. Die Einheit ist eine
+# Vorlage und wird nicht eingeschaltet -- udev instanziiert sie je Geraet.
+if [ "$NUR_PLATTFORM" = false ] && [ -f "${WURZEL}/config/udev/99-arasul-sicherung.rules" ]; then
+  "${ALS_ROOT[@]}" install -m 0644 "${WURZEL}/config/udev/99-arasul-sicherung.rules" \
+    /etc/udev/rules.d/99-arasul-sicherung.rules
+  "${ALS_ROOT[@]}" udevadm control --reload >/dev/null 2>&1 || true
+fi
 "${ALS_ROOT[@]}" systemctl enable arasul-platform.service >/dev/null 2>&1
 if [ "$NUR_PLATTFORM" = false ]; then
   "${ALS_ROOT[@]}" systemctl enable --now docker-watchdog.timer deadman-switch.timer >/dev/null 2>&1

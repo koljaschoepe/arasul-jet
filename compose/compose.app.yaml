@@ -178,6 +178,26 @@ services:
       - ${NV_TEGRA_RELEASE:-/etc/nv_tegra_release}:/etc/nv_tegra_release:ro
       - ${DATA_PATH:-../data}/updates:/arasul/updates
       - ${DATA_PATH:-../data}/backups:/arasul/backups:ro
+      # Der angesteckte Sicherungs-Datentraeger (J37), NUR LESEND: das
+      # Dashboard zeigt seinen freien Platz und liest, was auf ihm liegt
+      # (`MANIFEST.json`), damit eine App von dort zurueckgeholt werden kann.
+      # Geschrieben wird dort nur vom Sicherungsdienst. `rslave`: der Stick
+      # kommt nach dem Start des Backends (siehe compose.monitoring.yaml).
+      - type: bind
+        source: ${BACKUP_EXTERN_PFAD:-/mnt/arasul-sicherung}
+        target: /arasul/extern
+        read_only: true
+        bind:
+          propagation: rslave
+          create_host_path: true
+      # Name und Dateisystem des Datentraegers, vom Host geschrieben
+      # (`/run/arasul-sicherung/zustand.json`).
+      - type: bind
+        source: ${BACKUP_EXTERN_ZUSTAND:-/run/arasul-sicherung}
+        target: /arasul/extern-zustand
+        read_only: true
+        bind:
+          create_host_path: true
       # Die Apps: `<id>/<version>/app.json` und `<id>/<version>/frontend/`.
       # Schreibbar, weil der Werksreset hier aufraeumt und der Deploy-Endpunkt
       # (C5) hierher entpackt; bis dahin legt sie das Kit ueber SSH ab.

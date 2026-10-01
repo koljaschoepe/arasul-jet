@@ -205,7 +205,19 @@ services:
       # Der Datentraeger ausserhalb. Haengt dort nichts, sieht der Container
       # einen leeren Ordner -- und meldet genau das, statt eine Kopie
       # ausserhalb zu behaupten.
-      - ${BACKUP_EXTERN_PFAD:-/mnt/arasul-sicherung}:/arasul/extern
+      #
+      # `rslave`, und das ist der Kern von J37: der Datentraeger wird erst
+      # NACH dem Start dieses Containers angesteckt, und ohne Weitergabe der
+      # Einhaengung sieht der Container dann weiter den leeren Ordner. Mit
+      # `rslave` erscheint, was der Host unter /mnt/arasul-sicherung einhaengt
+      # (scripts/system/sicherung-datentraeger.sh), auch hier -- und
+      # verschwindet, wenn der Stick abgezogen wird.
+      - type: bind
+        source: ${BACKUP_EXTERN_PFAD:-/mnt/arasul-sicherung}
+        target: /arasul/extern
+        bind:
+          propagation: rslave
+          create_host_path: true
     depends_on:
       postgres-db:
         condition: service_healthy
