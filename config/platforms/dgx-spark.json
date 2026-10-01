@@ -9,11 +9,15 @@
   "memory_budget_gb": 96,
   "default_model": "qwen3.8:27b-q4_K_M",
   "models": ["qwen3.8:27b-q4_K_M", "gemma4:e4b", "nomic-embed-text", "llava-phi3"],
-  "precision": "nvfp4",
-  "engine": "vllm",
+  "precision": "q4_gguf",
+  "engine": "ollama",
   "gpu_query": "nvidia-smi",
-  "ld_library_path": "/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu",
+  "ld_library_path": "/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+  "bau": {
+    "dockerfile": "Dockerfile.spark",
+    "platform": "linux/arm64"
+  },
   "max_num_seqs": 4,
   "verification": "follow-up",
-  "notes": "Verkaufsrelevant. sm_121 spekulativ. Echt-Nachweis (Verkaufsnachweis) ist der Echt-Hardware-Folge-Plan. Pre-Warming gegen ~25s JIT. Kurzliste (C8) gilt auch hier. Auf dem vllm-Track sind dieselben vier Modelle in nvfp4 bereitzustellen -- ungeprueft, Echt-Hardware-Folge-Plan."
+  "notes": "Verkaufsrelevant. Minimalpfad nach Beschluss R1 (25.09.2026): Ollama statt vllm, dieselbe Kurzliste als GGUF wie am Orin. Ollama kommt aus dem offiziellen arm64-Abbild (Ubuntu 24.04, Runner cuda_v13 mit 121-virtual, also PTX, das beim ersten Laden fuer sm_121 uebersetzt wird -- daher das Pre-Warming gegen den JIT der ersten Anfrage); der Einbettungsdienst auf PyTorch fuer CUDA 13 (cu130, aarch64) statt dustynv/l4t-pytorch. sm_121, Speicherbudget, Durchsatz und ob nvidia-smi am GB10 den Speicher nennt oder [N/A]: erst am echten Geraet (Einrichtung Dresden)."
 }
