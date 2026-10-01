@@ -172,6 +172,14 @@ function PlatzKnopf({
       {anteil !== null && (
         <Progress value={anteil} className="h-1 w-full min-w-16" aria-label="belegt" />
       )}
+      {stand?.revisionen && stand.revisionen.anzahl > 0 && (
+        <span
+          className="text-ui-xs text-muted-foreground tabular-nums whitespace-nowrap"
+          data-testid={`ordner-fassungen-${o.kennung}`}
+        >
+          + {formatBytes(stand.revisionen.bytes)} frühere Fassungen
+        </span>
+      )}
     </Button>
   );
 }

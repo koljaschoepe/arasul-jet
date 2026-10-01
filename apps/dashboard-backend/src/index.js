@@ -647,6 +647,14 @@ if (alsServerGestartet) {
     await appsNachDerDatenbank();
     globalIntervals.push(setInterval(appsNachDerDatenbank, 60 * 1000));
 
+    // Die Ablage des Firmenordners pflegen (J33, 01.10.2026): abgelaufene
+    // Uploads stuendlich, Revisionen jenseits der Grenze alle sechs Stunden.
+    // OpenCloud raeumt beides nie von selbst auf -- siehe `ordnerPflege.js`.
+    // Ohne Firmenordner ist jeder Lauf ein stilles Nichts.
+    for (const zeitgeber of require('./services/firmenordner/ordnerPflege').starten()) {
+      globalIntervals.push(zeitgeber);
+    }
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

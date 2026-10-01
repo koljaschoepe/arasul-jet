@@ -599,6 +599,27 @@ describe('FirmenordnerSettings', () => {
     expect(screen.queryByTestId('firmenordner-platz-warnung')).not.toBeInTheDocument();
   });
 
+  it('zeigt frühere Fassungen neben der Belegung, ohne sie zur Belegung zu zählen', async () => {
+    antworte({
+      platz: {
+        ...PLATZ,
+        revisionen_je_datei: 10,
+        ordner: [
+          { ...PLATZ.ordner[1], revisionen: { anzahl: 12, bytes: 3_400_000 } },
+          { ...PLATZ.ordner[0], revisionen: { anzahl: 0, bytes: 0 } },
+        ],
+      },
+    });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    const fassungen = await screen.findByTestId('ordner-fassungen-projekte');
+    expect(fassungen).toHaveTextContent('+ 3 MB frühere Fassungen');
+    // Die Belegung bleibt, was der Dienst meldet.
+    expect(screen.getByTestId('ordner-platz-projekte')).toHaveAttribute('data-belegt', '31');
+    // Ohne Fassungen steht nichts da.
+    expect(screen.queryByTestId('ordner-fassungen-firma')).not.toBeInTheDocument();
+    expect(screen.getByText(/das Gerät behält je Datei die letzten 10/)).toBeInTheDocument();
+  });
+
   it('stellt die Grenze ein: Zahl mit Einheit, nie unter dem Belegten', async () => {
     antworte();
     apiMock.put.mockResolvedValue({ data: {} });
