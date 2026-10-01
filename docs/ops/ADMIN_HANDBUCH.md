@@ -260,7 +260,7 @@ Das System ueberwacht alle Dienste automatisch:
 
 ### Automatische Backups
 
-Das Geraet sichert jede Nacht um 02:00 Uhr **vier** Dinge:
+Das Geraet sichert jede Nacht um 02:00 Uhr **vier** Dinge (dazu die Datenbanken der Apps und den Firmenordner):
 
 | Was             | Warum es fehlen wuerde                                                                              |
 | --------------- | --------------------------------------------------------------------------------------------------- |
@@ -269,15 +269,25 @@ Das Geraet sichert jede Nacht um 02:00 Uhr **vier** Dinge:
 | Flow-Dateien    | Was jemand am Geraet selbst geschrieben hat                                                         |
 | Konfiguration   | Ohne sie faehrt auf einem leeren Geraet kein Container hoch                                         |
 
-**Eine Kopie ausserhalb des Geraets** (USB-Stick oder eine Freigabe im
-Firmennetz) legt der Dienst dazu, sobald einer angesteckt ist. Kein Cloud-Ziel:
-die Daten bleiben im Haus. Steckt keiner, sichert das Geraet weiter lokal und
-sagt in der Uebersicht, wann zuletzt eine Kopie ausser Haus entstanden ist.
+**Eine Kopie ausserhalb des Geraets:** SSD oder Stick einfach anstecken --
+ohne Einrichtung. Das Geraet erkennt den Datentraeger, haengt ihn ein und legt
+dort jede Nacht (und bei „Jetzt sichern“) die Sicherung ab, **ausschliesslich
+verschluesselt**: wer den Stick findet, kann nichts lesen. Unter **Einstellungen
+→ System → Sicherung** stehen Name und freier Platz des Datentraegers. Das
+Geraet formatiert nie etwas; ein neuer Datentraeger sollte ext4 oder exFAT
+haben. Kein Cloud-Ziel: die Daten bleiben im Haus.
 
-**Der Sicherungsschluessel gehoert nicht auf das Geraet.** Er liegt unter
-`config/secrets/backup_encryption_key` und ist ausdruecklich NICHT im Archiv:
-wer eine Sicherung oeffnen will, braucht ihn vorher. Eine Kopie davon gehoert
-in den Safe. Ohne ihn ist nach einem Geraeteverlust jede Sicherung Papier.
+**Der Wiederherstellungscode.** Bei der Einrichtung zeigt das Geraet einmal
+einen Code (`ABCD-EFGH-…`, acht Gruppen zu vier Zeichen). Er ist der Schluessel
+der Sicherungen. **Aufschreiben und ausserhalb des Geraets aufbewahren** (Safe).
+Ohne ihn ist nach einem Werksreset oder bei Geraeteverlust jede Sicherung
+Papier; mit ihm nicht -- er wird beim Neu-Einrichten eingegeben
+(`./install.sh --wiederherstellungscode …`) oder beim Zurueckholen in der
+Oberflaeche. Der Werksreset fragt vor dem Loeschen danach. Vergessen? Am
+Geraet: `bash scripts/util/wiederherstellungscode.sh`.
+
+Passt der Schluessel dieses Geraets nicht zur letzten Sicherung, steht das ganz
+oben auf der Seite Sicherung, und der Administrator bekommt eine Mitteilung.
 
 ### Manuelles Backup
 
@@ -305,15 +315,27 @@ docker exec backup-service /usr/local/bin/backup.sh
 
 ### Backup wiederherstellen
 
-Das Zurueckspielen ersetzt die ganze Datenbank und steht deshalb bewusst NICHT
-als Knopf im Dashboard. Es geht ueber die Befehlszeile oder ueber
-`POST /api/backup/wiederherstellung` mit ausdruecklicher Bestaetigung.
+Unter **Einstellungen → System → Sicherung** gibt es zwei Wege zurueck; beide
+fragen doppelt, bevor etwas passiert:
+
+- **Eine App zurueckholen:** Quelle waehlen (Datentraeger oder dieses Geraet),
+  bei der App „Zurueckholen“, im Dialog die Kennung der App abtippen. Die Daten
+  der App **und ihr Paket** kommen aus der Sicherung, der jetzige Stand wird
+  vorher abgezogen, danach laeuft die App wieder. Ein stehender Bericht nennt
+  jeden Schritt. Alles andere am Geraet bleibt, wie es ist.
+- **Das ganze Geraet zurueckholen** (Notfall, ersetzt ALLES: Mitarbeiter, Apps,
+  Freigaben, Firmenordner): Quelle waehlen, im Dialog das Wort `wiederherstellen`
+  tippen. Auf einem frisch eingerichteten Geraet reicht der Datentraeger; passt
+  der Schluessel dieses Geraets nicht, den **Wiederherstellungscode** der
+  fruehere Installation eingeben.
+
+Per Befehlszeile:
 
 ```bash
 # Erst schauen, ob sich die neueste Sicherung lesen laesst — ohne etwas anzufassen:
 docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe
 
-# Zurueckspielen: Datenbank, Pakete der Apps, Flow-Dateien
+# Zurueckspielen: Datenbank, Pakete der Apps, Flow-Dateien (--quelle extern: vom Datentraeger)
 docker exec backup-service /usr/local/bin/wiederherstellen.sh
 
 # Eine bestimmte Sicherung:
@@ -322,8 +344,8 @@ docker exec backup-service /usr/local/bin/wiederherstellen.sh \
 ```
 
 Danach muessen die App-Container aus ihren Paketen neu gebaut werden. Ueber die
-Schnittstelle macht das Geraet beides in einem Aufruf; der Weg steht in
-[BACKUP_SYSTEM.md](BACKUP_SYSTEM.md#der-weg-zurück).
+Oberflaeche und die Schnittstelle macht das Geraet beides in einem Aufruf; der
+Weg steht in [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md#der-weg-zurück).
 
 **Was vorher da war, geht nicht verloren:** vor dem Zurueckspielen legt das
 Geraet einen Abzug des jetzigen Standes unter

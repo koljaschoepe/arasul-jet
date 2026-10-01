@@ -84,9 +84,50 @@ function huelle() {
   };
 }
 
-function antworte(status = STATUS, dateien = [DATEI]) {
+const TRAEGER = {
+  angesteckt: true,
+  name: 'GOLDENBACKUP',
+  dateisystem: 'ext4',
+  frei: 412_000_000_000,
+  gesamt: 931_000_000_000,
+};
+
+const INHALT = {
+  angesteckt: true,
+  name: 'GOLDENBACKUP',
+  neuesteSicherung: {
+    datum: '20261002',
+    zeitpunkt: '2026-10-02T02:00:00.000Z',
+    bytes: 1234,
+    apps: [{ id: 'belege', staende: ['test', 'live'] }],
+    dateien: 9,
+  },
+  tage: ['20261002'],
+};
+
+const KEIN_INHALT = { angesteckt: false, name: null, neuesteSicherung: null, tage: [] };
+
+function mitTraeger(extra: Partial<SicherungStatus['ausserhalb']> = {}): SicherungStatus {
+  return {
+    ...STATUS,
+    ausserhalb: {
+      ...STATUS.ausserhalb,
+      vorhanden: true,
+      zeitpunkt: '2026-10-02T02:00:00.000Z',
+      bytes: 1234,
+      dateien: 9,
+      letzterVersuch: 'kopiert',
+      datentraeger: TRAEGER,
+      klartextDateien: 0,
+      ...extra,
+    },
+  };
+}
+
+function antworte(status = STATUS, dateien = [DATEI], inhalt: object = KEIN_INHALT) {
   apiMock.get.mockImplementation(async (pfad: string) => {
     if (pfad === '/backup/status') return { data: status };
+    if (pfad === '/backup/extern/inhalt') return { data: inhalt };
     if (pfad === '/backup/sicherungen')
       return {
         data: dateien,
@@ -120,23 +161,263 @@ describe('Sicherung', () => {
     expect(await screen.findByText('noch nie')).toBeInTheDocument();
   });
 
-  it('nennt Datum und Groesse der letzten Kopie ausserhalb, wenn es eine gibt', async () => {
-    const zeitpunkt = '2026-08-27T02:00:00.000Z';
+  it('nennt Datum, Namen und freien Platz des Datentraegers statt eines Pfades', async () => {
+    antworte(mitTraeger(), [DATEI], INHALT);
+    render(<Sicherung />, { wrapper: huelle() });
+
+    expect(await screen.findByText(wieAngezeigt('2026-10-02T02:00:00.000Z'))).toBeInTheDocument();
+    expect(
+      screen.getByText(/Datenträger „GOLDENBACKUP“, 412 GB frei von 931 GB/)
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('/arasul/extern');
+  });
+
+  it('sagt ohne Datentraeger, dass einfach eine SSD eingesteckt wird', async () => {
+    antworte(
+      mitTraeger({
+        vorhanden: false,
+        zeitpunkt: null,
+        datentraeger: { ...TRAEGER, angesteckt: false, name: null, frei: null, gesamt: null },
+        ziel: '/arasul/extern',
+      })
+    );
+    render(<Sicherung />, { wrapper: huelle() });
+
+    expect(await screen.findByText(/Kein Datenträger angesteckt/)).toBeInTheDocument();
+    expect(screen.getByText(/einfach einstecken/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('/arasul/extern');
+  });
+
+  it('uebersetzt den letzten Versuch in Klartext', async () => {
+    antworte(mitTraeger({ letzterVersuch: 'zu_wenig_platz' }));
+    render(<Sicherung />, { wrapper: huelle() });
+
+    expect((await screen.findByTestId('sicherung-versuch')).textContent).toContain(
+      'zu wenig Platz'
+    );
+  });
+
+  it('warnt deutlich, wenn Klartext auf dem Datentraeger liegt', async () => {
+    antworte(mitTraeger({ klartextDateien: 3 }));
+    render(<Sicherung />, { wrapper: huelle() });
+
+    const warnung = await screen.findByTestId('sicherung-klartext-warnung');
+    expect(warnung.textContent).toContain('3 Dateien');
+    expect(warnung.textContent).toContain('unverschlüsselt');
+  });
+
+  it('warnt ganz oben, wenn der Schluessel nicht zur Sicherung passt', async () => {
     antworte({
       ...STATUS,
-      ausserhalb: {
-        vorhanden: true,
-        zeitpunkt,
-        bytes: 4_900_000_000,
-        dateien: 12,
-        ziel: 'USB-Stick',
-        letzterVersuch: 'ok',
+      schluessel: {
+        passt: false,
+        geprueft: '2026-10-02T03:00:00.000Z',
+        grund: null,
+        aelterUnlesbar: 0,
+        lokal: null,
+        extern: null,
       },
     });
     render(<Sicherung />, { wrapper: huelle() });
 
-    expect(await screen.findByText(wieAngezeigt(zeitpunkt))).toBeInTheDocument();
-    expect(screen.getByText(/4,9 GB auf USB-Stick/)).toBeInTheDocument();
+    const warnung = await screen.findByTestId('sicherung-schluessel-warnung');
+    expect(warnung).toHaveAttribute('role', 'alert');
+    expect(warnung.textContent).toContain('Wiederherstellungscode');
+  });
+
+  it('gibt bei aelteren unlesbaren Sicherungen nur einen ruhigen Hinweis', async () => {
+    antworte({
+      ...STATUS,
+      schluessel: {
+        passt: true,
+        geprueft: null,
+        grund: null,
+        aelterUnlesbar: 2,
+        lokal: null,
+        extern: null,
+      },
+    });
+    render(<Sicherung />, { wrapper: huelle() });
+
+    expect(await screen.findByTestId('sicherung-schluessel-hinweis')).toBeInTheDocument();
+    expect(screen.queryByTestId('sicherung-schluessel-warnung')).not.toBeInTheDocument();
+  });
+
+  describe('Eine App zurueckholen', () => {
+    it('verlangt die Kennung, bevor etwas geschieht, und laesst den Bericht stehen', async () => {
+      antworte(mitTraeger(), [DATEI], INHALT);
+      apiMock.post.mockResolvedValue({
+        data: {
+          erfolg: true,
+          app: 'belege',
+          quelle: 'extern',
+          bericht: [
+            {
+              schritt: 'datenbank',
+              stand: 'live',
+              erfolg: true,
+              text: 'Die Daten der App (Live) sind zurückgeholt.',
+            },
+            {
+              schritt: 'paket',
+              erfolg: false,
+              text: 'Das Paket der App ließ sich nicht zurückholen.',
+            },
+          ],
+        },
+      });
+      render(<Sicherung />, { wrapper: huelle() });
+
+      // Der Datentraeger ist vorgewaehlt, die App steht in der Liste.
+      fireEvent.click(await screen.findByTestId('app-zurueckholen-belege'));
+      expect((await screen.findByTestId('app-zurueckholen-text')).textContent).toContain(
+        'Stand vom'
+      );
+
+      const absenden = screen.getByTestId('app-zurueckholen-absenden');
+      expect(absenden).toBeDisabled();
+      fireEvent.click(absenden);
+      fireEvent.change(screen.getByTestId('app-zurueckholen-kennung'), {
+        target: { value: 'beleg' },
+      });
+      expect(absenden).toBeDisabled();
+      expect(apiMock.post).not.toHaveBeenCalled();
+
+      fireEvent.change(screen.getByTestId('app-zurueckholen-kennung'), {
+        target: { value: 'belege' },
+      });
+      expect(absenden).toBeEnabled();
+      fireEvent.click(absenden);
+
+      const bericht = await screen.findByTestId('app-zurueck-bericht');
+      expect(bericht.textContent).toContain('Die Daten der App (Live) sind zurückgeholt.');
+      expect(bericht.textContent).toContain('Das Paket der App ließ sich nicht zurückholen.');
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/backup/wiederherstellung/app/belege',
+        { bestaetigung: 'belege', quelle: 'extern', paket: true },
+        expect.objectContaining({ showError: false })
+      );
+    });
+
+    it('schickt den Wiederherstellungscode mit, wenn er eingegeben wurde', async () => {
+      antworte(mitTraeger(), [DATEI], INHALT);
+      apiMock.post.mockResolvedValue({
+        data: { erfolg: true, app: 'belege', quelle: 'extern', bericht: [] },
+      });
+      render(<Sicherung />, { wrapper: huelle() });
+
+      fireEvent.click(await screen.findByTestId('app-code-oeffnen'));
+      fireEvent.change(screen.getByTestId('app-code'), { target: { value: ' ABCD-1234 ' } });
+      fireEvent.click(await screen.findByTestId('app-zurueckholen-belege'));
+      fireEvent.change(await screen.findByTestId('app-zurueckholen-kennung'), {
+        target: { value: 'belege' },
+      });
+      fireEvent.click(screen.getByTestId('app-zurueckholen-absenden'));
+
+      await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
+      expect(apiMock.post.mock.calls[0]?.[1]).toMatchObject({
+        wiederherstellungscode: 'ABCD-1234',
+      });
+    });
+
+    it('nimmt das Ergebnis aus einer 500-Antwort, damit der Bericht nicht verloren geht', async () => {
+      antworte(mitTraeger(), [DATEI], INHALT);
+      apiMock.post.mockRejectedValue(
+        Object.assign(new Error('HTTP 500'), {
+          data: {
+            data: {
+              erfolg: false,
+              app: 'belege',
+              quelle: 'extern',
+              bericht: [
+                {
+                  schritt: 'datenbank',
+                  stand: 'live',
+                  erfolg: false,
+                  text: 'Die Daten der App (Live) ließen sich nicht zurückholen.',
+                },
+              ],
+            },
+          },
+        })
+      );
+      render(<Sicherung />, { wrapper: huelle() });
+
+      fireEvent.click(await screen.findByTestId('app-zurueckholen-belege'));
+      fireEvent.change(await screen.findByTestId('app-zurueckholen-kennung'), {
+        target: { value: 'belege' },
+      });
+      fireEvent.click(screen.getByTestId('app-zurueckholen-absenden'));
+
+      const bericht = await screen.findByTestId('app-zurueck-bericht');
+      expect(bericht.textContent).toContain('nicht vollständig');
+      expect(bericht.textContent).toContain('ließen sich nicht zurückholen');
+    });
+
+    it('bietet ohne Datentraeger die Apps dieses Geraets an', async () => {
+      antworte(STATUS, [
+        {
+          art: 'app-datenbanken' as unknown as typeof DATEI.art,
+          zweck: 'Die Datenbanken der Apps',
+          name: 'arasul_app_mein_beleg_live_20261001_020000.sql.gz',
+          datenbank: 'arasul_app_mein_beleg_live',
+          bytes: 100,
+          zeitpunkt: '2026-10-01T02:00:00.000Z',
+        } as typeof DATEI,
+      ]);
+      render(<Sicherung />, { wrapper: huelle() });
+
+      expect(await screen.findByTestId('app-zurueckholen-mein-beleg')).toBeInTheDocument();
+    });
+  });
+
+  describe('Das ganze Geraet zurueckholen', () => {
+    it('verlangt das Wort, und der Bericht nennt Tabellen und Apps', async () => {
+      antworte(mitTraeger(), [DATEI], INHALT);
+      apiMock.post.mockResolvedValue({
+        data: {
+          erfolg: false,
+          bericht: { status: 'fertig', tabellen: 96 },
+          apps: [
+            { app_id: 'belege', stand: 'live', version: '1.0.0', erfolg: true, grund: null },
+            {
+              app_id: 'kalender',
+              stand: 'test',
+              version: '1.0.0',
+              erfolg: false,
+              grund: 'Image fehlt',
+            },
+          ],
+        },
+      });
+      render(<Sicherung />, { wrapper: huelle() });
+
+      expect(await screen.findByTestId('geraet-zurueck-warnung')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('geraet-zurueckholen'));
+
+      const absenden = await screen.findByTestId('geraet-zurueckholen-absenden');
+      expect(absenden).toBeDisabled();
+      fireEvent.change(screen.getByTestId('geraet-zurueckholen-wort'), {
+        target: { value: 'wiederher' },
+      });
+      expect(absenden).toBeDisabled();
+      expect(apiMock.post).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByTestId('geraet-zurueckholen-wort'), {
+        target: { value: 'wiederherstellen' },
+      });
+      fireEvent.click(absenden);
+
+      const bericht = await screen.findByTestId('geraet-zurueck-bericht');
+      expect(bericht.textContent).toContain('96 Tabellen');
+      expect(bericht.textContent).toContain('„belege“ läuft wieder');
+      expect(bericht.textContent).toContain('„kalender“');
+      expect(bericht.textContent).toContain('läuft nicht wieder');
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/backup/wiederherstellung',
+        { bestaetigung: 'wiederherstellen', quelle: 'extern' },
+        expect.objectContaining({ showError: false })
+      );
+    });
   });
 
   it('loest eine Sicherung aus und laesst die Meldung stehen', async () => {

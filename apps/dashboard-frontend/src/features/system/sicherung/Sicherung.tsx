@@ -7,20 +7,31 @@
  * Knopf. Fünf Jahre unbeaufsichtigter Betrieb heißt nicht, dass niemand
  * hinsieht — er heißt, dass das Hinsehen eine Minute dauert.
  *
- * WAS HIER NICHT STEHT: der Weg zurück. `POST /api/backup/wiederherstellung`
- * ersetzt die ganze Datenbank und verlangt deshalb eine ausdrückliche
- * Bestätigung im Rumpf; ein Knopf dafür zwischen zwei Kacheln wäre der
- * gefährlichste Knopf des Geräts an der beiläufigsten Stelle. Er bleibt beim
- * Handbuch (`docs/ops/DISASTER_RECOVERY.md`), und diese Seite sagt das.
+ * DER WEG ZURÜCK (J37) steht seit der Sicherung auf einen Datenträger hier,
+ * in `Zurueckholen.tsx`, in zwei Gewichten: eine App (Kennung abtippen) und das
+ * ganze Gerät (das Wort „wiederherstellen“ abtippen, eigene Feldgruppe, als
+ * Notfallweg gekennzeichnet). Beide fragen zweimal, bevor etwas geschieht, und
+ * lassen einen Bericht stehen.
+ *
+ * DER DATENTRÄGER wird mit Namen und freiem Platz genannt, nie mit einem Pfad:
+ * für den, der ihn ansteckt, ist er „die SSD“, nicht ein Ordner im Container.
  *
  * KEINE TABELLE, EINE LISTE. Die Sicherungen stehen als Zeilen, die umbrechen
  * dürfen — bei 390 px steht dieselbe Auskunft untereinander statt in vier
  * Spalten, die nicht nebeneinander passen (Fund der D4-Abnahme).
  */
 import { useState } from 'react';
-import { Archive, DatabaseBackup, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
+import {
+  Archive,
+  DatabaseBackup,
+  KeyRound,
+  Loader2,
+  RotateCcw,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react';
 import { Kennzahl, Kennzahlen, Kopf } from '@marken';
-import { Button, cn } from '@marken';
+import { Alert, AlertDescription, AlertTitle, Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { duGroesseLesbar, formatBytes, formatDate, formatZahl } from '@/utils/formatting';
@@ -32,6 +43,27 @@ import {
   type LaufErgebnis,
 } from './useSicherung';
 import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
+import { AppZurueckholen, GeraetZurueckholen } from './Zurueckholen';
+
+/** Warum die letzte Kopie auf den Datenträger nicht geklappt hat, in Klartext. */
+export function versuchText(versuch: string | null | undefined): string | null {
+  switch (versuch) {
+    case 'zu_wenig_platz':
+      return 'Auf dem Datenträger ist zu wenig Platz für die Kopie. Räumen Sie ihn auf oder nehmen Sie einen größeren.';
+    case 'nur_verschluesselt':
+      return 'Es wird nur Verschlüsseltes auf den Datenträger kopiert. Die letzte Sicherung war nicht verschlüsselt und blieb deshalb auf dem Gerät.';
+    case 'nicht_beschreibbar':
+      return 'Der Datenträger ist angesteckt, lässt sich aber nicht beschreiben. Möglicherweise ist er schreibgeschützt.';
+    case 'nicht_eingehaengt':
+      return 'Der Datenträger wurde nicht erkannt. Stecken Sie ihn neu an.';
+    case 'abgeschaltet':
+      return 'Die Kopie auf einen Datenträger ist an diesem Gerät abgeschaltet.';
+    case 'fehler':
+      return 'Das Kopieren auf den Datenträger ist fehlgeschlagen.';
+    default:
+      return null; // kopiert, kein_ziel, unbekannt: nichts zu sagen
+  }
+}
 
 /** Was nach einem Lauf stehen bleibt, bis der nächste kommt. */
 interface Meldung {
@@ -147,6 +179,26 @@ export function Sicherung() {
   const ausserhalb = status?.ausserhalb;
   const letzte = status?.letzteSicherung;
   const drill = status?.wiederherstellungstest;
+  const traeger = ausserhalb?.datentraeger;
+  const klartext = ausserhalb?.klartextDateien ?? 0;
+  const versuch = versuchText(ausserhalb?.letzterVersuch);
+  const schluessel = status?.schluessel;
+
+  const ausserhalbFussnote = [
+    traeger?.angesteckt
+      ? `Datenträger „${traeger.name}“${
+          traeger.frei != null && traeger.gesamt != null
+            ? `, ${formatBytes(traeger.frei)} frei von ${formatBytes(traeger.gesamt)}`
+            : ''
+        }`
+      : 'Kein Datenträger angesteckt. Eine USB-SSD einfach einstecken, mehr ist nicht nötig.',
+    ausserhalb?.vorhanden ? formatBytes(ausserhalb.bytes) : null,
+    ausserhalb?.vorhanden
+      ? null
+      : 'Eine Sicherung, die nur auf diesem Gerät liegt, überlebt das Gerät nicht.',
+  ]
+    .filter(Boolean)
+    .join('. ');
 
   return (
     <div className="animate-in fade-in" data-testid="sicherung-seite">
@@ -160,6 +212,34 @@ export function Sicherung() {
         <SkeletonText lines={4} />
       ) : (
         <Formularseite>
+          {schluessel?.passt === false && (
+            <Alert
+              variant="destructive"
+              data-testid="sicherung-schluessel-warnung"
+              className="border border-destructive"
+            >
+              <KeyRound className="size-4" />
+              <AlertTitle>Der Schlüssel dieses Geräts passt nicht zur letzten Sicherung</AlertTitle>
+              <AlertDescription>
+                <p>
+                  Ohne den Wiederherstellungscode des früheren Schlüssels lässt sich diese Sicherung
+                  nicht zurückholen. Geben Sie den Code beim Zurückholen ein; wo Sie ihn finden,
+                  steht im Handbuch.
+                </p>
+                {schluessel.grund && <p>{schluessel.grund}</p>}
+              </AlertDescription>
+            </Alert>
+          )}
+          {schluessel?.passt !== false && (schluessel?.aelterUnlesbar ?? 0) > 0 && (
+            <p className="text-sm text-muted-foreground" data-testid="sicherung-schluessel-hinweis">
+              {formatZahl(schluessel?.aelterUnlesbar ?? 0)}{' '}
+              {schluessel?.aelterUnlesbar === 1
+                ? 'ältere Sicherung ist'
+                : 'ältere Sicherungen sind'}{' '}
+              mit einem früheren Schlüssel verschlüsselt und nur mit dem Wiederherstellungscode
+              lesbar. Die neueste ist in Ordnung.
+            </p>
+          )}
           <Feldgruppe
             titel="Zustand"
             symbol={<ShieldCheck />}
@@ -212,11 +292,7 @@ export function Sicherung() {
                     ? formatDate(ausserhalb.zeitpunkt)
                     : 'noch nie'
                 }
-                fussnote={
-                  ausserhalb?.vorhanden
-                    ? `${formatBytes(ausserhalb.bytes)}${ausserhalb.ziel ? ` auf ${ausserhalb.ziel}` : ''}`
-                    : 'Eine Sicherung, die nur auf diesem Gerät liegt, überlebt das Gerät nicht.'
-                }
+                fussnote={ausserhalbFussnote}
               />
               <Kennzahl
                 beschriftung="Wiederherstellungstest"
@@ -236,6 +312,27 @@ export function Sicherung() {
                 }
               />
             </Kennzahlen>
+
+            {klartext > 0 && (
+              <Alert
+                variant="destructive"
+                className="mt-4"
+                data-testid="sicherung-klartext-warnung"
+              >
+                <ShieldAlert className="size-4" />
+                <AlertDescription>
+                  Auf dem Datenträger {klartext === 1 ? 'liegt' : 'liegen'} {formatZahl(klartext)}{' '}
+                  {klartext === 1 ? 'Datei' : 'Dateien'} unverschlüsselt. Jeder, der den Datenträger
+                  in die Hand bekommt, kann sie lesen.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {versuch && (
+              <p className="mt-4 text-sm text-muted-foreground" data-testid="sicherung-versuch">
+                {versuch}
+              </p>
+            )}
 
             {status?.laeuftGerade && !sichern.isPending && !test.isPending && (
               <p className="mt-4 text-sm text-muted-foreground" data-testid="sicherung-laeuft">
@@ -311,8 +408,8 @@ export function Sicherung() {
               fasst den Betrieb nicht an und dauert wie eine Sicherung einige Minuten.
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Das echte Zurückspielen ersetzt die ganze Datenbank und steht deshalb nicht als Knopf
-              auf dieser Seite. Wie es geht, steht im Handbuch unter „Disaster Recovery“.
+              Das echte Zurückholen steht in den beiden Abschnitten darunter: eine einzelne App,
+              oder als Notfallweg das ganze Gerät.
             </p>
             {status?.letzteWiederherstellung && (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -322,6 +419,9 @@ export function Sicherung() {
             )}
             {testMeldung && <MeldungsZeile meldung={testMeldung} testid="test-meldung" />}
           </Feldgruppe>
+
+          <AppZurueckholen />
+          <GeraetZurueckholen />
         </Formularseite>
       )}
     </div>

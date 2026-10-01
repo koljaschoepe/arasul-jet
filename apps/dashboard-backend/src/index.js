@@ -655,6 +655,11 @@ if (alsServerGestartet) {
       globalIntervals.push(zeitgeber);
     }
 
+    // Der Schluesselwaechter (J37): alle fuenf Minuten nachlesen, ob der
+    // Schluessel dieses Geraets noch zur letzten Sicherung passt, und den Admin
+    // EINMAL je Pruefung benachrichtigen -- siehe `schluesselWaechter.js`.
+    globalIntervals.push(require('./services/betrieb/schluesselWaechter').starten());
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

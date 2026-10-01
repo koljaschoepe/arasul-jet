@@ -1517,11 +1517,11 @@ Ollama-Bibliothek (`name:tag`, `nutzer/name:tag`) und von Hugging Face
 (`hf.co/nutzer/repo:quant`), nicht nur die vier der Kurzliste. Vor dem Strom,
 also als gewöhnliche JSON-Antwort:
 
-| Fall                                            | Antwort                                                                                                                                |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Kennung ohne gültige Form                       | `400 VALIDATION_ERROR`                                                                                                                 |
-| gibt es bei der Registry nicht                  | `404 NOT_FOUND` mit Satz                                                                                                               |
-| Registry nicht erreichbar (Größe unbekannt)     | `503 SERVICE_UNAVAILABLE` — ohne Größe wird nicht geladen                                                                              |
+| Fall                                             | Antwort                                                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Kennung ohne gültige Form                        | `400 VALIDATION_ERROR`                                                                                                    |
+| gibt es bei der Registry nicht                   | `404 NOT_FOUND` mit Satz                                                                                                  |
+| Registry nicht erreichbar (Größe unbekannt)      | `503 SERVICE_UNAVAILABLE` — ohne Größe wird nicht geladen                                                                 |
 | zu groß für das Speicherbudget (`RAM_LIMIT_LLM`) | `400 VALIDATION_ERROR`, `details`: `grund: "ZU_GROSS"`, `groesse_gb`, `benoetigt_gb`, `memory_budget_gb`, `verfuegbar_gb` |
 
 Die Größe kommt aus dem Manifest der Registry (Konfiguration plus Schichten),
@@ -2062,6 +2062,7 @@ zweite hat eine eigene: `ausserhalb`.
 | ------ | --------------------------------------- | ---------------------------------------------------------- |
 | GET    | `/api/backup/status`                    | Sichert das Gerät? Wann lag zuletzt eine Kopie außer Haus? |
 | GET    | `/api/backup/sicherungen`               | Was liegt da — Name, Art, Größe, Datum                     |
+| GET    | `/api/backup/extern/inhalt`             | Was liegt auf dem angesteckten Datenträger (J37)           |
 | POST   | `/api/backup/sicherung`                 | Jetzt sichern (dauert Minuten, antwortet erst danach)      |
 | POST   | `/api/backup/wiederherstellung`         | Zurück auf eine Sicherung, danach laufen die Apps wieder   |
 | POST   | `/api/backup/wiederherstellung/app/:id` | Nur die Daten **einer** App zurück (J35)                   |
@@ -2108,7 +2109,24 @@ bekommt weder Bind-Mount noch benanntes Volume
       "bytes": 5211334,
       "dateien": 4,
       "ziel": "/arasul/extern",
-      "letzterVersuch": "kopiert"
+      "letzterVersuch": "kopiert",
+      "datentraeger": {
+        "angesteckt": true,
+        "name": "GOLDENBACKUP",
+        "dateisystem": "ext4",
+        "frei": 412000000000,
+        "gesamt": 931000000000
+      },
+      "klartextDateien": 0,
+      "inhalt": { "apps": ["belege"] }
+    },
+    "schluessel": {
+      "passt": true,
+      "geprueft": "2026-10-02T02:05:00Z",
+      "grund": null,
+      "aelterUnlesbar": 0,
+      "lokal": { "neueste": "arasul_db_….sql.gz.enc", "passt": true, "lesbar": 7, "unlesbar": 0 },
+      "extern": { "neueste": null, "passt": null, "lesbar": 0, "unlesbar": 0 }
     },
     "wiederherstellungstest": { "status": "ok", "zeitpunkt": "...", "tabellen": 14 },
     "letzteWiederherstellung": null,
@@ -2124,6 +2142,21 @@ Firmenordner, `null` bei einem Bericht von vor J35. Das ist kein Fehlschlag —
 jemand hat eine Datei abgelegt, während gesichert wurde, und `status` bleibt
 `completed`. Eine Datei, die erst während des Laufs kam, steht aber vielleicht
 nicht im Archiv; alles, was vorher da war und unberührt blieb, schon.
+
+**Datenträger und Schlüssel (J37).** `ausserhalb.datentraeger` kommt aus dem,
+was der Host über den eingehängten Datenträger hinterlegt hat (Name, Dateisystem)
+und aus `statfs` (`frei`/`gesamt` in Bytes); ohne eingehängten Datenträger oder
+ohne diese Auskunft ist `angesteckt` `false` und der Rest `null`. Der interne
+Pfad steht nie in der Oberfläche. `klartextDateien` ist die Zahl unverschlüsselter
+Dateien auf dem Datenträger (soll `0` sein, `null` = unbekannt), `inhalt.apps` die
+Kennungen der zuletzt dort gesicherten Apps. `letzterVersuch` kann auch
+`zu_wenig_platz` und `nur_verschluesselt` sein. `schluessel` ist das Ergebnis
+der Schlüsselprüfung des Sicherungsdienstes: `passt: false` heißt, der Schlüssel
+dieses Geräts öffnet die letzte Sicherung nicht (dann braucht das Zurückholen den
+Wiederherstellungscode des früheren Schlüssels), `passt: null` heißt „nichts zu
+prüfen“ (noch keine Sicherung, oder keine Prüfdatei). Bei `passt: false` legt das
+Backend alle fünf Minuten höchstens **eine** kritische Meldung je Prüfung in
+`notification_events` an (`event_type` `backup`).
 
 `ausserhalb` beantwortet die Frage „wann lag zuletzt eine Kopie **außerhalb**
 des Geräts" — auf einem USB-Datenträger oder einer SMB-Freigabe im Kundennetz.
@@ -2141,6 +2174,31 @@ das; `letzterVersuch` nennt dann den Grund (`kein_ziel`, `nicht_eingehaengt`,
   "letzterVersuch": "kein_ziel"
 }
 ```
+
+**GET /api/backup/extern/inhalt** (J37, nur `admin`) — was auf dem
+Datenträger liegt, gelesen aus dem `MANIFEST.json` des neuesten Tagesordners
+(`arasul-sicherung/<JJJJMMTT>/`; Namen, die nicht aus acht Ziffern bestehen,
+zählen nicht):
+
+```json
+{
+  "data": {
+    "angesteckt": true,
+    "name": "GOLDENBACKUP",
+    "neuesteSicherung": {
+      "datum": "20261002",
+      "zeitpunkt": "2026-10-02T02:00:00Z",
+      "bytes": 5211334,
+      "apps": [{ "id": "belege", "staende": ["test", "live"] }],
+      "dateien": 9
+    },
+    "tage": ["20261002", "20261001"]
+  }
+}
+```
+
+Ohne Datenträger: `angesteckt: false`, `neuesteSicherung: null`, `tage: []` —
+kein Fehler.
 
 **GET /api/backup/sicherungen Response:**
 
@@ -2178,8 +2236,20 @@ was getan wurde, die Platte sagt, was heute noch zurückspielbar ist.
 **POST /api/backup/wiederherstellung:**
 
 ```json
-{ "datei": "arasul_db_20260827_020054.sql.gz", "bestaetigung": "wiederherstellen" }
+{
+  "datei": "arasul_db_20260827_020054.sql.gz",
+  "bestaetigung": "wiederherstellen",
+  "quelle": "extern",
+  "wiederherstellungscode": "ABCD-1234-EFGH"
+}
 ```
+
+`quelle` (J37) ist `lokal` (Vorgabe) oder `extern` (vom angesteckten
+Datenträger; ohne ihn `409` mit „Es ist kein Datenträger angesteckt.“).
+`wiederherstellungscode` ist nur nötig, wenn der Schlüssel dieses Geräts nicht
+zur Sicherung passt (höchstens 100 Zeichen, nur Buchstaben, Ziffern, Leerzeichen
+und Striche). Er geht nie in die Befehlszeile, sondern als Umgebungsvariable in
+den Aufruf im Sicherungs-Container, und steht nicht im Protokoll.
 
 `datei` ist ein **Name**, kein Pfad, und liegt im Sicherungsordner; ohne Angabe
 gilt die neueste. `bestaetigung` muss das Wort `wiederherstellen` sein — kein
@@ -2231,8 +2301,21 @@ zurückspielen.
 **einer** App aus der letzten Sicherung, und sonst nichts:
 
 ```json
-{ "bestaetigung": "probe-daten", "stand": "live" }
+{
+  "bestaetigung": "probe-daten",
+  "stand": "live",
+  "quelle": "extern",
+  "paket": true,
+  "wiederherstellungscode": "ABCD-1234-EFGH"
+}
 ```
+
+Seit J37 zusätzlich: `quelle` (`lokal` Vorgabe, oder `extern` vom Datenträger,
+dann gilt das Verzeichnis des neuesten Tages dort), `paket` (Vorgabe `true`:
+nach den Daten wird auch das **Paket** der App aus dem Archiv zurückgeholt,
+`/arasul/apps/<id>/`, und jeder Stand, den es in `app_staende` gibt, daraus neu
+gebaut; mit `false` bleibt es bei den Daten und dem Neuverbinden) und
+`wiederherstellungscode` (wie oben).
 
 `bestaetigung` ist die Kennung der App, abgetippt wie beim Entfernen; `stand`
 engt auf einen Stand ein, ohne ihn kommen beide, soweit gesichert. Der ganze
@@ -2253,6 +2336,7 @@ Aufruf ihr Passwort und startet ihren Container neu.
   "data": {
     "erfolg": true,
     "app": "probe-daten",
+    "quelle": "extern",
     "staende": [
       {
         "stand": "live",
@@ -2261,13 +2345,40 @@ Aufruf ihr Passwort und startet ihren Container neu.
         "neu_gestartet": true,
         "ausgabe": "…"
       }
+    ],
+    "paket": { "erfolg": true, "ausgabe": "…" },
+    "bericht": [
+      {
+        "schritt": "datenbank",
+        "stand": "live",
+        "erfolg": true,
+        "text": "Die Daten der App (Livestand) sind zurückgeholt."
+      },
+      {
+        "schritt": "paket",
+        "erfolg": true,
+        "text": "Das Paket der App (Oberfläche und Programm) ist zurückgeholt."
+      },
+      {
+        "schritt": "neu_gestartet",
+        "stand": "live",
+        "erfolg": true,
+        "text": "Die App läuft im Livestand wieder, aus dem zurückgeholten Paket."
+      }
     ]
   }
 }
 ```
 
+`paket` ist `null`, wenn kein Paket verlangt wurde oder keine Daten
+zurückkamen. `bericht` sind deutsche Sätze für die Oberfläche (`schritt`:
+`datenbank`, `paket`, `neu_gestartet`), nie Stacktraces; `erfolg` ist `false`,
+sobald ein Schritt scheiterte.
+
 **Fehler:** `400`, wenn `bestaetigung` nicht die Kennung ist. `404`, wenn es
-von keinem Stand der App eine Sicherung gibt. `409` und `503` wie oben.
+von keinem Stand der App eine Sicherung gibt (bei `quelle: extern`: wenn die App
+im Verzeichnis des Datenträgers nicht steht). `409`, wenn `quelle: extern` ohne
+angesteckten Datenträger. `409` und `503` wie oben.
 
 `GET /api/backup/sicherungen` nennt seit J35 bei jeder Zeile der Art
 `app-datenbanken` auch `datenbank` — welche es ist, aus dem Dateinamen, denn
@@ -2643,26 +2754,26 @@ Die ganze Sache — warum es diesen Dienst gibt, wie ein Mensch hineinkommt,
 warum es eine **zweite Passwortablage** ist und wie sie geschützt ist — steht
 in [`docs/features/FIRMENORDNER.md`](../features/FIRMENORDNER.md).
 
-| Method | Endpoint                                                            | Description                                          |
-| ------ | ------------------------------------------------------------------- | ---------------------------------------------------- |
-| GET    | `/api/firmenordner`                                                 | Wo der Dienst liegt und welche Ordner **ich** habe   |
-| GET    | `/api/firmenordner/sicht`                                           | Meine `sicht.md`, als Text (Ausweis oder Sitzung)    |
-| GET    | `/api/firmenordner/passt?pfad=&bytes=`                              | Passt das noch hinein? (Ausweis oder Sitzung)        |
+| Method | Endpoint                                                            | Description                                                                                                                        |
+| ------ | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/firmenordner`                                                 | Wo der Dienst liegt und welche Ordner **ich** habe                                                                                 |
+| GET    | `/api/firmenordner/sicht`                                           | Meine `sicht.md`, als Text (Ausweis oder Sitzung)                                                                                  |
+| GET    | `/api/firmenordner/passt?pfad=&bytes=`                              | Passt das noch hinein? (Ausweis oder Sitzung)                                                                                      |
 | GET    | `/api/firmenordner/platz`                                           | Belegt, Grenze, frei und `revisionen` (Anzahl, Bytes früherer Fassungen auf der Platte, nicht in `belegt`) je Raum (Administrator) |
-| PUT    | `/api/firmenordner/ordner/:id/grenze`                               | Die Größengrenze setzen oder wegnehmen (Admin.)      |
-| GET    | `/api/firmenordner/ordner`                                          | Alle Ordner am Gerät (Administrator)                 |
-| POST   | `/api/firmenordner/ordner`                                          | Einen anlegen (Administrator)                        |
-| GET    | `/api/firmenordner/ordner/:id/aenderungen`                          | Wer zuletzt wann etwas geändert hat (Administrator)  |
-| DELETE | `/api/firmenordner/ordner/:id`                                      | Wegwerfen, samt Inhalt (Administrator)               |
-| GET    | `/api/firmenordner/papierkorb`                                      | Wie viel in welchem Papierkorb liegt (Administrator) |
-| GET    | `/api/firmenordner/ordner/:id/papierkorb`                           | Was im Papierkorb liegt (Administrator)              |
-| DELETE | `/api/firmenordner/ordner/:id/papierkorb`                           | Den Papierkorb leeren, endgültig (Administrator)     |
-| POST   | `/api/firmenordner/ordner/:id/papierkorb/:eintrag/wiederherstellen` | Einen Eintrag zurückholen (Administrator)            |
-| DELETE | `/api/firmenordner/ordner/:id/papierkorb/:eintrag`                  | Einen Eintrag endgültig entfernen (Administrator)    |
-| GET    | `/api/firmenordner/rechte`                                          | Wer auf welchem Ordner was darf (Administrator)      |
-| POST   | `/api/firmenordner/rechte`                                          | Ein Recht vergeben (Administrator)                   |
-| DELETE | `/api/firmenordner/rechte/:ordnerId/:benutzerId`                    | Ein Recht zurücknehmen (Administrator)               |
-| POST   | `/api/firmenordner/abgleich`                                        | Nachholen, was der Dienst noch nicht weiß            |
+| PUT    | `/api/firmenordner/ordner/:id/grenze`                               | Die Größengrenze setzen oder wegnehmen (Admin.)                                                                                    |
+| GET    | `/api/firmenordner/ordner`                                          | Alle Ordner am Gerät (Administrator)                                                                                               |
+| POST   | `/api/firmenordner/ordner`                                          | Einen anlegen (Administrator)                                                                                                      |
+| GET    | `/api/firmenordner/ordner/:id/aenderungen`                          | Wer zuletzt wann etwas geändert hat (Administrator)                                                                                |
+| DELETE | `/api/firmenordner/ordner/:id`                                      | Wegwerfen, samt Inhalt (Administrator)                                                                                             |
+| GET    | `/api/firmenordner/papierkorb`                                      | Wie viel in welchem Papierkorb liegt (Administrator)                                                                               |
+| GET    | `/api/firmenordner/ordner/:id/papierkorb`                           | Was im Papierkorb liegt (Administrator)                                                                                            |
+| DELETE | `/api/firmenordner/ordner/:id/papierkorb`                           | Den Papierkorb leeren, endgültig (Administrator)                                                                                   |
+| POST   | `/api/firmenordner/ordner/:id/papierkorb/:eintrag/wiederherstellen` | Einen Eintrag zurückholen (Administrator)                                                                                          |
+| DELETE | `/api/firmenordner/ordner/:id/papierkorb/:eintrag`                  | Einen Eintrag endgültig entfernen (Administrator)                                                                                  |
+| GET    | `/api/firmenordner/rechte`                                          | Wer auf welchem Ordner was darf (Administrator)                                                                                    |
+| POST   | `/api/firmenordner/rechte`                                          | Ein Recht vergeben (Administrator)                                                                                                 |
+| DELETE | `/api/firmenordner/rechte/:ordnerId/:benutzerId`                    | Ein Recht zurücknehmen (Administrator)                                                                                             |
+| POST   | `/api/firmenordner/abgleich`                                        | Nachholen, was der Dienst noch nicht weiß                                                                                          |
 
 **Der erste Weg ist der einzige für einen Mitarbeiter**, und er ist der Grund
 für die Karte. Er **nimmt einen Ausweis** (Brücke, J34) — die vierte Route, die
