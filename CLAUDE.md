@@ -1474,15 +1474,38 @@ zweite aus dem Stand davor), spielt sie ein und misst im Rahmen bei 900, 1000
 und 1150 px, mit und ohne Notizspalte (`behaelter-bilder.mjs`); danach ist
 alles wieder weg. Das Kit zieht mit `marken.mjs --sync` nach.
 
-| Layer    | Stack                                                             | Path                                                                                               |
-| -------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |
-| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                                                          |
-| AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings             | `services/llm-service/`, `services/document-indexer/`                                              |
-| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                                                      |
-| Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/`                                      |
-| DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                                                          |
-| Hardware | Jetson AGX Orin / Thor (ARM64, 32–128 GB, CUDA 8.7–10.0)          | Detection: `scripts/setup/detect-platform.sh`                                                      |
+Seit dem Auftrag **spark-minimalpfad-ohne-geraet** (01.10.2026, J4) **nimmt
+ein DGX Spark bei der Installation seinen eigenen Zweig**, ohne dass am Orin
+etwas anders baut. Nach Beschluss R1 fährt er **Ollama**, nicht vllm.
+`detect-platform.sh` erkennt ihn an arm64 ohne Tegra-Marker und `GB10` in
+nvidia-smi (noch vor dem Device-Tree, `ist_dgx_spark`) und schreibt die
+`.env` aus `config/platforms/dgx-spark.json` (`spark_konfiguration`, jetzt
+`engine: ollama`, weiter `verification: follow-up`). Darin steht
+`GPU_DOCKERFILE=Dockerfile.spark`: `llm-service` baut dann auf dem
+offiziellen arm64-Abbild von Ollama (an der Quelle geprüft: Runner
+`cuda_v13`, CUDA 13.0, bis `121-virtual`), `embedding-service` auf
+`python:3.11-slim` mit torch für CUDA 13 statt `dustynv/l4t-pytorch` — er wird
+nicht abgeschaltet, weil `/v1/embeddings` ihn braucht. `LD_LIBRARY_PATH` ist
+`OLLAMA_LD_LIBRARY_PATH` mit dem alten JetPack-Pfad als Vorgabe;
+`NV_TEGRA_RELEASE=/dev/null`, sonst legte Docker die Datei als Ordner an.
+`utils/hardware.js` hält Spark und Thor auseinander (beide 20 Kerne und
+128 GB: Cortex-X925/A725 in `/proc/cpuinfo` oder `JETSON_PROFILE`) und liest
+die GPU über nvidia-smi, im Container beim `llm-service`
+(`GET :11436/api/gpu`). Die CI baut beide Spark-Abbilder nativ auf
+`ubuntu-24.04-arm` für `linux/arm64`, prüft Runner und torch-Architekturen,
+und fährt jetzt auch die BATS-Tests der Erkennung; `scripts/test/spark-zweig.py`
+hält Compose-Vorgaben und Basen fest. Was erst am Gerät messbar ist, steht in
+[`docs/features/PLATFORM_COMPATIBILITY.md`](docs/features/PLATFORM_COMPATIBILITY.md).
+
+| Layer    | Stack                                                               | Path                                                                                               |
+| -------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript            | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |
+| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                        | `apps/dashboard-backend/`                                                                          |
+| AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings               | `services/llm-service/`, `services/document-indexer/`                                              |
+| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11        | `compose/`, `config/traefik/`                                                                      |
+| Ops      | Self-Healing Agent + Metrics Collector + Backup Service             | `services/self-healing-agent/`, `services/metrics-collector/`                                      |
+| DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1)   | `services/postgres/init/`                                                                          |
+| Hardware | Jetson AGX Orin / Thor, DGX Spark (ARM64, 32–128 GB, CUDA 8.7–12.1) | Detection: `scripts/setup/detect-platform.sh`                                                      |
 
 ## Non-negotiable rules
 
