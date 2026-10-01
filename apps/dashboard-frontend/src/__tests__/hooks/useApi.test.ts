@@ -118,7 +118,10 @@ describe('useApi', () => {
       }
     });
 
-    expect(mockToast.error).toHaveBeenCalledWith('Server Error');
+    // Kein englischer Backend-Text im Toast (J36): ein Satz, den ein Mensch liest.
+    expect(mockToast.error).toHaveBeenCalledWith(
+      'Das hat nicht geklappt. Bitte versuchen Sie es noch einmal.'
+    );
   });
 
   it('does not show toast when showError is false', async () => {

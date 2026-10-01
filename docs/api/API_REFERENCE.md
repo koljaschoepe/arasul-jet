@@ -3240,10 +3240,10 @@ draußen — was eine App braucht, ist die Reihenfolge, und die steht in
   "ohne_einreicher": true,
   "entscheider": { "rolle": "admin" },
   "kreis": ["admin", "bernd"],
-  "wo": "In Arasul auf der Übersicht, unter „Freigaben“",
+  "wo": "In der App, in der die Freigabe entstanden ist",
   "adresse": "/workspace",
   "offen": { "id": 12, "titel": "Rechnung 4711 freigeben", "frist": "…", "angefragt_am": "…" },
-  "satz": "Entscheidet: ein Administrator (admin oder bernd), in Arasul auf der Übersicht, unter „Freigaben“. anna hat eingereicht und entscheidet nicht mit (Vier-Augen-Prinzip)."
+  "satz": "Entscheidet: ein Administrator (admin oder bernd), in der App, in der die Freigabe entstanden ist. anna hat eingereicht und entscheidet nicht mit (Vier-Augen-Prinzip)."
 }
 ```
 

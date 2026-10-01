@@ -1,7 +1,7 @@
 # Marken — das Designsystem des Geräts
 
 Die Tokens (`theme.css`), **sechsundvierzig Primitive** auf Radix und Tailwind,
-**zehn Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
+**elf Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
 die Shell und jede App auf diesem Gerät.
 
 ## Drei Sätze, zwei Laufzeiten (Phasen H3 und H4)

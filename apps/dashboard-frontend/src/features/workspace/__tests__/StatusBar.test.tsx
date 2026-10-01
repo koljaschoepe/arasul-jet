@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DownloadProvider } from '@/contexts/DownloadContext';
 import { StatusBar } from '../StatusBar';
@@ -231,9 +231,37 @@ describe('StatusBar', () => {
     mockApi();
     renderStatusBar();
 
-    expect(await screen.findByText('Verbunden')).toBeInTheDocument();
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/health', { showError: false }));
     expect(get).not.toHaveBeenCalledWith('/models/memory-budget', { showError: false });
     expect(screen.queryByTestId('workspace-statusbar-model')).not.toBeInTheDocument();
+  });
+
+  // J36: ein Mitarbeiter sieht weder Verbindung noch Fassung noch Freigaben-Zahl.
+  it('zeigt dem Mitarbeiter weder Verbindung noch Fassung noch Freigaben', async () => {
+    angemeldet({ role: 'mitarbeiter' });
+    mockApi({ offeneFreigaben: 2 });
+    renderStatusBar();
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/health', { showError: false }));
+    await new Promise(r => setTimeout(r, 20));
+    const leiste = screen.getByTestId('workspace-statusbar');
+    expect(leiste).toHaveTextContent('');
+    expect(screen.queryByText('Verbunden')).not.toBeInTheDocument();
+    expect(screen.queryByText('1.2.3')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('statusbar-freigaben')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('statusbar-downloads')).not.toBeInTheDocument();
+  });
+
+  it('sagt dem Mitarbeiter bei getrenntem Gerät genau einen Satz', async () => {
+    angemeldet({ role: 'mitarbeiter' });
+    get.mockImplementation(() => Promise.reject(new Error('offline')));
+    renderStatusBar();
+
+    const satz = await screen.findByTestId('statusbar-getrennt', {}, { timeout: 5000 });
+    expect(satz).toHaveTextContent('Das Gerät antwortet gerade nicht.');
+    expect(screen.getByTestId('workspace-statusbar')).toHaveTextContent(
+      /^Das Gerät antwortet gerade nicht\.$/
+    );
   });
 
   // Plan 023 D3: der Satz heisst jetzt "kein Modell installiert" und kommt aus

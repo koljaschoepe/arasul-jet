@@ -54,6 +54,8 @@ export { Dokumentanzeige } from './Dokumentanzeige';
 export type { DokumentanzeigeProps, DokumentArt } from './Dokumentanzeige';
 export { Feldgruppe, Formularseite } from './Feldgruppe';
 export type { FeldgruppeProps, FormularseiteProps } from './Feldgruppe';
+export { Freigabe } from './Freigabe';
+export type { FreigabeEintrag, FreigabeProps } from './Freigabe';
 export { Kennzahl, Kennzahlen } from './Kennzahl';
 export type { KennzahlProps, KennzahlenProps } from './Kennzahl';
 export { Ladezustand } from './Ladezustand';

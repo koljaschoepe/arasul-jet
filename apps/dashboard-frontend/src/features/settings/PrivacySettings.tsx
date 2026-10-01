@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fehlertext } from '@/utils/fehlertext';
 import { Download, Trash2, Info, HardDrive, RefreshCw } from 'lucide-react';
 import { Kopf } from '@marken';
 import { Alert, AlertDescription, Button, Dialogform, Input, Label } from '@marken';
@@ -91,7 +92,11 @@ export function PrivacySettings() {
       toast.success(`Export liegt auf „${name}": ${res.datei} (${groesse(res.bytes)})`);
       void ladeMedien();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Export auf den Datenträger schlug fehl');
+      toast.error(
+        err instanceof Error
+          ? fehlertext(err.message, (err as { status?: number }).status)
+          : 'Export auf den Datenträger schlug fehl'
+      );
     } finally {
       setExporting(false);
     }

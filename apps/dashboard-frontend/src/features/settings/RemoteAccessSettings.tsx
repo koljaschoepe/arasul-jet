@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { fehlertext } from '@/utils/fehlertext';
 import {
   Wifi,
   WifiOff,
@@ -259,8 +260,8 @@ export function RemoteAccessSettings() {
       loadAccessInfo();
       toast.success('Tailscale verbunden!');
     } catch (err: unknown) {
-      const e = err as { message?: string };
-      toast.error(e.message || 'Verbindung fehlgeschlagen');
+      const e = err as { message?: string; status?: number };
+      toast.error(fehlertext(e.message, e.status));
     } finally {
       setConnecting(false);
     }
@@ -284,8 +285,8 @@ export function RemoteAccessSettings() {
       toast.success('Tailscale getrennt');
       await loadStatus();
     } catch (err: unknown) {
-      const e = err as { message?: string };
-      toast.error(e.message || 'Trennung fehlgeschlagen');
+      const e = err as { message?: string; status?: number };
+      toast.error(fehlertext(e.message, e.status));
     } finally {
       setDisconnecting(false);
     }

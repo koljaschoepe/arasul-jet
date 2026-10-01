@@ -13,9 +13,15 @@
 #            M1 bekommt sie nicht, sieht sie aber unter `/eingereicht`.
 #   GRENZE   /apps/<id>/ ohne Freigabe: der Browser bekommt HTML mit einem
 #            Satz, `curl` weiter JSON.
-#   BROWSER  `freigabe-wer-entscheidet-bilder.mjs`: die App zeigt den Satz,
-#            die Karte, das Bestaetigen, die leere Zeile, die Grenzen und der
-#            Rahmen einer echten App bei 1440 px. Bilder fuer den PR.
+#   BROWSER  `freigabe-wer-entscheidet-bilder.mjs`: die App zeigt den Satz;
+#            seit J36 (02.10.2026) zusaetzlich: ein Mitarbeiter sieht auf der
+#            Startseite keine Freigabenliste und in der Statusleiste keine
+#            Technik, bei getrenntem Geraet einen Satz, in keinem Toast einen
+#            HTTP-Code; der Administrator sieht weiter alles; entschieden wird
+#            in der App, mit dem Baustein `Freigabe` der Bibliothek (die App ist
+#            seit J36 mit Bau gebaut, `tests/probe-freigabe/quelle/`). Dazu die
+#            Grenzen und der Rahmen einer echten App bei 1440 px. Bilder je
+#            Rolle fuer den PR.
 #
 # Die zwei Mitarbeiter sind entweder vorhandene Konten (ARASUL_M1,
 # ARASUL_M1_PASSWORT, ARASUL_M2, ARASUL_M2_PASSWORT -- am Orin die zwei
@@ -128,9 +134,12 @@ baue_paket() {
   local ordner="$ARBEIT/paket"
   rm -rf "$ordner"
   mkdir -p "$ordner"
-  cp -R "$QUELLE/backend" "$QUELLE/flows" "$QUELLE/frontend" "$QUELLE/app.json" "$ordner/"
-  # Dasselbe Stylesheet, das die Shell laedt: die Seite soll aussehen wie eine App.
-  cp "$WURZEL/packages/marken/src/marken.css" "$ordner/frontend/"
+  cp -R "$QUELLE/backend" "$QUELLE/flows" "$QUELLE/app.json" "$ordner/"
+  # Das Frontend ist seit J36 eine App MIT Bau: ein frisches Vite-Projekt, das die
+  # Bibliothek als Quelle nimmt und den Baustein `Freigabe` einbindet.
+  (cd "$WURZEL" && PROBE_AUSGABE="$ordner/frontend" npx vite build \
+    --config "$QUELLE/quelle/vite.config.mjs" >"$ARBEIT/bau.log" 2>&1) \
+    || { cat "$ARBEIT/bau.log" >&2; return 1; }
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket.tgz"
 }
@@ -217,6 +226,16 @@ F1=$CODE
 ruf "$TOK" POST /api/freigaben "{\"app_id\":\"$APP\",\"benutzer_id\":$ID_M2}"
 F2=$CODE
 pruefe 'Die App ist beiden freigegeben' "$([[ "$F1$F2" =~ ^(20[01]){2}$ ]] && echo ja || echo nein)" "$F1 $F2"
+# J36: der Administrator sieht weiter alles, also bekommt auch er die App und
+# damit die Anfragen. Nie das Konto `admin`: das ist Koljas echtes Konto.
+ID_ADMIN=""
+if [ "$ARASUL_BENUTZER" != admin ]; then
+  ruf "$TOK" GET /api/benutzer
+  ID_ADMIN=$(rumpf | python3 -c 'import sys,json; print(next((str(b["id"]) for b in json.load(sys.stdin)["data"] if b["username"]==sys.argv[1]), ""))' "$ARASUL_BENUTZER")
+  [ -n "$ID_ADMIN" ] && ruf "$TOK" POST /api/freigaben "{\"app_id\":\"$APP\",\"benutzer_id\":$ID_ADMIN}"
+  pruefe "Die App ist auch $ARASUL_BENUTZER freigegeben (Administrator sieht weiter alles)" \
+    "$([[ "$CODE" =~ ^20[01]$ ]] && echo ja || echo nein)" "HTTP $CODE"
+fi
 
 LIVE="/apps/$APP/api"
 ende=$((SECONDS + 180))
@@ -244,7 +263,7 @@ KREIS=$(rumpf | feld freigabe.kreis)
 pruefe 'freigabe.kreis nennt M2 und nicht M1' \
   "$([ "$(enthaelt "$KREIS" "\"$M2\"")" = ja ] && [ "$(fehlt "$KREIS" "\"$M1\"")" = ja ] && echo ja || echo nein)" "$KREIS"
 pruefe 'freigabe.offen ist die wartende Anfrage' "$([ -n "$(rumpf | feld freigabe.offen.id)" ] && echo ja || echo nein)"
-pruefe 'freigabe.satz sagt wer und wo' "$(enthaelt "$(rumpf | feld freigabe.satz)" 'auf der Übersicht')" \
+pruefe 'freigabe.satz sagt wer und wo' "$(enthaelt "$(rumpf | feld freigabe.satz)" 'in der App')" \
   "$(rumpf | feld freigabe.satz)"
 
 # --- 5. Beide Listen ----------------------------------------------------------
@@ -275,6 +294,7 @@ pruefe 'curl bekommt weiter JSON' "$(ja_wenn "$(rumpf | feld error.code)" FORBID
 
 # --- 7. Browser ----------------------------------------------------------------
 ARASUL_M1="$M1" ARASUL_M1_PASSWORT="$M1_PASS" ARASUL_M2="$M2" ARASUL_M2_PASSWORT="$M2_PASS" \
+  ARASUL_ADMIN="$([ -n "$ID_ADMIN" ] && echo "$ARASUL_BENUTZER")" ARASUL_ADMIN_PASSWORT="$ARASUL_PASSWORT" \
   ARASUL_PROBE_APP="$APP" ARASUL_PROBE_NAME="$APP_NAME" \
   node "$WURZEL/scripts/test/freigabe-wer-entscheidet-bilder.mjs"
 BROWSER=$?
