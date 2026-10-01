@@ -12,22 +12,23 @@ Quelle, statt Hardware-Wissen erneut zu verteilen.
 
 ## Schema
 
-| Feld                 | Bedeutung                                                                                    |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| `id`                 | Profil-/Dateiname (ohne `.json`)                                                             |
-| `display_name`       | Menschenlesbarer Gerätename                                                                  |
-| `arch`               | `arm64` oder `amd64` (Docker-Build-Target)                                                   |
-| `compute_capability` | CUDA `sm_*`. `confirmed:false` = spekulativ, **am echten Gerät zu bestätigen** (Plan 020 §6) |
-| `memory_budget_gb`   | Für die Engine nutzbares Speicherbudget (unified/VRAM)                                       |
-| `default_model`      | Standard-Modell: der Standard der Kurzliste, auf jedem Ziel derselbe                         |
-| `models`             | Die Kurzliste (`config/modelle/kurzliste.json`), auf jedem Ziel dieselbe                     |
-| `precision`          | Zielpräzision (`nvfp4`, `fp8`, `q4_gguf`, …)                                                 |
-| `engine`             | `ollama` (Orin) oder `vllm` (Thor/x86). **Einzige Engine-Quelle der Wahrheit** (Plan 021)    |
-| `gpu_query`          | Kommando zum Auslesen des GPU-Status (`nvidia-smi` vs. `tegrastats`)                         |
-| `ld_library_path`    | CUDA-Bibliothekspfad des Ziels (Schritt 3/5 parametrisiert Compose darüber)                  |
-| `max_num_seqs`       | Parallel-Grenze der Engine (Continuous-Batching-Slots)                                       |
-| `verification`       | Nachweisstufe in Plan 020 (`live`, `emulation`, `follow-up`)                                 |
-| `notes`              | Kontext/Vorbehalte                                                                           |
+| Feld                 | Bedeutung                                                                                                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                 | Profil-/Dateiname (ohne `.json`)                                                                                                                                        |
+| `display_name`       | Menschenlesbarer Gerätename                                                                                                                                             |
+| `arch`               | `arm64` oder `amd64` (Docker-Build-Target)                                                                                                                              |
+| `compute_capability` | CUDA `sm_*`. `confirmed:false` = spekulativ, **am echten Gerät zu bestätigen** (Plan 020 §6)                                                                            |
+| `memory_budget_gb`   | Für die Engine nutzbares Speicherbudget (unified/VRAM)                                                                                                                  |
+| `default_model`      | Standard-Modell: der Standard der Kurzliste, auf jedem Ziel derselbe                                                                                                    |
+| `models`             | Die Kurzliste (`config/modelle/kurzliste.json`), auf jedem Ziel dieselbe                                                                                                |
+| `precision`          | Zielpräzision (`nvfp4`, `fp8`, `q4_gguf`, …)                                                                                                                            |
+| `engine`             | `ollama` (Orin, Spark) oder `vllm` (Thor/x86, nicht gebaut). Einzige Engine-Quelle (Plan 021)                                                                           |
+| `gpu_query`          | Kommando zum Auslesen des GPU-Status (`nvidia-smi` vs. `tegrastats`)                                                                                                    |
+| `ld_library_path`    | CUDA-Bibliothekspfad des Ziels; am Spark wird er `OLLAMA_LD_LIBRARY_PATH` in der `.env`                                                                                 |
+| `bau`                | Nur wo ein Ziel eigene Abbilder baut: `dockerfile` (Name neben dem Jetson-`Dockerfile` von `llm-service` und `embedding-service`, wird `GPU_DOCKERFILE`) und `platform` |
+| `max_num_seqs`       | Parallel-Grenze der Engine (Continuous-Batching-Slots)                                                                                                                  |
+| `verification`       | Nachweisstufe in Plan 020 (`live`, `emulation`, `follow-up`)                                                                                                            |
+| `notes`              | Kontext/Vorbehalte                                                                                                                                                      |
 
 ## Eine Modell-Liste fuer alle Ziele (Phase C8)
 
@@ -51,7 +52,15 @@ Das Feld `engine` ist die **einzige Quelle der Wahrheit** für die Inferenz-Engi
 eines Ziels. Es gilt genau:
 
 - `orin-64` → **`ollama`** (GGUF/llama.cpp-Track, Idle-Unload; einziges Live-Gerät).
-- Alle übrigen Ziele (Thor/x86) → **`vllm`** (löst die SGLang-Wahl aus Plan 020 ab).
+- `dgx-spark` → **`ollama`** seit dem 01.10.2026 (J4, Beschluss R1 vom
+  25.09.2026: Minimalpfad, vllm wird nicht gebaut). Er ist das einzige Ziel
+  neben dem Orin, das eine Installation wirklich nimmt:
+  `detect-platform.sh` schreibt aus diesem Profil die `.env`
+  (`spark_konfiguration`), und `bau.dockerfile` waehlt die Abbilder ohne
+  Jetson-Basis. `verification` bleibt `follow-up`, bis am Geraet gemessen ist.
+- Die übrigen Ziele (Thor/x86) → **`vllm`** (löst die SGLang-Wahl aus Plan 020
+  ab). Im Code gibt es seit dem 26.08.2026 keine vllm-Anbindung mehr
+  (`engineGateway.js` ist gefallen); das Feld beschreibt dort einen Plan.
 
 Der Modell-/Engine-Router liest ausschließlich dieses Feld — `models` und
 `default_model` sagen, WELCHE Modelle es gibt, nicht, womit sie geladen werden.

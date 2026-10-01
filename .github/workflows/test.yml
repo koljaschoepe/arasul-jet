@@ -210,7 +210,7 @@ jobs:
   # ----------------------------------------------------------------------------
   docker-build:
     name: Docker build · ${{ matrix.image.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.image.runner || 'ubuntu-latest' }}
     needs: changes
     if: needs.changes.outputs.docker == 'true'
     strategy:
@@ -247,6 +247,34 @@ jobs:
             # Bauen allein haette #685 NICHT gefunden: das Image baut sauber,
             # der ImportError kommt erst, wenn der Prozess startet.
             smoke: import api_server
+          # Der Spark-Zweig (J4, 01.10.2026): die zwei GPU-Dienste, die am DGX
+          # Spark ohne Jetson-Basis bauen, nativ auf einem arm64-Laeufer und
+          # fuer linux/arm64 -- dieselbe Plattform wie das Geraet. Die
+          # Startprobe misst, was ohne GPU messbar ist: liegt der CUDA-13-Runner
+          # von Ollama im Abbild, und fuer welche Architekturen ist torch
+          # uebersetzt. Ob er am GB10 rechnet, sagt erst der Spark.
+          - name: llm-service-spark
+            dockerfile: services/llm-service/Dockerfile.spark
+            context: .
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            smoke: >-
+              import os, shutil, flask, psutil, requests;
+              r = sorted(os.listdir('/usr/lib/ollama')); print('Runner:', r);
+              assert 'cuda_v13' in r, r;
+              assert shutil.which('ollama'), 'ollama fehlt'
+          - name: embedding-service-spark
+            dockerfile: services/embedding-service/Dockerfile.spark
+            context: .
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            smoke: >-
+              import torch, sentence_transformers, transformers, flask, onnxruntime;
+              from flashrank import Ranker, RerankRequest;
+              f = torch._C._cuda_getArchFlags();
+              print('torch', torch.__version__, 'CUDA', torch.version.cuda, 'Arch', f);
+              assert (torch.version.cuda or '').startswith('13'), torch.version.cuda;
+              assert any(a in f for a in ('sm_120', 'sm_121', 'compute_120', 'compute_121')), f
     steps:
       - uses: actions/checkout@v7
 
@@ -259,7 +287,7 @@ jobs:
           file: ${{ matrix.image.dockerfile }}
           target: ${{ matrix.image.target }}
           push: false
-          platforms: linux/amd64
+          platforms: ${{ matrix.image.platform || 'linux/amd64' }}
           # Nur wo eine Startprobe folgt, muss das Image auch im lokalen Daemon
           # landen. `load` kostet Zeit, deshalb nicht fuer alle.
           load: ${{ matrix.image.smoke != '' }}
@@ -275,7 +303,9 @@ jobs:
         # Ohne Netz und ohne Secrets: geprueft wird ausschliesslich, ob der
         # Prozess seine Importe aufloest. Alles, was danach kommt (Datenbank,
         # Modelldienst), gehoert nicht hierher und wuerde nur falsche Alarme erzeugen.
-        run: docker run --rm --network none "$BILD" python3 -c "$SMOKE"
+        # `--entrypoint`, weil der llm-service einen Einstieg hat, der Ollama
+        # startet; ohne waere `python3 -c` nur sein Argument.
+        run: docker run --rm --network none --entrypoint python3 "$BILD" -c "$SMOKE"
 
   # ----------------------------------------------------------------------------
   # Lockfile drift guard (Master-Plan P9-4 / AC2): the repo keeps a single
@@ -443,6 +473,16 @@ jobs:
       # Modell-Listen vorher auseinandergelaufen.
       - name: Kurzliste (Phase C8)
         run: python3 scripts/test/kurzliste.py --wurzel .
+
+      - name: Spark-Zweig (kein Spark-Abbild auf Jetson-Basis, J4)
+        run: python3 scripts/test/spark-zweig.py --wurzel .
+
+      # Die Erkennung (Orin, Thor, Spark, x86) lief bis J4 in keinem Job; ein
+      # Spark, der als Thor erkannt wird, waere erst am Geraet aufgefallen.
+      - name: Plattform-Erkennung (detect-platform.sh, bats)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats >/dev/null
+          bats scripts/test/setup/detect-platform.test.sh
 
       - name: Einheiten (Plan 023 D4)
         run: python3 scripts/test/einheiten.py --pfad .

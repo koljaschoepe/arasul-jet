@@ -532,17 +532,21 @@ These variables configure the platform for different NVIDIA Jetson devices. Use 
 
 ### GPU & Base Image
 
-| Variable             | Default                 | Description                                                                        |
-| -------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
-| TORCH_CUDA_ARCH_LIST | 8.7                     | CUDA compute capability (10.0=Thor, 8.7=Orin, 7.2=Xavier, 5.3=Nano)                |
-| L4T_PYTORCH_TAG      | r36.4.0                 | dustynv/l4t-pytorch base image tag (build arg for embedding-service)               |
-| CUDA_ARCH_LIST       | (=TORCH_CUDA_ARCH_LIST) | Docker build arg alias, passed to embedding-service Dockerfile                     |
-| JETSON_PROFILE       | (auto)                  | Device profile name set by detect-platform.sh (e.g. `thor_128gb`, `agx_orin_64gb`) |
-| JETSON_DESCRIPTION   | (auto)                  | Human-readable device description (e.g. "NVIDIA Jetson Thor 128GB")                |
-| JETSON_RAM_TOTAL     | (auto)                  | Detected total RAM in GB (read-only, set by detect-platform.sh)                    |
-| JETSON_CPU_CORES     | (auto)                  | Detected CPU core count (read-only, set by detect-platform.sh)                     |
+| Variable               | Default                             | Description                                                                                                                                                                |
+| ---------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TORCH_CUDA_ARCH_LIST   | 8.7                                 | CUDA compute capability (10.0=Thor, 8.7=Orin, 7.2=Xavier, 5.3=Nano)                                                                                                        |
+| L4T_PYTORCH_TAG        | r36.4.0                             | dustynv/l4t-pytorch base image tag (build arg for embedding-service)                                                                                                       |
+| CUDA_ARCH_LIST         | (=TORCH_CUDA_ARCH_LIST)             | Docker build arg alias, passed to embedding-service Dockerfile                                                                                                             |
+| JETSON_PROFILE         | (auto)                              | Device profile name set by detect-platform.sh (e.g. `thor_128gb`, `agx_orin_64gb`)                                                                                         |
+| JETSON_DESCRIPTION     | (auto)                              | Human-readable device description (e.g. "NVIDIA Jetson Thor 128GB")                                                                                                        |
+| JETSON_RAM_TOTAL       | (auto)                              | Detected total RAM in GB (read-only, set by detect-platform.sh)                                                                                                            |
+| JETSON_CPU_CORES       | (auto)                              | Detected CPU core count (read-only, set by detect-platform.sh)                                                                                                             |
+| GPU_DOCKERFILE         | Dockerfile                          | Dockerfile of `llm-service` and `embedding-service`. `Dockerfile.spark` on a DGX Spark (from `bau.dockerfile` in `config/platforms/dgx-spark.json`); unset = JetPack build |
+| OLLAMA_LD_LIBRARY_PATH | (JetPack path with `cuda_jetpack6`) | `LD_LIBRARY_PATH` of `llm-service`. On a DGX Spark the official image default `/usr/local/nvidia/lib:/usr/local/nvidia/lib64` (`ld_library_path` of the profile)           |
 
 `TORCH_CUDA_ARCH_LIST` is used at both build time (as `CUDA_ARCH_LIST` build arg in `compose/compose.ai.yaml`) and runtime (passed to PyTorch inside the embedding-service container). The detection script sets this automatically based on device family. For Thor, the value `10.0` is speculative (Blackwell sm_100) and may need adjustment.
+
+**DGX Spark (J4, 01.10.2026):** `detect-platform.sh` writes the Spark values from `config/platforms/dgx-spark.json` (`spark_konfiguration`): `GPU_DOCKERFILE=Dockerfile.spark`, `OLLAMA_LD_LIBRARY_PATH`, `TORCH_CUDA_ARCH_LIST=12.1`, `NV_TEGRA_RELEASE=/dev/null` and `RAM_LIMIT_LLM` from `memory_budget_gb`. Without these entries every device builds and starts as before (JetPack). `L4T_PYTORCH_TAG` is not used by `Dockerfile.spark`.
 
 `L4T_PYTORCH_TAG` selects the dustynv/l4t-pytorch base image for the embedding-service Docker build. It must match the host L4T major.minor version. For Thor, the tag currently falls back to `r36.4.0` because dustynv has not yet published an L4T r37 image. The detection script verifies tag availability via `docker manifest inspect` and falls back automatically.
 

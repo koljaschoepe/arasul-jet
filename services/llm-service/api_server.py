@@ -731,6 +731,45 @@ def get_loaded_models():
         }), 200
 
 
+def _zahl_oder_none(wert):
+    """`81920` -> 81920, `[N/A]` oder leer -> None."""
+    wert = (wert or '').strip()
+    return int(wert) if wert.isdigit() else None
+
+
+@app.route('/api/gpu', methods=['GET'])
+def gpu():
+    """Die Rohwerte von nvidia-smi fuer das Backend (J4, 01.10.2026).
+
+    Das Backend laeuft ohne GPU-Laufzeit und hat kein nvidia-smi; dieser Dienst
+    hat beides. Am DGX Spark liest `utils/hardware.js` die GPU hier ab, statt
+    wie am Jetson aus dem Arbeitsspeicher zu schliessen. Speicherwerte, die
+    nvidia-smi nicht nennt (`[N/A]`, am Jetson und bei geteiltem Speicher),
+    kommen als null zurueck -- was dann gilt, entscheidet der Aufrufer.
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total,memory.free,driver_version",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=2, check=True
+        )
+    except Exception as e:
+        logger.warning(f"nvidia-smi fuer /api/gpu nicht lesbar: {e}")
+        return jsonify({"available": False}), 200
+
+    teile = [t.strip() for t in result.stdout.strip().splitlines()[0].split(',')] \
+        if result.stdout.strip() else []
+    if len(teile) < 4:
+        return jsonify({"available": False}), 200
+    return jsonify({
+        "available": True,
+        "name": teile[0],
+        "memory_total_mb": _zahl_oder_none(teile[1]),
+        "memory_free_mb": _zahl_oder_none(teile[2]),
+        "driver_version": teile[3],
+    }), 200
+
+
 @app.route('/api/info', methods=['GET'])
 def info():
     """Return service information"""

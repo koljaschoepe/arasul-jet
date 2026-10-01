@@ -1,0 +1,73 @@
+# Embedding Service, Spark-Zweig (NVIDIA DGX Spark, DGX OS)
+#
+# Daneben liegt `Dockerfile` fuer Jetson: es baut auf `dustynv/l4t-pytorch`,
+# und das gibt es nur fuer L4T. Gewaehlt wird ueber `GPU_DOCKERFILE` in der
+# .env (`scripts/setup/detect-platform.sh`, aus config/platforms/dgx-spark.json).
+#
+# Der Dienst wird am Spark gebaut und nicht abgeschaltet: die
+# OpenAI-kompatible Schnittstelle `/v1/embeddings` braucht ihn.
+#
+# PyTorch kommt als Rad fuer CUDA 13 und aarch64 (manylinux_2_28, sbsa) von
+# download.pytorch.org -- dort am 01.10.2026 nachgesehen: `torch-2.9.1+cu130`
+# gibt es fuer cp310 bis cp314 auf aarch64. Die CUDA-Bibliotheken kommen als
+# `nvidia-*`-Pakete mit, vom Host braucht es nur den Treiber (NVIDIA Container
+# Toolkit). Fuer welche Architekturen das Rad uebersetzt ist, druckt die
+# Startprobe der CI (`torch._C._cuda_getArchFlags()`); ob es auf sm_121
+# rechnet, sagt erst der Spark.
+ARG PYTHON_VERSION=3.11.12
+FROM python:${PYTHON_VERSION}-slim
+
+LABEL maintainer="Arasul Platform"
+LABEL description="Embedding Service - Text vectorization with GPU support (DGX Spark)"
+LABEL org.opencontainers.image.architecture="arm64"
+
+ARG TORCH_VERSION=2.9.1
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu130
+# Nur fuer Erweiterungen, die zur Laufzeit uebersetzen; GB10 ist 12.1.
+ARG CUDA_ARCH_LIST=12.1
+ENV TORCH_CUDA_ARCH_LIST=${CUDA_ARCH_LIST}
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY services/embedding-service/requirements.txt ./
+
+# Erst torch aus dem CUDA-Index, dann dieselben Pakete in denselben Fassungen
+# wie im Jetson-Bau -- ein Spark soll dieselben Vektoren liefern wie ein Orin.
+# sentence-transformers ohne Abhaengigkeiten, damit pip torch nicht gegen ein
+# CPU-Rad von PyPI tauscht (dieselbe Falle wie im Jetson-Bau).
+#
+# flashrank ebenfalls ohne Abhaengigkeiten: es verlangt llama-cpp-python, ein
+# Quellpaket, das hier ohne Compiler nicht baut (im L4T-Abbild liegt einer).
+# Gebraucht wird es nur fuer die listwise-Ranker (`from llama_cpp` steht in
+# `Ranker.__init__` nur in diesem Zweig); der Dienst nimmt
+# ms-marco-MiniLM-L-12-v2 ueber onnxruntime. Die uebrigen Abhaengigkeiten von
+# flashrank 0.2.5 stehen deshalb ausdruecklich in der Liste.
+RUN pip3 install --no-cache-dir --index-url ${TORCH_INDEX} torch==${TORCH_VERSION} && \
+    pip3 install --no-cache-dir --index-url https://pypi.org/simple --no-deps \
+    sentence-transformers==3.0.1 flashrank==0.2.5 && \
+    pip3 install --no-cache-dir --index-url https://pypi.org/simple \
+    flask==3.0.0 numpy==1.26.3 transformers==4.44.2 einops==0.7.0 "protobuf>=3.20" \
+    tqdm scikit-learn scipy nltk sentencepiece huggingface-hub Pillow safetensors \
+    tokenizers onnxruntime requests gunicorn==22.0.0
+
+COPY libs/shared-python/structured_logging.py ./
+COPY services/embedding-service/ .
+
+RUN mkdir -p /models && \
+    groupadd -r appuser && useradd -r -g appuser -d /app appuser && \
+    chown -R appuser:appuser /app /models
+
+USER appuser
+
+EXPOSE 11435
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:11435/health || exit 1
+
+# Wie im Jetson-Bau: ein Worker mit Threads, CUDA verträgt kein fork.
+CMD ["gunicorn", "--bind", "0.0.0.0:11435", "--workers", "1", "--threads", "4", "--timeout", "300", "wsgi:app"]

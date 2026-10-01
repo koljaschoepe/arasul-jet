@@ -254,8 +254,10 @@ def deploy_pruefen(wurzel):
 
     fehler = []
     geprueft = 0
-    for pfad in sorted(wurzel.glob("apps/*/Dockerfile")) + sorted(
-        wurzel.glob("services/*/Dockerfile")
+    # `Dockerfile*`: der Spark-Zweig (J4) baut denselben Dienst aus
+    # `Dockerfile.spark`, und dessen Kopierquellen braucht der Deploy genauso.
+    for pfad in sorted(wurzel.glob("apps/*/Dockerfile*")) + sorted(
+        wurzel.glob("services/*/Dockerfile*")
     ):
         name = str(pfad.relative_to(wurzel))
         dienst = dienst_aus_dockerfile(name)

@@ -25,14 +25,14 @@ target is built and reasoned about; real-hardware validation (incl. the
 DGX-Spark sales proof) is the tracked follow-up plan. Speculative `sm_` values
 carry `confirmed:false` in the catalog and are **not** hardwired in code.
 
-| Catalog profile  | Target                        | Nachweis in Plan 020                                        |
-| ---------------- | ----------------------------- | ----------------------------------------------------------- |
-| `orin-64`        | Jetson AGX Orin (sm_87)       | **live grün auf echter Hardware**                           |
-| `thor-128`       | Jetson Thor 128GB             | Build + Profil + Emulation, echt später                     |
-| `dgx-spark`      | DGX Spark                     | Build + Profil + Emulation; **Echt = Folge-Plan (Verkauf)** |
-| `rtx-pro-6000`   | Workstation RTX PRO 6000      | Build (amd64/QEMU) + Profil, echt später                    |
-| `server-generic` | Generischer x86 NVIDIA-Server | Profil, ein Referenzlauf später                             |
-| `dgx-station`    | DGX Station                   | Profil vorbereitet, ungetestet                              |
+| Catalog profile  | Target                        | Nachweis in Plan 020                                                      |
+| ---------------- | ----------------------------- | ------------------------------------------------------------------------- |
+| `orin-64`        | Jetson AGX Orin (sm_87)       | **live grün auf echter Hardware**                                         |
+| `thor-128`       | Jetson Thor 128GB             | Build + Profil + Emulation, echt später                                   |
+| `dgx-spark`      | DGX Spark                     | Abbilder bauen nativ arm64 in der CI (J4); **Echt = Einrichtung Dresden** |
+| `rtx-pro-6000`   | Workstation RTX PRO 6000      | Build (amd64/QEMU) + Profil, echt später                                  |
+| `server-generic` | Generischer x86 NVIDIA-Server | Profil, ein Referenzlauf später                                           |
+| `dgx-station`    | DGX Station                   | Profil vorbereitet, ungetestet                                            |
 
 > **Engine-Hinweis (Plan 021):** Die Engine folgt der Hardware und steht im
 > Katalog-Feld `engine` (einzige Quelle der Wahrheit). Der Orin fährt
@@ -42,6 +42,46 @@ carry `confirmed:false` in the catalog and are **not** hardwired in code.
 > der Betrieb dieser Ziele nicht zugesichert, nur vorbereitet. Die
 > Dev-Verifikation des vLLM-Pfads auf dem Orin-vLLM ist Plan-021-Schritt 7 und
 > noch offen.
+
+## DGX Spark: Minimalpfad ohne Geraet (J4, 01.10.2026)
+
+Nach Beschluss R1 (25.09.2026) faehrt der Spark **Ollama**, nicht vllm, mit
+derselben Kurzliste wie der Orin. Was ohne Geraet gebaut und gemessen ist:
+
+- **Erkennung:** `detect-platform.sh` erkennt einen Spark an arm64 ohne
+  Tegra-Marker (`/etc/nv_tegra_release`, `tegra-pmc`) und dem GPU-Namen aus
+  nvidia-smi (`GB10`/`Spark`), noch vor dem Device-Tree; Profil `dgx_spark`,
+  Katalog `dgx-spark`, CUDA-Arch 12.1. Die `.env` kommt aus
+  `config/platforms/dgx-spark.json` (`spark_konfiguration`). BATS-Tests in der
+  CI spielen Spark, Orin und x86 auf demselben Laeufer.
+- **Abbilder:** `GPU_DOCKERFILE=Dockerfile.spark` waehlt fuer `llm-service`
+  das offizielle `ollama/ollama` (Ubuntu 24.04, Runner `cuda_v13`) und fuer
+  `embedding-service` `python:3.11-slim` mit `torch` fuer CUDA 13 (cu130,
+  aarch64). Beide bauen in der CI nativ fuer `linux/arm64`; die Startprobe
+  prueft den Runner `cuda_v13` und die Architekturen von torch. Kein
+  `cuda_jetpack6` im `LD_LIBRARY_PATH`. Die uebrigen Abbilder haben keine
+  Jetson-Basis (`scripts/test/spark-zweig.py`).
+- **Backend:** `utils/hardware.js` haelt Spark und Thor auseinander (beide 20
+  Kerne und 128 GB): `JETSON_PROFILE=dgx_spark` oder Cortex-X925/A725 in
+  `/proc/cpuinfo`. Die GPU liest es ueber nvidia-smi, im Container sonst beim
+  `llm-service` (`GET :11436/api/gpu`).
+
+**Erst am echten Spark messbar** (offen, nicht gruen):
+
+1. Ob Ollama den Runner `cuda_v13` waehlt und auf der GPU rechnet (`ollama ps`
+   zeigt `100% GPU`, Log nennt CUDA und `compute=12.1`), und wie lange der
+   PTX-JIT fuer sm_121 beim ersten Laden dauert (Pre-Warming).
+2. Ob torch cu130 auf GB10 rechnet (`torch.cuda.is_available()`, eine
+   Einbettung auf `cuda`), und ob die Vektoren denen des Orin entsprechen.
+3. Ob nvidia-smi am GB10 Speicher nennt oder `[N/A]` (beides ist behandelt),
+   und was `CPU part` in `/proc/cpuinfo` wirklich zeigt.
+4. Ob `runtime: nvidia` unter DGX OS ohne Handgriff registriert ist und der
+   Einhaenger `/usr/local/cuda/lib64` dort nicht stoert.
+5. Speicherbudget (96 GB fuer das Modell), Kontext, `OLLAMA_NUM_PARALLEL=4`,
+   Durchsatz, und ob die Selbstheilung dort sinnvoll drosselt (`nvpmodel` und
+   `jetson_clocks` gibt es nicht; sie faellt still aus).
+6. Die ganze Installation von `install.sh` bis Rauchtest, Lizenz-Fingerabdruck
+   (machine-id) und Werksreset am Geraet.
 
 ## Supported Jetson devices
 

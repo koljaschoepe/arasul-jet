@@ -16,7 +16,10 @@ services:
   llm-service:
     build:
       context: ..
-      dockerfile: services/llm-service/Dockerfile
+      # `Dockerfile` ist der JetPack-6-Bau (Orin), `Dockerfile.spark` der fuer
+      # DGX OS. Die Wahl schreibt detect-platform.sh aus config/platforms in
+      # die .env; ohne Eintrag bleibt es beim Jetson (J4, 01.10.2026).
+      dockerfile: services/llm-service/${GPU_DOCKERFILE:-Dockerfile}
     container_name: ${CONTAINER_PREFIX:-}llm-service
     hostname: llm-service
     restart: always
@@ -72,8 +75,11 @@ services:
       OLLAMA_NUM_PARALLEL: '${OLLAMA_NUM_PARALLEL:-2}'
       OLLAMA_MAX_LOADED_MODELS: '${OLLAMA_MAX_LOADED_MODELS:-3}'
       OLLAMA_NUM_GPU: '99'
-      # CUDA/Tegra library paths for JetPack 6 GPU acceleration
-      LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu:/usr/lib/ollama/cuda_jetpack6
+      # CUDA/Tegra library paths for JetPack 6 GPU acceleration. Der Pfad auf
+      # `cuda_jetpack6` gilt nur fuer den Jetson-Bau: am Spark steht in der
+      # .env `OLLAMA_LD_LIBRARY_PATH` aus config/platforms/dgx-spark.json, die
+      # Vorgabe des offiziellen Abbilds, und Ollama sucht seine Runner selbst.
+      LD_LIBRARY_PATH: ${OLLAMA_LD_LIBRARY_PATH:-/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu:/usr/lib/ollama/cuda_jetpack6}
     volumes:
       - arasul-llm-models:/home/ollama/.ollama
       - ../services/llm-service/healthcheck.sh:/healthcheck.sh:ro
@@ -122,7 +128,9 @@ services:
     # sagte die Datei etwas anderes.
     build:
       context: ..
-      dockerfile: services/embedding-service/Dockerfile
+      # Wie beim llm-service: `Dockerfile.spark` baut ohne L4T-Abbild auf
+      # PyTorch fuer CUDA 13; `L4T_PYTORCH_TAG` nimmt es nicht an.
+      dockerfile: services/embedding-service/${GPU_DOCKERFILE:-Dockerfile}
       args:
         L4T_PYTORCH_TAG: ${L4T_PYTORCH_TAG:-r36.4.0}
         CUDA_ARCH_LIST: ${TORCH_CUDA_ARCH_LIST:-8.7}

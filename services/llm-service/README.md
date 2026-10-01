@@ -49,17 +49,18 @@ Flexible LLM service based on Ollama with Dashboard-managed model downloads, opt
 
 ### Management API (Port 11436)
 
-| Endpoint             | Method | Description                          |
-| -------------------- | ------ | ------------------------------------ |
-| `/health`            | GET    | 4-point health check                 |
-| `/api/models`        | GET    | List downloaded models with metadata |
-| `/api/models/loaded` | GET    | Currently loaded model in VRAM       |
-| `/api/models/pull`   | POST   | Download model (with retry)          |
-| `/api/models/delete` | DELETE | Delete cached model                  |
-| `/api/cache/clear`   | POST   | Unload all models (GPU recovery)     |
-| `/api/session/reset` | POST   | Unload then reload default model     |
-| `/api/stats`         | GET    | GPU/CPU/Memory metrics               |
-| `/api/info`          | GET    | Service metadata                     |
+| Endpoint             | Method | Description                                                                                          |
+| -------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| `/health`            | GET    | 4-point health check                                                                                 |
+| `/api/models`        | GET    | List downloaded models with metadata                                                                 |
+| `/api/models/loaded` | GET    | Currently loaded model in VRAM                                                                       |
+| `/api/models/pull`   | POST   | Download model (with retry)                                                                          |
+| `/api/models/delete` | DELETE | Delete cached model                                                                                  |
+| `/api/cache/clear`   | POST   | Unload all models (GPU recovery)                                                                     |
+| `/api/session/reset` | POST   | Unload then reload default model                                                                     |
+| `/api/stats`         | GET    | GPU/CPU/Memory metrics                                                                               |
+| `/api/gpu`           | GET    | Raw nvidia-smi values (name, memory, driver; `null` for `[N/A]`), read by the backend on a DGX Spark |
+| `/api/info`          | GET    | Service metadata                                                                                     |
 
 ### Ollama API (Port 11434)
 
@@ -352,3 +353,12 @@ nvidia-smi --query-gpu=memory.used,memory.free --format=csv
 - [Self-Healing Agent](../self-healing-agent/README.md)
 - [Models API](../../docs/api/API_REFERENCE.md#models)
 - [Ollama Docs](https://github.com/ollama/ollama)
+
+## Two builds: Jetson and DGX Spark
+
+`Dockerfile` is the JetPack 6 build (Orin): Ollama copied into Ubuntu 22.04,
+`LD_LIBRARY_PATH` on `cuda_jetpack6`. `Dockerfile.spark` (J4, 01.10.2026) is
+the build for a DGX Spark under DGX OS: the official `ollama/ollama` image
+itself (Ubuntu 24.04, ships the `cuda_v13` runner with `121-virtual`), plus the
+Management API in a venv. Compose picks it via `GPU_DOCKERFILE`, which
+`scripts/setup/detect-platform.sh` writes from `config/platforms/dgx-spark.json`.

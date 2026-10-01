@@ -455,3 +455,111 @@ teardown() {
     result=$(show_platform_profile --json)
     echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['id']=='orin-64'"
 }
+
+# =============================================================================
+# DGX Spark (J4, 01.10.2026): arm64 ohne Tegra-Marker, nvidia-smi nennt GB10
+# =============================================================================
+
+# Spielt einen Rechner: Architektur, Tegra-Marker ja/nein, GPU-Name von nvidia-smi.
+spiel_geraet() {
+    local arch="$1" tegra="$2" gpu="$3"
+    eval "uname() { echo '$arch'; }"
+    TEGRA_PMC_ORDNER="$MOCK_DIR/kein-tegra-pmc"
+    if [ "$tegra" = "ja" ]; then
+        TEGRA_RELEASE_DATEI="$MOCK_DIR/nv_tegra_release"
+        echo "# R36 (release), REVISION: 4.7" > "$TEGRA_RELEASE_DATEI"
+    else
+        TEGRA_RELEASE_DATEI="$MOCK_DIR/kein_nv_tegra_release"
+    fi
+    mkdir -p "$MOCK_DIR/bin"
+    cat > "$MOCK_DIR/bin/nvidia-smi" <<SMI
+#!/bin/bash
+case "\$*" in
+    *name,memory.total*) echo "$gpu, 122880, 110000, 580.95.05" ;;
+    *) echo "$gpu" ;;
+esac
+SMI
+    chmod +x "$MOCK_DIR/bin/nvidia-smi"
+    PATH="$MOCK_DIR/bin:$PATH"
+}
+
+@test "Spark: arm64 ohne Tegra mit GB10 ist ein DGX Spark" {
+    spiel_geraet aarch64 nein "NVIDIA GB10"
+    ist_dgx_spark
+    [[ "$(detect_jetson_model)" == "arm64 NVIDIA DGX Spark" ]]
+    [[ "$(get_device_profile)" == "dgx_spark" ]]
+    [[ "$(get_platform_profile_id)" == "dgx-spark" ]]
+    [[ "$(detect_platform)" == "arm64" ]]
+    [[ "$(detect_cuda_arch)" == "12.1" ]]
+}
+
+@test "Spark: mit Tegra-Marker ist es nie ein Spark (der Orin bleibt Orin)" {
+    spiel_geraet aarch64 ja "NVIDIA GB10"
+    ! ist_dgx_spark
+    [[ "$(detect_platform)" == "jetson" ]]
+}
+
+@test "Spark: x86_64 mit GB10-Namen ist kein Spark" {
+    spiel_geraet x86_64 nein "NVIDIA GB10"
+    ! ist_dgx_spark
+}
+
+@test "Spark: arm64 ohne Tegra mit anderer GPU ist kein Spark" {
+    spiel_geraet aarch64 nein "NVIDIA H100"
+    ! ist_dgx_spark
+}
+
+@test "Spark: L4T-Tag wird nicht im Netz gefragt" {
+    spiel_geraet aarch64 nein "NVIDIA GB10"
+    verify_l4t_tag() { echo "gefragt" >&2; return 1; }
+    result=$(detect_l4t_pytorch_tag 2>&1)
+    [[ "$result" == "r36.4.0" ]]
+}
+
+@test "Spark: die Konfiguration kommt aus config/platforms/dgx-spark.json" {
+    result=$(get_config_for_profile dgx_spark)
+    profil="$PROJECT_ROOT/config/platforms/dgx-spark.json"
+    budget=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['memory_budget_gb'])" "$profil")
+    modell=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['default_model'])" "$profil")
+    echo "$result" | grep -qx "JETSON_PROFILE=dgx_spark"
+    echo "$result" | grep -qx "RAM_LIMIT_LLM=${budget}G"
+    echo "$result" | grep -qx "LLM_MODEL=${modell}"
+    echo "$result" | grep -qx "GPU_DOCKERFILE=Dockerfile.spark"
+    echo "$result" | grep -qx "NV_TEGRA_RELEASE=/dev/null"
+    echo "$result" | grep -q "^RECOMMENDED_MODELS=\"qwen3.8:27b-q4_K_M,"
+}
+
+@test "Spark: kein cuda_jetpack6 im Bibliothekspfad, und beide Dockerfiles gibt es" {
+    result=$(get_config_for_profile dgx_spark)
+    pfad=$(echo "$result" | sed -n 's/^OLLAMA_LD_LIBRARY_PATH=//p')
+    [ -n "$pfad" ]
+    [[ "$pfad" != *jetpack* ]]
+    datei=$(echo "$result" | sed -n 's/^GPU_DOCKERFILE=//p')
+    [ -f "$PROJECT_ROOT/services/llm-service/$datei" ]
+    [ -f "$PROJECT_ROOT/services/embedding-service/$datei" ]
+}
+
+@test "Spark: kein Jetson-Profil setzt GPU_DOCKERFILE (der Orin baut wie bisher)" {
+    for profile in thor_128gb agx_orin_64gb agx_orin_32gb orin_nx_16gb generic; do
+        result=$(get_config_for_profile "$profile")
+        if echo "$result" | grep -q "^GPU_DOCKERFILE=\|^OLLAMA_LD_LIBRARY_PATH="; then
+            echo "Profil $profile setzt den Spark-Zweig"
+            return 1
+        fi
+    done
+}
+
+@test "RAM budget: dgx_spark total allocation < 90% of 128GB" {
+    result=$(get_config_for_profile "dgx_spark")
+    total_mb=0
+    while IFS='=' read -r key value; do
+        [[ "$key" != RAM_LIMIT_* ]] && continue
+        case "$value" in
+            *G) mb=$(echo "${value%G}" | awk '{print int($1 * 1024)}') ;;
+            *M) mb="${value%M}" ;;
+            *) continue ;;
+        esac
+        total_mb=$((total_mb + mb))
+    done <<< "$(echo "$result" | grep "^RAM_LIMIT_")"
+    [ "$total_mb" -lt $((128 * 1024 * 90 / 100)) ]
+}

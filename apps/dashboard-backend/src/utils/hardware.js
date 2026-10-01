@@ -17,6 +17,31 @@ let gpuInfoExpiresAt = 0;
 const GPU_CACHE_TTL = 30_000; // 30s - GPU memory changes as models load/unload
 
 /**
+ * Ist das ein NVIDIA DGX Spark (GB10, DGX OS)? (J4, 01.10.2026)
+ *
+ * Ein Spark hat 20 Kerne und 128 GB, also genau die Zahlen, an denen der
+ * Rueckfall unten einen Thor erkennt -- ohne diese Frage hielt das Backend
+ * ihn dafuer, rechnete die GPU aus dem Arbeitsspeicher und nannte sie
+ * "NVIDIA Thor 128GB". Zwei Belege, jeder fuer sich genuegt:
+ *   - `JETSON_PROFILE=dgx_spark`, geschrieben von detect-platform.sh;
+ *   - die Kerne: GB10 traegt Cortex-X925 und Cortex-A725 (CPU part 0xd85
+ *     und 0xd87), kein Jetson tut das (Orin: A78AE 0xd42, Thor: Neoverse
+ *     V3AE 0xd83). /proc/cpuinfo zeigt auch im Container die Kerne des Hosts.
+ * Ein Geraet mit Tegra-Marker ist nie ein Spark; das fragt der Aufrufer vorher.
+ */
+async function istDgxSpark() {
+  if (process.env.JETSON_PROFILE === 'dgx_spark') {
+    return true;
+  }
+  if (os.arch() !== 'arm64') {
+    return false;
+  }
+  // fire-and-forget: ohne lesbare cpuinfo ist es kein Beleg
+  const cpuinfo = await fs.readFile('/proc/cpuinfo', 'utf8').catch(() => '');
+  return /^CPU part\s*:\s*0xd8[57]\b/im.test(cpuinfo);
+}
+
+/**
  * Detect Jetson device type from device-tree
  * @returns {Promise<{type: string, name: string, cpuCores: number, totalMemoryGB: number}>}
  */
@@ -35,10 +60,13 @@ async function detectDevice() {
     // fire-and-forget: files may not exist on non-Jetson devices; empty string = not found
     const modelInfo = await fs.readFile('/proc/device-tree/model', 'utf8').catch(() => '');
     const tegrastats = await fs.readFile('/etc/nv_tegra_release', 'utf8').catch(() => '');
-    const isJetson =
-      tegrastats.includes('TEGRA') || modelInfo.includes('Jetson') || modelInfo.includes('NVIDIA');
+    const tegra = tegrastats.includes('TEGRA');
+    const isJetson = tegra || modelInfo.includes('Jetson') || modelInfo.includes('NVIDIA');
 
-    if (isJetson) {
+    if (!tegra && (await istDgxSpark())) {
+      deviceType = 'dgx_spark';
+      deviceName = 'NVIDIA DGX Spark';
+    } else if (isJetson) {
       if (totalMemoryGB >= 120) {
         deviceType = 'thor_128gb';
         deviceName = 'NVIDIA Thor 128GB';
@@ -87,10 +115,20 @@ async function getGpuInfo() {
   }
 
   try {
+    const device = await detectDevice();
+
+    // DGX Spark: die GPU nennt nvidia-smi (J4). Danach kein Jetson-Zweig,
+    // auch wenn es nichts zu lesen gab -- sonst stuende dort wieder der
+    // Arbeitsspeicher als GPU eines Thor.
+    if (device.type === 'dgx_spark') {
+      cachedGpuInfo = await sparkGpuInfo(device);
+      gpuInfoExpiresAt = Date.now() + GPU_CACHE_TTL;
+      return cachedGpuInfo;
+    }
+
     // Jetson detection: try tegra file first, then fall back to device profile.
     // Containers often don't mount /etc/nv_tegra_release; detectDevice() uses RAM/CPU heuristics.
     const tegraFile = await fs.readFile('/etc/nv_tegra_release', 'utf8').catch(() => null);
-    const device = await detectDevice();
     const isJetson =
       !!tegraFile || device.type.startsWith('jetson_') || device.type === 'thor_128gb';
 
@@ -155,6 +193,78 @@ async function getGpuInfo() {
   cachedGpuInfo = { available: false };
   gpuInfoExpiresAt = Date.now() + GPU_CACHE_TTL;
   return cachedGpuInfo;
+}
+
+// `81920` -> 81920, `[N/A]` oder leer -> null
+function zahl(wert) {
+  const n = parseInt(String(wert ?? '').trim(), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * nvidia-smi am DGX Spark lesen: im eigenen Container, wenn es dort eines gibt,
+ * sonst beim llm-service (`GET /api/gpu`), der mit der GPU-Laufzeit laeuft.
+ * Nennt nvidia-smi keinen Speicher (`[N/A]`, bei geteiltem Speicher moeglich),
+ * gilt der Arbeitsspeicher -- GB10 hat ohnehin nur einen.
+ */
+async function nvidiaSmiLesen() {
+  try {
+    const { stdout } = await execFileAsync(
+      'nvidia-smi',
+      ['--query-gpu=name,memory.total,memory.free,driver_version', '--format=csv,noheader,nounits'],
+      { timeout: 2000 }
+    );
+    const teile = stdout
+      .trim()
+      .split('\n')[0]
+      .split(',')
+      .map(t => t.trim());
+    if (teile.length >= 4 && teile[0]) {
+      return {
+        name: teile[0],
+        totalMB: zahl(teile[1]),
+        freeMB: zahl(teile[2]),
+        driverVersion: teile[3],
+      };
+    }
+  } catch {
+    // kein nvidia-smi in diesem Container -- dann fragt der llm-service
+  }
+  try {
+    const services = require('../config/services');
+    const antwort = await fetch(`${services.llm.managementUrl}/api/gpu`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    const daten = await antwort.json();
+    if (daten && daten.available && daten.name) {
+      return {
+        name: daten.name,
+        totalMB: zahl(daten.memory_total_mb),
+        freeMB: zahl(daten.memory_free_mb),
+        driverVersion: daten.driver_version,
+      };
+    }
+  } catch {
+    // llm-service nicht erreichbar
+  }
+  return null;
+}
+
+async function sparkGpuInfo(device) {
+  const gelesen = await nvidiaSmiLesen();
+  if (!gelesen) {
+    return { available: false };
+  }
+  const mitSpeicher = gelesen.totalMB !== null && gelesen.freeMB !== null;
+  return {
+    available: true,
+    name: gelesen.name || device.name,
+    driverVersion: gelesen.driverVersion,
+    memoryTotalMB: mitSpeicher ? gelesen.totalMB : Math.round(os.totalmem() / (1024 * 1024)),
+    memoryFreeMB: mitSpeicher ? gelesen.freeMB : Math.round(os.freemem() / (1024 * 1024)),
+    memorySource: mitSpeicher ? 'nvidia-smi' : 'arbeitsspeicher',
+    unified: true,
+  };
 }
 
 /**
@@ -230,6 +340,7 @@ async function getRecommendedModel() {
   const PROFILE_MODELS = {
     thor_128gb: GROSS,
     thor_64gb: GROSS,
+    dgx_spark: GROSS,
     agx_orin_64gb: GROSS,
     // Ab hier reicht der Speicher fuer die 24 GB des Standardmodells nicht.
     agx_orin_32gb: KLEIN,
@@ -252,6 +363,7 @@ async function getRecommendedModel() {
     // Map hardware.js device types to profile names
     const DEVICE_TYPE_MAP = {
       thor_128gb: 'thor_128gb',
+      dgx_spark: 'dgx_spark',
       jetson_agx_orin_64gb: 'agx_orin_64gb',
       jetson_agx_orin_32gb: 'agx_orin_32gb',
       jetson_orin_nx: 'orin_nx_16gb',
@@ -362,6 +474,7 @@ async function gegenKatalogPruefen(empfehlung) {
 
 module.exports = {
   detectDevice,
+  istDgxSpark,
   getGpuInfo,
   getLlmRamGB,
   getRecommendedModel,

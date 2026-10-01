@@ -31,6 +31,30 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Die zwei Tegra-Marker. Ueberschreibbar nur, damit der Test einen Spark und
+# einen Orin auf demselben Rechner spielen kann; am Geraet gilt die Vorgabe.
+TEGRA_RELEASE_DATEI="${TEGRA_RELEASE_DATEI:-/etc/nv_tegra_release}"
+TEGRA_PMC_ORDNER="${TEGRA_PMC_ORDNER:-/sys/devices/platform/tegra-pmc}"
+
+# Ein DGX Spark (GB10, DGX OS) ist arm64 OHNE Tegra-Marker, und nvidia-smi
+# nennt die GPU beim Namen. Gefragt wird das VOR dem Device-Tree: ein
+# arm64-Server darf eine /proc/device-tree/model tragen, und die Stufen
+# darunter hielten ihn dann fuer einen Jetson (20 Kerne und 128 GB sind auch
+# die Zahlen eines Thor). Ein Orin hat /etc/nv_tegra_release und kommt hier
+# nie bis zum nvidia-smi.
+ist_dgx_spark() {
+    case "$(uname -m)" in
+        aarch64|arm64) ;;
+        *) return 1 ;;
+    esac
+    [ -f "$TEGRA_RELEASE_DATEI" ] && return 1
+    [ -d "$TEGRA_PMC_ORDNER" ] && return 1
+    command -v nvidia-smi &>/dev/null || return 1
+    local gpu_name
+    gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
+    grep -qi "spark\|gb10" <<<"$gpu_name"
+}
+
 # =============================================================================
 # Device Detection Functions
 # =============================================================================
@@ -39,6 +63,12 @@ detect_jetson_model() {
     local model_file="/proc/device-tree/model"
     local compatible_file="/proc/device-tree/compatible"
     local tegra_file="/sys/module/tegra_fuse/parameters/tegra_chip_id"
+
+    # Stufe 0: DGX Spark (siehe ist_dgx_spark)
+    if ist_dgx_spark; then
+        echo "arm64 NVIDIA DGX Spark"
+        return
+    fi
 
     # Stufe 1: Device-Tree Model (zuverlaessigste Quelle)
     if [ -f "$model_file" ]; then
@@ -99,7 +129,7 @@ detect_jetson_model() {
         return
     fi
 
-    if [ -f /etc/nv_tegra_release ] || [ -d /sys/devices/platform/tegra-pmc ]; then
+    if [ -f "$TEGRA_RELEASE_DATEI" ] || [ -d "$TEGRA_PMC_ORDNER" ]; then
         local ram=$(detect_ram_total)
         if [ "$ram" -ge 120 ]; then
             echo "NVIDIA Jetson Thor (RAM-basiert: ${ram}GB)"
@@ -157,8 +187,11 @@ detect_platform() {
     arch=$(uname -m)
     case "$arch" in
         aarch64|arm64)
-            if [ -f /etc/nv_tegra_release ] || [ -d /sys/devices/platform/tegra-pmc ] \
-               || [ -f /proc/device-tree/model ]; then
+            if [ -f "$TEGRA_RELEASE_DATEI" ] || [ -d "$TEGRA_PMC_ORDNER" ]; then
+                echo "jetson"
+            elif ist_dgx_spark; then
+                echo "arm64"
+            elif [ -f /proc/device-tree/model ]; then
                 echo "jetson"
             else
                 echo "arm64"
@@ -197,6 +230,7 @@ detect_cuda_arch() {
     # because the compiler can target sm_90. We use model-based detection instead.
     local model=$(detect_jetson_model)
     case "$model" in
+        *"DGX Spark"*) echo "12.1" ;; # GB10 SM_121 (am Geraet zu bestaetigen)
         *"Thor"*)     echo "10.0" ;;  # Blackwell SM_100
         *"Orin"*)     echo "8.7" ;;   # Ampere SM_87
         *"Xavier"*)   echo "7.2" ;;   # Volta SM_72
@@ -212,6 +246,14 @@ detect_l4t_pytorch_tag() {
     # Must match host L4T major.minor; use closest published dustynv tag.
     local model=$(detect_jetson_model)
     local tag
+    # Der Spark baut den Einbettungsdienst aus Dockerfile.spark ohne L4T-Abbild;
+    # der Wert ist dort ungenutzt und wird deshalb auch nicht im Netz gefragt.
+    case "$model" in
+        *"DGX Spark"*)
+            echo "r36.4.0"
+            return 0
+            ;;
+    esac
     case "$model" in
         # TODO: Update to r37.0.0 when dustynv publishes JetPack 7.x / L4T r37 image
         *"Thor"*)     tag="r36.4.0" ;;   # Thor/Blackwell - fallback to Orin tag until r37 exists
@@ -379,10 +421,75 @@ show_platform_profile() {
 # Resource Configuration per Profile
 # =============================================================================
 
+# Die Konfiguration des DGX Spark kommt aus seinem Katalogprofil
+# (config/platforms/dgx-spark.json) und nicht aus einem weiteren Heredoc: dort
+# stehen Speicherbudget, Modelle, Bibliothekspfad und welches Dockerfile die
+# GPU-Dienste bauen. Bis zum 01.10.2026 (J4) hatte dieses Skript keinen Zweig
+# dafuer, ein Spark bekam die Jetson-Vorgabe -- 8 GB fuer das Modell und den
+# JetPack-Bau von Ollama, der dort still auf der CPU rechnet.
+spark_konfiguration() {
+    local profil_json="${PROJECT_ROOT}/config/platforms/dgx-spark.json"
+    if [ ! -f "$profil_json" ]; then
+        echo "detect-platform: ${profil_json} fehlt" >&2
+        return 1
+    fi
+    python3 - "$profil_json" <<'SPARK'
+import json
+import sys
+
+p = json.load(open(sys.argv[1], encoding='utf-8'))
+# Paare statt eines Textblocks: eine Zeile, die mit `LLM_MODEL=` beginnt,
+# liest scripts/test/kurzliste.py als Modellkennung.
+werte = [
+    ('#', f"NVIDIA DGX Spark (GB10, DGX OS) -- aus config/platforms/{p['id']}.json"),
+    ('#', 'Das Modell bekommt memory_budget_gb, der Rest wie beim Thor 128GB'),
+    ('JETSON_PROFILE', 'dgx_spark'),
+    ('JETSON_DESCRIPTION', f'"{p["display_name"]}"'),
+    ('RAM_LIMIT_POSTGRES', '4G'),
+    ('RAM_LIMIT_LLM', f"{p['memory_budget_gb']}G"),
+    ('RAM_LIMIT_EMBEDDING', '8G'),
+    ('RAM_LIMIT_BACKEND', '2G'),
+    ('RAM_LIMIT_FRONTEND', '1G'),
+    ('RAM_LIMIT_METRICS', '512M'),
+    ('RAM_LIMIT_SELF_HEALING', '512M'),
+    ('RAM_LIMIT_DOCUMENT_INDEXER', '2G'),
+    ('RAM_LIMIT_REVERSE_PROXY', '512M'),
+    ('RAM_LIMIT_BACKUP', '256M'),
+    ('#', '20 Kerne: 10 Cortex-X925 und 10 Cortex-A725'),
+    ('CPU_LIMIT_LLM', '12'),
+    ('CPU_LIMIT_EMBEDDING', '4'),
+    ('CPU_LIMIT_BACKEND', '4'),
+    ('CPU_LIMIT_DASHBOARD', '4'),
+    ('LLM_MODEL', p['default_model']),
+    ('LLM_CONTEXT_LENGTH', '131072'),
+    ('LLM_GPU_LAYERS', '99'),
+    ('LLM_KEEP_ALIVE_SECONDS', '900'),
+    ('OLLAMA_STARTUP_TIMEOUT', '300'),
+    ('OLLAMA_NUM_PARALLEL', str(p['max_num_seqs'])),
+    ('EMBEDDING_USE_FP16', 'true'),
+    ('EMBEDDING_MAX_BATCH_SIZE', '200'),
+    ('#', 'Recommended Models: die Kurzliste (config/modelle/kurzliste.json)'),
+    ('RECOMMENDED_MODELS', '"' + ','.join(p['models']) + '"'),
+    ('#', 'Der Spark-Zweig der Abbilder: Ollama aus dem offiziellen arm64-Abbild'),
+    ('#', 'mit CUDA-13-Runner, der Einbettungsdienst auf PyTorch fuer CUDA 13.'),
+    ('GPU_DOCKERFILE', p['bau']['dockerfile']),
+    ('OLLAMA_LD_LIBRARY_PATH', p['ld_library_path']),
+    ('#', 'Kein Tegra: ohne Ersatz legte Docker /etc/nv_tegra_release als Ordner an.'),
+    ('NV_TEGRA_RELEASE', '/dev/null'),
+]
+for schluessel, wert in werte:
+    print(f'# {wert}' if schluessel == '#' else f'{schluessel}={wert}')
+SPARK
+}
+
 get_config_for_profile() {
     local profile=$1
 
     case "$profile" in
+        "dgx_spark")
+            spark_konfiguration
+            ;;
+
         "thor_128gb")
             cat << 'EOF'
 # Jetson Thor 128GB - Maximum Performance
