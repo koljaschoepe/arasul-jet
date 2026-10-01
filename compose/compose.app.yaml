@@ -73,6 +73,10 @@ services:
       FLOW_FREIGABE_FRIST_MINUTEN: ${FLOW_FREIGABE_FRIST_MINUTEN:-}
       # Externe Cloud-Modelle (Plan 023 D9).
       EXTERN_TIMEOUT_MS: ${EXTERN_TIMEOUT_MS:-60000}
+      # Der angesteckte Sicherungs-Datentraeger (J37): wo das Backend ihn und
+      # seinen Zustand sieht (siehe die Mounts unten).
+      EXTERN_ORDNER: ${EXTERN_ORDNER:-/arasul/extern}
+      EXTERN_ZUSTAND: ${EXTERN_ZUSTAND:-/arasul/extern-zustand/zustand.json}
       EXTERN_MODELLE_CACHE_MS: ${EXTERN_MODELLE_CACHE_MS:-300000}
       EMBEDDING_SERVICE_HOST: ${EMBEDDING_SERVICE_HOST}
       EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}

@@ -31,7 +31,7 @@ import {
 } from './useSicherung';
 
 /** `20261002` -> `02.10.2026` */
-export function tagesname(datum: string): string {
+function tagesname(datum: string): string {
   return /^\d{8}$/.test(datum)
     ? `${datum.slice(6)}.${datum.slice(4, 6)}.${datum.slice(0, 4)}`
     : datum;

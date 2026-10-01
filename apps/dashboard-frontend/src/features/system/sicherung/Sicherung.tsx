@@ -46,7 +46,7 @@ import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
 import { AppZurueckholen, GeraetZurueckholen } from './Zurueckholen';
 
 /** Warum die letzte Kopie auf den Datenträger nicht geklappt hat, in Klartext. */
-export function versuchText(versuch: string | null | undefined): string | null {
+function versuchText(versuch: string | null | undefined): string | null {
   switch (versuch) {
     case 'zu_wenig_platz':
       return 'Auf dem Datenträger ist zu wenig Platz für die Kopie. Räumen Sie ihn auf oder nehmen Sie einen größeren.';

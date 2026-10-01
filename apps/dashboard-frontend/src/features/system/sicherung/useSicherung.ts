@@ -60,7 +60,7 @@ export interface SicherungStatus {
 }
 
 /** Was das Gerät über den angesteckten Datenträger weiß (J37). */
-export interface Datentraeger {
+interface Datentraeger {
   angesteckt: boolean;
   name: string | null;
   dateisystem: string | null;
@@ -77,7 +77,7 @@ interface Pruefteil {
 }
 
 /** Ergebnis der Schlüsselprüfung. `passt: null` heißt: nichts zu prüfen. */
-export interface Schluesselstand {
+interface Schluesselstand {
   passt: boolean | null;
   geprueft: string | null;
   grund: string | null;
@@ -104,7 +104,7 @@ export interface ExternInhalt {
 export type Quelle = 'lokal' | 'extern';
 
 /** Ein Satz des Berichts, den das Gerät nach dem Zurückholen einer App schreibt. */
-export interface BerichtSatz {
+interface BerichtSatz {
   schritt: 'datenbank' | 'paket' | 'neu_gestartet';
   stand?: 'test' | 'live';
   erfolg: boolean;
