@@ -271,7 +271,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Schluessel einer App nur deren Auftraege. Die Zahl bleibt bei 6:
     // eine App, die nur 200 liest, bekam vorher an dieser Stelle einen Fehler,
     // und eine 7 hielte das Kit an.
-    expect(abdruck).toBe('866e36671d8136950949291f1d094569c63db2b36c111b27a80323c21d196d69');
+    //
+    // 02.10.2026 (J36, mitarbeiter-ohne-technik-und-freigaben): `freigabe.wo`
+    // heisst nicht mehr „In Arasul auf der Uebersicht", sondern „In der App, in
+    // der die Freigabe entstanden ist" -- ein Mitarbeiter entscheidet seit J36 in
+    // der App (Baustein `Freigabe`), die Uebersicht mit der Liste sieht nur noch
+    // der Administrator. Nur ein Satz, keine neue Form; die Zahl bleibt bei 6.
+    expect(abdruck).toBe('c051f48dec260215e0b80f66f5d9d252b72626370680420abf6dc0ff1e5fcd2e');
   });
 
   /**
