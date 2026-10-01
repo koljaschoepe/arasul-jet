@@ -306,10 +306,25 @@ cat data/backups/wiederherstellung.log
 cat data/backups/wiederherstellung_bericht.json | jq .
 ```
 
-`sicherung_unlesbar` heisst fast immer: die Sicherung ist verschluesselt und
-der Schluessel passt nicht. Ein Wechsel von
-`config/secrets/backup_encryption_key` macht **jede** aeltere Sicherung
-unlesbar; es gibt keinen Weg daran vorbei.
+`schluessel_passt_nicht` heisst: die Sicherung ist verschluesselt und der
+Schluessel dieses Geraets oeffnet sie nicht. Ein Wechsel von
+`config/secrets/backup_encryption_key` (Neuinstallation, Werksreset) macht
+**jede** aeltere Sicherung unlesbar -- **ausser man hat den
+Wiederherstellungscode** der fruehere Installation (der Schluessel selbst, in
+Gruppen zu vier):
+
+```bash
+# Am Geraet: mit dem Code zurueckholen, vom Datentraeger
+docker exec -e ARASUL_WIEDERHERSTELLUNGSCODE='ABCD-EFGH-…' backup-service \
+  /usr/local/bin/wiederherstellen.sh --quelle extern
+# Oder in der Oberflaeche: Einstellungen → System → Sicherung → "Wiederherstellungscode".
+# Fuer immer: ./install.sh --wiederherstellungscode 'ABCD-EFGH-…'
+# Den Code dieses Geraets zeigt: bash scripts/util/wiederherstellungscode.sh
+```
+
+Steht in der Sicherung (ganz oben) „Der Schluessel passt nicht zur letzten
+Sicherung“, ist genau das passiert; die Mitteilung an den Admin kam mit.
+Ohne Code gibt es keinen Weg daran vorbei.
 
 ### Backup-Verzeichnis pruefen
 
@@ -324,13 +339,31 @@ ls -la data/backups/
 cat data/backups/backup_report.json | jq .extern_status
 ```
 
-| Wert                 | Was zu tun ist                                                                      |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `kein_ziel`          | Kein Datentraeger unter `BACKUP_EXTERN_PFAD` eingehaengt                            |
-| `nicht_eingehaengt`  | Der Ordner liegt auf derselben Platte wie das Geraet — das ist kein Ziel ausserhalb |
-| `nicht_beschreibbar` | Der Datentraeger ist da, nimmt aber nichts an (abgezogen? schreibgeschuetzt?)       |
-| `abgeschaltet`       | `BACKUP_EXTERN_AN=false` — so eingerichtet                                          |
-| `kopiert`            | Alles in Ordnung; Datum und Groesse in `extern_bericht.json`                        |
+| Wert                 | Was zu tun ist                                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `kein_ziel`          | Kein Datentraeger unter `BACKUP_EXTERN_PFAD` eingehaengt                                                              |
+| `zu_wenig_platz`     | Der Datentraeger ist zu klein oder voll (der Schluessel passt nicht: nichts wird geloescht)                           |
+| `nur_verschluesselt` | Es gab nichts Verschluesseltes zu kopieren (`BACKUP_ENCRYPT=false`?): Klartext kommt nie auf den Datentraeger         |
+| `nicht_eingehaengt`  | Der Ordner liegt auf derselben Platte wie das Geraet — kein Datentraeger angesteckt (oder nicht erkannt, siehe unten) |
+| `nicht_beschreibbar` | Der Datentraeger ist da, nimmt aber nichts an (abgezogen? schreibgeschuetzt?)                                         |
+| `abgeschaltet`       | `BACKUP_EXTERN_AN=false` — so eingerichtet                                                                            |
+| `kopiert`            | Alles in Ordnung; Datum und Groesse in `extern_bericht.json`                                                          |
+
+**Der Datentraeger wird nicht erkannt?** Angesteckt wird ohne Handgriff
+(`config/udev/99-arasul-sicherung.rules`, nur USB, nur mit Dateisystem):
+
+```bash
+lsblk -o NAME,SIZE,FSTYPE,LABEL,TRAN,MOUNTPOINT        # sieht Linux ihn, hat er ein Dateisystem?
+findmnt /mnt/arasul-sicherung                            # eingehaengt?
+systemctl status 'arasul-sicherung@*'                    # lief die Einheit?
+journalctl -t arasul-sicherung -n 20                     # was sagt das Einhaengeskript?
+cat /run/arasul-sicherung/zustand.json                   # Name, Dateisystem, Geraet
+ls /etc/udev/rules.d/99-arasul-sicherung.rules           # Regel installiert (bash scripts/system/einheiten-installieren.sh)?
+```
+
+Ein Datentraeger ohne Dateisystem oder mit einem, das das Geraet nicht
+einhaengt (verschluesselt mit LUKS, BitLocker), bleibt draussen -- das Geraet
+formatiert nie etwas. Mit ext4 oder exFAT formatieren und neu anstecken.
 
 ---
 

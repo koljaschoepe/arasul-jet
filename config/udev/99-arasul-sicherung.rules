@@ -1,0 +1,29 @@
+# ARASUL: ein angesteckter USB-Datentraeger wird die Sicherungs-SSD (J37).
+#
+# Kein Handgriff: steckt ein USB-Datentraeger mit Dateisystem, startet udev die
+# Einheit arasul-sicherung@<geraet>.service, und die haengt ihn unter
+# /mnt/arasul-sicherung ein. Der Sicherungsdienst sieht ihn dort
+# (compose/compose.monitoring.yaml, rslave), die Nachtsicherung legt darauf
+# ausschliesslich Verschluesseltes ab.
+#
+# NUR USB. Die Systemplatte (NVMe, eMMC) ist nie ein Ziel, deshalb steht hier
+# ID_BUS=="usb" und nicht "jeder Datentraeger". ID_FS_USAGE=="filesystem" heisst:
+# eine Partition (oder ein Datentraeger ohne Partitionstabelle) mit Dateisystem,
+# nicht die Huelle mit Partitionstabelle. NIE formatiert dieses Geraet etwas.
+#
+# Zweite Zeile: der Pruefweg. Ein Loop-Geraet mit dem Namen ARASUL-PROBE...
+# (ext4-Namen haben hoechstens 16 Zeichen: ARASUL-PROBE plus vier Ziffern)
+# geht denselben Weg wie ein Stick -- so wird die Erkennung ohne echte SSD
+# gemessen (scripts/test/sicherung-ssd-abnahme.sh). Ein echter Datentraeger
+# mit so einem Namen waere kein Schaden: er wird genauso behandelt.
+#
+# Installiert von scripts/system/einheiten-installieren.sh nach
+# /etc/udev/rules.d/99-arasul-sicherung.rules.
+
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition|disk", \
+  ENV{ID_FS_USAGE}=="filesystem", ENV{ID_BUS}=="usb", \
+  TAG+="systemd", ENV{SYSTEMD_WANTS}+="arasul-sicherung@%k.service"
+
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="loop*", \
+  ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_LABEL}=="ARASUL-PROBE*", \
+  TAG+="systemd", ENV{SYSTEMD_WANTS}+="arasul-sicherung@%k.service"

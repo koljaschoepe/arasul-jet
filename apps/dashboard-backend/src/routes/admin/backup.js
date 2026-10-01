@@ -13,6 +13,7 @@
  *   GET  /api/backup/status              Sichert dieses Geraet wirklich? Wann
  *                                        lag zuletzt eine Kopie AUSSERHALB?
  *   GET  /api/backup/sicherungen         Was liegt da, wie gross, wie alt?
+ *   GET  /api/backup/extern/inhalt       Was liegt auf dem Datentraeger? (J37)
  *   POST /api/backup/sicherung           Jetzt sichern.
  *   POST /api/backup/wiederherstellung   Zurueck -- und danach laufen die Apps
  *                                        wieder, aus ihren gesicherten Paketen
@@ -88,6 +89,23 @@ router.get(
 );
 
 /**
+ * GET /api/backup/extern/inhalt
+ *
+ * Was liegt auf dem angesteckten Datentraeger (J37): das Verzeichnis
+ * (`MANIFEST.json`) des neuesten Tagesordners. Ohne Datentraeger
+ * `angesteckt: false` und sonst nichts -- kein Fehler, denn ein Stick, der
+ * nicht steckt, ist ein Zustand.
+ */
+router.get(
+  '/extern/inhalt',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await sicherungsdienst.externInhalt(), timestamp: new Date().toISOString() });
+  })
+);
+
+/**
  * POST /api/backup/sicherung
  *
  * Sichert JETZT. Die Antwort kommt erst, wenn es durch ist -- am Jetson sind
@@ -139,7 +157,7 @@ router.post(
   requireRole('admin'),
   validateBody(WiederherstellungBody),
   asyncHandler(async (req, res) => {
-    const { datei, bestaetigung } = req.body;
+    const { datei, bestaetigung, quelle, wiederherstellungscode } = req.body;
 
     logger.warn(
       `Wiederherstellung angestossen von ${req.user.username} (${datei || 'neueste Sicherung'})`
@@ -147,12 +165,23 @@ router.post(
     logSecurityEvent({
       userId: req.user.id,
       action: 'wiederherstellung_angestossen',
-      details: { datei: datei ?? null, bestaetigung },
+      // Der Code selbst steht nie im Protokoll, nur ob einer mitkam.
+      details: {
+        datei: datei ?? null,
+        bestaetigung,
+        quelle,
+        mit_code: Boolean(wiederherstellungscode),
+      },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
 
-    const ergebnis = await sicherungsdienst.stelleWiederHer({ datei, durch: req.user.id });
+    const ergebnis = await sicherungsdienst.stelleWiederHer({
+      datei,
+      durch: req.user.id,
+      quelle,
+      wiederherstellungscode,
+    });
 
     res.status(ergebnis.erfolg ? 200 : 500).json({
       data: {
@@ -194,7 +223,13 @@ router.post(
     logSecurityEvent({
       userId: req.user.id,
       action: 'app_daten_wiederhergestellt',
-      details: { app_id: appId, stand: req.body.stand ?? null },
+      details: {
+        app_id: appId,
+        stand: req.body.stand ?? null,
+        quelle: req.body.quelle,
+        paket: req.body.paket,
+        mit_code: Boolean(req.body.wiederherstellungscode),
+      },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
@@ -202,6 +237,10 @@ router.post(
     const ergebnis = await sicherungsdienst.stelleAppWiederHer({
       appId,
       stand: req.body.stand ?? null,
+      quelle: req.body.quelle,
+      paket: req.body.paket,
+      wiederherstellungscode: req.body.wiederherstellungscode,
+      durch: req.user.id,
     });
     res.status(ergebnis.erfolg ? 200 : 500).json({
       data: ergebnis,

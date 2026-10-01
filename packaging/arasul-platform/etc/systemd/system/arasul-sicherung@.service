@@ -1,0 +1,14 @@
+[Unit]
+Description=ARASUL Sicherungs-Datentraeger %I einhaengen
+# Haengt der Datentraeger weg (abgezogen), faellt diese Einheit mit ihm, und
+# ExecStop raeumt den Einhaengepunkt auf.
+BindsTo=dev-%i.device
+After=dev-%i.device local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/arasul/scripts/system/sicherung-datentraeger.sh einhaengen %I
+ExecStop=/opt/arasul/scripts/system/sicherung-datentraeger.sh aushaengen %I
+TimeoutStartSec=60
+TimeoutStopSec=30

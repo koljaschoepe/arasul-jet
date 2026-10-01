@@ -108,6 +108,128 @@ encrypt_file() {
     return 0
 }
 
+# -----------------------------------------------------------------------------
+# Passt der Schluessel zu dem, was schon da ist? (J37, 02.10.2026)
+# -----------------------------------------------------------------------------
+# Anlass: Koljas Sicherung der Belege-App auf den Mac fiel vom 26.09. bis
+# 01.10.2026 still aus, 146 Ausfaelle im Log. Die Neuinstallation hatte einen
+# NEUEN Schluessel erzeugt (`config/secrets/` wird beim Werksreset geloescht);
+# was danach lief, war mit dem neuen Schluessel verschluesselt, was auf dem
+# Stick lag, mit dem alten -- und nichts hat das gesagt.
+#
+# GEPRUEFT WIRD VOR DER NEUEN SICHERUNG, denn danach waere die neueste Datei
+# immer eine mit dem jetzigen Schluessel und die Pruefung immer gruen. Gelesen
+# werden nur die ersten Bytes: entschluesselt wird der Anfang, und er muss ein
+# gzip-Kopf sein (1f8b). Ein falscher Schluessel liefert Zufall.
+#
+# Das Ergebnis steht in `/backups/schluessel_pruefung.json`; das Dashboard
+# zeigt es im Admin-Bereich, und das Backend schickt dem Admin eine Mitteilung
+# (`services/betrieb/schluesselWaechter.js`). Diese Pruefung bricht die
+# Sicherung NICHT ab: eine neue Sicherung mit dem jetzigen Schluessel ist
+# besser als keine.
+EXTERN_ZIEL=${BACKUP_EXTERN_ZIEL:-/arasul/extern}
+EXTERN_AN=${BACKUP_EXTERN_AN:-auto}
+EXTERN_TAGE=${BACKUP_EXTERN_TAGE:-14}
+
+abdruck_des_schluessels() {
+    [ -f "$BACKUP_ENCRYPT_KEY_FILE" ] || { printf ''; return 0; }
+    printf 'arasul-sicherung:%s' "$(cat "$BACKUP_ENCRYPT_KEY_FILE")" | sha256sum | cut -c1-16
+}
+
+ist_verschluesselt() {
+    [ "$(head -c 8 "$1" 2>/dev/null)" = "Salted__" ]
+}
+
+passt_zum_schluessel() {
+    [ -f "$BACKUP_ENCRYPT_KEY_FILE" ] || return 1
+    [ "$(openssl enc -d -aes-256-cbc -pbkdf2 -in "$1" -pass "file:${BACKUP_ENCRYPT_KEY_FILE}" 2>/dev/null \
+        | head -c 2 | od -An -tx1 | tr -d ' \n')" = "1f8b" ]
+}
+
+# Liegt das Ziel wirklich ausserhalb? (Geraetenummer, siehe kopiere_nach_aussen.)
+extern_ist_draussen() {
+    [ "$EXTERN_AN" = "false" ] && return 1
+    [ -d "$EXTERN_ZIEL" ] || return 1
+    local dev_ziel dev_hier
+    dev_ziel=$(stat -c %d "$EXTERN_ZIEL" 2>/dev/null || echo "")
+    dev_hier=$(stat -c %d /backups 2>/dev/null || echo "")
+    [ -n "$dev_ziel" ] && [ "$dev_ziel" != "$dev_hier" ]
+}
+
+# $1 = Dateien, eine Zeile je Datei, aelteste zuerst. Setzt BEWERTUNG_* .
+bewerte_sicherungen() {
+    BEWERTUNG_NEUESTE=""
+    BEWERTUNG_PASST=null
+    BEWERTUNG_LESBAR=0
+    BEWERTUNG_UNLESBAR=0
+    local datei
+    while IFS= read -r datei; do
+        [ -n "$datei" ] && [ -f "$datei" ] || continue
+        BEWERTUNG_NEUESTE="$(basename "$datei")"
+        if ! ist_verschluesselt "$datei" || passt_zum_schluessel "$datei"; then
+            BEWERTUNG_LESBAR=$((BEWERTUNG_LESBAR + 1))
+            BEWERTUNG_PASST=true
+        else
+            BEWERTUNG_UNLESBAR=$((BEWERTUNG_UNLESBAR + 1))
+            BEWERTUNG_PASST=false
+        fi
+    done <<<"$1"
+}
+
+APP_ZEILEN=""
+SCHLUESSEL_PASST=null
+pruefe_schluessel() {
+    local lokal_liste extern_liste
+    lokal_liste=$(find /backups/postgres -maxdepth 1 -name 'arasul_db_*.sql.gz' ! -name '*latest*' 2>/dev/null | sort | tail -n 60)
+    bewerte_sicherungen "$lokal_liste"
+    local l_neueste="$BEWERTUNG_NEUESTE" l_passt="$BEWERTUNG_PASST" l_lesbar="$BEWERTUNG_LESBAR" l_unlesbar="$BEWERTUNG_UNLESBAR"
+
+    local e_neueste="" e_passt=null e_lesbar=0 e_unlesbar=0
+    if extern_ist_draussen; then
+        extern_liste=$(find "$EXTERN_ZIEL/arasul-sicherung" -mindepth 2 -maxdepth 2 -name 'arasul_db_*.sql.gz' 2>/dev/null \
+            | awk -F/ '{print $(NF-1) "/" $NF "\t" $0}' | sort | tail -n 60 | cut -f2)
+        bewerte_sicherungen "$extern_liste"
+        e_neueste="$BEWERTUNG_NEUESTE"; e_passt="$BEWERTUNG_PASST"; e_lesbar="$BEWERTUNG_LESBAR"; e_unlesbar="$BEWERTUNG_UNLESBAR"
+    fi
+
+    local passt=null grund=""
+    if [ "$l_passt" = false ] || [ "$e_passt" = false ]; then
+        passt=false
+        if [ ! -f "$BACKUP_ENCRYPT_KEY_FILE" ]; then
+            grund="Der Sicherungsschluessel dieses Geraets fehlt."
+        elif [ "$e_passt" = false ]; then
+            grund="Der Schluessel dieses Geraets passt nicht zur letzten Sicherung auf dem Datentraeger (${e_neueste})."
+        else
+            grund="Der Schluessel dieses Geraets passt nicht zur letzten Sicherung (${l_neueste})."
+        fi
+    elif [ "$l_passt" = true ] || [ "$e_passt" = true ]; then
+        passt=true
+    fi
+    SCHLUESSEL_PASST="$passt"
+    # Wird der Stick nicht gelesen (nicht angesteckt), steht das als `null`,
+    # nicht als `true`: „nicht geprueft" ist keine Zusage.
+
+    jq -n \
+        --arg zeitpunkt "$(date -Iseconds)" \
+        --arg abdruck "$(abdruck_des_schluessels)" \
+        --argjson passt "$passt" \
+        --arg grund "$grund" \
+        --arg l_neueste "$l_neueste" --argjson l_passt "$l_passt" \
+        --argjson l_lesbar "$l_lesbar" --argjson l_unlesbar "$l_unlesbar" \
+        --arg e_neueste "$e_neueste" --argjson e_passt "$e_passt" \
+        --argjson e_lesbar "$e_lesbar" --argjson e_unlesbar "$e_unlesbar" \
+        '{zeitpunkt:$zeitpunkt, abdruck:$abdruck, passt:$passt, grund:$grund,
+          lokal:{neueste:(if $l_neueste=="" then null else $l_neueste end), passt:$l_passt, lesbar:$l_lesbar, unlesbar:$l_unlesbar},
+          extern:{neueste:(if $e_neueste=="" then null else $e_neueste end), passt:$e_passt, lesbar:$e_lesbar, unlesbar:$e_unlesbar},
+          aeltere_unlesbar:($l_unlesbar + $e_unlesbar)}' \
+        > /backups/schluessel_pruefung.json.neu \
+        && mv -f /backups/schluessel_pruefung.json.neu /backups/schluessel_pruefung.json
+    if [ "$passt" = false ]; then
+        echo "[$TIMESTAMP] [ERROR] ${grund}"
+    fi
+}
+pruefe_schluessel || echo "[$TIMESTAMP] [WARNING] Schluesselpruefung selbst ist gescheitert"
+
 echo "[$TIMESTAMP] Starting backup..."
 BACKUP_OK=true
 
@@ -184,6 +306,12 @@ done
 # `|| true`: unter `set -e` beendet ein `[ ] && echo` mit falschem Test das
 # Skript -- und null App-Datenbanken sind der Normalfall auf einem neuen Geraet.
 [ "$APP_DB_ANZAHL" -gt 0 ] && echo "[$TIMESTAMP] ${APP_DB_ANZAHL} App-Datenbank(en) gesichert" || true
+# Welche App welche Datenbank hat (J37): das Manifest auf dem Datentraeger
+# braucht die Zuordnung, weil sich aus dem Namen der Datenbank die Kennung der
+# App nicht sicher zurueckrechnen laesst (Bindestrich, langer Name mit Abdruck).
+APP_ZEILEN=$(psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAF'|' -c \
+  "SELECT app_id, stand, datenbank FROM public.app_datenbanken ORDER BY app_id, stand" \
+  2>/dev/null || true)
 rm -f ~/.pgpass
 
 # Weekly snapshot: copy Sunday's backup to weekly dir (kept longer)
@@ -396,11 +524,39 @@ fi
 # lokal alles vollstaendig gesichert ist. Sichtbar bleibt es trotzdem: der
 # Bericht sagt, wann die letzte Kopie ausserhalb entstanden ist, und ueber
 # `/api/backup/status` liest das jeder.
-EXTERN_ZIEL=${BACKUP_EXTERN_ZIEL:-/arasul/extern}
-EXTERN_AN=${BACKUP_EXTERN_AN:-auto}
 EXTERN_STATUS=kein_ziel
 EXTERN_KOPIERT=0
 EXTERN_BYTES=0
+EXTERN_KLARTEXT=0
+EXTERN_FREI=0
+
+# NUR VERSCHLUESSELTES VERLAESST DAS GERAET (J37, 02.10.2026). Der Stick wird
+# abgezogen, verliehen, vergessen; was auf ihm liegt, muss ohne den Schluessel
+# wertlos sein. Jede Datei wird VOR dem Kopieren auf den Kopf von `openssl enc`
+# (`Salted__`) geprueft und NACH dem Kopieren noch einmal; eine Datei mit
+# gzip- oder tar-Kopf kommt nicht auf den Datentraeger. Heisst das, dass bei
+# `BACKUP_ENCRYPT=false` nichts kopiert wird? Ja: `nur_verschluesselt`, laut
+# im Bericht und im Dashboard -- nicht stillschweigend Klartext.
+#
+# DER AUFBAU AUF DEM STICK: `arasul-sicherung/<JJJJMMTT>/` mit den neuesten
+# Dateien dieses Tages, dazu `MANIFEST.json` (welche Apps, welche Dateien, mit
+# welchem Schluessel-Abdruck). Das Manifest ist Klartext und enthaelt nur
+# Namen und Groessen -- es erlaubt dem Dashboard, dem Admin die Apps auf dem
+# Stick zu zeigen, ohne den Schluessel zu haben.
+#
+# DIE ZAHL DER TAGE auf dem Stick ist begrenzt (`BACKUP_EXTERN_TAGE`, 14), und
+# wenn der Platz nicht reicht, gehen die AELTESTEN Tage zuerst. Nie aber, solange
+# der Schluessel nicht zur letzten Sicherung auf dem Stick passt: dann sind die
+# alten Tage vielleicht das Einzige, was sich mit dem frueheren Schluessel
+# (Wiederherstellungscode) noch oeffnen laesst.
+
+stick_tage() { # aelteste zuerst
+    find "$EXTERN_ZIEL/arasul-sicherung" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' 2>/dev/null | sort
+}
+
+stick_frei_kb() {
+    df -P -k "$EXTERN_ZIEL" 2>/dev/null | awk 'NR==2 {print $4}'
+}
 
 kopiere_nach_aussen() {
     if [ "$EXTERN_AN" = "false" ]; then
@@ -409,7 +565,7 @@ kopiere_nach_aussen() {
     fi
     if [ ! -d "$EXTERN_ZIEL" ]; then
         EXTERN_STATUS=kein_ziel
-        echo "[$TIMESTAMP] Kein Ziel ausserhalb unter ${EXTERN_ZIEL} — nur lokal gesichert"
+        echo "[$TIMESTAMP] Kein Ziel ausserhalb eingehaengt — nur lokal gesichert"
         return 0
     fi
     # LIEGT DAS ZIEL WIRKLICH AUSSERHALB? Das ist keine Formalie, sondern die
@@ -422,32 +578,27 @@ kopiere_nach_aussen() {
     # Erkannt wird an der GERAETENUMMER des Dateisystems: gleiche Nummer wie
     # der Sicherungsordner heisst dieselbe Platte, also kein Ziel ausserhalb.
     # `mountpoint` gibt es in busybox nicht, `stat -c %d` schon.
-    local dev_ziel dev_hier
-    dev_ziel=$(stat -c %d "$EXTERN_ZIEL" 2>/dev/null || echo "")
-    dev_hier=$(stat -c %d /backups 2>/dev/null || echo "")
-    if [ -n "$dev_ziel" ] && [ "$dev_ziel" = "$dev_hier" ]; then
+    if ! extern_ist_draussen; then
         EXTERN_STATUS=nicht_eingehaengt
-        echo "[$TIMESTAMP] [WARNING] ${EXTERN_ZIEL} liegt auf derselben Platte wie das Geraet — das ist kein Ziel ausserhalb"
+        echo "[$TIMESTAMP] Kein Datentraeger angesteckt (das Ziel liegt auf derselben Platte wie das Geraet) — nur lokal gesichert"
         return 0
     fi
 
     # Ein Ordner, der da ist, aber nichts annimmt, ist kein Ziel. Genau so
-    # sieht ein Mountpunkt aus, dessen Datentraeger abgezogen wurde: der
-    # Ordner bleibt, das Schreiben schlaegt fehl.
+    # sieht ein Mountpunkt aus, dessen Datentraeger abgezogen wurde (oder ein
+    # schreibgeschuetzter): der Ordner bleibt, das Schreiben schlaegt fehl.
     if ! touch "${EXTERN_ZIEL}/.arasul_schreibprobe" 2>/dev/null; then
         EXTERN_STATUS=nicht_beschreibbar
-        echo "[$TIMESTAMP] [WARNING] ${EXTERN_ZIEL} nimmt nichts an (Datentraeger abgezogen?)"
+        echo "[$TIMESTAMP] [WARNING] Der Datentraeger nimmt nichts an (schreibgeschuetzt oder abgezogen?)"
         return 0
     fi
     rm -f "${EXTERN_ZIEL}/.arasul_schreibprobe"
 
-    local ordner
-    ordner="${EXTERN_ZIEL}/arasul-sicherung/$(date +%Y%m%d)"
-    mkdir -p "$ordner" || { EXTERN_STATUS=fehler; return 0; }
-
-    local fehler=0
+    # Die Liste dessen, was kopiert wird: nur Verschluesseltes.
+    local quellen=() abgelehnt=0 quelle echt benoetigt_kb=0
     for quelle in \
         /backups/postgres/arasul_db_latest.sql.gz \
+        /backups/postgres/apps/*_latest.sql.gz \
         /backups/apps/apps_latest.tar.gz \
         /backups/flows/flows_latest.tar.gz \
         /backups/firmenordner/firmenordner_latest.tar.gz \
@@ -455,20 +606,117 @@ kopiere_nach_aussen() {
         [ -e "$quelle" ] || continue
         # Ueber den Link hinweg auf die echte Datei: ein Symlink auf dem Stick
         # zeigt ins Leere, sobald er woanders steckt.
-        local echt
         echt=$(readlink -f "$quelle" 2>/dev/null || echo "$quelle")
-        if cp -f "$echt" "$ordner/"; then
-            EXTERN_KOPIERT=$((EXTERN_KOPIERT + 1))
-            EXTERN_BYTES=$((EXTERN_BYTES + $(stat -c%s "$echt" 2>/dev/null || echo 0)))
-        else
-            fehler=1
+        if ! ist_verschluesselt "$echt"; then
+            echo "[$TIMESTAMP] [WARNING] $(basename "$echt") ist nicht verschluesselt — kommt nicht auf den Datentraeger"
+            abgelehnt=$((abgelehnt + 1))
+            continue
         fi
+        quellen+=("$echt")
+        benoetigt_kb=$((benoetigt_kb + $(du -k "$echt" 2>/dev/null | cut -f1)))
     done
+    if [ "${#quellen[@]}" = 0 ]; then
+        EXTERN_STATUS=nur_verschluesselt
+        echo "[$TIMESTAMP] [ERROR] Es gibt nichts Verschluesseltes zu kopieren (${abgelehnt} Datei(en) im Klartext) — Datentraeger bleibt leer"
+        return 0
+    fi
+
+    # PLATZ. Reicht er nicht, gehen die aeltesten Tage zuerst -- ausser der
+    # Schluessel passt nicht zu dem, was dort liegt (siehe oben).
+    local ordner heute
+    heute=$(date +%Y%m%d)
+    ordner="${EXTERN_ZIEL}/arasul-sicherung/${heute}"
+    mkdir -p "$ordner" || { EXTERN_STATUS=fehler; return 0; }
+    local frei tag
+    frei=$(stick_frei_kb)
+    while [ -n "$frei" ] && [ "$frei" -lt $((benoetigt_kb + benoetigt_kb / 10 + 1024)) ]; do
+        tag=$(stick_tage | grep -v "/${heute}\$" | head -n1)
+        if [ -z "$tag" ] || [ "$SCHLUESSEL_PASST" = false ]; then
+            EXTERN_STATUS=zu_wenig_platz
+            EXTERN_FREI=$((frei * 1024))
+            echo "[$TIMESTAMP] [ERROR] Auf dem Datentraeger ist zu wenig Platz (frei $((frei / 1024)) MB, gebraucht $((benoetigt_kb / 1024)) MB)"
+            return 0
+        fi
+        echo "[$TIMESTAMP] Platz knapp: Tag $(basename "$tag") wird vom Datentraeger genommen"
+        rm -rf "$tag"
+        frei=$(stick_frei_kb)
+    done
+
+    local fehler=0 name basis ziel_datei
+    : > "${ordner}/.dateien.neu"
+    for echt in "${quellen[@]}"; do
+        name=$(basename "$echt")
+        ziel_datei="${ordner}/${name}"
+        if cp -f "$echt" "${ordner}/.neu-${name}" && sync "${ordner}/.neu-${name}" 2>/dev/null; then
+            # Gegenprobe: gleich gross, und wieder ein Chiffrat-Kopf.
+            if [ "$(stat -c%s "${ordner}/.neu-${name}" 2>/dev/null)" = "$(stat -c%s "$echt" 2>/dev/null)" ] \
+               && ist_verschluesselt "${ordner}/.neu-${name}"; then
+                mv -f "${ordner}/.neu-${name}" "$ziel_datei"
+                # Frueheres derselben Art aus demselben Tag wegnehmen: mehrere
+                # Laeufe am Tag (Start, Nacht, „Jetzt sichern“) sollen den Stick
+                # nicht vollschreiben.
+                #
+                # NICHT, wenn der Schluessel nicht zur letzten Sicherung passt:
+                # dann ist die fruehere Datei dieses Tages vielleicht die
+                # einzige, die sich mit dem alten Schluessel (Code) noch oeffnen
+                # laesst.
+                if [ "$SCHLUESSEL_PASST" != false ]; then
+                    basis=$(printf '%s' "$name" | sed -E 's/_[0-9]{8}_[0-9]{6}\.(sql|tar)\.gz$//')
+                    local alt
+                    for alt in "$ordner"/${basis}_[0-9]*_[0-9]*.*; do
+                        [ -e "$alt" ] && [ "$alt" != "$ziel_datei" ] || continue
+                        [ "$(printf '%s' "$(basename "$alt")" | sed -E 's/_[0-9]{8}_[0-9]{6}\.(sql|tar)\.gz$//')" = "$basis" ] && rm -f "$alt"
+                    done
+                fi
+                EXTERN_KOPIERT=$((EXTERN_KOPIERT + 1))
+                EXTERN_BYTES=$((EXTERN_BYTES + $(stat -c%s "$echt" 2>/dev/null || echo 0)))
+                continue
+            fi
+        fi
+        rm -f "${ordner}/.neu-${name}"
+        echo "[$TIMESTAMP] [WARNING] ${name} liess sich nicht vollstaendig auf den Datentraeger kopieren"
+        fehler=1
+    done
+    rm -f "${ordner}/.dateien.neu"
     # `sync`, bevor der Bericht behauptet, die Kopie liege draussen. Ohne das
     # steht sie im Schreibpuffer des Geraets, und wer den Stick jetzt abzieht,
     # nimmt eine halbe Datei mit.
     sync
 
+    # Das Manifest dieses Tages: gelesen wird, was WIRKLICH im Ordner liegt.
+    schreibe_manifest "$ordner"
+
+    # Aufraeumen: mehr als EXTERN_TAGE Tage bleiben nicht, solange der
+    # Schluessel passt.
+    if [ "$SCHLUESSEL_PASST" != false ]; then
+        local ueber
+        ueber=$(( $(stick_tage | wc -l) - EXTERN_TAGE ))
+        if [ "$ueber" -gt 0 ]; then
+            stick_tage | head -n "$ueber" | while IFS= read -r tag; do
+                echo "[$TIMESTAMP] Datentraeger: Tag $(basename "$tag") ist aelter als ${EXTERN_TAGE} Tage und wird entfernt"
+                rm -rf "$tag"
+            done
+        fi
+    fi
+
+    # DIE PROBE, DIE DIE ZUSAGE BELEGT: auf dem ganzen Datentraeger (unser
+    # Ordner) darf keine Datei einen gzip- oder tar-Kopf haben.
+    local datei
+    EXTERN_KLARTEXT=0
+    while IFS= read -r datei; do
+        [ "$(basename "$datei")" = "MANIFEST.json" ] && continue
+        if ! ist_verschluesselt "$datei"; then
+            EXTERN_KLARTEXT=$((EXTERN_KLARTEXT + 1))
+            echo "[$TIMESTAMP] [ERROR] ${datei#"$EXTERN_ZIEL"/} auf dem Datentraeger ist NICHT verschluesselt"
+        fi
+    done < <(find "$EXTERN_ZIEL/arasul-sicherung" -type f ! -name 'MANIFEST.json' 2>/dev/null)
+    EXTERN_FREI=$(( $(stick_frei_kb) * 1024 ))
+
+    if [ "$EXTERN_KLARTEXT" -gt 0 ]; then
+        EXTERN_STATUS=fehler
+        BACKUP_OK=false
+        return 0
+    fi
     if [ "$fehler" = "1" ] || [ "$EXTERN_KOPIERT" = "0" ]; then
         EXTERN_STATUS=fehler
         echo "[$TIMESTAMP] [WARNING] Kopie ausserhalb unvollstaendig (${EXTERN_KOPIERT} Dateien)"
@@ -476,22 +724,70 @@ kopiere_nach_aussen() {
     fi
 
     EXTERN_STATUS=kopiert
-    echo "[$TIMESTAMP] Kopie ausserhalb: ${EXTERN_KOPIERT} Dateien, ${EXTERN_BYTES} Bytes -> ${ordner}"
+    echo "[$TIMESTAMP] Kopie ausserhalb: ${EXTERN_KOPIERT} Dateien, ${EXTERN_BYTES} Bytes, alle verschluesselt -> arasul-sicherung/${heute}"
 
     # Der Merker steht in einer EIGENEN Datei und nicht nur im Tagesbericht.
     # Grund: die Frage lautet "wann lag zuletzt eine Kopie ausserhalb", und die
     # Antwort darf nicht verschwinden, sobald der Stick eine Nacht abgezogen
     # ist. Der Tagesbericht wird jede Nacht ueberschrieben, diese Datei nur
     # dann, wenn wirklich kopiert wurde.
-    cat > /backups/extern_bericht.json <<EOF
-{
-  "zeitpunkt": "$(date -Iseconds)",
-  "ziel": "${EXTERN_ZIEL}",
-  "ordner": "${ordner}",
-  "dateien": ${EXTERN_KOPIERT},
-  "bytes": ${EXTERN_BYTES}
+    jq -n \
+        --arg zeitpunkt "$(date -Iseconds)" \
+        --arg ziel "arasul-sicherung/${heute}" \
+        --argjson dateien "$EXTERN_KOPIERT" \
+        --argjson bytes "$EXTERN_BYTES" \
+        --slurpfile manifest "${ordner}/MANIFEST.json" \
+        '{zeitpunkt:$zeitpunkt, ziel:$ziel, ordner:$ziel, dateien:$dateien, bytes:$bytes,
+          apps:($manifest[0].apps | map(.id))}' \
+        > /backups/extern_bericht.json.neu && mv -f /backups/extern_bericht.json.neu /backups/extern_bericht.json
 }
-EOF
+
+art_der_datei() {
+    case "$(basename "$1")" in
+        arasul_db_*) echo postgres ;;
+        arasul_app_*) echo app-datenbank ;;
+        apps_*) echo apps ;;
+        flows_*) echo flows ;;
+        firmenordner_*) echo firmenordner ;;
+        config_*) echo config ;;
+        *) echo sonstiges ;;
+    esac
+}
+
+# Das Manifest eines Tagesordners auf dem Datentraeger.
+schreibe_manifest() {
+    local ordner="$1" datei
+    local dateien_json apps_json ids
+    dateien_json=$(
+        for datei in "$ordner"/*.sql.gz "$ordner"/*.tar.gz; do
+            [ -f "$datei" ] || continue
+            printf '%s\t%s\t%s\n' "$(basename "$datei")" "$(stat -c%s "$datei" 2>/dev/null || echo 0)" "$(art_der_datei "$datei")"
+        done | jq -R -s -c 'split("\n") | map(select(length>0) | split("\t") | {name:.[0], bytes:(.[1]|tonumber), art:.[2]})'
+    )
+    # Die Apps: aus der Tabelle (id, Stand, Datenbank) UND aus den Ordnern
+    # unter /arasul/apps -- eine App ohne Datenbank gibt es auch.
+    ids=$(find "${APPS_SRC:-/arasul/apps}" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -printf '%f\n' 2>/dev/null | sort)
+    apps_json=$(
+        {
+            printf '%s\n' "$APP_ZEILEN" | awk -F'|' 'NF==3 {print "z\t" $1 "\t" $2 "\t" $3}'
+            printf '%s\n' "$ids" | awk 'NF {print "i\t" $1 "\t\t"}'
+        } | jq -R -s -c '
+            split("\n") | map(select(length>0) | split("\t")) as $z
+            | ($z | map(.[1]) | unique) as $ids
+            | $ids | map(. as $id | {
+                id: $id,
+                staende: [$z[] | select(.[0]=="z" and .[1]==$id) | .[2]],
+                datenbanken: [$z[] | select(.[0]=="z" and .[1]==$id) | .[3]]
+              })'
+    )
+    jq -n \
+        --arg zeitpunkt "$(date -Iseconds)" \
+        --arg abdruck "$(abdruck_des_schluessels)" \
+        --argjson dateien "${dateien_json:-[]}" \
+        --argjson apps "${apps_json:-[]}" \
+        '{zeitpunkt:$zeitpunkt, abdruck:$abdruck, apps:$apps, dateien:$dateien,
+          bytes:($dateien | map(.bytes) | add // 0)}' \
+        > "${ordner}/.MANIFEST.neu" && mv -f "${ordner}/.MANIFEST.neu" "${ordner}/MANIFEST.json"
 }
 kopiere_nach_aussen
 
@@ -604,6 +900,9 @@ cat > /backups/backup_report.json << EOF
   "extern_status": "$EXTERN_STATUS",
   "extern_dateien": $EXTERN_KOPIERT,
   "extern_bytes": $EXTERN_BYTES,
+  "extern_klartext": $EXTERN_KLARTEXT,
+  "extern_frei_bytes": $EXTERN_FREI,
+  "schluessel_passt": $SCHLUESSEL_PASST,
   "retention_days": $RETENTION_DAYS,
   "weekly_retention_weeks": $WEEKLY_RETENTION_WEEKS,
   "monthly_retention_months": $MONTHLY_RETENTION_MONTHS,

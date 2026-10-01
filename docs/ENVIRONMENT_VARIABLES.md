@@ -325,6 +325,15 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 | ------------------ | --------------------------- | --------------------------------------------------------- |
 | BACKUP_REPORT_PATH | /backups/backup_report.json | Path to last-run backup status JSON (used by healthcheck) |
 
+### Der Datenträger, vom Backend gelesen (J37)
+
+Das **Backend** liest den angesteckten Datenträger nur, schreibt nie darauf.
+
+| Variable       | Default                             | Description                                                                                                                |
+| -------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| EXTERN_ORDNER  | /arasul/extern                      | Wo der Datenträger im Backend-Container (nur lesend) liegt. Eingehängt heißt: anderes Dateisystem als der Sicherungsordner |
+| EXTERN_ZUSTAND | /arasul/extern-zustand/zustand.json | Vom Host geschrieben: Name, Dateisystem, Gerät des Datenträgers. Fehlt die Datei, gilt: kein Datenträger                   |
+
 ### Die Kopie außerhalb des Geräts (Phase C9)
 
 Ein USB-Datenträger oder eine SMB-Freigabe im Kundennetz. **Kein Cloud-Ziel:**

@@ -32,6 +32,10 @@
 #   ./install.sh --ssh-behalten               SSH, ufw und fail2ban nicht haerten
 #                                             (auch --keep-ssh, wie im Ara-Kit)
 #   ./install.sh --haerten                    auch bei einer Aktualisierung haerten
+#   ./install.sh --wiederherstellungscode ABCD-EFGH-...
+#                                             den Code einer frueheren Installation
+#                                             nennen, damit deren Sicherungen
+#                                             lesbar bleiben (nach einem Werksreset)
 #   ./install.sh --hilfe
 #
 # UND ES AKTUALISIERT. Findet dieses Artefakt eine vorhandene Installation in
@@ -83,8 +87,9 @@ while [ $# -gt 0 ]; do
     --ssh-behalten|--keep-ssh)
       export ENABLE_SSH_HARDENING=false ENABLE_FIREWALL=false; shift ;;
     --haerten) export ARASUL_HAERTEN=ja; shift ;;
+    --wiederherstellungscode) export ARASUL_WIEDERHERSTELLUNGSCODE="$2"; shift 2 ;;
     --hilfe|-h)
-      sed -n '2,52p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,56p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) fehler "Unbekannte Option: $1"; exit 2 ;;

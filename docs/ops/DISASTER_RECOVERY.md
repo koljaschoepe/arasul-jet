@@ -64,7 +64,7 @@ Schnittstelle macht das Backend beides in einem Aufruf:
 ```bash
 curl -k -X POST https://arasul.local/api/backup/wiederherstellung \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"bestaetigung":"wiederherstellen"}'
+  -d '{"bestaetigung":"wiederherstellen","quelle":"extern","wiederherstellungscode":"ABCD-EFGH-…"}'
 ```
 
 **Recovery mit WAL (Point-in-Time Recovery)**:
@@ -104,9 +104,13 @@ curl -fsSL https://arasul.de/api/install | bash
 #    oder von Hand aus dem Release:
 #    tar xzf arasul-<fassung>.tar.gz && cd arasul-<fassung> && ./install.sh
 
-# 3. Die SICHERUNG vom alten Gerät holen (USB oder SMB — kein Cloud-Ziel).
-#    Auf dem Datenträger liegt sie unter arasul-sicherung/<datum>/.
-cp /mnt/arasul-sicherung/arasul-sicherung/20260827/* data/backups/postgres/ ...
+# 3. Die SICHERUNG vom alten Gerät: der Datenträger. SSD an das neue Gerät
+#    stecken -- es erkennt sie von selbst (/mnt/arasul-sicherung, J37). Auf ihr
+#    liegt alles verschlüsselt unter arasul-sicherung/<datum>/, mit MANIFEST.json.
+#    Und den WIEDERHERSTELLUNGSCODE des alten Geräts bereithalten (er stand bei
+#    der Einrichtung auf dem Bildschirm): er IST der Schlüssel.
+#    Am besten schon bei der Installation nennen, dann bleibt alles lesbar:
+#      ./install.sh --wiederherstellungscode ABCD-EFGH-…
 
 # 4. ZUERST die Konfiguration, VOR dem ersten Start.
 #    Sie kommt aus config_latest.tar.gz und wird NICHT vom
@@ -117,12 +121,16 @@ openssl enc -d -aes-256-cbc -pbkdf2 -in config_latest.tar.gz \
   -pass file:/pfad/zum/backup_encryption_key | tar xz -C /opt/arasul
 
 #    DER SCHLÜSSEL LIEGT NICHT IM ARCHIV. Er ist ausdrücklich ausgenommen —
-#    wer das Archiv öffnen will, braucht ihn vorher. Wenn er nicht außerhalb
-#    des Geräts aufbewahrt wurde, ist an dieser Stelle Schluss.
+#    wer das Archiv öffnen will, braucht ihn vorher. Das ist der
+#    Wiederherstellungscode; wenn er nicht außerhalb des Geräts aufbewahrt
+#    wurde (und `config/secrets/` weg ist), ist an dieser Stelle Schluss.
 
-# 5. Stack hochfahren und den Rest zurückspielen
+# 5. Stack hochfahren und den Rest zurückspielen — VOM DATENTRÄGER:
 docker compose up -d
-docker exec backup-service /usr/local/bin/wiederherstellen.sh
+docker exec -e ARASUL_WIEDERHERSTELLUNGSCODE='ABCD-EFGH-…' backup-service \
+  /usr/local/bin/wiederherstellen.sh --quelle extern
+#    Oder in der Oberfläche: Einstellungen → System → Sicherung →
+#    „Das ganze Gerät zurückholen“ (Datenträger wählen, Code eingeben).
 
 # 6. App-Container aus den gesicherten Paketen neu bauen
 curl -k -X POST https://arasul.local/api/backup/wiederherstellung \

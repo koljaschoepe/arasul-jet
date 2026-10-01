@@ -51,6 +51,18 @@ const BERICHT = path.join(SICHERUNGS_ORDNER, 'backup_report.json');
 const EXTERN_BERICHT = path.join(SICHERUNGS_ORDNER, 'extern_bericht.json');
 const DRILL_BERICHT = path.join(SICHERUNGS_ORDNER, 'restore_drill_report.json');
 const WIEDERHER_BERICHT = path.join(SICHERUNGS_ORDNER, 'wiederherstellung_bericht.json');
+const SCHLUESSEL_PRUEFUNG = path.join(SICHERUNGS_ORDNER, 'schluessel_pruefung.json');
+
+/**
+ * Der Datentraeger (J37): ein USB-Stick oder eine SSD, vom Host eingehaengt und
+ * NUR LESEND hier sichtbar. Die Namen stehen in Umgebungsvariablen, damit der
+ * Pruefstand einen eigenen Ort haben kann; die Pfade selbst gehen nie an die
+ * Oberflaeche.
+ */
+const EXTERN_ORDNER = process.env.EXTERN_ORDNER || '/arasul/extern';
+const EXTERN_ZUSTAND = process.env.EXTERN_ZUSTAND || '/arasul/extern-zustand/zustand.json';
+/** Ein Tagesordner auf dem Datentraeger: `arasul-sicherung/<JJJJMMTT>/`. */
+const TAGESORDNER = /^\d{8}$/;
 
 /**
  * Welcher Sicherungsdienst gemeint ist -- MIT dem Praefix des Stacks.
@@ -100,10 +112,15 @@ function alterIn(stat) {
  * einzige Erklaerung, die ein Mensch bekommt, wenn etwas schiefgeht, und sie
  * gehoert deshalb in die Antwort und nicht nur ins Protokoll.
  *
+ * `env` bekommt, was nicht in die Befehlszeile gehoert (der
+ * Wiederherstellungscode, J37): Befehlszeilen stehen in der Prozessliste, die
+ * Umgebung eines `exec` nicht.
+ *
  * @param {string[]} befehl
  * @param {number} zeitlimitMs
+ * @param {string[]} [env] Eintraege der Form `NAME=wert`
  */
-async function imContainer(befehl, zeitlimitMs) {
+async function imContainer(befehl, zeitlimitMs, env = []) {
   const docker = dockerService.docker;
   const container = docker.getContainer(CONTAINER);
 
@@ -128,6 +145,7 @@ async function imContainer(befehl, zeitlimitMs) {
 
   const exec = await container.exec({
     Cmd: befehl,
+    ...(env.length > 0 ? { Env: env } : {}),
     AttachStdout: true,
     AttachStderr: true,
     // Ausdruecklich ohne Terminal: mit einem schrieben Werkzeuge Farben und
@@ -167,6 +185,156 @@ async function imContainer(befehl, zeitlimitMs) {
   return {
     code: ergebnis.ExitCode ?? -1,
     ausgabe: ausgabe.length > 4000 ? `…${ausgabe.slice(-4000)}` : ausgabe,
+  };
+}
+
+/**
+ * Haengt gerade ein Datentraeger dran? Eingehaengt heisst: der Ordner liegt auf
+ * einem ANDEREN Dateisystem als der Sicherungsordner. Ein leerer Ordner, der
+ * nur als Mountpunkt im Container existiert, liegt auf demselben und zaehlt
+ * nicht.
+ */
+async function istEingehaengt() {
+  try {
+    const [extern, lokal] = await Promise.all([fs.stat(EXTERN_ORDNER), fs.stat(SICHERUNGS_ORDNER)]);
+    return extern.isDirectory() && extern.dev !== lokal.dev;
+  } catch {
+    return false;
+  }
+}
+
+/** Was der Host ueber den Datentraeger hinterlegt hat, oder `null`. */
+async function leseZustand() {
+  try {
+    const zustand = JSON.parse(await fs.readFile(EXTERN_ZUSTAND, 'utf8'));
+    return zustand && typeof zustand === 'object' ? zustand : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Der Datentraeger, wie ihn die Oberflaeche zeigt: Name, Dateisystem, freier
+ * Platz. Ohne eingehaengten Stick ODER ohne Zustandsdatei des Hosts gibt es
+ * keinen -- ein Ordner ohne Namen ist fuer einen Menschen kein Datentraeger.
+ */
+async function datentraeger() {
+  const leer = { angesteckt: false, name: null, dateisystem: null, frei: null, gesamt: null };
+  if (!(await istEingehaengt())) {
+    return leer;
+  }
+  const zustand = await leseZustand();
+  if (!zustand) {
+    return leer;
+  }
+  let frei = null;
+  let gesamt = null;
+  try {
+    const sf = await fs.statfs(EXTERN_ORDNER);
+    frei = Number(sf.bavail) * Number(sf.bsize);
+    gesamt = Number(sf.blocks) * Number(sf.bsize);
+  } catch {
+    // Platz unbekannt: kein Grund, den Datentraeger zu verschweigen.
+  }
+  return {
+    angesteckt: true,
+    name: zustand.name || zustand.label || 'Datenträger',
+    dateisystem: zustand.dateisystem ?? null,
+    frei,
+    gesamt,
+  };
+}
+
+/** Das Ergebnis der Schluesselpruefung (schreibt der Sicherungsdienst), oder `null`. */
+async function leseSchluesselPruefung() {
+  try {
+    const roh = JSON.parse(await fs.readFile(SCHLUESSEL_PRUEFUNG, 'utf8'));
+    return roh && typeof roh === 'object' ? roh : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ein Teilergebnis (lokal oder extern) der Schluesselpruefung, immer mit denselben Feldern. */
+function pruefTeil(teil) {
+  return {
+    neueste: teil?.neueste ?? null,
+    passt: typeof teil?.passt === 'boolean' ? teil.passt : null,
+    lesbar: Number.isFinite(teil?.lesbar) ? teil.lesbar : 0,
+    unlesbar: Number.isFinite(teil?.unlesbar) ? teil.unlesbar : 0,
+  };
+}
+
+/**
+ * Passt der Schluessel dieses Geraets zu dem, womit gesichert wurde?
+ * `passt: null` heisst „nichts zu pruefen“ -- auch, wenn die Datei fehlt.
+ */
+async function schluessel() {
+  const p = await leseSchluesselPruefung();
+  return {
+    passt: typeof p?.passt === 'boolean' ? p.passt : null,
+    geprueft: p?.zeitpunkt ?? null,
+    grund: p?.grund || null,
+    aelterUnlesbar: Number.isFinite(p?.aeltere_unlesbar) ? p.aeltere_unlesbar : 0,
+    lokal: p ? pruefTeil(p.lokal) : null,
+    extern: p ? pruefTeil(p.extern) : null,
+  };
+}
+
+/**
+ * Das Verzeichnis des neuesten Tages auf dem Datentraeger, das ein lesbares
+ * Verzeichnis (MANIFEST.json) hat. Die Tagesnamen kommen aus `readdir` und
+ * muessen `^\d{8}$` sein -- Pfade werden nie aus einer Eingabe gebaut.
+ */
+async function leseManifeste() {
+  const wurzel = path.join(EXTERN_ORDNER, 'arasul-sicherung');
+  let namen;
+  try {
+    namen = (await fs.readdir(wurzel))
+      .filter(n => TAGESORDNER.test(n))
+      .sort()
+      .reverse();
+  } catch {
+    return { tage: [], neueste: null };
+  }
+  for (const datum of namen) {
+    try {
+      const manifest = JSON.parse(
+        await fs.readFile(path.join(wurzel, datum, 'MANIFEST.json'), 'utf8')
+      );
+      if (manifest && typeof manifest === 'object') {
+        return { tage: namen, neueste: { datum, manifest } };
+      }
+    } catch {
+      // Dieser Tag ist unvollstaendig -- der naechstaeltere zaehlt.
+    }
+  }
+  return { tage: namen, neueste: null };
+}
+
+/** Was liegt auf dem Datentraeger? (`GET /api/backup/extern/inhalt`) */
+async function externInhalt() {
+  const traeger = await datentraeger();
+  if (!traeger.angesteckt) {
+    return { angesteckt: false, name: null, neuesteSicherung: null, tage: [] };
+  }
+  const { tage, neueste } = await leseManifeste();
+  return {
+    angesteckt: true,
+    name: traeger.name,
+    neuesteSicherung: neueste
+      ? {
+          datum: neueste.datum,
+          zeitpunkt: neueste.manifest.zeitpunkt ?? null,
+          bytes: neueste.manifest.bytes ?? null,
+          apps: (Array.isArray(neueste.manifest.apps) ? neueste.manifest.apps : []).map(a => ({
+            id: a.id,
+            staende: Array.isArray(a.staende) ? a.staende : [],
+          })),
+          dateien: Array.isArray(neueste.manifest.dateien) ? neueste.manifest.dateien.length : 0,
+        }
+      : null,
+    tage,
   };
 }
 
@@ -251,6 +419,18 @@ async function sicherungen() {
 }
 
 /**
+ * Was zur Kopie ausserhalb noch gehoert (J37): der Datentraeger, ob auf ihm
+ * Klartext liegt (soll 0 sein) und was drauf ist.
+ */
+function ausserhalbDazu(traeger, bericht, extern) {
+  return {
+    datentraeger: traeger,
+    klartextDateien: Number.isFinite(bericht?.extern_klartext) ? bericht.extern_klartext : null,
+    inhalt: Array.isArray(extern?.apps) ? { apps: extern.apps } : null,
+  };
+}
+
+/**
  * Der Zustand der Sicherung, wie ihn ein Mensch oder ein Ara-Kit liest.
  *
  * Die Frage „wann lag zuletzt eine Kopie AUSSERHALB des Geraets" wird getrennt
@@ -260,11 +440,13 @@ async function sicherungen() {
  * Antwort leer -- und sagt das, statt zu schweigen.
  */
 async function status() {
-  const [bericht, extern, drill, wieder] = await Promise.all([
+  const [bericht, extern, drill, wieder, traeger, schluesselStand] = await Promise.all([
     leseBericht(BERICHT),
     leseBericht(EXTERN_BERICHT),
     leseBericht(DRILL_BERICHT),
     leseBericht(WIEDERHER_BERICHT),
+    datentraeger(),
+    schluessel(),
   ]);
 
   const veraltet = !bericht || bericht._alterStunden > 48;
@@ -310,6 +492,7 @@ async function status() {
     // Leer, wenn noch nie eine Kopie ausserhalb entstanden ist.
     ausserhalb: extern
       ? {
+          ...ausserhalbDazu(traeger, bericht, extern),
           vorhanden: true,
           zeitpunkt: extern.zeitpunkt ?? null,
           bytes: extern.bytes ?? null,
@@ -318,6 +501,7 @@ async function status() {
           letzterVersuch: bericht?.extern_status ?? null,
         }
       : {
+          ...ausserhalbDazu(traeger, bericht, extern),
           vorhanden: false,
           zeitpunkt: null,
           bytes: null,
@@ -325,6 +509,7 @@ async function status() {
           ziel: null,
           letzterVersuch: bericht?.extern_status ?? null,
         },
+    schluessel: schluesselStand,
     wiederherstellungstest: drill
       ? {
           status: drill.status,
@@ -337,6 +522,28 @@ async function status() {
       : null,
     laeuftGerade,
   };
+}
+
+const KEIN_DATENTRAEGER = 'Es ist kein Datenträger angesteckt.';
+
+/** `extern` geht nur mit eingehaengtem Datentraeger. */
+async function pruefeQuelle(quelle) {
+  if (quelle === 'extern' && !(await istEingehaengt())) {
+    throw new ConflictError(KEIN_DATENTRAEGER);
+  }
+}
+
+/** Der Code geht in die Umgebung, nie in die Befehlszeile; hier die letzte Sperre. */
+function pruefeCode(code) {
+  if (code && !/^[A-Za-z0-9 -]{1,100}$/.test(code)) {
+    throw new ValidationError(
+      'Der Wiederherstellungscode besteht nur aus Buchstaben, Ziffern und Strichen.'
+    );
+  }
+}
+
+function codeEnv(code) {
+  return code ? [`ARASUL_WIEDERHERSTELLUNGSCODE=${code}`] : [];
 }
 
 /** Jetzt sichern. Dauert am Jetson Minuten, nicht Sekunden. */
@@ -378,10 +585,17 @@ async function sichereJetzt() {
  * genannt, nicht verschwiegen: wer neun von zehn Apps zurueckbekommt, muss
  * wissen, welche die zehnte ist.
  */
-async function stelleWiederHer({ datei = null, durch = null } = {}) {
+async function stelleWiederHer({
+  datei = null,
+  durch = null,
+  quelle = 'lokal',
+  wiederherstellungscode = null,
+} = {}) {
   if (laeuftGerade) {
     throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
   }
+  await pruefeQuelle(quelle);
+  pruefeCode(wiederherstellungscode);
   // Ein Dateiname, kein Pfad. Das Skript prueft es noch einmal, aber ein
   // Aufruf, der `../` durchreicht, hat hier schon nichts verloren.
   if (datei && !/^[A-Za-z0-9._-]+$/.test(datei)) {
@@ -396,7 +610,14 @@ async function stelleWiederHer({ datei = null, durch = null } = {}) {
     if (datei) {
       befehl.push('--datei', datei);
     }
-    const { code, ausgabe } = await imContainer(befehl, 60 * 60_000);
+    if (quelle === 'extern') {
+      befehl.push('--quelle', 'extern');
+    }
+    const { code, ausgabe } = await imContainer(
+      befehl,
+      60 * 60_000,
+      codeEnv(wiederherstellungscode)
+    );
     const bericht = await leseBericht(WIEDERHER_BERICHT);
 
     if (code !== 0) {
@@ -435,54 +656,190 @@ async function stelleWiederHer({ datei = null, durch = null } = {}) {
  *
  * @param {{appId: string, stand?: 'test'|'live'|null, durch?: number|null}} was
  */
-async function stelleAppWiederHer({ appId, stand = null }) {
+async function stelleAppWiederHer({
+  appId,
+  stand = null,
+  quelle = 'lokal',
+  paket = false,
+  wiederherstellungscode = null,
+  durch = null,
+}) {
   if (laeuftGerade) {
     throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
   }
+  await pruefeQuelle(quelle);
+  pruefeCode(wiederherstellungscode);
+
   const staende = stand ? [stand] : ['test', 'live'];
+  // Auf dem Datentraeger gilt das Verzeichnis des neuesten Tages, nicht die
+  // Platte: eine App, die dort nicht verzeichnet ist, laesst sich von dort nicht holen.
+  let imManifest = null;
+  if (quelle === 'extern') {
+    const { neueste } = await leseManifeste();
+    const eintrag = (neueste?.manifest?.apps ?? []).find(a => a.id === appId);
+    imManifest = new Set(Array.isArray(eintrag?.staende) ? eintrag.staende : []);
+  }
   const vorhanden = [];
   for (const s of staende) {
     const name = appDatenbank.namenFuer(appId, s);
-    const zeiger = path.join(SICHERUNGS_ORDNER, 'postgres', 'apps', `${name}_latest.sql.gz`);
-    // `stat` folgt dem Zeiger: ein Zeiger auf eine geloeschte Datei ist keine Sicherung.
-    const da = await fs.stat(zeiger).then(
-      st => st.isFile(),
-      () => false
-    );
+    let da;
+    if (quelle === 'extern') {
+      da = imManifest.has(s);
+    } else {
+      const zeiger = path.join(SICHERUNGS_ORDNER, 'postgres', 'apps', `${name}_latest.sql.gz`);
+      // `stat` folgt dem Zeiger: ein Zeiger auf eine geloeschte Datei ist keine Sicherung.
+      da = await fs.stat(zeiger).then(
+        st => st.isFile(),
+        () => false
+      );
+    }
     if (da) {
       vorhanden.push({ stand: s, datenbank: name });
     }
   }
   if (vorhanden.length === 0) {
     throw new NotFoundError(
-      `Für die App ${appId}${stand ? ` (${stand})` : ''} liegt keine Sicherung ihrer Daten vor. ` +
+      `Für die App ${appId}${stand ? ` (${stand})` : ''} liegt ${
+        quelle === 'extern' ? 'auf dem Datenträger' : 'auf diesem Gerät'
+      } keine Sicherung ihrer Daten vor. ` +
         'Gesichert wird jede Nacht und mit „Jetzt sichern“ unter Einstellungen → System → Sicherung.'
     );
   }
+
+  const quellArg = quelle === 'extern' ? ['--quelle', 'extern'] : [];
+  const env = codeEnv(wiederherstellungscode);
+  const bericht = [];
 
   laeuftGerade = 'wiederherstellung einer app';
   try {
     const ergebnisse = [];
     for (const { stand: s, datenbank } of vorhanden) {
       const { code, ausgabe } = await imContainer(
-        ['/usr/local/bin/wiederherstellen.sh', '--app-datenbank', datenbank],
-        30 * 60_000
+        ['/usr/local/bin/wiederherstellen.sh', '--app-datenbank', datenbank, ...quellArg],
+        30 * 60_000,
+        env
       );
-      const eintrag = { stand: s, datenbank, erfolg: code === 0, ausgabe, neu_gestartet: false };
-      if (code === 0) {
-        eintrag.neu_gestartet = await verbindeWieder(appId, s);
-      } else {
+      ergebnisse.push({ stand: s, datenbank, erfolg: code === 0, ausgabe, neu_gestartet: false });
+      bericht.push({
+        schritt: 'datenbank',
+        stand: s,
+        erfolg: code === 0,
+        text:
+          code === 0
+            ? `Die Daten der App (${standName(s)}) sind zurückgeholt.`
+            : `Die Daten der App (${standName(s)}) ließen sich nicht zurückholen.`,
+      });
+      if (code !== 0) {
         logger.error(`Daten von ${appId}/${s} kamen nicht zurueck`, { code, ausgabe });
       }
-      ergebnisse.push(eintrag);
     }
-    const gescheitert = ergebnisse.filter(e => !e.erfolg);
+
+    // Das Paket EINMAL, nicht je Stand: es ist ein Archiv fuer die ganze App.
+    let paketErgebnis = null;
+    if (paket && ergebnisse.some(e => e.erfolg)) {
+      const { code, ausgabe } = await imContainer(
+        ['/usr/local/bin/wiederherstellen.sh', '--app-paket', appId, ...quellArg],
+        30 * 60_000,
+        env
+      );
+      paketErgebnis = { erfolg: code === 0, ausgabe };
+      bericht.push({
+        schritt: 'paket',
+        erfolg: code === 0,
+        text:
+          code === 0
+            ? 'Das Paket der App (Oberfläche und Programm) ist zurückgeholt.'
+            : 'Das Paket der App ließ sich nicht zurückholen.',
+      });
+      if (code !== 0) {
+        logger.error(`Paket von ${appId} kam nicht zurueck`, { code, ausgabe });
+      }
+    }
+
+    // Danach laufen lassen. Mit zurueckgeholtem Paket wird jeder Stand, den es
+    // gibt, aus dem Paket neu gebaut; sonst bleibt es beim neuen Verbinden.
+    for (const e of ergebnisse.filter(x => x.erfolg)) {
+      if (paketErgebnis?.erfolg) {
+        const gestartet = await spieleStandEin({ appId, stand: e.stand, durch });
+        e.neu_gestartet = gestartet.erfolg;
+        if (gestartet.uebersprungen) {
+          bericht.push({
+            schritt: 'neu_gestartet',
+            stand: e.stand,
+            erfolg: true,
+            text: `Die App war nicht eingespielt (${standName(e.stand)}); ihre Daten liegen bereit.`,
+          });
+        } else {
+          e.neuStartFehler = !gestartet.erfolg;
+          bericht.push({
+            schritt: 'neu_gestartet',
+            stand: e.stand,
+            erfolg: gestartet.erfolg,
+            text: gestartet.erfolg
+              ? `Die App läuft wieder (${standName(e.stand)}), aus dem zurückgeholten Paket.`
+              : `Die App ließ sich nicht neu starten (${standName(e.stand)}).`,
+          });
+        }
+      } else {
+        e.neu_gestartet = await verbindeWieder(appId, e.stand);
+        if (e.neu_gestartet) {
+          bericht.push({
+            schritt: 'neu_gestartet',
+            stand: e.stand,
+            erfolg: true,
+            text: `Die App ist neu verbunden und läuft mit den zurückgeholten Daten (${standName(e.stand)}).`,
+          });
+        }
+      }
+    }
+
+    const gescheitert =
+      ergebnisse.some(e => !e.erfolg || e.neuStartFehler) ||
+      (paketErgebnis && !paketErgebnis.erfolg);
+    for (const e of ergebnisse) {
+      delete e.neuStartFehler;
+    }
     logger.info(
-      `Daten von ${appId} zurueck: ${ergebnisse.length - gescheitert.length} von ${ergebnisse.length} Stand/Staenden`
+      `Daten von ${appId} zurueck: ${ergebnisse.filter(e => e.erfolg).length} von ${ergebnisse.length} Stand/Staenden`
     );
-    return { erfolg: gescheitert.length === 0, app: appId, staende: ergebnisse };
+    return {
+      erfolg: !gescheitert,
+      app: appId,
+      quelle,
+      staende: ergebnisse,
+      paket: paketErgebnis,
+      bericht,
+    };
   } finally {
     laeuftGerade = null;
+  }
+}
+
+function standName(stand) {
+  return stand === 'live' ? 'Live' : 'Test';
+}
+
+/**
+ * Einen Stand der App aus ihrem zurueckgeholten Paket neu bauen -- aber nur,
+ * wenn es ihn in `app_staende` gibt (sonst weiss niemand, welche Version).
+ * Wirft nicht.
+ */
+async function spieleStandEin({ appId, stand, durch }) {
+  try {
+    const { rows } = await db.query(
+      'SELECT version FROM public.app_staende WHERE app_id = $1 AND stand = $2',
+      [appId, stand]
+    );
+    if (rows.length === 0) {
+      return { erfolg: true, uebersprungen: true };
+    }
+    await appStore.spieleEin({ appId, version: rows[0].version, stand, durch });
+    return { erfolg: true, uebersprungen: false };
+  } catch (fehler) {
+    logger.error(`${appId}/${stand} kam aus dem Paket nicht wieder hoch`, {
+      error: fehler.message,
+    });
+    return { erfolg: false, uebersprungen: false };
   }
 }
 
@@ -576,6 +933,9 @@ module.exports = {
   sichereJetzt,
   stelleWiederHer,
   stelleAppWiederHer,
+  externInhalt,
+  schluessel,
+  leseSchluesselPruefung,
   testeWiederherstellung,
   baueAppsNeu,
 };

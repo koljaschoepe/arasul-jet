@@ -574,6 +574,15 @@ jobs:
       - name: systemd-Einheiten (zeigen auf das Geraet, das sie starten)
         run: bash scripts/test/systemd-einheiten.sh
 
+      # 02.10.2026 (J37): Koljas Sicherung fiel fuenf Tage still aus, weil eine
+      # Neuinstallation einen neuen Schluessel erzeugte und niemand den alten
+      # hatte. Der Wiederherstellungscode, die Frage des Werksresets danach und
+      # das Einhaengen des Sicherungs-Datentraegers (udev, nur USB, nie
+      # formatieren) haengen an diesem Test. Der Weg ueber Docker steht in
+      # scripts/test/sicherung-wegwerf-abnahme.sh (am Geraet).
+      - name: Sicherung auf den Datentraeger (Code, Werksreset, Einhaengen)
+        run: bash scripts/test/sicherung-wege.sh
+
       # 25.09.2026 (J35): die Installation holte kein Modell, der Healthcheck
       # hielt ein Geraet ohne Modell fuer krank (die Selbstheilung startete
       # llm-service mitten im Download neu), die Haertung lief ohne sudo und

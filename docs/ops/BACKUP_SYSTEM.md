@@ -224,18 +224,73 @@ dem Postgres-Volume `/backups/wal`) dem Eigentümer des Ordners zurück. Bis
 dahin gehörte die Sicherung, die der Dienst beim Start zieht — also mitten im
 Bootstrap einer Aktualisierung —, root.
 
-### 5. Die Kopie außerhalb des Geräts
+### 5. Die Kopie außerhalb des Geräts (J37)
 
 Eine Sicherung, die auf derselben Platte liegt wie das Original, überlebt genau
 die Fälle nicht, für die es sie gibt: Diebstahl, Feuer, Platte tot. Deshalb ein
-Ziel **außerhalb** — ein USB-Datenträger oder eine SMB-Freigabe im Kundennetz,
-eingehängt vom Betriebssystem und im Container nur als Ordner sichtbar
-(`BACKUP_EXTERN_ZIEL`, Vorgabe `/arasul/extern`).
+Ziel **außerhalb** — ein USB-Datenträger (SSD oder Stick) am Gerät.
+
+**Kein Handgriff.** Wer eine SSD ansteckt, muss nichts einrichten:
+
+1. `config/udev/99-arasul-sicherung.rules` erkennt jeden **USB**-Datenträger mit
+   Dateisystem (die Systemplatte nie) und startet
+   `arasul-sicherung@<gerät>.service`.
+2. `scripts/system/sicherung-datentraeger.sh einhaengen` hängt ihn unter
+   **`/mnt/arasul-sicherung`** ein (`nosuid,nodev,noexec`) und schreibt Name,
+   Dateisystem und Kennung nach `/run/arasul-sicherung/zustand.json`.
+   Formatiert, partitioniert oder löscht wird **nie**. Ein zweiter Datenträger,
+   solange einer drin ist, wird ignoriert. Hat der Desktop ihn schon
+   eingehängt (`/media/…`), wird dieser Punkt zusätzlich unter dem Ziel
+   sichtbar.
+3. Der Sicherungsdienst und das Backend sehen den Ordner unter `/arasul/extern`
+   (Compose, `propagation: rslave`): der Datenträger kommt **nach** dem Start
+   der Container, und ohne `rslave` blieben sie bei dem leeren Ordner.
+4. Wird er abgezogen, hängt `ExecStop` den Punkt aus und löscht `zustand.json`.
+
+Unter **Einstellungen → System → Sicherung** steht danach der **Name** des
+Datenträgers und sein **freier Platz**; ohne Datenträger steht dort „Kein
+Datenträger angesteckt“. Der interne Pfad erscheint nirgends in der Oberfläche.
+
+**Nur Verschlüsseltes verlässt das Gerät.** Jede Datei wird vor dem Kopieren auf
+den Kopf von `openssl enc` (`Salted__`) geprüft und nach dem Kopieren noch
+einmal; auf dem ganzen Datenträger wird danach nachgezählt, ob irgendeine Datei
+einen gzip- (`1f8b`) oder tar-Kopf (`ustar`) hat (`extern_klartext`, soll 0
+sein). Bei `BACKUP_ENCRYPT=false` oder fehlgeschlagener Verschlüsselung wird
+nichts kopiert (`extern_status: nur_verschluesselt`) — nie stillschweigend
+Klartext. (Am Orin gemessen, 02.10.2026: `*_latest` zeigt auf die verschlüsselte
+Datei, weil `encrypt_file` unter demselben Namen zurückschreibt; die Prüfung
+sichert den Fall ab, in dem das nicht mehr stimmt.)
+
+**Aufbau auf dem Datenträger:**
+
+```
+arasul-sicherung/<JJJJMMTT>/
+  arasul_db_<zeit>.sql.gz              die Datenbank
+  arasul_app_<app>_<stand>_<zeit>.sql.gz   je App und Stand eine
+  apps_<zeit>.tar.gz  flows_…  firmenordner_…  config_…
+  MANIFEST.json                        Klartext: Apps, Dateinamen, Größen, Schlüssel-Abdruck
+```
+
+Mehrere Läufe am Tag überschreiben sich je Art (der Datenträger soll nicht
+volllaufen); `BACKUP_EXTERN_TAGE` (Vorgabe 14) Tage bleiben, reicht der Platz
+nicht, gehen die ältesten zuerst. **Nicht**, solange der Schlüssel nicht zur
+letzten Sicherung auf dem Datenträger passt (siehe unten): dann sind die alten
+Tage vielleicht das Einzige, was sich mit dem früheren Schlüssel noch öffnen
+lässt.
+
+**Passt der Schlüssel noch?** Vor jeder Sicherung öffnet der Dienst den Anfang
+der neuesten Datenbank-Sicherung (lokal und auf dem Datenträger) mit dem
+Schlüssel dieses Geräts (`/backups/schluessel_pruefung.json`). Nach einer
+Neuinstallation ohne den alten Code ist das **nicht** der Fall — so fielen am
+26.09.2026 sechs Nächte der Belege-App still aus. Jetzt steht es im
+Admin-Bereich (Sicherung, ganz oben) und das Backend schickt dem Admin eine
+Mitteilung (`notification_events`, `critical`).
 
 **Kein Cloud-Ziel.** Nicht aus Bequemlichkeit weggelassen: das Gerät steht beim
 Kunden, die Daten bleiben dort, und ein Ziel, das eine Zugangskennung zu einem
 fremden Rechenzentrum braucht, wäre genau der Bruch, den die Datenschutzzusage
-dieses Produkts nicht macht.
+dieses Produkts nicht macht. (Eine SMB-Freigabe im Kundennetz, vom
+Betriebssystem unter `BACKUP_EXTERN_PFAD` eingehängt, geht weiterhin.)
 
 **Erkannt wird an der Gerätenummer des Dateisystems.** Ein Bind-Mount auf einen
 Host-Pfad, den niemand eingehängt hat, legt Docker als leeren Ordner an — er ist
@@ -246,14 +301,42 @@ Original. `stat -c %d` gegen den Sicherungsordner unterscheidet beides.
 Alltag und darf die nächtliche Sicherung nicht als fehlgeschlagen melden —
 sonst steht der Healthcheck auf Rot, während lokal alles vollständig gesichert
 ist. Sichtbar bleibt es trotzdem: `extern_status` im Tagesbericht nennt den
-Grund (`kein_ziel`, `nicht_eingehaengt`, `nicht_beschreibbar`, `abgeschaltet`,
-`fehler`, `kopiert`).
+Grund (`kein_ziel`, `nicht_eingehaengt`, `nicht_beschreibbar`,
+`zu_wenig_platz`, `nur_verschluesselt`, `abgeschaltet`, `fehler`, `kopiert`).
+Einzige Ausnahme: findet die Nachzählung Klartext auf dem Datenträger, ist die
+Sicherung `partial_failure`.
 
 **Das Datum überlebt die Nacht ohne Stick.** Wann zuletzt wirklich eine Kopie
 außer Haus entstanden ist, steht in einer eigenen Datei
 (`/backups/extern_bericht.json`), die nur bei Erfolg geschrieben wird — der
 Tagesbericht wird jede Nacht überschrieben. Über die API liest man beides unter
-`GET /api/backup/status` → `ausserhalb`.
+`GET /api/backup/status` → `ausserhalb`; was auf dem Datenträger liegt, unter
+`GET /api/backup/extern/inhalt`.
+
+### 5a. Der Wiederherstellungscode (J37)
+
+Der Code **ist** der Sicherungsschluessel (`config/secrets/backup_encryption_key`)
+in Gruppen zu vier Zeichen: `ABCD-EFGH-JKLM-NPQR-STUV-WXYZ-2345-6723`. Kein
+zweiter Schluessel, nichts Abgeleitetes. Neue Geraete bekommen 32 Zeichen
+Base32 (160 Bit), aeltere haben 64 Hex-Zeichen; beides geht.
+
+- **Bei der Einrichtung** steht er einmal in der Erstausgabe (Bildschirm und
+  `config/secrets/erstausgabe.txt`). Aufschreiben, **ausserhalb des Geraets**
+  aufbewahren.
+- **Nachlesen am Geraet:** `bash scripts/util/wiederherstellungscode.sh`.
+- **Neu aufsetzen und alte Sicherungen weiter lesen:**
+  `./install.sh --wiederherstellungscode ABCD-EFGH-…` (oder
+  `ARASUL_WIEDERHERSTELLUNGSCODE`). Dann wird der alte Schluessel geschrieben
+  statt eines neuen.
+- **Werksreset:** `scripts/setup/factory-reset.sh` fragt vor dem Loeschen nach
+  dem Code; ein falscher bricht ab, `ohne` geht nur nach einer Warnung, dass
+  alle Sicherungen danach unlesbar sind.
+- **Beim Zurueckholen** (Oberflaeche oder `wiederherstellen.sh`) kann man den
+  Code eingeben, wenn der Schluessel dieses Geraets nicht passt. Er geht als
+  Umgebungsvariable in den Dienst (nie in die Befehlszeile), liegt nur fuer
+  diesen Lauf in einer Datei mit 0600 und wird danach geloescht. Mit Code
+  nimmt der Weg die neueste Sicherung auf dem Datentraeger, die sich damit
+  oeffnen laesst.
 
 ### 6. WAL Archive
 
@@ -320,6 +403,7 @@ archive and the raw segments once they age past the daily retention window.
 | BACKUP_EXTERN_AN                | auto                               | `auto` = kopieren, wenn dort wirklich etwas eingehängt ist; `false` = nie |
 | BACKUP_EXTERN_ZIEL              | /arasul/extern                     | Der Ordner IM Container, der außerhalb liegt                              |
 | BACKUP_EXTERN_PFAD              | /mnt/arasul-sicherung              | Wo der Host den Datenträger einhängt (Compose-Ebene)                      |
+| BACKUP_EXTERN_TAGE              | 14                                 | Wie viele Tage auf dem Datenträger bleiben (J37)                          |
 | TZ                              | Europe/Berlin                      | Timezone                                                                  |
 
 Die Sicherung läuft ausschließlich im `backup-service`-Container über cron
@@ -466,8 +550,9 @@ abgezogen war, darf das Datum der letzten echten Kopie nicht löschen.
 ```json
 {
   "zeitpunkt": "2026-08-27T02:03:11+02:00",
-  "ziel": "/arasul/extern",
-  "ordner": "/arasul/extern/arasul-sicherung/20260827",
+  "ziel": "arasul-sicherung/20260827",
+  "ordner": "arasul-sicherung/20260827",
+  "apps": ["belege"],
   "dateien": 4,
   "bytes": 5211334
 }

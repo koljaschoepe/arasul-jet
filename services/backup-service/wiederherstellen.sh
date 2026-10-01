@@ -51,6 +51,22 @@
 #                                                       NUR die Daten EINER
 #                                                       App und eines Standes
 #                                                       (J35, siehe unten)
+#   /usr/local/bin/wiederherstellen.sh --app-paket <app-id>
+#                                                       NUR das Paket EINER App
+#                                                       (J37): /arasul/apps/<id>
+#
+# Dazu (J37, 02.10.2026), mit jedem der Aufrufe zu verbinden:
+#
+#   --quelle extern    die Sicherung stammt VOM DATENTRAEGER
+#                      (/arasul/extern/arasul-sicherung/<neuester Tag>/), nicht
+#                      aus /backups. So kommt ein Kunde an seine Sachen, dessen
+#                      Geraet leer ist: der Stick ist alles, was er hat.
+#   ARASUL_WIEDERHERSTELLUNGSCODE (Umgebungsvariable, nie in der Befehlszeile)
+#                      der Wiederherstellungscode der Installation, mit der die
+#                      Sicherung gemacht wurde. Noetig, wenn der Schluessel
+#                      dieses Geraets ein anderer ist (Neuinstallation). Er
+#                      wird nur fuer diesen Lauf in eine Datei mit 0600
+#                      geschrieben und danach geloescht.
 #
 # Rueckgabe 0, wenn alles zurueckgekommen ist, sonst 1. Der Bericht steht in
 # `/backups/wiederherstellung_bericht.json`.
@@ -71,6 +87,9 @@ DATEI=""
 NUR_DATENBANK=false
 PROBE=false
 APP_DATENBANK=""
+APP_PAKET=""
+QUELLE=lokal
+EXTERN_ORDNER="${BACKUP_EXTERN_ZIEL:-/arasul/extern}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -78,7 +97,9 @@ while [ $# -gt 0 ]; do
         --nur-datenbank) NUR_DATENBANK=true; shift ;;
         --probe) PROBE=true; shift ;;
         --app-datenbank) APP_DATENBANK="$2"; shift 2 ;;
-        -h|--help) sed -n '1,55p' "$0"; exit 0 ;;
+        --app-paket) APP_PAKET="$2"; shift 2 ;;
+        --quelle) QUELLE="$2"; shift 2 ;;
+        -h|--help) sed -n '1,75p' "$0"; exit 0 ;;
         *) echo "Unbekanntes Argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -145,6 +166,154 @@ lies_sicherung() {
 
 START=$(date +%s)
 mkdir -p "$BACKUP_DIR"
+
+# --- Welcher Schluessel, welche Sicherung? (J37) ------------------------------
+# Zwei Fragen, und die zweite haengt an der ersten.
+#
+# 1. DER SCHLUESSEL. Normalerweise der dieses Geraets. Nach einer
+#    Neuinstallation oder einem Werksreset passt er nicht zu dem, was auf dem
+#    Datentraeger liegt -- dann nennt der Mensch den WIEDERHERSTELLUNGSCODE der
+#    frueheren Installation (Umgebungsvariable, nie die Befehlszeile). Der Code
+#    ist der Schluessel selbst in Gruppen zu vier; getippt wird er mit oder
+#    ohne Striche, gross oder klein. Welche Schreibweise stimmt, entscheidet
+#    nicht der Mensch, sondern der Versuch: er muss den Anfang einer der
+#    neuesten Datenbank-Sicherungen oeffnen. Er gilt nur fuer diesen Lauf: eine
+#    Datei mit 0600, danach weg.
+# 2. DIE SICHERUNG. `lokal`: aus /backups. `extern`: vom Datentraeger -- aus dem
+#    NEUESTEN Tagesordner, dessen Datenbank sich mit dem Schluessel oeffnen
+#    laesst (gibt es keinen, aus dem neuesten, damit der Fehler benennbar ist).
+#    Daraus wird ein Ordner zusammengestellt, der aussieht wie /backups
+#    (`postgres/arasul_db_latest.sql.gz`, `apps/apps_latest.tar.gz` ...), und
+#    alles Weitere liest daraus. Nur gelesen, nie auf den Datentraeger
+#    geschrieben.
+QUELLE_DIR="$BACKUP_DIR"
+STAGE=""
+TEMP_SCHLUESSEL=""
+aufraeumen() {
+    [ -n "$STAGE" ] && rm -rf "$STAGE"
+    [ -n "$TEMP_SCHLUESSEL" ] && rm -f "$TEMP_SCHLUESSEL"
+}
+trap aufraeumen EXIT
+
+case "$QUELLE" in
+    lokal|extern) : ;;
+    *) echo "Unbekannte Quelle: $QUELLE (lokal oder extern)" >&2; exit 2 ;;
+esac
+
+ist_datentraeger() {
+    local dev_ziel dev_hier
+    [ -d "${EXTERN_ORDNER}/arasul-sicherung" ] || return 1
+    dev_ziel=$(stat -c %d "$EXTERN_ORDNER" 2>/dev/null || echo "")
+    dev_hier=$(stat -c %d "$BACKUP_DIR" 2>/dev/null || echo "")
+    [ -n "$dev_ziel" ] && [ "$dev_ziel" != "$dev_hier" ]
+}
+
+# Die neuesten Datenbank-Sicherungen der Quelle, neueste zuerst.
+dumps_der_quelle() {
+    if [ "$QUELLE" = extern ]; then
+        find "${EXTERN_ORDNER}/arasul-sicherung" -mindepth 2 -maxdepth 2 -name 'arasul_db_*.sql.gz' 2>/dev/null \
+            | awk -F/ '{print $(NF-1) "/" $NF "\t" $0}' | sort -r | cut -f2 | head -n 10
+    else
+        find "${BACKUP_DIR}/postgres" -maxdepth 1 -name 'arasul_db_*.sql.gz' ! -name '*latest*' 2>/dev/null \
+            | sort -r | head -n 10
+    fi
+}
+
+# Oeffnet dieser Schluessel (Datei) den Anfang dieser Sicherung?
+oeffnet() { # schluesseldatei, sicherung
+    [ -f "$1" ] || return 1
+    [ "$(head -c 8 "$2" 2>/dev/null)" = "Salted__" ] || return 0   # Klartext: braucht keinen
+    [ "$(openssl enc -d -aes-256-cbc -pbkdf2 -in "$2" -pass "file:$1" 2>/dev/null \
+        | head -c 2 | od -An -tx1 | tr -d ' \n')" = "1f8b" ]
+}
+
+if [ "$QUELLE" = extern ] && ! ist_datentraeger; then
+    protokoll "FEHLER: es ist kein Datentraeger mit einer Sicherung angesteckt"
+    [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "kein_datentraeger"
+    exit 1
+fi
+
+if [ -n "${ARASUL_WIEDERHERSTELLUNGSCODE:-}" ]; then
+    TEMP_SCHLUESSEL="$(mktemp)"
+    chmod 600 "$TEMP_SCHLUESSEL"
+    roh="$(printf '%s' "$ARASUL_WIEDERHERSTELLUNGSCODE" | tr -d ' \t\r\n-')"
+    unset ARASUL_WIEDERHERSTELLUNGSCODE
+    gefunden=false
+    for kandidat in "$roh" "$(printf '%s' "$roh" | tr '[:lower:]' '[:upper:]')" \
+                    "$(printf '%s' "$roh" | tr '[:upper:]' '[:lower:]')"; do
+        printf '%s' "$kandidat" > "$TEMP_SCHLUESSEL"
+        while IFS= read -r probe_datei; do
+            [ -n "$probe_datei" ] || continue
+            if oeffnet "$TEMP_SCHLUESSEL" "$probe_datei"; then
+                gefunden=true
+                break
+            fi
+        done <<<"$(dumps_der_quelle)"
+        [ "$gefunden" = true ] && break
+    done
+    if [ "$gefunden" != true ]; then
+        protokoll "FEHLER: der Wiederherstellungscode oeffnet keine der Sicherungen -- nichts angefasst"
+        [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "wiederherstellungscode_passt_nicht"
+        exit 1
+    fi
+    BACKUP_ENCRYPT_KEY_FILE="$TEMP_SCHLUESSEL"
+    protokoll "Wiederherstellungscode angenommen (nur fuer diesen Lauf)"
+fi
+
+# Die neueste Datei einer Art in einem Tagesordner, die der Schluessel oeffnet
+# (sonst die neueste). Mehrere Schluessel an einem Tag gibt es nur nach einer
+# Neuinstallation ohne Code; dann liegen beide Staende im selben Ordner.
+neueste_lesbare() { # ordner, muster
+    local datei erste=""
+    for datei in $(ls -1 "$1"/$2 2>/dev/null | sort -r); do
+        [ -n "$erste" ] || erste="$datei"
+        oeffnet "$BACKUP_ENCRYPT_KEY_FILE" "$datei" && { printf '%s' "$datei"; return 0; }
+    done
+    printf '%s' "$erste"
+}
+
+stelle_datentraeger_bereit() {
+    local tag="" kandidat dump datei name db kind
+    # Der neueste Tag, dessen Datenbank der Schluessel oeffnet; gibt es keinen,
+    # der neueste mit Datenbank.
+    for kandidat in $(find "${EXTERN_ORDNER}/arasul-sicherung" -mindepth 1 -maxdepth 1 -type d \
+                        -name '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' | sort -r); do
+        [ -f "${kandidat}/MANIFEST.json" ] || continue
+        dump="$(neueste_lesbare "$kandidat" 'arasul_db_*.sql.gz')"
+        [ -n "$dump" ] || continue
+        [ -n "$tag" ] || tag="$kandidat"          # Rueckfall: der neueste
+        if oeffnet "$BACKUP_ENCRYPT_KEY_FILE" "$dump"; then
+            tag="$kandidat"
+            break
+        fi
+    done
+    if [ -z "$tag" ]; then
+        protokoll "FEHLER: auf dem Datentraeger liegt keine Sicherung mit Datenbank"
+        return 1
+    fi
+    STAGE="$(mktemp -d)"
+    mkdir -p "${STAGE}/postgres/apps" "${STAGE}/apps" "${STAGE}/flows" "${STAGE}/firmenordner" "${STAGE}/config"
+    dump="$(neueste_lesbare "$tag" 'arasul_db_*.sql.gz')"
+    ln -sf "$dump" "${STAGE}/postgres/$(basename "$dump")"
+    ln -sf "$dump" "${STAGE}/postgres/arasul_db_latest.sql.gz"
+    for kind in apps flows firmenordner config; do
+        datei="$(neueste_lesbare "$tag" "${kind}_[0-9]*.tar.gz")"
+        [ -n "$datei" ] && ln -sf "$datei" "${STAGE}/${kind}/${kind}_latest.tar.gz"
+    done
+    for db in $(ls -1 "$tag" 2>/dev/null | sed -nE 's/^(arasul_app_.+)_[0-9]{8}_[0-9]{6}\.sql\.gz$/\1/p' | sort -u); do
+        datei="$(neueste_lesbare "$tag" "${db}_[0-9]*_[0-9]*.sql.gz")"
+        ln -sf "$datei" "${STAGE}/postgres/apps/$(basename "$datei")"
+        ln -sf "$datei" "${STAGE}/postgres/apps/${db}_latest.sql.gz"
+    done
+    QUELLE_DIR="$STAGE"
+    protokoll "Quelle: Datentraeger, Sicherung vom $(basename "$tag")"
+    return 0
+}
+
+if [ "$QUELLE" = extern ]; then
+    stelle_datentraeger_bereit || exit 1
+fi
+POSTGRES_DIR="${QUELLE_DIR}/postgres"
 
 # --- Zugang zur Datenbank ----------------------------------------------------
 # Mit Vorgaben, obwohl Compose alle drei setzt: unter `set -u` waere eine
@@ -216,6 +385,75 @@ spiele_app_ein() {
 # angelegt statt ueberschrieben: `--clean` im Abzug raeumt nur weg, was er
 # selbst kennt, und eine Tabelle, die erst nach der Sicherung dazukam, bliebe
 # sonst stehen -- ein Stand, den es nie gab.
+# --- Nur das Paket einer App (J37) --------------------------------------------
+# Das Gegenstueck zu `--app-datenbank`: das Verzeichnis `/arasul/apps/<id>/`
+# (Manifest, fertiges Frontend, Dockerfile mit Kontext) kommt aus dem
+# Paket-Archiv zurueck. Der jetzige Stand wird vorher gepackt
+# (`vor_wiederherstellung/paket_<id>_...tar.gz`) und erst NACH dem vollstaendigen
+# Auspacken ersetzt -- ein Abbruch laesst die App, wie sie war. Das Image baut
+# danach das Backend neu (`appStore.spieleEin`), nicht dieses Skript.
+if [ -n "$APP_PAKET" ]; then
+    if ! [[ "$APP_PAKET" =~ ^[a-z0-9][a-z0-9-]*$ ]] || [ "${#APP_PAKET}" -gt 64 ]; then
+        protokoll "FEHLER: ${APP_PAKET} ist keine App-Kennung"
+        exit 2
+    fi
+    archiv="${QUELLE_DIR}/apps/apps_latest.tar.gz"
+    if [ ! -e "$archiv" ]; then
+        protokoll "FEHLER: kein Archiv der App-Pakete vorhanden"
+        exit 1
+    fi
+    if [ ! -d "$APPS_ZIEL" ]; then
+        protokoll "FEHLER: ${APPS_ZIEL} ist nicht eingehaengt"
+        exit 1
+    fi
+    klartext="$(mktemp)"
+    if ! lies_sicherung "$(readlink -f "$archiv")" > "$klartext" || ! tar -tzf "$klartext" >/dev/null 2>&1; then
+        rm -f "$klartext"
+        protokoll "FEHLER: das Archiv der App-Pakete laesst sich nicht lesen (Schluessel passt nicht?)"
+        exit 1
+    fi
+    # `grep -q <<<"$(…)"` und nicht `… | grep -q`: siehe lege_app_an (Rohrbruch).
+    if ! grep -q "^\(\./\)\?${APP_PAKET}/" <<<"$(tar -tzf "$klartext" 2>/dev/null)"; then
+        rm -f "$klartext"
+        protokoll "FEHLER: die App ${APP_PAKET} steht nicht in dieser Sicherung"
+        exit 1
+    fi
+    if [ "$PROBE" = "true" ]; then
+        rm -f "$klartext"
+        protokoll "Probe: das Paket von ${APP_PAKET} ist lesbar, nichts angefasst"
+        exit 0
+    fi
+    vorlauf="$(mktemp -d)"
+    if ! tar -xzf "$klartext" -C "$vorlauf" 2>/dev/null || [ ! -d "${vorlauf}/${APP_PAKET}" ]; then
+        rm -rf "$klartext" "$vorlauf"
+        protokoll "FEHLER: das Paket von ${APP_PAKET} liess sich nicht auspacken -- nichts angefasst"
+        exit 1
+    fi
+    rm -f "$klartext"
+    if [ -d "${APPS_ZIEL}/${APP_PAKET}" ]; then
+        mkdir -p "${BACKUP_DIR}/vor_wiederherstellung"
+        VOR_PAKET="${BACKUP_DIR}/vor_wiederherstellung/paket_${APP_PAKET}_vorher_$(date +%Y%m%d_%H%M%S).tar.gz"
+        if tar -czf "$VOR_PAKET" -C "$APPS_ZIEL" "$APP_PAKET" 2>/dev/null; then
+            protokoll "Paket von jetzt gesichert: $(basename "$VOR_PAKET")"
+        else
+            rm -rf "$VOR_PAKET" "$vorlauf"
+            protokoll "FEHLER: das jetzige Paket liess sich nicht sichern -- nichts angefasst"
+            exit 1
+        fi
+        rm -rf "${APPS_ZIEL:?}/${APP_PAKET}"
+    fi
+    if ! cp -a "${vorlauf}/${APP_PAKET}" "${APPS_ZIEL}/"; then
+        rm -rf "$vorlauf"
+        protokoll "FEHLER: das Paket von ${APP_PAKET} liess sich nicht nach ${APPS_ZIEL} legen"
+        exit 1
+    fi
+    rm -rf "$vorlauf"
+    eigner=$(stat -c '%u:%g' "$APPS_ZIEL" 2>/dev/null)
+    [ -n "$eigner" ] && chown -R "$eigner" "${APPS_ZIEL}/${APP_PAKET}" 2>/dev/null
+    protokoll "${APP_PAKET}: Paket zurueck (${APPS_ZIEL}/${APP_PAKET}) in $(( $(date +%s) - START ))s"
+    exit 0
+fi
+
 if [ -n "$APP_DATENBANK" ]; then
     if ! [[ "$APP_DATENBANK" =~ ^arasul_app_[a-z0-9_]+$ ]] || [ "${#APP_DATENBANK}" -gt 63 ]; then
         protokoll "FEHLER: ${APP_DATENBANK} ist kein Name einer App-Datenbank"
@@ -311,8 +549,13 @@ protokoll "Wiederherstellung aus $(basename "$DATEI")"
 # ERST pruefen, DANN etwas anfassen. Eine Sicherung, die sich nicht oeffnen
 # laesst, darf keine halb geleerte Datenbank hinterlassen.
 if ! lies_sicherung "$DATEI" | gunzip -t 2>/dev/null; then
-    protokoll "FEHLER: die Sicherung laesst sich nicht lesen (Schluessel falsch oder Datei beschaedigt)"
-    schreibe_bericht fehler "sicherung_unlesbar"
+    if [ "$(head -c 8 "$DATEI" 2>/dev/null)" = "Salted__" ]; then
+        protokoll "FEHLER: der Schluessel dieses Geraets passt nicht zur Sicherung. Mit dem Wiederherstellungscode der frueheren Installation geht es."
+        schreibe_bericht fehler "schluessel_passt_nicht"
+    else
+        protokoll "FEHLER: die Sicherung laesst sich nicht lesen (Datei beschaedigt)"
+        schreibe_bericht fehler "sicherung_unlesbar"
+    fi
     exit 1
 fi
 protokoll "Sicherung lesbar."
@@ -390,7 +633,7 @@ if [ "$DB_ZEILEN" -gt 0 ]; then
     while IFS='|' read -r APP_DB APP_ROLLE; do
         [ -n "$APP_DB" ] || continue
         lege_app_an "$APP_DB" "$APP_ROLLE"
-        APP_ABZUG="${BACKUP_DIR}/postgres/apps/${APP_DB}_latest.sql.gz"
+        APP_ABZUG="${POSTGRES_DIR}/apps/${APP_DB}_latest.sql.gz"
         if [ ! -e "$APP_ABZUG" ]; then
             protokoll "${APP_DB}: keine Sicherung vorhanden — leer angelegt"
             continue
@@ -418,7 +661,7 @@ fi
 ERGEBNIS=""
 entpacke_nach() {
     local name="$1" ziel="$2"
-    local archiv="${BACKUP_DIR}/${name}/${name}_latest.tar.gz"
+    local archiv="${QUELLE_DIR}/${name}/${name}_latest.tar.gz"
     ERGEBNIS=""
 
     if [ ! -e "$archiv" ]; then

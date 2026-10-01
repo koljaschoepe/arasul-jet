@@ -15,6 +15,28 @@ const { AppId } = require('./apps');
  * und das Ergebnis waere eine Datenbank aus unbekannter Quelle. Ohne Angabe
  * gilt die neueste Sicherung.
  */
+/**
+ * Woher zurueckgeholt wird (J37): vom angesteckten Datentraeger oder von diesem
+ * Geraet. Ein Wort aus einer festen Liste, kein Pfad.
+ */
+const Quelle = z.enum(['lokal', 'extern']);
+
+/**
+ * Der Wiederherstellungscode (J37): nur noetig, wenn der Schluessel dieses
+ * Geraets nicht zur Sicherung passt. Buchstaben, Ziffern, Leerzeichen und
+ * Striche -- nichts, was eine Shell oder ein Dateiname je deuten koennte. Er
+ * geht nicht in die Befehlszeile, sondern in die Umgebung des Aufrufs.
+ */
+const Wiederherstellungscode = z
+  .string()
+  .trim()
+  .max(100)
+  .regex(
+    /^[A-Za-z0-9 -]*$/,
+    'Der Wiederherstellungscode besteht nur aus Buchstaben, Ziffern und Strichen'
+  )
+  .optional();
+
 const WiederherstellungBody = z
   .object({
     datei: z
@@ -26,6 +48,8 @@ const WiederherstellungBody = z
         'Nur der Name der Sicherung, kein Pfad (Buchstaben, Ziffern, Punkt, Strich, Unterstrich)'
       )
       .optional(),
+    quelle: Quelle.default('lokal'),
+    wiederherstellungscode: Wiederherstellungscode,
     bestaetigung: z.literal('wiederherstellen', {
       error:
         'Zum Bestaetigen muss das Feld `bestaetigung` das Wort "wiederherstellen" enthalten. ' +
@@ -48,6 +72,11 @@ const AppWiederherstellungBody = z
   .object({
     bestaetigung: z.string().trim().min(1).max(100),
     stand: z.enum(['test', 'live']).optional(),
+    quelle: Quelle.default('lokal'),
+    // Mit dem Paket der App (ihr Frontend und Backend aus dem Archiv) oder nur
+    // ihre Daten. Vorgabe: mit Paket -- eine App ohne ihr Paket laeuft nicht.
+    paket: z.boolean().default(true),
+    wiederherstellungscode: Wiederherstellungscode,
   })
   .strict();
 

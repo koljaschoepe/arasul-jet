@@ -48,6 +48,8 @@ GRUEN='\033[0;32m'; BLAU='\033[0;34m'; GELB='\033[1;33m'; FETT='\033[1m'; AUS='\
 
 PASSWORT=""
 SCHLUESSEL=""
+# Der Wiederherstellungscode (J37): der Sicherungsschluessel in Gruppen zu vier.
+WIEDERHERSTELLUNGSCODE=""
 DATEI="config/secrets/erstausgabe.txt"
 NUR_DATEI=false
 # Eine Aktualisierung hat keine Geheimnisse zu nennen -- sie hat schon welche.
@@ -62,6 +64,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --passwort)   PASSWORT="${2:-}"; shift 2 ;;
     --schluessel) SCHLUESSEL="${2:-}"; shift 2 ;;
+    --wiederherstellungscode) WIEDERHERSTELLUNGSCODE="${2:-}"; shift 2 ;;
     --datei)      DATEI="${2:-}"; shift 2 ;;
     --nur-datei)  NUR_DATEI=true; shift ;;
     --aktualisierung) AKTUALISIERUNG=true; shift ;;
@@ -145,6 +148,14 @@ if [ "$NUR_DATEI" = false ]; then
     echo "                Ins Kit eintragen. Ein neuer geht ueber"
     echo "                bash scripts/util/kit-schluessel.sh anlegen"
   fi
+  if [ -n "$WIEDERHERSTELLUNGSCODE" ]; then
+    echo ""
+    echo "  Wiederherstellungscode (fuer die Sicherungen)"
+    echo -e "  ${FETT}${WIEDERHERSTELLUNGSCODE}${AUS}"
+    echo "                AUFSCHREIBEN und AUSSERHALB des Geraets aufbewahren."
+    echo "                Ohne ihn laesst sich keine Sicherung mehr oeffnen, wenn"
+    echo "                das Geraet neu aufgesetzt wird oder verloren geht."
+  fi
   if [ -n "$SSH_SATZ" ]; then
     echo ""
     echo "  SSH           ${SSH_SATZ}"
@@ -178,7 +189,7 @@ fi
 # -----------------------------------------------------------------------------
 # In die Datei
 # -----------------------------------------------------------------------------
-if [ -z "$PASSWORT" ] && [ -z "$SCHLUESSEL" ]; then
+if [ -z "$PASSWORT" ] && [ -z "$SCHLUESSEL" ] && [ -z "$WIEDERHERSTELLUNGSCODE" ]; then
   [ "$NUR_DATEI" = false ] && echo -e "  ${GELB}Kein Geheimnis zu hinterlegen -- ${DATEI} bleibt, wie sie ist.${AUS}"
   exit 0
 fi
@@ -223,6 +234,15 @@ chmod 600 "$DATEI" 2>/dev/null || true
   else
     echo "Kit-Schluessel  keiner angelegt. Nachholen:"
     echo "                bash scripts/util/kit-schluessel.sh anlegen \"Kit von ...\""
+  fi
+  if [ -n "$WIEDERHERSTELLUNGSCODE" ]; then
+    echo ""
+    echo "Wiederherstellungscode  ${WIEDERHERSTELLUNGSCODE}"
+    echo "                Das ist der Schluessel der Sicherungen. Aufschreiben und"
+    echo "                AUSSERHALB des Geraets aufbewahren; ohne ihn sind die"
+    echo "                Sicherungen nach einem Werksreset oder bei Geraeteverlust"
+    echo "                nicht mehr zu oeffnen. Neu aufsetzen mit demselben Code:"
+    echo "                ./install.sh --wiederherstellungscode <Code>"
   fi
 } >>"$DATEI"
 

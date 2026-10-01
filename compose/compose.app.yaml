@@ -73,6 +73,10 @@ services:
       FLOW_FREIGABE_FRIST_MINUTEN: ${FLOW_FREIGABE_FRIST_MINUTEN:-}
       # Externe Cloud-Modelle (Plan 023 D9).
       EXTERN_TIMEOUT_MS: ${EXTERN_TIMEOUT_MS:-60000}
+      # Der angesteckte Sicherungs-Datentraeger (J37): wo das Backend ihn und
+      # seinen Zustand sieht (siehe die Mounts unten).
+      EXTERN_ORDNER: ${EXTERN_ORDNER:-/arasul/extern}
+      EXTERN_ZUSTAND: ${EXTERN_ZUSTAND:-/arasul/extern-zustand/zustand.json}
       EXTERN_MODELLE_CACHE_MS: ${EXTERN_MODELLE_CACHE_MS:-300000}
       EMBEDDING_SERVICE_HOST: ${EMBEDDING_SERVICE_HOST}
       EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
@@ -178,6 +182,26 @@ services:
       - ${NV_TEGRA_RELEASE:-/etc/nv_tegra_release}:/etc/nv_tegra_release:ro
       - ${DATA_PATH:-../data}/updates:/arasul/updates
       - ${DATA_PATH:-../data}/backups:/arasul/backups:ro
+      # Der angesteckte Sicherungs-Datentraeger (J37), NUR LESEND: das
+      # Dashboard zeigt seinen freien Platz und liest, was auf ihm liegt
+      # (`MANIFEST.json`), damit eine App von dort zurueckgeholt werden kann.
+      # Geschrieben wird dort nur vom Sicherungsdienst. `rslave`: der Stick
+      # kommt nach dem Start des Backends (siehe compose.monitoring.yaml).
+      - type: bind
+        source: ${BACKUP_EXTERN_PFAD:-/mnt/arasul-sicherung}
+        target: /arasul/extern
+        read_only: true
+        bind:
+          propagation: rslave
+          create_host_path: true
+      # Name und Dateisystem des Datentraegers, vom Host geschrieben
+      # (`/run/arasul-sicherung/zustand.json`).
+      - type: bind
+        source: ${BACKUP_EXTERN_ZUSTAND:-/run/arasul-sicherung}
+        target: /arasul/extern-zustand
+        read_only: true
+        bind:
+          create_host_path: true
       # Die Apps: `<id>/<version>/app.json` und `<id>/<version>/frontend/`.
       # Schreibbar, weil der Werksreset hier aufraeumt und der Deploy-Endpunkt
       # (C5) hierher entpackt; bis dahin legt sie das Kit ueber SSH ab.
