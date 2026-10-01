@@ -1576,3 +1576,26 @@ die GPU über nvidia-smi, im Container beim `llm-service`
 und fährt jetzt auch die BATS-Tests der Erkennung; `scripts/test/spark-zweig.py`
 hält Compose-Vorgaben und Basen fest. Was erst am Gerät messbar ist, steht in
 [`docs/features/PLATFORM_COMPATIBILITY.md`](docs/features/PLATFORM_COMPATIBILITY.md).
+
+Seit dem Auftrag **mitarbeiter-ohne-technik-und-freigaben** (02.10.2026, J36)
+**sieht ein Mitarbeiter keine Technik, und eine Freigabe steht in der App, in
+der sie entsteht.** Die Statusleiste zeigt ihm weder Fassung noch
+Verbindungspunkt noch Downloads noch die Zahl der Freigaben; ist das Gerät
+nicht erreichbar, steht dort genau ein Satz („Das Gerät antwortet gerade
+nicht."). Die Startseite hat für ihn keine Freigabenliste und keine Fassung an
+der Kachel, höchstens eine Zahl wartender Freigaben an der App; der
+Administrator sieht weiter alles (`Startseite` in `TabContent.tsx`). Kein
+Toast nennt einen HTTP-Code oder englischen Backend-Text
+(`utils/fehlertext.ts`, in `useApi` und an den zwei Stellen, die `Error.message`
+selbst zeigten). Die Bibliothek bekommt das Muster **`Freigabe`** (5.2.0):
+Liste, Einzelansicht, Bestätigen, Ablehnen mit Pflichtgrund, wer entschied,
+Frist; `OffeneFreigaben` der Shell ist daraus gebaut, das Paket
+(`marken-paket.py`) nimmt es mit. Der Freigabedienst im Backend bleibt, nur
+`freigabe.wo` und der Satz sagen jetzt „in der App, in der die Freigabe
+entstanden ist" statt „auf der Übersicht". Abnahme:
+`scripts/test/freigabe-wer-entscheidet-abnahme.sh` — die Proben-App
+`tests/probe-freigabe` ist jetzt eine App **mit Bau** (`quelle/`) und bindet den
+Baustein ein; gemessen am Orin 26 von 26 (Browser 28 von 28) mit
+Bildern je Rolle unter `docs/plans/audits/2026-10-02-freigabe-wer-entscheidet/`,
+die Oberflächen-Reihe 99 von 99. Die Karte zu K24 baut den Baustein danach in
+jede App mit Freigaben ein.

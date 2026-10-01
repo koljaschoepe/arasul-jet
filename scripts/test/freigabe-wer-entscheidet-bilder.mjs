@@ -75,6 +75,12 @@ async function sitzung(benutzer, passwort, breite = 1440) {
   });
   pruefe(`${benutzer} meldet sich an`, r.status() === 200, `HTTP ${r.status()}`);
   const page = await ctx.newPage();
+  // Was eine Seite oder ihr Rahmen an Fehlern wirft, steht im Protokoll: ohne das
+  // ist ein leerer Rahmen nur ein Zeitlimit.
+  page.on('pageerror', e => console.log(`  seitenfehler (${benutzer}): ${e.message}`));
+  page.on('console', m => {
+    if (m.type() === 'error') console.log(`  konsole (${benutzer}): ${m.text().slice(0, 200)}`);
+  });
   return { ctx, page };
 }
 
@@ -93,6 +99,14 @@ async function sichtbar(locator, ms = 15000) {
 const m1 = await sitzung(M1, M1_PASS);
 await m1.page.goto(`${URL}/workspace/app/${APP}`, { waitUntil: 'networkidle' });
 const rahmen1 = m1.page.frameLocator(`[data-testid="app-rahmen-${APP}"]`);
+if (!(await sichtbar(rahmen1.getByTestId('einreichen'), 20000))) {
+  // Der Rahmen blieb leer: Bild und Adressen der Rahmen ins Protokoll, dann Schluss.
+  await bild(m1.page, 'fehler-rahmen-leer');
+  console.log(`ROT    Der Rahmen der App zeigt keine Seite: ${m1.page.frames().map(f => f.url()).join(' | ')}`);
+  const inhalt = await m1.page.frames().at(-1)?.content();
+  console.log(`  rahmeninhalt: ${(inhalt ?? '').replace(/\s+/g, ' ').slice(0, 600)}`);
+  process.exit(1);
+}
 await rahmen1.getByTestId('einreichen').click();
 const satz = rahmen1.getByTestId('wer-entscheidet');
 const satzDa = await sichtbar(satz.filter({ hasText: 'Entscheidet:' }), 60000);
@@ -166,9 +180,7 @@ for (const [status, text] of [
     })
   );
   await m1.page.goto(`${URL}/workspace/dashboard`, { waitUntil: 'domcontentloaded' });
-  const toast = m1.page.locator(
-    '[role="alert"] li, li[role="alert"], [data-state="open"][role="alert"]'
-  );
+  const toast = m1.page.locator('[role="alert"]');
   const da = await sichtbar(toast, 15000);
   const toastText = da ? (await toast.first().innerText()).replace(/\s+/g, ' ').trim() : '';
   pruefe(
@@ -237,6 +249,8 @@ pruefe(
 await bild(m2.page, '7-m2-app-mit-freigabe-baustein');
 
 // Ablehnen verlangt einen Grund: erst gesperrt, dann mit Text moeglich.
+// Karten vor dem Ablehnen: die Karte mit offenem Feld hat keinen Ablehnen-Knopf mehr.
+const vorherAblehnen = await rahmen2.locator('[data-testid$="-ablehnen"]').count();
 const ablehnen = rahmen2.locator('[data-testid$="-ablehnen"]').first();
 await ablehnen.click();
 const absenden = rahmen2.locator('[data-testid$="-ablehnen-absenden"]').first();
@@ -246,7 +260,6 @@ pruefe('Ablehnen ohne Begründung geht nicht', await absenden.isDisabled());
 await feld.fill('Probe: zu knapp vor dem Termin');
 pruefe('mit Begründung geht es', await absenden.isEnabled());
 await bild(m2.page, '8-m2-ablehnen-mit-pflichtgrund');
-const vorherAblehnen = await rahmen2.locator('[data-testid$="-ablehnen"]').count();
 await absenden.click();
 await m2.page
   .waitForFunction(
