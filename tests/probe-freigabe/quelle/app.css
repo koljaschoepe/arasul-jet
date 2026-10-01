@@ -1,0 +1,7 @@
+/* Wie das Kit es einer App mit Bau vorgibt (packages/marken/EINBAU.md):
+   theme.css OHNE Schicht, marken.css MIT layer(components). */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '../../../packages/marken/src/theme.css';
+@import '../../../packages/marken/src/marken.css' layer(components);
+@source '../../../packages/marken/src';

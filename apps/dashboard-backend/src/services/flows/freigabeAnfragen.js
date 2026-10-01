@@ -147,7 +147,11 @@ const ENTSCHEIDER_SQL = `CASE
  * App: entschieden wird mit einer Sitzung, nie mit dem Schluessel der App.
  */
 const ENTSCHEIDUNGSORT = Object.freeze({
-  wo: 'In Arasul auf der Übersicht, unter „Freigaben“',
+  // Seit J36 (02.10.2026) entscheidet ein Mitarbeiter in der App, in der die
+  // Freigabe entsteht (Baustein `Freigabe`); die Übersicht mit der Liste aller
+  // Anfragen sieht nur noch der Administrator. Der Satz sagt deshalb nur das,
+  // was für jeden stimmt.
+  wo: 'In der App, in der die Freigabe entstanden ist',
   adresse: '/workspace',
 });
 

@@ -603,7 +603,7 @@ describe('freigabeZumLauf', () => {
     expect(f.entscheider).toBeNull();
     expect(f.offen).toBeNull();
     expect(f.adresse).toBe('/workspace');
-    expect(f.satz).toMatch(/^Entscheidet: admin, anna oder bernd, in Arasul auf der Übersicht/);
+    expect(f.satz).toMatch(/^Entscheidet: admin, anna oder bernd, in der App, in der die Freigabe entstanden ist/);
   });
 
   it('nimmt bei vier Augen den Einreicher aus dem Kreis und sagt es', async () => {
