@@ -335,8 +335,10 @@ heraus: am 22.09.2026 am Orin gemessen steht nach einem `PUT` eines Menschen
 binnen Sekunden `{user} added {resource} to {folder}` mit seinem Anzeigenamen
 und der Zeit darin — ein `PROPFIND` nennt dagegen nur `getlastmodified` und
 den **Eigentümer des Raums**, nie den, der geschrieben hat.
-`GET /api/firmenordner/ordner/:id/aenderungen` löst die Vorlage zu einem Satz
-auf; leer, wenn der Dienst steht oder den Ordner noch nicht kennt.
+`GET /api/firmenordner/ordner/:id/aenderungen` löst die Vorlage zu einem **deutschen** Satz
+auf (der Dienst liefert keine Art als Feld, nur den englischen Satz und seine Werte);
+verwaiste Sperrdateien unter `.oc-nodes/locks/` (9 646 in `firma`, die Ursache der
+5 MB) räumt der Pflegejob alle sechs Stunden mit weg; leer, wenn der Dienst steht oder den Ordner noch nicht kennt.
 
 ### Die Stufe „am Gerät"
 

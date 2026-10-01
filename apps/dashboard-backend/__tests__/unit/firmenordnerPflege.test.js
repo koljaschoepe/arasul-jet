@@ -202,3 +202,41 @@ describe('uploadsAufraeumen', () => {
     expect(mockExec).not.toHaveBeenCalled();
   });
 });
+
+describe('sperrenAufraeumen', () => {
+  const alt = new Date(Date.now() - 3 * 3600 * 1000);
+
+  function sperre(name, mtime = alt) {
+    const dir = path.join(wurzel, 'firma', '.oc-nodes', 'locks');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, name), '');
+    fs.utimesSync(path.join(dir, name), mtime, mtime);
+  }
+
+  it('entfernt nur Sperren ohne Knoten oder Revision und ohne frische', async () => {
+    revision('firma', '2026-10-01T12:00:00Z', 1); // Revision und ihre Sperre bleiben
+    sperre(`${KNOTEN}.mlock`); // Knoten bc3e… gibt es nur als Revision: Knoten fehlt
+    sperre('aaaaaaaa-1111-2222-3333-444444444444.mlock');
+    sperre('bbbbbbbb-1111-2222-3333-444444444444.mlock', new Date()); // frisch
+    sperre('.mlock'); // gehoert nicht zum Muster
+    const dir = path.join(wurzel, 'firma', '.oc-nodes', 'cc', 'cc', 'cc', 'cc');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, '-1111-2222-3333-444444444444'), '');
+    sperre('cccccccc-1111-2222-3333-444444444444.mlock'); // Knoten da
+
+    const r = await pflege.sperrenAufraeumen();
+
+    const weg = mockExec.mock.calls[0][0];
+    const basis = '/var/lib/opencloud/posix/projects/firma/.oc-nodes/locks';
+    expect(r.entfernt).toBe(2);
+    expect(weg).toEqual(
+      expect.arrayContaining([
+        `${basis}/${KNOTEN}.mlock`,
+        `${basis}/aaaaaaaa-1111-2222-3333-444444444444.mlock`,
+      ])
+    );
+    expect(weg.join(' ')).not.toContain('bbbbbbbb');
+    expect(weg.join(' ')).not.toContain('cccccccc');
+    expect(weg.join(' ')).not.toContain('REV');
+  });
+});

@@ -635,13 +635,13 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
       {
         wann: '2026-09-22T17:59:22Z',
         wer: 'mia',
-        text: 'mia added angebot.md to projekte',
+        text: 'Mia hat angebot.md in projekte abgelegt',
         datei: 'angebot.md',
       },
       {
         wann: '2026-09-22T17:59:19Z',
         wer: 'Admin',
-        text: 'Admin added mia as member of projekte',
+        text: 'Admin hat mia zu projekte hinzugefügt',
         datei: null,
       },
     ]);
@@ -651,6 +651,42 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
     // das engste Fenster zuerst: ein Vorfilter auf die Zeit, nicht nur ein limit
     const kql = decodeURIComponent(String(global.fetch.mock.calls[0][0]).split('kql=')[1]);
     expect(kql).toMatch(/^itemid:r AND sort:desc AND mtime>=\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('setzt geloeschte Konten und unbekannte Saetze in Kundensprache', async () => {
+    firmenordnerAn();
+    global.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          value: [
+            {
+              template: {
+                message: '{user} added {sharee} as member of {space}',
+                variables: {
+                  user: { displayName: 'Admin' },
+                  sharee: { displayName: 'DeletedUser' },
+                  space: { name: 'firma' },
+                },
+              },
+              times: { recordedTime: '2026-10-01T10:00:00Z' },
+            },
+            {
+              template: {
+                message: '{user} frobnicated {resource}',
+                variables: { user: { displayName: 'DeletedUser' }, resource: { name: 'a.md' } },
+              },
+              times: { recordedTime: '2026-10-01T09:00:00Z' },
+            },
+          ],
+        }),
+    });
+    const liste = await dienst.aenderungen('r', 2);
+    expect(liste[0].text).toBe('Admin hat ein gelöschtes Konto zu firma hinzugefügt');
+    expect(liste[1].wer).toBe('ein gelöschtes Konto');
+    expect(liste[1].text).toBe('Ein gelöschtes Konto hat etwas geändert');
+    expect(JSON.stringify(liste)).not.toMatch(/\b(added|removed|deleted|DeletedUser)\b/);
   });
 
   it('weitet das Zeitfenster aus, bis genug da sind, und haelt bei einem Fehler des weiteren', async () => {

@@ -60,8 +60,7 @@ export function AenderungenDialog({ fuer, onSchliessen }: Props) {
                 <span className="shrink-0 text-ui-xs text-muted-foreground">
                   {formatDate(a.wann)}
                 </span>
-                <span className="text-sm font-medium text-foreground">{a.wer ?? 'unbekannt'}</span>
-                <span className="min-w-0 text-sm text-muted-foreground">{a.text}</span>
+                <span className="min-w-0 text-sm text-foreground">{a.text}</span>
               </li>
             ))}
           </ul>

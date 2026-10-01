@@ -267,6 +267,90 @@ async function revisionenBegrenzen({ max = maxRevisionen() } = {}) {
   return { entfernt: weg.length / 2, bytes };
 }
 
+const SPERRE =
+  /^([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:\.REV\.(\d{4}-\d{2}-\d{2}T[\d:.]+Z))?\.mlock$/;
+/** Eine Sperrdatei, die juenger ist, gehoert vielleicht zu einem Schreibvorgang, der gerade laeuft. */
+const SPERRE_MIN_ALTER_MS = 60 * 60 * 1000;
+
+async function gibtEs(pfad) {
+  try {
+    await fs.promises.lstat(pfad);
+    return true;
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Verwaiste Sperrdateien eines Bereichs: `locks/<knoten>.mlock` zu einem
+ * Knoten, den es nicht mehr gibt, und `locks/<knoten>.REV.<zeit>.mlock` zu
+ * einer Revision, die es nicht mehr gibt. Der Dienst legt sie leer an und
+ * raeumt sie beim Entfernen nicht immer mit weg: in `firma` lagen am
+ * 01.10.2026 9 646 davon, und sie sind die Ursache der 5 MB an Aktivitaeten
+ * (`aenderungen`). Gemessen am Orin: von 400 Stichproben fehlte bei allen der
+ * Knoten.
+ */
+async function verwaisteSperren(kennung) {
+  const knoten = path.join(orte.backend, kennung, '.oc-nodes');
+  let namen;
+  try {
+    namen = await fs.promises.readdir(path.join(knoten, 'locks'));
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return { gesamt: 0, weg: [] };
+    }
+    throw err;
+  }
+  const weg = [];
+  const grenze = Date.now() - SPERRE_MIN_ALTER_MS;
+  for (const name of namen) {
+    const m = SPERRE.exec(name);
+    if (!m) {
+      continue;
+    }
+    const id = m[1].replace(/-/g, '');
+    const kopf = [id.slice(0, 2), id.slice(2, 4), id.slice(4, 6), id.slice(6, 8)];
+    // Die Verzeichnisse tragen die ersten acht Zeichen der UUID ohne Bindestriche
+    // (`bc/3e/d2/2d`), der Rest des Namens behaelt seine Bindestriche.
+    const rest = m[1].slice(8);
+    const ziel = path.join(knoten, ...kopf, m[2] ? `${rest}.REV.${m[2]}` : rest);
+    if (await gibtEs(ziel)) {
+      continue;
+    }
+    const stat = await fs.promises.lstat(path.join(knoten, 'locks', name));
+    if (stat.mtimeMs > grenze) {
+      continue;
+    }
+    weg.push(`${ABLAGE_DIENST}/${kennung}/.oc-nodes/locks/${name}`);
+  }
+  return { gesamt: namen.length, weg };
+}
+
+/** Sperrdateien zu Knoten und Revisionen entfernen, die es nicht mehr gibt. */
+async function sperrenAufraeumen() {
+  if (!dienst.istAn()) {
+    return { entfernt: 0 };
+  }
+  let entfernt = 0;
+  for (const kennung of await bereiche()) {
+    const { weg } = await verwaisteSperren(kennung);
+    for (let i = 0; i < weg.length; i += 200) {
+      const { code, ausgabe } = await imDienst(['rm', '-f', '--', ...weg.slice(i, i + 200)]);
+      if (code !== 0) {
+        throw new ServiceUnavailableError(`rm endete mit ${code}: ${ausgabe.slice(-300)}`);
+      }
+    }
+    entfernt += weg.length;
+  }
+  if (entfernt > 0) {
+    logger.info(`Firmenordner: ${entfernt} verwaiste Sperrdateien entfernt`);
+  }
+  return { entfernt };
+}
+
 const STUNDE_MS = 60 * 60 * 1000;
 
 /**
@@ -283,6 +367,7 @@ function starten() {
       await uploadsAufraeumen();
       if (runde % 6 === 0) {
         await revisionenBegrenzen();
+        await sperrenAufraeumen();
       }
     } catch (err) {
       logger.warn(`Firmenordner: Pflege der Ablage gescheitert -- ${err.message}`);
@@ -303,6 +388,7 @@ module.exports = {
   starten,
   uploadsAufraeumen,
   revisionenBegrenzen,
+  sperrenAufraeumen,
   revisionenJeBereich,
   maxRevisionen,
   zeitSchluessel,
