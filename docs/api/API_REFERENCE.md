@@ -2837,16 +2837,18 @@ zurück, das hier vergeben wurde.
 (`?kennung=projekte`) — derselbe Riegel wie beim Entfernen einer App (C5): wer
 sie tippt, hat dabei gelesen, was er wegwirft. Es geht **samt allem, was darin
 liegt**, und deshalb nicht, solange darin noch ein Ordner der Ebene 2 liegt
-(`409`) oder darauf noch jemand ein Recht hat (`409`). Beides ist kein Schutz
+(`409`) oder darauf noch ein anderes Konto ein Recht hat (`409`, die Meldung nennt die Konten). Beides ist kein Schutz
 vor Versehen, sondern vor einem Ordner, der unter den Füßen von jemandem
 verschwindet, der gerade darin arbeitet — sein Klient löscht ihn am nächsten
 Morgen auf seinem Rechner hinterher.
 
-**Rechte fallen in einem Schritt mit** (J34, 28.09.2026): trägt die Abfrage
-`rechte=entziehen`, nimmt das Gerät zuerst jedes Recht auf dem Ordner zurück
-und wirft ihn danach weg; die Antwort nennt unter `rechte_entzogen`, wessen.
-Die Oberfläche schickt den Wert immer, weil ihre Rückfrage jeden mit Recht
-nennt. Ohne ihn bleibt ein Ordner mit Rechten ein `409`. Scheitert danach das
+**Das eigene Recht fällt immer mit** (J33, 28.09.2026): wer den Ordner
+wegwirft, hat darauf meist selbst `schreiben` (der Anlegende bekommt es
+automatisch); dieses Recht zählt nicht als Hindernis und wird mit dem Ordner
+zurückgenommen. Das Recht eines anderen Kontos bleibt ein `409`. Trägt die
+Abfrage `rechte=entziehen`, nimmt das Gerät zuerst jedes Recht auf dem Ordner
+zurück (J34); die Antwort nennt unter `rechte_entzogen`, wessen. Die
+Oberfläche schickt den Wert nicht. Scheitert danach das
 Wegwerfen im Dienst, sind die Rechte trotzdem zurückgenommen, und der Satz des
 `409` sagt das.
 

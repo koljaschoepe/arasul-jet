@@ -363,60 +363,56 @@ describe('FirmenordnerSettings', () => {
 
     await waitFor(() =>
       expect(apiMock.del).toHaveBeenCalledWith(
-        '/firmenordner/ordner/3?kennung=vicona&rechte=entziehen',
+        '/firmenordner/ordner/3?kennung=vicona',
         expect.objectContaining({ showError: false })
       )
     );
   });
 
-  it('nennt vor dem Wegwerfen jeden, der ein Recht hat, und nimmt die Rechte in einem Schritt mit', async () => {
-    antworte({
-      rechte: [
-        {
-          ordner_id: '3',
-          user_id: '7',
-          recht: 'schreiben',
-          erteilt_am: '2026-09-28T00:00:00Z',
-          abgleich_offen: null,
-          ordner_kennung: 'vicona',
-          ebene: 2,
-          art: 'geteilt',
-          eltern_kennung: 'projekte',
-          username: 'mia',
-        },
-        {
-          ordner_id: '2',
-          user_id: '1',
-          recht: 'lesen',
-          erteilt_am: '2026-09-28T00:00:00Z',
-          abgleich_offen: null,
-          ordner_kennung: 'projekte',
-          ebene: 1,
-          art: 'geteilt',
-          eltern_kennung: null,
-          username: 'admin',
-        },
-      ],
-    });
-    apiMock.del.mockResolvedValue({ data: { kennung: 'vicona', rechte_entzogen: ['mia'] } });
+  const RECHT = (ordner_id: string, user_id: string, username: string) => ({
+    ordner_id,
+    user_id,
+    recht: 'schreiben',
+    erteilt_am: '2026-09-28T00:00:00Z',
+    abgleich_offen: null,
+    ordner_kennung: 'vicona',
+    ebene: 2,
+    art: 'geteilt',
+    eltern_kennung: 'projekte',
+    username,
+  });
+
+  it('nennt ein Recht eines anderen Kontos als Hindernis und sperrt das Wegwerfen', async () => {
+    antworte({ rechte: [RECHT('3', '7', 'mia'), RECHT('3', '1', 'admin')] });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
     await screen.findByTestId('rechte-matrix');
     fireEvent.click(screen.getByTestId('ordner-wegwerfen-vicona'));
     const liste = await screen.findByTestId('ordner-wegwerfen-rechte');
-    // Nur die Rechte auf diesem Ordner, nicht die auf dem Bereich darueber.
     expect(liste).toHaveTextContent('mia: schreiben');
+    // Das eigene Recht (angemeldet ist Konto 1) ist kein Hindernis.
     expect(liste).not.toHaveTextContent('admin');
+    fireEvent.change(screen.getByTestId('ordner-wegwerfen-kennung'), {
+      target: { value: 'vicona' },
+    });
+    expect(screen.getByTestId('ordner-wegwerfen-absenden')).toBeDisabled();
+    expect(apiMock.del).not.toHaveBeenCalled();
+  });
 
+  it('wirft in einem Schritt weg, wenn nur das eigene Recht darauf liegt', async () => {
+    antworte({ rechte: [RECHT('3', '1', 'admin')] });
+    apiMock.del.mockResolvedValue({ data: { kennung: 'vicona', rechte_entzogen: ['admin'] } });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+
+    await screen.findByTestId('rechte-matrix');
+    fireEvent.click(screen.getByTestId('ordner-wegwerfen-vicona'));
+    expect(await screen.findByTestId('ordner-wegwerfen-eigenes')).toBeInTheDocument();
+    expect(screen.queryByTestId('ordner-wegwerfen-rechte')).not.toBeInTheDocument();
     fireEvent.change(screen.getByTestId('ordner-wegwerfen-kennung'), {
       target: { value: 'vicona' },
     });
     fireEvent.click(screen.getByTestId('ordner-wegwerfen-absenden'));
-    await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith(
-        '„vicona“ ist weg, und mit ihm die Rechte von mia.'
-      )
-    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('„vicona“ ist weg.'));
   });
 
   it('zeigt je Ordner, wer zuletzt wann etwas geaendert hat', async () => {

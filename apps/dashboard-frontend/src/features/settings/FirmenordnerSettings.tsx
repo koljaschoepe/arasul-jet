@@ -111,14 +111,9 @@ export function FirmenordnerSettings() {
     loeschen.mutate(
       { id: o.id, kennung: o.kennung },
       {
-        onSuccess: res => {
+        onSuccess: () => {
           setWegwerfen(null);
-          const entzogen = res.data?.rechte_entzogen ?? [];
-          toast.success(
-            entzogen.length > 0
-              ? `„${o.kennung}“ ist weg, und mit ihm die Rechte von ${entzogen.join(', ')}.`
-              : `„${o.kennung}“ ist weg.`
-          );
+          toast.success(`„${o.kennung}“ ist weg.`);
         },
         onError: err => setWegwerfenFehler((err as ApiError).message),
       }
