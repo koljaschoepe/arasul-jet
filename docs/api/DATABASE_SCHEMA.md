@@ -2038,6 +2038,22 @@ Ollama und keine Selbstheilung.
 > dafür, nichts umzuziehen: ein Umzug würde dort die Migrationen 94 bis 146
 > erneut anwerfen. Das ist ein eigener, vorbereiteter Schritt (Plan 023 K) und
 > nichts, was nebenbei passiert.
+>
+> **Derselbe `search_path` erzeugt auch Schatten-Tabellen.** Jedes
+> unqualifizierte `CREATE TABLE IF NOT EXISTS` ab Migration 090 landet in
+> `arasul`, nicht in `public`, und prüft auch nur dort — eine früh angelegte
+> Tabelle in `public` bleibt für den Prüfer unsichtbar, und die Migration legt
+> daneben eine zweite, leere an. Am 20.08.2026 am Prüfstand gemessen: ein
+> Neustart eines fabrikneuen Geräts erzeugte 47 solcher Paare, ein Kunde konnte
+> sich nicht mehr anmelden, seine Daten lagen unerreichbar in `public`. Drei
+> Wächter halten das seither auf: `zzz_migrationsbuch_fuellen.sh` (letztes
+> Init-Skript, trägt jede `.sql` als angewendet ins Buch ein, ohne eigene
+> Nummer), `migrationRunner.js` (`schattentabellen()`, bricht ab, wenn eine
+> Tabelle in beiden Schemata liegt), `bootstrap.js` (legt bei kaputtem Schema
+> keinen Administrator ab Werk an). Nachstellen:
+> `scripts/test/frischgeraet-abnahme.sh`. Wer eine Migration ab 090 schreibt,
+> qualifiziert das Schema deshalb am besten ausdrücklich (`arasul.foo` oder
+> `public.foo`) statt sich auf den `search_path` zu verlassen.
 
 ## `arasul.geraet`
 
