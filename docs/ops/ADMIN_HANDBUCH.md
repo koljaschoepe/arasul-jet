@@ -67,8 +67,10 @@ stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
 - **Mitte (Tab-Leiste):** mehrere Tabs parallel (Uebersicht, Apps, Modelle,
   Einstellungen), schliessbar, werden nach einem Neuladen wiederhergestellt.
   Eine App laeuft in ihrem eigenen Rahmen; Test- und Livestand sind zwei Tabs.
-  Die **Uebersicht** zeigt oben die **Freigaben, die auf eine Entscheidung
-  warten** (siehe unten), darunter die eigenen Apps als Kacheln. Eine Kachel
+  Die **Uebersicht** zeigt dem Administrator oben die **Freigaben, die auf eine
+  Entscheidung warten** (siehe unten), darunter die eigenen Apps als Kacheln;
+  einem Mitarbeiter zeigt sie nur seine Apps, an einer Kachel hoechstens eine
+  Zahl wartender Freigaben. Eine Kachel
   mit dem Zeichen **Test** ist ein Teststand: diese Fassung ist noch nicht
   live.
 - **Rechte Spalte:** die **Notizen** — ein Zettel je Mensch, der sich nach
@@ -81,13 +83,17 @@ stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
 - **Layout-Schalter (oben rechts):** **zwei** Symbole blenden die Sidebar und
   die Notizen unabhaengig ein/aus. Daneben das **Benutzermenue** (Name, Rolle,
   Abmelden) und — nur fuer Administratoren — die Einstellungen.
-- **Statusleiste (unten):** Verbindung und Version, das aktuell geladene
-  KI-Modell samt belegtem KI-RAM (klickbar: Standardmodell waehlen), laufende
-  Modell-Downloads und rechts die Zahl der **Freigaben, die auf eine
-  Entscheidung warten**.
+- **Statusleiste (unten), fuer Administratoren:** Verbindung und Version, das
+  aktuell geladene KI-Modell samt belegtem KI-RAM (klickbar: Standardmodell
+  waehlen), laufende Modell-Downloads und rechts die Zahl der **Freigaben, die
+  auf eine Entscheidung warten**. Ein Mitarbeiter sieht dort nichts, ausser
+  einem Satz, wenn das Geraet nicht antwortet.
 
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
-hat, die Uebersicht mit seinen offenen Freigaben, seine Notizen und sein Konto.
+hat, seine Notizen und sein Konto. Eine Freigabe entscheidet er in der App, in
+der sie entsteht (siehe unten), und an der Kachel der App steht hoechstens die
+Zahl der wartenden. Keine Fassung, keine Verbindungsanzeige, keine Zahlen der
+Technik; auch keine Meldung nennt einen Fehlercode oder englischen Text.
 Modelle, Benutzer, Datensicherung und Einstellungen sind fuer ihn nicht da —
 und zwar nicht nur unsichtbar: das Geraet weist ihn auf jedem dieser Wege ab,
 auch wenn er die Adresse kennt.
@@ -98,7 +104,9 @@ Ein Flow einer App kann anhalten und um eine Freigabe bitten (etwa: „Diesen
 Wochenbericht versenden?"). Der Lauf steht dann still, bis ein Mensch
 entscheidet.
 
-Wo: auf der **Uebersicht**, ganz oben. Jede Anfrage ist eine Karte mit dem
+Wo: der Administrator auf der **Uebersicht**, ganz oben; ein Mitarbeiter in der
+App, in der die Anfrage entsteht (Baustein `Freigabe` der Bibliothek, J36).
+Jede Anfrage ist eine Karte mit dem
 Titel, dem Zusammenhang, den der Flow mitgibt, und der verbleibenden Zeit.
 
 - **Bestaetigen** — der Lauf laeuft ab der angehaltenen Stelle weiter.

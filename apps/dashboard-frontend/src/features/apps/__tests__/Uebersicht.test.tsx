@@ -108,4 +108,33 @@ describe('Uebersicht', () => {
     const kachel = await screen.findByTestId('uebersicht-app-urlaub-test');
     expect(kachel.querySelector('[title*="noch nicht live"]')).toBeTruthy();
   });
+
+  // J36: eine Zahl an der App, keine Liste und keine Fassung.
+  it('trägt an der Kachel höchstens die Zahl der wartenden Freigaben', async () => {
+    antworten();
+    render(<Uebersicht wartend={{ urlaub: 2, andere: 5 }} />, { wrapper: huelle() });
+    const zahl = await screen.findByTestId('uebersicht-app-urlaub-live-wartend');
+    expect(zahl).toHaveTextContent(/^2$/);
+    expect(zahl).toHaveAttribute('aria-label', '2 Freigaben warten');
+    expect(screen.queryByTestId('offene-freigaben')).not.toBeInTheDocument();
+  });
+
+  it('zeigt ohne wartende Freigabe keine Zahl', async () => {
+    antworten();
+    render(<Uebersicht wartend={{}} />, { wrapper: huelle() });
+    await screen.findByTestId('uebersicht-app-urlaub-live');
+    expect(screen.queryByTestId('uebersicht-app-urlaub-live-wartend')).not.toBeInTheDocument();
+  });
+
+  it('zeigt dem Mitarbeiter keine Fassung, dem Administrator schon', async () => {
+    antworten();
+    const { unmount } = render(<Uebersicht />, { wrapper: huelle() });
+    await screen.findByTestId('uebersicht-app-urlaub-live');
+    expect(screen.queryByText(/Fassung/)).not.toBeInTheDocument();
+    unmount();
+
+    angemeldet({ role: 'admin', username: 'admin' });
+    render(<Uebersicht />, { wrapper: huelle() });
+    expect(await screen.findByText('Fassung 1.2.0')).toBeInTheDocument();
+  });
 });

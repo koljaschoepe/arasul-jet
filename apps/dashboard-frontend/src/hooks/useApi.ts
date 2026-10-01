@@ -15,6 +15,7 @@
  *   await api.del('/documents/123');
  */
 
+import { fehlertext } from '@/utils/fehlertext';
 import { useCallback, useMemo, useRef } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
@@ -254,7 +255,7 @@ export function useApi(): ApiMethods {
         const rawBody = await res.json().catch(() => null);
         const { message, code, details } = normalizeErrorBody(rawBody, res.status);
         if (showError && toast) {
-          toast.error(message);
+          toast.error(fehlertext(message, res.status));
         }
         const err = new Error(message) as ApiError;
         err.status = res.status;

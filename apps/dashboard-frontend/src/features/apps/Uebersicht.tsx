@@ -28,7 +28,17 @@ import { Leerzustand } from '@marken';
  * dieselbe Form aus einer eigenen Klassenkette, und genau daran laufen zwei
  * Erscheinungsbilder auseinander.
  */
-function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () => void }) {
+function AppKachel({
+  eintrag,
+  wartend,
+  zeigeFassung,
+  onOeffnen,
+}: {
+  eintrag: AppEintrag;
+  wartend: number;
+  zeigeFassung: boolean;
+  onOeffnen: () => void;
+}) {
   return (
     <Karte
       titel={eintrag.name}
@@ -39,24 +49,40 @@ function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () 
          was daran anders ist. Wer eine App in zwei Staenden vor sich hat,
          muss beim Anklicken wissen, welche Fassung er gleich bedient. */
       hinweis={
-        eintrag.stand === 'test' ? (
-          <span
-            className="text-muted-foreground"
-            title="Test: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
-          >
-            Test
-          </span>
-        ) : undefined
+        <span className="inline-flex items-center gap-2">
+          {/* Höchstens eine Zahl (J36): wer wissen will, worum es geht, öffnet die App. */}
+          {wartend > 0 && (
+            <span
+              className="font-medium text-foreground"
+              data-testid={`uebersicht-app-${eintrag.id}-${eintrag.stand}-wartend`}
+              title={wartend === 1 ? '1 Freigabe wartet' : `${wartend} Freigaben warten`}
+              aria-label={wartend === 1 ? '1 Freigabe wartet' : `${wartend} Freigaben warten`}
+            >
+              {wartend}
+            </span>
+          )}
+          {eintrag.stand === 'test' && (
+            <span
+              className="text-muted-foreground"
+              title="Test: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
+            >
+              Test
+            </span>
+          )}
+        </span>
       }
     >
       {eintrag.beschreibung && <span className="line-clamp-2">{eintrag.beschreibung}</span>}
-      <span className="block text-ui-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
+      {zeigeFassung && (
+        <span className="block text-ui-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
+      )}
     </Karte>
   );
 }
 
 /**
- * @param freigaben Die offenen Freigaben, als Baustein hereingereicht.
+ * @param freigaben Die offenen Freigaben, als Baustein hereingereicht — nur für
+ *   den Administrator (J36); ein Mitarbeiter bekommt keinen Slot.
  *
  * ALS SLOT UND NICHT ALS IMPORT, und das ist die Regel dieses Ordners: ein
  * Bauteil aus `features/X/` importiert nichts aus `features/Y/`. Was quer
@@ -66,7 +92,14 @@ function AppKachel({ eintrag, onOeffnen }: { eintrag: AppEintrag; onOeffnen: () 
  * aneinander) oder die Freigaben lägen im App-Ordner (dann heißt der Ordner
  * nicht mehr, was darin steht).
  */
-export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
+export function Uebersicht({
+  freigaben,
+  wartend,
+}: {
+  freigaben?: ReactNode;
+  /** Offene Freigaben je App-Kennung; die Shell zählt sie, hier steht nur die Zahl. */
+  wartend?: Record<string, number>;
+}) {
   const { user } = useAuth();
   const openTab = useWorkspaceStore(s => s.openTab);
   const { data: apps, isLoading } = useMeineApps();
@@ -99,6 +132,8 @@ export function Uebersicht({ freigaben }: { freigaben?: ReactNode }) {
             <AppKachel
               key={`${e.id}:${e.stand}`}
               eintrag={e}
+              wartend={wartend?.[e.id] ?? 0}
+              zeigeFassung={user?.role === 'admin'}
               onOeffnen={() => openTab({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
             />
           ))}

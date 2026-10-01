@@ -60,7 +60,7 @@ Nicht aus dem Gedächtnis zitieren, dort nachlesen.
 
 | Layer    | Stack                                                               | Path                                                                                               |
 | -------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript            | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 10 Muster, 6 Bausteine) |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript            | `apps/dashboard-frontend/`, Designsystem `packages/marken/` (46 Primitive, 11 Muster, 6 Bausteine) |
 | Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                        | `apps/dashboard-backend/`                                                                          |
 | AI       | Ollama (LLM) + Text-Extraktion (Indexer) + Embeddings               | `services/llm-service/`, `services/document-indexer/`                                              |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11        | `compose/`, `config/traefik/`                                                                      |

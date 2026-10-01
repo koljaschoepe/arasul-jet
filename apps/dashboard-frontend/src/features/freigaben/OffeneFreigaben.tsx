@@ -6,19 +6,18 @@
  * die ZAHL in die Statusleiste. Hier steht endlich die ENTSCHEIDUNG — und
  * damit ist der Weg von C7 zum ersten Mal ganz begehbar, ohne `curl`.
  *
- * WER HIER ETWAS SIEHT, ist nicht nach Rolle bestimmt: `GET /api/freigabe-anfragen`
- * verbindet mit `app_members` (C2), und der JOIN IST die Berechtigung. Seit
- * J35 kann ein Lauf den Kreis enger ziehen (ohne Einreicher, nur benannte
- * Entscheider); auch das entscheidet das Backend, hier steht nur der Hinweis.
- * Administrator und Mitarbeiter bekommen dieselbe Abfrage — freigeben ist
- * Arbeit und keine Verwaltung. Dieses Bauteil blendet deshalb nichts nach
- * Rolle aus; es gäbe nichts auszublenden.
+ * SEIT J36 (02.10.2026) STEHT DIESE LISTE NUR NOCH FÜR DEN ADMINISTRATOR in
+ * der Übersicht (die Shell reicht sie nur ihm herein, `TabContent.tsx`). Ein
+ * Mitarbeiter findet eine Freigabe in der App, in der sie entsteht — mit dem
+ * Baustein `Freigabe` der Bibliothek, aus dem auch diese Liste gebaut ist —
+ * und an der Kachel der App trägt höchstens eine Zahl. Das Backend ändert das
+ * nicht: `GET /api/freigabe-anfragen` verbindet mit `app_members` (C2), der
+ * JOIN IST die Berechtigung, und seit J35 kann ein Lauf den Kreis enger
+ * ziehen. Hier steht nur die Anzeige.
  *
- * WARUM DIE ABLEHNUNG EIN FELD AUFKLAPPT statt einen Dialog zu öffnen: die
- * Begründung ist im Backend Pflicht (`AblehnenBody`), weil eine Ablehnung den
- * Lauf eines anderen Menschen beendet. Wer sie schreibt, will dabei den Titel
- * und den Zusammenhang sehen, über den er gerade urteilt. Ein Dialog legt sich
- * genau darüber.
+ * DIE ABLEHNUNG KLAPPT EIN FELD AUF statt einen Dialog zu öffnen: die
+ * Begründung ist im Backend Pflicht (`AblehnenBody`), und wer sie schreibt,
+ * will dabei den Titel und den Zusammenhang sehen. Das Muster macht das.
  *
  * WAS HIER NICHT STEHT: eine Historie der entschiedenen Freigaben. Die Liste
  * ist ein Posteingang, kein Archiv; wer nachsehen will, wer was entschieden
@@ -26,10 +25,8 @@
  * Sicherheitsprotokoll. Eine zweite Liste daneben hätte die Frage „warum steht
  * das noch da" bei jedem Blick neu gestellt.
  */
-import { useEffect, useRef, useState } from 'react';
-import { ClipboardCheck, Clock, Send } from 'lucide-react';
-import { Formular, Karte, Knopf } from '@marken';
-import { Textarea } from '@marken';
+import { ClipboardCheck, Send } from 'lucide-react';
+import { Freigabe, type FreigabeEintrag } from '@marken';
 import { useToast } from '@/contexts/ToastContext';
 import {
   useOffeneFreigaben,
@@ -37,49 +34,7 @@ import {
   useFreigabeEntscheiden,
   type OffeneFreigabe,
 } from '@/hooks/useOffeneFreigaben';
-import { restzeit, istKnapp, wartetSeit, oderListe } from './frist';
-
-/**
- * Woher die Anfrage kommt und wie lange sie schon wartet, in einer Zeile.
- *
- * Der NAME der App und nicht ihre Kennung (26.09.2026): „faktum" ist ein Pfad,
- * „Faktum" ist das, was der Mensch links in seiner Leiste sieht. Der Flow steht
- * nicht mehr in der Zeile, sondern im Hinweis über dem Namen — wer entscheidet,
- * urteilt über die Sache, nicht über die Datei, die sie ausgelöst hat.
- */
-function Herkunft({ f }: { f: OffeneFreigabe }) {
-  return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ui-xs text-muted-foreground">
-      <span
-        className="font-medium text-foreground/80"
-        title={`App ${f.app_id}, Flow ${f.flow_name}`}
-      >
-        {f.app_name || f.app_id}
-      </span>
-      {f.stand === 'test' && (
-        <span
-          className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
-          title="Test: diese Fassung der App ist noch nicht live"
-        >
-          Test
-        </span>
-      )}
-      {f.einreicher && (
-        <>
-          <span aria-hidden="true">·</span>
-          <span>eingereicht von {f.einreicher}</span>
-        </>
-      )}
-      <span aria-hidden="true">·</span>
-      <span
-        data-testid={`freigabe-${f.id}-seit`}
-        title={`Angefragt: ${new Date(f.angefragt_am).toLocaleString('de-DE')}`}
-      >
-        {wartetSeit(f.angefragt_am)}
-      </span>
-    </span>
-  );
-}
+import { wartetSeit, oderListe } from './frist';
 
 /**
  * Die Regel des Laufs als Satz, oder nichts (26.09.2026).
@@ -109,172 +64,22 @@ function regelSatz(f: {
   return teile.length > 0 ? teile.join(' ') : null;
 }
 
-/** Eine Anfrage: worum es geht, wie lange Zeit bleibt, und die zwei Knöpfe. */
-function FreigabeKarte({ f }: { f: OffeneFreigabe }) {
-  const toast = useToast();
-  const entscheiden = useFreigabeEntscheiden();
-  const [ablehnenOffen, setAblehnenOffen] = useState(false);
-  const [begruendung, setBegruendung] = useState('');
-
-  // Der Zeiger springt in das Feld, sobald es aufklappt: wer „Ablehnen" drueckt,
-  // will schreiben. Als Effekt und nicht als `autoFocus`-Prop -- das Prop
-  // greift auch beim ERSTEN Rendern der Seite, und eine Liste, die den
-  // Bildschirmleser ungefragt an eine Textbox zieht, ist genau das, was die
-  // a11y-Regel meint.
-  const feld = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (ablehnenOffen) feld.current?.focus();
-  }, [ablehnenOffen]);
-
-  // `isPending` gilt für die ganze Mutation und damit für ALLE Karten. Ohne
-  // diese Kennung sperrte eine Entscheidung die Knöpfe der übrigen mit, und wer
-  // drei Freigaben hat, sieht bei der ersten drei Ladezustände.
-  const laeuft = entscheiden.isPending && entscheiden.variables?.id === f.id;
-
-  /**
-   * Nach dem Erfolg wird gesagt, ob der Lauf WIRKLICH weiterläuft.
-   * `fortgesetzt: false` heißt: die Entscheidung steht in der Datenbank, aber
-   * niemand führt den Lauf mehr fort (das Backend ist zwischendurch neu
-   * gestartet). Das zu verschweigen hieße, jemanden auf ein Ergebnis warten zu
-   * lassen, das nie kommt.
-   */
-  const melde = (was: 'bestaetigt' | 'abgelehnt', fortgesetzt: boolean) => {
-    if (!fortgesetzt) {
-      toast.warning(
-        `„${f.titel}" ist ${was}. Der Lauf wird aber nicht mehr fortgesetzt: ` +
-          'das Gerät wurde zwischendurch neu gestartet.'
-      );
-      return;
-    }
-    toast.success(
-      was === 'bestaetigt'
-        ? `„${f.titel}" freigegeben. Der Lauf läuft weiter.`
-        : `„${f.titel}" abgelehnt. Der Lauf ist beendet.`
-    );
+/**
+ * Die Anfrage in der Form des Musters. Der NAME der App und nicht ihre Kennung
+ * (26.09.2026): „faktum" ist ein Pfad, „Faktum" ist das, was der Mensch links
+ * in seiner Leiste sieht.
+ */
+function alsEintrag(f: OffeneFreigabe): FreigabeEintrag {
+  return {
+    id: f.id,
+    titel: f.titel,
+    zusammenhang: f.zusammenhang,
+    herkunft: `${f.app_name || f.app_id}${f.stand === 'test' ? ' (Test)' : ''}`,
+    einreicher: f.einreicher,
+    frist: f.frist,
+    angefragtAm: f.angefragt_am,
+    regel: regelSatz(f),
   };
-
-  const bestaetigen = () => {
-    entscheiden.mutate(
-      { id: f.id, status: 'bestaetigt' },
-      { onSuccess: d => melde('bestaetigt', d.fortgesetzt) }
-    );
-  };
-
-  const ablehnen = () => {
-    const grund = begruendung.trim();
-    if (!grund) return;
-    entscheiden.mutate(
-      { id: f.id, status: 'abgelehnt', begruendung: grund },
-      {
-        onSuccess: d => {
-          setAblehnenOffen(false);
-          setBegruendung('');
-          melde('abgelehnt', d.fortgesetzt);
-        },
-      }
-    );
-  };
-
-  const knapp = istKnapp(f.frist);
-
-  return (
-    <li>
-      {/* Karte, Formular und Knopf kommen seit D7 aus dem Designsystem
-          (`@marken`) — dieselben Bausteine, aus denen eine App gebaut ist.
-          Eine Freigabe entscheidet man neben der App, die sie ausgeloest hat;
-          dass beide gleich aussehen, ist keine Kosmetik. */}
-      <Karte
-        titel={f.titel}
-        kennzeichen={`freigabe-${f.id}`}
-        hinweis={
-          <span
-            className={`flex items-center gap-1 ${knapp ? 'text-muted-foreground' : ''}`}
-            data-testid={`freigabe-${f.id}-frist`}
-            title={`Frist: ${new Date(f.frist).toLocaleString('de-DE')}`}
-          >
-            <Clock className="size-3 shrink-0" aria-hidden="true" />
-            {restzeit(f.frist)}
-          </span>
-        }
-      >
-        <Herkunft f={f} />
-
-        {regelSatz(f) && (
-          <p
-            className="mt-1 text-ui-xs text-muted-foreground"
-            data-testid={`freigabe-${f.id}-regel`}
-          >
-            {regelSatz(f)}
-          </p>
-        )}
-
-        {f.zusammenhang && (
-          <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap">{f.zusammenhang}</p>
-        )}
-
-        <div className="mt-3">
-          {ablehnenOffen ? (
-            <Formular
-              onAbsenden={ablehnen}
-              aktionen={
-                <>
-                  <Knopf
-                    art="gefahr"
-                    typ="absenden"
-                    gesperrt={laeuft || begruendung.trim().length === 0}
-                    kennzeichen={`freigabe-${f.id}-ablehnen-absenden`}
-                  >
-                    Ablehnen
-                  </Knopf>
-                  <Knopf
-                    gesperrt={laeuft}
-                    onKlick={() => {
-                      setAblehnenOffen(false);
-                      setBegruendung('');
-                    }}
-                  >
-                    Zurück
-                  </Knopf>
-                </>
-              }
-            >
-              {/* Pflichtfeld, und das ist eine Entscheidung ueber Umgangsformen:
-                  eine Ablehnung beendet den Lauf eines anderen Menschen. */}
-              <Textarea
-                ref={feld}
-                rows={2}
-                maxLength={2000}
-                value={begruendung}
-                onChange={e => setBegruendung(e.target.value)}
-                placeholder="Warum nicht? Der Grund steht danach am Lauf."
-                aria-label={`Begründung für die Ablehnung von ${f.titel}`}
-                data-testid={`freigabe-${f.id}-begruendung`}
-              />
-            </Formular>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Knopf
-                art="haupt"
-                gesperrt={laeuft}
-                onKlick={bestaetigen}
-                kennzeichen={`freigabe-${f.id}-bestaetigen`}
-              >
-                {laeuft ? 'Einen Moment …' : 'Bestätigen'}
-              </Knopf>
-              <Knopf
-                art="gefahr"
-                gesperrt={laeuft}
-                onKlick={() => setAblehnenOffen(true)}
-                kennzeichen={`freigabe-${f.id}-ablehnen`}
-              >
-                Ablehnen
-              </Knopf>
-            </div>
-          )}
-        </div>
-      </Karte>
-    </li>
-  );
 }
 
 /**
@@ -326,6 +131,37 @@ function Eingereicht() {
  */
 export function OffeneFreigaben() {
   const { data, isLoading, isError } = useOffeneFreigaben();
+  const entscheiden = useFreigabeEntscheiden();
+  const toast = useToast();
+
+  /**
+   * Nach dem Erfolg wird gesagt, ob der Lauf WIRKLICH weiterläuft.
+   * `fortgesetzt: false` heißt: die Entscheidung steht in der Datenbank, aber
+   * niemand führt den Lauf mehr fort (das Backend ist zwischendurch neu
+   * gestartet). Das zu verschweigen hieße, jemanden auf ein Ergebnis warten zu
+   * lassen, das nie kommt. Ein Fehler läuft über den Toast von `useApi` und
+   * wirft hier weiter -- das Muster lässt dann das Feld offen.
+   */
+  const entscheide = async (e: FreigabeEintrag, status: 'bestaetigt' | 'abgelehnt', grund = '') => {
+    const d = await entscheiden.mutateAsync(
+      status === 'bestaetigt'
+        ? { id: Number(e.id), status }
+        : { id: Number(e.id), status, begruendung: grund }
+    );
+    const was = status === 'bestaetigt' ? 'bestätigt' : 'abgelehnt';
+    if (!d.fortgesetzt) {
+      toast.warning(
+        `„${e.titel}" ist ${was}. Der Lauf wird aber nicht mehr fortgesetzt: ` +
+          'das Gerät wurde zwischendurch neu gestartet.'
+      );
+    } else {
+      toast.success(
+        status === 'bestaetigt'
+          ? `„${e.titel}" freigegeben. Der Lauf läuft weiter.`
+          : `„${e.titel}" abgelehnt. Der Lauf ist beendet.`
+      );
+    }
+  };
 
   // Beim ersten Laden bleibt der Platz leer statt ein Skelett zu zeigen: in
   // aller Regel ist die Liste leer, und ein Skelett, das zu einer Zeile
@@ -353,11 +189,11 @@ export function OffeneFreigaben() {
           ? 'Eine Freigabe wartet auf Ihre Entscheidung'
           : `${data.length} Freigaben warten auf Ihre Entscheidung`}
       </h2>
-      <ul className="flex flex-col gap-ui-2">
-        {data.map(f => (
-          <FreigabeKarte key={f.id} f={f} />
-        ))}
-      </ul>
+      <Freigabe
+        eintraege={data.map(alsEintrag)}
+        beiBestaetigen={e => entscheide(e, 'bestaetigt')}
+        beiAblehnen={(e, grund) => entscheide(e, 'abgelehnt', grund)}
+      />
       <Eingereicht />
     </section>
   );

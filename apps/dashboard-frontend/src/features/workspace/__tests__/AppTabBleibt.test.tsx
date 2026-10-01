@@ -28,6 +28,9 @@ vi.mock('@/features/apps/AppRahmen', () => ({
 vi.mock('@/features/apps/Uebersicht', () => ({
   Uebersicht: () => <div data-testid="uebersicht" />,
 }));
+vi.mock('@/hooks/useOffeneFreigaben', () => ({
+  useOffeneFreigaben: () => ({ data: [] }),
+}));
 vi.mock('@/features/freigaben/OffeneFreigaben', () => ({
   OffeneFreigaben: () => null,
 }));

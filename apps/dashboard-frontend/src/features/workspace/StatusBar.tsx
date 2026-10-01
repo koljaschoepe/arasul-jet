@@ -43,6 +43,13 @@ interface HealthResponse {
  * dahin ist die Zahl trotzdem das, was gefehlt hat — ein angehaltener Lauf
  * stand in der Datenbank und wartete darauf, dass jemand die Adresse kennt.
  *
+ * EIN MITARBEITER SIEHT HIER KEINE TECHNIK (J36, 02.10.2026). Fassung,
+ * Verbindungspunkt, Modell-Downloads und die Freigaben-Zahl gehören dem
+ * Administrator; für jeden anderen bleibt die Leiste leer, bis das Gerät nicht
+ * antwortet — dann steht dort genau ein Satz. Seine Freigaben findet er in der
+ * App, in der sie entstehen (Baustein `Freigabe`), eine Zahl trägt die Kachel
+ * der App auf der Startseite.
+ *
  * UNTER 900 PX BLEIBT SIE EINE ZEILE (Phase D6). Die erste D6-Messung am Orin
  * zeigte die Leiste bei 390 px zweizeilig: „2 Freigaben warten" und die
  * Fassung „20260828-8794a42" nebeneinander sind mehr Zeichen, als dort
@@ -195,69 +202,79 @@ export function StatusBar() {
       }`}
       data-testid="workspace-statusbar"
     >
+      {/* Dem Mitarbeiter bleibt vom Gerätezustand ein einziger Satz, und nur
+          dann, wenn es nicht antwortet. */}
+      {!istAdmin && isError && (
+        <span className="shrink-0" data-testid="statusbar-getrennt">
+          Das Gerät antwortet gerade nicht.
+        </span>
+      )}
+
       {/* Verbindung — klickbar: zeigt, womit die Plattform verbunden ist. */}
-      <Popover>
-        <PopoverTrigger
-          className="flex shrink-0 items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground"
-          title="Verbindung anzeigen"
-        >
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: dotColor }}
-            aria-hidden="true"
-          />
-          {healthLabel}
-        </PopoverTrigger>
-        <PopoverContent side="top" align="start" className="w-72 text-xs">
-          <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
-            <Wifi className="h-4 w-4" aria-hidden="true" />
-            Verbindung
-          </div>
-          <dl className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-muted-foreground">Verbindung</dt>
-              <dd className="flex items-center gap-1.5 text-foreground">
-                <span
-                  className="inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: dotColor }}
-                  aria-hidden="true"
-                />
-                {healthLabel}
-              </dd>
+      {istAdmin && (
+        <Popover>
+          <PopoverTrigger
+            className="flex shrink-0 items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground"
+            title="Verbindung anzeigen"
+          >
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: dotColor }}
+              aria-hidden="true"
+            />
+            {healthLabel}
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-72 text-xs">
+            <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+              <Wifi className="h-4 w-4" aria-hidden="true" />
+              Verbindung
             </div>
-            {data?.version && (
+            <dl className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Fassung</dt>
-                <dd className="text-foreground">{fassungLesbar(data.version)}</dd>
-              </div>
-            )}
-            {budget !== undefined && (
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Speicher für KI</dt>
-                <dd className="text-foreground">{kiRamZeile(budget)}</dd>
-              </div>
-            )}
-            {loadedModels.length > 0 && (
-              <div className="flex items-start justify-between gap-3">
-                <dt className="text-muted-foreground">Modelle im Speicher</dt>
-                <dd className="text-right text-foreground">
-                  {loadedModels
-                    .map(m => `${modellAnzeigeName(m.name)} (${zuGb(m.ramMb)} GB)`)
-                    .join(', ')}
+                <dt className="text-muted-foreground">Verbindung</dt>
+                <dd className="flex items-center gap-1.5 text-foreground">
+                  <span
+                    className="inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: dotColor }}
+                    aria-hidden="true"
+                  />
+                  {healthLabel}
                 </dd>
               </div>
-            )}
-          </dl>
-          <p className="mt-2 border-t border-border pt-2 text-muted-foreground">
-            Alles läuft lokal auf dem Gerät, keine Cloud.
-          </p>
-        </PopoverContent>
-      </Popover>
+              {data?.version && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Fassung</dt>
+                  <dd className="text-foreground">{fassungLesbar(data.version)}</dd>
+                </div>
+              )}
+              {budget !== undefined && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Speicher für KI</dt>
+                  <dd className="text-foreground">{kiRamZeile(budget)}</dd>
+                </div>
+              )}
+              {loadedModels.length > 0 && (
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-muted-foreground">Modelle im Speicher</dt>
+                  <dd className="text-right text-foreground">
+                    {loadedModels
+                      .map(m => `${modellAnzeigeName(m.name)} (${zuGb(m.ramMb)} GB)`)
+                      .join(', ')}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            <p className="mt-2 border-t border-border pt-2 text-muted-foreground">
+              Alles läuft lokal auf dem Gerät, keine Cloud.
+            </p>
+          </PopoverContent>
+        </Popover>
+      )}
 
       {/* Ohne das feste „v": die Version sagt seit Plan 023 C6 „Vorserie",
           solange keine gesetzt ist, und „vVorserie" waere Unsinn. Schmal steht
           sie nicht hier, sondern im Popover darüber (D6). */}
-      {!schmal && data?.version && (
+      {istAdmin && !schmal && data?.version && (
         <span className="shrink-0 text-muted-foreground/70">{fassungLesbar(data.version)}</span>
       )}
 
@@ -342,7 +359,7 @@ export function StatusBar() {
         </Popover>
       )}
 
-      {laufendeDownloads.length > 0 && (
+      {istAdmin && laufendeDownloads.length > 0 && (
         <button
           type="button"
           data-testid="statusbar-downloads"
@@ -361,7 +378,7 @@ export function StatusBar() {
 
       <div className="flex-1" />
 
-      {wartende > 0 && (
+      {istAdmin && wartende > 0 && (
         <span
           className="flex shrink-0 items-center gap-1.5 px-1 text-foreground"
           data-testid="statusbar-freigaben"

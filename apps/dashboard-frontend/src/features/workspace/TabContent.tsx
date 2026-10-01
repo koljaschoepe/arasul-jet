@@ -10,6 +10,7 @@ import type { WorkspaceTab, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { Uebersicht } from '@/features/apps/Uebersicht';
 import { AppRahmen } from '@/features/apps/AppRahmen';
 import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
+import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { lazyNachladen } from '@/utils/lazyNachladen';
 
 const Settings = lazyNachladen(() => import('@/features/settings/Settings'));
@@ -65,6 +66,28 @@ function TabBridge({
 const EINSTELLUNGEN_PFAD = '/settings';
 
 /**
+ * Die Startseite: die Übersicht, zusammengesetzt aus dem, was die Rolle sieht.
+ *
+ * SEIT J36 (02.10.2026) KEINE FREIGABENLISTE FÜR DEN MITARBEITER. Eine
+ * Freigabe steht in der App, in der sie entsteht; an der Kachel der App trägt
+ * höchstens eine Zahl. Die Liste bleibt dem Administrator, der die Anfragen
+ * aller Apps im Blick haben muss. Das Backend ändert sich nicht — es liefert
+ * jedem, was er entscheiden darf, nur die Anzeige wandert.
+ */
+function Startseite() {
+  const { user } = useAuth();
+  const { data } = useOffeneFreigaben();
+  const wartend: Record<string, number> = {};
+  for (const f of data ?? []) wartend[f.app_id] = (wartend[f.app_id] ?? 0) + 1;
+  return (
+    <Uebersicht
+      wartend={wartend}
+      freigaben={user?.role === 'admin' ? <OffeneFreigaben /> : undefined}
+    />
+  );
+}
+
+/**
  * Die Weiche für den Inhalt eines Tabs.
  *
  * Drei Typen rendern direkt: Übersicht und App (D1) und die Modelle (D5).
@@ -87,7 +110,7 @@ export function FeatureTabHost({
     // Ordners: `features/X/` importiert nichts aus `features/Y/`). Die
     // Übersicht bekommt die Freigaben deshalb hereingereicht, statt sie zu
     // kennen — Phase D2.
-    return <Uebersicht freigaben={<OffeneFreigaben />} />;
+    return <Startseite />;
   }
   if (tab.type === 'modelle') {
     return <ModelleAnsicht />;

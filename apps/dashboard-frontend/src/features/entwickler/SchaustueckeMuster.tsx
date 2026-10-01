@@ -20,6 +20,8 @@ import {
   Dokumentanzeige,
   Feldgruppe,
   Formularseite,
+  Freigabe,
+  type FreigabeEintrag,
   Input,
   Kennzahl,
   Kennzahlen,
@@ -43,6 +45,48 @@ interface Lauf {
   zustand: 'fertig' | 'wartend' | 'abgebrochen';
   dauer: number;
 }
+
+/** Fristen relativ zu „jetzt", damit das Bild nicht mit dem Datum altert. */
+const FREIGABEN: FreigabeEintrag[] = [
+  {
+    id: 1,
+    titel: 'Urlaub vom 5. bis 9. Oktober',
+    zusammenhang: 'Anna Berger möchte eine Woche frei nehmen. Vertretung: Bernd.',
+    herkunft: 'Urlaubsantrag',
+    einreicher: 'anna',
+    frist: new Date(Date.now() + 26 * 60 * 60_000).toISOString(),
+    angefragtAm: new Date(Date.now() - 3 * 60 * 60_000).toISOString(),
+    regel: 'Vier-Augen-Prinzip: anna hat eingereicht und entscheidet nicht mit.',
+  },
+  {
+    id: 2,
+    titel: 'Rechnung 4711 buchen',
+    zusammenhang: 'Betrag 1.190,00 €, Lieferant Muster GmbH.',
+    herkunft: 'Belege',
+    frist: new Date(Date.now() + 20 * 60_000).toISOString(),
+    angefragtAm: new Date(Date.now() - 40 * 60_000).toISOString(),
+  },
+];
+
+const FREIGABEN_ENTSCHIEDEN: FreigabeEintrag[] = [
+  {
+    id: 3,
+    titel: 'Angebot 2026-118 versenden',
+    herkunft: 'Angebote',
+    status: 'abgelehnt',
+    entschiedenVon: 'bernd',
+    entschiedenAm: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+    begruendung: 'Der Preis stimmt nicht mit der Kalkulation überein.',
+  },
+  {
+    id: 4,
+    titel: 'Wochenbericht KW 39 versenden',
+    herkunft: 'Berichte',
+    status: 'bestaetigt',
+    entschiedenVon: 'clara',
+    entschiedenAm: new Date(Date.now() - 26 * 60 * 60_000).toISOString(),
+  },
+];
 
 const LAEUFE: Lauf[] = [
   { id: 'r1', flow: 'Urlaub prüfen', zustand: 'fertig', dauer: 12 },
@@ -398,6 +442,39 @@ export function SchaustueckeMuster() {
           <div className="w-64">
             <Kennzahl beschriftung="Letzte Sicherung" wert="keine" fussnote="noch nie gelaufen" />
           </div>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Freigabe"
+        satz="Etwas wartet auf ein Ja oder ein Nein. Ablehnen verlangt einen Grund; nach der Entscheidung steht, wer sie getroffen hat."
+      >
+        <Zustand name="Liste, offen (eine mit Regel, eine knapp)">
+          <div className="w-full max-w-xl min-w-0">
+            <Freigabe eintraege={FREIGABEN} beiBestaetigen={() => {}} beiAblehnen={() => {}} />
+          </div>
+        </Zustand>
+        <Zustand name="Einzelansicht">
+          <div className="w-full max-w-xl min-w-0">
+            <Freigabe
+              eintraege={FREIGABEN}
+              gewaehlt={1}
+              beiBestaetigen={() => {}}
+              beiAblehnen={() => {}}
+            />
+          </div>
+        </Zustand>
+        <Zustand name="entschieden: wer, wann, warum">
+          <div className="w-full max-w-xl min-w-0">
+            <Freigabe
+              eintraege={FREIGABEN_ENTSCHIEDEN}
+              beiBestaetigen={() => {}}
+              beiAblehnen={() => {}}
+            />
+          </div>
+        </Zustand>
+        <Zustand name="leer">
+          <Freigabe eintraege={[]} beiBestaetigen={() => {}} beiAblehnen={() => {}} />
         </Zustand>
       </Schaustueck>
 

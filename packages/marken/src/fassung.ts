@@ -108,4 +108,14 @@
  * faellt weg -- eine Liste zeigt in einem breiten Fenster mit schmalem
  * Kasten jetzt Karten statt einer abgeschnittenen Tabelle.
  */
-export const FASSUNG = '5.1.0';
+/*
+ * 5.2.0 (Auftrag mitarbeiter-ohne-technik-und-freigaben, 02.10.2026, J36): ein
+ * Muster kommt dazu, die `Freigabe` -- Liste, Einzelansicht, Bestaetigen,
+ * Ablehnen mit Pflichtgrund, wer entschieden hat, Frist. Eine Freigabe gehoert
+ * in die App, in der sie entsteht, und diese Form ist die, die jede App dafuer
+ * benutzt; die Shell nimmt dieselbe fuer den Administrator. Keine neue
+ * Hauptzahl: nichts faellt weg, eine App auf 5.1.0 laeuft unveraendert weiter.
+ * Das Muster steht nicht im Buendel (es braucht einen Bau, wie die anderen
+ * Muster ausser der `Dokumentanzeige`); das Buendel traegt nur die neue Zahl.
+ */
+export const FASSUNG = '5.2.0';

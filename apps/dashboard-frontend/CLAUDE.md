@@ -21,10 +21,12 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
     Sidebar, … **Der einzige Ort dafür** — ein zweiter Button in der Shell ist
     ein Befund (`scripts/test/bausteine.py`). `Drawer` und `Sonner` gibt es
     bewusst nicht: das eine ist `Sheet side="bottom"`, das andere `Toast`.
-  - **Muster** (`src/muster/`, 10 Stück): Datenliste, Suchauswahl,
+  - **Muster** (`src/muster/`, 11 Stück): Datenliste, Suchauswahl,
     Dateiablage, Seitenleiste, Formularseite mit Feldgruppe, Leerzustand,
     Ladezustand, `Dialogform`, `Bestaetigung` (auf `AlertDialog`),
-    `Kennzahl`/`Kennzahlen`, `Dokumentanzeige` (PDF via pdf.js als
+    `Kennzahl`/`Kennzahlen`, `Freigabe` (Liste, Einzelansicht, Bestätigen,
+    Ablehnen mit Pflichtgrund, wer entschied, Frist — die Form, in der eine App
+    eine Freigabe zeigt, J36), `Dokumentanzeige` (PDF via pdf.js als
     nachgeladener Chunk, CSP-konform ohne eval, plus Bilder mit
     Seitenblättern/Zoom/Vollbild — als einziges Muster auf reinem CSS, läuft
     auch in einer App ohne Bau). Ein Muster ist eine Zusammensetzung aus
@@ -110,7 +112,11 @@ src/
                    Dienstes und eigene Ordner mit Stufe aus
                    `GET /api/firmenordner`. Ein 503 heißt „hier gibt es
                    keinen" und ist eine Auskunft, kein Fehler.
-    freigaben/     Die offenen Freigaben, entschieden in der Übersicht:
+    freigaben/     Die offenen Freigaben, entschieden in der Übersicht —
+                   seit J36 nur für den Administrator (`Startseite` in
+                   `TabContent.tsx`); ein Mitarbeiter entscheidet in der App
+                   mit dem Muster `Freigabe` (`@marken`), `OffeneFreigaben`
+                   ist selbst daraus gebaut:
                    `OffeneFreigaben.tsx` (Liste mit Titel, Zusammenhang,
                    Restzeit, Bestätigen/Ablehnen-mit-Begründung) und
                    `frist.ts` (Restzeit in Worten, reine Funktion). Abfrage
@@ -137,7 +143,7 @@ src/
                    Spalte ganz links, außerhalb des einklappbaren Panels —
                    Apps oben, Modelle [admin] darunter, Einstellungen-Zahnrad
                    [admin] unten), SidebarHost, Tab-Bar/-Content (Mitte),
-                   RightPanel (rechts, Notizen), StatusBar (Modell + KI-RAM +
+                   RightPanel (rechts, Notizen), StatusBar (nur Administrator: Verbindung, Fassung, Modell + KI-RAM, Downloads +
                    Zahl offener Freigaben). Feature-Tabs laufen je in einem
                    eigenen IsolatedMemoryRouter (FeatureTabHost) — nur noch
                    für die Einstellungen, die drei anderen rendern direkt.
