@@ -185,7 +185,7 @@ function antworte({
             {
               wann: '2026-09-22T17:59:22Z',
               wer: 'mia',
-              text: 'mia added angebot.md to projekte',
+              text: 'Mia hat angebot.md in projekte abgelegt',
               datei: 'angebot.md',
             },
           ],
@@ -422,7 +422,7 @@ describe('FirmenordnerSettings', () => {
     await screen.findByTestId('ordner-baum');
     fireEvent.click(screen.getByTestId('ordner-aenderungen-projekte'));
     const liste = await screen.findByTestId('ordner-aenderungen');
-    expect(await within(liste).findByTestId('aenderung')).toHaveTextContent('mia');
+    expect(await within(liste).findByTestId('aenderung')).toHaveTextContent('Mia hat');
     expect(within(liste).getByTestId('aenderung')).toHaveTextContent('angebot.md');
     expect(apiMock.get).toHaveBeenCalledWith('/firmenordner/ordner/2/aenderungen');
   });

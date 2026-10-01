@@ -1151,6 +1151,83 @@ async function entferneMitglied(raumId, permissionId) {
  * ist es ein Fehler. Die Grenze der Nachricht per Einstellung zu heben haette
  * das Problem nur auf den naechsten, groesseren Ordner verschoben.
  */
+/**
+ * Der Dienst liefert je Eintrag einen englischen Satz mit Platzhaltern und
+ * deren Werte (`template.message`, `template.variables`) -- strukturiert ist
+ * nur das; eine Art oder ein Ziel als eigenes Feld gibt es nicht (am
+ * 01.10.2026 gegen die Antwort gelesen: `id`, `times`, `template`). Also
+ * werden die bekannten Saetze des Dienstes hier in Kundensprache gesetzt;
+ * was wir nicht kennen, wird zu einem neutralen Satz, nie zu englischem Text.
+ * Ein Konto, das es nicht mehr gibt, heisst beim Dienst `DeletedUser`.
+ */
+const GELOESCHTES_KONTO = 'ein gelöschtes Konto';
+
+function aenderungName(wert) {
+  if (!wert || typeof wert !== 'object') {
+    return null;
+  }
+  const name = wert.displayName || wert.name || null;
+  if (name === 'DeletedUser') {
+    return GELOESCHTES_KONTO;
+  }
+  return name || null;
+}
+
+function aenderungWer(user) {
+  return aenderungName(user) || (user?.id ? GELOESCHTES_KONTO : null);
+}
+
+const AENDERUNG_SAETZE = [
+  [
+    /^\{user\} added \{sharee\} as member of \{space\}$/,
+    '{user} hat {sharee} zu {space} hinzugefügt',
+  ],
+  [/^\{user\} removed \{sharee\} from \{space\}$/, '{user} hat {sharee} aus {space} entfernt'],
+  [/^\{user\} added \{resource\} to \{folder\}$/, '{user} hat {resource} in {folder} abgelegt'],
+  [/^\{user\} added \{resource\}$/, '{user} hat {resource} abgelegt'],
+  [/^\{user\} updated \{resource\} in \{folder\}$/, '{user} hat {resource} in {folder} geändert'],
+  [/^\{user\} updated \{resource\}$/, '{user} hat {resource} geändert'],
+  [
+    /^\{user\} deleted \{resource\} from \{folder\}$/,
+    '{user} hat {resource} aus {folder} gelöscht',
+  ],
+  [/^\{user\} deleted \{resource\}$/, '{user} hat {resource} gelöscht'],
+  [
+    /^\{user\} moved \{resource\} (?:from \{oldFolder\} )?to \{folder\}$/,
+    '{user} hat {resource} nach {folder} verschoben',
+  ],
+  [
+    /^\{user\} renamed \{oldResource\} to \{resource\}$/,
+    '{user} hat {oldResource} in {resource} umbenannt',
+  ],
+  [/^\{user\} renamed \{resource\}.*$/, '{user} hat {resource} umbenannt'],
+  [
+    /^\{user\} shared \{resource\} with \{sharee\}$/,
+    '{user} hat {resource} für {sharee} freigegeben',
+  ],
+  [
+    /^\{user\} unshared \{resource\} with \{sharee\}$/,
+    '{user} hat die Freigabe von {resource} für {sharee} aufgehoben',
+  ],
+  [/^\{user\} restored \{resource\}.*$/, '{user} hat {resource} wiederhergestellt'],
+];
+
+function aenderungSatz(nachricht, platzhalter) {
+  const roh = String(nachricht || '').trim();
+  const treffer = AENDERUNG_SAETZE.find(([muster]) => muster.test(roh));
+  const vorlage = treffer ? treffer[1] : '{user} hat etwas geändert';
+  const satz = vorlage.replace(/\{(\w+)\}/g, (_, name) => {
+    if (name === 'user') {
+      return aenderungWer(platzhalter.user) || 'Jemand';
+    }
+    return (
+      aenderungName(platzhalter[name]) ||
+      (name === 'folder' || name === 'space' ? 'diesem Ordner' : 'einer Datei')
+    );
+  });
+  return satz.charAt(0).toUpperCase() + satz.slice(1);
+}
+
 const AENDERUNGEN_FENSTER_TAGE = [1, 3, 7, 30, 90, 365, null];
 
 async function aenderungen(itemId, grenze = 20) {
@@ -1180,20 +1257,12 @@ async function aenderungen(itemId, grenze = 20) {
   const liste = werte
     .map(eintrag => {
       const vorlage = eintrag?.template || {};
-      const werte = vorlage.variables || {};
-      const wer = werte.user?.displayName || werte.user?.id || null;
-      const text = String(vorlage.message || '').replace(/\{(\w+)\}/g, (_, name) => {
-        const wert = werte[name];
-        if (!wert || typeof wert !== 'object') {
-          return name;
-        }
-        return wert.displayName || wert.name || wert.id || name;
-      });
+      const platzhalter = vorlage.variables || {};
       return {
         wann: eintrag?.times?.recordedTime || null,
-        wer,
-        text,
-        datei: werte.resource?.name || null,
+        wer: aenderungWer(platzhalter.user),
+        text: aenderungSatz(vorlage.message, platzhalter),
+        datei: platzhalter.resource?.name || null,
       };
     })
     .filter(e => e.wann)
