@@ -1135,12 +1135,49 @@ async function entferneMitglied(raumId, permissionId) {
  * Oberflaeche nichts von dieser Form wissen muss.
  *
  * Neueste zuerst, hoechstens `grenze` Eintraege.
+ *
+ * DIE ABFRAGE WIRD ENGER GESTELLT, NICHT DIE GRENZE DES DIENSTES GEHOBEN.
+ * Am 01.10.2026 antwortete der Dienst bei `firma` mit 500 ("trying to send
+ * message larger than max (5099597 vs. 4194304)"): rund 9 600 Knoten in
+ * `locks/` stehen im Protokoll, und `activitylog` holt zu ALLEN passenden
+ * Eintraegen die Ereignisse in EINER gRPC-Nachricht (Quelltext von
+ * `services/activitylog/pkg/service/http/service.go`). Ein `limit:` allein
+ * hilft nicht -- er wird erst NACH dem Holen angewendet. Was vor dem Holen
+ * greift, ist ein Zeitfenster (`mtime>=<Datum>`, ein Vorfilter auf die
+ * Zeit des Eintrags). Am Orin gemessen (`firma`): ab dem 28.09. 1 888
+ * Eintraege (200), ab dem 26.09. 500. Also von eng nach weit: ein Tag, drei,
+ * sieben, ... und weiter, bis genug beisammen sind. Scheitert ein weiteres
+ * Fenster, gilt, was das engere schon brachte; scheitert schon das erste,
+ * ist es ein Fehler. Die Grenze der Nachricht per Einstellung zu heben haette
+ * das Problem nur auf den naechsten, groesseren Ordner verschoben.
  */
+const AENDERUNGEN_FENSTER_TAGE = [1, 3, 7, 30, 90, 365, null];
+
 async function aenderungen(itemId, grenze = 20) {
-  const daten = await anfrage(
-    `/graph/v1beta1/extensions/org.libregraph/activities?kql=${encodeURIComponent(`itemid:${itemId}`)}`
-  );
-  const liste = (daten?.value || [])
+  let werte = [];
+  for (const tage of AENDERUNGEN_FENSTER_TAGE) {
+    const teile = [`itemid:${itemId}`, 'sort:desc'];
+    if (tage !== null) {
+      const ab = new Date(Date.now() - tage * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      teile.push(`mtime>=${ab}`);
+    }
+    let daten;
+    try {
+      daten = await anfrage(
+        `/graph/v1beta1/extensions/org.libregraph/activities?kql=${encodeURIComponent(teile.join(' AND '))}`
+      );
+    } catch (fehler) {
+      if (werte.length > 0) {
+        break;
+      }
+      throw fehler;
+    }
+    werte = daten?.value || [];
+    if (werte.length >= grenze) {
+      break;
+    }
+  }
+  const liste = werte
     .map(eintrag => {
       const vorlage = eintrag?.template || {};
       const werte = vorlage.variables || {};
