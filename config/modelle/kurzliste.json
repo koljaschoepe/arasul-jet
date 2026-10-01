@@ -36,8 +36,8 @@
       "id": "gemma4:e4b",
       "aufgabe": "text",
       "standard": false,
-      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es. Es liest auch die Bilder, die eine App ohne Modellangabe schickt (Bildvorgabe, Migration 188, gemessen an fuenf Belegfotos).",
-      "digest": "sha256:c6eb396dbd5992bbe3f5cdb947e8bbc0ee413d7c17e2beaae69f5d569cf982eb"
+      "wofuer": "Das kleine schnelle. Auf Geraeten, die den Standard nicht tragen, fuehrt es. Es liest auch die Bilder, die eine App ohne Modellangabe schickt (Bildvorgabe, Migration 188, gemessen an fuenf Belegfotos). Die Fassung vom 01.10.2026 (Digest dc35e8d9) ist ungemessen: die Messung galt der alten Fassung c6eb396d.",
+      "digest": "sha256:dc35e8d9c6061baa6f0fa870975ab6932e2542b579b13ea0f199fa4bb7300c9c"
     },
     {
       "id": "nomic-embed-text",
