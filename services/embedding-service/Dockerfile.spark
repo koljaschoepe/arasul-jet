@@ -40,12 +40,20 @@ COPY services/embedding-service/requirements.txt ./
 # wie im Jetson-Bau -- ein Spark soll dieselben Vektoren liefern wie ein Orin.
 # sentence-transformers ohne Abhaengigkeiten, damit pip torch nicht gegen ein
 # CPU-Rad von PyPI tauscht (dieselbe Falle wie im Jetson-Bau).
+#
+# flashrank ebenfalls ohne Abhaengigkeiten: es verlangt llama-cpp-python, ein
+# Quellpaket, das hier ohne Compiler nicht baut (im L4T-Abbild liegt einer).
+# Gebraucht wird es nur fuer die listwise-Ranker (`from llama_cpp` steht in
+# `Ranker.__init__` nur in diesem Zweig); der Dienst nimmt
+# ms-marco-MiniLM-L-12-v2 ueber onnxruntime. Die uebrigen Abhaengigkeiten von
+# flashrank 0.2.5 stehen deshalb ausdruecklich in der Liste.
 RUN pip3 install --no-cache-dir --index-url ${TORCH_INDEX} torch==${TORCH_VERSION} && \
-    pip3 install --no-cache-dir --index-url https://pypi.org/simple --no-deps sentence-transformers==3.0.1 && \
+    pip3 install --no-cache-dir --index-url https://pypi.org/simple --no-deps \
+    sentence-transformers==3.0.1 flashrank==0.2.5 && \
     pip3 install --no-cache-dir --index-url https://pypi.org/simple \
     flask==3.0.0 numpy==1.26.3 transformers==4.44.2 einops==0.7.0 "protobuf>=3.20" \
     tqdm scikit-learn scipy nltk sentencepiece huggingface-hub Pillow safetensors \
-    flashrank==0.2.5 gunicorn==22.0.0
+    tokenizers onnxruntime requests gunicorn==22.0.0
 
 COPY libs/shared-python/structured_logging.py ./
 COPY services/embedding-service/ .

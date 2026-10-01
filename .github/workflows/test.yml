@@ -269,7 +269,8 @@ jobs:
             runner: ubuntu-24.04-arm
             platform: linux/arm64
             smoke: >-
-              import torch, sentence_transformers, transformers, flask, flashrank;
+              import torch, sentence_transformers, transformers, flask, onnxruntime;
+              from flashrank import Ranker, RerankRequest;
               f = torch._C._cuda_getArchFlags();
               print('torch', torch.__version__, 'CUDA', torch.version.cuda, 'Arch', f);
               assert (torch.version.cuda or '').startswith('13'), torch.version.cuda;
