@@ -1135,12 +1135,39 @@ async function entferneMitglied(raumId, permissionId) {
  * Oberflaeche nichts von dieser Form wissen muss.
  *
  * Neueste zuerst, hoechstens `grenze` Eintraege.
+ *
+ * DIE ABFRAGE WIRD ENGER GESTELLT, NICHT DIE GRENZE DES DIENSTES GEHOBEN.
+ * Am 01.10.2026 antwortete der Dienst bei `firma` mit 500 ("trying to send
+ * message larger than max (5099597 vs. 4194304)"): rund 9 600 Knoten in
+ * `locks/` stehen im Protokoll, und `activitylog` holt zu ALLEN passenden
+ * Eintraegen die Ereignisse in EINER gRPC-Nachricht (Quelltext von
+ * `services/activitylog/pkg/service/http/service.go`). Ein `limit:` allein
+ * hilft nicht -- er wird erst NACH dem Holen angewendet. Was vor dem Holen
+ * greift, ist ein Zeitfenster (`mtime>=<Datum>`, ein Vorfilter auf die
+ * Zeit des Eintrags). Also: das engste Fenster zuerst, das naechste nur,
+ * wenn das davor leer war. Die Grenze der go-micro-Nachricht per Einstellung
+ * zu heben haette das Problem nur auf den naechsten, groesseren Ordner
+ * verschoben.
  */
+const AENDERUNGEN_FENSTER_TAGE = [7, 90, 365, null];
+
 async function aenderungen(itemId, grenze = 20) {
-  const daten = await anfrage(
-    `/graph/v1beta1/extensions/org.libregraph/activities?kql=${encodeURIComponent(`itemid:${itemId}`)}`
-  );
-  const liste = (daten?.value || [])
+  let werte = [];
+  for (const tage of AENDERUNGEN_FENSTER_TAGE) {
+    const teile = [`itemid:${itemId}`, `limit:${Math.max(1, grenze) * 5}`, 'sort:desc'];
+    if (tage !== null) {
+      const ab = new Date(Date.now() - tage * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      teile.push(`mtime>=${ab}`);
+    }
+    const daten = await anfrage(
+      `/graph/v1beta1/extensions/org.libregraph/activities?kql=${encodeURIComponent(teile.join(' AND '))}`
+    );
+    werte = daten?.value || [];
+    if (werte.length > 0) {
+      break;
+    }
+  }
+  const liste = werte
     .map(eintrag => {
       const vorlage = eintrag?.template || {};
       const werte = vorlage.variables || {};

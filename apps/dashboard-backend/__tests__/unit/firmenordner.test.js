@@ -648,6 +648,34 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
     expect(String(global.fetch.mock.calls[0][0])).toContain(
       'org.libregraph/activities?kql=itemid%3Ar'
     );
+    // das engste Fenster zuerst: ein Vorfilter auf die Zeit, nicht nur ein limit
+    const kql = decodeURIComponent(String(global.fetch.mock.calls[0][0]).split('kql=')[1]);
+    expect(kql).toMatch(/^itemid:r AND limit:\d+ AND sort:desc AND mtime>=\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('weitet das Zeitfenster nur aus, wenn das engere leer war', async () => {
+    firmenordnerAn();
+    const leer = { ok: true, status: 200, text: async () => JSON.stringify({ value: [] }) };
+    const eintrag = {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          value: [
+            {
+              template: {
+                message: '{user} added {resource}',
+                variables: { user: { displayName: 'mia' }, resource: { name: 'a.md' } },
+              },
+              times: { recordedTime: '2026-08-01T10:00:00Z' },
+            },
+          ],
+        }),
+    };
+    global.fetch.mockResolvedValueOnce(leer).mockResolvedValueOnce(eintrag);
+    const liste = await dienst.aenderungen('r');
+    expect(liste).toHaveLength(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });
 
