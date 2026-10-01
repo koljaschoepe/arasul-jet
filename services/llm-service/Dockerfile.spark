@@ -1,0 +1,73 @@
+# Arasul Platform - LLM Service, Spark-Zweig (NVIDIA DGX Spark, DGX OS)
+#
+# Daneben liegt `Dockerfile`, der Bau fuer JetPack 6 (Orin). Gewaehlt wird
+# ueber `GPU_DOCKERFILE` in der .env, und die schreibt
+# `scripts/setup/detect-platform.sh` aus `config/platforms/dgx-spark.json`.
+#
+# WARUM EIN EIGENER BAU: der Jetson-Bau kopiert Ollama in ein Ubuntu 22.04 und
+# Compose setzt dort `LD_LIBRARY_PATH` auf `cuda_jetpack6`. Am Spark gibt es
+# die Tegra-Bibliotheken nicht, die dieser Runner braucht; Ollama faellt dann
+# ohne Fehlermeldung auf die CPU zurueck.
+#
+# WARUM DAS OFFIZIELLE ABBILD SELBST: an der Quelle geprueft (01.10.2026, J4,
+# `Dockerfile` und `llama/server/CMakePresets.json` von ollama/ollama am Tag
+# v0.32.12): die arm64-Stufe kopiert `cuda_v12`, `cuda_v13`, `cuda_jetpack5`
+# und `cuda_jetpack6` nach /usr/lib/ollama; `cuda_v13` wird aus dem
+# sbsa-Repo von NVIDIA mit CUDA 13.0 gebaut, Preset `llama_cuda_v13_linux`
+# mit `CMAKE_CUDA_ARCHITECTURES` bis `120-virtual;121-virtual`. Fuer sm_121
+# liegt also PTX bei und kein fertiger Maschinencode: der Treiber uebersetzt
+# beim ersten Laden (der JIT, gegen den das Profil Pre-Warming nennt).
+# Grundlage ist Ubuntu 24.04 (GLIBC 2.39); der GLIBC-Grund, aus dem der
+# Jetson-Bau umzieht, gilt hier nicht. Welchen Runner Ollama am Geraet
+# waehlt, sagt erst sein Log am Spark.
+ARG OLLAMA_VERSION=0.32.12
+FROM ollama/ollama:${OLLAMA_VERSION}
+
+# Python fuer die Management-API. Ubuntu 24.04 verbietet pip ins System
+# (PEP 668), also eine venv; gcc nur fuer den Bau, wie im Jetson-Bau.
+COPY services/llm-service/requirements.txt /tmp/requirements.txt
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
+    python3-dev \
+    gcc \
+    curl \
+    jq \
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt \
+    && apt-get purge -y gcc python3-dev \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+ENV PATH=/opt/venv/bin:$PATH
+
+# Derselbe Benutzer wie im Jetson-Bau (UID 1000, Rechte am Volume). Ubuntu
+# 24.04 bringt `ubuntu` mit, der diese Nummer schon belegt.
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    useradd -m -u 1000 -s /bin/bash ollama
+
+COPY libs/shared-python/structured_logging.py /app/structured_logging.py
+COPY services/llm-service/api_server.py /app/api_server.py
+COPY services/llm-service/entrypoint.sh /app/entrypoint.sh
+COPY services/llm-service/healthcheck.sh /healthcheck.sh
+RUN chmod +x /app/entrypoint.sh /healthcheck.sh
+
+EXPOSE 11434
+EXPOSE 11436
+
+RUN mkdir -p /home/ollama/.ollama && \
+    chown -R ollama:ollama /app /home/ollama/.ollama
+VOLUME ["/home/ollama/.ollama"]
+
+USER ollama
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=300s --retries=3 \
+    CMD curl -f http://localhost:11436/health || exit 1
+
+# Das offizielle Abbild hat `ollama` als Einstieg und `serve` als Befehl; hier
+# startet der Einstieg beides, Ollama und die Management-API, wie im
+# Jetson-Bau. CMD leer, sonst bekaeme entrypoint.sh `serve` als Argument.
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD []
