@@ -889,10 +889,11 @@ jobs:
 
       - name: Trockenlauf
         working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        timeout-minutes: 70
         run: bash scripts/test/spark-trockenlauf.sh
 
       - name: Wenn es rot ist, Container und Protokolle
-        if: failure()
+        if: failure() || cancelled()
         working-directory: ${{ steps.auspacken.outputs.wurzel }}
         run: |
           docker ps -a || true

@@ -52,7 +52,10 @@ ja() { if "$@"; then echo ja; else echo nein; fi; }
 abschnitt() { printf '\n== %s ==\n' "$1"; }
 
 PASSWORT="${ARASUL_TROCKENLAUF_PASSWORT:-AbnahmeCi2026x}"
-WARTEN_SEKUNDEN="${ARASUL_TROCKENLAUF_WARTEN:-900}"
+# Eine Zeitgrenze fuer ALLE Dienste zusammen, nicht je Dienst: acht Dienste mit
+# je 15 Minuten haetten den Job im ersten Lauf an sein Zeitlimit gebracht.
+WARTEN_SEKUNDEN="${ARASUL_TROCKENLAUF_WARTEN:-600}"
+FRIST_ENDE=$((SECONDS + WARTEN_SEKUNDEN))
 
 # --- 0. Voraussetzung: dieselbe Architektur wie das Geraet, und KEINE GPU ------
 abschnitt "0. Der Rechner"
@@ -120,8 +123,9 @@ for dienst in llm-service embedding-service dashboard-backend dashboard-frontend
     "$(docker inspect --format '{{.Image}}' "${behaelter:-nichts}" 2>/dev/null)" 2>/dev/null || echo '?')"
   pruefe "${dienst}: linux/arm64" "$(ja [ "$arch" = linux/arm64 ])" "$arch"
 done
+runner="$(docker compose exec -T llm-service ls /usr/lib/ollama 2>&1 | tr '\n' ' ')"
 pruefe "llm-service traegt den CUDA-13-Runner von Ollama (cuda_v13)" \
-  "$(ja docker compose exec -T llm-service ls /usr/lib/ollama/cuda_v13)"
+  "$(ja grep -q cuda_v13 <<<"$runner")" "$runner"
 ld_pfad="$(docker compose exec -T llm-service printenv LD_LIBRARY_PATH 2>/dev/null || true)"
 pruefe "llm-service ohne den JetPack-Runner im Suchpfad" \
   "$(ja bash -c '! grep -qi jetpack <<<"$1"' _ "$ld_pfad")" "$ld_pfad"
@@ -132,8 +136,8 @@ dienste="$(docker compose config --services 2>/dev/null)"
 pruefe "Dienste laut Compose: $(echo "$dienste" | wc -w)" "$(ja [ -n "$dienste" ])"
 
 warten_gesund() { # <Dienst>; wartet bis `healthy` oder zur Zeitgrenze
-  local d="$1" start=$SECONDS id gesundheit status
-  while [ $((SECONDS - start)) -lt "$WARTEN_SEKUNDEN" ]; do
+  local d="$1" id gesundheit status
+  while [ "$SECONDS" -lt "$FRIST_ENDE" ]; do
     id="$(docker compose ps -aq "$d" 2>/dev/null | head -1)"
     if [ -n "$id" ]; then
       gesundheit="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}keiner{{end}}' "$id" 2>/dev/null)"
@@ -146,12 +150,25 @@ warten_gesund() { # <Dienst>; wartet bis `healthy` oder zur Zeitgrenze
     fi
     sleep 5
   done
-  echo "${gesundheit:-unbekannt} nach ${WARTEN_SEKUNDEN}s"
+  echo "${gesundheit:-unbekannt} (Frist ${WARTEN_SEKUNDEN}s zusammen)"
   return 1
 }
 for d in $dienste; do
   zustand="$(warten_gesund "$d")" && ok=ja || ok=nein
   pruefe "${d}: ${zustand}" "$ok"
+done
+
+# Was nicht gesund ist, bekommt sein Protokoll und den Bericht seines Healthchecks
+# HIER, im Lauf: die CI schneidet den Job bei Zeitueberschreitung ab, und ein
+# Schritt "wenn rot" danach kaeme dann nie dran.
+for d in $dienste; do
+  id="$(docker compose ps -aq "$d" 2>/dev/null | head -1)"
+  [ -n "$id" ] || { echo "---- $d: kein Container"; continue; }
+  g="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}keiner{{end}}' "$id" 2>/dev/null)"
+  [ "$g" = healthy ] || [ "$g" = keiner ] && continue
+  echo "---- $d: $g"
+  docker inspect --format '{{range .State.Health.Log}}{{.ExitCode}}: {{.Output}}{{end}}' "$id" 2>&1 | tail -5
+  docker compose logs --no-color --tail 40 "$d" 2>&1
 done
 
 # --- 5. Was ohne GPU ueber die Oberflaeche und die Betriebsteile zu sagen ist ---
