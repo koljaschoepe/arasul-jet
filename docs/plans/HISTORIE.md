@@ -1635,3 +1635,37 @@ tmpfs) **31 von 31** mit Browser (14) und Bildern unter
 udev mit einem Abbild per `losetup` (`ARASUL_STICK=schleife`) und der Test mit
 einer echten SSD — der Hook `block-destructive.sh` sperrt `mkfs.*`, und das
 wurde nicht umgangen.
+
+Seit dem Auftrag **ausgang-netz-und-eigene-datenbank** (02.10.2026, J38, erste
+Karte) **laufen Apps in einem eigenen Netz ohne Internet und erreichen nur ihre
+eigene Datenbank und die Plattform-API.** Vorher lagen App-Container im selben
+Netz wie Postgres, Ollama und das Backend, und die Plattform-Datenbank
+`arasul_db` war für jede App-Rolle offen (`REVOKE CONNECT … FROM PUBLIC` galt nur
+für die Datenbanken der Apps). Jetzt: Netz `arasul-apps` (`internal`,
+`172.30.1.0/26`), darin App-Container, `postgres-db`, `dashboard-backend` und
+`reverse-proxy`; `config/postgres/pg_hba.conf` lässt eine Rolle `arasul_app_*`
+nur in die Datenbank mit ihrem Namen (`samerole`), nach dem Rollennamen und
+nicht nach der Adresse, weil Postgres in zwei Netzen hängt. Bestehende Apps
+zieht `appContainer.zieheUm` beim Start des Backends um (gleiche Umgebung,
+Etikett `traefik.docker.network` neu, bei Fehlschlag läuft der alte weiter);
+Rollen und Datenbanken bleiben unberührt. Der Rückweg ist `APP_NETZ` auf das
+alte Netz, derselbe Umzug in die andere Richtung. `app.json` kennt
+`verbindungen` (Hostnamen, nur Forderung), Kontrakt **7** mit Abschnitt `netz`;
+das Kit muss `KIT_CONTRACT_VERSIONS` auf 7 heben.
+
+Gemessen vor dem Merge am Orin in Wegwerf-Containern (echtes Postgres im
+internen Netz, `zieheUm` hin, zurück und im Fehlerfall gegen den echten Docker
+mit eigenem Etikett) und nach dem Deploy am laufenden Gerät mit
+`scripts/test/app-netz-abnahme.sh` als `probe-admin`: **22 von 22**. Aus einem
+App-Container: eigene Datenbank ja; fremde App-Datenbank und `arasul_db` mit
+„pg_hba.conf rejects" verweigert; Plattform-API und Traefik ja; `1.1.1.1:443`
+`ENETUNREACH`, Namensauflösung ins Internet läuft in die Zeitüberschreitung.
+Alle sechs App-Container (`belege`, `abschluss`, `probe-faktum-belege`, je Live
+und Test) wurden ohne Zwischenfall umgezogen (je rund sieben Sekunden),
+liefern und sind gesund, ohne Fehlerzeile im Protokoll; die OIDs aller
+App-Datenbanken und Rollen sind vorher und nachher dieselben, `firmenordner`
+lief unverändert weiter (gleicher Start, gleiches Netz). Nicht gefahren:
+`node arasul.mjs status` mit Probe-Konto, es gibt keinen Probe-Login auf dem
+Arbeitsrechner. Beim Messen aufgefallen und nicht Teil dieses Auftrags:
+`reverse-proxy` kann `/arasul/logs/traefik.log` nicht anlegen („permission
+denied", `cap_drop: ALL`); die Dateien gibt es auf dem Orin nicht.

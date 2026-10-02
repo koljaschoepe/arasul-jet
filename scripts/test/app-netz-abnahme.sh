@@ -202,10 +202,13 @@ pruefe 'Traefik (reverse-proxy:443): ja' "$(ja_wenn "$(messung traefik.ok)" true
 pruefe 'Internet (1.1.1.1:443): nein' "$(ja_wenn "$(messung internet.ok)" false)" "$(messung internet.was)"
 pruefe 'Name im Internet (example.com): nein' "$(ja_wenn "$(messung dns.ok)" false)" "$(messung dns.was)"
 
-# Die Oberflaeche erreicht das Backend der App ueber Traefik, also ueber das neue Netz.
-CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 -H "authorization: Bearer $TOK" \
-  "$BASIS/apps/$APP/test/api/gesund")
-pruefe 'Traefik erreicht die App im neuen Netz (/apps/<id>/test/api/gesund)' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
+# Traefik erreicht das Backend der App ueber das neue Netz: aus dem Traefik-Container
+# gefragt, mit dem Namen der App. Eine Antwort der App (auch 401) heisst, der Weg
+# steht; gemessen wird NICHT ueber `/apps/<id>/test/api/`, denn dort entscheidet
+# zuerst die Anmeldung (403 fuer ein Konto ohne Zugang zu diesem Stand), und das
+# ist keine Aussage ueber das Netz.
+CODE=$(am_geraet "docker exec reverse-proxy wget -q -T 5 -O /dev/null http://$CONTAINER:8080/gesund >/dev/null 2>&1; echo \$?")
+pruefe 'Traefik erreicht das Backend der App im neuen Netz (reverse-proxy -> App)' "$(ja_wenn "$CODE" 0)" "wget Rueckgabe $CODE"
 
 # Die Plattform selbst erreicht ihre Datenbank weiter (zwei Netze, ein Name).
 CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 -H "authorization: Bearer $TOK" "$BASIS/api/apps")
