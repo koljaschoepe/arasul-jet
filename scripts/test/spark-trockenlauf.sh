@@ -65,6 +65,13 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
   exit 2
 fi
 pruefe "keine GPU (der Lauf sagt nichts ueber sie)" ja
+# Alle Container der Plattform laufen als UID 1000 und lesen die Geheimnisse
+# (config/secrets, Rechte 600) als Bindmount. Ein anderer Benutzer am Geraet
+# bekaeme EACCES auf `/run/secrets/postgres_password`, und kein Dienst kaeme
+# hoch (am arm64-Laeufer mit UID 1001 im ersten Lauf gemessen, 02.10.2026).
+# Die CI legt deshalb einen Benutzer mit 1000 an; am Spark ist es Punkt 0 des
+# Messplans.
+pruefe "Benutzer hat UID 1000 (wie die Container)" "$(ja [ "$(id -u)" -eq 1000 ])" "UID $(id -u)"
 [ "$rot" -eq 0 ] || exit 1
 
 # --- 1. Die Installation, wie ein Kunde sie tippt -----------------------------
@@ -135,9 +142,9 @@ abschnitt "4. Container"
 dienste="$(docker compose config --services 2>/dev/null)"
 pruefe "Dienste laut Compose: $(echo "$dienste" | wc -w)" "$(ja [ -n "$dienste" ])"
 
-warten_gesund() { # <Dienst>; wartet bis `healthy` oder zur Zeitgrenze
+warten_gesund() { # <Dienst>; wartet bis `healthy` oder zur gemeinsamen Frist (mindestens eine Probe)
   local d="$1" id gesundheit status
-  while [ "$SECONDS" -lt "$FRIST_ENDE" ]; do
+  while :; do
     id="$(docker compose ps -aq "$d" 2>/dev/null | head -1)"
     if [ -n "$id" ]; then
       gesundheit="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}keiner{{end}}' "$id" 2>/dev/null)"
@@ -148,6 +155,7 @@ warten_gesund() { # <Dienst>; wartet bis `healthy` oder zur Zeitgrenze
       esac
       [ "$status" = exited ] && { echo "beendet"; return 1; }
     fi
+    [ "$SECONDS" -lt "$FRIST_ENDE" ] || break
     sleep 5
   done
   echo "${gesundheit:-unbekannt} (Frist ${WARTEN_SEKUNDEN}s zusammen)"
