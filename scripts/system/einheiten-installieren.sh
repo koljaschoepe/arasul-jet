@@ -125,7 +125,15 @@ done
 if [ "$NUR_PLATTFORM" = false ] && [ -f "${WURZEL}/config/udev/99-arasul-sicherung.rules" ]; then
   "${ALS_ROOT[@]}" install -m 0644 "${WURZEL}/config/udev/99-arasul-sicherung.rules" \
     /etc/udev/rules.d/99-arasul-sicherung.rules
-  "${ALS_ROOT[@]}" udevadm control --reload >/dev/null 2>&1 || true
+  # Ohne das gilt eine geaenderte Regel erst nach dem naechsten Neustart: die
+  # SSD wuerde nicht erkannt, und der Kunde hielte die Sicherung fuer kaputt.
+  # Scheitert das Neuladen, wird es laut (Rueckgabe 1), nicht still verschluckt.
+  if command -v udevadm >/dev/null 2>&1; then
+    "${ALS_ROOT[@]}" udevadm control --reload || {
+      echo "udevadm control --reload gescheitert; die Regel gilt erst nach einem Neustart." >&2
+      exit 1
+    }
+  fi
 fi
 "${ALS_ROOT[@]}" systemctl enable arasul-platform.service >/dev/null 2>&1
 if [ "$NUR_PLATTFORM" = false ]; then

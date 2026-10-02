@@ -225,6 +225,10 @@ pruefe "udev-Regel startet die Einheit, nicht ein Skript (RUN+= taugt nicht fuer
 pruefe "udev-Regel: beim Abziehen (remove) wird die Einheit gestoppt" \
   "$(ja grep -q 'ACTION=="remove"' "$REGEL" && grep -q 'stop arasul-sicherung@%k.service' "$REGEL")"
 pruefe "einheiten-installieren.sh installiert die Regel" "$(ja grep -q '99-arasul-sicherung.rules' "$WURZEL/scripts/system/einheiten-installieren.sh")"
+pruefe "einheiten-installieren.sh laedt die udev-Regeln neu (udevadm control --reload)" \
+  "$(ja grep -q 'udevadm control --reload' "$WURZEL/scripts/system/einheiten-installieren.sh")"
+pruefe "./arasul update schreibt Einheiten und Regeln neu" \
+  "$(ja bash -c "grep -q einheiten-installieren.sh <<<\"\$(sed -n '/^cmd_update()/,/^}/p' '$WURZEL/arasul')\"")"
 pruefe "Compose: backup-service sieht den Datentraeger mit rslave (er steckt erst nach dem Start)" \
   "$(ja grep -q 'propagation: rslave' "$WURZEL/compose/compose.monitoring.yaml")"
 pruefe "Compose: auch das Backend (nur lesend, rslave)" \
