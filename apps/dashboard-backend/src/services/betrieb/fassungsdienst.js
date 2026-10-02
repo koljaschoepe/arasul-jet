@@ -339,7 +339,17 @@ async function starteAmHost(host, argumente) {
     User: 'root',
     Cmd: ['nsenter', '-t', '1', '-m', '-u', '-i', '-n', '-p', '--', 'bash', '-c', huelle],
     Labels: { 'arasul.aktualisierung': '1' },
-    HostConfig: { Privileged: true, PidMode: 'host', RestartPolicy: { Name: 'no' } },
+    // Das Image des Backends bringt dessen Healthcheck mit; im Hilfscontainer
+    // wird er nie gruen und liesse ihn „unhealthy" melden (J39, Orin 02.10.2026).
+    Healthcheck: { Test: ['NONE'] },
+    HostConfig: {
+      Privileged: true,
+      PidMode: 'host',
+      RestartPolicy: { Name: 'no' },
+      // Nach dem Lauf weg: ein stehengebliebener Container ist ein Ziel fuer den
+      // Selbstheilungsdienst, und das Ergebnis steht in `status.json`.
+      AutoRemove: true,
+    },
   });
   await container.start();
   logger.info(`Aktualisierung: Hilfscontainer ${HILFSCONTAINER} gestartet`);

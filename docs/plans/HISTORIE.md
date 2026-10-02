@@ -1702,3 +1702,28 @@ die man einer App gibt. Außerdem: Node 24 liest `NODE_USE_ENV_PROXY` selbst,
 auch für `http.request` auf den Proxy; wer misst, braucht einen eigenen Agent.
 Offen für das Kit: `KIT_CONTRACT_VERSIONS` auf 7, und eine Warnung an Bauende,
 dass ein Programm, das `HTTPS_PROXY` ignoriert, keine Verbindung bekommt.
+
+Seit dem Auftrag **update-ueber-die-schnittstelle** (02.10.2026, J39) **spielt das
+Gerät eine neue Fassung auf Auftrag selbst ein**: `POST /api/v1/external/update`
+mit einem Schlüssel im neuen Bereich `system:update` (nicht in `app:deploy`), oder
+die Karte „Neue Fassung" in den Aktualisierungen. Das Backend holt das Release,
+prüft die Prüfsumme, sichert und übergibt an `scripts/deploy/fassung-einspielen.sh`
+der laufenden Fassung, die es über einen kurzlebigen privilegierten Hilfscontainer
+(`nsenter`) am Host startet; es führt `install.sh` der neuen Fassung aus, räumt
+abgegebene Fassungsordner bis auf den letzten Vorgänger auf und geht bei einem
+Fehler auf die vorige Fassung zurück (auch auf Wunsch: `POST …/update/zurueck`).
+Der Rückweg holt das Programm, nicht die Daten. Kontrakt: Endpunkte und Bereich
+genannt, Version bleibt 7 (K28 liest sie).
+
+Gemessen: `fassung-einspielen-abnahme.sh` 71 von 71 (CI und Orin im Wegwerfordner).
+**Am echten Orin ROT beim Einspielen, GRÜN beim Rückweg** (Einzelheiten in
+[AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39)):
+`v0.8.15` wurde gebaut, der Hilfscontainer meldete wegen des geerbten Healthchecks
+`unhealthy`, das Skript ging nach fünf Minuten zurück, und das Gerät lief danach
+mit unveränderten Konten, Lizenz, Apps samt Datenbankzeilen, Modellen und
+Geheimnissen auf dem alten Stand. Der Selbstheilungsdienst startete den
+Hilfscontainer neu und wiederholte den Lauf, bis ein 502 von Docker Hub ihn
+stoppte. Behoben (kein Healthcheck, `AutoRemove`, ein Lauf läuft einmal, Rückweg
+mit drei Versuchen); das Einspielen auf `0.8.15` ist am echten Gerät **offen**.
+Lehre: ein Container, der aus dem Image eines Dienstes entsteht, erbt dessen
+Healthcheck, und alles, was „unhealthy" neu startet, greift auch ihn an.

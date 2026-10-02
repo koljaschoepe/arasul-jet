@@ -142,6 +142,15 @@ probe "SYSTEM_VERSION ist 9.9.8" test "$(wert "${B}/.env" SYSTEM_VERSION)" = 9.9
 zustand_ok "$B"
 probe "9.9.7 hat seinen Zustand abgegeben" test -f "${A}/ABGEGEBEN.txt" -a ! -e "${A}/.env"
 probe "9.9.7 hat einen Rueckweg-Vermerk mit der Fassung" test -f "${A}/arasul-release.json"
+# Ein Lauf laeuft einmal: derselbe Aufruf noch einmal tut nichts (am Orin hat der
+# Selbstheilungsdienst den Hilfscontainer neu gestartet und damit den Lauf wiederholt).
+cp "${B}/data/updates/fassung/lauf.log" "${TMP}/lauf-vorher.log"
+bash "${A}/scripts/deploy/fassung-einspielen.sh" einspielen \
+  "${B}/data/updates/fassungen/arasul-9.9.8.tar.gz" 9.9.8 lauf-eins >"${TMP}/lauf-1b.out" 2>&1
+zweiter=$?
+probe "derselbe Lauf ein zweites Mal endet mit 0" test "$zweiter" -eq 0
+probe "und tut nichts (Protokoll gleich, Geraet bleibt)" bash -c \
+  "cmp -s '${TMP}/lauf-vorher.log' '${B}/data/updates/fassung/lauf.log' && test -f '${B}/.env' && grep -q 'lief schon' '${TMP}/lauf-1b.out'"
 
 # -----------------------------------------------------------------------------
 # 3. Einspielen 9.9.8 -> 9.9.9: aufgeraeumt bis auf den letzten Vorgaenger

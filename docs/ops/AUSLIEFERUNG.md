@@ -433,9 +433,40 @@ die Daten zurück sollen — das ist eine Wiederherstellung und die Entscheidung
 eines Menschen.
 
 **Gemessen:** CI und Probelauf am Orin, `scripts/test/fassung-einspielen-abnahme.sh`
-(drei Artefakte, einspielen, aufräumen, zurück, zwei Pakete, die scheitern, ein
-Paket mit falscher Fassung: 69 Proben, ohne Bootstrap). Der Lauf am echten Gerät
-steht im Journal (J39).
+(drei Artefakte, einspielen, aufräumen, zurück, ein Lauf läuft nur einmal, zwei
+Pakete, die scheitern, ein Paket mit falscher Fassung: 71 Proben, ohne Bootstrap).
+Zählung am Gerät vorher und nachher: `scripts/test/fassung-zaehlung.sh`.
+
+**Am echten Orin am 02.10.2026: ROT beim Einspielen, GRÜN beim Rückweg.** Vom
+Deploy-Stand `20261002-0b0266a` (Ordner `arasul-0.8.14`) auf `v0.8.15`, mit einem
+eigenen Schlüssel `system:update` (danach widerrufen). Download, Prüfsumme,
+Sicherung, Übergabe, Auspacken, Umzug und Bau der Images (rund sieben Minuten)
+liefen durch. Dann hielt das Skript das Gerät für „nicht gesund" und ging nach
+fünf Minuten zurück: **der Hilfscontainer trug den Healthcheck des Backend-Images
+mit und meldete `unhealthy`**, und das Skript wartet auf _jeden_ Container des
+Projekts. Der Rückweg selbst hat gehalten: `arasul-0.8.14` übernahm das Gerät
+(Zustand per `rename` zurück, alle 13 Container und die sechs App-Stände gesund,
+`SYSTEM_VERSION` wieder der Stand des Deploys). Zählung vorher gegen nachher:
+Konten, Lizenz, App-Stände, Datenbankzeilen aller App-Datenbanken, Flows, Modelle
+(mit Digest), Geheimnisse und Geräte-CA gleich; verschoben haben sich nur
+`data/apps` (ein anderer Lauf legte um 04:13 die Probe-App `probe-sieben` an) und
+die Indexdateien des Firmenordner-Dienstes (OpenCloud schreibt von selbst).
+
+Zwei Dinge folgten daraus, beide behoben und in der Abnahme gemessen:
+
+- Der **Selbstheilungsdienst** startete den „kranken" Hilfscontainer nach einer
+  Viertelstunde neu, und derselbe Befehl lief ein zweites Mal los: ein zweiter
+  Bau, der an einem 502 von Docker Hub scheiterte (`failed to fetch anonymous
+token`), danach ein zweiter Rückweg. Jetzt: der Hilfscontainer hat keinen
+  Healthcheck (`Healthcheck: NONE`) und entfernt sich selbst (`AutoRemove`), das
+  Skript zählt ihn beim Warten nicht mit, und **ein Lauf läuft einmal** (steht
+  seine Kennung schon im Protokoll, tut das Skript nichts).
+- Der **Rückweg baut Images** und hängt damit an der Registry. Er versucht es
+  deshalb bis zu dreimal. Ein Rückweg, der offline gehen soll, müsste ohne
+  Metadatenabfrage bauen; das ist offen.
+
+Das Einspielen auf `0.8.15` selbst ist am echten Gerät damit **noch nicht
+bestanden**; kein zweiter Versuch in der Nacht (Vorgabe des Auftrags).
 
 ### `./arasul update` ist weiterhin kein Update
 
