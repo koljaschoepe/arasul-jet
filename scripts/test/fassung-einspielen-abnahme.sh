@@ -112,7 +112,6 @@ cp "${A}/config/secrets/jwt_secret" "${TMP}/jwt_secret-vorher"
 cp "${A}/.env" "${TMP}/env-vorher"
 # Wie das Backend sie ablegt: das Paket in der Ablage des Geraets.
 cp "${TMP}/dist/arasul-9.9.8.tar.gz" "${TMP}/dist/arasul-9.9.8.tar.gz.sha256" "${A}/data/updates/fassungen/"
-cp "${TMP}/dist/arasul-9.9.9.tar.gz" "${TMP}/dist/arasul-9.9.9.tar.gz.sha256" "${A}/data/updates/fassungen/"
 
 zustand_ok() {
   # zustand_ok <ordner>: alles, was ein Update nicht verlieren darf.
@@ -148,6 +147,7 @@ probe "9.9.7 hat einen Rueckweg-Vermerk mit der Fassung" test -f "${A}/arasul-re
 # 3. Einspielen 9.9.8 -> 9.9.9: aufgeraeumt bis auf den letzten Vorgaenger
 # -----------------------------------------------------------------------------
 echo "   3. einspielen 9.9.8 -> 9.9.9"
+cp "${TMP}/dist/arasul-9.9.9.tar.gz" "${TMP}/dist/arasul-9.9.9.tar.gz.sha256" "${B}/data/updates/fassungen/"
 bash "${B}/scripts/deploy/fassung-einspielen.sh" einspielen \
   "${B}/data/updates/fassungen/arasul-9.9.9.tar.gz" 9.9.9 lauf-zwei >"${TMP}/lauf-2.out" 2>&1
 probe "das Skript endet mit 0" test $? -eq 0
