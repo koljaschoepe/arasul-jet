@@ -836,16 +836,25 @@ weiter lesen; die Einstellungsseite „KI" bekam dort 404.
 
 ### Updates
 
-| Method | Endpoint                       | Description                       |
-| ------ | ------------------------------ | --------------------------------- |
-| POST   | `/api/update/upload`           | Upload .araupdate file            |
-| GET    | `/api/update/status`           | Current update status             |
-| GET    | `/api/update/history`          | Update history                    |
-| GET    | `/api/update/usb-devices`      | Scan for USB devices with updates |
-| POST   | `/api/update/install-from-usb` | Install update from USB device    |
-| GET    | `/api/update/check`            | Nach Aktualisierungen sehen       |
-| POST   | `/api/update/download`         | Aktualisierung herunterladen      |
-| POST   | `/api/update/apply`            | Ein Paket einspielen              |
+| Method | Endpoint                         | Description                                        |
+| ------ | -------------------------------- | -------------------------------------------------- |
+| POST   | `/api/update/upload`             | Upload .araupdate file                             |
+| GET    | `/api/update/status`             | Current update status                              |
+| GET    | `/api/update/history`            | Update history                                     |
+| GET    | `/api/update/usb-devices`        | Scan for USB devices with updates                  |
+| POST   | `/api/update/install-from-usb`   | Install update from USB device                     |
+| GET    | `/api/update/check`              | Nach Aktualisierungen sehen                        |
+| POST   | `/api/update/download`           | Aktualisierung herunterladen                       |
+| POST   | `/api/update/apply`              | Ein Paket einspielen                               |
+| GET    | `/api/update/fassung`            | Stand und Fortschritt der Plattform-Aktualisierung |
+| GET    | `/api/update/fassung/neueste`    | Die neueste Fassung im Netz                        |
+| POST   | `/api/update/fassung/einspielen` | Das Gerät auf eine neue Fassung bringen (202)      |
+| POST   | `/api/update/fassung/zurueck`    | Zurück auf die vorige Fassung (202)                |
+
+**Die Plattform selbst aktualisieren (J39)** — die vier `fassung`-Zeilen sind
+der Weg des Dashboards, `/api/v1/external/update` (unten) der des Kits; beide
+rufen `services/betrieb/fassungsdienst.js`. Ablauf, Rückweg und Grenzen:
+[docs/ops/AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39).
 
 **GET /api/update/check** und **POST /api/update/download** verlangen
 **Admin**, nicht nur eine Anmeldung.
@@ -3787,6 +3796,44 @@ Ordner unter `/arasul/apps/<id>/`; ohne bleiben sie liegen (wie bei
 wirklich weg ist.
 
 Gemessen wird der ganze Weg von `scripts/test/deploy-abnahme.sh`.
+
+### Die Plattform aktualisieren (J39)
+
+Das Gerät spielt eine neue Fassung seiner selbst ein — mit Sicherung vorher,
+lesbarem Fortschritt und einem Rückweg. Ein Kunde ohne SSH und ohne Fernzugriff
+kommt so auf jede neue Fassung. Der Bereich `system:update` steht in **keinem**
+Schlüssel automatisch und nicht in `app:deploy`; der Schlüssel dafür entsteht
+für den Anlass und wird danach widerrufen
+(`scripts/util/kit-schluessel.sh anlegen <Name> system:update`).
+
+| Method | Endpoint                          | Auth    | Scope           | Description                                                        |
+| ------ | --------------------------------- | ------- | --------------- | ------------------------------------------------------------------ |
+| GET    | `/api/v1/external/update`         | API Key | `system:update` | Eigene Fassung, laufender oder letzter Lauf mit Protokoll          |
+| GET    | `/api/v1/external/update/neueste` | API Key | `system:update` | Die neueste Fassung im Netz (`503`, wenn nicht erreichbar)         |
+| POST   | `/api/v1/external/update`         | API Key | `system:update` | Einspielen: `{"fassung":"0.8.15"}`, ohne Angabe die neueste; `202` |
+| POST   | `/api/v1/external/update/zurueck` | API Key | `system:update` | Zurück auf die vorige Fassung; `202`                               |
+
+**POST /api/v1/external/update** antwortet `202` mit
+`{ data: { lauf, von, nach } }`, sobald die Vorprüfungen stehen: das Gerät kennt
+seine Fassung, `nach` ist neuer als `von` (sonst `409`), es läuft nicht schon
+ein Lauf (`409`), der Platz reicht (`503`, 8 GB frei), der Weg ist gangbar
+(`503`). Danach holt das Gerät das Paket von GitHub, prüft die Prüfsumme, sichert
+(derselbe Weg wie `POST /api/backup`; scheitert die Sicherung, wird nichts
+verändert) und übergibt an den Gerätedienst. Während des Umschaltens ist das
+Gerät einige Minuten nicht erreichbar; das ist keine Störung.
+
+**GET /api/v1/external/update** — `fassung` (`version`, `nummer`),
+`einspielenMoeglich` / `einspielenGrund`, `laeuft`, `zurueckMoeglich`, `vorige`
+und `lauf`: `status` (`laeuft`, `fertig`, `fehlgeschlagen`, `zurueckgerollt`,
+`rueckweg_fehlgeschlagen`, `abgebrochen`), `schritt` (`herunterladen`, `sichern`,
+`uebergabe`, `auspacken`, `installieren`, `pruefen`, `aufraeumen`, `rueckweg`,
+`fertig`), `meldung`, `von`, `nach`, `sicherung`, `protokoll` (die letzten 40
+Zeilen). Der Stand überlebt den Neustart des Backends.
+
+**POST /api/v1/external/update/zurueck** — `404`, wenn keine vorige Fassung
+bekannt ist. Der Rückweg holt das **Programm** der vorigen Fassung zurück, nicht
+die Daten; die Sicherung vor dem Einspielen liegt bereit, falls auch die Daten
+zurück sollen.
 
 ### API Key Management
 

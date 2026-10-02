@@ -396,6 +396,30 @@ const ENDPUNKTE = Object.freeze(
       was: 'App weg: beide Container samt Volumes, beide Staende, alle Freigaben, ihre Datenbanken (die Sicherungen davon bleiben)',
     },
     {
+      verb: 'GET',
+      pfad: '/api/v1/external/update',
+      bereich: 'system:update',
+      was: 'Stand der Plattform: eigene Fassung, laufender oder letzter Update-Lauf mit Protokoll',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/update/neueste',
+      bereich: 'system:update',
+      was: 'Die neueste Fassung im Netz',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/update',
+      bereich: 'system:update',
+      was: 'Das Geraet auf eine neue Fassung bringen: `{"fassung":"0.8.15"}` (ohne Angabe die neueste); sichert vorher, 202, Fortschritt in GET',
+    },
+    {
+      verb: 'POST',
+      pfad: '/api/v1/external/update/zurueck',
+      bereich: 'system:update',
+      was: 'Zurueck auf die vorige Fassung (das Programm, nicht die Daten); 202',
+    },
+    {
       verb: 'POST',
       pfad: '/api/v1/external/llm/chat',
       bereich: 'llm:chat',

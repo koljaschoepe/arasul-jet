@@ -42,7 +42,14 @@ const VORGABE_ENDPUNKTE = Object.freeze([
  * eine App mitsamt ihren Volumes zu entfernen. Das ist die „Rolle admin" aus
  * der Entscheidung vom 27.08.2026 -- ausgedrueckt in der Spalte, die schon da
  * war (`api_keys.allowed_endpoints`), statt in einer zweiten daneben.
+ *
+ * `system:update` (J39, 02.10.2026) ist der zweite dieser Art und steht
+ * absichtlich NICHT in `app:deploy`: wer eine App einspielen darf, darf damit
+ * nicht das ganze Geraet austauschen. Er erlaubt, die Plattform selbst auf eine
+ * neue Fassung zu bringen und wieder zurueck (`/api/v1/external/update`). Den
+ * Schluessel dafuer legt ein Administrator fuer den Anlass an und widerruft ihn
+ * danach (`scripts/util/kit-schluessel.sh anlegen <Name> system:update`).
  */
-const ALLE_ENDPUNKTE = Object.freeze([...VORGABE_ENDPUNKTE, 'app:deploy']);
+const ALLE_ENDPUNKTE = Object.freeze([...VORGABE_ENDPUNKTE, 'app:deploy', 'system:update']);
 
 module.exports = { VORGABE_ENDPUNKTE, ALLE_ENDPUNKTE };

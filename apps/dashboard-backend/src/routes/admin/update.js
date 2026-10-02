@@ -13,6 +13,7 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const updateService = require('../../services/app/updateService');
+const fassungsdienst = require('../../services/betrieb/fassungsdienst');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const {
   ValidationError,
@@ -26,6 +27,7 @@ const {
   ApplyUpdateBody,
   InstallFromUsbBody,
   DownloadUpdateBody,
+  UpdateFassungBody,
 } = require('../../schemas/admin-update');
 
 // Configure multer for file uploads
@@ -463,6 +465,72 @@ router.post(
       .catch(err => {
         logger.error(`OTA download error: ${err.message}`);
       });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Die Plattform auf eine neue Fassung bringen (J39). Dieselbe Logik wie
+// `/api/v1/external/update`, nur mit Sitzung statt Schluessel.
+// ---------------------------------------------------------------------------
+
+// GET /api/update/fassung - Stand und Fortschritt
+router.get(
+  '/fassung',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await fassungsdienst.stand(), timestamp: new Date().toISOString() });
+  })
+);
+
+// GET /api/update/fassung/neueste - die neueste Fassung im Netz
+router.get(
+  '/fassung/neueste',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const neueste = await fassungsdienst.neuesteFassung();
+    res.json({ data: neueste, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/update/fassung/einspielen - einspielen (202)
+router.post(
+  '/fassung/einspielen',
+  requireAuth,
+  requireRole('admin'),
+  validateBody(UpdateFassungBody),
+  asyncHandler(async (req, res) => {
+    const data = await fassungsdienst.spieleEin({
+      fassung: req.body.fassung ?? null,
+      durch: req.user.username,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'fassung_einspielen',
+      details: { von: data.von, nach: data.nach },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.status(202).json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/update/fassung/zurueck - zurueck auf die vorige Fassung (202)
+router.post(
+  '/fassung/zurueck',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const data = await fassungsdienst.zurueck({ durch: req.user.username });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'fassung_zurueck',
+      details: { nach: data.nach },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.status(202).json({ data, timestamp: new Date().toISOString() });
   })
 );
 

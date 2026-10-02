@@ -125,6 +125,10 @@ services:
       # `docker compose up -d dashboard-backend` -- das Backend zieht beim Start
       # jede App dorthin um (`appContainer.zieheUm`).
       DOCKER_NETWORK: ${APP_NETZ:-arasul-platform_arasul-apps}
+      # Woher das Geraet seine naechste Fassung holt (J39,
+      # `services/betrieb/fassungsdienst.js`): das Repo mit den Releases.
+      UPDATE_REPO: ${UPDATE_REPO:-koljaschoepe/arasul-jet}
+      AKTUALISIERUNG_AUS: ${AKTUALISIERUNG_AUS:-}
       # Welcher Stack. Containernamen sind global und nicht je Compose-Projekt;
       # ohne dieses Praefix spraeche das Backend des Pruefstands den
       # Sicherungsdienst des Betriebs an (Phase C9,
