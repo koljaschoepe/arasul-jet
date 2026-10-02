@@ -698,6 +698,186 @@ jobs:
       - name: Artefakt bauen
         run: bash scripts/deploy/artefakt-bauen.sh --ausgabe /tmp/dist
 
+      - name: Auspacken, wie es ein Kunde tut
+        id: auspacken
+        run: |
+          set -eu
+          mkdir -p /tmp/geraet
+          tar xzf /tmp/dist/arasul-*.tar.gz -C /tmp/geraet
+          wurzel=$(find /tmp/geraet -maxdepth 1 -mindepth 1 -type d | head -1)
+          echo "wurzel=$wurzel" >> "$GITHUB_OUTPUT"
+          echo "Ausgepackt nach: $wurzel"
+
+      # Phase H6: das Artefakt ist der Traeger des Designsystems. Das Ara-Kit
+      # packt es nach `.ara/mirror/` aus und spiegelt `packages/marken/src/`
+      # in seine App-Vorlage; der Stempel daneben sagt, WAS dazugehoert.
+      # Gefragt wird am ausgepackten Baum und nicht am Bauplatz -- eine Zeile
+      # in der Aufraeumliste oben, die die Bibliothek mitnimmt, faellt sonst
+      # erst dem Partner auf.
+      - name: Das Artefakt traegt das Marken-Paket (H6)
+        run: python3 scripts/deploy/marken-paket.py --pruefen "${{ steps.auspacken.outputs.wurzel }}"
+
+      # Der Lauf selbst. Das Passwort ist fest und offen: es lebt in einem
+      # Wegwerf-Runner und wird von keinem Dienst angenommen.
+      - name: install.sh --nur-vorbereiten
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: ./install.sh --nur-vorbereiten --passwort 'AbnahmeCi2026x'
+
+      - name: Was dabei herausgekommen ist
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: |
+          set -eu
+          [ -f .env ] || { echo "Keine .env geschrieben." >&2; exit 1; }
+          fassung=$(grep '^SYSTEM_VERSION=' .env | tail -1 | cut -d= -f2-)
+          case "$fassung" in
+            ''|Vorserie|0.0.0)
+              echo "SYSTEM_VERSION ist \"$fassung\" -- keine Fassung aus dem Bau." >&2
+              exit 1 ;;
+          esac
+          echo "SYSTEM_VERSION=$fassung"
+          # Die Rechte der Datei: sie traegt das Startpasswort im Klartext, bis
+          # der Bootstrap es entwertet.
+          rechte=$(stat -c '%a' .env)
+          [ "$rechte" = "600" ] || { echo ".env hat Rechte $rechte statt 600." >&2; exit 1; }
+
+      # Beide Validatoren, die `./arasul bootstrap` aufruft und bei deren
+      # Fehlschlag er mit exit 1 abbricht (arasul, Schritt 5). Bis zum
+      # 28.08.2026 hat sie nie jemand gegen eine frisch erzeugte `.env`
+      # laufen lassen -- der eine suchte seine Compose-Datei im falschen
+      # Verzeichnis, und das fiel erst am Geraet auf.
+      - name: Der Konfigurations-Validator ist mit der frischen .env zufrieden
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: bash scripts/validate/validate-config.sh
+
+      - name: Der Abhaengigkeits-Validator findet seine Compose-Datei
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: bash scripts/validate/validate-dependencies.sh
+
+      # `config` liest die `.env` und alle sechs Compose-Dateien, startet aber
+      # nichts. Jede Zeile auf stderr ist eine Warnung; die haeufigste war
+      # "The dvbE0IB... variable is not set" -- ein bcrypt-Hash mit `$`.
+      - name: docker compose liest die Konfiguration ohne Warnung
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: |
+          set -eu
+          meckern=$(docker compose config -q 2>&1 >/dev/null || true)
+          if [ -n "$meckern" ]; then
+            echo "docker compose meldet beim Lesen der Konfiguration:" >&2
+            echo "$meckern" >&2
+            exit 1
+          fi
+          echo "Keine Warnung."
+
+      # Die beiden Geheimnisse einer Installation -- Startpasswort und
+      # Kit-Schluessel -- gibt es genau einmal. Am 28.08.2026 hing ihre Ausgabe
+      # am gruenen Rauchtest; der Rauchtest war rot, weil er nicht wartete, und
+      # der Kit-Schluessel war angelegt und hat ihn nie jemand gesehen. Hier
+      # laeuft genau das Skript, das der Bootstrap am Ende ruft.
+      - name: Die Erstausgabe nennt beide Geheimnisse und legt sie ab
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: |
+          set -eu
+          ziel=config/secrets/erstausgabe.txt
+          ausgabe=$(bash scripts/util/erstausgabe.sh \
+            --passwort 'AbnahmeCi2026x' --schluessel 'aras_abnahmeci')
+          echo "$ausgabe"
+          for geheimnis in AbnahmeCi2026x aras_abnahmeci; do
+            grep -q "$geheimnis" <<<"$ausgabe" ||
+              { echo "Die Konsolenausgabe nennt $geheimnis nicht." >&2; exit 1; }
+            grep -q "$geheimnis" "$ziel" ||
+              { echo "$ziel nennt $geheimnis nicht." >&2; exit 1; }
+          done
+          rechte=$(stat -c '%a' "$ziel")
+          [ "$rechte" = "600" ] || { echo "$ziel hat Rechte $rechte statt 600." >&2; exit 1; }
+          grep -qi 'LOESCHEN' "$ziel" ||
+            { echo "$ziel sagt nicht, dass sie zu loeschen ist." >&2; exit 1; }
+          rm -f "$ziel"
+
+      # Abschnitt 8 darin misst, dass der Rauchtest je Dienst wartet und dass
+      # die Erstausgabe VOR dem Fehlerbericht steht -- also auch dann erscheint,
+      # wenn der Rauchtest rot ist.
+      - name: Abnahme des Bootstraps (trocken)
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: bash scripts/test/bootstrap-abnahme.sh --trocken
+
+      # ------------------------------------------------------------------
+      # Und der zweite Zug: das Artefakt AKTUALISIERT (29.08.2026).
+      #
+      # Die Schritte darueber messen eine Erstinstallation. Bis zum 29.08.2026
+      # war das alles, was gemessen wurde -- und der Weg von einer Fassung auf
+      # die naechste hatte gar keinen Messpunkt. Am Orin fiel am 28.08. auf,
+      # was daraus folgte: ohne `.env` erzeugte `interactive_setup.sh`
+      # bedingungslos neue Geheimnisse, waehrend der feste Projektname
+      # dieselben Volumes uebernahm. Alte Datenbank, neues Passwort, und die
+      # Geraete-CA, `data/apps`, Flows und Sicherungen blieben im alten Ordner
+      # liegen.
+      #
+      # Gemessen wird deshalb der ganze Weg: Artefakt A installieren, Zustand
+      # anlegen, Artefakt B darueber, Zustand nachzaehlen. Der Lauf am Orin
+      # folgt, wenn der Dauerlauf A7 durch ist; alles daran, was ohne
+      # Jetson-Hardware messbar ist, laeuft hier bei jedem Zug.
+      #
+      # Eigener Ordner, eigener Projektname, eigener Zeiger: die Abnahme baut
+      # ihre Artefakte selbst und fasst nichts an, was schon auf dem Laeufer
+      # liegt.
+      - name: Abnahme der Aktualisierung (Artefakt ueber Artefakt)
+        run: bash scripts/test/aktualisierung-abnahme.sh
+
+      # Und der dritte Zug (J39, 02.10.2026): das Geraet spielt die Fassung
+      # SELBST ein. Dasselbe Skript, das der Aktualisierungsdienst am Host
+      # startet (`scripts/deploy/fassung-einspielen.sh`), ueber drei Artefakte:
+      # einspielen, aufraeumen bis auf den letzten Vorgaenger, zurueck, und zwei
+      # Pakete, die scheitern (vor und nach dem Umzug des Zustands).
+      - name: Abnahme des Einspielens ueber die Schnittstelle (einspielen, zurueck)
+        run: bash scripts/test/fassung-einspielen-abnahme.sh
+
+  # ----------------------------------------------------------------------------
+  # Spark-Trockenlauf (J41, 02.10.2026): die Installation des DGX Spark, ohne
+  # Spark.
+  #
+  # Beschluss vom 01.10.2026 (Spark-Teil von M5): ein Spark steht noch nicht da,
+  # und der erste Tag am Geraet soll vier bis acht Stunden Messen nach Plan sein
+  # (docs/ops/spark-erster-tag.md), nicht zwanzig bis vierzig Stunden Portieren.
+  # Alles, was an einem Spark brechen kann und keine GPU und keinen Treiber
+  # braucht, muss deshalb vorher hier brechen.
+  #
+  # Der Job ist der Job `installation` mit zwei Unterschieden: er laeuft auf
+  # einem arm64-Laeufer (dieselbe Architektur wie der GB10-Rechner; die Spark-
+  # Abbilder baut `docker-build` schon dort), und er fuehrt `./install.sh` bis
+  # zum Ende aus, mit dem Profil dgx-spark, statt bei `--nur-vorbereiten` zu
+  # halten. GPU-Teile sind ausgelassen und sagen es: siehe den Kopf von
+  # `scripts/test/spark-trockenlauf.sh`.
+  #
+  # Er laeuft bei allem, was Docker bewegt, und bei Skripten, Compose, Profilen,
+  # Bootstrap und install.sh (Ausgabe `spark` der Pfadpruefung), und darf sonst
+  # wie `docker-build` uebersprungen werden; `CI Summary` sagt das unten
+  # ausdruecklich.
+  # ----------------------------------------------------------------------------
+  spark-trockenlauf:
+    name: Spark-Trockenlauf (install.sh, arm64, ohne GPU)
+    needs: changes
+    if: needs.changes.outputs.spark == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Der Laeufer hat wenig Platz, und der Bootstrap baut neun Abbilder, zwei
+      # davon mit CUDA-Basis. Erst messen, dann freiraeumen, was die
+      # Installation nicht braucht.
+      - name: Platz messen und schaffen
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost || true
+          df -h /
+          nproc
+          free -g
+
+      - name: Artefakt bauen
+        run: bash scripts/deploy/artefakt-bauen.sh --ausgabe /tmp/dist
+
       # Die Container laufen als UID 1000 und lesen die Geheimnisse (Rechte 600)
       # als Bindmount. Der Laeuferbenutzer hat 1001: im ersten Lauf bekam jeder
       # Dienst EACCES auf /run/secrets. Am Geraet ist der Installateur 1000, also
