@@ -221,7 +221,7 @@ pruefe "udev-Regel: nur USB (ID_BUS==usb) oder der Pruefweg ARASUL-PROBE" \
   "$(ja grep -q 'ID_BUS}=="usb"' "$REGEL" && grep -q 'ARASUL-PROBE' "$REGEL")"
 pruefe "udev-Regel: nur Dateisysteme (ID_FS_USAGE==filesystem)" "$(ja grep -q 'ID_FS_USAGE}=="filesystem"' "$REGEL")"
 pruefe "udev-Regel startet die Einheit, nicht ein Skript (RUN+= taugt nicht fuer mount)" \
-  "$(ja grep -q 'SYSTEMD_WANTS}+="arasul-sicherung@%k.service"' "$REGEL" && ! grep '^[^#]*RUN+=' "$REGEL" | grep -qv 'systemctl --no-block stop arasul-sicherung@%k.service')"
+  "$(ja grep -q 'SYSTEMD_WANTS}+="arasul-sicherung@%k.service"' "$REGEL" && [ -z "$(grep '^[^#]*RUN+=' "$REGEL" | grep -v 'systemctl --no-block stop arasul-sicherung@%k.service')" ])"
 pruefe "udev-Regel: beim Abziehen (remove) wird die Einheit gestoppt" \
   "$(ja grep -q 'ACTION=="remove"' "$REGEL" && grep -q 'stop arasul-sicherung@%k.service' "$REGEL")"
 pruefe "einheiten-installieren.sh installiert die Regel" "$(ja grep -q '99-arasul-sicherung.rules' "$WURZEL/scripts/system/einheiten-installieren.sh")"
