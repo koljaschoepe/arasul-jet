@@ -29,7 +29,8 @@ echo ""
 echo "  Benutzer: $USERNAME"
 echo ""
 
-if ! docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+LAUFEND=$(docker ps --format '{{.Names}}' 2>/dev/null || true)
+if ! grep -qx "$CONTAINER" <<<"$LAUFEND"; then
   echo "FEHLER: Der Container $CONTAINER laeuft nicht."
   echo "Starten mit: docker compose up -d dashboard-backend"
   exit 1
