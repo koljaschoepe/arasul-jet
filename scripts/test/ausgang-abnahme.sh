@@ -275,6 +275,12 @@ MEM=$(printf '%s\n' "$STATS" | tail -1 | awk '{print $2 $3}')
 printf 'MESSUNG  Leerlauf des Proxys: CPU hoechstens %s %% (10 Messungen), Speicher %s\n' "$CPU_MAX" "$MEM"
 pruefe 'Leerlauf: CPU unter 5 %' "$(awk -v c="$CPU_MAX" 'BEGIN { print (c < 5) ? "ja" : "nein" }')" "$CPU_MAX %"
 
+# Jede App steht im Netz arasul-apps MIT Zugang zum Proxy (der Umzug lief).
+for c in $(am_geraet "docker ps --filter label=arasul.app --format '{{.Names}}'" 2>/dev/null); do
+  n=$(am_geraet "docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' $c" 2>/dev/null | grep -c '^HTTPS_PROXY=http://')
+  pruefe "$c: HTTPS_PROXY gesetzt (Umzug gelaufen)" "$(ja_wenn "$n" 1)"
+done
+
 # --- 7. Laufende Apps ohne Eintrag duerfen nicht kaputt sein -----------------------
 echo
 echo "--- Jede App, beide Staende ---"

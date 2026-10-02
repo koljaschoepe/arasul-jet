@@ -317,7 +317,9 @@ host:port` (https) und bei einer Anfrage mit absoluter URL (http). Der Proxy
   sieht nie den Inhalt. Ein Name, der nicht in `verbindungen` des Standes
   steht, bekommt `403`; die Anfrage geht nicht hinaus.
 - **Wer ruft, steht im Zugang**: `HTTPS_PROXY=http://<containername>:<token>@egress-proxy:3128`
-  in der Umgebung des App-Containers (klein geschrieben auch, dazu `NO_PROXY`
+  in der Umgebung des App-Containers (`https_proxy` auch klein, ein kleines
+  `http_proxy` bewusst nicht: der BusyBox-`wget` im Healthcheck liest es und
+  ignoriert `NO_PROXY`, am Orin galten damit alle Apps als unhealthy; dazu `NO_PROXY`
   für Datenbank und Plattform-API und `NODE_USE_ENV_PROXY=1`). Der Token ist ein
   HMAC des Containernamens mit dem Geheimnis des Geräts (`jwt_secret`), beide
   Seiten rechnen ihn; eine App kann sich nicht als andere ausgeben und das

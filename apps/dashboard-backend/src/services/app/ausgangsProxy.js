@@ -49,9 +49,12 @@ function dienstTokenGueltig(vorgelegt) {
 }
 
 /**
- * Die Umgebung, mit der eine App den Proxy findet. Gross UND klein
- * geschrieben, weil Werkzeuge sich uneins sind (curl liest `https_proxy`,
- * Node mit `NODE_USE_ENV_PROXY` `HTTPS_PROXY`). Die Plattform und die eigene
+ * Die Umgebung, mit der eine App den Proxy findet. `https_proxy` auch klein
+ * geschrieben, weil Werkzeuge sich uneins sind. OHNE kleines `http_proxy`, und
+ * das ist gemessen: der BusyBox-`wget` im Healthcheck der Apps liest genau
+ * diese Variable und ignoriert `NO_PROXY`; seine Abfrage auf 127.0.0.1 ging
+ * durch den Proxy und bekam 407, jede App galt als unhealthy und der Umzug
+ * ging zurueck (Orin, 02.10.2026). Grosses `HTTP_PROXY` liest er nicht. Die Plattform und die eigene
  * Datenbank gehen am Proxy vorbei.
  */
 function umgebung(containerName) {
@@ -60,7 +63,6 @@ function umgebung(containerName) {
   return {
     HTTP_PROXY: url,
     HTTPS_PROXY: url,
-    http_proxy: url,
     https_proxy: url,
     NO_PROXY: ohne,
     no_proxy: ohne,
