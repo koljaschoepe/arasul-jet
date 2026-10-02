@@ -1724,7 +1724,9 @@ mit unveränderten Konten, Lizenz, Apps samt Datenbankzeilen, Modellen und
 Geheimnissen auf dem alten Stand. Der Selbstheilungsdienst startete den
 Hilfscontainer neu und wiederholte den Lauf, bis ein 502 von Docker Hub ihn
 stoppte. Behoben (kein Healthcheck, `AutoRemove`, ein Lauf läuft einmal, Rückweg
-mit drei Versuchen); das Einspielen auf `0.8.15` ist am echten Gerät **offen**.
+mit drei Versuchen); das zweite Einspielen auf `0.8.15` am selben Tag um 11:14
+lief **GRÜN** (Sicherung, zehn Minuten Bau, 20 Container gesund, Zählung gleich,
+Firmenordner unversehrt, `0.8.10` bis `0.8.12` aufgeräumt).
 Lehre: ein Container, der aus dem Image eines Dienstes entsteht, erbt dessen
 Healthcheck, und alles, was „unhealthy" neu startet, greift auch ihn an.
 
