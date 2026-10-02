@@ -254,6 +254,22 @@ if (!net.Server.prototype.listen[MARKE]) {
       ? [{ ...args[0], port }, ...args.slice(1)]
       : [port, ...args.slice(1)];
 
+  /** Schluckt genau einen EADDRINUSE-Fehler, der zu einem verworfenen Versuch gehoert. */
+  const verschluckeFehler = server => {
+    const echtesEmit = server.emit;
+    let offen = 1;
+    server.emit = function (ereignis, fehler, ...rest) {
+      if (offen > 0 && ereignis === 'error' && fehler && fehler.code === 'EADDRINUSE') {
+        offen -= 1;
+        if (offen === 0) {
+          server.emit = echtesEmit;
+        }
+        return false;
+      }
+      return echtesEmit.call(this, ereignis, fehler, ...rest);
+    };
+  };
+
   const ersetzt = function (...args) {
     if (!willFreienPort(args)) {
       return echtesListen.apply(this, args);
@@ -267,9 +283,20 @@ if (!net.Server.prototype.listen[MARKE]) {
         continue;
       }
       const port = naechsterPort;
+      const ergebnis = echtesListen.apply(this, mitPort(args, port));
+      // Das Binden geschieht synchron; scheitert es, bleibt `_handle` leer und der
+      // Fehler wird erst im naechsten Tick gemeldet. Ein fremder Lauscher auf
+      // diesem Port (ein zweiter Jest-Lauf aus einem anderen Worktree nimmt
+      // dieselben Bereiche, oder ein Dienst des Rechners) wuerde sonst die
+      // Anfrage eines beliebigen Tests beantworten oder abweisen. Also: den
+      // Fehler dieses Versuchs schlucken und den naechsten Port nehmen.
+      if (!this._handle) {
+        verschluckeFehler(this);
+        continue;
+      }
       vergeben.add(port);
       this.once('close', () => vergeben.delete(port));
-      return echtesListen.apply(this, mitPort(args, port));
+      return ergebnis;
     }
     throw new Error(
       `Alle ${BEREICH_GROESSE} Ports ab ${BEREICH_START} sind belegt. Das heißt: ` +
