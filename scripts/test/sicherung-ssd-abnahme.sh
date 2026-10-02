@@ -218,11 +218,18 @@ COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ARBEIT/paket" .
 CODE=$(curl -sk -o "$RUMPF" -w '%{http_code}' --max-time "$GEDULD" -H "x-api-key: $SCHLUESSEL" -F "paket=@$ARBEIT/paket.tgz" "$BASIS/api/v1/external/apps")
 pruefe "$APP eingespielt" "$([ "$CODE" = 201 ] || [ "$CODE" = 200 ] && echo ja || echo nein)" "HTTP $CODE"
 TEST="/apps/$APP/test/api"
+# Die Anmeldung der App (Forward-Auth) kennt nur, wem sie freigegeben ist: der
+# Probe-Admin ist Tester (Teststand) seiner eigenen Probe-App.
+ruf "$TOK" GET /api/auth/me
+ICH="$(rumpf | feld user.id)"
+ruf "$TOK" POST /api/freigaben "{\"app_id\":\"$APP\",\"benutzer_id\":$ICH,\"stand\":\"test\"}"
+pruefe "Die Probe-App ist dem Probe-Admin im Teststand freigegeben" "$([ "$CODE" = 200 ] || [ "$CODE" = 201 ] && echo ja || echo nein)" "HTTP $CODE"
 ende=$((SECONDS + 240)); gesund=nein
 while [ "$SECONDS" -lt "$ende" ]; do
   ruf "$TOK" GET "$TEST/gesund"; [ "$CODE" = 200 ] && { gesund=ja; break; }; sleep 4
 done
-pruefe "Die Probe-App antwortet" "$gesund"
+ruf "$TOK" GET "/api/apps/$APP"
+pruefe "Die Probe-App antwortet" "$gesund" "$([ "$gesund" = ja ] || printf 'HTTP %s, Stand: %s' "$CODE" "$(rumpf | head -c 400)")"
 for i in 1 2 3 4 5; do ruf "$TOK" POST "$TEST/eintrag?text=vor-der-sicherung-$i"; done
 ruf "$TOK" GET "$TEST/eintraege"
 pruefe "Fuenf Eintraege in der Datenbank der App" "$(ja_wenn "$(rumpf | zaehle_eintraege)" 5)"
@@ -246,7 +253,7 @@ TARK=$(am_geraet "sudo -n sh -c 'for f in \$(find $ZIEL/arasul-sicherung -type f
 pruefe "Kein gzip-Kopf (1f8b) auf dem Datentraeger" "$([ -z "$GZIP" ] && echo ja || echo nein)" "$GZIP"
 pruefe "Kein tar-Kopf (ustar) auf dem Datentraeger" "$([ -z "$TARK" ] && echo ja || echo nein)" "$TARK"
 ruf "$TOK" GET /api/backup/extern/inhalt
-pruefe "GET /api/backup/extern/inhalt nennt die Probe-App" "$(case "$(rumpf)" in *"\"id\":\"$APP\""*) echo ja ;; *) echo nein ;; esac)"
+pruefe "GET /api/backup/extern/inhalt nennt die Probe-App" "$(grep -qF "\"id\":\"$APP\"" "$RUMPF" && echo ja || echo nein)"
 ruf "$TOK" GET /api/backup/status
 pruefe "Status: verschluesselt gemeldet, kein Klartext auf dem Datentraeger" \
   "$([ "$(rumpf | feld data.ausserhalb.klartextDateien)" = 0 ] && [ "$(rumpf | feld data.letzteSicherung.verschluesselt)" = true ] && echo ja || echo nein)"
@@ -266,7 +273,7 @@ pruefe "... und nichts wurde angefasst (noch acht Eintraege)" "$(ja_wenn "$(rump
 
 # Der Browser: Liste, Dialog, doppelte Bestaetigung, Bericht.
 if command -v node >/dev/null 2>&1 && [ -z "${ARASUL_OHNE_BROWSER:-}" ]; then
-  arasul_sitzung_bauen >/dev/null 2>&1
+  arasul_sitzung_bauen "$TOK" >/dev/null 2>&1
   ARASUL_URL="$BASIS" ARASUL_SITZUNG="$ARASUL_SITZUNG" ARASUL_DATENTRAEGER="$LABEL" ARASUL_PROBE_APP="$APP" \
     node "$WURZEL/scripts/test/sicherung-ssd-bilder.mjs" | tee "$ARBEIT/browser.txt"
   ROTE=$(grep -c '^ROT' "$ARBEIT/browser.txt" || true)

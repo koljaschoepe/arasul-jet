@@ -192,7 +192,7 @@ export function Sicherung() {
             : ''
         }`
       : 'Kein Datenträger angesteckt. Eine USB-SSD einfach einstecken, mehr ist nicht nötig.',
-    ausserhalb?.vorhanden ? formatBytes(ausserhalb.bytes) : null,
+    ausserhalb?.vorhanden ? `Zuletzt kopiert: ${formatBytes(ausserhalb.bytes)}` : null,
     ausserhalb?.vorhanden
       ? null
       : 'Eine Sicherung, die nur auf diesem Gerät liegt, überlebt das Gerät nicht.',

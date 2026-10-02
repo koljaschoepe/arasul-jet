@@ -1599,3 +1599,39 @@ Baustein ein; gemessen am Orin 26 von 26 (Browser 28 von 28) mit
 Bildern je Rolle unter `docs/plans/audits/2026-10-02-freigabe-wer-entscheidet/`,
 die Oberflächen-Reihe 99 von 99. Die Karte zu K24 baut den Baustein danach in
 jede App mit Freigaben ein.
+
+Seit dem Auftrag **sicherung-auf-ssd-mit-code** (02.10.2026, J37) **trägt die
+Sicherung einen Kunden: SSD einstecken, verschlüsselt gesichert, im Frontend
+zurückgeholt, und ein Werksreset macht dank Code keine Sicherung unlesbar.**
+Anlass war Koljas Sicherung der Belege-App auf den Mac, die vom 26.09. bis
+01.10.2026 still ausfiel (146 Ausfälle), weil die Neuinstallation einen neuen
+Schlüssel erzeugte. Die offene Frage, ob `*_latest` auf Klartext zeigt, ist
+beantwortet: am Orin zeigt es auf die verschlüsselte Datei (`Salted__`),
+`encrypt_file` schreibt unter demselben Namen zurück; Klartext wäre nur bei
+fehlgeschlagener Verschlüsselung auf den Stick gekommen, und genau das schließt
+`backup.sh` jetzt aus (Kopfprüfung vor und nach dem Kopieren, Nachzählung auf
+gzip-/tar-Köpfe, bei `BACKUP_ENCRYPT=false` wird nichts kopiert).
+
+Die Erkennung läuft ohne Handgriff: `config/udev/99-arasul-sicherung.rules`
+(nur USB, nur mit Dateisystem, nie die Systemplatte) startet
+`arasul-sicherung@<gerät>.service`, `scripts/system/sicherung-datentraeger.sh`
+hängt unter `/mnt/arasul-sicherung` ein und schreibt `zustand.json`; Compose
+reicht den Ordner mit `rslave` weiter, weil der Stick nach dem Start der
+Container kommt. Auf dem Stick liegt je Tag `arasul-sicherung/<JJJJMMTT>/` mit
+`MANIFEST.json`. Der Wiederherstellungscode **ist** der Sicherungsschlüssel in
+Vierergruppen (Erstausgabe, `./install.sh --wiederherstellungscode`,
+`factory-reset.sh` fragt vor dem Löschen); passt der Schlüssel nicht zur letzten
+Sicherung, steht das in Sicherung.tsx und der Admin bekommt eine Mitteilung.
+Sicherung.tsx zeigt Name und freien Platz, holt eine App (Daten und Paket) und
+das ganze Gerät zurück, je mit doppelter Bestätigung und stehendem Bericht.
+
+Gemessen: Wegwerf-Container am Orin (`sicherung-wegwerf-abnahme.sh`) **43 von
+43**, darunter das ganze Gerät vom Stick auf einem leeren Gerät mit neuem
+Schlüssel (ohne Code scheitert es sauber, mit Code kommt alles Byte für Byte);
+Offline-Test `sicherung-wege.sh` 45 von 45; die Abnahme am laufenden Orin als
+`probe-admin` mit einer Probe-App (`sicherung-ssd-abnahme.sh`, Datenträger als
+tmpfs) **31 von 31** mit Browser (14) und Bildern unter
+`docs/plans/audits/2026-10-02-sicherung-j37/`. **Offen:** die Erkennung durch
+udev mit einem Abbild per `losetup` (`ARASUL_STICK=schleife`) und der Test mit
+einer echten SSD — der Hook `block-destructive.sh` sperrt `mkfs.*`, und das
+wurde nicht umgangen.
