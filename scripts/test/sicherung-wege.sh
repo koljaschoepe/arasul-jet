@@ -170,6 +170,8 @@ printf 'ID_FS_TYPE=ext4\nID_FS_LABEL=SYSTEM\n' > "$S/udev-nvme0n1p1"
 printf '/dev/nvme0n1p1 /\n' > "$S/system-mounts"
 : > "$S/gemountet"; : > "$S/aufrufe"
 export ARASUL_SICHERUNG_ZIEL="$TMP/ziel" ARASUL_SICHERUNG_ZUSTAND_DIR="$TMP/zustand"
+export ARASUL_SICHERUNG_DEV_DIR="$TMP/dev"
+mkdir -p "$TMP/dev"; touch "$TMP/dev/sda1" "$TMP/dev/sdb1" "$TMP/dev/sdc1" "$TMP/dev/sdd1"
 lauf() { PATH="$S:$PATH" bash "$H" "$@" >/dev/null 2>&1; }
 
 lauf einhaengen sda1
@@ -199,6 +201,15 @@ printf '/dev/sda1 /media/arasul/GOLDENBACKUP\n' >> "$S/system-mounts"
 lauf einhaengen sda1
 pruefe "vom Desktop schon eingehaengt: wird per bind auch unter dem Ziel sichtbar" \
   "$(ja grep -q "mount --bind /media/arasul/GOLDENBACKUP $TMP/ziel" "$S/aufrufe")"
+# Rest aus einem frueheren Lauf: Zustand und Einhaengepunkt nennen ein Geraet, das es nicht mehr gibt.
+rm -f "$TMP/dev/sda1"; : > "$S/aufrufe"
+lauf einhaengen sdb1
+pruefe "Rest eines verschwundenen Geraets wird ausgehaengt und der neue Datentraeger gilt" \
+  "$(ja grep -q 'umount -l' "$S/aufrufe" && [ "$(jq -r .geraet "$TMP/zustand/zustand.json")" = /dev/sdb1 ])"
+lauf aushaengen sdb1
+mkdir -p "$TMP/zustand"; printf '{\n  "geraet": "/dev/sdz9"\n}\n' > "$TMP/zustand/zustand.json"
+lauf einhaengen sdd1
+pruefe "zustand.json ohne Einhaengepunkt wird als Rest entfernt" "$(ja [ ! -f "$TMP/zustand/zustand.json" ])"
 pruefe "ungueltiger Geraetename wird abgewiesen" "$(ja bash -c "! PATH='$S:$PATH' bash '$H' einhaengen '../etc' >/dev/null 2>&1")"
 pruefe "unbekannte Aktion wird abgewiesen" "$(ja bash -c "! PATH='$S:$PATH' bash '$H' formatieren sda1 >/dev/null 2>&1")"
 
@@ -210,7 +221,9 @@ pruefe "udev-Regel: nur USB (ID_BUS==usb) oder der Pruefweg ARASUL-PROBE" \
   "$(ja grep -q 'ID_BUS}=="usb"' "$REGEL" && grep -q 'ARASUL-PROBE' "$REGEL")"
 pruefe "udev-Regel: nur Dateisysteme (ID_FS_USAGE==filesystem)" "$(ja grep -q 'ID_FS_USAGE}=="filesystem"' "$REGEL")"
 pruefe "udev-Regel startet die Einheit, nicht ein Skript (RUN+= taugt nicht fuer mount)" \
-  "$(ja grep -q 'SYSTEMD_WANTS}+="arasul-sicherung@%k.service"' "$REGEL" && ! grep -q '^[^#]*RUN+=' "$REGEL")"
+  "$(ja grep -q 'SYSTEMD_WANTS}+="arasul-sicherung@%k.service"' "$REGEL" && ! grep '^[^#]*RUN+=' "$REGEL" | grep -qv 'systemctl --no-block stop arasul-sicherung@%k.service')"
+pruefe "udev-Regel: beim Abziehen (remove) wird die Einheit gestoppt" \
+  "$(ja grep -q 'ACTION=="remove"' "$REGEL" && grep -q 'stop arasul-sicherung@%k.service' "$REGEL")"
 pruefe "einheiten-installieren.sh installiert die Regel" "$(ja grep -q '99-arasul-sicherung.rules' "$WURZEL/scripts/system/einheiten-installieren.sh")"
 pruefe "Compose: backup-service sieht den Datentraeger mit rslave (er steckt erst nach dem Start)" \
   "$(ja grep -q 'propagation: rslave' "$WURZEL/compose/compose.monitoring.yaml")"

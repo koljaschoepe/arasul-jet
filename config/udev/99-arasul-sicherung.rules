@@ -27,3 +27,13 @@ ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition|disk", \
 ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="loop*", \
   ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_LABEL}=="ARASUL-PROBE*", \
   TAG+="systemd", ENV{SYSTEMD_WANTS}+="arasul-sicherung@%k.service"
+
+# Abziehen (J37): ohne diese Zeile blieb nach dem Abziehen der Einhaengepunkt
+# belegt und die zustand.json stehen -- das Dashboard sagte weiter „gesichert
+# auf ARASUL-...“, obwohl nichts mehr steckt. Die Einheit haengt zwar per
+# BindsTo am Geraet, aber ein eingehaengtes Dateisystem haelt das Geraet
+# lange genug, dass sie nicht sicher faellt. Also wird sie hier ausdruecklich
+# gestoppt; ihr ExecStop raeumt auf. Stoppen einer Einheit, die es nicht gibt
+# (andere Platte), ist ohne Folgen. Kein Mount, kein Loeschen: nur `stop`.
+ACTION=="remove", SUBSYSTEM=="block", KERNEL=="sd*|loop*", \
+  RUN+="/bin/systemctl --no-block stop arasul-sicherung@%k.service"

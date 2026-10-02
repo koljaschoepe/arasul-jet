@@ -34,6 +34,7 @@ set -uo pipefail
 ZIEL="${ARASUL_SICHERUNG_ZIEL:-/mnt/arasul-sicherung}"
 ZUSTAND_DIR="${ARASUL_SICHERUNG_ZUSTAND_DIR:-/run/arasul-sicherung}"
 ZUSTAND="${ZUSTAND_DIR}/zustand.json"
+DEV_DIR="${ARASUL_SICHERUNG_DEV_DIR:-/dev}"
 # Dateisysteme, die Linux einhaengen kann UND die eine Sicherung tragen
 # (Dateien ueber 4 GB: vfat taugt nicht, wird aber nicht verboten -- das
 # Dashboard sagt es, wenn eine Datei nicht passt).
@@ -73,8 +74,27 @@ ist_ziel_mountpunkt() {
     mountpoint -q "$ZIEL" 2>/dev/null
 }
 
+# Ein Rest aus einem frueheren Lauf: der Zustand nennt ein Geraet, das es nicht
+# mehr gibt (abgezogen, Probelauf abgebrochen), oder es ist nichts mehr
+# eingehaengt. Beides wird aufgeraeumt, bevor ein neuer Datentraeger gilt --
+# sonst bliebe „gesichert auf ARASUL-...“ stehen.
+rest_aufraeumen() {
+    local alt
+    alt="$(sed -n 's/.*"geraet": "\(.*\)".*/\1/p' "$ZUSTAND" 2>/dev/null | head -n1)"
+    if ist_ziel_mountpunkt; then
+        if [ -n "$alt" ] && [ "$alt" != "$GERAET" ] && [[ "$alt" == /dev/* ]] && [ ! -e "${DEV_DIR}/${alt#/dev/}" ]; then
+            umount -l "$ZIEL" 2>/dev/null && log "Rest von ${alt} unter ${ZIEL} ausgehaengt (Geraet gibt es nicht mehr)"
+            rm -f "$ZUSTAND" "${ZUSTAND}.neu"
+        fi
+    elif [ -e "$ZUSTAND" ]; then
+        log "Rest in ${ZUSTAND} entfernt (unter ${ZIEL} haengt nichts)"
+        rm -f "$ZUSTAND" "${ZUSTAND}.neu"
+    fi
+}
+
 case "$aktion" in
 einhaengen)
+    rest_aufraeumen
     # Ob es das Geraet gibt, sagt udev: ohne Eigenschaften kein Dateisystem.
     typ="$(eigenschaft ID_FS_TYPE)"
     if [ -z "$typ" ] || ! grep -qw -- "$typ" <<<"$ERLAUBT"; then
