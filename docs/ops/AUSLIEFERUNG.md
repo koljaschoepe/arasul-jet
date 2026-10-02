@@ -515,6 +515,14 @@ Minuten nach dem Ende des Einspielens. `/api/download` der Website verlangt eine
 Lizenz-Token (400 `token_fehlt` ohne); die Fassung löst sie über das neueste
 Release auf, und das ist jetzt `v0.8.16`.
 
+**Release `v0.8.17` ist veröffentlicht (02.10.2026, 14:24, J39); der Orin ist
+bewusst nicht eingespielt.** Der Tag liegt auf der Spitze von `main` (`86f4740d`)
+und enthält damit PR 845 bis 848. Der Release-Lauf ist grün, die Prüfsumme der
+heruntergeladenen `.tar.gz` stimmt mit der `.sha256` überein, und `v0.8.17` steht
+als „Latest“, also löst `/api/download` es als neueste Fassung auf (ohne Token
+nicht unmittelbar gemessen). Das Einspielen über das Kit misst die Karte
+update-wie-ein-kunde.
+
 **`~/arasul-aktuell`** ist kein Teil des Weges. Das Repo kennt den Namen nicht,
 das Skript findet die laufende Fassung über seinen eigenen Ort
 (`dirname/../..`), und der Verweis zeigte am Orin ins Leere, ohne dass etwas
