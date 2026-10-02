@@ -1799,6 +1799,63 @@ All endpoints require authentication. The route group uses a dedicated `tailscal
 
 ---
 
+### Ausgang (J38)
+
+Wohin Apps und Plattform ins Internet wollen. `GET /api/ausgang` nur Admin; die
+zwei Wege des Ausgangs-Proxys tragen statt der Sitzung den Kopf
+`X-Egress-Token` (HMAC aus dem Geheimnis des Geräts).
+
+| Method | Endpoint                  | Wer   | Description                                                             |
+| ------ | ------------------------- | ----- | ----------------------------------------------------------------------- |
+| GET    | `/api/ausgang`            | Admin | Je App `eingetragen`, `genutzt`, `abgewiesen`; dazu `plattform.genutzt` |
+| GET    | `/api/ausgang/regeln`     | Proxy | `{ regeln: { "<app>:<stand>": [hostnamen] } }` aus den Manifesten       |
+| POST   | `/api/ausgang/ereignisse` | Proxy | `{ ereignisse: [{ app_id, stand, host, ergebnis, anzahl, zuletzt }] }`  |
+
+**GET /api/ausgang Response:**
+
+```json
+{
+  "data": {
+    "apps": [
+      {
+        "id": "probe",
+        "name": "Probe",
+        "eingetragen": [{ "host": "example.org", "staende": ["live"] }],
+        "genutzt": [
+          {
+            "host": "example.org",
+            "anzahl": 4,
+            "zuletzt": "2026-10-02T10:00:00Z",
+            "staende": ["live"]
+          }
+        ],
+        "abgewiesen": [
+          {
+            "host": "boese.example",
+            "anzahl": 2,
+            "zuletzt": "2026-10-02T11:00:00Z",
+            "staende": ["live"]
+          }
+        ]
+      }
+    ],
+    "plattform": {
+      "genutzt": [
+        {
+          "host": "api.anthropic.com",
+          "anzahl": 7,
+          "zuletzt": "2026-10-02T08:00:00Z",
+          "staende": []
+        }
+      ]
+    }
+  },
+  "timestamp": "2026-10-02T12:00:00.000Z"
+}
+```
+
+---
+
 ### License
 
 All endpoints require admin authentication (`requireAuth` + `requireRole('admin')`).

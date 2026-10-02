@@ -40,6 +40,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/update', group: 'admin' },
   { prefix: '/self-healing', group: 'admin' },
   { prefix: '/license', group: 'admin' },
+  { prefix: '/ausgang', group: 'admin' },
   { prefix: '/gdpr', group: 'admin' },
   { prefix: '/backup', group: 'admin' },
   { prefix: '/ops', group: 'admin' },
@@ -118,6 +119,8 @@ router.use('/audit', require('./admin/audit'));
 router.use('/update', require('./admin/update'));
 router.use('/self-healing', require('./admin/selfhealing'));
 router.use('/license', require('./admin/license'));
+// Der Ausgang der Apps und der Plattform ins Internet (J38).
+router.use('/ausgang', require('./admin/ausgang'));
 router.use('/gdpr', require('./admin/gdpr'));
 router.use('/backup', require('./admin/backup'));
 router.use('/ops', require('./admin/ops'));

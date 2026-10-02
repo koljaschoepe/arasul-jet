@@ -132,6 +132,11 @@ jobs:
         working-directory: apps/dashboard-backend
         run: npx jest --coverage --maxWorkers=2
 
+      # Der Ausgangs-Proxy der Apps (J38): Zugang, Freigabe, Abweisung, Zaehlen,
+      # private Adressen. Node ohne Abhaengigkeiten, deshalb `node --test`.
+      - name: Ausgangs-Proxy (J38)
+        run: node --test services/egress-proxy/test/proxy.test.js
+
       # Auftrag J32 (17.09.2026): ohne gueltige Signatur bleibt jedes Geraet
       # community. Drei Faelle am echten Dienst (Schluessel fehlt, Signatur
       # falsch, Signatur richtig), dazu der Schluessel im Repo und die
@@ -234,6 +239,11 @@ jobs:
           - name: self-healing-agent
             dockerfile: services/self-healing-agent/Dockerfile
             context: .
+          # Der Ausgangs-Proxy der Apps (J38): Node ohne Abhaengigkeiten, der
+          # Kontext ist sein eigener Ordner (wie in compose.app.yaml).
+          - name: egress-proxy
+            dockerfile: services/egress-proxy/Dockerfile
+            context: services/egress-proxy
           # Der Indexer stand hier bis zum 24.08.2026 nicht drin, und seine
           # Requirements werden im pytest-Job bewusst nicht installiert (siehe
           # dort). Damit war er der einzige Dienst, dessen Abhaengigkeiten in

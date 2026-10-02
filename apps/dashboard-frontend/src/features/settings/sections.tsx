@@ -4,6 +4,7 @@ import {
   Info,
   KeyRound,
   Lock,
+  Network,
   Server,
   Globe,
   ShieldAlert,
@@ -29,6 +30,7 @@ export type SettingsSectionId =
   | 'privacy'
   | 'system'
   | 'lizenz'
+  | 'verbindungen'
   | 'remote-access';
 
 export interface SettingsSection {
@@ -94,6 +96,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: 'Lizenz',
     icon: <KeyRound />,
     description: 'Stufe, Konten und Apps, Fingerabdruck, einspielen',
+  },
+  // Nach der Lizenz (J38): was die Apps nach draussen duerfen, ist wie sie eine
+  // Frage an das Geraet -- und der Ort, an dem ein Administrator nachliest,
+  // warum eine App nichts erreicht oder was sie versucht hat.
+  {
+    id: 'verbindungen',
+    label: 'Verbindungen',
+    icon: <Network />,
+    description: 'Was Apps ins Internet dürfen, genutzt, abgewiesen',
   },
   {
     id: 'remote-access',

@@ -93,7 +93,7 @@ echo ""
 # laeuft nur mit dem Profil `tunnel` und fehlt auf einem Geraet ohne
 # Fernzugriff zu Recht. `scripts/test/dienste.py` haelt die Liste an das
 # Compose.
-SOLL_DIENSTE="postgres-db docker-proxy reverse-proxy llm-service embedding-service document-indexer dashboard-backend dashboard-frontend metrics-collector self-healing-agent backup-service"
+SOLL_DIENSTE="postgres-db docker-proxy reverse-proxy llm-service embedding-service document-indexer dashboard-backend dashboard-frontend egress-proxy metrics-collector self-healing-agent backup-service"
 SOLL_MIT_PROFIL="cloudflared"
 
 # --- 0. Die eigentliche A7-Zahl ---------------------------------------------

@@ -33,13 +33,13 @@ Logs kommen aus `docker compose logs`; es gibt keine zentrale Log-Aggregation.
 
 ## Networks (5 isolated bridge networks)
 
-| Network               | Subnet            | Purpose                                                                                      |
-| --------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
-| `arasul-frontend`     | `172.30.0.0/26`   | Traefik, frontend, cloudflared                                                               |
-| `arasul-backend`      | `172.30.0.64/26`  | All internal services (DB, AI, backend)                                                      |
-| `arasul-monitoring`   | `172.30.0.128/26` | Metrics, self-healing, logging                                                               |
-| `arasul-docker-proxy` | `172.30.0.192/26` | Docker-Proxy, nur Backend, Selbstheilung, Sicherung                                          |
-| `arasul-apps`         | `172.30.1.0/26`   | App-Container, `internal` (J38): kein Internet, nur eigene Datenbank, Plattform-API, Traefik |
+| Network               | Subnet            | Purpose                                                                                                                                                   |
+| --------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `arasul-frontend`     | `172.30.0.0/26`   | Traefik, frontend, cloudflared                                                                                                                            |
+| `arasul-backend`      | `172.30.0.64/26`  | All internal services (DB, AI, backend)                                                                                                                   |
+| `arasul-monitoring`   | `172.30.0.128/26` | Metrics, self-healing, logging                                                                                                                            |
+| `arasul-docker-proxy` | `172.30.0.192/26` | Docker-Proxy, nur Backend, Selbstheilung, Sicherung                                                                                                       |
+| `arasul-apps`         | `172.30.1.0/26`   | App-Container, `internal` (J38): kein Internet, nur eigene Datenbank, Plattform-API, Traefik, `egress-proxy` (der einzige Weg hinaus, nur `verbindungen`) |
 
 **Cross-network services**: `dashboard-backend` is on frontend, backend, apps, monitoring and docker-proxy. `postgres-db` and `reverse-proxy` are on backend + apps (J38). `metrics-collector` and `self-healing-agent` are on backend + monitoring. `reverse-proxy` is on frontend + backend.
 

@@ -9,7 +9,8 @@ name: arasul-platform
 #   3. metrics-collector            (compose.monitoring.yaml)
 #   4. reverse-proxy                (compose.core.yaml)
 #   5. dashboard-backend,           (compose.app.yaml)
-#      dashboard-frontend
+#      dashboard-frontend,
+#      egress-proxy
 #   6. self-healing-agent,          (compose.monitoring.yaml)
 #      backup-service
 #

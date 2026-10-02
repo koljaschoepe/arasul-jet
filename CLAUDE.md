@@ -24,7 +24,7 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                               └─ Docker-Proxy → Self-Healing, Metrics, Backup
 ```
 
-Zwölf Container, `docker compose ps` ist die Wahrheit. Vollständige Topologie
+Dreizehn Container, `docker compose ps` ist die Wahrheit. Vollständige Topologie
 und Design-Prioritäten: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — die
 einzige kanonische Quelle, dieses Diagramm ist ein vereinfachter Spiegel.
 

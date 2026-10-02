@@ -16,29 +16,30 @@ migrations always backward-compatible, no rewrites — only incremental change.
 
 ---
 
-## 1. Service Overview (12 Services)
+## 1. Service Overview (13 Services)
 
-Zwölf Container. `document-indexer` ist ein zustandsloser Extraktionsdienst
+Dreizehn Container. `document-indexer` ist ein zustandsloser Extraktionsdienst
 (`GET /health`, `POST /extract-text`): PDF/DOCX/OCR-Text auf Anfrage, ohne
 Datenbank, ohne GPU. `embedding-service` läuft ohne Profil, weil die
 OpenAI-kompatible `/v1/embeddings` (`GET /api/embeddings` reicht seine
 Auskunft durch) ihn braucht. Logs kommen aus `docker compose logs`; es gibt
 keine zentrale Log-Aggregation und keinen Objektspeicher.
 
-| #   | Service            | Port         | Technology          | Entry Point           | Purpose                         |
-| --- | ------------------ | ------------ | ------------------- | --------------------- | ------------------------------- |
-| 1   | dashboard-frontend | 3000         | React 19            | `src/App.tsx`         | Web UI                          |
-| 2   | dashboard-backend  | 3001         | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket      |
-| 3   | postgres-db        | 5432         | PostgreSQL 16       | `init/*.sql`          | Relational database             |
-| 4   | llm-service        | 11434, 11436 | Ollama + Flask      | `api_server.py`       | LLM inference                   |
-| 5   | embedding-service  | 11435        | Flask               | `embedding_server.py` | Text vectorization              |
-| 6   | document-indexer   | 9102         | Flask               | `api_server.py`       | Text extraction on request      |
-| 7   | metrics-collector  | 9100         | aiohttp             | `collector.py`        | System metrics                  |
-| 8   | self-healing-agent | 9200         | Python              | `healing_engine.py`   | Autonomous recovery             |
-| 9   | docker-proxy       | -            | Docker Socket Proxy | -                     | Secure Docker API access        |
-| 10  | reverse-proxy      | 80/443       | Traefik             | `routes.yml`          | Reverse proxy + SSL             |
-| 11  | backup-service     | -            | Alpine + cron       | `backup.sh`           | Sichern und wiederherstellen    |
-| 12  | cloudflared        | -            | Cloudflare Tunnel   | -                     | Remote access tunnel (optional) |
+| #   | Service            | Port         | Technology          | Entry Point           | Purpose                                                               |
+| --- | ------------------ | ------------ | ------------------- | --------------------- | --------------------------------------------------------------------- |
+| 1   | dashboard-frontend | 3000         | React 19            | `src/App.tsx`         | Web UI                                                                |
+| 2   | dashboard-backend  | 3001         | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket                                            |
+| 3   | postgres-db        | 5432         | PostgreSQL 16       | `init/*.sql`          | Relational database                                                   |
+| 4   | llm-service        | 11434, 11436 | Ollama + Flask      | `api_server.py`       | LLM inference                                                         |
+| 5   | embedding-service  | 11435        | Flask               | `embedding_server.py` | Text vectorization                                                    |
+| 6   | document-indexer   | 9102         | Flask               | `api_server.py`       | Text extraction on request                                            |
+| 7   | metrics-collector  | 9100         | aiohttp             | `collector.py`        | System metrics                                                        |
+| 8   | self-healing-agent | 9200         | Python              | `healing_engine.py`   | Autonomous recovery                                                   |
+| 9   | docker-proxy       | -            | Docker Socket Proxy | -                     | Secure Docker API access                                              |
+| 10  | reverse-proxy      | 80/443       | Traefik             | `routes.yml`          | Reverse proxy + SSL                                                   |
+| 11  | backup-service     | -            | Alpine + cron       | `backup.sh`           | Sichern und wiederherstellen                                          |
+| 12  | cloudflared        | -            | Cloudflare Tunnel   | -                     | Remote access tunnel (optional)                                       |
+| 13  | egress-proxy       | 3128         | Node.js (no deps)   | `proxy.js`            | Einziger Weg der Apps ins Internet: nur `verbindungen`, gezählt (J38) |
 
 ### Host-Level Services
 
@@ -149,7 +150,9 @@ serve` is deliberately NOT used, because it takes port 443 away from Traefik
 allein in `arasul-apps` (`internal`, kein Weg ins Internet). Dort stehen mit
 ihnen nur `postgres-db` (jede App-Rolle darf nur in ihre eigene Datenbank,
 `config/postgres/pg_hba.conf`), `dashboard-backend` (Plattform-API) und
-`reverse-proxy`. Einzelheiten: [features/APPS.md](features/APPS.md#das-netz-der-apps-j38-02102026).
+`reverse-proxy`. Ins Internet geht eine App nur über `egress-proxy`, der je App
+nur die Hostnamen aus `verbindungen` durchlässt (ohne TLS aufzubrechen) und
+jede Entscheidung zählt. Einzelheiten: [features/APPS.md](features/APPS.md#das-netz-der-apps-j38-02102026).
 
 ## 4. Port Mapping
 

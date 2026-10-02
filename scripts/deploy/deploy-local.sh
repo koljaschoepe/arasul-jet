@@ -134,6 +134,7 @@ declare -A PATH2SVC=(
   ["services/metrics-collector/"]="metrics-collector"
   ["services/self-healing-agent/"]="self-healing-agent"
   ["services/backup-service/"]="backup-service"
+  ["services/egress-proxy/"]="egress-proxy"
   ["packages/shared-schemas/"]="dashboard-backend dashboard-frontend"
   ["packages/marken/"]="dashboard-frontend"
   ["libs/shared-python/"]="llm-service embedding-service document-indexer metrics-collector self-healing-agent"

@@ -193,7 +193,7 @@ const MANIFEST_REGELN = Object.freeze([
   '`PUT`, `PATCH` und `DELETE` muessen `writes: true` tragen: eine Route, die etwas aendert, darf sich nicht als lesend ausgeben. Das CLI verlangt fuer `writes: true` ein ausdrueckliches --write.',
   'Innerhalb von `agent` steht keine Route zweimal (`method` und `path` zusammen) und kein Parametername zweimal je Route.',
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Geraet haelt keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
-  '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; hoechstens 20, keiner doppelt. Das Feld ist eine FORDERUNG: gewaehrt wird sie vom Administrator am Geraet, und bis der Ausgangs-Proxy dafuer steht, wird sie angenommen und nicht durchgesetzt -- siehe `netz`.',
+  '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; hoechstens 20, keiner doppelt. Das Feld ist die FREIGABE: der Ausgangs-Proxy des Geraets laesst fuer diese App genau diese Namen durch und weist jeden anderen ab; der Administrator sieht je App, was eingetragen ist, was genutzt und was abgewiesen wurde -- siehe `netz`.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
 ]);
 
@@ -210,7 +210,10 @@ const NETZ_REGELN = Object.freeze([
   'Die Rolle einer App darf sich nur mit der Datenbank ihres Standes verbinden. Die Datenbank einer anderen App und die der Plattform weist Postgres ab.',
   'Ein Aufruf ins Internet (eine Schriftart, ein Webdienst, ein Paketmanager beim Start) scheitert. Abhaengigkeiten gehoeren beim Bauen ins Image, nicht in den Start.',
   'Modelle erreicht eine App ueber die Plattform-API (`llm/chat`, `document/…`), nie direkt.',
-  '`verbindungen` nennt die Hostnamen, die die App darueber hinaus braucht. Es ist eine Forderung an den Administrator, keine Zusage: bis der Ausgangs-Proxy steht, gewaehrt das Geraet nichts davon.',
+  '`verbindungen` nennt die Hostnamen, die die App darueber hinaus braucht. Nur diese erreicht sie, und nur ueber den Ausgangs-Proxy des Geraets (`egress-proxy:3128`, Zugang je App und Stand).',
+  'Den Proxy findet die App in `HTTPS_PROXY` und `HTTP_PROXY` (klein geschrieben auch, `NO_PROXY` nennt Datenbank und Plattform-API), die das Geraet in ihre Umgebung schreibt; das Manifest kann sie nicht ueberschreiben. `curl`, `wget` und `NODE_USE_ENV_PROXY=1` (gesetzt) lesen sie; ein Programm, das sie ignoriert, bekommt keine Verbindung.',
+  'Der Proxy entscheidet am HOSTNAMEN und bricht kein TLS auf. Ein freigegebener Name, der auf eine Adresse im Haus zeigt (privat, Loopback, link-local), wird trotzdem abgewiesen. Jeder Aufruf wird je App, Stand und Name gezaehlt (erlaubt, abgewiesen), ohne Pfad und ohne Inhalt.',
+  'Eine Aenderung an `verbindungen` gilt mit dem naechsten Einspielen des Standes und greift im Proxy innerhalb von zehn Sekunden; ein Neustart der App ist dafuer nicht noetig.',
 ]);
 
 /**

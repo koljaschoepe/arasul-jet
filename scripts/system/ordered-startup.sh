@@ -10,7 +10,7 @@
 # Phases:
 #   1. Infrastructure: postgres-db
 #   2. AI Services: llm-service, embedding-service
-#   3. Application: dashboard-backend, dashboard-frontend, reverse-proxy
+#   3. Application: dashboard-backend, dashboard-frontend, egress-proxy, reverse-proxy
 #   4. Monitoring: metrics-collector, self-healing-agent, backup-service, document-indexer
 #   5. Profile: was Compose mit den gesetzten `COMPOSE_PROFILES` darueber
 #      hinaus kennt -- heute der Firmenordner (J33)
@@ -73,7 +73,7 @@ mkdir -p "$LOG_DIR"
 # Phase definitions: space-separated service names
 PHASE1_SERVICES="postgres-db"
 PHASE2_SERVICES="llm-service embedding-service"
-PHASE3_SERVICES="dashboard-backend dashboard-frontend reverse-proxy"
+PHASE3_SERVICES="dashboard-backend dashboard-frontend egress-proxy reverse-proxy"
 PHASE4_SERVICES="metrics-collector self-healing-agent backup-service document-indexer"
 
 # Phase 5 ist KEINE Liste, sondern eine Frage an Compose (J33, 26.09.2026).

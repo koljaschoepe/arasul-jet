@@ -276,7 +276,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Internet; das Manifest kennt `verbindungen`, der Kontrakt den Abschnitt
     // `netz`. Hier geht die Zahl MIT: eine App, die beim Start ins Internet
     // ruft, laeuft ab dem Update nicht mehr, und das Kit soll es vorher sagen.
-    expect(abdruck).toBe('456b82dd30302f7692471d42d436cf2aea0e691256bc1a4d9c6fb2c9ad9c5917');
+    //
+    // 02.10.2026 (J38, ausgang-proxy-und-verbindungsseite): der Proxy steht,
+    // `verbindungen` wird durchgesetzt; vier Saetze in `netz.regeln` und einer
+    // in `MANIFEST_REGELN` sagen es. Die Zahl bleibt bei 7: dieselbe Fassung,
+    // die am selben Tag erschien, nur nicht mehr als Absicht, sondern als Regel.
+    expect(abdruck).toBe('727d20c63441fa73effd472d5d70c6cfe14b7ee0b26f954ee4d259c3c0db779d');
   });
 
   /**

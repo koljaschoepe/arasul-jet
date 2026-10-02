@@ -783,7 +783,7 @@ build_images() {
     # (compose.ai.yaml) and document-indexer (compose.ai.yaml) were previously missing.
     # backup-service (compose.monitoring.yaml) fehlte bis zum 28.08.2026 -- siehe
     # `start_services`. Gehalten wird die Liste von `scripts/test/dienste.py`.
-    build_output=$(docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service llm-service document-indexer self-healing-agent backup-service 2>&1) || {
+    build_output=$(docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend egress-proxy embedding-service llm-service document-indexer self-healing-agent backup-service 2>&1) || {
         log_error "Docker build failed — check Dockerfiles and build context"
         echo "$build_output" | tail -20
         return 1
@@ -1050,7 +1050,7 @@ start_services() {
     wait_for_healthy reverse-proxy 30 || true
 
     # Layer 5: Application layer
-    docker compose up -d dashboard-backend dashboard-frontend
+    docker compose up -d dashboard-backend dashboard-frontend egress-proxy
     log_info "Waiting for Dashboard..."
     # UEBER HTTPS, nicht ueber Port 80. Traefik leitet den ganzen
     # `web`-Einstiegspunkt dauerhaft auf `websecure` um

@@ -14,6 +14,7 @@
 | `self-healing-agent/` | Watches services, restarts/recovers, optional reboot | Python  |
 | `metrics-collector/`  | CPU/RAM/GPU/temperature → Postgres                   | Python  |
 | `backup-service/`     | Sichern, wiederherstellen, Wiederherstellungstest    | Bash    |
+| `egress-proxy/`       | Einziger Weg der Apps ins Internet (`verbindungen`)  | Node    |
 | `postgres/`           | DB image, migrations — **see `postgres/CLAUDE.md`**  | SQL     |
 | `cloudflared/`        | Cloudflare tunnel client                             | config  |
 
