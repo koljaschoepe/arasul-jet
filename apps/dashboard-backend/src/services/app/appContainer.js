@@ -22,7 +22,13 @@ const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 // Compose stellt dem Netznamen den Projektnamen voran. Traefik haengt in
 // genau diesem Netz; ein App-Container in einem anderen waere gestartet und
 // unerreichbar.
-const NETZ = process.env.DOCKER_NETWORK || 'arasul-platform_arasul-backend';
+//
+// Seit J38 ist das `arasul-apps`: ein Netz mit `internal: true`, ohne Weg ins
+// Internet, in dem nur die Apps, ihre Datenbank (`postgres-db`), die
+// Plattform-API (`dashboard-backend`) und Traefik haengen. Vorher lagen die
+// Apps im selben Netz wie Postgres, Ollama und das Backend. Der Rueckweg in
+// einem Schritt ist `APP_NETZ=arasul-platform_arasul-backend` (siehe `zieheUm`).
+const NETZ = process.env.DOCKER_NETWORK || 'arasul-platform_arasul-apps';
 
 // Wohin Traefik die Forward-Auth schickt (Phase C4). Ausgeschrieben und nicht
 // aus der Umgebung: dieselbe Adresse steht schon in
@@ -410,6 +416,164 @@ async function starte(manifest, stand, umgebung = {}, versionsPfad = null) {
   return containerName(manifest.id, stand);
 }
 
+/**
+ * Wie lange ein umgezogener Container Zeit hat, bis er laeuft (und, wenn er
+ * einen Healthcheck hat, gesund ist). Der Healthcheck der Apps wartet 15 s
+ * Anlaufzeit und prueft alle 30 s.
+ */
+const UMZUG_GEDULD_MS = 90 * 1000;
+
+const warte = ms =>
+  new Promise(auf => {
+    setTimeout(auf, ms);
+  });
+
+/** Kommt der Container hoch? Wartet bis zur Frist, `true` bei laeuft (und gesund). */
+async function kommtHoch(container, geduld) {
+  const frist = Date.now() + geduld;
+  for (;;) {
+    const info = await container.inspect();
+    const gesund = info.State?.Health?.Status;
+    if (info.State?.Running === true && (!gesund || gesund === 'healthy')) {
+      return true;
+    }
+    if (info.State?.Running !== true && info.State?.Status !== 'created') {
+      return false; // abgestuerzt
+    }
+    if (gesund === 'unhealthy' || Date.now() >= frist) {
+      return false;
+    }
+    await warte(1000);
+  }
+}
+
+/**
+ * Jeden App-Container in das Netz `NETZ` bringen (J38).
+ *
+ * Der Fall dahinter ist das Update, das das Netz `arasul-apps` einfuehrt: die
+ * Apps laufen schon, und zwar im Netz `arasul-backend`. Ein Container laesst
+ * sich nicht umbeschriften -- `traefik.docker.network` steht in seinen Etiketten,
+ * und ohne es sucht Traefik die Adresse im falschen Netz --, also wird er
+ * ERSETZT, mit allem, was er hatte: Image, Umgebung (darin der API-Schluessel
+ * und die Adresse der Datenbank), Etiketten, Grenzen. Nichts davon wird neu
+ * gewuerfelt. Die Datenbank und ihre Rolle fasst dieser Weg gar nicht an, die
+ * Daten liegen im Postgres, und die Adresse darin (`postgres-db`) loest in
+ * beiden Netzen auf. Das ist die ganze Migration der bestehenden Rollen.
+ *
+ * Es geht in BEIDE Richtungen: wer `APP_NETZ` auf das alte Netz stellt und das
+ * Backend neu startet, bekommt jede App dorthin zurueck. Das ist der Rueckweg.
+ *
+ * Je Container, nacheinander, und mit Netz und Boden:
+ *   1. der alte wird angehalten und in `<name>-alt` umbenannt,
+ *   2. der neue entsteht unter `<name>-neu` im Soll-Netz und startet,
+ *   3. kommt er nicht hoch, wird er verworfen und der alte laeuft wieder,
+ *   4. sonst faellt der alte weg und der neue bekommt den Namen.
+ * Die Apps stehen dabei je Container so lange, wie sie zum Anlaufen brauchen.
+ * Ein angehaltener Container bleibt angehalten (`unless-stopped` heisst, ein
+ * Mensch wollte es so), zieht aber um.
+ *
+ * Wirft nicht: eine App, die nicht umzieht, haelt das Backend nicht am
+ * Hochkommen. Sie steht dann im alten Netz weiter und steht im Ergebnis.
+ *
+ * @param {number} [geduld] Millisekunden je Container
+ * @returns {Promise<{umgezogen: string[], gescheitert: string[]}>}
+ */
+async function zieheUm(geduld = UMZUG_GEDULD_MS) {
+  const umgezogen = [];
+  const gescheitert = [];
+  let liste;
+  try {
+    liste = await docker.listContainers({ all: true, filters: { label: ['arasul.app'] } });
+  } catch (err) {
+    logger.warn(`App-Container nicht auflistbar, kein Umzug in ${NETZ}: ${err.message}`);
+    return { umgezogen, gescheitert };
+  }
+
+  for (const eintrag of liste) {
+    let name = eintrag.Id;
+    const alt = docker.getContainer(eintrag.Id);
+    let angehalten = false;
+    try {
+      const info = await alt.inspect();
+      name = (info.Name || eintrag.Id).replace(/^\//, '');
+      if (!/-(live|test)$/.test(name)) {
+        continue; // ein Rest eines abgebrochenen Umzugs (`-alt`, `-neu`), keine App
+      }
+      const netze = Object.keys(info.NetworkSettings?.Networks || {});
+      if (netze.length === 1 && netze[0] === NETZ) {
+        continue;
+      }
+      const lief = info.State?.Running === true;
+
+      const hostConfig = { ...info.HostConfig, NetworkMode: NETZ };
+      await docker
+        .getContainer(`${name}-neu`)
+        .remove({ force: true, v: true })
+        .catch(() => {});
+      const neu = await docker.createContainer({
+        name: `${name}-neu`,
+        Image: info.Config.Image,
+        Hostname: info.Config.Hostname,
+        User: info.Config.User || undefined,
+        Env: info.Config.Env,
+        Cmd: info.Config.Cmd,
+        Entrypoint: info.Config.Entrypoint,
+        WorkingDir: info.Config.WorkingDir || undefined,
+        ExposedPorts: info.Config.ExposedPorts,
+        Healthcheck: info.Config.Healthcheck,
+        Labels: { ...info.Config.Labels, 'traefik.docker.network': NETZ },
+        HostConfig: hostConfig,
+      });
+
+      if (lief) {
+        await alt.stop({ t: 10 });
+        angehalten = true;
+      }
+      await alt.rename({ name: `${name}-alt` });
+
+      let gut = true;
+      if (lief) {
+        try {
+          await neu.start();
+          gut = await kommtHoch(neu, geduld);
+        } catch (err) {
+          logger.warn(`App-Container ${name}: Start im Netz ${NETZ} misslungen: ${err.message}`);
+          gut = false;
+        }
+      }
+
+      if (!gut) {
+        // Zurueck, wie es war. Der alte Container ist nur angehalten.
+        await neu.remove({ force: true, v: true }).catch(() => {});
+        await alt.rename({ name });
+        await alt.start();
+        angehalten = false;
+        gescheitert.push(name);
+        logger.error(`App-Container ${name} kam im Netz ${NETZ} nicht hoch, bleibt im alten Netz`);
+        continue;
+      }
+
+      await alt.remove({ force: true, v: true });
+      angehalten = false;
+      await neu.rename({ name });
+      umgezogen.push(name);
+      logger.info(`App-Container ${name} ins Netz ${NETZ} umgezogen`);
+    } catch (err) {
+      gescheitert.push(name);
+      logger.error(
+        `App-Container ${name} liess sich nicht ins Netz ${NETZ} ziehen: ${err.message}`
+      );
+      if (angehalten) {
+        // Was wir angehalten haben, soll wieder laufen -- bestmoeglich, und
+        // ohne den Fehler oben zu verlieren.
+        await alt.rename({ name }).catch(() => {});
+        await alt.start().catch(() => {});
+      }
+    }
+  }
+  return { umgezogen, gescheitert };
+}
+
 /** Die letzten Zeilen des Containerprotokolls. */
 async function logs(appId, stand, zeilen = 200) {
   try {
@@ -554,5 +718,7 @@ module.exports = {
   entferne,
   entferneAlle,
   starteNeuWasVorher,
+  zieheUm,
+  NETZ,
   logs,
 };

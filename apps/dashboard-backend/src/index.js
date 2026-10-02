@@ -635,6 +635,19 @@ if (alsServerGestartet) {
     // Backend nicht am Hochkommen hindern.
     await require('./services/app/appDatenbank').heileAlle();
 
+    // Und jede App ins Netz `arasul-apps` (J38). Nach dem Heilen, vor dem
+    // Neustart nach der Datenbank: die Rollen tragen dann ihr Passwort, und
+    // ein eben umgezogener Container ist juenger als die Datenbank und
+    // bleibt, wie er ist. Wirft nicht; was nicht umzieht, steht im Protokoll.
+    {
+      const { umgezogen, gescheitert } = await require('./services/app/appContainer').zieheUm();
+      if (umgezogen.length > 0 || gescheitert.length > 0) {
+        logger.info(
+          `App-Netz: ${umgezogen.length} umgezogen, ${gescheitert.length} geblieben ${gescheitert.join(', ')}`
+        );
+      }
+    }
+
     // Und erst DANACH jeden App-Container neu starten, der vor der Datenbank
     // hochkam (J35, 26.09.2026): nach einem Neustart des Geraets startet
     // Docker die Apps selbst, Sekunden bevor `ordered-startup.sh` Postgres
