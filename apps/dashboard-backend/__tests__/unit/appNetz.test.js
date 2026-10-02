@@ -61,6 +61,7 @@ describe('Wohin ein App-Container kommt', () => {
     expect(env.filter(e => e.startsWith('HTTPS_PROXY='))).toEqual([
       `HTTPS_PROXY=${ausgang.umgebung('arasul-app-urlaub-live').HTTPS_PROXY}`,
     ]);
+    expect(env.some(e => e.startsWith('http_proxy='))).toBe(false);
     expect(env).toContain(
       'NO_PROXY=localhost,127.0.0.1,postgres-db,dashboard-backend,reverse-proxy'
     );

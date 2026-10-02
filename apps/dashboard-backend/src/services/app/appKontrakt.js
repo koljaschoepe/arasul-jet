@@ -211,7 +211,7 @@ const NETZ_REGELN = Object.freeze([
   'Ein Aufruf ins Internet (eine Schriftart, ein Webdienst, ein Paketmanager beim Start) scheitert. Abhaengigkeiten gehoeren beim Bauen ins Image, nicht in den Start.',
   'Modelle erreicht eine App ueber die Plattform-API (`llm/chat`, `document/…`), nie direkt.',
   '`verbindungen` nennt die Hostnamen, die die App darueber hinaus braucht. Nur diese erreicht sie, und nur ueber den Ausgangs-Proxy des Geraets (`egress-proxy:3128`, Zugang je App und Stand).',
-  'Den Proxy findet die App in `HTTPS_PROXY` und `HTTP_PROXY` (klein geschrieben auch, `NO_PROXY` nennt Datenbank und Plattform-API), die das Geraet in ihre Umgebung schreibt; das Manifest kann sie nicht ueberschreiben. `curl`, `wget` und `NODE_USE_ENV_PROXY=1` (gesetzt) lesen sie; ein Programm, das sie ignoriert, bekommt keine Verbindung.',
+  'Den Proxy findet die App in `HTTPS_PROXY` und `HTTP_PROXY` (`https_proxy` auch klein, ein kleines `http_proxy` bewusst nicht: der Healthcheck mancher Images liest es und ignoriert `NO_PROXY`; `NO_PROXY` nennt Datenbank und Plattform-API), die das Geraet in ihre Umgebung schreibt; das Manifest kann sie nicht ueberschreiben. `curl`, `wget` und `NODE_USE_ENV_PROXY=1` (gesetzt) lesen sie; ein Programm, das sie ignoriert, bekommt keine Verbindung.',
   'Der Proxy entscheidet am HOSTNAMEN und bricht kein TLS auf. Ein freigegebener Name, der auf eine Adresse im Haus zeigt (privat, Loopback, link-local), wird trotzdem abgewiesen. Jeder Aufruf wird je App, Stand und Name gezaehlt (erlaubt, abgewiesen), ohne Pfad und ohne Inhalt.',
   'Eine Aenderung an `verbindungen` gilt mit dem naechsten Einspielen des Standes und greift im Proxy innerhalb von zehn Sekunden; ein Neustart der App ist dafuer nicht noetig.',
 ]);
