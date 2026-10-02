@@ -363,7 +363,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
               </code>
               <p>
                 Ohne Benutzernamen nimmt das Skript <code className="font-mono">admin</code>. Es
-                setzt das Passwort direkt in der Datenbank neu und fragt vorher nach.
+                setzt das Passwort neu, auch im Firmenordner, und fragt vorher nach.
               </p>
             </div>
           </div>

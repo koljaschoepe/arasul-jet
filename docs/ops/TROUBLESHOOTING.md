@@ -106,7 +106,9 @@ ssh -p 2222 arasul@<jetson-ip>
 ./arasul reset-password admin
 ```
 
-Das Skript setzt ein neues Passwort, entsperrt den Account
+Das Skript setzt ein neues Passwort (über den Schreibweg des Backends, also auch im
+Dateidienst des Firmenordners; ohne Terminal liest es das Passwort aus stdin:
+`printf '%s' "$PW" | ./arasul reset-password admin`), entsperrt den Account
 (`login_attempts`/`locked_until`) und invalidiert alle Sessions — danach ist
 der Login sofort wieder möglich. Bei „Falsches Passwort" trotz korrektem
 Passwort ist meist die Account-Sperre nach mehreren Fehlversuchen die Ursache;

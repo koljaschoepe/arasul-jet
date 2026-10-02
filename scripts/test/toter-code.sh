@@ -34,6 +34,7 @@ AUSNAHMEN=(
   "src/index.js|Einstiegspunkt des Dienstes"
   "src/cli/lizenz.js|Einstiegspunkt fuer scripts/util/lizenz-geraet.sh (docker exec, J35)"
   "src/cli/modell.js|Einstiegspunkt fuer scripts/util/modell-geraet.sh (docker exec, J4)"
+  "src/cli/passwort.js|Einstiegspunkt fuer scripts/security/reset-password.sh (docker exec, J33)"
 )
 
 # Nur von Tests benutzt, bewusst behalten. Jede Zeile: Pfad|Grund.
