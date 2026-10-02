@@ -32,7 +32,7 @@ Er zeigt **nicht**, und zwar absichtlich ohne es vorzutaeuschen:
 | Ollama auf der GPU (`llm-service` laeuft ohne NVIDIA-Laufzeit)            | keine GPU    | 1, 4 |
 | Standardmodell holen (17 GB)                 | kein Platz, keine GPU                                          | 3 |
 | Einbettungsdienst auf CUDA (laeuft auf der CPU)                           | keine GPU    | 1 |
-| USB-Bus (`/dev/bus/usb` fehlt auf der virtuellen Maschine; ohne ihn ist das Einhaengen eines USB-Datentraegers fuer die Sicherung ungeprueft) | kein USB | 0, 6 |
+| Einhaengen eines USB-Datentraegers fuer die Sicherung (die Selbstheilung startet auch ohne `/dev/bus/usb`) | kein USB | 0, 6 |
 | Werksreset                                   | zerstoert; nur am Geraet                                       | 7 |
 | Selbstheilung gegen echte GPU-Last           | keine GPU                                                      | 8 |
 
@@ -60,14 +60,12 @@ installierende Benutzer eine andere Nummer, endet jeder Dienst mit `EACCES` auf
 `/run/secrets/postgres_password`, und keiner kommt hoch. Der Trockenlauf hat das
 am 02.10.2026 gefunden (arm64-Laeufer, UID 1001) und laeuft seither als 1000.
 DGX OS legt den ersten Benutzer ueblicherweise mit 1000 an; **ungemessen**.
-Ist es eine andere Nummer: einen Benutzer mit 1000 verwenden, bevor `install.sh`
-laeuft. Das Geraet selbst darauf hinzuweisen, ist ein Befund fuer
-`install.sh` (es prueft die UID heute nicht).
+Ist es eine andere Nummer, bricht `install.sh` vor jeder Aenderung mit einem
+Satz ab (J41): als Benutzer mit 1000 neu anmelden und dort installieren.
 
-**`/dev/bus/usb`.** Der Selbstheilungsdienst haengt den USB-Bus ein
-(`compose/compose.monitoring.yaml`, `devices`). Gibt es ihn am Spark nicht
-(`ls -d /dev/bus/usb`), lehnt Docker den Container ab und der Bootstrap bricht
-beim Start der Hintergrunddienste ab. Der Trockenlauf umgeht das ausdruecklich.
+**`/dev/bus/usb`.** Die Selbstheilung verlangt den USB-Bus nicht mehr
+(J41): sie liest Datentraeger ueber `/media` und `/mnt`, und der Container
+startet auch, wenn es `/dev/bus/usb` nicht gibt.
 
 Danach `docker compose ps` und `cat .env | grep -E 'JETSON|GPU_|LLM_|OLLAMA_|RAM_LIMIT_LLM'`
 in den Messbogen kopieren.
