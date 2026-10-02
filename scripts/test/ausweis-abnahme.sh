@@ -174,7 +174,7 @@ fi
 
 hole /api/v1/external/contract '' "x-api-key: $SCHLUESSEL"
 pruefe 'GET /contract antwortet' "$(ja_nein "$CODE" 200)" "HTTP $CODE"
-pruefe 'die Kontraktversion ist 6' "$(ja_nein "$(feld data.kontrakt)" 6)" \
+pruefe 'die Kontraktversion ist 7' "$(ja_nein "$(feld data.kontrakt)" 7)" \
   "kontrakt=$(feld data.kontrakt)"
 pruefe 'das Schema von app.json fuehrt `agent` als Liste' \
   "$(ja_nein "$(feld data.app_json.schema.properties.agent.type)" array)" \

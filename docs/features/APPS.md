@@ -70,21 +70,22 @@ Dienst.
 }
 ```
 
-| Feld           | Pflicht     | Bedeutung                                                                                 |
-| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `schema`       | ja          | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                         |
-| `id`           | ja          | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router.       |
-| `name`         | ja          | Der Anzeigename, wie ein Mensch ihn liest.                                                |
-| `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                       |
-| `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                          |
-| `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.                |
-| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                       |
-| `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                            |
-| `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                            |
-| `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                |
-| `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**). |
-| `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                |
-| `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.         |
+| Feld           | Pflicht     | Bedeutung                                                                                                       |
+| -------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `schema`       | ja          | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                                               |
+| `id`           | ja          | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router.                             |
+| `name`         | ja          | Der Anzeigename, wie ein Mensch ihn liest.                                                                      |
+| `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                                             |
+| `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                                                |
+| `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.                                      |
+| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                                             |
+| `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                                                  |
+| `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                                                  |
+| `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                                      |
+| `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**).                       |
+| `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                                      |
+| `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.                               |
+| `verbindungen` | nein        | Hostnamen, zu denen die App ins Internet will (J38, Kontrakt 7), eine **Forderung**. Siehe „Das Netz der Apps“. |
 
 \* Mindestens eines von `frontend` und `backend`.
 
@@ -278,6 +279,46 @@ hat sie nicht. Eine App ohne `agent` ist eine App, die ein Mensch bedient.
 
 Womit ein Agent sich ausweist, steht in
 [docs/api/API_REFERENCE.md](../api/API_REFERENCE.md#ausweise-brücke-21092026).
+
+## Das Netz der Apps (J38, 02.10.2026)
+
+Das Backend einer App läuft im Docker-Netz **`arasul-apps`**
+(`compose/compose.core.yaml`, `internal: true`, Standard `172.30.1.0/26`,
+`NETZ_APPS`). Das Netz hat kein Gateway: **kein Weg ins Internet, keiner ins
+Haus-LAN.** Drin hängen nur die Apps und drei Dienste der Plattform:
+
+| Aus dem App-Container                      | Ergebnis   | Wodurch                                                             |
+| ------------------------------------------ | ---------- | ------------------------------------------------------------------- |
+| eigene Datenbank (`ARASUL_DB_URL`)         | ja         | `postgres-db` hängt auch im Netz der Apps                           |
+| Datenbank einer anderen App                | verweigert | `config/postgres/pg_hba.conf`: Rolle `arasul_app_*` nur `samerole`  |
+| Plattform-Datenbank `arasul_db`            | verweigert | dieselbe Datei, `reject` für jede andere Datenbank                  |
+| Plattform-API (`dashboard-backend:3001`)   | ja         | `ARASUL_API_URL`, das Backend hängt im Netz der Apps                |
+| Traefik (`reverse-proxy:443`)              | ja         | Traefik hängt im Netz der Apps und erreicht darüber das App-Backend |
+| Internet, Haus-LAN, Ollama, andere Dienste | nein       | kein Gateway, keine Mitgliedschaft                                  |
+
+`pg_hba.conf` entscheidet nach dem **Namen der Rolle** und nicht nach der
+Adresse: Postgres hängt in zwei Netzen, und eine Adressregel sperrte je nach
+Namensauflösung ab und zu die Plattform selbst aus.
+
+**`verbindungen`** im `app.json` ist die Liste der Hostnamen, die die App
+darüber hinaus braucht (nur Namen, klein, ohne Schema, Port, Pfad, Platzhalter
+oder IP; höchstens 20). Es ist eine **Forderung**, keine Zusage: bis der
+Ausgangs-Proxy steht (zweite Karte zu J38), nimmt das Gerät das Feld an,
+speichert es mit dem Manifest und gewährt nichts davon.
+
+**Umzug bestehender Apps.** Beim Start des Backends zieht
+`appContainer.zieheUm` jeden App-Container ins Soll-Netz: angehalten,
+umbenannt, ein neuer mit **derselben** Umgebung (Schlüssel, Datenbankadresse),
+denselben Grenzen und dem Etikett `traefik.docker.network` im neuen Netz
+gestartet; kommt er nicht gesund hoch, wird er verworfen und der alte läuft
+wieder, die App bleibt im alten Netz. Rollen und Datenbanken fasst der Umzug
+nicht an, die Daten bleiben, wo sie waren.
+
+**Rückweg in einem Schritt:** `APP_NETZ=arasul-platform_arasul-backend` in die
+`.env` und `docker compose up -d dashboard-backend`: das Backend zieht jede
+App beim Start dorthin zurück. (Die Regeln in `pg_hba.conf` bleiben, sie
+schaden im alten Netz nicht.) Gemessen wird alles mit
+`scripts/test/app-netz-abnahme.sh`, als `probe-admin`.
 
 ## Die Flows einer App (Phase C6)
 
