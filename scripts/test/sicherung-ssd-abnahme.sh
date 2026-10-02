@@ -300,7 +300,11 @@ pruefe "Der Stand von vorher liegt unter vor_wiederherstellung/" \
 
 # --- 7. Abziehen ------------------------------------------------------------------
 if [ "$STICK" = schleife ]; then
-  am_geraet "sudo -n losetup -d '$SCHLEIFE'" >/dev/null 2>&1
+  # Ein Abbild kennt kein Abziehen: `losetup -d` auf ein eingehaengtes Geraet
+  # setzt nur autoclear, das Geraet bleibt. Den Abzug meldet der Kernel bei einem
+  # echten Stick als remove-Ereignis -- das wird hier nachgestellt, die Regel
+  # (config/udev) muss darauf die Einheit stoppen.
+  am_geraet "sudo -n losetup -d '$SCHLEIFE'; sudo -n udevadm trigger --action=remove --sysname-match='${SCHLEIFE#/dev/}'; sudo -n udevadm settle" >/dev/null 2>&1
   ende=$((SECONDS + 30))
   while [ "$SECONDS" -lt "$ende" ]; do am_geraet "mountpoint -q $ZIEL" || break; sleep 1; done
   SCHLEIFE=""
