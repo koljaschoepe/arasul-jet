@@ -280,7 +280,7 @@ aufraeumen() {
   # Verwaiste Images: nur, was keinen Namen mehr traegt und von keinem Container
   # gebraucht wird. Zusammen mit dem Weg zurueck vertraeglich -- ein Image der
   # vorigen Fassung hat seinen Namen.
-  docker image prune -f >/dev/null 2>&1 || true
+  [ "${FASSUNG_NUR_VORBEREITEN:-}" = 1 ] || docker image prune -f >/dev/null 2>&1 || true
   sagen "Aufgeraeumt: ${entfernt} Fassungsordner, davon bleibt der letzte Vorgaenger (${behalten})."
 }
 
