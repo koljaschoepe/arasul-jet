@@ -104,12 +104,12 @@ ATTRAPPE="$AUS/attrappe"
 mkdir -p "$ATTRAPPE/bin"
 cat >"$ATTRAPPE/bin/docker" <<'ATTRAPPE_ENDE'
 #!/bin/bash
-# Compose kennt, was die `.env` einschaltet: hier die zwoelf Dienste samt
+# Compose kennt, was die `.env` einschaltet: hier die dreizehn Dienste samt
 # `firmenordner`. Alles andere antwortet so, dass jede Phase sofort gesund ist.
 case "$*" in
   "compose config --services")
     printf '%s\n' postgres-db docker-proxy llm-service embedding-service document-indexer \
-      dashboard-backend dashboard-frontend reverse-proxy metrics-collector \
+      dashboard-backend dashboard-frontend egress-proxy reverse-proxy metrics-collector \
       self-healing-agent backup-service firmenordner ;;
   "compose up -d "*) aufruf="$*"; echo "${aufruf#compose up -d }" >>"$ATTRAPPE_LOG" ;;
   "compose ps -q "*) echo "id-${*##* }" ;;

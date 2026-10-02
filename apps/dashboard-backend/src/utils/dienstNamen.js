@@ -31,6 +31,7 @@ const DIENST_NAMEN = {
   self_healing: 'Selbstheilung',
   'backup-service': 'Sicherung',
   'docker-proxy': 'Gerätesteuerung',
+  'egress-proxy': 'Ausgang der Apps',
   firmenordner: 'Firmenordner',
 };
 

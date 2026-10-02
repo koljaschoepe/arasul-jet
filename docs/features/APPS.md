@@ -70,22 +70,22 @@ Dienst.
 }
 ```
 
-| Feld           | Pflicht     | Bedeutung                                                                                                       |
-| -------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
-| `schema`       | ja          | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                                               |
-| `id`           | ja          | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router.                             |
-| `name`         | ja          | Der Anzeigename, wie ein Mensch ihn liest.                                                                      |
-| `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                                             |
-| `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                                                |
-| `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.                                      |
-| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                                             |
-| `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                                                  |
-| `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                                                  |
-| `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                                      |
-| `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**).                       |
-| `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                                      |
-| `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.                               |
-| `verbindungen` | nein        | Hostnamen, zu denen die App ins Internet will (J38, Kontrakt 7), eine **Forderung**. Siehe „Das Netz der Apps“. |
+| Feld           | Pflicht     | Bedeutung                                                                                                                               |
+| -------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`       | ja          | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                                                                       |
+| `id`           | ja          | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router.                                                     |
+| `name`         | ja          | Der Anzeigename, wie ein Mensch ihn liest.                                                                                              |
+| `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                                                                     |
+| `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                                                                        |
+| `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.                                                              |
+| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                                                                     |
+| `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                                                                          |
+| `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                                                                          |
+| `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                                                              |
+| `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**).                                               |
+| `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                                                              |
+| `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.                                                       |
+| `verbindungen` | nein        | Hostnamen, zu denen die App ins Internet will (J38, Kontrakt 7). Der Ausgangs-Proxy lässt genau diese durch. Siehe „Das Netz der Apps“. |
 
 \* Mindestens eines von `frontend` und `backend`.
 
@@ -302,9 +302,52 @@ Namensauflösung ab und zu die Plattform selbst aus.
 
 **`verbindungen`** im `app.json` ist die Liste der Hostnamen, die die App
 darüber hinaus braucht (nur Namen, klein, ohne Schema, Port, Pfad, Platzhalter
-oder IP; höchstens 20). Es ist eine **Forderung**, keine Zusage: bis der
-Ausgangs-Proxy steht (zweite Karte zu J38), nimmt das Gerät das Feld an,
-speichert es mit dem Manifest und gewährt nichts davon.
+oder IP; höchstens 20). Es ist die **Freigabe**: der Ausgangs-Proxy lässt für
+diese App genau diese Namen durch (siehe „Der Ausgangs-Proxy“).
+
+### Der Ausgangs-Proxy (J38, 02.10.2026)
+
+Ein einziger Container, `egress-proxy` (`services/egress-proxy/`, Node ohne
+Abhängigkeiten, `compose/compose.app.yaml`), hängt im Netz `arasul-apps` und im
+Netz `arasul-frontend` (das hat ein Gateway) und ist der **einzige Weg
+hinaus**. Die Apps erreichen ihn unter `egress-proxy:3128`.
+
+- **Entschieden wird am Hostnamen**, ohne TLS aufzubrechen: bei `CONNECT
+host:port` (https) und bei einer Anfrage mit absoluter URL (http). Der Proxy
+  sieht nie den Inhalt. Ein Name, der nicht in `verbindungen` des Standes
+  steht, bekommt `403`; die Anfrage geht nicht hinaus.
+- **Wer ruft, steht im Zugang**: `HTTPS_PROXY=http://<containername>:<token>@egress-proxy:3128`
+  in der Umgebung des App-Containers (klein geschrieben auch, dazu `NO_PROXY`
+  für Datenbank und Plattform-API und `NODE_USE_ENV_PROXY=1`). Der Token ist ein
+  HMAC des Containernamens mit dem Geheimnis des Geräts (`jwt_secret`), beide
+  Seiten rechnen ihn; eine App kann sich nicht als andere ausgeben und das
+  Manifest nicht überschreiben. Der Stand (`live`/`test`) steckt im Namen.
+- **Die Regeln** holt der Proxy alle zehn Sekunden vom Backend
+  (`GET /api/ausgang/regeln`, aus den Manifesten der Stände). Ohne Regeln lässt
+  er nichts durch (geschlossen, nicht offen). Eine Änderung greift mit dem
+  nächsten Einspielen, ohne App-Neustart.
+- **Ein freigegebener Name, der auf eine Adresse im Haus zeigt** (privat,
+  Loopback, link-local), wird trotzdem abgewiesen: sonst wäre er der Weg einer
+  App ins LAN.
+- **Ein Programm, das `HTTPS_PROXY` ignoriert**, bekommt keine Verbindung: das
+  Netz hat kein Gateway. Sicher, aber für den Bauenden eine Falle; das Kit soll
+  sie vorher nennen.
+- **Gezählt wird je App, Stand, Name und Ergebnis** (`erlaubt`/`abgewiesen`,
+  Anzahl, zuletzt) in `ausgang_zaehler` (Migration 191), ohne Pfad und ohne
+  Inhalt. Der Proxy schickt die Zahlen alle fünf Sekunden an
+  `POST /api/ausgang/ereignisse` und hält sie bis dahin im Speicher; sie
+  überleben einen Neustart von Proxy, Backend und Gerät. Je App und Stand
+  höchstens 100 verschiedene abgewiesene Namen, der Rest zählt unter
+  `(weitere)`.
+- **Die Plattform selbst** (Flows mit externem Modell: das Backend ruft den
+  Anbieter direkt) wird im selben Protokoll gezählt, unter „Das Gerät selbst“.
+- **Zu sehen** ist alles unter Einstellungen > Verbindungen (nur Admin):
+  je App eingetragen, genutzt (Anzahl, zuletzt), abgewiesen in Rot.
+- **Ausfall:** steht der Proxy, kommt keine App ins Internet, aber jede erreicht
+  weiter ihre Datenbank und die Plattform. Im Leerlauf: siehe die Messung im
+  Journal (HISTORIE, J38).
+
+Gemessen wird es mit `scripts/test/ausgang-abnahme.sh` am Gerät.
 
 **Umzug bestehender Apps.** Beim Start des Backends zieht
 `appContainer.zieheUm` jeden App-Container ins Soll-Netz: angehalten,

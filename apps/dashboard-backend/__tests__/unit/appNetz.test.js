@@ -14,12 +14,14 @@ jest.mock('../../src/utils/logger', () => ({
   error: jest.fn(),
   debug: jest.fn(),
 }));
+jest.mock('../../src/database', () => ({ query: jest.fn() }));
 jest.mock('../../src/services/core/docker', () => ({
   docker: { listContainers: jest.fn(), getContainer: jest.fn(), createContainer: jest.fn() },
 }));
 
 const { docker } = require('../../src/services/core/docker');
 const appContainer = require('../../src/services/app/appContainer');
+const ausgang = require('../../src/services/app/ausgangsProxy');
 const { AppManifest } = require('../../src/schemas/apps');
 
 const NEU = 'arasul-platform_arasul-apps';
@@ -50,6 +52,19 @@ describe('Wohin ein App-Container kommt', () => {
     expect(b.HostConfig.PortBindings).toBeUndefined();
     expect(b.HostConfig.CapDrop).toEqual(['ALL']);
   });
+
+  it('mit dem Zugang zum Ausgangs-Proxy, den das Manifest nicht ueberschreiben kann', () => {
+    const m = AppManifest.parse(
+      manifest({ backend: { image: 'x:1', umgebung: { HTTPS_PROXY: 'http://boese:80' } } })
+    );
+    const env = appContainer.containerBeschreibung(m, 'live').Env;
+    expect(env.filter(e => e.startsWith('HTTPS_PROXY='))).toEqual([
+      `HTTPS_PROXY=${ausgang.umgebung('arasul-app-urlaub-live').HTTPS_PROXY}`,
+    ]);
+    expect(env).toContain(
+      'NO_PROXY=localhost,127.0.0.1,postgres-db,dashboard-backend,reverse-proxy'
+    );
+  });
 });
 
 describe('Der Umzug bestehender Apps', () => {
@@ -58,6 +73,7 @@ describe('Der Umzug bestehender Apps', () => {
     const c = {
       name,
       netz,
+      mitZugang: false,
       laeuft,
       aufrufe: [],
       inspect: jest.fn(async () => ({
@@ -67,7 +83,13 @@ describe('Der Umzug bestehender Apps', () => {
         Config: {
           Image: 'arasul-urlaub:1.0.0',
           Hostname: name,
-          Env: ['ARASUL_DB_URL=postgresql://x:y@postgres-db:5432/x', 'ARASUL_API_KEY=geheim'],
+          Env: [
+            'ARASUL_DB_URL=postgresql://x:y@postgres-db:5432/x',
+            'ARASUL_API_KEY=geheim',
+            ...(c.mitZugang
+              ? [`HTTPS_PROXY=${ausgang.umgebung('arasul-app-urlaub-live').HTTPS_PROXY}`]
+              : []),
+          ],
           Labels: { 'arasul.app': 'urlaub', 'traefik.docker.network': ALT },
           ExposedPorts: { '3000/tcp': {} },
         },
@@ -125,8 +147,22 @@ describe('Der Umzug bestehender Apps', () => {
     expect(neu.rename).toHaveBeenCalledWith({ name: 'arasul-app-urlaub-live' });
   });
 
+  it('gibt dem umgezogenen Container den Zugang zum Ausgangs-Proxy mit', async () => {
+    await appContainer.zieheUm(50);
+    const env = docker.createContainer.mock.calls[0][0].Env;
+    expect(env).toContain(`HTTPS_PROXY=${ausgang.umgebung('arasul-app-urlaub-live').HTTPS_PROXY}`);
+  });
+
+  it('zieht eine App um, die im richtigen Netz haengt, aber ohne Zugang zum Proxy laeuft', async () => {
+    alt.netz = NEU;
+    const r = await appContainer.zieheUm(50);
+    expect(r.umgezogen).toEqual(['arasul-app-urlaub-live']);
+    expect(docker.createContainer.mock.calls[0][0].Env.join('\n')).toContain('HTTPS_PROXY=');
+  });
+
   it('laesst eine App, die schon im richtigen Netz haengt, in Ruhe', async () => {
     alt.netz = NEU;
+    alt.mitZugang = true;
     const r = await appContainer.zieheUm(50);
     expect(r.umgezogen).toEqual([]);
     expect(docker.createContainer).not.toHaveBeenCalled();

@@ -75,6 +75,9 @@ services:
       FLOW_FREIGABE_FRIST_MINUTEN: ${FLOW_FREIGABE_FRIST_MINUTEN:-}
       # Externe Cloud-Modelle (Plan 023 D9).
       EXTERN_TIMEOUT_MS: ${EXTERN_TIMEOUT_MS:-60000}
+      # Wo eine App den Ausgangs-Proxy erreicht (J38); steht in `HTTPS_PROXY`
+      # ihrer Umgebung. Der Name ist der Dienst in `arasul-apps`.
+      EGRESS_PROXY_ADRESSE: ${EGRESS_PROXY_ADRESSE:-egress-proxy:3128}
       # Der angesteckte Sicherungs-Datentraeger (J37): wo das Backend ihn und
       # seinen Zustand sieht (siehe die Mounts unten).
       EXTERN_ORDNER: ${EXTERN_ORDNER:-/arasul/extern}
@@ -274,6 +277,59 @@ services:
     labels:
       - 'traefik.enable=false'
     logging: *default-logging
+
+  # 1b. Ausgangs-Proxy der Apps (J38, 02.10.2026)
+  #
+  # Die Apps haengen im Netz `arasul-apps`, das `internal` ist und keinen Weg
+  # ins Internet hat. Dieser Container ist der EINZIGE Weg hinaus: er haengt in
+  # `arasul-apps` (dort erreichen ihn die Apps unter `egress-proxy:3128`) UND
+  # in `arasul-frontend` (das hat ein Gateway). Er laesst je App nur die
+  # Hostnamen aus `verbindungen` im Manifest durch, bricht kein TLS auf und
+  # zaehlt jede Entscheidung (siehe `services/egress-proxy/README.md`).
+  #
+  # Kein `depends_on` auf das Backend: ohne Regeln laesst er nichts durch
+  # (geschlossen, nicht offen) und holt sie alle zehn Sekunden nach.
+  egress-proxy:
+    build:
+      context: ../services/egress-proxy
+      args:
+        NODE_VERSION: ${NODE_VERSION:-22}
+    container_name: ${CONTAINER_PREFIX:-}egress-proxy
+    hostname: egress-proxy
+    restart: always
+    networks:
+      - arasul-apps
+      - arasul-frontend
+    environment:
+      BACKEND_URL: http://dashboard-backend:3001
+    healthcheck:
+      # Lebt er? Auch ein 503 (Regeln noch nicht geladen) ist eine Antwort.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:3128/health', () => process.exit(0)).on('error', () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=8M
+    <<: *default-security
+    cap_drop:
+      - ALL
+    labels:
+      - 'traefik.enable=false'
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: ${RAM_LIMIT_EGRESS_PROXY:-128M}
+          pids: 128
 
   # 2. Dashboard Frontend
   dashboard-frontend:

@@ -18,6 +18,7 @@ const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
+const ausgang = require('./ausgangsProxy');
 
 // Compose stellt dem Netznamen den Projektnamen voran. Traefik haengt in
 // genau diesem Netz; ein App-Container in einem anderen waere gestartet und
@@ -123,7 +124,13 @@ function speicherInBytes(wert) {
  * Beschluss und keine Zeile in ihrem eigenen Manifest.
  */
 function containerBeschreibung(manifest, stand, umgebung = {}) {
-  const alleUmgebung = { ...(manifest.backend.umgebung || {}), ...umgebung };
+  // Der Zugang zum Ausgangs-Proxy (J38) steht zuletzt: das Manifest darf ihn
+  // nicht ueberschreiben, sonst waere `verbindungen` eine Bitte statt einer Regel.
+  const alleUmgebung = {
+    ...(manifest.backend.umgebung || {}),
+    ...umgebung,
+    ...ausgang.umgebung(containerName(manifest.id, stand)),
+  };
   return {
     name: containerName(manifest.id, stand),
     Image: manifest.backend.image,
@@ -500,7 +507,15 @@ async function zieheUm(geduld = UMZUG_GEDULD_MS) {
         continue; // ein Rest eines abgebrochenen Umzugs (`-alt`, `-neu`), keine App
       }
       const netze = Object.keys(info.NetworkSettings?.Networks || {});
-      if (netze.length === 1 && netze[0] === NETZ) {
+      // Der Zugang zum Ausgangs-Proxy (J38) gehoert zum Umzug: eine App, die
+      // schon im richtigen Netz steht, aber noch ohne ihn laeuft (das Update,
+      // das den Proxy bringt), wird genauso ersetzt -- und eine mit einem
+      // veralteten Token (anderes Geheimnis) auch.
+      const proxyUmgebung = ausgang.umgebung(name);
+      const hatZugang = (info.Config?.Env || []).includes(
+        `HTTPS_PROXY=${proxyUmgebung.HTTPS_PROXY}`
+      );
+      if (netze.length === 1 && netze[0] === NETZ && hatZugang) {
         continue;
       }
       const lief = info.State?.Running === true;
@@ -515,7 +530,10 @@ async function zieheUm(geduld = UMZUG_GEDULD_MS) {
         Image: info.Config.Image,
         Hostname: info.Config.Hostname,
         User: info.Config.User || undefined,
-        Env: info.Config.Env,
+        Env: [
+          ...(info.Config.Env || []).filter(e => !(e.split('=')[0] in proxyUmgebung)),
+          ...Object.entries(proxyUmgebung).map(([k, v]) => `${k}=${v}`),
+        ],
         Cmd: info.Config.Cmd,
         Entrypoint: info.Config.Entrypoint,
         WorkingDir: info.Config.WorkingDir || undefined,

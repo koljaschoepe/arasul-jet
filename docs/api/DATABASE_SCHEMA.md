@@ -2398,3 +2398,24 @@ Klartext, damit die Oberfläche zeigen kann, WELCHER Schlüssel hinterlegt ist,
 ohne ihn zu entschlüsseln.
 
 ---
+
+---
+
+## `ausgang_zaehler`
+
+> Wie oft eine App (über den Ausgangs-Proxy) oder die Plattform einen Hostnamen angefragt hat, je Ergebnis. Ohne Pfad, ohne Inhalt. (Migration 191, J38)
+
+| Column     | Type                     | Nullable | Default |
+| ---------- | ------------------------ | -------- | ------- |
+| `quelle`   | text                     | ⛔       |         |
+| `app_id`   | text                     | ⛔       | `''`    |
+| `stand`    | text                     | ⛔       | `''`    |
+| `host`     | text                     | ⛔       |         |
+| `ergebnis` | text                     | ⛔       |         |
+| `anzahl`   | bigint                   | ⛔       | `0`     |
+| `erstmals` | timestamp with time zone | ⛔       | `now()` |
+| `zuletzt`  | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `(quelle, app_id, stand, host, ergebnis)`
+
+`quelle` ist `app` (Aufruf durch den Proxy) oder `plattform` (das Backend selbst, derzeit externe Modelle; dann `app_id` und `stand` leer). `ergebnis` ist `erlaubt` oder `abgewiesen`. Kein Fremdschlüssel auf `apps`: der Nachweis überlebt die App.

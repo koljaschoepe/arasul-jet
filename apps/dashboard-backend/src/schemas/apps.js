@@ -387,9 +387,9 @@ const AppManifest = z
     // Wohin die App von sich aus ins Internet will (J38, Kontrakt 7). FREIWILLIG:
     // keine App vor J38 kennt das Feld, und die allermeisten brauchen es nicht --
     // eine App im Netz `arasul-apps` erreicht ihre Datenbank, die Plattform-API
-    // und sonst nichts. Das Feld ist die Forderung, nicht die Freigabe: ob ein
-    // Admin sie gewaehrt, entscheidet der Ausgangs-Proxy (zweite Karte zu J38).
-    // Bis der steht, wird es angenommen, gespeichert und nicht durchgesetzt.
+    // und sonst nichts. Das Feld ist die Freigabe: der Ausgangs-Proxy
+    // (`services/egress-proxy`) laesst fuer diese App genau diese Namen durch
+    // und zaehlt, was er abweist. Die Verbindungsseite zeigt es dem Admin.
     verbindungen: Verbindungen.optional(),
   })
   .strict()

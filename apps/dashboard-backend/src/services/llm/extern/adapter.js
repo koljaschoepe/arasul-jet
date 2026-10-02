@@ -15,6 +15,7 @@
  */
 
 const logger = require('../../../utils/logger');
+const { zaehlePlattform } = require('../../app/ausgangsProxy');
 const { anbieter: anbieterDef } = require('./providerRegistry');
 const { ServiceUnavailableError, UnauthorizedError } = require('../../../utils/errors');
 
@@ -53,6 +54,9 @@ function fehlerAus(status, rumpf, name) {
 async function ruf(url, optionen, name) {
   const abbruch = new AbortController();
   const wecker = setTimeout(() => abbruch.abort(), ZEITLIMIT_MS);
+  // Jeder Aufruf nach draussen steht in der Verbindungsseite (J38), auch
+  // der, der scheitert: gezaehlt wird die Absicht, nicht die Antwort.
+  void zaehlePlattform(url);
   let antwort;
   try {
     antwort = await fetch(url, { ...optionen, signal: abbruch.signal });

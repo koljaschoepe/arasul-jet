@@ -90,6 +90,9 @@ const AUSLIEFERUNG = [
   ['public.apps', 'Die Apps am Gerät'],
   ['public.audit_log_health', 'Selbstprüfung des Prüfprotokolls'],
   ['public.audit_logs', 'Prüfprotokoll'],
+  // Stufe 2 (J38, Migration 191): ein Nachweis, wohin Apps und Plattform ins
+  // Internet wollten, kein Inhalt eines Menschen.
+  ['public.ausgang_zaehler', 'Zaehler des Ausgangs ins Internet (Apps und Plattform)'],
   ['public.bot_audit_log', 'Prüfprotokoll der Bots'],
   ['public.component_updates', 'Aktualisierungsstand der Bestandteile'],
   ['public.flow_settings', 'Was der Administrator an den Flows einer App eingestellt hat'],

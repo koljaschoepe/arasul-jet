@@ -402,6 +402,11 @@ nicht mehr. Abhängigkeiten gehören ins Image.
 siehe oben), und das Kit sollte `verbindungen` im Manifest kennen und Aufrufe
 ins Internet melden, bevor ein Gerät mit dieser Fassung dazukommt.
 
+**Seit der zweiten Karte zu J38 ist `verbindungen` die Freigabe:** der
+Ausgangs-Proxy des Geräts lässt für die App genau diese Namen durch
+(`HTTPS_PROXY` steht in ihrer Umgebung, Details in
+[APPS.md](APPS.md#der-ausgangs-proxy-j38-02102026)). Die Fassung bleibt 7.
+
 ## Was schiefgehen kann
 
 | Antwort | Bedeutung                                                                                                                                                                                                                                                                                                                                                                                                                          |

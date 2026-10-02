@@ -17,6 +17,7 @@ import { RemoteAccessSettings } from './RemoteAccessSettings';
 import { PrivacySettings } from './PrivacySettings';
 import { SystemSettings } from '../system/SystemSettings';
 import { LizenzSettings } from './LizenzSettings';
+import { VerbindungenSettings } from './VerbindungenSettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -138,6 +139,12 @@ function Settings({ handleLogout }: SettingsProps) {
         return (
           <ComponentErrorBoundary componentName="Lizenz">
             <LizenzSettings />
+          </ComponentErrorBoundary>
+        );
+      case 'verbindungen':
+        return (
+          <ComponentErrorBoundary componentName="Verbindungen">
+            <VerbindungenSettings />
           </ComponentErrorBoundary>
         );
       case 'remote-access':
