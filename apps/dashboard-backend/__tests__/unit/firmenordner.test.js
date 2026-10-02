@@ -683,9 +683,11 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
         }),
     });
     const liste = await dienst.aenderungen('r', 2);
-    expect(liste[0].text).toBe('Admin hat ein gelöschtes Konto zu firma hinzugefügt');
-    expect(liste[1].wer).toBe('ein gelöschtes Konto');
-    expect(liste[1].text).toBe('Ein gelöschtes Konto hat etwas geändert');
+    expect(liste[0].text).toBe(
+      'Admin hat ein Konto, das sich nicht zuordnen lässt zu firma hinzugefügt'
+    );
+    expect(liste[1].wer).toBe('ein Konto, das sich nicht zuordnen lässt');
+    expect(liste[1].text).toBe('Ein Konto, das sich nicht zuordnen lässt hat etwas geändert');
     expect(JSON.stringify(liste)).not.toMatch(/\b(added|removed|deleted|DeletedUser)\b/);
   });
 
@@ -715,6 +717,34 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
     expect(liste[0].text).toBe('Admin hat a.md geändert');
     expect(liste[1].wer).toBe('ein gelöschtes Konto');
     expect(liste[2].wer).toBe('ein Konto vor der Neuinstallation');
+  });
+
+  it('nennt das Dienstkonto arasul-dienst beim Namen, auch wenn es nicht in der Zuordnung steht', async () => {
+    firmenordnerAn();
+    const aktivitaeten = {
+      value: [
+        {
+          template: {
+            message: '{user} added {sharee} as member of {space}',
+            variables: {
+              user: { id: 'k-dienst', displayName: 'DeletedUser' },
+              sharee: { displayName: 'DeletedUser' },
+              space: { name: 'firma' },
+            },
+          },
+          times: { recordedTime: '2026-09-26T09:30:00Z' },
+        },
+      ],
+    };
+    global.fetch.mockImplementation(async url => {
+      const antwort = String(url).includes('/me') ? { id: 'k-dienst' } : aktivitaeten;
+      return { ok: true, status: 200, text: async () => JSON.stringify(antwort) };
+    });
+    const liste = await dienst.aenderungen('r', 3, new Map([['k-admin', 'admin']]));
+    expect(liste[0].wer).toBe('arasul-dienst');
+    expect(liste[0].text).toBe(
+      'Arasul-dienst hat ein Konto, das sich nicht zuordnen lässt zu firma hinzugefügt'
+    );
   });
 
   it('weitet das Zeitfenster aus, bis genug da sind, und haelt bei einem Fehler des weiteren', async () => {
