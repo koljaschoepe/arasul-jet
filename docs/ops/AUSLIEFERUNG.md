@@ -465,8 +465,32 @@ token`), danach ein zweiter Rückweg. Jetzt: der Hilfscontainer hat keinen
   deshalb bis zu dreimal. Ein Rückweg, der offline gehen soll, müsste ohne
   Metadatenabfrage bauen; das ist offen.
 
-Das Einspielen auf `0.8.15` selbst ist am echten Gerät damit **noch nicht
-bestanden**; kein zweiter Versuch in der Nacht (Vorgabe des Auftrags).
+**Zweiter Versuch am echten Orin am 02.10.2026, 11:14 bis 11:33: GRÜN.** Von
+`arasul-0.8.14` auf `v0.8.15`, `POST /api/v1/external/update` mit einem Schlüssel
+nur im Bereich `system:update` (danach widerrufen), kein Login als `admin`. Das
+Protokoll liest sich über `GET …/update`: Paket geholt und geprüft, Sicherung
+(12,9 GB, 28 Sekunden), Bau der Images bei laufendem Gerät (rund zehn Minuten),
+Umschalten, Aufräumen, `fertig`. Danach 20 Container, alle gesund (`jetcam` hat
+keinen Healthcheck), Oberfläche 200, `SYSTEM_VERSION` 0.8.15. Aufgeräumt:
+`arasul-0.8.10` bis `-0.8.12` weg, `arasul-0.8.14` (abgegeben, `ABGEGEBEN.txt`)
+bleibt als Rückweg. Zählung vorher gegen nachher gleich: Konten (Zeilen und Hash
+der Zugänge), Lizenzdateien, Apps, App-Stände, App-Datenbanken, Flows, Modelle,
+Firmenordner-Rechte; verschoben haben sich nur `api_keys` (+1, der Schlüssel für
+den Lauf) und der Firmenordner (4381 auf 4417 Dateien, der Abgleich von Koljas
+Konto schreibt alle fünf Minuten weiter; nichts fehlt).
+
+**Eine Fassung bringt ihr eigenes Skript mit, und das läuft beim nächsten
+Einspielen.** `v0.8.15` wurde vor dem Fix des Hilfscontainers getaggt: wer auf
+0.8.15 steht, startet sein nächstes Einspielen oder seinen Rückweg mit dem Skript
+und dem hilfscontainer von 0.8.15, also noch mit dem geerbten Healthcheck. Ein
+Merge nach `main` rollt den Fix über `deploy.yml` in das laufende Verzeichnis;
+bei einem Kunden ohne Deploy kommt er erst mit der Fassung, die ihn enthält, und
+wirkt vom Einspielen danach.
+
+**`~/arasul-aktuell`** ist kein Teil des Weges. Das Repo kennt den Namen nicht,
+das Skript findet die laufende Fassung über seinen eigenen Ort
+(`dirname/../..`), und der Verweis zeigte am Orin ins Leere, ohne dass etwas
+brach. Er wurde nicht angelegt.
 
 ### `./arasul update` ist weiterhin kein Update
 
