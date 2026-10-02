@@ -1774,6 +1774,14 @@ cmd_update() {
     docker compose build
     log_info "Restarting services..."
     docker compose up -d
+    # Einheiten und udev-Regeln neu schreiben und laden (J37): sonst gilt eine
+    # geaenderte Regel erst nach dem naechsten Neustart.
+    local ausgabe
+    if ausgabe="$(bash "${SCRIPT_DIR}/scripts/system/einheiten-installieren.sh" 2>&1)"; then
+        log_success "$ausgabe"
+    else
+        log_warning "Systemd-Einheiten/udev-Regeln nicht geschrieben: ${ausgabe}"
+    fi
     log_success "Update completed"
 }
 
