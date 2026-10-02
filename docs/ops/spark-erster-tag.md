@@ -32,6 +32,7 @@ Er zeigt **nicht**, und zwar absichtlich ohne es vorzutaeuschen:
 | Ollama auf der GPU (`llm-service` laeuft ohne NVIDIA-Laufzeit)            | keine GPU    | 1, 4 |
 | Standardmodell holen (17 GB)                 | kein Platz, keine GPU                                          | 3 |
 | Einbettungsdienst auf CUDA (laeuft auf der CPU)                           | keine GPU    | 1 |
+| USB-Bus (`/dev/bus/usb` fehlt auf der virtuellen Maschine; ohne ihn ist das Einhaengen eines USB-Datentraegers fuer die Sicherung ungeprueft) | kein USB | 0, 6 |
 | Werksreset                                   | zerstoert; nur am Geraet                                       | 7 |
 | Selbstheilung gegen echte GPU-Last           | keine GPU                                                      | 8 |
 
@@ -62,6 +63,11 @@ DGX OS legt den ersten Benutzer ueblicherweise mit 1000 an; **ungemessen**.
 Ist es eine andere Nummer: einen Benutzer mit 1000 verwenden, bevor `install.sh`
 laeuft. Das Geraet selbst darauf hinzuweisen, ist ein Befund fuer
 `install.sh` (es prueft die UID heute nicht).
+
+**`/dev/bus/usb`.** Der Selbstheilungsdienst haengt den USB-Bus ein
+(`compose/compose.monitoring.yaml`, `devices`). Gibt es ihn am Spark nicht
+(`ls -d /dev/bus/usb`), lehnt Docker den Container ab und der Bootstrap bricht
+beim Start der Hintergrunddienste ab. Der Trockenlauf umgeht das ausdruecklich.
 
 Danach `docker compose ps` und `cat .env | grep -E 'JETSON|GPU_|LLM_|OLLAMA_|RAM_LIMIT_LLM'`
 in den Messbogen kopieren.
