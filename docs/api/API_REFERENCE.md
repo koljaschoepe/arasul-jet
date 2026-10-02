@@ -2748,6 +2748,13 @@ Freigabe (`app_members`).
 | GET    | `/api/ausweise/alle` | Alle am Gerät, mit Eigentümer (Administrator)       |
 | DELETE | `/api/ausweise/:id`  | Widerrufen: meinen, als Administrator jeden         |
 
+**Ein Ausweis widerruft sich selbst** (J34): `DELETE /api/ausweise/<eigene Nummer>`
+mit dem Ausweis als Bearer antwortet `204` ohne Rumpf, derselbe Wert danach
+`401`. Es ist die einzige Ausweis-Verwaltung, die er annimmt, und nur für sich —
+jede andere Nummer, auch eine des eigenen Menschen und auch bei einem
+Administrator, ist `404`. So kann `sync --uninstall` am Rechner den Ausweis am
+Gerät ungültig machen.
+
 Ein Ausweis in der Liste: `{ id, name, praefix, angelegt_am,
 zuletzt_benutzt_am }`. `zuletzt_benutzt_am: null` heißt „noch nie benutzt" und
 ist eine Auskunft, kein Fehlwert — ein Ausweis, der seit Wochen daliegt und nie
@@ -2774,7 +2781,7 @@ Stellen, an denen die Antwort später auseinanderläuft.
 **Was ein Ausweis öffnet, sind genau drei Wege**, und das ist keine Liste,
 sondern die Bauweise: nur wer `middleware/ausweis.js` einbindet, nimmt ihn an.
 Überall sonst ist er kein gültiger JWT und bekommt `401` — auch auf den
-Routen oben, auch auf `/api/notizen`.
+Routen oben (mit der einen Ausnahme: dem Widerruf seiner selbst), auch auf `/api/notizen`.
 
 | Weg                        | Wofür                                               |
 | -------------------------- | --------------------------------------------------- |

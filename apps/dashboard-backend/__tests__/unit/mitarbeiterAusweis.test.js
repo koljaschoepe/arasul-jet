@@ -235,9 +235,7 @@ describe('Was ein Ausweis oeffnet -- und was nicht', () => {
   });
 
   test('eine App, die nicht freigegeben ist: 403', async () => {
-    db.query
-      .mockResolvedValueOnce(ausweisGehoert(ANNA))
-      .mockResolvedValueOnce({ rows: [] }); // keine Freigabe
+    db.query.mockResolvedValueOnce(ausweisGehoert(ANNA)).mockResolvedValueOnce({ rows: [] }); // keine Freigabe
     const res = await mitAusweis('/api/apps/fremd/zugang?stand=live');
     expect(res.status).toBe(403);
   });
@@ -260,7 +258,11 @@ describe('Was ein Ausweis oeffnet -- und was nicht', () => {
       .mockResolvedValueOnce({ rows: [{ x: 1 }] }); // app_staende
     const res = await mitAusweis('/apps/belege/api/me');
     expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ app_id: 'belege', benutzer: 'anna', rolle: 'mitarbeiter' });
+    expect(res.body.data).toMatchObject({
+      app_id: 'belege',
+      benutzer: 'anna',
+      rolle: 'mitarbeiter',
+    });
   });
 
   test('dort ohne Freigabe: 403', async () => {
@@ -301,6 +303,41 @@ describe('Was ein Ausweis oeffnet -- und was nicht', () => {
     expect(res.status).toBe(401);
     expect((await request(geraet()).delete('/api/ausweise/1')).status).toBe(401);
   });
+
+  test('der Ausweis widerruft sich selbst: 204, danach 401', async () => {
+    db.query
+      .mockResolvedValueOnce(ausweisGehoert(ANNA)) // pruefe
+      .mockResolvedValueOnce({
+        rows: [{ id: 42, name: 'Laptop', praefix: 'ausweis_aaaaaa', user_id: '7' }],
+      });
+    const res = await request(geraet())
+      .delete('/api/ausweise/42')
+      .set('Authorization', `Bearer ${AUSWEIS}`);
+    expect(res.status).toBe(204);
+    expect(res.text).toBe('');
+    expect(db.query.mock.calls[1][1]).toEqual([42, '7']);
+
+    db.query.mockResolvedValueOnce({ rows: [] }); // pruefe: Zeile ist weg
+    const danach = await mitAusweis('/api/apps/meine');
+    expect(danach.status).toBe(401);
+  });
+
+  test('ein Ausweis erreicht keinen anderen, auch nicht den eigenen Menschen', async () => {
+    db.query.mockResolvedValueOnce(ausweisGehoert(CHEF));
+    const res = await request(geraet())
+      .delete('/api/ausweise/43')
+      .set('Authorization', `Bearer ${AUSWEIS}`);
+    expect(res.status).toBe(404);
+    expect(db.query).toHaveBeenCalledTimes(1); // nur pruefe, kein DELETE
+  });
+
+  test('ein unbekannter Ausweis am Widerruf ist 401', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(geraet())
+      .delete('/api/ausweise/42')
+      .set('Authorization', `Bearer ${AUSWEIS}`);
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('Die Routen der Verwaltung eines Ausweises', () => {
@@ -314,9 +351,7 @@ describe('Die Routen der Verwaltung eines Ausweises', () => {
     const konflikt = new Error('duplicate key');
     konflikt.code = '23505';
     db.query.mockRejectedValueOnce(konflikt);
-    const res = await request(mitSitzung(ANNA))
-      .post('/api/ausweise')
-      .send({ name: 'Laptop' });
+    const res = await request(mitSitzung(ANNA)).post('/api/ausweise').send({ name: 'Laptop' });
     expect(res.status).toBe(409);
     expect(res.body.error.message).toMatch(/Widerrufen Sie ihn oder nehmen Sie einen anderen/);
   });

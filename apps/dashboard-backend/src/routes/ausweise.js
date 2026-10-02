@@ -4,7 +4,8 @@
  *   GET    /api/ausweise        meine Ausweise
  *   POST   /api/ausweise        einen ausstellen -- der Wert kommt EINMAL
  *   GET    /api/ausweise/alle   alle am Geraet, mit Eigentuemer (Administrator)
- *   DELETE /api/ausweise/:id    widerrufen: ich meine, der Administrator jeden
+ *   DELETE /api/ausweise/:id    widerrufen: ich meine, der Administrator jeden;
+ *                               ein Ausweis kann sich selbst widerrufen (204)
  *
  * BEI DEN KERN-WEGEN UND NICHT UNTER `admin/`. Ein Ausweis gehoert dem
  * Angemeldeten, jeder darf einen haben, und niemand stellt einen fuer einen
@@ -29,6 +30,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { ausweisOderSitzung } = require('../middleware/ausweis');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody, validateParams } = require('../middleware/validate');
 const { AusweisBody, AusweisParams } = require('../schemas/ausweise');
@@ -114,16 +116,29 @@ router.post(
  * Ausweis, den es nicht gibt, und einer, der einem anderen gehoert, sind fuer
  * den Aufrufer DIESELBE Antwort: 404. Andernfalls waere die Nummernfolge eine
  * Auskunft darueber, wie viele Ausweise am Geraet liegen.
+ *
+ * DER AUSWEIS WIDERRUFT SICH SELBST (J34). Wer einen Rechner abgibt, meldet
+ * sich dort ab (`sync --uninstall`) und erwartet, dass der Ausweis danach
+ * nicht mehr gilt -- und der Rechner hat nur den Ausweis, keine Sitzung.
+ * Darum nimmt DIESE Route ihn an, aber nur fuer sich: `:id` muss seine eigene
+ * Nummer sein, jede andere ist 404, auch eine des eigenen Menschen und auch
+ * bei einem Administrator. Ein abhanden gekommener Ausweis kann so keinen
+ * Nachbarn mitnehmen. Die Antwort ist 204 ohne Rumpf; danach ist derselbe
+ * Wert ein 401.
  */
 router.delete(
   '/:id',
-  requireAuth,
+  ausweisOderSitzung,
   requireRole('admin', 'mitarbeiter'),
   validateParams(AusweisParams),
   asyncHandler(async (req, res) => {
+    const durchAusweis = req.ausweisId !== undefined;
+    if (durchAusweis && Number(req.params.id) !== Number(req.ausweisId)) {
+      throw new NotFoundError('Diesen Ausweis gibt es nicht.');
+    }
     const weg = await mitarbeiterAusweis.widerrufe({
       ausweisId: req.params.id,
-      nurBenutzer: req.user.role === 'admin' ? null : req.user.id,
+      nurBenutzer: durchAusweis || req.user.role !== 'admin' ? req.user.id : null,
     });
     if (!weg) {
       throw new NotFoundError('Diesen Ausweis gibt es nicht.');
@@ -131,10 +146,19 @@ router.delete(
     await logSecurityEvent({
       userId: req.user.id,
       action: 'ausweis_widerrufen',
-      details: { ausweisId: weg.id, name: weg.name, praefix: weg.praefix, gehoert: weg.user_id },
+      details: {
+        ausweisId: weg.id,
+        name: weg.name,
+        praefix: weg.praefix,
+        gehoert: weg.user_id,
+        ...(durchAusweis && { durchAusweis: true }),
+      },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
+    if (durchAusweis) {
+      return res.status(204).end();
+    }
     res.json({ data: { id: weg.id, name: weg.name }, timestamp: new Date().toISOString() });
   })
 );
