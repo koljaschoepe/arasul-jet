@@ -1,109 +1,87 @@
 #!/bin/bash
 ###############################################################################
-# Arasul Platform - Admin Password Reset
-# Resets the admin password directly in the database.
-# Requires SSH/physical access to the Jetson (no email needed).
+# Arasul Platform - Passwort zuruecksetzen
+# Setzt das Passwort ueber den EINEN Schreibweg des Backends
+# (passwordService.schreibePasswort): Dashboard, Passwort-Historie UND der
+# Dateidienst des Firmenordners bekommen das neue Passwort. Hebt ausserdem die
+# Kontosperre auf und beendet alle Sitzungen.
+# Braucht SSH/Zugang zum Geraet (keine Mail).
 #
-# Usage:
-#   ./scripts/security/reset-password.sh [username]
+# Aufruf:
+#   ./scripts/security/reset-password.sh [benutzername]
+#   printf '%s' "$NEUES_PASSWORT" | ./scripts/security/reset-password.sh [benutzername]
 #
-# Default username: admin
+# Ohne Terminal (stdin ist eine Pipe) wird das Passwort aus der ersten Zeile von
+# stdin gelesen, ohne Rueckfrage. Mit Terminal fragt das Skript zweimal nach.
+# Standard-Benutzer: admin
 ###############################################################################
 
 set -euo pipefail
 
 USERNAME="${1:-admin}"
+CONTAINER="${ARASUL_BACKEND_CONTAINER:-dashboard-backend}"
+EINSTIEG="/app/apps/dashboard-backend/src/cli/passwort.js"
 
 echo "========================================"
-echo "  Arasul - Admin Password Reset"
+echo "  Arasul - Passwort zuruecksetzen"
 echo "========================================"
 echo ""
-echo "  User: $USERNAME"
+echo "  Benutzer: $USERNAME"
 echo ""
 
-# Check if postgres container is running
-if ! grep -q "Up\|running" <<<"$(docker compose ps postgres-db 2>/dev/null)"; then
-  echo "ERROR: PostgreSQL container is not running."
-  echo "Start it with: docker compose up -d postgres-db"
+if ! docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+  echo "FEHLER: Der Container $CONTAINER laeuft nicht."
+  echo "Starten mit: docker compose up -d dashboard-backend"
   exit 1
 fi
 
-# Verify user exists
-USER_EXISTS=$(docker exec postgres-db psql -U arasul -d arasul_db -tAc \
-  "SELECT COUNT(*) FROM admin_users WHERE username = '${USERNAME}';" 2>/dev/null)
-
-if [ "$USER_EXISTS" = "0" ]; then
-  echo "ERROR: User '$USERNAME' not found."
+if [ -t 0 ]; then
+  read -r -s -p "Neues Passwort: " PASSWORD
   echo ""
-  echo "Available users:"
-  docker exec postgres-db psql -U arasul -d arasul_db -tAc \
-    "SELECT username FROM admin_users;" 2>/dev/null | sed 's/^/  - /'
-  exit 1
+  read -r -s -p "Passwort wiederholen: " PASSWORD_CONFIRM
+  echo ""
+  if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
+    echo "FEHLER: Die Passwoerter stimmen nicht ueberein."
+    exit 1
+  fi
+else
+  IFS= read -r PASSWORD || true
 fi
-
-# Get new password
-read -s -p "New password: " PASSWORD
-echo ""
-read -s -p "Confirm password: " PASSWORD_CONFIRM
-echo ""
 
 if [ -z "$PASSWORD" ]; then
-  echo "ERROR: Password cannot be empty."
-  exit 1
-fi
-
-if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
-  echo "ERROR: Passwords do not match."
+  echo "FEHLER: Das Passwort darf nicht leer sein."
   exit 1
 fi
 
 if [ ${#PASSWORD} -lt 8 ]; then
-  echo "ERROR: Password must be at least 8 characters."
+  echo "FEHLER: Das Passwort braucht mindestens 8 Zeichen."
   exit 1
 fi
 
-# Generate bcrypt hash using the backend container (same bcrypt config as app)
-if grep -q "Up\|running" <<<"$(docker compose ps dashboard-backend 2>/dev/null)"; then
-  # Use Node.js in backend container (matches app's bcrypt salt rounds)
-  HASH=$(docker compose exec -T dashboard-backend node -e "
-    const bcrypt = require('bcrypt');
-    bcrypt.hash(process.argv[1], 12).then(h => process.stdout.write(h));
-  " "$PASSWORD" 2>/dev/null)
-elif command -v python3 &>/dev/null && python3 -c "import bcrypt" 2>/dev/null; then
-  # Python fallback
-  HASH=$(python3 -c "
-import bcrypt, sys
-h = bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt(rounds=12)).decode()
-print(h, end='')
-" "$PASSWORD")
-else
-  echo "ERROR: Neither backend container nor python3+bcrypt available."
-  echo "Start backend: docker compose up -d dashboard-backend"
+# Das Passwort geht ueber stdin in den Container, nie als Argument (sonst stuende
+# es in der Prozessliste).
+ANTWORT=$(printf '%s\n' "$PASSWORD" | docker exec -i "$CONTAINER" node "$EINSTIEG" "$USERNAME") || {
+  echo "FEHLER: ${ANTWORT:-Zuruecksetzen fehlgeschlagen}"
   exit 1
-fi
+}
 
-if [ -z "$HASH" ]; then
-  echo "ERROR: Failed to generate password hash."
-  exit 1
-fi
-
-# Update password AND clear the account lock in one statement.
-# login_attempts / locked_until back off the failed-login lockout (see
-# is_user_locked() in 002_auth_schema.sql) — otherwise a user who was locked
-# out could reset the password and still be unable to log in for 15 minutes.
-docker exec postgres-db psql -U arasul -d arasul_db -c \
-  "UPDATE admin_users SET password_hash = '$HASH', login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE username = '$USERNAME';" \
-  >/dev/null 2>&1
-
-# Clear all sessions (force re-login).
-# Table is active_sessions (see 002_auth_schema.sql) — do NOT suppress stderr
-# here: a wrong table name must fail loudly, not silently print "success".
-docker exec postgres-db psql -U arasul -d arasul_db -c \
-  "DELETE FROM active_sessions WHERE user_id = (SELECT id FROM admin_users WHERE username = '$USERNAME');" \
-  >/dev/null
+case "$ANTWORT" in
+  *'"ok":true'*) ;;
+  *)
+    echo "FEHLER: $ANTWORT"
+    exit 1
+    ;;
+esac
 
 echo ""
-echo "Password reset successful for user: $USERNAME"
-echo "Account lock cleared and all active sessions invalidated."
-echo "Please log in with the new password."
+echo "Passwort zurueckgesetzt fuer: $USERNAME"
+echo "Kontosperre aufgehoben, alle Sitzungen beendet."
+case "$ANTWORT" in
+  *'"firmenordner":"gespiegelt"'*) echo "Firmenordner: neues Passwort uebernommen." ;;
+  *'"firmenordner":"offen"'*)
+    echo "ACHTUNG: Der Dateidienst hat das neue Passwort NICHT angenommen."
+    echo "Der Firmenordner geht erst wieder, wenn der Abgleich gelingt (Einstellungen > Firmenordner)."
+    ;;
+esac
+echo "Bitte mit dem neuen Passwort anmelden."
 echo ""

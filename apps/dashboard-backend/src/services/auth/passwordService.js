@@ -230,4 +230,58 @@ async function schreibePasswort(userId, newPassword, { changedBy, ipAddress, vom
   return newPasswordHash;
 }
 
-module.exports = { changeDashboardPassword, setzePasswort };
+/**
+ * Das Passwort am Geraet zuruecksetzen -- der Weg von `scripts/security/reset-password.sh`
+ * (J33, 02.10.2026), wer SSH hat und das Passwort vergessen wurde.
+ *
+ * Bis hierher schrieb das Skript `password_hash` selbst in `admin_users`, am
+ * Schreibweg vorbei: der Dateidienst behielt sein altes Passwort, und wer
+ * sein Admin-Passwort zuruecksetzte, kam danach nicht mehr in den Firmenordner
+ * (`sync` endete mit 401) und wusste nicht warum. Jetzt geht es durch
+ * `schreibePasswort`, also mit Historie, Zwischenspeicher und Spiegelung.
+ *
+ * Dazu gehoert, was das Skript schon vorher tat: die Sperre aufheben
+ * (`login_attempts`/`locked_until`, sonst bliebe der Zurueckgesetzte 15 Minuten
+ * draussen) und alle Sitzungen beenden. `vomAdmin` bleibt `false`: wer am
+ * Geraet sitzt, setzt sein EIGENES Passwort; ein Zwangswechsel haette der
+ * Mensch am Terminal nie gehabt.
+ *
+ * Gibt zurueck, ob der Dateidienst das neue Passwort angenommen hat
+ * (`gespiegelt`: `null` heisst, es gibt keinen Firmenordner).
+ *
+ * @returns {Promise<{id: string, username: string, gespiegelt: boolean|null}>}
+ */
+async function setzePasswortAmGeraet(username, neuesPasswort) {
+  if (!neuesPasswort || neuesPasswort.length < 8) {
+    throw new ValidationError('Das Passwort braucht mindestens acht Zeichen');
+  }
+  const { rows } = await db.query('SELECT id, username FROM admin_users WHERE username = $1', [
+    username,
+  ]);
+  if (rows.length === 0) {
+    throw new NotFoundError(`Benutzer ${username} gibt es nicht`);
+  }
+  const ziel = rows[0];
+
+  await schreibePasswort(ziel.id, neuesPasswort, {
+    changedBy: 'reset-password.sh',
+    vomAdmin: false,
+  });
+
+  await db.query('UPDATE admin_users SET login_attempts = 0, locked_until = NULL WHERE id = $1', [
+    ziel.id,
+  ]);
+  await db.query('DELETE FROM active_sessions WHERE user_id = $1', [ziel.id]);
+
+  let gespiegelt = null;
+  if (firmenordner.istAn()) {
+    const zeile = await db.query(
+      'SELECT passwort_gespiegelt FROM firmenordner_nutzer WHERE user_id = $1',
+      [ziel.id]
+    );
+    gespiegelt = zeile.rows[0]?.passwort_gespiegelt === true;
+  }
+  return { id: ziel.id, username: ziel.username, gespiegelt };
+}
+
+module.exports = { changeDashboardPassword, setzePasswort, setzePasswortAmGeraet };
