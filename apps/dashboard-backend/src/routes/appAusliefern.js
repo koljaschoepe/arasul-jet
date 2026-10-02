@@ -54,7 +54,8 @@ const router = express.Router();
 const { asyncHandler } = require('../middleware/errorHandler');
 const { optionalAuth } = require('../middleware/auth');
 const { ausweisProbe } = require('../middleware/ausweis');
-const { NotFoundError, UnauthorizedError } = require('../utils/errors');
+const { NotFoundError, UnauthorizedError, ValidationError } = require('../utils/errors');
+const { resolveRealWithinRoots } = require('../services/flows/pathSafe');
 const { AppId } = require('../schemas/apps');
 const appStore = require('../services/app/appStore');
 const appZugang = require('../services/app/appZugang');
@@ -96,6 +97,36 @@ const ICH = 'api/me';
 function istDateiPfad(rest) {
   const letztes = rest.split('/').pop();
   return letztes.includes('.');
+}
+
+/**
+ * Sicherstellen, dass `rest` im Ordner der App bleibt -- auch ueber Symlinks.
+ *
+ * `sendFile` schuetzt vor `..`, folgt aber einem Symlink im Ordner bis an sein
+ * Ziel. Ein Paket darf keine Symlinks enthalten (`appPaket.entpacke`), doch
+ * was danach am Geraet in den Ordner gelegt wird, prueft dort niemand. Darum
+ * geht jeder Pfad ein zweites Mal durch dieselbe Sperre wie die Dateien der
+ * Flows. `rest` kommt kodiert aus `req.path`; geprueft wird, was `send`
+ * danach tatsaechlich oeffnet, also der dekodierte Pfad.
+ *
+ * Wer den Ordner verlaesst, bekommt dieselbe 404 wie fuer eine Datei, die es
+ * nicht gibt: ob ausserhalb etwas liegt, erfaehrt er nicht.
+ */
+function imOrdnerHalten(verzeichnis, rest, was) {
+  let dekodiert;
+  try {
+    dekodiert = decodeURIComponent(rest);
+  } catch {
+    throw new NotFoundError(`${was} gibt es nicht`);
+  }
+  try {
+    resolveRealWithinRoots([verzeichnis], dekodiert || 'index.html');
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      throw new NotFoundError(`${was} gibt es nicht`);
+    }
+    throw err;
+  }
 }
 
 /**
@@ -208,7 +239,10 @@ router.use(
       throw fehler;
     }
 
-    if (rest && istDateiPfad(rest)) {
+    const istDatei = Boolean(rest) && istDateiPfad(rest);
+    imOrdnerHalten(ziel.verzeichnis, istDatei ? rest : 'index.html', rest || 'index.html');
+
+    if (istDatei) {
       return res.sendFile(rest, { root: ziel.verzeichnis }, fehler => {
         if (!fehler) {
           return;
