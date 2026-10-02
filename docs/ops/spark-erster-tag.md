@@ -41,6 +41,7 @@ Jede dieser Stellen schreibt im Protokoll des Trockenlaufs
 ## Vorbereitung (vor der ersten Messung)
 
 ```bash
+id -u        # Sollwert 1000, siehe unten
 # Auf dem Spark, als der Benutzer, der Docker darf. Artefakt wie bei jedem Kunden:
 tar xzf arasul-<Fassung>.tar.gz && cd arasul-<Fassung>
 ./install.sh --ssh-behalten        # der Spark ist Kolja zugaenglich, SSH bleibt wie es ist
@@ -51,6 +52,16 @@ tar xzf arasul-<Fassung>.tar.gz && cd arasul-<Fassung>
 und die `.env` nennt `JETSON_PROFILE=dgx_spark`, `GPU_DOCKERFILE=Dockerfile.spark`.
 Steht dort etwas anderes, hat die Erkennung den Spark nicht erkannt: Punkt 2
 zuerst, dann der Rest. Die Zeit bis zum Ende des Bootstraps aufschreiben.
+
+**Benutzer mit UID 1000.** Jeder Container der Plattform laeuft als UID 1000 und
+liest die Geheimnisse (`config/secrets`, Rechte 600) als Bindmount. Hat der
+installierende Benutzer eine andere Nummer, endet jeder Dienst mit `EACCES` auf
+`/run/secrets/postgres_password`, und keiner kommt hoch. Der Trockenlauf hat das
+am 02.10.2026 gefunden (arm64-Laeufer, UID 1001) und laeuft seither als 1000.
+DGX OS legt den ersten Benutzer ueblicherweise mit 1000 an; **ungemessen**.
+Ist es eine andere Nummer: einen Benutzer mit 1000 verwenden, bevor `install.sh`
+laeuft. Das Geraet selbst darauf hinzuweisen, ist ein Befund fuer
+`install.sh` (es prueft die UID heute nicht).
 
 Danach `docker compose ps` und `cat .env | grep -E 'JETSON|GPU_|LLM_|OLLAMA_|RAM_LIMIT_LLM'`
 in den Messbogen kopieren.
