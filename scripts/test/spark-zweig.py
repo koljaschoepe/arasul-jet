@@ -25,7 +25,7 @@ Was geprueft wird
    follow-up`, sein `bau.dockerfile` liegt neben beiden GPU-Diensten, und
    sein Bibliothekspfad kennt kein `jetpack`.
 4. Der Trockenlauf (J41) haelt zusammen: die Compose-Ausnahme ohne GPU nennt
-   genau die zwei GPU-Dienste und den USB-Bus der Selbstheilung (sonst keinen), die Attrappe `nvidia-smi`
+   genau die zwei GPU-Dienste (sonst keinen), die Attrappe `nvidia-smi`
    nennt den GB10, und der CI-Job ruft das Skript auf, das beide nutzt. Die
    Ausnahme darf nie in die echte Compose-Datei wandern: dort stuende der Spark
    ohne GPU-Zusage.
@@ -111,7 +111,7 @@ def pruefe_trockenlauf(wurzel):
     if fehler:
         return fehler
     dienste = re.findall(r'^  ([a-z][a-z0-9-]*):\s*$', ausnahme.read_text(encoding='utf-8'), re.MULTILINE)
-    erwartet = list(GPU_DIENSTE) + ['self-healing-agent']  # dazu der USB-Bus, siehe Kopf der Datei
+    erwartet = list(GPU_DIENSTE)
     if sorted(dienste) != sorted(erwartet):
         fehler.append(f'compose.ohne-gpu.yaml nennt {dienste}, erwartet genau {erwartet}')
     if 'GB10' not in attrappe.read_text(encoding='utf-8'):
