@@ -16,6 +16,8 @@ const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 // Mock database
 jest.mock('../../src/database', () => {
@@ -33,7 +35,35 @@ jest.mock('../../src/database', () => {
   };
 });
 
+// Die Route `/apps/<id>/…` ist echt; nur die Fragen nach Sitzung, Freigabe und
+// Stand der App (Datenbank) sind ersetzt. Der Pfad zur Datei läuft ungemockt.
+jest.mock('../../src/middleware/auth', () => ({
+  ...jest.requireActual('../../src/middleware/auth'),
+  optionalAuth: (req, res, next) => {
+    req.user = { id: '1', username: 'admin', role: 'admin' };
+    next();
+  },
+}));
+jest.mock('../../src/services/app/appZugang', () => ({
+  ...jest.requireActual('../../src/services/app/appZugang'),
+  pruefe: jest.fn(),
+}));
+jest.mock('../../src/services/app/appStore', () => ({
+  ...jest.requireActual('../../src/services/app/appStore'),
+  ausliefernAus: jest.fn(),
+}));
+
 const db = require('../../src/database');
+const appZugang = require('../../src/services/app/appZugang');
+const appStore = require('../../src/services/app/appStore');
+const { ValidationError } = require('../../src/utils/errors');
+const {
+  resolveWithinRoots,
+  resolveRealWithinRoots,
+} = require('../../src/services/flows/pathSafe');
+const { DateienLesenTool } = require('../../src/services/flows/tools/dateien');
+
+const GEHEIM = 'GEHEIMER-INHALT-AUSSERHALB-DER-WURZEL';
 
 // Test constants
 const JWT_SECRET = 'test-secret-key-for-jwt-testing';
@@ -143,39 +173,6 @@ const createSecureApp = () => {
     );
 
     res.json(result.rows);
-  });
-
-  // File download (potential path traversal target)
-  app.get('/api/documents/:id/download', authMiddleware, async (req, res) => {
-    const docId = parseInt(req.params.id, 10);
-    if (isNaN(docId)) {
-      return res
-        .status(400)
-        .json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
-    }
-
-    const result = await db.query(
-      'SELECT filename, file_path FROM documents WHERE id = $1',
-      [docId]
-    );
-
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: { code: 'NOT_FOUND', message: 'Document not found' } });
-    }
-
-    const doc = result.rows[0];
-
-    // Validate path doesn't escape base directory
-    const basePath = '/data/documents';
-    const fullPath = path.resolve(basePath, doc.file_path);
-
-    if (!fullPath.startsWith(basePath)) {
-      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
-    }
-
-    res.json({ path: fullPath, filename: sanitizeFilename(doc.filename) });
   });
 
   // File upload with validation
@@ -426,57 +423,223 @@ describe('Security Tests', () => {
   // Path Traversal Prevention
   // =====================================================
   describe('Path Traversal Prevention', () => {
-    it('Prevents path traversal in document download', async () => {
-      db.query.mockResolvedValueOnce({
-        rows: [{
-          filename: 'secret.pdf',
-          file_path: '../../../etc/passwd'
-        }]
+    // Alles hier läuft gegen den Produktionscode: `pathSafe.js` direkt, das
+    // Datei-Werkzeug, das ihn benutzt, und die Route `/apps/<id>/…`, die einen
+    // Pfad aus der Anfrage auf die Platte abbildet. Keine Nachbildung im Test.
+    let wurzel; // erlaubter Ordner
+    let aussen; // Nachbar, in den nichts führen darf
+
+    beforeAll(() => {
+      const basis = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pfadpruefung-')));
+      wurzel = path.join(basis, 'erlaubt');
+      aussen = path.join(basis, 'erlaubt-geheim'); // Präfix-Nachbar: gleicher Anfang
+      fs.mkdirSync(path.join(wurzel, 'unter'), { recursive: true });
+      fs.mkdirSync(aussen);
+      fs.writeFileSync(path.join(wurzel, 'index.html'), '<html>start</html>');
+      fs.writeFileSync(path.join(wurzel, 'unter', 'ok.txt'), 'drinnen');
+      fs.writeFileSync(path.join(aussen, 'geheim.txt'), GEHEIM);
+      fs.symlinkSync(aussen, path.join(wurzel, 'link-ordner'));
+      fs.symlinkSync(path.join(aussen, 'geheim.txt'), path.join(wurzel, 'link-datei.txt'));
+      fs.symlinkSync(path.join(aussen, 'gibtsnicht'), path.join(wurzel, 'link-baumelnd'));
+      fs.symlinkSync(path.join(wurzel, 'unter'), path.join(wurzel, 'link-innen'));
+    });
+
+    afterAll(() => {
+      fs.rmSync(path.dirname(wurzel), { recursive: true, force: true });
+    });
+
+    const loest = (pfad, fn = resolveRealWithinRoots) => fn([wurzel], pfad);
+
+    describe('pathSafe.js', () => {
+      it('lässt gewöhnliche Pfade durch', () => {
+        expect(loest('unter/ok.txt')).toBe(path.join(wurzel, 'unter', 'ok.txt'));
+        expect(loest('')).toBe(wurzel);
+        expect(loest('neu/noch-nicht-da.md')).toBe(path.join(wurzel, 'neu', 'noch-nicht-da.md'));
+        expect(loest('link-innen/ok.txt')).toBe(path.join(wurzel, 'unter', 'ok.txt'));
       });
 
-      await request(app)
-        .get('/api/documents/1/download')
-        .set('Authorization', `Bearer ${validToken}`)
-        .expect(403)
-        .expect(res => {
-          expect(res.body.error.message).toBe('Access denied');
-        });
-    });
-
-    it('Blocks null byte injection', async () => {
-      const response = await request(app)
-        .post('/api/documents/upload')
-        .set('Authorization', `Bearer ${validToken}`)
-        .send({ filename: 'test\0.php.pdf', content: 'data' })
-        .expect(400);
-
-      expect(response.body.error.message).toBe('Invalid filename characters');
-    });
-
-    it('Blocks double dot sequences', async () => {
-      const response = await request(app)
-        .post('/api/documents/upload')
-        .set('Authorization', `Bearer ${validToken}`)
-        .send({ filename: '..\\..\\secret.txt', content: 'data' })
-        .expect(400);
-
-      expect(response.body.error.message).toBe('Invalid filename characters');
-    });
-
-    it('Allows valid file paths', async () => {
-      db.query.mockResolvedValueOnce({
-        rows: [{
-          filename: 'document.pdf',
-          file_path: 'user-uploads/document.pdf'
-        }]
+      it.each([
+        '../erlaubt-geheim/geheim.txt',
+        '../../../../../../etc/passwd',
+        'unter/../../erlaubt-geheim/geheim.txt',
+        '..',
+        'unter/../..',
+      ])('weist Ausbruch mit ".." ab: %s', pfad => {
+        expect(() => loest(pfad)).toThrow(ValidationError);
+        expect(() => loest(pfad, resolveWithinRoots)).toThrow(ValidationError);
       });
 
-      const response = await request(app)
-        .get('/api/documents/1/download')
-        .set('Authorization', `Bearer ${validToken}`)
-        .expect(200);
+      it.each([
+        '/etc/passwd',
+        '/',
+        path.join(os.tmpdir(), 'irgendwo'),
+        // gleicher Anfang wie die Wurzel, aber ein anderer Ordner
+        '__AUSSEN__/geheim.txt',
+      ])('weist absolute Pfade ausserhalb ab: %s', pfad => {
+        const p = pfad.replace('__AUSSEN__', aussen);
+        expect(() => loest(p)).toThrow(ValidationError);
+        expect(() => loest(p, resolveWithinRoots)).toThrow(ValidationError);
+      });
 
-      expect(response.body.path).toContain('/data/documents/');
+      it('erlaubt einen absoluten Pfad innerhalb der Wurzel', () => {
+        expect(loest(path.join(wurzel, 'unter', 'ok.txt'))).toBe(
+          path.join(wurzel, 'unter', 'ok.txt')
+        );
+      });
+
+      // Doppelpunkt-Folgen: `projekt://` ist der einzige Pfadkopf mit eigener Bedeutung.
+      it.each([
+        'projekt://aktiv/../../etc/passwd',
+        'projekt://aktiv/../erlaubt-geheim/geheim.txt',
+        'projekt://aktiv//etc/passwd',
+        'projekt://../..',
+        'projekt://aktiv/unter/../../..',
+        'a:b/../../x.txt', // ohne Kopf ist "a:b" nur ein Ordnername
+      ])('weist Ausbruch über den projekt://-Kopf ab: %s', pfad => {
+        expect(() => loest(pfad)).toThrow(ValidationError);
+        expect(() => loest(pfad, resolveWithinRoots)).toThrow(ValidationError);
+      });
+
+      it('nimmt den projekt://-Kopf ab und bleibt in der Wurzel', () => {
+        expect(loest('projekt://aktiv/unter/ok.txt')).toBe(path.join(wurzel, 'unter', 'ok.txt'));
+        expect(loest('projekt://aktiv')).toBe(wurzel);
+      });
+
+      it.each(['projekt:/../x.txt', 'projekt:/aktiv/x.txt', 'a:b/../x.txt', 'C:\\Windows\\x.txt'])(
+        'behandelt Doppelpunkt ohne projekt://-Kopf als gewöhnlichen Namen: %s',
+        pfad => {
+          const ziel = loest(pfad, resolveWithinRoots);
+          expect(ziel === wurzel || ziel.startsWith(wurzel + path.sep)).toBe(true);
+        }
+      );
+
+      // Kodierte Varianten: pathSafe dekodiert nichts. `%2e%2e` ist ein Name,
+      // kein `..`. Das muss so bleiben, sonst entschiede jede Schicht davor anders.
+      // Ein Name, der mit `..` BEGINNT, wird vorsorglich abgewiesen -- erlaubt ist
+      // beides, nie aber ein Ziel ausserhalb.
+      it.each(['%2e%2e/%2e%2e/etc/passwd', '..%2f..%2fetc%2fpasswd', '%252e%252e/x', '..%5c..%5cx'])(
+        'liest Kodiertes nicht als ".." und kommt nie aus der Wurzel: %s',
+        pfad => {
+          let ziel = null;
+          try {
+            ziel = loest(pfad, resolveWithinRoots);
+          } catch (err) {
+            expect(err).toBeInstanceOf(ValidationError);
+          }
+          if (ziel) {
+            expect(ziel.startsWith(wurzel + path.sep)).toBe(true);
+            expect(ziel).toContain('%');
+          }
+        }
+      );
+
+      it('weist ein NUL-Byte ab', () => {
+        expect(() => loest('ok.txt\0.png')).toThrow(ValidationError);
+        expect(() => loest('unter/\0/../../../etc/passwd')).toThrow(ValidationError);
+      });
+
+      it('weist einen Symlink-Ordner und eine Symlink-Datei nach draussen ab', () => {
+        expect(() => loest('link-ordner/geheim.txt')).toThrow(ValidationError);
+        expect(() => loest('link-ordner')).toThrow(ValidationError);
+        expect(() => loest('link-datei.txt')).toThrow(ValidationError);
+        expect(() => loest('link-ordner/neu.txt')).toThrow(ValidationError);
+      });
+
+      it('weist einen baumelnden Symlink ab (Schreib-Falle)', () => {
+        expect(() => loest('link-baumelnd')).toThrow(ValidationError);
+      });
+
+      it('weist nach: lexikalisch allein hält einen Symlink NICHT auf', () => {
+        // Genau deshalb muss jeder Zugriff durch resolveRealWithinRoots gehen.
+        expect(() => loest('link-ordner/geheim.txt', resolveWithinRoots)).not.toThrow();
+      });
+    });
+
+    describe('Datei-Werkzeug (nutzt pathSafe)', () => {
+      const tool = new DateienLesenTool();
+      const lies = pfad =>
+        tool.execute({ aktion: 'read', pfad: pfad.replace('__AUSSEN__', aussen) }, { roots: [wurzel] });
+
+      it('liest eine Datei in der Wurzel', async () => {
+        expect(await lies('unter/ok.txt')).toContain('drinnen');
+      });
+
+      it.each([
+        '../erlaubt-geheim/geheim.txt',
+        '__AUSSEN__/geheim.txt',
+        'link-datei.txt',
+        'link-ordner/geheim.txt',
+        'projekt://aktiv/../erlaubt-geheim/geheim.txt',
+        '..%2ferlaubt-geheim%2fgeheim.txt',
+      ])('gibt den Inhalt ausserhalb nie heraus: %s', async pfad => {
+        const antwort = String(await lies(pfad));
+        expect(antwort).not.toContain(GEHEIM);
+        expect(antwort).toMatch(/^Fehler:/);
+      });
+    });
+
+    describe('Route /apps/<id>/… (liefert Dateien aus dem Ordner einer App)', () => {
+      let site;
+
+      beforeAll(() => {
+        const a = express();
+        a.use('/apps', require('../../src/routes/appAusliefern'));
+        a.use(require('../../src/middleware/errorHandler').errorHandler);
+        site = a;
+      });
+
+      beforeEach(() => {
+        appZugang.pruefe.mockResolvedValue(undefined);
+        appStore.ausliefernAus.mockResolvedValue({ version: '1.0.0', verzeichnis: wurzel });
+      });
+
+      const hole = url => request(site).get(url);
+
+      it('liefert eine Datei der App', async () => {
+        const res = await hole('/apps/urlaub/unter/ok.txt').expect(200);
+        expect(res.text).toBe('drinnen');
+      });
+
+      it.each([
+        '/apps/urlaub/%2e%2e/erlaubt-geheim/geheim.txt',
+        '/apps/urlaub/%2e%2e/%2e%2e/%2e%2e/etc/passwd',
+        '/apps/urlaub/..%2ferlaubt-geheim%2fgeheim.txt',
+        '/apps/urlaub/unter/%2e%2e/%2e%2e/erlaubt-geheim/geheim.txt',
+        '/apps/urlaub/%252e%252e/erlaubt-geheim/geheim.txt',
+        '/apps/urlaub/..%5c..%5cerlaubt-geheim%5cgeheim.txt',
+        '/apps/urlaub/%00/../../erlaubt-geheim/geheim.txt',
+        '/apps/urlaub/ok.txt%00.png',
+        '/apps/urlaub/%2fetc%2fpasswd.txt',
+        '/apps/urlaub/test/%2e%2e/%2e%2e/erlaubt-geheim/geheim.txt',
+      ])('gibt bei Ausbruchsversuch nichts heraus: %s', async url => {
+        const res = await hole(url);
+        expect(res.status).toBeGreaterThanOrEqual(400);
+        expect(res.status).toBeLessThan(500);
+        expect(res.text).not.toContain(GEHEIM);
+      });
+
+      it('liefert für einen absoluten Pfad nur die Startseite der App', async () => {
+        const res = await hole('/apps/urlaub//etc/passwd').expect(200);
+        expect(res.text).toBe('<html>start</html>');
+      });
+
+      it('folgt einem Symlink nach draussen nicht', async () => {
+        for (const url of [
+          '/apps/urlaub/link-datei.txt',
+          '/apps/urlaub/link-ordner/geheim.txt',
+          '/apps/urlaub/link-baumelnd.txt',
+          '/apps/urlaub/link-ordner/neu.txt',
+        ]) {
+          const res = await hole(url);
+          expect(res.text).not.toContain(GEHEIM);
+          expect(res.status).toBe(404);
+        }
+      });
+
+      it('folgt einem Symlink INNERHALB der App weiterhin', async () => {
+        const res = await hole('/apps/urlaub/link-innen/ok.txt').expect(200);
+        expect(res.text).toBe('drinnen');
+      });
     });
   });
 
