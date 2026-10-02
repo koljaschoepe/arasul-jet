@@ -487,6 +487,16 @@ Merge nach `main` rollt den Fix über `deploy.yml` in das laufende Verzeichnis;
 bei einem Kunden ohne Deploy kommt er erst mit der Fassung, die ihn enthält, und
 wirkt vom Einspielen danach.
 
+**Rückweg am echten Orin am 02.10.2026, 11:36 bis 11:46: GRÜN.** Von `0.8.15`
+zurück auf `arasul-0.8.14` mit `POST /api/v1/external/update/zurueck`, derselbe
+Schlüssel (danach widerrufen, die alte Anfrage bekommt 401). Zehn Minuten, 20
+Container gesund, Oberfläche 200, Version wieder `20261002-5137051`. Zählung vor
+gegen nach gleich (Konten samt Hash, Lizenz, Apps, Flows, Modelle, Firmenordner-
+Rechte); verschoben hat sich nur `api_keys` (+1, ein anderer Lauf) und der
+Firmenordner (4418 auf 4435 Dateien, 424,4 auf 422,3 MB: OpenCloud schreibt und
+räumt seine Indexe selbst, der Abgleich läuft weiter). Der Hilfscontainer trug
+diesmal keinen Healthcheck, das Skript lief mit dem Fix aus dem Deploy.
+
 **`~/arasul-aktuell`** ist kein Teil des Weges. Das Repo kennt den Namen nicht,
 das Skript findet die laufende Fassung über seinen eigenen Ort
 (`dirname/../..`), und der Verweis zeigte am Orin ins Leere, ohne dass etwas
