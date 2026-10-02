@@ -122,8 +122,9 @@ for dienst in llm-service embedding-service dashboard-backend dashboard-frontend
 done
 pruefe "llm-service traegt den CUDA-13-Runner von Ollama (cuda_v13)" \
   "$(ja docker compose exec -T llm-service ls /usr/lib/ollama/cuda_v13)"
+ld_pfad="$(docker compose exec -T llm-service printenv LD_LIBRARY_PATH 2>/dev/null || true)"
 pruefe "llm-service ohne den JetPack-Runner im Suchpfad" \
-  "$(ja bash -c "! docker compose exec -T llm-service printenv LD_LIBRARY_PATH | grep -qi jetpack")"
+  "$(ja bash -c '! grep -qi jetpack <<<"$1"' _ "$ld_pfad")" "$ld_pfad"
 
 # --- 4. Jeder Container laeuft, jeder mit Healthcheck wird gesund ---------------
 abschnitt "4. Container"
