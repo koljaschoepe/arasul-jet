@@ -1162,6 +1162,7 @@ async function entferneMitglied(raumId, permissionId) {
  */
 const GELOESCHTES_KONTO = 'ein gelöschtes Konto';
 const KONTO_VOR_NEUINSTALLATION = 'ein Konto vor der Neuinstallation';
+const KONTO_UNBEKANNT = 'ein Konto, das sich nicht zuordnen lässt';
 
 /**
  * DER DIENST LOEST DEN NAMEN BEIM LESEN AUF, NICHT BEIM SCHREIBEN, und er
@@ -1185,7 +1186,9 @@ function aenderungName(wert, namen) {
   }
   const name = wert.displayName || wert.name || null;
   if (name === 'DeletedUser') {
-    return GELOESCHTES_KONTO;
+    // Ohne Kennung ist nicht zu sagen, ob es das Konto je gab: Mitglieder-
+    // eintraege tragen `DeletedUser` und keine Kennung, auch fuer bestehende.
+    return wert.id ? GELOESCHTES_KONTO : KONTO_UNBEKANNT;
   }
   return name || null;
 }
@@ -1247,6 +1250,32 @@ function aenderungSatz(nachricht, platzhalter, namen) {
 
 const AENDERUNGEN_FENSTER_TAGE = [1, 3, 7, 30, 90, 365, null];
 
+/**
+ * Die Kennung des Dienstkontos `arasul-dienst`. Es steht nicht in
+ * `firmenordner_nutzer` (es ist kein Mensch), schreibt aber selbst, etwa wenn
+ * das Geraet jemanden in einen Raum aufnimmt. Am Orin am 02.10.2026 gemessen:
+ * 4 Eintraege vom 26.09. nannten es `DeletedUser`, obwohl es besteht.
+ */
+let dienstKennung = null;
+
+async function ergaenzeDienstkonto(namen, werte) {
+  const fehlt = werte.some(e => {
+    const id = e?.template?.variables?.user?.id;
+    return id && !namen.has(id);
+  });
+  if (!fehlt) {
+    return;
+  }
+  try {
+    dienstKennung ||= (await anfrage('/graph/v1.0/me'))?.id || null;
+  } catch {
+    return;
+  }
+  if (dienstKennung && !namen.has(dienstKennung)) {
+    namen.set(dienstKennung, DIENST_ADMIN);
+  }
+}
+
 async function aenderungen(itemId, grenze = 20, namen = null) {
   let werte = [];
   for (const tage of AENDERUNGEN_FENSTER_TAGE) {
@@ -1270,6 +1299,10 @@ async function aenderungen(itemId, grenze = 20, namen = null) {
     if (werte.length >= grenze) {
       break;
     }
+  }
+  if (namen) {
+    namen = new Map(namen);
+    await ergaenzeDienstkonto(namen, werte);
   }
   const liste = werte
     .map(eintrag => {
