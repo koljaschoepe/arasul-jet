@@ -1669,3 +1669,36 @@ lief unverändert weiter (gleicher Start, gleiches Netz). Nicht gefahren:
 Arbeitsrechner. Beim Messen aufgefallen und nicht Teil dieses Auftrags:
 `reverse-proxy` kann `/arasul/logs/traefik.log` nicht anlegen („permission
 denied", `cap_drop: ALL`); die Dateien gibt es auf dem Orin nicht.
+
+Seit dem Auftrag **ausgang-proxy-und-verbindungsseite** (02.10.2026, J38, zweite
+Karte) **kommt eine App nur noch über den Ausgangs-Proxy ins Internet, und nur zu
+den Namen aus `verbindungen`.** Der Container `egress-proxy` (`services/egress-proxy/`,
+Node ohne Abhängigkeiten statt Squid: Zuordnung je App und Zählen in Postgres sind
+die Aufgabe) hängt in `arasul-apps` und `arasul-frontend`, entscheidet am
+Hostnamen (CONNECT und http, kein TLS aufgebrochen) und weist freigegebene Namen
+ab, die auf Adressen im Haus zeigen. Zugang je App und Stand: `HTTPS_PROXY` mit
+einem HMAC des Containernamens aus `jwt_secret` in der Umgebung der App. Zahlen
+je App, Stand, Name und Ergebnis in `ausgang_zaehler` (Migration 191), auch die
+Aufrufe externer Modelle durch die Plattform; Einstellungen > Verbindungen zeigt
+eingetragen, genutzt, abgewiesen (rot). `verbindungen` ist die Freigabe, keine
+zweite Freigabe daneben (Entscheidung ohne Rückfrage, Kolja war nicht da).
+
+Gemessen nach dem Deploy am Orin mit `scripts/test/ausgang-abnahme.sh` als
+`probe-admin`: **42 von 42**. Probe-App mit `verbindungen [example.org]`: CONNECT
+200, TLS und HTTP 200, `fetch` wie in einer echten App 200; `example.com` und
+`1.1.1.1` 403 und gezählt; falscher Token 407; ohne Proxy kein Weg
+(`ENETUNREACH`). Das Protokoll stand nach `docker restart egress-proxy
+dashboard-backend` unverändert da. **Leerlauf des Proxys: CPU Median 0,01 %,
+einzelne Spitzen bis 5,8 % (Stats-Ablesung), 16,8 MiB Speicher.** `belege`,
+`abschluss`, `probe-faktum-belege` (je Live und Test) nach dem Umzug einzeln
+lieferbar und gesund.
+
+Der erste Deploy ist am Orin gescheitert, und der Rückfall hat gehalten: der
+BusyBox-`wget` im Healthcheck der Apps liest ein kleines `http_proxy` und
+ignoriert `NO_PROXY`, die Abfrage auf 127.0.0.1 bekam 407, alle sechs Apps galten
+als unhealthy und blieben im alten Netz, gesund und unverändert (PR 828 nimmt die
+Variable weg). Lehre: Healthchecks mit eigenem Werkzeug sind Teil der Umgebung,
+die man einer App gibt. Außerdem: Node 24 liest `NODE_USE_ENV_PROXY` selbst,
+auch für `http.request` auf den Proxy; wer misst, braucht einen eigenen Agent.
+Offen für das Kit: `KIT_CONTRACT_VERSIONS` auf 7, und eine Warnung an Bauende,
+dass ein Programm, das `HTTPS_PROXY` ignoriert, keine Verbindung bekommt.
