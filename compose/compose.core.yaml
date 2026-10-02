@@ -167,6 +167,11 @@ services:
     cap_add:
       - NET_BIND_SERVICE
       - DAC_READ_SEARCH # Read TLS key files owned by host user
+      # J38 (02.10.2026): `logs/` gehoert am Geraet dem Host-Nutzer (1000, Modus
+      # 700). root im Container darf ohne diese Faehigkeit dort nichts anlegen,
+      # Traefik meldete `permission denied` fuer traefik.log und
+      # traefik-access.log und lief ohne Protokoll.
+      - DAC_OVERRIDE
     deploy:
       resources:
         limits:
