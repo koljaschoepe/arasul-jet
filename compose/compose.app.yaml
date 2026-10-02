@@ -25,6 +25,8 @@ services:
     networks:
       - arasul-frontend
       - arasul-backend
+      # J38: die Plattform-API, wie eine App sie sieht (`ARASUL_API_URL`).
+      - arasul-apps
       - arasul-monitoring
       - arasul-docker-proxy
     group_add:
@@ -115,7 +117,11 @@ services:
       MDNS_NAME: ${MDNS_NAME:-arasul}
       COMPOSE_PROJECT_DIR: ${COMPOSE_PROJECT_DIR:-.}
       DOCKER_HOST: tcp://docker-proxy:2375
-      DOCKER_NETWORK: arasul-platform_arasul-backend
+      # In welches Netz die App-Container kommen (J38). Rueckweg in einem
+      # Schritt: `APP_NETZ=arasul-platform_arasul-backend` in der `.env` und
+      # `docker compose up -d dashboard-backend` -- das Backend zieht beim Start
+      # jede App dorthin um (`appContainer.zieheUm`).
+      DOCKER_NETWORK: ${APP_NETZ:-arasul-platform_arasul-apps}
       # Welcher Stack. Containernamen sind global und nicht je Compose-Projekt;
       # ohne dieses Praefix spraeche das Backend des Pruefstands den
       # Sicherungsdienst des Betriebs an (Phase C9,

@@ -145,6 +145,12 @@ serve` is deliberately NOT used, because it takes port 443 away from Traefik
 
 ---
 
+**Das Netz der Apps (J38).** App-Container hängen nicht in diesem Netz, sondern
+allein in `arasul-apps` (`internal`, kein Weg ins Internet). Dort stehen mit
+ihnen nur `postgres-db` (jede App-Rolle darf nur in ihre eigene Datenbank,
+`config/postgres/pg_hba.conf`), `dashboard-backend` (Plattform-API) und
+`reverse-proxy`. Einzelheiten: [features/APPS.md](features/APPS.md#das-netz-der-apps-j38-02102026).
+
 ## 4. Port Mapping
 
 | Service            | Internal Port | External Port        | Protocol   |
