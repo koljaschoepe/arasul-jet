@@ -45,10 +45,12 @@ const { uploadLimiter } = require('../../middleware/rateLimit');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
 const { AppParams, SchaltenBody, EntfernenQuery } = require('../../schemas/apps');
-const { ValidationError } = require('../../utils/errors');
+const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
 const appPaket = require('../../services/app/appPaket');
 const appStore = require('../../services/app/appStore');
 const appKontrakt = require('../../services/app/appKontrakt');
+const fassungsdienst = require('../../services/betrieb/fassungsdienst');
+const { UpdateFassungBody } = require('../../schemas/admin-update');
 const { logSecurityEvent } = require('../../utils/auditLog');
 
 /**
@@ -244,6 +246,83 @@ router.delete(
       requestId: req.headers['x-request-id'],
     });
     res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * Die Plattform selbst aktualisieren (J39, 02.10.2026).
+ *
+ *   GET  /update           Stand: eigene Fassung, laufender oder letzter Lauf mit Protokoll
+ *   GET  /update/neueste   die neueste Fassung im Netz
+ *   POST /update           einspielen: `{"fassung":"0.8.15"}`, ohne Angabe die neueste
+ *   POST /update/zurueck   zurueck auf die vorige Fassung
+ *
+ * Alles hinter dem Bereich `system:update`, den KEIN Schluessel automatisch
+ * traegt und der nicht in `app:deploy` steckt. Die Logik steht im Dienst
+ * (`services/betrieb/fassungsdienst.js`); die Sitzungsrouten des Dashboards
+ * unter `/api/update/fassung` rufen denselben.
+ *
+ * Das Einspielen antwortet `202`, sobald die Vorpruefungen durch sind. Danach
+ * holt das Geraet das Paket, sichert, und uebergibt an seinen Hilfsdienst; der
+ * Fortschritt steht in `GET /update`. Waehrend des Umschaltens ist das Geraet
+ * einige Minuten nicht erreichbar -- das ist keine Stoerung.
+ */
+router.get(
+  '/update',
+  requireApiKey,
+  requireEndpoint('system:update'),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await fassungsdienst.stand(), timestamp: new Date().toISOString() });
+  })
+);
+
+router.get(
+  '/update/neueste',
+  requireApiKey,
+  requireEndpoint('system:update'),
+  asyncHandler(async (req, res) => {
+    const neueste = await fassungsdienst.neuesteFassung();
+    if (!neueste) {
+      throw new ServiceUnavailableError(
+        'Die neueste Fassung ließ sich nicht erfragen. Ist das Gerät im Netz?'
+      );
+    }
+    res.json({ data: neueste, timestamp: new Date().toISOString() });
+  })
+);
+
+router.post(
+  '/update',
+  requireApiKey,
+  requireEndpoint('system:update'),
+  validateBody(UpdateFassungBody),
+  asyncHandler(async (req, res) => {
+    const data = await fassungsdienst.spieleEin({ fassung: req.body.fassung ?? null });
+    logSecurityEvent({
+      userId: req.apiKey.userId ?? null,
+      action: 'fassung_einspielen',
+      details: { von: data.von, nach: data.nach, schluessel: req.apiKey.prefix },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.status(202).json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+router.post(
+  '/update/zurueck',
+  requireApiKey,
+  requireEndpoint('system:update'),
+  asyncHandler(async (req, res) => {
+    const data = await fassungsdienst.zurueck();
+    logSecurityEvent({
+      userId: req.apiKey.userId ?? null,
+      action: 'fassung_zurueck',
+      details: { nach: data.nach, schluessel: req.apiKey.prefix },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.status(202).json({ data, timestamp: new Date().toISOString() });
   })
 );
 

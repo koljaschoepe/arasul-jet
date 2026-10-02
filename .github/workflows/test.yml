@@ -814,6 +814,14 @@ jobs:
       - name: Abnahme der Aktualisierung (Artefakt ueber Artefakt)
         run: bash scripts/test/aktualisierung-abnahme.sh
 
+      # Und der dritte Zug (J39, 02.10.2026): das Geraet spielt die Fassung
+      # SELBST ein. Dasselbe Skript, das der Aktualisierungsdienst am Host
+      # startet (`scripts/deploy/fassung-einspielen.sh`), ueber drei Artefakte:
+      # einspielen, aufraeumen bis auf den letzten Vorgaenger, zurueck, und zwei
+      # Pakete, die scheitern (vor und nach dem Umzug des Zustands).
+      - name: Abnahme des Einspielens ueber die Schnittstelle (einspielen, zurueck)
+        run: bash scripts/test/fassung-einspielen-abnahme.sh
+
   # ----------------------------------------------------------------------------
   # Toter Code im Frontend (Phase B3 des Ueberordner-Plans vom 26.08.2026).
   # knip findet, was toter-code.sh nicht sieht: einzelne ungenutzte Exporte in

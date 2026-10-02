@@ -40,6 +40,7 @@ import { getValidToken } from '../../utils/token';
 import { useApi } from '../../hooks/useApi';
 import { formatBytes, formatDate, fassungLesbar } from '../../utils/formatting';
 import { TechnischeAngaben } from './TechnischeAngaben';
+import { FassungAktualisieren } from './FassungAktualisieren';
 import { Kennzahl, Kennzahlen, Kopf } from '@marken';
 import { Button, cn } from '@marken';
 import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
@@ -314,6 +315,9 @@ const UpdatePage = () => {
           />
         </Feldgruppe>
 
+        {/* J39: die nächste Fassung holt das Gerät selbst, sichert vorher und hat einen Rückweg. */}
+        <FassungAktualisieren />
+
         {!einspielenMoeglich ? (
           /*
            * DER EHRLICHE FALL, und am Orin der Normalfall. Ein Paket
@@ -322,7 +326,7 @@ const UpdatePage = () => {
            * Image gibt es keines. Statt eines Knopfes, der das erst nach dem
            * Hochladen von zwei Gigabyte sagt, steht hier der Satz des Geräts.
            */
-          <Feldgruppe titel="Einspielen über diese Seite" symbol={<AlertCircle />}>
+          <Feldgruppe titel="Paket von Hand einspielen" symbol={<AlertCircle />}>
             <p className="text-sm text-muted-foreground" data-testid="einspielen-nicht-moeglich">
               {status?.einspielenGrund ??
                 'Aktualisierungen spielt Ihr Betreuer auf dieses Gerät ein, nicht diese Seite.'}

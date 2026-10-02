@@ -38,7 +38,19 @@ const DownloadUpdateBody = z
   })
   .strict();
 
+// POST /api/v1/external/update und POST /api/update/fassung/einspielen
+const UpdateFassungBody = z
+  .object({
+    fassung: z
+      .string()
+      .trim()
+      .regex(/^\d+\.\d+\.\d+$/, 'Eine Fassung hat die Form X.Y.Z, zum Beispiel 0.8.15.')
+      .optional(),
+  })
+  .strict();
+
 module.exports = {
+  UpdateFassungBody,
   ApplyUpdateBody,
   InstallFromUsbBody,
   DownloadUpdateBody,

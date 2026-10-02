@@ -24,8 +24,15 @@
 #   ssh jetson
 #   cd ~/arasul/arasul-jet
 #   bash scripts/util/kit-schluessel.sh anlegen "Kit von Firma Meier"
+#   bash scripts/util/kit-schluessel.sh anlegen "Update 0.8.15" system:update
 #   bash scripts/util/kit-schluessel.sh liste
 #   bash scripts/util/kit-schluessel.sh widerrufen aras_ab12cd3
+#
+# DER ZWEITE BEREICH (J39): `system:update` erlaubt, DIESES GERAET auf eine neue
+# Fassung zu bringen (`/api/v1/external/update`). Er steht in einem eigenen
+# Schluessel und nie im Deploy-Schluessel des Kits: wer eine App einspielen
+# darf, darf damit nicht das ganze Geraet austauschen. Der Schluessel dafuer
+# wird fuer den Anlass angelegt und danach widerrufen.
 #
 # Rueckgabe 0 bei Erfolg.
 # =============================================================================
@@ -34,6 +41,15 @@ set -uo pipefail
 CONTAINER="${ARASUL_BACKEND_CONTAINER:-dashboard-backend}"
 BEFEHL="${1:-hilfe}"
 NAME="${2:-Ara-Kit}"
+BEREICH="${3:-app:deploy}"
+
+case "$BEREICH" in
+  app:deploy | system:update) ;;
+  *)
+    echo "Unbekannter Bereich: $BEREICH (erlaubt: app:deploy, system:update)"
+    exit 2
+    ;;
+esac
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
   echo "Kein Container \"$CONTAINER\". Laeuft die Plattform? docker compose ps"
@@ -46,6 +62,7 @@ fi
 # nicht als eine Zeile mit Semikolons.
 lauf() {
   docker exec -i -e ARASUL_KIT_BEFEHL="$1" -e ARASUL_KIT_NAME="$2" -e ARASUL_KIT_ZIEL="${3:-}" \
+    -e ARASUL_KIT_BEREICH="$BEREICH" \
     "$CONTAINER" node -e "$PROGRAMM"
 }
 
@@ -56,6 +73,7 @@ const { generateApiKey } = require('/app/apps/dashboard-backend/src/middleware/a
 const befehl = process.env.ARASUL_KIT_BEFEHL;
 const name = process.env.ARASUL_KIT_NAME;
 const ziel = process.env.ARASUL_KIT_ZIEL;
+const bereich = process.env.ARASUL_KIT_BEREICH || 'app:deploy';
 
 // Der Schluessel gehoert einem Menschen, naemlich dem Administrator. Ohne
 // `created_by` koennte niemand ihn ueber die Schnittstelle wieder loswerden
@@ -77,14 +95,14 @@ async function main() {
     const admin = await administrator();
     const { key, keyPrefix, keyId } = await generateApiKey(
       name,
-      'Deploy-Schluessel fuer das Ara-Kit (app:deploy). Angelegt mit scripts/util/kit-schluessel.sh.',
+      'Schluessel fuer das Ara-Kit (' + bereich + '). Angelegt mit scripts/util/kit-schluessel.sh.',
       admin.id,
-      { allowedEndpoints: ['app:deploy'], rateLimitPerMinute: 60 }
+      { allowedEndpoints: [bereich], rateLimitPerMinute: 60 }
     );
     console.log('');
     console.log('  Schluessel  ' + key);
     console.log('  Praefix     ' + keyPrefix + '   (Nummer ' + keyId + ')');
-    console.log('  Bereich     app:deploy');
+    console.log('  Bereich     ' + bereich);
     console.log('  Gehoert     ' + admin.username);
     console.log('');
     console.log('  Er erscheint genau EINMAL. Ins Kit eintragen, hier nicht aufheben.');
@@ -103,9 +121,9 @@ async function main() {
 
   if (befehl === 'liste') {
     const { rows } = await db.query(
-      `SELECT id, key_prefix, name, created_at, last_used_at, is_active
+      `SELECT id, key_prefix, name, created_at, last_used_at, is_active, allowed_endpoints
          FROM public.api_keys
-        WHERE 'app:deploy' = ANY(allowed_endpoints)
+        WHERE allowed_endpoints && ARRAY['app:deploy','system:update']
         ORDER BY created_at DESC`
     );
     if (rows.length === 0) {
@@ -118,6 +136,7 @@ async function main() {
           z.is_active ? 'gueltig  ' : 'widerrufen',
           String(z.id).padStart(4),
           z.key_prefix,
+          (z.allowed_endpoints || []).filter(e => e === 'system:update').length ? 'system:update' : 'app:deploy   ',
           (z.name || '').slice(0, 40).padEnd(40),
           'angelegt ' + wann(z.created_at),
           z.last_used_at ? 'zuletzt ' + wann(z.last_used_at) : 'nie benutzt',
@@ -132,7 +151,7 @@ async function main() {
     const { rows } = await db.query(
       `UPDATE public.api_keys
           SET is_active = false
-        WHERE 'app:deploy' = ANY(allowed_endpoints)
+        WHERE allowed_endpoints && ARRAY['app:deploy','system:update']
           AND (key_prefix = $1 OR id::text = $1)
       RETURNING id, key_prefix, name`,
       [ziel]
@@ -174,7 +193,9 @@ case "$BEFEHL" in
   *)
     cat <<'HILFE'
 Aufruf:
-  kit-schluessel.sh anlegen [Name]        einen Deploy-Schluessel erzeugen (erscheint einmal)
+  kit-schluessel.sh anlegen [Name] [Bereich]
+                                          einen Schluessel erzeugen (erscheint einmal);
+                                          Bereich app:deploy (Vorgabe) oder system:update
   kit-schluessel.sh liste                 alle Kit-Schluessel am Geraet
   kit-schluessel.sh widerrufen <praefix>  einen Schluessel entwerten
 

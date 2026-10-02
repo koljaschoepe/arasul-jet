@@ -12,6 +12,7 @@ jest.mock('../../src/utils/logger', () => ({
     error: jest.fn()
 }));
 
+jest.mock('../../src/services/betrieb/fassungsdienst', () => ({}));
 jest.mock('../../src/services/app/updateService', () => ({
     validateUpdate: jest.fn(),
     getUpdateState: jest.fn(),

@@ -532,6 +532,16 @@ nicht setzt, merkt nichts von ihnen — das ist der Normalfall.
 | ARASUL_PROJEKT      | arasul-platform              | Der Compose-Projektname, unter dem gesucht wird — Container und Volumes. Er steht als `name:` in `docker-compose.yml` und ist genau deshalb fest: ein zweites Verzeichnis übernimmt dieselben Volumes. Nur Abnahmen setzen ihn um, damit sie die Volumes des laufenden Geräts nicht sehen.                          |
 | ARASUL_UEBERNEHMEN  | (leer)                       | Dasselbe wie `./install.sh --uebernehmen <pfad>`: die vorhandene Installation von Hand nennen, wenn sie sich nicht ermitteln lässt.                                                                                                                                                                                 |
 
+### Das Gerät aktualisiert sich selbst (J39)
+
+Diese beiden liest das **Backend** (`services/betrieb/fassungsdienst.js`); die
+erste reicht `compose/compose.app.yaml` durch.
+
+| Variable           | Default                 | Description                                                                                                                                                                                            |
+| ------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| UPDATE_REPO        | koljaschoepe/arasul-jet | Das GitHub-Repo, in dem die Releases liegen. Von dort holt das Gerät `arasul-<Fassung>.tar.gz` und `.sha256`. Dasselbe Repo, das `arasul-release.json` im Feld `repo` nennt.                           |
+| AKTUALISIERUNG_AUS | (leer)                  | `true` schaltet `/api/v1/external/update` und `/api/update/fassung` ab; `einspielenMoeglich` ist dann `false`. Für Geräte, die ein Betreuer aktualisieren soll. Beide reicht `compose.app.yaml` durch. |
+
 Dazu `DEPLOY_DIR` für `scripts/deploy/deploy-local.sh`: ohne Vorgabe. Gesetzt
 deployt das Skript dorthin, ungesetzt fragt es das Gerät — und wird rot, wenn
 es keine Antwort bekommt. Ein Deploy, der nicht weiß wohin, deployt nicht.

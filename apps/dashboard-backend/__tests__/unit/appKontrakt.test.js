@@ -281,7 +281,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // `verbindungen` wird durchgesetzt; vier Saetze in `netz.regeln` und einer
     // in `MANIFEST_REGELN` sagen es. Die Zahl bleibt bei 7: dieselbe Fassung,
     // die am selben Tag erschien, nur nicht mehr als Absicht, sondern als Regel.
-    expect(abdruck).toBe('de661b9cb9d1b0b41c6dc683f4471f9e32b364009f4fcfffd87dd2e201b5ac88');
+    //
+    // 02.10.2026 (J39, update-ueber-die-schnittstelle): vier Endpunkte unter
+    // `/api/v1/external/update` und der Bereich `system:update` in
+    // `schluessel.bereiche`. Die Zahl bleibt bei 7: nichts, was eine App oder
+    // das Kit bisher tat, aendert sich; ein Kit, das die Wege nicht kennt, ruft
+    // sie nicht. Die Kit-Seite folgt als K28.
+    expect(abdruck).toBe('39640736c6ca623d1da0843b152ebbad39c4185466553765e5381f1292511d1c');
   });
 
   /**
