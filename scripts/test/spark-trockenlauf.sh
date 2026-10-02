@@ -24,7 +24,7 @@
 #   * `llm-service` und `embedding-service` laufen OHNE NVIDIA-Laufzeit
 #     (compose.ohne-gpu.yaml). Ollama rechnet nicht, der Einbettungsdienst
 #     laeuft auf der CPU. Gesund heisst hier: der Prozess antwortet.
-#   * Das Standardmodell wird nicht geholt (17 GB, keine GPU), Plattenplatz,
+#   * Das Standardmodell wird nicht geholt (17 GB, keine GPU),
 #     Systemd-Einheiten und mDNS bleiben aus. Jede dieser Stellen schreibt
 #     "UEBERSPRUNGEN (Trockenlauf)" in das Protokoll (`arasul`, `install.sh`).
 #

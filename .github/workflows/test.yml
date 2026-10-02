@@ -864,13 +864,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Der Laeufer hat wenig Platz, und der Bootstrap baut neun Abbilder, zwei
-      # davon mit CUDA-Basis. Erst messen, dann freiraeumen, was die
-      # Installation nicht braucht.
-      - name: Platz messen und schaffen
+      # Der Bootstrap baut neun Abbilder, zwei davon mit CUDA-Basis. Gemessen am
+      # 02.10.2026: der arm64-Laeufer hat 114 GB frei, es braucht nichts
+      # freigeraeumt zu werden; die Zahlen stehen hier, damit es auffaellt, wenn
+      # sich das aendert.
+      - name: Platz und Kerne messen
         run: |
-          df -h /
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost || true
           df -h /
           nproc
           free -g

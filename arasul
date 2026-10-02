@@ -64,7 +64,7 @@ log_error() {
 # Installation auf einem Rechner durchlaufen, der die Architektur des Geraets
 # hat, aber keine GPU (der arm64-Laeufer der CI fuer den DGX Spark). Jede Stelle,
 # die dafuer etwas auslaesst, sagt es in einer Zeile mit "UEBERSPRUNGEN
-# (Trockenlauf)", und es sind genau diese: Plattengroesse, Standardmodell,
+# (Trockenlauf)", und es sind genau diese: Standardmodell,
 # Modell- und Einbettungsprobe des Rauchtests, Systemd-Einheiten, mDNS. Am
 # Geraet ist der Schalter nie gesetzt.
 trockenlauf() {
@@ -426,11 +426,6 @@ check_disk_space() {
     TOTAL_GB=$(df -BG . | tail -1 | awk '{print $2}' | sed 's/G//')
 
     log_info "Disk space: ${AVAILABLE_GB}GB available / ${TOTAL_GB}GB total"
-
-    if trockenlauf; then
-        uebersprungen "Plattenplatz (${AVAILABLE_GB}GB frei, am Geraet verlangt: 64GB)"
-        return 0
-    fi
 
     if [ "$AVAILABLE_GB" -ge 128 ]; then
         log_success "Disk space check passed (${AVAILABLE_GB}GB >= 128GB recommended)"
