@@ -1,0 +1,18 @@
+# Trockenlauf ohne GPU (J41, 02.10.2026): was Compose ohne NVIDIA-Laufzeit nicht
+# annimmt, fuer die zwei GPU-Dienste. Ohne diese Datei bricht `docker compose up`
+# auf dem arm64-Laeufer mit "unknown or invalid runtime name: nvidia" ab.
+#
+# Mehr steht hier nicht: Abbilder, Healthchecks, Netze, Volumes und Umgebung
+# bleiben die des Geraets. Geladen wird sie nur ueber COMPOSE_FILE in
+# `scripts/test/spark-trockenlauf.sh`, nie ueber die `.env`.
+services:
+  llm-service:
+    runtime: !reset null
+    deploy:
+      resources:
+        reservations: !reset null
+  embedding-service:
+    runtime: !reset null
+    deploy:
+      resources:
+        reservations: !reset null

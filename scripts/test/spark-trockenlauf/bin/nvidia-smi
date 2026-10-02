@@ -1,0 +1,44 @@
+#!/bin/bash
+# =============================================================================
+# Ein nvidia-smi, das den Namen des GB10 nennt -- und nichts sonst (J41)
+# =============================================================================
+# Der arm64-Laeufer der CI hat keine GPU. `detect-platform.sh` erkennt einen
+# DGX Spark aber am Namen, den `nvidia-smi` meldet (ist_dgx_spark), und der
+# Bootstrap fragt dasselbe Werkzeug nach der GPU. Ohne dieses Stueck waere der
+# Trockenlauf ein Lauf als generischer arm64-Server: das Profil dgx-spark, seine
+# `.env` und `Dockerfile.spark` blieben ungeprueft.
+#
+# Es ist eine Attrappe der ERKENNUNG und keine der GPU: es rechnet nichts, und
+# die Container bekommen sie nie zu sehen (der Trockenlauf haengt sie nirgends
+# ein). Der Speicher steht auf [N/A], wie ihn der GB10 laut Profil meldet --
+# ob das stimmt, ist ein Messpunkt in docs/ops/spark-erster-tag.md.
+#
+# Nur ueber PATH in `scripts/test/spark-trockenlauf.sh`; am Geraet liegt sie nie.
+# =============================================================================
+case "$*" in
+  -L*) echo "GPU 0: NVIDIA GB10 (UUID: GPU-00000000-0000-0000-0000-000000000000)"; exit 0 ;;
+esac
+
+abfrage=""
+for a in "$@"; do
+  case "$a" in
+    --query-gpu=*) abfrage="${a#--query-gpu=}" ;;
+  esac
+done
+
+if [ -z "$abfrage" ]; then
+  echo "NVIDIA GB10 (Attrappe der CI: nur der Name, keine GPU)"
+  exit 0
+fi
+
+zeile=""
+IFS=',' read -ra felder <<<"$abfrage"
+for feld in "${felder[@]}"; do
+  case "$feld" in
+    name) wert="NVIDIA GB10" ;;
+    driver_version) wert="580.00.00" ;;
+    *) wert="[N/A]" ;;
+  esac
+  zeile="${zeile:+$zeile, }$wert"
+done
+echo "$zeile"

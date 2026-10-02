@@ -46,6 +46,20 @@ vorhandenen Geraet, und dort auf dem GGUF-Track ueber Ollama. Auf den
 vllm-Zielen muessen dieselben vier Modelle in der jeweiligen Praezision
 bereitgestellt werden; gebaut und gemessen ist das nicht.
 
+## `default_model` und der Rueckfall `gemma4:e4b` (geklaert in J41)
+
+Zwei Zahlen sehen nach einem Widerspruch aus und sind keiner. `default_model`
+jedes Profils, auch das des Spark, ist der Standard der Kurzliste
+(`qwen3.8:27b-q4_K_M`). Der Rueckfall `gemma4:e4b` in `compose/compose.ai.yaml`,
+`services/llm-service/entrypoint.sh`, `api_server.py`, `.env.template` und den
+Setup-Skripten ist das kleine Modell, das **jedes** Geraet traegt; er gilt nur,
+wo keine `.env` einen `LLM_MODEL` setzt. Die Installation schreibt ihn aus dem
+Profil (`spark_konfiguration` fuer den Spark), also greift der Rueckfall auf
+einem installierten Geraet nie. Gemessen wird das bei jedem Zug im Job
+Spark-Trockenlauf (`LLM_MODEL` der `.env` = `default_model` = Standard der
+Kurzliste); am Geraet steht es als Punkt 3 in
+[`docs/ops/spark-erster-tag.md`](../../docs/ops/spark-erster-tag.md).
+
 ## Engine-Routing (Plan 021)
 
 Das Feld `engine` ist die **einzige Quelle der Wahrheit** für die Inferenz-Engine

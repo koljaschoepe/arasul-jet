@@ -24,6 +24,11 @@ Was geprueft wird
 3. Das Profil dgx-spark nennt `engine: ollama`, bleibt `verification:
    follow-up`, sein `bau.dockerfile` liegt neben beiden GPU-Diensten, und
    sein Bibliothekspfad kennt kein `jetpack`.
+4. Der Trockenlauf (J41) haelt zusammen: die Compose-Ausnahme ohne GPU nennt
+   genau die zwei GPU-Dienste (und sonst keinen), die Attrappe `nvidia-smi`
+   nennt den GB10, und der CI-Job ruft das Skript auf, das beide nutzt. Die
+   Ausnahme darf nie in die echte Compose-Datei wandern: dort stuende der Spark
+   ohne GPU-Zusage.
 """
 
 import argparse
@@ -94,11 +99,35 @@ def pruefe_profil(wurzel):
     return fehler
 
 
+def pruefe_trockenlauf(wurzel):
+    fehler = []
+    ausnahme = wurzel / 'scripts/test/spark-trockenlauf/compose.ohne-gpu.yaml'
+    attrappe = wurzel / 'scripts/test/spark-trockenlauf/bin/nvidia-smi'
+    skript = wurzel / 'scripts/test/spark-trockenlauf.sh'
+    workflow = wurzel / '.github/workflows/test.yml'
+    for datei in (ausnahme, attrappe, skript):
+        if not datei.exists():
+            fehler.append(f'{datei.relative_to(wurzel)} fehlt (Trockenlauf, J41)')
+    if fehler:
+        return fehler
+    dienste = re.findall(r'^  ([a-z][a-z0-9-]*):\s*$', ausnahme.read_text(encoding='utf-8'), re.MULTILINE)
+    if sorted(dienste) != sorted(GPU_DIENSTE):
+        fehler.append(f'compose.ohne-gpu.yaml nennt {dienste}, erwartet genau {list(GPU_DIENSTE)}')
+    if 'GB10' not in attrappe.read_text(encoding='utf-8'):
+        fehler.append('bin/nvidia-smi nennt den GB10 nicht: detect-platform.sh erkennt dann keinen Spark')
+    if 'spark-trockenlauf.sh' not in workflow.read_text(encoding='utf-8'):
+        fehler.append('.github/workflows/test.yml ruft scripts/test/spark-trockenlauf.sh nicht auf')
+    compose_text = (wurzel / 'compose/compose.ai.yaml').read_text(encoding='utf-8')
+    if compose_text.count('runtime: nvidia') != 2:
+        fehler.append('compose/compose.ai.yaml: `runtime: nvidia` steht nicht bei genau den zwei GPU-Diensten')
+    return fehler
+
+
 def main():
     zerleger = argparse.ArgumentParser()
     zerleger.add_argument('--wurzel', default='.')
     wurzel = pathlib.Path(zerleger.parse_args().wurzel).resolve()
-    fehler = pruefe_basen(wurzel) + pruefe_compose(wurzel) + pruefe_profil(wurzel)
+    fehler = pruefe_basen(wurzel) + pruefe_compose(wurzel) + pruefe_profil(wurzel) + pruefe_trockenlauf(wurzel)
     if fehler:
         print('Spark-Zweig:')
         for f in fehler:
