@@ -611,6 +611,10 @@ create_directories() {
 
     mkdir -p config
     mkdir -p logs/{service,}
+    # J38 (02.10.2026): reverse-proxy laeuft ohne DAC_OVERRIDE. Sein Ordner ist
+    # fuer root im Container schreibbar (777); `logs/` selbst bleibt 700.
+    mkdir -p logs/reverse-proxy
+    chmod 777 logs/reverse-proxy 2>/dev/null || true
     # These are all bind-mount sources in compose.app/monitoring. Create them here
     # so they are owned by the setup user; otherwise Docker auto-creates them
     # root-owned on first `up`, breaking writes from services running as uid 1000.
