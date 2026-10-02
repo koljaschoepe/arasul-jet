@@ -388,6 +388,20 @@ einer mit `agent`. Das ist die eingebaute Ordnung („erst das Kit, dann dieses
 Gerät") und kein Versehen; sie kostet aber einen Zug im Kit, bevor wieder etwas
 auf ein Gerät mit dieser Fassung kommt.
 
+**Fassung 7 (J38, 02.10.2026):** Apps laufen im Netz `arasul-apps` **ohne
+Internet**, und das Manifest kennt **`verbindungen`**: die Hostnamen, zu denen
+eine App von sich aus verbinden will (freiwillig, nur Namen, siehe
+[APPS.md](APPS.md#das-netz-der-apps-j38-02102026)). Der Kontrakt trägt dazu den
+Abschnitt `netz` (`GET /api/v1/external/contract`). Die Zahl geht mit, weil
+sich hier ändert, was eine App **erlebt**: eine App, die beim Start eine Adresse
+im Internet ruft (Schriftart, Webdienst, Paketmanager), läuft ab dem Update
+nicht mehr. Abhängigkeiten gehören ins Image.
+
+**Folge für das Kit:** `KIT_CONTRACT_VERSIONS` in
+`.ara/tools/lib/contract.mjs` muss auf **7** gehoben werden (sie endete bei 5,
+siehe oben), und das Kit sollte `verbindungen` im Manifest kennen und Aufrufe
+ins Internet melden, bevor ein Gerät mit dieser Fassung dazukommt.
+
 ## Was schiefgehen kann
 
 | Antwort | Bedeutung                                                                                                                                                                                                                                                                                                                                                                                                                          |

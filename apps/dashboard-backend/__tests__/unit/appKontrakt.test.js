@@ -271,7 +271,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Schluessel einer App nur deren Auftraege. Die Zahl bleibt bei 6:
     // eine App, die nur 200 liest, bekam vorher an dieser Stelle einen Fehler,
     // und eine 7 hielte das Kit an.
-    expect(abdruck).toBe('866e36671d8136950949291f1d094569c63db2b36c111b27a80323c21d196d69');
+    //
+    // 02.10.2026 (J38, Kontrakt 7): Apps laufen im Netz `arasul-apps` ohne
+    // Internet; das Manifest kennt `verbindungen`, der Kontrakt den Abschnitt
+    // `netz`. Hier geht die Zahl MIT: eine App, die beim Start ins Internet
+    // ruft, laeuft ab dem Update nicht mehr, und das Kit soll es vorher sagen.
+    expect(abdruck).toBe('456b82dd30302f7692471d42d436cf2aea0e691256bc1a4d9c6fb2c9ad9c5917');
   });
 
   /**

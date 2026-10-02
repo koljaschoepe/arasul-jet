@@ -60,7 +60,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 6;
+const KONTRAKT_VERSION = 7;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -148,6 +148,26 @@ const KONTRAKT_VERSION = 6;
  * wieder etwas auf ein Geraet mit dieser Fassung kommt.
  */
 
+/*
+ * Fassung 7 (J38, 02.10.2026): Apps laufen in einem eigenen Netz ohne Internet,
+ * und das Manifest kennt `verbindungen` -- die Hostnamen, zu denen eine App von
+ * sich aus verbinden will. Das Feld ist FREIWILLIG, jedes Manifest von
+ * Fassung 6 bleibt gueltig. Die Zahl geht trotzdem mit, aus zwei Gruenden:
+ *
+ *   1. Das Manifest ist `.strict()`: ein Geraet auf Fassung 6 weist ein Paket
+ *      mit `verbindungen` ab, und ein Kit, das gegen 6 prueft, taete es auch.
+ *   2. Anders als bei 5 und 6 aendert sich hier, was eine App ERLEBT: sie
+ *      erreicht ihre Datenbank, die Plattform-API und sonst nichts. Eine App,
+ *      die beim Start eine Adresse im Internet ruft (eine Schriftart-API, ein
+ *      Webdienst), lief bis gestern und laeuft ab dem Update dort nicht mehr.
+ *      Ein Kit, das das nicht weiss, baut ihr Paket weiter, und der Fehler
+ *      zeigt sich erst am Kundengeraet. Der Abschnitt `netz` sagt es vorher.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * endet bei 5 (siehe Fassung 6) und muss auf 7 gehoben werden, bevor ein Kit
+ * auf ein Geraet mit dieser Fassung einspielt. Der PR nennt es ausdruecklich.
+ */
+
 /**
  * Die Regeln des Manifests, die kein JSON-Schema traegt.
  *
@@ -173,7 +193,24 @@ const MANIFEST_REGELN = Object.freeze([
   '`PUT`, `PATCH` und `DELETE` muessen `writes: true` tragen: eine Route, die etwas aendert, darf sich nicht als lesend ausgeben. Das CLI verlangt fuer `writes: true` ein ausdrueckliches --write.',
   'Innerhalb von `agent` steht keine Route zweimal (`method` und `path` zusammen) und kein Parametername zweimal je Route.',
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Geraet haelt keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
+  '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; hoechstens 20, keiner doppelt. Das Feld ist eine FORDERUNG: gewaehrt wird sie vom Administrator am Geraet, und bis der Ausgangs-Proxy dafuer steht, wird sie angenommen und nicht durchgesetzt -- siehe `netz`.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
+]);
+
+/**
+ * Was eine App im Netz erreicht und was nicht (J38, 02.10.2026).
+ *
+ * Gemessen wird es am Geraet mit `scripts/test/app-netz-abnahme.sh`: aus einem
+ * App-Container die eigene Datenbank ja, die einer anderen App und die der
+ * Plattform nein, die Plattform-API ja, das Internet nein.
+ */
+const NETZ_REGELN = Object.freeze([
+  'Das Backend einer App laeuft im Netz `arasul-apps`. Das Netz hat KEINEN Weg ins Internet und keinen ins Haus-LAN.',
+  'Erreichbar sind aus dem Container: die EIGENE Datenbank (`umgebung.datenbank`), die Plattform-API (`umgebung.basis`) und Traefik. Sonst nichts.',
+  'Die Rolle einer App darf sich nur mit der Datenbank ihres Standes verbinden. Die Datenbank einer anderen App und die der Plattform weist Postgres ab.',
+  'Ein Aufruf ins Internet (eine Schriftart, ein Webdienst, ein Paketmanager beim Start) scheitert. Abhaengigkeiten gehoeren beim Bauen ins Image, nicht in den Start.',
+  'Modelle erreicht eine App ueber die Plattform-API (`llm/chat`, `document/…`), nie direkt.',
+  '`verbindungen` nennt die Hostnamen, die die App darueber hinaus braucht. Es ist eine Forderung an den Administrator, keine Zusage: bis der Ausgangs-Proxy steht, gewaehrt das Geraet nichts davon.',
 ]);
 
 /**
@@ -562,6 +599,13 @@ function kontrakt() {
       wiederherstellen: '/api/backup/wiederherstellung/app/:id',
       regeln: DATEN_REGELN,
     },
+    netz: {
+      name: 'arasul-apps',
+      internet: false,
+      erreichbar: ['datenbank', 'plattform_api', 'traefik'],
+      forderung: 'verbindungen',
+      regeln: NETZ_REGELN,
+    },
     freigaben: {
       start: alsJsonSchema(ExternalFlowRunBody),
       regel: alsJsonSchema(FreigabeRegel),
@@ -647,6 +691,7 @@ module.exports = {
   PRAEFIX,
   MANIFEST_REGELN,
   DATEN_REGELN,
+  NETZ_REGELN,
   FREIGABE_REGELN,
   PROTOKOLL_REGELN,
   AUSLESEN_REGELN,

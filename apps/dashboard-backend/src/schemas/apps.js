@@ -312,6 +312,29 @@ const AgentRouten = z
     'Dieselbe Route steht zweimal da (method und path zusammen)'
   );
 
+/**
+ * Ein Hostname, zu dem eine App von sich aus verbinden will (J38). Nur der
+ * Name: kein Schema, kein Port, kein Pfad, keine Adresse. Was hier steht, ist
+ * spaeter die Liste, die der Ausgangs-Proxy fuer diese App freigibt (zweite
+ * Karte zu J38), und eine Freigabe soll an einem Namen haengen, den ein Mensch
+ * lesen und beurteilen kann -- an einer IP-Adresse oder einem Platzhalter nicht.
+ */
+const Verbindung = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(253, 'Hostname ist zu lang')
+  .regex(
+    /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/,
+    'Hostname: nur der Name, z. B. api.example.com (ohne https://, Port, Pfad oder Platzhalter)'
+  )
+  .refine(v => !/^\d+$/.test(v.split('.').pop()), 'Eine IP-Adresse ist kein Hostname');
+
+const Verbindungen = z
+  .array(Verbindung)
+  .max(20, 'hoechstens 20 Hostnamen im Feld `verbindungen`')
+  .refine(liste => new Set(liste).size === liste.length, 'Ein Hostname steht zweimal da');
+
 const Ressourcen = z
   .object({
     speicher: Speicher.default('512m'),
@@ -361,6 +384,13 @@ const AppManifest = z
     // eine laufende App an einer Auskunft zu messen, die es zu ihrer Bauzeit
     // nicht gab. Eine App ohne `agent` ist eine App, die ein Mensch bedient.
     agent: AgentRouten.optional(),
+    // Wohin die App von sich aus ins Internet will (J38, Kontrakt 7). FREIWILLIG:
+    // keine App vor J38 kennt das Feld, und die allermeisten brauchen es nicht --
+    // eine App im Netz `arasul-apps` erreicht ihre Datenbank, die Plattform-API
+    // und sonst nichts. Das Feld ist die Forderung, nicht die Freigabe: ob ein
+    // Admin sie gewaehrt, entscheidet der Ausgangs-Proxy (zweite Karte zu J38).
+    // Bis der steht, wird es angenommen, gespeichert und nicht durchgesetzt.
+    verbindungen: Verbindungen.optional(),
   })
   .strict()
   .refine(m => m.frontend || m.backend, {

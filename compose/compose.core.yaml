@@ -25,6 +25,9 @@ services:
     stop_grace_period: 30s
     networks:
       - arasul-backend
+      # J38: die App-Rollen kommen aus dem Netz der Apps und nur von dort.
+      # Wer sie auf ihre eigene Datenbank beschraenkt, ist `pg_hba.conf`.
+      - arasul-apps
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -41,6 +44,7 @@ services:
       - arasul-postgres:/var/lib/postgresql/data
       - ../services/postgres/init:/docker-entrypoint-initdb.d
       - ../config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ../config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ../services/postgres/entrypoint-wal.sh:/usr/local/bin/entrypoint-wal.sh:ro
       - arasul-wal:/backups/wal
     healthcheck:
@@ -120,6 +124,9 @@ services:
     networks:
       - arasul-frontend
       - arasul-backend
+      # J38: App-Container haengen nur noch im Netz der Apps; Traefik muss sie
+      # dort erreichen (Label `traefik.docker.network`).
+      - arasul-apps
     command:
       - '--configFile=/etc/traefik/traefik.yml'
     ports:
@@ -178,6 +185,20 @@ networks:
     ipam:
       config:
         - subnet: ${NETZ_BASIS:-172.30.0}.64/26
+  # Das Netz der Apps (J38, 02.10.2026). `internal: true`: Docker legt dort
+  # kein Gateway an, ein App-Container hat keinen Weg ins Internet und keinen
+  # ins Haus-LAN. Drin haengen nur die Apps selbst und die drei Dienste, die sie
+  # brauchen: `postgres-db` (ihre eigene Datenbank, sonst nichts, siehe
+  # `config/postgres/pg_hba.conf`), `dashboard-backend` (die Plattform-API) und
+  # `reverse-proxy`. Eigener /26 ausserhalb von `NETZ_BASIS`: dort sind alle vier
+  # Bereiche des /24 vergeben.
+  arasul-apps:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: ${NETZ_APPS:-172.30.1.0/26}
+
   # Dedicated network for the Docker Socket Proxy. Only dashboard-backend,
   # self-healing-agent and backup-service join it — no other service
   # (document-indexer, …) has a network path to docker-proxy:2375, so a
