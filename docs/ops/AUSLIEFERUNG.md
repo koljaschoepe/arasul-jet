@@ -356,12 +356,94 @@ Rauchtest —, wäre am Orin ein Tagesgeschäft aus Vollbauten; dieses Repo hatt
 schon einmal elf Deploys in 66 Minuten. Der Deploy baut, was sich geändert hat;
 das Artefakt richtet ein Gerät ein. Verschiedene Aufgaben, ein Ort.
 
+### Das Gerät aktualisiert sich selbst (J39)
+
+> Gebaut am 02.10.2026 (Auftrag `update-ueber-die-schnittstelle`, Kundenweg
+> KW6). Vorher ging das Einspielen einer neuen Fassung nur über SSH: das Kit
+> (`upgrade.mjs`) brauchte einen Fernzugriff und `sudo reboot`. Ein Kunde ohne
+> beides hatte keinen Weg.
+
+Zwei Eintrittspunkte, ein Dienst (`services/betrieb/fassungsdienst.js`):
+
+| Wer                        | Wie                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| Kit, Skript, Betreuer      | `POST /api/v1/external/update` mit einem Schlüssel im Bereich `system:update`         |
+| Administrator im Dashboard | Karte „Neue Fassung" unter Einstellungen → Aktualisierungen (`/api/update/fassung/*`) |
+
+`system:update` ist **nicht** in `app:deploy` enthalten und in keinem Schlüssel
+von selbst: wer eine App einspielen darf, darf damit nicht das Gerät
+austauschen. Der Schlüssel entsteht für den Anlass und wird danach widerrufen:
+
+```bash
+bash scripts/util/kit-schluessel.sh anlegen "Update 0.8.15" system:update
+curl -sk -X POST https://<geraet>/api/v1/external/update \
+  -H "X-API-Key: aras_…" -H 'Content-Type: application/json' -d '{"fassung":"0.8.15"}'
+curl -sk https://<geraet>/api/v1/external/update -H "X-API-Key: aras_…"   # Fortschritt
+bash scripts/util/kit-schluessel.sh widerrufen aras_…
+```
+
+**Was das Gerät tut**, in dieser Reihenfolge:
+
+1. **Vorprüfung** (synchron, Antwort `202` erst danach): das Gerät kennt seine
+   Fassung, die genannte ist neuer (ein Gerät im Zwischenstand `JJJJMMTT-<sha>`
+   vergleicht mit der Nummer seines Ordners, `arasul-0.8.14`), es läuft keine
+   zweite Aktualisierung, 8 GB Platz sind frei, der Weg ist gangbar.
+2. **Herunterladen**: `arasul-<Fassung>.tar.gz` und `.sha256` aus dem Release
+   von `UPDATE_REPO`; die Prüfsumme muss stimmen, sonst wird das Paket
+   verworfen und nichts verändert.
+3. **Sichern**: dieselbe Sicherung wie jede andere (`sicherungsdienst.sichereJetzt`).
+   Scheitert sie, ist hier Schluss; das Gerät ist unberührt.
+4. **Übergabe an den Host.** Das Backend kann `install.sh` nicht selbst
+   starten (kein `docker`, kein `sudo` im Container), und es wird mitten im Lauf
+   abgeschaltet. Es startet einen **Hilfscontainer** (`arasul-aktualisierung`,
+   gehört zu keinem Compose-Projekt, privilegiert, `nsenter` in den Host), der
+   `scripts/deploy/fassung-einspielen.sh` **der laufenden Fassung** als der
+   Benutzer des Installationsordners startet. Dass das Root-Rechte am Host sind,
+   ist keine neue Eigenschaft: wer über den Docker-Proxy Container anlegen kann,
+   kann das ohnehin; neu ist der benannte Weg und sein Bereich.
+5. **Auspacken, `install.sh`, prüfen.** Dasselbe wie der Kundenweg oben: Umzug
+   des Zustands per `rename`, Images bauen **während der alte Stapel läuft**,
+   dann `down` und Start aus dem neuen Ordner. Danach wartet das Skript, bis jeder
+   Container des Projekts gesund ist.
+6. **Aufräumen**: Ordner abgegebener Fassungen (`ABGEGEBEN.txt`) **bis auf den
+   letzten Vorgänger**, alte Pakete in der Ablage, verwaiste Images.
+
+**Fortschritt lesbar:** `GET /api/v1/external/update` (und die Karte im
+Dashboard) nennt `status`, `schritt` und die letzten 40 Zeilen des Protokolls.
+Der Stand liegt in `data/updates/fassung/status.json` und `lauf.log`, zieht mit
+dem Zustand um und wird vom NEUEN Backend gelesen, sobald es da ist. Ein Lauf,
+der `laeuft` sagt, obwohl weder Backend noch Hilfscontainer arbeiten, heißt
+`abgebrochen`. Während des Umschaltens ist das Gerät einige Minuten nicht
+erreichbar; das ist keine Störung.
+
+**Der Rückweg**, selbsttätig und auf Wunsch (`POST /api/v1/external/update/zurueck`):
+der Ordner der vorigen Fassung trägt nur noch das Programm; sein `install.sh` mit
+`--uebernehmen <neuer Ordner>` zieht den Zustand zurück. Scheitert `install.sh`
+**vor** dem Umzug, liegt der Zustand noch dort und es ist nichts zu holen;
+scheitert es **danach** oder wird das Gerät nicht gesund, zieht das Skript ihn
+zurück (`status: zurueckgerollt`). Ein Ordner, der aus dem Deploy stammt und keine
+`arasul-release.json` trägt, bekommt sie vorher aus der `.env` nachgetragen,
+sonst nähme sein `install.sh` die Rückkehr nicht an.
+
+**Was der Rückweg nicht kann:** Daten zurückdrehen. Er holt das **Programm** der
+vorigen Fassung. Was die neue an der Datenbank geändert hat (Migrationen sind
+additiv), bleibt; ob die vorige damit zurechtkommt, ist die Eigenschaft jeder
+Migration, nicht des Rückwegs. Die Sicherung von Schritt 3 liegt bereit, falls auch
+die Daten zurück sollen — das ist eine Wiederherstellung und die Entscheidung
+eines Menschen.
+
+**Gemessen:** CI und Probelauf am Orin, `scripts/test/fassung-einspielen-abnahme.sh`
+(drei Artefakte, einspielen, aufräumen, zurück, zwei Pakete, die scheitern, ein
+Paket mit falscher Fassung: 69 Proben, ohne Bootstrap). Der Lauf am echten Gerät
+steht im Journal (J39).
+
 ### `./arasul update` ist weiterhin kein Update
 
 Es baut nur den lokalen Baum neu (`docker compose pull|build|up`) und holt
 keinen neuen Stand. `updateService.wegPruefen()` sagt über den Weg in der
-Oberfläche selbst, dass er an diesem Gerät nicht geht (kein `docker`-Programm
-im Backend-Container). Der Weg auf eine neue Fassung ist das Artefakt.
+Oberfläche selbst, dass der alte Weg (`.araupdate`-Paket) an diesem Gerät nicht
+geht (kein `docker`-Programm im Backend-Container). Der Weg auf eine neue
+Fassung ist das Artefakt, und seit J39 spielt das Gerät es selbst ein (oben).
 
 ## Die Adresse des Artefakts
 

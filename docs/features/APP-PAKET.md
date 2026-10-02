@@ -214,6 +214,16 @@ Gerät jeder App beim Einspielen selbst mitgibt (`ARASUL_API_SCHLUESSEL`, Phase
 C4), trägt ihn also nicht: keine App ersetzt eine andere — und sich selbst auch
 nicht durch etwas anderes.
 
+**`system:update`** (J39) ist der zweite Bereich dieser Art und steckt **nicht**
+in `app:deploy`: er erlaubt, das Gerät selbst auf eine neue Fassung zu bringen
+und wieder zurück (`GET/POST /api/v1/external/update`, `POST …/update/zurueck`;
+Ablauf in [../ops/AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39)).
+Der Kontrakt nennt die Wege unter `endpunkte` und den Bereich unter
+`schluessel.bereiche`; die Kontraktversion bleibt bei 7, weil nichts, was ein Kit
+oder eine App bisher tat, sich ändert. Den Schlüssel dafür legt ein Administrator
+für den Anlass an (`scripts/util/kit-schluessel.sh anlegen <Name> system:update`)
+und widerruft ihn danach.
+
 ## Der Kontrakt: woran ein Kit merkt, dass es nicht passt
 
 ```bash

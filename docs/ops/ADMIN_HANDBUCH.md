@@ -404,7 +404,18 @@ dieses Geraet traegt. Sie kommt aus dem Bau (Tag oder Datum plus Kurz-SHA);
 sagt die Seite „Vorserie", kennt das Geraet seine eigene Fassung nicht, und
 dann laesst sich auch nicht entscheiden, ob ein Paket neuer ist.
 
-**Wenn dieses Geraet nicht ueber die Oberflaeche einspielen kann, sagt es das.**
+**Die naechste Fassung holt das Geraet selbst (seit J39).** Unter „Neue Fassung"
+steht, ob es eine neuere gibt. Ein Klick auf „Aktualisieren" sichert zuerst, holt
+das Paket, prueft seine Pruefsumme und spielt es ein; der Fortschritt steht auf
+der Seite, die Seite bitte offen lassen. Das Geraet ist dabei einige Minuten
+nicht erreichbar, das ist erwartbar. Geht etwas schief, geht es von selbst auf die
+vorige Fassung zurueck und sagt es. Danach steht, solange der Ordner der vorigen
+Fassung da ist, „Zurueck auf ..." bereit: das holt das Programm zurueck, nicht die
+Daten; die Sicherung vom Einspielen liegt unter „Sicherung". Dasselbe geht ohne
+Oberflaeche mit einem Schluessel im Bereich `system:update`
+([AUSLIEFERUNG.md](AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39)).
+
+**Wenn dieses Geraet ein .araupdate-Paket nicht einspielen kann, sagt es das.**
 Der Weg dahinter braucht ein `docker`-Programm im Backend-Container, und das
 gibt es dort nicht. Statt Knoepfen, die zuverlaessig scheitern, steht der Grund
 da.

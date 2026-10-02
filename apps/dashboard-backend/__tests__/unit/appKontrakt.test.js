@@ -287,7 +287,7 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // `schluessel.bereiche`. Die Zahl bleibt bei 7: nichts, was eine App oder
     // das Kit bisher tat, aendert sich; ein Kit, das die Wege nicht kennt, ruft
     // sie nicht. Die Kit-Seite folgt als K28.
-    expect(abdruck).toBe('39640736c6ca623d1da0843b152ebbad39c4185466553765e5381f1292511d1c');
+    expect(abdruck).toBe('a04a7a0fb7b9d8232abecb02a6d10f0d089821d47c4dc7f06b8c33a9f6919f1e');
   });
 
   /**
