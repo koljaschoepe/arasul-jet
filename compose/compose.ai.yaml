@@ -69,10 +69,13 @@ services:
       # KV-Cache-Kosten sind durch q8_0 + Flash Attention gedämpft; auf knappen
       # 32-GB-Orins via .env absenkbar.
       OLLAMA_CONTEXT_LENGTH: '${OLLAMA_CONTEXT_LENGTH:-32768}'
-      # NUM_PARALLEL=2 lets two chat requests stream concurrently (Balanced
-      # latency target: 2 users OK, 3+ queue). Lower to 1 on tight 32 GB Orin
-      # by exporting OLLAMA_NUM_PARALLEL=1 in .env.
-      OLLAMA_NUM_PARALLEL: '${OLLAMA_NUM_PARALLEL:-2}'
+      # NUM_PARALLEL=1 seit J40 (02.10.2026, am Orin gemessen): mit dem 27B-Modell
+      # bleibt der Durchsatz bei 1, 2 und 4 parallelen Anfragen gleich (11,7 /
+      # 12,0 / 12,1 Token/s), ein zweiter Slot kuerzt also keine Wartezeit. Dazu
+      # laesst das Backend ohnehin nur EINEN lokalen Modellaufruf zur Zeit zu
+      # (services/flows/gpuQueue.js). Jeder Slot haelt einen eigenen Kontext im
+      # Speicher; den spart der eine. Zahlen: docs/features/LAST.md.
+      OLLAMA_NUM_PARALLEL: '${OLLAMA_NUM_PARALLEL:-1}'
       OLLAMA_MAX_LOADED_MODELS: '${OLLAMA_MAX_LOADED_MODELS:-3}'
       OLLAMA_NUM_GPU: '99'
       # CUDA/Tegra library paths for JetPack 6 GPU acceleration. Der Pfad auf

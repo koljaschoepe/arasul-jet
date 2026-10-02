@@ -63,7 +63,7 @@ docs/
 | Document                                                           | Topic                                                                               |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | [`ops/AUSLIEFERUNG.md`](ops/AUSLIEFERUNG.md)                       | Das Artefakt, seine Adresse, `install.sh`, woher die Fassung kommt                  |
-| [`ops/spark-erster-tag.md`](ops/spark-erster-tag.md)                | Der erste Tag am DGX Spark als Messplan: jeder Messpunkt mit Befehl und Sollwert    |
+| [`ops/spark-erster-tag.md`](ops/spark-erster-tag.md)               | Der erste Tag am DGX Spark als Messplan: jeder Messpunkt mit Befehl und Sollwert    |
 | [`ops/NETZNAME_UND_ZERTIFIKAT.md`](ops/NETZNAME_UND_ZERTIFIKAT.md) | `https://arasul/`, die Geräte-CA, Anleitung für Windows, macOS, iOS, Android        |
 | [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (Artefakt / Quellbaum / ohne Rückfragen), pre-shipping checklist, hardening |
 | [`ops/QUICK_START.md`](ops/QUICK_START.md)                         | Customer quick start (German, end-user-facing)                                      |
@@ -87,6 +87,7 @@ docs/
 | [`features/APPS.md`](features/APPS.md)                                               | Apps: Manifest `app.json`, die zwei Stände, Tester-Kreis, Auslieferung |
 | [`features/APP-PAKET.md`](features/APP-PAKET.md)                                     | Das App-Paket: was hineingehört, der Deploy-Schlüssel, der Kontrakt    |
 | [`features/FLOWS.md`](features/FLOWS.md)                                             | Flows: Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger     |
+| [`features/LAST.md`](features/LAST.md)                                               | Last: zwölf Personen gleichzeitig, Wartezeiten am Orin, Einstellungen  |
 | [`features/FIRMENORDNER.md`](features/FIRMENORDNER.md)                               | Der Firmenordner: OpenCloud am Gerät, zwei Ebenen, die zweite Ablage   |
 | [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                                        |
 | [`features/PLATFORM_COMPATIBILITY.md`](features/PLATFORM_COMPATIBILITY.md)           | Multi-device support, GPU error handling                               |

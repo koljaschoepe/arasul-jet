@@ -217,6 +217,23 @@ const NETZ_REGELN = Object.freeze([
 ]);
 
 /**
+ * Wie viel Last das Geraet traegt (J40, 02.10.2026).
+ *
+ * Gemessen am Orin (AGX Orin 64 GB, `qwen3.8:27b-q4_K_M`) mit zwoelf
+ * Probe-Konten, `scripts/test/last-zwoelf-personen.py`; Tabelle und Weg in
+ * `docs/features/LAST.md`. Die Zahlen gelten fuer dieses Geraet und dieses
+ * Modell; ein anderes Geraet misst neu.
+ */
+const LAST_REGELN = Object.freeze([
+  'Das Geraet rechnet EINE lokale KI-Anfrage zur Zeit (Chat und Flow-Schritte teilen sich eine Sperre); die anderen warten der Reihe nach. Ein zweiter Platz im Modell haette keinen Durchsatz gebracht (gemessen: 11,7 / 12,0 / 12,1 Token/s bei 1 / 2 / 4 Anfragen zugleich).',
+  'Eine Antwort von rund 110 Token dauert am Orin etwa 14 Sekunden (12 bis 18). Die Wartezeit einer Anfrage ist ungefaehr (Anfragen vor ihr + 1) mal 14 Sekunden; unter einer Minute bleibt sie, solange hoechstens drei vor ihr stehen.',
+  'Zwoelf Personen mit ueblicher Nutzung (eine KI-Anfrage je Person alle paar Minuten, 14 Minuten gemessen): Chat typisch 16 Sekunden, in 95 von 100 Faellen unter 35 Sekunden, laengste 37. Flow-Laeufe mit kurzer Antwort typisch 15 Sekunden.',
+  'Fragen alle zwoelf im selben Augenblick, wartet die erste 14 Sekunden, typisch 87 und die letzte 169 Sekunden. Eine App, die viele Anfragen auf einmal abschickt, soll sie nicht zugleich loslassen, sondern `timeout_seconds` hoch genug setzen und die Antwort abholen (`warten`).',
+  'Die Warteschlange fasst 20 wartende Anfragen neben der einen, die rechnet: ab der 22. gleichzeitigen Anfrage antwortet das Geraet mit 503 und dem Satz, die Warteschlange sei voll. Eine App faengt das ab und versucht es nach einigen Sekunden noch einmal, statt es dem Menschen zu zeigen.',
+  'Flow-Laeufe treten an der Sperre zwischen die wartenden Chat-Anfragen: bei dichter Last (zwoelf Personen, alle halbe Minute eine Anfrage) wartete der Chat typisch 124 Sekunden, ein kurzer Flow typisch 17.',
+]);
+
+/**
  * Was eine App dauerhaft behaelt (J35, 25.09.2026).
  *
  * Das Kit sagte an zwei Stellen Verschiedenes: seine Wissensseite, eine
@@ -709,6 +726,20 @@ function kontrakt() {
       max_zeichen: BILD_MAX_ZEICHEN,
       regeln: BILDER_REGELN,
     },
+    // Additiv (J40): die Kontraktversion bleibt, eine App, die den Abschnitt
+    // nicht liest, bekommt dieselbe Antwort wie vorher.
+    last: {
+      geraet: 'jetson-agx-orin-64',
+      modell: 'qwen3.8:27b-q4_K_M',
+      gleichzeitig_rechnend: 1,
+      warteschlange_max: 20,
+      antwort_sekunden: { typisch: 14, von: 12, bis: 18, token: 110 },
+      zwoelf_personen: {
+        uebliche_nutzung: { chat_p50_s: 16, chat_p95_s: 34, flow_p50_s: 15 },
+        alle_zugleich: { p50_s: 87, p95_s: 169 },
+      },
+      regeln: LAST_REGELN,
+    },
     endpunkte: ENDPUNKTE,
   };
 }
@@ -719,6 +750,7 @@ module.exports = {
   MANIFEST_REGELN,
   DATEN_REGELN,
   NETZ_REGELN,
+  LAST_REGELN,
   FREIGABE_REGELN,
   PROTOKOLL_REGELN,
   AUSLESEN_REGELN,
