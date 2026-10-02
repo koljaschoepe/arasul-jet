@@ -44,7 +44,7 @@ const { requireApiKey, requireEndpoint } = require('../../middleware/apiKeyAuth'
 const { uploadLimiter } = require('../../middleware/rateLimit');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
-const { AppParams, SchaltenBody, EntfernenQuery } = require('../../schemas/apps');
+const { AppParams, SchaltenBody, EntfernenQuery, Aenderungstext } = require('../../schemas/apps');
 const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
 const appPaket = require('../../services/app/appPaket');
 const appStore = require('../../services/app/appStore');
@@ -134,6 +134,18 @@ router.post(
         'Kein Paket dabei. Erwartet wird ein Multipart-Feld `paket` mit einem .tar.gz.'
       );
     }
+    // Der Aenderungstext ist freiwillig. Ein leeres Feld ist abgewiesen, nicht
+    // dem fehlenden gleichgestellt: wer es schickt, meint etwas.
+    let aenderungstext;
+    if (req.body && req.body.aenderungstext !== undefined) {
+      const geprueft = Aenderungstext.safeParse(req.body.aenderungstext);
+      if (!geprueft.success) {
+        // Das Archiv liegt schon im Eingang; `nimmAn` raeumt es sonst auf.
+        await fs.promises.rm(req.file.path, { force: true });
+        throw new ValidationError(geprueft.error.issues[0].message);
+      }
+      aenderungstext = geprueft.data;
+    }
     const stand = await appPaket.nimmAn({
       archivPfad: path.resolve(req.file.path),
       durch: req.apiKey.userId ?? null,
@@ -145,6 +157,9 @@ router.post(
         app_id: stand.app_id,
         version: stand.version,
         stand: stand.stand,
+        // Angenommen und im Protokoll festgehalten; die Anzeige in der
+        // Verwaltung kommt mit einer spaeteren Karte (M5).
+        aenderungstext,
         schluessel: req.apiKey.prefix,
       },
       ipAddress: req.ip,

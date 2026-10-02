@@ -335,6 +335,44 @@ const Verbindungen = z
   .max(20, 'hoechstens 20 Hostnamen im Feld `verbindungen`')
   .refine(liste => new Set(liste).size === liste.length, 'Ein Hostname steht zweimal da');
 
+/**
+ * Das Symbol einer App in der Aktivitaetsleiste (M5, Kontrakt 8).
+ *
+ * Zwei Schreibweisen, die sich nicht ueberschneiden, damit das Geraet am Wert
+ * allein erkennt, was gemeint ist:
+ *
+ *   "file-text"   ein Name aus dem Lucide-Satz, klein, mit Bindestrichen
+ *   "BE"          ein Kuerzel, ein bis drei Zeichen, GROSS (Buchstaben, Ziffern)
+ *
+ * Das Geraet prueft die FORM, nicht ob der Name im Lucide-Satz steht: der Satz
+ * waechst mit der Bibliothek der Shell, und ein Backend, das ihn nachbaut,
+ * wiese morgen ein Symbol ab, das die Shell zeichnen kann. Kennt die Shell den
+ * Namen nicht, zeigt sie das Kuerzel aus dem Namen der App -- ein Tippfehler
+ * kostet ein Bild, nie eine App. Fehlt `symbol`, gilt dasselbe Kuerzel.
+ */
+const AppSymbol = z
+  .string({ error: 'symbol muss ein Text sein' })
+  .trim()
+  .refine(
+    v => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(v) || /^[A-Z0-9]{1,3}$/.test(v),
+    'symbol: ein Lucide-Name in Kleinbuchstaben mit Bindestrichen (z. B. file-text) ' +
+      'oder ein Kuerzel aus 1 bis 3 Grossbuchstaben oder Ziffern (z. B. BE)'
+  )
+  .refine(v => v.length <= 50, 'symbol ist zu lang (hoechstens 50 Zeichen)');
+
+/**
+ * Der Aenderungstext beim Ausrollen (M5, Kontrakt 8): ein paar Saetze, was in
+ * dieser Version neu ist. Er gehoert NICHT ins Manifest -- er gehoert zu einem
+ * Ausrollen, nicht zu einer Version: dieselbe Version kann zweimal in den Test
+ * gehen, mit zwei Texten. Er reist als Feld `aenderungstext` neben dem Paket.
+ * Der Admin liest ihn in der Verwaltung, bevor er live schaltet.
+ */
+const Aenderungstext = z
+  .string({ error: 'aenderungstext muss ein Text sein' })
+  .trim()
+  .min(1, 'aenderungstext ist leer: ein paar Saetze, was neu ist, oder das Feld weglassen')
+  .max(1000, 'aenderungstext ist zu lang (hoechstens 1000 Zeichen): ein paar Saetze genuegen');
+
 const Ressourcen = z
   .object({
     speicher: Speicher.default('512m'),
@@ -391,6 +429,8 @@ const AppManifest = z
     // (`services/egress-proxy`) laesst fuer diese App genau diese Namen durch
     // und zaehlt, was er abweist. Die Verbindungsseite zeigt es dem Admin.
     verbindungen: Verbindungen.optional(),
+    // Das Bild der App in der Aktivitaetsleiste (M5, Kontrakt 8). FREIWILLIG.
+    symbol: AppSymbol.optional(),
   })
   .strict()
   .refine(m => m.frontend || m.backend, {
@@ -640,6 +680,7 @@ module.exports = {
   Stand,
   Version,
   AppManifest,
+  Aenderungstext,
   AgentRouten,
   AppParams,
   AppFlowParams,

@@ -154,6 +154,9 @@ function serializeFlowFile(flow) {
       ? { betriebsart: flow.betriebsart }
       : {}),
     ...(flow.ausgabe ? { ausgabe: flow.ausgabe } : {}),
+    ...(flow.arten ? { arten: flow.arten } : {}),
+    ...(flow.ausloeser ? { ausloeser: flow.ausloeser } : {}),
+    ...(flow.stufen ? { stufen: flow.stufen } : {}),
   };
 
   const front = yaml.dump(head, { lineWidth: 100, noRefs: true, quotingType: '"' });

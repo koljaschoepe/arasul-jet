@@ -215,7 +215,8 @@ describe('Der Kontrakt nennt das Feld', () => {
     // Das Manifest ist `.strict()`: ein Geraet auf Fassung 5 weist ein Paket
     // mit `agent` ab. Genau das ist am 21.09.2026 am Orin passiert.
     // (Seit J38 steht sie auf 7: `verbindungen`, siehe `appKontrakt.js`.)
-    expect(vertrag.kontrakt).toBe(7);
+    // (Seit M5 steht sie auf 8; der Test haelt nur fest, dass sie ueber 5 liegt.)
+    expect(vertrag.kontrakt).toBeGreaterThanOrEqual(6);
   });
 
   test('das JSON-Schema des Manifests fuehrt `agent`', () => {

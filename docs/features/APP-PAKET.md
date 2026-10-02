@@ -219,10 +219,114 @@ in `app:deploy`: er erlaubt, das Gerät selbst auf eine neue Fassung zu bringen
 und wieder zurück (`GET/POST /api/v1/external/update`, `POST …/update/zurueck`;
 Ablauf in [../ops/AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39)).
 Der Kontrakt nennt die Wege unter `endpunkte` und den Bereich unter
-`schluessel.bereiche`; die Kontraktversion bleibt bei 7, weil nichts, was ein Kit
+`schluessel.bereiche`; die Kontraktversion blieb dabei bei 7, weil nichts, was ein Kit
 oder eine App bisher tat, sich ändert. Den Schlüssel dafür legt ein Administrator
 für den Anlass an (`scripts/util/kit-schluessel.sh anlegen <Name> system:update`)
 und widerruft ihn danach.
+
+## Neue Felder: Kontrakt 8 (M5, 02.10.2026)
+
+Fünf Felder, die ein Entwickler im Kit nennt und die das Gerät bis Kontrakt 7
+als unbekannt abwies (Manifest und Flow-Kopf sind `.strict()`). Die Quelle ist
+der Abschnitt „Flows und Freigaben“ in `company/frontend.md` des Überordners; der
+Schnitt unten ist die Entscheidung des Geräts dazu, wer abweichen muss, ändert
+zuerst diesen Abschnitt.
+
+**Alle Felder sind freiwillig.** Ein Paket von Kontrakt 7 rollt unverändert aus,
+ohne dass jemand etwas nachträgt; es wird nichts eingesetzt, wenn ein Feld
+fehlt. Die Kontraktversion geht trotzdem auf **8**: ein Kit, das gegen 7 prüft,
+wiese die Felder als unbekannt ab, obwohl das Gerät sie nimmt (der Grund von 3,
+4 und 7). Das Kit hebt `KIT_CONTRACT_VERSIONS` auf 8, bevor es auf ein solches
+Gerät einspielt.
+
+**Nur Schema und Annahme.** Das Gerät nimmt die Felder an, prüft sie und weist
+Falsches mit lesbarem Grund ab. Keines wirkt bisher auf einen Lauf: die Stufen
+(Standardperson, Fristen), der Zeitplaner und die Umschaltung der Arten kommen
+mit späteren Karten, die Anzeige des Änderungstextes und des Symbols ebenso.
+
+| Wo                  | Feld             | Form                                                                                          |
+| ------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
+| `app.json`          | `symbol`         | Lucide-Name (`file-text`) oder Kürzel (`BE`), siehe [APPS.md](APPS.md#das-manifest-fassung-1) |
+| Flow-Kopf           | `arten`          | Liste aus `autonom`, `ergebnis_bestaetigen`; mindestens eine, keine doppelt                   |
+| Flow-Kopf           | `ausloeser`      | Liste von Objekten mit `typ`: `hand`, `zeitplan`, `ereignis`; höchstens 5                     |
+| Flow-Kopf           | `stufen`         | Liste benannter Freigabestufen; höchstens 5                                                   |
+| Schritt             | `faehigkeiten`   | Objekt: `text`, `bild`, `werkzeuge` (je Wahrheitswert), `mindestkontext` (Tokens)             |
+| Deploy, neben Paket | `aenderungstext` | Text, 1 bis 1000 Zeichen                                                                      |
+
+```yaml
+---
+name: beleg-lesen
+arten: [autonom, ergebnis_bestaetigen]
+ausloeser:
+  - typ: hand
+  - typ: zeitplan
+    zeitplan: '0 6 * * 1-5'
+  - typ: ereignis
+    ereignis: beleg.hochgeladen
+stufen:
+  - name: pruefung
+    bezeichnung: Prüfung
+    frist_minuten: 4320
+  - name: leitung
+    bezeichnung: Leitung
+werkzeuge: [freigabe_anfordern, subagent]
+rollen:
+  - name: leser
+    ergebnis: { felder: [betrag] }
+    prompt: Lies den Beleg.
+schritte:
+  - name: lesen
+    typ: subagent
+    rolle: leser
+    auftrag: Lies {{beleg}}.
+    faehigkeiten: { text: true, bild: true, mindestkontext: 8192 }
+  - name: freigeben
+    typ: werkzeug
+    werkzeug: freigabe_anfordern
+    parameter: { titel: Beleg prüfen, stufe: pruefung }
+---
+```
+
+**`arten`** nennt, was der Flow _kann_; der Admin schaltet je Flow zwischen den
+genannten. Ohne Angabe gilt, was bisher galt: `autonom`. Ein Flow, der erzeugt,
+läuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rückfall.
+
+**`ausloeser`** nennt, wodurch der Flow startet. `hand` ist der Start in der
+App (der Weg über `POST /flows/:name/run`, wie bisher). `zeitplan` trägt fünf
+Felder wie in cron (`Minute Stunde Tag Monat Wochentag`, nur Ziffern und `* / , -`)
+— geprüft wird die Form, ob `61` eine Minute sein kann, entscheidet der
+Zeitplaner. `ereignis` trägt den Namen eines Ereignisses der App (klein, mit
+Punkt, Unterstrich oder Bindestrich). Derselbe Auslöser darf nicht zweimal
+stehen. Der Zeitplaner läuft einmal im Gerät; der Admin pausiert je Flow.
+
+**`stufen`** sind die benannten Freigaben („Prüfung“, „Leitung“): je Stufe
+`name` (Kennung, wie ein Schrittname), optional `bezeichnung` (was der Mensch
+liest) und `frist_minuten` (Vorgabe des Geräts: 7 Tage). **Der Flow nennt keine
+Person**: die Standardperson je App und Stufe setzt der Admin. Nennt ein
+`freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie
+unter `stufen` führen, sonst läge die Freigabe später bei niemandem.
+
+**`faehigkeiten`** sagt, was der Schritt vom Modell braucht; der Admin darf nur
+auf installierte Modelle umstellen, die **alle** genannten Fähigkeiten erfüllen.
+`false` und fehlen sind dasselbe. Nur bei `typ: subagent`: ein Werkzeug-Schritt
+ruft kein Modell, und ein Paket mit `faehigkeiten` daran wird abgewiesen. Das
+Modell selbst steht weiter in `modell:` (Schritt oder Flow), Prompts ändert der
+Admin nicht.
+
+**`aenderungstext`** reist als Textfeld neben dem Paket, nicht im Manifest: er
+gehört zu einem Ausrollen, nicht zu einer Version, dieselbe Version kann zweimal
+in den Test gehen. Ein leeres oder zu langes Feld ist `400`.
+
+```bash
+curl -H "x-api-key: $ARASUL_SCHLUESSEL" \
+  -F "aenderungstext=Belege lassen sich jetzt drucken." \
+  -F "paket=@paket.tgz" https://arasul.local/api/v1/external/apps
+```
+
+Der Kontrakt trägt dazu `app_json.schema`, `flow_frontmatter.schema` (mit den
+Feldern am Flow und am Schritt) und je einen Satz in `app_json.regeln`,
+`flow_frontmatter.regeln` und `paket.regeln`. Die Flow-API (`/api/flows`) nimmt
+`arten`, `ausloeser` und `stufen` ebenfalls an.
 
 ## Der Kontrakt: woran ein Kit merkt, dass es nicht passt
 

@@ -60,7 +60,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 7;
+const KONTRAKT_VERSION = 8;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -168,6 +168,32 @@ const KONTRAKT_VERSION = 7;
  * auf ein Geraet mit dieser Fassung einspielt. Der PR nennt es ausdruecklich.
  */
 
+/*
+ * Fassung 8 (M5, 02.10.2026): fuenf neue Felder, die ein Entwickler im Kit
+ * nennt und die das Geraet bisher als unbekannt abwies (Manifest und
+ * Flow-Kopf sind `.strict()`). Quelle ist der Abschnitt „Flows und Freigaben"
+ * in `company/frontend.md` des Ueberordners; der genaue Schnitt steht in
+ * `docs/features/APP-PAKET.md`.
+ *
+ *   `symbol`          im Manifest: Lucide-Name oder Kuerzel
+ *   `arten`           je Flow: `autonom`, `ergebnis_bestaetigen`
+ *   `ausloeser`       je Flow: `hand`, `zeitplan`, `ereignis`
+ *   `stufen`          je Flow: benannte Freigabestufen
+ *   `faehigkeiten`    je Schritt: `text`, `bild`, `werkzeuge`, `mindestkontext`
+ *   `aenderungstext`  beim Ausrollen, als Feld neben dem Paket
+ *
+ * ALLE FREIWILLIG, jedes Paket von Fassung 7 bleibt gueltig und rollt
+ * unveraendert aus. Die Zahl geht trotzdem mit, aus dem Grund von 3, 4 und 7:
+ * ein Kit, das gegen 7 prueft, wiese die Felder als unbekannt ab, obwohl das
+ * Geraet sie nimmt. NUR SCHEMA: Stufen, Zeitplaner und die Umschaltung der
+ * Arten wirken noch auf keinen Lauf (spaetere Karten); der Vertrag sagt, was
+ * angenommen wird, nicht, dass es schon etwas tut.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * muss auf 8 gehoben werden, bevor ein Kit auf ein Geraet mit dieser Fassung
+ * einspielt.
+ */
+
 /**
  * Die Regeln des Manifests, die kein JSON-Schema traegt.
  *
@@ -194,6 +220,7 @@ const MANIFEST_REGELN = Object.freeze([
   'Innerhalb von `agent` steht keine Route zweimal (`method` und `path` zusammen) und kein Parametername zweimal je Route.',
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Geraet haelt keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
   '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; hoechstens 20, keiner doppelt. Das Feld ist die FREIGABE: der Ausgangs-Proxy des Geraets laesst fuer diese App genau diese Namen durch und weist jeden anderen ab; der Administrator sieht je App, was eingetragen ist, was genutzt und was abgewiesen wurde -- siehe `netz`.',
+  '`symbol` ist das Bild der App in der Aktivitaetsleiste (seit Kontrakt 8, freiwillig): ein Name aus dem Lucide-Satz (klein, mit Bindestrichen, z. B. `file-text`) ODER ein Kuerzel aus 1 bis 3 Grossbuchstaben oder Ziffern (z. B. `BE`). Das Geraet prueft die Form, nicht den Satz: kennt die Shell den Namen nicht, zeigt sie das Kuerzel aus dem Namen der App. Ohne `symbol` gilt dasselbe Kuerzel.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
 ]);
 
@@ -392,7 +419,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'POST',
       pfad: '/api/v1/external/apps',
       bereich: 'app:deploy',
-      was: 'Ein Paket einspielen; rollt IMMER in den Teststand',
+      was: 'Ein Paket einspielen; rollt IMMER in den Teststand. Optional ein Multipart-Feld `aenderungstext` (ein paar Saetze, was neu ist, hoechstens 1000 Zeichen)',
     },
     {
       verb: 'POST',
@@ -558,6 +585,10 @@ function kontrakt() {
         'Das Werkzeug `freigabe_anfordern` haelt den Lauf an, bis ein Mensch bestaetigt (Status `wartend`). Ablehnung beendet ihn als `abgebrochen`, Fristablauf als `abgelaufen`.',
         'Entscheiden darf, wem die App freigegeben ist. Die Flow-Datei nennt dafuer keine Person und keine Rolle; den Kreis enger ziehen kann die APP beim Start des Laufs (`freigaben`, seit 25.09.2026).',
         'Die Frist steht als `frist_minuten` in den `parameter` des Schritts; ohne Angabe gilt die Vorgabe des Geraets.',
+        '`arten` nennt, welche Arten der Flow kann (seit Kontrakt 8, freiwillig): `autonom` und `ergebnis_bestaetigen`, mindestens eine, keine doppelt. Der Administrator schaltet je Flow zwischen den genannten. Ein Flow, der erzeugt, laeuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rueckfall. Noch ohne Wirkung auf einen Lauf.',
+        '`ausloeser` nennt, wodurch der Flow startet (seit Kontrakt 8, freiwillig): eine Liste von Objekten mit `typ` `hand`, `zeitplan` (dazu `zeitplan`, fuenf Felder wie in cron, z. B. `"0 6 * * 1-5"`) oder `ereignis` (dazu `ereignis`, der Name eines Ereignisses der App). Hoechstens 5, keiner doppelt. Noch ohne Wirkung: der Zeitplaner kommt mit einer spaeteren Karte.',
+        '`stufen` nennt die benannten Freigabestufen (seit Kontrakt 8, freiwillig), z. B. `pruefung` und `leitung`: je Stufe `name`, optional `bezeichnung` und `frist_minuten`. Hoechstens 5, keine doppelt. Nennt ein `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie deklarieren. Die Person je Stufe setzt der Administrator, nicht der Flow.',
+        '`faehigkeiten` je Schritt nennt, was der Schritt vom Modell braucht (seit Kontrakt 8, freiwillig): `text`, `bild`, `werkzeuge` (je true oder false) und `mindestkontext` (Tokens, 512 bis 1048576). Nur bei `typ: subagent`; ein Werkzeug-Schritt ruft kein Modell und wird mit `faehigkeiten` abgewiesen.',
       ],
     },
     koepfe: {
@@ -612,6 +643,7 @@ function kontrakt() {
         'Mit `backend` braucht das Paket `backend.bauen`: gebaut wird am Geraet, fertige Images nimmt dieser Weg nicht.',
         'Das Frontend ist fertig gebaut. Das Geraet liefert aus, es baut keine Seite.',
         'Ein Deploy rollt immer in den Teststand. Live schaltet ein Mensch.',
+        'Neben `paket` nimmt der Deploy ein Textfeld `aenderungstext` (seit Kontrakt 8, freiwillig): ein paar Saetze, was in dieser Version neu ist, 1 bis 1000 Zeichen. Es gehoert zum Ausrollen, nicht zur Version, und steht deshalb nicht im Manifest. Ein leeres oder zu langes Feld weist das Geraet mit 400 ab. Angenommen und im Sicherheitsprotokoll festgehalten; die Anzeige in der Verwaltung folgt.',
         'Eine Version, die gerade live ist, wird nicht ueberschrieben: neue Fassung, neue Nummer.',
         'Mit `flows` im Manifest muss der Ordner da sein und wenigstens eine .md enthalten.',
         'Jede eingespielte App belegt einen Platz der Lizenz, Test- und Livestand zusammen. Ist das Kontingent voll, weist das Geraet das Paket einer NEUEN App ab (409), und zwar bevor es baut; eine neue Version einer App, die schon da ist, geht immer durch.',
