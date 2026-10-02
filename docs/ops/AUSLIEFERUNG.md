@@ -497,6 +497,24 @@ Firmenordner (4418 auf 4435 Dateien, 424,4 auf 422,3 MB: OpenCloud schreibt und
 räumt seine Indexe selbst, der Abgleich läuft weiter). Der Hilfscontainer trug
 diesmal keinen Healthcheck, das Skript lief mit dem Fix aus dem Deploy.
 
+**Release `v0.8.16` trägt den Fix, und der Orin steht darauf (02.10.2026, 11:50
+bis 11:55): GRÜN.** Der Tag liegt auf der Spitze von `main` (`bc669a35`) und damit
+hinter PR 831; im ausgepackten Artefakt steht der Fix in
+`scripts/deploy/fassung-einspielen.sh`. Wer `0.8.15` hat, bekommt mit dem
+nächsten Einspielen auf `0.8.16` noch das Skript von `0.8.15`; erst von `0.8.16`
+an startet jedes Einspielen mit dem Fix aus der eigenen Fassung. Am Orin von
+`arasul-0.8.14` auf `0.8.16` mit einem Schlüssel nur im Bereich `system:update`
+(danach widerrufen, die alte Anfrage bekommt 401): in vier Minuten `fertig`,
+Ordner `arasul-0.8.16`, `SYSTEM_VERSION=0.8.16`, Oberfläche 200, 21 Container,
+alle gesund (`jetcam` hat keinen Healthcheck), kein Hilfscontainer übrig. Zählung
+gleich bei Konten samt Hash der Zugänge, Lizenzstufe und Konten, Modellen,
+Geheimnissen und Geräte-CA. Verschoben hat sich nur, was nicht vom Einspielen
+kommt: der Firmenordner (4435 auf 4453 Dateien, der Abgleich läuft weiter) und
+eine App samt Flow, die ein anderer Lauf um 12:08 am Gerät angelegt hat, 14
+Minuten nach dem Ende des Einspielens. `/api/download` der Website verlangt einen
+Lizenz-Token (400 `token_fehlt` ohne); die Fassung löst sie über das neueste
+Release auf, und das ist jetzt `v0.8.16`.
+
 **`~/arasul-aktuell`** ist kein Teil des Weges. Das Repo kennt den Namen nicht,
 das Skript findet die laufende Fassung über seinen eigenen Ort
 (`dirname/../..`), und der Verweis zeigte am Orin ins Leere, ohne dass etwas
