@@ -3004,8 +3004,10 @@ hochgeladen hat, weiß allein der Dateidienst (`activitylog`, am 22.09.2026 am
 Orin gemessen). Antwort `{ ordner, aenderungen: [{ wann, wer, text, datei }] }`,
 neueste zuerst, höchstens zwanzig; leer, wenn der Dienst steht oder den Ordner
 noch nicht kennt. `text` ist ein vollständiger deutscher Satz („Mia hat
-angebot.md in projekte abgelegt“); ein Konto, das es nicht mehr gibt, heißt „ein
-gelöschtes Konto“, ein Satz des Dienstes, den das Gerät nicht kennt, „… hat etwas
+angebot.md in projekte abgelegt“); ein bestehendes Konto heißt bei seinem Anmeldenamen (das Gerät ordnet die Kennung
+im Dienst selbst zu; der Dienst sagt beim Lesen manchmal fälschlich `DeletedUser`),
+ein Konto, das es nicht mehr gibt, „ein gelöschtes Konto“, eines mit unbekannter
+Kennung „ein Konto vor der Neuinstallation“, ein Satz des Dienstes, den das Gerät nicht kennt, „… hat etwas
 geändert“. Der Dienst liefert nur Satzvorlage und Werte, keine Art als Feld.
 
 **Rechte werden nur vergeben, nie unterhalb wieder entzogen.** `POST

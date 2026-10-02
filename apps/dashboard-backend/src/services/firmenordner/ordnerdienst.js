@@ -1161,10 +1161,27 @@ async function entferneMitglied(raumId, permissionId) {
  * Ein Konto, das es nicht mehr gibt, heisst beim Dienst `DeletedUser`.
  */
 const GELOESCHTES_KONTO = 'ein gelöschtes Konto';
+const KONTO_VOR_NEUINSTALLATION = 'ein Konto vor der Neuinstallation';
 
-function aenderungName(wert) {
+/**
+ * DER DIENST LOEST DEN NAMEN BEIM LESEN AUF, NICHT BEIM SCHREIBEN, und er
+ * irrt dabei: am 02.10.2026 am Orin gelesen, trugen 390 Eintraege vom
+ * 26.09.2026 die Kennung des bestehenden Kontos `admin` und trotzdem den
+ * Namen `DeletedUser`. Die Kennung stimmt also, der Name nicht. Deshalb gilt
+ * zuerst, was das Geraet selbst weiss: `namen` ordnet Kennungen im Dienst
+ * (`firmenordner_nutzer.dienst_id`) dem Anmeldenamen zu. Erst wenn die
+ * Kennung dort fehlt, zaehlt die Angabe des Dienstes: `DeletedUser` heisst
+ * weiter „ein gelöschtes Konto"; kein Name und keine bekannte Kennung ist ein
+ * Konto, das es vor einer Neuinstallation gab (die Kennung wurde mit dem
+ * Dienst neu vergeben).
+ */
+function aenderungName(wert, namen) {
   if (!wert || typeof wert !== 'object') {
     return null;
+  }
+  const eigener = wert.id && namen ? namen.get(wert.id) : null;
+  if (eigener) {
+    return eigener;
   }
   const name = wert.displayName || wert.name || null;
   if (name === 'DeletedUser') {
@@ -1173,8 +1190,8 @@ function aenderungName(wert) {
   return name || null;
 }
 
-function aenderungWer(user) {
-  return aenderungName(user) || (user?.id ? GELOESCHTES_KONTO : null);
+function aenderungWer(user, namen) {
+  return aenderungName(user, namen) || (user?.id ? KONTO_VOR_NEUINSTALLATION : null);
 }
 
 const AENDERUNG_SAETZE = [
@@ -1212,16 +1229,16 @@ const AENDERUNG_SAETZE = [
   [/^\{user\} restored \{resource\}.*$/, '{user} hat {resource} wiederhergestellt'],
 ];
 
-function aenderungSatz(nachricht, platzhalter) {
+function aenderungSatz(nachricht, platzhalter, namen) {
   const roh = String(nachricht || '').trim();
   const treffer = AENDERUNG_SAETZE.find(([muster]) => muster.test(roh));
   const vorlage = treffer ? treffer[1] : '{user} hat etwas geändert';
   const satz = vorlage.replace(/\{(\w+)\}/g, (_, name) => {
     if (name === 'user') {
-      return aenderungWer(platzhalter.user) || 'Jemand';
+      return aenderungWer(platzhalter.user, namen) || 'Jemand';
     }
     return (
-      aenderungName(platzhalter[name]) ||
+      aenderungName(platzhalter[name], namen) ||
       (name === 'folder' || name === 'space' ? 'diesem Ordner' : 'einer Datei')
     );
   });
@@ -1230,7 +1247,7 @@ function aenderungSatz(nachricht, platzhalter) {
 
 const AENDERUNGEN_FENSTER_TAGE = [1, 3, 7, 30, 90, 365, null];
 
-async function aenderungen(itemId, grenze = 20) {
+async function aenderungen(itemId, grenze = 20, namen = null) {
   let werte = [];
   for (const tage of AENDERUNGEN_FENSTER_TAGE) {
     const teile = [`itemid:${itemId}`, 'sort:desc'];
@@ -1260,8 +1277,8 @@ async function aenderungen(itemId, grenze = 20) {
       const platzhalter = vorlage.variables || {};
       return {
         wann: eintrag?.times?.recordedTime || null,
-        wer: aenderungWer(platzhalter.user),
-        text: aenderungSatz(vorlage.message, platzhalter),
+        wer: aenderungWer(platzhalter.user, namen),
+        text: aenderungSatz(vorlage.message, platzhalter, namen),
         datei: platzhalter.resource?.name || null,
       };
     })
