@@ -137,6 +137,19 @@ status() {
 
 sagen() { echo "[$(date +%H:%M:%S)] $*"; }
 
+# EIN LAUF LAEUFT EINMAL. Der Selbstheilungsdienst startet einen Container neu,
+# der „unhealthy" meldet, und der Hilfscontainer des Backends trug am 02.10.2026
+# den Healthcheck des Backend-Images mit: nach einer Viertelstunde lief derselbe
+# Befehl ein zweites Mal los und baute ein zweites Mal -- am Orin, in der Nacht,
+# in der es ein Versuch sein sollte. Steht dieser Lauf schon im Protokoll, tut
+# das Skript nichts.
+for kandidat in "${ALT}/data/updates/fassung/lauf.log" "${ELTERN}/arasul-${NACH:-@}/data/updates/fassung/lauf.log"; do
+  if [ -f "$kandidat" ] && grep -qF "(Lauf ${LAUF})" "$kandidat" 2>/dev/null; then
+    echo "Lauf ${LAUF} lief schon (${kandidat}); er wird nicht noch einmal gestartet." >&2
+    exit 0
+  fi
+done
+
 # Alles ab hier ins Protokoll. Der Dateideskriptor bleibt gueltig, auch wenn
 # `data/` mitten im Lauf in ein anderes Verzeichnis umzieht (rename).
 PROTOKOLL_ORDNER="${ALT}/data/updates/fassung"
@@ -193,12 +206,16 @@ loeschen() {
 }
 
 # Warten, bis jeder Container dieses Projekts mit Gesundheitspruefung gesund ist.
+# Der Hilfscontainer des Backends (`arasul-aktualisierung`) zaehlt nicht mit: er
+# traegt das Image des Backends samt dessen Healthcheck, der in ihm nie gruen wird
+# -- am Orin am 02.10.2026 hielt genau das den ersten Lauf fuer gescheitert.
 gesund_warten() {
   [ "${FASSUNG_OHNE_GESUNDHEIT:-}" = 1 ] && return 0
   local projekt="${ARASUL_PROJEKT:-arasul-platform}" versuche=60 unten
   while [ "$versuche" -gt 0 ]; do
     unten="$(docker ps -a --filter "label=com.docker.compose.project=${projekt}" \
-      --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -E 'unhealthy|starting|Exited|Restarting' || true)"
+      --format '{{.Names}} {{.Status}}' 2>/dev/null \
+      | grep -v '^[a-z-]*arasul-aktualisierung ' | grep -E 'unhealthy|starting|Exited|Restarting' || true)"
     if [ -z "$unten" ] && [ -n "$(docker ps --filter "label=com.docker.compose.project=${projekt}" \
         --filter 'name=dashboard-backend' --filter 'health=healthy' -q 2>/dev/null)" ]; then
       return 0
@@ -234,8 +251,18 @@ rueckweg() {
   local zusatz=()
   [ "${FASSUNG_NUR_VORBEREITEN:-}" = 1 ] && zusatz+=(--nur-vorbereiten)
   [ -n "$name" ] && zusatz+=(--name "$name")
-  (cd "$ziel" && bash ./install.sh --uebernehmen "$jetzt" --ssh-behalten "${zusatz[@]}")
-  local ergebnis=$?
+  # Bis zu dreimal: der Rueckweg baut Images, und eine Registry, die gerade 502
+  # sagt (Docker Hub am Orin am 02.10.2026, "failed to fetch anonymous token"),
+  # soll das Geraet nicht auf der neuen Fassung stehen lassen. Der zweite Anlauf
+  # findet den Zustand schon im Zielordner und baut nur weiter.
+  local ergebnis=1 versuch
+  for versuch in 1 2 3; do
+    (cd "$ziel" && bash ./install.sh --uebernehmen "$jetzt" --ssh-behalten "${zusatz[@]}")
+    ergebnis=$?
+    [ "$ergebnis" -eq 0 ] && break
+    sagen "Rueckweg, Versuch ${versuch} von 3: install.sh ist mit ${ergebnis} gescheitert."
+    [ "$versuch" -lt 3 ] && sleep 30
+  done
   if [ "$ergebnis" -ne 0 ]; then
     sagen "Der Rueckweg ist mit ${ergebnis} gescheitert."
     return 1
