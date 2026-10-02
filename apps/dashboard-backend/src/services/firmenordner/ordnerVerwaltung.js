@@ -1013,7 +1013,15 @@ async function aenderungenVon(ordnerId) {
   }
   const itemId =
     ordner.ebene === 2 ? await dienst.ordnerKennung(ordner.raum_id, ordner.pfad) : ordner.raum_id;
-  const aenderungen = await dienst.aenderungen(itemId);
+  // Der Dienst nennt Konten beim Lesen manchmal `DeletedUser`, obwohl es sie
+  // gibt; die Kennung stimmt, und die kennt das Geraet.
+  const { rows } = await db.query(
+    `SELECT f.dienst_id, COALESCE(u.username, f.dienst_name) AS name
+       FROM public.firmenordner_nutzer f
+       LEFT JOIN public.admin_users u ON u.id = f.user_id`
+  );
+  const namen = new Map(rows.map(r => [r.dienst_id, r.name]));
+  const aenderungen = await dienst.aenderungen(itemId, 20, namen);
   return { ordner: ordner.kennung, aenderungen };
 }
 

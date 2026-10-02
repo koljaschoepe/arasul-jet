@@ -689,6 +689,34 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
     expect(JSON.stringify(liste)).not.toMatch(/\b(added|removed|deleted|DeletedUser)\b/);
   });
 
+  it('nennt ein bestehendes Konto beim Namen, auch wenn der Dienst DeletedUser sagt', async () => {
+    firmenordnerAn();
+    const eintrag = (user, zeit) => ({
+      template: {
+        message: '{user} updated {resource}',
+        variables: { user, resource: { name: 'a.md' } },
+      },
+      times: { recordedTime: zeit },
+    });
+    global.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          value: [
+            eintrag({ id: 'k-admin', displayName: 'DeletedUser' }, '2026-09-26T10:00:00Z'),
+            eintrag({ id: 'k-weg', displayName: 'DeletedUser' }, '2026-09-26T09:00:00Z'),
+            eintrag({ id: 'k-alt' }, '2026-09-26T08:00:00Z'),
+          ],
+        }),
+    });
+    const liste = await dienst.aenderungen('r', 3, new Map([['k-admin', 'admin']]));
+    expect(liste[0].wer).toBe('admin');
+    expect(liste[0].text).toBe('Admin hat a.md geändert');
+    expect(liste[1].wer).toBe('ein gelöschtes Konto');
+    expect(liste[2].wer).toBe('ein Konto vor der Neuinstallation');
+  });
+
   it('weitet das Zeitfenster aus, bis genug da sind, und haelt bei einem Fehler des weiteren', async () => {
     firmenordnerAn();
     const leer = { ok: true, status: 200, text: async () => JSON.stringify({ value: [] }) };
