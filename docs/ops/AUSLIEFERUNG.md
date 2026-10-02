@@ -482,7 +482,7 @@ Konto schreibt alle fünf Minuten weiter; nichts fehlt).
 **Eine Fassung bringt ihr eigenes Skript mit, und das läuft beim nächsten
 Einspielen.** `v0.8.15` wurde vor dem Fix des Hilfscontainers getaggt: wer auf
 0.8.15 steht, startet sein nächstes Einspielen oder seinen Rückweg mit dem Skript
-und dem hilfscontainer von 0.8.15, also noch mit dem geerbten Healthcheck. Ein
+und dem Hilfscontainer von 0.8.15, also noch mit dem geerbten Healthcheck. Ein
 Merge nach `main` rollt den Fix über `deploy.yml` in das laufende Verzeichnis;
 bei einem Kunden ohne Deploy kommt er erst mit der Fassung, die ihn enthält, und
 wirkt vom Einspielen danach.
