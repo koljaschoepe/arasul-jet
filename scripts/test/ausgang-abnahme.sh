@@ -165,6 +165,9 @@ function ueberProxy(host, token = proxy.password) {
       host: proxy.hostname, port: proxy.port, method: 'CONNECT', path: host + ':443',
       headers: { 'Proxy-Authorization': zugang(proxy.username, token), Host: host + ':443' },
       timeout: 15000,
+      // Ein eigener Agent: Node 24 schickt mit NODE_USE_ENV_PROXY sonst auch
+      // diesen Aufruf an den Proxy durch den Proxy.
+      agent: new http.Agent(),
     });
     q.on('timeout', () => { q.destroy(); fertig({ connect: 0, was: 'Zeitueberschreitung' }); });
     q.on('error', e => fertig({ connect: 0, was: e.code || e.message }));
@@ -194,18 +197,31 @@ const direkt = (host) =>
   const andere = [await ueberProxy('example.com'), await ueberProxy('example.com')];
   const ip = await ueberProxy('1.1.1.1');
   const fremderToken = await ueberProxy('example.org', 'f'.repeat(64));
+  // Der Weg einer echten App: fetch liest HTTPS_PROXY selbst (NODE_USE_ENV_PROXY=1).
+  const holen = async host => {
+    try {
+      const r = await fetch('https://' + host + '/', { signal: AbortSignal.timeout(15000) });
+      return { ok: true, status: r.status };
+    } catch (e) {
+      return { ok: false, was: String((e.cause && e.cause.message) || e.message).slice(0, 80) };
+    }
+  };
+  const fetchErlaubt = await holen('example.org');
+  const fetchAbgewiesen = await holen('example.com');
   const ohneProxy = await direkt('example.org');
   const ohneProxyIp = await direkt('1.1.1.1');
-  console.log(JSON.stringify({ eingetragen, andere, ip, fremderToken, ohneProxy, ohneProxyIp }));
+  console.log(JSON.stringify({ fetchErlaubt, fetchAbgewiesen, e0: eingetragen[0], a0: andere[0], andere, ip, fremderToken, ohneProxy, ohneProxyIp }));
 })();
 JS
 ERGEBNIS=$(am_geraet "docker exec -i -w /app $CONTAINER node -" <"$ARBEIT/messen.js" 2>"$ARBEIT/fehler")
 messung() { printf '%s' "$ERGEBNIS" | feld "$1"; }
 [ -z "$ERGEBNIS" ] && cat "$ARBEIT/fehler"
 
-pruefe 'example.org (eingetragen) ueber den Proxy: CONNECT 200' "$(ja_wenn "$(messung eingetragen.0.connect)" 200)" "$(messung eingetragen.0.was)"
-pruefe 'example.org: TLS-Handshake und HTTP-Antwort 200' "$(ja_wenn "$(messung eingetragen.0.http)" 200)" "$(messung eingetragen.0.was)"
-pruefe 'example.com (nicht eingetragen): 403' "$(ja_wenn "$(messung andere.0.connect)" 403)"
+pruefe 'example.org (eingetragen) ueber den Proxy: CONNECT 200' "$(ja_wenn "$(messung e0.connect)" 200)" "$(messung e0.was)"
+pruefe 'example.org: TLS-Handshake und HTTP-Antwort 200' "$(ja_wenn "$(messung e0.http)" 200)" "$(messung e0.was)"
+pruefe 'fetch (wie eine App) auf example.org: Antwort 200' "$(ja_wenn "$(messung fetchErlaubt.status)" 200)" "$(messung fetchErlaubt.was)"
+pruefe 'fetch auf example.com (nicht eingetragen): scheitert' "$(ja_wenn "$(messung fetchAbgewiesen.ok)" false)" "$(messung fetchAbgewiesen.was)"
+pruefe 'example.com (nicht eingetragen): 403' "$(ja_wenn "$(messung a0.connect)" 403)"
 pruefe '1.1.1.1 (nicht eingetragen, IP): 403' "$(ja_wenn "$(messung ip.connect)" 403)"
 pruefe 'Zugang einer anderen App (falscher Token): 407' "$(ja_wenn "$(messung fremderToken.connect)" 407)"
 pruefe 'ohne Proxy erreicht die App example.org nicht' "$(ja_wenn "$(messung ohneProxy.ok)" false)" "$(messung ohneProxy.was)"
@@ -233,13 +249,13 @@ print("|".join([",".join(x["host"] for x in a["eingetragen"]) or "-", z(a["genut
 ende=$((SECONDS + 30))
 while [ "$SECONDS" -lt "$ende" ]; do
   A=$(abfrage)
-  case "$A" in *"|3/ja|2/ja|1/ja|-") break ;; esac
+  case "$A" in *"|4/ja|3/ja|1/ja|-") break ;; esac
   sleep 3
 done
 IFS='|' read -r EINGETRAGEN GENUTZT ABG_COM ABG_IP GENUTZT_COM <<<"$A"
 pruefe 'Verbindungen: eingetragen = example.org' "$(ja_wenn "$EINGETRAGEN" example.org)"
-pruefe 'Verbindungen: genutzt example.org, 3 Aufrufe, mit Zeitpunkt' "$(ja_wenn "$GENUTZT" 3/ja)" "$GENUTZT"
-pruefe 'Verbindungen: abgewiesen example.com, 2 Aufrufe' "$(ja_wenn "$ABG_COM" 2/ja)" "$ABG_COM"
+pruefe 'Verbindungen: genutzt example.org, 4 Aufrufe (3 CONNECT, 1 fetch), mit Zeitpunkt' "$(ja_wenn "$GENUTZT" 4/ja)" "$GENUTZT"
+pruefe 'Verbindungen: abgewiesen example.com, 3 Aufrufe (2 CONNECT, 1 fetch)' "$(ja_wenn "$ABG_COM" 3/ja)" "$ABG_COM"
 pruefe 'Verbindungen: abgewiesen 1.1.1.1, 1 Aufruf' "$(ja_wenn "$ABG_IP" 1/ja)" "$ABG_IP"
 pruefe 'Verbindungen: abgewiesenes Ziel steht NICHT unter genutzt' "$(ja_wenn "$GENUTZT_COM" -)"
 
@@ -259,20 +275,23 @@ TOK=$(arasul_token)
 A=$(abfrage)
 IFS='|' read -r EINGETRAGEN GENUTZT ABG_COM ABG_IP GENUTZT_COM <<<"$A"
 pruefe 'nach dem Neustart von Proxy und Backend: genutzt, abgewiesen, eingetragen noch da' \
-  "$(ja_wenn "$EINGETRAGEN|$GENUTZT|$ABG_COM|$ABG_IP" 'example.org|3/ja|2/ja|1/ja')" "$A"
+  "$(ja_wenn "$EINGETRAGEN|$GENUTZT|$ABG_COM|$ABG_IP" 'example.org|4/ja|3/ja|1/ja')" "$A"
 
 # Und der Proxy geht nach dem Neustart wieder an die Arbeit (Regeln neu geholt).
 sleep 15
 ERGEBNIS=$(am_geraet "docker exec -i -w /app $CONTAINER node -" <"$ARBEIT/messen.js" 2>/dev/null)
-pruefe 'nach dem Neustart erreicht die App example.org weiter' "$(ja_wenn "$(messung eingetragen.0.connect)" 200)"
-pruefe 'und example.com bleibt abgewiesen' "$(ja_wenn "$(messung andere.0.connect)" 403)"
+pruefe 'nach dem Neustart erreicht die App example.org weiter' "$(ja_wenn "$(messung e0.connect)" 200)"
+pruefe 'und example.com bleibt abgewiesen' "$(ja_wenn "$(messung a0.connect)" 403)"
 
 # --- 6. Last des Proxys im Leerlauf ------------------------------------------------
-sleep 20
-STATS=$(am_geraet "for i in 1 2 3 4 5 6 7 8 9 10; do docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}' $PROXY; sleep 1; done" 2>/dev/null)
-CPU_MAX=$(printf '%s\n' "$STATS" | awk '{ gsub("%","",$1); if ($1+0 > m) m = $1+0 } END { printf "%.2f", m }')
+sleep 45
+STATS=$(am_geraet "for i in 1 2 3 4 5 6 7 8 9 10 11; do docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}' $PROXY; sleep 2; done" 2>/dev/null | tail -n +2)
+# Median der zehn Messungen ab der zweiten: die erste Ablesung von docker stats
+# rechnet ohne Vorwert und springt.
+CPU_MAX=$(printf '%s\n' "$STATS" | awk '{ gsub("%","",$1); print $1+0 }' | sort -n | awk '{ a[NR] = $1 } END { printf "%.2f", a[int((NR + 1) / 2)] }')
+CPU_TOP=$(printf '%s\n' "$STATS" | awk '{ gsub("%","",$1); if ($1+0 > m) m = $1+0 } END { printf "%.2f", m }')
 MEM=$(printf '%s\n' "$STATS" | tail -1 | awk '{print $2 $3}')
-printf 'MESSUNG  Leerlauf des Proxys: CPU hoechstens %s %% (10 Messungen), Speicher %s\n' "$CPU_MAX" "$MEM"
+printf 'MESSUNG  Leerlauf des Proxys: CPU Median %s %%, hoechstens %s %% (10 Messungen), Speicher %s\n' "$CPU_MAX" "$CPU_TOP" "$MEM"
 pruefe 'Leerlauf: CPU unter 5 %' "$(awk -v c="$CPU_MAX" 'BEGIN { print (c < 5) ? "ja" : "nein" }')" "$CPU_MAX %"
 
 # Jede App steht im Netz arasul-apps MIT Zugang zum Proxy (der Umzug lief).
