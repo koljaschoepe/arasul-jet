@@ -148,6 +148,124 @@ const SubagentRole = z
   .strict();
 
 /**
+ * Kontrakt 8 (M5, 02.10.2026): die Felder, die der Entwickler im Kit einem Flow
+ * und seinen Schritten mitgibt. Festgelegt im Abschnitt „Flows und Freigaben"
+ * von `company/frontend.md` des Ueberordners; der Schnitt steht in
+ * `docs/features/APP-PAKET.md`.
+ *
+ * ALLE FELDER SIND FREIWILLIG. Ein Flow, der sie nicht nennt, ist genau der
+ * Flow, der er vorher war -- ohne Vorgabe wird nichts eingesetzt, damit weder
+ * die Datei noch ihre Auslegung sich fuer bestehende Pakete aendert.
+ *
+ * NUR SCHEMA. Das Geraet nimmt die Felder an und prueft sie; Stufen, Zeitplaner
+ * und die Umschaltung zwischen den Arten kommen in spaeteren Karten. Bis dahin
+ * wirkt keines dieser Felder auf einen Lauf.
+ */
+const FLOW_ARTEN = ['autonom', 'ergebnis_bestaetigen'];
+const AUSLOESER_TYPEN = ['hand', 'zeitplan', 'ereignis'];
+
+// Zeitplan: fuenf Felder wie in cron (Minute Stunde Tag Monat Wochentag), je
+// Feld nur Ziffern, `*`, `/`, `,` und `-`. Das ist eine Formpruefung, keine
+// Auslegung: ob `61` eine Minute sein kann, entscheidet der Zeitplaner.
+const ZEITPLAN_RE = /^\S+( \S+){4}$/;
+const ZEITPLAN_FELD_RE = /^[0-9*/,-]+$/;
+const EREIGNIS_RE = /^[a-z][a-z0-9_.-]{0,59}$/;
+
+const FlowArten = z
+  .array(z.enum(FLOW_ARTEN, { error: `Art ist eine von: ${FLOW_ARTEN.join(', ')}` }))
+  .min(1, '"arten" nennt mindestens eine Art oder fehlt ganz')
+  .refine(liste => new Set(liste).size === liste.length, 'Eine Art steht zweimal da');
+
+const FlowAusloeser = z.discriminatedUnion(
+  'typ',
+  [
+    z.object({ typ: z.literal('hand') }).strict(),
+    z
+      .object({
+        typ: z.literal('zeitplan'),
+        zeitplan: z
+          .string({ error: 'Ein Zeitplan-Ausloeser braucht "zeitplan", z. B. "0 6 * * 1-5"' })
+          .trim()
+          .max(100)
+          .refine(
+            v => ZEITPLAN_RE.test(v) && v.split(' ').every(f => ZEITPLAN_FELD_RE.test(f)),
+            'zeitplan: fuenf Felder (Minute Stunde Tag Monat Wochentag) aus Ziffern und * / , -, z. B. "0 6 * * 1-5"'
+          ),
+      })
+      .strict(),
+    z
+      .object({
+        typ: z.literal('ereignis'),
+        ereignis: z
+          .string({ error: 'Ein Ereignis-Ausloeser braucht "ereignis", den Namen des Ereignisses' })
+          .trim()
+          .regex(
+            EREIGNIS_RE,
+            'ereignis: Kleinbuchstaben, Ziffern, Punkt, Unterstrich und Bindestrich; beginnt mit einem Buchstaben'
+          ),
+      })
+      .strict(),
+  ],
+  { error: `Ausloeser-Typ ist einer von: ${AUSLOESER_TYPEN.join(', ')}` }
+);
+
+const FlowAusloeserListe = z
+  .array(FlowAusloeser)
+  .min(1, '"ausloeser" nennt mindestens einen Ausloeser oder fehlt ganz')
+  .max(5, 'hoechstens 5 Ausloeser je Flow')
+  .refine(
+    liste =>
+      new Set(liste.map(a => `${a.typ}:${a.zeitplan ?? a.ereignis ?? ''}`)).size === liste.length,
+    'Derselbe Ausloeser steht zweimal da'
+  );
+
+// Eine benannte Freigabestufe, etwa „pruefung" und „leitung". Der Name ist die
+// Kennung (ARG_NAME_RE), `bezeichnung` das, was der Mensch liest. Die Frist
+// setzt die App je Stufe; ohne sie gilt die Vorgabe des Geraets (7 Tage).
+const FlowStufe = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .regex(ARG_NAME_RE, 'Stufenname: Kleinbuchstaben, Ziffern, Unterstrich, max. 31 Zeichen'),
+    bezeichnung: z.string().trim().min(1).max(60).optional(),
+    frist_minuten: z.coerce
+      .number()
+      .int()
+      .min(1, 'frist_minuten ist mindestens 1')
+      .max(525600, 'frist_minuten ist hoechstens ein Jahr (525600)')
+      .optional(),
+  })
+  .strict();
+
+const FlowStufen = z
+  .array(FlowStufe)
+  .min(1, '"stufen" nennt mindestens eine Stufe oder fehlt ganz')
+  .max(5, 'hoechstens 5 Stufen je Flow')
+  .refine(
+    liste => new Set(liste.map(s => s.name)).size === liste.length,
+    'Eine Stufe steht zweimal da'
+  );
+
+// Was ein Schritt vom Modell verlangt. Der Admin darf nur auf installierte
+// Modelle umstellen, die ALLE genannten Faehigkeiten erfuellen -- deshalb nennt
+// der Entwickler nur, was er braucht; `false` und fehlen sind dasselbe.
+const SchrittFaehigkeiten = z
+  .object({
+    text: z.boolean({ error: 'text ist true oder false' }).optional(),
+    bild: z.boolean({ error: 'bild ist true oder false' }).optional(),
+    werkzeuge: z.boolean({ error: 'werkzeuge ist true oder false' }).optional(),
+    // Das kleinste Kontextfenster in Tokens, das der Schritt braucht.
+    mindestkontext: z.coerce
+      .number()
+      .int()
+      .min(512, 'mindestkontext ist mindestens 512 Tokens')
+      .max(1048576, 'mindestkontext ist hoechstens 1048576 Tokens')
+      .optional(),
+  })
+  .strict();
+
+/**
  * Ein deklarativer Schritt (Plan 013, B7). Macht die Orchestrierung
  * DETERMINISTISCH: statt dass das Orchestrator-Modell entscheidet, wann es an
  * welche Rolle delegiert, gibt der Flow die Reihenfolge fest vor. Zwei Arten:
@@ -204,6 +322,8 @@ const FlowStep = z
       .regex(ARG_NAME_RE, 'wiederhole_ueber: Name eines Arguments oder früheren Schritts')
       .optional(),
     modell: z.string().trim().min(1).max(120).optional(),
+    // Kontrakt 8: was der Schritt vom Modell braucht. Siehe `SchrittFaehigkeiten`.
+    faehigkeiten: SchrittFaehigkeiten.optional(),
   })
   .strict()
   .superRefine((step, ctx) => {
@@ -237,6 +357,15 @@ const FlowStep = z
           message: `Schritt "${step.name}": "subagent" ist kein direktes Werkzeug, nutze typ "subagent" mit einer Rolle`,
         });
       }
+    }
+    // Ein Werkzeug-Schritt ruft kein Modell: Faehigkeiten daran waeren eine
+    // Forderung an etwas, das nie gefragt wird.
+    if (step.typ === 'werkzeug' && step.faehigkeiten) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['faehigkeiten'],
+        message: `Schritt "${step.name}" ist ein Werkzeug-Schritt ohne Modell: "faehigkeiten" gibt es nur bei typ "subagent"`,
+      });
     }
     if (step.wiederhole_ueber && step.iterationen > 1) {
       ctx.addIssue({
@@ -360,6 +489,10 @@ const FlowDefinition = z
     // externen Start oder einen nächtlichen Lauf das Ende.
     betriebsart: z.enum(['autonom', 'rueckfragen']).default('autonom'),
     ausgabe: FlowAusgabe.optional(),
+    // Kontrakt 8 (M5): Arten, Ausloeser und Stufen, alle freiwillig.
+    arten: FlowArten.optional(),
+    ausloeser: FlowAusloeserListe.optional(),
+    stufen: FlowStufen.optional(),
     systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),
   })
   .strict()
@@ -461,6 +594,23 @@ const FlowDefinition = z
       });
     }
 
+    // Kontrakt 8: Eine Freigabe, die eine Stufe nennt, nennt eine deklarierte.
+    // Ein Tippfehler im Stufennamen liesse die Freigabe sonst zur Laufzeit bei
+    // niemandem landen -- der Admin setzt die Standardperson je Stufe.
+    if (flow.stufen) {
+      const stufenNamen = flow.stufen.map(s => s.name);
+      for (const step of flow.schritte) {
+        const stufe = step.werkzeug === 'freigabe_anfordern' ? step.parameter?.stufe : undefined;
+        if (stufe !== undefined && !stufenNamen.includes(stufe)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['schritte'],
+            message: `Schritt "${step.name}" nennt die Stufe "${stufe}", die der Flow nicht deklariert (${stufenNamen.join(', ')})`,
+          });
+        }
+      }
+    }
+
     // B7: Schritt-Kette gegen den Rest des Flows prüfen.
     const stepNames = flow.schritte.map(s => s.name);
     const dupStep = stepNames.find((n, i) => stepNames.indexOf(n) !== i);
@@ -543,6 +693,11 @@ const SaveFlowBody = z
     // unerreichbar, einschliesslich des `angebot`-Beispiels, das genau sie
     // vorfuehren soll. Aufgefallen beim Versuch, es aus dem Katalog anzulegen.
     betriebsart: z.enum(['autonom', 'rueckfragen']).optional(),
+    // Kontrakt 8 (M5): dieselben Felder wie in `FlowDefinition`; ohne sie wiese
+    // die API einen Flow ab, den das Paket mitbringen darf (siehe oben).
+    arten: FlowArten.optional(),
+    ausloeser: FlowAusloeserListe.optional(),
+    stufen: FlowStufen.optional(),
     prompt: z.string().trim().min(1).max(50000),
   })
   .strict();
@@ -631,6 +786,10 @@ module.exports = {
   FlowLimits,
   FlowLimitsShape,
   FlowAusgabe,
+  FlowArten,
+  FlowAusloeser,
+  FlowStufe,
+  SchrittFaehigkeiten,
   SaveFlowBody,
   CreateFlowBody,
   FlowNameParams,
@@ -646,4 +805,6 @@ module.exports = {
   LAENGEN_STUFEN,
   TONALITAETEN,
   FLOW_NAME_RE,
+  FLOW_ARTEN,
+  AUSLOESER_TYPEN,
 };

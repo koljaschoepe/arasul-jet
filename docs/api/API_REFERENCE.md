@@ -3771,7 +3771,12 @@ _mitgibt_.
   dieses Standes (siehe [APPS.md](../features/APPS.md#die-datenbank-einer-app-phase-h7)).
 
 **POST /api/v1/external/apps** — Multipart mit dem Feld `paket`, einem
-`.tar.gz` mit `app.json` im Wurzelverzeichnis. Das Gerät packt aus, prüft,
+`.tar.gz` mit `app.json` im Wurzelverzeichnis, und optional dem Textfeld
+`aenderungstext` (M5, Kontrakt 8): ein paar Sätze, was in dieser Version neu
+ist, 1 bis 1000 Zeichen; leer oder zu lang ist `400`. Er gehört zum Ausrollen,
+nicht zur Version, steht also nicht im Manifest; das Gerät hält ihn im
+Sicherheitsprotokoll fest (`app_paket_eingespielt`), die Anzeige in der
+Verwaltung folgt. Das Gerät packt aus, prüft,
 legt unter `/arasul/apps/<id>/<version>/` ab, **baut das Image aus dem
 Dockerfile im Paket**, registriert die Flows aus `flows/*.md` (C6) und spielt
 in den Teststand ein. Antworten: `201` mit dem Stand und den registrierten

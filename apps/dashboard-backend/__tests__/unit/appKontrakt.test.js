@@ -292,7 +292,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // das Geraet an Last traegt (eine Anfrage rechnet, 20 warten, Wartezeiten
     // fuer zwoelf Personen). Die Zahl bleibt bei 7: rein additiv, eine App oder
     // ein Kit, das den Abschnitt nicht liest, merkt nichts.
-    expect(abdruck).toBe('77ca4eb4427d53468b74ac7d76c740b78dabefa51ae1446a113c84544ecfdb8a');
+    //
+    // 02.10.2026 (M5, Kontrakt 8): `symbol` im Manifest, `arten`, `ausloeser`
+    // und `stufen` je Flow, `faehigkeiten` je Schritt und `aenderungstext` beim
+    // Ausrollen. Alle freiwillig; die Zahl geht mit, weil ein Kit auf Fassung 7
+    // sie als unbekannt abwiese.
+    expect(abdruck).toBe('31bba335a9e83411d1df2c15e9293e0b66390c9658dd686542b3e303f8e238d9');
   });
 
   /**
