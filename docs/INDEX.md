@@ -63,6 +63,7 @@ docs/
 | Document                                                           | Topic                                                                               |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | [`ops/AUSLIEFERUNG.md`](ops/AUSLIEFERUNG.md)                       | Das Artefakt, seine Adresse, `install.sh`, woher die Fassung kommt                  |
+| [`ops/spark-erster-tag.md`](ops/spark-erster-tag.md)                | Der erste Tag am DGX Spark als Messplan: jeder Messpunkt mit Befehl und Sollwert    |
 | [`ops/NETZNAME_UND_ZERTIFIKAT.md`](ops/NETZNAME_UND_ZERTIFIKAT.md) | `https://arasul/`, die Geräte-CA, Anleitung für Windows, macOS, iOS, Android        |
 | [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (Artefakt / Quellbaum / ohne Rückfragen), pre-shipping checklist, hardening |
 | [`ops/QUICK_START.md`](ops/QUICK_START.md)                         | Customer quick start (German, end-user-facing)                                      |

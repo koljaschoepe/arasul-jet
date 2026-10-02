@@ -302,6 +302,8 @@ installation_merken "$WURZEL"
 # schon hat, und das Geraet ist ueber seine IP erreichbar.
 if [ "$NUR_VORBEREITEN" = true ]; then
   sagen "Netzname wird nicht gesetzt (--nur-vorbereiten)."
+elif [ "${ARASUL_TROCKENLAUF:-}" = "ohne-gpu" ]; then
+  achtung "UEBERSPRUNGEN (Trockenlauf): Netzname -- der Laeufer behaelt seinen Namen."
 elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
   # Die Ausgabe wird gelesen und nicht weggeworfen: scheitert es, steht der
   # Grund da (bis J35 hiess es nur "nicht gesetzt").
@@ -358,7 +360,9 @@ fi
 # demselben Skript, das Bootstrap und Deploy rufen. Hier NUR die Plattform:
 # Deadman-Switch und Watchdog kommen erst nach dem Rauchtest dazu, sonst
 # startete der Schalter einen Agenten neu, den der Bootstrap gerade baut.
-if command -v systemctl >/dev/null 2>&1; then
+if [ "${ARASUL_TROCKENLAUF:-}" = "ohne-gpu" ]; then
+  achtung "UEBERSPRUNGEN (Trockenlauf): arasul-platform.service -- der Laeufer ist kein Geraet."
+elif command -v systemctl >/dev/null 2>&1; then
   if bash "${WURZEL}/scripts/system/einheiten-installieren.sh" --nur-plattform >/dev/null 2>&1; then
     gut "Startet nach einem Neustart von selbst (arasul-platform.service)"
   else

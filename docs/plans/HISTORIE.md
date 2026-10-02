@@ -1727,3 +1727,35 @@ stoppte. Behoben (kein Healthcheck, `AutoRemove`, ein Lauf läuft einmal, Rückw
 mit drei Versuchen); das Einspielen auf `0.8.15` ist am echten Gerät **offen**.
 Lehre: ein Container, der aus dem Image eines Dienstes entsteht, erbt dessen
 Healthcheck, und alles, was „unhealthy" neu startet, greift auch ihn an.
+
+Seit dem Auftrag **spark-trockenlauf-und-messplan** (02.10.2026, J41) **läuft die
+Installation des DGX Spark bei jedem Zug in der CI durch**, ohne Spark: der Job
+Spark-Trockenlauf (`ubuntu-24.04-arm`, 4 Kerne, 114 GB frei, ohne Zusatzkosten)
+führt `./install.sh` aus dem Artefakt mit dem Profil `dgx-spark` bis zu zwölf
+gesunden Containern aus. Ersetzt ist nur, was ohne GPU nicht geht, und jede
+Stelle sagt `UEBERSPRUNGEN (Trockenlauf)` (`ARASUL_TROCKENLAUF=ohne-gpu`): eine
+`nvidia-smi`-Attrappe, die nur den Namen GB10 nennt (damit die echte Erkennung
+läuft), `llm-service` und `embedding-service` ohne NVIDIA-Laufzeit, kein
+Standardmodell, keine Systemd-Einheiten, kein mDNS. Gemessen im Lauf: Profil
+`dgx_spark`, `Dockerfile.spark`, alle Abbilder `linux/arm64`, `cuda_v13` im
+Ollama-Abbild, `LLM_MODEL` der `.env` gleich `default_model` des Profils,
+Sicherung, Lizenz-Fingerabdruck, kein Traceback der Selbstheilung.
+
+Zwei Funde in den ersten Läufen, beide echt und nicht der CI zuzuschreiben:
+**alle Container laufen als UID 1000** und lesen `config/secrets` (600) als
+Bindmount, ein Installateur mit anderer UID bekommt auf jedem Dienst `EACCES`
+(der Läufer hat 1001); und der Selbstheilungsdienst haengt `/dev/bus/usb` ein,
+ohne den Docker ihn ablehnt. Beide stehen als Vorbedingung im Messplan
+[`spark-erster-tag.md`](../ops/spark-erster-tag.md), der jeden Messpunkt mit
+Befehl und Sollwert führt (sm_121 mit Ollama, nvidia-smi der GB10,
+Standardmodell, vier parallele Anfragen, Lizenz-Fingerabdruck, Sicherung,
+Werksreset, Selbstheilung ohne Jetson-Werkzeuge).
+
+Der Widerspruch `default_model` gegen den Orin-Rückfall ist keiner: der
+Rückfall `gemma4:e4b` gilt nur ohne `.env`-Wert, die Installation schreibt den
+Wert des Profils, und der Lauf misst das (`config/platforms/README.md`). Aus dem
+Quelltext erwartet und **ungemessen**: die GPU-Drosselung der Selbstheilung tut
+am Spark still nichts (kein `nvidia-smi` im Abbild des Agenten, `jetson_clocks`
+gibt es nicht), und `gpu_monitor.py` scheitert an `[N/A]` im Speicherfeld. Beides
+sind Messpunkte 2 und 8, kein Beschluss. Offen bis zum Gerät: sm_121,
+Durchsatz, Speicherbudget; `verification` bleibt `follow-up`.

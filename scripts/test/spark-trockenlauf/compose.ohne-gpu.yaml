@@ -1,0 +1,27 @@
+# Trockenlauf ohne GPU (J41, 02.10.2026): was Compose ohne NVIDIA-Laufzeit nicht
+# annimmt, fuer die zwei GPU-Dienste. Ohne diese Datei bricht `docker compose up`
+# auf dem arm64-Laeufer mit "unknown or invalid runtime name: nvidia" ab.
+#
+# Dazu der USB-Bus des Selbstheilungsdienstes: `devices: /dev/bus/usb` gibt es
+# auf einer virtuellen Maschine ohne USB-Controller nicht, und Docker lehnt den
+# Container dann ab ("error gathering device information", im zweiten Lauf am
+# 02.10.2026 gemessen). Ein Spark hat USB-C-Anschluesse; ob `/dev/bus/usb` dort
+# liegt, ist Punkt 0 des Messplans. Ohne den Bus ist nur das Einhaengen eines
+# USB-Datentraegers fuer die Sicherung ungeprueft.
+#
+# Mehr steht hier nicht: Abbilder, Healthchecks, Netze, Volumes und Umgebung
+# bleiben die des Geraets. Geladen wird sie nur ueber COMPOSE_FILE in
+# `scripts/test/spark-trockenlauf.sh`, nie ueber die `.env`.
+services:
+  llm-service:
+    runtime: !reset null
+    deploy:
+      resources:
+        reservations: !reset null
+  embedding-service:
+    runtime: !reset null
+    deploy:
+      resources:
+        reservations: !reset null
+  self-healing-agent:
+    devices: !reset []

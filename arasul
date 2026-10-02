@@ -60,6 +60,20 @@ log_error() {
     ERRORS+=("$1")
 }
 
+# Trockenlauf ohne GPU (J41, 02.10.2026): `ARASUL_TROCKENLAUF=ohne-gpu` laesst die
+# Installation auf einem Rechner durchlaufen, der die Architektur des Geraets
+# hat, aber keine GPU (der arm64-Laeufer der CI fuer den DGX Spark). Jede Stelle,
+# die dafuer etwas auslaesst, sagt es in einer Zeile mit "UEBERSPRUNGEN
+# (Trockenlauf)", und es sind genau diese: Standardmodell,
+# Modell- und Einbettungsprobe des Rauchtests, Systemd-Einheiten, mDNS. Am
+# Geraet ist der Schalter nie gesetzt.
+trockenlauf() {
+    [ "${ARASUL_TROCKENLAUF:-}" = "ohne-gpu" ]
+}
+uebersprungen() {
+    log_warning "UEBERSPRUNGEN (Trockenlauf): $1"
+}
+
 # Generate error report in JSON format
 generate_error_report() {
     local exit_code=$1
@@ -1202,7 +1216,9 @@ run_smoke_tests() {
         local modelle antwort
         antwort=$(docker compose exec -T llm-service curl -s http://localhost:11434/api/tags 2>/dev/null)
         modelle=$(grep -o '"name"' <<<"$antwort" | wc -l || true)
-        if [ "${modelle:-0}" -gt 0 ]; then
+        if trockenlauf; then
+            uebersprungen "Modellzaehlung (ohne GPU holt der Lauf kein Modell)"
+        elif [ "${modelle:-0}" -gt 0 ]; then
             log_success "LLM Models: ${modelle} model(s) available"
         elif [ -n "${MODELL_LOG:-}" ]; then
             # Kein Mangel, sondern der Zustand der ersten Stunde.
@@ -1214,7 +1230,19 @@ run_smoke_tests() {
         fi
     fi
 
-    if dienst_pruefen "Embedding Service" embedding-service 120 \
+    if trockenlauf; then
+        # Ohne GPU und ohne Modell-Zwischenspeicher laedt der Dienst bge-m3 beim
+        # ersten Start aus dem Netz und rechnet auf der CPU: das kann laenger
+        # dauern als die 120 Sekunden dieser Probe. Das ist hier kein Fehler des
+        # Dienstes; `scripts/test/spark-trockenlauf.sh` wartet danach weiter und
+        # verlangt `healthy`.
+        if wait_for_healthy embedding-service 120 \
+            docker compose exec -T embedding-service curl -sf http://localhost:11435/health; then
+            log_success "Embedding Service: OK (auf der CPU)"
+        else
+            uebersprungen "Embedding Service noch nicht bereit (laedt das Modell auf der CPU); der Trockenlauf wartet danach weiter"
+        fi
+    elif dienst_pruefen "Embedding Service" embedding-service 120 \
         docker compose exec -T embedding-service curl -sf http://localhost:11435/health; then
         local einbettung
         einbettung=$(docker compose exec -T embedding-service curl -s --max-time 5 \
@@ -1409,6 +1437,11 @@ install_systemd_timers() {
         return 0
     fi
 
+    if trockenlauf; then
+        uebersprungen "Systemd-Einheiten (der Laeufer ist kein Geraet)"
+        return 0
+    fi
+
     log_info "Installiere Systemd-Einheiten (Plattform, Watchdog, Deadman-Switch)..."
     local ausgabe
     if ausgabe="$(bash "${SCRIPT_DIR}/scripts/system/einheiten-installieren.sh" 2>&1)"; then
@@ -1436,6 +1469,10 @@ install_systemd_timers() {
 MODELL_LOG=""
 standardmodell_holen() {
     MODELL_LOG=""
+    if trockenlauf; then
+        uebersprungen "Standardmodell $(env_wert LLM_MODEL) (kein GPU, kein Platz fuer 17 GB)"
+        return 0
+    fi
     if [ "${MODELL_HOLEN:-$(env_wert MODELL_HOLEN true)}" != "true" ]; then
         log_info "Standardmodell wird nicht geholt (MODELL_HOLEN=false)"
         return 0
@@ -1762,6 +1799,10 @@ cmd_mdns() {
 # tells the operator to run `./arasul mdns` manually.
 setup_mdns_if_possible() {
     local mdns_script="${SCRIPT_DIR}/scripts/setup/setup-mdns.sh"
+    if trockenlauf; then
+        uebersprungen "mDNS (der Laeufer behaelt seinen Namen)"
+        return 0
+    fi
     if [ ! -f "$mdns_script" ]; then
         log_warning "mDNS-Setup-Skript nicht gefunden — arasul.local nicht verfuegbar"
         return 0
