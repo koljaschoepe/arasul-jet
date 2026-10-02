@@ -44,6 +44,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       LLM_SERVICE_HOST: ${LLM_SERVICE_HOST}
       LLM_SERVICE_PORT: ${LLM_SERVICE_PORT}
+      # Wie viele KI-Anfragen warten duerfen, bevor das Geraet eine abweist
+      # (503). Gemessen am Orin am 02.10.2026 (J40): voll ab 22 gleichzeitigen
+      # Anfragen, weil eine laeuft und 20 warten. Begruendung und Zahlen:
+      # docs/features/LAST.md.
+      LLM_MAX_QUEUE_SIZE: ${LLM_MAX_QUEUE_SIZE:-20}
       # Chat-Agent Harness v2 (services/llm/agentConfig.js) — ohne diese
       # Durchreichung erreichen .env-Werte den Container NIE (stiller Default).
       AGENT_NUM_CTX: ${AGENT_NUM_CTX:-32768}
