@@ -118,6 +118,19 @@ fi
 gut "Fassung ${FASSUNG} (Stand ${HASH:-unbekannt})"
 
 # -----------------------------------------------------------------------------
+# 1a. Der Benutzer muss UID 1000 haben (J41)
+# -----------------------------------------------------------------------------
+# Alle Container laufen als UID 1000 und lesen die Geheimnisse (config/secrets,
+# Rechte 600) als Bindmount. Ein anderer Installateur legt sie mit seiner UID
+# an, und jeder Dienst bricht danach still mit EACCES auf /run/secrets ab (am
+# 02.10.2026 mit UID 1001 gemessen). Darum haelt die Installation hier an, vor
+# jeder Aenderung am System. `--nur-vorbereiten` startet nichts und ist frei.
+if [ "$NUR_VORBEREITEN" != true ] && [ "$(id -u)" -ne 1000 ]; then
+  fehler "Dieser Benutzer hat UID $(id -u), die Container brauchen UID 1000: als der erste Benutzer des Geraets (UID 1000) neu anmelden und ./install.sh dort starten."
+  exit 1
+fi
+
+# -----------------------------------------------------------------------------
 # 2. Voraussetzungen
 # -----------------------------------------------------------------------------
 fehlt=0

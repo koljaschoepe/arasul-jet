@@ -723,6 +723,21 @@ jobs:
         working-directory: ${{ steps.auspacken.outputs.wurzel }}
         run: ./install.sh --nur-vorbereiten --passwort 'AbnahmeCi2026x'
 
+      # J41: der Laeuferbenutzer hat UID 1001. Ohne --nur-vorbereiten muss die
+      # Installation vor jeder Aenderung mit einem Satz anhalten, nicht erst
+      # an EACCES auf den Geheimnissen.
+      - name: install.sh haelt bei UID != 1000 an
+        working-directory: ${{ steps.auspacken.outputs.wurzel }}
+        run: |
+          set -u
+          [ "$(id -u)" -ne 1000 ] || { echo "Laeufer hat UID 1000, Pruefung nicht aussagekraeftig." >&2; exit 1; }
+          rc=0
+          aus="$(./install.sh --passwort 'AbnahmeCi2026x' 2>&1)" || rc=$?
+          echo "$aus"
+          [ "$rc" -eq 1 ] || { echo "Erwartet: Abbruch mit 1, bekommen: $rc" >&2; exit 1; }
+          grep -q "brauchen UID 1000" <<<"$aus" || { echo "Der Satz fehlt." >&2; exit 1; }
+          [ "$(grep -c 'Bootstrap laeuft' <<<"$aus")" -eq 0 ]
+
       - name: Was dabei herausgekommen ist
         working-directory: ${{ steps.auspacken.outputs.wurzel }}
         run: |

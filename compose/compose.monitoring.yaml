@@ -113,8 +113,10 @@ services:
       - /mnt:/mnt:ro
       - ${DATA_PATH:-../data}/updates:/arasul/updates
       - ${BACKUP_PATH:-${DATA_PATH:-../data}/backups}:/arasul/backups
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
+    # Kein `devices: /dev/bus/usb` (J41): der Dienst liest USB-Datentraeger ueber
+    # die Einhaengepunkte in /media und /mnt (usb_monitor.py), nie den Bus. Wo
+    # /dev/bus/usb fehlt (VM, Geraet ohne USB-Controller), lehnt Docker den
+    # Container sonst ab, und die Selbstheilung startet nie.
     cap_drop:
       - ALL
     cap_add:
