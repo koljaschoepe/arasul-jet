@@ -355,6 +355,20 @@ Die Durchsetzung ist doppelt und beides Mal einfach: er bekommt keine
 Rechte-Zeile (`POST /rechte` weist ihn ab), und die Abfrage hinter
 `GET /api/firmenordner` schneidet zusätzlich auf `art = 'geteilt'` zu.
 
+**Am Orin gemessen am 02.10.2026** (`scripts/test/am-geraet-abnahme.sh`, 31 von
+31 grün): ein Probe-Ordner `j33am-<stempel>` auf Ebene 1 mit einer Datei, ohne
+Recht für irgendwen. Für `probe-admin` (Admin) und `probe-j36-a` (Mitarbeiter)
+fehlt er in `GET /api/firmenordner`, in `sicht.md` (Kennung und Name) und in
+`sync --plan` mit eigenem `ARASUL_CONFIG_DIR` in einer Wegwerfwurzel; WebDAV
+antwortet auf den Raum und auf die Datei mit 404, auf `firma` zur Gegenprobe
+mit 207. Das Backend liest die Datei über seinen Mount, und die Pfadsperre der
+Flows (`resolveRealWithinRoots`) lässt sie durch. Danach waren Ordner und Datei
+weg, `am_geraet` wieder 0. Zwei Fallen der Messung: die CLI nimmt als Wurzel
+den Ort von `arasul.mjs` (ohne Kopie in einen Wegwerfordner plant sie gegen den
+echten Ordner des Aufrufers), und ein `sync --plan` ohne Summenzeile
+„Insgesamt:" ist kein Plan, sondern eine Fehlermeldung, die „nennt ihn nicht"
+fälschlich grün machte.
+
 ---
 
 ## Echte Dateien, und wer sie liest
