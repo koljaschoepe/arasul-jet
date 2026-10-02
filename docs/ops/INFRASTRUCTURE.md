@@ -245,7 +245,7 @@ logging:
 
 Exceptions: backup-service and cloudflared use smaller limits (`10m`, `3-5` files).
 
-Traefik writes structured JSON logs to `logs/traefik.log` and access logs (errors + slow requests only) to `logs/traefik-access.log`.
+Traefik writes structured JSON logs to `logs/reverse-proxy/traefik.log` and access logs (errors + slow requests only) to `logs/reverse-proxy/traefik-access.log`.
 
 ## Adding a New Service
 

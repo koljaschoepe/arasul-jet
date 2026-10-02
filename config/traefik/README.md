@@ -34,7 +34,7 @@ Main Traefik configuration:
 - **Entrypoints**: HTTP (80), HTTPS (443), Dashboard (8080)
 - **Certificate Resolver**: Let's Encrypt ACME
 - **Providers**: Docker labels + file-based dynamic config
-- **Logging**: JSON format to `/arasul/logs/traefik.log`
+- **Logging**: JSON format to `/arasul/logs/reverse-proxy/traefik.log`
 - **Metrics**: Prometheus format
 
 ### Dynamic Configuration
@@ -245,7 +245,7 @@ Unhealthy backends are automatically removed from load balancing.
 
 ### Access Logs
 
-Location: `/arasul/logs/traefik-access.log`
+Location: `/arasul/logs/reverse-proxy/traefik-access.log`
 
 Format: JSON with fields:
 
@@ -264,7 +264,7 @@ Format: JSON with fields:
 
 ### Application Logs
 
-Location: `/arasul/logs/traefik.log`
+Location: `/arasul/logs/reverse-proxy/traefik.log`
 
 Format: JSON with fields:
 
@@ -322,8 +322,8 @@ Shows:
 docker logs -f traefik
 
 # File logs
-tail -f /arasul/logs/traefik.log | jq .
-tail -f /arasul/logs/traefik-access.log | jq .
+tail -f /arasul/logs/reverse-proxy/traefik.log | jq .
+tail -f /arasul/logs/reverse-proxy/traefik-access.log | jq .
 ```
 
 ### Test Routing

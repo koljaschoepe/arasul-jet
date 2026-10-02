@@ -145,7 +145,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../config/traefik:/etc/traefik:ro
-      - ${LOGS_PATH:-../logs}:/arasul/logs
+      # Nur der eigene Unterordner, nicht ganz `logs/` (J38, 02.10.2026): `logs/`
+      # gehoert dem Host-Nutzer (Modus 700), und root im Container darf dort
+      # ohne DAC_OVERRIDE nichts anlegen. `logs/reverse-proxy` legen `arasul`
+      # (Installation) und der Deploy (Update) mit Modus 777 an; root traversiert
+      # `logs/` ueber DAC_READ_SEARCH, die 700 am Elternordner halten Fremde fern.
+      - ${LOGS_PATH:-../logs}/reverse-proxy:/arasul/logs/reverse-proxy
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -167,11 +172,6 @@ services:
     cap_add:
       - NET_BIND_SERVICE
       - DAC_READ_SEARCH # Read TLS key files owned by host user
-      # J38 (02.10.2026): `logs/` gehoert am Geraet dem Host-Nutzer (1000, Modus
-      # 700). root im Container darf ohne diese Faehigkeit dort nichts anlegen,
-      # Traefik meldete `permission denied` fuer traefik.log und
-      # traefik-access.log und lief ohne Protokoll.
-      - DAC_OVERRIDE
     deploy:
       resources:
         limits:

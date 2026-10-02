@@ -88,12 +88,12 @@ providers:
 # Logging
 log:
   level: INFO
-  filePath: /arasul/logs/traefik.log
+  filePath: /arasul/logs/reverse-proxy/traefik.log
   format: json
 
 # Access logs
 accessLog:
-  filePath: /arasul/logs/traefik-access.log
+  filePath: /arasul/logs/reverse-proxy/traefik-access.log
   format: json
   bufferingSize: 100
   filters:

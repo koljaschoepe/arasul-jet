@@ -21,8 +21,8 @@ const LOG_FILES = {
   system: path.join(LOG_DIR, 'system.log'),
   self_healing: path.join(LOG_DIR, 'self_healing.log'),
   update: path.join(LOG_DIR, 'update.log'),
-  traefik: path.join(LOG_DIR, 'traefik.log'),
-  'traefik-access': path.join(LOG_DIR, 'traefik-access.log'),
+  traefik: path.join(LOG_DIR, 'reverse-proxy', 'traefik.log'),
+  'traefik-access': path.join(LOG_DIR, 'reverse-proxy', 'traefik-access.log'),
 
   // Service-specific logs
   'metrics-collector': path.join(LOG_DIR, 'service', 'metrics-collector.log'),

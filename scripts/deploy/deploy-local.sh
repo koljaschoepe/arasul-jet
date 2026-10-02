@@ -340,6 +340,13 @@ for ordner in "$DEPLOY_DIR/data/skills" "$DEPLOY_DIR/data/apps" "$DEPLOY_DIR/dat
   summary "⚠️ \`$ordner\` ist nicht schreibbar (gehoert root). \`sudo chown -R $(id -u):$(id -g) $ordner\`"
 done
 
+# `logs/reverse-proxy` (J38, 02.10.2026): reverse-proxy schreibt sein Protokoll
+# als root OHNE DAC_OVERRIDE. Das Verzeichnis muss ihm gehoeren (Docker legt es
+# als root an, dann passt es) oder fuer alle schreibbar sein (777, wie `arasul`
+# es anlegt). Der Elternordner `logs/` bleibt 700.
+mkdir -p "$DEPLOY_DIR/logs/reverse-proxy"
+chmod 777 "$DEPLOY_DIR/logs/reverse-proxy" 2>/dev/null || true
+
 SECRETS_DIR="$DEPLOY_DIR/config/secrets"
 mkdir -p "$SECRETS_DIR"; chmod 700 "$SECRETS_DIR" 2>/dev/null || true
 
