@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Check, X, AlertCircle, AlertTriangle, Info, Lock } from 'lucide-react';
+import { Eye, EyeOff, Check, X, AlertCircle, Lock } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -222,12 +222,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
     <>
       <Feldgruppe titel="Passwort" symbol={<Lock />}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {renderPasswordField(
-            'current',
-            'Aktuelles Passwort',
-            'Aktuelles Passwort eingeben',
-            'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
-          )}
+          {renderPasswordField('current', 'Aktuelles Passwort', 'Aktuelles Passwort eingeben')}
           {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
           {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
 
@@ -336,38 +331,6 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
               Passwort ändern
             </Button>
           </div>
-
-          {/* Es gibt bewusst kein Zuruecksetzen per Mail: dafuer braeuchte das
-                Geraet einen Postausgang nach draussen. Der Weg fuehrt deshalb
-                ueber das Geraet selbst. Bis Plan 023 C6 stand hier nur der
-                nackte Pfad „scripts/security/reset-password.sh", ohne zu sagen,
-                auf welchem Rechner und in welchem Ordner (Befund F-22). */}
-          <div className="flex items-start gap-2 text-xs text-muted-foreground">
-            <Info className="size-3.5 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p>
-                Passwort vergessen? Dann hilft nur der Zugang zum Gerät selbst, über SSH oder mit
-                Tastatur und Bildschirm. Das ist Absicht: ein Zurücksetzen per Mail bräuchte einen
-                Weg nach draußen.
-              </p>
-              <p>
-                Melden Sie sich am Gerät an, wechseln Sie in den Ordner, in den Arasul installiert
-                wurde, und starte dort:
-              </p>
-              <code className="block w-fit rounded bg-muted px-1.5 py-1 font-mono text-foreground">
-                ./scripts/security/reset-password.sh ihr-benutzername
-              </code>
-              <p>
-                Ohne Benutzernamen nimmt das Skript <code className="font-mono">admin</code>. Es
-                setzt das Passwort neu, auch im Firmenordner, und fragt vorher nach.
-              </p>
-            </div>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Passworts werden Sie
-            automatisch abgemeldet.
-          </p>
         </form>
       </Feldgruppe>
     </>

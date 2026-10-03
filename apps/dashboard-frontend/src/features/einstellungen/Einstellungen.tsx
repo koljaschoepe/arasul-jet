@@ -7,7 +7,7 @@
  *
  * Kein Kopf mit Logo: oben steht gleich der Name des ersten Abschnitts.
  */
-import { LogOut, Monitor, Moon, Palette, Sun } from 'lucide-react';
+import { LogOut, Monitor, Moon, Palette, Sun, User } from 'lucide-react';
 import { useState } from 'react';
 import {
   Button,
@@ -172,7 +172,7 @@ export default function Einstellungen() {
   return (
     <div className="max-w-225 p-6 animate-in fade-in max-md:p-4" data-testid="einstellungen">
       <Formularseite>
-        <Feldgruppe titel="Profil">
+        <Feldgruppe titel="Profil" symbol={<User />}>
           <ComponentErrorBoundary componentName="Profil">
             <ProfilFormular />
           </ComponentErrorBoundary>

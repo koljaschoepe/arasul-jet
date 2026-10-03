@@ -215,12 +215,12 @@ describe('PasswordManagement Component', () => {
       expect(screen.getByPlaceholderText(CONFIRM_PLACEHOLDER)).toHaveValue('');
     });
 
-    test('zeigt Hinweis für aktuelles Passwort', async () => {
+    test('zeigt keine Erklärtexte', async () => {
       renderPasswordManagement();
 
-      expect(
-        screen.getByText(/Zur Sicherheit wird Ihr aktuelles Passwort benötigt/)
-      ).toBeInTheDocument();
+      expect(screen.queryByText(/Zur Sicherheit wird Ihr aktuelles Passwort/)).toBeNull();
+      expect(screen.queryByText(/Passwort vergessen/)).toBeNull();
+      expect(screen.queryByText(/reset-password/)).toBeNull();
     });
   });
 
@@ -350,19 +350,6 @@ describe('PasswordManagement Component', () => {
       renderPasswordManagement();
 
       expect(screen.getByRole('button', { name: 'Passwort ändern' })).toBeDisabled();
-    });
-  });
-
-  // =====================================================
-  // Warning Messages
-  // =====================================================
-  describe('Warning Messages', () => {
-    test('zeigt Abmelde-Warnung', async () => {
-      renderPasswordManagement();
-
-      expect(
-        screen.getByText(/Nach dem Ändern des Passworts werden Sie automatisch abgemeldet/)
-      ).toBeInTheDocument();
     });
   });
 
