@@ -22,7 +22,7 @@ src/
 ├── App.tsx               # Main application
 ├── index.css             # Tailwind + CSS variables + shadcn
 ├── features/             # Feature modules
-│   ├── workspace/        # Shell: ActivityBar, Sidebar, Tabs, rechte Spalte (leer seit B2), StatusBar
+│   ├── workspace/        # Shell: Aktivitätsleiste, eine Ansicht, StatusBar (M5)
 │   ├── settings/         # System configuration
 │   ├── modelle/          # Die Kurzliste des Geräts (D5)
 │   └── system/           # Login, Auslastung, Aktualisierungen, Sicherung
@@ -40,7 +40,7 @@ src/
 │   ├── useWebSocketMetrics.ts # Real-time metrics
 │   ├── useConfirm.tsx     # Confirmation dialogs
 │   └── useTheme.ts        # Dark/light theme toggle
-├── stores/               # zustand (workspaceStore, settingsStore)
+├── stores/               # zustand (workspaceStore: die eine offene Ansicht)
 ├── config/
 │   └── api.ts             # API base URL, auth headers
 ├── lib/

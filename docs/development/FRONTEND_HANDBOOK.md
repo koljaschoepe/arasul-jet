@@ -29,10 +29,9 @@ apps/dashboard-frontend/src/
   index.css                  # Import der Tokens aus @marken/theme.css + Shell-CSS
 
   features/                  # Feature modules
-    workspace/               # Shell: ActivityBar (Apps, Modelle), Sidebar, Tabs, rechte Spalte (Notizen)
+    workspace/               # Shell: Aktivitätsleiste, eine Ansicht, StatusBar (M5)
     apps/                    # Die eigenen Apps: Übersicht, Rahmen (D1)
     freigaben/               # Die offenen Freigaben auf der Übersicht (D2)
-    notizen/                 # Der Zettel der rechten Spalte (D1)
     settings/                # Sektionen, darunter Apps (D4) und Mitarbeiter (D3)
     store/                   # Store (Modelle: Raster + Detailseite)
     system/                  # UpdatePage, SelfHealingEvents, Login, CreateAdmin

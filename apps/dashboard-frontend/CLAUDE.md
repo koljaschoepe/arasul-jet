@@ -55,22 +55,33 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
 ```
 src/
   features/        Domain-organized UI. One folder per top-level route.
-    einstellungen/ Die persönlichen Einstellungen, für alle gleich (M5, Tab
-                   `settings`): vier Abschnitte Profil (`ProfilFormular.tsx`:
+    einstellungen/ Die persönlichen Einstellungen, für alle gleich (M5, Ansicht
+                   `settings`, das Zahnrad der Aktivitätsleiste): vier Abschnitte Profil (`ProfilFormular.tsx`:
                    Vorname, Nachname, Funktion, Kürzel, Bild), Passwort
                    (`PasswordManagement.tsx`), Angemeldete Rechner (die Ausweise
                    der Person, „abmelden" widerruft; erzeugt wird im Browser
                    nie einer, `useAusweise.ts`) und Erscheinungsbild (System,
                    hell, dunkel; `useTheme` löst `system` selbst auf). Kein
-                   Kopf mit Logo, oben steht gleich „Profil". Das Kontomenü
-                   zeigt nur Name und Abmelden.
-    settings/      Die **Verwaltung** (Tab `verwaltung`, Übergangseintrag nur
-                   für den Admin, bis die Verwaltung als eigene Ansicht gebaut
-                   ist; der Ordnername ist alt). Sektionen (`sections.tsx` ist
-                   die eine Quelle, geteilt von Sidebar-Panel und Mitte-Tab):
+                   Kopf mit Logo, oben steht gleich „Profil", die vier
+                   Abschnitte untereinander. Das Kontomenü (eigenes Bild
+                   unten in der Aktivitätsleiste) zeigt nur Name und Abmelden.
+    settings/      Die **Verwaltung** (Ansicht `verwaltung`, nur für den
+                   Admin; der Ordnername ist alt). Gebaut wie eine App
+                   (`Settings.tsx`): eine eigene schmale Leiste der Bereiche
+                   links (`Liste dicht` aus `@marken`, unter 900 px ein
+                   `Select` darüber), daneben der Bereich, ohne zweite
+                   Reiterstufe. Der Bereich steht in der Ansicht des
+                   Workspace-Stores und damit in der Adresse
+                   (`/workspace/verwaltung/<bereich>[/<abschnitt>]`); alte
+                   `?tab=`-Adressen bildet die Shell darauf ab.
+                   `sections.tsx` ist die eine Liste der Bereiche:
                    - **System**: Auslastung, Dienste, Aktualisierungen,
-                     Sicherung, Selbstheilung, Werksreset
-                     (`?tab=sicherung`, `?tab=updates` als Tieflinks).
+                     Sicherung, Selbstheilung, Werksreset untereinander,
+                     jeder klappt auf (`Accordion`, nur Offenes ist
+                     gemountet; `/workspace/verwaltung/system/sicherung`
+                     kommt aufgeklappt an).
+                   - **Modelle**: `features/modelle/`, von der Shell als
+                     Slot `modelle` hereingereicht.
                    - **Apps** (`AppsSettings.tsx` + `apps/`): Liste, Stände
                      mit Schalter (`AppStaende.tsx`), Bibliotheksfassung je
                      Stand mit Warnung bei älter/fehlend (`Bibliothek.tsx`),
@@ -102,11 +113,8 @@ src/
                      Geräteordner ohne Spalte, 409 als Satz über der Matrix),
                      Änderungen je Ordner (`AenderungenDialog.tsx`).
                      `firmenordner/useFirmenordner.ts`.
-                   Verwaltung liegt hier statt als eigene ActivityBar-Ansicht:
-                   deren Einträge tragen die Arbeit (Apps, Modelle), das
-                   Zahnrad darunter das Einrichten.
-    modelle/       Die Kurzliste des Geräts: `ModelleAnsicht.tsx` (Seite des
-                   `modelle`-Tabs), `ModellZeile.tsx`, `useModelle.ts`
+    modelle/       Die Kurzliste des Geräts: `ModelleAnsicht.tsx` (der Bereich
+                   „Modelle" der Verwaltung), `ModellZeile.tsx`, `useModelle.ts`
                    (Abfragen/Mutationen), `DownloadProgress.tsx`. Der Katalog
                    hat vier Einträge — kein Kartenraster, keine Facetten,
                    keine Detailseite.
@@ -128,14 +136,15 @@ src/
                    theme}`. Das Theme steht **weder im `key` noch in der
                    Adresse** — beides tauschte das iframe-Element aus, und
                    die App finge von vorn an.
-    firmenordner/  Mein Firmenordner, für jeden: ein Dialog im Benutzermenü
-                   der Kopfleiste, neben den Ausweisen — Adresse des
+    firmenordner/  Mein Firmenordner, für jeden: ein Dialog (derzeit nirgends
+                   angeschlossen, seit das Kontomenü nur Name und Abmelden
+                   zeigt) — Adresse des
                    Dienstes und eigene Ordner mit Stufe aus
                    `GET /api/firmenordner`. Ein 503 heißt „hier gibt es
                    keinen" und ist eine Auskunft, kein Fehler.
     freigaben/     Die offenen Freigaben, entschieden in der Übersicht —
                    seit J36 nur für den Administrator (`Startseite` in
-                   `TabContent.tsx`); ein Mitarbeiter entscheidet in der App
+                   `AnsichtInhalt.tsx`); ein Mitarbeiter entscheidet in der App
                    mit dem Muster `Freigabe` (`@marken`), `OffeneFreigaben`
                    ist selbst daraus gebaut:
                    `OffeneFreigaben.tsx` (Liste mit Titel, Zusammenhang,
@@ -152,85 +161,47 @@ src/
                    `SchaustueckeMuster.tsx`. In **keinem** Menü — sie ist für
                    den, der eine App baut. Gemessen von
                    `scripts/test/schauseite.mjs`.
-    notizen/       Der Zettel der rechten Spalte. Ein Textfeld, speichert
-                   nach einer Sekunde Ruhe gegen `PUT /api/notizen`.
-    workspace/     Die Shell (ab 900 px Dreispalten-Raster: Apps, Mitte,
-                   Notizen; darunter einspaltig). **Immer aktiv** — `/`
-                   landet nach Login auf `/workspace`, ohne weiteren Pfad
-                   auf der **Übersicht**.
-                   WorkspaceMenuBar (Marke + zwei Layout-Toggles [Sidebar,
-                   Notizen] + Benutzermenü [nur Name und Abmelden]),
-                   ActivityBar (eigene, immer sichtbare schmale Spalte ganz
-                   links, außerhalb des einklappbaren Panels — Apps oben,
-                   Modelle [admin] darunter, unten Verwaltung [admin,
-                   Übergangseintrag] und das Einstellungen-Zahnrad [alle]), SidebarHost, Tab-Bar/-Content (Mitte),
-                   RightPanel (rechts, Notizen), StatusBar (nur Administrator: Verbindung, Fassung, Modell + KI-RAM, Downloads +
-                   Zahl offener Freigaben). Feature-Tabs laufen je in einem
-                   eigenen IsolatedMemoryRouter (FeatureTabHost) — nur noch
-                   für die Verwaltung, die vier anderen (auch die persönlichen
-                   Einstellungen) rendern direkt.
-                   Cross-Feature-Links übersetzt die TabBridge in
-                   Tab-Öffnungen.
-                   • **Ein App-Tab bleibt gemountet**, auch wenn er nicht
-                     vorn ist (`hidden`); jeder andere Tab wird abgeräumt.
-                     Eine App ist ein FREMDES Dokument — abräumen heißt: sie
-                     fängt von vorn an, ein halb ausgefülltes Formular ist
-                     weg, und der Theme-Wechsel (über den Einstellungen-Tab)
-                     lädt den Rahmen jedes Mal neu. Eine Ansicht der Shell
-                     holt ihre Daten dagegen aus dem Query-Cache und sieht
-                     nach dem Neuaufbau genauso aus.
-                   • **Tab-Typen** — `dashboard`, `app`, `settings`
-                     [persönlich, alle], `verwaltung` [admin], `modelle` (`stores/workspaceStore.ts`, v11). Alle bis
-                     auf `app` sind Singletons, `tabId()` ist dann der Typ;
-                     eine App trägt `appId` und `stand`
-                     (`app:<id>:<stand>`), damit zwei Apps nebeneinander
-                     offen sein können.
+    workspace/     Die Shell (M5, Karte rahmen-aktivitaetsleiste): links die
+                   Aktivitätsleiste, daneben genau EINE Ansicht, unten die
+                   StatusBar (nur Administrator: Verbindung, Fassung, Modell
+                   + KI-RAM, Downloads, Zahl offener Freigaben). Es gibt
+                   keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte
+                   und keine zweite Seitenleiste. **Immer aktiv** — `/`
+                   landet nach Login auf `/workspace`, ohne weiteren Pfad auf
+                   der **Startseite**.
+                   • **ActivityBar** — oben das Haus (Startseite, mit der
+                     Zahl offener Freigaben aus `useOffeneFreigaben`),
+                     darunter die eigenen Apps als Kürzel mit dem Namen im
+                     Tooltip (`GET /api/apps/meine`, ab etwa zehn rollt der
+                     Teil), unten fest Verwaltung [admin], Zahnrad [alle] und
+                     das eigene Bild (Popover: Name, Abmelden). Auswahl ist
+                     eine getönte Fläche (`bg-primary/12`), kein Balken;
+                     Hover blendet in 120 ms ein, `motion-reduce` gilt. Das
+                     Logo des Hauses gehört über das Haus, sobald es sich
+                     hinterlegen lässt.
+                   • **AnsichtInhalt** — die Weiche (`AnsichtWeiche`) und
+                     die eine ErrorBoundary; der Schlüssel ist `ansichtId`,
+                     ein Wechsel baut neu auf, ein Bereich der Verwaltung
+                     nicht. Eine App, die man verlässt, fängt beim
+                     Zurückkommen von vorn an (bis zur Karte
+                     apps-im-hintergrund).
+                   • **Ansichten** — `dashboard`, `app`, `settings`
+                     [persönlich, alle], `verwaltung` [admin, mit `bereich`
+                     und `abschnitt`] (`stores/workspaceStore.ts`). Eine App
+                     trägt `appId` und `stand`. **Nichts wird gespeichert**:
+                     die Ansicht steht vollständig in der Adresse, die Shell
+                     spiegelt beide ineinander. `/workspace/modelle` und
+                     `/workspace/store` landen im Bereich Modelle.
                    • **Die Rolle blendet aus, das Backend entscheidet.**
                      `nurFuerAdmin()` (Store) ist die eine Liste dafür,
-                     gelesen an drei Stellen (ActivityBar, WorkspaceShell,
-                     TabContent). Keine davon ist eine Berechtigung:
-                     `requireRole` im Backend antwortet ohnehin mit 403.
-                   • **Der schmale Aufbau** — unter 900 px
-                     (`useSchmalesFenster`) gibt es keine ActivityBar, keine
-                     Sidebar und keine Tab-Leiste, sondern den
-                     Hamburger-Knopf der `WorkspaceMenuBar` und
-                     `SchmalMenue.tsx`: Übersicht, eigene Apps, Notizen, für
-                     den Administrator Modelle und Einstellungen — jeder
-                     Eintrag ein Ziel. Die Shell trägt
-                     `data-shell-aufbau="schmal" | "drei-spalten"`.
-                   • **RightPanel** — die Notizen mit Schließen-Knopf; die
-                     Shell versteckt sie per `data-shell-hidden` (nie
-                     unmounten — ein Unmount während der Schreibpause
-                     verlöre den Text). Zustand im Store:
-                     `rightPanelVisible`. **Unter 900 px ist dasselbe Panel
-                     eine eigene ANSICHT** in der einen Spalte: entweder
-                     steht die Mitte da oder der Zettel, nie beides
-                     (`data-shell-voll`). Zustand dafür:
-                     `notizenAnsichtOffen` — **nicht persistiert**, fängt
-                     immer bei der Mitte an; `menueOffen` ebenso.
-                   • **SidebarHost** — Inhalt folgt der aktiven
-                     Activity-Bar-Ansicht (`activeView`, Store): apps → die
-                     eigenen Apps (Voreinstellung), models → die Kurzliste,
-                     settings → Bereiche der Einstellungen
-                     (`features/workspace/sidebar/*Panel.tsx`). Die Bar
-                     wählt die Ansicht, `sidebarVisible` steuert nur das
-                     Auf/Zu (⌘B).
-                   • **Modelle** — EIN Mitte-Tab (`modelle`), ohne eigenen
-                     MemoryRouter: rendert `features/modelle/` direkt.
-                     Kurzliste (vier Zeilen: Laden, Standard, Speicher,
-                     Entfernen) über `useStoreCatalog`/`useMemoryBudget`;
-                     linke Sidebar zeigt dieselben vier (ModelsPanel). Alter
-                     Pfad `/workspace/store` bleibt als Lesezeichen gültig
-                     (`pathToTabSpec`).
-                   • **Apps** — Liste der linken Spalte kommt aus
-                     `GET /api/apps/meine` (siebt über `app_members`) und ist
-                     für beide Rollen dieselbe Abfrage: ein Administrator
-                     sieht hier NICHT alle Apps des Geräts, sondern die, die
-                     auch ihm freigegeben sind. Alle sieht `GET /api/apps`.
-                   • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
-                     RightPanel) teilen `--background`; Trennung nur über
-                     Borders. `--card` bleibt erhabenen Elementen vorbehalten
-                     (siehe DESIGN.md, Regel „eine Flächenfarbe").
+                     gelesen von der Shell (Adresse) und der Ansicht (der
+                     Satz statt der Seite). `requireRole` im Backend
+                     antwortet ohnehin mit 403.
+                   • **Unter 900 px** bleibt es bei derselben Leiste, bis die
+                     Karte handy-und-notizen-weg sie zur Leiste unten macht.
+                   • **Flächenfarbe** — Leiste und Ansicht teilen
+                     `--background`; Trennung nur über Borders. `--card`
+                     bleibt erhabenen Elementen vorbehalten (DESIGN.md).
   components/
     ui/            NUR NOCH, WAS ÜBER DIESES GERÄT BESCHEID WEISS. Eine neue
                    Seite baut auf `@marken` auf, statt die Klassenkette neu
@@ -251,7 +222,7 @@ src/
                    (`admin_users.theme`) und schreibt es über
                    `PUT /api/darstellung` — nicht in den `localStorage`.
   contexts/        Global state (Auth, Toast, Download, Activation).
-  stores/          zustand stores (workspaceStore: Tabs, Sidebar-Ansicht, Spalten).
+  stores/          zustand stores (workspaceStore: die eine offene Ansicht).
   lib/             queryClient. `cn()` steht in `@marken` — ein Primitiv
                    dort darf nicht aus der Shell importieren.
   utils/           Pure utilities (csrf, formatting, token, lazyNachladen —
@@ -413,15 +384,15 @@ Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via
 
 ## When you change something
 
-| You changed…                          | Also update                                                                                                                                                             |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A theme token / new color/radius/font | `packages/marken/src/theme.css` (dort stehen sie) + `docs/development/DESIGN.md`                                                                                        |
-| Ein neues Primitiv                    | `packages/marken/src/primitive/index.ts` + ein Schaustück auf `/entwickler/bausteine` + `src/fassung.ts` heben                                                          |
-| Ein neues Muster                      | `packages/marken/src/muster/index.ts` + ein Schaustück (`SchaustueckeMuster.tsx`) + `src/fassung.ts` heben                                                              |
-| A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                                                                            |
-| Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                                                                   |
-| Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec + `NUR_ADMIN`, wenn er der Verwaltung gehört) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |
-| Touched API typings                   | Keep the matching backend `schemas/` happy                                                                                                                              |
+| You changed…                          | Also update                                                                                                                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A theme token / new color/radius/font | `packages/marken/src/theme.css` (dort stehen sie) + `docs/development/DESIGN.md`                                                                                                       |
+| Ein neues Primitiv                    | `packages/marken/src/primitive/index.ts` + ein Schaustück auf `/entwickler/bausteine` + `src/fassung.ts` heben                                                                         |
+| Ein neues Muster                      | `packages/marken/src/muster/index.ts` + ein Schaustück (`SchaustueckeMuster.tsx`) + `src/fassung.ts` heben                                                                             |
+| A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                                                                                           |
+| Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                                                                                  |
+| Added a workspace view type           | `stores/workspaceStore.ts` (Typ + ansichtId/ansichtZuPfad/pfadZuAnsicht + `nurFuerAdmin`, wenn er der Verwaltung gehört) + `features/workspace/AnsichtInhalt.tsx` (Weiche/Lazy-Import) |
+| Touched API typings                   | Keep the matching backend `schemas/` happy                                                                                                                                             |
 
 ## Deploy
 
