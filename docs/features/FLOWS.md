@@ -217,8 +217,9 @@ liefert Lauf und Schritte, `GET /api/flows/laeufe/:id/stream` den SSE-Strom
 (erst der gespeicherte Verlauf, dann live), `POST …/abbrechen` stoppt ihn
 wirklich. Läufe liegen in `flow_runs` und `flow_run_steps`, gehören ihrem
 Besitzer (fremde Läufe sind ein `404`) und tragen Status `laeuft | fertig |
-fehler | abgebrochen`. Ein Neustart des Backends setzt jeden noch laufenden
-Lauf auf `fehler`.
+fehler | abgebrochen`. Ein Neustart des Backends setzt jeden noch **laufenden**
+Lauf auf `fehler`; ein Lauf, der auf eine Freigabe **wartet**, bleibt stehen
+(Abschnitt Freigaben).
 
 Seit Phase C6 trägt ein Lauf zusätzlich `app_id` und `stand` — beide `NULL`
 bei einem Flow der Plattform. Sie sind **kein** Fremdschlüssel, mit derselben
@@ -380,15 +381,57 @@ des Laufs und steht an Lauf und Anfrage (Migration 185); `GET
 und `entscheider`. Die Übersicht zeigt »eingereicht von …« und ein Zeichen
 »Vier Augen« oder »Benannt«. Der Kontrakt nennt beides unter `freigaben`.
 
-Die Frist steht als `frist_minuten` am Schritt, ohne Angabe gilt
-`FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 1440 = ein Tag). Das Warten kostet keine
-GPU — dieselbe Begründung wie bei der Rückfrage.
+Die Frist wählt der Lauf in dieser Reihenfolge: `frist_minuten` am Schritt,
+sonst die `frist_minuten` der benannten **Stufe** (`parameter.stufe`, Stufen
+im Flow-Kopf, Kontrakt 8), sonst `FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 10080 =
+sieben Tage). Höchstens ein Jahr. Eine Stufe, die der Flow nicht führt, weist
+der Schritt mit einem Satz ab. Das Warten kostet keine GPU — dieselbe Begründung
+wie bei der Rückfrage.
 
-**Grenze, ehrlich benannt:** ein wartender Lauf überlebt keinen Neustart des
-Backends. Er hängt an einem Zeitgeber und einem Versprechen in diesem Prozess;
-nach einem Neustart wird er wie jeder laufende Lauf als `fehler` markiert, und
-seine offene Anfrage schließt als `verfallen`. Die Entscheidung selbst bleibt
-in der Tabelle — was fehlt, ist nur der Faden zurück in den Lauf.
+### Ein wartender Lauf überlebt Neustart und Update (M5, 03.10.2026)
+
+Wartet ein Lauf der **deklarierten Schritt-Kette** (`schritte`) auf eine
+Freigabe, steht sein Halt in der Datenbank und nicht mehr nur im Speicher:
+`flow_runs.fortsetzung` nennt den Schritt der Kette (Index und Name), die
+Ausgaben der Schritte davor stehen in `flow_run_steps`, die Anfrage mit ihrer
+Frist in `approvals`. Daraus folgt:
+
+| Ereignis                                        | Lauf                                                                 |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| Backend startet neu, Frist läuft noch           | bleibt `wartend`, die Frist wird neu gestellt                        |
+| Bestätigung danach                              | läuft in **derselben** Lauf-Zeile ab dem angehaltenen Schritt weiter |
+| Ablehnung danach                                | endet als `abgebrochen`                                              |
+| Frist verstrich, während das Backend stillstand | endet beim Hochfahren als `abgelaufen`                               |
+| Bestätigt, Prozess starb vor dem Fortsetzen     | wird beim Hochfahren fortgesetzt                                     |
+| Abbruch durch einen Menschen nach dem Neustart  | endet als `abgebrochen`, die Anfrage schließt als `verfallen`        |
+
+Die Wiederaufnahme führt die Schritte vor dem Halt **nicht noch einmal** aus:
+ihre Ausgaben kommen aus dem Protokoll des Laufs (`berechneVorabErgebnisse`,
+dieselbe Zuordnung wie bei „Ab Fehler wiederholen"), der Freigabe-Schritt wird
+mit demselben Text geschlossen, den das Werkzeug im Prozess geliefert hätte.
+Lässt sich etwas nicht eindeutig zuordnen (die Flow-Datei wurde während des
+Wartens geändert, eine Ausgabe fehlt), endet der Lauf als `fehler` mit einem
+Satz, der das sagt — nie mit einem geratenen Schritt.
+
+**Grenzen, ehrlich benannt:**
+
+- Ein Lauf, der **läuft**, überlebt keinen Neustart. Das gilt auch für den
+  Augenblick nach der Bestätigung, bis er wieder wartet oder fertig ist.
+- **Nicht fortsetzbar** ist eine Freigabe, die aus der modellgetriebenen
+  Werkzeug-Schleife (kein `schritte`), aus einer Rolle (Unteragent) oder aus
+  einem Schritt mit `iterationen` > 1 oder `wiederhole_ueber` kommt. Dort steht
+  `flow_runs.fortsetzung` auf `NULL`, der Lauf endet beim Neustart wie bisher
+  als `fehler`, seine Anfrage als `verfallen`, und `POST …/bestaetigen` meldet
+  `fortgesetzt: false`. Der Grund: die Nachrichten der Werkzeug-Schleife sind
+  zwar reines JSON, aber ihr Halt liegt MITTEN in einer Runde (andere Aufrufe
+  derselben Runde sind schon ausgeführt, der haltende steht offen), und ein
+  Unteragent trägt dazu den Zustand seiner eigenen Schleife und seiner Eltern.
+  Beides müsste nach jedem Werkzeugaufruf abgelegt und mitten in der Runde
+  wieder aufgenommen werden; das ist nicht gebaut.
+- Die Änderungsübersicht eines fortgesetzten Laufs beginnt beim Fortsetzen; was
+  vor dem Halt geändert wurde, bleibt aus dem ersten Teil erhalten.
+- Das Zeitlimit des Flows (`grenzen.zeitlimit_s`) beginnt nach dem Halt neu;
+  das Modell kann ein anderes sein, wenn das Standardmodell inzwischen wechselte.
 
 ## Verwandte Dokumentation
 

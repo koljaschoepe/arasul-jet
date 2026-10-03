@@ -2696,18 +2696,24 @@ Anfrage, die es nicht gibt, `404`; eine, die nicht mehr offen oder deren Frist
 abgelaufen ist, `409` — vier Gründe, vier Meldungen, weil der Mensch am anderen
 Ende gerade auf „Bestätigen" gedrückt hat.
 
-**Die Frist** steht als `frist_minuten` in den `parameter` des Schritts; ohne
-Angabe gilt `FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 1440 = ein Tag). Läuft sie
-ab, endet der Lauf als `abgelaufen`.
+**Die Frist** steht als `frist_minuten` in den `parameter` des Schritts. Fehlt
+sie, gilt die Frist der Stufe (`parameter.stufe`, Frist je Stufe im Flow-Kopf
+unter `stufen`), fehlt auch die, `FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 10080 =
+sieben Tage). Höchstens ein Jahr. Läuft sie ab, endet der Lauf als `abgelaufen`
+— auch dann, wenn das Backend dazwischen neu gestartet wurde. `GET
+/api/freigabe-anfragen` und `GET /api/v1/external/freigaben` nennen die `stufe`.
 
 **Nicht zu verwechseln mit `/api/freigaben`** (Admin): das ist die Freigabe
 einer _App_ für einen Menschen. Das eine ist die Voraussetzung für das andere.
 
 **Antwort von `POST …/bestaetigen`:** `{ data: { id, run_id, app_id, stand,
 flow_name, titel, status, entschieden_am, benutzer, fortgesetzt } }`.
-`fortgesetzt: false` heißt: die Entscheidung steht, aber niemand führt den Lauf
-mehr weiter (das Backend ist zwischendurch neu gestartet). Das wird gesagt und
-nicht verschwiegen.
+`fortgesetzt: true` heißt: der Lauf geht weiter — im laufenden Prozess oder, wenn
+das Backend seit der Anfrage neu gestartet wurde, aus der Datenbank ab dem
+angehaltenen Schritt. `fortgesetzt: false` bleibt für einen Lauf, der keinen
+Prüfpunkt hat (Freigabe aus der Werkzeug-Schleife oder einer Rolle): dort steht
+die Entscheidung, aber niemand führt den Lauf weiter. Das wird gesagt und nicht
+verschwiegen.
 
 Die App selbst liest den Stand über `GET /api/v1/external/freigaben` (siehe
 External API) — lesen darf sie, entscheiden nicht.

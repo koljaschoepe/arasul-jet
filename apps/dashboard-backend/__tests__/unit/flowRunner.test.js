@@ -177,10 +177,11 @@ describe('verwaisteAufraeumen', () => {
     expect(n).toBe(2);
     const sql = db.query.mock.calls[0][0];
     expect(sql).toMatch(/UPDATE flow_runs/);
-    // `wartend` gehoert dazu (Phase C7): ein Lauf an einer Freigabe haengt an
-    // einem Zeitgeber in DIESEM Prozess. Nach einem Neustart wartet er auf
-    // etwas, das ihn nie mehr fortsetzt.
-    expect(sql).toMatch(/status IN \('laeuft', 'wartend'\)/);
+    // `wartend` gehoert dazu (Phase C7), aber nur OHNE Pruefpunkt (M5): ein
+    // Lauf der Werkzeug-Schleife haengt an einem Versprechen in DIESEM Prozess
+    // und wartet nach einem Neustart auf etwas, das ihn nie mehr fortsetzt. Einer
+    // mit `fortsetzung` bleibt stehen und wird fortgesetzt.
+    expect(sql).toMatch(/status = 'laeuft'\s+OR \(status = 'wartend' AND fortsetzung IS NULL\)/);
     expect(sql).toMatch(/SET status = 'fehler'/);
   });
 });

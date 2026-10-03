@@ -193,6 +193,9 @@ function buildSynthesisInput(userInput, schritte, outputs) {
  *   stehen sie als übernommene Schritte mit Vermerk.
  * @param {number|null} [p.vorabQuelleLaufId] - Lauf-ID, aus der die
  *   übernommenen Ausgaben stammen (nur für den Vermerk).
+ * @param {boolean} [p.fortsetzung] - Der Lauf setzt sich nach einer Freigabe
+ *   FORT (M5): die übernommenen Schritte stehen schon im Protokoll DIESES
+ *   Laufs, also schreibt der Executor keinen Übernahme-Vermerk noch einmal.
  * @param {new()=>object} [p.SubagentToolClass] - für Tests austauschbar.
  * @returns {Promise<{result:string|null, error?:string, aborted?:boolean}>}
  */
@@ -210,6 +213,7 @@ async function executeSteps({
   signal,
   vorabErgebnisse = null,
   vorabQuelleLaufId = null,
+  fortsetzung = false,
   SubagentToolClass = SubagentTool,
 }) {
   const subagentTool = new SubagentToolClass();
@@ -228,7 +232,7 @@ async function executeSteps({
       const ausgabe = String(vorabErgebnisse.get(index) ?? '');
       outputs[schritt.name] = ausgabe;
       const recorder = context && context.stepRecorder;
-      if (recorder) {
+      if (recorder && !fortsetzung) {
         try {
           const step = await recorder.beginnen({
             kind: schritt.typ === 'subagent' ? 'subagent' : 'werkzeug',
@@ -268,7 +272,17 @@ async function executeSteps({
         );
       }
       const params = resolveParams(schritt.parameter, scope);
-      return recordWerkzeug({ werkzeug: schritt.werkzeug, params });
+      // Wo der Lauf nach einem Neustart weitergeht, wenn dieser Schritt eine
+      // Freigabe anfordert: nur ein einfacher Schritt der obersten Ebene --
+      // keine Wiederholung, keine Liste. Dort liessen sich die Ausgaben der
+      // schon gelaufenen Durchlaeufe nicht eindeutig zuordnen
+      // (`berechneVorabErgebnisse`), und ein Schritt wuerde doppelt laufen.
+      const fortsetzbar = !schritt.wiederhole_ueber && (schritt.iterationen || 1) === 1;
+      return recordWerkzeug({
+        werkzeug: schritt.werkzeug,
+        params,
+        fortsetzung: fortsetzbar ? { schritt: index, name: schritt.name } : null,
+      });
     };
 
     let ausgabe = '';
