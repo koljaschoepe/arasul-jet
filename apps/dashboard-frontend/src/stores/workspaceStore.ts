@@ -1,77 +1,76 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 /**
- * Workspace-Store v10: offene Tabs, aktiver Tab, die Sidebar-Ansicht und die
- * Sichtbarkeit der beiden Seitenspalten. Persistiert in localStorage, der
- * aktive Tab wird zusätzlich in der URL gespiegelt (siehe WorkspaceShell).
+ * Workspace-Store: die EINE Ansicht, die im Hauptbereich offen ist (M5,
+ * Karte rahmen-aktivitaetsleiste, 03.10.2026).
  *
- * Tab-Identität: `tabId()` liefert den deterministischen Schlüssel, openTab
- * dedupliziert. Für die Singleton-Typen ist der Schlüssel der Typ selbst; eine
- * App trägt zusätzlich ihre Kennung und ihren Stand, weil zwei Apps
- * nebeneinander offen sein sollen — das ist der ganze Zweck der Mitte.
+ * Bis dahin stand hier eine Tab-Liste mit aktivem Tab, die Sidebar-Ansicht der
+ * Aktivitätsleiste und die Sichtbarkeit zweier Seitenspalten (v11, im
+ * localStorage). Das Zielbild (`frontend.md`, Abschnitt Rahmen) kennt nichts
+ * davon: um die App steht nur die Aktivitätsleiste, offen ist genau eine
+ * Ansicht. Was übrig bleibt, steht vollständig in der Adresse
+ * (`/workspace/...`), deshalb wird nichts mehr gespeichert — die Shell
+ * spiegelt Adresse und Store ineinander (`WorkspaceShell`).
  *
- * Phase B2 (26.08.2026): Editor, Terminal, Agent-Chat und Sandbox sind aus der
- * Oberfläche gefallen, mit ihnen die Terminal-Session-Registry, der Chat-Scope,
- * das Dirty-Register, die Explorer-Anfragen und die Tab-Typen für Dokumente,
- * Projektdateien und Projekte. Phase B3: Flow-Editor, Erweiterungs-Store und
- * der Tab einer installierten Erweiterung sind weg. Phase B5: der
- * Automationen-Tab (n8n) ist weg.
- *
- * Phase D1 (27.08.2026) füllt das Raster nach dem Zielbild aus Beschluss 10:
- * links die Apps, in der Mitte das **Dashboard** oder eine **App**, rechts die
- * Notizen. Damit kommen die ersten Tab-Typen dazu, seit der B-Block welche
- * gestrichen hat — und der erste, der wieder eine Kennung trägt (`appId`).
+ * Die Modelle sind kein eigener Typ mehr, sondern ein Bereich der Verwaltung.
  */
 
 /**
  * `settings` sind die persönlichen Einstellungen, für alle; `verwaltung` ist
- * der Übergangseintrag für alles Gerätebezogene und gehört dem Administrator
- * (M5, bis die Verwaltung als eigene Ansicht gebaut ist).
+ * alles Gerätebezogene und gehört dem Administrator.
  */
-export type WorkspaceTabType = 'dashboard' | 'app' | 'settings' | 'verwaltung' | 'modelle';
+export type AnsichtTyp = 'dashboard' | 'app' | 'settings' | 'verwaltung';
 
 /** Der Stand einer App: der Livestand für alle, der Teststand für Tester. */
 export type AppStand = 'live' | 'test';
 
-export interface WorkspaceTabSpec {
-  type: WorkspaceTabType;
-  /** Nur bei `app`: welche App. Ohne sie ist der Tab keiner. */
+export interface Ansicht {
+  type: AnsichtTyp;
+  /** Nur bei `app`: welche App. Ohne sie ist die Ansicht keine. */
   appId?: string;
   /** Nur bei `app`: welcher Stand. Fehlt er, gilt `live`. */
   stand?: AppStand;
+  /** Nur bei `verwaltung`: welcher Bereich. Fehlt er, gilt der erste. */
+  bereich?: string;
+  /** Nur bei `verwaltung`: ein Abschnitt im Bereich, der aufgeklappt ankommt. */
+  abschnitt?: string;
+  /** Der Name, etwa der App. Fehlt er, gilt der des Typs. */
   title?: string;
 }
 
-export interface WorkspaceTab {
-  id: string;
-  type: WorkspaceTabType;
-  title: string;
-  appId?: string;
-  stand?: AppStand;
-}
-
-const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
-  dashboard: 'Übersicht',
+const TITEL: Record<AnsichtTyp, string> = {
+  dashboard: 'Startseite',
   app: 'App',
   settings: 'Einstellungen',
   verwaltung: 'Verwaltung',
-  modelle: 'Modelle',
 };
 
-export function tabId(spec: WorkspaceTabSpec): string {
-  if (spec.type === 'app') {
-    return `app:${spec.appId ?? ''}:${spec.stand ?? 'live'}`;
-  }
-  return spec.type;
+/** Was über der Ansicht im Browser-Tab steht. */
+export function ansichtTitel(a: Ansicht): string {
+  return a.title ?? TITEL[a.type];
 }
 
-/** Aktiver Tab → URL-Pfad unterhalb von /workspace. */
-export function tabToPath(tab: WorkspaceTab): string {
-  if (tab.type === 'app') {
-    return `/workspace/app/${tab.appId}${tab.stand === 'test' ? '/test' : ''}`;
+/**
+ * Der Schlüssel, an dem die Aktivitätsleiste erkennt, welcher Knopf gemeint
+ * ist: eine App mit Kennung und Stand, sonst der Typ — der Bereich der
+ * Verwaltung gehört nicht dazu, die Leiste hat für sie einen Knopf.
+ */
+export function ansichtId(a: Ansicht): string {
+  if (a.type === 'app') {
+    return `app:${a.appId ?? ''}:${a.stand ?? 'live'}`;
   }
-  return `/workspace/${tab.type}`;
+  return a.type;
+}
+
+/** Ansicht → URL-Pfad unterhalb von /workspace. */
+export function ansichtZuPfad(a: Ansicht): string {
+  if (a.type === 'app') {
+    return `/workspace/app/${a.appId}${a.stand === 'test' ? '/test' : ''}`;
+  }
+  if (a.type === 'verwaltung' && a.bereich) {
+    return `/workspace/verwaltung/${a.bereich}${a.abschnitt ? `/${a.abschnitt}` : ''}`;
+  }
+  return `/workspace/${a.type}`;
 }
 
 /**
@@ -81,9 +80,11 @@ export function tabToPath(tab: WorkspaceTab): string {
  * Adresszeile, und von dort kommt alles Mögliche. `/workspace/app/..` ergäbe
  * sonst einen Rahmen auf `/apps/../`, also auf Arasul selbst: die Oberfläche
  * in sich geschachtelt, was wie ein Fehler des Geräts aussieht und keiner ist.
- * Ein Muster ist die kürzere Antwort als eine Sonderbehandlung je Fall.
  */
 const APP_KENNUNG = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/** Bereich und Abschnitt der Verwaltung: Wörter, kein Pfad. */
+const WORT = /^[a-z][a-z-]{0,39}$/;
 
 /**
  * Der Weg, unter dem eine App im Browser läuft — derselbe, den
@@ -91,15 +92,14 @@ const APP_KENNUNG = /^[a-z0-9][a-z0-9-]{0,63}$/;
  *
  * Der Schrägstrich am Ende gehört dazu: ohne ihn zeigen relative Verweise in
  * der Seite (`./api/…`, `assets/…`) eine Ebene zu hoch, und das Backend
- * antwortet mit einem 301 auf genau diese Adresse. Ein Umzug im iframe ist
- * kein Fehler, aber eine Anfrage, die niemand braucht.
+ * antwortet mit einem 301 auf genau diese Adresse.
  */
 export function appPfad(appId: string, stand: AppStand = 'live'): string {
   return stand === 'test' ? `/apps/${appId}/test/` : `/apps/${appId}/`;
 }
 
-/** URL-Pfad (nach /workspace) → Tab-Spec, oder null wenn unbekannt. */
-export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
+/** URL-Pfad (nach /workspace) → Ansicht, oder null wenn unbekannt. */
+export function pfadZuAnsicht(subPath: string): Ansicht | null {
   const parts = subPath.split('/').filter(Boolean);
   const head = parts[0];
   if (!head) return null;
@@ -107,405 +107,79 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
     case 'dashboard':
       return { type: 'dashboard' };
     case 'app': {
-      // `/workspace/app` ohne Kennung ist kein Tab, sondern ein halber Link —
-      // und eine Kennung, die keine ist, erst recht keiner.
+      // `/workspace/app` ohne Kennung ist keine Ansicht, sondern ein halber
+      // Link — und eine Kennung, die keine ist, erst recht keine.
       const appId = parts[1];
       if (!appId || !APP_KENNUNG.test(appId)) return null;
       return { type: 'app', appId, stand: parts[2] === 'test' ? 'test' : 'live' };
     }
     case 'settings':
       return { type: 'settings' };
-    case 'verwaltung':
-      return { type: 'verwaltung' };
+    case 'verwaltung': {
+      const bereich = parts[1] && WORT.test(parts[1]) ? parts[1] : undefined;
+      const abschnitt = bereich && parts[2] && WORT.test(parts[2]) ? parts[2] : undefined;
+      return {
+        type: 'verwaltung',
+        ...(bereich ? { bereich } : {}),
+        ...(abschnitt ? { abschnitt } : {}),
+      };
+    }
+    // Die Modelle waren bis M5 eine eigene Ansicht der Aktivitätsleiste, davor
+    // (bis Plan 023 B7) hieß ihr Pfad /workspace/store. Beide Lesezeichen
+    // landen im Bereich der Verwaltung.
     case 'modelle':
-      return { type: 'modelle' };
-    // Alter Pfad aus der Zeit vor Plan 023 B7: /workspace/store zeigte je nach
-    // Zustand Modelle oder Erweiterungen. Seit B3 gibt es nur noch die Modelle.
     case 'store':
-      return { type: 'modelle' };
+      return { type: 'verwaltung', bereich: 'modelle' };
     default:
       return null;
   }
 }
 
 /**
- * Die Sidebar-Ansichten der Activity-Bar. `null` heißt: keine Ansicht gewählt,
- * die linke Spalte ist leer. Seit B2 gibt es die Ansicht „Dateien" nicht mehr,
- * seit B3 auch „Erweiterungen" und „Flows" nicht; alte Stände damit landen auf
- * null. Seit D1 gibt es „Apps", und sie ist die erste Ansicht der Leiste — die
- * linke Spalte des Zielbilds.
- */
-export type ActivityView = 'apps' | 'models' | 'verwaltung';
-const ACTIVITY_VIEWS: ReadonlySet<ActivityView> = new Set<ActivityView>([
-  'apps',
-  'models',
-  'verwaltung',
-]);
-
-/**
- * Die Ansicht, mit der die Shell anfängt. Bis D1 war das `null` — eine leere
- * linke Spalte, weil es nach dem Rückbau des Explorers nichts gab, was
- * hineingehört hätte. Jetzt gibt es etwas, und das Zielbild sagt, was: die
- * Apps.
- */
-const START_VIEW: ActivityView = 'apps';
-
-/**
- * Welche Ansichten und Tab-Typen gehören dem Administrator?
+ * Gehört diese Ansicht dem Administrator?
  *
- * Die Liste steht hier und nicht dreimal in der Oberfläche, weil sie an drei
- * Stellen gebraucht wird: die Aktivitätsleiste zeigt den Knopf nicht, die
- * Shell öffnet den Tab nicht über die Adresse, und der Tab-Inhalt sagt es,
- * falls doch einer im localStorage liegt. Alle drei blenden nur aus — die
+ * Gelesen an zwei Stellen: die Aktivitätsleiste zeigt den Knopf nicht, und die
+ * Shell öffnet die Ansicht nicht über die Adresse. Beide blenden nur aus — die
  * Berechtigung ist `requireRole` im Backend, und die Wege dahinter antworten
  * einem Mitarbeiter mit 403, ob die Oberfläche sie zeigt oder nicht.
  */
-const NUR_ADMIN: ReadonlySet<string> = new Set(['models', 'modelle', 'verwaltung']);
+export function nurFuerAdmin(typ: AnsichtTyp): boolean {
+  return typ === 'verwaltung';
+}
 
-/** Gehört diese Ansicht bzw. dieser Tab-Typ dem Administrator? */
-export function nurFuerAdmin(was: ActivityView | WorkspaceTabType): boolean {
-  return NUR_ADMIN.has(was);
+function gleich(a: Ansicht, b: Ansicht): boolean {
+  return ansichtZuPfad(a) === ansichtZuPfad(b) && a.title === b.title;
 }
 
 export interface WorkspaceState {
-  tabs: WorkspaceTab[];
-  activeTabId: string | null;
-  activeView: ActivityView;
-  sidebarVisible: boolean;
-  rightPanelVisible: boolean;
+  ansicht: Ansicht;
   /**
-   * Stehen die Notizen unter 900 px gerade als ANSICHT da? (Phase D7)
-   *
-   * NICHT persistiert, und das ist der Unterschied zu `rightPanelVisible`.
-   * Die beiden beantworten zwei Fragen: `rightPanelVisible` sagt, ob die
-   * Notizen zur Aufteilung des breiten Arbeitsplatzes GEHOEREN -- eine
-   * Voreinstellung, die das Neuladen ueberlebt. `notizenAnsichtOffen` sagt,
-   * ob der schmale Aufbau JETZT GERADE die Notizen zeigt statt der Mitte.
-   * Das ist ein Aufenthaltsort und keine Einstellung: wer sein Telefon nach
-   * einer Woche wieder aufmacht, will da anfangen, wo die Arbeit ist.
-   *
-   * Bis D6 hiess dieses Feld `notizenBlattOffen` und meinte ein Blatt, das
-   * ueber der Mitte lag. Es liegt seit D7 nichts mehr uebereinander -- unter
-   * 900 px gibt es eine Spalte, und darin steht entweder die Ansicht oder der
-   * Zettel.
+   * Eine Ansicht öffnen. Dieselbe noch einmal ist kein Wechsel; kommt eine
+   * App ohne Namen (über die Adresse), behält sie den, den sie schon trug.
    */
-  notizenAnsichtOffen: boolean;
+  oeffne: (a: Ansicht) => void;
   /**
-   * Ist das Hamburger-Menue offen? (Phase D7, nur unter 900 px)
-   *
-   * Ebenfalls nicht persistiert, und aus demselben Grund wie die Notizen:
-   * ein Menue ist ein Handgriff und kein Zustand des Arbeitsplatzes.
+   * Den Namen einer App nachtragen, sobald `GET /api/apps/meine` ihn kennt —
+   * nur wenn sie gerade offen ist.
    */
-  menueOffen: boolean;
-  /**
-   * Gehören die Seitenspalten, solange eine App vorn steht, der App? (J35,
-   * 26.09.2026) Die Shell setzt es aus der Rolle: für einen Mitarbeiter ja.
-   *
-   * Gemessen am Orin mit der Faktum-App bei 1440 px: mit Sidebar und Notizen
-   * bekam der Rahmen 778 px, die App fiel in ihre schmale Form und versteckte
-   * ihre Navigation hinter einem Menü; ohne Notizen blieben 1052 px, und ihr
-   * Inhalt ragte 100 px über den Rand. Ein Mitarbeiter hat neben einer App
-   * nichts in den Spalten, was er dort gerade braucht — die Liste seiner
-   * Apps steht in den Tabs, die Notizen einen Klick entfernt. Der
-   * Administrator richtet sich seinen Arbeitsplatz selbst ein und behält ihn.
-   *
-   * NICHT persistiert, samt den zwei Schaltern darunter: „startet zu" heißt,
-   * jede App, die nach vorn kommt, beginnt mit der ganzen Breite. Wer eine
-   * Spalte daneben öffnet, hat sie offen, bis er den Tab wechselt — und seine
-   * gespeicherte Aufteilung für alles andere bleibt unberührt.
-   */
-  spaltenNebenAppZu: boolean;
-  /** Die Sidebar neben einer App, wenn `spaltenNebenAppZu` gilt. */
-  sidebarNebenApp: boolean;
-  /** Die Notizen neben einer App, wenn `spaltenNebenAppZu` gilt. */
-  notizenNebenApp: boolean;
-  /** Die Shell sagt, ob die Regel gilt (aus der Rolle). */
-  setSpaltenNebenAppZu: (zu: boolean) => void;
-  /** Beide Spalten neben einer App wieder zu — beim Wechsel des Tabs. */
-  spaltenNebenAppZuruecksetzen: () => void;
-  openTab: (spec: WorkspaceTabSpec) => void;
-  closeTab: (id: string) => void;
-  activateTab: (id: string) => void;
-  moveTab: (fromIndex: number, toIndex: number) => void;
-  updateTabTitle: (id: string, title: string) => void;
-  toggleSidebar: () => void;
-  /** Sidebar-Sichtbarkeit explizit setzen. */
-  setSidebarVisible: (visible: boolean) => void;
-  /**
-   * Activity-Bar-Klick (VS-Code-Semantik): dieselbe Ansicht bei offener Sidebar
-   * → einklappen; sonst die Ansicht wählen und das Panel aufziehen.
-   */
-  selectView: (view: ActivityView) => void;
-  /**
-   * Ansicht setzen OHNE Toggle-/Sichtbarkeits-Nebenwirkung. Für Sync-Fälle, in
-   * denen etwas anderes die Auswahl treibt (z. B. der Store-Reiter in der Mitte
-   * folgt dem Sidebar-Filter) — der bloße Klick auf einen Center-Reiter soll die
-   * Sidebar nicht ein-/ausklappen, nur ihren Inhalt passend stellen.
-   */
-  setActiveView: (view: ActivityView) => void;
-  /** Rechtes Panel ein-/ausblenden. */
-  toggleRightPanel: () => void;
-  /** Zwischen Mitte und Notizen umschalten (schmales Fenster). */
-  toggleNotizenAnsicht: () => void;
-  /** Zurueck auf die Mitte. Die Shell ruft es, sobald eine Ansicht kommt. */
-  schliesseNotizenAnsicht: () => void;
-  /** Das Hamburger-Menue auf- oder zuklappen (schmales Fenster). */
-  toggleMenue: () => void;
-  /** Das Menue zumachen. Jede Ansicht, die kommt, macht es zu. */
-  schliesseMenue: () => void;
+  setzeAppTitel: (appId: string, stand: AppStand, title: string) => void;
 }
 
-/** Gilt gerade die Regel „die Spalten gehören der App"? */
-function appHatSpalten(s: WorkspaceState): boolean {
-  if (!s.spaltenNebenAppZu) return false;
-  return s.tabs.find(t => t.id === s.activeTabId)?.type === 'app';
-}
+export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
+  ansicht: { type: 'dashboard' },
 
-/** Steht die Sidebar im breiten Aufbau da? Liest die Regel neben einer App mit. */
-export function sidebarSichtbar(s: WorkspaceState): boolean {
-  return appHatSpalten(s) ? s.sidebarNebenApp : s.sidebarVisible;
-}
+  oeffne: a => {
+    const jetzt = get().ansicht;
+    const title = a.title ?? (ansichtId(a) === ansichtId(jetzt) ? jetzt.title : undefined);
+    const neu: Ansicht = { ...a, ...(title ? { title } : {}) };
+    if (!gleich(neu, jetzt)) set({ ansicht: neu });
+  },
 
-/** Stehen die Notizen im breiten Aufbau da? Liest die Regel neben einer App mit. */
-export function notizenSichtbar(s: WorkspaceState): boolean {
-  return appHatSpalten(s) ? s.notizenNebenApp : s.rightPanelVisible;
-}
-
-/** Persistierte Felder (partialize) — Basis für die migrate-Signatur. */
-interface PersistedWorkspaceState {
-  tabs: WorkspaceTab[];
-  activeTabId: string | null;
-  activeView: ActivityView;
-  sidebarVisible: boolean;
-  rightPanelVisible: boolean;
-}
-
-/** Roh-Shape älterer persistierter Stände (v≤8). */
-interface PersistedLegacyState {
-  tabs?: Array<{ id: string; type: string; title: string; appId?: string; stand?: string }>;
-  activeTabId?: string | null;
-  activeView?: string;
-  sidebarVisible?: boolean;
-  // v≤2
-  explorerVisible?: boolean;
-  llmVisible?: boolean;
-  // v3 (zwei unabhängige Flächen)
-  chatVisible?: boolean;
-  terminalVisible?: boolean;
-  // v4 bis v8
-  rightPanelVisible?: boolean;
-}
-
-/**
- * Migration auf v10. Ältere Stände kannten ein rechtes Panel mit Modus (Chat
- * oder Terminal), Terminal-Sessions, Tabs für Dokumente, Projektdateien und
- * Projekte (bis v6), die Tabs `erweiterungen`, `flow` und `extension` (v7)
- * und den Tab `automationen` (v8, n8n). Davon bleibt nur, was es noch gibt: die Tabs der verbliebenen Typen,
- * die Sidebar-Ansicht (ohne 'files'/'search'/'extensions'/'flows') und die
- * Sichtbarkeit der beiden Spalten. Ein Tab, der beim Aktualisieren
- * verschwindet, sieht aus wie ein Fehler; deshalb wird der alte `store`-Tab
- * weiter umgeschrieben, jetzt auf `modelle`, statt verworfen.
- *
- * v11 (M5): die Ansicht `settings` der Aktivitätsleiste heißt `verwaltung`;
- * der Tab `settings` ist jetzt die persönliche Seite für alle.
- *
- * v10 (Phase D1) fügt `dashboard` und `app` hinzu und nimmt nichts weg — ein
- * Stand aus v9 kann diese Typen gar nicht enthalten. Was der Filter unten
- * trotzdem prüft: ein `app`-Tab OHNE Kennung fällt. Er kann nur aus einem von
- * Hand veränderten localStorage kommen, und ohne Kennung zeigt er auf nichts.
- */
-function migrateWorkspaceState(persisted: unknown, version: number): PersistedWorkspaceState {
-  const old = (persisted ?? {}) as PersistedLegacyState;
-  const valid = new Set(Object.keys(DEFAULT_TITLES));
-  const umbenannt: Record<string, WorkspaceTabType> = { store: 'modelle' };
-  const neueId: Record<string, string> = {};
-  const tabs = (Array.isArray(old.tabs) ? old.tabs : [])
-    .map(t => {
-      const neuerTyp = umbenannt[t.type];
-      if (!neuerTyp) return t;
-      const id = tabId({ type: neuerTyp });
-      neueId[t.id] = id;
-      return { ...t, type: neuerTyp, id, title: DEFAULT_TITLES[neuerTyp] };
-    })
-    .filter(t => valid.has(t.type))
-    .filter(t => t.type !== 'app' || Boolean(t.appId))
-    // Zwei alte Tabs können auf denselben neuen Typ fallen (`store` und
-    // `modelle` nebeneinander); der Schlüssel bleibt eindeutig.
-    .filter((t, i, alle) => alle.findIndex(a => a.id === t.id) === i)
-    .map(t => ({
-      id: t.id,
-      type: t.type as WorkspaceTabType,
-      title: t.title,
-      ...(t.appId ? { appId: t.appId, stand: t.stand === 'test' ? 'test' : 'live' } : {}),
-    })) as WorkspaceTab[];
-  const alterAktiver = old.activeTabId ? (neueId[old.activeTabId] ?? old.activeTabId) : null;
-  const activeTabId =
-    alterAktiver && tabs.some(t => t.id === alterAktiver) ? alterAktiver : (tabs[0]?.id ?? null);
-
-  let sidebarVisible: boolean;
-  let rightPanelVisible: boolean;
-  if (version >= 4) {
-    sidebarVisible = old.sidebarVisible ?? true;
-    rightPanelVisible = old.rightPanelVisible ?? true;
-  } else if (version >= 3) {
-    sidebarVisible = old.sidebarVisible ?? true;
-    rightPanelVisible = (old.chatVisible ?? true) || (old.terminalVisible ?? false);
-  } else {
-    sidebarVisible = old.explorerVisible ?? true;
-    rightPanelVisible = old.llmVisible ?? true;
-  }
-
-  // Alte Werte ('files', 'search', 'extensions', 'flows') und ein Stand ohne
-  // Ansicht landen auf den Apps statt auf einer leeren Spalte.
-  // Die Ansicht „settings" der Aktivitätsleiste heißt seit M5 „verwaltung".
-  const alteAnsicht = old.activeView === 'settings' ? 'verwaltung' : old.activeView;
-  const activeView = ACTIVITY_VIEWS.has(alteAnsicht as ActivityView)
-    ? (alteAnsicht as ActivityView)
-    : START_VIEW;
-
-  return { tabs, activeTabId, activeView, sidebarVisible, rightPanelVisible };
-}
-
-export const useWorkspaceStore = create<WorkspaceState>()(
-  persist(
-    (set, get) => ({
-      tabs: [],
-      activeTabId: null,
-      activeView: START_VIEW,
-      sidebarVisible: true,
-      rightPanelVisible: true,
-      notizenAnsichtOffen: false,
-      menueOffen: false,
-      spaltenNebenAppZu: false,
-      sidebarNebenApp: false,
-      notizenNebenApp: false,
-
-      setSpaltenNebenAppZu: zu =>
-        set(state => (state.spaltenNebenAppZu === zu ? state : { spaltenNebenAppZu: zu })),
-      spaltenNebenAppZuruecksetzen: () =>
-        set(state =>
-          state.sidebarNebenApp || state.notizenNebenApp
-            ? { sidebarNebenApp: false, notizenNebenApp: false }
-            : state
-        ),
-
-      openTab: spec => {
-        const id = tabId(spec);
-        const { tabs } = get();
-        const existing = tabs.find(t => t.id === id);
-        if (existing) {
-          // Ein Titel, der mitkommt, gewinnt: der App-Name steht in
-          // `GET /api/apps/meine` und kann sich mit einem App-Update ändern.
-          // Ohne diese Zeile trüge ein einmal geöffneter Tab den alten Namen,
-          // bis jemand ihn schließt.
-          const title = spec.title && spec.title !== existing.title ? spec.title : null;
-          set({
-            activeTabId: id,
-            ...(title ? { tabs: tabs.map(t => (t.id === id ? { ...t, title } : t)) } : {}),
-          });
-          return;
-        }
-        const tab: WorkspaceTab = {
-          id,
-          type: spec.type,
-          title: spec.title ?? DEFAULT_TITLES[spec.type],
-          ...(spec.type === 'app'
-            ? { appId: spec.appId, stand: spec.stand ?? ('live' as AppStand) }
-            : {}),
-        };
-        set({ tabs: [...tabs, tab], activeTabId: id });
-      },
-
-      closeTab: id => {
-        const { tabs, activeTabId } = get();
-        const index = tabs.findIndex(t => t.id === id);
-        if (index === -1) return;
-        const nextTabs = tabs.filter(t => t.id !== id);
-        let nextActive = activeTabId;
-        if (activeTabId === id) {
-          const neighbor = nextTabs[index] ?? nextTabs[index - 1] ?? null;
-          nextActive = neighbor ? neighbor.id : null;
-        }
-        set({ tabs: nextTabs, activeTabId: nextActive });
-      },
-
-      activateTab: id => {
-        if (get().tabs.some(t => t.id === id)) {
-          set({ activeTabId: id });
-        }
-      },
-
-      moveTab: (fromIndex, toIndex) => {
-        const { tabs } = get();
-        if (
-          fromIndex < 0 ||
-          fromIndex >= tabs.length ||
-          toIndex < 0 ||
-          toIndex >= tabs.length ||
-          fromIndex === toIndex
-        ) {
-          return;
-        }
-        const next = [...tabs];
-        const moved = next.splice(fromIndex, 1)[0];
-        if (!moved) return;
-        next.splice(toIndex, 0, moved);
-        set({ tabs: next });
-      },
-
-      updateTabTitle: (id, title) => {
-        set(state =>
-          state.tabs.some(t => t.id === id && t.title !== title)
-            ? { tabs: state.tabs.map(t => (t.id === id ? { ...t, title } : t)) }
-            : state
-        );
-      },
-
-      // Jeder Schalter schreibt in den Zustand, den man gerade SIEHT: neben
-      // einer App (für einen Mitarbeiter) in den der Sitzung, sonst in die
-      // gespeicherte Aufteilung.
-      toggleSidebar: () =>
-        set(state =>
-          appHatSpalten(state)
-            ? { sidebarNebenApp: !state.sidebarNebenApp }
-            : { sidebarVisible: !state.sidebarVisible }
-        ),
-      setSidebarVisible: visible =>
-        set(state =>
-          appHatSpalten(state) ? { sidebarNebenApp: visible } : { sidebarVisible: visible }
-        ),
-      selectView: view =>
-        set(state => {
-          const feld = appHatSpalten(state) ? 'sidebarNebenApp' : 'sidebarVisible';
-          return sidebarSichtbar(state) && state.activeView === view
-            ? { [feld]: false }
-            : { activeView: view, [feld]: true };
-        }),
-      setActiveView: view => set({ activeView: view }),
-      toggleRightPanel: () =>
-        set(state =>
-          appHatSpalten(state)
-            ? { notizenNebenApp: !state.notizenNebenApp }
-            : { rightPanelVisible: !state.rightPanelVisible }
-        ),
-      toggleNotizenAnsicht: () =>
-        set(state => ({ notizenAnsichtOffen: !state.notizenAnsichtOffen })),
-      schliesseNotizenAnsicht: () =>
-        set(state => (state.notizenAnsichtOffen ? { notizenAnsichtOffen: false } : state)),
-      toggleMenue: () => set(state => ({ menueOffen: !state.menueOffen })),
-      schliesseMenue: () => set(state => (state.menueOffen ? { menueOffen: false } : state)),
-    }),
-    {
-      name: 'arasul_workspace',
-      version: 11,
-      migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
-      partialize: state => ({
-        tabs: state.tabs,
-        activeTabId: state.activeTabId,
-        activeView: state.activeView,
-        sidebarVisible: state.sidebarVisible,
-        rightPanelVisible: state.rightPanelVisible,
-      }),
-    }
-  )
-);
+  setzeAppTitel: (appId, stand, title) =>
+    set(state =>
+      ansichtId(state.ansicht) === ansichtId({ type: 'app', appId, stand }) &&
+      state.ansicht.title !== title
+        ? { ansicht: { ...state.ansicht, title } }
+        : state
+    ),
+}));

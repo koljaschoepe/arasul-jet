@@ -52,7 +52,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppWindow } from 'lucide-react';
 import { useTheme, themeAmDokument } from '@/hooks/useTheme';
-import { appPfad, tabId, useWorkspaceStore, type AppStand } from '@/stores/workspaceStore';
+import { appPfad, useWorkspaceStore, type AppStand } from '@/stores/workspaceStore';
 import { useMeineApps } from './meineApps';
 import { Ladezustand, Leerzustand } from '@marken';
 
@@ -95,10 +95,10 @@ export function AppRahmen({ appId, stand }: AppRahmenProps) {
   // der über eine Adresse kam (`/workspace/app/<id>`), hieß bis dahin „App",
   // und Rahmen und Meldungen nannten die Kennung — einen Pfad, kein Wort.
   const name = apps?.find(a => a.id === appId)?.name ?? null;
-  const updateTabTitle = useWorkspaceStore(s => s.updateTabTitle);
+  const setzeAppTitel = useWorkspaceStore(s => s.setzeAppTitel);
   useEffect(() => {
-    if (name) updateTabTitle(tabId({ type: 'app', appId, stand }), name);
-  }, [name, appId, stand, updateTabTitle]);
+    if (name) setzeAppTitel(appId, stand, name);
+  }, [name, appId, stand, setzeAppTitel]);
 
   // Alle Hooks stehen oben, also darf ab hier vorzeitig zurueckgekehrt werden.
   if (isLoading) {

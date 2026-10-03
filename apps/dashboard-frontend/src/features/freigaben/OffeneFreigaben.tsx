@@ -7,7 +7,7 @@
  * damit ist der Weg von C7 zum ersten Mal ganz begehbar, ohne `curl`.
  *
  * SEIT J36 (02.10.2026) STEHT DIESE LISTE NUR NOCH FÜR DEN ADMINISTRATOR in
- * der Übersicht (die Shell reicht sie nur ihm herein, `TabContent.tsx`). Ein
+ * der Übersicht (die Shell reicht sie nur ihm herein, `AnsichtInhalt.tsx`). Ein
  * Mitarbeiter findet eine Freigabe in der App, in der sie entsteht — mit dem
  * Baustein `Freigabe` der Bibliothek, aus dem auch diese Liste gebaut ist —
  * und an der Kachel der App trägt höchstens eine Zahl. Das Backend ändert das

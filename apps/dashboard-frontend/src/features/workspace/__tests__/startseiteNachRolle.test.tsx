@@ -1,15 +1,14 @@
 /**
  * Die Startseite nach Rolle (J36, 02.10.2026): der Mitarbeiter sieht seine
  * Apps und höchstens eine Zahl an der App, keine Freigabenliste; der
- * Administrator sieht weiter die Liste. Durch `FeatureTabHost`, also dieselbe
+ * Administrator sieht weiter die Liste. Durch `AnsichtWeiche`, also dieselbe
  * Kette wie die Anwendung.
  */
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
-import { FeatureTabHost } from '../TabContent';
-import type { WorkspaceTab } from '@/stores/workspaceStore';
+import { AnsichtWeiche } from '../AnsichtInhalt';
 
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 import { angemeldet } from '@/__tests__/helpers/authMock';
@@ -55,11 +54,10 @@ function zeigeStartseite() {
     return {};
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const tab = { id: 'dashboard', type: 'dashboard', title: 'Übersicht' } as WorkspaceTab;
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <FeatureTabHost tab={tab} handgriffe={{ onLogout: async () => {} }} />
+        <AnsichtWeiche ansicht={{ type: 'dashboard' }} />
       </MemoryRouter>
     </QueryClientProvider>
   );

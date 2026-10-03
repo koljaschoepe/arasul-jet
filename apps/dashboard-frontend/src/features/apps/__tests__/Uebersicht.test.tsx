@@ -51,7 +51,7 @@ describe('Uebersicht', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
-    useWorkspaceStore.setState({ tabs: [], activeTabId: null, activeView: 'apps' });
+    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
   });
 
   it('begrüßt mit dem Namen und zeigt die freigegebenen Apps als Kacheln', async () => {
@@ -61,11 +61,15 @@ describe('Uebersicht', () => {
     expect(await screen.findByTestId('uebersicht-app-urlaub-live')).toBeInTheDocument();
   });
 
-  it('eine Kachel öffnet die App in der Mitte', async () => {
+  it('eine Kachel öffnet die App im Hauptbereich', async () => {
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });
     fireEvent.click(await screen.findByTestId('uebersicht-app-urlaub-live'));
-    expect(useWorkspaceStore.getState().activeTabId).toBe('app:urlaub:live');
+    expect(useWorkspaceStore.getState().ansicht).toMatchObject({
+      type: 'app',
+      appId: 'urlaub',
+      stand: 'live',
+    });
   });
 
   it('ohne Freigabe steht dort, wie man zu einer App kommt', async () => {

@@ -1,42 +1,26 @@
 /**
- * Der Modelle-Tab durch den echten Weg (Plan 023 B7, in Phase D5 vereinfacht).
- *
- * Beim Aufteilen des einen „Extensions"-Tabs in zwei ist hier einmal ein
- * Fehler entstanden, den die anderen Tests nicht sehen konnten: `routeFor`
- * bekam den Tab-Typ als Schlüssel, `SELF_KEYS` hielt aber den ROUTEN-Namen.
- * Damit fiel die Route auf die Brücke zurück und der Tab blieb dauerhaft leer.
- *
- * Mit D5 gibt es diese Falle nicht mehr: der Modelle-Tab hat keine innere
- * Adresse und keinen eigenen Router, er rendert direkt. Der Test bleibt und
- * geht weiter durch `FeatureTabHost`, also durch dieselbe Kette wie die
- * Anwendung — genau daran wäre der alte Fehler aufgefallen.
+ * Die Modelle als Bereich der Verwaltung (M5), durch die echte Kette:
+ * `AnsichtWeiche` reicht `ModelleAnsicht` als Slot in die Verwaltung, die
+ * Verwaltung zeigt ihn unter dem Bereich `modelle`. Bis M5 waren die Modelle
+ * eine eigene Ansicht der Aktivitätsleiste mit eigenem Tab.
  */
-
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { AnsichtWeiche } from '../AnsichtInhalt';
 
 vi.mock('@/features/modelle/ModelleAnsicht', () => ({
   default: () => <div data-testid="modelle-bereich">Kurzliste</div>,
 }));
 
-import { FeatureTabHost } from '../TabContent';
-import type { WorkspaceTab } from '@/stores/workspaceStore';
-
-const steuerung = {
-  onLogout: async () => {},
-};
-
-test('der Modelle-Tab rendert die Kurzliste, nicht die Bruecke', async () => {
-  const tab = { id: 'modelle', type: 'modelle', title: 'Modelle' } as WorkspaceTab;
+test('der Bereich Modelle zeigt die Kurzliste, links die Bereiche', async () => {
+  const ansicht = { type: 'verwaltung', bereich: 'modelle' } as const;
+  useWorkspaceStore.setState({ ansicht });
   render(
-    <MemoryRouter initialEntries={['/workspace/modelle']}>
-      <Routes>
-        <Route
-          path="/workspace/modelle"
-          element={<FeatureTabHost tab={tab} handgriffe={steuerung} />}
-        />
-      </Routes>
+    <MemoryRouter>
+      <AnsichtWeiche ansicht={ansicht} />
     </MemoryRouter>
   );
   await waitFor(() => expect(screen.getByTestId('modelle-bereich')).toBeInTheDocument());
+  expect(screen.getByTestId('verwaltung-modelle')).toHaveAttribute('aria-current', 'true');
 });

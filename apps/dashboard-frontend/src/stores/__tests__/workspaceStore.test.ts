@@ -1,359 +1,109 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   useWorkspaceStore,
-  tabId,
-  tabToPath,
-  pathToTabSpec,
+  ansichtId,
+  ansichtTitel,
+  ansichtZuPfad,
+  pfadZuAnsicht,
   appPfad,
   nurFuerAdmin,
-  sidebarSichtbar,
-  notizenSichtbar,
-  type WorkspaceTabSpec,
+  type Ansicht,
 } from '../workspaceStore';
 
 /**
- * Der Store nach D1: Tabs (Übersicht, App, Einstellungen, Modelle),
- * Sidebar-Ansicht, Sichtbarkeit der beiden Seitenspalten. Terminal-Sessions,
- * Chat-Scope, Dirty-Register und die Tabs für Dokumente, Projektdateien und
- * Projekte sind mit B2 gefallen, die Tabs `erweiterungen`, `flow` und
- * `extension` mit B3, `automationen` mit B5; die Migration auf v10 wirft alte
- * Reste davon weg, ohne die verbliebenen Tabs zu verlieren.
+ * Der Store seit M5 (Karte rahmen-aktivitaetsleiste): genau eine offene
+ * Ansicht, keine Tabs, keine Sidebar-Ansicht, keine Spalten. Nichts davon wird
+ * gespeichert — die Ansicht steht vollständig in der Adresse.
  */
 
-function reset() {
-  useWorkspaceStore.setState({
-    tabs: [],
-    activeTabId: null,
-    activeView: 'apps',
-    sidebarVisible: true,
-    rightPanelVisible: true,
-    spaltenNebenAppZu: false,
-    sidebarNebenApp: false,
-    notizenNebenApp: false,
-  });
-  localStorage.clear();
-}
+beforeEach(() => {
+  useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
+});
 
-describe('workspaceStore, Tabs', () => {
-  beforeEach(reset);
-
-  it('öffnet einen Tab und aktiviert ihn', () => {
-    useWorkspaceStore.getState().openTab({ type: 'settings' });
-    const s = useWorkspaceStore.getState();
-    expect(s.tabs).toHaveLength(1);
-    expect(s.tabs[0]?.title).toBe('Einstellungen');
-    expect(s.activeTabId).toBe('settings');
+describe('workspaceStore, eine Ansicht', () => {
+  it('beginnt auf der Startseite', () => {
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'dashboard' });
   });
 
-  it('dedupliziert Tabs über die Identität (type + payload)', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'modelle' });
-    s.openTab({ type: 'settings' });
-    s.openTab({ type: 'modelle' });
-    expect(useWorkspaceStore.getState().tabs).toHaveLength(2);
-    expect(useWorkspaceStore.getState().activeTabId).toBe('modelle');
+  it('oeffne ersetzt die Ansicht, statt eine zweite daneben zu legen', () => {
+    const { oeffne } = useWorkspaceStore.getState();
+    oeffne({ type: 'app', appId: 'urlaub', stand: 'live', title: 'Urlaub' });
+    oeffne({ type: 'settings' });
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'settings' });
   });
 
-  it('schließt den aktiven Tab und aktiviert den Nachbarn', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'settings' });
-    s.openTab({ type: 'modelle' });
-    s.activateTab('settings');
-    s.closeTab('settings');
-    expect(useWorkspaceStore.getState().activeTabId).toBe('modelle');
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['modelle']);
+  it('dieselbe Ansicht noch einmal ist kein Wechsel', () => {
+    const { oeffne } = useWorkspaceStore.getState();
+    oeffne({ type: 'verwaltung', bereich: 'benutzer' });
+    const vorher = useWorkspaceStore.getState().ansicht;
+    oeffne({ type: 'verwaltung', bereich: 'benutzer' });
+    expect(useWorkspaceStore.getState().ansicht).toBe(vorher);
   });
 
-  it('schließt den letzten Tab → kein aktiver Tab', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'settings' });
-    s.closeTab('settings');
-    expect(useWorkspaceStore.getState().activeTabId).toBeNull();
+  it('eine App über die Adresse behält ihren Namen', () => {
+    const { oeffne } = useWorkspaceStore.getState();
+    oeffne({ type: 'app', appId: 'urlaub', stand: 'live', title: 'Urlaub' });
+    oeffne({ type: 'app', appId: 'urlaub', stand: 'live' });
+    expect(useWorkspaceStore.getState().ansicht.title).toBe('Urlaub');
+    // Eine andere App erbt ihn nicht.
+    oeffne({ type: 'app', appId: 'rechnung', stand: 'live' });
+    expect(useWorkspaceStore.getState().ansicht.title).toBeUndefined();
   });
 
-  it('inaktiven Tab schließen lässt den aktiven unverändert', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'settings' });
-    s.openTab({ type: 'modelle' });
-    s.closeTab('settings');
-    expect(useWorkspaceStore.getState().activeTabId).toBe('modelle');
+  it('setzeAppTitel trägt den Namen nur in die offene App nach', () => {
+    const { oeffne, setzeAppTitel } = useWorkspaceStore.getState();
+    oeffne({ type: 'app', appId: 'angebot', stand: 'test' });
+    setzeAppTitel('angebot', 'live', 'Falscher Stand');
+    expect(useWorkspaceStore.getState().ansicht.title).toBeUndefined();
+    setzeAppTitel('angebot', 'test', 'Angebot');
+    expect(useWorkspaceStore.getState().ansicht.title).toBe('Angebot');
   });
 
-  it('moveTab ordnet Tabs um (stabile Reihenfolge)', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'settings' });
-    s.openTab({ type: 'modelle' });
-    s.moveTab(0, 1);
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['modelle', 'settings']);
-    s.moveTab(5, 0);
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['modelle', 'settings']);
+  it('der Titel fällt auf den des Typs zurück', () => {
+    expect(ansichtTitel({ type: 'dashboard' })).toBe('Startseite');
+    expect(ansichtTitel({ type: 'verwaltung', bereich: 'modelle' })).toBe('Verwaltung');
+    expect(ansichtTitel({ type: 'app', appId: 'a', title: 'Urlaub' })).toBe('Urlaub');
   });
 
-  it('jeder Tab-Typ ist ein Singleton mit Default-Titel', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'modelle' });
-    s.openTab({ type: 'modelle' });
-    expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
-    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('Modelle');
-  });
-
-  it('ein Tab-Titel, der mitkommt, gewinnt (App-Name aus /api/apps/meine)', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'app', appId: 'urlaub', stand: 'live', title: 'Urlaub' });
-    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('Urlaub');
-    s.openTab({ type: 'app', appId: 'urlaub', stand: 'live', title: 'Urlaubsantrag' });
-    const nachher = useWorkspaceStore.getState();
-    expect(nachher.tabs).toHaveLength(1);
-    expect(nachher.tabs[0]?.title).toBe('Urlaubsantrag');
-  });
-
-  it('updateTabTitle ändert den Titel', () => {
-    const s = useWorkspaceStore.getState();
-    s.openTab({ type: 'modelle' });
-    s.updateTabTitle('modelle', 'angebot');
-    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('angebot');
-  });
-
-  it('persistiert Tabs in localStorage (Reload-Restore)', () => {
-    useWorkspaceStore.getState().openTab({ type: 'settings' });
-    const raw = localStorage.getItem('arasul_workspace');
-    expect(raw).not.toBeNull();
-    const parsed = JSON.parse(raw as string) as { state: { tabs: unknown[] }; version: number };
-    expect(parsed.version).toBe(11);
-    expect(parsed.state.tabs).toHaveLength(1);
+  it('speichert nichts im localStorage', () => {
+    localStorage.removeItem('arasul_workspace');
+    useWorkspaceStore.getState().oeffne({ type: 'settings' });
+    expect(localStorage.getItem('arasul_workspace')).toBeNull();
   });
 });
 
-describe('workspaceStore, Sidebar + rechte Spalte', () => {
-  beforeEach(reset);
-
-  it('Defaults: Sidebar an mit den Apps, rechte Spalte sichtbar', () => {
-    const s = useWorkspaceStore.getState();
-    expect(s.sidebarVisible).toBe(true);
-    // Seit D1 gibt es eine Voreinstellung und damit keinen Leerzustand mehr.
-    expect(s.activeView).toBe('apps');
-    expect(s.rightPanelVisible).toBe(true);
-  });
-
-  it('toggleRightPanel und toggleSidebar wirken unabhängig voneinander', () => {
-    const s = useWorkspaceStore.getState();
-    s.toggleRightPanel();
-    expect(useWorkspaceStore.getState().rightPanelVisible).toBe(false);
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
-    s.toggleSidebar();
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
-    expect(useWorkspaceStore.getState().rightPanelVisible).toBe(false);
-  });
-
-  it('selectView wählt eine Ansicht und zieht die Sidebar auf', () => {
-    useWorkspaceStore.setState({ sidebarVisible: false });
-    useWorkspaceStore.getState().selectView('models');
-    expect(useWorkspaceStore.getState().activeView).toBe('models');
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
-  });
-
-  it('selectView auf die aktive Ansicht bei offener Sidebar klappt ein (VS-Code)', () => {
-    useWorkspaceStore.setState({ activeView: 'models', sidebarVisible: true });
-    useWorkspaceStore.getState().selectView('models');
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
-    expect(useWorkspaceStore.getState().activeView).toBe('models');
-  });
-
-  it('setActiveView setzt nur die Ansicht, ohne die Sidebar zu schalten', () => {
-    useWorkspaceStore.setState({ sidebarVisible: false });
-    useWorkspaceStore.getState().setActiveView('verwaltung');
-    expect(useWorkspaceStore.getState().activeView).toBe('verwaltung');
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
-  });
-});
-
-describe('workspaceStore, Migration auf v11', () => {
-  beforeEach(reset);
-
-  async function migriere(state: Record<string, unknown>, version: number) {
-    localStorage.setItem('arasul_workspace', JSON.stringify({ state, version }));
-    await useWorkspaceStore.persist.rehydrate();
-    return useWorkspaceStore.getState();
-  }
-
-  it('wirft Tabs der gefallenen Typen weg und behält die übrigen samt aktivem Tab', async () => {
-    const s = await migriere(
-      {
-        tabs: [
-          { id: 'settings', type: 'settings', title: 'Einstellungen' },
-          { id: 'projektdatei:p:a.md', type: 'projektdatei', title: 'a.md', projectId: 'p' },
-          { id: 'document:1', type: 'document', title: 'Doku' },
-          { id: 'projekte', type: 'projekte', title: 'Projekte' },
-          { id: 'modelle', type: 'modelle', title: 'Modelle' },
-        ],
-        activeTabId: 'modelle',
-        activeView: 'files',
-        sidebarVisible: true,
-        rightPanelVisible: true,
-        rightPanelMode: 'terminal',
-        terminalSessions: [{ id: 't1', title: 'Shell 1' }],
-        activeTerminalSessionId: 't1',
-      },
-      6
-    );
-    expect(s.tabs.map(t => t.id)).toEqual(['settings', 'modelle']);
-    expect(s.activeTabId).toBe('modelle');
-    // 'files' gibt es nicht mehr → die Voreinstellung, nicht eine leere Spalte.
-    expect(s.activeView).toBe('apps');
-    expect(s.rightPanelVisible).toBe(true);
-    expect('terminalSessions' in s).toBe(false);
-    expect('rightPanelMode' in s).toBe(false);
-  });
-
-  it('der alte store-Tab wird zu modelle umgeschrieben, ohne ein Duplikat zu erzeugen', async () => {
-    const s = await migriere(
-      {
-        tabs: [
-          { id: 'store', type: 'store', title: 'Extensions' },
-          { id: 'modelle', type: 'modelle', title: 'Modelle' },
-        ],
-        activeTabId: 'store',
-        activeView: 'extensions',
-      },
-      6
-    );
-    expect(s.tabs.map(t => t.id)).toEqual(['modelle']);
-    expect(s.activeTabId).toBe('modelle');
-    // 'extensions' gibt es seit B3 nicht mehr → die Voreinstellung.
-    expect(s.activeView).toBe('apps');
-  });
-
-  it('v7: die Tabs erweiterungen, flow und extension fallen, die Flow-Ansicht auch', async () => {
-    const s = await migriere(
-      {
-        tabs: [
-          { id: 'erweiterungen', type: 'erweiterungen', title: 'Erweiterungen' },
-          { id: 'flow', type: 'flow', title: 'angebot' },
-          {
-            id: 'extension:meine-app',
-            type: 'extension',
-            title: 'Meine App',
-            extensionId: 'meine-app',
-          },
-          { id: 'automationen', type: 'automationen', title: 'Automationen' },
-        ],
-        activeTabId: 'flow',
-        activeView: 'flows',
-        sidebarVisible: false,
-        rightPanelVisible: true,
-      },
-      7
-    );
-    expect(s.tabs).toEqual([]);
-    expect(s.activeTabId).toBeNull();
-    expect(s.activeView).toBe('apps');
-    expect(s.sidebarVisible).toBe(false);
-  });
-
-  it('v8: der Tab automationen (n8n) fällt, die übrigen bleiben', async () => {
-    const s = await migriere(
-      {
-        tabs: [
-          { id: 'settings', type: 'settings', title: 'Einstellungen' },
-          { id: 'automationen', type: 'automationen', title: 'Automationen' },
-        ],
-        activeTabId: 'automationen',
-        activeView: null,
-        sidebarVisible: true,
-        rightPanelVisible: true,
-      },
-      8
-    );
-    expect(s.tabs.map(t => t.id)).toEqual(['settings']);
-    expect(s.activeTabId).toBe('settings');
-  });
-
-  it('v3: zwei Flächen (Chat/Terminal) falten sich zur Sichtbarkeit der rechten Spalte', async () => {
-    const zu = await migriere({ tabs: [], chatVisible: false, terminalVisible: false }, 3);
-    expect(zu.rightPanelVisible).toBe(false);
-    reset();
-    const auf = await migriere({ tabs: [], chatVisible: false, terminalVisible: true }, 3);
-    expect(auf.rightPanelVisible).toBe(true);
-  });
-
-  it('v2: explorerVisible und llmVisible werden zur Sichtbarkeit der Spalten', async () => {
-    const s = await migriere({ tabs: [], explorerVisible: false, llmVisible: false }, 2);
-    expect(s.sidebarVisible).toBe(false);
-    expect(s.rightPanelVisible).toBe(false);
-  });
-
-  it('v9: ein App-Tab ohne Kennung faellt, einer mit Kennung bleibt', async () => {
-    const s = await migriere(
-      {
-        tabs: [
-          { id: 'app::live', type: 'app', title: 'Kaputt' },
-          { id: 'app:urlaub:test', type: 'app', title: 'Urlaub', appId: 'urlaub', stand: 'test' },
-        ],
-        activeTabId: 'app:urlaub:test',
-        activeView: 'apps',
-      },
-      9
-    );
-    expect(s.tabs.map(t => t.id)).toEqual(['app:urlaub:test']);
-    expect(s.tabs[0]?.appId).toBe('urlaub');
-    expect(s.tabs[0]?.stand).toBe('test');
-    expect(s.activeTabId).toBe('app:urlaub:test');
-  });
-
-  it('schreibt den migrierten Stand als version 10 zurück', async () => {
-    await migriere({ tabs: [{ id: 'settings', type: 'settings', title: 'E' }] }, 6);
-    useWorkspaceStore.getState().toggleSidebar();
-    const parsed = JSON.parse(localStorage.getItem('arasul_workspace') as string) as {
-      version: number;
-      state: Record<string, unknown>;
-    };
-    expect(parsed.version).toBe(11);
-    expect(Object.keys(parsed.state).sort()).toEqual(
-      ['activeTabId', 'activeView', 'rightPanelVisible', 'sidebarVisible', 'tabs'].sort()
-    );
-  });
-});
-
-describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
-  it('bildet jeden Singleton-Tab-Typ auf einen Pfad ab und zurück', () => {
-    const specs: WorkspaceTabSpec[] = [
+describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
+  it('bildet jede Ansicht auf einen Pfad ab und zurück', () => {
+    const ansichten: Ansicht[] = [
       { type: 'dashboard' },
       { type: 'settings' },
-      { type: 'modelle' },
+      { type: 'verwaltung' },
+      { type: 'verwaltung', bereich: 'benutzer' },
+      { type: 'verwaltung', bereich: 'system', abschnitt: 'sicherung' },
+      { type: 'app', appId: 'urlaub', stand: 'live' },
+      { type: 'app', appId: 'urlaub', stand: 'test' },
     ];
-    for (const spec of specs) {
-      const tab = { id: tabId(spec), type: spec.type, title: 'x' };
-      const zurueck = pathToTabSpec(tabToPath(tab).replace(/^\/workspace/, ''));
-      expect(zurueck).toEqual({ type: spec.type });
+    for (const a of ansichten) {
+      expect(pfadZuAnsicht(ansichtZuPfad(a).replace(/^\/workspace/, ''))).toEqual(a);
     }
+    expect(ansichtZuPfad({ type: 'app', appId: 'urlaub', stand: 'test' })).toBe(
+      '/workspace/app/urlaub/test'
+    );
+    expect(ansichtZuPfad({ type: 'verwaltung', bereich: 'modelle' })).toBe(
+      '/workspace/verwaltung/modelle'
+    );
   });
 
-  it('eine App trägt Kennung und Stand durch Pfad und zurück', () => {
-    for (const stand of ['live', 'test'] as const) {
-      const spec: WorkspaceTabSpec = { type: 'app', appId: 'urlaub', stand };
-      const tab = {
-        id: tabId(spec),
-        type: 'app' as const,
-        title: 'Urlaub',
-        appId: 'urlaub',
-        stand,
-      };
-      expect(tabToPath(tab)).toBe(
-        stand === 'test' ? '/workspace/app/urlaub/test' : '/workspace/app/urlaub'
-      );
-      expect(pathToTabSpec(tabToPath(tab).replace(/^\/workspace/, ''))).toEqual(spec);
-    }
-  });
-
-  it('zwei Apps sind zwei Tabs, Live und Test einer App auch', () => {
-    expect(tabId({ type: 'app', appId: 'a' })).not.toBe(tabId({ type: 'app', appId: 'b' }));
-    expect(tabId({ type: 'app', appId: 'a', stand: 'live' })).not.toBe(
-      tabId({ type: 'app', appId: 'a', stand: 'test' })
+  it('zwei Apps sind zwei Ansichten, Live und Test einer App auch', () => {
+    expect(ansichtId({ type: 'app', appId: 'a' })).not.toBe(ansichtId({ type: 'app', appId: 'b' }));
+    expect(ansichtId({ type: 'app', appId: 'a', stand: 'live' })).not.toBe(
+      ansichtId({ type: 'app', appId: 'a', stand: 'test' })
     );
-    // Ohne Stand gilt der Livestand.
-    expect(tabId({ type: 'app', appId: 'a' })).toBe(
-      tabId({ type: 'app', appId: 'a', stand: 'live' })
+    expect(ansichtId({ type: 'app', appId: 'a' })).toBe(
+      ansichtId({ type: 'app', appId: 'a', stand: 'live' })
     );
+    // Der Bereich der Verwaltung ist kein Wechsel der Ansicht.
+    expect(ansichtId({ type: 'verwaltung', bereich: 'lizenz' })).toBe('verwaltung');
   });
 
   it('appPfad zeigt auf den Weg, unter dem die App im Browser läuft', () => {
@@ -361,104 +111,55 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
     expect(appPfad('urlaub', 'test')).toBe('/apps/urlaub/test/');
   });
 
-  it('/workspace/app ohne Kennung ist kein Tab', () => {
-    expect(pathToTabSpec('/app')).toBeNull();
-  });
-
   /**
    * Die Kennung kommt aus der Adresszeile, und von dort kommt alles Mögliche.
    * `/workspace/app/..` ergäbe sonst einen Rahmen auf `/apps/../`, also auf
    * Arasul selbst: die Oberfläche in sich geschachtelt.
    */
-  it('eine Kennung, die keine ist, ergibt ebenfalls keinen Tab', () => {
-    for (const p of ['/app/..', '/app/.', '/app/Gross', '/app/mit punkt', '/app/-anfang']) {
-      expect(pathToTabSpec(p)).toBeNull();
+  it('eine Kennung, die keine ist, ergibt keine Ansicht', () => {
+    for (const p of ['/app', '/app/..', '/app/.', '/app/Gross', '/app/mit punkt', '/app/-anfang']) {
+      expect(pfadZuAnsicht(p)).toBeNull();
     }
-    expect(pathToTabSpec('/app/beispiel-app-2')).toEqual({
+    expect(pfadZuAnsicht('/app/beispiel-app-2')).toEqual({
       type: 'app',
       appId: 'beispiel-app-2',
       stand: 'live',
     });
   });
 
-  it('nurFuerAdmin nennt genau die Ansichten und Tabs der Verwaltung', () => {
-    expect(nurFuerAdmin('models')).toBe(true);
-    expect(nurFuerAdmin('modelle')).toBe(true);
+  it('Bereich und Abschnitt der Verwaltung sind Wörter, kein Pfad', () => {
+    expect(pfadZuAnsicht('/verwaltung/..')).toEqual({ type: 'verwaltung' });
+    expect(pfadZuAnsicht('/verwaltung/system/%2e%2e')).toEqual({
+      type: 'verwaltung',
+      bereich: 'system',
+    });
+  });
+
+  it('die alten Pfade der Modelle landen im Bereich der Verwaltung', () => {
+    expect(pfadZuAnsicht('/modelle')).toEqual({ type: 'verwaltung', bereich: 'modelle' });
+    expect(pfadZuAnsicht('/store')).toEqual({ type: 'verwaltung', bereich: 'modelle' });
+  });
+
+  it('nurFuerAdmin nennt genau die Verwaltung', () => {
     expect(nurFuerAdmin('verwaltung')).toBe(true);
     // Die persönlichen Einstellungen gehören jedem.
     expect(nurFuerAdmin('settings')).toBe(false);
-    expect(nurFuerAdmin('apps')).toBe(false);
     expect(nurFuerAdmin('dashboard')).toBe(false);
     expect(nurFuerAdmin('app')).toBe(false);
   });
 
-  it('der alte /store-Pfad landet bei den Modellen', () => {
-    expect(pathToTabSpec('/store')).toEqual({ type: 'modelle' });
-  });
-
-  it('die gefallenen Pfade (Terminal, Dokumente, Projekte, Flow, Erweiterungen) ergeben null', () => {
+  it('gefallene und unbekannte Pfade ergeben null', () => {
     for (const p of [
       '/terminal',
       '/doc/1',
-      '/pfile/p/a.md',
-      '/kunden',
       '/projekte',
-      '/projekt',
       '/flow',
       '/erweiterungen',
       '/ext/meine-app',
+      '/gibt-es-nicht',
+      '',
     ]) {
-      expect(pathToTabSpec(p)).toBeNull();
+      expect(pfadZuAnsicht(p)).toBeNull();
     }
-  });
-
-  it('unbekannte Pfade ergeben null', () => {
-    expect(pathToTabSpec('/gibt-es-nicht')).toBeNull();
-    expect(pathToTabSpec('')).toBeNull();
-    expect(pathToTabSpec('/ext')).toBeNull();
-  });
-});
-
-/**
- * Neben einer App gehören die Spalten beim Mitarbeiter der App (J35,
- * 26.09.2026): sie starten zu, ein Klick öffnet sie für diesen Tab, und die
- * gespeicherte Aufteilung bleibt unberührt.
- */
-describe('workspaceStore, Spalten neben einer App', () => {
-  beforeEach(reset);
-
-  const st = () => useWorkspaceStore.getState();
-
-  it('lässt beim Administrator alles, wie er es eingerichtet hat', () => {
-    st().openTab({ type: 'app', appId: 'faktum', stand: 'live', title: 'Faktum' });
-    expect(sidebarSichtbar(st())).toBe(true);
-    expect(notizenSichtbar(st())).toBe(true);
-  });
-
-  it('macht beim Mitarbeiter beide Spalten zu, solange eine App vorn steht', () => {
-    st().setSpaltenNebenAppZu(true);
-    st().openTab({ type: 'dashboard' });
-    expect(notizenSichtbar(st())).toBe(true);
-    st().openTab({ type: 'app', appId: 'faktum', stand: 'live', title: 'Faktum' });
-    expect(sidebarSichtbar(st())).toBe(false);
-    expect(notizenSichtbar(st())).toBe(false);
-    st().activateTab('dashboard');
-    expect(notizenSichtbar(st())).toBe(true);
-  });
-
-  it('öffnet die Notizen neben der App auf Wunsch, ohne die gespeicherte Aufteilung zu ändern', () => {
-    st().setSpaltenNebenAppZu(true);
-    st().openTab({ type: 'app', appId: 'faktum', stand: 'live', title: 'Faktum' });
-    st().toggleRightPanel();
-    expect(notizenSichtbar(st())).toBe(true);
-    expect(st().rightPanelVisible).toBe(true);
-    st().toggleRightPanel();
-    expect(notizenSichtbar(st())).toBe(false);
-    expect(st().rightPanelVisible).toBe(true);
-    st().selectView('apps');
-    expect(sidebarSichtbar(st())).toBe(true);
-    expect(st().sidebarVisible).toBe(true);
-    st().spaltenNebenAppZuruecksetzen();
-    expect(sidebarSichtbar(st())).toBe(false);
   });
 });

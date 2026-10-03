@@ -2,17 +2,15 @@
  * Integration tests for the Settings feature.
  *
  * Tests the Settings page as users experience it:
- *   - Section navigation (tabs)
+ *   - Bereiche der Verwaltung (eigene Leiste, M5)
  *   - General settings rendering
  *   - Gerätezertifikat (Sicherheit)
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 import Settings from '../../features/settings/Settings';
-import { SettingsPanel } from '../../features/workspace/sidebar/SettingsPanel';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useWorkspaceStore, type Ansicht } from '../../stores/workspaceStore';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
 // ---- Mocks ----
@@ -60,17 +58,11 @@ vi.mock('../../hooks/useConfirm', () => ({
 
 // ---- Helpers ----
 
-// After the B4 refactor the section list lives in the sidebar (`SettingsPanel`)
-// and drives the Settings tab through the shared `settingsStore`. We render both
-// together so a click in the panel switches the section shown in the tab —
-// exactly how it works in the real workspace shell.
-function renderSettings() {
-  return render(
-    <MemoryRouter>
-      <SettingsPanel />
-      <Settings />
-    </MemoryRouter>
-  );
+// Seit M5 trägt die Verwaltung ihre Leiste der Bereiche selbst; der gewählte
+// Bereich steht in der Ansicht des Workspace-Stores.
+function renderSettings(ansicht: Partial<Ansicht> = {}) {
+  useWorkspaceStore.setState({ ansicht: { type: 'verwaltung', ...ansicht } });
+  return render(<Settings modelle={null} />);
 }
 
 // ---- Tests ----
@@ -81,9 +73,6 @@ describe('Settings integration', () => {
     mitTheme = 'light';
     document.documentElement.classList.remove('dark');
     document.documentElement.removeAttribute('data-theme');
-    // Reset the shared active-section store so section state never leaks between
-    // tests (the store is a module-level singleton).
-    useSettingsStore.setState({ activeSection: 'general' });
     // Default: return system info for General settings tab
     vi.mocked(mockApi.get).mockImplementation((path: string) => {
       if (path === '/system/info') {
@@ -110,16 +99,15 @@ describe('Settings integration', () => {
     });
   });
 
-  it('lists all six sections in the sidebar panel', () => {
+  it('lists the sections in its own bar', () => {
     renderSettings();
 
-    // The section list now lives in the sidebar panel (SettingsPanel).
-    expect(screen.getByTestId('settings-open-general')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-open-ki')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-open-security')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-open-privacy')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-open-system')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-open-remote-access')).toBeInTheDocument();
+    expect(screen.getByTestId('verwaltung-general')).toBeInTheDocument();
+    expect(screen.getByTestId('verwaltung-ki')).toBeInTheDocument();
+    expect(screen.getByTestId('verwaltung-security')).toBeInTheDocument();
+    expect(screen.getByTestId('verwaltung-privacy')).toBeInTheDocument();
+    expect(screen.getByTestId('verwaltung-system')).toBeInTheDocument();
+    expect(screen.getByTestId('verwaltung-remote-access')).toBeInTheDocument();
 
     // Their labels render too.
     expect(screen.getAllByText('Allgemein').length).toBeGreaterThanOrEqual(1);
@@ -133,9 +121,9 @@ describe('Settings integration', () => {
     // KI / System sub-section labels are not mounted).
     // (Nach Kennung und nicht nach Text: „Selbstheilung“ steht seit J35 in
     // der Begriffsliste unter Allgemein.)
-    expect(screen.queryByTestId('settings-open-ai-profile')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('settings-open-rag-llm')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('settings-open-selfhealing')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('verwaltung-ai-profile')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('verwaltung-rag-llm')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('verwaltung-selfhealing')).not.toBeInTheDocument();
     expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
     expect(screen.queryByText('Sprachmodell')).not.toBeInTheDocument();
   });
@@ -157,12 +145,11 @@ describe('Settings integration', () => {
     });
   });
 
-  it('switches sections on sidebar click', async () => {
+  it('switches sections on a click in the bar', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    // Click the Sicherheit entry in the sidebar panel.
-    await user.click(screen.getByTestId('settings-open-security'));
+    await user.click(screen.getByTestId('verwaltung-security'));
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Gerätezertifikat' })).toBeInTheDocument();
@@ -210,11 +197,6 @@ describe('Settings integration', () => {
     });
   });
 
-  it('renders the Verwaltung title in the sidebar panel', () => {
-    renderSettings();
-    expect(screen.getAllByText('Verwaltung').length).toBeGreaterThanOrEqual(1);
-  });
-
   it('opens the KI tab straight on the Sprachmodell settings (J35)', async () => {
     const user = userEvent.setup();
     vi.mocked(mockApi.get).mockImplementation((path: string) => {
@@ -232,7 +214,7 @@ describe('Settings integration', () => {
     });
     renderSettings();
 
-    await user.click(screen.getByTestId('settings-open-ki'));
+    await user.click(screen.getByTestId('verwaltung-ki'));
 
     await waitFor(() => {
       expect(mockApi.get).toHaveBeenCalledWith('/settings/sprachmodell', expect.any(Object));
@@ -243,49 +225,30 @@ describe('Settings integration', () => {
     expect(mockApi.get).not.toHaveBeenCalledWith('/memory/profile', expect.anything());
   });
 
-  it('opens the System tab with its Dienste / Aktualisierungen / Selbstheilung sub-navigation', async () => {
+  it('opens System with its sub-sections one below the other', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(screen.getByTestId('settings-open-system'));
+    await user.click(screen.getByTestId('verwaltung-system'));
 
-    await waitFor(() => {
-      // Sub-nav labels rendered by SystemSettings; leaf content may repeat them.
-      expect(screen.getAllByText('Dienste').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('Aktualisierungen').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('Selbstheilung').length).toBeGreaterThanOrEqual(1);
-    });
+    for (const name of ['Dienste', 'Aktualisierungen', 'Selbstheilung']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 
-  it('deep-links via ?tab=system to the System tab', async () => {
-    render(
-      <MemoryRouter initialEntries={['/settings?tab=system']}>
-        <Settings />
-      </MemoryRouter>
-    );
+  it('opens the sub-section named by the address', async () => {
+    renderSettings({ bereich: 'system', abschnitt: 'selfhealing' });
 
     await waitFor(() => {
-      expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
-    });
-  });
-
-  it('maps the legacy ?tab=selfhealing deep-link onto the System tab with the Selbstheilung sub-section active', async () => {
-    render(
-      <MemoryRouter initialEntries={['/settings?tab=selfhealing']}>
-        <Settings />
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      // "Selbstheilung" appears both as the active sub-nav tab and as the
-      // heading of the mounted SelfHealingEvents section. Seit Plan 023 C1 ist
-      // die Unterleiste eine echte Tab-Leiste (FilterBar), vorher eine nav mit
-      // aria-current="page".
-      expect(screen.getByRole('tab', { name: 'Selbstheilung' })).toHaveAttribute(
-        'aria-selected',
+      expect(screen.getByRole('button', { name: 'Selbstheilung' })).toHaveAttribute(
+        'aria-expanded',
         'true'
       );
-      expect(screen.getAllByText('Selbstheilung').length).toBeGreaterThanOrEqual(2);
     });
+    expect(screen.getByRole('button', { name: 'Auslastung' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
   });
 });
