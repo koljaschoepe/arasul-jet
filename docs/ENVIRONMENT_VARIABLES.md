@@ -327,6 +327,7 @@ Passwort = Sicherungsschlüssel = Wiederherstellungscode). Siehe
 | BACKUP_STAND_TAGE        | 7                      | Tägliche Stände, die bleiben                                                                             |
 | BACKUP_STAND_WOCHEN      | 12                     | Wöchentliche Stände, die bleiben                                                                         |
 | BACKUP_STAND_MONATE      | 60                     | Monatliche Stände, die bleiben                                                                           |
+| BACKUP_STAND_LETZTE      | 5                      | So viele neueste Stände bleiben immer, auch mehrere eines Tages (Stände von Hand, M5)                    |
 | BACKUP_STAND_RESERVE_MB  | 2048                   | So viel bleibt auf dem Ziel frei, plus was der neue Stand braucht; sonst fällt der älteste (mit Hinweis) |
 | BACKUP_STAND_CACHE       | /backups/.restic-cache | Zwischenspeicher von restic; lokal, nie auf dem Datenträger                                              |
 | BACKUP_STAND_DB_QUELLE   | /arasul/datenbank      | Wohin die Datenbankabzüge vor dem Stand gehen (im Container, nach dem Lauf weg)                          |

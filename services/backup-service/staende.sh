@@ -26,8 +26,8 @@
 #      Hauptversion. Ein x86-Geraet spaeter ist damit dieselbe Zeile im
 #      Dockerfile.
 #
-# Die Aufbewahrung (7 Tage, 12 Wochen, 60 Monate) ist `restic forget` mit
-# genau diesen drei Zahlen, und das Zurueckholen eines einzelnen Stands ist
+# Die Aufbewahrung (7 Tage, 12 Wochen, 60 Monate, dazu immer die fuenf
+# neuesten) ist `restic forget` mit genau diesen Zahlen, und das Zurueckholen eines einzelnen Stands ist
 # `restic restore`. Beides wird hier nicht nachgebaut.
 #
 # DER SCHLUESSEL IST DER SICHERUNGSSCHLUESSEL DES GERAETS, und damit der
@@ -66,6 +66,15 @@
 STAND_TAGE="${BACKUP_STAND_TAGE:-7}"
 STAND_WOCHEN="${BACKUP_STAND_WOCHEN:-12}"
 STAND_MONATE="${BACKUP_STAND_MONATE:-60}"
+# Die neuesten so vielen Staende bleiben immer (Auftrag sicherung-zurueckholen,
+# am Orin gefunden 04.10.2026): die Regel 7/12/60 behaelt je Tag nur den
+# NEUESTEN Stand. Wer „Jetzt sichern“ drueckt, etwas aendert und noch einmal
+# sichert, verlor damit sofort den ersten Stand -- genau den, zu dem er zurueck
+# will. Naechte sind davon nicht betroffen (eine je Tag); es geht um die Staende
+# von Hand. `--keep-within 2d` war der erste Versuch und behielt in restic
+# 0.16.4 (und 0.19) an einer nachgestellten Reihe JEDEN Stand, auch die von vor
+# vier Tagen -- deshalb die Zahl statt der Frist.
+STAND_LETZTE="${BACKUP_STAND_LETZTE:-5}"
 # Wie viel auf dem Ziel frei bleiben muss, bevor ein Stand entsteht. Darunter
 # faellt der aelteste Stand (mit Hinweis). 2 GB sind auf einer SSD wenig und
 # reichen fuer mehrere Naechte mit normalem Wachstum.
@@ -380,11 +389,13 @@ stand_sichern() { # repo schluesseldatei quellen...
 # zurueckholt, verloere den ersten Weg zurueck. Er bleibt deshalb, bis das Ziel
 # voll ist (dann faellt auch er als aeltester, `stand_aeltesten_nehmen`).
 # Zurueckgeholt wird selten; dedupliziert kostet so ein Stand fast nichts.
+#
+# `--keep-last $STAND_LETZTE` (5): siehe oben, die Staende von Hand.
 # Setzt STAND_ENTFALLEN (Zahl).
 stand_aufbewahren() { # repo schluesseldatei
     local roh
     STAND_ENTFALLEN=0
-    roh=$(stand_restic "$1" "$2" forget --json --tag "$STAND_TAG" --group-by '' --keep-tag vorher \
+    roh=$(stand_restic "$1" "$2" forget --json --tag "$STAND_TAG" --group-by '' --keep-tag vorher --keep-last "$STAND_LETZTE" \
         --keep-daily "$STAND_TAGE" --keep-weekly "$STAND_WOCHEN" --keep-monthly "$STAND_MONATE" 2>/dev/null) || return 1
     STAND_ENTFALLEN=$(jq '[.[] | (.remove // []) | length] | add // 0' <<<"$roh" 2>/dev/null || echo 0)
     if [ "${STAND_ENTFALLEN:-0}" -gt 0 ]; then

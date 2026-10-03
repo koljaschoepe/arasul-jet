@@ -101,10 +101,10 @@ QUELLEN=("$BACKUP_STAND_DB_QUELLE" "$APPS_BACKUP_DIR" "$FLOWS_BACKUP_DIR" "$FIRM
 
 # Die Nacht davor, damit die Aufbewahrung unten einen aelteren Tag hat (seit
 # restic 0.17 bleibt der aelteste Stand ohnehin stehen).
-STAND_ZEIT="2026-10-03 02:00:00"
+STAND_ZEIT="2026-09-30 02:00:00"
 stand_sichern "$REPO" "$S" "${QUELLEN[@]}"
 ID_0="$STAND_ID"
-STAND_ZEIT="2026-10-04 01:00:00"
+STAND_ZEIT="2026-10-01 01:00:00"
 stand_sichern "$REPO" "$S" "${QUELLEN[@]}"
 ID_A="$STAND_ID"
 pruefe "Stand A steht" "$(ja [ -n "$ID_A" ])" "${STAND_FEHLER:-${ID_A:0:8}}"
@@ -133,35 +133,54 @@ echo 'Fremder Bereich, B' >"$P/fremd/liste.txt"
 baum() { (cd "$1" && find . -type f -print0 | sort -z | xargs -0 sha256sum); }
 baum "$P/probe" >"$TMP/b.sha"
 
-STAND_ZEIT="2026-10-04 13:00:00"
+STAND_ZEIT="2026-10-01 13:00:00"
 STAND_EXTRA_TAGS=(vorher "fuer:bereich:probe")
 stand_sichern "$REPO" "$S" "${QUELLEN[@]}"
 ID_B="$STAND_ID"
 STAND_EXTRA_TAGS=()
-STAND_ZEIT="2026-10-04 20:00:00"
+STAND_ZEIT="2026-10-01 20:00:00"
 stand_sichern "$REPO" "$S" "${QUELLEN[@]}"
 ID_C="$STAND_ID"
+# Fuenf Naechte danach: die fuenf neuesten bleiben ohnehin (--keep-last 5),
+# davor gilt nur noch 7/12/60.
+NAECHTE=""
+for t in 02 03 04 05 06; do
+  STAND_ZEIT="2026-10-$t 02:00:00"
+  stand_sichern "$REPO" "$S" "${QUELLEN[@]}"
+  NAECHTE+=" $STAND_ID"
+done
 LISTE="$(stand_liste "$REPO" "$S")"
 pruefe "der Stand davor traegt vorher und wofuer" \
   "$(ja [ "$(jq -c --arg id "$ID_B" '.[] | select(.id == $id) | [.vorher, .fuer]' <<<"$LISTE")" = '[true,"bereich:probe"]' ])" \
   "$(jq -c '[.[] | [.kurz, .vorher, .fuer]]' <<<"$LISTE")"
 stand_aufbewahren "$REPO" "$S"
 NACH="$(stand_liste "$REPO" "$S" | jq -r '[.[].id] | join(" ")')"
-pruefe "Aufbewahrung: drei Staende eines Tages -- der davor bleibt, der neueste bleibt" \
-  "$(ja [ "$NACH" = "$ID_0 $ID_B $ID_C" ])" "$(stand_liste "$REPO" "$S" | jq -c '[.[].kurz]')"
+pruefe "Aufbewahrung: drei Staende eines alten Tages -- der davor bleibt, der neueste bleibt" \
+  "$(ja [ "$NACH" = "$ID_0 $ID_B $ID_C$NAECHTE" ])" "$(stand_liste "$REPO" "$S" | jq -c '[.[].kurz]')"
 GEGEN="$TMP/gegen"
 stand_anlegen "$GEGEN" "$S"
-for z in "2026-10-03 02:00:00" "2026-10-04 01:00:00" "2026-10-04 13:00:00" "2026-10-04 20:00:00"; do
+for z in "2026-09-30 02:00:00" "2026-10-01 01:00:00" "2026-10-01 13:00:00" "2026-10-01 20:00:00" \
+         "2026-10-02 02:00:00" "2026-10-03 02:00:00" "2026-10-04 02:00:00" "2026-10-05 02:00:00" "2026-10-06 02:00:00"; do
   STAND_ZEIT="$z"; stand_sichern "$GEGEN" "$S" "$FLOWS_BACKUP_DIR" >/dev/null
 done
 stand_aufbewahren "$GEGEN" "$S"
 pruefe "Gegenprobe: ohne den Tag bliebe von dem Tag nur einer" \
-  "$(ja [ "$(stand_liste "$GEGEN" "$S" | jq 'length')" = 2 ])" "$(stand_liste "$GEGEN" "$S" | jq -c '[.[].zeit[0:16]]')"
+  "$(ja [ "$(stand_liste "$GEGEN" "$S" | jq 'length')" = 7 ])" "$(stand_liste "$GEGEN" "$S" | jq -c '[.[].zeit[0:16]]')"
+# Von Hand an einem Tag zweimal gesichert (A, aendern, B): beide bleiben, als
+# zwei der fuenf neuesten -- am Orin fiel A sonst sofort.
+FRISCH="$TMP/frisch"
+stand_anlegen "$FRISCH" "$S"
+for z in "2026-10-04 02:00:00" "2026-10-04 10:00:00" "2026-10-04 11:00:00"; do
+  STAND_ZEIT="$z"; stand_sichern "$FRISCH" "$S" "$FLOWS_BACKUP_DIR" >/dev/null
+done
+stand_aufbewahren "$FRISCH" "$S"
+pruefe "zwei Staende von Hand an einem Tag: beide bleiben (die fuenf neuesten immer)" \
+  "$(ja [ "$(stand_liste "$FRISCH" "$S" | jq 'length')" = 3 ])" "$(stand_liste "$FRISCH" "$S" | jq -c '[.[].zeit[11:16]]')"
 unset STAND_ZEIT
 
 # Die Liste mit Inhalt: was sie schon weiss, fragt sie nicht noch einmal.
 MIT="$(stand_liste_mit_inhalt "$REPO" "$S")"
-pruefe "jeder Stand mit Inhalt" "$(ja [ "$(jq '[.[] | select(.inhalt.bereiche != ["fremd","probe"])] | length' <<<"$MIT")" = 0 ] && [ "$(jq length <<<"$MIT")" = 3 ])"
+pruefe "jeder Stand mit Inhalt" "$(ja [ "$(jq '[.[] | select(.inhalt.bereiche != ["fremd","probe"])] | length' <<<"$MIT")" = 0 ] && [ "$(jq length <<<"$MIT")" = 8 ])"
 ALT="$(jq -c --arg id "$ID_B" 'map(if .id == $id then .inhalt = {apps:["gemerkt"],app_datenbanken:[],bereiche:[]} else . end)' <<<"$MIT")"
 pruefe "was die vorige Liste wusste, wird uebernommen" \
   "$(ja [ "$(stand_liste_mit_inhalt "$REPO" "$S" "$ALT" | jq -r --arg id "$ID_B" '.[] | select(.id == $id) | .inhalt.apps[0]')" = gemerkt ])"
