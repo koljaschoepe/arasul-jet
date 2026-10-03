@@ -34,7 +34,8 @@ const B_PASS = process.env.ARASUL_B_PASSWORT || '';
 const B_IST_ADMIN = process.env.ARASUL_B_ROLLE === 'admin';
 const APP = process.env.ARASUL_STUFEN_APP || '';
 const LAUF_TITEL = process.env.ARASUL_STUFEN_TITEL || '';
-const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
+// Der Tag in Ortszeit: kurz nach Mitternacht gaebe `toISOString` den Vortag (UTC).
+const TAG = process.env.ARASUL_TAG || new Date().toLocaleDateString('sv-SE');
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-stufen-standardperson`);
 const PHASE = process.argv[2] || '';
 
