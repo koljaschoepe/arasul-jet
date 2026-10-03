@@ -284,9 +284,18 @@
   color: inherit;
   font: inherit;
   text-align: left;
+  /* Das Ueberfahren blendet in 120 ms ein (`frontend.md`, Gestaltung) --
+     schneller als `--ara-uebergang`, weil die Maus sonst schon weiter ist,
+     wenn die Flaeche ankommt. */
   transition:
-    background-color var(--ara-uebergang),
-    color var(--ara-uebergang);
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ara-liste__eintrag {
+    transition: none;
+  }
 }
 
 button.ara-liste__eintrag,
@@ -299,16 +308,16 @@ a.ara-liste__eintrag:hover {
   background-color: var(--ara-wisch);
 }
 
-/* DER AKTIVE EINTRAG HEBT SICH UEBER SCHRIFTSTAERKE UND EINE LINIE AB (H5).
-   Bis dahin trug er `--ara-wisch` -- dieselbe Flaeche, die jeder Eintrag beim
-   Ueberfahren bekommt. „Hier bist du" und „hier ist gerade die Maus" sahen
-   damit gleich aus, und wer die Maus stehen liess, sah zwei aktive Eintraege.
-   Die Linie liegt als `inset`-Schatten IM Eintrag: sie kann nicht aus ihrem
-   Kasten ragen und damit auch nicht zur Rollbreite des Dokuments zaehlen
-   (der Fund der G1-Abnahme). */
+/* DIE AUSWAHL IST EINE GETOENTE FLAECHE, KEIN BALKEN (M5, `frontend.md`,
+   Gestaltung). Seit H5 trug der aktive Eintrag eine Linie am linken Rand,
+   weil er bis dahin `--ara-wisch` trug -- dieselbe Flaeche wie beim
+   Ueberfahren, und „hier bist du" und „hier ist die Maus" sahen gleich aus.
+   Die Toenung loest das ohne Balken: gewaehlt ist ein Hauch Akzent, ueberfahren
+   der neutrale Wisch. Die Schriftstaerke bleibt, damit die Auswahl auch ohne
+   Farbe zu erkennen ist. */
 .ara-liste__eintrag[aria-current='true'],
 .ara-liste__eintrag[data-aktiv='true'] {
-  box-shadow: inset 2px 0 0 var(--ara-text);
+  background-color: color-mix(in srgb, var(--ara-akzent) 12%, transparent);
   color: var(--ara-text);
   font-weight: 600;
 }

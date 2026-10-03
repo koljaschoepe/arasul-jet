@@ -118,4 +118,11 @@
  * Das Muster steht nicht im Buendel (es braucht einen Bau, wie die anderen
  * Muster ausser der `Dokumentanzeige`); das Buendel traegt nur die neue Zahl.
  */
-export const FASSUNG = '5.2.0';
+/*
+ * 5.2.1 (Karte rahmen-aktivitaetsleiste, 03.10.2026, M5): die Auswahl in der
+ * `Liste` ist eine getoente Flaeche statt einer Linie am Rand, das
+ * Ueberfahren blendet in 120 ms ein, und wer „weniger Bewegung" eingestellt
+ * hat, bekommt es ohne Uebergang. Kein Name, keine Eigenschaft aendert sich --
+ * eine App auf 5.2.0 sieht nur die Auswahl anders.
+ */
+export const FASSUNG = '5.2.1';
