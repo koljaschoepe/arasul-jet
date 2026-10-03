@@ -338,34 +338,42 @@ describe('Schemas', () => {
   it('ganze Wiederherstellung: Quelle und Code', () => {
     const ok = WiederherstellungBody.parse({
       bestaetigung: 'wiederherstellen',
+      passwort: 'x',
       quelle: 'extern',
       wiederherstellungscode: 'AB12-CD34 EF',
     });
     expect(ok.quelle).toBe('extern');
-    expect(WiederherstellungBody.parse({ bestaetigung: 'wiederherstellen' }).quelle).toBe('lokal');
+    expect(WiederherstellungBody.parse({ bestaetigung: 'wiederherstellen', passwort: 'x' }).quelle).toBe('lokal');
     expect(
-      WiederherstellungBody.safeParse({ bestaetigung: 'wiederherstellen', quelle: '/etc' }).success
+      WiederherstellungBody.safeParse({ bestaetigung: 'wiederherstellen',
+      passwort: 'x', quelle: '/etc' }).success
     ).toBe(false);
     expect(
       WiederherstellungBody.safeParse({
         bestaetigung: 'wiederherstellen',
+      passwort: 'x',
         wiederherstellungscode: 'a; rm -rf /',
       }).success
     ).toBe(false);
   });
 
   it('App: Vorgaben, Laenge und Zeichen des Codes', () => {
-    const b = AppWiederherstellungBody.parse({ bestaetigung: 'belege' });
+    const b = AppWiederherstellungBody.parse({ passwort: 'x' });
     expect(b).toMatchObject({ quelle: 'lokal', paket: true });
     expect(
       AppWiederherstellungBody.safeParse({
-        bestaetigung: 'x',
+        passwort: 'x',
         wiederherstellungscode: 'a'.repeat(101),
       }).success
     ).toBe(false);
     expect(
-      AppWiederherstellungBody.safeParse({ bestaetigung: 'x', wiederherstellungscode: '$(id)' })
+      AppWiederherstellungBody.safeParse({ passwort: 'x', wiederherstellungscode: '$(id)' })
         .success
     ).toBe(false);
+    // Ohne Passwort geht nichts mehr (M5, Auftrag sicherung-zurueckholen).
+    expect(AppWiederherstellungBody.safeParse({ bestaetigung: 'belege' }).success).toBe(false);
+    expect(WiederherstellungBody.safeParse({ bestaetigung: 'wiederherstellen' }).success).toBe(
+      false
+    );
   });
 });

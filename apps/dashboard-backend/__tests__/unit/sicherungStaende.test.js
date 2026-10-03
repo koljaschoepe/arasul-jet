@@ -214,7 +214,7 @@ describe('stelleWiederHer: ein bestimmter Stand', () => {
   });
 
   it('Schema: stand ist hex, und nicht zusammen mit datei', () => {
-    const basis = { bestaetigung: 'wiederherstellen' };
+    const basis = { bestaetigung: 'wiederherstellen', passwort: 'x' };
     expect(WiederherstellungBody.safeParse({ ...basis, stand: ID1 }).success).toBe(true);
     expect(WiederherstellungBody.safeParse({ ...basis, stand: 'latest' }).success).toBe(false);
     expect(WiederherstellungBody.safeParse({ ...basis, stand: 'abc' }).success).toBe(false);

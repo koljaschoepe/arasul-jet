@@ -24,7 +24,12 @@ const {
   hashPassword,
   validatePasswordComplexity,
 } = require('../../utils/password');
-const { ValidationError, UnauthorizedError, NotFoundError } = require('../../utils/errors');
+const {
+  ValidationError,
+  UnauthorizedError,
+  NotFoundError,
+  ForbiddenError,
+} = require('../../utils/errors');
 const logger = require('../../utils/logger');
 // Der Firmenordner (J33, 22.09.2026). Der Dateidienst hat seine eigene
 // Anmeldung, und `schreibePasswort` ist der EINE Schreibweg fuer ein Passwort
@@ -284,4 +289,37 @@ async function setzePasswortAmGeraet(username, neuesPasswort) {
   return { id: ziel.id, username: ziel.username, gespiegelt };
 }
 
-module.exports = { changeDashboardPassword, setzePasswort, setzePasswortAmGeraet };
+/**
+ * Der angemeldete Mensch bestaetigt einen schweren Handgriff mit SEINEM
+ * Passwort (Auftrag sicherung-zurueckholen, M5: Zurueckholen aus einer
+ * Sicherung). Eine Sitzung allein reicht dafuer nicht -- ein offener Rechner
+ * im Buero ist keine Zustimmung.
+ *
+ * 403 und nicht 401: die Sitzung ist gueltig, nur die Bestaetigung nicht. Ein
+ * 401 meldete die Oberflaeche ab (`useApi`), und der Mensch stuende nach
+ * einem Tippfehler vor der Anmeldung.
+ *
+ * @param {number} userId
+ * @param {string} passwort
+ */
+async function bestaetigePasswort(userId, passwort) {
+  const { rows } = await db.query('SELECT password_hash FROM admin_users WHERE id = $1', [userId]);
+  const stimmt =
+    rows.length === 1 &&
+    typeof passwort === 'string' &&
+    passwort.length > 0 &&
+    (await verifyPassword(passwort, rows[0].password_hash));
+  if (!stimmt) {
+    throw new ForbiddenError(
+      'Das Passwort stimmt nicht. Geben Sie das Passwort ein, mit dem Sie sich anmelden.',
+      'PASSWORT_FALSCH'
+    );
+  }
+}
+
+module.exports = {
+  changeDashboardPassword,
+  setzePasswort,
+  setzePasswortAmGeraet,
+  bestaetigePasswort,
+};

@@ -588,6 +588,14 @@ schreibe_manifest() {
 }
 
 sichere_nach_aussen() {
+    # Der Stand vor einem Zurueckholen bleibt auf dem Geraet: er ist der Weg,
+    # das Zurueckholen rueckgaengig zu machen, und der geht von hier. Auf dem
+    # Datentraeger waere er ausserdem der neueste Stand -- und ein Zurueckholen
+    # vom Datentraeger ohne genannten Stand naehme dann ihn statt der Sicherung.
+    if [ "${ARASUL_STAND_ANLASS:-}" = vorher ]; then
+        EXTERN_STATUS=vorher
+        return 0
+    fi
     if [ "$EXTERN_AN" = "false" ]; then
         EXTERN_STATUS=abgeschaltet
         return 0

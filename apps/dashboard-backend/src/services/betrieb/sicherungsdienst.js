@@ -634,6 +634,153 @@ async function status() {
 
 const KEIN_DATENTRAEGER = 'Es ist kein Datenträger angesteckt.';
 
+/**
+ * Wofuer ein Stand vor einem Zurueckholen entstand (Tag `fuer:` in restic):
+ * `app:<id>`, `bereich:<kennung>` oder `geraet`. Sonst `null`.
+ */
+function fuerAus(fuer) {
+  if (fuer === 'geraet') {
+    return { art: 'geraet', id: null };
+  }
+  const treffer =
+    typeof fuer === 'string' ? /^(app|bereich):([a-z0-9][a-z0-9-]{0,63})$/.exec(fuer) : null;
+  return treffer ? { art: treffer[1], id: treffer[2] } : null;
+}
+
+const nurText = liste => (Array.isArray(liste) ? liste.filter(x => typeof x === 'string') : []);
+
+/**
+ * Die Staende einer Quelle, wie `backup.sh` sie hinterlegt: auf diesem Geraet
+ * `staende.json`, auf dem Datentraeger `arasul-sicherung/MANIFEST.json`.
+ * Aelteste zuerst, nur Eintraege mit Kennung und Zeit.
+ */
+async function rohStaende(quelle) {
+  let liste;
+  if (quelle === 'extern') {
+    const { neueste } = await leseManifeste();
+    liste = neueste?.manifest?.staende;
+  } else {
+    liste = (await leseStaende())?.staende;
+  }
+  return (Array.isArray(liste) ? liste : []).filter(
+    s => typeof s?.id === 'string' && STAND_KENNUNG.test(s.id) && typeof s?.zeit === 'string'
+  );
+}
+
+/** Ein Stand der Quelle zu einer Kennung (die ersten acht Zeichen reichen, eindeutig). */
+async function findeStand(quelle, kennung) {
+  const treffer = (await rohStaende(quelle)).filter(s => s.id.startsWith(kennung));
+  if (treffer.length !== 1) {
+    throw new NotFoundError(
+      'Diesen Stand gibt es nicht mehr. Wählen Sie in der Liste einen anderen Zeitpunkt.'
+    );
+  }
+  return treffer[0];
+}
+
+/**
+ * Die Staende zum Zurueckholen (Auftrag sicherung-zurueckholen, M5):
+ * neueste zuerst, je Stand der Zeitpunkt, ob er vor einem Zurueckholen
+ * entstand und wofuer, und was darin steht -- Apps mit ihrem Namen, Bereiche
+ * des Firmenordners mit ihrem Namen und ob es sie am Geraet noch gibt. Die
+ * Kennung steht dabei, aber die Oberflaeche zeigt sie nur aufgeklappt: ein
+ * Mensch waehlt nach Datum und Uhrzeit.
+ */
+async function staendeZumZurueckholen(quelle = 'lokal') {
+  await pruefeQuelle(quelle);
+  const roh = await rohStaende(quelle);
+  const [appZeilen, bereichZeilen] = await Promise.all([
+    db.query('SELECT id, name FROM public.apps').then(
+      r => r.rows,
+      () => []
+    ),
+    // Ein Bereich ist ein Raum: Ebene 1, oder die Wurzel (Ebene 0).
+    db.query('SELECT kennung, name FROM public.firmenordner_ordner WHERE ebene IN (0, 1)').then(
+      r => r.rows,
+      () => []
+    ),
+  ]);
+  const appNamen = new Map(appZeilen.map(z => [z.id, z.name]));
+  const bereichNamen = new Map(bereichZeilen.map(z => [z.kennung, z.name]));
+  return roh
+    .map(s => {
+      const inhalt = s.inhalt && typeof s.inhalt === 'object' ? s.inhalt : null;
+      return {
+        id: s.id,
+        zeitpunkt: new Date(s.zeit).toISOString(),
+        vorher: s.vorher === true,
+        fuer: fuerAus(s.fuer),
+        geschrieben: Number.isFinite(s.geschrieben) ? s.geschrieben : null,
+        inhaltBekannt: inhalt !== null,
+        apps: nurText(inhalt?.apps).map(id => ({ id, name: appNamen.get(id) ?? null })),
+        appDatenbanken: nurText(inhalt?.app_datenbanken),
+        bereiche: nurText(inhalt?.bereiche).map(kennung => ({
+          kennung,
+          name: bereichNamen.get(kennung) ?? null,
+          vorhanden: bereichNamen.has(kennung),
+        })),
+      };
+    })
+    .sort((a, b) => b.zeitpunkt.localeCompare(a.zeitpunkt));
+}
+
+/**
+ * DER STAND VOR DEM ZURUECKHOLEN (Auftrag sicherung-zurueckholen, M5).
+ *
+ * Bevor irgendetwas ersetzt wird, laeuft eine ganz normale Sicherung -- nur
+ * mit `ARASUL_STAND_ANLASS=vorher`, damit der Stand den Tag `vorher` traegt
+ * und die Aufbewahrung ihn nicht nimmt (staende.sh). Er ist der Weg zurueck
+ * vom Zurueckholen: wer den falschen Zeitpunkt erwischt hat, waehlt diesen
+ * Stand und holt dasselbe noch einmal -- derselbe Weg, kein zweiter.
+ *
+ * Er bleibt auf diesem Geraet (backup.sh kopiert ihn nicht auf den
+ * Datentraeger) und dauert, was eine Sicherung dauert: am Orin um eine Minute,
+ * weil nur Geaendertes geschrieben wird.
+ *
+ * GELINGT ER NICHT, WIRD NICHTS ZURUECKGEHOLT. Gezaehlt wird der Stand, nicht
+ * die Rueckgabe des Skripts: ein Datentraeger, der klemmt, ist kein Grund, und
+ * ein Stand, der fehlt, ist einer.
+ *
+ * @param {string} fuer `app:<id>`, `bereich:<kennung>` oder `geraet`
+ */
+async function sichereVorher(fuer) {
+  const beginn = Date.now();
+  const { code, ausgabe } = await imContainer(['/usr/local/bin/backup.sh'], 30 * 60_000, [
+    'ARASUL_STAND_ANLASS=vorher',
+    `ARASUL_STAND_FUER=${fuer}`,
+  ]);
+  const bericht = await leseBericht(BERICHT);
+  const frisch = bericht && Date.parse(bericht._geschrieben) >= beginn - 2000;
+  const id = frisch && bericht.stand_status === 'ok' ? bericht.stand_id || null : null;
+  if (!id) {
+    logger.error('Der Stand vor dem Zurueckholen liess sich nicht anlegen', { code, ausgabe });
+    return { erfolg: false, id: null, zeitpunkt: null, ausgabe };
+  }
+  logger.info(`Stand vor dem Zurueckholen: ${id.slice(0, 8)} (${fuer})`);
+  return { erfolg: true, id, zeitpunkt: bericht.timestamp ?? null, ausgabe };
+}
+
+/** Der Satz im Bericht zum Stand davor -- gelungen oder nicht. */
+function vorherSatz(vorher) {
+  return {
+    schritt: 'vorher',
+    erfolg: vorher.erfolg,
+    text: vorher.erfolg
+      ? 'Der jetzige Stand ist vorher gesichert. Mit ihm lässt sich dieses Zurückholen rückgängig machen.'
+      : 'Der jetzige Stand ließ sich nicht sichern. Deshalb wurde nichts zurückgeholt.',
+  };
+}
+
+/**
+ * Welcher Stand zurueckkommt, wenn keiner genannt ist: der neueste -- aber
+ * festgehalten, BEVOR der Stand davor entsteht. Sonst waere der neueste
+ * danach genau der, der gerade gesichert wurde, und das Zurueckholen holte
+ * nichts zurueck. `null`, wenn die Quelle keinen Stand hat.
+ */
+async function neuesterStand(quelle) {
+  return (await rohStaende(quelle)).at(-1) ?? null;
+}
+
 /** `extern` geht nur mit eingehaengtem Datentraeger. */
 async function pruefeQuelle(quelle) {
   if (quelle === 'extern' && !(await istEingehaengt())) {
@@ -699,6 +846,7 @@ async function stelleWiederHer({
   durch = null,
   quelle = 'lokal',
   wiederherstellungscode = null,
+  vorherSichern = false,
 } = {}) {
   if (laeuftGerade) {
     throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
@@ -723,6 +871,32 @@ async function stelleWiederHer({
 
   laeuftGerade = 'wiederherstellung';
   try {
+    // Mit dem Stand davor (aus der Oberflaeche immer): erst festhalten, was
+    // zurueckkommt, dann sichern, dann zurueckholen. Ohne Staende auf diesem
+    // Geraet (von vor M5) gilt ausdruecklich die neueste Datei der
+    // Tagesordner -- sonst naehme das Skript den eben gesicherten Stand.
+    let vorher = null;
+    if (vorherSichern) {
+      if (!stand && !datei) {
+        const neuester = await neuesterStand(quelle);
+        if (neuester) {
+          stand = neuester.id;
+        } else if (quelle === 'lokal') {
+          datei = 'arasul_db_latest.sql.gz';
+        }
+      }
+      vorher = await sichereVorher('geraet');
+      if (!vorher.erfolg) {
+        return {
+          erfolg: false,
+          code: null,
+          ausgabe: vorher.ausgabe,
+          bericht: { status: 'fehler', grund: vorherSatz(vorher).text },
+          apps: [],
+          vorher,
+        };
+      }
+    }
     const befehl = ['/usr/local/bin/wiederherstellen.sh'];
     if (datei) {
       befehl.push('--datei', datei);
@@ -742,7 +916,7 @@ async function stelleWiederHer({
 
     if (code !== 0) {
       logger.error('Wiederherstellung fehlgeschlagen', { code, ausgabe });
-      return { erfolg: false, code, ausgabe, bericht, apps: [] };
+      return { erfolg: false, code, ausgabe, bericht, apps: [], vorher };
     }
 
     const apps = await baueAppsNeu(durch);
@@ -750,7 +924,7 @@ async function stelleWiederHer({
     logger.info(
       `Wiederherstellung fertig: ${apps.length - gescheitert.length} von ${apps.length} App-Staenden laufen`
     );
-    return { erfolg: gescheitert.length === 0, code, ausgabe, bericht, apps };
+    return { erfolg: gescheitert.length === 0, code, ausgabe, bericht, apps, vorher };
   } finally {
     laeuftGerade = null;
   }
@@ -774,43 +948,79 @@ async function stelleWiederHer({
  * das Passwort selbst und startet ihren Container neu: seine offenen
  * Verbindungen hat das Neuanlegen der Datenbank getrennt.
  *
- * @param {{appId: string, stand?: 'test'|'live'|null, durch?: number|null}} was
+ * WELCHER STAND (Auftrag sicherung-zurueckholen, M5): `standId` nennt einen
+ * Stand der Quelle; was er enthaelt, steht in `staende.json` bzw. im Manifest
+ * (`inhalt`), und nur das wird geholt -- eine App, die in diesem Stand nur
+ * ihr Paket hat, bekommt nur ihr Paket. Ohne `standId` gilt der neueste.
+ *
+ * DER STAND DAVOR: mit `vorherSichern` (aus der Oberflaeche immer) entsteht
+ * vor dem ersten Handgriff ein Stand des ganzen Geraets (`sichereVorher`).
+ * Misslingt er, wird nichts angefasst.
+ *
+ * @param {{appId: string, stand?: 'test'|'live'|null, standId?: string|null,
+ *   durch?: number|null, vorherSichern?: boolean}} was
  */
 async function stelleAppWiederHer({
   appId,
   stand = null,
+  standId = null,
   quelle = 'lokal',
   paket = false,
   wiederherstellungscode = null,
   durch = null,
+  vorherSichern = false,
 }) {
   if (laeuftGerade) {
     throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
   }
   await pruefeQuelle(quelle);
   pruefeCode(wiederherstellungscode);
+  if (standId && !STAND_KENNUNG.test(standId)) {
+    throw new ValidationError(
+      'Ein Stand wird mit seiner Kennung genannt (8 bis 64 Zeichen aus 0-9 und a-f).'
+    );
+  }
+
+  // Der Stand: der genannte, oder (mit dem Stand davor) der neueste, BEVOR
+  // der Stand davor entsteht.
+  let gewaehlt = null;
+  if (standId) {
+    gewaehlt = await findeStand(quelle, standId);
+  } else if (vorherSichern) {
+    gewaehlt = await neuesterStand(quelle);
+    if (!gewaehlt && quelle === 'lokal') {
+      throw new ConflictError(
+        'Auf diesem Gerät gibt es noch keinen Stand. Sichern Sie zuerst mit „Jetzt sichern“.'
+      );
+    }
+  }
+  const inhalt = gewaehlt?.inhalt && typeof gewaehlt.inhalt === 'object' ? gewaehlt.inhalt : null;
 
   const staende = stand ? [stand] : ['test', 'live'];
   // Auf dem Datentraeger gilt das Verzeichnis des neuesten Tages, nicht die
   // Platte: eine App, die dort nicht verzeichnet ist, laesst sich von dort nicht holen.
   let imManifest = null;
-  if (quelle === 'extern') {
+  if (!inhalt && quelle === 'extern') {
     const { neueste } = await leseManifeste();
     const eintrag = (neueste?.manifest?.apps ?? []).find(a => a.id === appId);
     imManifest = new Set(Array.isArray(eintrag?.staende) ? eintrag.staende : []);
   }
-  // Auf diesem Geraet (M5): der neueste Stand nennt seine App-Datenbanken.
-  // Vor dem ersten Stand gilt der Zeiger der Tagesordner.
-  const imStand =
-    quelle === 'extern' ? null : ((await leseStaende())?.neuester?.app_datenbanken ?? null);
+  // Auf diesem Geraet (M5): der Stand nennt seine App-Datenbanken; ohne
+  // gewaehlten Stand der neueste. Vor dem ersten Stand gilt der Zeiger der
+  // Tagesordner.
+  const imStand = inhalt
+    ? nurText(inhalt.app_datenbanken)
+    : quelle === 'extern'
+      ? null
+      : ((await leseStaende())?.neuester?.app_datenbanken ?? null);
   const vorhanden = [];
   for (const s of staende) {
     const name = appDatenbank.namenFuer(appId, s);
     let da;
-    if (quelle === 'extern') {
-      da = imManifest.has(s);
-    } else if (Array.isArray(imStand)) {
+    if (Array.isArray(imStand)) {
       da = imStand.includes(name);
+    } else if (quelle === 'extern') {
+      da = imManifest.has(s);
     } else {
       const zeiger = path.join(SICHERUNGS_ORDNER, 'postgres', 'apps', `${name}_latest.sql.gz`);
       // `stat` folgt dem Zeiger: ein Zeiger auf eine geloeschte Datei ist keine Sicherung.
@@ -823,25 +1033,53 @@ async function stelleAppWiederHer({
       vorhanden.push({ stand: s, datenbank: name });
     }
   }
-  if (vorhanden.length === 0) {
+  // Das Paket: steht im Inhalt des Stands, ob es darin ist. Ohne Inhalt wird
+  // es versucht, wenn es Daten gab (wie bis M5).
+  const paketImStand = inhalt ? nurText(inhalt.apps).includes(appId) : vorhanden.length > 0;
+  if (vorhanden.length === 0 && !(paket && paketImStand && inhalt)) {
     throw new NotFoundError(
       `Für die App ${appId}${stand ? ` (${stand})` : ''} liegt ${
         quelle === 'extern' ? 'auf dem Datenträger' : 'auf diesem Gerät'
-      } keine Sicherung ihrer Daten vor. ` +
-        'Gesichert wird jede Nacht und mit „Jetzt sichern“ unter Einstellungen → System → Sicherung.'
+      } ${gewaehlt && standId ? 'in diesem Stand ' : ''}keine Sicherung vor. ` +
+        'Gesichert wird jede Nacht und mit „Jetzt sichern“ unter Verwaltung → System → Sicherung.'
     );
   }
 
   const quellArg = quelle === 'extern' ? ['--quelle', 'extern'] : [];
+  const standArg = gewaehlt ? ['--stand', gewaehlt.id] : [];
   const env = codeEnv(wiederherstellungscode);
   const bericht = [];
 
   laeuftGerade = 'wiederherstellung einer app';
   try {
+    let vorher = null;
+    if (vorherSichern) {
+      vorher = await sichereVorher(`app:${appId}`);
+      bericht.push(vorherSatz(vorher));
+      if (!vorher.erfolg) {
+        return {
+          erfolg: false,
+          app: appId,
+          quelle,
+          stand: gewaehlt ? { id: gewaehlt.id, zeitpunkt: gewaehlt.zeit } : null,
+          vorher,
+          staende: [],
+          paket: null,
+          bericht,
+        };
+      }
+    }
+
     const ergebnisse = [];
     for (const { stand: s, datenbank } of vorhanden) {
       const { code, ausgabe } = await imContainer(
-        ['/usr/local/bin/wiederherstellen.sh', '--app-datenbank', datenbank, ...quellArg],
+        [
+          '/usr/local/bin/wiederherstellen.sh',
+          '--app-datenbank',
+          datenbank,
+          ...standArg,
+          ...quellArg,
+        ],
         30 * 60_000,
         env
       );
@@ -862,9 +1100,9 @@ async function stelleAppWiederHer({
 
     // Das Paket EINMAL, nicht je Stand: es ist ein Archiv fuer die ganze App.
     let paketErgebnis = null;
-    if (paket && ergebnisse.some(e => e.erfolg)) {
+    if (paket && paketImStand && (ergebnisse.length === 0 || ergebnisse.some(e => e.erfolg))) {
       const { code, ausgabe } = await imContainer(
-        ['/usr/local/bin/wiederherstellen.sh', '--app-paket', appId, ...quellArg],
+        ['/usr/local/bin/wiederherstellen.sh', '--app-paket', appId, ...standArg, ...quellArg],
         30 * 60_000,
         env
       );
@@ -884,17 +1122,26 @@ async function stelleAppWiederHer({
 
     // Danach laufen lassen. Mit zurueckgeholtem Paket wird jeder Stand, den es
     // gibt, aus dem Paket neu gebaut; sonst bleibt es beim neuen Verbinden.
-    for (const e of ergebnisse.filter(x => x.erfolg)) {
+    // Kam nur das Paket (keine Daten im Stand), dann jeder eingespielte Stand.
+    const zuStarten =
+      ergebnisse.length > 0
+        ? ergebnisse.filter(x => x.erfolg)
+        : paketErgebnis?.erfolg
+          ? staende.map(s => ({ stand: s, nurPaket: true }))
+          : [];
+    for (const e of zuStarten) {
       if (paketErgebnis?.erfolg) {
         const gestartet = await spieleStandEin({ appId, stand: e.stand, durch });
         e.neu_gestartet = gestartet.erfolg;
         if (gestartet.uebersprungen) {
-          bericht.push({
-            schritt: 'neu_gestartet',
-            stand: e.stand,
-            erfolg: true,
-            text: `Die App war nicht eingespielt (${standName(e.stand)}); ihre Daten liegen bereit.`,
-          });
+          if (!e.nurPaket) {
+            bericht.push({
+              schritt: 'neu_gestartet',
+              stand: e.stand,
+              erfolg: true,
+              text: `Die App war nicht eingespielt (${standName(e.stand)}); ihre Daten liegen bereit.`,
+            });
+          }
         } else {
           e.neuStartFehler = !gestartet.erfolg;
           bericht.push({
@@ -921,6 +1168,7 @@ async function stelleAppWiederHer({
 
     const gescheitert =
       ergebnisse.some(e => !e.erfolg || e.neuStartFehler) ||
+      zuStarten.some(e => e.neuStartFehler) ||
       (paketErgebnis && !paketErgebnis.erfolg);
     for (const e of ergebnisse) {
       delete e.neuStartFehler;
@@ -932,9 +1180,137 @@ async function stelleAppWiederHer({
       erfolg: !gescheitert,
       app: appId,
       quelle,
+      stand: gewaehlt ? { id: gewaehlt.id, zeitpunkt: gewaehlt.zeit } : null,
+      vorher,
       staende: ergebnisse,
       paket: paketErgebnis,
       bericht,
+    };
+  } finally {
+    laeuftGerade = null;
+  }
+}
+
+/**
+ * EINEN BEREICH DES FIRMENORDNERS zurueckholen (Auftrag
+ * sicherung-zurueckholen, M5): seine Dateien auf den Stand des gewaehlten
+ * Zeitpunkts, sonst nichts. Kein anderer Bereich, keine Rechte, nicht der
+ * ganze Firmenordner.
+ *
+ * Der Bereich muss am Geraet bestehen (eine Zeile in `firmenordner_ordner`
+ * auf Ebene 0 oder 1, und damit ein Raum im Dienst): Dateien in einem Ordner,
+ * den der Dienst nicht kennt, saehe niemand. Der Dienst laeuft dabei weiter
+ * und nimmt die Dateien auf, wie jede, die am Geraet abgelegt wird
+ * (`wiederherstellen.sh --firmenordner-bereich`, dort die Begruendung).
+ *
+ * @param {{kennung: string, standId?: string|null, quelle?: 'lokal'|'extern',
+ *   wiederherstellungscode?: string|null, vorherSichern?: boolean}} was
+ */
+async function stelleBereichWiederHer({
+  kennung,
+  standId = null,
+  quelle = 'lokal',
+  wiederherstellungscode = null,
+  vorherSichern = false,
+}) {
+  if (laeuftGerade) {
+    throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
+  }
+  await pruefeQuelle(quelle);
+  pruefeCode(wiederherstellungscode);
+  if (!/^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/.test(kennung || '')) {
+    throw new ValidationError('Ein Bereich wird mit seiner Kennung genannt (a-z, 0-9, Strich).');
+  }
+  if (standId && !STAND_KENNUNG.test(standId)) {
+    throw new ValidationError(
+      'Ein Stand wird mit seiner Kennung genannt (8 bis 64 Zeichen aus 0-9 und a-f).'
+    );
+  }
+  const { rows } = await db.query(
+    'SELECT kennung, name FROM public.firmenordner_ordner WHERE kennung = $1 AND ebene IN (0, 1)',
+    [kennung]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(
+      `Den Bereich „${kennung}“ gibt es an diesem Gerät nicht. ` +
+        'Legen Sie ihn unter Firmenordner an und holen Sie ihn dann zurück.'
+    );
+  }
+  const gewaehlt = standId ? await findeStand(quelle, standId) : await neuesterStand(quelle);
+  if (!gewaehlt) {
+    throw new NotFoundError(
+      'Es gibt noch keinen Stand, aus dem sich ein Bereich zurückholen ließe. ' +
+        'Sichern Sie zuerst mit „Jetzt sichern“.'
+    );
+  }
+  const inhalt = gewaehlt.inhalt && typeof gewaehlt.inhalt === 'object' ? gewaehlt.inhalt : null;
+  if (inhalt && !nurText(inhalt.bereiche).includes(kennung)) {
+    throw new NotFoundError(
+      `Der Bereich „${rows[0].name}“ steht nicht in diesem Stand. Wählen Sie einen anderen Zeitpunkt.`
+    );
+  }
+
+  const quellArg = quelle === 'extern' ? ['--quelle', 'extern'] : [];
+  const bericht = [];
+  laeuftGerade = 'wiederherstellung eines bereichs';
+  try {
+    let vorher = null;
+    if (vorherSichern) {
+      vorher = await sichereVorher(`bereich:${kennung}`);
+      bericht.push(vorherSatz(vorher));
+      if (!vorher.erfolg) {
+        return {
+          erfolg: false,
+          bereich: { kennung, name: rows[0].name },
+          stand: { id: gewaehlt.id, zeitpunkt: gewaehlt.zeit },
+          vorher,
+          zahlen: null,
+          bericht,
+        };
+      }
+    }
+    const { code, ausgabe } = await imContainer(
+      [
+        '/usr/local/bin/wiederherstellen.sh',
+        '--firmenordner-bereich',
+        kennung,
+        '--stand',
+        gewaehlt.id,
+        ...quellArg,
+      ],
+      60 * 60_000,
+      codeEnv(wiederherstellungscode)
+    );
+    const zeile = /^ERGEBNIS bereich=\S+ geschrieben=(\d+) entfernt=(\d+) ordner_neu=(\d+)/m.exec(
+      ausgabe
+    );
+    const zahlen = zeile
+      ? { geschrieben: Number(zeile[1]), entfernt: Number(zeile[2]), ordnerNeu: Number(zeile[3]) }
+      : null;
+    if (code !== 0) {
+      logger.error(`Bereich ${kennung} kam nicht zurueck`, { code, ausgabe });
+    }
+    bericht.push({
+      schritt: 'bereich',
+      erfolg: code === 0,
+      text:
+        code === 0
+          ? `Die Dateien des Bereichs „${rows[0].name}“ sind zurückgeholt${
+              zahlen
+                ? `: ${zahlen.geschrieben} ${zahlen.geschrieben === 1 ? 'Datei' : 'Dateien'} zurückgeschrieben, ${zahlen.entfernt} entfernt, die seitdem dazukamen.`
+                : '.'
+            }`
+          : `Die Dateien des Bereichs „${rows[0].name}“ ließen sich nicht vollständig zurückholen.`,
+    });
+    logger.info(`Bereich ${kennung} zurueck aus ${gewaehlt.id.slice(0, 8)} (Rueckgabe ${code})`);
+    return {
+      erfolg: code === 0,
+      bereich: { kennung, name: rows[0].name },
+      stand: { id: gewaehlt.id, zeitpunkt: gewaehlt.zeit },
+      vorher,
+      zahlen,
+      bericht,
+      ...(code === 0 ? {} : { ausgabe }),
     };
   } finally {
     laeuftGerade = null;
@@ -1060,6 +1436,9 @@ module.exports = {
   sichereJetzt,
   stelleWiederHer,
   stelleAppWiederHer,
+  stelleBereichWiederHer,
+  staendeZumZurueckholen,
+  sichereVorher,
   externInhalt,
   schluessel,
   leseSchluesselPruefung,
