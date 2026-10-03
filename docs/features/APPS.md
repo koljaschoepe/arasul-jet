@@ -382,6 +382,15 @@ Zeilen oben und ohne die Kopie.
 Im Kontrakt (`GET /api/v1/external/contract`) steht derselbe Weg als Abschnitt
 `marken`: Adresse, Verzeichnis, Eingänge, Theme und die Regeln als Sätze.
 
+**Gemessen am Orin, 03.10.2026** (`scripts/test/marken-laufzeit-abnahme.mjs`,
+Bilder unter `docs/plans/audits/2026-10-03-marken-laufzeit-m5/`): eine
+Probe-App ohne Bau und ohne Kopie, eingespielt auf 5.3.0, 43 von 43 grün
+(Cache-Köpfe mit 304, Seitenleiste 272 und 51 px, Tabelle, Freigabe, hell und
+dunkel auf den Flächen der Tokens, kein CSP-Verstoß). Danach ein Update des
+Geräts auf 5.3.1 mit einer Reparatur an der Seitenleiste, **die Probe nicht neu
+eingespielt**: sie zeigte 5.3.1, die Zahl am Eintrag stand in ihrer Zeile,
+42 von 42 grün.
+
 ### Die App sagt, welche Routen ein Agent aufrufen darf (Brücke, 21.09.2026)
 
 Eine App läuft am Gerät hinter der Forward-Auth, und ein Mensch kommt mit dem
