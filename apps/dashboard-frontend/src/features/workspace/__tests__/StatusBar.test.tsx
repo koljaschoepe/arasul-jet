@@ -128,12 +128,7 @@ function renderStatusBar() {
 }
 
 function resetStore() {
-  useWorkspaceStore.setState({
-    tabs: [],
-    activeTabId: null,
-    sidebarVisible: true,
-    rightPanelVisible: true,
-  });
+  useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
 }
 
 describe('StatusBar', () => {

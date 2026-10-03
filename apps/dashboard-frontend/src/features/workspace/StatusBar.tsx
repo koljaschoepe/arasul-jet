@@ -148,7 +148,7 @@ export function StatusBar() {
   const wartendeSatz = wartende === 1 ? '1 Freigabe wartet' : `${wartende} Freigaben warten`;
 
   const { activeDownloadsList } = useDownloads();
-  const openTab = useWorkspaceStore(s => s.openTab);
+  const oeffne = useWorkspaceStore(s => s.oeffne);
   const laufendeDownloads = activeDownloadsList.filter(
     d => d.phase !== 'complete' && d.phase !== 'error'
   );
@@ -365,7 +365,7 @@ export function StatusBar() {
           data-testid="statusbar-downloads"
           title="Zu den Modellen"
           onClick={() => {
-            openTab({ type: 'modelle' });
+            oeffne({ type: 'verwaltung', bereich: 'modelle' });
           }}
           className="flex items-center gap-1.5 rounded px-1 text-foreground hover:bg-accent"
         >

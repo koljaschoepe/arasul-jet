@@ -1,150 +1,227 @@
 import React from 'react';
-import { AppWindow, Cpu, Settings, SlidersHorizontal } from 'lucide-react';
+import { House, LogOut, Settings, SlidersHorizontal } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  cn,
+} from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWorkspaceStore, sidebarSichtbar } from '@/stores/workspaceStore';
-import type { ActivityView } from '@/stores/workspaceStore';
+import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
+import { useMeineApps, zuEintraegen } from '@/features/apps/meineApps';
+import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
+import { PersonAvatar } from '@/components/PersonAvatar';
+import { API_BASE } from '@/config/api';
 
-interface ActivityButtonProps {
-  label: string;
+/**
+ * Die Form jedes Knopfs der Leiste (M5).
+ *
+ * AUSWAHL IST EINE GETÖNTE FLÄCHE, KEIN BALKEN (`frontend.md`, Gestaltung).
+ * Seit H5 trug der aktive Knopf eine Linie am linken Rand, weil die Fläche
+ * dieselbe war wie beim Überfahren und „hier bist du" und „hier ist die Maus"
+ * gleich aussahen. Die Tönung löst das anders: gewählt ist Blau, überfahren ist
+ * der neutrale Wisch — zwei Flächen, die sich nicht verwechseln lassen.
+ *
+ * Das Überfahren blendet in 120 ms ein; wer „weniger Bewegung" eingestellt
+ * hat, bekommt es sofort.
+ */
+const KNOPF =
+  'relative flex size-9 shrink-0 items-center justify-center rounded-md transition-colors duration-120 ease-out motion-reduce:transition-none';
+
+function knopfKlasse(aktiv: boolean | undefined): string {
+  return cn(
+    KNOPF,
+    aktiv
+      ? 'bg-primary/12 text-primary'
+      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+  );
+}
+
+/** Der Name steht beim Überfahren rechts daneben, und immer im `aria-label`. */
+function MitName({ name, children }: { name: string; children: React.ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right">{name}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+interface LeistenKnopfProps {
+  name: string;
+  aktiv?: boolean;
   onClick: () => void;
-  active?: boolean;
+  kennzeichen: string;
   children: React.ReactNode;
 }
 
-/**
- * Icon-Button der Activity-Bar (~36px, Cursor-/VS-Code-Maß). Reiner
- * Darstellungs-Baustein — Zustand und Verhalten liegen in der ActivityBar.
- *
- * DER AKTIVE KNOPF TRÄGT EINE LINIE, KEINE FLÄCHE (H5). Bis dahin war er
- * `bg-accent` — dieselbe Fläche, die jeder Knopf der Leiste beim Überfahren
- * bekommt. „Hier bist du" und „hier ist gerade die Maus" sahen damit gleich
- * aus, und wer die Maus stehen ließ, sah zwei aktive Knöpfe. Eine Linie am
- * linken Rand kann nur eines von beidem bedeuten. Die Schriftstärke, die
- * anderswo diese Aufgabe hat, gibt es hier nicht: der Knopf trägt keine
- * Schrift, nur ein Symbol — und ein Symbol wird nicht fett, es wird kräftig
- * (`text-foreground` gegen `text-muted-foreground`).
- *
- * Die Linie liegt INNERHALB des Knopfes (`before:left-0`) und nicht am Rand
- * der Leiste daneben. Ein absolut gesetztes Kind, das aus seinem Kasten
- * herausragt, zählt zur Rollbreite des Dokuments — das ist der Fund der
- * G1-Abnahme, der in G2 zur Regel wurde, und die Oberflächen-Reihe fragt
- * jede Zelle danach.
- */
-function ActivityButton({ label, onClick, active, children }: ActivityButtonProps) {
+function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children }: LeistenKnopfProps) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active}
-      onClick={onClick}
-      className={`relative flex h-9 w-9 items-center justify-center rounded-md transition-colors before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-0.5 before:rounded-full before:content-[''] ${
-        active
-          ? 'text-foreground before:bg-foreground'
-          : 'text-muted-foreground before:bg-transparent hover:bg-accent hover:text-foreground'
-      }`}
-    >
-      {children}
-    </button>
+    <MitName name={name}>
+      <button
+        type="button"
+        aria-label={name}
+        aria-current={aktiv ? 'page' : undefined}
+        data-testid={kennzeichen}
+        onClick={onClick}
+        className={knopfKlasse(aktiv)}
+      >
+        {children}
+      </button>
+    </MitName>
   );
 }
 
 /**
- * Die festen Sidebar-Ansichten (Plan 012 Phase B) in Anzeige-Reihenfolge.
- * »Dateien« ist mit B2 gefallen (kein Explorer mehr), »Erweiterungen« und
- * »Flows« mit B3 (kein Erweiterungs-Store, kein Flow-Editor mehr). »Apps«
- * kommt mit D1 dazu und steht oben: sie ist die linke Spalte des Zielbilds.
- *
- * `nurAdmin` blendet den Eintrag für einen Mitarbeiter aus. Das ist eine
- * Anzeige-Entscheidung und keine Berechtigung — die trifft `requireRole` im
- * Backend, und `/api/models/*` antwortet einem Mitarbeiter mit 403, ob dieser
- * Knopf nun da ist oder nicht. Ein Knopf, der bei jedem Klick 403 sagt, ist
- * kein Schutz, sondern eine Sackgasse.
+ * Das Kürzel einer App, bis `app.json` ein Symbol nennt: die Anfänge von zwei
+ * Wörtern, sonst die ersten zwei Buchstaben.
  */
-const VIEW_ENTRIES: Array<{
-  view: ActivityView;
-  label: string;
-  icon: React.ReactNode;
-  nurAdmin?: boolean;
-}> = [
-  { view: 'apps', label: 'Apps', icon: <AppWindow className="h-[18px] w-[18px]" /> },
-  { view: 'models', label: 'Modelle', icon: <Cpu className="h-[18px] w-[18px]" />, nurAdmin: true },
-];
+export function appKuerzel(name: string): string {
+  const woerter = name.trim().split(/\s+/).filter(Boolean);
+  if (woerter.length >= 2) {
+    return `${woerter[0]?.charAt(0) ?? ''}${woerter[1]?.charAt(0) ?? ''}`.toUpperCase();
+  }
+  const wort = woerter[0] ?? '?';
+  return wort.charAt(0).toUpperCase() + wort.charAt(1).toLowerCase();
+}
+
+/** Bild und Menü der angemeldeten Person: der Name und Abmelden, sonst nichts. */
+function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
+  const { user } = useAuth();
+  const name = user?.anzeigeName ?? user?.username ?? '';
+  const bild = user?.hatBild ? `${API_BASE}/profil/bild` : null;
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label="Konto"
+        data-testid="workspace-benutzermenue"
+        className={cn(KNOPF, 'hover:bg-accent')}
+      >
+        <PersonAvatar name={name} bild={bild} className="size-7" />
+      </PopoverTrigger>
+      <PopoverContent side="right" align="end" className="w-56 p-1 text-ui-sm">
+        <p className="truncate px-2 py-1.5 font-medium text-foreground">{name || 'Angemeldet'}</p>
+        <div className="my-1 h-px bg-border" aria-hidden="true" />
+        <button
+          type="button"
+          data-testid="workspace-abmelden"
+          onClick={() => {
+            void onLogout();
+          }}
+          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground transition-colors duration-120 ease-out hover:bg-accent motion-reduce:transition-none"
+        >
+          <LogOut className="size-3.5 shrink-0" aria-hidden="true" />
+          Abmelden
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /**
- * Activity-Bar (Plan 012 Phase B, Schritt 5): eine eigene, **immer sichtbare**
- * schmale Spalte ganz links — außerhalb des einklappbaren Sidebar-Panels.
- * Dadurch bleibt jede Ansicht erreichbar, auch wenn die Sidebar eingeklappt
- * ist.
+ * Die Aktivitätsleiste (M5): das Einzige, was um eine App herum steht.
  *
- * Oben »Apps« (D1), darunter »Modelle« für den Administrator, unten das
- * Einstellungen-Zahnrad — ebenfalls nur für ihn. Die Kern-App-Einträge
- * dazwischen (n8n) sind mit Phase B5 gefallen. Ein Klick auf eine Ansicht
- * wählt sie und zieht die Sidebar auf; erneuter Klick auf die aktive Ansicht
- * klappt sie wieder ein (VS-Code-Semantik, `selectView`). Jede Ansicht öffnet
- * zusätzlich ihren Tab in der Mitte.
+ * Oben das Haus zur Startseite mit der Zahl offener Freigaben, darunter die
+ * freigegebenen Apps nur als Symbol — ab etwa zehn rollt dieser Teil, die
+ * Knöpfe unten bleiben fest: Verwaltung (nur Administrator), Zahnrad (die
+ * persönlichen Einstellungen) und das eigene Bild. Jeder Knopf öffnet genau
+ * eine Ansicht im Hauptbereich; es gibt keine zweite Seitenleiste mehr, die
+ * er auf- oder zuklappen könnte.
+ *
+ * Das Logo des Hauses gehört über das Haus, sobald es sich hinterlegen lässt;
+ * bis dahin gibt es dafür keinen Ort am Gerät.
+ *
+ * Die Apps kommen aus `GET /api/apps/meine` — auch beim Administrator nur
+ * die, die ihm freigegeben sind. Eine App mit Live- und Teststand steht
+ * zweimal da (`zuEintraegen`), der Teststand mit „(Test)" im Namen.
  */
-export function ActivityBar() {
+export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void }) {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
-  const activeView = useWorkspaceStore(s => s.activeView);
-  const sidebarVisible = useWorkspaceStore(sidebarSichtbar);
-  const selectView = useWorkspaceStore(s => s.selectView);
-  const openTab = useWorkspaceStore(s => s.openTab);
-  const activeTabId = useWorkspaceStore(s => s.activeTabId);
-  const handleView = (view: ActivityView) => {
-    selectView(view);
-    // Jede Ansicht zeigt ihren Inhalt auch in der Mitte.
-    if (view === 'models') {
-      openTab({ type: 'modelle' });
-    } else if (view === 'apps') {
-      openTab({ type: 'dashboard' });
-    }
-  };
+  const ansicht = useWorkspaceStore(s => s.ansicht);
+  const oeffne = useWorkspaceStore(s => s.oeffne);
+  const aktivId = ansichtId(ansicht);
+  const { data: apps } = useMeineApps();
+  const { data: freigaben } = useOffeneFreigaben();
+  const wartend = freigaben?.length ?? 0;
+  const eintraege = zuEintraegen(apps ?? []);
 
   return (
     <nav
-      aria-label="Workspace-Navigation"
+      aria-label="Aktivitätsleiste"
+      data-testid="aktivitaetsleiste"
       className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-background py-2"
     >
-      {VIEW_ENTRIES.filter(entry => istAdmin || !entry.nurAdmin).map(entry => (
-        <ActivityButton
-          key={entry.view}
-          label={entry.label}
-          active={sidebarVisible && activeView === entry.view}
-          onClick={() => handleView(entry.view)}
-        >
-          {entry.icon}
-        </ActivityButton>
-      ))}
-
-      <div className="flex-1" aria-hidden="true" />
-
-      {/* Der Übergangseintrag für alles Gerätebezogene, nur für den
-          Administrator: wie eine Sidebar-Ansicht, die Bereiche erscheinen
-          links (SettingsPanel), der Mitte-Tab zeigt den gewählten (B4). */}
-      {istAdmin && (
-        <ActivityButton
-          label="Verwaltung"
-          active={sidebarVisible && activeView === 'verwaltung'}
-          onClick={() => {
-            selectView('verwaltung');
-            openTab({ type: 'verwaltung' });
-          }}
-        >
-          <SlidersHorizontal className="h-[18px] w-[18px]" />
-        </ActivityButton>
-      )}
-
-      {/* Die persönlichen Einstellungen, für alle. Keine Sidebar-Ansicht: es
-          ist eine Seite, kein Bereichsbaum. */}
-      <ActivityButton
-        label="Einstellungen"
-        active={activeTabId === 'settings'}
-        onClick={() => openTab({ type: 'settings' })}
+      <LeistenKnopf
+        name={wartend > 0 ? `Startseite, ${wartend} offen` : 'Startseite'}
+        aktiv={aktivId === 'dashboard'}
+        kennzeichen="leiste-startseite"
+        onClick={() => oeffne({ type: 'dashboard' })}
       >
-        <Settings className="h-[18px] w-[18px]" />
-      </ActivityButton>
+        <House className="size-4.5" aria-hidden="true" />
+        {wartend > 0 && (
+          <span
+            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-ui-xs leading-none font-medium text-primary-foreground"
+            data-testid="leiste-freigaben-zahl"
+            aria-hidden="true"
+          >
+            {wartend > 99 ? '99+' : wartend}
+          </span>
+        )}
+      </LeistenKnopf>
+
+      <div
+        className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-x-hidden overflow-y-auto"
+        data-testid="leiste-apps"
+      >
+        {eintraege.map(e => {
+          const id = ansichtId({ type: 'app', appId: e.id, stand: e.stand });
+          const name = e.stand === 'test' ? `${e.name} (Test)` : e.name;
+          return (
+            <LeistenKnopf
+              key={id}
+              name={name}
+              aktiv={aktivId === id}
+              kennzeichen={`leiste-app-${e.id}-${e.stand}`}
+              onClick={() => oeffne({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
+            >
+              <span className="text-ui-xs font-medium" aria-hidden="true">
+                {appKuerzel(e.name)}
+              </span>
+              {e.stand === 'test' && (
+                <span
+                  className="absolute right-1 bottom-1 size-1.5 rounded-full bg-muted-foreground"
+                  aria-hidden="true"
+                />
+              )}
+            </LeistenKnopf>
+          );
+        })}
+      </div>
+
+      {istAdmin && (
+        <LeistenKnopf
+          name="Verwaltung"
+          aktiv={aktivId === 'verwaltung'}
+          kennzeichen="leiste-verwaltung"
+          // Steht die Verwaltung schon da, bleibt der gewählte Bereich.
+          onClick={() => aktivId !== 'verwaltung' && oeffne({ type: 'verwaltung' })}
+        >
+          <SlidersHorizontal className="size-4.5" aria-hidden="true" />
+        </LeistenKnopf>
+      )}
+      <LeistenKnopf
+        name="Einstellungen"
+        aktiv={aktivId === 'settings'}
+        kennzeichen="leiste-einstellungen"
+        onClick={() => oeffne({ type: 'settings' })}
+      >
+        <Settings className="size-4.5" aria-hidden="true" />
+      </LeistenKnopf>
+      <Konto onLogout={onLogout} />
     </nav>
   );
 }

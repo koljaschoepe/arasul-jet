@@ -1,169 +1,161 @@
 /**
- * Tests: URL-Sync der WorkspaceShell (Deep-Links, Browser-Zurück, Gating) und
- * das Dreispalten-Raster nach B2.
+ * Tests: der Rahmen der Shell (M5) und der Abgleich von Adresse und Ansicht.
  *
- * 1. Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
- *    Deep-Link / Browser-Zurück nicht wieder (Plan 002 §5 Kriterium 4).
- * 2. Keep-alive-Verdrahtung: ausgeblendete Spalten werden über
- *    data-shell-hidden am echten react-resizable-panels-Panel versteckt, nicht
- *    unmounted (aria-hidden wird für die A11y gespiegelt, steuert aber die
- *    Darstellung nicht mehr — siehe DialogPanelCollision.test).
- * 3. Das Dreispalten-Raster steht.
- * 4. Seit D1: `/workspace` landet auf der Übersicht, und eine Admin-Adresse
- *    landet fuer einen Mitarbeiter ebenfalls dort.
+ * 1. Es gibt keine Kopfleiste, keine Tab-Leiste, keine Spalten: nur
+ *    Aktivitätsleiste, eine Ansicht und die Statusleiste.
+ * 2. `/workspace` landet auf der Startseite, eine Admin-Adresse für einen
+ *    Mitarbeiter ebenfalls, ein unbekannter Pfad auch.
+ * 3. Deep-Links öffnen ihre Ansicht, alte Lesezeichen (`/workspace/modelle`,
+ *    `?tab=`) den passenden Bereich der Verwaltung.
  */
-
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import WorkspaceShell from '../WorkspaceShell';
 import { angemeldet } from '@/__tests__/helpers/authMock';
 
-// Schwere Kinder mocken — getestet wird ausschließlich die Shell-Logik
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
-vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div data-testid="mock-activitybar" /> }));
-vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
-vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
-vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
-vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
-// Seit D1 tragen die Spalten Inhalt (App-Liste, Notizen) mit eigenen
-// Abfragen. Hier geht es um das Raster, nicht um das, was darin steht.
-vi.mock('../SidebarHost', () => ({ SidebarHost: () => <div data-testid="mock-sidebar" /> }));
-vi.mock('../RightPanel', () => ({ RightPanel: () => <div data-testid="mock-rightpanel" /> }));
-
-function resetStore() {
-  useWorkspaceStore.setState({
-    tabs: [],
-    activeTabId: null,
-    activeView: 'apps',
-    sidebarVisible: true,
-    rightPanelVisible: true,
-  });
-}
+vi.mock('../ActivityBar', () => ({ ActivityBar: () => <nav data-testid="mock-leiste" /> }));
+vi.mock('../StatusBar', () => ({ StatusBar: () => <footer data-testid="mock-statusleiste" /> }));
+vi.mock('../AnsichtInhalt', () => ({ AnsichtInhalt: () => <div data-testid="mock-ansicht" /> }));
 
 function LocationProbe() {
   const location = useLocation();
   return <div data-testid="location-probe">{location.pathname}</div>;
 }
 
-function renderShell(initialPath: string) {
+function Zurueck() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      zurück
+    </button>
+  );
+}
+
+function renderShell(initialPath: string, davor: string[] = []) {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
+    <MemoryRouter initialEntries={[...davor, initialPath]} initialIndex={davor.length}>
       <Routes>
         <Route path="/workspace/*" element={<WorkspaceShell onLogout={async () => {}} />} />
       </Routes>
       <LocationProbe />
+      <Zurueck />
     </MemoryRouter>
   );
 }
 
-describe('WorkspaceShell, URL-Sync', () => {
+async function landetAuf(pfad: string) {
+  await waitFor(() => expect(screen.getByTestId('location-probe').textContent).toBe(pfad));
+}
+
+describe('WorkspaceShell', () => {
   beforeEach(() => {
-    resetStore();
-    localStorage.clear();
+    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
     angemeldet({ role: 'admin' });
   });
 
-  /**
-   * Seit D1 gibt es einen Standard-Tab. Vorher stand hier „bleibt leer", weil
-   * es keinen gab, der immer passt; die erste Ansicht nach der Anmeldung soll
-   * die eigenen Apps zeigen und keinen Leerzustand.
-   */
-  it('ohne Deep-Link landet der Workspace auf der Übersicht', async () => {
+  it('besteht nur aus Leiste, Ansicht und Statusleiste', async () => {
     renderShell('/workspace');
-    await screen.findByTestId('mock-tabcontent');
-    await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard'])
-    );
+    const shell = await screen.findByTestId('workspace-shell');
+    expect(screen.getByTestId('mock-leiste')).toBeInTheDocument();
+    expect(screen.getByTestId('mock-ansicht')).toBeInTheDocument();
+    expect(screen.getByTestId('mock-statusleiste')).toBeInTheDocument();
+    expect(shell.querySelector('header')).toBeNull();
+    expect(shell.querySelector('[data-panel]')).toBeNull();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    // Eine Flächenfarbe (DESIGN.md): die Ansicht liegt auf bg-background.
+    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('bg-background');
   });
 
-  it('ein App-Deep-Link öffnet den Tab dieser App', async () => {
-    renderShell('/workspace/app/beispielapp');
-    await screen.findByTestId('mock-tabcontent');
-    await waitFor(() => {
-      const tabs = useWorkspaceStore.getState().tabs;
-      expect(tabs.map(t => t.id)).toEqual(['app:beispielapp:live']);
-      expect(tabs[0]?.appId).toBe('beispielapp');
-      expect(tabs[0]?.stand).toBe('live');
+  it('ohne Deep-Link landet der Workspace auf der Startseite', async () => {
+    renderShell('/workspace');
+    await landetAuf('/workspace/dashboard');
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'dashboard' });
+  });
+
+  it('ein App-Deep-Link öffnet diese App, der Teststand seinen eigenen', async () => {
+    renderShell('/workspace/app/beispielapp/test');
+    await waitFor(() =>
+      expect(useWorkspaceStore.getState().ansicht).toEqual({
+        type: 'app',
+        appId: 'beispielapp',
+        stand: 'test',
+      })
+    );
+    await landetAuf('/workspace/app/beispielapp/test');
+  });
+
+  it('ein Wechsel im Store schreibt die Adresse', async () => {
+    renderShell('/workspace');
+    await landetAuf('/workspace/dashboard');
+    act(() => useWorkspaceStore.getState().oeffne({ type: 'verwaltung', bereich: 'benutzer' }));
+    await landetAuf('/workspace/verwaltung/benutzer');
+  });
+
+  it('das alte Lesezeichen der Modelle öffnet den Bereich der Verwaltung', async () => {
+    renderShell('/workspace/modelle');
+    await landetAuf('/workspace/verwaltung/modelle');
+  });
+
+  it('ein alter ?tab= landet auf dem Bereich, der Unterbereich aufgeklappt', async () => {
+    renderShell('/workspace/verwaltung?tab=sicherung');
+    await landetAuf('/workspace/verwaltung/system/sicherung');
+    expect(useWorkspaceStore.getState().ansicht).toEqual({
+      type: 'verwaltung',
+      bereich: 'system',
+      abschnitt: 'sicherung',
     });
   });
 
-  it('der Teststand einer App hat einen eigenen Tab', async () => {
-    renderShell('/workspace/app/beispielapp/test');
-    await screen.findByTestId('mock-tabcontent');
-    await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['app:beispielapp:test'])
-    );
+  it('/workspace/settings?tab= aus der Zeit vor M5 führt in die Verwaltung', async () => {
+    renderShell('/workspace/settings?tab=remote-access');
+    await landetAuf('/workspace/verwaltung/remote-access');
+  });
+
+  it('/workspace/settings ohne ?tab= sind die persönlichen Einstellungen', async () => {
+    renderShell('/workspace/settings');
+    await landetAuf('/workspace/settings');
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'settings' });
   });
 
   /**
    * Ausblenden, keine Berechtigung: `requireRole` im Backend antwortet einem
-   * Mitarbeiter auf jeden Weg hinter den Einstellungen mit 403. Hier geht es
-   * nur darum, dass eine getippte Adresse ihn nicht in eine Sackgasse führt.
+   * Mitarbeiter auf jeden Weg hinter der Verwaltung mit 403. Hier geht es nur
+   * darum, dass eine getippte Adresse ihn nicht in eine Sackgasse führt.
    */
-  it('einem Mitarbeiter führt /workspace/verwaltung auf die Übersicht', async () => {
+  it('einem Mitarbeiter führt /workspace/verwaltung auf die Startseite', async () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
-    renderShell('/workspace/verwaltung');
-    await waitFor(() =>
-      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/dashboard')
-    );
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard']);
+    renderShell('/workspace/verwaltung/benutzer');
+    await landetAuf('/workspace/dashboard');
   });
 
-  it('der alte Terminal-Pfad öffnet nichts mehr (Terminal ist mit B2 gefallen)', async () => {
+  it('ein unbekannter Pfad öffnet nichts (Terminal ist mit B2 gefallen)', async () => {
     renderShell('/workspace/terminal');
-    await waitFor(() =>
-      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/dashboard')
-    );
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard']);
+    await landetAuf('/workspace/dashboard');
   });
 
-  it('der alte Automationen-Pfad öffnet nichts mehr (n8n ist mit B5 gefallen)', async () => {
-    renderShell('/workspace/automationen');
-    await waitFor(() =>
-      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/dashboard')
-    );
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard']);
+  it('ein altes Lesezeichen wird ersetzt: ein Zurück führt eine Seite zurück', async () => {
+    renderShell('/workspace/modelle', ['/workspace/settings']);
+    await landetAuf('/workspace/verwaltung/modelle');
+    act(() => screen.getByText('zurück').click());
+    await landetAuf('/workspace/settings');
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'settings' });
   });
 
-  it('Farbregel (AC #8): die Mitte nutzt die Basis-Flächenfarbe bg-background, nicht bg-card', async () => {
-    useWorkspaceStore.setState({
-      tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
-      activeTabId: 'settings',
-    });
+  it('ein Klick in der Leiste ist ein Schritt im Verlauf', async () => {
+    renderShell('/workspace/dashboard');
+    await landetAuf('/workspace/dashboard');
+    act(() => useWorkspaceStore.getState().oeffne({ type: 'settings' }));
+    await landetAuf('/workspace/settings');
+    act(() => screen.getByText('zurück').click());
+    await landetAuf('/workspace/dashboard');
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'dashboard' });
+  });
+
+  it('der Titel des Browser-Tabs sagt, was offen ist', async () => {
     renderShell('/workspace/settings');
-
-    const centerSurface = (await screen.findByTestId('mock-tabcontent')).parentElement;
-    expect(centerSurface).not.toBeNull();
-    expect(centerSurface).toHaveClass('bg-background');
-    expect(centerSurface).not.toHaveClass('bg-card');
-
-    const shellRoot = screen.getByTestId('workspace-shell');
-    expect(shellRoot).toHaveClass('bg-background');
-    expect(shellRoot).not.toHaveClass('bg-card');
-  });
-
-  it('drei Spalten: links und rechts werden per data-shell-hidden versteckt, nicht unmounted', async () => {
-    renderShell('/workspace');
-
-    const links = (await screen.findByTestId('mock-sidebar')).closest('[data-panel]');
-    const rechts = screen.getByTestId('mock-rightpanel').closest('[data-panel]');
-    expect(links).toHaveAttribute('id', 'sidebar');
-    expect(rechts).toHaveAttribute('id', 'right');
-    expect(links).toHaveAttribute('data-shell-hidden', 'false');
-    expect(rechts).toHaveAttribute('data-shell-hidden', 'false');
-    expect(document.querySelector('[data-panel]#main')).not.toBeNull();
-
-    const rechtsInhalt = screen.getByTestId('mock-rightpanel');
-    act(() => {
-      useWorkspaceStore.setState({ rightPanelVisible: false, sidebarVisible: false });
-    });
-    // Derselbe Knoten, nur versteckt. Für die Notizen ist das mehr als eine
-    // Formsache: ein Unmount während der Schreibpause verlöre den Text.
-    expect(screen.getByTestId('mock-rightpanel')).toBe(rechtsInhalt);
-    expect(rechts).toHaveAttribute('data-shell-hidden', 'true');
-    expect(rechts).toHaveAttribute('aria-hidden', 'true');
-    expect(links).toHaveAttribute('data-shell-hidden', 'true');
+    await waitFor(() => expect(document.title).toBe('Einstellungen – Arasul'));
   });
 });

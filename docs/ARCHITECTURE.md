@@ -304,29 +304,27 @@ apps/dashboard-frontend/
 ├── src/features/             # Feature modules
 │   ├── apps/                 # Die eigenen Apps: Übersicht, Rahmen (D1)
 │   ├── freigaben/            # Die offenen Freigaben auf der Übersicht (D2)
-│   ├── notizen/              # Der Zettel der rechten Spalte (D1)
-│   ├── settings/             # Sektionen: Allgemein, Apps (D4), Mitarbeiter (D3),
-│   │                         #   KI, Sicherheit, Datenschutz, System, Fernzugriff
+│   ├── settings/             # Die Verwaltung mit eigener Leiste der Bereiche (M5):
+│   │                         #   Allgemein, Apps, Personen, Firmenordner, Modelle, KI, …
 │   ├── modelle/              # Die Kurzliste des Geräts (D5)
 │   ├── system/               # Login, CreateAdmin, Auslastung, Aktualisierungen,
 │   │                         #   Sicherung (D5), Dienste, Selbstheilung, Werksreset
-│   └── workspace/            # Shell: ActivityBar (Apps, Modelle), Sidebar, Tabs,
-│                             #   rechte Spalte (Notizen), StatusBar
+│   └── workspace/            # Shell: Aktivitätsleiste, eine Ansicht, StatusBar (M5)
 ├── src/components/
 │   ├── ui/                   # Modal, Skeleton, StatTile, AuthCard (Leerzustand und Ladezustand stehen seit H4 in @marken)
 │   └── mascot/               # Das Maskottchen
 ├── src/contexts/             # AuthContext, DownloadContext, ToastContext, ActivationContext
-├── src/stores/               # zustand (workspaceStore: Tabs, Sidebar-Ansicht, Spalten)
+├── src/stores/               # zustand (workspaceStore: die eine offene Ansicht)
 ├── src/hooks/                # useApi, useConfirm, useStoreCatalog, useTheme
 └── src/__tests__/            # Test files
 ```
 
-**Die Shell:** `/` landet immer auf `/workspace`. Die Shell ist ein
-Dreispalten-Raster mit einer immer sichtbaren ActivityBar (**Modelle** und
-**Einstellungen**; System-Status liegt unter Einstellungen → System). Die linke
-Spalte ist ohne gewählte Ansicht leer, die rechte Spalte ganz; das Zielbild
-(links Apps, Mitte Dashboard oder App, rechts Notizen) füllen die Phasen D1
-und D2 des Überordner-Plans.
+**Die Shell:** `/` landet immer auf `/workspace`. Um die Ansicht steht nur
+die Aktivitätsleiste links (M5): das Haus zur Startseite mit der Zahl offener
+Freigaben, die freigegebenen Apps als Symbol, unten Verwaltung (nur
+Administrator), Zahnrad und das eigene Bild. Offen ist genau eine Ansicht; es
+gibt keine Kopfleiste, keine Tabs, keine Seitenspalten und keine Notizen in der
+Oberfläche (der Weg `/api/notizen` bleibt bis zur Karte handy-und-notizen-weg).
 
 Die path-gejailte Tool-Loop-Grundlage der Flows liegt in
 `apps/dashboard-backend/src/services/flows/` (`toolLoop.js`, `pathSafe.js`,

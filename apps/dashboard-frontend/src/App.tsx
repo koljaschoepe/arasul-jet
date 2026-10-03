@@ -23,7 +23,7 @@ import './index.css';
 import { Ladezustand } from '@marken';
 
 // Einstellungen und Store werden nicht mehr hier geladen, sondern
-// vom Arbeitsbereich (features/workspace/TabContent.tsx), seit die Legacy-Shell
+// vom Arbeitsbereich (features/workspace/AnsichtInhalt.tsx), seit die Legacy-Shell
 // entfernt ist (Plan 023 B1).
 
 // IDE-Workspace-Shell (Feature-Flag `workspace-shell`, Plan ide-workspace-shell)

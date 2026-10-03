@@ -37,8 +37,9 @@ Schlüssel (`/api/v1/external`, OpenAI-kompatibel unter `/v1`), Betrieb
 bringt ihr Frontend und optional ein Backend mit, meldet sich über
 Forward-Auth an, hat einen Test- und einen Livestand und einen eigenen
 Datenbank-Zugang je Stand; ihre Flows können anhalten und eine Freigabe
-verlangen. Die Shell ist dreispaltig (Apps, Ansicht, Notizen), unter 900 px
-einspaltig, mit Hell/Dunkel-Theme, das der App im iframe folgt.
+verlangen. Um die Ansicht steht nur eine Aktivitätsleiste links (Startseite,
+Apps, Verwaltung, Einstellungen, Konto), offen ist genau eine Ansicht, mit
+Hell/Dunkel-Theme, das der App im iframe folgt.
 
 Aktueller Stand je Thema — hier nicht wiederholt, sondern verlinkt:
 

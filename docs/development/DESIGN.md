@@ -42,10 +42,14 @@ Drei Regeln, die ein Wächter hält:
    `scripts/test/marken.py`, Punkt 6 (die Bausteine) und
    `scripts/test/bausteine.py`, Punkt 7 (die Shell und jedes CSS — er rechnet
    den Farbton jedes Werts und lässt nur Blau, Rot und Grau durch).
-2. **Eine Flächenfarbe.** Grundflächen (Sidebar, Mitte, rechte Spalte) tragen
-   `bg-background`; `bg-card` ist erhabenen Elementen darauf vorbehalten
-   (Karten, Popover, Dialoge, Eingabefelder, Tabellenköpfe). Der aktive Tab
-   teilt die Flächenfarbe und hebt sich nur über die Schriftstärke ab.
+2. **Eine Flächenfarbe.** Grundflächen (Aktivitätsleiste, Ansicht, die Leiste
+   der Bereiche in der Verwaltung) tragen `bg-background`; `bg-card` ist
+   erhabenen Elementen darauf vorbehalten (Karten, Popover, Dialoge,
+   Eingabefelder, Tabellenköpfe). **Auswahl ist eine getönte Fläche, kein
+   Balken** (M5): gewählt ist ein Hauch Akzent (`bg-primary/12`, in der `Liste`
+   `color-mix` mit `--ara-akzent`), überfahren der neutrale Wisch
+   (`--accent`), der in 120 ms einblendet; „weniger Bewegung" schaltet den
+   Übergang ab.
 3. **Wiederkehrende Formen kommen aus dem Designsystem** (unten). Ein `h1`,
    eine Feldgruppen-Trennlinie, eine Tab-Leiste oder ein handgebauter Dialog
    außerhalb von `packages/marken` meldet `scripts/test/bausteine.py` — seit
@@ -279,38 +283,33 @@ Grund ist keiner.
 
 ## Die Shell
 
-**Ab 900 px dreispaltig**: links Apps, Mitte Übersicht oder App, rechts
-Notizen (Beschluss 10 vom 26.08.2026, gebaut in Phase D1). Die ActivityBar
-ganz links ist dort immer sichtbar, Sidebar und rechte Spalte lassen sich
-einzeln ein- und ausblenden.
+**Um die Ansicht steht nur die Aktivitätsleiste** (M5, Karte
+rahmen-aktivitaetsleiste, 03.10.2026; Zielbild in `frontend.md` des
+Überordners, Abschnitt Rahmen): oben das Haus zur Startseite mit der Zahl
+offener Freigaben, darunter die freigegebenen Apps nur als Symbol mit dem
+Namen beim Überfahren (ab etwa zehn rollt dieser Teil), unten fest Verwaltung
+(nur Administrator), Zahnrad und das eigene Bild (Name und Abmelden). Offen
+ist genau eine Ansicht. Es gibt keine Kopfleiste, keine Tab-Leiste, keine
+rechte Spalte und keine zweite Seitenleiste mehr; jede Funktion steht an
+genau einer Stelle. Die Verwaltung ist gebaut wie eine App: eine eigene
+schmale Leiste der Bereiche, ohne zweite Reiterstufe — was lang ist, klappt
+auf (der Bereich System).
 
-**Darunter ein eigener Aufbau, kein geschrumpfter Desktop** (Phase D7,
-28.08.2026): ein **Hamburger-Menü** in der Kopfleiste — daneben der Name
-dessen, was gerade dasteht —, **eine Spalte** darunter, und die Notizen sind
-dort eine eigene **Ansicht**. Keine ActivityBar, keine Sidebar, keine
-Tab-Leiste; das Menü führt Übersicht, die eigenen Apps, die Notizen und (für
-den Administrator) Modelle und Einstellungen, und jeder Eintrag ist ein Ziel.
-
-**Es liegt nichts übereinander.** Der Weg dahin steht in zwei Messungen am
-Orin. Zuerst bekam die Mitte bei 390 px null Pixel — 48 für die ActivityBar,
-160 für die Sidebar und 220 für die Notizen sind mehr, als da ist —, und alle
-sieben Verwaltungsansichten zeigten die Notizen statt der Ansicht (D6). Die
-Antwort darauf war ein **Blatt** über der Mitte; die zweite Messung zeigte,
-dass das die halbe war: die App stand abgedunkelt dahinter, und was darunter
-lag, war für niemanden anklickbar. Seit D7 steht in der einen Spalte deshalb
-entweder die Ansicht oder der Zettel — nie beides. Dasselbe Prinzip gilt für
-die Statusleiste: bei 390 px bleibt sie **eine Zeile** und lässt weg, was in
-den Popover daneben gehört (die Fassung) oder als Zahl neben einem Symbol
-genügt (die offenen Freigaben).
+Bis M5 stand hier ein Dreispalten-Raster (Apps, Mitte mit Tabs, Notizen) und
+unter 900 px ein eigener Aufbau mit Hamburger-Menü (D7). Unter 900 px bleibt
+es bis zur Karte handy-und-notizen-weg bei derselben Leiste links; die
+Verwaltung zeigt ihre Bereiche dort als Auswahl über dem Bereich. Die
+Statusleiste bleibt bei 390 px **eine Zeile** und lässt weg, was in den
+Popover daneben gehört (die Fassung).
 
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
-Apps, die Übersicht, die Notizen und sein Konto; die Verwaltung (Modelle,
-Einstellungen) blendet die Oberfläche für ihn aus. Das ist keine Berechtigung:
+Startseite, seine Apps, seine Einstellungen und sein Konto; die Verwaltung
+blendet die Oberfläche für ihn aus. Das ist keine Berechtigung:
 `requireRole` im Backend antwortet ihm auf jeden dieser Wege mit `403`, ob der
 Knopf da ist oder nicht. Ein Knopf, der bei jedem Klick 403 sagt, ist kein
 Schutz, sondern eine Sackgasse. Umgekehrt darf nichts, was jeder braucht, hinter
 einer Admin-Seite liegen — das Abmelden lag bis D1 in den Einstellungen und
-sitzt seitdem im Benutzermenü der Kopfleiste.
+sitzt seit M5 im Menü des eigenen Bildes unten in der Aktivitätsleiste.
 
 ## Wo was steht
 

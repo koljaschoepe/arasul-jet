@@ -21,7 +21,7 @@ import { useMeineApps, zuEintraegen, type AppEintrag } from './meineApps';
 import { Leerzustand } from '@marken';
 
 /**
- * Eine App als Karte. Ein Klick öffnet sie als Tab in der Mitte.
+ * Eine App als Karte. Ein Klick öffnet sie im Hauptbereich.
  *
  * Die Karte kommt seit D7 aus dem Designsystem (`@marken`) — derselbe
  * Baustein, den eine App für ihre eigenen Karten benutzt. Bis dahin war es
@@ -86,7 +86,7 @@ function AppKachel({
  *
  * ALS SLOT UND NICHT ALS IMPORT, und das ist die Regel dieses Ordners: ein
  * Bauteil aus `features/X/` importiert nichts aus `features/Y/`. Was quer
- * zusammensetzt, ist die Shell (`features/workspace/TabContent.tsx`) — sie
+ * zusammensetzt, ist die Shell (`features/workspace/AnsichtInhalt.tsx`) — sie
  * reicht hier `<OffeneFreigaben />` herein. Ohne den Slot müsste entweder die
  * Übersicht die Freigaben kennen (dann hängen App-Liste und Freigaben
  * aneinander) oder die Freigaben lägen im App-Ordner (dann heißt der Ordner
@@ -101,7 +101,7 @@ export function Uebersicht({
   wartend?: Record<string, number>;
 }) {
   const { user } = useAuth();
-  const openTab = useWorkspaceStore(s => s.openTab);
+  const oeffne = useWorkspaceStore(s => s.oeffne);
   const { data: apps, isLoading } = useMeineApps();
 
   const eintraege = zuEintraegen(apps ?? []);
@@ -134,7 +134,7 @@ export function Uebersicht({
               eintrag={e}
               wartend={wartend?.[e.id] ?? 0}
               zeigeFassung={user?.role === 'admin'}
-              onOeffnen={() => openTab({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
+              onOeffnen={() => oeffne({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
             />
           ))}
         </div>

@@ -1,5 +1,6 @@
 import {
   AppWindow,
+  Cpu,
   FolderTree,
   Info,
   KeyRound,
@@ -14,17 +15,17 @@ import {
 import type { ReactNode } from 'react';
 
 /**
- * Die Einstellungs-Sektionen als einzige Quelle der Wahrheit — geteilt von der
- * Sidebar-Ansicht (SettingsPanel) und dem Einstellungen-Mitte-Tab (Settings).
- * B4: die Sektionen leben jetzt in der linken Sidebar (wie die Flows), NICHT
- * mehr in einer zweiten Spalte innerhalb des Tabs. Icons ohne Größenklasse —
- * der Verwender bestimmt die Größe.
+ * Die Bereiche der Verwaltung als einzige Quelle der Wahrheit — gelesen von
+ * der Leiste der Bereiche in der Verwaltung selbst (`Settings.tsx`, M5) und
+ * von der Shell, die alte `?tab=`-Adressen auf einen Bereich abbildet. Icons
+ * ohne Größenklasse — der Verwender bestimmt die Größe.
  */
 export type SettingsSectionId =
   | 'general'
   | 'apps'
   | 'benutzer'
   | 'firmenordner'
+  | 'modelle'
   | 'ki'
   | 'security'
   | 'privacy'
@@ -37,7 +38,6 @@ export interface SettingsSection {
   id: SettingsSectionId;
   label: string;
   icon: ReactNode;
-  description: string;
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -45,7 +45,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'general',
     label: 'Allgemein',
     icon: <Info />,
-    description: 'Unternehmen und Systeminformationen',
   },
   // Zweiter Platz (Phase D4): was auf dem Geraet laeuft, ist das erste, was
   // ein Administrator nachsieht -- und der Ort, an dem er den Teststand live
@@ -55,7 +54,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'apps',
     label: 'Apps',
     icon: <AppWindow />,
-    description: 'Fassungen, Zustand, Flows und Läufe',
   },
   // Menschen anlegen und Apps freigeben ist der Handgriff, den ein
   // Administrator am haeufigsten tut (Phase D3).
@@ -63,7 +61,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'benutzer',
     label: 'Personen',
     icon: <Users />,
-    description: 'Anlegen, Startpasswort, Verwaltung, Freigaben',
   },
   // Direkt nach den Menschen (Auftrag firmenordner-rechte-im-frontend,
   // 22.09.2026): wer welchen Ordner sieht, ist dieselbe Frage wie wer welche
@@ -72,26 +69,26 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'firmenordner',
     label: 'Firmenordner',
     icon: <FolderTree />,
-    description: 'Ordner, Rechte je Person, letzte Änderungen',
   },
+  // Seit M5 ein Bereich der Verwaltung und keine eigene Ansicht der
+  // Aktivitätsleiste mehr: welches Modell auf dem Gerät liegt, ist eine Frage
+  // an das Gerät, wie die Lizenz und das System.
+  { id: 'modelle', label: 'Modelle', icon: <Cpu /> },
   {
     id: 'ki',
     label: 'KI',
     icon: <Sparkles />,
-    description: 'Standardwerte der Sprachmodelle',
   },
-  { id: 'security', label: 'Sicherheit', icon: <Lock />, description: 'Gerätezertifikat' },
+  { id: 'security', label: 'Sicherheit', icon: <Lock /> },
   {
     id: 'privacy',
     label: 'Datenschutz',
     icon: <ShieldAlert />,
-    description: 'DSGVO: Auskunft und Löschung',
   },
   {
     id: 'system',
     label: 'System',
     icon: <Server />,
-    description: 'Auslastung, Aktualisierungen, Sicherung, Selbstheilung',
   },
   // Neben dem System (J35): was das Geraet traegt, ist eine Frage an das
   // Geraet und nicht an einen Menschen -- und wer nach dem Grund sucht, warum
@@ -100,7 +97,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'lizenz',
     label: 'Lizenz',
     icon: <KeyRound />,
-    description: 'Stufe, Konten und Apps, Fingerabdruck, einspielen',
   },
   // Nach der Lizenz (J38): was die Apps nach draussen duerfen, ist wie sie eine
   // Frage an das Geraet -- und der Ort, an dem ein Administrator nachliest,
@@ -109,20 +105,18 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'verbindungen',
     label: 'Verbindungen',
     icon: <Network />,
-    description: 'Was Apps ins Internet dürfen, genutzt, abgewiesen',
   },
   {
     id: 'remote-access',
     label: 'Fernzugriff',
     icon: <Globe />,
-    description: 'Zugriff von unterwegs',
   },
 ];
 
 const SETTINGS_SECTION_IDS: SettingsSectionId[] = SETTINGS_SECTIONS.map(s => s.id);
 
 /**
- * Alt-/Unter-Sektions-Ids (und Vorkonsolidierungs-Ids) auf die 6 Sektionen
+ * Alt-/Unter-Sektions-Ids (und Vorkonsolidierungs-Ids) auf die Bereiche
  * abbilden, damit alte Lesezeichen / Deep-Links weiter funktionieren.
  */
 export function resolveTab(param: string | null): SettingsSectionId {

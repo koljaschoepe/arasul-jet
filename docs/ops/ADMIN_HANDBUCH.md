@@ -50,39 +50,29 @@ jede seiner IP-Adressen. Heisst das Geraet anders, gilt sein Name.
 
 ### Die Oberflaeche
 
-Die Oberflaeche nach der Anmeldung ist ein Dreispalten-Raster in zwei Themes
-(Hell · Dunkel, Vorgabe Hell). Das Theme wird unter **Einstellungen →
-Erscheinungsbild** gewaehlt und gehoert dem angemeldeten Menschen: es gilt an
-jedem Rechner, an dem er sich anmeldet, und nicht nur in dem Browser, in dem
-er es umgestellt hat. Alle Flaechen (Sidebar, Mitte, rechte Spalte)
-teilen denselben Hintergrund; getrennt wird nur durch feine Linien. Links
-stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
+Die Oberflaeche nach der Anmeldung zeigt links eine schmale Leiste und daneben
+genau eine Ansicht, in zwei Themes (Hell · Dunkel, Vorgabe Hell). Das Theme
+wird unter **Einstellungen → Erscheinungsbild** gewaehlt und gehoert dem
+angemeldeten Menschen: es gilt an jedem Rechner, an dem er sich anmeldet, und
+nicht nur in dem Browser, in dem er es umgestellt hat.
 
-- **Activity Bar (ganz links):** schmale Icon-Leiste mit **Apps** ganz oben.
-  Fuer Administratoren zusaetzlich **Modelle** und ganz unten
-  **Einstellungen** (inkl. System-Status).
-- **Sidebar (links):** zeigt die gewaehlte Ansicht: die eigenen Apps (Vorgabe),
-  Modell-Filter oder die Bereiche der Einstellungen. Ein erneuter Klick auf die
-  aktive Ansicht klappt sie ein (auch `Strg/⌘ + B`).
-- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Uebersicht, Apps, Modelle,
-  Einstellungen), schliessbar, werden nach einem Neuladen wiederhergestellt.
-  Eine App laeuft in ihrem eigenen Rahmen; Test- und Livestand sind zwei Tabs.
-  Die **Uebersicht** zeigt dem Administrator oben die **Freigaben, die auf eine
-  Entscheidung warten** (siehe unten), darunter die eigenen Apps als Kacheln;
-  einem Mitarbeiter zeigt sie nur seine Apps, an einer Kachel hoechstens eine
-  Zahl wartender Freigaben. Eine Kachel
-  mit dem Zeichen **Test** ist ein Teststand: diese Fassung ist noch nicht
-  live.
-- **Rechte Spalte:** die **Notizen** — ein Zettel je Mensch, der sich nach
-  einer Sekunde Ruhe von selbst speichert. Ein- und ausblendbar.
-- **Auf einem schmalen Bildschirm** (unter 900 Pixel, also am Telefon) gibt es
-  keine dritte Spalte. Die Notizen liegen dort als **Blatt** ueber der Mitte:
-  derselbe Schalter oben rechts zieht sie hoch, ein Klick auf das X oder das
-  Oeffnen einer Ansicht legt sie wieder weg. Geschriebenes geht dabei nicht
-  verloren.
-- **Layout-Schalter (oben rechts):** **zwei** Symbole blenden die Sidebar und
-  die Notizen unabhaengig ein/aus. Daneben das **Benutzermenue** (Name, Rolle,
-  Abmelden) und — nur fuer Administratoren — die Einstellungen.
+- **Aktivitaetsleiste (links):** ganz oben das **Haus** zur Startseite, mit der
+  Zahl der Freigaben, die auf eine Entscheidung warten. Darunter die
+  freigegebenen **Apps** als Kuerzel, der Name erscheint beim Ueberfahren; ein
+  Teststand traegt einen Punkt und heisst „(Test)". Unten fest:
+  **Verwaltung** (nur Administratoren), das **Zahnrad** (die persoenlichen
+  Einstellungen) und das **eigene Bild** (Name und Abmelden).
+- **Ansicht:** immer genau eine — die Startseite, eine App, die Einstellungen
+  oder die Verwaltung. Die **Startseite** zeigt dem Administrator oben die
+  **Freigaben, die auf eine Entscheidung warten** (siehe unten), darunter die
+  eigenen Apps als Kacheln; einem Mitarbeiter zeigt sie nur seine Apps, an
+  einer Kachel hoechstens eine Zahl wartender Freigaben.
+- **Verwaltung:** links eine eigene Leiste der Bereiche (Allgemein, Apps,
+  Personen, Firmenordner, Modelle, KI, Sicherheit, Datenschutz, System, Lizenz,
+  Verbindungen, Fernzugriff), daneben der gewaehlte Bereich. Im Bereich
+  **System** stehen Auslastung, Dienste, Aktualisierungen, Sicherung,
+  Selbstheilung und Werksreset untereinander und klappen auf. Jeder Bereich hat
+  eine eigene Adresse, etwa `/workspace/verwaltung/system/sicherung`.
 - **Statusleiste (unten), fuer Administratoren:** Verbindung und Version, das
   aktuell geladene KI-Modell samt belegtem KI-RAM (klickbar: Standardmodell
   waehlen), laufende Modell-Downloads und rechts die Zahl der **Freigaben, die
@@ -90,7 +80,7 @@ stehen die Apps, in der Mitte die Uebersicht oder eine App, rechts die Notizen.
   einem Satz, wenn das Geraet nicht antwortet.
 
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
-hat, seine Notizen und sein Konto. Eine Freigabe entscheidet er in der App, in
+hat, seine Einstellungen und sein Konto. Eine Freigabe entscheidet er in der App, in
 der sie entsteht (siehe unten), und an der Kachel der App steht hoechstens die
 Zahl der wartenden. Keine Fassung, keine Verbindungsanzeige, keine Zahlen der
 Technik; auch keine Meldung nennt einen Fehlercode oder englischen Text.
