@@ -23,7 +23,12 @@ RUN apk add --no-cache \
     # `ionice` (util-linux-misc) laesst es nur lesen, wenn die Platte sonst
     # nichts zu tun hat -- busybox bringt keines mit.
     restic \
-    util-linux-misc
+    util-linux-misc \
+    # Einen Bereich des Firmenordners zurueckholen (Auftrag
+    # sicherung-zurueckholen, M5): Inhalt vergleichen, an Ort und Stelle
+    # schreiben, Ueberzaehliges entfernen, die Verwaltung des Dateidienstes
+    # auslassen -- `rsync` kann das in einem Aufruf (wiederherstellen.sh).
+    rsync
 
 # Backup volume mount inside the container — keep in sync with the volume
 # mount target in compose/compose.monitoring.yaml. The drill scripts default

@@ -388,6 +388,22 @@ STAND_AUSSCHLUESSE=(
     "${CONFIG_SRC}/config/secrets/backup_encryption_key"
 )
 
+# EIN STAND VOR DEM ZURUECKHOLEN (Auftrag sicherung-zurueckholen, M5). Das
+# Backend ruft diesen Lauf vor jedem Zurueckholen mit
+# ARASUL_STAND_ANLASS=vorher und ARASUL_STAND_FUER=app:<id>|bereich:<k>|geraet
+# auf. Es ist ein ganz normaler Stand, nur mit zwei Tags mehr: `vorher` haelt
+# ihn aus der Aufbewahrung 7/12/60 heraus (staende.sh, stand_aufbewahren), und
+# `fuer:…` sagt der Oberflaeche, wovor er entstand. Mit ihm laesst sich das
+# Zurueckholen selbst rueckgaengig machen -- auf demselben Weg.
+STAND_EXTRA_TAGS=()
+if [ "${ARASUL_STAND_ANLASS:-}" = vorher ]; then
+    STAND_EXTRA_TAGS+=(vorher)
+    if [[ "${ARASUL_STAND_FUER:-}" =~ ^(app:[a-z0-9][a-z0-9-]{0,63}|bereich:[a-z0-9][a-z0-9-]{0,63}|geraet)$ ]]; then
+        STAND_EXTRA_TAGS+=("fuer:${ARASUL_STAND_FUER}")
+    fi
+    echo "[$TIMESTAMP] Stand vor dem Zurueckholen (${ARASUL_STAND_FUER:-ohne Angabe})"
+fi
+
 # -----------------------------------------------------------------------------
 # Der Stand auf diesem Geraet
 # -----------------------------------------------------------------------------
@@ -548,7 +564,9 @@ apps_als_json() {
 # und welche Apps es kennt.
 schreibe_manifest() {
     local wurzel="$1" repo="$2" staende apps_json dateien_json
-    staende=$(stand_liste "$repo" "$BACKUP_ENCRYPT_KEY_FILE" 2>/dev/null || echo '[]')
+    # Mit dem Inhalt je Stand: was die vorige Fassung schon wusste, bleibt.
+    staende=$(stand_liste_mit_inhalt "$repo" "$BACKUP_ENCRYPT_KEY_FILE" \
+        "$(jq -c '.staende // []' "${wurzel}/MANIFEST.json" 2>/dev/null || echo '[]')" 2>/dev/null || echo '[]')
     apps_json=$(apps_als_json)
     dateien_json=$(
         for datei in "$STAND_DB_QUELLE"/arasul_db.sql "$STAND_DB_QUELLE"/apps/*.sql; do
@@ -565,7 +583,7 @@ schreibe_manifest() {
         --argjson dateien "${dateien_json:-[]}" \
         --argjson bytes "$(( $(stand_groesse_kb "$repo") * 1024 ))" \
         '{zeitpunkt:$zeitpunkt, abdruck:$abdruck, repo:$repo, apps:$apps, dateien:$dateien, bytes:$bytes,
-          staende:($staende | map({id, kurz, zeit}))}' \
+          staende:($staende | map({id, kurz, zeit, vorher, fuer, inhalt}))}' \
         > "${wurzel}/.MANIFEST.neu" && mv -f "${wurzel}/.MANIFEST.neu" "${wurzel}/MANIFEST.json"
 }
 
@@ -681,8 +699,11 @@ rm -rf "$STAND_DB_QUELLE"
 # der ihn angelegt hat; sie werden aus der vorigen Fassung uebernommen.
 STAENDE_JSON=/backups/staende.json
 if [ -n "$STAND_REPO" ] && stand_oeffnet "$STAND_REPO" "$BACKUP_ENCRYPT_KEY_FILE"; then
-    LISTE=$(stand_liste "$STAND_REPO" "$BACKUP_ENCRYPT_KEY_FILE" || echo '[]')
     VORHER=$(cat "$STAENDE_JSON" 2>/dev/null || echo '{}')
+    # Je Stand, was darin steht (Apps, App-Datenbanken, Bereiche des
+    # Firmenordners): danach waehlt die Oberflaeche beim Zurueckholen.
+    LISTE=$(stand_liste_mit_inhalt "$STAND_REPO" "$BACKUP_ENCRYPT_KEY_FILE" \
+        "$(jq -c '.staende // []' <<<"$VORHER" 2>/dev/null || echo '[]')" || echo '[]')
     jq -n \
         --arg zeitpunkt "$(date -Iseconds)" \
         --arg repo "$(basename "$STAND_REPO")" \
