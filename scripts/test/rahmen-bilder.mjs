@@ -212,6 +212,8 @@ async function rahmenPruefen(seite, konto) {
   await seite.click('[data-testid="workspace-benutzermenue"]');
   const menue = seite.locator('[role="dialog"]');
   await menue.waitFor();
+  // Das Popover blendet ein; das Bild soll es zeigen.
+  await seite.waitForTimeout(400);
   const knoepfe = await menue.locator('button').count();
   pruefe(`${wer}: Kontomenü nur Name und Abmelden`, knoepfe === 1, `${knoepfe} Knopf`);
   await seite.screenshot({ path: path.join(ZIEL, `nachher-${wer}-kontomenue.png`) });
