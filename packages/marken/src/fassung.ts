@@ -125,4 +125,11 @@
  * hat, bekommt es ohne Uebergang. Kein Name, keine Eigenschaft aendert sich --
  * eine App auf 5.2.0 sieht nur die Auswahl anders.
  */
-export const FASSUNG = '5.2.1';
+/*
+ * 5.3.0: die Bibliothek gibt es zur Laufzeit. Das Geraet liefert alle drei
+ * Saetze, die Tokens und das fertig uebersetzte Stylesheet unter
+ * `/marken/<haupt>/` aus (`laufzeit.config.mjs`), und eine App, die von dort
+ * laedt, nennt im Manifest nur die Hauptzahl. Kein Name faellt weg, keine
+ * Eigenschaft aendert sich: eine App auf 5.2.1 laeuft unveraendert weiter.
+ */
+export const FASSUNG = '5.3.0';

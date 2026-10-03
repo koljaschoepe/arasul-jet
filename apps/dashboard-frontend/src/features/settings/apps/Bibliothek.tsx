@@ -29,6 +29,12 @@
  * Backend: die Shell ÜBERSETZT die Bibliothek mit, also ist ihre Fassung die
  * des Geräts. Eine zweite Zahl daneben wäre eine, die eines Tages etwas
  * anderes sagt.
+ *
+ * ZUR LAUFZEIT (Kontrakt 9, M5). Nennt ein Stand nur die Hauptzahl
+ * (`"marken": "5"`), lädt er die Bibliothek vom Gerät unter `/marken/5/` und
+ * trägt keine Kopie, die veralten könnte: er steht immer auf der Fassung des
+ * Geräts. Gewarnt wird dann nur, wenn die Hauptzahl nicht die des Geräts ist,
+ * denn diese Adresse liefert das Gerät nicht aus.
  */
 import { AlertTriangle } from 'lucide-react';
 import { Badge, FASSUNG } from '@marken';
@@ -36,6 +42,14 @@ import { Badge, FASSUNG } from '@marken';
 /** Drei Zahlen als Zahlen: `3.10.0` steht hinter `3.9.0` und nicht davor. */
 function zahlen(fassung: string): number[] {
   return fassung.split('.').map(teil => Number.parseInt(teil, 10) || 0);
+}
+
+/** Die Hauptzahl der Fassung des Geräts: die Adresse `/marken/<haupt>/`. */
+const HAUPT = FASSUNG.split('.')[0] ?? '';
+
+/** Nur die Hauptzahl heißt: zur Laufzeit vom Gerät, keine Kopie. */
+function zurLaufzeit(fassung: string): boolean {
+  return /^\d+$/.test(fassung);
 }
 
 /** Ist `a` älter als `b`? */
@@ -53,15 +67,17 @@ function aelter(a: string, b: string): boolean {
 }
 
 /**
- * Was die Verwaltung über die Bibliothek eines Standes sagt. Fünf Fälle, und
- * genau zwei davon sind eine Warnung: `aelter` und `fehlt` — beide nur, wenn
- * der Stand ein Frontend hat.
+ * Was die Verwaltung über die Bibliothek eines Standes sagt. Sieben Fälle, und
+ * genau drei davon sind eine Warnung: `aelter`, `fehlt` und
+ * `laufzeit-fremd` — alle nur, wenn der Stand ein Frontend hat.
  */
 type BibliothekBefund =
   | { art: 'ohne-frontend' }
   | { art: 'gleich'; fassung: string }
   | { art: 'aelter'; fassung: string }
   | { art: 'neuer'; fassung: string }
+  | { art: 'laufzeit'; fassung: string }
+  | { art: 'laufzeit-fremd'; fassung: string }
   | { art: 'fehlt' };
 
 export function bibliothekBefund(fassung: string | null, hatFrontend: boolean): BibliothekBefund {
@@ -71,6 +87,9 @@ export function bibliothekBefund(fassung: string | null, hatFrontend: boolean): 
   if (!fassung) {
     return { art: 'fehlt' };
   }
+  if (zurLaufzeit(fassung)) {
+    return { art: fassung === HAUPT ? 'laufzeit' : 'laufzeit-fremd', fassung };
+  }
   if (fassung === FASSUNG) {
     return { art: 'gleich', fassung };
   }
@@ -79,7 +98,7 @@ export function bibliothekBefund(fassung: string | null, hatFrontend: boolean): 
 
 /** Ist dieser Befund eine Warnung? */
 function warnt(befund: BibliothekBefund): boolean {
-  return befund.art === 'aelter' || befund.art === 'fehlt';
+  return befund.art === 'aelter' || befund.art === 'fehlt' || befund.art === 'laufzeit-fremd';
 }
 
 /** Der Befund in Worten — dieselben in Liste und Karte. */
@@ -99,6 +118,12 @@ function wortlaut(befund: BibliothekBefund, knapp: boolean): string {
         : `${befund.fassung}, neuer als das Gerät (${FASSUNG})`;
     case 'fehlt':
       return knapp ? 'nicht genannt' : 'nicht genannt: die App sagt nicht, worauf sie steht';
+    case 'laufzeit':
+      return knapp ? `vom Gerät, ${FASSUNG}` : `vom Gerät zur Laufzeit, ${FASSUNG}`;
+    case 'laufzeit-fremd':
+      return knapp
+        ? `vom Gerät, ${befund.fassung} statt ${HAUPT}`
+        : `vom Gerät zur Laufzeit, aber Hauptzahl ${befund.fassung}: das Gerät liefert ${HAUPT} (${FASSUNG})`;
   }
 }
 
@@ -162,7 +187,13 @@ export function Bibliothek({
 
   return (
     <span
-      className={befund.art === 'gleich' ? 'font-mono text-foreground' : 'text-muted-foreground'}
+      className={
+        befund.art === 'gleich'
+          ? 'font-mono text-foreground'
+          : befund.art === 'laufzeit'
+            ? 'text-foreground'
+            : 'text-muted-foreground'
+      }
       data-testid={testId}
       data-befund={befund.art}
     >

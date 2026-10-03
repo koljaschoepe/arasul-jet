@@ -180,8 +180,8 @@ describe('aenderungstext', () => {
 describe('Kontrakt 8 im Kontrakt', () => {
   const k = appKontrakt.kontrakt();
 
-  it('geht auf 8', () => {
-    expect(k.kontrakt).toBe(8);
+  it('geht auf 8 oder hoeher (9 brachte die Bibliothek zur Laufzeit)', () => {
+    expect(k.kontrakt).toBeGreaterThanOrEqual(8);
   });
 
   it('nennt die Felder im Schema', () => {

@@ -32,7 +32,7 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run marken:laufzeit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -40,7 +40,8 @@
     "lint": "eslint src/ --ext .ts,.tsx",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "knip": "knip --no-config-hints",
-    "marken": "vite build --config ../../packages/marken/vite.config.mjs"
+    "marken": "vite build --config ../../packages/marken/vite.config.mjs",
+    "marken:laufzeit": "vite build --config ../../packages/marken/laufzeit.config.mjs"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

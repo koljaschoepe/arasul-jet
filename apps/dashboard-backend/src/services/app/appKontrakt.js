@@ -60,7 +60,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 8;
+const KONTRAKT_VERSION = 9;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -194,6 +194,47 @@ const KONTRAKT_VERSION = 8;
  * einspielt.
  */
 
+/*
+ * Fassung 9 (M5, 03.10.2026): das Geraet liefert seine Bibliothek ZUR
+ * LAUFZEIT aus, unter `/marken/<haupt>/`, und `marken` im Manifest kennt
+ * dafuer eine zweite Form: nur die Hauptzahl (`"5"`). Eine App in dieser Form
+ * traegt keine Kopie, sie laedt Bausteine, Muster, Tokens und das fertige
+ * Stylesheet vom Geraet und sieht nach einem Update ohne Neubau aus wie das
+ * Geraet. Drei Zahlen (`"5.2.1"`) bleiben die Form fuer eine Kopie, und die
+ * Verwaltung meldet sie weiter, sobald sie veraltet.
+ *
+ * Dazu der Abschnitt `marken`: Adresse, Eingaenge, Import-Weg mit und ohne
+ * Bau und die Versionsregel.
+ *
+ * FREIWILLIG, jedes Paket von Fassung 8 bleibt gueltig und laeuft
+ * unveraendert. Die Zahl geht trotzdem mit, aus dem Grund von 3, 4, 7 und 8:
+ * ein Kit, das gegen 8 prueft, wiese `"marken": "5"` als ungueltige Fassung
+ * ab, obwohl das Geraet sie nimmt.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * muss 9 kennen, bevor ein Kit auf ein Geraet mit dieser Fassung einspielt.
+ */
+
+/**
+ * Die Bibliothek zur Laufzeit (Kontrakt 9): wo sie liegt, wie eine App sie
+ * holt und wann sich die Adresse aendert.
+ *
+ * Die Fassung selbst steht NICHT hier: das Backend uebersetzt die Bibliothek
+ * nicht mit, die Shell tut es (`FASSUNG` aus `@marken`), und das Frontend
+ * legt beim Bau `/marken/marken.json` daneben. Eine zweite Zahl hier waere
+ * eine, die eines Tages etwas anderes sagt.
+ */
+const MARKEN_REGELN = Object.freeze([
+  'Eine App KANN die Bibliothek zur Laufzeit vom Geraet laden, statt eine Kopie mitzubringen. Dann nennt sie in `app.json` nur die Hauptzahl (`"marken": "5"`) und das Paket traegt keine Datei der Bibliothek.',
+  'Die Adresse ist `/marken/<haupt>/`, absolut und fuer jede App und jeden Stand dieselbe (auch im Teststand `/apps/<id>/test/`). Sie liegt auf derselben Herkunft wie die App, die Content-Security-Policy des Geraets laesst sie zu.',
+  'Ohne Bau: `<link rel="stylesheet" href="/marken/5/marken.css">` und `import { h, rendern, Seitenleiste, Datenliste, Freigabe } from "/marken/5/marken.js"`; `h(...)` statt JSX. Die App braucht kein Tailwind, die Klassen der Primitive stehen fertig in `marken.css`.',
+  'Mit Bau: dieselben zwei Dateien, und `react`, `react-dom`, `react-dom/client`, `react/jsx-runtime` und die Bibliothek bleiben ausserhalb des Buendels (Rollup `external` mit `output.paths` auf `/marken/5/react.js`, `/marken/5/react-dom.js`, `/marken/5/react-dom-client.js`, `/marken/5/jsx-runtime.js`, `/marken/5/marken.js`). React gibt es dann genau einmal, das des Geraets; ein zweites bricht jeden Hook.',
+  'VERSIONSREGEL: unter `/marken/5/` steht immer die neueste Fassung 5.x des Geraets. Innerhalb einer Hauptzahl faellt kein Name weg und keine Eigenschaft aendert ihre Bedeutung, also bekommt die App mit jedem Update des Geraets die neue Fassung, ohne Neubau. Ein Bruch hebt die Hauptzahl und damit die Adresse; das Geraet liefert nur die aktuelle Hauptzahl aus, und die Verwaltung meldet eine App, die eine andere nennt.',
+  'Welche Fassung und Hauptzahl das Geraet ausliefert, steht ohne Anmeldung in `/marken/marken.json` (`fassung`, `haupt`, `adresse`, `eingaenge`); `/marken/<haupt>/marken.json` nennt dazu jede Datei mit sha256.',
+  'Cache: die festen Namen (`marken.js`, `marken.css`, `react.js` ...) tragen `Cache-Control: no-cache` mit ETag, der Browser fragt nach und bekommt 304, bis ein Update sie aendert. Die Teile `teil-*.js` tragen einen Hash im Namen und `immutable`.',
+  'Eine Kopie (drei Zahlen, `"marken": "5.2.1"`) laeuft unveraendert weiter; die Verwaltung meldet sie, sobald das Geraet weiter ist.',
+]);
+
 /**
  * Die Regeln des Manifests, die kein JSON-Schema traegt.
  *
@@ -211,7 +252,7 @@ const MANIFEST_REGELN = Object.freeze([
   'Unbekannte Felder werden abgewiesen, nicht ignoriert.',
   '`modelle` ist eine Forderung, keine Lieferung: das Geraet installiert kein Modell nach, es sagt beim Einspielen, welches fehlt.',
   '`flows` ist umgekehrt eine LIEFERUNG (seit Kontrakt 2): das Paket bringt die Dateien mit, das Geraet registriert sie je App und Stand.',
-  '`marken` nennt die Fassung des Designsystems, auf der die App steht (seit Kontrakt 4, freiwillig). Das Geraet vergleicht sie mit seiner eigenen und meldet in der App-Verwaltung eine, die aelter ist -- eine Kopie der Bibliothek veraltet lautlos.',
+  '`marken` nennt die Fassung des Designsystems, auf der die App steht (seit Kontrakt 4, freiwillig). Drei Zahlen heissen: die App traegt eine Kopie; das Geraet vergleicht sie mit seiner eigenen und meldet in der App-Verwaltung eine, die aelter ist -- eine Kopie der Bibliothek veraltet lautlos. Nur die Hauptzahl (`"5"`, seit Kontrakt 9) heisst: die App laedt die Bibliothek zur Laufzeit vom Geraet, siehe `marken`.',
   '`agent` nennt die Routen, die diese App einem Agenten anbietet (seit Kontrakt 6, freiwillig). Eine Liste; je Eintrag `method`, `path`, `purpose`, `params` und `writes`, und nichts sonst.',
   '`agent[].path` ist RELATIV zur Schnittstelle der App (`/apps/<id>/api/`): ohne Anfrage, ohne `..`, ohne leeres Stueck, hoechstens 200 Zeichen. Ein fuehrender Schraegstrich wird abgeschnitten, nicht abgewiesen.',
   '`agent[].purpose` ist ein Satz in EINER Zeile, hoechstens 200 Zeichen.',
@@ -772,6 +813,23 @@ function kontrakt() {
       },
       regeln: LAST_REGELN,
     },
+    // Kontrakt 9: die Bibliothek zur Laufzeit.
+    marken: {
+      adresse: '/marken/<haupt>/',
+      verzeichnis: '/marken/marken.json',
+      manifest: { laufzeit: '"marken": "<haupt>"', kopie: '"marken": "<fassung>"' },
+      eingaenge: {
+        'marken.js': 'Bausteine, Primitive, Muster, dazu h, rendern und die Hooks',
+        'marken.css': 'Tokens beider Themes, Regeln der Bausteine, Klassen der Primitive',
+        'diagramm.js': 'Chart, Sparkline, SERIENFARBEN',
+        'react.js': 'react',
+        'react-dom.js': 'react-dom',
+        'react-dom-client.js': 'react-dom/client',
+        'jsx-runtime.js': 'react/jsx-runtime',
+      },
+      theme: 'data-theme="dark" am <html> der App, gesetzt von der Shell; Hell ist kein Attribut',
+      regeln: MARKEN_REGELN,
+    },
     endpunkte: ENDPUNKTE,
   };
 }
@@ -787,6 +845,7 @@ module.exports = {
   PROTOKOLL_REGELN,
   AUSLESEN_REGELN,
   BILDER_REGELN,
+  MARKEN_REGELN,
   ENDPUNKTE,
   VERGEBENE_PFADE,
   kontrakt,

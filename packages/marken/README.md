@@ -274,6 +274,27 @@ Eine App **sagt in ihrem `app.json`**, auf welcher Fassung sie steht
 ist als die Shell. `scripts/test/marken.py` (Punkt 8) hält die Angabe der
 Beispielapp an dieser Bibliothek fest.
 
+## Die Auslieferung zur Laufzeit
+
+Das Gerät liefert die Bibliothek selbst aus, unter `/marken/<haupt>/`: alle
+drei Sätze als ES-Modul (`marken.js`), React als eigene Eingänge (`react.js`,
+`react-dom.js`, `react-dom-client.js`, `jsx-runtime.js`), das Diagramm
+(`diagramm.js`) und ein **fertig übersetztes** Stylesheet (`marken.css`:
+Tokens, Regeln der Bausteine, die Tailwind-Klassen der Primitive). Eine App,
+die von dort lädt, braucht weder Tailwind noch eine Kopie und sieht nach einem
+Update des Geräts ohne Neubau aus wie das Gerät.
+
+```bash
+npm run marken:laufzeit --workspace=arasul-dashboard-frontend   # nach apps/dashboard-frontend/dist/marken/
+```
+
+Gebaut wird es nicht eingecheckt, sondern mit der Shell (`npm run build` ruft
+es nach `vite build` auf) und von nginx im Frontend-Container ausgeliefert.
+Der Bau steht in `laufzeit.config.mjs`, die Eingänge in `laufzeit/`.
+Hauptzahl und Fassung kommen aus `src/fassung.ts`; ein Bruch hebt die
+Hauptzahl und damit die Adresse. Den Weg für App-Entwickler beschreibt
+[`docs/features/APPS.md`](../../docs/features/APPS.md#die-bibliothek-zur-laufzeit-m5).
+
 ## Das Bündel für Apps ohne Bau
 
 ```bash

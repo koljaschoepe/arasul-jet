@@ -224,6 +224,27 @@ oder eine App bisher tat, sich ändert. Den Schlüssel dafür legt ein Administr
 für den Anlass an (`scripts/util/kit-schluessel.sh anlegen <Name> system:update`)
 und widerruft ihn danach.
 
+## Die Bibliothek zur Laufzeit: Kontrakt 9 (M5, 03.10.2026)
+
+Eine App **kann** die Bibliothek vom Gerät laden, statt sie als Kopie ins
+Paket zu legen. Dann nennt ihr Manifest nur die Hauptzahl:
+
+```json
+{ "marken": "5" }
+```
+
+und ihr Frontend lädt `/marken/5/marken.css` und `/marken/5/marken.js`. Das
+Paket trägt keine Datei der Bibliothek. Der Kontrakt sagt es im Abschnitt
+`marken` (Adresse, Verzeichnis `/marken/marken.json`, Eingänge, Import-Weg,
+Versionsregel); den Weg für App-Entwickler mit Beispielen beschreibt
+[APPS.md](APPS.md#die-bibliothek-zur-laufzeit-m5).
+
+**Freiwillig.** Ein Paket mit Kopie (`"marken": "5.2.1"`) rollt unverändert
+aus und bekommt in der Verwaltung weiter die Warnung, sobald es veraltet. Die
+Kontraktversion geht trotzdem auf **9**: ein Kit, das gegen 8 prüft, wiese
+`"marken": "5"` als ungültige Fassung ab. Das Kit hebt `KIT_CONTRACT_VERSIONS`
+auf 9, bevor es auf ein solches Gerät einspielt.
+
 ## Neue Felder: Kontrakt 8 (M5, 02.10.2026)
 
 Fünf Felder, die ein Entwickler im Kit nennt und die das Gerät bis Kontrakt 7
