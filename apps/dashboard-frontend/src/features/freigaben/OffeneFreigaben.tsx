@@ -19,19 +19,40 @@
  * Begründung ist im Backend Pflicht (`AblehnenBody`), und wer sie schreibt,
  * will dabei den Titel und den Zusammenhang sehen. Das Muster macht das.
  *
+ * SEIT M5 (04.10.2026) „FÜR SIE", FÜR JEDEN, und nur, was bei ihm liegt.
+ * Eine neue Freigabe liegt bei der Standardperson ihrer Stufe, die der
+ * Administrator je App setzt; ohne sie bei allen mit Zugang. Jeder mit Zugang
+ * kann eine Freigabe übernehmen oder weitergeben. Deshalb steht unter jeder
+ * Karte, bei wem sie liegt, mit „Weitergeben an …", und darunter — zugeklappt —
+ * was bei anderen liegt, mit „Übernehmen". Die Zahl am Haus zählt nur die
+ * Liste oben (`useOffeneFreigaben`), das Backend filtert, nicht diese Datei.
+ *
  * WAS HIER NICHT STEHT: eine Historie der entschiedenen Freigaben. Die Liste
  * ist ein Posteingang, kein Archiv; wer nachsehen will, wer was entschieden
  * hat, fragt die App (`GET /api/v1/external/apps/.../freigaben`, C7) oder das
  * Sicherheitsprotokoll. Eine zweite Liste daneben hätte die Frage „warum steht
  * das noch da" bei jedem Blick neu gestellt.
  */
-import { ClipboardCheck, Send } from 'lucide-react';
-import { Freigabe, type FreigabeEintrag } from '@marken';
+import { useState } from 'react';
+import { ChevronDown, ChevronRight, ClipboardCheck, Send, UserRound } from 'lucide-react';
+import {
+  Button,
+  Freigabe,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  type FreigabeEintrag,
+} from '@marken';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import {
   useOffeneFreigaben,
   useEingereichteFreigaben,
   useFreigabeEntscheiden,
+  useFreigabenBeiAnderen,
+  useFreigabeVerlegen,
   type OffeneFreigabe,
 } from '@/hooks/useOffeneFreigaben';
 import { wartetSeit, oderListe } from './frist';
@@ -69,12 +90,20 @@ function regelSatz(f: {
  * (26.09.2026): „faktum" ist ein Pfad, „Faktum" ist das, was der Mensch links
  * in seiner Leiste sieht.
  */
+/** Die Stufe in Worten: die Bezeichnung aus dem Flow, sonst ihr Name. */
+function stufeName(f: Pick<OffeneFreigabe, 'stufe' | 'stufe_bezeichnung'>): string | null {
+  return f.stufe_bezeichnung || f.stufe || null;
+}
+
 function alsEintrag(f: OffeneFreigabe): FreigabeEintrag {
+  const stufe = stufeName(f);
   return {
     id: f.id,
     titel: f.titel,
     zusammenhang: f.zusammenhang,
-    herkunft: `${f.app_name || f.app_id}${f.stand === 'test' ? ' (Test)' : ''}`,
+    herkunft:
+      `${f.app_name || f.app_id}${f.stand === 'test' ? ' (Test)' : ''}` +
+      (stufe ? ` · Stufe ${stufe}` : ''),
     einreicher: f.einreicher,
     frist: f.frist,
     angefragtAm: f.angefragt_am,
@@ -107,12 +136,154 @@ function Eingereicht() {
           <span>
             Ihr Vorgang <span className="font-medium text-foreground">„{e.titel}“</span> (
             {e.app_name || e.app_id}) {wartetSeit(e.angefragt_am)}
-            {e.kreis.length > 0 ? ` auf ${oderListe(e.kreis)}.` : '; niemand kann ihn entscheiden.'}
+            {e.liegt_bei
+              ? ` bei ${e.liegt_bei}.`
+              : e.kreis.length > 0
+                ? ` auf ${oderListe(e.kreis)}.`
+                : '; niemand kann ihn entscheiden.'}
             {e.ohne_einreicher && ' Vier-Augen-Prinzip: Sie entscheiden nicht mit.'}
           </span>
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Unter jeder Karte: bei wem sie liegt, und an wen sie weitergehen kann (M5).
+ *
+ * Weitergeben geht nur an jemanden aus dem Kreis — das Backend prüft es, und
+ * die Auswahl zeigt auch nur diese. Ohne Standardperson liegt die Freigabe bei
+ * allen mit Zugang; der Administrator liest dazu, wo er das ändert.
+ */
+function Zustaendigkeit({
+  f,
+  ich,
+  istAdmin,
+}: {
+  f: OffeneFreigabe;
+  ich: string;
+  istAdmin: boolean;
+}) {
+  const verlegen = useFreigabeVerlegen();
+  const toast = useToast();
+  const andere = (f.kreis ?? []).filter(k => k !== ich);
+  const stufe = stufeName(f);
+
+  const weitergeben = (an: string) => {
+    verlegen.mutate(
+      { id: f.id, an },
+      { onSuccess: () => toast.success(`„${f.titel}" liegt jetzt bei ${an}.`) }
+    );
+  };
+
+  return (
+    <div
+      className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 px-ui-3 text-ui-xs text-muted-foreground"
+      data-testid={`freigabe-${f.id}-zustaendig`}
+    >
+      <span className="flex items-center gap-1">
+        <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
+        {f.liegt_bei ? 'Liegt bei Ihnen.' : 'Liegt bei allen mit Zugang.'}
+      </span>
+      {!f.liegt_bei && istAdmin && (
+        <span data-testid={`freigabe-${f.id}-hinweis`}>
+          Keine Standardperson{stufe ? ` für die Stufe ${stufe}` : ''}: setzen unter Verwaltung,
+          Apps, {f.app_name || f.app_id}.
+        </span>
+      )}
+      {andere.length > 0 && (
+        <Select value="" disabled={verlegen.isPending} onValueChange={weitergeben}>
+          <SelectTrigger
+            size="sm"
+            className="h-7 w-auto gap-1 text-ui-xs"
+            aria-label={`${f.titel} weitergeben`}
+            data-testid={`freigabe-${f.id}-weitergeben`}
+          >
+            <SelectValue placeholder="Weitergeben an …" />
+          </SelectTrigger>
+          <SelectContent>
+            {andere.map(k => (
+              <SelectItem key={k} value={k} data-testid={`freigabe-${f.id}-an-${k}`}>
+                {k}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Was bei anderen liegt und ich übernehmen kann (M5). Zugeklappt: die Seite
+ * heißt „Für Sie", und dies ist nicht für mich, solange ich es nicht nehme.
+ */
+function BeiAnderen() {
+  const { data } = useFreigabenBeiAnderen();
+  const verlegen = useFreigabeVerlegen();
+  const toast = useToast();
+  const [offen, setOffen] = useState(false);
+  if (!data || data.length === 0) return null;
+
+  const uebernehmen = (f: OffeneFreigabe) => {
+    verlegen.mutate(
+      { id: f.id },
+      { onSuccess: () => toast.success(`„${f.titel}" liegt jetzt bei Ihnen.`) }
+    );
+  };
+
+  return (
+    <div className="mt-3" data-testid="freigaben-bei-anderen">
+      <button
+        type="button"
+        onClick={() => setOffen(o => !o)}
+        aria-expanded={offen}
+        className="flex items-center gap-1 text-ui-sm text-muted-foreground hover:text-foreground"
+        data-testid="freigaben-bei-anderen-schalter"
+      >
+        {offen ? (
+          <ChevronDown className="size-4" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="size-4" aria-hidden="true" />
+        )}
+        {data.length === 1
+          ? '1 Freigabe liegt bei anderen'
+          : `${data.length} Freigaben liegen bei anderen`}
+      </button>
+      {offen && (
+        <ul className="mt-2 flex flex-col rounded-md border border-border">
+          {data.map(f => {
+            const stufe = stufeName(f);
+            return (
+              <li
+                key={f.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
+                data-testid={`bei-anderen-${f.id}`}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-ui-sm font-medium text-foreground">{f.titel}</span>
+                  <span className="block text-ui-xs text-muted-foreground">
+                    {f.app_name || f.app_id}
+                    {stufe ? ` · Stufe ${stufe}` : ''} · liegt bei {f.liegt_bei} ·{' '}
+                    {wartetSeit(f.angefragt_am)}
+                  </span>
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={verlegen.isPending}
+                  onClick={() => uebernehmen(f)}
+                  data-testid={`bei-anderen-${f.id}-uebernehmen`}
+                >
+                  Übernehmen
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -131,6 +302,9 @@ function Eingereicht() {
  */
 export function OffeneFreigaben() {
   const { data, isLoading, isError } = useOffeneFreigaben();
+  const { user } = useAuth();
+  const ich = user?.username ?? '';
+  const istAdmin = user?.role === 'admin';
   const entscheiden = useFreigabeEntscheiden();
   const toast = useToast();
 
@@ -172,10 +346,12 @@ export function OffeneFreigaben() {
   if (data.length === 0) {
     return (
       <section className="mb-6" data-testid="offene-freigaben" data-leer="true">
+        <h2 className="mb-1 text-sm font-semibold text-foreground">Für Sie</h2>
         <p className="flex items-center gap-2 text-ui-sm text-muted-foreground">
           <ClipboardCheck className="size-4 shrink-0" aria-hidden="true" />
-          Freigaben: keine wartet auf Ihre Entscheidung.
+          Keine Freigabe liegt bei Ihnen.
         </p>
+        <BeiAnderen />
         <Eingereicht />
       </section>
     );
@@ -185,15 +361,27 @@ export function OffeneFreigaben() {
     <section className="mb-6" data-testid="offene-freigaben">
       <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
         <ClipboardCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        {data.length === 1
-          ? 'Eine Freigabe wartet auf Ihre Entscheidung'
-          : `${data.length} Freigaben warten auf Ihre Entscheidung`}
+        Für Sie
+        <span className="font-normal text-muted-foreground" data-testid="fuer-sie-zahl">
+          {data.length === 1 ? '1 Freigabe' : `${data.length} Freigaben`}
+        </span>
       </h2>
-      <Freigabe
-        eintraege={data.map(alsEintrag)}
-        beiBestaetigen={e => entscheide(e, 'bestaetigt')}
-        beiAblehnen={(e, grund) => entscheide(e, 'abgelehnt', grund)}
-      />
+      {/* Eine Karte je Freigabe, jede mit eigenem Muster: darunter steht, bei
+          wem sie liegt und an wen sie weitergehen kann, und das Muster der
+          Bibliothek kennt keine solche Zeile. */}
+      <ul className="flex flex-col gap-ui-2" data-testid="fuer-sie">
+        {data.map(f => (
+          <li key={f.id}>
+            <Freigabe
+              eintraege={[alsEintrag(f)]}
+              beiBestaetigen={e => entscheide(e, 'bestaetigt')}
+              beiAblehnen={(e, grund) => entscheide(e, 'abgelehnt', grund)}
+            />
+            <Zustaendigkeit f={f} ich={ich} istAdmin={istAdmin} />
+          </li>
+        ))}
+      </ul>
+      <BeiAnderen />
       <Eingereicht />
     </section>
   );

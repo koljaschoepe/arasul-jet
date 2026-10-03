@@ -91,7 +91,9 @@ src/
                    - **Apps** (`AppsSettings.tsx` + `apps/`): Liste, Stände
                      mit Schalter (`AppStaende.tsx`), Bibliotheksfassung je
                      Stand mit Warnung bei älter/fehlend (`Bibliothek.tsx`),
-                     Tester (`AppTester.tsx`), Flows mit Modell
+                     Tester (`AppTester.tsx`), Freigabestufen mit
+                     Standardperson je Stufe und Hinweis ohne sie
+                     (`AppStufen.tsx`, M5), Flows mit Modell
                      (`FlowAnsicht.tsx`, `ModellDialog.tsx`), Läufe mit
                      Schritten/Gedankengang (`LaufAnsicht.tsx`), Logs.
                      Abfragen/Mutationen in `apps/useAppVerwaltung.ts`.
@@ -148,18 +150,20 @@ src/
                    Dienstes und eigene Ordner mit Stufe aus
                    `GET /api/firmenordner`. Ein 503 heißt „hier gibt es
                    keinen" und ist eine Auskunft, kein Fehler.
-    freigaben/     Die offenen Freigaben, entschieden in der Übersicht —
-                   seit J36 nur für den Administrator (`Startseite` in
-                   `AnsichtInhalt.tsx`); ein Mitarbeiter entscheidet in der App
-                   mit dem Muster `Freigabe` (`@marken`), `OffeneFreigaben`
-                   ist selbst daraus gebaut:
-                   `OffeneFreigaben.tsx` (Liste mit Titel, Zusammenhang,
-                   Restzeit, Bestätigen/Ablehnen-mit-Begründung) und
-                   `frist.ts` (Restzeit in Worten, reine Funktion). Abfrage
+    freigaben/     „Für Sie" auf der Startseite, seit M5 (04.10.2026) für
+                   JEDEN: nur die Freigaben, die bei mir liegen (bei mir
+                   persönlich oder, ohne Standardperson der Stufe, bei allen
+                   mit Zugang; das Backend filtert). Je Freigabe eine Karte
+                   aus dem Muster `Freigabe` (`@marken`), darunter bei wem sie
+                   liegt und „Weitergeben an …" (nur an den Kreis), beim
+                   Admin ohne Standardperson ein Hinweis auf die Verwaltung;
+                   darunter zugeklappt, was bei anderen liegt, mit
+                   „Übernehmen". `OffeneFreigaben.tsx`, `frist.ts`. Abfragen
                    und Mutationen in `hooks/useOffeneFreigaben.ts` — nach
                    JEDEM Ausgang wird die Liste entwertet, auch nach Fehler:
-                   ein 409 heißt gerade, dass die Liste veraltet ist. Steht
-                   die Liste leer, steht sie **gar nicht** da.
+                   ein 409 heißt gerade, dass die Liste veraltet ist. Die
+                   Zahl am Haus zählt nur „bei mir". Leer steht dort eine
+                   Zeile („Keine Freigabe liegt bei Ihnen.").
     entwickler/    Die Schauseite der Bibliothek: `/entwickler/bausteine`,
                    jedes Primitiv **und jedes Muster** aus `@marken` in
                    allen Zuständen, hell und dunkel. Drei Dateien:

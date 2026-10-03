@@ -385,3 +385,50 @@ export function useFlowModell(appId: string) {
     },
   });
 }
+
+/** Eine Freigabestufe der App mit ihrer Standardperson (M5, `GET /api/apps/:id/stufen`). */
+export interface AppStufe {
+  stufe: string;
+  bezeichnung: string | null;
+  flows: string[];
+  person: { id: number; username: string } | null;
+  /** Die Person ist gesetzt UND hat noch Zugang zur App. */
+  gilt: boolean;
+  gesetzt_am: string | null;
+  /** Der Satz für den Admin, wenn neue Freigaben bei allen mit Zugang liegen. */
+  hinweis: string | null;
+}
+
+export interface AppStufen {
+  stufen: AppStufe[];
+  /** Wer Standardperson sein kann: alle aktiven mit Zugang zur App. */
+  personen: { id: number; username: string }[];
+}
+
+const stufenKey = (id: string) => ['apps', 'stufen', id] as const;
+
+export function useAppStufen(appId: string | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: stufenKey(appId ?? ''),
+    queryFn: async () => {
+      const res = await api.get<{ data?: AppStufen }>(`/apps/${appId}/stufen`);
+      return res.data ?? { stufen: [], personen: [] };
+    },
+    enabled: Boolean(appId),
+    staleTime: 10_000,
+  });
+}
+
+/** Die Standardperson einer Stufe setzen; `null` nimmt sie zurück. */
+export function useStufePersonSetzen(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ stufe, benutzerId }: { stufe: string; benutzerId: number | null }) =>
+      api.put(`/apps/${appId}/stufen/${stufe}`, { benutzer_id: benutzerId }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: stufenKey(appId) });
+    },
+  });
+}

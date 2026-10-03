@@ -26,6 +26,9 @@ vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() };
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => toast }));
 
+vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
+import { angemeldet } from '@/__tests__/helpers/authMock';
+
 const IN_EINER_STUNDE = new Date(Date.now() + 60 * 60_000 + 30_000).toISOString();
 
 const EINE = {
@@ -69,6 +72,7 @@ function listen(...runden: unknown[][]) {
   let n = 0;
   apiMock.get.mockImplementation(async (pfad: string) => {
     if (pfad === '/freigabe-anfragen/eingereicht') return { data: eingereicht };
+    if (pfad === '/freigabe-anfragen/bei-anderen') return { data: beiAnderen };
     if (pfad !== '/freigabe-anfragen') return {};
     const runde = runden[Math.min(n, runden.length - 1)];
     n += 1;
@@ -77,10 +81,13 @@ function listen(...runden: unknown[][]) {
 }
 
 let eingereicht: unknown[] = [];
+let beiAnderen: unknown[] = [];
 
 describe('OffeneFreigaben', () => {
   beforeEach(() => {
+    angemeldet({ role: 'mitarbeiter', username: 'clara' });
     eingereicht = [];
+    beiAnderen = [];
     apiMock.get.mockReset();
     apiMock.post.mockReset();
     toast.success.mockReset();
@@ -120,8 +127,8 @@ describe('OffeneFreigaben', () => {
     render(<OffeneFreigaben />, { wrapper: huelle() });
     const zeile = await screen.findByTestId('offene-freigaben');
     expect(zeile).toHaveAttribute('data-leer', 'true');
-    expect(zeile).toHaveTextContent('Freigaben: keine wartet auf Ihre Entscheidung.');
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(zeile).toHaveTextContent('Für Sie');
+    expect(zeile).toHaveTextContent('Keine Freigabe liegt bei Ihnen.');
   });
 
   it('zeigt dem Einreicher, bei wem sein Vorgang liegt', async () => {
@@ -197,7 +204,88 @@ describe('OffeneFreigaben', () => {
     apiMock.post.mockRejectedValue(Object.assign(new Error('Konflikt'), { status: 409 }));
     render(<OffeneFreigaben />, { wrapper: huelle() });
     fireEvent.click(await screen.findByTestId('freigabe-7-bestaetigen'));
-    await waitFor(() => expect(apiMock.get).toHaveBeenCalledTimes(2));
+    // Gezählt wird nur die Liste „bei mir"; daneben holen „bei anderen" und
+    // „eingereicht" ihre eigenen Listen (M5).
+    const offen = () => apiMock.get.mock.calls.filter(c => c[0] === '/freigabe-anfragen').length;
+    await waitFor(() => expect(offen()).toBe(2));
     await waitFor(() => expect(screen.queryByTestId('freigabe-7')).not.toBeInTheDocument());
+  });
+});
+
+describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
+  beforeEach(() => {
+    eingereicht = [];
+    beiAnderen = [];
+    apiMock.get.mockReset();
+    apiMock.post.mockReset();
+    toast.success.mockReset();
+  });
+
+  it('nennt die Stufe und gibt an jemanden aus dem Kreis weiter', async () => {
+    angemeldet({ role: 'mitarbeiter', username: 'clara' });
+    listen([
+      {
+        ...EINE,
+        stufe: 'pruefung',
+        stufe_bezeichnung: 'Prüfung',
+        liegt_bei: 'clara',
+        kreis: ['bernd', 'clara'],
+      },
+    ]);
+    apiMock.post.mockResolvedValue({ data: { id: 7, titel: EINE.titel, liegt_bei: 'bernd' } });
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    expect(await screen.findByText('Beispielapp · Stufe Prüfung')).toBeInTheDocument();
+    expect(screen.getByTestId('freigabe-7-zustaendig')).toHaveTextContent('Liegt bei Ihnen.');
+    expect(screen.getByTestId('fuer-sie-zahl')).toHaveTextContent('1 Freigabe');
+
+    fireEvent.click(screen.getByTestId('freigabe-7-weitergeben'));
+    // Nur der Kreis ohne mich steht zur Wahl.
+    expect(screen.queryByTestId('freigabe-7-an-clara')).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('freigabe-7-an-bernd'));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/7/weitergeben', { an: 'bernd' })
+    );
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('liegt jetzt bei bernd'))
+    );
+  });
+
+  it('sagt dem Admin, dass keine Standardperson gesetzt ist', async () => {
+    angemeldet({ role: 'admin', username: 'probe-admin' });
+    listen([{ ...EINE, stufe: 'leitung', liegt_bei: null, kreis: ['probe-admin', 'bernd'] }]);
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    expect(await screen.findByTestId('freigabe-7-zustaendig')).toHaveTextContent(
+      'Liegt bei allen mit Zugang.'
+    );
+    expect(screen.getByTestId('freigabe-7-hinweis')).toHaveTextContent(
+      'Keine Standardperson für die Stufe leitung'
+    );
+  });
+
+  it('einem Mitarbeiter zeigt es keinen Verwaltungshinweis', async () => {
+    angemeldet({ role: 'mitarbeiter', username: 'clara' });
+    listen([{ ...EINE, stufe: 'leitung', liegt_bei: null, kreis: ['clara'] }]);
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    expect(await screen.findByTestId('freigabe-7-zustaendig')).toBeInTheDocument();
+    expect(screen.queryByTestId('freigabe-7-hinweis')).not.toBeInTheDocument();
+    // Niemand sonst im Kreis: nichts zum Weitergeben.
+    expect(screen.queryByTestId('freigabe-7-weitergeben')).not.toBeInTheDocument();
+  });
+
+  it('klappt auf, was bei anderen liegt, und übernimmt es', async () => {
+    angemeldet({ role: 'mitarbeiter', username: 'clara' });
+    beiAnderen = [{ ...EINE, id: 8, liegt_bei: 'bernd', kreis: ['bernd', 'clara'] }];
+    listen([]);
+    apiMock.post.mockResolvedValue({ data: { id: 8, titel: EINE.titel, liegt_bei: 'clara' } });
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    const schalter = await screen.findByTestId('freigaben-bei-anderen-schalter');
+    expect(schalter).toHaveTextContent('1 Freigabe liegt bei anderen');
+    expect(screen.queryByTestId('bei-anderen-8')).not.toBeInTheDocument();
+    fireEvent.click(schalter);
+    expect(screen.getByTestId('bei-anderen-8')).toHaveTextContent('liegt bei bernd');
+    fireEvent.click(screen.getByTestId('bei-anderen-8-uebernehmen'));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/8/uebernehmen', {})
+    );
   });
 });
