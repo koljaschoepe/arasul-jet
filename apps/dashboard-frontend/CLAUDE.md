@@ -228,7 +228,11 @@ src/
   utils/           Pure utilities (csrf, formatting, token, lazyNachladen —
                    `React.lazy` mit zweitem und drittem Versuch: ein
                    verlorenes `import()` strandete den Menschen sonst auf
-                   einer Fehlerseite, obwohl an seinem Gerät nichts ist).
+                   einer Fehlerseite, obwohl an seinem Gerät nichts ist;
+                   `lazyMitVorladen` dazu mit `vorladen()` für den Leerlauf —
+                   React 19 enthüllt eine frisch suspendierende Ansicht erst
+                   nach rund 300 ms, die Shell lädt Einstellungen, Verwaltung
+                   und Modelle deshalb vor).
   config/          api.ts (API_BASE, getAuthHeaders).
   types/           Cross-feature TypeScript types.
   index.css        Import der Tokens aus `@marken/theme.css` plus die

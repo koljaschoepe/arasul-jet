@@ -84,14 +84,22 @@ async function anmelden(browser, { benutzer, passwort }) {
  * Freigaben für die Dauer der Messung: `probe-admin` gibt beiden Konten die
  * genannten Apps frei und merkt sich, welche davon neu waren.
  */
-async function freigabenSetzen() {
+async function alsAdmin() {
   const api = await request.newContext({ baseURL: URL, ignoreHTTPSErrors: true });
   const anmeldung = await api.post('/api/auth/login', {
     data: { username: KONTEN[0].benutzer, password: KONTEN[0].passwort },
   });
   if (!anmeldung.ok()) throw new Error(`Anmeldung für Freigaben: ${anmeldung.status()}`);
-  const csrf = (await api.storageState()).cookies.find(c => c.name === 'arasul_csrf')?.value;
-  const kopf = { 'X-CSRF-Token': csrf || '' };
+  // Das CSRF-Cookie wechselt nach einer Änderung: je Anfrage frisch lesen.
+  const kopf = async () => ({
+    'X-CSRF-Token':
+      (await api.storageState()).cookies.find(c => c.name === 'arasul_csrf')?.value || '',
+  });
+  return { api, kopf };
+}
+
+async function freigabenSetzen() {
+  const { api, kopf } = await alsAdmin();
   const personen = (await (await api.get('/api/benutzer')).json()).data || [];
   const erteilt = [];
   for (const konto of KONTEN) {
@@ -99,7 +107,7 @@ async function freigabenSetzen() {
     if (!person) throw new Error(`${konto.benutzer} fehlt am Gerät`);
     for (const app of FREIGEBEN) {
       const r = await api.post('/api/freigaben', {
-        headers: kopf,
+        headers: await kopf(),
         data: { app_id: app, benutzer_id: person.id, stand: 'live' },
       });
       const neu = r.ok() && (await r.json()).neu;
@@ -109,13 +117,22 @@ async function freigabenSetzen() {
       );
     }
   }
+  await api.post('/api/auth/logout', { headers: await kopf() });
+  await api.dispose();
+  // Zurückgenommen wird mit einer eigenen Anmeldung: die Messung meldet
+  // probe-admin zwischendurch ab.
   return async () => {
+    if (!erteilt.length) return;
+    const zurueck = await alsAdmin();
     for (const { app, id } of erteilt) {
-      const r = await api.delete(`/api/freigaben/${app}/${id}`, { headers: kopf });
+      const r = await zurueck.api.delete(`/api/freigaben/${app}/${id}`, {
+        headers: await zurueck.kopf(),
+      });
       console.log(`       Freigabe ${app} für ${id} zurückgenommen: ${r.status()}`);
+      if (!r.ok()) ergebnisse.push({ was: `Freigabe ${app} zurücknehmen`, ok: false });
     }
-    await api.post('/api/auth/logout', { headers: kopf });
-    await api.dispose();
+    await zurueck.api.post('/api/auth/logout', { headers: await zurueck.kopf() });
+    await zurueck.api.dispose();
   };
 }
 
@@ -321,7 +338,9 @@ try {
         getComputedStyle(document.querySelector('[data-testid="leiste-startseite"]'))
           .transitionDuration
     );
-    pruefe('weniger Bewegung: kein Übergang', dauer === '0s', dauer);
+    // Die Shell setzt bei „weniger Bewegung" jede Dauer auf 0,01 ms
+    // (`index.css`), das ist kein sichtbarer Übergang.
+    pruefe('weniger Bewegung: kein Übergang', parseFloat(dauer) <= 0.001, dauer);
     await abmelden(seite);
     await kontext.close();
   }
