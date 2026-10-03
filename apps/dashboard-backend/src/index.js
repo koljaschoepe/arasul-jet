@@ -605,6 +605,9 @@ if (alsServerGestartet) {
       await flowRunner.verwaisteAufraeumen();
       const freigabeAnfragen = require('./services/flows/freigabeAnfragen');
       await freigabeAnfragen.verwaisteSchliessen();
+      // Und die wartenden Läufe mit Prüfpunkt wieder an ihre Anfrage hängen
+      // (M5): Frist neu stellen, Entschiedenes fortsetzen.
+      await freigabeAnfragen.wiederaufnehmen();
     } catch (err) {
       logger.error(`Failed to clean up orphaned flow runs: ${err.message}`);
     }

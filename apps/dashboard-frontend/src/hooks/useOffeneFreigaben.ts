@@ -18,8 +18,8 @@
  * („Aktualisierung ohne Neuladen").
  *
  * Der Abruf läuft alle zwei Minuten, nicht im Sekundentakt: am anderen Ende
- * wartet ein Mensch mit einer Frist von in der Regel einem Tag
- * (`FLOW_FREIGABE_FRIST_MINUTEN`, Vorgabe 1440). Ein Zähler, der schneller
+ * wartet ein Mensch mit einer Frist von in der Regel sieben Tagen
+ * (`FLOW_FREIGABE_FRIST_MINUTEN`, Vorgabe 10080). Ein Zähler, der schneller
  * atmet als die Sache, die er zählt, kostet nur Strom auf dem Jetson.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

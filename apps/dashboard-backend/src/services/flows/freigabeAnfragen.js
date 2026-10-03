@@ -32,13 +32,19 @@
  * es". Nichts davon ueberlebt in einer Map, und die Antwort auf die letzte
  * Frage will man auch noch in einem halben Jahr geben koennen.
  *
- * WAS TROTZDEM IM SPEICHER LIEGT: der wartende Lauf selbst. Die Zeile in
- * `approvals` sagt, WAS entschieden wurde; der Eintrag in `wartende` unten ist
- * der Faden zurueck in den laufenden Prozess. Stirbt das Backend, stirbt der
- * Lauf mit -- wie jeder Flow-Lauf (`flowRunner.verwaisteAufraeumen`). Die
- * offenen Anfragen der toten Laeufe werden dann beim Hochfahren als
- * `verfallen` geschlossen, statt einen Mitarbeiter etwas bestaetigen zu
- * lassen, das niemand mehr weiterfuehrt.
+ * WAS IM SPEICHER LIEGT, und was nicht (M5, 03.10.2026): der Faden zurueck in den
+ * laufenden Prozess (`wartende`) ist nur die Abkuerzung fuer den Normalfall. Der
+ * Lauf selbst steht in der Datenbank: `flow_runs.fortsetzung` sagt, an welchem
+ * Schritt der deklarierten Kette er haelt, die Ausgaben der Schritte davor
+ * stehen in `flow_run_steps`. Stirbt das Backend (Neustart, Update), bleibt der
+ * Lauf `wartend`; `wiederaufnehmen` stellt beim Hochfahren die Zeitgeber neu und
+ * setzt bereits entschiedene Laeufe fort, und `entscheide` setzt einen Lauf ohne
+ * Faden ueber `flowRunner.fortsetzen` ab dem angehaltenen Schritt fort.
+ *
+ * Nicht fortsetzbar ist, was keinen Pruefpunkt hat: eine Freigabe aus der
+ * modellgetriebenen Werkzeug-Schleife, aus einer Rolle oder aus einer
+ * Wiederholung. Dort schreibt `anfordern` `fortsetzung = NULL`, und der Neustart
+ * setzt den Lauf wie bisher auf `fehler` (`flowRunner.verwaisteAufraeumen`).
  *
  * WARUM DAS WARTEN GEFAHRLOS IST: dieselbe Begruendung wie bei der Rueckfrage.
  * `withGpuLock` umschliesst einen einzelnen Ollama-Aufruf, nicht den ganzen
@@ -57,12 +63,12 @@ const {
 } = require('../../utils/errors');
 
 /**
- * Die Frist, wenn der Flow keine nennt. Aus der Konfiguration, wie beschlossen
- * ("Frist ... im Flow-Frontmatter des Werkzeugs, Vorgabe aus der
- * Konfiguration"). 1440 Minuten sind ein Tag: lange genug, dass jemand einmal
- * ins Buero kommt, kurz genug, dass ein vergessener Lauf nicht ewig steht.
+ * Die Frist, wenn weder der Schritt noch seine Stufe eine nennt. Aus der
+ * Konfiguration, wie beschlossen. 10080 Minuten sind sieben Tage (M5): seit der
+ * Lauf einen Neustart ueberlebt, darf eine Freigabe ueber ein Wochenende und
+ * einen Urlaubstag stehen, ohne dass ein Update sie vorzeitig beendet.
  */
-const VORGABE_FRIST_MINUTEN = Number(process.env.FLOW_FREIGABE_FRIST_MINUTEN || '1440');
+const VORGABE_FRIST_MINUTEN = Number(process.env.FLOW_FREIGABE_FRIST_MINUTEN || '10080');
 
 /**
  * Die Grenzen einer Frist.
@@ -70,20 +76,51 @@ const VORGABE_FRIST_MINUTEN = Number(process.env.FLOW_FREIGABE_FRIST_MINUTEN || 
  * Die untere ist bewusst klein: eine Abnahme muss den Ablauf messen koennen,
  * ohne eine Viertelstunde zu warten (0,1 Minuten sind sechs Sekunden).
  *
- * Die obere sind ZWEI WOCHEN, und die Zahl kommt nicht aus dem Gefuehl.
- * `setTimeout` in Node nimmt eine 32-Bit-Zahl von Millisekunden; alles ueber
- * 2147483647 (rund 24,8 Tage) wird nicht etwa abgewiesen, sondern auf **1 ms**
- * gekuerzt -- der Zeitgeber feuert dann SOFORT. Eine Frist von 30 Tagen haette
- * die Freigabe also in derselben Sekunde ablaufen lassen, in der sie gestellt
- * wurde, und der Lauf endete mit "nicht innerhalb der Frist erteilt". Gefunden
- * an Nodes `TimeoutOverflowWarning` im Test zur Obergrenze.
- *
- * Zwei Wochen sind mit Abstand darunter und trotzdem laenger, als eine
- * Freigabe je sinnvoll offen steht: was niemand in zwei Wochen entscheidet,
- * entscheidet auch in vier niemand.
+ * Die obere ist ein Jahr -- dieselbe Grenze, die der Flow-Kopf je Stufe zulaesst
+ * (`schemas/flows.js`, `FlowStufe`). Bis M5 waren es zwei Wochen, wegen Nodes
+ * `setTimeout`: es nimmt eine 32-Bit-Zahl von Millisekunden (rund 24,8 Tage) und
+ * feuert bei mehr SOFORT. `fristUhr` unten zerlegt deshalb jede Frist in Stuecke
+ * unterhalb dieser Grenze.
  */
 const MIN_FRIST_MINUTEN = 0.1;
-const MAX_FRIST_MINUTEN = 14 * 24 * 60;
+const MAX_FRIST_MINUTEN = 525600;
+
+/** Das Maximum von `setTimeout` in Millisekunden. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+/**
+ * Ein Zeitgeber fuer einen beliebig fernen Zeitpunkt.
+ *
+ * Wartet in Stuecken von hoechstens `MAX_TIMER_MS` und rechnet jedes Mal gegen
+ * die Uhr nach, statt Stuecke zu addieren: so bleibt die Frist auch dann
+ * richtig, wenn der Prozess schlief. `abstellen` haelt den naechsten Schlag an.
+ *
+ * @param {Date|string|number} bis
+ * @param {() => void} beiAblauf
+ * @returns {{abstellen: () => void}}
+ */
+function fristUhr(bis, beiAblauf) {
+  const ziel = new Date(bis).getTime();
+  let uhr = null;
+  const stellen = () => {
+    const rest = ziel - Date.now();
+    if (rest <= 0) {
+      beiAblauf();
+      return;
+    }
+    uhr = setTimeout(stellen, Math.min(rest, MAX_TIMER_MS));
+    uhr.unref?.();
+  };
+  stellen();
+  return {
+    abstellen() {
+      if (uhr) {
+        clearTimeout(uhr);
+        uhr = null;
+      }
+    },
+  };
+}
 
 /**
  * Wer eine Anfrage `a` entscheiden darf, als SQL -- `$n` ist der Mensch.
@@ -337,19 +374,57 @@ class LaufBeendet extends Error {
  * Der Faden zurueck in den Prozess. Wer entscheidet, schreibt die Zeile und
  * zieht dann hier -- ohne das liefe der Lauf erst weiter, wenn jemand ihn
  * abfragt, und niemand fragt ihn ab.
+ *
+ * Ein Eintrag, den `wiederaufnehmen` nach einem Neustart anlegt, hat KEIN
+ * `aufloesen`: es gibt kein Versprechen mehr, das jemand aufloesen koennte. Er
+ * traegt nur die Uhr, damit die Frist auch nach dem Neustart greift.
  */
 const wartende = new Map();
 
-/** Die Frist in Minuten, gepruefte Zahl. */
-function fristMinuten(wunsch) {
-  const zahl = wunsch == null || wunsch === '' ? VORGABE_FRIST_MINUTEN : Number(wunsch);
+/**
+ * Die Frist in Minuten, gepruefte Zahl.
+ *
+ * Die Reihenfolge ist die, die der Flow-Kopf verspricht: was der Schritt selbst
+ * nennt, gilt vor der Frist seiner Stufe, und die vor der Vorgabe des Geraets
+ * (sieben Tage).
+ */
+function fristMinuten(wunsch, stufeFrist = null) {
+  const gewaehlt = wunsch == null || wunsch === '' ? stufeFrist : wunsch;
+  const zahl = gewaehlt == null || gewaehlt === '' ? VORGABE_FRIST_MINUTEN : Number(gewaehlt);
   if (!Number.isFinite(zahl) || zahl <= 0) {
     throw new ValidationError(
-      `"frist_minuten": "${wunsch}" ist keine Zahl von Minuten. ` +
+      `"frist_minuten": "${gewaehlt}" ist keine Zahl von Minuten. ` +
         `Ohne Angabe gilt die Vorgabe von ${VORGABE_FRIST_MINUTEN} Minuten.`
     );
   }
   return Math.min(Math.max(zahl, MIN_FRIST_MINUTEN), MAX_FRIST_MINUTEN);
+}
+
+/**
+ * Die Stufe eines Schritts gegen die Stufen des Flows pruefen und ihre Frist
+ * lesen. Nennt der Flow Stufen und der Schritt eine, die es nicht gibt, laege
+ * die Freigabe spaeter bei niemandem (APP-PAKET.md, `stufen`).
+ */
+function stufeAufloesen(stufe, stufen) {
+  const name = stufe == null || stufe === '' ? null : String(stufe);
+  if (name == null) {
+    return { name: null, frist: null };
+  }
+  const liste = Array.isArray(stufen) ? stufen : [];
+  const treffer = liste.find(s => s.name === name);
+  if (!treffer) {
+    throw new ValidationError(
+      `Stufe "${name}" steht nicht im Kopf des Flows (` +
+        (liste.length > 0 ? `bekannt: ${liste.map(s => s.name).join(', ')}` : 'er nennt keine') +
+        ').'
+    );
+  }
+  return { name, frist: treffer.frist_minuten ?? null };
+}
+
+/** Der Text, den der Schritt „Freigabe anfordern" als Ausgabe traegt, wenn bestaetigt wurde. */
+function erteiltText(benutzer, wann) {
+  return `Freigabe erteilt von ${benutzer} am ${new Date(wann).toISOString()}.`;
 }
 
 /**
@@ -398,14 +473,29 @@ async function beendeLauf({ runId, status, grund }, { datenbank = db } = {}) {
  * @param {string} was.flowName
  * @param {string} was.titel       Worum es geht, in einem Satz
  * @param {string} [was.zusammenhang] Was der Flow an Kontext mitgibt
- * @param {number|string} [was.frist_minuten]
+ * @param {number|string} [was.frist_minuten]  gilt vor der Frist der Stufe
+ * @param {string} [was.stufe]                 benannte Stufe aus dem Flow-Kopf
+ * @param {object[]} [was.stufen]              die Stufen des Flows (`flow.stufen`)
+ * @param {{schritt:number, name:string, schritt_id:number}|null} [was.fortsetzung]
+ *   Wo der Lauf nach einem Neustart weitergeht; `null` = nicht fortsetzbar.
  * @param {object} [deps]
  * @param {AbortSignal} [deps.signal] Abbruch des Laufs
  * @param {(evt:object)=>void} [deps.onEvent] Live-Kanal
  * @returns {Promise<{id:number, entschieden_von:number, benutzer:string}>}
  */
 async function anfordern(
-  { runId, appId, stand, flowName, titel, zusammenhang = null, frist_minuten: frist },
+  {
+    runId,
+    appId,
+    stand,
+    flowName,
+    titel,
+    zusammenhang = null,
+    frist_minuten: frist,
+    stufe = null,
+    stufen = null,
+    fortsetzung = null,
+  },
   deps = {}
 ) {
   const { datenbank = db, signal, onEvent } = deps;
@@ -429,7 +519,8 @@ async function anfordern(
     );
   }
 
-  const minuten = fristMinuten(frist);
+  const gewaehlt = stufeAufloesen(stufe, stufen);
+  const minuten = fristMinuten(frist, gewaehlt.frist);
 
   // Die Regel des Laufs (Migration 185) kommt in DERSELBEN Anweisung mit: sie
   // steht am Lauf, und die Anfrage traegt eine Abschrift, weil sie dort
@@ -437,9 +528,9 @@ async function anfordern(
   // Regel eine Anfrage ohne Regel bekommt und nicht gar keine.
   const { rows } = await datenbank.query(
     `INSERT INTO public.approvals (run_id, app_id, stand, flow_name, titel, zusammenhang, frist,
-                                   einreicher_id, ohne_einreicher, entscheider_rolle,
+                                   stufe, einreicher_id, ohne_einreicher, entscheider_rolle,
                                    entscheider_ids)
-     SELECT $1, $2, $3, $4, $5, $6, NOW() + ($7 || ' minutes')::interval,
+     SELECT $1, $2, $3, $4, $5, $6, NOW() + ($7 || ' minutes')::interval, $8,
             r.einreicher_id,
             COALESCE((r.freigabe_regel->>'ohne_einreicher')::boolean, FALSE),
             r.freigabe_regel->>'entscheider_rolle',
@@ -458,6 +549,7 @@ async function anfordern(
       text.slice(0, 500),
       zusammenhang == null ? null : String(zusammenhang).slice(0, 20000),
       String(minuten),
+      gewaehlt.name,
     ]
   );
   const anfrage = rows[0];
@@ -465,9 +557,14 @@ async function anfordern(
   // Erst jetzt haelt der Lauf an. Andersherum stuende er kurz auf `wartend`,
   // ohne dass es etwas gaebe, worauf er wartet -- und bliebe so stehen, wenn
   // der INSERT scheitert.
+  //
+  // Mit dem Pruefpunkt in DERSELBEN Anweisung: ein Lauf, der `wartend` ist, aber
+  // nicht weiss, wo er weitergeht, waere nach einem Neustart nicht fortsetzbar
+  // und stuende doch nicht als solcher da.
   await datenbank.query(
-    `UPDATE flow_runs SET status = 'wartend' WHERE id = $1 AND status = 'laeuft'`,
-    [runId]
+    `UPDATE flow_runs SET status = 'wartend', fortsetzung = $2::jsonb
+      WHERE id = $1 AND status = 'laeuft'`,
+    [runId, fortsetzung ? JSON.stringify(fortsetzung) : null]
   );
 
   logger.info(
@@ -508,11 +605,11 @@ function warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal }) {
     // Die Uhr steht in der Closure und NICHT nur im Eintrag der Map: bei einem
     // Lauf, der schon abgebrochen war, bevor er hier ankam, gibt es gar keinen
     // Eintrag (siehe unten, `signal.aborted`) -- und ein Zeitgeber, den
-    // niemand mehr abstellt, liefe bis zu vierzehn Tage weiter.
+    // niemand mehr abstellt, liefe bis zu einem Jahr weiter.
     let uhr = null;
     const aufraeumen = () => {
       if (uhr) {
-        clearTimeout(uhr);
+        uhr.abstellen();
         uhr = null;
       }
       wartende.delete(schluessel);
@@ -523,22 +620,18 @@ function warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal }) {
 
     // 1. Der Zeitablauf. Er schreibt die Zeile UND beendet den Lauf; die Zeile
     //    allein waere ein Lauf, der ewig `wartend` bleibt.
-    uhr = setTimeout(
-      () => {
-        aufraeumen();
-        schliesseAb({ id: anfrage.id, status: 'abgelaufen', datenbank })
-          .then(async () => {
-            const grund =
-              `Freigabe „${anfrage.titel}" nicht innerhalb der Frist erteilt ` +
-              `(${minuten} Minuten).`;
-            await beendeLauf({ runId, status: 'abgelaufen', grund }, { datenbank });
-            ablehnen(new LaufBeendet(grund, 'abgelaufen'));
-          })
-          .catch(err => ablehnen(err));
-      },
-      Math.round(minuten * 60 * 1000)
-    );
-    uhr.unref?.();
+    uhr = fristUhr(anfrage.frist, () => {
+      aufraeumen();
+      schliesseAb({ id: anfrage.id, status: 'abgelaufen', datenbank })
+        .then(async () => {
+          const grund =
+            `Freigabe „${anfrage.titel}" nicht innerhalb der Frist erteilt ` +
+            `(${minuten} Minuten).`;
+          await beendeLauf({ runId, status: 'abgelaufen', grund }, { datenbank });
+          ablehnen(new LaufBeendet(grund, 'abgelaufen'));
+        })
+        .catch(err => ablehnen(err));
+    });
 
     // 2. Der Abbruch des Laufs (ein Mensch bricht ihn ab, das Zeitlimit des
     //    Flows greift). Die Anfrage wird gegenstandslos -- offen zu lassen
@@ -648,11 +741,14 @@ async function entscheide({ id, benutzerId, status, begruendung = null }, deps =
     `Freigabe ${zeile.id} ${status} von ${benutzer} (${zeile.app_id}/${zeile.stand}, Lauf ${zeile.run_id})`
   );
 
-  // Den wartenden Lauf wecken. Ist niemand da (Backend neu gestartet, ein
-  // anderer Prozess), bleibt es bei der Zeile: die Entscheidung ist getroffen
-  // und festgehalten, nur fortsetzen kann sie niemand mehr. Der Aufrufer sieht
-  // das an `fortgesetzt`.
+  // Den wartenden Lauf wecken. Gibt es den Faden im Speicher, zieht die
+  // Entscheidung daran. Gibt es ihn nicht (das Backend wurde seither neu
+  // gestartet, M5), steht der Lauf trotzdem noch `wartend` in der Datenbank, und
+  // dann setzt `fortsetzen` ihn ab dem angehaltenen Schritt neu auf -- oder, bei
+  // einer Ablehnung, beendet ihn. Nur ein Lauf ohne Pruefpunkt bleibt ohne
+  // Fortsetzung; der Aufrufer sieht das an `fortgesetzt`.
   const wartet = wartende.get(String(zeile.id));
+  let fortgesetzt = Boolean(wartet);
   if (wartet) {
     if (status === 'bestaetigt') {
       await datenbank.query(
@@ -661,9 +757,56 @@ async function entscheide({ id, benutzerId, status, begruendung = null }, deps =
       );
     }
     wartet.aufloesen({ ...zeile, benutzer, begruendung: grund });
+  } else {
+    fortgesetzt = await ohneFaden({ zeile, benutzer, grund, datenbank });
   }
 
-  return { ...zeile, begruendung: grund, benutzer, fortgesetzt: Boolean(wartet) };
+  return { ...zeile, begruendung: grund, benutzer, fortgesetzt };
+}
+
+/**
+ * Eine Entscheidung ueber einen Lauf, dessen Faden nicht mehr im Speicher liegt.
+ *
+ * @returns {Promise<boolean>} Ob der Lauf dadurch weitergeht (oder, bei einer
+ *   Ablehnung, ordentlich endet).
+ */
+async function ohneFaden({ zeile, benutzer, grund, datenbank }) {
+  const { rows } = await datenbank.query(
+    `SELECT fortsetzung IS NOT NULL AS fortsetzbar
+       FROM flow_runs WHERE id = $1 AND status = 'wartend'`,
+    [zeile.run_id]
+  );
+  if (rows.length === 0 || !rows[0].fortsetzbar) {
+    return false;
+  }
+  // Eine Uhr, die `wiederaufnehmen` nach dem Neustart gestellt hat, hat jetzt
+  // nichts mehr zu tun.
+  const uhr = wartende.get(String(zeile.id));
+  if (uhr) {
+    uhr.uhr?.abstellen();
+    wartende.delete(String(zeile.id));
+  }
+  if (zeile.status === 'bestaetigt') {
+    // Lazy: `flowRunner` haengt ueber `runFlow` an den Werkzeugen und damit an
+    // dieser Datei.
+    const flowRunner = require('./flowRunner');
+    await flowRunner.fortsetzen({ runId: zeile.run_id });
+    return true;
+  }
+  const text = `Freigabe abgelehnt von ${benutzer}` + (grund ? `: ${grund}` : '.');
+  await beendeLauf({ runId: zeile.run_id, status: 'abgebrochen', grund: text }, { datenbank });
+  await schliesseOffeneSchritte({ runId: zeile.run_id, text, datenbank });
+  return true;
+}
+
+/** Die offenen Protokoll-Schritte eines beendeten Laufs schliessen -- wie `runFlow` es im Prozess taete. */
+async function schliesseOffeneSchritte({ runId, text, datenbank = db }) {
+  await datenbank.query(
+    `UPDATE flow_run_steps
+        SET status = 'abgebrochen', output = $2, finished_at = NOW()
+      WHERE run_id = $1 AND status = 'laeuft'`,
+    [runId, text]
+  );
 }
 
 /**
@@ -737,7 +880,7 @@ async function nameVon(benutzerId, datenbank = db) {
 async function listeOffeneFuer(benutzerId, { datenbank = db } = {}) {
   const { rows } = await datenbank.query(
     `SELECT a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
-            a.zusammenhang, a.frist, a.angefragt_am,
+            a.zusammenhang, a.frist, a.angefragt_am, a.stufe,
             e.username AS einreicher, a.ohne_einreicher,
             (a.entscheider_rolle IS NOT NULL OR a.entscheider_ids IS NOT NULL) AS benannt,
             ${ENTSCHEIDER_SQL} AS entscheider,
@@ -899,7 +1042,7 @@ async function listeFuerApp({ appId, stand, runId = null, limit = 50 }, { datenb
   }
   werte.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await datenbank.query(
-    `SELECT a.id, a.run_id, a.flow_name, a.titel, a.zusammenhang, a.status, a.frist,
+    `SELECT a.id, a.run_id, a.flow_name, a.titel, a.zusammenhang, a.status, a.frist, a.stufe,
             a.angefragt_am, a.entschieden_am, a.begruendung, b.username AS entschieden_von,
             e.username AS einreicher, a.ohne_einreicher,
             ${ENTSCHEIDER_SQL} AS entscheider,
@@ -940,10 +1083,108 @@ async function verwaisteSchliessen({ datenbank = db } = {}) {
   return rowCount;
 }
 
+/**
+ * Beim Hochfahren: wartende Laeufe wieder an ihre Anfrage haengen (M5).
+ *
+ * Laeuft NACH `flowRunner.verwaisteAufraeumen`, das nur die Laeufe ohne
+ * Pruefpunkt auf `fehler` gesetzt hat. Fuer jeden, der `wartend` geblieben ist:
+ *
+ *   offen, Frist nicht um    die Uhr neu stellen; der Faden fehlt, `entscheide`
+ *                            setzt den Lauf bei der Bestaetigung neu auf
+ *   offen, Frist um          die Frist ist waehrend des Stillstands verstrichen:
+ *                            `abgelaufen`, wie sie es mit laufendem Prozess
+ *                            geworden waere
+ *   bestaetigt               die Entscheidung kam, der Prozess starb davor:
+ *                            jetzt fortsetzen
+ *   abgelehnt                dito: den Lauf beenden
+ *
+ * @returns {Promise<{uhren:number, fortgesetzt:number, beendet:number}>}
+ */
+async function wiederaufnehmen({ datenbank = db } = {}) {
+  const { rows } = await datenbank.query(
+    `SELECT a.id, a.run_id, a.titel, a.status, a.frist, a.begruendung,
+            u.username AS benutzer
+       FROM public.approvals a
+       JOIN flow_runs r ON r.id = a.run_id
+       LEFT JOIN public.admin_users u ON u.id = a.entschieden_von
+      WHERE r.status = 'wartend'
+        AND r.fortsetzung IS NOT NULL
+        AND a.status IN ('offen', 'bestaetigt', 'abgelehnt')
+      ORDER BY a.id`
+  );
+  const bilanz = { uhren: 0, fortgesetzt: 0, beendet: 0 };
+  for (const a of rows) {
+    try {
+      if (a.status === 'bestaetigt') {
+        await require('./flowRunner').fortsetzen({ runId: a.run_id });
+        bilanz.fortgesetzt += 1;
+      } else if (a.status === 'abgelehnt') {
+        const text =
+          `Freigabe abgelehnt von ${a.benutzer || 'einem Menschen'}` +
+          (a.begruendung ? `: ${a.begruendung}` : '.');
+        await beendeLauf({ runId: a.run_id, status: 'abgebrochen', grund: text }, { datenbank });
+        await schliesseOffeneSchritte({ runId: a.run_id, text, datenbank });
+        bilanz.beendet += 1;
+      } else if (new Date(a.frist).getTime() <= Date.now()) {
+        await laufeAb(a, { datenbank });
+        bilanz.beendet += 1;
+      } else {
+        const schluessel = String(a.id);
+        const uhr = fristUhr(a.frist, () => {
+          wartende.delete(schluessel);
+          laufeAb(a, { datenbank }).catch(err =>
+            logger.warn(`Freigabe ${a.id}: Ablauf nicht notiert: ${err.message}`)
+          );
+        });
+        wartende.set(schluessel, { runId: Number(a.run_id), uhr });
+        bilanz.uhren += 1;
+      }
+    } catch (err) {
+      logger.error(`Freigabe ${a.id} (Lauf ${a.run_id}) nicht wiederaufgenommen: ${err.message}`);
+    }
+  }
+  if (rows.length > 0) {
+    logger.info(
+      `Freigaben: ${rows.length} wartende(r) Lauf/Laeufe uebernommen ` +
+        `(${bilanz.uhren} Uhren, ${bilanz.fortgesetzt} fortgesetzt, ${bilanz.beendet} beendet)`
+    );
+  }
+  return bilanz;
+}
+
+/** Die Frist einer Anfrage ohne Faden ist um: Zeile und Lauf schliessen. */
+async function laufeAb(a, { datenbank = db } = {}) {
+  await schliesseAb({ id: a.id, status: 'abgelaufen', datenbank });
+  const grund = `Freigabe „${a.titel}" nicht innerhalb der Frist erteilt.`;
+  await beendeLauf({ runId: a.run_id, status: 'abgelaufen', grund }, { datenbank });
+  await schliesseOffeneSchritte({ runId: a.run_id, text: grund, datenbank });
+}
+
+/**
+ * Ein Mensch bricht einen wartenden Lauf ab, dessen Faden nicht im Speicher
+ * liegt (nach einem Neustart): seine offene Anfrage ist gegenstandslos. Mit
+ * Faden erledigt das `warteAufEntscheidung` selbst (`beiAbbruch`).
+ */
+async function schliesseOffeneDesLaufs({ runId, datenbank = db }) {
+  const { rows } = await datenbank.query(
+    `UPDATE public.approvals
+        SET status = 'verfallen', entschieden_am = NOW()
+      WHERE run_id = $1 AND status = 'offen'
+      RETURNING id`,
+    [runId]
+  );
+  for (const { id } of rows) {
+    const eintrag = wartende.get(String(id));
+    eintrag?.uhr?.abstellen();
+    wartende.delete(String(id));
+  }
+  return rows.length;
+}
+
 /** Nur fuer Tests: alle wartenden Laeufe vergessen. */
 function _reset() {
   for (const eintrag of wartende.values()) {
-    clearTimeout(eintrag.uhr);
+    eintrag.uhr?.abstellen();
   }
   wartende.clear();
 }
@@ -959,7 +1200,11 @@ module.exports = {
   listeFuerApp,
   ENTSCHEIDUNGSORT,
   verwaisteSchliessen,
+  wiederaufnehmen,
+  schliesseOffeneDesLaufs,
   beendeLauf,
+  erteiltText,
+  fristUhr,
   LaufBeendet,
   ZUSTAENDE,
   VORGABE_FRIST_MINUTEN,

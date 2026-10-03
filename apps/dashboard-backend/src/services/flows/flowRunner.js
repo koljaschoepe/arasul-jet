@@ -24,10 +24,13 @@
  * seinem eigenen Zeitlimit, erst danach greift der Abbruch. Der Abbruch wirkt
  * also spätestens vor dem nächsten Modell-Aufruf, nicht zwingend sofort.
  *
- * GRENZE, ehrlich benannt: Der Lauf überlebt das Schließen des Tabs, aber NICHT
- * einen Neustart des Backends. Ein beim Neustart „laeuft"-gebliebener Lauf wird
- * einmalig beim Hochfahren als „fehler" markiert (siehe `verwaisteAufraeumen`),
- * damit kein Lauf für immer als laufend gilt.
+ * NEUSTART. Ein Lauf, der LÄUFT, überlebt einen Neustart des Backends nicht: er
+ * wird beim Hochfahren als „fehler" markiert (`verwaisteAufraeumen`), damit kein
+ * Lauf für immer als laufend gilt. Ein Lauf, der auf eine FREIGABE WARTET,
+ * überlebt ihn (M5): sein Halt steht in der Datenbank (`flow_runs.fortsetzung`,
+ * `approvals`), und `fortsetzen` führt ihn nach der Bestätigung ab dem
+ * angehaltenen Schritt zu Ende. Das gilt für die deklarierte Schritt-Kette; ein
+ * wartender Lauf der Werkzeug-Schleife hat keinen Prüfpunkt und endet wie bisher.
  */
 
 const EventEmitter = require('events');
@@ -89,6 +92,31 @@ async function starten(
   // Strom). Deshalb hier und in allen Registry-Zugriffen konsequent als Zahl.
   const runId = Number(angelegt.id);
 
+  anstossen(
+    {
+      runId,
+      flowName,
+      args,
+      userId,
+      appId,
+      stand,
+      einreicherId,
+      vorabErgebnisse,
+      vorabQuelleLaufId,
+    },
+    { run, store }
+  );
+  return { runId };
+}
+
+/**
+ * Stößt `runFlow` für einen schon angelegten Lauf im Hintergrund an und hängt
+ * Bus und Abbruch-Signal an. Gemeinsam für `starten` und `fortsetzen`.
+ */
+function anstossen(
+  { runId, flowName, args, userId, appId, stand, einreicherId, ...weitere },
+  { run = runFlow, store = runStore } = {}
+) {
   const bus = new EventEmitter();
   // Ein SSE-Abonnent pro Verbindung; mehrere Tabs sind möglich.
   bus.setMaxListeners(0);
@@ -120,8 +148,7 @@ async function starten(
       // Fuer das Protokoll der Modellaufrufe (J35, Migration 189): jeder
       // Modellschritt steht dort mit dem Menschen, fuer den der Lauf laeuft.
       einreicherId,
-      vorabErgebnisse,
-      vorabQuelleLaufId,
+      ...weitere,
     },
     {}
   )
@@ -141,8 +168,92 @@ async function starten(
       // Nachlauf: den Bus noch kurz halten, dann aufräumen.
       setTimeout(() => aktive.delete(runId), NACHLAUF_MS).unref?.();
     });
+}
 
-  return { runId };
+/**
+ * Setzt einen wartenden Lauf nach der Bestätigung ab dem angehaltenen Schritt
+ * fort (M5) -- in derselben Lauf-Zeile, nicht in einer neuen.
+ *
+ * Gebraucht, wenn der Faden im Speicher fehlt: das Backend wurde seit der
+ * Anfrage neu gestartet (Update, Absturz). Der Prüfpunkt steht in
+ * `flow_runs.fortsetzung`.
+ *
+ * Der Lauf wird ATOMAR übernommen (`wartend` → `laeuft`): wer zuerst kommt,
+ * bekommt ihn, ein zweiter Aufruf (Entscheidung und Hochfahren zugleich) findet
+ * nichts mehr. Der offene Freigabe-Schritt wird mit demselben Text geschlossen,
+ * den das Werkzeug im Prozess zurückgegeben hätte.
+ *
+ * @returns {Promise<boolean>} Ob dieser Aufruf den Lauf übernommen hat.
+ */
+async function fortsetzen({ runId }, deps = {}) {
+  const { db = require('../../database'), store = runStore, run = runFlow } = deps;
+  const id = Number(runId);
+  if (aktive.has(id)) {
+    return false;
+  }
+  const { rows } = await db.query(
+    `UPDATE flow_runs
+        SET status = 'laeuft'
+      WHERE id = $1 AND status = 'wartend' AND fortsetzung IS NOT NULL
+      RETURNING user_id, flow_name, app_id, stand, arguments, einreicher_id, fortsetzung`,
+    [id]
+  );
+  if (rows.length === 0) {
+    return false;
+  }
+  const lauf = rows[0];
+  const fortsetzung = lauf.fortsetzung;
+
+  try {
+    const { rows: entscheidung } = await db.query(
+      `SELECT a.entschieden_am, COALESCE(u.username, 'einem Menschen') AS benutzer
+         FROM public.approvals a
+         LEFT JOIN public.admin_users u ON u.id = a.entschieden_von
+        WHERE a.run_id = $1 AND a.status = 'bestaetigt'
+        ORDER BY a.id DESC
+        LIMIT 1`,
+      [id]
+    );
+    if (entscheidung.length === 0) {
+      throw new Error('keine bestätigte Freigabe zu diesem Lauf');
+    }
+    if (fortsetzung.schritt_id != null) {
+      await store.finishStep({
+        stepId: fortsetzung.schritt_id,
+        output: require('./freigabeAnfragen').erteiltText(
+          entscheidung[0].benutzer,
+          entscheidung[0].entschieden_am
+        ),
+      });
+    }
+  } catch (err) {
+    logger.error(`Flow-Lauf ${id}: Wiederaufnahme nicht vorbereitbar: ${err.message}`);
+    await store.finishRun({
+      runId: id,
+      status: 'fehler',
+      error: `Wiederaufnahme nach der Freigabe gescheitert: ${err.message}`,
+    });
+    return true;
+  }
+
+  logger.info(
+    `Flow-Lauf ${id} (${lauf.flow_name}) wird nach der Freigabe ab Schritt ` +
+      `"${fortsetzung.name}" fortgesetzt`
+  );
+  anstossen(
+    {
+      runId: id,
+      flowName: lauf.flow_name,
+      args: lauf.arguments || {},
+      userId: lauf.user_id,
+      appId: lauf.app_id,
+      stand: lauf.stand,
+      einreicherId: lauf.einreicher_id,
+      fortsetzenAb: { schritt: fortsetzung.schritt, name: fortsetzung.name },
+    },
+    { run, store }
+  );
+  return true;
 }
 
 /**
@@ -183,6 +294,15 @@ async function abbrechen({ runId, userId }, deps = {}) {
   if (eintrag) {
     eintrag.controller.abort();
     eintrag.bus.emit('evt', { type: 'ende', status: 'abgebrochen', runId });
+  } else {
+    // Kein Prozess hält den Lauf (er wartete über einen Neustart hinweg): seine
+    // offene Freigabe-Anfrage wäre sonst weiter zu bestätigen, obwohl nichts
+    // mehr läuft. Mit Faden schließt `freigabeAnfragen.beiAbbruch` sie selbst.
+    await require('./freigabeAnfragen')
+      .schliesseOffeneDesLaufs({ runId: Number(runId) })
+      .catch(err =>
+        logger.warn(`flowRunner: Freigabe zu Lauf ${runId} nicht geschlossen: ${err.message}`)
+      );
   }
   return abgebrochen;
 }
@@ -194,17 +314,23 @@ async function abbrechen({ runId, userId }, deps = {}) {
  */
 async function verwaisteAufraeumen(deps = {}) {
   const { db = require('../../database') } = deps;
-  // `wartend` gehört mit dazu (Phase C7): ein Lauf, der an einer Freigabe
-  // hängt, hängt an einem Zeitgeber und einem Versprechen in DIESEM Prozess.
-  // Nach einem Neustart gibt es beides nicht mehr — er stünde für immer als
-  // wartend da, und niemand würde ihn je fortsetzen. Die offenen Anfragen
-  // dazu schließt `freigabeAnfragen.verwaisteSchliessen` unmittelbar danach.
+  // `laeuft`: kein Prozess führt den Lauf mehr. `wartend` ohne Prüfpunkt
+  // (Phase C7): ein Lauf der Werkzeug-Schleife oder einer Rolle hängt an einem
+  // Versprechen in DIESEM Prozess; nach dem Neustart gibt es das nicht mehr, und
+  // er stünde für immer wartend da. Die offenen Anfragen dazu schließt
+  // `freigabeAnfragen.verwaisteSchliessen` unmittelbar danach.
+  //
+  // `wartend` MIT Prüfpunkt (M5) bleibt stehen: seine Anfrage steht in der
+  // Datenbank, `freigabeAnfragen.wiederaufnehmen` stellt die Frist neu.
   const res = await db.query(
     `UPDATE flow_runs
         SET status = 'fehler',
-            error = 'Backend wurde neu gestartet, während der Lauf lief',
+            error = CASE WHEN status = 'wartend'
+                         THEN 'Backend wurde neu gestartet, während der Lauf auf eine Freigabe wartete; ein Lauf der Werkzeug-Schleife lässt sich nicht fortsetzen'
+                         ELSE 'Backend wurde neu gestartet, während der Lauf lief' END,
             finished_at = NOW()
-      WHERE status IN ('laeuft', 'wartend')
+      WHERE status = 'laeuft'
+         OR (status = 'wartend' AND fortsetzung IS NULL)
       RETURNING id`
   );
   if (res.rowCount > 0) {
@@ -220,6 +346,7 @@ function _reset() {
 
 module.exports = {
   starten,
+  fortsetzen,
   abonnieren,
   istAktiv,
   abbrechen,

@@ -602,6 +602,7 @@ die Zeile ganz — samt Schlüssel.
 | `ohne_einreicher`   | boolean                  | ⛔       | `false`                                 |
 | `entscheider_rolle` | text                     | ✅       |                                         |
 | `entscheider_ids`   | bigint[]                 | ✅       |                                         |
+| `stufe`             | text                     | ✅       |                                         |
 
 **Primary key:** `id`
 
@@ -626,6 +627,9 @@ die Zeile ganz — samt Schlüssel.
 > Rolle hat. Die Bedingung steht einmal im Code (`freigabeAnfragen.kreis`).
 > An der Anfrage und nicht nur am Lauf, weil sie hier beantwortet und später
 > nachgelesen wird.
+
+> `stufe` (Migration 192, M5): die benannte Freigabestufe aus dem Flow-Kopf
+> (`stufen`), nach der die Frist gewählt wurde; `NULL` ohne Stufe.
 
 **Indexes:** `idx_approvals_offen` — `(app_id, stand) WHERE status = 'offen'` ·
 `idx_approvals_run` — `(run_id)` ·
@@ -1969,6 +1973,7 @@ Ollama und keine Selbstheilung.
 | `annahmen`       | jsonb                    | ✅       |                                         |
 | `einreicher_id`  | bigint                   | ✅       |                                         |
 | `freigabe_regel` | jsonb                    | ✅       |                                         |
+| `fortsetzung`    | jsonb                    | ✅       |                                         |
 | `created_at`     | timestamp with time zone | ⛔       | `now()`                                 |
 | `finished_at`    | timestamp with time zone | ✅       |                                         |
 
@@ -1978,6 +1983,14 @@ Ollama und keine Selbstheilung.
 > `{ohne_einreicher, entscheider_rolle, entscheider_ids}`, geprüft beim Start
 > (`freigabeAnfragen.pruefeRegel`). `NULL` = keine Regel, es gilt der Kreis aus
 > `app_members`. Ohne Fremdschlüssel wie `app_id`: ein Lauf ist Geschichte.
+
+> `fortsetzung` (Migration 192, M5): wo ein **wartender** Lauf nach einem
+> Neustart weitergeht — `{schritt, name, schritt_id}`: Index und Name des
+> Schritts in der deklarierten Kette und der offene Protokoll-Schritt der
+> Freigabe. Gesetzt in derselben Anweisung wie der Wechsel auf `wartend`
+> (`freigabeAnfragen.anfordern`). `NULL` = nicht fortsetzbar (Freigabe aus der
+> Werkzeug-Schleife, aus einer Rolle oder aus einer Wiederholung); ein solcher
+> Lauf endet beim Neustart wie jeder laufende als `fehler`.
 
 > `annahmen` (Migration 131, Plan 014 Phase 2): Annahmen-Protokoll des
 > Prüfschritts — JSON-Array von Klartext-Sätzen (Annahmen der Prüfrunde +

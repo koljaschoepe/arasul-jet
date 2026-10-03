@@ -3,7 +3,7 @@
  *
  * Die Grenzen sind die interessanten Stellen: die Abnahme fährt mit einer
  * Frist von zwölf Sekunden, der Beispiel-Flow mit einer Stunde, die Vorgabe
- * des Geräts ist ein Tag (`FLOW_FREIGABE_FRIST_MINUTEN`). Alle drei müssen
+ * des Geräts sind sieben Tage (`FLOW_FREIGABE_FRIST_MINUTEN`). Alle drei müssen
  * einen Satz ergeben, den jemand vor dem Knopf lesen kann.
  */
 import { describe, it, expect } from 'vitest';

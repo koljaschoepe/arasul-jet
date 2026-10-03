@@ -27,7 +27,7 @@ const appFlows = require('../app/appFlows');
 const runStore = require('./runStore');
 const { buildTools } = require('./toolRegistry');
 const { runFlowLoop } = require('./toolLoop');
-const { executeSteps } = require('./stepExecutor');
+const { executeSteps, berechneVorabErgebnisse } = require('./stepExecutor');
 const { fillPlaceholders } = require('./flowFile');
 const changeTracker = require('./changeTracker');
 const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
@@ -97,6 +97,9 @@ function buildUserInput(declared = [], werte = {}) {
  * @param {number|null} [p.einreicherId] - Der Mensch, fuer den eine App den
  *   Lauf ausgeloest hat (J35). Er steht an jedem Modellschritt im Protokoll
  *   der Modellaufrufe (`kiProtokoll.flowSchritt`).
+ * @param {{schritt:number, name:string}|null} [p.fortsetzenAb] - Wiederaufnahme
+ *   nach einer Freigabe: der Lauf läuft in DERSELBEN Lauf-Zeile ab diesem Schritt
+ *   der Kette weiter, die Ausgaben davor kommen aus seinem Protokoll.
  * @param {(evt:object)=>void} [p.onEvent] - Live-Ereignisse (Schritt 12 hängt sich hier ein).
  * @param {object} [deps] - Für Tests austauschbar.
  * @returns {Promise<object>} Der abgeschlossene Lauf (aus runStore).
@@ -117,6 +120,10 @@ async function runFlow(
     // wertet sie aus; der modellgetriebene Pfad ignoriert sie.
     vorabErgebnisse = null,
     vorabQuelleLaufId = null,
+    // Ein Lauf, der auf eine Freigabe wartete und nach einem Neustart ab dem
+    // angehaltenen Schritt weitergeht (M5): `{ schritt, name }` aus
+    // `flow_runs.fortsetzung`. Setzt `existingRunId` voraus.
+    fortsetzenAb = null,
   },
   deps = {}
 ) {
@@ -210,6 +217,9 @@ async function runFlow(
     appId,
     stand,
     einreicherId,
+    // Die benannten Freigabestufen des Flows: `freigabe_anfordern` liest ihre
+    // Frist (M5).
+    stufen: flow.stufen || null,
   };
 
   // 5. Lauf anlegen — ODER einen bereits angelegten weiterverwenden. Der
@@ -219,9 +229,47 @@ async function runFlow(
     ? { id: existingRunId }
     : await store.createRun({ userId, flowName, appId, stand, arguments: werte });
 
+  // 5a. Wiederaufnahme nach einer Freigabe (M5). Die Schritte VOR dem
+  //     angehaltenen stehen mit ihren Ausgaben im Protokoll dieses Laufs; sie
+  //     werden nicht noch einmal ausgefuehrt, ihre Ausgaben fliessen ins
+  //     Threading wie bei „Ab Fehler wiederholen". Was sich nicht eindeutig
+  //     zuordnen laesst, ist ein Fehler und kein Raten: lieber ein ehrlich
+  //     beendeter Lauf als ein Schritt, der doppelt laeuft.
+  let vorab = vorabErgebnisse;
+  let bisherigeSchritte = 0;
+  let bisherigeAenderungen = [];
+  if (fortsetzenAb) {
+    const kette = Array.isArray(flow.schritte) ? flow.schritte : [];
+    const schritt = kette[fortsetzenAb.schritt];
+    if (!schritt || schritt.name !== fortsetzenAb.name) {
+      throw new ValidationError(
+        `Der Flow "${flowName}" wurde geändert, während der Lauf auf die Freigabe wartete ` +
+          `(Schritt "${fortsetzenAb.name}" steht nicht mehr an Stelle ${fortsetzenAb.schritt + 1}). ` +
+          'Der Lauf lässt sich nicht fortsetzen: bitte neu starten.'
+      );
+    }
+    const alt = await store.getRun({ runId: run.id, userId });
+    vorab = berechneVorabErgebnisse(kette, alt.steps);
+    for (let i = 0; i <= fortsetzenAb.schritt; i++) {
+      if (!vorab.has(i)) {
+        throw new ValidationError(
+          `Die Ausgabe von Schritt "${kette[i].name}" ist im Protokoll nicht vollständig ` +
+            'erhalten. Der Lauf lässt sich nicht fortsetzen: bitte neu starten.'
+        );
+      }
+    }
+    for (const index of [...vorab.keys()]) {
+      if (index > fortsetzenAb.schritt) {
+        vorab.delete(index);
+      }
+    }
+    bisherigeSchritte = Number(alt.steps_used) || 0;
+    bisherigeAenderungen = Array.isArray(alt.changes) ? alt.changes : [];
+  }
+
   // Zähler und offene Schritte (weiter unten von `weiter` und dem stepRecorder
   // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.
-  let steps = 0;
+  let steps = bisherigeSchritte;
   const offeneSchritte = new Map(); // toolName → stepId (für den Abschluss)
 
   // Notbremsen — EINE Instanz je Lauf, geteilt über alle Subagent-Ebenen.
@@ -403,7 +451,12 @@ async function runFlow(
           `Flow "${flowName}": Änderungs-Übersicht auf ${aenderungen.length} Einträge gekürzt, weitere ausgelassen.`
         );
       }
-      await store.saveChanges({ runId: run.id, changes: aenderungen });
+      // Nach einer Wiederaufnahme steht vor dem Halt schon etwas im Lauf: die
+      // neue Differenz beginnt erst beim Neustart des Laufs.
+      await store.saveChanges({
+        runId: run.id,
+        changes: [...bisherigeAenderungen, ...aenderungen],
+      });
       // Live melden, damit die offen zusehende Lauf-Karte die Übersicht ohne
       // Nachladen zeigt. Beim Wiederverbinden liefert der gespeicherte Verlauf
       // dieselben Daten (getRun gibt `changes` mit).
@@ -423,7 +476,7 @@ async function runFlow(
   // mit — für den deterministischen Executor. Der stepRecorder meldet Anfang und
   // Ende bereits live (step_start/step_end); eigene tool_*-Ereignisse braucht es
   // nicht mehr. Liefert die Werkzeug-Ausgabe als String zurück (fürs Threading).
-  const recordWerkzeug = async ({ werkzeug, params }) => {
+  const recordWerkzeug = async ({ werkzeug, params, fortsetzung = null }) => {
     const step = await stepRecorder.beginnen({
       kind: 'werkzeug',
       name: werkzeug || '',
@@ -453,7 +506,13 @@ async function runFlow(
               : '')
         );
       }
-      ausgabe = String(await tool.execute(params, context));
+      // Der Pruefpunkt einer Freigabe: Schritt der Kette UND dieser
+      // Protokoll-Schritt, den die Wiederaufnahme schliesst. Er reist im
+      // Kontext nur dieses einen Aufrufs; der gemeinsame Kontext bleibt ohne.
+      const werkzeugKontext = fortsetzung
+        ? { ...context, fortsetzung: { ...fortsetzung, schritt_id: step.id } }
+        : context;
+      ausgabe = String(await tool.execute(params, werkzeugKontext));
     } catch (err) {
       // `laufBeendet` heisst: hier ist Schluss, aber nichts ist kaputt
       // (Phase C7, `services/flows/freigabeAnfragen.js`). Eine abgelehnte
@@ -506,8 +565,9 @@ async function runFlow(
           recordWerkzeug,
           emitLive: onEvent,
           signal,
-          vorabErgebnisse,
+          vorabErgebnisse: vorab,
           vorabQuelleLaufId,
+          fortsetzung: Boolean(fortsetzenAb),
         })
       : await runLoop({
           model,

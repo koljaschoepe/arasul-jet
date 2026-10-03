@@ -45,7 +45,16 @@ function fakeDb({ darf = true, zeileOffen = true, abgelaufen = false } = {}) {
     calls.push({ sql, params });
     if (/INSERT INTO public\.approvals/.test(sql)) {
       return {
-        rows: [{ id: 42, titel: params[4], frist: '2026-08-28T10:00:00Z', angefragt_am: 'jetzt' }],
+        // Die Frist rechnet die Datenbank (`NOW() + minuten`); der Zeitgeber
+        // liest sie von dort.
+        rows: [
+          {
+            id: 42,
+            titel: params[4],
+            frist: new Date(Date.now() + Number(params[6]) * 60_000).toISOString(),
+            angefragt_am: 'jetzt',
+          },
+        ],
       };
     }
     if (/UPDATE public\.approvals a\s+SET status/.test(sql)) {
@@ -603,7 +612,9 @@ describe('freigabeZumLauf', () => {
     expect(f.entscheider).toBeNull();
     expect(f.offen).toBeNull();
     expect(f.adresse).toBe('/workspace');
-    expect(f.satz).toMatch(/^Entscheidet: admin, anna oder bernd, in der App, in der die Freigabe entstanden ist/);
+    expect(f.satz).toMatch(
+      /^Entscheidet: admin, anna oder bernd, in der App, in der die Freigabe entstanden ist/
+    );
   });
 
   it('nimmt bei vier Augen den Einreicher aus dem Kreis und sagt es', async () => {

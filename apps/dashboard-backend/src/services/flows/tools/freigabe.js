@@ -55,7 +55,14 @@ class FreigabeAnfordernTool extends BaseTool {
           type: 'number',
           description:
             'Wie lange gewartet wird. Ohne Angabe gilt die Vorgabe des Geraets ' +
-            `(${freigabeAnfragen.VORGABE_FRIST_MINUTEN} Minuten). Danach endet der Lauf als abgelaufen.`,
+            `(${freigabeAnfragen.VORGABE_FRIST_MINUTEN} Minuten) oder die Frist der Stufe. ` +
+            'Danach endet der Lauf als abgelaufen.',
+        },
+        stufe: {
+          type: 'string',
+          description:
+            'Die benannte Freigabestufe aus dem Kopf des Flows (`stufen`). ' +
+            'Ihre Frist gilt, wenn `frist_minuten` fehlt.',
         },
       },
       required: ['titel'],
@@ -63,8 +70,9 @@ class FreigabeAnfordernTool extends BaseTool {
   }
 
   /**
-   * @param {{titel: string, zusammenhang?: string, frist_minuten?: number}} params
+   * @param {{titel: string, zusammenhang?: string, frist_minuten?: number, stufe?: string}} params
    * @param {{runId?: number, appId?: string, stand?: string, slug?: string,
+   *          stufen?: object[], fortsetzung?: object|null,
    *          onEvent?: Function, signal?: AbortSignal}} context
    */
   async execute(params = {}, context = {}) {
@@ -78,6 +86,12 @@ class FreigabeAnfordernTool extends BaseTool {
         titel: params.titel,
         zusammenhang: params.zusammenhang,
         frist_minuten: params.frist_minuten,
+        stufe: params.stufe,
+        stufen: context.stufen,
+        // Nur der deterministische Executor setzt das (`stepExecutor`): wo der
+        // Lauf nach einem Neustart weitergeht. Ohne es bleibt die Freigabe
+        // gueltig, der wartende Lauf aber nicht fortsetzbar.
+        fortsetzung: context.fortsetzung || null,
       },
       { signal: context.signal, onEvent: context.onEvent }
     );
@@ -92,7 +106,7 @@ class FreigabeAnfordernTool extends BaseTool {
     // `LaufBeendet` -- der Lauf ist dann in der Datenbank schon beendet, und
     // ein Text zurueck an das Modell waere die eine Antwort, die es NICHT
     // bekommen darf (es suchte sich sonst einen anderen Weg).
-    return `Freigabe erteilt von ${benutzer} am ${new Date(wann).toISOString()}.`;
+    return freigabeAnfragen.erteiltText(benutzer, wann);
   }
 }
 

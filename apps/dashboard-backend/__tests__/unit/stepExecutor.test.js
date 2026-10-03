@@ -119,7 +119,13 @@ describe('executeSteps', () => {
       SubagentToolClass: makeFakeSubagent(jest.fn()),
     });
 
-    expect(recordWerkzeug).toHaveBeenCalledWith({ werkzeug: 'dateien_suchen', params: { q: 'Y' } });
+    // Ein einfacher Schritt der obersten Ebene ist fortsetzbar (M5): er nennt
+    // seinen Platz in der Kette, falls er eine Freigabe anfordert.
+    expect(recordWerkzeug).toHaveBeenCalledWith({
+      werkzeug: 'dateien_suchen',
+      params: { q: 'Y' },
+      fortsetzung: { schritt: 0, name: expect.any(String) },
+    });
   });
 
   test('Iteration wiederholt den Schritt und reicht {{vorher}} weiter', async () => {
