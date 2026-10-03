@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Meldung } from '@marken';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
@@ -9,11 +9,34 @@ import { Uebersicht } from '@/features/apps/Uebersicht';
 import { AppRahmen } from '@/features/apps/AppRahmen';
 import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
-import { lazyNachladen } from '@/utils/lazyNachladen';
+import { lazyMitVorladen } from '@/utils/lazyNachladen';
 
-const Verwaltung = lazyNachladen(() => import('@/features/settings/Settings'));
-const Einstellungen = lazyNachladen(() => import('@/features/einstellungen/Einstellungen'));
-const ModelleAnsicht = lazyNachladen(() => import('@/features/modelle/ModelleAnsicht'));
+const Verwaltung = lazyMitVorladen(() => import('@/features/settings/Settings'));
+const Einstellungen = lazyMitVorladen(() => import('@/features/einstellungen/Einstellungen'));
+const ModelleAnsicht = lazyMitVorladen(() => import('@/features/modelle/ModelleAnsicht'));
+
+/**
+ * Die Ansichten hinter der Leiste laden, sobald die Shell ruht: jeder Wechsel
+ * soll unter 200 ms bleiben (`frontend.md`, Gestaltung), auch der erste.
+ * Die Verwaltung nur beim Administrator — ein Mitarbeiter öffnet sie nie.
+ */
+function useVorladen(istAdmin: boolean) {
+  useEffect(() => {
+    const laden = () => {
+      void Einstellungen.vorladen();
+      if (istAdmin) {
+        void Verwaltung.vorladen();
+        void ModelleAnsicht.vorladen();
+      }
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(laden, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(laden, 1500);
+    return () => window.clearTimeout(id);
+  }, [istAdmin]);
+}
 
 /**
  * Die Startseite: die Übersicht, zusammengesetzt aus dem, was die Rolle sieht.
@@ -77,6 +100,7 @@ export function AnsichtInhalt() {
   const istAdmin = user?.role === 'admin';
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const titel = ansichtTitel(ansicht);
+  useVorladen(istAdmin);
 
   return (
     // Der Schlüssel baut beim Wechsel neu auf, auch von einer App zur anderen:

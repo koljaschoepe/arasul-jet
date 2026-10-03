@@ -21,7 +21,7 @@
  * Deshalb: dreimal versuchen, dann durchlassen. Die Fehlergrenze bleibt die
  * Antwort auf Fall 2; sie soll nur nicht mehr die Antwort auf Fall 1 sein.
  */
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import { createElement, lazy, useState, type ComponentType, type LazyExoticComponent } from 'react';
 
 /** Wie oft insgesamt versucht wird, und wie lange dazwischen gewartet wird. */
 const VERSUCHE = 3;
@@ -43,5 +43,43 @@ export function lazyNachladen<P extends object>(
       }
     }
     throw letzter;
+  });
+}
+
+/**
+ * Wie `lazyNachladen`, dazu `vorladen()` für den Leerlauf (M5).
+ *
+ * Gemessen am Orin am 03.10.2026: das erste Öffnen von Einstellungen,
+ * Verwaltung und Modellen dauerte 330 ms, jedes weitere unter 30. Der Brocken
+ * war es kaum — React 19 zeigt für eine frisch suspendierende Komponente erst
+ * die Ladefläche und enthüllt den Inhalt gedrosselt (rund 300 ms). Ein
+ * Vorladen des Moduls allein hülfe deshalb nicht: `lazy` suspendiert beim
+ * ersten Rendern trotzdem. Ist das Modul vorgeladen, rendert diese Hülle die
+ * Komponente direkt.
+ *
+ * Welche der beiden Formen eine Instanz nimmt, steht bei ihrem ersten Rendern
+ * fest: ein Wechsel mittendrin wäre ein anderer Elementtyp und damit ein
+ * Neuaufbau, der Eingaben verlöre.
+ */
+export function lazyMitVorladen<P extends object>(
+  laden: () => Promise<{ default: ComponentType<P> }>
+): ComponentType<P> & { vorladen: () => Promise<void> } {
+  let fertig: ComponentType<P> | null = null;
+  const merken = () =>
+    laden().then(modul => {
+      fertig = modul.default;
+      return modul;
+    });
+  const Faul = lazyNachladen(merken);
+  function Vorladbar(props: P) {
+    const [Form] = useState<ComponentType<P>>(() => fertig ?? Faul);
+    return createElement(Form, props);
+  }
+  return Object.assign(Vorladbar, {
+    vorladen: () =>
+      merken().then(
+        () => undefined,
+        () => undefined
+      ),
   });
 }
