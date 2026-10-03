@@ -242,7 +242,7 @@ function Sidebar({
       >
         <div
           data-sidebar="sidebar"
-          className="flex h-full w-full flex-col bg-background group-data-[form=schwebend]:rounded-lg group-data-[form=schwebend]:border group-data-[form=schwebend]:border-border"
+          className="flex h-full w-full flex-col overflow-hidden bg-background group-data-[form=schwebend]:rounded-lg group-data-[form=schwebend]:border group-data-[form=schwebend]:border-border"
         >
           {children}
         </div>
@@ -457,7 +457,10 @@ function SidebarMenuButton({
   asChild = false,
   aktiv = false,
   variant,
-  size,
+  // Die Vorgabe steht hier und nicht nur in `cva`: `data-size` muss auch
+  // ohne ausdrueckliche Groesse am Knopf stehen, sonst findet die Zahl
+  // daneben (`SidebarMenuBadge`) ihre Hoehe nicht und rutscht unter die Zeile.
+  size = 'default',
   className,
   ...props
 }: React.ComponentProps<'button'> & {

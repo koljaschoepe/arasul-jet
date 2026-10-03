@@ -23,6 +23,53 @@ noch die ist, die ausgeliefert wurde, rechnet die Hashes nach; wer wissen
 will, welche Fassung er trägt, liest `fassung`. Beides ohne Rückfrage bei dem,
 der sie hingelegt hat.
 
+## Der kürzeste Weg: vom Gerät zur Laufzeit
+
+Ein Gerät ab Bibliothek 5.3.0 liefert diese Bibliothek selbst aus, unter
+`/marken/<haupt>/` auf derselben Herkunft wie jede App. Wer von dort lädt,
+legt **keine Kopie** in sein Paket, braucht **kein Tailwind** und bekommt mit
+jedem Update des Geräts die neue Fassung, ohne neu zu bauen.
+
+Im Manifest steht dann nur die Hauptzahl:
+
+```json
+{ "marken": "5" }
+```
+
+Ohne Bau:
+
+```html
+<link rel="stylesheet" href="/marken/5/marken.css" />
+<script type="module">
+  import { h, rendern, Seitenleiste, Datenliste, Freigabe } from '/marken/5/marken.js';
+</script>
+```
+
+Mit Bau (Vite): React und die Bibliothek bleiben außerhalb des Bündels.
+
+```js
+const MARKEN = '/marken/5/';
+const vomGeraet = {
+  react: MARKEN + 'react.js',
+  'react-dom': MARKEN + 'react-dom.js',
+  'react-dom/client': MARKEN + 'react-dom-client.js',
+  'react/jsx-runtime': MARKEN + 'jsx-runtime.js',
+  '@marken': MARKEN + 'marken.js',
+  '@marken/diagramm': MARKEN + 'diagramm.js',
+};
+// build.rollupOptions: { external: Object.keys(vomGeraet), output: { paths: vomGeraet } }
+```
+
+Die Typen kommen weiter aus `src/` (Alias `@marken` in der `tsconfig`),
+gebündelt wird davon nichts. Welche Fassung und Hauptzahl ein Gerät
+ausliefert, steht ohne Anmeldung in `/marken/marken.json`. Unter
+`/marken/5/` steht immer die neueste Fassung 5.x; ein Bruch hebt die
+Hauptzahl und damit die Adresse. Der Kontrakt des Geräts nennt denselben Weg
+im Abschnitt `marken`.
+
+Die zwei Wege darunter legen eine Kopie in die App. Sie laufen weiter, die
+Kopie veraltet aber mit jedem Update des Geräts.
+
 ## Eine App mit Bau
 
 Sie bekommt alle drei Sätze. Vier Handgriffe:

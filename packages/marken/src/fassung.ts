@@ -123,4 +123,12 @@
  * laedt, nennt im Manifest nur die Hauptzahl. Kein Name faellt weg, keine
  * Eigenschaft aendert sich: eine App auf 5.2.1 laeuft unveraendert weiter.
  */
-export const FASSUNG = '5.3.0';
+/*
+ * 5.3.1: zwei Reparaturen an der Seitenleiste. Die Zahl an einem Eintrag
+ * (`SidebarMenuBadge`) steht wieder in seiner Zeile: `SidebarMenuButton`
+ * setzte `data-size` nur bei ausdruecklicher Groesse, und ohne das Attribut
+ * fand die Zahl ihre Hoehe nicht. Zugeklappt ragt nichts mehr ueber den
+ * Inhalt: die Leiste schneidet ab, und die `Seitenleiste` blendet Marke und
+ * Fuss aus. Kein Name, keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.3.1';

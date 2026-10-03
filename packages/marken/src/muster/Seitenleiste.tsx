@@ -75,7 +75,11 @@ export function Seitenleiste({
 }: SeitenleisteProps) {
   return (
     <Sidebar seite={seite} className={cn(className)}>
-      {marke && <SidebarHeader>{marke}</SidebarHeader>}
+      {/* Zugeklappt bleiben nur die Symbole: Marke und Fuss sind Text und
+          haetten in der schmalen Leiste keinen Platz. */}
+      {marke && (
+        <SidebarHeader className="group-data-[einklappen=symbole]:hidden">{marke}</SidebarHeader>
+      )}
       <SidebarContent>
         {laedt ? (
           <SidebarGroup>
@@ -126,7 +130,9 @@ export function Seitenleiste({
           ))
         )}
       </SidebarContent>
-      {fuss && <SidebarFooter>{fuss}</SidebarFooter>}
+      {fuss && (
+        <SidebarFooter className="group-data-[einklappen=symbole]:hidden">{fuss}</SidebarFooter>
+      )}
       <SidebarRail />
     </Sidebar>
   );
