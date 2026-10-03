@@ -16,7 +16,9 @@
  */
 
 const db = require('../../database');
+const crypto = require('crypto');
 const { hashPassword } = require('../../utils/password');
+const { PROFIL_SPALTEN } = require('../../utils/profil');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { invalidateUserCache, ROLLEN } = require('../../middleware/auth');
 const { ConflictError, NotFoundError, ValidationError } = require('../../utils/errors');
@@ -51,7 +53,7 @@ const ANONYM = '(geloescht)';
  * angemeldet hat. Ein Geheimnis ist das nicht: es sagt nur, ob ein Zweiter das
  * Passwort kennt, und genau das ist der Grund, warum es gewechselt werden muss.
  */
-const SPALTEN = 'id, username, email, role, is_active, passwort_vom_admin, created_at, last_login';
+const SPALTEN = `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login, ${PROFIL_SPALTEN}`;
 
 async function listeBenutzer() {
   const result = await db.query(`SELECT ${SPALTEN} FROM admin_users ORDER BY id`);
@@ -110,38 +112,56 @@ async function pruefeKontenGrenze(client, wer) {
 }
 
 /**
- * Einen Benutzer anlegen. Ein doppelter Name wird vom Fehler-Handler als
- * 409 CONFLICT gemeldet (PG 23505), hier wird nichts vorab geprueft --
- * ausser der Grenze der Lizenz (`pruefeKontenGrenze`).
+ * Ein Startpasswort, das sich vorlesen und abtippen laesst: drei Gruppen zu je
+ * vier Zeichen, ohne die Paare, die sich verwechseln (0/O, 1/l/I). 12 Zeichen
+ * aus 31 sind rund 59 Bit; es lebt bis zur ersten Anmeldung und wird dann
+ * durch ein eigenes ersetzt.
  */
-async function legeBenutzerAn({ username, password, email, rolle }) {
-  if (!ROLLEN.includes(rolle)) {
-    throw new ValidationError(`Unbekannte Rolle ${rolle}; erlaubt sind ${ROLLEN.join(', ')}`);
+const STARTPASSWORT_ZEICHEN = 'abcdefghjkmnpqrstuvwxyz23456789';
+function erzeugeStartpasswort() {
+  const gruppen = [];
+  for (let g = 0; g < 3; g++) {
+    let gruppe = '';
+    for (let i = 0; i < 4; i++) {
+      gruppe += STARTPASSWORT_ZEICHEN[crypto.randomInt(STARTPASSWORT_ZEICHEN.length)];
+    }
+    gruppen.push(gruppe);
   }
+  return gruppen.join('-');
+}
+
+/**
+ * Eine Person anlegen (M5): Vorname, Nachname, E-Mail. Der Benutzername ist die
+ * E-Mail in Kleinschrift, das Startpasswort erzeugt das Geraet und gibt es HIER
+ * EINMAL zurueck (`startpasswort`); danach steht es nirgends mehr. Ein doppelter
+ * Name wird vom Fehler-Handler als 409 CONFLICT gemeldet (PG 23505), vorab
+ * geprueft wird nur die Grenze der Lizenz (`pruefeKontenGrenze`).
+ */
+async function legeBenutzerAn({ vorname, nachname, email, verwaltung }) {
+  const rolle = verwaltung ? 'admin' : 'mitarbeiter';
+  const username = String(email).trim().toLowerCase();
   // Der Name des Kontos, mit dem das Geraet den Firmenordner verwaltet
   // (`ordnerdienst.DIENST_ADMIN`). Ein Mensch dieses Namens kaeme dort nie
   // hinein -- dieselbe Falle, derentwegen der Dienst-Administrator nicht mehr
   // `admin` heisst.
-  if (String(username).trim().toLowerCase() === DIENST_ADMIN) {
+  if (username === DIENST_ADMIN) {
     throw new ConflictError(
       `Der Name ${DIENST_ADMIN} ist vergeben: so heißt das Konto, mit dem das Gerät ` +
-        'den Firmenordner verwaltet. Bitte einen anderen wählen.'
+        'den Firmenordner verwaltet. Bitte eine andere E-Mail-Adresse wählen.'
     );
   }
+  const password = erzeugeStartpasswort();
   const passwordHash = await hashPassword(password);
-  // `passwort_vom_admin = true`: was hier vergeben wird, ist ein Startpasswort
-  // (so steht es in `schemas/benutzer.js`, deshalb gelten die
-  // Komplexitaetsregeln hier nicht). Die Oberflaeche verlangt beim ersten
-  // Anmelden einen Wechsel, danach kennt es nur noch der Mitarbeiter selbst
-  // (Phase D1, Migration 178).
+  // `passwort_vom_admin = true`: die Oberflaeche verlangt beim ersten Anmelden
+  // einen Wechsel, danach kennt es nur noch die Person selbst (Migration 178).
   const zeile = await db.transaction(async client => {
     await pruefeKontenGrenze(client, username);
     const result = await client.query(
       `INSERT INTO admin_users (username, password_hash, email, role, is_active,
-                                passwort_vom_admin, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, true, true, NOW(), NOW())
+                                passwort_vom_admin, vorname, nachname, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, true, true, $5, $6, NOW(), NOW())
        RETURNING ${SPALTEN}`,
-      [username, passwordHash, email || null, rolle]
+      [username, passwordHash, username, rolle, vorname, nachname]
     );
     return result.rows[0];
   });
@@ -153,10 +173,10 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
   await firmenordner.spiegleNutzer({
     benutzerId: zeile.id,
     username,
-    email: email || null,
+    email: username,
     passwort: password,
   });
-  return zeile;
+  return { ...zeile, startpasswort: password };
 }
 
 /**
@@ -184,14 +204,106 @@ async function legeBenutzerAn({ username, password, email, rolle }) {
  * Sekunde handeln. Auf einem Geraet mit ein bis zwei Zugaengen ist das selten,
  * die Folge waere aber ein unbedienbares Geraet.
  */
-async function istLetzterAktiverAdmin(role) {
+async function istLetzterAktiverAdmin(role, client = db) {
   if (role !== 'admin') {
     return false;
   }
-  const adminCount = await db.query(
+  const adminCount = await client.query(
     `SELECT COUNT(*)::int AS n FROM admin_users WHERE role = 'admin' AND is_active = true`
   );
   return (adminCount.rows[0]?.n ?? 0) <= 1;
+}
+
+/**
+ * Der Riegel fuer alles, was die Zahl der aktiven Administratoren senken kann
+ * (Stilllegen, Recht entziehen). Benannt und transaktionsweit: zwei
+ * Administratoren, die in derselben Sekunde einander das Recht nehmen, sehen
+ * sonst beide die Zwei und kommen beide durch.
+ */
+async function sperreAdminRiegel(client) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('arasul:letzteradmin'))");
+}
+
+/**
+ * Der Schalter „Verwaltung" (M5): macht eine Person zum Administrator oder
+ * nimmt es ihr. Das BACKEND weist ab, nicht nur die Oberflaeche: wer der letzte
+ * aktive Administrator ist, behaelt das Recht, auch wenn er selbst klickt.
+ *
+ * Danach muessen Sitzung und Zwischenspeicher neu entscheiden: die Rolle steht
+ * in der Zeile, die `requireAuth` 60 s haelt.
+ */
+async function setzeVerwaltung({ userId, verwaltung }) {
+  const rolle = verwaltung ? 'admin' : 'mitarbeiter';
+  const result = await db.transaction(async client => {
+    await sperreAdminRiegel(client);
+    const vorher = await client.query('SELECT role, is_active FROM admin_users WHERE id = $1', [
+      userId,
+    ]);
+    if (vorher.rows.length === 0) {
+      throw new NotFoundError(`Benutzer ${userId} gibt es nicht`);
+    }
+    const { role, is_active: aktiv } = vorher.rows[0];
+    if (!verwaltung && role === 'admin' && aktiv && (await istLetzterAktiverAdmin(role, client))) {
+      throw new ValidationError(
+        'Der letzte Administrator behält das Recht „Verwaltung“; das Gerät wäre sonst unbedienbar'
+      );
+    }
+    return client.query(
+      `UPDATE admin_users SET role = $2, updated_at = NOW() WHERE id = $1 RETURNING ${SPALTEN}`,
+      [userId, rolle]
+    );
+  });
+  invalidateUserCache(userId);
+  logger.warn(`Benutzer ${result.rows[0].username} (id=${userId}) hat jetzt die Rolle ${rolle}`);
+  return result.rows[0];
+}
+
+/** Die Profilfelder einer Person setzen (nur sie selbst, `routes/profil.js`). */
+async function aktualisiereProfil(userId, { vorname, nachname, funktion, kuerzel }) {
+  const result = await db.query(
+    `UPDATE admin_users
+        SET vorname = $2, nachname = $3, funktion = $4, kuerzel = $5, updated_at = NOW()
+      WHERE id = $1 RETURNING ${SPALTEN}`,
+    [userId, vorname, nachname, funktion ?? null, kuerzel ?? null]
+  );
+  if (result.rows.length === 0) {
+    throw new NotFoundError(`Benutzer ${userId} gibt es nicht`);
+  }
+  invalidateUserCache(userId);
+  return result.rows[0];
+}
+
+/** Das Bild setzen (`dataUrl`: `data:image/<typ>;base64,...`) oder mit `null` entfernen. */
+async function setzeBild(userId, dataUrl) {
+  let typ = null;
+  let daten = null;
+  if (dataUrl) {
+    const treffer = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(dataUrl);
+    typ = treffer[1];
+    daten = Buffer.from(treffer[2], 'base64');
+  }
+  const result = await db.query(
+    `UPDATE admin_users SET bild_typ = $2, bild_daten = $3, updated_at = NOW()
+      WHERE id = $1 RETURNING ${SPALTEN}`,
+    [userId, typ, daten]
+  );
+  if (result.rows.length === 0) {
+    throw new NotFoundError(`Benutzer ${userId} gibt es nicht`);
+  }
+  invalidateUserCache(userId);
+  return result.rows[0];
+}
+
+/** Das Bild einer Person als `{ typ, daten }`; `NotFoundError`, wenn es keins gibt. */
+async function holeBild(userId) {
+  const result = await db.query('SELECT bild_typ, bild_daten FROM admin_users WHERE id = $1', [
+    userId,
+  ]);
+  const zeile = result.rows[0];
+  if (!zeile || !zeile.bild_daten) {
+    throw new NotFoundError('Kein Bild hinterlegt');
+  }
+  return { typ: zeile.bild_typ, daten: zeile.bild_daten };
 }
 
 /**
@@ -213,16 +325,20 @@ async function istLetzterAktiverAdmin(role) {
 async function setzeAktiv({ userId, aktiv }) {
   const ziel = await holeBenutzer(userId);
 
-  if (!aktiv && (await istLetzterAktiverAdmin(ziel.role))) {
-    throw new ValidationError(
-      'Der letzte aktive Administrator kann nicht stillgelegt werden; das Gerät wäre unbedienbar'
-    );
-  }
-
   // Wieder zulassen belegt einen Platz der Lizenz (J35): ein Konto, das
   // stillgelegt nicht zaehlte, zaehlt danach wieder. Ohne den Riegel hier
   // waere Stilllegen, Anlegen, Wiederzulassen der Weg um die Grenze herum.
+  // Stilllegen prueft den letzten Administrator unter dem Riegel
+  // `arasul:letzteradmin`, in derselben Transaktion wie das Schreiben.
   const result = await db.transaction(async client => {
+    if (!aktiv) {
+      await sperreAdminRiegel(client);
+      if (await istLetzterAktiverAdmin(ziel.role, client)) {
+        throw new ValidationError(
+          'Der letzte aktive Administrator kann nicht stillgelegt werden; das Gerät wäre unbedienbar'
+        );
+      }
+    }
     if (aktiv && !ziel.is_active) {
       await pruefeKontenGrenze(client, ziel.username);
     }
@@ -367,6 +483,11 @@ module.exports = {
   legeBenutzerAn,
   pruefeKontenGrenze,
   setzeAktiv,
+  setzeVerwaltung,
+  aktualisiereProfil,
+  setzeBild,
+  holeBild,
+  erzeugeStartpasswort,
   loescheBenutzer,
   ANONYM,
 };

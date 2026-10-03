@@ -1,8 +1,9 @@
 /**
  * Benutzerverwaltung (Phasen C1 und C2 des Umbaus vom 26.08.2026).
  *
- * Der Administrator legt Mitarbeiter an, sieht sie, setzt ihr Passwort, legt
- * sie still und loescht sie. Ein Mitarbeiter meldet sich mit E-Mail-Adresse
+ * Der Administrator legt Personen an (Vorname, Nachname, E-Mail; das Geraet
+ * erzeugt das Startpasswort und nennt es einmal), sieht sie, setzt ihr
+ * Passwort, legt sie still, schaltet „Verwaltung" und loescht sie. Ein Mitarbeiter meldet sich mit E-Mail-Adresse
  * oder Benutzername und Passwort an und sieht, was ein Admin ihm freigegeben
  * hat (`/api/freigaben`, ebenfalls C2).
  *
@@ -27,6 +28,7 @@ const {
   BenutzerIdParams,
   SetzePasswortBody,
   SetzeAktivBody,
+  SetzeVerwaltungBody,
 } = require('../../schemas/benutzer');
 const benutzerService = require('../../services/auth/benutzerService');
 const { setzePasswort } = require('../../services/auth/passwordService');
@@ -71,14 +73,15 @@ router.get(
   })
 );
 
-// POST /api/benutzer — einen Benutzer anlegen (409, wenn der Name vergeben ist).
+// POST /api/benutzer — eine Person anlegen (409, wenn die E-Mail vergeben ist).
+// Die Antwort traegt `startpasswort` ein einziges Mal.
 router.post(
   '/',
   requireAuth,
   requireRole('admin'),
   validateBody(CreateBenutzerBody),
   asyncHandler(async (req, res) => {
-    const benutzer = await benutzerService.legeBenutzerAn(req.body);
+    const { startpasswort, ...benutzer } = await benutzerService.legeBenutzerAn(req.body);
     logSecurityEvent({
       userId: req.user.id,
       action: 'benutzer_angelegt',
@@ -86,7 +89,7 @@ router.post(
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
-    res.status(201).json({ data: benutzer, timestamp: new Date().toISOString() });
+    res.status(201).json({ data: benutzer, startpasswort, timestamp: new Date().toISOString() });
   })
 );
 
@@ -120,7 +123,9 @@ router.put(
         'Ihr eigenes Passwort ändern Sie unter Einstellungen → Sicherheit.'
       );
     }
-    const ziel = await setzePasswort(req.params.id, req.body.password, {
+    // Ohne Angabe erzeugt das Geraet eins und nennt es einmal.
+    const startpasswort = req.body.password || benutzerService.erzeugeStartpasswort();
+    const ziel = await setzePasswort(req.params.id, startpasswort, {
       gesetztVon: req.user.username,
       ipAddress: req.ip,
     });
@@ -134,6 +139,7 @@ router.put(
     });
     res.json({
       data: { id: ziel.id, username: ziel.username },
+      startpasswort,
       message: 'Passwort gesetzt. Alle Sitzungen dieses Benutzers sind beendet.',
       timestamp: new Date().toISOString(),
     });
@@ -166,6 +172,43 @@ router.put(
       requestId: req.headers['x-request-id'],
     });
     res.json({ data: benutzer, timestamp: new Date().toISOString() });
+  })
+);
+
+// PUT /api/benutzer/:id/verwaltung — der Schalter „Verwaltung": zum Administrator
+// machen (`true`) oder das Recht nehmen (`false`). Der letzte aktive
+// Administrator behaelt es; das weist der Service ab, nicht die Oberflaeche.
+router.put(
+  '/:id/verwaltung',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(BenutzerIdParams),
+  validateBody(SetzeVerwaltungBody),
+  asyncHandler(async (req, res) => {
+    const benutzer = await benutzerService.setzeVerwaltung({
+      userId: req.params.id,
+      verwaltung: req.body.verwaltung,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: req.body.verwaltung ? 'benutzer_verwaltung_erteilt' : 'benutzer_verwaltung_entzogen',
+      details: { benutzer: benutzer.username },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data: benutzer, timestamp: new Date().toISOString() });
+  })
+);
+
+// GET /api/benutzer/:id/bild — das Bild einer Person (404, wenn sie keins hat).
+router.get(
+  '/:id/bild',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(BenutzerIdParams),
+  asyncHandler(async (req, res) => {
+    const { typ, daten } = await benutzerService.holeBild(req.params.id);
+    res.set({ 'Content-Type': typ, 'Cache-Control': 'private, no-cache' }).send(daten);
   })
 );
 

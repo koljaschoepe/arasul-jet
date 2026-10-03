@@ -9,7 +9,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { resolveTab, resolveSystemSub } from './sections';
 import { GeneralSettings } from './GeneralSettings';
 import { AppsSettings } from './AppsSettings';
-import { MitarbeiterSettings } from './MitarbeiterSettings';
+import { PersonenSettings } from './PersonenSettings';
 import { FirmenordnerSettings } from './FirmenordnerSettings';
 import { SprachmodellSettings } from './SprachmodellSettings';
 import { SecuritySettings } from './SecuritySettings';
@@ -96,8 +96,8 @@ function Settings({ handleLogout }: SettingsProps) {
         );
       case 'benutzer':
         return (
-          <ComponentErrorBoundary componentName="Mitarbeiter">
-            <MitarbeiterSettings />
+          <ComponentErrorBoundary componentName="Personen">
+            <PersonenSettings />
           </ComponentErrorBoundary>
         );
       case 'firmenordner':

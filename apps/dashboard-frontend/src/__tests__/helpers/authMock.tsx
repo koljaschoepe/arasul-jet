@@ -22,6 +22,13 @@ interface Angemeldeter {
   username: string;
   role: 'admin' | 'mitarbeiter';
   passwortWechselNoetig?: boolean;
+  email?: string | null;
+  vorname?: string | null;
+  nachname?: string | null;
+  funktion?: string | null;
+  kuerzel?: string | null;
+  hatBild?: boolean;
+  anzeigeName?: string;
 }
 
 const VORGABE: Angemeldeter = { id: 1, username: 'admin', role: 'admin' };

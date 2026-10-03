@@ -3152,3 +3152,37 @@
 [data-panel][data-shell-voll='true'] {
   flex: 1 1 0% !important;
 }
+
+/* Der Zettel mit dem Startpasswort (M5, `StartpasswortDialog`): nur im Druck
+   sichtbar, und im Druck sichtbar ist dann nur er. Er hängt direkt unter
+   `body`, weil der Dialog in einem Portal liegt. */
+.zettel-druck {
+  display: none;
+}
+@media print {
+  body.zettel-drucken > *:not(.zettel-druck) {
+    display: none !important;
+  }
+  body.zettel-drucken > .zettel-druck {
+    display: block;
+    padding: 2cm;
+    color: black;
+    background: white;
+    font-family: var(--font-sans, sans-serif);
+  }
+  .zettel-druck .zettel-titel {
+    font-size: 20pt;
+    margin-bottom: 1cm;
+  }
+  .zettel-druck dt {
+    margin-top: 0.6cm;
+    font-size: 10pt;
+  }
+  .zettel-druck dd {
+    font-size: 14pt;
+  }
+  .zettel-druck .zettel-passwort {
+    font-family: var(--font-mono, monospace);
+    font-size: 20pt;
+  }
+}

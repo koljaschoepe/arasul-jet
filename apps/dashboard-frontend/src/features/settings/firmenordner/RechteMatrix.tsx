@@ -51,7 +51,7 @@ import {
 } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import type { ApiError } from '@/hooks/useApi';
-import type { Benutzer } from '../mitarbeiter/useMitarbeiter';
+import { anzeigeName, type Benutzer } from '../personen/usePersonen';
 import { ordnerWeg } from './OrdnerBaum';
 import {
   alsBaum,
@@ -95,7 +95,7 @@ function Zelle({
     >
       <SelectTrigger
         size="sm"
-        aria-label={`Recht von ${b.username} auf ${ordnerWeg(o)}`}
+        aria-label={`Recht von ${anzeigeName(b)} auf ${ordnerWeg(o)}`}
         data-testid={`recht-${zelle}`}
         className="min-w-28"
       >
@@ -188,9 +188,9 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
                   className="flex flex-wrap items-center gap-3 border-b border-border p-ui-3 last:border-b-0"
                 >
                   <span className="min-w-0 flex-1 text-sm text-foreground">
-                    {b.username}
+                    {anzeigeName(b)}
                     {b.role === 'admin' && (
-                      <span className="ml-2 text-ui-xs text-muted-foreground">Admin</span>
+                      <span className="ml-2 text-ui-xs text-muted-foreground">Verwaltung</span>
                     )}
                   </span>
                   <Zelle
@@ -220,7 +220,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
                 scope="col"
                 className="sticky left-0 z-10 p-2 text-left font-medium text-muted-foreground"
               >
-                Mitarbeiter
+                Person
               </th>
               {spalten.map(o => (
                 <th
@@ -241,10 +241,10 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
                   scope="row"
                   className="sticky left-0 z-10 min-w-40 max-w-56 bg-card p-2 text-left font-normal wrap-anywhere"
                 >
-                  <span className="text-foreground">{b.username}</span>
+                  <span className="text-foreground">{anzeigeName(b)}</span>
                   {b.role === 'admin' && (
                     <span className="ml-2 whitespace-nowrap text-ui-xs text-muted-foreground">
-                      Admin
+                      Verwaltung
                     </span>
                   )}
                 </th>

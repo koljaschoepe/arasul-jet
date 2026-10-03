@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const { PROFIL_SPALTEN, profilVon } = require('../utils/profil');
 const {
   generateToken,
   blacklistToken,
@@ -69,7 +70,8 @@ router.post(
     // bekommt vom Administrator beides und soll sich nicht merken muessen,
     // welches davon das Anmelde-Merkmal ist.
     const result = await db.query(
-      `SELECT id, username, password_hash, email, role, is_active, passwort_vom_admin, theme
+      `SELECT id, username, password_hash, email, role, is_active, passwort_vom_admin, theme,
+              ${PROFIL_SPALTEN}
          FROM admin_users WHERE username = $1 OR email = $1`,
       [username]
     );
@@ -185,6 +187,7 @@ router.post(
         // eine eigene Anfrage dafuer waere eine dritte auf jedem Seitenaufbau,
         // und die zwei, die es gibt, sind schon die enge Stelle (G2).
         theme: user.theme,
+        ...profilVon(user),
       },
       timestamp: new Date().toISOString(),
     });
@@ -429,6 +432,7 @@ router.get(
         role: req.user.role,
         passwortWechselNoetig: req.user.passwort_vom_admin === true,
         theme: req.user.theme,
+        ...profilVon(req.user),
       },
       timestamp: new Date().toISOString(),
     });
@@ -478,6 +482,7 @@ router.get(
             role: req.user.role,
             passwortWechselNoetig: req.user.passwort_vom_admin === true,
             theme: req.user.theme,
+            ...profilVon(req.user),
           }
         : null,
       timestamp: new Date().toISOString(),

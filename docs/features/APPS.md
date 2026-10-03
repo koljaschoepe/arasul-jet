@@ -534,8 +534,8 @@ Freigabe ein Wort dazu, wie weit sie reicht:
 Ein Tester ist kein anderer Nutzer, sondern ein Nutzer mit einer Tür mehr.
 Gesetzt wird das über `POST /api/freigaben` mit `{ "stand": "test" }`; gelesen
 über `GET /api/apps/meine`. Im Browser steht es an zwei Stellen, und beide
-schreiben denselben Weg: in der Freigabe-Matrix (Einstellungen → Mitarbeiter,
-D3) für das ganze Gerät, und in der App-Ansicht (Einstellungen → Apps, D4) für
+schreiben denselben Weg: in der Freigabe-Matrix (Einstellungen → Personen,
+D3, seit M5 mit Schaltern) für das ganze Gerät, und in der App-Ansicht (Einstellungen → Apps, D4) für
 diese eine App.
 
 Auch ein Administrator, der eine App benutzen will, braucht sie freigegeben.

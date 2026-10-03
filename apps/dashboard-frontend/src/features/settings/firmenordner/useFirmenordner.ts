@@ -17,7 +17,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi, type ApiError } from '@/hooks/useApi';
-import type { BenutzerId } from '../mitarbeiter/useMitarbeiter';
+import type { BenutzerId } from '../personen/usePersonen';
 
 /** Die drei Arten eines Ordners am Gerät. */
 type OrdnerArt = 'wurzel' | 'geteilt' | 'am_geraet';
@@ -285,7 +285,7 @@ export function usePapierkorbHandgriff() {
   });
 }
 
-/** Was `POST /api/firmenordner/ordner` braucht — als `type`, siehe `useMitarbeiter.ts`. */
+/** Was `POST /api/firmenordner/ordner` braucht — als `type`, siehe `usePersonen.ts`. */
 export type NeuerOrdner = {
   kennung: string;
   name: string;

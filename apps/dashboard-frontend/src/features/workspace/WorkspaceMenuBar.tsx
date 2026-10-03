@@ -16,6 +16,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
 import { AusweiseDialog } from '@/features/ausweise/AusweiseDialog';
 import { MeinFirmenordnerDialog } from '@/features/firmenordner/MeinFirmenordnerDialog';
+import { ProfilDialog } from '@/features/profil/ProfilDialog';
+import { PersonAvatar } from '@/components/PersonAvatar';
+import { API_BASE } from '@/config/api';
 
 /** Icon-Toggle für die zwei Layout-Flächen (Sidebar/rechte Spalte). */
 function LayoutToggleButton({
@@ -96,6 +99,7 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const selectView = useWorkspaceStore(s => s.selectView);
 
   const [ausweiseOffen, setAusweiseOffen] = useState(false);
+  const [profilOffen, setProfilOffen] = useState(false);
   const [firmenordnerOffen, setFirmenordnerOffen] = useState(false);
 
   // EIN Knopf für die Notizen, zwei Zustände dahinter (Phase D6): über 900 px
@@ -203,15 +207,21 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
           <User className="h-4 w-4" aria-hidden="true" />
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1 text-xs">
-          <div className="px-2 py-1.5">
-            <p className="truncate text-sm font-medium text-foreground">
-              {user?.username ?? 'Angemeldet'}
-            </p>
-            {/* Die Rolle steht da, weil sie erklärt, warum jemand mehr oder
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <PersonAvatar
+              name={user?.anzeigeName ?? user?.username ?? ''}
+              bild={user?.hatBild ? `${API_BASE}/profil/bild` : null}
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">
+                {user?.anzeigeName ?? user?.username ?? 'Angemeldet'}
+              </p>
+              {/* Die Rolle steht da, weil sie erklärt, warum jemand mehr oder
                 weniger sieht als der Kollege daneben. */}
-            <p className="text-muted-foreground">
-              {user?.role === 'admin' ? 'Administrator' : 'Mitarbeiter'}
-            </p>
+              <p className="text-muted-foreground">
+                {user?.funktion || (user?.role === 'admin' ? 'Verwaltung' : 'Mitarbeiter')}
+              </p>
+            </div>
           </div>
           {/* Für einen Mitarbeiter fehlt das Zahnrad daneben. Ohne diesen Satz
               war das Stille: wer die Einstellungen sucht, fand nichts und
@@ -226,6 +236,15 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
             </p>
           )}
           <div className="my-1 h-px bg-border" aria-hidden="true" />
+          <button
+            type="button"
+            data-testid="workspace-profil"
+            onClick={() => setProfilOffen(true)}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground hover:bg-accent"
+          >
+            <User className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Mein Profil
+          </button>
           <button
             type="button"
             data-testid="workspace-ausweise"
@@ -269,6 +288,7 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
         eine Abfrage und den Toast-Kontext, fuer etwas, das die meisten
         Menschen nie aufmachen.
       */}
+      {profilOffen && <ProfilDialog offen beiSchliessen={() => setProfilOffen(false)} />}
       {ausweiseOffen && <AusweiseDialog offen beiSchliessen={() => setAusweiseOffen(false)} />}
       {firmenordnerOffen && (
         <MeinFirmenordnerDialog offen beiSchliessen={() => setFirmenordnerOffen(false)} />

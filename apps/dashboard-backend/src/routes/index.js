@@ -50,6 +50,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/flows', group: 'ai' },
   { prefix: '/freigabe-anfragen', group: 'ai' },
   { prefix: '/notizen', group: 'core' },
+  { prefix: '/profil', group: 'core' },
   { prefix: '/ausweise', group: 'core' },
   { prefix: '/firmenordner', group: 'core' },
   { prefix: '/apps', group: 'store' },
@@ -94,6 +95,8 @@ router.use('/notizen', require('./notizen'));
 // demselben Grund wie die Notizen: sie gehoert dem Angemeldeten. Gelesen wird
 // sie ueber `/auth/session`, hier steht nur der schreibende Weg.
 router.use('/darstellung', require('./darstellung'));
+// Das eigene Profil: Name, Funktion, Kuerzel, Bild (M5). Gehoert dem Angemeldeten.
+router.use('/profil', require('./profil'));
 // Der Ausweis eines Menschen ausserhalb des Browsers (Bruecke, 21.09.2026).
 // Auch hier bei den Kern-Wegen: er gehoert dem Angemeldeten, jeder darf einen
 // haben, und niemand stellt einen fuer einen anderen aus.

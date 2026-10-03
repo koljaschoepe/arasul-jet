@@ -56,9 +56,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   // Administrator am haeufigsten tut (Phase D3).
   {
     id: 'benutzer',
-    label: 'Mitarbeiter',
+    label: 'Personen',
     icon: <Users />,
-    description: 'Konten, Startpasswort, App-Freigaben',
+    description: 'Anlegen, Startpasswort, Verwaltung, Freigaben',
   },
   // Direkt nach den Menschen (Auftrag firmenordner-rechte-im-frontend,
   // 22.09.2026): wer welchen Ordner sieht, ist dieselbe Frage wie wer welche

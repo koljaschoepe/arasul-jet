@@ -27,10 +27,10 @@
  * Weg nicht.
  */
 import { AppWindow } from 'lucide-react';
-import { Checkbox, cn } from '@marken';
+import { Switch, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useSchmalesFenster } from '@marken';
-import type { Benutzer } from './useMitarbeiter';
+import { anzeigeName, type Benutzer } from './usePersonen';
 import {
   useAlleApps,
   useFreigaben,
@@ -62,10 +62,10 @@ function Zelle({
     // keine losen Attribute durch. Der Klick der Abnahme trifft den `input`
     // darin.
     <span className="inline-flex items-center gap-2" data-testid={`freigabe-${zelle}`}>
-      <Checkbox
+      <Switch
         checked={Boolean(freigabe)}
         disabled={laeuft}
-        aria-label={`${app.name} für ${b.username} freigeben`}
+        aria-label={`${app.name} für ${anzeigeName(b)} freigeben`}
         onCheckedChange={an => setzen(an ? 'live' : null)}
       />
       {/* Der Teststand-Schalter erscheint erst, wenn überhaupt freigegeben
@@ -156,9 +156,9 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
                     setzen={stand => setze(app.id, b.id, stand)}
                   />
                   <span className="min-w-0 flex-1 text-sm text-foreground">
-                    {b.username}
+                    {anzeigeName(b)}
                     {b.role === 'admin' && (
-                      <span className="ml-2 text-ui-xs text-muted-foreground">Admin</span>
+                      <span className="ml-2 text-ui-xs text-muted-foreground">Verwaltung</span>
                     )}
                   </span>
                 </li>
@@ -175,8 +175,11 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
       <table className="w-full min-w-fit border-collapse text-sm">
         <thead>
           <tr className="border-b border-border">
-            <th scope="col" className="p-2 text-left font-medium text-muted-foreground">
-              Mensch
+            <th
+              scope="col"
+              className="sticky left-0 z-10 bg-card p-2 text-left font-medium text-muted-foreground"
+            >
+              Person
             </th>
             {alleApps.map(app => (
               <th
@@ -193,10 +196,15 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
         <tbody>
           {benutzer.map(b => (
             <tr key={String(b.id)} className="border-b border-border last:border-b-0">
-              <th scope="row" className="p-2 text-left font-normal">
-                <span className="text-foreground">{b.username}</span>
+              <th
+                scope="row"
+                className="sticky left-0 z-10 min-w-40 max-w-56 bg-card p-2 text-left font-normal wrap-anywhere"
+              >
+                <span className="text-foreground">{anzeigeName(b)}</span>
                 {b.role === 'admin' && (
-                  <span className="ml-2 text-ui-xs text-muted-foreground">Admin</span>
+                  <span className="ml-2 whitespace-nowrap text-ui-xs text-muted-foreground">
+                    Verwaltung
+                  </span>
                 )}
               </th>
               {alleApps.map(app => (

@@ -34,7 +34,7 @@ export interface FremderAusweis extends Ausweis {
 
 // Nicht exportiert: niemand ausserhalb dieser Datei entwertet diese Abfragen,
 // weil jede Mutation, die sie veraltet, auch hier steht. So wie der
-// Benutzer-Schluessel in `settings/mitarbeiter/useMitarbeiter.ts`.
+// Benutzer-Schluessel in `settings/personen/usePersonen.ts`.
 const AUSWEISE_KEY = ['ausweise'] as const;
 const AUSWEISE_ALLE_KEY = ['ausweise', 'alle'] as const;
 
