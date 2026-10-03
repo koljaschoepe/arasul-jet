@@ -131,7 +131,7 @@ ANTWORT=$(api "$ADMIN_TOK" POST /api/benutzer \
 pruefe "Person mit Vorname, Nachname, E-Mail anlegen: 201" "$(ja "$CODE" 201)" "HTTP $CODE"
 PERSON_ID=$(printf '%s' "$ANTWORT" | feld data.id)
 START_PW=$(printf '%s' "$ANTWORT" | feld startpasswort)
-if printf '%s' "$START_PW" | grep -Eq '^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$'; then
+if grep -Eq '^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$' <<<"$START_PW"; then
   pruefe "Antwort traegt das Startpasswort (abtippbar, 3 mal 4)" ja
 else
   pruefe "Antwort traegt das Startpasswort (abtippbar, 3 mal 4)" nein
@@ -151,7 +151,7 @@ pruefe "Liste markiert das Startpasswort" "$(ja "$(printf '%s' "$ZEILE" | feld p
 pruefe "Neue Person ist kein Admin" "$(ja "$(printf '%s' "$ZEILE" | feld role)" mitarbeiter)"
 
 # Das Startpasswort steht nirgends mehr: eine zweite Abfrage der Liste kennt es nicht.
-if printf '%s' "$LISTE" | grep -q "$START_PW"; then
+if grep -qF "$START_PW" <<<"$LISTE"; then
   pruefe "Startpasswort steht nach dem Anlegen nirgends mehr" nein
 else
   pruefe "Startpasswort steht nach dem Anlegen nirgends mehr" ja
@@ -256,7 +256,7 @@ pruefe "Aufraeumen: Person loeschen" "$(ja "$CODE" 200)" "HTTP $CODE"
 if [ "$CODE" = "200" ]; then
   PERSON_ID=""
   LISTE=$(api "$ADMIN_TOK" GET /api/benutzer)
-  if printf '%s' "$LISTE" | grep -q "$MAIL"; then
+  if grep -qF "$MAIL" <<<"$LISTE"; then
     pruefe "Aufraeumen: Zeile ist weg" nein
   else
     pruefe "Aufraeumen: Zeile ist weg" ja
