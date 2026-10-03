@@ -19,7 +19,8 @@
     "embla-carousel-react",
     "input-otp",
     "react-day-picker",
-    "pdfjs-dist"
+    "pdfjs-dist",
+    "react-resizable-panels"
   ],
   "ignoreBinaries": ["eslint"]
 }
