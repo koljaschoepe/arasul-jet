@@ -76,8 +76,16 @@ ruf() {
     schluessel:*) argumente+=(-H "x-api-key: ${wer#schluessel:}") ;;
     *) argumente+=(-H "authorization: Bearer $wer") ;;
   esac
-  [ -n "$leib" ] && argumente+=(-H 'content-type: application/json' -d "$leib")
-  CODE=$(curl "${argumente[@]}" "$BASIS$pfad")
+  # Der Rumpf ueber STDIN, nie als Argument: seit M5 steht darin ein Passwort.
+  if [ -n "$leib" ]; then
+    CODE=$(curl "${argumente[@]}" -H 'content-type: application/json' --data-binary @- "$BASIS$pfad" <<<"$leib")
+  else
+    CODE=$(curl "${argumente[@]}" "$BASIS$pfad")
+  fi
+}
+# Zurueckholen verlangt seit M5 das Passwort (Auftrag sicherung-zurueckholen).
+mit_passwort() {
+  python3 -c 'import json,os,sys; d=json.loads(sys.argv[1]); d["passwort"]=os.environ["ARASUL_PASSWORT"]; print(json.dumps(d))' "$1"
 }
 rumpf() { cat "$RUMPF_DATEI" 2>/dev/null; }
 
@@ -392,9 +400,9 @@ pruefe 'Die App wird entfernt, samt ihren Datenbanken' \
   "$([ "$CODE" = "200" ] && [ -n "$(rumpf | feld data.datenbanken_entfernt)" ] && echo ja || echo nein)" \
   "HTTP $CODE $(rumpf | feld data.datenbanken_entfernt)"
 
-ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" '{"bestaetigung":"falsch"}'
-pruefe 'Zurueckholen ohne die Kennung als Bestaetigung: 400' "$(ja_wenn "$CODE" 400)" "HTTP $CODE"
-ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" "{\"bestaetigung\":\"$APP\"}"
+ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" '{"passwort":"falsch"}'
+pruefe 'Zurueckholen mit falschem Passwort: 403' "$(ja_wenn "$CODE" 403)" "HTTP $CODE"
+ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" "$(mit_passwort '{}')"
 pruefe 'Die Daten der entfernten App kommen aus der Sicherung zurueck' \
   "$([ "$CODE" = "200" ] && [ "$(rumpf | feld data.erfolg)" = "true" ] && echo ja || echo nein)" \
   "HTTP $CODE staende=$(rumpf | feld data.staende.0.stand),$(rumpf | feld data.staende.1.stand)"
@@ -418,7 +426,7 @@ pruefe 'und die App darf wieder schreiben (die Tabellen gehoeren ihrer Rolle)' \
 
 # Und derselbe Weg bei einer App, die LAEUFT: was nach der Sicherung kam, ist
 # danach weg, und der Container ist neu verbunden.
-ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" "{\"bestaetigung\":\"$APP\",\"stand\":\"live\"}"
+ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" "$(mit_passwort '{"stand":"live"}')"
 pruefe 'Zurueckholen bei laufender App: Container neu gestartet' \
   "$([ "$CODE" = "200" ] && [ "$(rumpf | feld data.staende.0.neu_gestartet)" = "true" ] && echo ja || echo nein)" \
   "HTTP $CODE neu_gestartet=$(rumpf | feld data.staende.0.neu_gestartet)"

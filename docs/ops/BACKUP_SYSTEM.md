@@ -555,10 +555,11 @@ docker exec backup-service /usr/local/bin/wiederherstellen.sh --stand 637755c9
 docker exec backup-service /usr/local/bin/wiederherstellen.sh --datei arasul_db_20260827_020054.sql.gz
 docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe   # nur prüfen
 
-# Über die Schnittstelle (macht zusätzlich die App-Container wieder scharf)
+# Über die Schnittstelle (macht zusätzlich die App-Container wieder scharf und
+# sichert vorher den jetzigen Stand; verlangt das Passwort, seit M5)
 curl -k -X POST https://arasul.local/api/backup/wiederherstellung \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"bestaetigung":"wiederherstellen"}'               # oder mit "stand":"637755c9"
+  -d '{"bestaetigung":"wiederherstellen","passwort":"…","stand":"637755c9"}'
 ```
 
 **Zwei Schritte, und der zweite ist der, den man vergisst.** Das Skript holt
@@ -580,7 +581,62 @@ dem in der Datenbank. Auf ein leeres Gerät gehört sie **vor** den ersten Start
 von Hand: siehe [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md).
 
 **Was vorher da war, geht nicht verloren:** vor dem Einspielen entsteht ein Abzug
-des jetzigen Standes unter `/backups/vor_wiederherstellung/`.
+des jetzigen Standes unter `/backups/vor_wiederherstellung/`. Über die
+Schnittstelle (und damit aus der Oberfläche) zusätzlich, und vor allem anderen,
+ein ganzer **Stand davor** (siehe unten).
+
+### Zurückholen in der Oberfläche (M5, Auftrag sicherung-zurueckholen)
+
+Verwaltung → System → Sicherung → **Zurückholen**. Ein Weg für drei Dinge:
+
+| Was                           | Was zurückkommt                                                                                                             | Was bleibt                                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Eine App                      | ihre Datenbanken (Test, Live, soweit im Stand) und ihr Paket; danach wird jeder eingespielte Stand aus dem Paket neu gebaut | alle anderen Apps, Personen, Freigaben, der Firmenordner                                               |
+| Ein Bereich des Firmenordners | seine Dateien: Dazugekommenes geht, Fehlendes kommt, Geändertes bekommt den Inhalt von damals                               | jeder andere Bereich, alle Rechte, die Verwaltung des Dateidienstes (`.oc-nodes`, `.oc-tmp`, `.Trash`) |
+| Das ganze Gerät               | alles wie oben unter „Der Weg zurück"                                                                                       | die Konfiguration                                                                                      |
+
+**Der Stand wird nach Zeitpunkt gewählt**, in Worten („Gestern, 2:00 Uhr",
+„Freitag, 2. Oktober, 2:00 Uhr"), und angeboten werden nur die Stände, in
+denen die App oder der Bereich steht. Woher das Gerät das weiß: `backup.sh`
+fragt je neuem Stand einmal `restic ls` nach den Ordnern unter `/arasul/apps`,
+`/arasul/datenbank/apps` und `/arasul/firmenordner/posix/projects` (nicht
+rekursiv, am Orin 0,5 s) und legt das als `inhalt` in `staende.json` und im
+Manifest des Datenträgers ab.
+
+**Bestätigt wird mit dem eigenen Passwort**, beim ganzen Gerät zusätzlich mit
+dem Wort „wiederherstellen". Ein falsches Passwort ist ein Satz im Dialog
+(`403 PASSWORT_FALSCH`), die Sitzung bleibt.
+
+**Vorher sichert das Gerät den jetzigen Stand.** Das ist ein ganz normaler Lauf
+von `backup.sh`, mit `ARASUL_STAND_ANLASS=vorher` und `ARASUL_STAND_FUER=app:<id>`,
+`bereich:<kennung>` oder `geraet`. Der Stand trägt die Tags `vorher` und
+`fuer:…`; `stand_aufbewahren` behält ihn mit `--keep-tag vorher` (sonst fiele
+von zwei Ständen eines Tages der frühere, und wer zweimal an einem Tag
+zurückholt, verlöre den ersten Weg zurück). Er bleibt auf diesem Gerät und geht
+nicht auf den Datenträger: dort wäre er sonst der neueste Stand. Er fällt erst,
+wenn das Ziel voll ist, als ältester. In der Liste steht er als „Heute, 23:41
+Uhr · vor dem Zurückholen der App …", und **wer ihn wählt, macht das
+Zurückholen auf demselben Weg rückgängig.** Misslingt er, wird nichts
+zurückgeholt. Welcher Stand zurückkommt, wird **vor** dem Stand davor
+festgehalten; sonst wäre der neueste danach genau der eben gesicherte.
+
+**Ein Bereich bei laufendem Dateidienst.** `wiederherstellen.sh
+--firmenordner-bereich <kennung> --stand <id>` holt nur
+`posix/projects/<kennung>` aus dem Stand in einen Bereitstellungsordner und
+gleicht ihn mit `rsync -a --inplace --checksum --delete` ab, ohne `.oc-nodes`,
+`.oc-tmp` und `/.Trash`. An Ort und Stelle, damit eine geänderte Datei ihre
+Knotennummer behält und mit ihr die Kennung im Dienst (erweitertes Attribut);
+nach Inhalt, weil der Abgleichsklient die mtime auf die seines Rechners setzt.
+Der Dienst beobachtet die Ablage (`STORAGE_USERS_POSIX_WATCH_FS`) und nimmt die
+Änderungen auf wie jede Datei, die jemand am Gerät ablegt. Den Bereich muss es
+am Gerät geben: in einen weggeworfenen Raum käme nichts zurück, das der Dienst
+sähe. Einen einzelnen Bereich gibt es nur aus einem Stand, nicht aus den
+Tagesordnern von vor M5.
+
+Gemessen: `scripts/test/sicherung-zurueckholen.sh` (CI, echtes restic und rsync)
+und `scripts/test/sicherung-zurueckholen-abnahme.sh` (am Orin, mit eigener
+Probe-App und eigenem Probe-Bereich; das ganze Gerät nur in einer
+Wegwerf-Umgebung).
 
 ## Backup Report
 

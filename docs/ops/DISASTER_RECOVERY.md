@@ -146,17 +146,26 @@ cp -a /tmp/konfig-zurueck/k/arasul/konfiguration/config/. config/
 #    wurde (und `config/secrets/` weg ist), ist an dieser Stelle Schluss.
 #    Wo er liegt und warum: docs/ops/BACKUP_SYSTEM.md, Abschnitt 5a.
 
-# 5. Stack hochfahren und den Rest zurückspielen — VOM DATENTRÄGER:
+# 5. Stack hochfahren und den Rest zurückspielen — VOM DATENTRÄGER, in der
+#    Oberfläche (M5): Verwaltung → System → Sicherung → Zurückholen →
+#    „Das ganze Gerät“, Woher: „Datenträger …“, den Stand nach Datum wählen,
+#    „Das ganze Gerät zurückholen …“, im Dialog das Wort „wiederherstellen“,
+#    das eigene Passwort und (unter „Wiederherstellungscode eingeben“) den Code.
+#    Das sichert erst den jetzigen Stand (auf ein frisch installiertes Gerät
+#    ist das fast nichts), holt dann Datenbank, Apps, Flows und Firmenordner
+#    zurück und baut jede App aus ihrem Paket neu. Dasselbe über die
+#    Schnittstelle:
 docker compose up -d
-docker exec -e ARASUL_WIEDERHERSTELLUNGSCODE='ABCD-EFGH-…' backup-service \
-  /usr/local/bin/wiederherstellen.sh --quelle extern
-#    Oder in der Oberfläche: Einstellungen → System → Sicherung →
-#    „Das ganze Gerät zurückholen“ (Datenträger wählen, Code eingeben).
-
-# 6. App-Container aus den gesicherten Paketen neu bauen
 curl -k -X POST https://arasul.local/api/backup/wiederherstellung \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"bestaetigung":"wiederherstellen"}'
+  -d '{"bestaetigung":"wiederherstellen","passwort":"…","quelle":"extern","wiederherstellungscode":"ABCD-EFGH-…"}'
+#    Nur am Gerät, ohne Oberfläche (baut die Apps NICHT neu; das tut danach
+#    der Aufruf oben oder scripts/test/dr-drill.sh):
+#    docker exec -e ARASUL_WIEDERHERSTELLUNGSCODE='ABCD-EFGH-…' backup-service \
+#      /usr/local/bin/wiederherstellen.sh --quelle extern
+
+# 6. Nachsehen: die Liste der Apps in der Verwaltung, der Bericht unter
+#    „Zurückholen“ nennt je App, ob sie wieder läuft.
 
 # 7. Modelle erneut laden (die Kurzliste, C8)
 docker exec llm-service ollama pull qwen3.8:27b-q4_K_M

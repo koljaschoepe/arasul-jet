@@ -305,19 +305,36 @@ docker exec backup-service /usr/local/bin/backup.sh
 
 ### Backup wiederherstellen
 
-Unter **Einstellungen → System → Sicherung** gibt es zwei Wege zurueck; beide
-fragen doppelt, bevor etwas passiert:
+Unter **Verwaltung → System → Sicherung → Zurueckholen** geht es in drei
+Schritten zurueck, fuer alles dasselbe (seit M5):
 
-- **Eine App zurueckholen:** Quelle waehlen (Datentraeger oder dieses Geraet),
-  bei der App „Zurueckholen“, im Dialog die Kennung der App abtippen. Die Daten
-  der App **und ihr Paket** kommen aus der Sicherung, der jetzige Stand wird
-  vorher abgezogen, danach laeuft die App wieder. Ein stehender Bericht nennt
-  jeden Schritt. Alles andere am Geraet bleibt, wie es ist.
-- **Das ganze Geraet zurueckholen** (Notfall, ersetzt ALLES: Mitarbeiter, Apps,
-  Freigaben, Firmenordner): Quelle waehlen, im Dialog das Wort `wiederherstellen`
-  tippen. Auf einem frisch eingerichteten Geraet reicht der Datentraeger; passt
-  der Schluessel dieses Geraets nicht, den **Wiederherstellungscode** der
-  fruehere Installation eingeben.
+1. **Was?** Eine App, einen Bereich des Firmenordners oder das ganze Geraet.
+   Steckt ein Datentraeger, darueber auch, woher (dieses Geraet oder der
+   Datentraeger).
+2. **Auf welchen Stand?** Die Staende stehen nach Datum und Uhrzeit da
+   („Gestern, 2:00 Uhr“), nur die, in denen die App oder der Bereich steht.
+   Die Kennung steht unter „Technische Angaben“, gebraucht wird sie nicht.
+3. **Bestaetigen** mit dem eigenen Passwort, beim ganzen Geraet zusaetzlich
+   mit dem Wort `wiederherstellen`.
+
+Vorher sichert das Geraet den **jetzigen Stand**. Er steht danach ganz oben in
+der Liste, etwa „Heute, 23:41 Uhr · vor dem Zurueckholen der App Belege“. **Wer
+das Zurueckholen rueckgaengig machen will, waehlt genau diesen Stand und holt
+dasselbe noch einmal zurueck.** Ein Stand davor bleibt, bis das Ziel voll ist.
+
+- **Eine App:** ihre Daten und ihr Programm kommen aus dem Stand, danach laeuft
+  sie wieder. Alles andere bleibt, wie es ist.
+- **Ein Bereich des Firmenordners:** seine Dateien kommen auf den Stand von
+  damals; was seitdem dazukam, wird entfernt. Andere Bereiche und alle Rechte
+  bleiben. Den Bereich muss es geben (ein weggeworfener wird erst unter
+  Firmenordner neu angelegt). Der Dateidienst laeuft dabei weiter.
+- **Das ganze Geraet** (Notfall, ersetzt ALLES: Personen, Apps, Freigaben,
+  Firmenordner). Auf einem frisch eingerichteten Geraet reicht der
+  Datentraeger; passt der Schluessel dieses Geraets nicht, im Dialog den
+  **Wiederherstellungscode** der frueheren Installation eingeben. Der ganze
+  Ablauf: [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md), Abschnitt 1.3.
+
+Ein Bericht bleibt stehen und nennt jeden Schritt.
 
 Per Befehlszeile:
 

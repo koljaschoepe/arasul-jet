@@ -318,7 +318,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // `/marken/<haupt>/`, der Abschnitt `marken`, und `marken` im Manifest
     // nimmt die Hauptzahl allein. Die Zahl geht mit, weil ein Kit auf
     // Fassung 8 `"marken": "5"` als ungueltig abwiese.
-    expect(abdruck).toBe('029d3abc5132337841a16677618b04c7946947fcdc5c6f1e7daa433e1301cf1c');
+    //
+    // 04.10.2026 (M5, Auftrag sicherung-zurueckholen): die Regel zum
+    // Zurueckholen einer App nennt das Passwort statt der abgetippten Kennung
+    // und den Stand davor. Nur eine Beschreibung -- den Weg ruft ein
+    // Administrator in der Oberflaeche, kein Kit --, die Zahl bleibt bei 9.
+    expect(abdruck).toBe('d396e3b147e20a8978fceda561fac3cbe61aa53f1ec646a2df65b79fd24025af');
   });
 
   /**

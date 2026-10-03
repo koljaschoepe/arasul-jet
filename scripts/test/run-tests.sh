@@ -292,6 +292,12 @@ run_sicherung_schreiben_check() {
   else
     EXIT_CODE=1
   fi
+  # Ein Stand zurueck: ein Bereich, der Stand davor (Auftrag sicherung-zurueckholen).
+  if bash "${PROJECT_ROOT}/scripts/test/sicherung-zurueckholen.sh"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
 }
 
 run_werksreset_tabellen_check() {

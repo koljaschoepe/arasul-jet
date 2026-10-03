@@ -65,6 +65,10 @@
 #   /usr/local/bin/wiederherstellen.sh --app-paket <app-id>
 #                                                       NUR das Paket EINER App
 #                                                       (J37): /arasul/apps/<id>
+#   /usr/local/bin/wiederherstellen.sh --firmenordner-bereich <kennung>
+#                                                       NUR EINEN Bereich des
+#                                                       Firmenordners, nur aus
+#                                                       einem Stand (siehe unten)
 #
 # Dazu (J37, 02.10.2026), mit jedem der Aufrufe zu verbinden:
 #
@@ -99,6 +103,7 @@ NUR_DATENBANK=false
 PROBE=false
 APP_DATENBANK=""
 APP_PAKET=""
+BEREICH=""
 QUELLE=lokal
 STAND=""
 EXTERN_ORDNER="${BACKUP_EXTERN_ZIEL:-/arasul/extern}"
@@ -110,9 +115,10 @@ while [ $# -gt 0 ]; do
         --probe) PROBE=true; shift ;;
         --app-datenbank) APP_DATENBANK="$2"; shift 2 ;;
         --app-paket) APP_PAKET="$2"; shift 2 ;;
+        --firmenordner-bereich) BEREICH="$2"; shift 2 ;;
         --quelle) QUELLE="$2"; shift 2 ;;
         --stand) STAND="$2"; shift 2 ;;
-        -h|--help) sed -n '1,90p' "$0"; exit 0 ;;
+        -h|--help) sed -n '1,95p' "$0"; exit 0 ;;
         *) echo "Unbekanntes Argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -264,7 +270,7 @@ fi
 
 if [ "$QUELLE" = extern ] && ! ist_datentraeger; then
     protokoll "FEHLER: es ist kein Datentraeger mit einer Sicherung angesteckt"
-    [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "kein_datentraeger"
+    [ -z "$APP_DATENBANK$APP_PAKET$BEREICH" ] && schreibe_bericht fehler "kein_datentraeger"
     exit 1
 fi
 
@@ -292,7 +298,7 @@ if [ -n "${ARASUL_WIEDERHERSTELLUNGSCODE:-}" ]; then
     done
     if [ "$gefunden" != true ]; then
         protokoll "FEHLER: der Wiederherstellungscode oeffnet keine der Sicherungen -- nichts angefasst"
-        [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "wiederherstellungscode_passt_nicht"
+        [ -z "$APP_DATENBANK$APP_PAKET$BEREICH" ] && schreibe_bericht fehler "wiederherstellungscode_passt_nicht"
         exit 1
     fi
     BACKUP_ENCRYPT_KEY_FILE="$TEMP_SCHLUESSEL"
@@ -378,6 +384,8 @@ stelle_stand_bereit() { # repo stand
         pfade=("${STAND_DB_QUELLE}/apps/${APP_DATENBANK}.sql")
     elif [ -n "$APP_PAKET" ]; then
         pfade=("${APPS_ZIEL}/${APP_PAKET}")
+    elif [ -n "$BEREICH" ]; then
+        pfade=("${FIRMENORDNER_ZIEL}/posix/projects/${BEREICH}")
     elif [ "$PROBE" = true ] || [ "$NUR_DATENBANK" = true ]; then
         pfade=("$STAND_DB_QUELLE")
     else
@@ -417,6 +425,14 @@ stelle_stand_bereit() { # repo stand
     return 0
 }
 
+# Ein Bereich heisst wie sein Ordner auf der Platte: Kleinbuchstaben, Ziffern,
+# Bindestrich (firmenordner_ordner.kennung). Alles andere ist kein Bereich,
+# und vor allem kein Pfad.
+if [ -n "$BEREICH" ] && ! [[ "$BEREICH" =~ ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$ ]]; then
+    protokoll "FEHLER: ${BEREICH} ist keine Kennung eines Bereichs"
+    exit 2
+fi
+
 # Stand oder Tagesordner? Mit `--datei` immer der Tagesordner. Sonst der Stand,
 # wenn es zum Schluessel eines gibt. Gibt es Staende, aber keine zu diesem
 # Schluessel, ist das KEIN Grund, still auf einen alten Tagesordner
@@ -428,7 +444,7 @@ if [ -z "$DATEI" ]; then
         NIMM_STAND=true
     elif [ -n "$STAND" ] || [ -n "$(stand_repos "$STAND_WURZEL")" ]; then
         protokoll "FEHLER: der Schluessel dieses Geraets oeffnet die Staende nicht. Mit dem Wiederherstellungscode der frueheren Installation geht es."
-        [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "schluessel_passt_nicht"
+        [ -z "$APP_DATENBANK$APP_PAKET$BEREICH" ] && schreibe_bericht fehler "schluessel_passt_nicht"
         exit 1
     fi
 elif [ -n "$STAND" ]; then
@@ -438,9 +454,15 @@ fi
 
 if [ "$NIMM_STAND" = true ]; then
     if ! stelle_stand_bereit "$STAND_REPO_PFAD" "${STAND:-latest}"; then
-        [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "stand_nicht_zurueckholbar"
+        [ -z "$APP_DATENBANK$APP_PAKET$BEREICH" ] && schreibe_bericht fehler "stand_nicht_zurueckholbar"
         exit 1
     fi
+elif [ -n "$BEREICH" ]; then
+    # Einen einzelnen Bereich gibt es nur aus einem Stand: ein Tagesordner von
+    # vor M5 haelt den Firmenordner als EIN Archiv, und daraus einen Raum
+    # herauszuschneiden waere ein zweiter Weg fuer einen Fall, der vergeht.
+    protokoll "FEHLER: einen einzelnen Bereich gibt es nur aus einem Stand (seit M5)"
+    exit 1
 elif [ "$QUELLE" = extern ]; then
     stelle_datentraeger_bereit || exit 1
 fi
@@ -598,6 +620,64 @@ if [ -n "$APP_PAKET" ]; then
     eigner=$(stat -c '%u:%g' "$APPS_ZIEL" 2>/dev/null)
     [ -n "$eigner" ] && chown -R "$eigner" "${APPS_ZIEL}/${APP_PAKET}" 2>/dev/null
     protokoll "${APP_PAKET}: Paket zurueck (${APPS_ZIEL}/${APP_PAKET}) in $(( $(date +%s) - START ))s"
+    exit 0
+fi
+
+# --- Nur ein Bereich des Firmenordners (Auftrag sicherung-zurueckholen, M5) ---
+# Ein Bereich ist ein Raum des Dateidienstes und liegt auf der Platte als
+# `posix/projects/<kennung>/`. Zurueck kommen seine DATEIEN, so wie sie im
+# Stand standen: was seitdem dazukam, geht, was seitdem fehlt, kommt wieder,
+# was sich geaendert hat, bekommt den Inhalt von damals.
+#
+# DER DIENST LAEUFT DABEI WEITER, und das ist Absicht. Er beobachtet die
+# Ablage (`STORAGE_USERS_POSIX_WATCH_FS`) und nimmt von aussen geaenderte
+# Dateien nach einer Sekunde auf -- derselbe Weg wie jede Datei, die jemand
+# am Geraet ablegt. Damit er dabei nicht durcheinanderkommt, gilt dreierlei:
+#
+#   1. Seine eigene Verwaltung im Bereich bleibt, wie sie ist: `.oc-nodes`
+#      (Knoten, Sperren), `.oc-tmp` (halbe Uploads) und `.Trash` (der
+#      Papierkorb gehoert dem Administrator, J33). Sie aus dem Stand
+#      zurueckzulegen hiesse, dem laufenden Dienst seine Kennungen zu tauschen.
+#   2. Geschrieben wird AN ORT UND STELLE (`--inplace`): eine geaenderte Datei
+#      behaelt ihre Knotennummer und mit ihr die Kennung im Dienst, die als
+#      erweitertes Attribut daran haengt. Neue Dateien kommen ohne Attribute
+#      und werden wie jede neue Datei aufgenommen (`rsync` ohne -X).
+#   3. Verglichen wird der INHALT (`--checksum`), nicht Groesse und Zeit: der
+#      Abgleichsklient setzt die mtime auf die seines Rechners, und eine
+#      geaenderte Datei gleicher Groesse mit alter mtime bliebe sonst stehen.
+#
+# Den Bereich muss es am Geraet geben -- ein weggeworfener Raum ist im Dienst
+# nicht mehr da, und Dateien in einem Ordner, den der Dienst nicht kennt,
+# sieht niemand. Erst anlegen, dann zurueckholen.
+if [ -n "$BEREICH" ]; then
+    vorlage="${QUELLE_DIR}/firmenordner/baum/posix/projects/${BEREICH}"
+    ziel="${FIRMENORDNER_ZIEL}/posix/projects/${BEREICH}"
+    if [ ! -d "$vorlage" ]; then
+        protokoll "FEHLER: der Bereich ${BEREICH} steht nicht in diesem Stand"
+        exit 1
+    fi
+    if [ ! -d "$ziel" ]; then
+        protokoll "FEHLER: den Bereich ${BEREICH} gibt es an diesem Geraet nicht (erst anlegen, dann zurueckholen)"
+        exit 1
+    fi
+    if [ "$PROBE" = "true" ]; then
+        protokoll "Probe: der Bereich ${BEREICH} ist im Stand lesbar ($(find "$vorlage" -type f ! -path '*/.oc-nodes/*' ! -path '*/.oc-tmp/*' | wc -l | tr -d ' ') Dateien), nichts angefasst"
+        exit 0
+    fi
+    aenderungen="$(mktemp)"
+    if ! rsync -a --inplace --checksum --delete --omit-dir-times --itemize-changes \
+            --exclude='.oc-nodes' --exclude='.oc-tmp' --exclude='/.Trash' \
+            "${vorlage}/" "${ziel}/" >"$aenderungen" 2>>"$PROTOKOLL"; then
+        protokoll "FEHLER: der Bereich ${BEREICH} liess sich nicht vollstaendig zurueckschreiben (der Stand davor liegt als eigener Stand vor)"
+        rm -f "$aenderungen"
+        exit 1
+    fi
+    geschrieben=$(grep -c '^>f' "$aenderungen" || true)
+    entfernt=$(grep -c '^\*deleting .*[^/]$' "$aenderungen" || true)
+    ordner_neu=$(grep -c '^cd+' "$aenderungen" || true)
+    rm -f "$aenderungen"
+    protokoll "${BEREICH}: Bereich zurueck (${geschrieben} Dateien zurueckgeschrieben, ${entfernt} entfernt, ${ordner_neu} Ordner neu) in $(( $(date +%s) - START ))s"
+    printf 'ERGEBNIS bereich=%s geschrieben=%s entfernt=%s ordner_neu=%s\n' "$BEREICH" "$geschrieben" "$entfernt" "$ordner_neu"
     exit 0
 fi
 

@@ -432,6 +432,16 @@ docker compose --profile firmenordner up -d firmenordner
 Die Kopie **außerhalb** des Geräts (USB oder SMB, C9) nimmt
 `firmenordner_latest.tar.gz` mit.
 
+**Einen einzelnen Bereich zurückholen** (M5, Auftrag sicherung-zurueckholen):
+Verwaltung → System → Sicherung → Zurückholen → „Einen Bereich des
+Firmenordners". Dafür muss der Dienst **nicht** stehen: geholt wird nur
+`posix/projects/<kennung>` aus einem Stand, abgeglichen an Ort und Stelle nach
+Inhalt, ohne `.oc-nodes`, `.oc-tmp` und `.Trash` des Bereichs; der Dienst nimmt
+die Änderungen über `STORAGE_USERS_POSIX_WATCH_FS` auf. Kein anderer Bereich,
+keine Rechte. Vorher entsteht ein Stand des ganzen Geräts, mit dem sich das
+rückgängig machen lässt. Einzelheiten:
+[BACKUP_SYSTEM.md](../ops/BACKUP_SYSTEM.md#zurückholen-in-der-oberfläche-m5-auftrag-sicherung-zurueckholen).
+
 ---
 
 ## Wegwerfen: was dabei wirklich passiert
@@ -470,12 +480,12 @@ und damit war ein Arbeitsbaum mittlerer Größe nicht wegzuwerfen.
 Was OpenCloud selbst anbietet, am Orin an einem Wegwerf-Container der Fassung
 8.0.1 gemessen:
 
-| Frage                                | Antwort des Dienstes                                                                                                                                                                                                                                         |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Räumt er abgebrochene Uploads auf?   | **Nie von selbst.** Jede Sitzung hat einen Ablauf (`STORAGE_USERS_UPLOAD_EXPIRATION`, 24 h), danach liegt sie bis zum Befehl `opencloud storage-users uploads sessions --expired --clean` (am Orin: 98 MB von vor drei Tagen). Laufende Sitzungen fasst er nicht an. |
-| Begrenzt er Revisionen je Datei?     | **Nein.** Keine Anzahl, kein Alter. `opencloud revisions purge` kennt nur „alle"; sein `-r` je Datei greift auf `posix` nicht („no nodes found"), `DELETE …/dav/meta/<id>/v/<rev>` antwortet `501`.                                                          |
-| Zählt `quota.used` Revisionen mit?   | **Nein.** Fünf Fassungen einer Datei: `used` bleibt bei einer. Der Papierkorb zählt auch nicht. Die Spalte „Platz" war als Grenze richtig und als Auskunft über die Platte unvollständig.                                                                    |
-| Was waren die 9 647 Dateien?         | `.oc-nodes/locks/` — je Knoten eine leere `.mlock`-Datei, die bleibt (siehe unten).                                                                                                                                                                         |
+| Frage                              | Antwort des Dienstes                                                                                                                                                                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Räumt er abgebrochene Uploads auf? | **Nie von selbst.** Jede Sitzung hat einen Ablauf (`STORAGE_USERS_UPLOAD_EXPIRATION`, 24 h), danach liegt sie bis zum Befehl `opencloud storage-users uploads sessions --expired --clean` (am Orin: 98 MB von vor drei Tagen). Laufende Sitzungen fasst er nicht an. |
+| Begrenzt er Revisionen je Datei?   | **Nein.** Keine Anzahl, kein Alter. `opencloud revisions purge` kennt nur „alle"; sein `-r` je Datei greift auf `posix` nicht („no nodes found"), `DELETE …/dav/meta/<id>/v/<rev>` antwortet `501`.                                                                  |
+| Zählt `quota.used` Revisionen mit? | **Nein.** Fünf Fassungen einer Datei: `used` bleibt bei einer. Der Papierkorb zählt auch nicht. Die Spalte „Platz" war als Grenze richtig und als Auskunft über die Platte unvollständig.                                                                            |
+| Was waren die 9 647 Dateien?       | `.oc-nodes/locks/` — je Knoten eine leere `.mlock`-Datei, die bleibt (siehe unten).                                                                                                                                                                                  |
 
 Daraus folgt, was das Gerät tut (`services/firmenordner/ordnerPflege.js`):
 
@@ -489,7 +499,7 @@ Daraus folgt, was das Gerät tut (`services/firmenordner/ordnerPflege.js`):
   entfernt — und zwar genau so, wie `purge` es im Kern tut: die Datei
   `.oc-nodes/…/<knoten>.REV.<zeit>` und ihre Sperrdatei
   `locks/<knoten>.REV.<zeit>.mlock`, mit `rm` im Container des Dienstes.
-  *Warum zehn und nicht „alle" oder „keine":* „alle" ist das Ende von „frühere
+  _Warum zehn und nicht „alle" oder „keine":_ „alle" ist das Ende von „frühere
   Fassung wiederherstellen", „keine Grenze" lässt einen täglich abgeglichenen
   Ordner über Jahre die Platte füllen; zehn Fassungen sind bei täglichem
   Abgleich gut zwei Wochen Rückblick. Gemessen: die verbleibende Fassung
