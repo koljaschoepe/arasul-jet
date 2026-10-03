@@ -747,7 +747,12 @@ async function entscheide({ id, benutzerId, status, begruendung = null }, deps =
   // dann setzt `fortsetzen` ihn ab dem angehaltenen Schritt neu auf -- oder, bei
   // einer Ablehnung, beendet ihn. Nur ein Lauf ohne Pruefpunkt bleibt ohne
   // Fortsetzung; der Aufrufer sieht das an `fortgesetzt`.
-  const wartet = wartende.get(String(zeile.id));
+  //
+  // Ein Eintrag OHNE `aufloesen` ist kein Faden, sondern nur die Uhr, die
+  // `wiederaufnehmen` nach dem Neustart gestellt hat (an der Orin-Abnahme am
+  // 03.10.2026 gefunden: `wartet.aufloesen is not a function`, HTTP 500).
+  const eintrag = wartende.get(String(zeile.id));
+  const wartet = eintrag && typeof eintrag.aufloesen === 'function' ? eintrag : null;
   let fortgesetzt = Boolean(wartet);
   if (wartet) {
     if (status === 'bestaetigt') {
