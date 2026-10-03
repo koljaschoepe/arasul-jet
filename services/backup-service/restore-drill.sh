@@ -316,12 +316,19 @@ EOF
 }
 
 cleanup() {
-    [[ -n "$DRILL_STAGE" ]] && rm -rf "$DRILL_STAGE"
     if grep -qx "$DRILL_CONTAINER" <<<"$(docker ps -a --format '{{.Names}}')"; then
         docker rm -f "$DRILL_CONTAINER" >/dev/null 2>&1 || true
     fi
 }
-trap cleanup EXIT
+# `cleanup` laeuft auch VOR dem Start (Reste eines frueheren Laufs), darf also
+# nur den Container nehmen. Der Bereitstellungsordner des Stands (M5) geht erst
+# am Ende -- vorher geloescht, fand der Test seinen eigenen Abzug nicht mehr
+# (am Orin nach dem Deploy von M5 gemessen, 03.10.2026).
+ende() {
+    cleanup
+    if [[ -n "$DRILL_STAGE" ]]; then rm -rf "$DRILL_STAGE"; fi
+}
+trap ende EXIT
 
 # Der neueste Stand, wenn es einen gibt (M5).
 DRILL_KEY="${BACKUP_ENCRYPT_KEY_FILE}"
