@@ -184,4 +184,17 @@ describe('verwaisteAufraeumen', () => {
     expect(sql).toMatch(/status = 'laeuft'\s+OR \(status = 'wartend' AND fortsetzung IS NULL\)/);
     expect(sql).toMatch(/SET status = 'fehler'/);
   });
+
+  it('laesst Laeufe in Ruhe, die dieser Prozess schon fuehrt (Bestaetigung waehrend des Hochfahrens)', async () => {
+    const store = { createRun: jest.fn(async () => ({ id: 12 })), finishRun: jest.fn() };
+    await flowRunner.starten(
+      { flowName: 'n', userId: 1 },
+      { run: jest.fn(() => new Promise(() => {})), store }
+    );
+    const db = { query: jest.fn(async () => ({ rowCount: 0, rows: [] })) };
+    await flowRunner.verwaisteAufraeumen({ db });
+    const [sql, params] = db.query.mock.calls[0];
+    expect(sql).toMatch(/NOT \(id = ANY\(\$1::bigint\[\]\)\)/);
+    expect(params).toEqual([[12]]);
+  });
 });

@@ -322,6 +322,14 @@ async function verwaisteAufraeumen(deps = {}) {
   //
   // `wartend` MIT Prüfpunkt (M5) bleibt stehen: seine Anfrage steht in der
   // Datenbank, `freigabeAnfragen.wiederaufnehmen` stellt die Frist neu.
+  //
+  // AUSGENOMMEN sind Läufe, die DIESER Prozess schon führt (`aktive`). Das
+  // Hochfahren braucht mehrere Sekunden (Modell-Vorwärmen, Warteschlange), und
+  // der Server nimmt Anfragen schon an: eine Bestätigung in diesem Fenster
+  // setzt einen wartenden Lauf fort, und der Aufräumer, der danach liefe,
+  // hielte ihn für verwaist (an der Orin-Abnahme am 03.10.2026 gesehen: Lauf
+  // fortgesetzt um :04, als `fehler` markiert um :12).
+  const meine = [...aktive.keys()];
   const res = await db.query(
     `UPDATE flow_runs
         SET status = 'fehler',
@@ -329,9 +337,11 @@ async function verwaisteAufraeumen(deps = {}) {
                          THEN 'Backend wurde neu gestartet, während der Lauf auf eine Freigabe wartete; ein Lauf der Werkzeug-Schleife lässt sich nicht fortsetzen'
                          ELSE 'Backend wurde neu gestartet, während der Lauf lief' END,
             finished_at = NOW()
-      WHERE status = 'laeuft'
-         OR (status = 'wartend' AND fortsetzung IS NULL)
-      RETURNING id`
+      WHERE (status = 'laeuft'
+         OR (status = 'wartend' AND fortsetzung IS NULL))
+        AND NOT (id = ANY($1::bigint[]))
+      RETURNING id`,
+    [meine]
   );
   if (res.rowCount > 0) {
     logger.warn(`flowRunner: ${res.rowCount} verwaiste Läufe beim Start auf 'fehler' gesetzt`);

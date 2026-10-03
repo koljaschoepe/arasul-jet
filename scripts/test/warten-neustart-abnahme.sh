@@ -418,7 +418,8 @@ pruefe 'und seine Anfrage steht weiter offen' \
 sitzungs_ruf POST "/api/freigabe-anfragen/$ANFRAGE_A/bestaetigen" '{}'
 pruefe 'Ein Mensch bestaetigt nach dem Neustart' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
 pruefe 'und der Lauf wird fortgesetzt (fortgesetzt: true)' \
-  "$(ja_wenn "$(rumpf | feld data.fortgesetzt)" true)" "fortgesetzt=$(rumpf | feld data.fortgesetzt)"
+  "$(ja_wenn "$(rumpf | feld data.fortgesetzt | tr '[:upper:]' '[:lower:]')" true)" \
+  "fortgesetzt=$(rumpf | feld data.fortgesetzt)"
 STATUS=$(warte_auf_ende "$LAUF_A" "$LAUF_GEDULD")
 pruefe 'Der Lauf laeuft zu Ende: fertig' "$(ja_wenn "$STATUS" fertig)" "status=${STATUS:-—}"
 lauf_lesen "$LAUF_A"
