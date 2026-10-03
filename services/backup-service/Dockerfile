@@ -16,7 +16,14 @@ RUN apk add --no-cache \
     # der Sicherung bewegt haben (busybox-find kennt beides nicht), und `jq`,
     # damit ein Dateiname mit Anfuehrungszeichen den Bericht nicht zerbricht.
     findutils \
-    jq
+    jq \
+    # M5 (03.10.2026): die Staende der Sicherung. restic verschluesselt immer
+    # und schreibt je Nacht nur Geaendertes (Begruendung in staende.sh); es
+    # ist ein statisches Go-Programm und in Alpine fuer aarch64 und x86_64 da.
+    # `ionice` (util-linux-misc) laesst es nur lesen, wenn die Platte sonst
+    # nichts zu tun hat -- busybox bringt keines mit.
+    restic \
+    util-linux-misc
 
 # Backup volume mount inside the container — keep in sync with the volume
 # mount target in compose/compose.monitoring.yaml. The drill scripts default
@@ -24,6 +31,9 @@ RUN apk add --no-cache \
 # repo checkout), so we set the canonical container path here so cron-driven
 # drill runs find backups without needing an env prefix in the cron line.
 ENV BACKUP_DIR=/backups
+
+COPY staende.sh /usr/local/bin/staende.sh
+RUN chmod +x /usr/local/bin/staende.sh
 
 COPY backup.sh /usr/local/bin/backup.sh
 RUN chmod +x /usr/local/bin/backup.sh

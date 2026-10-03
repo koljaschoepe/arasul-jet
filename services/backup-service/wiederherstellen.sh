@@ -42,9 +42,20 @@
 # Abzug des jetzigen Standes unter `/backups/vor_wiederherstellung/`. Wer die
 # falsche Sicherung erwischt hat, kommt damit zurueck.
 #
+# WOHER (M5, 03.10.2026): seit M5 sichert die Nacht STAENDE (staende.sh), und
+# ohne weitere Angabe kommt der NEUESTE STAND zurueck. Mit `--stand <id>` ein
+# bestimmter (die Kennung aus `staende.sh liste`, die ersten acht Zeichen
+# reichen). Aus dem Stand wird ein Ordner bereitgestellt, der aussieht wie
+# frueher /backups (`postgres/arasul_db_latest.sql.gz`, `apps/baum/` ...), und
+# alles Weitere liest daraus -- derselbe Weg wie vom Datentraeger. Die
+# Tagesordner von vor M5 bleiben lesbar: `--datei <name>` nimmt eine Datei
+# daraus, und ein Geraet ohne Stand nimmt wie bisher die neueste.
+#
 # Aufruf (im Container):
-#   /usr/local/bin/wiederherstellen.sh                  neueste Sicherung
-#   /usr/local/bin/wiederherstellen.sh --datei <name>   eine bestimmte
+#   /usr/local/bin/wiederherstellen.sh                  neuester Stand
+#   /usr/local/bin/wiederherstellen.sh --stand <id>     ein bestimmter Stand
+#   /usr/local/bin/wiederherstellen.sh --datei <name>   eine bestimmte Datei
+#                                                       (Tagesordner vor M5)
 #   /usr/local/bin/wiederherstellen.sh --nur-datenbank  ohne die Ordner
 #   /usr/local/bin/wiederherstellen.sh --probe          nur pruefen, nichts tun
 #   /usr/local/bin/wiederherstellen.sh --app-datenbank <name> [--datei <name>]
@@ -58,8 +69,8 @@
 # Dazu (J37, 02.10.2026), mit jedem der Aufrufe zu verbinden:
 #
 #   --quelle extern    die Sicherung stammt VOM DATENTRAEGER
-#                      (/arasul/extern/arasul-sicherung/<neuester Tag>/), nicht
-#                      aus /backups. So kommt ein Kunde an seine Sachen, dessen
+#                      (/arasul/extern/arasul-sicherung/staende-<abdruck>/,
+#                      vor M5 der neueste Tagesordner), nicht aus /backups. So kommt ein Kunde an seine Sachen, dessen
 #                      Geraet leer ist: der Stick ist alles, was er hat.
 #   ARASUL_WIEDERHERSTELLUNGSCODE (Umgebungsvariable, nie in der Befehlszeile)
 #                      der Wiederherstellungscode der Installation, mit der die
@@ -89,6 +100,7 @@ PROBE=false
 APP_DATENBANK=""
 APP_PAKET=""
 QUELLE=lokal
+STAND=""
 EXTERN_ORDNER="${BACKUP_EXTERN_ZIEL:-/arasul/extern}"
 
 while [ $# -gt 0 ]; do
@@ -99,7 +111,8 @@ while [ $# -gt 0 ]; do
         --app-datenbank) APP_DATENBANK="$2"; shift 2 ;;
         --app-paket) APP_PAKET="$2"; shift 2 ;;
         --quelle) QUELLE="$2"; shift 2 ;;
-        -h|--help) sed -n '1,75p' "$0"; exit 0 ;;
+        --stand) STAND="$2"; shift 2 ;;
+        -h|--help) sed -n '1,90p' "$0"; exit 0 ;;
         *) echo "Unbekanntes Argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -116,6 +129,7 @@ json_text() {
 }
 
 DB_ZEILEN=0
+STAND_GEWAEHLT=""
 APPS_STATUS=uebersprungen
 FLOWS_STATUS=uebersprungen
 FIRMENORDNER_STATUS=uebersprungen
@@ -128,6 +142,7 @@ schreibe_bericht() {
   "status": "$(json_text "$status")",
   "grund": "$(json_text "$grund")",
   "sicherung": "$(json_text "$(basename "${DATEI:-}" 2>/dev/null || echo '')")",
+  "stand": "$(json_text "${STAND_GEWAEHLT:-}")",
   "tabellen": ${DB_ZEILEN},
   "apps": "$(json_text "$APPS_STATUS")",
   "flows": "$(json_text "$FLOWS_STATUS")",
@@ -167,6 +182,10 @@ lies_sicherung() {
 START=$(date +%s)
 mkdir -p "$BACKUP_DIR"
 
+# Die Staende (M5): dieselbe Bibliothek wie backup.sh.
+# shellcheck source=staende.sh
+source "${STAENDE_SKRIPT:-/usr/local/bin/staende.sh}"
+
 # --- Welcher Schluessel, welche Sicherung? (J37) ------------------------------
 # Zwei Fragen, und die zweite haengt an der ersten.
 #
@@ -179,13 +198,17 @@ mkdir -p "$BACKUP_DIR"
 #    nicht der Mensch, sondern der Versuch: er muss den Anfang einer der
 #    neuesten Datenbank-Sicherungen oeffnen. Er gilt nur fuer diesen Lauf: eine
 #    Datei mit 0600, danach weg.
-# 2. DIE SICHERUNG. `lokal`: aus /backups. `extern`: vom Datentraeger -- aus dem
-#    NEUESTEN Tagesordner, dessen Datenbank sich mit dem Schluessel oeffnen
-#    laesst (gibt es keinen, aus dem neuesten, damit der Fehler benennbar ist).
-#    Daraus wird ein Ordner zusammengestellt, der aussieht wie /backups
-#    (`postgres/arasul_db_latest.sql.gz`, `apps/apps_latest.tar.gz` ...), und
-#    alles Weitere liest daraus. Nur gelesen, nie auf den Datentraeger
-#    geschrieben.
+#    SEIT M5 ist der Versuch einfacher: je Schluessel gibt es ein Repo
+#    (`staende-<abdruck>`), also muss nur das Repo zum Abdruck des Codes da
+#    sein und sich oeffnen lassen.
+# 2. DIE SICHERUNG. `lokal`: aus /backups. `extern`: vom Datentraeger. Seit M5
+#    der neueste (oder mit `--stand` der genannte) Stand; ohne Stand wie
+#    vorher der neueste Tagesordner, dessen Datenbank sich mit dem Schluessel
+#    oeffnen laesst (gibt es keinen, aus dem neuesten, damit der Fehler
+#    benennbar ist). Daraus wird ein Ordner zusammengestellt, der aussieht wie
+#    /backups (`postgres/arasul_db_latest.sql.gz`, `apps/apps_latest.tar.gz`
+#    oder `apps/baum/` ...), und alles Weitere liest daraus. Nur gelesen, nie
+#    auf den Datentraeger geschrieben.
 QUELLE_DIR="$BACKUP_DIR"
 STAGE=""
 TEMP_SCHLUESSEL=""
@@ -227,6 +250,18 @@ oeffnet() { # schluesseldatei, sicherung
         | head -c 2 | od -An -tx1 | tr -d ' \n')" = "1f8b" ]
 }
 
+# Wo die Staende dieser Quelle liegen.
+if [ "$QUELLE" = extern ]; then
+    STAND_WURZEL="${EXTERN_ORDNER}/arasul-sicherung"
+else
+    STAND_WURZEL="$BACKUP_DIR"
+fi
+
+if [ -n "$STAND" ] && ! [[ "$STAND" =~ ^([0-9a-f]{8,64}|latest)$ ]]; then
+    protokoll "FEHLER: ${STAND} ist keine Kennung eines Stands"
+    exit 2
+fi
+
 if [ "$QUELLE" = extern ] && ! ist_datentraeger; then
     protokoll "FEHLER: es ist kein Datentraeger mit einer Sicherung angesteckt"
     [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "kein_datentraeger"
@@ -242,6 +277,10 @@ if [ -n "${ARASUL_WIEDERHERSTELLUNGSCODE:-}" ]; then
     for kandidat in "$roh" "$(printf '%s' "$roh" | tr '[:lower:]' '[:upper:]')" \
                     "$(printf '%s' "$roh" | tr '[:upper:]' '[:lower:]')"; do
         printf '%s' "$kandidat" > "$TEMP_SCHLUESSEL"
+        if stand_oeffnet "$(stand_repo "$STAND_WURZEL" "$TEMP_SCHLUESSEL")" "$TEMP_SCHLUESSEL"; then
+            gefunden=true
+            break
+        fi
         while IFS= read -r probe_datei; do
             [ -n "$probe_datei" ] || continue
             if oeffnet "$TEMP_SCHLUESSEL" "$probe_datei"; then
@@ -310,7 +349,99 @@ stelle_datentraeger_bereit() {
     return 0
 }
 
-if [ "$QUELLE" = extern ]; then
+# --- Ein Stand (M5) -----------------------------------------------------------
+# Geholt wird nur, was dieser Aufruf braucht: fuer eine App-Datenbank nur
+# deren Abzug, fuer ein Paket nur dessen Ordner, fuer `--probe` und
+# `--nur-datenbank` nur die Datenbank. Der Bereitstellungsordner liegt unter
+# /backups (dieselbe Platte, nicht die Schicht des Containers) und geht am
+# Ende weg.
+stelle_stand_bereit() { # repo stand
+    local repo="$1" gesucht="${2:-latest}" liste eintrag id zeit kurz pfade=() f db kind quelle
+    liste=$(stand_liste "$repo" "$BACKUP_ENCRYPT_KEY_FILE") || {
+        protokoll "FEHLER: die Staende lassen sich nicht lesen (${repo##*/})"
+        return 1
+    }
+    if [ "$gesucht" = latest ]; then
+        eintrag=$(jq -c '.[-1] // empty' <<<"$liste")
+    else
+        eintrag=$(jq -c --arg g "$gesucht" '[.[] | select(.id | startswith($g))] | if length == 1 then .[0] else empty end' <<<"$liste")
+    fi
+    if [ -z "$eintrag" ]; then
+        protokoll "FEHLER: kein Stand ${gesucht} (oder nicht eindeutig)"
+        return 1
+    fi
+    id=$(jq -r '.id' <<<"$eintrag")
+    zeit=$(jq -r '.zeit' <<<"$eintrag")
+    kurz="${id:0:8}"
+
+    if [ -n "$APP_DATENBANK" ]; then
+        pfade=("${STAND_DB_QUELLE}/apps/${APP_DATENBANK}.sql")
+    elif [ -n "$APP_PAKET" ]; then
+        pfade=("${APPS_ZIEL}/${APP_PAKET}")
+    elif [ "$PROBE" = true ] || [ "$NUR_DATENBANK" = true ]; then
+        pfade=("$STAND_DB_QUELLE")
+    else
+        pfade=("$STAND_DB_QUELLE" "$APPS_ZIEL" "$FLOWS_ZIEL" "$FIRMENORDNER_ZIEL")
+    fi
+
+    STAGE="$(mktemp -d "${BACKUP_DIR}/.zurueck.XXXXXX")"
+    if ! stand_zurueckholen "$repo" "$BACKUP_ENCRYPT_KEY_FILE" "$id" "${STAGE}/roh" "${pfade[@]}" >>"$PROTOKOLL" 2>&1; then
+        protokoll "FEHLER: der Stand ${kurz} liess sich nicht zurueckholen"
+        return 1
+    fi
+    mkdir -p "${STAGE}/postgres/apps" "${STAGE}/apps" "${STAGE}/flows" "${STAGE}/firmenordner"
+    # Die Abzuege liegen im Stand unkomprimiert; der Weg dahinter liest gzip.
+    if [ -f "${STAGE}/roh${STAND_DB_QUELLE}/arasul_db.sql" ]; then
+        gzip -1 -c "${STAGE}/roh${STAND_DB_QUELLE}/arasul_db.sql" > "${STAGE}/postgres/arasul_db_stand_${kurz}.sql.gz"
+        ln -sf "arasul_db_stand_${kurz}.sql.gz" "${STAGE}/postgres/arasul_db_latest.sql.gz"
+    fi
+    for f in "${STAGE}/roh${STAND_DB_QUELLE}"/apps/*.sql; do
+        [ -f "$f" ] || continue
+        db="$(basename "$f" .sql)"
+        gzip -1 -c "$f" > "${STAGE}/postgres/apps/${db}_stand_${kurz}.sql.gz"
+        ln -sf "${db}_stand_${kurz}.sql.gz" "${STAGE}/postgres/apps/${db}_latest.sql.gz"
+    done
+    # Die Baeume bleiben Baeume: `apps/baum`, `flows/baum`, `firmenordner/baum`.
+    for kind in apps flows firmenordner; do
+        case "$kind" in
+            apps) quelle="$APPS_ZIEL" ;;
+            flows) quelle="$FLOWS_ZIEL" ;;
+            firmenordner) quelle="$FIRMENORDNER_ZIEL" ;;
+        esac
+        [ -d "${STAGE}/roh${quelle}" ] && ln -s "${STAGE}/roh${quelle}" "${STAGE}/${kind}/baum"
+    done
+    rm -rf "${STAGE:?}/roh${STAND_DB_QUELLE}"
+    QUELLE_DIR="$STAGE"
+    STAND_GEWAEHLT="$id"
+    protokoll "Quelle: Stand ${kurz} vom ${zeit%%.*} ($([ "$QUELLE" = extern ] && echo Datentraeger || echo dieses Geraet))"
+    return 0
+}
+
+# Stand oder Tagesordner? Mit `--datei` immer der Tagesordner. Sonst der Stand,
+# wenn es zum Schluessel eines gibt. Gibt es Staende, aber keine zu diesem
+# Schluessel, ist das KEIN Grund, still auf einen alten Tagesordner
+# auszuweichen: dann passt der Schluessel nicht, und das wird gesagt.
+STAND_REPO_PFAD="$(stand_repo "$STAND_WURZEL" "$BACKUP_ENCRYPT_KEY_FILE" 2>/dev/null || true)"
+NIMM_STAND=false
+if [ -z "$DATEI" ]; then
+    if [ -n "$STAND_REPO_PFAD" ] && stand_oeffnet "$STAND_REPO_PFAD" "$BACKUP_ENCRYPT_KEY_FILE"; then
+        NIMM_STAND=true
+    elif [ -n "$STAND" ] || [ -n "$(stand_repos "$STAND_WURZEL")" ]; then
+        protokoll "FEHLER: der Schluessel dieses Geraets oeffnet die Staende nicht. Mit dem Wiederherstellungscode der frueheren Installation geht es."
+        [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "schluessel_passt_nicht"
+        exit 1
+    fi
+elif [ -n "$STAND" ]; then
+    protokoll "FEHLER: --stand und --datei schliessen sich aus"
+    exit 2
+fi
+
+if [ "$NIMM_STAND" = true ]; then
+    if ! stelle_stand_bereit "$STAND_REPO_PFAD" "${STAND:-latest}"; then
+        [ -z "$APP_DATENBANK$APP_PAKET" ] && schreibe_bericht fehler "stand_nicht_zurueckholbar"
+        exit 1
+    fi
+elif [ "$QUELLE" = extern ]; then
     stelle_datentraeger_bereit || exit 1
 fi
 POSTGRES_DIR="${QUELLE_DIR}/postgres"
@@ -398,14 +529,28 @@ if [ -n "$APP_PAKET" ]; then
         exit 2
     fi
     archiv="${QUELLE_DIR}/apps/apps_latest.tar.gz"
-    if [ ! -e "$archiv" ]; then
-        protokoll "FEHLER: kein Archiv der App-Pakete vorhanden"
+    baum="${QUELLE_DIR}/apps/baum"
+    if [ ! -e "$archiv" ] && [ ! -d "$baum" ]; then
+        protokoll "FEHLER: die App ${APP_PAKET} steht nicht in dieser Sicherung"
         exit 1
     fi
     if [ ! -d "$APPS_ZIEL" ]; then
         protokoll "FEHLER: ${APPS_ZIEL} ist nicht eingehaengt"
         exit 1
     fi
+fi
+if [ -n "$APP_PAKET" ] && [ -d "${QUELLE_DIR}/apps/baum" ]; then
+    # Aus einem Stand: der Ordner der App liegt schon ausgepackt da.
+    if [ ! -d "${QUELLE_DIR}/apps/baum/${APP_PAKET}" ]; then
+        protokoll "FEHLER: die App ${APP_PAKET} steht nicht in dieser Sicherung"
+        exit 1
+    fi
+    if [ "$PROBE" = "true" ]; then
+        protokoll "Probe: das Paket von ${APP_PAKET} ist lesbar, nichts angefasst"
+        exit 0
+    fi
+    vorlauf="${QUELLE_DIR}/apps/baum"
+elif [ -n "$APP_PAKET" ]; then
     klartext="$(mktemp)"
     if ! lies_sicherung "$(readlink -f "$archiv")" > "$klartext" || ! tar -tzf "$klartext" >/dev/null 2>&1; then
         rm -f "$klartext"
@@ -430,6 +575,8 @@ if [ -n "$APP_PAKET" ]; then
         exit 1
     fi
     rm -f "$klartext"
+fi
+if [ -n "$APP_PAKET" ]; then
     if [ -d "${APPS_ZIEL}/${APP_PAKET}" ]; then
         mkdir -p "${BACKUP_DIR}/vor_wiederherstellung"
         VOR_PAKET="${BACKUP_DIR}/vor_wiederherstellung/paket_${APP_PAKET}_vorher_$(date +%Y%m%d_%H%M%S).tar.gz"
@@ -662,9 +809,10 @@ ERGEBNIS=""
 entpacke_nach() {
     local name="$1" ziel="$2"
     local archiv="${QUELLE_DIR}/${name}/${name}_latest.tar.gz"
+    local baum="${QUELLE_DIR}/${name}/baum"
     ERGEBNIS=""
 
-    if [ ! -e "$archiv" ]; then
+    if [ ! -e "$archiv" ] && [ ! -d "$baum" ]; then
         protokoll "${name}: kein Archiv vorhanden — uebersprungen"
         ERGEBNIS="kein_archiv"
         return 0
@@ -676,26 +824,32 @@ entpacke_nach() {
     fi
 
     local klartext vorlauf
-    klartext="$(mktemp)"
-    if ! lies_sicherung "$(readlink -f "$archiv")" > "$klartext" \
-         || ! tar -tzf "$klartext" >/dev/null 2>&1; then
-        rm -f "$klartext"
-        protokoll "FEHLER: ${name}: Archiv unlesbar oder beschaedigt"
-        ERGEBNIS="unlesbar"
-        return 1
-    fi
+    if [ -d "$baum" ]; then
+        # Aus einem Stand (M5): restic hat den Baum schon vollstaendig
+        # zurueckgeholt, bevor hier etwas angefasst wird.
+        vorlauf="$(readlink -f "$baum")"
+    else
+        klartext="$(mktemp)"
+        if ! lies_sicherung "$(readlink -f "$archiv")" > "$klartext" \
+             || ! tar -tzf "$klartext" >/dev/null 2>&1; then
+            rm -f "$klartext"
+            protokoll "FEHLER: ${name}: Archiv unlesbar oder beschaedigt"
+            ERGEBNIS="unlesbar"
+            return 1
+        fi
 
-    # ERST vollstaendig auspacken, DANN das Alte wegnehmen. Andersherum
-    # hinterliesse ein Auspacken, das auf halber Strecke abbricht, einen
-    # leeren Ordner -- und damit ein Geraet ohne Apps, das vorher welche hatte.
-    vorlauf="$(mktemp -d)"
-    if ! tar -xzf "$klartext" -C "$vorlauf" 2>/dev/null; then
-        rm -rf "$klartext" "$vorlauf"
-        protokoll "FEHLER: ${name}: Auspacken fehlgeschlagen"
-        ERGEBNIS="fehler"
-        return 1
+        # ERST vollstaendig auspacken, DANN das Alte wegnehmen. Andersherum
+        # hinterliesse ein Auspacken, das auf halber Strecke abbricht, einen
+        # leeren Ordner -- und damit ein Geraet ohne Apps, das vorher welche hatte.
+        vorlauf="$(mktemp -d)"
+        if ! tar -xzf "$klartext" -C "$vorlauf" 2>/dev/null; then
+            rm -rf "$klartext" "$vorlauf"
+            protokoll "FEHLER: ${name}: Auspacken fehlgeschlagen"
+            ERGEBNIS="fehler"
+            return 1
+        fi
+        rm -f "$klartext"
     fi
-    rm -f "$klartext"
 
     # Der Ordner selbst BLEIBT: er ist ein Mountpunkt, ihn zu loeschen ginge
     # nicht und wuerde die Verbindung zum Host kappen. Geleert wird der Inhalt.

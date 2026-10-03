@@ -171,8 +171,15 @@ services:
       # POSTGRES_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       POSTGRES_DB: ${POSTGRES_DB}
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      # Seit M5 nur noch das Alter, ab dem WAL-Segmente gehen.
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
-      BACKUP_WEEKLY_RETENTION_WEEKS: ${BACKUP_WEEKLY_RETENTION_WEEKS:-12}
+      # Die Staende (M5, 03.10.2026): jede Nacht einer, der nur Geaendertes
+      # schreibt (restic, services/backup-service/staende.sh). Aufbewahrt 7
+      # Tage, 12 Wochen, 60 Monate; ist das Ziel voll, faellt der aelteste.
+      BACKUP_STAND_TAGE: ${BACKUP_STAND_TAGE:-7}
+      BACKUP_STAND_WOCHEN: ${BACKUP_STAND_WOCHEN:-12}
+      BACKUP_STAND_MONATE: ${BACKUP_STAND_MONATE:-60}
+      BACKUP_STAND_RESERVE_MB: ${BACKUP_STAND_RESERVE_MB:-2048}
       TZ: ${TZ:-Europe/Berlin}
       BACKUP_REPORT_PATH: ${BACKUP_REPORT_PATH:-/backups/backup_report.json}
       # Das Ziel ausserhalb des Geraets (Phase C9): ein USB-Datentraeger oder

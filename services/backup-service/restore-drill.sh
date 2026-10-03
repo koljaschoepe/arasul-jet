@@ -7,6 +7,14 @@
 # to data/backups/restore_drill_report.json. The dashboard Ops-Overview widget
 # surfaces this timestamp so operators see at a glance whether DR is current.
 #
+# SEIT M5 (03.10.2026) ist "die neueste Sicherung" der neueste STAND
+# (staende.sh): sein Datenbankabzug geht in die Wegwerf-Datenbank, seine
+# App-Pakete und Flows werden gezaehlt, und `restic check` liest dazu einen
+# Teil der Daten im Repo wirklich (`BACKUP_DRILL_DATENANTEIL`, Vorgabe 5%) --
+# damit ist nicht nur der neueste Stand geprueft, sondern Woche fuer Woche ein
+# anderes Zwanzigstel von allem, was dort liegt. Ohne Stand (Geraet von vor
+# M5) gilt wie bisher die neueste Datei.
+#
 # Usage (runs inside the backup-service container as /usr/local/bin/restore-drill.sh):
 #   docker exec backup-service /usr/local/bin/restore-drill.sh                 # latest backup
 #   docker exec backup-service /usr/local/bin/restore-drill.sh --file X.sql.gz # specific file
@@ -123,6 +131,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "$BACKUP_DIR" 2>/dev/null || true
+STAENDE_SKRIPT="${STAENDE_SKRIPT:-${SCRIPT_DIR}/staende.sh}"
+HAT_STAENDE=false
+if [[ -f "$STAENDE_SKRIPT" ]] && command -v restic >/dev/null 2>&1; then
+    # shellcheck source=staende.sh
+    source "$STAENDE_SKRIPT"
+    HAT_STAENDE=true
+fi
 # data/backups is root-owned (backup-service writes it). When the drill is
 # invoked as an unprivileged user, fall through to /tmp so the script is still
 # useful for ad-hoc local testing. The JSON report is still written to the
@@ -209,6 +224,10 @@ sicherung_lesen() {
 # obwohl alles in Ordnung ist. Deshalb erst entschluesseln, dann pruefen -- ein
 # Archiv, dessen Inhalt niemand angesehen hat, ist genau die Sorte Zusage,
 # wegen der Gate G6 aufgemacht wurde.
+# Aus einem Stand (M5): dort liegen die Baeume schon ausgepackt.
+DRILL_STAGE=""
+STAND_KENNUNG=""
+STAND_PRUEFUNG="nicht_geprueft"
 apps_status="absent"
 apps_dateien=0
 flows_status="absent"
@@ -223,6 +242,24 @@ pruefe_archiv() {
     local archiv="${BACKUP_DIR}/${name}/${name}_latest.tar.gz"
     ARCHIV_STATUS="absent"
     ARCHIV_DATEIEN=0
+
+    if [[ -n "$DRILL_STAGE" ]]; then
+        local quelle baum
+        case "$name" in
+            apps) quelle="${APPS_BACKUP_DIR:-/arasul/apps}" ;;
+            flows) quelle="${FLOWS_BACKUP_DIR:-/arasul/flows}" ;;
+            *) quelle="/arasul/${name}" ;;
+        esac
+        baum="${DRILL_STAGE}/roh${quelle}"
+        if [[ ! -d "$baum" ]]; then
+            log "SKIP: kein ${name} im Stand ${STAND_KENNUNG:0:8}"
+            return 0
+        fi
+        ARCHIV_DATEIEN=$(grep -c "$muster" <<<"$(find "$baum" -type f)" || true)
+        log "OK:   ${name} im Stand lesbar (${ARCHIV_DATEIEN} Treffer auf ${muster})"
+        ARCHIV_STATUS="ok"
+        return 0
+    fi
 
     if [[ ! -e "$archiv" ]]; then
         log "SKIP: kein ${name}-Archiv unter ${archiv}"
@@ -270,6 +307,8 @@ write_report() {
   "apps_dateien": ${apps_dateien},
   "flows_status": "$(json_escape "$flows_status")",
   "flows_files": ${flows_files},
+  "stand": "$(json_escape "$STAND_KENNUNG")",
+  "stand_pruefung": "$(json_escape "$STAND_PRUEFUNG")",
   "timestamp": "${ts}"
 }
 EOF
@@ -277,11 +316,45 @@ EOF
 }
 
 cleanup() {
+    [[ -n "$DRILL_STAGE" ]] && rm -rf "$DRILL_STAGE"
     if grep -qx "$DRILL_CONTAINER" <<<"$(docker ps -a --format '{{.Names}}')"; then
         docker rm -f "$DRILL_CONTAINER" >/dev/null 2>&1 || true
     fi
 }
 trap cleanup EXIT
+
+# Der neueste Stand, wenn es einen gibt (M5).
+DRILL_KEY="${BACKUP_ENCRYPT_KEY_FILE}"
+if [[ -z "$BACKUP_FILE" && "$HAT_STAENDE" == true ]]; then
+    DRILL_REPO="$(stand_repo "$BACKUP_DIR" "$DRILL_KEY" 2>/dev/null || true)"
+    if [[ -n "$DRILL_REPO" ]] && stand_oeffnet "$DRILL_REPO" "$DRILL_KEY"; then
+        STAND_KENNUNG="$(stand_liste "$DRILL_REPO" "$DRILL_KEY" | jq -r '.[-1].id // empty')"
+    fi
+    if [[ -n "$STAND_KENNUNG" ]]; then
+        DRILL_STAGE="$(mktemp -d "${BACKUP_DIR}/.drill.XXXXXX")"
+        if ! stand_zurueckholen "$DRILL_REPO" "$DRILL_KEY" "$STAND_KENNUNG" "${DRILL_STAGE}/roh" \
+                "$STAND_DB_QUELLE" "${APPS_BACKUP_DIR:-/arasul/apps}" "${FLOWS_BACKUP_DIR:-/arasul/flows}" \
+                >>"$LOG_FILE" 2>&1; then
+            log "ERROR: der Stand ${STAND_KENNUNG:0:8} liess sich nicht zurueckholen"
+            write_report "error" "stand_nicht_zurueckholbar: ${STAND_KENNUNG:0:8}" 0 0
+            exit 1
+        fi
+        if [[ -f "${DRILL_STAGE}/roh${STAND_DB_QUELLE}/arasul_db.sql" ]]; then
+            BACKUP_FILE="${DRILL_STAGE}/arasul_db_stand_${STAND_KENNUNG:0:8}.sql.gz"
+            gzip -1 -c "${DRILL_STAGE}/roh${STAND_DB_QUELLE}/arasul_db.sql" > "$BACKUP_FILE"
+        else
+            BACKUP_FILE="${DRILL_STAGE}/fehlt"
+        fi
+        # Ein Teil der Daten im Repo wird wirklich gelesen und entschluesselt.
+        if stand_restic "$DRILL_REPO" "$DRILL_KEY" check --read-data-subset "${BACKUP_DRILL_DATENANTEIL:-5%}" >>"$LOG_FILE" 2>&1; then
+            STAND_PRUEFUNG="ok"
+            log "OK:   restic check (${BACKUP_DRILL_DATENANTEIL:-5%} der Daten gelesen)"
+        else
+            STAND_PRUEFUNG="fehler"
+            log "FAIL: restic check meldet Schaeden im Repo"
+        fi
+    fi
+fi
 
 if [[ -z "$BACKUP_FILE" ]]; then
     BACKUP_FILE="${POSTGRES_BACKUP_DIR}/arasul_db_latest.sql.gz"
@@ -506,6 +579,14 @@ flows_status="$ARCHIV_STATUS"
 flows_files="$ARCHIV_DATEIEN"
 
 duration=$(( $(date +%s) - DRILL_START ))
+
+# Ein beschaedigtes Repo ist ein Fehlschlag, auch wenn der neueste Stand sich
+# einspielen liess: es kann die aelteren Staende betreffen.
+if [[ "$STAND_PRUEFUNG" == "fehler" ]]; then
+    write_report "failed" "restic check meldet Schaeden im Repo (siehe drill log)" "$verified" "$duration"
+    log "Drill FAILED after ${duration}s — Repo der Staende beschaedigt"
+    exit 1
+fi
 
 # P5.7: also fail the drill if the restore itself errored out, even if the
 # 6-table check happens to find rows from a partial restore.
