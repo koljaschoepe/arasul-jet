@@ -36,7 +36,10 @@ async function liste(appId, { datenbank = db } = {}) {
   }
 
   // Je Stufenname eine Zeile, in der Reihenfolge, in der die Flows sie
-  // nennen; die Bezeichnung aus dem ersten Flow, der eine hat.
+  // nennen; die Bezeichnung aus dem ersten Flow, der eine hat. Sortiert nach
+  // der SPAETESTEN Stelle, an der ein Flow die Stufe nennt: eine Stufe, die
+  // irgendwo als zweite kommt, steht hinter einer, die nie spaeter als erste
+  // kommt. Bei einem einzigen Flow ist das genau seine Reihenfolge.
   const { rows: stufen } = await datenbank.query(
     `WITH s AS (
        SELECT st.wert->>'name' AS stufe, st.wert->>'bezeichnung' AS bezeichnung,
@@ -51,7 +54,7 @@ async function liste(appId, { datenbank = db } = {}) {
             (array_agg(s.bezeichnung ORDER BY s.nr) FILTER (WHERE s.bezeichnung IS NOT NULL))[1]
               AS bezeichnung,
             array_agg(DISTINCT s.flow ORDER BY s.flow) AS flows,
-            MIN(s.nr) AS nr,
+
             sp.user_id AS person_id, u.username AS person,
             (u.is_active AND EXISTS (SELECT 1 FROM public.app_members m
                                       WHERE m.app_id = $1 AND m.user_id = sp.user_id))
@@ -61,7 +64,7 @@ async function liste(appId, { datenbank = db } = {}) {
        LEFT JOIN public.app_stufen_personen sp ON sp.app_id = $1 AND sp.stufe = s.stufe
        LEFT JOIN public.admin_users u ON u.id = sp.user_id
       GROUP BY s.stufe, sp.user_id, u.username, u.is_active, sp.gesetzt_am
-      ORDER BY MIN(s.nr), s.stufe`,
+      ORDER BY MAX(s.nr), MIN(s.nr), s.stufe`,
     [appId]
   );
 
