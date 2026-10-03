@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Liste,
   ListenEintrag,
@@ -56,6 +56,8 @@ function Settings({ modelle }: VerwaltungProps) {
   const [isDirty, setIsDirty] = useState(false);
   const bereich = resolveTab(ansicht.bereich ?? null);
   const waehle = (id: SettingsSectionId) => oeffne({ type: 'verwaltung', bereich: id });
+  // „Ungespeicherte Änderungen" gehört zu dem Bereich, der sie hat.
+  useEffect(() => setIsDirty(false), [bereich]);
 
   const renderContent = () => {
     switch (bereich) {
@@ -100,7 +102,12 @@ function Settings({ modelle }: VerwaltungProps) {
       case 'system':
         return (
           <ComponentErrorBoundary componentName="System">
-            <SystemSettings initial={resolveSystemSub(ansicht.abschnitt ?? null)} />
+            {/* Der Schlüssel klappt neu auf, wenn der Abschnitt in der Adresse
+                wechselt (Zurück zwischen zwei Abschnitten). */}
+            <SystemSettings
+              key={ansicht.abschnitt ?? ''}
+              initial={resolveSystemSub(ansicht.abschnitt ?? null)}
+            />
           </ComponentErrorBoundary>
         );
       case 'lizenz':

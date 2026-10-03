@@ -207,7 +207,8 @@ export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void
           name="Verwaltung"
           aktiv={aktivId === 'verwaltung'}
           kennzeichen="leiste-verwaltung"
-          onClick={() => oeffne({ type: 'verwaltung' })}
+          // Steht die Verwaltung schon da, bleibt der gewählte Bereich.
+          onClick={() => aktivId !== 'verwaltung' && oeffne({ type: 'verwaltung' })}
         >
           <SlidersHorizontal className="size-4.5" aria-hidden="true" />
         </LeistenKnopf>

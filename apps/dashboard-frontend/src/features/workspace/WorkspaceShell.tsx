@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   useWorkspaceStore,
@@ -66,6 +66,11 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
 
+  // Der Pfad, auf dem Adresse und Store zuletzt übereinstimmten. Store → URL
+  // vergleicht hiergegen und nicht gegen `location`, deren Schnappschuss im
+  // selben Commit noch die alte Adresse trägt.
+  const abgeglichen = useRef<string | null>(null);
+
   // Der Titel des Browser-Tabs sagt, was vorn steht (J35, 26.09.2026).
   const titel = ansichtTitel(ansicht);
   useEffect(() => {
@@ -76,6 +81,11 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   // `/workspace` ohne weiteren Pfad landet auf der Startseite, ebenso eine
   // Admin-Adresse, die ein Mitarbeiter tippt. Das ist Ausblenden und keine
   // Berechtigung — `requireRole` im Backend antwortet ihm mit 403.
+  //
+  // Weicht die Adresse von der Ansicht ab (ein altes Lesezeichen, eine
+  // Admin-Adresse, ein unbekannter Pfad), wird sie ERSETZT, nicht ergänzt:
+  // sonst führte „Zurück" auf eine Adresse, die dieselbe Ansicht meint, und es
+  // bräuchte zwei Klicks.
   useEffect(() => {
     const gewuenscht = ausDerAdresse(location.pathname, location.search);
     oeffne(
@@ -83,14 +93,19 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
         ? gewuenscht
         : { type: 'dashboard' }
     );
+    const pfad = ansichtZuPfad(useWorkspaceStore.getState().ansicht);
+    abgeglichen.current = pfad;
+    if (location.pathname !== pfad) navigate(pfad, { replace: true });
   }, [location.pathname, location.search, istAdmin]);
 
-  // Store → URL. Den frischen Stand lesen, nicht den Render-Schnappschuss: der
-  // Effekt davor läuft im selben Commit und kann die Ansicht gerade geöffnet
-  // haben — ein Deep-Link würde sonst sofort überschrieben.
+  // Store → URL: ein Klick in der Leiste ist ein Schritt im Verlauf. Den
+  // frischen Stand lesen, nicht den Render-Schnappschuss: beim ersten Lauf hat
+  // der Effekt davor die Ansicht im selben Commit gerade geöffnet.
   useEffect(() => {
     const pfad = ansichtZuPfad(useWorkspaceStore.getState().ansicht);
-    if (location.pathname !== pfad) navigate(pfad);
+    if (abgeglichen.current === pfad) return;
+    abgeglichen.current = pfad;
+    navigate(pfad);
   }, [ansicht]);
 
   return (

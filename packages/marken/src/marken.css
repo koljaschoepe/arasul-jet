@@ -315,8 +315,10 @@ a.ara-liste__eintrag:hover {
    Die Toenung loest das ohne Balken: gewaehlt ist ein Hauch Akzent, ueberfahren
    der neutrale Wisch. Die Schriftstaerke bleibt, damit die Auswahl auch ohne
    Farbe zu erkennen ist. */
-.ara-liste__eintrag[aria-current='true'],
-.ara-liste__eintrag[data-aktiv='true'] {
+/* Mit `.ara-liste` davor, damit die Auswahl auch unter der Maus getoent
+   bleibt: `button.ara-liste__eintrag:hover` waere sonst spezifischer. */
+.ara-liste .ara-liste__eintrag[aria-current='true'],
+.ara-liste .ara-liste__eintrag[data-aktiv='true'] {
   background-color: color-mix(in srgb, var(--ara-akzent) 12%, transparent);
   color: var(--ara-text);
   font-weight: 600;

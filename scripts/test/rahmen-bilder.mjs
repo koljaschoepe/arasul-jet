@@ -16,6 +16,11 @@
  *      gemessen im Browser, ab der zweiten Runde (die erste lädt Brocken nach
  *      und wird gesondert genannt).
  *
+ * Mit ARASUL_APPS_FREIGEBEN=app1,app2 gibt `probe-admin` beiden Konten diese
+ * Apps für die Dauer der Messung frei und nimmt am Ende genau die Freigaben
+ * zurück, die er selbst erteilt hat — ohne App gäbe es keinen Wechsel
+ * zwischen Apps zu messen.
+ *
  * Die Sitzung bleibt im Speicher dieses Prozesses; geschrieben werden nur die
  * Bilder. Keine Passwörter in Dateien:
  *
@@ -29,13 +34,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
+import { chromium, request } from 'playwright';
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const URL = process.env.ARASUL_URL || 'https://100.121.244.80';
 const PHASE = process.env.ARASUL_PHASE === 'nachher' ? 'nachher' : 'vorher';
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-rahmen-m5`);
+const FREIGEBEN = (process.env.ARASUL_APPS_FREIGEBEN || '').split(',').filter(Boolean);
 const GRENZE_MS = 200;
 const RUNDEN = 3;
 
@@ -74,12 +80,53 @@ async function anmelden(browser, { benutzer, passwort }) {
   return { kontext, seite };
 }
 
+/**
+ * Freigaben für die Dauer der Messung: `probe-admin` gibt beiden Konten die
+ * genannten Apps frei und merkt sich, welche davon neu waren.
+ */
+async function freigabenSetzen() {
+  const api = await request.newContext({ baseURL: URL, ignoreHTTPSErrors: true });
+  const anmeldung = await api.post('/api/auth/login', {
+    data: { username: KONTEN[0].benutzer, password: KONTEN[0].passwort },
+  });
+  if (!anmeldung.ok()) throw new Error(`Anmeldung für Freigaben: ${anmeldung.status()}`);
+  const csrf = (await api.storageState()).cookies.find(c => c.name === 'arasul_csrf')?.value;
+  const kopf = { 'X-CSRF-Token': csrf || '' };
+  const personen = (await (await api.get('/api/benutzer')).json()).data || [];
+  const erteilt = [];
+  for (const konto of KONTEN) {
+    const person = personen.find(p => p.username === konto.benutzer);
+    if (!person) throw new Error(`${konto.benutzer} fehlt am Gerät`);
+    for (const app of FREIGEBEN) {
+      const r = await api.post('/api/freigaben', {
+        headers: kopf,
+        data: { app_id: app, benutzer_id: person.id, stand: 'live' },
+      });
+      const neu = r.ok() && (await r.json()).neu;
+      if (neu) erteilt.push({ app, id: person.id });
+      console.log(
+        `       Freigabe ${app} für ${konto.benutzer}: ${r.status()}${neu ? ' (neu)' : ''}`
+      );
+    }
+  }
+  return async () => {
+    for (const { app, id } of erteilt) {
+      const r = await api.delete(`/api/freigaben/${app}/${id}`, { headers: kopf });
+      console.log(`       Freigabe ${app} für ${id} zurückgenommen: ${r.status()}`);
+    }
+    await api.post('/api/auth/logout', { headers: kopf });
+    await api.dispose();
+  };
+}
+
 /** Abmelden über das Kontomenü, damit keine Sitzung des Probekontos offen bleibt. */
 async function abmelden(seite) {
   await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded' });
   await seite.click('[data-testid="workspace-benutzermenue"]');
   await seite.click('[data-testid="workspace-abmelden"]');
-  await seite.waitForURL(url => !url.pathname.startsWith('/workspace'), { timeout: 10000 }).catch(() => {});
+  await seite
+    .waitForURL(url => !url.pathname.startsWith('/workspace'), { timeout: 10000 })
+    .catch(() => {});
 }
 
 /**
@@ -93,14 +140,15 @@ async function wechsel(seite, klick, ziel) {
       if (!knopf) return -1;
       const t0 = performance.now();
       knopf.click();
-      await new Promise(fertig => {
+      const da = await new Promise(fertig => {
         const schau = () => {
-          if (document.querySelector(ziel)) requestAnimationFrame(() => fertig());
+          if (document.querySelector(ziel)) requestAnimationFrame(() => fertig(true));
+          else if (performance.now() - t0 > 5000) fertig(false);
           else requestAnimationFrame(schau);
         };
         schau();
       });
-      return performance.now() - t0;
+      return da ? performance.now() - t0 : -1;
     },
     { klick, ziel }
   );
@@ -113,7 +161,10 @@ async function rahmenPruefen(seite, konto) {
   pruefe(`${wer}: keine Tab-Leiste`, (await zahl('[role="tablist"]')) === 0);
   pruefe(`${wer}: keine Spalten (Panels)`, (await zahl('[data-panel]')) === 0);
   pruefe(`${wer}: keine Notizen`, (await zahl('textarea')) === 0);
-  pruefe(`${wer}: Aktivitätsleiste steht da`, (await zahl('[data-testid="aktivitaetsleiste"]')) === 1);
+  pruefe(
+    `${wer}: Aktivitätsleiste steht da`,
+    (await zahl('[data-testid="aktivitaetsleiste"]')) === 1
+  );
   pruefe(`${wer}: Haus zur Startseite`, (await zahl('[data-testid="leiste-startseite"]')) === 1);
   pruefe(
     `${wer}: Verwaltung ${konto.admin ? 'da' : 'nicht da'}`,
@@ -160,7 +211,11 @@ async function wechselMessen(seite, konto) {
     const stand = rest.endsWith('-test') ? 'test' : 'live';
     const id = rest.slice(0, -stand.length - 1);
     const pfad = stand === 'test' ? `/apps/${id}/test/` : `/apps/${id}/`;
-    ziele.push({ name: `App ${id} (${stand})`, klick: `[data-testid="${k}"]`, ziel: `iframe[src="${pfad}"]` });
+    ziele.push({
+      name: `App ${id} (${stand})`,
+      klick: `[data-testid="${k}"]`,
+      ziel: `iframe[src="${pfad}"]`,
+    });
   }
   ziele.push({
     name: 'Startseite',
@@ -211,9 +266,12 @@ async function wechselMessen(seite, konto) {
       `erste ${liste[0].toFixed(0)} ms, danach höchstens ${max.toFixed(0)} ms`
     );
   }
-  console.log(`       ${konto.benutzer}: langsamster Wechsel ab Runde 2: ${hoechste.toFixed(0)} ms`);
+  console.log(
+    `       ${konto.benutzer}: langsamster Wechsel ab Runde 2: ${hoechste.toFixed(0)} ms`
+  );
 }
 
+const zuruecknehmen = FREIGEBEN.length ? await freigabenSetzen() : async () => {};
 const browser = await chromium.launch();
 try {
   for (const konto of KONTEN) {
@@ -226,7 +284,9 @@ try {
       if (konto.admin) {
         await seite.goto(`${URL}/workspace/verwaltung/benutzer`, { waitUntil: 'networkidle' });
         await seite.waitForTimeout(1000);
-        await seite.screenshot({ path: path.join(ZIEL, `nachher-${konto.benutzer}-verwaltung.png`) });
+        await seite.screenshot({
+          path: path.join(ZIEL, `nachher-${konto.benutzer}-verwaltung.png`),
+        });
         await seite.goto(`${URL}/workspace/verwaltung/system`, { waitUntil: 'networkidle' });
         await seite.waitForTimeout(1000);
         pruefe(
@@ -257,7 +317,9 @@ try {
     await seite.waitForURL(/\/workspace/, { timeout: 20000 });
     await seite.locator('[data-testid="leiste-startseite"]').waitFor();
     const dauer = await seite.evaluate(
-      () => getComputedStyle(document.querySelector('[data-testid="leiste-startseite"]')).transitionDuration
+      () =>
+        getComputedStyle(document.querySelector('[data-testid="leiste-startseite"]'))
+          .transitionDuration
     );
     pruefe('weniger Bewegung: kein Übergang', dauer === '0s', dauer);
     await abmelden(seite);
@@ -265,8 +327,11 @@ try {
   }
 } finally {
   await browser.close();
+  await zuruecknehmen();
 }
 
 const rot = ergebnisse.filter(e => !e.ok).length;
-console.log(`\n${ergebnisse.length - rot} gruen, ${rot} rot, Bilder in ${path.relative(WURZEL, ZIEL)}`);
+console.log(
+  `\n${ergebnisse.length - rot} gruen, ${rot} rot, Bilder in ${path.relative(WURZEL, ZIEL)}`
+);
 process.exit(rot === 0 ? 0 : 1);

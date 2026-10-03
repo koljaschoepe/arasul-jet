@@ -10,7 +10,7 @@
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import WorkspaceShell from '../WorkspaceShell';
 import { angemeldet } from '@/__tests__/helpers/authMock';
@@ -25,13 +25,23 @@ function LocationProbe() {
   return <div data-testid="location-probe">{location.pathname}</div>;
 }
 
-function renderShell(initialPath: string) {
+function Zurueck() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      zurück
+    </button>
+  );
+}
+
+function renderShell(initialPath: string, davor: string[] = []) {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
+    <MemoryRouter initialEntries={[...davor, initialPath]} initialIndex={davor.length}>
       <Routes>
         <Route path="/workspace/*" element={<WorkspaceShell onLogout={async () => {}} />} />
       </Routes>
       <LocationProbe />
+      <Zurueck />
     </MemoryRouter>
   );
 }
@@ -124,6 +134,24 @@ describe('WorkspaceShell', () => {
   it('ein unbekannter Pfad öffnet nichts (Terminal ist mit B2 gefallen)', async () => {
     renderShell('/workspace/terminal');
     await landetAuf('/workspace/dashboard');
+  });
+
+  it('ein altes Lesezeichen wird ersetzt: ein Zurück führt eine Seite zurück', async () => {
+    renderShell('/workspace/modelle', ['/workspace/settings']);
+    await landetAuf('/workspace/verwaltung/modelle');
+    act(() => screen.getByText('zurück').click());
+    await landetAuf('/workspace/settings');
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'settings' });
+  });
+
+  it('ein Klick in der Leiste ist ein Schritt im Verlauf', async () => {
+    renderShell('/workspace/dashboard');
+    await landetAuf('/workspace/dashboard');
+    act(() => useWorkspaceStore.getState().oeffne({ type: 'settings' }));
+    await landetAuf('/workspace/settings');
+    act(() => screen.getByText('zurück').click());
+    await landetAuf('/workspace/dashboard');
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'dashboard' });
   });
 
   it('der Titel des Browser-Tabs sagt, was offen ist', async () => {
