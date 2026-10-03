@@ -23,14 +23,16 @@
 -- Die Schrittausgaben stehen schon in `flow_run_steps`; mehr Zustand braucht
 -- die deklarierte Kette nicht.
 --
+-- `flow_runs` ohne Schema: die Tabelle liegt nicht in `public` (wie in 185).
+--
 -- Rollback (down):
 --   ALTER TABLE public.approvals DROP COLUMN IF EXISTS stufe;
---   ALTER TABLE public.flow_runs DROP COLUMN IF EXISTS fortsetzung;
+--   ALTER TABLE flow_runs DROP COLUMN IF EXISTS fortsetzung;
 
-ALTER TABLE public.flow_runs ADD COLUMN IF NOT EXISTS fortsetzung JSONB;
+ALTER TABLE flow_runs ADD COLUMN IF NOT EXISTS fortsetzung JSONB;
 ALTER TABLE public.approvals ADD COLUMN IF NOT EXISTS stufe TEXT;
 
-COMMENT ON COLUMN public.flow_runs.fortsetzung IS
+COMMENT ON COLUMN flow_runs.fortsetzung IS
   'Wo ein wartender Lauf nach einem Neustart weitergeht: {schritt, name, schritt_id}. NULL = nicht fortsetzbar. Migration 192.';
 COMMENT ON COLUMN public.approvals.stufe IS
   'Benannte Freigabestufe aus dem Flow-Kopf, nach der die Frist gewaehlt wurde. Migration 192.';
