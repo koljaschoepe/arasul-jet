@@ -82,6 +82,11 @@ for k in sys.argv[1].split("."):
 print("" if d is None else (str(d).lower() if isinstance(d, bool) else d))' "$1" 2>/dev/null
 }
 
+# Der HTTP-Code der letzten Anfrage steht in einer DATEI: `ANTWORT=$(api ...)` laeuft in
+# einer Subshell, und was sie in eine Variable schreibt, ist danach weg.
+CODE_DATEI="$(mktemp)"
+code() { cat "$CODE_DATEI"; }
+
 # api <Token> <Verb> <Pfad> [Rumpf]  ->  Rumpf der Antwort, Code in $CODE
 CODE=""
 api() {
@@ -90,6 +95,7 @@ api() {
   [ -n "$rumpf" ] && args+=(-H 'content-type: application/json' -d "$rumpf")
   antwort=$(curl "${args[@]}" "$URL$pfad")
   CODE=$(printf '%s' "$antwort" | tail -n1)
+  printf '%s' "$CODE" > "$CODE_DATEI"
   printf '%s' "$antwort" | sed '$d'
 }
 
@@ -99,6 +105,7 @@ login() {
   antwort=$(curl -sk -w '\n%{http_code}' --max-time 30 -X POST -H 'content-type: application/json' \
     -d "{\"username\":\"$1\",\"password\":\"$2\"}" "$URL/api/auth/login")
   CODE=$(printf '%s' "$antwort" | tail -n1)
+  printf '%s' "$CODE" > "$CODE_DATEI"
   printf '%s' "$antwort" | sed '$d'
 }
 
@@ -107,20 +114,20 @@ ADMIN_TOK=""
 aufraeumen() {
   if [ -n "$PERSON_ID" ] && [ -n "$ADMIN_TOK" ]; then
     api "$ADMIN_TOK" DELETE "/api/benutzer/$PERSON_ID" > /dev/null
-    if [ "$CODE" = "200" ]; then
+    if [ "$(code)" = "200" ]; then
       echo "       aufgeraeumt: $MAIL geloescht"
     else
-      echo "ROT    aufraeumen: $MAIL liess sich nicht loeschen (HTTP $CODE), Kennung $PERSON_ID"
+      echo "ROT    aufraeumen: $MAIL liess sich nicht loeschen (HTTP $(code)), Kennung $PERSON_ID"
       rot=$((rot + 1))
     fi
   fi
 }
-trap aufraeumen EXIT
+trap 'aufraeumen; rm -f "$CODE_DATEI"' EXIT
 
 # --- Anmeldung des Admins ----------------------------------------------------
 ADMIN_TOK=$(login "$ADMIN" "$ADMIN_PW" | feld token)
 if [ -z "$ADMIN_TOK" ]; then
-  echo "ROT    probe-admin meldet sich nicht an (HTTP $CODE); ohne ihn gibt es nichts zu messen."
+  echo "ROT    probe-admin meldet sich nicht an (HTTP $(code)); ohne ihn gibt es nichts zu messen."
   exit 1
 fi
 pruefe "probe-admin meldet sich an" ja
@@ -128,7 +135,7 @@ pruefe "probe-admin meldet sich an" ja
 # --- 1. Anlegen --------------------------------------------------------------
 ANTWORT=$(api "$ADMIN_TOK" POST /api/benutzer \
   "{\"vorname\":\"$VORNAME\",\"nachname\":\"$NACHNAME\",\"email\":\"$MAIL\"}")
-pruefe "Person mit Vorname, Nachname, E-Mail anlegen: 201" "$(ja "$CODE" 201)" "HTTP $CODE"
+pruefe "Person mit Vorname, Nachname, E-Mail anlegen: 201" "$(ja "$(code)" 201)" "HTTP $(code)"
 PERSON_ID=$(printf '%s' "$ANTWORT" | feld data.id)
 START_PW=$(printf '%s' "$ANTWORT" | feld startpasswort)
 if grep -Eq '^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$' <<<"$START_PW"; then
@@ -160,7 +167,7 @@ fi
 # --- 2. Erste Anmeldung ------------------------------------------------------
 ANTWORT=$(login "$MAIL" "$START_PW")
 TOK=$(printf '%s' "$ANTWORT" | feld token)
-pruefe "Person meldet sich mit E-Mail und Startpasswort an" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Person meldet sich mit E-Mail und Startpasswort an" "$(ja "$(code)" 200)" "HTTP $(code)"
 pruefe "Sie muss ein eigenes Passwort setzen" \
   "$(ja "$(printf '%s' "$ANTWORT" | feld user.passwortWechselNoetig)" true)"
 pruefe "Name zum Pruefen: anzeigeName" \
@@ -168,23 +175,23 @@ pruefe "Name zum Pruefen: anzeigeName" \
 pruefe "Bild zum Pruefen: noch keins (hatBild false)" \
   "$(ja "$(printf '%s' "$ANTWORT" | feld user.hatBild)" false)"
 api "$TOK" GET /api/benutzer > /dev/null
-pruefe "Als Mitarbeiter keine Verwaltung (GET /api/benutzer: 403)" "$(ja "$CODE" 403)" "HTTP $CODE"
+pruefe "Als Mitarbeiter keine Verwaltung (GET /api/benutzer: 403)" "$(ja "$(code)" 403)" "HTTP $(code)"
 api "$TOK" GET /api/freigaben > /dev/null
-pruefe "Als Mitarbeiter keine Freigaben der Apps (403)" "$(ja "$CODE" 403)" "HTTP $CODE"
+pruefe "Als Mitarbeiter keine Freigaben der Apps (403)" "$(ja "$(code)" 403)" "HTTP $(code)"
 api "$TOK" GET /api/firmenordner/rechte > /dev/null
-pruefe "Als Mitarbeiter keine Rechte der Ordner (403)" "$(ja "$CODE" 403)" "HTTP $CODE"
+pruefe "Als Mitarbeiter keine Rechte der Ordner (403)" "$(ja "$(code)" 403)" "HTTP $(code)"
 
 # --- 3. Profil, Bild, eigenes Passwort ---------------------------------------
 ANTWORT=$(api "$TOK" PUT /api/profil \
   "{\"vorname\":\"$VORNAME\",\"nachname\":\"$NACHNAME\",\"funktion\":\"Pruefstand\",\"kuerzel\":\"PP\"}")
-pruefe "Profil: Funktion und Kuerzel setzen" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Profil: Funktion und Kuerzel setzen" "$(ja "$(code)" 200)" "HTTP $(code)"
 pruefe "Profil: Kuerzel kommt zurueck" "$(ja "$(printf '%s' "$ANTWORT" | feld data.kuerzel)" PP)"
 api "$TOK" PUT /api/profil '{"vorname":"Probe","nachname":"Personen","kuerzel":"ZUVIELEZEICHEN"}' > /dev/null
-pruefe "Profil: ein Kuerzel ueber 8 Zeichen wird abgewiesen (400)" "$(ja "$CODE" 400)" "HTTP $CODE"
+pruefe "Profil: ein Kuerzel ueber 8 Zeichen wird abgewiesen (400)" "$(ja "$(code)" 400)" "HTTP $(code)"
 
 PIXEL='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 ANTWORT=$(api "$TOK" PUT /api/profil/bild "{\"bild\":\"$PIXEL\"}")
-pruefe "Bild setzen" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Bild setzen" "$(ja "$(code)" 200)" "HTTP $(code)"
 pruefe "Bild: hatBild true" "$(ja "$(printf '%s' "$ANTWORT" | feld data.hatBild)" true)"
 TYP=$(curl -sk --max-time 30 -o /dev/null -w '%{http_code} %{content_type}' \
   -H "Authorization: Bearer $TOK" "$URL/api/profil/bild")
@@ -193,31 +200,31 @@ ADMIN_TYP=$(curl -sk --max-time 30 -o /dev/null -w '%{http_code} %{content_type}
   -H "Authorization: Bearer $ADMIN_TOK" "$URL/api/benutzer/$PERSON_ID/bild")
 pruefe "Admin sieht das Bild der Person (Liste)" "$(ja "$ADMIN_TYP" "200 image/png")" "$ADMIN_TYP"
 api "$TOK" PUT /api/profil/bild '{"bild":"data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="}' > /dev/null
-pruefe "Bild: SVG wird abgewiesen (400)" "$(ja "$CODE" 400)" "HTTP $CODE"
+pruefe "Bild: SVG wird abgewiesen (400)" "$(ja "$(code)" 400)" "HTTP $(code)"
 
 api "$TOK" POST /api/auth/change-password \
   "{\"currentPassword\":\"$START_PW\",\"newPassword\":\"$EIGENES_PW\"}" > /dev/null
-pruefe "Eigenes Passwort waehlen" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Eigenes Passwort waehlen" "$(ja "$(code)" 200)" "HTTP $(code)"
 api "$TOK" GET /api/auth/me > /dev/null
-pruefe "Der Token vor dem Wechsel gilt nicht mehr (401)" "$(ja "$CODE" 401)" "HTTP $CODE"
+pruefe "Der Token vor dem Wechsel gilt nicht mehr (401)" "$(ja "$(code)" 401)" "HTTP $(code)"
 login "$MAIL" "$START_PW" > /dev/null
-pruefe "Das Startpasswort gilt nicht mehr (401)" "$(ja "$CODE" 401)" "HTTP $CODE"
+pruefe "Das Startpasswort gilt nicht mehr (401)" "$(ja "$(code)" 401)" "HTTP $(code)"
 ANTWORT=$(login "$MAIL" "$EIGENES_PW")
 TOK=$(printf '%s' "$ANTWORT" | feld token)
-pruefe "Anmeldung mit dem eigenen Passwort" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Anmeldung mit dem eigenen Passwort" "$(ja "$(code)" 200)" "HTTP $(code)"
 pruefe "Kein Zwangswechsel mehr" "$(ja "$(printf '%s' "$ANTWORT" | feld user.passwortWechselNoetig)" false)"
 pruefe "Profil und Bild fahren mit der Anmeldung" \
   "$(ja "$(printf '%s' "$ANTWORT" | feld user.hatBild)/$(printf '%s' "$ANTWORT" | feld user.funktion)" "true/Pruefstand")"
 
 # --- 4. Sperren --------------------------------------------------------------
 api "$TOK" GET /api/auth/me > /dev/null
-pruefe "Vor dem Sperren gilt der Token (200)" "$(ja "$CODE" 200)"
+pruefe "Vor dem Sperren gilt der Token (200)" "$(ja "$(code)" 200)"
 api "$ADMIN_TOK" PUT "/api/benutzer/$PERSON_ID/aktiv" '{"aktiv":false}' > /dev/null
-pruefe "Admin sperrt die Person" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Admin sperrt die Person" "$(ja "$(code)" 200)" "HTTP $(code)"
 api "$TOK" GET /api/auth/me > /dev/null
-pruefe "Gesperrt: der angemeldete Rechner fliegt raus (401)" "$(ja "$CODE" 401)" "HTTP $CODE"
+pruefe "Gesperrt: der angemeldete Rechner fliegt raus (401)" "$(ja "$(code)" 401)" "HTTP $(code)"
 login "$MAIL" "$EIGENES_PW" > /dev/null
-pruefe "Gesperrt: keine neue Anmeldung (403)" "$(ja "$CODE" 403)" "HTTP $CODE"
+pruefe "Gesperrt: keine neue Anmeldung (403)" "$(ja "$(code)" 403)" "HTTP $(code)"
 ZEILE=$(api "$ADMIN_TOK" GET /api/benutzer | python3 -c 'import sys,json
 mail=sys.argv[1]
 z=[x for x in json.load(sys.stdin)["data"] if x["email"]==mail]
@@ -225,35 +232,35 @@ print(json.dumps(z[0]) if z else "{}")' "$MAIL")
 pruefe "Gesperrt: die Person bleibt in der Liste, ihr Profil mit ihr" \
   "$(ja "$(printf '%s' "$ZEILE" | feld is_active)/$(printf '%s' "$ZEILE" | feld funktion)" "false/Pruefstand")"
 api "$ADMIN_TOK" PUT "/api/benutzer/$PERSON_ID/aktiv" '{"aktiv":true}' > /dev/null
-pruefe "Admin laesst die Person wieder zu" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Admin laesst die Person wieder zu" "$(ja "$(code)" 200)" "HTTP $(code)"
 ANTWORT=$(login "$MAIL" "$EIGENES_PW")
 TOK=$(printf '%s' "$ANTWORT" | feld token)
-pruefe "Wieder zugelassen: Anmeldung geht" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Wieder zugelassen: Anmeldung geht" "$(ja "$(code)" 200)" "HTTP $(code)"
 
 # --- 5. Schalter Verwaltung --------------------------------------------------
 ANTWORT=$(api "$ADMIN_TOK" PUT "/api/benutzer/$PERSON_ID/verwaltung" '{"verwaltung":true}')
 pruefe "Schalter Verwaltung an: Rolle admin" \
-  "$(ja "$CODE/$(printf '%s' "$ANTWORT" | feld data.role)" "200/admin")" "HTTP $CODE"
+  "$(ja "$(code)/$(printf '%s' "$ANTWORT" | feld data.role)" "200/admin")" "HTTP $(code)"
 api "$TOK" GET /api/benutzer > /dev/null
-pruefe "Als Admin sieht die Person die Verwaltung (200, ohne neue Anmeldung)" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Als Admin sieht die Person die Verwaltung (200, ohne neue Anmeldung)" "$(ja "$(code)" 200)" "HTTP $(code)"
 ANTWORT=$(api "$ADMIN_TOK" PUT "/api/benutzer/$PERSON_ID/verwaltung" '{"verwaltung":false}')
 pruefe "Schalter Verwaltung aus: Rolle mitarbeiter" \
-  "$(ja "$CODE/$(printf '%s' "$ANTWORT" | feld data.role)" "200/mitarbeiter")" "HTTP $CODE"
+  "$(ja "$(code)/$(printf '%s' "$ANTWORT" | feld data.role)" "200/mitarbeiter")" "HTTP $(code)"
 api "$TOK" GET /api/benutzer > /dev/null
-pruefe "Danach wieder 403" "$(ja "$CODE" 403)" "HTTP $CODE"
+pruefe "Danach wieder 403" "$(ja "$(code)" 403)" "HTTP $(code)"
 api "$ADMIN_TOK" PUT "/api/benutzer/$PERSON_ID/verwaltung" '{"verwaltung":"ja"}' > /dev/null
-pruefe "Schalter: kein Wahrheitswert wird abgewiesen (400)" "$(ja "$CODE" 400)" "HTTP $CODE"
+pruefe "Schalter: kein Wahrheitswert wird abgewiesen (400)" "$(ja "$(code)" 400)" "HTTP $(code)"
 
 # --- 6. Die Daten der zwei Tabellen ------------------------------------------
 api "$ADMIN_TOK" GET /api/freigaben > /dev/null
-pruefe "Tabelle Apps: Admin liest die Freigaben (200)" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Tabelle Apps: Admin liest die Freigaben (200)" "$(ja "$(code)" 200)" "HTTP $(code)"
 api "$ADMIN_TOK" GET /api/firmenordner/rechte > /dev/null
-pruefe "Tabelle Ordner: Admin liest die Rechte (200)" "$(ja "$CODE" 200)" "HTTP $CODE"
+pruefe "Tabelle Ordner: Admin liest die Rechte (200)" "$(ja "$(code)" 200)" "HTTP $(code)"
 
 # --- Aufraeumen: Person loeschen, Zeile weg ----------------------------------
 api "$ADMIN_TOK" DELETE "/api/benutzer/$PERSON_ID" > /dev/null
-pruefe "Aufraeumen: Person loeschen" "$(ja "$CODE" 200)" "HTTP $CODE"
-if [ "$CODE" = "200" ]; then
+pruefe "Aufraeumen: Person loeschen" "$(ja "$(code)" 200)" "HTTP $(code)"
+if [ "$(code)" = "200" ]; then
   PERSON_ID=""
   LISTE=$(api "$ADMIN_TOK" GET /api/benutzer)
   if grep -qF "$MAIL" <<<"$LISTE"; then
