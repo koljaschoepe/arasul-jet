@@ -686,26 +686,43 @@ herein (`POST /api/auth/login` antwortet 403 `ACCOUNT_DISABLED`), seine
 Läufe und Protokolle bleiben stehen. Der letzte aktive Administrator kann nicht
 stillgelegt werden, und niemand kann sich selbst stilllegen.
 
-| Method | Endpoint                     | Description                                                                                                    |
-| ------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/benutzer`              | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login`              |
-| POST   | `/api/benutzer`              | Benutzer anlegen: `{ username, password, email?, rolle: "admin" \| "mitarbeiter" }`; 409 bei Name oder Lizenz  |
-| PUT    | `/api/benutzer/:id/passwort` | Passwort setzen: `{ password }` (≥ 8 Zeichen); beendet alle Sitzungen; 400 für das eigene Konto, 404 unbekannt |
-| PUT    | `/api/benutzer/:id/aktiv`    | Stilllegen oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin, 409 Lizenz    |
-| DELETE | `/api/benutzer/:id`          | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                                           |
+| Method | Endpoint                       | Description                                                                                                                                                                 |
+| ------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/benutzer`                | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login, vorname, nachname, funktion, kuerzel, hat_bild`                           |
+| POST   | `/api/benutzer`                | Person anlegen: `{ vorname, nachname, email, verwaltung? }`; Benutzername = E-Mail; **`startpasswort` steht einmal in der Antwort**; 409 bei E-Mail oder Lizenz             |
+| PUT    | `/api/benutzer/:id/passwort`   | Neues Startpasswort: `{ password? }` (ohne Angabe erzeugt das Gerät eins, `startpasswort` in der Antwort, einmalig); beendet alle Sitzungen; 400 für das eigene Konto       |
+| PUT    | `/api/benutzer/:id/aktiv`      | Sperren oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin, 409 Lizenz                                                                    |
+| PUT    | `/api/benutzer/:id/verwaltung` | Schalter „Verwaltung“: `{ verwaltung: true \| false }` setzt die Rolle `admin` oder `mitarbeiter`; 400, wenn es der letzte aktive Administrator wäre (auch für sich selbst) |
+| GET    | `/api/benutzer/:id/bild`       | Das Bild einer Person (Bytes mit `Content-Type`), 404 ohne Bild                                                                                                             |
+| DELETE | `/api/benutzer/:id`            | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                                                                                                        |
+
+Das **eigene Profil** (jede angemeldete Person, keine Kennung in der Adresse):
+
+| Method | Endpoint           | Description                                                                             |
+| ------ | ------------------ | --------------------------------------------------------------------------------------- |
+| PUT    | `/api/profil`      | `{ vorname, nachname, funktion?, kuerzel? }` (Kürzel ≤ 8 Zeichen); leer = nicht gesetzt |
+| PUT    | `/api/profil/bild` | `{ bild: "data:image/png\|jpeg\|webp;base64,…" }`, ≤ 512 KB                             |
+| DELETE | `/api/profil/bild` | Bild entfernen                                                                          |
+| GET    | `/api/profil/bild` | Das eigene Bild; 404 ohne Bild                                                          |
+
+`/api/auth/login`, `/api/auth/me` und `/api/auth/session` tragen im `user`
+zusätzlich `vorname, nachname, funktion, kuerzel, hatBild, anzeigeName`.
 
 ```json
 // POST /api/benutzer → 201
 {
   "data": {
     "id": 7,
-    "username": "mia",
-    "email": "mia@firma.de",
+    "username": "mia.muster@firma.de",
+    "email": "mia.muster@firma.de",
+    "vorname": "Mia",
+    "nachname": "Muster",
     "role": "mitarbeiter",
     "is_active": true,
     "passwort_vom_admin": true
   },
-  "timestamp": "2026-08-27T09:00:00.000Z"
+  "startpasswort": "k4mt-x9ra-hw3e",
+  "timestamp": "2026-10-03T09:00:00.000Z"
 }
 ```
 

@@ -166,18 +166,18 @@ gerade tut:
 ## 3. Einstellungen
 
 Die Einstellungen sind in **7 Reiter** gegliedert (frueher 9, verwandte Bereiche
-wurden zusammengelegt, damit die Navigation uebersichtlich bleibt; „Mitarbeiter"
+wurden zusammengelegt, damit die Navigation uebersichtlich bleibt; „Personen" (frueher „Mitarbeiter")
 kam mit der neuen Oberflaeche dazu):
 
-| Reiter          | Inhalt                                                    |
-| --------------- | --------------------------------------------------------- |
-| **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen         |
-| **Mitarbeiter** | Konten anlegen, Startpasswort setzen, App-Freigaben       |
-| **KI**          | Standardwerte der Sprachmodelle                           |
-| **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden  |
-| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung               |
-| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_ |
-| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                          |
+| Reiter          | Inhalt                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen                                                           |
+| **Personen**    | Anlegen (Name, E-Mail), Startpasswort einmal, sperren, Schalter „Verwaltung“, Freigaben für Apps und Ordner |
+| **KI**          | Standardwerte der Sprachmodelle                                                                             |
+| **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden                                                    |
+| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung                                                                 |
+| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_                                                   |
+| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                                                                            |
 
 Der Reiter **Mitarbeiter** ist in Kapitel 7 beschrieben, weil dort auch die
 Wege ueber die Schnittstelle stehen.
@@ -739,13 +739,25 @@ funktioniert; welches von beiden jemand eintippt, ist gleich.
 Zehn Anmeldeversuche je Viertelstunde und Absender-IP. Wer diese Zahl reisst,
 bekommt eine Meldung, die das sagt, und wartet eine Viertelstunde.
 
-### Startpasswort wechseln
+### Personen anlegen, Startpasswort, sperren
 
-Wenn Sie einem Mitarbeiter ein Passwort **setzen** (beim Anlegen oder ueber
-**Benutzer > Passwort setzen**), kennen zwei Menschen es: er und Sie. Das
-Geraet merkt sich das. Bei seiner naechsten Anmeldung kommt er deshalb nicht in
+**Einstellungen > Personen > Person anlegen**: Vorname, Nachname, E-Mail und der
+Schalter „Verwaltung“ (macht zum Administrator). Das Geraet erzeugt das
+**Startpasswort** und zeigt es **einmal** — zum Kopieren oder als Zettel zum
+Drucken. Danach steht es nirgends mehr; ein neues erzeugt der Schluessel in der
+Zeile. Angemeldet wird mit der E-Mail. Der letzte Administrator behaelt das
+Recht „Verwaltung“; das Geraet weist es ab, auch wenn er selbst klickt.
+
+**Sperren** nimmt den Zugang und meldet alle angemeldeten Rechner der Person ab;
+ihre Entscheidungen und Laeufe bleiben stehen. Loeschen ist der zweite Schritt,
+nicht der erste.
+
+Wenn Sie einer Person ein Startpasswort **geben** (beim Anlegen oder ueber den
+Schluessel in der Zeile), kennen zwei Menschen es: die Person und Sie. Das
+Geraet merkt sich das. Bei der naechsten Anmeldung kommt sie deshalb nicht in
 die Oberflaeche, sondern auf eine Seite, die ein neues Passwort verlangt — ohne
-„Spaeter"; der einzige Weg daneben ist Abmelden. Danach kennt es nur noch er.
+„Spaeter"; der einzige Weg daneben ist Abmelden. Dort sieht sie auch Name und
+Bild zum Pruefen. Danach kennt das Passwort nur noch sie.
 
 Dasselbe gilt fuer das Startpasswort des Administrators, das die Installation
 einmal auf dem Bildschirm zeigt.

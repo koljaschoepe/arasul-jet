@@ -19,6 +19,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Input, Label } from '@marken';
 import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
+import { PersonAvatar } from '@/components/PersonAvatar';
+import { API_BASE } from '@/config/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { ProfilFormular } from '@/features/profil/ProfilFormular';
 import { useApi } from '@/hooks/useApi';
 
 interface Anforderungen {
@@ -54,6 +58,8 @@ interface PasswortWechselnProps {
 
 function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
   const api = useApi();
+  const { user } = useAuth();
+  const [angabenOffen, setAngabenOffen] = useState(false);
   const [anforderungen, setAnforderungen] = useState<Anforderungen | null>(null);
   const [alt, setAlt] = useState('');
   const [neu, setNeu] = useState('');
@@ -112,7 +118,7 @@ function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
     <AuthCard
       mascot
       title="Neues Passwort"
-      description="Ihr bisheriges Passwort hat jemand anderes vergeben. Wählen Sie eines, das nur Sie kennen."
+      description="Wählen Sie ein eigenes Passwort."
       footer={
         <button
           type="button"
@@ -123,6 +129,41 @@ function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
         </button>
       }
     >
+      {/* Name und Bild zum Prüfen: die erste Anmeldung ist der Augenblick, in
+          dem jemand sieht, ob das Gerät die richtige Person kennt. Eine
+          Korrektur ist ein Klick; sonst steht hier nichts. */}
+      <div className="mb-5" data-testid="passwort-person">
+        <div className="flex items-center gap-3">
+          <PersonAvatar
+            name={user?.anzeigeName ?? user?.username ?? ''}
+            bild={user?.hatBild ? `${API_BASE}/profil/bild` : null}
+            className="size-12 text-sm"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium" data-testid="passwort-person-name">
+              {user?.anzeigeName ?? user?.username}
+            </p>
+            {typeof user?.email === 'string' && (
+              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setAngabenOffen(o => !o)}
+            aria-expanded={angabenOffen}
+            data-testid="passwort-person-aendern"
+            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            {angabenOffen ? 'Schließen' : 'Ändern'}
+          </button>
+        </div>
+        {angabenOffen && (
+          <div className="mt-4">
+            <ProfilFormular onGespeichert={() => setAngabenOffen(false)} />
+          </div>
+        )}
+      </div>
+
       <form onSubmit={absenden} data-testid="passwort-wechseln">
         {fehler && <AuthError id="passwort-fehler">{fehler}</AuthError>}
 

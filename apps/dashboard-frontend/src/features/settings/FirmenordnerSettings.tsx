@@ -37,7 +37,7 @@ import { useToast } from '@/contexts/ToastContext';
 import type { ApiError } from '@/hooks/useApi';
 import { useApi } from '@/hooks/useApi';
 import { useQueryClient } from '@tanstack/react-query';
-import { useBenutzer } from './mitarbeiter/useMitarbeiter';
+import { useBenutzer } from './personen/usePersonen';
 import { formatBytes } from '@/utils/formatting';
 import { AenderungenDialog } from './firmenordner/AenderungenDialog';
 import { GrenzeDialog } from './firmenordner/GrenzeDialog';

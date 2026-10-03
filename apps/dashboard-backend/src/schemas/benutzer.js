@@ -1,21 +1,20 @@
 const { z } = require('zod');
-const { ROLLEN } = require('../middleware/auth');
 
-// Dieselben Grenzen wie SetupAdminBody (schemas/auth.js): der erste Admin und
-// jeder spaetere Benutzer entstehen nach derselben Regel. Die Komplexitaet
-// (Grossbuchstabe, Zahl, Sonderzeichen) prueft `hashPassword`-seitig niemand;
-// sie gilt fuer den Passwortwechsel (`passwordService`), nicht fuers Anlegen,
-// weil der Administrator ein Startpasswort vergibt, das der Mitarbeiter
-// ohnehin wechselt.
+// Eine Person entsteht aus Vorname, Nachname und E-Mail (M5). Das Startpasswort
+// vergibt das Geraet, der Administrator tippt keins mehr: es kommt einmal in
+// der Antwort und steht danach nirgends. Der Benutzername ist die E-Mail.
+// `verwaltung: true` macht die Person zum Administrator (Schalter
+// „Verwaltung"); ohne Angabe ist sie Mitarbeiter.
 const CreateBenutzerBody = z
   .object({
-    username: z.string({ error: 'Benutzername fehlt' }).trim().min(1, 'Benutzername fehlt').max(64),
-    password: z
-      .string({ error: 'Passwort fehlt' })
-      .min(8, 'Passwort braucht mindestens 8 Zeichen')
-      .max(256),
-    email: z.string().trim().email('Keine gueltige E-Mail-Adresse').max(255).optional(),
-    rolle: z.enum(ROLLEN, { error: `Rolle muss ${ROLLEN.join(' oder ')} sein` }),
+    vorname: z.string({ error: 'Vorname fehlt' }).trim().min(1, 'Vorname fehlt').max(100),
+    nachname: z.string({ error: 'Nachname fehlt' }).trim().min(1, 'Nachname fehlt').max(100),
+    email: z
+      .string({ error: 'E-Mail fehlt' })
+      .trim()
+      .email('Keine gültige E-Mail-Adresse')
+      .max(255),
+    verwaltung: z.boolean().optional(),
   })
   .strict();
 
@@ -23,15 +22,12 @@ const BenutzerIdParams = z.object({
   id: z.coerce.number().int().positive(),
 });
 
-// Dieselbe Grenze wie beim Anlegen, und aus demselben Grund: der Administrator
-// vergibt ein STARTPASSWORT. Die Komplexitaetsregeln greifen dort, wo der
-// Mensch sein eigenes Passwort waehlt (`POST /api/auth/change-password`).
+// Ohne Angabe erzeugt das Geraet ein neues Startpasswort und nennt es einmal.
+// Mit Angabe gilt die Untergrenze von acht Zeichen; die Komplexitaetsregeln
+// greifen dort, wo der Mensch sein eigenes Passwort waehlt.
 const SetzePasswortBody = z
   .object({
-    password: z
-      .string({ error: 'Passwort fehlt' })
-      .min(8, 'Passwort braucht mindestens 8 Zeichen')
-      .max(256),
+    password: z.string().min(8, 'Passwort braucht mindestens 8 Zeichen').max(256).optional(),
   })
   .strict();
 
@@ -44,4 +40,17 @@ const SetzeAktivBody = z
   })
   .strict();
 
-module.exports = { CreateBenutzerBody, BenutzerIdParams, SetzePasswortBody, SetzeAktivBody };
+// Der Schalter „Verwaltung": `true` macht zum Administrator, `false` nimmt es.
+const SetzeVerwaltungBody = z
+  .object({
+    verwaltung: z.boolean({ error: 'verwaltung muss true oder false sein' }),
+  })
+  .strict();
+
+module.exports = {
+  CreateBenutzerBody,
+  BenutzerIdParams,
+  SetzePasswortBody,
+  SetzeAktivBody,
+  SetzeVerwaltungBody,
+};

@@ -12,7 +12,7 @@
 import { ArrowLeft, Cpu, Globe } from 'lucide-react';
 import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import type { Stand } from '../mitarbeiter/useAppFreigaben';
+import type { Stand } from '../personen/useAppFreigaben';
 import { useFlowDefinition, type FlowDefinition } from './useAppVerwaltung';
 
 /** Womit der Flow läuft, in einer Zeile — geteilt mit der Flow-Liste. */

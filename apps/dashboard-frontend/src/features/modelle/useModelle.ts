@@ -7,7 +7,7 @@
  * mehr, etwas anderes hineinzuholen; deshalb braucht diese Ansicht keine
  * Suche, keine Facetten und keine Detailseite, sondern eine Liste.
  *
- * Abfragen und Mutationen stehen zusammen, wie in `useMitarbeiter.ts` (D3)
+ * Abfragen und Mutationen stehen zusammen, wie in `usePersonen.ts` (D3)
  * und `useAppVerwaltung.ts` (D4). Die Abfrageschlüssel kommen aus
  * `hooks/useStoreCatalog`, weil die Statusleiste und der Modell-Dialog der
  * App-Verwaltung dieselben Zahlen zeigen: ein Cache-Eintrag, kein zweiter

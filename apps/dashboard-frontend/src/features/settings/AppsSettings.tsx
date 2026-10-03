@@ -25,7 +25,7 @@ import { Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { AppAnsicht } from './apps/AppAnsicht';
 import { Bibliothek, bibliothekBefund } from './apps/Bibliothek';
-import { useAlleApps, type AppZeile, type StandKurz } from './mitarbeiter/useAppFreigaben';
+import { useAlleApps, type AppZeile, type StandKurz } from './personen/useAppFreigaben';
 import { Leerzustand } from '@marken';
 
 /**

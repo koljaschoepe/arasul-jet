@@ -14,6 +14,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
+import { API_BASE } from '@/config/api';
 // Nur der Schlüssel, nicht der Haken: die Gegenrichtung (`BenutzerId`) ist ein
 // reiner Typ und beim Übersetzen weg, der Modulgraph bleibt also gerichtet.
 import { FREIGABEN_KEY } from './useAppFreigaben';
@@ -40,6 +41,25 @@ export interface Benutzer {
   passwort_vom_admin: boolean;
   created_at: string;
   last_login: string | null;
+  vorname: string | null;
+  nachname: string | null;
+  funktion: string | null;
+  kuerzel: string | null;
+  hat_bild: boolean;
+}
+
+/** „Vorname Nachname", sonst der Benutzername (Konten aus der Zeit vor den Profilfeldern). */
+export function anzeigeName(b: Pick<Benutzer, 'vorname' | 'nachname' | 'username'>): string {
+  const name = [b.vorname, b.nachname]
+    .filter(t => t && t.trim())
+    .join(' ')
+    .trim();
+  return name || b.username;
+}
+
+/** Die Adresse des Bildes; `v` entwertet den Zwischenspeicher des Browsers nach einem Wechsel. */
+export function bildAdresse(id: BenutzerId, v?: string | number): string {
+  return `${API_BASE}/benutzer/${id}/bild${v ? `?v=${encodeURIComponent(String(v))}` : ''}`;
 }
 
 const BENUTZER_KEY = ['benutzer'] as const;
@@ -57,37 +77,41 @@ export function useBenutzer() {
 }
 
 /**
- * Ein neuer Mensch am Gerät. Das Passwort ist ein Startpasswort (siehe unten).
+ * Eine neue Person: Vorname, Nachname, E-Mail, und ob sie die Verwaltung
+ * bekommt. Das Startpasswort erzeugt das Gerät.
  *
  * Als `type` und nicht als `interface`: `useApi.post` nimmt einen
  * `Record<string, unknown>`, und nur ein Typalias bekommt von TypeScript die
- * dafür nötige stillschweigende Index-Signatur. Ein `interface` müsste sie
- * selbst tragen, und damit stünde jeder Tippfehler im Feldnamen offen.
+ * dafür nötige stillschweigende Index-Signatur.
  */
-export type NeuerBenutzer = {
-  username: string;
-  password: string;
-  email?: string;
-  rolle: 'admin' | 'mitarbeiter';
+export type NeuePerson = {
+  vorname: string;
+  nachname: string;
+  email: string;
+  verwaltung?: boolean;
 };
+
+/** Eine Person samt dem Startpasswort, das das Gerät ihr gegeben hat. */
+export interface MitStartpasswort {
+  person: Benutzer;
+  startpasswort: string;
+}
 
 /**
  * Anlegen.
  *
- * Das Passwort, das hier mitgeht, ist ein STARTPASSWORT: der Server setzt
- * `passwort_vom_admin = true` (Migration 178), die Anmeldung meldet danach
- * `passwortWechselNoetig`, und die Oberfläche zeigt dem Mitarbeiter den
- * Wechsel, bevor sie ihm die Shell zeigt (`App.tsx`, Phase D1). Deshalb gelten
- * hier auch nicht die Komplexitätsregeln des Selbstwechsels — der Administrator
- * vergibt etwas, das ohnehin nicht bleibt.
+ * Das Passwort in der Antwort ist ein STARTPASSWORT und steht dort genau
+ * einmal: der Server setzt `passwort_vom_admin = true` (Migration 178), die
+ * Anmeldung meldet danach `passwortWechselNoetig`, und die Oberfläche zeigt
+ * der Person den Wechsel, bevor sie ihr die Shell zeigt (`App.tsx`, Phase D1).
  */
-export function useBenutzerAnlegen() {
+export function usePersonAnlegen() {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (neu: NeuerBenutzer) => {
-      const res = await api.post<{ data: Benutzer }>('/benutzer', neu);
-      return res.data;
+    mutationFn: async (neu: NeuePerson): Promise<MitStartpasswort> => {
+      const res = await api.post<{ data: Benutzer; startpasswort: string }>('/benutzer', neu);
+      return { person: res.data, startpasswort: res.startpasswort };
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: BENUTZER_KEY });
@@ -96,22 +120,33 @@ export function useBenutzerAnlegen() {
 }
 
 /**
- * Ein Passwort setzen, ohne das alte zu kennen.
+ * Ein neues Startpasswort erzeugen lassen, ohne das alte zu kennen.
  *
- * Der Server beendet danach alle Sitzungen des Betroffenen und setzt das
+ * Der Server beendet danach alle Sitzungen der Person und setzt das
  * Startpasswort-Kennzeichen wieder — genau der Fall, in dem jemand ausgesperrt
- * werden SOLL. Das gehört in die Meldung an den Administrator, sonst wundert er
- * sich, warum der Mensch am anderen Ende plötzlich draußen steht.
+ * werden SOLL. Das neue steht in der Antwort, einmal.
  */
-export function usePasswortSetzen() {
+export function useNeuesStartpasswort() {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, password }: { id: BenutzerId; password: string }) => {
-      const res = await api.put<{ data: { id: BenutzerId; username: string } }>(
-        `/benutzer/${id}/passwort`,
-        { password }
-      );
+    mutationFn: async (id: BenutzerId): Promise<string> => {
+      const res = await api.put<{ startpasswort: string }>(`/benutzer/${id}/passwort`, {});
+      return res.startpasswort;
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: BENUTZER_KEY });
+    },
+  });
+}
+
+/** Der Schalter „Verwaltung": `true` macht zum Administrator, `false` nimmt es. */
+export function useVerwaltungSetzen() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, verwaltung }: { id: BenutzerId; verwaltung: boolean }) => {
+      const res = await api.put<{ data: Benutzer }>(`/benutzer/${id}/verwaltung`, { verwaltung });
       return res.data;
     },
     onSettled: () => {
@@ -120,7 +155,7 @@ export function usePasswortSetzen() {
   });
 }
 
-/** Stilllegen (`false`) oder wieder zulassen (`true`). Ein Wert, zwei Richtungen. */
+/** Sperren (`false`) oder wieder zulassen (`true`). Ein Wert, zwei Richtungen. */
 export function useAktivSetzen() {
   const api = useApi();
   const qc = useQueryClient();

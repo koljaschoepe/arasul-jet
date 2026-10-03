@@ -15,8 +15,8 @@
  */
 import { Checkbox, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import { useBenutzer } from '../mitarbeiter/useMitarbeiter';
-import { freigabeVon, useFreigaben, useFreigabeSetzen } from '../mitarbeiter/useAppFreigaben';
+import { useBenutzer } from '../personen/usePersonen';
+import { freigabeVon, useFreigaben, useFreigabeSetzen } from '../personen/useAppFreigaben';
 
 export function AppTester({ appId, hatTeststand }: { appId: string; hatTeststand: boolean }) {
   const { data: benutzer, isLoading: menschenLaden, isError: menschenFehler } = useBenutzer();

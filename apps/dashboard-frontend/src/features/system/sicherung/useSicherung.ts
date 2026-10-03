@@ -3,7 +3,7 @@
  *
  * Die Wege stehen seit C9 (`routes/admin/backup.js`); was fehlte, ist der
  * Mensch davor. Abfragen und Mutationen stehen hier zusammen, wie in
- * `mitarbeiter/useMitarbeiter.ts` (D3) und `apps/useAppVerwaltung.ts` (D4):
+ * `personen/usePersonen.ts` (D3) und `apps/useAppVerwaltung.ts` (D4):
  * nach JEDEM Ausgang wird die Liste entwertet, auch nach einem Fehler — eine
  * abgebrochene Sicherung kann trotzdem Dateien hinterlassen haben.
  *

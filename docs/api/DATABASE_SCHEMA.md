@@ -87,21 +87,24 @@
 > als drittes Theme ist mit H1 gefallen. Geschrieben wird die Spalte über
 > `PUT /api/darstellung`, gelesen kommt sie mit `GET /api/auth/session` mit.
 
-| Column               | Type                     | Nullable | Default                                   |
-| -------------------- | ------------------------ | -------- | ----------------------------------------- |
-| `id`                 | bigint                   | ⛔       | `nextval('admin_users_id_seq'::regclass)` |
-| `username`           | character varying        | ⛔       |                                           |
-| `password_hash`      | character varying        | ⛔       |                                           |
-| `email`              | character varying        | ✅       |                                           |
-| `created_at`         | timestamp with time zone | ✅       | `now()`                                   |
-| `updated_at`         | timestamp with time zone | ✅       | `now()`                                   |
-| `last_login`         | timestamp with time zone | ✅       |                                           |
-| `login_attempts`     | integer                  | ✅       | `0`                                       |
-| `locked_until`       | timestamp with time zone | ✅       |                                           |
-| `is_active`          | boolean                  | ✅       | `true`                                    |
-| `role`               | character varying        | ⛔       | `'admin'::character varying`              |
-| `passwort_vom_admin` | boolean                  | ⛔       | `false`                                   |
-| `theme`              | character varying        | ⛔       | `'light'::character varying`              |
+| Column                            | Type                     | Nullable | Default                                   |
+| --------------------------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`                              | bigint                   | ⛔       | `nextval('admin_users_id_seq'::regclass)` |
+| `username`                        | character varying        | ⛔       |                                           |
+| `password_hash`                   | character varying        | ⛔       |                                           |
+| `email`                           | character varying        | ✅       |                                           |
+| `created_at`                      | timestamp with time zone | ✅       | `now()`                                   |
+| `updated_at`                      | timestamp with time zone | ✅       | `now()`                                   |
+| `last_login`                      | timestamp with time zone | ✅       |                                           |
+| `login_attempts`                  | integer                  | ✅       | `0`                                       |
+| `locked_until`                    | timestamp with time zone | ✅       |                                           |
+| `is_active`                       | boolean                  | ✅       | `true`                                    |
+| `role`                            | character varying        | ⛔       | `'admin'::character varying`              |
+| `passwort_vom_admin`              | boolean                  | ⛔       | `false`                                   |
+| `theme`                           | character varying        | ⛔       | `'light'::character varying`              |
+| `vorname`, `nachname`, `funktion` | character varying(100)   | ✅       | — (Migration 193, M5)                     |
+| `kuerzel`                         | character varying(8)     | ✅       | —                                         |
+| `bild_typ`, `bild_daten`          | varchar(20), bytea       | ✅       | — (`image/png\|jpeg\|webp`, ≤ 512 KB)     |
 
 **Primary key:** `id`
 

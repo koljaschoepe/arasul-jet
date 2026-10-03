@@ -2,12 +2,12 @@
  * Die Apps des Geräts, aus der Sicht dessen, der sie verwaltet (Phase D4).
  *
  * Alle Abfragen und Mutationen der App-Ansicht stehen hier zusammen — je
- * Adresse eine, wie in `mitarbeiter/useMitarbeiter.ts`. Was sie eint: sie
+ * Adresse eine, wie in `personen/usePersonen.ts`. Was sie eint: sie
  * gehen alle auf `/api/apps/…` und tragen alle `requireRole('admin')` im
  * Backend. Die Oberfläche blendet die Sektion für einen Mitarbeiter aus; die
  * Berechtigung ist das nicht.
  *
- * DIE LISTE ALLER APPS KOMMT AUS `mitarbeiter/useAppFreigaben.ts`
+ * DIE LISTE ALLER APPS KOMMT AUS `personen/useAppFreigaben.ts`
  * (`useAlleApps`, `GET /api/apps`). Sie steht dort, weil die Freigabe-Matrix
  * aus D3 sie zuerst brauchte, und sie ein zweites Mal zu formulieren hieße,
  * zwei Abfragen mit zwei Schlüsseln auf dieselbe Adresse zu haben — React
@@ -17,7 +17,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
 import { STORE_MODELS_KEY, type CatalogModel } from '@/hooks/useStoreCatalog';
-import type { Stand } from '../mitarbeiter/useAppFreigaben';
+import type { Stand } from '../personen/useAppFreigaben';
 
 /** Der Zustand eines App-Containers, wie ihn Docker meldet. */
 export interface Backendzustand {

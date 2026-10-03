@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import PasswortWechseln from '../PasswortWechseln';
+import { angemeldet } from '@/__tests__/helpers/authMock';
 
 const apiMock = {
   get: vi.fn(),
@@ -19,6 +20,10 @@ const apiMock = {
   request: vi.fn(),
 };
 vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
+vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+}));
 
 const gewechselt = vi.fn();
 const abgemeldet = vi.fn();
@@ -51,6 +56,23 @@ describe('PasswortWechseln', () => {
       },
     });
     apiMock.post.mockResolvedValue({ success: true });
+  });
+
+  it('zeigt Name und E-Mail zum Prüfen, ohne Tour', async () => {
+    angemeldet({
+      id: 7,
+      username: 'mia@firma.de',
+      email: 'mia@firma.de',
+      role: 'mitarbeiter',
+      anzeigeName: 'Mia Muster',
+    });
+    zeige();
+    expect(await screen.findByTestId('passwort-person-name')).toHaveTextContent('Mia Muster');
+    expect(screen.getByTestId('passwort-person')).toHaveTextContent('mia@firma.de');
+    // Eine Korrektur ist ein Klick und steht zunächst zu.
+    expect(screen.queryByTestId('profil-formular')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('passwort-person-aendern'));
+    expect(await screen.findByTestId('profil-formular')).toBeInTheDocument();
   });
 
   it('bietet kein „Später": nur wechseln oder abmelden', async () => {

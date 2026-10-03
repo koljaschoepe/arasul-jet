@@ -69,11 +69,21 @@ src/
                      Abfragen/Mutationen in `apps/useAppVerwaltung.ts`.
                      Verwaltungs-Sicht auf eine App; `features/apps/` ist die
                      Nutzer-Sicht — zwei Ordner, zwei Fragen, dasselbe Wort.
-                   - **Mitarbeiter** (`MitarbeiterSettings.tsx` +
-                     `mitarbeiter/`): Liste, Dialoge (anlegen,
-                     Startpasswort setzen), Freigabe-Matrix Menschen mal
-                     Apps. `useMitarbeiter.ts`, `useAppFreigaben.ts` — Liste
-                     nach jedem Ausgang entwerten, auch nach Fehler.
+                   - **Personen** (`PersonenSettings.tsx` +
+                     `personen/`, M5; ersetzt den Reiter „Mitarbeiter",
+                     Tieflink bleibt `?tab=benutzer`): Liste mit Bild und
+                     Namen, Anlegen mit Vorname/Nachname/E-Mail
+                     (`PersonAnlegenDialog.tsx`), Startpasswort einmal als
+                     Text oder Zettel (`StartpasswortDialog.tsx`), Sperren,
+                     Schalter „Verwaltung" (der letzte Admin bleibt, das
+                     Backend weist ab), Freigaben als zwei Tabellen mit fester
+                     erster Spalte: Apps (Schalter, `FreigabeMatrix.tsx`) und
+                     Ordner (Stufe, `firmenordner/RechteMatrix.tsx`).
+                     `usePersonen.ts`, `useAppFreigaben.ts` — Liste nach jedem
+                     Ausgang entwerten, auch nach Fehler. Das eigene Profil
+                     (`features/profil/`, im Kontomenü) trägt Vorname,
+                     Nachname, Funktion, Kürzel, Bild; die erste Anmeldung
+                     zeigt Name und Bild zum Prüfen (`PasswortWechseln`).
                    - **Firmenordner** (`FirmenordnerSettings.tsx` +
                      `firmenordner/`): Ordnerbaum (`OrdnerBaum.tsx`),
                      Anlegen/Wegwerfen (Kennung abtippen), Rechte-Matrix

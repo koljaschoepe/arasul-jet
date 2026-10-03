@@ -14,7 +14,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
-import type { BenutzerId } from './useMitarbeiter';
+import type { BenutzerId } from './usePersonen';
 
 /** Der Stand, auf den eine Freigabe reicht. */
 export type Stand = 'live' | 'test';
@@ -54,7 +54,7 @@ export interface AppZeile {
 
 /**
  * Der Schlüssel der Freigaben-Abfrage. Ausgeführt, weil ihn auch
- * `useMitarbeiter.ts` entwertet: eine gelöschte Person nimmt ihre Freigaben
+ * `usePersonen.ts` entwertet: eine gelöschte Person nimmt ihre Freigaben
  * mit, und eine Matrix mit einer Zeile für jemanden, den es nicht mehr gibt,
  * zeigt einen Zustand, den das Gerät nicht kennt. Ein zweites Mal `'freigaben'`
  * dort hinzuschreiben hieße, zwei Stellen zu haben, die denselben Namen kennen

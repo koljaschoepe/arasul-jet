@@ -22,7 +22,7 @@ import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { formatDate } from '@/utils/formatting';
-import type { Stand } from '../mitarbeiter/useAppFreigaben';
+import type { Stand } from '../personen/useAppFreigaben';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppStaende } from './AppStaende';
 import { AppTester } from './AppTester';

@@ -104,6 +104,8 @@ describe('/api/benutzer', () => {
     ['delete', '/api/benutzer/1'],
     ['put', '/api/benutzer/1/passwort'],
     ['put', '/api/benutzer/1/aktiv'],
+    ['put', '/api/benutzer/1/verwaltung'],
+    ['get', '/api/benutzer/1/bild'],
   ])('%s %s: Mitarbeiter bekommt 403', async (verb, pfad) => {
     auth.__setUser(MITARBEITER);
     const res = await request(app())[verb](pfad).send({});
@@ -111,40 +113,61 @@ describe('/api/benutzer', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
-  test('POST legt einen Mitarbeiter an und liefert 201', async () => {
+  test('POST legt eine Person an, liefert 201 und nennt das Startpasswort einmal', async () => {
     db.query.mockResolvedValueOnce({
-      rows: [{ id: 7, username: 'mia', email: 'mia@firma.de', role: 'mitarbeiter' }],
+      rows: [{ id: 7, username: 'mia.muster@firma.de', role: 'mitarbeiter' }],
     });
-    const res = await request(app()).post('/api/benutzer').send({
-      username: 'mia',
-      password: 'Startpasswort1!',
-      email: 'mia@firma.de',
-      rolle: 'mitarbeiter',
-    });
-    expect(res.status).toBe(201);
-    expect(res.body.data.role).toBe('mitarbeiter');
-    expect(db.query.mock.calls[0][1]).toEqual(['mia', '$hash$', 'mia@firma.de', 'mitarbeiter']);
-  });
-
-  test('POST lehnt eine fremde Rolle mit 400 ab', async () => {
     const res = await request(app())
       .post('/api/benutzer')
-      .send({ username: 'x', password: 'Startpasswort1!', rolle: 'viewer' });
+      .send({ vorname: 'Mia', nachname: 'Muster', email: 'Mia.Muster@firma.de' });
+    expect(res.status).toBe(201);
+    expect(res.body.data.role).toBe('mitarbeiter');
+    // Das Startpasswort steht NEBEN der Person, nicht in ihr, und passt zur Form.
+    expect(res.body.startpasswort).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
+    expect(res.body.data.startpasswort).toBeUndefined();
+    // Benutzername = E-Mail in Kleinschrift; Startpasswort-Kennzeichen gesetzt.
+    expect(db.query.mock.calls[0][1]).toEqual([
+      'mia.muster@firma.de',
+      '$hash$',
+      'mia.muster@firma.de',
+      'mitarbeiter',
+      'Mia',
+      'Muster',
+    ]);
+  });
+
+  test('POST mit verwaltung: true legt einen Administrator an', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: 8, username: 'a@b.de', role: 'admin' }] });
+    const res = await request(app())
+      .post('/api/benutzer')
+      .send({ vorname: 'A', nachname: 'B', email: 'a@b.de', verwaltung: true });
+    expect(res.status).toBe(201);
+    expect(db.query.mock.calls[0][1][3]).toBe('admin');
+  });
+
+  test.each([
+    [{ nachname: 'Muster', email: 'a@b.de' }],
+    [{ vorname: 'Mia', email: 'a@b.de' }],
+    [{ vorname: 'Mia', nachname: 'Muster' }],
+    [{ vorname: 'Mia', nachname: 'Muster', email: 'keine-adresse' }],
+    [{ vorname: 'Mia', nachname: 'Muster', email: 'a@b.de', rolle: 'viewer' }],
+  ])('POST lehnt %j mit 400 ab', async body => {
+    const res = await request(app()).post('/api/benutzer').send(body);
     expect(res.status).toBe(400);
     expect(db.query).not.toHaveBeenCalled();
   });
 
-  test('POST meldet einen vergebenen Namen als 409', async () => {
+  test('POST meldet eine vergebene E-Mail als 409', async () => {
     db.query.mockRejectedValueOnce(Object.assign(new Error('dup'), { code: '23505' }));
     const res = await request(app())
       .post('/api/benutzer')
-      .send({ username: 'admin', password: 'Startpasswort1!', rolle: 'admin' });
+      .send({ vorname: 'A', nachname: 'B', email: 'admin@firma.de' });
     expect(res.status).toBe(409);
   });
 
   // --- Die Grenze der Lizenz (J35) ------------------------------------------
 
-  const NEU = { username: 'vierte', password: 'Startpasswort1!', rolle: 'mitarbeiter' };
+  const NEU = { vorname: 'Vera', nachname: 'Vierte', email: 'vierte@firma.de' };
 
   test('POST: community traegt drei aktive Konten, das vierte ist 409 mit Hinweis auf die Lizenz', async () => {
     aktiveKonten = ['admin', 'mia', 'tom'];
@@ -201,6 +224,60 @@ describe('/api/benutzer', () => {
       .mockResolvedValueOnce({ rows: [{ id: 4, username: 'ute', is_active: false }] });
     const res = await request(app()).put('/api/benutzer/4/aktiv').send({ aktiv: false });
     expect(res.status).toBe(200);
+  });
+
+  // --- Der Schalter „Verwaltung" (M5) ----------------------------------------
+
+  test('PUT /:id/verwaltung macht eine Person zum Administrator', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ role: 'mitarbeiter', is_active: true }] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, username: 'mia', role: 'admin' }] });
+    const res = await request(app()).put('/api/benutzer/2/verwaltung').send({ verwaltung: true });
+    expect(res.status).toBe(200);
+    expect(res.body.data.role).toBe('admin');
+    expect(db.query.mock.calls[1][1]).toEqual([2, 'admin']);
+    expect(auth.invalidateUserCache).toHaveBeenCalledWith(2);
+  });
+
+  test('PUT /:id/verwaltung: der letzte aktive Administrator behaelt das Recht, auch selbst', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ role: 'admin', is_active: true }] })
+      .mockResolvedValueOnce({ rows: [{ n: 1 }] });
+    const res = await request(app()).put('/api/benutzer/1/verwaltung').send({ verwaltung: false });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/letzte Administrator/);
+    expect(db.query.mock.calls.some(c => c[0].includes('SET role'))).toBe(false);
+  });
+
+  test('PUT /:id/verwaltung nimmt das Recht, wenn ein zweiter Administrator bleibt', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ role: 'admin', is_active: true }] })
+      .mockResolvedValueOnce({ rows: [{ n: 2 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3, username: 'tom', role: 'mitarbeiter' }] });
+    const res = await request(app()).put('/api/benutzer/3/verwaltung').send({ verwaltung: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data.role).toBe('mitarbeiter');
+  });
+
+  test('PUT /:id/verwaltung eines unbekannten Benutzers ist 404', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app()).put('/api/benutzer/404/verwaltung').send({ verwaltung: true });
+    expect(res.status).toBe(404);
+  });
+
+  test('PUT /:id/verwaltung verlangt einen Wahrheitswert', async () => {
+    const res = await request(app()).put('/api/benutzer/2/verwaltung').send({ verwaltung: 'ja' });
+    expect(res.status).toBe(400);
+  });
+
+  test('PUT /:id/passwort ohne Angabe erzeugt ein Startpasswort und nennt es einmal', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: '2', username: 'mia' }] });
+    db.transaction.mockImplementation(async cb =>
+      cb({ query: jest.fn(async () => ({ rowCount: 1, rows: [] })) })
+    );
+    const res = await request(app()).put('/api/benutzer/2/passwort').send({});
+    expect(res.status).toBe(200);
+    expect(res.body.startpasswort).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
   });
 
   // --- Passwort setzen (C2) -------------------------------------------------

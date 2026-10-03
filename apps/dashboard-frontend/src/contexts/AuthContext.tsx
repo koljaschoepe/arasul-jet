@@ -38,6 +38,13 @@ interface User {
    * malt, und braucht keine eigene Anfrage dafuer.
    */
   theme?: 'light' | 'dark';
+  /** Profil (M5, `admin_users.vorname` usw.); `anzeigeName` fällt auf den Benutzernamen zurück. */
+  vorname?: string | null;
+  nachname?: string | null;
+  funktion?: string | null;
+  kuerzel?: string | null;
+  hatBild?: boolean;
+  anzeigeName?: string;
   [key: string]: unknown;
 }
 
