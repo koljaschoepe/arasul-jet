@@ -14,6 +14,12 @@ const { AppId } = require('./apps');
  * von aussen koennte auf alles zeigen, was der Sicherungs-Container sieht,
  * und das Ergebnis waere eine Datenbank aus unbekannter Quelle. Ohne Angabe
  * gilt die neueste Sicherung.
+ *
+ * `stand` (M5) nennt einen Stand der Sicherung mit seiner Kennung aus
+ * `GET /api/backup/sicherungen` (Zeilen mit `art: "stand"`); die ersten acht
+ * Zeichen reichen. Ohne `stand` und ohne `datei` gilt der neueste Stand.
+ * `datei` nimmt eine Datei aus den Tagesordnern von vor M5. Beides zusammen
+ * geht nicht.
  */
 /**
  * Woher zurueckgeholt wird (J37): vom angesteckten Datentraeger oder von diesem
@@ -48,6 +54,11 @@ const WiederherstellungBody = z
         'Nur der Name der Sicherung, kein Pfad (Buchstaben, Ziffern, Punkt, Strich, Unterstrich)'
       )
       .optional(),
+    stand: z
+      .string()
+      .trim()
+      .regex(/^[0-9a-f]{8,64}$/, 'Die Kennung eines Stands: 8 bis 64 Zeichen aus 0-9 und a-f')
+      .optional(),
     quelle: Quelle.default('lokal'),
     wiederherstellungscode: Wiederherstellungscode,
     bestaetigung: z.literal('wiederherstellen', {
@@ -56,7 +67,11 @@ const WiederherstellungBody = z
         'Dieser Aufruf ersetzt die ganze Datenbank.',
     }),
   })
-  .strict();
+  .strict()
+  .refine(leib => !(leib.stand && leib.datei), {
+    message: 'Entweder `stand` oder `datei`, nicht beides',
+    path: ['stand'],
+  });
 
 /**
  * POST /api/backup/wiederherstellung/app/:id (J35)
