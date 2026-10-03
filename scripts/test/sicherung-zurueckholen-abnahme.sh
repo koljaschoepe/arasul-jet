@@ -402,15 +402,21 @@ drin() { am_geraet "docker exec $WD bash -c $(printf '%q' "$*")"; }
 sql() { drin "PGPASSWORD=\$(cat /run/secrets/postgres_password) psql -h $PG -U arasul -d ${2:-arasul_db} -tAc \"$1\""; }
 drin "for i in \$(seq 1 60); do PGPASSWORD=\$(cat /run/secrets/postgres_password) psql -h $PG -U arasul -d arasul_db -tAc 'select 1' >/dev/null 2>&1 && break; sleep 1; done"
 pruefe "Wegwerf-Umgebung steht (eigene Datenbank, eigener Schluessel, ${BILD})" "$(ja_wenn "$(sql 'select 1')" 1)"
-sql "create table personen (name text); insert into personen values ('Anna');
-     create table app_datenbanken (app_id text, stand text, datenbank text, rolle text);
-     insert into app_datenbanken values ('probe','test','arasul_app_probe_test','arasul_app_probe_test');
-     create role arasul_app_probe_test login password 'x'; create database arasul_app_probe_test owner arasul_app_probe_test;" >/dev/null 2>&1
+# Einzeln: `psql -c` mit mehreren Befehlen ist EINE Transaktion, und
+# CREATE DATABASE geht darin nicht (erster Lauf am 04.10.2026).
+for befehl in "create table personen (name text)" "insert into personen values ('Anna')" \
+  "create table app_datenbanken (app_id text, stand text, datenbank text, rolle text)" \
+  "insert into app_datenbanken values ('probe','test','arasul_app_probe_test','arasul_app_probe_test')" \
+  "create role arasul_app_probe_test login password 'x'" \
+  "create database arasul_app_probe_test owner arasul_app_probe_test"; do
+  sql "$befehl" >/dev/null 2>&1
+done
 drin "PGPASSWORD=\$(cat /run/secrets/postgres_password) psql -h $PG -U arasul -d arasul_app_probe_test -c \"set role arasul_app_probe_test; create table eintraege (text text); insert into eintraege values ('A');\"" >/dev/null 2>&1
 drin "echo A > /arasul/apps/probe/app.txt; echo A > /arasul/flows/a.md; echo A > /arasul/firmenordner/posix/projects/eins/datei.txt"
 drin 'backup.sh' >"$ARBEIT/w-a.log" 2>&1
 W_A="$(drin 'jq -r .stand_id /backups/backup_report.json')"
-pruefe "(c) Stand A in der Wegwerf-Umgebung" "$([ -n "$W_A" ] && [ "$W_A" != null ] && echo ja || echo nein)" "${W_A:0:8}"
+pruefe "(c) Stand A in der Wegwerf-Umgebung, mit Datenbank und App-Datenbank" \
+  "$([ -n "$W_A" ] && [ "$W_A" != null ] && [ "$(sql 'select count(*) from personen')" = 1 ] && [ "$(sql 'select count(*) from eintraege' arasul_app_probe_test)" = 1 ] && echo ja || echo nein)" "${W_A:0:8}"
 sql "insert into personen values ('Bruno')" >/dev/null
 drin "PGPASSWORD=\$(cat /run/secrets/postgres_password) psql -h $PG -U arasul -d arasul_app_probe_test -c \"insert into eintraege values ('B')\"" >/dev/null 2>&1
 drin "echo B > /arasul/apps/probe/app.txt; echo B > /arasul/firmenordner/posix/projects/eins/datei.txt; echo neu > /arasul/firmenordner/posix/projects/eins/neu.txt"

@@ -595,6 +595,14 @@ Verwaltung → System → Sicherung → **Zurückholen**. Ein Weg für drei Ding
 | Ein Bereich des Firmenordners | seine Dateien: Dazugekommenes geht, Fehlendes kommt, Geändertes bekommt den Inhalt von damals                               | jeder andere Bereich, alle Rechte, die Verwaltung des Dateidienstes (`.oc-nodes`, `.oc-tmp`, `.Trash`) |
 | Das ganze Gerät               | alles wie oben unter „Der Weg zurück"                                                                                       | die Konfiguration                                                                                      |
 
+**Die fünf neuesten Stände bleiben immer** (`--keep-last`, `BACKUP_STAND_LETZTE`).
+Am Orin gefunden (04.10.2026): die Regel 7/12/60 behält je Tag nur den
+neuesten Stand. Wer „Jetzt sichern“ drückt, etwas ändert und noch einmal
+sichert, verlor sofort den ersten Stand, und mit ihm den Stand vom Neustart
+des Dienstes am selben Tag. Nächte (einer je Tag) betrifft das nicht.
+`--keep-within 2d` behielt in restic 0.16.4 an einer nachgestellten Reihe jeden
+Stand und ist deshalb nicht genommen.
+
 **Der Stand wird nach Zeitpunkt gewählt**, in Worten („Gestern, 2:00 Uhr",
 „Freitag, 2. Oktober, 2:00 Uhr"), und angeboten werden nur die Stände, in
 denen die App oder der Bereich steht. Woher das Gerät das weiß: `backup.sh`
