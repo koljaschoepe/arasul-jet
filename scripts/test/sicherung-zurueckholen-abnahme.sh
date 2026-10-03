@@ -450,9 +450,9 @@ CODE=$(curl -sk -o "$RUMPF" -w '%{http_code}' --max-time 300 -X DELETE -H "x-api
 [ "$CODE" = 200 ] && APP_WEG=ja
 pruefe "Probe-App entfernt (samt Datenbanken und Dateien)" "$APP_WEG" "HTTP $CODE"
 pruefe "Im Container dashboard-backend liegt unter /arasul/apps kein Ordner der Probe-App" \
-  "$(am_geraet "docker exec dashboard-backend sh -c 'ls -A /arasul/apps | grep -cx $APP'" | grep -qx 0 && echo ja || echo nein)"
+  "$(ja_wenn "$(am_geraet "docker exec dashboard-backend sh -c 'ls -A /arasul/apps | grep -cx $APP'")" 0)"
 pruefe "Kein Ordner des Probe-Bereichs mehr in der Ablage" \
-  "$(am_geraet "docker exec backup-service sh -c 'test -e /arasul/firmenordner/posix/projects/$BEREICH && echo da || echo weg'" | grep -qx weg && echo ja || echo nein)"
+  "$(ja_wenn "$(am_geraet "docker exec backup-service sh -c 'test -e /arasul/firmenordner/posix/projects/$BEREICH && echo da || echo weg'")" weg)"
 SICH="$(quelle_von backup-service /backups)"
 am_geraet "cd '$SICH' && rm -f vor_wiederherstellung/arasul_app_${APPDB}_* vor_wiederherstellung/paket_${APP}_*" >/dev/null 2>&1
 
@@ -471,7 +471,7 @@ if [ -z "${ARASUL_STAENDE_BEHALTEN:-}" ] && [ "${#EIGENE_STAENDE[@]}" -gt 0 ]; t
   pruefe "Die ${#EIGENE_STAENDE[@]} eigenen Staende einzeln entfernt (restic forget), fremde unberuehrt" "$(ja_wenn "$UEBRIG" 0)" "$(rumpf | feld anzahl) Staende bleiben"
 fi
 am_geraet "docker rm -f $PG $WD >/dev/null 2>&1; docker network rm ${STEMPEL}-netz >/dev/null 2>&1; docker run --rm -v /home/arasul:/h alpine:3.19 rm -rf '/h/${STEMPEL}'" >/dev/null 2>&1
-pruefe "Wegwerf-Umgebung weg" "$(am_geraet "test -e '$WZ' && echo da || echo weg" | grep -qx weg && echo ja || echo nein)"
+pruefe "Wegwerf-Umgebung weg" "$(ja_wenn "$(am_geraet "test -e '$WZ' && echo da || echo weg")" weg)"
 WEGWERF=""
 
 echo
