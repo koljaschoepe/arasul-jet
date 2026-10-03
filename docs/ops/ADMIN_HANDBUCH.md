@@ -57,16 +57,15 @@ angemeldeten Menschen: es gilt an jedem Rechner, an dem er sich anmeldet, und
 nicht nur in dem Browser, in dem er es umgestellt hat.
 
 - **Aktivitaetsleiste (links):** ganz oben das **Haus** zur Startseite, mit der
-  Zahl der Freigaben, die auf eine Entscheidung warten. Darunter die
+  Zahl der Freigaben, die bei Ihnen liegen. Darunter die
   freigegebenen **Apps** als Kuerzel, der Name erscheint beim Ueberfahren; ein
   Teststand traegt einen Punkt und heisst „(Test)". Unten fest:
   **Verwaltung** (nur Administratoren), das **Zahnrad** (die persoenlichen
   Einstellungen) und das **eigene Bild** (Name und Abmelden).
 - **Ansicht:** immer genau eine — die Startseite, eine App, die Einstellungen
-  oder die Verwaltung. Die **Startseite** zeigt dem Administrator oben die
-  **Freigaben, die auf eine Entscheidung warten** (siehe unten), darunter die
-  eigenen Apps als Kacheln; einem Mitarbeiter zeigt sie nur seine Apps, an
-  einer Kachel hoechstens eine Zahl wartender Freigaben.
+  oder die Verwaltung. Die **Startseite** zeigt jedem oben **Für Sie**: die
+  Freigaben, die bei ihm liegen (siehe unten), darunter die eigenen Apps als
+  Kacheln, an einer Kachel hoechstens eine Zahl.
 - **Verwaltung:** links eine eigene Leiste der Bereiche (Allgemein, Apps,
   Personen, Firmenordner, Modelle, KI, Sicherheit, Datenschutz, System, Lizenz,
   Verbindungen, Fernzugriff), daneben der gewaehlte Bereich. Im Bereich
@@ -80,9 +79,9 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   einem Satz, wenn das Geraet nicht antwortet.
 
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
-hat, seine Einstellungen und sein Konto. Eine Freigabe entscheidet er in der App, in
-der sie entsteht (siehe unten), und an der Kachel der App steht hoechstens die
-Zahl der wartenden. Keine Fassung, keine Verbindungsanzeige, keine Zahlen der
+hat, seine Einstellungen und sein Konto. Die Freigaben, die bei ihm liegen,
+stehen auf seiner Startseite unter „Für Sie" (siehe unten), und an der Kachel
+der App steht hoechstens ihre Zahl. Keine Fassung, keine Verbindungsanzeige, keine Zahlen der
 Technik; auch keine Meldung nennt einen Fehlercode oder englischen Text.
 Modelle, Benutzer, Datensicherung und Einstellungen sind fuer ihn nicht da —
 und zwar nicht nur unsichtbar: das Geraet weist ihn auf jedem dieser Wege ab,
@@ -94,10 +93,11 @@ Ein Flow einer App kann anhalten und um eine Freigabe bitten (etwa: „Diesen
 Wochenbericht versenden?"). Der Lauf steht dann still, bis ein Mensch
 entscheidet.
 
-Wo: der Administrator auf der **Uebersicht**, ganz oben; ein Mitarbeiter in der
-App, in der die Anfrage entsteht (Baustein `Freigabe` der Bibliothek, J36).
-Jede Anfrage ist eine Karte mit dem
-Titel, dem Zusammenhang, den der Flow mitgibt, und der verbleibenden Zeit.
+Wo: auf der **Startseite** unter **Für Sie**, fuer jeden, aber nur die
+Freigaben, die bei ihm liegen. Jede Anfrage ist eine Karte mit der App, der
+Stufe, dem Titel, dem Zusammenhang, den der Flow mitgibt, und der
+verbleibenden Zeit. Darunter steht, bei wem sie liegt, und **Weitergeben an …**;
+zugeklappt darunter, was bei anderen liegt, mit **Uebernehmen**.
 
 - **Bestaetigen** — der Lauf laeuft ab der angehaltenen Stelle weiter.
 - **Ablehnen** — es klappt ein Feld auf; ohne Begruendung geht der Knopf nicht.
@@ -106,8 +106,20 @@ Titel, dem Zusammenhang, den der Flow mitgibt, und der verbleibenden Zeit.
   steht am Flow, in der Regel ein Tag.
 
 **Wer darf entscheiden?** Jeder, dem die App freigegeben ist — Administrator
-und Mitarbeiter gleichermassen. Freigeben ist Arbeit, keine Verwaltung. Der
-Flow nennt keine Person; er beschreibt die Sache.
+und Mitarbeiter gleichermassen —, ausser dem, der den Vorgang eingereicht hat.
+Freigeben ist Arbeit, keine Verwaltung. Der Flow nennt keine Person; er
+beschreibt die Sache.
+
+**Bei wem liegt sie?** Ein Flow kann seine Freigaben in benannten Stufen
+anfordern, etwa „Pruefung" und dann „Leitung". Fuer jede Stufe setzen Sie unter
+**Verwaltung > Apps > (die App) > Freigabestufen** eine **Standardperson**:
+jede neue Freigabe der Stufe liegt zuerst bei ihr. Jeder mit Zugang zur App
+kann sie uebernehmen oder an einen anderen mit Zugang weitergeben, etwa wenn
+die Standardperson im Urlaub ist; entscheiden kann nur, bei dem sie gerade
+liegt. Ohne Standardperson liegt eine neue Freigabe bei allen mit Zugang, und
+die Verwaltung zeigt dazu einen Hinweis. Zur Wahl stehen nur Menschen mit
+Zugang zur App; verliert die Standardperson den Zugang, faellt die Stufe auf
+„alle mit Zugang" zurueck.
 
 Die Karte verschwindet, sobald entschieden ist. Steht danach eine Meldung, dass
 der Lauf nicht mehr fortgesetzt wird, wurde das Geraet zwischendurch neu

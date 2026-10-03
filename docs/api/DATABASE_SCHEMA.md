@@ -606,6 +606,8 @@ die Zeile ganz — samt Schlüssel.
 | `entscheider_rolle` | text                     | ✅       |                                         |
 | `entscheider_ids`   | bigint[]                 | ✅       |                                         |
 | `stufe`             | text                     | ✅       |                                         |
+| `liegt_bei`         | bigint                   | ✅       |                                         |
+| `liegt_seit`        | timestamp with time zone | ✅       |                                         |
 
 **Primary key:** `id`
 
@@ -614,6 +616,7 @@ die Zeile ganz — samt Schlüssel.
 - `run_id` → `flow_runs.id` (`ON DELETE CASCADE`)
 - `entschieden_von` → `admin_users.id` (`ON DELETE SET NULL`)
 - `einreicher_id` → `admin_users.id` (`ON DELETE SET NULL`)
+- `liegt_bei` → `admin_users.id` (`ON DELETE SET NULL`)
 
 **Constraints:** `stand IN ('test','live')` ·
 `status IN ('offen','bestaetigt','abgelehnt','abgelaufen','verfallen')` ·
@@ -634,9 +637,41 @@ die Zeile ganz — samt Schlüssel.
 > `stufe` (Migration 192, M5): die benannte Freigabestufe aus dem Flow-Kopf
 > (`stufen`), nach der die Frist gewählt wurde; `NULL` ohne Stufe.
 
+> `liegt_bei`, `liegt_seit` (Migration 195, M5): bei wem die offene Anfrage
+> liegt. Gesetzt beim Anlegen aus `app_stufen_personen` (nur, wenn die Person
+> aktiv und im Kreis ist), beim Übernehmen und Weitergeben. `NULL` = bei allen
+> im Kreis. Zeigt die Spalte auf jemanden, der den Zugang verlor, gilt sie als
+> `NULL` — die Abfragen prüfen das (`freigabeAnfragen.LIEGT_GILT`). Seit M5 steht
+> der Einreicher nie im Kreis, unabhängig von `ohne_einreicher`.
+
 **Indexes:** `idx_approvals_offen` — `(app_id, stand) WHERE status = 'offen'` ·
+`idx_approvals_liegt_bei` — `(liegt_bei) WHERE status = 'offen'` ·
 `idx_approvals_run` — `(run_id)` ·
 `idx_approvals_eine_offene_je_lauf` — UNIQUE `(run_id) WHERE status = 'offen'`
+
+## `app_stufen_personen`
+
+> Standardperson je App und Freigabestufe (Migration 195, M5). Eine neue
+> Freigabe der Stufe liegt zuerst bei ihr. Gesetzt vom Admin auf der Seite der
+> App in der Verwaltung; der Flow nennt keine Person.
+
+| Column        | Type                     | Nullable | Default |
+| ------------- | ------------------------ | -------- | ------- |
+| `app_id`      | text                     | ⛔       |         |
+| `stufe`       | text                     | ⛔       |         |
+| `user_id`     | bigint                   | ⛔       |         |
+| `gesetzt_von` | bigint                   | ✅       |         |
+| `gesetzt_am`  | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `(app_id, stufe)`
+
+**Foreign Keys:** `app_id` → `apps.id` (`ON DELETE CASCADE`) · `user_id` →
+`admin_users.id` (`ON DELETE CASCADE`) · `gesetzt_von` → `admin_users.id`
+(`ON DELETE SET NULL`)
+
+Die Stufe ist ein Name aus `stufen` im Flow-Kopf; zwei Flows derselben App mit
+derselben Stufe teilen die Person. Werksreset: Stufe 2 (Einrichtung, wie
+`app_members`).
 
 **Nicht zu verwechseln mit `app_members`.** Zwei Dinge heißen in diesem Gerät
 „Freigabe": `app_members` ist die Freigabe einer _App_ für einen Menschen (C2),

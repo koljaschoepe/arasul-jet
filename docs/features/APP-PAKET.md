@@ -261,9 +261,11 @@ wiese die Felder als unbekannt ab, obwohl das Gerät sie nimmt (der Grund von 3,
 Gerät einspielt.
 
 **Nur Schema und Annahme.** Das Gerät nimmt die Felder an, prüft sie und weist
-Falsches mit lesbarem Grund ab. Keines wirkt bisher auf einen Lauf: die Stufen
-(Standardperson, Fristen), der Zeitplaner und die Umschaltung der Arten kommen
-mit späteren Karten, die Anzeige des Änderungstextes und des Symbols ebenso.
+Falsches mit lesbarem Grund ab. Die **Stufen** wirken seit M5: Frist je Stufe
+(03.10.2026) und Standardperson je App und Stufe (04.10.2026, siehe
+[FLOWS.md](FLOWS.md#stufen-und-standardperson-m5-04102026)). Der Zeitplaner und
+die Umschaltung der Arten kommen mit späteren Karten, die Anzeige des
+Änderungstextes und des Symbols ebenso.
 
 | Wo                  | Feld             | Form                                                                                          |
 | ------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
@@ -323,7 +325,9 @@ stehen. Der Zeitplaner läuft einmal im Gerät; der Admin pausiert je Flow.
 **`stufen`** sind die benannten Freigaben („Prüfung“, „Leitung“): je Stufe
 `name` (Kennung, wie ein Schrittname), optional `bezeichnung` (was der Mensch
 liest) und `frist_minuten` (Vorgabe des Geräts: 7 Tage). **Der Flow nennt keine
-Person**: die Standardperson je App und Stufe setzt der Admin. Nennt ein
+Person**: die Standardperson je App und Stufe setzt der Admin in der
+Verwaltung, und jede neue Freigabe der Stufe liegt zuerst bei ihr (ohne sie bei
+allen mit Zugang). Nennt ein
 `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie
 unter `stufen` führen, sonst läge die Freigabe später bei niemandem.
 

@@ -304,12 +304,12 @@ Modellaufruf, nicht den ganzen Lauf.
 Ein Flow kann anhalten und um Freigabe bitten. Das ist etwas anderes als eine
 Rückfrage, und der Unterschied ist nicht technisch, sondern die Sache:
 
-|              | `frage_nutzer`                          | `freigabe_anfordern`                    |
-| ------------ | --------------------------------------- | --------------------------------------- |
-| Adressat     | wer gerade zusieht                      | jeder, dem die App freigegeben ist      |
-| liegt        | im Speicher des Prozesses               | in der Tabelle `approvals`              |
-| ohne Antwort | der Flow läuft mit einer Annahme weiter | **nichts** läuft weiter, der Lauf endet |
-| Betriebsart  | nur `rueckfragen`                       | jede — eine Freigabe **ist** der Halt   |
+|              | `frage_nutzer`                          | `freigabe_anfordern`                                 |
+| ------------ | --------------------------------------- | ---------------------------------------------------- |
+| Adressat     | wer gerade zusieht                      | die Standardperson der Stufe, sonst jeder mit Zugang |
+| liegt        | im Speicher des Prozesses               | in der Tabelle `approvals`                           |
+| ohne Antwort | der Flow läuft mit einer Annahme weiter | **nichts** läuft weiter, der Lauf endet              |
+| Betriebsart  | nur `rueckfragen`                       | jede — eine Freigabe **ist** der Halt                |
 
 ```yaml
 schritte:
@@ -322,16 +322,16 @@ schritte:
       frist_minuten: 60
 ```
 
-Der Lauf steht dann auf **`wartend`**. Wer die App freigegeben hat, sieht ihn
-seit Phase D2 **auf der Übersicht** (die Mitte der Shell, ohne offene App) —
-seit J36 nur der Administrator dort; ein Mitarbeiter entscheidet in der App, in
-der die Anfrage entsteht, mit dem Muster `Freigabe` aus `packages/marken` (Liste,
-Einzelansicht, Bestätigen, Ablehnen mit Pflichtgrund, wer entschied, Frist), an
-der Kachel der App steht höchstens eine Zahl. Eine Karte je Anfrage mit Titel, Zusammenhang und Restzeit, darunter **Bestätigen**
+Der Lauf steht dann auf **`wartend`**. Seit M5 (04.10.2026) sieht **jeder** auf
+der Startseite unter **„Für Sie"** die Anfragen, die bei ihm liegen (Abschnitt
+„Stufen und Standardperson" unten), gebaut aus dem Muster `Freigabe` aus
+`packages/marken` (Liste, Einzelansicht, Bestätigen, Ablehnen mit Pflichtgrund,
+wer entschied, Frist) — dasselbe Muster, mit dem eine App ihre Freigaben zeigt.
+An der Kachel der App steht höchstens eine Zahl. Eine Karte je Anfrage mit Titel, Zusammenhang und Restzeit, darunter **Bestätigen**
 und **Ablehnen**. Ablehnen klappt ein Feld für die Begründung auf; ohne sie
 geht der Knopf nicht. Nach der Entscheidung verschwindet die Karte ohne
-Neuladen. Die Zahl der Wartenden steht für den Administrator zusätzlich rechts in der
-Statusleiste (Phase D1); einem Mitarbeiter zeigt sie keine Technik.
+Neuladen. Die Zahl am Haus der Aktivitätsleiste zählt dieselbe Liste; für den
+Administrator steht sie zusätzlich rechts in der Statusleiste (Phase D1).
 
 Über die Schnittstelle sind es dieselben Wege:
 `GET /api/freigabe-anfragen`, dann
@@ -366,12 +366,12 @@ POST /api/v1/external/flows/beleg-buchen/run
 }
 ```
 
-| Feld                                      | Wirkung                                                                                            |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `einreicher`                              | Wer den Lauf ausgelöst hat — der Benutzername aus `X-Arasul-User`. Muss die App freigegeben haben. |
-| `freigabe.ohne_einreicher: true`          | Der Einreicher sieht die Anfrage nicht und bekommt beim Entscheiden `403`. Braucht `einreicher`.   |
-| `freigabe.entscheider: {"rolle":"admin"}` | Nur Administratoren, denen die App freigegeben ist.                                                |
-| `freigabe.entscheider: {"konten":[…]}`    | Nur diese Konten; jedes muss die App freigegeben haben.                                            |
+| Feld                                      | Wirkung                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `einreicher`                              | Wer den Lauf ausgelöst hat — der Benutzername aus `X-Arasul-User`. Muss die App freigegeben haben.      |
+| `freigabe.ohne_einreicher: true`          | Seit M5 ohne eigene Wirkung: der Einreicher entscheidet **nie** (403), auch ohne. Braucht `einreicher`. |
+| `freigabe.entscheider: {"rolle":"admin"}` | Nur Administratoren, denen die App freigegeben ist.                                                     |
+| `freigabe.entscheider: {"konten":[…]}`    | Nur diese Konten; jedes muss die App freigegeben haben.                                                 |
 
 Die Regel engt `app_members` ein, sie erweitert nie. Bleibt danach niemand,
 der entscheiden könnte, weist der Start mit `400` ab — statt eine Freigabe
@@ -387,6 +387,60 @@ im Flow-Kopf, Kontrakt 8), sonst `FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 10080 =
 sieben Tage). Höchstens ein Jahr. Eine Stufe, die der Flow nicht führt, weist
 der Schritt mit einem Satz ab. Das Warten kostet keine GPU — dieselbe Begründung
 wie bei der Rückfrage.
+
+### Stufen und Standardperson (M5, 04.10.2026)
+
+Ein Flow kann seine Freigaben in **benannten Stufen** anfordern; zwischen den
+Stufen arbeitet er autonom weiter. Die Stufen stehen im Kopf (`stufen`,
+Kontrakt 8), der Freigabe-Schritt nennt seine mit `parameter.stufe`:
+
+```yaml
+stufen:
+  - name: pruefung
+    bezeichnung: Prüfung
+  - name: leitung
+    bezeichnung: Leitung
+    frist_minuten: 2880
+schritte:
+  - name: pruefen
+    typ: werkzeug
+    werkzeug: freigabe_anfordern
+    parameter: { titel: 'Beleg {{beleg}} prüfen', stufe: pruefung }
+  - name: zeichnen
+    typ: werkzeug
+    werkzeug: freigabe_anfordern
+    parameter: { titel: 'Beleg {{beleg}} zeichnen', stufe: leitung }
+```
+
+**Der Flow nennt weiter keine Person** (Beschluss 27.08.2026). Wer in einer
+Stufe zuerst gefragt wird, setzt der **Administrator** je App und Stufe, an
+genau einer Stelle: auf der Seite der App in der Verwaltung, Abschnitt
+„Freigabestufen" (`GET`/`PUT /api/apps/:id/stufen`, Tabelle
+`app_stufen_personen`, Migration 195). Zwei Flows derselben App mit derselben
+Stufe teilen die Person. Daraus folgt:
+
+| Fall                                     | die Freigabe liegt …                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| neu, Stufe mit Standardperson            | bei der Standardperson (wenn sie aktiv ist, Zugang hat, nicht eingereicht hat) |
+| neu, ohne Standardperson oder ohne Stufe | bei allen mit Zugang; der Admin sieht einen Hinweis                            |
+| jemand mit Zugang übernimmt              | bei ihm                                                                        |
+| jemand mit Zugang gibt weiter            | bei dem, an den er gibt (nur an jemanden mit Zugang, nie an den Einreicher)    |
+| die Person verliert den Zugang           | wieder bei allen mit Zugang                                                    |
+
+**Entscheiden kann nur, bei dem sie liegt** (sonst `409` mit dem Namen, und wer
+im Kreis steht, übernimmt sie zuerst). **Wer eingereicht hat, entscheidet nie**
+(`403`), seit M5 unabhängig von `ohne_einreicher`; er kann sie auch weder
+übernehmen noch bekommen. Beides prüft das Backend in derselben Anweisung, die
+schreibt (`freigabeAnfragen.kreis`, `beiIhm`), nicht nur die Oberfläche.
+
+Die Startseite zeigt unter „Für Sie" nur, was bei mir liegt
+(`GET /api/freigabe-anfragen`), mit „Weitergeben an …" je Karte; was bei anderen
+liegt, steht zugeklappt darunter mit „Übernehmen"
+(`GET /api/freigabe-anfragen/bei-anderen`). Die Zahl am Haus zählt nur die
+erste Liste. Eine App liest `liegt_bei` unter `GET /api/v1/external/freigaben`
+und in `freigabe` am Lauf; setzen kann sie es nicht.
+
+Gemessen am Orin: `scripts/test/stufen-standardperson-abnahme.sh`.
 
 ### Ein wartender Lauf überlebt Neustart und Update (M5, 03.10.2026)
 
