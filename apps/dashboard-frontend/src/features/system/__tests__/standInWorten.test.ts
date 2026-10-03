@@ -3,7 +3,7 @@
  * nie nach Kennung, und so, wie man es am Telefon sagt.
  */
 import { describe, it, expect } from 'vitest';
-import { standInWorten, standZusatz } from '../sicherung/standInWorten';
+import { standInWorten, standNamen, standZusatz } from '../sicherung/standInWorten';
 
 const JETZT = new Date(2026, 9, 4, 23, 50); // Sonntag, 4. Oktober 2026, 23:50 Ortszeit
 
@@ -35,5 +35,21 @@ describe('standZusatz', () => {
     expect(standZusatz({ vorher: true, fuer: { art: 'geraet', id: null } }, namen)).toBe(
       'vor dem Zurückholen des ganzen Geräts'
     );
+  });
+});
+
+describe('standNamen', () => {
+  it('nimmt die Sekunden nur dazu, wenn zwei Staende in derselben Minute liegen', () => {
+    const namen = standNamen(
+      [
+        { id: 'a', zeitpunkt: new Date(2026, 9, 4, 0, 36, 5).toISOString() },
+        { id: 'b', zeitpunkt: new Date(2026, 9, 4, 0, 36, 41).toISOString() },
+        { id: 'c', zeitpunkt: new Date(2026, 9, 3, 2, 0, 9).toISOString() },
+      ],
+      JETZT
+    );
+    expect(namen.get('a')).toBe('Heute, 0:36:05 Uhr');
+    expect(namen.get('b')).toBe('Heute, 0:36:41 Uhr');
+    expect(namen.get('c')).toBe('Gestern, 2:00 Uhr');
   });
 });

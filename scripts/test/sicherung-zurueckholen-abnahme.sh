@@ -196,6 +196,13 @@ ruf "$TOK" GET /api/auth/me
 ICH="$(rumpf | feld user.id)"
 pruefe "probe-admin ist Administrator" "$(ja_wenn "$(rumpf | feld user.role)" admin)"
 
+# Die Staende vom Anfang: diese Abnahme legt an einem Tag mehrere an, und die
+# Aufbewahrung (die fuenf neuesten, einer je Tag) nimmt dafuer womoeglich einen
+# fremden Stand desselben Tages. Am Ende wird das gesagt und ein frischer Stand
+# des Geraets angelegt (erster Lauf am 04.10.2026: der Stand vom Dienststart fiel).
+ruf "$TOK" GET /api/backup/staende
+ANFANG_STAENDE="$(rumpf | python3 -c 'import sys,json; print(" ".join(x["id"] for x in json.load(sys.stdin)["data"]))' 2>/dev/null)"
+
 # --- 1. Die Probe-App ------------------------------------------------------------
 ruf "$TOK" GET "/api/apps/$APP"
 if [ "$CODE" = 200 ]; then
@@ -475,6 +482,16 @@ if [ -z "${ARASUL_STAENDE_BEHALTEN:-}" ] && [ "${#EIGENE_STAENDE[@]}" -gt 0 ]; t
   ruf "$TOK" GET /api/backup/staende
   UEBRIG="$(rumpf | python3 -c 'import sys,json; d=json.load(sys.stdin)["data"]; w=set(json.loads(sys.argv[1])); print(sum(1 for x in d if x["id"] in w))' "$WEG_JSON")"
   pruefe "Die ${#EIGENE_STAENDE[@]} eigenen Staende einzeln entfernt (restic forget), fremde unberuehrt" "$(ja_wenn "$UEBRIG" 0)" "$(rumpf | feld anzahl) Staende bleiben"
+fi
+if [ -z "${ARASUL_STAENDE_BEHALTEN:-}" ]; then
+  ruf "$TOK" GET /api/backup/staende
+  FORT="$(rumpf | python3 -c 'import sys,json
+jetzt=set(x["id"] for x in json.load(sys.stdin)["data"])
+print(" ".join(i[:8] for i in sys.argv[1].split() if i not in jetzt))' "$ANFANG_STAENDE")"
+  [ -n "$FORT" ] && printf 'info   die Aufbewahrung nahm waehrend des Laufs fremde Staende desselben Tages: %s\n' "$FORT"
+  ruf "$TOK" POST /api/backup/sicherung
+  pruefe "Zum Schluss ein frischer Stand des Geraets (ohne Probe-App und Probe-Bereich)" \
+    "$(ja_wenn "$(rumpf | feld data.erfolg)" true)" "$(rumpf | feld data.bericht.stand_id | cut -c1-8)"
 fi
 am_geraet "docker rm -f $PG $WD >/dev/null 2>&1; docker network rm ${STEMPEL}-netz >/dev/null 2>&1; docker run --rm -v /home/arasul:/h alpine:3.19 rm -rf '/h/${STEMPEL}'" >/dev/null 2>&1
 pruefe "Wegwerf-Umgebung weg" "$(ja_wenn "$(am_geraet "test -e '$WZ' && echo da || echo weg")" weg)"

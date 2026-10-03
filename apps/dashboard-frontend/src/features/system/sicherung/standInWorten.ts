@@ -13,12 +13,13 @@ function tagesbeginn(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-export function standInWorten(iso: string, jetzt: Date = new Date()): string {
+export function standInWorten(iso: string, jetzt: Date = new Date(), mitSekunden = false): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) {
     return 'unbekannter Zeitpunkt';
   }
-  const uhr = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')} Uhr`;
+  const zwei = (n: number) => String(n).padStart(2, '0');
+  const uhr = `${d.getHours()}:${zwei(d.getMinutes())}${mitSekunden ? `:${zwei(d.getSeconds())}` : ''} Uhr`;
   // Gerundet: zwischen zwei Mitternächten liegen bei der Zeitumstellung 23
   // oder 25 Stunden.
   const tage = Math.round((tagesbeginn(jetzt) - tagesbeginn(d)) / 86_400_000);
@@ -74,4 +75,26 @@ export function namenDerStaende(staende: Stand[]): {
       if (b.name && !bereiche.has(b.kennung)) bereiche.set(b.kennung, b.name);
   }
   return { apps, bereiche };
+}
+
+/**
+ * Die Namen einer ganzen Liste: zwei Stände in derselben Minute (von Hand
+ * gesichert, dann der Stand davor) hießen sonst gleich. Dann, und nur dann,
+ * kommen die Sekunden dazu (am Orin gesehen, 04.10.2026).
+ */
+export function standNamen(
+  staende: Pick<Stand, 'id' | 'zeitpunkt'>[],
+  jetzt: Date = new Date()
+): Map<string, string> {
+  const zahl = new Map<string, number>();
+  for (const s of staende) {
+    const n = standInWorten(s.zeitpunkt, jetzt);
+    zahl.set(n, (zahl.get(n) ?? 0) + 1);
+  }
+  return new Map(
+    staende.map(s => {
+      const n = standInWorten(s.zeitpunkt, jetzt);
+      return [s.id, (zahl.get(n) ?? 0) > 1 ? standInWorten(s.zeitpunkt, jetzt, true) : n];
+    })
+  );
 }
