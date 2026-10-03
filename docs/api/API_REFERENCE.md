@@ -2152,7 +2152,10 @@ zweite hat eine eigene: `ausserhalb`.
 | POST   | `/api/backup/test`                      | Wiederherstellungstest gegen eine Wegwerf-Datenbank        |
 
 Gesichert werden fünf Dinge, und die Frage dahinter ist jedes Mal dieselbe: was
-bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn es fehlt?
+bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn es fehlt? Seit M5
+(03.10.2026) entsteht daraus jede Nacht **ein Stand**, der nur Geändertes neu
+schreibt (restic, verschlüsselt; aufbewahrt 7 Tage, 12 Wochen, 60 Monate —
+[BACKUP_SYSTEM.md](../ops/BACKUP_SYSTEM.md#stände-seit-m5)).
 
 | Art            | Was                                                                                                                                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -2184,7 +2187,27 @@ bekommt weder Bind-Mount noch benanntes Volume
       "flows": "true",
       "konfiguration": "true",
       "firmenordner": "true",
-      "firmenordnerGeaendert": { "anzahl": 2, "dateien": ["./Angebote/neu.pdf", "./Regeln.md"] }
+      "firmenordnerGeaendert": { "anzahl": 2, "dateien": ["./Angebote/neu.pdf", "./Regeln.md"] },
+      "stand": {
+        "status": "ok",
+        "id": "637755c9…",
+        "geschrieben": 2202009,
+        "gelesen": 699924480,
+        "klartext": 0
+      }
+    },
+    "staende": {
+      "anzahl": 9,
+      "bytes": 415236096,
+      "neuester": {
+        "id": "637755c9…",
+        "zeitpunkt": "2026-10-03T02:00:12+02:00",
+        "geschrieben": 2202009
+      },
+      "aeltester": "2026-09-25T02:00:10+02:00",
+      "aufbewahrung": { "tage": 7, "wochen": 12, "monate": 60 },
+      "hinweis": null,
+      "entfallenWegenPlatz": []
     },
     "ausserhalb": {
       "vorhanden": true,
@@ -2218,6 +2241,15 @@ bekommt weder Bind-Mount noch benanntes Volume
   "timestamp": "2026-08-27T10:00:00.000Z"
 }
 ```
+
+**Stände (M5).** `letzteSicherung.stand` ist der Stand dieser Nacht: `status`
+(`ok`, `fehler`, `voll`), was gelesen und was davon **neu geschrieben** wurde
+(Bytes; das ist die Zahl zu „nur Geändertes“), und `klartext` (soll `0` sein).
+`staende` liest das Backend aus `staende.json`, das der Sicherungsdienst nach
+jedem Lauf ablegt; `null`, solange es keinen Stand gibt. `hinweis` ist gesetzt,
+wenn das Ziel voll war und dafür der älteste Stand gefallen ist,
+`entfallenWegenPlatz` nennt deren Zeitpunkte. `ausserhalb.geschrieben` ist, was
+der letzte Stand auf dem Datenträger neu geschrieben hat.
 
 `firmenordnerGeaendert` nennt, was sich im Firmenordner **während** der
 Sicherung bewegt hat (J35): die Zahl und höchstens hundert Pfade relativ zum
@@ -2259,9 +2291,11 @@ das; `letzterVersuch` nennt dann den Grund (`kein_ziel`, `nicht_eingehaengt`,
 ```
 
 **GET /api/backup/extern/inhalt** (J37, nur `admin`) — was auf dem
-Datenträger liegt, gelesen aus dem `MANIFEST.json` des neuesten Tagesordners
-(`arasul-sicherung/<JJJJMMTT>/`; Namen, die nicht aus acht Ziffern bestehen,
-zählen nicht):
+Datenträger liegt. Seit M5 aus `arasul-sicherung/MANIFEST.json` neben dem Repo
+der Stände (`tage` sind dann die Tage der Stände, `neuesteSicherung.staende`
+ihre Zahl); ein Datenträger von vor M5 wird weiter aus dem `MANIFEST.json` des
+neuesten Tagesordners gelesen (`arasul-sicherung/<JJJJMMTT>/`; Namen, die nicht
+aus acht Ziffern bestehen, zählen nicht):
 
 ```json
 {
@@ -2273,7 +2307,8 @@ zählen nicht):
       "zeitpunkt": "2026-10-02T02:00:00Z",
       "bytes": 5211334,
       "apps": [{ "id": "belege", "staende": ["test", "live"] }],
-      "dateien": 9
+      "dateien": 9,
+      "staende": 9
     },
     "tage": ["20261002", "20261001"]
   }
@@ -2313,19 +2348,40 @@ kein Fehler.
 Gelesen wird die Platte, nicht der Bericht der letzten Nacht: der Bericht sagt,
 was getan wurde, die Platte sagt, was heute noch zurückspielbar ist.
 
-`art` ist eine von `postgres`, `app-datenbanken` (je App und Stand, dazu
-`datenbank`), `apps`, `flows`, `config` und `firmenordner`.
+`art` ist eine von `stand` (seit M5, dazu `id`), `postgres`, `app-datenbanken`
+(je App und Stand, dazu `datenbank`), `apps`, `flows`, `config` und
+`firmenordner`. Eine Zeile `stand` ist ein ganzer Stand des Geräts; `bytes` ist,
+was er **neu** geschrieben hat (`0`, wenn der Lauf, der ihn anlegte, es nicht
+gemessen hat), `id` die Kennung für `POST /api/backup/wiederherstellung`. Die
+übrigen Arten sind die Tagesordner von vor M5; sie bleiben, bis jemand sie
+wegräumt.
+
+```json
+{
+  "art": "stand",
+  "zweck": "Stand des ganzen Geräts: Datenbank, Apps, Flows, Firmenordner, Konfiguration",
+  "name": "637755c9",
+  "id": "637755c9a1b2…",
+  "bytes": 2202009,
+  "zeitpunkt": "2026-10-03T00:00:12.000Z"
+}
+```
 
 **POST /api/backup/wiederherstellung:**
 
 ```json
 {
-  "datei": "arasul_db_20260827_020054.sql.gz",
+  "stand": "637755c9",
   "bestaetigung": "wiederherstellen",
   "quelle": "extern",
   "wiederherstellungscode": "ABCD-1234-EFGH"
 }
 ```
+
+`stand` (M5) nennt einen Stand mit seiner Kennung (8 bis 64 Zeichen aus `0-9a-f`,
+die ersten acht reichen); ohne `stand` und ohne `datei` gilt der **neueste
+Stand**. `datei` nimmt stattdessen eine Datei aus den Tagesordnern von vor M5
+(z. B. `arasul_db_20260827_020054.sql.gz`). Beides zusammen: `400`.
 
 `quelle` (J37) ist `lokal` (Vorgabe) oder `extern` (vom angesteckten
 Datenträger; ohne ihn `409` mit „Es ist kein Datenträger angesteckt.“).
@@ -2334,8 +2390,7 @@ zur Sicherung passt (höchstens 100 Zeichen, nur Buchstaben, Ziffern, Leerzeiche
 und Striche). Er geht nie in die Befehlszeile, sondern als Umgebungsvariable in
 den Aufruf im Sicherungs-Container, und steht nicht im Protokoll.
 
-`datei` ist ein **Name**, kein Pfad, und liegt im Sicherungsordner; ohne Angabe
-gilt die neueste. `bestaetigung` muss das Wort `wiederherstellen` sein — kein
+`datei` ist ein **Name**, kein Pfad, und liegt im Sicherungsordner. `bestaetigung` muss das Wort `wiederherstellen` sein — kein
 `true`: dieser Aufruf ersetzt die ganze Datenbank, und ein `{"bestaetigung":
 true}` schreibt sich in einem Skript versehentlich hin.
 
@@ -2394,7 +2449,7 @@ zurückspielen.
 ```
 
 Seit J37 zusätzlich: `quelle` (`lokal` Vorgabe, oder `extern` vom Datenträger,
-dann gilt das Verzeichnis des neuesten Tages dort), `paket` (Vorgabe `true`:
+dann gilt dessen Manifest), `paket` (Vorgabe `true`:
 nach den Daten wird auch das **Paket** der App aus dem Archiv zurückgeholt,
 `/arasul/apps/<id>/`, und jeder Stand, den es in `app_staende` gibt, daraus neu
 gebaut; mit `false` bleibt es bei den Daten und dem Neuverbinden) und
@@ -2457,6 +2512,9 @@ Aufruf ihr Passwort und startet ihren Container neu.
 zurückkamen. `bericht` sind deutsche Sätze für die Oberfläche (`schritt`:
 `datenbank`, `paket`, `neu_gestartet`), nie Stacktraces; `erfolg` ist `false`,
 sobald ein Schritt scheiterte.
+
+Seit M5 kommen die Daten aus dem **neuesten Stand**; ob die App darin steht,
+liest das Backend aus `staende.json` (`neuester.app_datenbanken`).
 
 **Fehler:** `400`, wenn `bestaetigung` nicht die Kennung ist. `404`, wenn es
 von keinem Stand der App eine Sicherung gibt (bei `quelle: extern`: wenn die App
