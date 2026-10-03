@@ -49,6 +49,11 @@ const SENSITIVE_FIELDS = [
   'credential',
   'private_key',
   'privateKey',
+  // Deutsch benannte Felder: `passwort` enthaelt `password` nicht. Seit dem
+  // Zurueckholen mit Passwort (M5) und dem Wiederherstellungscode (J37) stehen
+  // beide in Anfragen an /api/backup.
+  'passwort',
+  'wiederherstellungscode',
 ];
 
 /**

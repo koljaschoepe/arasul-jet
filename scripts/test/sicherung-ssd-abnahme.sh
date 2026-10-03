@@ -102,8 +102,15 @@ ruf() { # token|schluessel:… verb pfad [leib]
     schluessel:*) a+=(-H "x-api-key: ${wer#schluessel:}") ;;
     *) a+=(-H "authorization: Bearer $wer") ;;
   esac
-  [ -n "$leib" ] && a+=(-H 'content-type: application/json' -d "$leib")
-  CODE=$(curl "${a[@]}" "$BASIS$pfad")
+  # Der Rumpf ueber STDIN, nie als Argument: seit M5 steht darin das Passwort.
+  if [ -n "$leib" ]; then
+    CODE=$(curl "${a[@]}" -H 'content-type: application/json' --data-binary @- "$BASIS$pfad" <<<"$leib")
+  else
+    CODE=$(curl "${a[@]}" "$BASIS$pfad")
+  fi
+}
+mit_passwort() {
+  python3 -c 'import json,os,sys; d=json.loads(sys.argv[1]); d["passwort"]=os.environ["ARASUL_PASSWORT"]; print(json.dumps(d))' "$1"
 }
 rumpf() { cat "$RUMPF" 2>/dev/null; }
 
@@ -263,11 +270,11 @@ for i in 6 7 8; do ruf "$TOK" POST "$TEST/eintrag?text=nach-der-sicherung-$i"; d
 am_geraet "rm -f '$PAKET_PFAD'" >/dev/null 2>&1
 pruefe "Schaden gesetzt: drei Eintraege zu viel, ein Stueck des Pakets fehlt" "$(am_geraet "test ! -f '$PAKET_PFAD' && echo ja || echo nein")"
 
-# Die Wege ohne Bestaetigung tun nichts.
+# Die Wege ohne Bestaetigung tun nichts (seit M5: das Passwort).
 ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" '{"quelle":"extern"}'
-pruefe "Ohne Bestaetigung: abgewiesen (400)" "$(ja_wenn "$CODE" 400)"
-ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" '{"bestaetigung":"falsch","quelle":"extern"}'
-pruefe "Mit falscher Kennung: abgewiesen (400)" "$(ja_wenn "$CODE" 400)"
+pruefe "Ohne Passwort: abgewiesen (400)" "$(ja_wenn "$CODE" 400)"
+ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" '{"passwort":"falsch","quelle":"extern"}'
+pruefe "Mit falschem Passwort: abgewiesen (403)" "$(ja_wenn "$CODE" 403)"
 ruf "$TOK" GET "$TEST/eintraege"
 pruefe "... und nichts wurde angefasst (noch acht Eintraege)" "$(ja_wenn "$(rumpf | zaehle_eintraege)" 8)"
 
@@ -275,12 +282,13 @@ pruefe "... und nichts wurde angefasst (noch acht Eintraege)" "$(ja_wenn "$(rump
 if command -v node >/dev/null 2>&1 && [ -z "${ARASUL_OHNE_BROWSER:-}" ]; then
   arasul_sitzung_bauen "$TOK" >/dev/null 2>&1
   ARASUL_URL="$BASIS" ARASUL_SITZUNG="$ARASUL_SITZUNG" ARASUL_DATENTRAEGER="$LABEL" ARASUL_PROBE_APP="$APP" \
+    ARASUL_PASSWORT="$ARASUL_PASSWORT" \
     node "$WURZEL/scripts/test/sicherung-ssd-bilder.mjs" | tee "$ARBEIT/browser.txt"
   ROTE=$(grep -c '^ROT' "$ARBEIT/browser.txt" || true)
   pruefe "Im Frontend: Name, freier Platz, doppelte Bestaetigung und Bericht" \
     "$([ "$ROTE" = 0 ] && grep -q 'gruen' "$ARBEIT/browser.txt" && echo ja || echo nein)"
 else
-  ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" "{\"bestaetigung\":\"$APP\",\"quelle\":\"extern\",\"paket\":true}"
+  ruf "$TOK" POST "/api/backup/wiederherstellung/app/$APP" "$(mit_passwort '{"quelle":"extern","paket":true}')"
   pruefe "Zurueckgeholt ueber die Schnittstelle: erfolg" "$(ja_wenn "$(rumpf | feld data.erfolg)" true)" "HTTP $CODE"
 fi
 
@@ -295,7 +303,7 @@ pruefe "Ihre Daten: wieder genau die fuenf von vor der Sicherung" \
 pruefe "Ihr Paket: das fehlende Stueck ist Byte fuer Byte zurueck" \
   "$(ja_wenn "$(am_geraet "sha256sum '$PAKET_PFAD' 2>/dev/null | cut -d' ' -f1")" "$SUMME_VORHER")"
 SICH="$(quelle_von backup-service /backups)"
-pruefe "Der Stand von vorher liegt unter vor_wiederherstellung/" \
+pruefe "Der Stand von vorher liegt unter vor_wiederherstellung/ (dazu seit M5 ein Stand davor)" \
   "$(am_geraet "cd '$SICH' && compgen -G 'vor_wiederherstellung/arasul_app_${APPDB}_test_*' >/dev/null && echo ja || echo nein")"
 
 # --- 7. Abziehen ------------------------------------------------------------------

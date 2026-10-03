@@ -81,6 +81,16 @@ STAND_SCHLUESSEL="${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encryption_key}
 STAND_DB_QUELLE="${BACKUP_STAND_DB_QUELLE:-/arasul/datenbank}"
 STAND_TAG=arasul
 STAND_HOST=arasul
+# Was je Stand nachgesehen wird (`stand_inhalt`): welche Apps, welche
+# App-Datenbanken, welche Bereiche des Firmenordners darin stehen. Dieselben
+# Pfade, die backup.sh sichert.
+STAND_APPS_PFAD="${APPS_BACKUP_DIR:-/arasul/apps}"
+STAND_BEREICHE_PFAD="${FIRMENORDNER_BACKUP_DIR:-/arasul/firmenordner}/posix/projects"
+# Der Stand VOR einem Zurueckholen (Auftrag sicherung-zurueckholen, M5): ein
+# ganz normaler Stand mit dem zusaetzlichen Tag `vorher` und, wofuer er
+# entstand, `fuer:app:<id>`, `fuer:bereich:<kennung>` oder `fuer:geraet`.
+# backup.sh setzt die Tags ueber dieses Feld.
+STAND_EXTRA_TAGS=()
 
 # nice immer, ionice nur, wenn es hier geht (am Mac gibt es keines, und ein
 # Container ohne Recht darauf liesse den eigentlichen Befehl gar nicht laufen).
@@ -150,11 +160,46 @@ stand_groesse_kb() { # repo -> KiB, 0 wenn es das Repo nicht gibt
     printf '%s' "${kb:-0}"
 }
 
-# Die Staende, aelteste zuerst, als JSON-Liste.
+# Die Staende, aelteste zuerst, als JSON-Liste. `vorher` und `fuer` kommen aus
+# den Tags: ein Stand, der vor einem Zurueckholen entstand, sagt, wofuer.
 stand_liste() { # repo schluesseldatei
     local roh
     roh=$(stand_restic "$1" "$2" snapshots --json --tag "$STAND_TAG" 2>/dev/null) || return 1
-    jq -c 'sort_by(.time) | map({id, kurz: .short_id, zeit: .time, pfade: .paths})' <<<"$roh"
+    jq -c 'sort_by(.time) | map({id, kurz: .short_id, zeit: .time, pfade: .paths,
+             vorher: ((.tags // []) | any(. == "vorher")),
+             fuer: ((.tags // []) | map(select(startswith("fuer:")) | sub("^fuer:"; "")) | .[0] // null)})' <<<"$roh"
+}
+
+# Was in EINEM Stand steht, ohne ihn zurueckzuholen: die Apps (Ordner unter
+# /arasul/apps), die App-Datenbanken (Abzuege unter /arasul/datenbank/apps)
+# und die Bereiche des Firmenordners (Raeume unter posix/projects). `restic ls`
+# mit Ordnern listet nur deren unmittelbaren Inhalt (seit restic 0.15 nicht
+# rekursiv) -- am Orin 0,5 s je Stand. Ein Stand aendert sich nie; backup.sh
+# fragt deshalb nur die neuen und uebernimmt den Rest aus der vorigen Liste.
+stand_inhalt() { # repo schluesseldatei stand
+    local roh
+    roh=$(stand_restic "$1" "$2" ls --json "$3" "$STAND_APPS_PFAD" "${STAND_DB_QUELLE}/apps" "$STAND_BEREICHE_PFAD" 2>/dev/null) || return 1
+    jq -sc --arg a "$STAND_APPS_PFAD" --arg d "${STAND_DB_QUELLE}/apps" --arg b "$STAND_BEREICHE_PFAD" '
+      [.[] | select(.struct_type == "node")] as $n
+      | {apps: ([$n[] | select(.type == "dir" and .path == ($a + "/" + .name) and (.name | startswith(".") | not)) | .name] | sort),
+         app_datenbanken: ([$n[] | select(.type == "file" and .path == ($d + "/" + .name) and (.name | endswith(".sql"))) | .name | sub("\\.sql$"; "")] | sort),
+         bereiche: ([$n[] | select(.type == "dir" and .path == ($b + "/" + .name) and (.name | startswith(".") | not)) | .name] | sort)}' <<<"$roh"
+}
+
+# Die Liste wie `stand_liste`, je Stand mit `inhalt`. Was die vorige Liste
+# ($3, JSON) schon wusste, wird uebernommen; nur neue Staende werden gefragt.
+# `inhalt: null` heisst: liess sich nicht lesen.
+stand_liste_mit_inhalt() { # repo schluesseldatei [vorige_liste_json]
+    local liste alt="${3:-[]}" id inhalt paare=''
+    liste=$(stand_liste "$1" "$2") || return 1
+    jq -e 'type == "array"' <<<"$alt" >/dev/null 2>&1 || alt='[]'
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        inhalt=$(jq -c --arg id "$id" 'map(select(.id == $id and .inhalt != null)) | .[0].inhalt // empty' <<<"$alt" 2>/dev/null)
+        [ -n "$inhalt" ] || inhalt=$(stand_inhalt "$1" "$2" "$id") || inhalt=''
+        paare+="$(jq -cn --arg id "$id" --argjson i "${inhalt:-null}" '{key: $id, value: $i}')"$'\n'
+    done < <(jq -r '.[].id' <<<"$liste")
+    jq -c --argjson m "$(printf '%s' "$paare" | jq -sc 'from_entries')" 'map(. + {inhalt: $m[.id]})' <<<"$liste"
 }
 
 # Aufraeumen nach forget. Umgepackt wird hoechstens die Haelfte dessen, was
@@ -261,6 +306,9 @@ stand_sichern() { # repo schluesseldatei quellen...
     stand_restic "$repo" "$schluessel" unlock >/dev/null 2>&1 || true
 
     local args=(--json --host "$STAND_HOST" --tag "$STAND_TAG") a
+    for a in ${STAND_EXTRA_TAGS[@]+"${STAND_EXTRA_TAGS[@]}"}; do
+        args+=(--tag "$a")
+    done
     for a in ${STAND_AUSSCHLUESSE[@]+"${STAND_AUSSCHLUESSE[@]}"}; do
         args+=(--exclude "$a")
     done
@@ -325,11 +373,18 @@ stand_sichern() { # repo schluesseldatei quellen...
 # `--group-by ''`: alle Staende sind EINE Reihe. Sonst bildete restic Gruppen
 # nach Rechnername und Pfaden, und eine Nacht, in der der Firmenordner nicht
 # eingehaengt war, begaenne eine eigene Reihe mit eigener Aufbewahrung.
+#
+# `--keep-tag vorher`: ein Stand, der vor einem Zurueckholen entstand, ist der
+# Weg, dieses Zurueckholen rueckgaengig zu machen. Die Regel 7/12/60 behielte
+# von zwei Staenden eines Tages nur den spaeteren -- wer an einem Tag zweimal
+# zurueckholt, verloere den ersten Weg zurueck. Er bleibt deshalb, bis das Ziel
+# voll ist (dann faellt auch er als aeltester, `stand_aeltesten_nehmen`).
+# Zurueckgeholt wird selten; dedupliziert kostet so ein Stand fast nichts.
 # Setzt STAND_ENTFALLEN (Zahl).
 stand_aufbewahren() { # repo schluesseldatei
     local roh
     STAND_ENTFALLEN=0
-    roh=$(stand_restic "$1" "$2" forget --json --tag "$STAND_TAG" --group-by '' \
+    roh=$(stand_restic "$1" "$2" forget --json --tag "$STAND_TAG" --group-by '' --keep-tag vorher \
         --keep-daily "$STAND_TAGE" --keep-weekly "$STAND_WOCHEN" --keep-monthly "$STAND_MONATE" 2>/dev/null) || return 1
     STAND_ENTFALLEN=$(jq '[.[] | (.remove // []) | length] | add // 0' <<<"$roh" 2>/dev/null || echo 0)
     if [ "${STAND_ENTFALLEN:-0}" -gt 0 ]; then

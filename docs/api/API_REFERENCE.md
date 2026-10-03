@@ -2141,15 +2141,17 @@ eine eigene Anwendung dagegen baute, schloss daraus, die Sicherung sei aus.
 Seit Phase C9 heißt die Antwort auf die erste Frage `sichertWirklich`, und die
 zweite hat eine eigene: `ausserhalb`.
 
-| Method | Endpoint                                | Beschreibung                                               |
-| ------ | --------------------------------------- | ---------------------------------------------------------- |
-| GET    | `/api/backup/status`                    | Sichert das Gerät? Wann lag zuletzt eine Kopie außer Haus? |
-| GET    | `/api/backup/sicherungen`               | Was liegt da — Name, Art, Größe, Datum                     |
-| GET    | `/api/backup/extern/inhalt`             | Was liegt auf dem angesteckten Datenträger (J37)           |
-| POST   | `/api/backup/sicherung`                 | Jetzt sichern (dauert Minuten, antwortet erst danach)      |
-| POST   | `/api/backup/wiederherstellung`         | Zurück auf eine Sicherung, danach laufen die Apps wieder   |
-| POST   | `/api/backup/wiederherstellung/app/:id` | Nur die Daten **einer** App zurück (J35)                   |
-| POST   | `/api/backup/test`                      | Wiederherstellungstest gegen eine Wegwerf-Datenbank        |
+| Method | Endpoint                                         | Beschreibung                                               |
+| ------ | ------------------------------------------------ | ---------------------------------------------------------- |
+| GET    | `/api/backup/status`                             | Sichert das Gerät? Wann lag zuletzt eine Kopie außer Haus? |
+| GET    | `/api/backup/sicherungen`                        | Was liegt da — Name, Art, Größe, Datum                     |
+| GET    | `/api/backup/extern/inhalt`                      | Was liegt auf dem angesteckten Datenträger (J37)           |
+| GET    | `/api/backup/staende`                            | Die Stände zum Zurückholen: Zeitpunkt, Inhalt, Stand davor |
+| POST   | `/api/backup/sicherung`                          | Jetzt sichern (dauert Minuten, antwortet erst danach)      |
+| POST   | `/api/backup/wiederherstellung`                  | Zurück auf eine Sicherung, danach laufen die Apps wieder   |
+| POST   | `/api/backup/wiederherstellung/app/:id`          | Nur die Daten **einer** App zurück (J35)                   |
+| POST   | `/api/backup/wiederherstellung/bereich/:kennung` | Nur die Dateien **eines** Bereichs des Firmenordners (M5)  |
+| POST   | `/api/backup/test`                               | Wiederherstellungstest gegen eine Wegwerf-Datenbank        |
 
 Gesichert werden fünf Dinge, und die Frage dahinter ist jedes Mal dieselbe: was
 bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn es fehlt? Seit M5
@@ -2367,12 +2369,59 @@ wegräumt.
 }
 ```
 
+**Zurückholen, für alle drei Wege gleich (M5, Auftrag sicherung-zurueckholen,
+04.10.2026):** jeder Aufruf verlangt `passwort`, das Passwort des angemeldeten
+Administrators. Falsch oder leer: `403` mit dem Code `PASSWORT_FALSCH` (kein
+`401`, die Sitzung bleibt), und je Mensch gehen zehn Versuche in 15 Minuten
+(`429`). Das Passwort steht in keinem Protokoll. **Vorher sichert das Gerät den
+jetzigen Stand** (`backup.sh` mit `ARASUL_STAND_ANLASS=vorher`): ein ganz
+normaler Stand mit dem Tag `vorher`, den die Aufbewahrung 7/12/60 nicht nimmt
+und der nur auf diesem Gerät liegt. Er steht danach in `GET
+/api/backup/staende` mit `vorher: true` und `fuer`, und wer ihn wählt, macht das
+Zurückholen auf demselben Weg rückgängig. Misslingt er, wird nichts angefasst
+(`erfolg: false`, erster Satz im Bericht). Ohne `stand`/`stand_id` gilt der
+neueste Stand **von vor** dem Stand davor. Jede Antwort trägt `vorher: {
+erfolg, id, zeitpunkt }`.
+
+**GET /api/backup/staende?quelle=lokal|extern** (M5, nur `admin`) — die Stände
+zum Zurückholen, neueste zuerst. `quelle` wie unten; `extern` ohne Datenträger
+ist ein `409`.
+
+```json
+{
+  "data": [
+    {
+      "id": "534c356ba6ec4fee…",
+      "zeitpunkt": "2026-10-03T21:11:54.838Z",
+      "vorher": false,
+      "fuer": null,
+      "geschrieben": 9814016,
+      "inhaltBekannt": true,
+      "apps": [{ "id": "belege", "name": "Belege" }],
+      "appDatenbanken": ["arasul_app_belege_live", "arasul_app_belege_test"],
+      "bereiche": [{ "kennung": "projekte", "name": "Projekte", "vorhanden": true }]
+    }
+  ],
+  "anzahl": 1,
+  "quelle": "lokal"
+}
+```
+
+`fuer` ist bei einem Stand davor `{ "art": "app"|"bereich"|"geraet", "id": … }`.
+Was ein Stand enthält, liest `backup.sh` je Stand einmal aus dem Repo
+(`restic ls`, nicht rekursiv) und legt es in `staende.json` bzw. im Manifest des
+Datenträgers ab; `inhaltBekannt: false` heißt, das ließ sich nicht lesen.
+`bereiche[].vorhanden` sagt, ob es den Bereich am Gerät noch gibt; nur dann
+lässt er sich zurückholen. Die Oberfläche zeigt einen Stand nach Datum und
+Uhrzeit in Worten, die Kennung nur unter „Technische Angaben".
+
 **POST /api/backup/wiederherstellung:**
 
 ```json
 {
   "stand": "637755c9",
   "bestaetigung": "wiederherstellen",
+  "passwort": "…",
   "quelle": "extern",
   "wiederherstellungscode": "ABCD-1234-EFGH"
 }
@@ -2440,7 +2489,8 @@ zurückspielen.
 
 ```json
 {
-  "bestaetigung": "probe-daten",
+  "passwort": "…",
+  "stand_id": "534c356b",
   "stand": "live",
   "quelle": "extern",
   "paket": true,
@@ -2455,8 +2505,11 @@ nach den Daten wird auch das **Paket** der App aus dem Archiv zurückgeholt,
 gebaut; mit `false` bleibt es bei den Daten und dem Neuverbinden) und
 `wiederherstellungscode` (wie oben).
 
-`bestaetigung` ist die Kennung der App, abgetippt wie beim Entfernen; `stand`
-engt auf einen Stand ein, ohne ihn kommen beide, soweit gesichert. Der ganze
+Seit M5 bestätigt `passwort` (siehe oben); `bestaetigung` (die Kennung,
+abgetippt) geht noch, muss dann aber stimmen. `stand_id` wählt den Zeitpunkt
+(einen Stand aus `GET /api/backup/staende`); geholt wird nur, was darin steht
+(`inhalt`): eine App, die dort nur ihr Paket hat, bekommt nur ihr Paket.
+`stand` engt auf Test oder Live ein, ohne ihn kommen beide, soweit gesichert. Der ganze
 Weg zurück darüber ersetzt die **ganze** Datenbank des Geräts und nähme jeder
 anderen App und jedem Menschen, was seit der Sicherung geschah — dieser Weg
 fasst je Stand genau die eine Datenbank `arasul_app_<id>_<stand>` an: vorher
@@ -2516,10 +2569,55 @@ sobald ein Schritt scheiterte.
 Seit M5 kommen die Daten aus dem **neuesten Stand**; ob die App darin steht,
 liest das Backend aus `staende.json` (`neuester.app_datenbanken`).
 
-**Fehler:** `400`, wenn `bestaetigung` nicht die Kennung ist. `404`, wenn es
+**Fehler:** `400` ohne `passwort` oder wenn `bestaetigung` nicht die Kennung
+ist. `403 PASSWORT_FALSCH`. `404`, wenn der Stand `stand_id` nicht (mehr) da ist
+oder es darin von der App nichts gibt; `409`, wenn es auf diesem Gerät noch
+keinen Stand gibt. `404`, wenn es
 von keinem Stand der App eine Sicherung gibt (bei `quelle: extern`: wenn die App
 im Verzeichnis des Datenträgers nicht steht). `409`, wenn `quelle: extern` ohne
 angesteckten Datenträger. `409` und `503` wie oben.
+
+**POST /api/backup/wiederherstellung/bereich/:kennung** (M5, Auftrag
+sicherung-zurueckholen) — die Dateien **eines** Bereichs des Firmenordners
+(eines Raums der Ebene 0 oder 1, `firmenordner_ordner.kennung`) auf einen
+Stand, sonst nichts: kein anderer Bereich, keine Rechte, nicht der ganze
+Firmenordner.
+
+```json
+{ "passwort": "…", "stand_id": "534c356b", "quelle": "lokal" }
+```
+
+Was seit dem Stand dazukam, geht; was fehlt, kommt wieder; Geänderte bekommen
+ihren Inhalt von damals, an Ort und Stelle (die Kennung im Dateidienst bleibt).
+Die Verwaltung des Dienstes im Bereich (`.oc-nodes`, `.oc-tmp`, `.Trash`) bleibt
+unberührt, und der Dienst läuft dabei weiter; er nimmt die Dateien auf wie
+jede, die am Gerät abgelegt wird (`wiederherstellen.sh --firmenordner-bereich`).
+
+```json
+{
+  "data": {
+    "erfolg": true,
+    "bereich": { "kennung": "projekte", "name": "Projekte" },
+    "stand": { "id": "534c356b…", "zeitpunkt": "2026-10-03T21:11:54.838Z" },
+    "vorher": { "erfolg": true, "id": "9f0e…", "zeitpunkt": "2026-10-04T21:41:02+00:00" },
+    "zahlen": { "geschrieben": 2, "entfernt": 1, "ordnerNeu": 0 },
+    "bericht": [
+      { "schritt": "vorher", "erfolg": true, "text": "Der jetzige Stand ist vorher gesichert. …" },
+      {
+        "schritt": "bereich",
+        "erfolg": true,
+        "text": "Die Dateien des Bereichs „Projekte“ sind zurückgeholt: 2 Dateien zurückgeschrieben, 1 entfernt, die seitdem dazukamen."
+      }
+    ]
+  }
+}
+```
+
+**Fehler:** `400` ohne `passwort` oder mit einer Kennung, die keine ist. `403
+PASSWORT_FALSCH`. `404`, wenn es den Bereich am Gerät nicht gibt (erst anlegen,
+dann zurückholen), wenn er im Stand nicht steht oder der Stand nicht (mehr) da
+ist. `409` und `503` wie oben. Bei einem Fehlschlag `500` mit dem Ergebnis im
+Rumpf und `ausgabe`.
 
 `GET /api/backup/sicherungen` nennt seit J35 bei jeder Zeile der Art
 `app-datenbanken` auch `datenbank` — welche es ist, aus dem Dateinamen, denn

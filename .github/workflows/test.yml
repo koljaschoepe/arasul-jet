@@ -260,7 +260,7 @@ jobs:
           - name: backup-service
             dockerfile: services/backup-service/Dockerfile
             context: services/backup-service
-            smoke_sh: restic version && ionice -c 3 true && bash -n /usr/local/bin/staende.sh && bash -c 'exec 9>/tmp/sperre; timeout 5 flock 9'
+            smoke_sh: restic version && rsync --version && ionice -c 3 true && bash -n /usr/local/bin/staende.sh && bash -n /usr/local/bin/wiederherstellen.sh && bash -c 'exec 9>/tmp/sperre; timeout 5 flock 9'
           # Der Indexer stand hier bis zum 24.08.2026 nicht drin, und seine
           # Requirements werden im pytest-Job bewusst nicht installiert (siehe
           # dort). Damit war er der einzige Dienst, dessen Abhaengigkeiten in
@@ -660,6 +660,15 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends restic >/dev/null
           bash scripts/test/sicherung-staende.sh
+
+      # Auftrag sicherung-zurueckholen (M5, 04.10.2026): was in jedem Stand
+      # steht, der Stand vor dem Zurueckholen (Tag `vorher`, ueberlebt 7/12/60)
+      # und EIN Bereich des Firmenordners zurueck, ohne die Verwaltung des
+      # Dateidienstes und ohne einen anderen Bereich anzufassen.
+      - name: Zurueckholen aus einem Stand (ein Bereich, Stand davor)
+        run: |
+          sudo apt-get install -y --no-install-recommends restic rsync >/dev/null
+          bash scripts/test/sicherung-zurueckholen.sh
 
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh

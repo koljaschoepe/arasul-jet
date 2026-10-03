@@ -14,6 +14,8 @@
  *                                        lag zuletzt eine Kopie AUSSERHALB?
  *   GET  /api/backup/sicherungen         Was liegt da, wie gross, wie alt?
  *   GET  /api/backup/extern/inhalt       Was liegt auf dem Datentraeger? (J37)
+ *   GET  /api/backup/staende             Die Staende zum Zurueckholen: Zeitpunkt,
+ *                                        Inhalt (Apps, Bereiche), Stand davor.
  *   POST /api/backup/sicherung           Jetzt sichern.
  *   POST /api/backup/wiederherstellung   Zurueck -- und danach laufen die Apps
  *                                        wieder, aus ihren gesicherten Paketen
@@ -21,27 +23,67 @@
  *   POST /api/backup/wiederherstellung/app/:id
  *                                        Nur die Daten EINER App (J35), ohne
  *                                        den Rest des Geraets anzufassen.
+ *   POST /api/backup/wiederherstellung/bereich/:kennung
+ *                                        Nur die Dateien EINES Bereichs des
+ *                                        Firmenordners (M5).
  *   POST /api/backup/test                Der Wiederherstellungstest, ohne den
  *                                        Betrieb anzufassen.
  *
  * WER DARF DAS: `admin`. Eine Wiederherstellung ersetzt die ganze Datenbank;
  * das ist kein Knopf fuer einen Mitarbeiter.
+ *
+ * JEDES ZURUECKHOLEN (Auftrag sicherung-zurueckholen, M5, 04.10.2026)
+ * verlangt das PASSWORT des angemeldeten Administrators und sichert vorher den
+ * jetzigen Stand (`sicherungsdienst.sichereVorher`): mit ihm laesst sich das
+ * Zurueckholen selbst rueckgaengig machen. Ein falsches Passwort ist ein 403
+ * mit `PASSWORT_FALSCH`, und je Mensch gehen zehn Versuche in 15 Minuten.
  */
 
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
+const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { validateBody, validateParams } = require('../../middleware/validate');
+const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const logger = require('../../utils/logger');
 const sicherungsdienst = require('../../services/betrieb/sicherungsdienst');
+const { bestaetigePasswort } = require('../../services/auth/passwordService');
 const {
   WiederherstellungBody,
   AppWiederherstellungParams,
   AppWiederherstellungBody,
+  BereichWiederherstellungParams,
+  BereichWiederherstellungBody,
+  StaendeQuery,
 } = require('../../schemas/admin-backup');
 const { ValidationError } = require('../../utils/errors');
+
+/**
+ * Zehn Versuche je Mensch und Viertelstunde fuer alles, was zurueckholt. Ein
+ * Zurueckholen dauert Minuten; wer zehnmal in 15 Minuten ansetzt, raet ein
+ * Passwort und holt nichts zurueck.
+ */
+const zurueckholenDrossel = createUserRateLimiter(10, 15 * 60 * 1000);
+
+/**
+ * Das Passwort pruefen und einen Fehlversuch ins Sicherheitsprotokoll
+ * schreiben -- das Passwort selbst nie.
+ */
+async function passwortBestaetigt(req, action) {
+  try {
+    await bestaetigePasswort(req.user.id, req.body.passwort);
+  } catch (fehler) {
+    logSecurityEvent({
+      userId: req.user.id,
+      action: `${action}_passwort_falsch`,
+      details: {},
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    throw fehler;
+  }
+}
 
 /**
  * GET /api/backup/status
@@ -106,6 +148,31 @@ router.get(
 );
 
 /**
+ * GET /api/backup/staende?quelle=lokal|extern
+ *
+ * Die Staende zum Zurueckholen, neueste zuerst (Auftrag
+ * sicherung-zurueckholen, M5): Zeitpunkt, ob er vor einem Zurueckholen
+ * entstand und wofuer, und was darin steht -- Apps und Bereiche des
+ * Firmenordners mit ihren Namen. Die Kennung `id` nennt den Stand beim
+ * Zurueckholen; ein Mensch waehlt nach Datum und Uhrzeit.
+ */
+router.get(
+  '/staende',
+  requireAuth,
+  requireRole('admin'),
+  validateQuery(StaendeQuery),
+  asyncHandler(async (req, res) => {
+    const staende = await sicherungsdienst.staendeZumZurueckholen(req.query.quelle);
+    res.json({
+      data: staende,
+      anzahl: staende.length,
+      quelle: req.query.quelle,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
  * POST /api/backup/sicherung
  *
  * Sichert JETZT. Die Antwort kommt erst, wenn es durch ist -- am Jetson sind
@@ -155,9 +222,11 @@ router.post(
   '/wiederherstellung',
   requireAuth,
   requireRole('admin'),
+  zurueckholenDrossel,
   validateBody(WiederherstellungBody),
   asyncHandler(async (req, res) => {
     const { datei, stand, bestaetigung, quelle, wiederherstellungscode } = req.body;
+    await passwortBestaetigt(req, 'wiederherstellung');
 
     logger.warn(
       `Wiederherstellung angestossen von ${req.user.username} (${
@@ -185,6 +254,7 @@ router.post(
       durch: req.user.id,
       quelle,
       wiederherstellungscode,
+      vorherSichern: true,
     });
 
     res.status(ergebnis.erfolg ? 200 : 500).json({
@@ -192,6 +262,13 @@ router.post(
         erfolg: ergebnis.erfolg,
         bericht: ergebnis.bericht,
         apps: ergebnis.apps,
+        vorher: ergebnis.vorher
+          ? {
+              erfolg: ergebnis.vorher.erfolg,
+              id: ergebnis.vorher.id,
+              zeitpunkt: ergebnis.vorher.zeitpunkt,
+            }
+          : null,
         ausgabe: ergebnis.ausgabe,
       },
       timestamp: new Date().toISOString(),
@@ -202,27 +279,31 @@ router.post(
 /**
  * POST /api/backup/wiederherstellung/app/:id
  *
- * Die Daten einer App aus der letzten Sicherung, und nur sie (J35). Geht auch,
- * wenn die App gerade entfernt ist: dann liegen die Daten bereit, und das
- * naechste Einspielen findet sie vor. Die jetzige Datenbank der App wird
- * vorher abgezogen (`vor_wiederherstellung/` im Sicherungsordner).
+ * Die Daten einer App aus einem Stand, und nur sie (J35), dazu ihr Paket. Geht
+ * auch, wenn die App gerade entfernt ist: dann liegen die Daten bereit, und
+ * das naechste Einspielen findet sie vor.
  *
- * `bestaetigung` ist die Kennung der App -- getippt, nicht angeklickt.
+ * Bestaetigt mit dem Passwort; `stand_id` waehlt den Zeitpunkt (sonst der
+ * neueste). Vorher entsteht ein Stand des ganzen Geraets (M5). Die alte
+ * Bestaetigung mit der Kennung (`bestaetigung`) geht weiter, muss dann aber
+ * stimmen.
  */
 router.post(
   '/wiederherstellung/app/:id',
   requireAuth,
   requireRole('admin'),
+  zurueckholenDrossel,
   validateParams(AppWiederherstellungParams),
   validateBody(AppWiederherstellungBody),
   asyncHandler(async (req, res) => {
     const appId = req.params.id;
-    if (req.body.bestaetigung !== appId) {
+    if (req.body.bestaetigung !== undefined && req.body.bestaetigung !== appId) {
       throw new ValidationError(
         `Zum Bestätigen muss \`bestaetigung\` die Kennung der App enthalten ("${appId}"). ` +
           'Dieser Aufruf ersetzt ihre Daten durch die der letzten Sicherung.'
       );
     }
+    await passwortBestaetigt(req, 'app_daten_wiederhergestellt');
     logger.warn(`Daten der App ${appId} werden zurueckgeholt, von ${req.user.username}`);
     logSecurityEvent({
       userId: req.user.id,
@@ -230,6 +311,7 @@ router.post(
       details: {
         app_id: appId,
         stand: req.body.stand ?? null,
+        stand_id: req.body.stand_id ?? null,
         quelle: req.body.quelle,
         paket: req.body.paket,
         mit_code: Boolean(req.body.wiederherstellungscode),
@@ -241,10 +323,58 @@ router.post(
     const ergebnis = await sicherungsdienst.stelleAppWiederHer({
       appId,
       stand: req.body.stand ?? null,
+      standId: req.body.stand_id ?? null,
       quelle: req.body.quelle,
       paket: req.body.paket,
       wiederherstellungscode: req.body.wiederherstellungscode,
       durch: req.user.id,
+      vorherSichern: true,
+    });
+    res.status(ergebnis.erfolg ? 200 : 500).json({
+      data: ergebnis,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/backup/wiederherstellung/bereich/:kennung
+ *
+ * Die Dateien EINES Bereichs des Firmenordners auf den Stand `stand_id`
+ * (Auftrag sicherung-zurueckholen, M5): was seitdem dazukam, geht, was fehlt,
+ * kommt wieder, Geaendertes bekommt den Inhalt von damals. Kein anderer
+ * Bereich, keine Rechte. Bestaetigt mit dem Passwort, vorher ein Stand des
+ * ganzen Geraets.
+ */
+router.post(
+  '/wiederherstellung/bereich/:kennung',
+  requireAuth,
+  requireRole('admin'),
+  zurueckholenDrossel,
+  validateParams(BereichWiederherstellungParams),
+  validateBody(BereichWiederherstellungBody),
+  asyncHandler(async (req, res) => {
+    const { kennung } = req.params;
+    await passwortBestaetigt(req, 'bereich_wiederhergestellt');
+    logger.warn(`Bereich ${kennung} wird zurueckgeholt, von ${req.user.username}`);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'bereich_wiederhergestellt',
+      details: {
+        bereich: kennung,
+        stand_id: req.body.stand_id ?? null,
+        quelle: req.body.quelle,
+        mit_code: Boolean(req.body.wiederherstellungscode),
+      },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    const ergebnis = await sicherungsdienst.stelleBereichWiederHer({
+      kennung,
+      standId: req.body.stand_id ?? null,
+      quelle: req.body.quelle,
+      wiederherstellungscode: req.body.wiederherstellungscode,
+      vorherSichern: true,
     });
     res.status(ergebnis.erfolg ? 200 : 500).json({
       data: ergebnis,

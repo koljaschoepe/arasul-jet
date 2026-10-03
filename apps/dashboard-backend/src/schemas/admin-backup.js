@@ -43,6 +43,20 @@ const Wiederherstellungscode = z
   )
   .optional();
 
+/**
+ * Das Passwort des angemeldeten Administrators (Auftrag
+ * sicherung-zurueckholen, M5). Jedes Zurueckholen verlangt es; geprueft wird
+ * es in der Route (`passwordService.bestaetigePasswort`). Es geht nie in ein
+ * Protokoll.
+ */
+const Passwort = z.string().min(1, 'Zum Bestätigen fehlt Ihr Passwort').max(256);
+
+/** Die Kennung eines Stands (`GET /api/backup/staende`), die ersten acht Zeichen reichen. */
+const StandKennung = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{8,64}$/, 'Die Kennung eines Stands: 8 bis 64 Zeichen aus 0-9 und a-f');
+
 const WiederherstellungBody = z
   .object({
     datei: z
@@ -54,13 +68,10 @@ const WiederherstellungBody = z
         'Nur der Name der Sicherung, kein Pfad (Buchstaben, Ziffern, Punkt, Strich, Unterstrich)'
       )
       .optional(),
-    stand: z
-      .string()
-      .trim()
-      .regex(/^[0-9a-f]{8,64}$/, 'Die Kennung eines Stands: 8 bis 64 Zeichen aus 0-9 und a-f')
-      .optional(),
+    stand: StandKennung.optional(),
     quelle: Quelle.default('lokal'),
     wiederherstellungscode: Wiederherstellungscode,
+    passwort: Passwort,
     bestaetigung: z.literal('wiederherstellen', {
       error:
         'Zum Bestaetigen muss das Feld `bestaetigung` das Wort "wiederherstellen" enthalten. ' +
@@ -74,18 +85,22 @@ const WiederherstellungBody = z
   });
 
 /**
- * POST /api/backup/wiederherstellung/app/:id (J35)
+ * POST /api/backup/wiederherstellung/app/:id (J35, M5)
  *
- * Die Daten EINER App. `bestaetigung` ist ihre Kennung, abgetippt -- wie beim
- * Entfernen einer App: der Aufruf wirft die jetzige Datenbank der App weg
- * (vorher abgezogen) und legt die gesicherte an ihre Stelle. `stand` engt auf
- * einen Stand ein; ohne ihn kommen beide, soweit gesichert.
+ * Die Daten EINER App. Bestaetigt wird seit dem Auftrag
+ * sicherung-zurueckholen mit dem PASSWORT des Administrators; `bestaetigung`
+ * (die Kennung, abgetippt) geht noch, ist aber kein Ersatz dafuer. `stand_id`
+ * nennt den Zeitpunkt (einen Stand aus `GET /api/backup/staende`), ohne ihn
+ * gilt der neueste. `stand` engt auf Test oder Live ein; ohne ihn kommen
+ * beide, soweit gesichert.
  */
 const AppWiederherstellungParams = z.object({ id: AppId }).strict();
 
 const AppWiederherstellungBody = z
   .object({
-    bestaetigung: z.string().trim().min(1).max(100),
+    passwort: Passwort,
+    bestaetigung: z.string().trim().min(1).max(100).optional(),
+    stand_id: StandKennung.optional(),
     stand: z.enum(['test', 'live']).optional(),
     quelle: Quelle.default('lokal'),
     // Mit dem Paket der App (ihr Frontend und Backend aus dem Archiv) oder nur
@@ -95,4 +110,37 @@ const AppWiederherstellungBody = z
   })
   .strict();
 
-module.exports = { WiederherstellungBody, AppWiederherstellungParams, AppWiederherstellungBody };
+/**
+ * POST /api/backup/wiederherstellung/bereich/:kennung (Auftrag
+ * sicherung-zurueckholen, M5): die Dateien EINES Bereichs des Firmenordners
+ * auf den Stand `stand_id`. Die Kennung ist die des Bereichs
+ * (`firmenordner_ordner.kennung`, zugleich sein Ordnername auf der Platte).
+ */
+const BereichWiederherstellungParams = z
+  .object({
+    kennung: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/, 'Die Kennung eines Bereichs (a-z, 0-9, Strich)'),
+  })
+  .strict();
+
+const BereichWiederherstellungBody = z
+  .object({
+    passwort: Passwort,
+    stand_id: StandKennung.optional(),
+    quelle: Quelle.default('lokal'),
+    wiederherstellungscode: Wiederherstellungscode,
+  })
+  .strict();
+
+/** GET /api/backup/staende: die Staende einer Quelle. */
+const StaendeQuery = z.object({ quelle: Quelle.default('lokal') }).strict();
+
+module.exports = {
+  WiederherstellungBody,
+  AppWiederherstellungParams,
+  AppWiederherstellungBody,
+  BereichWiederherstellungParams,
+  BereichWiederherstellungBody,
+  StaendeQuery,
+};

@@ -7,11 +7,14 @@
  * Knopf. Fünf Jahre unbeaufsichtigter Betrieb heißt nicht, dass niemand
  * hinsieht — er heißt, dass das Hinsehen eine Minute dauert.
  *
- * DER WEG ZURÜCK (J37) steht seit der Sicherung auf einen Datenträger hier,
- * in `Zurueckholen.tsx`, in zwei Gewichten: eine App (Kennung abtippen) und das
- * ganze Gerät (das Wort „wiederherstellen“ abtippen, eigene Feldgruppe, als
- * Notfallweg gekennzeichnet). Beide fragen zweimal, bevor etwas geschieht, und
- * lassen einen Bericht stehen.
+ * DER WEG ZURÜCK steht in `Zurueckholen.tsx` (J37, neu gefasst im Auftrag
+ * sicherung-zurueckholen, M5): eine App, ein Bereich des Firmenordners oder das
+ * ganze Gerät, auf einen Stand, der nach Datum und Uhrzeit in Worten gewählt
+ * wird, bestätigt mit dem Passwort, und vorher sichert das Gerät den jetzigen
+ * Stand.
+ *
+ * DIE STÄNDE stehen ebenso in Worten da („Gestern, 2:00 Uhr“). Kennungen,
+ * Größen und die Dateien von vor M5 nur unter „Technische Angaben“.
  *
  * DER DATENTRÄGER wird mit Namen und freiem Platz genannt, nie mit einem Pfad:
  * für den, der ihn ansteckt, ist er „die SSD“, nicht ein Ordner im Container.
@@ -20,9 +23,10 @@
  * dürfen — bei 390 px steht dieselbe Auskunft untereinander statt in vier
  * Spalten, die nicht nebeneinander passen (Fund der D4-Abnahme).
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Archive,
+  ChevronDown,
   DatabaseBackup,
   KeyRound,
   Loader2,
@@ -31,7 +35,16 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Kennzahl, Kennzahlen, Kopf } from '@marken';
-import { Alert, AlertDescription, AlertTitle, Button, cn } from '@marken';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  cn,
+} from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { duGroesseLesbar, formatBytes, formatDate, formatZahl } from '@/utils/formatting';
@@ -39,11 +52,16 @@ import {
   useJetztSichern,
   useSicherungen,
   useSicherungStatus,
+  useStaende,
   useWiederherstellungstest,
   type LaufErgebnis,
 } from './useSicherung';
 import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
-import { AppZurueckholen, GeraetZurueckholen } from './Zurueckholen';
+import { Zurueckholen } from './Zurueckholen';
+import { namenDerStaende, standInWorten, standZusatz } from './standInWorten';
+
+/** So viele Stände stehen in „Stände“ zuerst da. */
+const STAENDE_ZUERST = 10;
 
 /** Warum die letzte Kopie auf den Datenträger nicht geklappt hat, in Klartext. */
 function versuchText(versuch: string | null | undefined): string | null {
@@ -108,6 +126,10 @@ export function Sicherung() {
   const toast = useToast();
   const { data: status, isLoading } = useSicherungStatus();
   const { data: liste } = useSicherungen();
+  const { data: staende = [] } = useStaende('lokal');
+  const [alleStaende, setAlleStaende] = useState(false);
+  const [technikOffen, setTechnikOffen] = useState(false);
+  const namen = useMemo(() => namenDerStaende(staende), [staende]);
   const sichern = useJetztSichern();
   const test = useWiederherstellungstest();
   const [sicherungsMeldung, setSicherungsMeldung] = useState<Meldung | null>(null);
@@ -346,13 +368,13 @@ export function Sicherung() {
           </Feldgruppe>
 
           <Feldgruppe
-            titel="Was da liegt"
+            titel="Stände"
             symbol={<Archive />}
             beschreibung={
               status?.staende
                 ? `${formatZahl(status.staende.anzahl)} Stände, zusammen ${formatBytes(status.staende.bytes ?? 0)}. Jede Nacht kommt einer dazu, der nur Geändertes schreibt; aufbewahrt werden ${status.staende.aufbewahrung?.tage ?? 7} Tage, ${status.staende.aufbewahrung?.wochen ?? 12} Wochen und ${status.staende.aufbewahrung?.monate ?? 60} Monate.`
                 : liste
-                  ? `${liste.anzahl} Dateien, ${formatBytes(liste.bytes)} in ${liste.ordner}`
+                  ? `${liste.anzahl} Dateien, ${formatBytes(liste.bytes)}`
                   : 'Gelesen wird die Platte, nicht der Bericht der letzten Nacht.'
             }
           >
@@ -361,35 +383,99 @@ export function Sicherung() {
                 Das Ziel war voll: der älteste Stand ist entfallen, damit der neue Platz hat.
               </p>
             )}
-            {!liste || liste.dateien.length === 0 ? (
+            {staende.length === 0 && (!liste || liste.dateien.length === 0) ? (
               <Leerzustand
                 symbol={<Archive />}
                 titel="Noch keine Sicherung"
-                beschreibung="Der Knopf oben legt die erste an. Danach steht sie hier mit Datum und Größe."
+                beschreibung="Der Knopf oben legt die erste an. Danach steht sie hier mit Datum und Uhrzeit."
               />
-            ) : (
-              <ul className="rounded-md border border-border" data-testid="sicherungsliste">
-                {liste.dateien.slice(0, 40).map(datei => (
-                  <li
-                    key={`${datei.art}-${datei.name}`}
-                    data-testid={`sicherung-${datei.name}`}
-                    className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
+            ) : staende.length > 0 ? (
+              <>
+                <ul className="rounded-md border border-border" data-testid="staende-liste">
+                  {(alleStaende ? staende : staende.slice(0, STAENDE_ZUERST)).map(s => {
+                    const zusatz = standZusatz(s, namen);
+                    return (
+                      <li
+                        key={s.id}
+                        data-testid={`stand-${s.id.slice(0, 8)}`}
+                        className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
+                      >
+                        <span className="text-sm font-medium text-foreground">
+                          {standInWorten(s.zeitpunkt)}
+                        </span>
+                        {zusatz && <span className="text-xs text-muted-foreground">{zusatz}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {staende.length > STAENDE_ZUERST && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setAlleStaende(!alleStaende)}
+                    data-testid="staende-alle"
                   >
-                    <span className="text-sm font-medium text-foreground">
-                      {formatDate(datei.zeitpunkt)}
-                    </span>
-                    <span className="text-sm text-foreground">
-                      {datei.art === 'stand'
-                        ? `${formatBytes(datei.bytes)} neu`
-                        : formatBytes(datei.bytes)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{datei.zweck}</span>
-                    <span className="w-full truncate font-mono text-ui-xs text-muted-foreground">
-                      {datei.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                    {alleStaende
+                      ? 'Nur die neuesten zeigen'
+                      : `Alle ${formatZahl(staende.length)} Stände zeigen`}
+                  </Button>
+                )}
+              </>
+            ) : null}
+            {liste && (liste.dateien.length > 0 || staende.length > 0) && (
+              <Collapsible
+                open={technikOffen}
+                onOpenChange={setTechnikOffen}
+                className="mt-3"
+                data-testid="sicherung-technik"
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2"
+                    data-testid="sicherung-technik-knopf"
+                  >
+                    <ChevronDown
+                      className={cn('size-4 transition-transform', technikOffen && 'rotate-180')}
+                      aria-hidden="true"
+                    />
+                    Technische Angaben
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Je Stand die Kennung und was er neu geschrieben hat; darunter die Dateien der
+                    Tagesordner von vor den Ständen.
+                  </p>
+                  <ul
+                    className="mt-2 rounded-md border border-border"
+                    data-testid="sicherungsliste"
+                  >
+                    {liste.dateien.slice(0, 40).map(datei => (
+                      <li
+                        key={`${datei.art}-${datei.name}`}
+                        data-testid={`sicherung-${datei.name}`}
+                        className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
+                      >
+                        <span className="text-sm font-medium text-foreground">
+                          {formatDate(datei.zeitpunkt)}
+                        </span>
+                        <span className="text-sm text-foreground">
+                          {datei.art === 'stand'
+                            ? `${formatBytes(datei.bytes)} neu`
+                            : formatBytes(datei.bytes)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{datei.zweck}</span>
+                        <span className="w-full truncate font-mono text-ui-xs text-muted-foreground">
+                          {datei.name}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </Feldgruppe>
 
@@ -419,8 +505,8 @@ export function Sicherung() {
               fasst den Betrieb nicht an und dauert wie eine Sicherung einige Minuten.
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Das echte Zurückholen steht in den beiden Abschnitten darunter: eine einzelne App,
-              oder als Notfallweg das ganze Gerät.
+              Das echte Zurückholen steht im Abschnitt darunter: eine App, ein Bereich des
+              Firmenordners oder das ganze Gerät.
             </p>
             {status?.letzteWiederherstellung && (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -431,8 +517,7 @@ export function Sicherung() {
             {testMeldung && <MeldungsZeile meldung={testMeldung} testid="test-meldung" />}
           </Feldgruppe>
 
-          <AppZurueckholen />
-          <GeraetZurueckholen />
+          <Zurueckholen />
         </Formularseite>
       )}
     </div>

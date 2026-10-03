@@ -316,7 +316,7 @@ const DATEN_REGELN = Object.freeze([
   'Das Dateisystem des Containers ueberlebt das naechste Einspielen NICHT. Der Container wird dabei ersetzt, samt seiner anonymen Volumes -- auch derer aus `VOLUME` im Dockerfile. Eine SQLite-Datei oder ein Upload-Ordner darin ist nach dem Update weg. Eine hochgeladene Datei gehoert in eine Spalte (`bytea`).',
   'Test- und Livestand haben je eine eigene Datenbank. Schalten nach live nimmt die Daten des Teststandes NICHT mit; der Livestand behaelt seine eigenen ueber jeden Versionswechsel.',
   'Die Datenbank beginnt leer, und ihr Schema legt die App selbst an (beim Start `CREATE TABLE IF NOT EXISTS` oder eigene Migrationen). Die Rolle der App ist Eigentuemerin ihrer Datenbank und darf das; an eine andere Datenbank kommt sie nicht.',
-  'Gesichert wird jede Nacht und auf Anforderung, je App und Stand ein Abzug. Zurueck kommen die Daten EINER App ueber `POST /api/backup/wiederherstellung/app/:id` (Administrator, `bestaetigung` ist die Kennung) -- auch nachdem die App entfernt wurde; das naechste Einspielen findet sie dann vor.',
+  'Gesichert wird jede Nacht und auf Anforderung, je App und Stand ein Abzug. Zurueck kommen die Daten EINER App ueber `POST /api/backup/wiederherstellung/app/:id` (Administrator, bestaetigt mit seinem Passwort; vorher sichert das Geraet den jetzigen Stand) -- auch nachdem die App entfernt wurde; das naechste Einspielen findet sie dann vor.',
   'Entfernen der App wirft ihre Datenbanken weg. Die Sicherungen davon bleiben liegen.',
 ]);
 
