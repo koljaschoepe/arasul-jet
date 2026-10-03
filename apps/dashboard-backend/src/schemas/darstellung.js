@@ -1,8 +1,8 @@
 /**
  * Zod-Schema fuer die Darstellung der Oberflaeche (Phase H1).
  *
- * Zwei Werte, und die Liste steht genau hier -- nicht daneben noch einmal in
- * der Route. Dieselben zwei stehen im CHECK der Spalte (Migration 180) und in
+ * Drei Werte, und die Liste steht genau hier -- nicht daneben noch einmal in
+ * der Route. Dieselben stehen im CHECK der Spalte (Migration 180, 194) und in
  * `index.css` als `:root` und `[data-theme='dark']`; ein dritter waere eine
  * Aenderung an allen dreien und damit ohnehin eine Migration.
  *
@@ -12,7 +12,9 @@
 
 const { z } = require('zod');
 
-const THEMES = ['light', 'dark'];
+// `system` (Migration 194) heisst: das Betriebssystem entscheidet, die
+// Oberflaeche loest es zu hell oder dunkel auf.
+const THEMES = ['light', 'dark', 'system'];
 
 const DarstellungBody = z
   .object({

@@ -104,15 +104,13 @@ describe('PasswordManagement Component', () => {
     test('rendert Header mit Titel', async () => {
       renderPasswordManagement();
 
-      expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
+      expect(screen.getByText('Passwort')).toBeInTheDocument();
     });
 
-    test('rendert Beschreibung', async () => {
+    test('rendert keinen Erklärtext', async () => {
       renderPasswordManagement();
 
-      expect(
-        screen.getByText(/Ändern Sie Ihr Passwort für die Anmeldung an diesem Gerät/)
-      ).toBeInTheDocument();
+      expect(screen.queryByText(/Ändern Sie Ihr Passwort/)).not.toBeInTheDocument();
     });
 
     test('zeigt Lock-Icon', async () => {
@@ -120,7 +118,7 @@ describe('PasswordManagement Component', () => {
 
       // Die Überschrift ist seit Plan 023 C1 ein Section-Baustein und damit
       // ein h2 unter dem einen h1 der Seite, vorher ein h3 ohne h2 darüber.
-      const title = screen.getByRole('heading', { name: /Passwortverwaltung/ });
+      const title = screen.getByRole('heading', { name: /^Passwort$/ });
       expect(title.tagName).toBe('H2');
       expect(title.querySelector('svg')).toBeInTheDocument();
     });

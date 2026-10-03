@@ -29,9 +29,9 @@ describe('ActivityBar, feste Spalte: Apps + Modelle + Zahnrad', () => {
     angemeldet({ role: 'admin' });
   });
 
-  it('zeigt dem Administrator Apps, Modelle und das Einstellungen-Zahnrad', () => {
+  it('zeigt dem Administrator Apps, Modelle, Verwaltung und das Einstellungen-Zahnrad', () => {
     render(<ActivityBar />);
-    for (const label of ['Apps', 'Modelle', 'Einstellungen']) {
+    for (const label of ['Apps', 'Modelle', 'Verwaltung', 'Einstellungen']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     // »Dateien« (Explorer) ist mit B2 gefallen, »Erweiterungen« und »Flows«
@@ -48,7 +48,9 @@ describe('ActivityBar, feste Spalte: Apps + Modelle + Zahnrad', () => {
     render(<ActivityBar />);
     expect(screen.getByLabelText('Apps')).toBeInTheDocument();
     expect(screen.queryByLabelText('Modelle')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Verwaltung')).not.toBeInTheDocument();
+    // Die persönlichen Einstellungen gehören jedem.
+    expect(screen.getByLabelText('Einstellungen')).toBeInTheDocument();
   });
 
   it('Apps wählt die Ansicht, zieht die Sidebar auf und öffnet die Übersicht', () => {
@@ -82,5 +84,13 @@ describe('ActivityBar, feste Spalte: Apps + Modelle + Zahnrad', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Einstellungen'));
     expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
+  });
+
+  it('Verwaltung öffnet den Verwaltung-Tab und zeigt ihre Bereiche links', () => {
+    render(<ActivityBar />);
+    fireEvent.click(screen.getByLabelText('Verwaltung'));
+    const s = useWorkspaceStore.getState();
+    expect(s.activeTabId).toBe('verwaltung');
+    expect(s.activeView).toBe('verwaltung');
   });
 });

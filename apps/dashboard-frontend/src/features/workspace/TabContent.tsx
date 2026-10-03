@@ -14,6 +14,7 @@ import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { lazyNachladen } from '@/utils/lazyNachladen';
 
 const Settings = lazyNachladen(() => import('@/features/settings/Settings'));
+const Einstellungen = lazyNachladen(() => import('@/features/einstellungen/Einstellungen'));
 const ModelleAnsicht = lazyNachladen(() => import('@/features/modelle/ModelleAnsicht'));
 
 /**
@@ -97,10 +98,10 @@ function Startseite() {
  */
 export function FeatureTabHost({
   tab,
-  handgriffe,
 }: {
   tab: WorkspaceTab;
-  handgriffe: ShellHandgriffe;
+  /** Seit M5 liest es keiner mehr: das Abmelden steht im Kontomenü. */
+  handgriffe?: ShellHandgriffe;
 }) {
   // Diese drei stehen VOR dem Router und nicht darin: sie haben keine
   // Legacy-Adresse, an die eine Brücke führen könnte. Diese Weiche ruft selbst
@@ -129,13 +130,18 @@ export function FeatureTabHost({
       </div>
     );
   }
-  return <EinstellungenTab tab={tab} handgriffe={handgriffe} />;
+  if (tab.type === 'settings') {
+    // Die persönlichen Einstellungen, für alle, ohne Router.
+    return <Einstellungen />;
+  }
+  // `verwaltung`: der Übergangseintrag für alles Gerätebezogene.
+  return <EinstellungenTab tab={tab} />;
 }
 
 /**
- * Der Einstellungen-Tab in seinem eigenen MemoryRouter.
+ * Der Verwaltung-Tab (die frühere Einstellungsseite) in seinem eigenen MemoryRouter.
  */
-function EinstellungenTab({ tab, handgriffe }: { tab: WorkspaceTab; handgriffe: ShellHandgriffe }) {
+function EinstellungenTab({ tab }: { tab: WorkspaceTab }) {
   const resetTo = EINSTELLUNGEN_PFAD;
 
   // Der Suchteil der ECHTEN Adresse muss in den MemoryRouter dieses Tabs
@@ -163,7 +169,7 @@ function EinstellungenTab({ tab, handgriffe }: { tab: WorkspaceTab; handgriffe: 
         {/* Kein Dashboard-Tab mehr (Plan 008): "/" fällt auf den Startpfad des
             jeweiligen Tabs zurück. */}
         <Route path="/" element={<Navigate to={resetTo} replace />} />
-        <Route path="/settings" element={<Settings handleLogout={handgriffe.onLogout} />} />
+        <Route path="/settings" element={<Settings />} />
         {/* Ein Verweis aus den Einstellungen auf die Modelle öffnet den
             Modelle-Tab, statt ihn in diesen hineinzuziehen. */}
         <Route

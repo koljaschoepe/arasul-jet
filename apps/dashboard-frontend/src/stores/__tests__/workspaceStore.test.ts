@@ -119,7 +119,7 @@ describe('workspaceStore, Tabs', () => {
     const raw = localStorage.getItem('arasul_workspace');
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw as string) as { state: { tabs: unknown[] }; version: number };
-    expect(parsed.version).toBe(10);
+    expect(parsed.version).toBe(11);
     expect(parsed.state.tabs).toHaveLength(1);
   });
 });
@@ -161,13 +161,13 @@ describe('workspaceStore, Sidebar + rechte Spalte', () => {
 
   it('setActiveView setzt nur die Ansicht, ohne die Sidebar zu schalten', () => {
     useWorkspaceStore.setState({ sidebarVisible: false });
-    useWorkspaceStore.getState().setActiveView('settings');
-    expect(useWorkspaceStore.getState().activeView).toBe('settings');
+    useWorkspaceStore.getState().setActiveView('verwaltung');
+    expect(useWorkspaceStore.getState().activeView).toBe('verwaltung');
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
   });
 });
 
-describe('workspaceStore, Migration auf v10', () => {
+describe('workspaceStore, Migration auf v11', () => {
   beforeEach(reset);
 
   async function migriere(state: Record<string, unknown>, version: number) {
@@ -307,7 +307,7 @@ describe('workspaceStore, Migration auf v10', () => {
       version: number;
       state: Record<string, unknown>;
     };
-    expect(parsed.version).toBe(10);
+    expect(parsed.version).toBe(11);
     expect(Object.keys(parsed.state).sort()).toEqual(
       ['activeTabId', 'activeView', 'rightPanelVisible', 'sidebarVisible', 'tabs'].sort()
     );
@@ -384,7 +384,9 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
   it('nurFuerAdmin nennt genau die Ansichten und Tabs der Verwaltung', () => {
     expect(nurFuerAdmin('models')).toBe(true);
     expect(nurFuerAdmin('modelle')).toBe(true);
-    expect(nurFuerAdmin('settings')).toBe(true);
+    expect(nurFuerAdmin('verwaltung')).toBe(true);
+    // Die persönlichen Einstellungen gehören jedem.
+    expect(nurFuerAdmin('settings')).toBe(false);
     expect(nurFuerAdmin('apps')).toBe(false);
     expect(nurFuerAdmin('dashboard')).toBe(false);
     expect(nurFuerAdmin('app')).toBe(false);

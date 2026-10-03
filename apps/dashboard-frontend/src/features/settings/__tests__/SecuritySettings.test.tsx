@@ -23,19 +23,13 @@ vi.mock('../../../contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-// Die Passwortverwaltung hat eine eigene Abnahme; hier steht sie nur im Weg
-// (sie holt beim Aufbau ihre Passwortregeln).
-vi.mock('../PasswordManagement', () => ({
-  default: () => <div data-testid="passwortverwaltung" />,
-}));
-
 type FetchImpl = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 let fetchMock: Mock<FetchImpl>;
 
 function aufbauen() {
   return render(
     <ToastProvider>
-      <SecuritySettings handleLogout={vi.fn()} loggingOutAll={false} onLogoutAll={vi.fn()} />
+      <SecuritySettings />
     </ToastProvider>
   );
 }

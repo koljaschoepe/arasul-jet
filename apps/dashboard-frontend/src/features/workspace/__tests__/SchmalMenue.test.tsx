@@ -108,12 +108,12 @@ describe('Das Hamburger-Menue', () => {
 
   it('zeigt einem Mitarbeiter keine Verwaltung und dem Administrator beides', () => {
     zeige();
-    expect(screen.queryByTestId('menue-einstellungen-general')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menue-verwaltung-general')).not.toBeInTheDocument();
     expect(screen.queryByTestId('menue-modelle')).not.toBeInTheDocument();
 
     angemeldet({ role: 'admin', username: 'admin' });
     zeige();
-    expect(screen.getAllByTestId('menue-einstellungen-general').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('menue-verwaltung-general').length).toBeGreaterThan(0);
     expect(screen.getAllByTestId('menue-modelle').length).toBeGreaterThan(0);
   });
 
@@ -128,12 +128,12 @@ describe('Das Hamburger-Menue', () => {
       angemeldet({ role: 'admin', username: 'admin' });
       useSettingsStore.setState({ activeSection: 'general' });
       zeige();
-      const eintrag = screen.getByTestId(`menue-einstellungen-${id}`);
+      const eintrag = screen.getByTestId(`menue-verwaltung-${id}`);
       expect(eintrag).toHaveTextContent(label);
       fireEvent.click(eintrag);
       expect(useSettingsStore.getState().activeSection).toBe(id);
       const stand = useWorkspaceStore.getState();
-      expect(stand.activeTabId).toBe('settings');
+      expect(stand.activeTabId).toBe('verwaltung');
       expect(stand.menueOffen).toBe(false);
     }
   );

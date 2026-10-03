@@ -37,7 +37,7 @@ interface User {
    * eine Sitzung besteht -- die Shell kennt sie damit, bevor sie das erste Mal
    * malt, und braucht keine eigene Anfrage dafuer.
    */
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | 'system';
   /** Profil (M5, `admin_users.vorname` usw.); `anzeigeName` fällt auf den Benutzernamen zurück. */
   vorname?: string | null;
   nachname?: string | null;

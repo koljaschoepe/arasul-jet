@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
-import { Mascot } from '@/components/mascot/Mascot';
-import { useApi } from '../../hooks/useApi';
-import { useToast } from '../../contexts/ToastContext';
-import useConfirm from '../../hooks/useConfirm';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { resolveTab, resolveSystemSub } from './sections';
 import { GeneralSettings } from './GeneralSettings';
@@ -19,25 +15,18 @@ import { SystemSettings } from '../system/SystemSettings';
 import { LizenzSettings } from './LizenzSettings';
 import { VerbindungenSettings } from './VerbindungenSettings';
 
-interface SettingsProps {
-  handleLogout: () => void;
-}
-
 /**
- * Einstellungen-Mitte-Tab (B4). Die Sektionsauswahl lebt jetzt in der linken
+ * Verwaltung-Mitte-Tab (B4, seit M5 „Verwaltung"; die persönlichen
+ * Einstellungen stehen in `features/einstellungen/`). Die Sektionsauswahl lebt jetzt in der linken
  * Sidebar (SettingsPanel, wie die Flows); dieser Tab zeigt NUR noch die aktive
  * Sektion — keine zweite Spalte / kein „Tab im Tab" mehr. Die aktive Sektion
  * steht im settingsStore, den beide Seiten teilen.
  */
-function Settings({ handleLogout }: SettingsProps) {
-  const api = useApi();
-  const toast = useToast();
-  const { confirm, ConfirmDialog } = useConfirm();
+function Settings() {
   const [searchParams] = useSearchParams();
   const activeSection = useSettingsStore(s => s.activeSection);
   const setActiveSection = useSettingsStore(s => s.setActiveSection);
   const [isDirty, setIsDirty] = useState(false);
-  const [loggingOutAll, setLoggingOutAll] = useState(false);
 
   // Alt-Deep-Link (/settings?tab=…) einmalig in den Store übernehmen, damit
   // Lesezeichen weiter direkt auf der richtigen Sektion landen.
@@ -45,40 +34,6 @@ function Settings({ handleLogout }: SettingsProps) {
     const param = searchParams.get('tab');
     if (param) setActiveSection(resolveTab(param));
   }, []);
-
-  const confirmThenLogout = async () => {
-    const ok = await confirm({
-      title: 'Abmelden',
-      message: 'Möchten Sie sich von diesem Gerät abmelden?',
-      confirmText: 'Abmelden',
-      cancelText: 'Abbrechen',
-      confirmVariant: 'warning',
-    });
-    if (ok) handleLogout();
-  };
-
-  const handleLogoutAll = async () => {
-    const ok = await confirm({
-      title: 'Von allen Geräten abmelden',
-      message: 'Dadurch werden alle aktiven Sitzungen auf allen Geräten beendet. Fortfahren?',
-      confirmText: 'Überall abmelden',
-      cancelText: 'Abbrechen',
-      confirmVariant: 'warning',
-    });
-    if (!ok) return;
-    setLoggingOutAll(true);
-    try {
-      await api.post('/auth/logout-all', null, { showError: false });
-    } catch {
-      // Surface the failure instead of swallowing it, then still log out
-      // locally so the user isn't stuck in a half-authenticated state.
-      toast.error(
-        'Sitzungen auf anderen Geräten konnten nicht serverseitig beendet werden. Du wirst hier lokal abgemeldet.'
-      );
-    } finally {
-      handleLogout();
-    }
-  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -115,12 +70,7 @@ function Settings({ handleLogout }: SettingsProps) {
       case 'security':
         return (
           <ComponentErrorBoundary componentName="Sicherheit">
-            <SecuritySettings
-              handleLogout={confirmThenLogout}
-              loggingOutAll={loggingOutAll}
-              onLogoutAll={handleLogoutAll}
-              onDirtyChange={setIsDirty}
-            />
+            <SecuritySettings />
           </ComponentErrorBoundary>
         );
       case 'privacy':
@@ -165,20 +115,18 @@ function Settings({ handleLogout }: SettingsProps) {
   return (
     <div className="flex h-full flex-col animate-in fade-in">
       {/*
-        Kein Ueberschriftenelement: Der Rahmen ist bleibende Umgebung, nicht die
-        Ueberschrift der Seite. Die steht als einziges h1 im Bereich darunter,
-        aus dem Kopf. Vorher stand hier ein h2 ueber einem h1, und der
-        Bereichsname darunter noch einmal im h1, vierzig Pixel tiefer.
+        Kein Kopf mit Logo und „Einstellungen" mehr (M5): oben steht gleich der
+        Name des Bereichs, als einziges h1, aus dem Kopf des Bereichs. Die
+        persönlichen Einstellungen stehen in `features/einstellungen/`; das
+        hier ist der Übergangseintrag „Verwaltung" für alles Gerätebezogene.
       */}
-      <header className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-4 max-md:px-4">
-        <Mascot state="idle" label="Arasul" className="h-8 w-8 shrink-0" />
-        <div className="min-w-0 text-lg font-bold leading-tight text-foreground">Einstellungen</div>
-        {isDirty && (
-          <span className="ml-auto shrink-0 rounded-full bg-muted-foreground/15 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+      {isDirty && (
+        <div className="flex shrink-0 justify-end px-6 pt-3 max-md:px-4">
+          <span className="rounded-full bg-muted-foreground/15 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             Ungespeicherte Änderungen
           </span>
-        )}
-      </header>
+        </div>
+      )}
       {/*
         EIN GEWOEHNLICHER ROLLBEREICH und keine `ScrollArea` mehr (Phase D4,
         Fund der D3-Abnahme am Orin).
@@ -202,8 +150,6 @@ function Settings({ handleLogout }: SettingsProps) {
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div className="min-w-0 max-w-225 p-6 max-md:p-4">{renderContent()}</div>
       </div>
-
-      {ConfirmDialog}
     </div>
   );
 }

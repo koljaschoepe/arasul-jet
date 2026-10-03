@@ -96,7 +96,7 @@ vi.mock('../../system/SelfHealingEvents', () => ({
 function renderSettings(route = '/settings') {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <Settings handleLogout={vi.fn()} />
+      <Settings />
     </MemoryRouter>
   );
 }
@@ -108,7 +108,7 @@ function renderShell(route = '/settings') {
   return render(
     <MemoryRouter initialEntries={[route]}>
       <SettingsPanel />
-      <Settings handleLogout={vi.fn()} />
+      <Settings />
     </MemoryRouter>
   );
 }
@@ -125,14 +125,12 @@ describe('Settings shell', () => {
   });
 
   describe('Layout and navigation', () => {
-    test('der Rahmen nennt den Bereich nicht ein zweites Mal', () => {
-      // Seit Plan 023 C2 ist der Rahmen bleibende Umgebung, keine Ueberschrift:
-      // vorher stand hier ein h2 "Einstellungen" mit dem Bereichsnamen darunter,
-      // und vierzig Pixel tiefer derselbe Name noch einmal als h1 des Bereichs.
+    test('kein Kopf „Einstellungen" mit Logo, oben steht gleich der Bereich', () => {
+      // Seit M5 ist das hier die Verwaltung; der Rahmen mit Logo und dem Wort
+      // „Einstellungen" ist weg, der Bereich bringt seinen Namen selbst mit.
       renderSettings();
-      expect(screen.getByText('Einstellungen')).toBeInTheDocument();
-      expect(screen.queryByRole('heading', { name: 'Einstellungen' })).toBeNull();
-      expect(screen.queryByText('Allgemein')).toBeNull();
+      expect(screen.queryByText('Einstellungen')).toBeNull();
+      expect(screen.queryByLabelText('Arasul')).toBeNull();
     });
 
     test('the sidebar panel lists all six sections with the new labels', () => {

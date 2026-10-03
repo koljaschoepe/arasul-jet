@@ -49,15 +49,15 @@ describe('SidebarHost, Ansichts-Mapping', () => {
     expect(screen.getByTestId('models-panel')).toBeInTheDocument();
   });
 
-  it('settings → Bereiche der Einstellungen', () => {
-    reset('settings');
+  it('verwaltung → Bereiche der Verwaltung', () => {
+    reset('verwaltung');
     render(<SidebarHost />);
     expect(screen.getByTestId('settings-panel')).toBeInTheDocument();
   });
 
   it('einem Mitarbeiter zeigt eine gespeicherte Admin-Ansicht trotzdem die Apps', () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
-    reset('settings');
+    reset('verwaltung');
     render(<SidebarHost />);
     expect(screen.getByTestId('apps-panel')).toBeInTheDocument();
     expect(screen.queryByTestId('settings-panel')).not.toBeInTheDocument();

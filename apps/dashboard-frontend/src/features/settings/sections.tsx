@@ -41,7 +41,12 @@ export interface SettingsSection {
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
-  { id: 'general', label: 'Allgemein', icon: <Info />, description: 'System & Erscheinungsbild' },
+  {
+    id: 'general',
+    label: 'Allgemein',
+    icon: <Info />,
+    description: 'Unternehmen und Systeminformationen',
+  },
   // Zweiter Platz (Phase D4): was auf dem Geraet laeuft, ist das erste, was
   // ein Administrator nachsieht -- und der Ort, an dem er den Teststand live
   // schaltet. Die Menschen kommen direkt danach: erst was laeuft, dann wer es
@@ -75,7 +80,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: <Sparkles />,
     description: 'Standardwerte der Sprachmodelle',
   },
-  { id: 'security', label: 'Sicherheit', icon: <Lock />, description: 'Passwörter und Zugriff' },
+  { id: 'security', label: 'Sicherheit', icon: <Lock />, description: 'Gerätezertifikat' },
   {
     id: 'privacy',
     label: 'Datenschutz',

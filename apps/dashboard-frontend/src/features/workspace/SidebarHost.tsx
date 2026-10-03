@@ -33,7 +33,7 @@ export function SidebarHost() {
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="workspace-sidebar">
       {activeView === 'apps' && <AppsPanel />}
       {activeView === 'models' && <ModelsPanel />}
-      {activeView === 'settings' && <SettingsPanel />}
+      {activeView === 'verwaltung' && <SettingsPanel />}
     </div>
   );
 }

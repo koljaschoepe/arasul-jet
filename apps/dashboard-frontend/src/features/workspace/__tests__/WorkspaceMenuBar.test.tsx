@@ -49,23 +49,16 @@ describe('WorkspaceMenuBar', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('rendert Marke und den Settings-Button rechts', () => {
+  it('rendert die Marke, aber keine Einstellungen: die stehen in der Aktivitätsleiste', () => {
     render(<WorkspaceMenuBar onLogout={abmelden} />);
     expect(screen.getByText('Arasul')).toBeInTheDocument();
-    expect(screen.getByLabelText('Einstellungen')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
   });
 
   it('hat kein Datei-Menü mehr (Explorer und Terminal sind mit B2 gefallen)', () => {
     render(<WorkspaceMenuBar onLogout={abmelden} />);
     expect(screen.queryByLabelText('Datei-Menü')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Ansicht-Menü')).not.toBeInTheDocument();
-  });
-
-  it('Settings-Button öffnet den Einstellungen-Tab und die Bereiche links', () => {
-    render(<WorkspaceMenuBar onLogout={abmelden} />);
-    fireEvent.click(screen.getByLabelText('Einstellungen'));
-    expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
-    expect(useWorkspaceStore.getState().activeView).toBe('settings');
   });
 
   it('zeigt genau zwei Layout-Toggles rechts, die den Store spiegeln und schalten', () => {
@@ -121,8 +114,6 @@ describe('WorkspaceMenuBar', () => {
       expect(hamburger).toHaveAttribute('aria-expanded', 'false');
       expect(screen.getByTestId('workspace-ansichtsname')).toHaveTextContent('Übersicht');
       expect(screen.queryByLabelText('Sidebar ausblenden')).not.toBeInTheDocument();
-      // Das Zahnrad steht im Menue, nicht in der Leiste -- auch fuer den Admin.
-      expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
 
       fireEvent.click(hamburger);
       expect(useWorkspaceStore.getState().menueOffen).toBe(true);
@@ -136,23 +127,18 @@ describe('WorkspaceMenuBar', () => {
     expect(screen.queryByRole('menuitemradio', { name: /Hell|Dunkel/ })).not.toBeInTheDocument();
   });
 
-  it('zeigt einem Mitarbeiter kein Einstellungen-Zahnrad', () => {
-    angemeldet({ role: 'mitarbeiter', username: 'mia' });
-    render(<WorkspaceMenuBar onLogout={abmelden} />);
-    expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
-  });
-
   /**
    * Der Grund, warum es das Benutzermenü gibt: das Abmelden lag bis D1 IN den
    * Einstellungen, und die sind jetzt eine Admin-Seite. Ohne diesen Weg wäre
    * ein Mitarbeiter eingesperrt.
    */
-  it('bietet jedem, auch dem Mitarbeiter, Name und Rolle und Abmelden', () => {
+  it('zeigt jedem, auch dem Mitarbeiter, nur Name und Abmelden', () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
     render(<WorkspaceMenuBar onLogout={abmelden} />);
     fireEvent.click(screen.getByTestId('workspace-benutzermenue'));
     expect(screen.getByText('mia')).toBeInTheDocument();
-    expect(screen.getByText('Mitarbeiter')).toBeInTheDocument();
+    const knoepfe = screen.getAllByRole('button').filter(b => b.closest('[role="dialog"]'));
+    expect(knoepfe.map(b => b.textContent)).toEqual(['Abmelden']);
     fireEvent.click(screen.getByTestId('workspace-abmelden'));
     expect(abmelden).toHaveBeenCalled();
   });

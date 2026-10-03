@@ -1,22 +1,10 @@
-import React, { useState } from 'react';
-import {
-  FolderTree,
-  IdCard,
-  LogOut,
-  Menu,
-  PanelLeft,
-  PanelRight,
-  Settings,
-  User,
-} from 'lucide-react';
+import React from 'react';
+import { LogOut, Menu, PanelLeft, PanelRight, User } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@marken';
 import { useWorkspaceStore, sidebarSichtbar, notizenSichtbar } from '@/stores/workspaceStore';
 import { useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mascot } from '@/components/mascot/Mascot';
-import { AusweiseDialog } from '@/features/ausweise/AusweiseDialog';
-import { MeinFirmenordnerDialog } from '@/features/firmenordner/MeinFirmenordnerDialog';
-import { ProfilDialog } from '@/features/profil/ProfilDialog';
 import { PersonAvatar } from '@/components/PersonAvatar';
 import { API_BASE } from '@/config/api';
 
@@ -57,9 +45,8 @@ interface WorkspaceMenuBarProps {
 
 /**
  * Schlanke Top-Menüleiste der Shell, bewusst minimal: links die Marke, rechts
- * die zwei Layout-Toggles (Sidebar / rechte Spalte), das Benutzermenü und —
- * für den Administrator — die Einstellungen. Das Theme (Hell/Dunkel) wird
- * ausschließlich in den Einstellungen → Erscheinungsbild gesetzt
+ * die zwei Layout-Toggles (Sidebar / rechte Spalte) und das Benutzermenü. Das
+ * Theme wird ausschließlich in den Einstellungen → Erscheinungsbild gesetzt
  * (Plan 005 · Schritt 1).
  *
  * Das Datei-Menü (Ordner anlegen, Terminal, Dokumente hochladen) und der
@@ -71,21 +58,18 @@ interface WorkspaceMenuBarProps {
  * eine Admin-Seite. Ein Mitarbeiter hätte sich sonst nicht mehr abmelden
  * können — die Rolle hätte nicht nur ausgeblendet, sondern eingesperrt.
  *
- * Aus demselben Grund stehen seit der Brücke (21.09.2026) die **Ausweise**
- * hier: sie gehören dem Angemeldeten, jeder darf welche haben, und sie sind
- * gerade für den Mitarbeiter gebaut — die Einstellungen sieht er nicht.
+ * Das Kontomenü zeigt seit M5 nur Name und Abmelden. Profil und angemeldete
+ * Rechner (vorher „Ausweise") stehen in den Einstellungen, die jetzt für alle
+ * da sind und nur Persönliches enthalten.
  *
  * UNTER 900 PX IST DIESE LEISTE DIE GANZE NAVIGATION (Phase D7): links der
  * Hamburger-Knopf, daneben der Name der Ansicht, die gerade dasteht — dort
  * gibt es weder Aktivitätsleiste noch Tab-Leiste, und ohne den Namen wüsste
  * niemand, worauf er schaut. Der Sidebar-Schalter und das Zahnrad fallen
- * dort weg: die eine Spalte hat keine Sidebar, und die Einstellungen stehen
- * im Menü.
+ * dort weg: die eine Spalte hat keine Sidebar.
  */
 export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const { user } = useAuth();
-  const istAdmin = user?.role === 'admin';
-  const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(sidebarSichtbar);
   const rightPanelVisible = useWorkspaceStore(notizenSichtbar);
   const notizenAnsichtOffen = useWorkspaceStore(s => s.notizenAnsichtOffen);
@@ -96,11 +80,6 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
   const toggleMenue = useWorkspaceStore(s => s.toggleMenue);
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
-  const selectView = useWorkspaceStore(s => s.selectView);
-
-  const [ausweiseOffen, setAusweiseOffen] = useState(false);
-  const [profilOffen, setProfilOffen] = useState(false);
-  const [firmenordnerOffen, setFirmenordnerOffen] = useState(false);
 
   // EIN Knopf für die Notizen, zwei Zustände dahinter (Phase D6): über 900 px
   // ist es die Spalte, darunter das Blatt über der Mitte. Der Mensch drückt
@@ -175,28 +154,6 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
 
       <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
 
-      {/* Die Einstellungen sind ab D1 eine Admin-Seite. Sie einem Mitarbeiter
-          zu zeigen hiesse, ihm sechs Bereiche anzubieten, von denen fünf mit
-          403 antworten. Entscheiden tut weiter `requireRole` im Backend. */}
-      {istAdmin && !schmal && (
-        <button
-          type="button"
-          title="Einstellungen"
-          aria-label="Einstellungen"
-          onClick={() => {
-            selectView('settings');
-            openTab({ type: 'settings' });
-          }}
-          className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
-            activeTabId === 'settings'
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-          }`}
-        >
-          <Settings className="h-4 w-4" aria-hidden="true" />
-        </button>
-      )}
-
       <Popover>
         <PopoverTrigger
           title="Konto"
@@ -216,55 +173,9 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
               <p className="truncate text-sm font-medium text-foreground">
                 {user?.anzeigeName ?? user?.username ?? 'Angemeldet'}
               </p>
-              {/* Die Rolle steht da, weil sie erklärt, warum jemand mehr oder
-                weniger sieht als der Kollege daneben. */}
-              <p className="text-muted-foreground">
-                {user?.funktion || (user?.role === 'admin' ? 'Verwaltung' : 'Mitarbeiter')}
-              </p>
             </div>
           </div>
-          {/* Für einen Mitarbeiter fehlt das Zahnrad daneben. Ohne diesen Satz
-              war das Stille: wer die Einstellungen sucht, fand nichts und
-              keinen Grund (J35, 26.09.2026). */}
-          {!istAdmin && (
-            <p
-              className="flex items-center gap-2 px-2 pb-1.5 text-muted-foreground"
-              data-testid="workspace-einstellungen-gesperrt"
-            >
-              <Settings className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Einstellungen verwaltet Ihr Administrator.
-            </p>
-          )}
           <div className="my-1 h-px bg-border" aria-hidden="true" />
-          <button
-            type="button"
-            data-testid="workspace-profil"
-            onClick={() => setProfilOffen(true)}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground hover:bg-accent"
-          >
-            <User className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Mein Profil
-          </button>
-          <button
-            type="button"
-            data-testid="workspace-ausweise"
-            onClick={() => setAusweiseOffen(true)}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground hover:bg-accent"
-          >
-            <IdCard className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Meine Ausweise
-          </button>
-          {/* Aus demselben Grund hier: welche Ordner ICH habe, gehoert jedem,
-              nicht der Verwaltung (Auftrag firmenordner-rechte-im-frontend). */}
-          <button
-            type="button"
-            data-testid="workspace-firmenordner"
-            onClick={() => setFirmenordnerOffen(true)}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground hover:bg-accent"
-          >
-            <FolderTree className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Mein Firmenordner
-          </button>
           <button
             type="button"
             data-testid="workspace-abmelden"
@@ -278,21 +189,6 @@ export function WorkspaceMenuBar({ onLogout }: WorkspaceMenuBarProps) {
           </button>
         </PopoverContent>
       </Popover>
-
-      {/*
-        Ausserhalb des Popovers: es schliesst beim Klick, und ein Dialog, der
-        mit seinem Ausloeser verschwindet, waere keiner.
-
-        UND ERST BEIM OEFFNEN GEMOUNTET. Diese Leiste steht auf jeder Seite;
-        ein Dialog, der immer im Baum haengt, haengt seine Hooks mit hinein --
-        eine Abfrage und den Toast-Kontext, fuer etwas, das die meisten
-        Menschen nie aufmachen.
-      */}
-      {profilOffen && <ProfilDialog offen beiSchliessen={() => setProfilOffen(false)} />}
-      {ausweiseOffen && <AusweiseDialog offen beiSchliessen={() => setAusweiseOffen(false)} />}
-      {firmenordnerOffen && (
-        <MeinFirmenordnerDialog offen beiSchliessen={() => setFirmenordnerOffen(false)} />
-      )}
     </header>
   );
 }

@@ -12,7 +12,8 @@
  *   die eigenen Apps  dieselbe Liste wie die Sidebar (`GET /api/apps/meine`)
  *   Notizen         der Zettel, unter 900 px eine eigene Ansicht
  *   Modelle         nur fuer den Administrator
- *   Einstellungen   jeder Bereich ein Eintrag, nur fuer den Administrator
+ *   Verwaltung      jeder Bereich ein Eintrag, nur fuer den Administrator
+ *   Einstellungen   die persoenlichen, fuer alle
  *
  * Die Rolle blendet aus, das Backend entscheidet: `requireRole` antwortet
  * einem Mitarbeiter auf jeden Weg hinter den letzten beiden mit 403, ob dieser
@@ -126,28 +127,29 @@ export function SchmalMenue() {
         </Liste>
       )}
 
-      {/* Die Einstellungen als ihre Bereiche, nicht als ein Eintrag (J35,
-          26.09.2026). Unter 900 px gibt es keine Sidebar, und nur dort
-          standen die Bereiche -- am Handy kam der Administrator auf
-          „Allgemein" und von dort nirgendwohin. Dieselbe Liste wie die
-          Sidebar (`SETTINGS_SECTIONS`), damit kein Bereich in einer der
-          beiden fehlt. */}
+      {/* Der Übergangseintrag für alles Gerätebezogene als seine Bereiche
+          (J35, M5): unter 900 px gibt es keine Sidebar, und nur dort
+          standen die Bereiche. Dieselbe Liste wie die Sidebar
+          (`SETTINGS_SECTIONS`), damit kein Bereich in einer der beiden
+          fehlt. */}
       {istAdmin && (
-        <Liste beschriftung="Einstellungen">
+        <Liste beschriftung="Verwaltung">
           {SETTINGS_SECTIONS.map(bereich => (
             <ListenEintrag
               key={bereich.id}
               titel={bereich.label}
               symbol={bereich.icon}
               aktiv={
-                activeTabId === 'settings' && aktiverBereich === bereich.id && !notizenAnsichtOffen
+                activeTabId === 'verwaltung' &&
+                aktiverBereich === bereich.id &&
+                !notizenAnsichtOffen
               }
-              kennzeichen={`menue-einstellungen-${bereich.id}`}
+              kennzeichen={`menue-verwaltung-${bereich.id}`}
               onKlick={() =>
                 gehZu(() => {
                   setzeBereich(bereich.id);
-                  selectView('settings');
-                  openTab({ type: 'settings' });
+                  selectView('verwaltung');
+                  openTab({ type: 'verwaltung' });
                 })
               }
             />
@@ -155,19 +157,16 @@ export function SchmalMenue() {
         </Liste>
       )}
 
-      {/* Für einen Mitarbeiter steht die Verwaltung nicht als Loch da, sondern
-          als Satz (J35, 26.09.2026): wer nach den Einstellungen sucht, soll
-          lesen, wer sie hat, statt zu glauben, sie seien verschwunden. */}
-      {!istAdmin && (
-        <Liste beschriftung="Verwaltung">
-          <ListenEintrag
-            titel="Einstellungen"
-            symbol={<Settings />}
-            unterzeile="verwaltet Ihr Administrator"
-            kennzeichen="menue-einstellungen-gesperrt"
-          />
-        </Liste>
-      )}
+      {/* Die persönlichen Einstellungen, für alle. */}
+      <Liste>
+        <ListenEintrag
+          titel="Einstellungen"
+          symbol={<Settings />}
+          aktiv={activeTabId === 'settings' && !notizenAnsichtOffen}
+          kennzeichen="menue-einstellungen"
+          onKlick={() => gehZu(() => openTab({ type: 'settings' }))}
+        />
+      </Liste>
     </Menue>
   );
 }

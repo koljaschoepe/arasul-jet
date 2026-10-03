@@ -31,9 +31,9 @@ import { FeatureTabHost } from '../TabContent';
 import type { WorkspaceTab } from '@/stores/workspaceStore';
 
 const einstellungenTab = {
-  id: 'settings',
-  type: 'settings',
-  title: 'Einstellungen',
+  id: 'verwaltung',
+  type: 'verwaltung',
+  title: 'Verwaltung',
 } as WorkspaceTab;
 
 const steuerung = {
@@ -45,7 +45,7 @@ async function zeige(adresse: string) {
     <MemoryRouter initialEntries={[adresse]}>
       <Routes>
         <Route
-          path="/workspace/settings"
+          path="/workspace/verwaltung"
           element={<FeatureTabHost tab={einstellungenTab} handgriffe={steuerung} />}
         />
       </Routes>
@@ -57,10 +57,10 @@ async function zeige(adresse: string) {
 
 describe('Suchteil erreicht den Tab-Router', () => {
   test('der Deep-Link zum Fernzugriff kommt an', async () => {
-    expect(await zeige('/workspace/settings?tab=remote-access')).toBe('/settings|remote-access');
+    expect(await zeige('/workspace/verwaltung?tab=remote-access')).toBe('/settings|remote-access');
   });
 
   test('ohne Suchteil bleibt es beim reinen Pfad', async () => {
-    expect(await zeige('/workspace/settings')).toBe('/settings|kein-parameter');
+    expect(await zeige('/workspace/verwaltung')).toBe('/settings|kein-parameter');
   });
 });
