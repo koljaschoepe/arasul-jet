@@ -186,7 +186,7 @@ fi
 BUENDEL=$(python3 "$(dirname "${BASH_SOURCE[0]}")/einstellungen_buendel.py" "$URL")
 tauchtauf() { grep -qF -- "$1" <<<"$BUENDEL" && echo ja || echo nein; }
 pruefe "Oberflaeche nennt „Angemeldete Rechner\"" "$(tauchtauf 'Angemeldete Rechner')"
-for weg in 'Meine Ausweise' 'Mein Profil' 'Einstellungen verwaltet Ihr Administrator' 'Name des Rechners' 'Passwort vergessen'; do
+for weg in 'Meine Ausweise' 'Mein Profil' 'Einstellungen verwaltet Ihr Administrator' 'Name des Rechners' 'reset-password.sh'; do
   pruefe "Oberflaeche kennt „$weg\" nicht mehr" "$([ "$(tauchtauf "$weg")" = nein ] && echo ja || echo nein)"
 done
 
