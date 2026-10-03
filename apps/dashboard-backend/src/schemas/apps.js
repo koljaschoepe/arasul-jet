@@ -176,14 +176,23 @@ const Flows = z
  * Das Geraet VERGLEICHT hier nicht -- die Fassung der Bibliothek kennt die
  * Shell, weil sie sie mituebersetzt (`FASSUNG` aus `@marken`). Das Backend
  * liest, was im Manifest steht, und reicht es weiter.
+ *
+ * ZWEI FORMEN seit Kontrakt 9 (M5, 03.10.2026):
+ *
+ *   "5.2.1"   drei Zahlen: die App traegt eine KOPIE dieser Fassung. Die
+ *             Verwaltung meldet sie, sobald das Geraet weiter ist.
+ *   "5"       nur die Hauptzahl: die App laedt die Bibliothek ZUR LAUFZEIT
+ *             vom Geraet (`/marken/5/`) und hat keine Kopie. Sie steht damit
+ *             immer auf der Fassung des Geraets, solange die Hauptzahl
+ *             dieselbe ist; die Verwaltung meldet nur eine fremde Hauptzahl.
  */
 const MarkenFassung = z
   .string({ error: 'Fassung des Designsystems fehlt' })
   .trim()
   .max(64, 'Fassung ist zu lang')
   .regex(
-    /^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$/,
-    'Fassung des Designsystems: drei Zahlen mit Punkten, z. B. 3.1.0'
+    /^(\d+|\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?)$/,
+    'Fassung des Designsystems: drei Zahlen mit Punkten (Kopie, z. B. 5.2.1) oder nur die Hauptzahl (zur Laufzeit, z. B. 5)'
   );
 
 /**

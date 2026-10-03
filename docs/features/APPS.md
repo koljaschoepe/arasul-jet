@@ -83,7 +83,7 @@ Dienst.
 | `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                                                                              |
 | `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                                                                  |
 | `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**).                                                   |
-| `marken`       | nein        | Auf welcher Fassung des Designsystems die App steht: `"3.1.0"` (Phase H6).                                                                  |
+| `marken`       | nein        | Das Designsystem: `"5.3.0"` heißt Kopie dieser Fassung (H6), `"5"` heißt zur Laufzeit vom Gerät (M5, Kontrakt 9). Siehe unten.              |
 | `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.                                                           |
 | `verbindungen` | nein        | Hostnamen, zu denen die App ins Internet will (J38, Kontrakt 7). Der Ausgangs-Proxy lässt genau diese durch. Siehe „Das Netz der Apps“.     |
 | `symbol`       | nein        | Das Bild der App in der Aktivitätsleiste (M5, Kontrakt 8): ein Lucide-Name (`file-text`) oder ein Kürzel aus 1 bis 3 Großbuchstaben (`BE`). |
@@ -144,9 +144,12 @@ Der Grund steht auf dem Bildschirm: die App läuft im Rahmen der Shell
 (`/apps/<id>/` im iframe), und der Mensch sieht beides als **ein** Ding. Zwei
 Erscheinungsbilder übereinander sind kein Geschmack, sondern ein Fehler.
 
-Zwei Wege, eine Quelle:
+**Seit M5 ist der erste Weg der vom Gerät:** eine App lädt die Bibliothek zur
+Laufzeit unter `/marken/5/` und trägt keine Kopie (siehe
+[„Die Bibliothek zur Laufzeit“](#die-bibliothek-zur-laufzeit-m5)). Die zwei
+Wege mit Kopie gibt es weiter, und Apps, die sie gehen, laufen unverändert:
 
-| Die App hat…      | …und nimmt                                                                                          |
+| Die App hat…      | …und nimmt (Kopie)                                                                                  |
 | ----------------- | --------------------------------------------------------------------------------------------------- |
 | einen Bauschritt  | die Quelle `packages/marken/src/` (das Ara-Kit spiegelt sie in die Vorlage aus E5) und schreibt JSX |
 | keinen Bauschritt | `marken.js` und `marken.css` neben `index.html`, und schreibt `h(Karte, {...})` statt JSX           |
@@ -190,8 +193,10 @@ in der Adresse des `iframe`, und der App-Tab bleibt stehen, während der Mensch
 in den Einstellungen ist. Eine App verliert dabei also nichts — auch kein halb
 ausgefülltes Formular.
 
-**Eine App, die schon am Gerät liegt, bekommt die neue `marken.css` erst beim
-nächsten Einspielen.** Die Datei liegt neben ihr und nicht in der Shell.
+**Eine App mit Kopie, die schon am Gerät liegt, bekommt die neue `marken.css`
+erst beim nächsten Einspielen.** Die Datei liegt neben ihr und nicht in der
+Shell. Eine App, die die Bibliothek zur Laufzeit lädt, bekommt sie mit dem
+Update des Geräts.
 
 ### Die App sagt, auf welcher Fassung sie steht (Phase H6)
 
@@ -242,6 +247,140 @@ Auslieferungsartefakt trägt — `packages/marken/marken.json` nennt `fassung`,
 die Abhängigkeiten und jede Datei mit ihrem sha256
 (`scripts/deploy/marken-paket.py`, Einbauanleitung in
 `packages/marken/EINBAU.md`).
+
+### Die Bibliothek zur Laufzeit (M5)
+
+> Karte marken-zur-laufzeit, 03.10.2026, Kontrakt 9. Das Ara-Kit baut darauf
+> (Karte kit-geruest-bausteine-zur-laufzeit). Gemessen mit
+> `scripts/test/marken-laufzeit-abnahme.mjs`.
+
+**Das Gerät liefert seine Bibliothek selbst aus**: Bausteine, Primitive,
+Muster, die Tokens beider Themes und das fertig übersetzte Stylesheet, unter
+einer festen Adresse auf derselben Herkunft wie jede App:
+
+```
+/marken/marken.json         welche Fassung, welche Hauptzahl, welche Adresse
+/marken/5/marken.css        Tokens, Regeln der Bausteine, Klassen der Primitive
+/marken/5/marken.js         alle drei Sätze, dazu h, rendern und die Hooks
+/marken/5/diagramm.js       Chart, Sparkline, SERIENFARBEN
+/marken/5/react.js          react            (für eine App mit Bau)
+/marken/5/react-dom.js      react-dom
+/marken/5/react-dom-client.js  react-dom/client
+/marken/5/jsx-runtime.js    react/jsx-runtime
+/marken/5/marken.json       dasselbe wie oben, dazu jede Datei mit sha256
+```
+
+Eine App, die von dort lädt, **braucht kein Tailwind**: die Klassen, die
+Primitive und Muster benutzen, erzeugt das Gerät beim eigenen Bau
+(`packages/marken/laufzeit.config.mjs`, aufgerufen von `npm run build` der
+Shell) und legt sie in `marken.css`. Die Content-Security-Policy des Geräts
+bleibt, wie sie ist: alles kommt von `'self'`, nichts braucht `eval`, kein
+Import-Map, keine Inline-Skripte. **Und sie sieht nach einem Update des Geräts
+ohne Neubau aus wie das Gerät**: unter `/marken/5/` steht immer die neueste
+Fassung 5.x.
+
+**Im Manifest** nennt sie nur die Hauptzahl. Daran erkennt die Verwaltung,
+dass es keine Kopie gibt, die veralten könnte:
+
+```json
+{ "marken": "5" }
+```
+
+**Ohne Bau** (zwei Dateien im Paket, `index.html` und ein Skript):
+
+```html
+<link rel="stylesheet" href="/marken/5/marken.css" />
+<script type="module" src="app.js"></script>
+```
+
+```js
+import {
+  h,
+  rendern,
+  useState,
+  Seitenleiste,
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+  Datenliste,
+  Freigabe,
+} from '/marken/5/marken.js';
+
+rendern(
+  h(
+    SidebarProvider,
+    null,
+    h(Seitenleiste, { gruppen: [{ eintraege: [{ kennung: 'a', name: 'Vorgänge' }] }] }),
+    h(SidebarInset, null, h(SidebarTrigger), h(Datenliste, {/* … */}))
+  ),
+  document.getElementById('app')
+);
+```
+
+Die Adresse ist **absolut** (`/marken/5/…`), anders als die Schnittstelle der
+App: sie ist für jede App und jeden Stand dieselbe, auch im Teststand
+`/apps/<id>/test/`. Was die App selbst gestaltet, schreibt sie mit den Tokens
+(`style: { borderBottom: '1px solid var(--border)' }`), nicht mit
+Tailwind-Klassen: die stehen in `marken.css` nur, soweit die Bibliothek sie
+benutzt. Ein vollständiges Beispiel, das am Orin läuft:
+`tests/marken-laufzeit-app/`.
+
+**Mit Bau** (Vite, JSX, TypeScript): React und die Bibliothek bleiben
+außerhalb des Bündels und kommen vom Gerät. React gibt es dann genau einmal,
+das des Geräts; ein zweites in der App bricht jeden Hook.
+
+```js
+// vite.config.js
+const MARKEN = '/marken/5/';
+const vomGeraet = {
+  react: MARKEN + 'react.js',
+  'react-dom': MARKEN + 'react-dom.js',
+  'react-dom/client': MARKEN + 'react-dom-client.js',
+  'react/jsx-runtime': MARKEN + 'jsx-runtime.js',
+  '@marken': MARKEN + 'marken.js',
+  '@marken/diagramm': MARKEN + 'diagramm.js',
+};
+export default defineConfig({
+  base: './',
+  plugins: [react()],
+  build: {
+    rollupOptions: { external: Object.keys(vomGeraet), output: { paths: vomGeraet } },
+  },
+});
+```
+
+Im Code bleibt alles wie mit Kopie (`import { Button } from '@marken'`, JSX);
+die Typen liefert die Quelle aus dem Paket (`packages/marken/src/`, Alias
+`@marken` in der `tsconfig`), gebündelt wird sie nicht. In `index.html` steht
+`<link rel="stylesheet" href="/marken/5/marken.css">`, und die eigene CSS-Datei
+der App braucht kein `@import 'tailwindcss'` mehr. Gemessen am 03.10.2026: das
+Bündel einer kleinen App mit `Button` und `Datenliste` war 1,3 kB statt
+mehrerer hundert, Hooks liefen, kein CSP-Verstoß.
+
+**Versionsregel.**
+
+- Unter `/marken/<haupt>/` steht immer die neueste Fassung dieser Hauptzahl,
+  die das Gerät hat. Innerhalb einer Hauptzahl fällt kein Name weg und keine
+  Eigenschaft ändert ihre Bedeutung (die Regel aus `packages/marken/src/fassung.ts`),
+  also darf die App jedes Update ungefragt bekommen.
+- Ein Bruch hebt die Hauptzahl und damit die **Adresse**. Das Gerät liefert
+  nur die aktuelle Hauptzahl aus; eine App, die eine andere nennt, meldet die
+  Verwaltung als Warnung („vom Gerät, 4 statt 5“). Wer vor dem Bau wissen will,
+  welche Hauptzahl ein Gerät hat, liest `/marken/marken.json` (ohne Anmeldung).
+- Cache: die festen Namen tragen `Cache-Control: no-cache` mit ETag. Der
+  Browser behält sie und bekommt ein 304, bis ein Update sie ändert, dann
+  sofort die neue Datei. Die Teile `teil-<name>-<hash>.js` ändern sich nie
+  unter ihrem Namen und tragen `immutable` für ein Jahr
+  (`apps/dashboard-frontend/nginx.conf`).
+
+**Was mit Apps mit Kopie geschieht: nichts.** Eine App mit `"marken": "5.2.1"`
+und beigelegtem `marken.js` oder gespiegelter Quelle läuft unverändert, und die
+Verwaltung meldet sie wie bisher, sobald sie älter ist als das Gerät. Ein
+Wechsel auf die Laufzeit ist ein neues Paket mit `"marken": "5"`, den zwei
+Zeilen oben und ohne die Kopie.
+
+Im Kontrakt (`GET /api/v1/external/contract`) steht derselbe Weg als Abschnitt
+`marken`: Adresse, Verzeichnis, Eingänge, Theme und die Regeln als Sätze.
 
 ### Die App sagt, welche Routen ein Agent aufrufen darf (Brücke, 21.09.2026)
 

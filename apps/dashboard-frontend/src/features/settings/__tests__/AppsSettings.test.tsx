@@ -347,6 +347,35 @@ describe('AppsSettings', () => {
     ).toHaveTextContent(FASSUNG);
   });
 
+  /**
+   * Kontrakt 9 (M5): nur die Hauptzahl heisst, die App laedt die Bibliothek
+   * zur Laufzeit vom Geraet und traegt keine Kopie. Keine Warnung, solange die
+   * Hauptzahl die des Geraets ist; eine fremde Hauptzahl ist eine.
+   */
+  it('zeigt eine App, die die Bibliothek zur Laufzeit laedt, ohne Warnung', async () => {
+    const haupt = FASSUNG.split('.')[0] ?? '';
+    antworte({
+      '/apps': { data: [APP_ZEILE] },
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          staende: {
+            live: { ...APP_DETAIL.staende.live, marken: haupt },
+            test: { ...APP_DETAIL.staende.test, marken: String(Number(haupt) - 1) },
+          },
+        },
+      },
+    });
+    await oeffneApp();
+    const live = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
+    expect(live).toHaveTextContent(`vom Gerät zur Laufzeit, ${FASSUNG}`);
+    expect(live).toHaveAttribute('data-befund', 'laufzeit');
+    expect(live).not.toHaveAttribute('data-warnung');
+    const test = within(screen.getByTestId('stand-test')).getByTestId('marken-fassung');
+    expect(test).toHaveAttribute('data-befund', 'laufzeit-fremd');
+    expect(test).toHaveAttribute('data-warnung', 'true');
+  });
+
   it('meldet eine App, die gar keine Fassung nennt', async () => {
     // Jede App, die vor H6 gebaut wurde. Sie laeuft -- man weiss nur nicht,
     // wie alt ihr Erscheinungsbild ist, und genau das steht da.

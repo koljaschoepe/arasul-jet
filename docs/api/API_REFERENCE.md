@@ -3793,6 +3793,28 @@ _mitgibt_.
 - **`umgebung.datenbank`** kommt dazu: die Adresse der Datenbank dieser App und
   dieses Standes (siehe [APPS.md](../features/APPS.md#die-datenbank-einer-app-phase-h7)).
 
+**Fassung 9 (M5, 03.10.2026):** das Gerät liefert seine Bibliothek zur
+Laufzeit aus, unter `/marken/<haupt>/`, und `marken` im Manifest nimmt dafür
+die Hauptzahl allein (`"marken": "5"`): die App lädt Bausteine, Muster, Tokens
+und das fertige Stylesheet vom Gerät und trägt keine Kopie. Drei Zahlen bleiben
+die Form einer Kopie. Der Abschnitt `marken` nennt Adresse, Verzeichnis
+(`/marken/marken.json`), Eingänge, Import-Weg mit und ohne Bau und die
+Versionsregel. Freiwillig; die Zahl geht mit, weil ein Kit auf Fassung 8
+`"marken": "5"` als ungültig abwiese. Den Weg für App-Entwickler beschreibt
+[APPS.md](../features/APPS.md#die-bibliothek-zur-laufzeit-m5).
+
+**Die Auslieferung selbst** ist kein Endpunkt der API, sondern statisch
+(nginx im Frontend-Container, ohne Anmeldung, wie die Dateien der Shell):
+
+| Pfad                                                 | Inhalt                                     | Cache-Control                         |
+| ---------------------------------------------------- | ------------------------------------------ | ------------------------------------- |
+| `/marken/marken.json`                                | `fassung`, `haupt`, `adresse`, `eingaenge` | `no-cache` (ETag)                     |
+| `/marken/<haupt>/marken.json`                        | dazu jede Datei mit sha256                 | `no-cache` (ETag)                     |
+| `/marken/<haupt>/marken.js` und die anderen Eingänge | ES-Module, `marken.css`                    | `no-cache` (ETag, 304 bis zum Update) |
+| `/marken/<haupt>/teil-*.js`                          | gemeinsame Teile mit Hash im Namen         | `public, max-age=31536000, immutable` |
+
+Eine Datei, die es nicht gibt, ist `404`, keine Seite der Shell.
+
 **POST /api/v1/external/apps** — Multipart mit dem Feld `paket`, einem
 `.tar.gz` mit `app.json` im Wurzelverzeichnis, und optional dem Textfeld
 `aenderungstext` (M5, Kontrakt 8): ein paar Sätze, was in dieser Version neu

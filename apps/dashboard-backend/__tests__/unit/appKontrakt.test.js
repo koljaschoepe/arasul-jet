@@ -188,6 +188,22 @@ describe('Auslesen und Bilder im Kontrakt (J35)', () => {
   });
 });
 
+describe('Die Bibliothek zur Laufzeit im Kontrakt (Kontrakt 9)', () => {
+  it('nennt Adresse, Verzeichnis, Eingaenge und die Versionsregel', () => {
+    const { marken, app_json: manifest } = appKontrakt.kontrakt();
+    expect(marken.adresse).toBe('/marken/<haupt>/');
+    expect(marken.verzeichnis).toBe('/marken/marken.json');
+    expect(Object.keys(marken.eingaenge)).toEqual(
+      expect.arrayContaining(['marken.js', 'marken.css', 'react.js', 'jsx-runtime.js'])
+    );
+    expect(marken.regeln.join(' ')).toMatch(/VERSIONSREGEL/);
+    expect(marken.regeln[0]).toMatch(/KANN/);
+    // Die Form im Manifest steht auch im JSON-Schema: die Hauptzahl allein.
+    expect(new RegExp(manifest.schema.properties.marken.pattern).test('5')).toBe(true);
+    expect(new RegExp(manifest.schema.properties.marken.pattern).test('5.2.1')).toBe(true);
+  });
+});
+
 describe('Der Fingerabdruck des Kontraktes', () => {
   /** JSON mit sortierten Schluesseln -- sonst haengt der Abdruck an der Reihenfolge. */
   function stabil(wert) {
@@ -297,7 +313,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // und `stufen` je Flow, `faehigkeiten` je Schritt und `aenderungstext` beim
     // Ausrollen. Alle freiwillig; die Zahl geht mit, weil ein Kit auf Fassung 7
     // sie als unbekannt abwiese.
-    expect(abdruck).toBe('31bba335a9e83411d1df2c15e9293e0b66390c9658dd686542b3e303f8e238d9');
+    //
+    // 03.10.2026 (M5, Kontrakt 9): die Bibliothek zur Laufzeit unter
+    // `/marken/<haupt>/`, der Abschnitt `marken`, und `marken` im Manifest
+    // nimmt die Hauptzahl allein. Die Zahl geht mit, weil ein Kit auf
+    // Fassung 8 `"marken": "5"` als ungueltig abwiese.
+    expect(abdruck).toBe('029d3abc5132337841a16677618b04c7946947fcdc5c6f1e7daa433e1301cf1c');
   });
 
   /**

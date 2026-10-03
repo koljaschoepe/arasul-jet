@@ -91,8 +91,16 @@ describe('Schema app.json v1', () => {
     expect(AppManifest.parse(GUELTIG).marken).toBeUndefined();
   });
 
-  test.each([['3'], ['3.1'], ['neu'], ['v3.1.0']])(
-    'weist `marken: %s` ab -- eine Fassung sind drei Zahlen',
+  /**
+   * Nur die Hauptzahl heisst: die App laedt die Bibliothek zur Laufzeit vom
+   * Geraet (`/marken/5/`) und traegt keine Kopie (Kontrakt 9).
+   */
+  test('nimmt die Hauptzahl allein: die Bibliothek zur Laufzeit', () => {
+    expect(AppManifest.parse({ ...GUELTIG, marken: '5' }).marken).toBe('5');
+  });
+
+  test.each([['3.1'], ['neu'], ['v3.1.0'], ['5.x'], ['^5']])(
+    'weist `marken: %s` ab -- drei Zahlen oder nur die Hauptzahl',
     fassung => {
       expect(AppManifest.safeParse({ ...GUELTIG, marken: fassung }).success).toBe(false);
     }

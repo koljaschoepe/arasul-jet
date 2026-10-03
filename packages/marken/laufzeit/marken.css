@@ -1,0 +1,66 @@
+/*
+ * Das Stylesheet der Bibliothek zur Laufzeit (`/marken/<haupt>/marken.css`).
+ *
+ * Fertig uebersetzt am Geraet: Tailwind liest beim Bau die Quelle der
+ * Bibliothek (`@source`) und erzeugt genau die Klassen, die Primitive und
+ * Muster benutzen. Eine App laedt diese eine Datei mit einem `<link>` und
+ * braucht selbst kein Tailwind. Die Reihenfolge der Schichten ist die der
+ * Shell, damit eine App im Rahmen aussieht wie das Geraet um sie herum.
+ */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'tw-animate-css';
+
+/* Die Regeln der Bausteine (Klassen `ara-*`), in der Schicht der
+   Komponenten: eine Utility an einem Baustein gewinnt so gegen sie. */
+@import '../src/marken.css' layer(components);
+
+/* Die Tokens beider Themes. Ohne Schicht, sonst waere `@theme` keins. */
+@import '../src/theme.css';
+
+@source '../src';
+
+/* Dunkel ist, was die Shell in das Dokument der App schreibt:
+   `data-theme="dark"` am `<html>`. Dieselbe Bedingung wie in `theme.css`. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Die Grundregeln der Shell, damit Primitive in einer App dieselbe Grundlage
+   haben: Rahmen ohne Breite, keine Abstaende des Browsers, Formularelemente
+   ohne eigene Farbe, die Schriftgroesse der Wurzel. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    border: 0 solid;
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+  * {
+    margin: 0;
+    padding: 0;
+  }
+  button,
+  input,
+  textarea,
+  select {
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  ul,
+  ol {
+    list-style: none;
+  }
+  html {
+    font-size: 106.25%;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

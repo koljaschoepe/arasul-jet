@@ -45,6 +45,12 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
     relativer `@import … layer(components)` herein (unlayered CSS gewinnt
     gegen jede Schicht, auch gegen die Utilities).
 
+  **Zur Laufzeit** liefert das Gerät die Bibliothek unter `/marken/<haupt>/`
+  aus (alle drei Sätze, React, fertig übersetztes `marken.css`): `npm run
+build` baut sie nach der Shell mit `packages/marken/laufzeit.config.mjs` nach
+  `dist/marken/`, `nginx.conf` setzt die Cache-Köpfe. Eine App mit
+  `"marken": "5"` lädt von dort (`docs/features/APPS.md`).
+
   Details, Versionsstand und wie die Bibliothek entstanden ist (Phasen
   H1 bis H7): [`packages/marken/README.md`](../../packages/marken/README.md),
   [`docs/development/DESIGN.md`](../../docs/development/DESIGN.md),
