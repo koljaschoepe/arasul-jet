@@ -30,7 +30,7 @@ const DATENTRAEGER = process.env.ARASUL_DATENTRAEGER || '';
 const APP = process.env.ARASUL_PROBE_APP || '';
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-sicherung-j37`);
-const SEITE = `${URL}/workspace/settings?tab=sicherung`;
+const SEITE = `${URL}/workspace/verwaltung/system/sicherung`;
 
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {
@@ -77,35 +77,39 @@ try {
   await seite.screenshot({ path: path.join(ZIEL, 'sicherung-datentraeger.png'), fullPage: true });
 
   if (APP) {
-    // Quelle: der Datentraeger (die Vorgabe, wenn einer steckt).
-    const zeile = seite.locator(`[data-testid="app-zurueck-${APP}"]`);
-    pruefe('Die Probe-App steht in der Liste „Eine App zurueckholen"', await steht(`[data-testid="app-zurueck-${APP}"]`, 20000));
-    await seite.locator(`[data-testid="app-zurueckholen-${APP}"]`).click();
-    const absenden = seite.locator('[data-testid="app-zurueckholen-absenden"]');
-    pruefe('Der Dialog oeffnet sich', await steht('[data-testid="app-zurueckholen-text"]', 10000));
-    pruefe('Erste Bestaetigung gelesen, aber ohne Kennung ist der Knopf gesperrt', await absenden.isDisabled());
+    // Seit M5 (Auftrag sicherung-zurueckholen): was, wann in Worten, Passwort.
+    // Quelle: der Datentraeger; der neueste Stand darauf.
+    await seite.locator('[data-testid="zurueck-quelle-extern"]').click();
+    await seite.locator('[data-testid="zurueck-ziel"]').click();
+    pruefe(
+      'Die Probe-App steht zur Wahl (vom Datentraeger)',
+      await steht(`[data-testid="zurueck-ziel-${APP}"]`, 20000)
+    );
+    await seite.locator(`[data-testid="zurueck-ziel-${APP}"]`).click();
+    await seite.locator('[data-testid^="zurueck-stand-"]').first().click();
+    await seite.locator('[data-testid="zurueck-weiter"]').click();
+    const absenden = seite.locator('[data-testid="zurueck-absenden"]');
+    pruefe('Der Dialog oeffnet sich', await steht('[data-testid="zurueck-dialog-text"]', 10000));
+    pruefe('Ohne Passwort ist der Knopf gesperrt', await absenden.isDisabled());
     await seite.screenshot({ path: path.join(ZIEL, 'zurueckholen-dialog.png') });
-    await seite.locator('[data-testid="app-zurueckholen-kennung"]').fill('falsch');
-    pruefe('Mit falscher Kennung bleibt er gesperrt', await absenden.isDisabled());
-    await seite.locator('[data-testid="app-zurueckholen-kennung"]').fill(APP);
-    pruefe('Mit der Kennung der App geht er auf (zweite Bestaetigung)', await absenden.isEnabled());
+    await seite.locator('[data-testid="zurueck-passwort"]').fill(process.env.ARASUL_PASSWORT || '');
+    pruefe('Mit Passwort geht er auf', await absenden.isEnabled());
     await absenden.click();
-    const bericht = seite.locator('[data-testid="app-zurueck-bericht"]');
-    const kam = await bericht
+    const kam = await seite
+      .locator('[data-testid="zurueck-bericht"]')
       .waitFor({ timeout: 25 * 60_000 })
       .then(() => true)
       .catch(() => false);
     pruefe('Ein stehender Bericht erscheint', kam);
     if (kam) {
-      const saetze = await seite.locator('[data-testid="app-zurueck-saetze"] > li').allInnerTexts();
+      const saetze = await seite.locator('[data-testid="zurueck-saetze"] > li').allInnerTexts();
       pruefe('Der Bericht nennt die Daten', saetze.some(s => /Daten/.test(s)), saetze.join(' | ').slice(0, 160));
       pruefe('... das Paket', saetze.some(s => /Paket/.test(s)));
       pruefe('... und dass die App wieder laeuft', saetze.some(s => /l(ä|ae)uft wieder/.test(s)));
-      const gescheitert = await seite.locator('[data-testid="app-zurueck-saetze"] [aria-label="gescheitert"]').count();
+      const gescheitert = await seite.locator('[data-testid="zurueck-saetze"] [aria-label="gescheitert"]').count();
       pruefe('Kein Schritt ist gescheitert', gescheitert === 0, `${gescheitert} Kreuz(e)`);
       await seite.screenshot({ path: path.join(ZIEL, 'zurueckholen-bericht.png'), fullPage: true });
     }
-    void zeile;
   }
 } finally {
   await browser.close();
