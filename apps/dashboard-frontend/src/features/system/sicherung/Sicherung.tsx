@@ -58,7 +58,7 @@ import {
 } from './useSicherung';
 import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
 import { Zurueckholen } from './Zurueckholen';
-import { namenDerStaende, standInWorten, standZusatz } from './standInWorten';
+import { namenDerStaende, standNamen, standZusatz } from './standInWorten';
 
 /** So viele Stände stehen in „Stände“ zuerst da. */
 const STAENDE_ZUERST = 10;
@@ -130,6 +130,7 @@ export function Sicherung() {
   const [alleStaende, setAlleStaende] = useState(false);
   const [technikOffen, setTechnikOffen] = useState(false);
   const namen = useMemo(() => namenDerStaende(staende), [staende]);
+  const zeitNamen = useMemo(() => standNamen(staende), [staende]);
   const sichern = useJetztSichern();
   const test = useWiederherstellungstest();
   const [sicherungsMeldung, setSicherungsMeldung] = useState<Meldung | null>(null);
@@ -401,7 +402,7 @@ export function Sicherung() {
                         className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
                       >
                         <span className="text-sm font-medium text-foreground">
-                          {standInWorten(s.zeitpunkt)}
+                          {zeitNamen.get(s.id)}
                         </span>
                         {zusatz && <span className="text-xs text-muted-foreground">{zusatz}</span>}
                       </li>

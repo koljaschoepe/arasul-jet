@@ -98,7 +98,9 @@ async function waehle(was, ziel) {
   );
   await stand.click();
   await seite.locator('[data-testid="zurueck-weiter"]').click();
-  return steht('[data-testid="zurueck-dialog-text"]', 10000);
+  const offen = await steht('[data-testid="zurueck-dialog-text"]', 10000);
+  await seite.waitForTimeout(400); // das Einblenden des Dialogs, sonst steht es im Bild
+  return offen;
 }
 
 /** Passwort, absenden, auf den Bericht warten. Gibt die Sekunden zurück. */
@@ -114,6 +116,11 @@ async function bestaetige(was) {
   const sekunden = Math.round((Date.now() - beginn) / 1000);
   pruefe(`${was}: ein stehender Bericht erscheint`, kam, `${sekunden} s`);
   if (!kam) return sekunden;
+  // Erst, wenn der Dialog ganz weg ist: sonst steht sein Ausblenden im Bild.
+  await seite
+    .locator('[data-testid="zurueck-dialog-text"]')
+    .waitFor({ state: 'detached', timeout: 10000 })
+    .catch(() => {});
   const bericht = await seite.locator('[data-testid="zurueck-bericht"]').innerText();
   const kreuze = await seite
     .locator('[data-testid="zurueck-saetze"] [aria-label="gescheitert"]')

@@ -42,7 +42,7 @@ import {
 } from '@marken';
 import { formatBytes, formatZahl } from '@/utils/formatting';
 import { TechnischeAngaben } from '../TechnischeAngaben';
-import { namenDerStaende, standInWorten, standZusatz } from './standInWorten';
+import { namenDerStaende, standInWorten, standNamen, standZusatz } from './standInWorten';
 import {
   useAppZurueckholen,
   useBereichZurueckholen,
@@ -206,6 +206,7 @@ export function Zurueckholen() {
   const [bericht, setBericht] = useState<Bericht | null>(null);
 
   const namen = useMemo(() => namenDerStaende(staende), [staende]);
+  const zeitNamen = useMemo(() => standNamen(staende), [staende]);
 
   // Was sich zurückholen lässt: jede App, die in irgendeinem Stand steht;
   // jeder Bereich, den es am Gerät noch gibt (in einen weggeworfenen kommt
@@ -242,7 +243,7 @@ export function Zurueckholen() {
       : was === 'bereich'
         ? (namen.bereiche.get(ziel) ?? ziel)
         : '';
-  const wann = stand ? standInWorten(stand.zeitpunkt) : '';
+  const wann = stand ? (zeitNamen.get(stand.id) ?? standInWorten(stand.zeitpunkt)) : '';
 
   const wechsleWas = (neu: Was) => {
     setWas(neu);
@@ -260,8 +261,9 @@ export function Zurueckholen() {
 
   const fertig = (b: Bericht) => {
     setBericht(b);
+    // Die Auswahl bleibt stehen: der Dialog blendet aus und zeigte sonst
+    // „auf den Stand von zurückgeholt“ ohne Zeitpunkt (Bild am Orin).
     schliessen();
-    setStandId('');
   };
   const vorherSatz = (v: VorherStand | null | undefined) =>
     v?.erfolg && v.zeitpunkt
@@ -511,7 +513,7 @@ export function Zurueckholen() {
                       <RadioGroupItem value={s.id} id={`stand-${s.id}`} />
                       <span className="min-w-0">
                         <span className="text-sm font-medium text-foreground">
-                          {standInWorten(s.zeitpunkt)}
+                          {zeitNamen.get(s.id) ?? standInWorten(s.zeitpunkt)}
                         </span>
                         {zusatz && (
                           <span className="block text-xs text-muted-foreground">{zusatz}</span>
