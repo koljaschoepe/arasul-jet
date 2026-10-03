@@ -185,9 +185,11 @@ const KONTRAKT_VERSION = 9;
  * ALLE FREIWILLIG, jedes Paket von Fassung 7 bleibt gueltig und rollt
  * unveraendert aus. Die Zahl geht trotzdem mit, aus dem Grund von 3, 4 und 7:
  * ein Kit, das gegen 7 prueft, wiese die Felder als unbekannt ab, obwohl das
- * Geraet sie nimmt. NUR SCHEMA: Stufen, Zeitplaner und die Umschaltung der
- * Arten wirken noch auf keinen Lauf (spaetere Karten); der Vertrag sagt, was
- * angenommen wird, nicht, dass es schon etwas tut.
+ * Geraet sie nimmt. Die Stufen wirken seit M5 (Frist, Standardperson), die
+ * Arten seit dem 04.10.2026 (der Admin schaltet je Flow, `docs/features/FLOWS.md`,
+ * Abschnitt Arten); der Zeitplaner folgt mit einer spaeteren Karte. Die Zahl
+ * blieb bei 9: es kam kein Feld dazu, nur eine Wirkung, und ein Paket, das
+ * `arten` nennt, war schon gueltig.
  *
  * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
  * muss auf 8 gehoben werden, bevor ein Kit auf ein Geraet mit dieser Fassung
@@ -627,7 +629,7 @@ function kontrakt() {
         'Das Werkzeug `freigabe_anfordern` haelt den Lauf an, bis ein Mensch bestaetigt (Status `wartend`). Ablehnung beendet ihn als `abgebrochen`, Fristablauf als `abgelaufen`.',
         'Entscheiden darf, wem die App freigegeben ist. Die Flow-Datei nennt dafuer keine Person und keine Rolle; den Kreis enger ziehen kann die APP beim Start des Laufs (`freigaben`, seit 25.09.2026).',
         'Die Frist steht als `frist_minuten` in den `parameter` des Schritts; ohne Angabe gilt die Vorgabe des Geraets.',
-        '`arten` nennt, welche Arten der Flow kann (seit Kontrakt 8, freiwillig): `autonom` und `ergebnis_bestaetigen`, mindestens eine, keine doppelt. Der Administrator schaltet je Flow zwischen den genannten. Ein Flow, der erzeugt, laeuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rueckfall. Noch ohne Wirkung auf einen Lauf.',
+        '`arten` nennt, welche Arten der Flow kann (seit Kontrakt 8, freiwillig): `autonom` und `ergebnis_bestaetigen`, mindestens eine, keine doppelt. Der Administrator waehlt je Flow zwischen den genannten, sie gilt ab dem naechsten Lauf. `ergebnis_bestaetigen` haelt den Lauf am Ende an und legt eine Freigabe mit dem Ergebnis an (in der letzten Stufe des Flows, sonst ohne Stufe); `autonom` legt keine an. Ohne Angabe gilt die erste genannte Art, ohne `arten` `autonom`. Ein Flow, der erzeugt (kein Schritt mit `faehigkeiten.bild`), laeuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rueckfall. Ein Flow, der erkennt (mindestens ein `subagent`-Schritt mit `faehigkeiten.bild: true`), legt bei fehlender oder unsicherer Erkennung auch in `autonom` eine Freigabe mit dem Grund `Erkennung unsicher: Feld X` an: ein deklariertes Feld der Rolle ohne Wert, oder eines, das die Rolle im JSON unter `unsicher` (Liste von Feldnamen) nennt; kam kein JSON, gelten alle Felder als unsicher.',
         '`ausloeser` nennt, wodurch der Flow startet (seit Kontrakt 8, freiwillig): eine Liste von Objekten mit `typ` `hand`, `zeitplan` (dazu `zeitplan`, fuenf Felder wie in cron, z. B. `"0 6 * * 1-5"`) oder `ereignis` (dazu `ereignis`, der Name eines Ereignisses der App). Hoechstens 5, keiner doppelt. Noch ohne Wirkung: der Zeitplaner kommt mit einer spaeteren Karte.',
         '`stufen` nennt die benannten Freigabestufen (seit Kontrakt 8, freiwillig), z. B. `pruefung` und `leitung`: je Stufe `name`, optional `bezeichnung` und `frist_minuten`. Hoechstens 5, keine doppelt. Nennt ein `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie deklarieren. Die Person je Stufe setzt der Administrator, nicht der Flow: eine neue Freigabe der Stufe liegt zuerst bei ihrer Standardperson (je App und Stufenname, zwei Flows mit derselben Stufe teilen sie), ohne sie bei allen mit Zugang (`freigaben`).',
         '`faehigkeiten` je Schritt nennt, was der Schritt vom Modell braucht (seit Kontrakt 8, freiwillig): `text`, `bild`, `werkzeuge` (je true oder false) und `mindestkontext` (Tokens, 512 bis 1048576). Nur bei `typ: subagent`; ein Werkzeug-Schritt ruft kein Modell und wird mit `faehigkeiten` abgewiesen.',

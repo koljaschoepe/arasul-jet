@@ -1089,6 +1089,7 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | GET    | `/api/apps/:id/flows`              | Die Flows beider Stände, mit dem Modell, das sie treibt                                    |
 | GET    | `/api/apps/:id/flows/:name`        | Die Flow-Datei selbst, samt Prompt (Phase D4)                                              |
 | PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                             |
+| PUT    | `/api/apps/:id/flows/:name/art`    | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                   |
 | GET    | `/api/apps/:id/stufen`             | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)         |
 | PUT    | `/api/apps/:id/stufen/:stufe`      | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)          |
 | GET    | `/api/apps/:id/laeufe`             | Die Flow-Läufe dieser App (Phase D4)                                                       |
@@ -1278,6 +1279,16 @@ erklärt [docs/features/FLOWS.md](../features/FLOWS.md), das Paket
 `modell_ueberschrieben` sagt, ob es aus dem Paket kommt (`false`) oder vom
 Administrator (`true`). Der Prompt steht nicht darin: er ist der Auftrag des
 Partners an das Modell, und wer ihn braucht, hat das Paket.
+
+**PUT /api/apps/:id/flows/:name/art** (nur Admin, M5): `{ "art": "autonom" }`,
+`{ "art": "ergebnis_bestaetigen" }` oder `{ "art": null }` (zurück zum Paket).
+`GET /api/apps/:id/flows` und `…/flows/:name` nennen dazu `arten` (was der Kopf
+der Flow-Datei erlaubt, ohne Angabe `["autonom"]`), `art` (womit der nächste
+Lauf startet) und `art_ueberschrieben`. Eine Art, die der Kopf nicht nennt,
+weist das Backend mit `400` ab, ein unbekannter Flow ist `404`. Die Wahl gilt ab
+dem **nächsten** Lauf (ein laufender oder wartender behält seine) und steht im
+Sicherheitsprotokoll als `flow_art_gesetzt` (App, Flow, Art, vorher). Sie liegt
+in `flow_settings`, nicht in der Datei, und überlebt ein Update.
 
 **PUT /api/apps/:id/flows/:name/modell:** eine Entscheidung, drei Antworten:
 

@@ -109,9 +109,9 @@ ordner: ['/arasul/config']
 ---
 Lies alles.
 `;
-    await expect(
-      appFlows.leseAusPaket(MANIFEST, paketMit({ 'leck.md': boese }))
-    ).rejects.toThrow(/ohne Ordner am Gerät/);
+    await expect(appFlows.leseAusPaket(MANIFEST, paketMit({ 'leck.md': boese }))).rejects.toThrow(
+      /ohne Ordner am Gerät/
+    );
   });
 
   it('weist einen Dateinamen ab, der kein Flow-Name ist', async () => {
@@ -165,7 +165,10 @@ describe('registriere', () => {
     // Verbindung zwischen dem DELETE und den INSERTs, stuende `app_staende`
     // auf der neuen Version und `app_flows` waere leer -- ein Flow des
     // Partners waere still weg, ohne Fehlermeldung.
-    const flows = await gelesen({ 'bericht.md': BERICHT, 'pruefen.md': BERICHT.replace(/bericht/g, 'pruefen') });
+    const flows = await gelesen({
+      'bericht.md': BERICHT,
+      'pruefen.md': BERICHT.replace(/bericht/g, 'pruefen'),
+    });
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
 
     await appFlows.registriere({ appId: 'urlaub', stand: 'test', version: '1.0.0', flows });
@@ -206,7 +209,13 @@ describe('lade', () => {
   it('setzt die Ueberschreibung des Administrators ueber das Modell des Pakets', async () => {
     db.query
       .mockResolvedValueOnce({
-        rows: [{ name: 'bericht', version: '1.0.0', definition: { name: 'bericht', modell: 'aus-dem-paket' } }],
+        rows: [
+          {
+            name: 'bericht',
+            version: '1.0.0',
+            definition: { name: 'bericht', modell: 'aus-dem-paket' },
+          },
+        ],
       })
       .mockResolvedValueOnce({ rows: [{ flow_name: 'bericht', modell: 'vom-admin' }] });
 
@@ -217,7 +226,13 @@ describe('lade', () => {
   it('laesst das Modell des Pakets stehen, wenn niemand etwas ueberschrieben hat', async () => {
     db.query
       .mockResolvedValueOnce({
-        rows: [{ name: 'bericht', version: '1.0.0', definition: { name: 'bericht', modell: 'aus-dem-paket' } }],
+        rows: [
+          {
+            name: 'bericht',
+            version: '1.0.0',
+            definition: { name: 'bericht', modell: 'aus-dem-paket' },
+          },
+        ],
       })
       .mockResolvedValueOnce({ rows: [] });
 
@@ -227,9 +242,9 @@ describe('lade', () => {
 
   it('sucht IMMER in App und Stand -- eine App findet den Flow einer anderen nicht', async () => {
     db.query.mockResolvedValue({ rows: [] });
-    await expect(
-      appFlows.lade({ appId: 'urlaub', stand: 'live', name: 'fremd' })
-    ).rejects.toThrow(/keinen Flow "fremd"/);
+    await expect(appFlows.lade({ appId: 'urlaub', stand: 'live', name: 'fremd' })).rejects.toThrow(
+      /keinen Flow "fremd"/
+    );
     // Der Namensraum steht in der Abfrage und nicht in einer Pruefung
     // daneben: eine Pruefung kann man vergessen, ein WHERE nicht.
     expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 'live', 'fremd']);
@@ -288,5 +303,35 @@ describe('lade mit externem Modell (Phase D4)', () => {
     expect(flow.extern.basisUrl).toBe('https://api.example.test/v1');
     flowSettings.externerZugang.mockRestore();
     flowSettings.hole.mockRestore();
+  });
+});
+
+describe('artAngabe (M5)', () => {
+  it('ohne `arten` im Kopf gilt autonom und ist nichts wählbar', () => {
+    expect(appFlows.artAngabe({}, null)).toEqual({
+      arten: ['autonom'],
+      art: 'autonom',
+      art_ueberschrieben: false,
+    });
+  });
+
+  it('nimmt ohne Wahl die erste Art des Pakets', () => {
+    const d = { arten: ['ergebnis_bestaetigen', 'autonom'] };
+    expect(appFlows.artAngabe(d, null).art).toBe('ergebnis_bestaetigen');
+  });
+
+  it('die Wahl des Admins gilt, wenn der Kopf sie nennt', () => {
+    const d = { arten: ['autonom', 'ergebnis_bestaetigen'] };
+    expect(appFlows.artAngabe(d, { art: 'ergebnis_bestaetigen' })).toEqual({
+      arten: ['autonom', 'ergebnis_bestaetigen'],
+      art: 'ergebnis_bestaetigen',
+      art_ueberschrieben: true,
+    });
+  });
+
+  it('eine Wahl, die der Kopf nach einem Update nicht mehr nennt, gilt nicht mehr', () => {
+    const r = appFlows.artAngabe({ arten: ['autonom'] }, { art: 'ergebnis_bestaetigen' });
+    expect(r.art).toBe('autonom');
+    expect(r.art_ueberschrieben).toBe(false);
   });
 });

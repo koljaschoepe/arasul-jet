@@ -53,7 +53,7 @@ const { ValidationError } = require('../../utils/errors');
  * nicht dabei -- er ist an keiner Stelle Teil einer Antwort, und eine Abfrage,
  * die ihn gar nicht erst holt, kann ihn auch nicht versehentlich durchreichen.
  */
-const SICHTBAR = `app_id, flow_name, modell,
+const SICHTBAR = `app_id, flow_name, modell, art,
             extern_anbieter, extern_modell, extern_basis_url, extern_endet_auf,
             geaendert_am, geaendert_von`;
 
@@ -112,12 +112,27 @@ async function listeFuer(appId) {
  */
 async function setzeModell({ appId, flowName, modell, durch = null }) {
   if (modell == null || modell === '') {
+    // Die Art (M5) lebt in derselben Zeile: nur wenn auch sie fehlt, fliegt die
+    // Zeile ganz raus. Sonst nimmt "zurueck zum Paket" beim Modell die Wahl der
+    // Art mit, die niemand zuruecknehmen wollte.
     const weg = await db.query(
-      'DELETE FROM public.flow_settings WHERE app_id = $1 AND flow_name = $2',
+      `DELETE FROM public.flow_settings
+        WHERE app_id = $1 AND flow_name = $2
+          AND art IS NULL`,
       [appId, flowName]
     );
     if (weg.rowCount > 0) {
       logger.info(`Flow-Modell zurueckgenommen: ${appId}/${flowName}`);
+    } else {
+      // Die Zeile traegt noch eine Art: nur das Modell geht.
+      await db.query(
+        `UPDATE public.flow_settings
+          SET modell = NULL, extern_anbieter = NULL, extern_modell = NULL,
+              extern_basis_url = NULL, extern_schluessel = NULL, extern_endet_auf = NULL,
+              geaendert_am = NOW(), geaendert_von = $3
+        WHERE app_id = $1 AND flow_name = $2`,
+        [appId, flowName, durch]
+      );
     }
     return null;
   }
@@ -139,6 +154,41 @@ async function setzeModell({ appId, flowName, modell, durch = null }) {
   );
   logger.info(`Flow-Modell gesetzt: ${appId}/${flowName} -> ${modell}`);
   return rows[0];
+}
+
+/**
+ * Die Art eines Flows setzen (M5): `autonom` oder `ergebnis_bestaetigen`.
+ * `null` nimmt die Wahl zurueck, es gilt wieder die Vorgabe des Pakets.
+ *
+ * Ob die Art dem Flow erlaubt ist (`arten` im Kopf), prueft die Route gegen die
+ * Flow-Definition; hier steht nur die Zeile. Sie gilt ab dem naechsten Lauf.
+ *
+ * @returns {Promise<{art: string|null}>}
+ */
+async function setzeArt({ appId, flowName, art, durch = null }) {
+  if (art == null) {
+    await db.query(
+      'UPDATE public.flow_settings SET art = NULL, geaendert_am = NOW(), geaendert_von = $3 WHERE app_id = $1 AND flow_name = $2',
+      [appId, flowName, durch]
+    );
+    await db.query(
+      `DELETE FROM public.flow_settings
+        WHERE app_id = $1 AND flow_name = $2
+          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL`,
+      [appId, flowName]
+    );
+    logger.info(`Flow-Art zurueckgenommen: ${appId}/${flowName}`);
+    return { art: null };
+  }
+  await db.query(
+    `INSERT INTO public.flow_settings (app_id, flow_name, art, geaendert_von)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (app_id, flow_name) DO UPDATE
+        SET art = EXCLUDED.art, geaendert_am = NOW(), geaendert_von = EXCLUDED.geaendert_von`,
+    [appId, flowName, art, durch]
+  );
+  logger.info(`Flow-Art gesetzt: ${appId}/${flowName} -> ${art}`);
+  return { art };
 }
 
 /**
@@ -242,4 +292,4 @@ async function externerZugang({ appId, flowName }) {
   };
 }
 
-module.exports = { hole, listeFuer, setzeModell, setzeExtern, externerZugang };
+module.exports = { hole, listeFuer, setzeModell, setzeArt, setzeExtern, externerZugang };

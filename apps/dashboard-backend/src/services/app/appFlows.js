@@ -220,6 +220,7 @@ async function liste({ appId, stand }) {
       optionen: a.optionen || undefined,
     })),
     ...modellAngabe(z, einstellungen.get(z.name)),
+    ...artAngabe(z.definition, einstellungen.get(z.name)),
     version: z.version,
     registriert_am: z.registriert_am,
   }));
@@ -256,6 +257,24 @@ function modellAngabe(zeile, einstellung) {
     modell_ueberschrieben: Boolean(extern || einstellung?.modell),
     extern,
   };
+}
+
+/**
+ * Die Art eines Flows (M5, Kontrakt 8): was der Kopf erlaubt, und was gilt.
+ *
+ *   arten              die Arten, die der Partner im Flow-Kopf nennt; ohne
+ *                      Angabe nur `autonom` (so lief jeder Flow bisher)
+ *   art                die Art, mit der der naechste Lauf startet: die Wahl des
+ *                      Administrators, sonst die erste genannte Art
+ *   art_ueberschrieben hat der Administrator gewaehlt?
+ *
+ * Eine gewaehlte Art, die der Kopf nach einem App-Update nicht mehr nennt, gilt
+ * nicht mehr: der Partner hat sie dem Flow abgesprochen.
+ */
+function artAngabe(definition, einstellung) {
+  const arten = definition.arten?.length ? definition.arten : ['autonom'];
+  const gewaehlt = einstellung?.art && arten.includes(einstellung.art) ? einstellung.art : null;
+  return { arten, art: gewaehlt || arten[0], art_ueberschrieben: Boolean(gewaehlt) };
 }
 
 /**
@@ -302,6 +321,7 @@ async function hole({ appId, stand, name }) {
     // ein Administrator nach dem Umstellen nicht mehr, wovon er abgewichen ist.
     paket_modell: paketModell || null,
     ...modellAngabe(zeile, einstellung),
+    ...artAngabe(zeile.definition, einstellung),
   };
 }
 
@@ -346,17 +366,20 @@ async function lade({ appId, stand, name, mitZugang = false }) {
     mitZugang && einstellung?.extern_anbieter
       ? await flowSettings.externerZugang({ appId, flowName: name })
       : null;
+  const { art } = artAngabe(definition, einstellung);
   if (zugang) {
-    return { ...definition, modell: zugang.modell, extern: zugang };
+    return { ...definition, art, modell: zugang.modell, extern: zugang };
   }
   return {
     ...definition,
+    art,
     ...(einstellung?.modell ? { modell: einstellung.modell } : {}),
   };
 }
 
 module.exports = {
   MAX_FLOWS,
+  artAngabe,
   leseAusPaket,
   registriere,
   liste,

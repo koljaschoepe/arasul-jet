@@ -27,6 +27,7 @@ const {
   StufePersonBody,
   AppLaufParams,
   FlowModellBody,
+  FlowArtBody,
   EinspielenBody,
   EntfernenSitzungQuery,
   FlowQuery,
@@ -46,7 +47,7 @@ const flowSettings = require('../../services/flows/flowSettings');
 const runStore = require('../../services/flows/runStore');
 const kiProtokoll = require('../../services/app/kiProtokoll');
 const { logSecurityEvent } = require('../../utils/auditLog');
-const { NotFoundError } = require('../../utils/errors');
+const { NotFoundError, ValidationError } = require('../../utils/errors');
 
 /**
  * GET /api/apps/meine — die Apps, die dem Aufrufer freigegeben sind.
@@ -365,6 +366,65 @@ router.put(
     });
     res.json({
       data: data ?? { app_id: appId, flow_name: name, modell: null, extern: null },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/apps/:id/flows/:name/art — die Art eines Flows schalten (M5).
+ *
+ * Der Partner nennt im Flow-Kopf, welche Arten der Flow kann (`arten`); der
+ * Administrator waehlt zwischen ihnen, sobald er der KI traut. Eine Art, die der
+ * Kopf nicht nennt, weist das Backend mit 400 ab -- nicht erst der naechste
+ * Lauf. `{"art": null}` nimmt die Wahl zurueck, es gilt wieder die Vorgabe des
+ * Pakets.
+ *
+ * Die Wahl liegt in `flow_settings` (wie das Modell) und gilt ab dem NAECHSTEN
+ * Lauf; ein laufender oder wartender Lauf behaelt seine. Sie steht im
+ * Sicherheitsprotokoll. Ohne `stand`: gilt dem Flow, nicht der Fassung -- darum
+ * muss jeder Stand, der den Flow hat, die Art nennen.
+ */
+router.put(
+  '/:id/flows/:name/art',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppFlowParams),
+  validateBody(FlowArtBody),
+  asyncHandler(async (req, res) => {
+    const { id: appId, name } = req.params;
+    const { art } = req.body;
+    await appStore.holeApp(appId);
+    const vorhandene = (
+      await Promise.all(['test', 'live'].map(stand => appFlows.liste({ appId, stand })))
+    )
+      .flat()
+      .filter(f => f.name === name);
+    if (vorhandene.length === 0) {
+      throw new NotFoundError(`App ${appId} hat keinen Flow "${name}"`);
+    }
+    if (art != null) {
+      const nichtErlaubt = vorhandene.find(f => !f.arten.includes(art));
+      if (nichtErlaubt) {
+        throw new ValidationError(
+          `Der Flow "${name}" kann die Art "${art}" nicht: sein Kopf nennt ${nichtErlaubt.arten
+            .map(a => `"${a}"`)
+            .join(', ')}. Die App muss sie unter "arten" aufnehmen.`
+        );
+      }
+    }
+    const vorher = (await flowSettings.hole({ appId, flowName: name }))?.art ?? null;
+    await flowSettings.setzeArt({ appId, flowName: name, art, durch: req.user.id });
+    const gilt = appFlows.artAngabe({ arten: vorhandene[0].arten }, { art });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'flow_art_gesetzt',
+      details: { app_id: appId, flow: name, art: gilt.art, vorher, zurueck_zum_paket: art == null },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({
+      data: { app_id: appId, flow_name: name, ...gilt, gilt_ab: 'dem naechsten Lauf' },
       timestamp: new Date().toISOString(),
     });
   })

@@ -39,9 +39,23 @@ export interface AppFlow {
   /** Kommt es vom Administrator (`true`) oder aus dem Paket (`false`)? */
   modell_ueberschrieben: boolean;
   extern: ExternesModell | null;
+  /** Die Arten, die der Flow-Kopf nennt (Kontrakt 8); ohne Angabe nur `autonom`. */
+  arten: FlowArt[];
+  /** Die Art, mit der der nächste Lauf startet. */
+  art: FlowArt;
+  /** Hat der Administrator gewählt (`true`) oder gilt die Vorgabe des Pakets? */
+  art_ueberschrieben: boolean;
   version: string;
   registriert_am: string;
 }
+
+export type FlowArt = 'autonom' | 'ergebnis_bestaetigen';
+
+/** Was der Mensch liest, nie der Schlüssel. */
+export const FLOW_ART_NAME: Record<FlowArt, string> = {
+  autonom: 'Autonom',
+  ergebnis_bestaetigen: 'Ergebnis bestätigen',
+};
 
 /** Das externe Modell eines Flows. Der Schlüssel steht hier nie. */
 export interface ExternesModell {
@@ -379,6 +393,23 @@ export function useFlowModell(appId: string) {
   return useMutation({
     mutationFn: ({ flow, wunsch }: { flow: string; wunsch: ModellWunsch }) =>
       api.put(`/apps/${appId}/flows/${flow}/modell`, wunsch),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: appKey(appId) });
+      void qc.invalidateQueries({ queryKey: ['apps', 'flow', appId] });
+    },
+  });
+}
+
+/**
+ * Die Art eines Flows schalten (M5, `PUT /api/apps/:id/flows/:name/art`). Gilt
+ * ab dem nächsten Lauf; das Backend weist eine Art ab, die der Kopf nicht nennt.
+ */
+export function useFlowArt(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ flow, art }: { flow: string; art: FlowArt | null }) =>
+      api.put(`/apps/${appId}/flows/${flow}/art`, { art }),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: appKey(appId) });
       void qc.invalidateQueries({ queryKey: ['apps', 'flow', appId] });

@@ -14,6 +14,8 @@ const {
   resolveParams,
   buildSynthesisInput,
   berechneVorabErgebnisse,
+  erkennungsBefund,
+  erkennungsTitel,
 } = require('../../src/services/flows/stepExecutor');
 
 /** Eine austauschbare SubagentTool-Klasse, die einen injizierten Mock ruft. */
@@ -46,10 +48,7 @@ describe('buildSynthesisInput', () => {
 
 describe('executeSteps', () => {
   test('führt subagent-Schritte in Reihenfolge aus und threadet Ausgaben', async () => {
-    const subMock = jest
-      .fn()
-      .mockResolvedValueOnce('OUT1')
-      .mockResolvedValueOnce('OUT2');
+    const subMock = jest.fn().mockResolvedValueOnce('OUT1').mockResolvedValueOnce('OUT2');
     const runLoop = jest.fn().mockResolvedValue({ result: 'FINAL' });
 
     const flow = {
@@ -75,7 +74,11 @@ describe('executeSteps', () => {
 
     expect(res.result).toBe('FINAL');
     // Reihenfolge + Vorlagen: Schritt b sieht die Ausgabe von a als {{a}}.
-    expect(subMock).toHaveBeenNthCalledWith(1, { rolle: 'r1', auftrag: 'do X' }, expect.any(Object));
+    expect(subMock).toHaveBeenNthCalledWith(
+      1,
+      { rolle: 'r1', auftrag: 'do X' },
+      expect.any(Object)
+    );
     expect(subMock).toHaveBeenNthCalledWith(
       2,
       { rolle: 'r2', auftrag: 'use OUT1' },
@@ -133,7 +136,9 @@ describe('executeSteps', () => {
     const runLoop = jest.fn().mockResolvedValue({ result: 'F' });
 
     const flow = {
-      schritte: [{ name: 's', typ: 'subagent', rolle: 'r', auftrag: 'refine {{vorher}}', iterationen: 2 }],
+      schritte: [
+        { name: 's', typ: 'subagent', rolle: 'r', auftrag: 'refine {{vorher}}', iterationen: 2 },
+      ],
       systemPrompt: 'B',
       grenzen,
     };
@@ -150,8 +155,16 @@ describe('executeSteps', () => {
       SubagentToolClass: makeFakeSubagent(subMock),
     });
 
-    expect(subMock).toHaveBeenNthCalledWith(1, { rolle: 'r', auftrag: 'refine ' }, expect.any(Object));
-    expect(subMock).toHaveBeenNthCalledWith(2, { rolle: 'r', auftrag: 'refine A' }, expect.any(Object));
+    expect(subMock).toHaveBeenNthCalledWith(
+      1,
+      { rolle: 'r', auftrag: 'refine ' },
+      expect.any(Object)
+    );
+    expect(subMock).toHaveBeenNthCalledWith(
+      2,
+      { rolle: 'r', auftrag: 'refine A' },
+      expect.any(Object)
+    );
   });
 
   test('bricht bei gesetztem Abbruch-Signal ab, ohne zu synthetisieren', async () => {
@@ -211,10 +224,7 @@ describe('executeSteps', () => {
     expect(res.result).toBe('FINAL');
     // Schritt a wurde NICHT ausgeführt — nur b, und der sieht die ALTE Ausgabe als {{a}}.
     expect(subMock).toHaveBeenCalledTimes(1);
-    expect(subMock).toHaveBeenCalledWith(
-      { rolle: 'r2', auftrag: 'use ALT1' },
-      expect.any(Object)
-    );
+    expect(subMock).toHaveBeenCalledWith({ rolle: 'r2', auftrag: 'use ALT1' }, expect.any(Object));
     // Der übersprungene Schritt steht im Protokoll: gleiche Art/Name wie eine
     // echte Ausführung, Vermerk mit Quell-Lauf, Ausgabe aus dem Altlauf.
     expect(beginnen).toHaveBeenCalledWith({
@@ -235,7 +245,13 @@ describe('executeSteps', () => {
 
     const flow = {
       schritte: [
-        { name: 'w', typ: 'werkzeug', werkzeug: 'dateien_suchen', parameter: { q: 'x' }, iterationen: 1 },
+        {
+          name: 'w',
+          typ: 'werkzeug',
+          werkzeug: 'dateien_suchen',
+          parameter: { q: 'x' },
+          iterationen: 1,
+        },
       ],
       systemPrompt: 'B',
       grenzen,
@@ -339,9 +355,7 @@ describe('berechneVorabErgebnisse', () => {
       ]).get(0)
     ).toBe('I2');
     // Unvollständig: nur ein Eintrag → nichts übernehmen.
-    expect(
-      berechneVorabErgebnisse(mitIter, [alt('subagent', 'r', 'fertig', 'I1')]).size
-    ).toBe(0);
+    expect(berechneVorabErgebnisse(mitIter, [alt('subagent', 'r', 'fertig', 'I1')]).size).toBe(0);
   });
 
   test('ein im Altlauf bereits übernommener Schritt zählt als EIN Eintrag', () => {
@@ -544,13 +558,151 @@ describe('executeSteps mit wiederhole_ueber', () => {
       { name: 'c', typ: 'werkzeug', werkzeug: 'dateien_lesen', iterationen: 1 },
     ];
     const alt = [
-      { parent_step_id: null, kind: 'werkzeug', name: 'dateien_lesen', status: 'fertig', output: 'A' },
+      {
+        parent_step_id: null,
+        kind: 'werkzeug',
+        name: 'dateien_lesen',
+        status: 'fertig',
+        output: 'A',
+      },
       { parent_step_id: null, kind: 'subagent', name: 'r', status: 'fertig', output: 'B1' },
       { parent_step_id: null, kind: 'subagent', name: 'r', status: 'fertig', output: 'B2' },
-      { parent_step_id: null, kind: 'werkzeug', name: 'dateien_lesen', status: 'fertig', output: 'C' },
+      {
+        parent_step_id: null,
+        kind: 'werkzeug',
+        name: 'dateien_lesen',
+        status: 'fertig',
+        output: 'C',
+      },
     ];
     const vorab = berechneVorabErgebnisse(kette, alt);
     // Nur Schritt a wird übernommen — ab dem Listen-Schritt wird echt ausgeführt.
     expect([...vorab.entries()]).toEqual([[0, 'A']]);
+  });
+});
+
+describe('Erkennung: fehlende oder unsichere Felder legen eine Freigabe an (M5)', () => {
+  const flow = (extra = {}) => ({
+    schritte: [
+      {
+        name: 'lesen',
+        typ: 'subagent',
+        rolle: 'leser',
+        auftrag: 'Lies.',
+        faehigkeiten: { bild: true },
+        iterationen: 1,
+      },
+      { name: 'danach', typ: 'subagent', rolle: 'schreiber', auftrag: 'Schreib.', iterationen: 1 },
+    ],
+    systemPrompt: 'B',
+    grenzen,
+    ...extra,
+  });
+
+  const lauf = async (erkannt, flowDef = flow()) => {
+    const recordWerkzeug = jest.fn().mockResolvedValue('ok');
+    const sub = jest.fn(async (params, context) => {
+      if (params.rolle === 'leser' && context.onErgebnis) {
+        context.onErgebnis(erkannt);
+      }
+      return 'OUT';
+    });
+    await executeSteps({
+      flow: flowDef,
+      werte: {},
+      userInput: 'UI',
+      model: 'm',
+      context: {},
+      makeTools: () => [],
+      runLoop: jest.fn().mockResolvedValue({ result: 'F' }),
+      recordWerkzeug,
+      SubagentToolClass: makeFakeSubagent(sub),
+    });
+    return { recordWerkzeug, sub };
+  };
+
+  test('ein leeres Feld: Freigabe mit Grund, Schritt danach läuft erst nach ihr', async () => {
+    const { recordWerkzeug } = await lauf({
+      felder: { betrag: '12,50', datum: '' },
+      json: true,
+      unsicher: [],
+    });
+    expect(recordWerkzeug).toHaveBeenCalledTimes(1);
+    const arg = recordWerkzeug.mock.calls[0][0];
+    expect(arg.werkzeug).toBe('freigabe_anfordern');
+    expect(arg.params.titel).toBe('Erkennung unsicher: Feld datum');
+    expect(arg.params.automatisch).toBe(true);
+    expect(arg.fortsetzung).toEqual({ schritt: 0, name: 'lesen' });
+  });
+
+  test('ein als unsicher gemeldetes Feld zählt wie ein fehlendes', async () => {
+    const { recordWerkzeug } = await lauf(
+      { felder: { betrag: '12,50', datum: '01.10.' }, json: true, unsicher: ['betrag'] },
+      flow({ stufen: [{ name: 'pruefung' }, { name: 'leitung' }] })
+    );
+    const arg = recordWerkzeug.mock.calls[0][0];
+    expect(arg.params.titel).toBe('Erkennung unsicher: Feld betrag');
+    expect(arg.params.stufe).toBe('pruefung');
+  });
+
+  test('alles erkannt: keine Freigabe', async () => {
+    const { recordWerkzeug } = await lauf({
+      felder: { betrag: '12,50', datum: '01.10.' },
+      json: true,
+      unsicher: [],
+    });
+    expect(recordWerkzeug).not.toHaveBeenCalled();
+  });
+
+  test('kein JSON zurück: jedes Feld gilt als unsicher', () => {
+    const befund = erkennungsBefund({ felder: { a: 'x', b: '' }, json: false, unsicher: [] });
+    expect(befund).toEqual({ fehlend: [], unsicher: ['a', 'b'] });
+    expect(erkennungsTitel(befund)).toBe('Erkennung unsicher: Felder a, b');
+  });
+
+  test('ein Schritt ohne Bild (erzeugend) fragt nie nach der Erkennung', async () => {
+    const recordWerkzeug = jest.fn();
+    const sub = jest.fn(async (_p, context) => {
+      expect(context.onErgebnis).toBeUndefined();
+      return 'Text';
+    });
+    await executeSteps({
+      flow: {
+        schritte: [{ name: 'schreiben', typ: 'subagent', rolle: 'autor', auftrag: 'x' }],
+        systemPrompt: 'B',
+        grenzen,
+      },
+      werte: {},
+      userInput: 'UI',
+      model: 'm',
+      context: {},
+      makeTools: () => [],
+      runLoop: jest.fn().mockResolvedValue({ result: 'F' }),
+      recordWerkzeug,
+      SubagentToolClass: makeFakeSubagent(sub),
+    });
+    expect(recordWerkzeug).not.toHaveBeenCalled();
+  });
+
+  test('die Freigabe steht nicht in der Kette: die Wiederaufnahme überspringt sie', () => {
+    const kette = [
+      { name: 'lesen', typ: 'subagent', rolle: 'leser' },
+      { name: 'danach', typ: 'subagent', rolle: 'schreiber' },
+    ];
+    const vorab = berechneVorabErgebnisse(kette, [
+      { kind: 'subagent', name: 'leser', status: 'fertig', output: 'A' },
+      {
+        kind: 'werkzeug',
+        name: 'freigabe_anfordern',
+        status: 'fertig',
+        input: { automatisch: true },
+        output: 'erteilt',
+      },
+      { kind: 'subagent', name: 'schreiber', status: 'fertig', output: 'B' },
+    ]);
+    expect([...vorab.entries()]).toEqual([
+      [0, 'A'],
+      [1, 'B'],
+    ]);
   });
 });

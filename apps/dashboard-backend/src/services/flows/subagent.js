@@ -180,7 +180,11 @@ class SubagentTool extends BaseTool {
         `NIEMALS nur als Antwort-Text zurück. Antworte am Ende mit einem kurzen Bericht ` +
         `(1-3 Sätze): welche Dateien du geschrieben oder geändert hast.`
       : `\n\nAntworte AM ENDE ausschließlich mit einem JSON-Objekt mit genau diesen Feldern: ` +
-        `${felder.join(', ')}. Kein Text davor oder danach, keine weiteren Felder.`;
+        `${felder.join(', ')}. Kein Text davor oder danach, keine weiteren Felder.` +
+        (context.erkennend
+          ? ` Ein Feld, das du nicht sicher lesen kannst, lässt du leer; ein Feld, bei dem du ` +
+            `unsicher bist, nennst du zusätzlich in "unsicher" (Liste der Feldnamen).`
+          : '');
 
     // Thinking (Interview 2026-07-30): Wenn der Aufrufer es wünscht
     // (Chat-Agent setzt denkenSubagenten) und das Rollen-Modell denken kann,
@@ -402,7 +406,17 @@ class SubagentTool extends BaseTool {
 
     // Der Vertrag wird gegen den SCHLUSS-Text geprüft (dort steht das JSON), nicht
     // gegen den Werkzeug-Verlauf.
-    const { text, felder: felderObj } = enforceContract(schlussText, rolle.ergebnis);
+    const {
+      text,
+      felder: felderObj,
+      json,
+      unsicher,
+    } = enforceContract(schlussText, rolle.ergebnis);
+    // Wer erkennt (M5), bekommt die Felder mit: der Executor legt bei fehlender
+    // oder unsicherer Erkennung eine Freigabe an.
+    if (typeof context.onErgebnis === 'function') {
+      context.onErgebnis({ felder: felderObj, json, unsicher });
+    }
 
     // Rohdaten INS PROTOKOLL, nicht in die Antwort: Der Schritt hält beide
     // Seiten fest — das Verdichtete (output) und das Rohe (raw_output).
