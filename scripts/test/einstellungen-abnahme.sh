@@ -92,7 +92,13 @@ login() {
 
 ADMIN_TOK=""
 THEME_ALT=""
+MA_TOK=""
+MA_THEME_ALT=""
 aufraeumen() {
+  if [ -n "$MA_TOK" ] && [ -n "$MA_THEME_ALT" ]; then
+    api "$MA_TOK" PUT /api/darstellung "{\"theme\":\"$MA_THEME_ALT\"}" > /dev/null
+    echo "       aufgeraeumt: Erscheinungsbild von $MA wieder $MA_THEME_ALT ($(code))"
+  fi
   if [ -n "$ADMIN_TOK" ] && [ -n "$THEME_ALT" ]; then
     api "$ADMIN_TOK" PUT /api/darstellung "{\"theme\":\"$THEME_ALT\"}" > /dev/null
     echo "       aufgeraeumt: Erscheinungsbild von probe-admin wieder $THEME_ALT ($(code))"
@@ -163,6 +169,7 @@ if [ -n "$MA" ] && [ -n "$MA_PW" ]; then
   MA_TOK=$(login "$MA" "$MA_PW" | feld token)
   if [ -n "$MA_TOK" ]; then
     pruefe "$MA meldet sich an" ja
+    MA_THEME_ALT=$(api "$MA_TOK" GET /api/auth/me | feld user.theme)
     liste_pruefen "$MA" "$MA_TOK"
     api "$MA_TOK" PUT /api/darstellung '{"theme":"system"}' > /dev/null
     pruefe "$MA darf sein Erscheinungsbild setzen (200)" "$(ja "$(code)" 200)" "HTTP $(code)"
@@ -179,7 +186,7 @@ fi
 BUENDEL=$(python3 "$(dirname "${BASH_SOURCE[0]}")/einstellungen_buendel.py" "$URL")
 tauchtauf() { grep -qF -- "$1" <<<"$BUENDEL" && echo ja || echo nein; }
 pruefe "Oberflaeche nennt „Angemeldete Rechner\"" "$(tauchtauf 'Angemeldete Rechner')"
-for weg in 'Meine Ausweise' 'Mein Profil' 'Einstellungen verwaltet Ihr Administrator' 'Name des Rechners'; do
+for weg in 'Meine Ausweise' 'Mein Profil' 'Einstellungen verwaltet Ihr Administrator' 'Name des Rechners' 'Passwort vergessen'; do
   pruefe "Oberflaeche kennt „$weg\" nicht mehr" "$([ "$(tauchtauf "$weg")" = nein ] && echo ja || echo nein)"
 done
 
