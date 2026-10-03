@@ -371,7 +371,7 @@ pruefe "Image legt staende.sh ab" "$(ja grep -q 'staende.sh /usr/local/bin/staen
 # mit -- der Test fand seinen eigenen Abzug nicht, der Bericht blieb leer, und
 # der Healthcheck haette den Dienst rot gefaerbt.
 pruefe "restore-drill.sh: cleanup (laeuft auch vorher) laesst den Stand stehen" \
-  "$(ja bash -c "! sed -n '/^cleanup() {/,/^}/p' '$DIENST/restore-drill.sh' | grep -q DRILL_STAGE")"
+  "$(ja bash -c "! grep -q DRILL_STAGE <<<\"\$(sed -n '/^cleanup() {/,/^}/p' '$DIENST/restore-drill.sh')\"")"
 pruefe "backup.sh schreibt kein tar mehr je Nacht" "$(ja bash -c "! grep -qE '^[^#]*tar -c' '$DIENST/backup.sh'")"
 pruefe "backup.sh loescht keine Tagesordner mehr" \
   "$(ja bash -c "! grep -qE '^[^#]*find /backups/(postgres|apps|flows|config|firmenordner|wal-archive)[^|]*-delete' '$DIENST/backup.sh'")"
