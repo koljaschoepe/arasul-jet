@@ -48,6 +48,16 @@ Was geprueft wird
    Schrift auf dem vollen Knopf (Auftrag marken-liste-auswahl-und-kontrast,
    26.09.2026). Das Audit des Kit-Geruests fand Blau bei 3,2:1 und Rot bei
    3,5:1 auf dem hellen Grund, und jede App erbt diese Werte.
+10. Was ins offene Ara-Kit gespiegelt wird, spricht nicht von innen: `src/`
+   (ohne `__tests__/`) und `EINBAU.md`. In keinem Kommentar dort steht ein
+   Kundenname, eine Phase (`Phase H3`, `H3`), ein Plan (`Plan 023`), ein
+   Auftrag oder eine Auftragsnummer (`J35`, `M5`), eine Person oder der
+   Ueberordner, und kein Gedankenstrich als Trenner (`—`, `–`, ` -- `).
+   Kundenname, Person und Ueberordner duerfen auch im Code nicht stehen. In
+   `EINBAU.md` gilt dasselbe fuer den ganzen Text, der Trenner ist dort der
+   Geviertstrich zwischen zwei Woertern. Gemeldet wird Datei:Zeile, denn der
+   Spiegel nimmt die Dateien, wie sie sind: was hier steht, liest die
+   Oeffentlichkeit.
 
 Warum Punkt 5 (Phase H2, 29.08.2026)
 ------------------------------------
@@ -426,6 +436,125 @@ def kontrast_pruefen(wurzel: Path) -> list[str]:
     return befunde
 
 
+# Punkt 10. Was gemeldet wird, wenn es in einem Kommentar steht. Die
+# Kennungen sind die Zaehlweisen des internen Plans: Phase (`Phase H3`, aber
+# auch nackt `H3`), Plan (`Plan 023`), Auftrag und Auftragsnummer (`J35`,
+# `M5`), Abnahme (`A3`). Die nackte Kennung ist eng gefasst (ein
+# Grossbuchstabe aus den benutzten Reihen, eine oder zwei Ziffern, ringsum
+# kein Wortzeichen), damit `h1`, `x2` oder `@2x` nicht anschlagen.
+INTERN_IM_KOMMENTAR = re.compile(
+    r"\bPhase [A-Z]\d\b|\bPlan \d{3}\b|\b[A-HJM]\d{1,2}\b|\bAuftrag|"
+    r"\bEntscheidung vom\b"
+)
+# Was nirgends stehen darf, auch nicht im Code: der Kunde, die Person, der
+# Ueberordner.
+INTERN_UEBERALL = re.compile(r"\bFaktum\b|\bKolja\b|Ueberordner|Überordner")
+# Ein Gedankenstrich als Trenner. Der Halbgeviertstrich zwischen zwei Ziffern
+# (`2024–2026`) ist ein Bereich und kein Trenner; ` -- ` mit Leerraum auf
+# beiden Seiten ist der Trenner in ASCII, `--primary` ist ein Token.
+TRENNER_IM_KOMMENTAR = re.compile(r"—|(?<!\d)–|–(?!\d)|(?:^|\s)--(?:\s|$)")
+TRENNER_IN_PROSA = re.compile(r"\w[\s»«„\"')\]*]*—|—[\s»«„\"'(\[*]*\w")
+
+
+def kommentare(text: str, css: bool) -> list[tuple[int, str]]:
+    """Jede Zeile Kommentar mit ihrer Nummer, Zeichenketten bleiben draussen.
+
+    Ein kleiner Handparser wie in `gedankenstriche.py`: er muss nur wissen,
+    dass ein `//` in einer Zeichenkette kein Kommentar ist. In CSS gibt es
+    nur `/* */`, und ein `//` steht dort in jeder URL. Eine Zeichenkette in
+    `'` oder `"` endet spaetestens am Zeilenende, damit ein Schraegstrich in
+    einem regulaeren Ausdruck nicht den Rest der Datei verschluckt.
+    """
+    stuecke: dict[int, list[str]] = {}
+    nr, i, n = 1, 0, len(text)
+    zustand = "code"
+    while i < n:
+        c = text[i]
+        zwei = text[i : i + 2]
+        if c == "\n":
+            nr += 1
+            if zustand in ("zeile", "'", '"'):
+                zustand = "code"
+            i += 1
+            continue
+        if zustand == "code":
+            if zwei == "/*":
+                zustand, i = "block", i + 2
+                continue
+            if not css and zwei == "//":
+                zustand, i = "zeile", i + 2
+                continue
+            if c in "'\"" or (c == "`" and not css):
+                zustand = c
+            i += 1
+            continue
+        if zustand == "block":
+            if zwei == "*/":
+                zustand, i = "code", i + 2
+                continue
+            stuecke.setdefault(nr, []).append(c)
+            i += 1
+            continue
+        if zustand == "zeile":
+            stuecke.setdefault(nr, []).append(c)
+            i += 1
+            continue
+        # In einer Zeichenkette.
+        if c == "\\":
+            i += 2
+            continue
+        if c == zustand:
+            zustand = "code"
+        i += 1
+    return [(z, "".join(t)) for z, t in sorted(stuecke.items())]
+
+
+def spiegel_pruefen(ordner: Path) -> list[str]:
+    """Punkt 10: was ins offene Ara-Kit geht, spricht nicht von innen.
+
+    `src/` und `EINBAU.md` werden in das oeffentliche Ara-Kit gespiegelt. Ein
+    Kommentar, der erklaert, WARUM ein Baustein so ist, gehoert dazu; einer,
+    der sagt, in welcher Phase, fuer welchen Kunden oder auf wessen
+    Entscheidung, erzaehlt dort von einem Plan, den niemand lesen kann, und
+    von Kunden, die es nichts angeht. Der technische Grund bleibt, die
+    Herkunft geht.
+    """
+    befunde: list[str] = []
+    quelle = ordner / "src"
+    dateien = sorted(
+        d
+        for endung in ("*.ts", "*.tsx", "*.css")
+        for d in quelle.rglob(endung)
+        if "__tests__" not in d.parts
+    )
+    for datei in dateien:
+        text = datei.read_text(encoding="utf-8")
+        name = datei.relative_to(ordner)
+        for nr, zeile in enumerate(text.splitlines(), 1):
+            for treffer in INTERN_UEBERALL.findall(zeile):
+                befunde.append(f"{name}:{nr} nennt `{treffer}` -- das geht ins offene Ara-Kit")
+        for nr, kommentar in kommentare(text, css=datei.suffix == ".css"):
+            for treffer in INTERN_IM_KOMMENTAR.findall(kommentar):
+                befunde.append(
+                    f"{name}:{nr} verweist im Kommentar auf `{treffer}` -- "
+                    "der Grund bleibt, die Herkunft geht"
+                )
+            if TRENNER_IM_KOMMENTAR.search(kommentar):
+                befunde.append(
+                    f"{name}:{nr} trennt im Kommentar mit einem Gedankenstrich -- "
+                    "Komma, Doppelpunkt, Punkt oder Klammer"
+                )
+    einbau = ordner / "EINBAU.md"
+    if einbau.is_file():
+        for nr, zeile in enumerate(einbau.read_text(encoding="utf-8").splitlines(), 1):
+            for muster in (INTERN_UEBERALL, INTERN_IM_KOMMENTAR):
+                for treffer in muster.findall(zeile):
+                    befunde.append(f"EINBAU.md:{nr} verweist auf `{treffer}` -- das geht ins offene Ara-Kit")
+            if TRENNER_IN_PROSA.search(zeile):
+                befunde.append(f"EINBAU.md:{nr} trennt mit einem Gedankenstrich")
+    return befunde
+
+
 def beispielapp_pruefen(wurzel: Path, fassung: str | None) -> list[str]:
     """Punkt 8: das Manifest der Beispielapp nennt die Fassung, die sie bekommt.
 
@@ -544,6 +673,9 @@ def main() -> int:
     # 9. Text in Farbe haelt 4,5:1 im hellen Thema.
     befunde.extend(kontrast_pruefen(wurzel))
 
+    # 10. Was ins offene Ara-Kit geht, spricht nicht von innen.
+    befunde.extend(spiegel_pruefen(ordner))
+
     primitive = sorted((quelle / "primitive").glob("*.tsx"))
     muster = sorted((quelle / "muster").glob("*.tsx"))
     print("")
@@ -559,7 +691,7 @@ def main() -> int:
             print(f"  FAIL  {b}")
         print("\n  RESULT: FAILED")
         return 1
-    print("  PASS  Buendel, Fassung, Klassen, Grenzen, Rueckfaelle, Farben, Namen und Kontrast stimmen")
+    print("  PASS  Buendel, Fassung, Klassen, Grenzen, Rueckfaelle, Farben, Namen, Kontrast und Spiegel stimmen")
     print("\n  RESULT: PASSED")
     return 0
 

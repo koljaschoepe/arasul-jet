@@ -28,7 +28,7 @@
  *   einspielen   Wegwerf-Schlüssel mit `app:deploy`, Paket ohne Bibliothek
  *                hinein, live schalten, Schlüssel widerrufen, die App
  *                `probe-admin` freigeben.
- *   messen       1 bis 4 oben, Bilder nach docs/plans/audits/<tag>-marken-laufzeit-m5/.
+ *   messen       1 bis 4 oben, Bilder nach docs/plans/audits/<tag>-marken-laufzeit-m5/<fassung>/.
  *   entfernen    die App samt Dateien weg (nur die eigene Kennung).
  *   lokal        ohne Gerät: ein Server hier mit der CSP des Geräts aus
  *                `config/traefik/dynamic/middlewares.yml`, die Bibliothek aus
@@ -208,6 +208,19 @@ async function probePruefen({ seite, rahmen, stand, theme, flaeche, bild }) {
     (await leiste.getAttribute('data-state')) === 'offen' && breiteOffen > 200,
     `${Math.round(breiteOffen)} px`
   );
+  const zahl = await rahmen.evaluate(() => {
+    const abzeichen = document.querySelector('[data-sidebar="menu-badge"]');
+    const knopf = abzeichen?.parentElement?.querySelector('[data-sidebar="menu-button"]');
+    if (!abzeichen || !knopf) return null;
+    const a = abzeichen.getBoundingClientRect();
+    const k = knopf.getBoundingClientRect();
+    return Math.round(a.top + a.height / 2 - (k.top + k.height / 2));
+  });
+  pruefe(
+    `[${theme}] die Zahl am Eintrag steht in seiner Zeile`,
+    zahl !== null && Math.abs(zahl) <= 4,
+    `Mitte ${zahl} px neben der des Eintrags`
+  );
   if (bild) await seite.screenshot({ path: path.join(ZIEL, `${bild}-offen.png`) });
 
   await rahmen.locator('[data-testid="probe-umschalten"]').click();
@@ -221,6 +234,39 @@ async function probePruefen({ seite, rahmen, stand, theme, flaeche, bild }) {
     `[${theme}] zugeklappt bleiben nur die Symbole`,
     (await leiste.getAttribute('data-state')) === 'zu' && breiteZu > 0 && breiteZu < 80,
     `${Math.round(breiteZu)} px`
+  );
+  // Gemessen am TEXT, nicht an den Kaesten: ein Wort ragt ueber den Rand
+  // seines Kastens hinaus, ohne dass der Kasten es tut. Es zaehlt, was rechts
+  // ueber die Leiste reicht und von keinem Vorfahren abgeschnitten wird.
+  const ueberstand = await rahmen.evaluate(() => {
+    const behaelter = document.querySelector('[data-slot="sidebar-container"]');
+    const rand = behaelter.getBoundingClientRect().right;
+    const gang = document.createTreeWalker(behaelter, NodeFilter.SHOW_TEXT);
+    const funde = [];
+    for (let knoten = gang.nextNode(); knoten; knoten = gang.nextNode()) {
+      if (!knoten.textContent.trim()) continue;
+      const bereich = document.createRange();
+      bereich.selectNodeContents(knoten);
+      const r = bereich.getBoundingClientRect();
+      if (!r.width || r.right <= rand + 1) continue;
+      let geschnitten = false;
+      for (let e = knoten.parentElement; e && e !== behaelter.parentElement; e = e.parentElement) {
+        const stil = getComputedStyle(e);
+        if (stil.display === 'none' || stil.visibility === 'hidden') geschnitten = true;
+        if (stil.overflowX !== 'visible' && e.getBoundingClientRect().right <= rand + 1) {
+          geschnitten = true;
+        }
+        // Text nur fuer Screenreader (`sr-only`) ist auf einen Pixel geschnitten.
+        if (e.classList.contains('sr-only')) geschnitten = true;
+      }
+      if (!geschnitten) funde.push(knoten.textContent.trim());
+    }
+    return funde;
+  });
+  pruefe(
+    `[${theme}] zugeklappt ragt nichts über den Inhalt`,
+    ueberstand.length === 0,
+    ueberstand.join(', ') || 'nichts'
   );
   if (bild) await seite.screenshot({ path: path.join(ZIEL, `${bild}-zu.png`) });
   await rahmen.locator('[data-testid="probe-umschalten"]').click();
@@ -310,7 +356,28 @@ async function anmelden() {
   const r = await api.post('/api/auth/login', { data: { username: BENUTZER, password: PASSWORT } });
   if (!r.ok()) throw new Error(`Anmeldung ${BENUTZER}: HTTP ${r.status()}`);
   const token = (await r.json()).token;
-  return { api, token, kopf: { authorization: `Bearer ${token}` } };
+  // Das Sitzungscookie steht im Kontext, also prueft das Geraet bei jedem
+  // schreibenden Aufruf das CSRF-Token. Es wechselt nach einer Aenderung:
+  // je Anfrage frisch aus dem Cookie lesen.
+  const kopf = {
+    authorization: `Bearer ${token}`,
+    get 'X-CSRF-Token'() {
+      return csrf;
+    },
+  };
+  let csrf = '';
+  const auffrischen = async () => {
+    csrf = (await api.storageState()).cookies.find(c => c.name === 'arasul_csrf')?.value || '';
+  };
+  await auffrischen();
+  for (const verb of ['post', 'put', 'delete']) {
+    const ursprung = api[verb].bind(api);
+    api[verb] = async (...argumente) => {
+      await auffrischen();
+      return ursprung(...argumente);
+    };
+  }
+  return { api, token, kopf };
 }
 
 async function einspielen({ api, kopf }) {
@@ -322,6 +389,8 @@ async function einspielen({ api, kopf }) {
   if (!pruefe('Wegwerf-Schlüssel mit app:deploy', schluessel?.api_key, `HTTP ${neu.status()}`))
     return;
   const mitSchluessel = { 'x-api-key': schluessel.api_key };
+  // Ein eigener Kontext ohne Sitzungscookie: so ruft das Kit, nur mit Schluessel.
+  const kit = await request.newContext({ baseURL: URL, ignoreHTTPSErrors: true });
 
   const arbeit = fs.mkdtempSync(path.join(os.tmpdir(), 'marken-laufzeit-'));
   try {
@@ -343,7 +412,7 @@ async function einspielen({ api, kopf }) {
       inhalt.filter(d => !d.endsWith('/')).join(' ')
     );
 
-    const r = await api.post('/api/v1/external/apps', {
+    const r = await kit.post('/api/v1/external/apps', {
       headers: mitSchluessel,
       multipart: {
         paket: { name: 'paket.tgz', mimeType: 'application/gzip', buffer: fs.readFileSync(archiv) },
@@ -356,12 +425,13 @@ async function einspielen({ api, kopf }) {
       r.status() === 201,
       `HTTP ${r.status()} ${r.ok() ? '' : (await r.text()).slice(0, 200)}`
     );
-    const live = await api.post(`/api/v1/external/apps/${APP}/schalten`, {
+    const live = await kit.post(`/api/v1/external/apps/${APP}/schalten`, {
       headers: mitSchluessel,
       data: { ziel: 'live' },
     });
     pruefe('live geschaltet', live.ok(), `HTTP ${live.status()}`);
   } finally {
+    await kit.dispose();
     fs.rmSync(arbeit, { recursive: true, force: true });
     const weg = await api.delete(`/api/v1/external/api-keys/${schluessel.key_id}`, {
       headers: kopf,
@@ -392,6 +462,7 @@ async function themeLesen({ api, kopf }) {
 
 async function messenAmGeraet(anmeldung, stand) {
   const { api, kopf } = anmeldung;
+  fs.mkdirSync(path.join(ZIEL, stand.fassung), { recursive: true });
   const vorher = await themeLesen(anmeldung);
   const browser = await chromium.launch();
   const kontext = await browser.newContext({
@@ -421,7 +492,7 @@ async function messenAmGeraet(anmeldung, stand) {
         stand,
         theme,
         flaeche: farben[theme],
-        bild: `${theme}-1440`,
+        bild: `${stand.fassung}/${theme}-1440`,
       });
     }
   } finally {
@@ -517,7 +588,6 @@ if (LOKAL) {
     console.log(`ROT    Passwort für ${BENUTZER} fehlt: ARASUL_ADMIN_PW aus Bitwarden setzen.`);
     process.exit(1);
   }
-  fs.mkdirSync(ZIEL, { recursive: true });
   const anmeldung = await anmelden();
   try {
     const stand = await auslieferungPruefen(anmeldung.api);
