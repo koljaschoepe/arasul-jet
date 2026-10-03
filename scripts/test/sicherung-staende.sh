@@ -270,32 +270,36 @@ echo "weg" >"$WQ/geloescht.txt"
 baum_abdruck "$WQ" | grep -v 'geloescht.txt' >"$TMP/waehrend.sha"
 WREPO="$TMP/ziel-waehrend/staende-w"
 stand_anlegen "$WREPO" "$S"
+# Der Schreiber laeuft, bis der Lauf vorbei ist (Merker `halt`), nicht eine
+# feste Zahl Dateien lang: auf einem schnellen Rechner (der CI) war er sonst
+# fertig, bevor restic zu lesen begann, und der Fall nicht hergestellt.
 (
   mkdir -p "$WQ/wegwerf"
-  for n in $(seq 1 1500); do
+  n=0
+  while [ ! -e "$TMP/halt" ] && [ "$n" -lt 50000 ]; do
+    n=$((n + 1))
     head -c 2048 /dev/urandom >"$WQ/wegwerf/neu$n.bin"
     [ "$n" = 300 ] && rm -f "$WQ/geloescht.txt"
+    sleep 0.002
   done
 ) &
 SCHREIBER=$!
-sleep 0.2
+until [ -e "$WQ/wegwerf/neu400.bin" ]; do sleep 0.05; done
 stand_sichern "$WREPO" "$S" "$WQ" >"$TMP/waehrend.log" 2>&1
 WRC=$?
 SCHREIBT_NOCH=nein
 kill -0 "$SCHREIBER" 2>/dev/null && SCHREIBT_NOCH=ja
+touch "$TMP/halt"
 wait "$SCHREIBER" 2>/dev/null
 SCHREIBER=""
 pruefe "der Stand steht, obwohl waehrenddessen geschrieben wird" "$(ja [ "$WRC" = 0 ] && [ -n "$STAND_ID" ])" "rc ${WRC}, restic ${STAND_RC}"
 stand_zurueckholen "$WREPO" "$S" "$STAND_ID" "$TMP/waehrend-zurueck" >/dev/null 2>&1
 # Ist der Fall hergestellt? Ja, wenn der Schreiber nach dem Lauf noch schrieb
-# (er begann davor), oder wenn im Stand ein Teil, aber nicht alles von ihm
-# steht. Sonst misst dieser Abschnitt nichts und muss das sagen.
+# (er begann davor). Sonst misst dieser Abschnitt nichts und muss das sagen.
 IM_STAND=$(find "$TMP/waehrend-zurueck$WQ/wegwerf" -type f 2>/dev/null | wc -l | tr -d ' ')
-if [ "$SCHREIBT_NOCH" = ja ] || { [ "$IM_STAND" -gt 0 ] && [ "$IM_STAND" -lt 1500 ]; }; then
-  pruefe "der Fall ist hergestellt: geschrieben wurde waehrend des Laufs" ja "danach noch ${SCHREIBT_NOCH}, im Stand ${IM_STAND} von 1500"
-else
-  pruefe "der Fall ist hergestellt: geschrieben wurde waehrend des Laufs" nein "im Stand ${IM_STAND} von 1500"
-fi
+GESCHRIEBEN=$(find "$WQ/wegwerf" -type f | wc -l | tr -d ' ')
+pruefe "der Fall ist hergestellt: geschrieben wurde waehrend des Laufs" "$SCHREIBT_NOCH" \
+  "im Stand ${IM_STAND} von ${GESCHRIEBEN} geschriebenen"
 if (cd "$TMP/waehrend-zurueck$WQ" 2>/dev/null && sha256sum --quiet -c "$TMP/waehrend.sha") >/dev/null 2>&1; then
   pruefe "jede Datei von vorher kommt Byte fuer Byte zurueck" ja "$(wc -l <"$TMP/waehrend.sha")"
 else
