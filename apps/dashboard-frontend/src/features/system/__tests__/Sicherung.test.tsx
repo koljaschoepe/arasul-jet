@@ -11,7 +11,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Sicherung } from '../sicherung/Sicherung';
-import type { SicherungStatus, Sicherungsdatei } from '../sicherung/useSicherung';
+import type { SicherungStatus, Sicherungsdatei, Stand } from '../sicherung/useSicherung';
+import { standInWorten } from '../sicherung/standInWorten';
 
 /**
  * Derselbe Zeitpunkt, wie ihn der Mensch vor dem Bildschirm liest.
@@ -124,14 +125,62 @@ function mitTraeger(extra: Partial<SicherungStatus['ausserhalb']> = {}): Sicheru
   };
 }
 
+/** Zwei Stände von diesem Gerät: gestern Nacht und vor drei Tagen, dazu einer davor. */
+const TAG = 86_400_000;
+const nachts = (vorTagen: number) => {
+  const d = new Date(Date.now() - vorTagen * TAG);
+  d.setHours(2, 0, 0, 0);
+  return d.toISOString();
+};
+const STAENDE: Stand[] = [
+  {
+    id: 'cccc3333a1b2c3d4',
+    zeitpunkt: new Date(Date.now() - 60_000).toISOString(),
+    vorher: true,
+    fuer: { art: 'bereich', id: 'projekte' },
+    geschrieben: 1_000,
+    inhaltBekannt: true,
+    apps: [{ id: 'belege', name: 'Belege' }],
+    appDatenbanken: ['arasul_app_belege_live'],
+    bereiche: [{ kennung: 'projekte', name: 'Projekte', vorhanden: true }],
+  },
+  {
+    id: 'bbbb2222a1b2c3d4',
+    zeitpunkt: nachts(1),
+    vorher: false,
+    fuer: null,
+    geschrieben: 2_200_000,
+    inhaltBekannt: true,
+    apps: [{ id: 'belege', name: 'Belege' }],
+    appDatenbanken: ['arasul_app_belege_live'],
+    bereiche: [
+      { kennung: 'projekte', name: 'Projekte', vorhanden: true },
+      { kennung: 'alt', name: null, vorhanden: false },
+    ],
+  },
+  {
+    id: 'aaaa1111a1b2c3d4',
+    zeitpunkt: nachts(3),
+    vorher: false,
+    fuer: null,
+    geschrieben: 415_000_000,
+    inhaltBekannt: true,
+    apps: [],
+    appDatenbanken: [],
+    bereiche: [{ kennung: 'projekte', name: 'Projekte', vorhanden: true }],
+  },
+];
+
 function antworte(
   status = STATUS,
   dateien: Sicherungsdatei[] = [DATEI],
-  inhalt: object = KEIN_INHALT
+  inhalt: object = KEIN_INHALT,
+  staende: Stand[] = STAENDE
 ) {
   apiMock.get.mockImplementation(async (pfad: string) => {
     if (pfad === '/backup/status') return { data: status };
     if (pfad === '/backup/extern/inhalt') return { data: inhalt };
+    if (pfad.startsWith('/backup/staende')) return { data: staende };
     if (pfad === '/backup/sicherungen')
       return {
         data: dateien,
@@ -148,10 +197,25 @@ describe('Sicherung', () => {
     vi.clearAllMocks();
   });
 
-  it('zeigt die Liste mit Datum und Groesse', async () => {
+  it('nennt die Staende in Worten, ohne Kennung', async () => {
     antworte();
     render(<Sicherung />, { wrapper: huelle() });
 
+    const liste = await screen.findByTestId('staende-liste');
+    expect(liste.textContent).toContain(`Gestern, 2:00 Uhr`);
+    expect(liste.textContent).toContain(standInWorten(STAENDE[2]!.zeitpunkt));
+    expect(screen.getByTestId('stand-cccc3333').textContent).toContain(
+      'vor dem Zurückholen des Bereichs „Projekte“'
+    );
+    expect(liste.textContent).not.toMatch(/[0-9a-f]{8}/);
+  });
+
+  it('zeigt die Dateien mit Datum und Groesse unter den technischen Angaben', async () => {
+    antworte();
+    render(<Sicherung />, { wrapper: huelle() });
+
+    expect(screen.queryByTestId(`sicherung-${DATEI.name}`)).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('sicherung-technik-knopf'));
     const zeile = await screen.findByTestId(`sicherung-${DATEI.name}`);
     expect(zeile.textContent).toContain(wieAngezeigt(DATEI.zeitpunkt));
     expect(zeile.textContent).toContain('5,2 GB');
@@ -187,6 +251,7 @@ describe('Sicherung', () => {
     );
     render(<Sicherung />, { wrapper: huelle() });
 
+    fireEvent.click(await screen.findByTestId('sicherung-technik-knopf'));
     const zeile = await screen.findByTestId('sicherung-637755c9');
     expect(zeile.textContent).toContain('2 MB neu');
     expect(await screen.findByText(/2 Stände/)).toBeTruthy();
@@ -285,92 +350,117 @@ describe('Sicherung', () => {
     expect(screen.queryByTestId('sicherung-schluessel-warnung')).not.toBeInTheDocument();
   });
 
-  describe('Eine App zurueckholen', () => {
-    it('verlangt die Kennung, bevor etwas geschieht, und laesst den Bericht stehen', async () => {
-      antworte(mitTraeger(), [DATEI], INHALT);
+  describe('Zurueckholen', () => {
+    // Radix' Select braucht zwei Dinge, die jsdom nicht hat.
+    beforeEach(() => {
+      Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+      Element.prototype.releasePointerCapture = vi.fn();
+    });
+
+    async function waehle(zelle: string, eintrag: string) {
+      fireEvent.keyDown(await screen.findByTestId(zelle), { key: 'Enter' });
+      fireEvent.keyDown(await screen.findByTestId(`${zelle}-${eintrag}`), { key: 'Enter' });
+    }
+
+    it('einen Bereich: Stand in Worten, Passwort, der Stand davor im Bericht', async () => {
+      antworte();
       apiMock.post.mockResolvedValue({
         data: {
           erfolg: true,
-          app: 'belege',
-          quelle: 'extern',
+          bereich: { kennung: 'projekte', name: 'Projekte' },
+          stand: { id: STAENDE[1]!.id, zeitpunkt: STAENDE[1]!.zeitpunkt },
+          vorher: { erfolg: true, id: 'dddd', zeitpunkt: new Date().toISOString() },
+          zahlen: { geschrieben: 2, entfernt: 1, ordnerNeu: 0 },
           bericht: [
+            { schritt: 'vorher', erfolg: true, text: 'Der jetzige Stand ist vorher gesichert.' },
             {
-              schritt: 'datenbank',
-              stand: 'live',
+              schritt: 'bereich',
               erfolg: true,
-              text: 'Die Daten der App (Live) sind zurückgeholt.',
-            },
-            {
-              schritt: 'paket',
-              erfolg: false,
-              text: 'Das Paket der App ließ sich nicht zurückholen.',
+              text: 'Die Dateien des Bereichs „Projekte“ sind zurückgeholt: 2 Dateien zurückgeschrieben, 1 entfernt, die seitdem dazukamen.',
             },
           ],
         },
       });
       render(<Sicherung />, { wrapper: huelle() });
 
-      // Der Datentraeger ist vorgewaehlt, die App steht in der Liste.
-      fireEvent.click(await screen.findByTestId('app-zurueckholen-belege'));
-      expect((await screen.findByTestId('app-zurueckholen-text')).textContent).toContain(
-        'Stand vom'
+      fireEvent.click(await screen.findByTestId('zurueck-was-bereich'));
+      // Nur Bereiche, die es am Gerät noch gibt.
+      fireEvent.keyDown(await screen.findByTestId('zurueck-ziel'), { key: 'Enter' });
+      expect(await screen.findByTestId('zurueck-ziel-projekte')).toBeInTheDocument();
+      expect(screen.queryByTestId('zurueck-ziel-alt')).not.toBeInTheDocument();
+      fireEvent.keyDown(screen.getByTestId('zurueck-ziel-projekte'), { key: 'Enter' });
+
+      // Ohne Stand geht es nicht weiter.
+      expect(screen.getByTestId('zurueck-weiter')).toBeDisabled();
+      const gestern = await screen.findByTestId('zurueck-stand-bbbb2222');
+      expect(gestern.textContent).toContain('Gestern, 2:00 Uhr');
+      expect(gestern.textContent).not.toContain('bbbb2222');
+      fireEvent.click(gestern);
+      fireEvent.click(screen.getByTestId('zurueck-weiter'));
+
+      expect((await screen.findByTestId('zurueck-dialog-text')).textContent).toContain(
+        'Bereich „Projekte“ werden auf den Stand von Gestern, 2:00 Uhr zurückgeholt'
       );
-
-      const absenden = screen.getByTestId('app-zurueckholen-absenden');
+      const absenden = screen.getByTestId('zurueck-absenden');
       expect(absenden).toBeDisabled();
-      fireEvent.click(absenden);
-      fireEvent.change(screen.getByTestId('app-zurueckholen-kennung'), {
-        target: { value: 'beleg' },
-      });
-      expect(absenden).toBeDisabled();
-      expect(apiMock.post).not.toHaveBeenCalled();
-
-      fireEvent.change(screen.getByTestId('app-zurueckholen-kennung'), {
-        target: { value: 'belege' },
-      });
+      fireEvent.change(screen.getByTestId('zurueck-passwort'), { target: { value: 'geheim' } });
       expect(absenden).toBeEnabled();
       fireEvent.click(absenden);
 
-      const bericht = await screen.findByTestId('app-zurueck-bericht');
-      expect(bericht.textContent).toContain('Die Daten der App (Live) sind zurückgeholt.');
-      expect(bericht.textContent).toContain('Das Paket der App ließ sich nicht zurückholen.');
+      const bericht = await screen.findByTestId('zurueck-bericht');
+      expect(bericht.textContent).toContain('Der Bereich „Projekte“ ist auf den Stand von Gestern');
+      expect(bericht.textContent).toContain('2 Dateien zurückgeschrieben, 1 entfernt');
+      expect(screen.getByTestId('zurueck-rueckgaengig').textContent).toMatch(
+        /Rückgängig machen: Wählen Sie den Stand „Heute, /
+      );
       expect(apiMock.post).toHaveBeenCalledWith(
-        '/backup/wiederherstellung/app/belege',
-        { bestaetigung: 'belege', quelle: 'extern', paket: true },
+        '/backup/wiederherstellung/bereich/projekte',
+        { passwort: 'geheim', stand_id: STAENDE[1]!.id, quelle: 'lokal' },
         expect.objectContaining({ showError: false })
       );
     });
 
-    it('schickt den Wiederherstellungscode mit, wenn er eingegeben wurde', async () => {
-      antworte(mitTraeger(), [DATEI], INHALT);
-      apiMock.post.mockResolvedValue({
-        data: { erfolg: true, app: 'belege', quelle: 'extern', bericht: [] },
-      });
+    it('eine App: nur die Staende, in denen sie steht; ein falsches Passwort steht im Dialog', async () => {
+      antworte();
+      apiMock.post.mockRejectedValueOnce(
+        Object.assign(
+          new Error(
+            'Das Passwort stimmt nicht. Geben Sie das Passwort ein, mit dem Sie sich anmelden.'
+          ),
+          { status: 403, code: 'PASSWORT_FALSCH' }
+        )
+      );
       render(<Sicherung />, { wrapper: huelle() });
 
-      fireEvent.click(await screen.findByTestId('app-code-oeffnen'));
-      fireEvent.change(screen.getByTestId('app-code'), { target: { value: ' ABCD-1234 ' } });
-      fireEvent.click(await screen.findByTestId('app-zurueckholen-belege'));
-      fireEvent.change(await screen.findByTestId('app-zurueckholen-kennung'), {
-        target: { value: 'belege' },
+      await waehle('zurueck-ziel', 'belege');
+      expect(await screen.findByTestId('zurueck-stand-bbbb2222')).toBeInTheDocument();
+      expect(screen.queryByTestId('zurueck-stand-aaaa1111')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('zurueck-stand-bbbb2222'));
+      fireEvent.click(screen.getByTestId('zurueck-weiter'));
+      fireEvent.change(await screen.findByTestId('zurueck-passwort'), {
+        target: { value: 'falsch' },
       });
-      fireEvent.click(screen.getByTestId('app-zurueckholen-absenden'));
+      fireEvent.click(screen.getByTestId('zurueck-absenden'));
 
-      await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
-      expect(apiMock.post.mock.calls[0]?.[1]).toMatchObject({
-        wiederherstellungscode: 'ABCD-1234',
-      });
+      expect((await screen.findByTestId('zurueck-fehler')).textContent).toContain(
+        'Das Passwort stimmt nicht'
+      );
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/backup/wiederherstellung/app/belege',
+        { passwort: 'falsch', stand_id: STAENDE[1]!.id, quelle: 'lokal', paket: true },
+        expect.objectContaining({ showError: false })
+      );
     });
 
     it('nimmt das Ergebnis aus einer 500-Antwort, damit der Bericht nicht verloren geht', async () => {
-      antworte(mitTraeger(), [DATEI], INHALT);
+      antworte();
       apiMock.post.mockRejectedValue(
         Object.assign(new Error('HTTP 500'), {
           data: {
             data: {
               erfolg: false,
               app: 'belege',
-              quelle: 'extern',
+              quelle: 'lokal',
               bericht: [
                 {
                   schritt: 'datenbank',
@@ -385,41 +475,52 @@ describe('Sicherung', () => {
       );
       render(<Sicherung />, { wrapper: huelle() });
 
-      fireEvent.click(await screen.findByTestId('app-zurueckholen-belege'));
-      fireEvent.change(await screen.findByTestId('app-zurueckholen-kennung'), {
-        target: { value: 'belege' },
+      await waehle('zurueck-ziel', 'belege');
+      fireEvent.click(await screen.findByTestId('zurueck-stand-bbbb2222'));
+      fireEvent.click(screen.getByTestId('zurueck-weiter'));
+      fireEvent.change(await screen.findByTestId('zurueck-passwort'), {
+        target: { value: 'x' },
       });
-      fireEvent.click(screen.getByTestId('app-zurueckholen-absenden'));
+      fireEvent.click(screen.getByTestId('zurueck-absenden'));
 
-      const bericht = await screen.findByTestId('app-zurueck-bericht');
+      const bericht = await screen.findByTestId('zurueck-bericht');
       expect(bericht.textContent).toContain('nicht vollständig');
       expect(bericht.textContent).toContain('ließen sich nicht zurückholen');
     });
 
-    it('bietet ohne Datentraeger die Apps dieses Geraets an', async () => {
-      antworte(STATUS, [
-        {
-          art: 'app-datenbanken' as unknown as typeof DATEI.art,
-          zweck: 'Die Datenbanken der Apps',
-          name: 'arasul_app_mein_beleg_live_20261001_020000.sql.gz',
-          datenbank: 'arasul_app_mein_beleg_live',
-          bytes: 100,
-          zeitpunkt: '2026-10-01T02:00:00.000Z',
-        } as typeof DATEI,
-      ]);
+    it('vom Datentraeger: Quelle waehlbar, der Code geht mit', async () => {
+      antworte(mitTraeger(), [DATEI], INHALT);
+      apiMock.post.mockResolvedValue({
+        data: { erfolg: true, app: 'belege', quelle: 'extern', bericht: [] },
+      });
       render(<Sicherung />, { wrapper: huelle() });
 
-      expect(await screen.findByTestId('app-zurueckholen-mein-beleg')).toBeInTheDocument();
-    });
-  });
+      fireEvent.click(await screen.findByTestId('zurueck-quelle-extern'));
+      await waitFor(() =>
+        expect(apiMock.get).toHaveBeenCalledWith('/backup/staende?quelle=extern', expect.anything())
+      );
+      await waehle('zurueck-ziel', 'belege');
+      fireEvent.click(await screen.findByTestId('zurueck-stand-bbbb2222'));
+      fireEvent.click(screen.getByTestId('zurueck-weiter'));
+      fireEvent.click(await screen.findByTestId('zurueck-code-oeffnen'));
+      fireEvent.change(screen.getByTestId('zurueck-code'), { target: { value: ' ABCD-1234 ' } });
+      fireEvent.change(screen.getByTestId('zurueck-passwort'), { target: { value: 'x' } });
+      fireEvent.click(screen.getByTestId('zurueck-absenden'));
 
-  describe('Das ganze Geraet zurueckholen', () => {
-    it('verlangt das Wort, und der Bericht nennt Tabellen und Apps', async () => {
-      antworte(mitTraeger(), [DATEI], INHALT);
+      await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
+      expect(apiMock.post.mock.calls[0]?.[1]).toMatchObject({
+        quelle: 'extern',
+        wiederherstellungscode: 'ABCD-1234',
+      });
+    });
+
+    it('das ganze Geraet: Wort UND Passwort, der Bericht nennt Tabellen und Apps', async () => {
+      antworte();
       apiMock.post.mockResolvedValue({
         data: {
           erfolg: false,
           bericht: { status: 'fertig', tabellen: 96 },
+          vorher: { erfolg: true, id: 'dddd', zeitpunkt: new Date().toISOString() },
           apps: [
             { app_id: 'belege', stand: 'live', version: '1.0.0', erfolg: true, grund: null },
             {
@@ -434,29 +535,34 @@ describe('Sicherung', () => {
       });
       render(<Sicherung />, { wrapper: huelle() });
 
-      expect(await screen.findByTestId('geraet-zurueck-warnung')).toBeInTheDocument();
-      fireEvent.click(screen.getByTestId('geraet-zurueckholen'));
+      fireEvent.click(await screen.findByTestId('zurueck-was-geraet'));
+      expect(screen.getByTestId('zurueck-geraet-warnung')).toBeInTheDocument();
+      fireEvent.click(await screen.findByTestId('zurueck-stand-aaaa1111'));
+      fireEvent.click(screen.getByTestId('zurueck-weiter'));
 
-      const absenden = await screen.findByTestId('geraet-zurueckholen-absenden');
+      const absenden = await screen.findByTestId('zurueck-absenden');
+      fireEvent.change(screen.getByTestId('zurueck-passwort'), { target: { value: 'x' } });
       expect(absenden).toBeDisabled();
-      fireEvent.change(screen.getByTestId('geraet-zurueckholen-wort'), {
-        target: { value: 'wiederher' },
-      });
+      fireEvent.change(screen.getByTestId('zurueck-wort'), { target: { value: 'wiederher' } });
       expect(absenden).toBeDisabled();
-      expect(apiMock.post).not.toHaveBeenCalled();
-      fireEvent.change(screen.getByTestId('geraet-zurueckholen-wort'), {
+      fireEvent.change(screen.getByTestId('zurueck-wort'), {
         target: { value: 'wiederherstellen' },
       });
       fireEvent.click(absenden);
 
-      const bericht = await screen.findByTestId('geraet-zurueck-bericht');
+      const bericht = await screen.findByTestId('zurueck-bericht');
+      expect(bericht.textContent).toContain('vorher gesichert');
       expect(bericht.textContent).toContain('96 Tabellen');
       expect(bericht.textContent).toContain('„belege“ läuft wieder');
-      expect(bericht.textContent).toContain('„kalender“');
       expect(bericht.textContent).toContain('läuft nicht wieder');
       expect(apiMock.post).toHaveBeenCalledWith(
         '/backup/wiederherstellung',
-        { bestaetigung: 'wiederherstellen', quelle: 'extern' },
+        {
+          bestaetigung: 'wiederherstellen',
+          stand: STAENDE[2]!.id,
+          passwort: 'x',
+          quelle: 'lokal',
+        },
         expect.objectContaining({ showError: false })
       );
     });

@@ -118,19 +118,58 @@ export interface ExternInhalt {
 
 export type Quelle = 'lokal' | 'extern';
 
+/**
+ * Ein Stand zum Zurückholen (`GET /api/backup/staende`, Auftrag
+ * sicherung-zurueckholen, M5). Gezeigt wird er nach seinem Zeitpunkt in
+ * Worten (`standInWorten`); die Kennung nur unter „Technische Angaben“.
+ */
+export interface Stand {
+  id: string;
+  zeitpunkt: string;
+  /** Entstand vor einem Zurückholen: der Weg, es rückgängig zu machen. */
+  vorher: boolean;
+  fuer: { art: 'app' | 'bereich' | 'geraet'; id: string | null } | null;
+  /** Bytes, die dieser Stand neu geschrieben hat; `null` = nicht gemessen. */
+  geschrieben: number | null;
+  inhaltBekannt: boolean;
+  apps: { id: string; name: string | null }[];
+  appDatenbanken: string[];
+  bereiche: { kennung: string; name: string | null; vorhanden: boolean }[];
+}
+
 /** Ein Satz des Berichts, den das Gerät nach dem Zurückholen einer App schreibt. */
 interface BerichtSatz {
-  schritt: 'datenbank' | 'paket' | 'neu_gestartet';
+  schritt: 'vorher' | 'datenbank' | 'paket' | 'neu_gestartet' | 'bereich';
   stand?: 'test' | 'live';
   erfolg: boolean;
   text: string;
+}
+
+/** Der Stand davor (M5), wie ihn jedes Zurückholen zurückmeldet. */
+export interface VorherStand {
+  erfolg: boolean;
+  id: string | null;
+  zeitpunkt: string | null;
 }
 
 export interface AppZurueckErgebnis {
   erfolg: boolean;
   app: string;
   quelle: Quelle;
+  stand?: { id: string; zeitpunkt: string } | null;
+  vorher?: VorherStand | null;
   bericht: BerichtSatz[];
+}
+
+/** Antwort von `POST /api/backup/wiederherstellung/bereich/:kennung` (M5). */
+export interface BereichZurueckErgebnis {
+  erfolg: boolean;
+  bereich: { kennung: string; name: string };
+  stand: { id: string; zeitpunkt: string } | null;
+  vorher?: VorherStand | null;
+  zahlen: { geschrieben: number; entfernt: number; ordnerNeu: number } | null;
+  bericht: BerichtSatz[];
+  ausgabe?: string;
 }
 
 /** Antwort von `POST /api/backup/wiederherstellung` (das ganze Gerät). */
@@ -144,6 +183,7 @@ export interface GeraetZurueckErgebnis {
     grund?: string;
   } | null;
   apps: { app_id: string; stand: string; version: string; erfolg: boolean; grund: string | null }[];
+  vorher?: VorherStand | null;
   ausgabe?: string;
 }
 
@@ -177,6 +217,7 @@ export interface LaufErgebnis {
 const SICHERUNG_STATUS_KEY = ['backup', 'status'] as const;
 const SICHERUNG_LISTE_KEY = ['backup', 'sicherungen'] as const;
 const EXTERN_INHALT_KEY = ['backup', 'extern-inhalt'] as const;
+const STAENDE_KEY = ['backup', 'staende'] as const;
 
 /**
  * So lange darf ein Lauf im Sicherungs-Container brauchen: dieselben 30
@@ -228,6 +269,7 @@ function useEntwerten() {
     qc.invalidateQueries({ queryKey: SICHERUNG_STATUS_KEY });
     qc.invalidateQueries({ queryKey: SICHERUNG_LISTE_KEY });
     qc.invalidateQueries({ queryKey: EXTERN_INHALT_KEY });
+    qc.invalidateQueries({ queryKey: STAENDE_KEY });
   };
 }
 
@@ -287,26 +329,51 @@ function ergebnisAusFehler<T>(fehler: unknown, hatBericht: (d: unknown) => boole
   return rumpf && hatBericht(rumpf) ? (rumpf as T) : null;
 }
 
-export interface AppZurueckholen {
-  app: string;
-  bestaetigung: string;
+/** Die Stände einer Quelle, neueste zuerst (M5). */
+export function useStaende(quelle: Quelle) {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...STAENDE_KEY, quelle],
+    queryFn: async () => {
+      const res = await api.get<{ data: Stand[] }>(`/backup/staende?quelle=${quelle}`, {
+        showError: false,
+      });
+      return res.data ?? [];
+    },
+    staleTime: 30_000,
+  });
+}
+
+/** Was jedes Zurückholen mitschickt: das Passwort, den Stand, die Quelle. */
+interface ZurueckBasis {
+  passwort: string;
+  standId: string;
   quelle: Quelle;
-  paket: boolean;
   wiederherstellungscode?: string;
 }
 
-/** Eine App zurückholen: Daten und, wenn verlangt, ihr Paket (J37). */
+function basisRumpf({ passwort, standId, quelle, wiederherstellungscode }: ZurueckBasis) {
+  return {
+    passwort,
+    stand_id: standId,
+    quelle,
+    ...(wiederherstellungscode?.trim()
+      ? { wiederherstellungscode: wiederherstellungscode.trim() }
+      : {}),
+  };
+}
+
+export interface AppZurueckholen extends ZurueckBasis {
+  app: string;
+}
+
+/** Eine App zurückholen: ihre Daten und ihr Paket, aus dem gewählten Stand (M5). */
 export function useAppZurueckholen() {
   const api = useApi();
   const entwerten = useEntwerten();
   return useMutation({
-    mutationFn: async ({ app, wiederherstellungscode, ...rest }: AppZurueckholen) => {
-      const body = {
-        ...rest,
-        ...(wiederherstellungscode?.trim()
-          ? { wiederherstellungscode: wiederherstellungscode.trim() }
-          : {}),
-      };
+    mutationFn: async ({ app, ...basis }: AppZurueckholen) => {
+      const body = { ...basisRumpf(basis), paket: true };
       try {
         const res = await api.post<{ data: AppZurueckErgebnis }>(
           `/backup/wiederherstellung/app/${encodeURIComponent(app)}`,
@@ -326,25 +393,43 @@ export function useAppZurueckholen() {
   });
 }
 
-/** Das ganze Gerät zurückholen (J37). Ersetzt ALLE Daten. */
+export interface BereichZurueckholen extends ZurueckBasis {
+  kennung: string;
+}
+
+/** Einen Bereich des Firmenordners zurückholen (M5). */
+export function useBereichZurueckholen() {
+  const api = useApi();
+  const entwerten = useEntwerten();
+  return useMutation({
+    mutationFn: async ({ kennung, ...basis }: BereichZurueckholen) => {
+      try {
+        const res = await api.post<{ data: BereichZurueckErgebnis }>(
+          `/backup/wiederherstellung/bereich/${encodeURIComponent(kennung)}`,
+          basisRumpf(basis),
+          { showError: false, signal: AbortSignal.timeout(LAUF_ZEITGRENZE_MS * 2) }
+        );
+        return res.data;
+      } catch (fehler) {
+        const ergebnis = ergebnisAusFehler<BereichZurueckErgebnis>(fehler, d =>
+          Array.isArray((d as BereichZurueckErgebnis).bericht)
+        );
+        if (ergebnis) return ergebnis;
+        throw fehler;
+      }
+    },
+    onSettled: entwerten,
+  });
+}
+
+/** Das ganze Gerät zurückholen (J37, M5). Ersetzt ALLE Daten. */
 export function useGeraetZurueckholen() {
   const api = useApi();
   const entwerten = useEntwerten();
   return useMutation({
-    mutationFn: async ({
-      quelle,
-      wiederherstellungscode,
-    }: {
-      quelle: Quelle;
-      wiederherstellungscode?: string;
-    }) => {
-      const body = {
-        bestaetigung: 'wiederherstellen',
-        quelle,
-        ...(wiederherstellungscode?.trim()
-          ? { wiederherstellungscode: wiederherstellungscode.trim() }
-          : {}),
-      };
+    mutationFn: async (basis: ZurueckBasis) => {
+      const { stand_id: stand, ...rest } = basisRumpf(basis);
+      const body = { bestaetigung: 'wiederherstellen', stand, ...rest };
       try {
         const res = await api.post<{ data: GeraetZurueckErgebnis }>(
           '/backup/wiederherstellung',
