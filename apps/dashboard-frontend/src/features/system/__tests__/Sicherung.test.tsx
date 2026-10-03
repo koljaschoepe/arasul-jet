@@ -11,7 +11,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Sicherung } from '../sicherung/Sicherung';
-import type { SicherungStatus } from '../sicherung/useSicherung';
+import type { SicherungStatus, Sicherungsdatei } from '../sicherung/useSicherung';
 
 /**
  * Derselbe Zeitpunkt, wie ihn der Mensch vor dem Bildschirm liest.
@@ -124,7 +124,11 @@ function mitTraeger(extra: Partial<SicherungStatus['ausserhalb']> = {}): Sicheru
   };
 }
 
-function antworte(status = STATUS, dateien = [DATEI], inhalt: object = KEIN_INHALT) {
+function antworte(
+  status = STATUS,
+  dateien: Sicherungsdatei[] = [DATEI],
+  inhalt: object = KEIN_INHALT
+) {
   apiMock.get.mockImplementation(async (pfad: string) => {
     if (pfad === '/backup/status') return { data: status };
     if (pfad === '/backup/extern/inhalt') return { data: inhalt };
@@ -152,6 +156,44 @@ describe('Sicherung', () => {
     expect(zeile.textContent).toContain(wieAngezeigt(DATEI.zeitpunkt));
     expect(zeile.textContent).toContain('5,2 GB');
     expect(zeile.textContent).toContain('Datenbank');
+  });
+
+  // M5: die Staende. Ein Stand zeigt, was er NEU geschrieben hat, und wer ein
+  // volles Ziel hatte, liest, dass der aelteste Stand dafuer gefallen ist.
+  it('nennt die Staende mit dem, was jeder neu geschrieben hat', async () => {
+    const stand = {
+      art: 'stand' as const,
+      zweck: 'Stand des ganzen Geräts: Datenbank, Apps, Flows, Firmenordner, Konfiguration',
+      name: '637755c9',
+      id: '637755c9a1b2c3d4',
+      bytes: 2_200_000,
+      zeitpunkt: '2026-10-03T00:00:12.000Z',
+    };
+    antworte(
+      {
+        ...STATUS,
+        staende: {
+          anzahl: 2,
+          bytes: 415_000_000,
+          neuester: { id: stand.id, zeitpunkt: stand.zeitpunkt, geschrieben: 2_200_000 },
+          aeltester: '2026-10-02T00:00:10.000Z',
+          aufbewahrung: { tage: 7, wochen: 12, monate: 60 },
+          hinweis:
+            'Auf dem Datentraeger war kein Platz mehr: 1 aelteste(r) Stand/Staende sind entfallen.',
+          entfallenWegenPlatz: ['2026-09-01T00:00:00.000Z'],
+        },
+      },
+      [stand]
+    );
+    render(<Sicherung />, { wrapper: huelle() });
+
+    const zeile = await screen.findByTestId('sicherung-637755c9');
+    expect(zeile.textContent).toContain('2 MB neu');
+    expect(await screen.findByText(/2 Stände/)).toBeTruthy();
+    expect(screen.getByText(/7 Tage, 12 Wochen und 60 Monate/)).toBeTruthy();
+    expect(screen.getByTestId('sicherung-platz-hinweis').textContent).toContain(
+      'der älteste Stand ist entfallen'
+    );
   });
 
   it('sagt, dass noch nie eine Kopie ausserhalb entstanden ist', async () => {

@@ -194,8 +194,10 @@ sicherung="$(docker compose exec -T backup-service /usr/local/bin/backup.sh 2>&1
 sicherung_rc=$?
 pruefe "Sicherung laeuft durch (backup.sh)" "$(ja [ "$sicherung_rc" -eq 0 ])" "Rueckgabe $sicherung_rc"
 [ "$sicherung_rc" -eq 0 ] || echo "$sicherung" | tail -15
-pruefe "Eine Datenbanksicherung liegt im Volume" \
-  "$(ja docker compose exec -T backup-service sh -c 'ls /backups/postgres/*.sql.gz >/dev/null 2>&1')"
+# Seit M5 ein Stand (restic) statt einer Datei je Nacht: gefragt wird, ob der
+# Datenbankabzug aus dem neuesten Stand wirklich zurueckkommt.
+pruefe "Eine Datenbanksicherung liegt im Volume (neuester Stand, zurueckgeholt)" \
+  "$(ja docker compose exec -T backup-service sh -c 'staende.sh zurueckholen latest /backups/pruef-spark --pfad /arasul/datenbank >/dev/null 2>&1 && test -s /backups/pruef-spark/arasul/datenbank/arasul_db.sql')"
 
 docker compose logs --no-color self-healing-agent > /tmp/selbstheilung.log 2>&1 || true
 pruefe "Selbstheilung: kein Traceback im Protokoll (ohne tegrastats und sysfs der Jetsons)" \

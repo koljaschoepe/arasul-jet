@@ -157,10 +157,12 @@ router.post(
   requireRole('admin'),
   validateBody(WiederherstellungBody),
   asyncHandler(async (req, res) => {
-    const { datei, bestaetigung, quelle, wiederherstellungscode } = req.body;
+    const { datei, stand, bestaetigung, quelle, wiederherstellungscode } = req.body;
 
     logger.warn(
-      `Wiederherstellung angestossen von ${req.user.username} (${datei || 'neueste Sicherung'})`
+      `Wiederherstellung angestossen von ${req.user.username} (${
+        stand ? `Stand ${stand}` : datei || 'neueste Sicherung'
+      })`
     );
     logSecurityEvent({
       userId: req.user.id,
@@ -168,6 +170,7 @@ router.post(
       // Der Code selbst steht nie im Protokoll, nur ob einer mitkam.
       details: {
         datei: datei ?? null,
+        stand: stand ?? null,
         bestaetigung,
         quelle,
         mit_code: Boolean(wiederherstellungscode),
@@ -178,6 +181,7 @@ router.post(
 
     const ergebnis = await sicherungsdienst.stelleWiederHer({
       datei,
+      stand,
       durch: req.user.id,
       quelle,
       wiederherstellungscode,

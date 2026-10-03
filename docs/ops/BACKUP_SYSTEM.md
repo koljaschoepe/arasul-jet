@@ -1,15 +1,17 @@
 # Backup System
 
-Der Sicherungsdienst sichert vier Dinge, und die Frage dahinter ist jedes Mal
+Der Sicherungsdienst sichert fünf Dinge, und die Frage dahinter ist jedes Mal
 dieselbe: **was bekommt der Kunde nach einem Geräteverlust nicht zurück, wenn
-es hier fehlt?**
+es hier fehlt?** Seit M5 (03.10.2026) entsteht daraus jede Nacht **ein Stand**,
+der nur Geändertes neu schreibt — siehe [Stände](#stände-seit-m5).
 
-| Teil       | Was                                                                                                                                                                                              |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `postgres` | Nutzer und Rollen, Apps und Stände, Freigaben, Schlüssel je App, Flow-Läufe mit Schritten, Freigabe-Anfragen, Modell-Überschreibungen, das Migrationsbuch — **und jede App-Datenbank** (seit H7) |
-| `apps`     | Die **Pakete** der Apps (`/arasul/apps/<id>/<version>/`) — Manifest, fertiges Frontend, Dockerfile mit Kontext                                                                                   |
-| `flows`    | Die Flow-Dateien, die ein Mensch am Gerät geschrieben hat (`/arasul/flows`)                                                                                                                      |
-| `config`   | `.env`, Zertifikate, Traefik, Geheimnisse — **ohne** den Sicherungsschlüssel selbst                                                                                                              |
+| Teil           | Was                                                                                                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `postgres`     | Nutzer und Rollen, Apps und Stände, Freigaben, Schlüssel je App, Flow-Läufe mit Schritten, Freigabe-Anfragen, Modell-Überschreibungen, das Migrationsbuch — **und jede App-Datenbank** (seit H7) |
+| `apps`         | Die **Pakete** der Apps (`/arasul/apps/<id>/<version>/`) — Manifest, fertiges Frontend, Dockerfile mit Kontext                                                                                   |
+| `flows`        | Die Flow-Dateien, die ein Mensch am Gerät geschrieben hat (`/arasul/flows`)                                                                                                                      |
+| `firmenordner` | Die Dateien der Firma (J33), die Ablage des Dateidienstes samt `.oc-nodes`                                                                                                                       |
+| `config`       | `.env`, Zertifikate, Traefik, Geheimnisse — **ohne** den Sicherungsschlüssel selbst                                                                                                              |
 
 App-**Volumes** stehen nicht in dieser Liste, weil es keine gibt: eine App
 bekommt weder Bind-Mount noch benanntes Volume
@@ -25,66 +27,145 @@ für eine Architektur, das niemand mehr liest, bevor es läuft.
 
 ## Overview
 
-| Property  | Value                                                                                    |
-| --------- | ---------------------------------------------------------------------------------------- |
-| Image     | alpine:3.19                                                                              |
-| Container | backup-service                                                                           |
-| Schedule  | 02:00 UTC daily (configurable)                                                           |
-| Retention | 7 days (configurable)                                                                    |
-| Storage   | `/data/backups/`                                                                         |
-| Zurück    | `services/backup-service/wiederherstellen.sh`, oder `POST /api/backup/wiederherstellung` |
+| Property     | Value                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| Image        | alpine:3.19 mit restic 0.16.4                                                            |
+| Container    | backup-service                                                                           |
+| Schedule     | 02:00 täglich (`BACKUP_SCHEDULE`), dazu einmal beim Start des Containers                 |
+| Aufbewahrung | 7 tägliche, 12 wöchentliche, 60 monatliche Stände                                        |
+| Ziel         | `data/backups/staende-<abdruck>/` und, wenn angesteckt, der Datenträger                  |
+| Zurück       | `services/backup-service/wiederherstellen.sh`, oder `POST /api/backup/wiederherstellung` |
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                      BACKUP SERVICE                             │
-│                    (Alpine + crond)                             │
+│              (Alpine + crond + restic, nice/ionice)             │
 └─────────────────────────────────────────────────────────────────┘
-        │            │            │            │
-        ▼            ▼            ▼            ▼
-   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
-   │PostgreSQL│ │  Apps   │  │  Flows  │  │ Config  │
-   │ pg_dump │  │ tar.gz  │  │ tar.gz  │  │ tar.gz  │
-   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘
-        │            │            │            │
-        ▼            ▼            ▼            ▼
+   pg_dump (je DB, unkomprimiert)   /arasul/apps  /arasul/flows
+   /arasul/firmenordner  /arasul/konfiguration  /backups/wal
+        │
+        ▼   ein Stand je Nacht: nur Geändertes wird neu geschrieben
    ┌─────────────────────────────────────────────────────────────┐
-   │                    /data/backups/                           │
-   │   postgres/ │ apps/ │ flows/ │ config/ │ wal-archive/       │
-   └─────────────────────────────┬───────────────────────────────┘
-                                 │  die neueste je Art
-                                 ▼
+   │  /data/backups/staende-<abdruck>/      restic, verschlüsselt │
+   └─────────────────────────────────────────────────────────────┘
+        │   derselbe Stand, eigenes Repo
+        ▼
    ┌─────────────────────────────────────────────────────────────┐
-   │   /arasul/extern  — USB oder SMB im Kundennetz, kein Cloud- │
-   │   Ziel. Nur wenn dort wirklich etwas eingehängt ist.        │
+   │  /arasul/extern/arasul-sicherung/staende-<abdruck>/         │
+   │  SSD/USB oder SMB im Kundennetz, kein Cloud-Ziel. Nur wenn  │
+   │  dort wirklich etwas eingehängt ist.                        │
    └─────────────────────────────────────────────────────────────┘
 ```
+
+## Stände (seit M5)
+
+Bis M5 schrieb jede Nacht je Ziel ein ganzes `tar` in einen Tagesordner,
+dazu Kopien für Woche und Monat und ein `tar` des ganzen WAL-Ordners — auch
+wenn sich keine Datei bewegt hatte. Am Orin waren das 17,8 GB für 48 Nächte;
+der Firmenordner allein schrieb jede Nacht 161 MB neu. Seit M5 entsteht je
+Nacht **ein Stand**, und der schreibt nur, was sich seit dem letzten geändert
+hat.
+
+**Das Werkzeug ist [restic](https://restic.net)**, weil es als einziges der
+drei Kandidaten alle Bedingungen zugleich erfüllt:
+
+| Bedingung                                    | restic                                                              | borg                                                             | Hardlinks (rsync --link-dest)   |
+| -------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------- |
+| Auf dem Datenträger nur Verschlüsseltes      | immer (AES-256-CTR + Poly1305), kein Schalter für Klartext          | nur, wenn beim Anlegen gewählt (`--encryption none` gibt es)     | nein, Klartext                  |
+| Nur Geändertes                               | Blöcke (inhaltsdefiniert), dedupliziert                             | Blöcke, dedupliziert                                             | nur ganze, unveränderte Dateien |
+| ARM64 im Container, x86 später nicht verbaut | ein statisches Go-Programm, `apk add restic` für aarch64 und x86_64 | Python mit C-Erweiterungen, gleiche Hauptversion an beiden Enden | ja                              |
+| 7 Tage / 12 Wochen / 60 Monate               | `forget --keep-daily/weekly/monthly`                                | `prune --keep-…`                                                 | selbst bauen                    |
+| Einen Stand einzeln zurückholen              | `restore <stand> --target …`                                        | `extract`                                                        | Ordner kopieren                 |
+
+**Gemessen am Orin** (03.10.2026, `scripts/test/sicherung-staende-abnahme.sh`,
+echte Daten, eigenes Testziel, fünf Läufe der Abnahme; die Zahlen des letzten,
+in Klammern die Spanne):
+
+| Lauf                 | gelesen  | neu geschrieben (Gerät) | neu geschrieben (Datenträger) |
+| -------------------- | -------- | ----------------------- | ----------------------------- |
+| 1 — die erste Nacht  | 667,8 MB | 396,2 MB                | 396,2 MB                      |
+| 2 — die zweite Nacht | 667,8 MB | 0,9 MB (0,9–2,1)        | 1,7 MB (1,1–3,9)              |
+
+Zum Vergleich: der Tagesordner von vor M5 schrieb jede Nacht allein für den
+Firmenordner 161 MB.
+
+**Leise.** Jeder Aufruf läuft mit `nice -n 19` und `ionice -c 3`. Während des
+ersten Laufs lieferte gemma4:e4b 29,84 bis 30,46 statt 30,11 bis 30,50 Token/s
+(höchstens −2 %); bei 45 vollen Lesedurchgängen nacheinander waren es −0,9 %,
+CPU im Mittel 17,5 % über zwölf Kerne.
+
+**Was in einen Stand geht.** Die Datenbankabzüge (`pg_dump` je Datenbank,
+**unkomprimiert** nach `/arasul/datenbank/` im Container, damit restic
+unveränderte Blöcke wiedererkennt; ein gzip davor machte aus einer geänderten
+Zeile eine ganz neue Datei), `/arasul/apps` ohne `.eingang`, `/arasul/flows`,
+`/arasul/firmenordner`, `/arasul/konfiguration` ohne den Sicherungsschlüssel,
+`/backups/wal`. Ein fehlender Ordner ist eine Warnung, kein Fehlschlag.
+
+**Aufbewahrung.** Nach jedem Stand `restic forget --group-by '' --keep-daily 7
+--keep-weekly 12 --keep-monthly 60`, danach `prune`. `--group-by ''` macht alle
+Stände zu **einer** Reihe — sonst begänne eine Nacht, in der ein Ordner fehlte,
+eine eigene Reihe mit eigener Aufbewahrung. Mehrere Läufe am Tag (Start,
+Nacht, „Jetzt sichern“) behalten je Tag den letzten. In der CI an sechs Jahren
+nachgestellter Nächte gegen eine eigene Nachrechnung der Regel geprüft
+(`scripts/test/sicherung-staende.sh`), am Orin mit dem restic des Images.
+
+**Ist das Ziel voll, fällt der älteste Stand — mit Hinweis.** Bevor geschrieben
+wird: ist weniger frei, als die Quellen zusammen groß sind, rechnet `restic
+backup --dry-run` aus, wie viel neu dazukäme (schreibt nichts). Solange
+Reserve (`BACKUP_STAND_RESERVE_MB`, 2048) plus diese Menge nicht frei sind,
+fällt der älteste Stand. **Nie der letzte.** Warum vorher und nicht erst beim
+Schreiben: am Orin gemessen steht ein Lauf, der erst beim Schreiben merkt, dass
+es nicht reicht, mit null freien Bytes da, und dann kann restic nicht einmal
+mehr aufräumen. Der Hinweis steht im Bericht (`stand_hinweis`), in
+`staende.json` (`hinweis`, `entfallen_wegen_platz`) und unter `GET
+/api/backup/status` → `staende.hinweis`.
+
+**Je Schlüssel ein Repo:** `staende-<abdruck>`, der Abdruck ist derselbe wie
+im Manifest (sha256 über den Schlüssel, 16 Zeichen, verrät ihn nicht). Nach
+einer Neuinstallation ohne Wiederherstellungscode hat das Gerät einen neuen
+Schlüssel; das alte Repo bleibt dann unangetastet liegen — weder Aufbewahrung
+noch Platzschaffen fassen es an — und das neue entsteht daneben.
+
+**Die Tagesordner von vor M5 bleiben, wie sie sind.** `postgres/`, `apps/`,
+`flows/`, `firmenordner/`, `config/` (je mit `weekly/` und `monthly/`) und
+`wal-archive/` werden seit M5 weder beschrieben noch aufgeräumt. Sie bleiben
+lesbar (`wiederherstellen.sh --datei <name>`), bis jemand entscheidet, sie
+wegzuräumen; am Orin sind das 17,8 GB. Dasselbe gilt für die Tagesordner auf
+einem Datenträger.
+
+**Am Gerät:**
+
+```bash
+docker exec backup-service staende.sh liste                     # Staende hier
+docker exec backup-service staende.sh liste --quelle extern     # auf dem Datentraeger
+docker exec backup-service staende.sh zurueckholen <stand> /backups/pruef-<stempel>
+docker exec backup-service staende.sh zurueckholen <stand> /backups/pruef-x --pfad /arasul/firmenordner
+docker exec backup-service staende.sh pruefen --daten 5%        # restic check, liest 5 % wirklich
+docker exec backup-service staende.sh klartext /arasul/extern/arasul-sicherung
+```
+
+`zurueckholen` schreibt **nur in einen neuen oder leeren Ordner** und weist
+alles unter `/arasul/` ab — dort hängen die laufenden Daten. Den Weg zurück
+**auf** das Gerät geht `wiederherstellen.sh` (unten), mit Abzug des jetzigen
+Stands vorher.
 
 ## Backup Components
 
 ### 1. PostgreSQL Database
 
-**Method:** `pg_dump` with gzip compression.
+**Method:** `pg_dump` unkomprimiert in die Quelle des Stands; gilt nur, wenn
+der Abzug mit `PostgreSQL database dump complete` endet.
 
 ```bash
 pg_dump -h postgres-db -U arasul -d arasul_db \
-  --no-owner --no-acl --clean --if-exists \
-  | gzip > /backups/postgres/arasul_db_$(date +%Y%m%d_%H%M%S).sql.gz
+  --no-owner --no-acl --clean --if-exists > /arasul/datenbank/arasul_db.sql
 ```
 
-**Output:**
-
-- File: `/backups/postgres/arasul_db_YYYYMMDD_HHMMSS.sql.gz`
-- Latest: `/backups/postgres/arasul_db_latest.sql.gz` (symlink)
-- Weekly: `/backups/postgres/weekly/` (Sundays), Monthly:
-  `/backups/postgres/monthly/` (1st of month)
-
-**Verification:**
-
-```bash
-gzip -t /backups/postgres/arasul_db_latest.sql.gz
-```
+Im Stand: `/arasul/datenbank/arasul_db.sql`. Nach dem Lauf ist der Abzug aus
+dem Container wieder weg. (Vor M5: `postgres/arasul_db_<zeit>.sql.gz` mit
+`*_latest`-Zeiger, `weekly/`, `monthly/` — diese Dateien bleiben lesbar.)
 
 #### Die Datenbanken der Apps (seit H7)
 
@@ -104,7 +185,7 @@ unwiederbringlich.
 psql -tAc "SELECT datname FROM pg_database WHERE datname LIKE 'arasul\_app\_%'"
 # je Treffer:
 pg_dump -d "$APP_DB" --no-owner --no-acl --clean --if-exists \
-  | gzip > /backups/postgres/apps/${APP_DB}_$(date +%Y%m%d_%H%M%S).sql.gz
+  > /arasul/datenbank/apps/${APP_DB}.sql
 ```
 
 Ein Fehlschlag hier legt `BACKUP_OK` um — anders als ein fehlender Ordner: eine
@@ -137,23 +218,7 @@ silently take every self-built flow with it. The directory is mounted
 read-only into the backup service at `FLOWS_BACKUP_DIR` (default
 `/arasul/flows`).
 
-**Method:** tar.gz of the flows directory, verified by reading the archive back
-
-```bash
-tar -czf /backups/flows/flows_$(date +%Y%m%d_%H%M%S).tar.gz \
-  -C "${FLOWS_BACKUP_DIR:-/arasul/flows}" .
-tar -tzf /backups/flows/flows_$(date +%Y%m%d_%H%M%S).tar.gz   # verify
-```
-
-**Output:**
-
-- File: `/backups/flows/flows_YYYYMMDD_HHMMSS.tar.gz`
-- Latest: `/backups/flows/flows_latest.tar.gz` (symlink)
-- Weekly: `/backups/flows/weekly/` (Sundays), Monthly: `/backups/flows/monthly/` (1st of month)
-
-Retention follows the same daily / weekly / monthly rules as PostgreSQL.
-If backup encryption is enabled, the archive is encrypted in place after
-verification (same `encrypt_file` step as the other components).
+**Method:** der Ordner geht als Baum in den Stand (`/arasul/flows`).
 
 **Missing directory is a warning, not a failure:** older deployments have no
 such mount, and failing there would make the healthcheck report a broken backup
@@ -171,52 +236,46 @@ mehr gab.
 `.eingang` bleibt draußen — dort liegt, was ein Deploy gerade auspackt oder als
 Bruchstück hinterlassen hat, nie etwas, das eine Wiederherstellung braucht.
 
-Quelle: `APPS_BACKUP_DIR` (Vorgabe `/arasul/apps`), Ausgabe
-`/backups/apps/apps_YYYYMMDD_HHMMSS.tar.gz`, Bericht `apps_status`.
+Quelle: `APPS_BACKUP_DIR` (Vorgabe `/arasul/apps`), im Stand als Baum, Bericht
+`apps_status`.
 
 ### 4. Konfiguration
 
 `.env`, Zertifikate, Traefik, Geheimnisse. Ohne sie fährt auf einem leeren Gerät
 kein einziger Container hoch.
 
-**Der Sicherungsschlüssel ist nicht im Archiv.**
+**Der Sicherungsschlüssel ist nicht im Stand.**
 `config/secrets/backup_encryption_key` wird ausgenommen, und nicht aus Vorsicht,
-sondern weil es sonst sinnlos wäre: wer das Archiv öffnen will, braucht den
-Schlüssel **vorher**. Er gehört außerhalb des Geräts aufbewahrt — sonst ist jede
-Sicherung Papier.
+sondern weil es sonst sinnlos wäre: wer den Stand öffnen will, braucht den
+Schlüssel **vorher**. Er ist der Wiederherstellungscode und gehört außerhalb
+des Geräts aufbewahrt (Abschnitt 5a) — sonst ist jede Sicherung Papier.
 
 Quelle: `CONFIG_BACKUP_DIR` (Vorgabe `/arasul/konfiguration`, nur lesend
-eingehängt), Ausgabe `/backups/config/config_YYYYMMDD_HHMMSS.tar.gz`, Bericht
-`config_status`.
+eingehängt), im Stand als Baum, Bericht `config_status`.
 
 ### 4a. Firmenordner
 
 Die Dateien der Firma (J33), nur auf einem Gerät mit dem Profil
 `firmenordner`. Quelle: `FIRMENORDNER_BACKUP_DIR` (Vorgabe
-`/arasul/firmenordner`, die Ablage des Dateidienstes samt `.oc-nodes`),
-Ausgabe `/backups/firmenordner/firmenordner_YYYYMMDD_HHMMSS.tar.gz`, Bericht
-`firmenordner_status`.
+`/arasul/firmenordner`, die Ablage des Dateidienstes samt `.oc-nodes`), im
+Stand als Baum, Bericht `firmenordner_status`.
 
 **Wer während der Sicherung schreibt, lässt sie nicht scheitern** (J35,
 27.09.2026). Im Alltag legt jemand genau dann eine Datei ab, wenn gesichert
-wird. GNU tar endet dann mit 1 („file changed as we read it", „File removed
-before we read it"), und bis J35 hieß jede Zahl außer 0 „Archiv ließ sich
-nicht anlegen": der Bericht stand auf `partial_failure`, der Healthcheck fiel,
-und am 27.09.2026 rollte deshalb ein Deploy zurück. Seither gilt für alle
-Ordner-Sicherungen:
-
-- tar 0 oder 1 → das Archiv wird gegengelesen (`tar -tzf`) und zählt;
-- tar 2 und mehr (fehlendes Recht, volle Platte) → Fehlschlag wie bisher;
-- was sich während des Laufs bewegt hat, steht im Bericht:
-  `firmenordner_geaendert` (Zahl) und `firmenordner_geaendert_dateien`
-  (höchstens hundert Pfade). Gefragt wird die **ctime** gegen einen Stempel
-  vor dem ersten Lesen, nicht die mtime — der Abgleichsklient setzt die mtime
-  auf die seines Rechners. Dazu kommen die Pfade, die tar verschwinden sah.
+wird. Bis J35 ließ das `tar` mit 1 enden, der Bericht stand auf
+`partial_failure`, und am 27.09.2026 rollte deshalb ein Deploy zurück. restic
+liest jede Datei, wie sie in dem Moment ist; eine, die verschwindet, während es
+liest, ergibt Rückgabe 3 („Stand steht, einzelne Dateien nicht gelesen“), und
+das ist kein Fehlschlag. Was sich während des Laufs bewegt hat, steht im
+Bericht: `firmenordner_geaendert` (Zahl) und `firmenordner_geaendert_dateien`
+(höchstens hundert Pfade). Gefragt wird die **ctime** gegen einen Stempel vor
+dem ersten Lesen, nicht die mtime — der Abgleichsklient setzt die mtime auf die
+seines Rechners.
 
 Jede Datei, die vor dem Lauf da war und nicht angefasst wurde, ist vollständig
-im Archiv; eine Datei, die erst während des Laufs kam, vielleicht nicht — sie
-kommt mit der nächsten Sicherung. Gemessen mit
-`scripts/test/sicherung-waehrend-schreiben.sh` (CI, Guards).
+im Stand; eine Datei, die erst während des Laufs kam, vielleicht nicht — sie
+kommt mit dem nächsten. Gemessen mit `scripts/test/sicherung-staende.sh` (CI,
+Guards; 1800 Dateien vorher, 1500 neue während des Laufs).
 
 **Die Sicherungen gehören dem, dem `data/backups` gehört.** Der Dienst läuft
 als root; am Ende jedes Laufs gibt `backup.sh` alles unter `/backups` (außer
@@ -251,36 +310,36 @@ Unter **Einstellungen → System → Sicherung** steht danach der **Name** des
 Datenträgers und sein **freier Platz**; ohne Datenträger steht dort „Kein
 Datenträger angesteckt“. Der interne Pfad erscheint nirgends in der Oberfläche.
 
-**Nur Verschlüsseltes verlässt das Gerät.** Jede Datei wird vor dem Kopieren auf
-den Kopf von `openssl enc` (`Salted__`) geprüft und nach dem Kopieren noch
-einmal; auf dem ganzen Datenträger wird danach nachgezählt, ob irgendeine Datei
-einen gzip- (`1f8b`) oder tar-Kopf (`ustar`) hat (`extern_klartext`, soll 0
-sein). Bei `BACKUP_ENCRYPT=false` oder fehlgeschlagener Verschlüsselung wird
-nichts kopiert (`extern_status: nur_verschluesselt`) — nie stillschweigend
-Klartext. (Am Orin gemessen, 02.10.2026: `*_latest` zeigt auf die verschlüsselte
-Datei, weil `encrypt_file` unter demselben Namen zurückschreibt; die Prüfung
-sichert den Fall ab, in dem das nicht mehr stimmt.)
+**Seit M5 ist auch das ein Stand**, kein Tagesordner mit Kopien: dasselbe
+Format, dieselbe Aufbewahrung, ein eigenes Repo auf dem Datenträger, und je
+Nacht wandert nur, was sich geändert hat, hinüber (am Orin: 3,9 MB in der
+zweiten Nacht statt 396 MB).
+
+**Nur Verschlüsseltes liegt auf dem Datenträger.** restic kennt keinen
+Klartext. Nach jedem Lauf wird trotzdem jede Datei unter `arasul-sicherung/`
+geprüft (`stand_klartext` in `staende.sh`, `extern_klartext`, soll 0 sein):
+im Repo gilt als Klartext, was gzip auf unter 90 % bringt oder einen
+Dateikopf trägt (gzip, das sich als gzip lesen lässt, tar, zip, PDF); die
+Schlüsselhülle von restic (`keys/*`) darf nur ihre Felder haben (Ableitung,
+Salz, verschlüsselter Hauptschlüssel); ein Tagesordner von vor M5 muss den
+Kopf von `openssl enc` (`Salted__`) tragen. Jede Prüfung ist in der CI mit
+einer Gegenprobe belegt, die rot werden muss. Am Orin zusätzlich: ein Satz,
+der nur in der Quelle steht, findet sich auf keinem Ziel.
 
 **Aufbau auf dem Datenträger:**
 
 ```
-arasul-sicherung/<JJJJMMTT>/
-  arasul_db_<zeit>.sql.gz              die Datenbank
-  arasul_app_<app>_<stand>_<zeit>.sql.gz   je App und Stand eine
-  apps_<zeit>.tar.gz  flows_…  firmenordner_…  config_…
-  MANIFEST.json                        Klartext: Apps, Dateinamen, Größen, Schlüssel-Abdruck
+arasul-sicherung/
+  staende-<abdruck>/       das Repo (restic): config, keys/, data/, index/, snapshots/
+  MANIFEST.json            Klartext: Apps, Stände mit Zeit, Abdruck des Schlüssels, Größe
+  <JJJJMMTT>/              Tagesordner von vor M5, unangetastet
 ```
 
-Mehrere Läufe am Tag überschreiben sich je Art (der Datenträger soll nicht
-volllaufen); `BACKUP_EXTERN_TAGE` (Vorgabe 14) Tage bleiben, reicht der Platz
-nicht, gehen die ältesten zuerst. **Nicht**, solange der Schlüssel nicht zur
-letzten Sicherung auf dem Datenträger passt (siehe unten): dann sind die alten
-Tage vielleicht das Einzige, was sich mit dem früheren Schlüssel noch öffnen
-lässt.
-
-**Passt der Schlüssel noch?** Vor jeder Sicherung öffnet der Dienst den Anfang
-der neuesten Datenbank-Sicherung (lokal und auf dem Datenträger) mit dem
-Schlüssel dieses Geräts (`/backups/schluessel_pruefung.json`). Nach einer
+**Passt der Schlüssel noch?** Vor jeder Sicherung prüft der Dienst lokal und
+auf dem Datenträger, ob neben dem Repo dieses Schlüssels eines mit einem
+anderen Schlüssel liegt, in das zuletzt geschrieben wurde (ohne Repo: wie vor
+M5 der Anfang der neuesten Datenbank-Sicherung,
+`/backups/schluessel_pruefung.json`). Nach einer
 Neuinstallation ohne den alten Code ist das **nicht** der Fall — so fielen am
 26.09.2026 sechs Nächte der Belege-App still aus. Jetzt steht es im
 Admin-Bereich (Sicherung, ganz oben) und das Backend schickt dem Admin eine
@@ -304,9 +363,10 @@ ist. Sichtbar bleibt es trotzdem: `extern_status` im Tagesbericht nennt den
 Grund (`kein_ziel`, `nicht_eingehaengt`, `nicht_beschreibbar`,
 `zu_wenig_platz`, `nur_verschluesselt`, `abgeschaltet`, `fehler`, `kopiert`).
 Einzige Ausnahme: findet die Nachzählung Klartext auf dem Datenträger, ist die
-Sicherung `partial_failure`.
+Sicherung `partial_failure`. `zu_wenig_platz` heißt: nicht einmal der neue
+Stand allein passt — die älteren sind dann schon gefallen.
 
-**Das Datum überlebt die Nacht ohne Stick.** Wann zuletzt wirklich eine Kopie
+**Das Datum überlebt die Nacht ohne Stick.** Wann zuletzt wirklich ein Stand
 außer Haus entstanden ist, steht in einer eigenen Datei
 (`/backups/extern_bericht.json`), die nur bei Erfolg geschrieben wird — der
 Tagesbericht wird jede Nacht überschrieben. Über die API liest man beides unter
@@ -335,76 +395,88 @@ Base32 (160 Bit), aeltere haben 64 Hex-Zeichen; beides geht.
   Code eingeben, wenn der Schluessel dieses Geraets nicht passt. Er geht als
   Umgebungsvariable in den Dienst (nie in die Befehlszeile), liegt nur fuer
   diesen Lauf in einer Datei mit 0600 und wird danach geloescht. Mit Code
-  nimmt der Weg die neueste Sicherung auf dem Datentraeger, die sich damit
-  oeffnen laesst.
+  nimmt der Weg das Repo zum Abdruck des Codes (`staende-<abdruck>`), ohne
+  Staende die neueste Sicherung auf dem Datentraeger, die sich damit oeffnen
+  laesst. Am Orin belegt: vom Datentraeger, nur mit dem Code, ohne
+  Schluesseldatei.
+
+**Wo der Schluessel liegt, damit er Werksreset und Geraetetausch ueberlebt**
+(M5). Die Staende sind mit genau diesem Schluessel verschluesselt (er ist das
+Passwort des Repos), es gibt keinen zweiten. Er liegt an drei Stellen, und nur
+eine davon ist auf dem Geraet:
+
+1. `config/secrets/backup_encryption_key` am Geraet — geht beim Werksreset
+   und mit dem Geraet verloren, und ist deshalb ausdruecklich NICHT im Stand.
+2. **Auf Papier oder im Passwortspeicher der Firma**, als Wiederherstellungscode
+   aus der Erstausgabe. Das ist die Stelle, auf die es ankommt.
+3. **In der Abfrage des Werksresets**: `factory-reset.sh` verlangt den Code,
+   bevor es loescht, und `install.sh --wiederherstellungscode` schreibt ihn
+   wieder — dann setzt das neue Geraet die Reihe der Staende im selben Repo
+   fort, auf dem Datentraeger wie lokal.
+
+Ohne Code bekommt ein neu aufgesetztes Geraet einen neuen Schluessel und ein
+neues Repo daneben; die alten Staende bleiben unangetastet und lassen sich mit
+dem Code spaeter noch zurueckholen.
 
 ### 6. WAL Archive
 
 If WAL segments are being shipped into `/backups/wal` (Postgres
-`archive_mode`), `backup.sh` bundles them into a dated tar.gz under
-`/backups/wal-archive/` for point-in-time recovery, and prunes both the
-archive and the raw segments once they age past the daily retention window.
+`archive_mode`), they go into every Stand like any other folder — a segment
+that was there last night costs nothing tonight. Segments older than
+`BACKUP_RETENTION_DAYS` are deleted from `/backups/wal` after a successful
+night. (Before M5 the whole folder was tarred into `/backups/wal-archive/`
+every night; that folder stays as it is.)
 
 ## Directory Structure
 
 ```
 /data/backups/
-├── postgres/
-│   ├── arasul_db_20240124_020015.sql.gz
-│   ├── arasul_db_20240125_020012.sql.gz
-│   ├── arasul_db_latest.sql.gz → arasul_db_20240125_020012.sql.gz
-│   ├── weekly/
-│   └── monthly/
-├── apps/
-│   ├── apps_20240125_020102.tar.gz
-│   ├── apps_latest.tar.gz → apps_20240125_020102.tar.gz
-│   ├── weekly/
-│   └── monthly/
-├── flows/
-│   ├── flows_20240124_020110.tar.gz
-│   ├── flows_20240125_020108.tar.gz
-│   ├── flows_latest.tar.gz → flows_20240125_020108.tar.gz
-│   ├── weekly/
-│   └── monthly/
-├── config/
-│   ├── config_20240125_020112.tar.gz
-│   ├── config_latest.tar.gz → config_20240125_020112.tar.gz
-│   ├── weekly/
-│   └── monthly/
+├── staende-<abdruck>/              # die Staende (restic), seit M5
+├── staende.json                    # was es an Staenden gibt, fuer das Dashboard
+├── .restic-cache/                  # Zwischenspeicher von restic (verschluesselt)
 ├── vor_wiederherstellung/          # der Stand VOR einem Zurückspielen
-├── wal-archive/
 ├── backup_report.json              # der letzte Sicherungslauf
-├── extern_bericht.json             # die letzte Kopie außerhalb (nur bei Erfolg)
+├── extern_bericht.json             # der letzte Stand außerhalb (nur bei Erfolg)
+├── schluessel_pruefung.json        # passt der Schlüssel? (J37)
 ├── restore_drill_report.json       # der letzte Wiederherstellungstest
 ├── wiederherstellung_bericht.json  # das letzte Zurückspielen
 ├── wiederherstellung.log
-└── backup.log
+├── backup.log
+│
+│   von vor M5, weder beschrieben noch aufgeräumt:
+├── postgres/  (arasul_db_*.sql.gz, apps/, weekly/, monthly/)
+├── apps/  flows/  firmenordner/  config/  (je *_<zeit>.tar.gz, weekly/, monthly/)
+└── wal-archive/
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-| Variable                        | Default                            | Description                                                               |
-| ------------------------------- | ---------------------------------- | ------------------------------------------------------------------------- |
-| BACKUP_SCHEDULE                 | `0 2 * * *`                        | Cron schedule (02:00 UTC daily)                                           |
-| BACKUP_RETENTION_DAYS           | 7                                  | Days to keep daily backups                                                |
-| BACKUP_WEEKLY_RETENTION_WEEKS   | 12 (52 in the script default)      | Weeks to keep weekly snapshots                                            |
-| BACKUP_MONTHLY_RETENTION_MONTHS | 60                                 | Months to keep monthly snapshots                                          |
-| BACKUP_ENCRYPT                  | false                              | Encrypt backups with AES-256-CBC (openssl)                                |
-| BACKUP_ENCRYPT_KEY_FILE         | /run/secrets/backup_encryption_key | Key file used when BACKUP_ENCRYPT=true                                    |
-| POSTGRES_HOST                   | postgres-db                        | PostgreSQL host                                                           |
-| POSTGRES_USER                   | arasul                             | PostgreSQL user                                                           |
-| POSTGRES_PASSWORD               | (required, via Docker secret)      | PostgreSQL password                                                       |
-| POSTGRES_DB                     | arasul_db                          | Database name                                                             |
-| FLOWS_BACKUP_DIR                | /arasul/flows                      | Source dir of the flow files (read-only)                                  |
-| APPS_BACKUP_DIR                 | /arasul/apps                       | Die Pakete der Apps (schreibbar: der Weg zurück legt sie hier wieder ab)  |
-| CONFIG_BACKUP_DIR               | /arasul/konfiguration              | `.env` und `config/`, nur lesend                                          |
-| BACKUP_EXTERN_AN                | auto                               | `auto` = kopieren, wenn dort wirklich etwas eingehängt ist; `false` = nie |
-| BACKUP_EXTERN_ZIEL              | /arasul/extern                     | Der Ordner IM Container, der außerhalb liegt                              |
-| BACKUP_EXTERN_PFAD              | /mnt/arasul-sicherung              | Wo der Host den Datenträger einhängt (Compose-Ebene)                      |
-| BACKUP_EXTERN_TAGE              | 14                                 | Wie viele Tage auf dem Datenträger bleiben (J37)                          |
-| TZ                              | Europe/Berlin                      | Timezone                                                                  |
+| Variable                 | Default                            | Description                                                                |
+| ------------------------ | ---------------------------------- | -------------------------------------------------------------------------- |
+| BACKUP_SCHEDULE          | `0 2 * * *`                        | Cron schedule (02:00 UTC daily)                                            |
+| BACKUP_STAND_TAGE        | 7                                  | Tägliche Stände, die bleiben (M5)                                          |
+| BACKUP_STAND_WOCHEN      | 12                                 | Wöchentliche Stände (M5)                                                   |
+| BACKUP_STAND_MONATE      | 60                                 | Monatliche Stände (M5)                                                     |
+| BACKUP_STAND_RESERVE_MB  | 2048                               | So viel bleibt auf dem Ziel frei; darunter fällt der älteste Stand         |
+| BACKUP_STAND_CACHE       | /backups/.restic-cache             | Zwischenspeicher von restic, lokal, nie auf dem Datenträger                |
+| BACKUP_STAND_DB_QUELLE   | /arasul/datenbank                  | Wohin die Abzüge vor dem Stand gehen (im Container, danach weg)            |
+| BACKUP_DRILL_DATENANTEIL | 5%                                 | Wie viel `restic check` beim Wiederherstellungstest wirklich liest         |
+| BACKUP_RETENTION_DAYS    | 7 (Compose: 30)                    | Seit M5 nur noch: wie alt WAL-Segmente in `/backups/wal` werden            |
+| BACKUP_ENCRYPT           | false                              | Vor M5: Archive mit openssl verschlüsseln. Stände sind immer verschlüsselt |
+| BACKUP_ENCRYPT_KEY_FILE  | /run/secrets/backup_encryption_key | Der Sicherungsschlüssel = Passwort der Stände = Wiederherstellungscode     |
+| POSTGRES_HOST            | postgres-db                        | PostgreSQL host                                                            |
+| POSTGRES_USER            | arasul                             | PostgreSQL user                                                            |
+| POSTGRES_PASSWORD        | (required, via Docker secret)      | PostgreSQL password                                                        |
+| POSTGRES_DB              | arasul_db                          | Database name                                                              |
+| FLOWS_BACKUP_DIR         | /arasul/flows                      | Source dir of the flow files (read-only)                                   |
+| APPS_BACKUP_DIR          | /arasul/apps                       | Die Pakete der Apps (schreibbar: der Weg zurück legt sie hier wieder ab)   |
+| CONFIG_BACKUP_DIR        | /arasul/konfiguration              | `.env` und `config/`, nur lesend                                           |
+| BACKUP_EXTERN_AN         | auto                               | `auto` = kopieren, wenn dort wirklich etwas eingehängt ist; `false` = nie  |
+| BACKUP_EXTERN_ZIEL       | /arasul/extern                     | Der Ordner IM Container, der außerhalb liegt                               |
+| BACKUP_EXTERN_PFAD       | /mnt/arasul-sicherung              | Wo der Host den Datenträger einhängt (Compose-Ebene)                       |
+| TZ                       | Europe/Berlin                      | Timezone                                                                   |
 
 Die Sicherung läuft ausschließlich im `backup-service`-Container über cron
 (`/usr/local/bin/backup.sh`, also
@@ -432,17 +504,13 @@ BACKUP_SCHEDULE="0 0,12 * * *"
 
 ## Retention Strategy
 
-### Daily Backups
-
-- Kept for `BACKUP_RETENTION_DAYS` (default: 7)
-- Oldest backups deleted automatically
-- Latest symlinks always point to most recent
-
-### Weekly and Monthly Snapshots
-
-- Postgres and flows each get their own `weekly/` (Sundays) and `monthly/`
-  (1st of month) subdirectory
-- Kept for `BACKUP_WEEKLY_RETENTION_WEEKS` / `BACKUP_MONTHLY_RETENTION_MONTHS`
+Seit M5 eine Regel für alle Stände, lokal und auf dem Datenträger:
+`--keep-daily 7 --keep-weekly 12 --keep-monthly 60` (Abschnitt
+[Stände](#stände-seit-m5)). Je Regel bleibt der jüngste Stand eines Tages,
+einer Woche (ISO), eines Monats, bis die Zahl erreicht ist; behalten wird,
+was eine der drei Regeln behält. Bei sechs Jahren Nächten sind das 70 bis 79
+Stände. Vorher, nur wenn das Ziel voll ist: der älteste Stand fällt, mit
+Hinweis.
 
 ## Manual Execution
 
@@ -472,16 +540,25 @@ Container `arasul-platform-postgres-db-1` an (sie heißen `postgres-db`), die
 andere entschlüsselte die Konfiguration, aber **nicht** den Datenbankabzug — und
 bei `BACKUP_ENCRYPT=true`, der Vorgabe, ist jeder Abzug verschlüsselt.
 
+**Woher, seit M5:** ohne Angabe der **neueste Stand**, mit `--stand <id>` ein
+bestimmter (`staende.sh liste`, die ersten acht Zeichen reichen). Aus dem
+Stand holt `wiederherstellen.sh` nur, was der Aufruf braucht, in einen
+Bereitstellungsordner unter `/backups` und liest von dort weiter wie bisher.
+`--datei` nimmt eine Datei aus den Tagesordnern von vor M5. Gibt es Stände,
+aber keinen zu diesem Schlüssel, weicht der Weg **nicht** still auf einen
+alten Tagesordner aus, sondern sagt, dass der Schlüssel nicht passt.
+
 ```bash
 # Am Gerät
-docker exec backup-service /usr/local/bin/wiederherstellen.sh
+docker exec backup-service /usr/local/bin/wiederherstellen.sh               # neuester Stand
+docker exec backup-service /usr/local/bin/wiederherstellen.sh --stand 637755c9
 docker exec backup-service /usr/local/bin/wiederherstellen.sh --datei arasul_db_20260827_020054.sql.gz
 docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe   # nur prüfen
 
 # Über die Schnittstelle (macht zusätzlich die App-Container wieder scharf)
 curl -k -X POST https://arasul.local/api/backup/wiederherstellung \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"bestaetigung":"wiederherstellen"}'
+  -d '{"bestaetigung":"wiederherstellen"}'               # oder mit "stand":"637755c9"
 ```
 
 **Zwei Schritte, und der zweite ist der, den man vergisst.** Das Skript holt
@@ -511,52 +588,68 @@ After each backup, a report is generated at `/backups/backup_report.json`:
 
 ```json
 {
-  "timestamp": "2026-08-26T02:01:30+02:00",
+  "timestamp": "2026-10-03T02:01:30+02:00",
   "status": "completed",
-  "postgres_backups": 7,
-  "postgres_weekly": 3,
-  "postgres_monthly": 2,
   "apps_status": "true",
-  "apps_backups": 7,
   "flows_status": "true",
-  "flows_backups": 7,
+  "firmenordner_status": "true",
+  "firmenordner_geaendert": 0,
+  "firmenordner_geaendert_dateien": [],
   "config_status": "true",
-  "config_backups": 7,
+  "stand_status": "ok",
+  "stand_id": "637755c9…",
+  "stand_geschrieben_bytes": 2202009,
+  "stand_gelesen_bytes": 699924480,
+  "stand_klartext": 0,
+  "staende_anzahl": 2,
+  "staende_bytes": 415236096,
+  "staende_entfallen": 0,
+  "stand_hinweis": null,
   "extern_status": "kopiert",
-  "extern_dateien": 4,
-  "extern_bytes": 5211334,
+  "extern_dateien": 2,
+  "extern_bytes": 415662080,
+  "extern_geschrieben_bytes": 4089446,
+  "extern_stand_id": "ca7147cc…",
+  "extern_klartext": 0,
+  "extern_frei_bytes": 3800000000,
+  "schluessel_passt": true,
   "retention_days": 7,
-  "weekly_retention_weeks": 52,
+  "weekly_retention_weeks": 12,
   "monthly_retention_months": 60,
-  "encrypted": "false",
-  "encryption_requested": "false",
-  "postgres_size": "48M",
-  "wal_size": "0",
-  "wal_segments": 0,
-  "total_size": "52M"
+  "encrypted": "true",
+  "total_size": "18G"
 }
 ```
 
-`status` is `partial_failure` (not `completed`) if any backed-up component
-failed. `apps_status`, `flows_status` und `config_status` sind je `true`,
-`false` oder `skipped` (siehe oben).
+`status` is `partial_failure` (not `completed`) if any component failed.
+`*_status` sind je `true`, `false` oder `skipped`. `stand_status` ist `ok`,
+`fehler` oder `voll`. `stand_geschrieben_bytes` ist, um wie viel das Repo in
+dieser Nacht gewachsen ist — die Zahl, um die es bei „nur Geändertes“ geht.
+Die Felder `postgres_backups`, `apps_backups` … zählen seit M5 die Stände;
+`postgres_weekly`/`postgres_monthly` stehen auf 0.
 
-`extern_status` sagt, was der Kopierversuch nach außen ergeben hat — er färbt
-den Gesamtstatus nie rot. **Wann zuletzt wirklich eine Kopie außer Haus
-entstanden ist, steht nicht hier**, sondern in `extern_bericht.json`: der
-Tagesbericht wird jede Nacht überschrieben, und ein Stick, der eine Nacht
-abgezogen war, darf das Datum der letzten echten Kopie nicht löschen.
+`extern_status` sagt, was der Versuch nach außen ergeben hat — er färbt den
+Gesamtstatus nie rot (außer bei Klartext). **Wann zuletzt wirklich ein Stand
+außer Haus entstanden ist, steht nicht hier**, sondern in `extern_bericht.json`:
+der Tagesbericht wird jede Nacht überschrieben, und ein Stick, der eine Nacht
+abgezogen war, darf das Datum der letzten echten Sicherung nicht löschen.
 
 ```json
 {
-  "zeitpunkt": "2026-08-27T02:03:11+02:00",
-  "ziel": "arasul-sicherung/20260827",
-  "ordner": "arasul-sicherung/20260827",
+  "zeitpunkt": "2026-10-03T02:03:11+02:00",
+  "ziel": "arasul-sicherung/staende-0123456789abcdef",
   "apps": ["belege"],
-  "dateien": 4,
-  "bytes": 5211334
+  "staende": 2,
+  "bytes": 415662080,
+  "geschrieben": 4089446,
+  "stand": "ca7147cc…"
 }
 ```
+
+`staende.json` (für das Dashboard; das Backend hat weder restic noch den
+Schlüssel) nennt jeden Stand mit Kennung, Zeit und — für die, die dieser Dienst
+seit M5 angelegt hat — was er neu geschrieben hat, dazu die App-Datenbanken
+des neuesten Stands, die Aufbewahrung und den Hinweis bei vollem Ziel.
 
 ## Monitoring
 
@@ -569,25 +662,25 @@ cat /data/backups/backup_report.json | jq .
 # Check backup log
 tail -100 /data/backups/backup.log
 
-# List recent backups
-ls -la /data/backups/postgres/ | tail -5
+# List the Staende
+docker exec backup-service staende.sh liste
 ```
 
 ### Verify Backup Integrity
 
 ```bash
-# Verify PostgreSQL backup
-gzip -t /data/backups/postgres/arasul_db_latest.sql.gz && echo "OK"
-
-# Verify flows backup
-tar -tzf /data/backups/flows/flows_latest.tar.gz > /dev/null && echo "OK"
+# Struktur und Index, dazu 5 % der Daten wirklich gelesen und entschluesselt
+docker exec backup-service staende.sh pruefen --daten 5%
 ```
 
 ### Restore Drill
 
 `services/backup-service/restore-drill.sh` restores the latest PostgreSQL dump
 into a scratch database and additionally inspects the `apps` and `flows`
-archives. Seit Phase C9 prüft er in drei Stufen:
+archives. Seit M5 ist das der Abzug des **neuesten Stands**; dazu liest
+`restic check --read-data-subset 5%` jede Woche ein anderes Zwanzigstel der
+Daten im Repo wirklich (Bericht: `stand`, `stand_pruefung`; ein Schaden im Repo
+lässt den Test scheitern). Seit Phase C9 prüft er in drei Stufen:
 
 1. **Das Gerät.** Vier Tabellen, die jedes Gerät ab dem ersten Start füllt.
 2. **Die Arbeit des Kunden.** `apps`, `app_staende`, `app_members`,
@@ -652,10 +745,14 @@ docker exec backup-service env | grep POSTGRES
 ```bash
 # Check usage
 du -sh /data/backups/*
-
-# Manual cleanup (older than 7 days)
-find /data/backups/postgres -name "*.sql.gz" -mtime +7 -delete
 ```
+
+Die Stände räumen sich selbst auf (Aufbewahrung, und bei vollem Ziel der
+älteste Stand). Platz gewinnen lässt sich darüber hinaus nur bei den
+Tagesordnern von vor M5 (`postgres/`, `apps/`, `flows/`, `firmenordner/`,
+`config/`, `wal-archive/`) — von Hand, wenn entschieden ist, dass sie nicht mehr
+gebraucht werden. Nie in `staende-*` von Hand löschen: ein Repo ohne einzelne
+Dateien ist für alle Stände beschädigt.
 
 ### Restore Fails
 
@@ -666,13 +763,15 @@ find /data/backups/postgres -name "*.sql.gz" -mtime +7 -delete
 
 ## Security Considerations
 
-1. **Verschlüsselung** — `BACKUP_ENCRYPT=true` ist die Vorgabe (AES-256-CBC).
+1. **Verschlüsselung** — Stände sind immer verschlüsselt (restic, AES-256-CTR
+   mit Poly1305); vor M5 `BACKUP_ENCRYPT=true` (AES-256-CBC).
 2. **Zugriff** — der Sicherungsordner gehört root; nur der Dienst schreibt hinein.
 3. **Kopie außer Haus** — USB oder SMB im Kundennetz. **Kein Cloud-Ziel**: das
    Gerät steht beim Kunden, die Daten bleiben dort.
-4. **Der Schlüssel gehört nicht auf das Gerät.** `backup_encryption_key` ist
-   ausdrücklich aus dem `config`-Archiv ausgenommen; wer eine Sicherung öffnen
-   will, braucht ihn vorher. Ein Wechsel macht jede ältere Sicherung unlesbar.
+4. **Der Schlüssel gehört nicht nur auf das Gerät.** `backup_encryption_key` ist
+   ausdrücklich aus dem Stand ausgenommen; wer eine Sicherung öffnen will,
+   braucht ihn vorher — als Wiederherstellungscode (Abschnitt 5a). Ein neuer
+   Schlüssel beginnt ein neues Repo; das alte bleibt mit dem alten Code lesbar.
 5. **Proben** — der Wiederherstellungstest läuft wöchentlich von selbst; der
    ganze Drill (löschen und zurückholen) steht in `scripts/test/dr-drill.sh`.
 6. **Protokoll** — `sicherung_angestossen` und `wiederherstellung_angestossen`
@@ -680,8 +779,10 @@ find /data/backups/postgres -name "*.sql.gz" -mtime +7 -delete
 
 ### Encryption
 
-`BACKUP_ENCRYPT=true` (die Vorgabe) lässt `backup.sh` jedes Archiv **an Ort und
-Stelle** verschlüsseln: `openssl enc -aes-256-cbc -pbkdf2` gegen
+Seit M5 verschlüsselt restic jeden Stand; der Schlüssel des Geräts ist das
+Passwort des Repos (`--password-file`, nie in der Befehlszeile). Für die
+Tagesordner von vor M5 gilt weiter: `BACKUP_ENCRYPT=true` ließ `backup.sh` jedes
+Archiv **an Ort und Stelle** verschlüsseln: `openssl enc -aes-256-cbc -pbkdf2` gegen
 `BACKUP_ENCRYPT_KEY_FILE`. Der Dateiname ändert sich dabei **nicht** — eine
 Sicherung heißt weiter `.sql.gz` und ist keine mehr. Deshalb erkennen
 `wiederherstellen.sh` und `restore-drill.sh` an den gzip-Magic-Bytes, nicht an

@@ -52,6 +52,16 @@ const EXTERN_BERICHT = path.join(SICHERUNGS_ORDNER, 'extern_bericht.json');
 const DRILL_BERICHT = path.join(SICHERUNGS_ORDNER, 'restore_drill_report.json');
 const WIEDERHER_BERICHT = path.join(SICHERUNGS_ORDNER, 'wiederherstellung_bericht.json');
 const SCHLUESSEL_PRUEFUNG = path.join(SICHERUNGS_ORDNER, 'schluessel_pruefung.json');
+/**
+ * Die Staende der Sicherung (M5, 03.10.2026). Seit M5 schreibt die Nacht
+ * keinen Tagesordner mehr, sondern einen Stand, der nur Geaendertes neu
+ * schreibt (restic, `services/backup-service/staende.sh`). Dieser Prozess hat
+ * weder restic noch den Schluessel; `backup.sh` legt nach jedem Lauf hier ab,
+ * welche Staende es gibt.
+ */
+const STAENDE = path.join(SICHERUNGS_ORDNER, 'staende.json');
+/** Die Kennung eines Stands: die ersten acht Zeichen reichen, wie bei restic. */
+const STAND_KENNUNG = /^[0-9a-f]{8,64}$/;
 
 /**
  * Der Datentraeger (J37): ein USB-Stick oder eine SSD, vom Host eingehaengt und
@@ -61,7 +71,7 @@ const SCHLUESSEL_PRUEFUNG = path.join(SICHERUNGS_ORDNER, 'schluessel_pruefung.js
  */
 const EXTERN_ORDNER = process.env.EXTERN_ORDNER || '/arasul/extern';
 const EXTERN_ZUSTAND = process.env.EXTERN_ZUSTAND || '/arasul/extern-zustand/zustand.json';
-/** Ein Tagesordner auf dem Datentraeger: `arasul-sicherung/<JJJJMMTT>/`. */
+/** Ein Tagesordner auf dem Datentraeger (vor M5): `arasul-sicherung/<JJJJMMTT>/`. */
 const TAGESORDNER = /^\d{8}$/;
 
 /**
@@ -281,13 +291,45 @@ async function schluessel() {
   };
 }
 
+/** Was `backup.sh` ueber die Staende hinterlegt hat, oder `null`. */
+async function leseStaende() {
+  try {
+    const roh = JSON.parse(await fs.readFile(STAENDE, 'utf8'));
+    return roh && typeof roh === 'object' && Array.isArray(roh.staende) ? roh : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `JJJJMMTT` eines Zeitpunkts, so wie die Tagesordner heissen. */
+function tagVon(zeitpunkt) {
+  const t = typeof zeitpunkt === 'string' ? zeitpunkt.slice(0, 10).replace(/-/g, '') : '';
+  return TAGESORDNER.test(t) ? t : null;
+}
+
 /**
- * Das Verzeichnis des neuesten Tages auf dem Datentraeger, das ein lesbares
- * Verzeichnis (MANIFEST.json) hat. Die Tagesnamen kommen aus `readdir` und
- * muessen `^\d{8}$` sein -- Pfade werden nie aus einer Eingabe gebaut.
+ * Das Verzeichnis auf dem Datentraeger.
+ *
+ * Seit M5 liegt dort EIN Manifest (`arasul-sicherung/MANIFEST.json`) neben dem
+ * Repo der Staende; es nennt die Staende und die Apps. Vorher war es eines je
+ * Tagesordner -- ein Stick, der nur solche hat, wird weiter gelesen: der
+ * neueste Tag mit lesbarem MANIFEST.json. Die Tagesnamen kommen aus `readdir`
+ * und muessen `^\d{8}$` sein -- Pfade werden nie aus einer Eingabe gebaut.
  */
 async function leseManifeste() {
   const wurzel = path.join(EXTERN_ORDNER, 'arasul-sicherung');
+  try {
+    const manifest = JSON.parse(await fs.readFile(path.join(wurzel, 'MANIFEST.json'), 'utf8'));
+    if (manifest && typeof manifest === 'object' && Array.isArray(manifest.staende)) {
+      const tage = [...new Set(manifest.staende.map(s => tagVon(s?.zeit)).filter(Boolean))]
+        .sort()
+        .reverse();
+      const datum = tagVon(manifest.staende.at(-1)?.zeit) ?? tagVon(manifest.zeitpunkt);
+      return { tage, neueste: { datum, manifest } };
+    }
+  } catch {
+    // Kein Manifest der Staende: ein Datentraeger von vor M5.
+  }
   let namen;
   try {
     namen = (await fs.readdir(wurzel))
@@ -332,6 +374,10 @@ async function externInhalt() {
             staende: Array.isArray(a.staende) ? a.staende : [],
           })),
           dateien: Array.isArray(neueste.manifest.dateien) ? neueste.manifest.dateien.length : 0,
+          // Seit M5: wie viele Staende auf dem Datentraeger liegen.
+          ...(Array.isArray(neueste.manifest.staende)
+            ? { staende: neueste.manifest.staende.length }
+            : {}),
         }
       : null,
     tage,
@@ -414,8 +460,56 @@ async function sicherungen() {
     }
   }
 
+  // Die Staende (M5). Je Stand eine Zeile, und `bytes` ist, was er NEU
+  // geschrieben hat -- die Zahl, um die es geht. 0 heisst auch: das hat der
+  // Lauf, der ihn anlegte, nicht gemessen.
+  const staende = await leseStaende();
+  for (const stand of staende?.staende ?? []) {
+    if (typeof stand?.id !== 'string' || typeof stand?.zeit !== 'string') {
+      continue;
+    }
+    liste.push({
+      art: 'stand',
+      zweck: 'Stand des ganzen Geräts: Datenbank, Apps, Flows, Firmenordner, Konfiguration',
+      name: stand.kurz || stand.id.slice(0, 8),
+      id: stand.id,
+      bytes: Number.isFinite(stand.geschrieben) ? stand.geschrieben : 0,
+      zeitpunkt: new Date(stand.zeit).toISOString(),
+    });
+  }
+
   liste.sort((a, b) => b.zeitpunkt.localeCompare(a.zeitpunkt));
   return liste;
+}
+
+/**
+ * Die Staende, wie sie der Status nennt (M5): wie viele, wie gross das Repo,
+ * der neueste, die Aufbewahrung -- und der Hinweis, wenn das Ziel voll war
+ * und der aelteste Stand dafuer gefallen ist. `null`, solange es keinen gibt.
+ */
+function staendeFuerStatus(staende) {
+  if (!staende) {
+    return null;
+  }
+  const liste = staende.staende.filter(s => typeof s?.id === 'string');
+  const neuester = liste.at(-1) ?? null;
+  return {
+    anzahl: liste.length,
+    bytes: Number.isFinite(staende.bytes) ? staende.bytes : null,
+    neuester: neuester
+      ? {
+          id: neuester.id,
+          zeitpunkt: neuester.zeit ?? null,
+          geschrieben: Number.isFinite(neuester.geschrieben) ? neuester.geschrieben : null,
+        }
+      : null,
+    aeltester: liste[0]?.zeit ?? null,
+    aufbewahrung: staende.aufbewahrung ?? null,
+    hinweis: staende.hinweis || null,
+    entfallenWegenPlatz: Array.isArray(staende.entfallen_wegen_platz)
+      ? staende.entfallen_wegen_platz
+      : [],
+  };
 }
 
 /**
@@ -440,13 +534,14 @@ function ausserhalbDazu(traeger, bericht, extern) {
  * Antwort leer -- und sagt das, statt zu schweigen.
  */
 async function status() {
-  const [bericht, extern, drill, wieder, traeger, schluesselStand] = await Promise.all([
+  const [bericht, extern, drill, wieder, traeger, schluesselStand, staende] = await Promise.all([
     leseBericht(BERICHT),
     leseBericht(EXTERN_BERICHT),
     leseBericht(DRILL_BERICHT),
     leseBericht(WIEDERHER_BERICHT),
     datentraeger(),
     schluessel(),
+    leseStaende(),
   ]);
 
   const veraltet = !bericht || bericht._alterStunden > 48;
@@ -487,8 +582,20 @@ async function status() {
                     : [],
                 }
               : null,
+          // Der Stand dieser Nacht (M5): was gelesen und was davon NEU
+          // geschrieben wurde. `null` bei einem Bericht von vor M5.
+          stand: bericht.stand_status
+            ? {
+                status: bericht.stand_status,
+                id: bericht.stand_id || null,
+                geschrieben: bericht.stand_geschrieben_bytes ?? null,
+                gelesen: bericht.stand_gelesen_bytes ?? null,
+                klartext: bericht.stand_klartext ?? null,
+              }
+            : null,
         }
       : { status: 'fehlt', zeitpunkt: null, alterStunden: null, veraltet: true },
+    staende: staendeFuerStatus(staende),
     // Leer, wenn noch nie eine Kopie ausserhalb entstanden ist.
     ausserhalb: extern
       ? {
@@ -498,6 +605,7 @@ async function status() {
           bytes: extern.bytes ?? null,
           dateien: extern.dateien ?? null,
           ziel: extern.ziel ?? null,
+          geschrieben: extern.geschrieben ?? null,
           letzterVersuch: bericht?.extern_status ?? null,
         }
       : {
@@ -587,6 +695,7 @@ async function sichereJetzt() {
  */
 async function stelleWiederHer({
   datei = null,
+  stand = null,
   durch = null,
   quelle = 'lokal',
   wiederherstellungscode = null,
@@ -603,12 +712,23 @@ async function stelleWiederHer({
       'Der Name der Sicherung darf nur Buchstaben, Ziffern, Punkt, Strich und Unterstrich enthalten.'
     );
   }
+  if (stand && !STAND_KENNUNG.test(stand)) {
+    throw new ValidationError(
+      'Ein Stand wird mit seiner Kennung genannt (8 bis 64 Zeichen aus 0-9 und a-f).'
+    );
+  }
+  if (stand && datei) {
+    throw new ValidationError('Entweder ein Stand oder eine Datei, nicht beides.');
+  }
 
   laeuftGerade = 'wiederherstellung';
   try {
     const befehl = ['/usr/local/bin/wiederherstellen.sh'];
     if (datei) {
       befehl.push('--datei', datei);
+    }
+    if (stand) {
+      befehl.push('--stand', stand);
     }
     if (quelle === 'extern') {
       befehl.push('--quelle', 'extern');
@@ -679,12 +799,18 @@ async function stelleAppWiederHer({
     const eintrag = (neueste?.manifest?.apps ?? []).find(a => a.id === appId);
     imManifest = new Set(Array.isArray(eintrag?.staende) ? eintrag.staende : []);
   }
+  // Auf diesem Geraet (M5): der neueste Stand nennt seine App-Datenbanken.
+  // Vor dem ersten Stand gilt der Zeiger der Tagesordner.
+  const imStand =
+    quelle === 'extern' ? null : ((await leseStaende())?.neuester?.app_datenbanken ?? null);
   const vorhanden = [];
   for (const s of staende) {
     const name = appDatenbank.namenFuer(appId, s);
     let da;
     if (quelle === 'extern') {
       da = imManifest.has(s);
+    } else if (Array.isArray(imStand)) {
+      da = imStand.includes(name);
     } else {
       const zeiger = path.join(SICHERUNGS_ORDNER, 'postgres', 'apps', `${name}_latest.sql.gz`);
       // `stat` folgt dem Zeiger: ein Zeiger auf eine geloeschte Datei ist keine Sicherung.
@@ -928,6 +1054,7 @@ async function testeWiederherstellung() {
 
 module.exports = {
   SICHERUNGS_ORDNER,
+  leseStaende,
   status,
   sicherungen,
   sichereJetzt,

@@ -42,19 +42,27 @@ docker exec postgres-db psql -U arasul -d arasul_db -c "SELECT count(*) FROM adm
 **Recovery mit Backup**:
 
 ```bash
-# Verfügbare Sicherungen anzeigen (Name, Art, Größe, Datum)
+# Die Stände anzeigen (seit M5 entsteht jede Nacht einer)
+docker exec backup-service staende.sh liste
+#   oder über die Schnittstelle: Zeilen mit "art": "stand"
 curl -sk -H "authorization: Bearer $TOKEN" \
-  https://arasul.local/api/backup/sicherungen | jq .
+  https://arasul.local/api/backup/sicherungen | jq '.data[] | select(.art=="stand")'
 
-# Erst prüfen, ob sich die neueste überhaupt lesen lässt — ohne etwas anzufassen
+# Erst prüfen, ob sich der neueste überhaupt lesen lässt — ohne etwas anzufassen
 docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe
 
-# Zurückspielen: Datenbank, App-Pakete, Flow-Dateien
+# Zurückspielen: Datenbank, App-Pakete, Flow-Dateien, Firmenordner
 docker exec backup-service /usr/local/bin/wiederherstellen.sh
 
-# Oder eine bestimmte Sicherung
+# Oder ein bestimmter Stand (die ersten acht Zeichen reichen)
+docker exec backup-service /usr/local/bin/wiederherstellen.sh --stand 637755c9
+
+# Oder eine Datei aus den Tagesordnern von vor M5
 docker exec backup-service /usr/local/bin/wiederherstellen.sh \
   --datei arasul_db_20260827_020054.sql.gz
+
+# Nur ansehen, nicht zurückspielen: einen Stand in einen eigenen Ordner holen
+docker exec backup-service staende.sh zurueckholen 637755c9 /backups/pruef-1003
 ```
 
 **Danach müssen die App-Container neu gebaut werden** — die Images sind bei
@@ -106,24 +114,37 @@ curl -fsSL https://arasul.de/api/install | bash
 
 # 3. Die SICHERUNG vom alten Gerät: der Datenträger. SSD an das neue Gerät
 #    stecken -- es erkennt sie von selbst (/mnt/arasul-sicherung, J37). Auf ihr
-#    liegt alles verschlüsselt unter arasul-sicherung/<datum>/, mit MANIFEST.json.
+#    liegen die Stände verschlüsselt unter arasul-sicherung/staende-<abdruck>/
+#    (seit M5; davor Tagesordner arasul-sicherung/<datum>/), mit MANIFEST.json.
 #    Und den WIEDERHERSTELLUNGSCODE des alten Geräts bereithalten (er stand bei
-#    der Einrichtung auf dem Bildschirm): er IST der Schlüssel.
-#    Am besten schon bei der Installation nennen, dann bleibt alles lesbar:
+#    der Einrichtung auf dem Bildschirm): er IST der Schlüssel und das Passwort
+#    der Stände. Bei der Installation nennen, dann ist das neue Gerät sofort
+#    der Fortsetzer der alten Reihe (gleicher Abdruck, gleiches Repo):
 #      ./install.sh --wiederherstellungscode ABCD-EFGH-…
 
 # 4. ZUERST die Konfiguration, VOR dem ersten Start.
-#    Sie kommt aus config_latest.tar.gz und wird NICHT vom
+#    Sie steht im Stand (/arasul/konfiguration) und wird NICHT vom
 #    Wiederherstellungsweg eingespielt: einem laufenden Gerät die Zugangsdaten
 #    zu tauschen hieße, dass das Passwort im Container nicht mehr zu dem in der
-#    Datenbank passt. Auf ein leeres Gerät gehört sie von Hand.
-openssl enc -d -aes-256-cbc -pbkdf2 -in config_latest.tar.gz \
-  -pass file:/pfad/zum/backup_encryption_key | tar xz -C /opt/arasul
+#    Datenbank passt. Auf ein leeres Gerät gehört sie von Hand, und dafür
+#    reicht das Image des Sicherungsdienstes allein (kein laufender Stack):
+mkdir -p /tmp/konfig-zurueck
+docker run --rm --entrypoint staende.sh \
+  -v /mnt/arasul-sicherung:/arasul/extern \
+  -v "$PWD/config/secrets/backup_encryption_key:/run/secrets/backup_encryption_key:ro" \
+  -v /tmp/konfig-zurueck:/zurueck \
+  arasul-platform-backup-service \
+  zurueckholen latest /zurueck/k --quelle extern --pfad /arasul/konfiguration
+cp -a /tmp/konfig-zurueck/k/arasul/konfiguration/.env .
+cp -a /tmp/konfig-zurueck/k/arasul/konfiguration/config/. config/
+#    (Vor M5: openssl enc -d -aes-256-cbc -pbkdf2 -in config_latest.tar.gz
+#     -pass file:config/secrets/backup_encryption_key | tar xz)
 
-#    DER SCHLÜSSEL LIEGT NICHT IM ARCHIV. Er ist ausdrücklich ausgenommen —
-#    wer das Archiv öffnen will, braucht ihn vorher. Das ist der
+#    DER SCHLÜSSEL LIEGT NICHT IM STAND. Er ist ausdrücklich ausgenommen —
+#    wer den Stand öffnen will, braucht ihn vorher. Das ist der
 #    Wiederherstellungscode; wenn er nicht außerhalb des Geräts aufbewahrt
 #    wurde (und `config/secrets/` weg ist), ist an dieser Stelle Schluss.
+#    Wo er liegt und warum: docs/ops/BACKUP_SYSTEM.md, Abschnitt 5a.
 
 # 5. Stack hochfahren und den Rest zurückspielen — VOM DATENTRÄGER:
 docker compose up -d
@@ -144,6 +165,41 @@ docker exec llm-service ollama pull qwen3.8:27b-q4_K_M
 **Erwartete Recovery-Zeit**: 1-2 Stunden (inkl. Model-Download)
 
 ---
+
+### 1.3a Werksreset und Gerätetausch: wo der Schlüssel liegt
+
+Die Stände (seit M5) sind mit dem Sicherungsschlüssel des Geräts
+verschlüsselt; er ist das Passwort ihres Repos und **ist** der
+Wiederherstellungscode. Einen zweiten Schlüssel gibt es nicht. Damit er weder
+beim Werksreset noch mit dem Gerät verloren geht, liegt er so:
+
+| Wo                                                                                                                            | Überlebt Werksreset                                                  | Überlebt Gerätetausch |
+| ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------- |
+| `config/secrets/backup_encryption_key` am Gerät                                                                               | nein (wird gelöscht)                                                 | nein                  |
+| im Stand selbst                                                                                                               | — ausdrücklich ausgenommen, sonst wäre er mit dem Stand verschlossen | —                     |
+| **Wiederherstellungscode auf Papier / im Passwortspeicher der Firma** (Erstausgabe, `scripts/util/wiederherstellungscode.sh`) | **ja**                                                               | **ja**                |
+
+Und die Stände selbst:
+
+| Wo                                                        | Überlebt Werksreset                  | Überlebt Gerätetausch          |
+| --------------------------------------------------------- | ------------------------------------ | ------------------------------ |
+| `data/backups/staende-<abdruck>/` am Gerät                | nein (der Werksreset löscht `data/`) | nein                           |
+| `arasul-sicherung/staende-<abdruck>/` auf dem Datenträger | ja                                   | ja (an das neue Gerät stecken) |
+
+Der Werksreset (`scripts/setup/factory-reset.sh`) fragt **vor** dem Löschen
+nach dem Code und bricht bei einem falschen ab; `ohne` geht nur nach einer
+Warnung. Danach, und auf einem neuen Gerät:
+
+```bash
+./install.sh --wiederherstellungscode ABCD-EFGH-…
+```
+
+schreibt den alten Schlüssel wieder. Derselbe Schlüssel ergibt denselben
+Abdruck und damit dasselbe Repo: die nächste Nacht setzt die Reihe der Stände
+auf dem Datenträger fort, und jeder ältere Stand bleibt zurückholbar. Wird
+**ohne** Code installiert, entsteht ein neuer Schlüssel und daneben ein neues
+Repo; das alte bleibt unangetastet und öffnet sich weiter mit dem alten Code
+(beim Zurückholen eingeben: Oberfläche oder `ARASUL_WIEDERHERSTELLUNGSCODE`).
 
 ### 1.4 GPU-Hang / CUDA-Fehler
 
@@ -189,8 +245,11 @@ du -sh /opt/arasul/data/* | sort -rh | head -10
 # Docker Cleanup (gestoppte Container, ungenutzte Images)
 docker system prune -f
 
-# Alte Backups löschen
-find /opt/arasul/data/backups -name "*.gz" -mtime +3 -delete
+# Alte Backups: NIE in data/backups/staende-* von Hand löschen (ein Repo mit
+# fehlenden Dateien ist für alle Stände beschädigt). Die Stände räumen sich
+# selbst auf. Platz geben die Tagesordner von vor M5 frei, sobald entschieden
+# ist, dass sie nicht mehr gebraucht werden:
+du -sh /opt/arasul/data/backups/{postgres,apps,flows,firmenordner,config,wal-archive}
 
 # Ungenutzte Modelle löschen
 docker exec llm-service ollama list
@@ -265,14 +324,17 @@ curl -s http://localhost:11435/health | python3 -m json.tool
 ### 2.4 Manuelles Backup
 
 ```bash
-# Manuelles Backup aller Komponenten
-docker exec backup-service /app/backup.sh
+# Manuelles Backup aller Komponenten (ein neuer Stand, nur Geändertes)
+docker exec backup-service /usr/local/bin/backup.sh
 
 # Nur Datenbank
 docker exec postgres-db pg_dump -U arasul arasul_db | gzip > backup_manual.sql.gz
 
 # Backup-Report anzeigen
 docker exec backup-service cat /backups/backup_report.json | python3 -m json.tool
+
+# Stände anzeigen
+docker exec backup-service staende.sh liste
 ```
 
 ### 2.5 Netzwerk-Diagnose

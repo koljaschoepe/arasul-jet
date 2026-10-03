@@ -253,6 +253,14 @@ jobs:
           - name: egress-proxy
             dockerfile: services/egress-proxy/Dockerfile
             context: services/egress-proxy
+          # Der Sicherungsdienst (M5): seit den Staenden haengt die naechtliche
+          # Sicherung an restic aus Alpine. Die Startprobe fragt, ob es da ist
+          # und ob ionice im Container laeuft (ohne liefe die Sicherung nicht
+          # leise neben der GPU-Arbeit).
+          - name: backup-service
+            dockerfile: services/backup-service/Dockerfile
+            context: services/backup-service
+            smoke_sh: restic version && ionice -c 3 true && bash -n /usr/local/bin/staende.sh && bash -c 'exec 9>/tmp/sperre; timeout 5 flock 9'
           # Der Indexer stand hier bis zum 24.08.2026 nicht drin, und seine
           # Requirements werden im pytest-Job bewusst nicht installiert (siehe
           # dort). Damit war er der einzige Dienst, dessen Abhaengigkeiten in
@@ -309,7 +317,7 @@ jobs:
           platforms: ${{ matrix.image.platform || 'linux/amd64' }}
           # Nur wo eine Startprobe folgt, muss das Image auch im lokalen Daemon
           # landen. `load` kostet Zeit, deshalb nicht fuer alle.
-          load: ${{ matrix.image.smoke != '' }}
+          load: ${{ matrix.image.smoke != '' || matrix.image.smoke_sh != '' }}
           tags: ${{ matrix.image.name }}:ci
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
@@ -325,6 +333,13 @@ jobs:
         # `--entrypoint`, weil der llm-service einen Einstieg hat, der Ollama
         # startet; ohne waere `python3 -c` nur sein Argument.
         run: docker run --rm --network none --entrypoint python3 "$BILD" -c "$SMOKE"
+
+      - name: Startprobe (Shell)
+        if: matrix.image.smoke_sh != ''
+        env:
+          BILD: ${{ matrix.image.name }}:ci
+          SMOKE: ${{ matrix.image.smoke_sh }}
+        run: docker run --rm --network none --entrypoint sh "$BILD" -c "$SMOKE"
 
   # ----------------------------------------------------------------------------
   # Lockfile drift guard (Master-Plan P9-4 / AC2): the repo keeps a single
@@ -634,11 +649,17 @@ jobs:
       - name: Der Deploy-Rollback sagt die Wahrheit ueber sich
         run: bash scripts/test/rollback-meldung.sh
 
-      # J35, 27.09.2026: wer waehrend der Sicherung schreibt, liess tar mit 1
-      # enden, backup-service wurde krank und der Deploy von PR 801 rollte
-      # zurueck. Der Test stellt den Fall her und verlangt Gruen.
-      - name: Die Sicherung haelt Schreiben waehrend des Laufs aus
-        run: bash scripts/test/sicherung-waehrend-schreiben.sh
+      # M5, 03.10.2026: die Staende der Sicherung mit echtem restic (dieselbe
+      # Fassung wie im Image, 0.16.4). Zwei Laeufe (der zweite schreibt nur
+      # das Geaenderte), jeder Stand einzeln zurueck, nur Chiffrat (mit
+      # Gegenproben), Aufbewahrung 7/12/60 gegen eine eigene Nachrechnung,
+      # volles Ziel (tmpfs ueber sudo). Darin auch der Fall von J35
+      # (27.09.2026): wer waehrend der Sicherung schreibt, liess tar mit 1
+      # enden und den Deploy von PR 801 zurueckrollen.
+      - name: Die Staende der Sicherung (nur Geaendertes, 7/12/60, nur Chiffrat)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends restic >/dev/null
+          bash scripts/test/sicherung-staende.sh
 
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh

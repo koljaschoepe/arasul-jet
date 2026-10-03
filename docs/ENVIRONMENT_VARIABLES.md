@@ -309,12 +309,28 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 
 ## Backup
 
-| Variable              | Default               | Description                                                                                                          |
-| --------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| BACKUP_SCHEDULE       | 0 2 \* \* \*          | Cron schedule (default: 2:00 AM daily)                                                                               |
-| BACKUP_RETENTION_DAYS | 30                    | Days to keep daily backups                                                                                           |
-| APPS_BACKUP_DIR       | /arasul/apps          | Die Pakete der Apps im Sicherungsdienst. **Schreibbar** gemountet, weil `wiederherstellen.sh` sie hier wieder ablegt |
-| CONFIG_BACKUP_DIR     | /arasul/konfiguration | `.env` und `config/` im Sicherungsdienst, nur lesend. Der Sicherungsschlüssel selbst bleibt aus dem Archiv           |
+| Variable              | Default               | Description                                                                                                            |
+| --------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| BACKUP_SCHEDULE       | 0 2 \* \* \*          | Cron schedule (default: 2:00 AM daily)                                                                                 |
+| BACKUP_RETENTION_DAYS | 30                    | Seit M5 nur noch: ab welchem Alter WAL-Segmente in `/backups/wal` gelöscht werden (die Stände haben ihre eigene Regel) |
+| APPS_BACKUP_DIR       | /arasul/apps          | Die Pakete der Apps im Sicherungsdienst. **Schreibbar** gemountet, weil `wiederherstellen.sh` sie hier wieder ablegt   |
+| CONFIG_BACKUP_DIR     | /arasul/konfiguration | `.env` und `config/` im Sicherungsdienst, nur lesend. Der Sicherungsschlüssel selbst bleibt aus dem Archiv             |
+
+### Die Stände (M5, 03.10.2026)
+
+Jede Nacht ein Stand, der nur Geändertes schreibt (restic, immer verschlüsselt,
+Passwort = Sicherungsschlüssel = Wiederherstellungscode). Siehe
+[`docs/ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md#stände-seit-m5).
+
+| Variable                 | Default                | Description                                                                                              |
+| ------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| BACKUP_STAND_TAGE        | 7                      | Tägliche Stände, die bleiben                                                                             |
+| BACKUP_STAND_WOCHEN      | 12                     | Wöchentliche Stände, die bleiben                                                                         |
+| BACKUP_STAND_MONATE      | 60                     | Monatliche Stände, die bleiben                                                                           |
+| BACKUP_STAND_RESERVE_MB  | 2048                   | So viel bleibt auf dem Ziel frei, plus was der neue Stand braucht; sonst fällt der älteste (mit Hinweis) |
+| BACKUP_STAND_CACHE       | /backups/.restic-cache | Zwischenspeicher von restic; lokal, nie auf dem Datenträger                                              |
+| BACKUP_STAND_DB_QUELLE   | /arasul/datenbank      | Wohin die Datenbankabzüge vor dem Stand gehen (im Container, nach dem Lauf weg)                          |
+| BACKUP_DRILL_DATENANTEIL | 5%                     | Wie viel der Daten `restic check` beim wöchentlichen Wiederherstellungstest wirklich liest               |
 
 ---
 

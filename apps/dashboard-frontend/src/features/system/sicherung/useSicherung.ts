@@ -57,6 +57,21 @@ export interface SicherungStatus {
   letzteWiederherstellung: { status: string; zeitpunkt: string | null; grund?: string } | null;
   /** `sicherung`, `wiederherstellung`, `wiederherstellungstest` — oder null. */
   laeuftGerade: string | null;
+  /** Die Stände der Sicherung (M5); `null`, solange es keinen gibt. */
+  staende?: Staende | null;
+}
+
+/** Was `backup.sh` über die Stände hinterlegt (M5). */
+interface Staende {
+  anzahl: number;
+  /** Größe des Repos auf diesem Gerät, Bytes. */
+  bytes: number | null;
+  neuester: { id: string; zeitpunkt: string | null; geschrieben: number | null } | null;
+  aeltester: string | null;
+  aufbewahrung: { tage: number; wochen: number; monate: number } | null;
+  /** Gesetzt, wenn das Ziel voll war und der älteste Stand dafür gefallen ist. */
+  hinweis: string | null;
+  entfallenWegenPlatz: string[];
 }
 
 /** Was das Gerät über den angesteckten Datenträger weiß (J37). */
@@ -134,7 +149,9 @@ export interface GeraetZurueckErgebnis {
 
 /** Eine Datei im Sicherungsordner (`GET /api/backup/sicherungen`). */
 export interface Sicherungsdatei {
-  art: 'postgres' | 'app-datenbanken' | 'apps' | 'flows' | 'config' | 'firmenordner';
+  art: 'postgres' | 'app-datenbanken' | 'apps' | 'flows' | 'config' | 'firmenordner' | 'stand';
+  /** Bei `stand`: die Kennung, mit der er sich zurückholen lässt. */
+  id?: string;
   zweck: string;
   name: string;
   /** Bei `app-datenbanken`: welche Datenbank (`arasul_app_<kennung>_<stand>`). */

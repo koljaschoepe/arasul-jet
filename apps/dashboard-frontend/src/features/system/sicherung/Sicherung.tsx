@@ -349,11 +349,18 @@ export function Sicherung() {
             titel="Was da liegt"
             symbol={<Archive />}
             beschreibung={
-              liste
-                ? `${liste.anzahl} Dateien, ${formatBytes(liste.bytes)} in ${liste.ordner}`
-                : 'Gelesen wird die Platte, nicht der Bericht der letzten Nacht.'
+              status?.staende
+                ? `${formatZahl(status.staende.anzahl)} Stände, zusammen ${formatBytes(status.staende.bytes ?? 0)}. Jede Nacht kommt einer dazu, der nur Geändertes schreibt; aufbewahrt werden ${status.staende.aufbewahrung?.tage ?? 7} Tage, ${status.staende.aufbewahrung?.wochen ?? 12} Wochen und ${status.staende.aufbewahrung?.monate ?? 60} Monate.`
+                : liste
+                  ? `${liste.anzahl} Dateien, ${formatBytes(liste.bytes)} in ${liste.ordner}`
+                  : 'Gelesen wird die Platte, nicht der Bericht der letzten Nacht.'
             }
           >
+            {status?.staende?.hinweis && (
+              <p className="mb-3 text-sm text-foreground" data-testid="sicherung-platz-hinweis">
+                Das Ziel war voll: der älteste Stand ist entfallen, damit der neue Platz hat.
+              </p>
+            )}
             {!liste || liste.dateien.length === 0 ? (
               <Leerzustand
                 symbol={<Archive />}
@@ -371,7 +378,11 @@ export function Sicherung() {
                     <span className="text-sm font-medium text-foreground">
                       {formatDate(datei.zeitpunkt)}
                     </span>
-                    <span className="text-sm text-foreground">{formatBytes(datei.bytes)}</span>
+                    <span className="text-sm text-foreground">
+                      {datei.art === 'stand'
+                        ? `${formatBytes(datei.bytes)} neu`
+                        : formatBytes(datei.bytes)}
+                    </span>
                     <span className="text-xs text-muted-foreground">{datei.zweck}</span>
                     <span className="w-full truncate font-mono text-ui-xs text-muted-foreground">
                       {datei.name}
