@@ -276,6 +276,29 @@ describe('entscheide ohne Faden im Speicher', () => {
     fortsetzen.mockRestore();
   });
 
+  it('haelt eine nach dem Neustart gestellte Uhr nicht fuer einen Faden', async () => {
+    // `wiederaufnehmen` legt einen Eintrag ohne `aufloesen` an. `entscheide`
+    // muss ihn wie „kein Faden" behandeln und den Lauf neu aufsetzen.
+    fakeDb([
+      ...antworten('bestaetigt', true),
+      [
+        /FROM public\.approvals a\s+JOIN flow_runs/,
+        {
+          rows: [{ id: 42, run_id: 7, titel: 'x', status: 'offen', frist: '2099-01-01T00:00:00Z' }],
+        },
+      ],
+    ]);
+    await freigabeAnfragen.wiederaufnehmen();
+    expect(freigabeAnfragen._wartende.get('42').aufloesen).toBeUndefined();
+    const fortsetzen = jest.spyOn(flowRunner, 'fortsetzen').mockResolvedValue(true);
+    const erg = await freigabeAnfragen.entscheide({ id: 42, benutzerId: 1, status: 'bestaetigt' });
+    expect(fortsetzen).toHaveBeenCalledWith({ runId: 7 });
+    expect(erg.fortgesetzt).toBe(true);
+    // Die Uhr ist abgestellt und der Eintrag weg.
+    expect(freigabeAnfragen._wartende.has('42')).toBe(false);
+    fortsetzen.mockRestore();
+  });
+
   it('beendet den Lauf bei einer Ablehnung als abgebrochen, mit der Begruendung', async () => {
     const calls = fakeDb(antworten('abgelehnt', true));
     const erg = await freigabeAnfragen.entscheide({
