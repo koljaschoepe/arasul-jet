@@ -1,12 +1,12 @@
 /**
- * Die Zeitangaben einer Freigabe, als Worte (J36, 02.10.2026).
+ * Die Zeitangaben einer Freigabe, als Worte.
  *
  * Eine Frist ist das einzige Feld einer Freigabe, das sich von selbst ändert,
  * und deshalb steht sie als DAUER da und nicht als Zeitpunkt: „noch 47
  * Minuten" beantwortet die Frage, die jemand vor dem Knopf hat. Die Grenze
  * liegt bei einer Stunde: darunter zählen Minuten, darüber Stunden und Tage.
  *
- * Reine Funktionen und nur für `Freigabe` gedacht — sie stehen nicht im
+ * Reine Funktionen und nur für `Freigabe` gedacht; sie stehen nicht im
  * Sammelexport. Die Shell liest sie über `@marken/muster/freigabeFrist`.
  */
 
@@ -21,7 +21,7 @@ export function restzeit(frist: string, jetzt: number = Date.now()): string {
   const rest = ziel - jetzt;
   // Abgelaufen, aber noch in der Liste: der Zeitgeber im Backend schreibt den
   // Status erst, wenn der Lauf ihn braucht. Zu schweigen wäre die schlechtere
-  // Form -- wer hier drückt, bekommt eine Absage.
+  // Form: wer hier drückt, bekommt eine Absage.
   if (rest <= 0) return 'Frist abgelaufen';
 
   const minuten = Math.floor(rest / 60_000);

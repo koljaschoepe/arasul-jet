@@ -23,7 +23,7 @@ import {
  * Die Navigation einer Fachanwendung: eine Liste hinein, eine Seitenleiste
  * heraus.
  *
- * WARUM SIE NEBEN `Sidebar` STEHT. `Sidebar` ist die Mechanik -- auf und zu,
+ * WARUM SIE NEBEN `Sidebar` STEHT. `Sidebar` ist die Mechanik: auf und zu,
  * schmal oder breit, unter 900 px ein Blatt. Wer sie direkt benutzt,
  * schreibt fuer jeden Eintrag vier verschachtelte Bausteine hin, und beim
  * dritten Eintrag ist einer davon vergessen. Hier geht eine Liste hinein.
@@ -31,8 +31,8 @@ import {
  * anfaengt, eine Form zu liefern.
  *
  * WELCHER EINTRAG AKTIV IST, SAGT DIE ANWENDUNG. Sie kennt ihren Router;
- * dieser Baustein kennt keinen. `aktiv` traegt am Knopf `aria-current="page"`
- * -- daran und nicht an der Farbe erkennt ein Screenreader, wo er steht.
+ * dieser Baustein kennt keinen. `aktiv` traegt am Knopf `aria-current="page"`;
+ * daran und nicht an der Farbe erkennt ein Screenreader, wo er steht.
  */
 export interface SeitenleistenEintrag {
   kennung: string;
@@ -99,7 +99,7 @@ export function Seitenleiste({
                         disabled={eintrag.disabled}
                         onClick={eintrag.href ? undefined : eintrag.aufKlick}
                         // Der Name steht als `title` auch dann noch da, wenn
-                        // die Leiste auf Symbolbreite zugeklappt ist -- sonst
+                        // die Leiste auf Symbolbreite zugeklappt ist, sonst
                         // ist sie eine Reihe unbeschrifteter Bildchen.
                         title={eintrag.name}
                       >

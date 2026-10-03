@@ -9,12 +9,11 @@ import { Leerzustand } from './Leerzustand';
 import { istKnapp, restzeit, wartetSeit } from './freigabeFrist';
 
 /**
- * Eine Freigabe: jemand soll etwas bestätigen oder ablehnen, bevor es weitergeht
- * (J36, 02.10.2026).
+ * Eine Freigabe: jemand soll etwas bestätigen oder ablehnen, bevor es weitergeht.
  *
  * WARUM ES DAS ALS MUSTER GIBT. Ein Flow kann anhalten und eine Freigabe
- * verlangen (C7). Bis J36 stand die Entscheidung in der Übersicht des Geräts,
- * für jeden, der angemeldet war — mit der Folge, dass ein Mitarbeiter eine
+ * verlangen. Früher stand die Entscheidung in der Übersicht des Geräts,
+ * für jeden, der angemeldet war, mit der Folge, dass ein Mitarbeiter eine
  * Liste sah, in der er den Zusammenhang nicht kannte. Eine Freigabe gehört in
  * die App, in der sie entsteht, und diese Form ist die, die jede App dafür
  * benutzt. Dass die Shell dasselbe Muster für den Administrator benutzt, ist
@@ -22,7 +21,7 @@ import { istKnapp, restzeit, wartetSeit } from './freigabeFrist';
  * der Anfang von zwei Wahrheiten darüber, was „bestätigen" heißt.
  *
  * DREI DINGE, DIE JEDE FREIGABE ZEIGT: worum es geht (Titel, Zusammenhang), wie
- * lange noch Zeit bleibt (Frist als Dauer), und — nach der Entscheidung — WER
+ * lange noch Zeit bleibt (Frist als Dauer), und (nach der Entscheidung) WER
  * sie getroffen hat und mit welcher Begründung. Wer eine Ablehnung liest,
  * will den Grund wissen und den Namen.
  *
@@ -36,11 +35,11 @@ import { istKnapp, restzeit, wartetSeit } from './freigabeFrist';
  * bekommt Einträge und zwei Funktionen. Was entscheiden darf, entscheidet die
  * App (oder das Backend) und gibt nur Einträge herein, bei denen es der
  * Betrachter darf. Wirft eine der Funktionen, bleibt das Feld offen und der
- * Text steht — die Fehlermeldung zeigt der Aufrufer.
+ * Text steht; die Fehlermeldung zeigt der Aufrufer.
  *
  * ZWEI ANSICHTEN, EINE KOMPONENTE: die Liste (jede Freigabe als Karte mit
  * ihren Knöpfen) und die Einzelansicht (eine Freigabe ganz, mit Zurück). Wer
- * `gewaehlt` setzt, steuert sie von außen — etwa aus einer Adresse; ohne die
+ * `gewaehlt` setzt, steuert sie von außen, etwa aus einer Adresse; ohne die
  * Eigenschaft führt die Komponente es selbst.
  */
 export interface FreigabeEintrag {
@@ -160,7 +159,7 @@ function FreigabeKarte({
   const [laeuft, setLaeuft] = useState(false);
   const feld = useRef<HTMLTextAreaElement>(null);
   // Der Zeiger springt in das Feld, sobald es aufklappt: wer „Ablehnen"
-  // drückt, will schreiben. Als Effekt und nicht als `autoFocus` -- das
+  // drückt, will schreiben. Als Effekt und nicht als `autoFocus`: das
   // griffe auch beim ersten Rendern der Seite und zöge einen Bildschirmleser
   // ungefragt an eine Textbox.
   useEffect(() => {
