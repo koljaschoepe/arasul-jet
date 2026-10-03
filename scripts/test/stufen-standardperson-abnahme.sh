@@ -447,7 +447,8 @@ fi
 
 # --- 7. Aufraeumen ist Teil der Messung --------------------------------------------
 fehl=""
-for id in "${FREIGEGEBEN[@]}"; do
+for id in "${FREIGEGEBEN[@]:-}"; do
+  [ -n "$id" ] || continue
   ruf "$TOK" DELETE "/api/freigaben/$APP/$id"
   [[ "$CODE" =~ ^20[04]$ ]] || fehl="$fehl $id:$CODE"
 done

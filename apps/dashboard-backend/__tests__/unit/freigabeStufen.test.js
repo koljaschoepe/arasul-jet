@@ -236,6 +236,9 @@ describe('weitergeben', () => {
   /** Eine Datenbank fuer das Weitergeben: `treffer` sagt, ob das UPDATE greift. */
   function weitergebenDb({ ziel = { id: 4, username: 'bernd' }, treffer = true, grund = {} }) {
     db.query.mockImplementation(async (sql, params) => {
+      if (/AS im_kreis, CASE WHEN/.test(sql)) {
+        return { rows: [{ im_kreis: true, liegt_bei: 'anna' }] };
+      }
       if (/WHERE username = \$1 AND is_active = TRUE/.test(sql)) {
         return { rows: ziel ? [ziel] : [] };
       }
@@ -261,7 +264,8 @@ describe('weitergeben', () => {
   it('legt sie zu dem, der sie entscheiden darf', async () => {
     weitergebenDb({});
     const r = await freigabeAnfragen.weitergeben({ id: 42, benutzerId: 3, an: 'bernd' });
-    expect(r).toMatchObject({ id: 42, liegt_bei: 'bernd' });
+    // `vorher` geht ins Sicherheitsprotokoll: wer hatte sie, bevor sie wanderte.
+    expect(r).toMatchObject({ id: 42, liegt_bei: 'bernd', vorher: 'anna' });
     const update = db.query.mock.calls.find(c => /SET liegt_bei = \$3/.test(c[0]));
     expect(update[1]).toEqual([42, 3, 4]);
   });
@@ -289,8 +293,11 @@ describe('weitergeben', () => {
 
   it('wer selbst nicht im Kreis steht, gibt nichts weiter (403)', async () => {
     db.query.mockImplementation(async sql => {
+      if (/AS im_kreis, CASE WHEN/.test(sql)) {
+        return { rows: [{ im_kreis: false, liegt_bei: null }] };
+      }
       if (/WHERE username = \$1 AND is_active = TRUE/.test(sql)) {
-        return { rows: [{ id: 4, username: 'bernd' }] };
+        throw new Error('Konten werden erst nach dem Kreis des Aufrufers gesucht');
       }
       if (/UPDATE public\.approvals a/.test(sql)) return { rows: [], rowCount: 0 };
       if (/AS ich_im_kreis/.test(sql)) {

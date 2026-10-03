@@ -604,7 +604,12 @@ async function anfordern(
     ]
   );
   const anfrage = rows[0];
-  anfrage.liegt_bei = await zurStandardperson({ id: anfrage.id, datenbank });
+  // Scheitert das Zuteilen, bleibt die Anfrage gueltig und liegt bei allen im
+  // Kreis -- lieber das als ein Lauf, der nie anhaelt, und eine verwaiste Zeile.
+  anfrage.liegt_bei = await zurStandardperson({ id: anfrage.id, datenbank }).catch(err => {
+    logger.warn(`Freigabe ${anfrage.id}: Standardperson nicht zugeteilt: ${err.message}`);
+    return null;
+  });
 
   // Erst jetzt haelt der Lauf an. Andersherum stuende er kurz auf `wartend`,
   // ohne dass es etwas gaebe, worauf er wartet -- und bliebe so stehen, wenn
@@ -1030,6 +1035,7 @@ async function listeBeiAnderen(benutzerId, { datenbank = db } = {}) {
  * selbst, ob er darf; kein Fenster zwischen Pruefung und Schreiben.
  */
 async function uebernehmen({ id, benutzerId }, { datenbank = db } = {}) {
+  const vorher = await liegtBeiVorher(id, datenbank);
   const { rows } = await datenbank.query(
     `UPDATE public.approvals a
         SET liegt_bei = $2, liegt_seit = NOW()
@@ -1044,8 +1050,17 @@ async function uebernehmen({ id, benutzerId }, { datenbank = db } = {}) {
     await erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal: true });
   }
   const benutzer = await nameVon(benutzerId, datenbank);
-  logger.info(`Freigabe ${id} uebernommen von ${benutzer}`);
-  return { ...rows[0], liegt_bei: benutzer };
+  logger.info(`Freigabe ${id} uebernommen von ${benutzer} (lag bei ${vorher || 'allen'})`);
+  return { ...rows[0], liegt_bei: benutzer, vorher };
+}
+
+/** Bei wem eine Anfrage gerade liegt (Name oder null) -- fuer das Protokoll. */
+async function liegtBeiVorher(id, datenbank) {
+  const { rows } = await datenbank.query(
+    `SELECT ${LIEGT_BEI_SQL} AS liegt_bei FROM public.approvals a WHERE a.id = $1`,
+    [id]
+  );
+  return rows[0]?.liegt_bei ?? null;
 }
 
 /**
@@ -1058,6 +1073,17 @@ async function uebernehmen({ id, benutzerId }, { datenbank = db } = {}) {
  * @param {{id:number, benutzerId:number, an:string}} was  `an` ist ein Benutzername
  */
 async function weitergeben({ id, benutzerId, an }, { datenbank = db } = {}) {
+  // Erst der Aufrufer: wer die Anfrage nicht entscheiden darf, erfaehrt auch
+  // nicht, welche Konten es am Geraet gibt.
+  const { rows: ich } = await datenbank.query(
+    `SELECT ${kreis(2)} AS im_kreis, ${LIEGT_BEI_SQL} AS liegt_bei
+       FROM public.approvals a WHERE a.id = $1`,
+    [id, benutzerId]
+  );
+  if (ich.length === 0 || !ich[0].im_kreis) {
+    await erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal: true });
+  }
+  const vorher = ich[0].liegt_bei ?? null;
   const { rows: ziel } = await datenbank.query(
     'SELECT id, username FROM public.admin_users WHERE username = $1 AND is_active = TRUE',
     [an]
@@ -1083,7 +1109,7 @@ async function weitergeben({ id, benutzerId, an }, { datenbank = db } = {}) {
   }
   const benutzer = await nameVon(benutzerId, datenbank);
   logger.info(`Freigabe ${id} von ${benutzer} an ${ziel[0].username} weitergegeben`);
-  return { ...rows[0], liegt_bei: ziel[0].username };
+  return { ...rows[0], liegt_bei: ziel[0].username, vorher };
 }
 
 /** Warum das Weitergeben keine Zeile traf. Wirft immer. */
@@ -1111,7 +1137,10 @@ async function erklaereFehlschlagWeitergeben({ id, benutzerId, zielId, an, daten
       `${an} hat diesen Vorgang eingereicht und entscheidet nicht mit (Vier-Augen-Prinzip).`
     );
   }
-  throw new ValidationError(`${an} darf diese Freigabe nicht entscheiden.`);
+  // Bleibt nur die Regel des Laufs: die App hat die Entscheider benannt.
+  throw new ValidationError(
+    `${an} steht nicht unter den Entscheidern, die die App für diesen Vorgang benannt hat.`
+  );
 }
 
 /**

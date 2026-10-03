@@ -85,16 +85,16 @@ function regelSatz(f: {
   return teile.length > 0 ? teile.join(' ') : null;
 }
 
-/**
- * Die Anfrage in der Form des Musters. Der NAME der App und nicht ihre Kennung
- * (26.09.2026): „faktum" ist ein Pfad, „Faktum" ist das, was der Mensch links
- * in seiner Leiste sieht.
- */
 /** Die Stufe in Worten: die Bezeichnung aus dem Flow, sonst ihr Name. */
 function stufeName(f: Pick<OffeneFreigabe, 'stufe' | 'stufe_bezeichnung'>): string | null {
   return f.stufe_bezeichnung || f.stufe || null;
 }
 
+/**
+ * Die Anfrage in der Form des Musters. Der NAME der App und nicht ihre Kennung
+ * (26.09.2026): „faktum" ist ein Pfad, „Faktum" ist das, was der Mensch links
+ * in seiner Leiste sieht.
+ */
 function alsEintrag(f: OffeneFreigabe): FreigabeEintrag {
   const stufe = stufeName(f);
   return {

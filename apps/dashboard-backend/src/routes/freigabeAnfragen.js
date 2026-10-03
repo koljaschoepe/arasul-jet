@@ -171,7 +171,13 @@ router.post(
     logSecurityEvent({
       userId: req.user.id,
       action: 'freigabe_uebernommen',
-      details: { anfrage: data.id, app_id: data.app_id, stand: data.stand, lauf: data.run_id },
+      details: {
+        anfrage: data.id,
+        app_id: data.app_id,
+        stand: data.stand,
+        lauf: data.run_id,
+        vorher: data.vorher,
+      },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
@@ -205,6 +211,7 @@ router.post(
         stand: data.stand,
         lauf: data.run_id,
         an: data.liegt_bei,
+        vorher: data.vorher,
       },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
