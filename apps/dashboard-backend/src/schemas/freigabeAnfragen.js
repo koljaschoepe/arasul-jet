@@ -39,4 +39,23 @@ const AblehnenBody = z
  */
 const BestaetigenBody = z.object({}).strict();
 
-module.exports = { AnfrageParams, AblehnenBody, BestaetigenBody };
+/**
+ * Body des Weitergebens (M5): an wen, als Benutzername. Ob der die Anfrage
+ * entscheiden darf, prueft der Dienst gegen den Kreis.
+ */
+const WeitergebenBody = z
+  .object({
+    an: z.string().trim().min(1, 'An wen? Ein Benutzername').max(100),
+  })
+  .strict();
+
+/** Body des Uebernehmens: leer, aus demselben Grund wie beim Bestaetigen. */
+const UebernehmenBody = z.object({}).strict();
+
+module.exports = {
+  AnfrageParams,
+  AblehnenBody,
+  BestaetigenBody,
+  WeitergebenBody,
+  UebernehmenBody,
+};

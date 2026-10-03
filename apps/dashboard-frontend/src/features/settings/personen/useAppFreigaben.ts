@@ -122,6 +122,8 @@ export function useFreigabeSetzen() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: FREIGABEN_KEY });
+      // Wer Zugang hat, entscheidet, wer Standardperson einer Stufe sein kann (M5).
+      void qc.invalidateQueries({ queryKey: ['apps', 'stufen'] });
     },
   });
 }

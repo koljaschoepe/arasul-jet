@@ -1089,12 +1089,26 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | GET    | `/api/apps/:id/flows`              | Die Flows beider Stände, mit dem Modell, das sie treibt                                    |
 | GET    | `/api/apps/:id/flows/:name`        | Die Flow-Datei selbst, samt Prompt (Phase D4)                                              |
 | PUT    | `/api/apps/:id/flows/:name/modell` | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                             |
+| GET    | `/api/apps/:id/stufen`             | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)         |
+| PUT    | `/api/apps/:id/stufen/:stufe`      | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)          |
 | GET    | `/api/apps/:id/laeufe`             | Die Flow-Läufe dieser App (Phase D4)                                                       |
 | GET    | `/api/apps/:id/laeufe/:runId`      | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                        |
 | GET    | `/api/apps/:id/ki-aufrufe`         | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                           |
 | POST   | `/api/apps/:id/schalten`           | Den Teststand live schalten oder zurücknehmen (Phase D4)                                   |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
+
+**GET /api/apps/:id/stufen** (M5, 04.10.2026): `{ data: { stufen: [{ stufe,
+bezeichnung, flows, person: { id, username } | null, gilt, gesetzt_am, hinweis
+}], personen: [{ id, username }] } }`. Die Stufen kommen aus `stufen` im Kopf
+der Flows beider Stände, je Stufenname eine Zeile (zwei Flows mit derselben
+Stufe teilen die Person). `gilt` ist `false`, wenn keine Person gesetzt ist oder
+sie den Zugang zur App verlor; dann steht in `hinweis` ein Satz für den Admin
+(neue Freigaben liegen bei allen mit Zugang). `personen` sind alle aktiven
+Konten mit Zugang zur App. **PUT `/api/apps/:id/stufen/:stufe`** mit
+`{ "benutzer_id": 7 }` oder `{ "benutzer_id": null }`: `404`, wenn kein Flow der
+App die Stufe nennt, `400`, wenn die Person keinen Zugang hat. Offene Freigaben
+bleiben, wo sie liegen; die Person gilt für jede neue.
 
 **POST /api/apps/:id/einspielen:** Body `{ "version": "1.0.0", "stand": "test" }`.
 Ohne `stand` geht es in den **Teststand** — gerollt wird nach `test`, live
@@ -2842,15 +2856,35 @@ Sitzung, nicht über einen Schlüssel.
 
 | Method | Endpoint                                 | Description                                                              |
 | ------ | ---------------------------------------- | ------------------------------------------------------------------------ |
-| GET    | `/api/freigabe-anfragen`                 | Die offenen Freigaben der Apps, die dem Aufrufer freigegeben sind        |
+| GET    | `/api/freigabe-anfragen`                 | Die offenen Freigaben, die beim Aufrufer liegen (M5: „Für Sie")          |
+| GET    | `/api/freigabe-anfragen/bei-anderen`     | Was der Aufrufer entscheiden dürfte, das aber bei einem anderen liegt    |
 | GET    | `/api/freigabe-anfragen/eingereicht`     | Was der Aufrufer eingereicht hat und noch offen ist, mit dem Kreis       |
 | POST   | `/api/freigabe-anfragen/:id/bestaetigen` | Ja. Der Lauf läuft ab dem angehaltenen Schritt weiter (Body `{}`)        |
 | POST   | `/api/freigabe-anfragen/:id/ablehnen`    | Nein, Body `{ begruendung }` (Pflicht). Der Lauf endet als `abgebrochen` |
+| POST   | `/api/freigabe-anfragen/:id/uebernehmen` | Die Anfrage liegt danach beim Aufrufer (Body `{}`, M5)                   |
+| POST   | `/api/freigabe-anfragen/:id/weitergeben` | Body `{ an }` (Benutzername): liegt danach bei ihm (M5)                  |
+
+**Bei wem eine Freigabe liegt (M5, 04.10.2026).** Eine neue Anfrage liegt bei
+der **Standardperson ihrer Stufe** (`app_stufen_personen`, gesetzt unter `PUT
+/api/apps/:id/stufen/:stufe`), sofern die im Kreis steht; ohne Stufe oder ohne
+Standardperson liegt sie **bei allen im Kreis** (`liegt_bei: null`).
+`GET /api/freigabe-anfragen` zeigt nur, was beim Aufrufer liegt — die
+Startseite und die Zahl am Haus lesen diese Liste —, `…/bei-anderen` den Rest
+seines Kreises. Jeder im Kreis kann **übernehmen** oder an einen anderen im
+Kreis **weitergeben** (`400`, wenn der Empfänger keinen Zugang hat oder
+eingereicht hat; `403`, wenn der Aufrufer selbst nicht im Kreis steht).
+Entscheiden kann nur, bei dem sie liegt: sonst `409` mit dem Namen. Verliert
+die Person, bei der eine Anfrage liegt, den Zugang oder wird stillgelegt, liegt
+sie wieder bei allen. Beide Listen nennen je Anfrage zusätzlich `liegt_bei`,
+`liegt_seit`, `stufe` und `stufe_bezeichnung`; `…/eingereicht`, `GET
+/api/v1/external/freigaben` und `freigabe` am Lauf nennen `liegt_bei`.
 
 **Wer darf entscheiden.** Jeder, dem die App freigegeben ist (`app_members`,
 Phase C2) — Administrator **und** Mitarbeiter. Die Flow-Datei nennt keine
 Person und kein Rollenmodell (Entscheidung vom 27.08.2026): sie beschreibt die
-Sache, nicht die Zuständigkeit. **Seit J35 kann die App beim Start des Laufs
+Sache, nicht die Zuständigkeit. **Wer eingereicht hat, entscheidet nie
+selbst** (seit M5, unabhängig von `ohne_einreicher`): er steht nicht im Kreis
+und bekommt beim Entscheiden `403`. **Seit J35 kann die App beim Start des Laufs
 den Kreis enger ziehen** (`einreicher`, `freigabe` an
 `POST /api/v1/external/flows/:name/run`): mit `ohne_einreicher` entscheidet
 nicht, wer eingereicht hat, mit `entscheider` nur die Rolle `admin` oder die

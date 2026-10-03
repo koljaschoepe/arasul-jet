@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "probe-stufen",
+  "name": "Probe: Stufen",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/stufen-standardperson-abnahme.sh: reicht einen Vorgang ein, dessen Flow nacheinander eine Freigabe der Stufe Pruefung und eine der Stufe Leitung anfordert (M5).",
+  "frontend": {
+    "verzeichnis": "frontend"
+  },
+  "backend": {
+    "image": "arasul-probe-stufen:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
+    "gesundheit": "/gesund",
+    "umgebung": {
+      "PROBE_VERSION": "1.0.0"
+    }
+  },
+  "ports": {
+    "backend": 8080
+  },
+  "ressourcen": {
+    "speicher": "64m",
+    "cpus": 0.25
+  },
+  "modelle": [],
+  "flows": {
+    "verzeichnis": "flows"
+  }
+}

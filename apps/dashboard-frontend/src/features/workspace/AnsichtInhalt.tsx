@@ -39,24 +39,19 @@ function useVorladen(istAdmin: boolean) {
 }
 
 /**
- * Die Startseite: die Übersicht, zusammengesetzt aus dem, was die Rolle sieht.
+ * Die Startseite: die Übersicht mit „Für Sie" darüber.
  *
- * SEIT J36 (02.10.2026) KEINE FREIGABENLISTE FÜR DEN MITARBEITER. Eine
- * Freigabe steht in der App, in der sie entsteht; an der Kachel der App trägt
- * höchstens eine Zahl. Die Liste bleibt dem Administrator, der die Anfragen
- * aller Apps im Blick haben muss.
+ * SEIT M5 (04.10.2026) „FÜR SIE" FÜR JEDEN: die Freigaben, die bei mir liegen
+ * (frontend.md, Startseite). J36 hatte die Liste dem Administrator vorbehalten,
+ * weil sie damals alle Anfragen aller Apps zeigte; seit eine Freigabe bei einer
+ * Person liegt, sieht jeder nur seine. Die Zahl an der Kachel zählt dieselbe
+ * Liste.
  */
 function Startseite() {
-  const { user } = useAuth();
   const { data } = useOffeneFreigaben();
   const wartend: Record<string, number> = {};
   for (const f of data ?? []) wartend[f.app_id] = (wartend[f.app_id] ?? 0) + 1;
-  return (
-    <Uebersicht
-      wartend={wartend}
-      freigaben={user?.role === 'admin' ? <OffeneFreigaben /> : undefined}
-    />
-  );
+  return <Uebersicht wartend={wartend} freigaben={<OffeneFreigaben />} />;
 }
 
 /**

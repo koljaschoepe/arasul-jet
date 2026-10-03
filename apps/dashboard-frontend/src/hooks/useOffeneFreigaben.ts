@@ -48,6 +48,16 @@ export interface OffeneFreigabe {
   entscheider?: { rolle: 'admin' } | { konten: string[] } | null;
   /** Die Konten, die diese Anfrage jetzt entscheiden können. */
   kreis?: string[];
+  /** Die benannte Stufe aus dem Kopf des Flows (Kontrakt 8), sonst `null`. */
+  stufe?: string | null;
+  /** Ihre Bezeichnung aus dem Flow („Prüfung"), sonst `null`. */
+  stufe_bezeichnung?: string | null;
+  /**
+   * Bei wem die Anfrage liegt (M5): ein Benutzername, oder `null` — dann liegt
+   * sie bei allen, die sie entscheiden dürfen (keine Standardperson).
+   */
+  liegt_bei?: string | null;
+  liegt_seit?: string | null;
 }
 
 /**
@@ -68,6 +78,8 @@ export interface EingereichteFreigabe {
   ohne_einreicher: boolean;
   entscheider: { rolle: 'admin' } | { konten: string[] } | null;
   kreis: string[];
+  /** Bei wem sie liegt (M5); `null` = bei allen im Kreis. */
+  liegt_bei?: string | null;
 }
 
 /**
@@ -92,7 +104,13 @@ export interface FreigabeEntschieden {
 const FREIGABEN_KEY = ['freigabe-anfragen'] as const;
 const OFFENE_FREIGABEN_KEY = [...FREIGABEN_KEY, 'offen'] as const;
 const EINGEREICHTE_FREIGABEN_KEY = [...FREIGABEN_KEY, 'eingereicht'] as const;
+const BEI_ANDEREN_KEY = [...FREIGABEN_KEY, 'bei-anderen'] as const;
 
+/**
+ * Die Freigaben, die BEI MIR liegen (M5): bei mir persönlich oder, ohne
+ * Standardperson ihrer Stufe, bei allen im Kreis. Die Startseite („Für Sie")
+ * und die Zahl am Haus der Aktivitätsleiste lesen diese eine Abfrage.
+ */
 export function useOffeneFreigaben() {
   const api = useApi();
   return useQuery({
@@ -163,6 +181,54 @@ export function useFreigabeEntscheiden() {
           : `/freigabe-anfragen/${e.id}/ablehnen`;
       const leib = e.status === 'abgelehnt' ? { begruendung: e.begruendung } : {};
       const res = await api.post<{ data: FreigabeEntschieden }>(pfad, leib);
+      return res.data;
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: FREIGABEN_KEY });
+    },
+  });
+}
+
+/**
+ * Was ich entscheiden dürfte, das aber bei einem anderen liegt (M5). Unter
+ * eigenem Schlüssel, damit die Zahl am Haus es nicht mitzählt.
+ */
+export function useFreigabenBeiAnderen() {
+  const api = useApi();
+  return useQuery({
+    queryKey: BEI_ANDEREN_KEY,
+    queryFn: async () => {
+      const res = await api.get<{ data?: OffeneFreigabe[] }>('/freigabe-anfragen/bei-anderen', {
+        showError: false,
+      });
+      return res.data ?? [];
+    },
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+/** Was das Backend nach Übernehmen oder Weitergeben zurückgibt. */
+export interface FreigabeVerlegt {
+  id: number;
+  titel: string;
+  liegt_bei: string;
+}
+
+/**
+ * Übernehmen (`an` fehlt) oder weitergeben (`an` ist ein Benutzername).
+ * Danach sind alle Listen veraltet, auch nach einem Fehler — dieselbe Regel
+ * wie beim Entscheiden.
+ */
+export function useFreigabeVerlegen() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, an }: { id: number; an?: string }) => {
+      const res = an
+        ? await api.post<{ data: FreigabeVerlegt }>(`/freigabe-anfragen/${id}/weitergeben`, { an })
+        : await api.post<{ data: FreigabeVerlegt }>(`/freigabe-anfragen/${id}/uebernehmen`, {});
       return res.data;
     },
     onSettled: () => {

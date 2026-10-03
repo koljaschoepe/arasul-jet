@@ -6,6 +6,7 @@
  *
  *   Stände   welche Fassung läuft wo, ist sie gesund — und: live schalten
  *   Tester   wer sieht den Teststand
+ *   Stufen   wer wird je Freigabestufe zuerst gefragt (M5)
  *   Flows    was kann diese App, und womit rechnet sie
  *   Läufe    was hat sie getan
  *   KI       welches Modell hat sie wann für wen gefragt, auch ohne Flow (J35)
@@ -17,7 +18,16 @@
  * Knopf, wie in der Modell-Detailseite (Plan 012).
  */
 import { useState } from 'react';
-import { AppWindow, Brain, FileText, ListOrdered, ScrollText, Trash2, Users } from 'lucide-react';
+import {
+  AppWindow,
+  Brain,
+  ClipboardCheck,
+  FileText,
+  ListOrdered,
+  ScrollText,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
@@ -25,6 +35,7 @@ import { formatDate } from '@/utils/formatting';
 import type { Stand } from '../personen/useAppFreigaben';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppStaende } from './AppStaende';
+import { AppStufen } from './AppStufen';
 import { AppTester } from './AppTester';
 import { FlowAnsicht, ModellZeile } from './FlowAnsicht';
 import { KiAufrufe } from './KiAufrufe';
@@ -239,6 +250,14 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
           beschreibung="Wer diese App sieht, und wer davon zusätzlich Test bekommt."
         >
           <AppTester appId={appId} hatTeststand={Boolean(app.staende.test)} />
+        </Feldgruppe>
+
+        <Feldgruppe
+          titel="Freigabestufen"
+          symbol={<ClipboardCheck />}
+          beschreibung="Wer je Stufe zuerst gefragt wird. Jeder mit Zugang kann eine Freigabe übernehmen oder weitergeben."
+        >
+          <AppStufen appId={appId} />
         </Feldgruppe>
 
         <Feldgruppe

@@ -334,11 +334,12 @@ const DATEN_REGELN = Object.freeze([
 const FREIGABE_REGELN = Object.freeze([
   'Der Kreis ist, wem die App freigegeben ist. Ein Lauf kann ihn beim Start enger ziehen, nie weiter.',
   '`einreicher` ist der Benutzername des Menschen, der den Lauf ausloest -- der Wert aus `X-Arasul-User`. Er muss ein aktives Konto sein, dem die App freigegeben ist, sonst 400.',
-  '`freigabe.ohne_einreicher: true` schliesst ihn vom Entscheiden aus (Vier-Augen-Prinzip). Er sieht die Anfrage nicht unter /api/freigabe-anfragen, und entscheidet er trotzdem, antwortet das Geraet 403. Braucht `einreicher`.',
+  'Wer eingereicht hat, entscheidet nie selbst (seit 04.10.2026, unabhaengig von `ohne_einreicher`): er sieht die Anfrage nicht unter /api/freigabe-anfragen, kann sie weder uebernehmen noch bekommen, und entscheidet er trotzdem, antwortet das Geraet 403. `freigabe.ohne_einreicher: true` bleibt erlaubt und braucht `einreicher`.',
   '`freigabe.entscheider` nennt ENTWEDER `{"rolle":"admin"}` ODER `{"konten":["name",…]}`. Nur diese Menschen sehen und entscheiden die Anfrage; jeder andere sieht sie nicht und bekommt beim Entscheiden 403. Jedes Konto muss die App freigegeben haben, sonst 400.',
   'Bleibt nach der Regel niemand, der entscheiden koennte, weist das Geraet den Start mit 400 ab -- statt eine Freigabe anzulegen, die in ihre Frist laeuft.',
   'Die Regel gilt fuer jede Freigabe dieses Laufs. `GET /freigaben` nennt je Anfrage `einreicher`, `ohne_einreicher`, `entscheider` (Rolle oder Konten) und `kreis`.',
-  '`GET /flows/runs/:id` nennt unter `freigabe`, wer eingereicht hat und wer entscheidet: `einreicher`, `ohne_einreicher`, `entscheider`, `kreis` (die Konten, die JETZT entscheiden koennen), `wo` und `adresse` (entschieden wird in Arasul, nie in der App), `offen` (die wartende Anfrage oder null) und `satz` -- ein fertiger Satz fuer den Menschen, der eingereicht hat. Ohne App ist `freigabe` null.',
+  '`GET /flows/runs/:id` nennt unter `freigabe`, wer eingereicht hat und wer entscheidet: `einreicher`, `ohne_einreicher`, `entscheider`, `kreis` (die Konten, die JETZT entscheiden koennen), `liegt_bei` (bei wem die offene Anfrage liegt, null = bei allen im Kreis), `wo` und `adresse` (entschieden wird in Arasul, nie in der App), `offen` (die wartende Anfrage mit ihrer `stufe`, oder null) und `satz` -- ein fertiger Satz fuer den Menschen, der eingereicht hat. Ohne App ist `freigabe` null.',
+  'Bei wem eine Freigabe liegt, setzt NIE die App und nie der Flow: eine neue Anfrage liegt bei der Standardperson ihrer Stufe, die der Administrator je App und Stufe in der Verwaltung setzt; ohne sie bei allen im Kreis. Jeder im Kreis kann sie uebernehmen oder an einen anderen im Kreis weitergeben; entscheiden kann nur, bei dem sie liegt. `GET /freigaben` nennt je offener Anfrage `liegt_bei`.',
 ]);
 
 /** Die Namen, die unter `/apps/<id>/` der Plattform gehoeren. */
@@ -628,7 +629,7 @@ function kontrakt() {
         'Die Frist steht als `frist_minuten` in den `parameter` des Schritts; ohne Angabe gilt die Vorgabe des Geraets.',
         '`arten` nennt, welche Arten der Flow kann (seit Kontrakt 8, freiwillig): `autonom` und `ergebnis_bestaetigen`, mindestens eine, keine doppelt. Der Administrator schaltet je Flow zwischen den genannten. Ein Flow, der erzeugt, laeuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rueckfall. Noch ohne Wirkung auf einen Lauf.',
         '`ausloeser` nennt, wodurch der Flow startet (seit Kontrakt 8, freiwillig): eine Liste von Objekten mit `typ` `hand`, `zeitplan` (dazu `zeitplan`, fuenf Felder wie in cron, z. B. `"0 6 * * 1-5"`) oder `ereignis` (dazu `ereignis`, der Name eines Ereignisses der App). Hoechstens 5, keiner doppelt. Noch ohne Wirkung: der Zeitplaner kommt mit einer spaeteren Karte.',
-        '`stufen` nennt die benannten Freigabestufen (seit Kontrakt 8, freiwillig), z. B. `pruefung` und `leitung`: je Stufe `name`, optional `bezeichnung` und `frist_minuten`. Hoechstens 5, keine doppelt. Nennt ein `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie deklarieren. Die Person je Stufe setzt der Administrator, nicht der Flow.',
+        '`stufen` nennt die benannten Freigabestufen (seit Kontrakt 8, freiwillig), z. B. `pruefung` und `leitung`: je Stufe `name`, optional `bezeichnung` und `frist_minuten`. Hoechstens 5, keine doppelt. Nennt ein `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie deklarieren. Die Person je Stufe setzt der Administrator, nicht der Flow: eine neue Freigabe der Stufe liegt zuerst bei ihrer Standardperson (je App und Stufenname, zwei Flows mit derselben Stufe teilen sie), ohne sie bei allen mit Zugang (`freigaben`).',
         '`faehigkeiten` je Schritt nennt, was der Schritt vom Modell braucht (seit Kontrakt 8, freiwillig): `text`, `bild`, `werkzeuge` (je true oder false) und `mindestkontext` (Tokens, 512 bis 1048576). Nur bei `typ: subagent`; ein Werkzeug-Schritt ruft kein Modell und wird mit `faehigkeiten` abgewiesen.',
       ],
     },
@@ -735,6 +736,7 @@ function kontrakt() {
           'ohne_einreicher',
           'entscheider',
           'kreis',
+          'liegt_bei',
           'wo',
           'adresse',
           'offen',

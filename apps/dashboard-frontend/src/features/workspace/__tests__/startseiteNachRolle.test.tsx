@@ -1,8 +1,8 @@
 /**
- * Die Startseite nach Rolle (J36, 02.10.2026): der Mitarbeiter sieht seine
- * Apps und höchstens eine Zahl an der App, keine Freigabenliste; der
- * Administrator sieht weiter die Liste. Durch `AnsichtWeiche`, also dieselbe
- * Kette wie die Anwendung.
+ * Die Startseite nach Rolle. J36 (02.10.2026) hatte dem Mitarbeiter die
+ * Freigabenliste genommen; seit M5 (04.10.2026) sieht JEDER „Für Sie" — nur
+ * die Freigaben, die bei ihm liegen, das filtert das Backend. Durch
+ * `AnsichtWeiche`, also dieselbe Kette wie die Anwendung.
  */
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -64,14 +64,14 @@ function zeigeStartseite() {
 }
 
 describe('Startseite nach Rolle', () => {
-  it('zeigt dem Mitarbeiter keine Freigabenliste, nur eine Zahl an der App', async () => {
+  it('zeigt dem Mitarbeiter „Für Sie" und die Zahl an der App', async () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
     zeigeStartseite();
     expect(await screen.findByTestId('uebersicht-app-urlaub-live-wartend')).toHaveTextContent(
       /^1$/
     );
-    expect(screen.queryByTestId('offene-freigaben')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Urlaub vom 5\. bis 9\. Oktober/)).not.toBeInTheDocument();
+    expect(await screen.findByTestId('offene-freigaben')).toHaveTextContent('Für Sie');
+    expect(await screen.findByText('Urlaub vom 5. bis 9. Oktober')).toBeInTheDocument();
   });
 
   it('zeigt dem Administrator weiter die Liste', async () => {

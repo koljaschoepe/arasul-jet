@@ -684,6 +684,25 @@ const LogsQuery = z
  */
 const ZugangQuery = z.object({ stand: Stand.default('live') });
 
+/**
+ * `:id/stufen/:stufe` (M5): die Stufe ist ein Name aus `stufen` im Flow-Kopf,
+ * also dieselbe Form wie dort (`FlowStufe` in `schemas/flows.js`).
+ */
+const AppStufeParams = z.object({
+  id: AppId,
+  stufe: z
+    .string()
+    .trim()
+    .regex(/^[a-z][a-z0-9_]{0,30}$/, 'Stufenname: Kleinbuchstaben, Ziffern, Unterstrich'),
+});
+
+/** Die Standardperson einer Stufe setzen; `null` nimmt sie zurueck. */
+const StufePersonBody = z
+  .object({
+    benutzer_id: z.coerce.number().int().positive().nullable(),
+  })
+  .strict();
+
 module.exports = {
   AppId,
   Stand,
@@ -693,6 +712,8 @@ module.exports = {
   AgentRouten,
   AppParams,
   AppFlowParams,
+  AppStufeParams,
+  StufePersonBody,
   AppLaufParams,
   FlowModellBody,
   FlowQuery,

@@ -25,6 +25,19 @@
  * Entscheiden 403. Die Regel steht an EINER Stelle (`KREIS`), und Liste,
  * Entscheidung und Fehlererklaerung lesen sie alle drei von dort.
  *
+ * WER EINGEREICHT HAT, ENTSCHEIDET NIE SELBST (M5, 04.10.2026). Bis dahin nur,
+ * wenn die App `ohne_einreicher` setzte; das Zielbild (frontend.md, Stufen)
+ * sagt „nie", und ein Schalter, den eine App vergessen kann, ist keine Regel.
+ * Kennt der Lauf seinen Einreicher, steht er ausserhalb des Kreises.
+ *
+ * BEI WEM SIE LIEGT (M5, Migration 195). Innerhalb des Kreises liegt eine
+ * Anfrage bei EINEM Menschen (`liegt_bei`) oder bei allen (NULL): neu angelegt
+ * bei der Standardperson ihrer Stufe (`app_stufen_personen`, gesetzt vom Admin
+ * in der Verwaltung), ohne Standardperson bei allen. Jeder im Kreis kann sie
+ * uebernehmen oder an einen anderen im Kreis weitergeben; entscheiden kann
+ * nur, bei dem sie liegt. Die Liste „bei mir" zeigt genau diese Anfragen, und
+ * die Zahl am Haus der Aktivitaetsleiste zaehlt dieselbe Liste.
+ *
  * WARUM IN DER DATENBANK, im Unterschied zur Rueckfrage (`frageStore.js`)?
  * Eine Rueckfrage richtet sich an den, der gerade zusieht, und ist nach einer
  * halben Stunde gegenstandslos. Eine Freigabe ist eine AUFGABE: sie hat einen
@@ -137,15 +150,51 @@ function kreis(n) {
 
 /** Dieselbe Regel fuer einen beliebigen SQL-Ausdruck, der einen Menschen nennt. */
 function kreisFuer(wer) {
+  // Der Einreicher steht nie im Kreis (M5), auch ohne `ohne_einreicher`.
   return `(
         EXISTS (SELECT 1 FROM public.app_members m
                  WHERE m.app_id = a.app_id AND m.user_id = ${wer})
-    AND NOT (a.ohne_einreicher AND a.einreicher_id IS NOT DISTINCT FROM ${wer})
+    AND a.einreicher_id IS DISTINCT FROM ${wer}
     AND (a.entscheider_ids IS NULL OR ${wer} = ANY (a.entscheider_ids))
     AND (a.entscheider_rolle IS NULL
          OR EXISTS (SELECT 1 FROM public.admin_users u
                      WHERE u.id = ${wer} AND u.role = a.entscheider_rolle)))`;
 }
+
+/**
+ * Liegt die Anfrage `a` bei einem bestimmten Menschen -- und gilt das noch?
+ *
+ * `liegt_bei` zeigt auf jemanden, der stillgelegt wurde oder den Zugang zur App
+ * verlor: dann liegt sie wieder bei allen im Kreis, statt bei niemandem. Die
+ * Pruefung steht hier und nicht in einem Trigger, weil der Kreis an
+ * `app_members` und an der Regel des Laufs haengt.
+ */
+const LIEGT_GILT = `(
+  a.liegt_bei IS NOT NULL
+  AND EXISTS (SELECT 1 FROM public.admin_users lu
+               WHERE lu.id = a.liegt_bei AND lu.is_active = TRUE)
+  AND ${kreisFuer('a.liegt_bei')})`;
+
+/** Liegt die Anfrage `a` bei dem Menschen `$n` (oder bei allen)? */
+function beiIhm(n) {
+  return `(NOT ${LIEGT_GILT} OR a.liegt_bei = $${n}::bigint)`;
+}
+
+/** Der Benutzername dessen, bei dem `a` liegt; NULL = bei allen im Kreis. */
+const LIEGT_BEI_SQL = `CASE WHEN ${LIEGT_GILT}
+    THEN (SELECT lb.username FROM public.admin_users lb WHERE lb.id = a.liegt_bei) END`;
+
+/**
+ * Die Bezeichnung der Stufe von `a` aus dem Kopf ihres Flows (`Leitung` statt
+ * `leitung`), sonst NULL. Gelesen aus der registrierten Kopie des Flows.
+ */
+const STUFE_BEZEICHNUNG_SQL = `(
+  SELECT s->>'bezeichnung'
+    FROM public.app_flows f,
+         jsonb_array_elements(COALESCE(f.definition->'stufen', '[]'::jsonb)) s
+   WHERE f.app_id = a.app_id AND f.stand = a.stand AND f.name = a.flow_name
+     AND s->>'name' = a.stufe
+   LIMIT 1)`;
 
 /** Die Rolle, die als Entscheider-Kreis taugt. Mehr gibt es an diesem Geraet nicht zu verlangen. */
 const ENTSCHEIDER_ROLLEN = Object.freeze(['admin']);
@@ -198,15 +247,13 @@ const ENTSCHEIDUNGSORT = Object.freeze({
  * der Lauf, bevor er anhaelt). Die Regel ist dieselbe wie in `kreisFuer`:
  * Rolle, Liste, Einreicher.
  */
-function kreisAus(
-  mitglieder,
-  { einreicherId = null, ohneEinreicher = false, rolle = null, ids = null }
-) {
+function kreisAus(mitglieder, { einreicherId = null, rolle = null, ids = null }) {
   return mitglieder.filter(
     u =>
       (rolle == null || u.role === rolle) &&
       (ids == null || ids.map(Number).includes(Number(u.id))) &&
-      !(ohneEinreicher && einreicherId != null && Number(u.id) === Number(einreicherId))
+      // Seit M5 unabhaengig von `ohneEinreicher`: wer einreicht, entscheidet nie.
+      !(einreicherId != null && Number(u.id) === Number(einreicherId))
   );
 }
 
@@ -223,15 +270,17 @@ function oderListe(namen) {
  * formulieren. Ein Satz aus dem Geraet und nicht aus dem Kit: die Regel
  * steht hier, und wer sie aendert, aendert den Satz mit.
  */
-function satzZumKreis({ kreis, einreicher, ohneEinreicher, rolle }) {
+function satzZumKreis({ kreis, einreicher, rolle, liegtBei = null }) {
   const teile = [];
-  if (kreis.length === 0) {
+  if (liegtBei) {
+    teile.push(`Liegt bei ${liegtBei}, ${ENTSCHEIDUNGSORT.wo.replace(/^In/, 'in')}.`);
+  } else if (kreis.length === 0) {
     teile.push('Niemand kann diese Freigabe mehr entscheiden: der Kreis ist leer.');
   } else {
     const wer = rolle === 'admin' ? `ein Administrator (${oderListe(kreis)})` : oderListe(kreis);
     teile.push(`Entscheidet: ${wer}, ${ENTSCHEIDUNGSORT.wo.replace(/^In/, 'in')}.`);
   }
-  if (ohneEinreicher && einreicher) {
+  if (einreicher) {
     teile.push(`${einreicher} hat eingereicht und entscheidet nicht mit (Vier-Augen-Prinzip).`);
   }
   return teile.join(' ');
@@ -252,7 +301,6 @@ function satzZumKreis({ kreis, einreicher, ohneEinreicher, rolle }) {
  * @returns {Promise<{einreicherId: number|null, regel: object|null}>}
  */
 async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { datenbank = db } = {}) {
-  const ohneEinreicher = freigabe?.ohne_einreicher === true;
   const entscheider = freigabe?.entscheider ?? null;
 
   if (!einreicher && !freigabe) {
@@ -285,7 +333,7 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
     }
     einreicherId = Number(wer.id);
   }
-  if (ohneEinreicher && einreicherId == null) {
+  if (freigabe?.ohne_einreicher === true && einreicherId == null) {
     throw new ValidationError(
       '`freigabe.ohne_einreicher` braucht `einreicher`: wer ausgeschlossen werden soll, muss genannt sein.'
     );
@@ -320,7 +368,6 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
   }
   const kandidaten = kreisAus(mitglieder, {
     einreicherId,
-    ohneEinreicher,
     rolle: entscheiderRolle,
     ids: entscheiderIds,
   });
@@ -331,6 +378,9 @@ async function pruefeRegel({ appId, einreicher = null, freigabe = null }, { date
     );
   }
 
+  // Wer eingereicht hat, entscheidet nie (M5): mit einem Einreicher steht
+  // `ohne_einreicher` immer an der Regel, auch wenn die App es nicht sagte.
+  const ohneEinreicher = einreicherId != null;
   const regel =
     ohneEinreicher || entscheiderRolle || entscheiderIds
       ? {
@@ -532,7 +582,8 @@ async function anfordern(
                                    entscheider_ids)
      SELECT $1, $2, $3, $4, $5, $6, NOW() + ($7 || ' minutes')::interval, $8,
             r.einreicher_id,
-            COALESCE((r.freigabe_regel->>'ohne_einreicher')::boolean, FALSE),
+            COALESCE((r.freigabe_regel->>'ohne_einreicher')::boolean, FALSE)
+              OR r.einreicher_id IS NOT NULL,
             r.freigabe_regel->>'entscheider_rolle',
             (SELECT array_agg(k::bigint)
                FROM jsonb_array_elements_text(
@@ -553,6 +604,12 @@ async function anfordern(
     ]
   );
   const anfrage = rows[0];
+  // Scheitert das Zuteilen, bleibt die Anfrage gueltig und liegt bei allen im
+  // Kreis -- lieber das als ein Lauf, der nie anhaelt, und eine verwaiste Zeile.
+  anfrage.liegt_bei = await zurStandardperson({ id: anfrage.id, datenbank }).catch(err => {
+    logger.warn(`Freigabe ${anfrage.id}: Standardperson nicht zugeteilt: ${err.message}`);
+    return null;
+  });
 
   // Erst jetzt haelt der Lauf an. Andersherum stuende er kurz auf `wartend`,
   // ohne dass es etwas gaebe, worauf er wartet -- und bliebe so stehen, wenn
@@ -569,7 +626,7 @@ async function anfordern(
 
   logger.info(
     `Freigabe ${anfrage.id} angefordert: ${appId}/${stand} "${flowName}" (Lauf ${runId}), ` +
-      `Frist ${minuten} min`
+      `Frist ${minuten} min, liegt bei ${anfrage.liegt_bei || 'allen mit Zugang'}`
   );
   melde(onEvent, {
     type: 'freigabe',
@@ -580,6 +637,32 @@ async function anfordern(
   });
 
   return warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal });
+}
+
+/**
+ * Eine neue Anfrage zur Standardperson ihrer Stufe legen (M5, Migration 195).
+ *
+ * Nur, wenn diese Person die Anfrage auch entscheiden darf: aktiv, im Kreis
+ * (Zugang zur App, Regel des Laufs) und nicht der Einreicher. Sonst bleibt
+ * `liegt_bei` NULL, und die Anfrage liegt bei allen im Kreis -- lieber bei
+ * allen als bei niemandem. Eine Anfrage ohne Stufe hat keine Standardperson.
+ *
+ * @returns {Promise<string|null>} der Benutzername, bei dem sie liegt
+ */
+async function zurStandardperson({ id, datenbank = db }) {
+  const { rows } = await datenbank.query(
+    `UPDATE public.approvals a
+        SET liegt_bei = sp.user_id, liegt_seit = NOW()
+       FROM public.app_stufen_personen sp
+       JOIN public.admin_users su ON su.id = sp.user_id AND su.is_active = TRUE
+      WHERE a.id = $1
+        AND sp.app_id = a.app_id
+        AND sp.stufe = a.stufe
+        AND ${kreisFuer('sp.user_id')}
+      RETURNING su.username`,
+    [id]
+  );
+  return rows[0]?.username ?? null;
 }
 
 /** Ein Live-Ereignis, das nie in den Lauf zurueckwirft. */
@@ -726,6 +809,7 @@ async function entscheide({ id, benutzerId, status, begruendung = null }, deps =
         AND a.status = 'offen'
         AND a.frist > NOW()
         AND ${kreis(2)}
+        AND ${beiIhm(2)}
       RETURNING a.id, a.run_id, a.app_id, a.stand, a.flow_name, a.titel, a.status,
                 a.frist, a.entschieden_am`,
     [id, benutzerId, status, grund]
@@ -822,13 +906,15 @@ async function schliesseOffeneSchritte({ runId, text, datenbank = db }) {
  * muss wissen, ob er zu spaet war, ob ein anderer schneller war oder ob ihm
  * die App gar nicht freigegeben ist.
  */
-async function erklaereFehlschlag({ id, benutzerId, datenbank }) {
+async function erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal = false }) {
   const { rows } = await datenbank.query(
     `SELECT a.status, a.app_id, a.frist < NOW() AS abgelaufen,
             EXISTS (SELECT 1 FROM public.app_members m
                      WHERE m.app_id = a.app_id AND m.user_id = $2) AS darf,
-            (a.ohne_einreicher AND a.einreicher_id IS NOT DISTINCT FROM $2::bigint) AS eingereicht,
-            ${kreis(2)} AS im_kreis
+            (a.einreicher_id IS NOT DISTINCT FROM $2::bigint) AS eingereicht,
+            ${kreis(2)} AS im_kreis,
+            ${beiIhm(2)} AS bei_ihm,
+            ${LIEGT_BEI_SQL} AS liegt_bei
        FROM public.approvals a
       WHERE a.id = $1`,
     [id, benutzerId]
@@ -861,6 +947,13 @@ async function erklaereFehlschlag({ id, benutzerId, datenbank }) {
   if (a.abgelaufen) {
     throw new ConflictError('Die Frist dieser Freigabe ist abgelaufen');
   }
+  // Bei wem sie liegt (M5): kein Verbot, sondern ein Schritt davor. Wer im
+  // Kreis steht, kann sie uebernehmen und dann entscheiden.
+  if (!liegtEgal && a.bei_ihm === false) {
+    throw new ConflictError(
+      `Diese Freigabe liegt bei ${a.liegt_bei}. Übernehmen Sie sie zuerst, wenn Sie entscheiden wollen.`
+    );
+  }
   // Kein bekannter Grund: dann ist es einer, den dieser Code noch nicht kennt.
   throw new ConflictError('Diese Freigabe ließ sich nicht entscheiden');
 }
@@ -872,34 +965,182 @@ async function nameVon(benutzerId, datenbank = db) {
   return rows[0]?.username || `Benutzer ${benutzerId}`;
 }
 
+/** Die Spalten einer offenen Anfrage, wie die beiden Listen der Startseite sie zeigen. */
+const OFFEN_SPALTEN = `a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
+            a.zusammenhang, a.frist, a.angefragt_am, a.stufe,
+            ${STUFE_BEZEICHNUNG_SQL} AS stufe_bezeichnung,
+            e.username AS einreicher, a.ohne_einreicher,
+            (a.entscheider_rolle IS NOT NULL OR a.entscheider_ids IS NOT NULL) AS benannt,
+            ${ENTSCHEIDER_SQL} AS entscheider,
+            ${KREIS_NAMEN_SQL} AS kreis,
+            ${LIEGT_BEI_SQL} AS liegt_bei, a.liegt_seit`;
+
 /**
- * Die offenen Freigaben der Apps, die diesem Menschen freigegeben sind.
+ * Die offenen Freigaben, die BEI DIESEM MENSCHEN LIEGEN („Für Sie").
  *
  * Der Kreis (`kreis`) IST die Berechtigung. Eine Liste, die erst alles holt
  * und dann siebt, waere zwei Stellen, an denen dieselbe Regel steht. Seit J35
  * sieht deshalb der Einreicher einer Vier-Augen-Freigabe sie hier nicht, und
  * wer nicht benannt ist, auch nicht.
+ *
+ * Seit M5 (04.10.2026) dazu: nur, was bei ihm liegt -- bei ihm persoenlich
+ * oder, ohne Standardperson, bei allen im Kreis. Was bei einem anderen liegt,
+ * steht in `listeBeiAnderen`. Die Zahl am Haus zaehlt diese Liste.
+ *
  * Abgelaufene stehen nicht darin, auch wenn ihre Zeile noch `offen` sagt: der
  * Zeitgeber schreibt sie erst, wenn der Lauf sie braucht.
  */
 async function listeOffeneFuer(benutzerId, { datenbank = db } = {}) {
   const { rows } = await datenbank.query(
-    `SELECT a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
-            a.zusammenhang, a.frist, a.angefragt_am, a.stufe,
-            e.username AS einreicher, a.ohne_einreicher,
-            (a.entscheider_rolle IS NOT NULL OR a.entscheider_ids IS NOT NULL) AS benannt,
-            ${ENTSCHEIDER_SQL} AS entscheider,
-            ${KREIS_NAMEN_SQL} AS kreis
+    `SELECT ${OFFEN_SPALTEN}
        FROM public.approvals a
        LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
        LEFT JOIN public.apps ap ON ap.id = a.app_id
       WHERE a.status = 'offen'
         AND a.frist > NOW()
         AND ${kreis(1)}
+        AND ${beiIhm(1)}
       ORDER BY a.frist ASC`,
     [benutzerId]
   );
   return rows;
+}
+
+/**
+ * Die offenen Freigaben, die dieser Mensch entscheiden DUERFTE, die aber bei
+ * einem anderen liegen (M5). Von hier aus uebernimmt er sie.
+ */
+async function listeBeiAnderen(benutzerId, { datenbank = db } = {}) {
+  const { rows } = await datenbank.query(
+    `SELECT ${OFFEN_SPALTEN}
+       FROM public.approvals a
+       LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
+       LEFT JOIN public.apps ap ON ap.id = a.app_id
+      WHERE a.status = 'offen'
+        AND a.frist > NOW()
+        AND ${kreis(1)}
+        AND NOT ${beiIhm(1)}
+      ORDER BY a.frist ASC`,
+    [benutzerId]
+  );
+  return rows;
+}
+
+/**
+ * Eine Anfrage uebernehmen: sie liegt danach bei mir (M5).
+ *
+ * Jeder im Kreis darf das, ohne zu fragen -- so steht es im Zielbild, und es
+ * ist der Weg, auf dem eine Freigabe nicht liegen bleibt, wenn die
+ * Standardperson im Urlaub ist. Wie beim Entscheiden prueft die Anweisung
+ * selbst, ob er darf; kein Fenster zwischen Pruefung und Schreiben.
+ */
+async function uebernehmen({ id, benutzerId }, { datenbank = db } = {}) {
+  const vorher = await liegtBeiVorher(id, datenbank);
+  const { rows } = await datenbank.query(
+    `UPDATE public.approvals a
+        SET liegt_bei = $2, liegt_seit = NOW()
+      WHERE a.id = $1
+        AND a.status = 'offen'
+        AND a.frist > NOW()
+        AND ${kreis(2)}
+      RETURNING a.id, a.run_id, a.app_id, a.stand, a.titel, a.liegt_seit`,
+    [id, benutzerId]
+  );
+  if (rows.length === 0) {
+    await erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal: true });
+  }
+  const benutzer = await nameVon(benutzerId, datenbank);
+  logger.info(`Freigabe ${id} uebernommen von ${benutzer} (lag bei ${vorher || 'allen'})`);
+  return { ...rows[0], liegt_bei: benutzer, vorher };
+}
+
+/** Bei wem eine Anfrage gerade liegt (Name oder null) -- fuer das Protokoll. */
+async function liegtBeiVorher(id, datenbank) {
+  const { rows } = await datenbank.query(
+    `SELECT ${LIEGT_BEI_SQL} AS liegt_bei FROM public.approvals a WHERE a.id = $1`,
+    [id]
+  );
+  return rows[0]?.liegt_bei ?? null;
+}
+
+/**
+ * Eine Anfrage an einen anderen Menschen im Kreis weitergeben (M5).
+ *
+ * Wer weitergibt, muss selbst im Kreis stehen; wer sie bekommt, auch -- also
+ * aktiv, mit Zugang zur App und nicht der Einreicher. Sonst laege die Anfrage
+ * bei jemandem, der sie nicht entscheiden darf, und niemand saehe sie mehr.
+ *
+ * @param {{id:number, benutzerId:number, an:string}} was  `an` ist ein Benutzername
+ */
+async function weitergeben({ id, benutzerId, an }, { datenbank = db } = {}) {
+  // Erst der Aufrufer: wer die Anfrage nicht entscheiden darf, erfaehrt auch
+  // nicht, welche Konten es am Geraet gibt.
+  const { rows: ich } = await datenbank.query(
+    `SELECT ${kreis(2)} AS im_kreis, ${LIEGT_BEI_SQL} AS liegt_bei
+       FROM public.approvals a WHERE a.id = $1`,
+    [id, benutzerId]
+  );
+  if (ich.length === 0 || !ich[0].im_kreis) {
+    await erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal: true });
+  }
+  const vorher = ich[0].liegt_bei ?? null;
+  const { rows: ziel } = await datenbank.query(
+    'SELECT id, username FROM public.admin_users WHERE username = $1 AND is_active = TRUE',
+    [an]
+  );
+  if (ziel.length === 0) {
+    throw new ValidationError(`"${an}" ist kein aktives Konto an diesem Gerät.`);
+  }
+  const zielId = Number(ziel[0].id);
+  const { rows } = await datenbank.query(
+    `UPDATE public.approvals a
+        SET liegt_bei = $3, liegt_seit = NOW()
+      WHERE a.id = $1
+        AND a.status = 'offen'
+        AND a.frist > NOW()
+        AND ${kreis(2)}
+        AND ${kreis(3)}
+      RETURNING a.id, a.run_id, a.app_id, a.stand, a.titel, a.liegt_seit`,
+    [id, benutzerId, zielId]
+  );
+  if (rows.length === 0) {
+    // Erst der, der weitergibt: darf er ueberhaupt? Dann der, der bekommt.
+    await erklaereFehlschlagWeitergeben({ id, benutzerId, zielId, an, datenbank });
+  }
+  const benutzer = await nameVon(benutzerId, datenbank);
+  logger.info(`Freigabe ${id} von ${benutzer} an ${ziel[0].username} weitergegeben`);
+  return { ...rows[0], liegt_bei: ziel[0].username, vorher };
+}
+
+/** Warum das Weitergeben keine Zeile traf. Wirft immer. */
+async function erklaereFehlschlagWeitergeben({ id, benutzerId, zielId, an, datenbank }) {
+  const { rows } = await datenbank.query(
+    `SELECT ${kreis(2)} AS ich_im_kreis,
+            EXISTS (SELECT 1 FROM public.app_members m
+                     WHERE m.app_id = a.app_id AND m.user_id = $3) AS ziel_darf,
+            (a.einreicher_id IS NOT DISTINCT FROM $3::bigint) AS ziel_eingereicht
+       FROM public.approvals a
+      WHERE a.id = $1`,
+    [id, benutzerId, zielId]
+  );
+  if (rows.length === 0 || !rows[0].ich_im_kreis) {
+    await erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal: true });
+  }
+  const r = rows[0];
+  if (!r.ziel_darf) {
+    throw new ValidationError(
+      `${an} hat keinen Zugang zu dieser App. Weitergeben geht nur an jemanden, der sie benutzen darf.`
+    );
+  }
+  if (r.ziel_eingereicht) {
+    throw new ValidationError(
+      `${an} hat diesen Vorgang eingereicht und entscheidet nicht mit (Vier-Augen-Prinzip).`
+    );
+  }
+  // Bleibt nur die Regel des Laufs: die App hat die Entscheider benannt.
+  throw new ValidationError(
+    `${an} steht nicht unter den Entscheidern, die die App für diesen Vorgang benannt hat.`
+  );
 }
 
 /**
@@ -914,9 +1155,10 @@ async function listeOffeneFuer(benutzerId, { datenbank = db } = {}) {
 async function listeEingereichtVon(benutzerId, { datenbank = db } = {}) {
   const { rows } = await datenbank.query(
     `SELECT a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
-            a.frist, a.angefragt_am, a.ohne_einreicher,
+            a.frist, a.angefragt_am, a.ohne_einreicher, a.stufe,
             ${ENTSCHEIDER_SQL} AS entscheider,
-            ${KREIS_NAMEN_SQL} AS kreis
+            ${KREIS_NAMEN_SQL} AS kreis,
+            ${LIEGT_BEI_SQL} AS liegt_bei
        FROM public.approvals a
        LEFT JOIN public.apps ap ON ap.id = a.app_id
       WHERE a.status = 'offen'
@@ -951,9 +1193,10 @@ async function freigabeZumLauf(lauf, { datenbank = db } = {}) {
 
   const { rows: offen } = await datenbank.query(
     `SELECT a.id, a.titel, a.frist, a.angefragt_am, a.ohne_einreicher, a.entscheider_rolle,
-            e.username AS einreicher,
+            a.stufe, e.username AS einreicher,
             ${ENTSCHEIDER_SQL} AS entscheider,
-            ${KREIS_NAMEN_SQL} AS kreis
+            ${KREIS_NAMEN_SQL} AS kreis,
+            ${LIEGT_BEI_SQL} AS liegt_bei
        FROM public.approvals a
        LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
       WHERE a.run_id = $1 AND a.status = 'offen' AND a.frist > NOW()
@@ -970,13 +1213,20 @@ async function freigabeZumLauf(lauf, { datenbank = db } = {}) {
       ohne_einreicher: Boolean(a.ohne_einreicher),
       entscheider: a.entscheider ?? null,
       kreis,
+      liegt_bei: a.liegt_bei ?? null,
       ...ENTSCHEIDUNGSORT,
-      offen: { id: a.id, titel: a.titel, frist: a.frist, angefragt_am: a.angefragt_am },
+      offen: {
+        id: a.id,
+        titel: a.titel,
+        frist: a.frist,
+        angefragt_am: a.angefragt_am,
+        stufe: a.stufe ?? null,
+      },
       satz: satzZumKreis({
         kreis,
         einreicher: a.einreicher,
-        ohneEinreicher: a.ohne_einreicher,
         rolle: a.entscheider_rolle,
+        liegtBei: a.liegt_bei,
       }),
     };
   }
@@ -992,10 +1242,8 @@ async function freigabeZumLauf(lauf, { datenbank = db } = {}) {
   );
   const ids = Array.isArray(regel.entscheider_ids) ? regel.entscheider_ids.map(Number) : null;
   const rolle = regel.entscheider_rolle ?? null;
-  const ohneEinreicher = regel.ohne_einreicher === true;
-  const kreis = kreisAus(mitglieder, { einreicherId, ohneEinreicher, rolle, ids }).map(
-    u => u.username
-  );
+  const ohneEinreicher = regel.ohne_einreicher === true || einreicherId != null;
+  const kreis = kreisAus(mitglieder, { einreicherId, rolle, ids }).map(u => u.username);
   const nachId = new Map(mitglieder.map(u => [Number(u.id), u.username]));
   let einreicher = einreicherId == null ? null : (nachId.get(einreicherId) ?? null);
   if (einreicherId != null && einreicher == null) {
@@ -1018,9 +1266,10 @@ async function freigabeZumLauf(lauf, { datenbank = db } = {}) {
     ohne_einreicher: ohneEinreicher,
     entscheider,
     kreis,
+    liegt_bei: null,
     ...ENTSCHEIDUNGSORT,
     offen: null,
-    satz: satzZumKreis({ kreis, einreicher, ohneEinreicher, rolle }),
+    satz: satzZumKreis({ kreis, einreicher, rolle }),
   };
 }
 
@@ -1051,7 +1300,8 @@ async function listeFuerApp({ appId, stand, runId = null, limit = 50 }, { datenb
             a.angefragt_am, a.entschieden_am, a.begruendung, b.username AS entschieden_von,
             e.username AS einreicher, a.ohne_einreicher,
             ${ENTSCHEIDER_SQL} AS entscheider,
-            CASE WHEN a.status = 'offen' THEN ${KREIS_NAMEN_SQL} END AS kreis
+            CASE WHEN a.status = 'offen' THEN ${KREIS_NAMEN_SQL} END AS kreis,
+            CASE WHEN a.status = 'offen' THEN ${LIEGT_BEI_SQL} END AS liegt_bei
        FROM public.approvals a
        LEFT JOIN public.admin_users b ON b.id = a.entschieden_von
        LEFT JOIN public.admin_users e ON e.id = a.einreicher_id
@@ -1200,6 +1450,9 @@ module.exports = {
   ENTSCHEIDER_ROLLEN,
   entscheide,
   listeOffeneFuer,
+  listeBeiAnderen,
+  uebernehmen,
+  weitergeben,
   listeEingereichtVon,
   freigabeZumLauf,
   listeFuerApp,

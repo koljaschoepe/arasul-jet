@@ -4,9 +4,12 @@
  * Drei Wege, und alle drei gehen ueber die SITZUNG, nicht ueber einen
  * Schluessel: hier entscheidet ein Mensch, und ein Mensch ist angemeldet.
  *
- *   GET    /api/freigabe-anfragen                was wartet auf mich
+ *   GET    /api/freigabe-anfragen                was liegt bei mir
+ *   GET    /api/freigabe-anfragen/bei-anderen    was ich uebernehmen koennte (M5)
  *   POST   /api/freigabe-anfragen/:id/bestaetigen  ja
  *   POST   /api/freigabe-anfragen/:id/ablehnen     nein, mit Begruendung
+ *   POST   /api/freigabe-anfragen/:id/uebernehmen  liegt danach bei mir (M5)
+ *   POST   /api/freigabe-anfragen/:id/weitergeben  liegt danach bei `an` (M5)
  *
  * ADMINISTRATOR UND MITARBEITER, ausdruecklich beide. Freigeben ist Arbeit und
  * keine Verwaltung; wer die App benutzen darf, darf ihre Freigaben
@@ -24,12 +27,22 @@ const router = express.Router();
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody, validateParams } = require('../middleware/validate');
-const { AnfrageParams, AblehnenBody, BestaetigenBody } = require('../schemas/freigabeAnfragen');
+const {
+  AnfrageParams,
+  AblehnenBody,
+  BestaetigenBody,
+  UebernehmenBody,
+  WeitergebenBody,
+} = require('../schemas/freigabeAnfragen');
 const freigabeAnfragen = require('../services/flows/freigabeAnfragen');
 const { logSecurityEvent } = require('../utils/auditLog');
 
 /**
- * GET /api/freigabe-anfragen — die offenen Freigaben meiner Apps.
+ * GET /api/freigabe-anfragen — die offenen Freigaben, die bei mir liegen.
+ *
+ * Seit M5 (04.10.2026) nur, was bei MIR liegt: bei mir persoenlich oder, ohne
+ * Standardperson der Stufe, bei allen im Kreis. Die Startseite („Für Sie")
+ * und die Zahl am Haus lesen diese Liste.
  *
  * „Meiner Apps" ist keine Bequemlichkeit, sondern die Berechtigung: die
  * Abfrage verbindet mit `app_members`, und was dort nicht steht, kommt hier
@@ -42,6 +55,20 @@ router.get(
   requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const data = await freigabeAnfragen.listeOffeneFuer(req.user.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/freigabe-anfragen/bei-anderen — was ich entscheiden duerfte, das
+ * aber bei einem anderen liegt (M5). Von hier aus uebernimmt man.
+ */
+router.get(
+  '/bei-anderen',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  asyncHandler(async (req, res) => {
+    const data = await freigabeAnfragen.listeBeiAnderen(req.user.id);
     res.json({ data, timestamp: new Date().toISOString() });
   })
 );
@@ -119,6 +146,73 @@ router.post(
       userId: req.user.id,
       action: 'freigabe_abgelehnt',
       details: { anfrage: data.id, app_id: data.app_id, stand: data.stand, lauf: data.run_id },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/freigabe-anfragen/:id/uebernehmen — die Anfrage liegt danach bei
+ * mir (M5). Jeder im Kreis darf das; wer nicht im Kreis steht, bekommt 403.
+ */
+router.post(
+  '/:id/uebernehmen',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  validateParams(AnfrageParams),
+  validateBody(UebernehmenBody),
+  asyncHandler(async (req, res) => {
+    const data = await freigabeAnfragen.uebernehmen({
+      id: req.params.id,
+      benutzerId: req.user.id,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'freigabe_uebernommen',
+      details: {
+        anfrage: data.id,
+        app_id: data.app_id,
+        stand: data.stand,
+        lauf: data.run_id,
+        vorher: data.vorher,
+      },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/freigabe-anfragen/:id/weitergeben — `{"an": "<benutzername>"}`,
+ * die Anfrage liegt danach bei diesem Menschen (M5). Er muss sie entscheiden
+ * duerfen (Zugang, nicht der Einreicher), sonst 400.
+ */
+router.post(
+  '/:id/weitergeben',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  validateParams(AnfrageParams),
+  validateBody(WeitergebenBody),
+  asyncHandler(async (req, res) => {
+    const data = await freigabeAnfragen.weitergeben({
+      id: req.params.id,
+      benutzerId: req.user.id,
+      an: req.body.an,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'freigabe_weitergegeben',
+      details: {
+        anfrage: data.id,
+        app_id: data.app_id,
+        stand: data.stand,
+        lauf: data.run_id,
+        an: data.liegt_bei,
+        vorher: data.vorher,
+      },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
