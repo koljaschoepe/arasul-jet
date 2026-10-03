@@ -48,9 +48,10 @@ All error responses follow this consistent structure:
 
 **CSRF error code** (HTTP 403):
 
-| Code           | When                                                                                                                                                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CSRF_INVALID` | CSRF token missing or mismatched on a state-changing request. Recoverable: fetch `GET /api/auth/csrf`, retry once (`useApi` does this automatically). Distinct from `FORBIDDEN` (a genuine permission denial that must **not** be retried). |
+| Code              | When                                                                                                                                                                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CSRF_INVALID`    | CSRF token missing or mismatched on a state-changing request. Recoverable: fetch `GET /api/auth/csrf`, retry once (`useApi` does this automatically). Distinct from `FORBIDDEN` (a genuine permission denial that must **not** be retried).                                |
+| `PASSWORT_FALSCH` | 403. Ein schwerer Handgriff (Zurückholen aus einer Sicherung, M5) verlangt das Passwort des angemeldeten Menschen, und es stimmt nicht oder fehlt. Die Sitzung bleibt gültig (deshalb kein `401`); die Oberfläche zeigt den Satz im Dialog. Nicht automatisch wiederholen. |
 
 **Narrower 403 codes** (since J34, 27.09.2026). A client dispatches on the code,
 never on the status alone: before J34 the login page read every 403 as a locked
