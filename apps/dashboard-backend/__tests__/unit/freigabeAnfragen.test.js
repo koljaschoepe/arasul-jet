@@ -133,7 +133,10 @@ describe('anfordern', () => {
     ]);
     // Die Frist geht als Minuten in ein Intervall — eine Zeit, keine Dauer.
     expect(calls[0].params[6]).toBe('60');
-    expect(calls[1].sql).toMatch(/UPDATE flow_runs SET status = 'wartend'/);
+    // Dazwischen legt sie sich zur Standardperson ihrer Stufe (M5) -- vor dem
+    // Halt, damit sie nie ohne Ort wartet.
+    expect(calls[1].sql).toMatch(/SET liegt_bei = sp\.user_id/);
+    expect(calls[2].sql).toMatch(/UPDATE flow_runs SET status = 'wartend'/);
     expect(gesehen[0]).toMatchObject({ type: 'freigabe', runId: 7, freigabe: 42 });
 
     // Aufraeumen: sonst haelt der Zeitgeber den Test.
@@ -435,9 +438,11 @@ describe('der Kreis der Entscheider (J35)', () => {
     await expect(
       freigabeAnfragen.pruefeRegel({ appId: 'kanzlei', einreicher: 'fremd' })
     ).rejects.toThrow(ValidationError);
+    // Seit M5 entscheidet, wer eingereicht hat, nie selbst -- auch ohne
+    // `ohne_einreicher` von der App.
     expect(await freigabeAnfragen.pruefeRegel({ appId: 'kanzlei', einreicher: 'anna' })).toEqual({
       einreicherId: 3,
-      regel: null,
+      regel: { ohne_einreicher: true, entscheider_rolle: null, entscheider_ids: null },
     });
   });
 
@@ -521,7 +526,7 @@ describe('der Kreis der Entscheider (J35)', () => {
     const calls = fakeDb();
     await freigabeAnfragen.listeOffeneFuer(3);
     await freigabeAnfragen.entscheide({ id: 42, benutzerId: 3, status: 'bestaetigt' });
-    const kreisSql = /a\.ohne_einreicher AND a\.einreicher_id IS NOT DISTINCT FROM/;
+    const kreisSql = /a\.einreicher_id IS DISTINCT FROM/;
     expect(calls[0].sql).toMatch(kreisSql);
     expect(calls[0].sql).toMatch(/ANY \(a\.entscheider_ids\)/);
     expect(calls.find(c => /UPDATE public\.approvals a/.test(c.sql)).sql).toMatch(kreisSql);
@@ -679,6 +684,7 @@ describe('freigabeZumLauf', () => {
       titel: 'Rechnung buchen?',
       frist: 'morgen',
       angefragt_am: 'eben',
+      stufe: null,
     });
     expect(f.kreis).toEqual(['bernd']);
     expect(f.satz).toMatch(/^Entscheidet: bernd,/);

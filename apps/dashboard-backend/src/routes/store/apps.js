@@ -23,6 +23,8 @@ const { validateBody, validateParams, validateQuery } = require('../../middlewar
 const {
   AppParams,
   AppFlowParams,
+  AppStufeParams,
+  StufePersonBody,
   AppLaufParams,
   FlowModellBody,
   EinspielenBody,
@@ -39,6 +41,7 @@ const appStore = require('../../services/app/appStore');
 const appContainer = require('../../services/app/appContainer');
 const appFlows = require('../../services/app/appFlows');
 const appZugang = require('../../services/app/appZugang');
+const appStufen = require('../../services/app/appStufen');
 const flowSettings = require('../../services/flows/flowSettings');
 const runStore = require('../../services/flows/runStore');
 const kiProtokoll = require('../../services/app/kiProtokoll');
@@ -225,6 +228,61 @@ router.get(
       test: await appFlows.liste({ appId: req.params.id, stand: 'test' }),
       live: await appFlows.liste({ appId: req.params.id, stand: 'live' }),
     };
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/apps/:id/stufen — die Freigabestufen der App mit ihrer
+ * Standardperson (M5, 04.10.2026).
+ *
+ * Die Stufen nennen die Flows im Kopf (`stufen`, Kontrakt 8), aus beiden
+ * Staenden; die Person setzt der Administrator, nie der Flow. Dazu die
+ * Menschen mit Zugang, aus denen er waehlen kann, und je Stufe ohne gueltige
+ * Person ein `hinweis`: dann liegt jede neue Freigabe bei allen mit Zugang.
+ */
+router.get(
+  '/:id/stufen',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppParams),
+  asyncHandler(async (req, res) => {
+    const data = await appStufen.liste(req.params.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * PUT /api/apps/:id/stufen/:stufe — die Standardperson einer Stufe setzen,
+ * `{"benutzer_id": null}` nimmt sie zurueck (M5).
+ *
+ * Nur wer Zugang zur App hat, kann Standardperson sein (400). Offene
+ * Freigaben bleiben, wo sie liegen; die Person gilt fuer jede neue.
+ */
+router.put(
+  '/:id/stufen/:stufe',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppStufeParams),
+  validateBody(StufePersonBody),
+  asyncHandler(async (req, res) => {
+    const data = await appStufen.setze({
+      appId: req.params.id,
+      stufe: req.params.stufe,
+      benutzerId: req.body.benutzer_id,
+      durch: req.user.id,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'stufe_standardperson_gesetzt',
+      details: {
+        app_id: req.params.id,
+        stufe: req.params.stufe,
+        person: data.person?.username ?? null,
+      },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
     res.json({ data, timestamp: new Date().toISOString() });
   })
 );

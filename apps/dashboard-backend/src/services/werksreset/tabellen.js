@@ -60,6 +60,9 @@ const AUSLIEFERUNG = [
   // stehen.
   ['public.app_datenbanken', 'Name und Zugang der Datenbank je App und Stand'],
   ['public.app_members', 'Freigaben: welcher Mitarbeiter sieht welche App'],
+  // Einrichtung wie `app_members` daneben (M5, 04.10.2026): wer je App und
+  // Freigabestufe zuerst gefragt wird.
+  ['public.app_stufen_personen', 'Standardperson je App und Freigabestufe'],
   // Stufe 2 und nicht Stufe 1 (Bruecke, 21.09.2026). Ein Ausweis ist kein
   // Inhalt, sondern ein Zugang -- er steht bei den Sitzungen und Schluesseln
   // daneben und nicht bei den Notizen. Wer die INHALTE zuruecksetzt, will

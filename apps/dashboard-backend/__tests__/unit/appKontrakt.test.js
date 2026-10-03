@@ -323,7 +323,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Zurueckholen einer App nennt das Passwort statt der abgetippten Kennung
     // und den Stand davor. Nur eine Beschreibung -- den Weg ruft ein
     // Administrator in der Oberflaeche, kein Kit --, die Zahl bleibt bei 9.
-    expect(abdruck).toBe('d396e3b147e20a8978fceda561fac3cbe61aa53f1ec646a2df65b79fd24025af');
+    //
+    // 04.10.2026 (M5, Stufen mit Standardperson): `freigaben.lauf.felder`
+    // nennt `liegt_bei`, zwei Regeln sagen, dass der Einreicher nie entscheidet
+    // und bei wem eine Freigabe liegt. Additiv und vom Geraet durchgesetzt:
+    // ein Kit, das die Saetze nicht liest, rollt und startet wie bisher, und
+    // eine hoehere Nummer hielte jedes Kit an. Die Zahl bleibt bei 9.
+    expect(abdruck).toBe('b226a3bfa77d354d0918bc7f52a5553f1f2562ec53544b98bbd5d517afccddb8');
   });
 
   /**
