@@ -55,8 +55,19 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
 ```
 src/
   features/        Domain-organized UI. One folder per top-level route.
-    settings/      Sektionen (`sections.tsx` ist die eine Quelle, geteilt von
-                   Sidebar-Panel und Mitte-Tab):
+    einstellungen/ Die persönlichen Einstellungen, für alle gleich (M5, Tab
+                   `settings`): vier Abschnitte Profil (`ProfilFormular.tsx`:
+                   Vorname, Nachname, Funktion, Kürzel, Bild), Passwort
+                   (`PasswordManagement.tsx`), Angemeldete Rechner (die Ausweise
+                   der Person, „abmelden" widerruft; erzeugt wird im Browser
+                   nie einer, `useAusweise.ts`) und Erscheinungsbild (System,
+                   hell, dunkel; `useTheme` löst `system` selbst auf). Kein
+                   Kopf mit Logo, oben steht gleich „Profil". Das Kontomenü
+                   zeigt nur Name und Abmelden.
+    settings/      Die **Verwaltung** (Tab `verwaltung`, Übergangseintrag nur
+                   für den Admin, bis die Verwaltung als eigene Ansicht gebaut
+                   ist; der Ordnername ist alt). Sektionen (`sections.tsx` ist
+                   die eine Quelle, geteilt von Sidebar-Panel und Mitte-Tab):
                    - **System**: Auslastung, Dienste, Aktualisierungen,
                      Sicherung, Selbstheilung, Werksreset
                      (`?tab=sicherung`, `?tab=updates` als Tieflinks).
@@ -81,9 +92,9 @@ src/
                      Ordner (Stufe, `firmenordner/RechteMatrix.tsx`).
                      `usePersonen.ts`, `useAppFreigaben.ts` — Liste nach jedem
                      Ausgang entwerten, auch nach Fehler. Das eigene Profil
-                     (`features/profil/`, im Kontomenü) trägt Vorname,
-                     Nachname, Funktion, Kürzel, Bild; die erste Anmeldung
-                     zeigt Name und Bild zum Prüfen (`PasswortWechseln`).
+                     (`features/einstellungen/`) trägt Vorname, Nachname,
+                     Funktion, Kürzel, Bild; die erste Anmeldung zeigt Name
+                     und Bild zum Prüfen (`PasswortWechseln`).
                    - **Firmenordner** (`FirmenordnerSettings.tsx` +
                      `firmenordner/`): Ordnerbaum (`OrdnerBaum.tsx`),
                      Anlegen/Wegwerfen (Kennung abtippen), Rechte-Matrix
@@ -148,15 +159,16 @@ src/
                    landet nach Login auf `/workspace`, ohne weiteren Pfad
                    auf der **Übersicht**.
                    WorkspaceMenuBar (Marke + zwei Layout-Toggles [Sidebar,
-                   Notizen] + Benutzermenü + Settings oben rechts, nur
-                   `admin`), ActivityBar (eigene, immer sichtbare schmale
-                   Spalte ganz links, außerhalb des einklappbaren Panels —
-                   Apps oben, Modelle [admin] darunter, Einstellungen-Zahnrad
-                   [admin] unten), SidebarHost, Tab-Bar/-Content (Mitte),
+                   Notizen] + Benutzermenü [nur Name und Abmelden]),
+                   ActivityBar (eigene, immer sichtbare schmale Spalte ganz
+                   links, außerhalb des einklappbaren Panels — Apps oben,
+                   Modelle [admin] darunter, unten Verwaltung [admin,
+                   Übergangseintrag] und das Einstellungen-Zahnrad [alle]), SidebarHost, Tab-Bar/-Content (Mitte),
                    RightPanel (rechts, Notizen), StatusBar (nur Administrator: Verbindung, Fassung, Modell + KI-RAM, Downloads +
                    Zahl offener Freigaben). Feature-Tabs laufen je in einem
                    eigenen IsolatedMemoryRouter (FeatureTabHost) — nur noch
-                   für die Einstellungen, die drei anderen rendern direkt.
+                   für die Verwaltung, die vier anderen (auch die persönlichen
+                   Einstellungen) rendern direkt.
                    Cross-Feature-Links übersetzt die TabBridge in
                    Tab-Öffnungen.
                    • **Ein App-Tab bleibt gemountet**, auch wenn er nicht
@@ -167,8 +179,8 @@ src/
                      lädt den Rahmen jedes Mal neu. Eine Ansicht der Shell
                      holt ihre Daten dagegen aus dem Query-Cache und sieht
                      nach dem Neuaufbau genauso aus.
-                   • **Tab-Typen** — `dashboard`, `app`, `settings`,
-                     `modelle` (`stores/workspaceStore.ts`, v10). Alle bis
+                   • **Tab-Typen** — `dashboard`, `app`, `settings`
+                     [persönlich, alle], `verwaltung` [admin], `modelle` (`stores/workspaceStore.ts`, v11). Alle bis
                      auf `app` sind Singletons, `tabId()` ist dann der Typ;
                      eine App trägt `appId` und `stand`
                      (`app:<id>:<stand>`), damit zwei Apps nebeneinander

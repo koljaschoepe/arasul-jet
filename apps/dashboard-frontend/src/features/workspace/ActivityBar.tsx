@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppWindow, Cpu, Settings } from 'lucide-react';
+import { AppWindow, Cpu, Settings, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, sidebarSichtbar } from '@/stores/workspaceStore';
 import type { ActivityView } from '@/stores/workspaceStore';
@@ -91,6 +91,7 @@ export function ActivityBar() {
   const sidebarVisible = useWorkspaceStore(sidebarSichtbar);
   const selectView = useWorkspaceStore(s => s.selectView);
   const openTab = useWorkspaceStore(s => s.openTab);
+  const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const handleView = (view: ActivityView) => {
     selectView(view);
     // Jede Ansicht zeigt ihren Inhalt auch in der Mitte.
@@ -119,20 +120,31 @@ export function ActivityBar() {
 
       <div className="flex-1" aria-hidden="true" />
 
+      {/* Der Übergangseintrag für alles Gerätebezogene, nur für den
+          Administrator: wie eine Sidebar-Ansicht, die Bereiche erscheinen
+          links (SettingsPanel), der Mitte-Tab zeigt den gewählten (B4). */}
       {istAdmin && (
         <ActivityButton
-          label="Einstellungen"
-          active={sidebarVisible && activeView === 'settings'}
+          label="Verwaltung"
+          active={sidebarVisible && activeView === 'verwaltung'}
           onClick={() => {
-            // Wie eine Sidebar-Ansicht: Sektionen erscheinen links (SettingsPanel),
-            // der Mitte-Tab zeigt die gewählte Sektion (B4).
-            selectView('settings');
-            openTab({ type: 'settings' });
+            selectView('verwaltung');
+            openTab({ type: 'verwaltung' });
           }}
         >
-          <Settings className="h-[18px] w-[18px]" />
+          <SlidersHorizontal className="h-[18px] w-[18px]" />
         </ActivityButton>
       )}
+
+      {/* Die persönlichen Einstellungen, für alle. Keine Sidebar-Ansicht: es
+          ist eine Seite, kein Bereichsbaum. */}
+      <ActivityButton
+        label="Einstellungen"
+        active={activeTabId === 'settings'}
+        onClick={() => openTab({ type: 'settings' })}
+      >
+        <Settings className="h-[18px] w-[18px]" />
+      </ActivityButton>
     </nav>
   );
 }

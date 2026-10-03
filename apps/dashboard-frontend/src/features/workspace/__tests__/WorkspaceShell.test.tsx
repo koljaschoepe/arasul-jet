@@ -102,9 +102,9 @@ describe('WorkspaceShell, URL-Sync', () => {
    * Mitarbeiter auf jeden Weg hinter den Einstellungen mit 403. Hier geht es
    * nur darum, dass eine getippte Adresse ihn nicht in eine Sackgasse führt.
    */
-  it('einem Mitarbeiter führt /workspace/settings auf die Übersicht', async () => {
+  it('einem Mitarbeiter führt /workspace/verwaltung auf die Übersicht', async () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
-    renderShell('/workspace/settings');
+    renderShell('/workspace/verwaltung');
     await waitFor(() =>
       expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/dashboard')
     );

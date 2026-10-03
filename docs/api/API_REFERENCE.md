@@ -3147,14 +3147,14 @@ wechselt.
 
 ### Darstellung (Phase H1)
 
-Die Darstellung der Oberfläche, **je Mensch**. Zwei Werte: `light` (Vorgabe)
-und `dark`. »Schwarz« ist mit H1 gefallen.
+Die Darstellung der Oberfläche, **je Mensch**. Drei Werte: `light` (Vorgabe),
+`dark` und `system` (das Betriebssystem entscheidet, Migration 194). »Schwarz« ist mit H1 gefallen.
 
 | Method | Endpoint           | Description                                |
 | ------ | ------------------ | ------------------------------------------ |
 | PUT    | `/api/darstellung` | Meine Darstellung setzen, Body `{ theme }` |
 
-Antwort `{ data: { theme } }`. `theme` ist `light` oder `dark`; alles andere
+Antwort `{ data: { theme } }`. `theme` ist `light`, `dark` oder `system`; alles andere
 ist `400` (`schemas/darstellung.js`), nicht `500` aus dem CHECK der Spalte.
 
 **Nur ein Weg, und zwar der schreibende.** Gelesen wird die Darstellung dort,

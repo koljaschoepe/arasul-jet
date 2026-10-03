@@ -23,11 +23,11 @@ export function SettingsPanel() {
 
   const open = (id: SettingsSectionId) => {
     setActiveSection(id);
-    openTab({ type: 'settings' });
+    openTab({ type: 'verwaltung' });
   };
 
   return (
-    <SidebarView title="Einstellungen">
+    <SidebarView title="Verwaltung">
       <div className="py-1">
         <Liste dicht>
           {SETTINGS_SECTIONS.map(section => (

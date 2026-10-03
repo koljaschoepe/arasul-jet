@@ -1,27 +1,12 @@
 import { useState } from 'react';
-import { Download, LogOut, MonitorOff, ShieldCheck } from 'lucide-react';
-import PasswordManagement from './PasswordManagement';
-import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
+import { Download, ShieldCheck } from 'lucide-react';
 import { Kopf } from '@marken';
 import { Button } from '@marken';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { Feldgruppe, Formularseite } from '@marken';
 
-interface SecuritySettingsProps {
-  handleLogout: () => void;
-  loggingOutAll: boolean;
-  onLogoutAll: () => void;
-  /** Reicht die Meldung der Passwortverwaltung an die Kopfzeile durch. */
-  onDirtyChange?: (dirty: boolean) => void;
-}
-
-export function SecuritySettings({
-  handleLogout,
-  loggingOutAll,
-  onLogoutAll,
-  onDirtyChange,
-}: SecuritySettingsProps) {
+export function SecuritySettings() {
   const api = useApi();
   const toast = useToast();
   const [ladeZertifikat, setLadeZertifikat] = useState(false);
@@ -68,13 +53,9 @@ export function SecuritySettings({
 
   return (
     <div className="animate-in fade-in" data-testid="sicherheit-seite">
-      <Kopf titel="Sicherheit" beschreibung="Passwörter verwalten und Sitzungen beenden" />
+      <Kopf titel="Sicherheit" />
 
       <Formularseite>
-        <ComponentErrorBoundary componentName="Passwortverwaltung">
-          <PasswordManagement onDirtyChange={onDirtyChange} />
-        </ComponentErrorBoundary>
-
         <Feldgruppe
           titel="Gerätezertifikat"
           symbol={<ShieldCheck />}
@@ -89,22 +70,6 @@ export function SecuritySettings({
               Wie die Datei auf Windows, macOS, iOS und Android installiert wird, steht in der
               Anleitung {'\u201eNetzname und Zertifikat\u201c'} im Handbuch.
             </p>
-          </div>
-        </Feldgruppe>
-
-        <Feldgruppe
-          titel="Sitzungen"
-          symbol={<LogOut />}
-          beschreibung="Beenden Sie die aktuelle Sitzung oder melden Sie sich auf allen Geräten ab."
-        >
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="size-4" /> Abmelden
-            </Button>
-            <Button variant="outline" onClick={onLogoutAll} disabled={loggingOutAll}>
-              <MonitorOff className="size-4" />
-              {loggingOutAll ? 'Wird abgemeldet...' : 'Von allen Geräten abmelden'}
-            </Button>
           </div>
         </Feldgruppe>
       </Formularseite>

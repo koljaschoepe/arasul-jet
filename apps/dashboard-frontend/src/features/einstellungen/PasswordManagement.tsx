@@ -220,11 +220,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
     // ueber seine Trennlinie. In einem div waere er versteckt und traege sie
     // auch dann, wenn er der letzte auf der Seite ist.
     <>
-      <Feldgruppe
-        titel="Passwortverwaltung"
-        symbol={<Lock />}
-        beschreibung="Ändern Sie Ihr Passwort für die Anmeldung an diesem Gerät"
-      >
+      <Feldgruppe titel="Passwort" symbol={<Lock />}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {renderPasswordField(
             'current',

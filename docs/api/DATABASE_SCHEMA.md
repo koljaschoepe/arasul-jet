@@ -81,8 +81,8 @@
 > setzt. Bestandszeilen bekamen `false`: wer das Passwort in der Vergangenheit
 > gesetzt hat, weiß die Spalte nicht.
 > `theme` (Migration 180, Phase H1) ist die Darstellung der Oberfläche für
-> diesen Menschen: `light` (Vorgabe) oder `dark`
-> (`CHECK admin_users_theme_check`). Vorher lag der Wert im `localStorage` des
+> diesen Menschen: `light` (Vorgabe), `dark` oder `system` (Migration 194, M5;
+> `CHECK admin_users_theme_check`). Vorher lag der Wert im `localStorage` des
 > Browsers, war also an den Rechner gebunden statt an den Menschen; »Schwarz«
 > als drittes Theme ist mit H1 gefallen. Geschrieben wird die Spalte über
 > `PUT /api/darstellung`, gelesen kommt sie mit `GET /api/auth/session` mit.

@@ -105,6 +105,13 @@ describe('PUT /api/darstellung', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+  it('nimmt „system" an (Migration 194)', async () => {
+    db.query.mockResolvedValue({ rows: [{ theme: 'system' }] });
+    const res = await request(app()).put('/api/darstellung').send({ theme: 'system' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ theme: 'system' });
+  });
+
   it('weist einen leeren Rumpf mit 400 ab', async () => {
     const res = await request(app()).put('/api/darstellung').send({});
     expect(res.status).toBe(400);

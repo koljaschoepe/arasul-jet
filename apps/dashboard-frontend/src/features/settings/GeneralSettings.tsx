@@ -2,42 +2,14 @@ import { fassungLesbar, formatUptime } from '../../utils/formatting';
 import { TechnischeAngaben } from '../system/TechnischeAngaben';
 import { BEGRIFFE } from '../../begriffe';
 import { useState, useEffect, useCallback } from 'react';
-import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu, Building2 } from 'lucide-react';
+import { Clock, Wifi, ShieldCheck, Cpu, Building2 } from 'lucide-react';
 import { Kopf } from '@marken';
-import { Button, Input, Label, RadioGroup, RadioGroupItem } from '@marken';
+import { Button, Input, Label } from '@marken';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { Feldgruppe, Formularseite } from '@marken';
-
-/**
- * Zwei Optionen (Phase H1). »Schwarz« ist gefallen: es unterschied sich von
- * »Dunkel« um zwei Hintergrundstufen, und drei Zeilen an dieser Stelle liessen
- * einen Menschen zwischen zwei Dingen waehlen, die er auf dem Bildschirm nicht
- * auseinanderhalten kann. Die Werte heissen `light` und `dark`, weil derselbe
- * Wert im DOM als `data-theme` steht; deutsch ist die Beschriftung.
- */
-const THEME_OPTIONS: ReadonlyArray<{
-  value: Theme;
-  label: string;
-  description: string;
-  icon: typeof Moon;
-}> = [
-  {
-    value: 'light',
-    label: 'Hell',
-    description: 'Helles Design für bessere Lesbarkeit bei Tageslicht',
-    icon: Sun,
-  },
-  {
-    value: 'dark',
-    label: 'Dunkel',
-    description: 'Anthrazitfarbenes Design für reduzierte Augenbelastung',
-    icon: Moon,
-  },
-];
 
 interface SystemInfo {
   version: string;
@@ -56,7 +28,6 @@ interface FirmennameAntwort {
 const FIRMENNAME_MAX = 120;
 
 export function GeneralSettings() {
-  const { theme, setTheme } = useTheme();
   const api = useApi();
   const toast = useToast();
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
@@ -170,55 +141,6 @@ export function GeneralSettings() {
               Speichern
             </Button>
           </form>
-        </Feldgruppe>
-
-        <Feldgruppe
-          titel="Erscheinungsbild"
-          symbol={theme === 'dark' ? <Moon /> : <Sun />}
-          beschreibung="Wählen Sie zwischen hellem und dunklem Design"
-        >
-          <RadioGroup
-            value={theme}
-            onValueChange={value => {
-              // `setTheme` schreibt gegen das Gerät und meldet einen Fehler
-              // über `useApi` selbst; hier bleibt nur, die abgelehnte Zusage
-              // nicht als unbehandelt stehen zu lassen.
-              void setTheme(value as Theme).catch(() => {});
-            }}
-            aria-label="Design auswählen"
-            // Plan 009: Optionen konsequent linksbündig (guaranteed), damit
-            // Hell/Dunkel nicht mittig gegenüber dem übrigen linksbündigen
-            // Inhalt stehen.
-            className="items-start justify-items-start"
-          >
-            {THEME_OPTIONS.map(option => {
-              const Icon = option.icon;
-              return (
-                <div key={option.value} className="flex items-start gap-3">
-                  <RadioGroupItem
-                    value={option.value}
-                    id={`theme-${option.value}`}
-                    className="mt-0.5"
-                  />
-                  <Label
-                    htmlFor={`theme-${option.value}`}
-                    // items-start überschreibt das items-center der Basis-Label-
-                    // Klasse — sonst zentriert flex-col die Kinder horizontal und
-                    // der kurze Titel („Hell") wirkt mittig (Plan 009, live bestätigt).
-                    className="flex cursor-pointer flex-col items-start gap-0.5"
-                  >
-                    <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Icon className="size-3.5 text-muted-foreground" />
-                      {option.label}
-                    </span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </Label>
-                </div>
-              );
-            })}
-          </RadioGroup>
         </Feldgruppe>
 
         {loading ? (

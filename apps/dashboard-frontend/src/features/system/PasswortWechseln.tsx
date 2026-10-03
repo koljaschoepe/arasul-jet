@@ -22,7 +22,7 @@ import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
 import { PersonAvatar } from '@/components/PersonAvatar';
 import { API_BASE } from '@/config/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { ProfilFormular } from '@/features/profil/ProfilFormular';
+import { ProfilFormular } from '@/features/einstellungen/ProfilFormular';
 import { useApi } from '@/hooks/useApi';
 
 interface Anforderungen {

@@ -305,7 +305,7 @@ function AppContent(): React.JSX.Element | null {
               }
             />
             <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
-            <Route path="/settings" element={<InDenArbeitsbereich ziel="/settings" />} />
+            <Route path="/settings" element={<InDenArbeitsbereich ziel="/verwaltung" />} />
             <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />
             {/* /terminal, /sandbox, /data und /documents zeigten auf Terminal
                   und Explorer; beides ist mit B2 gefallen, die Adressen sind

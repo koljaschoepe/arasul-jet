@@ -4,9 +4,7 @@
  * Tests the Settings page as users experience it:
  *   - Section navigation (tabs)
  *   - General settings rendering
- *   - Theme toggle
- *   - Password management form validation
- *   - Logout actions
+ *   - Gerätezertifikat (Sicherheit)
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -66,20 +64,13 @@ vi.mock('../../hooks/useConfirm', () => ({
 // and drives the Settings tab through the shared `settingsStore`. We render both
 // together so a click in the panel switches the section shown in the tab —
 // exactly how it works in the real workspace shell.
-function renderSettings(props: Partial<Parameters<typeof Settings>[0]> = {}) {
-  const defaultProps = {
-    handleLogout: vi.fn(),
-  };
-
-  return {
-    ...defaultProps,
-    ...render(
-      <MemoryRouter>
-        <SettingsPanel />
-        <Settings {...defaultProps} {...props} />
-      </MemoryRouter>
-    ),
-  };
+function renderSettings() {
+  return render(
+    <MemoryRouter>
+      <SettingsPanel />
+      <Settings />
+    </MemoryRouter>
+  );
 }
 
 // ---- Tests ----
@@ -174,105 +165,20 @@ describe('Settings integration', () => {
     await user.click(screen.getByTestId('settings-open-security'));
 
     await waitFor(() => {
-      expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Gerätezertifikat' })).toBeInTheDocument();
     });
+    // Passwort und Abmelden sind persönlich und stehen in den Einstellungen.
+    expect(screen.queryByText('Passwort')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sitzungen')).not.toBeInTheDocument();
   });
 
-  it('zwei Optionen, Hell ist die Vorgabe (Phase H1: »Schwarz« ist gefallen)', async () => {
-    mitTheme = 'light';
+  it('zeigt das Erscheinungsbild nicht mehr hier: es ist persönlich', async () => {
     renderSettings();
-
     await waitFor(() => {
-      expect(screen.getByText('Erscheinungsbild')).toBeInTheDocument();
+      expect(screen.getByText('arasul-orin')).toBeInTheDocument();
     });
-
-    expect(screen.getAllByRole('radio')).toHaveLength(2);
-    expect(screen.getByRole('radio', { name: /Hell/ })).toBeChecked();
-    expect(screen.getByRole('radio', { name: /Dunkel/ })).not.toBeChecked();
-    expect(screen.queryByRole('radio', { name: /Schwarz/ })).not.toBeInTheDocument();
-  });
-
-  it('eine Wahl geht an das Geraet und steht danach am Dokument', async () => {
-    const user = userEvent.setup();
-    mitTheme = 'light';
-    vi.mocked(mockApi.put).mockResolvedValue({ data: { theme: 'dark' } });
-    renderSettings();
-
-    await waitFor(() => {
-      expect(screen.getByRole('radio', { name: /Dunkel/ })).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('radio', { name: /Dunkel/ }));
-
-    // Was danach am Dokument steht, prueft der Hook selbst
-    // (`__tests__/hooks/useTheme.test.tsx`). Hier geht es um die Seite: der
-    // Klick auf »Dunkel« schickt genau eine Anfrage, und uebernommen wird die
-    // Antwort des Geraets.
-    await waitFor(() => {
-      expect(mockApi.put).toHaveBeenCalledWith('/darstellung', { theme: 'dark' });
-    });
-    expect(benutzerAktualisieren).toHaveBeenCalledWith({ theme: 'dark' });
-  });
-
-  it('wer mit »dunkel« hereinkommt, sieht »Dunkel« angehakt', async () => {
-    mitTheme = 'dark';
-    renderSettings();
-
-    await waitFor(() => {
-      expect(screen.getByRole('radio', { name: /Dunkel/ })).toBeChecked();
-    });
-  });
-
-  it('shows security section with password management and session controls', async () => {
-    const user = userEvent.setup();
-    renderSettings();
-
-    await user.click(screen.getByTestId('settings-open-security'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
-      expect(screen.getByText('Sitzungen')).toBeInTheDocument();
-    });
-  });
-
-  it('shows logout button in security section', async () => {
-    const user = userEvent.setup();
-    renderSettings();
-
-    await user.click(screen.getByTestId('settings-open-security'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Abmelden')).toBeInTheDocument();
-    });
-  });
-
-  it('calls handleLogout when logout button is clicked', async () => {
-    const user = userEvent.setup();
-    const handleLogout = vi.fn();
-    renderSettings({ handleLogout });
-
-    await user.click(screen.getByTestId('settings-open-security'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Abmelden')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText('Abmelden'));
-    expect(handleLogout).toHaveBeenCalled();
-  });
-
-  it('shows password change form', async () => {
-    const user = userEvent.setup();
-    renderSettings();
-
-    await user.click(screen.getByTestId('settings-open-security'));
-
-    await waitFor(() => {
-      // Passwortverwaltung: nur noch das Dashboard-Passwort (MinIO seit B4,
-      // der n8n-Hinweis seit B5 weg).
-      expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
-      expect(screen.queryByText('n8n')).not.toBeInTheDocument();
-    });
+    expect(screen.queryByText('Erscheinungsbild')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
   });
 
   it('shows loading skeleton while fetching system info', () => {
@@ -304,11 +210,9 @@ describe('Settings integration', () => {
     });
   });
 
-  it('renders the Settings title (sidebar panel + tab header)', () => {
+  it('renders the Verwaltung title in the sidebar panel', () => {
     renderSettings();
-
-    // "Einstellungen" appears both as the sidebar panel title and the tab header.
-    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Verwaltung').length).toBeGreaterThanOrEqual(1);
   });
 
   it('opens the KI tab straight on the Sprachmodell settings (J35)', async () => {
@@ -356,7 +260,7 @@ describe('Settings integration', () => {
   it('deep-links via ?tab=system to the System tab', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=system']}>
-        <Settings handleLogout={vi.fn()} />
+        <Settings />
       </MemoryRouter>
     );
 
@@ -368,7 +272,7 @@ describe('Settings integration', () => {
   it('maps the legacy ?tab=selfhealing deep-link onto the System tab with the Selbstheilung sub-section active', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=selfhealing']}>
-        <Settings handleLogout={vi.fn()} />
+        <Settings />
       </MemoryRouter>
     );
 

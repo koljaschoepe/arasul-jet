@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApi } from './useApi';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -28,6 +28,21 @@ import { useAuth } from '@/contexts/AuthContext';
  * Zustand, und einen Knopf dafuer gab es zuletzt ohnehin nirgends.
  */
 export type Theme = 'light' | 'dark';
+
+/**
+ * Die Wahl des Menschen: dazu kommt `system` (Migration 194). Aufgeloest wird
+ * sie hier zu einem `Theme`; ans Dokument und in den Rahmen der Apps geht nie
+ * `system`, sondern immer das, was der Browser gerade meint.
+ */
+export type ThemeWahl = Theme | 'system';
+
+const DUNKEL_ABFRAGE = '(prefers-color-scheme: dark)';
+
+function systemBevorzugtDunkel(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(DUNKEL_ABFRAGE).matches
+    : false;
+}
 
 /** Ohne Sitzung und ohne gesetzten Wert: hell (Spaltenvorgabe, Migration 180). */
 const THEME_VORGABE: Theme = 'light';
@@ -97,16 +112,31 @@ export function useTheme() {
   const { user, isAuthenticated, benutzerAktualisieren } = useAuth();
   const api = useApi();
 
-  const theme: Theme = user?.theme === 'dark' ? 'dark' : THEME_VORGABE;
+  const wahl: ThemeWahl =
+    user?.theme === 'dark' || user?.theme === 'system' ? user.theme : THEME_VORGABE;
+
+  // Bei `system` folgt das Theme dem Betriebssystem, auch wenn es sich ändert,
+  // solange die Seite offen ist.
+  const [systemDunkel, setSystemDunkel] = useState(systemBevorzugtDunkel);
+  useEffect(() => {
+    if (wahl !== 'system' || typeof window.matchMedia !== 'function') return;
+    const abfrage = window.matchMedia(DUNKEL_ABFRAGE);
+    const nachziehen = () => setSystemDunkel(abfrage.matches);
+    nachziehen();
+    abfrage.addEventListener?.('change', nachziehen);
+    return () => abfrage.removeEventListener?.('change', nachziehen);
+  }, [wahl]);
+
+  const theme: Theme = wahl === 'system' ? (systemDunkel ? 'dark' : 'light') : wahl;
 
   const setTheme = useCallback(
-    async (neu: Theme) => {
+    async (neu: ThemeWahl) => {
       // Erst schreiben, dann anzeigen: die Oberflaeche zeigt das, was das
       // Geraet bestaetigt hat. Ein Fehler meldet sich ueber `useApi` selbst,
       // und der Bildschirm bleibt, wie er war -- das ist die ehrlichere
       // Auskunft als ein Umschalten, das den naechsten Seitenaufbau nicht
       // ueberlebt.
-      const antwort = await api.put<{ data: { theme: Theme } }>('/darstellung', { theme: neu });
+      const antwort = await api.put<{ data: { theme: ThemeWahl } }>('/darstellung', { theme: neu });
       benutzerAktualisieren({ theme: antwort?.data?.theme ?? neu });
     },
     [api, benutzerAktualisieren]
@@ -132,7 +162,7 @@ export function useTheme() {
     const alt = altenWertLesen();
     if (!alt) return;
     uebernommen.current = true;
-    if (alt === theme) {
+    if (alt === wahl) {
       // Nichts zu schreiben, nur aufzuraeumen.
       altenWertVergessen();
       return;
@@ -145,7 +175,7 @@ export function useTheme() {
         // der einzige Weg, den Wert endgueltig zu verlieren.
         uebernommen.current = false;
       });
-  }, [isAuthenticated, theme, setTheme]);
+  }, [isAuthenticated, wahl, setTheme]);
 
   // Das Attribut am Dokument folgt dem Wert. Ein Effekt, eine Stelle -- auch
   // wenn mehrere Komponenten den Hook halten, schreiben sie denselben Wert.
@@ -153,5 +183,5 @@ export function useTheme() {
     themeAmDokument(document, theme);
   }, [theme]);
 
-  return { theme, setTheme } as const;
+  return { theme, wahl, setTheme } as const;
 }

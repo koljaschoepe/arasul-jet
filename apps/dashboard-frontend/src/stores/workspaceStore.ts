@@ -24,7 +24,12 @@ import { persist } from 'zustand/middleware';
  * gestrichen hat — und der erste, der wieder eine Kennung trägt (`appId`).
  */
 
-export type WorkspaceTabType = 'dashboard' | 'app' | 'settings' | 'modelle';
+/**
+ * `settings` sind die persönlichen Einstellungen, für alle; `verwaltung` ist
+ * der Übergangseintrag für alles Gerätebezogene und gehört dem Administrator
+ * (M5, bis die Verwaltung als eigene Ansicht gebaut ist).
+ */
+export type WorkspaceTabType = 'dashboard' | 'app' | 'settings' | 'verwaltung' | 'modelle';
 
 /** Der Stand einer App: der Livestand für alle, der Teststand für Tester. */
 export type AppStand = 'live' | 'test';
@@ -50,6 +55,7 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   dashboard: 'Übersicht',
   app: 'App',
   settings: 'Einstellungen',
+  verwaltung: 'Verwaltung',
   modelle: 'Modelle',
 };
 
@@ -109,6 +115,8 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
     }
     case 'settings':
       return { type: 'settings' };
+    case 'verwaltung':
+      return { type: 'verwaltung' };
     case 'modelle':
       return { type: 'modelle' };
     // Alter Pfad aus der Zeit vor Plan 023 B7: /workspace/store zeigte je nach
@@ -127,11 +135,11 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
  * null. Seit D1 gibt es „Apps", und sie ist die erste Ansicht der Leiste — die
  * linke Spalte des Zielbilds.
  */
-export type ActivityView = 'apps' | 'models' | 'settings';
+export type ActivityView = 'apps' | 'models' | 'verwaltung';
 const ACTIVITY_VIEWS: ReadonlySet<ActivityView> = new Set<ActivityView>([
   'apps',
   'models',
-  'settings',
+  'verwaltung',
 ]);
 
 /**
@@ -152,7 +160,7 @@ const START_VIEW: ActivityView = 'apps';
  * Berechtigung ist `requireRole` im Backend, und die Wege dahinter antworten
  * einem Mitarbeiter mit 403, ob die Oberfläche sie zeigt oder nicht.
  */
-const NUR_ADMIN: ReadonlySet<string> = new Set(['models', 'modelle', 'settings']);
+const NUR_ADMIN: ReadonlySet<string> = new Set(['models', 'modelle', 'verwaltung']);
 
 /** Gehört diese Ansicht bzw. dieser Tab-Typ dem Administrator? */
 export function nurFuerAdmin(was: ActivityView | WorkspaceTabType): boolean {
@@ -298,6 +306,9 @@ interface PersistedLegacyState {
  * verschwindet, sieht aus wie ein Fehler; deshalb wird der alte `store`-Tab
  * weiter umgeschrieben, jetzt auf `modelle`, statt verworfen.
  *
+ * v11 (M5): die Ansicht `settings` der Aktivitätsleiste heißt `verwaltung`;
+ * der Tab `settings` ist jetzt die persönliche Seite für alle.
+ *
  * v10 (Phase D1) fügt `dashboard` und `app` hinzu und nimmt nichts weg — ein
  * Stand aus v9 kann diese Typen gar nicht enthalten. Was der Filter unten
  * trotzdem prüft: ein `app`-Tab OHNE Kennung fällt. Er kann nur aus einem von
@@ -346,8 +357,10 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
 
   // Alte Werte ('files', 'search', 'extensions', 'flows') und ein Stand ohne
   // Ansicht landen auf den Apps statt auf einer leeren Spalte.
-  const activeView = ACTIVITY_VIEWS.has(old.activeView as ActivityView)
-    ? (old.activeView as ActivityView)
+  // Die Ansicht „settings" der Aktivitätsleiste heißt seit M5 „verwaltung".
+  const alteAnsicht = old.activeView === 'settings' ? 'verwaltung' : old.activeView;
+  const activeView = ACTIVITY_VIEWS.has(alteAnsicht as ActivityView)
+    ? (alteAnsicht as ActivityView)
     : START_VIEW;
 
   return { tabs, activeTabId, activeView, sidebarVisible, rightPanelVisible };
@@ -484,7 +497,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'arasul_workspace',
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
       partialize: state => ({
         tabs: state.tabs,
