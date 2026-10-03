@@ -278,11 +278,16 @@ run_rollback_meldung_check() {
   fi
 }
 
-# Wer waehrend der Sicherung schreibt, liess sie scheitern (J35, 27.09.2026).
+# Die Staende der Sicherung (M5), darin der Fall von J35: wer waehrend der
+# Sicherung schreibt, liess sie scheitern (27.09.2026). Braucht restic.
 run_sicherung_schreiben_check() {
   echo ""
-  echo "-> Pruefe, ob die Sicherung Schreiben waehrend des Laufs aushaelt..."
-  if bash "${PROJECT_ROOT}/scripts/test/sicherung-waehrend-schreiben.sh"; then
+  echo "-> Pruefe die Staende der Sicherung (nur Geaendertes, 7/12/60, nur Chiffrat)..."
+  if ! command -v restic >/dev/null 2>&1; then
+    echo "   restic fehlt hier (brew install restic / apt install restic) -- uebersprungen, die CI prueft es"
+    return 0
+  fi
+  if bash "${PROJECT_ROOT}/scripts/test/sicherung-staende.sh"; then
     :
   else
     EXIT_CODE=1

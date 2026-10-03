@@ -114,18 +114,27 @@ else
     exit 1
 fi
 
-for art in postgres apps flows config; do
-    # `arasul_db_latest.sql.gz` beim Abzug, `<art>_latest.tar.gz` bei den
-    # Archiven -- der Zeiger heisst nicht ueberall gleich, deshalb gesucht
-    # statt geraten.
-    zeiger=$(find "${SICHERUNGSORDNER}/${art}" -maxdepth 1 -name '*_latest.*' 2>/dev/null | head -1)
-    if [ -n "$zeiger" ] && [ -e "$zeiger" ]; then
-        groesse=$(du -h "$(readlink -f "$zeiger")" 2>/dev/null | cut -f1)
-        pruefe "Archiv ${art} liegt vor" ja "$groesse"
-    else
-        pruefe "Archiv ${art} liegt vor" nein
-    fi
-done
+# Seit M5 entsteht ein STAND (staende.sh), keine Archive je Art mehr. Gefragt
+# wird der Bericht dieses Laufs: steht der Stand, und was hat er geschrieben?
+STAND_BERICHT=$(docker exec "$SICHERUNG" cat /backups/backup_report.json 2>/dev/null || echo '{}')
+STAND_STATUS=$(jq -r '.stand_status // empty' <<<"$STAND_BERICHT" 2>/dev/null)
+if [ -n "$STAND_STATUS" ]; then
+    pruefe "Stand dieses Laufs steht" "$([ "$STAND_STATUS" = ok ] && echo ja || echo nein)" \
+        "$(jq -r '"\(.stand_id[0:8]), \(.stand_geschrieben_bytes) Bytes neu"' <<<"$STAND_BERICHT")"
+else
+    for art in postgres apps flows config; do
+        # Vor M5: `arasul_db_latest.sql.gz` beim Abzug, `<art>_latest.tar.gz`
+        # bei den Archiven -- der Zeiger heisst nicht ueberall gleich, deshalb
+        # gesucht statt geraten.
+        zeiger=$(find "${SICHERUNGSORDNER}/${art}" -maxdepth 1 -name '*_latest.*' 2>/dev/null | head -1)
+        if [ -n "$zeiger" ] && [ -e "$zeiger" ]; then
+            groesse=$(du -h "$(readlink -f "$zeiger")" 2>/dev/null | cut -f1)
+            pruefe "Archiv ${art} liegt vor" ja "$groesse"
+        else
+            pruefe "Archiv ${art} liegt vor" nein
+        fi
+    done
+fi
 
 # --- 2. Loeschen -------------------------------------------------------------
 # Es wird ECHT geloescht und nicht nur eine Tabelle geleert: die Zeilen, die
