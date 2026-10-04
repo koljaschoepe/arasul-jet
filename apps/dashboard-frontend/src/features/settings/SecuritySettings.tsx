@@ -64,7 +64,7 @@ export function SecuritySettings() {
           <div className="flex flex-col gap-3">
             <Button variant="outline" onClick={zertifikatLaden} disabled={ladeZertifikat}>
               <Download className="size-4" />
-              {ladeZertifikat ? 'Wird geladen...' : 'Zertifikat herunterladen'}
+              {ladeZertifikat ? 'Wird geladen …' : 'Zertifikat herunterladen'}
             </Button>
             <p className="text-sm text-muted-foreground">
               Wie die Datei auf Windows, macOS, iOS und Android installiert wird, steht in der

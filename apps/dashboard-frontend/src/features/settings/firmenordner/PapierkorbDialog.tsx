@@ -27,6 +27,7 @@ import {
   type PapierkorbEintrag,
 } from './useFirmenordner';
 import { ordnerWeg } from './OrdnerBaum';
+import { fehlertext } from '@/utils/fehlertext';
 
 interface Props {
   fuer: Ordner | null;
@@ -72,7 +73,7 @@ export function PapierkorbDialog({ fuer, onSchliessen }: Props) {
         onError: err => {
           setLeerenFragen(false);
           setEntfernenFragen(null);
-          setFehler(err.message);
+          setFehler(fehlertext(err));
         },
       }
     );

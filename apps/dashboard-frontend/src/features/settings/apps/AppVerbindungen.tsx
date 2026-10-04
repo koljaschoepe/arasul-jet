@@ -144,7 +144,7 @@ export function AppVerbindungen({ appId, flows }: { appId: string; flows: AppFlo
                 <Globe className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="font-medium text-foreground">{e.anbieter}</span>
                 <span className="text-ui-xs text-muted-foreground">
-                  Modell für {e.flows.map(n => `„${n}"`).join(', ')}
+                  Modell für {e.flows.map(n => `„${n}“`).join(', ')}
                 </span>
               </span>
               <Aufklappen

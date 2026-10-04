@@ -145,13 +145,13 @@ describe('ErrorBoundary Component', () => {
   // =====================================================
   describe('Error UI Display', () => {
     test('zeigt Error-Icon', () => {
-      render(
+      const { container } = render(
         <ErrorBoundary>
           <ErrorThrowingComponent />
         </ErrorBoundary>
       );
 
-      expect(screen.getByText('⚠️')).toBeInTheDocument();
+      expect(container.querySelector('svg.error-icon')).toBeInTheDocument();
     });
 
     test('zeigt Haupt-Fehlermeldung', () => {
@@ -173,7 +173,7 @@ describe('ErrorBoundary Component', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText('Fehlerdetails anzeigen')).toBeInTheDocument();
+      expect(screen.getByText('Technik')).toBeInTheDocument();
     });
 
     test('zeigt Error-Message in Details', () => {
@@ -184,7 +184,7 @@ describe('ErrorBoundary Component', () => {
       );
 
       // Open details
-      const details = screen.getByText('Fehlerdetails anzeigen');
+      const details = screen.getByText('Technik');
       fireEvent.click(details);
 
       expect(screen.getByText(/Custom error message/i)).toBeInTheDocument();
@@ -287,7 +287,7 @@ describe('ErrorBoundary Component', () => {
         </ErrorBoundary>
       );
 
-      const detailsElement = screen.getByText('Fehlerdetails anzeigen').closest('details');
+      const detailsElement = screen.getByText('Technik').closest('details');
       expect(detailsElement).toBeInTheDocument();
     });
 
@@ -299,7 +299,7 @@ describe('ErrorBoundary Component', () => {
       );
 
       // Open details by clicking summary
-      fireEvent.click(screen.getByText('Fehlerdetails anzeigen'));
+      fireEvent.click(screen.getByText('Technik'));
 
       expect(screen.getByText(/String representation error/)).toBeInTheDocument();
     });
@@ -312,7 +312,7 @@ describe('ErrorBoundary Component', () => {
       );
 
       // Find and click details/summary element
-      const summary = container.querySelector('summary') || screen.queryByText(/fehlerdetails/i);
+      const summary = container.querySelector('summary') || screen.queryByText('Technik');
 
       if (summary) {
         fireEvent.click(summary);

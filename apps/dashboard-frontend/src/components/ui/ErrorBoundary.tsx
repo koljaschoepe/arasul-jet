@@ -1,5 +1,7 @@
 import React, { type ErrorInfo, type ReactNode } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { Button, Kopf } from '@marken';
+import { SUPPORT_EMAIL } from '@/config/branding';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -75,7 +77,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             role="alert"
           >
             <div className="error-boundary-compact-content flex items-center gap-3">
-              <span className="error-icon-small text-xl shrink-0">⚠️</span>
+              <TriangleAlert
+                className="error-icon-small size-5 shrink-0 text-destructive"
+                aria-hidden="true"
+              />
               <span className="error-text flex-1 text-destructive text-sm">
                 {this.props.message || 'Komponente konnte nicht geladen werden'}
               </span>
@@ -106,7 +111,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                 Fehlermeldung, und eine rote Überschrift darin ist eine
                 Farbe, die nichts mehr unterscheidet. Das Warnzeichen darüber
                 sagt es schon. */}
-            <div className="error-icon mb-6 text-6xl">⚠️</div>
+            <TriangleAlert
+              className="error-icon mx-auto mb-6 size-12 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Kopf
               titel={this.props.title || 'Etwas ist schiefgelaufen'}
               beschreibung={
@@ -118,7 +126,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             {(isDevelopment || this.props.showDetails) && this.state.error && (
               <details className="error-details my-8 text-left bg-background border border-border rounded-md p-4">
                 <summary className="text-primary cursor-pointer font-semibold select-none hover:underline">
-                  Fehlerdetails anzeigen
+                  Technik
                 </summary>
                 <pre className="error-stack mt-4 text-destructive text-sm overflow-x-auto whitespace-pre-wrap break-words bg-background p-4 rounded border border-border/50">
                   {this.state.error.toString()}
@@ -165,8 +173,8 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
               {this.props.hint || (
                 <>
                   Wenn das Problem weiterhin besteht, kontaktieren Sie{' '}
-                  <a href="mailto:info@arasul.de" className="text-primary hover:underline">
-                    info@arasul.de
+                  <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+                    {SUPPORT_EMAIL}
                   </a>
                 </>
               )}
@@ -182,16 +190,22 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 interface RouteErrorBoundaryProps {
   children: ReactNode;
-  routeName?: string;
+  /** Fehlertext und Komponentenstapel zeigen — nur für den Admin. */
+  showDetails?: boolean;
 }
 
-export function RouteErrorBoundary({ children, routeName }: RouteErrorBoundaryProps) {
+/**
+ * Die Fehlerseite einer ganzen Route. Zwei Sätze für jeden; die Technik
+ * (Fehlertext, Komponentenstapel) nur, wenn der Aufrufer sie freigibt — ein
+ * Mitarbeiter kann mit einem Stapel nichts anfangen, und er verrät Interna.
+ */
+export function RouteErrorBoundary({ children, showDetails = false }: RouteErrorBoundaryProps) {
   return (
     <ErrorBoundary
-      title={`${routeName || 'Seite'} Fehler`}
-      message={`${routeName || 'Diese Seite'} konnte nicht geladen werden.`}
-      hint="Versuche es erneut oder geh zurück zum Arbeitsbereich."
-      showDetails
+      title="Diese Seite konnte nicht geladen werden"
+      message="Ein unerwarteter Fehler ist aufgetreten."
+      hint="Versuchen Sie es erneut oder laden Sie die Seite neu."
+      showDetails={showDetails}
     >
       {children}
     </ErrorBoundary>

@@ -50,7 +50,6 @@ import {
   useSchmalesFenster,
 } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
-import type { ApiError } from '@/hooks/useApi';
 import { anzeigeName, type Benutzer } from '../personen/usePersonen';
 import { ordnerWeg } from './OrdnerBaum';
 import {
@@ -62,6 +61,7 @@ import {
   type Recht,
   type RechtZeile,
 } from './useFirmenordner';
+import { fehlertext } from '@/utils/fehlertext';
 
 const KEINE = 'keine';
 
@@ -156,10 +156,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
     setzen.mutate(
       { ordnerId: o.id, benutzerId: b.id, recht },
       {
-        onError: err => {
-          const e = err as ApiError;
-          setFehler(e.message || 'Das Recht ließ sich nicht setzen.');
-        },
+        onError: err => setFehler(fehlertext(err, undefined, 'Das Recht ließ sich nicht setzen.')),
       }
     );
   };

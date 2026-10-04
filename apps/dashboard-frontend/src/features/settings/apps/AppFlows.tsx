@@ -67,7 +67,7 @@ function ausloeserInWorten(a: FlowAusloeser): string {
     case 'zeitplan':
       return zeitplanInWorten(a.zeitplan);
     case 'ereignis':
-      return `bei „${a.ereignis}"`;
+      return `bei „${a.ereignis}“`;
   }
 }
 
@@ -263,8 +263,8 @@ export function AppFlows({
         onSuccess: () =>
           toast.success(
             aktiv
-              ? `„${f.name}" ist wieder aktiv.`
-              : `„${f.name}" ist aus und startet nicht, bis Sie ihn wieder einschalten.`
+              ? `„${f.name}“ ist wieder aktiv.`
+              : `„${f.name}“ ist aus und startet nicht, bis Sie ihn wieder einschalten.`
           ),
       }
     );
@@ -274,7 +274,7 @@ export function AppFlows({
       { flow: f.name, art },
       {
         onSuccess: () =>
-          toast.success(`„${f.name}" läuft ab dem nächsten Lauf: ${FLOW_ART_NAME[art]}.`),
+          toast.success(`„${f.name}“ läuft ab dem nächsten Lauf: ${FLOW_ART_NAME[art]}.`),
       }
     );
 

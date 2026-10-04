@@ -6,6 +6,7 @@ import { useApi } from '../../hooks/useApi';
 import { Button, Input, Label } from '@marken';
 import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
 import { PLATFORM_NAME } from '@/config/branding';
+import { fehlertext } from '@/utils/fehlertext';
 
 // First-run onboarding: the box ships without an admin, so the very first
 // visitor creates it here. This is the ONLY thing the setup ever asks. The
@@ -84,8 +85,13 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
     } catch (err: unknown) {
       if (!mountedRef.current) return;
       if ((err as Error)?.name === 'AbortError') return;
-      const e = err as { message?: string };
-      setError(e.message || 'Konto konnte nicht angelegt werden. Bitte erneut versuchen.');
+      setError(
+        fehlertext(
+          err,
+          undefined,
+          'Das Konto ließ sich nicht anlegen. Bitte versuchen Sie es noch einmal.'
+        )
+      );
     }
   };
 

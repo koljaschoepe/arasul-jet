@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
 import { Feldgruppe } from '@marken';
+import { fehlertext } from '@/utils/fehlertext';
 
 interface PasswordRequirements {
   minLength: number;
@@ -165,10 +166,9 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
         });
       }, 2000);
     } catch (error: unknown) {
-      const err = error as { message?: string };
       setMessage({
         type: 'error',
-        text: err.message || 'Fehler beim Ändern des Passworts',
+        text: fehlertext(error, undefined, 'Das Passwort ließ sich nicht ändern.'),
       });
     } finally {
       setLoading(false);

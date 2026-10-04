@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { X } from 'lucide-react';
 import { queryClient } from './lib/queryClient';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
@@ -67,6 +68,7 @@ function AppContent(): React.JSX.Element | null {
   const api = useApi();
   const toast = useToast();
   const { user, isAuthenticated, loading: authLoading, login, logout } = useAuth();
+  const istAdmin = user?.role === 'admin';
 
   // First-run onboarding: null = still checking, true = box has no admin yet
   // (show CreateAdmin instead of Login), false = normal login.
@@ -211,7 +213,7 @@ function AppContent(): React.JSX.Element | null {
   // Show login screen if not authenticated
   if (!isAuthenticated) {
     if (authLoading || needsSetup === null) {
-      return <Ladezustand meldung="Prüfe Authentifizierung..." ganzeSeite={true} />;
+      return <Ladezustand meldung="Anmeldung wird geprüft …" ganzeSeite={true} />;
     }
     // Freshly bootstrapped box with no admin yet → first-run onboarding.
     if (needsSetup) {
@@ -266,7 +268,7 @@ function AppContent(): React.JSX.Element | null {
                   updateDismissedRef.current = Date.now();
                 }}
               >
-                ✕
+                <X className="size-4" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -274,10 +276,8 @@ function AppContent(): React.JSX.Element | null {
             <Route
               path="/workspace/*"
               element={
-                <RouteErrorBoundary routeName="Workspace">
-                  <Suspense
-                    fallback={<Ladezustand meldung="Lade Workspace..." ganzeSeite={true} />}
-                  >
+                <RouteErrorBoundary showDetails={istAdmin}>
+                  <Suspense fallback={<Ladezustand meldung="Wird geladen …" ganzeSeite={true} />}>
                     <WorkspaceShell onLogout={handleLogout} />
                   </Suspense>
                 </RouteErrorBoundary>
@@ -295,9 +295,11 @@ function AppContent(): React.JSX.Element | null {
             <Route
               path="/entwickler/bausteine"
               element={
-                <RouteErrorBoundary routeName="Bausteine">
+                <RouteErrorBoundary showDetails={istAdmin}>
                   <Suspense
-                    fallback={<Ladezustand meldung="Lade Bausteine..." ganzeSeite={true} />}
+                    fallback={
+                      <Ladezustand meldung="Bausteine werden geladen …" ganzeSeite={true} />
+                    }
                   >
                     <Schauseite />
                   </Suspense>

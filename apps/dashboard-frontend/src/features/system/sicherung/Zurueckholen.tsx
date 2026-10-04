@@ -54,6 +54,7 @@ import {
   type Stand,
   type VorherStand,
 } from './useSicherung';
+import { fehlertext } from '@/utils/fehlertext';
 
 type Was = 'app' | 'bereich' | 'geraet';
 
@@ -61,11 +62,11 @@ type Was = 'app' | 'bereich' | 'geraet';
 const ERSTE_STAENDE = 8;
 
 function fehlerText(fehler: unknown): string {
-  const e = fehler as { name?: string; message?: string };
+  const e = fehler as { name?: string };
   if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
     return 'Das Gerät hat zu lange nicht geantwortet. Das Zurückholen kann trotzdem noch laufen; sehen Sie in ein paar Minuten nach.';
   }
-  return e?.message || 'Unbekannter Fehler';
+  return fehlertext(fehler);
 }
 
 /** Die Quelle wählen: Datenträger oder dieses Gerät. Nur, wenn einer steckt. */

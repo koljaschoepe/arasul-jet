@@ -89,7 +89,7 @@ export function PrivacySettings() {
         `/gdpr/export?ziel=${encodeURIComponent(name)}`,
         { showError: false }
       );
-      toast.success(`Export liegt auf „${name}": ${res.datei} (${groesse(res.bytes)})`);
+      toast.success(`Export liegt auf „${name}“: ${res.datei} (${groesse(res.bytes)})`);
       void ladeMedien();
     } catch (err) {
       toast.error(
@@ -196,7 +196,7 @@ export function PrivacySettings() {
         >
           <div className="flex flex-col gap-3">
             <Button onClick={handleExport} disabled={exporting} variant="outline">
-              {exporting ? 'Exportiere...' : 'Datenexport herunterladen'}
+              {exporting ? 'Wird exportiert …' : 'Datenexport herunterladen'}
             </Button>
 
             {/* Angesteckte Datenträger (Plan 023 J3). Auf einem Gerät im
@@ -258,7 +258,7 @@ export function PrivacySettings() {
             </AlertDescription>
           </Alert>
           <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="mt-3">
-            {deleting ? 'Lösche...' : 'Konto endgültig löschen'}
+            {deleting ? 'Wird gelöscht …' : 'Konto endgültig löschen'}
           </Button>
         </Feldgruppe>
       </Formularseite>

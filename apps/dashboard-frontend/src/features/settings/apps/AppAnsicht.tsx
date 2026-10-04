@@ -62,6 +62,7 @@ import {
   type ModellWunsch,
 } from './useAppVerwaltung';
 import { Feldgruppe, Formularseite } from '@marken';
+import { fehlertext } from '@/utils/fehlertext';
 
 /** Was in der Mitte steht: die App selbst, ein Flow oder ein Lauf. */
 type Blick =
@@ -222,7 +223,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
     }
     schalten.mutate(ziel, {
       onSuccess: () => toast.success(`${app.name} steht wieder auf der vorigen Fassung.`),
-      onError: fehler => toast.error(fehler.message),
+      onError: fehler => toast.error(fehlertext(fehler)),
     });
   };
 
@@ -238,7 +239,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         // Satz und Technik; eine Meldung obendrauf sagte dasselbe zweimal.
         const code = (fehler as ApiError).code;
         if (code !== 'LIVE_ZURUECKGESCHALTET' && code !== 'LIVE_NICHT_GESICHERT') {
-          toast.error(fehler.message);
+          toast.error(fehlertext(fehler));
         }
       },
     });
@@ -264,8 +265,8 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
           setModellFuer(null);
           toast.success(
             'modell' in wunsch && wunsch.modell === null
-              ? `„${flow.name}" rechnet wieder mit dem Modell aus dem Paket.`
-              : `Das Modell für „${flow.name}" ist gesetzt.`
+              ? `„${flow.name}“ rechnet wieder mit dem Modell aus dem Paket.`
+              : `Das Modell für „${flow.name}“ ist gesetzt.`
           );
         },
       }
