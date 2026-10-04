@@ -113,7 +113,7 @@ if (A === ADMIN) {
 const STEMPEL = process.env.ARASUL_STEMPEL || String(Date.now());
 /**
  * Die Probe-App dieses Laufs. Die Kennung ist kein Parameter: an einer echten
- * App (abschluss, belege, probe-faktum-belege …) misst diese Reihe nie, und
+ * App des Geräts misst diese Reihe nie, und
  * das Aufräumen entfernt genau das, was sie selbst ausgerollt hat.
  */
 const APP = `probe-oberflaeche-${STEMPEL}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
