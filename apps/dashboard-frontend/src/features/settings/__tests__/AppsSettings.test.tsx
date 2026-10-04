@@ -797,6 +797,23 @@ describe('AppsSettings', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
   });
 
+  it('markiert einen Lauf aus einem Ereignis der App (Kontrakt 13)', async () => {
+    const ausEreignis = { ...LAUF, ausloeser: 'ereignis' as const, ereignis: 'beleg.eingegangen' };
+    apiMock.get.mockImplementation(async (pfad: string) => {
+      if (pfad === '/apps') return { data: [APP_ZEILE] };
+      if (pfad === '/apps/beispielapp') return { data: APP_DETAIL };
+      if (pfad.startsWith('/apps/beispielapp/laeufe/'))
+        return { data: { ...LAUF_DETAIL, ...ausEreignis } };
+      if (pfad.startsWith('/apps/beispielapp/laeufe')) return { data: [ausEreignis] };
+      return {};
+    });
+    await oeffneApp();
+    fireEvent.click(screen.getByTestId('laeufe-schalter'));
+    const marke = await screen.findByTestId('lauf-ereignis-42');
+    expect(marke).toHaveTextContent('Ereignis');
+    expect(marke).toHaveAttribute('title', 'Ereignis „beleg.eingegangen“');
+  });
+
   it('bietet „erneut" bei einem uebergebenen Lauf nicht an', async () => {
     antworte();
     await oeffneApp();

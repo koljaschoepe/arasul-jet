@@ -75,7 +75,7 @@ Dateiname).
 
 `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`,
 `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `subagent`,
-`frage_nutzer`, `freigabe_anfordern`. Ein Flow bekommt **genau** die
+`frage_nutzer`, `freigabe_anfordern`, `route_aufrufen`. Ein Flow bekommt **genau** die
 deklarierten Werkzeuge; ein unbekannter Name ist ein Schreibfehler und wird
 beim Speichern abgewiesen.
 
@@ -98,6 +98,11 @@ beim Speichern abgewiesen.
 - `frage_nutzer` gibt es nur in der Betriebsart `rueckfragen` (unten).
 - `freigabe_anfordern` hält den Lauf an, bis ein Mensch entscheidet (unten).
   Es gibt das Werkzeug in **jeder** Betriebsart — anders als die Rückfrage.
+- `route_aufrufen` ruft eine Route der eigenen App oder einer anderen, aber
+  nur eine, die der Kopf unter `routen` nennt, und nur mit dem Zugang des
+  Menschen des Laufs zur Ziel-App
+  ([Routen von Apps](#routen-von-apps-als-werkzeug-m5-04102026-kontrakt-13)).
+  Es gibt keine Shell und kein Werkzeug, das eine freie Adresse ruft.
 
 ### Subagenten und Kontext-Sparsamkeit
 
@@ -270,6 +275,9 @@ Prompt; eine gelöschte Vorlage wird still übersprungen.
   selbst, zur festgelegten Zeit ([Zeitplaner](#zeitplaner-flows-nach-uhrzeit-m5-04102026)).
   Wiederkehrende Starts von außen (Cron eines Fremdsystems) gehen weiter über
   dieselbe Trigger-URL.
+- **Ereignisse der App.** Ein Flow mit `ausloeser: ereignis` startet, sobald
+  seine App das Ereignis meldet
+  ([Ereignisse](#ereignisse-flows-auf-zuruf-der-app-m5-04102026-kontrakt-13)).
 - **Eine App startet ihren eigenen Flow** (Phase C6). Sie benutzt denselben
   Endpunkt mit dem Schlüssel, den das Gerät ihr beim Einspielen in den
   Container gelegt hat. Was sie dabei sieht, entscheidet der Schlüssel: er
@@ -315,8 +323,97 @@ pausieren" / „fortsetzen" und, wenn der letzte Termin nachgeholt oder
 übersprungen wurde, ein Satz dazu. Ein Lauf nach Zeitplan trägt in der Liste der
 Läufe die Marke „Zeitplan".
 
-`ereignis` (Auslöser bei einem Ereignis der App) nimmt das Gerät weiter nur an
-und prüft es, startet aber nichts.
+## Ereignisse: Flows auf Zuruf der App (M5, 04.10.2026, Kontrakt 13)
+
+Ein Flow, dessen Kopf
+
+```yaml
+argumente:
+  - { name: nummer, typ: freitext, pflicht: true }
+ausloeser:
+  - typ: ereignis
+    ereignis: beleg.eingegangen
+```
+
+nennt, läuft, sobald seine App dieses Ereignis meldet. Die App meldet es über
+den Weg, den sie schon hat: ihren Schlüssel (`ARASUL_API_SCHLUESSEL`) an der
+externen Schnittstelle. Einen zweiten Kanal zwischen App und Gerät gibt es
+nicht.
+
+```http
+POST /api/v1/external/ereignisse/beleg.eingegangen      (relativ zur Basis: ereignisse/beleg.eingegangen)
+X-API-Key: <ARASUL_API_SCHLUESSEL>
+{ "daten": { "nummer": "R-17", "betrag": 42.5 }, "einreicher": "<X-Arasul-User>" }
+```
+
+| Frage                  | Regel                                                                                                                                                                                                                                                     |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Welche Flows?          | Jeder Flow **derselben App im selben Stand** (der des Schlüssels), der unter `ausloeser` genau diesen Namen nennt. Der Teststand startet seine Flows, der Livestand seine. Eine App kann kein Ereignis einer anderen auslösen.                            |
+| Argumente              | `daten` werden die Argumente mit demselben Namen. Was der Flow nicht deklariert, fällt weg. Werte sind Zeichenketten, Zahlen oder Wahrheitswerte, höchstens 50.                                                                                           |
+| Ein Flow startet nicht | Fehlt ein Pflichtargument, passt eine Auswahl nicht oder ist der Flow ausgeschaltet, startet **dieser** Flow nicht, mit Grund in `nicht_gestartet`. Die anderen starten trotzdem.                                                                         |
+| Am Lauf                | `flow_runs.ausloeser = 'ereignis'` und der Name in `flow_runs.ereignis` ([Migration 204](../api/DATABASE_SCHEMA.md#flow_runs)). `GET /api/v1/external/flows/runs/:id` nennt beides, die Liste der Läufe auf der Seite der App zeigt die Marke „Ereignis“. |
+| Wer reicht ein?        | Wen die App unter `einreicher` nennt (ein aktives Konto, dem die App freigegeben ist, sonst 400), wie beim Start von Hand. Ohne ihn hat der Lauf keinen Einreicher; Besitzer ist, wem der Schlüssel der App gehört.                                       |
+| Antwort                | Gewartet wird nicht. 202 mit `laeufe` (je `flow`, `run_id`) und `nicht_gestartet` (je `flow`, `grund`); hört kein Flow, 200 mit leeren Listen. Die App liest die Läufe unter `flows/runs/:id` nach.                                                       |
+| Schlüssel              | Nur der Schlüssel einer App (Bereich `flow:run`); der Schlüssel eines Menschen bekommt 403.                                                                                                                                                               |
+
+Gemessen am Orin mit `scripts/test/ereignis-und-routen-abnahme.sh`.
+
+## Routen von Apps als Werkzeug (M5, 04.10.2026, Kontrakt 13)
+
+Ein Flow ruft Routen der eigenen App und der Apps, die er im Kopf nennt, mit
+dem Werkzeug `route_aufrufen`. Was er rufen darf, steht im Kopf unter `routen`:
+
+```yaml
+werkzeuge: [route_aufrufen]
+routen:
+  - { methode: GET, pfad: /info } # die eigene App
+  - { app: kunden, methode: POST, pfad: /eintrag, zweck: Legt einen Eintrag an }
+  - { app: kunden, methode: GET, pfad: '/kunden/{nummer}' } # {name} = ein Wegstück
+schritte:
+  - name: eintragen
+    typ: werkzeug
+    werkzeug: route_aufrufen
+    parameter:
+      app: kunden
+      methode: POST
+      pfad: /eintrag
+      daten: ['nummer={{nummer}}', 'quelle=beleg'] # oder JSON-Text
+```
+
+Der Pfad ist der, den die App selbst sieht (ohne `/apps/<id>/api`), wie bei
+`abschluss.route`. Das Gerät prüft bei jedem Aufruf, in dieser Reihenfolge:
+
+1. **Genannt.** Methode und Pfad passen zu einem Eintrag unter `routen` für
+   genau diese App. Sonst: `Route abgewiesen: POST /loeschen der App kunden
+steht nicht unter "routen" im Kopf des Flows`.
+2. **Zugang.** Der Mensch des Laufs darf die Ziel-App im Stand des Laufs
+   benutzen, dieselbe Freigabe wie im Browser (`app_members`). Der Mensch des
+   Laufs ist der Einreicher, sonst das Konto, dem der Lauf gehört (bei Zeitplan
+   und Ereignis ohne Einreicher der Besitzer des Schlüssels der App). Sonst:
+   `Route abgewiesen: <name> hat keinen Zugang zur App kunden (live): …`.
+3. **Die App selbst.** Die Ziel-App bekommt den Aufruf über ihren Container
+   im Netz `arasul-apps`, im selben Stand, mit `X-Arasul-User` und
+   `X-Arasul-Role` dieses Menschen (wie von Traefik), dazu `X-Arasul-Lauf` und
+   `X-Arasul-App` (die rufende App). Sie entscheidet mit ihren eigenen Regeln;
+   eine Antwort außer 2xx ist ein Fehler.
+
+**Keine neue Tür.** Das Gerät schickt kein Geheimnis mit, kein
+`ARASUL_ABSCHLUSS_TOKEN` und keinen Schlüssel: eine Route, die nur das Gerät
+rufen darf (der Abschluss), bleibt für den Flow einer anderen App zu. Kein
+Host, kein Port und keine Adresse kommt aus den Parametern, Weiterleitungen
+folgt das Gerät nicht. Ins Internet kommt eine App weiter nur über
+`verbindungen`, ein Flow gar nicht.
+
+In einem Werkzeug-Schritt beendet eine Abweisung den Lauf als `fehler`, der
+Grund steht im Lauf (`Schritt „eintragen" fehlgeschlagen: Route abgewiesen: …`)
+und am Schritt. Ruft das Modell das Werkzeug selbst, bekommt es den Grund als
+Antwort. Die Antwort der App (höchstens 8000 Zeichen) ist die Ausgabe des
+Schritts und steht späteren Schritten als `{{eintragen}}` zur Verfügung.
+`daten` geht bei GET und DELETE als Abfrage, sonst als JSON-Körper.
+
+Beim Einspielen weist das Gerät ab: `route_aufrufen` ohne `routen`, `routen`
+ohne das Werkzeug, eine Route der eigenen App ohne `backend` im Manifest.
+Ob eine andere App da ist, prüft es erst beim Aufruf: sie darf später kommen.
 
 ## Zwei Betriebsarten (Plan 023 I2)
 

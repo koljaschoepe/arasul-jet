@@ -30,6 +30,8 @@ const { validateBody, validateParams } = require('../../middleware/validate');
 const {
   ExternalLlmChatBody,
   ExternalFlowRunBody,
+  ExternalEreignisBody,
+  EreignisParams,
   CreateApiKeyBody,
   ExtractStructuredFelder,
   AuftragParams,
@@ -40,6 +42,7 @@ const appFlows = require('../../services/app/appFlows');
 const flowRunner = require('../../services/flows/flowRunner');
 const flowRunStore = require('../../services/flows/runStore');
 const freigabeAnfragen = require('../../services/flows/freigabeAnfragen');
+const ereignisse = require('../../services/flows/ereignisse');
 const { resolveArguments } = require('../../services/flows/runFlow');
 const kiProtokoll = require('../../services/app/kiProtokoll');
 
@@ -1116,6 +1119,57 @@ router.post(
 );
 
 /**
+ * POST /api/v1/external/ereignisse/:name - Eine App meldet ein Ereignis (M5,
+ * Kontrakt 13).
+ *
+ * Body: { daten?, einreicher? }. Das Geraet startet jeden Flow DIESER App in
+ * DIESEM Stand, dessen Kopf `ausloeser: [{typ: ereignis, ereignis: <name>}]`
+ * nennt, mit `daten` als Argumenten und dem Ausloeser `ereignis` am Lauf.
+ * Gewartet wird nicht: die Antwort nennt die gestarteten Laeufe, die App liest
+ * sie unter `flows/runs/:id` nach. Regeln: `services/flows/ereignisse.js`.
+ */
+router.post(
+  '/ereignisse/:name',
+  requireApiKey,
+  requireEndpoint('flow:run'),
+  validateParams(EreignisParams),
+  validateBody(ExternalEreignisBody),
+  asyncHandler(async (req, res) => {
+    const userId = besitzerOderAbweisen(req.apiKey);
+    const { appId, stand } = namensraumVon(req.apiKey);
+    if (!appId) {
+      throw new ForbiddenError(
+        'Ein Ereignis meldet eine App mit ihrem eigenen Schlüssel (ARASUL_API_SCHLUESSEL). Dieser Schlüssel gehört keiner App.'
+      );
+    }
+    // Wer ausgeloest hat, FRUEH geprueft wie beim Start von Hand: ein Name, den
+    // es nicht gibt, ist ein 400 an die App und kein Lauf ohne Menschen.
+    const { einreicherId } = await freigabeAnfragen.pruefeRegel({
+      appId,
+      einreicher: req.body.einreicher ?? null,
+      freigabe: null,
+    });
+    const ergebnis = await ereignisse.melde({
+      appId,
+      stand,
+      name: req.params.name,
+      daten: req.body.daten || {},
+      userId,
+      einreicherId,
+    });
+    res.status(ergebnis.laeufe.length > 0 ? 202 : 200).json({
+      success: true,
+      ereignis: req.params.name,
+      app: appId,
+      stand,
+      laeufe: ergebnis.laeufe,
+      nicht_gestartet: ergebnis.nicht_gestartet,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
  * GET /api/v1/external/flows/runs/:id - Status/Ergebnis eines Laufs abfragen.
  */
 router.get(
@@ -1148,6 +1202,10 @@ router.get(
       // Die Uebergabe an die Abschluss-Route der App (Kontrakt 11); null bei
       // einem Flow ohne. `nicht_uebergeben` steht als Status, hier der Grund.
       abschluss: run.abschluss ?? null,
+      // Wodurch der Lauf entstand (`hand`, `zeitplan`, `ereignis`) und bei einem
+      // Ereignis sein Name (Kontrakt 13).
+      ausloeser: run.ausloeser ?? 'hand',
+      ereignis: run.ereignis ?? null,
       steps_used: run.steps_used ?? null,
       // Die Kette selbst (Phase H7): `steps_used` ist ihre Laenge, `schritte`
       // ist sie. Der Kontrakt verspricht sie seit C5.

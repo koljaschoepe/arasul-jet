@@ -147,6 +147,16 @@ async function leseAusPaket(manifest, ordner) {
           'kein Backend. Die Route gehört dem Backend der App; ohne `backend` im Manifest gibt es sie nicht.'
       );
     }
+    // Dasselbe fuer eine Route der EIGENEN App unter `routen` (Kontrakt 13).
+    // Eine Route einer anderen App prueft das Geraet erst beim Aufruf: die
+    // andere App darf spaeter kommen, gehen oder ihren Stand wechseln.
+    const eigene = (definition.routen || []).find(r => !r.app || r.app === manifest.id);
+    if (eigene && !manifest.backend) {
+      throw new ValidationError(
+        `${datei} nennt unter "routen" eine Route der eigenen App (${eigene.methode} ${eigene.pfad}), ` +
+          'aber die App hat kein Backend. Ohne `backend` im Manifest gibt es sie nicht.'
+      );
+    }
 
     gelesen.push({ name, definition });
   }

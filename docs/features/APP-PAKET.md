@@ -277,6 +277,39 @@ Idempotenz beibringen. Ein Paket von Kontrakt 10 rollt unverändert aus; ein
 laufender App-Container bekommt `ARASUL_ABSCHLUSS_TOKEN` erst mit dem nächsten
 Einspielen.
 
+## Ereignisse und Routen von Apps: Kontrakt 13 (M5, 04.10.2026)
+
+Zwei Dinge, beide aus dem Abschnitt „Flows und Freigaben“ des Zielbilds:
+Auslöser „bei einem Ereignis der App“ und Werkzeuge „dazu die Routen der
+eigenen App und der Apps, die der Flow im Kit nennt, geprüft gegen deren
+Rechte“. Die Regeln im Einzelnen stehen in
+[FLOWS.md](FLOWS.md#ereignisse-flows-auf-zuruf-der-app-m5-04102026-kontrakt-13)
+und [FLOWS.md](FLOWS.md#routen-von-apps-als-werkzeug-m5-04102026-kontrakt-13).
+
+| Wo                | Feld / Weg                                   | Form                                                                                                                                                   |
+| ----------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Schnittstelle     | `POST ereignisse/<name>` (relativ zur Basis) | Mit `ARASUL_API_SCHLUESSEL`, Bereich `flow:run`; Körper `{"daten": {…}, "einreicher": "…"}`, beides freiwillig; 202 mit `laeufe` und `nicht_gestartet` |
+| Flow-Kopf         | `ausloeser[].ereignis`                       | Der Name, auf den der Flow hört (seit Kontrakt 8 in der Form, seit 13 mit Wirkung)                                                                     |
+| Flow-Kopf         | `routen`                                     | Liste, je Eintrag `methode`, `pfad` (wie `abschluss.route`, `{name}` für ein Wegstück), optional `app` und `zweck`; höchstens 20                       |
+| Flow-Werkzeug     | `route_aufrufen`                             | `app` (leer = eigene), `methode`, `pfad`, `daten`; nur mit `routen`, und `routen` nur mit dem Werkzeug                                                 |
+| Aufruf an die App | Köpfe                                        | `X-Arasul-User`, `X-Arasul-Role` (der Mensch des Laufs), `X-Arasul-Lauf`, `X-Arasul-App` (die rufende App); kein Geheimnis                             |
+
+**Ein Ereignis** startet jeden Flow derselben App im selben Stand, der darauf
+hört, mit `daten` als Argumenten; der Lauf trägt den Auslöser `ereignis` und
+den Namen. **Eine Route** ruft das Gerät nur, wenn sie unter `routen` für genau
+diese App steht und der Mensch des Laufs (Einreicher, sonst der Besitzer des
+Laufs) die Ziel-App im Stand des Laufs benutzen darf; sonst endet der Schritt
+mit `Route abgewiesen: …` im Lauf. Die Ziel-App sieht den Aufruf wie einen über
+Traefik und entscheidet mit ihren eigenen Regeln.
+
+**Kontraktfassung 13:** der Kopf ist `.strict()` und die Werkzeuge sind eine
+feste Liste; ein Kit, das gegen 12 prüft, wiese `routen` und `route_aufrufen`
+als unbekannt ab. **Folge fürs Kit:** `KIT_CONTRACT_VERSIONS` in
+`.ara/tools/lib/contract.mjs` auf 13 heben, bevor es auf ein solches Gerät
+einspielt, und der Vorlage beibringen, wie eine App ein Ereignis meldet
+(`ereignisse/<name>` mit ihrem Schlüssel und `einreicher` aus `X-Arasul-User`).
+Ein Paket von Kontrakt 12 rollt unverändert aus.
+
 ## Tieflink in die App und Rückfall im Gerät: Kontrakt 12 (M5, 04.10.2026)
 
 Ein Klick in „Für Sie" auf der Startseite führt je nach Manifest an zwei Orte.
@@ -435,9 +468,9 @@ den Ausdruck beim Einspielen und weist einen ab, den es nicht lesen kann
 (`61 * * * *`: Minute 0 bis 59). **Kontraktfassung bleibt 12:** das Feld gab es
 seit Fassung 8, es kam nur die Wirkung (und die strengere Prüfung des Bereichs)
 dazu; das Kit muss nichts nachziehen, kann aber den Bereich der fünf Felder vor
-dem Einspielen prüfen. `ereignis` wird weiter angenommen und geprüft, startet
-aber keinen Lauf. Ein Flow mit einem Pflichtargument ohne Vorgabe läuft nicht
-nach Zeitplan.
+dem Einspielen prüfen. Ein Flow mit einem Pflichtargument ohne Vorgabe läuft
+nicht nach Zeitplan. **`ereignis` wirkt seit Kontrakt 13** (unten,
+[Ereignisse und Routen](#ereignisse-und-routen-von-apps-kontrakt-13-m5-04102026)).
 
 **`stufen`** sind die benannten Freigaben („Prüfung“, „Leitung“): je Stufe
 `name` (Kennung, wie ein Schrittname), optional `bezeichnung` (was der Mensch

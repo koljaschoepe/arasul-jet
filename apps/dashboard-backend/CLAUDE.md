@@ -177,7 +177,10 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   `flow:run`) gestartet, oder vom **Zeitplaner** (`zeitplaner.js`, Rechnung in
   `zeitplan.js`): ein Flow mit `ausloeser: zeitplan` läuft im Livestand zur
   Uhrzeit des Geräts, einmal je Termin, mit Auslöser `zeitplan` und ohne
-  Einreicher. Regeln: `docs/features/FLOWS.md`, Abschnitt Zeitplaner. Eine neue
+  Einreicher. Oder von einem **Ereignis der App** (`ereignisse.js`,
+  `POST /api/v1/external/ereignisse/:name` mit dem Schlüssel der App): jeder
+  Flow ihres Standes, der darauf hört, mit Auslöser `ereignis`. Regeln:
+  `docs/features/FLOWS.md`, Abschnitte Zeitplaner und Ereignisse. Eine neue
   SQL-Abfrage dort wird gegen echtes Postgres geprüft, nicht nur gegen die
   Attrappe (Vorfall 04.10.2026, falscher Spaltenname).
 - `gpuQueue.js` — die **eine** GPU-Sperre für alles, was in DIESEM Prozess
@@ -192,8 +195,9 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   Platzhalter (`{{argument}}`).
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
   `dateien` (lesen/schreiben/bearbeiten/anhängen getrennt, plus `dateien_suchen`),
-  `symbol_suche` und `frage` (`frage_nutzer`, nur in der Betriebsart
-  `rueckfragen`). `subagent.js` liegt eine Ebene höher. Es gibt keine
+  `symbol_suche`, `frage` (`frage_nutzer`, nur in der Betriebsart
+  `rueckfragen`) und `route` (`route_aufrufen`: nur Routen aus `routen` im
+  Kopf, nur mit Zugang des Menschen des Laufs zur Ziel-App, Kontrakt 13). `subagent.js` liegt eine Ebene höher. Es gibt keine
   Web-Werkzeuge; ein Flow arbeitet auf dem Gerät.
 
 Ordner sind genau die im Flow deklarierten (`ordner`-Feld); es gibt keinen

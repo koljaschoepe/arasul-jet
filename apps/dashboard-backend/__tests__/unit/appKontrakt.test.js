@@ -358,7 +358,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // lesen kann, beim Einspielen abweist. Kein Feld, kein Name: das Feld
     // `zeitplan` gab es seit Fassung 8. Die Zahl bleibt bei 12; das Kit darf
     // den Bereich der Felder (Minute 0 bis 59 usw.) vor dem Einspielen prüfen.
-    expect(abdruck).toBe('e30a6c14e9a99cb0ddf9703bfd4825ffa85fc08945e4f4424e2fd57e686daf4d');
+    //
+    // 04.10.2026 (M5, Kontrakt 13, Auftrag ereignis-und-app-routen):
+    // `ausloeser: ereignis` wirkt (neuer Endpunkt `ereignisse/:name`), `routen`
+    // im Flow-Kopf und das Werkzeug `route_aufrufen`. Die Zahl geht mit, weil
+    // der Kopf `.strict()` ist und die Werkzeuge eine feste Liste sind.
+    expect(abdruck).toBe('4b693ea580c949b3f86f2b3f71382aae86d64bb8097d549e594b45669cda4884');
   });
 
   /**

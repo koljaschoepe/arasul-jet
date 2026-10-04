@@ -114,6 +114,27 @@ Lies alles.
     );
   });
 
+  it('weist eine Route der eigenen App ab, wenn die App kein Backend hat (Kontrakt 13)', async () => {
+    const flow = `---
+name: rufen
+werkzeuge: [route_aufrufen]
+routen:
+  - { methode: GET, pfad: /info }
+  - { app: kunden, methode: POST, pfad: /eintrag }
+---
+Rufe.
+`;
+    await expect(appFlows.leseAusPaket(MANIFEST, paketMit({ 'rufen.md': flow }))).rejects.toThrow(
+      /Route der eigenen App \(GET \/info\), aber die App hat kein Backend/
+    );
+    // Eine Route einer ANDEREN App braucht kein eigenes Backend.
+    const fremd = flow.replace('  - { methode: GET, pfad: /info }\n', '');
+    const gelesen = await appFlows.leseAusPaket(MANIFEST, paketMit({ 'rufen.md': fremd }));
+    expect(gelesen[0].definition.routen).toEqual([
+      { app: 'kunden', methode: 'POST', pfad: '/eintrag' },
+    ]);
+  });
+
   it('weist einen Dateinamen ab, der kein Flow-Name ist', async () => {
     const ordner = paketMit({ 'Mein Bericht.md': BERICHT });
     await expect(appFlows.leseAusPaket(MANIFEST, ordner)).rejects.toThrow(/kein Flow-Name/);

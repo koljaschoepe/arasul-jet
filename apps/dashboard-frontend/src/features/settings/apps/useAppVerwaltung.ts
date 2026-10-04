@@ -210,7 +210,9 @@ export interface AppLauf {
   /** Die Übergabe an die Abschluss-Route der App; null bei einem Flow ohne (M5, Kontrakt 11). */
   abschluss?: LaufAbschluss | null;
   /** Wodurch der Lauf entstand; fehlt bei einem Backend vor Migration 203. */
-  ausloeser?: 'hand' | 'zeitplan';
+  ausloeser?: 'hand' | 'zeitplan' | 'ereignis';
+  /** Der Name des Ereignisses bei `ausloeser: 'ereignis'` (Migration 204). */
+  ereignis?: string | null;
 }
 
 /** Wie weit die Übergabe des Ergebnisses an die App ist. */
