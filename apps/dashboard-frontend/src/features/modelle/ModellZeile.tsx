@@ -21,7 +21,7 @@ import { modellAnzeigeName } from '@/utils/modelDisplay';
 import type { Faehigkeiten, VerwaltungModell } from './useModelle';
 
 /** „Text, Bild, Werkzeuge, Kontext 32k": nur, was das Modell wirklich kann. */
-export function faehigkeitenText(f: Faehigkeiten): string {
+function faehigkeitenText(f: Faehigkeiten): string {
   const teile = [
     f.text ? 'Text' : null,
     f.bild ? 'Bild' : null,

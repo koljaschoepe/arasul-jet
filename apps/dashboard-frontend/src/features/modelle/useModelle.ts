@@ -31,7 +31,7 @@ export interface Faehigkeiten {
   kontext: number | null;
 }
 
-export interface NutzenderFlow {
+interface NutzenderFlow {
   app_id: string;
   app_name: string;
   flow: string;
@@ -75,7 +75,7 @@ export interface Pruefung {
   groesse_bytes: number;
 }
 
-export const MODELLE_VERWALTUNG_KEY = ['models', 'verwaltung'] as const;
+const MODELLE_VERWALTUNG_KEY = ['models', 'verwaltung'] as const;
 
 /** Alles, was die Modell-Ansicht liest, aus einer Hand. */
 export function useModelle(busy = false) {
