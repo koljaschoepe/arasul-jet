@@ -260,12 +260,13 @@ wiese die Felder als unbekannt ab, obwohl das Gerät sie nimmt (der Grund von 3,
 4 und 7). Das Kit hebt `KIT_CONTRACT_VERSIONS` auf 8, bevor es auf ein solches
 Gerät einspielt.
 
-**Nur Schema und Annahme.** Das Gerät nimmt die Felder an, prüft sie und weist
+**Annahme, und was schon wirkt.** Das Gerät nimmt die Felder an, prüft sie und weist
 Falsches mit lesbarem Grund ab. Die **Stufen** wirken seit M5: Frist je Stufe
 (03.10.2026) und Standardperson je App und Stufe (04.10.2026, siehe
-[FLOWS.md](FLOWS.md#stufen-und-standardperson-m5-04102026)). Der Zeitplaner und
-die Umschaltung der Arten kommen mit späteren Karten, die Anzeige des
-Änderungstextes und des Symbols ebenso.
+[FLOWS.md](FLOWS.md#stufen-und-standardperson-m5-04102026)), die **Arten** seit
+dem 04.10.2026 ([FLOWS.md](FLOWS.md#arten-autonom-und-ergebnis-bestätigen-m5-04102026)).
+Der Zeitplaner kommt mit einer späteren Karte, die Anzeige des Änderungstextes
+und des Symbols ebenso.
 
 | Wo                  | Feld             | Form                                                                                          |
 | ------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
@@ -311,8 +312,15 @@ schritte:
 ```
 
 **`arten`** nennt, was der Flow _kann_; der Admin schaltet je Flow zwischen den
-genannten. Ohne Angabe gilt, was bisher galt: `autonom`. Ein Flow, der erzeugt,
-läuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rückfall.
+genannten (Verwaltung, Seite der App). Ohne Angabe gilt, was bisher galt:
+`autonom`; mit Angabe die erste genannte, bis der Admin wählt. `autonom` legt am
+Ende nichts an, `ergebnis_bestaetigen` eine Freigabe mit dem Ergebnis. Ein Flow,
+der erzeugt, läuft autonom oder mit Freigabe von Anfang an, nie mit stillem
+Rückfall; ein Flow, der erkennt, wird bei fehlender oder unsicherer Erkennung zur
+Freigabe. Was als erkennend gilt und wie die Rolle „unsicher" meldet, steht in
+[FLOWS.md](FLOWS.md#arten-autonom-und-ergebnis-bestätigen-m5-04102026) und im
+Kontrakt. **Kontraktfassung bleibt 9:** kein Feld kam dazu, nur die Wirkung. Das
+Kit muss nichts nachziehen, kann aber `unsicher` in Erkennungs-Rollen erklären.
 
 **`ausloeser`** nennt, wodurch der Flow startet. `hand` ist der Start in der
 App (der Weg über `POST /flows/:name/run`, wie bisher). `zeitplan` trägt fünf

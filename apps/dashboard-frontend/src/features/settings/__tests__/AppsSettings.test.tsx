@@ -46,6 +46,9 @@ const FLOW = {
   modell: 'aus-dem-paket',
   modell_ueberschrieben: false,
   extern: null,
+  arten: ['autonom', 'ergebnis_bestaetigen'],
+  art: 'ergebnis_bestaetigen',
+  art_ueberschrieben: false,
   version: '1.0.0',
   registriert_am: '2026-08-28T09:00:00.000Z',
 };
@@ -585,6 +588,22 @@ describe('AppsSettings', () => {
     await waitFor(() =>
       expect(apiMock.put).toHaveBeenCalledWith('/apps/beispielapp/flows/freigabe/modell', {
         modell: 'gemma4:e4b',
+      })
+    );
+  });
+
+  it('schaltet die Art eines Flows zwischen den Arten, die der Kopf nennt', async () => {
+    antworte();
+    apiMock.put.mockResolvedValue({ data: {} });
+    await oeffneApp();
+
+    expect(await screen.findByTestId('flow-art-freigabe')).toHaveTextContent('Ergebnis bestätigen');
+    fireEvent.click(screen.getByTestId('flow-art-freigabe'));
+    fireEvent.click(await screen.findByTestId('flow-art-freigabe-autonom'));
+
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith('/apps/beispielapp/flows/freigabe/art', {
+        art: 'autonom',
       })
     );
   });

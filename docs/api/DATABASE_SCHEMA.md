@@ -531,6 +531,7 @@ tut der Flow im Teststand etwas anderes als im Livestand".
 | `app_id`            | text                     | ⛔       |         |
 | `flow_name`         | text                     | ⛔       |         |
 | `modell`            | text                     | ✅       |         |
+| `art`               | text                     | ✅       |         |
 | `extern_anbieter`   | text                     | ✅       |         |
 | `extern_modell`     | text                     | ✅       |         |
 | `extern_basis_url`  | text                     | ✅       |         |
@@ -578,7 +579,11 @@ Aufrufer ist der Runner.
 **`modell` und `extern_*` schließen einander aus** (`flow_settings_extern_check`
 hält die drei Pflichtangaben zusammen, der Service räumt die jeweils andere
 Seite): ein Flow läuft auf einem Modell. `{"modell": null}` über die API räumt
-die Zeile ganz — samt Schlüssel.
+das Modell samt Schlüssel; die Zeile fällt weg, sobald auch keine Art gewählt ist.
+
+**`art`** (Migration 196, M5): die vom Admin gewählte Art des Flows, `autonom`
+oder `ergebnis_bestaetigen` (`CHECK`); `NULL` = es gilt die Vorgabe des Pakets
+(erste Art in `arten`, ohne Angabe `autonom`). Gilt ab dem nächsten Lauf.
 
 ---
 

@@ -238,7 +238,11 @@ async function runFlow(
   let vorab = vorabErgebnisse;
   let bisherigeSchritte = 0;
   let bisherigeAenderungen = [];
-  if (fortsetzenAb) {
+  // `ende`: der Lauf wartete auf die Bestaetigung seines ERGEBNISSES (Art
+  // `ergebnis_bestaetigen`, M5). Alle Schritte sind gelaufen, das Ergebnis steht
+  // im Pruefpunkt; es gibt nichts zu uebernehmen und nichts mehr auszufuehren.
+  const wiederNachErgebnis = Boolean(fortsetzenAb && fortsetzenAb.ende);
+  if (fortsetzenAb && !wiederNachErgebnis) {
     const kette = Array.isArray(flow.schritte) ? flow.schritte : [];
     const schritt = kette[fortsetzenAb.schritt];
     if (!schritt || schritt.name !== fortsetzenAb.name) {
@@ -263,6 +267,9 @@ async function runFlow(
         vorab.delete(index);
       }
     }
+  }
+  if (fortsetzenAb) {
+    const alt = await store.getRun({ runId: run.id, userId });
     bisherigeSchritte = Number(alt.steps_used) || 0;
     bisherigeAenderungen = Array.isArray(alt.changes) ? alt.changes : [];
   }
@@ -552,35 +559,37 @@ async function runFlow(
   let ergebnis;
   const hatSchritte = Array.isArray(flow.schritte) && flow.schritte.length > 0;
   try {
-    ergebnis = hatSchritte
-      ? await executeSteps({
-          flow,
-          werte,
-          userInput,
-          model,
-          extern,
-          context,
-          makeTools,
-          runLoop,
-          recordWerkzeug,
-          emitLive: onEvent,
-          signal,
-          vorabErgebnisse: vorab,
-          vorabQuelleLaufId,
-          fortsetzung: Boolean(fortsetzenAb),
-        })
-      : await runLoop({
-          model,
-          extern,
-          systemPrompt: filledPrompt,
-          userInput,
-          tools,
-          maxRunden: flow.grenzen.werkzeug_runden,
-          zeitlimitS: flow.grenzen.zeitlimit_s,
-          context,
-          signal,
-          onEvent: weiter,
-        });
+    ergebnis = wiederNachErgebnis
+      ? { result: String(fortsetzenAb.ergebnis ?? '') }
+      : hatSchritte
+        ? await executeSteps({
+            flow,
+            werte,
+            userInput,
+            model,
+            extern,
+            context,
+            makeTools,
+            runLoop,
+            recordWerkzeug,
+            emitLive: onEvent,
+            signal,
+            vorabErgebnisse: vorab,
+            vorabQuelleLaufId,
+            fortsetzung: Boolean(fortsetzenAb),
+          })
+        : await runLoop({
+            model,
+            extern,
+            systemPrompt: filledPrompt,
+            userInput,
+            tools,
+            maxRunden: flow.grenzen.werkzeug_runden,
+            zeitlimitS: flow.grenzen.zeitlimit_s,
+            context,
+            signal,
+            onEvent: weiter,
+          });
   } catch (err) {
     logger.error(`Flow "${flowName}" abgebrochen: ${err.message}`);
     await offeneSchritteSchliessen(
@@ -605,7 +614,13 @@ async function runFlow(
   //     Der Prüfschritt wirft nie: scheitert er selbst, läuft der Entwurf
   //     unverändert weiter und das Protokoll benennt das.
   let annahmen = null;
-  if (erzeugtDokument && !ergebnis.aborted && !ergebnis.error && ergebnis.result) {
+  if (
+    erzeugtDokument &&
+    !wiederNachErgebnis &&
+    !ergebnis.aborted &&
+    !ergebnis.error &&
+    ergebnis.result
+  ) {
     try {
       const geprueft = await pruefe({
         markdown: ergebnis.result,
@@ -629,6 +644,52 @@ async function runFlow(
       }
     } catch (err) {
       logger.warn(`Flow "${flowName}": Prüfschritt fehlgeschlagen, Entwurf bleibt: ${err.message}`);
+    }
+  }
+
+  // 6a'. Art `ergebnis_bestaetigen` (M5): am Ende haelt der Lauf an, ein Mensch
+  //      bestaetigt das Ergebnis, ERST DANN entsteht das Dokument und gilt der
+  //      Lauf als fertig. `autonom` legt nichts an. Das Ergebnis steht dabei im
+  //      Pruefpunkt (`ende`), damit der Lauf einen Neustart ueberlebt, ohne dass
+  //      die Schritte noch einmal laufen und ein anderes Ergebnis ergeben als das,
+  //      was der Mensch gesehen hat. Eine Ablehnung oder der Fristablauf beendet
+  //      den Lauf in der Datenbank schon (`LaufBeendet`).
+  if (
+    flow.art === 'ergebnis_bestaetigen' &&
+    !wiederNachErgebnis &&
+    !ergebnis.aborted &&
+    !ergebnis.error &&
+    appId &&
+    !(Array.isArray(flow.schritte) && flow.schritte.at(-1)?.werkzeug === 'freigabe_anfordern')
+  ) {
+    try {
+      await recordWerkzeug({
+        werkzeug: 'freigabe_anfordern',
+        params: {
+          titel: `Ergebnis bestätigen: ${flowName}`,
+          zusammenhang: ergebnis.result,
+          ...(flow.stufen?.length ? { stufe: flow.stufen.at(-1).name } : {}),
+          automatisch: true,
+        },
+        fortsetzung: {
+          ende: true,
+          ergebnis: ergebnis.result,
+          schritt: Math.max((flow.schritte || []).length - 1, 0),
+          name: 'ergebnis_bestaetigen',
+        },
+      });
+    } catch (err) {
+      if (!err.laufBeendet) {
+        logger.error(`Flow "${flowName}": Ergebnis-Freigabe fehlgeschlagen: ${err.message}`);
+        await store.finishRun({
+          runId: run.id,
+          status: 'fehler',
+          error: err.message,
+          stepsUsed: steps,
+        });
+      }
+      await aenderungenAbschliessen();
+      return store.getRun({ runId: run.id, userId });
     }
   }
 

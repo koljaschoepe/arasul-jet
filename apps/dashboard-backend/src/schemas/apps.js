@@ -585,6 +585,21 @@ const ExternesModell = z
   })
   .strict();
 
+/**
+ * Die Art eines Flows (M5): `{"art": "autonom"}`, `{"art": "ergebnis_bestaetigen"}`
+ * oder `{"art": null}` fuer die Vorgabe des Pakets. Ob der Flow die Art kann,
+ * entscheidet die Route gegen seinen Kopf (`arten`).
+ */
+const FlowArtBody = z
+  .object({
+    art: z
+      .enum(['autonom', 'ergebnis_bestaetigen'], {
+        error: 'Art ist "autonom", "ergebnis_bestaetigen" oder null (zurück zum Paket)',
+      })
+      .nullable(),
+  })
+  .strict();
+
 const FlowModellBody = z.union(
   [
     z.object({ modell: z.string().trim().max(100).nullable() }).strict(),
@@ -716,6 +731,7 @@ module.exports = {
   StufePersonBody,
   AppLaufParams,
   FlowModellBody,
+  FlowArtBody,
   FlowQuery,
   KiAufrufeQuery,
   LaeufeQuery,

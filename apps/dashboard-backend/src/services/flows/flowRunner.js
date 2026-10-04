@@ -249,7 +249,12 @@ async function fortsetzen({ runId }, deps = {}) {
       appId: lauf.app_id,
       stand: lauf.stand,
       einreicherId: lauf.einreicher_id,
-      fortsetzenAb: { schritt: fortsetzung.schritt, name: fortsetzung.name },
+      fortsetzenAb: {
+        schritt: fortsetzung.schritt,
+        name: fortsetzung.name,
+        // Wartete der Lauf auf sein Ergebnis (M5), steht es im Pruefpunkt.
+        ...(fortsetzung.ende ? { ende: true, ergebnis: fortsetzung.ergebnis } : {}),
+      },
     },
     { run, store }
   );

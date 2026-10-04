@@ -132,9 +132,7 @@ describe('setzeExtern', () => {
     await expect(flowSettings.setzeExtern({ ...GUT, basisUrl: '' })).rejects.toThrow(
       /Anbieter, Modell und Basis-Adresse/
     );
-    await expect(flowSettings.setzeExtern({ ...GUT, basisUrl: 'ftp://x' })).rejects.toThrow(
-      /http/
-    );
+    await expect(flowSettings.setzeExtern({ ...GUT, basisUrl: 'ftp://x' })).rejects.toThrow(/http/);
     expect(db.query).not.toHaveBeenCalled();
   });
 });
@@ -175,5 +173,38 @@ describe('externerZugang', () => {
     });
     const zugang = await flowSettings.externerZugang({ appId: 'u', flowName: 'b' });
     expect(zugang.schluessel).toBeNull();
+  });
+});
+
+describe('setzeArt (M5)', () => {
+  it('schreibt die Art in dieselbe Zeile wie das Modell und fasst das Modell nicht an', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 1 });
+    const r = await flowSettings.setzeArt({
+      appId: 'urlaub',
+      flowName: 'bericht',
+      art: 'autonom',
+      durch: 7,
+    });
+    expect(r).toEqual({ art: 'autonom' });
+    const [sql, werte] = db.query.mock.calls[0];
+    expect(sql).toMatch(/ON CONFLICT \(app_id, flow_name\) DO UPDATE/);
+    expect(sql).not.toMatch(/modell\s*=/);
+    expect(werte).toEqual(['urlaub', 'bericht', 'autonom', 7]);
+  });
+
+  it('`null` nimmt nur die Art zurück und löscht die Zeile nur, wenn nichts anderes drinsteht', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await flowSettings.setzeArt({ appId: 'urlaub', flowName: 'bericht', art: null });
+    expect(db.query.mock.calls[0][0]).toMatch(/SET art = NULL/);
+    expect(db.query.mock.calls[1][0]).toMatch(
+      /DELETE FROM public\.flow_settings[\s\S]*modell IS NULL AND extern_anbieter IS NULL AND art IS NULL/
+    );
+  });
+
+  it('das Modell zurücknehmen löscht die Zeile nicht, solange eine Art gewählt ist', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await flowSettings.setzeModell({ appId: 'urlaub', flowName: 'bericht', modell: null });
+    expect(db.query.mock.calls[0][0]).toMatch(/DELETE[\s\S]*art IS NULL/);
+    expect(db.query.mock.calls[1][0]).toMatch(/UPDATE public\.flow_settings[\s\S]*modell = NULL/);
   });
 });

@@ -442,6 +442,45 @@ und in `freigabe` am Lauf; setzen kann sie es nicht.
 
 Gemessen am Orin: `scripts/test/stufen-standardperson-abnahme.sh`.
 
+### Arten: autonom und Ergebnis bestätigen (M5, 04.10.2026)
+
+Der Flow-Kopf nennt, welche Arten er kann (`arten`, Kontrakt 8); **welche gilt,
+schaltet der Admin je Flow** auf der Seite der App in der Verwaltung
+(`PUT /api/apps/:id/flows/:name/art`). Gewählt werden kann nur, was der Kopf
+nennt, alles andere weist das Backend mit `400` ab. Die Wahl liegt in
+`flow_settings.art` (Migration 196), überlebt ein Update, gilt **ab dem nächsten
+Lauf** und steht im Sicherheitsprotokoll (`flow_art_gesetzt`). Ohne Wahl gilt die
+erste Art im Kopf, ohne `arten` `autonom`.
+
+| Art                    | am Ende des Laufs                                                                                                                                                                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `autonom`              | nichts: der Lauf wird `fertig`, die Ausgabe geht weiter                                                                                                                                                                                                                                                                   |
+| `ergebnis_bestaetigen` | der Lauf hält an (`wartend`), eine Freigabe „Ergebnis bestätigen: <Flow>" liegt in der letzten Stufe des Flows (ohne `stufen`: ohne Stufe), das Ergebnis steht als Zusammenhang dabei. Erst nach der Bestätigung entsteht ein Ausgabedokument und wird der Lauf `fertig`; eine Ablehnung oder der Fristablauf beendet ihn |
+
+Das Ergebnis steht im Prüfpunkt (`flow_runs.fortsetzung`, `ende`): nach einem
+Neustart geht der Lauf mit **genau dem Ergebnis** weiter, das der Mensch sah,
+ohne dass die Schritte noch einmal laufen. Endet die Kette ohnehin mit einem
+`freigabe_anfordern`-Schritt, kommt keine zweite Freigabe hinzu.
+
+**Erkennend oder erzeugend** — die Regel ist eine einzige und steht hier und im
+Kontrakt (`flow_frontmatter.regeln`):
+
+- Ein Flow **erkennt**, wenn mindestens ein `subagent`-Schritt
+  `faehigkeiten.bild: true` nennt (er liest ein Bild oder einen Scan). Dieser
+  Schritt legt bei **fehlender oder unsicherer Erkennung** eine Freigabe mit dem
+  Grund „Erkennung unsicher: Feld X" an, **auch in `autonom`**, bevor der nächste
+  Schritt läuft. Fehlend ist ein deklariertes Feld der Rolle ohne Wert, unsicher
+  eines, das die Rolle im JSON unter `unsicher` (Liste von Feldnamen) nennt, und
+  kam gar kein JSON zurück, gelten alle Felder als unsicher. Das Gerät hängt der
+  Rolle dazu einen Satz an den Prompt. Die Freigabe liegt in der ersten Stufe des
+  Flows, sonst ohne Stufe; sie steht als Schritt mit `automatisch` im Protokoll
+  und zählt nicht zur Kette (die Wiederaufnahme überspringt sie).
+- Ein Flow **erzeugt** (Texte, Dokumente), wenn kein Schritt ein Bild liest. Er
+  läuft autonom oder mit Freigabe von Anfang an, **nie mit stillem Rückfall**: das
+  Gerät schaltet nie von sich aus um, die Art bleibt, was der Admin gewählt hat.
+
+Gemessen am Orin: `scripts/test/arten-abnahme.sh`.
+
 ### Ein wartender Lauf überlebt Neustart und Update (M5, 03.10.2026)
 
 Wartet ein Lauf der **deklarierten Schritt-Kette** (`schritte`) auf eine

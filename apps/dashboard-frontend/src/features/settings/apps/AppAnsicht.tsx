@@ -28,7 +28,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { Button, cn } from '@marken';
+import { Button, cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { formatDate } from '@/utils/formatting';
@@ -48,6 +48,9 @@ import {
   useEntfernen,
   useKiAufrufe,
   useFlowModell,
+  useFlowArt,
+  FLOW_ART_NAME,
+  type FlowArt,
   useKurzliste,
   useSchalten,
   type AppFlow,
@@ -101,6 +104,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const schalten = useSchalten(appId);
   const entfernen = useEntfernen(appId);
   const modellSetzen = useFlowModell(appId);
+  const artSetzen = useFlowArt(appId);
   // Die Kurzliste des Geräts — dieselbe Abfrage wie die Ansicht „Modelle",
   // über denselben Schlüssel: React Query holt sie nicht zweimal.
   const { data: modelle } = useKurzliste();
@@ -168,6 +172,16 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
               : `Das Modell für „${flow.name}" ist gesetzt.`
           );
         },
+      }
+    );
+  };
+
+  const handleArt = (flow: AppFlow, art: FlowArt) => {
+    artSetzen.mutate(
+      { flow: flow.name, art },
+      {
+        onSuccess: () =>
+          toast.success(`„${flow.name}" läuft ab dem nächsten Lauf: ${FLOW_ART_NAME[art]}.`),
       }
     );
   };
@@ -263,7 +277,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         <Feldgruppe
           titel="Flows"
           symbol={<FileText />}
-          beschreibung="Was die App kann. Die Dateien kommen aus ihrem Paket; das Modell entscheiden Sie."
+          beschreibung="Was die App kann. Die Dateien kommen aus ihrem Paket; Modell und Art entscheiden Sie. Eine neue Art gilt ab dem nächsten Lauf."
           aktion={
             <StandWahl stand={stand} setStand={setStand} hatTest={Boolean(app.staende.test)} />
           }
@@ -298,6 +312,36 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
                       extern={f.extern}
                     />
                   </button>
+                  {f.arten.length > 1 ? (
+                    <Select
+                      value={f.art}
+                      disabled={artSetzen.isPending}
+                      onValueChange={wert => handleArt(f, wert as FlowArt)}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        className="w-48"
+                        aria-label={`Art des Flows ${f.name}`}
+                        data-testid={`flow-art-${f.name}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {f.arten.map(a => (
+                          <SelectItem key={a} value={a} data-testid={`flow-art-${f.name}-${a}`}>
+                            {FLOW_ART_NAME[a]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span
+                      className="text-ui-xs text-muted-foreground"
+                      data-testid={`flow-art-fest-${f.name}`}
+                    >
+                      {FLOW_ART_NAME[f.art]}
+                    </span>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"

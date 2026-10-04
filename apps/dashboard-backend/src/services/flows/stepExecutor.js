@@ -111,8 +111,14 @@ function resolveParams(parameter = {}, scope = {}) {
  * @returns {Map<number, string>} Schritt-Index → Ausgabe (der letzten Iteration).
  */
 function berechneVorabErgebnisse(schritte = [], altSteps = []) {
+  // Eine Freigabe, die das Geraet selbst angelegt hat (`automatisch`, M5:
+  // unsichere Erkennung, Ergebnis bestaetigen), steht nicht in der Kette und
+  // zaehlt hier nicht mit.
   const top = altSteps.filter(
-    s => s.parent_step_id == null && (s.kind === 'werkzeug' || s.kind === 'subagent')
+    s =>
+      s.parent_step_id == null &&
+      (s.kind === 'werkzeug' || s.kind === 'subagent') &&
+      !(s.input && s.input.automatisch === true)
   );
   const vorab = new Map();
   let cursor = 0;
@@ -160,6 +166,32 @@ function berechneVorabErgebnisse(schritte = [], altSteps = []) {
   }
 
   return vorab;
+}
+
+/**
+ * Was an einer Erkennung fehlt oder unsicher ist (M5).
+ *
+ * Fehlend ist ein deklariertes Feld ohne Wert, unsicher eines, das die Rolle in
+ * `unsicher` nannte. Kam gar kein JSON zurueck, hat die Rolle den Vertrag nicht
+ * eingehalten: dann gilt jedes Feld als unsicher.
+ *
+ * @param {{felder:Object<string,string>, json:boolean, unsicher:string[]}} erkannt
+ * @returns {{fehlend:string[], unsicher:string[]}}
+ */
+function erkennungsBefund(erkannt) {
+  const namen = Object.keys(erkannt.felder || {});
+  if (!erkannt.json) {
+    return { fehlend: [], unsicher: namen };
+  }
+  const fehlend = namen.filter(f => String(erkannt.felder[f] ?? '').trim() === '');
+  const unsicher = (erkannt.unsicher || []).filter(f => !fehlend.includes(f));
+  return { fehlend, unsicher };
+}
+
+/** Der Satz, der als Titel der Freigabe dasteht: „Erkennung unsicher: Feld X". */
+function erkennungsTitel({ fehlend, unsicher }) {
+  const alle = [...fehlend, ...unsicher];
+  return `Erkennung unsicher: ${alle.length === 1 ? 'Feld' : 'Felder'} ${alle.join(', ')}`;
 }
 
 /** Baut den Synthese-Block aus den gesammelten Schritt-Ausgaben. */
@@ -263,13 +295,45 @@ async function executeSteps({
     const einDurchlauf = async scope => {
       if (schritt.typ === 'subagent') {
         const auftrag = fillPlaceholders(schritt.auftrag, scope);
+        // Ein Schritt, der ein Bild liest (`faehigkeiten.bild`), ERKENNT. Seine
+        // Felder kommen mit zurueck, damit bei fehlender oder unsicherer
+        // Erkennung ein Mensch entscheidet -- in jeder Art des Flows (M5).
+        const erkennt = schritt.faehigkeiten?.bild === true;
+        let erkannt = null;
         // SubagentTool schreibt den DB-Schritt (samt Kind-Schritten und
         // Rohdaten) über context.stepRecorder selbst und meldet ihn live —
         // hier keine eigene Meldung, sonst stünde die Delegation doppelt.
-        return subagentTool.execute(
+        const antwort = await subagentTool.execute(
           { rolle: schritt.rolle, auftrag },
-          { ...context, signal, model: schritt.modell || context.model }
+          {
+            ...context,
+            signal,
+            model: schritt.modell || context.model,
+            ...(erkennt ? { erkennend: true, onErgebnis: e => (erkannt = e) } : {}),
+          }
         );
+        if (erkannt) {
+          const befund = erkennungsBefund(erkannt);
+          if (befund.fehlend.length + befund.unsicher.length > 0) {
+            await recordWerkzeug({
+              werkzeug: 'freigabe_anfordern',
+              params: {
+                titel: erkennungsTitel(befund),
+                zusammenhang:
+                  `Schritt „${schritt.name}" (Rolle ${schritt.rolle}):\n${antwort}\n\n` +
+                  (befund.fehlend.length ? `Nicht erkannt: ${befund.fehlend.join(', ')}\n` : '') +
+                  (befund.unsicher.length ? `Unsicher: ${befund.unsicher.join(', ')}\n` : ''),
+                ...(flow.stufen?.length ? { stufe: flow.stufen[0].name } : {}),
+                automatisch: true,
+              },
+              fortsetzung:
+                !schritt.wiederhole_ueber && (schritt.iterationen || 1) === 1
+                  ? { schritt: index, name: schritt.name }
+                  : null,
+            });
+          }
+        }
+        return antwort;
       }
       const params = resolveParams(schritt.parameter, scope);
       // Wo der Lauf nach einem Neustart weitergeht, wenn dieser Schritt eine
@@ -378,5 +442,7 @@ module.exports = {
   buildSynthesisInput,
   berechneVorabErgebnisse,
   parseListe,
+  erkennungsBefund,
+  erkennungsTitel,
   MAX_MAP_ELEMENTE,
 };

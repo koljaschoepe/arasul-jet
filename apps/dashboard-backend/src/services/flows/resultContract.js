@@ -71,6 +71,7 @@ function extractJsonObject(text) {
  *   `text`   — die an den Orchestrator gehende, gedeckelte Darstellung.
  *   `gekuerzt` — wurde am Deckel geschnitten?
  *   `json`   — kam ein gültiges JSON-Objekt zurück (sonst Rückfall, s. u.)?
+ *   `unsicher` — deklarierte Felder, die die Rolle als unsicher meldete.
  */
 function enforceContract(rawText, vertrag) {
   const felder = Array.isArray(vertrag && vertrag.felder) ? vertrag.felder : [];
@@ -79,9 +80,17 @@ function enforceContract(rawText, vertrag) {
 
   const felderObj = {};
   let json = false;
+  // Eine Rolle, die etwas ERKENNT (Schritt mit `faehigkeiten.bild`), darf
+  // zusaetzlich die Felder nennen, die sie nicht sicher lesen konnte. Das ist
+  // kein deklariertes Feld und geht nicht an den Orchestrator, sondern nur an die
+  // Art des Flows (M5); fremde Namen werden verworfen.
+  let unsicher = [];
 
   if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
     json = true;
+    if (Array.isArray(obj.unsicher)) {
+      unsicher = obj.unsicher.map(String).filter(f => felder.includes(f));
+    }
     // NUR die deklarierten Felder übernehmen — alles andere, was das Modell
     // zusätzlich zurückgibt, wird bewusst verworfen (der Vertrag ist die
     // Obergrenze dessen, was der Orchestrator sieht).
@@ -117,7 +126,7 @@ function enforceContract(rawText, vertrag) {
     gekuerzt = true;
   }
 
-  return { felder: felderObj, text, gekuerzt, json };
+  return { felder: felderObj, text, gekuerzt, json, unsicher };
 }
 
 module.exports = { enforceContract, extractJsonObject };
