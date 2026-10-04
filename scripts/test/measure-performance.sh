@@ -102,14 +102,16 @@ measure_request() {
 
 # Get auth token
 get_token() {
-  local admin_user="${ADMIN_USERNAME:-admin}"
+  # Keine Vorgabe fuer den Benutzernamen (05.10.2026): Umgebung oder .env.
+  local admin_user="${ADMIN_USERNAME:-}"
   local admin_pass="${ADMIN_PASSWORD:-}"
 
-  if [ -z "$admin_pass" ] && [ -f ".env" ]; then
-    admin_pass=$(grep -E "^ADMIN_PASSWORD=" .env | cut -d= -f2- | tr -d '"' || true)
+  if [ -f ".env" ]; then
+    [ -z "$admin_user" ] && admin_user=$(grep -E "^ADMIN_USERNAME=" .env | cut -d= -f2- | tr -d '"' || true)
+    [ -z "$admin_pass" ] && admin_pass=$(grep -E "^ADMIN_PASSWORD=" .env | cut -d= -f2- | tr -d '"' || true)
   fi
 
-  if [ -z "$admin_pass" ]; then
+  if [ -z "$admin_user" ] || [ -z "$admin_pass" ]; then
     echo ""
     return
   fi

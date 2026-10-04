@@ -25,7 +25,7 @@
 # Image) und den Wegwerf-Schluessel. Andere Apps am Geraet fasst es nicht an.
 #
 # Aufruf:
-#   ARASUL_URL=https://192.168.0.197 ARASUL_BENUTZER=admin ARASUL_PASSWORT=... \
+#   ARASUL_URL=https://192.168.0.197 ARASUL_BENUTZER=probe-admin ARASUL_PASSWORT=... \
 #   ARASUL_GERAET=arasul@192.168.0.197 ARASUL_VORHER=origin/main \
 #   bash scripts/test/behaelter-abnahme.sh
 #

@@ -19,7 +19,8 @@
 #   ssh -f -N -L 8443:localhost:443 jetson
 #   ARASUL_PASSWORT=... bash scripts/test/mitarbeiter-abnahme.sh
 #
-# Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin.
+# Voreinstellung: ARASUL_URL=https://localhost:8443. Pflicht: ARASUL_BENUTZER und
+# ARASUL_PASSWORT (Probekonto, nie admin).
 #
 # ANMELDEDROSSEL: `loginLimiter` erlaubt DREISSIG Fehlschlaege je Viertelstunde und
 # IP, und dabei bleibt es. Dieser Lauf braucht FUENF eigene -- der Mitarbeiter

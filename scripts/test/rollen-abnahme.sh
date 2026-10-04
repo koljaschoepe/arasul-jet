@@ -20,7 +20,8 @@
 #   ssh -f -N -L 8443:localhost:443 jetson
 #   ARASUL_PASSWORT=... bash scripts/test/rollen-abnahme.sh
 #
-# Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin.
+# Voreinstellung: ARASUL_URL=https://localhost:8443. Pflicht: ARASUL_BENUTZER und
+# ARASUL_PASSWORT (Probekonto, nie admin).
 #
 # ANMELDUNGEN: zwei eigene (Abnahme-Admin, Abnahme-Mitarbeiter) plus die des
 # Administrators. Die dritte entfaellt, wenn `abnahmen.sh` den Lauf startet:

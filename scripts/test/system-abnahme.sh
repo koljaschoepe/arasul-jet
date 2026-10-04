@@ -47,7 +47,8 @@
 #   ARASUL_URL=https://localhost:443 ARASUL_PASSWORT=... \
 #     bash scripts/test/system-abnahme.sh
 #
-# Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin.
+# Voreinstellung: ARASUL_URL=https://localhost:8443. Pflicht: ARASUL_BENUTZER und
+# ARASUL_PASSWORT (Probekonto, nie admin).
 #
 # Nicht zerstoerend: es entsteht eine zusaetzliche Sicherung, und sonst nichts.
 #

@@ -47,7 +47,8 @@
 #   ARASUL_URL=https://localhost:443 ARASUL_PASSWORT=... \
 #     bash scripts/test/dashboard-abnahme.sh
 #
-# Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin,
+# Voreinstellung: ARASUL_URL=https://localhost:8443. Pflicht: ARASUL_BENUTZER und
+# ARASUL_PASSWORT (Probekonto, nie admin),
 # ARASUL_DASHBOARD_APP=beispielapp.
 #
 # Nicht zerstoerend fuer den Bestand: angelegt wird ein Benutzer mit

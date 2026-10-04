@@ -168,18 +168,17 @@ fi
 log_section "2. Authentication"
 
 # Login with admin credentials
-ADMIN_USER="${ADMIN_USERNAME:-admin}"
+# Keine Vorgabe fuer den Benutzernamen (05.10.2026): Umgebung oder .env.
+ADMIN_USER="${ADMIN_USERNAME:-}"
 ADMIN_PASS="${ADMIN_PASSWORD:-}"
 
-if [ -z "$ADMIN_PASS" ]; then
-  # Try to read from .env
-  if [ -f ".env" ]; then
-    ADMIN_PASS=$(grep -E "^ADMIN_PASSWORD=" .env | cut -d= -f2- | tr -d '"' || true)
-  fi
+if [ -f ".env" ]; then
+  [ -z "$ADMIN_USER" ] && ADMIN_USER=$(grep -E "^ADMIN_USERNAME=" .env | cut -d= -f2- | tr -d '"' || true)
+  [ -z "$ADMIN_PASS" ] && ADMIN_PASS=$(grep -E "^ADMIN_PASSWORD=" .env | cut -d= -f2- | tr -d '"' || true)
 fi
 
-if [ -z "$ADMIN_PASS" ]; then
-  test_skip "Login test" "ADMIN_PASSWORD not set"
+if [ -z "$ADMIN_USER" ] || [ -z "$ADMIN_PASS" ]; then
+  test_skip "Login test" "ADMIN_USERNAME or ADMIN_PASSWORD not set"
 else
   RESPONSE=$(http_request POST "/auth/login" "{\"username\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}")
   STATUS=$(get_status "$RESPONSE")

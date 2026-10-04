@@ -6,9 +6,10 @@
  * aktualisiert sich der Zustand ohne Neuladen?
  */
 import { chromium } from 'playwright';
-import { anmeldenFallsNoetig, sitzungsZustand } from './anmeldung.mjs';
+import { anmeldenFallsNoetig, sitzungsZustand, zugangAusUmgebung } from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
+const { benutzer: BENUTZER, passwort: PASSWORT } = zugangAusUmgebung();
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {
   ergebnisse.push({ was, ok });
@@ -28,7 +29,7 @@ const page = await ctx.newPage();
 try {
   await page.addInitScript(() => { try { localStorage.setItem('arasul-onboarding-seen-v1','1'); } catch { /* egal */ } });
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  const an = await anmeldenFallsNoetig(page, ctx, { url: URL, benutzer: 'admin', passwort: '2309' });
+  const an = await anmeldenFallsNoetig(page, ctx, { url: URL, benutzer: BENUTZER, passwort: PASSWORT });
   pruefe('Anmeldung', an.angemeldet, an.angemeldet ? (an.neu ? 'neu' : 'Sitzung wiederverwendet') : an.grund);
   if (an.neu) {
     await page.waitForURL(/\/workspace/, { timeout: 60000 }).catch(() => {});

@@ -29,8 +29,8 @@
 # STDIN, nie als Argument.
 #
 # Aufruf vom Arbeitsrechner:
-#   ARASUL_URL=https://192.168.0.197 ARASUL_BENUTZER=admin \
-#   ARASUL_PASSWORT="$(security find-generic-password -s 'Arasul Orin Admin' -a admin -w)" \
+#   ARASUL_URL=https://192.168.0.197 ARASUL_BENUTZER=probe-admin \
+#   ARASUL_PASSWORT="$(geheim get 'Arasul Jet Dashboard, probe-admin (Orin)')" \
 #   ARASUL_BILDER=<ordner> bash scripts/test/bereich-quote-abnahme.sh
 #
 # Wer den Lauf abbricht, raeumt mit `--nur-aufraeumen <stempel>` nach.

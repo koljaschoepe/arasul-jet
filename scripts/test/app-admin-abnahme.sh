@@ -55,7 +55,8 @@
 #   ARASUL_URL=https://localhost:443 ARASUL_PASSWORT=... \
 #     bash scripts/test/app-admin-abnahme.sh
 #
-# Voreinstellungen: ARASUL_URL=https://localhost:8443, ARASUL_BENUTZER=admin,
+# Voreinstellung: ARASUL_URL=https://localhost:8443. Pflicht: ARASUL_BENUTZER und
+# ARASUL_PASSWORT (Probekonto, nie admin),
 # ARASUL_APP=beispielapp, ARASUL_FLOW=freigabe.
 #
 # WIE DIE APP IHREN FLOW STARTET, sagt die App. Voreingestellt ist der Weg der
