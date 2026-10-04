@@ -16,7 +16,7 @@
  */
 import { useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, Brain, PenLine, Users, Info } from 'lucide-react';
-import { Button, cn } from '@marken';
+import { Button, cn, useSchmalesFenster } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { formatDate } from '@/utils/formatting';
 import type { LaufFreigabe, LaufSchritt } from './useAppVerwaltung';
@@ -144,6 +144,7 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
  * Eine Tabelle und keine Fließtext-Zeile: wer nachliest, vergleicht Spalten.
  */
 function FreigabeFelder({ f }: { f: LaufFreigabe }) {
+  const schmal = useSchmalesFenster();
   const nachFeld = new Map((f.korrekturen ?? []).map(k => [k.feld, k]));
   return (
     <div className="rounded-md border border-border p-ui-3" data-testid={`lauf-freigabe-${f.id}`}>
@@ -161,36 +162,32 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
         {f.entschieden_am ? `, ${formatDate(f.entschieden_am)}` : ''}
         {f.felder_schritt ? ` · Schritt ${f.felder_schritt}` : ''}
       </p>
-      <table className="w-full text-ui-sm">
-        <thead>
-          <tr className="text-left text-ui-xs text-muted-foreground">
-            <th className="py-1 pr-3 font-medium">Feld</th>
-            <th className="py-1 pr-3 font-medium">Vorschlag der KI</th>
-            <th className="py-1 font-medium">Geändert</th>
-          </tr>
-        </thead>
-        <tbody>
+      {schmal ? (
+        // Am Handy eine Liste: je Feld ein Block, die drei Angaben untereinander.
+        <ul className="flex flex-col">
           {(f.felder ?? []).map(feld => {
             const k = nachFeld.get(feld.name);
             return (
-              <tr
+              <li
                 key={feld.name}
-                className="border-t border-border align-top"
+                className="flex flex-col gap-0.5 border-t border-border py-2 text-ui-sm"
                 data-testid={`lauf-feld-${f.id}-${feld.name}`}
               >
-                <td className="py-1 pr-3 font-mono text-ui-xs text-foreground">
+                <span className="font-mono text-ui-xs text-foreground">
                   {feld.name}
                   {(feld.unsicher || feld.fehlend) && (
                     <span className="ml-1 font-sans text-muted-foreground">(prüfen)</span>
                   )}
-                </td>
-                <td className="py-1 pr-3 text-foreground">
+                </span>
+                <span className="text-foreground">
+                  <span className="text-ui-xs text-muted-foreground">Vorschlag der KI: </span>
                   {feld.vorschlag || <span className="text-muted-foreground">nicht erkannt</span>}
-                </td>
-                <td
-                  className="py-1 text-foreground"
+                </span>
+                <span
+                  className="text-foreground"
                   data-testid={`lauf-feld-${f.id}-${feld.name}-neu`}
                 >
+                  <span className="text-ui-xs text-muted-foreground">Geändert: </span>
                   {k ? (
                     <>
                       {k.wert || <span className="text-muted-foreground">leer</span>}
@@ -202,12 +199,60 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
                   ) : (
                     <span className="text-muted-foreground">nein</span>
                   )}
-                </td>
-              </tr>
+                </span>
+              </li>
             );
           })}
-        </tbody>
-      </table>
+        </ul>
+      ) : (
+        <table className="w-full text-ui-sm">
+          <thead>
+            <tr className="text-left text-ui-xs text-muted-foreground">
+              <th className="py-1 pr-3 font-medium">Feld</th>
+              <th className="py-1 pr-3 font-medium">Vorschlag der KI</th>
+              <th className="py-1 font-medium">Geändert</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(f.felder ?? []).map(feld => {
+              const k = nachFeld.get(feld.name);
+              return (
+                <tr
+                  key={feld.name}
+                  className="border-t border-border align-top"
+                  data-testid={`lauf-feld-${f.id}-${feld.name}`}
+                >
+                  <td className="py-1 pr-3 font-mono text-ui-xs text-foreground">
+                    {feld.name}
+                    {(feld.unsicher || feld.fehlend) && (
+                      <span className="ml-1 font-sans text-muted-foreground">(prüfen)</span>
+                    )}
+                  </td>
+                  <td className="py-1 pr-3 text-foreground">
+                    {feld.vorschlag || <span className="text-muted-foreground">nicht erkannt</span>}
+                  </td>
+                  <td
+                    className="py-1 text-foreground"
+                    data-testid={`lauf-feld-${f.id}-${feld.name}-neu`}
+                  >
+                    {k ? (
+                      <>
+                        {k.wert || <span className="text-muted-foreground">leer</span>}
+                        <span className="block text-ui-xs text-muted-foreground">
+                          {k.von ?? 'unbekannt'}
+                          {k.am ? `, ${formatDate(k.am)}` : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">nein</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

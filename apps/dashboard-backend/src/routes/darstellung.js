@@ -13,7 +13,7 @@
  * ausserdem zu spaet: die Shell braucht das Theme, bevor sie das erste Mal
  * malt, also genau dann, wenn die Sitzungsprobe antwortet.
  *
- * KEINE KENNUNG IN DER ADRESSE, dieselbe Linie wie `/api/notizen` (D1): die
+ * KEINE KENNUNG IN DER ADRESSE, dieselbe Linie wie `/api/profil`: die
  * Darstellung gehoert dem Angemeldeten, und wer das ist, sagt die Sitzung.
  * Ein Administrator stellt hier auch nichts fuer einen anderen ein -- wie
  * jemand seinen Bildschirm sieht, ist keine Verwaltungsfrage.

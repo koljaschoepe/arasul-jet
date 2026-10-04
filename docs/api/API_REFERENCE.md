@@ -3025,28 +3025,6 @@ verschwiegen.
 Die App selbst liest den Stand über `GET /api/v1/external/freigaben` (siehe
 External API) — lesen darf sie, entscheiden nicht.
 
-### Notizen (Phase D1)
-
-Der Zettel in der rechten Spalte der Shell. **Einer je Mensch**, kein Notizbuch
-mit vielen Blättern; wer mehrere Blätter braucht, braucht eine App dafür.
-
-| Method | Endpoint       | Description                                |
-| ------ | -------------- | ------------------------------------------ |
-| GET    | `/api/notizen` | Meinen Zettel lesen                        |
-| PUT    | `/api/notizen` | Meinen Zettel schreiben, Body `{ inhalt }` |
-
-Antwort in beiden Fällen `{ data: { inhalt, geaendert_am } }`. Wer noch nichts
-geschrieben hat, bekommt `{ inhalt: '', geaendert_am: null }` und **keine
-`404`** — „ich habe noch nichts geschrieben" ist kein Fehler.
-
-**Keine Kennung in der Adresse.** Der Zettel gehört dem Angemeldeten; wer das
-ist, sagt die Sitzung. Ein `/api/notizen/:id` wäre eine Einladung, die Nummer
-eines anderen zu probieren. **Kein `DELETE`:** `PUT { "inhalt": "" }` ist der
-leere Zettel, und zwei Wege in denselben Zustand sind einer zu viel.
-`inhalt` fasst höchstens 20 000 Zeichen (`schemas/notizen.js`), darüber `400`.
-
-Administrator **und** Mitarbeiter — ein Zettel ist Arbeit, keine Verwaltung.
-
 ### Ausweise (Brücke, 21.09.2026)
 
 Der Ausweis eines Menschen **außerhalb des Browsers**: je Mensch und Rechner
@@ -3094,7 +3072,7 @@ Stellen, an denen die Antwort später auseinanderläuft.
 **Was ein Ausweis öffnet, sind genau drei Wege**, und das ist keine Liste,
 sondern die Bauweise: nur wer `middleware/ausweis.js` einbindet, nimmt ihn an.
 Überall sonst ist er kein gültiger JWT und bekommt `401` — auch auf den
-Routen oben (mit der einen Ausnahme: dem Widerruf seiner selbst), auch auf `/api/notizen`.
+Routen oben (mit der einen Ausnahme: dem Widerruf seiner selbst), auch auf `/api/profil`.
 
 | Weg                        | Wofür                                               |
 | -------------------------- | --------------------------------------------------- |
@@ -3455,7 +3433,7 @@ Anfrage auf jedem Seitenaufbau — und die zwei, die es gibt, sind seit G2 die
 enge Stelle des Geräts. Er käme außerdem zu spät: die Shell braucht das Theme,
 bevor sie das erste Mal malt.
 
-**Keine Kennung in der Adresse**, dieselbe Linie wie `/api/notizen`. Ein
+**Keine Kennung in der Adresse**, dieselbe Linie wie `/api/profil`. Ein
 Administrator stellt hier auch nichts für einen anderen ein: wie jemand seinen
 Bildschirm sieht, ist keine Verwaltungsfrage.
 

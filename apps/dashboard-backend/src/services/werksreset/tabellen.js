@@ -36,11 +36,6 @@ const INHALTE = [
   ['public.approvals', 'Freigabe-Anfragen aus Flow-Läufen'],
   ['arasul.flow_run_steps', 'Einzelschritte der Flow-Läufe'],
   ['arasul.flow_runs', 'Flow-Läufe'],
-  // Der Zettel aus der rechten Spalte der Shell (Phase D1). Nutzerinhalt, also
-  // Stufe 1: wer die Inhalte zurücksetzt, meint auch die Notizen. Die Zeile
-  // ginge mit dem Benutzer ohnehin (ON DELETE CASCADE, Migration 177), aber
-  // Stufe 1 löscht keine Benutzer.
-  ['public.notizen', 'Der Zettel in der rechten Spalte, einer je Mensch'],
 ];
 
 /** Einrichtung des Geräts. Weg nur bei Stufe 2. */
@@ -65,7 +60,7 @@ const AUSLIEFERUNG = [
   ['public.app_stufen_personen', 'Standardperson je App und Freigabestufe'],
   // Stufe 2 und nicht Stufe 1 (Bruecke, 21.09.2026). Ein Ausweis ist kein
   // Inhalt, sondern ein Zugang -- er steht bei den Sitzungen und Schluesseln
-  // daneben und nicht bei den Notizen. Wer die INHALTE zuruecksetzt, will
+  // daneben und nicht bei den Inhalten. Wer die INHALTE zuruecksetzt, will
   // nicht, dass anschliessend jeder Rechner im Haus ausgesperrt ist; wer den
   // Auslieferungszustand herstellt, will genau das. Mit `admin_users` faellt
   // die Zeile ohnehin (ON DELETE CASCADE, Migration 182); sie steht hier,

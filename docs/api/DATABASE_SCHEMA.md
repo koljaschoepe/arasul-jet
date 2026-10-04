@@ -14,7 +14,8 @@
 > Spalte `selbst_hinzugefuegt` (Migration 160) wieder verloren;
 > `recovery_actions.action_type` kennt zusaetzlich `model_unload`.
 > Am 27.08.2026 von Hand ergaenzt (Migrationen 177/178, Phase D1): die Tabelle
-> `notizen` und die Spalte `admin_users.passwort_vom_admin`.
+> `notizen` (am 04.10.2026 mit Migration 202 wieder entfernt) und die Spalte
+> `admin_users.passwort_vom_admin`.
 > Am 30.09.2026 von Hand ergaenzt (Migration 190, J4): `llm_model_catalog.frei_geladen`
 > (`boolean NOT NULL DEFAULT false`) — die Zeile entstand beim Laden einer
 > beliebigen Kennung, `jetson_tested = false` heisst "ungemessen", und beim
@@ -1793,30 +1794,6 @@ Normalfall.
 
 - `notification_settings_pkey` — `CREATE UNIQUE INDEX notification_settings_pkey ON public.notification_settings USING btree (id)`
 - `notification_settings_user_id_channel_key` — `CREATE UNIQUE INDEX notification_settings_user_id_channel_key ON public.notification_settings USING btree (user_id, channel)`
-
----
-
-## `notizen`
-
-> Der Zettel in der rechten Spalte der Shell (Migration 177, Phase D1).
-> **Einer je Mensch** — der Primärschlüssel _ist_ die Benutzernummer, damit die
-> Frage „welche Notiz ist die richtige" gar nicht erst entsteht und das
-> Speichern ein `INSERT … ON CONFLICT` bleibt. Kein Notizbuch mit vielen
-> Blättern: wer mehrere braucht, braucht eine App dafür.
-
-| Column         | Type                     | Nullable | Default |
-| -------------- | ------------------------ | -------- | ------- |
-| `user_id`      | bigint                   | ⛔       |         |
-| `inhalt`       | text                     | ⛔       | `''`    |
-| `geaendert_am` | timestamp with time zone | ⛔       | `now()` |
-
-**Primary key:** `user_id`
-
-**Foreign keys:** `user_id` → `admin_users(id)` `ON DELETE CASCADE` — die Notiz
-eines gelöschten Menschen ist sein Text und geht mit ihm.
-
-`inhalt` ist nie `NULL`: „keine Notiz" und „leere Notiz" sind derselbe Zustand.
-Die Längengrenze (20 000 Zeichen) setzt `schemas/notizen.js`, nicht die Spalte.
 
 ---
 

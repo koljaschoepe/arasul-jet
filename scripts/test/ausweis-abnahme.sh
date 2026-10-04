@@ -502,7 +502,7 @@ pruefe 'und wem er gehoert' "$(ja_nein "$(feld user.username)" "$DRIN")" \
 
 # --- Und was er NICHT oeffnet ---------------------------------------------
 echo
-for weg in /api/benutzer /api/models/memory-budget /api/notizen /api/ausweise; do
+for weg in /api/benutzer /api/models/memory-budget /api/profil /api/ausweise; do
   hole "$weg" "$AUS_DRIN"
   pruefe "der Ausweis oeffnet $weg NICHT" "$(ja_nein "$CODE" 401)" "HTTP $CODE"
 done
