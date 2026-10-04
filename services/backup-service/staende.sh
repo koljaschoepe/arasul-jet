@@ -379,9 +379,17 @@ stand_sichern() { # repo schluesseldatei quellen...
 }
 
 # --- Aufbewahrung: 7 Tage, 12 Wochen, 60 Monate -------------------------------
-# `--group-by ''`: alle Staende sind EINE Reihe. Sonst bildete restic Gruppen
-# nach Rechnername und Pfaden, und eine Nacht, in der der Firmenordner nicht
-# eingehaengt war, begaenne eine eigene Reihe mit eigener Aufbewahrung.
+# `--group-by tags`: die Staende sind eine Reihe JE TAG-SATZ, nicht je
+# Rechnername und Pfaden. Sonst begaenne eine Nacht, in der der Firmenordner
+# nicht eingehaengt war, eine eigene Reihe mit eigener Aufbewahrung. Jeder
+# normale Stand traegt genau `arasul` und ist damit in derselben Reihe.
+#
+# Ein Stand mit `vorher` (vor einem Zurueckholen, vor dem Live-Schalten) steht
+# in einer eigenen Reihe (Auftrag live-schalten-mit-sicherung, M5,
+# 04.10.2026). Bis dahin galt `--group-by ''`, und die Staende davor zaehlten
+# bei „die fuenf neuesten“ und „je Tag der neueste“ mit: wer an einem Tag
+# zweimal live schaltete, verdraengte den Stand dieser Nacht. Jetzt gilt
+# 7/12/60 und die fuenf nur unter den normalen Staenden.
 #
 # `--keep-tag vorher`: ein Stand, der vor einem Zurueckholen entstand, ist der
 # Weg, dieses Zurueckholen rueckgaengig zu machen. Die Regel 7/12/60 behielte
@@ -395,7 +403,7 @@ stand_sichern() { # repo schluesseldatei quellen...
 stand_aufbewahren() { # repo schluesseldatei
     local roh
     STAND_ENTFALLEN=0
-    roh=$(stand_restic "$1" "$2" forget --json --tag "$STAND_TAG" --group-by '' --keep-tag vorher --keep-last "$STAND_LETZTE" \
+    roh=$(stand_restic "$1" "$2" forget --json --tag "$STAND_TAG" --group-by tags --keep-tag vorher --keep-last "$STAND_LETZTE" \
         --keep-daily "$STAND_TAGE" --keep-weekly "$STAND_WOCHEN" --keep-monthly "$STAND_MONATE" 2>/dev/null) || return 1
     STAND_ENTFALLEN=$(jq '[.[] | (.remove // []) | length] | add // 0' <<<"$roh" 2>/dev/null || echo 0)
     if [ "${STAND_ENTFALLEN:-0}" -gt 0 ]; then

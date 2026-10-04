@@ -176,6 +176,27 @@ done
 stand_aufbewahren "$FRISCH" "$S"
 pruefe "zwei Staende von Hand an einem Tag: beide bleiben (die fuenf neuesten immer)" \
   "$(ja [ "$(stand_liste "$FRISCH" "$S" | jq 'length')" = 3 ])" "$(stand_liste "$FRISCH" "$S" | jq -c '[.[].zeit[11:16]]')"
+# Sechs Staende davor an einem Tag (sechsmal live geschaltet, M5): sie
+# verdraengen weder die Nacht dieses Tages noch die fuenf neuesten Naechte.
+# Mit `--group-by ''` fiel die Nacht vom 04.10. (nicht unter den fuenf
+# neuesten, nicht der neueste Stand ihres Tages).
+VIELE="$TMP/viele"
+stand_anlegen "$VIELE" "$S"
+for z in "2026-09-29 02:00:00" "2026-09-30 02:00:00" "2026-10-01 02:00:00" "2026-10-02 02:00:00" \
+         "2026-10-03 02:00:00" "2026-10-04 02:00:00"; do
+  STAND_ZEIT="$z"; stand_sichern "$VIELE" "$S" "$FLOWS_BACKUP_DIR" >/dev/null
+done
+NAECHTE_VIELE="$(stand_liste "$VIELE" "$S" | jq -r '[.[].id] | join(" ")')"
+STAND_EXTRA_TAGS=(vorher "fuer:live:probe")
+for h in 10 11 12 13 14 15; do
+  STAND_ZEIT="2026-10-04 $h:00:00"; stand_sichern "$VIELE" "$S" "$FLOWS_BACKUP_DIR" >/dev/null
+done
+STAND_EXTRA_TAGS=()
+stand_aufbewahren "$VIELE" "$S"
+NACH_VIELE="$(stand_liste "$VIELE" "$S" | jq -r '[.[] | select(.vorher | not) | .id] | join(" ")')"
+pruefe "sechs Staende vor dem Live-Schalten an einem Tag: keine Nacht faellt" \
+  "$(ja [ "$NACH_VIELE" = "$NAECHTE_VIELE" ] && [ "$(stand_liste "$VIELE" "$S" | jq '[.[] | select(.vorher)] | length')" = 6 ])" \
+  "$(stand_liste "$VIELE" "$S" | jq -c '[.[] | [.zeit[5:13], .vorher]]')"
 unset STAND_ZEIT
 
 # Die Liste mit Inhalt: was sie schon weiss, fragt sie nicht noch einmal.
