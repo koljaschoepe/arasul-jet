@@ -433,7 +433,7 @@ Die Kopie **außerhalb** des Geräts (USB oder SMB, C9) nimmt
 `firmenordner_latest.tar.gz` mit.
 
 **Einen einzelnen Bereich zurückholen** (M5, Auftrag sicherung-zurueckholen):
-Verwaltung → System → Sicherung → Zurückholen → „Einen Bereich des
+Verwaltung → Daten → Sicherung → Zurückholen → „Einen Bereich des
 Firmenordners". Dafür muss der Dienst **nicht** stehen: geholt wird nur
 `posix/projects/<kennung>` aus einem Stand, abgeglichen an Ort und Stelle nach
 Inhalt, ohne `.oc-nodes`, `.oc-tmp` und `.Trash` des Bereichs; der Dienst nimmt

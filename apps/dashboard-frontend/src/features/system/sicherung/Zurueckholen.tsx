@@ -436,7 +436,7 @@ export function Zurueckholen() {
             ))}
           </div>
           {was === 'geraet' && (
-            <p className="text-sm text-destructive" data-testid="zurueck-geraet-warnung">
+            <p className="text-sm font-medium text-foreground" data-testid="zurueck-geraet-warnung">
               Das ersetzt alles auf diesem Gerät. Für eine einzelne App oder einen Bereich wählen
               Sie oben das Passende.
             </p>
@@ -561,7 +561,7 @@ export function Zurueckholen() {
 
         <div>
           <Button
-            variant={was === 'geraet' ? 'destructive' : 'default'}
+            variant="default"
             onClick={() => {
               setBericht(null);
               setOffen(true);
@@ -621,7 +621,6 @@ export function Zurueckholen() {
             <Button
               type="submit"
               form="zurueck-bestaetigen"
-              variant="destructive"
               disabled={
                 !passwort || laeuft || (was === 'geraet' && wort.trim() !== 'wiederherstellen')
               }

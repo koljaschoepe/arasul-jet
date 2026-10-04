@@ -9,8 +9,8 @@
  *
  * Eine Person entsteht aus Vorname, Nachname und E-Mail. Das Startpasswort
  * erzeugt das Gerät und zeigt es einmal (kopieren oder als Zettel drucken); die
- * Person wählt bei der ersten Anmeldung ein eigenes. Sperren kommt vor Löschen:
- * es nimmt den Zugang und beendet die angemeldeten Rechner, Entscheidungen und
+ * Person wählt bei der ersten Anmeldung ein eigenes. Sperren kommt vor Löschen
+ * (das steht im Bereich Daten, nicht hier): es nimmt den Zugang und beendet die angemeldeten Rechner, Entscheidungen und
  * Läufe bleiben stehen. Der Schalter „Verwaltung" macht zum Administrator; der
  * letzte bleibt, und das weist das Backend ab, nicht nur diese Oberfläche.
  *
@@ -21,7 +21,7 @@
  * trägt `requireRole('admin')` und antwortet einem Mitarbeiter mit 403.
  */
 import { useState } from 'react';
-import { KeyRound, ShieldCheck, Trash2, UserPlus, UserX, Users } from 'lucide-react';
+import { KeyRound, ShieldCheck, UserPlus, UserX, Users } from 'lucide-react';
 import { Kopf, Button, Switch, Feldgruppe, Formularseite } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,7 +35,6 @@ import {
   anzeigeName,
   useAktivSetzen,
   useBenutzer,
-  useBenutzerLoeschen,
   useNeuesStartpasswort,
   usePersonAnlegen,
   useVerwaltungSetzen,
@@ -56,7 +55,6 @@ export function PersonenSettings() {
   const neuesStartpasswort = useNeuesStartpasswort();
   const aktivSetzen = useAktivSetzen();
   const verwaltungSetzen = useVerwaltungSetzen();
-  const loeschen = useBenutzerLoeschen();
 
   const [anlegenOffen, setAnlegenOffen] = useState(false);
   const [zettel, setZettel] = useState<StartpasswortZettel | null>(null);
@@ -124,20 +122,6 @@ export function PersonenSettings() {
     );
   };
 
-  const handleLoeschen = async (b: Benutzer) => {
-    const ok = await confirm({
-      title: `${anzeigeName(b)} endgültig löschen?`,
-      message:
-        'Das Konto und die zugehörigen Daten werden gelöscht, und das ist nicht umkehrbar. ' +
-        'Wer nur aussperren will, sperrt besser.',
-      confirmText: 'Endgültig löschen',
-    });
-    if (!ok) return;
-    loeschen.mutate(b.id, {
-      onSuccess: () => toast.success(`${anzeigeName(b)} gelöscht`),
-    });
-  };
-
   return (
     <div className="animate-in fade-in" data-testid="personen-seite">
       {ConfirmDialog}
@@ -178,8 +162,8 @@ export function PersonenSettings() {
               aktionen={b =>
                 /* Für das eigene Konto stehen hier keine Knöpfe: das Backend
                    lehnt alle für einen selbst ab (das eigene Passwort wechselt
-                   man bei der Anmeldung, gelöscht wird man über den
-                   Datenschutz). Knöpfe, die sicher scheitern, sind eine
+                   man bei der Anmeldung). Löschen steht nicht hier,
+                   sondern im Bereich Daten. Knöpfe, die sicher scheitern, sind eine
                    Sackgasse. */
                 istIchSelbst(b) ? null : (
                   <>
@@ -208,17 +192,6 @@ export function PersonenSettings() {
                         <ShieldCheck className="size-4" aria-hidden="true" />
                       )}
                       <span className="sr-only">{b.is_active ? 'Sperren' : 'Wieder zulassen'}</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleLoeschen(b)}
-                      disabled={loeschen.isPending}
-                      data-testid={`loeschen-${b.username}`}
-                      title="Löschen"
-                    >
-                      <Trash2 className="size-4 text-destructive" aria-hidden="true" />
-                      <span className="sr-only">Löschen</span>
                     </Button>
                   </>
                 )

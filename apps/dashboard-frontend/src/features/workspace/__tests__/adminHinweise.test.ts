@@ -57,8 +57,7 @@ describe('Hinweise für den Administrator', () => {
       /noch nie/
     );
     expect(sicherungHinweis(sicherung({ status: 'failed' }))?.ziel).toEqual({
-      bereich: 'system',
-      abschnitt: 'sicherung',
+      bereich: 'daten',
     });
   });
 

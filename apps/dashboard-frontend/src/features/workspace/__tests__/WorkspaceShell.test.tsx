@@ -99,15 +99,22 @@ describe('WorkspaceShell', () => {
     await landetAuf('/workspace/verwaltung/modelle');
   });
 
-  it('ein alter ?tab= landet auf dem Bereich, der Unterbereich aufgeklappt', async () => {
+  it('ein alter ?tab= landet auf dem Bereich (Sicherung im Bereich Daten)', async () => {
     renderShell('/workspace/verwaltung?tab=sicherung');
-    await landetAuf('/workspace/verwaltung/system/sicherung');
+    await landetAuf('/workspace/verwaltung/daten');
     expect(useWorkspaceStore.getState().ansicht).toEqual({
       type: 'verwaltung',
-      bereich: 'system',
-      abschnitt: 'sicherung',
+      bereich: 'daten',
     });
   });
+
+  it.each(['/workspace/verwaltung/privacy', '/workspace/verwaltung/system/werksreset'])(
+    'die gestrichene Adresse %s führt in den Bereich Daten',
+    async pfad => {
+      renderShell(pfad);
+      await landetAuf('/workspace/verwaltung/daten');
+    }
+  );
 
   it('/workspace/settings?tab= aus der Zeit vor M5 führt in die Verwaltung', async () => {
     renderShell('/workspace/settings?tab=remote-access');

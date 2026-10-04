@@ -8,21 +8,21 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Werksreset } from '../Werksreset';
+import { Werksreset } from '../daten/Werksreset';
 
 const get = vi.fn();
 const post = vi.fn();
 
-vi.mock('../../../hooks/useApi', () => ({
+vi.mock('@/hooks/useApi', () => ({
   useApi: () => ({ get, post, put: vi.fn(), patch: vi.fn(), del: vi.fn(), request: vi.fn() }),
 }));
 
 const logout = vi.fn();
-vi.mock('../../../contexts/AuthContext', () => ({
+vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ logout, user: { username: 'kolja' }, isAuthenticated: true }),
 }));
 
-vi.mock('../../../contexts/ToastContext', () => ({
+vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 

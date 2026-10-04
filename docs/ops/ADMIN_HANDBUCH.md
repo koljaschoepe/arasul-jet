@@ -73,11 +73,14 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   Konten/Apps). Ein Klick führt in den Bereich der Verwaltung. Ist alles gut,
   steht dort nichts.
 - **Verwaltung:** links eine eigene Leiste der Bereiche (Allgemein, Apps,
-  Personen, Firmenordner, Modelle, KI, Sicherheit, Datenschutz, System, Lizenz,
+  Personen, Firmenordner, Modelle, KI, Sicherheit, System, Daten, Lizenz,
   Fernzugriff), daneben der gewählte Bereich. Im Bereich
-  **System** stehen Auslastung, Dienste, Aktualisierungen, Sicherung,
-  Selbstheilung und Werksreset untereinander und klappen auf. Jeder Bereich hat
-  eine eigene Adresse, etwa `/workspace/verwaltung/system/sicherung`.
+  **System** stehen Auslastung, Dienste, Aktualisierungen und Selbstheilung
+  untereinander und klappen auf. Im Bereich **Daten** steht alles, was mit den
+  Daten des Geräts geschieht: Sicherung, Auskunft und Export, darunter abgesetzt
+  Person löschen und Werksreset (siehe Abschnitt 5). Jeder Bereich hat eine
+  eigene Adresse, etwa `/workspace/verwaltung/daten`; die alten Adressen von
+  Sicherung, Datenschutz und Werksreset führen dorthin.
 - **Statusleiste (unten), für jeden gleich:** dauerhaft Name, Datum und
   Uhrzeit (minutengenau), sonst nichts: kein Modell, kein Speicher, keine
   Verbindung, keine Fassung. Modelle, Downloads und Systemzustand stehen in
@@ -212,8 +215,8 @@ kam mit der neuen Oberfläche dazu):
 | **Personen**    | Anlegen (Name, E-Mail), Startpasswort einmal, sperren, Schalter „Verwaltung“, Freigaben für Apps und Ordner |
 | **KI**          | Standardwerte der Sprachmodelle                                                                             |
 | **Sicherheit**  | Passwort ändern, Abmelden / von allen Geräten abmelden                                                      |
-| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Löschung                                                                  |
 | **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_                                                   |
+| **Daten**       | Sicherung, DSGVO-Auskunft und Export je Person, abgesetzt Person löschen und Werksreset                     |
 | **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                                                                            |
 
 Der Reiter **Mitarbeiter** ist in Kapitel 7 beschrieben, weil dort auch die
@@ -310,7 +313,7 @@ Das Gerät sichert jede Nacht um 02:00 Uhr **vier** Dinge (dazu die Datenbanken 
 ohne Einrichtung. Das Gerät erkennt den Datenträger, hängt ihn ein und legt
 dort jede Nacht (und bei „Jetzt sichern“) die Sicherung ab, **außchließlich
 verschlüsselt**: wer den Stick findet, kann nichts lesen. Unter **Einstellungen
-→ System → Sicherung** stehen Name und freier Platz des Datenträgers. Das
+→ Daten → Sicherung** stehen Name und freier Platz des Datenträgers. Das
 Gerät formatiert nie etwas; ein neuer Datenträger sollte ext4 oder exFAT
 haben. Kein Cloud-Ziel: die Daten bleiben im Haus.
 
@@ -328,7 +331,7 @@ oben auf der Seite Sicherung, und der Administrator bekommt eine Mitteilung.
 
 ### Manuelles Backup
 
-**Einstellungen → System → Sicherung → Jetzt sichern.** Die Sicherung läuft
+**Verwaltung → Daten → Sicherung → Jetzt sichern.** Die Sicherung läuft
 sofort und braucht am Gerät einige Minuten; danach steht die Meldung, dass sie
 fertig ist, und die Liste darunter zeigt die neue Datei mit Datum und Grösse.
 Solange sie läuft, lässt das Gerät nichts Zweites zu.
@@ -352,7 +355,7 @@ docker exec backup-service /usr/local/bin/backup.sh
 
 ### Backup wiederherstellen
 
-Unter **Verwaltung → System → Sicherung → Zurückholen** geht es in drei
+Unter **Verwaltung → Daten → Sicherung → Zurückholen** geht es in drei
 Schritten zurück, für alles dasselbe (seit M5):
 
 1. **Was?** Eine App, einen Bereich des Firmenordners oder das ganze Gerät.
@@ -414,9 +417,26 @@ Gerät einen Abzug des jetzigen Standes unter
 
 ---
 
+## 5b. Auskunft und Export, Person löschen
+
+**Verwaltung → Daten → Auskunft und Export.** Eine Person wählen (vorgewählt
+sind Sie selbst): darunter steht, was über sie gespeichert ist, nach Kategorie
+gezählt (Profil, Flow-Läufe, Aktivitätsprotokoll, Freigaben). „Auskunft
+herunterladen" liefert alles als JSON-Datei; ist eine SSD angesteckt, steht
+daneben „Auf <Name>". Die Auskunft ist ein Vorgang des Hauses und steht
+deshalb **nicht** in den Einstellungen der Person: diese sind nur persönlich
+(Profil, Passwort, Rechner, Erscheinungsbild). Wer eine Auskunft über sich
+verlangt (Art. 15), wendet sich an die Verwaltung.
+
+**Person löschen** (Art. 17) steht im abgesetzten Teil darunter. Der Knopf
+bleibt gesperrt, bis der Name der Person genau eingetippt ist. Gelöscht werden
+Konto, Läufe, Schlüssel und Freigaben; Protokolle bleiben ohne Namen stehen.
+
 ## 5a. Werksreset
 
-**Einstellungen → System → Werksreset**
+**Verwaltung → Daten**, ganz unten im abgesetzten Teil „Löschen und Zurücksetzen“
+(dort ist als einzige Stelle der Oberfläche etwas rot). Bestätigt wird durch
+Eintippen des Gerätenamens.
 
 Zwei Stufen. Beide sind endgültig, es gibt kein Rückgängig. Was hier
 verschwindet, steht danach nur noch in einer Sicherung (Abschnitt 5).
@@ -565,8 +585,9 @@ danach steht es auf Community (Stand 25.09.2026).
 **In der Oberfläche: Einstellungen > Mitarbeiter.** Das Zahnrad unten in der
 Aktivitätsleiste links, dann in der Sektionsliste „Mitarbeiter". Die Seite
 zeigt jeden Menschen am Gerät mit Rolle, Zustand und der letzten Anmeldung.
-Rechts an jeder Zeile stehen drei Handgriffe: Startpasswort setzen, stilllegen
-oder wieder zulassen, löschen. Oben rechts legt „Menschen anlegen" einen
+Rechts an jeder Zeile stehen zwei Handgriffe: Startpasswort setzen, stilllegen
+oder wieder zulassen. Löschen steht nicht hier, sondern unter **Verwaltung →
+Daten → Person löschen** (Namen eintippen); stilllegen kommt vor löschen. Oben rechts legt „Menschen anlegen" einen
 neuen an.
 
 Die Spalte **Passwort** sagt „Startpasswort", solange das aktuelle Passwort von
@@ -575,8 +596,9 @@ Anmelden, danach steht dort „eigenes". Sie sehen daran auch, ob er sich
 überhaupt schon angemeldet hat.
 
 Am eigenen Konto stehen keine Handgriffe. Ihr eigenes Passwort wechseln Sie
-unter **Einstellungen > Sicherheit**, gelöscht wird das eigene Konto über
-**Einstellungen > Datenschutz**; das Gerät lehnt beide Wege hier ohnehin ab.
+unter **Einstellungen > Sicherheit**; das Gerät lehnt beide Wege hier ohnehin ab.
+Das eigene Konto lässt sich in der Oberfläche nicht löschen (die Schnittstelle
+`DELETE /api/gdpr/me` gibt es weiter).
 
 Dieselben Handgriffe über die Schnittstelle, angemeldet als Administrator:
 

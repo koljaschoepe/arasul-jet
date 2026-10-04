@@ -136,6 +136,42 @@ describe('GET /api/gdpr/export', () => {
   });
 });
 
+describe('GET /api/gdpr/export?benutzer=', () => {
+  beforeEach(() => {
+    db.query.mockReset();
+    db.query.mockResolvedValue({ rows: [] });
+  });
+
+  test('der Administrator holt die Auskunft über eine andere Person', async () => {
+    db.query.mockImplementation(async (sql, params) => {
+      if (sql.includes('FROM admin_users WHERE id')) {
+        return { rows: [{ id: 7, username: 'anna@firma.de', role: 'mitarbeiter' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(buildApp()).get('/api/gdpr/export?benutzer=7');
+
+    expect(res.status).toBe(200);
+    expect(res.body._meta.username).toBe('anna@firma.de');
+    expect(res.body._meta.userId).toBe(7);
+    expect(res.headers['content-disposition']).toContain('anna@firma.de');
+    // Die Kategorien fragen nach der Person, nicht nach dem Aufrufer (42).
+    const mitFlows = db.query.mock.calls.find(c => c[0].includes('FROM flow_runs'));
+    expect(mitFlows[1]).toEqual([7]);
+  });
+
+  test('eine unbekannte Person ist 404', async () => {
+    const res = await request(buildApp()).get('/api/gdpr/export?benutzer=99');
+    expect(res.status).toBe(404);
+  });
+
+  test('keine Zahl ist 400', async () => {
+    const res = await request(buildApp()).get('/api/gdpr/export?benutzer=abc');
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('GET /api/gdpr/categories', () => {
   beforeEach(() => {
     db.query.mockReset();

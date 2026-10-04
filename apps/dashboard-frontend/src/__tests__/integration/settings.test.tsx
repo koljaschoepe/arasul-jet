@@ -105,7 +105,7 @@ describe('Settings integration', () => {
     expect(screen.getByTestId('verwaltung-general')).toBeInTheDocument();
     expect(screen.getByTestId('verwaltung-ki')).toBeInTheDocument();
     expect(screen.getByTestId('verwaltung-security')).toBeInTheDocument();
-    expect(screen.getByTestId('verwaltung-privacy')).toBeInTheDocument();
+    expect(screen.getByTestId('verwaltung-daten')).toBeInTheDocument();
     expect(screen.getByTestId('verwaltung-system')).toBeInTheDocument();
     expect(screen.getByTestId('verwaltung-remote-access')).toBeInTheDocument();
 
@@ -113,7 +113,7 @@ describe('Settings integration', () => {
     expect(screen.getAllByText('Allgemein').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('KI').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Sicherheit').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Datenschutz').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Daten').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('System').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Fernzugriff').length).toBeGreaterThanOrEqual(1);
 

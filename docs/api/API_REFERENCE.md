@@ -2185,8 +2185,8 @@ Datei ist das kein Fehler (`entfernt: false`). Protokolliert als
 
 | Method | Endpoint               | Auth  | Description                                                                                                                                                          |
 | ------ | ---------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/gdpr/export`     | Beide | Full GDPR data export (Art. 20) as JSON file                                                                                                                         |
-| GET    | `/api/gdpr/categories` | Admin | List data categories with record counts                                                                                                                              |
+| GET    | `/api/gdpr/export`     | Beide | Full GDPR data export (Art. 20) as JSON file. `?benutzer=<id>` (nur Admin): die Auskunft über eine andere Person (Verwaltung → Daten); `?ziel=<datentraeger>` legt sie auf eine angesteckte Platte                                                                                                                        |
+| GET    | `/api/gdpr/categories` | Admin | List data categories with record counts; `?benutzer=<id>` zählt für diese Person, ohne Angabe für den Aufrufer                                                                                                                              |
 | GET    | `/api/gdpr/ziele`      | Admin | Angesteckte Datenträger als Export-Ziel (Plan 023 J3). Die Antwort trägt einen `hinweis`, der „keine Platte angesteckt" von „Ordner nicht eingebunden" unterscheidet |
 | DELETE | `/api/gdpr/me`         | Beide | Delete own account (Art. 17 — right to erasure)                                                                                                                      |
 

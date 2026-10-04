@@ -9,13 +9,38 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError } = require('../../utils/errors');
+const { ValidationError, ForbiddenError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const { loescheBenutzer } = require('../../services/auth/benutzerService');
+const { loescheBenutzer, holeBenutzer } = require('../../services/auth/benutzerService');
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
+
+/**
+ * Über wen die Auskunft geht. Ohne `?benutzer=` über den Aufrufer selbst; mit
+ * `?benutzer=<id>` über eine andere Person — das darf nur ein Administrator
+ * (Verwaltung, Bereich Daten, M5). Die Rolle wird hier geprüft und nicht nur
+ * an der Route: der Export steht auch Mitarbeitern für das eigene Konto offen.
+ */
+async function auskunftsPerson(req) {
+  const roh = req.query.benutzer;
+  if (roh === undefined || roh === '') {
+    return { id: req.user.id, username: req.user.username, fremd: false };
+  }
+  const id = Number(roh);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('`benutzer` muss die Nummer einer Person sein.');
+  }
+  if (id === Number(req.user.id)) {
+    return { id: req.user.id, username: req.user.username, fremd: false };
+  }
+  if (req.user.role !== 'admin') {
+    throw new ForbiddenError('Nur die Verwaltung darf die Daten einer anderen Person abrufen.');
+  }
+  const ziel = await holeBenutzer(id);
+  return { id: ziel.id, username: ziel.username, fremd: true };
+}
 
 /**
  * GET /api/gdpr/export
@@ -27,13 +52,15 @@ router.get(
   requireAuth,
   requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
-    const userId = req.user.id;
+    const person = await auskunftsPerson(req);
+    const userId = person.id;
 
-    logger.info(`GDPR data export requested by user ${req.user.username}`);
+    logger.info(`GDPR data export requested by user ${req.user.username} for ${person.username}`);
 
     logSecurityEvent({
-      userId,
+      userId: req.user.id,
       action: 'gdpr_data_export',
+      details: person.fremd ? { fuer: person.username } : undefined,
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
@@ -142,7 +169,7 @@ router.get(
           `SELECT username, ip_address, success, user_agent, attempted_at
          FROM login_attempts WHERE username = $1
          ORDER BY attempted_at DESC LIMIT 500`,
-          [req.user.username]
+          [person.username]
         ),
 
       // 8. Active sessions
@@ -212,7 +239,7 @@ router.get(
         // muss damit rechnen, dass es keine Versionsnummer ist.
         systemVersion: versionFuerAnzeige(),
         userId,
-        username: req.user.username,
+        username: person.username,
         description: 'DSGVO/GDPR-konformer Datenexport aller personenbezogenen Daten',
         // Leer heißt: jede Kategorie konnte gelesen werden. Steht hier etwas,
         // ist der Export unvollständig und die Auskunft entsprechend zu geben.
@@ -248,7 +275,7 @@ router.get(
       }),
     };
 
-    const filename = `arasul-gdpr-export-${req.user.username}-${new Date().toISOString().split('T')[0]}.json`;
+    const filename = `arasul-gdpr-export-${person.username}-${new Date().toISOString().split('T')[0]}.json`;
 
     // Plan 023 J3: mit `?ziel=<datentraeger>` landet der Export auf einer
     // angesteckten Platte statt im Browser. Der Export selbst ist derselbe —
@@ -263,9 +290,13 @@ router.get(
         JSON.stringify(exportData, null, 2)
       );
       logSecurityEvent({
-        userId,
+        userId: req.user.id,
         action: 'gdpr_data_export',
-        details: { ziel: geschrieben.pfad, bytes: geschrieben.bytes },
+        details: {
+          ziel: geschrieben.pfad,
+          bytes: geschrieben.bytes,
+          ...(person.fremd ? { fuer: person.username } : {}),
+        },
         ipAddress: req.ip,
         requestId: req.headers['x-request-id'],
       });
@@ -316,7 +347,7 @@ router.get(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const userId = req.user.id;
+    const userId = (await auskunftsPerson(req)).id;
 
     // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
     // Zahlen als die Auskunft.

@@ -150,7 +150,8 @@ describe('PersonenSettings', () => {
 
     await screen.findByTestId('person-admin');
     expect(screen.queryByTestId('loeschen-admin')).not.toBeInTheDocument();
-    expect(screen.getByTestId('loeschen-mia')).toBeInTheDocument();
+    // Löschen gibt es nur im Bereich Daten, nicht mehr in der Liste.
+    expect(screen.queryByTestId('loeschen-mia')).not.toBeInTheDocument();
   });
 
   it('zeigt Vor- und Nachname statt der E-Mail und die Funktion darunter', async () => {
@@ -363,7 +364,6 @@ describe('PersonenSettings', () => {
       expect(liste.tagName).toBe('UL');
       expect(screen.getByTestId('person-mia')).toBeInTheDocument();
       expect(screen.getByTestId('startpasswort-mia')).toBeInTheDocument();
-      expect(screen.getByTestId('loeschen-mia')).toBeInTheDocument();
 
       // Die Matrix steht als Gruppe je App, und die Zelle heisst weiter gleich.
       const matrix = await screen.findByTestId('freigabe-matrix');

@@ -1,11 +1,10 @@
 import { useCallback, useState } from 'react';
-import { AlertTriangle, RotateCcw, ShieldAlert } from 'lucide-react';
-import { Kopf } from '@marken';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
-import { useApi } from '../../hooks/useApi';
-import { useAuth } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
-import { formatZahl } from '../../utils/formatting';
+import { useApi } from '@/hooks/useApi';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+import { formatZahl } from '@/utils/formatting';
 
 /**
  * Werksreset (Plan 023 B5).
@@ -16,7 +15,12 @@ import { formatZahl } from '../../utils/formatting';
  * kann sich hinterher nicht überrascht nennen.
  *
  * Bestätigt wird durch Eintippen des Gerätenamens. Ein Wort wie „LÖSCHEN" tippt
- * man im Zweifel auch auf dem falschen Gerät.
+ * man im Zweifel auch auf dem falschen Gerät; der Name ist das feste Wort, das
+ * nur dieses Gerät hat.
+ *
+ * Seit M5 steht der Werksreset im Bereich Daten der Verwaltung, abgesetzt unter
+ * dem Löschen einer Person (`DatenSettings.tsx`); Titel und Rahmen setzt dieser
+ * Bereich, hier steht nur der Ablauf.
  */
 
 type Stufe = 'inhalte' | 'auslieferung';
@@ -158,13 +162,7 @@ export function Werksreset() {
   const betroffen = vorschau?.tabellen.filter(t => (t.zeilen ?? 0) > 0) ?? [];
 
   return (
-    <div className="max-w-3xl">
-      <Kopf
-        titel="Werksreset"
-        symbol={<RotateCcw />}
-        beschreibung="Setzt das Gerät zurück. Es gibt kein Rückgängig. Was hier verschwindet, ist nur noch in einer Sicherung vorhanden."
-      />
-
+    <div className="max-w-3xl" data-testid="werksreset">
       <div className="flex flex-col gap-6">
         <fieldset className="flex flex-col gap-3" disabled={laeuft}>
           <legend className="sr-only">Stufe wählen</legend>
