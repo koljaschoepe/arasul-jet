@@ -121,9 +121,10 @@ baue_paket() {
   rm -rf "$ordner"
   mkdir -p "$ordner"
   cp -R "$QUELLE/backend" "$QUELLE/flows" "$ordner/"
-  (cd "$WURZEL" && PROBE_AUSGABE="$ordner/frontend" npx vite build \
-    --config "$QUELLE/quelle/vite.config.mjs" >"$ARBEIT/bau.log" 2>&1) \
-    || { cat "$ARBEIT/bau.log" >&2; return 1; }
+  # Ein statisches Frontend genuegt: gemessen wird das Entfernen, nicht die Seite.
+  mkdir -p "$ordner/frontend"
+  printf '<!doctype html><meta charset="utf-8"><title>Probe: Entfernen</title><p>Probe</p>\n' \
+    >"$ordner/frontend/index.html"
   python3 - "$QUELLE/app.json" "$ordner/app.json" "$kennung" "$version" <<'PY'
 import json, sys
 quelle, ziel, kennung, version = sys.argv[1:5]
@@ -191,6 +192,15 @@ pruefe 'Wegwerf-Schluessel mit app:deploy und flow:run' "$([ -n "$SCHLUESSEL" ] 
 
 ruf "$TOK" GET /api/auth/me
 ICH=$(rumpf | feld user.id)
+# Die Proben-App verlangt vier Augen: ohne einen zweiten Menschen im Kreis lehnt
+# das Geraet das Einreichen ab. Dafuer ein VORHANDENES Probekonto, nur als
+# Freigabe -- sein Passwort braucht die Abnahme nicht.
+ZWEITER="${ARASUL_A:-probe-j36-a}"
+if [ "$ZWEITER" = "admin" ]; then echo "Nie das Konto admin."; exit 1; fi
+ruf "$TOK" GET /api/benutzer
+ID_ZWEITER=$(rumpf | python3 -c 'import sys,json; print(next((str(b["id"]) for b in json.load(sys.stdin)["data"] if b["username"]==sys.argv[1]), ""))' "$ZWEITER")
+pruefe "Zweiter Mensch fuer den Kreis: $ZWEITER (vorhanden)" "$([ -n "$ID_ZWEITER" ] && echo ja || echo nein)"
+[ -z "$ID_ZWEITER" ] && exit 1
 
 # Eine Probe-App mit Test- und Livestand, einer offenen Freigabe und einem
 # wartenden Lauf je Stand. Setzt $LAEUFE (Nummern, durch Leerzeichen getrennt).
@@ -209,6 +219,8 @@ lege_an() {
   [ "$CODE" = "201" ] || { echo "        $(rumpf)"; return 1; }
   ruf "$TOK" POST /api/freigaben "{\"app_id\":\"$kennung\",\"benutzer_id\":$ICH,\"stand\":\"test\"}"
   case "$CODE" in 200 | 201) ;; *) echo "        Freigabe: HTTP $CODE $(rumpf)"; return 1 ;; esac
+  ruf "$TOK" POST /api/freigaben "{\"app_id\":\"$kennung\",\"benutzer_id\":$ID_ZWEITER,\"stand\":\"test\"}"
+  case "$CODE" in 200 | 201) ;; *) echo "        Freigabe zweiter: HTTP $CODE $(rumpf)"; return 1 ;; esac
   arasul_warte_auf_app "/apps/$kennung/api/gesund" 180 "$TOK" || return 1
   arasul_warte_auf_app "/apps/$kennung/test/api/gesund" 180 "$TOK" || return 1
   local pfad lauf ende
@@ -297,6 +309,7 @@ APPS+=("$KENNUNG")
 PAKET=$(baue_paket "$KENNUNG" "$VERSION_A")
 paket_ruf /api/v1/external/apps "$PAKET"
 pruefe '[haelt] Einspielen' "$(ja_wenn "$CODE" 201)" "HTTP $CODE"
+if [ "$CODE" != "201" ]; then rumpf; echo; exit 1; fi
 ruf "schluessel:$SCHLUESSEL" DELETE "/api/v1/external/apps/$KENNUNG?bestaetigung=$KENNUNG&dateien=false"
 pruefe '[haelt] Entfernen mit dateien=false gelingt' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
 if [ "$SSH_GEHT" = ja ]; then
