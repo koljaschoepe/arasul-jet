@@ -1,6 +1,6 @@
 ---
 name: ohne
-beschreibung: Wie buch, aber ohne Abschluss-Route: verhaelt sich wie bisher (Abnahme M5, Abschluss).
+beschreibung: "Wie buch, aber ohne Abschluss-Route, verhaelt sich wie bisher (Abnahme M5, Abschluss)."
 argumente:
   - name: thema
     typ: freitext
