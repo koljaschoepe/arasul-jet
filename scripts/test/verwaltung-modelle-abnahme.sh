@@ -373,7 +373,7 @@ print("ja" if all(m["sperre"] is None for m in frei) else "nein")' 2>/dev/null)"
 ruf "$TOK" DELETE "/api/models/gemma4%3Ae4b"
 pruefe 'gemma4:e4b entfernen, solange ein Flow es nutzt: 409' "$(ja_wenn "$CODE" 409)" "HTTP $CODE"
 pruefe 'Die Meldung nennt den Flow der Probe-App' \
-  "$([ "$(enthaelt "$(rumpf)" "$FLOW")" = ja ] && [ "$(enthaelt "$(rumpf)" 'nutzen')" = ja ] && echo ja || echo nein)" "$(rumpf | feld error.message | cut -c1-110)"
+  "$([ "$(enthaelt "$(rumpf)" "$FLOW")" = ja ] && [ "$(enthaelt "$(rumpf)" 'ein Flow es nutzt')" = ja ] && echo ja || echo nein)" "$(rumpf | feld error.message | cut -c1-110)"
 pruefe 'Das Gerät nennt den Grund maschinenlesbar: IN_NUTZUNG mit dem Flow' \
   "$([ "$(rumpf | feld error.details.grund)" = IN_NUTZUNG ] && [ "$(enthaelt "$(rumpf | feld error.details.flows)" "$APP")" = ja ] && echo ja || echo nein)"
 verwaltung
