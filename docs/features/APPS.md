@@ -508,7 +508,8 @@ host:port` (https) und bei einer Anfrage mit absoluter URL (http). Der Proxy
   entfallen): je Name lesbar benannt mit Anzahl und zuletzt, die Adresse
   aufgeklappt, nicht eingetragene abgewiesene Namen grau und zugeklappt. Rot
   ist nur ein eingetragener Name, der abgewiesen wurde (`stoerung`): dann kann
-  die App nicht arbeiten.
+  die App nicht arbeiten. Die Seite der App misst `scripts/test/app-seite-abnahme.sh`
+  am Gerät (mit `app-seite-bilder.mjs`).
 - **Ausfall:** steht der Proxy, kommt keine App ins Internet, aber jede erreicht
   weiter ihre Datenbank und die Plattform. Im Leerlauf: siehe die Messung im
   Journal (HISTORIE, J38).
