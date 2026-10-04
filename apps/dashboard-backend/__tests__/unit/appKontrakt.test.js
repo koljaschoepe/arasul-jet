@@ -329,7 +329,7 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // und bei wem eine Freigabe liegt. Additiv und vom Geraet durchgesetzt:
     // ein Kit, das die Saetze nicht liest, rollt und startet wie bisher, und
     // eine hoehere Nummer hielte jedes Kit an. Die Zahl bleibt bei 9.
-    expect(abdruck).toBe('b226a3bfa77d354d0918bc7f52a5553f1f2562ec53544b98bbd5d517afccddb8');
+    expect(abdruck).toBe('d3ca814489ee4c5083aedd5308dc0cf3571d81ca889f61ec9c5021e38fa9b49c');
   });
 
   /**
