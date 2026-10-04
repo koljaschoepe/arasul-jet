@@ -122,7 +122,7 @@ pruefe "Probekonto $A gefunden" "$([ -n "$ID_A" ] && echo ja || echo nein)"
 ruf GET /api/firmenordner/ordner
 ID_BEREICH="$(lies "next((str(o['id']) for o in d['data'] if o['kennung']=='$BEREICH'), '')")"
 ruf POST /api/firmenordner/rechte "{\"ordner_id\":\"$ID_BEREICH\",\"benutzer_id\":\"$ID_A\",\"recht\":\"lesen\"}"
-pruefe "$A bekommt lesen auf dem Bereich" "$(case "$CODE" in 200|201) echo ja ;; *) echo nein ;; esac)" "$CODE"
+pruefe "$A bekommt lesen auf dem Bereich" "$([[ "$CODE" == 200 || "$CODE" == 201 ]] && echo ja || echo nein)" "$CODE"
 
 echo "--- Zahl und Stufen am Gerät ---"
 ruf GET /api/firmenordner/ordner
