@@ -1,10 +1,11 @@
 /**
- * Die Modell-Ansicht (Phase D5).
+ * Die Modell-Ansicht der Verwaltung (M5, Auftrag verwaltung-modelle).
  *
- * Gemessen wird, was die Phase verlangt: die Ansicht zeigt GENAU die
- * Kurzliste, sie sagt welches Modell der Standard ist, sie nennt KI-RAM und
- * das Modell im Speicher, und die drei Handgriffe (laden, Standard setzen,
- * entfernen) gehen an die Wege, die es dafür gibt.
+ * Gemessen wird, was der Auftrag verlangt: je Zeile Name, Größe, Fähigkeiten,
+ * warm und die nutzenden Flows; darüber eine Zeile Speicher für KI; Hinzufügen
+ * aus der Liste oder per Name prüft vorher und zeigt die Abweisung; Entfernen
+ * eines genutzten Modells ist gesperrt; Knöpfe zum Laden oder Entladen von Hand
+ * gibt es nicht.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -38,60 +39,61 @@ vi.mock('@/contexts/DownloadContext', () => ({
     activeDownloadCount: 0,
   }),
 }));
-vi.mock('@/contexts/ActivationContext', () => ({
-  useActivation: () => ({
-    activation: null,
-    startActivation: vi.fn(),
-    cancelActivation: vi.fn(),
-    isActivating: () => false,
-    getActivationPercent: () => 0,
-    onActivationComplete: () => () => {},
-  }),
-}));
 
-/** Die Kurzliste aus C8, so wie `GET /api/models/catalog` sie liefert. */
-const KURZLISTE = [
-  {
-    id: 'qwen3.8:27b-q4_K_M',
-    name: 'Qwen 3.8 27B',
-    description: 'Der Standard. Die Flows laufen darauf.',
-    size_bytes: 16_000_000_000,
-    ram_required_gb: 20,
-    category: 'gross',
-    task: 'text',
-    install_status: 'available',
-  },
-  {
-    id: 'gemma4:e4b',
-    name: 'Gemma 4 e4b',
-    description: 'Das kleine schnelle.',
-    size_bytes: 4_000_000_000,
-    ram_required_gb: 6,
-    category: 'klein',
-    task: 'text',
-    install_status: 'not_installed',
-  },
-  {
-    id: 'nomic-embed-text',
-    name: 'Nomic Embed Text',
-    description: 'Einbettungen.',
-    size_bytes: 274_000_000,
-    ram_required_gb: 1,
-    category: 'klein',
-    task: 'embedding',
-    install_status: 'available',
-  },
-  {
-    id: 'llava-phi3',
-    name: 'LLaVA Phi3',
-    description: 'Bilder und eingescannter Text.',
-    size_bytes: 2_900_000_000,
-    ram_required_gb: 4,
-    category: 'klein',
-    task: 'vision',
-    install_status: 'available',
-  },
-];
+const FAEHIG = { text: true, bild: false, werkzeuge: true, kontext: 262_144 };
+
+const QWEN = {
+  id: 'qwen3.8:27b-q4_K_M',
+  name: 'Qwen 3.8 27B',
+  groesse_bytes: 16_000_000_000,
+  faehigkeiten: { ...FAEHIG, bild: true },
+  warm: true,
+  ist_standard: true,
+  ungemessen: false,
+  flows: [{ app_id: 'probe', app_name: 'Probe', flow: 'beleg' }],
+  sperre:
+    '„Qwen 3.8 27B" lässt sich nicht entfernen, solange ein Flow es nutzt: „beleg" (Probe). Bitte erst die Flows auf ein anderes Modell umstellen.',
+};
+const GEMMA = {
+  id: 'gemma4:e4b',
+  name: 'Gemma 4 e4b',
+  groesse_bytes: 4_000_000_000,
+  faehigkeiten: FAEHIG,
+  warm: false,
+  ist_standard: false,
+  ungemessen: false,
+  flows: [],
+  sperre: null,
+};
+const NOMIC = {
+  id: 'nomic-embed-text',
+  name: 'Nomic Embed Text',
+  groesse_bytes: 274_000_000,
+  faehigkeiten: { text: false, bild: false, werkzeuge: false, kontext: null },
+  warm: false,
+  ist_standard: false,
+  ungemessen: false,
+  flows: [],
+  sperre: null,
+};
+const LLAVA = {
+  id: 'llava-phi3',
+  name: 'LLaVA Phi3',
+  beschreibung: 'Kleiner Rückfall für Bilder.',
+  groesse_bytes: 2_900_000_000,
+  laedt: false,
+  passt: true,
+  grund: null,
+};
+const RIESIG = {
+  id: 'riesig:70b',
+  name: 'Riesig 70B',
+  beschreibung: null,
+  groesse_bytes: 90_000_000_000,
+  laedt: false,
+  passt: false,
+  grund: 'Das Modell ist zu groß für dieses Gerät: es braucht 100 GB. Bitte ein kleineres wählen.',
+};
 
 const BUDGET = {
   totalBudgetMb: 32_768,
@@ -116,10 +118,13 @@ function huelle() {
   };
 }
 
-function antworte() {
+function antworte(
+  verwaltung = { standard: QWEN.id, modelle: [QWEN, GEMMA, NOMIC], liste: [LLAVA, RIESIG] }
+) {
   apiMock.get.mockImplementation(async (pfad: string) => {
-    if (pfad === '/models/catalog') return { models: KURZLISTE };
-    if (pfad === '/models/default') return { default_model: 'qwen3.8:27b-q4_K_M' };
+    if (pfad === '/models/verwaltung') return verwaltung;
+    if (pfad === '/models/catalog') return { models: [] };
+    if (pfad === '/models/default') return { default_model: QWEN.id };
     if (pfad === '/models/status') return { loaded_model: null };
     if (pfad === '/models/memory-budget') return BUDGET;
     throw new Error(`unerwarteter Pfad: ${pfad}`);
@@ -132,105 +137,138 @@ describe('Modelle', () => {
     antworte();
   });
 
-  it('zeigt genau die Kurzliste', async () => {
+  it('zeigt eine Zeile je Modell am Gerät, mit Größe, Fähigkeiten und warm', async () => {
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
     const liste = await screen.findByTestId('modell-liste');
-    expect(liste.querySelectorAll('li')).toHaveLength(KURZLISTE.length);
-    for (const modell of KURZLISTE) {
-      expect(screen.getByTestId(`modell-${modell.id}`)).toBeInTheDocument();
-    }
+    expect(liste.querySelectorAll(':scope > li')).toHaveLength(3);
+    expect(screen.getByTestId(`groesse-${QWEN.id}`)).toHaveTextContent('16');
+    expect(screen.getByTestId(`faehigkeiten-${QWEN.id}`)).toHaveTextContent(
+      'Text, Bild, Werkzeuge, Kontext 256k'
+    );
+    expect(screen.getByTestId(`faehigkeiten-${GEMMA.id}`)).toHaveTextContent(
+      'Text, Werkzeuge, Kontext 256k'
+    );
+    expect(screen.getByTestId(`warm-${QWEN.id}`)).toHaveTextContent('warm: ja');
+    expect(screen.getByTestId(`warm-${GEMMA.id}`)).toHaveTextContent('warm: nein');
+  });
+
+  it('nennt je Modell die Flows, die es nutzen', async () => {
+    render(<ModelleAnsicht />, { wrapper: huelle() });
+
+    expect(await screen.findByTestId(`flows-${QWEN.id}`)).toHaveTextContent(
+      'Genutzt von: beleg (Probe)'
+    );
+    expect(screen.getByTestId(`flows-${GEMMA.id}`)).toHaveTextContent('Kein Flow nutzt es.');
+  });
+
+  it('zeigt darüber eine Zeile Speicher für KI', async () => {
+    render(<ModelleAnsicht />, { wrapper: huelle() });
+
+    const zeile = await screen.findByTestId('modelle-speicher');
+    await waitFor(() =>
+      expect(zeile).toHaveTextContent(
+        'Speicher für KI 20,0 von 32,0 GB belegt, 2,0 GB Reserve, frei 10,0 GB'
+      )
+    );
   });
 
   it('sagt, welches Modell der Standard ist, und nur bei einem', async () => {
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
-    expect(await screen.findByTestId('standard-qwen3.8:27b-q4_K_M')).toBeInTheDocument();
-    expect(screen.queryByTestId('standard-gemma4:e4b')).not.toBeInTheDocument();
-    // Und im Kopf steht derselbe Name.
-    expect(screen.getAllByText('Qwen 3.8 27B').length).toBeGreaterThan(1);
+    expect(await screen.findByTestId(`standard-${QWEN.id}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`standard-${GEMMA.id}`)).not.toBeInTheDocument();
   });
 
-  it('zeigt KI-RAM und das Modell im Speicher', async () => {
+  it('sperrt das Entfernen eines Modells, das ein Flow nutzt, und nennt die Flows', async () => {
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
-    expect(
-      await screen.findByText('20,0 von 32,0 GB belegt, 2,0 GB Reserve, frei 10,0 GB')
-    ).toBeInTheDocument();
-    expect(screen.getByTestId('im-speicher-qwen3.8:27b-q4_K_M')).toBeInTheDocument();
+    const knopf = await screen.findByTestId(`entfernen-${QWEN.id}`);
+    expect(knopf).toBeDisabled();
+    expect(knopf).toHaveAttribute('title', expect.stringContaining('„beleg" (Probe)'));
+    expect(screen.getByTestId(`entfernen-${GEMMA.id}`)).toBeEnabled();
   });
 
-  it('bietet Laden nur fuer ein Modell an, das nicht am Geraet liegt', async () => {
+  it('entfernt ein freies Modell über DELETE /models/:id', async () => {
+    apiMock.del.mockResolvedValue({});
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
-    fireEvent.click(await screen.findByTestId('laden-gemma4:e4b'));
-    expect(startDownload).toHaveBeenCalledWith('gemma4:e4b', 'Gemma 4 e4b');
-    // Was am Geraet liegt, hat keinen Lade-Knopf, sondern einen zum Entfernen.
-    expect(screen.queryByTestId('laden-llava-phi3')).not.toBeInTheDocument();
-    expect(screen.getByTestId('entfernen-llava-phi3')).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId(`entfernen-${GEMMA.id}`));
+    await waitFor(() => expect(apiMock.del).toHaveBeenCalledWith('/models/gemma4%3Ae4b'));
+    expect(toast.success).toHaveBeenCalled();
   });
 
-  it('setzt den Standard nur bei einem Modell, das einer sein kann', async () => {
-    apiMock.post.mockResolvedValue({});
+  it('hat keine Knöpfe zum Laden oder Entladen von Hand', async () => {
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
-    // Einbettungen und Bilder sind kein Standard der Flows.
-    expect(await screen.findByTestId('modell-nomic-embed-text')).toBeInTheDocument();
-    expect(screen.queryByTestId('standard-setzen-nomic-embed-text')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('standard-setzen-llava-phi3')).not.toBeInTheDocument();
-    // Das zweite Textmodell liegt nicht am Geraet, also erst laden.
-    expect(screen.queryByTestId('standard-setzen-gemma4:e4b')).not.toBeInTheDocument();
+    await screen.findByTestId('modell-liste');
+    expect(screen.queryByText(/in den Speicher/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/aus dem Speicher/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`entladen-${QWEN.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`in-den-speicher-${GEMMA.id}`)).not.toBeInTheDocument();
   });
 
-  it('J4: laedt eine Kennung ausserhalb der Kurzliste', async () => {
+  it('bietet Standard nur bei einem Modell an, das einer sein kann', async () => {
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
-    const feld = await screen.findByTestId('weiteres-modell-kennung');
-    expect(screen.getByTestId('weiteres-modell-laden')).toBeDisabled();
+    expect(await screen.findByTestId(`standard-setzen-${GEMMA.id}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`standard-setzen-${NOMIC.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`standard-setzen-${QWEN.id}`)).not.toBeInTheDocument();
+  });
+
+  it('zeigt die geprüfte Liste; was nicht passt, trägt den Grund und ist nicht anklickbar', async () => {
+    render(<ModelleAnsicht />, { wrapper: huelle() });
+
+    fireEvent.click(await screen.findByTestId(`hinzufuegen-${LLAVA.id}`));
+    expect(startDownload).toHaveBeenCalledWith(LLAVA.id, 'LLaVA Phi3');
+
+    expect(screen.getByTestId(`geprueft-grund-${RIESIG.id}`)).toHaveTextContent('zu groß');
+    expect(screen.getByTestId(`hinzufuegen-${RIESIG.id}`)).toBeDisabled();
+  });
+
+  it('Name eingeben: erst prüfen, dann laden', async () => {
+    apiMock.post.mockResolvedValue({ passt: true, grund: null, groesse_bytes: 4_100_000_000 });
+    render(<ModelleAnsicht />, { wrapper: huelle() });
+
+    const feld = await screen.findByTestId('modell-hinzufuegen-kennung');
+    expect(screen.getByTestId('modell-hinzufuegen-absenden')).toBeDisabled();
     fireEvent.change(feld, { target: { value: '  mistral:7b ' } });
-    fireEvent.click(screen.getByTestId('weiteres-modell-laden'));
+    fireEvent.click(screen.getByTestId('modell-hinzufuegen-absenden'));
 
-    expect(startDownload).toHaveBeenCalledWith('mistral:7b', 'mistral:7b');
+    await waitFor(() => expect(startDownload).toHaveBeenCalledWith('mistral:7b', 'mistral:7b'));
+    expect(apiMock.post).toHaveBeenCalledWith(
+      '/models/pruefen',
+      { model_id: 'mistral:7b' },
+      { showError: false }
+    );
   });
 
-  it('J4: kennzeichnet nur Modelle ausserhalb der Kurzliste als ungemessen', async () => {
-    apiMock.get.mockImplementation(async (pfad: string) => {
-      if (pfad === '/models/catalog')
-        return {
-          models: [
-            ...KURZLISTE.map(m => ({ ...m, jetson_tested: true })),
-            {
-              id: 'mistral:7b',
-              name: 'mistral (7b)',
-              description: 'Frei geladen.',
-              size_bytes: 4_100_000_000,
-              ram_required_gb: 5,
-              category: 'medium',
-              task: 'text',
-              install_status: 'available',
-              jetson_tested: false,
-              frei_geladen: true,
-            },
-          ],
-        };
-      if (pfad === '/models/default') return { default_model: 'qwen3.8:27b-q4_K_M' };
-      if (pfad === '/models/status') return { loaded_model: null };
-      if (pfad === '/models/memory-budget') return BUDGET;
-      throw new Error(`unerwarteter Pfad: ${pfad}`);
+  it('Name eingeben, passt nicht: die zwei Sätze stehen da, geladen wird nichts', async () => {
+    apiMock.post.mockResolvedValue({
+      passt: false,
+      grund: RIESIG.grund,
+      groesse_bytes: 90_000_000_000,
+    });
+    render(<ModelleAnsicht />, { wrapper: huelle() });
+
+    fireEvent.change(await screen.findByTestId('modell-hinzufuegen-kennung'), {
+      target: { value: 'riesig:70b' },
+    });
+    fireEvent.click(screen.getByTestId('modell-hinzufuegen-absenden'));
+
+    expect(await screen.findByTestId('modell-abweisung')).toHaveTextContent(RIESIG.grund);
+    expect(startDownload).not.toHaveBeenCalled();
+  });
+
+  it('kennzeichnet ein frei geladenes Modell als ungemessen', async () => {
+    antworte({
+      standard: QWEN.id,
+      modelle: [QWEN, { ...GEMMA, id: 'mistral:7b', name: 'mistral (7b)', ungemessen: true }],
+      liste: [],
     });
     render(<ModelleAnsicht />, { wrapper: huelle() });
 
     expect(await screen.findByTestId('ungemessen-mistral:7b')).toBeInTheDocument();
-    expect(screen.queryByTestId('ungemessen-gemma4:e4b')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('ungemessen-qwen3.8:27b-q4_K_M')).not.toBeInTheDocument();
-  });
-
-  it('entfernt ein Modell ueber DELETE /models/:id', async () => {
-    apiMock.del.mockResolvedValue({});
-    render(<ModelleAnsicht />, { wrapper: huelle() });
-
-    fireEvent.click(await screen.findByTestId('entfernen-llava-phi3'));
-    await waitFor(() => expect(apiMock.del).toHaveBeenCalledWith('/models/llava-phi3'));
-    expect(toast.success).toHaveBeenCalled();
+    expect(screen.queryByTestId(`ungemessen-${QWEN.id}`)).not.toBeInTheDocument();
   });
 });

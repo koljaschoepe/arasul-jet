@@ -7,14 +7,20 @@
  * - GET  /api/models/installed   - Get installed models
  * - GET  /api/models/status      - Get current status (loaded, queue)
  * - GET  /api/models/loaded      - Get currently loaded model
+ * - GET  /api/models/verwaltung  - Zeilen der Verwaltung: Faehigkeiten, warm, Flows, Sperre
+ * - POST /api/models/pruefen     - Passt ein Modell auf das Geraet (Speicher, Platte)?
  * - POST /api/models/download    - Download model with SSE progress
  * - DELETE /api/models/:modelId  - Delete a model
- * - POST /api/models/:modelId/activate   - Load model into RAM
- * - POST /api/models/:modelId/deactivate - Unload model from RAM
  * - GET  /api/models/recommended  - Get recommended model for device profile
  * - POST /api/models/default     - Set default model
  * - GET  /api/models/default     - Get default model
  * - POST /api/models/sync        - Sync with Ollama
+ *
+ * Laden und Entladen von Hand gibt es seit M5 (04.10.2026, Verwaltung Modelle)
+ * nicht mehr: `/:id/load`, `/unload`, `/activate` und `/deactivate` sind weg.
+ * Das Geraet haelt ein Modell nach Nutzung (`modelLifecycleService`) und laedt
+ * es bei Bedarf selbst; die Flow-Laeufe und der Abgleich rufen
+ * `modelService.activateModel` weiter direkt.
  *
  * Was hier NICHT mehr steht (Phase C8, 27.08.2026): `POST /quelle/pruefen`,
  * `POST /katalog` und `DELETE /katalog/*`. Ueber sie konnte ein Administrator
@@ -38,13 +44,14 @@ const modelService = require('../../services/llm/modelService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody } = require('../../middleware/validate');
-const { DownloadBody, DefaultModelBody } = require('../../schemas/models');
+const { DownloadBody, DefaultModelBody, PruefenBody } = require('../../schemas/models');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
 const externeModelle = require('../../services/llm/extern/externeModelle');
 const freiesModell = require('../../services/llm/freiesModell');
+const modellVerwaltung = require('../../services/llm/modellVerwaltung');
 
 // Cache keys
 const CACHE_KEYS = {
@@ -187,112 +194,32 @@ router.get(
 );
 
 /**
- * POST /api/models/:modelId/load
- * Ein Modell in den Speicher laden
+ * GET /api/models/verwaltung
+ * Die Zeilen der Verwaltung: je installiertem Modell Faehigkeiten, warm, die
+ * nutzenden Flows und der Grund einer Sperre; dazu die geprueften Modelle der
+ * Liste, die noch nicht am Geraet liegen, mit dem Ergebnis der Vorpruefung.
  */
-router.post(
-  '/:modelId/load',
+router.get(
+  '/verwaltung',
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const { modelId } = req.params;
-    const database = require('../../database');
-
-    // Check model type
-    const typeResult = await database.query(
-      'SELECT model_type FROM llm_model_catalog WHERE id = $1',
-      [modelId]
-    );
-
-    if (typeResult.rows.length === 0) {
-      throw new NotFoundError(`Modell "${modelId}" nicht im Katalog gefunden`);
-    }
-
-    // OCR-Engines waren bis Phase C3 (27.08.2026) Container aus dem alten
-    // AppStore: `/load` startete `tesseract` oder `paddleocr` aus einem
-    // Manifest unter `config/appstore/manifests/`. Diese Manifeste gibt es
-    // nicht mehr, und den AppStore als Katalog auch nicht. Die Ablehnung stand
-    // ohnehin schon in `POST /download` daneben — dort hiess es seit langem,
-    // OCR werde „vom Dokument-Indexer verwaltet und nicht ueber Ollama
-    // geladen". Zwei Wege, zwei Antworten auf dieselbe Frage: jetzt eine.
-    if (typeResult.rows[0].model_type === 'ocr') {
-      throw new ValidationError(
-        'OCR-Engines (Tesseract/PaddleOCR) werden vom Dokument-Indexer verwaltet und nicht geladen oder gestartet.'
-      );
-    }
-
-    // LLM: Load into VRAM via Ollama
-    const result = await modelService.activateModel(modelId, 'user');
-    cacheService.invalidate(CACHE_KEYS.STATUS);
-    res.json(result);
+    res.json({ ...(await modellVerwaltung.uebersicht()), timestamp: new Date().toISOString() });
   })
 );
 
 /**
- * Ein Modell aus dem Speicher nehmen, egal ueber welche der beiden Routen.
- *
- * Es gab zwei Routen fuer dieselbe Sache, und sie taten NICHT dasselbe:
- * `/unload` loeste die Katalog-Kennung auf den Ollama-Namen auf, `/deactivate`
- * reichte sie roh durch. Am 21.08.2026 am Geraet gemessen:
- *
- *   POST /api/models/qwen3:7b-q8/deactivate
- *   -> {"success":false,"error":"Request failed with status code 404",
- *       "message":"Modell qwen3:7b-q8 wurde entladen"}
- *   curl /api/ps -> ['qwen3:8b']   (also weiterhin geladen)
- *
- * Zwei Fehler in einer Antwort: die Route entlaedt nichts, weil Ollama die
- * Katalog-Kennung nicht kennt (`ollama_name` ist `qwen3:8b`, Migration 027),
- * und sie meldet trotzdem "wurde entladen", waehrend `success: false`
- * danebensteht.
- *
- * Seit Plan 023 D3 haengt daran mehr als die Route selbst: der Abgleich merkt
- * sich eigene Entladungen unter dem Namen, mit dem entladen wurde. Unter der
- * falschen Kennung gemerkt, findet er sie nicht wieder und bucht die spaetere,
- * echte Entladung als "automatisch wegen Ruhe". Genau die falsche
- * Herkunftsangabe, die D3 beseitigen sollte.
- *
- * Ein Helfer statt zwei Routen: so koennen sie nicht wieder auseinanderlaufen.
- */
-async function modellEntladen(modelId) {
-  const database = require('../../database');
-  const typeResult = await database.query(
-    'SELECT model_type, COALESCE(ollama_name, id) as ollama_name FROM llm_model_catalog WHERE id = $1',
-    [modelId]
-  );
-
-  if (typeResult.rows.length === 0) {
-    // Nicht im Katalog (z. B. ein direkt in Ollama geladenes Modell wie
-    // `qwen3:14b`, das im Modell-Dashboard „im RAM" auftaucht): modelId direkt
-    // als Ollama-Namen entladen. Entladen ist idempotent und harmlos, kein
-    // Grund, es an der Katalog-Luecke scheitern zu lassen.
-    return { ...(await modelService.unloadModel(modelId)), model: modelId };
-  }
-
-  if (typeResult.rows[0].model_type === 'ocr') {
-    // Siehe `/load`: OCR-Engines sind seit Phase C3 keine Container des
-    // Geraets mehr, es gibt also nichts zu stoppen.
-    throw new ValidationError(
-      'OCR-Engines (Tesseract/PaddleOCR) werden vom Dokument-Indexer verwaltet und nicht geladen oder gestartet.'
-    );
-  }
-
-  const ollamaName = typeResult.rows[0].ollama_name;
-  return { ...(await modelService.unloadModel(ollamaName)), model: modelId };
-}
-
-/**
- * POST /api/models/:modelId/unload
- * Ein Modell aus dem Speicher nehmen
+ * POST /api/models/pruefen
+ * Passt ein Modell auf dieses Geraet? Prueft Speicher und Platte, ohne etwas
+ * anzulegen oder zu laden. `passt: false` kommt mit `grund` in zwei Saetzen.
  */
 router.post(
-  '/:modelId/unload',
+  '/pruefen',
   requireAuth,
   requireRole('admin'),
+  validateBody(PruefenBody),
   asyncHandler(async (req, res) => {
-    const result = await modellEntladen(req.params.modelId);
-    cacheService.invalidate(CACHE_KEYS.STATUS);
-    cacheService.invalidate(CACHE_KEYS.INSTALLED);
-    res.json(result);
+    res.json(await freiesModell.pruefe(req.body.model_id));
   })
 );
 
@@ -504,156 +431,6 @@ router.delete(
       ...result,
       message: `Modell ${modelId} wurde gelöscht`,
     });
-  })
-);
-
-/**
- * POST /api/models/:modelId/activate
- * Load a model into RAM
- * Supports SSE streaming for progress updates via ?stream=true
- */
-router.post(
-  '/:modelId/activate',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const { modelId } = req.params;
-    const useStream = req.query.stream === 'true';
-
-    // Check if model is installed
-    const isInstalled = await modelService.isModelInstalled(modelId);
-    if (!isInstalled) {
-      if (useStream) {
-        initSSE(res);
-        res.write(
-          `data: ${JSON.stringify({ error: `Modell ${modelId} ist nicht installiert`, done: true })}\n\n`
-        );
-        return res.end();
-      }
-      throw new NotFoundError(`Modell ${modelId} ist nicht installiert`);
-    }
-
-    // P3-001: SSE streaming for activation progress
-    if (useStream) {
-      // Fetch model info BEFORE initSSE. Once SSE headers are sent the global
-      // error handler is a no-op, so a rejection here (e.g. transient DB
-      // ECONNREFUSED) would leave the EventSource hanging open forever. Doing
-      // it pre-headers lets the error handler return a clean error response.
-      const modelInfo = await modelService.getModelInfo(modelId);
-      const estimatedSeconds = (modelInfo?.ram_required_gb || 10) * 3; // ~3s per GB
-
-      initSSE(res);
-
-      // Send initial status
-      res.write(
-        `data: ${JSON.stringify({
-          status: 'starting',
-          progress: 0,
-          message: 'Modell wird vorbereitet...',
-          estimatedSeconds,
-        })}\n\n`
-      );
-
-      // UX-FIX: Send honest indeterminate progress with heartbeat instead of fake percentages.
-      // Real Ollama loading time is unpredictable — fake progress misleads users.
-      let elapsedSeconds = 0;
-      const progressInterval = setInterval(() => {
-        elapsedSeconds++;
-        const messages = [
-          'Modell wird vorbereitet...',
-          'Lade Modell-Gewichte in GPU-Speicher...',
-          'Initialisiere GPU-Speicher...',
-          'Optimiere für Inferenz...',
-        ];
-        const messageIndex = Math.min(
-          Math.floor(elapsedSeconds / Math.max(estimatedSeconds / 4, 3)),
-          messages.length - 1
-        );
-        res.write(
-          `data: ${JSON.stringify({
-            status: 'loading',
-            progress: -1,
-            indeterminate: true,
-            elapsed: elapsedSeconds,
-            estimatedSeconds,
-            message: messages[messageIndex],
-          })}\n\n`
-        );
-      }, 1000); // Heartbeat every second
-
-      try {
-        const result = await modelService.activateModel(modelId, 'user');
-        clearInterval(progressInterval);
-
-        // Invalidate status cache after activation
-        cacheService.invalidate(CACHE_KEYS.STATUS);
-
-        res.write(
-          `data: ${JSON.stringify({
-            status: 'complete',
-            progress: 100,
-            message: result.alreadyLoaded
-              ? `Modell ${modelId} war bereits geladen`
-              : `Modell ${modelId} erfolgreich aktiviert`,
-            ...result,
-            done: true,
-          })}\n\n`
-        );
-        res.end();
-      } catch (err) {
-        clearInterval(progressInterval);
-        logger.error(`Error activating model ${modelId}: ${err.message}`);
-        res.write(
-          `data: ${JSON.stringify({
-            status: 'error',
-            error: err.message,
-            done: true,
-          })}\n\n`
-        );
-        res.end();
-      }
-    } else {
-      // Non-streaming (original behavior)
-      const result = await modelService.activateModel(modelId, 'user');
-
-      // Invalidate status cache after activation
-      cacheService.invalidate(CACHE_KEYS.STATUS);
-
-      res.json({
-        ...result,
-        message: result.alreadyLoaded
-          ? `Modell ${modelId} ist bereits geladen`
-          : `Modell ${modelId} wurde aktiviert`,
-      });
-    }
-  })
-);
-
-/**
- * POST /api/models/:modelId/deactivate
- * Unload a model from RAM
- */
-router.post(
-  '/:modelId/deactivate',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const { modelId } = req.params;
-    const result = await modellEntladen(modelId);
-
-    cacheService.invalidate(CACHE_KEYS.STATUS);
-    cacheService.invalidate(CACHE_KEYS.INSTALLED);
-
-    // Die Meldung richtet sich nach dem, was passiert ist. Bis zum 21.08.2026
-    // stand hier "wurde entladen", auch wenn `success: false` danebenstand.
-    // Und wenn der Helfer schon eine eigene Meldung mitbringt (bei OCR wird
-    // ein Container gestoppt, nicht Speicher freigegeben), bleibt sie stehen.
-    const meldung =
-      result.message ??
-      (result.success === false
-        ? `Modell ${modelId} konnte nicht entladen werden`
-        : `Modell ${modelId} wurde entladen`);
-    res.json({ ...result, message: meldung });
   })
 );
 

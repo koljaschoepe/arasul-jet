@@ -229,6 +229,7 @@ describe('LLMJobService (Legacy)', () => {
 // ModelService Tests
 // =====================================================
 describe('ModelService', () => {
+    let mockEntfernenPruefen;
     let service;
     let mockDb;
     let mockLogger;
@@ -239,10 +240,12 @@ describe('ModelService', () => {
         mockLogger = createMockLogger();
         mockAxios = createMockAxios();
 
+        mockEntfernenPruefen = jest.fn().mockResolvedValue(undefined);
         service = createModelService({
             database: mockDb,
             logger: mockLogger,
-            axios: mockAxios
+            axios: mockAxios,
+            entfernenPruefen: mockEntfernenPruefen
         });
     });
 
@@ -418,6 +421,16 @@ describe('ModelService', () => {
 
             expect(result.success).toBe(true);
             expect(result.modelId).toBe('old-model');
+            expect(mockEntfernenPruefen).toHaveBeenCalledWith('old-model');
+        });
+
+        test('entfernt nichts, wenn die Sperre (Flow nutzt es) anschlägt', async () => {
+            const { ConflictError } = require('../../src/utils/errors');
+            mockEntfernenPruefen.mockRejectedValueOnce(new ConflictError('Ein Flow nutzt es'));
+            mockDb.query.mockResolvedValueOnce({ rows: [{ is_default: false }] });
+
+            await expect(service.deleteModel('genutzt')).rejects.toThrow('Ein Flow nutzt es');
+            expect(mockAxios.delete).not.toHaveBeenCalled();
         });
     });
 

@@ -139,11 +139,14 @@ src/
                      Geräteordner ohne Spalte, 409 als Satz über der Matrix),
                      Änderungen je Ordner (`AenderungenDialog.tsx`).
                      `firmenordner/useFirmenordner.ts`.
-    modelle/       Die Kurzliste des Geräts: `ModelleAnsicht.tsx` (der Bereich
-                   „Modelle" der Verwaltung), `ModellZeile.tsx`, `useModelle.ts`
-                   (Abfragen/Mutationen), `DownloadProgress.tsx`. Der Katalog
-                   hat vier Einträge — kein Kartenraster, keine Facetten,
-                   keine Detailseite.
+    modelle/       Die Modelle des Geräts: `ModelleAnsicht.tsx` (der Bereich
+                   „Modelle" der Verwaltung: Zeile Speicher für KI, je Modell
+                   eine Zeile), `ModellZeile.tsx` (Größe, Fähigkeiten, warm,
+                   nutzende Flows, Sperre beim Entfernen),
+                   `ModellHinzufuegen.tsx` (geprüfte Liste und Ollama-Name,
+                   mit Prüfung vorab), `useModelle.ts` (Abfragen/Mutationen),
+                   `DownloadProgress.tsx`. Keine Knöpfe zum Laden oder
+                   Entladen: das Gerät regelt das nach Nutzung.
     system/        Anmeldung, Systemzustand und Betrieb, darunter
                    `sicherung/` (Sicherung auslösen, Liste,
                    Wiederherstellungstest, Kopie außerhalb) und

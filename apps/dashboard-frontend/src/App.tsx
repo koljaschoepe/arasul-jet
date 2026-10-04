@@ -13,7 +13,6 @@ import PasswortWechseln from './features/system/PasswortWechseln';
 
 // PHASE 3: State Management - Contexts and Hooks
 import { DownloadProvider } from './contexts/DownloadContext';
-import { ActivationProvider } from './contexts/ActivationContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 
@@ -247,7 +246,6 @@ function AppContent(): React.JSX.Element | null {
 
   return (
     <DownloadProvider>
-      <ActivationProvider>
         <Router>
           {/* Update available banner (overlay) */}
           {updateAvailable && (
@@ -315,7 +313,6 @@ function AppContent(): React.JSX.Element | null {
             <Route path="*" element={<NichtGefunden />} />
           </Routes>
         </Router>
-      </ActivationProvider>
     </DownloadProvider>
   );
 }

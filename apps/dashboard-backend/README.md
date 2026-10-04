@@ -35,7 +35,7 @@ src/
 │   ├── logs.js           # Log file retrieval & streaming
 │   ├── database.js       # Database health & pool metrics
 │   ├── docs.js           # OpenAPI/Swagger documentation
-│   ├── models.js         # LLM model management (catalog, download, activate)
+│   ├── models.js         # LLM model management (catalog, download, admin view)
 │   ├── store/apps.js     # Apps am Geraet: Staende einspielen, entfernen, Logs
 │   ├── workspaces.js     # Claude workspaces CRUD
 │   ├── alerts.js         # Alert configuration & thresholds
@@ -171,8 +171,8 @@ Der Oberflächen-Chat (`/api/llm/*`, `/api/chats/*`) ist mit Phase B6
 | GET    | `/api/models/loaded`              | Currently loaded model         |
 | POST   | `/api/models/download`            | Download model (SSE progress)  |
 | DELETE | `/api/models/:modelId`            | Delete a model                 |
-| POST   | `/api/models/:modelId/activate`   | Load model into VRAM           |
-| POST   | `/api/models/:modelId/deactivate` | Unload from VRAM               |
+| GET    | `/api/models/verwaltung`          | Rows of the admin view         |
+| POST   | `/api/models/pruefen`             | Does a model fit the device?   |
 | POST   | `/api/models/default`             | Set default model              |
 | GET    | `/api/models/default`             | Get default model              |
 | POST   | `/api/models/sync`                | Sync with Ollama               |

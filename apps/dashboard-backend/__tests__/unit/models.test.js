@@ -8,8 +8,6 @@
  * - GET  /api/models/loaded
  * - POST /api/models/download
  * - DELETE /api/models/:modelId
- * - POST /api/models/:modelId/activate
- * - POST /api/models/:modelId/deactivate
  * - POST /api/models/default
  * - GET  /api/models/default
  * - POST /api/models/sync
@@ -58,7 +56,13 @@ jest.mock('../../src/services/llm/freiesModell', () => ({
     gemessen: true,
     digestVorab: true
   })),
-  nachFehlschlag: jest.fn().mockResolvedValue(undefined)
+  nachFehlschlag: jest.fn().mockResolvedValue(undefined),
+  pruefe: jest.fn()
+}));
+
+jest.mock('../../src/services/llm/modellVerwaltung', () => ({
+  uebersicht: jest.fn(),
+  entfernenPruefen: jest.fn().mockResolvedValue(undefined)
 }));
 
 // Mock cacheService
@@ -75,6 +79,7 @@ jest.mock('../../src/services/core/cacheService', () => ({
 const db = require('../../src/database');
 const modelService = require('../../src/services/llm/modelService');
 const freiesModell = require('../../src/services/llm/freiesModell');
+const modellVerwaltung = require('../../src/services/llm/modellVerwaltung');
 const { ValidationError } = require('../../src/utils/errors');
 const { app } = require('../../src/server');
 
@@ -317,91 +322,57 @@ describe('Models Routes', () => {
   });
 
   // ============================================================================
-  // POST /api/models/:modelId/activate
+  // Laden und Entladen von Hand gibt es nicht mehr (M5, Verwaltung Modelle)
   // ============================================================================
-  describe('POST /api/models/:modelId/activate', () => {
-    test('should activate model (non-streaming)', async () => {
-      modelService.isModelInstalled.mockResolvedValue(true);
-      modelService.activateModel.mockResolvedValue({
-        success: true,
-        model_id: 'llama3:8b',
-        alreadyLoaded: false
-      });
+  describe('Laden und Entladen von Hand', () => {
+    test.each(['load', 'unload', 'activate', 'deactivate'])(
+      'POST /api/models/:modelId/%s ist weg',
+      async weg => {
+        const response = await request(app)
+          .post(`/api/models/llama3:8b/${weg}`)
+          .set('Authorization', `Bearer ${authToken}`);
 
-      const response = await request(app)
-        .post('/api/models/llama3:8b/activate')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('model_id', 'llama3:8b');
-      expect(response.body).toHaveProperty('message');
-    });
-
-    test('should return 404 if model not installed', async () => {
-      modelService.isModelInstalled.mockResolvedValue(false);
-
-      const response = await request(app)
-        .post('/api/models/llama3:8b/activate')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(404);
-    });
+        expect(response.status).toBe(404);
+        expect(modelService.activateModel).not.toHaveBeenCalled();
+        expect(modelService.unloadModel).not.toHaveBeenCalled();
+      }
+    );
   });
 
   // ============================================================================
-  // POST /api/models/:modelId/deactivate
+  // GET /api/models/verwaltung und POST /api/models/pruefen
   // ============================================================================
-  describe('POST /api/models/:modelId/deactivate', () => {
-    test('should deactivate model', async () => {
-      db.query.mockResolvedValue({ rows: [{ model_type: 'llm', ollama_name: 'llama3:8b' }] });
-      modelService.unloadModel.mockResolvedValue({ success: true });
+  describe('Verwaltung', () => {
+    test('GET /verwaltung liefert die Zeilen der Verwaltung', async () => {
+      modellVerwaltung.uebersicht.mockResolvedValue({ standard: 'a', modelle: [], liste: [] });
 
       const response = await request(app)
-        .post('/api/models/llama3:8b/deactivate')
+        .get('/api/models/verwaltung')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('message');
-      expect(modelService.unloadModel).toHaveBeenCalledWith('llama3:8b');
+      expect(response.body).toMatchObject({ standard: 'a', modelle: [], liste: [] });
     });
 
-    /**
-     * Plan 023 D3: bis zum 21.08.2026 reichte diese Route die Katalog-Kennung
-     * roh an Ollama durch, waehrend die Schwesterroute /unload sie aufloeste.
-     * Am Geraet gemessen:
-     *
-     *   POST /api/models/qwen3:7b-q8/deactivate
-     *   -> {"success":false,"error":"...404...","message":"... wurde entladen"}
-     *   curl /api/ps -> ['qwen3:8b']   (also weiterhin geladen)
-     *
-     * Der alte Test lief nur deshalb gruen, weil er eine Kennung waehlte, die
-     * zufaellig ihr eigener Ollama-Name ist.
-     */
-    test('loest die Katalog-Kennung auf den Ollama-Namen auf', async () => {
-      db.query.mockResolvedValue({ rows: [{ model_type: 'llm', ollama_name: 'qwen3:8b' }] });
-      modelService.unloadModel.mockResolvedValue({ success: true });
+    test('POST /pruefen gibt die Vorpruefung mit Grund zurück', async () => {
+      freiesModell.pruefe.mockResolvedValue({ passt: false, grund: 'Zu groß. Kleiner wählen.' });
 
       const response = await request(app)
-        .post('/api/models/qwen3:7b-q8/deactivate')
-        .set('Authorization', `Bearer ${authToken}`);
+        .post('/api/models/pruefen')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ model_id: 'riesig:405b' });
 
       expect(response.status).toBe(200);
-      expect(modelService.unloadModel).toHaveBeenCalledWith('qwen3:8b');
-      expect(modelService.unloadModel).not.toHaveBeenCalledWith('qwen3:7b-q8');
+      expect(response.body).toMatchObject({ passt: false, grund: 'Zu groß. Kleiner wählen.' });
+      expect(freiesModell.pruefe).toHaveBeenCalledWith('riesig:405b');
     });
 
-    test('meldet einen Fehlschlag als Fehlschlag', async () => {
-      // Vorher stand hier "wurde entladen", auch mit success: false daneben.
-      db.query.mockResolvedValue({ rows: [{ model_type: 'llm', ollama_name: 'qwen3:8b' }] });
-      modelService.unloadModel.mockResolvedValue({ success: false, error: '404' });
-
+    test('POST /pruefen ohne Kennung ist 400', async () => {
       const response = await request(app)
-        .post('/api/models/qwen3:7b-q8/deactivate')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.body.message).toContain('konnte nicht entladen werden');
+        .post('/api/models/pruefen')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({});
+      expect(response.status).toBe(400);
     });
   });
 

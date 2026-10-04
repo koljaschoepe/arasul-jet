@@ -1307,6 +1307,13 @@ gepflegt, sondern beim Modell-Abgleich aus Ollamas `/api/show` gelesen.
 `profile_read_at` unterscheidet „noch nie gelesen" von „gelesen, das Modell
 trägt die Angabe nicht".
 
+**Fähigkeiten, Katalog und Ollama (Migration 206, M5).** `supports_tools` und
+`supports_vision_input` liest der Abgleich aus `capabilities` in `/api/show`
+nach; bei Widerspruch gewinnt Ollama (der Katalog führte `qwen3.8:27b-q4_K_M`
+ohne Bild, Ollama meldet `vision`). Migration 206 setzt den Wert für das
+Standardmodell und stellt `profile_read_at` zurück, damit jedes Modell am Gerät
+beim nächsten Abgleich neu gelesen wird.
+
 **Seit Migration 175 (Phase C8) hat diese Tabelle genau vier Zeilen** — die
 Kurzliste aus `config/modelle/kurzliste.json`. Sie wird ausschließlich von
 Migrationen geschrieben: der Abgleich mit Ollama trägt nichts mehr nach
