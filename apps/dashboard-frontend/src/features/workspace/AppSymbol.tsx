@@ -63,3 +63,16 @@ export function AppSymbol({ symbol, kuerzel }: { symbol?: string | null; kuerzel
     </span>
   );
 }
+
+/**
+ * Das Kürzel einer App, wenn `app.json` kein Symbol nennt: die Anfänge von zwei
+ * Wörtern, sonst die ersten zwei Buchstaben.
+ */
+export function appKuerzel(name: string): string {
+  const woerter = name.trim().split(/\s+/).filter(Boolean);
+  if (woerter.length >= 2) {
+    return `${woerter[0]?.charAt(0) ?? ''}${woerter[1]?.charAt(0) ?? ''}`.toUpperCase();
+  }
+  const wort = woerter[0] ?? '?';
+  return wort.charAt(0).toUpperCase() + wort.charAt(1).toLowerCase();
+}

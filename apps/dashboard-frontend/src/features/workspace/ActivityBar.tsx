@@ -8,6 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
   cn,
+  useSchmalesFenster,
 } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
@@ -18,10 +19,11 @@ import {
   reihenfolgeSchluessel,
   useAppReihenfolge,
 } from '@/features/apps/meineApps';
-import { AppSymbol } from './AppSymbol';
+import { AppSymbol, appKuerzel } from './AppSymbol';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { PersonAvatar } from '@/components/PersonAvatar';
 import { API_BASE } from '@/config/api';
+import { LeisteUnten } from './LeisteUnten';
 
 /**
  * Die Form jedes Knopfs der Leiste (M5).
@@ -85,18 +87,7 @@ function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children, extra }: Le
   );
 }
 
-/**
- * Das Kürzel einer App, wenn `app.json` kein Symbol nennt: die Anfänge von zwei
- * Wörtern, sonst die ersten zwei Buchstaben.
- */
-export function appKuerzel(name: string): string {
-  const woerter = name.trim().split(/\s+/).filter(Boolean);
-  if (woerter.length >= 2) {
-    return `${woerter[0]?.charAt(0) ?? ''}${woerter[1]?.charAt(0) ?? ''}`.toUpperCase();
-  }
-  const wort = woerter[0] ?? '?';
-  return wort.charAt(0).toUpperCase() + wort.charAt(1).toLowerCase();
-}
+export { appKuerzel };
 
 /** Bild und Menü der angemeldeten Person: der Name und Abmelden, sonst nichts. */
 function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
@@ -149,6 +140,16 @@ function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
  * zweimal da (`zuEintraegen`), der Teststand als „(Test) Name" (M5).
  */
 export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void }) {
+  // Unter 900 px steht die Leiste unten (`LeisteUnten`); die Aufteilung ist
+  // dieselbe Schwelle wie überall im Produkt.
+  return useSchmalesFenster() ? (
+    <LeisteUnten onLogout={onLogout} />
+  ) : (
+    <LeisteLinks onLogout={onLogout} />
+  );
+}
+
+function LeisteLinks({ onLogout }: { onLogout: () => Promise<void> | void }) {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
   const ansicht = useWorkspaceStore(s => s.ansicht);

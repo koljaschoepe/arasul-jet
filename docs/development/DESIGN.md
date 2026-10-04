@@ -296,9 +296,9 @@ schmale Leiste der Bereiche, ohne zweite Reiterstufe — was lang ist, klappt
 auf (der Bereich System).
 
 Bis M5 stand hier ein Dreispalten-Raster (Apps, Mitte mit Tabs, Notizen) und
-unter 900 px ein eigener Aufbau mit Hamburger-Menü (D7). Unter 900 px bleibt
-es bis zur Karte handy-und-notizen-weg bei derselben Leiste links; die
-Verwaltung zeigt ihre Bereiche dort als Auswahl über dem Bereich. Die
+unter 900 px ein eigener Aufbau mit Hamburger-Menü (D7). Unter 900 px steht
+die Aktivitätsleiste unten (Haus, bis zu vier Apps, „mehr“, Verwaltung,
+Einstellungen, Konto); die Verwaltung zeigt ihre Bereiche dort als Auswahl über dem Bereich. Die
 Statusleiste zeigt dauerhaft **nur Name, Datum und Uhrzeit** (minutengenau),
 für jeden gleich, nie Modell, Speicher, Verbindung oder Fassung, und bleibt bei
 390 px **eine Zeile** (der Name kürzt).

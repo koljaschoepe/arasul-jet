@@ -6,8 +6,8 @@
  *   PUT    /api/profil/bild    mein Bild setzen (`{"bild": "data:image/png;base64,..."}`)
  *   DELETE /api/profil/bild    mein Bild entfernen
  *
- * KEINE KENNUNG IN DER ADRESSE, dieselbe Linie wie `/api/darstellung` und
- * `/api/notizen`: das Profil gehoert dem Angemeldeten. Gelesen werden die
+ * KEINE KENNUNG IN DER ADRESSE, dieselbe Linie wie `/api/darstellung`:
+ * das Profil gehoert dem Angemeldeten. Gelesen werden die
  * Felder ueber `/api/auth/session` und `/api/auth/me`, hier steht nur der
  * schreibende Weg; das Bild selbst fuehrt keine dieser Auskuenfte mit.
  */

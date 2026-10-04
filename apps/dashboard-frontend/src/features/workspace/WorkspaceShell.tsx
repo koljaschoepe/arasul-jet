@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { resolveSystemSub, resolveTab } from '@/features/settings/sections';
 import { StatusBar } from './StatusBar';
 import { AnsichtInhalt } from './AnsichtInhalt';
+import { cn, useSchmalesFenster } from '@marken';
 import { ActivityBar } from './ActivityBar';
 
 /** Was die Shell von außen braucht: das Abmelden, und sonst nichts. */
@@ -52,8 +53,8 @@ function ausDerAdresse(pathname: string, search: string): Ansicht | null {
  * 900 px ein eigener Aufbau mit Hamburger-Menü. Jede Funktion steht jetzt an
  * genau einer Stelle: in der Leiste.
  *
- * Unter 900 px bleibt es bei derselben Leiste, bis die Karte
- * handy-und-notizen-weg sie zur Leiste unten macht.
+ * Unter 900 px steht dieselbe Leiste unten (`LeisteUnten`), die Statusleiste
+ * entfällt, und die App füllt den Schirm.
  *
  * Die Ansicht wird in der URL gespiegelt (/workspace/...), in beide
  * Richtungen; gespeichert wird sonst nichts.
@@ -65,6 +66,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   const istAdmin = user?.role === 'admin';
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
+  const schmal = useSchmalesFenster();
 
   // Der Pfad, auf dem Adresse und Store zuletzt übereinstimmten. Store → URL
   // vergleicht hiergegen und nicht gegen `location`, deren Schnappschuss im
@@ -112,16 +114,16 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
 
   return (
     <div
-      className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground"
+      className="flex h-dvh w-screen flex-col overflow-hidden bg-background text-foreground"
       data-testid="workspace-shell"
     >
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className={cn('flex min-h-0 flex-1 overflow-hidden', schmal && 'flex-col-reverse')}>
         <ActivityBar onLogout={onLogout} />
         <main className="min-h-0 min-w-0 flex-1 bg-background" data-testid="workspace-ansicht">
           <AnsichtInhalt />
         </main>
       </div>
-      <StatusBar />
+      {!schmal && <StatusBar />}
     </div>
   );
 }

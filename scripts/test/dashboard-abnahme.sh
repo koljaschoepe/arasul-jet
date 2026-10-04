@@ -344,14 +344,6 @@ print("ja" if any(str(a["id"])==sys.argv[1] for a in d) else "nein")' "$ANFRAGE"
     "$(ja_nein "$NOCH" nein)" "noch offen: ${NOCH:-?}"
 fi
 
-# --- 7. Die Notiz, noch einmal ueber die Schnittstelle ------------------------
-# Der Browser hat sie geschrieben und nach einem Neuladen wiedergesehen. Hier
-# steht, dass sie WIRKLICH am Menschen haengt und nicht am Fenster.
-ZETTEL=$(hole GET /api/notizen "$TOK_M" | json_feld data.inhalt)
-pruefe 'Sein Zettel liegt am Geraet, nicht im Browser' \
-  "$(grep -q '^Abnahme D2' <<<"$ZETTEL" && echo ja || echo nein)" \
-  "inhalt=$(printf '%s' "${ZETTEL:-leer}" | head -c 40)"
-
 # --- 8. Freigabe zuruecknehmen -----------------------------------------------
 code=$(rufe DELETE "/api/freigaben/$APP/$ID" "$TOK")
 pruefe 'Freigabe zurueckgenommen' "$(ja_nein "$code" 200)" "HTTP $code"

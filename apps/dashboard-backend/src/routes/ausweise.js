@@ -9,7 +9,7 @@
  *
  * BEI DEN KERN-WEGEN UND NICHT UNTER `admin/`. Ein Ausweis gehoert dem
  * Angemeldeten, jeder darf einen haben, und niemand stellt einen fuer einen
- * anderen aus -- dieselbe Linie wie die Notizen (D1) und `/api/apps/meine`.
+ * anderen aus -- dieselbe Linie wie `/api/profil` und `/api/apps/meine`.
  * Der Administrator kommt hier nur in EINER Rolle vor, und zwar in der des
  * Betreibers: er sieht, welche Ausweise am Geraet liegen, und er kann einen
  * widerrufen. Ausstellen kann er nur fuer sich selbst.

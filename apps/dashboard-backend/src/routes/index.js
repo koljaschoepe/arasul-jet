@@ -49,7 +49,6 @@ const API_ROUTE_GROUPS = [
   { prefix: '/embeddings', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
   { prefix: '/freigabe-anfragen', group: 'ai' },
-  { prefix: '/notizen', group: 'core' },
   { prefix: '/profil', group: 'core' },
   { prefix: '/ausweise', group: 'core' },
   { prefix: '/firmenordner', group: 'core' },
@@ -87,12 +86,8 @@ router.get('/_meta', (req, res) => {
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
 router.use('/docs', require('./docs'));
-// Der Zettel in der rechten Spalte der Shell (Phase D1). Bei den Kern-Wegen
-// und nicht unter `admin/`: er gehoert dem Angemeldeten, jeder hat einen, und
-// niemand verwaltet den eines anderen.
-router.use('/notizen', require('./notizen'));
-// Die Darstellung der Oberflaeche, je Mensch (Phase H1). Danebengestellt aus
-// demselben Grund wie die Notizen: sie gehoert dem Angemeldeten. Gelesen wird
+// Die Darstellung der Oberflaeche, je Mensch (Phase H1). Bei den Kern-Wegen
+// und nicht unter `admin/`: sie gehoert dem Angemeldeten. Gelesen wird
 // sie ueber `/auth/session`, hier steht nur der schreibende Weg.
 router.use('/darstellung', require('./darstellung'));
 // Das eigene Profil: Name, Funktion, Kuerzel, Bild (M5). Gehoert dem Angemeldeten.

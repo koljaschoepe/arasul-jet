@@ -187,7 +187,7 @@ function geraet() {
   a.use('/apps', require('../../src/routes/appAusliefern'));
   a.use('/api/ausweise', require('../../src/routes/ausweise'));
   a.use('/api/benutzer', require('../../src/routes/admin/benutzer'));
-  a.use('/api/notizen', require('../../src/routes/notizen'));
+  a.use('/api/profil', require('../../src/routes/profil'));
   a.use(errorHandler);
   return a;
 }
@@ -289,10 +289,13 @@ describe('Was ein Ausweis oeffnet -- und was nicht', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
-  test('auch keine gewoehnliche Mitarbeiter-Route: die Notizen bleiben zu', async () => {
-    // Ein Zettel ist nicht weniger privat als eine Benutzerliste, und der
+  test('auch keine gewoehnliche Mitarbeiter-Route: das Profil bleibt zu', async () => {
+    // Ein Profil ist nicht weniger privat als eine Benutzerliste, und der
     // Ausweis ist nicht die kleine Sitzung, sondern etwas anderes.
-    const res = await mitAusweis('/api/notizen');
+    const res = await request(geraet())
+      .put('/api/profil')
+      .set('Authorization', `Bearer ${AUSWEIS}`)
+      .send({ vorname: 'X' });
     expect(res.status).toBe(401);
   });
 

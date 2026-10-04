@@ -20,7 +20,7 @@
 #   6. Die Verwaltungswege der Shell (Modelle, Benutzer, Sicherung,
 #      Einstellungen) antworten ihm mit 403. Die Rolle blendet in der
 #      Oberflaeche aus; ENTSCHEIDEN tut das Backend, und genau das steht hier.
-#   7. Sein Zettel (`/api/notizen`, D1) und die Zahl der offenen Freigaben
+#   7. Die Zahl der offenen Freigaben
 #      (`/api/freigabe-anfragen`, C7) sind fuer ihn da.
 #   8. Ein vom Administrator gesetztes Passwort ist ein STARTPASSWORT: die
 #      Anmeldung sagt `passwortWechselNoetig`, und der Selbstwechsel nimmt es
@@ -282,12 +282,6 @@ VERWALTUNG
 code=$(rufe GET /api/freigabe-anfragen "$TOK_M")
 pruefe 'Die offenen Freigaben (der Zaehler der Shell) sind fuer ihn da' \
   "$(ja_nein "$code" 200)" "HTTP $code"
-
-ZETTEL=$(hole PUT /api/notizen "$TOK_M" '{"inhalt":"Abnahme D1"}' | json_feld data.inhalt)
-pruefe 'Sein Zettel in der rechten Spalte laesst sich schreiben' \
-  "$(ja_nein "$ZETTEL" 'Abnahme D1')" "inhalt=${ZETTEL:-leer}"
-ZETTEL=$(hole GET /api/notizen "$TOK_M" | json_feld data.inhalt)
-pruefe 'und wieder lesen' "$(ja_nein "$ZETTEL" 'Abnahme D1')" "inhalt=${ZETTEL:-leer}"
 
 # --- 8. Der Wechsel nimmt das Kennzeichen zurueck ----------------------------
 code=$(rufe POST /api/auth/change-password "$TOK_M" \

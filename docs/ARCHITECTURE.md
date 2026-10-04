@@ -323,8 +323,9 @@ apps/dashboard-frontend/
 die Aktivitätsleiste links (M5): das Haus zur Startseite mit der Zahl offener
 Freigaben, die freigegebenen Apps als Symbol, unten Verwaltung (nur
 Administrator), Zahnrad und das eigene Bild. Offen ist genau eine Ansicht; es
-gibt keine Kopfleiste, keine Tabs, keine Seitenspalten und keine Notizen in der
-Oberfläche (der Weg `/api/notizen` bleibt bis zur Karte handy-und-notizen-weg).
+gibt keine Kopfleiste, keine Tabs, keine Seitenspalten und keine Notizen (Weg und Tabelle sind seit
+Migration 202 weg). Unter 900 px steht die Leiste unten (Haus, bis zu vier Apps,
+„mehr“), Tabellen werden Listen.
 
 Die path-gejailte Tool-Loop-Grundlage der Flows liegt in
 `apps/dashboard-backend/src/services/flows/` (`toolLoop.js`, `pathSafe.js`,
