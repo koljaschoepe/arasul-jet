@@ -80,10 +80,9 @@ src/
                    Workspace-Stores und damit in der Adresse
                    (`/workspace/verwaltung/<bereich>[/<abschnitt>]`); alte
                    `?tab=`-Adressen bildet die Shell darauf ab.
-                   `sections.tsx` ist die eine Liste der sieben Bereiche aus
+                   `sections.tsx` ist die eine Liste der acht Bereiche aus
                    `frontend.md`, in dieser Reihenfolge: Personen, Apps,
-                   Firmenordner, Modelle, System, Daten, Gerät (Läufe baut
-                   die Karte verwaltung-laeufe). `bereichAusAdresse` bildet
+                   Läufe, Firmenordner, Modelle, System, Daten, Gerät. `bereichAusAdresse` bildet
                    die gestrichenen Adressen ab: `privacy`,
                    `system/sicherung`, `system/werksreset` auf Daten;
                    `general`, `security`, `lizenz`, `remote-access`,
@@ -114,6 +113,21 @@ src/
                      „Über Arasul“ als Fußzeile (`UeberArasul.tsx`). Die
                      Fassung steht EINMAL, bei der Aktualisierung. Der
                      Abschnitt aus der Adresse rollt in Sicht.
+                   - **Läufe** (`LaeufeSettings.tsx` + `laeufe/`, M5): die EINE
+                     Stelle für Läufe, über alle Apps (`GET /api/laeufe`).
+                     Filter App, Ergebnis, Person (auch „Ohne Person":
+                     Zeitplan, Ereignis) und Zeitraum (`LaeufeFilter.tsx`,
+                     `useLaeufe.ts`); sie stehen als Abfrage in der Adresse
+                     (`Ansicht.filter`, `laeufeFilterSaeubern` im Store), der
+                     Abschnitt ist die Nummer eines Laufs
+                     (`/workspace/verwaltung/laeufe/<nr>`, `LaufSeite.tsx`).
+                     Fehler und „nicht übergeben" stehen oben (das Gerät
+                     sortiert). Eine Zeile (`LaufZeile.tsx`) klappt auf, mehrere
+                     zugleich, und zeigt `LaufDetail` aus
+                     `apps/LaufAnsicht.tsx`: Schritte bis zu Ein- und Ausgabe,
+                     Freigaben mit Vorschlag und Änderung, Auslöser, Person.
+                     Abbrechen (`LaufAktionen.tsx`) gilt für jeden Lauf. Die
+                     Seite einer App zeigt KEINE Liste, nur den Weg hierher.
                    - **Daten** (`DatenSettings.tsx` + `daten/`, M5): alles,
                      was mit den Daten des Geräts geschieht, an einer Stelle.
                      Oben die Sicherung (`features/system/sicherung/`: SSD,
@@ -143,8 +157,8 @@ src/
                      (`AppFlows.tsx`, Datei in `FlowAnsicht.tsx`, Modell
                      in `ModellDialog.tsx`), Verbindungen lesbar benannt
                      (`AppVerbindungen.tsx`, `useVerbindungen.ts`, rot nur
-                     bei `stoerung`); darunter auf „Zeigen" Läufe
-                     (`LaufAnsicht.tsx`), KI-Aufrufe, Protokoll
+                     bei `stoerung`); darunter ein Weg zu den Läufen
+                     dieser App (Bereich Läufe, App als Filter), auf „Zeigen" KI-Aufrufe, Protokoll
                      (`Aufklappen.tsx`). Abfragen/Mutationen in
                      `apps/useAppVerwaltung.ts`. Apps, Flows und
                      Verbindungen gibt es nirgends sonst in der Oberfläche

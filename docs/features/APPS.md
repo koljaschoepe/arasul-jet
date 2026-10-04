@@ -626,6 +626,10 @@ Der Lauf landet mit allen Schritten in `flow_runs`/`flow_run_steps` und trägt
 
 ### Nachlesen, was ein Lauf getan hat (Phase D4)
 
+Seit M5 gelesen im Bereich **Läufe** der Verwaltung, über alle Apps
+(`GET /api/laeufe`, Abschnitt Läufe in `FLOWS.md`); die Seite einer App
+verweist dorthin, mit der App als Filter.
+
 `GET /api/apps/<id>/laeufe` nennt die Läufe **dieser App** (nicht die des
 angemeldeten Menschen — ein App-Lauf trägt als Nutzer den, dem der Schlüssel
 gehört), `GET /api/apps/<id>/laeufe/<nr>` einen davon samt Schritten. Vier

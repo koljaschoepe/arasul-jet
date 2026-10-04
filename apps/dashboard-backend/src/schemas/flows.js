@@ -938,7 +938,39 @@ const ListRunsQuery = z
   })
   .strict();
 
+/**
+ * Query der Läufe-Liste der Verwaltung (M5): über alle Apps, nach App,
+ * Ergebnis, Person und Zeitraum. `person=ohne` sind Läufe ohne Mensch dahinter
+ * (Zeitplan, Ereignis). `von`/`bis` sind Zeitpunkte, `bis` ausgeschlossen.
+ */
+const LaeufeAlleQuery = z
+  .object({
+    app: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9][a-z0-9-]{0,63}$/, 'App-Kennung: Kleinbuchstaben, Ziffern und Bindestrich')
+      .optional(),
+    status: z
+      .enum([
+        'laeuft',
+        'wartend',
+        'fertig',
+        'fehler',
+        'abgebrochen',
+        'abgelaufen',
+        'nicht_uebergeben',
+      ])
+      .optional(),
+    person: z.union([z.literal('ohne'), z.coerce.number().int().positive()]).optional(),
+    von: z.string().datetime({ offset: true }).optional(),
+    bis: z.string().datetime({ offset: true }).optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+    offset: z.coerce.number().int().min(0).default(0),
+  })
+  .strict();
+
 module.exports = {
+  LaeufeAlleQuery,
   FlowDefinition,
   FlowArgument,
   FlowName,

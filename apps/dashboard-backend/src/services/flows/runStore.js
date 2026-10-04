@@ -334,13 +334,15 @@ async function bumpSteps({ runId, by = 1 }, { db = database } = {}) {
  * Schritte als 'abgebrochen'. Gibt null zurück, wenn der Lauf gar nicht (mehr)
  * lief — der Aufrufer kann daraus einen 404/409 machen.
  */
-async function cancelRun({ runId, userId }, { db = database } = {}) {
-  // Erst den Lauf — nur wenn er dem Nutzer gehört UND noch läuft.
+async function cancelRun({ runId, userId = null }, { db = database } = {}) {
+  // Erst den Lauf — nur wenn er dem Nutzer gehört UND noch läuft. Ohne `userId`
+  // (der Administrator, M5) gilt jeder Lauf: Läufe aus Zeitplan und Ereignis
+  // gehören keinem Menschen, und ein Admin muss auch sie abbrechen können.
   const { rows } = await db.query(
     `UPDATE flow_runs
         SET status = 'abgebrochen', finished_at = NOW()
       WHERE id = $1
-        AND user_id = $2
+        AND ($2::bigint IS NULL OR user_id = $2)
         AND status IN ('laeuft', 'wartend', 'nicht_uebergeben')
       RETURNING *`,
     [runId, userId]
@@ -401,7 +403,7 @@ async function schritteUndFreigaben(runId, includeRaw, db) {
  *
  * @param {object} p
  * @param {number} p.runId
- * @param {number} p.userId
+ * @param {number|null} p.userId `null`: der Administrator, jeder Lauf zählt.
  * @param {string|null} [p.appId] Wenn gesetzt, muss der Lauf zu dieser App
  *   und diesem Stand gehören.
  * @param {'test'|'live'|null} [p.stand]
@@ -412,14 +414,15 @@ async function getRun(
   { runId, userId, appId = null, stand = null, includeRaw = false },
   { db = database } = {}
 ) {
-  const params = [runId, userId];
+  const params = [runId, userId ?? null];
   let filter = '';
   if (appId != null) {
     params.push(appId, stand);
     filter = `AND app_id = $${params.length - 1} AND stand = $${params.length}`;
   }
+  // `userId` null heißt: der Administrator, der jeden Lauf sieht (M5).
   const runRes = await db.query(
-    `SELECT * FROM flow_runs WHERE id = $1 AND user_id = $2 ${filter}`,
+    `SELECT * FROM flow_runs WHERE id = $1 AND ($2::bigint IS NULL OR user_id = $2) ${filter}`,
     params
   );
   if (runRes.rows.length === 0) {
@@ -538,8 +541,83 @@ async function getRunFuerApp({ runId, appId, includeRaw = false }, { db = databa
   return { ...runRes.rows[0], ...(await schritteUndFreigaben(runId, includeRaw, db)) };
 }
 
+/**
+ * Wer hinter einem Lauf steht, als eine Spalte: der Mensch, für den eine App
+ * ihn auslöste (`einreicher_id`), bei einem Lauf der Plattform ohne App der
+ * Nutzer selbst. Ein Lauf aus Zeitplan oder Ereignis hat keinen: sein
+ * `user_id` ist nur der Admin, unter dem er technisch startet.
+ */
+const PERSON_ID = `COALESCE(r.einreicher_id, CASE WHEN r.app_id IS NULL THEN r.user_id END)`;
+
+/**
+ * Läufe über ALLE Apps für die Verwaltung (M5), gefiltert nach App, Ergebnis,
+ * Person und Zeitraum. Fehler und „nicht übergeben" stehen oben, darin und
+ * danach das Neueste zuerst. Die Berechtigung steht an der Route.
+ *
+ * @param {{app?: string|null, status?: string|null, person?: number|'ohne'|null,
+ *          von?: string|null, bis?: string|null, limit?: number, offset?: number}} p
+ * @returns {Promise<{laeufe: object[], gesamt: number}>}
+ */
+async function listRunsAlle(
+  { app = null, status = null, person = null, von = null, bis = null, limit = 50, offset = 0 },
+  { db = database } = {}
+) {
+  const params = [];
+  const bedingungen = [];
+  const dazu = (sql, wert) => {
+    params.push(wert);
+    bedingungen.push(sql.replace('?', `$${params.length}`));
+  };
+  if (app != null) {dazu('r.app_id = ?', app);}
+  if (status != null) {dazu('r.status = ?', status);}
+  if (person === 'ohne') {bedingungen.push(`${PERSON_ID} IS NULL`);}
+  else if (person != null) {dazu(`${PERSON_ID} = ?`, person);}
+  if (von != null) {dazu('r.created_at >= ?::timestamptz', von);}
+  if (bis != null) {dazu('r.created_at < ?::timestamptz', bis);}
+  const wo = bedingungen.length ? `WHERE ${bedingungen.join(' AND ')}` : '';
+  const gesamt = await db.query(`SELECT count(*)::int AS n FROM flow_runs r ${wo}`, [...params]);
+  params.push(Math.min(Math.max(1, limit), 200), Math.max(0, offset));
+  const { rows } = await db.query(
+    `SELECT r.id, r.flow_name, r.app_id, r.stand, r.status, r.steps_used, r.created_at,
+            r.finished_at, r.error, r.ausloeser, r.ereignis, r.abschluss,
+            ${PERSON_ID} AS person_id,
+            NULLIF(trim(coalesce(u.vorname, '') || ' ' || coalesce(u.nachname, '')), '') AS person_name,
+            u.username AS person_konto
+       FROM flow_runs r
+       LEFT JOIN public.admin_users u ON u.id = ${PERSON_ID}
+       ${wo}
+      ORDER BY (r.status IN ('fehler', 'nicht_uebergeben')) DESC, r.id DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+  return { laeufe: rows, gesamt: gesamt.rows[0].n };
+}
+
+/**
+ * Ein Lauf mit Schritten, Freigaben und der Person dahinter, aus jeder App
+ * oder von der Plattform (M5). Für die Verwaltung; die Berechtigung steht an
+ * der Route.
+ */
+async function getRunAlle({ runId, includeRaw = false }, { db = database } = {}) {
+  const { rows } = await db.query(
+    `SELECT r.*, ${PERSON_ID} AS person_id,
+            NULLIF(trim(coalesce(u.vorname, '') || ' ' || coalesce(u.nachname, '')), '') AS person_name,
+            u.username AS person_konto
+       FROM flow_runs r
+       LEFT JOIN public.admin_users u ON u.id = ${PERSON_ID}
+      WHERE r.id = $1`,
+    [runId]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`Flow-Lauf ${runId} nicht gefunden`);
+  }
+  return { ...rows[0], ...(await schritteUndFreigaben(runId, includeRaw, db)) };
+}
+
 module.exports = {
   createRun,
+  getRunAlle,
+  listRunsAlle,
   startStep,
   finishStep,
   finishRun,

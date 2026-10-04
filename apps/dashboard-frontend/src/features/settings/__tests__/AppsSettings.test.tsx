@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import { FASSUNG } from '@marken';
 import { AppsSettings } from '../AppsSettings';
 import { terminInWorten } from '../apps/AppFlows';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 const apiMock = {
   get: vi.fn(),
@@ -118,77 +119,6 @@ const LEICHE_DETAIL = {
   },
 };
 
-const LAUF = {
-  id: 42,
-  flow_name: 'freigabe',
-  stand: 'live' as const,
-  status: 'fertig' as const,
-  steps_used: 2,
-  created_at: '2026-08-28T09:30:00.000Z',
-  finished_at: '2026-08-28T09:31:00.000Z',
-  arguments: { woche: '35' },
-  error: null,
-};
-
-const LAUF_DETAIL = {
-  ...LAUF,
-  result: 'Der Bericht ist freigegeben.',
-  steps: [
-    {
-      id: 1,
-      position: 0,
-      kind: 'modell' as const,
-      name: 'Gedankengang',
-      input: null,
-      output: 'Ich hole zuerst die Freigabe ein.',
-      status: 'fertig',
-      created_at: '2026-08-28T09:30:10.000Z',
-      finished_at: '2026-08-28T09:30:10.000Z',
-      parent_step_id: null,
-      modell: 'gemma4:e4b',
-    },
-    {
-      id: 2,
-      position: 1,
-      kind: 'werkzeug' as const,
-      name: 'freigabe_anfordern',
-      input: { titel: 'Wochenbericht' },
-      output: 'Bestätigt von mia.',
-      status: 'fertig',
-      created_at: '2026-08-28T09:30:20.000Z',
-      finished_at: '2026-08-28T09:31:00.000Z',
-      parent_step_id: null,
-      modell: null,
-    },
-  ],
-  freigaben: [
-    {
-      id: 5,
-      titel: 'Erkennung unsicher: Feld datum',
-      stufe: null,
-      status: 'bestaetigt' as const,
-      angefragt_am: '2026-08-28T09:30:20.000Z',
-      entschieden_am: '2026-08-28T09:31:00.000Z',
-      entschieden_von: 'mia',
-      begruendung: null,
-      felder_schritt: 'lesen',
-      felder: [
-        { name: 'datum', vorschlag: '', unsicher: false, fehlend: true },
-        { name: 'betrag', vorschlag: '12,50', unsicher: false, fehlend: false },
-      ],
-      korrekturen: [
-        {
-          feld: 'datum',
-          vorschlag: '',
-          wert: '01.10.2026',
-          von: 'mia',
-          am: '2026-08-28T09:31:00.000Z',
-        },
-      ],
-    },
-  ],
-};
-
 const KATALOG = [
   { id: 'gemma4:e4b', name: 'Gemma 4 e4b', install_status: 'available', model_type: 'chat' },
   { id: 'llava-phi3', name: 'LLaVA Phi3', install_status: 'not_installed', model_type: 'vision' },
@@ -206,8 +136,6 @@ function antworte(zusatz: Record<string, unknown> = {}) {
     if (pfad in zusatz) return zusatz[pfad];
     if (pfad === '/apps') return { data: [APP_ZEILE] };
     if (pfad === '/apps/beispielapp') return { data: APP_DETAIL };
-    if (pfad.startsWith('/apps/beispielapp/laeufe/')) return { data: LAUF_DETAIL };
-    if (pfad.startsWith('/apps/beispielapp/laeufe')) return { data: [LAUF] };
     if (pfad.startsWith('/apps/beispielapp/flows/')) {
       return {
         data: {
@@ -745,81 +673,17 @@ describe('AppsSettings', () => {
     expect(screen.getByTestId('modell-absenden')).toBeDisabled();
   });
 
-  it('liest einen Lauf mit Schritten UND Gedankengang', async () => {
+  it('verweist bei den Läufen in den Bereich Läufe, mit der App als Filter', async () => {
     antworte();
     await oeffneApp();
-
-    fireEvent.click(screen.getByTestId('laeufe-schalter'));
-    fireEvent.click(await screen.findByTestId('lauf-oeffnen-42'));
-
-    const schritte = await screen.findByTestId('lauf-schritte');
-    expect(schritte).toHaveAttribute('data-schritte', '2');
-    // Der Gedankengang ist ein Schritt der Art `modell` und steht offen da:
-    // er ist der Satz, der die Werkzeug-Kette erklärt.
-    expect(screen.getByTestId('schritt-1')).toHaveAttribute('data-schritt-art', 'modell');
-    expect(screen.getByTestId('schritt-1-ausgabe')).toHaveTextContent(
-      'Ich hole zuerst die Freigabe ein.'
-    );
-    expect(screen.getByTestId('lauf-ergebnis')).toHaveTextContent('Der Bericht ist freigegeben.');
-    // Vorschlag der KI und Änderung des Menschen nebeneinander (M5).
-    expect(screen.getByTestId('lauf-feld-5-datum')).toHaveTextContent('nicht erkannt');
-    expect(screen.getByTestId('lauf-feld-5-datum-neu')).toHaveTextContent('01.10.2026');
-    expect(screen.getByTestId('lauf-feld-5-datum-neu')).toHaveTextContent('mia');
-    expect(screen.getByTestId('lauf-feld-5-betrag-neu')).toHaveTextContent('nein');
-  });
-
-  it('bietet bei einem nicht uebergebenen Lauf „erneut" an und uebergibt ohne neue Schritte', async () => {
-    const offen = {
-      ...LAUF,
-      status: 'nicht_uebergeben' as const,
-      error: 'Die App antwortete 503',
-      abschluss: { route: '/abschluss/freigabe', versuche: 1, fehler: 'Die App antwortete 503' },
-    };
-    antworte({ '/apps/beispielapp/laeufe?limit=50': { data: [offen] } });
-    apiMock.get.mockImplementation(async (pfad: string) => {
-      if (pfad === '/apps') return { data: [APP_ZEILE] };
-      if (pfad === '/apps/beispielapp') return { data: APP_DETAIL };
-      if (pfad.startsWith('/apps/beispielapp/laeufe/'))
-        return { data: { ...LAUF_DETAIL, ...offen } };
-      if (pfad.startsWith('/apps/beispielapp/laeufe')) return { data: [offen] };
-      return {};
+    // Eine zweite Liste gibt es hier nicht: die Läufe stehen an EINER Stelle.
+    expect(screen.queryByTestId('lauf-liste')).toBeNull();
+    fireEvent.click(screen.getByTestId('laeufe-ansehen'));
+    expect(useWorkspaceStore.getState().ansicht).toMatchObject({
+      type: 'verwaltung',
+      bereich: 'laeufe',
+      filter: 'app=beispielapp',
     });
-    apiMock.post.mockResolvedValue({ data: { ...offen, status: 'fertig' } });
-    await oeffneApp();
-
-    fireEvent.click(screen.getByTestId('laeufe-schalter'));
-    expect(await screen.findByText('nicht übergeben')).toBeInTheDocument();
-    fireEvent.click(await screen.findByTestId('lauf-erneut-42'));
-
-    await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith('/apps/beispielapp/laeufe/42/erneut', {})
-    );
-    await waitFor(() => expect(toast.success).toHaveBeenCalled());
-  });
-
-  it('markiert einen Lauf aus einem Ereignis der App (Kontrakt 13)', async () => {
-    const ausEreignis = { ...LAUF, ausloeser: 'ereignis' as const, ereignis: 'beleg.eingegangen' };
-    apiMock.get.mockImplementation(async (pfad: string) => {
-      if (pfad === '/apps') return { data: [APP_ZEILE] };
-      if (pfad === '/apps/beispielapp') return { data: APP_DETAIL };
-      if (pfad.startsWith('/apps/beispielapp/laeufe/'))
-        return { data: { ...LAUF_DETAIL, ...ausEreignis } };
-      if (pfad.startsWith('/apps/beispielapp/laeufe')) return { data: [ausEreignis] };
-      return {};
-    });
-    await oeffneApp();
-    fireEvent.click(screen.getByTestId('laeufe-schalter'));
-    const marke = await screen.findByTestId('lauf-ereignis-42');
-    expect(marke).toHaveTextContent('Ereignis');
-    expect(marke).toHaveAttribute('title', 'Ereignis „beleg.eingegangen“');
-  });
-
-  it('bietet „erneut" bei einem uebergebenen Lauf nicht an', async () => {
-    antworte();
-    await oeffneApp();
-    fireEvent.click(screen.getByTestId('laeufe-schalter'));
-    await screen.findByTestId('lauf-oeffnen-42');
-    expect(screen.queryByTestId('lauf-erneut-42')).toBeNull();
   });
 
   it('zeigt die Flow-Datei samt Auftrag an das Modell', async () => {

@@ -45,6 +45,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/backup', group: 'admin' },
   { prefix: '/ops', group: 'admin' },
   { prefix: '/werksreset', group: 'admin' },
+  { prefix: '/laeufe', group: 'admin' },
   { prefix: '/models', group: 'ai' },
   { prefix: '/embeddings', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
@@ -124,6 +125,8 @@ router.use('/gdpr', require('./admin/gdpr'));
 router.use('/backup', require('./admin/backup'));
 router.use('/ops', require('./admin/ops'));
 router.use('/werksreset', require('./admin/werksreset'));
+// Die Läufe aller Apps für die Verwaltung (M5).
+router.use('/laeufe', require('./admin/laeufe'));
 
 // --- AI ---
 router.use('/models', require('./ai/models'));

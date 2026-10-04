@@ -68,9 +68,7 @@ export function AppPersonen({ appId, hatTeststand }: { appId: string; hatTeststa
             />
             <span className="min-w-0 flex-1">
               <span className="text-sm text-foreground">{name}</span>
-              {!b.is_active && (
-                <span className="ml-2 text-xs text-muted-foreground">gesperrt</span>
-              )}
+              {!b.is_active && <span className="ml-2 text-xs text-muted-foreground">gesperrt</span>}
             </span>
 
             {/* Testperson erst, WENN Zugang besteht — sonst machte ein Klick aus

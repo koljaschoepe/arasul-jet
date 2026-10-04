@@ -309,3 +309,64 @@ describe('listRuns', () => {
     expect(params[params.length - 1]).toBe(200); // hart gedeckelt
   });
 });
+
+describe('Läufe über alle Apps (Verwaltung, M5)', () => {
+  it('ohne userId bricht cancelRun jeden Lauf ab, auch den aus Zeitplan oder Ereignis', async () => {
+    const db = fakeDb({ rows: [{ id: 9, status: 'abgebrochen' }] }, { rows: [] });
+    const run = await runStore.cancelRun({ runId: 9 }, { db });
+    expect(run).toEqual({ id: 9, status: 'abgebrochen' });
+    expect(db.calls[0].sql).toMatch(/\$2::bigint IS NULL OR user_id = \$2/);
+    expect(db.calls[0].params).toEqual([9, null]);
+  });
+
+  it('ohne userId findet getRun jeden Lauf, mit userId nur den eigenen', async () => {
+    const db = fakeDb({ rows: [{ id: 4 }] }, { rows: [] }, { rows: [] });
+    await runStore.getRun({ runId: 4, userId: null }, { db });
+    expect(db.calls[0].params).toEqual([4, null]);
+    expect(db.calls[0].sql).toMatch(/\$2::bigint IS NULL OR user_id = \$2/);
+  });
+
+  it('listRunsAlle setzt jeden Filter als Parameter und stellt Fehler nach oben', async () => {
+    const db = fakeDb({ rows: [{ n: 3 }] }, { rows: [{ id: 5 }] });
+    const { laeufe, gesamt } = await runStore.listRunsAlle(
+      {
+        app: 'belege',
+        status: 'fehler',
+        person: 12,
+        von: '2026-10-01T00:00:00Z',
+        bis: '2026-10-02T00:00:00Z',
+        limit: 20,
+        offset: 40,
+      },
+      { db }
+    );
+    expect(gesamt).toBe(3);
+    expect(laeufe).toEqual([{ id: 5 }]);
+    const { sql, params } = db.calls[1];
+    expect(sql).toMatch(/r\.app_id = \$1 AND r\.status = \$2/);
+    expect(sql).toMatch(
+      /ORDER BY \(r\.status IN \('fehler', 'nicht_uebergeben'\)\) DESC, r\.id DESC/
+    );
+    expect(params).toEqual([
+      'belege',
+      'fehler',
+      12,
+      '2026-10-01T00:00:00Z',
+      '2026-10-02T00:00:00Z',
+      20,
+      40,
+    ]);
+  });
+
+  it('person=ohne fragt nach Läufen ohne Mensch und braucht keinen Parameter', async () => {
+    const db = fakeDb({ rows: [{ n: 0 }] }, { rows: [] });
+    await runStore.listRunsAlle({ person: 'ohne' }, { db });
+    expect(db.calls[0].sql).toMatch(/IS NULL/);
+    expect(db.calls[0].params).toEqual([]);
+  });
+
+  it('getRunAlle wirft NotFound für einen Lauf, den es nicht gibt', async () => {
+    const db = fakeDb({ rows: [] });
+    await expect(runStore.getRunAlle({ runId: 1 }, { db })).rejects.toThrow(NotFoundError);
+  });
+});

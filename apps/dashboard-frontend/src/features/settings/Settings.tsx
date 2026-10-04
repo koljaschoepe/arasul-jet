@@ -19,6 +19,7 @@ import {
 } from './sections';
 import { AppsSettings } from './AppsSettings';
 import { PersonenSettings } from './PersonenSettings';
+import { LaeufeSettings } from './LaeufeSettings';
 import { FirmenordnerSettings } from './FirmenordnerSettings';
 import { DatenSettings } from './DatenSettings';
 import { GeraetSettings } from './GeraetSettings';
@@ -61,6 +62,23 @@ function Settings({ modelle }: VerwaltungProps) {
               appId={ansicht.abschnitt ?? null}
               onOeffnen={id =>
                 oeffne({ type: 'verwaltung', bereich: 'apps', ...(id ? { abschnitt: id } : {}) })
+              }
+            />
+          </ComponentErrorBoundary>
+        );
+      case 'laeufe':
+        return (
+          <ComponentErrorBoundary componentName="Läufe">
+            <LaeufeSettings
+              abschnitt={ansicht.abschnitt}
+              filter={ansicht.filter}
+              onOeffnen={ziel =>
+                oeffne({
+                  type: 'verwaltung',
+                  bereich: 'laeufe',
+                  ...(ziel.abschnitt ? { abschnitt: ziel.abschnitt } : {}),
+                  ...(ziel.filter ? { filter: ziel.filter } : {}),
+                })
               }
             />
           </ComponentErrorBoundary>

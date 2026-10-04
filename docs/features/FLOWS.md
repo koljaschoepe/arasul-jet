@@ -130,8 +130,8 @@ Frage „warum hat der Flow das getan" ließ sich nicht beantworten.
 Seit D4 wird er als Schritt der Art `modell` mitgeschrieben (die Spalte kennt
 Migration 112 seit jeher) und im Ereignisstrom als `gedanke` gemeldet — ein
 eigenes Ereignis und nicht `text`: `text` ist die **Antwort** des Laufs, der
-Gedankengang ist sein Weg dorthin. Gelesen wird er in der App-Ansicht
-(Einstellungen → Apps → Läufe).
+Gedankengang ist sein Weg dorthin. Gelesen wird er im Bereich Läufe der
+Verwaltung (Verwaltung → Läufe).
 
 Er entsteht nur, wo das Modell überhaupt frei entscheidet. Ein Flow mit einer
 festen `schritte`-Kette hat keinen; dort steht die Reihenfolge in der Datei.
@@ -270,6 +270,17 @@ bei einem Flow der Plattform. Sie sind **kein** Fremdschlüssel, mit derselben
 Begründung, mit der `flow_name` seit jeher keiner ist: ein Lauf ist Geschichte
 und soll lesbar bleiben, wenn die App längst weg ist. Ein Schlüssel, der einer
 App gehört, sieht auch nur die Läufe **dieser** App in **diesem** Stand.
+
+**Läufe der Verwaltung (M5).** Der Bereich Läufe der Verwaltung ist die eine
+Stelle für Läufe: `GET /api/laeufe` über alle Apps, gefiltert nach App,
+Ergebnis, Person (auch „ohne Person": Zeitplan, Ereignis) und Zeitraum, Fehler
+und „nicht übergeben" oben. Jede Zeile klappt auf (mehrere zugleich, bis zu Ein-
+und Ausgabe jedes Schritts, mit Freigaben, Vorschlag und Änderung), und jeder
+Lauf hat eine Adresse, `/workspace/verwaltung/laeufe/<nr>`; die Filter stehen
+als Abfrage in der Adresse. Der Administrator sieht und bricht **jeden** Lauf
+ab, auch einen aus Zeitplan oder Ereignis, dessen `user_id` nur der technische
+Besitzer ist. Die Seite einer App verweist mit der App als Filter hierher und
+zeigt keine zweite Liste.
 
 Jeder Lauf, der Dateien ändern **kann** (schreibendes Datei-Werkzeug oder
 Ausgabe-Dokument), wird vorher und nachher abgezogen; der Unterschied steht
