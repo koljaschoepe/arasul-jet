@@ -9,7 +9,7 @@
 const http = require('http');
 const systemSettings = require('../system-settings/systemSettingsService');
 const { circuitBreakers } = require('../../utils/retry');
-const { ServiceUnavailableError } = require('../../utils/errors');
+const { InternalError } = require('../../utils/errors');
 // Die EINE GPU-Sperre, geteilt mit den Flow-Läufen (Plan 011, Schritt 10).
 // Nutzer-Entscheidung: strikt einer nach dem anderen — Chat und Flow dürfen
 // nie zugleich auf die GPU. Siehe services/flows/gpuQueue.js.
@@ -108,7 +108,8 @@ async function _streamFromOllamaImpl(
   const catalogModelId = model || (await modelService.getDefaultModel());
 
   if (!catalogModelId) {
-    throw new ServiceUnavailableError(
+    // 500 wie bisher (vorher ein schlichtes Error): der Umbau ändert keinen Status.
+    throw new InternalError(
       'Kein Modell verfügbar. Bitte laden Sie zuerst eines unter Verwaltung, Modelle.',
       { code: 'KEIN_MODELL' }
     );

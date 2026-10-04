@@ -94,7 +94,7 @@ async function stelleAus({ benutzerId, name }) {
     // ohnehin einen 409, aber ohne den Satz, der sagt, was zu tun ist.
     if (err.code === '23505') {
       throw new ConflictError(
-        `Es gibt schon einen Ausweis mit dem Namen „${name}". ` +
+        `Es gibt schon einen Ausweis mit dem Namen „${name}“. ` +
           'Widerrufen Sie ihn oder nehmen Sie einen anderen Namen.'
       );
     }

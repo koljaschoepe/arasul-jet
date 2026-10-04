@@ -58,7 +58,7 @@ async function aufDemHost(cmd, timeoutMs, wofuer) {
     return await runOnHost(cmd, timeoutMs);
   } catch (err) {
     logger.error(`Tailscale: ${wofuer} -- Befehl auf dem Host lief nicht: ${err.message}`);
-    if (/Zeitlimit/.test(err.message)) {
+    if (err.code === 'ZEITLIMIT') {
       throw new ServiceUnavailableError(
         'Tailscale hat nicht rechtzeitig geantwortet. ' +
           'Prüfen Sie die Internetverbindung des Geräts und versuchen Sie es noch einmal.',
@@ -210,7 +210,11 @@ async function runOnHost(cmd, timeoutMs = 10000) {
     const result = await Promise.race([
       container.wait(),
       new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Zeitlimit überschritten')), timeoutMs);
+        // Mit Kennung: `aufDemHost` unterscheidet daran das Zeitlimit, nicht am Text.
+        timer = setTimeout(
+          () => reject(Object.assign(new Error('Zeitlimit überschritten'), { code: 'ZEITLIMIT' })),
+          timeoutMs
+        );
       }),
     ]);
     clearTimeout(timer);
