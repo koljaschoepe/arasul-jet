@@ -169,18 +169,18 @@ Spalten-Spezifikation, Sortieren, Filtern, Leerzustand, Ladezustand, und unter
 900 px Karten statt Tabelle). Beide wissen nichts von Arasul; was eine Route,
 einen Endpunkt oder einen Benutzer kennt, bleibt in der Shell.
 
-| Muster                         | Wofür                                                             |
-| ------------------------------ | ----------------------------------------------------------------- |
-| `Datenliste`                   | Zeilen zeigen, sortieren, durchsuchen; unter 900 px Karten        |
-| `Suchauswahl`                  | die Auswahl, die beim Tippen enger wird (anderswo »Combobox«)     |
-| `Dateiablage`                  | Dateien ziehen **oder** auswählen; sie lädt selbst nichts hoch    |
-| `Seitenleiste`                 | Navigation aus einer Liste, auf dem Primitiv `Sidebar`            |
-| `Formularseite` / `Feldgruppe` | Abschnitte einer Seite; die Trennlinie gehört zwischen sie        |
-| `Leerzustand`                  | was an der Stelle einer leeren Liste steht — samt Einstieg        |
-| `Ladezustand`                  | der Kreisel, wenn die Form des Ergebnisses noch offen ist         |
-| `Dialogform` / `Bestaetigung`  | der Dialog (Titel, rollender Rumpf, Fuß) und die Frage (H5)       |
-| `Kennzahl` / `Kennzahlen`      | eine Zahl mit ihrer Beschriftung; Raster 1/2/4, nie drei (H5)     |
-| `Freigabe`                     | Liste, Einzelansicht, Bestätigen, Ablehnen mit Grund, Frist (J36) |
+| Muster                         | Wofür                                                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Datenliste`                   | Zeilen zeigen, sortieren, durchsuchen; unter 900 px Karten                                                                                       |
+| `Suchauswahl`                  | die Auswahl, die beim Tippen enger wird (anderswo »Combobox«)                                                                                    |
+| `Dateiablage`                  | Dateien ziehen **oder** auswählen; sie lädt selbst nichts hoch                                                                                   |
+| `Seitenleiste`                 | Navigation aus einer Liste, auf dem Primitiv `Sidebar`                                                                                           |
+| `Formularseite` / `Feldgruppe` | Abschnitte einer Seite; die Trennlinie gehört zwischen sie                                                                                       |
+| `Leerzustand`                  | was an der Stelle einer leeren Liste steht — samt Einstieg                                                                                       |
+| `Ladezustand`                  | der Kreisel, wenn die Form des Ergebnisses noch offen ist                                                                                        |
+| `Dialogform` / `Bestaetigung`  | der Dialog (Titel, rollender Rumpf, Fuß) und die Frage (H5)                                                                                      |
+| `Kennzahl` / `Kennzahlen`      | eine Zahl mit ihrer Beschriftung; Raster 1/2/4, nie drei (H5)                                                                                    |
+| `Freigabe`                     | Liste, Einzelansicht, Bestätigen, Ablehnen mit Grund, Frist (J36); erkannte Felder mit „prüfen" oben, Original links, was bisher geschah (5.4.0) |
 
 Die **Schauseite** unter `/entwickler/bausteine` zeigt jedes Primitiv **und
 jedes Muster** in allen Zuständen, hell und dunkel; sie liegt seit H4 in drei

@@ -33,7 +33,7 @@
  * Sicherheitsprotokoll. Eine zweite Liste daneben hätte die Frage „warum steht
  * das noch da" bei jedem Blick neu gestellt.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ClipboardCheck, Send, UserRound } from 'lucide-react';
 import {
   Button,
@@ -95,7 +95,7 @@ function stufeName(f: Pick<OffeneFreigabe, 'stufe' | 'stufe_bezeichnung'>): stri
  * (26.09.2026): „faktum" ist ein Pfad, „Faktum" ist das, was der Mensch links
  * in seiner Leiste sieht.
  */
-function alsEintrag(f: OffeneFreigabe): FreigabeEintrag {
+function alsEintrag(f: OffeneFreigabe, fuss?: ReactNode): FreigabeEintrag {
   const stufe = stufeName(f);
   return {
     id: f.id,
@@ -108,6 +108,18 @@ function alsEintrag(f: OffeneFreigabe): FreigabeEintrag {
     frist: f.frist,
     angefragtAm: f.angefragt_am,
     regel: regelSatz(f),
+    felder: f.felder ?? null,
+    original: f.original ?? null,
+    bisher: (f.frueher ?? []).map(v => ({
+      titel: v.titel,
+      stufe: v.stufe,
+      status: v.status,
+      entschiedenVon: v.entschieden_von,
+      entschiedenAm: v.entschieden_am,
+      begruendung: v.begruendung,
+      korrekturen: v.korrekturen,
+    })),
+    fuss,
   };
 }
 
@@ -316,13 +328,19 @@ export function OffeneFreigaben() {
    * lassen, das nie kommt. Ein Fehler läuft über den Toast von `useApi` und
    * wirft hier weiter -- das Muster lässt dann das Feld offen.
    */
-  const entscheide = async (e: FreigabeEintrag, status: 'bestaetigt' | 'abgelehnt', grund = '') => {
+  const entscheide = async (
+    e: FreigabeEintrag,
+    status: 'bestaetigt' | 'abgelehnt',
+    grund = '',
+    felder?: Record<string, string>
+  ) => {
     const d = await entscheiden.mutateAsync(
       status === 'bestaetigt'
-        ? { id: Number(e.id), status }
+        ? { id: Number(e.id), status, ...(felder ? { felder } : {}) }
         : { id: Number(e.id), status, begruendung: grund }
     );
     const was = status === 'bestaetigt' ? 'bestätigt' : 'abgelehnt';
+    const geaendert = d.korrekturen?.length ?? 0;
     if (!d.fortgesetzt) {
       toast.warning(
         `„${e.titel}" ist ${was}. Der Lauf wird aber nicht mehr fortgesetzt: ` +
@@ -331,7 +349,13 @@ export function OffeneFreigaben() {
     } else {
       toast.success(
         status === 'bestaetigt'
-          ? `„${e.titel}" freigegeben. Der Lauf läuft weiter.`
+          ? `„${e.titel}" freigegeben${
+              geaendert === 1
+                ? ', 1 Feld geändert'
+                : geaendert > 1
+                  ? `, ${geaendert} Felder geändert`
+                  : ''
+            }. Der Lauf läuft weiter.`
           : `„${e.titel}" abgelehnt. Der Lauf ist beendet.`
       );
     }
@@ -366,21 +390,19 @@ export function OffeneFreigaben() {
           {data.length === 1 ? '1 Freigabe' : `${data.length} Freigaben`}
         </span>
       </h2>
-      {/* Eine Karte je Freigabe, jede mit eigenem Muster: darunter steht, bei
-          wem sie liegt und an wen sie weitergehen kann, und das Muster der
-          Bibliothek kennt keine solche Zeile. */}
-      <ul className="flex flex-col gap-ui-2" data-testid="fuer-sie">
-        {data.map(f => (
-          <li key={f.id}>
-            <Freigabe
-              eintraege={[alsEintrag(f)]}
-              beiBestaetigen={e => entscheide(e, 'bestaetigt')}
-              beiAblehnen={(e, grund) => entscheide(e, 'abgelehnt', grund)}
-            />
-            <Zustaendigkeit f={f} ich={ich} istAdmin={istAdmin} />
-          </li>
-        ))}
-      </ul>
+      {/* Ein Muster für alle: unter jeder Karte steht als `fuss`, bei wem sie
+          liegt und an wen sie weitergehen kann. Eine Freigabe mit erkannten
+          Feldern öffnet sich zur Einzelansicht (Original links, Felder rechts),
+          und nach der Entscheidung steht wieder die Liste da (M5). */}
+      <div data-testid="fuer-sie">
+        <Freigabe
+          eintraege={data.map(f =>
+            alsEintrag(f, <Zustaendigkeit f={f} ich={ich} istAdmin={istAdmin} />)
+          )}
+          beiBestaetigen={(e, felder) => entscheide(e, 'bestaetigt', '', felder)}
+          beiAblehnen={(e, grund) => entscheide(e, 'abgelehnt', grund)}
+        />
+      </div>
       <BeiAnderen />
       <Eingereicht />
     </section>

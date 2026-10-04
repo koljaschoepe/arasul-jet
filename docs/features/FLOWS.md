@@ -479,7 +479,82 @@ Kontrakt (`flow_frontmatter.regeln`):
   läuft autonom oder mit Freigabe von Anfang an, **nie mit stillem Rückfall**: das
   Gerät schaltet nie von sich aus um, die Art bleibt, was der Admin gewählt hat.
 
-Gemessen am Orin: `scripts/test/arten-abnahme.sh`.
+Gemessen am Orin: `scripts/test/arten-abnahme.sh`. Seit dem 04.10.2026 rechnen
+`texte` und `beleg` dort mit einer festen Antwort der Probe-App statt mit dem
+echten Modell (siehe unten, „Abnahmen ohne Modell").
+
+### Korrekturfelder: Vorschlag und Änderung (M5, 04.10.2026)
+
+Wer eine Erkennung freigibt, korrigiert lieber ein Feld, als abzulehnen und neu
+zu starten. Welche Felder ein Mensch in der Freigabe ändern darf, **erklärt die
+App**, in der Rolle, die erkennt (Kontrakt 10):
+
+```yaml
+rollen:
+  - name: leser
+    ergebnis: { felder: [betrag, datum], aenderbar: [datum] }
+    prompt: Lies den Beleg.
+schritte:
+  - name: lesen
+    typ: subagent
+    rolle: leser
+    auftrag: Lies den Beleg {{beleg}}.
+    faehigkeiten: { bild: true }
+    original: 'api/belege/{{beleg}}.png' # relativ zur Adresse der App
+```
+
+Die Freigabe aus der Erkennung (Abschnitt „Arten" oben) trägt dann die Felder,
+wie die KI sie vorschlug, je Feld `unsicher`, `fehlend` und `aenderbar`, zu
+Prüfendes zuerst (`approvals.felder`, Migration 197), und das Original als
+Adresse der App (`/apps/<id>/api/belege/4711.png`, im Teststand
+`/apps/<id>/test/…`). Die **Ansicht der Freigabe** ist das Muster `Freigabe`
+aus `packages/marken` (ab 5.4.0), in Arasul unter „Für Sie" und in jeder App,
+die die Bibliothek von `/marken/5/` lädt:
+
+- in der Liste statt „Bestätigen" der Knopf **„Prüfen"**: wer bestätigt, soll
+  die Felder gesehen haben;
+- einzeln das **Original links**, zoombar (`Dokumentanzeige`, Bild oder PDF),
+  die **Felder rechts**; was zu prüfen ist, steht oben mit **„prüfen"**, nie
+  mit einer Prozentzahl; änderbar ist nur, was die App erklärt;
+- oben ein **Satz, was bisher geschah** (frühere Stufen desselben Laufs, wer
+  bestätigte, wie viele Felder er änderte), die früheren Stufen klappen auf;
+- nach der Entscheidung steht wieder die **Liste** da.
+
+Bestätigt wird mit `POST /api/freigabe-anfragen/:id/bestaetigen` und
+`{ "felder": { "datum": "01.10.2026" } }`. Ein Feld, das die App nicht als
+änderbar erklärt, weist das Backend mit `400` ab, die Freigabe bleibt offen.
+**Gespeichert** wird je geändertem Feld der Vorschlag der KI, der neue Wert,
+wer und wann (`approvals.korrekturen`), in derselben Anweisung wie die
+Entscheidung. **Der weitere Lauf arbeitet mit dem neuen Wert:** die Ausgabe des
+erkennenden Schritts wird nach der Bestätigung aus den Feldern der Anfrage neu
+gebildet (dieselbe Form `feld: wert`, die die Rolle geliefert hätte), im
+laufenden Prozess, nach einem Neustart und beim „Ab Fehler wiederholen" (dort
+aus den Freigaben des alten Laufs), für jeden übernommenen erkennenden Schritt.
+Im Protokoll des Laufs bleibt der
+Vorschlag am Schritt der Rolle stehen; der Freigabe-Schritt nennt darunter
+„Geändert: datum: „" (Vorschlag) → „01.10.2026" (bernd)". Die Läufe-Ansicht der
+Verwaltung zeigt beides als Tabelle (Feld, Vorschlag der KI, Geändert, wer,
+wann), die App liest es unter `GET /api/v1/external/freigaben`.
+
+**Grenzen, ehrlich benannt:** Felder trägt nur die Freigabe **aus der
+Erkennung**. Ist alles sicher erkannt, gibt es keine, und eine spätere Stufe
+(`freigabe_anfordern`) oder „Ergebnis bestätigen" zeigt den Text, keine
+Felder. Ein Original, das nach dem Einsetzen kein Pfad relativ zur App ist
+(`..`, Schema, Leerzeichen, `%`, `?`, `#`), fällt weg; die Freigabe entsteht ohne Bild.
+
+Gemessen am Orin: `scripts/test/korrektur-abnahme.sh`.
+
+### Abnahmen ohne Modell
+
+Eine Abnahme misst das Gerät, nicht ein Modell. Wo ein Flow nur ein vorgegebenes
+JSON wiedergeben soll, stellt die Abnahme ihn über den Weg des Administrators
+auf ein **externes Modell** um, das die Probe-App selbst ist
+(`PUT /api/apps/:id/flows/:name/modell`, `extern.basis_url` =
+`http://arasul-app-<id>-live:8080/v1`). Ihre Route `/v1/chat/completions`
+antwortet, was im Auftrag zwischen `<<<` und `>>>` steht. Rolle,
+Ergebnis-Vertrag, Erkennung, Freigabe und Fortsetzung laufen wie immer durch
+das Gerät; nur die Antwort ist fest. So in `tests/probe-arten` und
+`tests/probe-korrektur`.
 
 ### Ein wartender Lauf überlebt Neustart und Update (M5, 03.10.2026)
 

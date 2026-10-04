@@ -288,4 +288,48 @@ describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
       expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/8/uebernehmen', {})
     );
   });
+
+  it('eine Erkennung: Prüfen öffnet die Felder, die Korrektur geht mit, danach die Liste', async () => {
+    const ERKANNT = {
+      ...EINE,
+      id: 11,
+      titel: 'Erkennung unsicher: Feld datum',
+      felder: [
+        { name: 'datum', vorschlag: '', fehlend: true, unsicher: false, aenderbar: true },
+        { name: 'betrag', vorschlag: '12,50', fehlend: false, unsicher: false, aenderbar: false },
+      ],
+      original: '/apps/beispielapp/api/belege/4711.png',
+      frueher: [],
+    };
+    listen([ERKANNT], []);
+    apiMock.post.mockResolvedValue({
+      data: {
+        id: 11,
+        status: 'bestaetigt',
+        fortgesetzt: true,
+        korrekturen: [{ feld: 'datum', vorschlag: '', wert: '01.10.2026', von: 'clara' }],
+      },
+    });
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    fireEvent.click(await screen.findByTestId('freigabe-11-pruefen'));
+    expect(screen.getByTestId('freigabe-11-feld-datum-pruefen')).toHaveTextContent('prüfen');
+    expect(screen.getByTestId('freigabe-11-original')).toBeInTheDocument();
+    // Unter der Karte steht weiter, bei wem sie liegt.
+    expect(screen.getByTestId('freigabe-11-zustaendig')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('freigabe-11-feld-datum-eingabe'), {
+      target: { value: '01.10.2026' },
+    });
+    fireEvent.click(screen.getByTestId('freigabe-11-bestaetigen'));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/11/bestaetigen', {
+        felder: { datum: '01.10.2026' },
+      })
+    );
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        '„Erkennung unsicher: Feld datum" freigegeben, 1 Feld geändert. Der Lauf läuft weiter.'
+      )
+    );
+    await waitFor(() => expect(screen.queryByTestId('freigabe-einzeln')).not.toBeInTheDocument());
+  });
 });

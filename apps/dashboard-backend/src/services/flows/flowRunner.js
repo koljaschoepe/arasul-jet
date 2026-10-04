@@ -206,7 +206,7 @@ async function fortsetzen({ runId }, deps = {}) {
 
   try {
     const { rows: entscheidung } = await db.query(
-      `SELECT a.entschieden_am, COALESCE(u.username, 'einem Menschen') AS benutzer
+      `SELECT a.entschieden_am, a.korrekturen, COALESCE(u.username, 'einem Menschen') AS benutzer
          FROM public.approvals a
          LEFT JOIN public.admin_users u ON u.id = a.entschieden_von
         WHERE a.run_id = $1 AND a.status = 'bestaetigt'
@@ -222,7 +222,8 @@ async function fortsetzen({ runId }, deps = {}) {
         stepId: fortsetzung.schritt_id,
         output: require('./freigabeAnfragen').erteiltText(
           entscheidung[0].benutzer,
-          entscheidung[0].entschieden_am
+          entscheidung[0].entschieden_am,
+          entscheidung[0].korrekturen
         ),
       });
     }

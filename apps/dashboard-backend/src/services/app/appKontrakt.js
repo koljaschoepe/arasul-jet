@@ -60,7 +60,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 9;
+const KONTRAKT_VERSION = 10;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -217,6 +217,23 @@ const KONTRAKT_VERSION = 9;
  * muss 9 kennen, bevor ein Kit auf ein Geraet mit dieser Fassung einspielt.
  */
 
+/*
+ * Fassung 10 (M5, 04.10.2026): Korrekturfelder in der Freigabe. Zwei neue
+ * Felder im Flow-Kopf: `rollen[].ergebnis.aenderbar` (welche Felder ihres
+ * Ergebnisses ein Mensch in einer Freigabe aendern darf) und `original` am
+ * erkennenden Schritt (Bild oder PDF, relativ zur Adresse der App). Dazu nimmt
+ * `POST /api/freigabe-anfragen/:id/bestaetigen` die geaenderten Felder, und
+ * `GET /freigaben` nennt `felder`, `korrekturen` und `original`.
+ *
+ * FREIWILLIG, jedes Paket von Fassung 9 bleibt gueltig: ohne `aenderbar` ist
+ * kein Feld aenderbar, die Freigabe zeigt sie nur. Die Zahl geht trotzdem mit,
+ * aus dem Grund von 3, 4, 7, 8 und 9: Kopf und Rolle sind `.strict()`, und ein
+ * Kit, das gegen 9 prueft, wiese `aenderbar` und `original` als unbekannt ab.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * muss 10 kennen, bevor ein Kit auf ein Geraet mit dieser Fassung einspielt.
+ */
+
 /**
  * Die Bibliothek zur Laufzeit (Kontrakt 9): wo sie liegt, wie eine App sie
  * holt und wann sich die Adresse aendert.
@@ -341,6 +358,7 @@ const FREIGABE_REGELN = Object.freeze([
   'Bleibt nach der Regel niemand, der entscheiden koennte, weist das Geraet den Start mit 400 ab -- statt eine Freigabe anzulegen, die in ihre Frist laeuft.',
   'Die Regel gilt fuer jede Freigabe dieses Laufs. `GET /freigaben` nennt je Anfrage `einreicher`, `ohne_einreicher`, `entscheider` (Rolle oder Konten) und `kreis`.',
   '`GET /flows/runs/:id` nennt unter `freigabe`, wer eingereicht hat und wer entscheidet: `einreicher`, `ohne_einreicher`, `entscheider`, `kreis` (die Konten, die JETZT entscheiden koennen), `liegt_bei` (bei wem die offene Anfrage liegt, null = bei allen im Kreis), `wo` und `adresse` (entschieden wird in Arasul, nie in der App), `offen` (die wartende Anfrage mit ihrer `stufe`, oder null) und `satz` -- ein fertiger Satz fuer den Menschen, der eingereicht hat. Ohne App ist `freigabe` null.',
+  'Felder einer Freigabe (seit Kontrakt 10): `GET /freigaben` nennt je Anfrage `felder` (je Feld `name`, `vorschlag` der KI, `unsicher`, `fehlend`, `aenderbar`; null ohne Erkennung), `felder_schritt`, `original` (Adresse gleicher Herkunft oder null) und nach der Bestaetigung `korrekturen` (je Feld `feld`, `vorschlag`, `wert`, `von`, `am`; null = nichts geaendert). Aenderbar ist, was die Rolle unter `ergebnis.aenderbar` nennt.',
   'Bei wem eine Freigabe liegt, setzt NIE die App und nie der Flow: eine neue Anfrage liegt bei der Standardperson ihrer Stufe, die der Administrator je App und Stufe in der Verwaltung setzt; ohne sie bei allen im Kreis. Jeder im Kreis kann sie uebernehmen oder an einen anderen im Kreis weitergeben; entscheiden kann nur, bei dem sie liegt. `GET /freigaben` nennt je offener Anfrage `liegt_bei`.',
 ]);
 
@@ -633,6 +651,8 @@ function kontrakt() {
         '`ausloeser` nennt, wodurch der Flow startet (seit Kontrakt 8, freiwillig): eine Liste von Objekten mit `typ` `hand`, `zeitplan` (dazu `zeitplan`, fuenf Felder wie in cron, z. B. `"0 6 * * 1-5"`) oder `ereignis` (dazu `ereignis`, der Name eines Ereignisses der App). Hoechstens 5, keiner doppelt. Noch ohne Wirkung: der Zeitplaner kommt mit einer spaeteren Karte.',
         '`stufen` nennt die benannten Freigabestufen (seit Kontrakt 8, freiwillig), z. B. `pruefung` und `leitung`: je Stufe `name`, optional `bezeichnung` und `frist_minuten`. Hoechstens 5, keine doppelt. Nennt ein `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie deklarieren. Die Person je Stufe setzt der Administrator, nicht der Flow: eine neue Freigabe der Stufe liegt zuerst bei ihrer Standardperson (je App und Stufenname, zwei Flows mit derselben Stufe teilen sie), ohne sie bei allen mit Zugang (`freigaben`).',
         '`faehigkeiten` je Schritt nennt, was der Schritt vom Modell braucht (seit Kontrakt 8, freiwillig): `text`, `bild`, `werkzeuge` (je true oder false) und `mindestkontext` (Tokens, 512 bis 1048576). Nur bei `typ: subagent`; ein Werkzeug-Schritt ruft kein Modell und wird mit `faehigkeiten` abgewiesen.',
+        '`ergebnis.aenderbar` an einer Rolle nennt, welche ihrer `felder` ein Mensch in einer Freigabe aendern darf (seit Kontrakt 10, freiwillig; nur Namen aus `felder`). Die Freigabe aus der Erkennung zeigt alle Felder mit dem Vorschlag der KI, unsichere und fehlende zuerst mit „pruefen", ohne Prozentzahl; aenderbar sind nur diese. Wer bestaetigt, schickt geaenderte Werte unter `felder` mit (`POST /api/freigabe-anfragen/:id/bestaetigen`); ein Feld, das hier nicht steht, weist das Geraet mit 400 ab. Gespeichert wird je Feld der Vorschlag, der neue Wert, wer und wann (`korrekturen`), und der weitere Lauf arbeitet mit dem neuen Wert.',
+        '`original` an einem erkennenden Schritt (`typ: subagent` mit `faehigkeiten.bild: true`, seit Kontrakt 10, freiwillig) nennt das Bild oder PDF, das er liest, als Pfad RELATIV zur Adresse der App, mit Platzhaltern wie der Auftrag (`api/belege/{{beleg}}`): ohne `/` am Anfang, ohne `..`, ohne Schema. Die Freigabe zeigt es links, zoombar, geladen unter `/apps/<id>/` (Teststand `/apps/<id>/test/`) mit der Sitzung dessen, der entscheidet. Ergibt das Einsetzen keinen solchen Pfad, entsteht die Freigabe ohne Original.',
       ],
     },
     koepfe: {

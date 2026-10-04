@@ -131,4 +131,14 @@
  * Inhalt: die Leiste schneidet ab, und die `Seitenleiste` blendet Marke und
  * Fuss aus. Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.3.1';
+/*
+ * 5.4.0: die `Freigabe` kennt erkannte Felder. Eine Freigabe aus einer
+ * Erkennung zeigt das Original links, zoombar, und die Felder rechts; was zu
+ * pruefen ist, steht oben mit „pruefen", ohne Prozentzahl. Aenderbar ist, was
+ * die App erklaert, und `beiBestaetigen` bekommt die geaenderten Werte als
+ * zweites Argument. Oben ein Satz, was bisher geschah, die frueheren Stufen
+ * klappen auf, und nach der Entscheidung steht wieder die Liste da. Dazu `fuss`
+ * je Eintrag. Keine neue Hauptzahl: jede neue Eigenschaft ist freiwillig, eine
+ * App auf 5.3.1 laeuft unveraendert weiter.
+ */
+export const FASSUNG = '5.4.0';

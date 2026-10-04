@@ -224,6 +224,30 @@ oder eine App bisher tat, sich ändert. Den Schlüssel dafür legt ein Administr
 für den Anlass an (`scripts/util/kit-schluessel.sh anlegen <Name> system:update`)
 und widerruft ihn danach.
 
+## Korrekturfelder: Kontrakt 10 (M5, 04.10.2026)
+
+Zwei freiwillige Felder im Flow-Kopf, beide für eine Freigabe aus der
+Erkennung ([FLOWS.md](FLOWS.md#korrekturfelder-vorschlag-und-änderung-m5-04102026)):
+
+| Wo                              | Feld        | Form                                                                                                    |
+| ------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| Rolle, unter `ergebnis`         | `aenderbar` | Liste von Feldnamen aus `felder`: was ein Mensch in der Freigabe ändern darf                            |
+| Schritt (`subagent` mit `bild`) | `original`  | Pfad relativ zur Adresse der App, mit Platzhaltern (`api/belege/{{beleg}}.png`), ohne `/`, `..`, Schema |
+
+Ohne `aenderbar` zeigt die Freigabe die Felder nur. Ein `aenderbar`, das ein
+Feld außerhalb von `felder` nennt, und ein `original` an einem Schritt, der kein
+Bild liest, weist das Gerät mit Grund ab. `POST /api/freigabe-anfragen/:id/bestaetigen`
+nimmt `felder` (Name → neuer Wert); ein nicht änderbares Feld ist `400`.
+`GET /api/v1/external/freigaben` nennt je Anfrage `felder`, `felder_schritt`,
+`korrekturen` und `original`. Der Kontrakt trägt dazu je eine Regel in
+`flow_frontmatter.regeln` und in `freigaben.regeln`.
+
+**Kontraktfassung 10:** Rolle und Schritt sind `.strict()`, ein Kit, das gegen 9
+prüft, wiese beide Felder als unbekannt ab. Das Kit hebt
+`KIT_CONTRACT_VERSIONS` auf 10, bevor es auf ein solches Gerät einspielt, und
+kann `aenderbar`/`original` in seiner Vorlage für erkennende Flows erklären.
+Ein Paket von Kontrakt 9 rollt unverändert aus.
+
 ## Die Bibliothek zur Laufzeit: Kontrakt 9 (M5, 03.10.2026)
 
 Eine App **kann** die Bibliothek vom Gerät laden, statt sie als Kopie ins

@@ -151,4 +151,111 @@ describe('Freigabe', () => {
     );
     expect(screen.getByText('Alles erledigt.')).toBeInTheDocument();
   });
+
+  describe('erkannte Felder (5.4.0)', () => {
+    const ERKANNT: FreigabeEintrag = {
+      ...OFFEN,
+      id: 9,
+      titel: 'Erkennung unsicher: Feld datum',
+      zusammenhang: 'Schritt „lesen" (Rolle leser): roh',
+      original: '/apps/belege/api/belege/4711.png',
+      felder: [
+        { name: 'betrag', vorschlag: '12,50', aenderbar: false },
+        { name: 'datum', vorschlag: '', fehlend: true, aenderbar: true },
+        { name: 'konto', vorschlag: '4711', unsicher: true, aenderbar: false },
+      ],
+      bisher: [
+        {
+          titel: 'Beleg vorprüfen',
+          stufe: 'Vorprüfung',
+          status: 'bestaetigt',
+          entschiedenVon: 'clara',
+          entschiedenAm: new Date(JETZT - 60_000).toISOString(),
+          korrekturen: [{ feld: 'betrag', vorschlag: '12,05', wert: '12,50', von: 'clara' }],
+        },
+      ],
+    };
+
+    it('in der Liste: Prüfen statt Bestätigen, mit einem Satz zu den Feldern', () => {
+      zeige([ERKANNT]);
+      expect(screen.queryByTestId('freigabe-9-bestaetigen')).not.toBeInTheDocument();
+      expect(screen.getByTestId('freigabe-9-hinweis')).toHaveTextContent(
+        'Die KI hat 3 Felder erkannt, 2 davon sind zu prüfen.'
+      );
+      fireEvent.click(screen.getByTestId('freigabe-9-pruefen'));
+      expect(screen.getByTestId('freigabe-einzeln')).toBeInTheDocument();
+    });
+
+    it('einzeln: zu Prüfendes oben mit „prüfen", ohne Prozent, Original links', () => {
+      zeige([ERKANNT], { gewaehlt: 9 });
+      const felder = screen.getByTestId('freigabe-9-felder');
+      const reihen = [...felder.querySelectorAll('[data-pruefen]')].map(el =>
+        el.getAttribute('data-testid')
+      );
+      expect(reihen).toEqual([
+        'freigabe-9-feld-datum',
+        'freigabe-9-feld-konto',
+        'freigabe-9-feld-betrag',
+      ]);
+      expect(screen.getByTestId('freigabe-9-feld-datum-pruefen')).toHaveTextContent('prüfen');
+      expect(screen.getByTestId('freigabe-9-feld-konto-pruefen')).toBeInTheDocument();
+      expect(screen.queryByTestId('freigabe-9-feld-betrag-pruefen')).not.toBeInTheDocument();
+      expect(screen.getByTestId('freigabe-einzeln').textContent).not.toMatch(/%/);
+      expect(screen.getByTestId('freigabe-9-original')).toBeInTheDocument();
+      // Nur, was die App freigibt, ist ein Eingabefeld.
+      expect(screen.getByTestId('freigabe-9-feld-datum-eingabe')).toBeInTheDocument();
+      expect(screen.queryByTestId('freigabe-9-feld-konto-eingabe')).not.toBeInTheDocument();
+      expect(screen.getByTestId('freigabe-9-feld-konto-wert')).toHaveTextContent('4711');
+      // Die Rohform des Zusammenhangs steht nicht noch einmal da.
+      expect(screen.queryByText(/Rolle leser/)).not.toBeInTheDocument();
+    });
+
+    it('oben ein Satz, was bisher geschah; frühere Stufen klappen auf', () => {
+      zeige([ERKANNT], { gewaehlt: 9 });
+      expect(screen.getByTestId('freigabe-9-geschichte')).toHaveTextContent(
+        'Bisher: Vorprüfung bestätigt von clara, 1 Feld geändert.'
+      );
+      expect(screen.queryByTestId('freigabe-korrekturen')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('freigabe-9-bisher-schalter'));
+      expect(screen.getByTestId('freigabe-korrekturen')).toHaveTextContent('betrag: 12,05 → 12,50');
+    });
+
+    it('bestätigt mit den geänderten Feldern und kehrt zur Liste zurück', async () => {
+      const beiWahl = vi.fn();
+      const { beiBestaetigen } = zeige([ERKANNT, { ...OFFEN, id: 8, titel: 'Zweite' }], {
+        beiWahl,
+      });
+      fireEvent.click(screen.getByTestId('freigabe-9-pruefen'));
+      fireEvent.change(screen.getByTestId('freigabe-9-feld-datum-eingabe'), {
+        target: { value: '01.10.2026' },
+      });
+      expect(screen.getByText('Vorschlag der KI: leer')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('freigabe-9-bestaetigen'));
+      await waitFor(() =>
+        expect(beiBestaetigen).toHaveBeenCalledWith(ERKANNT, { datum: '01.10.2026' })
+      );
+      await waitFor(() => expect(screen.getByTestId('freigabe-liste')).toBeInTheDocument());
+      expect(beiWahl).toHaveBeenLastCalledWith(null);
+    });
+
+    it('ohne Änderung nur mit dem Eintrag', async () => {
+      const { beiBestaetigen } = zeige([ERKANNT], { gewaehlt: 9 });
+      fireEvent.click(screen.getByTestId('freigabe-9-bestaetigen'));
+      await waitFor(() => expect(beiBestaetigen).toHaveBeenCalledWith(ERKANNT));
+    });
+
+    it('nach der Entscheidung: Vorschlag und Änderung', () => {
+      zeige([
+        {
+          ...ERKANNT,
+          status: 'bestaetigt',
+          entschiedenVon: 'bernd',
+          korrekturen: [{ feld: 'datum', vorschlag: '', wert: '01.10.2026', von: 'bernd' }],
+        },
+      ]);
+      expect(screen.getByTestId('freigabe-korrekturen')).toHaveTextContent(
+        'datum: leer → 01.10.2026 (bernd)'
+      );
+    });
+  });
 });

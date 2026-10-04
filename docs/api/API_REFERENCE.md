@@ -1395,6 +1395,10 @@ die App, und eine entfernte App liest sich weiter.
 
 **GET /api/apps/:id/laeufe/:runId:** Query `?raw=1` liefert zusätzlich die
 Rohdaten der Schritte (sie können je Subagent einige Dutzend Kilobyte sein).
+Seit M5 trägt der Lauf `freigaben`: je Freigabe `id`, `titel`, `stufe`,
+`status`, `angefragt_am`, `entschieden_am`, `entschieden_von`, `begruendung`,
+`felder_schritt`, `felder` (Vorschlag der KI) und `korrekturen` (was der Mensch
+änderte, wer, wann); die Läufe-Ansicht zeigt beides nebeneinander.
 Die Schritte tragen `kind`:
 
 | `kind`     | was es ist                                                                   |
@@ -2870,7 +2874,7 @@ Sitzung, nicht über einen Schlüssel.
 | GET    | `/api/freigabe-anfragen`                 | Die offenen Freigaben, die beim Aufrufer liegen (M5: „Für Sie")          |
 | GET    | `/api/freigabe-anfragen/bei-anderen`     | Was der Aufrufer entscheiden dürfte, das aber bei einem anderen liegt    |
 | GET    | `/api/freigabe-anfragen/eingereicht`     | Was der Aufrufer eingereicht hat und noch offen ist, mit dem Kreis       |
-| POST   | `/api/freigabe-anfragen/:id/bestaetigen` | Ja. Der Lauf läuft ab dem angehaltenen Schritt weiter (Body `{}`)        |
+| POST   | `/api/freigabe-anfragen/:id/bestaetigen` | Ja. Body `{}` oder `{ felder }` (M5). Der Lauf läuft weiter              |
 | POST   | `/api/freigabe-anfragen/:id/ablehnen`    | Nein, Body `{ begruendung }` (Pflicht). Der Lauf endet als `abgebrochen` |
 | POST   | `/api/freigabe-anfragen/:id/uebernehmen` | Die Anfrage liegt danach beim Aufrufer (Body `{}`, M5)                   |
 | POST   | `/api/freigabe-anfragen/:id/weitergeben` | Body `{ an }` (Benutzername): liegt danach bei ihm (M5)                  |
@@ -2924,8 +2928,32 @@ sieben Tage). Höchstens ein Jahr. Läuft sie ab, endet der Lauf als `abgelaufen
 **Nicht zu verwechseln mit `/api/freigaben`** (Admin): das ist die Freigabe
 einer _App_ für einen Menschen. Das eine ist die Voraussetzung für das andere.
 
+**Korrekturfelder (M5, 04.10.2026, Kontrakt 10).** Eine Freigabe aus einer
+Erkennung trägt in beiden Listen `felder` (je Feld `name`, `vorschlag` der KI,
+`unsicher`, `fehlend`, `aenderbar`; zu Prüfendes zuerst; `null` ohne
+Erkennung), `original` (Bild oder PDF als Adresse gleicher Herkunft,
+`/apps/<id>/…` bzw. `/apps/<id>/test/…`, oder `null`) und `frueher` (die
+früheren Freigaben desselben Laufs, älteste zuerst, mit `titel`, `stufe`,
+`status`, `entschieden_von`, `entschieden_am`, `begruendung`, `korrekturen`).
+Wer bestätigt, schickt geänderte Werte mit:
+
+```json
+POST /api/freigabe-anfragen/42/bestaetigen
+{ "felder": { "datum": "01.10.2026" } }
+```
+
+Nur Felder, die die Rolle unter `ergebnis.aenderbar` nennt; jedes andere ist
+`400` („… ist in dieser Freigabe nicht änderbar"), und die Freigabe bleibt
+offen. Wer nicht entscheiden darf, bekommt vorher seinen Grund (`403`/`409`),
+nicht die Liste der Felder. Ein Wert gleich dem Vorschlag ist keine Änderung.
+Eine Ablehnung trägt keine `felder` (`400`). Gespeichert wird je Feld
+`{feld, vorschlag, wert, von, von_id, am}` an der Anfrage (`korrekturen`), und
+der weitere Lauf arbeitet mit dem neuen Wert. Das Sicherheitsprotokoll nennt
+unter `freigabe_bestaetigt` die geänderten Feldnamen (`geaendert`), nicht ihren
+Inhalt.
+
 **Antwort von `POST …/bestaetigen`:** `{ data: { id, run_id, app_id, stand,
-flow_name, titel, status, entschieden_am, benutzer, fortgesetzt } }`.
+flow_name, titel, status, entschieden_am, benutzer, fortgesetzt, korrekturen } }`.
 `fortgesetzt: true` heißt: der Lauf geht weiter — im laufenden Prozess oder, wenn
 das Backend seit der Anfrage neu gestartet wurde, aus der Datenbank ab dem
 angehaltenen Schritt. `fortgesetzt: false` bleibt für einen Lauf, der keinen
@@ -3669,7 +3697,11 @@ kommt wieder aus dem Schlüssel — ein Schlüssel eines Menschen (`app_id IS
 NULL`) bekommt `403` mit dem Hinweis auf `/api/freigabe-anfragen`. Antwort:
 `{ success, app, stand, freigaben: [{ id, run_id, flow_name, titel,
 zusammenhang, status, frist, angefragt_am, entschieden_am, entschieden_von,
-begruendung, einreicher, ohne_einreicher, entscheider, kreis }] }` — `entscheider`
+begruendung, einreicher, ohne_einreicher, entscheider, kreis, felder,
+felder_schritt, korrekturen, original }] }` — `felder`, `korrekturen` und
+`original` seit M5 (Kontrakt 10): was die KI vorschlug, was der Mensch beim
+Bestätigen änderte (je Feld `feld`, `vorschlag`, `wert`, `von`, `am`), und das
+Original als Adresse gleicher Herkunft; `entscheider`
 ist `{ rolle }`, `{ konten: [...] }` oder `null` (J35), `kreis` die Konten,
 die eine **offene** Anfrage jetzt entscheiden können (sonst `null`). `zusammenhang` steht seit H7 dabei: er ist der Text, **an
 dem** der Mensch entschieden hat, und er stammt aus dem eigenen Flow der App —

@@ -18,6 +18,9 @@
 #                „Ergebnis bestaetigen: texte" mit dem Ergebnis; der Einreicher
 #                darf nicht entscheiden (403), eine andere Person bestaetigt,
 #                dann `fertig`.
+#   FEST         `texte` und `beleg` rechnen mit einer festen Antwort der
+#                Probe-App (externes Modell im Netz der Apps), nicht mit dem
+#                echten Modell: dreimal hintereinander dasselbe Ergebnis.
 #   ERKENNUNG    Der erkennende Flow legt auch in `autonom` eine Freigabe
 #                „Erkennung unsicher: Feld X" an, wenn ein Feld fehlt oder als
 #                unsicher gemeldet wird; ist alles erkannt, gibt es keine.
@@ -316,6 +319,23 @@ if arasul_warte_auf_app "/apps/$APP/api/gesund" 180 "$TOK_A"; then
 else
   pruefe 'Die App antwortet' nein 'Zeitgrenze 180s'; exit 1
 fi
+
+# --- 2a. Feste Antwort statt Modell -----------------------------------------------
+# Gemessen werden die Arten, nicht das Modell. Bis zum 04.10.2026 gab das echte
+# Modell das JSON des Auftrags nicht jedes Mal gleich wieder (zweimal 42 von 43,
+# verschiedene rote Pruefungen). `texte` und `beleg` rechnen deshalb ueber den
+# Weg des Administrators mit einem externen Modell, das die Probe-App selbst ist
+# (`/v1/chat/completions` in tests/probe-arten/backend/server.js): sie antwortet,
+# was im Auftrag zwischen <<< und >>> steht. Rolle, Vertrag, Erkennung und
+# Freigabe laufen wie immer durch das Geraet.
+codes=""
+for f in texte beleg; do
+  ruf "$TOK" PUT "/api/apps/$APP/flows/$f/modell" \
+    "{\"extern\":{\"anbieter\":\"Probe\",\"modell\":\"fest\",\"basis_url\":\"http://arasul-app-$APP-live:8080/v1\"}}"
+  codes="$codes $CODE"
+done
+pruefe 'texte und beleg rechnen mit der festen Antwort der Probe-App, ohne Modell' \
+  "$(ja_wenn "$codes" ' 200 200')" "HTTP$codes"
 
 # --- 3. Schalten: nur, was der Kopf nennt -----------------------------------------
 pruefe 'texte nennt beide Arten' \

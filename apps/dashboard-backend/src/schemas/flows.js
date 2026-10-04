@@ -116,8 +116,28 @@ const ResultContract = z
       .min(1, 'Ein Ergebnis-Vertrag braucht mindestens ein Feld')
       .max(10),
     max_zeichen: z.coerce.number().int().min(100).max(20000).default(2000),
+    // Kontrakt 10 (M5): welche dieser Felder ein Mensch in einer Freigabe
+    // aendern darf. Was hier fehlt, sieht er nur; das Backend weist eine
+    // Aenderung daran ab. Ohne Angabe ist nichts aenderbar.
+    aenderbar: z
+      .array(
+        z.string().trim().regex(ARG_NAME_RE, 'Feldname: Kleinbuchstaben, Ziffern, Unterstrich')
+      )
+      .max(10)
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((vertrag, ctx) => {
+    for (const feld of vertrag.aenderbar || []) {
+      if (!vertrag.felder.includes(feld)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['aenderbar'],
+          message: `"aenderbar" nennt "${feld}", das nicht unter "felder" steht`,
+        });
+      }
+    }
+  });
 
 const SubagentRole = z
   .object({
@@ -324,6 +344,21 @@ const FlowStep = z
     modell: z.string().trim().min(1).max(120).optional(),
     // Kontrakt 8: was der Schritt vom Modell braucht. Siehe `SchrittFaehigkeiten`.
     faehigkeiten: SchrittFaehigkeiten.optional(),
+    // Kontrakt 10 (M5): das Original, das ein erkennender Schritt liest (Bild
+    // oder PDF), als Pfad RELATIV zur Adresse der App (`api/belege/{{beleg}}`).
+    // Die Freigabe zeigt es links neben den erkannten Feldern. Relativ, weil
+    // die Kennung der App erst beim Einspielen feststeht und der Teststand
+    // unter einer anderen Adresse liegt als der Livestand.
+    original: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .refine(v => !/^\/|:\/\/|\.\.|\\|[%?#]/.test(v), {
+        message:
+          '"original" ist ein Pfad relativ zur Adresse der App, ohne "/" am Anfang, ohne "..", ohne Schema und ohne "%", "?" oder "#"',
+      })
+      .optional(),
   })
   .strict()
   .superRefine((step, ctx) => {
@@ -365,6 +400,15 @@ const FlowStep = z
         code: z.ZodIssueCode.custom,
         path: ['faehigkeiten'],
         message: `Schritt "${step.name}" ist ein Werkzeug-Schritt ohne Modell: "faehigkeiten" gibt es nur bei typ "subagent"`,
+      });
+    }
+    // Ein Original zeigt nur eine Freigabe aus der Erkennung: an einem Schritt,
+    // der kein Bild liest, entstuende nie eine, und die Angabe waere tot.
+    if (step.original && !(step.typ === 'subagent' && step.faehigkeiten?.bild === true)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['original'],
+        message: `Schritt "${step.name}": "original" gibt es nur an einem erkennenden Schritt (typ "subagent" mit "faehigkeiten.bild")`,
       });
     }
     if (step.wiederhole_ueber && step.iterationen > 1) {

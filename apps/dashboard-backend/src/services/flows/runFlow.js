@@ -27,7 +27,8 @@ const appFlows = require('../app/appFlows');
 const runStore = require('./runStore');
 const { buildTools } = require('./toolRegistry');
 const { runFlowLoop } = require('./toolLoop');
-const { executeSteps, berechneVorabErgebnisse } = require('./stepExecutor');
+const { executeSteps, berechneVorabErgebnisse, korrigiereVorab } = require('./stepExecutor');
+const freigabeAnfragen = require('./freigabeAnfragen');
 const { fillPlaceholders } = require('./flowFile');
 const changeTracker = require('./changeTracker');
 const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
@@ -146,6 +147,7 @@ async function runFlow(
     tracker = changeTracker,
     resolveModel = () => modelService.getDefaultModel(),
     pruefe = pruefungService.pruefeUndKorrigiere,
+    felderNachFreigabe = freigabeAnfragen.felderNachFreigabe,
   } = deps;
 
   const geladen = await loadFlow({ flowName, appId, stand });
@@ -267,6 +269,19 @@ async function runFlow(
         vorab.delete(index);
       }
     }
+  }
+  // Hielt der Lauf nach einer Erkennung an (M5), arbeitet er mit den Feldern
+  // weiter, wie der Mensch sie bestaetigt hat -- nicht mit dem Vorschlag, der
+  // im Protokoll des Schritts steht. Das gilt fuer JEDEN uebernommenen
+  // erkennenden Schritt, nicht nur den angehaltenen, und ebenso beim
+  // Wiederholen ab einem Fehler (dort stehen die Korrekturen am alten Lauf).
+  if (vorab) {
+    await korrigiereVorab({
+      flow,
+      vorab,
+      runId: fortsetzenAb ? run.id : vorabQuelleLaufId,
+      lesen: felderNachFreigabe,
+    });
   }
   if (fortsetzenAb) {
     const alt = await store.getRun({ runId: run.id, userId });
@@ -483,7 +498,7 @@ async function runFlow(
   // mit — für den deterministischen Executor. Der stepRecorder meldet Anfang und
   // Ende bereits live (step_start/step_end); eigene tool_*-Ereignisse braucht es
   // nicht mehr. Liefert die Werkzeug-Ausgabe als String zurück (fürs Threading).
-  const recordWerkzeug = async ({ werkzeug, params, fortsetzung = null }) => {
+  const recordWerkzeug = async ({ werkzeug, params, fortsetzung = null, erkennung = null }) => {
     const step = await stepRecorder.beginnen({
       kind: 'werkzeug',
       name: werkzeug || '',
@@ -516,9 +531,17 @@ async function runFlow(
       // Der Pruefpunkt einer Freigabe: Schritt der Kette UND dieser
       // Protokoll-Schritt, den die Wiederaufnahme schliesst. Er reist im
       // Kontext nur dieses einen Aufrufs; der gemeinsame Kontext bleibt ohne.
-      const werkzeugKontext = fortsetzung
-        ? { ...context, fortsetzung: { ...fortsetzung, schritt_id: step.id } }
-        : context;
+      //
+      // Ebenso die erkannten Felder einer Freigabe aus der Erkennung (M5): nur
+      // fuer diesen Aufruf, und nur vom Executor gesetzt.
+      const werkzeugKontext =
+        fortsetzung || erkennung
+          ? {
+              ...context,
+              ...(fortsetzung ? { fortsetzung: { ...fortsetzung, schritt_id: step.id } } : {}),
+              ...(erkennung ? { erkennung } : {}),
+            }
+          : context;
       ausgabe = String(await tool.execute(params, werkzeugKontext));
     } catch (err) {
       // `laufBeendet` heisst: hier ist Schluss, aber nichts ist kaputt
@@ -577,6 +600,7 @@ async function runFlow(
             vorabErgebnisse: vorab,
             vorabQuelleLaufId,
             fortsetzung: Boolean(fortsetzenAb),
+            felderNachFreigabe,
           })
         : await runLoop({
             model,

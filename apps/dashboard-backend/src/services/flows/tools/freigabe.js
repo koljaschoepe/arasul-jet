@@ -77,7 +77,11 @@ class FreigabeAnfordernTool extends BaseTool {
    */
   async execute(params = {}, context = {}) {
     const begonnen = Date.now();
-    const { entschieden_am: wann, benutzer } = await freigabeAnfragen.anfordern(
+    const {
+      entschieden_am: wann,
+      benutzer,
+      korrekturen,
+    } = await freigabeAnfragen.anfordern(
       {
         runId: context.runId,
         appId: context.appId,
@@ -92,6 +96,10 @@ class FreigabeAnfordernTool extends BaseTool {
         // Lauf nach einem Neustart weitergeht. Ohne es bleibt die Freigabe
         // gueltig, der wartende Lauf aber nicht fortsetzbar.
         fortsetzung: context.fortsetzung || null,
+        // Die erkannten Felder (M5) setzt ebenfalls nur der Executor, im Kontext
+        // dieses einen Aufrufs und nie ueber `params`: welche Felder ein Mensch
+        // aendern darf, erklaert die App in ihrer Rolle, nicht das Modell.
+        erkennung: context.erkennung || null,
       },
       { signal: context.signal, onEvent: context.onEvent }
     );
@@ -106,7 +114,7 @@ class FreigabeAnfordernTool extends BaseTool {
     // `LaufBeendet` -- der Lauf ist dann in der Datenbank schon beendet, und
     // ein Text zurueck an das Modell waere die eine Antwort, die es NICHT
     // bekommen darf (es suchte sich sonst einen anderen Weg).
-    return freigabeAnfragen.erteiltText(benutzer, wann);
+    return freigabeAnfragen.erteiltText(benutzer, wann, korrekturen);
   }
 }
 

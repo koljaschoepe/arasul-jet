@@ -613,6 +613,10 @@ oder `ergebnis_bestaetigen` (`CHECK`); `NULL` = es gilt die Vorgabe des Pakets
 | `stufe`             | text                     | ✅       |                                         |
 | `liegt_bei`         | bigint                   | ✅       |                                         |
 | `liegt_seit`        | timestamp with time zone | ✅       |                                         |
+| `felder`            | jsonb                    | ✅       |                                         |
+| `felder_schritt`    | text                     | ✅       |                                         |
+| `original`          | text                     | ✅       |                                         |
+| `korrekturen`       | jsonb                    | ✅       |                                         |
 
 **Primary key:** `id`
 
@@ -648,6 +652,18 @@ oder `ergebnis_bestaetigen` (`CHECK`); `NULL` = es gilt die Vorgabe des Pakets
 > im Kreis. Zeigt die Spalte auf jemanden, der den Zugang verlor, gilt sie als
 > `NULL` — die Abfragen prüfen das (`freigabeAnfragen.LIEGT_GILT`). Seit M5 steht
 > der Einreicher nie im Kreis, unabhängig von `ohne_einreicher`.
+
+> `felder`, `felder_schritt`, `original`, `korrekturen` (Migration 197, M5):
+> die Freigabe aus einer Erkennung trägt die erkannten Felder, wie die KI sie
+> vorschlug (`[{name, vorschlag, unsicher, fehlend, aenderbar}]`, zu Prüfendes
+> zuerst), den Schritt der Kette, aus dem sie kommen, und das Original als Pfad
+> relativ zur App. `korrekturen` schreibt das Bestätigen in **derselben**
+> Anweisung wie die Entscheidung: `[{feld, vorschlag, wert, von, von_id, am}]`,
+> nur geänderte Felder, `NULL` = nichts geändert. Änderbar ist, was die Rolle
+> unter `ergebnis.aenderbar` nennt (Kontrakt 10). Der weitere Lauf liest die
+> Felder nach der Bestätigung aus dieser Zeile (`felderNachFreigabe`), im
+> Prozess wie nach einem Neustart. JSON an der Anfrage statt einer Tabelle:
+> eine Korrektur gibt es nur mit ihrer Entscheidung.
 
 **Indexes:** `idx_approvals_offen` — `(app_id, stand) WHERE status = 'offen'` ·
 `idx_approvals_liegt_bei` — `(liegt_bei) WHERE status = 'offen'` ·

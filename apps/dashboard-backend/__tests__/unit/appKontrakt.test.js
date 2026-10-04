@@ -329,7 +329,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // und bei wem eine Freigabe liegt. Additiv und vom Geraet durchgesetzt:
     // ein Kit, das die Saetze nicht liest, rollt und startet wie bisher, und
     // eine hoehere Nummer hielte jedes Kit an. Die Zahl bleibt bei 9.
-    expect(abdruck).toBe('d3ca814489ee4c5083aedd5308dc0cf3571d81ca889f61ec9c5021e38fa9b49c');
+    //
+    // 04.10.2026 (M5, Kontrakt 10, Korrekturfelder): `ergebnis.aenderbar` an
+    // der Rolle und `original` am erkennenden Schritt, zwei Regeln im Kopf und
+    // eine unter `freigaben`. Die Zahl geht mit, weil Rolle und Schritt
+    // `.strict()` sind und ein Kit auf Fassung 9 beide Felder abwiese.
+    expect(abdruck).toBe('d5393ef4f66bf89280043be6e67b9130dca7593b82cdf1c117bab01b90574bc5');
   });
 
   /**

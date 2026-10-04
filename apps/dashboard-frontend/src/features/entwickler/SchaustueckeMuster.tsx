@@ -88,6 +88,32 @@ const FREIGABEN_ENTSCHIEDEN: FreigabeEintrag[] = [
   },
 ];
 
+/** Eine Freigabe aus einer Erkennung: Original, Felder, eine frühere Stufe. */
+const FREIGABE_ERKENNUNG: FreigabeEintrag = {
+  id: 5,
+  titel: 'Erkennung unsicher: Feld datum',
+  herkunft: 'Belege · Stufe Leitung',
+  einreicher: 'anna',
+  frist: new Date(Date.now() + 6 * 24 * 60 * 60_000).toISOString(),
+  angefragtAm: new Date(Date.now() - 20 * 60_000).toISOString(),
+  original: '/favicon.png',
+  felder: [
+    { name: 'betrag', bezeichnung: 'Betrag', vorschlag: '1.190,00', aenderbar: true },
+    { name: 'datum', bezeichnung: 'Datum', vorschlag: '', fehlend: true, aenderbar: true },
+    { name: 'lieferant', bezeichnung: 'Lieferant', vorschlag: 'Muster GmbH', unsicher: true },
+  ],
+  bisher: [
+    {
+      titel: 'Beleg prüfen',
+      stufe: 'Prüfung',
+      status: 'bestaetigt',
+      entschiedenVon: 'bernd',
+      entschiedenAm: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+      korrekturen: [{ feld: 'betrag', vorschlag: '1.109,00', wert: '1.190,00', von: 'bernd' }],
+    },
+  ],
+};
+
 const LAEUFE: Lauf[] = [
   { id: 'r1', flow: 'Urlaub prüfen', zustand: 'fertig', dauer: 12 },
   { id: 'r2', flow: 'Angebot schreiben', zustand: 'wartend', dauer: 143 },
@@ -447,7 +473,7 @@ export function SchaustueckeMuster() {
 
       <Schaustueck
         name="Freigabe"
-        satz="Etwas wartet auf ein Ja oder ein Nein. Ablehnen verlangt einen Grund; nach der Entscheidung steht, wer sie getroffen hat."
+        satz="Etwas wartet auf ein Ja oder ein Nein. Ablehnen verlangt einen Grund; nach der Entscheidung steht, wer sie getroffen hat. Aus einer Erkennung: Original links, Felder rechts, zu Prüfendes oben."
       >
         <Zustand name="Liste, offen (eine mit Regel, eine knapp)">
           <div className="w-full max-w-xl min-w-0">
@@ -459,6 +485,16 @@ export function SchaustueckeMuster() {
             <Freigabe
               eintraege={FREIGABEN}
               gewaehlt={1}
+              beiBestaetigen={() => {}}
+              beiAblehnen={() => {}}
+            />
+          </div>
+        </Zustand>
+        <Zustand name="Erkennung, einzeln: Original links, Felder rechts, prüfen oben">
+          <div className="w-full max-w-3xl min-w-0">
+            <Freigabe
+              eintraege={[FREIGABE_ERKENNUNG]}
+              gewaehlt={5}
               beiBestaetigen={() => {}}
               beiAblehnen={() => {}}
             />
