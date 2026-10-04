@@ -94,6 +94,15 @@ async function api(verb, pfad, data) {
   return { status: antwort.status(), rumpf };
 }
 
+/** Ein Bild der ganzen Seite: der Rollbereich der Verwaltung ist kein Dokument, `fullPage` sähe nur den Rahmen. */
+async function bildGanz(datei, hoehe = 2800) {
+  const alt = seite.viewportSize();
+  await seite.setViewportSize({ width: alt.width, height: hoehe });
+  await seite.waitForTimeout(400);
+  await seite.screenshot({ path: path.join(ZIEL, datei) });
+  await seite.setViewportSize(alt);
+}
+
 const zeigeDaten = async () => {
   await seite.goto(`${URL}/workspace/verwaltung/daten`);
   await seite.getByTestId('daten-seite').waitFor({ timeout: 30000 });
@@ -153,9 +162,9 @@ try {
   const seitentext = (await seite.getByTestId('daten-seite').innerText()) || '';
   pruefe(
     'Die Sicherung zeigt letzte Sicherung, jetzt sichern, Stände und Zurückholen',
-    /Letzte Sicherung/.test(seitentext) &&
+    /letzte sicherung/i.test(seitentext) &&
       (await seite.getByTestId('sicherung-ausloesen').count()) === 1 &&
-      /Stände/.test(seitentext) &&
+      /stände/i.test(seitentext) &&
       (await seite.getByTestId('zurueckholen').count()) === 1
   );
 
@@ -227,7 +236,7 @@ try {
       inhalt._meta?.username === BENUTZER,
     datei.suggestedFilename()
   );
-  await seite.screenshot({ path: path.join(ZIEL, 'daten-uebersicht.png'), fullPage: true });
+  await bildGanz('daten-uebersicht.png');
 
   // --- 6. Person löschen (an einer Person, die wir selbst anlegen) ------------------------
   const neu = await api('POST', '/api/benutzer', {
@@ -282,7 +291,7 @@ try {
   pruefe('Ohne Eintippen ist der Auslöser des Werksresets gesperrt', await ausloeser.isDisabled());
   await feldReset.fill('falsches-wort');
   pruefe('Mit einem falschen Wort bleibt er gesperrt', await ausloeser.isDisabled());
-  await seite.screenshot({ path: path.join(ZIEL, 'werksreset-bestaetigung.png'), fullPage: true });
+  await bildGanz('werksreset-bestaetigung.png');
   await feldReset.fill('');
   // Der Auslöser wird nicht angeklickt, auch nicht bei richtigem Wort.
 
@@ -312,7 +321,7 @@ try {
   await seite.getByTestId('daten-gefahr').scrollIntoViewIfNeeded();
   const breite = await seite.evaluate(() => document.documentElement.scrollWidth);
   pruefe('Bei 390 px läuft nichts über den Rand', breite <= 392, `${breite} px`);
-  await seite.screenshot({ path: path.join(ZIEL, 'daten-schmal.png'), fullPage: true });
+  await bildGanz('daten-schmal.png', 4200);
 } finally {
   // Die Probe-Person, falls das Skript vor dem Löschen abgebrochen ist. Nur sie.
   if (personId !== null) {
