@@ -32,6 +32,41 @@
  */
 
 const logger = require('../../utils/logger');
+const { UpstreamError } = require('../../utils/errors');
+
+/**
+ * Ein Fehler des Dienstes, wie ihn jeder Weg hier wirft.
+ *
+ * Der Satz ist fuer den Menschen; `roh` traegt Methode, Weg, Status und den
+ * Koerper der Antwort (siehe `anfrage`) fuer das Log und fuer `abgleich_offen`
+ * -- nie fuer eine Antwort an den Klienten. 500 wie bis zum Auftrag
+ * jet-fehlerklassen (M5), als hier ein schlichtes `Error` flog: der
+ * Fehlerbehandler machte daraus 500 ohne Aussage. `dienstStatus` ist der
+ * Status der Antwort, damit niemand ihn aus dem Text lesen muss.
+ */
+function dienstFehler(
+  roh,
+  { dienstStatus = null, satz = null, code = 'FIRMENORDNER_FEHLER' } = {}
+) {
+  return new UpstreamError(
+    satz ||
+      'Der Firmenordner hat eine Anfrage des Geräts abgelehnt. Die Einzelheiten stehen im Protokoll des Geräts.',
+    { statusCode: 500, code, roh, dienstStatus }
+  );
+}
+
+/** Der technische Text eines Fehlers fuer Log und `abgleich_offen`. */
+function fehlerText(err) {
+  return err?.roh || err?.message || String(err);
+}
+
+/** Ohne `FIRMENORDNER_INTERN` gibt es keinen Dienst, den man fragen koennte. */
+function keinDienst() {
+  return dienstFehler('FIRMENORDNER_INTERN fehlt', {
+    satz: 'Auf diesem Gerät läuft kein Firmenordner.',
+    code: 'FIRMENORDNER_AUS',
+  });
+}
 
 /** Wie lange eine Anfrage an den Dienst hoechstens dauern darf. */
 const ZEITGRENZE_MS = Number(process.env.FIRMENORDNER_ZEITGRENZE_MS || 10000);
@@ -286,7 +321,9 @@ function umbenennenWennNoetig() {
         return false;
       }
       if (!ich.ok) {
-        throw new Error(`Firmenordner: GET /graph/v1.0/me antwortete ${ich.status}`);
+        throw dienstFehler(`Firmenordner: GET /graph/v1.0/me antwortete ${ich.status}`, {
+          dienstStatus: ich.status,
+        });
       }
       const { id } = await ich.json();
       const weg = `/graph/v1.0/users/${encodeURIComponent(id)}`;
@@ -297,9 +334,10 @@ function umbenennenWennNoetig() {
         signal: AbortSignal.timeout(ZEITGRENZE_MS),
       });
       if (!antwort.ok) {
-        throw new Error(
+        throw dienstFehler(
           `Firmenordner: den Dienst-Administrator in ${DIENST_ADMIN} umbenennen ging nicht -- ` +
-            `PATCH ${weg} antwortete ${antwort.status} ${(await antwort.text()).slice(0, 400)}`
+            `PATCH ${weg} antwortete ${antwort.status} ${(await antwort.text()).slice(0, 400)}`,
+          { dienstStatus: antwort.status }
         );
       }
       logger.info(
@@ -342,17 +380,18 @@ async function alsAdmin(adresse, init, grenze = ZEITGRENZE_MS) {
 /**
  * Eine Anfrage an den Dienst.
  *
- * WIRFT MIT DEM KOERPER IM TEXT. Die Graph-API antwortet auf einen
- * abgelehnten Aufruf mit einer Begruendung, und die ist das Einzige, was
- * hinterher sagt, WARUM eine Einladung nicht ging (am 21.09.2026 war es
+ * WIRFT MIT DEM KOERPER IM ROHTEXT (`err.roh`). Die Graph-API antwortet auf
+ * einen abgelehnten Aufruf mit einer Begruendung, und die ist das Einzige,
+ * was hinterher sagt, WARUM eine Einladung nicht ging (am 21.09.2026 war es
  * `Field validation for 'Roles' failed on the 'available_role' tag` -- genau
  * die Zeile, an der sich „nur erweitern" gezeigt hat). Ein Fehler ohne sie
- * waere eine Stelle weniger, an der man das naechste Mal nachsehen kann.
+ * waere eine Stelle weniger, an der man das naechste Mal nachsehen kann. Sie
+ * steht im Log und in `abgleich_offen`; der Klient liest nur den Satz.
  */
 async function anfrage(weg, { methode = 'GET', koerper = null } = {}) {
   const basis = basisIntern();
   if (!basis) {
-    throw new Error('Auf diesem Gerät läuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
+    throw keinDienst();
   }
   const antwort = await alsAdmin(`${basis}${weg}`, {
     method: methode,
@@ -364,8 +403,9 @@ async function anfrage(weg, { methode = 'GET', koerper = null } = {}) {
   });
   const text = await antwort.text();
   if (!antwort.ok) {
-    throw new Error(
-      `Firmenordner: ${methode} ${weg} antwortete ${antwort.status} ${text.slice(0, 400)}`
+    throw dienstFehler(
+      `Firmenordner: ${methode} ${weg} antwortete ${antwort.status} ${text.slice(0, 400)}`,
+      { dienstStatus: antwort.status }
     );
   }
   if (!text) {
@@ -440,7 +480,7 @@ async function loescheNutzer(dienstId) {
   try {
     await anfrage(`/graph/v1.0/users/${encodeURIComponent(dienstId)}`, { methode: 'DELETE' });
   } catch (err) {
-    if (!/ antwortete 404 /.test(err.message)) {
+    if (err.dienstStatus !== 404) {
       throw err;
     }
   }
@@ -624,7 +664,7 @@ async function loescheRaum(raumId) {
       throw err;
     }
     logger.warn(
-      `Firmenordner: das Wegwerfen von ${raumId} meldete „${err.message}" -- ` +
+      `Firmenordner: das Wegwerfen von ${raumId} meldete „${fehlerText(err)}" -- ` +
         'der Raum steht aber nicht mehr in der Liste des Dienstes, ist also weg.'
     );
   }
@@ -663,7 +703,7 @@ async function raumSteht(raumId) {
     }
     return false;
   } catch (err) {
-    logger.warn(`Firmenordner: die Liste der Räume kam nicht (${err.message})`);
+    logger.warn(`Firmenordner: die Liste der Räume kam nicht (${fehlerText(err)})`);
     return true;
   }
 }
@@ -699,7 +739,7 @@ function naechsteSeite(daten) {
 async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}, grenze = ZEITGRENZE_MS) {
   const basis = basisIntern();
   if (!basis) {
-    throw new Error('Auf diesem Gerät läuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
+    throw keinDienst();
   }
   const antwort = await alsAdmin(
     `${basis}${weg}`,
@@ -707,9 +747,10 @@ async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}, grenze = 
     grenze
   );
   if (!antwort.ok && !erlaubt.includes(antwort.status)) {
-    throw new Error(
+    throw dienstFehler(
       `Firmenordner: ${methode} ${weg} antwortete ${antwort.status} ` +
-        `${(await antwort.text()).slice(0, 400)}`
+        `${(await antwort.text()).slice(0, 400)}`,
+      { dienstStatus: antwort.status }
     );
   }
   return antwort;
@@ -1029,9 +1070,10 @@ async function rolleFuer(recht, ebene) {
   }
   const id = rollenZwischenspeicher[`${recht}:${ebene}`];
   if (!id) {
-    throw new Error(
+    throw dienstFehler(
       `Der Firmenordner nennt keine Rolle für „${recht}" auf einem ${ebene}. ` +
-        `Bekannt sind: ${Object.keys(rollenZwischenspeicher).join(', ') || '(keine)'}`
+        `Bekannt sind: ${Object.keys(rollenZwischenspeicher).join(', ') || '(keine)'}`,
+      { satz: `Der Firmenordner nennt keine Rolle für „${recht}" auf einem ${ebene}.` }
     );
   }
   return id;
@@ -1371,7 +1413,7 @@ async function zustand() {
     await anfrage('/graph/v1.0/users?$top=1');
     return { an: true, erreichbar: true, grund: null };
   } catch (err) {
-    logger.warn(`Firmenordner nicht erreichbar: ${err.message}`);
+    logger.warn(`Firmenordner nicht erreichbar: ${fehlerText(err)}`);
     // Die rohe Antwort (Methode, Pfad, Status) steht im Log (J35).
     return {
       an: true,
@@ -1384,6 +1426,7 @@ async function zustand() {
 module.exports = {
   ZEITGRENZE_LOESCHEN_MS,
   DIENST_ADMIN,
+  fehlerText,
   istAn,
   basisAussen,
   adressenFuer,

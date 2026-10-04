@@ -224,7 +224,7 @@ Authorization: Bearer <JWT_TOKEN>
 ```json
 {
   "status": "failed",
-  "error": "Service llm-service did not become healthy within 60s",
+  "error": "Die Dienste ließen sich nicht aktualisieren: Der Dienst llm-service wurde nicht innerhalb von 60 s gesund.",
   "currentStep": "updating_services",
   "startTime": "2025-11-11T12:00:00.000Z",
   "endTime": "2025-11-11T12:03:00.000Z"
@@ -711,10 +711,10 @@ sudo udevadm control --reload-rules
 Seit Phase C10 (27.08.2026) kommt `SYSTEM_VERSION` aus dem Bau, und der Bau
 kennt zwei Formen (`scripts/lib/fassung.sh`):
 
-| Form                | Woher                                  | Paket-Update |
-| ------------------- | -------------------------------------- | ------------ |
-| `1.2.0`             | ein Tag genau auf dem gebauten Stand   | ja           |
-| `20260827-a1b2c3d`  | jeder Stand ohne Tag, also jeder Deploy | nein         |
+| Form               | Woher                                   | Paket-Update |
+| ------------------ | --------------------------------------- | ------------ |
+| `1.2.0`            | ein Tag genau auf dem gebauten Stand    | ja           |
+| `20260827-a1b2c3d` | jeder Stand ohne Tag, also jeder Deploy | nein         |
 
 Ein Gerät der zweiten Art lehnt ein Paket ab und sagt warum: es trägt keine
 Release-Nummer, also lässt sich nicht entscheiden, ob das Paket neuer ist. Es

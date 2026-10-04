@@ -46,6 +46,7 @@
 const crypto = require('crypto');
 const db = require('../../database');
 const logger = require('../../utils/logger');
+const { InternalError } = require('../../utils/errors');
 const { encryptToken, decryptToken } = require('../../utils/tokenCrypto');
 const appContainer = require('./appContainer');
 
@@ -95,7 +96,9 @@ function namenFuer(appId, stand) {
  */
 function pruefeBezeichner(name) {
   if (!/^[a-z][a-z0-9_]*$/.test(name) || Buffer.byteLength(name) > MAX_BEZEICHNER) {
-    throw new Error(`Unbrauchbarer Datenbankname: ${name}`);
+    throw new InternalError(`Unbrauchbarer Datenbankname: ${name}`, {
+      code: 'DATENBANKNAME_UNGUELTIG',
+    });
   }
   return name;
 }
@@ -182,10 +185,11 @@ async function sorgeFuer({ appId, stand }) {
       // falsch: der laufende Container traegt noch das alte in seiner Umgebung,
       // und wir naehmen ihm den Zugang zu seinen eigenen Daten, ohne dass
       // jemand es merkt. Lieber laut und mit dem Grund.
-      throw new Error(
-        `Das Passwort der Datenbank von ${appId}/${stand} lässt sich nicht entschlüsseln ` +
-          `(${err.message}). Wurde JWT_SECRET gewechselt? Dann ist auch der Zugang jeder ` +
-          'laufenden App dahin, und beide Stände müssen neu eingespielt werden.'
+      throw new InternalError(
+        `Das Passwort der Datenbank von ${appId}/${stand} lässt sich nicht entschlüsseln. ` +
+          'Wurde JWT_SECRET gewechselt? Dann ist auch der Zugang jeder ' +
+          'laufenden App dahin, und beide Stände müssen neu eingespielt werden.',
+        { code: 'DATENBANK_PASSWORT_UNLESBAR', roh: err.message }
       );
     }
   } else {

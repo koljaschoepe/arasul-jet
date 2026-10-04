@@ -31,7 +31,7 @@ const os = require('os');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { escapeIdentifier } = require('../../utils/sqlIdentifier');
-const { ValidationError, ConflictError } = require('../../utils/errors');
+const { ValidationError, ConflictError, InternalError } = require('../../utils/errors');
 const { INHALTE, AUSLIEFERUNG, MODELLE, alleBekanntenTabellen } = require('./tabellen');
 const systemSettingsService = require('../system-settings/systemSettingsService');
 const { cacheService } = require('../core/cacheService');
@@ -382,7 +382,7 @@ async function pruefeEntwertung() {
     .filter(zeile => zeile.trim() !== 'ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP');
 
   if (offen.length > 0) {
-    throw new Error(
+    throw new InternalError(
       `${offen.length} Zeile(n) mit ADMIN_PASSWORD stehen nach dem Entwerten noch anders da`
     );
   }

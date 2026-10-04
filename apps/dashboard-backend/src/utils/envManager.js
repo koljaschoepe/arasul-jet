@@ -24,6 +24,7 @@
 
 const fs = require('fs').promises;
 const logger = require('./logger');
+const { InternalError } = require('./errors');
 
 // Path to .env file (in project root, mounted as volume)
 const ENV_FILE_PATH = process.env.ENV_FILE_PATH || '/arasul/config/.env';
@@ -37,7 +38,10 @@ async function readEnvFile() {
     return content;
   } catch (error) {
     logger.error(`Failed to read .env file: ${error.message}`);
-    throw new Error('Failed to read environment configuration');
+    throw new InternalError('Die Konfigurationsdatei des Geräts ließ sich nicht lesen.', {
+      code: 'ENV_NICHT_LESBAR',
+      roh: error.message,
+    });
   }
 }
 
@@ -107,7 +111,16 @@ async function updateEnvVariable(key, value) {
     return true;
   } catch (error) {
     logger.error(`Failed to update environment variable ${key}: ${error.message}`);
-    throw new Error(`Failed to update ${key} in environment configuration`);
+    if (error instanceof InternalError) {
+      throw error;
+    }
+    throw new InternalError(
+      `${key} ließ sich in der Konfigurationsdatei des Geräts nicht speichern.`,
+      {
+        code: 'ENV_NICHT_GESCHRIEBEN',
+        roh: error.message,
+      }
+    );
   }
 }
 
@@ -128,7 +141,13 @@ async function updateEnvVariables(updates) {
     return true;
   } catch (error) {
     logger.error(`Failed to update environment variables: ${error.message}`);
-    throw new Error('Failed to update environment configuration');
+    if (error instanceof InternalError) {
+      throw error;
+    }
+    throw new InternalError('Die Konfigurationsdatei des Geräts ließ sich nicht speichern.', {
+      code: 'ENV_NICHT_GESCHRIEBEN',
+      roh: error.message,
+    });
   }
 }
 
@@ -164,9 +183,26 @@ async function envZurueckrollen(inhalt) {
   }
 }
 
+/**
+ * Mehrere Werte schreiben und bei einem Fehlschlag den Stand `vorher` zurueck
+ * auf die Platte legen, dann den Fehler weiterwerfen. Eine halb geschriebene
+ * `.env` waere ein kaputtes Geraet beim naechsten Start -- auch wenn die
+ * Datenbank (beim Passwortwechsel die Quelle der Wahrheit) schon den neuen
+ * Stand traegt.
+ */
+async function updateEnvVariablesOderZurueck(updates, vorher) {
+  try {
+    return await updateEnvVariables(updates);
+  } catch (err) {
+    await envZurueckrollen(vorher);
+    throw err;
+  }
+}
+
 module.exports = {
   updateEnvVariable,
   updateEnvVariables,
+  updateEnvVariablesOderZurueck,
   backupEnvFile,
   envZurueckrollen,
 };

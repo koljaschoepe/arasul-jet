@@ -40,6 +40,7 @@ const {
   ConflictError,
   GrenzeErreichtError,
   ServiceUnavailableError,
+  UpstreamError,
 } = require('../../utils/errors');
 const dienst = require('./ordnerdienst');
 const pflege = require('./ordnerPflege');
@@ -595,8 +596,8 @@ async function mitDienst(was, tuEs) {
     await tuEs();
     return null;
   } catch (err) {
-    logger.warn(`Firmenordner: ${was} ging nicht -- ${err.message}`);
-    return `${was}: ${err.message}`.slice(0, 500);
+    logger.warn(`Firmenordner: ${was} ging nicht -- ${err.roh || err.message}`);
+    return `${was}: ${err.roh || err.message}`.slice(0, 500);
   }
 }
 
@@ -686,7 +687,9 @@ async function spiegleBeiAnmeldung({ benutzerId, username, email, passwort }) {
     }
     await spiegleNutzer({ benutzerId, username, email, passwort });
   } catch (err) {
-    logger.warn(`Firmenordner: ${username} beim Anmelden nachtragen ging nicht -- ${err.message}`);
+    logger.warn(
+      `Firmenordner: ${username} beim Anmelden nachtragen ging nicht -- ${err.roh || err.message}`
+    );
   }
 }
 
@@ -1061,10 +1064,12 @@ async function papierkorbAnfrage(was, tuEs) {
   try {
     return await tuEs();
   } catch (err) {
-    if (err instanceof ApiError) {
+    // Ein Fehler des Dienstes selbst (`UpstreamError` aus `ordnerdienst`)
+    // wird hier zum Satz wie jeder andere; eigene Fehler gehen durch.
+    if (err instanceof ApiError && !(err instanceof UpstreamError)) {
       throw err;
     }
-    logger.warn(`Firmenordner: ${was} ging nicht -- ${err.message}`);
+    logger.warn(`Firmenordner: ${was} ging nicht -- ${err.roh || err.message}`);
     throw new ServiceUnavailableError(
       'Der Firmenordner antwortet gerade nicht. Versuchen Sie es in einer Minute noch einmal.'
     );
@@ -1095,7 +1100,9 @@ async function papierkorbUebersicht() {
           groesse: eintraege.reduce((s, e) => s + (e.groesse || 0), 0),
         };
       } catch (err) {
-        logger.warn(`Firmenordner: Papierkorb von ${o.kennung} kam nicht -- ${err.message}`);
+        logger.warn(
+          `Firmenordner: Papierkorb von ${o.kennung} kam nicht -- ${err.roh || err.message}`
+        );
         return { ordner_id: o.id, kennung: o.kennung, anzahl: null, groesse: null };
       }
     })
@@ -1453,7 +1460,7 @@ async function platzUebersicht() {
   try {
     groessen = await dienst.groessen();
   } catch (err) {
-    logger.warn(`Firmenordner: die Grössen der Räume kamen nicht -- ${err.message}`);
+    logger.warn(`Firmenordner: die Grössen der Räume kamen nicht -- ${err.roh || err.message}`);
     return leer;
   }
   const raeume = (await listeOrdner()).filter(o => o.ebene <= 1 && o.raum_id);
@@ -1539,7 +1546,7 @@ async function meineOrdnerMitPlatz(benutzerId, rolle) {
   try {
     ({ groessen, platte } = await groessenUndPlatte());
   } catch (err) {
-    logger.warn(`Firmenordner: die Grössen der Räume kamen nicht -- ${err.message}`);
+    logger.warn(`Firmenordner: die Grössen der Räume kamen nicht -- ${err.roh || err.message}`);
   }
   const raeume = new Map(
     (await listeOrdner()).filter(o => o.ebene <= 1).map(o => [o.kennung, o.raum_id])

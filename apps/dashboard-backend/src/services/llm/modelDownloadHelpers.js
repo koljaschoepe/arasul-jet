@@ -8,6 +8,7 @@
  */
 
 const LLM_SERVICE_URL = require('../../config/services').llm.url;
+const { GrenzeErreichtError } = require('../../utils/errors');
 
 const sleep = ms =>
   new Promise(resolve => {
@@ -50,7 +51,7 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
         `Verfügbar: ${service.formatBytes(diskSpace.free)}. ` +
         `Bitte Speicherplatz freigeben oder ein kleineres Modell wählen.`;
       logger.error(`[DOWNLOAD] ${errorMsg}`);
-      throw new Error(errorMsg);
+      throw new GrenzeErreichtError(errorMsg);
     }
 
     logger.info(

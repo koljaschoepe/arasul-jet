@@ -38,7 +38,7 @@ const logger = require('../../utils/logger');
 const runStore = require('./runStore');
 const { runFlow } = require('./runFlow');
 const flowSettings = require('./flowSettings');
-const { FlowInaktivError } = require('../../utils/errors');
+const { FlowInaktivError, ConflictError } = require('../../utils/errors');
 
 // Aktive Läufe: runId → { bus, controller }. Der Bus verteilt die Ereignisse
 // an die SSE-Abonnenten; der controller bricht den Lauf ab.
@@ -234,7 +234,7 @@ async function fortsetzen({ runId }, deps = {}) {
       [id]
     );
     if (entscheidung.length === 0) {
-      throw new Error('keine bestätigte Freigabe zu diesem Lauf');
+      throw new ConflictError('keine bestätigte Freigabe zu diesem Lauf');
     }
     if (fortsetzung.schritt_id != null) {
       await store.finishStep({

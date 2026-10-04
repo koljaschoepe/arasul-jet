@@ -5,6 +5,7 @@
  */
 
 const crypto = require('crypto');
+const { InternalError } = require('./errors');
 
 /**
  * Derive a consistent encryption key from JWT_SECRET.
@@ -13,7 +14,10 @@ const crypto = require('crypto');
 function getEncryptionKey() {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    throw new Error('JWT_SECRET is not set - cannot encrypt/decrypt tokens');
+    throw new InternalError('Dem Gerät fehlt der Schlüssel zum Verschlüsseln.', {
+      code: 'SCHLUESSEL_FEHLT',
+      roh: 'JWT_SECRET is not set - cannot encrypt/decrypt tokens',
+    });
   }
   return crypto.scryptSync(secret, 'arasul-token-encryption', 32);
 }

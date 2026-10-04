@@ -72,10 +72,16 @@ const errorHandler = (err, req, res, next) => {
     if (statusCode >= 500) {
       logger.error(`${req.method} ${req.originalUrl}: ${err.message}`, {
         ...errorContext,
+        // Der technische Text (InternalError/UpstreamError) gehoert ins Log,
+        // nie in die Antwort.
+        ...(err.roh && { roh: err.roh }),
         stack: err.stack,
       });
     } else if (statusCode >= 400) {
-      logger.warn(`${req.method} ${req.originalUrl}: ${err.message}`, errorContext);
+      logger.warn(`${req.method} ${req.originalUrl}: ${err.message}`, {
+        ...errorContext,
+        ...(err.roh && { roh: err.roh }),
+      });
     }
   } else if (err.name === 'ValidationError') {
     // Mongoose/Joi validation error

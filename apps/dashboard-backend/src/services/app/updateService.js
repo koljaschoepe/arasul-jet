@@ -14,6 +14,7 @@ const {
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../../utils/logger');
+const { ValidationError, InternalError } = require('../../utils/errors');
 
 /**
  * Was ein Administrator liest, wenn dieses Geraet ein Paket nicht selbst
@@ -64,7 +65,7 @@ class UpdateService {
         try {
           await execFileAsync('unzip', ['-j', updateFilePath, 'manifest.json', '-d', tempDir]);
         } catch (zipError) {
-          throw new Error('Failed to extract manifest from update package');
+          throw new ValidationError('Im Paket fehlt eine lesbare manifest.json.');
         }
       }
 
@@ -436,7 +437,10 @@ class UpdateService {
       }
     }
 
-    throw new Error(`Service ${serviceName} did not become healthy within ${timeoutSeconds}s`);
+    throw new InternalError(
+      `Der Dienst ${serviceName} wurde nicht innerhalb von ${timeoutSeconds} s gesund.`,
+      { code: 'DIENST_NICHT_GESUND' }
+    );
   }
 
   /**
@@ -466,7 +470,7 @@ class UpdateService {
       const validation = await this.validateUpdate(updateFilePath);
 
       if (!validation.valid) {
-        throw new Error(validation.error);
+        throw new ValidationError(validation.error);
       }
 
       const manifest = validation.manifest;
@@ -482,7 +486,9 @@ class UpdateService {
       // 3. Create backup
       const backupResult = await this.createBackup();
       if (!backupResult.success) {
-        throw new Error(`Backup failed: ${backupResult.error}`);
+        throw new InternalError(`Die Sicherung ging nicht: ${backupResult.error}`, {
+          code: 'UPDATE_FEHLGESCHLAGEN',
+        });
       }
       gesichert = true;
 
@@ -490,28 +496,38 @@ class UpdateService {
       await this.saveUpdateState({ currentStep: 'loading_images' });
       const imageResult = await this.loadDockerImages(updateFilePath, manifest);
       if (!imageResult.success) {
-        throw new Error(`Image loading failed: ${imageResult.error}`);
+        throw new InternalError(`Die Images ließen sich nicht laden: ${imageResult.error}`, {
+          code: 'UPDATE_FEHLGESCHLAGEN',
+        });
       }
 
       // 5. Run migrations
       await this.saveUpdateState({ currentStep: 'migrations' });
       const migrationResult = await this.runMigrations(updateFilePath, manifest);
       if (!migrationResult.success) {
-        throw new Error(`Migration failed: ${migrationResult.error}`);
+        throw new InternalError(`Die Migration ging nicht: ${migrationResult.error}`, {
+          code: 'UPDATE_FEHLGESCHLAGEN',
+        });
       }
 
       // 6. Update services
       await this.saveUpdateState({ currentStep: 'updating_services' });
       const updateResult = await this.updateServices(manifest);
       if (!updateResult.success) {
-        throw new Error(`Service update failed: ${updateResult.error}`);
+        throw new InternalError(
+          `Die Dienste ließen sich nicht aktualisieren: ${updateResult.error}`,
+          { code: 'UPDATE_FEHLGESCHLAGEN' }
+        );
       }
 
       // 7. Post-update healthchecks
       await this.saveUpdateState({ currentStep: 'healthchecks' });
       const healthResult = await this.runPostUpdateHealthchecks();
       if (!healthResult.success) {
-        throw new Error(`Post-update healthcheck failed: ${healthResult.error}`);
+        throw new InternalError(
+          `Die Prüfung nach der Aktualisierung schlug fehl: ${healthResult.error}`,
+          { code: 'UPDATE_FEHLGESCHLAGEN' }
+        );
       }
 
       // 8. Update system version
@@ -934,11 +950,11 @@ class UpdateService {
     const semverRegex = /^\d+\.\d+\.\d+$/;
 
     if (!semverRegex.test(v1)) {
-      throw new Error(`Invalid version format: ${v1} (expected X.Y.Z format)`);
+      throw new ValidationError(`Invalid version format: ${v1} (expected X.Y.Z format)`);
     }
 
     if (!semverRegex.test(v2)) {
-      throw new Error(`Invalid version format: ${v2} (expected X.Y.Z format)`);
+      throw new ValidationError(`Invalid version format: ${v2} (expected X.Y.Z format)`);
     }
 
     const parts1 = v1.split('.').map(Number);

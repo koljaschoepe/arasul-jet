@@ -797,7 +797,9 @@ describe('Die Aenderungen eines Ordners kommen aus dem Dienst', () => {
     expect(await dienst.aenderungen('r')).toHaveLength(1);
     global.fetch.mockReset();
     global.fetch.mockResolvedValue(kaputt);
-    await expect(dienst.aenderungen('r')).rejects.toThrow(/500/);
+    await expect(dienst.aenderungen('r')).rejects.toMatchObject({
+      roh: expect.stringMatching(/500/),
+    });
   });
 });
 
@@ -1027,7 +1029,9 @@ describe('Wegwerfen ist keine Anfrage wie die anderen (J33, 22.09.2026)', () => 
       { methode: 'GET', enthaelt: '/graph/v1.0/drives', status: 200, koerper: LISTE_MIT },
       { status: 204 },
     ]);
-    await expect(dienst.loescheRaum('r1')).rejects.toThrow(/grpc error/);
+    await expect(dienst.loescheRaum('r1')).rejects.toMatchObject({
+      roh: expect.stringMatching(/grpc error/),
+    });
   });
 
   it('blaettert die Liste zu Ende, bevor es „weg" sagt', async () => {
@@ -1055,7 +1059,9 @@ describe('Wegwerfen ist keine Anfrage wie die anderen (J33, 22.09.2026)', () => 
       }
       return Promise.resolve({ ok: false, status: 500, text: async () => 'grpc error' });
     });
-    await expect(dienst.loescheRaum('r1')).rejects.toThrow(/grpc error/);
+    await expect(dienst.loescheRaum('r1')).rejects.toMatchObject({
+      roh: expect.stringMatching(/grpc error/),
+    });
   });
 
   it('folgt einer naechsten Seite nicht, die woandershin zeigt', async () => {
@@ -1086,7 +1092,9 @@ describe('Wegwerfen ist keine Anfrage wie die anderen (J33, 22.09.2026)', () => 
       { methode: 'GET', enthaelt: '/graph/v1.0/drives', status: 503, koerper: 'weg' },
       { status: 204 },
     ]);
-    await expect(dienst.loescheRaum('r1')).rejects.toThrow(/grpc error/);
+    await expect(dienst.loescheRaum('r1')).rejects.toMatchObject({
+      roh: expect.stringMatching(/grpc error/),
+    });
   });
 
   /** Ein Papierkorb mit zwei Eintraegen, einer davon unserer. */
@@ -1134,7 +1142,9 @@ describe('Der Fehler des Dienstes traegt seine Begruendung', () => {
       status: 400,
       text: async () => "Field validation for 'Roles' failed on the 'available_role' tag",
     });
-    await expect(dienst.legeRaumAn('projekte')).rejects.toThrow(/available_role/);
+    await expect(dienst.legeRaumAn('projekte')).rejects.toMatchObject({
+      roh: expect.stringMatching(/available_role/),
+    });
   });
 
   it('nimmt ein 404 beim Loeschen hin -- „gibt es nicht" ist das Ziel', async () => {
@@ -1225,7 +1235,9 @@ describe('Der Dienst-Administrator heisst nicht admin (26.09.2026)', () => {
   it('fasst nichts an, wenn admin schon ein Mensch ist -- das Passwort des Dienstes passt dort nicht', async () => {
     firmenordnerAn();
     global.fetch.mockResolvedValue({ ok: false, status: 401, text: async () => 'unauthorized' });
-    await expect(dienst.legeRaumAn('projekte')).rejects.toThrow(/401/);
+    await expect(dienst.legeRaumAn('projekte')).rejects.toMatchObject({
+      roh: expect.stringMatching(/401/),
+    });
     const methoden = global.fetch.mock.calls.map(([, o]) => o.method || 'GET');
     expect(methoden).not.toContain('PATCH');
   });

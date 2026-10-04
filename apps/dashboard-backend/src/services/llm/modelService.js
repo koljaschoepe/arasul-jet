@@ -19,7 +19,12 @@ const execFileAsync = promisify(execFile);
 // Ohne diese Klassen wird jede erwartbare Lage (zu wenig RAM, Modell nicht im
 // Katalog, laeuft schon) vom Fehlerbehandler zu HTTP 500 mit der Meldung
 // "Internal server error". Der Nutzer erfaehrt dann nicht, was zu tun ist.
-const { NotFoundError, ValidationError, ConflictError } = require('../../utils/errors');
+const {
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+  InternalError,
+} = require('../../utils/errors');
 const readFileAsync = promisify(fs.readFile);
 
 const { createDownloadHelpers } = require('./modelDownloadHelpers');
@@ -688,7 +693,7 @@ function createModelService(deps = {}) {
                 'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
                 ['error', 'Download abgebrochen - bitte erneut versuchen', modelId]
               );
-              throw new Error('Download abgebrochen');
+              throw new InternalError('Download abgebrochen', { code: 'DOWNLOAD_ABGEBROCHEN' });
             }
 
             // Non-retryable errors (model not found, disk full)
@@ -737,7 +742,10 @@ function createModelService(deps = {}) {
               'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
               ['error', errorMessage, modelId]
             );
-            throw new Error(errorMessage);
+            throw new InternalError(errorMessage, {
+              code: 'DOWNLOAD_FEHLGESCHLAGEN',
+              roh: err.message,
+            });
           }
         }
       } finally {
@@ -1404,7 +1412,7 @@ function createModelService(deps = {}) {
           const memInfo = await readFileAsync('/proc/meminfo', 'utf8');
           const match = memInfo.match(/MemAvailable:\s+(\d+)\s+kB/);
           if (!match) {
-            throw new Error('MemAvailable not found');
+            throw new InternalError('MemAvailable steht nicht in /proc/meminfo');
           }
           const availableKb = parseInt(match[1]);
           const estimatedGpuMb = Math.floor((availableKb / 1024) * 0.92);
@@ -1438,7 +1446,7 @@ function createModelService(deps = {}) {
      */
     _resetForTesting() {
       if (process.env.NODE_ENV !== 'test') {
-        throw new Error('_resetForTesting is only available in test environment');
+        throw new InternalError('_resetForTesting gibt es nur in der Testumgebung');
       }
       lastSwitchTime = 0;
       switchLock = null;
