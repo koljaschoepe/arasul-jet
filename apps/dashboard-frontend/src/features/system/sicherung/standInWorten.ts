@@ -60,6 +60,9 @@ export function standZusatz(
   if (f?.art === 'bereich' && f.id) {
     return `vor dem Zurückholen des Bereichs „${namen.bereiche.get(f.id) ?? f.id}“`;
   }
+  if (f?.art === 'update') {
+    return 'vor dem Einspielen einer neuen Fassung';
+  }
   if (f?.art === 'geraet') {
     return 'vor dem Zurückholen des ganzen Geräts';
   }

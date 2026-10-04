@@ -106,6 +106,8 @@ const AUSLIEFERUNG = [
   // bis wohin er gesehen hat. Beides gehört zu den Apps des Geräts; nach dem
   // Auslieferungszustand fängt der Zeitplaner mit dem ersten Takt neu an.
   ['public.flow_zeitplan_termine', 'Die Termine, die der Zeitplaner angefasst hat'],
+  // Aktualisierung nachts (M5, Migration 208): was in jeder Nacht geschah.
+  ['public.update_nacht_laeufe', 'Protokoll der Aktualisierung nachts'],
   ['public.flow_zeitplaner', 'Bis wohin der Zeitplaner alle Termine gesehen hat'],
   // Stufe 2 und nicht Stufe 1 (J35, Migration 187): das Protokoll der
   // Modellaufrufe ist ein Nachweis wie `audit_logs`, kein Inhalt -- wer die

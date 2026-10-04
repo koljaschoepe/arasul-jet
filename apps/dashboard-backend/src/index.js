@@ -682,6 +682,11 @@ if (alsServerGestartet) {
     // gleich als verwaist gilt -- siehe `services/flows/zeitplaner.js`.
     globalIntervals.push(require('./services/flows/zeitplaner').starten());
 
+    // Aktualisierung nachts auf Wunsch (M5): im Fenster 02:00 bis 04:00 spielt
+    // das Geraet eine neue Fassung ein, wenn der Admin es wuenscht -- siehe
+    // `services/betrieb/nachtUpdate.js`.
+    globalIntervals.push(require('./services/betrieb/nachtUpdate').starten());
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

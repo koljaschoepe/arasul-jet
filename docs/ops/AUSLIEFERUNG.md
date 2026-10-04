@@ -528,6 +528,21 @@ das Skript findet die laufende Fassung über seinen eigenen Ort
 (`dirname/../..`), und der Verweis zeigte am Orin ins Leere, ohne dass etwas
 brach. Er wurde nicht angelegt.
 
+### Nachts selbst einspielen (M5, 04.10.2026)
+
+Dieselben Wege wie oben, nur zu einer festen Zeit und ohne Mensch davor:
+`services/betrieb/nachtUpdate.js` prüft jede Minute, ob der Schalter
+(`system_settings.update_nachts`, aus als Vorgabe) an ist und die Uhr des Geräts
+zwischen 02:00 und 04:00 steht. Wer dann die Zeile des Fensters in
+`update_nacht_laeufe` anlegt (eindeutig je Datum), ruft `fassungsdienst.spieleEin`:
+Vorprüfung, Paket mit Prüfsumme, **Sicherung als eigener Stand `fuer:update`**
+(scheitert sie, kein Update), Übergabe an `fassung-einspielen.sh`, das nach dem
+Bau auf gesunde Container wartet und sonst auf die vorige Fassung zurückgeht.
+Das Ergebnis kennt erst das Backend NACH dem Umschalten: es liest `status.json`
+über die Kennung des Laufs und schließt die Zeile ab. Der Rückfall holt das
+Programm zurück, nicht die Daten (siehe oben). Der Trockenlauf
+(`POST /api/update/fassung/nachts/trockenlauf`) macht nur die Vorprüfung.
+
 ### `./arasul update` ist weiterhin kein Update
 
 Es baut nur den lokalen Baum neu (`docker compose pull|build|up`) und holt

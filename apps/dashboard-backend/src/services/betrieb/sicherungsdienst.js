@@ -641,8 +641,8 @@ const KEIN_DATENTRAEGER = 'Es ist kein Datenträger angesteckt.';
  * einer App. Sonst `null`.
  */
 function fuerAus(fuer) {
-  if (fuer === 'geraet') {
-    return { art: 'geraet', id: null };
+  if (fuer === 'geraet' || fuer === 'update') {
+    return { art: fuer, id: null };
   }
   const treffer =
     typeof fuer === 'string' ? /^(app|bereich|live):([a-z0-9][a-z0-9-]{0,63})$/.exec(fuer) : null;
@@ -1347,6 +1347,24 @@ async function sichereVorLive(appId) {
 }
 
 /**
+ * Der Stand vor dem Einspielen einer neuen Fassung (M5, update-nachts): ein
+ * eigener Stand mit dem Vermerk `fuer:update`, aus der Aufbewahrung gehalten
+ * wie jeder Stand `vorher`. Scheitert er, wird nicht eingespielt -- das
+ * entscheidet der Aufrufer (`fassungsdienst`).
+ */
+async function sichereVorUpdate() {
+  if (laeuftGerade) {
+    throw new ConflictError(`Es läuft gerade: ${laeuftGerade}`);
+  }
+  laeuftGerade = 'sicherung vor der aktualisierung';
+  try {
+    return await sichereVorher('update');
+  } finally {
+    laeuftGerade = null;
+  }
+}
+
+/**
  * Die Live-Datenbank einer App aus dem Stand vor dem Live-Schalten
  * zurueckholen: dieselbe Datenbank wird verworfen und aus dem Stand neu
  * eingespielt (`wiederherstellen.sh --app-datenbank`), mit allem, was die
@@ -1515,6 +1533,7 @@ module.exports = {
   staendeZumZurueckholen,
   sichereVorher,
   sichereVorLive,
+  sichereVorUpdate,
   holeLiveDatenZurueck,
   externInhalt,
   schluessel,

@@ -13,6 +13,7 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 
 jest.mock('../../src/services/betrieb/fassungsdienst', () => ({}));
+jest.mock('../../src/services/betrieb/nachtUpdate', () => ({}));
 jest.mock('../../src/services/app/updateService', () => ({
     validateUpdate: jest.fn(),
     getUpdateState: jest.fn(),

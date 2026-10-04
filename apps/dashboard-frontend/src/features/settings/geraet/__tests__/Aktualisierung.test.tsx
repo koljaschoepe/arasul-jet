@@ -24,6 +24,20 @@ const RUHE = {
   vorige: null,
 };
 
+const NACHTS = {
+  aktiv: false,
+  fenster: {
+    von: '02:00',
+    bis: '04:00',
+    zeitzone: 'Europe/Berlin',
+    beginn: '2026-10-05T00:00:00.000Z',
+    ende: '2026-10-05T02:00:00.000Z',
+    laeuftGerade: false,
+  },
+  letzter: null,
+  hinweis: null,
+};
+
 function huelle() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Huelle({ children }: { children: ReactNode }) {
@@ -35,6 +49,7 @@ function antworte(stand: Record<string, unknown>, neueste: string | null = '0.8.
   apiMock.get.mockImplementation(async (pfad: string) => {
     if (pfad === '/update/fassung') return { data: stand };
     if (pfad === '/update/fassung/neueste') return { data: neueste ? { fassung: neueste } : null };
+    if (pfad === '/update/fassung/nachts') return { data: NACHTS };
     throw new Error(`unerwarteter Pfad: ${pfad}`);
   });
 }
@@ -49,7 +64,7 @@ describe('Aktualisierung', () => {
       'Auf 0.8.15 aktualisieren'
     );
     expect(screen.getByTestId('fassung-hier')).toHaveTextContent('Hier läuft Fassung 0.8.14.');
-    expect(screen.getByText(/sichert vorher/)).toBeInTheDocument();
+    expect(screen.getByText(/Das Gerät sichert vorher und geht/)).toBeInTheDocument();
 
     // Der Knopf startet nichts: erst die Bestätigung.
     fireEvent.click(screen.getByTestId('fassung-einspielen'));
@@ -149,5 +164,99 @@ describe('Aktualisierung', () => {
     );
     expect(screen.getByTestId('fassung-hier')).toHaveTextContent('0.8.14');
     expect(screen.queryByTestId('fassung-einspielen')).not.toBeInTheDocument();
+  });
+
+  describe('nachts selbst einspielen', () => {
+    const mit = (nachts: Record<string, unknown>) => {
+      apiMock.get.mockImplementation(async (pfad: string) => {
+        if (pfad === '/update/fassung') return { data: RUHE };
+        if (pfad === '/update/fassung/neueste') return { data: { fassung: '0.8.15' } };
+        if (pfad === '/update/fassung/nachts') return { data: { ...NACHTS, ...nachts } };
+        throw new Error(`unerwarteter Pfad: ${pfad}`);
+      });
+    };
+
+    it('steht aus, und sagt das Fenster in der Zeit des Geräts', async () => {
+      mit({});
+      render(<Aktualisierung />, { wrapper: huelle() });
+      const schalter = await screen.findByTestId('nachts-schalter');
+      expect(schalter).not.toBeChecked();
+      expect(screen.getByTestId('nachts-einspielen')).toHaveTextContent(
+        /zwischen 02:00 und 04:00 Uhr/
+      );
+      expect(screen.getByTestId('nachts-einspielen')).toHaveTextContent(/Europe\/Berlin/);
+      expect(screen.getByTestId('nachts-fenster')).toHaveTextContent(/Aus\./);
+    });
+
+    it('einschalten schickt den Schalter und fragt neu', async () => {
+      mit({});
+      apiMock.put.mockResolvedValue({ data: {} });
+      render(<Aktualisierung />, { wrapper: huelle() });
+      fireEvent.click(await screen.findByTestId('nachts-schalter'));
+      await waitFor(() =>
+        expect(apiMock.put).toHaveBeenCalledWith(
+          '/update/fassung/nachts',
+          { aktiv: true },
+          expect.anything()
+        )
+      );
+    });
+
+    it('zeigt bei „an" das nächste Fenster mit Wochentag', async () => {
+      mit({ aktiv: true });
+      render(<Aktualisierung />, { wrapper: huelle() });
+      expect(await screen.findByTestId('nachts-fenster')).toHaveTextContent(
+        /Nächstes Fenster: Montag, 5\. Oktober, 02:00 bis 04:00 Uhr/
+      );
+    });
+
+    it('sagt das Ergebnis der letzten Nacht und lässt es wegklicken', async () => {
+      const letzter = {
+        id: 1,
+        fenster: '2026-10-05',
+        trocken: false,
+        ergebnis: 'zurueckgefallen',
+        grund: null,
+        von: '0.8.14',
+        nach: '0.8.15',
+        gestartet: '2026-10-05T00:00:00Z',
+        beendet: '2026-10-05T00:20:00Z',
+        gesehen_am: null,
+      };
+      mit({ aktiv: true, letzter, hinweis: letzter });
+      apiMock.post.mockResolvedValue({ data: { ok: true } });
+      render(<Aktualisierung />, { wrapper: huelle() });
+      expect(await screen.findByTestId('nachts-letzte')).toHaveTextContent(
+        /In der Nacht zum 5\. Oktober ist die Aktualisierung auf 0\.8\.15 misslungen\. Das Gerät läuft wieder mit 0\.8\.14\./
+      );
+      fireEvent.click(screen.getByTestId('nachts-gelesen'));
+      await waitFor(() =>
+        expect(apiMock.post).toHaveBeenCalledWith(
+          '/update/fassung/nachts/gesehen',
+          {},
+          expect.anything()
+        )
+      );
+    });
+
+    it('„Ablauf prüfen" zeigt den Bericht des Trockenlaufs und spielt nichts ein', async () => {
+      mit({});
+      apiMock.post.mockResolvedValue({
+        data: {
+          id: 2,
+          trocken: true,
+          ergebnis: 'trockenlauf',
+          grund:
+            'Eingespielt würde 0.8.15 (jetzt 0.8.14); vorher würde gesichert. Es wurde nichts verändert.',
+        },
+      });
+      render(<Aktualisierung />, { wrapper: huelle() });
+      fireEvent.click(await screen.findByTestId('nachts-pruefen'));
+      expect(await screen.findByTestId('nachts-probe')).toHaveTextContent(
+        /Es wurde nichts verändert/
+      );
+      expect(apiMock.post).toHaveBeenCalledTimes(1);
+      expect(apiMock.post.mock.calls[0]?.[0]).toBe('/update/fassung/nachts/trockenlauf');
+    });
   });
 });

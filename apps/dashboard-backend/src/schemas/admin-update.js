@@ -49,8 +49,12 @@ const UpdateFassungBody = z
   })
   .strict();
 
+// PUT /fassung/nachts
+const UpdateNachtsBody = z.object({ aktiv: z.boolean() }).strict();
+
 module.exports = {
   UpdateFassungBody,
+  UpdateNachtsBody,
   ApplyUpdateBody,
   InstallFromUsbBody,
   DownloadUpdateBody,

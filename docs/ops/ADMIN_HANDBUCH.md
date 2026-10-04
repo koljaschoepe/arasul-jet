@@ -483,8 +483,39 @@ Oberfläche mit einem Schlüssel im Bereich `system:update`
 (seit 04.10.2026 steht der Weg dort nicht mehr). Er brauchte ein
 `docker`-Programm im Backend-Container, das das ausgelieferte Gerät nicht hat,
 und zeigte deshalb nur den Satz, dass er nicht geht. Ein Gerät ohne Netz
-aktualisiert der Betreuer am Gerät (siehe unten). Einen Schalter „nachts selbst
-einspielen“ gibt es noch nicht.
+aktualisiert der Betreuer am Gerät (siehe unten).
+
+**Nachts selbst einspielen (seit M5, aus als Vorgabe).** Unter dem Knopf steht
+ein Schalter „Nachts selbst einspielen“. Ist er an und liegt in der Nacht eine
+neuere Fassung bereit, spielt das Gerät sie von selbst ein, mit denselben
+Sicherungen wie auf Knopfdruck:
+
+- **Das Fenster** liegt fest zwischen **02:00 und 04:00 Uhr** in der Zeit des
+  Geräts (Zeitzone `TZ`, Vorgabe `Europe/Berlin`; die Seite nennt sie und den
+  nächsten Beginn). Es beginnt mit dem ersten Takt ab 02:00. Läuft das Gerät
+  in dieser Zeit nicht, wird nicht nachgeholt, die nächste Nacht kommt.
+  Zeigt die Uhr bei der Umstellung auf Winterzeit die Stunde zweimal, zählt
+  es trotzdem nur einmal.
+- **Vorher wird gesichert**, als eigener Stand mit dem Vermerk „vor dem
+  Einspielen einer neuen Fassung“ (Verwaltung → Daten). **Scheitert die
+  Sicherung, wird nichts eingespielt.**
+- **Danach prüft das Gerät, ob alles gesund ist**, und geht bei einem Fehler
+  von selbst auf die vorige Fassung zurück. Das holt das **Programm** zurück,
+  nicht die Daten; sollen auch die zurück, ist es eine Wiederherstellung aus der
+  Sicherung vom Einspielen.
+- **Am Morgen steht auf der Startseite ein Hinweis** mit dem Ergebnis:
+  eingespielt, übersprungen (mit Grund, zum Beispiel zu wenig Platz oder keine
+  Verbindung ins Netz) oder zurückgefallen. Er bleibt bis „Gelesen“ unter
+  Gerät → Aktualisierung, höchstens drei Tage. Eine Nacht, in der es nichts
+  einzuspielen gab, meldet nichts.
+- **„Ablauf prüfen“** unter dem Schalter ist ein Trockenlauf: er prüft, was
+  eine Nacht vorher prüft (Weg frei, neuere Fassung da, Platz, letzte Sicherung
+  gelungen), und berichtet. Er spielt nichts ein, sichert nichts und belegt das
+  Fenster nicht.
+
+Das Gerät ist beim Umschalten einige Minuten nicht erreichbar; wer um diese
+Zeit arbeitet, merkt es. Wer das nicht will, lässt den Schalter aus und
+aktualisiert zu einer Zeit seiner Wahl mit dem Knopf.
 
 ### Auf eine neue Fassung, am Gerät
 

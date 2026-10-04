@@ -27,7 +27,7 @@
  * WAS DAS BACKEND SELBST TUT, BEVOR ES UEBERGIBT: pruefen, ob der Weg gangbar
  * ist, das Artefakt holen, seine Pruefsumme pruefen, sichern. Das ist die
  * Sicherung "ueber den Weg, den der Endpunkt selbst nimmt" -- dieselbe wie jede
- * andere (`sicherungsdienst.sichereJetzt`).
+ * andere (`sicherungsdienst.sichereVorUpdate`, ein Stand mit dem Vermerk `update`).
  */
 
 const fs = require('fs').promises;
@@ -422,7 +422,14 @@ async function pruefeNichtBesetzt() {
  *
  * @param {{fassung?: string, durch?: string}} optionen
  */
-async function spieleEin({ fassung = null, durch = null } = {}) {
+/**
+ * Alles, was vor dem ersten Handgriff feststehen muss: ob der Weg gangbar ist,
+ * welche Fassung das Gerät trägt, welche eingespielt würde, ob sie neuer ist und
+ * ob der Platz reicht. Wirft, wo etwas nicht stimmt; ändert nichts. Eine
+ * Quelle für das Einspielen und den Trockenlauf der Nacht, damit der Trockenlauf
+ * nicht etwas anderes prüft als der echte.
+ */
+async function vorpruefung({ fassung = null } = {}) {
   await pruefeNichtBesetzt();
   const weg = await wegPruefen();
   if (!weg.moeglich) {
@@ -450,11 +457,27 @@ async function spieleEin({ fassung = null, durch = null } = {}) {
     throw new ValidationError('Eine Fassung hat die Form X.Y.Z, zum Beispiel 0.8.15.');
   }
   if (vergleiche(ziel, aktuell) <= 0) {
+    // `keinBedarf`: nichts zu tun, kein Fehler -- die Nacht unterscheidet das
+    // von einem Grund, nicht einzuspielen (`nachtUpdate.js`).
     throw new ConflictError(
-      `Das Gerät trägt schon ${aktuell}. ${ziel} ist nicht neuer, und das Gerät stuft sich nicht von selbst herunter.`
+      `Das Gerät trägt schon ${aktuell}. ${ziel} ist nicht neuer, und das Gerät stuft sich nicht von selbst herunter.`,
+      { keinBedarf: true }
     );
   }
   await pruefePlatz();
+  return { weg, aktuell, ziel };
+}
+
+/**
+ * Eine Fassung einspielen.
+ *
+ * Antwortet, sobald die Vorpruefungen durch sind; Herunterladen, Sichern und
+ * Einspielen laufen danach weiter, und `stand()` zeigt den Fortschritt.
+ *
+ * @param {{fassung?: string, durch?: string}} optionen
+ */
+async function spieleEin({ fassung = null, durch = null } = {}) {
+  const { weg, aktuell, ziel } = await vorpruefung({ fassung });
 
   const lauf = `${Date.now().toString(36)}`;
   imProzess = lauf;
@@ -499,17 +522,19 @@ async function weiter(lauf, ziel, aktuell, host) {
   await protokolliere(`Paket geholt und geprüft: ${artefakt.name}`);
 
   await schreibeStatus({ schritt: 'sichern', meldung: 'Vor dem Einspielen wird gesichert' });
-  const sicherung = await sicherungsdienst.sichereJetzt();
+  // Ein eigener Stand mit dem Vermerk `update` (M5, update-nachts): wer ihn in
+  // der Liste der Sicherungen sieht, weiß, wovor er entstand.
+  const sicherung = await sicherungsdienst.sichereVorUpdate();
   if (!sicherung.erfolg) {
     throw new ServiceUnavailableError(
       'Die Sicherung vor dem Einspielen ist fehlgeschlagen. Es wurde nichts verändert.'
     );
   }
-  await protokolliere(`Sicherung fertig (${sicherung.bericht?.total_size || 'Größe unbekannt'})`);
+  await protokolliere(`Sicherung fertig (Stand ${String(sicherung.id).slice(0, 8)})`);
   await schreibeStatus({
     sicherung: {
-      zeitpunkt: sicherung.bericht?._geschrieben || new Date().toISOString(),
-      groesse: sicherung.bericht?.total_size || null,
+      zeitpunkt: sicherung.zeitpunkt || new Date().toISOString(),
+      stand: sicherung.id || null,
     },
     schritt: 'uebergabe',
     meldung: 'Das Einspielen übernimmt der Gerätedienst',
@@ -553,6 +578,7 @@ async function zurueck({ durch = null } = {}) {
 module.exports = {
   stand,
   spieleEin,
+  vorpruefung,
   zurueck,
   neuesteFassung,
   wegPruefen,

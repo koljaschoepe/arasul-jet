@@ -128,7 +128,7 @@ export interface Stand {
   zeitpunkt: string;
   /** Entstand vor einem Zurückholen: der Weg, es rückgängig zu machen. */
   vorher: boolean;
-  fuer: { art: 'app' | 'bereich' | 'geraet' | 'live'; id: string | null } | null;
+  fuer: { art: 'app' | 'bereich' | 'geraet' | 'live' | 'update'; id: string | null } | null;
   /** Bytes, die dieser Stand neu geschrieben hat; `null` = nicht gemessen. */
   geschrieben: number | null;
   inhaltBekannt: boolean;
