@@ -48,20 +48,19 @@ function AppKachel({
       /* Der Teststand steht als „(Test) Name" im Titel, wie in der Leiste
          (M5): wer eine App in zwei Fassungen vor sich hat, muss beim
          Anklicken wissen, welche er gleich bedient. */
+      /* Höchstens eine Zahl (J36), und ohne wartende Freigabe gar nichts:
+         ein leerer Hinweis zeichnete ein leeres Feld in die Ecke. */
       hinweis={
-        <span className="inline-flex items-center gap-2">
-          {/* Höchstens eine Zahl (J36): wer wissen will, worum es geht, öffnet die App. */}
-          {wartend > 0 && (
-            <span
-              className="font-medium text-foreground"
-              data-testid={`uebersicht-app-${eintrag.id}-${eintrag.stand}-wartend`}
-              title={wartend === 1 ? '1 Freigabe wartet' : `${wartend} Freigaben warten`}
-              aria-label={wartend === 1 ? '1 Freigabe wartet' : `${wartend} Freigaben warten`}
-            >
-              {wartend}
-            </span>
-          )}
-        </span>
+        wartend > 0 ? (
+          <span
+            className="font-medium text-foreground"
+            data-testid={`uebersicht-app-${eintrag.id}-${eintrag.stand}-wartend`}
+            title={wartend === 1 ? '1 Freigabe wartet' : `${wartend} Freigaben warten`}
+            aria-label={wartend === 1 ? '1 Freigabe wartet' : `${wartend} Freigaben warten`}
+          >
+            {wartend}
+          </span>
+        ) : undefined
       }
     >
       {eintrag.beschreibung && <span className="line-clamp-2">{eintrag.beschreibung}</span>}
