@@ -532,6 +532,9 @@ jobs:
       - name: Gedankenstriche als Trenner
         run: python3 scripts/test/gedankenstriche.py --pfad .
 
+      - name: index.css ohne Ballast (M5)
+        run: python3 scripts/test/css-ballast.py --wurzel .
+
       - name: Design-System (Farben, Variablen)
         run: node scripts/test/check-design-system.js
 

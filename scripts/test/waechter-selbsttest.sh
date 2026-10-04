@@ -1413,6 +1413,76 @@ pruefe "Designsystem: umschrieben ist gruen" 0 \
   node "$WURZEL/scripts/test/check-design-system.js" --wurzel "$DS"
 rm -rf "$DS"
 
+# --- css-ballast.py (M5) ------------------------------------------------------
+# Eine Klasse ohne Verbraucher, ein Token ohne Verweis, eine Keyframe ohne
+# `animation` und die Kopie einer Tailwind-Utility muessen je rot werden; ein
+# Wort, das nur als Zeichenkette vorkommt (`variant="card"`), haelt keine
+# Klasse am Leben, eine dynamisch gebaute (`status-${art}`) schon.
+CB="$TMP/ballast"
+mkdir -p "$CB/apps/dashboard-frontend/src" "$CB/packages/marken/src"
+cat > "$CB/apps/dashboard-frontend/src/index.css" <<'BEISPIEL'
+@layer components {
+  .gebraucht { color: red; }
+  .dynamisch-eins { color: red; }
+}
+BEISPIEL
+cat > "$CB/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+export const Seite = (art: string) => <div className={`gebraucht dynamisch-${art}`} />;
+BEISPIEL
+pruefe "Ballast: nur genutzte Klassen sind gruen" 0 \
+  python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
+
+echo '  .tot { color: red; }' >> "$CB/apps/dashboard-frontend/src/index.css"
+pruefe "Ballast: eine Klasse ohne Verbraucher ist rot" 1 \
+  python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
+
+cat > "$CB/apps/dashboard-frontend/src/index.css" <<'BEISPIEL'
+@layer components {
+  .karte { color: red; }
+}
+BEISPIEL
+cat > "$CB/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+export const Seite = () => <Karte variant="karte" />;
+BEISPIEL
+pruefe "Ballast: ein Wort in Anfuehrungszeichen haelt keine Klasse am Leben" 1 \
+  python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
+
+cat > "$CB/apps/dashboard-frontend/src/index.css" <<'BEISPIEL'
+:root { --tot: 1px; }
+BEISPIEL
+pruefe "Ballast: ein Token ohne Verweis ist rot" 1 \
+  python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
+
+cat > "$CB/apps/dashboard-frontend/src/index.css" <<'BEISPIEL'
+@keyframes tot { from { opacity: 0; } to { opacity: 1; } }
+BEISPIEL
+pruefe "Ballast: eine Keyframe ohne Verwender ist rot" 1 \
+  python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
+
+cat > "$CB/apps/dashboard-frontend/src/index.css" <<'BEISPIEL'
+@layer components {
+  .flex { display: flex; }
+}
+BEISPIEL
+cat > "$CB/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+export const Seite = () => <div className="flex" />;
+BEISPIEL
+pruefe "Ballast: die Kopie einer Tailwind-Utility ist rot" 1 \
+  python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
+
+# Tailwind schreibt eine Keyframe als `animate-[name_1s_...]`: der Unterstrich
+# trennt Name und Dauer und darf nicht als Teil des Namens zaehlen (die
+# Maskottchen-Keyframes waren beim ersten Entwurf des Waechters kurz weg).
+cat > "$CB/apps/dashboard-frontend/src/index.css" <<'BEISPIEL'
+@keyframes wippen { from { opacity: 0; } to { opacity: 1; } }
+BEISPIEL
+cat > "$CB/apps/dashboard-frontend/src/Seite.tsx" <<'BEISPIEL'
+export const Seite = () => <div className="animate-[wippen_1s_ease_infinite]" />;
+BEISPIEL
+pruefe "Ballast: animate-[name_...] haelt die Keyframe am Leben" 0 \
+  python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
+rm -rf "$CB"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

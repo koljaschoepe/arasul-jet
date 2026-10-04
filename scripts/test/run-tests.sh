@@ -139,6 +139,19 @@ run_gedankenstrich_check() {
   fi
 }
 
+# Funktion: index.css ohne Ballast (M5)
+# Laeuft immer mit. 166 von 231 Klassen, 49 Tokens und 13 Keyframes hatten am
+# 04.10.2026 keinen Verbraucher, und nichts wurde davon rot.
+run_css_ballast_check() {
+  echo ""
+  echo "-> Pruefe index.css auf Ballast..."
+  if python3 "${PROJECT_ROOT}/scripts/test/css-ballast.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Der Faden (hoechstens ein Plan in docs/plans/active/)
 # Laeuft immer mit. Am 20.08.2026 lagen dort vier Eintraege, drei aus der Zeit
 # vor dem laufenden Plan, und CLAUDE.md nannte als "den einen Faden" eine Seite,
@@ -652,6 +665,7 @@ run_quality_gates() {
 # Toter Code laeuft immer, unabhaengig von der Auswahl.
 run_totercode_check
 run_gedankenstrich_check
+run_css_ballast_check
 run_bausteine_check
 run_marken_check
 run_modellnamen_check
