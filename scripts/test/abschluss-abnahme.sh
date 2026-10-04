@@ -481,7 +481,7 @@ if starten 'flow=buch&thema=Ausfall'; then
   AUSFALL_LAUF="$LAUF"
   ruf "$TOK" GET "/api/apps/$APP/laeufe?status=nicht_uebergeben"
   pruefe 'Die Liste der Laeufe filtert nach nicht_uebergeben' \
-    "$(grep -q "\"id\": *$LAUF" "$RUMPF_DATEI" && echo ja || echo nein)"
+    "$(grep -Eq "\"id\": *\"?$LAUF\"?[,}]" "$RUMPF_DATEI" && echo ja || echo nein)"
   ruf "$TOK_A" GET "/apps/$APP/api/lauf?lauf=$LAUF"
   pruefe 'Die App sieht den Zustand ueber die Schnittstelle (status, abschluss)' \
     "$([ "$(rumpf | feld status)" = nicht_uebergeben ] && echo ja || echo nein)"

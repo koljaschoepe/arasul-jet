@@ -63,8 +63,8 @@ if (r.status() !== 200) {
 const page = await ctx.newPage();
 page.on('pageerror', e => console.log(`  seitenfehler: ${e.message}`));
 
-const bild = name =>
-  page.screenshot({ path: path.join(ZIEL, `${PHASE}-${name}.png`), fullPage: true });
+const bild = (name, ganz = true) =>
+  page.screenshot({ path: path.join(ZIEL, `${PHASE}-${name}.png`), fullPage: ganz });
 
 async function sichtbar(locator, ms = 20000) {
   try {
@@ -97,8 +97,9 @@ if (PHASE === 'nicht-uebergeben') {
     'mit dem Knopf „erneut" in der Liste',
     await sichtbar(page.getByTestId(`lauf-erneut-${LAUF}`), 5000)
   );
-  await page.getByTestId('lauf-liste').scrollIntoViewIfNeeded();
-  await bild('laeufe-ansicht');
+  // Die Liste ist lang (alle Laeufe der App): der Ausschnitt zeigt die Zeile des Laufs.
+  await zeile.scrollIntoViewIfNeeded();
+  await bild('laeufe-ansicht', false);
   await zeile.click();
   pruefe('Der Lauf in der Verwaltung ist da', await sichtbar(page.getByTestId('lauf-ansicht')));
   const uebergabe = page.getByTestId('lauf-uebergabe');
@@ -119,8 +120,9 @@ if (PHASE === 'nicht-uebergeben') {
     ((await zeile.innerText().catch(() => '')) || '').includes('fertig') &&
       (await page.getByTestId(`lauf-erneut-${LAUF}`).count()) === 0
   );
-  await page.getByTestId('lauf-liste').scrollIntoViewIfNeeded();
-  await bild('laeufe-ansicht');
+  // Die Liste ist lang (alle Laeufe der App): der Ausschnitt zeigt die Zeile des Laufs.
+  await zeile.scrollIntoViewIfNeeded();
+  await bild('laeufe-ansicht', false);
   await zeile.click();
   const uebergabe = page.getByTestId('lauf-uebergabe');
   pruefe(
