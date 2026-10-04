@@ -42,6 +42,11 @@ describe('Apps im Hintergrund', () => {
   it('behält drei Apps, ohne sie neu zu bauen; die vierte fällt heraus', () => {
     render(<AnsichtInhalt />);
     for (const id of ['a', 'b', 'c', 'd']) oeffne(id);
+    // Ein umgehängter iframe lädt neu: beim Wechsel darf kein Rahmen aus dem
+    // DOM genommen und wieder eingesetzt werden.
+    const beobachter = new MutationObserver(() => {});
+    beobachter.observe(document.body, { childList: true, subtree: true });
+    beobachter.takeRecords();
     expect(sichtbar('d')).toBe('true');
     expect(sichtbar('c')).toBe('false');
     expect(sichtbar('b')).toBe('false');
@@ -50,6 +55,14 @@ describe('Apps im Hintergrund', () => {
     // Zurück zu a: alle vier bisher gebaut, keiner neu.
     oeffne('a');
     expect(sichtbar('a')).toBe('true');
+    oeffne('c');
+    oeffne('a');
+    const umgehaengt = beobachter
+      .takeRecords()
+      .flatMap(r => [...r.removedNodes, ...r.addedNodes])
+      .filter(n => n instanceof HTMLElement && n.dataset.testid?.startsWith('app-stapel-'));
+    expect(umgehaengt).toHaveLength(0);
+
     expect(eingehaengt).toHaveBeenCalledTimes(4);
 
     // Auf der Startseite zählen nur drei im Hintergrund: a, d, c — b ist weg.
