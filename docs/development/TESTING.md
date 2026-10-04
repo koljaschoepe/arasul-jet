@@ -43,6 +43,7 @@ eine Route, deren Schema niemand exportiert hat. Sie laufen bei jedem
 | `einheiten.py`       | Eine Rechnung je Zählweise, keine zwei Zahlen für dasselbe                                                                                             |
 | `endpunkte.py`       | Jeder Endpunkt im Code hat eine Zeile in der Schnittstellendoku                                                                                        |
 | `gedankenstriche.py` | Keine Gedankenstriche als Trenner                                                                                                                      |
+| `css-ballast.py`     | `index.css` ohne Klasse, Token und Keyframe ohne Verbraucher und ohne Kopie einer Tailwind-Utility (M5)                                                |
 | `kurzliste.py`       | Die vier Modelle stehen einmal in `config/modelle/kurzliste.json`; Migration, Empfehlungskarte, Plattformprofile und Setup-Skript sagen dasselbe       |
 | `marken.py`          | Das Designsystem an seiner Quelle: Bündel, Fassung, Klassen, Grenzen, Rückfälle gegen `theme.css`, kein Farbliteral, kein Name doppelt                 |
 | `modellnamen.py`     | Modellnamen kommen aus der Live-Quelle, nicht aus dem Gedächtnis                                                                                       |
