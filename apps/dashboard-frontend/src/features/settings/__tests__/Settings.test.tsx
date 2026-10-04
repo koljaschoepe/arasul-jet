@@ -127,6 +127,7 @@ describe('Verwaltung', () => {
       expect(namen).toEqual([
         'Personen',
         'Apps',
+        'Läufe',
         'Firmenordner',
         'Modelle',
         'System',

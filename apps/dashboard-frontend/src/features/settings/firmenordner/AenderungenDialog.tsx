@@ -57,9 +57,7 @@ export function AenderungenDialog({ fuer, onSchliessen }: Props) {
                 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
                 data-testid="aenderung"
               >
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatDate(a.wann)}
-                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">{formatDate(a.wann)}</span>
                 <span className="min-w-0 text-sm text-foreground">{a.text}</span>
               </li>
             ))}

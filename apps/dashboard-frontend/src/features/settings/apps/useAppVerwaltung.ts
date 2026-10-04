@@ -199,7 +199,9 @@ export interface FlowDefinition {
 export interface AppLauf {
   id: number;
   flow_name: string;
-  stand: Stand;
+  /** Die App des Laufs; `null` bei einem Lauf der Plattform ohne App (Läufe der Verwaltung). */
+  app_id?: string | null;
+  stand: Stand | null;
   status:
     'laeuft' | 'wartend' | 'fertig' | 'fehler' | 'abgebrochen' | 'abgelaufen' | 'nicht_uebergeben';
   steps_used: number | null;
@@ -213,6 +215,10 @@ export interface AppLauf {
   ausloeser?: 'hand' | 'zeitplan' | 'ereignis';
   /** Der Name des Ereignisses bei `ausloeser: 'ereignis'` (Migration 204). */
   ereignis?: string | null;
+  /** Der Mensch hinter dem Lauf; fehlt bei Zeitplan und bei einem Ereignis ohne Person. */
+  person_id?: number | null;
+  person_name?: string | null;
+  person_konto?: string | null;
 }
 
 /** Wie weit die Übergabe des Ergebnisses an die App ist. */
@@ -316,9 +322,7 @@ export function useKurzliste() {
 }
 
 const appKey = (id: string) => ['apps', 'detail', id] as const;
-const laeufeKey = (id: string) => ['apps', 'laeufe', id] as const;
 const kiAufrufeKey = (id: string) => ['apps', 'ki-aufrufe', id] as const;
-const laufKey = (id: string, runId: number) => ['apps', 'lauf', id, runId] as const;
 const flowKey = (id: string, stand: Stand, name: string) =>
   ['apps', 'flow', id, stand, name] as const;
 const logKey = (id: string, stand: Stand) => ['apps', 'logs', id, stand] as const;
@@ -343,20 +347,6 @@ export function useApp(appId: string | null) {
   });
 }
 
-/** Die Läufe einer App, neueste zuerst. */
-export function useAppLaeufe(appId: string | null) {
-  const api = useApi();
-  return useQuery({
-    queryKey: laeufeKey(appId ?? ''),
-    queryFn: async () => {
-      const res = await api.get<{ data?: AppLauf[] }>(`/apps/${appId}/laeufe?limit=25`);
-      return res.data ?? [];
-    },
-    enabled: Boolean(appId),
-    staleTime: 5_000,
-  });
-}
-
 /**
  * Die Modellaufrufe einer App, neueste zuerst (J35) — auch die, die kein Flow
  * sind, etwa `document/extract-structured`.
@@ -375,30 +365,6 @@ export function useKiAufrufe(appId: string | null) {
 }
 
 /**
- * Ein Lauf samt Schritten.
- *
- * `refetchInterval`, solange er noch läuft oder wartet: ein Lauf, der auf eine
- * Freigabe wartet, geht weiter, sobald jemand anderes entschieden hat — und
- * die Ansicht soll das zeigen, ohne dass jemand die Seite neu lädt. Ist er
- * beendet, ändert sich nichts mehr, und dann fragt hier auch niemand mehr.
- */
-export function useAppLauf(appId: string | null, runId: number | null) {
-  const api = useApi();
-  return useQuery({
-    queryKey: laufKey(appId ?? '', runId ?? 0),
-    queryFn: async () => {
-      const res = await api.get<{ data?: AppLaufDetail }>(`/apps/${appId}/laeufe/${runId}`);
-      return res.data ?? null;
-    },
-    enabled: Boolean(appId && runId),
-    refetchInterval: q => {
-      const lauf = q.state.data as AppLaufDetail | null | undefined;
-      return lauf && (lauf.status === 'laeuft' || lauf.status === 'wartend') ? 5_000 : false;
-    },
-  });
-}
-
-/**
  * „Erneut": die Übergabe eines Laufs auf „nicht übergeben" noch einmal an die
  * App schicken (M5). Die Schritte laufen nicht neu. Entwertet wird nach jedem
  * Ausgang: auch ein Fehlschlag schreibt einen neuen Grund an den Lauf.
@@ -412,8 +378,7 @@ export function useLaufErneut(appId: string) {
       return res.data ?? null;
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: laeufeKey(appId) });
-      void qc.invalidateQueries({ queryKey: ['apps', 'lauf', appId] });
+      void qc.invalidateQueries({ queryKey: ['laeufe'] });
     },
   });
 }

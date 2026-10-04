@@ -12,9 +12,10 @@
  *   Flows            Schritte, Art, Auslöser, Schalter „aktiv"
  *   Verbindungen     wohin sie ins Internet darf, lesbar benannt
  *
- * Darunter, erst auf „Zeigen": Läufe, Modellaufrufe und Protokoll. Flow und
- * Lauf ÖFFNEN SICH AN DERSELBEN STELLE statt in einem Dialog: beide sind zum
- * Lesen da und können lang sein. Der Weg zurück ist ein Knopf.
+ * Darunter ein Weg zu den Läufen dieser App (Bereich Läufe der Verwaltung, die
+ * eine Stelle dafür) und, erst auf „Zeigen": Modellaufrufe und Protokoll. Ein
+ * Flow ÖFFNET SICH AN DERSELBEN STELLE statt in einem Dialog: er ist zum Lesen
+ * da und kann lang sein. Der Weg zurück ist ein Knopf.
  */
 import { useState } from 'react';
 import {
@@ -33,7 +34,6 @@ import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import type { ApiError } from '@/hooks/useApi';
-import { formatDate } from '@/utils/formatting';
 import type { Stand } from '../personen/useAppFreigaben';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppFlows } from './AppFlows';
@@ -47,11 +47,9 @@ import { KlappGruppe } from './Aufklappen';
 import { FlowAnsicht } from './FlowAnsicht';
 import { KiAufrufe } from './KiAufrufe';
 import { LiveSchaltenDialog } from './LiveSchaltenDialog';
-import { ErneutKnopf, LaufAnsicht, LaufZustand } from './LaufAnsicht';
 import { ModellDialog } from './ModellDialog';
 import {
   useApp,
-  useAppLaeufe,
   useAppLogs,
   useEntfernen,
   useKiAufrufe,
@@ -64,10 +62,10 @@ import {
 } from './useAppVerwaltung';
 import { Feldgruppe, Formularseite } from '@marken';
 import { fehlertext } from '@/utils/fehlertext';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
-/** Was in der Mitte steht: die App selbst, ein Flow oder ein Lauf. */
-type Blick =
-  { was: 'app' } | { was: 'flow'; name: string; stand: Stand } | { was: 'lauf'; id: number };
+/** Was in der Mitte steht: die App selbst oder ein Flow. */
+type Blick = { was: 'app' } | { was: 'flow'; name: string; stand: Stand };
 
 /** Der Stand, dessen Flows und Logs gezeigt werden. */
 function StandWahl({
@@ -99,67 +97,6 @@ function StandWahl({
         </button>
       ))}
     </div>
-  );
-}
-
-/** Die Läufe der App, erst geholt, wenn der Block offen ist. */
-function Laeufe({ appId, onOeffnen }: { appId: string; onOeffnen: (id: number) => void }) {
-  const { data: laeufe, isLoading } = useAppLaeufe(appId);
-  if (isLoading) return <SkeletonText lines={3} />;
-  if (!laeufe || laeufe.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground" data-testid="laeufe-leer">
-        Noch kein Lauf. Die App startet ihre Flows selbst, über ihren Schlüssel.
-      </p>
-    );
-  }
-  return (
-    <ul className="flex flex-col rounded-md border border-border" data-testid="lauf-liste">
-      {laeufe.map(l => (
-        <li key={l.id} className="flex items-center border-b border-border last:border-b-0">
-          <button
-            type="button"
-            onClick={() => onOeffnen(l.id)}
-            data-testid={`lauf-oeffnen-${l.id}`}
-            className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-ui-3 text-left transition-colors duration-120 hover:bg-accent/40 motion-reduce:transition-none"
-          >
-            <span className="font-mono text-xs text-muted-foreground">#{l.id}</span>
-            <span className="text-sm font-medium text-foreground">{l.flow_name}</span>
-            <LaufZustand status={l.status} />
-            {l.stand === 'test' && (
-              <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs text-muted-foreground">
-                (Test)
-              </span>
-            )}
-            {l.ausloeser === 'zeitplan' && (
-              <span
-                className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs text-muted-foreground"
-                data-testid={`lauf-zeitplan-${l.id}`}
-              >
-                Zeitplan
-              </span>
-            )}
-            {l.ausloeser === 'ereignis' && (
-              <span
-                className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs text-muted-foreground"
-                data-testid={`lauf-ereignis-${l.id}`}
-                title={l.ereignis ? `Ereignis „${l.ereignis}“` : undefined}
-              >
-                Ereignis
-              </span>
-            )}
-            <span className="ml-auto text-xs text-muted-foreground">
-              {formatDate(l.created_at)}
-            </span>
-          </button>
-          {l.status === 'nicht_uebergeben' && (
-            <span className="shrink-0 pr-ui-3">
-              <ErneutKnopf appId={appId} runId={l.id} />
-            </span>
-          )}
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -208,6 +145,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const { data: modelle } = useKurzliste();
 
   const [blick, setBlick] = useState<Blick>({ was: 'app' });
+  const oeffneAnsicht = useWorkspaceStore(st => st.oeffne);
   const [stand, setStand] = useState<Stand>('live');
   const [modellFuer, setModellFuer] = useState<AppFlow | FlowDefinition | null>(null);
   const [entfernenOffen, setEntfernenOffen] = useState(false);
@@ -312,12 +250,6 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
     );
   }
 
-  if (blick.was === 'lauf') {
-    return (
-      <LaufAnsicht appId={appId} runId={blick.id} onZurueck={() => setBlick({ was: 'app' })} />
-    );
-  }
-
   return (
     <div className="flex flex-col gap-6" data-testid={`app-ansicht-${appId}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -417,14 +349,31 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
           />
         </Feldgruppe>
 
-        <KlappGruppe
+        {/* Die Läufe stehen im Bereich Läufe der Verwaltung, an EINER Stelle für
+            alle Apps; hier ist nur der Weg dorthin, mit dieser App als Filter. */}
+        <Feldgruppe
           titel="Läufe"
           symbol={<ListOrdered />}
-          beschreibung="Was diese App hat laufen lassen, mit Schritten und Gedankengang."
-          kennzeichen="laeufe"
+          beschreibung="Was diese App hat laufen lassen, mit Schritten und Gedankengang. Alle Läufe stehen im Bereich Läufe."
+          aktion={
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="laeufe-ansehen"
+              onClick={() =>
+                oeffneAnsicht({
+                  type: 'verwaltung',
+                  bereich: 'laeufe',
+                  filter: `app=${appId}`,
+                })
+              }
+            >
+              Läufe ansehen
+            </Button>
+          }
         >
-          <Laeufe appId={appId} onOeffnen={id => setBlick({ was: 'lauf', id })} />
-        </KlappGruppe>
+          {null}
+        </Feldgruppe>
 
         <KlappGruppe
           titel="KI-Aufrufe"

@@ -39,6 +39,11 @@ export interface Ansicht {
   bereich?: string;
   /** Nur bei `verwaltung`: ein Abschnitt im Bereich, der aufgeklappt ankommt. */
   abschnitt?: string;
+  /**
+   * Nur bei `verwaltung/laeufe`: die Filter der Läufe als Abfrage der Adresse
+   * (`app=…&status=…`, ohne `?`), damit ein Link genau diese Auswahl zeigt (M5).
+   */
+  filter?: string;
   /** Der Name, etwa der App. Fehlt er, gilt der des Typs. */
   title?: string;
 }
@@ -76,7 +81,10 @@ export function ansichtZuPfad(a: Ansicht): string {
     );
   }
   if (a.type === 'verwaltung' && a.bereich) {
-    return `/workspace/verwaltung/${a.bereich}${a.abschnitt ? `/${a.abschnitt}` : ''}`;
+    return (
+      `/workspace/verwaltung/${a.bereich}${a.abschnitt ? `/${a.abschnitt}` : ''}` +
+      (a.filter ? `?${a.filter}` : '')
+    );
   }
   return `/workspace/${a.type}`;
 }
@@ -93,6 +101,27 @@ const APP_KENNUNG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 /** Bereich und Abschnitt der Verwaltung: Wörter, kein Pfad. */
 const WORT = /^[a-z][a-z-]{0,39}$/;
+
+/** Im Bereich Läufe ist der Abschnitt die Nummer eines Laufs (M5). */
+const LAUF_NUMMER = /^[1-9][0-9]{0,11}$/;
+
+/**
+ * Die Filter der Läufe, die in der Adresse stehen dürfen, in fester Reihenfolge
+ * (damit dieselbe Auswahl immer dieselbe Adresse ergibt und die Shell sie nicht
+ * erst „berichtigt"). Alles andere wirft die Adresse weg.
+ */
+const LAEUFE_FILTER = ['app', 'status', 'person', 'von', 'bis'] as const;
+
+/** Die Abfrage der Läufe-Adresse säubern: nur bekannte Filter, nur sinnvolle Werte. */
+export function laeufeFilterSaeubern(search: string): string {
+  const q = new URLSearchParams(search);
+  const ok = new URLSearchParams();
+  for (const k of LAEUFE_FILTER) {
+    const v = q.get(k);
+    if (v && /^[A-Za-z0-9_-]{1,64}$/.test(v)) ok.set(k, v);
+  }
+  return ok.toString();
+}
 
 /**
  * Der Weg, unter dem eine App im Browser läuft — derselbe, den
@@ -134,13 +163,16 @@ export function pfadZuAnsicht(subPath: string, search = ''): Ansicht | null {
       // Im Bereich Apps ist der Abschnitt eine App-Kennung (M5): jede App hat
       // in der Verwaltung eine Seite und damit eine Adresse,
       // `/workspace/verwaltung/apps/<kennung>`. Sonst bleibt es ein Wort.
-      const abschnittMuster = bereich === 'apps' ? APP_KENNUNG : WORT;
+      const abschnittMuster =
+        bereich === 'apps' ? APP_KENNUNG : bereich === 'laeufe' ? LAUF_NUMMER : WORT;
       const abschnitt =
         bereich && parts[2] && abschnittMuster.test(parts[2]) ? parts[2] : undefined;
+      const filter = bereich === 'laeufe' ? laeufeFilterSaeubern(search) : '';
       return {
         type: 'verwaltung',
         ...(bereich ? { bereich } : {}),
         ...(abschnitt ? { abschnitt } : {}),
+        ...(filter ? { filter } : {}),
       };
     }
     // Die Modelle waren bis M5 eine eigene Ansicht der Aktivitätsleiste, davor

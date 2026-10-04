@@ -851,24 +851,24 @@ mehr (`404`): die Seite „KI" der Verwaltung ist gestrichen, der Administrator
 
 ### Updates
 
-| Method | Endpoint                         | Description                                        |
-| ------ | -------------------------------- | -------------------------------------------------- |
-| POST   | `/api/update/upload`             | Upload .araupdate file                             |
-| GET    | `/api/update/status`             | Current update status                              |
-| GET    | `/api/update/history`            | Update history                                     |
-| GET    | `/api/update/usb-devices`        | Scan for USB devices with updates                  |
-| POST   | `/api/update/install-from-usb`   | Install update from USB device                     |
-| GET    | `/api/update/check`              | Nach Aktualisierungen sehen                        |
-| POST   | `/api/update/download`           | Aktualisierung herunterladen                       |
-| POST   | `/api/update/apply`              | Ein Paket einspielen                               |
-| GET    | `/api/update/fassung`            | Stand und Fortschritt der Plattform-Aktualisierung |
-| GET    | `/api/update/fassung/neueste`    | Die neueste Fassung im Netz                        |
-| POST   | `/api/update/fassung/einspielen` | Das Gerät auf eine neue Fassung bringen (202)      |
-| POST   | `/api/update/fassung/zurueck`    | Zurück auf die vorige Fassung (202)                |
-| GET    | `/api/update/fassung/nachts`     | Schalter „nachts selbst einspielen“, Fenster, letzte Nacht, Hinweis |
-| PUT    | `/api/update/fassung/nachts`     | Schalter setzen, Body `{ "aktiv": true\|false }`    |
-| POST   | `/api/update/fassung/nachts/trockenlauf` | Den Ablauf der Nacht prüfen, nichts einspielen, nichts sichern |
-| POST   | `/api/update/fassung/nachts/gesehen`     | Den Hinweis vom Morgen als gelesen markieren       |
+| Method | Endpoint                                 | Description                                                         |
+| ------ | ---------------------------------------- | ------------------------------------------------------------------- |
+| POST   | `/api/update/upload`                     | Upload .araupdate file                                              |
+| GET    | `/api/update/status`                     | Current update status                                               |
+| GET    | `/api/update/history`                    | Update history                                                      |
+| GET    | `/api/update/usb-devices`                | Scan for USB devices with updates                                   |
+| POST   | `/api/update/install-from-usb`           | Install update from USB device                                      |
+| GET    | `/api/update/check`                      | Nach Aktualisierungen sehen                                         |
+| POST   | `/api/update/download`                   | Aktualisierung herunterladen                                        |
+| POST   | `/api/update/apply`                      | Ein Paket einspielen                                                |
+| GET    | `/api/update/fassung`                    | Stand und Fortschritt der Plattform-Aktualisierung                  |
+| GET    | `/api/update/fassung/neueste`            | Die neueste Fassung im Netz                                         |
+| POST   | `/api/update/fassung/einspielen`         | Das Gerät auf eine neue Fassung bringen (202)                       |
+| POST   | `/api/update/fassung/zurueck`            | Zurück auf die vorige Fassung (202)                                 |
+| GET    | `/api/update/fassung/nachts`             | Schalter „nachts selbst einspielen“, Fenster, letzte Nacht, Hinweis |
+| PUT    | `/api/update/fassung/nachts`             | Schalter setzen, Body `{ "aktiv": true\|false }`                    |
+| POST   | `/api/update/fassung/nachts/trockenlauf` | Den Ablauf der Nacht prüfen, nichts einspielen, nichts sichern      |
+| POST   | `/api/update/fassung/nachts/gesehen`     | Den Hinweis vom Morgen als gelesen markieren                        |
 
 **Die Plattform selbst aktualisieren (J39)** — die vier `fassung`-Zeilen sind
 der Weg des Dashboards, `/api/v1/external/update` (unten) der des Kits; beide
@@ -1119,6 +1119,9 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | GET    | `/api/apps/:id/laeufe`                               | Die Flow-Läufe dieser App (Phase D4)                                                                          |
 | GET    | `/api/apps/:id/laeufe/:runId`                        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                                           |
 | POST   | `/api/apps/:id/laeufe/:runId/erneut`                 | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                      |
+| GET    | `/api/laeufe`                                        | Die Läufe aller Apps mit Filtern, Fehler zuerst (Admin, M5)                                                   |
+| GET    | `/api/laeufe/:id`                                    | Ein Lauf samt Schritten, Freigaben und Person, aus jeder App (Admin, M5)                                      |
+| POST   | `/api/laeufe/:id/abbrechen`                          | Einen laufenden oder wartenden Lauf abbrechen, auch ohne Person (Admin, M5)                                   |
 | GET    | `/api/apps/:id/ki-aufrufe`                           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                                              |
 | POST   | `/api/apps/:id/schalten`                             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                                      |
 
@@ -1426,6 +1429,30 @@ Liefert die Flow-Datei so, wie sie registriert ist — mit `prompt` (dem Auftrag
 an das Modell), `werkzeuge`, `rollen`, `schritte`, `grenzen` — dazu
 `paket_modell` (was das Paket wollte) neben `modell` (was gilt) und `extern`.
 `404`, wenn dieser Stand den Flow nicht hat.
+
+#### Die Läufe aller Apps (M5, Verwaltung → Läufe)
+
+**GET /api/laeufe** (Admin): Query `?app=<kennung>`, `?status=` (`laeuft`,
+`wartend`, `fertig`, `fehler`, `abgebrochen`, `abgelaufen`, `nicht_uebergeben`),
+`?person=<nr>` oder `?person=ohne` (Läufe ohne Mensch dahinter: Zeitplan,
+Ereignis ohne Person), `?von=` und `?bis=` (Zeitpunkte mit Zone, `bis`
+ausgeschlossen), `?limit=1..200` (Vorgabe 50) und `?offset=`. Antwort
+`{ data, gesamt }`. Sortiert: `fehler` und `nicht_uebergeben` zuerst, darin und
+danach die neueste Nummer zuerst. Jede Zeile trägt `app_id`, `stand`,
+`ausloeser`, `ereignis`, `error` und die Person (`person_id`, `person_name`,
+`person_konto`). Die Person ist der Mensch, für den eine App den Lauf auslöste
+(`einreicher_id`), bei einem Lauf der Plattform ohne App der Nutzer selbst.
+
+**GET /api/laeufe/:id** (Admin): derselbe Lauf wie unter der App, aber ohne
+Einschränkung auf eine App; `?raw=1` holt die Rohdaten der Schritte. `404`,
+wenn es ihn nicht gibt.
+
+**POST /api/laeufe/:id/abbrechen** (Admin): bricht einen Lauf ab, der läuft
+oder wartet, gleich von wem er stammt (auch Zeitplan und Ereignis, deren
+`user_id` nur der technische Besitzer ist). `404`, wenn er nicht (mehr) läuft.
+Im Sicherheitsprotokoll als `lauf_abgebrochen`. `GET /api/flows/laeufe/:id`,
+`…/stream` und `…/abbrechen` gelten für den Administrator seit M5 ebenfalls für
+jeden Lauf; ein Mitarbeiter sieht dort weiter nur seine eigenen.
 
 #### Die Läufe einer App (Phase D4)
 

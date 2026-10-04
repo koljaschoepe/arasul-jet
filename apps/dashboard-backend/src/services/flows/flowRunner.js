@@ -309,7 +309,7 @@ function istAktiv(runId) {
  * @returns {Promise<object|null>} der abgebrochene Lauf, oder null wenn nichts
  *   abzubrechen war (fremd/unbekannt/schon beendet).
  */
-async function abbrechen({ runId, userId }, deps = {}) {
+async function abbrechen({ runId, userId = null }, deps = {}) {
   const { store = runStore } = deps;
   const abgebrochen = await store.cancelRun({ runId, userId });
   if (!abgebrochen) {

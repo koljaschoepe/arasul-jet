@@ -66,6 +66,15 @@ const vorlagenUpload = multer(
 );
 
 /**
+ * Wessen Läufe der Aufrufer sehen und abbrechen darf: der Administrator alle
+ * (`null`), denn ein Lauf aus Zeitplan oder Ereignis gehört keinem Menschen;
+ * ein Mitarbeiter nur seine eigenen.
+ */
+function sehendeNutzer(req) {
+  return req.user.role === 'admin' ? null : req.user.id;
+}
+
+/**
  * Formt eine interne Definition in die API-Antwort um. `systemPrompt` heißt
  * nach außen `prompt` — im Chat und im Dialog ist das schlicht "der Prompt".
  */
@@ -229,8 +238,9 @@ router.get(
   validateParams(RunIdParams),
   asyncHandler(async (req, res) => {
     const runId = req.params.id;
-    // Eigentümer-geprüft: getRun wirft NotFound bei fremd/unbekannt.
-    const run = await runStore.getRun({ runId, userId: req.user.id });
+    // Eigentümer-geprüft: getRun wirft NotFound bei fremd/unbekannt; der
+    // Administrator sieht jeden Lauf, auch einen aus Zeitplan oder Ereignis.
+    const run = await runStore.getRun({ runId, userId: sehendeNutzer(req) });
 
     initSSE(res);
     const verbindung = trackConnection(res);
@@ -325,7 +335,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const run = await runStore.getRun({
       runId: req.params.id,
-      userId: req.user.id,
+      userId: sehendeNutzer(req),
       includeRaw: req.query.raw === '1' || req.query.raw === 'true',
     });
     res.json({ data: run, timestamp: new Date().toISOString() });
@@ -342,7 +352,7 @@ router.post(
   requireRole('admin', 'mitarbeiter'),
   validateParams(RunIdParams),
   asyncHandler(async (req, res) => {
-    const run = await flowRunner.abbrechen({ runId: req.params.id, userId: req.user.id });
+    const run = await flowRunner.abbrechen({ runId: req.params.id, userId: sehendeNutzer(req) });
     if (!run) {
       // Entweder gibt es den Lauf nicht (fremd/unbekannt) oder er läuft nicht
       // mehr. In beiden Fällen NotFound — die Existenz fremder Läufe wird nicht

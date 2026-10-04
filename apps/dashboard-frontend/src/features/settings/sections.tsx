@@ -1,4 +1,13 @@
-import { AppWindow, Cpu, Database, FolderTree, HardDrive, Server, Users } from 'lucide-react';
+import {
+  AppWindow,
+  Cpu,
+  Database,
+  FolderTree,
+  HardDrive,
+  ListOrdered,
+  Server,
+  Users,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /**
@@ -8,8 +17,7 @@ import type { ReactNode } from 'react';
  * ohne Größenklasse — der Verwender bestimmt die Größe.
  *
  * DIE BEREICHE AUS `company/frontend.md`, in dieser Reihenfolge: Personen,
- * Apps, Läufe, Firmenordner, Modelle, System, Daten, Gerät. Läufe baut die
- * Karte verwaltung-laeufe; bis dahin fehlt der Eintrag, statt leer dazustehen.
+ * Apps, Läufe, Firmenordner, Modelle, System, Daten, Gerät.
  * Bis zum 04.10.2026 waren es elf: Allgemein, Sicherheit, Lizenz und
  * Fernzugriff sind im Bereich Gerät aufgegangen, die Auslastung im Satz und
  * den drei Zahlen von System, die Aktualisierung ebenfalls im Gerät. Den
@@ -17,7 +25,7 @@ import type { ReactNode } from 'react';
  * Administrator ändert keine Prompts.
  */
 export type SettingsSectionId =
-  'benutzer' | 'apps' | 'firmenordner' | 'modelle' | 'system' | 'daten' | 'geraet';
+  'benutzer' | 'apps' | 'laeufe' | 'firmenordner' | 'modelle' | 'system' | 'daten' | 'geraet';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -30,6 +38,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   // Administrator am häufigsten tut (Phase D3), und die Zielform beginnt hier.
   { id: 'benutzer', label: 'Personen', icon: <Users /> },
   { id: 'apps', label: 'Apps', icon: <AppWindow /> },
+  // Was auf dem Gerät gelaufen ist, über alle Apps, mit Filtern; jeder Lauf hat
+  // eine Adresse (`/workspace/verwaltung/laeufe/<nummer>`).
+  { id: 'laeufe', label: 'Läufe', icon: <ListOrdered /> },
   // Wer welchen Ordner sieht, ist dieselbe Frage wie wer welche App sieht —
   // nur mit drei Stufen statt einem Haken.
   { id: 'firmenordner', label: 'Firmenordner', icon: <FolderTree /> },

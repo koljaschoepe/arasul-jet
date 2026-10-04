@@ -15,12 +15,11 @@
  * mehrere Bildschirme lang sein.
  */
 import { useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronRight, Brain, PenLine, Users, Info } from 'lucide-react';
+import { ChevronDown, ChevronRight, Brain, PenLine, Users, Info } from 'lucide-react';
 import { Button, cn, useSchmalesFenster } from '@marken';
-import { SkeletonText } from '@/components/ui/Skeleton';
 import { formatDate } from '@/utils/formatting';
-import type { LaufFreigabe, LaufSchritt } from './useAppVerwaltung';
-import { useAppLauf, useLaufErneut } from './useAppVerwaltung';
+import type { AppLauf, AppLaufDetail, LaufFreigabe, LaufSchritt } from './useAppVerwaltung';
+import { useLaufErneut } from './useAppVerwaltung';
 import { useToast } from '@/contexts/ToastContext';
 
 /** Der Zustand eines Laufs in einem Wort, mit Farbe. */
@@ -281,139 +280,124 @@ export function ErneutKnopf({ appId, runId }: { appId: string; runId: number }) 
   );
 }
 
-export function LaufAnsicht({
-  appId,
-  runId,
-  onZurueck,
+/** Wodurch ein Lauf entstand, in einem Wort; Hand mit dem Menschen, wenn es einen gibt. */
+export function ausloeserText(
+  l: Pick<AppLauf, 'ausloeser' | 'ereignis'>,
+  person: string | null
+): string {
+  if (l.ausloeser === 'zeitplan') return 'Zeitplan';
+  if (l.ausloeser === 'ereignis') return l.ereignis ? `Ereignis „${l.ereignis}“` : 'Ereignis';
+  return person ? `Von Hand, ${person}` : 'Von Hand';
+}
+
+/**
+ * Der Inhalt eines Laufs zum Nachlesen (Läufe der Verwaltung, M5): Zeiten,
+ * Auslöser, Person, Übergabe, Argumente, Grund eines Fehlers, Schritte bis zu
+ * Ein- und Ausgabe, Freigaben mit Vorschlag und Änderung, Ergebnis. Die Seite
+ * eines Laufs und die aufgeklappte Zeile der Liste zeigen dasselbe.
+ */
+export function LaufDetail({
+  lauf,
+  person,
 }: {
-  appId: string;
-  runId: number;
-  onZurueck: () => void;
+  lauf: AppLaufDetail;
+  /** Der Name des Menschen hinter dem Lauf, falls es einen gibt. */
+  person: string | null;
 }) {
-  const { data: lauf, isLoading, isError } = useAppLauf(appId, runId);
-
   return (
-    <div className="flex flex-col gap-4" data-testid="lauf-ansicht">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onZurueck}
-        className="self-start"
-        data-testid="lauf-zurueck"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        Zurück zur App
-      </Button>
+    <div className="flex flex-col gap-4" data-testid={`lauf-detail-${lauf.id}`}>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">Auslöser</dt>
+        <dd className="text-foreground" data-testid={`lauf-ausloeser-${lauf.id}`}>
+          {ausloeserText(lauf, person)}
+        </dd>
+        <dt className="text-muted-foreground">Person</dt>
+        <dd className="text-foreground" data-testid={`lauf-person-${lauf.id}`}>
+          {person ?? 'ohne Person'}
+        </dd>
+        <dt className="text-muted-foreground">Gestartet</dt>
+        <dd className="text-foreground">{formatDate(lauf.created_at)}</dd>
+        {lauf.finished_at && (
+          <>
+            <dt className="text-muted-foreground">Beendet</dt>
+            <dd className="text-foreground">{formatDate(lauf.finished_at)}</dd>
+          </>
+        )}
+        {lauf.abschluss && (
+          <>
+            <dt className="text-muted-foreground">Übergabe</dt>
+            <dd className="min-w-0 break-words text-foreground" data-testid="lauf-uebergabe">
+              {lauf.abschluss.uebergeben_am
+                ? `an ${lauf.abschluss.route} übergeben, ${formatDate(lauf.abschluss.uebergeben_am)}`
+                : `${lauf.abschluss.route}, ${lauf.abschluss.versuche === 1 ? '1 Versuch' : `${lauf.abschluss.versuche} Versuche`}`}
+            </dd>
+          </>
+        )}
+        {Object.keys(lauf.arguments ?? {}).length > 0 && (
+          <>
+            <dt className="text-muted-foreground">Argumente</dt>
+            <dd className="min-w-0 break-words font-mono text-xs text-foreground">
+              {Object.entries(lauf.arguments)
+                .map(([k, v]) => `${k}=${v}`)
+                .join(', ')}
+            </dd>
+          </>
+        )}
+      </dl>
 
-      {isLoading && <SkeletonText lines={5} />}
-
-      {isError && (
-        <p className="text-sm text-muted-foreground" data-testid="lauf-fehler">
-          Der Lauf ließ sich nicht laden.
+      {lauf.error && (
+        <p
+          className="rounded-md border border-destructive/30 bg-destructive/10 p-ui-3 text-sm text-destructive"
+          data-testid="lauf-grund"
+        >
+          {lauf.error}
         </p>
       )}
 
-      {lauf && (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-medium text-foreground">
-              Lauf {lauf.id}: {lauf.flow_name}
-            </h3>
-            <LaufZustand status={lauf.status} />
-            <span className="text-xs text-muted-foreground">
-              {lauf.stand === 'test' ? 'Teststand' : 'Livestand'}
-            </span>
-            {lauf.status === 'nicht_uebergeben' && <ErneutKnopf appId={appId} runId={lauf.id} />}
+      <div>
+        <h4 className="mb-1 text-sm font-medium text-foreground">Schritte und Gedankengang</h4>
+        {lauf.steps.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="lauf-ohne-schritte">
+            Dieser Lauf hat noch keinen Schritt geschrieben.
+          </p>
+        ) : (
+          <ul
+            className="rounded-md border border-border"
+            data-testid="lauf-schritte"
+            data-schritte={lauf.steps.length}
+          >
+            {lauf.steps.map(s => (
+              <Schritt key={s.id} schritt={s} />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {(lauf.freigaben ?? []).some(f => f.felder && f.felder.length > 0) && (
+        <div data-testid="lauf-freigabe-felder">
+          <h4 className="mb-1 text-sm font-medium text-foreground">
+            Erkannte Felder und Änderungen
+          </h4>
+          <div className="flex flex-col gap-2">
+            {(lauf.freigaben ?? [])
+              .filter(f => f.felder && f.felder.length > 0)
+              .map(f => (
+                <FreigabeFelder key={f.id} f={f} />
+              ))}
           </div>
+        </div>
+      )}
 
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-muted-foreground">Gestartet</dt>
-            <dd className="text-foreground">{formatDate(lauf.created_at)}</dd>
-            {lauf.finished_at && (
-              <>
-                <dt className="text-muted-foreground">Beendet</dt>
-                <dd className="text-foreground">{formatDate(lauf.finished_at)}</dd>
-              </>
-            )}
-            {lauf.abschluss && (
-              <>
-                <dt className="text-muted-foreground">Übergabe</dt>
-                <dd className="min-w-0 break-words text-foreground" data-testid="lauf-uebergabe">
-                  {lauf.abschluss.uebergeben_am
-                    ? `an ${lauf.abschluss.route} übergeben, ${formatDate(lauf.abschluss.uebergeben_am)}`
-                    : `${lauf.abschluss.route}, ${lauf.abschluss.versuche === 1 ? '1 Versuch' : `${lauf.abschluss.versuche} Versuche`}`}
-                </dd>
-              </>
-            )}
-            {Object.keys(lauf.arguments ?? {}).length > 0 && (
-              <>
-                <dt className="text-muted-foreground">Argumente</dt>
-                <dd className="min-w-0 break-words font-mono text-xs text-foreground">
-                  {Object.entries(lauf.arguments)
-                    .map(([k, v]) => `${k}=${v}`)
-                    .join(', ')}
-                </dd>
-              </>
-            )}
-          </dl>
-
-          {lauf.error && (
-            <p
-              className="rounded-md border border-destructive/30 bg-destructive/10 p-ui-3 text-sm text-destructive"
-              data-testid="lauf-grund"
-            >
-              {lauf.error}
-            </p>
-          )}
-
-          <div>
-            <h4 className="mb-1 text-sm font-medium text-foreground">
-              Schritte und Gedankengang
-            </h4>
-            {lauf.steps.length === 0 ? (
-              <p className="text-sm text-muted-foreground" data-testid="lauf-ohne-schritte">
-                Dieser Lauf hat noch keinen Schritt geschrieben.
-              </p>
-            ) : (
-              <ul
-                className="rounded-md border border-border"
-                data-testid="lauf-schritte"
-                data-schritte={lauf.steps.length}
-              >
-                {lauf.steps.map(s => (
-                  <Schritt key={s.id} schritt={s} />
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {(lauf.freigaben ?? []).some(f => f.felder && f.felder.length > 0) && (
-            <div data-testid="lauf-freigabe-felder">
-              <h4 className="mb-1 text-sm font-medium text-foreground">
-                Erkannte Felder und Änderungen
-              </h4>
-              <div className="flex flex-col gap-2">
-                {(lauf.freigaben ?? [])
-                  .filter(f => f.felder && f.felder.length > 0)
-                  .map(f => (
-                    <FreigabeFelder key={f.id} f={f} />
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {lauf.result && (
-            <div>
-              <h4 className="mb-1 text-sm font-medium text-foreground">Ergebnis</h4>
-              <pre
-                className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 text-sm text-foreground"
-                data-testid="lauf-ergebnis"
-              >
-                {lauf.result}
-              </pre>
-            </div>
-          )}
-        </>
+      {lauf.result && (
+        <div>
+          <h4 className="mb-1 text-sm font-medium text-foreground">Ergebnis</h4>
+          <pre
+            className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 text-sm text-foreground"
+            data-testid="lauf-ergebnis"
+          >
+            {lauf.result}
+          </pre>
+        </div>
       )}
     </div>
   );
