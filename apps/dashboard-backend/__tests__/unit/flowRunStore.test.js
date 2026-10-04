@@ -283,6 +283,22 @@ describe('getRun', () => {
   });
 });
 
+describe('getRunFuerApp (Laeufe-Ansicht der Verwaltung)', () => {
+  it('traegt die Freigaben mit Feldern und Korrekturen wie getRun', async () => {
+    const freigabe = {
+      id: 5,
+      felder_schritt: 'lesen',
+      felder: [{ name: 'datum', vorschlag: '' }],
+      korrekturen: [{ feld: 'datum', vorschlag: '', wert: '01.10.2026', von: 'b' }],
+    };
+    const db = fakeDb({ rows: [{ id: 7, app_id: 'belege' }] }, { rows: [] }, { rows: [freigabe] });
+    const run = await runStore.getRunFuerApp({ runId: 7, appId: 'belege' }, { db });
+    expect(run.freigaben).toEqual([freigabe]);
+    expect(db.calls[2].sql).toMatch(/FROM public\.approvals/);
+    expect(db.calls[2].params).toEqual([7]);
+  });
+});
+
 describe('listRuns', () => {
   it('bindet auf den Nutzer und deckelt das Limit', async () => {
     const db = fakeDb({ rows: [] });

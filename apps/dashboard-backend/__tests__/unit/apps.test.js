@@ -209,6 +209,9 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
           { id: 1, kind: 'modell', name: 'Gedankengang', output: 'Ich frage zuerst nach.' },
           { id: 2, kind: 'werkzeug', name: 'freigabe_anfordern' },
         ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ id: 4, felder_schritt: 'lesen', korrekturen: [{ feld: 'datum', wert: '01.10.2026' }] }],
       });
 
     const res = await request(verwaltung()).get('/api/apps/urlaub/laeufe/9');
@@ -216,9 +219,12 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.steps).toHaveLength(2);
     expect(res.body.data.steps[0].kind).toBe('modell');
+    // Die Freigaben mit Vorschlag und Korrektur (M5): die Laeufe-Ansicht zeigt beides.
+    expect(res.body.data.freigaben[0].korrekturen[0].wert).toBe('01.10.2026');
     // Ohne `?raw=1` bleiben die Rohdaten drausen -- sie koennen je Subagent
     // einige Dutzend Kilobyte sein.
-    expect(db.query.mock.calls.at(-1)[0]).not.toMatch(/SELECT \* FROM flow_run_steps/);
+    const schritte = db.query.mock.calls.find(([sql]) => /FROM flow_run_steps/.test(sql));
+    expect(schritte[0]).not.toMatch(/SELECT \* FROM flow_run_steps/);
   });
 
   test('ein Lauf einer ANDEREN App ist 404 und nicht 403', async () => {

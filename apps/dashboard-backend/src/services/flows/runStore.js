@@ -286,6 +286,36 @@ async function cancelRun({ runId, userId }, { db = database } = {}) {
 }
 
 /**
+ * Schritte und Freigaben eines Laufs, den der Aufrufer schon gefunden hat.
+ * `getRun` (eigene Laeufe) und `getRunFuerApp` (Laeufe-Ansicht der
+ * Verwaltung) zeigen dasselbe; bis zum 04.10.2026 fehlten der Verwaltung
+ * die Freigaben, am Orin gemessen.
+ */
+async function schritteUndFreigaben(runId, includeRaw, db) {
+  const spalten = includeRaw
+    ? '*'
+    : 'id, run_id, position, kind, name, input, output, status, created_at, finished_at, parent_step_id, modell';
+  const stepsRes = await db.query(
+    `SELECT ${spalten} FROM flow_run_steps WHERE run_id = $1 ORDER BY position ASC`,
+    [runId]
+  );
+  // Die Freigaben des Laufs mit ihren Feldern (M5, Migration 197): was die KI
+  // vorschlug und was der Mensch beim Bestaetigen aenderte, wer und wann. Die
+  // Ansicht des Laufs zeigt beides nebeneinander.
+  const freigabenRes = await db.query(
+    `SELECT a.id, a.titel, a.stufe, a.status, a.angefragt_am, a.entschieden_am,
+            u.username AS entschieden_von, a.begruendung,
+            a.felder_schritt, a.felder, a.korrekturen
+       FROM public.approvals a
+       LEFT JOIN public.admin_users u ON u.id = a.entschieden_von
+      WHERE a.run_id = $1
+      ORDER BY a.id ASC`,
+    [runId]
+  );
+  return { steps: stepsRes.rows, freigaben: freigabenRes.rows };
+}
+
+/**
  * Lädt einen Lauf samt Schritten. Der Lauf muss dem Nutzer gehören — sonst
  * NotFound (nicht Forbidden: die Existenz fremder Läufe wird nicht verraten;
  * gleiche Linie wie beim Workspace-Zugriff).
@@ -321,27 +351,7 @@ async function getRun(
   if (runRes.rows.length === 0) {
     throw new NotFoundError(`Flow-Lauf ${runId} nicht gefunden`);
   }
-  const spalten = includeRaw
-    ? '*'
-    : 'id, run_id, position, kind, name, input, output, status, created_at, finished_at, parent_step_id, modell';
-  const stepsRes = await db.query(
-    `SELECT ${spalten} FROM flow_run_steps WHERE run_id = $1 ORDER BY position ASC`,
-    [runId]
-  );
-  // Die Freigaben des Laufs mit ihren Feldern (M5, Migration 197): was die KI
-  // vorschlug und was der Mensch beim Bestaetigen aenderte, wer und wann. Die
-  // Ansicht des Laufs zeigt beides nebeneinander.
-  const freigabenRes = await db.query(
-    `SELECT a.id, a.titel, a.stufe, a.status, a.angefragt_am, a.entschieden_am,
-            u.username AS entschieden_von, a.begruendung,
-            a.felder_schritt, a.felder, a.korrekturen
-       FROM public.approvals a
-       LEFT JOIN public.admin_users u ON u.id = a.entschieden_von
-      WHERE a.run_id = $1
-      ORDER BY a.id ASC`,
-    [runId]
-  );
-  return { ...runRes.rows[0], steps: stepsRes.rows, freigaben: freigabenRes.rows };
+  return { ...runRes.rows[0], ...(await schritteUndFreigaben(runId, includeRaw, db)) };
 }
 
 /**
@@ -450,14 +460,7 @@ async function getRunFuerApp({ runId, appId, includeRaw = false }, { db = databa
   if (runRes.rows.length === 0) {
     throw new NotFoundError(`Flow-Lauf ${runId} nicht gefunden`);
   }
-  const spalten = includeRaw
-    ? '*'
-    : 'id, run_id, position, kind, name, input, output, status, created_at, finished_at, parent_step_id, modell';
-  const stepsRes = await db.query(
-    `SELECT ${spalten} FROM flow_run_steps WHERE run_id = $1 ORDER BY position ASC`,
-    [runId]
-  );
-  return { ...runRes.rows[0], steps: stepsRes.rows };
+  return { ...runRes.rows[0], ...(await schritteUndFreigaben(runId, includeRaw, db)) };
 }
 
 module.exports = {
