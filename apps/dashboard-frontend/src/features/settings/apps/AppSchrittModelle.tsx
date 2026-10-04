@@ -33,7 +33,7 @@ import {
 const ZURUECK = '__original__';
 
 /** Was der Schritt braucht, in einem Satz: „Bild, Werkzeuge, Kontext ab 8192". */
-export function braucht(f: SchrittModell['faehigkeiten']): string {
+function braucht(f: SchrittModell['faehigkeiten']): string {
   const teile = [
     f.text ? 'Text' : null,
     f.bild ? 'Bild' : null,
