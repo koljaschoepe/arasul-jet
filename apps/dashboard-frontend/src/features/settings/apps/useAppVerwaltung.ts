@@ -650,3 +650,79 @@ export function useStufePersonSetzen(appId: string) {
     },
   });
 }
+
+/** Ein installiertes Modell mit dem, was es kann (`GET /api/apps/:id/schritt-modelle`). */
+export interface SchrittModellInfo {
+  id: string;
+  name: string;
+  ist_standard: boolean;
+  faehigkeiten: { text: boolean; bild: boolean; werkzeuge: boolean; kontext: number | null };
+}
+
+/** Ein Schritt mit Modell: was der Entwickler nennt, was gilt, was zur Wahl steht (M5). */
+export interface SchrittModell {
+  name: string;
+  rolle: string | null;
+  faehigkeiten: { text?: boolean; bild?: boolean; werkzeuge?: boolean; mindestkontext?: number };
+  /** Das Modell, das der Entwickler nennt; `null`, wenn er keines nennt. */
+  original: string | null;
+  original_vorhanden: boolean | null;
+  /** Die Wahl des Administrators, oder `null`. */
+  gewaehlt: string | null;
+  /** Das Modell, mit dem der Schritt läuft. */
+  gilt: string | null;
+  gilt_ist_standard: boolean;
+  herkunft: 'gewaehlt' | 'paket' | 'standard' | 'standard_weil_fehlt' | 'standard_wahl_ungueltig';
+  /** Der eine Satz an den Admin, wenn das Modell fehlt oder die Wahl nicht mehr passt. */
+  hinweis: string | null;
+  /** Installierte Modelle, die alle Fähigkeiten des Schritts erfüllen. */
+  moegliche: string[];
+}
+
+export interface SchrittModelleAntwort {
+  standard: string | null;
+  modelle: SchrittModellInfo[];
+  flows: Array<{ name: string; schritte: SchrittModell[] }>;
+}
+
+const schrittModelleKey = (id: string) => ['apps', 'schritt-modelle', id] as const;
+
+/** Je Flow die Schritte mit Modell, mit Original, Geltendem und der Auswahl. */
+export function useSchrittModelle(appId: string | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: schrittModelleKey(appId ?? ''),
+    queryFn: async () => {
+      const res = await api.get<{ data?: SchrittModelleAntwort }>(`/apps/${appId}/schritt-modelle`);
+      return res.data ?? { standard: null, modelle: [], flows: [] };
+    },
+    enabled: Boolean(appId),
+    staleTime: 10_000,
+  });
+}
+
+/**
+ * Einen Schritt auf ein anderes Modell umstellen; `null` nimmt die Wahl zurück
+ * (M5, `PUT /api/apps/:id/flows/:name/schritte/:schritt/modell`). Das Backend
+ * weist ein Modell ab, das nicht am Gerät liegt oder nicht alle Fähigkeiten hat.
+ * Entwertet wird auch die Hinweisliste der Startseite.
+ */
+export function useSchrittModellSetzen(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      flow,
+      schritt,
+      modell,
+    }: {
+      flow: string;
+      schritt: string;
+      modell: string | null;
+    }) => api.put(`/apps/${appId}/flows/${flow}/schritte/${schritt}/modell`, { modell }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: schrittModelleKey(appId) });
+      void qc.invalidateQueries({ queryKey: ['apps', 'modell-hinweise'] });
+    },
+  });
+}

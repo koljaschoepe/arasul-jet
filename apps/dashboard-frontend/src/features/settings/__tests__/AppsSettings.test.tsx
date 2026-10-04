@@ -1177,4 +1177,83 @@ describe('Die Seite einer App (M5)', () => {
     fireEvent.click(knopf);
     expect(await screen.findByTestId('abgewiesen-boese.example')).toHaveTextContent('3×');
   });
+  describe('Modell je Schritt', () => {
+    const SCHRITTE = {
+      data: {
+        standard: 'qwen',
+        modelle: [
+          {
+            id: 'qwen',
+            name: 'Qwen 27B',
+            ist_standard: true,
+            faehigkeiten: { text: true, bild: false, werkzeuge: true, kontext: 262144 },
+          },
+          {
+            id: 'gemma',
+            name: 'Gemma Kompakt',
+            ist_standard: false,
+            faehigkeiten: { text: true, bild: true, werkzeuge: true, kontext: 131072 },
+          },
+        ],
+        flows: [
+          {
+            name: 'freigabe',
+            schritte: [
+              {
+                name: 'erkennen',
+                rolle: 'leser',
+                faehigkeiten: { bild: true, werkzeuge: true },
+                original: 'llama9:70b',
+                original_vorhanden: false,
+                gewaehlt: null,
+                gilt: 'qwen',
+                gilt_ist_standard: true,
+                herkunft: 'standard_weil_fehlt',
+                hinweis:
+                  'Schritt „erkennen": Das Modell „llama9:70b" liegt nicht am Gerät, der Schritt läuft mit dem Standardmodell.',
+                moegliche: ['gemma'],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    it('zeigt Original und Geltendes, bietet nur passende Modelle an und meldet den Hinweis', async () => {
+      antworteM5({ '/apps/beispielapp/schritt-modelle': SCHRITTE });
+      apiMock.put.mockResolvedValue({ data: {} });
+      await oeffneApp();
+      const zeile = await screen.findByTestId('schritt-modell-freigabe-erkennen');
+      expect(zeile).toHaveAttribute('data-herkunft', 'standard_weil_fehlt');
+      expect(screen.getByTestId('schritt-original-freigabe-erkennen')).toHaveTextContent(
+        'Original: llama9:70b'
+      );
+      expect(zeile).toHaveTextContent('Braucht: Bild, Werkzeuge');
+      expect(screen.getByTestId('schritt-hinweis-freigabe-erkennen')).toHaveTextContent(
+        'liegt nicht am Gerät'
+      );
+      // Qwen läuft, erfüllt aber nicht alle Fähigkeiten: steht nur gesperrt da.
+      fireEvent.click(screen.getByTestId('schritt-modell-wahl-freigabe-erkennen'));
+      expect(
+        (await screen.findAllByText(/Qwen 27B \(erfüllt nicht alle Fähigkeiten\)/)).length
+      ).toBeGreaterThan(0);
+      fireEvent.click(await screen.findByTestId('schritt-modell-freigabe-erkennen-gemma'));
+      await waitFor(() =>
+        expect(apiMock.put).toHaveBeenCalledWith(
+          '/apps/beispielapp/flows/freigabe/schritte/erkennen/modell',
+          { modell: 'gemma' }
+        )
+      );
+    });
+
+    it('ohne Schritt mit Modell steht ein Satz da', async () => {
+      antworteM5({
+        '/apps/beispielapp/schritt-modelle': {
+          data: { standard: 'qwen', modelle: [], flows: [] },
+        },
+      });
+      await oeffneApp();
+      expect(await screen.findByTestId('schritt-modelle-leer')).toBeTruthy();
+    });
+  });
 });
