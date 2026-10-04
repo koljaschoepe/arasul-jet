@@ -29,18 +29,39 @@
 #                      der Schaden vom 20.08.2026, 47 Schattentabellen aus
 #                      einem einzigen Neustart.
 #
+#   3. Die Reihe.      Nur mit `--reihe` (M5, 05.10.2026): die Jest-Reihe
+#                      `apps/dashboard-backend/__tests__/pg/` gegen DIESELBE
+#                      Datenbank. Sie faehrt Anmeldung, Profil und Personen
+#                      ueber die echte App mit dem echten Pool -- der Anlass
+#                      war ein falscher Spaltenname in der Anmeldung am
+#                      04.10.2026, den die gemockte Reihe nicht sehen konnte.
+#                      Die Reihe leert `admin_users`; hier ist das richtig,
+#                      der Behaelter ist nach dem Lauf weg.
+#
 # Was hier NICHT gemessen wird: die WAL-Archivierung (`entrypoint-wal.sh`) und
 # die eigene postgresql.conf. Beide gehoeren zum Betrieb, nicht zur Kette, und
 # ein CI-Lauf ohne Backup-Ziel wuerde nur ueber sich selbst berichten.
 #
 # Aufruf
-#   npm ci                                  (einmal, fuer den Runner in Teil 2)
-#   bash scripts/test/migrationskette.sh
+#   npm ci                                  (einmal, fuer Runner und Reihe)
+#   bash scripts/test/migrationskette.sh            Teil 1 und 2
+#   bash scripts/test/migrationskette.sh --reihe    dazu Teil 3 (so faehrt es die CI)
 #
-# Rueckgabe 0, wenn beide Wege sauber sind, sonst 1.
+# Rueckgabe 0, wenn alle gefahrenen Teile sauber sind, sonst 1.
 # =============================================================================
 set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+REIHE="nein"
+for angabe in "$@"; do
+  case "$angabe" in
+    --reihe) REIHE="ja" ;;
+    *)
+      echo "Unbekannte Angabe: $angabe (bekannt: --reihe)"
+      exit 1
+      ;;
+  esac
+done
 
 INIT="$WURZEL/services/postgres/init"
 BILD="${ARASUL_PG_BILD:-postgres:16-alpine}"
@@ -284,6 +305,29 @@ pruefe 'Keine Migration ist ihm um die Ohren geflogen' \
 runner_schatten=$(lies schatten)
 pruefe 'Auch er findet keine Schattentabelle' \
   "$([ "$runner_schatten" = "0" ] && echo ja || echo nein)" "${runner_schatten:-?} Stueck"
+
+# --- 3. Die Reihe (nur mit --reihe) ------------------------------------------
+# Die SQL-Abfragen von Anmeldung, Profil und Personen, wirklich ausgefuehrt:
+# die echte App ueber supertest, der echte Pool aus `database.js`, und als
+# Schema genau das, was Teil 1 eben aufgebaut hat. Eine kaputte Spalte in
+# einer dieser Abfragen macht die Reihe rot -- auch dort, wo der Code den
+# Fehler faengt und die Antwort trotzdem 200 waere (Netz um den Treiber, siehe
+# Kopf der Testdatei). Die Ausgabe von Jest laeuft durch, damit ein roter Lauf
+# die Abfrage gleich nennt.
+if [ "$REIHE" = "ja" ]; then
+  echo
+  echo "=== Anmeldung, Profil und Personen gegen dieselbe Datenbank ==="
+  echo
+  (
+    cd "$WURZEL/apps/dashboard-backend" &&
+      ARASUL_PG_TEST_URL="postgres://${NUTZER}:${PASSWORT}@127.0.0.1:${HAFEN}/${DATENBANK}" \
+        npm run --silent test:pg
+  )
+  reihe_code=$?
+  echo
+  pruefe 'Die Reihe gegen echtes Postgres (__tests__/pg)' \
+    "$([ "$reihe_code" = "0" ] && echo ja || echo nein)" "Rueckgabe $reihe_code"
+fi
 
 echo
 echo "$gruen von $((gruen + rot)) gruen"

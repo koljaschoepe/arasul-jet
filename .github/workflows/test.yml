@@ -377,6 +377,15 @@ jobs:
   # `npm ci` steht hier, weil das Skript in seinem zweiten Teil den echten
   # `migrationRunner.js` des Backends gegen dieselbe frisch initialisierte
   # Datenbank faehrt. Ohne die Abhaengigkeiten bricht es ab statt zu schweigen.
+  #
+  # Seit dem 05.10.2026 (M5) mit `--reihe`: danach faehrt die Jest-Reihe
+  # `apps/dashboard-backend/__tests__/pg/` Anmeldung, Profil und Personen
+  # gegen DIESELBE Datenbank. Am 04.10.2026 antwortete die Anmeldung zehn
+  # Minuten lang mit 500, weil eine Abfrage eine Spalte nannte, die es nicht
+  # gab -- und die Backend-Reihe war gruen, denn sie mockt `database.js`. Hier
+  # steht die Reihe und nicht im Job `backend`, weil hier die Datenbank steht;
+  # sie laeuft bei jeder Aenderung an `apps/` (`changes.code`) und zaehlt ueber
+  # `Migrationen=` in `CI Summary`.
   # ----------------------------------------------------------------------------
   migrationen:
     name: Migrationskette (leere Datenbank)
@@ -395,8 +404,8 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: 000 bis heute gegen eine leere Datenbank
-        run: bash scripts/test/migrationskette.sh
+      - name: 000 bis heute gegen eine leere Datenbank, darauf Anmeldung, Profil und Personen
+        run: bash scripts/test/migrationskette.sh --reihe
 
   # ----------------------------------------------------------------------------
   # Python services: non-blocking pytest. Some services have no tests yet.

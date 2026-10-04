@@ -93,6 +93,44 @@ geschrieben, bevor der Verbraucher aussteigt. Deshalb ist derselbe Bau an
 Dutzenden anderen Stellen jahrelang gutgegangen. Seitdem hält `rohrbruch.py`
 die Zusage, dass es ihn nicht mehr gibt.
 
+### Anmeldung, Profil und Personen gegen echtes Postgres
+
+Die Backend-Reihe mockt `database.js`; keine ihrer Abfragen sieht je eine
+Datenbank. Am 04.10.2026 hat das einen falschen Spaltennamen in der Anmeldung
+durchgelassen, und das Gerät antwortete zehn Minuten lang mit 500. Seit dem
+05.10.2026 gibt es deshalb eine kleine Reihe unter
+`apps/dashboard-backend/__tests__/pg/`, die die **echte App** über supertest
+mit dem **echten Pool** gegen eine Datenbank fährt, deren Schema die volle
+Migrationskette ist. Gemockt ist an der Datenbank nichts.
+
+Sie deckt ab: Einrichtung des ersten Administrators, Anmeldung mit Name und
+E-Mail, Fehlversuche (`record_login_attempt`) bis zur Sperre
+(`is_user_locked`), Sitzung und Token (`active_sessions`, `token_blacklist`),
+`/api/auth/session`, `/api/auth/me`, `/api/auth/sessions`, `/api/auth/verify`,
+Abmelden; das eigene Profil (`/api/profil`, Bild, `/api/darstellung`,
+Passwortwechsel samt `password_history`); die Personen in der Verwaltung
+(`/api/benutzer`: anlegen, auflisten, Passwort setzen, Verwaltung schalten,
+stilllegen, löschen).
+
+Ein Netz um `pg.Client#query` merkt sich jeden Fehler der SQLSTATE-Klasse 42
+(unbekannte Spalte, Tabelle, Funktion, Syntax), und nach jedem Test muss es
+leer sein. Damit wird die Reihe auch dort rot, wo der Code den Fehler fängt
+und die Antwort trotzdem 200 wäre, etwa beim Protokolleintrag einer Anmeldung.
+
+```bash
+bash scripts/test/migrationskette.sh --reihe   # Behälter, Kette, Reihe, Behälter weg
+
+# oder gegen eine schon laufende Wegwerf-Datenbank:
+ARASUL_PG_TEST_URL=postgres://arasul:pw@127.0.0.1:55432/arasul_db \
+  npm run test:pg --workspace=arasul-dashboard-backend
+```
+
+In der CI läuft sie im Job `Migrationskette (leere Datenbank)` gegen dieselbe
+Datenbank, direkt nach der Kette, und zählt damit in `CI Summary`. Im normalen
+`npx jest` läuft sie nicht (`testPathIgnorePatterns`), und ohne
+`ARASUL_PG_TEST_URL` überspringt sie sich. **Die Reihe leert `admin_users`**:
+nur gegen eine Wegwerf-Datenbank richten, nie gegen ein Gerät.
+
 ### Testing Frameworks
 
 - **JavaScript/Node.js**: Jest + Supertest
