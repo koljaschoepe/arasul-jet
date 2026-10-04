@@ -36,6 +36,12 @@ describe('standZusatz', () => {
       'vor dem Zurückholen des ganzen Geräts'
     );
   });
+
+  it('vor dem Live-Schalten einer App (M5)', () => {
+    expect(standZusatz({ vorher: true, fuer: { art: 'live', id: 'belege' } }, namen)).toBe(
+      'vor dem Live-Schalten der App „Belege“'
+    );
+  });
 });
 
 describe('standNamen', () => {

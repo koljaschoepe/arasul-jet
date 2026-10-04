@@ -40,7 +40,8 @@ export function standInWorten(iso: string, jetzt: Date = new Date(), mitSekunden
 
 /**
  * Was zu einem Stand dazugesagt wird: nur, wenn er vor einem Zurückholen
- * entstand — dann ist er der Weg, das Zurückholen rückgängig zu machen.
+ * entstand — dann ist er der Weg, das Zurückholen rückgängig zu machen —
+ * oder vor dem Live-Schalten einer App (M5).
  */
 export function standZusatz(
   stand: Pick<Stand, 'vorher' | 'fuer'>,
@@ -52,6 +53,9 @@ export function standZusatz(
   const f = stand.fuer;
   if (f?.art === 'app' && f.id) {
     return `vor dem Zurückholen der App „${namen.apps.get(f.id) ?? f.id}“`;
+  }
+  if (f?.art === 'live' && f.id) {
+    return `vor dem Live-Schalten der App „${namen.apps.get(f.id) ?? f.id}“`;
   }
   if (f?.art === 'bereich' && f.id) {
     return `vor dem Zurückholen des Bereichs „${namen.bereiche.get(f.id) ?? f.id}“`;
