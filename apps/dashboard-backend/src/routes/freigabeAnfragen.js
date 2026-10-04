@@ -92,7 +92,9 @@ router.get(
 );
 
 /**
- * POST /api/freigabe-anfragen/:id/bestaetigen — ja.
+ * POST /api/freigabe-anfragen/:id/bestaetigen — ja, optional mit korrigierten
+ * Feldern (`{"felder": {"datum": "01.10.2026"}}`, M5). Ein Feld, das die App
+ * nicht als aenderbar erklaert, ist 400.
  *
  * Der Lauf laeuft danach weiter, ab dem Schritt, an dem er angehalten hat.
  * `fortgesetzt: false` heisst: die Entscheidung steht, aber niemand hat sie
@@ -111,11 +113,20 @@ router.post(
       id: req.params.id,
       benutzerId: req.user.id,
       status: 'bestaetigt',
+      felder: req.body.felder,
     });
     logSecurityEvent({
       userId: req.user.id,
       action: 'freigabe_bestaetigt',
-      details: { anfrage: data.id, app_id: data.app_id, stand: data.stand, lauf: data.run_id },
+      details: {
+        anfrage: data.id,
+        app_id: data.app_id,
+        stand: data.stand,
+        lauf: data.run_id,
+        // Welche Felder geaendert wurden, nicht ihr Inhalt: der steht an der
+        // Anfrage, und ein Protokoll ist kein zweiter Ort fuer Belegdaten.
+        ...(data.korrekturen?.length ? { geaendert: data.korrekturen.map(k => k.feld) } : {}),
+      },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });

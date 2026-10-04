@@ -328,7 +328,20 @@ async function getRun(
     `SELECT ${spalten} FROM flow_run_steps WHERE run_id = $1 ORDER BY position ASC`,
     [runId]
   );
-  return { ...runRes.rows[0], steps: stepsRes.rows };
+  // Die Freigaben des Laufs mit ihren Feldern (M5, Migration 197): was die KI
+  // vorschlug und was der Mensch beim Bestaetigen aenderte, wer und wann. Die
+  // Ansicht des Laufs zeigt beides nebeneinander.
+  const freigabenRes = await db.query(
+    `SELECT a.id, a.titel, a.stufe, a.status, a.angefragt_am, a.entschieden_am,
+            u.username AS entschieden_von, a.begruendung,
+            a.felder_schritt, a.felder, a.korrekturen
+       FROM public.approvals a
+       LEFT JOIN public.admin_users u ON u.id = a.entschieden_von
+      WHERE a.run_id = $1
+      ORDER BY a.id ASC`,
+    [runId]
+  );
+  return { ...runRes.rows[0], steps: stepsRes.rows, freigaben: freigabenRes.rows };
 }
 
 /**

@@ -24,6 +24,8 @@
  */
 
 const { fillPlaceholders } = require('./flowFile');
+const { felderText } = require('./resultContract');
+const { felderDerErkennung } = require('./freigabeAnfragen');
 const { runFlowLoop } = require('./toolLoop');
 const SubagentTool = require('./subagent');
 const logger = require('../../utils/logger');
@@ -194,6 +196,54 @@ function erkennungsTitel({ fehlend, unsicher }) {
   return `Erkennung unsicher: ${alle.length === 1 ? 'Feld' : 'Felder'} ${alle.join(', ')}`;
 }
 
+/**
+ * Das Original eines erkennenden Schritts (Kontrakt 10), mit eingesetzten
+ * Platzhaltern. Ein Wert, der nach dem Einsetzen kein Pfad relativ zur App mehr
+ * ist (ein Argument brachte `..` oder ein Schema mit), faellt weg: die Freigabe
+ * entsteht trotzdem, nur ohne Bild -- lieber das als ein Lauf, der an einer
+ * Anzeige scheitert, oder ein Bild von anderswo.
+ */
+function originalPfad(vorlage, scope) {
+  if (!vorlage) {
+    return null;
+  }
+  const pfad = fillPlaceholders(vorlage, scope).trim();
+  if (!pfad || pfad.length > 500 || /^\/|:\/\/|\.\.|\\|\s/.test(pfad)) {
+    logger.warn(`Original "${pfad.slice(0, 80)}" ist kein Pfad relativ zur App, ohne Bild weiter`);
+    return null;
+  }
+  return pfad;
+}
+
+/**
+ * Die Ausgabe eines erkennenden Schritts NACH seiner Freigabe (M5): die Felder,
+ * wie der Mensch sie bestaetigt hat, in derselben Form, in der die Rolle sie
+ * geliefert haette (`felderText`). Gelesen aus der Anfrage, damit es im Prozess
+ * und nach einem Neustart dieselbe Quelle ist.
+ *
+ * @returns {Promise<string|null>} null, wenn es nichts einzusetzen gibt
+ */
+async function korrigierteAusgabe({ flow, schritt, runId, lesen }) {
+  if (
+    !schritt ||
+    schritt.typ !== 'subagent' ||
+    schritt.faehigkeiten?.bild !== true ||
+    runId == null ||
+    typeof lesen !== 'function'
+  ) {
+    return null;
+  }
+  const rolle = (flow.rollen || []).find(r => r.name === schritt.rolle);
+  if (!rolle) {
+    return null;
+  }
+  const nach = await lesen({ runId, schritt: schritt.name });
+  if (!nach) {
+    return null;
+  }
+  return felderText(nach.felder, rolle.ergebnis).text;
+}
+
 /** Baut den Synthese-Block aus den gesammelten Schritt-Ausgaben. */
 function buildSynthesisInput(userInput, schritte, outputs) {
   const bloecke = schritte.map(
@@ -247,6 +297,7 @@ async function executeSteps({
   vorabQuelleLaufId = null,
   fortsetzung = false,
   SubagentToolClass = SubagentTool,
+  felderNachFreigabe = null,
 }) {
   const subagentTool = new SubagentToolClass();
   const outputs = {};
@@ -315,6 +366,7 @@ async function executeSteps({
         if (erkannt) {
           const befund = erkennungsBefund(erkannt);
           if (befund.fehlend.length + befund.unsicher.length > 0) {
+            const rolle = (flow.rollen || []).find(r => r.name === schritt.rolle);
             await recordWerkzeug({
               werkzeug: 'freigabe_anfordern',
               params: {
@@ -330,7 +382,30 @@ async function executeSteps({
                 !schritt.wiederhole_ueber && (schritt.iterationen || 1) === 1
                   ? { schritt: index, name: schritt.name }
                   : null,
+              // Die Felder fuer die Ansicht der Freigabe (M5): Vorschlag,
+              // unsicher, fehlend, und was die App als aenderbar erklaert.
+              erkennung: {
+                felder: felderDerErkennung({
+                  felder: erkannt.felder,
+                  fehlend: befund.fehlend,
+                  unsicher: befund.unsicher,
+                  aenderbar: rolle?.ergebnis?.aenderbar || [],
+                }),
+                schritt: schritt.name,
+                original: originalPfad(schritt.original, scope),
+              },
             });
+            // Bestaetigt: der weitere Lauf arbeitet mit dem, was der Mensch
+            // bestaetigt hat, samt seinen Korrekturen.
+            const korrigiert = await korrigierteAusgabe({
+              flow,
+              schritt,
+              runId: context?.runId,
+              lesen: felderNachFreigabe,
+            });
+            if (korrigiert != null) {
+              return korrigiert;
+            }
           }
         }
         return antwort;
@@ -444,5 +519,7 @@ module.exports = {
   parseListe,
   erkennungsBefund,
   erkennungsTitel,
+  korrigierteAusgabe,
+  originalPfad,
   MAX_MAP_ELEMENTE,
 };

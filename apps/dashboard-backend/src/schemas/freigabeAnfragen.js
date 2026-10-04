@@ -31,13 +31,26 @@ const AblehnenBody = z
   .strict();
 
 /**
- * Body des Bestaetigens: leer und `.strict()`.
+ * Body des Bestaetigens: leer, oder die Felder, die der Mensch korrigiert hat.
  *
- * Wer bestaetigt, sagt ja -- mehr gibt es nicht mitzuteilen. Ein Feld, das
- * jemand mitschickt, ist ein Missverstaendnis und soll als 400 auffallen,
- * statt still ins Leere zu laufen (dieselbe Linie wie `WiederholenBody`).
+ * Wer bestaetigt, sagt ja. Seit M5 (Migration 197) darf er dabei die Felder
+ * aendern, die die App in der Rolle als `aenderbar` erklaert: `felder` nennt je
+ * Feld den Wert, mit dem der Lauf weiterarbeitet. Ob ein Feld aenderbar ist,
+ * prueft der Dienst gegen die Anfrage, nicht dieses Schema. Alles andere bleibt
+ * `.strict()`: ein Feld, das jemand mitschickt, ist ein Missverstaendnis und
+ * soll als 400 auffallen (dieselbe Linie wie `WiederholenBody`).
  */
-const BestaetigenBody = z.object({}).strict();
+const BestaetigenBody = z
+  .object({
+    felder: z
+      .record(
+        z.string().trim().min(1).max(60),
+        z.string().max(2000, 'Ein Feld hat höchstens 2000 Zeichen')
+      )
+      .refine(f => Object.keys(f).length <= 10, 'Höchstens 10 Felder')
+      .optional(),
+  })
+  .strict();
 
 /**
  * Body des Weitergebens (M5): an wen, als Benutzername. Ob der die Anfrage

@@ -117,16 +117,34 @@ function enforceContract(rawText, vertrag) {
     }
   }
 
-  // Serialisieren und hart deckeln. Der Deckel gilt fürs GANZE Ergebnis, nicht
-  // je Feld — genau das ist der Kontext-Schutz.
-  let text = felder.map(f => `${f}: ${felderObj[f]}`).join('\n');
+  const { text, gekuerzt } = felderText(felderObj, { felder, max_zeichen: maxZeichen });
+  return { felder: felderObj, text, gekuerzt, json, unsicher };
+}
+
+/**
+ * Die Felder so, wie der Orchestrator sie liest: eine Zeile `feld: wert` je
+ * deklariertem Feld, hart gedeckelt. Der Deckel gilt fürs GANZE Ergebnis, nicht
+ * je Feld — genau das ist der Kontext-Schutz.
+ *
+ * Eine eigene Funktion, weil zwei Stellen sie brauchen: der Vertrag oben und
+ * die Freigabe, nach der ein Mensch ein Feld korrigiert hat (M5). Der weitere
+ * Lauf liest den korrigierten Wert in genau der Form, in der er den
+ * vorgeschlagenen gelesen hätte.
+ *
+ * @param {Object<string,string>} felderObj
+ * @param {{felder:string[], max_zeichen?:number}} vertrag
+ * @returns {{text:string, gekuerzt:boolean}}
+ */
+function felderText(felderObj, vertrag) {
+  const felder = Array.isArray(vertrag && vertrag.felder) ? vertrag.felder : [];
+  const maxZeichen = (vertrag && vertrag.max_zeichen) || 2000;
+  let text = felder.map(f => `${f}: ${felderObj[f] ?? ''}`).join('\n');
   let gekuerzt = false;
   if (text.length > maxZeichen) {
     text = `${text.slice(0, maxZeichen)}\n... [gekuerzt bei ${maxZeichen} Zeichen]`;
     gekuerzt = true;
   }
-
-  return { felder: felderObj, text, gekuerzt, json, unsicher };
+  return { text, gekuerzt };
 }
 
-module.exports = { enforceContract, extractJsonObject };
+module.exports = { enforceContract, extractJsonObject, felderText };

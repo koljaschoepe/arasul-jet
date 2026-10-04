@@ -472,9 +472,68 @@ function stufeAufloesen(stufe, stufen) {
   return { name, frist: treffer.frist_minuten ?? null };
 }
 
-/** Der Text, den der Schritt „Freigabe anfordern" als Ausgabe traegt, wenn bestaetigt wurde. */
-function erteiltText(benutzer, wann) {
-  return `Freigabe erteilt von ${benutzer} am ${new Date(wann).toISOString()}.`;
+/**
+ * Der Text, den der Schritt „Freigabe anfordern" als Ausgabe traegt, wenn
+ * bestaetigt wurde -- mit den Feldern, die der Mensch dabei geaendert hat (M5),
+ * damit das Protokoll des Laufs beides nennt: Vorschlag und Aenderung.
+ */
+function erteiltText(benutzer, wann, korrekturen = null) {
+  const satz = `Freigabe erteilt von ${benutzer} am ${new Date(wann).toISOString()}.`;
+  if (!Array.isArray(korrekturen) || korrekturen.length === 0) {
+    return satz;
+  }
+  const zeilen = korrekturen.map(
+    k => `${k.feld}: „${k.vorschlag ?? ''}" (Vorschlag) → „${k.wert ?? ''}" (${k.von ?? benutzer})`
+  );
+  return `${satz}\nGeändert:\n${zeilen.join('\n')}`;
+}
+
+/**
+ * Die erkannten Felder einer Freigabe in der Form, in der sie an der Anfrage
+ * stehen (Migration 197): je Feld der Vorschlag der KI und ob es fehlt, ob es
+ * unsicher ist und ob ein Mensch es aendern darf. Unsichere und fehlende zuerst,
+ * damit „pruefen" oben steht -- in der Liste und in jeder Ansicht, die sie zeigt.
+ *
+ * @param {{felder:Object<string,string>, fehlend?:string[], unsicher?:string[], aenderbar?:string[]}} e
+ * @returns {{name:string, vorschlag:string, fehlend:boolean, unsicher:boolean, aenderbar:boolean}[]}
+ */
+function felderDerErkennung({ felder = {}, fehlend = [], unsicher = [], aenderbar = [] }) {
+  const liste = Object.keys(felder).map(name => ({
+    name,
+    vorschlag: String(felder[name] ?? ''),
+    fehlend: fehlend.includes(name),
+    unsicher: unsicher.includes(name),
+    aenderbar: aenderbar.includes(name),
+  }));
+  const pruefen = f => (f.fehlend || f.unsicher ? 0 : 1);
+  return liste
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => pruefen(a.f) - pruefen(b.f) || a.i - b.i)
+    .map(({ f }) => f);
+}
+
+/**
+ * Was ein Mensch beim Bestaetigen an Feldern geschickt hat, gegen die Anfrage
+ * geprueft: nur Felder, die sie fuehrt UND die aenderbar sind. Ein Wert, der dem
+ * Vorschlag gleicht, ist keine Aenderung und wird nicht gespeichert.
+ *
+ * @returns {{korrekturen:{feld:string, vorschlag:string, wert:string}[], abgewiesen:string[]}}
+ */
+function pruefeKorrekturen(felderDerAnfrage, geschickt) {
+  const nachName = new Map((felderDerAnfrage || []).map(f => [f.name, f]));
+  const korrekturen = [];
+  const abgewiesen = [];
+  for (const [feld, wert] of Object.entries(geschickt || {})) {
+    const f = nachName.get(feld);
+    if (!f || f.aenderbar !== true) {
+      abgewiesen.push(feld);
+      continue;
+    }
+    if (String(wert) !== String(f.vorschlag ?? '')) {
+      korrekturen.push({ feld, vorschlag: String(f.vorschlag ?? ''), wert: String(wert) });
+    }
+  }
+  return { korrekturen, abgewiesen };
 }
 
 /**
@@ -528,6 +587,10 @@ async function beendeLauf({ runId, status, grund }, { datenbank = db } = {}) {
  * @param {object[]} [was.stufen]              die Stufen des Flows (`flow.stufen`)
  * @param {{schritt:number, name:string, schritt_id:number}|null} [was.fortsetzung]
  *   Wo der Lauf nach einem Neustart weitergeht; `null` = nicht fortsetzbar.
+ * @param {{felder:object[], schritt:string, original?:string|null}|null} [was.erkennung]
+ *   Die erkannten Felder eines erkennenden Schritts (M5, Migration 197), gesetzt
+ *   vom Executor und nie vom Modell: was die KI vorschlug, was unsicher ist und
+ *   was ein Mensch aendern darf. Dazu das Original, relativ zur App.
  * @param {object} [deps]
  * @param {AbortSignal} [deps.signal] Abbruch des Laufs
  * @param {(evt:object)=>void} [deps.onEvent] Live-Kanal
@@ -545,6 +608,7 @@ async function anfordern(
     stufe = null,
     stufen = null,
     fortsetzung = null,
+    erkennung = null,
   },
   deps = {}
 ) {
@@ -578,9 +642,11 @@ async function anfordern(
   // Regel eine Anfrage ohne Regel bekommt und nicht gar keine.
   const { rows } = await datenbank.query(
     `INSERT INTO public.approvals (run_id, app_id, stand, flow_name, titel, zusammenhang, frist,
-                                   stufe, einreicher_id, ohne_einreicher, entscheider_rolle,
+                                   stufe, felder, felder_schritt, original,
+                                   einreicher_id, ohne_einreicher, entscheider_rolle,
                                    entscheider_ids)
      SELECT $1, $2, $3, $4, $5, $6, NOW() + ($7 || ' minutes')::interval, $8,
+            $9::jsonb, $10, $11,
             r.einreicher_id,
             COALESCE((r.freigabe_regel->>'ohne_einreicher')::boolean, FALSE)
               OR r.einreicher_id IS NOT NULL,
@@ -601,6 +667,9 @@ async function anfordern(
       zusammenhang == null ? null : String(zusammenhang).slice(0, 20000),
       String(minuten),
       gewaehlt.name,
+      erkennung?.felder ? JSON.stringify(erkennung.felder) : null,
+      erkennung?.felder ? erkennung.schritt || null : null,
+      erkennung?.original || null,
     ]
   );
   const anfrage = rows[0];
@@ -792,27 +861,69 @@ async function schliesseAb({ id, status, datenbank = db }) {
  * gibt, hat er ohnehin erfahren, als er die Nummer bekam, und `appZugang`
  * antwortet an derselben Stelle genauso.
  */
-async function entscheide({ id, benutzerId, status, begruendung = null }, deps = {}) {
+async function entscheide(
+  { id, benutzerId, status, begruendung = null, felder = null },
+  deps = {}
+) {
   const { datenbank = db } = deps;
   if (status !== 'bestaetigt' && status !== 'abgelehnt') {
     throw new ValidationError(`"${status}" ist keine Entscheidung über eine Freigabe`);
   }
   const grund = begruendung == null ? null : String(begruendung).trim().slice(0, 2000);
 
+  // Korrigierte Felder (M5): nur beim Bestaetigen, und nur, was die App als
+  // aenderbar erklaert hat. Die Felder der Anfrage aendern sich nach dem Anlegen
+  // nie, deshalb darf die Pruefung vor der schreibenden Anweisung stehen.
+  let korrekturen = [];
+  if (felder && Object.keys(felder).length > 0) {
+    if (status !== 'bestaetigt') {
+      throw new ValidationError('Felder ändert, wer bestätigt. Eine Ablehnung trägt keine.');
+    }
+    const { rows: vorlage } = await datenbank.query(
+      'SELECT a.felder FROM public.approvals a WHERE a.id = $1',
+      [id]
+    );
+    if (vorlage.length === 0) {
+      throw new NotFoundError(`Keine Freigabe-Anfrage mit der Nummer ${id}`);
+    }
+    const geprueft = pruefeKorrekturen(vorlage[0].felder, felder);
+    if (geprueft.abgewiesen.length > 0) {
+      // Erst, ob er ueberhaupt entscheiden darf: wer das nicht darf, erfaehrt
+      // auch nicht, welche Felder die Anfrage fuehrt.
+      await pruefeEntscheidbar({ id, benutzerId, datenbank });
+      const namen = geprueft.abgewiesen.map(f => `"${f}"`).join(', ');
+      throw new ValidationError(
+        `${geprueft.abgewiesen.length === 1 ? 'Das Feld' : 'Die Felder'} ${namen} ` +
+          `${geprueft.abgewiesen.length === 1 ? 'ist' : 'sind'} in dieser Freigabe nicht änderbar. ` +
+          'Ändern lässt sich nur, was die App dafür freigibt.'
+      );
+    }
+    korrekturen = geprueft.korrekturen;
+  }
+
+  // Die Korrekturen stehen in DERSELBEN Anweisung wie die Entscheidung, mit
+  // wer und wann aus der Zeile selbst: es gibt keinen Augenblick, in dem die
+  // Freigabe bestaetigt ist und ihre Aenderung noch fehlt.
   const { rows } = await datenbank.query(
     `UPDATE public.approvals a
         SET status = $3,
             entschieden_von = $2,
             entschieden_am = NOW(),
-            begruendung = $4
+            begruendung = $4,
+            korrekturen = CASE WHEN jsonb_array_length($5::jsonb) = 0 THEN NULL ELSE (
+              SELECT jsonb_agg(k || jsonb_build_object(
+                       'von', (SELECT u.username FROM public.admin_users u WHERE u.id = $2::bigint),
+                       'von_id', $2::bigint,
+                       'am', NOW()))
+                FROM jsonb_array_elements($5::jsonb) k) END
       WHERE a.id = $1
         AND a.status = 'offen'
         AND a.frist > NOW()
         AND ${kreis(2)}
         AND ${beiIhm(2)}
       RETURNING a.id, a.run_id, a.app_id, a.stand, a.flow_name, a.titel, a.status,
-                a.frist, a.entschieden_am`,
-    [id, benutzerId, status, grund]
+                a.frist, a.entschieden_am, a.korrekturen`,
+    [id, benutzerId, status, grund, JSON.stringify(korrekturen)]
   );
 
   if (rows.length === 0) {
@@ -958,12 +1069,93 @@ async function erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal = false
   throw new ConflictError('Diese Freigabe ließ sich nicht entscheiden');
 }
 
+/**
+ * Darf dieser Mensch die Anfrage jetzt entscheiden? Kehrt still zurueck, wenn
+ * ja; sonst wirft `erklaereFehlschlag` den Grund. Dieselbe Regel wie in
+ * `entscheide`, nur lesend.
+ */
+async function pruefeEntscheidbar({ id, benutzerId, datenbank = db }) {
+  const { rows } = await datenbank.query(
+    `SELECT 1 FROM public.approvals a
+      WHERE a.id = $1
+        AND a.status = 'offen'
+        AND a.frist > NOW()
+        AND ${kreis(2)}
+        AND ${beiIhm(2)}`,
+    [id, benutzerId]
+  );
+  if (rows.length === 0) {
+    await erklaereFehlschlag({ id, benutzerId, datenbank });
+  }
+}
+
+/**
+ * Die Felder eines Schritts nach seiner Freigabe (M5): der Vorschlag der KI,
+ * ueberschrieben mit dem, was der Mensch beim Bestaetigen geaendert hat. Damit
+ * arbeitet der weitere Lauf -- im Prozess gleich nach der Entscheidung und nach
+ * einem Neustart aus derselben Zeile (`runFlow`, Wiederaufnahme).
+ *
+ * @param {{runId:number, schritt:string}} was
+ * @returns {Promise<{felder:Object<string,string>, korrekturen:object[]}|null>}
+ *   null, wenn es zu diesem Schritt keine bestaetigte Freigabe mit Feldern gibt
+ */
+async function felderNachFreigabe({ runId, schritt }, { datenbank = db } = {}) {
+  const { rows } = await datenbank.query(
+    `SELECT a.felder, a.korrekturen
+       FROM public.approvals a
+      WHERE a.run_id = $1 AND a.felder_schritt = $2
+        AND a.status = 'bestaetigt' AND a.felder IS NOT NULL
+      ORDER BY a.id DESC
+      LIMIT 1`,
+    [runId, schritt]
+  );
+  if (rows.length === 0) {
+    return null;
+  }
+  const felder = {};
+  for (const f of rows[0].felder || []) {
+    felder[f.name] = String(f.vorschlag ?? '');
+  }
+  const korrekturen = Array.isArray(rows[0].korrekturen) ? rows[0].korrekturen : [];
+  for (const k of korrekturen) {
+    if (Object.prototype.hasOwnProperty.call(felder, k.feld)) {
+      felder[k.feld] = String(k.wert ?? '');
+    }
+  }
+  return { felder, korrekturen };
+}
+
 async function nameVon(benutzerId, datenbank = db) {
   const { rows } = await datenbank.query('SELECT username FROM public.admin_users WHERE id = $1', [
     benutzerId,
   ]);
   return rows[0]?.username || `Benutzer ${benutzerId}`;
 }
+
+/**
+ * Das Original einer Anfrage als Adresse gleicher Herkunft (M5): der Pfad, den
+ * der Flow relativ zur App nennt, unter der Adresse ihres Standes. Ein Browser
+ * mit Sitzung laedt es dort durch die Forward-Auth der App -- wer die App nicht
+ * benutzen darf, bekommt es auch nicht.
+ */
+const ORIGINAL_URL_SQL = `CASE WHEN a.original IS NOT NULL
+    THEN '/apps/' || a.app_id || CASE WHEN a.stand = 'test' THEN '/test/' ELSE '/' END || a.original
+  END`;
+
+/**
+ * Was bisher geschah (M5): die frueheren Freigaben desselben Laufs, aelteste
+ * zuerst, mit Titel, Stufe, Entscheidung, wer und wann. Daraus baut die
+ * Ansicht den Satz oben und die aufklappbaren Stufen.
+ */
+const FRUEHERE_SQL = `(
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'id', v.id, 'titel', v.titel, 'stufe', v.stufe, 'status', v.status,
+           'entschieden_von', vu.username, 'entschieden_am', v.entschieden_am,
+           'begruendung', v.begruendung, 'korrekturen', v.korrekturen)
+           ORDER BY v.id), '[]'::jsonb)
+    FROM public.approvals v
+    LEFT JOIN public.admin_users vu ON vu.id = v.entschieden_von
+   WHERE v.run_id = a.run_id AND v.id < a.id)`;
 
 /** Die Spalten einer offenen Anfrage, wie die beiden Listen der Startseite sie zeigen. */
 const OFFEN_SPALTEN = `a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
@@ -973,7 +1165,9 @@ const OFFEN_SPALTEN = `a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a
             (a.entscheider_rolle IS NOT NULL OR a.entscheider_ids IS NOT NULL) AS benannt,
             ${ENTSCHEIDER_SQL} AS entscheider,
             ${KREIS_NAMEN_SQL} AS kreis,
-            ${LIEGT_BEI_SQL} AS liegt_bei, a.liegt_seit`;
+            ${LIEGT_BEI_SQL} AS liegt_bei, a.liegt_seit,
+            a.felder, ${ORIGINAL_URL_SQL} AS original,
+            ${FRUEHERE_SQL} AS frueher`;
 
 /**
  * Die offenen Freigaben, die BEI DIESEM MENSCHEN LIEGEN („Für Sie").
@@ -1298,6 +1492,7 @@ async function listeFuerApp({ appId, stand, runId = null, limit = 50 }, { datenb
   const { rows } = await datenbank.query(
     `SELECT a.id, a.run_id, a.flow_name, a.titel, a.zusammenhang, a.status, a.frist, a.stufe,
             a.angefragt_am, a.entschieden_am, a.begruendung, b.username AS entschieden_von,
+            a.felder, a.felder_schritt, a.korrekturen, ${ORIGINAL_URL_SQL} AS original,
             e.username AS einreicher, a.ohne_einreicher,
             ${ENTSCHEIDER_SQL} AS entscheider,
             CASE WHEN a.status = 'offen' THEN ${KREIS_NAMEN_SQL} END AS kreis,
@@ -1462,6 +1657,9 @@ module.exports = {
   schliesseOffeneDesLaufs,
   beendeLauf,
   erteiltText,
+  felderDerErkennung,
+  pruefeKorrekturen,
+  felderNachFreigabe,
   fristUhr,
   LaufBeendet,
   ZUSTAENDE,
