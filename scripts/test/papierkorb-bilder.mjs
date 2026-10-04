@@ -21,7 +21,7 @@ const KENNUNG = process.env.ARASUL_WURZEL_KENNUNG || 'firma';
 const ANZAHL = process.env.ARASUL_ANZAHL || '';
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-papierkorb-j34`);
-const SEITE = `${URL}/workspace/settings?tab=firmenordner`;
+const SEITE = `${URL}/workspace/verwaltung/firmenordner`;
 
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {

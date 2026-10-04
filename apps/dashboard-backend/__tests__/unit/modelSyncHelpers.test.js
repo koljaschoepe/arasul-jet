@@ -117,18 +117,64 @@ describe(':latest-Tag-Normalisierung (Live-Bug 2026-07-27)', () => {
   });
 });
 
-describe('Der Abgleich traegt nichts nach (Phase C8)', () => {
-  test('createSyncHelpers bietet importUnknownModels nicht mehr an', () => {
-    // Der Katalog ist die Kurzliste und kommt aus Migration 175. Ein Abgleich,
-    // der jedes Modell aus `ollama list` nachtraegt, haette ihn nach dem
-    // naechsten Start wieder aufgefuellt -- genau der Weg, ueber den
-    // qwen3:8b/14b/32b und die gemma3-Reste in den Katalog gekommen sind.
-    const helpers = createSyncHelpers(makeDeps());
-    expect(helpers.importUnknownModels).toBeUndefined();
-    expect(Object.keys(helpers).sort()).toEqual([
-      'cleanupStaleDownloads',
-      'markAvailableModels',
-      'markMissingModels',
-    ]);
+describe('Der Abgleich traegt Modelle nach, die nur bei Ollama liegen (M5)', () => {
+  const steckbrief = {
+    parameterLabel: '25.2B',
+    quantization: 'Q4_K_M',
+    license: 'Apache License 2.0',
+    contextLength: 262144,
+    supportsTools: true,
+    supportsVision: true,
+    capabilities: ['completion', 'vision', 'tools', 'thinking'],
+  };
+
+  function bauen(katalogZeilen, sb = steckbrief) {
+    const deps = makeDeps();
+    deps.database.query = jest.fn(async (sql, params) => {
+      deps.queries.push({ sql, params });
+      if (/SELECT id FROM llm_model_catalog/i.test(sql)) {
+        return { rows: katalogZeilen.filter(z => params[0].includes(z)).map(id => ({ id })) };
+      }
+      return { rows: [], rowCount: 1 };
+    });
+    deps.leseSteckbrief = jest.fn(async () => sb);
+    return deps;
+  }
+
+  test('unbekanntes Modell wird mit Groesse und Faehigkeiten angelegt', async () => {
+    const deps = bauen([]);
+    const helpers = createSyncHelpers(deps);
+
+    const neu = await helpers.traegNachModelle([{ name: 'gemma4:26b', size: 18e9 }]);
+
+    expect(neu).toEqual(['gemma4:26b']);
+    const insert = deps.queries.find(q => /INSERT INTO llm_model_catalog/i.test(q.sql));
+    expect(insert.sql).toMatch(/ON CONFLICT \(id\) DO NOTHING/);
+    expect(insert.params[0]).toBe('gemma4:26b');
+    expect(insert.params[3]).toBe(18e9);
+    expect(insert.params).toEqual(expect.arrayContaining([true, 262144, 'Q4_K_M']));
+  });
+
+  test('bekannte Zeile (auch als :latest) wird nicht angefasst', async () => {
+    const deps = bauen(['nomic-embed-text']);
+    const helpers = createSyncHelpers(deps);
+
+    const neu = await helpers.traegNachModelle([{ name: 'nomic-embed-text:latest', size: 274e6 }]);
+
+    expect(neu).toEqual([]);
+    expect(deps.leseSteckbrief).not.toHaveBeenCalled();
+    expect(deps.queries.some(q => /INSERT|UPDATE/i.test(q.sql))).toBe(false);
+  });
+
+  test('ohne lesbaren Steckbrief wird nichts geraten', async () => {
+    const deps = bauen([], null);
+    const helpers = createSyncHelpers(deps);
+
+    expect(await helpers.traegNachModelle([{ name: 'x:1b', size: 1 }])).toEqual([]);
+    expect(deps.queries.some(q => /INSERT/i.test(q.sql))).toBe(false);
+  });
+
+  test('createSyncHelpers bietet importUnknownModels weiter nicht an', () => {
+    expect(createSyncHelpers(makeDeps()).importUnknownModels).toBeUndefined();
   });
 });

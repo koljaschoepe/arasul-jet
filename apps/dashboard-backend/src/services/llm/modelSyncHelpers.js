@@ -8,14 +8,19 @@
  *
  * Extracted from modelService.js for maintainability.
  *
- * Der Abgleich laeuft in EINE Richtung: was der Katalog kennt und in Ollama
- * liegt, gilt als installiert. Umgekehrt nicht. Bis Phase C8 (27.08.2026) gab
- * es `importUnknownModels`: jedes Modell, das nur in Ollama lag, wurde als
- * Minimal-Eintrag in den Katalog uebernommen. Das war richtig, solange der
- * Katalog eine Empfehlung war -- mit der Kurzliste ist er eine Zusage, und ein
- * Abgleich, der ungefragt Eintraege nachtraegt, haette sie nach dem naechsten
- * Start wieder aufgefuellt. Der Katalog kommt jetzt ausschliesslich aus
- * Migrationen (`config/modelle/kurzliste.json`, Migration 175).
+ * Der Abgleich traegt nach, was nur bei Ollama liegt (M5, 05.10.2026).
+ * Bis Phase C8 (27.08.2026) gab es `importUnknownModels` (Minimal-Eintrag je
+ * Modell), C8 nahm es weg, weil der Katalog eine Zusage ueber vier gemessene
+ * Modelle war. Seit J4 ist der Katalog offen und die Verwaltung zeigt, was am
+ * Geraet liegt; ein Modell, das jemand am CLI zog (gemma4:26b, 18 GB), fehlte
+ * dort. `traegNachModelle` legt es jetzt an, mit Groesse und Faehigkeiten aus
+ * Ollama (`/api/tags`, `/api/show`).
+ *
+ * REGEL: Der Nachtrag legt NUR NEUE Zeilen an (`ON CONFLICT DO NOTHING`, und
+ * vorher wird nach `id` und `ollama_name` in beiden `:latest`-Schreibweisen
+ * gesucht). Eine bestehende Zeile -- kuratiert oder von Hand gepflegt -- fasst
+ * er nie an. Nachgetragene Zeilen sind `ungemessen` und `frei_geladen`, gehen
+ * also mit dem Entfernen des Modells wieder weg wie jede frei geladene Zeile.
  *
  * Usage: const helpers = createSyncHelpers({ database, logger, ... });
  */
@@ -49,7 +54,106 @@ function inOllama(ollamaModels, name) {
   return tagVarianten(name).some(v => ollamaModels.includes(v));
 }
 
-function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabilityCache }) {
+const GB = 1000 * 1000 * 1000;
+
+function kategorie(gb) {
+  if (gb < 4) {
+    return 'small';
+  }
+  if (gb < 12) {
+    return 'medium';
+  }
+  if (gb < 40) {
+    return 'large';
+  }
+  return 'xlarge';
+}
+
+function createSyncHelpers({
+  database,
+  logger,
+  activeDownloadIds,
+  modelAvailabilityCache,
+  leseSteckbrief = name => require('./modelProfile').leseSteckbrief(name),
+}) {
+  /**
+   * Modelle, die nur bei Ollama liegen, in den Katalog nachtragen (sync step 0).
+   * Bestehende Zeilen bleiben unberuehrt (siehe Regel oben).
+   * @param {Array<{name: string, size?: number}>} ollamaTags - Eintraege aus /api/tags
+   * @returns {Promise<string[]>} Kennungen der neu angelegten Zeilen
+   */
+  async function traegNachModelle(ollamaTags) {
+    const neu = [];
+    for (const tag of ollamaTags) {
+      const name = tag?.name;
+      if (!name) {
+        continue;
+      }
+      const varianten = tagVarianten(name);
+      const bekannt = await database.query(
+        `SELECT id FROM llm_model_catalog
+          WHERE id = ANY($1) OR ollama_name = ANY($1) LIMIT 1`,
+        [varianten]
+      );
+      if (bekannt.rows.length > 0) {
+        continue;
+      }
+
+      const steckbrief = await leseSteckbrief(name);
+      if (!steckbrief) {
+        // Ollama kennt die Faehigkeiten nicht (oder antwortet nicht): lieber
+        // beim naechsten Abgleich erneut, als eine geratene Zeile anlegen.
+        logger.warn(`[SYNC] ${name} nicht nachgetragen: Steckbrief nicht lesbar`);
+        continue;
+      }
+      const faehigkeiten = steckbrief.capabilities || [];
+      const bytes = Number(tag.size) || 0;
+      const embedding = faehigkeiten.includes('embedding');
+      const bild = steckbrief.supportsVision === true;
+      const aufgabe = embedding ? 'embedding' : bild ? 'vision' : 'text';
+      const gb = bytes / GB;
+
+      const ergebnis = await database.query(
+        `INSERT INTO llm_model_catalog (
+            id, name, description, ollama_name, size_bytes, ram_required_gb,
+            category, capabilities, recommended_for, model_type, task,
+            is_task_default, speed_tier, supports_thinking, supports_vision_input,
+            supports_tools, context_window, parameter_label, quantization, license,
+            profile_read_at, jetson_tested, performance_tier, frei_geladen
+         ) VALUES (
+            $1, $2, $3, $1, $4, $5, $6, $7::jsonb, '[]'::jsonb, $8, $9,
+            false, $10, $11, $12, $13, $14, $15, $16, $17,
+            NOW(), false, 2, true
+         )
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          name,
+          name,
+          'Am Gerät bei Ollama gefunden, auf diesem Gerät ungemessen. Größe und Fähigkeiten stammen aus Ollama.',
+          bytes,
+          Math.max(1, Math.ceil(gb * 1.15 || 1)),
+          kategorie(gb),
+          JSON.stringify(embedding ? ['embedding'] : []),
+          embedding ? 'embedding' : bild ? 'vision' : 'llm',
+          aufgabe,
+          embedding ? 'embed' : 'balanced',
+          faehigkeiten.includes('thinking'),
+          bild,
+          steckbrief.supportsTools === true,
+          steckbrief.contextLength,
+          steckbrief.parameterLabel,
+          steckbrief.quantization,
+          steckbrief.license,
+        ]
+      );
+      if (ergebnis.rowCount > 0) {
+        neu.push(name);
+        logger.info(`[SYNC] ${name} aus Ollama in den Katalog nachgetragen (ungemessen)`);
+      }
+    }
+    return neu;
+  }
+
   /**
    * Mark models as available that Ollama has (sync step 1)
    * @param {string[]} ollamaModels - List of model names from Ollama
@@ -187,6 +291,7 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
   }
 
   return {
+    traegNachModelle,
     markAvailableModels,
     markMissingModels,
     cleanupStaleDownloads,

@@ -7,11 +7,10 @@
  * wird:
  *
  *   1. Bei 390, 1024 und 1440 px: die Zelle Platz des Probe-Bereichs nennt
- *      die Grenze 50 MB; bei 1024 und 1440 px steht die Notizspalte offen
- *      (der Nachtrag aus J34: bei 1024 px mit Notizen rollte der Ordnerbaum
- *      seitlich); und seitlich rollt nichts ausser dem Rollkasten der
- *      Rechte-Matrix -- weder das Dokument noch ein anderer Kasten.
- *      `.sr-only` zaehlt nicht.
+ *      die Grenze 50 MB, und seitlich rollt nichts, weder das Dokument noch
+ *      ein Kasten. `.sr-only` zaehlt nicht. (Notizspalte und Rechtematrix
+ *      gibt es seit M5 nicht mehr; die Seite steht unter
+ *      `/workspace/verwaltung/firmenordner`.)
  *   2. Bei 390 px: der Dialog der Grenze, als Bild.
  *   3. Bei 1440 px: der Administrator hebt die Grenze im Dialog auf 200 MB;
  *      `PUT …/grenze` kommt mit 200 zurueck, und die Zelle nennt danach
@@ -31,7 +30,7 @@ const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const SITZUNG = process.env.ARASUL_SITZUNG || '';
 const KENNUNG = process.env.ARASUL_KENNUNG || '';
 const ZIEL = process.env.ARASUL_BILDER || '/tmp';
-const SEITE = `${URL}/workspace/settings?tab=firmenordner`;
+const SEITE = `${URL}/workspace/verwaltung/firmenordner`;
 const MB = 1000 * 1000;
 
 const ergebnisse = [];
@@ -61,16 +60,15 @@ async function fotografieren(seite, datei, opts = {}) {
   });
 }
 
-/** Was ausser der Matrix seitlich rollt. */
+/** Was seitlich rollt. */
 function roller() {
-  const rollkasten = document.querySelector('[data-testid="rechte-matrix"] .overflow-x-auto');
   const liste = [];
   const doc = document.scrollingElement;
   if (doc.scrollWidth > doc.clientWidth + 1) {
     liste.push(`Dokument ${doc.scrollWidth}/${doc.clientWidth}`);
   }
   for (const el of document.querySelectorAll('body *')) {
-    if (el === rollkasten || String(el.className).includes('sr-only')) continue;
+    if (String(el.className).includes('sr-only')) continue;
     const x = getComputedStyle(el).overflowX;
     if ((x === 'auto' || x === 'scroll') && el.scrollWidth > el.clientWidth + 1) {
       liste.push(
@@ -117,16 +115,6 @@ try {
       (await zelle.innerText()).replace(/\s+/g, ' ')
     );
 
-    // Ab 900 px die Notizspalte auf, wie sie ein Mensch offen stehen hat.
-    if (breite >= 900) {
-      const auf = seite.getByRole('button', { name: 'Notizen einblenden' });
-      if (await auf.count()) await auf.click();
-      await seite.waitForTimeout(800);
-      pruefe(
-        `${breite} px: die Notizspalte steht offen`,
-        (await seite.getByRole('button', { name: 'Notizen ausblenden' }).count()) > 0
-      );
-    }
     await seite.waitForTimeout(1200);
     const form = await seite
       .locator('[data-form]')
@@ -136,7 +124,7 @@ try {
       .catch(() => '?');
     const rollt = await seite.evaluate(roller);
     pruefe(
-      `${breite} px: seitlich rollt nur die Matrix (Baum als ${form})`,
+      `${breite} px: seitlich rollt nichts (Baum als ${form})`,
       rollt.length === 0,
       rollt.slice(0, 3).join('; ')
     );
