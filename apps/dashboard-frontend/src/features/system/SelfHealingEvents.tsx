@@ -281,19 +281,19 @@ const SelfHealingEvents = () => {
       {/* Statistics - inline, minimal */}
       <div className="flex gap-6 mb-6 text-sm">
         <div>
-          <span className="text-lg font-bold text-foreground">{stats.total}</span>
+          <span className="text-lg font-medium text-foreground">{stats.total}</span>
           <span className="text-muted-foreground ml-1.5">Gesamt</span>
         </div>
         <div>
-          <span className="text-lg font-bold text-foreground">{stats.INFO}</span>
+          <span className="text-lg font-medium text-foreground">{stats.INFO}</span>
           <span className="text-muted-foreground ml-1.5">Hinweise</span>
         </div>
         <div>
-          <span className="text-lg font-bold text-muted-foreground">{stats.WARNING}</span>
+          <span className="text-lg font-medium text-muted-foreground">{stats.WARNING}</span>
           <span className="text-muted-foreground ml-1.5">Warnungen</span>
         </div>
         <div>
-          <span className="text-lg font-bold text-foreground">{stats.CRITICAL}</span>
+          <span className="text-lg font-medium text-foreground">{stats.CRITICAL}</span>
           <span className="text-muted-foreground ml-1.5">Kritisch</span>
         </div>
       </div>

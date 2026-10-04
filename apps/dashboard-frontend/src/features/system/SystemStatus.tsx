@@ -62,7 +62,7 @@ export const TEMPERATUR_ACHSE: [number, (datenMax: number) => number] = [
 // horizontales Scrollen, wenn der Container schmaler als eine Karte ist.
 const STAT_BADGE_BASE =
   'mt-ui-1 inline-flex w-fit items-center gap-ui-1 rounded-xs border px-ui-1 py-px ' +
-  'text-ui-xs font-semibold uppercase tracking-wide';
+  'text-xs font-medium uppercase tracking-wide';
 
 // Drei Zustände, drei Formen — und nur zwei Farben (30.08.2026): »Normal«
 // ist eine Linie ohne Fläche, »Warnung« ein grauer Wisch, »Kritisch« Rot.
@@ -192,7 +192,7 @@ function SystemStatusView({
 
   return (
     <div className="flex min-w-0 flex-col gap-ui-3" data-testid="auslastung-seite">
-      <div className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         Systemstatus
       </div>
       <Kennzahlen>
@@ -205,7 +205,7 @@ function SystemStatusView({
               <>
                 {`${formatZahl(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb, 1)} von ${formatZahl(deviceInfo.total_memory_gb)} GB im ganzen Gerät`}
                 {kiRamGb !== null && (
-                  <div className="mt-ui-1 text-ui-xs text-muted-foreground">
+                  <div className="mt-ui-1 text-xs text-muted-foreground">
                     {`Davon ${kiRamGb} GB für KI-Modelle reserviert`}
                   </div>
                 )}

@@ -48,7 +48,7 @@ export function StatusBar() {
 
   return (
     <footer
-      className="flex h-6 shrink-0 items-center gap-3 border-t border-border bg-background px-3 text-ui-xs text-muted-foreground"
+      className="flex h-6 shrink-0 items-center gap-3 border-t border-border bg-background px-3 text-xs text-muted-foreground"
       data-testid="statusbar"
     >
       <span className="min-w-0 truncate" data-testid="statusbar-name">

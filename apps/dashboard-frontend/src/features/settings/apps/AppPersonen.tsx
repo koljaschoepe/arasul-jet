@@ -69,7 +69,7 @@ export function AppPersonen({ appId, hatTeststand }: { appId: string; hatTeststa
             <span className="min-w-0 flex-1">
               <span className="text-sm text-foreground">{name}</span>
               {!b.is_active && (
-                <span className="ml-2 text-ui-xs text-muted-foreground">gesperrt</span>
+                <span className="ml-2 text-xs text-muted-foreground">gesperrt</span>
               )}
             </span>
 
@@ -78,7 +78,7 @@ export function AppPersonen({ appId, hatTeststand }: { appId: string; hatTeststa
                 Testfassung nur, wenn jemand noch als Testperson eingetragen ist:
                 ein Zustand, den die Seite verbirgt, räumt niemand mehr auf. */}
             {freigabe && (hatTeststand || freigabe.stand === 'test') && (
-              <label className="flex items-center gap-2 text-ui-xs text-muted-foreground">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Checkbox
                   checked={freigabe.stand === 'test'}
                   disabled={setzen.isPending}

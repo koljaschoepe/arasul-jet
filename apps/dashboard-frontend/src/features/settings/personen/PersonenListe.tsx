@@ -39,13 +39,13 @@ function Person({ b, ichSelbst }: { b: Benutzer; ichSelbst: boolean }) {
       <span className="min-w-0">
         <span className="text-foreground">{name}</span>
         {!b.is_active && (
-          <span className="ml-2 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs font-medium text-muted-foreground">
+          <span className="ml-2 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
             gesperrt
           </span>
         )}
-        {ichSelbst && <span className="ml-2 text-ui-xs text-muted-foreground">Sie</span>}
+        {ichSelbst && <span className="ml-2 text-xs text-muted-foreground">Sie</span>}
         {b.funktion && (
-          <span className="block truncate text-ui-xs text-muted-foreground">{b.funktion}</span>
+          <span className="block truncate text-xs text-muted-foreground">{b.funktion}</span>
         )}
       </span>
     </span>

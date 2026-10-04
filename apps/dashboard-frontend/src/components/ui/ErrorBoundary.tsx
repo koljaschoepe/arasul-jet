@@ -125,7 +125,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
             {(isDevelopment || this.props.showDetails) && this.state.error && (
               <details className="error-details my-8 text-left bg-background border border-border rounded-md p-4">
-                <summary className="text-primary cursor-pointer font-semibold select-none hover:underline">
+                <summary className="text-primary cursor-pointer font-medium select-none hover:underline">
                   Technik
                 </summary>
                 <pre className="error-stack mt-4 text-destructive text-sm overflow-x-auto whitespace-pre-wrap break-words bg-background p-4 rounded border border-border/50">

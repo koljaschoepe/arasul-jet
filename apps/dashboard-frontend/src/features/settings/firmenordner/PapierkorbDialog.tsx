@@ -156,7 +156,7 @@ export function PapierkorbDialog({ fuer, onSchliessen }: Props) {
                         {e.name}
                         {e.ordner && <span className="sr-only"> (Ordner)</span>}
                       </span>
-                      <span className="truncate text-ui-xs text-muted-foreground">
+                      <span className="truncate text-xs text-muted-foreground">
                         {e.ort.includes('/')
                           ? `lag in ${e.ort.slice(0, e.ort.lastIndexOf('/'))} · `
                           : ''}

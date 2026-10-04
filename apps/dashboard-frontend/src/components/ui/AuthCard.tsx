@@ -35,7 +35,7 @@ interface AuthCardProps {
  * diese Seiten liegen ausserhalb der Shell und haben keine Kopfleiste, in die
  * ein `Kopf` passen wuerde.
  *
- * Groessen folgen dem Design-System (Seitentitel `text-2xl`, Knopf `text-sm`),
+ * Groessen folgen dem Design-System (Seitentitel aus `Kopf`, Knopf `text-sm`),
  * nicht den gewachsenen Sonderwerten der alten Anmeldeseite.
  */
 export function AuthCard({

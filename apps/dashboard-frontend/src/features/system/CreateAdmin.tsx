@@ -186,7 +186,7 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
           size="lg"
           loading={isSubmitting}
           disabled={!canSubmit}
-          className="mt-6 w-full font-semibold max-md:h-11"
+          className="mt-6 w-full font-medium max-md:h-11"
         >
           {isSubmitting ? 'Konto wird angelegt …' : 'Konto anlegen'}
         </Button>

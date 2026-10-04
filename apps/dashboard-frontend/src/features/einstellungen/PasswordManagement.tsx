@@ -229,7 +229,7 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
           {/* Password Requirements */}
           {requirements && passwords.new && (
             <div className="border-l-2 border-border pl-4 space-y-2">
-              <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
+              <h4 className="text-sm font-medium text-foreground">Passwortanforderungen</h4>
               <ul className="space-y-1">
                 <li
                   className={cn(

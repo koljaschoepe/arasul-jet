@@ -135,11 +135,12 @@ nicht gibt.
 
 - **Radien** `--radius-xs/sm/md/lg/xl` = 4/6/8/12/16 px.
 - **Dichte-Skala** für die Shell und normierte Ansichten (Systemstatus):
-  Text `text-ui-xs/sm/-/lg` = 12/13/14/16 px, Abstände `*-ui-1…4` =
+  Text `text-xs/sm/lg` = 12/13/16 px (drei Größen, zwei Gewichte
+  `font-normal`/`font-medium`; `bausteine.py` hält das), Abstände `*-ui-1…4` =
   5/10/14/18 px, Zeile `h-ui-row` ≈ 22 px. Karten-Innenabstand `p-ui-3`,
   Abstand zwischen Karten `gap-ui-2`.
 - Die Einstellungsseiten benutzen die Tailwind-Voreinstellung; der Seitentitel
-  ist `text-2xl` und das einzige `h1`.
+  kommt aus `Kopf` und ist das einzige `h1`.
 - **Root-Hebel** `html { font-size: 106.25% }` (17 px): skaliert alle
   rem-Werte um ~6 %. Feste px-Werte (Symbole `--icon-*`) sind deshalb eine
   Stufe angehoben.

@@ -84,7 +84,7 @@ function Zelle({
           }
           onClick={() => setzen(freigabe.stand === 'test' ? 'live' : 'test')}
           className={cn(
-            'rounded px-1.5 py-0.5 text-ui-xs transition-colors hover:bg-accent',
+            'rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-accent',
             freigabe.stand === 'test'
               ? 'bg-muted-foreground/15 font-medium text-muted-foreground'
               : 'text-muted-foreground'
@@ -139,7 +139,7 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
       <div className="flex flex-col gap-ui-3" data-testid="freigabe-matrix">
         {alleApps.map(app => (
           <section key={app.id} className="rounded-md border border-border">
-            <h3 className="border-b border-border p-ui-3 text-sm font-semibold text-foreground">
+            <h3 className="border-b border-border p-ui-3 text-sm font-medium text-foreground">
               {app.name}
             </h3>
             <ul>
@@ -158,7 +158,7 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
                   <span className="min-w-0 flex-1 text-sm text-foreground">
                     {anzeigeName(b)}
                     {b.role === 'admin' && (
-                      <span className="ml-2 text-ui-xs text-muted-foreground">Verwaltung</span>
+                      <span className="ml-2 text-xs text-muted-foreground">Verwaltung</span>
                     )}
                   </span>
                 </li>
@@ -202,7 +202,7 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
               >
                 <span className="text-foreground">{anzeigeName(b)}</span>
                 {b.role === 'admin' && (
-                  <span className="ml-2 whitespace-nowrap text-ui-xs text-muted-foreground">
+                  <span className="ml-2 whitespace-nowrap text-xs text-muted-foreground">
                     Verwaltung
                   </span>
                 )}

@@ -172,7 +172,7 @@ export function GeneralSettings() {
                     {'icon' in item && item.icon}
                     {item.label}
                   </span>
-                  <span className="text-sm font-semibold text-foreground">{item.value}</span>
+                  <span className="text-sm font-medium text-foreground">{item.value}</span>
                 </div>
               ))}
             </div>

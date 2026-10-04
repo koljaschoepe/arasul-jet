@@ -353,7 +353,7 @@ export function SchaustueckeMuster() {
               ]}
             />
             <SidebarInset>
-              <div className="flex items-center gap-2 p-ui-2 text-ui-sm">
+              <div className="flex items-center gap-2 p-ui-2 text-sm">
                 <SidebarTrigger />
                 Inhalt
               </div>
@@ -364,7 +364,7 @@ export function SchaustueckeMuster() {
           <SidebarProvider eingebettet className="h-48 w-[30rem] rounded-md border border-border">
             <Seitenleiste gruppen={[]} laedt />
             <SidebarInset>
-              <div className="p-ui-2 text-ui-sm text-muted-foreground">Inhalt</div>
+              <div className="p-ui-2 text-sm text-muted-foreground">Inhalt</div>
             </SidebarInset>
           </SidebarProvider>
         </Zustand>
@@ -381,7 +381,7 @@ export function SchaustueckeMuster() {
               beschreibung="Gilt ab dem nächsten Start."
               aktion={<Switch aria-label="Automatisch starten" />}
             >
-              <p className="text-ui-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Allein stehend trägt sie ihre Trennlinie: sie weiß nicht, ob nach ihr noch etwas
                 kommt.
               </p>
@@ -412,7 +412,7 @@ export function SchaustueckeMuster() {
                 beschreibung="Gilt ab dem nächsten Start."
                 aktion={<Switch aria-label="Automatisch starten" />}
               >
-                <p className="text-ui-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Der letzte Abschnitt trägt keine Trennlinie. Das entscheidet die Formularseite,
                   nicht der Abschnitt.
                 </p>
@@ -543,7 +543,7 @@ export function SchaustueckeMuster() {
               </div>
             }
           >
-            <p className="text-ui-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Der Rumpf rollt, wenn er länger wird als der Bildschirm; Kopf und Fuß bleiben stehen.
             </p>
           </Dialogform>

@@ -28,8 +28,8 @@ export function Schaustueck({
       className="flex flex-col gap-ui-2 border-b border-border py-ui-4 last:border-b-0"
     >
       <div className="flex flex-col gap-0.5">
-        <h2 className="text-ui-lg font-semibold text-foreground">{name}</h2>
-        <p className="text-ui-sm text-muted-foreground">{satz}</p>
+        <h2 className="text-lg font-medium text-foreground">{name}</h2>
+        <p className="text-sm text-muted-foreground">{satz}</p>
       </div>
       {/* EIN EIGENER ROLLKASTEN JE SCHAUSTUECK (Phase H4).
           Seit H4 stehen hier auch Stuecke, die eine Breite mitbringen -- eine
@@ -59,7 +59,7 @@ export function Zustand({ name, children }: { name: string; children: ReactNode 
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex min-h-9 flex-wrap items-center gap-2">{children}</div>
-      <span className="font-mono text-ui-xs text-muted-foreground">{name}</span>
+      <span className="font-mono text-xs text-muted-foreground">{name}</span>
     </div>
   );
 }

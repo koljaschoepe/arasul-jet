@@ -47,7 +47,7 @@ export function WeiteresModell({ busy, onGestartet }: WeiteresModellProps) {
 
   return (
     <section className="mb-6" data-testid="weiteres-modell" aria-labelledby="weiteres-modell-titel">
-      <h2 id="weiteres-modell-titel" className="mb-1 text-sm font-semibold text-foreground">
+      <h2 id="weiteres-modell-titel" className="mb-1 text-sm font-medium text-foreground">
         Weiteres Modell laden
       </h2>
       <p className="mb-3 text-xs text-muted-foreground">

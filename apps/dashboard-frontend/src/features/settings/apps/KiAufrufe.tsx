@@ -78,11 +78,11 @@ export function KiAufrufe({ aufrufe }: { aufrufe: KiAufruf[] | undefined }) {
             data-testid={`ki-aufruf-${a.id}`}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-ui-xs text-muted-foreground">{zeitpunkt(a.begonnen_am)}</span>
-              <span className="font-mono text-ui-xs text-foreground">{a.endpunkt}</span>
+              <span className="text-xs text-muted-foreground">{zeitpunkt(a.begonnen_am)}</span>
+              <span className="font-mono text-xs text-foreground">{a.endpunkt}</span>
               <LaufZustand status={a.status} />
               {a.stand === 'test' && (
-                <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs text-muted-foreground">
+                <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs text-muted-foreground">
                   Test
                 </span>
               )}
@@ -103,9 +103,9 @@ export function KiAufrufe({ aufrufe }: { aufrufe: KiAufruf[] | undefined }) {
                   ` · ${art}${a.datei_bytes != null ? `, ${formatBytes(a.datei_bytes)}` : ''}`}
               </span>
             </p>
-            {a.fehler && <p className="text-ui-xs text-destructive">{a.fehler}</p>}
+            {a.fehler && <p className="text-xs text-destructive">{a.fehler}</p>}
             {(a.job_id || a.lauf_id != null || a.antwort_sha256) && (
-              <p className="break-all font-mono text-ui-xs text-muted-foreground">
+              <p className="break-all font-mono text-xs text-muted-foreground">
                 {[
                   a.lauf_id != null && `Lauf ${a.lauf_id}`,
                   a.job_id && `Auftrag ${a.job_id}`,

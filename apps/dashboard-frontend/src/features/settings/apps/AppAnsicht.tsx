@@ -90,7 +90,7 @@ function StandWahl({
           onClick={() => setStand(s)}
           data-testid={`stand-wahl-${s}`}
           className={cn(
-            'rounded px-2 py-1 text-ui-xs transition-colors',
+            'rounded px-2 py-1 text-xs transition-colors',
             stand === s ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground'
           )}
         >
@@ -122,15 +122,15 @@ function Laeufe({ appId, onOeffnen }: { appId: string; onOeffnen: (id: number) =
             data-testid={`lauf-oeffnen-${l.id}`}
             className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-ui-3 text-left transition-colors duration-120 hover:bg-accent/40 motion-reduce:transition-none"
           >
-            <span className="font-mono text-ui-xs text-muted-foreground">#{l.id}</span>
+            <span className="font-mono text-xs text-muted-foreground">#{l.id}</span>
             <span className="text-sm font-medium text-foreground">{l.flow_name}</span>
             <LaufZustand status={l.status} />
             {l.stand === 'test' && (
-              <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs text-muted-foreground">
+              <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs text-muted-foreground">
                 (Test)
               </span>
             )}
-            <span className="ml-auto text-ui-xs text-muted-foreground">
+            <span className="ml-auto text-xs text-muted-foreground">
               {formatDate(l.created_at)}
             </span>
           </button>
@@ -171,7 +171,7 @@ function Protokoll({
   if (isFetching && !logs) return <SkeletonText lines={4} />;
   return (
     <pre
-      className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 font-mono text-ui-xs text-foreground"
+      className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 font-mono text-xs text-foreground"
       data-testid="app-logs"
     >
       {logs || '(keine Ausgabe)'}
@@ -304,10 +304,10 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
     <div className="flex flex-col gap-6" data-testid={`app-ansicht-${appId}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <h3 className="flex items-center gap-2 text-lg font-medium text-foreground">
             <AppWindow className="size-4 text-muted-foreground" aria-hidden="true" />
             {app.name}
-            <span className="font-mono text-ui-xs text-muted-foreground">{app.id}</span>
+            <span className="font-mono text-xs text-muted-foreground">{app.id}</span>
           </h3>
           {app.beschreibung && (
             <p className="mt-1 text-sm text-muted-foreground">{app.beschreibung}</p>

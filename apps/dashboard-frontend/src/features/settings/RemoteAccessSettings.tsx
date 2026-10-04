@@ -406,7 +406,7 @@ export function RemoteAccessSettings() {
                   erledigt(n)
                     ? 'bg-foreground text-background'
                     : n === currentStep
-                      ? 'border-2 border-foreground font-semibold text-foreground'
+                      ? 'border-2 border-foreground font-medium text-foreground'
                       : 'border border-border text-muted-foreground'
                 )}
                 aria-hidden="true"
@@ -671,7 +671,7 @@ export function RemoteAccessSettings() {
                 )}
                 {status.ip && (
                   <div className="flex items-center justify-between gap-2 px-4 py-2 text-muted-foreground">
-                    <span className="text-[11px] shrink-0">Fallback (IP)</span>
+                    <span className="text-xs shrink-0">Fallback (IP)</span>
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-xs font-mono truncate">https://{status.ip}</span>
                       <Button
@@ -693,7 +693,7 @@ export function RemoteAccessSettings() {
               {status.dnsName && (
                 <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
                   <AlertCircle className="size-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Unterwegs antwortet dasselbe Gerät mit demselben Zertifikat wie im Firmennetz.
                     Damit der Browser es ohne Warnung annimmt, muss einmalig das{' '}
                     <strong className="font-medium text-foreground">Gerätezertifikat</strong>{' '}

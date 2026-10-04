@@ -121,7 +121,7 @@ function FlowZeile({
           >
             {f.name}
             {!aktiv && (
-              <span className="ml-2 font-normal text-ui-xs" data-testid={`flow-aus-${f.name}`}>
+              <span className="ml-2 font-normal text-xs" data-testid={`flow-aus-${f.name}`}>
                 aus, startet nicht
               </span>
             )}
@@ -130,7 +130,7 @@ function FlowZeile({
             <span className="block truncate text-xs text-muted-foreground">{f.beschreibung}</span>
           )}
           <span
-            className="block text-ui-xs text-muted-foreground"
+            className="block text-xs text-muted-foreground"
             data-testid={`flow-ablauf-${f.name}`}
           >
             {ablaufSatz(f)}
@@ -156,7 +156,7 @@ function FlowZeile({
           </Select>
         ) : (
           <span
-            className="text-ui-xs text-muted-foreground"
+            className="text-xs text-muted-foreground"
             data-testid={`flow-art-fest-${f.name}`}
           >
             {FLOW_ART_NAME[f.art]}
@@ -197,7 +197,7 @@ function FlowZeile({
           {zeitplaene.length > 0 && (
             <>
               <dt className="text-muted-foreground">Zeitplan</dt>
-              <dd className="font-mono text-ui-xs">{zeitplaene.map(z => z.zeitplan).join(', ')}</dd>
+              <dd className="font-mono text-xs">{zeitplaene.map(z => z.zeitplan).join(', ')}</dd>
             </>
           )}
           <dt className="text-muted-foreground">Modell</dt>

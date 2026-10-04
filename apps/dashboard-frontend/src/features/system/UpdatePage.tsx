@@ -531,7 +531,7 @@ const UpdatePage = () => {
               {schritt === 'fertig' && (
                 <div className="space-y-3 py-6 text-center">
                   <CheckCircle className="mx-auto size-8 text-primary" />
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="text-sm font-medium text-foreground">
                     Eingespielt. Das Gerät läuft jetzt auf {geprueft?.version}.
                   </p>
                   {geprueft?.requires_reboot && (
@@ -548,7 +548,7 @@ const UpdatePage = () => {
               {schritt === 'fehler' && (
                 <div className="space-y-3 py-6 text-center">
                   <XCircle className="mx-auto size-8 text-foreground" />
-                  <p className="text-sm font-semibold text-foreground">Nicht eingespielt</p>
+                  <p className="text-sm font-medium text-foreground">Nicht eingespielt</p>
                   <p className="text-sm text-muted-foreground">{fehler}</p>
                   <Button variant="outline" size="sm" onClick={zuruecksetzen}>
                     Noch einmal

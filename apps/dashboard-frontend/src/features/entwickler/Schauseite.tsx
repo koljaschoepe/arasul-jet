@@ -470,7 +470,7 @@ function Schauseite() {
       <Schaustueck name="ContextMenu" satz="Dasselbe Menü, ausgelöst mit der rechten Maustaste.">
         <Zustand name="rechte Maustaste">
           <ContextMenu>
-            <ContextMenuTrigger className="rounded-md border border-border px-4 py-2 text-ui-sm">
+            <ContextMenuTrigger className="rounded-md border border-border px-4 py-2 text-sm">
               Hier rechts klicken
             </ContextMenuTrigger>
             <ContextMenuContent>
@@ -493,10 +493,10 @@ function Schauseite() {
                 Logs
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="stand" className="text-ui-sm text-muted-foreground">
+            <TabsContent value="stand" className="text-sm text-muted-foreground">
               Live und Test, je mit Version und Gesundheit.
             </TabsContent>
-            <TabsContent value="flows" className="text-ui-sm text-muted-foreground">
+            <TabsContent value="flows" className="text-sm text-muted-foreground">
               Die Flows dieses Stands mit ihrem Modell.
             </TabsContent>
           </Tabs>
@@ -510,7 +510,7 @@ function Schauseite() {
               <CardTitle>Urlaubsantrag</CardTitle>
               <CardDescription>Livestand · Version 1.4.0</CardDescription>
             </CardHeader>
-            <CardContent className="text-ui-sm text-muted-foreground">
+            <CardContent className="text-sm text-muted-foreground">
               Zwei Flows, ein Modell, vier Tester.
             </CardContent>
             <CardFooter>
@@ -607,9 +607,9 @@ function Schauseite() {
         </Zustand>
         <Zustand name="vertical">
           <div className="flex h-8 items-center gap-3">
-            <span className="text-ui-sm">links</span>
+            <span className="text-sm">links</span>
             <Separator orientation="vertical" />
-            <span className="text-ui-sm">rechts</span>
+            <span className="text-sm">rechts</span>
           </div>
         </Zustand>
       </Schaustueck>
@@ -644,7 +644,7 @@ function Schauseite() {
       <Schaustueck name="ScrollArea" satz="Ein Rollbereich mit einem Balken, der zum Thema passt.">
         <Zustand name="zwölf Zeilen auf acht Zeilen Höhe">
           <ScrollArea className="h-32 w-56 rounded-md border border-border p-ui-2">
-            <ul className="flex flex-col gap-1 text-ui-sm">
+            <ul className="flex flex-col gap-1 text-sm">
               {Array.from({ length: 12 }, (_, i) => (
                 <li key={i}>Zeile {i + 1}</li>
               ))}

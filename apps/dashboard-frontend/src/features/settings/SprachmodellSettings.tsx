@@ -260,7 +260,7 @@ export function SprachmodellSettings({ onDirtyChange }: SprachmodellSettingsProp
             <Textarea
               id="llm_base_system_prompt"
               aria-label="Basis-System-Prompt"
-              className="min-h-40 font-mono text-sm"
+              className="min-h-40 text-sm"
               value={basePrompt}
               onChange={e => {
                 setBasePrompt(e.target.value);

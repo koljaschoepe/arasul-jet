@@ -601,7 +601,7 @@ export function Zurueckholen() {
             </p>
           )}
           {bericht.ausgabe && (
-            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-ui-xs text-muted-foreground">
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">
               {bericht.ausgabe}
             </pre>
           )}
