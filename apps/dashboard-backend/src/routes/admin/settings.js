@@ -14,11 +14,8 @@ const { logSecurityEvent } = require('../../utils/auditLog');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { validateBody } = require('../../middleware/validate');
-const {
-  PasswordChangeBody,
-  FirmennameBody,
-  SprachmodellBody,
-} = require('../../schemas/admin-settings');
+const { PasswordChangeBody, FirmennameBody, LogoBody } = require('../../schemas/admin-settings');
+const { logoAusDatenAdresse } = require('../../utils/logoBild');
 const systemSettings = require('../../services/system-settings/systemSettingsService');
 
 // Rate limiter for password changes (3 attempts per 15 minutes)
@@ -139,65 +136,77 @@ router.put(
 );
 
 /**
- * GET /api/settings/sprachmodell
- * PATCH /api/settings/sprachmodell
+ * PUT    /api/settings/logo
+ * DELETE /api/settings/logo
  *
- * Die Standardwerte, mit denen das Geraet ein Modell fragt: Antwortlaenge,
- * Kontextfenster, wie lange ein Modell im Speicher bleibt, und der
- * Basis-Prompt vor jedem Aufruf. Gelesen werden sie seit jeher aus
- * `system_settings` (`llmOllamaStream.js`, `systemPromptBuilder.js`);
- * geschrieben wurden sie bis Phase B4 ueber `/api/rag/settings`, und der Weg
- * fiel mit dem RAG, obwohl die Werte blieben. Die Oberflaeche fragte ihn
- * weiter und bekam 404 (J35, 26.09.2026).
+ * Das Logo des Hauses (M5, Auftrag verwaltung-geraet-und-system, Migration
+ * 207). Die Aktivitaetsleiste zeigt es ueber dem Haus, fuer jeden. Die
+ * Oberflaeche schickt die Datei als Daten-Adresse; `logoAusDatenAdresse`
+ * prueft Art (nach den ersten Bytes, kein SVG) und Groesse (256 KB).
+ * Ausgeliefert wird es ueber `GET /api/darstellung/logo`, und ob es eines
+ * gibt, sagt `GET /api/auth/needs-setup` (`logo`: der Stand oder null) --
+ * dieselbe Antwort, die den Firmennamen traegt, ohne dritte Anfrage.
  */
-const SPRACHMODELL_SPALTEN = [
-  'llm_num_predict_default',
-  'llm_num_ctx_default',
-  'llm_keep_alive_seconds',
-  'llm_base_system_prompt',
-];
-
-async function sprachmodellLesen() {
-  const { rows } = await db.query(
-    `SELECT ${SPRACHMODELL_SPALTEN.join(', ')} FROM system_settings WHERE id = 1`
-  );
-  return rows[0] || {};
-}
-
-router.get(
-  '/sprachmodell',
+router.put(
+  '/logo',
   requireAuth,
   requireRole('admin'),
+  validateBody(LogoBody),
   asyncHandler(async (req, res) => {
-    res.json({ data: await sprachmodellLesen() });
-  })
-);
-
-router.patch(
-  '/sprachmodell',
-  requireAuth,
-  requireRole('admin'),
-  validateBody(SprachmodellBody),
-  asyncHandler(async (req, res) => {
-    const felder = SPRACHMODELL_SPALTEN.filter(spalte => spalte in req.body);
-    const werte = felder.map(spalte =>
-      spalte === 'llm_base_system_prompt' ? req.body[spalte] || null : req.body[spalte]
+    const { typ, inhalt } = logoAusDatenAdresse(req.body.bild);
+    const { rows } = await db.query(
+      `UPDATE system_settings
+          SET company_logo = $1, company_logo_typ = $2, company_logo_stand = NOW()
+        WHERE id = 1
+        RETURNING company_logo_stand`,
+      [inhalt, typ]
     );
-    const setzen = felder.map((spalte, i) => `${spalte} = $${i + 1}`).join(', ');
-    await db.query(`UPDATE system_settings SET ${setzen} WHERE id = 1`, werte);
     await systemSettings.reload();
 
     logSecurityEvent({
       userId: req.user.id,
       action: 'settings_change',
-      details: { target: 'sprachmodell', felder },
+      details: { target: 'logo', typ, bytes: inhalt.length },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });
 
-    res.json({ data: await sprachmodellLesen() });
+    res.json({ data: { logo: rows[0]?.company_logo_stand ?? null } });
   })
 );
+
+router.delete(
+  '/logo',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    await db.query(
+      `UPDATE system_settings
+          SET company_logo = NULL, company_logo_typ = NULL, company_logo_stand = NULL
+        WHERE id = 1`
+    );
+    await systemSettings.reload();
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'settings_change',
+      details: { target: 'logo', entfernt: true },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.json({ data: { logo: null } });
+  })
+);
+
+// HIER STANDEN BIS ZUM 04.10.2026 `GET/PATCH /api/settings/sprachmodell`: die
+// Standardwerte, mit denen das Geraet ein Modell fragt, und der Basis-Prompt
+// vor jedem Aufruf. Das Zielbild (`company/frontend.md`, Flows) sagt: der
+// Administrator stellt je Schritt auf ein passendes Modell um, Prompts aendert
+// er nicht, und Laden und Entladen regelt das Geraet selbst nach Nutzung. Die
+// Seite „KI" der Verwaltung ist deshalb gestrichen und mit ihr der Weg. Die
+// Spalten bleiben in `system_settings` und werden weiter gelesen
+// (`llmOllamaStream.js`, `systemPromptBuilder.js`), mit ihren Vorgaben.
 
 /**
  * GET /api/settings/password-requirements

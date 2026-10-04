@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { appHinweise, lizenzHinweis, modellHinweise, sicherungHinweis } from '../useAdminHinweise';
 import type { SicherungStatus } from '@/features/system/sicherung/useSicherung';
 import type { AppZeile } from '@/features/settings/personen/useAppFreigaben';
-import type { LizenzInfo } from '@/features/settings/lizenz/useLizenz';
+import type { LizenzInfo } from '@/features/settings/geraet/useLizenz';
 
 function sicherung(letzte: Partial<SicherungStatus['letzteSicherung']>): SicherungStatus {
   return {
@@ -96,5 +96,10 @@ describe('Hinweise für den Administrator', () => {
         ?.text
     ).toMatch(/ausgeschöpft/);
     expect(lizenzHinweis({ ...basis, valid: false, tier: 'community' })).toBeNull();
+    // Seit M5 führt der Hinweis in den Bereich Gerät, zum Abschnitt Lizenz.
+    expect(lizenzHinweis({ ...basis, daysRemaining: 3 })?.ziel).toEqual({
+      bereich: 'geraet',
+      abschnitt: 'lizenz',
+    });
   });
 });

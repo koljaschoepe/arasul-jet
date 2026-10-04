@@ -94,16 +94,16 @@ ssh arasul@<hostname>
 > 28.08.2026 am Orin gemessen, Phase C10). Die Browserwarnung geht auf beiden
 > Wegen mit demselben Schritt weg: das Gerätezertifikat einmal verteilen, siehe
 > [NETZNAME_UND_ZERTIFIKAT.md](NETZNAME_UND_ZERTIFIKAT.md). Der genaue
-> Zugriffsname steht im Dashboard unter **Einstellungen > Fernzugriff**
-> („So erreichst du Arasul").
+> Zugriffsname steht im Dashboard unter **Verwaltung → Gerät → Fernzugriff**
+> (neben „Unterwegs“).
 
 ### Dashboard-Verwaltung
 
-Im Dashboard unter **Einstellungen > Fernzugriff**:
+Im Dashboard unter **Verwaltung → Gerät → Fernzugriff** (seit 04.10.2026):
 
-- Verbindungsstatus und IP anzeigen
-- Verbundene Geraete im Tailnet sehen
-- Auth-Key eingeben und verbinden/trennen
+- ein Schalter (an oder aus) mit der Adresse für unterwegs und im Firmennetz
+- einschalten öffnet einen Dialog für den Auth-Key, ausschalten fragt nach
+- aufgeklappt unter „Technik“: IP, Tailnet, Geraete im Tailnet, SSH-Befehl
 
 ### Monitoring
 

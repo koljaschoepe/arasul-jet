@@ -25,8 +25,13 @@ const logger = require('../../utils/logger');
 // sie fragt ihn ueber `GET /api/auth/needs-setup` bei JEDER Seitenladung --
 // aus dem Cache, nicht aus Postgres. Geschrieben wird er ueber
 // `PUT /api/settings/firmenname`, das danach `reload()` ruft.
+//
+// `company_logo_stand` seit dem 04.10.2026 (Migration 207): ob es ein Logo des
+// Hauses gibt und von wann, aus demselben Grund im Cache. Die Datei selbst
+// bleibt in Postgres; sie liest nur `GET /api/darstellung/logo`.
 const SETTINGS_COLUMNS = [
   'company_name',
+  'company_logo_stand',
   'llm_num_ctx_default',
   'llm_keep_alive_seconds',
   'llm_num_predict_default',

@@ -123,7 +123,7 @@ try {
       (await seite.getByTestId('verwaltung-privacy').count()) === 0
   );
   await seite.getByTestId('verwaltung-system').click();
-  await seite.getByRole('button', { name: 'Auslastung' }).waitFor({ timeout: 30000 });
+  await seite.getByTestId('system-seite').waitFor({ timeout: 30000 });
   pruefe(
     'Unter System gibt es weder Sicherung noch Werksreset',
     (await seite.getByRole('button', { name: 'Sicherung', exact: true }).count()) === 0 &&

@@ -3,12 +3,15 @@
  *
  * Tests the Settings page as users experience it:
  *   - Bereiche der Verwaltung (eigene Leiste, M5)
- *   - General settings rendering
- *   - Gerätezertifikat (Sicherheit)
+ *   - der Bereich Gerät mit echten Abschnitten: Unternehmen als Text, die
+ *     Aktualisierung, die Lizenz mit drei Zahlen, der Fernzugriff als
+ *     Schalter mit Adresse, „Über Arasul" als Fußzeile
+ *   - der Bereich System: ein Satz, drei Zahlen, Dienste und Selbstheilung
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings from '../../features/settings/Settings';
 import { useWorkspaceStore, type Ansicht } from '../../stores/workspaceStore';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
@@ -62,7 +65,12 @@ vi.mock('../../hooks/useConfirm', () => ({
 // Bereich steht in der Ansicht des Workspace-Stores.
 function renderSettings(ansicht: Partial<Ansicht> = {}) {
   useWorkspaceStore.setState({ ansicht: { type: 'verwaltung', ...ansicht } });
-  return render(<Settings modelle={null} />);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <Settings modelle={null} />
+    </QueryClientProvider>
+  );
 }
 
 // ---- Tests ----
@@ -73,167 +81,141 @@ describe('Settings integration', () => {
     mitTheme = 'light';
     document.documentElement.classList.remove('dark');
     document.documentElement.removeAttribute('data-theme');
-    // Default: return system info for General settings tab
     vi.mocked(mockApi.get).mockImplementation((path: string) => {
-      if (path === '/system/info') {
-        return Promise.resolve({
-          version: '2.1.0',
+      const antworten: Record<string, unknown> = {
+        '/system/info': {
+          version: '20261004-1ea0d2c',
           hostname: 'arasul-orin',
-          jetpack_version: '6.2',
+          jetpack_version: 'L4T 36.4.7',
           uptime_seconds: 86400,
           build_hash: 'abc123',
-        });
-      }
-      if (path === '/settings/password-requirements') {
-        return Promise.resolve({
-          requirements: {
-            minLength: 4,
-            requireUppercase: false,
-            requireLowercase: false,
-            requireNumbers: false,
-            requireSpecialChars: false,
+        },
+        '/auth/needs-setup': { needsSetup: false, firmenname: 'Muster GmbH', logo: null },
+        '/update/fassung': {
+          data: {
+            fassung: { version: '20261004-1ea0d2c', nummer: '0.8.17' },
+            einspielenMoeglich: true,
+            einspielenGrund: null,
+            laeuft: false,
+            lauf: null,
+            zurueckMoeglich: false,
+            vorige: null,
           },
-        });
-      }
-      return Promise.resolve({});
+        },
+        '/update/fassung/neueste': { data: { fassung: '0.8.17' } },
+        '/license/info': {
+          valid: true,
+          tier: 'professional',
+          customer: 'Muster GmbH',
+          expiresAt: '9999-12-31T23:59:59.000Z',
+          hardwareFingerprint: '22f2ffa61aa4af5de84f852af9630187',
+          nutzung: {
+            stufe: 'professional',
+            konten: { belegt: 6, grenze: 10 },
+            apps: { belegt: 3, grenze: -1 },
+          },
+        },
+        '/tailscale/status': {
+          installed: true,
+          running: true,
+          connected: true,
+          ip: '100.121.244.80',
+          hostname: 'arasul',
+          dnsName: 'arasul.tail746d9b.ts.net',
+          tailnet: 'tail746d9b.ts.net',
+          version: '1.102.2',
+          peers: [],
+        },
+        '/system/network': { mdns: 'arasul.local' },
+        '/ops/overview': {
+          status: 'OK',
+          warnings: [],
+          criticals: [],
+          metrics: { cpu_percent: 1, ram_percent: 20.6, disk_percent: 29.3 },
+        },
+      };
+      return Promise.resolve(antworten[path] ?? {});
     });
   });
 
   it('lists the sections in its own bar', () => {
     renderSettings();
 
-    expect(screen.getByTestId('verwaltung-general')).toBeInTheDocument();
-    expect(screen.getByTestId('verwaltung-ki')).toBeInTheDocument();
-    expect(screen.getByTestId('verwaltung-security')).toBeInTheDocument();
-    expect(screen.getByTestId('verwaltung-daten')).toBeInTheDocument();
-    expect(screen.getByTestId('verwaltung-system')).toBeInTheDocument();
-    expect(screen.getByTestId('verwaltung-remote-access')).toBeInTheDocument();
-
-    // Their labels render too.
-    expect(screen.getAllByText('Allgemein').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('KI').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Sicherheit').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Daten').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('System').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Fernzugriff').length).toBeGreaterThanOrEqual(1);
-
-    // Old top-level tabs no longer exist as nav items (general is active, so the
-    // KI / System sub-section labels are not mounted).
-    // (Nach Kennung und nicht nach Text: „Selbstheilung“ steht seit J35 in
-    // der Begriffsliste unter Allgemein.)
-    expect(screen.queryByTestId('verwaltung-ai-profile')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('verwaltung-rag-llm')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('verwaltung-selfhealing')).not.toBeInTheDocument();
-    expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
-    expect(screen.queryByText('Sprachmodell')).not.toBeInTheDocument();
+    for (const id of ['benutzer', 'apps', 'firmenordner', 'modelle', 'system', 'daten', 'geraet']) {
+      expect(screen.getByTestId(`verwaltung-${id}`)).toBeInTheDocument();
+    }
+    // Allgemein, KI, Sicherheit, Lizenz und Fernzugriff sind im Gerät und im
+    // System aufgegangen; KI gibt es gar nicht mehr.
+    for (const id of ['general', 'ki', 'security', 'lizenz', 'remote-access']) {
+      expect(screen.queryByTestId(`verwaltung-${id}`)).not.toBeInTheDocument();
+    }
   });
 
-  it('shows General section by default', async () => {
-    renderSettings();
-
-    await waitFor(() => {
-      expect(screen.getByText('Systeminformationen')).toBeInTheDocument();
-    });
-  });
-
-  it('displays system info after loading', async () => {
-    renderSettings();
-
-    await waitFor(() => {
-      expect(screen.getByText('2.1.0')).toBeInTheDocument();
-      expect(screen.getByText('arasul-orin')).toBeInTheDocument();
-    });
-  });
-
-  it('switches sections on a click in the bar', async () => {
+  it('zeigt im Gerät das Unternehmen als Text, das Formular erst auf Bearbeiten', async () => {
     const user = userEvent.setup();
-    renderSettings();
+    renderSettings({ bereich: 'geraet' });
 
-    await user.click(screen.getByTestId('verwaltung-security'));
+    expect(await screen.findByTestId('unternehmen-name')).toHaveTextContent('Muster GmbH');
+    expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Gerätezertifikat' })).toBeInTheDocument();
-    });
-    // Passwort und Abmelden sind persönlich und stehen in den Einstellungen.
-    expect(screen.queryByText('Passwort')).not.toBeInTheDocument();
-    expect(screen.queryByText('Sitzungen')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('unternehmen-bearbeiten'));
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Muster GmbH');
+
+    await user.clear(screen.getByRole('textbox', { name: 'Name' }));
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Beispiel AG');
+    vi.mocked(mockApi.put).mockResolvedValue({ firmenname: 'Beispiel AG' });
+    await user.click(screen.getByTestId('unternehmen-speichern'));
+    await waitFor(() =>
+      expect(mockApi.put).toHaveBeenCalledWith('/settings/firmenname', {
+        firmenname: 'Beispiel AG',
+      })
+    );
+    // Das Logo blieb unberührt: kein Weg dorthin.
+    expect(mockApi.put).not.toHaveBeenCalledWith('/settings/logo', expect.anything());
+    expect(mockApi.del).not.toHaveBeenCalled();
   });
 
-  it('zeigt das Erscheinungsbild nicht mehr hier: es ist persönlich', async () => {
-    renderSettings();
-    await waitFor(() => {
-      expect(screen.getByText('arasul-orin')).toBeInTheDocument();
-    });
-    expect(screen.queryByText('Erscheinungsbild')).not.toBeInTheDocument();
-    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  it('zeigt Aktualisierung, Lizenz mit drei Zahlen, Fernzugriff mit Adresse und die Fußzeile', async () => {
+    renderSettings({ bereich: 'geraet' });
+
+    expect(await screen.findByTestId('fassung-hier')).toHaveTextContent(
+      'Hier läuft Fassung 0.8.17.'
+    );
+    expect(await screen.findByTestId('lizenz-stufe')).toHaveTextContent('Professional');
+    expect(screen.getByTestId('lizenz-konten')).toHaveTextContent('6 von 10');
+    expect(screen.getByTestId('lizenz-bis')).toHaveTextContent('unbegrenzt');
+    // Der Fingerabdruck steht aufgeklappt, nicht vorn.
+    expect(screen.queryByTestId('lizenz-fingerabdruck')).not.toBeInTheDocument();
+
+    expect(await screen.findByTestId('fernzugriff-adresse')).toHaveTextContent(
+      'https://arasul.tail746d9b.ts.net'
+    );
+    expect(screen.getByTestId('fernzugriff-schalter')).toHaveAttribute('aria-checked', 'true');
+    // Technik (IP, Tailnet) nur aufgeklappt.
+    expect(screen.queryByText('100.121.244.80')).not.toBeInTheDocument();
+
+    expect(await screen.findByTestId('ueber-arasul')).toHaveTextContent('arasul-orin');
+    // Die Fassung steht einmal, bei der Aktualisierung; Bau und JetPack aufgeklappt.
+    expect(screen.getAllByText(/0\.8\.17/)).toHaveLength(1);
+    expect(screen.queryByText('L4T 36.4.7')).not.toBeInTheDocument();
+    // Kein Basis-Prompt, keine Begriffsliste, keine Systeminformationen mehr.
+    expect(screen.queryByText(/Prompt/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('begriffe')).not.toBeInTheDocument();
+    expect(screen.queryByText('Systeminformationen')).not.toBeInTheDocument();
   });
 
-  it('shows loading skeleton while fetching system info', () => {
-    // Make the API hang
-    vi.mocked(mockApi.get).mockReturnValue(new Promise(() => {}));
-
-    renderSettings();
-
-    // The skeleton is shown while loading - "Allgemein" appears in nav tabs AND heading
-    expect(screen.getAllByText('Allgemein').length).toBeGreaterThanOrEqual(1);
-    // Detailed data should not be present
-    expect(screen.queryByText('2.1.0')).not.toBeInTheDocument();
-  });
-
-  it('shows error state when system info fails to load', async () => {
-    vi.mocked(mockApi.get).mockImplementation((path: string) => {
-      if (path === '/system/info') {
-        return Promise.reject(new Error('Connection refused'));
-      }
-      return Promise.resolve({});
-    });
-
-    renderSettings();
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/systeminformationen konnten nicht geladen werden/i)
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('opens the KI tab straight on the Sprachmodell settings (J35)', async () => {
-    const user = userEvent.setup();
-    vi.mocked(mockApi.get).mockImplementation((path: string) => {
-      if (path === '/settings/sprachmodell') {
-        return Promise.resolve({
-          data: {
-            llm_num_predict_default: 2048,
-            llm_num_ctx_default: null,
-            llm_keep_alive_seconds: 3600,
-            llm_base_system_prompt: null,
-          },
-        });
-      }
-      return Promise.resolve({});
-    });
-    renderSettings();
-
-    await user.click(screen.getByTestId('verwaltung-ki'));
-
-    await waitFor(() => {
-      expect(mockApi.get).toHaveBeenCalledWith('/settings/sprachmodell', expect.any(Object));
-      expect(screen.getByLabelText('Max. Tokens (LLM-Default)')).toHaveValue(2048);
-    });
-    // Das Firmenprofil hing an Wegen, die mit B4 gefallen sind.
-    expect(screen.queryByText('Firmenprofil & Kontext')).not.toBeInTheDocument();
-    expect(mockApi.get).not.toHaveBeenCalledWith('/memory/profile', expect.anything());
-  });
-
-  it('opens System with its sub-sections one below the other', async () => {
+  it('opens System with a sentence, three numbers and two sub-sections', async () => {
     const user = userEvent.setup();
     renderSettings();
 
     await user.click(screen.getByTestId('verwaltung-system'));
 
-    for (const name of ['Dienste', 'Aktualisierungen', 'Selbstheilung']) {
+    expect(await screen.findByText('Alles läuft.')).toBeInTheDocument();
+    expect(screen.getByTestId('system-zahlen')).toHaveTextContent('21');
+    for (const name of ['Dienste', 'Selbstheilung']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
+    expect(screen.queryByRole('button', { name: 'Aktualisierungen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 
@@ -246,7 +228,7 @@ describe('Settings integration', () => {
         'true'
       );
     });
-    expect(screen.getByRole('button', { name: 'Auslastung' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Dienste' })).toHaveAttribute(
       'aria-expanded',
       'false'
     );

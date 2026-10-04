@@ -91,8 +91,8 @@ dieselbe; verteilt werden muss nichts noch einmal. Von Hand geht es mit
 
 ## Die CA verteilen
 
-Der Admin lädt die Datei einmal herunter: **Einstellungen → Sicherheit →
-Gerätezertifikat herunterladen** (`GET /api/system/ca-zertifikat`, nur für
+Der Admin lädt die Datei einmal herunter: **Verwaltung → Gerät → Fernzugriff →
+Zertifikat herunterladen** (`GET /api/system/ca-zertifikat`, nur für
 Administratoren). Heraus kommt `arasul-ca.crt`.
 
 **Bis dahin sieht jeder Browser eine Warnung, und das ist auch richtig so.** Es

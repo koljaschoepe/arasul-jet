@@ -35,8 +35,9 @@ const APPS = [
   },
 ];
 
-function zeige({ freigaben = 0, onLogout = vi.fn() } = {}) {
+function zeige({ freigaben = 0, onLogout = vi.fn(), logo = null as string | null } = {}) {
   get.mockImplementation(async (pfad: string) => {
+    if (pfad === '/auth/needs-setup') return { needsSetup: false, firmenname: 'Muster GmbH', logo };
     if (pfad === '/apps/meine') return { data: APPS };
     if (pfad === '/freigabe-anfragen') {
       return { data: Array.from({ length: freigaben }, (_, i) => ({ id: i, app_id: 'urlaub' })) };
@@ -70,6 +71,22 @@ describe('ActivityBar', () => {
     // Ansicht mehr, sondern die Apps selbst.
     expect(screen.queryByLabelText('Modelle')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Apps')).not.toBeInTheDocument();
+  });
+
+  it('zeigt das Logo des Hauses über dem Haus, falls eines hinterlegt ist', async () => {
+    zeige({ logo: '2026-10-04T20:00:00.000Z' });
+    const logo = await screen.findByTestId('leiste-logo');
+    expect(logo).toHaveAttribute('src', '/api/darstellung/logo?stand=2026-10-04T20%3A00%3A00.000Z');
+    expect(logo).toHaveAttribute('alt', 'Muster GmbH');
+    // Es steht vor dem Haus.
+    const leiste = screen.getByTestId('aktivitaetsleiste');
+    expect(leiste.firstElementChild).toBe(logo);
+  });
+
+  it('ohne Logo steht dort nichts, auch kein Platzhalter', async () => {
+    zeige();
+    expect(await screen.findByLabelText('Urlaubsantrag')).toBeInTheDocument();
+    expect(screen.queryByTestId('leiste-logo')).not.toBeInTheDocument();
   });
 
   it('zeigt dem Mitarbeiter keine Verwaltung', async () => {

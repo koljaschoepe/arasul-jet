@@ -2,7 +2,7 @@
  * Läuft die Sitzung, in der ich gerade sitze, über den Fernzugriff?
  * (Plan 023 J5)
  *
- * Der Knopf „Trennen" kappt Tailscale. Sitzt der Nutzer gerade über Tailscale
+ * Der Schalter „Fernzugriff" kappt beim Ausschalten Tailscale. Sitzt der Nutzer gerade über Tailscale
  * auf dem Gerät, kappt er damit die Leitung unter sich selbst weg: die Seite
  * ist danach nicht mehr erreichbar, und wieder heran kommt er nur noch im
  * lokalen Netz. Das darf man tun, aber man muss es wissen.
@@ -80,19 +80,19 @@ export function trennFrage(ueberFernzugriff: boolean): {
 } {
   if (ueberFernzugriff) {
     return {
-      title: 'Fernzugriff trennen und diese Sitzung verlieren?',
+      title: 'Fernzugriff ausschalten und diese Sitzung verlieren?',
       message:
-        'Du bist gerade ÜBER diese Verbindung angemeldet. Nach dem Trennen ist ' +
-        'diese Seite nicht mehr erreichbar, und Sie kommen nur noch im lokalen ' +
-        'Netz an das Gerät. Wieder verbinden geht dann nur dort.',
-      confirmText: 'Trotzdem trennen',
+        'Sie sind gerade ÜBER den Fernzugriff angemeldet. Danach ist diese Seite ' +
+        'nicht mehr erreichbar, und Sie kommen nur noch im Firmennetz an das ' +
+        'Gerät. Einschalten geht dann nur dort.',
+      confirmText: 'Trotzdem ausschalten',
     };
   }
   return {
-    title: 'Fernzugriff trennen?',
+    title: 'Fernzugriff ausschalten?',
     message:
-      'Das Gerät ist danach von außen nicht mehr erreichbar. Im lokalen Netz ' +
-      'bleibt alles wie es ist, und neu verbinden geht jederzeit.',
-    confirmText: 'Trennen',
+      'Das Gerät ist danach von unterwegs nicht mehr erreichbar. Im Firmennetz ' +
+      'bleibt alles, wie es ist, und einschalten geht jederzeit.',
+    confirmText: 'Ausschalten',
   };
 }

@@ -7,11 +7,17 @@
  *
  * Die Blätter (jedes holt seine eigenen Daten) sind durch Stummel ersetzt, die
  * Verwaltung und der Bereich System bleiben echt.
+ *
+ * Seit dem 04.10.2026 sind es die Bereiche aus `frontend.md`: Personen, Apps,
+ * Firmenordner, Modelle, System, Daten, Gerät. Allgemein, KI, Sicherheit,
+ * Lizenz und Fernzugriff gibt es nicht mehr; ihre Adressen führen dorthin, wo
+ * die Funktion jetzt steht.
  */
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings from '../Settings';
 import { SETTINGS_SECTIONS } from '../sections';
 import { useWorkspaceStore, type Ansicht } from '@/stores/workspaceStore';
@@ -63,28 +69,28 @@ function stub(testId: string, label: string) {
   return Stub;
 }
 
-vi.mock('../GeneralSettings', () => ({ GeneralSettings: stub('general-settings', 'General') }));
-vi.mock('../SecuritySettings', () => ({ SecuritySettings: stub('security-settings', 'Security') }));
 vi.mock('../DatenSettings', () => ({ DatenSettings: stub('daten-settings', 'Daten') }));
-vi.mock('../RemoteAccessSettings', () => ({
-  RemoteAccessSettings: stub('remote-access-settings', 'Remote Access'),
-}));
-vi.mock('../SprachmodellSettings', () => ({
-  SprachmodellSettings: stub('sprachmodell-settings', 'Modell'),
+vi.mock('../PersonenSettings', () => ({ PersonenSettings: stub('personen-settings', 'Personen') }));
+vi.mock('../GeraetSettings', () => ({
+  GeraetSettings: ({ abschnitt }: { abschnitt?: string }) =>
+    React.createElement('div', { 'data-testid': 'geraet-settings' }, `Gerät ${abschnitt ?? ''}`),
 }));
 // Leaves inside the (real) SystemSettings wrapper.
-vi.mock('../../system/SystemStatus', () => ({ SystemStatus: stub('system-status', 'Status') }));
 vi.mock('../../system/ServicesSettings', () => ({
   ServicesSettings: stub('services-settings', 'Dienste'),
 }));
-vi.mock('../../system/UpdatePage', () => ({ default: stub('update-page', 'Aktualisierungen') }));
 vi.mock('../../system/SelfHealingEvents', () => ({
   default: stub('selfhealing-events', 'Selbstheilung'),
 }));
 
 function zeige(ansicht: Partial<Ansicht> = {}) {
   useWorkspaceStore.setState({ ansicht: { type: 'verwaltung', ...ansicht } });
-  return render(<Settings modelle={<div data-testid="modelle-slot">Modelle</div>} />);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <Settings modelle={<div data-testid="modelle-slot">Modelle</div>} />
+    </QueryClientProvider>
+  );
 }
 
 describe('Verwaltung', () => {
@@ -113,38 +119,71 @@ describe('Verwaltung', () => {
       expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     });
 
-    test('ohne Bereich steht Allgemein da', () => {
+    test('genau die Bereiche aus dem Zielbild, in dieser Reihenfolge', () => {
       zeige();
-      expect(screen.getByTestId('general-settings')).toBeInTheDocument();
-      expect(screen.getByTestId('verwaltung-general')).toHaveAttribute('aria-current', 'true');
+      const namen = Array.from(
+        screen.getByTestId('verwaltung-bereiche').querySelectorAll('[data-testid^="verwaltung-"]')
+      ).map(e => e.textContent?.trim());
+      expect(namen).toEqual([
+        'Personen',
+        'Apps',
+        'Firmenordner',
+        'Modelle',
+        'System',
+        'Daten',
+        'Gerät',
+      ]);
     });
 
-    test('ein unbekannter Bereich fällt auf Allgemein', () => {
+    test('ohne Bereich stehen die Personen da', () => {
+      zeige();
+      expect(screen.getByTestId('personen-settings')).toBeInTheDocument();
+      expect(screen.getByTestId('verwaltung-benutzer')).toHaveAttribute('aria-current', 'true');
+    });
+
+    test('ein unbekannter Bereich fällt auf Personen', () => {
       zeige({ bereich: 'gibt-es-nicht' });
-      expect(screen.getByTestId('general-settings')).toBeInTheDocument();
+      expect(screen.getByTestId('personen-settings')).toBeInTheDocument();
     });
 
     test('ein Klick wählt den Bereich in der Ansicht und zeigt ihn', async () => {
       const user = userEvent.setup();
       zeige();
-      await user.click(screen.getByTestId('verwaltung-security'));
+      await user.click(screen.getByTestId('verwaltung-geraet'));
       expect(useWorkspaceStore.getState().ansicht).toEqual({
         type: 'verwaltung',
-        bereich: 'security',
+        bereich: 'geraet',
       });
-      expect(screen.getByTestId('security-settings')).toBeInTheDocument();
-      expect(screen.getByTestId('verwaltung-security')).toHaveAttribute('aria-current', 'true');
-      expect(screen.getByTestId('verwaltung-general')).not.toHaveAttribute('aria-current');
+      expect(screen.getByTestId('geraet-settings')).toBeInTheDocument();
+      expect(screen.getByTestId('verwaltung-geraet')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByTestId('verwaltung-benutzer')).not.toHaveAttribute('aria-current');
+    });
+
+    test.each([
+      ['general', 'unternehmen'],
+      ['lizenz', 'lizenz'],
+      ['remote-access', 'fernzugriff'],
+      ['security', 'fernzugriff'],
+    ])('der alte Bereich %s führt ins Gerät zum Abschnitt %s', (bereich, abschnitt) => {
+      zeige({ bereich });
+      expect(screen.getByTestId('geraet-settings')).toHaveTextContent(`Gerät ${abschnitt}`);
+      expect(screen.getByTestId('verwaltung-geraet')).toHaveAttribute('aria-current', 'true');
+    });
+
+    test('die Aktualisierung aus System führt ins Gerät', () => {
+      zeige({ bereich: 'system', abschnitt: 'updates' });
+      expect(screen.getByTestId('geraet-settings')).toHaveTextContent('Gerät aktualisierung');
+    });
+
+    test('den Bereich KI gibt es nicht mehr, er führt zu den Modellen', () => {
+      zeige({ bereich: 'ki' });
+      expect(screen.queryByTestId('verwaltung-ki')).not.toBeInTheDocument();
+      expect(screen.getByTestId('modelle-slot')).toBeInTheDocument();
     });
 
     test('der Bereich Modelle zeigt, was die Shell hereinreicht', () => {
       zeige({ bereich: 'modelle' });
       expect(screen.getByTestId('modelle-slot')).toBeInTheDocument();
-    });
-
-    test('der Bereich KI zeigt die Standardwerte des Sprachmodells', () => {
-      zeige({ bereich: 'ki' });
-      expect(screen.getByTestId('sprachmodell-settings')).toBeInTheDocument();
     });
 
     test('unter 900 px wird die Leiste zur Auswahl über dem Bereich', () => {
@@ -181,29 +220,38 @@ describe('Verwaltung', () => {
   });
 
   describe('Bereich System', () => {
-    test('die Unterbereiche stehen untereinander, die Auslastung offen', () => {
+    test('ein Satz, drei Zahlen, Dienste und Selbstheilung zugeklappt', () => {
       zeige({ bereich: 'system' });
-      for (const name of ['Auslastung', 'Dienste', 'Aktualisierungen', 'Selbstheilung']) {
+      expect(screen.getByTestId('system-satz')).toBeInTheDocument();
+      const zahlen = screen.getByTestId('system-zahlen');
+      for (const name of ['Prozessor', 'Speicher', 'Platte']) {
+        expect(zahlen).toHaveTextContent(name);
+      }
+      for (const name of ['Dienste', 'Selbstheilung']) {
         expect(screen.getByRole('button', { name })).toBeInTheDocument();
       }
+      // Auslastung und Aktualisierungen gibt es hier nicht mehr.
+      expect(screen.queryByRole('button', { name: 'Auslastung' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Aktualisierungen' })).not.toBeInTheDocument();
       expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-      expect(screen.getByTestId('system-status')).toBeInTheDocument();
       // Nur was offen ist, ist gemountet.
       expect(screen.queryByTestId('services-settings')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('selfhealing-events')).not.toBeInTheDocument();
     });
 
     test('ein Unterbereich klappt auf, ohne den offenen zu schließen', async () => {
       const user = userEvent.setup();
       zeige({ bereich: 'system' });
+      await user.click(screen.getByRole('button', { name: 'Dienste' }));
       await user.click(screen.getByRole('button', { name: 'Selbstheilung' }));
       expect(screen.getByTestId('selfhealing-events')).toBeInTheDocument();
-      expect(screen.getByTestId('system-status')).toBeInTheDocument();
+      expect(screen.getByTestId('services-settings')).toBeInTheDocument();
     });
 
     test('der Abschnitt aus der Adresse kommt aufgeklappt an', () => {
       zeige({ bereich: 'system', abschnitt: 'selfhealing' });
       expect(screen.getByTestId('selfhealing-events')).toBeInTheDocument();
-      expect(screen.queryByTestId('system-status')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('services-settings')).not.toBeInTheDocument();
     });
   });
 });

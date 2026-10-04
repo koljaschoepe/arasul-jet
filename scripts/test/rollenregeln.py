@@ -53,6 +53,10 @@ OEFFENTLICH = {
     'GET /api/auth/verify': 'Forward-Auth fuer Traefik; antwortet 401 statt zu werfen',
     'GET /api/system/heartbeat': 'Lebenszeichen fuer den Selbstheilungs-Agenten, ohne Sitzung',
     'GET /api/settings/password-requirements': 'die Passwortregeln stehen vor dem Passwortwechsel',
+    'GET /api/darstellung/logo': (
+        'das Logo des Hauses ist kein Geheimnis, wie der Firmenname in needs-setup; '
+        'gesetzt wird es nur vom Admin, und nur als gepruefte PNG, JPEG oder WebP (Migration 207)'
+    ),
     'GET /api/ausgang/regeln': 'Regeln fuer den Ausgangs-Proxy, gesichert ueber seinen Token (HMAC aus dem Geraetegeheimnis, J38)',
     'POST /api/ausgang/ereignisse': 'Zaehler vom Ausgangs-Proxy, gesichert ueber denselben Token (J38)',
     'POST /api/events/webhook/self-healing': 'Webhook des Selbstheilungs-Agenten, gesichert ueber sein Geheimnis',

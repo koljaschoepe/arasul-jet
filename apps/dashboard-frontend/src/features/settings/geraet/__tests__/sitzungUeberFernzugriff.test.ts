@@ -71,15 +71,15 @@ describe('sitzungLaeuftUeberFernzugriff (Plan 023 J5)', () => {
 describe('trennFrage', () => {
   it('warnt ausdruecklich, wenn die Sitzung darueber laeuft', () => {
     const f = trennFrage(true);
-    expect(f.message).toMatch(/ÜBER diese Verbindung angemeldet/);
-    expect(f.message).toMatch(/lokalen\s+Netz/);
-    expect(f.confirmText).toBe('Trotzdem trennen');
+    expect(f.message).toMatch(/ÜBER den Fernzugriff angemeldet/);
+    expect(f.message).toMatch(/nur noch im Firmennetz/);
+    expect(f.confirmText).toBe('Trotzdem ausschalten');
   });
 
   it('nennt sonst nur die Folge, ohne zu dramatisieren', () => {
     const f = trennFrage(false);
-    expect(f.message).toMatch(/von außen nicht mehr erreichbar/);
-    expect(f.message).not.toMatch(/ÜBER diese Verbindung/);
-    expect(f.confirmText).toBe('Trennen');
+    expect(f.message).toMatch(/von unterwegs nicht mehr erreichbar/);
+    expect(f.message).not.toMatch(/ÜBER den Fernzugriff/);
+    expect(f.confirmText).toBe('Ausschalten');
   });
 });

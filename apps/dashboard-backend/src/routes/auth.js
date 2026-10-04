@@ -209,13 +209,19 @@ router.post(
 // Seitenladung, und die zwei, die es gibt, sind die enge Stelle (G2). Der Wert
 // kommt aus dem Cache des systemSettingsService, nicht aus Postgres. Er ist
 // kein Geheimnis: er steht spaeter fuer jeden lesbar ueber dem Anmeldeformular.
+//
+// `logo` seit dem 04.10.2026 (Migration 207): der Stand des Logos des Hauses
+// oder null. Die Aktivitaetsleiste haengt ihn an die Adresse des Bildes
+// (`GET /api/darstellung/logo?stand=…`); ohne Logo fragt sie gar nicht erst.
 router.get(
   '/needs-setup',
   probeLimiter,
   asyncHandler(async (req, res) => {
     const needsSetup = await isSetupNeeded();
     const firmenname = systemSettings.get('company_name', null) || null;
-    res.json({ needsSetup, firmenname, timestamp: new Date().toISOString() });
+    const stand = systemSettings.get('company_logo_stand', null);
+    const logo = stand ? new Date(stand).toISOString() : null;
+    res.json({ needsSetup, firmenname, logo, timestamp: new Date().toISOString() });
   })
 );
 

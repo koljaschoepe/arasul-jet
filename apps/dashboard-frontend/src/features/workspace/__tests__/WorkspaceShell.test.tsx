@@ -117,8 +117,14 @@ describe('WorkspaceShell', () => {
   );
 
   it('/workspace/settings?tab= aus der Zeit vor M5 führt in die Verwaltung', async () => {
+    // Seit dem 04.10.2026 steht der Fernzugriff im Bereich Gerät.
     renderShell('/workspace/settings?tab=remote-access');
-    await landetAuf('/workspace/verwaltung/remote-access');
+    await landetAuf('/workspace/verwaltung/geraet/fernzugriff');
+  });
+
+  it('eine Adresse auf einen gestrichenen Bereich landet beim Abschnitt im Gerät', async () => {
+    renderShell('/workspace/verwaltung/lizenz');
+    await landetAuf('/workspace/verwaltung/geraet/lizenz');
   });
 
   it('/workspace/settings ohne ?tab= sind die persönlichen Einstellungen', async () => {
