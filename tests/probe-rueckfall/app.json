@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "probe-rueckfall",
+  "name": "Probe: Rückfall",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/rueckfall-abnahme.sh: eine App OHNE eigene Freigabe-Ansicht (kein zeigt_freigaben, liest ?freigabe= nicht); ihre Freigaben entscheidet das Geraet in Arasul (M5).",
+  "frontend": {
+    "verzeichnis": "frontend"
+  },
+  "backend": {
+    "image": "arasul-probe-rueckfall:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
+    "gesundheit": "/gesund",
+    "umgebung": {
+      "PROBE_VERSION": "1.0.0"
+    }
+  },
+  "ports": {
+    "backend": 8080
+  },
+  "ressourcen": {
+    "speicher": "64m",
+    "cpus": 0.25
+  },
+  "modelle": [],
+  "flows": {
+    "verzeichnis": "flows"
+  }
+}
