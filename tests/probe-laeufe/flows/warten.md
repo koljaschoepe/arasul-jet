@@ -1,6 +1,6 @@
 ---
 name: warten
-beschreibung: Läuft jede Minute und wartet auf eine Freigabe, die niemand erteilt: ein Lauf ohne Person, den der Administrator abbricht (Abnahme M5, Verwaltung Läufe).
+beschreibung: Läuft jede Minute und wartet auf eine Freigabe, die niemand erteilt, ein Lauf ohne Person, den der Administrator abbricht (Abnahme M5, Verwaltung Läufe).
 ausloeser:
   - typ: zeitplan
     zeitplan: '* * * * *'

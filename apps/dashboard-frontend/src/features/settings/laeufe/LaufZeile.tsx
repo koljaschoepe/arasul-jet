@@ -84,7 +84,7 @@ export function LaufZeile({
         </a>
       </div>
       {lauf.error && !offen && (
-        <p className="line-clamp-1 px-ui-3 pb-2 pl-10 text-xs text-destructive">{lauf.error}</p>
+        <p className="truncate px-ui-3 pb-2 pl-10 text-xs text-destructive">{lauf.error}</p>
       )}
       {offen && (
         <div className="flex flex-col gap-3 px-ui-3 pb-ui-3 pl-10">
