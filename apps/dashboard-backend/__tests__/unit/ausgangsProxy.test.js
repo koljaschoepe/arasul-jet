@@ -93,8 +93,18 @@ describe('Regeln und Zahlen', () => {
       })
       .mockResolvedValueOnce({
         rows: [
-          { app_id: 'a', stand: 'live', manifest: { verbindungen: ['example.org'] } },
-          { app_id: 'a', stand: 'test', manifest: { verbindungen: ['example.org'] } },
+          {
+            app_id: 'a',
+            stand: 'live',
+            manifest: { verbindungen: ['example.org', 'spaet.example'] },
+            eingespielt_am: '2026-10-02T07:00:00Z',
+          },
+          {
+            app_id: 'a',
+            stand: 'test',
+            manifest: { verbindungen: ['example.org'] },
+            eingespielt_am: '2026-10-02T07:00:00Z',
+          },
         ],
       })
       .mockResolvedValueOnce({
@@ -136,6 +146,16 @@ describe('Regeln und Zahlen', () => {
             zuletzt: '2026-10-02T08:30:00Z',
           },
           {
+            // Abgewiesen, BEVOR der Livestand den Namen eintrug: keine Stoerung.
+            quelle: 'app',
+            app_id: 'a',
+            stand: 'live',
+            host: 'spaet.example',
+            ergebnis: 'abgewiesen',
+            anzahl: '1',
+            zuletzt: '2026-10-01T09:00:00Z',
+          },
+          {
             quelle: 'plattform',
             app_id: '',
             stand: '',
@@ -147,7 +167,10 @@ describe('Regeln und Zahlen', () => {
         ],
       });
     const u = await ausgang.uebersicht();
-    expect(u.apps[0].eingetragen).toEqual([{ host: 'example.org', staende: ['live', 'test'] }]);
+    expect(u.apps[0].eingetragen).toEqual([
+      { host: 'example.org', staende: ['live', 'test'] },
+      { host: 'spaet.example', staende: ['live'] },
+    ]);
     expect(u.apps[0].genutzt).toEqual([
       {
         host: 'example.org',
@@ -161,6 +184,7 @@ describe('Regeln und Zahlen', () => {
     expect(u.apps[0].abgewiesen).toEqual([
       expect.objectContaining({ host: 'boese.example', anzahl: 5, stoerung: false }),
       expect.objectContaining({ host: 'example.org', anzahl: 2, stoerung: true }),
+      expect.objectContaining({ host: 'spaet.example', anzahl: 1, stoerung: false }),
     ]);
     expect(u.apps[1]).toMatchObject({ eingetragen: [], genutzt: [], abgewiesen: [] });
     expect(u.plattform.genutzt[0]).toMatchObject({ host: 'api.anthropic.com', anzahl: 7 });

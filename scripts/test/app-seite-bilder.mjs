@@ -202,10 +202,8 @@ async function seite() {
     );
     pruefe(
       'Fassungen: Technik ist zugeklappt',
-      !(await page
-        .getByText('Eingespielt')
-        .isVisible()
-        .catch(() => false))
+      (await page.getByTestId('stand-live-technik').getByText('Eingespielt').count()) === 0 &&
+        (await page.getByTestId('stand-test-technik').getByText('Eingespielt').count()) === 0
     );
     pruefe(
       'Fassungen: „Live schalten" und „Zurück" stehen da, wo sie etwas tun',

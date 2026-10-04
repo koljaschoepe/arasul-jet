@@ -155,7 +155,7 @@ ausrollen() { # version [aenderungstext]
   paket=$(baue_paket "$1") || return 1
   [ -n "$text" ] && mit_text=(-F "aenderungstext=$text")
   CODE=$(curl -sk -o "$RUMPF_DATEI" -w '%{http_code}' --max-time "$GEDULD" \
-    -H "x-api-key: $SCHLUESSEL" -F "paket=@$paket" "${mit_text[@]}" "$BASIS/api/v1/external/apps")
+    -H "x-api-key: $SCHLUESSEL" -F "paket=@$paket" ${mit_text[@]+"${mit_text[@]}"} "$BASIS/api/v1/external/apps")
 }
 
 laeufe() { # Zahl der Läufe der App
