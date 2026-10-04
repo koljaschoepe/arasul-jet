@@ -14,6 +14,8 @@
  *   const testService = createLLMJobService({ database: mockDb, logger: mockLogger });
  */
 
+const { InternalError } = require('../../utils/errors');
+
 /**
  * Factory function to create LLMJobService with injected dependencies
  * @param {Object} deps - Dependencies
@@ -299,7 +301,7 @@ function createLLMJobService(deps = {}) {
      */
     _resetForTesting() {
       if (process.env.NODE_ENV !== 'test') {
-        throw new Error('_resetForTesting is only available in test environment');
+        throw new InternalError('_resetForTesting gibt es nur in der Testumgebung');
       }
       activeStreams.clear();
     }

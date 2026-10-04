@@ -36,7 +36,7 @@ const { validateBody, validateParams } = require('../middleware/validate');
 const { AusweisBody, AusweisParams } = require('../schemas/ausweise');
 const mitarbeiterAusweis = require('../services/auth/mitarbeiterAusweis');
 const { logSecurityEvent } = require('../utils/auditLog');
-const { NotFoundError, ConflictError } = require('../utils/errors');
+const { NotFoundError } = require('../utils/errors');
 
 /** GET /api/ausweise — meine Ausweise, ohne Werte. Es gibt keine mehr. */
 router.get(
@@ -80,24 +80,11 @@ router.post(
   requireRole('admin', 'mitarbeiter'),
   validateBody(AusweisBody),
   asyncHandler(async (req, res) => {
-    let angelegt;
-    try {
-      angelegt = await mitarbeiterAusweis.stelleAus({
-        benutzerId: req.user.id,
-        name: req.body.name,
-      });
-    } catch (err) {
-      // Zwei Ausweise mit demselben Namen waeren zwei Zeilen, die derselbe
-      // Rechner zu sein behaupten. Der Fehlerbehandler macht aus 23505 zwar
-      // ohnehin einen 409, aber ohne den Satz, der sagt, was zu tun ist.
-      if (err.code === '23505') {
-        throw new ConflictError(
-          `Es gibt schon einen Ausweis mit dem Namen „${req.body.name}". ` +
-            'Widerrufen Sie ihn oder nehmen Sie einen anderen Namen.'
-        );
-      }
-      throw err;
-    }
+    // Ein Name, den es schon gibt, ist ein 409 mit Satz (`stelleAus`).
+    const angelegt = await mitarbeiterAusweis.stelleAus({
+      benutzerId: req.user.id,
+      name: req.body.name,
+    });
     await logSecurityEvent({
       userId: req.user.id,
       action: 'ausweis_ausgestellt',

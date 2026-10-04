@@ -4,6 +4,7 @@
 
 const bcrypt = require('bcrypt');
 const logger = require('./logger');
+const { InternalError } = require('./errors');
 
 const SALT_ROUNDS = 12;
 
@@ -26,7 +27,10 @@ async function hashPassword(password) {
     return hash;
   } catch (error) {
     logger.error(`Error hashing password: ${error.message}`);
-    throw new Error('Password hashing failed');
+    throw new InternalError('Das Passwort ließ sich nicht verschlüsseln.', {
+      code: 'PASSWORT_HASH_FEHLER',
+      roh: error.message,
+    });
   }
 }
 
@@ -39,7 +43,10 @@ async function verifyPassword(password, hash) {
     return isValid;
   } catch (error) {
     logger.error(`Error verifying password: ${error.message}`);
-    throw new Error('Password verification failed');
+    throw new InternalError('Das Passwort ließ sich nicht prüfen.', {
+      code: 'PASSWORT_PRUEFUNG_FEHLER',
+      roh: error.message,
+    });
   }
 }
 

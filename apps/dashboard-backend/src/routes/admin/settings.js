@@ -8,7 +8,7 @@ const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const { changeDashboardPassword } = require('../../services/auth/passwordService');
-const { updateEnvVariables, backupEnvFile, envZurueckrollen } = require('../../utils/envManager');
+const { updateEnvVariablesOderZurueck, backupEnvFile } = require('../../utils/envManager');
 const db = require('../../database');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { asyncHandler } = require('../../middleware/errorHandler');
@@ -52,17 +52,10 @@ router.post(
 
     // SECURITY FIX: Only store the hash, not the plaintext password
     // The hash is sufficient for authentication (DB is source of truth)
-    try {
-      await updateEnvVariables({
-        ADMIN_HASH: newPasswordHash,
-      });
-    } catch (err) {
-      // Die Datenbank ist die Quelle der Wahrheit, das Passwort ist also schon
-      // gewechselt. Eine halb geschriebene `.env` waere trotzdem ein kaputtes
-      // Geraet beim naechsten Start.
-      await envZurueckrollen(envVorher);
-      throw err;
-    }
+    // Die Datenbank ist die Quelle der Wahrheit, das Passwort ist also schon
+    // gewechselt. Misslingt das Schreiben, rollt `updateEnvVariablesOderZurueck`
+    // die `.env` auf `envVorher` zurueck und wirft weiter.
+    await updateEnvVariablesOderZurueck({ ADMIN_HASH: newPasswordHash }, envVorher);
 
     // SEC-FIX: Invalidate all existing sessions after password change
     // Without this, old tokens remain valid even after password change

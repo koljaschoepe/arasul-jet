@@ -68,6 +68,8 @@ router.post(
 
     // Nach `auslieferung` ist das Prüfprotokoll selbst geleert. Der Eintrag
     // danach ist die erste Zeile des neuen Geräts und hält fest, warum es leer ist.
+    // Best-Effort (.catch): der Reset ist gelaufen; ein fehlender Prüfeintrag
+    // steht im Log, die Antwort mit dem Bericht geht trotzdem.
     await logSecurityEvent({
       userId: req.user?.id ?? null,
       action: 'werksreset',

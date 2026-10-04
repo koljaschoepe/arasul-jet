@@ -73,10 +73,14 @@ PG `23503 → 400/VALIDATION_ERROR`. **Don't replicate this logic in routes.**
 
 `ApiError` (base) · `ValidationError` (400) · `UnauthorizedError` (401) ·
 `ForbiddenError` (403) · `NotFoundError` (404) · `ConflictError` (409) ·
-`RateLimitError` (429) · `ServiceUnavailableError` (503).
+`RateLimitError` (429) · `ServiceUnavailableError` (503) ·
+`InternalError` (500, eigener `code`) · `UpstreamError` (502, ein
+Fremddienst wie das tailscale-Programm; Status überschreibbar).
 
 Each carries a stable `code` for clients to dispatch on. Add new subclasses
-here — don't `throw new Error(...)` from routes.
+here — don't `throw new Error(...)` from routes or services. `InternalError`
+and `UpstreamError` take `roh`: der technische Text (Programmausgabe, Antwort
+eines Fremddienstes) geht nur ins Log, der Klient liest `message`.
 
 ### 3. Validate every body/query/params with Zod
 

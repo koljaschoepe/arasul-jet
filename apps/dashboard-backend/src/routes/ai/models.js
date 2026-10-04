@@ -341,6 +341,7 @@ router.post(
     // DL-001: Heartbeat to keep connection alive during slow Ollama manifest fetches
     const heartbeatInterval = setInterval(() => {
       if (connection.isConnected()) {
+        // SSE nach gesendeten Headern: ein Schreibfehler heisst „Verbindung weg".
         try {
           res.write(`:heartbeat\n\n`);
         } catch {
@@ -349,11 +350,15 @@ router.post(
       }
     }, 10000);
 
+    // Ausnahme von der Regel: der Strom laeuft schon (SSE). Ein Fehler geht als
+    // letztes Ereignis `{ error, done }` an den Klienten -- der Fehlerbehandler
+    // koennte nach gesendeten Headern nichts mehr antworten.
     try {
       await modelService.downloadModel(
         model_id,
         (progress, status, bytes) => {
           if (connection.isConnected()) {
+            // SSE nach gesendeten Headern: ein Schreibfehler heisst „Verbindung weg".
             try {
               // Plan 023 D3: die Bytes gehen mit. Ein Prozentwert allein sagt
               // nicht, ob die naechste Minute oder die naechste Stunde gemeint

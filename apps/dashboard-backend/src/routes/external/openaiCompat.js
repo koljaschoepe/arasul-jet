@@ -17,10 +17,8 @@
 
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const crypto = require('crypto');
 const logger = require('../../utils/logger');
-const services = require('../../config/services');
 const { requireApiKey } = require('../../middleware/apiKeyAuth');
 const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
@@ -28,12 +26,11 @@ const modelService = require('../../services/llm/modelService');
 const ollamaReadiness = require('../../services/llm/ollamaReadiness');
 const kiProtokoll = require('../../services/app/kiProtokoll');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ApiError, ServiceUnavailableError } = require('../../utils/errors');
+const { ServiceUnavailableError } = require('../../utils/errors');
+const openaiAuftrag = require('../../services/llm/openaiAuftrag');
 const { validateBody } = require('../../middleware/validate');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { ChatCompletionsBody, EmbeddingsBody } = require('../../schemas/openaiCompat');
-
-const EMBEDDING_SERVICE_URL = services.embedding.url;
 
 // Map OpenAI-style endpoint scopes to legacy scopes so older API keys keep
 // working. Either scope grants access to the matching endpoint.
@@ -176,25 +173,15 @@ router.post(
       modell: resolvedModel,
     };
 
-    let jobInfo;
-    try {
-      jobInfo = await kiProtokoll.einreihen(kontext, () =>
-        llmQueueService.enqueue(
-          req.apiKey.userId,
-          'chat',
-          { messages: normalizedMessages, temperature, max_tokens, thinking: false },
-          { model: resolvedModel, priority: 0 }
-        )
-      );
-    } catch (err) {
-      // Ein unbekannter Mensch ist ein 400 und bleibt es; nur was die
-      // Warteschlange sagt, heisst hier 503.
-      if (err instanceof ApiError && err.statusCode < 500) {
-        throw err;
-      }
-      logger.warn(`[OpenAI compat] enqueue failed: ${err.message}`);
-      throw new ServiceUnavailableError(err.message || 'LLM enqueue failed');
-    }
+    // 400 bleibt 400; was die Warteschlange sagt, heisst 503 (`openaiAuftrag`).
+    const jobInfo = await openaiAuftrag.einreihen(kontext, () =>
+      llmQueueService.enqueue(
+        req.apiKey.userId,
+        'chat',
+        { messages: normalizedMessages, temperature, max_tokens, thinking: false },
+        { model: resolvedModel, priority: 0 }
+      )
+    );
 
     const { jobId } = jobInfo;
     const completionId = newCompletionId();
@@ -245,6 +232,8 @@ router.post(
       if (!connection.isConnected()) {
         return;
       }
+      // Ausnahme von der Regel: SSE, die Header sind gesendet -- ein
+      // Schreibfehler heisst „Verbindung weg", antworten kann niemand mehr.
       try {
         res.write(`data: ${JSON.stringify(obj)}\n\n`);
       } catch (err) {
@@ -260,6 +249,7 @@ router.post(
         model: resolvedModel,
         choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
       });
+      // SSE-Ende: der Strom kann schon zu sein (Klient weg).
       try {
         res.write('data: [DONE]\n\n');
         res.end();
@@ -311,6 +301,7 @@ router.post(
           error: { message, type: 'service_unavailable' },
           choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
         });
+        // SSE-Ende: der Strom kann schon zu sein (Klient weg).
         try {
           res.write('data: [DONE]\n\n');
           res.end();
@@ -375,24 +366,7 @@ router.post(
         einreicher: kiProtokoll.einreicherAus(req, 'user'),
         modell: reportedModel,
       },
-      async () => {
-        let response;
-        try {
-          response = await axios.post(
-            `${EMBEDDING_SERVICE_URL}/embed`,
-            { texts: inputs },
-            { timeout: 30000 }
-          );
-        } catch (err) {
-          logger.warn(`[OpenAI compat] embedding service error: ${err.message}`);
-          throw new ServiceUnavailableError('Embedding service unavailable');
-        }
-        const ergebnis = response.data.vectors || response.data.embeddings || [];
-        if (!Array.isArray(ergebnis) || ergebnis.length !== inputs.length) {
-          throw new ServiceUnavailableError('Embedding service returned malformed payload');
-        }
-        return { ergebnis };
-      }
+      async () => ({ ergebnis: await openaiAuftrag.einbetten(inputs) })
     );
     const promptTokens = inputs.reduce((sum, t) => sum + estimateTokens(t), 0);
 

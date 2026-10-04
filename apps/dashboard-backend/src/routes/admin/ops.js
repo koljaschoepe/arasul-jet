@@ -9,56 +9,15 @@
 const express = require('express');
 const { dienstName } = require('../../utils/dienstNamen');
 const router = express.Router();
-const fs = require('fs').promises;
-const path = require('path');
 const db = require('../../database');
 const dockerService = require('../../services/core/docker');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const logger = require('../../utils/logger');
-
-const BACKUP_REPORT_PATH = process.env.BACKUP_REPORT_PATH || '/arasul/backups/backup_report.json';
-
-async function readBackupReport() {
-  try {
-    const raw = await fs.readFile(BACKUP_REPORT_PATH, 'utf8');
-    const report = JSON.parse(raw);
-    const stat = await fs.stat(BACKUP_REPORT_PATH);
-    const ageMs = Date.now() - stat.mtimeMs;
-    const ageHours = Math.round(ageMs / 36e5);
-    return {
-      status: report.status || 'unknown',
-      timestamp: report.timestamp || null,
-      ageHours,
-      stale: ageHours > 48,
-      postgresBackups: report.postgres_backups ?? null,
-      walSegments: report.wal_segments ?? null,
-      totalSize: report.total_size || null,
-    };
-  } catch (err) {
-    return { status: 'missing', reason: err.code || 'read_failed', stale: true };
-  }
-}
-
-async function readRestoreDrillReport() {
-  try {
-    const drillPath = path.join(path.dirname(BACKUP_REPORT_PATH), 'restore_drill_report.json');
-    const raw = await fs.readFile(drillPath, 'utf8');
-    const report = JSON.parse(raw);
-    const stat = await fs.stat(drillPath);
-    const ageDays = Math.round((Date.now() - stat.mtimeMs) / 864e5);
-    return {
-      status: report.status || 'unknown',
-      timestamp: report.timestamp || null,
-      ageDays,
-      stale: ageDays > 14,
-      verifiedTables: report.verified_tables ?? null,
-      duration: report.duration_seconds ?? null,
-    };
-  } catch {
-    return { status: 'never_run', stale: true };
-  }
-}
+const {
+  readBackupReport,
+  readRestoreDrillReport,
+} = require('../../services/betrieb/betriebsberichte');
 
 // GET /api/ops/overview
 router.get(
@@ -66,6 +25,8 @@ router.get(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
+    // Jede Quelle einzeln Best-Effort (`.catch` mit Leerwert): eine Übersicht,
+    // in der ein Teil fehlt, ist mehr wert als eine 500 für die ganze Seite.
     const [backup, drill, services, alerts, unsent, metrics, retention] = await Promise.all([
       readBackupReport(),
       readRestoreDrillReport(),

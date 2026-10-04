@@ -152,12 +152,11 @@ router.get(
     logger.debug('[Store] Info request');
 
     // Get disk space
-    let diskInfo = { free: 0, total: 0 };
-    try {
-      diskInfo = await modelService.getDiskSpace();
-    } catch (err) {
+    // Best-Effort: ohne lesbaren Plattenplatz steht 0 da, die Seite bleibt.
+    const diskInfo = await modelService.getDiskSpace().catch(err => {
       logger.warn('[Store] Failed to get disk space:', err.message);
-    }
+      return { free: 0, total: 0 };
+    });
 
     const llmRamGB = getLlmRamGB();
     const totalRamGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));

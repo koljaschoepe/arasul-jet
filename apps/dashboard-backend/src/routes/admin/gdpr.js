@@ -14,6 +14,7 @@ const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { loescheBenutzer, holeBenutzer } = require('../../services/auth/benutzerService');
+const { kategorieHoler } = require('../../services/auth/datenauskunft');
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
@@ -65,35 +66,11 @@ router.get(
       requestId: req.headers['x-request-id'],
     });
 
-    /**
-     * Eine Kategorie holen. Fehler werden NICHT verschluckt.
-     *
-     * Bis zum 19.08.2026 stand an den meisten dieser Abfragen ein
-     * `.catch(() => ({ rows: [] }))`. Dadurch sah eine Kategorie, deren SQL
-     * gegen ein längst umgebautes Schema lief, im Export exakt so aus wie eine,
-     * zu der es wirklich nichts gibt. Live geprüft an dem Tag: von elf
-     * Kategorien waren sechs falsch — zwei brachten den Export mit 500 zum
-     * Absturz (`column "model" does not exist`), vier lieferten still nichts.
-     * Bei einer Auskunft nach Art. 15 ist "leer" eine Aussage. Die darf nicht
-     * geraten sein, also wird ein Fehlschlag mitgeliefert und protokolliert.
-     */
-    //
-    // Gefangen wird JEDER Fehler, nicht nur Schema-Drift: auch ein
-    // Verbindungsabbruch oder ein Timeout landet als `unvollstaendig` in der
-    // Antwort statt als 500. Das ist so gewollt — eine Auskunft, die zehn von
-    // elf Kategorien liefert und die elfte benennt, ist mehr wert als gar
-    // keine. Still ist sie dabei nie: der Grund steht in der Antwort und im
-    // Protokoll.
+    // Eine Kategorie holen. Fehler werden NICHT verschluckt, sondern als
+    // `unvollstaendig` mitgeliefert und protokolliert -- warum, steht in
+    // `services/auth/datenauskunft.js`.
     const unvollstaendig = [];
-    const hole = async (kategorie, sql, params) => {
-      try {
-        return await db.query(sql, params);
-      } catch (err) {
-        logger.error(`GDPR-Export: Kategorie "${kategorie}" nicht lesbar: ${err.message}`);
-        unvollstaendig.push({ kategorie, grund: err.message });
-        return { rows: [], fehler: err.message };
-      }
-    };
+    const hole = kategorieHoler(unvollstaendig);
     const block = (kategorie, result, extra = {}) => ({
       count: result.rows.length,
       ...(result.fehler ? { unvollstaendig: result.fehler } : {}),

@@ -8,7 +8,7 @@ const { dienstName } = require('../../utils/dienstNamen');
 const router = express.Router();
 const db = require('../../database');
 const { requireAuth, requireRole } = require('../../middleware/auth');
-const axios = require('axios');
+const { holeHeartbeat } = require('../../services/core/selfHealingHeartbeat');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
 const MAX_LIMIT = 500;
@@ -99,23 +99,8 @@ router.get(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    // Get heartbeat status from Self-Healing Agent
-    let heartbeatStatus = {
-      healthy: false,
-      seconds_since_heartbeat: null,
-      check_count: 0,
-      last_action: null,
-      error: 'Unable to reach heartbeat server',
-    };
-
-    try {
-      const heartbeatPort = process.env.SELF_HEALING_HEARTBEAT_PORT || 9200;
-      const heartbeatUrl = `http://self-healing-agent:${heartbeatPort}/health`;
-      const heartbeatResponse = await axios.get(heartbeatUrl, { timeout: 2000 });
-      heartbeatStatus = heartbeatResponse.data;
-    } catch {
-      // Heartbeat unavailable - use default status
-    }
+    // Get heartbeat status from Self-Healing Agent (Best-Effort)
+    const heartbeatStatus = await holeHeartbeat();
 
     // Get recent events statistics
     const last24hQuery = `

@@ -14,7 +14,7 @@ const AsyncMutex = require('./AsyncMutex');
 const { processChatJob, onJobComplete } = require('./llmJobProcessor');
 const { abbruchMelden, abbruchFesthalten } = require('./abbruchGrund');
 const { istExtern } = require('./extern/providerRegistry');
-const { ServiceUnavailableError } = require('../../utils/errors');
+const { ServiceUnavailableError, InternalError } = require('../../utils/errors');
 
 // Configuration from environment
 const MODEL_BATCHING_ENABLED = process.env.MODEL_BATCHING_ENABLED !== 'false';
@@ -919,7 +919,7 @@ function createLLMQueueService(deps = {}) {
      */
     _resetForTesting() {
       if (process.env.NODE_ENV !== 'test') {
-        throw new Error('_resetForTesting is only available in test environment');
+        throw new InternalError('_resetForTesting gibt es nur in der Testumgebung');
       }
 
       this.jobSubscribers.clear();

@@ -145,7 +145,7 @@ async function revisionenJeBereich() {
     stand = { zeit: Date.now(), werte };
     return werte;
   } catch (err) {
-    logger.warn(`Firmenordner: Revisionen nicht lesbar -- ${err.message}`);
+    logger.warn(`Firmenordner: Revisionen nicht lesbar -- ${err.roh || err.message}`);
     return null;
   }
 }
@@ -370,7 +370,7 @@ function starten() {
         await sperrenAufraeumen();
       }
     } catch (err) {
-      logger.warn(`Firmenordner: Pflege der Ablage gescheitert -- ${err.message}`);
+      logger.warn(`Firmenordner: Pflege der Ablage gescheitert -- ${err.roh || err.message}`);
     }
     runde += 1;
   };

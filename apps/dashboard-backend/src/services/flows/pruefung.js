@@ -24,6 +24,7 @@
  */
 
 const logger = require('../../utils/logger');
+const { InternalError } = require('../../utils/errors');
 
 /** {{platzhalter}}-Reste — nicht ersetzte Vorlagen-Marker. */
 const DOPPELT_RE = /\{\{\s*[^}]{1,80}\}\}/g;
@@ -251,7 +252,7 @@ async function pruefeUndKorrigiere({
       signal,
     });
     if (antwort.error || antwort.truncated || antwort.aborted) {
-      throw new Error(antwort.error || 'Prüfrunde abgebrochen (Zeitlimit/Abbruch)');
+      throw new InternalError(antwort.error || 'Prüfrunde abgebrochen (Zeitlimit/Abbruch)');
     }
     pruefung = parsePruefJson(antwort.result);
     if (!pruefung) {
@@ -296,7 +297,7 @@ async function pruefeUndKorrigiere({
       // Platzhalter-Text OHNE `.error` (toolLoop: „Abgebrochen: Zeitlimit …").
       // Der darf NIE zum Dokument werden — der ursprüngliche Entwurf bleibt.
       if (antwort.error || antwort.truncated || antwort.aborted || korrigiertText.length < 20) {
-        throw new Error(
+        throw new InternalError(
           antwort.error ||
             (antwort.truncated || antwort.aborted
               ? 'Korrektur abgebrochen (Zeitlimit/Abbruch)'

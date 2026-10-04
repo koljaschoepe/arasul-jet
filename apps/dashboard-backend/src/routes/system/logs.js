@@ -10,7 +10,12 @@ const path = require('path');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError, ForbiddenError } = require('../../utils/errors');
+const { ValidationError, ForbiddenError } = require('../../utils/errors');
+const {
+  logDateiMussDaSein,
+  logDateiInfo,
+  logZeileAlsObjekt,
+} = require('../../services/core/logDateien');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 
 // Base log directory
@@ -62,11 +67,7 @@ router.get(
     }
 
     // Check if log file exists
-    try {
-      await fs.access(logFilePath);
-    } catch {
-      throw new NotFoundError(`Log file not found for service: ${service}`);
-    }
+    await logDateiMussDaSein(service, logFilePath);
 
     // Read log file
     const logContent = await fs.readFile(logFilePath, 'utf-8');
@@ -93,18 +94,10 @@ router.get(
     // Return in requested format
     if (format === 'json') {
       // Try to parse JSON logs
-      const parsedLogs = filteredLines.map((line, index) => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          // If not JSON, return as text with line number
-          return {
-            line: lastLines.length - filteredLines.length + index + 1,
-            text: line,
-            timestamp: extractTimestamp(line),
-          };
-        }
-      });
+      // If not JSON, a line comes back as text with line number
+      const parsedLogs = filteredLines.map((line, index) =>
+        logZeileAlsObjekt(line, lastLines.length - filteredLines.length + index + 1)
+      );
 
       return res.json({
         service,
@@ -128,26 +121,8 @@ router.get(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const availableLogs = [];
-
     for (const [serviceName, filePath] of Object.entries(LOG_FILES)) {
-      try {
-        const stats = await fs.stat(filePath);
-        availableLogs.push({
-          service: serviceName,
-          path: filePath,
-          size: stats.size,
-          size_mb: (stats.size / 1024 / 1024).toFixed(2),
-          modified: stats.mtime,
-          accessible: true,
-        });
-      } catch {
-        // File doesn't exist or not accessible
-        availableLogs.push({
-          service: serviceName,
-          path: filePath,
-          accessible: false,
-        });
-      }
+      availableLogs.push(await logDateiInfo(serviceName, filePath));
     }
 
     res.json({
@@ -176,11 +151,7 @@ router.get(
     const logFilePath = LOG_FILES[service];
 
     // Check if log file exists
-    try {
-      await fs.access(logFilePath);
-    } catch {
-      throw new NotFoundError(`Log file not found for service: ${service}`);
-    }
+    await logDateiMussDaSein(service, logFilePath);
 
     // Set up SSE headers + 15s keepalive (Traefik idle-timeout protection)
     initSSE(res);
@@ -203,6 +174,9 @@ router.get(
     // Watch for file changes
     const watcher = fs.watch(logFilePath, async eventType => {
       if (eventType === 'change') {
+        // Ausnahme von der Regel: SSE, die Header sind gesendet. Ein Lesefehler
+        // waehrend des Mitlesens laesst den Strom offen; der Fehlerbehandler
+        // koennte nichts mehr antworten.
         try {
           const currentStats = await fs.stat(logFilePath);
 
@@ -280,11 +254,7 @@ router.get(
     const logFilePath = LOG_FILES[service];
 
     // Check if log file exists
-    try {
-      await fs.access(logFilePath);
-    } catch {
-      throw new NotFoundError(`Log file not found for service: ${service}`);
-    }
+    await logDateiMussDaSein(service, logFilePath);
 
     // Read log file
     const logContent = await fs.readFile(logFilePath, 'utf-8');
@@ -314,22 +284,5 @@ router.get(
     });
   })
 );
-
-// Helper function to extract timestamp from log line
-function extractTimestamp(line) {
-  // Try to extract ISO timestamp
-  const isoMatch = line.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/);
-  if (isoMatch) {
-    return isoMatch[0];
-  }
-
-  // Try to extract standard timestamp
-  const stdMatch = line.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
-  if (stdMatch) {
-    return stdMatch[0];
-  }
-
-  return null;
-}
 
 module.exports = router;

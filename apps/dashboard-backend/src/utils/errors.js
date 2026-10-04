@@ -176,6 +176,42 @@ class ServiceUnavailableError extends ApiError {
   }
 }
 
+/**
+ * Ein Fehler im Geraet selbst, der als 500 richtig ankommt -- aber mit einem
+ * Satz und einem eigenen `code` statt „Internal server error". Ein schlichtes
+ * `Error` faellt im Fehlerbehandler in den letzten Zweig und kommt ohne jede
+ * Aussage beim Klienten an (M5, Auftrag jet-fehlerklassen).
+ *
+ * `roh` traegt den technischen Text (Ausgabe eines Programms, Antwort eines
+ * Fremddienstes) fuer das Log. Der Fehlerbehandler schreibt ihn ins Log und
+ * schickt ihn NIE an den Klienten -- dort steht nur `message`.
+ */
+class InternalError extends ApiError {
+  constructor(message = 'Internal server error', { code = 'INTERNAL_ERROR', roh = null } = {}) {
+    super(message, { statusCode: 500, code });
+    this.roh = roh;
+  }
+}
+
+/**
+ * Ein Fremddienst hat abgelehnt oder Unbrauchbares geantwortet (502), zum
+ * Beispiel das tailscale-Programm auf dem Host. `statusCode` laesst sich
+ * ueberschreiben, wo ein Dienst bisher als 500 ankam und das so bleiben soll
+ * (der Firmenordner). `dienstStatus` ist der HTTP-Status des Fremddienstes,
+ * falls er einen hat -- damit muss niemand ihn aus dem Text lesen. `roh` wie
+ * bei `InternalError`: nur ins Log.
+ */
+class UpstreamError extends ApiError {
+  constructor(
+    message,
+    { statusCode = 502, code = 'UPSTREAM_ERROR', roh = null, dienstStatus = null } = {}
+  ) {
+    super(message, { statusCode, code });
+    this.roh = roh;
+    this.dienstStatus = dienstStatus;
+  }
+}
+
 class NotImplementedError extends ApiError {
   constructor(message = 'Not implemented', details = null) {
     super(message, { statusCode: 501, code: 'NOT_IMPLEMENTED', details });
@@ -198,5 +234,7 @@ module.exports = {
   FlowInaktivError,
   RateLimitError,
   ServiceUnavailableError,
+  InternalError,
+  UpstreamError,
   NotImplementedError,
 };
