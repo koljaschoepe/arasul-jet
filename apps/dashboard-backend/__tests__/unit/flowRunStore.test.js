@@ -228,7 +228,7 @@ describe('cancelRun', () => {
     const laufSql = db.calls[0];
     expect(laufSql.sql).toMatch(/UPDATE flow_runs/);
     expect(laufSql.sql).toMatch(/user_id = \$2/); // Eigentümer-Bindung
-    expect(laufSql.sql).toMatch(/status IN \('laeuft', 'wartend'\)/); // nur nicht beendete
+    expect(laufSql.sql).toMatch(/status IN \('laeuft', 'wartend', 'nicht_uebergeben'\)/); // nur nicht beendete
     expect(laufSql.params).toEqual([7, 1]);
 
     const schrittSql = db.calls[1];
@@ -308,5 +308,4 @@ describe('listRuns', () => {
     expect(params[0]).toBe(1);
     expect(params[params.length - 1]).toBe(200); // hart gedeckelt
   });
-
 });

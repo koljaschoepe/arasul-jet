@@ -23,7 +23,16 @@ const logger = require('../../utils/logger');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
 
 /** Zustände, die einen Lauf beenden — von hier an ändert sich sein Status nicht mehr. */
-const ENDZUSTAENDE = new Set(['fertig', 'fehler', 'abgebrochen', 'abgelaufen']);
+const ENDZUSTAENDE = new Set([
+  'fertig',
+  'fehler',
+  'abgebrochen',
+  'abgelaufen',
+  // Das Ergebnis steht, die App hat den Empfang nicht bestaetigt (M5, Migration
+  // 198). Fuer den Strom und den Aufrufer ist der Lauf zu Ende; ein Admin kann
+  // die Uebergabe mit `abschlussErgebnis` noch zu `fertig` fuehren.
+  'nicht_uebergeben',
+]);
 
 /**
  * Zustände, in denen ein Lauf noch nicht vorbei ist (Phase C7).
@@ -227,6 +236,65 @@ async function finishRun(
 }
 
 /**
+ * Haelt fest, dass die Uebergabe an die Abschluss-Route der App beginnt (M5,
+ * Migration 198): Ergebnis, Schrittzaehler und Annahmen werden JETZT
+ * geschrieben, der Lauf bleibt `laeuft`. Stirbt das Backend mitten im Aufruf,
+ * steht das Ergebnis in der Datenbank, und der Lauf wird beim Hochfahren
+ * `nicht_uebergeben` statt `fehler` (`flowRunner.verwaisteAufraeumen`).
+ */
+async function beginneAbschluss(
+  { runId, route, result, stepsUsed, annahmen = null },
+  { db = database } = {}
+) {
+  const { rows } = await db.query(
+    `UPDATE flow_runs
+        SET result = $2,
+            steps_used = COALESCE($3, steps_used),
+            annahmen = $4::jsonb,
+            abschluss = jsonb_build_object('route', $5::text, 'versuche', 0)
+      WHERE id = $1 AND status = 'laeuft'
+      RETURNING id`,
+    [runId, result, stepsUsed ?? null, annahmen == null ? null : JSON.stringify(annahmen), route]
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Schreibt den Ausgang EINES Uebergabeversuchs (M5): 2xx der App macht den Lauf
+ * `fertig`, alles andere `nicht_uebergeben`. Gilt fuer den ersten Versuch
+ * (`laeuft`) und fuer „erneut" (`nicht_uebergeben`); ein abgebrochener Lauf
+ * bleibt abgebrochen, ein bereits uebergebener fertig. Die Bedingung steht im
+ * WHERE: zwei gleichzeitige „erneut" schreiben nacheinander, nie
+ * durcheinander.
+ *
+ * @returns {Promise<object|null>} die Lauf-Zeile, oder null, wenn der Lauf in
+ *   keinem dieser zwei Zustaende mehr war.
+ */
+async function abschlussErgebnis(
+  { runId, ok, statusCode = null, fehler = null },
+  { db = database } = {}
+) {
+  const { rows } = await db.query(
+    `UPDATE flow_runs
+        SET status = (CASE WHEN $2::boolean THEN 'fertig' ELSE 'nicht_uebergeben' END)::flow_run_status,
+            error = CASE WHEN $2::boolean THEN NULL ELSE $4::text END,
+            finished_at = NOW(),
+            abschluss = COALESCE(abschluss, '{}'::jsonb) || jsonb_build_object(
+              'versuche', COALESCE((abschluss->>'versuche')::int, 0) + 1,
+              'letzter_versuch', to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+              'status_code', $3::int,
+              'fehler', $4::text,
+              'uebergeben_am', CASE WHEN $2::boolean
+                THEN to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') END
+            )
+      WHERE id = $1 AND status IN ('laeuft', 'nicht_uebergeben')
+      RETURNING *`,
+    [runId, Boolean(ok), statusCode, fehler]
+  );
+  return rows[0] || null;
+}
+
+/**
  * Legt die Datei-Änderungs-Übersicht eines Laufs ab (Plan 011, Schritt 16).
  *
  * Bewusst OHNE `status = 'laeuft'`-Bedingung: Die Übersicht wird beim Abschluss
@@ -267,7 +335,7 @@ async function cancelRun({ runId, userId }, { db = database } = {}) {
         SET status = 'abgebrochen', finished_at = NOW()
       WHERE id = $1
         AND user_id = $2
-        AND status IN ('laeuft', 'wartend')
+        AND status IN ('laeuft', 'wartend', 'nicht_uebergeben')
       RETURNING *`,
     [runId, userId]
   );
@@ -429,7 +497,7 @@ async function listRunsFuerApp(
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(
     `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at,
-            arguments, error
+            arguments, error, abschluss
        FROM flow_runs
       WHERE app_id = $1 ${filter}
       ORDER BY id DESC
@@ -468,6 +536,8 @@ module.exports = {
   startStep,
   finishStep,
   finishRun,
+  beginneAbschluss,
+  abschlussErgebnis,
   saveChanges,
   bumpSteps,
   cancelRun,

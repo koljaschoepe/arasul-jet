@@ -642,7 +642,15 @@ const LaeufeQuery = z
       .regex(FLOW_NAME_RE, 'Flow-Name: Kleinbuchstaben, Ziffern und Bindestriche')
       .optional(),
     status: z
-      .enum(['laeuft', 'wartend', 'fertig', 'fehler', 'abgebrochen', 'abgelaufen'])
+      .enum([
+        'laeuft',
+        'wartend',
+        'fertig',
+        'fehler',
+        'abgebrochen',
+        'abgelaufen',
+        'nicht_uebergeben',
+      ])
       .optional(),
     limit: z.coerce.number().int().min(1).max(200).default(50),
   })

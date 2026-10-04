@@ -137,6 +137,16 @@ async function leseAusPaket(manifest, ordner) {
       );
     }
 
+    // Eine Abschluss-Route (Kontrakt 11) ruft das Geraet am Backend der App
+    // auf. Ohne Backend gaebe es dort niemanden, der den Empfang bestaetigt:
+    // der Lauf stuende fuer immer auf „nicht uebergeben".
+    if (definition.abschluss && !manifest.backend) {
+      throw new ValidationError(
+        `${datei} nennt eine Abschluss-Route (${definition.abschluss.route}), aber die App hat ` +
+          'kein Backend. Die Route gehört dem Backend der App; ohne `backend` im Manifest gibt es sie nicht.'
+      );
+    }
+
     gelesen.push({ name, definition });
   }
   return gelesen;

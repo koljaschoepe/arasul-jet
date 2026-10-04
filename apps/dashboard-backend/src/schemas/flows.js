@@ -239,6 +239,26 @@ const FlowAusloeserListe = z
     'Derselbe Ausloeser steht zweimal da'
   );
 
+// Kontrakt 11 (M5): die Abschluss-Route der eigenen App. Nach der letzten
+// Stufe ruft das Geraet sie mit dem Ergebnis auf; erst die Empfangsbestaetigung
+// (2xx) schliesst den Lauf ab. Der Pfad ist der, den die App SELBST sieht (ohne
+// das Praefix `/apps/<id>/api`), mit fuehrendem `/`, ohne Schema, Host, `..`,
+// Abfrage und Anker: das Geraet ruft nur diese App, nie etwas anderes.
+const ABSCHLUSS_ROUTE_RE = /^\/[A-Za-z0-9._~\-/]*$/;
+const FlowAbschluss = z
+  .object({
+    route: z
+      .string({ error: 'abschluss braucht "route", z. B. "/abschluss/beleg"' })
+      .trim()
+      .min(1)
+      .max(200)
+      .refine(
+        v => ABSCHLUSS_ROUTE_RE.test(v) && !v.split('/').some(t => t === '..') && !v.includes('//'),
+        'abschluss.route: Pfad der eigenen App mit fuehrendem "/", Buchstaben, Ziffern und . _ ~ - /, ohne "..", "//", Abfrage oder Host'
+      ),
+  })
+  .strict();
+
 // Eine benannte Freigabestufe, etwa „pruefung" und „leitung". Der Name ist die
 // Kennung (ARG_NAME_RE), `bezeichnung` das, was der Mensch liest. Die Frist
 // setzt die App je Stufe; ohne sie gilt die Vorgabe des Geraets (7 Tage).
@@ -537,6 +557,7 @@ const FlowDefinition = z
     arten: FlowArten.optional(),
     ausloeser: FlowAusloeserListe.optional(),
     stufen: FlowStufen.optional(),
+    abschluss: FlowAbschluss.optional(),
     systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),
   })
   .strict()
@@ -742,6 +763,7 @@ const SaveFlowBody = z
     arten: FlowArten.optional(),
     ausloeser: FlowAusloeserListe.optional(),
     stufen: FlowStufen.optional(),
+    abschluss: FlowAbschluss.optional(),
     prompt: z.string().trim().min(1).max(50000),
   })
   .strict();
@@ -812,7 +834,15 @@ const ListRunsQuery = z
     // `wartend` und `abgelaufen` seit Phase C7 (Freigaben): der eine haelt an,
     // der andere ist vorbei, ohne dass jemand entschieden hat.
     status: z
-      .enum(['laeuft', 'wartend', 'fertig', 'fehler', 'abgebrochen', 'abgelaufen'])
+      .enum([
+        'laeuft',
+        'wartend',
+        'fertig',
+        'fehler',
+        'abgebrochen',
+        'abgelaufen',
+        'nicht_uebergeben',
+      ])
       .optional(),
     // Optionaler Flow-Filter — die Flow-Zentrale zeigt „Letzte Läufe" EINES
     // Flows, statt client-seitig aus der Gesamtliste zu sieben.

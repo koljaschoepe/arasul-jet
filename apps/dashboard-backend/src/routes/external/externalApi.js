@@ -1150,6 +1150,9 @@ router.get(
       status: run.status,
       result: run.result || null,
       error: run.error || null,
+      // Die Uebergabe an die Abschluss-Route der App (Kontrakt 11); null bei
+      // einem Flow ohne. `nicht_uebergeben` steht als Status, hier der Grund.
+      abschluss: run.abschluss ?? null,
       steps_used: run.steps_used ?? null,
       // Die Kette selbst (Phase H7): `steps_used` ist ihre Laenge, `schritte`
       // ist sie. Der Kontrakt verspricht sie seit C5.
@@ -1256,7 +1259,7 @@ async function waitForRunCompletion(runId, userId, timeoutMs, req, namensraum = 
   // ihrer Frist erteilt, der Lauf ist vorbei. `wartend` gehoert NICHT dazu --
   // dort haelt der Lauf an und geht nach einer Bestaetigung weiter, und genau
   // darauf soll dieser Aufruf ja warten.
-  const TERMINAL = new Set(['fertig', 'fehler', 'abgebrochen', 'abgelaufen']);
+  const TERMINAL = new Set(['fertig', 'fehler', 'abgebrochen', 'abgelaufen', 'nicht_uebergeben']);
   const pollInterval = 750;
   const startTime = Date.now();
   let clientGone = false;

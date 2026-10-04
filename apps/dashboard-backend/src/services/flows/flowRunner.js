@@ -336,6 +336,24 @@ async function verwaisteAufraeumen(deps = {}) {
   // hielte ihn für verwaist (an der Orin-Abnahme am 03.10.2026 gesehen: Lauf
   // fortgesetzt um :04, als `fehler` markiert um :12).
   const meine = [...aktive.keys()];
+  // Ein Lauf mit begonnener Uebergabe (`abschluss` gesetzt, M5) hat sein
+  // Ergebnis schon in der Datenbank: er ist `nicht_uebergeben` und laesst sich
+  // mit „erneut" abschliessen, nicht `fehler`.
+  const uebergabe = await db.query(
+    `UPDATE flow_runs
+        SET status = 'nicht_uebergeben',
+            error = 'Backend wurde neu gestartet, während das Ergebnis an die App übergeben wurde',
+            finished_at = NOW()
+      WHERE status = 'laeuft' AND abschluss IS NOT NULL
+        AND NOT (id = ANY($1::bigint[]))
+      RETURNING id`,
+    [meine]
+  );
+  if (uebergabe.rowCount > 0) {
+    logger.warn(
+      `flowRunner: ${uebergabe.rowCount} Läufe beim Start auf 'nicht_uebergeben' gesetzt`
+    );
+  }
   const res = await db.query(
     `UPDATE flow_runs
         SET status = 'fehler',
