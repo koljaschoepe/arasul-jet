@@ -165,10 +165,12 @@ src/
                    JEDEN: nur die Freigaben, die bei mir liegen (bei mir
                    persönlich oder, ohne Standardperson der Stufe, bei allen
                    mit Zugang; das Backend filtert). Je Freigabe EINE ZEILE:
-                   Gegenstand, App, seit wann; ein Klick öffnet die App beim
-                   Vorgang (`oeffne({type:'app', vorgang})`, Adresse
-                   `?freigabe=<nummer>`, Kontrakt in `APP-PAKET.md`).
-                   Entschieden wird in der App, nicht hier. Darunter bei wem
+                   Gegenstand, App, seit wann; ein Klick öffnet eine App, die im
+                   Manifest `zeigt_freigaben` erklärt, beim Vorgang
+                   (`oeffne({type:'app', vorgang})`, Adresse
+                   `?freigabe=<nummer>`); jede andere (Rückfall, Kontrakt 12,
+                   `APP-PAKET.md`) öffnet die Freigabe HIER mit dem Baustein
+                   `Freigabe` und kehrt danach zur Liste zurück. Darunter bei wem
                    sie liegt und „Weitergeben an …" (nur an den Kreis), beim
                    Admin ohne Standardperson ein Hinweis auf die Verwaltung;
                    zugeklappt, was bei anderen liegt, mit „Übernehmen".

@@ -277,16 +277,45 @@ Idempotenz beibringen. Ein Paket von Kontrakt 10 rollt unverändert aus; ein
 laufender App-Container bekommt `ARASUL_ABSCHLUSS_TOKEN` erst mit dem nächsten
 Einspielen.
 
-## Tieflink in die App (M5, 04.10.2026)
+## Tieflink in die App und Rückfall im Gerät: Kontrakt 12 (M5, 04.10.2026)
 
-Kein neues Manifestfeld, keine neue Kontraktfassung. Die Startseite („Für Sie")
-öffnet eine App beim Vorgang, indem sie den Rahmen auf `/apps/<id>/?freigabe=<nummer>`
-(Test: `/apps/<id>/test/?freigabe=<nummer>`) lädt; in der Adresse der Shell steht
-dasselbe als `/workspace/app/<id>[/test]?freigabe=<nummer>`. `<nummer>` ist die
-Nummer der Anfrage (`GET /api/v1/external/freigaben`, Feld `id`). **Die App liest
+Ein Klick in „Für Sie" auf der Startseite führt je nach Manifest an zwei Orte.
+
+```json
+{ "zeigt_freigaben": true }
+```
+
+**Mit `zeigt_freigaben: true`** erklärt die App, ihre Freigaben selbst zu
+zeigen. Die Startseite öffnet sie beim Vorgang, indem sie den Rahmen auf
+`/apps/<id>/?freigabe=<nummer>` (Test: `/apps/<id>/test/?freigabe=<nummer>`)
+lädt; in der Adresse der Shell steht dasselbe als
+`/workspace/app/<id>[/test]?freigabe=<nummer>`. `<nummer>` ist die Nummer der
+Anfrage (`GET /api/v1/external/freigaben`, Feld `id`). **Die App liest
 `freigabe` aus ihrer Adresse** und zeigt die Ansicht der Freigabe (das Muster
-`Freigabe` aus `@marken`) für diese Anfrage; liest sie den Parameter nicht, geht
-sie wie bisher auf ihrer Startseite auf. Ein anderer Vorgang lädt den Rahmen neu.
+`Freigabe` aus `@marken`) für diese Anfrage. Ein anderer Vorgang lädt den
+Rahmen neu.
+
+**Ohne das Feld, oder mit `false`,** gilt „zeigt nicht selbst" — so steht es
+bei jeder App vor Kontrakt 12. Dann öffnet ein Klick die Freigabe **in Arasul**,
+mit demselben Baustein `Freigabe` (Original links zoombar, Felder rechts,
+„prüfen" oben, änderbare Felder nach Kontrakt 10, Bisheriges, frühere Stufen,
+Bestätigen, Ablehnen mit Begründung, Weitergeben, Übernehmen), und danach steht
+wieder die Liste da. Die Regeln des Backends gelten unverändert (Einreicher bei
+vier Augen `403`, `liegt_bei` `409`); der Rückfall ist keine zweite
+Entscheidung, nur eine zweite Stelle, an der sie getroffen wird. Das Gerät liest
+das Feld aus dem Manifest des Standes, zu dem die Anfrage gehört
+(`app_staende.manifest`); `GET /api/freigabe-anfragen` nennt es je Anfrage als
+`app_zeigt_freigaben`.
+
+**Kontraktfassung 12:** das Manifest ist `.strict()`, ein Kit, das gegen 11
+prüft, wiese `zeigt_freigaben` als unbekannt ab. **Folge fürs Kit:**
+`KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs` auf 12 heben, bevor es
+auf ein solches Gerät einspielt, und der Vorlage das Feld beibringen: eine App
+mit eigener Freigabe-Ansicht trägt `zeigt_freigaben: true` ein, sonst
+entscheidet das Gerät an ihrer Stelle. Ein Paket von Kontrakt 11 rollt
+unverändert aus. **Wirkung auf bestehende Apps:** `belege` 0.3.0 (Faktum) liest
+`?freigabe=` nicht und trägt das Feld nicht; ihre Freigaben gehen ab diesem
+Stand in Arasul auf.
 
 ## Die Bibliothek zur Laufzeit: Kontrakt 9 (M5, 03.10.2026)
 

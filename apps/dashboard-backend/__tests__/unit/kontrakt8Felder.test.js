@@ -209,3 +209,17 @@ describe('Kontrakt 8 im Kontrakt', () => {
     expect(k.paket.regeln.join(' ')).toMatch(/aenderungstext/);
   });
 });
+
+describe('zeigt_freigaben im Manifest (Kontrakt 12)', () => {
+  it.each([true, false])('nimmt %s', wert => {
+    expect(AppManifest.parse({ ...MANIFEST, zeigt_freigaben: wert }).zeigt_freigaben).toBe(wert);
+  });
+
+  it('ist freiwillig: ohne das Feld zeigt die App nicht selbst', () => {
+    expect(AppManifest.parse(MANIFEST).zeigt_freigaben).toBeUndefined();
+  });
+
+  it.each(['ja', 1, null])('weist %j ab', wert => {
+    expect(grund(AppManifest.safeParse({ ...MANIFEST, zeigt_freigaben: wert }))).toBeTruthy();
+  });
+});

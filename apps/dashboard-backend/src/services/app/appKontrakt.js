@@ -60,7 +60,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 11;
+const KONTRAKT_VERSION = 12;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -235,6 +235,24 @@ const KONTRAKT_VERSION = 11;
  */
 
 /*
+ * Fassung 12 (M5, 04.10.2026): `zeigt_freigaben` im Manifest, ein Wahrheitswert.
+ * Eine App, die ihre Freigaben SELBST zeigt (sie liest `?freigabe=<nummer>`
+ * und entscheidet dort mit dem Baustein `Freigabe`), erklaert es damit, und
+ * ein Klick in „Fuer Sie" oeffnet sie beim Vorgang. Ohne das Feld gilt: sie
+ * zeigt nicht selbst, und das Geraet oeffnet die Freigabe in Arasul, mit
+ * demselben Baustein, denselben Regeln und denselben Rechten.
+ *
+ * FREIWILLIG, jedes Paket von Fassung 11 bleibt gueltig. Die Zahl geht mit,
+ * aus dem Grund von 3, 4, 7 bis 11: das Manifest ist `.strict()`, und ein Kit,
+ * das gegen 11 prueft, wiese `zeigt_freigaben` als unbekannt ab.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * muss 12 kennen, bevor ein Kit auf ein Geraet mit dieser Fassung einspielt;
+ * eine App mit eigener Freigabe-Ansicht traegt `zeigt_freigaben: true` ein,
+ * sonst entscheidet das Geraet an ihrer Stelle.
+ */
+
+/*
  * Fassung 11 (M5, 04.10.2026): der Abschluss ueber die App. Ein neues Feld im
  * Flow-Kopf, `abschluss: { route }`: nach der letzten Stufe ruft das Geraet
  * diese Route des Backends der eigenen App mit dem Ergebnis auf (inklusive der
@@ -309,6 +327,7 @@ const MANIFEST_REGELN = Object.freeze([
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Geraet haelt keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
   '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; hoechstens 20, keiner doppelt. Das Feld ist die FREIGABE: der Ausgangs-Proxy des Geraets laesst fuer diese App genau diese Namen durch und weist jeden anderen ab; der Administrator sieht je App, was eingetragen ist, was genutzt und was abgewiesen wurde -- siehe `netz`.',
   '`symbol` ist das Bild der App in der Aktivitaetsleiste (seit Kontrakt 8, freiwillig): ein Name aus dem Lucide-Satz (klein, mit Bindestrichen, z. B. `file-text`) ODER ein Kuerzel aus 1 bis 3 Grossbuchstaben oder Ziffern (z. B. `BE`). Das Geraet prueft die Form, nicht den Satz: kennt die Shell den Namen nicht, zeigt sie das Kuerzel aus dem Namen der App. Ohne `symbol` gilt dasselbe Kuerzel.',
+  '`zeigt_freigaben` erklaert, dass die App ihre Freigaben selbst zeigt (seit Kontrakt 12, freiwillig): sie liest `?freigabe=<nummer>` aus ihrer Adresse und zeigt die Ansicht der Freigabe. Dann oeffnet ein Klick in „Fuer Sie" die App beim Vorgang (Tieflink). Ohne das Feld, oder mit `false`, gilt „zeigt nicht selbst": das Geraet oeffnet die Freigabe in Arasul, mit demselben Baustein und denselben Regeln.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Geraet legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
 ]);
 

@@ -1,10 +1,19 @@
 /**
  * „Für Sie" auf der Startseite (M5, 04.10.2026): die Freigaben, die bei mir
- * liegen, je Zeile die App, der Gegenstand und seit wann. Ein Klick öffnet die
- * App beim Vorgang (`?freigabe=<nummer>`, Kontrakt in `docs/features/APP-PAKET.md`).
- * Entschieden wird dort, in der App, mit dem Baustein `Freigabe` der
- * Bibliothek; hier steht ein Posteingang und keine zweite Oberfläche zum
- * Entscheiden — jede Funktion an genau einer Stelle (`frontend.md`).
+ * liegen, je Zeile die App, der Gegenstand und seit wann.
+ *
+ * ZWEI WEGE, je nachdem, was die App im Manifest erklärt (`zeigt_freigaben`,
+ * Kontrakt 12, `docs/features/APP-PAKET.md`):
+ *  - Sie zeigt ihre Freigaben selbst: ein Klick öffnet die App beim Vorgang
+ *    (`?freigabe=<nummer>`), entschieden wird dort.
+ *  - Sie sagt nichts (jede App vor Kontrakt 12) : das Gerät fällt zurück und
+ *    öffnet die Freigabe HIER, mit dem Baustein `Freigabe` der Bibliothek —
+ *    Original, Felder, Bestätigen, Ablehnen —, und danach steht wieder die
+ *    Liste da. Ohne diesen Rückfall könnte niemand die Freigaben einer App
+ *    entscheiden, die den Tieflink nicht liest (04.10.2026, Faktum).
+ * Es ist derselbe Baustein und dieselbe Regel des Backends (Einreicher 403,
+ * `liegt_bei` 409); der Rückfall ist keine zweite Entscheidung, nur eine
+ * zweite Stelle, an der sie getroffen wird.
  *
  * Eine neue Freigabe liegt bei der Standardperson ihrer Stufe, die der
  * Administrator je App setzt; ohne sie bei allen mit Zugang. Jeder mit Zugang
@@ -19,24 +28,95 @@
  * WAS HIER NICHT STEHT: eine Historie der entschiedenen Freigaben. Die Liste
  * ist ein Posteingang, kein Archiv.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ClipboardCheck, Send, UserRound } from 'lucide-react';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@marken';
+import {
+  Button,
+  Freigabe,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  type FreigabeEintrag,
+} from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useToast } from '@/contexts/ToastContext';
 import {
   useOffeneFreigaben,
   useEingereichteFreigaben,
+  useFreigabeEntscheiden,
   useFreigabenBeiAnderen,
   useFreigabeVerlegen,
   type OffeneFreigabe,
 } from '@/hooks/useOffeneFreigaben';
 import { wartetSeit, oderListe } from './frist';
 
+/**
+ * Die Regel des Laufs als Satz, oder nichts (26.09.2026).
+ *
+ * Bis dahin stand hier ein Abzeichen „Vier Augen" mit der Erklärung im
+ * `title` — also nur für den, der mit der Maus darüberfährt, und nie am
+ * Telefon. Wer entscheidet, soll lesen, WARUM ausgerechnet er gefragt ist.
+ */
+function regelSatz(f: {
+  einreicher?: string | null;
+  ohne_einreicher?: boolean;
+  entscheider?: OffeneFreigabe['entscheider'];
+}): string | null {
+  const teile: string[] = [];
+  if (f.ohne_einreicher) {
+    teile.push(
+      f.einreicher
+        ? `Vier-Augen-Prinzip: ${f.einreicher} hat eingereicht und entscheidet nicht mit.`
+        : 'Vier-Augen-Prinzip: wer eingereicht hat, entscheidet nicht mit.'
+    );
+  }
+  if (f.entscheider && 'rolle' in f.entscheider) {
+    teile.push('Entscheiden darf nur ein Administrator.');
+  } else if (f.entscheider && 'konten' in f.entscheider) {
+    teile.push(`Entscheiden dürfen nur ${oderListe(f.entscheider.konten)}.`);
+  }
+  return teile.length > 0 ? teile.join(' ') : null;
+}
+
 /** Die Stufe in Worten: die Bezeichnung aus dem Flow, sonst ihr Name. */
 function stufeName(f: Pick<OffeneFreigabe, 'stufe' | 'stufe_bezeichnung'>): string | null {
   return f.stufe_bezeichnung || f.stufe || null;
+}
+
+/**
+ * Die Anfrage in der Form des Musters. Der NAME der App und nicht ihre Kennung
+ * (26.09.2026): „faktum" ist ein Pfad, „Faktum" ist das, was der Mensch links
+ * in seiner Leiste sieht.
+ */
+function alsEintrag(f: OffeneFreigabe, fuss?: ReactNode): FreigabeEintrag {
+  const stufe = stufeName(f);
+  return {
+    id: f.id,
+    titel: f.titel,
+    zusammenhang: f.zusammenhang,
+    herkunft:
+      `${f.stand === 'test' ? '(Test) ' : ''}${f.app_name || f.app_id}` +
+      (stufe ? ` · Stufe ${stufe}` : ''),
+    einreicher: f.einreicher,
+    frist: f.frist,
+    angefragtAm: f.angefragt_am,
+    regel: regelSatz(f),
+    felder: f.felder ?? null,
+    original: f.original ?? null,
+    bisher: (f.frueher ?? []).map(v => ({
+      titel: v.titel,
+      stufe: v.stufe,
+      status: v.status,
+      entschiedenVon: v.entschieden_von,
+      entschiedenAm: v.entschieden_am,
+      begruendung: v.begruendung,
+      korrekturen: v.korrekturen,
+    })),
+    fuss,
+  };
 }
 
 /**
@@ -219,7 +299,18 @@ function BeiAnderen() {
  * Eine Zeile: App, Gegenstand, seit wann. Der Klick öffnet die App beim
  * Vorgang; „Weitergeben" und der Hinweis stehen darunter.
  */
-function Zeile({ f, ich, istAdmin }: { f: OffeneFreigabe; ich: string; istAdmin: boolean }) {
+function Zeile({
+  f,
+  ich,
+  istAdmin,
+  imGeraet,
+}: {
+  f: OffeneFreigabe;
+  ich: string;
+  istAdmin: boolean;
+  /** Öffnet die Freigabe in Arasul statt in der App (Rückfall). */
+  imGeraet: (id: number) => void;
+}) {
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const app = `${f.stand === 'test' ? '(Test) ' : ''}${f.app_name || f.app_id}`;
   const stufe = stufeName(f);
@@ -228,13 +319,15 @@ function Zeile({ f, ich, istAdmin }: { f: OffeneFreigabe; ich: string; istAdmin:
       <button
         type="button"
         onClick={() =>
-          oeffne({
-            type: 'app',
-            appId: f.app_id,
-            stand: f.stand,
-            vorgang: f.id,
-            title: f.app_name || f.app_id,
-          })
+          f.app_zeigt_freigaben
+            ? oeffne({
+                type: 'app',
+                appId: f.app_id,
+                stand: f.stand,
+                vorgang: f.id,
+                title: f.app_name || f.app_id,
+              })
+            : imGeraet(f.id)
         }
         className="flex w-full flex-wrap items-baseline gap-x-3 gap-y-0.5 p-ui-3 text-left transition-colors duration-[120ms] hover:bg-primary/12 motion-reduce:transition-none"
         data-testid={`freigabe-${f.id}-oeffnen`}
@@ -260,6 +353,51 @@ export function OffeneFreigaben() {
   const { user } = useAuth();
   const ich = user?.username ?? '';
   const istAdmin = user?.role === 'admin';
+  const entscheiden = useFreigabeEntscheiden();
+  const toast = useToast();
+  // Die Freigabe, die gerade in Arasul offen ist (Rückfall); `null` ist die Liste.
+  const [gewaehlt, setGewaehlt] = useState<number | null>(null);
+
+  /**
+   * Nach dem Erfolg wird gesagt, ob der Lauf WIRKLICH weiterläuft.
+   * `fortgesetzt: false` heißt: die Entscheidung steht in der Datenbank, aber
+   * niemand führt den Lauf mehr fort (das Backend ist zwischendurch neu
+   * gestartet). Das zu verschweigen hieße, jemanden auf ein Ergebnis warten zu
+   * lassen, das nie kommt. Ein Fehler läuft über den Toast von `useApi` und
+   * wirft hier weiter -- das Muster lässt dann das Feld offen.
+   */
+  const entscheide = async (
+    e: FreigabeEintrag,
+    status: 'bestaetigt' | 'abgelehnt',
+    grund = '',
+    felder?: Record<string, string>
+  ) => {
+    const d = await entscheiden.mutateAsync(
+      status === 'bestaetigt'
+        ? { id: Number(e.id), status, ...(felder ? { felder } : {}) }
+        : { id: Number(e.id), status, begruendung: grund }
+    );
+    const was = status === 'bestaetigt' ? 'bestätigt' : 'abgelehnt';
+    const geaendert = d.korrekturen?.length ?? 0;
+    if (!d.fortgesetzt) {
+      toast.warning(
+        `„${e.titel}" ist ${was}. Der Lauf wird aber nicht mehr fortgesetzt: ` +
+          'das Gerät wurde zwischendurch neu gestartet.'
+      );
+    } else {
+      toast.success(
+        status === 'bestaetigt'
+          ? `„${e.titel}" freigegeben${
+              geaendert === 1
+                ? ', 1 Feld geändert'
+                : geaendert > 1
+                  ? `, ${geaendert} Felder geändert`
+                  : ''
+            }. Der Lauf läuft weiter.`
+          : `„${e.titel}" abgelehnt. Der Lauf ist beendet.`
+      );
+    }
+  };
 
   // Beim ersten Laden bleibt der Platz leer statt ein Skelett zu zeigen: in
   // aller Regel ist die Liste leer, und ein Skelett, das zu einer Zeile
@@ -281,6 +419,29 @@ export function OffeneFreigaben() {
     );
   }
 
+  // Die Einzelansicht im Gerät: der Baustein mit den Freigaben, die die App
+  // nicht selbst zeigt. Nach der Entscheidung ruft er `beiWahl(null)`, und die
+  // Liste steht wieder da; ist die Anfrage inzwischen weg (ein anderer war
+  // schneller), fällt er von selbst auf die Liste zurück.
+  const imGeraet = data.filter(f => !f.app_zeigt_freigaben);
+  if (gewaehlt !== null && imGeraet.some(f => f.id === gewaehlt)) {
+    return (
+      <section className="mb-6" data-testid="offene-freigaben" data-einzeln="true">
+        <div data-testid="freigabe-im-geraet">
+          <Freigabe
+            eintraege={imGeraet.map(f =>
+              alsEintrag(f, <Zustaendigkeit f={f} ich={ich} istAdmin={istAdmin} />)
+            )}
+            gewaehlt={gewaehlt}
+            beiWahl={id => setGewaehlt(id === null ? null : Number(id))}
+            beiBestaetigen={(e, felder) => entscheide(e, 'bestaetigt', '', felder)}
+            beiAblehnen={(e, grund) => entscheide(e, 'abgelehnt', grund)}
+          />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mb-6" data-testid="offene-freigaben">
       <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -292,7 +453,7 @@ export function OffeneFreigaben() {
       </h2>
       <ul className="flex flex-col rounded-md border border-border" data-testid="fuer-sie">
         {data.map(f => (
-          <Zeile key={f.id} f={f} ich={ich} istAdmin={istAdmin} />
+          <Zeile key={f.id} f={f} ich={ich} istAdmin={istAdmin} imGeraet={setGewaehlt} />
         ))}
       </ul>
       <BeiAnderen />

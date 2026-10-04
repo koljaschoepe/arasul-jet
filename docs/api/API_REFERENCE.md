@@ -2939,6 +2939,9 @@ Sitzung, nicht über einen Schlüssel.
 der **Standardperson ihrer Stufe** (`app_stufen_personen`, gesetzt unter `PUT
 /api/apps/:id/stufen/:stufe`), sofern die im Kreis steht; ohne Stufe oder ohne
 Standardperson liegt sie **bei allen im Kreis** (`liegt_bei: null`).
+Je Anfrage nennt die Liste `app_zeigt_freigaben` (Kontrakt 12): `true`, wenn die
+App im Manifest `zeigt_freigaben` erklärt — dann öffnet die Startseite die App
+beim Vorgang —, sonst `false` — dann öffnet sie die Freigabe in Arasul.
 `GET /api/freigabe-anfragen` zeigt nur, was beim Aufrufer liegt — die
 Startseite und die Zahl am Haus lesen diese Liste —, `…/bei-anderen` den Rest
 seines Kreises. Jeder im Kreis kann **übernehmen** oder an einen anderen im

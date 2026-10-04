@@ -329,9 +329,10 @@ der Startseite unter **„Für Sie"** die Anfragen, die bei ihm liegen (Abschnit
 wer entschied, Frist) — dasselbe Muster, mit dem eine App ihre Freigaben zeigt.
 An der Kachel der App steht höchstens eine Zahl. „Für Sie" ist ein Posteingang:
 eine Zeile je Anfrage mit App, Gegenstand und seit wann; **ein Klick öffnet die
-App beim Vorgang** (`?freigabe=<nummer>`, [APP-PAKET.md](APP-PAKET.md#tieflink-in-die-app-m5-04102026)),
-und dort steht die Ansicht der Freigabe mit **Bestätigen** und **Ablehnen**
-(Ablehnen mit Pflichtgrund). Die Zahl am Haus der Aktivitätsleiste zählt
+App beim Vorgang** (`?freigabe=<nummer>`), wenn sie im Manifest `zeigt_freigaben`
+erklärt, **sonst die Freigabe in Arasul selbst** ([APP-PAKET.md](APP-PAKET.md#tieflink-in-die-app-und-rückfall-im-gerät-kontrakt-12-m5-04102026)).
+Beide Male steht die Ansicht der Freigabe mit **Bestätigen** und **Ablehnen**
+(Ablehnen mit Pflichtgrund) da. Die Zahl am Haus der Aktivitätsleiste zählt
 dieselbe Liste; die Statusleiste trägt keine Zahl mehr.
 
 Über die Schnittstelle sind es dieselben Wege:

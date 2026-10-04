@@ -342,7 +342,11 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // (vorher sichern, Rueckfall, 409 LIVE_ZURUECKGESCHALTET), praezisere
     // Beschreibung des Schalters und des Aenderungstexts. Kein Feld, die Zahl
     // bleibt bei 11.
-    expect(abdruck).toBe('e315588b196ad6215ce1af1766f9e0d9a0c162b1aefe0110a82f84f80985ec1f');
+    //
+    // 04.10.2026 (M5, Kontrakt 12, Rueckfall im Geraet): `zeigt_freigaben` im
+    // Manifest und eine Regel dazu. Die Zahl geht mit, weil das Manifest
+    // `.strict()` ist und ein Kit auf Fassung 11 das Feld abwiese.
+    expect(abdruck).toBe('bc95c82dd3644eb43b4c202e3f138f59a546132447eca38a529dea19d59f13d9');
   });
 
   /**
