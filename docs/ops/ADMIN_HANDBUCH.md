@@ -134,6 +134,17 @@ und Ihre Aenderung mit Ihrem Namen und der Zeit. Der Administrator liest es
 unter **Verwaltung > Apps > (die App) > Laeufe > (der Lauf)**: „Erkannte Felder
 und Aenderungen". Nach der Entscheidung steht wieder die Liste da.
 
+**Nicht uebergeben.** Nennt der Flow einer App eine Abschluss-Route, uebergibt das
+Geraet sein Ergebnis nach der letzten Stufe an die App; fertig ist der Lauf erst,
+wenn die App den Empfang bestaetigt hat. Antwortet sie nicht oder mit einem
+Fehler, steht der Lauf unter **Verwaltung > Apps > (die App) > Laeufe** auf
+**nicht uebergeben**, mit dem Grund, und daneben der Knopf **erneut** (auch im
+Lauf selbst). „Erneut" schickt dasselbe Ergebnis noch einmal, ohne dass die
+Schritte neu laufen, sobald die App wieder antwortet. Der Zustand haelt ueber
+einen Neustart des Geraets. Ein Lauf, den niemand mehr uebergeben will, laesst
+sich abbrechen. Eine App, die schon vor dieser Funktion eingespielt wurde, hat
+das Geheimnis fuer die Route noch nicht: sie muss einmal neu eingespielt werden.
+
 Die Karte verschwindet, sobald entschieden ist. Steht danach eine Meldung, dass
 der Lauf nicht mehr fortgesetzt wird, wurde das Geraet zwischendurch neu
 gestartet: die Entscheidung ist festgehalten, den Lauf muss jemand neu

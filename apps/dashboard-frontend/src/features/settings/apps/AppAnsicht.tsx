@@ -39,7 +39,7 @@ import { AppStufen } from './AppStufen';
 import { AppTester } from './AppTester';
 import { FlowAnsicht, ModellZeile } from './FlowAnsicht';
 import { KiAufrufe } from './KiAufrufe';
-import { LaufAnsicht, LaufZustand } from './LaufAnsicht';
+import { ErneutKnopf, LaufAnsicht, LaufZustand } from './LaufAnsicht';
 import { ModellDialog } from './ModellDialog';
 import {
   useApp,
@@ -368,12 +368,12 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
           ) : (
             <ul className="flex flex-col rounded-md border border-border" data-testid="lauf-liste">
               {laeufe.map(l => (
-                <li key={l.id} className="border-b border-border last:border-b-0">
+                <li key={l.id} className="flex items-center border-b border-border last:border-b-0">
                   <button
                     type="button"
                     onClick={() => setBlick({ was: 'lauf', id: l.id })}
                     data-testid={`lauf-oeffnen-${l.id}`}
-                    className="flex w-full flex-wrap items-center gap-2 p-ui-3 text-left hover:bg-accent/40"
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-ui-3 text-left hover:bg-accent/40"
                   >
                     <span className="font-mono text-ui-xs text-muted-foreground">#{l.id}</span>
                     <span className="text-sm font-medium text-foreground">{l.flow_name}</span>
@@ -387,6 +387,11 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
                       {formatDate(l.created_at)}
                     </span>
                   </button>
+                  {l.status === 'nicht_uebergeben' && (
+                    <span className="shrink-0 pr-ui-3">
+                      <ErneutKnopf appId={appId} runId={l.id} />
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

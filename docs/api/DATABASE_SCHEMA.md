@@ -2033,6 +2033,7 @@ Ollama und keine Selbstheilung.
 | `einreicher_id`  | bigint                   | ✅       |                                         |
 | `freigabe_regel` | jsonb                    | ✅       |                                         |
 | `fortsetzung`    | jsonb                    | ✅       |                                         |
+| `abschluss`      | jsonb                    | ✅       |                                         |
 | `created_at`     | timestamp with time zone | ⛔       | `now()`                                 |
 | `finished_at`    | timestamp with time zone | ✅       |                                         |
 
@@ -2050,6 +2051,17 @@ Ollama und keine Selbstheilung.
 > (`freigabeAnfragen.anfordern`). `NULL` = nicht fortsetzbar (Freigabe aus der
 > Werkzeug-Schleife, aus einer Rolle oder aus einer Wiederholung); ein solcher
 > Lauf endet beim Neustart wie jeder laufende als `fehler`.
+
+> `abschluss` (Migration 198, M5, Kontrakt 11): die Übergabe des Ergebnisses an
+> die Abschluss-Route der App — `{route, versuche, letzter_versuch, status_code,
+fehler, uebergeben_am}`. Die Zeile entsteht **vor** dem ersten Aufruf
+> (zusammen mit `result`, `runStore.beginneAbschluss`), jeder Versuch schreibt
+> ihren Ausgang in derselben Anweisung wie den Status
+> (`runStore.abschlussErgebnis`). `NULL` = der Flow hat keine Abschluss-Route.
+> `status` kennt seit 198 `nicht_uebergeben`: das Ergebnis steht, die App hat
+> den Empfang nicht bestätigt; kein Endzustand im strengen Sinn, „erneut" führt
+> ihn zu `fertig`. Ein Lauf mit gesetztem `abschluss`, der beim Neustart noch
+> `laeuft` steht, wird `nicht_uebergeben` und nicht `fehler`.
 
 > `annahmen` (Migration 131, Plan 014 Phase 2): Annahmen-Protokoll des
 > Prüfschritts — JSON-Array von Klartext-Sätzen (Annahmen der Prüfrunde +

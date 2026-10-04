@@ -25,6 +25,7 @@ const appContainer = require('./appContainer');
 const appSchluessel = require('./appSchluessel');
 const appDatenbank = require('./appDatenbank');
 const appFlows = require('./appFlows');
+const appAbschluss = require('./appAbschluss');
 
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
@@ -325,7 +326,11 @@ async function spieleEin({ appId, version, stand, durch }) {
       await appContainer.starte(
         manifest,
         stand,
-        { ...appSchluessel.umgebungFuer(schluessel), ...appDatenbank.umgebungFuer(zugang) },
+        {
+          ...appSchluessel.umgebungFuer(schluessel),
+          ...appDatenbank.umgebungFuer(zugang),
+          ...appAbschluss.umgebungFuer(manifest.id, stand),
+        },
         versionsPfad
       );
     }

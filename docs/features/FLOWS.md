@@ -544,6 +544,63 @@ Felder. Ein Original, das nach dem Einsetzen kein Pfad relativ zur App ist
 
 Gemessen am Orin: `scripts/test/korrektur-abnahme.sh`.
 
+### Abschluss: Übergabe an die App (M5, 04.10.2026, Kontrakt 11)
+
+Nach der letzten Stufe übergibt der Flow sein Ergebnis an eine **Route der
+eigenen App**. Abgeschlossen ist der Lauf erst, wenn die App den Empfang
+bestätigt; sonst steht er auf **nicht übergeben**, mit dem Knopf „erneut".
+
+```yaml
+abschluss:
+  route: /abschluss/beleg
+```
+
+Die Route ist ein Pfad des **Backends der App**, so wie die App ihn sieht (ohne
+`/apps/<id>/api`): führender `/`, Buchstaben, Ziffern und `. _ ~ - /`, ohne Host,
+Schema, Abfrage, `..` und `//`. Eine App ohne `backend` kann sie nicht
+anbieten; ein Paket, dessen Flow `abschluss` nennt, wird dann abgewiesen.
+Ohne `abschluss` ändert sich nichts: der Lauf wird `fertig` wie vorher.
+
+**Der Weg.** Das Gerät ruft den Container der App im Netz `arasul-apps`
+(`arasul-app-<id>-<stand>`, Port aus dem Manifest), ohne Traefik und ohne
+Browser, `POST` mit JSON, Zeitlimit 30 Sekunden (fest, keine Einstellung).
+Weiterleitungen folgt es nicht. Woran die App den Aufruf als den des Geräts
+erkennt, steht im Kopf `Authorization: Bearer <ARASUL_ABSCHLUSS_TOKEN>`: ein
+Geheimnis je App und Stand, aus dem Schlüssel des Geräts abgeleitet (HMAC), der
+App beim Einspielen als Umgebungsvariable mitgegeben und nirgends gespeichert.
+Eine schon laufende App bekommt es erst mit dem nächsten Einspielen.
+
+**Der Inhalt.** `lauf` (Nummer), `flow`, `app`, `stand`, `argumente`, `ergebnis`
+(Text), `felder` (je Feld der **geltende** Wert, also mit der Korrektur eines
+Menschen; `null` ohne Erkennung), `korrekturen` (je Feld `feld`, `vorschlag`,
+`wert`, `von`, `am`; `null` ohne) und `angenommen`. Dazu die Köpfe
+`Idempotency-Key: arasul-lauf-<nummer>` und `X-Arasul-Lauf`. Die Lauf-Nummer ist
+die Kennung: die App legt ein Ergebnis zu einer Nummer **nur einmal** an, derselbe
+Aufruf kommt bei „erneut" noch einmal.
+
+**Der Zustand.**
+
+| Moment                              | Lauf                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| Letzte Stufe fertig, Aufruf läuft   | `laeuft`; Ergebnis und `abschluss.route` stehen schon in `flow_runs`                       |
+| Die App antwortet mit 2xx           | `fertig`, `abschluss.uebergeben_am` gesetzt                                                |
+| 3xx, 4xx, 5xx, Zeitlimit, nicht da  | `nicht_uebergeben`, `error` nennt den Grund, `abschluss` zählt Versuche                    |
+| „erneut" (Admin), die App antwortet | `fertig`, ohne dass die Schritte neu laufen; sie bekommt dieselben Daten, dieselbe Kennung |
+| „erneut", die App stört noch        | bleibt `nicht_uebergeben`, ein Versuch mehr                                                |
+| Backend startet neu, Aufruf lief    | `nicht_uebergeben` (nicht `fehler`): das Ergebnis steht in der Datenbank                   |
+| Abbruch                             | `abgebrochen`, auch aus `nicht_uebergeben`                                                 |
+
+Bei der Art **Ergebnis bestätigen** kommt der Aufruf nach der Bestätigung, nie
+davor. Ein Lauf, der scheiterte oder abgebrochen wurde, übergibt nichts.
+
+**„Erneut"** ist `POST /api/apps/:id/laeufe/:runId/erneut` (Admin, nur bei
+`nicht_uebergeben`, sonst `409`) und ein Knopf in der Läufe-Ansicht der App und
+im Lauf in der Verwaltung. Die App sieht den Zustand über
+`GET /api/v1/external/flows/runs/:id` (`status`, `abschluss`).
+
+Gemessen am Orin: `scripts/test/abschluss-abnahme.sh`, Probe-App
+`tests/probe-abschluss` (Route mit Schalter für 503, langsam, Schweigen).
+
 ### Abnahmen ohne Modell
 
 Eine Abnahme misst das Gerät, nicht ein Modell. Wo ein Flow nur ein vorgegebenes
@@ -554,7 +611,7 @@ auf ein **externes Modell** um, das die Probe-App selbst ist
 antwortet, was im Auftrag zwischen `<<<` und `>>>` steht. Rolle,
 Ergebnis-Vertrag, Erkennung, Freigabe und Fortsetzung laufen wie immer durch
 das Gerät; nur die Antwort ist fest. So in `tests/probe-arten` und
-`tests/probe-korrektur`.
+`tests/probe-korrektur`, `tests/probe-abschluss`.
 
 ### Ein wartender Lauf überlebt Neustart und Update (M5, 03.10.2026)
 

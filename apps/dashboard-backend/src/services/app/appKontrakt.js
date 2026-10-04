@@ -60,7 +60,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 10;
+const KONTRAKT_VERSION = 11;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -232,6 +232,27 @@ const KONTRAKT_VERSION = 10;
  *
  * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
  * muss 10 kennen, bevor ein Kit auf ein Geraet mit dieser Fassung einspielt.
+ */
+
+/*
+ * Fassung 11 (M5, 04.10.2026): der Abschluss ueber die App. Ein neues Feld im
+ * Flow-Kopf, `abschluss: { route }`: nach der letzten Stufe ruft das Geraet
+ * diese Route des Backends der eigenen App mit dem Ergebnis auf (inklusive der
+ * korrigierten Felder). Erst eine Empfangsbestaetigung (2xx) macht den Lauf
+ * `fertig`; sonst steht er auf `nicht_uebergeben`, bis ein Admin „erneut"
+ * ausloest. Dazu eine Umgebungsvariable, `ARASUL_ABSCHLUSS_TOKEN`: das
+ * Geheimnis, an dem die App den Aufruf des Geraets erkennt.
+ *
+ * FREIWILLIG, jedes Paket von Fassung 10 bleibt gueltig und laeuft wie bisher;
+ * ein Flow ohne `abschluss` wird `fertig` wie vorher. Die Zahl geht trotzdem
+ * mit, aus dem Grund von 3, 4, 7, 8, 9 und 10: der Kopf ist `.strict()`, und
+ * ein Kit, das gegen 10 prueft, wiese `abschluss` als unbekannt ab.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * muss 11 kennen, bevor ein Kit auf ein Geraet mit dieser Fassung einspielt.
+ * Eine App, die eine Abschluss-Route anbietet, liest `ARASUL_ABSCHLUSS_TOKEN`
+ * und prueft `Authorization: Bearer`; eine schon laufende App bekommt die
+ * Variable erst mit dem naechsten Einspielen.
  */
 
 /**
@@ -653,6 +674,7 @@ function kontrakt() {
         '`faehigkeiten` je Schritt nennt, was der Schritt vom Modell braucht (seit Kontrakt 8, freiwillig): `text`, `bild`, `werkzeuge` (je true oder false) und `mindestkontext` (Tokens, 512 bis 1048576). Nur bei `typ: subagent`; ein Werkzeug-Schritt ruft kein Modell und wird mit `faehigkeiten` abgewiesen.',
         '`ergebnis.aenderbar` an einer Rolle nennt, welche ihrer `felder` ein Mensch in einer Freigabe aendern darf (seit Kontrakt 10, freiwillig; nur Namen aus `felder`). Die Freigabe aus der Erkennung zeigt alle Felder mit dem Vorschlag der KI, unsichere und fehlende zuerst mit „pruefen", ohne Prozentzahl; aenderbar sind nur diese. Wer bestaetigt, schickt geaenderte Werte unter `felder` mit (`POST /api/freigabe-anfragen/:id/bestaetigen`); ein Feld, das hier nicht steht, weist das Geraet mit 400 ab. Gespeichert wird je Feld der Vorschlag, der neue Wert, wer und wann (`korrekturen`), und der weitere Lauf arbeitet mit dem neuen Wert.',
         '`original` an einem erkennenden Schritt (`typ: subagent` mit `faehigkeiten.bild: true`, seit Kontrakt 10, freiwillig) nennt das Bild oder PDF, das er liest, als Pfad RELATIV zur Adresse der App, mit Platzhaltern wie der Auftrag (`api/belege/{{beleg}}`): ohne `/` am Anfang, ohne `..`, ohne Schema. Die Freigabe zeigt es links, zoombar, geladen unter `/apps/<id>/` (Teststand `/apps/<id>/test/`) mit der Sitzung dessen, der entscheidet. Ergibt das Einsetzen keinen solchen Pfad, entsteht die Freigabe ohne Original.',
+        '`abschluss` nennt die Abschluss-Route der eigenen App (seit Kontrakt 11, freiwillig): `abschluss: { route: "/abschluss/beleg" }`, ein Pfad des Backends so, wie die App ihn sieht (ohne `/apps/<id>/api`), mit fuehrendem `/`, ohne Host, Abfrage und `..`. Nach der letzten Stufe (bei der Art `ergebnis_bestaetigen` nach der Bestaetigung) ruft das Geraet sie mit POST und JSON auf: `lauf` (Nummer, zugleich Kopf `Idempotency-Key: arasul-lauf-<nummer>` und `X-Arasul-Lauf`), `flow`, `app`, `stand`, `argumente`, `ergebnis` (Text), `felder` (je Feld der geltende Wert, mit den Korrekturen; null ohne Erkennung), `korrekturen` (je Feld `feld`, `vorschlag`, `wert`, `von`, `am`; null ohne) und `angenommen`. `Authorization: Bearer` traegt `ARASUL_ABSCHLUSS_TOKEN`; die App prueft es und legt ein Ergebnis zu einer Lauf-Nummer nur einmal an (derselbe Aufruf kommt bei „erneut" wieder). Antwortet sie mit 2xx, ist der Lauf `fertig`; mit allem anderen, nach 30 Sekunden ohne Antwort oder gar nicht, steht er auf `nicht_uebergeben` mit dem Grund, und der Administrator loest in der Verwaltung „erneut" aus, ohne dass die Schritte neu laufen. Das Geraet folgt keiner Weiterleitung. Das Manifest braucht ein `backend`.',
       ],
     },
     koepfe: {
@@ -672,19 +694,22 @@ function kontrakt() {
       basis: 'ARASUL_API_URL',
       schluessel: 'ARASUL_API_SCHLUESSEL',
       datenbank: 'ARASUL_DB_URL',
+      abschluss_token: 'ARASUL_ABSCHLUSS_TOKEN',
       was: {
         ARASUL_API_URL: 'Die externe Schnittstelle im Docker-Netz, ohne Umweg ueber Traefik',
         ARASUL_API_SCHLUESSEL:
           'Der Schluessel dieser App und dieses Standes, bei jedem Einspielen neu',
         ARASUL_DB_URL:
           'Die Datenbank dieser App und dieses Standes, als postgresql://…; nur mit `backend`',
+        ARASUL_ABSCHLUSS_TOKEN:
+          'Das Geheimnis, an dem die App den Aufruf ihrer Abschluss-Route als den des Geraets erkennt (`Authorization: Bearer`); nur mit `backend`, aendert sich nicht bei einem Update',
       },
       // Und was `basis` bereits ENTHAELT. Ohne diese zwei Zeilen haengt jeder
       // die Pfade aus `endpunkte` an die Adresse und ruft den Weg zweimal.
       praefix: PRAEFIX,
       basis_enthaelt_praefix: true,
       hinweis:
-        'Alle drei setzt das Geraet in den Container, zusaetzlich zu `backend.umgebung`. ' +
+        'Alle setzt das Geraet in den Container, zusaetzlich zu `backend.umgebung`. ' +
         '`basis` endet auf `praefix`: an sie gehoert `endpunkte[].relativ`, nicht ' +
         '`endpunkte[].pfad`. `datenbank` fehlt bei einer App ohne `backend` -- ' +
         'sie hat keinen Container, in den sie ginge.',

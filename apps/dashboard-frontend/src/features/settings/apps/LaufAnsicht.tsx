@@ -20,7 +20,8 @@ import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { formatDate } from '@/utils/formatting';
 import type { LaufFreigabe, LaufSchritt } from './useAppVerwaltung';
-import { useAppLauf } from './useAppVerwaltung';
+import { useAppLauf, useLaufErneut } from './useAppVerwaltung';
+import { useToast } from '@/contexts/ToastContext';
 
 /** Der Zustand eines Laufs in einem Wort, mit Farbe. */
 export function LaufZustand({ status }: { status: string }) {
@@ -31,7 +32,9 @@ export function LaufZustand({ status }: { status: string }) {
         ? 'border border-border text-muted-foreground'
         : status === 'abgelaufen'
           ? 'bg-muted-foreground/15 text-muted-foreground'
-          : 'bg-destructive/15 text-destructive';
+          : status === 'nicht_uebergeben'
+            ? 'border border-destructive/40 text-destructive'
+            : 'bg-destructive/15 text-destructive';
   const wort =
     status === 'laeuft'
       ? 'läuft'
@@ -39,8 +42,17 @@ export function LaufZustand({ status }: { status: string }) {
         ? 'wartet auf Freigabe'
         : status === 'abgelaufen'
           ? 'Frist abgelaufen'
-          : status;
-  return <span className={cn('rounded px-1.5 py-0.5 text-ui-xs font-medium', farbe)}>{wort}</span>;
+          : status === 'nicht_uebergeben'
+            ? 'nicht übergeben'
+            : status;
+  return (
+    <span
+      data-lauf-status={status}
+      className={cn('rounded px-1.5 py-0.5 text-ui-xs font-medium', farbe)}
+    >
+      {wort}
+    </span>
+  );
 }
 
 const SYMBOL: Record<LaufSchritt['kind'], React.ReactNode> = {
@@ -200,6 +212,30 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
   );
 }
 
+/** Der Knopf „erneut" für einen Lauf, dessen Ergebnis die App nicht bestätigt hat. */
+export function ErneutKnopf({ appId, runId }: { appId: string; runId: number }) {
+  const toast = useToast();
+  const erneut = useLaufErneut(appId);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={erneut.isPending}
+      data-testid={`lauf-erneut-${runId}`}
+      onClick={() =>
+        erneut.mutate(runId, {
+          onSuccess: lauf =>
+            lauf?.status === 'fertig'
+              ? toast.success('Die App hat das Ergebnis übernommen.')
+              : toast.error('Die App hat den Empfang wieder nicht bestätigt.'),
+        })
+      }
+    >
+      {erneut.isPending ? 'übergibt…' : 'erneut'}
+    </Button>
+  );
+}
+
 export function LaufAnsicht({
   appId,
   runId,
@@ -242,6 +278,7 @@ export function LaufAnsicht({
             <span className="text-ui-xs text-muted-foreground">
               {lauf.stand === 'test' ? 'Teststand' : 'Livestand'}
             </span>
+            {lauf.status === 'nicht_uebergeben' && <ErneutKnopf appId={appId} runId={lauf.id} />}
           </div>
 
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
@@ -251,6 +288,16 @@ export function LaufAnsicht({
               <>
                 <dt className="text-muted-foreground">Beendet</dt>
                 <dd className="text-foreground">{formatDate(lauf.finished_at)}</dd>
+              </>
+            )}
+            {lauf.abschluss && (
+              <>
+                <dt className="text-muted-foreground">Übergabe</dt>
+                <dd className="min-w-0 break-words text-foreground" data-testid="lauf-uebergabe">
+                  {lauf.abschluss.uebergeben_am
+                    ? `an ${lauf.abschluss.route} übergeben, ${formatDate(lauf.abschluss.uebergeben_am)}`
+                    : `${lauf.abschluss.route}, ${lauf.abschluss.versuche === 1 ? '1 Versuch' : `${lauf.abschluss.versuche} Versuche`}`}
+                </dd>
               </>
             )}
             {Object.keys(lauf.arguments ?? {}).length > 0 && (

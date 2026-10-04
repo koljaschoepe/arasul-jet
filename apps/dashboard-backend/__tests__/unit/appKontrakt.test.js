@@ -334,7 +334,11 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // der Rolle und `original` am erkennenden Schritt, zwei Regeln im Kopf und
     // eine unter `freigaben`. Die Zahl geht mit, weil Rolle und Schritt
     // `.strict()` sind und ein Kit auf Fassung 9 beide Felder abwiese.
-    expect(abdruck).toBe('d5393ef4f66bf89280043be6e67b9130dca7593b82cdf1c117bab01b90574bc5');
+    //
+    // 04.10.2026 (M5, Kontrakt 11, Abschluss ueber die App): `abschluss` im
+    // Flow-Kopf, eine Regel dazu und `ARASUL_ABSCHLUSS_TOKEN` in der Umgebung.
+    // Die Zahl geht mit, weil der Kopf `.strict()` ist.
+    expect(abdruck).toBe('34bea18107523a0cbd11c2f9d280486be1b7999b59035c26b43174072a67c680');
   });
 
   /**

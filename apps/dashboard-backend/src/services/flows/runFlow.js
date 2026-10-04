@@ -33,6 +33,7 @@ const { fillPlaceholders } = require('./flowFile');
 const changeTracker = require('./changeTracker');
 const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
 const pruefungService = require('./pruefung');
+const abschlussService = require('./abschluss');
 const { RunLimits } = require('./limits');
 const modelService = require('../llm/modelService');
 const logger = require('../../utils/logger');
@@ -148,6 +149,7 @@ async function runFlow(
     resolveModel = () => modelService.getDefaultModel(),
     pruefe = pruefungService.pruefeUndKorrigiere,
     felderNachFreigabe = freigabeAnfragen.felderNachFreigabe,
+    uebergebe = abschlussService.uebergebe,
   } = deps;
 
   const geladen = await loadFlow({ flowName, appId, stand });
@@ -782,6 +784,34 @@ async function runFlow(
     : ergebnis.error || dokumentFehler
       ? 'fehler'
       : 'fertig';
+  // 7a. Abschluss ueber die App (M5, Kontrakt 11): nennt der Flow eine
+  //     Abschluss-Route seiner App, ist der Lauf erst fertig, wenn die App den
+  //     Empfang bestaetigt. Das Ergebnis wird VORHER geschrieben, damit es einen
+  //     Neustart mitten im Aufruf ueberlebt; antwortet die App nicht, steht der
+  //     Lauf auf `nicht_uebergeben` und wartet auf „erneut". Ohne Route: wie
+  //     bisher.
+  if (status === 'fertig' && appId && flow.abschluss?.route) {
+    const begonnen = await store.beginneAbschluss({
+      runId: run.id,
+      route: flow.abschluss.route,
+      result: ergebnis.result,
+      stepsUsed: steps,
+      annahmen,
+    });
+    if (begonnen) {
+      try {
+        await uebergebe({ runId: run.id });
+      } catch (err) {
+        // `uebergebe` wirft nicht wegen der App; ein Fehler hier ist die
+        // Datenbank. Der Lauf bleibt `laeuft` mit gespeichertem Ergebnis, und
+        // das Hochfahren macht ihn zu `nicht_uebergeben`.
+        logger.error(`Flow "${flowName}": Uebergabe nicht verbucht: ${err.message}`);
+      }
+    }
+    await aenderungenAbschliessen();
+    return store.getRun({ runId: run.id, userId });
+  }
+
   await store.finishRun({
     runId: run.id,
     status,

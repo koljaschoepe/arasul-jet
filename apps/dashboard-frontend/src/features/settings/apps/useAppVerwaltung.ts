@@ -125,12 +125,25 @@ export interface AppLauf {
   id: number;
   flow_name: string;
   stand: Stand;
-  status: 'laeuft' | 'wartend' | 'fertig' | 'fehler' | 'abgebrochen' | 'abgelaufen';
+  status:
+    'laeuft' | 'wartend' | 'fertig' | 'fehler' | 'abgebrochen' | 'abgelaufen' | 'nicht_uebergeben';
   steps_used: number | null;
   created_at: string;
   finished_at: string | null;
   arguments: Record<string, string>;
   error: string | null;
+  /** Die Übergabe an die Abschluss-Route der App; null bei einem Flow ohne (M5, Kontrakt 11). */
+  abschluss?: LaufAbschluss | null;
+}
+
+/** Wie weit die Übergabe des Ergebnisses an die App ist. */
+interface LaufAbschluss {
+  route: string;
+  versuche: number;
+  letzter_versuch?: string | null;
+  status_code?: number | null;
+  fehler?: string | null;
+  uebergeben_am?: string | null;
 }
 
 /**
@@ -302,6 +315,26 @@ export function useAppLauf(appId: string | null, runId: number | null) {
     refetchInterval: q => {
       const lauf = q.state.data as AppLaufDetail | null | undefined;
       return lauf && (lauf.status === 'laeuft' || lauf.status === 'wartend') ? 5_000 : false;
+    },
+  });
+}
+
+/**
+ * „Erneut": die Übergabe eines Laufs auf „nicht übergeben" noch einmal an die
+ * App schicken (M5). Die Schritte laufen nicht neu. Entwertet wird nach jedem
+ * Ausgang: auch ein Fehlschlag schreibt einen neuen Grund an den Lauf.
+ */
+export function useLaufErneut(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (runId: number) => {
+      const res = await api.post<{ data?: AppLauf }>(`/apps/${appId}/laeufe/${runId}/erneut`, {});
+      return res.data ?? null;
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: laeufeKey(appId) });
+      void qc.invalidateQueries({ queryKey: ['apps', 'lauf', appId] });
     },
   });
 }

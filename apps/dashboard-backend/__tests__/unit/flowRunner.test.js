@@ -175,7 +175,12 @@ describe('verwaisteAufraeumen', () => {
     const db = { query: jest.fn(async () => ({ rowCount: 2, rows: [{ id: 1 }, { id: 2 }] })) };
     const n = await flowRunner.verwaisteAufraeumen({ db });
     expect(n).toBe(2);
-    const sql = db.query.mock.calls[0][0];
+    // Zuerst die Laeufe mit begonnener Uebergabe (M5): sie werden
+    // `nicht_uebergeben`, danach erst trifft der Rest `fehler`.
+    const uebergabe = db.query.mock.calls[0][0];
+    expect(uebergabe).toMatch(/SET status = 'nicht_uebergeben'/);
+    expect(uebergabe).toMatch(/status = 'laeuft' AND abschluss IS NOT NULL/);
+    const sql = db.query.mock.calls[1][0];
     expect(sql).toMatch(/UPDATE flow_runs/);
     // `wartend` gehoert dazu (Phase C7), aber nur OHNE Pruefpunkt (M5): ein
     // Lauf der Werkzeug-Schleife haengt an einem Versprechen in DIESEM Prozess

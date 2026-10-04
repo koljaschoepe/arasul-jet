@@ -248,6 +248,32 @@ prüft, wiese beide Felder als unbekannt ab. Das Kit hebt
 kann `aenderbar`/`original` in seiner Vorlage für erkennende Flows erklären.
 Ein Paket von Kontrakt 9 rollt unverändert aus.
 
+## Abschluss über die App: Kontrakt 11 (M5, 04.10.2026)
+
+Ein freiwilliges Feld im Flow-Kopf, `abschluss: { route }`, und eine
+Umgebungsvariable ([FLOWS.md](FLOWS.md#abschluss-übergabe-an-die-app-m5-04102026-kontrakt-11)):
+
+| Wo                    | Feld / Name              | Form                                                                                                 |
+| --------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Flow-Kopf             | `abschluss.route`        | Pfad des Backends der App, wie die App ihn sieht: führender `/`, ohne Host, Abfrage, `..`, `//`      |
+| Umgebung des Backends | `ARASUL_ABSCHLUSS_TOKEN` | Geheimnis, das die App im Kopf `Authorization: Bearer` des Geräts erwartet; je App und Stand, stabil |
+
+Nach der letzten Stufe ruft das Gerät die Route mit `POST` und JSON auf (`lauf`,
+`flow`, `app`, `stand`, `argumente`, `ergebnis`, `felder`, `korrekturen`,
+`angenommen`) und dem Kopf `Idempotency-Key: arasul-lauf-<nummer>`. **Die App
+bestätigt mit 2xx**; alles andere, auch Schweigen über 30 Sekunden, lässt den
+Lauf auf `nicht_uebergeben` stehen, bis ein Admin „erneut" auslöst. Die App prüft
+das Geheimnis (sonst `401`) und legt ein Ergebnis zu einer Lauf-Nummer nur einmal
+an. Das Manifest braucht ein `backend`, sonst weist das Gerät das Paket ab.
+
+**Kontraktfassung 11:** der Kopf ist `.strict()`, ein Kit, das gegen 10 prüft,
+wiese `abschluss` als unbekannt ab. **Folge fürs Kit:** `KIT_CONTRACT_VERSIONS`
+in `.ara/tools/lib/contract.mjs` auf 11 heben, bevor es auf ein solches Gerät
+einspielt, und der Vorlage die Route samt Prüfung des Geheimnisses und der
+Idempotenz beibringen. Ein Paket von Kontrakt 10 rollt unverändert aus; ein
+laufender App-Container bekommt `ARASUL_ABSCHLUSS_TOKEN` erst mit dem nächsten
+Einspielen.
+
 ## Die Bibliothek zur Laufzeit: Kontrakt 9 (M5, 03.10.2026)
 
 Eine App **kann** die Bibliothek vom Gerät laden, statt sie als Kopie ins

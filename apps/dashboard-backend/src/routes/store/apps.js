@@ -45,6 +45,7 @@ const appZugang = require('../../services/app/appZugang');
 const appStufen = require('../../services/app/appStufen');
 const flowSettings = require('../../services/flows/flowSettings');
 const runStore = require('../../services/flows/runStore');
+const abschluss = require('../../services/flows/abschluss');
 const kiProtokoll = require('../../services/app/kiProtokoll');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
@@ -544,6 +545,34 @@ router.get(
       includeRaw: req.query.raw,
     });
     res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/apps/:id/laeufe/:runId/erneut — die Uebergabe eines Laufs an die
+ * Abschluss-Route der App noch einmal ausloesen (M5, Kontrakt 11).
+ *
+ * Nur fuer einen Lauf auf `nicht_uebergeben`: das Ergebnis steht, die App hat
+ * den Empfang nicht bestaetigt. Die Schritte laufen NICHT neu; die Route
+ * bekommt dieselbe Lauf-Kennung wie beim ersten Mal. Antwortet die App jetzt
+ * mit 2xx, ist der Lauf `fertig`, sonst bleibt er `nicht_uebergeben` (mit dem
+ * neuen Grund) und die Antwort sagt es.
+ */
+router.post(
+  '/:id/laeufe/:runId/erneut',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppLaufParams),
+  asyncHandler(async (req, res) => {
+    const lauf = await abschluss.erneut({ runId: req.params.runId, appId: req.params.id });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'lauf_erneut_uebergeben',
+      details: { app_id: req.params.id, run_id: Number(req.params.runId), status: lauf.status },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data: lauf, timestamp: new Date().toISOString() });
   })
 );
 
