@@ -21,7 +21,7 @@ const FirmennameBody = z
     firmenname: z
       .string({ error: 'firmenname muss eine Zeichenkette sein' })
       .trim()
-      .max(120, 'Der Firmenname darf hoechstens 120 Zeichen lang sein'),
+      .max(120, 'Der Firmenname darf höchstens 120 Zeichen lang sein'),
   })
   .strict();
 

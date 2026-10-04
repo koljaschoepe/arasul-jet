@@ -77,7 +77,7 @@ const OrdnerBody = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['ebene'],
-        message: 'Ein Ordner am Geraet liegt auf Ebene 1',
+        message: 'Ein Ordner am Gerät liegt auf Ebene 1',
       });
     }
   })

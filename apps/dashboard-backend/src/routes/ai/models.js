@@ -502,7 +502,7 @@ router.delete(
 
     res.json({
       ...result,
-      message: `Modell ${modelId} wurde geloescht`,
+      message: `Modell ${modelId} wurde gelöscht`,
     });
   })
 );

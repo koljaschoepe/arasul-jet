@@ -454,7 +454,7 @@ router.put(
       requestId: req.headers['x-request-id'],
     });
     res.json({
-      data: { app_id: appId, flow_name: name, ...gilt, gilt_ab: 'dem naechsten Lauf' },
+      data: { app_id: appId, flow_name: name, ...gilt, gilt_ab: 'dem nächsten Lauf' },
       timestamp: new Date().toISOString(),
     });
   })

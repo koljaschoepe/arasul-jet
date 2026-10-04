@@ -49,6 +49,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/embeddings', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
   { prefix: '/freigabe-anfragen', group: 'ai' },
+  { prefix: '/darstellung', group: 'core' },
   { prefix: '/profil', group: 'core' },
   { prefix: '/ausweise', group: 'core' },
   { prefix: '/firmenordner', group: 'core' },

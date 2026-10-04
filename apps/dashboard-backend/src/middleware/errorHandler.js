@@ -139,7 +139,7 @@ const errorHandler = (err, req, res, next) => {
     // "das Geraet ist kaputt", obwohl die Eingabe falsch war. Und die Antwort
     // trug die rohe Postgres-Meldung samt der eingegebenen Zeichenkette.
     statusCode = 400;
-    message = 'Ungueltiger Wert in der Anfrage';
+    message = 'Ungültiger Wert in der Anfrage';
     code = 'VALIDATION_ERROR';
     logger.warn(`${req.method} ${req.originalUrl}: ungueltiger Wert (22P02)`, errorContext);
   } else {

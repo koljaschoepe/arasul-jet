@@ -7,7 +7,7 @@ const TailscaleConnectBody = z
       .string({ error: 'Auth-Key ist erforderlich' })
       .min(1, 'Auth-Key ist erforderlich')
       .refine(v => v.startsWith('tskey-') && v.length >= 20 && v.length <= 100, {
-        message: 'Ungueltiger Auth-Key (muss mit tskey- beginnen und 20-100 Zeichen lang sein)',
+        message: 'Ungültiger Auth-Key (muss mit tskey- beginnen und 20-100 Zeichen lang sein)',
       }),
     hostname: z
       .string()

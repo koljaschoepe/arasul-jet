@@ -260,14 +260,14 @@ Returned when API rate limits are exceeded.
 
 Returned when request data is invalid or malformed.
 
-#### Ungueltiger Wert in der Adresse (seit 23.08.2026)
+#### Ungültiger Wert in der Adresse (seit 23.08.2026)
 
 Eine Id, die nicht zum Spaltentyp passt (etwa Text statt UUID), gibt **400**,
 nicht 500:
 
 ```json
 {
-  "error": { "code": "VALIDATION_ERROR", "message": "Ungueltiger Wert in der Anfrage" },
+  "error": { "code": "VALIDATION_ERROR", "message": "Ungültiger Wert in der Anfrage" },
   "timestamp": "2026-08-23T10:21:21.000Z"
 }
 ```

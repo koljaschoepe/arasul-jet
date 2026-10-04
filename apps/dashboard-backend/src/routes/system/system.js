@@ -30,13 +30,16 @@ const DIAGNOSTICS_SCRIPT = path.join(PROJECT_ROOT, 'scripts/system/diagnostics.s
 
 // GET /api/system/heartbeat
 // Public endpoint (no auth) for remote monitoring and health checks
-router.get('/heartbeat', (req, res) => {
-  res.json({
-    status: 'ok',
-    uptime: Math.floor(os.uptime()),
-    timestamp: new Date().toISOString(),
-  });
-});
+router.get(
+  '/heartbeat',
+  asyncHandler(async (req, res) => {
+    res.json({
+      status: 'ok',
+      uptime: Math.floor(os.uptime()),
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
 
 // GET /api/system/status
 router.get(
@@ -386,45 +389,6 @@ router.get(
     });
   })
 );
-
-// POST /api/system/reload-config - Reload configuration without restart
-router.post('/reload-config', requireAuth, requireRole('admin'), (req, res) => {
-  logger.info('Configuration reload requested');
-
-  logSecurityEvent({
-    userId: req.user.id,
-    action: 'config_reload',
-    ipAddress: req.ip,
-    requestId: req.headers['x-request-id'],
-  });
-
-  // Reload environment variables (if changed)
-  // Note: This only works for non-critical config that doesn't require restart
-
-  // BUG-007 FIX: Removed reference to non-existent '../config' file
-  // Configuration is now loaded via process.env and .env file
-
-  // Reload rate limit configuration
-  try {
-    require('../../middleware/rateLimit');
-    // Rate limiter will pick up new config on next request
-    logger.info('Rate limit configuration reload triggered');
-  } catch {
-    // Rate limit reload failed - non-critical
-  }
-
-  // Reload logging configuration
-  const currentLogLevel = process.env.LOG_LEVEL || 'INFO';
-  logger.info(`Current log level: ${currentLogLevel}`);
-
-  res.json({
-    status: 'success',
-    message: 'Configuration reload completed',
-    reloaded: ['rate_limits', 'logging_config'],
-    note: 'Some changes require a restart (database credentials, ports, etc.)',
-    timestamp: new Date().toISOString(),
-  });
-});
 
 // =============================================================================
 // DIAGNOSTICS
