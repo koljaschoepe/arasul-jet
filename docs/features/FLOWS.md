@@ -563,7 +563,7 @@ Ohne `abschluss` ändert sich nichts: der Lauf wird `fertig` wie vorher.
 
 **Der Weg.** Das Gerät ruft den Container der App im Netz `arasul-apps`
 (`arasul-app-<id>-<stand>`, Port aus dem Manifest), ohne Traefik und ohne
-Browser, `POST` mit JSON, Zeitlimit 30 Sekunden (`ABSCHLUSS_TIMEOUT_MS`).
+Browser, `POST` mit JSON, Zeitlimit 30 Sekunden (fest, keine Einstellung).
 Weiterleitungen folgt es nicht. Woran die App den Aufruf als den des Geräts
 erkennt, steht im Kopf `Authorization: Bearer <ARASUL_ABSCHLUSS_TOKEN>`: ein
 Geheimnis je App und Stand, aus dem Schlüssel des Geräts abgeleitet (HMAC), der

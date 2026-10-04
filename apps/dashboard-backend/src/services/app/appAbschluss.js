@@ -26,7 +26,7 @@ const db = require('../../database');
 const { containerName } = require('./appContainer');
 
 /** Wie lange das Geraet auf die Empfangsbestaetigung wartet. */
-const TIMEOUT_MS = Number(process.env.ABSCHLUSS_TIMEOUT_MS) || 30000;
+const TIMEOUT_MS = 30000;
 
 /** Hoechstens so viele Zeichen der Antwort einer App kommen ins Protokoll. */
 const MAX_FEHLER_ZEICHEN = 300;
