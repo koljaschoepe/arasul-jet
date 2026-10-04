@@ -85,11 +85,11 @@ export function ModellZeile({
       <span className="flex min-w-0 flex-[1_1_16rem] flex-col gap-1">
         <span className="flex flex-wrap items-center gap-2">
           <Cpu className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="text-sm font-semibold text-foreground">{name}</span>
+          <span className="text-sm font-medium text-foreground">{name}</span>
           {istStandard && (
             <span
               data-testid={`standard-${modell.id}`}
-              className="rounded border border-border px-1.5 py-0.5 text-ui-xs font-medium text-foreground"
+              className="rounded border border-border px-1.5 py-0.5 text-xs font-medium text-foreground"
             >
               Standard
             </span>
@@ -97,7 +97,7 @@ export function ModellZeile({
           {imSpeicherMb !== null && (
             <span
               data-testid={`im-speicher-${modell.id}`}
-              className="rounded bg-primary/15 px-1.5 py-0.5 text-ui-xs font-medium text-primary"
+              className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-primary"
             >
               im Speicher
             </span>
@@ -106,19 +106,19 @@ export function ModellZeile({
             <span
               data-testid={`ungemessen-${modell.id}`}
               title="Läuft, aber auf diesem Gerät hat niemand geprüft, wie gut und wie schnell."
-              className="rounded border border-dashed border-border px-1.5 py-0.5 text-ui-xs text-muted-foreground"
+              className="rounded border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground"
             >
               ungemessen
             </span>
           )}
           {!installiert && (
-            <span className="rounded bg-muted px-1.5 py-0.5 text-ui-xs text-muted-foreground">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               nicht am Gerät
             </span>
           )}
         </span>
         <span className="text-xs text-muted-foreground">{modell.description}</span>
-        <span className="flex flex-wrap gap-x-3 text-ui-xs text-muted-foreground">
+        <span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
           {aufgabe && <span>{aufgabe}</span>}
           <span>{formatBytes(modell.size_bytes)}</span>
           {modell.ram_required_gb ? (

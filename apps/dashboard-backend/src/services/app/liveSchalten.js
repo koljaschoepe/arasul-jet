@@ -99,7 +99,7 @@ async function nimmLivestandWeg(appId, { datenbankNeu }) {
 async function fallZurueck({ appId, vorher, sicherung, datenbankNeu, durch }) {
   const rueckfall = { daten: null, fassung: null };
   await appContainer.entferne(appId, 'live').catch(fehler => {
-    logger.warn(`${appId}: neuer Livestand liess sich nicht entfernen: ${fehler.message}`);
+    logger.warn(`${appId}: neuer Livestand ließ sich nicht entfernen: ${fehler.message}`);
   });
 
   if (sicherung?.id) {
@@ -291,7 +291,7 @@ async function sichernUndSchalten({ appId, durch, id, name, neu, vorher, setzeAn
   }
 
   // 5.: zurueck.
-  logger.warn(`App ${appId}: ${neu} kam nicht hoch (${gesundheit.grund}), falle zurueck`);
+  logger.warn(`App ${appId}: ${neu} kam nicht hoch (${gesundheit.grund}), falle zurück`);
   const zeilen = await appContainer.letzteZeilen(appId, 'live', 40).catch(() => '');
   const rueckfall = await fallZurueck({
     appId,

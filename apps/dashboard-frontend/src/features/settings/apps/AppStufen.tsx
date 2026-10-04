@@ -71,10 +71,10 @@ export function AppStufen({ appId }: { appId: string }) {
               <span className="block text-sm font-medium text-foreground">
                 {s.bezeichnung || s.stufe}
                 {s.bezeichnung && (
-                  <span className="ml-2 font-mono text-ui-xs text-muted-foreground">{s.stufe}</span>
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">{s.stufe}</span>
                 )}
               </span>
-              <span className="block text-ui-xs text-muted-foreground">
+              <span className="block text-xs text-muted-foreground">
                 {s.flows.length === 1 ? 'Flow' : 'Flows'} {s.flows.join(', ')}
               </span>
             </span>

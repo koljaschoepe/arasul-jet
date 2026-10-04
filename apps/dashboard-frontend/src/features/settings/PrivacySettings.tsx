@@ -202,7 +202,7 @@ export function PrivacySettings() {
             {/* Angesteckte Datenträger (Plan 023 J3). Auf einem Gerät im
                 Serverraum ist ein Browser-Download der unbequemste Weg. */}
             <div className="flex flex-col gap-2" data-testid="export-ziele">
-              <div className="flex items-center gap-2 text-ui-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <HardDrive className="size-3.5" aria-hidden="true" />
                 <span>Oder direkt auf einen angesteckten Datenträger</span>
                 <button
@@ -236,14 +236,14 @@ export function PrivacySettings() {
                     >
                       <HardDrive className="size-3.5" aria-hidden="true" />
                       {m.name}
-                      <span className="text-ui-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {m.beschreibbar ? groesse(m.freiBytes) : 'nur lesend'}
                       </span>
                     </Button>
                   ))}
                 </div>
               ) : (
-                <p className="text-ui-xs text-muted-foreground">{medienHinweis}</p>
+                <p className="text-xs text-muted-foreground">{medienHinweis}</p>
               )}
             </div>
           </div>

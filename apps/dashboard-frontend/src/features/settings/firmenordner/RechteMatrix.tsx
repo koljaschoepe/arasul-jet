@@ -174,7 +174,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
         {meldung}
         {spalten.map(o => (
           <section key={String(o.id)} className="rounded-md border border-border">
-            <h3 className="border-b border-border p-ui-3 font-mono text-sm font-semibold text-foreground wrap-anywhere">
+            <h3 className="border-b border-border p-ui-3 font-mono text-sm font-medium text-foreground wrap-anywhere">
               {ordnerWeg(o)}
               <span className="ml-2 font-sans font-normal text-muted-foreground">{o.name}</span>
             </h3>
@@ -187,7 +187,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
                   <span className="min-w-0 flex-1 text-sm text-foreground">
                     {anzeigeName(b)}
                     {b.role === 'admin' && (
-                      <span className="ml-2 text-ui-xs text-muted-foreground">Verwaltung</span>
+                      <span className="ml-2 text-xs text-muted-foreground">Verwaltung</span>
                     )}
                   </span>
                   <Zelle
@@ -240,7 +240,7 @@ export function RechteMatrix({ benutzer, ordner }: { benutzer: Benutzer[]; ordne
                 >
                   <span className="text-foreground">{anzeigeName(b)}</span>
                   {b.role === 'admin' && (
-                    <span className="ml-2 whitespace-nowrap text-ui-xs text-muted-foreground">
+                    <span className="ml-2 whitespace-nowrap text-xs text-muted-foreground">
                       Verwaltung
                     </span>
                   )}

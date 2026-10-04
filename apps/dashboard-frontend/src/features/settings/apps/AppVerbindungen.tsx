@@ -105,11 +105,11 @@ export function AppVerbindungen({ appId, flows }: { appId: string; flows: AppFlo
                   <Globe className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="font-medium text-foreground">{lesbarerName(e.host)}</span>
                   {nurTest && (
-                    <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs font-medium text-muted-foreground">
+                    <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                       (Test)
                     </span>
                   )}
-                  <span className="text-ui-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {nutzung(genutzt.find(z => z.host === e.host))}
                   </span>
                 </span>
@@ -125,8 +125,8 @@ export function AppVerbindungen({ appId, flows }: { appId: string; flows: AppFlo
                   </span>
                 )}
                 <Aufklappen titel="Adresse" kennzeichen={`verbindung-mehr-${e.host}`}>
-                  <span className="pl-ui-2 font-mono text-ui-xs text-foreground">{e.host}</span>
-                  <span className="ml-2 text-ui-xs text-muted-foreground">
+                  <span className="pl-ui-2 font-mono text-xs text-foreground">{e.host}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
                     eingetragen in{' '}
                     {e.staende.map(s => (s === 'live' ? 'Live' : 'Test')).join(' und ')}
                   </span>
@@ -143,7 +143,7 @@ export function AppVerbindungen({ appId, flows }: { appId: string; flows: AppFlo
               <span className="flex flex-wrap items-center gap-2 text-sm">
                 <Globe className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="font-medium text-foreground">{e.anbieter}</span>
-                <span className="text-ui-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Modell für {e.flows.map(n => `„${n}“`).join(', ')}
                 </span>
               </span>
@@ -151,7 +151,7 @@ export function AppVerbindungen({ appId, flows }: { appId: string; flows: AppFlo
                 titel="Adresse"
                 kennzeichen={`verbindung-modell-mehr-${hostVon(e.adresse)}`}
               >
-                <span className="pl-ui-2 font-mono text-ui-xs text-foreground">{e.adresse}</span>
+                <span className="pl-ui-2 font-mono text-xs text-foreground">{e.adresse}</span>
               </Aufklappen>
             </li>
           ))}
@@ -170,8 +170,8 @@ export function AppVerbindungen({ appId, flows }: { appId: string; flows: AppFlo
                 className="flex flex-wrap items-baseline gap-x-2 text-sm text-muted-foreground"
                 data-testid={`abgewiesen-${z.host}`}
               >
-                <span className="font-mono text-ui-xs text-foreground">{z.host}</span>
-                <span className="text-ui-xs">
+                <span className="font-mono text-xs text-foreground">{z.host}</span>
+                <span className="text-xs">
                   {z.anzahl.toLocaleString('de-DE')}×, zuletzt {zeitpunkt(z.zuletzt)}
                   {z.staende.length === 1 && z.staende[0] === 'test' ? ' (Test)' : ''}
                 </span>

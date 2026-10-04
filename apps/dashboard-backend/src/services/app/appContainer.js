@@ -287,7 +287,7 @@ async function holeImageFallsNoetig(image) {
       throw err;
     }
   }
-  logger.info(`App-Image nicht am Geraet, wird geholt: ${image}`);
+  logger.info(`App-Image nicht am Gerät, wird geholt: ${image}`);
   await new Promise((auf, ab) => {
     docker.pull(image, (fehler, strom) => {
       if (fehler) {
@@ -322,7 +322,7 @@ async function holeImageFallsNoetig(image) {
 async function baueImage(manifest, kontextPfad) {
   const image = manifest.backend.image;
   const dockerfile = manifest.backend.bauen.dockerfile;
-  logger.info(`App-Image wird am Geraet gebaut: ${image} aus ${kontextPfad} (${dockerfile})`);
+  logger.info(`App-Image wird am Gerät gebaut: ${image} aus ${kontextPfad} (${dockerfile})`);
 
   const kontext = tar.c({ cwd: kontextPfad, gzip: false, portable: true }, ['.']);
   const strom = await docker.buildImage(kontext, {
@@ -580,7 +580,7 @@ async function zieheUm(geduld = UMZUG_GEDULD_MS) {
     } catch (err) {
       gescheitert.push(name);
       logger.error(
-        `App-Container ${name} liess sich nicht ins Netz ${NETZ} ziehen: ${err.message}`
+        `App-Container ${name} ließ sich nicht ins Netz ${NETZ} ziehen: ${err.message}`
       );
       if (angehalten) {
         // Was wir angehalten haben, soll wieder laufen -- bestmoeglich, und
@@ -798,7 +798,7 @@ async function starteNeuWasVorher(seit) {
     } catch (err) {
       // Einer, der nicht will, haelt die anderen nicht auf; der naechste
       // Durchgang fragt wieder.
-      logger.warn(`App-Container ${name} liess sich nicht neu starten: ${err.message}`);
+      logger.warn(`App-Container ${name} ließ sich nicht neu starten: ${err.message}`);
     }
   }
   return neu;
@@ -853,7 +853,7 @@ async function entferneAlle() {
       }
     }
   } catch (err) {
-    logger.warn(`Werksreset: App-Images nicht aufraeumbar: ${err.message}`);
+    logger.warn(`Werksreset: App-Images nicht aufräumbar: ${err.message}`);
   }
   if (bilder > 0) {
     logger.info(`Werksreset: ${bilder} App-Image(s) entfernt`);

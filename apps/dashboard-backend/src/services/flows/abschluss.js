@@ -108,7 +108,7 @@ async function uebergebe({ runId }, deps = {}) {
       nutzlast: baueNutzlast(lauf, felder),
     });
   } catch (err) {
-    antwort = { ok: false, statusCode: null, fehler: `Uebergabe gescheitert: ${err.message}` };
+    antwort = { ok: false, statusCode: null, fehler: `Übergabe gescheitert: ${err.message}` };
   }
   const nachher = await store.abschlussErgebnis({
     runId,
@@ -118,11 +118,11 @@ async function uebergebe({ runId }, deps = {}) {
   });
   if (antwort.ok) {
     logger.info(
-      `Flow-Lauf ${runId} (${lauf.flow_name}) an ${lauf.app_id}/${lauf.stand} uebergeben`
+      `Flow-Lauf ${runId} (${lauf.flow_name}) an ${lauf.app_id}/${lauf.stand} übergeben`
     );
   } else {
     logger.warn(
-      `Flow-Lauf ${runId} (${lauf.flow_name}) nicht uebergeben an ${lauf.app_id}/${lauf.stand}: ${antwort.fehler}`
+      `Flow-Lauf ${runId} (${lauf.flow_name}) nicht übergeben an ${lauf.app_id}/${lauf.stand}: ${antwort.fehler}`
     );
   }
   return nachher;

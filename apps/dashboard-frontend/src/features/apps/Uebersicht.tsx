@@ -62,7 +62,7 @@ function AppKachel({
     >
       {eintrag.beschreibung && <span className="line-clamp-2">{eintrag.beschreibung}</span>}
       {zeigeFassung && (
-        <span className="block text-ui-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
+        <span className="block text-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
       )}
     </Karte>
   );

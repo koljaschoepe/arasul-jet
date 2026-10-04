@@ -48,7 +48,7 @@ export function LaufZustand({ status }: { status: string }) {
   return (
     <span
       data-lauf-status={status}
-      className={cn('rounded px-1.5 py-0.5 text-ui-xs font-medium', farbe)}
+      className={cn('rounded px-1.5 py-0.5 text-xs font-medium', farbe)}
     >
       {wort}
     </span>
@@ -95,10 +95,10 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
               {gedanke ? 'Gedankengang' : schritt.name || schritt.kind}
             </span>
             {schritt.modell && (
-              <span className="font-mono text-ui-xs text-muted-foreground">{schritt.modell}</span>
+              <span className="font-mono text-xs text-muted-foreground">{schritt.modell}</span>
             )}
             {schritt.status !== 'fertig' && (
-              <span className="text-ui-xs text-muted-foreground">{schritt.status}</span>
+              <span className="text-xs text-muted-foreground">{schritt.status}</span>
             )}
           </span>
           {!offen && (schritt.output || eingabe) && (
@@ -112,14 +112,14 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
       {offen && (
         <div className="ml-9 mb-2 flex flex-col gap-2">
           {eingabe && (
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-border p-2 font-mono text-ui-xs text-muted-foreground">
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-border p-2 font-mono text-xs text-muted-foreground">
               {eingabe}
             </pre>
           )}
           {schritt.output && (
             <pre
               className={cn(
-                'max-h-72 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-ui-xs',
+                'max-h-72 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-xs',
                 gedanke
                   ? 'border-border font-sans text-foreground'
                   : 'border-border font-mono text-foreground'
@@ -149,7 +149,7 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
   return (
     <div className="rounded-md border border-border p-ui-3" data-testid={`lauf-freigabe-${f.id}`}>
       <p className="text-sm font-medium text-foreground">{f.titel}</p>
-      <p className="mb-2 text-ui-xs text-muted-foreground">
+      <p className="mb-2 text-xs text-muted-foreground">
         {f.status === 'bestaetigt'
           ? `Bestätigt von ${f.entschieden_von ?? 'einem Menschen'}`
           : f.status === 'abgelehnt'
@@ -170,28 +170,28 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
             return (
               <li
                 key={feld.name}
-                className="flex flex-col gap-0.5 border-t border-border py-2 text-ui-sm"
+                className="flex flex-col gap-0.5 border-t border-border py-2 text-sm"
                 data-testid={`lauf-feld-${f.id}-${feld.name}`}
               >
-                <span className="font-mono text-ui-xs text-foreground">
+                <span className="font-mono text-xs text-foreground">
                   {feld.name}
                   {(feld.unsicher || feld.fehlend) && (
                     <span className="ml-1 font-sans text-muted-foreground">(prüfen)</span>
                   )}
                 </span>
                 <span className="text-foreground">
-                  <span className="text-ui-xs text-muted-foreground">Vorschlag der KI: </span>
+                  <span className="text-xs text-muted-foreground">Vorschlag der KI: </span>
                   {feld.vorschlag || <span className="text-muted-foreground">nicht erkannt</span>}
                 </span>
                 <span
                   className="text-foreground"
                   data-testid={`lauf-feld-${f.id}-${feld.name}-neu`}
                 >
-                  <span className="text-ui-xs text-muted-foreground">Geändert: </span>
+                  <span className="text-xs text-muted-foreground">Geändert: </span>
                   {k ? (
                     <>
                       {k.wert || <span className="text-muted-foreground">leer</span>}
-                      <span className="block text-ui-xs text-muted-foreground">
+                      <span className="block text-xs text-muted-foreground">
                         {k.von ?? 'unbekannt'}
                         {k.am ? `, ${formatDate(k.am)}` : ''}
                       </span>
@@ -205,9 +205,9 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
           })}
         </ul>
       ) : (
-        <table className="w-full text-ui-sm">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-ui-xs text-muted-foreground">
+            <tr className="text-left text-xs text-muted-foreground">
               <th className="py-1 pr-3 font-medium">Feld</th>
               <th className="py-1 pr-3 font-medium">Vorschlag der KI</th>
               <th className="py-1 font-medium">Geändert</th>
@@ -222,7 +222,7 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
                   className="border-t border-border align-top"
                   data-testid={`lauf-feld-${f.id}-${feld.name}`}
                 >
-                  <td className="py-1 pr-3 font-mono text-ui-xs text-foreground">
+                  <td className="py-1 pr-3 font-mono text-xs text-foreground">
                     {feld.name}
                     {(feld.unsicher || feld.fehlend) && (
                       <span className="ml-1 font-sans text-muted-foreground">(prüfen)</span>
@@ -238,7 +238,7 @@ function FreigabeFelder({ f }: { f: LaufFreigabe }) {
                     {k ? (
                       <>
                         {k.wert || <span className="text-muted-foreground">leer</span>}
-                        <span className="block text-ui-xs text-muted-foreground">
+                        <span className="block text-xs text-muted-foreground">
                           {k.von ?? 'unbekannt'}
                           {k.am ? `, ${formatDate(k.am)}` : ''}
                         </span>
@@ -316,11 +316,11 @@ export function LaufAnsicht({
       {lauf && (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-foreground">
+            <h3 className="text-lg font-medium text-foreground">
               Lauf {lauf.id}: {lauf.flow_name}
             </h3>
             <LaufZustand status={lauf.status} />
-            <span className="text-ui-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {lauf.stand === 'test' ? 'Teststand' : 'Livestand'}
             </span>
             {lauf.status === 'nicht_uebergeben' && <ErneutKnopf appId={appId} runId={lauf.id} />}
@@ -348,7 +348,7 @@ export function LaufAnsicht({
             {Object.keys(lauf.arguments ?? {}).length > 0 && (
               <>
                 <dt className="text-muted-foreground">Argumente</dt>
-                <dd className="min-w-0 break-words font-mono text-ui-xs text-foreground">
+                <dd className="min-w-0 break-words font-mono text-xs text-foreground">
                   {Object.entries(lauf.arguments)
                     .map(([k, v]) => `${k}=${v}`)
                     .join(', ')}
@@ -367,7 +367,7 @@ export function LaufAnsicht({
           )}
 
           <div>
-            <h4 className="mb-1 text-sm font-semibold text-foreground">
+            <h4 className="mb-1 text-sm font-medium text-foreground">
               Schritte und Gedankengang
             </h4>
             {lauf.steps.length === 0 ? (
@@ -389,7 +389,7 @@ export function LaufAnsicht({
 
           {(lauf.freigaben ?? []).some(f => f.felder && f.felder.length > 0) && (
             <div data-testid="lauf-freigabe-felder">
-              <h4 className="mb-1 text-sm font-semibold text-foreground">
+              <h4 className="mb-1 text-sm font-medium text-foreground">
                 Erkannte Felder und Änderungen
               </h4>
               <div className="flex flex-col gap-2">
@@ -404,7 +404,7 @@ export function LaufAnsicht({
 
           {lauf.result && (
             <div>
-              <h4 className="mb-1 text-sm font-semibold text-foreground">Ergebnis</h4>
+              <h4 className="mb-1 text-sm font-medium text-foreground">Ergebnis</h4>
               <pre
                 className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 text-sm text-foreground"
                 data-testid="lauf-ergebnis"

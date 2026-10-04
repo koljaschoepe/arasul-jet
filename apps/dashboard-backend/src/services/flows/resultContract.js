@@ -141,7 +141,7 @@ function felderText(felderObj, vertrag) {
   let text = felder.map(f => `${f}: ${felderObj[f] ?? ''}`).join('\n');
   let gekuerzt = false;
   if (text.length > maxZeichen) {
-    text = `${text.slice(0, maxZeichen)}\n... [gekuerzt bei ${maxZeichen} Zeichen]`;
+    text = `${text.slice(0, maxZeichen)}\n... [gekürzt bei ${maxZeichen} Zeichen]`;
     gekuerzt = true;
   }
   return { text, gekuerzt };

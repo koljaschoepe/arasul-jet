@@ -10,7 +10,7 @@
  */
 
 /** Die Spalten, die zur Auskunft ueber eine Person gehoeren (ohne das Bild selbst). */
-const PROFIL_SPALTEN = 'vorname, nachname, funktion, kuerzel, (bild_daten IS NOT NULL) AS hat_bild';
+const PROFIL_SPALTEN = 'vorname, nachname, funktion, kürzel, (bild_daten IS NOT NULL) AS hat_bild';
 
 /** Der Name, wie er sichtbar wird: „Vorname Nachname", sonst der Benutzername. */
 function anzeigeName(zeile) {

@@ -115,7 +115,7 @@ function MeldungsZeile({ meldung, testid }: { meldung: Meldung; testid: string }
     >
       {meldung.text}
       {meldung.ausgabe && (
-        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-ui-xs text-muted-foreground">
+        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">
           {meldung.ausgabe}
         </pre>
       )}
@@ -470,7 +470,7 @@ export function Sicherung() {
                             : formatBytes(datei.bytes)}
                         </span>
                         <span className="text-xs text-muted-foreground">{datei.zweck}</span>
-                        <span className="w-full truncate font-mono text-ui-xs text-muted-foreground">
+                        <span className="w-full truncate font-mono text-xs text-muted-foreground">
                           {datei.name}
                         </span>
                       </li>

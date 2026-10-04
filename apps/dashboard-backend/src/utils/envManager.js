@@ -156,10 +156,10 @@ async function envZurueckrollen(inhalt) {
   }
   try {
     await fs.writeFile(ENV_FILE_PATH, inhalt, 'utf8');
-    logger.warn('.env auf den Stand vor der Aenderung zurueckgesetzt');
+    logger.warn('.env auf den Stand vor der Änderung zurückgesetzt');
     return true;
   } catch (error) {
-    logger.error(`.env liess sich nicht zurueckrollen: ${error.message}`);
+    logger.error(`.env ließ sich nicht zurückrollen: ${error.message}`);
     return false;
   }
 }

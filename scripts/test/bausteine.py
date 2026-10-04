@@ -41,6 +41,26 @@ In ALLEM unter `src/`, ohne Ausnahme (siehe „Der Ausnahmeordner ist weg"):
    oder gar keinen. Ein gruener Token, den niemand benutzt, ist morgen der,
    den jemand benutzt.
 
+8. Eine Schriftgroesse ausserhalb von DREI und ein Gewicht ausserhalb von
+   ZWEI (Auftrag pruefung-einheit-umlaute, 04.10.2026; `frontend.md`,
+   Gestaltung: „drei Groessen, zwei Gewichte"). Die Groessen sind `text-xs`
+   (12 px: Badges, Metadaten), `text-sm` (13 px: Text und Beschriftung) und
+   `text-lg` (16 px: Titel eines Abschnitts); die Gewichte `font-normal` und
+   `font-medium`. Was frueher `text-ui-xs`, `text-ui-sm`, `text-ui`,
+   `text-base`, `font-semibold` oder `font-bold` hiess, ist eines davon
+   geworden; ein beliebiger Wert (`text-[11px]`) ist keine Groesse, sondern
+   ein vierter Wunsch. Gemessen wird im TSX der Shell. Die Bibliothek
+   (`packages/marken/`) bringt ihre eigenen Stufen fuer Seitentitel mit und
+   wird nicht gelesen. NICHT mechanisch pruefbar ist, ob `font-mono` an einem
+   Pfad, Befehl oder einer Zahl steht und nicht an Fliesstext; das sieht der
+   Mensch in der Durchsicht.
+9. Eine zweite Stelle fuer dieselbe Funktion in der Navigation: eine Ansicht
+   (`oeffne({ type: ... })`) oeffnet die Aktivitaetsleiste, genau eine Stelle
+   (`ActivityBar`; `LeisteUnten` ist dieselbe Leiste unter 900 px, nie beide
+   zugleich). Jede weitere Datei, die eine Ansicht aufmacht oder per
+   `navigate`/`Link` an eine Adresse springt, steht in NAVIGATION_AUSNAHMEN,
+   mit Grund. Benannte Ausnahme: die Kacheln und Hinweise der Startseite.
+
 Der Ausnahmeordner ist weg (Phase H5)
 -------------------------------------
 Bis H4 war `src/components/ui/` ausgenommen, und das war richtig, solange die
@@ -292,9 +312,10 @@ AUSGENOMMENE_ORDNER = ()
 #   TSX/TS der Shell      gar nicht. Ein Hex, ein `rgb()` oder eine Klasse aus
 #                         Tailwinds Palette ist ein Befund -- dieselbe Regel,
 #                         die `marken.py` (Punkt 6) fuer die Bibliothek haelt.
-#   CSS ausser theme.css  nur als Wert eines Tokens (`--x: #hex`), in
-#                         `marken.css` nur als Rueckfall `var(--x, #hex)`.
-#                         Eine Regel `color: #hex` ist ein Befund.
+#   CSS ausser theme.css  gar nicht, auch nicht als Wert eines Tokens: seit dem
+#                         04.10.2026 (pruefung-einheit-umlaute) stand `index.css`
+#                         nicht mehr als zweite Quelle neben `theme.css`. Nur in
+#                         `marken.css` als Rueckfall `var(--x, #hex)`.
 #   JEDES CSS             der Farbton ist Blau, Rot oder keiner (Grau).
 #
 # Der Farbton wird gerechnet, nicht geraten: ein Hex oder `rgb()` wird zu HSL,
@@ -307,6 +328,7 @@ FARBQUELLE = 'packages/marken/src/theme.css'
 HEX = re.compile(r'#([0-9A-Fa-f]{3,8})\b')
 RGB = re.compile(r'\brgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)')
 FARB_LITERAL = re.compile(r'#[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{3})?\b|\b(?:rgba?|hsla?)\(')
+CSS_FARB_LITERAL = re.compile(r'#[0-9A-Fa-f]{3,8}\b|\b(?:rgba?|hsla?)\(')
 TAILWIND_PALETTE = re.compile(
     r'\b(?:bg|text|border|fill|stroke|ring|outline|from|via|to|decoration|divide|'
     r'accent|caret|placeholder|shadow)-'
@@ -314,7 +336,6 @@ TAILWIND_PALETTE = re.compile(
     r'green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)'
     r'(?:-\d{2,3})?\b'
 )
-TOKEN_DEFINITION = re.compile(r'^\s*--[\w-]+\s*:')
 RUECKFALL = re.compile(r'var\(\s*--[\w-]+\s*,\s*(#[0-9A-Fa-f]{3,8}|rgba?\([^)]*\))\s*\)')
 
 
@@ -407,16 +428,13 @@ def farben_pruefen(wurzel: Path) -> list[str]:
             text = ohne_kommentare(datei.read_text(encoding='utf-8'))
             for nr, zeile in enumerate(text.splitlines(), 1):
                 literale = HEX.findall(zeile)
-                if literale and not ist_quelle:
-                    erlaubt = (
-                        len(RUECKFALL.findall(zeile)) >= len(literale)
-                        if ist_marken
-                        else bool(TOKEN_DEFINITION.match(zeile))
-                    )
+                if not ist_quelle and CSS_FARB_LITERAL.search(zeile):
+                    anzahl = len(CSS_FARB_LITERAL.findall(zeile))
+                    erlaubt = ist_marken and len(RUECKFALL.findall(zeile)) >= anzahl
                     if not erlaubt:
                         befunde.append(
-                            f'{relativ}:{nr}  Hex ausserhalb von theme.css. Eine Farbe steht '
-                            'dort und wird hier als Token benutzt.'
+                            f'{relativ}:{nr}  Farbwert ausserhalb von theme.css. Eine Farbe '
+                            'steht dort und wird hier als Token benutzt.'
                         )
                 werte = [f'#{h}' for h in literale] + [
                     m.group(0) for m in RGB.finditer(zeile)
@@ -430,6 +448,111 @@ def farben_pruefen(wurzel: Path) -> list[str]:
                             'Blau noch Rot noch Grau. Die Palette kennt kein Gruen und '
                             'kein Orange.'
                         )
+    return befunde
+
+# --------------------------------------------------------------------------
+# Die achte Regel: drei Groessen, zwei Gewichte (04.10.2026)
+# --------------------------------------------------------------------------
+# `frontend.md`, Gestaltung: „drei Groessen, zwei Gewichte". Der Bestand hatte
+# sieben Groessen und vier Gewichte, und fast jede Abweichung war ein
+# Einzelfall, den die naechste Seite kopierte. Die Menge der erlaubten Namen
+# steht hier, und nur hier:
+GROESSEN = {'xs', 'sm', 'lg'}  # 12 px, 13 px, 16 px (Tokens in theme.css)
+GEWICHTE = {'normal', 'medium'}
+# Alles, was hinter `text-` eine GROESSE nennt. `text-foreground` und
+# `text-center` sind keine, und der Waechter soll sie nicht kennen muessen:
+# er liest nur, was er als Groesse erkennt.
+GROESSEN_NAMEN = re.compile(
+    r'^(?:[2-9]?xs|[2-9]?xl|sm|md|lg|base|ui|ui-xs|ui-sm|ui-lg|\[\d[\d.]*(?:px|rem|em)\])$'
+)
+TEXT_KLASSE = re.compile(r'(?<![\w-])text-([\w.\[\]-]+)')
+GEWICHT_KLASSE = re.compile(
+    r'(?<![\w-])font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)\b'
+)
+
+
+def ohne_ts_kommentare(text: str) -> str:
+    """TSX ohne Kommentare, mit denselben Zeilennummern."""
+    text = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), text, flags=re.S)
+    return re.sub(r'(^|\s)//[^\n]*', r'\1', text)
+
+
+def shell_dateien(wurzel: Path):
+    ordner = wurzel / 'apps/dashboard-frontend/src'
+    if not ordner.is_dir():
+        return
+    for datei in sorted(list(ordner.rglob('*.tsx')) + list(ordner.rglob('*.ts'))):
+        if '__tests__' in datei.parts or datei.name.endswith(('.test.tsx', '.test.ts')):
+            continue
+        yield datei, datei.relative_to(wurzel).as_posix()
+
+
+def groessen_und_gewichte(wurzel: Path) -> list[str]:
+    befunde: list[str] = []
+    for datei, relativ in shell_dateien(wurzel):
+        text = ohne_ts_kommentare(datei.read_text(encoding='utf-8'))
+        for nr, zeile in enumerate(text.splitlines(), 1):
+            for treffer in TEXT_KLASSE.finditer(zeile):
+                name = treffer.group(1)
+                if GROESSEN_NAMEN.match(name) and name not in GROESSEN:
+                    befunde.append(
+                        f'{relativ}:{nr}  `text-{name}` ist keine der drei Groessen '
+                        '(text-xs, text-sm, text-lg).'
+                    )
+            for treffer in GEWICHT_KLASSE.finditer(zeile):
+                if treffer.group(1) not in GEWICHTE:
+                    befunde.append(
+                        f'{relativ}:{nr}  `font-{treffer.group(1)}` ist keines der zwei '
+                        'Gewichte (font-normal, font-medium).'
+                    )
+    return befunde
+
+
+# --------------------------------------------------------------------------
+# Die neunte Regel: keine zweite Stelle fuer dieselbe Funktion (04.10.2026)
+# --------------------------------------------------------------------------
+# Eine Ansicht oeffnet die Aktivitaetsleiste. Wer anderswo einen Knopf baut,
+# der `oeffne({ type: 'settings' })` ruft, hat eine zweite Tuer in dieselbe
+# Ansicht gebaut, und in einem halben Jahr fuehren drei Wege dorthin, von denen
+# einer die neue Gestalt der Ansicht nicht kennt. Die Leiste steht in
+# `ActivityBar` (breit) und `LeisteUnten` (unter 900 px, nie beide zugleich);
+# beide sind EINE Stelle in zwei Formen.
+OEFFNE = re.compile(r"\boeffne\(\s*\{\s*type:\s*'(\w+)'")
+SPRUNG = re.compile(r'\bnavigate\(|<(?:Nav)?Link\b|href=["\']/(?:workspace)?')
+NAVIGATION_AUSNAHMEN = {
+    'features/workspace/ActivityBar.tsx': 'die Leiste, breit',
+    'features/workspace/LeisteUnten.tsx': 'dieselbe Leiste unter 900 px',
+    'features/workspace/WorkspaceShell.tsx': 'spiegelt Adresse und Store ineinander',
+    'features/settings/Settings.tsx': 'die Bereichswahl INNERHALB der Verwaltung',
+    # Die Startseite ist die benannte Ausnahme (Karte pruefung-einheit-umlaute):
+    # ihre Kacheln, Hinweise und Freigaben fuehren in das, was sie zeigen.
+    'features/apps/Uebersicht.tsx': 'Kacheln der Startseite',
+    'features/workspace/AdminHinweise.tsx': 'Hinweise der Startseite',
+    'features/freigaben/OffeneFreigaben.tsx': 'Freigaben der Startseite',
+    # Eine Fehlerseite fuehrt zurueck; sie ist kein Zugang zu einer Ansicht.
+    'components/ui/NichtGefunden.tsx': 'Rueckweg von der Fehlerseite',
+}
+
+
+def navigation_doppelt(wurzel: Path) -> list[str]:
+    befunde: list[str] = []
+    for datei, relativ in shell_dateien(wurzel):
+        kurz = relativ.removeprefix('apps/dashboard-frontend/src/')
+        if kurz in NAVIGATION_AUSNAHMEN:
+            continue
+        text = ohne_ts_kommentare(datei.read_text(encoding='utf-8'))
+        for treffer in OEFFNE.finditer(text):
+            nr = text.count('\n', 0, treffer.start()) + 1
+            befunde.append(
+                f'{relativ}:{nr}  oeffnet die Ansicht `{treffer.group(1)}` ausserhalb der '
+                'Aktivitaetsleiste. Eine Funktion hat eine Stelle in der Navigation.'
+            )
+        for nr, zeile in enumerate(text.splitlines(), 1):
+            if SPRUNG.search(zeile):
+                befunde.append(
+                    f'{relativ}:{nr}  springt per Adresse in die Shell. Eine Ansicht oeffnet '
+                    'die Aktivitaetsleiste (oder steht mit Grund in NAVIGATION_AUSNAHMEN).'
+                )
     return befunde
 
 
@@ -466,6 +589,8 @@ def main() -> int:
         + primitive_doppelt(wurzel)
         + schauseite_vollstaendig(wurzel)
         + farben_pruefen(wurzel)
+        + groessen_und_gewichte(wurzel)
+        + navigation_doppelt(wurzel)
     )
     if not befunde:
         print('   Baustein-Set: eingehalten')

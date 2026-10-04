@@ -90,7 +90,7 @@ async function gibFrei({ appId, benutzerId, stand = 'live', durch }) {
   );
   const { neu, ...freigabe } = result.rows[0];
   if (neu) {
-    logger.info(`Freigabe: App ${appId} fuer Benutzer ${benutzerId} (${stand})`);
+    logger.info(`Freigabe: App ${appId} für Benutzer ${benutzerId} (${stand})`);
   }
   return { freigabe, neu };
 }
@@ -108,7 +108,7 @@ async function nimmZurueck({ appId, benutzerId }) {
   if (result.rowCount === 0) {
     throw new NotFoundError(`Keine Freigabe von ${appId} für Benutzer ${benutzerId}`);
   }
-  logger.info(`Freigabe zurueckgenommen: App ${appId} fuer Benutzer ${benutzerId}`);
+  logger.info(`Freigabe zurückgenommen: App ${appId} für Benutzer ${benutzerId}`);
   return { app_id: appId, user_id: benutzerId };
 }
 

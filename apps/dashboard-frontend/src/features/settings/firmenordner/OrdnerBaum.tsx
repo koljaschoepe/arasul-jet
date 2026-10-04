@@ -150,7 +150,7 @@ function PlatzKnopf({
       title="Grenze einstellen"
       className="h-auto flex-col items-start gap-1 py-1 text-left"
     >
-      <span className="inline-flex items-center gap-1.5 text-ui-xs">
+      <span className="inline-flex items-center gap-1.5 text-xs">
         <Gauge className="size-3.5 shrink-0" aria-hidden="true" />
         {!stand ? (
           <span className="text-muted-foreground">–</span>
@@ -174,7 +174,7 @@ function PlatzKnopf({
       )}
       {stand?.revisionen && stand.revisionen.anzahl > 0 && (
         <span
-          className="text-ui-xs text-muted-foreground tabular-nums whitespace-nowrap"
+          className="text-xs text-muted-foreground tabular-nums whitespace-nowrap"
           data-testid={`ordner-fassungen-${o.kennung}`}
         >
           + {formatBytes(stand.revisionen.bytes)} frühere Fassungen
@@ -345,7 +345,7 @@ function Tabelle({
                 {ordnerWeg(o)}
                 {!o.raum_id && (
                   <span
-                    className="ml-2 text-ui-xs text-muted-foreground"
+                    className="ml-2 text-xs text-muted-foreground"
                     title="Noch nicht bei den Mitarbeitern angekommen. Oben auf „Jetzt nachholen“ tippen."
                   >
                     noch nicht angekommen

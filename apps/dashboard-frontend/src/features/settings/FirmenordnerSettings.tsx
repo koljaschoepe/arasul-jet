@@ -422,7 +422,7 @@ function Schritt({
       data-erledigt={erledigt ? 'ja' : 'nein'}
     >
       <span
-        className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-ui-xs font-semibold"
+        className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-xs font-medium"
         aria-hidden="true"
       >
         {erledigt ? <Check className="size-3.5" /> : nummer}

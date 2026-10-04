@@ -175,7 +175,7 @@ async function beende(
       ]
     );
   } catch (err) {
-    logger.error(`[KI-Protokoll] Zeile ${id} liess sich nicht schliessen: ${err.message}`);
+    logger.error(`[KI-Protokoll] Zeile ${id} ließ sich nicht schließen: ${err.message}`);
   }
 }
 

@@ -539,7 +539,7 @@ async function nimmRechtZurueck({ ordnerId, benutzerId }) {
   if (rowCount === 0) {
     throw new NotFoundError(`${nutzer.username} hat auf „${ordner.kennung}" kein Recht`);
   }
-  await mitDienst(`Einladung ${nutzer.username} auf ${ordner.kennung} zuruecknehmen`, async () => {
+  await mitDienst(`Einladung ${nutzer.username} auf ${ordner.kennung} zurücknehmen`, async () => {
     const spiegel = await spiegelZeile(benutzerId);
     if (!spiegel || !ordner.raum_id) {
       return;
@@ -751,7 +751,7 @@ async function spiegleWurzelMitglieder({ nurBenutzerId = null } = {}) {
     }
     const recht = wurzelRecht(mensch.role);
     let rolleId = null;
-    const ohneRolle = await mitDienst(`Rolle fuer ${recht} auf der Wurzel`, async () => {
+    const ohneRolle = await mitDienst(`Rolle für ${recht} auf der Wurzel`, async () => {
       rolleId = await dienst.rolleFuer(recht, 'raum');
     });
     if (ohneRolle || !rolleId) {
@@ -834,7 +834,7 @@ async function spiegleLoeschung(benutzerId) {
   if (!spiegel) {
     return;
   }
-  await mitDienst(`Nutzer ${spiegel.dienst_name} loeschen`, () =>
+  await mitDienst(`Nutzer ${spiegel.dienst_name} löschen`, () =>
     dienst.loescheNutzer(spiegel.dienst_id)
   );
 }
@@ -1453,7 +1453,7 @@ async function platzUebersicht() {
   try {
     groessen = await dienst.groessen();
   } catch (err) {
-    logger.warn(`Firmenordner: die Groessen der Raeume kamen nicht -- ${err.message}`);
+    logger.warn(`Firmenordner: die Grössen der Räume kamen nicht -- ${err.message}`);
     return leer;
   }
   const raeume = (await listeOrdner()).filter(o => o.ebene <= 1 && o.raum_id);
@@ -1539,7 +1539,7 @@ async function meineOrdnerMitPlatz(benutzerId, rolle) {
   try {
     ({ groessen, platte } = await groessenUndPlatte());
   } catch (err) {
-    logger.warn(`Firmenordner: die Groessen der Raeume kamen nicht -- ${err.message}`);
+    logger.warn(`Firmenordner: die Grössen der Räume kamen nicht -- ${err.message}`);
   }
   const raeume = new Map(
     (await listeOrdner()).filter(o => o.ebene <= 1).map(o => [o.kennung, o.raum_id])

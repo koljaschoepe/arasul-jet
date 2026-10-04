@@ -31,8 +31,8 @@ class FreigabeAnfordernTool extends BaseTool {
 
   get description() {
     return (
-      'Haelt den Lauf an und bittet einen Menschen um Freigabe. ' +
-      'Erst nach der Bestaetigung geht es weiter; eine Ablehnung beendet den Lauf. ' +
+      'Hält den Lauf an und bittet einen Menschen um Freigabe. ' +
+      'Erst nach der Bestätigung geht es weiter; eine Ablehnung beendet den Lauf. ' +
       'Nur benutzen, wenn ein Mensch wirklich zustimmen soll.'
     );
   }
@@ -48,13 +48,13 @@ class FreigabeAnfordernTool extends BaseTool {
         zusammenhang: {
           type: 'string',
           description:
-            'Was zur Entscheidung noetig ist: der Entwurf, die Zahl, der Grund. ' +
-            'Wer hier spart, laesst jemanden blind zustimmen.',
+            'Was zur Entscheidung nötig ist: der Entwurf, die Zahl, der Grund. ' +
+            'Wer hier spart, lässt jemanden blind zustimmen.',
         },
         frist_minuten: {
           type: 'number',
           description:
-            'Wie lange gewartet wird. Ohne Angabe gilt die Vorgabe des Geraets ' +
+            'Wie lange gewartet wird. Ohne Angabe gilt die Vorgabe des Geräts ' +
             `(${freigabeAnfragen.VORGABE_FRIST_MINUTEN} Minuten) oder die Frist der Stufe. ` +
             'Danach endet der Lauf als abgelaufen.',
         },

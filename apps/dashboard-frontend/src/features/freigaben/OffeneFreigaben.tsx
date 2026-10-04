@@ -137,7 +137,7 @@ function Eingereicht() {
       {data.map(e => (
         <li
           key={e.id}
-          className="flex items-start gap-2 text-ui-sm text-muted-foreground"
+          className="flex items-start gap-2 text-sm text-muted-foreground"
           data-testid={`eingereicht-${e.id}`}
         >
           <Send className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -187,7 +187,7 @@ function Zustaendigkeit({
 
   return (
     <div
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 px-ui-3 pb-ui-2 text-ui-xs text-muted-foreground empty:hidden"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 px-ui-3 pb-ui-2 text-xs text-muted-foreground empty:hidden"
       data-testid={`freigabe-${f.id}-zustaendig`}
     >
       <span className="flex items-center gap-1">
@@ -204,7 +204,7 @@ function Zustaendigkeit({
         <Select value="" disabled={verlegen.isPending} onValueChange={weitergeben}>
           <SelectTrigger
             size="sm"
-            className="h-7 w-auto gap-1 text-ui-xs"
+            className="h-7 w-auto gap-1 text-xs"
             aria-label={`${f.titel} weitergeben`}
             data-testid={`freigabe-${f.id}-weitergeben`}
           >
@@ -247,7 +247,7 @@ function BeiAnderen() {
         type="button"
         onClick={() => setOffen(o => !o)}
         aria-expanded={offen}
-        className="flex items-center gap-1 text-ui-sm text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         data-testid="freigaben-bei-anderen-schalter"
       >
         {offen ? (
@@ -270,8 +270,8 @@ function BeiAnderen() {
                 data-testid={`bei-anderen-${f.id}`}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-ui-sm font-medium text-foreground">{f.titel}</span>
-                  <span className="block text-ui-xs text-muted-foreground">
+                  <span className="block text-sm font-medium text-foreground">{f.titel}</span>
+                  <span className="block text-xs text-muted-foreground">
                     {f.app_name || f.app_id}
                     {stufe ? ` · Stufe ${stufe}` : ''} · liegt bei {f.liegt_bei} ·{' '}
                     {wartetSeit(f.angefragt_am)}
@@ -333,13 +333,13 @@ function Zeile({
         data-testid={`freigabe-${f.id}-oeffnen`}
       >
         <span className="min-w-0 flex-1">
-          <span className="block text-ui-sm font-medium text-foreground">{f.titel}</span>
-          <span className="block text-ui-xs text-muted-foreground">
+          <span className="block text-sm font-medium text-foreground">{f.titel}</span>
+          <span className="block text-xs text-muted-foreground">
             {app}
             {stufe ? ` · Stufe ${stufe}` : ''}
           </span>
         </span>
-        <span className="text-ui-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {wartetSeit(f.liegt_seit ?? f.angefragt_am)}
         </span>
       </button>
@@ -408,8 +408,8 @@ export function OffeneFreigaben() {
   if (data.length === 0) {
     return (
       <section className="mb-6" data-testid="offene-freigaben" data-leer="true">
-        <h2 className="mb-1 text-sm font-semibold text-foreground">Für Sie</h2>
-        <p className="flex items-center gap-2 text-ui-sm text-muted-foreground">
+        <h2 className="mb-1 text-sm font-medium text-foreground">Für Sie</h2>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <ClipboardCheck className="size-4 shrink-0" aria-hidden="true" />
           Keine Freigabe liegt bei Ihnen.
         </p>
@@ -444,7 +444,7 @@ export function OffeneFreigaben() {
 
   return (
     <section className="mb-6" data-testid="offene-freigaben">
-      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
         <ClipboardCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         Für Sie
         <span className="font-normal text-muted-foreground" data-testid="fuer-sie-zahl">

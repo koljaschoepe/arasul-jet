@@ -129,7 +129,7 @@ async function zaehlePlattform(url) {
       [host]
     );
   } catch (err) {
-    logger.warn(`Ausgang der Plattform nicht gezaehlt: ${err.message}`);
+    logger.warn(`Ausgang der Plattform nicht gezählt: ${err.message}`);
   }
 }
 

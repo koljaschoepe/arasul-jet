@@ -375,7 +375,7 @@ async function setzeAktiv({ userId, aktiv }) {
 async function loescheBenutzer({ userId, username, role }) {
   const letzterAdmin = await istLetzterAktiverAdmin(role);
 
-  logger.warn(`[benutzer-loeschung] ${username} (id=${userId}) wird geloescht`);
+  logger.warn(`[benutzer-löschung] ${username} (id=${userId}) wird gelöscht`);
 
   // Auth-Invalidierung MUSS vor der Loesch-Transaktion laufen:
   // blacklistAllUserTokens liest active_sessions, um alle JTIs zu ermitteln,
@@ -472,7 +472,7 @@ async function loescheBenutzer({ userId, username, role }) {
   invalidateUserCache(userId);
 
   logger.warn(
-    `[benutzer-loeschung] ${username} (id=${userId}) geloescht; summary: ${JSON.stringify(summary)}`
+    `[benutzer-löschung] ${username} (id=${userId}) gelöscht; summary: ${JSON.stringify(summary)}`
   );
   return { summary, zugangBleibt: letzterAdmin };
 }

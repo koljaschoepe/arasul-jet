@@ -103,7 +103,7 @@ function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
       >
         <PersonAvatar name={name} bild={bild} className="size-7" />
       </PopoverTrigger>
-      <PopoverContent side="right" align="end" className="w-56 p-1 text-ui-sm">
+      <PopoverContent side="right" align="end" className="w-56 p-1 text-sm">
         <p className="truncate px-2 py-1.5 font-medium text-foreground">{name || 'Angemeldet'}</p>
         <div className="my-1 h-px bg-border" aria-hidden="true" />
         <button
@@ -203,7 +203,7 @@ function LeisteLinks({ onLogout }: { onLogout: () => Promise<void> | void }) {
         <House className="size-4.5" aria-hidden="true" />
         {wartend > 0 && (
           <span
-            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-ui-xs leading-none font-medium text-primary-foreground"
+            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs leading-none font-medium text-primary-foreground"
             data-testid="leiste-freigaben-zahl"
             aria-hidden="true"
           >

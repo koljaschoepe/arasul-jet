@@ -169,7 +169,7 @@ describe('Ein Stand sagt, ob er ausgeliefert werden kann', () => {
     expect(live.backend.gesundheit).toBe('healthy');
     expect(live.dateien).toEqual({ manifest: false, frontend: false });
     expect(live.lieferbar).toBe(false);
-    expect(live.mangel).toMatch(/fehlen am Geraet/);
+    expect(live.mangel).toMatch(/fehlen am Gerät/);
   });
 
   test('nur das Frontend fehlt: der Mangel nennt das Frontend', async () => {

@@ -29,7 +29,7 @@ function bildformat(base64) {
 
 const Bild = z
   .string()
-  .max(BILD_MAX_ZEICHEN, `Ein Bild hat hoechstens ${BILD_MAX_ZEICHEN} Zeichen Base64`)
+  .max(BILD_MAX_ZEICHEN, `Ein Bild hat höchstens ${BILD_MAX_ZEICHEN} Zeichen Base64`)
   .transform(wert => wert.replace(DATA_URL_VORSATZ, '').replace(/\s+/g, ''))
   .refine(wert => wert.length > 0 && BASE64.test(wert), 'Ein Bild ist Base64 (ohne Zeilen)')
   .refine(wert => bildformat(wert) !== null, 'Ein Bild ist PNG oder JPEG');
@@ -56,7 +56,7 @@ const ExternalLlmChatBody = z
     images: z
       .array(Bild)
       .min(1)
-      .max(BILD_MAX_ANZAHL, `Hoechstens ${BILD_MAX_ANZAHL} Bilder je Aufruf`)
+      .max(BILD_MAX_ANZAHL, `Höchstens ${BILD_MAX_ANZAHL} Bilder je Aufruf`)
       .optional(),
   })
   .strict();
@@ -138,22 +138,22 @@ const ExtractStructuredFelder = z.object({
   schema: z
     .string({ error: 'schema is required, JSON schema describing desired output' })
     .min(1, 'schema is required, JSON schema describing desired output')
-    .describe('JSON-Schema der gewuenschten Felder, als JSON-Text'),
-  instructions: z.string().optional().describe('Zusaetzliche Anweisung an das Modell'),
+    .describe('JSON-Schema der gewünschten Felder, als JSON-Text'),
+  instructions: z.string().optional().describe('Zusätzliche Anweisung an das Modell'),
   model: z.string().max(200).optional().describe('Modell; ohne Angabe das Standardmodell'),
   timeout_seconds: z
     .string()
     .regex(/^\d+$/)
     .optional()
     .describe(
-      'Wartezeit in Sekunden, Vorgabe 300, hoechstens 600. Rechnet der Auftrag danach noch, ' +
-        'antwortet das Geraet mit 202 und dem Weg zum Abholen'
+      'Wartezeit in Sekunden, Vorgabe 300, höchstens 600. Rechnet der Auftrag danach noch, ' +
+        'antwortet das Gerät mit 202 und dem Weg zum Abholen'
     ),
   einreicher: z
     .string()
     .max(100)
     .optional()
-    .describe('Fuer wen die App fragt; sonst die Kopfzeile X-Arasul-User'),
+    .describe('Für wen die App fragt; sonst die Kopfzeile X-Arasul-User'),
 });
 
 const ExtractStructuredAntwort = z
@@ -163,18 +163,18 @@ const ExtractStructuredAntwort = z
       .record(z.string(), z.unknown())
       .nullable()
       .describe(
-        'Die Felder, die das Modell gefunden hat, als Objekt. NICHT gegen `schema` geprueft; ' +
+        'Die Felder, die das Modell gefunden hat, als Objekt. NICHT gegen `schema` geprüft; ' +
           'null, wenn die Antwort des Modells kein JSON-Objekt war (dann steht sie in raw_response)'
       ),
     raw_response: z.string().describe('Die Antwort des Modells, wie sie kam'),
     extracted_text: z.string().describe('Der Text, den die Texterkennung gelesen hat'),
     filename: z.string(),
-    char_count: z.number().int().describe('Laenge von extracted_text'),
+    char_count: z.number().int().describe('Länge von extracted_text'),
     metadata: z
       .record(z.string(), z.unknown())
-      .describe('Was die Texterkennung ueber die Datei weiss, z. B. ocr_used'),
+      .describe('Was die Texterkennung über die Datei weiß, z. B. ocr_used'),
     model: z.string().describe('Das Modell, das geantwortet hat'),
-    job_id: z.string().describe('Der Auftrag; derselbe Wert steht im Protokoll des Geraets'),
+    job_id: z.string().describe('Der Auftrag; derselbe Wert steht im Protokoll des Geräts'),
     processing_time_ms: z.number().int(),
     timestamp: z.string(),
   })

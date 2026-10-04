@@ -18,14 +18,14 @@ import { AppSymbol, appKuerzel } from './AppSymbol';
 const APPS_IN_DER_LEISTE = 4;
 
 const FELD =
-  'relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-ui-xs transition-colors duration-120 ease-out motion-reduce:transition-none';
+  'relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs transition-colors duration-120 ease-out motion-reduce:transition-none';
 
 function feldKlasse(aktiv: boolean): string {
   return cn(FELD, aktiv ? 'text-primary' : 'text-muted-foreground hover:text-foreground');
 }
 
 const ZEILE =
-  'flex w-full min-h-11 items-center gap-3 rounded px-2 py-1.5 text-left text-ui-sm text-foreground transition-colors duration-120 ease-out hover:bg-accent motion-reduce:transition-none';
+  'flex w-full min-h-11 items-center gap-3 rounded px-2 py-1.5 text-left text-sm text-foreground transition-colors duration-120 ease-out hover:bg-accent motion-reduce:transition-none';
 
 /**
  * Die Aktivitätsleiste am Handy (M5, unter 900 px): dieselben Ziele wie die
@@ -76,7 +76,7 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
           <House className="size-5" aria-hidden="true" />
           {wartend > 0 && (
             <span
-              className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-ui-xs leading-none font-medium text-primary-foreground"
+              className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs leading-none font-medium text-primary-foreground"
               data-testid="leiste-freigaben-zahl"
               aria-hidden="true"
             >
@@ -174,7 +174,7 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
             data-testid="workspace-benutzermenue"
           >
             <PersonAvatar name={name} bild={bild} className="size-7 shrink-0" />
-            <p className="min-w-0 truncate text-ui-sm font-medium text-foreground">
+            <p className="min-w-0 truncate text-sm font-medium text-foreground">
               {name || 'Angemeldet'}
             </p>
           </div>

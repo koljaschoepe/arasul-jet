@@ -145,7 +145,7 @@ function AngemeldeteRechner() {
               className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
             >
               <span className="text-sm font-medium text-foreground">{a.name}</span>
-              <span className="text-ui-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {a.zuletzt_benutzt_am
                   ? `zuletzt ${formatDate(a.zuletzt_benutzt_am)}`
                   : 'noch nie benutzt'}

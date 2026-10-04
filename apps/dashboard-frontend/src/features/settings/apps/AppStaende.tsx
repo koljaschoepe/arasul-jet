@@ -163,12 +163,12 @@ function StandKarte({
       data-testid={`stand-${stand}`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-semibold text-foreground">
+        <span className="text-sm font-medium text-foreground">
           {stand === 'live' ? 'Livefassung' : 'Testfassung'}
         </span>
         {detail && (
           <span
-            className="font-mono text-ui-xs text-muted-foreground"
+            className="font-mono text-xs text-muted-foreground"
             data-testid={`version-${stand}`}
           >
             {detail.version}

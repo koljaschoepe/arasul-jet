@@ -124,7 +124,7 @@ async function entpacke(archivPfad, zielOrdner) {
         return false;
       }
       if (path.isAbsolute(eintragPfad) || eintragPfad.split(/[/\\]/).includes('..')) {
-        abgewiesen.push(`${eintragPfad} (fuehrt aus dem Paket heraus)`);
+        abgewiesen.push(`${eintragPfad} (führt aus dem Paket heraus)`);
         return false;
       }
       eintraege += 1;
@@ -138,8 +138,8 @@ async function entpacke(archivPfad, zielOrdner) {
       // viel wird -- eine Tar-Bombe entfaltet sich nicht doch noch.
       if (!ueberGrenze && eintraege > MAX_EINTRAEGE) {
         ueberGrenze =
-          `Das Paket hat mehr als ${MAX_EINTRAEGE} Eintraege. ` +
-          'Gehoert der Ordner mit den Abhaengigkeiten wirklich hinein?';
+          `Das Paket hat mehr als ${MAX_EINTRAEGE} Einträge. ` +
+          'Gehört der Ordner mit den Abhängigkeiten wirklich hinein?';
       }
       if (!ueberGrenze && bytes > MAX_ENTPACKT_BYTES) {
         ueberGrenze = `Das Paket entfaltet sich auf mehr als ${Math.round(
@@ -197,7 +197,7 @@ async function leseManifestAusPaket(ordner) {
   try {
     gelesen = JSON.parse(roh);
   } catch (err) {
-    throw new ValidationError(`app.json im Paket ist kein gueltiges JSON: ${err.message}`);
+    throw new ValidationError(`app.json im Paket ist kein gültiges JSON: ${err.message}`);
   }
 
   const geprueft = AppManifest.safeParse(gelesen);
@@ -341,7 +341,7 @@ async function nimmAn({ archivPfad, durch, aenderungstext = null }) {
 
     logger.info(
       `App-Paket angenommen: ${manifest.id} ${manifest.version} ` +
-        `(${mass.eintraege} Eintraege, ${Math.round(mass.bytes / 1024)} kB) -> ${ziel}`
+        `(${mass.eintraege} Einträge, ${Math.round(mass.bytes / 1024)} kB) -> ${ziel}`
     );
 
     // Ab hier arbeitet die Plattform mit ihren eigenen Regeln -- derselbe

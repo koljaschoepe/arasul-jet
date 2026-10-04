@@ -64,7 +64,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
           <div className="flex items-center justify-between">
             <span
               className={cn(
-                'text-xs font-semibold uppercase tracking-wider',
+                'text-xs font-medium uppercase tracking-wider',
                 isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
               )}
             >
@@ -72,7 +72,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
             </span>
             <div className="flex items-center gap-2">
               {mengen && <span className="text-xs text-muted-foreground">{mengen}</span>}
-              <span className="text-xs font-semibold text-foreground">
+              <span className="text-xs font-medium text-foreground">
                 {downloadState.progress}%
               </span>
               {onCancel && !isComplete && (
@@ -125,7 +125,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
       <div className="progress-header flex justify-between items-center mb-2">
         <span
           className={cn(
-            'text-xs font-semibold uppercase tracking-wider',
+            'text-xs font-medium uppercase tracking-wider',
             isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-muted-foreground'
           )}
         >
@@ -135,7 +135,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
           {mengen && <span className="text-xs text-muted-foreground">{mengen}</span>}
           <span
             className={cn(
-              'text-sm font-semibold',
+              'text-sm font-medium',
               isComplete ? 'text-primary' : isError ? 'text-destructive' : 'text-foreground'
             )}
           >

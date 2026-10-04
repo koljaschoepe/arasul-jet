@@ -85,7 +85,7 @@ async function stelleAus({ benutzerId, name }) {
        RETURNING id, name, praefix, angelegt_am, zuletzt_benutzt_am`,
     [benutzerId, name, klartext.slice(0, PRAEFIX_LAENGE), pruefsummeVon(klartext)]
   );
-  logger.info(`Ausweis ausgestellt: ${ergebnis.rows[0].praefix}*** fuer Benutzer ${benutzerId}`);
+  logger.info(`Ausweis ausgestellt: ${ergebnis.rows[0].praefix}*** für Benutzer ${benutzerId}`);
   return { ...ergebnis.rows[0], ausweis: klartext };
 }
 

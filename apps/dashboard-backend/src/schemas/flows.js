@@ -204,12 +204,12 @@ const FlowAusloeser = z.discriminatedUnion(
       .object({
         typ: z.literal('zeitplan'),
         zeitplan: z
-          .string({ error: 'Ein Zeitplan-Ausloeser braucht "zeitplan", z. B. "0 6 * * 1-5"' })
+          .string({ error: 'Ein Zeitplan-Auslöser braucht "zeitplan", z. B. "0 6 * * 1-5"' })
           .trim()
           .max(100)
           .refine(
             v => ZEITPLAN_RE.test(v) && v.split(' ').every(f => ZEITPLAN_FELD_RE.test(f)),
-            'zeitplan: fuenf Felder (Minute Stunde Tag Monat Wochentag) aus Ziffern und * / , -, z. B. "0 6 * * 1-5"'
+            'zeitplan: fünf Felder (Minute Stunde Tag Monat Wochentag) aus Ziffern und * / , -, z. B. "0 6 * * 1-5"'
           ),
       })
       .strict(),
@@ -217,7 +217,7 @@ const FlowAusloeser = z.discriminatedUnion(
       .object({
         typ: z.literal('ereignis'),
         ereignis: z
-          .string({ error: 'Ein Ereignis-Ausloeser braucht "ereignis", den Namen des Ereignisses' })
+          .string({ error: 'Ein Ereignis-Auslöser braucht "ereignis", den Namen des Ereignisses' })
           .trim()
           .regex(
             EREIGNIS_RE,
@@ -226,17 +226,17 @@ const FlowAusloeser = z.discriminatedUnion(
       })
       .strict(),
   ],
-  { error: `Ausloeser-Typ ist einer von: ${AUSLOESER_TYPEN.join(', ')}` }
+  { error: `Auslöser-Typ ist einer von: ${AUSLOESER_TYPEN.join(', ')}` }
 );
 
 const FlowAusloeserListe = z
   .array(FlowAusloeser)
-  .min(1, '"ausloeser" nennt mindestens einen Ausloeser oder fehlt ganz')
-  .max(5, 'hoechstens 5 Ausloeser je Flow')
+  .min(1, '"ausloeser" nennt mindestens einen Auslöser oder fehlt ganz')
+  .max(5, 'höchstens 5 Auslöser je Flow')
   .refine(
     liste =>
       new Set(liste.map(a => `${a.typ}:${a.zeitplan ?? a.ereignis ?? ''}`)).size === liste.length,
-    'Derselbe Ausloeser steht zweimal da'
+    'Derselbe Auslöser steht zweimal da'
   );
 
 // Kontrakt 11 (M5): die Abschluss-Route der eigenen App. Nach der letzten
@@ -254,7 +254,7 @@ const FlowAbschluss = z
       .max(200)
       .refine(
         v => ABSCHLUSS_ROUTE_RE.test(v) && !v.split('/').some(t => t === '..') && !v.includes('//'),
-        'abschluss.route: Pfad der eigenen App mit fuehrendem "/", Buchstaben, Ziffern und . _ ~ - /, ohne "..", "//", Abfrage oder Host'
+        'abschluss.route: Pfad der eigenen App mit führendem "/", Buchstaben, Ziffern und . _ ~ - /, ohne "..", "//", Abfrage oder Host'
       ),
   })
   .strict();
@@ -273,7 +273,7 @@ const FlowStufe = z
       .number()
       .int()
       .min(1, 'frist_minuten ist mindestens 1')
-      .max(525600, 'frist_minuten ist hoechstens ein Jahr (525600)')
+      .max(525600, 'frist_minuten ist höchstens ein Jahr (525600)')
       .optional(),
   })
   .strict();
@@ -281,7 +281,7 @@ const FlowStufe = z
 const FlowStufen = z
   .array(FlowStufe)
   .min(1, '"stufen" nennt mindestens eine Stufe oder fehlt ganz')
-  .max(5, 'hoechstens 5 Stufen je Flow')
+  .max(5, 'höchstens 5 Stufen je Flow')
   .refine(
     liste => new Set(liste.map(s => s.name)).size === liste.length,
     'Eine Stufe steht zweimal da'
@@ -300,7 +300,7 @@ const SchrittFaehigkeiten = z
       .number()
       .int()
       .min(512, 'mindestkontext ist mindestens 512 Tokens')
-      .max(1048576, 'mindestkontext ist hoechstens 1048576 Tokens')
+      .max(1048576, 'mindestkontext ist höchstens 1048576 Tokens')
       .optional(),
   })
   .strict();

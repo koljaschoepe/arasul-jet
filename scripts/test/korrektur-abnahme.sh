@@ -76,6 +76,10 @@ pruefe() {
   fi
 }
 ja_wenn() { if [ "$1" = "$2" ]; then echo ja; else echo nein; fi; }
+# Mindestens: eine Kontraktfassung zaehlt hoch, ein fester Wert wird mit jeder
+# neuen Fassung rot, ohne dass etwas kaputt waere. Eine Zahl, die kleiner ist
+# oder fehlt, ist der Fehler.
+mind_wenn() { if [ "${1:-}" -ge "$2" ] 2>/dev/null; then echo ja; else echo nein; fi; }
 
 if [ -z "$A" ] || [ -z "$A_PASS" ] || [ -z "$B" ] || [ -z "$B_PASS" ]; then
   echo "ARASUL_A, ARASUL_A_PASSWORT, ARASUL_B, ARASUL_B_PASSWORT fehlen (vorhandene Probekonten)."
@@ -287,7 +291,7 @@ pruefe 'Wegwerf-Schluessel mit app:deploy und flow:run' "$([ -n "$SCHLUESSEL" ] 
 ruf "schluessel:$SCHLUESSEL" GET /api/v1/external/contract
 KONTRAKT=$(rumpf | feld data.kontrakt)
 [ -z "$KONTRAKT" ] && KONTRAKT=$(rumpf | feld kontrakt)
-pruefe 'Der Kontrakt hat Fassung 10' "$(ja_wenn "$KONTRAKT" 10)" "kontrakt=${KONTRAKT:-—}"
+pruefe 'Der Kontrakt hat mindestens Fassung 10' "$(mind_wenn "$KONTRAKT" 10)" "kontrakt=${KONTRAKT:-—}"
 pruefe 'Die Regeln nennen ergebnis.aenderbar und original' \
   "$(grep -q 'ergebnis.aenderbar' "$RUMPF_DATEI" && grep -q '`original` an einem erkennenden Schritt' "$RUMPF_DATEI" && echo ja || echo nein)"
 

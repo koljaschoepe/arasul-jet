@@ -106,7 +106,7 @@ const errorHandler = (err, req, res, next) => {
     statusCode = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
     message =
       err.code === 'LIMIT_FILE_SIZE'
-        ? 'Die hochgeladene Datei ist zu gross'
+        ? 'Die hochgeladene Datei ist zu groß'
         : `Upload abgewiesen: ${err.message}`;
     code = 'VALIDATION_ERROR';
     details = { feld: err.field || null, grund: err.code };
@@ -141,7 +141,7 @@ const errorHandler = (err, req, res, next) => {
     statusCode = 400;
     message = 'Ungültiger Wert in der Anfrage';
     code = 'VALIDATION_ERROR';
-    logger.warn(`${req.method} ${req.originalUrl}: ungueltiger Wert (22P02)`, errorContext);
+    logger.warn(`${req.method} ${req.originalUrl}: ungültiger Wert (22P02)`, errorContext);
   } else {
     // Unknown error - log full details
     logger.error(`${req.method} ${req.originalUrl}: ${err.message}`, {

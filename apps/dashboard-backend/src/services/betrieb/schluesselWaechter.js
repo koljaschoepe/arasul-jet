@@ -65,12 +65,12 @@ async function pruefe() {
          VALUES ('backup', 'failure', 'backup-service', 'critical', $1, $2, $3::jsonb)`,
         [TITEL, `${TEXT}${p.grund ? ` (${p.grund})` : ''}`, JSON.stringify({ pruefung: kennung })]
       );
-      logger.warn('Sicherungsschluessel passt nicht zur letzten Sicherung -- Admin benachrichtigt');
+      logger.warn('Sicherungsschlüssel passt nicht zur letzten Sicherung -- Admin benachrichtigt');
     }
     zuletztGemeldet = kennung;
     return rows.length === 0;
   } catch (fehler) {
-    logger.warn(`Schluesselwaechter: ${fehler.message}`);
+    logger.warn(`Schlüsselwächter: ${fehler.message}`);
     return false;
   }
 }

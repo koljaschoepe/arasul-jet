@@ -186,7 +186,7 @@ router.post(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    logger.info(`Sicherung von Hand angestossen von ${req.user.username}`);
+    logger.info(`Sicherung von Hand angestoßen von ${req.user.username}`);
     const ergebnis = await sicherungsdienst.sichereJetzt();
 
     logSecurityEvent({
@@ -229,7 +229,7 @@ router.post(
     await passwortBestaetigt(req, 'wiederherstellung');
 
     logger.warn(
-      `Wiederherstellung angestossen von ${req.user.username} (${
+      `Wiederherstellung angestoßen von ${req.user.username} (${
         stand ? `Stand ${stand}` : datei || 'neueste Sicherung'
       })`
     );
@@ -304,7 +304,7 @@ router.post(
       );
     }
     await passwortBestaetigt(req, 'app_daten_wiederhergestellt');
-    logger.warn(`Daten der App ${appId} werden zurueckgeholt, von ${req.user.username}`);
+    logger.warn(`Daten der App ${appId} werden zurückgeholt, von ${req.user.username}`);
     logSecurityEvent({
       userId: req.user.id,
       action: 'app_daten_wiederhergestellt',
@@ -356,7 +356,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { kennung } = req.params;
     await passwortBestaetigt(req, 'bereich_wiederhergestellt');
-    logger.warn(`Bereich ${kennung} wird zurueckgeholt, von ${req.user.username}`);
+    logger.warn(`Bereich ${kennung} wird zurückgeholt, von ${req.user.username}`);
     logSecurityEvent({
       userId: req.user.id,
       action: 'bereich_wiederhergestellt',

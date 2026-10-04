@@ -226,7 +226,7 @@ class DateienLesenTool extends BaseTool {
     if (ende < gesamt) {
       text = text.replace(/�$/, '');
       return (
-        `${text}\n... [gekuerzt bei Byte ${ende} von ${gesamt} — ` +
+        `${text}\n... [gekürzt bei Byte ${ende} von ${gesamt} — ` +
         `weiterlesen mit aktion=read, offset=${ende}]`
       );
     }
@@ -280,7 +280,7 @@ class DateienSchreibenTool extends BaseTool {
     }
     const data = params.inhalt == null ? '' : String(params.inhalt);
     if (Buffer.byteLength(data, 'utf8') > MAX_WRITE_BYTES) {
-      return `Fehler: Inhalt ueberschreitet das Limit von ${MAX_WRITE_BYTES} Bytes.`;
+      return `Fehler: Inhalt überschreitet das Limit von ${MAX_WRITE_BYTES} Bytes.`;
     }
 
     // Das Arbeitsverzeichnis anlegen, falls es noch nicht existiert. Ohne das
@@ -486,7 +486,7 @@ class DateienBearbeitenTool extends BaseTool {
         return `Fehler: Datei "${pfad}" ist leer. Zum Befüllen dateien_schreiben nutzen.`;
       }
       if (stat.size > MAX_EDIT_BYTES) {
-        return `Fehler: Datei ist groesser als ${MAX_EDIT_BYTES} Bytes, Bearbeiten nicht moeglich.`;
+        return `Fehler: Datei ist grösser als ${MAX_EDIT_BYTES} Bytes, Bearbeiten nicht möglich.`;
       }
       const inhalt = await handle.readFile('utf8');
       if (Buffer.from(inhalt.slice(0, 8000), 'utf8').includes(0)) {
@@ -548,7 +548,7 @@ class DateienBearbeitenTool extends BaseTool {
       }
 
       if (Buffer.byteLength(neuerInhalt, 'utf8') > MAX_EDIT_BYTES) {
-        return `Fehler: Ergebnis ueberschreitet das Limit von ${MAX_EDIT_BYTES} Bytes.`;
+        return `Fehler: Ergebnis überschreitet das Limit von ${MAX_EDIT_BYTES} Bytes.`;
       }
       // Plan 022 — alten Stand vor dem Ersetzen sichern (mehrstufiges Undo).
       const zuordnungB = schnappZiel(roots, file, context);
@@ -615,7 +615,7 @@ class DateienAnhaengenTool extends BaseTool {
       return 'Fehler: "inhalt" darf nicht leer sein.';
     }
     if (Buffer.byteLength(data, 'utf8') > MAX_WRITE_BYTES) {
-      return `Fehler: Abschnitt ueberschreitet das Limit von ${MAX_WRITE_BYTES} Bytes je Aufruf.`;
+      return `Fehler: Abschnitt überschreitet das Limit von ${MAX_WRITE_BYTES} Bytes je Aufruf.`;
     }
 
     const auf = await oeffneZumSchreiben(roots, pfad);
@@ -625,7 +625,7 @@ class DateienAnhaengenTool extends BaseTool {
     const { handle, stat, file } = auf;
     try {
       if (stat.size + Buffer.byteLength(data, 'utf8') > MAX_APPEND_TOTAL) {
-        return `Fehler: Zieldatei wuerde ${MAX_APPEND_TOTAL} Bytes ueberschreiten.`;
+        return `Fehler: Zieldatei würde ${MAX_APPEND_TOTAL} Bytes überschreiten.`;
       }
       // Plan 022 — Anhängen ist rein additiv: Undo = auf die alte Größe kürzen
       // (billig, kein Voll-Snapshot). Neue Datei → „löschen"-Marker.

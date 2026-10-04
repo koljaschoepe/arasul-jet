@@ -183,7 +183,7 @@ function Login({ onLoginSuccess, firmenname }: LoginProps) {
           size="lg"
           loading={isSubmitting}
           disabled={!canSubmit}
-          className="mt-6 w-full font-semibold max-md:h-11"
+          className="mt-6 w-full font-medium max-md:h-11"
         >
           {isSubmitting ? 'Anmeldung läuft …' : 'Anmelden'}
         </Button>

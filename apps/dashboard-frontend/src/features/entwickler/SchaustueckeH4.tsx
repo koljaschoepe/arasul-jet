@@ -200,7 +200,7 @@ export function SchaustueckeH4() {
         <Zustand name="16 zu 9">
           <div className="w-64">
             <AspectRatio ratio={16 / 9}>
-              <div className="flex size-full items-center justify-center rounded-md border border-border bg-muted text-ui-sm text-muted-foreground">
+              <div className="flex size-full items-center justify-center rounded-md border border-border bg-muted text-sm text-muted-foreground">
                 16 : 9
               </div>
             </AspectRatio>
@@ -209,7 +209,7 @@ export function SchaustueckeH4() {
         <Zustand name="1 zu 1">
           <div className="w-32">
             <AspectRatio ratio={1}>
-              <div className="flex size-full items-center justify-center rounded-md border border-border bg-muted text-ui-sm text-muted-foreground">
+              <div className="flex size-full items-center justify-center rounded-md border border-border bg-muted text-sm text-muted-foreground">
                 1 : 1
               </div>
             </AspectRatio>
@@ -238,7 +238,7 @@ export function SchaustueckeH4() {
               <CarouselContent>
                 {['Antrag', 'Prüfung', 'Bescheid'].map(schritt => (
                   <CarouselItem key={schritt}>
-                    <div className="flex h-24 items-center justify-center rounded-md border border-border text-ui-sm">
+                    <div className="flex h-24 items-center justify-center rounded-md border border-border text-sm">
                       {schritt}
                     </div>
                   </CarouselItem>
@@ -282,7 +282,7 @@ export function SchaustueckeH4() {
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <pre className="mt-2 rounded-md border border-border p-ui-2 font-mono text-ui-xs">
+              <pre className="mt-2 rounded-md border border-border p-ui-2 font-mono text-xs">
                 {'{ "stand": "live", "version": "1.4.0" }'}
               </pre>
             </CollapsibleContent>
@@ -449,11 +449,11 @@ export function SchaustueckeH4() {
             className="h-32 w-72 rounded-md border border-border"
           >
             <ResizablePanel id="schau-links" defaultSize="40%" minSize="20%">
-              <div className="flex h-full items-center justify-center text-ui-sm">Liste</div>
+              <div className="flex h-full items-center justify-center text-sm">Liste</div>
             </ResizablePanel>
             <ResizableHandle mitGriff />
             <ResizablePanel id="schau-rechts" minSize="20%">
-              <div className="flex h-full items-center justify-center text-ui-sm">Detail</div>
+              <div className="flex h-full items-center justify-center text-sm">Detail</div>
             </ResizablePanel>
           </ResizablePanelGroup>
         </Zustand>
@@ -493,7 +493,7 @@ export function SchaustueckeH4() {
               </SidebarContent>
             </Sidebar>
             <SidebarInset>
-              <div className="flex items-center gap-2 p-ui-2 text-ui-sm">
+              <div className="flex items-center gap-2 p-ui-2 text-sm">
                 <SidebarTrigger />
                 Inhalt
               </div>

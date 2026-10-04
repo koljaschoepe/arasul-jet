@@ -528,7 +528,13 @@ rm "$BAU/Hex.tsx"
 
 BAU_CSS="$TMP/bau/apps/dashboard-frontend/src/index.css"
 printf ':root {\n  --meins: #2d8fd9;\n  --rot: #ef4444;\n  --grau: rgba(16, 16, 16, 0.1);\n}\n' > "$BAU_CSS"
-pruefe "Bausteine: Blau, Rot und Grau als Token sind gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+# Seit dem 04.10.2026 (pruefung-einheit-umlaute) ist auch ein Token mit Hex in
+# index.css rot: die Farbe steht in theme.css, nicht als Kopie daneben.
+pruefe "Bausteine: ein Token mit Hex in index.css ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf ':root {\n  --meins: var(--primary);\n}\n.ding {\n  color: var(--meins);\n}\n' > "$BAU_CSS"
+pruefe "Bausteine: ein Token ohne Farbwert in index.css ist gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf ':root {\n  --kopie: rgba(16, 16, 16, 0.1);\n}\n' > "$BAU_CSS"
+pruefe "Bausteine: ein rgba() als Token in index.css ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 printf ':root {\n  --warnung: #f59e0b;\n}\n' > "$BAU_CSS"
 pruefe "Bausteine: ein oranger Token in index.css ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 printf '.ding {\n  color: #2d8fd9;\n}\n' > "$BAU_CSS"
@@ -542,6 +548,33 @@ pruefe "Bausteine: ein Hex in theme.css ist gruen" 0 python3 "$WURZEL/scripts/te
 printf ':root {\n  --success: #10b981;\n}\n' > "$BAU_THEME"
 pruefe "Bausteine: ein gruener Token in theme.css ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 rm "$BAU_THEME"
+
+# Regel 8 (04.10.2026): drei Groessen, zwei Gewichte. Jede erlaubte Klasse
+# geht durch, jede andere faellt, und eine Farbklasse mit `text-` ist keine
+# Groesse.
+printf 'export const H = () => <p className="text-xs text-sm text-lg font-normal font-medium text-foreground text-center">ok</p>;\n' > "$BAU/Masse.tsx"
+pruefe "Bausteine: die drei Groessen und zwei Gewichte sind gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+for klasse in text-base text-ui-xs text-ui-sm text-xl text-2xl 'text-[11px]' font-semibold font-bold md:text-base; do
+  printf 'export const H = () => <p className="%s">x</p>;\n' "$klasse" > "$BAU/Masse.tsx"
+  pruefe "Bausteine: $klasse ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+done
+printf '// text-base steht hier nur im Kommentar\nexport const H = () => <p className="text-sm">x</p>;\n' > "$BAU/Masse.tsx"
+pruefe "Bausteine: eine Klasse im Kommentar ist gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU/Masse.tsx"
+
+# Regel 9 (04.10.2026): eine Stelle in der Navigation. Die Leiste darf, ein
+# Knopf in einer Seite nicht, und ein Sprung per Adresse auch nicht.
+WS="$TMP/bau/apps/dashboard-frontend/src/features/workspace"
+mkdir -p "$WS"
+printf "export const L = ({ oeffne }) => <button onClick={() => oeffne({ type: 'settings' })}>x</button>;\n" > "$WS/ActivityBar.tsx"
+pruefe "Bausteine: die Aktivitaetsleiste darf eine Ansicht oeffnen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf "export const Z = ({ oeffne }) => <button onClick={() => oeffne({ type: 'settings' })}>Einstellungen</button>;\n" > "$BAU/ZweiteTuer.tsx"
+pruefe "Bausteine: eine zweite Tuer in die Ansicht ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf "export const Z = ({ oeffne }) => <button onClick={() => oeffne(\n  {\n    type: 'verwaltung' })}>x</button>;\n" > "$BAU/ZweiteTuer.tsx"
+pruefe "Bausteine: auch ueber Zeilen gebrochen ist sie rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf "export const Z = ({ navigate }) => <button onClick={() => navigate('/workspace/verwaltung')}>x</button>;\n" > "$BAU/ZweiteTuer.tsx"
+pruefe "Bausteine: ein Sprung per navigate ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU/ZweiteTuer.tsx" "$WS/ActivityBar.tsx"
 
 # --- modellnamen.py ---------------------------------------------------------
 MOD="$TMP/mod/apps/dashboard-frontend/src/features/beispiel"

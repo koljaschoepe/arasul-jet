@@ -120,7 +120,7 @@ const SystemHealthWidget: React.FC = () => {
   if (error && !data) {
     return (
       <Feldgruppe titel="Zustand des Geräts">
-        <p className="text-ui text-muted-foreground">{error}</p>
+        <p className="text-sm text-muted-foreground">{error}</p>
       </Feldgruppe>
     );
   }
@@ -128,7 +128,7 @@ const SystemHealthWidget: React.FC = () => {
   if (!data) {
     return (
       <Feldgruppe titel="Zustand des Geräts" className="min-h-[200px]">
-        <p className="text-ui text-muted-foreground">Lädt…</p>
+        <p className="text-sm text-muted-foreground">Lädt…</p>
       </Feldgruppe>
     );
   }
@@ -167,19 +167,19 @@ const SystemHealthWidget: React.FC = () => {
           {meta.icon}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold" style={{ color: meta.color }}>
+          <div className="truncate font-medium" style={{ color: meta.color }}>
             {meta.label}
           </div>
           {criticals.length > 0 && (
-            <div className="truncate text-ui-xs text-muted-foreground">{criticals[0]}</div>
+            <div className="truncate text-xs text-muted-foreground">{criticals[0]}</div>
           )}
           {criticals.length === 0 && warnings.length > 0 && (
-            <div className="truncate text-ui-xs text-muted-foreground">{warnings[0]}</div>
+            <div className="truncate text-xs text-muted-foreground">{warnings[0]}</div>
           )}
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-ui-1 text-ui">
+      <div className="grid min-w-0 gap-ui-1 text-sm">
         <div className="flex min-w-0 items-center justify-between gap-ui-2">
           <span className="min-w-0 truncate">Letzte Sicherung</span>
           <span

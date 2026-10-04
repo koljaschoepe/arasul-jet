@@ -83,7 +83,7 @@ async function leseManifest(appId, version) {
     gelesen = JSON.parse(roh);
   } catch (err) {
     throw new ValidationError(
-      `app.json von ${appId} ${version} ist kein gueltiges JSON: ${err.message}`
+      `app.json von ${appId} ${version} ist kein gültiges JSON: ${err.message}`
     );
   }
 

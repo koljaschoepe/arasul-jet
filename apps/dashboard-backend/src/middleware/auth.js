@@ -252,7 +252,7 @@ function requireRole(...rollen) {
     }
     if (!rollen.includes(req.user.role)) {
       logger.warn(
-        `Zugriff verweigert: ${req.method} ${req.originalUrl} fuer ${req.user.username} (Rolle ${req.user.role}, erlaubt ${rollen.join(', ')})`
+        `Zugriff verweigert: ${req.method} ${req.originalUrl} für ${req.user.username} (Rolle ${req.user.role}, erlaubt ${rollen.join(', ')})`
       );
       return res.status(403).json({
         error: { code: 'FORBIDDEN', message: 'Diese Funktion ist dem Administrator vorbehalten' },

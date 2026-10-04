@@ -795,7 +795,7 @@ function warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal }) {
         .finally(() =>
           ablehnen(
             new LaufBeendet(
-              'Der Lauf wurde abgebrochen, waehrend er auf die Freigabe wartete.',
+              'Der Lauf wurde abgebrochen, während er auf die Freigabe wartete.',
               'abgebrochen'
             )
           )
@@ -1257,7 +1257,7 @@ async function uebernehmen({ id, benutzerId }, { datenbank = db } = {}) {
     await erklaereFehlschlag({ id, benutzerId, datenbank, liegtEgal: true });
   }
   const benutzer = await nameVon(benutzerId, datenbank);
-  logger.info(`Freigabe ${id} uebernommen von ${benutzer} (lag bei ${vorher || 'allen'})`);
+  logger.info(`Freigabe ${id} übernommen von ${benutzer} (lag bei ${vorher || 'allen'})`);
   return { ...rows[0], liegt_bei: benutzer, vorher };
 }
 
@@ -1608,7 +1608,7 @@ async function wiederaufnehmen({ datenbank = db } = {}) {
   }
   if (rows.length > 0) {
     logger.info(
-      `Freigaben: ${rows.length} wartende(r) Lauf/Laeufe uebernommen ` +
+      `Freigaben: ${rows.length} wartende(r) Lauf/Läufe übernommen ` +
         `(${bilanz.uhren} Uhren, ${bilanz.fortgesetzt} fortgesetzt, ${bilanz.beendet} beendet)`
     );
   }

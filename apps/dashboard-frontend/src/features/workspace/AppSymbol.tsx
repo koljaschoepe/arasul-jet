@@ -58,7 +58,7 @@ export function AppSymbol({ symbol, kuerzel }: { symbol?: string | null; kuerzel
     return <Bild className="size-4.5" />;
   }
   return (
-    <span className="text-ui-xs font-medium" aria-hidden="true" data-testid="app-kuerzel">
+    <span className="text-xs font-medium" aria-hidden="true" data-testid="app-kuerzel">
       {istKuerzel ? symbol : kuerzel}
     </span>
   );

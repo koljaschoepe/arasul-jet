@@ -173,7 +173,7 @@ describe('Auslesen und Bilder im Kontrakt (J35)', () => {
     expect(auslesen.antwort.properties).toHaveProperty('job_id');
     expect(auslesen.antwort.additionalProperties).toBe(false);
     expect(auslesen.fehlschlag.properties.success.const).toBe(false);
-    expect(auslesen.regeln.join(' ')).toMatch(/NICHT gegen `schema` geprueft/);
+    expect(auslesen.regeln.join(' ')).toMatch(/NICHT gegen `schema` geprüft/);
     // Der Weg steht auch unter `endpunkte`, mit demselben Bereich.
     const e = appKontrakt.ENDPUNKTE.find(x => x.relativ === `/${auslesen.weg}`);
     expect(e.bereich).toBe(auslesen.bereich);
@@ -346,7 +346,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // 04.10.2026 (M5, Kontrakt 12, Rueckfall im Geraet): `zeigt_freigaben` im
     // Manifest und eine Regel dazu. Die Zahl geht mit, weil das Manifest
     // `.strict()` ist und ein Kit auf Fassung 11 das Feld abwiese.
-    expect(abdruck).toBe('bc95c82dd3644eb43b4c202e3f138f59a546132447eca38a529dea19d59f13d9');
+    //
+    // 04.10.2026 (M5, Auftrag pruefung-einheit-umlaute): die Prosa des
+    // Kontraktes und die Texte der Pruefungen stehen mit echten Umlauten
+    // (Geraet wird Gerät, hoechstens wird höchstens). Kein Feld, keine Regel,
+    // kein Name: Feldnamen wie `aenderungstext` bleiben. Die Zahl bleibt bei 12.
+    expect(abdruck).toBe('e1aa6d6bc796fb4d0720dff1022738333b505e3dd29f11e2faa1bda8def11f00');
   });
 
   /**

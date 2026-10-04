@@ -54,12 +54,12 @@ async function erneuere({ appId, stand, durch }) {
   ]);
   const { key } = await generateApiKey(
     `App ${appId} (${stand})`,
-    `Vom Geraet beim Einspielen von ${appId} in den ${stand}-Stand angelegt.`,
+    `Vom Gerät beim Einspielen von ${appId} in den ${stand}-Stand angelegt.`,
     durch ?? null,
     { appId, stand }
   );
   logger.info(
-    `App-Schluessel erneuert: ${appId}/${stand}${alt.rowCount > 0 ? ' (alter zurueckgezogen)' : ''}`
+    `App-Schlüssel erneuert: ${appId}/${stand}${alt.rowCount > 0 ? ' (alter zurückgezogen)' : ''}`
   );
   return key;
 }

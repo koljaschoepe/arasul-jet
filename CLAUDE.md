@@ -100,6 +100,12 @@ Nicht aus dem Gedächtnis zitieren, dort nachlesen.
    `--delete-branch` (no branch outlives its PR), and sweep stale/merged/superseded
    PRs on sight. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md#pr-hygiene).
 
+9. **Gestalt und Sprache** — Farben nur aus Tokens (`theme.css` ist die Quelle),
+   drei Schriftgrößen, zwei Gewichte, eine Stelle je Funktion in der Navigation,
+   echte Umlaute in allem Sichtbaren (Oberfläche, Meldungen, Kontrakt-Prosa,
+   Admin-Handbuch). CI schlägt fehl, sonst nichts erinnert daran. Details:
+   [`apps/dashboard-frontend/CLAUDE.md`](apps/dashboard-frontend/CLAUDE.md#8-gestalt-und-sprache--vier-sätze-die-ein-wächter-hält).
+
 ## Task router — which CLAUDE.md to read
 
 Each subfolder owns its own `CLAUDE.md` with the conventions for code in that

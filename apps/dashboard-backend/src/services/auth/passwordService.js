@@ -202,7 +202,7 @@ async function schreibePasswort(userId, newPassword, { changedBy, ipAddress, vom
   // obwohl es das von mia war. Im Protokoll (`password_history.changed_by`)
   // stand es immer richtig; hier nicht, und wer bei einem Vorfall die Logs
   // liest, liest zuerst hier.
-  logger.info(`Passwort geaendert fuer Benutzer id=${userId} (durch ${changedBy || 'ihn selbst'})`);
+  logger.info(`Passwort geändert für Benutzer id=${userId} (durch ${changedBy || 'ihn selbst'})`);
 
   // Der Zwischenspeicher von `requireAuth` haelt die Zeile samt
   // `passwort_vom_admin` 60 s lang, und er haengt an der Kennung, nicht am

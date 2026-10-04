@@ -196,7 +196,7 @@ async function buchWiderspricht(client, buch) {
   }
   logger.warn(
     `Migration Runner: das Schema arasul existiert, Migration ${SCHEMA_MIGRATION} steht aber nicht im Buch. ` +
-      'Das Buch wird als unvollstaendig behandelt und nachgetragen, statt alles erneut anzuwenden.'
+      'Das Buch wird als unvollständig behandelt und nachgetragen, statt alles erneut anzuwenden.'
   );
   return true;
 }

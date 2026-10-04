@@ -792,7 +792,7 @@ router.get(
     const job = aufruf ? await llmJobService.getJob(jobId) : null;
     if (!job || !gehoertDemSchluessel(job, req.apiKey)) {
       throw new NotFoundError(
-        'Kein Auftrag mit dieser Kennung fuer diese App. Ein fertiges Ergebnis liegt eine Stunde.'
+        'Kein Auftrag mit dieser Kennung für diese App. Ein fertiges Ergebnis liegt eine Stunde.'
       );
     }
     const dauer = job.completed_at
@@ -1188,7 +1188,7 @@ router.get(
     const { appId, stand } = namensraumVon(req.apiKey);
     if (!appId) {
       throw new ForbiddenError(
-        'Freigaben gehoeren einer App. Dieser Schluessel gehoert einem Menschen; ' +
+        'Freigaben gehören einer App. Dieser Schlüssel gehört einem Menschen; ' +
           'seine offenen Freigaben stehen unter /api/freigabe-anfragen.'
       );
     }

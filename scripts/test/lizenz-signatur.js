@@ -136,7 +136,7 @@ async function main() {
   pruefe('Aktivieren wird abgelehnt', ergebnis.success === false);
   pruefe(
     'und die Meldung nennt den Grund: der Schluessel fehlt',
-    /Lizenzschluessel fehlt/.test(ergebnis.error || '') && /community/.test(ergebnis.error || ''),
+    /Lizenzschlüssel fehlt/.test(ergebnis.error || '') && /community/.test(ergebnis.error || ''),
     ergebnis.error
   );
   pruefe('Es liegt danach keine Lizenzdatei', !fs.existsSync(LIZENZ));

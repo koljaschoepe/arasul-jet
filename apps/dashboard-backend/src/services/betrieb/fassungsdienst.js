@@ -191,7 +191,7 @@ async function wegPruefen() {
     }
     return { moeglich: true, grund: null, host };
   } catch (fehler) {
-    logger.info(`Aktualisierung nicht moeglich: ${fehler.message}`);
+    logger.info(`Aktualisierung nicht möglich: ${fehler.message}`);
     return {
       moeglich: false,
       grund:

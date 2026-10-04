@@ -91,7 +91,7 @@ export function ProfilFormular({ onGespeichert }: { onGespeichert?: () => void }
         <PersonAvatar
           name={name}
           bild={user?.hatBild ? `${API_BASE}/profil/bild?v=${bildStand}` : null}
-          className="size-16 text-base"
+          className="size-16 text-lg"
         />
         <div className="flex gap-2">
           <Button

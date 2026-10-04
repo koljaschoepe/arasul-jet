@@ -50,7 +50,7 @@ function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => voi
           {app.beschreibung || app.id}
         </span>
       </span>
-      <span className="flex shrink-0 flex-wrap items-center gap-2 text-ui-xs">
+      <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
         {/* Ein Stand, der nicht ausgeliefert werden kann, ist rot schon in der
             Liste (Auftrag app-leiche): ein Mensch klickt auf die Kachel und
             bekommt nichts. Sonst ein Satz in Grau. */}

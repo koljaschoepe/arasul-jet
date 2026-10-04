@@ -207,8 +207,8 @@ class UpdateService {
           ? 'im Backend-Container gibt es kein `docker`-Programm'
           : `docker antwortet nicht (${fehler.message})`;
       logger.info(
-        `Einspielen ueber die Schnittstelle nicht moeglich: ${warum}. ` +
-          'Aktualisiert wird ueber den Deploy (scripts/deploy/deploy-local.sh) oder `./arasul update`.'
+        `Einspielen über die Schnittstelle nicht möglich: ${warum}. ` +
+          'Aktualisiert wird über den Deploy (scripts/deploy/deploy-local.sh) oder `./arasul update`.'
       );
       return {
         moeglich: false,
@@ -601,7 +601,7 @@ class UpdateService {
    */
   async rollback() {
     try {
-      logger.info('Rollback: die Sicherung von vor der Aktualisierung kommt zurueck');
+      logger.info('Rollback: die Sicherung von vor der Aktualisierung kommt zurück');
       const sicherungsdienst = require('../betrieb/sicherungsdienst');
       const ergebnis = await sicherungsdienst.stelleWiederHer({ durch: null });
 

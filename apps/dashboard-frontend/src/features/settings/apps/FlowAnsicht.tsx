@@ -35,7 +35,7 @@ export function ModellZeile({
       <span className="font-mono text-foreground">{modell ?? 'Standardmodell'}</span>
       {extern && (
         <span
-          className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs font-medium text-muted-foreground"
+          className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
           title={`${extern.anbieter}, ${extern.basis_url}${
             extern.endet_auf ? `, Schlüssel endet auf ${extern.endet_auf}` : ', ohne Schlüssel'
           }`}
@@ -46,7 +46,7 @@ export function ModellZeile({
       {/* „Aus dem Paket" ist der Normalfall und bekommt kein Etikett. Ein
           Etikett an jeder Zeile sagt nichts; eines an den abweichenden schon. */}
       {!extern && ueberschrieben && (
-        <span className="rounded bg-accent px-1.5 py-0.5 text-ui-xs text-muted-foreground">
+        <span className="rounded bg-accent px-1.5 py-0.5 text-xs text-muted-foreground">
           vom Administrator
         </span>
       )}
@@ -105,7 +105,7 @@ export function FlowAnsicht({
       {flow && (
         <>
           <div>
-            <h3 className="text-lg font-semibold text-foreground">{flow.name}</h3>
+            <h3 className="text-lg font-medium text-foreground">{flow.name}</h3>
             {flow.beschreibung && (
               <p className="mt-1 text-sm text-muted-foreground">{flow.beschreibung}</p>
             )}
@@ -137,7 +137,7 @@ export function FlowAnsicht({
               name="Werkzeuge"
               wert={
                 flow.werkzeuge?.length ? (
-                  <span className="font-mono text-ui-xs">{flow.werkzeuge.join(', ')}</span>
+                  <span className="font-mono text-xs">{flow.werkzeuge.join(', ')}</span>
                 ) : null
               }
             />
@@ -148,7 +148,7 @@ export function FlowAnsicht({
                   <ul className="flex flex-col gap-0.5">
                     {flow.argumente.map(a => (
                       <li key={a.name}>
-                        <span className="font-mono text-ui-xs">{a.name}</span>
+                        <span className="font-mono text-xs">{a.name}</span>
                         <span className="text-muted-foreground">
                           {' '}
                           — {a.typ}
@@ -169,7 +169,7 @@ export function FlowAnsicht({
                     {flow.schritte.map((s, i) => (
                       <li key={s.name}>
                         <span className="text-muted-foreground">{i + 1}.</span>{' '}
-                        <span className="font-mono text-ui-xs">{s.name}</span>
+                        <span className="font-mono text-xs">{s.name}</span>
                         <span className="text-muted-foreground">
                           {' '}
                           — {s.typ}
@@ -184,11 +184,11 @@ export function FlowAnsicht({
           </dl>
 
           <div>
-            <h4 className="mb-1.5 text-sm font-semibold text-foreground">Auftrag an das Modell</h4>
+            <h4 className="mb-1.5 text-sm font-medium text-foreground">Auftrag an das Modell</h4>
             <pre
               className={cn(
                 'max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md',
-                'border border-border p-ui-3 font-mono text-ui-xs text-foreground'
+                'border border-border p-ui-3 font-mono text-xs text-foreground'
               )}
               data-testid="flow-prompt"
             >

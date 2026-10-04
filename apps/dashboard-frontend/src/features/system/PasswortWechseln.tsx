@@ -235,7 +235,7 @@ function PasswortWechseln({ onGewechselt, onAbmelden }: PasswortWechselnProps) {
           size="lg"
           loading={laeuft}
           disabled={!absendbar}
-          className="mt-6 w-full font-semibold max-md:h-11"
+          className="mt-6 w-full font-medium max-md:h-11"
         >
           {laeuft ? 'Wird geändert …' : 'Passwort ändern'}
         </Button>

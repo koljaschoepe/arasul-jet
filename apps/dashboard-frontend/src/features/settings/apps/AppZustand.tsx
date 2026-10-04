@@ -77,7 +77,7 @@ export function AppZustand({ app }: { app: AppDetail }) {
           {s}
         </p>
       ))}
-      <p className="text-ui-xs text-muted-foreground" data-testid="app-zustand-zahlen">
+      <p className="text-xs text-muted-foreground" data-testid="app-zustand-zahlen">
         {mitZugang.length === 1 ? '1 Person' : `${mitZugang.length} Personen`} mit Zugang
         {testpersonen.length > 0 &&
           `, davon ${testpersonen.length === 1 ? '1 Testperson' : `${testpersonen.length} Testpersonen`}`}

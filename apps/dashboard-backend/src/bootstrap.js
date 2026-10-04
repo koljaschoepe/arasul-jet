@@ -76,7 +76,7 @@ async function migrationenMitGeduld() {
       letzter = error;
       logger.warn(
         `Bootstrap: Datenbank noch nicht bereit (${kennung}), Versuch ` +
-          `${versuch} von ${versuche}, naechster in ${pause} ms`
+          `${versuch} von ${versuche}, nächster in ${pause} ms`
       );
       await new Promise(r => {
         setTimeout(r, pause);
@@ -126,7 +126,7 @@ async function bootstrap() {
     logger.error(
       `Bootstrap: KEIN Administrator ab Werk angelegt. ${schemaKaputt}. ` +
         'Solange der Schemastand nicht belegt ist, darf hier kein Konto mit ' +
-        'einem werksbekannten Passwort entstehen. Das Geraet zeigt stattdessen ' +
+        'einem werksbekannten Passwort entstehen. Das Gerät zeigt stattdessen ' +
         'die Ersteinrichtung. Ursache beheben, dann neu starten.'
     );
   } else {
@@ -154,7 +154,7 @@ async function werksresetSteht() {
     const { rows } = await db.query('SELECT werksreset_am FROM arasul.geraet WHERE id = 1');
     return Boolean(rows[0]?.werksreset_am);
   } catch (error) {
-    logger.debug(`Bootstrap: Geraetezustand nicht lesbar (${error.message})`);
+    logger.debug(`Bootstrap: Gerätezustand nicht lesbar (${error.message})`);
     return false;
   }
 }
@@ -180,7 +180,7 @@ async function ensureAdminUser() {
     if (await werksresetSteht()) {
       logger.info(
         'Bootstrap: Werksreset vermerkt, es wird kein Administrator angelegt. ' +
-          'Der naechste Aufruf zeigt die Ersteinrichtung.'
+          'Der nächste Aufruf zeigt die Ersteinrichtung.'
       );
       return;
     }

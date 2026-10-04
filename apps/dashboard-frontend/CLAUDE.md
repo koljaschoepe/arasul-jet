@@ -341,8 +341,10 @@ it as part of your task only when it's the file you need to edit.
 The whole color system lives in `packages/marken/src/theme.css` as Tailwind
 v4 `@theme` tokens (`--color-primary-*`, `--color-bg-*`, `--color-text-*`, …)
 plus shadcn's CSS variables — nicht in `index.css`, weil eine App sie genauso
-braucht wie die Shell. `index.css` behält nur die Aliasse darauf, die
-Alpha-Skalen, Schatten, Verläufe und die Syntaxfarben. Always reference via
+braucht wie die Shell. Das gilt auch für die Alpha-Skalen, Schatten, Verläufe
+und Status-Farben der Shell: seit dem 04.10.2026 steht **kein** Farbwert (Hex,
+`rgb()`, `hsl()`) mehr in `index.css`, `bausteine.py` meldet jeden. Dort stehen
+nur noch `var(--…)` und `color-mix()`. Always reference via
 Tailwind utilities (`bg-bg-card`, `text-text-primary`, `border-border-subtle`)
 or `var(--…)` in `style={}`. **Never** inline `#1a2330` etc. — that bypasses
 the theme and breaks light-mode / future re-skins.
@@ -405,6 +407,31 @@ follow that pattern; the Login and the shell are eagerly imported.
 
 Both come from `components/ui/ErrorBoundary`. Never let a thrown render
 error crash the SPA — at minimum wrap each route element.
+
+### 8. Gestalt und Sprache — vier Sätze, die ein Wächter hält
+
+`scripts/test/bausteine.py` (Regeln 7 bis 9) und
+`apps/dashboard-backend/__tests__/unit/umlaute.test.js` schlagen im CI fehl bei:
+
+- **Farben** außerhalb der Tokens: Hex, `rgb()`, `hsl()` oder eine Klasse aus
+  Tailwinds Palette im TSX; jeder Farbwert in einem CSS außer `theme.css`.
+- **Drei Größen, zwei Gewichte** im TSX der Shell: `text-xs` (12 px, Badges und
+  Metadaten), `text-sm` (13 px, Text und Beschriftung), `text-lg` (16 px, Titel
+  eines Abschnitts); `font-normal` und `font-medium`. Kein `text-ui-*`,
+  `text-base`, `text-[11px]`, `font-semibold`, `font-bold`. `font-mono` nur für
+  Pfade, Befehle und Zahlen — das prüft der Mensch, nicht der Wächter.
+- **Eine Stelle je Funktion** in der Navigation: eine Ansicht öffnet die
+  Aktivitätsleiste (`ActivityBar`, unter 900 px `LeisteUnten`). Jede weitere
+  Datei mit `oeffne({ type: … })`, `navigate(` oder `<Link` steht mit Grund in
+  `NAVIGATION_AUSNAHMEN`; benannte Ausnahme sind die Kacheln der Startseite.
+- **Ersatzschreibung** (`fuer`, `ueber`, `Geraet`, `hoechstens`, `laeuft` …) in
+  allem Sichtbaren: Frontend (`begriffe.test.ts`), Backend-Meldungen und die
+  Prosa des Kontrakts (`umlaute.test.js`), `docs/ops/ADMIN_HANDBUCH.md`.
+  Feldnamen wie `aenderungstext` bleiben, in Code- und Anführungszeichen sowie
+  mit Unterstrich ebenfalls. Die Stammliste steht an zwei Orten
+  (`__tests__/helpers/umlaute.js`, `begriffe.test.ts`); wer ergänzt, ergänzt
+  beide. Prosa des Kontrakts zu verbessern erhöht `KONTRAKT_VERSION` nicht,
+  nur der Fingerabdruck im Test zieht mit.
 
 ## Forbidden
 
