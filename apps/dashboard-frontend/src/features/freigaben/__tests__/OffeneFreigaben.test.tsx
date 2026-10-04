@@ -1,7 +1,8 @@
 /**
  * „Für Sie" auf der Startseite (D2, seit M5 als Zeilen): je Zeile App,
- * Gegenstand und seit wann, ein Klick öffnet die App beim Vorgang; darunter
- * Weitergeben und Übernehmen. Entschieden wird in der App, nicht hier.
+ * Gegenstand und seit wann; darunter Weitergeben und Übernehmen. Ein Klick
+ * öffnet eine App, die ihre Freigaben selbst zeigt (`zeigt_freigaben`),
+ * beim Vorgang; jede andere öffnet die Freigabe in Arasul (Rückfall).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -101,8 +102,11 @@ describe('OffeneFreigaben', () => {
     expect(screen.getByTestId('fuer-sie-zahl')).toHaveTextContent('1 Freigabe');
   });
 
-  it('ein Klick öffnet die App beim Vorgang', async () => {
-    listen([EINE, { ...EINE, id: 8, stand: 'test' as const }]);
+  it('ein Klick öffnet eine App, die ihre Freigaben selbst zeigt, beim Vorgang', async () => {
+    listen([
+      { ...EINE, app_zeigt_freigaben: true },
+      { ...EINE, id: 8, stand: 'test' as const, app_zeigt_freigaben: true },
+    ]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
     fireEvent.click(await screen.findByTestId('freigabe-8-oeffnen'));
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({
@@ -111,6 +115,58 @@ describe('OffeneFreigaben', () => {
       stand: 'test',
       vorgang: 8,
     });
+  });
+
+  it('ohne die Erklärung der App öffnet ein Klick die Freigabe in Arasul, nicht die App', async () => {
+    useWorkspaceStore.getState().oeffne({ type: 'dashboard' });
+    listen([EINE]);
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    fireEvent.click(await screen.findByTestId('freigabe-7-oeffnen'));
+    expect(await screen.findByTestId('freigabe-im-geraet')).toBeInTheDocument();
+    expect(screen.getByTestId('freigabe-einzeln')).toHaveTextContent(EINE.titel);
+    expect(useWorkspaceStore.getState().ansicht.type).not.toBe('app');
+  });
+
+  it('bestätigt im Gerät mit dem geänderten Feld und steht danach wieder in der Liste', async () => {
+    const mitFeld = {
+      ...EINE,
+      felder: [
+        { name: 'betrag', vorschlag: '119,00', unsicher: true, fehlend: false, aenderbar: true },
+      ],
+    };
+    listen([mitFeld], []);
+    apiMock.post.mockResolvedValue({
+      data: { id: 7, titel: EINE.titel, status: 'bestaetigt', fortgesetzt: true, korrekturen: [] },
+    });
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    fireEvent.click(await screen.findByTestId('freigabe-7-oeffnen'));
+    const feld = await screen.findByDisplayValue('119,00');
+    fireEvent.change(feld, { target: { value: '191,00' } });
+    fireEvent.click(screen.getByRole('button', { name: /bestätigen/i }));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/7/bestaetigen', {
+        felder: { betrag: '191,00' },
+      })
+    );
+    await waitFor(() => expect(screen.queryByTestId('freigabe-im-geraet')).not.toBeInTheDocument());
+    expect(await screen.findByTestId('offene-freigaben')).toHaveAttribute('data-leer', 'true');
+  });
+
+  it('lehnt im Gerät nur mit Begründung ab', async () => {
+    listen([EINE], []);
+    apiMock.post.mockResolvedValue({
+      data: { id: 7, titel: EINE.titel, status: 'abgelehnt', fortgesetzt: true },
+    });
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    fireEvent.click(await screen.findByTestId('freigabe-7-oeffnen'));
+    fireEvent.click(await screen.findByRole('button', { name: /ablehnen/i }));
+    fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'Betrag falsch' } });
+    fireEvent.click(screen.getByRole('button', { name: /ablehnen/i }));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/7/ablehnen', {
+        begruendung: 'Betrag falsch',
+      })
+    );
   });
 
   it('sagt in einer Zeile, wenn nichts wartet', async () => {

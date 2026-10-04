@@ -1168,6 +1168,10 @@ const FRUEHERE_SQL = `(
 
 /** Die Spalten einer offenen Anfrage, wie die beiden Listen der Startseite sie zeigen. */
 const OFFEN_SPALTEN = `a.id, a.run_id, a.app_id, ap.name AS app_name, a.stand, a.flow_name, a.titel,
+            -- Zeigt die App ihre Freigaben selbst (Kontrakt 12)? Ohne das Feld: nein.
+            COALESCE((SELECT (st.manifest->>'zeigt_freigaben') = 'true'
+                        FROM public.app_staende st
+                       WHERE st.app_id = a.app_id AND st.stand = a.stand), FALSE) AS app_zeigt_freigaben,
             a.zusammenhang, a.frist, a.angefragt_am, a.stufe,
             ${STUFE_BEZEICHNUNG_SQL} AS stufe_bezeichnung,
             e.username AS einreicher, a.ohne_einreicher,

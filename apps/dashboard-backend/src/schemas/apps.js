@@ -440,6 +440,11 @@ const AppManifest = z
     verbindungen: Verbindungen.optional(),
     // Das Bild der App in der Aktivitaetsleiste (M5, Kontrakt 8). FREIWILLIG.
     symbol: AppSymbol.optional(),
+    // Zeigt die App ihre Freigaben selbst (M5, Kontrakt 12)? FREIWILLIG, und
+    // ohne das Feld gilt: nein. Dann oeffnet ein Klick in „Für Sie" die
+    // Freigabe im Geraet selbst (Baustein `Freigabe`); mit `true` bekommt die
+    // App den Tieflink `?freigabe=<nummer>` und entscheidet dort.
+    zeigt_freigaben: z.boolean({ error: 'zeigt_freigaben muss true oder false sein' }).optional(),
   })
   .strict()
   .refine(m => m.frontend || m.backend, {
