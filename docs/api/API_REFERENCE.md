@@ -266,17 +266,16 @@ Returns user info headers on success:
 
 ### System
 
-| Method | Endpoint                        | Description                                 |
-| ------ | ------------------------------- | ------------------------------------------- |
-| GET    | `/api/system/status`            | System health (OK/WARNING/CRITICAL)         |
-| GET    | `/api/system/info`              | Version, build hash, uptime                 |
-| GET    | `/api/system/network`           | IP addresses, mDNS, connectivity            |
-| GET    | `/api/system/thresholds`        | Device-specific metric thresholds           |
-| GET    | `/api/system/heartbeat`         | Lebenszeichen, ohne Anmeldung               |
-| GET    | `/api/system/ca-zertifikat`     | CA-Zertifikat des Geräts, als Datei         |
-| GET    | `/api/system/diagnostics/quick` | Lagebild als JSON, ohne Archiv              |
-| POST   | `/api/system/diagnostics`       | Diagnosearchiv erzeugen und ausliefern      |
-| POST   | `/api/system/reload-config`     | Ratenbremse und Protokollstufe neu einlesen |
+| Method | Endpoint                        | Description                            |
+| ------ | ------------------------------- | -------------------------------------- |
+| GET    | `/api/system/status`            | System health (OK/WARNING/CRITICAL)    |
+| GET    | `/api/system/info`              | Version, build hash, uptime            |
+| GET    | `/api/system/network`           | IP addresses, mDNS, connectivity       |
+| GET    | `/api/system/thresholds`        | Device-specific metric thresholds      |
+| GET    | `/api/system/heartbeat`         | Lebenszeichen, ohne Anmeldung          |
+| GET    | `/api/system/ca-zertifikat`     | CA-Zertifikat des Geräts, als Datei    |
+| GET    | `/api/system/diagnostics/quick` | Lagebild als JSON, ohne Archiv         |
+| POST   | `/api/system/diagnostics`       | Diagnosearchiv erzeugen und ausliefern |
 
 **GET /api/system/ca-zertifikat:**
 
@@ -326,13 +325,6 @@ Request Body (beides optional):
 ```json
 { "days": 3, "includeLogs": true }
 ```
-
-**POST /api/system/reload-config:**
-
-Auth: erforderlich. Liest neu ein, was ohne Neustart geht:
-`{"reloaded": ["rate_limits", "logging_config"]}`. Datenbankzugang, Ports und
-alles andere brauchen weiterhin einen Neustart, das sagt die Antwort in `note`
-auch selbst.
 
 **GET /api/system/thresholds:**
 

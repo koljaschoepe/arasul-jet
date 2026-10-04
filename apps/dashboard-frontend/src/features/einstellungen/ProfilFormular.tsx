@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/hooks/useApi';
 import { bildVerkleinern } from '@/utils/bildVerkleinern';
+import { fehlertext } from '@/utils/fehlertext';
 
 interface ProfilAntwort {
   data: {
@@ -72,7 +73,7 @@ export function ProfilFormular({ onGespeichert }: { onGespeichert?: () => void }
       uebernehmen(await api.put<ProfilAntwort>('/profil/bild', { bild }));
       setBildStand(Date.now());
     } catch (err) {
-      if (err instanceof Error && !('status' in err)) toast.error(err.message);
+      if (err instanceof Error && !('status' in err)) toast.error(fehlertext(err));
     }
   };
 

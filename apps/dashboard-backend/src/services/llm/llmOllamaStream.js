@@ -107,7 +107,9 @@ async function _streamFromOllamaImpl(
   const catalogModelId = model || (await modelService.getDefaultModel());
 
   if (!catalogModelId) {
-    throw new Error('Kein Modell verfügbar. Bitte zuerst eines im Store laden.');
+    throw new Error(
+      'Kein Modell verfügbar. Bitte laden Sie zuerst eines unter Verwaltung, Modelle.'
+    );
   }
 
   // Resolve ollama_name from catalog (catalog ID -> Ollama registry name)

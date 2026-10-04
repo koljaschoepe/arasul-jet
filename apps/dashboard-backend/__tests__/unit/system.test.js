@@ -6,7 +6,6 @@
  * - GET /api/system/info (public)
  * - GET /api/system/network (public)
  * - GET /api/system/thresholds (public)
- * - POST /api/system/reload-config (requires auth)
  */
 
 const request = require('supertest');
@@ -25,7 +24,7 @@ jest.mock('dockerode', () => {
   }));
 });
 
-// Mock auth middleware - reload-config requires auth
+// Mock auth middleware
 jest.mock('../../src/middleware/auth', () => ({
   requireAuth: (req, res, next) => {
     req.user = { id: 1, username: 'admin', role: 'admin' };
@@ -450,31 +449,14 @@ describe('System Routes', () => {
   });
 
   // ============================================================================
-  // POST /api/system/reload-config
+  // POST /api/system/reload-config -- gestrichen (04.10.2026)
   // ============================================================================
+  // Der Weg lud nichts neu und antwortete trotzdem „reloaded"; `./arasul
+  // reload-config` rief ihn ohne Anmeldung und warnte deshalb immer.
   describe('POST /api/system/reload-config', () => {
-    test('should return success with reloaded items', async () => {
+    test('gibt es nicht mehr', async () => {
       const response = await request(app).post('/api/system/reload-config');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('status', 'success');
-      expect(response.body).toHaveProperty('message');
-      expect(response.body).toHaveProperty('reloaded');
-      expect(response.body).toHaveProperty('note');
-      expect(response.body).toHaveProperty('timestamp');
-      expect(Array.isArray(response.body.reloaded)).toBe(true);
-      expect(response.body.reloaded).toContain('rate_limits');
-      expect(response.body.reloaded).toContain('logging_config');
-    });
-
-    test('should log the reload request', async () => {
-      const logger = require('../../src/utils/logger');
-
-      await request(app).post('/api/system/reload-config');
-
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Configuration reload requested')
-      );
+      expect(response.status).toBe(404);
     });
   });
 

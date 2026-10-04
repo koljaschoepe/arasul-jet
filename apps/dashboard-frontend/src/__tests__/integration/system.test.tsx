@@ -100,14 +100,28 @@ describe('System - ErrorBoundary integration', () => {
     expect(screen.getByText('Recovered!')).toBeInTheDocument();
   });
 
-  it('RouteErrorBoundary shows route-specific title', () => {
+  it('RouteErrorBoundary zeigt Titel ohne Technik', () => {
+    // Im Entwicklungsbau zeigt jede Fehlerseite die Technik; hier zählt der Bau am Gerät.
+    vi.stubEnv('DEV', false);
     render(
-      <RouteErrorBoundary routeName="Dashboard">
+      <RouteErrorBoundary>
         <ThrowOnRender />
       </RouteErrorBoundary>
     );
 
-    expect(screen.getByText(/dashboard fehler/i)).toBeInTheDocument();
+    expect(screen.getByText('Diese Seite konnte nicht geladen werden')).toBeInTheDocument();
+    expect(screen.queryByText('Technik')).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
+
+  it('RouteErrorBoundary zeigt dem Admin die Technik', () => {
+    render(
+      <RouteErrorBoundary showDetails>
+        <ThrowOnRender />
+      </RouteErrorBoundary>
+    );
+
+    expect(screen.getByText('Technik')).toBeInTheDocument();
   });
 
   it('ComponentErrorBoundary shows compact error', () => {

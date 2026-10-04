@@ -102,7 +102,7 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
     <Dialogform
       offen={fuer !== null}
       beiSchliessen={onSchliessen}
-      titel={fuer ? `Modell für „${fuer.name}"` : 'Modell'}
+      titel={fuer ? `Modell für „${fuer.name}“` : 'Modell'}
       groesse="mittel"
       fuss={
         <div className="flex w-full justify-end gap-3">
@@ -133,7 +133,7 @@ export function ModellDialog({ fuer, modelle, laeuft, onSchliessen, onSetzen }: 
                 'paket',
                 'Aus dem Paket',
                 fuer?.paket_modell
-                  ? `Der Partner hat „${fuer.paket_modell}" hinterlegt.`
+                  ? `Der Partner hat „${fuer.paket_modell}“ hinterlegt.`
                   : 'Der Flow nennt keines; dann gilt das Standardmodell des Geräts.',
               ],
               ['lokal', 'Auf diesem Gerät', 'Eines der Modelle, die hier liegen.'],

@@ -30,6 +30,7 @@ import {
 import { useToast } from '@/contexts/ToastContext';
 import { formatBytes } from '@/utils/formatting';
 import { useGrenzeSetzen, type Ordner, type PlatzStand } from './useFirmenordner';
+import { fehlertext } from '@/utils/fehlertext';
 
 const EINHEITEN = { MB: 1e6, GB: 1e9, TB: 1e12 } as const;
 type Einheit = keyof typeof EINHEITEN;
@@ -103,7 +104,7 @@ export function GrenzeDialog({ fuer, platz, platteFrei, onSchliessen }: Props) {
           );
           onSchliessen();
         },
-        onError: err => setFehler(err.message),
+        onError: err => setFehler(fehlertext(err)),
       }
     );
   };

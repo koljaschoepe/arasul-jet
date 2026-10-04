@@ -16,10 +16,10 @@ const { z } = require('zod');
  * noch am Datum erkennt.
  */
 const AusweisName = z
-  .string({ error: 'Name fehlt: wie heisst der Rechner, auf dem der Ausweis liegt?' })
+  .string({ error: 'Name fehlt: wie heißt der Rechner, auf dem der Ausweis liegt?' })
   .trim()
-  .min(1, 'Name fehlt: wie heisst der Rechner, auf dem der Ausweis liegt?')
-  .max(60, 'Name ist zu lang (hoechstens 60 Zeichen)');
+  .min(1, 'Name fehlt: wie heißt der Rechner, auf dem der Ausweis liegt?')
+  .max(60, 'Name ist zu lang (höchstens 60 Zeichen)');
 
 const AusweisBody = z.object({ name: AusweisName }).strict();
 

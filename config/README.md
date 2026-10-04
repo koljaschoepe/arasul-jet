@@ -78,8 +78,8 @@ nano .env
 # Validate configuration
 ./arasul validate-config
 
-# Reload configuration (without restart)
-./arasul reload-config
+# Apply changes: restart the affected service
+docker compose up -d <service>
 ```
 
 ### Docker Secrets (Production)

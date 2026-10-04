@@ -352,7 +352,7 @@ async function alsAdmin(adresse, init, grenze = ZEITGRENZE_MS) {
 async function anfrage(weg, { methode = 'GET', koerper = null } = {}) {
   const basis = basisIntern();
   if (!basis) {
-    throw new Error('Auf diesem Geraet laeuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
+    throw new Error('Auf diesem Gerät läuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
   }
   const antwort = await alsAdmin(`${basis}${weg}`, {
     method: methode,
@@ -699,7 +699,7 @@ function naechsteSeite(daten) {
 async function davAnfrage(methode, weg, erlaubt = [], kopfzeilen = {}, grenze = ZEITGRENZE_MS) {
   const basis = basisIntern();
   if (!basis) {
-    throw new Error('Auf diesem Geraet laeuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
+    throw new Error('Auf diesem Gerät läuft kein Firmenordner (FIRMENORDNER_INTERN fehlt)');
   }
   const antwort = await alsAdmin(
     `${basis}${weg}`,

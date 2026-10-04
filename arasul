@@ -1896,22 +1896,6 @@ cmd_validate_dependencies() {
     fi
 }
 
-# Reload configuration without restart
-cmd_reload_config() {
-    log_info "Reloading configuration..."
-
-    # Reload Traefik configuration (dynamic config)
-    log_info "Reloading Traefik configuration..."
-    docker compose exec reverse-proxy kill -HUP 1 2>/dev/null || log_warning "Reverse proxy not running or reload failed"
-
-    # Reload dashboard backend configuration (via HTTP endpoint)
-    log_info "Reloading dashboard backend configuration..."
-    curl -f -X POST http://localhost:3001/api/system/reload-config 2>/dev/null || log_warning "Dashboard backend reload failed"
-
-    log_success "Configuration reload complete"
-    log_info "Note: Some changes require a full restart (database credentials, ports, etc.)"
-}
-
 # Reset an admin password and clear the account lockout (offline, no cloud).
 # Delegates to scripts/security/reset-password.sh, which also resets
 # login_attempts/locked_until so a locked-out admin can log back in immediately.
@@ -2001,7 +1985,6 @@ cmd_help() {
     echo "  validate-config   - Validate .env configuration"
     echo "  validate-deps     - Validate Docker Compose dependency chain"
     echo "  generate-secrets  - Generate all required secrets"
-    echo "  reload-config     - Reload configuration without restart"
     echo "  test-load         - Run load testing suite"
     echo "  test-restart      - Run restart testing suite"
     echo "  test-stability    - Run long-term stability monitoring"
@@ -2012,7 +1995,6 @@ cmd_help() {
     echo "  ./arasul bootstrap              - First-time setup"
     echo "  ./arasul validate-config        - Check .env file"
     echo "  ./arasul generate-secrets       - Generate secrets"
-    echo "  ./arasul reload-config          - Reload without restart"
     echo "  ./arasul reset-password admin   - Reset admin password + unlock account"
     echo "  ./arasul logs dashboard-backend - Show dashboard backend logs"
     echo "  ./arasul restart                - Restart all services"
@@ -2094,9 +2076,6 @@ case "${1:-help}" in
         ;;
     setup-secrets)
         cmd_setup_secrets
-        ;;
-    reload-config)
-        cmd_reload_config
         ;;
     test-load)
         shift

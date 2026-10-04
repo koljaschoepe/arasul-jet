@@ -59,6 +59,7 @@ import {
 import { Feldgruppe, Formularseite, Leerzustand } from '@marken';
 import { Zurueckholen } from './Zurueckholen';
 import { namenDerStaende, standNamen, standZusatz } from './standInWorten';
+import { fehlertext } from '@/utils/fehlertext';
 
 /** So viele Stände stehen in „Stände“ zuerst da. */
 const STAENDE_ZUERST = 10;
@@ -92,11 +93,11 @@ interface Meldung {
 }
 
 function fehlerText(fehler: unknown): string {
-  const e = fehler as { name?: string; message?: string; status?: number };
+  const e = fehler as { name?: string };
   if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
     return 'Das Gerät hat zu lange nicht geantwortet. Die Sicherung kann trotzdem weiterlaufen; die Liste unten sagt in ein paar Minuten, was daraus geworden ist.';
   }
-  return e?.message || 'Unbekannter Fehler';
+  return fehlertext(fehler);
 }
 
 /** Eine Zeile, die stehen bleibt. Der Toast ist nach vier Sekunden weg. */
