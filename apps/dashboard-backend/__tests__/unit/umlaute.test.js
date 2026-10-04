@@ -26,8 +26,12 @@ const WURZEL = path.join(__dirname, '..', '..', '..', '..');
 const SRC = path.join(WURZEL, 'apps', 'dashboard-backend', 'src');
 const HANDBUCH = path.join(WURZEL, 'docs', 'ops', 'ADMIN_HANDBUCH.md');
 
+// SQL erkennt man an seinen Schlüsselwörtern; ein Spaltenname mit Umlaut wäre ein
+// Fehler am Gerät (am 04.10.2026 brach so die Anmeldung: „column kürzel does not
+// exist"), die Tests mit Attrappe der Datenbank merken es nicht.
 const SQL =
-  /\b(SELECT|INSERT INTO|UPDATE|DELETE FROM|CREATE (TABLE|INDEX)|ALTER TABLE|WHERE|ON CONFLICT)\b/;
+  /\b(SELECT|INSERT INTO|UPDATE|DELETE FROM|CREATE (TABLE|INDEX)|ALTER TABLE|WHERE|ON CONFLICT|IS (NOT )?NULL|AS [a-z_]+)\b/;
+/\b(SELECT|INSERT INTO|UPDATE|DELETE FROM|CREATE (TABLE|INDEX)|ALTER TABLE|WHERE|ON CONFLICT)\b/;
 
 function dateien(ordner) {
   return fs.readdirSync(ordner, { withFileTypes: true }).flatMap(e => {
