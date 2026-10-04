@@ -87,6 +87,7 @@ person with a healthy account to the administrator.
 | 409  | Conflict              | Resource conflict        | Duplicate entry, state conflict            |
 | 429  | Too Many Requests     | Rate limit exceeded      | Too many requests in time window           |
 | 500  | Internal Server Error | Server-side error        | Database error, unexpected exception       |
+| 502  | Bad Gateway           | A dependency refused     | The tailscale program on the host failed   |
 | 503  | Service Unavailable   | Service temporarily down | Service starting, maintenance mode         |
 
 ---
@@ -490,6 +491,51 @@ dabei `healthy` sein — seine Prüfung sieht nur sein Backend.
 **Solution**: Einstellungen → Apps zeigt den Stand rot mit dem Grund. Die App
 entfernen (**App entfernen**, oder `DELETE /api/apps/:id?dateien=true`) oder
 vom Partner neu einspielen lassen.
+
+---
+
+### Eigene Codes statt `INTERNAL_ERROR` (M5, Auftrag jet-fehlerklassen)
+
+Seit Oktober 2026 wirft das Backend keine schlichten `Error` mehr. Ein Fehler
+im Gerät kommt weiter als `500` an, aber mit einem deutschen Satz und einem
+eigenen `code` statt „Internal server error" (`InternalError`); ein
+abgelehnter Aufruf eines Fremddienstes als `UpstreamError`. Der technische
+Text (Ausgabe eines Programms, Antwort eines Dienstes) steht nur im Log des
+Backends, nie in der Antwort.
+
+Beispiele: `ENV_NICHT_LESBAR`, `ENV_NICHT_GESCHRIEBEN` (die `.env` des Geräts),
+`PASSWORT_HASH_FEHLER`, `PASSWORT_PRUEFUNG_FEHLER`, `SCHLUESSEL_FEHLT`,
+`DATENBANK_PASSWORT_UNLESBAR`, `FIRMENORDNER_FEHLER` und `FIRMENORDNER_AUS`
+(alle `500`).
+
+#### Fernzugriff (`/api/tailscale/*`)
+
+Jeder Fehler des Fernzugriffs trägt zwei Sätze: was passiert ist und was der
+Admin tun kann. Die Ausgabe des tailscale-Programms steht nur im Log.
+
+| Status | Code                                    | When                                                                                |
+| ------ | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_ERROR`                      | Auth-Key oder Gerätename haben nicht die erwartete Form (vor jedem Aufruf geprüft). |
+| 400    | `TAILSCALE_KEY_UNGUELTIG`               | `connect`: Tailscale lehnt den Auth-Key ab (ungültig, abgelaufen, verbraucht).      |
+| 409    | `CONFLICT`                              | `connect`/`disconnect`: Tailscale ist auf dem Gerät nicht installiert.              |
+| 409    | `TAILSCALE_CURL_FEHLT`                  | `install`: auf dem Host fehlt `curl`.                                               |
+| 502    | `TAILSCALE_VERBINDEN_FEHLGESCHLAGEN`    | `connect`: `tailscale up` scheitert aus einem anderen Grund.                        |
+| 502    | `TAILSCALE_TRENNEN_FEHLGESCHLAGEN`      | `disconnect`: `tailscale down` scheitert.                                           |
+| 502    | `TAILSCALE_INSTALLATION_FEHLGESCHLAGEN` | `install`: der Installer scheitert, oder das Programm fehlt danach trotzdem.        |
+| 503    | `TAILSCALE_DIENST_AUS`                  | `connect`/`disconnect`: `tailscaled` läuft auf dem Host nicht.                      |
+| 503    | `TAILSCALE_ZEITLIMIT`                   | Der Befehl auf dem Host kam nicht rechtzeitig zurück.                               |
+| 503    | `TAILSCALE_HOST_NICHT_ERREICHBAR`       | Der Befehl lief gar nicht (Hilfs-Image, Docker-Proxy).                              |
+| 503    | `SERVICE_UNAVAILABLE`                   | Ob Tailscale installiert ist, ließ sich nicht prüfen.                               |
+
+```json
+{
+  "error": {
+    "code": "TAILSCALE_KEY_UNGUELTIG",
+    "message": "Tailscale hat den Auth-Key abgelehnt, er ist ungültig, abgelaufen oder schon verbraucht. Erzeugen Sie in der Tailscale-Verwaltung einen neuen Auth-Key und versuchen Sie es damit."
+  },
+  "timestamp": "2026-10-05T10:00:00.000Z"
+}
+```
 
 ---
 

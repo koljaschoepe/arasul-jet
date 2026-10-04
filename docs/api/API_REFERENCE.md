@@ -2022,6 +2022,11 @@ All endpoints require authentication. The route group uses a dedicated `tailscal
 }
 ```
 
+Fehler von `install`, `connect` und `disconnect` tragen zwei deutsche Sätze
+und einen eigenen Code (400 abgelehnter Auth-Key, 503 `tailscaled` läuft
+nicht, 502 sonstiger Fehlschlag); die Ausgabe des tailscale-Programms steht
+nur im Log. Tabelle: [`API_ERRORS.md`](API_ERRORS.md#fernzugriff-apitailscale).
+
 ---
 
 ### Ausgang (J38)

@@ -7,9 +7,71 @@
 
 const { docker } = require('../core/docker');
 const logger = require('../../utils/logger');
-const { ServiceUnavailableError, ValidationError, ConflictError } = require('../../utils/errors');
+const {
+  ServiceUnavailableError,
+  ValidationError,
+  ConflictError,
+  UpstreamError,
+} = require('../../utils/errors');
 
 const HOST_IMAGE = 'alpine:latest';
+
+// ── Fehler fuer den Administrator ───────────────────────────────────
+//
+// Jeder Fehler hier erreicht den Administrator in zwei Saetzen: was ist
+// passiert, was kann er tun (M5, Auftrag jet-fehlerklassen). Bis dahin flog
+// ein schlichtes `Error` mit den letzten 200 Zeichen der tailscale-Ausgabe,
+// und der Fehlerbehandler machte daraus 500 „Internal server error". Die
+// Ausgabe steht jetzt im Log (`roh`), nie in der Antwort.
+
+/** Die Meldungen, an denen tailscale sagt, dass sein Dienst nicht laeuft. */
+const DIENST_AUS =
+  /failed to connect to local tailscaled|tailscaled\.sock|is tailscaled running|tailscaled (is not|isn't|doesn't appear to be) running/i;
+
+/** Die Meldungen, an denen tailscale einen Auth-Key abweist. */
+const SCHLUESSEL_UNGUELTIG =
+  /invalid key|unable to validate api key|auth ?key[^\n]*(invalid|expired|revoked|not valid)|key (has )?expired/i;
+
+const SATZ_DIENST_AUS =
+  'Der Tailscale-Dienst auf dem Gerät läuft nicht. ' +
+  'Starten Sie das Gerät neu; hilft das nicht, wenden Sie sich an Ihren Betreuer.';
+
+const NICHT_INSTALLIERT =
+  'Tailscale ist auf diesem Gerät nicht installiert. ' +
+  'Installieren Sie es zuerst hier unter Fernzugriff.';
+
+function dienstAus(roh) {
+  return new UpstreamError(SATZ_DIENST_AUS, {
+    statusCode: 503,
+    code: 'TAILSCALE_DIENST_AUS',
+    roh,
+  });
+}
+
+/**
+ * `runOnHost` mit einem Satz statt einer Ausnahme aus Docker. Wirft
+ * `runOnHost` selbst (Hilfs-Image fehlt, Docker-Proxy weg, Zeitlimit), lief
+ * der Befehl gar nicht: 503, und der Grund steht im Log.
+ */
+async function aufDemHost(cmd, timeoutMs, wofuer) {
+  try {
+    return await runOnHost(cmd, timeoutMs);
+  } catch (err) {
+    logger.error(`Tailscale: ${wofuer} -- Befehl auf dem Host lief nicht: ${err.message}`);
+    if (/Zeitlimit/.test(err.message)) {
+      throw new ServiceUnavailableError(
+        'Tailscale hat nicht rechtzeitig geantwortet. ' +
+          'Prüfen Sie die Internetverbindung des Geräts und versuchen Sie es noch einmal.',
+        { code: 'TAILSCALE_ZEITLIMIT' }
+      );
+    }
+    throw new ServiceUnavailableError(
+      'Das Gerät konnte den Befehl für Tailscale gerade nicht ausführen. ' +
+        'Versuchen Sie es in einer Minute noch einmal.',
+      { code: 'TAILSCALE_HOST_NICHT_ERREICHBAR' }
+    );
+  }
+}
 
 // ── In-memory caches ────────────────────────────────────────────────
 const cache = {
@@ -193,7 +255,8 @@ async function isInstalled() {
       `isInstalled host probe failed, reporting detection error (NOT installed:false): ${err.message}`
     );
     throw new ServiceUnavailableError(
-      'Tailscale-Status konnte nicht geprüft werden (Host-Prüfung fehlgeschlagen)'
+      'Ob Tailscale auf dem Gerät installiert ist, ließ sich gerade nicht prüfen. ' +
+        'Versuchen Sie es in einer Minute noch einmal.'
     );
   }
 }
@@ -347,32 +410,39 @@ async function install() {
   }
 
   if (!hasCurl) {
-    throw new Error(
-      'curl ist auf dem Host nicht verfügbar. ' +
-        'Bitte manuell installieren: sudo apt-get install -y curl'
+    // 409: am Zustand des Geraets liegt es, ein zweiter Versuch endet gleich.
+    throw new UpstreamError(
+      'Auf dem Gerät fehlt das Programm curl, das die Installation von Tailscale braucht. ' +
+        'Ihr Betreuer kann es nachinstallieren.',
+      { statusCode: 409, code: 'TAILSCALE_CURL_FEHLT', roh: 'which curl: nicht gefunden' }
     );
   }
 
   logger.info('Starting Tailscale installation on host via Docker...');
 
-  const { exitCode, output } = await runOnHost(
+  const { exitCode, output } = await aufDemHost(
     'curl -fsSL https://tailscale.com/install.sh | sh 2>&1',
-    180000 // 3 minutes
+    180000, // 3 minutes
+    'Installation'
   );
 
   if (exitCode !== 0) {
     logger.error(`Tailscale install failed (exit ${exitCode}): ${output}`);
-    throw new Error(
-      `Installation fehlgeschlagen (Exit-Code ${exitCode}). ` +
-        (output.slice(-200) || 'Keine weitere Ausgabe')
+    throw new UpstreamError(
+      'Die Installation von Tailscale ist fehlgeschlagen. ' +
+        'Prüfen Sie die Internetverbindung des Geräts und versuchen Sie es noch einmal.',
+      { code: 'TAILSCALE_INSTALLATION_FEHLGESCHLAGEN', roh: `Exit ${exitCode}: ${output}` }
     );
   }
 
   // Verify
   const installed = await isInstalled();
   if (!installed) {
-    throw new Error(
-      'Installation scheinbar abgeschlossen, aber tailscale Binary nicht auf dem Host gefunden'
+    logger.error('Tailscale install: Installer ohne Fehler beendet, Programm fehlt trotzdem');
+    throw new UpstreamError(
+      'Die Installation lief durch, aber Tailscale ist danach auf dem Gerät nicht zu finden. ' +
+        'Versuchen Sie es noch einmal; hilft das nicht, wenden Sie sich an Ihren Betreuer.',
+      { code: 'TAILSCALE_INSTALLATION_FEHLGESCHLAGEN', roh: `Installer-Ausgabe: ${output}` }
     );
   }
 
@@ -395,13 +465,14 @@ async function install() {
 async function connect(authKey, hostname) {
   const installed = await isInstalled();
   if (!installed) {
-    throw new ConflictError('Tailscale ist nicht installiert');
+    throw new ConflictError(NICHT_INSTALLIERT);
   }
 
   // Strict validation — only safe characters allowed (prevents shell injection)
   if (!authKey || !/^tskey-[a-zA-Z0-9_-]+$/.test(authKey)) {
     throw new ValidationError(
-      'Ungültiger Auth-Key (muss mit tskey- beginnen, nur alphanumerische Zeichen)'
+      'Der Auth-Key hat nicht die erwartete Form: er beginnt mit tskey- und enthält nur Buchstaben, Ziffern und Bindestriche. ' +
+        'Kopieren Sie ihn noch einmal vollständig aus der Tailscale-Verwaltung.'
     );
   }
 
@@ -409,7 +480,8 @@ async function connect(authKey, hostname) {
   if (hostname) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/.test(hostname)) {
       throw new ValidationError(
-        'Ungültiger Hostname (nur Buchstaben, Zahlen und Bindestriche, max 63 Zeichen)'
+        'Der Gerätename passt nicht: erlaubt sind Buchstaben, Ziffern und Bindestriche, höchstens 63 Zeichen. ' +
+          'Wählen Sie einen kürzeren Namen ohne Leer- und Sonderzeichen.'
       );
     }
     hostnameArg = ` --hostname '${hostname}'`;
@@ -417,11 +489,25 @@ async function connect(authKey, hostname) {
 
   const cmd = `tailscale up --authkey '${authKey}' --ssh --accept-routes${hostnameArg} 2>&1`;
 
-  const { exitCode, output } = await runOnHost(cmd, 30000);
+  const { exitCode, output } = await aufDemHost(cmd, 30000, 'Verbinden');
 
   if (exitCode !== 0) {
     logger.error(`Tailscale connect failed: ${output}`);
-    throw new Error('Verbindung fehlgeschlagen: ' + (output.slice(-200) || 'Unbekannter Fehler'));
+    if (DIENST_AUS.test(output)) {
+      throw dienstAus(output);
+    }
+    if (SCHLUESSEL_UNGUELTIG.test(output)) {
+      throw new UpstreamError(
+        'Tailscale hat den Auth-Key abgelehnt, er ist ungültig, abgelaufen oder schon verbraucht. ' +
+          'Erzeugen Sie in der Tailscale-Verwaltung einen neuen Auth-Key und versuchen Sie es damit.',
+        { statusCode: 400, code: 'TAILSCALE_KEY_UNGUELTIG', roh: output }
+      );
+    }
+    throw new UpstreamError(
+      'Die Verbindung zu Tailscale kam nicht zustande. ' +
+        'Prüfen Sie die Internetverbindung des Geräts und versuchen Sie es noch einmal.',
+      { code: 'TAILSCALE_VERBINDEN_FEHLGESCHLAGEN', roh: output }
+    );
   }
 
   cacheInvalidate(); // clear caches after connect
@@ -463,14 +549,21 @@ async function connect(authKey, hostname) {
 async function disconnect() {
   const installed = await isInstalled();
   if (!installed) {
-    throw new ConflictError('Tailscale ist nicht installiert');
+    throw new ConflictError(NICHT_INSTALLIERT);
   }
 
-  const { exitCode, output } = await runOnHost('tailscale down 2>&1', 10000);
+  const { exitCode, output } = await aufDemHost('tailscale down 2>&1', 10000, 'Trennen');
 
   if (exitCode !== 0) {
     logger.error(`Tailscale disconnect failed: ${output}`);
-    throw new Error('Trennung fehlgeschlagen: ' + (output || 'Unbekannter Fehler'));
+    if (DIENST_AUS.test(output)) {
+      throw dienstAus(output);
+    }
+    throw new UpstreamError(
+      'Der Fernzugriff ließ sich nicht ausschalten. ' +
+        'Versuchen Sie es noch einmal; hilft das nicht, starten Sie das Gerät neu.',
+      { code: 'TAILSCALE_TRENNEN_FEHLGESCHLAGEN', roh: output }
+    );
   }
 
   cacheInvalidate(); // clear caches after disconnect
