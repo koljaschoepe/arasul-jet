@@ -2,6 +2,9 @@
 name: beleg
 beschreibung: Liest einen Beleg, laesst ein unsicheres Feld pruefen und korrigieren, bucht mit dem bestaetigten Wert und legt ihn der Leitung vor (Abnahme M5, Korrekturfelder).
 argumente:
+  # standard: "" bei datum und unsicher: ein leeres optionales Argument ohne
+  # standard laesst seinen Platzhalter stehen (runFlow.resolveArguments), und
+  # `"{{datum}}"`/`[{{unsicher}}]` waeren kein JSON mehr.
   - name: beleg
     typ: freitext
     pflicht: true
@@ -10,10 +13,12 @@ argumente:
     typ: freitext
     pflicht: false
     beschreibung: Was als Datum erkannt wurde, leer = nicht erkannt
+    standard: ''
   - name: unsicher
     typ: freitext
     pflicht: false
     beschreibung: Feldnamen in Anfuehrungszeichen, die unsicher sind, durch Komma getrennt
+    standard: ''
 arten: [autonom]
 werkzeuge: [subagent, freigabe_anfordern]
 stufen:
