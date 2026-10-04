@@ -335,3 +335,49 @@ describe('artAngabe (M5)', () => {
     expect(r.art_ueberschrieben).toBe(false);
   });
 });
+
+describe('liste: Ablauf und Schalter (M5, Seite der App)', () => {
+  it('nennt je Flow Schritte, Auslöser, Stufen und ob er aktiv ist', async () => {
+    db.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            name: 'beleg',
+            version: '1.0.0',
+            registriert_am: '2026-10-04T08:00:00Z',
+            definition: {
+              name: 'beleg',
+              schritte: [
+                { name: 'lesen', typ: 'werkzeug', werkzeug: 'bild_lesen', auftrag: 'geheim' },
+                { name: 'pruefen', typ: 'subagent', rolle: 'pruefer' },
+              ],
+              ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * * 1-5' }],
+              stufen: [{ name: 'pruefung', bezeichnung: 'Prüfung' }],
+            },
+          },
+          { name: 'notiz', version: '1.0.0', registriert_am: null, definition: { name: 'notiz' } },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ flow_name: 'beleg', aktiv: false }] });
+
+    const [beleg, notiz] = await appFlows.liste({ appId: 'urlaub', stand: 'live' });
+    expect(beleg).toMatchObject({
+      aktiv: false,
+      schritte: [
+        { name: 'lesen', typ: 'werkzeug', werkzeug: 'bild_lesen' },
+        { name: 'pruefen', typ: 'subagent', rolle: 'pruefer' },
+      ],
+      ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * * 1-5' }],
+      stufen: [{ name: 'pruefung', bezeichnung: 'Prüfung' }],
+    });
+    // Der Auftrag eines Schritts gehört in die Datei, nicht in die Liste.
+    expect(beleg.schritte[0].auftrag).toBeUndefined();
+    // Ohne Angabe: von Hand in der App, aktiv, ohne Schritte und Stufen.
+    expect(notiz).toMatchObject({
+      aktiv: true,
+      schritte: [],
+      ausloeser: [{ typ: 'hand' }],
+      stufen: [],
+    });
+  });
+});

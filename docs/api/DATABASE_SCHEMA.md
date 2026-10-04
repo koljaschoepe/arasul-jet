@@ -579,6 +579,7 @@ tut der Flow im Teststand etwas anderes als im Livestand".
 | `flow_name`         | text                     | ⛔       |         |
 | `modell`            | text                     | ✅       |         |
 | `art`               | text                     | ✅       |         |
+| `aktiv`             | boolean                  | ✅       |         |
 | `extern_anbieter`   | text                     | ✅       |         |
 | `extern_modell`     | text                     | ✅       |         |
 | `extern_basis_url`  | text                     | ✅       |         |
@@ -631,6 +632,11 @@ das Modell samt Schlüssel; die Zeile fällt weg, sobald auch keine Art gewählt
 **`art`** (Migration 196, M5): die vom Admin gewählte Art des Flows, `autonom`
 oder `ergebnis_bestaetigen` (`CHECK`); `NULL` = es gilt die Vorgabe des Pakets
 (erste Art in `arten`, ohne Angabe `autonom`). Gilt ab dem nächsten Lauf.
+
+**`aktiv`** (Migration 200, M5): `false` = der Admin hat den Flow
+ausgeschaltet, er startet nicht (409 `FLOW_INAKTIV`); `NULL` = aktiv. Ein `true`
+wird nie gespeichert (`CHECK`), und eine Zeile ohne Modell, Art und Ausschaltung
+fällt weg.
 
 ---
 

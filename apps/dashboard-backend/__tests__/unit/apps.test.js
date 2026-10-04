@@ -104,6 +104,47 @@ describe('Die Flows einer App (Phase C6)', () => {
     expect(res.status).toBe(404);
   });
 
+  test('PUT …/aktiv schaltet einen Flow aus, ohne `stand` und mit `false` in der Zeile (M5)', async () => {
+    auth.__setUser(ADMIN);
+    appOhneStaende();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ name: 'bericht', version: '1.0.0', definition: {} }] })
+      .mockResolvedValueOnce({ rows: [] }) // flow_settings test
+      .mockResolvedValueOnce({ rows: [] }) // app_flows live
+      .mockResolvedValueOnce({ rows: [] }) // flow_settings live
+      .mockResolvedValueOnce({ rows: [] }) // vorher (istAktiv)
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // setzeAktiv
+
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/aktiv')
+      .send({ aktiv: false });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ app_id: 'urlaub', flow_name: 'bericht', aktiv: false });
+    const geschrieben = db.query.mock.calls.at(-1);
+    expect(geschrieben[0]).toMatch(/INSERT INTO public\.flow_settings[\s\S]*aktiv = false/);
+    expect(geschrieben[0]).not.toMatch(/\bstand\b/);
+  });
+
+  test('PUT …/aktiv ohne Wahrheitswert ist 400, auf einen fremden Flow 404', async () => {
+    auth.__setUser(ADMIN);
+    let res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/aktiv')
+      .send({ aktiv: 'ja' });
+    expect(res.status).toBe(400);
+
+    appOhneStaende();
+    db.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/gibtsnicht/aktiv')
+      .send({ aktiv: false });
+    expect(res.status).toBe(404);
+  });
+
   test('`modell: null` nimmt zurueck, ein fehlendes Feld ist ein 400', async () => {
     // „Das Feld fehlt" und „setz es auf nichts" muessen sich unterscheiden
     // lassen, sonst gaebe es keinen Weg zurueck.

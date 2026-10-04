@@ -128,6 +128,17 @@ class LiveSchaltenError extends ApiError {
   }
 }
 
+/**
+ * Der Flow ist ausgeschaltet (M5, Migration 200): der Admin hat ihn auf der
+ * Seite der App auf „aktiv: aus" gestellt. 409, denn ein zweiter Versuch endet
+ * gleich, bis ihn jemand einschaltet.
+ */
+class FlowInaktivError extends ApiError {
+  constructor(message) {
+    super(message, { statusCode: 409, code: 'FLOW_INAKTIV' });
+  }
+}
+
 class RateLimitError extends ApiError {
   constructor(message = 'Too many requests', retryAfter = null) {
     super(message, {
@@ -184,6 +195,7 @@ module.exports = {
   ConflictError,
   GrenzeErreichtError,
   LiveSchaltenError,
+  FlowInaktivError,
   RateLimitError,
   ServiceUnavailableError,
   NotImplementedError,

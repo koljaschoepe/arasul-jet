@@ -231,6 +231,8 @@ async function liste({ appId, stand }) {
     })),
     ...modellAngabe(z, einstellungen.get(z.name)),
     ...artAngabe(z.definition, einstellungen.get(z.name)),
+    ...ablaufAngabe(z.definition),
+    aktiv: einstellungen.get(z.name)?.aktiv !== false,
     version: z.version,
     registriert_am: z.registriert_am,
   }));
@@ -288,6 +290,30 @@ function artAngabe(definition, einstellung) {
 }
 
 /**
+ * Wie ein Flow ablaeuft, knapp genug fuer die Liste (M5, Seite der App): die
+ * Schritte mit Name und Typ, die Ausloeser und die Freigabestufen aus dem Kopf.
+ * Ohne Auftrag und Parameter der Schritte -- die stehen in der Datei (`hole`).
+ *
+ * Ohne `ausloeser` startet ein Flow von Hand in der App (Kontrakt 8); die
+ * Liste sagt das ausdruecklich, damit die Oberflaeche nichts raten muss.
+ */
+function ablaufAngabe(definition) {
+  return {
+    schritte: (definition.schritte || []).map(s => ({
+      name: s.name,
+      typ: s.typ,
+      ...(s.werkzeug ? { werkzeug: s.werkzeug } : {}),
+      ...(s.rolle ? { rolle: s.rolle } : {}),
+    })),
+    ausloeser: definition.ausloeser?.length ? definition.ausloeser : [{ typ: 'hand' }],
+    stufen: (definition.stufen || []).map(st => ({
+      name: st.name,
+      bezeichnung: st.bezeichnung || null,
+    })),
+  };
+}
+
+/**
  * EIN Flow eines Standes, so ausfuehrlich, wie ein Administrator ihn lesen
  * will (Phase D4): mit dem Prompt, den Werkzeugen, den Rollen und den Schritten.
  *
@@ -332,6 +358,7 @@ async function hole({ appId, stand, name }) {
     paket_modell: paketModell || null,
     ...modellAngabe(zeile, einstellung),
     ...artAngabe(zeile.definition, einstellung),
+    aktiv: einstellung?.aktiv !== false,
   };
 }
 

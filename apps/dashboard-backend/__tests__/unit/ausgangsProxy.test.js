@@ -127,6 +127,15 @@ describe('Regeln und Zahlen', () => {
             zuletzt: '2026-10-02T09:00:00Z',
           },
           {
+            quelle: 'app',
+            app_id: 'a',
+            stand: 'test',
+            host: 'example.org',
+            ergebnis: 'abgewiesen',
+            anzahl: '2',
+            zuletzt: '2026-10-02T08:30:00Z',
+          },
+          {
             quelle: 'plattform',
             app_id: '',
             stand: '',
@@ -147,7 +156,12 @@ describe('Regeln und Zahlen', () => {
         staende: ['live', 'test'],
       },
     ]);
-    expect(u.apps[0].abgewiesen[0]).toMatchObject({ host: 'boese.example', anzahl: 5 });
+    // Rot nur, wenn ein EINGETRAGENER Name abgewiesen wurde (M5): dann kann die
+    // App nicht arbeiten. Einen fremden Namen abzuweisen ist die Aufgabe des Proxys.
+    expect(u.apps[0].abgewiesen).toEqual([
+      expect.objectContaining({ host: 'boese.example', anzahl: 5, stoerung: false }),
+      expect.objectContaining({ host: 'example.org', anzahl: 2, stoerung: true }),
+    ]);
     expect(u.apps[1]).toMatchObject({ eingetragen: [], genutzt: [], abgewiesen: [] });
     expect(u.plattform.genutzt[0]).toMatchObject({ host: 'api.anthropic.com', anzahl: 7 });
   });

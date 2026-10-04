@@ -23,6 +23,10 @@ jest.mock('../../src/services/flows/runStore', () => ({
   cancelRun: jest.fn(),
 }));
 
+jest.mock('../../src/services/flows/flowSettings', () => ({
+  istAktiv: jest.fn(async () => true),
+}));
+
 const flowRunner = require('../../src/services/flows/flowRunner');
 
 beforeEach(() => {
@@ -59,6 +63,30 @@ describe('starten', () => {
       { run, store }
     );
     expect(run.mock.calls[0][0]).toMatchObject({ appId: 'abschluss', einreicherId: 5 });
+  });
+
+  it('startet einen ausgeschalteten Flow einer App nicht: 409 FLOW_INAKTIV, kein Lauf (M5)', async () => {
+    const store = { createRun: jest.fn(async () => ({ id: 10 })), finishRun: jest.fn() };
+    const run = jest.fn(() => new Promise(() => {}));
+    const flowAn = jest.fn(async () => false);
+    await expect(
+      flowRunner.starten(
+        { flowName: 'bescheid', userId: 1, appId: 'abschluss', stand: 'live' },
+        { run, store, flowAn }
+      )
+    ).rejects.toMatchObject({ statusCode: 409, code: 'FLOW_INAKTIV' });
+    expect(flowAn).toHaveBeenCalledWith({ appId: 'abschluss', flowName: 'bescheid' });
+    expect(store.createRun).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('fragt bei einem Flow der Plattform nicht nach dem Schalter', async () => {
+    const store = { createRun: jest.fn(async () => ({ id: 11 })), finishRun: jest.fn() };
+    const run = jest.fn(() => new Promise(() => {}));
+    const flowAn = jest.fn(async () => false);
+    await flowRunner.starten({ flowName: 'notiz', userId: 1 }, { run, store, flowAn });
+    expect(flowAn).not.toHaveBeenCalled();
+    expect(store.createRun).toHaveBeenCalled();
   });
 
   it('findet den Lauf, auch wenn Postgres die ID als STRING liefert und die Route eine ZAHL nutzt', async () => {

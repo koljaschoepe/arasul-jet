@@ -53,7 +53,7 @@ const { ValidationError } = require('../../utils/errors');
  * nicht dabei -- er ist an keiner Stelle Teil einer Antwort, und eine Abfrage,
  * die ihn gar nicht erst holt, kann ihn auch nicht versehentlich durchreichen.
  */
-const SICHTBAR = `app_id, flow_name, modell, art,
+const SICHTBAR = `app_id, flow_name, modell, art, aktiv,
             extern_anbieter, extern_modell, extern_basis_url, extern_endet_auf,
             geaendert_am, geaendert_von`;
 
@@ -118,7 +118,7 @@ async function setzeModell({ appId, flowName, modell, durch = null }) {
     const weg = await db.query(
       `DELETE FROM public.flow_settings
         WHERE app_id = $1 AND flow_name = $2
-          AND art IS NULL`,
+          AND art IS NULL AND aktiv IS NULL`,
       [appId, flowName]
     );
     if (weg.rowCount > 0) {
@@ -174,7 +174,7 @@ async function setzeArt({ appId, flowName, art, durch = null }) {
     await db.query(
       `DELETE FROM public.flow_settings
         WHERE app_id = $1 AND flow_name = $2
-          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL`,
+          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL`,
       [appId, flowName]
     );
     logger.info(`Flow-Art zurueckgenommen: ${appId}/${flowName}`);
@@ -189,6 +189,47 @@ async function setzeArt({ appId, flowName, art, durch = null }) {
   );
   logger.info(`Flow-Art gesetzt: ${appId}/${flowName} -> ${art}`);
   return { art };
+}
+
+/**
+ * Einen Flow aus- oder einschalten (M5, Migration 200). Aus heisst: er startet
+ * nicht, `flowRunner.starten` weist mit 409 ab. Ein Lauf, der schon laeuft
+ * oder wartet, geht zu Ende.
+ *
+ * Gespeichert wird nur `false`; "aktiv" ist NULL, und eine Zeile, die sonst
+ * nichts mehr traegt, faellt weg (dieselbe Regel wie bei Modell und Art).
+ *
+ * @returns {Promise<{aktiv: boolean}>}
+ */
+async function setzeAktiv({ appId, flowName, aktiv, durch = null }) {
+  if (aktiv) {
+    await db.query(
+      'UPDATE public.flow_settings SET aktiv = NULL, geaendert_am = NOW(), geaendert_von = $3 WHERE app_id = $1 AND flow_name = $2',
+      [appId, flowName, durch]
+    );
+    await db.query(
+      `DELETE FROM public.flow_settings
+        WHERE app_id = $1 AND flow_name = $2
+          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL`,
+      [appId, flowName]
+    );
+  } else {
+    await db.query(
+      `INSERT INTO public.flow_settings (app_id, flow_name, aktiv, geaendert_von)
+       VALUES ($1, $2, false, $3)
+       ON CONFLICT (app_id, flow_name) DO UPDATE
+          SET aktiv = false, geaendert_am = NOW(), geaendert_von = EXCLUDED.geaendert_von`,
+      [appId, flowName, durch]
+    );
+  }
+  logger.info(`Flow ${aktiv ? 'eingeschaltet' : 'ausgeschaltet'}: ${appId}/${flowName}`);
+  return { aktiv: Boolean(aktiv) };
+}
+
+/** Ist dieser Flow einer App aktiv? Ohne Zeile ja. */
+async function istAktiv({ appId, flowName }) {
+  const zeile = await hole({ appId, flowName });
+  return zeile?.aktiv !== false;
 }
 
 /**
@@ -292,4 +333,13 @@ async function externerZugang({ appId, flowName }) {
   };
 }
 
-module.exports = { hole, listeFuer, setzeModell, setzeArt, setzeExtern, externerZugang };
+module.exports = {
+  hole,
+  listeFuer,
+  setzeModell,
+  setzeArt,
+  setzeAktiv,
+  istAktiv,
+  setzeExtern,
+  externerZugang,
+};

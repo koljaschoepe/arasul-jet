@@ -184,7 +184,17 @@ async function uebersicht() {
           staende: st.sort(),
         })),
         genutzt: nachHost(eigene.filter(z => z.ergebnis === 'erlaubt')),
-        abgewiesen: nachHost(eigene.filter(z => z.ergebnis === 'abgewiesen')),
+        // `stoerung` (M5, Seite der App): der Name steht in `verbindungen`
+        // desselben Standes und wurde trotzdem abgewiesen -- er zeigt etwa auf
+        // eine Adresse im Haus. Dann kann die App nicht arbeiten, wie sie
+        // soll, und nur dann ist es rot. Ein Name, den niemand eingetragen
+        // hat, abzuweisen, ist dagegen genau die Aufgabe des Proxys.
+        abgewiesen: nachHost(eigene.filter(z => z.ergebnis === 'abgewiesen')).map(z => ({
+          ...z,
+          stoerung: z.staende.some(st =>
+            ((eingetragen.get(app.id) || new Map()).get(z.host) || []).includes(st)
+          ),
+        })),
       };
     }),
     plattform: {
