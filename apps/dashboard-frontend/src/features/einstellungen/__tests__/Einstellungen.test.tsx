@@ -134,6 +134,31 @@ describe('Einstellungen, persönlich', () => {
     await waitFor(() => expect(mockApi.del).toHaveBeenCalledWith('/ausweise/4'));
   });
 
+  it.each(['admin', 'mitarbeiter'] as const)(
+    '%s findet die Anleitung mit genau einem Befehl zum Kopieren',
+    async r => {
+      rolle = r;
+      const user = userEvent.setup();
+      // `setup` legt eine eigene Zwischenablage an; erst danach ersetzen.
+      const schreiben = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: schreiben },
+        configurable: true,
+      });
+      zeige();
+      const anleitung = await screen.findByTestId('rechner-verbinden');
+      // Sie steht unter „Angemeldete Rechner", nicht als eigener Abschnitt.
+      expect(screen.getByRole('heading', { level: 2, name: 'Angemeldete Rechner' })).toBeTruthy();
+      const befehl = within(anleitung).getByTestId('rechner-verbinden-befehl');
+      expect(befehl.textContent).toBe(
+        `node arasul.mjs login ${window.location.origin} --user probe`
+      );
+      expect(within(anleitung).getAllByTestId(/befehl/)).toHaveLength(1);
+      await user.click(within(anleitung).getByTestId('rechner-verbinden-kopieren'));
+      expect(schreiben).toHaveBeenCalledWith(befehl.textContent);
+    }
+  );
+
   it('Erscheinungsbild: System, Hell, Dunkel, Hell ist die Vorgabe', async () => {
     zeige();
     await screen.findByText('Erscheinungsbild');

@@ -12,7 +12,7 @@ import { Button, Dialogform, Leerzustand } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { formatDate } from '@/utils/formatting';
 import { useAenderungen, type Ordner } from './useFirmenordner';
-import { ordnerWeg } from './OrdnerBaum';
+import { ordnerWeg } from './ordnerWeg';
 
 interface Props {
   fuer: Ordner | null;

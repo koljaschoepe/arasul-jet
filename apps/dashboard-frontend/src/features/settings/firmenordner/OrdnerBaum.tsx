@@ -1,52 +1,41 @@
 /**
  * Der Ordnerbaum: die Wurzel, die Bereiche der Ebene 1, die Projekte der
- * Ebene 2 darunter — mit Kennung, Name und Art (Auftrag
- * firmenordner-rechte-im-frontend, 22.09.2026).
+ * Ebene 2 darunter (M5, Verwaltung Firmenordner; vorher Tabelle mit sieben
+ * Spalten, Auftrag firmenordner-rechte-im-frontend, 22.09.2026).
  *
- * EINE TABELLE UND KEIN AUFKLAPPBAUM. Zwei Ebenen brauchen kein Aufklappen;
- * die Einrückung der Kennung sagt, was worunter liegt, und jede Zeile bleibt
- * mit ihren Handgriffen lesbar. Unter 900 px steht dieselbe Auskunft als
- * Liste (`useSchmalesFenster`), eine Zeile je Ordner — nur eine der beiden
- * Formen steht im Dokument, sonst wären die Kennzeichen doppelt da.
+ * Eine Zeile je Ordner: Name, die Art als Wort und die Zahl der Personen. Ein
+ * Klick klappt die Zeile auf (`Accordion`, mehrere zugleich, nur Offenes ist
+ * gemountet) und zeigt die Stufen je Person; darunter, ebenfalls nur hier,
+ * Größe mit Grenze, letzte Änderungen, Papierkorb und Wegwerfen. Zwei Ebenen
+ * brauchen keine Verschachtelung: die Einrückung sagt, was worunter liegt.
  *
- * DIE ART IST EIN WORT, KEINE FARBE: „Wurzel" (alle lesen, Administratoren
- * schreiben), „geteilt" (Rechte je Person) und „am Gerät" (nie abgeglichen,
- * nur Flows und Apps lesen). Ein Stand ohne Raum im Dienst (`raum_id` leer)
- * steht als Hinweis daneben — der Abgleich holt ihn nach.
+ * Eine Form für jede Breite. Der Weg des Ordners steht als Text, nie als
+ * Adresse des Dateidienstes.
  *
- * DIE SPALTE „PLATZ" (J33, 28.09.2026): je Hauptordner und Bereich belegt und
- * Grenze, ein Klick stellt sie ein. Bis dahin hatte jeder Bereich still 1 GB.
+ * DIE ART IST EIN WORT, KEINE FARBE: „Hauptordner" (alle lesen,
+ * Administratoren schreiben), „geteilt" (Rechte je Person) und „am Gerät"
+ * (nie abgeglichen, nur Flows und Apps lesen). Ein Stand ohne Raum im Dienst
+ * (`raum_id` leer) steht als Hinweis daneben, der Abgleich holt ihn nach.
  *
- * DIE FORM RICHTET SICH NACH DEM KASTEN, nicht nach dem Fenster
- * (`useSchmalerBehaelter`): bei 1024 px mit der damaligen Notizspalte blieben
- * der Mitte rund 600 px, und die Tabelle rollte darin seitlich, obwohl das
- * Fenster „breit" war (Nachtrag aus J34, 28.09.2026). Unter
- * `TABELLE_AB_PX` steht deshalb die Liste da.
+ * DIE GRENZE (J33, 28.09.2026): je Hauptordner und Bereich belegt und Grenze,
+ * ein Klick stellt sie ein. Bis dahin hatte jeder Bereich still 1 GB.
  */
 import { FolderLock, FolderTree, Gauge, History, Trash, Trash2 } from 'lucide-react';
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Badge,
   Button,
   cn,
   Progress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  useSchmalerBehaelter,
 } from '@marken';
 import { formatBytes } from '@/utils/formatting';
+import type { Benutzer } from '../personen/usePersonen';
+import { ordnerWeg } from './ordnerWeg';
+import { RechteJeOrdner } from './RechteJeOrdner';
 import { alsBaum, type Ordner, type PapierkorbStand, type PlatzStand } from './useFirmenordner';
-
-/**
- * Ab welcher Breite des Kastens die Tabelle steht. Sieben Spalten mit Platz
- * und Papierkorb brauchen mit acht Bereichen gemessen 802 px (28.09.2026,
- * lokaler Bau, 1440 px mit der damaligen Notizspalte: der Kasten war 728 px, die Tabelle
- * rollte dort bei einer Schwelle von 700 px).
- */
-const TABELLE_AB_PX = 820;
 
 /** Das Wort zur Art, an einer Stelle. */
 function artWort(art: Ordner['art']): string {
@@ -55,14 +44,9 @@ function artWort(art: Ordner['art']): string {
   return 'geteilt';
 }
 
-/** Der Weg, wie ein Mensch ihn liest: die Wurzel als `/`, sonst `eltern/kennung`. */
-export function ordnerWeg(o: Ordner): string {
-  if (o.art === 'wurzel') return '/';
-  return o.ebene === 2 && o.eltern_kennung ? `${o.eltern_kennung}/${o.kennung}` : o.kennung;
-}
-
 interface Props {
   ordner: Ordner[];
+  benutzer: Benutzer[];
   /** Wie viel in welchem Papierkorb liegt (J34); fehlt, solange es nicht geladen ist. */
   papierkorb?: PapierkorbStand[];
   /** Belegt und Grenze je Hauptordner und Bereich (J33); fehlt, solange es nicht geladen ist. */
@@ -196,7 +180,11 @@ function ArtBadge({ o }: { o: Ordner }) {
   );
 }
 
-function Handgriffe({ o, onAenderungen, onWegwerfen }: Props & { o: Ordner }) {
+function Handgriffe({
+  o,
+  onAenderungen,
+  onWegwerfen,
+}: Pick<Props, 'onAenderungen' | 'onWegwerfen'> & { o: Ordner }) {
   return (
     <span className="inline-flex items-center gap-1">
       <Button
@@ -223,8 +211,16 @@ function Handgriffe({ o, onAenderungen, onWegwerfen }: Props & { o: Ordner }) {
   );
 }
 
+/** Die Zahl der Personen in einem Wort, wie die Zeile sie nennt. */
+function personenWort(o: Ordner): string {
+  if (o.art === 'wurzel') return 'alle';
+  if (o.art === 'am_geraet') return 'nur Apps';
+  return o.rechte_anzahl === 1 ? '1 Person' : `${o.rechte_anzahl.toLocaleString('de-DE')} Personen`;
+}
+
 export function OrdnerBaum({
   ordner,
+  benutzer,
   papierkorb,
   platz,
   onGrenze,
@@ -232,161 +228,61 @@ export function OrdnerBaum({
   onWegwerfen,
   onPapierkorb,
 }: Props) {
-  const [kasten, schmal] = useSchmalerBehaelter(TABELLE_AB_PX);
   const baum = alsBaum(ordner);
 
   return (
-    <div ref={kasten} className="min-w-0" data-form={schmal ? 'liste' : 'tabelle'}>
-      {schmal ? (
-        <Liste
-          baum={baum}
-          ordner={ordner}
-          papierkorb={papierkorb}
-          platz={platz}
-          onGrenze={onGrenze}
-          onAenderungen={onAenderungen}
-          onWegwerfen={onWegwerfen}
-          onPapierkorb={onPapierkorb}
-        />
-      ) : (
-        <Tabelle
-          baum={baum}
-          ordner={ordner}
-          papierkorb={papierkorb}
-          platz={platz}
-          onGrenze={onGrenze}
-          onAenderungen={onAenderungen}
-          onWegwerfen={onWegwerfen}
-          onPapierkorb={onPapierkorb}
-        />
-      )}
-    </div>
-  );
-}
-
-function Liste({
-  baum,
-  ordner,
-  papierkorb,
-  platz,
-  onGrenze,
-  onAenderungen,
-  onWegwerfen,
-  onPapierkorb,
-}: Props & { baum: Ordner[] }) {
-  return (
-    <ul className="rounded-md border border-border" data-testid="ordner-baum">
+    <Accordion type="multiple" data-testid="ordner-baum">
       {baum.map(o => (
-        <li
-          key={String(o.id)}
-          data-testid={`ordner-${o.kennung}`}
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border p-ui-3 last:border-b-0"
-          style={{ paddingLeft: `calc(var(--spacing) * ${3 + o.ebene * 4})` }}
-        >
-          <FolderTree className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="font-mono text-sm text-foreground">{ordnerWeg(o)}</span>
-          <span className="text-sm text-muted-foreground">{o.name}</span>
-          <ArtBadge o={o} />
-          <span className="ml-auto inline-flex flex-wrap items-center gap-1">
-            <PlatzKnopf o={o} platz={platz} onGrenze={onGrenze} />
-            <PapierkorbKnopf o={o} papierkorb={papierkorb} onPapierkorb={onPapierkorb} />
-            <Handgriffe
-              o={o}
-              ordner={ordner}
-              onAenderungen={onAenderungen}
-              onWegwerfen={onWegwerfen}
-              onPapierkorb={onPapierkorb}
-              onGrenze={onGrenze}
-            />
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Tabelle({
-  baum,
-  ordner,
-  papierkorb,
-  platz,
-  onGrenze,
-  onAenderungen,
-  onWegwerfen,
-  onPapierkorb,
-}: Props & { baum: Ordner[] }) {
-  return (
-    <div className="overflow-x-auto" data-testid="ordner-baum">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Kennung</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Art</TableHead>
-            <TableHead>Rechte</TableHead>
-            <TableHead>Platz</TableHead>
-            <TableHead>Papierkorb</TableHead>
-            <TableHead className="text-right">
-              <span className="sr-only">Handgriffe</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {baum.map(o => (
-            <TableRow key={String(o.id)} data-testid={`ordner-${o.kennung}`}>
-              {/* Kennung und Name brechen um, auch mitten im Wort (J34, 28.09.2026):
-                  mit acht Bereichen und langen Kennungen schob die Tabelle sonst
-                  Papierkorb und Handgriffe aus dem Kasten, und rollen soll auf
-                  dieser Seite nur die Rechte-Matrix. */}
-              <TableCell
-                className="font-mono whitespace-normal wrap-anywhere"
-                style={{ paddingLeft: `calc(var(--spacing) * ${2 + o.ebene * 5})` }}
-              >
+        <AccordionItem key={String(o.id)} value={String(o.id)} data-testid={`ordner-${o.kennung}`}>
+          <AccordionTrigger style={{ paddingLeft: `calc(var(--spacing) * ${o.ebene * 5})` }}>
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-left">
+              <FolderTree className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="font-medium wrap-anywhere">{o.name}</span>
+              <span className="font-mono text-xs font-normal text-muted-foreground wrap-anywhere">
                 {ordnerWeg(o)}
-                {!o.raum_id && (
-                  <span
-                    className="ml-2 text-xs text-muted-foreground"
-                    title="Noch nicht bei den Mitarbeitern angekommen. Oben auf „Jetzt nachholen“ tippen."
-                  >
-                    noch nicht angekommen
-                  </span>
-                )}
-              </TableCell>
-              <TableCell className="whitespace-normal wrap-anywhere">{o.name}</TableCell>
-              <TableCell>
-                <ArtBadge o={o} />
-              </TableCell>
-              {/* Der Satz darf umbrechen: mit der Spalte Papierkorb (J34) schob er in
-                  einem schmalen Kasten die Handgriffe hinaus. */}
-              <TableCell className="whitespace-normal text-muted-foreground">
-                {o.art === 'wurzel'
-                  ? 'alle lesen, Administratoren schreiben'
-                  : o.art === 'am_geraet'
-                    ? 'nur die Apps am Gerät'
-                    : o.rechte_anzahl === 1
-                      ? '1 Person'
-                      : `${o.rechte_anzahl.toLocaleString('de-DE')} Personen`}
-              </TableCell>
-              <TableCell>
+              </span>
+              <ArtBadge o={o} />
+              <span
+                className="text-sm font-normal text-muted-foreground"
+                data-testid={`ordner-personen-${o.kennung}`}
+              >
+                {personenWort(o)}
+              </span>
+              {!o.raum_id && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  noch nicht angekommen
+                </span>
+              )}
+            </span>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div
+              className="flex flex-col gap-ui-3"
+              style={{ paddingLeft: `calc(var(--spacing) * ${o.ebene * 5})` }}
+            >
+              {o.art === 'wurzel' ? (
+                <p className="text-sm text-muted-foreground">
+                  Alle lesen diesen Ordner, Administratoren schreiben.
+                </p>
+              ) : o.art === 'am_geraet' ? (
+                <p className="text-sm text-muted-foreground">
+                  Dieser Ordner bleibt auf dem Gerät und erscheint bei keiner Person. Nur Flows und
+                  Apps am Gerät lesen ihn.
+                </p>
+              ) : (
+                <RechteJeOrdner o={o} benutzer={benutzer} />
+              )}
+              <div className="flex flex-wrap items-center gap-1">
                 <PlatzKnopf o={o} platz={platz} onGrenze={onGrenze} />
-              </TableCell>
-              <TableCell>
                 <PapierkorbKnopf o={o} papierkorb={papierkorb} onPapierkorb={onPapierkorb} />
-              </TableCell>
-              <TableCell className="text-right">
-                <Handgriffe
-                  o={o}
-                  ordner={ordner}
-                  onAenderungen={onAenderungen}
-                  onWegwerfen={onWegwerfen}
-                  onPapierkorb={onPapierkorb}
-                  onGrenze={onGrenze}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+                <span className="ml-auto">
+                  <Handgriffe o={o} onAenderungen={onAenderungen} onWegwerfen={onWegwerfen} />
+                </span>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
   );
 }
