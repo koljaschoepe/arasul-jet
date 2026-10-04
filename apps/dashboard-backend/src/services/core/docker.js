@@ -108,20 +108,6 @@ async function getAllServicesStatus() {
 }
 
 /**
- * Get detailed info about a specific container
- */
-async function getContainerInfo(containerName) {
-  try {
-    const container = docker.getContainer(containerName);
-    const info = await container.inspect();
-    return info;
-  } catch (error) {
-    logger.error(`Error getting container info for ${containerName}: ${error.message}`);
-    return null;
-  }
-}
-
-/**
  * Restart a container
  */
 async function restartContainer(containerName) {
@@ -136,41 +122,8 @@ async function restartContainer(containerName) {
   }
 }
 
-/**
- * Stop a container
- */
-async function stopContainer(containerName) {
-  try {
-    const container = docker.getContainer(containerName);
-    await container.stop();
-    logger.info(`Container ${containerName} stopped successfully`);
-    return true;
-  } catch (error) {
-    logger.error(`Error stopping container ${containerName}: ${error.message}`);
-    return false;
-  }
-}
-
-/**
- * Start a container
- */
-async function startContainer(containerName) {
-  try {
-    const container = docker.getContainer(containerName);
-    await container.start();
-    logger.info(`Container ${containerName} started successfully`);
-    return true;
-  } catch (error) {
-    logger.error(`Error starting container ${containerName}: ${error.message}`);
-    return false;
-  }
-}
-
 module.exports = {
   docker,
   getAllServicesStatus,
-  getContainerInfo,
   restartContainer,
-  stopContainer,
-  startContainer,
 };

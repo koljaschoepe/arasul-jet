@@ -154,63 +154,10 @@ async function abbruchFesthalten({ database, log, jobId, grund, kennung: k, deta
   }
 }
 
-/**
- * Der Satz, der im Chat erscheint, mit Kennung dahinter.
- *
- * Die Kennung gehoert in den sichtbaren Text, nicht nur ins Protokoll. Ohne sie
- * kann der Nutzer melden, dass etwas abgebrochen ist, aber nicht welches; mit
- * ihr ist die Meldung ein Suchbegriff.
- *
- * @param {string} grund
- * @param {string} k Kennung
- * @returns {string}
- */
-function abbruchText(grund, k) {
-  const satz = istGrund(grund) ? GRUENDE[grund] : GRUENDE.unbekannt;
-  return `\n\n_Abgebrochen: ${satz} Kennung ${k}._`;
-}
-
-/**
- * Ordnet einen rohen Fehler einem Grund zu.
- *
- * Nur fuer Stellen, die einen Fehler auffangen, ohne zu wissen, woher er kommt.
- * Wer den Grund kennt, gibt ihn direkt an; Raten ist die schlechtere Auskunft.
- *
- * @param {Error|string} err
- * @returns {string} Schlüssel aus GRUENDE
- */
-function grundAusFehler(err) {
-  const roh = String(err?.message || err || '');
-  if (/ohne Daten|Modell-Stream/i.test(roh)) {
-    return 'stream_still';
-  }
-  // `aborted` steht hier ausdruecklich mit dabei: so meldet sich eine
-  // gerissene Verbindung zum KI-Dienst. Am 22.08.2026 nachgestellt, indem der
-  // Dienst mitten in der Antwort angehalten wurde; der Grund landete damals auf
-  // `unbekannt`, und das half niemandem. Der Nutzer-Abbruch kommt hier nicht
-  // an, der hat weiter oben seinen eigenen Zweig.
-  if (
-    /ECONNREFUSED|ENOTFOUND|fetch failed|ECONNRESET|socket hang up|^aborted$|stream has been aborted|EPIPE/i.test(
-      roh
-    )
-  ) {
-    return 'modell_weg';
-  }
-  if (/timeout|timed?\s*out|ETIMEDOUT/i.test(roh)) {
-    return 'lauf_zeitlimit';
-  }
-  if (/context|num_ctx|zu gro/i.test(roh)) {
-    return 'kontext_voll';
-  }
-  return 'unbekannt';
-}
-
 module.exports = {
   GRUENDE,
   istGrund,
   kennung,
   abbruchMelden,
   abbruchFesthalten,
-  abbruchText,
-  grundAusFehler,
 };

@@ -49,17 +49,9 @@ services:
       # Anfragen, weil eine laeuft und 20 warten. Begruendung und Zahlen:
       # docs/features/LAST.md.
       LLM_MAX_QUEUE_SIZE: ${LLM_MAX_QUEUE_SIZE:-20}
-      # Chat-Agent Harness v2 (services/llm/agentConfig.js) — ohne diese
-      # Durchreichung erreichen .env-Werte den Container NIE (stiller Default).
-      AGENT_NUM_CTX: ${AGENT_NUM_CTX:-32768}
-      AGENT_NUM_PREDICT: ${AGENT_NUM_PREDICT:--1}
-      AGENT_KEEP_ALIVE: ${AGENT_KEEP_ALIVE:-30m}
-      AGENT_QUALITAETS_MODELL: ${AGENT_QUALITAETS_MODELL:-}
+      # Denken der Flow-Rollen (services/llm/agentConfig.js) — ohne diese
+      # Durchreichung erreicht ein .env-Wert den Container NIE (stiller Default).
       AGENT_THINKING: ${AGENT_THINKING:-an}
-      AGENT_MAX_SUBAGENTEN: ${AGENT_MAX_SUBAGENTEN:-8}
-      AGENT_PLAN_TOKENS_GROSS: ${AGENT_PLAN_TOKENS_GROSS:-2048}
-      AGENT_PLAN_TOKENS_KLEIN: ${AGENT_PLAN_TOKENS_KLEIN:-512}
-      AGENT_VERLAUF_TOKEN_BUDGET: ${AGENT_VERLAUF_TOKEN_BUDGET:-1200}
       # Wie lange eine Modell-Runde stumm bleiben darf, bevor der Lauf als tot
       # gilt (Plan 023 E1). Stand bisher in der Dokumentation und im Code, aber
       # nicht hier, war also auf einem ausgelieferten Geraet nicht einstellbar.

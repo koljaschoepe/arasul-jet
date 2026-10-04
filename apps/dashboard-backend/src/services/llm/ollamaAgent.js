@@ -41,6 +41,5 @@ const ollamaAgent = new http.Agent({
 
 module.exports = {
   ollamaAgent,
-  OLLAMA_AGENT_TIMEOUT_MS: TIMEOUT_MS,
   destroyOllamaAgent: () => ollamaAgent.destroy(),
 };

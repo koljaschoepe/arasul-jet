@@ -50,7 +50,7 @@ jobs:
   # samt fuenf Docker-Bauten ausgeloest haben.
   #
   # `packages/` und `libs/` stehen mit im Filter, weil die Dockerfiles
-  # `packages/shared-schemas` und `libs/shared-python/structured_logging.py` in
+  # `packages/marken` und `libs/shared-python/structured_logging.py` in
   # die Images kopieren. Beim ersten Entwurf fehlten sie, und eine Aenderung nur
   # dort haette den Bau stillschweigend uebersprungen.
   #
@@ -114,8 +114,7 @@ jobs:
 
   # ----------------------------------------------------------------------------
   # Backend: lint + full Jest suite (coverage thresholds enforced via
-  # package.json). Runs from the monorepo root so `file:` workspace deps to
-  # @arasul/shared-schemas resolve correctly.
+  # package.json). Runs from the monorepo root against the one root lockfile.
   # ----------------------------------------------------------------------------
   backend:
     name: Backend (lint + jest)

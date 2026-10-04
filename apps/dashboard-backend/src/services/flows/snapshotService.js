@@ -130,39 +130,6 @@ async function sichereVorher(root, relPfad, opts = {}) {
   }
 }
 
-/** Anzahl verfügbarer Undo-Stufen + jüngste Version einer Datei (oder null). */
-async function versionsInfo(root, relPfad) {
-  const dir = eintragDir(root, relPfad);
-  const idx = await ladeIndex(dir);
-  if (!idx || idx.versionen.length === 0) {
-    return null;
-  }
-  const letzte = idx.versionen[idx.versionen.length - 1];
-  return { anzahl: idx.versionen.length, letzte };
-}
-
-/**
- * Inhalt der jüngsten Version (für Diff „vorher gegen jetzt"). Liefert null,
- * wenn die jüngste Version keine Inhalts-Kopie ist (neu/trunc) — dann gibt es
- * keinen sinnvollen Text-Vorher-Stand.
- */
-async function letzterInhalt(root, relPfad) {
-  const dir = eintragDir(root, relPfad);
-  const idx = await ladeIndex(dir);
-  if (!idx || idx.versionen.length === 0) {
-    return null;
-  }
-  const letzte = idx.versionen[idx.versionen.length - 1];
-  if (letzte.art !== 'inhalt') {
-    return null;
-  }
-  try {
-    return await fsp.readFile(path.join(dir, `${letzte.seq}.snap`), 'utf8');
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Macht den jüngsten Schreibschritt einer Datei rückgängig (mehrstufig
  * aufrufbar). Schreibt symlink-sicher zurück in `root`.
@@ -216,8 +183,6 @@ async function wiederherstellen(root, relPfad) {
 module.exports = {
   sichereVorher,
   wiederherstellen,
-  versionsInfo,
-  letzterInhalt,
   VERSIONS_DIR,
   MAX_SNAPSHOT_BYTES,
   MAX_VERSIONS_PER_FILE,

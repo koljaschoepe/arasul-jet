@@ -46,6 +46,13 @@ describe('Freigabe', () => {
     expect(screen.getByTestId('freigabe-7-frist')).toHaveTextContent('noch 1 Stunde');
   });
 
+  it('nennt die Frist einzeln auf die Minute, ohne Sekunden', () => {
+    zeige([OFFEN], { gewaehlt: 7 });
+    expect(screen.getByText(/^Frist: /)).toHaveTextContent(
+      /^Frist: \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/
+    );
+  });
+
   it('sagt bei abgelaufener Frist, dass sie abgelaufen ist', () => {
     zeige([{ ...OFFEN, frist: new Date(JETZT - 1000).toISOString() }]);
     expect(screen.getByTestId('freigabe-7-frist')).toHaveTextContent('Frist abgelaufen');
@@ -217,7 +224,7 @@ describe('Freigabe', () => {
       );
       expect(screen.queryByTestId('freigabe-korrekturen')).not.toBeInTheDocument();
       fireEvent.click(screen.getByTestId('freigabe-9-bisher-schalter'));
-      expect(screen.getByTestId('freigabe-korrekturen')).toHaveTextContent('betrag: 12,05 → 12,50');
+      expect(screen.getByTestId('freigabe-korrekturen')).toHaveTextContent('Betrag: 12,05 → 12,50');
     });
 
     it('bestätigt mit den geänderten Feldern und kehrt zur Liste zurück', async () => {
@@ -254,8 +261,14 @@ describe('Freigabe', () => {
         },
       ]);
       expect(screen.getByTestId('freigabe-korrekturen')).toHaveTextContent(
-        'datum: leer → 01.10.2026 (bernd)'
+        'Datum: leer → 01.10.2026 (bernd)'
       );
+    });
+
+    it('beschriftet ein Feld ohne bezeichnung aus seinem Namen', () => {
+      zeige([ERKANNT], { gewaehlt: 9 });
+      expect(screen.getByTestId('freigabe-9-feld-datum')).toHaveTextContent('Datum');
+      expect(screen.getByTestId('freigabe-9-feld-datum')).not.toHaveTextContent(/^datum/);
     });
   });
 });

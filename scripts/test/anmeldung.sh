@@ -255,7 +255,14 @@ arasul_geraet_erreichbar() {
 # wird als `TOK=$(arasul_token)` aufgerufen, und eine Kommandosubstitution ist
 # eine Subshell. Was sie in eine Variable schreibt, ist beim naechsten Befehl
 # wieder weg (dieselbe Falle wie in `hole_token`, Messung zu C2).
-_ARASUL_CODE_DATEI="${TMPDIR:-/tmp}/arasul-abnahme-code"
+#
+# Je Lauf eine eigene Datei (`$$` ist auch in der Subshell die Kennung des
+# Skripts). Bis zum 04.10.2026 teilten sich alle Laeufe eine: wer einen
+# abgelegten Token wiederverwendete, meldete sich nie an und las den Code
+# eines fremden Laufs -- „Anmeldung als probe-admin: HTTP 503" bei einem
+# gueltigen Token.
+_ARASUL_CODE_DATEI="${TMPDIR:-/tmp}/arasul-abnahme-code.$$"
+: > "$_ARASUL_CODE_DATEI"
 
 arasul_anmeldecode() { cat "$_ARASUL_CODE_DATEI" 2>/dev/null; }
 
@@ -334,6 +341,8 @@ arasul_token() {
   local abgelegt
   abgelegt=$(cat "$ARASUL_TOKEN_DATEI" 2>/dev/null)
   if _arasul_token_gilt "$abgelegt"; then
+    # Keine Anmeldung, aber `/api/auth/me` hat den Token eben mit 200 bestaetigt.
+    printf '200' > "$_ARASUL_CODE_DATEI"
     printf '%s' "$abgelegt"
     return 0
   fi

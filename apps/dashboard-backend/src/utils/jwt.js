@@ -313,18 +313,6 @@ async function getUserSessions(userId) {
   }
 }
 
-/**
- * Cleanup expired tokens and sessions
- */
-async function cleanupExpiredAuth() {
-  try {
-    await db.query('SELECT cleanup_expired_auth_data()');
-    logger.info('Expired auth data cleaned up');
-  } catch (error) {
-    logger.error(`Error cleaning up expired auth data: ${error.message}`);
-  }
-}
-
 module.exports = {
   tokenLebensdauerMs,
   generateToken,
@@ -332,5 +320,4 @@ module.exports = {
   blacklistToken,
   blacklistAllUserTokens,
   getUserSessions,
-  cleanupExpiredAuth,
 };

@@ -13,10 +13,6 @@ COPY package.json package-lock.json ./
 COPY apps/dashboard-frontend/package.json apps/dashboard-frontend/
 COPY apps/dashboard-backend/package.json apps/dashboard-backend/
 
-# Shared workspace: @arasul/shared-schemas (its built dist/ is committed and the
-# file: dep resolves via a workspace symlink).
-COPY packages/shared-schemas packages/shared-schemas
-
 # Das Designsystem (Phase D7). KEIN npm-Paket: `@marken` ist ein Pfad-Alias
 # (vite.config.ts, tsconfig.json), und `vite build` uebersetzt diese Quellen
 # mit. Ohne diese Zeile findet der Bau im Image den Alias nicht.

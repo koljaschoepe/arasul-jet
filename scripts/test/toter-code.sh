@@ -40,7 +40,6 @@ AUSNAHMEN=(
 # Nur von Tests benutzt, bewusst behalten. Jede Zeile: Pfad|Grund.
 NUR_TESTS_OK=(
   "src/server.js|existiert genau dafuer: reicht die App an Integrationstests durch"
-  "src/utils/urlGuard.js|SSRF-Schutz, Verbraucher kommt mit Plan 023 H1 (ausgehende Aufrufe der Erweiterungen)"
 )
 
 in_liste() {

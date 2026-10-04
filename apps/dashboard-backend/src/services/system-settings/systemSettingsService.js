@@ -95,23 +95,6 @@ function getNumber(key, fallback) {
 }
 
 /**
- * Boolean coercion wrapper.
- */
-function getBool(key, fallback) {
-  const v = get(key, fallback);
-  if (typeof v === 'boolean') {
-    return v;
-  }
-  if (v === 'true') {
-    return true;
-  }
-  if (v === 'false') {
-    return false;
-  }
-  return fallback;
-}
-
-/**
  * Test-helper to inject values without hitting the DB.
  */
 function _setForTest(partial) {
@@ -124,7 +107,6 @@ module.exports = {
   reload: load,
   get,
   getNumber,
-  getBool,
   SETTINGS_COLUMNS,
   _setForTest,
 };

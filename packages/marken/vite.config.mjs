@@ -1,10 +1,9 @@
 /**
  * Der Bau des Buendels fuer Apps ohne eigenen Buendler (Phase D7).
  *
- * Eine Datei, und React liegt darin: `browser/marken.js`. Sie ist eingecheckt
- * -- wie `packages/shared-schemas/dist/` und aus demselben Grund. Auf dem
- * Geraet gibt es kein `npm install` und keinen Bau, und `beispielapp.sh` legt
- * die Datei beim Einspielen einfach neben die App.
+ * Eine Datei, und React liegt darin: `browser/marken.js`. Sie ist eingecheckt,
+ * denn auf dem Geraet gibt es kein `npm install` und keinen Bau, und
+ * `beispielapp.sh` legt die Datei beim Einspielen einfach neben die App.
  *
  * Das Stylesheet wird hier NICHT mitgebaut: `src/marken.css` ist schon die
  * fertige Datei, und eine zweite Kopie davon waere eine zweite Wahrheit. Wer

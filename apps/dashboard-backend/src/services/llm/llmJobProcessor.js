@@ -8,7 +8,6 @@
 
 const http = require('http');
 const { streamFromOllama, onJobComplete, destroyOllamaAgent } = require('./llmOllamaStream');
-const systemSettings = require('../system-settings/systemSettingsService');
 
 /**
  * Vision auto-fallback: caption an image with a small vision model so a text-only

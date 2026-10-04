@@ -130,7 +130,9 @@ function SchaltungHinweis({ schaltung }: { schaltung: AppSchaltung }) {
               : null,
           },
           { beschriftung: 'Letzte Zeilen', wert: t?.letzte_zeilen || t?.ausgabe || null },
-        ]}
+          // Was der Versuch nicht kennt, steht nicht da: ein Rückfall wegen
+          // `unhealthy` hat keinen Exit-Code, und „Exit-Code —" las sich wie einer.
+        ].filter(a => a.wert)}
       />
     </div>
   );
