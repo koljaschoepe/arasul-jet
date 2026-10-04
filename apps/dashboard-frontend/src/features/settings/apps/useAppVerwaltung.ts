@@ -137,7 +137,7 @@ export interface AppLauf {
 }
 
 /** Wie weit die Übergabe des Ergebnisses an die App ist. */
-export interface LaufAbschluss {
+interface LaufAbschluss {
   route: string;
   versuche: number;
   letzter_versuch?: string | null;

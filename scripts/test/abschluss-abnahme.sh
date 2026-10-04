@@ -449,7 +449,7 @@ if starten 'flow=beleg&datum='; then
   pruefe 'und die Korrektur: Feld, Vorschlag, Wert, wer' \
     "$([ "$(empfangen_feld body.korrekturen.0.feld)" = datum ] && [ "$(empfangen_feld body.korrekturen.0.wert)" = 01.10.2026 ] && [ "$(empfangen_feld body.korrekturen.0.von)" = "$B" ] && echo ja || echo nein)" "von=$(empfangen_feld body.korrekturen.0.von)"
   pruefe 'Das Ergebnis traegt den geaenderten Wert' \
-    "$(empfangen_feld body.ergebnis | grep -q '01.10.2026' && echo ja || echo nein)"
+    "$(grep -q '01.10.2026' <<<"$(empfangen_feld body.ergebnis)" && echo ja || echo nein)"
 else
   pruefe 'Lauf gestartet (beleg)' nein
 fi
@@ -475,13 +475,13 @@ if starten 'flow=buch&thema=Ausfall'; then
   OFFENE_LAEUFE+=("$LAUF")
   pruefe 'Die App antwortet 503: der Lauf steht auf nicht_uebergeben' "$(ja_wenn "$STATUS" nicht_uebergeben)" "lauf=$LAUF status=${STATUS:-—}"
   pruefe '… mit dem Grund (HTTP 503) und dem Ergebnis' \
-    "$(lauf_feld error | grep -q 503 && [ -n "$(lauf_feld result)" ] && [ "$(lauf_feld abschluss.status_code)" = 503 ] && [ "$(lauf_feld abschluss.versuche)" = 1 ] && echo ja || echo nein)" "$(lauf_feld error | cut -c1-60)"
+    "$(grep -q 503 <<<"$(lauf_feld error)" && [ -n "$(lauf_feld result)" ] && [ "$(lauf_feld abschluss.status_code)" = 503 ] && [ "$(lauf_feld abschluss.versuche)" = 1 ] && echo ja || echo nein)" "$(lauf_feld error | cut -c1-60)"
   pruefe '… ohne uebergeben_am' "$([ -z "$(lauf_feld abschluss.uebergeben_am)" ] && echo ja || echo nein)"
   SCHRITTE=$(schritte_zahl)
   AUSFALL_LAUF="$LAUF"
   ruf "$TOK" GET "/api/apps/$APP/laeufe?status=nicht_uebergeben"
   pruefe 'Die Liste der Laeufe filtert nach nicht_uebergeben' \
-    "$(rumpf | grep -q "\"id\": *$LAUF" && echo ja || echo nein)"
+    "$(grep -q "\"id\": *$LAUF" "$RUMPF_DATEI" && echo ja || echo nein)"
   ruf "$TOK_A" GET "/apps/$APP/api/lauf?lauf=$LAUF"
   pruefe 'Die App sieht den Zustand ueber die Schnittstelle (status, abschluss)' \
     "$([ "$(rumpf | feld status)" = nicht_uebergeben ] && echo ja || echo nein)"
@@ -512,7 +512,7 @@ if starten 'flow=buch&thema=Schweigen'; then
   warte_status 'fertig|nicht_uebergeben|fehler' "$LAUF_GEDULD"
   OFFENE_LAEUFE+=("$LAUF")
   pruefe 'Die App schweigt: nach dem Zeitlimit nicht_uebergeben, mit Grund' \
-    "$([ "$STATUS" = nicht_uebergeben ] && lauf_feld error | grep -q 'nicht innerhalb' && echo ja || echo nein)" "lauf=$LAUF status=${STATUS:-—}"
+    "$([ "$STATUS" = nicht_uebergeben ] && grep -q 'nicht innerhalb' <<<"$(lauf_feld error)" && echo ja || echo nein)" "lauf=$LAUF status=${STATUS:-—}"
   SCHWEIGEN_LAUF="$LAUF"
 fi
 modus_setzen ok
