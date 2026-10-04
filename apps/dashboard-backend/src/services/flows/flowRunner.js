@@ -71,6 +71,8 @@ async function starten(
     // Einreicher und Freigaberegel (J35) -- nur festgehalten, siehe `createRun`.
     einreicherId = null,
     freigabeRegel = null,
+    // Wodurch der Lauf entsteht: `hand` oder `zeitplan` (Migration 203).
+    ausloeser = 'hand',
   },
   deps = {}
 ) {
@@ -97,6 +99,7 @@ async function starten(
     arguments: args,
     einreicherId,
     freigabeRegel,
+    ausloeser,
   });
   // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
   // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem

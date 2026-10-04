@@ -53,8 +53,30 @@ export interface AppFlow {
   ausloeser: FlowAusloeser[];
   /** Die Freigabestufen, die der Flow nennt. */
   stufen: { name: string; bezeichnung: string | null }[];
+  /** Der Zeitplan (M5, Zeitplaner im Gerät); `null`, wenn der Kopf keinen nennt. */
+  zeitplan?: FlowZeitplan | null;
   version: string;
   registriert_am: string;
+}
+
+/**
+ * Der Zeitplan eines Flows, wie das Backend ihn rechnet: der nächste Termin
+ * steht nur, wenn er auch eintritt (Livestand, nicht pausiert, Flow aktiv),
+ * sonst sagt `laeuft_nicht`, warum.
+ */
+export interface FlowZeitplan {
+  ausdruecke: string[];
+  /** Die Zeitzone des Geräts, in der die Uhrzeiten gelten. */
+  zeitzone: string;
+  pausiert: boolean;
+  laeuft_nicht: 'teststand' | 'pausiert' | 'ausgeschaltet' | null;
+  naechster_termin: string | null;
+  letzter_termin: {
+    termin: string;
+    ergebnis: 'gestartet' | 'nachgeholt' | 'uebersprungen';
+    grund: string | null;
+    run_id: number | null;
+  } | null;
 }
 
 interface FlowSchritt {
@@ -187,6 +209,8 @@ export interface AppLauf {
   error: string | null;
   /** Die Übergabe an die Abschluss-Route der App; null bei einem Flow ohne (M5, Kontrakt 11). */
   abschluss?: LaufAbschluss | null;
+  /** Wodurch der Lauf entstand; fehlt bei einem Backend vor Migration 203. */
+  ausloeser?: 'hand' | 'zeitplan';
 }
 
 /** Wie weit die Übergabe des Ergebnisses an die App ist. */
@@ -557,6 +581,23 @@ export function useFlowAktiv(appId: string) {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: appKey(appId) });
       void qc.invalidateQueries({ queryKey: ['apps', 'flow', appId] });
+    },
+  });
+}
+
+/**
+ * Den Zeitplan eines Flows pausieren oder fortsetzen (M5,
+ * `PUT /api/apps/:id/flows/:name/zeitplan`). Trifft nur den Zeitplan: der
+ * Schalter „aktiv" und der Start von Hand bleiben.
+ */
+export function useFlowZeitplan(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ flow, pausiert }: { flow: string; pausiert: boolean }) =>
+      api.put(`/apps/${appId}/flows/${flow}/zeitplan`, { pausiert }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: appKey(appId) });
     },
   });
 }

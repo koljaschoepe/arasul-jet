@@ -38,6 +38,7 @@ const { NotFoundError, ValidationError } = require('../../utils/errors');
 const { parseFlowFile } = require('../flows/flowFile');
 const { FLOW_NAME_RE } = require('../../schemas/flows');
 const flowSettings = require('../flows/flowSettings');
+const zeitplaner = require('../flows/zeitplaner');
 
 /** Wie viele Flows ein Paket hoechstens mitbringen darf. */
 const MAX_FLOWS = 50;
@@ -212,10 +213,10 @@ async function registriere({ appId, stand, version, flows: gelesen = [] }) {
  */
 async function liste({ appId, stand }) {
   const { rows } = await db.query(
-    `SELECT name, version, definition, registriert_am
-       FROM public.app_flows
-      WHERE app_id = $1 AND stand = $2
-      ORDER BY name`,
+    `SELECT f.name, f.version, f.definition, f.registriert_am, ${zeitplaner.LETZTER_TERMIN_SQL}
+       FROM public.app_flows f
+      WHERE f.app_id = $1 AND f.stand = $2
+      ORDER BY f.name`,
     [appId, stand]
   );
   const einstellungen = await flowSettings.listeFuer(appId);
@@ -233,6 +234,14 @@ async function liste({ appId, stand }) {
     ...artAngabe(z.definition, einstellungen.get(z.name)),
     ...ablaufAngabe(z.definition),
     aktiv: einstellungen.get(z.name)?.aktiv !== false,
+    // Der Zeitplan (M5): wann, ob pausiert, der naechste Termin, was zuletzt
+    // daraus wurde. `null`, wenn der Kopf keinen nennt.
+    zeitplan: zeitplaner.angabe({
+      definition: z.definition,
+      stand,
+      einstellung: einstellungen.get(z.name),
+      letzter: z.letzter_termin,
+    }),
     version: z.version,
     registriert_am: z.registriert_am,
   }));
@@ -335,9 +344,9 @@ function ablaufAngabe(definition) {
  */
 async function hole({ appId, stand, name }) {
   const { rows } = await db.query(
-    `SELECT name, version, definition, registriert_am
-       FROM public.app_flows
-      WHERE app_id = $1 AND stand = $2 AND name = $3`,
+    `SELECT f.name, f.version, f.definition, f.registriert_am, ${zeitplaner.LETZTER_TERMIN_SQL}
+       FROM public.app_flows f
+      WHERE f.app_id = $1 AND f.stand = $2 AND f.name = $3`,
     [appId, stand, name]
   );
   if (rows.length === 0) {
@@ -359,6 +368,12 @@ async function hole({ appId, stand, name }) {
     ...modellAngabe(zeile, einstellung),
     ...artAngabe(zeile.definition, einstellung),
     aktiv: einstellung?.aktiv !== false,
+    zeitplan: zeitplaner.angabe({
+      definition: zeile.definition,
+      stand,
+      einstellung,
+      letzter: zeile.letzter_termin,
+    }),
   };
 }
 

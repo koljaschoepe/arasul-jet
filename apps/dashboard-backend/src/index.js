@@ -676,6 +676,12 @@ if (alsServerGestartet) {
     // EINMAL je Pruefung benachrichtigen -- siehe `schluesselWaechter.js`.
     globalIntervals.push(require('./services/betrieb/schluesselWaechter').starten());
 
+    // Der Zeitplaner (M5, 04.10.2026): Flows mit `ausloeser: zeitplan` im
+    // Livestand laufen zur festgelegten Zeit. Nach dem Aufraeumen der
+    // verwaisten Laeufe oben, damit ein Lauf, den er jetzt startet, nicht
+    // gleich als verwaist gilt -- siehe `services/flows/zeitplaner.js`.
+    globalIntervals.push(require('./services/flows/zeitplaner').starten());
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

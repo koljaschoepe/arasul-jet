@@ -7,6 +7,10 @@
  * Schritte er hat. Schritte, Stufen, Modell und die Datei klappen auf: das ist
  * Technik, die man nachliest, nicht täglich schaltet.
  *
+ * ZEITPLAN: hat der Flow einen, steht darunter der nächste Lauf in Worten und
+ * ein Knopf „Zeitplan pausieren". Die Pause trifft nur den Zeitplan; der
+ * Schalter „aktiv" und der Start von Hand bleiben (Migration 203).
+ *
  * AUS HEISST AUS: ein inaktiver Flow startet nicht, das Backend weist jeden
  * Start mit 409 `FLOW_INAKTIV` ab (`flowRunner.starten`). Ein Lauf, der schon
  * läuft oder auf eine Freigabe wartet, geht zu Ende.
@@ -29,7 +33,9 @@ import {
   FLOW_ART_NAME,
   useFlowAktiv,
   useFlowArt,
+  useFlowZeitplan,
   type AppFlow,
+  type FlowZeitplan,
   type FlowArt,
   type FlowAusloeser,
 } from './useAppVerwaltung';
@@ -71,6 +77,57 @@ function ausloeserInWorten(a: FlowAusloeser): string {
   }
 }
 
+/**
+ * Ein Termin in Worten, in der Zeitzone des Geräts: „heute um 18:30 Uhr",
+ * „morgen um 06:00 Uhr", sonst „Montag, 5. Oktober, um 06:00 Uhr".
+ */
+export function terminInWorten(iso: string, zone: string, jetzt: Date = new Date()): string {
+  const tagVon = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(d); // JJJJ-MM-TT
+  const uhr = new Intl.DateTimeFormat('de-DE', {
+    timeZone: zone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(iso));
+  const tag = new Date(iso);
+  const morgen = new Date(jetzt.getTime() + 24 * 60 * 60 * 1000);
+  if (tagVon(tag) === tagVon(jetzt)) return `heute um ${uhr} Uhr`;
+  if (tagVon(tag) === tagVon(morgen)) return `morgen um ${uhr} Uhr`;
+  const datum = new Intl.DateTimeFormat('de-DE', {
+    timeZone: zone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(tag);
+  return `${datum}, um ${uhr} Uhr`;
+}
+
+/** Was der Zeitplan eines Flows gerade tut, in einem Satz. */
+function zeitplanSatz(z: FlowZeitplan): string {
+  switch (z.laeuft_nicht) {
+    case 'teststand':
+      return 'Im Test läuft kein Zeitplan, nur live.';
+    case 'pausiert':
+      return 'Zeitplan pausiert, der Flow startet nicht von allein.';
+    case 'ausgeschaltet':
+      return 'Der Flow ist aus, der Zeitplan startet nichts.';
+    default:
+      return z.naechster_termin
+        ? `Nächster Lauf: ${terminInWorten(z.naechster_termin, z.zeitzone)}`
+        : 'Kein weiterer Termin in den nächsten Jahren.';
+  }
+}
+
+/** Der letzte Termin, wenn er etwas zu sagen hat: nachgeholt oder übersprungen. */
+function letzterTerminSatz(z: FlowZeitplan): string | null {
+  const l = z.letzter_termin;
+  if (!l || l.ergebnis === 'gestartet') return null;
+  if (l.ergebnis === 'nachgeholt') {
+    return `Der Termin ${terminInWorten(l.termin, z.zeitzone)} wurde nachgeholt, das Gerät war zu der Zeit nicht erreichbar.`;
+  }
+  return l.grund ?? `Der Termin ${terminInWorten(l.termin, z.zeitzone)} wurde übersprungen.`;
+}
+
 /** Der eine Satz unter dem Namen: wann er startet, wie viele Schritte. */
 function ablaufSatz(f: AppFlow): string {
   const wann = (f.ausloeser ?? [{ typ: 'hand' as const }]).map(ausloeserInWorten).join(', ');
@@ -84,6 +141,7 @@ function FlowZeile({
   laeuft,
   onAktiv,
   onArt,
+  onZeitplan,
   onModell,
   onOeffnen,
 }: {
@@ -91,6 +149,7 @@ function FlowZeile({
   laeuft: boolean;
   onAktiv: (aktiv: boolean) => void;
   onArt: (art: FlowArt) => void;
+  onZeitplan: (pausiert: boolean) => void;
   onModell: () => void;
   onOeffnen: () => void;
 }) {
@@ -135,7 +194,35 @@ function FlowZeile({
           >
             {ablaufSatz(f)}
           </span>
+          {f.zeitplan && (
+            <span
+              className="block text-xs text-muted-foreground"
+              data-testid={`flow-zeitplan-${f.name}`}
+              data-pausiert={f.zeitplan.pausiert ? 'true' : 'false'}
+            >
+              {zeitplanSatz(f.zeitplan)}
+            </span>
+          )}
+          {f.zeitplan && letzterTerminSatz(f.zeitplan) && (
+            <span
+              className="block text-xs text-destructive"
+              data-testid={`flow-zeitplan-letzter-${f.name}`}
+            >
+              {letzterTerminSatz(f.zeitplan)}
+            </span>
+          )}
         </span>
+        {f.zeitplan && f.zeitplan.laeuft_nicht !== 'teststand' && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={laeuft}
+            onClick={() => onZeitplan(!f.zeitplan?.pausiert)}
+            data-testid={`flow-zeitplan-knopf-${f.name}`}
+          >
+            {f.zeitplan.pausiert ? 'Zeitplan fortsetzen' : 'Zeitplan pausieren'}
+          </Button>
+        )}
         {f.arten.length > 1 ? (
           <Select value={f.art} disabled={laeuft} onValueChange={wert => onArt(wert as FlowArt)}>
             <SelectTrigger
@@ -155,10 +242,7 @@ function FlowZeile({
             </SelectContent>
           </Select>
         ) : (
-          <span
-            className="text-xs text-muted-foreground"
-            data-testid={`flow-art-fest-${f.name}`}
-          >
+          <span className="text-xs text-muted-foreground" data-testid={`flow-art-fest-${f.name}`}>
             {FLOW_ART_NAME[f.art]}
           </span>
         )}
@@ -247,6 +331,7 @@ export function AppFlows({
   const toast = useToast();
   const artSetzen = useFlowArt(appId);
   const aktivSetzen = useFlowAktiv(appId);
+  const zeitplanSetzen = useFlowZeitplan(appId);
 
   if (flows.length === 0) {
     return (
@@ -269,6 +354,19 @@ export function AppFlows({
       }
     );
 
+  const handleZeitplan = (f: AppFlow, pausiert: boolean) =>
+    zeitplanSetzen.mutate(
+      { flow: f.name, pausiert },
+      {
+        onSuccess: () =>
+          toast.success(
+            pausiert
+              ? `Der Zeitplan von „${f.name}“ ist pausiert. Verpasste Termine werden nicht nachgeholt.`
+              : `Der Zeitplan von „${f.name}“ läuft wieder.`
+          ),
+      }
+    );
+
   const handleArt = (f: AppFlow, art: FlowArt) =>
     artSetzen.mutate(
       { flow: f.name, art },
@@ -284,9 +382,10 @@ export function AppFlows({
         <FlowZeile
           key={f.name}
           f={f}
-          laeuft={artSetzen.isPending || aktivSetzen.isPending}
+          laeuft={artSetzen.isPending || aktivSetzen.isPending || zeitplanSetzen.isPending}
           onAktiv={aktiv => handleAktiv(f, aktiv)}
           onArt={art => handleArt(f, art)}
+          onZeitplan={pausiert => handleZeitplan(f, pausiert)}
           onModell={() => onModell(f)}
           onOeffnen={() => onOeffnen(f.name, stand)}
         />

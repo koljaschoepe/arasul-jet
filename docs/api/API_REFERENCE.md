@@ -1085,6 +1085,7 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | PUT    | `/api/apps/:id/flows/:name/modell`   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                                                |
 | PUT    | `/api/apps/:id/flows/:name/art`      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                      |
 | PUT    | `/api/apps/:id/flows/:name/aktiv`    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                 |
+| PUT    | `/api/apps/:id/flows/:name/zeitplan` | Den Zeitplan eines Flows pausieren `{ pausiert }`; nur der Zeitplan, nicht `aktiv` (M5)                       |
 | GET    | `/api/apps/:id/stufen`               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                            |
 | PUT    | `/api/apps/:id/stufen/:stufe`        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                             |
 | GET    | `/api/apps/:id/laeufe`               | Die Flow-Läufe dieser App (Phase D4)                                                                          |
@@ -1300,6 +1301,24 @@ bzw. `flow_eingeschaltet`. `GET /api/apps/:id` und `GET /api/apps/:id/flows`
 nennen je Flow dazu `aktiv`, `schritte` (`[{ name, typ, werkzeug?, rolle? }]`),
 `ausloeser` (aus dem Kopf, ohne Angabe `[{ "typ": "hand" }]`) und `stufen`
 (`[{ name, bezeichnung }]`).
+
+**PUT /api/apps/:id/flows/:name/zeitplan** (nur Admin, M5, Migration 203):
+`{ "pausiert": true }` pausiert den Zeitplan des Flows, `{ "pausiert": false }`
+setzt ihn fort. Trifft **nur den Zeitplan**: `aktiv` und der Start von Hand
+bleiben. Ein Flow ohne `ausloeser: zeitplan` im Kopf ist `400`, ein unbekannter
+Flow `404`. Termine in der Pause werden nach dem Fortsetzen nicht nachgeholt. Die
+Wahl liegt ohne Stand in `flow_settings.zeitplan_pausiert`, überlebt ein Update
+und steht im Sicherheitsprotokoll als `flow_zeitplan_pausiert` bzw.
+`flow_zeitplan_fortgesetzt`. Die Antwort nennt `data.zeitplan`. `GET
+/api/apps/:id` und `GET /api/apps/:id/flows` nennen je Flow `zeitplan`
+(`null` ohne Zeitplan im Kopf):
+`{ ausdruecke, zeitzone, pausiert, laeuft_nicht, naechster_termin, letzter_termin }`.
+`laeuft_nicht` ist `null`, `"teststand"`, `"pausiert"` oder `"ausgeschaltet"`
+und sagt, warum `naechster_termin` (ISO, in der Zeit des Geräts zu lesen) fehlt;
+`letzter_termin` ist `{ termin, ergebnis, grund, run_id }` mit `ergebnis`
+`gestartet`, `nachgeholt` oder `uebersprungen`. Die Läufe einer App
+(`GET /api/apps/:id/laeufe`, `…/laeufe/:runId`) tragen `ausloeser`: `hand` oder
+`zeitplan`. Regeln: [FLOWS.md](../features/FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026).
 
 **PUT /api/apps/:id/flows/:name/modell:** eine Entscheidung, drei Antworten:
 

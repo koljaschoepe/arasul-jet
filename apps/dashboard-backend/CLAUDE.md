@@ -174,8 +174,12 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   `schritte` deklariert — sonst bleibt es beim modellgetriebenen `toolLoop`.
 - Flows werden über `POST /api/flows/laeufe` (Anmeldung) oder extern per
   HTTP-Trigger (`POST /api/v1/external/flows/:name/run`, API-Key mit Scope
-  `flow:run`) gestartet. Einen Zeitplaner gibt es im Gerät nicht; Cron kommt
-  von außen über den Trigger.
+  `flow:run`) gestartet, oder vom **Zeitplaner** (`zeitplaner.js`, Rechnung in
+  `zeitplan.js`): ein Flow mit `ausloeser: zeitplan` läuft im Livestand zur
+  Uhrzeit des Geräts, einmal je Termin, mit Auslöser `zeitplan` und ohne
+  Einreicher. Regeln: `docs/features/FLOWS.md`, Abschnitt Zeitplaner. Eine neue
+  SQL-Abfrage dort wird gegen echtes Postgres geprüft, nicht nur gegen die
+  Attrappe (Vorfall 04.10.2026, falscher Spaltenname).
 - `gpuQueue.js` — die **eine** GPU-Sperre für alles, was in DIESEM Prozess
   läuft: der Ollama-Aufruf in `services/llm/llmOllamaStream.js`
   (`streamFromOllama`) geht durch dieselbe `withGpuLock`. Nie treffen ein

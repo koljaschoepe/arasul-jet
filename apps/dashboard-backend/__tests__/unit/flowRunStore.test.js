@@ -49,7 +49,7 @@ describe('createRun', () => {
     expect(params[2]).toBeNull();
     expect(params[3]).toBeNull();
     expect(JSON.parse(params[4])).toEqual({ thema: 'x' });
-    expect(params).toHaveLength(7);
+    expect(params).toHaveLength(8);
   });
 
   it('verträgt fehlende Argumente', async () => {
@@ -57,7 +57,7 @@ describe('createRun', () => {
     await runStore.createRun({ userId: 1, flowName: 'notiz' }, { db });
     const { params } = db.calls[0];
     expect(JSON.parse(params[4])).toEqual({});
-    expect(params).toHaveLength(7);
+    expect(params).toHaveLength(8);
   });
 
   it('schreibt App und Stand mit, wenn der Lauf einer App gehört (C6)', async () => {

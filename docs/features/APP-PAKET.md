@@ -361,7 +361,8 @@ dem 04.10.2026 ([FLOWS.md](FLOWS.md#arten-autonom-und-ergebnis-bestätigen-m5-04
 Der **Änderungstext** steht seit dem 04.10.2026 am Teststand und im Dialog
 „live schalten" der Verwaltung und wandert beim Schalten mit in den Livestand
 ([APPS.md](APPS.md#live-schalten-mit-sicherung-m5-04102026)). Der Zeitplaner
-kommt mit einer späteren Karte, die Anzeige des Symbols ebenso.
+läuft seit dem 04.10.2026 (`ausloeser`, unten), die Anzeige des Symbols kommt
+mit einer späteren Karte.
 
 | Wo                  | Feld             | Form                                                                                          |
 | ------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
@@ -422,11 +423,21 @@ App (der Weg über `POST /flows/:name/run`, wie bisher). `zeitplan` trägt fünf
 Felder wie in cron (`Minute Stunde Tag Monat Wochentag`, nur Ziffern und `* / , -`)
 — geprüft wird nur die Form. `ereignis` trägt den Namen eines Ereignisses der App (klein, mit
 Punkt, Unterstrich oder Bindestrich). Derselbe Auslöser darf nicht zweimal
-stehen. **Einen Zeitplaner gibt es im Gerät nicht:** `zeitplan` und
-`ereignis` werden angenommen und geprüft, starten aber keinen Lauf. Zeitgesteuert
-startet ein Flow von außen über den Trigger
-(`POST /api/v1/external/flows/:name/run`, `docs/features/FLOWS.md`); der Admin
-schaltet je Flow ab.
+stehen. **`zeitplan` wirkt seit dem 04.10.2026:** das Gerät startet den Flow im
+**Livestand** zur genannten Zeit, in der Zeitzone des Geräts, genau einmal je
+Termin, ohne Argumente und ohne Einreicher (der Lauf trägt den Auslöser
+`zeitplan`). Läuft schon ein Lauf desselben Flows, entfällt der Termin; ein
+Termin, den das Gerät verpasst hat (aus), wird höchstens einmal nachgeholt, wenn
+er höchstens eine Stunde zurückliegt, sonst übersprungen. Der Admin pausiert den
+Zeitplan je Flow auf der Seite der App. Die Regeln im Einzelnen:
+[FLOWS.md](FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026). Das Gerät **liest**
+den Ausdruck beim Einspielen und weist einen ab, den es nicht lesen kann
+(`61 * * * *`: Minute 0 bis 59). **Kontraktfassung bleibt 12:** das Feld gab es
+seit Fassung 8, es kam nur die Wirkung (und die strengere Prüfung des Bereichs)
+dazu; das Kit muss nichts nachziehen, kann aber den Bereich der fünf Felder vor
+dem Einspielen prüfen. `ereignis` wird weiter angenommen und geprüft, startet
+aber keinen Lauf. Ein Flow mit einem Pflichtargument ohne Vorgabe läuft nicht
+nach Zeitplan.
 
 **`stufen`** sind die benannten Freigaben („Prüfung“, „Leitung“): je Stufe
 `name` (Kennung, wie ein Schrittname), optional `bezeichnung` (was der Mensch
