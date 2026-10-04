@@ -2,7 +2,7 @@
  * Der Browser-Teil der Abnahme „Startseite und Statusleiste" (M5, 04.10.2026).
  * Gerufen von `startseite-abnahme.sh`, das die Probe-App hergestellt hat: Live
  * 1.0.0, Test 1.1.0, eine wartende Freigabe (Nummer in ARASUL_START_FREIGABE),
- * Zugang für probe-admin und A, keiner für B.
+ * Livezugang für probe-admin, A und B; B hat eingereicht (vier Augen).
  *
  *   mitarbeiter     Als A: Gruß, „Für Sie" mit der Zeile (App, Gegenstand, seit
  *                   wann), Haus mit Zahl, Kacheln, keine Hinweise, Statusleiste
@@ -12,8 +12,8 @@
  *   admin           Als probe-admin: dasselbe und zusätzlich der Hinweis
  *                   „Fassung wartet auf Live"; was sonst am Gerät ansteht,
  *                   wird nur aufgeschrieben.
- *   fremd           Als B (kein Zugang): „Keine Freigabe liegt bei Ihnen.", keine
- *                   Zahl am Haus, keine Hinweise.
+ *   fremd           Als B (hat eingereicht, entscheidet nicht): „Keine Freigabe
+ *                   liegt bei Ihnen.", keine Zahl am Haus, keine Hinweise.
  *   admin-nach-live Als probe-admin, nachdem 1.1.0 live ist: der Hinweis fehlt.
  *
  * Passwörter nur aus der Umgebung. Bilder unter docs/plans/audits/<tag>-startseite/.
@@ -289,7 +289,7 @@ async function alsFremder() {
   await startseite(page);
   const abschnitt = await text(page.getByTestId('offene-freigaben'));
   pruefe(
-    'Ohne Zugang: „Keine Freigabe liegt bei Ihnen."',
+    'Wer eingereicht hat: „Keine Freigabe liegt bei Ihnen."',
     abschnitt.includes('Keine Freigabe liegt bei Ihnen.'),
     einzeilig(abschnitt)
   );

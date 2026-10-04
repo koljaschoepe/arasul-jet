@@ -6,10 +6,10 @@
 #
 #   GRUSS       Die Startseite grüßt mit dem Vornamen (ohne Vornamen mit dem
 #               Anzeigenamen).
-#   FÜR SIE     Eine wartende Freigabe liegt bei jedem mit Zugang (keine
-#               Standardperson): je Zeile App, Gegenstand, seit wann; ein Klick
-#               öffnet die App mit ?freigabe=<nummer> im Rahmen. Wer keinen
-#               Zugang hat, sieht keine Zeile.
+#   FÜR SIE     B reicht einen Beleg ein. Die Freigabe liegt (ohne
+#               Standardperson) bei jedem mit Zugang außer bei B: je Zeile App,
+#               Gegenstand, seit wann; ein Klick öffnet die App mit
+#               ?freigabe=<nummer> im Rahmen. B sieht keine Zeile.
 #   HAUS        Das Haus trägt die Zahl der Freigaben für mich.
 #   KACHELN     Die Kacheln der eigenen Apps stehen darunter.
 #   HINWEISE    Beim Admin steht „Fassung wartet auf Live", solange die Probe-App
@@ -259,15 +259,16 @@ ausrollen 1.1.0 "Neu: Probe für die Startseite."
 pruefe "$APP 1.1.0 in den Teststand" "$(ja_wenn "$CODE" 201)" "HTTP $CODE"
 [ "$CODE" != "201" ] && { rumpf; echo; exit 1; }
 
-# probe-admin und A: Livefassung. B bekommt KEINEN Zugang (sieht nichts bei sich).
+# probe-admin, A und B haben Livezugang. B reicht ein und entscheidet nicht selbst:
+# bei B liegt nichts, bei A und probe-admin liegt die Freigabe.
 codes=""
-for paar in "$ID_ADMIN:live" "$ID_A:live"; do
+for paar in "$ID_ADMIN:live" "$ID_A:live" "$ID_B:live"; do
   ruf "$TOK" POST /api/freigaben "{\"app_id\":\"$APP\",\"benutzer_id\":${paar%%:*},\"stand\":\"${paar##*:}\"}"
   codes="$codes $CODE"
   [[ "$CODE" =~ ^20[01]$ ]] && FREIGEGEBEN+=("${paar%%:*}")
 done
-pruefe "Zugang: $ARASUL_BENUTZER und $A (Live), $B ohne" \
-  "$([ "${#FREIGEGEBEN[@]}" = 2 ] && echo ja || echo nein)" "HTTP$codes"
+pruefe "Zugang: $ARASUL_BENUTZER, $A und $B (Live)" \
+  "$([ "${#FREIGEGEBEN[@]}" = 3 ] && echo ja || echo nein)" "HTTP$codes"
 
 if arasul_warte_auf_app "/apps/$APP/api/gesund" 240 "$TOK_A"; then
   pruefe 'Livefassung antwortet' ja
@@ -277,13 +278,13 @@ else
 fi
 
 # --- 2. Eine Freigabe, die bei A und probe-admin liegt ---------------------------
-ruf "$TOK_A" POST "/apps/$APP/api/einreichen?beleg=$STEMPEL"
+ruf "$TOK_B" POST "/apps/$APP/api/einreichen?beleg=$STEMPEL"
 LAUF=$(rumpf | feld lauf)
-pruefe 'A reicht einen Beleg ein: ein Lauf entsteht' "$([ -n "$LAUF" ] && echo ja || echo nein)" "HTTP $CODE lauf=${LAUF:-—}"
+pruefe "$B reicht einen Beleg ein: ein Lauf entsteht" "$([ -n "$LAUF" ] && echo ja || echo nein)" "HTTP $CODE lauf=${LAUF:-—}"
 ende=$((SECONDS + HALT_GEDULD))
 status=""
 while [ "$SECONDS" -lt "$ende" ] && [ -n "$LAUF" ]; do
-  ruf "$TOK_A" GET "/apps/$APP/api/lauf?lauf=$LAUF"
+  ruf "$TOK_B" GET "/apps/$APP/api/lauf?lauf=$LAUF"
   status=$(rumpf | feld status)
   [ "$status" = wartend ] && break
   case "$status" in fertig | fehler | abgebrochen | abgelaufen) break ;; esac
@@ -302,7 +303,7 @@ ID_FREIGABE=$(anfrage_id "$TOK_A")
 pruefe "Für $A liegt die Anfrage vor (bei mir)" "$([ -n "$ID_FREIGABE" ] && echo ja || echo nein)" "Nummer ${ID_FREIGABE:-—}"
 pruefe "Für $ARASUL_BENUTZER liegt sie auch vor (ohne Standardperson bei allen mit Zugang)" \
   "$([ "$(anfrage_id "$TOK")" = "$ID_FREIGABE" ] && [ -n "$ID_FREIGABE" ] && echo ja || echo nein)"
-pruefe "Für $B (kein Zugang) liegt nichts vor" "$([ -z "$(anfrage_id "$TOK_B")" ] && echo ja || echo nein)"
+pruefe "Für $B (hat eingereicht) liegt nichts vor, vier Augen" "$([ -z "$(anfrage_id "$TOK_B")" ] && echo ja || echo nein)"
 export ARASUL_START_FREIGABE="$ID_FREIGABE"
 
 # --- 3. Im Browser ---------------------------------------------------------------
