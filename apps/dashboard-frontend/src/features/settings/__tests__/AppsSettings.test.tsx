@@ -711,6 +711,41 @@ describe('AppsSettings', () => {
     expect(screen.getByTestId('lauf-feld-5-betrag-neu')).toHaveTextContent('nein');
   });
 
+  it('bietet bei einem nicht uebergebenen Lauf „erneut" an und uebergibt ohne neue Schritte', async () => {
+    const offen = {
+      ...LAUF,
+      status: 'nicht_uebergeben' as const,
+      error: 'Die App antwortete 503',
+      abschluss: { route: '/abschluss/freigabe', versuche: 1, fehler: 'Die App antwortete 503' },
+    };
+    antworte({ '/apps/beispielapp/laeufe?limit=50': { data: [offen] } });
+    apiMock.get.mockImplementation(async (pfad: string) => {
+      if (pfad === '/apps') return { data: [APP_ZEILE] };
+      if (pfad === '/apps/beispielapp') return { data: APP_DETAIL };
+      if (pfad.startsWith('/apps/beispielapp/laeufe/'))
+        return { data: { ...LAUF_DETAIL, ...offen } };
+      if (pfad.startsWith('/apps/beispielapp/laeufe')) return { data: [offen] };
+      return {};
+    });
+    apiMock.post.mockResolvedValue({ data: { ...offen, status: 'fertig' } });
+    await oeffneApp();
+
+    expect(await screen.findByText('nicht übergeben')).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('lauf-erneut-42'));
+
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/apps/beispielapp/laeufe/42/erneut', {})
+    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  });
+
+  it('bietet „erneut" bei einem uebergebenen Lauf nicht an', async () => {
+    antworte();
+    await oeffneApp();
+    await screen.findByTestId('lauf-oeffnen-42');
+    expect(screen.queryByTestId('lauf-erneut-42')).toBeNull();
+  });
+
   it('zeigt die Flow-Datei samt Auftrag an das Modell', async () => {
     antworte();
     await oeffneApp();
