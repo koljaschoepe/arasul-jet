@@ -8,7 +8,7 @@
 ## Inhaltsverzeichnis
 
 1. [Systemübersicht](#1-systemübersicht)
-2. [Auslastung](#2-auslastung)
+2. [System](#2-system)
 3. [Einstellungen](#3-einstellungen)
 4. [Services-Verwaltung](#4-services-verwaltung)
 5. [Datensicherung](#5-datensicherung)
@@ -72,15 +72,17 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   die im Test auf Live wartet, Lizenz knapp (30 Tage oder 90 Prozent der
   Konten/Apps). Ein Klick führt in den Bereich der Verwaltung. Ist alles gut,
   steht dort nichts.
-- **Verwaltung:** links eine eigene Leiste der Bereiche (Allgemein, Apps,
-  Personen, Firmenordner, Modelle, KI, Sicherheit, System, Daten, Lizenz,
-  Fernzugriff), daneben der gewählte Bereich. Im Bereich
-  **System** stehen Auslastung, Dienste, Aktualisierungen und Selbstheilung
-  untereinander und klappen auf. Im Bereich **Daten** steht alles, was mit den
-  Daten des Geräts geschieht: Sicherung, Auskunft und Export, darunter abgesetzt
-  Person löschen und Werksreset (siehe Abschnitt 5). Jeder Bereich hat eine
-  eigene Adresse, etwa `/workspace/verwaltung/daten`; die alten Adressen von
-  Sicherung, Datenschutz und Werksreset führen dorthin.
+- **Verwaltung:** links eine eigene Leiste der Bereiche (Personen, Apps,
+  Firmenordner, Modelle, System, Daten, Gerät), daneben der gewählte Bereich.
+  Im Bereich **System** steht ein Satz zum Zustand („Alles läuft.“), darunter
+  Prozessor, Speicher und Platte als drei Zahlen; Dienste und Selbstheilung
+  klappen auf. Im Bereich **Daten** steht alles, was mit den Daten des Geräts
+  geschieht: Sicherung, Auskunft und Export, darunter abgesetzt Person löschen
+  und Werksreset (siehe Abschnitt 5). Im Bereich **Gerät** stehen Unternehmen,
+  Aktualisierung, Lizenz, Fernzugriff und „Über Arasul“ (siehe Abschnitt 3).
+  Jeder Bereich hat eine eigene Adresse, etwa `/workspace/verwaltung/geraet`;
+  die alten Adressen (Allgemein, Sicherheit, Lizenz, Fernzugriff, Datenschutz,
+  Sicherung, Werksreset) führen dorthin, wo die Funktion jetzt steht.
 - **Statusleiste (unten), für jeden gleich:** dauerhaft Name, Datum und
   Uhrzeit (minutengenau), sonst nichts: kein Modell, kein Speicher, keine
   Verbindung, keine Fassung. Modelle, Downloads und Systemzustand stehen in
@@ -181,84 +183,71 @@ anstoßen.
 
 ---
 
-## 2. Auslastung
+## 2. System
 
-**Einstellungen → System → Auslastung** zeigt auf einen Blick, was das Gerät
-gerade tut:
+**Verwaltung → System** sagt in einem Satz, wie es dem Gerät geht. Ist alles
+gut, steht dort „Alles läuft.“; sonst, was nicht stimmt, etwa „Die letzte
+Sicherung ist 30 Stunden alt“ oder „Ein Dienst ist ausgefallen: Datenbank“.
+Rot ist der Satz nur, wenn etwas gestört ist. Darunter drei Zahlen:
+**Prozessor**, **Speicher** (Arbeitsspeicher) und **Platte**, je in Prozent.
+Satz und Zahlen fragt die Seite alle 30 Sekunden neu.
 
-- **Kacheln:** Arbeitsspeicher, Auslagerung, Speicherplatz und Temperatur, mit
-  dem Hinweis, wie viel vom Arbeitsspeicher für KI-Modelle reserviert ist
-- **Verlauf:** Arbeitsspeicher und Auslagerung in Prozent, Temperatur in Grad
-  auf einer eigenen Achse, wahlweise über 1, 6, 12 oder 24 Stunden
-- **System-Gesundheit:** eine Ampel aus letzter Sicherung,
-  Wiederherstellungstest, Diensten und offenen Alarmen
-
-### Status-Farben
-
-| Farbe | Bedeutung                          |
-| ----- | ---------------------------------- |
-| Grün  | Alles in Ordnung                   |
-| Gelb  | Warnung - System funktioniert noch |
-| Rot   | Kritisch - Aktion erforderlich     |
+Darunter klappen **Dienste** (die Teile des Geräts, die im Hintergrund laufen,
+mit Neustart je Dienst) und **Selbstheilung** (was das Gerät selbst repariert
+hat, und wann) auf.
 
 ---
 
 ## 3. Einstellungen
 
-Die Einstellungen sind in **7 Reiter** gegliedert (früher 9, verwandte Bereiche
-wurden zusammengelegt, damit die Navigation übersichtlich bleibt; „Personen" (früher „Mitarbeiter")
-kam mit der neuen Oberfläche dazu):
+Die **Einstellungen** (Zahnrad unten in der Leiste) sind für alle gleich und
+nur persönlich: Profil, Passwort, angemeldete Rechner, Erscheinungsbild. Was
+das Gerät betrifft, steht in der **Verwaltung** (nur Administrator), in sieben
+Bereichen:
 
-| Reiter          | Inhalt                                                                                                      |
-| --------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen                                                           |
-| **Personen**    | Anlegen (Name, E-Mail), Startpasswort einmal, sperren, Schalter „Verwaltung“, Freigaben für Apps und Ordner |
-| **KI**          | Standardwerte der Sprachmodelle                                                                             |
-| **Sicherheit**  | Passwort ändern, Abmelden / von allen Geräten abmelden                                                      |
-| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_                                                   |
-| **Daten**       | Sicherung, DSGVO-Auskunft und Export je Person, abgesetzt Person löschen und Werksreset                     |
-| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                                                                            |
+| Bereich          | Inhalt                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Personen**     | Anlegen (Name, E-Mail), Startpasswort einmal, sperren, Schalter „Verwaltung“, Freigaben für Apps und Ordner |
+| **Apps**         | Eine Seite je App: Zustand, Test und Live, Personen, Flows, Verbindungen                                    |
+| **Firmenordner** | Ordnerbaum, Rechte je Person                                                                                |
+| **Modelle**      | Modelle am Gerät, hinzufügen und entfernen                                                                  |
+| **System**       | Ein Satz zum Zustand, drei Zahlen, Dienste und Selbstheilung (Abschnitt 2)                                  |
+| **Daten**        | Sicherung, DSGVO-Auskunft und Export je Person, abgesetzt Person löschen und Werksreset                     |
+| **Gerät**        | Unternehmen, Aktualisierung, Lizenz, Fernzugriff, „Über Arasul“                                             |
 
-Der Reiter **Mitarbeiter** ist in Kapitel 7 beschrieben, weil dort auch die
-Wege über die Schnittstelle stehen.
+Die Bereiche Allgemein, KI, Sicherheit, Lizenz und Fernzugriff gibt es seit
+dem 04.10.2026 nicht mehr; ihre Inhalte stehen im Bereich Gerät. Den Bereich
+**KI** mit den Standardwerten der Sprachmodelle und dem Basis-Prompt gibt es
+gar nicht mehr: der Administrator ändert keine Prompts, und Laden und Entladen
+der Modelle regelt das Gerät selbst nach Nutzung.
 
-> Deep-Links funktionieren: `…/settings?tab=system` öffnet direkt den System-Reiter.
-> Alte Links (z. B. `?tab=selfhealing`) werden automatisch auf den neuen Reiter umgeleitet.
+> Alte Links funktionieren: `…/settings?tab=remote-access` öffnet den Bereich
+> Gerät beim Fernzugriff, `?tab=selfhealing` das System mit aufgeklappter
+> Selbstheilung.
 
-### Allgemein
+### Gerät
 
-- **Firmenname:** der Name Ihres Unternehmens. Er steht über dem
-  Anmeldeformular, unter dem Maskottchen; ohne Namen steht dort der
-  Produktname. Einen Slogan zeigt die Anmeldeseite nicht (seit 30.08.2026).
-- **Erscheinungsbild:** Hell (Vorgabe) oder Dunkel, gehört dem angemeldeten
-  Menschen (siehe oben).
-- **Systeminformationen:** Version, Gerätename, JetPack, Build, Laufzeit.
+- **Unternehmen:** der Name und das Logo Ihres Unternehmens, als Text. Erst
+  „Bearbeiten“ öffnet das Formular. Der Name steht über dem Anmeldeformular,
+  unter dem Maskottchen; ohne Namen steht dort der Produktname. Das Logo (PNG,
+  JPEG oder WebP, höchstens 256 KB) steht oben in der Leiste links, für alle.
+- **Aktualisierung:** welche Fassung hier läuft, und, wenn es eine neuere gibt,
+  ein Knopf (Abschnitt 6).
+- **Lizenz:** Stufe, Personen genutzt von erlaubt, gültig bis; „Einspielen“
+  öffnet einen Dialog. Fingerabdruck und Apps klappen auf (Abschnitt 7).
+- **Fernzugriff:** ein Schalter und die Adresse, unter der das Gerät unterwegs
+  erreichbar ist, dazu die Adresse im Firmennetz und das Gerätezertifikat
+  (Abschnitt 8). Die Technik (IP, Tailnet, Geräte im Tailnet, SSH) klappt auf.
+- **Über Arasul:** die Fußzeile mit Gerätename, Laufzeit und Unterstützung;
+  Versionskennung, Bau und JetPack klappen auf.
 
-### KI → Sprachmodell (Experten-Tunables)
+### Passwort und Gerätezertifikat
 
-Der Reiter **Einstellungen → KI** (nur für Administratoren) macht die
-Feinjustierung der LLM-Standardwerte ohne Neustart möglich. Änderungen wirken
-sofort. Alle Werte haben sinnvolle Standardwerte, nur anpassen, wenn Sie die
-Auswirkung kennen.
-
-- **LLM-Standardwerte:** `Max. Tokens (LLM-Default)` (max. Antwortlänge),
-  `Kontextfenster (LLM-Default)` (leer = Modell-Default) und `Keep-Alive`
-  (wie lange ein geladenes Modell im Speicher bleibt).
-- **Basis-System-Prompt:** frei editierbarer Grundtext, der jedem KI-Kontext
-  vorangestellt wird. **Feld leeren = eingebauter Standard-Prompt.**
-
-Den früheren Unterbereich _Firmenprofil & Kontext_ gibt es seit dem
-26.09.2026 nicht mehr: er gehörte zum Chat und den Wissensräumen, die mit dem
-Umbau im August gefallen sind, und bekam am Gerät nur noch eine Fehlermeldung.
-
-### Sicherheit
-
-- **Passwort ändern:** Unter Einstellungen > Sicherheit (Dashboard-Passwort)
+- **Passwort ändern:** **Einstellungen → Passwort**, für jeden selbst.
 - **Passwort vergessen:** Es gibt bewusst keinen Self-Service-Reset. Ein ausgesperrter
   Administrator setzt das Passwort per Operator-CLI zurück: `scripts/security/reset-password.sh`
-- **Abmelden / Von allen Geräten abmelden:** beide mit Sicherheitsabfrage
-- **Session-Dauer:** Automatisches Abmelden nach Inaktivität
-- **Gerätezertifikat herunterladen:** Die eine Aufgabe, die JEDER Admin einmal
+- **Gerätezertifikat herunterladen:** **Verwaltung → Gerät → Fernzugriff →
+  Zertifikat herunterladen.** Die eine Aufgabe, die JEDER Admin einmal
   erledigen sollte. Das Gerät stellt sein TLS-Zertifikat selbst aus; solange
   seine CA im Haus niemand kennt, warnt jeder Browser. Die Datei einmal
   herunterladen und auf den Rechnern der Firma installieren, dann hört die
@@ -473,26 +462,29 @@ Vollständigkeit behauptet. In dem Fall gehört die neue Tabelle in
 
 ## 6. System-Updates
 
-**Einstellungen → System → Aktualisierungen.** Ganz oben steht, welche Fassung
+**Verwaltung → Gerät → Aktualisierung.** Oben steht, welche Fassung
 dieses Gerät trägt. Sie kommt aus dem Bau (Tag oder Datum plus Kurz-SHA);
 sagt die Seite „Vorserie", kennt das Gerät seine eigene Fassung nicht, und
 dann lässt sich auch nicht entscheiden, ob ein Paket neuer ist.
 
-**Die nächste Fassung holt das Gerät selbst (seit J39).** Unter „Neue Fassung"
-steht, ob es eine neuere gibt. Ein Klick auf „Aktualisieren" sichert zuerst, holt
+**Die nächste Fassung holt das Gerät selbst (seit J39).** Darunter
+steht, ob es eine neuere gibt. Ein Klick auf „Auf … aktualisieren“ fragt einmal
+nach; danach sichert das Gerät zuerst, holt
 das Paket, prüft seine Prüfsumme und spielt es ein; der Fortschritt steht auf
 der Seite, die Seite bitte offen lassen. Das Gerät ist dabei einige Minuten
 nicht erreichbar, das ist erwartbar. Geht etwas schief, geht es von selbst auf die
 vorige Fassung zurück und sagt es. Danach steht, solange der Ordner der vorigen
 Fassung da ist, „Zurück auf ..." bereit: das holt das Programm zurück, nicht die
-Daten; die Sicherung vom Einspielen liegt unter „Sicherung". Dasselbe geht ohne
+Daten; die Sicherung vom Einspielen liegt unter Verwaltung → Daten. Dasselbe geht ohne
 Oberfläche mit einem Schlüssel im Bereich `system:update`
 ([AUSLIEFERUNG.md](AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39)).
 
-**Wenn dieses Gerät ein .araupdate-Paket nicht einspielen kann, sagt es das.**
-Der Weg dahinter braucht ein `docker`-Programm im Backend-Container, und das
-gibt es dort nicht. Statt Knöpfen, die zuverlässig scheitern, steht der Grund
-da.
+**Ein .araupdate-Paket von Hand einspielen geht nicht über die Oberfläche**
+(seit 04.10.2026 steht der Weg dort nicht mehr). Er brauchte ein
+`docker`-Programm im Backend-Container, das das ausgelieferte Gerät nicht hat,
+und zeigte deshalb nur den Satz, dass er nicht geht. Ein Gerät ohne Netz
+aktualisiert der Betreuer am Gerät (siehe unten). Einen Schalter „nachts selbst
+einspielen“ gibt es noch nicht.
 
 ### Auf eine neue Fassung, am Gerät
 
@@ -554,8 +546,9 @@ ist, dazu seine eigenen Flow-Läufe. Alles andere beantwortet das Gerät mit
 
 ### Die Lizenz
 
-**Einstellungen > Lizenz** zeigt, was das Gerät trägt: die **Stufe**, die
-**Konten** und die **Apps**, je mit „belegt von Grenze". Ohne Lizenz steht das
+**Verwaltung → Gerät → Lizenz** zeigt, was das Gerät trägt: die **Stufe**,
+die **Personen** (genutzt von erlaubt) und bis wann sie **gültig** ist;
+aufgeklappt die **Apps** (genutzt von erlaubt) und den Fingerabdruck. Ohne Lizenz steht das
 Gerät auf **Community**: drei Konten, drei Apps. Der Administrator zählt mit,
 ein stillgelegtes Konto nicht; bei den Apps zählt jede eingespielte App, Test-
 und Livestand zusammen. Ist eine Grenze erreicht, lehnt das Gerät das vierte
@@ -563,10 +556,10 @@ Konto (und die vierte App) mit einem Satz ab, der hierher zeigt. Einen Platz
 machen Sie frei, indem Sie ein Konto stilllegen oder eine App entfernen.
 
 Mit einer gekauften Lizenz (**Professional**) gibt es keine Grenze. Die Lizenz
-ist eine Zeile Text; sie geht in das Feld **Lizenz einspielen** und wird
-geprüft, bevor sie gilt. Ist sie an ein Gerät gebunden, braucht der
-Aussteller dessen **Fingerabdruck** — er steht auf derselben Seite zum
-Kopieren.
+ist eine Zeile Text; „Einspielen“ öffnet einen Dialog mit einem Feld dafür,
+und sie wird geprüft, bevor sie gilt. Ist sie an ein Gerät gebunden, braucht
+der Aussteller dessen **Fingerabdruck** — er steht aufgeklappt unter
+„Fingerabdruck und Apps“ zum Kopieren.
 
 Ohne Anmeldung, per SSH am Gerät (so spielt das Ara-Kit sie ein):
 
@@ -596,7 +589,7 @@ Anmelden, danach steht dort „eigenes". Sie sehen daran auch, ob er sich
 überhaupt schon angemeldet hat.
 
 Am eigenen Konto stehen keine Handgriffe. Ihr eigenes Passwort wechseln Sie
-unter **Einstellungen > Sicherheit**; das Gerät lehnt beide Wege hier ohnehin ab.
+unter **Einstellungen → Passwort**; das Gerät lehnt beide Wege hier ohnehin ab.
 Das eigene Konto lässt sich in der Oberfläche nicht löschen (die Schnittstelle
 `DELETE /api/gdpr/me` gibt es weiter).
 
@@ -631,11 +624,11 @@ stehen. Das ist der richtige erste Schritt, wenn jemand das Unternehmen
 verlässt: was mit seinen Daten geschehen soll, entscheiden Sie danach in Ruhe.
 
 Ein gesetztes Passwort beendet ebenfalls alle Sitzungen des Betroffenen. Er
-meldet sich damit einmal an und wählt danach unter **Einstellungen >
-Sicherheit** sein eigenes; erst dort gelten die Passwort-Anforderungen unten.
+meldet sich damit einmal an und wählt danach unter **Einstellungen →
+Passwort** sein eigenes; erst dort gelten die Passwort-Anforderungen unten.
 
 Für das EIGENE Konto ist dieser Weg gesperrt. Ihr eigenes Passwort wechseln
-Sie unter **Einstellungen > Sicherheit**, und dort gelten die Anforderungen.
+Sie unter **Einstellungen → Passwort**, und dort gelten die Anforderungen.
 
 Der letzte aktive Administrator lässt sich weder löschen noch stilllegen; sein
 Zugang bleibt, sonst wäre das Gerät unbedienbar. Sich selbst kann außerdem
@@ -893,7 +886,7 @@ Passwort kannte, will genau das.
 
 ### Passwort ändern
 
-1. Öffnen Sie **Einstellungen > Sicherheit**
+1. Öffnen Sie **Einstellungen → Passwort**
 2. Geben Sie das aktuelle Passwort ein
 3. Geben Sie das neue Passwort ein (mindestens 12 Zeichen)
 4. Bestätigen Sie das neue Passwort
@@ -930,21 +923,22 @@ Tailscale ermöglicht sicheren Zugriff von überall - ohne Port-Forwarding oder 
 1. Kostenloses Konto auf [tailscale.com](https://login.tailscale.com) erstellen
 2. Tailscale-App auf Ihrem Laptop/Handy installieren
 3. Auth-Key erstellen unter Admin > Settings > Keys
-4. Im Dashboard unter **Einstellungen > Fernzugriff** den Key eingeben
+4. Im Dashboard unter **Verwaltung → Gerät → Fernzugriff** den Schalter
+   einschalten und im Dialog den Schlüssel einfügen
 
 **Nach der Einrichtung:**
 
 - Dashboard: `https://<geraet>.<tailnet>.ts.net` oder `https://<tailscale-ip>`
   (beides von überall erreichbar). Es antwortet dasselbe Traefik mit demselben
   Zertifikat wie im Firmennetz; die Browserwarnung geht weg, sobald das
-  Gerätezertifikat verteilt ist (Einstellungen > Sicherheit).
+  Gerätezertifikat verteilt ist (Verwaltung → Gerät → Fernzugriff).
 - SSH: `ssh arasul@<tailscale-ip>`
 
-**Status prüfen:** Im Dashboard unter Einstellungen > Fernzugriff werden angezeigt:
-
-- Verbindungsstatus und Tailscale-IP
-- Alle verbundenen Geräte im Netzwerk
-- Schritt-für-Schritt Einrichtungsanleitung
+**Status prüfen:** Im Dashboard unter Verwaltung → Gerät → Fernzugriff steht
+der Schalter (an oder aus) mit der Adresse für unterwegs und der Adresse im
+Firmennetz. Aufgeklappt unter „Technik“: Tailscale-IP, Tailnet, die Geräte im
+Tailnet und der SSH-Befehl. Ausschalten fragt nach, und warnt ausdrücklich,
+wenn Sie gerade selbst über den Fernzugriff angemeldet sind.
 
 Detaillierte Dokumentation: [REMOTE_MAINTENANCE.md](REMOTE_MAINTENANCE.md)
 

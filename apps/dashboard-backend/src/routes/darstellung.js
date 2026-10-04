@@ -2,9 +2,10 @@
  * Die Darstellung der Oberflaeche, je Mensch (Phase H1 des Umbaus vom
  * 26.08.2026).
  *
- *   PUT /api/darstellung    meine Darstellung setzen (`{"theme": "dark"}`)
+ *   PUT /api/darstellung       meine Darstellung setzen (`{"theme": "dark"}`)
+ *   GET /api/darstellung/logo  das Logo des Hauses (seit 04.10.2026, siehe unten)
  *
- * NUR EIN WEG, UND ZWAR DER SCHREIBENDE. Gelesen wird die Darstellung nicht
+ * FUER DAS THEME NUR EIN WEG, UND ZWAR DER SCHREIBENDE. Gelesen wird die Darstellung nicht
  * hier, sondern dort, wo die Oberflaeche ohnehin schon fragt, wer angemeldet
  * ist: `GET /api/auth/session` (und `/auth/me`, und die Antwort auf die
  * Anmeldung) tragen `theme` mit. Ein eigener GET daneben waere eine DRITTE
@@ -24,6 +25,7 @@ const router = express.Router();
 const db = require('../database');
 const { requireAuth, requireRole, invalidateUserCache } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { NotFoundError } = require('../utils/errors');
 const { validateBody } = require('../middleware/validate');
 const { DarstellungBody } = require('../schemas/darstellung');
 
@@ -56,6 +58,38 @@ router.put(
     );
     invalidateUserCache(req.user.id);
     res.json({ data: result.rows[0], timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/darstellung/logo — das Logo des Hauses als Bild (Migration 207).
+ *
+ * OHNE ANMELDUNG, wie der Firmenname in `GET /api/auth/needs-setup`: ein Logo
+ * ist kein Geheimnis, und so kann es spaeter auch ueber dem Anmeldeformular
+ * stehen. Gesetzt wird es nur vom Administrator (`PUT /api/settings/logo`),
+ * und nur als PNG, JPEG oder WebP, gepruefte erste Bytes -- kein SVG, das
+ * Skript tragen koennte. `nosniff` haelt den Browser an den Medientyp.
+ *
+ * Die Adresse traegt den Stand (`?stand=…`, aus `needs-setup`); damit darf der
+ * Browser das Bild lange behalten und sieht nach einem Wechsel trotzdem sofort
+ * das neue.
+ */
+router.get(
+  '/logo',
+  asyncHandler(async (req, res) => {
+    const { rows } = await db.query(
+      'SELECT company_logo, company_logo_typ FROM system_settings WHERE id = 1'
+    );
+    const zeile = rows[0];
+    if (!zeile?.company_logo || !zeile.company_logo_typ) {
+      throw new NotFoundError('Es ist kein Logo hinterlegt.');
+    }
+    res.set({
+      'Content-Type': zeile.company_logo_typ,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': req.query.stand ? 'public, max-age=31536000, immutable' : 'no-cache',
+    });
+    res.send(zeile.company_logo);
   })
 );
 

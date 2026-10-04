@@ -81,20 +81,20 @@ Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 
 ### Authentication
 
-| Method | Endpoint                    | Description                                                       | Rate Limit    |
-| ------ | --------------------------- | ----------------------------------------------------------------- | ------------- |
-| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin? Plus `firmenname`      | 120/min       |
-| POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin                      | 10/15min      |
-| POST   | `/api/auth/login`           | Login with username/password (sets cookie)                        | 10/15min      |
-| GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated`                  | 120/min       |
-| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie) — auch ohne Sitzung 200  | 30/min        |
-| POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user (auch Mitarbeiter)       | -             |
-| POST   | `/api/auth/change-password` | Change own password (invalidates all sessions) (auch Mitarbeiter) | 3/15min, user |
-| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token (auch Mitarbeiter)       | -             |
-| GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)                           | -             |
-| GET    | `/api/auth/me`              | Get current user info (auch Mitarbeiter)                          | -             |
-| GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session (auch Mitarbeiter) | -             |
-| GET    | `/api/auth/sessions`        | List active sessions for current user (auch Mitarbeiter)          | -             |
+| Method | Endpoint                    | Description                                                          | Rate Limit    |
+| ------ | --------------------------- | -------------------------------------------------------------------- | ------------- |
+| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin? Plus `firmenname`, `logo` | 120/min       |
+| POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin                         | 10/15min      |
+| POST   | `/api/auth/login`           | Login with username/password (sets cookie)                           | 10/15min      |
+| GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated`                     | 120/min       |
+| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie) — auch ohne Sitzung 200     | 30/min        |
+| POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user (auch Mitarbeiter)          | -             |
+| POST   | `/api/auth/change-password` | Change own password (invalidates all sessions) (auch Mitarbeiter)    | 3/15min, user |
+| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token (auch Mitarbeiter)          | -             |
+| GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)                              | -             |
+| GET    | `/api/auth/me`              | Get current user info (auch Mitarbeiter)                             | -             |
+| GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session (auch Mitarbeiter)    | -             |
+| GET    | `/api/auth/sessions`        | List active sessions for current user (auch Mitarbeiter)             | -             |
 
 > Stand: 2026-08-28 · Quelle: `src/routes/auth.js`, `src/middleware/rateLimit.js`
 >
@@ -805,8 +805,8 @@ Gegen das Gerät misst das `scripts/test/mitarbeiter-abnahme.sh`.
 | GET    | `/api/settings/password-requirements` | Get password rules                       | -          |
 | GET    | `/api/settings/firmenname`            | Firmenname der Anmeldeseite (admin)      | -          |
 | PUT    | `/api/settings/firmenname`            | Firmenname setzen, leer = keiner (admin) | -          |
-| GET    | `/api/settings/sprachmodell`          | Standardwerte für das Modell (admin)     | -          |
-| PATCH  | `/api/settings/sprachmodell`          | Standardwerte setzen (admin)             | -          |
+| PUT    | `/api/settings/logo`                  | Logo des Hauses setzen (admin)           | -          |
+| DELETE | `/api/settings/logo`                  | Logo des Hauses entfernen (admin)        | -          |
 
 **PUT /api/settings/firmenname** (Auftrag anmeldung-ohne-slogan, 30.08.2026):
 `{ "firmenname": "Muster GmbH" }`, höchstens 120 Zeichen, wird getrimmt; ein
@@ -815,16 +815,22 @@ Antwort `{ "firmenname": "Muster GmbH" | null }`. Die Spalte ist
 `system_settings.company_name`; gelesen wird sie öffentlich über
 `GET /api/auth/needs-setup`.
 
-**GET/PATCH /api/settings/sprachmodell** (J35, 26.09.2026): die vier Werte in
-`system_settings`, mit denen das Gerät ein Modell fragt —
-`llm_num_predict_default` (64 bis 16384), `llm_num_ctx_default` (512 bis
-131072, `null` = Vorgabe des Modells), `llm_keep_alive_seconds` (0 bis 86400)
-und `llm_base_system_prompt` (höchstens 4000 Zeichen, leer = eingebauter
-Prompt). Antwort in beiden Fällen `{ "data": { …die vier Werte… } }`. PATCH
-schreibt nur die Felder, die mitkommen, ohne Feld oder mit einem fremden ist
-es 400. Bis Phase B4 lag derselbe Weg unter `/api/rag/settings` und fiel mit
-dem RAG, obwohl `llmOllamaStream.js` und `systemPromptBuilder.js` die Werte
-weiter lesen; die Einstellungsseite „KI" bekam dort 404.
+**PUT /api/settings/logo** (M5, 04.10.2026, Migration 207): das Logo des
+Hauses, das die Aktivitätsleiste über dem Haus zeigt. Rumpf
+`{ "bild": "data:image/png;base64,…" }`; angenommen werden PNG, JPEG und WebP,
+geprüft an den ersten Bytes der Datei (kein SVG: es kann Skript tragen),
+höchstens 256 KB. Sonst `400`. Antwort `{ "data": { "logo": "<Stand, ISO>" } }`.
+**DELETE /api/settings/logo** setzt Datei, Art und Stand auf `NULL`, Antwort
+`{ "data": { "logo": null } }`. Beide stehen im Prüfprotokoll
+(`settings_change`, `target: logo`). Ob es ein Logo gibt, sagt
+`GET /api/auth/needs-setup` (`logo`); die Datei liefert
+`GET /api/darstellung/logo`.
+
+**GET/PATCH /api/settings/sprachmodell** gibt es seit dem 04.10.2026 nicht
+mehr (`404`): die Seite „KI" der Verwaltung ist gestrichen, der Administrator
+ändert keine Prompts (`company/frontend.md`, Flows). Die vier Spalten in
+`system_settings` bleiben und werden mit ihren Vorgaben weiter gelesen
+(`llmOllamaStream.js`, `systemPromptBuilder.js`).
 
 **POST /api/settings/password/\*:**
 
@@ -1599,24 +1605,24 @@ App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
 
 ### Model Management
 
-| Method | Endpoint                       | Description                                                                    |
-| ------ | ------------------------------ | ------------------------------------------------------------------------------ |
-| GET    | `/api/models/catalog`          | List curated model catalog                                                     |
-| GET    | `/api/models/installed`        | List installed models                                                          |
-| GET    | `/api/models/status`           | Current loaded model + queue stats                                             |
-| GET    | `/api/models/memory-budget`    | KI-RAM-Lage, geladene Modelle, letzter Wechsel                                 |
-| GET    | `/api/models/loaded`           | Get currently loaded model                                                     |
-| GET    | `/api/models/default`          | Standardmodell der Flows                                                       |
-| POST   | `/api/models/default`          | Standardmodell der Flows setzen (nur `task` text/coding, sonst 400)            |
-| GET    | `/api/models/verwaltung`       | Zeilen der Verwaltung: Fähigkeiten, warm, nutzende Flows, Sperre; die geprüfte Liste (M5) |
+| Method | Endpoint                       | Description                                                                                |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/models/catalog`          | List curated model catalog                                                                 |
+| GET    | `/api/models/installed`        | List installed models                                                                      |
+| GET    | `/api/models/status`           | Current loaded model + queue stats                                                         |
+| GET    | `/api/models/memory-budget`    | KI-RAM-Lage, geladene Modelle, letzter Wechsel                                             |
+| GET    | `/api/models/loaded`           | Get currently loaded model                                                                 |
+| GET    | `/api/models/default`          | Standardmodell der Flows                                                                   |
+| POST   | `/api/models/default`          | Standardmodell der Flows setzen (nur `task` text/coding, sonst 400)                        |
+| GET    | `/api/models/verwaltung`       | Zeilen der Verwaltung: Fähigkeiten, warm, nutzende Flows, Sperre; die geprüfte Liste (M5)  |
 | POST   | `/api/models/pruefen`          | `{ model_id }`: passt das Modell auf das Gerät (Speicher, Platte)? `{ passt, grund }` (M5) |
 | POST   | `/api/models/download`         | Modell hinzufügen (SSE-Fortschritt); prüft vorher Speicher und Platte, 400 mit zwei Sätzen |
-| DELETE | `/api/models/:id`              | Modell entfernen; 409, solange ein Flow es nutzt oder es der Standard ist (M5) |
-| GET    | `/api/models/:id`              | Ein Modell im Einzelnen (Katalogeintrag plus Installationsstand)               |
-| GET    | `/api/models/:id/capabilities` | Was das Modell kann: Werkzeugaufrufe, Denkschritte, Kontextlänge               |
-| GET    | `/api/models/recommended`      | Empfehlung für diese Hardware, aus RAM und Rechenwerk abgeleitet               |
-| GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen              |
-| POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat |
+| DELETE | `/api/models/:id`              | Modell entfernen; 409, solange ein Flow es nutzt oder es der Standard ist (M5)             |
+| GET    | `/api/models/:id`              | Ein Modell im Einzelnen (Katalogeintrag plus Installationsstand)                           |
+| GET    | `/api/models/:id/capabilities` | Was das Modell kann: Werkzeugaufrufe, Denkschritte, Kontextlänge                           |
+| GET    | `/api/models/recommended`      | Empfehlung für diese Hardware, aus RAM und Rechenwerk abgeleitet                           |
+| GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen                          |
+| POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat             |
 
 **Laden und Entladen von Hand gibt es nicht (M5, 04.10.2026).** `/:id/load`,
 `/unload`, `/activate` und `/deactivate` sind entfernt (404): das Gerät hält
@@ -2183,12 +2189,12 @@ Datei ist das kein Fehler (`entfernt: false`). Protokolliert als
 
 `export` und `me` gelten für beide Rollen (die eigenen Daten); `ziele` und `categories` sind Admin.
 
-| Method | Endpoint               | Auth  | Description                                                                                                                                                          |
-| ------ | ---------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/gdpr/export`     | Beide | Full GDPR data export (Art. 20) as JSON file. `?benutzer=<id>` (nur Admin): die Auskunft über eine andere Person (Verwaltung → Daten); `?ziel=<datentraeger>` legt sie auf eine angesteckte Platte                                                                                                                        |
-| GET    | `/api/gdpr/categories` | Admin | List data categories with record counts; `?benutzer=<id>` zählt für diese Person, ohne Angabe für den Aufrufer                                                                                                                              |
-| GET    | `/api/gdpr/ziele`      | Admin | Angesteckte Datenträger als Export-Ziel (Plan 023 J3). Die Antwort trägt einen `hinweis`, der „keine Platte angesteckt" von „Ordner nicht eingebunden" unterscheidet |
-| DELETE | `/api/gdpr/me`         | Beide | Delete own account (Art. 17 — right to erasure)                                                                                                                      |
+| Method | Endpoint               | Auth  | Description                                                                                                                                                                                        |
+| ------ | ---------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/gdpr/export`     | Beide | Full GDPR data export (Art. 20) as JSON file. `?benutzer=<id>` (nur Admin): die Auskunft über eine andere Person (Verwaltung → Daten); `?ziel=<datentraeger>` legt sie auf eine angesteckte Platte |
+| GET    | `/api/gdpr/categories` | Admin | List data categories with record counts; `?benutzer=<id>` zählt für diese Person, ohne Angabe für den Aufrufer                                                                                     |
+| GET    | `/api/gdpr/ziele`      | Admin | Angesteckte Datenträger als Export-Ziel (Plan 023 J3). Die Antwort trägt einen `hinweis`, der „keine Platte angesteckt" von „Ordner nicht eingebunden" unterscheidet                               |
+| DELETE | `/api/gdpr/me`         | Beide | Delete own account (Art. 17 — right to erasure)                                                                                                                                                    |
 
 **GET /api/gdpr/export:**
 
@@ -3478,12 +3484,21 @@ wechselt.
 Die Darstellung der Oberfläche, **je Mensch**. Drei Werte: `light` (Vorgabe),
 `dark` und `system` (das Betriebssystem entscheidet, Migration 194). »Schwarz« ist mit H1 gefallen.
 
-| Method | Endpoint           | Description                                |
-| ------ | ------------------ | ------------------------------------------ |
-| PUT    | `/api/darstellung` | Meine Darstellung setzen, Body `{ theme }` |
+| Method | Endpoint                | Description                                  |
+| ------ | ----------------------- | -------------------------------------------- |
+| PUT    | `/api/darstellung`      | Meine Darstellung setzen, Body `{ theme }`   |
+| GET    | `/api/darstellung/logo` | Das Logo des Hauses als Bild, ohne Anmeldung |
 
 Antwort `{ data: { theme } }`. `theme` ist `light`, `dark` oder `system`; alles andere
 ist `400` (`schemas/darstellung.js`), nicht `500` aus dem CHECK der Spalte.
+
+**GET /api/darstellung/logo** (M5, 04.10.2026): das Logo des Hauses mit dem
+Medientyp, mit dem es hinterlegt wurde (`image/png`, `image/jpeg`,
+`image/webp`), und `X-Content-Type-Options: nosniff`. Ohne Anmeldung, wie der
+Firmenname in `needs-setup`: ein Logo ist kein Geheimnis. Mit `?stand=<Stand>`
+(aus `needs-setup`) antwortet es mit `Cache-Control: public, max-age=31536000,
+immutable`, ohne mit `no-cache`. Kein Logo hinterlegt: `404`. Gesetzt wird es
+über `PUT /api/settings/logo`.
 
 **Nur ein Weg, und zwar der schreibende.** Gelesen wird die Darstellung dort,
 wo die Oberfläche ohnehin schon fragt, wer angemeldet ist: `theme` fährt in

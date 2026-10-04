@@ -80,21 +80,40 @@ src/
                    Workspace-Stores und damit in der Adresse
                    (`/workspace/verwaltung/<bereich>[/<abschnitt>]`); alte
                    `?tab=`-Adressen bildet die Shell darauf ab.
-                   `sections.tsx` ist die eine Liste der elf Bereiche, in
-                   dieser Reihenfolge: Allgemein, Apps, Personen,
-                   Firmenordner, Modelle, KI, Sicherheit, System, Daten,
-                   Lizenz, Fernzugriff (`bereichAusAdresse` bildet die
-                   gestrichenen Adressen `privacy`, `system/sicherung` und
-                   `system/werksreset` auf Daten ab). Allgemein
-                   (`GeneralSettings.tsx`), KI (`SprachmodellSettings.tsx`),
-                   Sicherheit, Lizenz (`LizenzSettings.tsx`) und
-                   Fernzugriff (`RemoteAccessSettings.tsx`) sind je eine
-                   Seite; die übrigen sechs:
-                   - **System**: Auslastung, Dienste, Aktualisierungen,
-                     Selbstheilung untereinander, jeder klappt auf
-                     (`Accordion`, nur Offenes ist gemountet;
-                     `/workspace/verwaltung/system/selfhealing` kommt
-                     aufgeklappt an).
+                   `sections.tsx` ist die eine Liste der sieben Bereiche aus
+                   `frontend.md`, in dieser Reihenfolge: Personen, Apps,
+                   Firmenordner, Modelle, System, Daten, Gerät (Läufe baut
+                   die Karte verwaltung-laeufe). `bereichAusAdresse` bildet
+                   die gestrichenen Adressen ab: `privacy`,
+                   `system/sicherung`, `system/werksreset` auf Daten;
+                   `general`, `security`, `lizenz`, `remote-access`,
+                   `system/updates` auf Gerät mit dem Abschnitt; `ki` auf
+                   Modelle (den Bereich KI gibt es nicht mehr, der
+                   Administrator ändert keine Prompts).
+                   - **System** (`../system/SystemSettings.tsx`): ein Satz
+                     aus `/api/ops/overview` („Alles läuft.“ oder was nicht
+                     stimmt), Prozessor, Speicher und Platte als drei
+                     Zahlen aus derselben Antwort, darunter Dienste und
+                     Selbstheilung zugeklappt (`Accordion`, nur Offenes ist
+                     gemountet; `/workspace/verwaltung/system/selfhealing`
+                     kommt aufgeklappt an).
+                   - **Gerät** (`GeraetSettings.tsx` + `geraet/`, M5):
+                     Unternehmen als Text mit Logo, das Formular erst auf
+                     „Bearbeiten“ (`Unternehmen.tsx`, `useUnternehmen.ts`;
+                     gelesen aus `useGeraetMarke`, damit Anmeldeseite,
+                     Leiste und Verwaltung denselben Stand zeigen);
+                     Aktualisierung mit EINEM Knopf und Bestätigung
+                     (`Aktualisierung.tsx`, holt selbst, sichert vorher; der
+                     Weg „Paket von Hand“ ist weg, er brauchte `docker` im
+                     Backend-Container); Lizenz mit drei Zahlen, Einspielen
+                     im Dialog, Fingerabdruck aufgeklappt (`Lizenz.tsx`,
+                     `useLizenz.ts`); Fernzugriff als Schalter mit Adresse,
+                     Einschalten im Dialog, Ausschalten mit Rückfrage,
+                     Gerätezertifikat bei den Adressen, Technik aufgeklappt
+                     (`Fernzugriff.tsx`, `sitzungUeberFernzugriff.ts`);
+                     „Über Arasul“ als Fußzeile (`UeberArasul.tsx`). Die
+                     Fassung steht EINMAL, bei der Aktualisierung. Der
+                     Abschnitt aus der Adresse rollt in Sicht.
                    - **Daten** (`DatenSettings.tsx` + `daten/`, M5): alles,
                      was mit den Daten des Geräts geschieht, an einer Stelle.
                      Oben die Sicherung (`features/system/sicherung/`: SSD,
@@ -227,9 +246,10 @@ src/
                      nicht im Browser, unten fest Verwaltung [admin], Zahnrad [alle] und
                      das eigene Bild (Popover: Name, Abmelden). Auswahl ist
                      eine getönte Fläche (`bg-primary/12`), kein Balken;
-                     Hover blendet in 120 ms ein, `motion-reduce` gilt. Das
-                     Logo des Hauses gehört über das Haus, sobald es sich
-                     hinterlegen lässt.
+                     Hover blendet in 120 ms ein, `motion-reduce` gilt. Ganz
+                     oben das Logo des Hauses, falls hinterlegt (Verwaltung,
+                     Gerät, Unternehmen; `GET /api/darstellung/logo?stand=…`,
+                     der Stand kommt aus `useGeraetMarke`).
                    • **Startseite** — Gruß mit Vorname (sonst Anzeigename),
                      „Für Sie", Kacheln (`features/apps/Uebersicht.tsx`); beim
                      Admin zuletzt `AdminHinweise` (`useAdminHinweise.ts`:

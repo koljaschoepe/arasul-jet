@@ -19,7 +19,8 @@
     "input-otp",
     "react-day-picker",
     "pdfjs-dist",
-    "react-resizable-panels"
+    "react-resizable-panels",
+    "recharts"
   ],
   "ignoreBinaries": ["eslint"]
 }

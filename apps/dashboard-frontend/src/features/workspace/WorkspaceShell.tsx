@@ -9,7 +9,7 @@ import {
   type Ansicht,
 } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { bereichAusAdresse, resolveSystemSub, resolveTab } from '@/features/settings/sections';
+import { bereichAusAdresse } from '@/features/settings/sections';
 import { StatusBar } from './StatusBar';
 import { AnsichtInhalt } from './AnsichtInhalt';
 import { cn, useSchmalesFenster } from '@marken';
@@ -26,8 +26,10 @@ export interface ShellHandgriffe {
  * Alte Lesezeichen tragen den Bereich der Verwaltung noch als `?tab=` —
  * `/settings?tab=remote-access` (über `InDenArbeitsbereich`) und
  * `/workspace/settings?tab=apps` aus der Zeit, als die Einstellungen die
- * Verwaltung waren. Beide landen auf dem Bereich, der Unterbereich des Systems
- * (`?tab=updates`) aufgeklappt; `?tab=sicherung`, `?tab=privacy` und `?tab=werksreset` landen im Bereich Daten.
+ * Verwaltung waren. Beide landen auf dem Bereich, wo die Funktion heute steht
+ * (`?tab=updates` und `?tab=lizenz` im Gerät beim Abschnitt,
+ * `?tab=selfhealing` im System aufgeklappt); `?tab=sicherung`, `?tab=privacy`
+ * und `?tab=werksreset` landen im Bereich Daten.
  */
 function ausDerAdresse(pathname: string, search: string): Ansicht | null {
   const ansicht = pfadZuAnsicht(pathname.replace(/^\/workspace/, ''), search);
@@ -49,8 +51,7 @@ function ausDerAdresse(pathname: string, search: string): Ansicht | null {
     }
     return ansicht;
   }
-  const bereich = resolveTab(tab);
-  const abschnitt = bereich === 'system' ? resolveSystemSub(tab) : undefined;
+  const { bereich, abschnitt } = bereichAusAdresse(tab, null);
   return { type: 'verwaltung', bereich, ...(abschnitt ? { abschnitt } : {}) };
 }
 

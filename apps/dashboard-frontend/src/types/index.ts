@@ -46,27 +46,7 @@ export interface MemoryBudget {
 }
 
 // --- System Metrics ---
-// Shared shape of the live metrics payload (`GET /metrics/live` and the
-// `/metrics/live-stream` WebSocket). Consumed by useWebSocketMetrics and the
-// dashboard shell in App.tsx; kept here so both agree on one precise type
-// instead of an index-signature grab bag.
-
-interface MetricsDisk {
-  used: number;
-  free: number;
-  percent: number;
-}
-
-export interface Metrics {
-  cpu: number;
-  ram: number;
-  swap: number;
-  gpu: number;
-  temperature: number;
-  temp: number;
-  disk: MetricsDisk;
-  /** Optional network state from the metrics-collector (used for the offline banner). */
-  network?: {
-    online?: boolean;
-  };
-}
+// Hier stand bis zum 04.10.2026 die Form der Live-Metriken
+// (`/metrics/live`, `/metrics/live-stream`). Gelesen hat sie zuletzt nur die
+// Auslastung im Bereich System; seit dem stehen dort drei Zahlen aus
+// `/api/ops/overview` (`features/system/SystemSettings.tsx`).

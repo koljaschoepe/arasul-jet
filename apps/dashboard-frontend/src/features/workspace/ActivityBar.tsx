@@ -24,6 +24,31 @@ import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { PersonAvatar } from '@/components/PersonAvatar';
 import { API_BASE } from '@/config/api';
 import { LeisteUnten } from './LeisteUnten';
+import { logoAdresse, useGeraetMarke } from '@/hooks/useGeraetMarke';
+
+/**
+ * Das Logo des Hauses über dem Haus (M5), falls der Administrator eines unter
+ * Verwaltung, Gerät, Unternehmen hinterlegt hat. Kein Knopf: es führt nirgends
+ * hin, es sagt nur, wessen Gerät das ist. Ohne Logo steht dort nichts, auch
+ * kein Platzhalter. Lädt das Bild nicht, verschwindet es, statt als kaputtes
+ * Bild stehen zu bleiben.
+ */
+function LogoDesHauses() {
+  const { data } = useGeraetMarke();
+  const [kaputt, setKaputt] = useState<string | null>(null);
+  if (!data?.logo || kaputt === data.logo) return null;
+  const stand = data.logo;
+  return (
+    <img
+      src={logoAdresse(stand)}
+      alt={data.firmenname ?? 'Logo'}
+      title={data.firmenname ?? undefined}
+      className="mb-1 size-8 shrink-0 object-contain"
+      data-testid="leiste-logo"
+      onError={() => setKaputt(stand)}
+    />
+  );
+}
 
 /**
  * Die Form jedes Knopfs der Leiste (M5).
@@ -132,8 +157,8 @@ function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
  * eine Ansicht im Hauptbereich; es gibt keine zweite Seitenleiste mehr, die
  * er auf- oder zuklappen könnte.
  *
- * Das Logo des Hauses gehört über das Haus, sobald es sich hinterlegen lässt;
- * bis dahin gibt es dafür keinen Ort am Gerät.
+ * Ganz oben das Logo des Hauses, falls eines hinterlegt ist (`LogoDesHauses`,
+ * Verwaltung, Gerät, Unternehmen).
  *
  * Die Apps kommen aus `GET /api/apps/meine` — auch beim Administrator nur
  * die, die ihm freigegeben sind. Eine App mit Live- und Teststand steht
@@ -194,6 +219,7 @@ function LeisteLinks({ onLogout }: { onLogout: () => Promise<void> | void }) {
       data-testid="aktivitaetsleiste"
       className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-background py-2"
     >
+      <LogoDesHauses />
       <LeistenKnopf
         name={wartend > 0 ? `Startseite, ${wartend} offen` : 'Startseite'}
         aktiv={aktivId === 'dashboard'}

@@ -129,6 +129,21 @@ describe('Setup-on-first-login', () => {
       expect(res.body.firmenname).toBe('Muster GmbH');
       systemSettings._setForTest({ company_name: null });
     });
+
+    // Das Logo des Hauses (Migration 207): nur sein Stand faehrt mit, die
+    // Datei holt die Aktivitaetsleiste ueber /api/darstellung/logo.
+    test('logo ist der Stand des Logos oder null', async () => {
+      const systemSettings = require('../../src/services/system-settings/systemSettingsService');
+      db.query.mockReset();
+      db.query.mockResolvedValueOnce({ rows: [{ count: 1 }] });
+      expect((await request(app).get('/api/auth/needs-setup')).body.logo).toBeNull();
+
+      systemSettings._setForTest({ company_logo_stand: new Date('2026-10-04T20:00:00Z') });
+      db.query.mockResolvedValueOnce({ rows: [{ count: 1 }] });
+      const res = await request(app).get('/api/auth/needs-setup');
+      expect(res.body.logo).toBe('2026-10-04T20:00:00.000Z');
+      systemSettings._setForTest({ company_logo_stand: null });
+    });
   });
 
   describe('POST /api/auth/setup', () => {

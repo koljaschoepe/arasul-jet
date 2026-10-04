@@ -142,3 +142,35 @@ describe('PUT /api/darstellung', () => {
     expect(db.query.mock.calls[0][1]).toEqual(['1', 'dark']);
   });
 });
+
+/**
+ * Das Logo des Hauses (Migration 207): ohne Anmeldung, mit dem Medientyp aus
+ * der Datenbank und `nosniff`; mit Stand in der Adresse darf der Browser es
+ * lange behalten.
+ */
+describe('GET /api/darstellung/logo', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+
+  it('liefert das Bild ohne Anmeldung', async () => {
+    auth.__setUser(null);
+    db.query.mockResolvedValue({ rows: [{ company_logo: PNG, company_logo_typ: 'image/png' }] });
+    const res = await request(app()).get('/api/darstellung/logo?stand=2026-10-04T20:00:00.000Z');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/png');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['cache-control']).toMatch(/immutable/);
+    expect(Buffer.from(res.body).equals(PNG)).toBe(true);
+  });
+
+  it('ohne Stand in der Adresse fragt der Browser jedes Mal nach', async () => {
+    db.query.mockResolvedValue({ rows: [{ company_logo: PNG, company_logo_typ: 'image/png' }] });
+    const res = await request(app()).get('/api/darstellung/logo');
+    expect(res.headers['cache-control']).toBe('no-cache');
+  });
+
+  it('ohne Logo: 404', async () => {
+    db.query.mockResolvedValue({ rows: [{ company_logo: null, company_logo_typ: null }] });
+    const res = await request(app()).get('/api/darstellung/logo');
+    expect(res.status).toBe(404);
+  });
+});

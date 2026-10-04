@@ -2378,6 +2378,9 @@ fehler, uebergeben_am}`. Die Zeile entsteht **vor** dem ersten Aufruf
 | `llm_keep_alive_seconds`          | integer                  | ✅       | `3600`  |
 | `llm_num_predict_default`         | integer                  | ✅       | `2048`  |
 | `llm_base_system_prompt`          | text                     | ✅       |         |
+| `company_logo`                    | bytea                    | ✅       |         |
+| `company_logo_typ`                | text                     | ✅       |         |
+| `company_logo_stand`              | timestamp with time zone | ✅       |         |
 
 **Primary key:** `id`
 

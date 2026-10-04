@@ -18,6 +18,7 @@ import { ToastProvider, useToast } from './contexts/ToastContext';
 
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
+import { useGeraetMarke } from './hooks/useGeraetMarke';
 import { lazyNachladen } from './utils/lazyNachladen';
 import './index.css';
 import { Ladezustand } from '@marken';
@@ -70,13 +71,14 @@ function AppContent(): React.JSX.Element | null {
   const istAdmin = user?.role === 'admin';
 
   // First-run onboarding: null = still checking, true = box has no admin yet
-  // (show CreateAdmin instead of Login), false = normal login.
-  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
-  // Der Name des Unternehmens ueber dem Anmeldeformular. Faehrt in derselben
-  // Antwort mit wie `needsSetup`, damit die Anmeldeseite keine dritte Anfrage
-  // auf jeder Seitenladung braucht (G2). null: keiner gesetzt, der
-  // Produktname steht da.
-  const [firmenname, setFirmenname] = useState<string | null>(null);
+  // (show CreateAdmin instead of Login), false = normal login. Der Name des
+  // Unternehmens ueber dem Anmeldeformular faehrt in derselben Antwort mit,
+  // und seit M5 der Stand des Logos fuer die Aktivitaetsleiste: EINE Abfrage
+  // (`useGeraetMarke`), die die Leiste aus demselben Zwischenspeicher liest.
+  // Ohne Antwort (altes Backend) hat das Geraet einen Administrator.
+  const marke = useGeraetMarke();
+  const needsSetup: boolean | null = marke.isPending ? null : (marke.data?.needsSetup ?? false);
+  const firmenname = marke.data?.firmenname ?? null;
 
   // Auto-update notification: poll /api/health every 5 min for build hash change
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -145,29 +147,6 @@ function AppContent(): React.JSX.Element | null {
       sessionStorage.setItem('arasul_login_redirect', currentPath);
     }
   }, [isAuthenticated, authLoading]);
-
-  // First-run check (unauthenticated): does the box still need an admin?
-  // Runs once on mount, before login, so we can show CreateAdmin instead of
-  // the login screen on a freshly bootstrapped box.
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get<{ needsSetup: boolean; firmenname?: string | null }>('/auth/needs-setup', {
-        showError: false,
-      })
-      .then(d => {
-        if (cancelled) return;
-        setNeedsSetup(d.needsSetup);
-        setFirmenname(d.firmenname ?? null);
-      })
-      .catch(() => {
-        // Old backend without the endpoint → assume an admin exists.
-        if (!cancelled) setNeedsSetup(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [api]);
 
   // HIER STAND DER EINRICHTUNGSASSISTENT (bis Phase D4, 28.08.2026).
   //
@@ -246,73 +225,71 @@ function AppContent(): React.JSX.Element | null {
 
   return (
     <DownloadProvider>
-        <Router>
-          {/* Update available banner (overlay) */}
-          {updateAvailable && (
-            <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
-              <span>Eine neue Fassung ist da.</span>
-              <button
-                className="underline font-medium hover:opacity-80"
-                onClick={() => window.location.reload()}
-              >
-                Jetzt laden
-              </button>
-              <button
-                type="button"
-                aria-label="Hinweis auf die neue Fassung schließen"
-                className="ml-2 opacity-70 hover:opacity-100"
-                onClick={() => {
-                  setUpdateAvailable(false);
-                  updateDismissedRef.current = Date.now();
-                }}
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          )}
-          <Routes>
-            <Route
-              path="/workspace/*"
-              element={
-                <RouteErrorBoundary showDetails={istAdmin}>
-                  <Suspense fallback={<Ladezustand meldung="Wird geladen …" ganzeSeite={true} />}>
-                    <WorkspaceShell onLogout={handleLogout} />
-                  </Suspense>
-                </RouteErrorBoundary>
-              }
-            />
-            {/* Plan 023 B1: die Legacy-Shell ist entfernt. Sie war nur über
+      <Router>
+        {/* Update available banner (overlay) */}
+        {updateAvailable && (
+          <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
+            <span>Eine neue Fassung ist da.</span>
+            <button
+              className="underline font-medium hover:opacity-80"
+              onClick={() => window.location.reload()}
+            >
+              Jetzt laden
+            </button>
+            <button
+              type="button"
+              aria-label="Hinweis auf die neue Fassung schließen"
+              className="ml-2 opacity-70 hover:opacity-100"
+              onClick={() => {
+                setUpdateAvailable(false);
+                updateDismissedRef.current = Date.now();
+              }}
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+        <Routes>
+          <Route
+            path="/workspace/*"
+            element={
+              <RouteErrorBoundary showDetails={istAdmin}>
+                <Suspense fallback={<Ladezustand meldung="Wird geladen …" ganzeSeite={true} />}>
+                  <WorkspaceShell onLogout={handleLogout} />
+                </Suspense>
+              </RouteErrorBoundary>
+            }
+          />
+          {/* Plan 023 B1: die Legacy-Shell ist entfernt. Sie war nur über
                   getippte URLs erreichbar, hatte genau einen Menüeintrag und
                   keine Navigation zu fünf der sechs Einstellungsbereiche. Ihre
                   Routen zeigen jetzt in den Arbeitsbereich, der dieselben
                   Inhalte als Tab kennt. Suchparameter bleiben erhalten, damit
                   Deep-Links wie /settings?tab=remote-access weiter funktionieren. */}
-            {/* Die Schauseite der Bibliothek (H3). Hinter der Anmeldung, weil
+          {/* Die Schauseite der Bibliothek (H3). Hinter der Anmeldung, weil
                   sie auf einem Geraet im Firmennetz steht; in keinem Menue,
                   weil sie niemandem hier bei der Arbeit hilft. */}
-            <Route
-              path="/entwickler/bausteine"
-              element={
-                <RouteErrorBoundary showDetails={istAdmin}>
-                  <Suspense
-                    fallback={
-                      <Ladezustand meldung="Bausteine werden geladen …" ganzeSeite={true} />
-                    }
-                  >
-                    <Schauseite />
-                  </Suspense>
-                </RouteErrorBoundary>
-              }
-            />
-            <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
-            <Route path="/settings" element={<InDenArbeitsbereich ziel="/verwaltung" />} />
-            <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />
-            {/* /terminal, /sandbox, /data und /documents zeigten auf Terminal
+          <Route
+            path="/entwickler/bausteine"
+            element={
+              <RouteErrorBoundary showDetails={istAdmin}>
+                <Suspense
+                  fallback={<Ladezustand meldung="Bausteine werden geladen …" ganzeSeite={true} />}
+                >
+                  <Schauseite />
+                </Suspense>
+              </RouteErrorBoundary>
+            }
+          />
+          <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
+          <Route path="/settings" element={<InDenArbeitsbereich ziel="/verwaltung" />} />
+          <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />
+          {/* /terminal, /sandbox, /data und /documents zeigten auf Terminal
                   und Explorer; beides ist mit B2 gefallen, die Adressen sind
                   unbekannt. */}
-            <Route path="*" element={<NichtGefunden />} />
-          </Routes>
-        </Router>
+          <Route path="*" element={<NichtGefunden />} />
+        </Routes>
+      </Router>
     </DownloadProvider>
   );
 }

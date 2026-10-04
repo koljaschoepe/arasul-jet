@@ -6,8 +6,8 @@
  * - GET  /api/settings/password-requirements - Get password requirements
  * - GET  /api/settings/firmenname         - Firmenname ueber dem Anmeldeformular
  * - PUT  /api/settings/firmenname         - Firmenname setzen (leer = keiner)
- * - GET  /api/settings/sprachmodell       - Standardwerte fuer das Modell
- * - PATCH /api/settings/sprachmodell      - Standardwerte setzen
+ * - PUT  /api/settings/logo              - Logo des Hauses setzen (PNG, JPEG, WebP)
+ * - DELETE /api/settings/logo             - Logo entfernen
  */
 
 const request = require('supertest');
@@ -207,91 +207,110 @@ describe('Settings Routes', () => {
   });
 
   // ============================================================================
-  // Sprachmodell (J35): bis B4 unter /api/rag/settings, danach 404
+  // Logo des Hauses (M5, Migration 207)
   // ============================================================================
-  describe('/api/settings/sprachmodell', () => {
-    const WERTE = {
-      llm_num_predict_default: 2048,
-      llm_num_ctx_default: null,
-      llm_keep_alive_seconds: 3600,
-      llm_base_system_prompt: null,
-    };
+  describe('/api/settings/logo', () => {
+    const PNG = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(32, 1),
+    ]);
+    const alsAdresse = (typ, inhalt) => `data:${typ};base64,${inhalt.toString('base64')}`;
 
-    test('GET ohne Anmeldung ist 401', async () => {
-      const res = await request(app).get('/api/settings/sprachmodell');
+    test('PUT ohne Anmeldung: 401', async () => {
+      const res = await request(app)
+        .put('/api/settings/logo')
+        .send({ bild: alsAdresse('image/png', PNG) });
       expect(res.status).toBe(401);
     });
 
-    test('GET liefert die vier Werte', async () => {
-      setupMocksWithAuth(query => {
-        if (query.includes('FROM system_settings')) {
-          return Promise.resolve({ rows: [WERTE] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-      const res = await request(app)
-        .get('/api/settings/sprachmodell')
-        .set('Authorization', `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      expect(res.body.data).toEqual(WERTE);
-    });
-
-    test('PATCH schreibt nur, was mitkommt, und laedt den Cache neu', async () => {
+    test('PUT schreibt Datei, Art und Stand und laedt den Cache neu', async () => {
       const systemSettings = require('../../src/services/system-settings/systemSettingsService');
       const updates = [];
+      const stand = new Date('2026-10-04T20:00:00Z');
       setupMocksWithAuth((query, params) => {
         if (query.includes('UPDATE system_settings')) {
-          updates.push({ query, params });
-          return Promise.resolve({ rows: [] });
+          updates.push(params);
+          return Promise.resolve({ rows: [{ company_logo_stand: stand }] });
         }
         if (query.includes('FROM system_settings')) {
-          return Promise.resolve({ rows: [{ ...WERTE, llm_num_predict_default: 4096 }] });
+          return Promise.resolve({ rows: [{ company_logo_stand: stand }] });
         }
         return Promise.resolve({ rows: [] });
       });
       const res = await request(app)
-        .patch('/api/settings/sprachmodell')
+        .put('/api/settings/logo')
         .set('Authorization', `Bearer ${token}`)
-        .send({ llm_num_predict_default: 4096, llm_base_system_prompt: '' });
+        .send({ bild: alsAdresse('image/png', PNG) });
       expect(res.status).toBe(200);
-      expect(res.body.data.llm_num_predict_default).toBe(4096);
+      expect(res.body.data.logo).toBe(stand.toISOString());
       expect(updates).toHaveLength(1);
-      expect(updates[0].query).toContain('llm_num_predict_default = $1');
-      expect(updates[0].query).toContain('llm_base_system_prompt = $2');
-      expect(updates[0].query).not.toContain('llm_keep_alive_seconds');
-      // leerer Prompt heisst: eingebauter Prompt, also NULL
-      expect(updates[0].params).toEqual([4096, null]);
-      expect(systemSettings.getNumber('llm_num_predict_default')).toBe(4096);
-      systemSettings._setForTest({ llm_num_predict_default: null });
+      expect(Buffer.isBuffer(updates[0][0])).toBe(true);
+      expect(updates[0][0].equals(PNG)).toBe(true);
+      expect(updates[0][1]).toBe('image/png');
+      expect(systemSettings.get('company_logo_stand')).toEqual(stand);
+      systemSettings._setForTest({ company_logo_stand: null });
     });
 
-    test('PATCH ausserhalb der Grenzen ist 400', async () => {
+    test('PUT weist ein SVG ab', async () => {
       setupMocksWithAuth();
       const res = await request(app)
-        .patch('/api/settings/sprachmodell')
+        .put('/api/settings/logo')
         .set('Authorization', `Bearer ${token}`)
-        .send({ llm_num_predict_default: 10 });
+        .send({ bild: alsAdresse('image/svg+xml', Buffer.from('<svg><script>1</script></svg>')) });
       expect(res.status).toBe(400);
     });
 
-    test('PATCH ohne Feld oder mit fremdem Feld ist 400', async () => {
+    test('PUT weist eine Datei ab, die nur behauptet, ein PNG zu sein', async () => {
       setupMocksWithAuth();
-      const leer = await request(app)
-        .patch('/api/settings/sprachmodell')
+      const res = await request(app)
+        .put('/api/settings/logo')
         .set('Authorization', `Bearer ${token}`)
-        .send({});
-      expect(leer.status).toBe(400);
-      const fremd = await request(app)
-        .patch('/api/settings/sprachmodell')
+        .send({ bild: alsAdresse('image/png', Buffer.from('<html>kein Bild</html>')) });
+      expect(res.status).toBe(400);
+    });
+
+    test('PUT weist ein Bild ueber 256 KB ab', async () => {
+      setupMocksWithAuth();
+      const gross = Buffer.concat([PNG, Buffer.alloc(256 * 1024, 1)]);
+      const res = await request(app)
+        .put('/api/settings/logo')
         .set('Authorization', `Bearer ${token}`)
-        .send({ company_name: 'x' });
-      expect(fremd.status).toBe(400);
+        .send({ bild: alsAdresse('image/png', gross) });
+      expect(res.status).toBe(400);
+    });
+
+    test('DELETE setzt alle drei Spalten auf NULL', async () => {
+      const updates = [];
+      setupMocksWithAuth(query => {
+        if (query.includes('UPDATE system_settings')) updates.push(query);
+        return Promise.resolve({ rows: [] });
+      });
+      const res = await request(app)
+        .delete('/api/settings/logo')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.logo).toBeNull();
+      expect(updates[0]).toMatch(
+        /company_logo = NULL.*company_logo_typ = NULL.*company_logo_stand = NULL/s
+      );
     });
   });
 
-  // ============================================================================
-  // GET /api/settings/password-requirements
-  // ============================================================================
+  // Die Standardwerte fuer das Modell und der Basis-Prompt haben seit dem
+  // 04.10.2026 keinen Weg mehr: der Administrator aendert keine Prompts.
+  test('GET und PATCH /api/settings/sprachmodell gibt es nicht mehr', async () => {
+    setupMocksWithAuth();
+    const lesen = await request(app)
+      .get('/api/settings/sprachmodell')
+      .set('Authorization', `Bearer ${token}`);
+    expect(lesen.status).toBe(404);
+    const schreiben = await request(app)
+      .patch('/api/settings/sprachmodell')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ llm_base_system_prompt: 'x' });
+    expect(schreiben.status).toBe(404);
+  });
+
   describe('GET /api/settings/password-requirements', () => {
     test('returns password requirements object', async () => {
       setupMocksWithAuth();

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   Liste,
   ListenEintrag,
@@ -17,16 +17,12 @@ import {
   resolveSystemSub,
   type SettingsSectionId,
 } from './sections';
-import { GeneralSettings } from './GeneralSettings';
 import { AppsSettings } from './AppsSettings';
 import { PersonenSettings } from './PersonenSettings';
 import { FirmenordnerSettings } from './FirmenordnerSettings';
-import { SprachmodellSettings } from './SprachmodellSettings';
-import { SecuritySettings } from './SecuritySettings';
-import { RemoteAccessSettings } from './RemoteAccessSettings';
 import { DatenSettings } from './DatenSettings';
+import { GeraetSettings } from './GeraetSettings';
 import { SystemSettings } from '../system/SystemSettings';
-import { LizenzSettings } from './LizenzSettings';
 
 interface VerwaltungProps {
   /**
@@ -52,12 +48,9 @@ function Settings({ modelle }: VerwaltungProps) {
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const schmal = useSchmalesFenster();
-  const [isDirty, setIsDirty] = useState(false);
   // Alte Adressen (Datenschutz, System → Sicherung) landen im Bereich Daten.
-  const { bereich } = bereichAusAdresse(ansicht.bereich, ansicht.abschnitt);
+  const { bereich, abschnitt } = bereichAusAdresse(ansicht.bereich, ansicht.abschnitt);
   const waehle = (id: SettingsSectionId) => oeffne({ type: 'verwaltung', bereich: id });
-  // „Ungespeicherte Änderungen" gehört zu dem Bereich, der sie hat.
-  useEffect(() => setIsDirty(false), [bereich]);
 
   const renderContent = () => {
     switch (bereich) {
@@ -72,12 +65,6 @@ function Settings({ modelle }: VerwaltungProps) {
             />
           </ComponentErrorBoundary>
         );
-      case 'benutzer':
-        return (
-          <ComponentErrorBoundary componentName="Personen">
-            <PersonenSettings />
-          </ComponentErrorBoundary>
-        );
       case 'firmenordner':
         return (
           <ComponentErrorBoundary componentName="Firmenordner">
@@ -86,18 +73,6 @@ function Settings({ modelle }: VerwaltungProps) {
         );
       case 'modelle':
         return <ComponentErrorBoundary componentName="Modelle">{modelle}</ComponentErrorBoundary>;
-      case 'ki':
-        return (
-          <ComponentErrorBoundary componentName="Sprachmodell">
-            <SprachmodellSettings onDirtyChange={setIsDirty} />
-          </ComponentErrorBoundary>
-        );
-      case 'security':
-        return (
-          <ComponentErrorBoundary componentName="Sicherheit">
-            <SecuritySettings />
-          </ComponentErrorBoundary>
-        );
       case 'daten':
         return (
           <ComponentErrorBoundary componentName="Daten">
@@ -109,28 +84,19 @@ function Settings({ modelle }: VerwaltungProps) {
           <ComponentErrorBoundary componentName="System">
             {/* Der Schlüssel klappt neu auf, wenn der Abschnitt in der Adresse
                 wechselt (Zurück zwischen zwei Abschnitten). */}
-            <SystemSettings
-              key={ansicht.abschnitt ?? ''}
-              initial={resolveSystemSub(ansicht.abschnitt ?? null)}
-            />
+            <SystemSettings key={abschnitt ?? ''} initial={resolveSystemSub(abschnitt ?? null)} />
           </ComponentErrorBoundary>
         );
-      case 'lizenz':
+      case 'geraet':
         return (
-          <ComponentErrorBoundary componentName="Lizenz">
-            <LizenzSettings />
-          </ComponentErrorBoundary>
-        );
-      case 'remote-access':
-        return (
-          <ComponentErrorBoundary componentName="Fernzugriff">
-            <RemoteAccessSettings />
+          <ComponentErrorBoundary componentName="Gerät">
+            <GeraetSettings abschnitt={abschnitt} />
           </ComponentErrorBoundary>
         );
       default:
         return (
-          <ComponentErrorBoundary componentName="Allgemein">
-            <GeneralSettings />
+          <ComponentErrorBoundary componentName="Personen">
+            <PersonenSettings />
           </ComponentErrorBoundary>
         );
     }
@@ -181,13 +147,6 @@ function Settings({ modelle }: VerwaltungProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
-        {isDirty && (
-          <div className="flex justify-end px-6 pt-3 max-md:px-4">
-            <span className="rounded-full bg-muted-foreground/15 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-              Ungespeicherte Änderungen
-            </span>
           </div>
         )}
         <div className="min-w-0 max-w-225 p-6 max-md:p-4">{renderContent()}</div>

@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
 import { useSicherungStatus, type SicherungStatus } from '@/features/system/sicherung/useSicherung';
 import { useAlleApps, type AppZeile } from '@/features/settings/personen/useAppFreigaben';
-import { useLizenz, type LizenzInfo } from '@/features/settings/lizenz/useLizenz';
+import { useLizenz, type LizenzInfo } from '@/features/settings/geraet/useLizenz';
 
 export interface Hinweis {
   /** Stabil, für `data-testid` und den Schlüssel. */
@@ -86,7 +86,7 @@ export function modellHinweise(liste: ModellHinweis[] | undefined): Hinweis[] {
 
 export function lizenzHinweis(l: LizenzInfo | undefined): Hinweis | null {
   if (!l) return null;
-  const ziel = { bereich: 'lizenz' };
+  const ziel = { bereich: 'geraet', abschnitt: 'lizenz' };
   if (!l.valid && l.tier !== 'community') {
     return { art: 'lizenz', text: 'Die Lizenz ist abgelaufen.', ziel };
   }
@@ -158,7 +158,7 @@ export function useAdminHinweise(): Hinweis[] {
       ? {
           art: 'update',
           text: `Eine neue Fassung ${neueste.data.fassung} liegt bereit.`,
-          ziel: { bereich: 'system', abschnitt: 'updates' },
+          ziel: { bereich: 'geraet', abschnitt: 'aktualisierung' },
         }
       : null;
 
