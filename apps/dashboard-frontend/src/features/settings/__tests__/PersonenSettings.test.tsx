@@ -267,21 +267,20 @@ describe('PersonenSettings', () => {
     );
   });
 
-  it('zeigt Apps und Ordner als zwei Tabellen mit fester erster Spalte', async () => {
+  it('zeigt die Freigaben der Apps mit fester erster Spalte und keine Ordnerrechte', async () => {
     antworte({ ordner: ORDNER, firmenordnerAn: true });
     render(<PersonenSettings />, { wrapper: huelle() });
 
     const apps = await screen.findByTestId('freigabe-matrix');
-    const ordner = await screen.findByTestId('rechte-matrix');
-    for (const tabelle of [apps, ordner]) {
-      const kopf = within(tabelle).getAllByRole('columnheader')[0];
-      expect(kopf?.className).toMatch(/sticky/);
-      const zeile = within(tabelle).getAllByRole('rowheader')[0];
-      expect(zeile?.className).toMatch(/sticky/);
-    }
-    // Der Schalter der App ist ein Schalter, die Stufe des Ordners eine Auswahl.
+    const kopf = within(apps).getAllByRole('columnheader')[0];
+    expect(kopf?.className).toMatch(/sticky/);
+    const zeile = within(apps).getAllByRole('rowheader')[0];
+    expect(zeile?.className).toMatch(/sticky/);
     expect(within(apps).getAllByRole('switch').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('recht-projekte-mia')).toBeInTheDocument();
+    // Die Stufen auf den Ordnern stehen genau einmal, im Bereich Firmenordner.
+    expect(screen.queryByTestId('rechte-matrix')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('recht-projekte-mia')).not.toBeInTheDocument();
+    expect(screen.queryByText('Freigaben: Ordner')).not.toBeInTheDocument();
   });
 
   it('gibt eine App ueber die Matrix frei', async () => {

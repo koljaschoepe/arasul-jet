@@ -26,6 +26,7 @@ import { useTheme, type ThemeWahl } from '@/hooks/useTheme';
 import { formatDate } from '@/utils/formatting';
 import PasswordManagement from './PasswordManagement';
 import { ProfilFormular } from './ProfilFormular';
+import { RechnerVerbinden } from './RechnerVerbinden';
 import { useAusweise, useAusweisWiderrufen } from './useAusweise';
 
 const THEME_WAHLEN: ReadonlyArray<{ wert: ThemeWahl; label: string; icon: typeof Sun }> = [
@@ -128,6 +129,7 @@ function AngemeldeteRechner() {
       }
     >
       {ConfirmDialog}
+      <RechnerVerbinden />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Wird geladen …</p>
       ) : isError ? (

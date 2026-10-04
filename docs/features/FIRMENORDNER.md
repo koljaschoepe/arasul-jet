@@ -528,7 +528,7 @@ bekommt auf `DELETE /dav/spaces/trash-bin/…` ein `403` (Generalprobe
 lagen danach 116 Einträge darin, darunter Kopien von Schlüsseln, und nur ein
 Skript über das Konto des Geräts kam an sie heran.
 
-Deshalb tut es seither das Gerät für ihn: **Einstellungen → Firmenordner**
+Deshalb tut es seither das Gerät für ihn: **Verwaltung → Firmenordner**
 zeigt je Hauptordner und Bereich die Zahl im Papierkorb, ein Klick öffnet
 ihn — jeder Eintrag mit Name, altem Ort, Zeitpunkt und Größe, zurückholen oder
 endgültig entfernen, und darunter **Papierkorb leeren** nach einer Rückfrage.
@@ -773,24 +773,46 @@ des Geräts.
 
 > Seit dem Auftrag `firmenordner-rechte-im-frontend` (22.09.2026).
 
-**Einstellungen → Firmenordner** (`/workspace/settings?tab=firmenordner`,
-`features/settings/FirmenordnerSettings.tsx` plus `firmenordner/`): der
-Ordnerbaum mit Kennung, Name und Art, Anlegen (Bereich, Projekt, am Gerät)
-und Wegwerfen (Kennung abtippen, wie beim Kit-Weg), die **Rechte-Matrix**
-Menschen mal Ordner mit einer Stufe je Zelle — keine, lesen, schreiben —, und
-je Ordner die letzten Änderungen und je Hauptordner und Bereich der
-**Papierkorb** und der **Platz** mit der Grenze (siehe oben). Ein Ordner am Gerät hat **keine
-Rechtespalte**, die Wurzel auch nicht (ihre Regel steht als Satz über der
-Matrix). Ein Projekt, dessen Bereich der Mensch schon hat, sagt in der Zelle
-„wie oben: lesen" und bietet trotzdem mehr an; **weniger** weist das Backend
-mit 409 ab, und der Satz mit dem Ausweg steht dann über der Matrix. Die
-Vergabe erzeugt dieselbe Zeile wie `POST /api/firmenordner/rechte` — die
-Abnahme misst genau das.
+**Verwaltung → Firmenordner** (`/workspace/verwaltung/firmenordner`,
+`features/settings/FirmenordnerSettings.tsx` plus `firmenordner/`; seit M5 mit
+dem Baum als Mitte, vorher Tabelle und Matrix): der **Baum der zwei Ebenen**,
+eine Zeile je Ordner mit Name, Art und der **Zahl der Personen** (Hauptordner:
+„alle", Ordner am Gerät: „nur Apps"). Ein Klick klappt die Zeile auf und zeigt
+**die Stufen je Person** — keine, lesen, schreiben —; erst dort stehen auch
+Größe mit Grenze, der Papierkorb (siehe oben), die letzten Änderungen und
+Wegwerfen (Kennung abtippen, wie beim Kit-Weg). Der **Abgleich** steht
+zugeklappt unter dem Baum, „Jetzt nachholen" nur, wenn etwas offen ist.
+**Adressen des Dateidienstes** (WebDAV-URLs, IPs) zeigt dieser Bereich nirgends.
+Ein Ordner am Gerät und der Hauptordner haben **keine Stufen je Person** (ihre
+Regel steht als Satz im aufgeklappten Ordner). Ein Projekt, dessen Bereich die
+Person schon hat, sagt in der Zelle „wie oben: lesen" und bietet trotzdem mehr
+an; **weniger** weist das Backend mit 409 ab, und der Satz mit dem Ausweg steht
+dann unter der Liste. Die Vergabe erzeugt dieselbe Zeile wie `POST
+/api/firmenordner/rechte` — die Abnahme misst genau das.
 
-**Der Mitarbeiter** sieht seine Ordner im Benutzermenü der Kopfleiste unter
-**Mein Firmenordner** (`features/firmenordner/`), neben seinen Ausweisen: die
-Adresse des Dienstes und die Liste aus `GET /api/firmenordner`, mit Stufe. Ein
-Ordner ohne Recht steht dort nicht, auch sein Name nicht.
+**Die Stufen stehen genau einmal**, am aufgeklappten Ordner. Bis M5 gab es die
+Matrix Menschen mal Ordner zweimal (im Bereich Personen und hier); geblieben ist
+die am Ordner, weil Rechte an einem Ordner entstehen (anlegen, wegwerfen,
+Grenze) und die Frage des Administrators „wer sieht diesen Ordner?" lautet.
+Der Bereich Personen zeigt nur noch die Freigaben der Apps.
+
+**Rechner verbinden.** Die Anleitung ist im Gerät eingebaut, in den
+**Einstellungen unter „Angemeldete Rechner"** (`features/einstellungen/RechnerVerbinden.tsx`),
+für jede Person gleich: arasul.mjs in einen leeren Ordner legen, dort den **einen
+Befehl** `node arasul.mjs login <Adresse des Geräts> --user <E-Mail>` einfügen
+(mit Knopf zum Kopieren; die Adresse ist die, unter der die Seite das Gerät
+erreicht hat, das Passwort fragt der Befehl selbst). Der Administrator findet
+sie an derselben Stelle und nicht noch einmal im Bereich Firmenordner: dieselbe
+Funktion an zwei Orten wäre ein Befund der Prüfung „eine Stelle je Funktion". Der
+Ausweis, den der Befehl ausstellt, steht danach in derselben Liste und lässt sich
+dort abmelden.
+
+**Der Mitarbeiter** hat seit PR 856 keinen Eintrag „Mein Firmenordner" mehr im
+Kontomenü; das Kontomenü zeigt nur Name und Abmelden. Welche Ordner er sieht,
+sagt ihm `sicht.md` in seinem Rechner (vom Gerät erzeugt), und der Weg dorthin
+ist die Anleitung oben.
+
+---
 
 ## Was nicht in dieser Karte steht
 

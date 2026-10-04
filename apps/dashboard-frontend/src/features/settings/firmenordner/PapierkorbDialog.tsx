@@ -26,7 +26,7 @@ import {
   type Ordner,
   type PapierkorbEintrag,
 } from './useFirmenordner';
-import { ordnerWeg } from './OrdnerBaum';
+import { ordnerWeg } from './ordnerWeg';
 import { fehlertext } from '@/utils/fehlertext';
 
 interface Props {

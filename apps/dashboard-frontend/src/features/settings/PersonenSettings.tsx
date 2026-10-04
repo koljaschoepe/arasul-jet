@@ -14,8 +14,8 @@
  * Läufe bleiben stehen. Der Schalter „Verwaltung" macht zum Administrator; der
  * letzte bleibt, und das weist das Backend ab, nicht nur diese Oberfläche.
  *
- * Freigaben sind zwei Tabellen mit fester erster Spalte: Apps (Schalter) und
- * Ordner (Stufe).
+ * Freigaben: die Apps je Person (Schalter). Die Stufen auf den Ordnern stehen
+ * NICHT hier, sondern einmal im Bereich Firmenordner, am aufgeklappten Ordner.
  *
  * Die Rolle blendet aus, das Backend entscheidet: jeder Weg auf dieser Seite
  * trägt `requireRole('admin')` und antwortet einem Mitarbeiter mit 403.
@@ -41,8 +41,6 @@ import {
   type Benutzer,
   type NeuePerson,
 } from './personen/usePersonen';
-import { RechteMatrix } from './firmenordner/RechteMatrix';
-import { useOrdner } from './firmenordner/useFirmenordner';
 
 export function PersonenSettings() {
   const { user } = useAuth();
@@ -50,7 +48,6 @@ export function PersonenSettings() {
   const { confirm, ConfirmDialog } = useConfirm();
 
   const { data: benutzer, isLoading, isError } = useBenutzer();
-  const { data: ordnerDaten } = useOrdner();
   const anlegen = usePersonAnlegen();
   const neuesStartpasswort = useNeuesStartpasswort();
   const aktivSetzen = useAktivSetzen();
@@ -203,16 +200,6 @@ export function PersonenSettings() {
         <Feldgruppe titel="Freigaben: Apps" symbol={<ShieldCheck />}>
           {isLoading ? <SkeletonText lines={3} /> : <FreigabeMatrix benutzer={liste} />}
         </Feldgruppe>
-
-        {ordnerDaten?.zustand?.an !== false && (
-          <Feldgruppe titel="Freigaben: Ordner" symbol={<ShieldCheck />}>
-            {isLoading ? (
-              <SkeletonText lines={3} />
-            ) : (
-              <RechteMatrix benutzer={liste} ordner={ordnerDaten?.ordner ?? []} />
-            )}
-          </Feldgruppe>
-        )}
       </Formularseite>
 
       <PersonAnlegenDialog

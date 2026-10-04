@@ -1,28 +1,29 @@
 /**
- * Firmenordner: Ordnerbaum, Rechte je Person, letzte Änderungen (Auftrag
- * firmenordner-rechte-im-frontend, 22.09.2026, J33).
+ * Firmenordner: der Baum der zwei Ebenen mit der Zahl der Personen, ein Klick
+ * zeigt die Stufen je Person (M5, Verwaltung Firmenordner; gebaut in J33,
+ * 22.09.2026, Auftrag firmenordner-rechte-im-frontend).
  *
- * Die Wege stehen seit PR 765 (Ordner auf zwei Ebenen, Rechte lesen und
- * schreiben, nur vergeben, 409 mit Ausweg) und seit diesem Auftrag die Wurzel
- * (Ebene 0, genau eine, alle lesen, Administratoren schreiben) und das
- * Protokoll je Ordner. Was bis dahin fehlte, war die Oberfläche: ein
- * Administrator legte einen Ordner mit `curl` an und gab ein Recht mit einem
- * zweiten. Für Standardsoftware in einem Unternehmen ist das kein Weg.
+ * Oben nur der Baum. Größe mit Grenze, letzte Änderungen, Papierkorb und
+ * Wegwerfen stehen im aufgeklappten Ordner (`firmenordner/OrdnerBaum.tsx`),
+ * der Abgleich in einem zugeklappten Abschnitt darunter. Adressen des
+ * Dateidienstes stehen hier nirgends: wer einen Rechner verbindet, findet den
+ * Befehl dazu in den Einstellungen unter „Angemeldete Rechner" (eine Stelle je
+ * Funktion; der Administrator hat dieselben Einstellungen wie jeder).
  *
- * WARUM IN DEN EINSTELLUNGEN, neben Mitarbeitern und Apps: dieselbe
- * Begründung wie in D3 und D4. Die Aktivitätsleiste trägt die Arbeit, das
- * Zahnrad darunter das Einrichten des Geräts — und wer welchen Ordner sieht,
- * ist Einrichten. Der Mitarbeiter sieht SEINE Ordner im Benutzermenü der
- * Kopfleiste (`features/firmenordner/`), an derselben Stelle wie seine
- * Ausweise.
+ * Die Stufen je Person gibt es nur hier, am Ordner (`RechteJeOrdner`); der
+ * Bereich Personen zeigt sie nicht mehr.
  *
  * Die Rolle blendet aus, das Backend entscheidet: jeder Weg dieser Seite
  * trägt `requireRole('admin')`.
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, FolderPlus, FolderTree, ListOrdered, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Check, FolderPlus, FolderTree, ListOrdered, RefreshCw } from 'lucide-react';
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Alert,
   AlertDescription,
   AlertTitle,
@@ -45,7 +46,6 @@ import { OrdnerAnlegenDialog } from './firmenordner/OrdnerAnlegenDialog';
 import { OrdnerBaum } from './firmenordner/OrdnerBaum';
 import { OrdnerEntfernenDialog } from './firmenordner/OrdnerEntfernenDialog';
 import { PapierkorbDialog } from './firmenordner/PapierkorbDialog';
-import { RechteMatrix } from './firmenordner/RechteMatrix';
 import {
   ORDNER_KEY,
   RECHTE_KEY,
@@ -146,11 +146,6 @@ export function FirmenordnerSettings() {
   // (J33): „knapp" ab 90 % der Grenze oder unter 10 GB frei auf dem Gerät.
   const eng = (platz?.ordner ?? []).filter(p => p.stufe !== 'gut');
   const voll = eng.some(p => p.stufe === 'voll');
-  const adressen = zustand?.adressen?.length
-    ? zustand.adressen
-    : zustand?.adresse
-      ? [zustand.adresse]
-      : [];
 
   // Nachholen nur, wenn es etwas nachzuholen gibt (J35): ein Knopf, der immer
   // dasteht, fragt den Administrator, ob er ihn druecken muss -- und er weiss
@@ -199,33 +194,7 @@ export function FirmenordnerSettings() {
               <AlertTitle>Der Firmenordner ist gerade nicht erreichbar</AlertTitle>
               <AlertDescription>
                 Ordner und Rechte lassen sich trotzdem anlegen. Sobald er wieder antwortet, steht
-                hier „Jetzt nachholen“, und was fehlt, kommt bei den Mitarbeitern an.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {zustand?.erreichbar !== false && offen > 0 && (
-            <Alert data-testid="firmenordner-offen">
-              <AlertTitle>Noch nicht alles bei den Mitarbeitern angekommen</AlertTitle>
-              <AlertDescription>
-                <span>
-                  {offen === 1 ? 'Eine Änderung' : `${offen.toLocaleString('de-DE')} Änderungen`} an
-                  Ordnern, Konten oder Rechten {offen === 1 ? 'ist' : 'sind'} noch nicht im
-                  Firmenordner angekommen. Das passiert, wenn er kurz nicht erreichbar war. „Jetzt
-                  nachholen“ überträgt sie.
-                </span>
-                <span className="mt-2 block">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleAbgleich()}
-                    disabled={abgleichLaeuft}
-                    data-testid="firmenordner-abgleich"
-                  >
-                    <RefreshCw className="size-4" aria-hidden="true" />
-                    {abgleichLaeuft ? 'Holt nach…' : 'Jetzt nachholen'}
-                  </Button>
-                </span>
+                unter „Abgleich“ „Jetzt nachholen“, und was fehlt, kommt bei den Mitarbeitern an.
               </AlertDescription>
             </Alert>
           )}
@@ -264,7 +233,7 @@ export function FirmenordnerSettings() {
                   nummer={3}
                   erledigt={false}
                   titel="Rechte vergeben"
-                  text="Unten unter „Rechte“ wählen Sie je Mitarbeiter: keine, lesen oder schreiben."
+                  text="Im Baum einen Ordner aufklappen und je Mitarbeiter wählen: keine, lesen oder schreiben."
                   kennzeichen="schritt-rechte"
                 />
               </ol>
@@ -274,7 +243,7 @@ export function FirmenordnerSettings() {
           <Feldgruppe
             titel="Ordner"
             symbol={<FolderTree />}
-            beschreibung={`Ein Bereich enthält Projekte; ein Ordner „am Gerät“ bleibt auf dem Gerät und erscheint bei keinem Mitarbeiter. Was ein Mitarbeiter löscht, liegt im Papierkorb seines Bereichs, bis Sie ihn leeren. Jeder Bereich hat eine Grenze, wie viel er aufnimmt${platz ? ` (neue Bereiche: ${formatBytes(platz.vorgabe)})` : ''}; ein Klick auf „Platz“ stellt sie ein. Frühere Fassungen einer Datei stehen daneben und zählen nicht zur Grenze${platz?.revisionen_je_datei ? `; das Gerät behält je Datei die letzten ${platz.revisionen_je_datei}` : ''}.`}
+            beschreibung="Ein Klick auf einen Ordner zeigt, wer ihn mit welcher Stufe sieht. Rechte auf einem Bereich gelten für jedes Projekt darin."
           >
             {eng.length > 0 && (
               <Alert
@@ -305,24 +274,6 @@ export function FirmenordnerSettings() {
                 </AlertDescription>
               </Alert>
             )}
-            {adressen.length > 0 && (
-              <p className="text-sm text-muted-foreground" data-testid="firmenordner-adressen">
-                Erreichbar unter{' '}
-                <span className="font-mono break-all text-foreground">{adressen[0]}</span>
-                {adressen.length > 1 && (
-                  <>
-                    , im Netz der Firma auch unter{' '}
-                    {adressen.slice(1).map((a, i) => (
-                      <span key={a}>
-                        {i > 0 && ' oder '}
-                        <span className="font-mono break-all text-foreground">{a}</span>
-                      </span>
-                    ))}
-                  </>
-                )}
-                .
-              </p>
-            )}
             {ordner.length === 0 ? (
               <Leerzustand
                 symbol={<FolderTree />}
@@ -332,6 +283,7 @@ export function FirmenordnerSettings() {
             ) : (
               <OrdnerBaum
                 ordner={ordner}
+                benutzer={benutzer ?? []}
                 papierkorb={papierkorb}
                 platz={platz?.ordner}
                 onGrenze={setGrenzeFuer}
@@ -342,19 +294,46 @@ export function FirmenordnerSettings() {
             )}
           </Feldgruppe>
 
-          <Feldgruppe
-            titel="Rechte"
-            symbol={<ShieldCheck />}
-            beschreibung={
-              'Je Mitarbeiter und Ordner eine Stufe: keine, lesen, schreiben. Ein Recht auf einem Bereich gilt für jedes Projekt darin und wird dort nie weniger. ' +
-              (wurzel
-                ? `Den Hauptordner „${wurzel.kennung}“ lesen alle, Administratoren schreiben. `
-                : '') +
-              'Ein Ordner am Gerät hat keine Spalte: ihn lesen nur die Apps.'
-            }
-          >
-            <RechteMatrix benutzer={benutzer ?? []} ordner={ordner} />
-          </Feldgruppe>
+          {zustand?.erreichbar !== false && (
+            <Accordion type="multiple" data-testid="firmenordner-abgleich-abschnitt">
+              <AccordionItem value="abgleich">
+                <AccordionTrigger>
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="size-4 text-muted-foreground" aria-hidden="true" />
+                    Abgleich
+                    {offen > 0 && (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        · {offen.toLocaleString('de-DE')} offen
+                      </span>
+                    )}
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex flex-col gap-ui-3 text-sm" data-testid="firmenordner-offen">
+                    <p className="text-muted-foreground">
+                      {offen === 0
+                        ? 'Alles ist bei den Mitarbeitern angekommen.'
+                        : `${offen === 1 ? 'Eine Änderung' : `${offen.toLocaleString('de-DE')} Änderungen`} an Ordnern, Konten oder Rechten ${offen === 1 ? 'ist' : 'sind'} noch nicht im Firmenordner angekommen. Das passiert, wenn er kurz nicht erreichbar war.`}
+                    </p>
+                    {offen > 0 && (
+                      <span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleAbgleich()}
+                          disabled={abgleichLaeuft}
+                          data-testid="firmenordner-abgleich"
+                        >
+                          <RefreshCw className="size-4" aria-hidden="true" />
+                          {abgleichLaeuft ? 'Holt nach…' : 'Jetzt nachholen'}
+                        </Button>
+                      </span>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
         </Formularseite>
       )}
 

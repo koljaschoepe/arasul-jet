@@ -66,7 +66,9 @@ src/
                    Vorname, Nachname, Funktion, Kürzel, Bild), Passwort
                    (`PasswordManagement.tsx`), Angemeldete Rechner (die Ausweise
                    der Person, „abmelden" widerruft; erzeugt wird im Browser
-                   nie einer, `useAusweise.ts`) und Erscheinungsbild (System,
+                   nie einer, `useAusweise.ts`; darüber die Anleitung zum Verbinden
+                   eines Rechners mit einem Befehl zum Kopieren,
+                   `RechnerVerbinden.tsx`) und Erscheinungsbild (System,
                    hell, dunkel; `useTheme` löst `system` selbst auf). Kein
                    Kopf mit Logo, oben steht gleich „Profil", die vier
                    Abschnitte untereinander. Das Kontomenü (eigenes Bild
@@ -172,20 +174,30 @@ src/
                      (`PersonAnlegenDialog.tsx`), Startpasswort einmal als
                      Text oder Zettel (`StartpasswortDialog.tsx`), Sperren,
                      Schalter „Verwaltung" (der letzte Admin bleibt, das
-                     Backend weist ab), Freigaben als zwei Tabellen mit fester
-                     erster Spalte: Apps (Schalter, `FreigabeMatrix.tsx`) und
-                     Ordner (Stufe, `firmenordner/RechteMatrix.tsx`).
+                     Backend weist ab), Freigaben der Apps als Tabelle mit fester
+                     erster Spalte (Schalter, `FreigabeMatrix.tsx`). Die Stufen
+                     auf Ordnern stehen NICHT hier, sondern einmal im Bereich
+                     Firmenordner (eine Stelle je Funktion).
                      `usePersonen.ts`, `useAppFreigaben.ts` — Liste nach jedem
                      Ausgang entwerten, auch nach Fehler. Das eigene Profil
                      (`features/einstellungen/`) trägt Vorname, Nachname,
                      Funktion, Kürzel, Bild; die erste Anmeldung zeigt Name
                      und Bild zum Prüfen (`PasswortWechseln`).
                    - **Firmenordner** (`FirmenordnerSettings.tsx` +
-                     `firmenordner/`): Ordnerbaum (`OrdnerBaum.tsx`),
-                     Anlegen/Wegwerfen (Kennung abtippen), Rechte-Matrix
-                     Menschen mal Ordner (`RechteMatrix.tsx`; Wurzel und
-                     Geräteordner ohne Spalte, 409 als Satz über der Matrix),
-                     Änderungen je Ordner (`AenderungenDialog.tsx`).
+                     `firmenordner/`, M5): der Baum der zwei Ebenen
+                     (`OrdnerBaum.tsx`, ein `Accordion`, eine Zeile je Ordner
+                     mit Art und Zahl der Personen, keine Adressen). Ein Klick
+                     klappt auf: die Stufen je Person (`RechteJeOrdner.tsx`,
+                     DIE EINE Stelle für Rechte; Wurzel und Geräteordner ohne
+                     Stufen, 409 als Satz unter der Liste), dazu Größe mit
+                     Grenze, Papierkorb, letzte Änderungen
+                     (`AenderungenDialog.tsx`) und Wegwerfen (Kennung
+                     abtippen). Der Abgleich steht zugeklappt darunter, mit
+                     „Jetzt nachholen" nur bei Offenem. Die Anleitung zum
+                     Verbinden eines Rechners steht NICHT hier, sondern in den
+                     Einstellungen (`einstellungen/RechnerVerbinden.tsx`, unter
+                     „Angemeldete Rechner", ein Befehl zum Kopieren; auch der
+                     Administrator findet sie dort, damit sie nur einmal steht).
                      `firmenordner/useFirmenordner.ts`.
     modelle/       Die Modelle des Geräts: `ModelleAnsicht.tsx` (der Bereich
                    „Modelle" der Verwaltung: Zeile Speicher für KI, je Modell

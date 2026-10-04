@@ -204,6 +204,18 @@ async function waehle(zelle: string, eintrag: string) {
   fireEvent.keyDown(option, { key: 'Enter' });
 }
 
+/** Eine Zeile des Baums aufklappen: Stufen, Größe und Handgriffe stehen erst dann da. */
+async function oeffne(kennung: string) {
+  const zeile = await screen.findByTestId(`ordner-${kennung}`);
+  fireEvent.click(within(zeile).getAllByRole('button')[0]!);
+  await waitFor(() => expect(within(zeile).getAllByRole('button').length).toBeGreaterThan(1));
+}
+
+async function oeffneAbgleich() {
+  const abschnitt = await screen.findByTestId('firmenordner-abgleich-abschnitt');
+  fireEvent.click(within(abschnitt).getByRole('button'));
+}
+
 describe('FirmenordnerSettings', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
@@ -229,12 +241,12 @@ describe('FirmenordnerSettings', () => {
     expect(within(baum).getByTestId('ordner-art-firma')).toHaveTextContent('Hauptordner');
   });
 
-  it('gibt einem Ordner am Geraet und der Wurzel keine Rechtespalte', async () => {
+  it('gibt einem Ordner am Geraet und der Wurzel keine Stufen je Person', async () => {
     antworte();
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('rechte-matrix');
-    expect(screen.getByTestId('recht-projekte-mia')).toBeInTheDocument();
+    for (const k of ['firma', 'projekte', 'vicona', 'geraet']) await oeffne(k);
+    expect(await screen.findByTestId('recht-projekte-mia')).toBeInTheDocument();
     expect(screen.getByTestId('recht-vicona-mia')).toBeInTheDocument();
     expect(screen.queryByTestId('recht-geraet-mia')).not.toBeInTheDocument();
     expect(screen.queryByTestId('recht-firma-mia')).not.toBeInTheDocument();
@@ -245,7 +257,7 @@ describe('FirmenordnerSettings', () => {
     apiMock.post.mockResolvedValue({ data: { neu: true } });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('rechte-matrix');
+    await oeffne('projekte');
     await waehle('recht-projekte-mia', 'lesen');
 
     await waitFor(() =>
@@ -277,7 +289,8 @@ describe('FirmenordnerSettings', () => {
     apiMock.del.mockResolvedValue({});
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('rechte-matrix');
+    await oeffne('projekte');
+    await oeffne('vicona');
     // Vererbt: das Projekt darunter sagt „wie oben: lesen".
     fireEvent.keyDown(screen.getByTestId('recht-vicona-mia'), { key: 'Enter' });
     expect(await screen.findByTestId('recht-vicona-mia-keine')).toHaveTextContent(
@@ -317,7 +330,7 @@ describe('FirmenordnerSettings', () => {
     apiMock.post.mockRejectedValue(fehler);
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('rechte-matrix');
+    await oeffne('vicona');
     await waehle('recht-vicona-mia', 'lesen');
 
     const meldung = await screen.findByTestId('rechte-fehler');
@@ -351,7 +364,7 @@ describe('FirmenordnerSettings', () => {
     apiMock.del.mockResolvedValue({});
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('ordner-baum');
+    await oeffne('vicona');
     fireEvent.click(screen.getByTestId('ordner-wegwerfen-vicona'));
     const knopf = await screen.findByTestId('ordner-wegwerfen-absenden');
     expect(knopf).toBeDisabled();
@@ -386,7 +399,7 @@ describe('FirmenordnerSettings', () => {
     antworte({ rechte: [RECHT('3', '7', 'mia'), RECHT('3', '1', 'admin')] });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('rechte-matrix');
+    await oeffne('vicona');
     fireEvent.click(screen.getByTestId('ordner-wegwerfen-vicona'));
     const liste = await screen.findByTestId('ordner-wegwerfen-rechte');
     expect(liste).toHaveTextContent('mia: schreiben');
@@ -404,7 +417,7 @@ describe('FirmenordnerSettings', () => {
     apiMock.del.mockResolvedValue({ data: { kennung: 'vicona', rechte_entzogen: ['admin'] } });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('rechte-matrix');
+    await oeffne('vicona');
     fireEvent.click(screen.getByTestId('ordner-wegwerfen-vicona'));
     expect(await screen.findByTestId('ordner-wegwerfen-eigenes')).toBeInTheDocument();
     expect(screen.queryByTestId('ordner-wegwerfen-rechte')).not.toBeInTheDocument();
@@ -419,7 +432,7 @@ describe('FirmenordnerSettings', () => {
     antworte();
     render(<FirmenordnerSettings />, { wrapper: huelle() });
 
-    await screen.findByTestId('ordner-baum');
+    await oeffne('projekte');
     fireEvent.click(screen.getByTestId('ordner-aenderungen-projekte'));
     const liste = await screen.findByTestId('ordner-aenderungen');
     expect(await within(liste).findByTestId('aenderung')).toHaveTextContent('Mia hat');
@@ -497,6 +510,7 @@ describe('FirmenordnerSettings', () => {
     antworte();
     const { unmount } = render(<FirmenordnerSettings />, { wrapper: huelle() });
     await screen.findByTestId('ordner-baum');
+    await oeffneAbgleich();
     expect(screen.queryByTestId('firmenordner-abgleich')).not.toBeInTheDocument();
     unmount();
 
@@ -505,6 +519,11 @@ describe('FirmenordnerSettings', () => {
       data: { an: true, nutzer: 0, raeume: 0, rechte: 2, offen: [] },
     });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    // Zugeklappt, aber die Zahl steht schon im Kopf des Abschnitts.
+    expect(await screen.findByTestId('firmenordner-abgleich-abschnitt')).toHaveTextContent(
+      '2 offen'
+    );
+    await oeffneAbgleich();
     expect(await screen.findByTestId('firmenordner-offen')).toHaveTextContent('2 Änderungen');
     fireEvent.click(screen.getByTestId('firmenordner-abgleich'));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/firmenordner/abgleich'));
@@ -514,7 +533,7 @@ describe('FirmenordnerSettings', () => {
   it('zeigt je Hauptordner und Bereich die Zahl im Papierkorb, einem Projekt keine', async () => {
     antworte();
     render(<FirmenordnerSettings />, { wrapper: huelle() });
-    await screen.findByTestId('ordner-baum');
+    for (const k of ['firma', 'projekte', 'vicona']) await oeffne(k);
     expect(await screen.findByTestId('ordner-papierkorb-firma')).toHaveAttribute(
       'data-anzahl',
       '2'
@@ -527,6 +546,7 @@ describe('FirmenordnerSettings', () => {
     antworte();
     apiMock.del.mockResolvedValue({ data: { ordner: 'firma', vorher: 2, nachher: 0 } });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await oeffne('firma');
     fireEvent.click(await screen.findByTestId('ordner-papierkorb-firma'));
     const dialog = await screen.findByTestId('papierkorb');
     expect(await within(dialog).findAllByTestId('papierkorb-eintrag')).toHaveLength(2);
@@ -557,6 +577,7 @@ describe('FirmenordnerSettings', () => {
       message: 'An der alten Stelle „pk-probe-ordner“ liegt inzwischen etwas anderes.',
     });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await oeffne('firma');
     fireEvent.click(await screen.findByTestId('ordner-papierkorb-firma'));
     fireEvent.click(await screen.findByTestId('papierkorb-zurueck-283cf8a8'));
     await waitFor(() =>
@@ -573,6 +594,7 @@ describe('FirmenordnerSettings', () => {
   it('zeigt je Hauptordner und Bereich belegt und Grenze, einem Projekt keine', async () => {
     antworte();
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    for (const k of ['firma', 'projekte', 'vicona']) await oeffne(k);
     const firma = await screen.findByTestId('ordner-platz-firma');
     await waitFor(() => expect(firma).toHaveAttribute('data-stufe', 'knapp'));
     expect(firma).toHaveTextContent('950 MB von 1 GB');
@@ -585,13 +607,12 @@ describe('FirmenordnerSettings', () => {
     const warnung = screen.getByTestId('firmenordner-platz-warnung');
     expect(warnung).toHaveTextContent('„firma“: 950 MB von 1 GB belegt, frei 50 MB.');
     expect(warnung).toHaveTextContent('Ein Bereich wird bald voll');
-    // Die Vorgabe für neue Bereiche steht in der Beschreibung.
-    expect(screen.getByText(/neue Bereiche: 100 GB/)).toBeInTheDocument();
   });
 
   it('ohne engen Bereich steht keine Warnung', async () => {
     antworte({ platz: { ...PLATZ, ordner: [PLATZ.ordner[1]] } });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await oeffne('projekte');
     await screen.findByTestId('ordner-platz-projekte');
     await waitFor(() =>
       expect(screen.getByTestId('ordner-platz-projekte')).toHaveAttribute('data-stufe', 'gut')
@@ -611,19 +632,21 @@ describe('FirmenordnerSettings', () => {
       },
     });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await oeffne('projekte');
+    await oeffne('firma');
     const fassungen = await screen.findByTestId('ordner-fassungen-projekte');
     expect(fassungen).toHaveTextContent('+ 3 MB frühere Fassungen');
     // Die Belegung bleibt, was der Dienst meldet.
     expect(screen.getByTestId('ordner-platz-projekte')).toHaveAttribute('data-belegt', '31');
     // Ohne Fassungen steht nichts da.
     expect(screen.queryByTestId('ordner-fassungen-firma')).not.toBeInTheDocument();
-    expect(screen.getByText(/das Gerät behält je Datei die letzten 10/)).toBeInTheDocument();
   });
 
   it('stellt die Grenze ein: Zahl mit Einheit, nie unter dem Belegten', async () => {
     antworte();
     apiMock.put.mockResolvedValue({ data: {} });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await oeffne('firma');
     const knopf = await screen.findByTestId('ordner-platz-firma');
     await waitFor(() => expect(knopf).toHaveAttribute('data-stufe', 'knapp'));
     fireEvent.click(knopf);
@@ -653,6 +676,7 @@ describe('FirmenordnerSettings', () => {
     antworte();
     apiMock.put.mockRejectedValue({ status: 409, message: 'In „firma“ liegen schon 950 MB.' });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
+    await oeffne('firma');
     const knopf = await screen.findByTestId('ordner-platz-firma');
     await waitFor(() => expect(knopf).toHaveAttribute('data-stufe', 'knapp'));
     fireEvent.click(knopf);
@@ -668,21 +692,30 @@ describe('FirmenordnerSettings', () => {
     expect(await screen.findByTestId('grenze-fehler')).toHaveTextContent('liegen schon');
   });
 
-  it('nennt neben der Adresse die im Netz der Firma', async () => {
+  /** M5: keine Adresse des Dateidienstes in der Verwaltung, weder zugeklappt noch aufgeklappt. */
+  it('zeigt keine Adressen, auch aufgeklappt nicht', async () => {
     antworte({
       zustand: {
         ...ZUSTAND,
         adresse: 'https://192.168.0.197:8443',
-        adressen: [
-          'https://192.168.0.197:8443',
-          'https://arasul:8443',
-          'https://arasul.local:8443',
-        ],
+        adressen: ['https://192.168.0.197:8443', 'https://arasul.local:8443'],
       },
     });
     render(<FirmenordnerSettings />, { wrapper: huelle() });
-    const zeile = await screen.findByTestId('firmenordner-adressen');
-    expect(zeile).toHaveTextContent('Erreichbar unter https://192.168.0.197:8443');
-    expect(zeile).toHaveTextContent('https://arasul.local:8443');
+    for (const k of ['firma', 'projekte', 'vicona', 'geraet']) await oeffne(k);
+    await oeffneAbgleich();
+    const text = screen.getByTestId('firmenordner-seite').textContent ?? '';
+    expect(text).not.toMatch(/https?:\/\/|\d+\.\d+\.\d+\.\d+|arasul\.local|dav/i);
+    expect(screen.queryByTestId('firmenordner-adressen')).not.toBeInTheDocument();
+  });
+
+  it('nennt je Ordner die Zahl der Personen und klappt Stufen erst auf Klick auf', async () => {
+    antworte({ ordner: [WURZEL, { ...PROJEKTE, rechte_anzahl: 2 }, VICONA, GERAET] });
+    render(<FirmenordnerSettings />, { wrapper: huelle() });
+    expect(await screen.findByTestId('ordner-personen-projekte')).toHaveTextContent('2 Personen');
+    expect(screen.queryByTestId('recht-projekte-mia')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ordner-platz-projekte')).not.toBeInTheDocument();
+    await oeffne('projekte');
+    expect(await screen.findByTestId('recht-projekte-mia')).toBeInTheDocument();
   });
 });
