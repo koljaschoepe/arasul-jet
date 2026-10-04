@@ -67,6 +67,37 @@ ausliefert, steht ohne Anmeldung in `/marken/marken.json`. Unter
 Hauptzahl und damit die Adresse. Der Kontrakt des Geräts nennt denselben Weg
 im Abschnitt `marken`.
 
+**Eine Freigabe mit erkannten Feldern (ab 5.4.0).** Die Anfragen aus
+`GET /api/freigabe-anfragen` tragen bei einer Erkennung `felder`, `original` und
+`frueher`; das Muster `Freigabe` zeigt sie mit dem Original links, den Feldern
+rechts und „prüfen" oben, und `beiBestaetigen(eintrag, geaendert)` bekommt die
+geänderten Werte, die die App als `felder` an `…/bestaetigen` schickt:
+
+```js
+h(Freigabe, {
+  eintraege: anfragen.map(a => ({
+    id: a.id,
+    titel: a.titel,
+    frist: a.frist,
+    angefragtAm: a.angefragt_am,
+    felder: a.felder,
+    original: a.original,
+    bisher: (a.frueher || []).map(v => ({
+      titel: v.titel,
+      stufe: v.stufe,
+      status: v.status,
+      entschiedenVon: v.entschieden_von,
+      entschiedenAm: v.entschieden_am,
+      korrekturen: v.korrekturen,
+    })),
+  })),
+  beiBestaetigen: (e, felder) =>
+    senden(`/api/freigabe-anfragen/${e.id}/bestaetigen`, felder ? { felder } : {}),
+  beiAblehnen: (e, grund) =>
+    senden(`/api/freigabe-anfragen/${e.id}/ablehnen`, { begruendung: grund }),
+});
+```
+
 Die zwei Wege darunter legen eine Kopie in die App. Sie laufen weiter, die
 Kopie veraltet aber mit jedem Update des Geräts.
 

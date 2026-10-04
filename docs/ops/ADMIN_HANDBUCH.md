@@ -121,6 +121,19 @@ die Verwaltung zeigt dazu einen Hinweis. Zur Wahl stehen nur Menschen mit
 Zugang zur App; verliert die Standardperson den Zugang, faellt die Stufe auf
 „alle mit Zugang" zurueck.
 
+**Ein Feld korrigieren statt ablehnen.** Hat ein Flow etwas erkannt, etwa einen
+Beleg gelesen, und war er sich bei einem Feld nicht sicher, steht auf der Karte
+**Pruefen** statt Bestaetigen. Pruefen oeffnet die Freigabe ganz: links das
+Original (Bild oder PDF, mit Vergroessern und Verkleinern), rechts die erkannten
+Felder, was zu pruefen ist oben mit dem Zeichen **pruefen**. Felder, die die App
+zum Aendern freigibt, sind Eingabefelder mit dem Vorschlag der KI darin; aendern
+Sie den Wert und bestaetigen Sie, der Lauf arbeitet mit Ihrem Wert weiter. Oben
+steht in einem Satz, was bisher geschah, etwa welche Stufe schon bestaetigt hat;
+die frueheren Stufen klappen auf. Gespeichert wird beides, der Vorschlag der KI
+und Ihre Aenderung mit Ihrem Namen und der Zeit. Der Administrator liest es
+unter **Verwaltung > Apps > (die App) > Laeufe > (der Lauf)**: „Erkannte Felder
+und Aenderungen". Nach der Entscheidung steht wieder die Liste da.
+
 Die Karte verschwindet, sobald entschieden ist. Steht danach eine Meldung, dass
 der Lauf nicht mehr fortgesetzt wird, wurde das Geraet zwischendurch neu
 gestartet: die Entscheidung ist festgehalten, den Lauf muss jemand neu
