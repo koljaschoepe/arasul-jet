@@ -730,6 +730,9 @@ async function appsFuerNutzer(benutzerId) {
       id: z.id,
       name: z.name,
       beschreibung: z.beschreibung,
+      // Das Symbol der Leiste (Kontrakt 8): der Livestand gilt, der Test nur,
+      // wenn es keinen gibt. Fehlt es, zeichnet die Shell das Kuerzel.
+      symbol: z.live_manifest?.symbol ?? z.test_manifest?.symbol ?? null,
       live:
         z.live_version && (await seiteDa(z.live_manifest))
           ? {
@@ -749,6 +752,27 @@ async function appsFuerNutzer(benutzerId) {
     });
   }
   return apps.filter(a => a.live || a.test);
+}
+
+/**
+ * Die Reihenfolge der Apps in der Aktivitaetsleiste dieses Menschen (M5).
+ * Eintraege sind `<kennung>:<stand>`; was nicht drinsteht, kommt dahinter in
+ * der Ordnung des Geraets. Sie gehoert dem Menschen und liegt am Geraet, damit
+ * sie an jedem Rechner gilt.
+ */
+async function leseReihenfolge(benutzerId) {
+  const { rows } = await db.query('SELECT app_reihenfolge FROM public.admin_users WHERE id = $1', [
+    benutzerId,
+  ]);
+  return rows[0]?.app_reihenfolge ?? [];
+}
+
+async function setzeReihenfolge(benutzerId, liste) {
+  const { rows } = await db.query(
+    'UPDATE public.admin_users SET app_reihenfolge = $2::jsonb WHERE id = $1 RETURNING app_reihenfolge',
+    [benutzerId, JSON.stringify(liste)]
+  );
+  return rows[0]?.app_reihenfolge ?? [];
 }
 
 /**
@@ -832,6 +856,8 @@ module.exports = {
   schalte,
   entferneApp,
   appsFuerNutzer,
+  leseReihenfolge,
+  setzeReihenfolge,
   ausliefernAus,
   pruefeStaende,
   standZustand,

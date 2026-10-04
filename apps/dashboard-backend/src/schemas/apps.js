@@ -345,6 +345,20 @@ const Verbindungen = z
   .refine(liste => new Set(liste).size === liste.length, 'Ein Hostname steht zweimal da');
 
 /**
+ * Die Reihenfolge der Apps in der Leiste: `<kennung>:<stand>`, hoechstens 200.
+ * Das Geraet prueft die Form, nicht, ob die Person die App noch sieht -- eine
+ * Freigabe kommt und geht, die Reihenfolge bleibt.
+ */
+const ReihenfolgeBody = z
+  .object({
+    reihenfolge: z
+      .array(z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}:(live|test)$/, 'Form: <kennung>:<stand>'))
+      .max(200, 'hoechstens 200 Eintraege')
+      .refine(l => new Set(l).size === l.length, 'Ein Eintrag steht zweimal da'),
+  })
+  .strict();
+
+/**
  * Das Symbol einer App in der Aktivitaetsleiste (M5, Kontrakt 8).
  *
  * Zwei Schreibweisen, die sich nicht ueberschneiden, damit das Geraet am Wert
@@ -740,6 +754,7 @@ const StufePersonBody = z
 
 module.exports = {
   AppId,
+  ReihenfolgeBody,
   Stand,
   Version,
   AppManifest,

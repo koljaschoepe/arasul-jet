@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Probe: Leiste</title>
+  </head>
+  <body>
+    <!--
+      `window.__lade` ist die Marke dieses Ladens: ändert sie sich, wurde der
+      Rahmen neu aufgebaut. Das Feld und die Länge der Seite zeigen, ob Eingabe
+      und Scrollstand einen Wechsel überstehen.
+    -->
+    <label for="feld">Eingabe</label>
+    <input id="feld" type="text" autocomplete="off" />
+    <div style="height: 3000px">lange Seite</div>
+    <script>
+      window.__lade = Math.random().toString(36).slice(2);
+    </script>
+  </body>
+</html>

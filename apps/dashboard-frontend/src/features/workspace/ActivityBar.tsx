@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { House, LogOut, Settings, SlidersHorizontal } from 'lucide-react';
 import {
   Popover,
@@ -11,7 +11,14 @@ import {
 } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
-import { useMeineApps, zuEintraegen } from '@/features/apps/meineApps';
+import {
+  useMeineApps,
+  zuEintraegen,
+  ordneEintraege,
+  reihenfolgeSchluessel,
+  useAppReihenfolge,
+} from '@/features/apps/meineApps';
+import { AppSymbol } from './AppSymbol';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { PersonAvatar } from '@/components/PersonAvatar';
 import { API_BASE } from '@/config/api';
@@ -56,9 +63,11 @@ interface LeistenKnopfProps {
   onClick: () => void;
   kennzeichen: string;
   children: React.ReactNode;
+  /** Zusätzliche Eigenschaften des Knopfs (Ziehen, Tastatur). */
+  extra?: React.ButtonHTMLAttributes<HTMLButtonElement>;
 }
 
-function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children }: LeistenKnopfProps) {
+function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children, extra }: LeistenKnopfProps) {
   return (
     <MitName name={name}>
       <button
@@ -68,6 +77,7 @@ function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children }: LeistenKn
         data-testid={kennzeichen}
         onClick={onClick}
         className={knopfKlasse(aktiv)}
+        {...extra}
       >
         {children}
       </button>
@@ -76,7 +86,7 @@ function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children }: LeistenKn
 }
 
 /**
- * Das Kürzel einer App, bis `app.json` ein Symbol nennt: die Anfänge von zwei
+ * Das Kürzel einer App, wenn `app.json` kein Symbol nennt: die Anfänge von zwei
  * Wörtern, sonst die ersten zwei Buchstaben.
  */
 export function appKuerzel(name: string): string {
@@ -147,7 +157,35 @@ export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void
   const { data: apps } = useMeineApps();
   const { data: freigaben } = useOffeneFreigaben();
   const wartend = freigaben?.length ?? 0;
-  const eintraege = zuEintraegen(apps ?? []);
+  const { reihenfolge, speichere } = useAppReihenfolge();
+  const eintraege = ordneEintraege(zuEintraegen(apps ?? []), reihenfolge);
+  const leiste = useRef<HTMLDivElement>(null);
+  const [ziehend, setZiehend] = useState<string | null>(null);
+  const [ueber, setUeber] = useState<string | null>(null);
+  const [angesagt, setAngesagt] = useState('');
+  const fokus = useRef<string | null>(null);
+
+  // Nach dem Verschieben mit der Tastatur steht der Fokus wieder auf dem Knopf:
+  // der Browser verliert ihn, wenn React das Element umhängt.
+  useEffect(() => {
+    if (!fokus.current) return;
+    leiste.current
+      ?.querySelector<HTMLButtonElement>(`[data-schluessel="${fokus.current}"]`)
+      ?.focus();
+    fokus.current = null;
+  });
+
+  /** `von` an die Stelle von `nach` setzen und am Gerät speichern. */
+  const verschiebe = (von: string, nach: number) => {
+    const schluessel = eintraege.map(reihenfolgeSchluessel);
+    const i = schluessel.indexOf(von);
+    if (i < 0 || nach < 0 || nach >= schluessel.length || nach === i) return;
+    schluessel.splice(i, 1);
+    schluessel.splice(nach, 0, von);
+    const uebrige = reihenfolge.filter(k => !schluessel.includes(k));
+    speichere([...schluessel, ...uebrige]);
+    return nach;
+  };
 
   return (
     <nav
@@ -176,9 +214,11 @@ export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void
       <div
         className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-x-hidden overflow-y-auto"
         data-testid="leiste-apps"
+        ref={leiste}
       >
-        {eintraege.map(e => {
+        {eintraege.map((e, index) => {
           const id = ansichtId({ type: 'app', appId: e.id, stand: e.stand });
+          const schluessel = reihenfolgeSchluessel(e);
           const name = e.stand === 'test' ? `(Test) ${e.name}` : e.name;
           return (
             <LeistenKnopf
@@ -187,10 +227,48 @@ export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void
               aktiv={aktivId === id}
               kennzeichen={`leiste-app-${e.id}-${e.stand}`}
               onClick={() => oeffne({ type: 'app', appId: e.id, stand: e.stand, title: e.name })}
+              extra={{
+                draggable: true,
+                ['data-schluessel' as string]: schluessel,
+                'aria-keyshortcuts': 'Alt+ArrowUp Alt+ArrowDown',
+                className: cn(
+                  knopfKlasse(aktivId === id),
+                  ziehend === schluessel && 'opacity-40',
+                  ueber === schluessel && ziehend !== schluessel && 'ring-2 ring-primary/50'
+                ),
+                onDragStart: ev => {
+                  setZiehend(schluessel);
+                  ev.dataTransfer.effectAllowed = 'move';
+                  ev.dataTransfer.setData('text/plain', schluessel);
+                },
+                onDragOver: ev => {
+                  if (!ziehend) return;
+                  ev.preventDefault();
+                  setUeber(schluessel);
+                },
+                onDrop: ev => {
+                  ev.preventDefault();
+                  if (ziehend) verschiebe(ziehend, index);
+                  setZiehend(null);
+                  setUeber(null);
+                },
+                onDragEnd: () => {
+                  setZiehend(null);
+                  setUeber(null);
+                },
+                // Tastatur-Alternative zum Ziehen: Alt + Pfeil nach oben/unten.
+                onKeyDown: ev => {
+                  if (!ev.altKey || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
+                  ev.preventDefault();
+                  const nach = verschiebe(schluessel, index + (ev.key === 'ArrowUp' ? -1 : 1));
+                  if (nach !== undefined) {
+                    fokus.current = schluessel;
+                    setAngesagt(`${name}, Platz ${nach + 1} von ${eintraege.length}`);
+                  }
+                },
+              }}
             >
-              <span className="text-ui-xs font-medium" aria-hidden="true">
-                {appKuerzel(e.name)}
-              </span>
+              <AppSymbol symbol={e.symbol} kuerzel={appKuerzel(e.name)} />
               {e.stand === 'test' && (
                 <span
                   className="absolute right-1 bottom-1 size-1.5 rounded-full bg-muted-foreground"
@@ -201,6 +279,9 @@ export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void
           );
         })}
       </div>
+      <p className="sr-only" role="status" aria-live="polite">
+        {angesagt}
+      </p>
 
       {istAdmin && (
         <LeistenKnopf

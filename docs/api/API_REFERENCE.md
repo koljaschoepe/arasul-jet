@@ -770,7 +770,7 @@ Bindestrich, höchstens 64 Zeichen, beginnend mit Buchstabe oder Ziffer.
 
 Freigegeben wird an jeden Benutzer, auch an einen Administrator: die Rolle sagt,
 wer verwaltet, nicht wer arbeitet. Alle drei Wege sind Admin-Wege. Was der
-Mitarbeiter selbst davon sieht, steht unter `GET /api/apps/meine`.
+Mitarbeiter selbst davon sieht, steht unter `GET /api/apps/meine`. Jede App dort trägt `symbol` (aus `app.json`, Kontrakt 8: Lucide-Name oder 1 bis 3 Großbuchstaben, sonst `null`).
 
 | Method | Endpoint                            | Description                                                                                        |
 | ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -1081,6 +1081,8 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/apps`                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                                                  |
 | GET    | `/api/apps/meine`                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                                            |
+| GET    | `/api/apps/reihenfolge`              | Meine Reihenfolge der Apps in der Aktivitätsleiste, Liste von `<kennung>:<stand>` (M5)                        |
+| PUT    | `/api/apps/reihenfolge`              | Reihenfolge setzen, Body `{ reihenfolge: ["<kennung>:<stand>", …] }`, höchstens 200, ohne Doppelte (M5)       |
 | GET    | `/api/apps/:id`                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                                    |
 | POST   | `/api/apps/:id/einspielen`           | Eine Version in einen Stand bringen                                                                           |
 | DELETE | `/api/apps/:id`                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen) |

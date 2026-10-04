@@ -88,6 +88,9 @@
 > Browsers, war also an den Rechner gebunden statt an den Menschen; »Schwarz«
 > als drittes Theme ist mit H1 gefallen. Geschrieben wird die Spalte über
 > `PUT /api/darstellung`, gelesen kommt sie mit `GET /api/auth/session` mit.
+> `app_reihenfolge` (Migration 201, M5) ist die Reihenfolge der Apps in der
+> Aktivitätsleiste dieser Person: JSONB-Liste von `<kennung>:<stand>`, Vorgabe `[]`;
+> gelesen und geschrieben über `GET/PUT /api/apps/reihenfolge`.
 
 | Column                            | Type                     | Nullable | Default                                   |
 | --------------------------------- | ------------------------ | -------- | ----------------------------------------- |

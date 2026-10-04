@@ -38,6 +38,7 @@ const {
   LogsQuery,
   SchaltenBody,
   ZugangQuery,
+  ReihenfolgeBody,
 } = require('../../schemas/apps');
 const appStore = require('../../services/app/appStore');
 const liveSchalten = require('../../services/app/liveSchalten');
@@ -72,6 +73,32 @@ router.get(
   requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const data = await appStore.appsFuerNutzer(req.user.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET/PUT /api/apps/reihenfolge — die Reihenfolge meiner Apps in der
+ * Aktivitaetsleiste (M5). Gehoert dem Angemeldeten, keine Kennung in der
+ * Adresse; steht VOR `/:id`.
+ */
+router.get(
+  '/reihenfolge',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  asyncHandler(async (req, res) => {
+    const data = await appStore.leseReihenfolge(req.user.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+router.put(
+  '/reihenfolge',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  validateBody(ReihenfolgeBody),
+  asyncHandler(async (req, res) => {
+    const data = await appStore.setzeReihenfolge(req.user.id, req.body.reihenfolge);
     res.json({ data, timestamp: new Date().toISOString() });
   })
 );

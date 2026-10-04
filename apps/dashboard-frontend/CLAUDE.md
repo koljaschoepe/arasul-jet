@@ -198,9 +198,14 @@ src/
                    der **Startseite**.
                    • **ActivityBar** — oben das Haus (Startseite, mit der
                      Zahl offener Freigaben aus `useOffeneFreigaben`),
-                     darunter die eigenen Apps als Kürzel mit dem Namen im
-                     Tooltip (`GET /api/apps/meine`, ab etwa zehn rollt der
-                     Teil), unten fest Verwaltung [admin], Zahnrad [alle] und
+                     darunter die eigenen Apps als Symbol (`symbol` aus
+                     `app.json`: Lucide-Name, nachgeladen in `AppSymbol.tsx`,
+                     oder Kürzel; ohne Symbol das Kürzel aus dem Namen) mit dem
+                     Namen im Tooltip (`GET /api/apps/meine`, ab etwa zehn
+                     rollt der Teil). Jeder ordnet sie durch Ziehen oder mit
+                     Alt+Pfeil hoch/runter; die Reihenfolge liegt am Gerät
+                     (`GET/PUT /api/apps/reihenfolge`, `useAppReihenfolge`),
+                     nicht im Browser, unten fest Verwaltung [admin], Zahnrad [alle] und
                      das eigene Bild (Popover: Name, Abmelden). Auswahl ist
                      eine getönte Fläche (`bg-primary/12`), kein Balken;
                      Hover blendet in 120 ms ein, `motion-reduce` gilt. Das
@@ -214,11 +219,12 @@ src/
                      den Schlüsseln der Verwaltung, leer ist leer — keine
                      grünen Meldungen). Die Shell reicht beides als Slot.
                    • **AnsichtInhalt** — die Weiche (`AnsichtWeiche`) und
-                     die eine ErrorBoundary; der Schlüssel ist `ansichtId`,
+                     die ErrorBoundary; der Schlüssel ist `ansichtId`,
                      ein Wechsel baut neu auf, ein Bereich der Verwaltung
-                     nicht. Eine App, die man verlässt, fängt beim
-                     Zurückkommen von vorn an (bis zur Karte
-                     apps-im-hintergrund).
+                     nicht. Die Apps stehen im `AppStapel`: die offene und
+                     die letzten drei Apps, die man verlassen hat, bleiben
+                     als `invisible inert` gemountet (Eingaben und
+                     Scrollstand bleiben), die vierte fällt heraus.
                    • **Ansichten** — `dashboard`, `app`, `settings`
                      [persönlich, alle], `verwaltung` [admin, mit `bereich`
                      und `abschnitt`] (`stores/workspaceStore.ts`). Eine App

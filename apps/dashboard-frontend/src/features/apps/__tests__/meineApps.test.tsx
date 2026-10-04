@@ -41,3 +41,17 @@ describe('zuEintraegen', () => {
     expect(zuEintraegen([{ ...urlaub, live: null, test: null }])).toEqual([]);
   });
 });
+
+describe('ordneEintraege', () => {
+  const e = (id: string, stand: 'live' | 'test' = 'live') =>
+    ({ id, stand, name: id, beschreibung: null, symbol: null, version: '1', pfad: '' }) as never;
+
+  it('folgt der gespeicherten Reihenfolge, Neues kommt dahinter, Altes wird übergangen', async () => {
+    const { ordneEintraege } = await import('../meineApps');
+    const r = ordneEintraege(
+      [e('a'), e('b'), e('c'), e('a', 'test')],
+      ['c:live', 'weg:live', 'a:live']
+    );
+    expect(r.map(x => `${x.id}:${x.stand}`)).toEqual(['c:live', 'a:live', 'b:live', 'a:test']);
+  });
+});
