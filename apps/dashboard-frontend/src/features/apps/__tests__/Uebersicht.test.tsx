@@ -61,6 +61,29 @@ describe('Uebersicht', () => {
     expect(await screen.findByTestId('uebersicht-app-urlaub-live')).toBeInTheDocument();
   });
 
+  it('grüßt mit dem Vornamen, sonst mit dem Anzeigenamen', async () => {
+    antworten();
+    angemeldet({ role: 'mitarbeiter', username: 'mia', vorname: 'Mia', anzeigeName: 'Mia Berg' });
+    const eins = render(<Uebersicht />, { wrapper: huelle() });
+    expect(screen.getByRole('heading', { name: 'Guten Tag, Mia' })).toBeInTheDocument();
+    eins.unmount();
+    angemeldet({ role: 'mitarbeiter', username: 'mia', vorname: null, anzeigeName: 'Mia Berg' });
+    render(<Uebersicht />, { wrapper: huelle() });
+    expect(screen.getByRole('heading', { name: 'Guten Tag, Mia Berg' })).toBeInTheDocument();
+  });
+
+  it('zeigt die Hinweise des Administrators unter den Kacheln', async () => {
+    antworten();
+    render(<Uebersicht hinweise={<p data-testid="hinweise">Hinweis</p>} />, {
+      wrapper: huelle(),
+    });
+    const kachel = await screen.findByTestId('uebersicht-app-urlaub-live');
+    const hinweise = screen.getByTestId('hinweise');
+    expect(
+      kachel.compareDocumentPosition(hinweise) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
   it('eine Kachel öffnet die App im Hauptbereich', async () => {
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });

@@ -327,11 +327,12 @@ der Startseite unter **„Für Sie"** die Anfragen, die bei ihm liegen (Abschnit
 „Stufen und Standardperson" unten), gebaut aus dem Muster `Freigabe` aus
 `packages/marken` (Liste, Einzelansicht, Bestätigen, Ablehnen mit Pflichtgrund,
 wer entschied, Frist) — dasselbe Muster, mit dem eine App ihre Freigaben zeigt.
-An der Kachel der App steht höchstens eine Zahl. Eine Karte je Anfrage mit Titel, Zusammenhang und Restzeit, darunter **Bestätigen**
-und **Ablehnen**. Ablehnen klappt ein Feld für die Begründung auf; ohne sie
-geht der Knopf nicht. Nach der Entscheidung verschwindet die Karte ohne
-Neuladen. Die Zahl am Haus der Aktivitätsleiste zählt dieselbe Liste; für den
-Administrator steht sie zusätzlich rechts in der Statusleiste (Phase D1).
+An der Kachel der App steht höchstens eine Zahl. „Für Sie" ist ein Posteingang:
+eine Zeile je Anfrage mit App, Gegenstand und seit wann; **ein Klick öffnet die
+App beim Vorgang** (`?freigabe=<nummer>`, [APP-PAKET.md](APP-PAKET.md#tieflink-in-die-app-m5-04102026)),
+und dort steht die Ansicht der Freigabe mit **Bestätigen** und **Ablehnen**
+(Ablehnen mit Pflichtgrund). Die Zahl am Haus der Aktivitätsleiste zählt
+dieselbe Liste; die Statusleiste trägt keine Zahl mehr.
 
 Über die Schnittstelle sind es dieselben Wege:
 `GET /api/freigabe-anfragen`, dann

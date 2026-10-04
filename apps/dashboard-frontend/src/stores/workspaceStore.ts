@@ -30,6 +30,11 @@ export interface Ansicht {
   appId?: string;
   /** Nur bei `app`: welcher Stand. Fehlt er, gilt `live`. */
   stand?: AppStand;
+  /**
+   * Nur bei `app`: der Vorgang, bei dem die App aufgehen soll (die Nummer einer
+   * Freigabe, M5). Steht als `?freigabe=<nummer>` in der Adresse der App.
+   */
+  vorgang?: number;
   /** Nur bei `verwaltung`: welcher Bereich. Fehlt er, gilt der erste. */
   bereich?: string;
   /** Nur bei `verwaltung`: ein Abschnitt im Bereich, der aufgeklappt ankommt. */
@@ -62,10 +67,13 @@ export function ansichtId(a: Ansicht): string {
   return a.type;
 }
 
-/** Ansicht → URL-Pfad unterhalb von /workspace. */
+/** Ansicht → Adresse unterhalb von /workspace (bei einer App mit dem Vorgang als Abfrage). */
 export function ansichtZuPfad(a: Ansicht): string {
   if (a.type === 'app') {
-    return `/workspace/app/${a.appId}${a.stand === 'test' ? '/test' : ''}`;
+    return (
+      `/workspace/app/${a.appId}${a.stand === 'test' ? '/test' : ''}` +
+      (a.vorgang ? `?freigabe=${a.vorgang}` : '')
+    );
   }
   if (a.type === 'verwaltung' && a.bereich) {
     return `/workspace/verwaltung/${a.bereich}${a.abschnitt ? `/${a.abschnitt}` : ''}`;
@@ -99,7 +107,7 @@ export function appPfad(appId: string, stand: AppStand = 'live'): string {
 }
 
 /** URL-Pfad (nach /workspace) → Ansicht, oder null wenn unbekannt. */
-export function pfadZuAnsicht(subPath: string): Ansicht | null {
+export function pfadZuAnsicht(subPath: string, search = ''): Ansicht | null {
   const parts = subPath.split('/').filter(Boolean);
   const head = parts[0];
   if (!head) return null;
@@ -111,7 +119,13 @@ export function pfadZuAnsicht(subPath: string): Ansicht | null {
       // Link — und eine Kennung, die keine ist, erst recht keine.
       const appId = parts[1];
       if (!appId || !APP_KENNUNG.test(appId)) return null;
-      return { type: 'app', appId, stand: parts[2] === 'test' ? 'test' : 'live' };
+      const vorgang = Number(new URLSearchParams(search).get('freigabe'));
+      return {
+        type: 'app',
+        appId,
+        stand: parts[2] === 'test' ? 'test' : 'live',
+        ...(Number.isInteger(vorgang) && vorgang > 0 ? { vorgang } : {}),
+      };
     }
     case 'settings':
       return { type: 'settings' };

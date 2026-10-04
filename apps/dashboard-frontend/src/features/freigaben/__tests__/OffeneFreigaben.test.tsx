@@ -1,17 +1,14 @@
 /**
- * Die offenen Freigaben in der Übersicht (Phase D2).
- *
- * Gemessen wird, was die Phase verlangt: die Liste zeigt Titel, Zusammenhang
- * und Frist, Bestätigen und Ablehnen gehen an die Wege aus C7, die Ablehnung
- * verlangt eine Begründung, und die Liste aktualisiert sich OHNE NEULADEN —
- * das letzte ist der Grund, warum der Test die zweite Antwort des Servers
- * mitzählt.
+ * „Für Sie" auf der Startseite (D2, seit M5 als Zeilen): je Zeile App,
+ * Gegenstand und seit wann, ein Klick öffnet die App beim Vorgang; darunter
+ * Weitergeben und Übernehmen. Entschieden wird in der App, nicht hier.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { OffeneFreigaben } from '../OffeneFreigaben';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 const apiMock = {
   get: vi.fn(),
@@ -94,34 +91,28 @@ describe('OffeneFreigaben', () => {
     toast.warning.mockReset();
   });
 
-  it('nennt Titel, Zusammenhang, Herkunft und Restzeit', async () => {
+  it('nennt je Zeile App, Gegenstand und seit wann', async () => {
     listen([EINE]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
     expect(await screen.findByText(EINE.titel)).toBeInTheDocument();
-    expect(screen.getByText(/an die Belegschaft/)).toBeInTheDocument();
-    // Der Name der App, nicht ihre Kennung; der Flow nicht in der Zeile.
-    expect(screen.getByText('Beispielapp')).toBeInTheDocument();
-    expect(screen.queryByText('beispielapp')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Flow freigabe/)).not.toBeInTheDocument();
-    expect(screen.getByText('eingereicht von anna')).toBeInTheDocument();
-    expect(screen.getByTestId('freigabe-7-seit')).toHaveTextContent('wartet seit 3 Stunden');
-    expect(screen.getByTestId('freigabe-7-frist')).toHaveTextContent('noch 1 Stunde');
-    expect(screen.queryByTestId('freigabe-7-regel')).not.toBeInTheDocument();
+    const zeile = screen.getByTestId('freigabe-7');
+    expect(zeile).toHaveTextContent('Beispielapp');
+    expect(zeile).toHaveTextContent('wartet seit 3 Stunden');
+    expect(screen.getByTestId('fuer-sie-zahl')).toHaveTextContent('1 Freigabe');
   });
 
-  it('sagt die Vier-Augen-Regel als Satz', async () => {
-    listen([{ ...EINE, ohne_einreicher: true, entscheider: { konten: ['bernd', 'clara'] } }]);
+  it('ein Klick öffnet die App beim Vorgang', async () => {
+    listen([EINE, { ...EINE, id: 8, stand: 'test' as const }]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
-    expect(await screen.findByTestId('freigabe-7-regel')).toHaveTextContent(
-      'Vier-Augen-Prinzip: anna hat eingereicht und entscheidet nicht mit. ' +
-        'Entscheiden dürfen nur bernd oder clara.'
-    );
+    fireEvent.click(await screen.findByTestId('freigabe-8-oeffnen'));
+    expect(useWorkspaceStore.getState().ansicht).toMatchObject({
+      type: 'app',
+      appId: 'beispielapp',
+      stand: 'test',
+      vorgang: 8,
+    });
   });
 
-  /**
-   * Steht die Liste leer, steht dort EINE leise Zeile und kein Leerzustand:
-   * wer eingereicht hat, soll die Stelle kennen, an der Freigaben stehen.
-   */
   it('sagt in einer Zeile, wenn nichts wartet', async () => {
     listen([]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
@@ -139,76 +130,6 @@ describe('OffeneFreigaben', () => {
       'Ihr Vorgang „Rechnung 4711 buchen“ (Faktum) wartet seit 5 Minuten auf admin oder bernd. ' +
         'Vier-Augen-Prinzip: Sie entscheiden nicht mit.'
     );
-  });
-
-  it('bestätigt über den Weg aus C7 und verschwindet danach ohne Neuladen', async () => {
-    listen([EINE], []);
-    apiMock.post.mockResolvedValue({ data: { ...EINE, status: 'bestaetigt', fortgesetzt: true } });
-    render(<OffeneFreigaben />, { wrapper: huelle() });
-
-    fireEvent.click(await screen.findByTestId('freigabe-7-bestaetigen'));
-
-    await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/7/bestaetigen', {})
-    );
-    // Das ist die Messung „Aktualisierung ohne Neuladen": die Zeile geht weg,
-    // weil die Abfrage entwertet und neu geholt wurde.
-    await waitFor(() => expect(screen.queryByTestId('freigabe-7')).not.toBeInTheDocument());
-    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('läuft weiter'));
-  });
-
-  /**
-   * `fortgesetzt: false` heißt: die Entscheidung steht, aber der Lauf wird
-   * nicht mehr fortgeführt (Neustart des Backends). Das wird gesagt und nicht
-   * verschwiegen — sonst wartet jemand auf ein Ergebnis, das nie kommt.
-   */
-  it('sagt es, wenn der Lauf nicht mehr weiterläuft', async () => {
-    listen([EINE], []);
-    apiMock.post.mockResolvedValue({ data: { ...EINE, status: 'bestaetigt', fortgesetzt: false } });
-    render(<OffeneFreigaben />, { wrapper: huelle() });
-    fireEvent.click(await screen.findByTestId('freigabe-7-bestaetigen'));
-    await waitFor(() =>
-      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('neu gestartet'))
-    );
-    expect(toast.success).not.toHaveBeenCalled();
-  });
-
-  it('lehnt erst ab, wenn eine Begründung dasteht', async () => {
-    listen([EINE], []);
-    apiMock.post.mockResolvedValue({ data: { ...EINE, status: 'abgelehnt', fortgesetzt: true } });
-    render(<OffeneFreigaben />, { wrapper: huelle() });
-
-    fireEvent.click(await screen.findByTestId('freigabe-7-ablehnen'));
-    const absenden = screen.getByTestId('freigabe-7-ablehnen-absenden');
-    expect(absenden).toBeDisabled();
-
-    fireEvent.change(screen.getByTestId('freigabe-7-begruendung'), {
-      target: { value: '  Zahlen stimmen nicht.  ' },
-    });
-    expect(absenden).toBeEnabled();
-    fireEvent.click(absenden);
-
-    await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/7/ablehnen', {
-        begruendung: 'Zahlen stimmen nicht.',
-      })
-    );
-  });
-
-  /**
-   * Ein Fehler (409 „ein anderer war schneller", 409 „Frist abgelaufen") heißt,
-   * dass die Liste im Browser nicht mehr stimmt. Auch dann wird neu geholt.
-   */
-  it('holt die Liste auch nach einem Fehler neu', async () => {
-    listen([EINE], []);
-    apiMock.post.mockRejectedValue(Object.assign(new Error('Konflikt'), { status: 409 }));
-    render(<OffeneFreigaben />, { wrapper: huelle() });
-    fireEvent.click(await screen.findByTestId('freigabe-7-bestaetigen'));
-    // Gezählt wird nur die Liste „bei mir"; daneben holen „bei anderen" und
-    // „eingereicht" ihre eigenen Listen (M5).
-    const offen = () => apiMock.get.mock.calls.filter(c => c[0] === '/freigabe-anfragen').length;
-    await waitFor(() => expect(offen()).toBe(2));
-    await waitFor(() => expect(screen.queryByTestId('freigabe-7')).not.toBeInTheDocument());
   });
 });
 
@@ -287,49 +208,5 @@ describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
     await waitFor(() =>
       expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/8/uebernehmen', {})
     );
-  });
-
-  it('eine Erkennung: Prüfen öffnet die Felder, die Korrektur geht mit, danach die Liste', async () => {
-    const ERKANNT = {
-      ...EINE,
-      id: 11,
-      titel: 'Erkennung unsicher: Feld datum',
-      felder: [
-        { name: 'datum', vorschlag: '', fehlend: true, unsicher: false, aenderbar: true },
-        { name: 'betrag', vorschlag: '12,50', fehlend: false, unsicher: false, aenderbar: false },
-      ],
-      original: '/apps/beispielapp/api/belege/4711.png',
-      frueher: [],
-    };
-    listen([ERKANNT], []);
-    apiMock.post.mockResolvedValue({
-      data: {
-        id: 11,
-        status: 'bestaetigt',
-        fortgesetzt: true,
-        korrekturen: [{ feld: 'datum', vorschlag: '', wert: '01.10.2026', von: 'clara' }],
-      },
-    });
-    render(<OffeneFreigaben />, { wrapper: huelle() });
-    fireEvent.click(await screen.findByTestId('freigabe-11-pruefen'));
-    expect(screen.getByTestId('freigabe-11-feld-datum-pruefen')).toHaveTextContent('prüfen');
-    expect(screen.getByTestId('freigabe-11-original')).toBeInTheDocument();
-    // Unter der Karte steht weiter, bei wem sie liegt.
-    expect(screen.getByTestId('freigabe-11-zustaendig')).toBeInTheDocument();
-    fireEvent.change(screen.getByTestId('freigabe-11-feld-datum-eingabe'), {
-      target: { value: '01.10.2026' },
-    });
-    fireEvent.click(screen.getByTestId('freigabe-11-bestaetigen'));
-    await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith('/freigabe-anfragen/11/bestaetigen', {
-        felder: { datum: '01.10.2026' },
-      })
-    );
-    await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith(
-        '„Erkennung unsicher: Feld datum" freigegeben, 1 Feld geändert. Der Lauf läuft weiter.'
-      )
-    );
-    await waitFor(() => expect(screen.queryByTestId('freigabe-einzeln')).not.toBeInTheDocument());
   });
 });

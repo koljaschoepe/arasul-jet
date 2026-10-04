@@ -59,9 +59,15 @@ import { Ladezustand, Leerzustand } from '@marken';
 interface AppRahmenProps {
   appId: string;
   stand: AppStand;
+  /**
+   * Der Vorgang, bei dem die App aufgehen soll (die Nummer einer Freigabe).
+   * Die App liest ihn als `?freigabe=<nummer>` aus ihrer Adresse (Kontrakt in
+   * `docs/features/APP-PAKET.md`); ein anderer Vorgang lädt den Rahmen neu.
+   */
+  vorgang?: number;
 }
 
-export function AppRahmen({ appId, stand }: AppRahmenProps) {
+export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   const { data: apps, isLoading, isError } = useMeineApps();
   const { theme } = useTheme();
   const rahmen = useRef<HTMLIFrameElement>(null);
@@ -131,9 +137,9 @@ export function AppRahmen({ appId, stand }: AppRahmenProps) {
       // in dessen Verlauf — ein „Zurück" im Browser landete dann in der
       // vorigen App statt im vorigen Tab. Das THEME steht bewusst nicht darin
       // (siehe Kopf).
-      key={`${appId}:${stand}`}
+      key={`${appId}:${stand}:${vorgang ?? ''}`}
       ref={rahmen}
-      src={appPfad(appId, stand)}
+      src={appPfad(appId, stand) + (vorgang ? `?freigabe=${vorgang}` : '')}
       title={name ?? appId}
       // Jedes Dokument, das in diesem Rahmen ankommt, bekommt das Theme —
       // auch das zweite, wenn die App in sich weiternavigiert. Ein Effekt

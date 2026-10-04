@@ -72,6 +72,32 @@ describe('workspaceStore, eine Ansicht', () => {
   });
 });
 
+describe('Tieflink in die App (M5)', () => {
+  it('trägt den Vorgang als ?freigabe= in der Adresse und liest ihn zurück', () => {
+    const a = { type: 'app' as const, appId: 'urlaub', stand: 'test' as const, vorgang: 12 };
+    expect(ansichtZuPfad(a)).toBe('/workspace/app/urlaub/test?freigabe=12');
+    expect(pfadZuAnsicht('/app/urlaub/test', '?freigabe=12')).toEqual(a);
+  });
+
+  it('ohne oder mit unbrauchbarem Vorgang bleibt es die App', () => {
+    expect(pfadZuAnsicht('/app/urlaub', '')).toEqual({
+      type: 'app',
+      appId: 'urlaub',
+      stand: 'live',
+    });
+    expect(pfadZuAnsicht('/app/urlaub', '?freigabe=abc')).toEqual({
+      type: 'app',
+      appId: 'urlaub',
+      stand: 'live',
+    });
+    expect(pfadZuAnsicht('/app/urlaub', '?freigabe=-3')).toEqual({
+      type: 'app',
+      appId: 'urlaub',
+      stand: 'live',
+    });
+  });
+});
+
 describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
   it('bildet jede Ansicht auf einen Pfad ab und zurück', () => {
     const ansichten: Ansicht[] = [

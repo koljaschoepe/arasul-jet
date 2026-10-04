@@ -3,12 +3,8 @@
  *
  * Am 20.08.2026 am Geraet gemessen: Katalog, Statusleiste und Auswahlliste
  * sagten uebereinstimmend "Gemma 4 Kompakt", der Modellknopf im Chat sagte
- * "Gemma". Er kuerzte auf das erste Wort. Der Chat ist mit B2 gefallen; die
- * beiden verbliebenen Flaechen muessen weiter dasselbe sagen.
- *
- * Dieser Test rendert beide Flaechen mit DEMSELBEN Modell und verlangt
- * dieselbe Zeichenkette. Er ist bewusst nicht in eine der bestehenden
- * Testdateien gewandert: die Aussage gilt zwischen ihnen, nicht in einer.
+ * "Gemma". Chat (B2) und Modellanzeige der Statusleiste (M5) sind gefallen;
+ * die Ansicht der Verwaltung nennt das Modell mit dem Namen des Registers.
  *
  * Zwei Faelle, weil zwei Wege in die Anzeige fuehren:
  *   1. das Modell steht im Katalog und hat einen gepflegten Namen,
@@ -19,7 +15,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ModelleAnsicht from '../modelle/ModelleAnsicht';
-import { StatusBar } from '../workspace/StatusBar';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 
 /** Katalog-Eintrag mit gepflegtem Namen und einer rohen Kennung. */
@@ -136,7 +131,7 @@ describe('ein Modell heisst ueberall gleich', () => {
   it.each([
     ['Katalogname gepflegt', GEPFLEGT, 'Qwen 3.8 27B'],
     ['Direkt-Pull ohne Namen', DIREKT_PULL, 'Qwen 3 Coder 30B'],
-  ])('%s: Katalog und Statusleiste sagen dasselbe', async (_was, modell, erwartet) => {
+  ])('%s: die Ansicht nennt den Anzeigenamen', async (_was, modell, erwartet) => {
     // Das Register ist die Quelle, an der die drei Flaechen gemessen werden.
     expect(modellAnzeigeName(modell)).toBe(erwartet);
 
@@ -147,11 +142,5 @@ describe('ein Modell heisst ueberall gleich', () => {
       await screen.findByText(erwartet, { selector: 'span', exact: true })
     ).toBeInTheDocument();
     katalogAnsicht.unmount();
-
-    // 2. Statusleiste, die den Namen roh von Ollama bekommt
-    apiRouten({ name: modell.id, ramMb: 20_000 });
-    const leiste = huelle(<StatusBar />);
-    expect(await screen.findByText(new RegExp(erwartet.replace(/\./g, '\\.')))).toBeInTheDocument();
-    leiste.unmount();
   });
 });

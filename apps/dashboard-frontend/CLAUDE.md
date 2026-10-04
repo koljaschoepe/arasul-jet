@@ -143,8 +143,8 @@ src/
                    `geraetezustand.ts` (speist die Auslastung).
     apps/          Die eigenen Apps: `meineApps.ts` (Hook + `zuEintraegen`,
                    eine App mit Live- UND Teststand ergibt ZWEI Einträge),
-                   `Uebersicht.tsx` (Mitte ohne offene App; Freigaben kommen
-                   als **Slot** herein, siehe unten) und `AppRahmen.tsx` (App
+                   `Uebersicht.tsx` (die Startseite; „Für Sie" und die
+                   Admin-Hinweise kommen als **Slot** herein, siehe unten) und `AppRahmen.tsx` (App
                    im iframe auf `/apps/<id>/`). **Kein `sandbox` am
                    iframe** — es nähme ihm die eigene Herkunft und damit das
                    Sitzungscookie, an dem die Forward-Auth hängt; den Rahmen
@@ -164,17 +164,20 @@ src/
     freigaben/     „Für Sie" auf der Startseite, seit M5 (04.10.2026) für
                    JEDEN: nur die Freigaben, die bei mir liegen (bei mir
                    persönlich oder, ohne Standardperson der Stufe, bei allen
-                   mit Zugang; das Backend filtert). Je Freigabe eine Karte
-                   aus dem Muster `Freigabe` (`@marken`), darunter bei wem sie
-                   liegt und „Weitergeben an …" (nur an den Kreis), beim
+                   mit Zugang; das Backend filtert). Je Freigabe EINE ZEILE:
+                   Gegenstand, App, seit wann; ein Klick öffnet die App beim
+                   Vorgang (`oeffne({type:'app', vorgang})`, Adresse
+                   `?freigabe=<nummer>`, Kontrakt in `APP-PAKET.md`).
+                   Entschieden wird in der App, nicht hier. Darunter bei wem
+                   sie liegt und „Weitergeben an …" (nur an den Kreis), beim
                    Admin ohne Standardperson ein Hinweis auf die Verwaltung;
-                   darunter zugeklappt, was bei anderen liegt, mit
-                   „Übernehmen". `OffeneFreigaben.tsx`, `frist.ts`. Abfragen
-                   und Mutationen in `hooks/useOffeneFreigaben.ts` — nach
-                   JEDEM Ausgang wird die Liste entwertet, auch nach Fehler:
-                   ein 409 heißt gerade, dass die Liste veraltet ist. Die
-                   Zahl am Haus zählt nur „bei mir". Leer steht dort eine
-                   Zeile („Keine Freigabe liegt bei Ihnen.").
+                   zugeklappt, was bei anderen liegt, mit „Übernehmen".
+                   `OffeneFreigaben.tsx`, `frist.ts`. Abfragen und Mutationen
+                   in `hooks/useOffeneFreigaben.ts` — nach JEDEM Ausgang wird
+                   die Liste entwertet, auch nach Fehler: ein 409 heißt gerade,
+                   dass die Liste veraltet ist. Die Zahl am Haus zählt nur „bei
+                   mir". Leer steht dort eine Zeile („Keine Freigabe liegt bei
+                   Ihnen.").
     entwickler/    Die Schauseite der Bibliothek: `/entwickler/bausteine`,
                    jedes Primitiv **und jedes Muster** aus `@marken` in
                    allen Zuständen, hell und dunkel. Drei Dateien:
@@ -184,8 +187,9 @@ src/
                    `scripts/test/schauseite.mjs`.
     workspace/     Die Shell (M5, Karte rahmen-aktivitaetsleiste): links die
                    Aktivitätsleiste, daneben genau EINE Ansicht, unten die
-                   StatusBar (nur Administrator: Verbindung, Fassung, Modell
-                   + KI-RAM, Downloads, Zahl offener Freigaben). Es gibt
+                   StatusBar (für jeden gleich: Name, Datum, Uhrzeit,
+                   minutengenau; nie Modell, Speicher, Verbindung, Fassung —
+                   keine Abfrage ans Gerät). Es gibt
                    keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte
                    und keine zweite Seitenleiste. **Immer aktiv** — `/`
                    landet nach Login auf `/workspace`, ohne weiteren Pfad auf
@@ -200,6 +204,13 @@ src/
                      Hover blendet in 120 ms ein, `motion-reduce` gilt. Das
                      Logo des Hauses gehört über das Haus, sobald es sich
                      hinterlegen lässt.
+                   • **Startseite** — Gruß mit Vorname (sonst Anzeigename),
+                     „Für Sie", Kacheln (`features/apps/Uebersicht.tsx`); beim
+                     Admin zuletzt `AdminHinweise` (`useAdminHinweise.ts`:
+                     Sicherung fehlgeschlagen/älter als ein Tag, Update bereit,
+                     App gestört, Fassung wartet auf Live, Lizenz knapp; mit
+                     den Schlüsseln der Verwaltung, leer ist leer — keine
+                     grünen Meldungen). Die Shell reicht beides als Slot.
                    • **AnsichtInhalt** — die Weiche (`AnsichtWeiche`) und
                      die eine ErrorBoundary; der Schlüssel ist `ansichtId`,
                      ein Wechsel baut neu auf, ein Bereich der Verwaltung

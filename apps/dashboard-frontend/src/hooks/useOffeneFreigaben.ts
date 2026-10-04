@@ -121,27 +121,6 @@ export interface EingereichteFreigabe {
   liegt_bei?: string | null;
 }
 
-/**
- * Was das Backend nach einer Entscheidung zurückgibt.
- *
- * `fortgesetzt: false` heißt: die Entscheidung steht, aber niemand hat den Lauf
- * mehr weitergeführt (das Backend ist zwischendurch neu gestartet). Das wird
- * gesagt und nicht verschwiegen — sonst wartet jemand auf ein Ergebnis, das
- * nie kommt.
- */
-export interface FreigabeEntschieden {
-  id: number;
-  run_id: number;
-  app_id: string;
-  stand: 'live' | 'test';
-  titel: string;
-  status: 'bestaetigt' | 'abgelehnt';
-  fortgesetzt: boolean;
-  benutzer: string;
-  /** Was beim Bestätigen geändert wurde; `null` = nichts. */
-  korrekturen?: FreigabeKorrekturDaten[] | null;
-}
-
 const FREIGABEN_KEY = ['freigabe-anfragen'] as const;
 const OFFENE_FREIGABEN_KEY = [...FREIGABEN_KEY, 'offen'] as const;
 const EINGEREICHTE_FREIGABEN_KEY = [...FREIGABEN_KEY, 'eingereicht'] as const;
@@ -191,51 +170,6 @@ export function useEingereichteFreigaben() {
     refetchInterval: 120_000,
     staleTime: 60_000,
     retry: 1,
-  });
-}
-
-/**
- * Bestätigen oder ablehnen — eine Entscheidung, ein Aufruf. Beim Bestätigen
- * gehen die Felder mit, die der Mensch geändert hat (M5).
- */
-export type Entscheidung =
-  | { id: number; status: 'bestaetigt'; felder?: Record<string, string> }
-  | { id: number; status: 'abgelehnt'; begruendung: string };
-
-/**
- * Die Entscheidung über eine Freigabe.
- *
- * NACH JEDEM AUSGANG WIRD DIE LISTE ENTWERTET, auch nach einem Fehler. Das ist
- * kein Übereifer: die häufigsten Fehler an dieser Stelle sind „ein anderer war
- * schneller" (409) und „die Frist ist abgelaufen" (409) — beide heißen, dass
- * die Liste im Browser nicht mehr stimmt. Nur bei Erfolg neu zu laden ließe
- * genau die Zeile stehen, die weg gehört.
- *
- * Die Fehlermeldung kommt aus dem Backend (`erklaereFehlschlag` nennt vier
- * Gründe beim Namen) und läuft über den Toast von `useApi` — hier wird sie
- * nicht noch einmal formuliert.
- */
-export function useFreigabeEntscheiden() {
-  const api = useApi();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (e: Entscheidung) => {
-      const pfad =
-        e.status === 'bestaetigt'
-          ? `/freigabe-anfragen/${e.id}/bestaetigen`
-          : `/freigabe-anfragen/${e.id}/ablehnen`;
-      const leib =
-        e.status === 'abgelehnt'
-          ? { begruendung: e.begruendung }
-          : e.felder
-            ? { felder: e.felder }
-            : {};
-      const res = await api.post<{ data: FreigabeEntschieden }>(pfad, leib);
-      return res.data;
-    },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: FREIGABEN_KEY });
-    },
   });
 }
 

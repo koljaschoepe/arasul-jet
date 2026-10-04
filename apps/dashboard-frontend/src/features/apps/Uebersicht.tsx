@@ -1,15 +1,12 @@
 /**
- * Die Mitte, solange keine App offen ist (Phase D1).
+ * Die Startseite (M5, `frontend.md`, Abschnitt Startseite): Gruß mit Vorname,
+ * darunter „Für Sie", dann die Kacheln der eigenen Apps, beim Administrator
+ * zuletzt, was Aufmerksamkeit braucht.
  *
- * MITARBEITER-SICHT ZUERST, und das ist die Reihenfolge des Auftrags: was hier
- * steht, gilt für jeden, der sich anmeldet. Der Administrator sieht dasselbe
- * und daneben seine Verwaltungswege — in der Aktivitätsleiste, nicht hier.
- * Eine zweite Übersicht „für Admins" wäre der Anfang von zwei Oberflächen.
- *
- * Drei Sachen, mehr nicht: wer ich bin, welche Apps ich habe, was auf mich
- * wartet. Der Systemzustand (CPU, GPU, Dienste) gehört ausdrücklich NICHT
- * hierher; er steht in den Einstellungen unter System, und ein Mitarbeiter,
- * der einen Urlaubsantrag stellt, hat mit der GPU-Temperatur nichts zu tun.
+ * MITARBEITER-SICHT ZUERST: was hier steht, gilt für jeden, der sich anmeldet.
+ * Der Systemzustand (CPU, GPU, Dienste) gehört ausdrücklich NICHT hierher; er
+ * steht in der Verwaltung, und ein Mitarbeiter, der einen Urlaubsantrag stellt,
+ * hat mit der GPU-Temperatur nichts zu tun.
  */
 import type { ReactNode } from 'react';
 import { AppWindow } from 'lucide-react';
@@ -72,8 +69,7 @@ function AppKachel({
 }
 
 /**
- * @param freigaben Die offenen Freigaben, als Baustein hereingereicht — nur für
- *   den Administrator (J36); ein Mitarbeiter bekommt keinen Slot.
+ * @param freigaben „Für Sie", als Baustein hereingereicht, für jeden (M5).
  *
  * ALS SLOT UND NICHT ALS IMPORT, und das ist die Regel dieses Ordners: ein
  * Bauteil aus `features/X/` importiert nichts aus `features/Y/`. Was quer
@@ -85,9 +81,12 @@ function AppKachel({
  */
 export function Uebersicht({
   freigaben,
+  hinweise,
   wartend,
 }: {
   freigaben?: ReactNode;
+  /** Was der Administrator wissen muss; die Shell reicht es nur ihm herein. */
+  hinweise?: ReactNode;
   /** Offene Freigaben je App-Kennung; die Shell zählt sie, hier steht nur die Zahl. */
   wartend?: Record<string, number>;
 }) {
@@ -96,13 +95,12 @@ export function Uebersicht({
   const { data: apps, isLoading } = useMeineApps();
 
   const eintraege = zuEintraegen(apps ?? []);
+  // Der Vorname; ohne ihn der Anzeigename (der auf den Benutzernamen zurückfällt).
+  const name = user?.vorname?.trim() || user?.anzeigeName || user?.username || '';
 
   return (
     <div className="ara-strom" data-testid="uebersicht-seite">
-      <Kopf
-        titel={user?.username ? `Guten Tag, ${user.username}` : 'Guten Tag'}
-        beschreibung="Die Apps, die für Sie freigegeben sind. Alles läuft auf diesem Gerät."
-      />
+      <Kopf titel={name ? `Guten Tag, ${name}` : 'Guten Tag'} />
 
       {/* Zuerst das, was auf eine ANTWORT wartet, danach das, was offen
           herumsteht. Ein angehaltener Flow blockiert jemanden anderes; eine
@@ -130,6 +128,8 @@ export function Uebersicht({
           ))}
         </div>
       )}
+
+      {hinweise}
     </div>
   );
 }

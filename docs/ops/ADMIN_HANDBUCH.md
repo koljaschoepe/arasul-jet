@@ -63,20 +63,25 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   **Verwaltung** (nur Administratoren), das **Zahnrad** (die persoenlichen
   Einstellungen) und das **eigene Bild** (Name und Abmelden).
 - **Ansicht:** immer genau eine — die Startseite, eine App, die Einstellungen
-  oder die Verwaltung. Die **Startseite** zeigt jedem oben **Für Sie**: die
-  Freigaben, die bei ihm liegen (siehe unten), darunter die eigenen Apps als
-  Kacheln, an einer Kachel hoechstens eine Zahl.
+  oder die Verwaltung. Die **Startseite** gruesst mit dem Vornamen (ohne
+  Vornamen mit dem Anzeigenamen) und zeigt jedem **Für Sie**: die Freigaben,
+  die bei ihm liegen (siehe unten), darunter die eigenen Apps als Kacheln, an
+  einer Kachel hoechstens eine Zahl. Als Administrator steht darunter
+  zusaetzlich, **was Aufmerksamkeit braucht**: Sicherung fehlgeschlagen oder
+  aelter als ein Tag, eine neue Fassung bereit, eine App gestoert, eine Fassung,
+  die im Test auf Live wartet, Lizenz knapp (30 Tage oder 90 Prozent der
+  Konten/Apps). Ein Klick fuehrt in den Bereich der Verwaltung. Ist alles gut,
+  steht dort nichts.
 - **Verwaltung:** links eine eigene Leiste der Bereiche (Allgemein, Apps,
   Personen, Firmenordner, Modelle, KI, Sicherheit, Datenschutz, System, Lizenz,
   Fernzugriff), daneben der gewaehlte Bereich. Im Bereich
   **System** stehen Auslastung, Dienste, Aktualisierungen, Sicherung,
   Selbstheilung und Werksreset untereinander und klappen auf. Jeder Bereich hat
   eine eigene Adresse, etwa `/workspace/verwaltung/system/sicherung`.
-- **Statusleiste (unten), fuer Administratoren:** Verbindung und Version, das
-  aktuell geladene KI-Modell samt belegtem KI-RAM (klickbar: Standardmodell
-  waehlen), laufende Modell-Downloads und rechts die Zahl der **Freigaben, die
-  auf eine Entscheidung warten**. Ein Mitarbeiter sieht dort nichts, ausser
-  einem Satz, wenn das Geraet nicht antwortet.
+- **Statusleiste (unten), fuer jeden gleich:** dauerhaft Name, Datum und
+  Uhrzeit (minutengenau), sonst nichts: kein Modell, kein Speicher, keine
+  Verbindung, keine Fassung. Modelle, Downloads und Systemzustand stehen in
+  der Verwaltung; die Zahl der Freigaben traegt das Haus.
 
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
 hat, seine Einstellungen und sein Konto. Die Freigaben, die bei ihm liegen,
@@ -94,10 +99,11 @@ Wochenbericht versenden?"). Der Lauf steht dann still, bis ein Mensch
 entscheidet.
 
 Wo: auf der **Startseite** unter **Für Sie**, fuer jeden, aber nur die
-Freigaben, die bei ihm liegen. Jede Anfrage ist eine Karte mit der App, der
-Stufe, dem Titel, dem Zusammenhang, den der Flow mitgibt, und der
-verbleibenden Zeit. Darunter steht, bei wem sie liegt, und **Weitergeben an …**;
-zugeklappt darunter, was bei anderen liegt, mit **Uebernehmen**.
+Freigaben, die bei ihm liegen. Jede Anfrage ist eine Zeile mit dem
+Gegenstand, der App (und Stufe) und seit wann sie wartet. **Ein Klick oeffnet
+die App beim Vorgang**; entschieden wird dort. Unter der Zeile steht, bei wem
+sie liegt, und **Weitergeben an …**; zugeklappt darunter, was bei anderen
+liegt, mit **Uebernehmen**.
 
 - **Bestaetigen** — der Lauf laeuft ab der angehaltenen Stelle weiter.
 - **Ablehnen** — es klappt ein Feld auf; ohne Begruendung geht der Knopf nicht.
