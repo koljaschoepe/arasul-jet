@@ -121,7 +121,9 @@ class SubagentTool extends BaseTool {
     // wieder ein SubagentTool — die nächste Ebene. Die Tiefe wird unten erhöht,
     // die Notbremse fängt eine zu tiefe Verschachtelung ab.
     const roleTools = makeTools(rolle.werkzeuge);
-    const rollenModell = rolle.modell || defaultModel;
+    // Ein Modell, das der Schritt vorgibt (M5, Modell je Schritt), sticht das der
+    // Rolle: der Admin hat den Schritt umgestellt.
+    const rollenModell = context.modellErzwungen ? defaultModel : rolle.modell || defaultModel;
 
     // Den Subagent-Schritt VOR der Ausführung anlegen — so zeigt die Lauf-Ansicht
     // den arbeitenden Agenten live, nicht erst nach seinem Abschluss. Alles, was
@@ -275,11 +277,11 @@ class SubagentTool extends BaseTool {
     let ergebnis;
     try {
       ergebnis = await runLoop({
-        model: rolle.modell || defaultModel,
+        model: rollenModell,
         // Der Zugang des Laufs, aber NUR wenn die Rolle kein eigenes Modell
         // nennt: `rolle.modell` ist ein Name aus dem Paket und meint eines
         // vom Geraet (Phase D4).
-        extern: rolle.modell ? null : context.extern || null,
+        extern: rolle.modell && !context.modellErzwungen ? null : context.extern || null,
         systemPrompt: rolle.prompt + vertragsHinweis,
         userInput: auftrag,
         tools: roleTools,
@@ -304,8 +306,8 @@ class SubagentTool extends BaseTool {
       // per Platten-Diff entdeckt und die Arbeit selbst nachholen muss.
       if (schreibRolle && !hatGeschrieben && !(context.signal && context.signal.aborted)) {
         const nachfass = await runLoop({
-          model: rolle.modell || defaultModel,
-          extern: rolle.modell ? null : context.extern || null,
+          model: rollenModell,
+          extern: rolle.modell && !context.modellErzwungen ? null : context.extern || null,
           systemPrompt: rolle.prompt + vertragsHinweis,
           userInput:
             `${auftrag}\n\nDu hast beim ersten Versuch KEINE Datei geschrieben, dein ` +

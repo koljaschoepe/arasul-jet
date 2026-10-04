@@ -619,6 +619,27 @@ const FlowArtBody = z
   })
   .strict();
 
+// Das Modell eines Schritts (M5, Migration 205). `null` nimmt die Wahl zurueck,
+// es gilt wieder das Modell des Pakets. Der Schrittname hat dieselbe Form wie im
+// Flow-Kopf.
+const AppSchrittParams = z.object({
+  id: AppId,
+  name: z
+    .string()
+    .trim()
+    .regex(FLOW_NAME_RE, 'Flow-Name: Kleinbuchstaben, Ziffern und Bindestriche'),
+  schritt: z
+    .string()
+    .trim()
+    .regex(/^[a-z][a-z0-9_]{0,30}$/, 'Schrittname: Kleinbuchstaben, Ziffern, Unterstrich'),
+});
+
+const SchrittModellBody = z
+  .object({
+    modell: z.string().trim().min(1).max(100).nullable(),
+  })
+  .strict();
+
 // Der Schalter "aktiv" eines Flows (M5, Migration 200).
 const FlowAktivBody = z
   .object({
@@ -773,6 +794,8 @@ module.exports = {
   StufePersonBody,
   AppLaufParams,
   FlowModellBody,
+  AppSchrittParams,
+  SchrittModellBody,
   FlowArtBody,
   FlowAktivBody,
   FlowZeitplanBody,

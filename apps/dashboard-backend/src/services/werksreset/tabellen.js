@@ -99,6 +99,9 @@ const AUSLIEFERUNG = [
   ['public.bot_audit_log', 'Prüfprotokoll der Bots'],
   ['public.component_updates', 'Aktualisierungsstand der Bestandteile'],
   ['public.flow_settings', 'Was der Administrator an den Flows einer App eingestellt hat'],
+  // Modell je Schritt (M5, Migration 205): die Wahl des Administrators, gehört
+  // wie `flow_settings` zu den Apps des Geräts.
+  ['public.flow_schritt_modelle', 'Modelle je Schritt, vom Administrator gewählt'],
   // Der Zeitplaner (M5, Migration 203): welche Termine er angefasst hat und
   // bis wohin er gesehen hat. Beides gehört zu den Apps des Geräts; nach dem
   // Auslieferungszustand fängt der Zeitplaner mit dem ersten Takt neu an.
