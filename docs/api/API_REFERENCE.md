@@ -1069,30 +1069,33 @@ steht in ihrem Manifest `app.json` — die Felder erklärt
 Je App gibt es zwei Stände: `live` für alle Freigegebenen, `test` für die
 benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 
-| Method | Endpoint                             | Description                                                                                                   |
-| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/apps`                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                                                  |
-| GET    | `/api/apps/meine`                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                                            |
-| GET    | `/api/apps/reihenfolge`              | Meine Reihenfolge der Apps in der Aktivitätsleiste, Liste von `<kennung>:<stand>` (M5)                        |
-| PUT    | `/api/apps/reihenfolge`              | Reihenfolge setzen, Body `{ reihenfolge: ["<kennung>:<stand>", …] }`, höchstens 200, ohne Doppelte (M5)       |
-| GET    | `/api/apps/:id`                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                                    |
-| POST   | `/api/apps/:id/einspielen`           | Eine Version in einen Stand bringen                                                                           |
-| DELETE | `/api/apps/:id`                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen) |
-| GET    | `/api/apps/:id/logs`                 | Die letzten Zeilen des App-Backends                                                                           |
-| GET    | `/api/apps/:id/zugang`               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                                                 |
-| GET    | `/api/apps/:id/flows`                | Die Flows beider Stände, mit dem Modell, das sie treibt                                                       |
-| GET    | `/api/apps/:id/flows/:name`          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                                                 |
-| PUT    | `/api/apps/:id/flows/:name/modell`   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                                                |
-| PUT    | `/api/apps/:id/flows/:name/art`      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                      |
-| PUT    | `/api/apps/:id/flows/:name/aktiv`    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                 |
-| PUT    | `/api/apps/:id/flows/:name/zeitplan` | Den Zeitplan eines Flows pausieren `{ pausiert }`; nur der Zeitplan, nicht `aktiv` (M5)                       |
-| GET    | `/api/apps/:id/stufen`               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                            |
-| PUT    | `/api/apps/:id/stufen/:stufe`        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                             |
-| GET    | `/api/apps/:id/laeufe`               | Die Flow-Läufe dieser App (Phase D4)                                                                          |
-| GET    | `/api/apps/:id/laeufe/:runId`        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                                           |
-| POST   | `/api/apps/:id/laeufe/:runId/erneut` | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                      |
-| GET    | `/api/apps/:id/ki-aufrufe`           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                                              |
-| POST   | `/api/apps/:id/schalten`             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                                      |
+| Method | Endpoint                                             | Description                                                                                                   |
+| ------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/apps`                                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                                                  |
+| GET    | `/api/apps/meine`                                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                                            |
+| GET    | `/api/apps/reihenfolge`                              | Meine Reihenfolge der Apps in der Aktivitätsleiste, Liste von `<kennung>:<stand>` (M5)                        |
+| PUT    | `/api/apps/reihenfolge`                              | Reihenfolge setzen, Body `{ reihenfolge: ["<kennung>:<stand>", …] }`, höchstens 200, ohne Doppelte (M5)       |
+| GET    | `/api/apps/:id`                                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                                    |
+| POST   | `/api/apps/:id/einspielen`                           | Eine Version in einen Stand bringen                                                                           |
+| DELETE | `/api/apps/:id`                                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen) |
+| GET    | `/api/apps/:id/logs`                                 | Die letzten Zeilen des App-Backends                                                                           |
+| GET    | `/api/apps/:id/zugang`                               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                                                 |
+| GET    | `/api/apps/:id/flows`                                | Die Flows beider Stände, mit dem Modell, das sie treibt                                                       |
+| GET    | `/api/apps/:id/flows/:name`                          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                                                 |
+| PUT    | `/api/apps/:id/flows/:name/modell`                   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                                                |
+| PUT    | `/api/apps/:id/flows/:name/art`                      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                      |
+| PUT    | `/api/apps/:id/flows/:name/aktiv`                    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                 |
+| PUT    | `/api/apps/:id/flows/:name/zeitplan`                 | Den Zeitplan eines Flows pausieren `{ pausiert }`; nur der Zeitplan, nicht `aktiv` (M5)                       |
+| GET    | `/api/apps/:id/schritt-modelle`                      | Je Flow die Schritte mit Modell: Original, was gilt, Fähigkeiten, wählbare Modelle (M5)                       |
+| PUT    | `/api/apps/:id/flows/:name/schritte/:schritt/modell` | Einen Schritt auf ein installiertes Modell umstellen `{ modell }`, `null` = Original (M5)                     |
+| GET    | `/api/apps/modell-hinweise`                          | Schritte, deren Modell fehlt oder deren Wahl nicht mehr passt, über alle Apps (M5)                            |
+| GET    | `/api/apps/:id/stufen`                               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                            |
+| PUT    | `/api/apps/:id/stufen/:stufe`                        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                             |
+| GET    | `/api/apps/:id/laeufe`                               | Die Flow-Läufe dieser App (Phase D4)                                                                          |
+| GET    | `/api/apps/:id/laeufe/:runId`                        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                                           |
+| POST   | `/api/apps/:id/laeufe/:runId/erneut`                 | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                      |
+| GET    | `/api/apps/:id/ki-aufrufe`                           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                                              |
+| POST   | `/api/apps/:id/schalten`                             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                                      |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 
@@ -1319,6 +1322,36 @@ und sagt, warum `naechster_termin` (ISO, in der Zeit des Geräts zu lesen) fehlt
 `gestartet`, `nachgeholt` oder `uebersprungen`. Die Läufe einer App
 (`GET /api/apps/:id/laeufe`, `…/laeufe/:runId`) tragen `ausloeser`: `hand` oder
 `zeitplan`. Regeln: [FLOWS.md](../features/FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026).
+
+**Modell je Schritt** (nur Admin, M5, Migration 205). Der Entwickler nennt je
+Schritt (`typ: subagent`) im Kopf das Modell (`modell` am Schritt, sonst an der
+Rolle) und was der Schritt braucht (`faehigkeiten`: `text`, `bild`, `werkzeuge`,
+`mindestkontext`). **GET `/api/apps/:id/schritt-modelle`** liefert
+`{ data: { standard, modelle: [{ id, name, ist_standard, faehigkeiten: { text,
+bild, werkzeuge, kontext } }], flows: [{ name, schritte: [{ name, rolle,
+faehigkeiten, original, original_vorhanden, gewaehlt, gilt, gilt_ist_standard,
+herkunft, hinweis, moegliche }] }] } }`. `original` ist das Modell des
+Entwicklers, `gewaehlt` die Wahl des Admins, `gilt` das Modell, mit dem der
+Schritt läuft; `herkunft` ist `gewaehlt`, `paket`, `standard` (der Entwickler
+nennt keines, es gilt das Modell des Flows), `standard_weil_fehlt` (das genannte
+Modell liegt nicht am Gerät) oder `standard_wahl_ungueltig` (die Wahl passt nicht
+mehr). `moegliche` sind die installierten Modelle, die **alle** Fähigkeiten des
+Schritts erfüllen; `hinweis` ist ein Satz für den Admin oder `null`. Die
+Fähigkeiten der Modelle kommen aus dem Modellkatalog: `text` aus Aufgabe und
+Typ (kein Einbettungs- und kein reines Bildmodell), `bild` aus
+`supports_vision_input`, `werkzeuge` aus `supports_tools` (Ollama meldet `tools`
+unter `capabilities`), `kontext` aus `context_window`; was der Katalog nicht
+weiß, schließt aus. **PUT
+`/api/apps/:id/flows/:name/schritte/:schritt/modell`** mit `{ "modell": "<id>" }`
+stellt um, `{ "modell": null }` nimmt die Wahl zurück. `400`, wenn das Modell
+nicht am Gerät liegt oder dem Schritt eine Fähigkeit fehlt; `404` bei
+unbekanntem Flow oder einem Schritt ohne Modell (Werkzeug-Schritt). Die Wahl
+liegt ohne Stand in `flow_schritt_modelle`, überlebt ein App-Update und steht im
+Sicherheitsprotokoll als `schritt_modell_gesetzt`. Den Prompt ändert nichts
+davon. **GET `/api/apps/modell-hinweise`** liefert `{ data: [{ app_id,
+app_name, flow, schritt, original, gewaehlt, gilt, text }] }`, leer, wenn alles
+passt (Admin-Hinweise der Startseite). Im Lauf steht jede Abweichung als Schritt
+der Art `hinweis` mit dem Namen `modell`.
 
 **PUT /api/apps/:id/flows/:name/modell:** eine Entscheidung, drei Antworten:
 

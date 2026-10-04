@@ -573,6 +573,35 @@ tut der Flow im Teststand etwas anderes als im Livestand".
 
 ---
 
+## `flow_schritt_modelle`
+
+> Das Modell, auf das der Administrator einen Schritt eines Flows umgestellt hat (M5, Migration 205). Nur Abweichungen vom Paket; „zurück zum Original" löscht die Zeile.
+
+| Column          | Type                     | Nullable | Default |
+| --------------- | ------------------------ | -------- | ------- |
+| `app_id`        | text                     | ⛔       |         |
+| `flow_name`     | text                     | ⛔       |         |
+| `schritt`       | text                     | ⛔       |         |
+| `modell`        | text                     | ⛔       |         |
+| `geaendert_am`  | timestamp with time zone | ⛔       | `now()` |
+| `geaendert_von` | bigint                   | ✅       |         |
+
+**Primary key:** `app_id, flow_name, schritt`
+
+**Foreign Keys:**
+
+- `app_id` → `apps.id` (`ON DELETE CASCADE`)
+- `geaendert_von` → `admin_users.id` (`ON DELETE SET NULL`)
+
+Ohne `stand` und nicht in `app_flows`, aus demselben Grund wie `flow_settings`:
+das Paket bringt die Flow-Datei mit jedem Update neu, die Wahl des Admins soll
+es überleben. Das Backend schreibt nur ein Modell, das am Gerät liegt und alle
+Fähigkeiten des Schritts erfüllt. Zur Laufzeit gilt die Wahl nur, solange sie
+noch passt; sonst läuft der Schritt mit dem Original oder dem Standardmodell, und
+der Lauf vermerkt es.
+
+---
+
 ## `flow_settings`
 
 > Was der Administrator am Gerät an einem Flow einer App geändert hat. Überlebt ein App-Update. Seit 173
@@ -1245,6 +1274,7 @@ Ausbau des RAG (162, 163) immer NULL.
 | `context_window`        | integer                  | ✅       |                                 |
 | `recommended_ctx`       | integer                  | ✅       | `8192`                          |
 | `supports_vision_input` | boolean                  | ✅       | `false`                         |
+| `supports_tools`        | boolean                  | ⛔       | `false`                         |
 | `is_platform_default`   | boolean                  | ✅       | `false`                         |
 | `speed_tier`            | character varying        | ✅       | `'balanced'::character varying` |
 | `task`                  | character varying        | ✅       |                                 |
