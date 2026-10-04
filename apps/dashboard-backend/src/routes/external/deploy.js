@@ -203,13 +203,13 @@ router.post(
   validateBody(SchaltenBody),
   asyncHandler(async (req, res) => {
     // Nach live geht es gesichert und mit Rueckfall (M5): `liveSchalten`.
-    // Scheitert die neue Fassung, wirft es 409 LIVE_ZURUECKGESCHALTET.
+    // Scheitert die neue Fassung, wirft es 409 LIVE_ZURUECKGESCHALTET; beide
+    // Richtungen laufen unter einer Sperre je App.
     const data =
       req.body.ziel === 'live'
         ? await liveSchalten.schalteLive({ appId: req.params.id, durch: req.apiKey.userId ?? null })
-        : await appStore.schalte({
+        : await liveSchalten.schalteZurueck({
             appId: req.params.id,
-            ziel: req.body.ziel,
             durch: req.apiKey.userId ?? null,
           });
     logSecurityEvent({

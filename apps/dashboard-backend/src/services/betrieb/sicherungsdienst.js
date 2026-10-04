@@ -1359,6 +1359,19 @@ async function holeLiveDatenZurueck(appId, standId) {
   if (!STAND_KENNUNG.test(standId || '')) {
     return { erfolg: false, ausgabe: 'Keine gültige Kennung des Stands.' };
   }
+  // Warten statt abweisen: der Rueckfall MUSS laufen, sonst steht die App
+  // ohne ihre Daten. Eine andere Sicherung ist nach spaetestens 30 Minuten
+  // fertig (dieselbe Frist wie `imContainer`); die Sperre wird nicht
+  // ueberschrieben, solange sie einem anderen Lauf gehoert.
+  const frist = Date.now() + 31 * 60_000;
+  while (laeuftGerade && Date.now() < frist) {
+    await new Promise(weiter => {
+      setTimeout(weiter, 2000);
+    });
+  }
+  if (laeuftGerade) {
+    return { erfolg: false, ausgabe: `Es lief die ganze Zeit: ${laeuftGerade}` };
+  }
   laeuftGerade = 'live-daten zurückholen';
   try {
     const { code, ausgabe } = await imContainer(

@@ -31,7 +31,10 @@ jest.mock('../../src/services/app/appStore', () => ({
   schalte: jest.fn(),
   entferneApp: jest.fn(),
 }));
-jest.mock('../../src/services/app/liveSchalten', () => ({ schalteLive: jest.fn() }));
+jest.mock('../../src/services/app/liveSchalten', () => ({
+  schalteLive: jest.fn(),
+  schalteZurueck: jest.fn(),
+}));
 
 // Die echte Pruefung bleibt drin, nur die Schluesselsuche in der Datenbank
 // nicht: `requireEndpoint` IST die Zusage, die hier gemessen wird, und eine
@@ -193,14 +196,18 @@ describe('POST /apps/:id/schalten', () => {
     expect(antwort.body.error.details.schaltung.ergebnis).toBe('zurueckgeschaltet');
   });
 
-  it('gibt `zurueck` ebenso weiter', async () => {
-    appStore.schalte.mockResolvedValue({ app_id: 'urlaub', stand: 'live', version: '1.1.0' });
+  it('gibt `zurueck` ebenso weiter, unter derselben Sperre (M5)', async () => {
+    liveSchalten.schalteZurueck.mockResolvedValue({
+      app_id: 'urlaub',
+      stand: 'live',
+      version: '1.1.0',
+    });
     await request(app())
       .post('/api/v1/external/apps/urlaub/schalten')
       .set('x-api-key', 'kit')
       .send({ ziel: 'zurueck' })
       .expect(200);
-    expect(appStore.schalte).toHaveBeenCalledWith({ appId: 'urlaub', ziel: 'zurueck', durch: 42 });
+    expect(liveSchalten.schalteZurueck).toHaveBeenCalledWith({ appId: 'urlaub', durch: 42 });
   });
 });
 

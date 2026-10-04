@@ -105,6 +105,16 @@ async function fallZurueck({ appId, vorher, sicherung, datenbankNeu, durch }) {
   if (sicherung?.id) {
     const daten = await sicherungsdienst.holeLiveDatenZurueck(appId, sicherung.id);
     rueckfall.daten = { erfolg: daten.erfolg, ausgabe: kurz(daten.ausgabe, 2000) };
+  } else if (datenbankNeu && vorher) {
+    // Der alte Livestand hatte keine Datenbank, die gescheiterte Fassung hat
+    // eine angelegt und halb geaendert. Sie faellt, sonst liefe der naechste
+    // Versuch auf dem halben Schema.
+    try {
+      await appDatenbank.entferneStand(appId, 'live');
+      rueckfall.daten = { erfolg: true, ausgabe: 'Die eben angelegte Datenbank ist entfernt.' };
+    } catch (fehler) {
+      rueckfall.daten = { erfolg: false, ausgabe: fehler.message };
+    }
   }
 
   if (!vorher) {
@@ -147,6 +157,21 @@ async function fallZurueck({ appId, vorher, sicherung, datenbankNeu, durch }) {
   return rueckfall;
 }
 
+/**
+ * Hat ein Fehler von `schalte` den Livestand ueberhaupt angefasst? Nein, wenn
+ * noch der alte Container (mit dem Image der alten Fassung) dasteht, oder --
+ * ohne alten Livestand -- gar keiner. Dann ist es ein Fehler vor dem
+ * Umschalten (Lizenz, Manifest, Bau), kein gescheiterter Start, und die
+ * Live-Daten werden nicht zurueckgeholt.
+ */
+async function unberuehrt(appId, vorher) {
+  const jetzt = await appContainer.zustand(appId, 'live').catch(() => undefined);
+  if (jetzt === undefined) {
+    return false;
+  }
+  return vorher ? jetzt?.image === vorher.manifest?.backend?.image : jetzt === null;
+}
+
 async function ablauf({ appId, durch }) {
   const staende = await appStore.staendeVon(appId);
   const test = staende.test;
@@ -161,11 +186,44 @@ async function ablauf({ appId, durch }) {
   const neu = test.version;
   const id = await beginne({ appId, von: vorher?.version, nach: neu, durch });
 
+  let angehalten = false;
+  try {
+    return await sichernUndSchalten({
+      appId,
+      durch,
+      id,
+      name,
+      neu,
+      vorher,
+      setzeAngehalten: a => {
+        angehalten = a;
+      },
+    });
+  } catch (fehler) {
+    if (fehler instanceof LiveSchaltenError) {
+      throw fehler;
+    }
+    // Ein Fehler, mit dem niemand rechnete (etwa die Datenbank der Plattform
+    // zwischendurch weg): der alte Livestand laeuft wieder, wenn er noch steht,
+    // und der Versuch bleibt nicht auf `laeuft` haengen.
+    if (angehalten) {
+      await appContainer.starteWieder(appId, 'live').catch(() => {});
+    }
+    await db
+      .query(`DELETE FROM public.app_schaltungen WHERE id = $1 AND ergebnis = 'laeuft'`, [id])
+      .catch(() => {});
+    throw fehler;
+  }
+}
+
+async function sichernUndSchalten({ appId, durch, id, name, neu, vorher, setzeAngehalten }) {
   // 1. und 2.: anhalten und sichern -- nur, wenn es Live-Daten gibt.
   const datenbankDa = await appDatenbank.datenbankDa(appDatenbank.namenFuer(appId, 'live'));
   let sicherung = null;
+  let angehalten = false;
   if (datenbankDa) {
-    const angehalten = await appContainer.halteAn(appId, 'live');
+    angehalten = await appContainer.halteAn(appId, 'live');
+    setzeAngehalten(angehalten);
     try {
       sicherung = await sicherungsdienst.sichereVorLive(appId);
     } catch (fehler) {
@@ -174,6 +232,7 @@ async function ablauf({ appId, durch }) {
     if (!sicherung.erfolg) {
       if (angehalten) {
         await appContainer.starteWieder(appId, 'live');
+        setzeAngehalten(false);
       }
       const schaltung = await beende(id, {
         ergebnis: 'nicht_gesichert',
@@ -194,9 +253,28 @@ async function ablauf({ appId, durch }) {
   let gesundheit = null;
   try {
     eingespielt = await appStore.schalte({ appId, ziel: 'live', durch });
-    gesundheit = await appContainer.bleibtGesund(appId, 'live');
   } catch (fehler) {
+    if (await unberuehrt(appId, vorher)) {
+      // Nichts umgeschaltet: der alte Livestand laeuft weiter, der Fehler geht
+      // so, wie er ist, an den Aufrufer (409 Lizenz, 400 Manifest, ...).
+      if (angehalten) {
+        await appContainer.starteWieder(appId, 'live');
+        setzeAngehalten(false);
+      }
+      await db.query('DELETE FROM public.app_schaltungen WHERE id = $1', [id]);
+      throw fehler;
+    }
     gesundheit = { gesund: false, grund: fehler.message, exitCode: null, neustarts: 0 };
+  }
+  // Ab hier steht im Livestand die neue Fassung (oder ihr Rest); den alten
+  // Container gibt es nicht mehr, wieder starten laesst sich nichts.
+  setzeAngehalten(false);
+  if (!gesundheit) {
+    try {
+      gesundheit = await appContainer.bleibtGesund(appId, 'live');
+    } catch (fehler) {
+      gesundheit = { gesund: false, grund: fehler.message, exitCode: null, neustarts: 0 };
+    }
   }
 
   if (gesundheit.gesund) {
@@ -262,18 +340,29 @@ async function ablauf({ appId, durch }) {
  *
  * @param {{appId: string, durch: number|string|null}} was
  */
-async function schalteLive({ appId, durch }) {
+function schalteLive({ appId, durch }) {
+  return gesperrt(appId, () => ablauf({ appId, durch }));
+}
+
+/**
+ * Zurueck auf die vorige Fassung (`{"ziel":"zurueck"}`), unter derselben
+ * Sperre: ein Tausch mitten in einem Rueckfall fasste denselben Container an.
+ * Gesichert wird nicht -- die vorige Fassung lief schon auf diesen Daten.
+ */
+function schalteZurueck({ appId, durch }) {
+  return gesperrt(appId, () => appStore.schalte({ appId, ziel: 'zurueck', durch }));
+}
+
+async function gesperrt(appId, tun) {
   if (laufend.has(appId)) {
-    throw new ConflictError(
-      `${appId} wird gerade live geschaltet. Warten Sie, bis das fertig ist.`
-    );
+    throw new ConflictError(`${appId} wird gerade geschaltet. Warten Sie, bis das fertig ist.`);
   }
   laufend.add(appId);
   try {
-    return await ablauf({ appId, durch });
+    return await tun();
   } finally {
     laufend.delete(appId);
   }
 }
 
-module.exports = { schalteLive };
+module.exports = { schalteLive, schalteZurueck };

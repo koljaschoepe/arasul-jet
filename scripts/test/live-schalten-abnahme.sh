@@ -125,6 +125,37 @@ sql() { # datenbank abfrage
   am_geraet "docker exec postgres-db psql -U arasul -d '$1' -tAc \"$2\"" 2>/dev/null | tr -d '\r'
 }
 
+# Nur die Kennungen dieses Laufs, einzeln (restic forget <id>), danach
+# aufraeumen wie nach jeder Aufbewahrung, und dieselben Zeilen aus
+# staende.json -- unter der Sperre der Sicherung, damit keine Nacht
+# dazwischenkommt. Laeuft auch beim Abbruch (trap): ein Stand davor faellt
+# sonst erst, wenn das Ziel voll ist.
+STAENDE_WEG=nein
+UEBRIG=""
+staende_vergessen() {
+  STAENDE_WEG=ja
+  # Dazu jeder Stand, der vor dem Live-Schalten DIESER Probe-App entstand
+  # (`fuer:live:<app>`) -- auch einer, dessen Kennung der Lauf nicht mehr las.
+  local id
+  ruf "$TOK" GET /api/backup/staende
+  for id in $(rumpf | python3 -c 'import sys,json
+try: d=json.load(sys.stdin)["data"]
+except Exception: d=[]
+print(" ".join(x["id"] for x in d if (x.get("fuer") or {}) == {"art":"live","id":sys.argv[1]}))' "$APP"); do
+    [[ " ${EIGENE_STAENDE[*]} " == *" $id "* ]] || EIGENE_STAENDE+=("$id")
+  done
+  [ "${#EIGENE_STAENDE[@]}" -gt 0 ] || { UEBRIG=0; return 0; }
+  local weg_json
+  weg_json="$(printf '%s\n' "${EIGENE_STAENDE[@]}" | python3 -c 'import sys,json; print(json.dumps(sorted(set(l.strip() for l in sys.stdin if l.strip()))))')"
+  am_geraet "docker exec backup-service bash -c $(printf '%q' "exec 9>/backups/.sicherung.sperre; timeout 3300 flock 9
+    source /usr/local/bin/staende.sh
+    R=\$(stand_repo /backups); K=\$STAND_SCHLUESSEL
+    stand_restic \$R \$K forget $(printf '%s ' "${EIGENE_STAENDE[@]}") >/dev/null 2>&1 && stand_aufraeumen \$R \$K
+    jq --argjson weg '$weg_json' '.staende |= map(select(.id as \$i | (\$weg | index(\$i)) | not))' /backups/staende.json > /backups/staende.json.neu && mv -f /backups/staende.json.neu /backups/staende.json")" >"$ARBEIT/forget.log" 2>&1
+  ruf "$TOK" GET /api/backup/staende
+  UEBRIG="$(rumpf | python3 -c 'import sys,json; d=json.load(sys.stdin)["data"]; w=set(json.loads(sys.argv[1])); print(sum(1 for x in d if x["id"] in w))' "$weg_json")"
+}
+
 SCHLUESSEL=""
 KEY_ID=""
 TOK=""
@@ -134,6 +165,11 @@ aufraeumen() {
   if [ -n "$SCHLUESSEL" ] && [ "$APP_WEG" != ja ]; then
     curl -sk -o /dev/null --max-time 300 -X DELETE -H "x-api-key: $SCHLUESSEL" \
       "$BASIS/api/v1/external/apps/$APP?bestaetigung=$APP&dateien=true"
+  fi
+  # Abgebrochen: auch die Staende, die das Live-Schalten dieser App anlegte.
+  if [ "$STAENDE_WEG" != ja ] && [ -n "$TOK" ]; then
+    staende_vergessen
+    echo "aufgeraeumt  ${#EIGENE_STAENDE[@]} eigene Staende (Abbruch)"
   fi
   if [ -n "$KEY_ID" ]; then
     curl -sk -o /dev/null --max-time 30 -X DELETE -H "authorization: Bearer $TOK" \
@@ -351,20 +387,8 @@ pruefe "Beide Datenbanken der Probe-App sind weg" \
 # Live-Datenbank zog -- nur der dieser App.
 am_geraet "docker exec backup-service sh -c 'rm -f /backups/vor_wiederherstellung/${LIVE_DB}_vorher_*'" >/dev/null 2>&1
 
-if [ "${#EIGENE_STAENDE[@]}" -gt 0 ]; then
-  # Nur die Kennungen dieses Laufs, einzeln (restic forget <id>), danach
-  # aufraeumen wie nach jeder Aufbewahrung, und dieselben Zeilen aus
-  # staende.json -- unter der Sperre der Sicherung, damit keine Nacht dazwischenkommt.
-  WEG_JSON="$(printf '%s\n' "${EIGENE_STAENDE[@]}" | python3 -c 'import sys,json; print(json.dumps(sorted(set(l.strip() for l in sys.stdin if l.strip()))))')"
-  am_geraet "docker exec backup-service bash -c $(printf '%q' "exec 9>/backups/.sicherung.sperre; timeout 3300 flock 9
-    source /usr/local/bin/staende.sh
-    R=\$(stand_repo /backups); K=\$STAND_SCHLUESSEL
-    stand_restic \$R \$K forget $(printf '%s ' "${EIGENE_STAENDE[@]}") >/dev/null 2>&1 && stand_aufraeumen \$R \$K
-    jq --argjson weg '$WEG_JSON' '.staende |= map(select(.id as \$i | (\$weg | index(\$i)) | not))' /backups/staende.json > /backups/staende.json.neu && mv -f /backups/staende.json.neu /backups/staende.json")" >"$ARBEIT/forget.log" 2>&1
-  ruf "$TOK" GET /api/backup/staende
-  UEBRIG="$(rumpf | python3 -c 'import sys,json; d=json.load(sys.stdin)["data"]; w=set(json.loads(sys.argv[1])); print(sum(1 for x in d if x["id"] in w))' "$WEG_JSON")"
-  pruefe "Die ${#EIGENE_STAENDE[@]} eigenen Staende einzeln entfernt (restic forget)" "$(ja_wenn "$UEBRIG" 0)" "$(rumpf | feld anzahl) Staende bleiben"
-fi
+staende_vergessen
+pruefe "Die ${#EIGENE_STAENDE[@]} eigenen Staende einzeln entfernt (restic forget)" "$(ja_wenn "$UEBRIG" 0)" "$(rumpf | feld anzahl) Staende bleiben"
 ruf "$TOK" GET /api/backup/staende
 FORT="$(rumpf | python3 -c 'import sys,json
 jetzt=set(x["id"] for x in json.load(sys.stdin)["data"])

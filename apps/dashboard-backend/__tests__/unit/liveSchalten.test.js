@@ -28,6 +28,7 @@ jest.mock('../../src/services/app/appContainer', () => ({
   bleibtGesund: jest.fn(),
   letzteZeilen: jest.fn(),
   entferne: jest.fn(),
+  zustand: jest.fn(),
 }));
 jest.mock('../../src/services/app/appDatenbank', () => ({
   namenFuer: (appId, stand) => `arasul_app_${appId}_${stand}`,
@@ -45,7 +46,7 @@ const appStore = require('../../src/services/app/appStore');
 const appContainer = require('../../src/services/app/appContainer');
 const appDatenbank = require('../../src/services/app/appDatenbank');
 const sicherungsdienst = require('../../src/services/betrieb/sicherungsdienst');
-const { schalteLive } = require('../../src/services/app/liveSchalten');
+const { schalteLive, schalteZurueck } = require('../../src/services/app/liveSchalten');
 
 const MIT_BACKEND = { id: 'probe', name: 'Probe', backend: { image: 'probe:x' } };
 const STAND_ID = 'a1b2c3d4e5f60718';
@@ -105,6 +106,7 @@ beforeEach(() => {
   zweiStaende();
   appDatenbank.datenbankDa.mockResolvedValue(true);
   appContainer.halteAn.mockResolvedValue(true);
+  appContainer.starteWieder.mockResolvedValue(undefined);
   appContainer.letzteZeilen.mockResolvedValue('Error: column "kostenstelle" already exists');
   appContainer.entferne.mockResolvedValue(true);
   sicherungsdienst.sichereVorLive.mockResolvedValue({ erfolg: true, id: STAND_ID });
@@ -275,6 +277,80 @@ describe('Live schalten mit Sicherung (M5)', () => {
     const erster = schalteLive({ appId: 'probe', durch: 7 });
     await new Promise(r => setImmediate(r));
     await expect(schalteLive({ appId: 'probe', durch: 7 })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    weiter({ erfolg: true, id: STAND_ID });
+    await erster;
+  });
+
+  test('ein Fehler vor dem Umschalten (der alte Container steht noch) holt keine Daten zurueck', async () => {
+    const { ConflictError } = require('../../src/utils/errors');
+    appStore.schalte.mockRejectedValue(new ConflictError('Die Lizenz traegt 3 Apps.'));
+    appContainer.zustand.mockResolvedValue({ laeuft: false, image: 'probe:x' });
+
+    await expect(schalteLive({ appId: 'probe', durch: 7 })).rejects.toThrow(
+      'Die Lizenz traegt 3 Apps.'
+    );
+    expect(appContainer.starteWieder).toHaveBeenCalledWith('probe', 'live');
+    expect(sicherungsdienst.holeLiveDatenZurueck).not.toHaveBeenCalled();
+    expect(appContainer.entferne).not.toHaveBeenCalled();
+    expect(
+      db.query.mock.calls.some(([sql]) => /DELETE FROM public\.app_schaltungen/.test(sql))
+    ).toBe(true);
+  });
+
+  test('hatte der alte Livestand keine Datenbank, faellt die halb angelegte', async () => {
+    appStore.staendeVon.mockResolvedValue({
+      test: { version: '2.0.0', manifest: { ...MIT_BACKEND, version: '2.0.0' } },
+      live: { version: '1.0.0', vorige_version: null, manifest: { id: 'probe', frontend: {} } },
+    });
+    appDatenbank.datenbankDa.mockResolvedValue(false);
+    appContainer.bleibtGesund.mockResolvedValue({ gesund: false, grund: 'beendet' });
+
+    const fehler = await schalteLive({ appId: 'probe', durch: 7 }).catch(f => f);
+    expect(fehler.code).toBe('LIVE_ZURUECKGESCHALTET');
+    expect(appDatenbank.entferneStand).toHaveBeenCalledWith('probe', 'live');
+    expect(appStore.spieleEin).toHaveBeenCalledWith(expect.objectContaining({ version: '1.0.0' }));
+  });
+
+  test('ein unerwarteter Fehler nach dem Umschalten laesst den Versuch nicht auf laeuft haengen', async () => {
+    appContainer.bleibtGesund.mockResolvedValue({ gesund: true });
+    db.query.mockImplementation(async sql => {
+      if (/INSERT INTO public\.app_schaltungen/.test(sql)) return { rows: [{ id: 5 }] };
+      if (/UPDATE public\.app_schaltungen/.test(sql)) throw new Error('Verbindung weg');
+      return { rows: [] };
+    });
+    await expect(schalteLive({ appId: 'probe', durch: 7 })).rejects.toThrow('Verbindung weg');
+    // Der alte Container ist ersetzt; ihn wieder zu starten ginge ins Leere.
+    expect(appContainer.starteWieder).not.toHaveBeenCalled();
+    expect(
+      db.query.mock.calls.some(([sql]) => /DELETE FROM public\.app_schaltungen.*laeuft/s.test(sql))
+    ).toBe(true);
+  });
+
+  test('ein unerwarteter Fehler beim Sichern startet den angehaltenen Livestand wieder', async () => {
+    db.query.mockImplementation(async sql => {
+      if (/INSERT INTO public\.app_schaltungen/.test(sql)) return { rows: [{ id: 5 }] };
+      if (/UPDATE public\.app_schaltungen/.test(sql)) throw new Error('Verbindung weg');
+      return { rows: [] };
+    });
+    sicherungsdienst.sichereVorLive.mockResolvedValue({ erfolg: false, id: null, ausgabe: 'x' });
+    await expect(schalteLive({ appId: 'probe', durch: 7 })).rejects.toThrow('Verbindung weg');
+    expect(appContainer.starteWieder).toHaveBeenCalledTimes(1);
+    expect(appStore.schalte).not.toHaveBeenCalled();
+  });
+
+  test('zurueck laeuft unter derselben Sperre', async () => {
+    let weiter;
+    sicherungsdienst.sichereVorLive.mockReturnValue(
+      new Promise(auf => {
+        weiter = auf;
+      })
+    );
+    appContainer.bleibtGesund.mockResolvedValue({ gesund: true });
+    const erster = schalteLive({ appId: 'probe', durch: 7 });
+    await new Promise(r => setImmediate(r));
+    await expect(schalteZurueck({ appId: 'probe', durch: 7 })).rejects.toMatchObject({
       statusCode: 409,
     });
     weiter({ erfolg: true, id: STAND_ID });
