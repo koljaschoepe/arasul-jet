@@ -889,7 +889,8 @@ Spalte; sie wird damit mitgesichert, ohne dass jemand daran denken muss.
 **Je App und Stand eine.** Ein Probelauf im Teststand darf die Daten des
 Livestandes nicht anfassen. Der Livestand behält seine Daten über jeden
 Versionswechsel: angelegt wird nur, was fehlt. Schalten nach live nimmt die
-Daten des Teststandes **nicht** mit.
+Daten des Teststandes **nicht** mit, und es sichert vorher die des Livestands
+(siehe [Live schalten mit Sicherung](#live-schalten-mit-sicherung-m5-04102026)).
 
 **Was nicht bleibt** (J35): das Dateisystem des Containers. Jedes Einspielen
 und jedes Schalten **ersetzt** den Container, samt seiner anonymen Volumes —
@@ -954,7 +955,8 @@ Administrator von Hand anlegt.
    `{"ziel":"zurueck"}` — das ist ein Tausch, wer ihn zweimal ruft, ist wieder
    da, wo er angefangen hat. Zwei Wege und ein Dienst dahinter: das Kit
    schaltet, wenn der Partner ausgeliefert hat, der Administrator, wenn **er**
-   den Teststand gesehen hat.
+   den Teststand gesehen hat. Nach live geht es **gesichert und mit
+   Rückfall**, siehe den nächsten Abschnitt.
 5. `DELETE /api/apps/<id>` (Sitzung) oder
    `DELETE /api/v1/external/apps/<id>?bestaetigung=<id>` (Schlüssel) entfernt
    beide Container **mitsamt ihren Volumes**, beide Stände, alle Freigaben und
@@ -971,6 +973,68 @@ Schritt 1 und 2 gehen auch anders herum, wenn jemand ohnehin am Gerät sitzt:
 Dateien nach `/arasul/apps/<id>/<version>/` legen und
 `POST /api/apps/<id>/einspielen` rufen. Das ist derselbe Dienst, nur mit einer
 Sitzung statt eines Schlüssels — zwei Wege in das Gerät, eine Logik dahinter.
+
+## Live schalten mit Sicherung (M5, 04.10.2026)
+
+> Auftrag live-schalten-mit-sicherung. Der Ablauf steht in
+> `apps/dashboard-backend/src/services/app/liveSchalten.js`, gemessen am Gerät
+> mit `scripts/test/live-schalten-abnahme.sh`.
+
+Eine neue Fassung bringt oft eine **Strukturänderung** ihrer Datenbank mit
+(eine Spalte, eine Tabelle). Sie läuft beim Start der Fassung, und zwar auf den
+echten Daten des Livestands. Scheitert sie mittendrin, bleibt eine halb
+geänderte Datenbank zurück, mit der auch die alte Fassung nicht mehr sicher
+läuft. Deshalb schaltet das Gerät nicht einfach um:
+
+1. **Anhalten.** Der alte Livestand hält an. Was er zwischen Sicherung und
+   Umschalten noch schriebe, wäre nach einem Rückfall verloren.
+2. **Sichern.** Ein Stand der Sicherung entsteht (restic, mit den Tags `vorher`
+   und `fuer:live:<id>`, siehe [BACKUP_SYSTEM.md](../ops/BACKUP_SYSTEM.md)).
+   Er bleibt außerhalb der Aufbewahrung 7/12/60 und steht in der Liste als
+   „vor dem Live-Schalten der App …". **Misslingt er, wird nicht geschaltet**,
+   und der alte Livestand läuft weiter (`409 LIVE_NICHT_GESICHERT`).
+3. **Schalten.** Die Fassung aus dem Teststand wird wie bisher eingespielt.
+4. **Zusehen.** Die neue Fassung muss gesund werden: beendet sich der
+   Container, startet er neu, meldet er `unhealthy` oder ist er nach 180
+   Sekunden nicht gesund, gilt sie als gescheitert. Ohne Healthcheck im
+   Manifest gilt sie nach 20 Sekunden ohne Neustart als hochgekommen.
+5. **Zurück.** Gescheitert: der neue Container geht, die Live-Datenbank wird
+   verworfen und aus dem Stand von Schritt 2 neu eingespielt (mit allem, was
+   die halbe Strukturänderung angelegt hatte), und die Fassung von vorher läuft
+   wieder, mit ihrer vorigen Version und ihrem Änderungstext. Antwort:
+   `409 LIVE_ZURUECKGESCHALTET`.
+
+**Was eine App dafür tun muss:** ihre Strukturänderung beim Start ausführen und,
+wenn sie scheitert, sich **beenden** (Exit-Code ungleich 0) oder sich ungesund
+melden. Eine App, die den Fehler schluckt und weiterläuft, sieht für das Gerät
+gesund aus. Das steht als Regel im Kontrakt unter `daten.regeln`.
+
+**Der Teststand wird dabei nie angefasst**, weder sein Container noch seine
+Datenbank, und er bekommt nie eine Kopie der Live-Daten: kopiert wird in keine
+Richtung.
+
+**Ein erstes Live-Schalten**, also ohne vorigen Livestand, sichert nichts (es
+gibt noch keine Live-Daten). Scheitert es, fällt der eben angelegte Livestand
+wieder weg: Zeile, Flows, Schlüssel und die leere Datenbank.
+
+**Der Admin liest es in einem Satz.** Jeder Versuch steht in `app_schaltungen`
+(Migration 199). Ging er nicht glatt, zeigt die Karte des Livestands in der
+Verwaltung den Satz („Die neue Fassung 1.1.0 ließ sich nicht starten, deshalb
+läuft Belege wieder mit Fassung 1.0.0 und den Daten von vorher."), darunter den
+zweiten, was er tun kann, und zugeklappt die **Technischen Angaben**: Grund,
+Exit-Code, Stand der Sicherung, ob Daten und Fassung zurück sind und die
+letzten Zeilen der gescheiterten Fassung.
+
+**Der Änderungstext steht beim Schalten da.** Was der Entwickler beim Ausrollen
+schrieb (Kontrakt 8, `aenderungstext`), steht am Teststand und im Dialog „live
+schalten", bevor der Admin bestätigt; er wandert mit der Fassung in den
+Livestand (`app_staende.aenderungstext`).
+
+**Dauer.** Sichern, schalten und abwarten dauert am Orin um zwei Minuten, mit
+Rückfall länger. Der Knopf sagt „Sichert und schaltet…", solange es läuft;
+dieselbe App lässt sich in der Zeit nicht ein zweites Mal schalten (`409`).
+`{"ziel":"zurueck"}` sichert nicht: es geht auf eine Fassung, die schon auf
+diesen Daten lief.
 
 ## Grenzen
 
