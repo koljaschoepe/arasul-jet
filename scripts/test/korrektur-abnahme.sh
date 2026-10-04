@@ -340,7 +340,7 @@ pruefe 'Felder: datum zu pruefen (nicht erkannt) und aenderbar, oben' \
 pruefe 'Felder: betrag mit Vorschlag 12,50, nicht aenderbar' \
   "$([ "$(feld_der_anfrage betrag vorschlag)" = '12,50' ] && [ "$(feld_der_anfrage betrag aenderbar)" = false ] && echo ja || echo nein)"
 pruefe 'Keine Prozentzahl an den Feldern' \
-  "$(printf '%s' "$ANFRAGE_JSON" | feld felder | grep -q '%' && echo nein || echo ja)"
+  "$(grep -q '%' <<<"$(printf '%s' "$ANFRAGE_JSON" | feld felder)" && echo nein || echo ja)"
 ORIGINAL=$(printf '%s' "$ANFRAGE_JSON" | feld original)
 pruefe 'Das Original ist eine Adresse der App' "$(ja_wenn "$ORIGINAL" "/apps/$APP/api/belege/4711.svg")" "$ORIGINAL"
 ruf "$TOK_B" GET "$ORIGINAL"
@@ -372,7 +372,7 @@ pruefe 'Danach haelt der Lauf in der Stufe Leitung' \
   "$([ -n "$ANFRAGE" ] && [ "$(printf '%s' "$ANFRAGE_JSON" | feld stufe)" = leitung ] && echo ja || echo nein)" "anfrage=${ANFRAGE:-—}"
 P2="$ANFRAGE"
 pruefe 'Die Buchung davor nennt den geaenderten Wert 01.10.2026' \
-  "$(printf '%s' "$ANFRAGE_JSON" | feld zusammenhang | grep -q 'datum: 01.10.2026' && echo ja || echo nein)" \
+  "$(grep -q 'datum: 01.10.2026' <<<"$(printf '%s' "$ANFRAGE_JSON" | feld zusammenhang)" && echo ja || echo nein)" \
   "$(printf '%s' "$ANFRAGE_JSON" | feld zusammenhang | cut -c1-90)"
 pruefe 'Was bisher geschah: Pruefung bestaetigt von B, mit der Aenderung' \
   "$([ "$(printf '%s' "$ANFRAGE_JSON" | feld frueher.0.status)" = bestaetigt ] && [ "$(printf '%s' "$ANFRAGE_JSON" | feld frueher.0.entschieden_von)" = "$B" ] && [ "$(printf '%s' "$ANFRAGE_JSON" | feld frueher.0.korrekturen.0.wert)" = '01.10.2026' ] && echo ja || echo nein)"
@@ -385,7 +385,7 @@ warte_status fertig "$LAUF_GEDULD"
 pruefe 'Der Lauf endet fertig' "$(ja_wenn "$STATUS" fertig)" "status=${STATUS:-—}"
 ruf "$TOK_A" GET "/apps/$APP/api/lauf?lauf=$LAUF"
 pruefe 'Sein Ergebnis traegt den geaenderten Wert' \
-  "$(rumpf | feld ergebnis | grep -q '01.10.2026' && echo ja || echo nein)" "$(rumpf | feld ergebnis | cut -c1-100)"
+  "$(grep -q '01.10.2026' <<<"$(rumpf | feld ergebnis)" && echo ja || echo nein)" "$(rumpf | feld ergebnis | cut -c1-100)"
 
 # --- 7. Nachlesen: die App und die Laeufe-Ansicht -------------------------------------
 ruf "$TOK_A" GET "/apps/$APP/api/freigaben?lauf=$LAUF"
