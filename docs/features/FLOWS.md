@@ -241,7 +241,7 @@ Entwickler nennt) neben dem Modell, **mit dem der Schritt läuft**.
 Wege: `GET /api/apps/:id/schritt-modelle`, `PUT
 /api/apps/:id/flows/:name/schritte/:schritt/modell`, `GET
 /api/apps/modell-hinweise` ([API_REFERENCE.md](../api/API_REFERENCE.md)).
-Abnahme: `scripts/test/modell-je-schritt-abnahme.sh`.
+Abnahme: `scripts/test/modell-je-schritt-abnahme.sh` (Probe-App `tests/probe-modell`, ohne Modellantwort: der Lauf hält an einer Freigabe). Am Orin am 04.10.2026 dreimal hintereinander 58 grün, 0 rot.
 
 ### Grenzen (Notbremsen)
 
