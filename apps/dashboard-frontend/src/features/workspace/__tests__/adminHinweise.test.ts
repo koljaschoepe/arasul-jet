@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appHinweise, lizenzHinweis, sicherungHinweis } from '../useAdminHinweise';
+import { appHinweise, lizenzHinweis, modellHinweise, sicherungHinweis } from '../useAdminHinweise';
 import type { SicherungStatus } from '@/features/system/sicherung/useSicherung';
 import type { AppZeile } from '@/features/settings/personen/useAppFreigaben';
 import type { LizenzInfo } from '@/features/settings/lizenz/useLizenz';
@@ -28,6 +28,26 @@ const app = (live: ReturnType<typeof stand> | null, test: ReturnType<typeof stan
   ] as AppZeile[];
 
 describe('Hinweise für den Administrator', () => {
+  it('Modell je Schritt: ein fehlendes Modell zeigt auf die App, ohne Fund bleibt es still', () => {
+    expect(modellHinweise(undefined)).toEqual([]);
+    expect(modellHinweise([])).toEqual([]);
+    expect(
+      modellHinweise([
+        {
+          app_id: 'rechnungen',
+          app_name: 'Rechnungen',
+          flow: 'f',
+          schritt: 's',
+          text: 'Schritt „s": Das Modell „x" liegt nicht am Gerät.',
+        },
+      ])[0]
+    ).toMatchObject({
+      art: 'modell-fehlt',
+      text: expect.stringContaining('Rechnungen: Schritt'),
+      ziel: { bereich: 'apps', abschnitt: 'rechnungen' },
+    });
+  });
+
   it('Sicherung: gut ist still, fehlgeschlagen und älter als ein Tag melden sich', () => {
     expect(sicherungHinweis(sicherung({}))).toBeNull();
     expect(sicherungHinweis(undefined)).toBeNull();

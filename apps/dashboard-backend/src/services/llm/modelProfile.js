@@ -119,6 +119,11 @@ async function leseSteckbrief(ollamaName) {
         : null,
       license: lizenzBezeichnung(info['general.license'], daten.license),
       contextLength: kontextLaenge(info),
+      // Ollama nennt `tools` unter `capabilities`; fehlt die Liste (aeltere
+      // Ollama-Fassung), bleibt der Katalogwert, wie er ist (Migration 205).
+      supportsTools: Array.isArray(daten.capabilities)
+        ? daten.capabilities.includes('tools')
+        : null,
     };
   } catch (fehler) {
     logger.debug(`[STECKBRIEF] /api/show fehlgeschlagen für ${ollamaName}: ${fehler.message}`);
@@ -170,6 +175,7 @@ async function steckbriefeNachtragen(database, { hoechstalterTage = 30, hoechste
               quantization    = COALESCE($3, quantization),
               license         = COALESCE($4, license),
               context_window  = COALESCE($5, context_window),
+              supports_tools  = COALESCE($6, supports_tools),
               profile_read_at = NOW(),
               updated_at      = NOW()
         WHERE id = $1`,
@@ -179,6 +185,7 @@ async function steckbriefeNachtragen(database, { hoechstalterTage = 30, hoechste
         steckbrief.quantization,
         steckbrief.license,
         steckbrief.contextLength,
+        steckbrief.supportsTools,
       ]
     );
     geschrieben += 1;

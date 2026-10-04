@@ -17,7 +17,7 @@ import { useLizenz, type LizenzInfo } from '@/features/settings/lizenz/useLizenz
 
 export interface Hinweis {
   /** Stabil, für `data-testid` und den Schlüssel. */
-  art: 'sicherung' | 'update' | 'app-gestoert' | 'fassung-wartet' | 'lizenz';
+  art: 'sicherung' | 'update' | 'app-gestoert' | 'fassung-wartet' | 'lizenz' | 'modell-fehlt';
   text: string;
   /** Wohin der Klick führt: ein Bereich der Verwaltung, mit Abschnitt. */
   ziel: { bereich: string; abschnitt?: string };
@@ -67,6 +67,23 @@ export function appHinweise(apps: AppZeile[] | undefined): Hinweis[] {
   return aus;
 }
 
+/** Ein Schritt, dessen Modell fehlt oder dessen Wahl nicht mehr passt (`GET /api/apps/modell-hinweise`). */
+export interface ModellHinweis {
+  app_id: string;
+  app_name: string;
+  flow: string;
+  schritt: string;
+  text: string;
+}
+
+export function modellHinweise(liste: ModellHinweis[] | undefined): Hinweis[] {
+  return (liste ?? []).map(h => ({
+    art: 'modell-fehlt',
+    text: `${h.app_name}: ${h.text}`,
+    ziel: { bereich: 'apps', abschnitt: h.app_id },
+  }));
+}
+
 export function lizenzHinweis(l: LizenzInfo | undefined): Hinweis | null {
   if (!l) return null;
   const ziel = { bereich: 'lizenz' };
@@ -104,6 +121,14 @@ export function useAdminHinweise(): Hinweis[] {
   const sicherung = useSicherungStatus();
   const apps = useAlleApps();
   const lizenz = useLizenz();
+  const modelle = useQuery({
+    queryKey: ['apps', 'modell-hinweise'],
+    queryFn: () =>
+      api.get<{ data: ModellHinweis[] }>('/apps/modell-hinweise', { showError: false }),
+    select: a => a.data,
+    staleTime: 30_000,
+    retry: false,
+  });
   const fassung = useQuery({
     queryKey: ['update', 'fassung'],
     queryFn: () =>
@@ -141,6 +166,7 @@ export function useAdminHinweise(): Hinweis[] {
     sicherungHinweis(sicherung.data),
     update,
     ...appHinweise(apps.data),
+    ...modellHinweise(modelle.data),
     lizenzHinweis(lizenz.data),
   ].filter((h): h is Hinweis => h !== null);
 }

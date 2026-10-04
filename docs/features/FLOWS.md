@@ -204,6 +204,45 @@ Schritte des alten Laufs werden übernommen (im Protokoll als Schritte mit dem
 Vermerk „übernommen aus Lauf N") und erst ab dem ersten gescheiterten Schritt
 wird wieder echt ausgeführt.
 
+### Modell und Fähigkeiten je Schritt (M5, 04.10.2026)
+
+Der Entwickler nennt je `subagent`-Schritt das Modell, das er meint (`modell`
+am Schritt, sonst `modell` an der Rolle), und was der Schritt braucht
+(`faehigkeiten`: `text`, `bild`, `werkzeuge`, `mindestkontext`, Kontrakt 8).
+Auf der App-Seite der Verwaltung steht je Schritt das **Original** (was der
+Entwickler nennt) neben dem Modell, **mit dem der Schritt läuft**.
+
+- **Wahl.** Der Admin stellt einen Schritt nur auf ein Modell um, das am Gerät
+  liegt und **alle** Fähigkeiten des Schritts erfüllt. Andere bietet die
+  Auswahl nicht an, und das Backend weist sie mit `400` ab. Prompts ändert er
+  nicht; Laden und Entladen regelt das Gerät selbst nach Nutzung.
+- **Woher die Fähigkeiten der Modelle kommen.** Aus dem Modellkatalog
+  (`llm_model_catalog`): `text` aus Aufgabe und Typ (ein Einbettungs- und ein
+  reines Bildmodell führen keinen Schritt mit Auftrag), `bild` aus
+  `supports_vision_input`, `kontext` aus `context_window` (vom Gerät aus
+  `/api/show` gelesen), `werkzeuge` aus `supports_tools` (Migration 205; Ollama
+  meldet `tools` unter `capabilities`, der Steckbrief liest es nach). Was der
+  Katalog nicht weiß, schließt aus: ein unbekannter Kontext erfüllt keinen
+  Mindestkontext.
+- **Die Wahl überlebt ein Update.** Sie liegt in `flow_schritt_modelle`, ohne
+  Stand, nicht in der Flow-Datei und nicht in `app_flows`.
+- **Fehlt das genannte Modell am Gerät,** läuft der Schritt mit dem
+  Standardmodell. Der Lauf vermerkt es (ein Schritt der Art `hinweis` mit dem
+  Namen `modell`, vor dem Schritt), die App-Seite zeigt den Hinweis am Schritt,
+  die Startseite des Admins unter „Braucht Ihre Aufmerksamkeit". Dasselbe gilt,
+  wenn eine Wahl nicht mehr passt (Modell entfernt, Fähigkeit neu gefordert):
+  dann gilt das Original, sonst der Standard.
+- **Ein Modell aus dem Plan sticht `rolle.modell`:** der Admin hat den Schritt
+  umgestellt, nicht die Rolle. Ein Flow mit **externem Modell** (D4) ist
+  ausgenommen, er rechnet ganz draußen.
+- **Nennt der Entwickler kein Modell,** folgt der Schritt dem Modell des Flows;
+  der Admin kann ihn trotzdem umstellen.
+
+Wege: `GET /api/apps/:id/schritt-modelle`, `PUT
+/api/apps/:id/flows/:name/schritte/:schritt/modell`, `GET
+/api/apps/modell-hinweise` ([API_REFERENCE.md](../api/API_REFERENCE.md)).
+Abnahme: `scripts/test/modell-je-schritt-abnahme.sh`.
+
 ### Grenzen (Notbremsen)
 
 `max_aufrufe` (Subagent-Aufrufe über alle Ebenen), `zeitlimit_s`,

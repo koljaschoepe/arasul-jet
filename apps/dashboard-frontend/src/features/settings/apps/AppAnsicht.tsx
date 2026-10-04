@@ -37,6 +37,7 @@ import { formatDate } from '@/utils/formatting';
 import type { Stand } from '../personen/useAppFreigaben';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppFlows } from './AppFlows';
+import { AppSchrittModelle } from './AppSchrittModelle';
 import { AppPersonen } from './AppPersonen';
 import { AppStaende } from './AppStaende';
 import { AppStufen } from './AppStufen';
@@ -400,6 +401,9 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             onModell={setModellFuer}
             onOeffnen={(name, st) => setBlick({ was: 'flow', name, stand: st })}
           />
+          {/* Modell je Schritt (M5): gilt dem Flow, nicht dem Stand, und steht
+              deshalb unter der Liste und nicht in ihren Zeilen. */}
+          <AppSchrittModelle appId={appId} />
         </Feldgruppe>
 
         <Feldgruppe

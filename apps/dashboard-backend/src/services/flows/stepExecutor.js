@@ -304,6 +304,10 @@ function buildSynthesisInput(userInput, schritte, outputs) {
  * @param {boolean} [p.fortsetzung] - Der Lauf setzt sich nach einer Freigabe
  *   FORT (M5): die übernommenen Schritte stehen schon im Protokoll DIESES
  *   Laufs, also schreibt der Executor keinen Übernahme-Vermerk noch einmal.
+ * @param {Map<string,{modell:string|null,herkunft:string,vermerk:string|null}>} [p.schrittPlan] -
+ *   Modell je Schritt (M5, `schrittModelle.planFuerLauf`): womit der Schritt
+ *   rechnet. Ein `vermerk` (Modell fehlt am Gerät, Wahl passt nicht mehr) steht
+ *   als Hinweis-Schritt im Lauf. Ohne Plan gilt wie bisher `schritt.modell`.
  * @param {new()=>object} [p.SubagentToolClass] - für Tests austauschbar.
  * @returns {Promise<{result:string|null, error?:string, aborted?:boolean}>}
  */
@@ -322,11 +326,42 @@ async function executeSteps({
   vorabErgebnisse = null,
   vorabQuelleLaufId = null,
   fortsetzung = false,
+  schrittPlan = null,
   SubagentToolClass = SubagentTool,
   felderNachFreigabe = null,
 }) {
   const subagentTool = new SubagentToolClass();
   const outputs = {};
+
+  // Modell je Schritt (M5): weicht ein Schritt vom Paket ab, ohne dass der Admin
+  // es so gewaehlt hat (das Modell fehlt am Geraet, die Wahl passt nicht mehr),
+  // steht das als Hinweis VORN im Lauf -- einmal je Schritt, vor dem ersten
+  // Modellaufruf. Eine Fortsetzung nach einer Freigabe schreibt ihn nicht noch
+  // einmal: er steht schon im Protokoll dieses Laufs.
+  if (schrittPlan && context?.stepRecorder && !fortsetzung) {
+    for (const [name, geplant] of schrittPlan) {
+      if (!geplant.vermerk) {
+        continue;
+      }
+      try {
+        const hinweis = await context.stepRecorder.beginnen({
+          kind: 'hinweis',
+          name: 'modell',
+          input: {
+            text: geplant.vermerk,
+            schritt: name,
+            original: geplant.original,
+            modell: geplant.modell,
+            herkunft: geplant.herkunft,
+          },
+          modell: geplant.modell,
+        });
+        await context.stepRecorder.abschliessen({ stepId: hinweis.id, output: geplant.vermerk });
+      } catch (err) {
+        logger.warn(`Flow-Schritt "${name}": Modell-Vermerk nicht gespeichert: ${err.message}`);
+      }
+    }
+  }
 
   for (const [index, schritt] of flow.schritte.entries()) {
     if (signal && signal.aborted) {
@@ -366,6 +401,10 @@ async function executeSteps({
       continue;
     }
 
+    // Modell je Schritt (M5): womit dieser Schritt rechnet. Der Vermerk steht
+    // schon vorn im Lauf (siehe oben); hier nur das Modell.
+    const geplant = schritt.typ === 'subagent' ? schrittPlan?.get(schritt.name) : null;
+
     // Einen einzelnen Durchlauf ausführen (subagent oder werkzeug) — geteilt
     // zwischen Zähl-Iteration und Listen-Schleife. Ein Schritt-Modell
     // (schritt.modell) überschreibt das Flow-Modell für diese Delegation.
@@ -385,7 +424,10 @@ async function executeSteps({
           {
             ...context,
             signal,
-            model: schritt.modell || context.model,
+            model: geplant?.modell || schritt.modell || context.model,
+            // Ein Modell aus dem Plan gilt auch gegen `rolle.modell`: der Admin
+            // hat den SCHRITT umgestellt, nicht die Rolle.
+            ...(geplant?.modell ? { modellErzwungen: true } : {}),
             ...(erkennt ? { erkennend: true, onErgebnis: e => (erkannt = e) } : {}),
           }
         );

@@ -27,6 +27,8 @@ const {
   StufePersonBody,
   AppLaufParams,
   FlowModellBody,
+  AppSchrittParams,
+  SchrittModellBody,
   FlowArtBody,
   FlowAktivBody,
   FlowZeitplanBody,
@@ -48,6 +50,7 @@ const appFlows = require('../../services/app/appFlows');
 const appZugang = require('../../services/app/appZugang');
 const appStufen = require('../../services/app/appStufen');
 const flowSettings = require('../../services/flows/flowSettings');
+const schrittModelle = require('../../services/flows/schrittModelle');
 const runStore = require('../../services/flows/runStore');
 const abschluss = require('../../services/flows/abschluss');
 const kiProtokoll = require('../../services/app/kiProtokoll');
@@ -74,6 +77,23 @@ router.get(
   requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const data = await appStore.appsFuerNutzer(req.user.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/apps/modell-hinweise -- Schritte, deren Modell am Geraet fehlt oder
+ * deren Wahl nicht mehr passt, ueber alle Apps (M5, Modell je Schritt). Fuer die
+ * Admin-Hinweise der Startseite; ist alles gut, ist die Liste leer.
+ *
+ * Vor `/:id`, damit der Pfad nicht als Kennung gelesen wird.
+ */
+router.get(
+  '/modell-hinweise',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const data = await schrittModelle.hinweise();
     res.json({ data, timestamp: new Date().toISOString() });
   })
 );
@@ -397,6 +417,67 @@ router.put(
     });
     res.json({
       data: data ?? { app_id: appId, flow_name: name, modell: null, extern: null },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/apps/:id/schritt-modelle -- je Flow die Schritte mit Modell (M5).
+ *
+ * Je Schritt: das Modell, das der Entwickler nennt (`original`), das, mit dem
+ * der Schritt laeuft (`gilt`), und warum (`grund`); was der Schritt braucht
+ * (`faehigkeiten`) und welche installierten Modelle alle erfuellen
+ * (`moegliche`). Dazu die Modelle am Geraet mit ihren Faehigkeiten.
+ *
+ * Gilt fuer beide Staende zugleich: die Wahl gehoert dem Flow, nicht der Fassung.
+ */
+router.get(
+  '/:id/schritt-modelle',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppParams),
+  asyncHandler(async (req, res) => {
+    await appStore.holeApp(req.params.id);
+    const data = await schrittModelle.uebersicht(req.params.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * PUT /api/apps/:id/flows/:name/schritte/:schritt/modell -- einen Schritt auf
+ * ein anderes Modell umstellen (M5). `{"modell": null}` nimmt die Wahl zurueck.
+ *
+ * Das Backend weist ein Modell ab (400), das nicht am Geraet liegt oder nicht
+ * alle Faehigkeiten des Schritts erfuellt. Der Prompt bleibt, wie der Partner
+ * ihn schrieb; nichts hier aendert ihn. Die Wahl liegt in
+ * `flow_schritt_modelle` und ueberlebt ein Update der App.
+ */
+router.put(
+  '/:id/flows/:name/schritte/:schritt/modell',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppSchrittParams),
+  validateBody(SchrittModellBody),
+  asyncHandler(async (req, res) => {
+    const { id: appId, name, schritt } = req.params;
+    await appStore.holeApp(appId);
+    const data = await schrittModelle.setzeFuerSchritt({
+      appId,
+      flowName: name,
+      schritt,
+      modell: req.body.modell,
+      durch: req.user.id,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'schritt_modell_gesetzt',
+      details: { app_id: appId, flow: name, schritt, modell: req.body.modell },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({
+      data: { app_id: appId, flow: name, schritt, ...data },
       timestamp: new Date().toISOString(),
     });
   })

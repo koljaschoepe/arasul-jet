@@ -33,6 +33,7 @@ const changeTracker = require('./changeTracker');
 const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
 const pruefungService = require('./pruefung');
 const abschlussService = require('./abschluss');
+const schrittModelle = require('./schrittModelle');
 const { RunLimits } = require('./limits');
 const modelService = require('../llm/modelService');
 const logger = require('../../utils/logger');
@@ -149,6 +150,7 @@ async function runFlow(
     pruefe = pruefungService.pruefeUndKorrigiere,
     felderNachFreigabe = freigabeAnfragen.felderNachFreigabe,
     uebergebe = abschlussService.uebergebe,
+    planeSchrittModelle = schrittModelle.planFuerLauf,
   } = deps;
 
   const geladen = await loadFlow({ flowName, appId, stand });
@@ -585,6 +587,13 @@ async function runFlow(
   // 6. Ausführen — deterministische Schritt-Kette (B7), sonst modellgetrieben.
   let ergebnis;
   const hatSchritte = Array.isArray(flow.schritte) && flow.schritte.length > 0;
+  // Modell je Schritt (M5): nur bei einer App, und nur wo das Geraet rechnet.
+  // Ein externes Modell (D4) gilt fuer den ganzen Flow und ist keines dieses
+  // Geraets, dessen Faehigkeiten der Katalog kennt.
+  const schrittPlan =
+    hatSchritte && appId && !extern
+      ? await planeSchrittModelle({ appId, flowName, definition: flow })
+      : null;
   try {
     ergebnis = wiederNachErgebnis
       ? { result: String(fortsetzenAb.ergebnis ?? '') }
@@ -604,6 +613,7 @@ async function runFlow(
             vorabErgebnisse: vorab,
             vorabQuelleLaufId,
             fortsetzung: Boolean(fortsetzenAb),
+            schrittPlan,
             felderNachFreigabe,
           })
         : await runLoop({

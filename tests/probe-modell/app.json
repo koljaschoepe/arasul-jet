@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "probe-modell",
+  "name": "Probe: Modell je Schritt",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/modell-je-schritt-abnahme.sh: ein Flow, dessen Schritte Modell und Faehigkeiten nennen (M5).",
+  "frontend": {
+    "verzeichnis": "frontend"
+  },
+  "backend": {
+    "image": "arasul-probe-modell:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
+    "gesundheit": "/gesund",
+    "umgebung": {
+      "PROBE_VERSION": "1.0.0"
+    }
+  },
+  "ports": {
+    "backend": 8080
+  },
+  "ressourcen": {
+    "speicher": "64m",
+    "cpus": 0.25
+  },
+  "modelle": [],
+  "flows": {
+    "verzeichnis": "flows"
+  }
+}

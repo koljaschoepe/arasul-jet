@@ -32,9 +32,9 @@ describe('lizenzBezeichnung', () => {
    * Modellen "Apache License 2.0" und an dreien "apache-2.0".
    */
   test('nimmt den Text, auch wenn ein Kuerzel danebensteht', () => {
-    expect(
-      lizenzBezeichnung('apache-2.0', 'Apache License\n   Version 2.0, January 2004\n')
-    ).toBe('Apache License 2.0');
+    expect(lizenzBezeichnung('apache-2.0', 'Apache License\n   Version 2.0, January 2004\n')).toBe(
+      'Apache License 2.0'
+    );
   });
 
   test('normalisiert ein Kuerzel, wenn es keinen Text gibt', () => {
@@ -97,7 +97,19 @@ describe('leseSteckbrief', () => {
       quantization: 'Q4_K_M',
       license: 'Apache License 2.0',
       contextLength: 40960,
+      // Ohne `capabilities` in der Antwort weiss der Steckbrief nichts ueber
+      // Werkzeuge; der Katalogwert bleibt (COALESCE, Migration 205).
+      supportsTools: null,
     });
+  });
+
+  test('liest aus capabilities, ob das Modell Werkzeuge ruft (Modell je Schritt)', async () => {
+    const mit = { ...echteAntwort, capabilities: ['completion', 'tools'] };
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mit });
+    await expect(leseSteckbrief('a')).resolves.toMatchObject({ supportsTools: true });
+    const ohne = { ...echteAntwort, capabilities: ['completion', 'vision'] };
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ohne });
+    await expect(leseSteckbrief('b')).resolves.toMatchObject({ supportsTools: false });
   });
 
   test('gibt null, wenn Ollama das Modell nicht kennt', async () => {
@@ -145,7 +157,7 @@ describe('steckbriefeNachtragen', () => {
     const schreibend = query.mock.calls.filter(([sql]) => sql.includes('UPDATE llm_model_catalog'));
     expect(schreibend).toHaveLength(2);
     expect(schreibend[0][0]).toContain('profile_read_at = NOW()');
-    expect(schreibend[0][1]).toEqual(['qwen3:7b-q8', '8.2B', 'Q4_K_M', null, 40960]);
+    expect(schreibend[0][1]).toEqual(['qwen3:7b-q8', '8.2B', 'Q4_K_M', null, 40960, null]);
   });
 
   test('ueberspringt ein Modell, das Ollama nicht ausliefert, statt Leeres zu schreiben', async () => {
