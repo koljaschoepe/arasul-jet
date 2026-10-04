@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "probe-zeitplan",
+  "name": "Probe: Zeitplan",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/zeitplaner-abnahme.sh: Flows mit Zeitplan, ohne Modell gemessen (M5).",
+  "frontend": {
+    "verzeichnis": "frontend"
+  },
+  "backend": {
+    "image": "arasul-probe-zeitplan:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
+    "gesundheit": "/gesund",
+    "umgebung": {
+      "PROBE_VERSION": "1.0.0"
+    }
+  },
+  "ports": {
+    "backend": 8080
+  },
+  "ressourcen": {
+    "speicher": "64m",
+    "cpus": 0.25
+  },
+  "modelle": [],
+  "flows": {
+    "verzeichnis": "flows"
+  }
+}
