@@ -299,8 +299,9 @@ Bis M5 stand hier ein Dreispalten-Raster (Apps, Mitte mit Tabs, Notizen) und
 unter 900 px ein eigener Aufbau mit Hamburger-Menü (D7). Unter 900 px bleibt
 es bis zur Karte handy-und-notizen-weg bei derselben Leiste links; die
 Verwaltung zeigt ihre Bereiche dort als Auswahl über dem Bereich. Die
-Statusleiste bleibt bei 390 px **eine Zeile** und lässt weg, was in den
-Popover daneben gehört (die Fassung).
+Statusleiste zeigt dauerhaft **nur Name, Datum und Uhrzeit** (minutengenau),
+für jeden gleich, nie Modell, Speicher, Verbindung oder Fassung, und bleibt bei
+390 px **eine Zeile** (der Name kürzt).
 
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
 Startseite, seine Apps, seine Einstellungen und sein Konto; die Verwaltung

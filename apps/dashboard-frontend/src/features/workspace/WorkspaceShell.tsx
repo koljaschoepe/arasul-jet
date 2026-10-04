@@ -29,7 +29,7 @@ export interface ShellHandgriffe {
  * (`?tab=sicherung`) aufgeklappt.
  */
 function ausDerAdresse(pathname: string, search: string): Ansicht | null {
-  const ansicht = pfadZuAnsicht(pathname.replace(/^\/workspace/, ''));
+  const ansicht = pfadZuAnsicht(pathname.replace(/^\/workspace/, ''), search);
   const tab = new URLSearchParams(search).get('tab');
   const alterBereich =
     tab && (ansicht?.type === 'settings' || (ansicht?.type === 'verwaltung' && !ansicht.bereich));
@@ -95,7 +95,9 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
     );
     const pfad = ansichtZuPfad(useWorkspaceStore.getState().ansicht);
     abgeglichen.current = pfad;
-    if (location.pathname !== pfad) navigate(pfad, { replace: true });
+    // Die Abfrage gehört zur Adresse der App (`?freigabe=`); die alten `?tab=` der
+    // Verwaltung stehen nicht im Pfad und werden hier mit ersetzt.
+    if (location.pathname + location.search !== pfad) navigate(pfad, { replace: true });
   }, [location.pathname, location.search, istAdmin]);
 
   // Store → URL: ein Klick in der Leiste ist ein Schritt im Verlauf. Den

@@ -277,6 +277,17 @@ Idempotenz beibringen. Ein Paket von Kontrakt 10 rollt unverändert aus; ein
 laufender App-Container bekommt `ARASUL_ABSCHLUSS_TOKEN` erst mit dem nächsten
 Einspielen.
 
+## Tieflink in die App (M5, 04.10.2026)
+
+Kein neues Manifestfeld, keine neue Kontraktfassung. Die Startseite („Für Sie")
+öffnet eine App beim Vorgang, indem sie den Rahmen auf `/apps/<id>/?freigabe=<nummer>`
+(Test: `/apps/<id>/test/?freigabe=<nummer>`) lädt; in der Adresse der Shell steht
+dasselbe als `/workspace/app/<id>[/test]?freigabe=<nummer>`. `<nummer>` ist die
+Nummer der Anfrage (`GET /api/v1/external/freigaben`, Feld `id`). **Die App liest
+`freigabe` aus ihrer Adresse** und zeigt die Ansicht der Freigabe (das Muster
+`Freigabe` aus `@marken`) für diese Anfrage; liest sie den Parameter nicht, geht
+sie wie bisher auf ihrer Startseite auf. Ein anderer Vorgang lädt den Rahmen neu.
+
 ## Die Bibliothek zur Laufzeit: Kontrakt 9 (M5, 03.10.2026)
 
 Eine App **kann** die Bibliothek vom Gerät laden, statt sie als Kopie ins

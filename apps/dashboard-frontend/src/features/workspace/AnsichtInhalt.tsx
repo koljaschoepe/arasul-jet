@@ -7,6 +7,7 @@ import type { Ansicht } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Uebersicht } from '@/features/apps/Uebersicht';
 import { AppRahmen } from '@/features/apps/AppRahmen';
+import { AdminHinweise } from './AdminHinweise';
 import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { lazyMitVorladen } from '@/utils/lazyNachladen';
@@ -48,10 +49,17 @@ function useVorladen(istAdmin: boolean) {
  * Liste.
  */
 function Startseite() {
+  const { user } = useAuth();
   const { data } = useOffeneFreigaben();
   const wartend: Record<string, number> = {};
   for (const f of data ?? []) wartend[f.app_id] = (wartend[f.app_id] ?? 0) + 1;
-  return <Uebersicht wartend={wartend} freigaben={<OffeneFreigaben />} />;
+  return (
+    <Uebersicht
+      wartend={wartend}
+      freigaben={<OffeneFreigaben />}
+      hinweise={user?.role === 'admin' ? <AdminHinweise /> : undefined}
+    />
+  );
 }
 
 /**
@@ -68,7 +76,11 @@ export function AnsichtWeiche({ ansicht }: { ansicht: Ansicht }) {
       // Ohne Kennung ist die Ansicht keine; `pfadZuAnsicht` lässt eine solche
       // gar nicht erst durch, `appId` ist im Typ aber optional.
       return ansicht.appId ? (
-        <AppRahmen appId={ansicht.appId} stand={ansicht.stand ?? 'live'} />
+        <AppRahmen
+          appId={ansicht.appId}
+          stand={ansicht.stand ?? 'live'}
+          vorgang={ansicht.vorgang}
+        />
       ) : (
         <div className="p-ui-4">
           <Meldung art="warnung" titel="Diese Adresse zeigt auf keine App." />
@@ -102,7 +114,7 @@ export function AnsichtInhalt() {
     // ein Fehler in der einen bleibt nicht an der nächsten hängen. Ein Bereich
     // der Verwaltung ist kein Wechsel der Ansicht.
     <div
-      key={ansichtId(ansicht)}
+      key={`${ansichtId(ansicht)}${ansicht.vorgang ? `:${ansicht.vorgang}` : ''}`}
       className="h-full min-h-0 overflow-auto"
       data-ansicht={ansicht.type}
     >

@@ -2,27 +2,20 @@
  * Ein Zustand, ueberall gleich (Plan 023 D3).
  *
  * Im Rundgang am 19.08.2026 gesehen: das Modellraster sagte „kein Modell
- * geladen", waehrend die Statusleiste gleichzeitig ein bereites Modell nannte.
- * Beide lasen dieselbe Antwort von `/models/memory-budget`; der Unterschied
- * entstand daraus, dass jede Stelle ihren Satz selbst formuliert hat.
- *
- * Dieser Test rendert beide Flaechen mit DEMSELBEN Budget und verlangt
- * dieselbe Aussage. Der Fall ist bewusst der, in dem sie sich unterschieden:
- * ein Modell ist heruntergeladen, liegt aber nicht im Speicher.
+ * geladen", obwohl ein bereites Modell da war. Seit M5 (04.10.2026) steht der
+ * Modellzustand nur noch in der Verwaltung; die Statusleiste nennt kein Modell
+ * mehr. Der Fall bleibt der, in dem sich die Stellen unterschieden: ein Modell
+ * ist heruntergeladen, liegt aber nicht im Speicher.
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ModelleAnsicht from '../modelle/ModelleAnsicht';
-import { StatusBar } from '../workspace/StatusBar';
 
 const get = vi.fn();
 const post = vi.fn();
 vi.mock('@/hooks/useApi', () => ({ useApi: () => ({ get, post }) }));
-// Die Statusleiste fragt seit D3 nach der Rolle: das KI-RAM-Budget ist eine
-// Verwaltungsroute, und fuer einen Mitarbeiter darf sie sie gar nicht erst
-// abrufen. Ohne diesen Ersatz wirft `useAuth` hier mangels Provider.
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
@@ -129,7 +122,7 @@ describe('ein Zustand, ueberall gleich', () => {
     routen();
   });
 
-  it('Ansicht und Statusleiste nennen dasselbe bereite Modell', async () => {
+  it('die Ansicht nennt das bereite Modell mit seinem Anzeigenamen', async () => {
     // waitFor statt findByTestId: das Element steht sofort da, sein Inhalt
     // kommt erst mit der Antwort auf /models/memory-budget. Ein findByTestId
     // waere hier gruen gewesen, ohne je den richtigen Satz gesehen zu haben.
@@ -139,14 +132,6 @@ describe('ein Zustand, ueberall gleich', () => {
       expect(screen.getByTestId('modelle-zustand')).toHaveTextContent('Gemma 4 Kompakt, bereit')
     );
     ansicht.unmount();
-
-    const leiste = huelle(<StatusBar />);
-    await waitFor(() =>
-      expect(screen.getByTestId('workspace-statusbar-model')).toHaveTextContent(
-        'Gemma 4 Kompakt, bereit'
-      )
-    );
-    leiste.unmount();
   });
 
   it('die Ansicht sagt, warum das Modell aus dem Speicher ist', async () => {
@@ -157,7 +142,7 @@ describe('ein Zustand, ueberall gleich', () => {
     );
   });
 
-  it('die KI-RAM-Zeile steht in beiden gleich', async () => {
+  it('die KI-RAM-Zeile nennt Belegung und Reserve', async () => {
     const ansicht = huelle(<ModelleAnsicht />);
     // Plan 023 D4: die Reserve steht jetzt mit da, und die Zeile geht auf.
     expect(

@@ -89,13 +89,6 @@ export function isModelInstalled(model: CatalogModel): boolean {
   return model.install_status === 'available';
 }
 
-export function isModelActive(model: CatalogModel, loadedModelId: string | null): boolean {
-  return (
-    loadedModelId != null &&
-    (loadedModelId === model.id || loadedModelId === model.effective_ollama_name)
-  );
-}
-
 export const STORE_MODELS_KEY = ['store', 'models'] as const;
 export const STORE_MODEL_STATUS_KEY = ['store', 'model-status'] as const;
 export const STORE_MODEL_DEFAULT_KEY = ['store', 'model-default'] as const;
