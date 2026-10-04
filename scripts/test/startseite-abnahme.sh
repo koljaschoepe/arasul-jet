@@ -208,7 +208,6 @@ print(next((str(b[sys.argv[2]]) for b in d if b["username"] == sys.argv[1]), "")
 ID_ADMIN=$(benutzer_feld "$ARASUL_BENUTZER" id)
 ID_A=$(benutzer_feld "$A" id)
 ID_B=$(benutzer_feld "$B" id)
-ROLLE_B=$(benutzer_feld "$B" role)
 pruefe 'Drei vorhandene Probekonten, keine neuen' \
   "$([ -n "$ID_ADMIN" ] && [ -n "$ID_A" ] && [ -n "$ID_B" ] && echo ja || echo nein)" \
   "$ARASUL_BENUTZER=$ID_ADMIN $A=$ID_A $B=$ID_B"
