@@ -4,7 +4,7 @@
  * damit der Hinweis auf der Startseite und der Abschnitt im Bereich Gerät
  * dasselbe sagen.
  */
-export type NachtErgebnis =
+type NachtErgebnis =
   | 'laeuft'
   | 'eingespielt'
   | 'uebersprungen'
