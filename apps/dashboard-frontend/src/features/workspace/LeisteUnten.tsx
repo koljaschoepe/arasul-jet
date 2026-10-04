@@ -15,7 +15,7 @@ import { API_BASE } from '@/config/api';
 import { AppSymbol, appKuerzel } from './AppSymbol';
 
 /** Wie viele Apps neben dem Haus in der Leiste stehen; der Rest liegt unter „mehr". */
-export const APPS_IN_DER_LEISTE = 4;
+const APPS_IN_DER_LEISTE = 4;
 
 const FELD =
   'relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-ui-xs transition-colors duration-120 ease-out motion-reduce:transition-none';

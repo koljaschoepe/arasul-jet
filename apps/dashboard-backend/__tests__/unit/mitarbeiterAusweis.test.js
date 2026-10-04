@@ -292,7 +292,10 @@ describe('Was ein Ausweis oeffnet -- und was nicht', () => {
   test('auch keine gewoehnliche Mitarbeiter-Route: das Profil bleibt zu', async () => {
     // Ein Profil ist nicht weniger privat als eine Benutzerliste, und der
     // Ausweis ist nicht die kleine Sitzung, sondern etwas anderes.
-    const res = await mitAusweis('/api/profil');
+    const res = await request(geraet())
+      .put('/api/profil')
+      .set('Authorization', `Bearer ${AUSWEIS}`)
+      .send({ vorname: 'X' });
     expect(res.status).toBe(401);
   });
 
