@@ -16,7 +16,7 @@ import { Button } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 
 /** Der Befehl für diese Person an diesem Gerät. */
-export function verbindenBefehl(adresse: string, person: string): string {
+function verbindenBefehl(adresse: string, person: string): string {
   return `node arasul.mjs login ${adresse} --user ${person}`;
 }
 
