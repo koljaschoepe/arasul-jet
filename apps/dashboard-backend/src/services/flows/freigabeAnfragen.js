@@ -1149,7 +1149,16 @@ const ORIGINAL_URL_SQL = `CASE WHEN a.original IS NOT NULL
  */
 const FRUEHERE_SQL = `(
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'id', v.id, 'titel', v.titel, 'stufe', v.stufe, 'status', v.status,
+           'id', v.id, 'titel', v.titel,
+           -- Die Stufe in Worten ("Pruefung"), wie der Kopf des Flows sie nennt.
+           'stufe', COALESCE((
+             SELECT s->>'bezeichnung'
+               FROM public.app_flows f,
+                    jsonb_array_elements(COALESCE(f.definition->'stufen', '[]'::jsonb)) s
+              WHERE f.app_id = v.app_id AND f.stand = v.stand AND f.name = v.flow_name
+                AND s->>'name' = v.stufe
+              LIMIT 1), v.stufe),
+           'status', v.status,
            'entschieden_von', vu.username, 'entschieden_am', v.entschieden_am,
            'begruendung', v.begruendung, 'korrekturen', v.korrekturen)
            ORDER BY v.id), '[]'::jsonb)

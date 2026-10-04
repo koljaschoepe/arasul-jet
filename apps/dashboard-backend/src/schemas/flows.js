@@ -354,9 +354,9 @@ const FlowStep = z
       .trim()
       .min(1)
       .max(500)
-      .refine(v => !/^\/|:\/\/|\.\.|\\/.test(v), {
+      .refine(v => !/^\/|:\/\/|\.\.|\\|[%?#]/.test(v), {
         message:
-          '"original" ist ein Pfad relativ zur Adresse der App, ohne "/" am Anfang, ohne ".." und ohne Schema',
+          '"original" ist ein Pfad relativ zur Adresse der App, ohne "/" am Anfang, ohne "..", ohne Schema und ohne "%", "?" oder "#"',
       })
       .optional(),
   })

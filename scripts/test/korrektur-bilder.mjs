@@ -104,7 +104,7 @@ async function einzelansicht(page, wo) {
   const einzeln = page.getByTestId('freigabe-einzeln');
   pruefe(`${wo}: Einzelansicht offen`, await sichtbar(einzeln, 10000));
   const reihen = await page
-    .locator('[data-testid$="-felder"] [data-pruefen]')
+    .locator('dl[data-testid$="-felder"] [data-pruefen]')
     .evaluateAll(els => els.map(el => [el.getAttribute('data-testid'), el.dataset.pruefen]));
   pruefe(
     `${wo}: zu Prüfendes steht oben`,
@@ -130,7 +130,7 @@ async function einzelansicht(page, wo) {
     .boundingBox()
     .catch(() => null);
   const rechts = await page
-    .locator('[data-testid$="-felder"]')
+    .locator('dl[data-testid$="-felder"]')
     .first()
     .boundingBox()
     .catch(() => null);
@@ -241,10 +241,15 @@ if (PHASE === 'vorher') {
   await b.page.locator('[data-testid="freigabe-einzeln"] [data-testid$="-bestaetigen"]').click();
   const liste = b.page.getByTestId('freigabe-liste');
   pruefe('Nach der Entscheidung wieder die Liste', await sichtbar(liste, 15000));
+  let weg = true;
+  try {
+    await karte(b.page, titel).first().waitFor({ state: 'detached', timeout: 15000 });
+  } catch {
+    weg = false;
+  }
   pruefe(
     'Die entschiedene Freigabe ist weg',
-    (await b.page.getByTestId('freigabe-einzeln').count()) === 0 &&
-      (await karte(b.page, titel).count()) === 0
+    weg && (await b.page.getByTestId('freigabe-einzeln').count()) === 0
   );
   await b.page.waitForTimeout(800);
   await bild(b.page, 'danach-liste');

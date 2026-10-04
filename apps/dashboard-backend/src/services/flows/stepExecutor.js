@@ -208,7 +208,9 @@ function originalPfad(vorlage, scope) {
     return null;
   }
   const pfad = fillPlaceholders(vorlage, scope).trim();
-  if (!pfad || pfad.length > 500 || /^\/|:\/\/|\.\.|\\|\s/.test(pfad)) {
+  // `%`, `?` und `#` dazu: ein Browser liest `%2e%2e` als `..` und verliesse
+  // damit die Adresse der App.
+  if (!pfad || pfad.length > 500 || /^\/|:\/\/|\.\.|\\|\s|[%?#]/.test(pfad)) {
     logger.warn(`Original "${pfad.slice(0, 80)}" ist kein Pfad relativ zur App, ohne Bild weiter`);
     return null;
   }
@@ -242,6 +244,30 @@ async function korrigierteAusgabe({ flow, schritt, runId, lesen }) {
     return null;
   }
   return felderText(nach.felder, rolle.ergebnis).text;
+}
+
+/**
+ * Uebernommene Ausgaben (Fortsetzen nach einem Neustart, „Ab Fehler
+ * wiederholen") mit den Korrekturen der Freigaben des Laufs `runId` versehen
+ * (M5): im Protokoll des erkennenden Schritts steht der Vorschlag der KI, weiter
+ * arbeitet der Lauf mit dem, was ein Mensch bestaetigt hat. Aendert `vorab`.
+ */
+async function korrigiereVorab({ flow, vorab, runId, lesen }) {
+  if (!vorab || runId == null) {
+    return vorab;
+  }
+  for (const index of [...vorab.keys()]) {
+    const korrigiert = await korrigierteAusgabe({
+      flow,
+      schritt: (flow.schritte || [])[index],
+      runId,
+      lesen,
+    });
+    if (korrigiert != null) {
+      vorab.set(index, korrigiert);
+    }
+  }
+  return vorab;
 }
 
 /** Baut den Synthese-Block aus den gesammelten Schritt-Ausgaben. */
@@ -520,6 +546,7 @@ module.exports = {
   erkennungsBefund,
   erkennungsTitel,
   korrigierteAusgabe,
+  korrigiereVorab,
   originalPfad,
   MAX_MAP_ELEMENTE,
 };

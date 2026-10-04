@@ -27,7 +27,7 @@ const appFlows = require('../app/appFlows');
 const runStore = require('./runStore');
 const { buildTools } = require('./toolRegistry');
 const { runFlowLoop } = require('./toolLoop');
-const { executeSteps, berechneVorabErgebnisse, korrigierteAusgabe } = require('./stepExecutor');
+const { executeSteps, berechneVorabErgebnisse, korrigiereVorab } = require('./stepExecutor');
 const freigabeAnfragen = require('./freigabeAnfragen');
 const { fillPlaceholders } = require('./flowFile');
 const changeTracker = require('./changeTracker');
@@ -269,18 +269,19 @@ async function runFlow(
         vorab.delete(index);
       }
     }
-    // Hielt der Lauf nach einer Erkennung an (M5), arbeitet er mit den Feldern
-    // weiter, wie der Mensch sie bestaetigt hat -- nicht mit dem Vorschlag, der
-    // im Protokoll des Schritts steht.
-    const korrigiert = await korrigierteAusgabe({
+  }
+  // Hielt der Lauf nach einer Erkennung an (M5), arbeitet er mit den Feldern
+  // weiter, wie der Mensch sie bestaetigt hat -- nicht mit dem Vorschlag, der
+  // im Protokoll des Schritts steht. Das gilt fuer JEDEN uebernommenen
+  // erkennenden Schritt, nicht nur den angehaltenen, und ebenso beim
+  // Wiederholen ab einem Fehler (dort stehen die Korrekturen am alten Lauf).
+  if (vorab) {
+    await korrigiereVorab({
       flow,
-      schritt,
-      runId: run.id,
+      vorab,
+      runId: fortsetzenAb ? run.id : vorabQuelleLaufId,
       lesen: felderNachFreigabe,
     });
-    if (korrigiert != null) {
-      vorab.set(fortsetzenAb.schritt, korrigiert);
-    }
   }
   if (fortsetzenAb) {
     const alt = await store.getRun({ runId: run.id, userId });

@@ -25,6 +25,7 @@ const freigabeAnfragen = require('../../src/services/flows/freigabeAnfragen');
 const {
   executeSteps,
   korrigierteAusgabe,
+  korrigiereVorab,
   originalPfad,
 } = require('../../src/services/flows/stepExecutor');
 const { felderText } = require('../../src/services/flows/resultContract');
@@ -90,7 +91,7 @@ describe('Kontrakt 10: aenderbar und original im Flow-Kopf', () => {
     );
   });
 
-  it.each(['/apps/x/bild.png', '../geheim', 'https://anderswo/bild.png', 'a\\b'])(
+  it.each(['/apps/x/bild.png', '../geheim', 'https://anderswo/bild.png', 'a\\b', '%2e%2e/x'])(
     'original %j ist kein Pfad relativ zur App',
     original => {
       const schritte = [{ ...FLOW.schritte[0], original }];
@@ -416,7 +417,24 @@ describe('der Lauf arbeitet mit dem geaenderten Wert', () => {
     ['api/belege/{{beleg}}', { beleg: '../admin' }, null],
     ['api/belege/{{beleg}}', { beleg: 'https://anderswo' }, null],
     ['api/belege/{{beleg}}', { beleg: 'mit leer' }, null],
+    ['api/belege/{{beleg}}', { beleg: '%2e%2e/%2e%2e/api' }, null],
+    ['api/belege/{{beleg}}', { beleg: 'x?y=1' }, null],
   ])('originalPfad(%j, %j) = %j', (vorlage, scope, erwartet) => {
     expect(originalPfad(vorlage, scope)).toBe(erwartet);
+  });
+
+  it('korrigiereVorab: übernommene Ausgaben bekommen die Korrektur des Laufs', async () => {
+    const vorab = new Map([
+      [0, 'betrag: 12,50\ndatum: '],
+      [1, 'gebucht'],
+    ]);
+    const lesen = jest.fn(async ({ runId, schritt }) =>
+      runId === 99 && schritt === 'lesen'
+        ? { felder: { betrag: '12,50', datum: '01.10.2026' } }
+        : null
+    );
+    await korrigiereVorab({ flow, vorab, runId: 99, lesen });
+    expect(vorab.get(0)).toBe('betrag: 12,50\ndatum: 01.10.2026');
+    expect(vorab.get(1)).toBe('gebucht');
   });
 });

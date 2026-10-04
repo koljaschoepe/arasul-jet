@@ -528,7 +528,9 @@ wer und wann (`approvals.korrekturen`), in derselben Anweisung wie die
 Entscheidung. **Der weitere Lauf arbeitet mit dem neuen Wert:** die Ausgabe des
 erkennenden Schritts wird nach der Bestätigung aus den Feldern der Anfrage neu
 gebildet (dieselbe Form `feld: wert`, die die Rolle geliefert hätte), im
-laufenden Prozess wie nach einem Neustart. Im Protokoll des Laufs bleibt der
+laufenden Prozess, nach einem Neustart und beim „Ab Fehler wiederholen" (dort
+aus den Freigaben des alten Laufs), für jeden übernommenen erkennenden Schritt.
+Im Protokoll des Laufs bleibt der
 Vorschlag am Schritt der Rolle stehen; der Freigabe-Schritt nennt darunter
 „Geändert: datum: „" (Vorschlag) → „01.10.2026" (bernd)". Die Läufe-Ansicht der
 Verwaltung zeigt beides als Tabelle (Feld, Vorschlag der KI, Geändert, wer,
@@ -538,7 +540,7 @@ wann), die App liest es unter `GET /api/v1/external/freigaben`.
 Erkennung**. Ist alles sicher erkannt, gibt es keine, und eine spätere Stufe
 (`freigabe_anfordern`) oder „Ergebnis bestätigen" zeigt den Text, keine
 Felder. Ein Original, das nach dem Einsetzen kein Pfad relativ zur App ist
-(`..`, Schema, Leerzeichen), fällt weg; die Freigabe entsteht ohne Bild.
+(`..`, Schema, Leerzeichen, `%`, `?`, `#`), fällt weg; die Freigabe entsteht ohne Bild.
 
 Gemessen am Orin: `scripts/test/korrektur-abnahme.sh`.
 

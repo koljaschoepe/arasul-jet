@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  CircleAlert,
   Clock,
   ClipboardCheck,
   XCircle,
@@ -330,11 +331,14 @@ function Felder({
   werte,
   setzeWert,
   bearbeitbar,
+  gesperrt = false,
 }: {
   e: FreigabeEintrag;
   werte: Record<string, string>;
   setzeWert: (name: string, wert: string) => void;
   bearbeitbar: boolean;
+  /** Während die Entscheidung läuft: Eingaben bleiben stehen, nur gesperrt. */
+  gesperrt?: boolean;
 }) {
   const felder = geordnet(e.felder ?? []);
   return (
@@ -352,6 +356,7 @@ function Felder({
               </label>
               {zuPruefen(f) && (
                 <Badge variant="warning" data-testid={`${kennung}-pruefen`}>
+                  <CircleAlert aria-hidden="true" />
                   prüfen
                 </Badge>
               )}
@@ -361,6 +366,7 @@ function Felder({
                 <Input
                   id={`${kennung}-eingabe`}
                   value={wert}
+                  disabled={gesperrt}
                   maxLength={2000}
                   onChange={ev => setzeWert(f.name, ev.target.value)}
                   placeholder={f.fehlend ? 'nicht erkannt' : undefined}
@@ -577,7 +583,8 @@ function FreigabeKarte({
             e={e}
             werte={werte}
             setzeWert={(name, wert) => setWerte(w => ({ ...w, [name]: wert }))}
-            bearbeitbar={offen && !laeuft}
+            bearbeitbar={offen}
+            gesperrt={laeuft}
           />
         </OriginalUndFelder>
       )}
@@ -700,6 +707,7 @@ export function Freigabe({
     return (
       <div className={className} data-testid="freigabe-einzeln">
         <FreigabeKarte
+          key={eins.id}
           e={eins}
           einzeln
           jetzt={jetzt}
