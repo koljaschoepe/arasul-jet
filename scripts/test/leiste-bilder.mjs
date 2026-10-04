@@ -103,7 +103,8 @@ async function sitzung(benutzer, passwort, viewport = { width: 1440, height: 800
   const r = await ctx.request.post(`${URL}/api/auth/login`, {
     data: { username: benutzer, password: passwort },
   });
-  if (r.status() !== 200) pruefe(`${benutzer} meldet sich im Browser an`, false, `HTTP ${r.status()}`);
+  if (r.status() !== 200)
+    pruefe(`${benutzer} meldet sich im Browser an`, false, `HTTP ${r.status()}`);
   const page = await ctx.newPage();
   page.on('pageerror', e => console.log(`  seitenfehler (${benutzer}): ${e.message}`));
   return { ctx, page };
@@ -149,9 +150,7 @@ async function oeffne(page, app) {
 }
 
 async function marke(page, app) {
-  return page
-    .locator(`[data-testid="app-rahmen-${app.id}"]`)
-    .evaluate(f => f.contentWindow.__lade);
+  return page.locator(`[data-testid="app-rahmen-${app.id}"]`).evaluate(f => f.contentWindow.__lade);
 }
 
 async function apiGet(ctx, pfad) {
@@ -202,10 +201,19 @@ async function phaseSymbol() {
     const hatBild = (await k.locator('svg').count()) > 0;
     const text = (await k.innerText()).trim();
     if (erwartung === 'bild') {
-      pruefe('Lucide-Name `file-text`: die Leiste zeigt das Bild, kein Kürzel', hatBild && text === '', `svg=${hatBild}`);
+      pruefe(
+        'Lucide-Name `file-text`: die Leiste zeigt das Bild, kein Kürzel',
+        hatBild && text === '',
+        `svg=${hatBild}`
+      );
     } else {
       const soll = [null, 'Q7', APPS[2].kuerzel, APPS[3].kuerzel][i];
-      const art = ['', 'Kürzel aus app.json', 'ohne Symbol: Kürzel aus dem Namen', 'unbekannter Lucide-Name: Kürzel aus dem Namen'][i];
+      const art = [
+        '',
+        'Kürzel aus app.json',
+        'ohne Symbol: Kürzel aus dem Namen',
+        'unbekannter Lucide-Name: Kürzel aus dem Namen',
+      ][i];
       pruefe(`${art} (${soll})`, !hatBild && text === soll, `Text „${text}"`);
     }
   }
@@ -246,16 +254,29 @@ async function phaseHintergrund() {
   await knopf(page, a).click();
   await sichtbar(stapel(page, a));
   let r = await erhalten(a, 0);
-  pruefe('Offen d, im Hintergrund a, b, c: zurück zu a, Eingabe und Scrollstand da, kein Neuladen', r.ok, JSON.stringify(r));
+  pruefe(
+    'Offen d, im Hintergrund a, b, c: zurück zu a, Eingabe und Scrollstand da, kein Neuladen',
+    r.ok,
+    JSON.stringify(r)
+  );
 
   // Startseite: nur drei im Hintergrund (a, d, c); b fällt heraus.
   await page.getByTestId('leiste-startseite').click();
   await page.waitForTimeout(500);
   const imStapel = await page.locator('[data-testid^="app-stapel-"]').count();
-  pruefe('Auf der Startseite leben genau drei Apps im Hintergrund', imStapel === 3, `${imStapel} Rahmen`);
-  const verborgen = await page.locator('[data-testid^="app-stapel-"][data-sichtbar="false"]').count();
+  pruefe(
+    'Auf der Startseite leben genau drei Apps im Hintergrund',
+    imStapel === 3,
+    `${imStapel} Rahmen`
+  );
+  const verborgen = await page
+    .locator('[data-testid^="app-stapel-"][data-sichtbar="false"]')
+    .count();
   pruefe('… alle drei verborgen, nicht sichtbar', verborgen === 3, `${verborgen}`);
-  pruefe('… die vierte (b, am längsten nicht benutzt) ist herausgefallen', (await stapel(page, b).count()) === 0);
+  pruefe(
+    '… die vierte (b, am längsten nicht benutzt) ist herausgefallen',
+    (await stapel(page, b).count()) === 0
+  );
   const speicher3 = browserSpeicherMB();
   await bild(page, 'startseite-drei-im-hintergrund');
 
@@ -264,7 +285,11 @@ async function phaseHintergrund() {
     await sichtbar(stapel(page, app));
     const i = APPS.indexOf(app);
     r = await erhalten(app, i);
-    pruefe(`Zurück zu ${app.id.slice(-1)} aus dem Hintergrund: Eingabe, Scrollstand, kein Neuladen`, r.ok, JSON.stringify(r));
+    pruefe(
+      `Zurück zu ${app.id.slice(-1)} aus dem Hintergrund: Eingabe, Scrollstand, kein Neuladen`,
+      r.ok,
+      JSON.stringify(r)
+    );
   }
   await bild(page, 'zurueck-aus-dem-hintergrund');
 
@@ -273,7 +298,11 @@ async function phaseHintergrund() {
   await page.waitForTimeout(300);
   await oeffne(page, b);
   const leer = await rahmen(page, b).locator('#feld').inputValue();
-  pruefe('Die herausgefallene App b fängt von vorn an (Feld leer, neue Ladung)', leer === '' && (await marke(page, b)) !== marken[b.id], `Feld „${leer}"`);
+  pruefe(
+    'Die herausgefallene App b fängt von vorn an (Feld leer, neue Ladung)',
+    leer === '' && (await marke(page, b)) !== marken[b.id],
+    `Feld „${leer}"`
+  );
 
   // Wechsel unter 200 ms: Startseite <-> App im Hintergrund, App <-> App.
   const messen = (knopfId, bis) =>
@@ -282,7 +311,11 @@ async function phaseHintergrund() {
         const el = document.querySelector(`[data-testid="${k}"]`);
         const t0 = performance.now();
         el.click();
-        while (document.querySelector(`[data-testid="${b}"]`)?.getAttribute('data-sichtbar') !== 'true' && b.startsWith('app-stapel')) {
+        while (
+          document.querySelector(`[data-testid="${b}"]`)?.getAttribute('data-sichtbar') !==
+            'true' &&
+          b.startsWith('app-stapel')
+        ) {
           await new Promise(r => requestAnimationFrame(r));
         }
         while (!b.startsWith('app-stapel') && !document.querySelector(`[data-testid="${b}"]`)) {
@@ -315,10 +348,22 @@ async function phaseHintergrund() {
     const s = [...l].sort((x, y) => x - y);
     return `größter ${Math.round(s.at(-1))} ms, Median ${Math.round(s[Math.floor(l.length / 2)])} ms`;
   };
-  pruefe(`Wechsel App -> App aus dem Hintergrund unter ${GRENZE_MS} ms (${WECHSEL}x)`, Math.max(...zeiten) < GRENZE_MS, wort(zeiten));
-  pruefe(`Wechsel Startseite <-> App im Hintergrund unter ${GRENZE_MS} ms (${2 * WECHSEL}x)`, Math.max(...hinweg) < GRENZE_MS, wort(hinweg));
+  pruefe(
+    `Wechsel App -> App aus dem Hintergrund unter ${GRENZE_MS} ms (${WECHSEL}x)`,
+    Math.max(...zeiten) < GRENZE_MS,
+    wort(zeiten)
+  );
+  pruefe(
+    `Wechsel Startseite <-> App im Hintergrund unter ${GRENZE_MS} ms (${2 * WECHSEL}x)`,
+    Math.max(...hinweg) < GRENZE_MS,
+    wort(hinweg)
+  );
   const nachWechsel = await erhalten(c, 2);
-  pruefe('Nach zwanzig Wechseln hat c noch Eingabe und Scrollstand', nachWechsel.ok, JSON.stringify(nachWechsel));
+  pruefe(
+    'Nach zwanzig Wechseln hat c noch Eingabe und Scrollstand',
+    nachWechsel.ok,
+    JSON.stringify(nachWechsel)
+  );
 
   await page.waitForTimeout(1500);
   const speicherNachher = browserSpeicherMB();
@@ -326,7 +371,11 @@ async function phaseHintergrund() {
     `  speicher Browser (Summe RSS aller Prozesse): leere Seite ${grundlinie} MB, Startseite ${startseite} MB, ` +
       `drei Apps im Hintergrund ${speicher3} MB, nach den Wechseln ${speicherNachher} MB`
   );
-  pruefe('Speicher des Browsers mit drei Apps im Hintergrund gemessen', speicher3 > 0, `${speicher3} MB gegen ${startseite} MB auf der Startseite`);
+  pruefe(
+    'Speicher des Browsers mit drei Apps im Hintergrund gemessen',
+    speicher3 > 0,
+    `${speicher3} MB gegen ${startseite} MB auf der Startseite`
+  );
   await ctx.close();
 }
 
@@ -341,29 +390,51 @@ async function phaseSortieren() {
   // Ziehen: die letzte der vier vor die erste.
   const letzte = vorher[3];
   const erste = vorher[0];
-  await page.getByTestId(`leiste-app-${letzte}-live`).dragTo(page.getByTestId(`leiste-app-${erste}-live`));
+  await page
+    .getByTestId(`leiste-app-${letzte}-live`)
+    .dragTo(page.getByTestId(`leiste-app-${erste}-live`));
   await page.waitForTimeout(1000);
   const nach = await leistenFolge(page);
-  pruefe('Ziehen ordnet die Leiste: die letzte steht vorn', nach[0] === letzte && nach.length === 4, nach.join(' '));
+  pruefe(
+    'Ziehen ordnet die Leiste: die letzte steht vorn',
+    nach[0] === letzte && nach.length === 4,
+    nach.join(' ')
+  );
   await bild(page, 'gezogen');
 
   // Am Gerät gespeichert, nicht nur im Browser.
   const liste = await apiGet(ctx, '/api/apps/reihenfolge');
-  const eigene = (liste ?? []).filter(k => ids.some(i => k.startsWith(`${i}:`))).map(k => k.split(':')[0]);
-  pruefe('Am Gerät gespeichert (GET /api/apps/reihenfolge)', JSON.stringify(eigene) === JSON.stringify(nach), eigene.join(' '));
-  const lokal = await page.evaluate(() => JSON.stringify(Object.entries(localStorage)).includes('reihenfolge'));
+  const eigene = (liste ?? [])
+    .filter(k => ids.some(i => k.startsWith(`${i}:`)))
+    .map(k => k.split(':')[0]);
+  pruefe(
+    'Am Gerät gespeichert (GET /api/apps/reihenfolge)',
+    JSON.stringify(eigene) === JSON.stringify(nach),
+    eigene.join(' ')
+  );
+  const lokal = await page.evaluate(() =>
+    JSON.stringify(Object.entries(localStorage)).includes('reihenfolge')
+  );
   pruefe('… und nicht im localStorage des Browsers', !lokal);
 
   // Eine zweite Sitzung (anderer Browserkontext, frische Anmeldung) sieht sie.
   const { ctx: ctx2, page: page2 } = await sitzung(A, A_PASS);
   await workspace(page2);
   const zweite = await leistenFolge(page2);
-  pruefe('Eine zweite, frische Sitzung derselben Person sieht dieselbe Reihenfolge', JSON.stringify(zweite) === JSON.stringify(nach), zweite.join(' '));
+  pruefe(
+    'Eine zweite, frische Sitzung derselben Person sieht dieselbe Reihenfolge',
+    JSON.stringify(zweite) === JSON.stringify(nach),
+    zweite.join(' ')
+  );
   await ctx2.close();
 
   // Ein anderer Mensch behält seine Reihenfolge.
   const listeAdmin = await apiGet(ctxAdmin, '/api/apps/reihenfolge');
-  pruefe('Die Reihenfolge von probe-admin bleibt davon unberührt', (listeAdmin ?? []).filter(k => ids.some(i => k.startsWith(`${i}:`))).length === 0, JSON.stringify(listeAdmin));
+  pruefe(
+    'Die Reihenfolge von probe-admin bleibt davon unberührt',
+    (listeAdmin ?? []).filter(k => ids.some(i => k.startsWith(`${i}:`))).length === 0,
+    JSON.stringify(listeAdmin)
+  );
 
   // Tastatur: Alt+Pfeil runter / hoch.
   const k = page.getByTestId(`leiste-app-${nach[0]}-live`);
@@ -371,12 +442,26 @@ async function phaseSortieren() {
   await page.keyboard.press('Alt+ArrowDown');
   await page.waitForTimeout(800);
   const runter = await leistenFolge(page);
-  pruefe('Alt+Pfeil runter schiebt die fokussierte App eine Stelle nach unten', runter[1] === nach[0] && runter[0] === nach[1], runter.join(' '));
-  pruefe('… der Fokus bleibt auf dem Knopf', await page.evaluate(id => document.activeElement?.getAttribute('data-testid') === id, `leiste-app-${nach[0]}-live`));
+  pruefe(
+    'Alt+Pfeil runter schiebt die fokussierte App eine Stelle nach unten',
+    runter[1] === nach[0] && runter[0] === nach[1],
+    runter.join(' ')
+  );
+  pruefe(
+    '… der Fokus bleibt auf dem Knopf',
+    await page.evaluate(
+      id => document.activeElement?.getAttribute('data-testid') === id,
+      `leiste-app-${nach[0]}-live`
+    )
+  );
   await page.keyboard.press('Alt+ArrowUp');
   await page.waitForTimeout(800);
   const hoch = await leistenFolge(page);
-  pruefe('Alt+Pfeil hoch schiebt sie zurück', JSON.stringify(hoch) === JSON.stringify(nach), hoch.join(' '));
+  pruefe(
+    'Alt+Pfeil hoch schiebt sie zurück',
+    JSON.stringify(hoch) === JSON.stringify(nach),
+    hoch.join(' ')
+  );
   const ansage = (await page.locator('nav [role="status"]').innerText()).trim();
   pruefe('Die Verschiebung wird angesagt (aria-live)', /Platz \d von \d+/.test(ansage), ansage);
 
@@ -384,10 +469,13 @@ async function phaseSortieren() {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await sichtbar(page.getByTestId('leiste-apps'), 30000);
   await page.waitForTimeout(1000);
-  pruefe('Nach dem Neuladen steht die Leiste wie zuvor', JSON.stringify(await leistenFolge(page)) === JSON.stringify(nach));
+  pruefe(
+    'Nach dem Neuladen steht die Leiste wie zuvor',
+    JSON.stringify(await leistenFolge(page)) === JSON.stringify(nach)
+  );
 
   // Die Leiste scrollt, wenn der Platz nicht reicht.
-  await page.setViewportSize({ width: 1440, height: 330 });
+  await page.setViewportSize({ width: 1440, height: 220 });
   await page.waitForTimeout(500);
   const m = await page.getByTestId('leiste-apps').evaluate(e => ({
     sh: e.scrollHeight,
@@ -395,14 +483,26 @@ async function phaseSortieren() {
     oy: getComputedStyle(e).overflowY,
     n: e.querySelectorAll('button').length,
   }));
-  pruefe('In einem niedrigen Fenster scrollt die Leiste der Apps (Knöpfe unten bleiben)', m.sh > m.ch && m.oy === 'auto', `Inhalt ${m.sh} px in ${m.ch} px, ${m.n} Apps`);
+  pruefe(
+    'In einem niedrigen Fenster scrollt die Leiste der Apps (Knöpfe unten bleiben)',
+    m.sh > m.ch && m.oy === 'auto',
+    `Inhalt ${m.sh} px in ${m.ch} px, ${m.n} Apps`
+  );
   const unten = await page.getByTestId('leiste-einstellungen').boundingBox();
-  pruefe('… Zahnrad und Konto bleiben im Bild', !!unten && unten.y + unten.height <= 330, `${Math.round(unten?.y ?? 0)} px`);
+  pruefe(
+    '… Zahnrad und Konto bleiben im Bild',
+    !!unten && unten.y + unten.height <= 220,
+    `${Math.round(unten?.y ?? 0)} px`
+  );
   await bild(page, 'niedrig');
   await page.setViewportSize({ width: 1440, height: 720 });
   await page.waitForTimeout(300);
-  const platz = await page.getByTestId('leiste-apps').evaluate(e => Math.floor(e.clientHeight / 40));
-  console.log(`  platz in der Leiste bei 720 px Fensterhöhe: etwa ${platz} Apps, danach scrollt sie`);
+  const platz = await page
+    .getByTestId('leiste-apps')
+    .evaluate(e => Math.floor(e.clientHeight / 40));
+  console.log(
+    `  platz in der Leiste bei 720 px Fensterhöhe: etwa ${platz} Apps, danach scrollt sie`
+  );
   await ctx.close();
   await ctxAdmin.close();
 }

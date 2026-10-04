@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Meldung } from '@marken';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
@@ -100,6 +100,8 @@ interface LebendeApp {
   appId: string;
   stand: AppStand;
   vorgang?: number;
+  /** Wann sie in den Stapel kam: die Reihenfolge im DOM (siehe `AppStapel`). */
+  seit: number;
 }
 
 const appSchluessel = (a: Pick<LebendeApp, 'appId' | 'stand'>) => `${a.appId}:${a.stand}`;
@@ -116,14 +118,15 @@ const appSchluessel = (a: Pick<LebendeApp, 'appId' | 'stand'>) => `${a.appId}:${
  */
 function useLebendeApps(ansicht: Ansicht): LebendeApp[] {
   const [liste, setListe] = useState<LebendeApp[]>([]);
+  const zaehler = useRef(0);
   if (ansicht.type === 'app' && ansicht.appId) {
-    const neu: LebendeApp = { appId: ansicht.appId, stand: ansicht.stand ?? 'live' };
+    const neu = { appId: ansicht.appId, stand: ansicht.stand ?? 'live' };
     const alt = liste.find(a => appSchluessel(a) === appSchluessel(neu));
     const vorgang = ansicht.vorgang ?? alt?.vorgang;
     if (!alt || liste[0] !== alt || alt.vorgang !== vorgang) {
       setListe(
         [
-          { ...neu, ...(vorgang ? { vorgang } : {}) },
+          { ...neu, ...(vorgang ? { vorgang } : {}), seit: alt?.seit ?? ++zaehler.current },
           ...liste.filter(a => appSchluessel(a) !== appSchluessel(neu)),
         ].slice(0, APPS_IM_HINTERGRUND + 1)
       );
@@ -146,9 +149,13 @@ function useLebendeApps(ansicht: Ansicht): LebendeApp[] {
  * heißt hier auch: nicht fokussierbar, nicht anklickbar (`inert`).
  */
 function AppStapel({ apps, aktiv }: { apps: LebendeApp[]; aktiv: string | null }) {
+  // IN DER REIHENFOLGE DES ERSTEN ÖFFNENS, nicht des letzten Gebrauchs: React
+  // hängt umsortierte Kinder im DOM um, und ein umgehängter iframe lädt neu —
+  // Eingabe und Scrollstand wären weg, genau was hier bleiben soll.
+  const geordnet = [...apps].sort((x, y) => x.seit - y.seit);
   return (
     <>
-      {apps.map(a => {
+      {geordnet.map(a => {
         const offen = appSchluessel(a) === aktiv;
         return (
           <div
