@@ -219,7 +219,7 @@ pruefe 'Logo: ohne Anmeldung als Bild abrufbar (200)' "$(ja_wenn "$CODE" 200)" "
 pruefe 'Logo: Medientyp image/png' "$(ja_wenn "$(kopf content-type)" image/png)" "$(kopf content-type)"
 pruefe 'Logo: nosniff' "$(ja_wenn "$(kopf x-content-type-options)" nosniff)"
 pruefe 'Logo: mit Stand lange im Zwischenspeicher' \
-  "$(case "$(kopf cache-control)" in *immutable*) echo ja ;; *) echo nein ;; esac)" "$(kopf cache-control)"
+  "$(grep -q immutable <<<"$(kopf cache-control)" && echo ja || echo nein)" "$(kopf cache-control)"
 pruefe 'Logo: dieselben Bytes wie hochgeladen' \
   "$(cmp -s "$ARBEIT/probe.png" "$ARBEIT/geholt.png" && echo ja || echo nein)"
 
@@ -275,10 +275,10 @@ pruefe 'Zurueckgesetzt: Name wie vorher' "$(ja_wenn "$(rumpf | feld firmenname)"
 pruefe 'Zurueckgesetzt: Logo wie vorher (Art und Stand)' \
   "$([ "$(db "SELECT coalesce(company_logo_typ, '') FROM system_settings WHERE id = 1;")" = "$LOGO_VORHER_TYP" ] && [ "$(db "SELECT coalesce(company_logo_stand::text, '') FROM system_settings WHERE id = 1;")" = "$LOGO_VORHER_STAND" ] && echo ja || echo nein)" \
   "${LOGO_VORHER_TYP:-<keines>}"
-rm -rf "$ARBEIT"
 
 ruf "$TOK" GET /api/auth/me
 pruefe 'Die Anmeldung am Geraet steht (kein 500)' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
+rm -rf "$ARBEIT"
 
 echo
 echo "=== $gruen gruen, $rot rot ==="

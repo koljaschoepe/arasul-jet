@@ -370,6 +370,8 @@ try {
     'Aktualisierung: der Knopf fragt erst nach und sagt, dass vorher gesichert wird',
     /sichert vorher/.test(await dialog.innerText())
   );
+  // Der Dialog blendet ein; vorher zeigt das Bild ihn noch nicht.
+  await seite.waitForTimeout(600);
   await seite.screenshot({ path: path.join(ZIEL, 'aktualisierung-bestaetigung.png') });
   await dialog.getByRole('button', { name: 'Abbrechen' }).click();
   await dialog.waitFor({ state: 'detached', timeout: 10000 });
@@ -400,6 +402,7 @@ try {
     'Lizenz: Einspielen ist ein Dialog, der Knopf ohne Text gesperrt',
     await seite.getByTestId('lizenz-einspielen').isDisabled()
   );
+  await seite.waitForTimeout(600);
   await seite.screenshot({ path: path.join(ZIEL, 'lizenz-einspielen-dialog.png') });
   await seite.getByRole('dialog').getByRole('button', { name: 'Abbrechen' }).click();
 
@@ -467,6 +470,20 @@ try {
   await zeigeGeraet();
   const breite = await seite.evaluate(() => document.documentElement.scrollWidth);
   pruefe('Bei 390 px läuft nichts über den Rand', breite <= 392, `${breite} px`);
+  // Für das Bild: warten, bis Fernzugriff und Aktualisierung geantwortet haben.
+  const t0 = Date.now();
+  const geladen = await seite
+    .getByTestId('fernzugriff-adresse')
+    .waitFor({ timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  console.log(
+    `       (Fernzugriff bei 390 px ${geladen ? `nach ${Date.now() - t0} ms` : 'nach 30 s noch nicht'} geladen)`
+  );
+  await seite
+    .getByTestId('fassung-aktuell')
+    .waitFor({ timeout: 30000 })
+    .catch(() => undefined);
   await bildGanz('geraet-schmal.png', 3000);
 
   pruefe(
