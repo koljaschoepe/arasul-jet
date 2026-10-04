@@ -63,9 +63,11 @@ APP_B="${ARASUL_EREIGNIS_APP:-probe-ereignis-$STEMPEL}-b"
 VERSION="1.0.0"
 GEDULD=900
 LAUF_GEDULD=240
-# Die Uhr des Geraets ist die, gegen die `created_at` zaehlt; ein paar Sekunden
-# Spiel fuer eine Uhr, die vorgeht.
-BEGINN="$(date -u -v-30S '+%Y-%m-%dT%H:%M:%S' 2>/dev/null || date -u -d '-30 seconds' '+%Y-%m-%dT%H:%M:%S')"
+# Ab wann gezaehlt wird, steht unten nach der Erreichbarkeit: die UHR DES
+# GERAETS aus dem Kopf `Date` seiner Antwort, ohne Spiel. Am 04.10.2026 zaehlte
+# eine Fassung mit der Uhr dieses Rechners minus 30 Sekunden die letzten Laeufe
+# des vorigen Durchgangs (gleiche Kennung) noch mit.
+BEGINN=""
 
 A="${ARASUL_A:-}"
 A_PASS="${ARASUL_A_PASSWORT:-}"
@@ -233,7 +235,20 @@ if ! arasul_geraet_erreichbar "$BASIS"; then
   exit 1
 fi
 
+BEGINN=$(curl -skI --max-time 15 "$BASIS/api/health" | python3 -c 'import sys
+from email.utils import parsedate_to_datetime
+from datetime import timezone
+for z in sys.stdin:
+    if z.lower().startswith("date:"):
+        print(parsedate_to_datetime(z.split(":", 1)[1].strip()).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"))
+        break' 2>/dev/null)
+if [ -z "$BEGINN" ]; then
+  echo "Das Geraet nennt keine Uhrzeit (Kopf Date fehlt); ohne sie zaehlt die Abnahme nicht nur Eigenes."
+  exit 1
+fi
+
 echo "=== Abnahme M5: Ereignis und Routen, $APP_A und $APP_B gegen $BASIS ==="
+echo "gezaehlt ab $BEGINN (Uhr des Geraets, UTC)"
 echo
 
 # --- 1. Zugaenge -----------------------------------------------------------------

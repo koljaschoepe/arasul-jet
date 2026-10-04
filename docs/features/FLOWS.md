@@ -356,7 +356,7 @@ X-API-Key: <ARASUL_API_SCHLUESSEL>
 | Antwort                | Gewartet wird nicht. 202 mit `laeufe` (je `flow`, `run_id`) und `nicht_gestartet` (je `flow`, `grund`); hört kein Flow, 200 mit leeren Listen. Die App liest die Läufe unter `flows/runs/:id` nach.                                                       |
 | Schlüssel              | Nur der Schlüssel einer App (Bereich `flow:run`); der Schlüssel eines Menschen bekommt 403.                                                                                                                                                               |
 
-Gemessen am Orin mit `scripts/test/ereignis-und-routen-abnahme.sh`.
+Gemessen am Orin mit `scripts/test/ereignis-und-routen-abnahme.sh` (Ereignis und Routen zusammen, zwei Probe-Apps, ohne Modell): am 04.10.2026 dreimal hintereinander 48 grün, 0 rot.
 
 ## Routen von Apps als Werkzeug (M5, 04.10.2026, Kontrakt 13)
 
