@@ -261,7 +261,7 @@ async function seite() {
     pruefe(
       'Verbindungen: rot ist genau eine, die Störung',
       (await page.locator('[data-stoerung="true"]').count()) === 1 &&
-        (await page.getByTestId('verbindung-localtest.me').getAttribute('data-stoerung')) === 'true'
+        (await page.getByTestId('verbindung-haus.arasul.localhost').getAttribute('data-stoerung')) === 'true'
     );
     pruefe(
       'Verbindungen: Abgewiesenes ohne Eintrag ist grau und zugeklappt',
