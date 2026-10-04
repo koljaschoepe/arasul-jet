@@ -60,6 +60,11 @@ describe('Apps im Hintergrund', () => {
     expect(screen.getByTestId('app-stapel-d-live')).toBeInTheDocument();
     expect(sichtbar('a')).toBe('false');
 
+    // Eine andere App öffnen lässt b nicht als Geist wiederkehren.
+    oeffne('c');
+    expect(screen.queryByTestId('app-stapel-b-live')).toBeNull();
+    expect(eingehaengt).toHaveBeenCalledTimes(4);
+
     // b fängt von vorn an.
     oeffne('b');
     expect(eingehaengt).toHaveBeenCalledTimes(5);

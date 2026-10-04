@@ -129,7 +129,12 @@ function useLebendeApps(ansicht: Ansicht): LebendeApp[] {
       );
     }
   }
-  // Steht gerade keine App offen, zählen nur die drei im Hintergrund.
+  // Steht keine App offen, zählen nur die drei im Hintergrund: die vierte
+  // fällt hier endgültig heraus, sie darf bei der nächsten App nicht als
+  // frischer, nie geöffneter Rahmen wiederkehren.
+  if (ansicht.type !== 'app' && liste.length > APPS_IM_HINTERGRUND) {
+    setListe(liste.slice(0, APPS_IM_HINTERGRUND));
+  }
   return ansicht.type === 'app' ? liste : liste.slice(0, APPS_IM_HINTERGRUND);
 }
 

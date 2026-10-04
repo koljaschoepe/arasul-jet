@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "id": "probe-leiste",
+  "name": "Probe: Leiste",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/leiste-abnahme.sh: ein Eingabefeld und eine lange Seite, damit Eingaben und Scrollstand beim Wechsel sichtbar werden (M5).",
+  "frontend": {
+    "verzeichnis": "frontend"
+  }
+}
