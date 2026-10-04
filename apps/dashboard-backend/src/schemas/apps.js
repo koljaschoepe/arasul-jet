@@ -626,6 +626,13 @@ const FlowAktivBody = z
   })
   .strict();
 
+// Die Pause des Zeitplans eines Flows (M5, Migration 203).
+const FlowZeitplanBody = z
+  .object({
+    pausiert: z.boolean({ error: '"pausiert" ist true oder false' }),
+  })
+  .strict();
+
 const FlowModellBody = z.union(
   [
     z.object({ modell: z.string().trim().max(100).nullable() }).strict(),
@@ -768,6 +775,7 @@ module.exports = {
   FlowModellBody,
   FlowArtBody,
   FlowAktivBody,
+  FlowZeitplanBody,
   FlowQuery,
   KiAufrufeQuery,
   LaeufeQuery,

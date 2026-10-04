@@ -29,6 +29,7 @@ const {
   FlowModellBody,
   FlowArtBody,
   FlowAktivBody,
+  FlowZeitplanBody,
   EinspielenBody,
   EntfernenSitzungQuery,
   FlowQuery,
@@ -495,6 +496,59 @@ router.put(
     });
     res.json({
       data: { app_id: appId, flow_name: name, aktiv },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/apps/:id/flows/:name/zeitplan — den Zeitplan eines Flows pausieren
+ * und fortsetzen (M5, Migration 203).
+ *
+ * Trifft NUR den Zeitplan: der Schalter `aktiv` und der Start von Hand bleiben.
+ * Termine in der Pause werden nach dem Fortsetzen nicht nachgeholt. Einen Flow
+ * ohne Zeitplan weist die Route mit 400 ab: eine Pause, die nichts pausiert,
+ * waere eine Zeile, die nie jemand wieder anfasst. Sicherheitsprotokoll wie bei
+ * `aktiv`.
+ */
+router.put(
+  '/:id/flows/:name/zeitplan',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppFlowParams),
+  validateBody(FlowZeitplanBody),
+  asyncHandler(async (req, res) => {
+    const { id: appId, name } = req.params;
+    const { pausiert } = req.body;
+    await appStore.holeApp(appId);
+    const staende = await Promise.all(
+      ['test', 'live'].map(stand => appFlows.liste({ appId, stand }))
+    );
+    const flow = staende.flat().find(f => f.name === name);
+    if (!flow) {
+      throw new NotFoundError(`App ${appId} hat keinen Flow "${name}"`);
+    }
+    if (!flow.zeitplan) {
+      throw new ValidationError(
+        `Der Flow "${name}" hat keinen Zeitplan. Er startet, wie sein Kopf es unter "ausloeser" nennt.`
+      );
+    }
+    const vorher = flow.zeitplan.pausiert;
+    await flowSettings.setzeZeitplanPause({ appId, flowName: name, pausiert, durch: req.user.id });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: pausiert ? 'flow_zeitplan_pausiert' : 'flow_zeitplan_fortgesetzt',
+      details: { app_id: appId, flow: name, pausiert, vorher },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    const live = await appFlows.liste({ appId, stand: 'live' });
+    res.json({
+      data: {
+        app_id: appId,
+        flow_name: name,
+        zeitplan: live.find(f => f.name === name)?.zeitplan ?? flow.zeitplan,
+      },
       timestamp: new Date().toISOString(),
     });
   })

@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { FASSUNG } from '@marken';
 import { AppsSettings } from '../AppsSettings';
+import { terminInWorten } from '../apps/AppFlows';
 
 const apiMock = {
   get: vi.fn(),
@@ -1012,6 +1013,102 @@ describe('Die Seite einer App (M5)', () => {
     expect(schritte).toHaveTextContent('1. lesen (Werkzeug bild_lesen)');
     expect(schritte).toHaveTextContent('2. pruefen (Rolle pruefer)');
     expect(screen.getByTestId('flow-mehr-freigabe')).toHaveTextContent('Prüfung');
+  });
+
+  describe('Termine in Worten', () => {
+    const jetzt = new Date('2026-10-04T12:00:00Z'); // Sonntag, 14:00 in Berlin
+    it('heute, morgen, sonst mit Wochentag und Datum, in der Zeitzone des Geräts', () => {
+      expect(terminInWorten('2026-10-04T16:30:00Z', 'Europe/Berlin', jetzt)).toBe(
+        'heute um 18:30 Uhr'
+      );
+      expect(terminInWorten('2026-10-05T04:00:00Z', 'Europe/Berlin', jetzt)).toBe(
+        'morgen um 06:00 Uhr'
+      );
+      expect(terminInWorten('2026-10-12T04:00:00Z', 'Europe/Berlin', jetzt)).toBe(
+        'Montag, 12. Oktober, um 06:00 Uhr'
+      );
+    });
+    it('rechnet in der Zone, nicht in der des Browsers: 22:30 UTC ist in Berlin schon morgen', () => {
+      expect(terminInWorten('2026-10-04T22:30:00Z', 'Europe/Berlin', jetzt)).toBe(
+        'morgen um 00:30 Uhr'
+      );
+    });
+  });
+
+  describe('Zeitplan je Flow', () => {
+    const ZEITPLAN = {
+      ausdruecke: ['0 6 * * 1-5'],
+      zeitzone: 'Europe/Berlin',
+      pausiert: false,
+      laeuft_nicht: null,
+      naechster_termin: '2099-01-05T05:00:00.000Z',
+      letzter_termin: null,
+    };
+    const mitZeitplan = (zeitplan: Record<string, unknown>) =>
+      antworteM5({
+        '/apps/beispielapp': {
+          data: {
+            ...DETAIL_M5,
+            staende: {
+              live: {
+                ...DETAIL_M5.staende.live,
+                flows: [{ ...FLOW_M5, zeitplan: { ...ZEITPLAN, ...zeitplan } }],
+              },
+              test: null,
+            },
+          },
+        },
+      });
+
+    it('nennt den nächsten Lauf in Worten und pausiert auf Knopfdruck', async () => {
+      mitZeitplan({});
+      apiMock.put.mockResolvedValue({ data: {} });
+      await oeffneApp();
+      expect(await screen.findByTestId('flow-zeitplan-freigabe')).toHaveTextContent(
+        /Nächster Lauf: .*5\. Januar, um 06:00 Uhr/
+      );
+      fireEvent.click(screen.getByTestId('flow-zeitplan-knopf-freigabe'));
+      await waitFor(() =>
+        expect(apiMock.put).toHaveBeenCalledWith('/apps/beispielapp/flows/freigabe/zeitplan', {
+          pausiert: true,
+        })
+      );
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/nicht nachgeholt/))
+      );
+    });
+
+    it('zeigt einen pausierten Zeitplan und setzt ihn fort', async () => {
+      mitZeitplan({ pausiert: true, laeuft_nicht: 'pausiert', naechster_termin: null });
+      apiMock.put.mockResolvedValue({ data: {} });
+      await oeffneApp();
+      const satz = await screen.findByTestId('flow-zeitplan-freigabe');
+      expect(satz).toHaveTextContent('Zeitplan pausiert');
+      expect(satz).toHaveAttribute('data-pausiert', 'true');
+      // Die Pause trifft nur den Zeitplan: der Schalter „aktiv" bleibt an.
+      expect(screen.getByTestId('flow-aktiv-freigabe')).toHaveAttribute('aria-checked', 'true');
+      fireEvent.click(screen.getByTestId('flow-zeitplan-knopf-freigabe'));
+      await waitFor(() =>
+        expect(apiMock.put).toHaveBeenCalledWith('/apps/beispielapp/flows/freigabe/zeitplan', {
+          pausiert: false,
+        })
+      );
+    });
+
+    it('sagt einen übersprungenen Termin mit seinem Grund', async () => {
+      mitZeitplan({
+        letzter_termin: {
+          termin: '2026-10-04T04:00:00.000Z',
+          ergebnis: 'uebersprungen',
+          grund: 'Verpasst: Sonntag, 4. Oktober, 06:00 Uhr. Das Gerät lief zu der Zeit nicht.',
+          run_id: null,
+        },
+      });
+      await oeffneApp();
+      expect(await screen.findByTestId('flow-zeitplan-letzter-freigabe')).toHaveTextContent(
+        'Verpasst: Sonntag, 4. Oktober, 06:00 Uhr.'
+      );
+    });
   });
 
   it('nennt Personen beim Namen und schaltet Zugang und Testperson', async () => {

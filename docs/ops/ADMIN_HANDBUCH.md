@@ -704,23 +704,43 @@ und höchstens dem Hinweis „(Test)", wenn eine Testfassung da ist. Ein Klick
 (`/workspace/verwaltung/apps/<kennung>`). Seit Oktober 2026 (M5) steht dort
 alles, was die App tut und darf, und nirgends sonst in der Oberfläche:
 
-| Block              | Was dort steht                                                                                                                                                                                                                                                          |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Zustand**        | Ein Satz („Läuft mit Fassung 1.0.0. Im Test wartet Fassung 1.1.0."), wie viele Personen Zugang haben und wie viele Flows aktiv sind. Rot nur, wenn die App deshalb nicht arbeiten kann: Fassung nicht lieferbar, Server-Teil steht, eingetragene Verbindung abgewiesen. |
-| **Fassungen**      | Test- und Livefassung nebeneinander, mit dem Zustand und dem, was der Entwickler zur Fassung schrieb („Neu"). Darunter **Live schalten** und **Zurück**. Fassungsnummern, Weg und Bibliothek unter „Technische Angaben" (aufklappen).                                   |
-| **Personen**       | Jeder Mensch am Gerät mit einem Schalter für den Zugang; wer Zugang hat, kann **Testperson** werden. Eine Testperson sieht die App in ihrer Leiste zusätzlich als „(Test) Name" und landet dort in der Testfassung.                                                     |
-| **Freigabestufen** | Wer je Stufe zuerst gefragt wird (Standardperson).                                                                                                                                                                                                                      |
-| **Flows**          | Je Flow ein Schalter **aktiv**, die **Art** und ein Satz, wann er startet und wie viele Schritte er hat. Schritte, Freigaben, Modell („Modell ändern") und die Datei mit dem Auftrag an das Modell klappen auf. Ein Flow auf „aus" startet nicht, das Gerät weist ab.   |
-| **Verbindungen**   | Wohin die App ins Internet darf, lesbar benannt („OpenAI"), mit „x× genutzt"; die Adresse klappt auf. Abgewiesene Adressen, die die App nicht eingetragen hat, stehen grau und zugeklappt darunter. Rot ist nur eine eingetragene Verbindung, die abgewiesen wird.      |
-| **Läufe**          | Auf „Zeigen": was die App getan hat; ein Klick öffnet den Lauf mit seinen Schritten und dem Gedankengang.                                                                                                                                                               |
-| **KI-Aufrufe**     | Auf „Zeigen": jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, für wen, welches Modell, wie lange. Ohne Inhalt der Datei.                                                                                                             |
-| **Protokoll**      | Auf „Zeigen": die letzten 200 Zeilen des Server-Teils.                                                                                                                                                                                                                  |
+| Block              | Was dort steht                                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Zustand**        | Ein Satz („Läuft mit Fassung 1.0.0. Im Test wartet Fassung 1.1.0."), wie viele Personen Zugang haben und wie viele Flows aktiv sind. Rot nur, wenn die App deshalb nicht arbeiten kann: Fassung nicht lieferbar, Server-Teil steht, eingetragene Verbindung abgewiesen.                                                                        |
+| **Fassungen**      | Test- und Livefassung nebeneinander, mit dem Zustand und dem, was der Entwickler zur Fassung schrieb („Neu"). Darunter **Live schalten** und **Zurück**. Fassungsnummern, Weg und Bibliothek unter „Technische Angaben" (aufklappen).                                                                                                          |
+| **Personen**       | Jeder Mensch am Gerät mit einem Schalter für den Zugang; wer Zugang hat, kann **Testperson** werden. Eine Testperson sieht die App in ihrer Leiste zusätzlich als „(Test) Name" und landet dort in der Testfassung.                                                                                                                            |
+| **Freigabestufen** | Wer je Stufe zuerst gefragt wird (Standardperson).                                                                                                                                                                                                                                                                                             |
+| **Flows**          | Je Flow ein Schalter **aktiv**, die **Art**, ein Satz, wann er startet und wie viele Schritte er hat, und bei einem Zeitplan der nächste Lauf mit dem Knopf „Zeitplan pausieren". Schritte, Freigaben, Modell („Modell ändern") und die Datei mit dem Auftrag an das Modell klappen auf. Ein Flow auf „aus" startet nicht, das Gerät weist ab. |
+| **Verbindungen**   | Wohin die App ins Internet darf, lesbar benannt („OpenAI"), mit „x× genutzt"; die Adresse klappt auf. Abgewiesene Adressen, die die App nicht eingetragen hat, stehen grau und zugeklappt darunter. Rot ist nur eine eingetragene Verbindung, die abgewiesen wird.                                                                             |
+| **Läufe**          | Auf „Zeigen": was die App getan hat; ein Klick öffnet den Lauf mit seinen Schritten und dem Gedankengang.                                                                                                                                                                                                                                      |
+| **KI-Aufrufe**     | Auf „Zeigen": jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, für wen, welches Modell, wie lange. Ohne Inhalt der Datei.                                                                                                                                                                                    |
+| **Protokoll**      | Auf „Zeigen": die letzten 200 Zeilen des Server-Teils.                                                                                                                                                                                                                                                                                         |
 
 **Einen Flow ausschalten.** Der Schalter **aktiv** in der Zeile des Flows. Aus
 heißt: der Flow startet nicht, weder von Hand in der App noch nach Zeitplan;
 die App bekommt beim Versuch die Antwort `409 FLOW_INAKTIV`. Ein Lauf, der
 schon läuft oder auf eine Freigabe wartet, geht zu Ende. Die Wahl gilt für
 Test und Live zugleich und bleibt über ein Update der App erhalten.
+
+**Den Zeitplan eines Flows pausieren.** Nennt der Flow einen Zeitplan, steht
+unter seinem Namen der **nächste Lauf in Worten** („morgen um 06:00 Uhr") und
+ein Knopf **Zeitplan pausieren**. Pausiert startet der Flow nicht von allein;
+der Schalter **aktiv** und der Start von Hand in der App bleiben, wie sie sind.
+Termine, die in die Pause fallen, werden nach dem **Fortsetzen nicht
+nachgeholt**. Der Zeitplan gilt in der Uhrzeit des Geräts (Europe/Berlin, mit
+Sommer- und Winterzeit) und nur im **Livestand**; im Teststand läuft keiner. Wie
+der Zeitplaner sich verhält, wenn etwas dazwischenkommt:
+
+- **Genau einmal je Termin**, auch über einen Neustart des Geräts hinweg.
+- **War das Gerät zur Zeit aus,** holt es den **letzten** verpassten Termin
+  einmal nach, wenn er höchstens **eine Stunde** zurückliegt. Alles andere wird
+  übersprungen; der Satz „Verpasst: Dienstag, 6. Oktober, 06:00 Uhr …" steht
+  rot unter dem Flow, damit Sie es sehen.
+- **Läuft oder wartet** (auf eine Freigabe) **schon ein Lauf** desselben Flows,
+  startet kein zweiter; der Termin entfällt, und der Satz sagt, bei welchem
+  Lauf es hing.
+- Ein Lauf nach Zeitplan hat in der Liste der **Läufe** die Marke „Zeitplan"
+  und keinen Menschen als Einreicher.
 
 **Live schalten, und was passiert, wenn die neue Fassung nicht startet.** Ein
 Klick auf **Live schalten** öffnet erst einen Dialog: welche Fassung welche

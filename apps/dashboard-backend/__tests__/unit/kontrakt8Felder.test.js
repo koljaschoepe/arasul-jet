@@ -74,6 +74,12 @@ describe('arten, ausloeser, stufen je Flow', () => {
     [{ ausloeser: [{ typ: 'zeitplan' }] }, /braucht "zeitplan"/],
     [{ ausloeser: [{ typ: 'zeitplan', zeitplan: 'jeden Tag' }] }, /fünf Felder/],
     [{ ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * *' }] }, /fünf Felder/],
+    // Seit dem Zeitplaner (04.10.2026) liest das Geraet den Ausdruck beim
+    // Einspielen: was es nicht lesen kann, laeuft nie, und das soll auffallen,
+    // bevor jemand am Morgen auf einen Lauf wartet.
+    [{ ausloeser: [{ typ: 'zeitplan', zeitplan: '61 * * * *' }] }, /Minute: "61" liegt außerhalb/],
+    [{ ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * 13 *' }] }, /Monat: "13" liegt außerhalb/],
+    [{ ausloeser: [{ typ: 'zeitplan', zeitplan: '*/0 * * * *' }] }, /Schrittweite/],
     [{ ausloeser: [{ typ: 'ereignis' }] }, /braucht "ereignis"/],
     [{ ausloeser: [{ typ: 'ereignis', ereignis: 'Beleg Neu' }] }, /ereignis:/],
     [{ ausloeser: [{ typ: 'hand' }, { typ: 'hand' }] }, /zweimal/],

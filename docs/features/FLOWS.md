@@ -266,14 +266,57 @@ Prompt; eine gelöschte Vorlage wird still übersprungen.
   einen Flow und gibt das Ergebnis zurück (oder `202` mit der Lauf-ID bei
   `wait_for_result: false`). So triggert ein Fremdsystem einen Flow und liest
   die Antwort.
-- **Zeitpläne.** Wiederkehrende Starts (Cron) kommen von außen über dieselbe
-  Trigger-URL; das Gerät hat keinen eigenen Zeitplaner.
+- **Zeitpläne.** Ein Flow mit `ausloeser: zeitplan` im Kopf startet das Gerät
+  selbst, zur festgelegten Zeit ([Zeitplaner](#zeitplaner-flows-nach-uhrzeit-m5-04102026)).
+  Wiederkehrende Starts von außen (Cron eines Fremdsystems) gehen weiter über
+  dieselbe Trigger-URL.
 - **Eine App startet ihren eigenen Flow** (Phase C6). Sie benutzt denselben
   Endpunkt mit dem Schlüssel, den das Gerät ihr beim Einspielen in den
   Container gelegt hat. Was sie dabei sieht, entscheidet der Schlüssel: er
   trägt App und Stand, und gesucht wird mit beiden. **Nur eigene Flows** ist
   deshalb keine Prüfung in der Route, sondern die Auswahl der Quelle — eine
   App kann den Flow einer anderen nicht einmal benennen.
+
+## Zeitplaner: Flows nach Uhrzeit (M5, 04.10.2026)
+
+Das Gerät hat einen eigenen Zeitplaner (`services/flows/zeitplaner.js`, Rechnung
+in `zeitplan.js`). Ein Flow, dessen Kopf einen Auslöser `zeitplan` nennt,
+
+```yaml
+ausloeser:
+  - typ: zeitplan
+    zeitplan: '0 6 * * 1-5'
+```
+
+läuft zur festgelegten Zeit von allein. Der Ausdruck hat fünf Felder wie cron
+(Minute 0–59, Stunde 0–23, Tag 1–31, Monat 1–12, Wochentag 0–7, 0 und 7 sind
+Sonntag), je Feld `*`, Zahlen, Bereiche `a-b`, Listen `a,b` und Schrittweiten
+`*/n`. Sind Tag **und** Wochentag eingeschränkt, genügt eines von beiden (wie in
+cron). Namen (`MON`) gibt es nicht. Ein Ausdruck, den das Gerät nicht lesen
+kann (Minute 61), weist es beim Einspielen der App ab.
+
+**Die Regeln, alle am Orin gemessen** (`scripts/test/zeitplaner-abnahme.sh`):
+
+| Frage                  | Regel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| In welcher Uhrzeit?    | In der Zeitzone des Geräts (`TZ`, Vorgabe `Europe/Berlin`), nicht in UTC. „0 6 \* \* \*" ist 06:00 Uhr deutscher Zeit, im Sommer wie im Winter.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Sommer- und Winterzeit | Eine Uhrzeit, die beim Vorstellen der Uhr ausfällt (02:30 am 29.03.2026), läuft **einmal**, in der ersten Minute danach. Eine, die beim Zurückstellen zweimal vorkommt (02:30 am 25.10.2026), läuft nur beim **ersten** Mal. „Jede Minute" und „alle 30 Minuten in Stunde 2" laufen durch, wie in cron.                                                                                                                                                                                                                                         |
+| Welcher Stand?         | Nur der **Livestand**. Der Teststand ist eine Fassung, die jemand ausprobiert; sein Zeitplan liefe sonst doppelt. Die Seite der App sagt es.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Genau einmal je Termin | Jeder Termin ist eine Zeile in `flow_zeitplan_termine`; wer sie anlegt (Primärschlüssel), startet den Lauf. Ein zweiter Takt oder ein Neustart des Backends im selben Termin findet sie vor und tut nichts.                                                                                                                                                                                                                                                                                                                                     |
+| Das Gerät war aus      | Der Zeitplaner merkt sich, bis wohin er gesehen hat (`flow_zeitplaner`). Nach einem Ausfall zählt je Flow nur der **jüngste** verpasste Termin, und der nur, wenn er höchstens **eine Stunde** zurückliegt: dann wird er **einmal nachgeholt** (`nachgeholt`). Alles andere wird **übersprungen** und steht mit Grund auf der Seite der App („Verpasst: Dienstag, 06:00 Uhr …"). Bis fünf Minuten zurück gilt ein Termin als pünktlich (`gestartet`): ein Neustart des Backends dauert so lange. Länger als sieben Tage zurück schaut er nicht. |
+| Läuft schon ein Lauf?  | Läuft oder **wartet** (auf eine Freigabe) schon ein Lauf desselben Flows im Livestand, entfällt der Termin (`uebersprungen`, Grund „Der Lauf Nr. N dieses Flows läuft noch …"). Es startet nie ein zweiter: zwei Läufe desselben Auftrags schreiben sich in die Daten.                                                                                                                                                                                                                                                                          |
+| Pause                  | Der Admin pausiert den Zeitplan je Flow auf der Seite der App (`PUT /api/apps/:id/flows/:name/zeitplan`). Das trifft **nur den Zeitplan**: der Schalter „aktiv" ([Migration 200](../api/DATABASE_SCHEMA.md#flow_settings)) und der Start von Hand bleiben. Ein pausierter Zeitplan und ein ausgeschalteter Flow starten nichts; die Termine dazwischen verfallen ohne Eintrag und werden nach dem Fortsetzen **nicht** nachgeholt.                                                                                                              |
+| Wer reicht ein?        | Niemand. Der Lauf hat den Auslöser `zeitplan` (`flow_runs.ausloeser`) und keinen Einreicher; die Freigaberegeln ohne Einreicher gelten wie bei jedem Lauf ohne `einreicher`. Besitzer des Laufs ist, wem der Livestand-Schlüssel der App gehört; hat er kein Konto mehr, der älteste aktive Admin. Ein Zeitplan, der nach einem Personalwechsel still stünde, wäre das Gegenteil von unbeaufsichtigt.                                                                                                                                           |
+| Argumente              | Keine. Ein Flow mit einem Pflichtargument ohne Vorgabe kann nicht nach Zeitplan laufen; sein Termin wird mit diesem Grund übersprungen und steht so auf der Seite der App.                                                                                                                                                                                                                                                                                                                                                                      |
+
+Auf der Seite der App steht je Flow mit Zeitplan der **nächste Lauf in Worten**
+(„morgen um 06:00 Uhr", in der Zeit des Geräts), ein Knopf „Zeitplan
+pausieren" / „fortsetzen" und, wenn der letzte Termin nachgeholt oder
+übersprungen wurde, ein Satz dazu. Ein Lauf nach Zeitplan trägt in der Liste der
+Läufe die Marke „Zeitplan".
+
+`ereignis` (Auslöser bei einem Ereignis der App) nimmt das Gerät weiter nur an
+und prüft es, startet aber nichts.
 
 ## Zwei Betriebsarten (Plan 023 I2)
 

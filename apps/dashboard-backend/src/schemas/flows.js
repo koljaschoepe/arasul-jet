@@ -10,6 +10,7 @@
  */
 
 const { z } = require('zod');
+const zeitplan = require('../services/flows/zeitplan');
 
 // Werkzeuge, die ein Flow deklarieren darf. Muss zu services/flows/tools/*
 // passen — ein Name, den die Registry nicht kennt, ist ein Schreibfehler und
@@ -177,16 +178,19 @@ const SubagentRole = z
  * Flow, der er vorher war -- ohne Vorgabe wird nichts eingesetzt, damit weder
  * die Datei noch ihre Auslegung sich fuer bestehende Pakete aendert.
  *
- * NUR SCHEMA. Das Geraet nimmt die Felder an und prueft sie; Stufen, Zeitplaner
- * und die Umschaltung zwischen den Arten kommen in spaeteren Karten. Bis dahin
- * wirkt keines dieser Felder auf einen Lauf.
+ * Stufen und Arten wirken seit M5 (siehe oben), der Zeitplaner seit dem
+ * 04.10.2026 (`services/flows/zeitplaner.js`): ein `zeitplan`-Auslöser startet
+ * den Flow im Livestand zur genannten Zeit. `ereignis` nimmt das Geraet an und
+ * prueft es, startet aber nichts.
  */
 const FLOW_ARTEN = ['autonom', 'ergebnis_bestaetigen'];
 const AUSLOESER_TYPEN = ['hand', 'zeitplan', 'ereignis'];
 
 // Zeitplan: fuenf Felder wie in cron (Minute Stunde Tag Monat Wochentag), je
-// Feld nur Ziffern, `*`, `/`, `,` und `-`. Das ist eine Formpruefung, keine
-// Auslegung: ob `61` eine Minute sein kann, entscheidet der Zeitplaner.
+// Feld nur Ziffern, `*`, `/`, `,` und `-`. Die Form prueft die Regex, ob `61`
+// eine Minute sein kann, der Zeitplaner (`zeitplan.lese`): ein Ausdruck, den
+// er nicht lesen kann, wird beim Einspielen abgewiesen und nicht erst zur
+// Zeit still ausgelassen.
 const ZEITPLAN_RE = /^\S+( \S+){4}$/;
 const ZEITPLAN_FELD_RE = /^[0-9*/,-]+$/;
 const EREIGNIS_RE = /^[a-z][a-z0-9_.-]{0,59}$/;
@@ -210,7 +214,17 @@ const FlowAusloeser = z.discriminatedUnion(
           .refine(
             v => ZEITPLAN_RE.test(v) && v.split(' ').every(f => ZEITPLAN_FELD_RE.test(f)),
             'zeitplan: fünf Felder (Minute Stunde Tag Monat Wochentag) aus Ziffern und * / , -, z. B. "0 6 * * 1-5"'
-          ),
+          )
+          .superRefine((v, ctx) => {
+            if (!ZEITPLAN_RE.test(v)) {
+              return;
+            }
+            try {
+              zeitplan.lese(v);
+            } catch (err) {
+              ctx.addIssue({ code: 'custom', message: `zeitplan: ${err.message}` });
+            }
+          }),
       })
       .strict(),
     z

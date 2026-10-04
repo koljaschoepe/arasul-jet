@@ -584,6 +584,7 @@ tut der Flow im Teststand etwas anderes als im Livestand".
 | `modell`            | text                     | ✅       |         |
 | `art`               | text                     | ✅       |         |
 | `aktiv`             | boolean                  | ✅       |         |
+| `zeitplan_pausiert` | boolean                  | ✅       |         |
 | `extern_anbieter`   | text                     | ✅       |         |
 | `extern_modell`     | text                     | ✅       |         |
 | `extern_basis_url`  | text                     | ✅       |         |
@@ -637,10 +638,58 @@ das Modell samt Schlüssel; die Zeile fällt weg, sobald auch keine Art gewählt
 oder `ergebnis_bestaetigen` (`CHECK`); `NULL` = es gilt die Vorgabe des Pakets
 (erste Art in `arten`, ohne Angabe `autonom`). Gilt ab dem nächsten Lauf.
 
+**`zeitplan_pausiert`** (Migration 203, M5): `true` = der Admin hat den
+Zeitplan dieses Flows pausiert, `NULL` = er läuft (`CHECK`, nur `true` wird
+gespeichert, wie bei `aktiv`). Trifft nur den Zeitplaner; `aktiv` und der Start
+von Hand bleiben. Eine Zeile, die sonst nichts mehr trägt, fällt weg.
+
 **`aktiv`** (Migration 200, M5): `false` = der Admin hat den Flow
 ausgeschaltet, er startet nicht (409 `FLOW_INAKTIV`); `NULL` = aktiv. Ein `true`
 wird nie gespeichert (`CHECK`), und eine Zeile ohne Modell, Art und Ausschaltung
 fällt weg.
+
+---
+
+## `flow_zeitplan_termine`
+
+> Jeder Termin, den der Zeitplaner angefasst hat (M5, Migration 203): gestartet, nachgeholt oder übersprungen, mit Grund. Der Primärschlüssel macht „genau einmal je Termin".
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `app_id`     | text                     | ⛔       |         |
+| `flow_name`  | text                     | ⛔       |         |
+| `termin`     | timestamp with time zone | ⛔       |         |
+| `ergebnis`   | text                     | ⛔       |         |
+| `grund`      | text                     | ✅       |         |
+| `run_id`     | bigint                   | ✅       |         |
+| `erfasst_am` | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `app_id, flow_name, termin`
+
+**Foreign Keys:** `app_id` → `apps.id` (`ON DELETE CASCADE`). `run_id` hat
+keinen Fremdschlüssel: der Lauf ist Geschichte, wie bei `flow_runs.app_id`.
+
+`ergebnis` (`CHECK`): `gestartet` (pünktlich, bis fünf Minuten nach dem Termin),
+`nachgeholt` (nach einem Ausfall, höchstens einer je Flow, höchstens eine Stunde
+zurück) oder `uebersprungen` (mit `grund`: verpasst, ein Lauf läuft noch, der
+Lauf startete nicht). Wer die Zeile anlegt (`INSERT … ON CONFLICT DO NOTHING`),
+startet den Lauf; ein zweiter Takt oder ein Neustart findet sie vor. Einträge
+älter als 90 Tage räumt der Zeitplaner stündlich weg. Regeln:
+[FLOWS.md](../features/FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026).
+
+---
+
+## `flow_zeitplaner`
+
+> Eine Zeile (`id = 1`): bis zu welcher Minute der Zeitplaner alle Termine gesehen hat (M5, Migration 203).
+
+| Column         | Type                     | Nullable | Default |
+| -------------- | ------------------------ | -------- | ------- |
+| `id`           | smallint                 | ⛔       |         |
+| `geprueft_bis` | timestamp with time zone | ⛔       |         |
+
+Aus dem Abstand zu jetzt ergibt sich nach einem Ausfall, was verpasst wurde.
+Die Zeile entsteht mit dem ersten Takt; ohne sie gibt es nichts nachzuholen.
 
 ---
 
@@ -2066,7 +2115,9 @@ Ollama und keine Selbstheilung.
 | `einreicher_id`  | bigint                   | ✅       |                                         |
 | `freigabe_regel` | jsonb                    | ✅       |                                         |
 | `fortsetzung`    | jsonb                    | ✅       |                                         |
+| `ausloeser`      | text                     | ⛔       | `'hand'::text`                          |
 | `abschluss`      | jsonb                    | ✅       |                                         |
+| `ausloeser`      | text                     | ⛔       | `'hand'::text`                          |
 | `created_at`     | timestamp with time zone | ⛔       | `now()`                                 |
 | `finished_at`    | timestamp with time zone | ✅       |                                         |
 
@@ -2084,6 +2135,10 @@ Ollama und keine Selbstheilung.
 > (`freigabeAnfragen.anfordern`). `NULL` = nicht fortsetzbar (Freigabe aus der
 > Werkzeug-Schleife, aus einer Rolle oder aus einer Wiederholung); ein solcher
 > Lauf endet beim Neustart wie jeder laufende als `fehler`.
+
+> `ausloeser` (Migration 203, M5): wodurch der Lauf entstand, `hand` (ein
+> Mensch oder die App stieß ihn an, jeder Lauf bis dahin) oder `zeitplan` (der
+> Zeitplaner des Geräts; dann ohne `einreicher_id`). `CHECK` auf beide Werte.
 
 > `abschluss` (Migration 198, M5, Kontrakt 11): die Übergabe des Ergebnisses an
 > die Abschluss-Route der App — `{route, versuche, letzter_versuch, status_code,

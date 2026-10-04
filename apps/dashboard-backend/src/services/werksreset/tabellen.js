@@ -99,6 +99,11 @@ const AUSLIEFERUNG = [
   ['public.bot_audit_log', 'Prüfprotokoll der Bots'],
   ['public.component_updates', 'Aktualisierungsstand der Bestandteile'],
   ['public.flow_settings', 'Was der Administrator an den Flows einer App eingestellt hat'],
+  // Der Zeitplaner (M5, Migration 203): welche Termine er angefasst hat und
+  // bis wohin er gesehen hat. Beides gehört zu den Apps des Geräts; nach dem
+  // Auslieferungszustand fängt der Zeitplaner mit dem ersten Takt neu an.
+  ['public.flow_zeitplan_termine', 'Die Termine, die der Zeitplaner angefasst hat'],
+  ['public.flow_zeitplaner', 'Bis wohin der Zeitplaner alle Termine gesehen hat'],
   // Stufe 2 und nicht Stufe 1 (J35, Migration 187): das Protokoll der
   // Modellaufrufe ist ein Nachweis wie `audit_logs`, kein Inhalt -- wer die
   // Inhalte zuruecksetzt, will nicht zugleich belegen koennen, dass nichts war.

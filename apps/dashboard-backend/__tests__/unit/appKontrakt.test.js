@@ -351,7 +351,14 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Kontraktes und die Texte der Pruefungen stehen mit echten Umlauten
     // (Geraet wird Gerät, hoechstens wird höchstens). Kein Feld, keine Regel,
     // kein Name: Feldnamen wie `aenderungstext` bleiben. Die Zahl bleibt bei 12.
-    expect(abdruck).toBe('e1aa6d6bc796fb4d0720dff1022738333b505e3dd29f11e2faa1bda8def11f00');
+    //
+    // 04.10.2026 (M5, Auftrag zeitplaner-im-geraet): die Regel zu `ausloeser`
+    // sagt, dass `zeitplan` wirkt (Livestand, Zeitzone des Geräts, einmal je
+    // Termin, Nachholen, Pause) und dass das Gerät einen Ausdruck, den es nicht
+    // lesen kann, beim Einspielen abweist. Kein Feld, kein Name: das Feld
+    // `zeitplan` gab es seit Fassung 8. Die Zahl bleibt bei 12; das Kit darf
+    // den Bereich der Felder (Minute 0 bis 59 usw.) vor dem Einspielen prüfen.
+    expect(abdruck).toBe('e30a6c14e9a99cb0ddf9703bfd4825ffa85fc08945e4f4424e2fd57e686daf4d');
   });
 
   /**

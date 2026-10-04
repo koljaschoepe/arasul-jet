@@ -126,6 +126,74 @@ describe('Die Flows einer App (Phase C6)', () => {
     expect(geschrieben[0]).not.toMatch(/\bstand\b/);
   });
 
+  test('PUT …/zeitplan pausiert den Zeitplan, nicht den Flow (M5)', async () => {
+    auth.__setUser(ADMIN);
+    appOhneStaende();
+    const mitZeitplan = {
+      rows: [
+        {
+          name: 'bericht',
+          version: '1.0.0',
+          definition: { ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * * 1-5' }] },
+        },
+      ],
+    };
+    // Nach dem Text der Abfrage antworten, nicht nach der Reihenfolge: die
+    // Route fragt beide Staende zugleich und danach den Livestand noch einmal.
+    db.query.mockImplementation(async sql => {
+      if (/FROM public\.app_flows/.test(sql)) {
+        return mitZeitplan;
+      }
+      return { rows: [], rowCount: 1 };
+    });
+
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/zeitplan')
+      .send({ pausiert: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ app_id: 'urlaub', flow_name: 'bericht' });
+    const geschrieben = db.query.mock.calls.find(([sql]) =>
+      /INSERT INTO public\.flow_settings[\s\S]*zeitplan_pausiert = true/.test(sql)
+    );
+    expect(geschrieben).toBeDefined();
+    // Der Schalter `aktiv` bleibt, wie er ist.
+    expect(geschrieben[0]).not.toMatch(/aktiv = false/);
+    expect(geschrieben[0]).not.toMatch(/\bstand\b/);
+  });
+
+  test('PUT …/zeitplan: ohne Wahrheitswert 400, ohne Zeitplan im Kopf 400, fremder Flow 404', async () => {
+    auth.__setUser(ADMIN);
+    let res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/zeitplan')
+      .send({ pausiert: 'ja' });
+    expect(res.status).toBe(400);
+
+    appOhneStaende();
+    const ohne = { rows: [{ name: 'bericht', version: '1.0.0', definition: {} }] };
+    db.query
+      .mockResolvedValueOnce(ohne)
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/bericht/zeitplan')
+      .send({ pausiert: true });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/keinen Zeitplan/);
+
+    appOhneStaende();
+    db.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    res = await request(verwaltung())
+      .put('/api/apps/urlaub/flows/gibtsnicht/zeitplan')
+      .send({ pausiert: true });
+    expect(res.status).toBe(404);
+  });
+
   test('PUT …/aktiv ohne Wahrheitswert ist 400, auf einen fremden Flow 404', async () => {
     auth.__setUser(ADMIN);
     let res = await request(verwaltung())

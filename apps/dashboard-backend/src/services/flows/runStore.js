@@ -75,13 +75,15 @@ async function createRun(
     // festgehalten.
     einreicherId = null,
     freigabeRegel = null,
+    // Wodurch der Lauf entstand (Migration 203): `hand` oder `zeitplan`.
+    ausloeser = 'hand',
   },
   { db = database } = {}
 ) {
   const { rows } = await db.query(
     `INSERT INTO flow_runs (user_id, flow_name, app_id, stand, arguments,
-                            einreicher_id, freigabe_regel)
-     VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)
+                            einreicher_id, freigabe_regel, ausloeser)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8)
      RETURNING *`,
     [
       userId,
@@ -91,6 +93,7 @@ async function createRun(
       JSON.stringify(args || {}),
       einreicherId,
       freigabeRegel ? JSON.stringify(freigabeRegel) : null,
+      ausloeser,
     ]
   );
   return rows[0];
@@ -448,7 +451,8 @@ async function listRuns(
   }
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(
-    `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at, arguments
+    `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at, arguments,
+            ausloeser
        FROM flow_runs
       WHERE user_id = $1 ${filter}
       ORDER BY id DESC
@@ -497,7 +501,7 @@ async function listRunsFuerApp(
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(
     `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at,
-            arguments, error, abschluss
+            arguments, error, abschluss, ausloeser
        FROM flow_runs
       WHERE app_id = $1 ${filter}
       ORDER BY id DESC

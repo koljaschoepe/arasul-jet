@@ -53,7 +53,7 @@ const { ValidationError } = require('../../utils/errors');
  * nicht dabei -- er ist an keiner Stelle Teil einer Antwort, und eine Abfrage,
  * die ihn gar nicht erst holt, kann ihn auch nicht versehentlich durchreichen.
  */
-const SICHTBAR = `app_id, flow_name, modell, art, aktiv,
+const SICHTBAR = `app_id, flow_name, modell, art, aktiv, zeitplan_pausiert,
             extern_anbieter, extern_modell, extern_basis_url, extern_endet_auf,
             geaendert_am, geaendert_von`;
 
@@ -118,7 +118,7 @@ async function setzeModell({ appId, flowName, modell, durch = null }) {
     const weg = await db.query(
       `DELETE FROM public.flow_settings
         WHERE app_id = $1 AND flow_name = $2
-          AND art IS NULL AND aktiv IS NULL`,
+          AND art IS NULL AND aktiv IS NULL AND zeitplan_pausiert IS NULL`,
       [appId, flowName]
     );
     if (weg.rowCount > 0) {
@@ -174,7 +174,8 @@ async function setzeArt({ appId, flowName, art, durch = null }) {
     await db.query(
       `DELETE FROM public.flow_settings
         WHERE app_id = $1 AND flow_name = $2
-          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL`,
+          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL
+          AND zeitplan_pausiert IS NULL`,
       [appId, flowName]
     );
     logger.info(`Flow-Art zurückgenommen: ${appId}/${flowName}`);
@@ -210,7 +211,8 @@ async function setzeAktiv({ appId, flowName, aktiv, durch = null }) {
     await db.query(
       `DELETE FROM public.flow_settings
         WHERE app_id = $1 AND flow_name = $2
-          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL`,
+          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL
+          AND zeitplan_pausiert IS NULL`,
       [appId, flowName]
     );
   } else {
@@ -224,6 +226,44 @@ async function setzeAktiv({ appId, flowName, aktiv, durch = null }) {
   }
   logger.info(`Flow ${aktiv ? 'eingeschaltet' : 'ausgeschaltet'}: ${appId}/${flowName}`);
   return { aktiv: Boolean(aktiv) };
+}
+
+/**
+ * Den Zeitplan eines Flows pausieren oder fortsetzen (M5, Migration 203).
+ * Pausiert heisst: der Zeitplaner startet ihn nicht mehr; ein Start von Hand
+ * und der Schalter `aktiv` bleiben, wie sie sind. Ein Termin, der in die Pause
+ * faellt, wird nach dem Fortsetzen NICHT nachgeholt: der Admin hat ihn
+ * ausgesetzt, und etwas nachzuholen, was jemand bewusst ausgesetzt hat, waere
+ * eine Ueberraschung.
+ *
+ * Gespeichert wird nur `true`, wie bei `aktiv`.
+ *
+ * @returns {Promise<{pausiert: boolean}>}
+ */
+async function setzeZeitplanPause({ appId, flowName, pausiert, durch = null }) {
+  if (pausiert) {
+    await db.query(
+      `INSERT INTO public.flow_settings (app_id, flow_name, zeitplan_pausiert, geaendert_von)
+       VALUES ($1, $2, true, $3)
+       ON CONFLICT (app_id, flow_name) DO UPDATE
+          SET zeitplan_pausiert = true, geaendert_am = NOW(), geaendert_von = EXCLUDED.geaendert_von`,
+      [appId, flowName, durch]
+    );
+  } else {
+    await db.query(
+      'UPDATE public.flow_settings SET zeitplan_pausiert = NULL, geaendert_am = NOW(), geaendert_von = $3 WHERE app_id = $1 AND flow_name = $2',
+      [appId, flowName, durch]
+    );
+    await db.query(
+      `DELETE FROM public.flow_settings
+        WHERE app_id = $1 AND flow_name = $2
+          AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL
+          AND zeitplan_pausiert IS NULL`,
+      [appId, flowName]
+    );
+  }
+  logger.info(`Zeitplan ${pausiert ? 'pausiert' : 'fortgesetzt'}: ${appId}/${flowName}`);
+  return { pausiert: Boolean(pausiert) };
 }
 
 /** Ist dieser Flow einer App aktiv? Ohne Zeile ja. */
@@ -339,6 +379,7 @@ module.exports = {
   setzeModell,
   setzeArt,
   setzeAktiv,
+  setzeZeitplanPause,
   istAktiv,
   setzeExtern,
   externerZugang,

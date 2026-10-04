@@ -130,6 +130,14 @@ function Laeufe({ appId, onOeffnen }: { appId: string; onOeffnen: (id: number) =
                 (Test)
               </span>
             )}
+            {l.ausloeser === 'zeitplan' && (
+              <span
+                className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-xs text-muted-foreground"
+                data-testid={`lauf-zeitplan-${l.id}`}
+              >
+                Zeitplan
+              </span>
+            )}
             <span className="ml-auto text-xs text-muted-foreground">
               {formatDate(l.created_at)}
             </span>
