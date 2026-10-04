@@ -253,6 +253,13 @@ const KONTRAKT_VERSION = 11;
  * Eine App, die eine Abschluss-Route anbietet, liest `ARASUL_ABSCHLUSS_TOKEN`
  * und prueft `Authorization: Bearer`; eine schon laufende App bekommt die
  * Variable erst mit dem naechsten Einspielen.
+ *
+ * Dazu, OHNE neue Zahl (M5, 04.10.2026, Auftrag live-schalten-mit-sicherung):
+ * Live schalten sichert vorher und faellt bei einer gescheiterten
+ * Strukturaenderung selbst zurueck (409 `LIVE_ZURUECKGESCHALTET`). Kein Feld
+ * kam dazu, jedes Paket rollt wie bisher; neu ist eine Regel unter `daten`
+ * und eine Antwort mehr des Schalters. Ein Kit, das gegen 11 prueft, nimmt
+ * beides an.
  */
 
 /**
@@ -358,6 +365,7 @@ const DATEN_REGELN = Object.freeze([
   'Die Datenbank beginnt leer, und ihr Schema legt die App selbst an (beim Start `CREATE TABLE IF NOT EXISTS` oder eigene Migrationen). Die Rolle der App ist Eigentuemerin ihrer Datenbank und darf das; an eine andere Datenbank kommt sie nicht.',
   'Gesichert wird jede Nacht und auf Anforderung, je App und Stand ein Abzug. Zurueck kommen die Daten EINER App ueber `POST /api/backup/wiederherstellung/app/:id` (Administrator, bestaetigt mit seinem Passwort; vorher sichert das Geraet den jetzigen Stand) -- auch nachdem die App entfernt wurde; das naechste Einspielen findet sie dann vor.',
   'Entfernen der App wirft ihre Datenbanken weg. Die Sicherungen davon bleiben liegen.',
+  'Live schalten sichert vorher die Live-Datenbank (ein Stand der Sicherung) und haelt den alten Livestand dafuer an. Eine Strukturaenderung laeuft beim Start der neuen Fassung; scheitert sie, muss sich der Prozess beenden (Exit-Code ungleich 0) oder sich ungesund melden. Beendet sich der Container, startet er neu, meldet er `unhealthy` oder ist er nach 180 Sekunden nicht gesund, schaltet das Geraet selbst auf Fassung UND Daten von vorher zurueck und antwortet mit 409 `LIVE_ZURUECKGESCHALTET` (`details.hilfe`, `details.schaltung`). Ohne Healthcheck im Manifest gilt der Container nach 20 Sekunden ohne Neustart als hochgekommen. Der Teststand wird dabei nicht angefasst.',
 ]);
 
 /**
@@ -508,7 +516,7 @@ const ENDPUNKTE = Object.freeze(
       verb: 'POST',
       pfad: '/api/v1/external/apps/:id/schalten',
       bereich: 'app:deploy',
-      was: 'Livestand schalten: `{"ziel":"live"}` oder `{"ziel":"zurueck"}`',
+      was: 'Livestand schalten: `{"ziel":"live"}` (vorher gesichert, bei Scheitern selbst zurueck: 409 `LIVE_ZURUECKGESCHALTET`, ohne Sicherung 409 `LIVE_NICHT_GESICHERT`) oder `{"ziel":"zurueck"}`',
     },
     {
       verb: 'GET',
@@ -732,7 +740,7 @@ function kontrakt() {
         'Mit `backend` braucht das Paket `backend.bauen`: gebaut wird am Geraet, fertige Images nimmt dieser Weg nicht.',
         'Das Frontend ist fertig gebaut. Das Geraet liefert aus, es baut keine Seite.',
         'Ein Deploy rollt immer in den Teststand. Live schaltet ein Mensch.',
-        'Neben `paket` nimmt der Deploy ein Textfeld `aenderungstext` (seit Kontrakt 8, freiwillig): ein paar Saetze, was in dieser Version neu ist, 1 bis 1000 Zeichen. Es gehoert zum Ausrollen, nicht zur Version, und steht deshalb nicht im Manifest. Ein leeres oder zu langes Feld weist das Geraet mit 400 ab. Angenommen und im Sicherheitsprotokoll festgehalten; die Anzeige in der Verwaltung folgt.',
+        'Neben `paket` nimmt der Deploy ein Textfeld `aenderungstext` (seit Kontrakt 8, freiwillig): ein paar Saetze, was in dieser Version neu ist, 1 bis 1000 Zeichen. Es gehoert zum Ausrollen, nicht zur Version, und steht deshalb nicht im Manifest. Ein leeres oder zu langes Feld weist das Geraet mit 400 ab. Der Administrator sieht ihn am Teststand und beim Live-Schalten; er wandert mit der Fassung in den Livestand.',
         'Eine Version, die gerade live ist, wird nicht ueberschrieben: neue Fassung, neue Nummer.',
         'Mit `flows` im Manifest muss der Ordner da sein und wenigstens eine .md enthalten.',
         'Jede eingespielte App belegt einen Platz der Lizenz, Test- und Livestand zusammen. Ist das Kontingent voll, weist das Geraet das Paket einer NEUEN App ab (409), und zwar bevor es baut; eine neue Version einer App, die schon da ist, geht immer durch.',

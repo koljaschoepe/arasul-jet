@@ -31,6 +31,10 @@ jest.mock('../../src/services/app/appStore', () => ({
   schalte: jest.fn(),
   entferneApp: jest.fn(),
 }));
+jest.mock('../../src/services/app/liveSchalten', () => ({
+  schalteLive: jest.fn(),
+  schalteZurueck: jest.fn(),
+}));
 
 // Die echte Pruefung bleibt drin, nur die Schluesselsuche in der Datenbank
 // nicht: `requireEndpoint` IST die Zusage, die hier gemessen wird, und eine
@@ -59,6 +63,7 @@ jest.mock('../../src/middleware/apiKeyAuth', () => {
 });
 
 const appStore = require('../../src/services/app/appStore');
+const liveSchalten = require('../../src/services/app/liveSchalten');
 const appPaket = require('../../src/services/app/appPaket');
 const { errorHandler } = require('../../src/middleware/errorHandler');
 
@@ -154,24 +159,55 @@ describe('POST /apps/:id/schalten', () => {
     expect(appStore.schalte).not.toHaveBeenCalled();
   });
 
-  it('gibt `live` an den Dienst weiter', async () => {
-    appStore.schalte.mockResolvedValue({ app_id: 'urlaub', stand: 'live', version: '1.2.0' });
+  it('gibt `live` an den gesicherten Weg weiter (M5)', async () => {
+    liveSchalten.schalteLive.mockResolvedValue({
+      app_id: 'urlaub',
+      stand: 'live',
+      version: '1.2.0',
+    });
     await request(app())
       .post('/api/v1/external/apps/urlaub/schalten')
       .set('x-api-key', 'kit')
       .send({ ziel: 'live' })
       .expect(200);
-    expect(appStore.schalte).toHaveBeenCalledWith({ appId: 'urlaub', ziel: 'live', durch: 42 });
+    expect(liveSchalten.schalteLive).toHaveBeenCalledWith({ appId: 'urlaub', durch: 42 });
+    expect(appStore.schalte).not.toHaveBeenCalled();
   });
 
-  it('gibt `zurueck` ebenso weiter', async () => {
-    appStore.schalte.mockResolvedValue({ app_id: 'urlaub', stand: 'live', version: '1.1.0' });
+  it('ein Rueckfall kommt als 409 LIVE_ZURUECKGESCHALTET mit zweitem Satz an (M5)', async () => {
+    const { LiveSchaltenError } = require('../../src/utils/errors');
+    liveSchalten.schalteLive.mockRejectedValue(
+      new LiveSchaltenError(
+        'Die neue Fassung 1.2.0 ließ sich nicht starten.',
+        'LIVE_ZURUECKGESCHALTET',
+        {
+          hilfe: 'Geben Sie es dem Entwickler.',
+          schaltung: { ergebnis: 'zurueckgeschaltet' },
+        }
+      )
+    );
+    const antwort = await request(app())
+      .post('/api/v1/external/apps/urlaub/schalten')
+      .set('x-api-key', 'kit')
+      .send({ ziel: 'live' })
+      .expect(409);
+    expect(antwort.body.error.code).toBe('LIVE_ZURUECKGESCHALTET');
+    expect(antwort.body.error.details.hilfe).toMatch(/Entwickler/);
+    expect(antwort.body.error.details.schaltung.ergebnis).toBe('zurueckgeschaltet');
+  });
+
+  it('gibt `zurueck` ebenso weiter, unter derselben Sperre (M5)', async () => {
+    liveSchalten.schalteZurueck.mockResolvedValue({
+      app_id: 'urlaub',
+      stand: 'live',
+      version: '1.1.0',
+    });
     await request(app())
       .post('/api/v1/external/apps/urlaub/schalten')
       .set('x-api-key', 'kit')
       .send({ ziel: 'zurueck' })
       .expect(200);
-    expect(appStore.schalte).toHaveBeenCalledWith({ appId: 'urlaub', ziel: 'zurueck', durch: 42 });
+    expect(liveSchalten.schalteZurueck).toHaveBeenCalledWith({ appId: 'urlaub', durch: 42 });
   });
 });
 

@@ -315,8 +315,10 @@ Falsches mit lesbarem Grund ab. Die **Stufen** wirken seit M5: Frist je Stufe
 (03.10.2026) und Standardperson je App und Stufe (04.10.2026, siehe
 [FLOWS.md](FLOWS.md#stufen-und-standardperson-m5-04102026)), die **Arten** seit
 dem 04.10.2026 ([FLOWS.md](FLOWS.md#arten-autonom-und-ergebnis-bestätigen-m5-04102026)).
-Der Zeitplaner kommt mit einer späteren Karte, die Anzeige des Änderungstextes
-und des Symbols ebenso.
+Der **Änderungstext** steht seit dem 04.10.2026 am Teststand und im Dialog
+„live schalten" der Verwaltung und wandert beim Schalten mit in den Livestand
+([APPS.md](APPS.md#live-schalten-mit-sicherung-m5-04102026)). Der Zeitplaner
+kommt mit einer späteren Karte, die Anzeige des Symbols ebenso.
 
 | Wo                  | Feld             | Form                                                                                          |
 | ------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
@@ -398,7 +400,8 @@ Admin nicht.
 
 **`aenderungstext`** reist als Textfeld neben dem Paket, nicht im Manifest: er
 gehört zu einem Ausrollen, nicht zu einer Version, dieselbe Version kann zweimal
-in den Test gehen. Ein leeres oder zu langes Feld ist `400`.
+in den Test gehen. Ein leeres oder zu langes Feld ist `400`. Ein Ausrollen
+ohne Text löscht den Text der vorigen Fassung am Teststand: er gehörte zu ihr.
 
 ```bash
 curl -H "x-api-key: $ARASUL_SCHLUESSEL" \

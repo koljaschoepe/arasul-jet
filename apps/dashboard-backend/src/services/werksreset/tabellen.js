@@ -72,6 +72,11 @@ const AUSLIEFERUNG = [
   // damit der Reset das nicht der Reihenfolge ueberlassen muss.
   ['public.mitarbeiter_ausweise', 'Die Ausweise fuer Programme ausserhalb des Browsers'],
   ['public.app_staende', 'Test- und Livestand je App'],
+  // Stufe 2 und nicht Stufe 1 (M5, Migration 199): ein Nachweis, wann welche
+  // Fassung live ging oder zurueckfiel, kein Inhalt eines Menschen -- wie
+  // `update_events`. Die Zeilen haengen an `apps` (ON DELETE CASCADE), und
+  // die Apps bleiben bei Stufe 1 stehen; der Satz in der Livekarte auch.
+  ['public.app_schaltungen', 'Versuche, eine Fassung live zu schalten, mit Ergebnis'],
   // Die drei Tabellen des Firmenordners (J33, 22.09.2026). STUFE 2 und nicht
   // Stufe 1, und die Ueberlegung dazu ist die schwerste in dieser Datei:
   //

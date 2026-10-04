@@ -1428,6 +1428,26 @@ einen Menschen mit einer Sitzung: das Kit schaltet, wenn der Partner
 ausgeliefert hat, der Administrator, wenn **er** den Teststand gesehen hat.
 Antworten: `200`, `409` ohne Teststand bzw. ohne vorige Version.
 
+**Nach live geht es gesichert und mit Rückfall** (M5, 04.10.2026,
+`services/app/liveSchalten.js`): hat die App einen Server-Teil und eine
+Live-Datenbank, hält das Gerät den alten Livestand an, legt einen Stand der
+Sicherung an (`fuer:live:<id>`), schaltet und wartet, bis die neue Fassung
+gesund ist (höchstens 180 s; ohne Healthcheck 20 s ohne Neustart). Kommt sie
+nicht hoch (beendet, neu gestartet, `unhealthy`, Frist), holt es die
+Live-Datenbank aus diesem Stand zurück und spielt die Fassung von vorher wieder
+ein. Die Antwort dauert dabei Minuten. Zusätzliche Antworten:
+
+| Status | Code                     | Wann                                                                                                                   |
+| ------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `200`  | —                        | `data` wie bisher, dazu `data.schaltung` (Zeile aus `app_schaltungen`, `ergebnis: "live"`)                             |
+| `409`  | `LIVE_ZURUECKGESCHALTET` | die neue Fassung kam nicht hoch; `message` ist der Satz, `details.hilfe` der zweite, `details.schaltung` mit `technik` |
+| `409`  | `LIVE_NICHT_GESICHERT`   | die Sicherung davor misslang; geschaltet wurde nichts, der alte Livestand läuft weiter                                 |
+| `409`  | `CONFLICT`               | dieselbe App wird gerade geschaltet                                                                                    |
+
+`GET /api/apps/:id` trägt dazu `letzte_schaltung` (der letzte Versuch, oder
+`null`) und je Stand `aenderungstext` (was der Entwickler beim Ausrollen schrieb,
+Kontrakt 8; wandert beim Schalten mit in den Livestand).
+
 ### Die App-Anmeldung
 
 > Phase C4 des Umbaus vom 26.08.2026. Die Durchsetzung steht in
@@ -4095,6 +4115,9 @@ die Version aus dem Teststand, `{ "ziel": "zurueck" }` die aus
 Container wird ersetzt und der API-Schlüssel des Standes erneuert. `zurueck`
 ist ein **Tausch** — wer ihn zweimal ruft, ist wieder da, wo er angefangen hat.
 Antworten: `200`, `409` ohne Teststand beziehungsweise ohne vorige Version.
+`live` sichert vorher und fällt bei einer gescheiterten Strukturänderung selbst
+zurück — `409 LIVE_ZURUECKGESCHALTET` oder `409 LIVE_NICHT_GESICHERT`, wie unter
+`POST /api/apps/:id/schalten` beschrieben.
 
 **DELETE /api/v1/external/apps/:id** — Query
 `?bestaetigung=<id>&dateien=true|false`. Ohne die passende `bestaetigung` ist

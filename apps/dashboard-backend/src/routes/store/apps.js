@@ -39,6 +39,7 @@ const {
   ZugangQuery,
 } = require('../../schemas/apps');
 const appStore = require('../../services/app/appStore');
+const liveSchalten = require('../../services/app/liveSchalten');
 const appContainer = require('../../services/app/appContainer');
 const appFlows = require('../../services/app/appFlows');
 const appZugang = require('../../services/app/appZugang');
@@ -598,11 +599,13 @@ router.post(
   validateParams(AppParams),
   validateBody(SchaltenBody),
   asyncHandler(async (req, res) => {
-    const data = await appStore.schalte({
-      appId: req.params.id,
-      ziel: req.body.ziel,
-      durch: req.user.id,
-    });
+    // Nach live geht es gesichert und mit Rueckfall (M5): `liveSchalten`.
+    // Scheitert die neue Fassung, wirft es 409 LIVE_ZURUECKGESCHALTET; beide
+    // Richtungen laufen unter einer Sperre je App.
+    const data =
+      req.body.ziel === 'live'
+        ? await liveSchalten.schalteLive({ appId: req.params.id, durch: req.user.id })
+        : await liveSchalten.schalteZurueck({ appId: req.params.id, durch: req.user.id });
     logSecurityEvent({
       userId: req.user.id,
       action: 'app_geschaltet',

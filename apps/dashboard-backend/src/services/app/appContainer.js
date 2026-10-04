@@ -19,6 +19,7 @@ const { docker } = require('../core/docker');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 const ausgang = require('./ausgangsProxy');
+const { entflechter } = require('../../utils/dockerAusgabe');
 
 // Compose stellt dem Netznamen den Projektnamen voran. Traefik haengt in
 // genau diesem Netz; ein App-Container in einem anderen waere gestartet und
@@ -611,6 +612,146 @@ async function logs(appId, stand, zeilen = 200) {
 }
 
 /**
+ * Einen Container anhalten, ohne ihn zu entfernen (M5, Live schalten mit
+ * Sicherung). `true`, wenn er lief und jetzt steht; `false`, wenn es ihn
+ * nicht gibt oder er schon stand. Mit `starteWieder` laeuft derselbe Container
+ * mit derselben Umgebung weiter -- der Schluessel darin bleibt gueltig.
+ */
+async function halteAn(appId, stand) {
+  try {
+    const container = docker.getContainer(containerName(appId, stand));
+    const info = await container.inspect();
+    if (info.State?.Running !== true) {
+      return false;
+    }
+    await container.stop({ t: 10 });
+    logger.info(`App-Container angehalten: ${containerName(appId, stand)}`);
+    return true;
+  } catch (err) {
+    if (err.statusCode === 404 || err.statusCode === 304) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/** Einen angehaltenen Container wieder starten. Idempotent. */
+async function starteWieder(appId, stand) {
+  try {
+    await docker.getContainer(containerName(appId, stand)).start();
+    logger.info(`App-Container wieder gestartet: ${containerName(appId, stand)}`);
+  } catch (err) {
+    if (err.statusCode !== 304) {
+      throw err;
+    }
+  }
+}
+
+/**
+ * Wie lange eine frisch geschaltete Fassung Zeit hat, gesund zu werden. Der
+ * Healthcheck der Apps prueft zum ersten Mal nach 30 s; eine Strukturaenderung
+ * auf einer grossen Tabelle braucht mehr. Was danach nicht gesund ist, gilt
+ * als gescheitert.
+ */
+const SCHALT_GEDULD_MS = 180 * 1000;
+
+/**
+ * Ohne Healthcheck im Manifest: so lange muss der Container ohne Neustart
+ * laufen, damit er als hochgekommen gilt. Eine Migration, die beim Start
+ * scheitert, beendet den Prozess in aller Regel in den ersten Sekunden.
+ */
+const SCHALT_RUHE_MS = 20 * 1000;
+
+/**
+ * Kommt eine frisch gestartete Fassung hoch und bleibt sie oben? (M5, Live
+ * schalten mit Sicherung.)
+ *
+ * Anders als `kommtHoch` (Umzug ins Netz) zaehlt hier auch ein NEUSTART als
+ * Scheitern: `unless-stopped` startet einen Prozess, der an seiner
+ * Strukturaenderung stirbt, sofort wieder, und wer nur `Running` fragt,
+ * erwischt ihn genau zwischen zwei Abstuerzen laufend. Gescheitert heisst:
+ * beendet, neu gestartet, `unhealthy`, oder nach der Frist nicht gesund.
+ *
+ * @returns {Promise<{gesund: boolean, grund: string|null, exitCode: number|null,
+ *   neustarts: number, sekunden: number}>}
+ */
+async function bleibtGesund(
+  appId,
+  stand,
+  { geduld = SCHALT_GEDULD_MS, ruhe = SCHALT_RUHE_MS, takt = 1000 } = {}
+) {
+  const beginn = Date.now();
+  const frist = beginn + geduld;
+  const container = docker.getContainer(containerName(appId, stand));
+  const ergebnis = (gesund, grund, info) => ({
+    gesund,
+    grund,
+    exitCode:
+      Number.isInteger(info?.State?.ExitCode) && info.State.ExitCode !== 0
+        ? info.State.ExitCode
+        : null,
+    neustarts: info?.RestartCount ?? 0,
+    sekunden: Math.round((Date.now() - beginn) / 1000),
+  });
+  for (;;) {
+    let info;
+    try {
+      info = await container.inspect();
+    } catch (err) {
+      if (err.statusCode === 404) {
+        return ergebnis(false, 'Der Container ist verschwunden.', null);
+      }
+      throw err;
+    }
+    const zustandJetzt = info.State || {};
+    const pruefung = zustandJetzt.Health?.Status;
+    if ((info.RestartCount ?? 0) > 0) {
+      return ergebnis(false, 'Der Container ist abgestürzt und neu gestartet.', info);
+    }
+    if (zustandJetzt.Running !== true && zustandJetzt.Status !== 'created') {
+      return ergebnis(false, `Der Container hat sich beendet (${zustandJetzt.Status}).`, info);
+    }
+    if (pruefung === 'unhealthy') {
+      return ergebnis(false, 'Der Container meldet sich nicht gesund.', info);
+    }
+    if (zustandJetzt.Running === true) {
+      if (pruefung === 'healthy') {
+        return ergebnis(true, null, info);
+      }
+      const seit = Date.parse(zustandJetzt.StartedAt);
+      if (!pruefung && Number.isFinite(seit) && Date.now() - seit >= ruhe) {
+        return ergebnis(true, null, info);
+      }
+    }
+    if (Date.now() >= frist) {
+      return ergebnis(
+        false,
+        `Der Container wurde in ${Math.round(geduld / 1000)} Sekunden nicht gesund.`,
+        info
+      );
+    }
+    await warte(takt);
+  }
+}
+
+/** Die letzten Zeilen eines Containers als Text, ohne Docker-Vorspann; `''`, wenn es ihn nicht gibt. */
+async function letzteZeilen(appId, stand, zeilen = 40) {
+  try {
+    const rohe = await docker
+      .getContainer(containerName(appId, stand))
+      .logs({ stdout: true, stderr: true, tail: zeilen });
+    const ent = entflechter();
+    ent.schreibe(rohe);
+    return ent.text().trim();
+  } catch (err) {
+    if (err.statusCode === 404) {
+      return '';
+    }
+    throw err;
+  }
+}
+
+/**
  * Jeden laufenden App-Container neu starten, der VOR `seit` gestartet ist
  * (Auftrag apps-starten-nach-der-datenbank, 26.09.2026, J35).
  *
@@ -739,4 +880,8 @@ module.exports = {
   zieheUm,
   NETZ,
   logs,
+  halteAn,
+  starteWieder,
+  bleibtGesund,
+  letzteZeilen,
 };

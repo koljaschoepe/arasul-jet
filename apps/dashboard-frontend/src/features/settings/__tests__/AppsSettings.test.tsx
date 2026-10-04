@@ -582,16 +582,104 @@ describe('AppsSettings', () => {
     expect(screen.getByTestId('stand-test')).toHaveTextContent('läuft');
   });
 
-  it('schaltet den Teststand live', async () => {
+  it('schaltet den Teststand live, nach einer Rückfrage (M5)', async () => {
     antworte();
     apiMock.post.mockResolvedValue({ data: { stand: 'live', version: '1.1.0' } });
     await oeffneApp();
 
     fireEvent.click(screen.getByTestId('schalten-live'));
+    // Erst der Dialog, noch kein Aufruf.
+    expect(await screen.findByTestId('live-schalten-dialog')).toBeInTheDocument();
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(screen.getByTestId('live-schalten-ohne-text')).toBeInTheDocument();
 
+    fireEvent.click(screen.getByTestId('live-schalten-bestaetigen'));
     await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith('/apps/beispielapp/schalten', { ziel: 'live' })
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/apps/beispielapp/schalten',
+        { ziel: 'live' },
+        expect.objectContaining({ showError: false })
+      )
     );
+  });
+
+  it('zeigt beim Live-Schalten, was der Entwickler zur Fassung schrieb (M5)', async () => {
+    antworte({
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          staende: {
+            ...APP_DETAIL.staende,
+            test: { ...APP_DETAIL.staende.test, aenderungstext: 'Neu: Spalte Kostenstelle.' },
+          },
+        },
+      },
+    });
+    await oeffneApp();
+
+    expect(screen.getByTestId('aenderungstext-test')).toHaveTextContent('Spalte Kostenstelle');
+    fireEvent.click(screen.getByTestId('schalten-live'));
+    expect(await screen.findByTestId('live-schalten-aenderungstext')).toHaveTextContent(
+      'Neu: Spalte Kostenstelle.'
+    );
+  });
+
+  it('nennt einen Rückfall in einem Satz, den zweiten darunter, Technik zugeklappt (M5)', async () => {
+    antworte({
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          letzte_schaltung: {
+            id: 3,
+            von_version: '1.0.0',
+            nach_version: '1.1.0',
+            ergebnis: 'zurueckgeschaltet',
+            sicherung_id: 'a1b2c3d4e5f6',
+            satz: 'Die neue Fassung 1.1.0 ließ sich nicht starten, deshalb läuft Beispiel wieder mit Fassung 1.0.0 und den Daten von vorher.',
+            hilfe: 'Geben Sie die technischen Angaben an den Entwickler weiter.',
+            technik: { grund: 'abgestürzt', exit_code: 1, letzte_zeilen: 'column exists' },
+            begonnen_am: '2026-10-04T08:00:00.000Z',
+            beendet_am: '2026-10-04T08:02:00.000Z',
+          },
+        },
+      },
+    });
+    await oeffneApp();
+
+    const hinweis = screen.getByTestId('schaltung-hinweis');
+    expect(within(screen.getByTestId('stand-live')).getByTestId('schaltung-hinweis')).toBe(hinweis);
+    expect(screen.getByTestId('schaltung-satz')).toHaveTextContent(
+      /1\.1\.0 ließ sich nicht starten/
+    );
+    expect(screen.getByTestId('schaltung-hilfe')).toHaveTextContent(/Entwickler/);
+    // Die Technik nur aufgeklappt.
+    expect(screen.queryByText('column exists')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('schaltung-technik-knopf'));
+    expect(await screen.findByText('column exists')).toBeInTheDocument();
+  });
+
+  it('zeigt nach einem glatten Live-Schalten keinen Hinweis', async () => {
+    antworte({
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          letzte_schaltung: {
+            id: 4,
+            von_version: '1.0.0',
+            nach_version: '1.1.0',
+            ergebnis: 'live',
+            sicherung_id: 'a1b2c3d4e5f6',
+            satz: 'Beispiel ist live mit Fassung 1.1.0.',
+            hilfe: null,
+            technik: null,
+            begonnen_am: '2026-10-04T08:00:00.000Z',
+            beendet_am: '2026-10-04T08:02:00.000Z',
+          },
+        },
+      },
+    });
+    await oeffneApp();
+    expect(screen.queryByTestId('schaltung-hinweis')).not.toBeInTheDocument();
   });
 
   it('bietet „Zurueck" nicht an, wenn im Livestand nie etwas anderes lief', async () => {

@@ -89,6 +89,39 @@ export interface AppStandDetail {
   marken: string | null;
   modelle: Array<{ name: string; vorhanden: boolean }>;
   flows: AppFlow[];
+  /** Was der Entwickler beim Ausrollen über diese Fassung schrieb (Kontrakt 8), oder null. */
+  aenderungstext?: string | null;
+}
+
+/**
+ * Ein Versuch, live zu schalten (M5, Migration 199): gesichert, geschaltet,
+ * und wenn die neue Fassung nicht hochkam, wieder zurück.
+ */
+export interface AppSchaltung {
+  id: number;
+  von_version: string | null;
+  nach_version: string;
+  ergebnis: 'laeuft' | 'live' | 'zurueckgeschaltet' | 'nicht_gesichert' | 'fehlgeschlagen';
+  /** Der Stand der Sicherung davor, oder null. */
+  sicherung_id: string | null;
+  /** Der eine Satz an den Admin. */
+  satz: string | null;
+  /** Der zweite: was er tun kann. */
+  hilfe: string | null;
+  /** Nur aufgeklappt. */
+  technik: {
+    grund?: string | null;
+    exit_code?: number | null;
+    neustarts?: number;
+    letzte_zeilen?: string;
+    ausgabe?: string;
+    rueckfall?: {
+      daten: { erfolg: boolean } | null;
+      fassung: { erfolg: boolean; version: string | null; fehler?: string } | null;
+    };
+  } | null;
+  begonnen_am: string;
+  beendet_am: string | null;
 }
 
 export interface AppDetail {
@@ -97,6 +130,8 @@ export interface AppDetail {
   beschreibung: string | null;
   versionen: string[];
   staende: { test: AppStandDetail | null; live: AppStandDetail | null };
+  /** Der letzte Versuch, live zu schalten (M5), oder null. */
+  letzte_schaltung?: AppSchaltung | null;
 }
 
 /** Die Flow-Datei selbst (`GET /api/apps/:id/flows/:name`). */
@@ -378,17 +413,36 @@ export function useAppLogs(appId: string | null, stand: Stand, an: boolean) {
 }
 
 /**
+ * Wie lange Live schalten höchstens dauern darf: das Backend wartet je bis zu
+ * 30 Minuten auf die Sicherung davor und auf das Zurückholen danach. Gibt der
+ * Browser früher auf, arbeitet das Gerät weiter, und niemand weiß, wie es
+ * ausging (es steht dann trotzdem in der Karte des Livestands).
+ */
+const SCHALTEN_ZEITGRENZE_MS = 60 * 60_000;
+
+/**
  * Den Teststand live schalten oder zurücknehmen.
  *
  * Entwertet wird nach JEDEM Ausgang, auch nach einem Fehler — dieselbe Regel
  * wie bei den Freigaben aus D2 und D3. Ein 409 heißt gerade, dass die Ansicht
  * im Browser nicht mehr stimmt.
+ *
+ * Ohne eigene Fehlermeldung (M5): ein Rückfall (`LIVE_ZURUECKGESCHALTET`,
+ * `LIVE_NICHT_GESICHERT`) steht danach in der Karte des Livestands, mit
+ * zweitem Satz und Technik; alles andere meldet der Aufrufer.
  */
 export function useSchalten(appId: string) {
   const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (ziel: 'live' | 'zurueck') => api.post(`/apps/${appId}/schalten`, { ziel }),
+    mutationFn: (ziel: 'live' | 'zurueck') =>
+      api.post(
+        `/apps/${appId}/schalten`,
+        { ziel },
+        // Sichern, schalten und abwarten, ob die neue Fassung gesund wird,
+        // dauert am Orin um zwei Minuten, mit Rückfall länger.
+        { showError: false, signal: AbortSignal.timeout(SCHALTEN_ZEITGRENZE_MS) }
+      ),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: appKey(appId) });
       void qc.invalidateQueries({ queryKey: ['apps', 'alle'] });

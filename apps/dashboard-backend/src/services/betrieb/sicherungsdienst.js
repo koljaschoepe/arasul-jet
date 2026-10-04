@@ -636,14 +636,16 @@ const KEIN_DATENTRAEGER = 'Es ist kein Datenträger angesteckt.';
 
 /**
  * Wofuer ein Stand vor einem Zurueckholen entstand (Tag `fuer:` in restic):
- * `app:<id>`, `bereich:<kennung>` oder `geraet`. Sonst `null`.
+ * `app:<id>`, `bereich:<kennung>` oder `geraet` -- seit dem Auftrag
+ * live-schalten-mit-sicherung (M5) auch `live:<id>`, vor dem Live-Schalten
+ * einer App. Sonst `null`.
  */
 function fuerAus(fuer) {
   if (fuer === 'geraet') {
     return { art: 'geraet', id: null };
   }
   const treffer =
-    typeof fuer === 'string' ? /^(app|bereich):([a-z0-9][a-z0-9-]{0,63})$/.exec(fuer) : null;
+    typeof fuer === 'string' ? /^(app|bereich|live):([a-z0-9][a-z0-9-]{0,63})$/.exec(fuer) : null;
   return treffer ? { art: treffer[1], id: treffer[2] } : null;
 }
 
@@ -1322,6 +1324,79 @@ function standName(stand) {
 }
 
 /**
+ * DER STAND VOR DEM LIVE-SCHALTEN (M5, Auftrag live-schalten-mit-sicherung).
+ *
+ * Derselbe Stand wie vor einem Zurueckholen (`sichereVorher`), nur mit
+ * `fuer:live:<id>`: er haelt die Live-Datenbank der App fest, bevor eine neue
+ * Fassung ihre Strukturaenderung darauf laufen laesst. Scheitert die, holt
+ * `holeLiveDatenZurueck` genau diese Datenbank aus genau diesem Stand.
+ *
+ * Wirft `ConflictError`, wenn gerade eine andere Sicherung oder ein
+ * Zurueckholen laeuft -- dann wird nicht geschaltet.
+ */
+async function sichereVorLive(appId) {
+  if (laeuftGerade) {
+    throw new ConflictError(`Es läuft gerade: ${laeuftGerade}. Danach noch einmal live schalten.`);
+  }
+  laeuftGerade = 'sicherung vor dem live schalten';
+  try {
+    return await sichereVorher(`live:${appId}`);
+  } finally {
+    laeuftGerade = null;
+  }
+}
+
+/**
+ * Die Live-Datenbank einer App aus dem Stand vor dem Live-Schalten
+ * zurueckholen: dieselbe Datenbank wird verworfen und aus dem Stand neu
+ * eingespielt (`wiederherstellen.sh --app-datenbank`), mit allem, was die
+ * gescheiterte Strukturaenderung halb angelegt hatte. Den Container startet
+ * der Aufrufer (er spielt die Fassung von vorher ein). Wirft nicht.
+ *
+ * @returns {Promise<{erfolg: boolean, ausgabe: string}>}
+ */
+async function holeLiveDatenZurueck(appId, standId) {
+  if (!STAND_KENNUNG.test(standId || '')) {
+    return { erfolg: false, ausgabe: 'Keine gültige Kennung des Stands.' };
+  }
+  // Warten statt abweisen: der Rueckfall MUSS laufen, sonst steht die App
+  // ohne ihre Daten. Eine andere Sicherung ist nach spaetestens 30 Minuten
+  // fertig (dieselbe Frist wie `imContainer`); die Sperre wird nicht
+  // ueberschrieben, solange sie einem anderen Lauf gehoert.
+  const frist = Date.now() + 31 * 60_000;
+  while (laeuftGerade && Date.now() < frist) {
+    await new Promise(weiter => {
+      setTimeout(weiter, 2000);
+    });
+  }
+  if (laeuftGerade) {
+    return { erfolg: false, ausgabe: `Es lief die ganze Zeit: ${laeuftGerade}` };
+  }
+  laeuftGerade = 'live-daten zurückholen';
+  try {
+    const { code, ausgabe } = await imContainer(
+      [
+        '/usr/local/bin/wiederherstellen.sh',
+        '--app-datenbank',
+        appDatenbank.namenFuer(appId, 'live'),
+        '--stand',
+        standId,
+      ],
+      30 * 60_000
+    );
+    if (code !== 0) {
+      logger.error(`Live-Daten von ${appId} kamen nicht zurueck`, { code, ausgabe });
+    }
+    return { erfolg: code === 0, ausgabe };
+  } catch (fehler) {
+    logger.error(`Live-Daten von ${appId} kamen nicht zurueck: ${fehler.message}`);
+    return { erfolg: false, ausgabe: fehler.message };
+  } finally {
+    laeuftGerade = null;
+  }
+}
+
+/**
  * Einen Stand der App aus ihrem zurueckgeholten Paket neu bauen -- aber nur,
  * wenn es ihn in `app_staende` gibt (sonst weiss niemand, welche Version).
  * Wirft nicht.
@@ -1439,6 +1514,8 @@ module.exports = {
   stelleBereichWiederHer,
   staendeZumZurueckholen,
   sichereVorher,
+  sichereVorLive,
+  holeLiveDatenZurueck,
   externInhalt,
   schluessel,
   leseSchluesselPruefung,

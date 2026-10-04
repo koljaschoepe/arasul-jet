@@ -114,6 +114,20 @@ class GrenzeErreichtError extends ApiError {
   }
 }
 
+/**
+ * Live schalten ging nicht durch (M5, Auftrag live-schalten-mit-sicherung):
+ * `LIVE_ZURUECKGESCHALTET` -- die neue Fassung kam nicht hoch, und das Geraet
+ * hat Fassung und Daten von vorher wiederhergestellt; `LIVE_NICHT_GESICHERT`
+ * -- die Sicherung davor misslang, geschaltet wurde nichts. 409, denn ein
+ * zweiter Versuch mit derselben Fassung endet gleich. `details` traegt den
+ * zweiten Satz (`hilfe`) und die Technik.
+ */
+class LiveSchaltenError extends ApiError {
+  constructor(message, code, details = null) {
+    super(message, { statusCode: 409, code, details });
+  }
+}
+
 class RateLimitError extends ApiError {
   constructor(message = 'Too many requests', retryAfter = null) {
     super(message, {
@@ -169,6 +183,7 @@ module.exports = {
   NotFoundError,
   ConflictError,
   GrenzeErreichtError,
+  LiveSchaltenError,
   RateLimitError,
   ServiceUnavailableError,
   NotImplementedError,

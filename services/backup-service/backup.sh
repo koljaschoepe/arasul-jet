@@ -391,14 +391,15 @@ STAND_AUSSCHLUESSE=(
 # EIN STAND VOR DEM ZURUECKHOLEN (Auftrag sicherung-zurueckholen, M5). Das
 # Backend ruft diesen Lauf vor jedem Zurueckholen mit
 # ARASUL_STAND_ANLASS=vorher und ARASUL_STAND_FUER=app:<id>|bereich:<k>|geraet
-# auf. Es ist ein ganz normaler Stand, nur mit zwei Tags mehr: `vorher` haelt
-# ihn aus der Aufbewahrung 7/12/60 heraus (staende.sh, stand_aufbewahren), und
-# `fuer:…` sagt der Oberflaeche, wovor er entstand. Mit ihm laesst sich das
+# auf, vor dem Live-Schalten einer App mit live:<id> (M5). Es ist ein ganz
+# normaler Stand, nur mit zwei Tags mehr: `vorher` haelt ihn aus der
+# Aufbewahrung 7/12/60 heraus (staende.sh, stand_aufbewahren), und `fuer:…`
+# sagt der Oberflaeche, wovor er entstand. Mit ihm laesst sich das
 # Zurueckholen selbst rueckgaengig machen -- auf demselben Weg.
 STAND_EXTRA_TAGS=()
 if [ "${ARASUL_STAND_ANLASS:-}" = vorher ]; then
     STAND_EXTRA_TAGS+=(vorher)
-    if [[ "${ARASUL_STAND_FUER:-}" =~ ^(app:[a-z0-9][a-z0-9-]{0,63}|bereich:[a-z0-9][a-z0-9-]{0,63}|geraet)$ ]]; then
+    if [[ "${ARASUL_STAND_FUER:-}" =~ ^((app|live):[a-z0-9][a-z0-9-]{0,63}|bereich:[a-z0-9][a-z0-9-]{0,63}|geraet)$ ]]; then
         STAND_EXTRA_TAGS+=("fuer:${ARASUL_STAND_FUER}")
     fi
     echo "[$TIMESTAMP] Stand vor dem Zurueckholen (${ARASUL_STAND_FUER:-ohne Angabe})"
@@ -441,7 +442,15 @@ if [ "$VERSCHLUESSELUNG_ERFOLGT" = true ]; then
         STAND_LOKAL_GESCHRIEBEN="$STAND_GESCHRIEBEN"
         STAND_LOKAL_GELESEN="$STAND_GELESEN"
         echo "[$TIMESTAMP] Stand ${STAND_ID:0:8}: ${STAND_GELESEN} Bytes gelesen, ${STAND_GESCHRIEBEN} Bytes neu geschrieben"
-        stand_aufbewahren "$STAND_REPO" "$BACKUP_ENCRYPT_KEY_FILE" || echo "[$TIMESTAMP] [WARNING] Aufbewahrung liess sich nicht anwenden"
+        # Ein Stand davor (vor einem Zurueckholen, vor dem Live-Schalten) ist
+        # eine Zugabe und raeumt nichts weg: die Aufbewahrung wendet die
+        # Nacht an (M5, Auftrag live-schalten-mit-sicherung). Sonst nahm ein
+        # Klick am Tag einen Stand, dessen Frist eben ablief, mitten in der
+        # Arbeit eines anderen.
+        STAND_ENTFALLEN=0
+        if [ "${ARASUL_STAND_ANLASS:-}" != vorher ]; then
+            stand_aufbewahren "$STAND_REPO" "$BACKUP_ENCRYPT_KEY_FILE" || echo "[$TIMESTAMP] [WARNING] Aufbewahrung liess sich nicht anwenden"
+        fi
         STAND_LOKAL_ENTFALLEN="${STAND_ENTFALLEN:-0}"
         [ "$STAND_LOKAL_ENTFALLEN" -gt 0 ] && echo "[$TIMESTAMP] Aufbewahrung: ${STAND_LOKAL_ENTFALLEN} Stand/Staende entfallen (${STAND_TAGE} Tage, ${STAND_WOCHEN} Wochen, ${STAND_MONATE} Monate)" || true
     else

@@ -27,6 +27,8 @@
 > `mitarbeiter_ausweise`.
 > Am 22.09.2026 von Hand ergaenzt (Migration 183, J33): die drei Tabellen
 > `firmenordner_nutzer`, `firmenordner_ordner` und `firmenordner_rechte`.
+> Am 04.10.2026 von Hand ergaenzt (Migration 199, M5): `app_staende.aenderungstext`
+> und die Tabelle `app_schaltungen`.
 
 ## Übersicht
 
@@ -412,6 +414,7 @@ Nutzer mit einer Tür mehr; deshalb bleibt der Primärschlüssel ein Paar.
 | `manifest`        | jsonb                    | ⛔       |         |
 | `eingespielt_am`  | timestamp with time zone | ⛔       | `now()` |
 | `eingespielt_von` | bigint                   | ✅       |         |
+| `aenderungstext`  | text                     | ✅       |         |
 
 **Primary key:** `app_id, stand`
 
@@ -436,6 +439,50 @@ darf die Erinnerung nicht überschreiben. Eine Tabelle mit dem ganzen Verlauf
 wäre eine zweite Antwort auf eine Frage, die niemand stellt: was am Gerät
 liegt, sagen die Ordner, und wer wann geschaltet hat, steht in
 `security_events`.
+
+`aenderungstext` (Migration 199, M5) ist, was der Entwickler beim Ausrollen
+über diese Fassung schrieb (Kontrakt 8); `NULL` ohne Text. Der Deploy setzt
+ihn am Teststand, das Schalten nach live nimmt ihn mit, das Zurückholen und
+Neu-Verbinden nach einer Wiederherstellung lassen ihn stehen.
+
+---
+
+## `app_schaltungen`
+
+> Je Versuch, eine Fassung live zu schalten, eine Zeile: Sicherung davor, Ergebnis, Satz für den Admin, Technik. Seit 199
+
+| Column         | Type                     | Nullable | Default     |
+| -------------- | ------------------------ | -------- | ----------- |
+| `id`           | bigint                   | ⛔       | `nextval()` |
+| `app_id`       | text                     | ⛔       |             |
+| `von_version`  | text                     | ✅       |             |
+| `nach_version` | text                     | ⛔       |             |
+| `ergebnis`     | text                     | ⛔       | `'laeuft'`  |
+| `sicherung_id` | text                     | ✅       |             |
+| `satz`         | text                     | ✅       |             |
+| `hilfe`        | text                     | ✅       |             |
+| `technik`      | jsonb                    | ✅       |             |
+| `durch`        | bigint                   | ✅       |             |
+| `begonnen_am`  | timestamp with time zone | ⛔       | `now()`     |
+| `beendet_am`   | timestamp with time zone | ✅       |             |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `app_id` → `apps.id` (`ON DELETE CASCADE`)
+- `durch` → `admin_users.id` (`ON DELETE SET NULL`)
+
+**Constraints:** `ergebnis IN ('laeuft', 'live', 'zurueckgeschaltet', 'nicht_gesichert', 'fehlgeschlagen')`
+
+**Indexes:** `idx_app_schaltungen_app (app_id, begonnen_am DESC)`
+
+Geschrieben von `services/app/liveSchalten.js`; `GET /api/apps/:id` liest die
+neueste als `letzte_schaltung` (eine, die seit 30 Minuten `laeuft`, hat einen
+Neustart des Backends nicht überlebt und wird nicht gezeigt). `sicherung_id`
+ist die Kennung des restic-Stands mit dem Tag `fuer:live:<id>`; `technik` trägt
+Grund, Exit-Code, Neustarts, die letzten Zeilen der gescheiterten Fassung und
+wie der Rückfall ausging.
 
 ---
 

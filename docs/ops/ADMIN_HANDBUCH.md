@@ -672,10 +672,10 @@ curl -sk -X POST https://<geraet>/api/apps/urlaub/einspielen \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"version":"1.2.0","stand":"test"}'
 
-# spaeter dieselbe Version live
-curl -sk -X POST https://<geraet>/api/apps/urlaub/einspielen \
+# spaeter die Version aus dem Teststand live -- vorher gesichert, mit Rueckfall
+curl -sk -X POST https://<geraet>/api/apps/urlaub/schalten \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"version":"1.2.0","stand":"live"}'
+  -d '{"ziel":"live"}'
 
 # wenn eine App haengt: die letzten Zeilen ihres Backends
 curl -sk "https://<geraet>/api/apps/urlaub/logs?stand=live&zeilen=100" \
@@ -695,16 +695,33 @@ Seit August 2026 muessen Sie dafuer keine Befehlszeile mehr aufmachen.
 **Einstellungen → Apps** zeigt jede App am Geraet mit beiden Fassungen; ein
 Klick darauf oeffnet ihre Ansicht:
 
-| Abschnitt      | Was dort steht                                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Staende**    | Version je Stand, ob der Container laeuft und ob er sich gesund meldet. Darunter **Live schalten** (nimmt die Version aus dem Teststand) und **Zurueck** (die, die vorher live war). |
-| **Tester**     | Wer diese App sieht, und wer davon zusaetzlich den Teststand bekommt.                                                                                                                |
-| **Flows**      | Was die App kann, und mit welchem Modell. Ein Klick oeffnet die Flow-Datei samt Auftrag an das Modell.                                                                               |
-| **Laeufe**     | Was die App getan hat. Ein Klick oeffnet den Lauf mit seinen Schritten und dem Gedankengang dazwischen.                                                                              |
-| **KI-Aufrufe** | Jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, fuer wen, welches Modell, wie lange, wie es ausging. Ohne Inhalt der Datei.                       |
-| **Logs**       | Die letzten 200 Zeilen des Containers, auf Klick.                                                                                                                                    |
+| Abschnitt      | Was dort steht                                                                                                                                                                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Staende**    | Version je Stand, ob der Container laeuft und ob er sich gesund meldet, und was der Entwickler zur Fassung schrieb („Neu"). Darunter **Live schalten** (nimmt die Version aus dem Teststand, siehe unten) und **Zurueck** (die, die vorher live war). |
+| **Tester**     | Wer diese App sieht, und wer davon zusaetzlich den Teststand bekommt.                                                                                                                                                                                 |
+| **Flows**      | Was die App kann, und mit welchem Modell. Ein Klick oeffnet die Flow-Datei samt Auftrag an das Modell.                                                                                                                                                |
+| **Laeufe**     | Was die App getan hat. Ein Klick oeffnet den Lauf mit seinen Schritten und dem Gedankengang dazwischen.                                                                                                                                               |
+| **KI-Aufrufe** | Jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, fuer wen, welches Modell, wie lange, wie es ausging. Ohne Inhalt der Datei.                                                                                        |
+| **Logs**       | Die letzten 200 Zeilen des Containers, auf Klick.                                                                                                                                                                                                     |
 
-**Welches Modell hat diesen Vorschlag gemacht?** Die **KI-Aufrufe** beantworten
+**Live schalten, und was passiert, wenn die neue Fassung nicht startet.** Ein
+Klick auf **Live schalten** oeffnet erst einen Dialog: welche Fassung welche
+ersetzt und, unter „Was neu ist", was der Entwickler beim Ausrollen dazu
+geschrieben hat. Bestaetigen Sie dort, sichert Arasul zuerst die Daten der App
+(ein Stand der Sicherung, in der Liste „vor dem Live-Schalten der App …"),
+schaltet dann und wartet, bis die neue Fassung laeuft. Das dauert um zwei
+Minuten; der Knopf sagt „Sichert und schaltet…".
+
+Bringt die neue Fassung eine Aenderung an ihrer Datenbank mit, die scheitert,
+startet sie nicht. Dann schaltet Arasul **selbst zurueck**: auf die Fassung
+von vorher und auf die Daten von vorher, so wie sie vor dem Klick waren. In der
+Karte **Livestand** steht danach ein Satz, was geschah, und ein zweiter, was Sie
+tun koennen — meist: die **Technischen Angaben** (aufklappen) an den
+Entwickler geben und die korrigierte Fassung abwarten. Der Teststand laeuft
+dabei weiter und bekommt nie Daten aus dem Livestand. Laesst sich vorher nichts
+sichern, wird gar nicht erst geschaltet; die Karte sagt das ebenso.
+
+Die **KI-Aufrufe** beantworten
 das auch fuer Vorschlaege, die kein Flow sind. Das Geraet schreibt die Zeile
 selbst, bevor es das Modell fragt; die App muss dafuer nichts tun, sie nennt nur
 den Menschen (Kopfzeile `X-Arasul-User`). Gespeichert werden weder Dateiname

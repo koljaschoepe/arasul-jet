@@ -617,7 +617,17 @@ dem Wort „wiederherstellen". Ein falsches Passwort ist ein Satz im Dialog
 
 **Vorher sichert das Gerät den jetzigen Stand.** Das ist ein ganz normaler Lauf
 von `backup.sh`, mit `ARASUL_STAND_ANLASS=vorher` und `ARASUL_STAND_FUER=app:<id>`,
-`bereich:<kennung>` oder `geraet`. Der Stand trägt die Tags `vorher` und
+`bereich:<kennung>` oder `geraet` — und vor dem Live-Schalten einer App mit
+`live:<id>` (M5, 04.10.2026; der Stand heißt dann „vor dem Live-Schalten der
+App …", und scheitert die neue Fassung, holt `wiederherstellen.sh
+--app-datenbank arasul_app_<id>_live --stand <kennung>` genau ihre
+Live-Datenbank daraus zurück, siehe [APPS.md](../features/APPS.md#live-schalten-mit-sicherung-m5-04102026)).
+Seit diesem Auftrag gilt zweierlei: ein Stand davor wendet selbst **keine**
+Aufbewahrung an (das tut nur der Lauf der Nacht), und die Aufbewahrung zählt
+mit `--group-by tags` nur die normalen Stände für 7/12/60 und die fünf
+neuesten — ein Stand davor verdrängt keine Nacht. Er bleibt, bis das Ziel voll
+ist; wer oft live schaltet, sammelt solche Stände (dedupliziert kosten sie fast
+nichts). Der Stand trägt die Tags `vorher` und
 `fuer:…`; `stand_aufbewahren` behält ihn mit `--keep-tag vorher` (sonst fiele
 von zwei Ständen eines Tages der frühere, und wer zweimal an einem Tag
 zurückholt, verlöre den ersten Weg zurück). Er bleibt auf diesem Gerät und geht

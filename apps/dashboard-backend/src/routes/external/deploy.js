@@ -48,6 +48,7 @@ const { AppParams, SchaltenBody, EntfernenQuery, Aenderungstext } = require('../
 const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
 const appPaket = require('../../services/app/appPaket');
 const appStore = require('../../services/app/appStore');
+const liveSchalten = require('../../services/app/liveSchalten');
 const appKontrakt = require('../../services/app/appKontrakt');
 const fassungsdienst = require('../../services/betrieb/fassungsdienst');
 const { UpdateFassungBody } = require('../../schemas/admin-update');
@@ -149,6 +150,7 @@ router.post(
     const stand = await appPaket.nimmAn({
       archivPfad: path.resolve(req.file.path),
       durch: req.apiKey.userId ?? null,
+      aenderungstext,
     });
     logSecurityEvent({
       userId: req.apiKey.userId ?? null,
@@ -157,8 +159,7 @@ router.post(
         app_id: stand.app_id,
         version: stand.version,
         stand: stand.stand,
-        // Angenommen und im Protokoll festgehalten; die Anzeige in der
-        // Verwaltung kommt mit einer spaeteren Karte (M5).
+        // Steht seit Migration 199 auch am Teststand und beim Live-Schalten.
         aenderungstext,
         schluessel: req.apiKey.prefix,
       },
@@ -201,11 +202,16 @@ router.post(
   validateParams(AppParams),
   validateBody(SchaltenBody),
   asyncHandler(async (req, res) => {
-    const data = await appStore.schalte({
-      appId: req.params.id,
-      ziel: req.body.ziel,
-      durch: req.apiKey.userId ?? null,
-    });
+    // Nach live geht es gesichert und mit Rueckfall (M5): `liveSchalten`.
+    // Scheitert die neue Fassung, wirft es 409 LIVE_ZURUECKGESCHALTET; beide
+    // Richtungen laufen unter einer Sperre je App.
+    const data =
+      req.body.ziel === 'live'
+        ? await liveSchalten.schalteLive({ appId: req.params.id, durch: req.apiKey.userId ?? null })
+        : await liveSchalten.schalteZurueck({
+            appId: req.params.id,
+            durch: req.apiKey.userId ?? null,
+          });
     logSecurityEvent({
       userId: req.apiKey.userId ?? null,
       action: 'app_geschaltet',

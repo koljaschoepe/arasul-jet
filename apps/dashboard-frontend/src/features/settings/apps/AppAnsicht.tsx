@@ -31,6 +31,7 @@ import {
 import { Button, cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
+import type { ApiError } from '@/hooks/useApi';
 import { formatDate } from '@/utils/formatting';
 import type { Stand } from '../personen/useAppFreigaben';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
@@ -39,6 +40,7 @@ import { AppStufen } from './AppStufen';
 import { AppTester } from './AppTester';
 import { FlowAnsicht, ModellZeile } from './FlowAnsicht';
 import { KiAufrufe } from './KiAufrufe';
+import { LiveSchaltenDialog } from './LiveSchaltenDialog';
 import { ErneutKnopf, LaufAnsicht, LaufZustand } from './LaufAnsicht';
 import { ModellDialog } from './ModellDialog';
 import {
@@ -114,6 +116,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const [logsAn, setLogsAn] = useState(false);
   const [modellFuer, setModellFuer] = useState<AppFlow | FlowDefinition | null>(null);
   const [entfernenOffen, setEntfernenOffen] = useState(false);
+  const [liveFrage, setLiveFrage] = useState(false);
 
   const { data: logs, isFetching: logsLaden } = useAppLogs(appId, stand, logsAn);
 
@@ -137,14 +140,33 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const gezeigterStand: Stand = app.staende[stand] ? stand : app.staende.live ? 'live' : 'test';
   const detail = app.staende[gezeigterStand];
 
+  // Live schalten fragt erst (mit dem, was neu ist), zurück geht sofort (M5).
   const handleSchalten = (ziel: 'live' | 'zurueck') => {
+    if (ziel === 'live') {
+      setLiveFrage(true);
+      return;
+    }
     schalten.mutate(ziel, {
-      onSuccess: () =>
-        toast.success(
-          ziel === 'live'
-            ? `${app.name} ist live. Wer sie freigegeben hat, sieht die neue Fassung.`
-            : `${app.name} steht wieder auf der vorigen Fassung.`
-        ),
+      onSuccess: () => toast.success(`${app.name} steht wieder auf der vorigen Fassung.`),
+      onError: fehler => toast.error(fehler.message),
+    });
+  };
+
+  const handleLiveSchalten = () => {
+    schalten.mutate('live', {
+      onSuccess: () => {
+        setLiveFrage(false);
+        toast.success(`${app.name} ist live. Wer sie freigegeben hat, sieht die neue Fassung.`);
+      },
+      onError: fehler => {
+        setLiveFrage(false);
+        // Ein Rückfall steht danach in der Karte des Livestands, mit zweitem
+        // Satz und Technik; eine Meldung obendrauf sagte dasselbe zweimal.
+        const code = (fehler as ApiError).code;
+        if (code !== 'LIVE_ZURUECKGESCHALTET' && code !== 'LIVE_NICHT_GESICHERT') {
+          toast.error(fehler.message);
+        }
+      },
     });
   };
 
@@ -255,6 +277,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             staende={app.staende}
             laeuft={schalten.isPending}
             onSchalten={handleSchalten}
+            letzteSchaltung={app.letzte_schaltung ?? null}
           />
         </Feldgruppe>
 
@@ -450,6 +473,19 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         onSchliessen={() => setModellFuer(null)}
         onSetzen={handleModell}
       />
+      {app.staende.test && (
+        <LiveSchaltenDialog
+          offen={liveFrage}
+          name={app.name}
+          neu={app.staende.test.version}
+          alt={app.staende.live?.version ?? null}
+          aenderungstext={app.staende.test.aenderungstext ?? null}
+          mitDaten={app.staende.test.api !== null}
+          laeuft={schalten.isPending}
+          onSchliessen={() => setLiveFrage(false)}
+          onSchalten={handleLiveSchalten}
+        />
+      )}
       <AppEntfernenDialog
         fuer={entfernenOffen ? { id: app.id, name: app.name } : null}
         laeuft={entfernen.isPending}

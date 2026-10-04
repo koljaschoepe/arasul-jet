@@ -13,11 +13,12 @@
  * „was ist im Test, und was ist gerade live", und die beantwortet man nicht,
  * indem man hin- und herklickt.
  */
-import { Activity, ArrowLeftRight, Rocket } from 'lucide-react';
+import { Activity, ArrowLeftRight, Rocket, TriangleAlert } from 'lucide-react';
 import { Button, cn } from '@marken';
 import { formatDate } from '@/utils/formatting';
+import { TechnischeAngaben } from '@/features/system/TechnischeAngaben';
 import { Bibliothek } from './Bibliothek';
-import type { AppStandDetail, Backendzustand } from './useAppVerwaltung';
+import type { AppSchaltung, AppStandDetail, Backendzustand } from './useAppVerwaltung';
 
 /**
  * Der Zustand des App-Backends in einem Wort und einer Farbe.
@@ -77,14 +78,81 @@ function Gesundheit({
   );
 }
 
+/**
+ * Wie der letzte Versuch, live zu schalten, ausging — nur, wenn er nicht
+ * glatt ging (M5). Ein Satz, was geschah, ein zweiter, was zu tun ist; die
+ * Technik (Grund, letzte Zeilen der Fassung, Stand der Sicherung) nur
+ * aufgeklappt.
+ */
+function SchaltungHinweis({ schaltung }: { schaltung: AppSchaltung }) {
+  const t = schaltung.technik;
+  const rueckfall = t?.rueckfall;
+  return (
+    <div
+      className="flex flex-col gap-1.5 rounded-md border border-destructive/40 bg-destructive/5 p-ui-2 text-sm"
+      role="status"
+      data-testid="schaltung-hinweis"
+      data-ergebnis={schaltung.ergebnis}
+    >
+      <p className="flex items-start gap-1.5 font-medium text-foreground">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+        <span data-testid="schaltung-satz">{schaltung.satz}</span>
+      </p>
+      {schaltung.hilfe && (
+        <p className="text-muted-foreground" data-testid="schaltung-hilfe">
+          {schaltung.hilfe}
+        </p>
+      )}
+      <TechnischeAngaben
+        kennzeichen="schaltung-technik"
+        angaben={[
+          {
+            beschriftung: 'Fassung',
+            wert: `${schaltung.von_version ?? '—'} → ${schaltung.nach_version}`,
+          },
+          { beschriftung: 'Versucht', wert: formatDate(schaltung.begonnen_am) },
+          { beschriftung: 'Grund', wert: t?.grund ?? null },
+          { beschriftung: 'Exit-Code', wert: t?.exit_code != null ? String(t.exit_code) : null },
+          {
+            beschriftung: 'Stand der Sicherung',
+            wert: schaltung.sicherung_id?.slice(0, 8) ?? null,
+          },
+          {
+            beschriftung: 'Daten zurück',
+            wert: rueckfall?.daten ? (rueckfall.daten.erfolg ? 'ja' : 'nein') : null,
+          },
+          {
+            beschriftung: 'Fassung zurück',
+            wert: rueckfall?.fassung
+              ? rueckfall.fassung.erfolg
+                ? (rueckfall.fassung.version ?? 'nichts live')
+                : `nein${rueckfall.fassung.fehler ? ` (${rueckfall.fassung.fehler})` : ''}`
+              : null,
+          },
+          { beschriftung: 'Letzte Zeilen', wert: t?.letzte_zeilen || t?.ausgabe || null },
+        ]}
+      />
+    </div>
+  );
+}
+
+/** Die Ergebnisse, die in der Karte stehen bleiben. „live" sieht man an der Version. */
+const HINWEIS_BEI: ReadonlyArray<AppSchaltung['ergebnis']> = [
+  'zurueckgeschaltet',
+  'nicht_gesichert',
+  'fehlgeschlagen',
+];
+
 function StandKarte({
   stand,
   detail,
   aktion,
+  hinweis,
 }: {
   stand: 'test' | 'live';
   detail: AppStandDetail | null;
   aktion?: React.ReactNode;
+  hinweis?: React.ReactNode;
 }) {
   return (
     <div
@@ -119,6 +187,18 @@ function StandKarte({
           </dd>
           <dt className="text-muted-foreground">Eingespielt</dt>
           <dd className="text-foreground">{formatDate(detail.eingespielt_am)}</dd>
+          {/* Was der Entwickler beim Ausrollen schrieb (Kontrakt 8, M5). */}
+          {detail.aenderungstext && (
+            <>
+              <dt className="text-muted-foreground">Neu</dt>
+              <dd
+                className="whitespace-pre-line text-foreground"
+                data-testid={`aenderungstext-${stand}`}
+              >
+                {detail.aenderungstext}
+              </dd>
+            </>
+          )}
           {detail.vorige_version && (
             <>
               <dt className="text-muted-foreground">Davor</dt>
@@ -143,6 +223,7 @@ function StandKarte({
         </dl>
       )}
 
+      {hinweis}
       {aktion && <div className="mt-1">{aktion}</div>}
     </div>
   );
@@ -152,10 +233,13 @@ export function AppStaende({
   staende,
   laeuft,
   onSchalten,
+  letzteSchaltung = null,
 }: {
   staende: { test: AppStandDetail | null; live: AppStandDetail | null };
   laeuft: boolean;
   onSchalten: (ziel: 'live' | 'zurueck') => void;
+  /** Der letzte Versuch, live zu schalten (M5). */
+  letzteSchaltung?: AppSchaltung | null;
 }) {
   // Beide Knöpfe stehen nur da, wenn sie etwas tun können. Ein „Zurück", das
   // sicher mit 409 antwortet, weil im Livestand nie etwas anderes lief, ist
@@ -178,7 +262,11 @@ export function AppStaende({
               data-testid="schalten-live"
             >
               <Rocket className="size-4" aria-hidden="true" />
-              {staende.live ? `Live schalten (${staende.test?.version})` : 'Live schalten'}
+              {laeuft
+                ? 'Wird live geschaltet…'
+                : staende.live
+                  ? `Live schalten (${staende.test?.version})`
+                  : 'Live schalten'}
             </Button>
           ) : undefined
         }
@@ -186,6 +274,11 @@ export function AppStaende({
       <StandKarte
         stand="live"
         detail={staende.live}
+        hinweis={
+          letzteSchaltung && HINWEIS_BEI.includes(letzteSchaltung.ergebnis) ? (
+            <SchaltungHinweis schaltung={letzteSchaltung} />
+          ) : undefined
+        }
         aktion={
           kannZurueck ? (
             <Button
