@@ -39,10 +39,10 @@ bis dahin ist der Weg die Schnittstelle, unten beschrieben.
 
 ### Zugriff
 
-| Dienst          | Adresse                                               |
-| --------------- | ----------------------------------------------------- |
+| Dienst         | Adresse                                              |
+| -------------- | ---------------------------------------------------- |
 | Web-Oberfläche | `https://arasul/` (Rückfall `https://arasul.local/`) |
-| SSH-Zugang      | `ssh -p 2222 arasul@<ip>`                             |
+| SSH-Zugang     | `ssh -p 2222 arasul@<ip>`                            |
 
 Der nackte Name kommt vom DHCP-Hostnamen, den der Router auflöst; `.local`
 ist der Rückfall über mDNS. Beide stehen im Zertifikat des Geräts, ebenso
@@ -189,7 +189,7 @@ gerade tut:
 
 | Farbe | Bedeutung                          |
 | ----- | ---------------------------------- |
-| Grün | Alles in Ordnung                   |
+| Grün  | Alles in Ordnung                   |
 | Gelb  | Warnung - System funktioniert noch |
 | Rot   | Kritisch - Aktion erforderlich     |
 
@@ -206,8 +206,8 @@ kam mit der neuen Oberfläche dazu):
 | **Allgemein**   | Firmenname, Erscheinungsbild, Systeminformationen                                                           |
 | **Personen**    | Anlegen (Name, E-Mail), Startpasswort einmal, sperren, Schalter „Verwaltung“, Freigaben für Apps und Ordner |
 | **KI**          | Standardwerte der Sprachmodelle                                                                             |
-| **Sicherheit**  | Passwort ändern, Abmelden / von allen Geräten abmelden                                                    |
-| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Löschung                                                                 |
+| **Sicherheit**  | Passwort ändern, Abmelden / von allen Geräten abmelden                                                      |
+| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Löschung                                                                  |
 | **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_                                                   |
 | **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                                                                            |
 
@@ -295,11 +295,11 @@ Das System überwacht alle Dienste automatisch:
 Das Gerät sichert jede Nacht um 02:00 Uhr **vier** Dinge (dazu die Datenbanken der Apps und den Firmenordner):
 
 | Was             | Warum es fehlen würde                                                                              |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| Datenbank       | Mitarbeiter, Rollen, Apps und Stände, Freigaben, Flow-Läufe, Einstellungen                        |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| Datenbank       | Mitarbeiter, Rollen, Apps und Stände, Freigaben, Flow-Läufe, Einstellungen                         |
 | Pakete der Apps | Woraus das Gerät die App-Container baut. Ohne sie nennt die Datenbank Apps, die es nicht mehr gibt |
 | Flow-Dateien    | Was jemand am Gerät selbst geschrieben hat                                                         |
-| Konfiguration   | Ohne sie fährt auf einem leeren Gerät kein Container hoch                                         |
+| Konfiguration   | Ohne sie fährt auf einem leeren Gerät kein Container hoch                                          |
 
 **Eine Kopie außerhalb des Geräts:** SSD oder Stick einfach anstecken --
 ohne Einrichtung. Das Gerät erkennt den Datenträger, hängt ihn ein und legt
@@ -402,8 +402,8 @@ Gerät einen Abzug des jetzigen Standes unter
 
 ### Aufbewahrung
 
-| Typ          | Aufbewahrung |
-| ------------ | ------------ |
+| Typ         | Aufbewahrung |
+| ----------- | ------------ |
 | Täglich     | 30 Tage      |
 | Wöchentlich | 12 Wochen    |
 
@@ -416,10 +416,10 @@ Gerät einen Abzug des jetzigen Standes unter
 Zwei Stufen. Beide sind endgültig, es gibt kein Rückgängig. Was hier
 verschwindet, steht danach nur noch in einer Sicherung (Abschnitt 5).
 
-| Stufe                 | Weg                                                    | Bleibt                                        |
-| --------------------- | ------------------------------------------------------ | --------------------------------------------- |
-| Inhalte zurücksetzen | Modell-Aufträge, Flow-Läufe                          | Zugang, Flows, Einstellungen, Modelle         |
-| Auslieferungszustand  | zusätzlich Zugangsdaten, Flows, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen) |
+| Stufe                | Weg                                                   | Bleibt                                        |
+| -------------------- | ----------------------------------------------------- | --------------------------------------------- |
+| Inhalte zurücksetzen | Modell-Aufträge, Flow-Läufe                           | Zugang, Flows, Einstellungen, Modelle         |
+| Auslieferungszustand | zusätzlich Zugangsdaten, Flows, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen) |
 
 Optional lässt sich zusätzlich ankreuzen, dass auch die heruntergeladenen
 Modelle gelöscht werden. Ohne Modell kann das Gerät bis zum nächsten Download
@@ -490,7 +490,7 @@ Was dabei gleich bleibt: das Administratorpasswort, der Kit-Schlüssel, das
 Zertifikat (kein Browser warnt neu) und die Datenbank. Was sich ändert: die
 Fassung.
 
-Die Images werden gebaut, **waehrend das Gerät noch läuft**; abgeschaltet
+Die Images werden gebaut, **während das Gerät noch läuft**; abgeschaltet
 wird erst danach, und der Wechsel kostet ein paar Minuten. Findet `install.sh`
 etwas Zweideutiges -- Daten ohne auffindbares Gerät, oder zwei Verzeichnisse,
 die beide das Gerät sein könnten --, hält es an und sagt, was zu tun ist.
@@ -704,17 +704,17 @@ und höchstens dem Hinweis „(Test)", wenn eine Testfassung da ist. Ein Klick
 (`/workspace/verwaltung/apps/<kennung>`). Seit Oktober 2026 (M5) steht dort
 alles, was die App tut und darf, und nirgends sonst in der Oberfläche:
 
-| Block              | Was dort steht                                                                                                                                                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Block              | Was dort steht                                                                                                                                                                                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Zustand**        | Ein Satz („Läuft mit Fassung 1.0.0. Im Test wartet Fassung 1.1.0."), wie viele Personen Zugang haben und wie viele Flows aktiv sind. Rot nur, wenn die App deshalb nicht arbeiten kann: Fassung nicht lieferbar, Server-Teil steht, eingetragene Verbindung abgewiesen. |
 | **Fassungen**      | Test- und Livefassung nebeneinander, mit dem Zustand und dem, was der Entwickler zur Fassung schrieb („Neu"). Darunter **Live schalten** und **Zurück**. Fassungsnummern, Weg und Bibliothek unter „Technische Angaben" (aufklappen).                                   |
-| **Personen**       | Jeder Mensch am Gerät mit einem Schalter für den Zugang; wer Zugang hat, kann **Testperson** werden. Eine Testperson sieht die App in ihrer Leiste zusätzlich als „(Test) Name" und landet dort in der Testfassung.                                                   |
-| **Freigabestufen** | Wer je Stufe zuerst gefragt wird (Standardperson).                                                                                                                                                                                                                       |
-| **Flows**          | Je Flow ein Schalter **aktiv**, die **Art** und ein Satz, wann er startet und wie viele Schritte er hat. Schritte, Freigaben, Modell („Modell ändern") und die Datei mit dem Auftrag an das Modell klappen auf. Ein Flow auf „aus" startet nicht, das Gerät weist ab.  |
-| **Verbindungen**   | Wohin die App ins Internet darf, lesbar benannt („OpenAI"), mit „x× genutzt"; die Adresse klappt auf. Abgewiesene Adressen, die die App nicht eingetragen hat, stehen grau und zugeklappt darunter. Rot ist nur eine eingetragene Verbindung, die abgewiesen wird.       |
-| **Läufe**         | Auf „Zeigen": was die App getan hat; ein Klick öffnet den Lauf mit seinen Schritten und dem Gedankengang.                                                                                                                                                               |
+| **Personen**       | Jeder Mensch am Gerät mit einem Schalter für den Zugang; wer Zugang hat, kann **Testperson** werden. Eine Testperson sieht die App in ihrer Leiste zusätzlich als „(Test) Name" und landet dort in der Testfassung.                                                     |
+| **Freigabestufen** | Wer je Stufe zuerst gefragt wird (Standardperson).                                                                                                                                                                                                                      |
+| **Flows**          | Je Flow ein Schalter **aktiv**, die **Art** und ein Satz, wann er startet und wie viele Schritte er hat. Schritte, Freigaben, Modell („Modell ändern") und die Datei mit dem Auftrag an das Modell klappen auf. Ein Flow auf „aus" startet nicht, das Gerät weist ab.   |
+| **Verbindungen**   | Wohin die App ins Internet darf, lesbar benannt („OpenAI"), mit „x× genutzt"; die Adresse klappt auf. Abgewiesene Adressen, die die App nicht eingetragen hat, stehen grau und zugeklappt darunter. Rot ist nur eine eingetragene Verbindung, die abgewiesen wird.      |
+| **Läufe**          | Auf „Zeigen": was die App getan hat; ein Klick öffnet den Lauf mit seinen Schritten und dem Gedankengang.                                                                                                                                                               |
 | **KI-Aufrufe**     | Auf „Zeigen": jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, für wen, welches Modell, wie lange. Ohne Inhalt der Datei.                                                                                                             |
-| **Protokoll**      | Auf „Zeigen": die letzten 200 Zeilen des Server-Teils.                                                                                                                                                                                                                   |
+| **Protokoll**      | Auf „Zeigen": die letzten 200 Zeilen des Server-Teils.                                                                                                                                                                                                                  |
 
 **Einen Flow ausschalten.** Der Schalter **aktiv** in der Zeile des Flows. Aus
 heißt: der Flow startet nicht, weder von Hand in der App noch nach Zeitplan;

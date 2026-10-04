@@ -363,7 +363,7 @@ const LAST_REGELN = Object.freeze([
   'Eine Antwort von rund 110 Token dauert am Orin etwa 14 Sekunden (12 bis 18). Die Wartezeit einer Anfrage ist ungefähr (Anfragen vor ihr + 1) mal 14 Sekunden; unter einer Minute bleibt sie, solange höchstens drei vor ihr stehen.',
   'Zwölf Personen mit üblicher Nutzung (eine KI-Anfrage je Person alle paar Minuten, 14 Minuten gemessen): Chat typisch 16 Sekunden, in 95 von 100 Fällen unter 35 Sekunden, längste 37. Flow-Läufe mit kurzer Antwort typisch 15 Sekunden.',
   'Fragen alle zwölf im selben Augenblick, wartet die erste 14 Sekunden, typisch 87 und die letzte 169 Sekunden. Eine App, die viele Anfragen auf einmal abschickt, soll sie nicht zugleich loslassen, sondern `timeout_seconds` hoch genug setzen und die Antwort abholen (`warten`).',
-  'Die Warteschlange fasst 20 wartende Anfragen neben der einen, die rechnet: ab der 22. gleichzeitigen Anfrage antwortet das Gerät mit 503 und dem Satz, die Warteschlange sei voll. Eine App faengt das ab und versucht es nach einigen Sekunden noch einmal, statt es dem Menschen zu zeigen.',
+  'Die Warteschlange fasst 20 wartende Anfragen neben der einen, die rechnet: ab der 22. gleichzeitigen Anfrage antwortet das Gerät mit 503 und dem Satz, die Warteschlange sei voll. Eine App fängt das ab und versucht es nach einigen Sekunden noch einmal, statt es dem Menschen zu zeigen.',
   'Flow-Läufe treten an der Sperre zwischen die wartenden Chat-Anfragen: bei dichter Last (zwölf Personen, alle halbe Minute eine Anfrage) wartete der Chat typisch 124 Sekunden, ein kurzer Flow typisch 17.',
 ]);
 
@@ -710,7 +710,7 @@ function kontrakt() {
       rollen: ['admin', 'mitarbeiter'],
       hinweis:
         'Traefik löscht beide aus der eingehenden Anfrage und setzt sie aus der Antwort der ' +
-        'Anmeldung neu; sie sind nicht faelschbar. Der Wert steht als UTF-8 in der Kopfzeile: ' +
+        'Anmeldung neu; sie sind nicht fälschbar. Der Wert steht als UTF-8 in der Kopfzeile: ' +
         "Buffer.from(kopf, 'latin1').toString('utf8').",
     },
     umgebung: {

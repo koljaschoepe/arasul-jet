@@ -13,7 +13,7 @@ const STAEMME =
   // weitere Umschreibungen aus dem Bestand des Backends
   '|kuerzel|taet|saetz|ungefaehr|abhaeng|raeum|schraeg|wuensch|buendel|knuepf|ausdruec|gueltig|aufraeum|laeng|haett|ueblich|fuenf|genueg|zwoelf|gekuerz|ausloes|zusaetz|hoer|verschluess|entschluess|haeng' +
   // weitere aus dem Handbuch
-  '|faehr|frueh|massen|massnahm|reiss|haeck|knoepf|persoen|reisst|engpaess|schlaeg|woech|waere|taeg|buero|aufloes|loest|flaech|gruess|stuerz|druec';
+  '|faehr|frueh|massen|massnahm|reiss|haeck|knoepf|persoen|reisst|engpaess|schlaeg|woech|waere|taeg|buero|aufloes|loest|flaech|gruess|stuerz|druec|faelsch|faeng|oeffentl|waehr';
 const UMSCHRIEBEN = new RegExp(STAEMME, 'i');
 
 /** Stämme, in denen „ss" zu „ß" wird. */

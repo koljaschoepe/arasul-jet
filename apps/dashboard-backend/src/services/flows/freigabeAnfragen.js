@@ -795,7 +795,7 @@ function warteAufEntscheidung({ anfrage, runId, minuten, datenbank, signal }) {
         .finally(() =>
           ablehnen(
             new LaufBeendet(
-              'Der Lauf wurde abgebrochen, waehrend er auf die Freigabe wartete.',
+              'Der Lauf wurde abgebrochen, während er auf die Freigabe wartete.',
               'abgebrochen'
             )
           )

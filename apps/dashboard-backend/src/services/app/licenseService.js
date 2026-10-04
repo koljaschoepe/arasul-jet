@@ -284,10 +284,10 @@ class LicenseService {
         publicKey = await fs.readFile(LICENSE_PUBLIC_KEY, 'utf8');
       } catch {
         logger.warn(
-          `Oeffentlicher Lizenzschlüssel fehlt (${LICENSE_PUBLIC_KEY}); Gerät bleibt community`
+          `Öffentlicher Lizenzschlüssel fehlt (${LICENSE_PUBLIC_KEY}); Gerät bleibt community`
         );
         return abgelehnt(
-          `Der oeffentliche Lizenzschlüssel fehlt am Gerät (${LICENSE_PUBLIC_KEY}). ` +
+          `Der öffentliche Lizenzschlüssel fehlt am Gerät (${LICENSE_PUBLIC_KEY}). ` +
             'Ohne ihn lässt sich keine Lizenz prüfen; das Gerät bleibt community.'
         );
       }

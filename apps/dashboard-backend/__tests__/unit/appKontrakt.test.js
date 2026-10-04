@@ -351,7 +351,7 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Kontraktes und die Texte der Pruefungen stehen mit echten Umlauten
     // (Geraet wird Gerät, hoechstens wird höchstens). Kein Feld, keine Regel,
     // kein Name: Feldnamen wie `aenderungstext` bleiben. Die Zahl bleibt bei 12.
-    expect(abdruck).toBe('d1267c012f8c0b8e0e1928d61934c6b3c6bd6f28f947881cb7d29efe8cd7e0e2');
+    expect(abdruck).toBe('e1aa6d6bc796fb4d0720dff1022738333b505e3dd29f11e2faa1bda8def11f00');
   });
 
   /**
