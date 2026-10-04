@@ -65,7 +65,7 @@ const AUSLIEFERUNG = [
   // Auslieferungszustand herstellt, will genau das. Mit `admin_users` faellt
   // die Zeile ohnehin (ON DELETE CASCADE, Migration 182); sie steht hier,
   // damit der Reset das nicht der Reihenfolge ueberlassen muss.
-  ['public.mitarbeiter_ausweise', 'Die Ausweise fuer Programme ausserhalb des Browsers'],
+  ['public.mitarbeiter_ausweise', 'Die Ausweise für Programme außerhalb des Browsers'],
   ['public.app_staende', 'Test- und Livestand je App'],
   // Stufe 2 und nicht Stufe 1 (M5, Migration 199): ein Nachweis, wann welche
   // Fassung live ging oder zurueckfiel, kein Inhalt eines Menschen -- wie
@@ -95,14 +95,14 @@ const AUSLIEFERUNG = [
   ['public.audit_logs', 'Prüfprotokoll'],
   // Stufe 2 (J38, Migration 191): ein Nachweis, wohin Apps und Plattform ins
   // Internet wollten, kein Inhalt eines Menschen.
-  ['public.ausgang_zaehler', 'Zaehler des Ausgangs ins Internet (Apps und Plattform)'],
+  ['public.ausgang_zaehler', 'Zähler des Ausgangs ins Internet (Apps und Plattform)'],
   ['public.bot_audit_log', 'Prüfprotokoll der Bots'],
   ['public.component_updates', 'Aktualisierungsstand der Bestandteile'],
   ['public.flow_settings', 'Was der Administrator an den Flows einer App eingestellt hat'],
   // Stufe 2 und nicht Stufe 1 (J35, Migration 187): das Protokoll der
   // Modellaufrufe ist ein Nachweis wie `audit_logs`, kein Inhalt -- wer die
   // Inhalte zuruecksetzt, will nicht zugleich belegen koennen, dass nichts war.
-  ['public.ki_aufrufe', 'Protokoll der Modellaufrufe ueber die Schnittstelle'],
+  ['public.ki_aufrufe', 'Protokoll der Modellaufrufe über die Schnittstelle'],
   ['public.llm_model_switches', 'Wechsel des aktiven Modells'],
   ['public.login_attempts', 'Anmeldeversuche'],
   ['public.metrics_cpu', 'Messwerte, Prozessor'],

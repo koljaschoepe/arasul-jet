@@ -183,9 +183,9 @@ async function sorgeFuer({ appId, stand }) {
       // und wir naehmen ihm den Zugang zu seinen eigenen Daten, ohne dass
       // jemand es merkt. Lieber laut und mit dem Grund.
       throw new Error(
-        `Das Passwort der Datenbank von ${appId}/${stand} laesst sich nicht entschluesseln ` +
+        `Das Passwort der Datenbank von ${appId}/${stand} lässt sich nicht entschlüsseln ` +
           `(${err.message}). Wurde JWT_SECRET gewechselt? Dann ist auch der Zugang jeder ` +
-          'laufenden App dahin, und beide Staende muessen neu eingespielt werden.'
+          'laufenden App dahin, und beide Stände müssen neu eingespielt werden.'
       );
     }
   } else {
@@ -344,15 +344,15 @@ async function heileAlle() {
         geheilt += 1;
       } catch (err) {
         logger.warn(
-          `App-Datenbank ${zeile.app_id}/${zeile.stand} liess sich nicht herstellen: ${err.message}`
+          `App-Datenbank ${zeile.app_id}/${zeile.stand} ließ sich nicht herstellen: ${err.message}`
         );
       }
     }
   } catch (err) {
-    logger.warn(`App-Datenbanken nicht pruefbar: ${err.message}`);
+    logger.warn(`App-Datenbanken nicht prüfbar: ${err.message}`);
   }
   if (geheilt > 0) {
-    logger.info(`App-Datenbanken geprueft: ${geheilt}`);
+    logger.info(`App-Datenbanken geprüft: ${geheilt}`);
   }
   return geheilt;
 }
@@ -393,7 +393,7 @@ async function appsNachDerDatenbank() {
     const seit = await antwortetSeit();
     return await appContainer.starteNeuWasVorher(seit);
   } catch (err) {
-    logger.warn(`App-Container nach der Datenbank nicht pruefbar: ${err.message}`);
+    logger.warn(`App-Container nach der Datenbank nicht prüfbar: ${err.message}`);
     return [];
   }
 }

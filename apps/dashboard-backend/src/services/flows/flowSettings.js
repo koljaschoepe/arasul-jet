@@ -122,7 +122,7 @@ async function setzeModell({ appId, flowName, modell, durch = null }) {
       [appId, flowName]
     );
     if (weg.rowCount > 0) {
-      logger.info(`Flow-Modell zurueckgenommen: ${appId}/${flowName}`);
+      logger.info(`Flow-Modell zurückgenommen: ${appId}/${flowName}`);
     } else {
       // Die Zeile traegt noch eine Art: nur das Modell geht.
       await db.query(
@@ -177,7 +177,7 @@ async function setzeArt({ appId, flowName, art, durch = null }) {
           AND modell IS NULL AND extern_anbieter IS NULL AND art IS NULL AND aktiv IS NULL`,
       [appId, flowName]
     );
-    logger.info(`Flow-Art zurueckgenommen: ${appId}/${flowName}`);
+    logger.info(`Flow-Art zurückgenommen: ${appId}/${flowName}`);
     return { art: null };
   }
   await db.query(

@@ -144,7 +144,7 @@ function createLLMQueueService(deps = {}) {
             // Aufraeumtakt erneut hierher und fragt die Datenbank.
             this.jobSubscriberTimestamps.set(jobId, now);
             logger.debug(
-              `Job ${jobId} laeuft noch (${Math.round((now - timestamp) / 1000)}s), Zuhoerer bleiben`
+              `Job ${jobId} läuft noch (${Math.round((now - timestamp) / 1000)}s), Zuhörer bleiben`
             );
             continue;
           }
@@ -882,7 +882,7 @@ function createLLMQueueService(deps = {}) {
                 detail:
                   row.old_status === 'streaming'
                     ? 'zehn Minuten ohne Aktualisierung, kein aktiver Strom in diesem Prozess'
-                    : 'dreissig Minuten in der Warteschlange',
+                    : 'dreißig Minuten in der Warteschlange',
               });
               await abbruchFesthalten({
                 database,
@@ -897,7 +897,7 @@ function createLLMQueueService(deps = {}) {
                 error:
                   grund === 'strom_zeitlimit'
                     ? `Der Lauf hat zehn Minuten lang nichts mehr geschrieben und wurde beendet. Kennung ${kennung}.`
-                    : `Der Auftrag stand dreissig Minuten in der Warteschlange und wurde beendet. Kennung ${kennung}.`,
+                    : `Der Auftrag stand dreißig Minuten in der Warteschlange und wurde beendet. Kennung ${kennung}.`,
                 done: true,
               });
               if (this.processingJobId === row.id) {

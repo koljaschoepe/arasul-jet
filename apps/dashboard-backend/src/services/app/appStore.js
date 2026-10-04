@@ -51,23 +51,23 @@ async function staendeVon(appId) {
  */
 function beschreibeMangel({ manifest, backend, dateien, datenbankFehlt = false }) {
   if (!dateien.manifest) {
-    return 'Die Dateien dieser Version fehlen am Geraet (kein app.json).';
+    return 'Die Dateien dieser Version fehlen am Gerät (kein app.json).';
   }
   if (dateien.frontend === false) {
-    return 'Das Frontend fehlt am Geraet; es gibt nichts, was sich ausliefern liesse.';
+    return 'Das Frontend fehlt am Gerät; es gibt nichts, was sich ausliefern ließe.';
   }
   if (manifest.backend) {
     if (!backend) {
       return 'Der Container fehlt.';
     }
     if (!backend.laeuft) {
-      return `Der Container laeuft nicht (${backend.status}).`;
+      return `Der Container läuft nicht (${backend.status}).`;
     }
     // Vor dem Healthcheck (J35, 26.09.2026): eine App ohne ihre Datenbank
     // laeuft ohne ihre Daten, und ob ihre eigene Pruefung das merkt, liegt am
     // Geruest der App. Das Geraet weiss es selbst und sagt es.
     if (datenbankFehlt) {
-      return 'Die Datenbank dieser App fehlt am Geraet; sie laeuft ohne ihre Daten.';
+      return 'Die Datenbank dieser App fehlt am Gerät; sie läuft ohne ihre Daten.';
     }
     if (backend.gesundheit === 'unhealthy') {
       return 'Der Container meldet sich krank.';
@@ -290,7 +290,7 @@ async function stillEntfernen(tun) {
   try {
     await tun();
   } catch (err) {
-    logger.warn(`Aufraeumen nach fehlgeschlagenem Einspielen misslang: ${err.message}`);
+    logger.warn(`Aufräumen nach fehlgeschlagenem Einspielen misslang: ${err.message}`);
   }
 }
 
@@ -505,7 +505,7 @@ async function schalte({ appId, ziel, durch }) {
     aenderungstext: null,
   });
   logger.info(
-    `App ${appId} zurueckgeschaltet: ${staende.live.version} -> ${staende.live.vorige_version}`
+    `App ${appId} zurückgeschaltet: ${staende.live.version} -> ${staende.live.vorige_version}`
   );
   return eingespielt;
 }

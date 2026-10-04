@@ -85,7 +85,7 @@ const NICHT_ABGEGLICHEN = [
   {
     art: 'symlink',
     text:
-      'Ein Symlink im Baum wird nicht uebertragen -- weder die Verknuepfung noch das, worauf ' +
+      'Ein Symlink im Baum wird nicht übertragen -- weder die Verknüpfung noch das, worauf ' +
       'sie zeigt. Der Dateidienst geht an ihm vorbei, ohne es zu melden. Wer den Inhalt ' +
       'braucht, legt ihn als echte Datei ab.',
   },

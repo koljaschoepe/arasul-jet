@@ -56,7 +56,7 @@ async function createFirstAdmin({ username, password, email }) {
       'UPDATE arasul.geraet SET werksreset_am = NULL, werksreset_stufe = NULL WHERE id = 1'
     );
   } catch (error) {
-    logger.debug(`Setup: Geraetezustand nicht zuruecksetzbar (${error.message})`);
+    logger.debug(`Setup: Gerätezustand nicht zurücksetzbar (${error.message})`);
   }
 
   logger.info(`Setup: created first admin user "${username}" via web onboarding`);

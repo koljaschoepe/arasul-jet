@@ -755,10 +755,10 @@ async function sichereVorher(fuer) {
   const frisch = bericht && Date.parse(bericht._geschrieben) >= beginn - 2000;
   const id = frisch && bericht.stand_status === 'ok' ? bericht.stand_id || null : null;
   if (!id) {
-    logger.error('Der Stand vor dem Zurueckholen liess sich nicht anlegen', { code, ausgabe });
+    logger.error('Der Stand vor dem Zurückholen ließ sich nicht anlegen', { code, ausgabe });
     return { erfolg: false, id: null, zeitpunkt: null, ausgabe };
   }
-  logger.info(`Stand vor dem Zurueckholen: ${id.slice(0, 8)} (${fuer})`);
+  logger.info(`Stand vor dem Zurückholen: ${id.slice(0, 8)} (${fuer})`);
   return { erfolg: true, id, zeitpunkt: bericht.timestamp ?? null, ausgabe };
 }
 
@@ -924,7 +924,7 @@ async function stelleWiederHer({
     const apps = await baueAppsNeu(durch);
     const gescheitert = apps.filter(a => !a.erfolg);
     logger.info(
-      `Wiederherstellung fertig: ${apps.length - gescheitert.length} von ${apps.length} App-Staenden laufen`
+      `Wiederherstellung fertig: ${apps.length - gescheitert.length} von ${apps.length} App-Ständen laufen`
     );
     return { erfolg: gescheitert.length === 0, code, ausgabe, bericht, apps, vorher };
   } finally {
@@ -1096,7 +1096,7 @@ async function stelleAppWiederHer({
             : `Die Daten der App (${standName(s)}) ließen sich nicht zurückholen.`,
       });
       if (code !== 0) {
-        logger.error(`Daten von ${appId}/${s} kamen nicht zurueck`, { code, ausgabe });
+        logger.error(`Daten von ${appId}/${s} kamen nicht zurück`, { code, ausgabe });
       }
     }
 
@@ -1118,7 +1118,7 @@ async function stelleAppWiederHer({
             : 'Das Paket der App ließ sich nicht zurückholen.',
       });
       if (code !== 0) {
-        logger.error(`Paket von ${appId} kam nicht zurueck`, { code, ausgabe });
+        logger.error(`Paket von ${appId} kam nicht zurück`, { code, ausgabe });
       }
     }
 
@@ -1176,7 +1176,7 @@ async function stelleAppWiederHer({
       delete e.neuStartFehler;
     }
     logger.info(
-      `Daten von ${appId} zurueck: ${ergebnisse.filter(e => e.erfolg).length} von ${ergebnisse.length} Stand/Staenden`
+      `Daten von ${appId} zurück: ${ergebnisse.filter(e => e.erfolg).length} von ${ergebnisse.length} Stand/Ständen`
     );
     return {
       erfolg: !gescheitert,
@@ -1290,7 +1290,7 @@ async function stelleBereichWiederHer({
       ? { geschrieben: Number(zeile[1]), entfernt: Number(zeile[2]), ordnerNeu: Number(zeile[3]) }
       : null;
     if (code !== 0) {
-      logger.error(`Bereich ${kennung} kam nicht zurueck`, { code, ausgabe });
+      logger.error(`Bereich ${kennung} kam nicht zurück`, { code, ausgabe });
     }
     bericht.push({
       schritt: 'bereich',
@@ -1304,7 +1304,7 @@ async function stelleBereichWiederHer({
             }`
           : `Die Dateien des Bereichs „${rows[0].name}“ ließen sich nicht vollständig zurückholen.`,
     });
-    logger.info(`Bereich ${kennung} zurueck aus ${gewaehlt.id.slice(0, 8)} (Rueckgabe ${code})`);
+    logger.info(`Bereich ${kennung} zurück aus ${gewaehlt.id.slice(0, 8)} (Rückgabe ${code})`);
     return {
       erfolg: code === 0,
       bereich: { kennung, name: rows[0].name },
@@ -1385,11 +1385,11 @@ async function holeLiveDatenZurueck(appId, standId) {
       30 * 60_000
     );
     if (code !== 0) {
-      logger.error(`Live-Daten von ${appId} kamen nicht zurueck`, { code, ausgabe });
+      logger.error(`Live-Daten von ${appId} kamen nicht zurück`, { code, ausgabe });
     }
     return { erfolg: code === 0, ausgabe };
   } catch (fehler) {
-    logger.error(`Live-Daten von ${appId} kamen nicht zurueck: ${fehler.message}`);
+    logger.error(`Live-Daten von ${appId} kamen nicht zurück: ${fehler.message}`);
     return { erfolg: false, ausgabe: fehler.message };
   } finally {
     laeuftGerade = null;
@@ -1442,7 +1442,7 @@ async function verbindeWieder(appId, stand) {
     await dockerService.docker.getContainer(appContainer.containerName(appId, stand)).restart();
     return true;
   } catch (fehler) {
-    logger.warn(`${appId}/${stand}: nach dem Zurueckholen nicht neu verbunden: ${fehler.message}`);
+    logger.warn(`${appId}/${stand}: nach dem Zurückholen nicht neu verbunden: ${fehler.message}`);
     return false;
   }
 }
@@ -1473,7 +1473,7 @@ async function baueAppsNeu(durch) {
       });
       ergebnisse.push({ ...zeile, erfolg: true, grund: null });
     } catch (fehler) {
-      logger.error(`App ${zeile.app_id} ${zeile.version} (${zeile.stand}) kam nicht zurueck`, {
+      logger.error(`App ${zeile.app_id} ${zeile.version} (${zeile.stand}) kam nicht zurück`, {
         error: fehler.message,
       });
       ergebnisse.push({ ...zeile, erfolg: false, grund: fehler.message });

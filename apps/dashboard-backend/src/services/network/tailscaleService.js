@@ -451,7 +451,7 @@ async function connect(authKey, hostname) {
   try {
     await runOnHost('tailscale serve reset 2>&1', 10000);
   } catch (err) {
-    logger.warn(`tailscale serve liess sich nicht zuruecknehmen: ${err.message}`);
+    logger.warn(`tailscale serve ließ sich nicht zurücknehmen: ${err.message}`);
   }
 
   return await getStatus();

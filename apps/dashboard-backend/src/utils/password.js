@@ -54,7 +54,7 @@ function validatePasswordComplexity(password) {
   }
 
   if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
-    errors.push('Passwort muss mindestens einen Grossbuchstaben enthalten');
+    errors.push('Passwort muss mindestens einen Großbuchstaben enthalten');
   }
 
   if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {

@@ -46,7 +46,7 @@ const ORDNER = {
     // Die Apps des Kunden (Phase C3). Ohne diese Zeile blieben ihre Dateien
     // liegen, waehrend die Zeilen in `apps` weg sind: ein Geraet, das sich
     // fuer frisch haelt und den Code des vorigen Kunden auf der Platte hat.
-    [process.env.APPS_DIR || '/arasul/apps', 'Apps am Geraet'],
+    [process.env.APPS_DIR || '/arasul/apps', 'Apps am Gerät'],
   ],
 };
 

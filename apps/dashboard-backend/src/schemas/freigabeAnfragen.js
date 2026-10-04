@@ -25,7 +25,7 @@ const AblehnenBody = z
     begruendung: z
       .string()
       .trim()
-      .min(1, 'Eine Ablehnung braucht eine Begruendung, der Lauf endet damit')
+      .min(1, 'Eine Ablehnung braucht eine Begründung, der Lauf endet damit')
       .max(2000),
   })
   .strict();

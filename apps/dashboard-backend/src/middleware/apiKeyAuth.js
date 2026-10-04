@@ -161,7 +161,7 @@ function vermerkeGebrauch(keyData) {
   database
     .query('UPDATE public.api_keys SET last_used_at = NOW() WHERE id = $1', [keyData.id])
     .catch(err =>
-      logger.warn(`API-Schluessel ${keyData.id}: zuletzt-benutzt nicht gesetzt: ${err.message}`)
+      logger.warn(`API-Schlüssel ${keyData.id}: zuletzt-benutzt nicht gesetzt: ${err.message}`)
     );
 }
 

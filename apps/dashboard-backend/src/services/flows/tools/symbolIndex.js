@@ -300,7 +300,7 @@ class SymbolSuchenTool extends BaseTool {
     if (hits.length === 0) {
       return (
         `Keine Definition für "${gesucht}"${wo} gefunden. ` +
-        'Tipp: mit ungefaehr=true unscharf suchen, oder dateien_suchen (Textsuche) ' +
+        'Tipp: mit ungefähr=true unscharf suchen, oder dateien_suchen (Textsuche) ' +
         'für Erwähnungen/Aufrufstellen nutzen.'
       );
     }

@@ -133,7 +133,7 @@ async function uebergebe({ appId, stand, route, laufId, nutzlast }, deps = {}) {
       ende({
         ok: false,
         statusCode: null,
-        fehler: `Die App hat den Empfang nicht innerhalb von ${Math.round(TIMEOUT_MS / 1000)} Sekunden bestaetigt`,
+        fehler: `Die App hat den Empfang nicht innerhalb von ${Math.round(TIMEOUT_MS / 1000)} Sekunden bestätigt`,
       });
     });
     req.on('error', err => {

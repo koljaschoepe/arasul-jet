@@ -137,7 +137,7 @@ describe('appManifest von der Platte', () => {
     const ordner = path.join(APPS_DIR, 'kaputt', '1.0.0');
     fs.mkdirSync(ordner, { recursive: true });
     fs.writeFileSync(path.join(ordner, 'app.json'), '{ das ist kein json');
-    await expect(appManifest.leseManifest('kaputt', '1.0.0')).rejects.toThrow(/kein gueltiges JSON/);
+    await expect(appManifest.leseManifest('kaputt', '1.0.0')).rejects.toThrow(/kein gültiges JSON/);
   });
 
   test('listet nur Ordner, die wie eine Version aussehen', async () => {

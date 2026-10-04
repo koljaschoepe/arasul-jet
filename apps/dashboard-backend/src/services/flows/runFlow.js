@@ -487,7 +487,7 @@ async function runFlow(
         try {
           onEvent({ type: 'aenderungen', changes: aenderungen });
         } catch (err) {
-          logger.warn(`Flow "${flowName}": onEvent(aenderungen) warf: ${err.message}`);
+          logger.warn(`Flow "${flowName}": onEvent(änderungen) warf: ${err.message}`);
         }
       }
     } catch (err) {
@@ -573,7 +573,7 @@ async function runFlow(
       try {
         await stepRecorder.abschliessen({ stepId, output: text, status });
       } catch (err) {
-        logger.warn(`Flow "${flowName}": offener Schritt nicht abschliessbar: ${err.message}`);
+        logger.warn(`Flow "${flowName}": offener Schritt nicht abschließbar: ${err.message}`);
       }
     }
     offeneSchritte.clear();
@@ -804,7 +804,7 @@ async function runFlow(
         // `uebergebe` wirft nicht wegen der App; ein Fehler hier ist die
         // Datenbank. Der Lauf bleibt `laeuft` mit gespeichertem Ergebnis, und
         // das Hochfahren macht ihn zu `nicht_uebergeben`.
-        logger.error(`Flow "${flowName}": Uebergabe nicht verbucht: ${err.message}`);
+        logger.error(`Flow "${flowName}": Übergabe nicht verbucht: ${err.message}`);
       }
     }
     await aenderungenAbschliessen();

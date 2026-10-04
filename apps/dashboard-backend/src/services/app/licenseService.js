@@ -268,7 +268,7 @@ class LicenseService {
       const parts = licenseData.split('.');
       if (parts.length !== 2) {
         return abgelehnt(
-          'Die Lizenz hat nicht die Form <Nutzlast>.<Signatur>. Das Geraet bleibt community.'
+          'Die Lizenz hat nicht die Form <Nutzlast>.<Signatur>. Das Gerät bleibt community.'
         );
       }
 
@@ -284,11 +284,11 @@ class LicenseService {
         publicKey = await fs.readFile(LICENSE_PUBLIC_KEY, 'utf8');
       } catch {
         logger.warn(
-          `Oeffentlicher Lizenzschluessel fehlt (${LICENSE_PUBLIC_KEY}); Geraet bleibt community`
+          `Oeffentlicher Lizenzschlüssel fehlt (${LICENSE_PUBLIC_KEY}); Gerät bleibt community`
         );
         return abgelehnt(
-          `Der oeffentliche Lizenzschluessel fehlt am Geraet (${LICENSE_PUBLIC_KEY}). ` +
-            'Ohne ihn laesst sich keine Lizenz pruefen; das Geraet bleibt community.'
+          `Der oeffentliche Lizenzschlüssel fehlt am Gerät (${LICENSE_PUBLIC_KEY}). ` +
+            'Ohne ihn lässt sich keine Lizenz prüfen; das Gerät bleibt community.'
         );
       }
 
@@ -301,8 +301,8 @@ class LicenseService {
 
       if (!isValid) {
         return abgelehnt(
-          'Die Signatur der Lizenz ist ungueltig: sie stammt nicht vom Lizenzschluessel ' +
-            'dieses Produkts. Das Geraet bleibt community.'
+          'Die Signatur der Lizenz ist ungültig: sie stammt nicht vom Lizenzschlüssel ' +
+            'dieses Produkts. Das Gerät bleibt community.'
         );
       }
 
@@ -333,8 +333,8 @@ class LicenseService {
       const tier = license.tier || 'professional';
       if (!Object.prototype.hasOwnProperty.call(FEATURE_TIERS, tier)) {
         return abgelehnt(
-          `Die Lizenz nennt die Stufe "${tier}", die dieses Geraet nicht kennt ` +
-            `(bekannt: ${Object.keys(FEATURE_TIERS).join(', ')}). Das Geraet bleibt community.`
+          `Die Lizenz nennt die Stufe "${tier}", die dieses Gerät nicht kennt ` +
+            `(bekannt: ${Object.keys(FEATURE_TIERS).join(', ')}). Das Gerät bleibt community.`
         );
       }
 
@@ -352,7 +352,7 @@ class LicenseService {
         if (!Number.isInteger(zahl) || (zahl < 1 && zahl !== -1)) {
           return abgelehnt(
             `Die Lizenz nennt ${schluessel} ${JSON.stringify(zahl)}; erlaubt ist eine ganze ` +
-              'Zahl ab 1 oder -1 fuer unbegrenzt. Das Geraet bleibt community.'
+              'Zahl ab 1 oder -1 für unbegrenzt. Das Gerät bleibt community.'
           );
         }
         features[schluessel] = zahl;

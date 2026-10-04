@@ -250,7 +250,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     if (req.query.bestaetigung !== req.params.id) {
       throw new ValidationError(
-        `Rueckfrage: haenge \`?bestaetigung=${req.params.id}\` an, wenn diese App wirklich weg soll. ` +
+        `Rückfrage: hänge \`?bestaetigung=${req.params.id}\` an, wenn diese App wirklich weg soll. ` +
           'Beide Container und ihre Volumes fallen dabei.'
       );
     }

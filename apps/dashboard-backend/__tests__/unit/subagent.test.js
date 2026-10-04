@@ -64,7 +64,7 @@ describe('enforceContract', () => {
       max_zeichen: 500,
     });
     expect(gekuerzt).toBe(true);
-    expect(text).toMatch(/gekuerzt bei 500 Zeichen/);
+    expect(text).toMatch(/gekürzt bei 500 Zeichen/);
     expect(text.length).toBeLessThan(600);
   });
 });

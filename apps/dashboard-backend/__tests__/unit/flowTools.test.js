@@ -99,7 +99,7 @@ describe('dateien_lesen', () => {
     fs.writeFileSync(gross, 'x'.repeat(300 * 1024));
     try {
       const out = await tool.execute({ aktion: 'read', pfad: 'gross.txt' }, ctx());
-      expect(out).toMatch(/gekuerzt bei/);
+      expect(out).toMatch(/gekürzt bei/);
       expect(out.length).toBeLessThan(300 * 1024);
     } finally {
       fs.unlinkSync(gross);
@@ -121,11 +121,11 @@ describe('dateien_lesen', () => {
     fs.writeFileSync(datei, zeichen.repeat(200 * 1024));
     try {
       const out = await tool.execute({ aktion: 'read', pfad: 'mehrbyte.txt' }, ctx());
-      expect(out).toMatch(/gekuerzt bei/);
+      expect(out).toMatch(/gekürzt bei/);
       // 256 KB plus den Hinweistext — nicht das Vielfache davon.
       expect(Buffer.byteLength(out, 'utf8')).toBeLessThan(256 * 1024 + 200);
       // Kein zerschnittenes Zeichen am Ende des Inhalts.
-      expect(out.split('\n... [gekuerzt')[0]).not.toMatch(/\uFFFD$/);
+      expect(out.split('\n... [gekürzt')[0]).not.toMatch(/\uFFFD$/);
     } finally {
       fs.unlinkSync(datei);
     }
@@ -165,7 +165,7 @@ describe('dateien_lesen', () => {
     fs.writeFileSync(datei, inhalt, 'utf8');
     try {
       const teil1 = await tool.execute({ aktion: 'read', pfad: 'grenze.txt' }, ctx());
-      const inhalt1 = teil1.split('\n... [gekuerzt')[0];
+      const inhalt1 = teil1.split('\n... [gekürzt')[0];
       // Kein Ersatzzeichen geleakt, kein halbes '\u00fc', reine 'a'-Kette.
       expect(inhalt1).toBe('a'.repeat(MAX - 1));
       const off = Number(teil1.match(/offset=(\d+)/)[1]);

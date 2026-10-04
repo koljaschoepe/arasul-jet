@@ -185,7 +185,7 @@ const ALLE = [...dateien(SRC), ...dateien(MARKEN)].flatMap(sichtbareTexte);
  * „neue" und „Steuer".
  */
 const UMSCHRIEBEN =
-  /(aender|aelter|uebersicht|ueber|fuer|zurueck|geraet|laeuf|laesst|laed|pruef|moeglich|schluessel|loesch|waehl|spaeter|naechst|muess|koenn|groess|haeuf|oeffn|faell|haelt|traeg|zaehl|erklaer|bestaetig|fuehr|wuerd|duerf|noetig|taetig|verfueg|rueck|stueck|gruen|schoen|moecht|gehoer|stoer|zustaend|erhoeh|hoech|naeh|uebrig|koerper|koennt|aehnlich|gewaehr|natuerlich|zuverlaess|faehig|staend|staerk)/i;
+  /(aender|aelter|uebersicht|ueber|fuer|zurueck|geraet|laeuf|laesst|laed|pruef|moeglich|schluessel|loesch|waehl|spaeter|naechst|muess|koenn|groess|haeuf|oeffn|faell|haelt|traeg|zaehl|erklaer|bestaetig|fuehr|wuerd|duerf|noetig|taetig|verfueg|rueck|stueck|gruen|schoen|moecht|gehoer|stoer|zustaend|erhoeh|hoech|naeh|uebrig|koerper|koennt|aehnlich|gewaehr|natuerlich|zuverlaess|faehig|staend|staerk|aussen|ausser|schliess|heiss|weiss|liess|gross|dreiss|stoss|kuerzel|taet|saetz|ungefaehr|abhaeng|raeum|schraeg|wuensch|buendel|knuepf|ausdruec|gueltig|aufraeum|laeng|haett|ueblich|fuenf|genueg|zwoelf|gekuerz|ausloes|zusaetz|hoer|verschluess|entschluess|haeng|faehr|frueh|massen|massnahm|reiss|haeck|knoepf|persoen|engpaess|schlaeg|woech|waere|taeg|buero|aufloes|loest|flaech|gruess|stuerz|druec)/i;
 
 function kurz(f: Fund) {
   return `${relative(join(SRC, '..', '..', '..'), f.datei)}:${f.zeile}  ${f.text.slice(0, 90)}`;

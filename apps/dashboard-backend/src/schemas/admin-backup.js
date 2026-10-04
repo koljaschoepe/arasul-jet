@@ -74,7 +74,7 @@ const WiederherstellungBody = z
     passwort: Passwort,
     bestaetigung: z.literal('wiederherstellen', {
       error:
-        'Zum Bestaetigen muss das Feld `bestaetigung` das Wort "wiederherstellen" enthalten. ' +
+        'Zum Bestätigen muss das Feld `bestaetigung` das Wort "wiederherstellen" enthalten. ' +
         'Dieser Aufruf ersetzt die ganze Datenbank.',
     }),
   })

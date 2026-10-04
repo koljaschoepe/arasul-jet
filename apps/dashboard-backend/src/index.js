@@ -626,7 +626,7 @@ if (alsServerGestartet) {
     try {
       await require('./services/app/appStore').pruefeStaende();
     } catch (err) {
-      logger.warn(`App-Staende nicht pruefbar: ${err.message}`);
+      logger.warn(`App-Stände nicht prüfbar: ${err.message}`);
     }
 
     // Und dass jede eingetragene App-Datenbank auch wirklich dasteht, mit dem

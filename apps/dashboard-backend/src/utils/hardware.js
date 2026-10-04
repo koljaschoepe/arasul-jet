@@ -427,7 +427,7 @@ async function gegenKatalogPruefen(empfehlung) {
       }
     }
   } catch (fehler) {
-    logger.debug(`[hardware] Katalog nicht lesbar, Empfehlung ungeprueft: ${fehler.message}`);
+    logger.debug(`[hardware] Katalog nicht lesbar, Empfehlung ungeprüft: ${fehler.message}`);
     return empfehlung;
   }
   if (vorhanden.size === 0) {
@@ -445,7 +445,7 @@ async function gegenKatalogPruefen(empfehlung) {
       `[hardware] Empfohlenes Modell "${kennung}" (${rolle}) steht nicht im Katalog. ` +
         (ersatz
           ? `Es gilt der Standard der Aufgabe ${aufgabe}: ${ersatz}.`
-          : `Kein Ersatz fuer die Aufgabe ${aufgabe}.`)
+          : `Kein Ersatz für die Aufgabe ${aufgabe}.`)
     );
     geprueft[rolle] = ersatz;
   }

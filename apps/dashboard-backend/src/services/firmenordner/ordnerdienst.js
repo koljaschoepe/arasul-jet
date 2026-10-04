@@ -304,7 +304,7 @@ function umbenennenWennNoetig() {
       }
       logger.info(
         `Firmenordner: Dienst-Administrator von ${ANFANGS_ADMIN} in ${DIENST_ADMIN} umbenannt ` +
-          `-- der Name ${ANFANGS_ADMIN} gehoert jetzt dem Menschen am Geraet`
+          `-- der Name ${ANFANGS_ADMIN} gehört jetzt dem Menschen am Gerät`
       );
       const rest = gefragt + wartenNachUmbenennenMs - Date.now();
       if (rest > 0) {
@@ -663,7 +663,7 @@ async function raumSteht(raumId) {
     }
     return false;
   } catch (err) {
-    logger.warn(`Firmenordner: die Liste der Raeume kam nicht (${err.message})`);
+    logger.warn(`Firmenordner: die Liste der Räume kam nicht (${err.message})`);
     return true;
   }
 }
@@ -1030,7 +1030,7 @@ async function rolleFuer(recht, ebene) {
   const id = rollenZwischenspeicher[`${recht}:${ebene}`];
   if (!id) {
     throw new Error(
-      `Der Firmenordner nennt keine Rolle fuer „${recht}" auf einem ${ebene}. ` +
+      `Der Firmenordner nennt keine Rolle für „${recht}" auf einem ${ebene}. ` +
         `Bekannt sind: ${Object.keys(rollenZwischenspeicher).join(', ') || '(keine)'}`
     );
   }

@@ -70,10 +70,10 @@ describe('arten, ausloeser, stufen je Flow', () => {
     [{ arten: ['manuell'] }, /Art ist eine von/],
     [{ arten: [] }, /mindestens eine Art/],
     [{ arten: ['autonom', 'autonom'] }, /zweimal/],
-    [{ ausloeser: [{ typ: 'zuruf' }] }, /Ausloeser-Typ/],
+    [{ ausloeser: [{ typ: 'zuruf' }] }, /Auslöser-Typ/],
     [{ ausloeser: [{ typ: 'zeitplan' }] }, /braucht "zeitplan"/],
-    [{ ausloeser: [{ typ: 'zeitplan', zeitplan: 'jeden Tag' }] }, /fuenf Felder/],
-    [{ ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * *' }] }, /fuenf Felder/],
+    [{ ausloeser: [{ typ: 'zeitplan', zeitplan: 'jeden Tag' }] }, /fünf Felder/],
+    [{ ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * *' }] }, /fünf Felder/],
     [{ ausloeser: [{ typ: 'ereignis' }] }, /braucht "ereignis"/],
     [{ ausloeser: [{ typ: 'ereignis', ereignis: 'Beleg Neu' }] }, /ereignis:/],
     [{ ausloeser: [{ typ: 'hand' }, { typ: 'hand' }] }, /zweimal/],
@@ -142,7 +142,7 @@ describe('faehigkeiten je Schritt', () => {
     [{ ton: true }, /Unrecognized key/],
     [{ bild: 'ja' }, /bild ist true oder false/],
     [{ mindestkontext: 10 }, /mindestens 512/],
-    [{ mindestkontext: 99999999 }, /hoechstens 1048576/],
+    [{ mindestkontext: 99999999 }, /höchstens 1048576/],
   ])('weist %j ab', (faehigkeiten, muster) => {
     expect(grund(FlowDefinition.safeParse(flow(faehigkeiten)))).toMatch(muster);
   });

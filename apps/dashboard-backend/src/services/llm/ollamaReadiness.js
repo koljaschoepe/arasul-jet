@@ -266,7 +266,7 @@ class OllamaReadinessService {
    */
   async checkSmartUnload() {
     if (vergleichLaeuft) {
-      logger.debug('[OllamaReadiness] Unload-Pruefung laeuft noch, dieser Takt entfaellt');
+      logger.debug('[OllamaReadiness] Unload-Prüfung läuft noch, dieser Takt entfällt');
       return;
     }
     vergleichLaeuft = true;

@@ -106,7 +106,7 @@ async function leseSteckbrief(ollamaName) {
       signal: AbortSignal.timeout(ZEITGRENZE_MS),
     });
     if (!antwort.ok) {
-      logger.debug(`[STECKBRIEF] /api/show antwortet ${antwort.status} fuer ${ollamaName}`);
+      logger.debug(`[STECKBRIEF] /api/show antwortet ${antwort.status} für ${ollamaName}`);
       return null;
     }
     const daten = await antwort.json();
@@ -121,7 +121,7 @@ async function leseSteckbrief(ollamaName) {
       contextLength: kontextLaenge(info),
     };
   } catch (fehler) {
-    logger.debug(`[STECKBRIEF] /api/show fehlgeschlagen fuer ${ollamaName}: ${fehler.message}`);
+    logger.debug(`[STECKBRIEF] /api/show fehlgeschlagen für ${ollamaName}: ${fehler.message}`);
     return null;
   }
 }

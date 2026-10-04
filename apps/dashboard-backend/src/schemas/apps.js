@@ -74,8 +74,8 @@ const PaketPfad = z
   .trim()
   .min(1)
   .max(200)
-  .regex(/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/, 'Pfad: relativ, ohne „..", ohne fuehrenden /')
-  .refine(v => !v.split('/').includes('..'), 'Pfad darf nicht aus dem Paket herausfuehren');
+  .regex(/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/, 'Pfad: relativ, ohne „..", ohne führenden /')
+  .refine(v => !v.split('/').includes('..'), 'Pfad darf nicht aus dem Paket herausführen');
 
 const Frontend = z
   .object({
@@ -245,14 +245,14 @@ const AGENT_METHODEN_SCHREIBEND = ['PUT', 'PATCH', 'DELETE'];
 const AgentPfad = z
   .string({ error: 'path fehlt' })
   .transform(v => v.replace(/^\/+/, ''))
-  .refine(v => v.length > 0 && v.length <= 200, 'path ist leer oder laenger als 200 Zeichen')
+  .refine(v => v.length > 0 && v.length <= 200, 'path ist leer oder länger als 200 Zeichen')
   .refine(
     v => /^[A-Za-z0-9._~\-/]+$/.test(v),
-    'path: Buchstaben, Ziffern, Punkt, Unterstrich, Tilde, Bindestrich und Schraegstrich; keine Anfrage'
+    'path: Buchstaben, Ziffern, Punkt, Unterstrich, Tilde, Bindestrich und Schrägstrich; keine Anfrage'
   )
   .refine(
     v => !v.split('/').some(teil => teil === '' || teil === '.' || teil === '..'),
-    'path fuehrt aus der Schnittstelle der App heraus oder hat ein leeres Stueck'
+    'path führt aus der Schnittstelle der App heraus oder hat ein leeres Stück'
   );
 
 /**
@@ -290,17 +290,17 @@ const AgentRoute = z
       .string({ error: 'purpose fehlt' })
       .trim()
       .min(1, 'purpose fehlt')
-      .max(200, 'purpose ist ein Satz in einer Zeile, hoechstens 200 Zeichen')
+      .max(200, 'purpose ist ein Satz in einer Zeile, höchstens 200 Zeichen')
       .refine(v => !/[\r\n]/.test(v), 'purpose steht in einer Zeile'),
     // Eine Liste, leer wenn die Route keine nimmt. NICHT `.optional()`: das
     // Kit verlangt das Feld, und ein Manifest, das hier durchkaeme und dort
     // nicht, waere genau die Abweichung, gegen die dieses Schema steht.
-    params: z.array(AgentParam).max(30, 'hoechstens 30 Parameter je Route'),
+    params: z.array(AgentParam).max(30, 'höchstens 30 Parameter je Route'),
     writes: z.boolean({ error: 'writes ist true oder false' }),
   })
   .strict()
   .refine(r => !AGENT_METHODEN_SCHREIBEND.includes(r.method) || r.writes === true, {
-    message: `${AGENT_METHODEN_SCHREIBEND.join(', ')} aendern etwas: writes muss true sein`,
+    message: `${AGENT_METHODEN_SCHREIBEND.join(', ')} ändern etwas: writes muss true sein`,
     path: ['writes'],
   })
   .refine(r => new Set(r.params.map(p => p.name)).size === r.params.length, {
@@ -315,7 +315,7 @@ const AgentRoute = z
  */
 const AgentRouten = z
   .array(AgentRoute)
-  .max(50, 'hoechstens 50 Routen im Feld `agent`')
+  .max(50, 'höchstens 50 Routen im Feld `agent`')
   .refine(
     routen => new Set(routen.map(r => `${r.method} ${r.path}`)).size === routen.length,
     'Dieselbe Route steht zweimal da (method und path zusammen)'
@@ -341,7 +341,7 @@ const Verbindung = z
 
 const Verbindungen = z
   .array(Verbindung)
-  .max(20, 'hoechstens 20 Hostnamen im Feld `verbindungen`')
+  .max(20, 'höchstens 20 Hostnamen im Feld `verbindungen`')
   .refine(liste => new Set(liste).size === liste.length, 'Ein Hostname steht zweimal da');
 
 /**
@@ -353,7 +353,7 @@ const ReihenfolgeBody = z
   .object({
     reihenfolge: z
       .array(z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}:(live|test)$/, 'Form: <kennung>:<stand>'))
-      .max(200, 'hoechstens 200 Eintraege')
+      .max(200, 'höchstens 200 Einträge')
       .refine(l => new Set(l).size === l.length, 'Ein Eintrag steht zweimal da'),
   })
   .strict();
@@ -379,9 +379,9 @@ const AppSymbol = z
   .refine(
     v => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(v) || /^[A-Z0-9]{1,3}$/.test(v),
     'symbol: ein Lucide-Name in Kleinbuchstaben mit Bindestrichen (z. B. file-text) ' +
-      'oder ein Kuerzel aus 1 bis 3 Grossbuchstaben oder Ziffern (z. B. BE)'
+      'oder ein Kürzel aus 1 bis 3 Großbuchstaben oder Ziffern (z. B. BE)'
   )
-  .refine(v => v.length <= 50, 'symbol ist zu lang (hoechstens 50 Zeichen)');
+  .refine(v => v.length <= 50, 'symbol ist zu lang (höchstens 50 Zeichen)');
 
 /**
  * Der Aenderungstext beim Ausrollen (M5, Kontrakt 8): ein paar Saetze, was in
@@ -393,8 +393,8 @@ const AppSymbol = z
 const Aenderungstext = z
   .string({ error: 'aenderungstext muss ein Text sein' })
   .trim()
-  .min(1, 'aenderungstext ist leer: ein paar Saetze, was neu ist, oder das Feld weglassen')
-  .max(1000, 'aenderungstext ist zu lang (hoechstens 1000 Zeichen): ein paar Saetze genuegen');
+  .min(1, 'aenderungstext ist leer: ein paar Sätze, was neu ist, oder das Feld weglassen')
+  .max(1000, 'aenderungstext ist zu lang (höchstens 1000 Zeichen): ein paar Sätze genügen');
 
 const Ressourcen = z
   .object({
@@ -466,7 +466,7 @@ const AppManifest = z
     path: ['frontend'],
   })
   .refine(m => !m.backend || m.ports?.backend, {
-    message: 'Mit `backend` braucht es `ports.backend`: sonst weiss Traefik nicht, wohin',
+    message: 'Mit `backend` braucht es `ports.backend`: sonst weiß Traefik nicht, wohin',
     path: ['ports'],
   })
   .refine(m => !m.ports || m.backend, {
@@ -532,7 +532,7 @@ const EntfernenSitzungQuery = z
 
 const EntfernenQuery = z
   .object({
-    bestaetigung: z.string().trim().min(1, 'Rueckfrage: die Kennung der App als `bestaetigung`'),
+    bestaetigung: z.string().trim().min(1, 'Rückfrage: die Kennung der App als `bestaetigung`'),
     dateien: z
       .enum(['true', 'false'])
       .default('true')
@@ -638,7 +638,7 @@ const FlowModellBody = z.union(
     // „expected string, received undefined" -- eine Auskunft ueber den einen
     // Arm, nicht ueber die Frage. Hier steht sie ganz.
     error:
-      'Erwartet wird {"modell": "<name>"}, {"modell": null} (zurueck zum Paket) ' +
+      'Erwartet wird {"modell": "<name>"}, {"modell": null} (zurück zum Paket) ' +
       'oder {"extern": {anbieter, modell, basis_url, schluessel?}}. Beides zugleich gibt es nicht.',
   }
 );
