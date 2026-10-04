@@ -57,6 +57,7 @@ const A = process.env.ARASUL_A || '';
 const A_PASS = process.env.ARASUL_A_PASSWORT || '';
 const TAG = process.env.ARASUL_TAG || new Date().toLocaleDateString('sv-SE');
 const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-handy`);
+const PROBE_APPS = (process.env.ARASUL_HANDY_APPS || '').split(',').filter(Boolean);
 const BILDER = process.env.ARASUL_BILDER === '1';
 const BEREICHE = [
   'general',
@@ -144,8 +145,19 @@ async function leiste(page, wer, istAdmin) {
     box ? `y=${Math.round(box.y)} h=${Math.round(box.height)} b=${Math.round(box.width)}` : 'fehlt'
   );
   pruefe(`${wer}: keine Statusleiste`, (await page.getByTestId('statusbar').count()) === 0);
+  if (PROBE_APPS.length) {
+    await page
+      .locator('[data-testid^="leiste-app-"]')
+      .first()
+      .waitFor({ timeout: 15000 })
+      .catch(() => {});
+  }
   const apps = await page.locator('[data-testid^="leiste-app-"]').count();
-  pruefe(`${wer}: höchstens vier Apps in der Leiste`, apps <= 4, `${apps}`);
+  pruefe(
+    `${wer}: ${PROBE_APPS.length ? 'genau' : 'höchstens'} vier Apps in der Leiste`,
+    PROBE_APPS.length ? apps === 4 : apps <= 4,
+    `${apps}`
+  );
   pruefe(
     `${wer}: Haus und Mehr sind da`,
     (await page.getByTestId('leiste-startseite').count()) === 1 &&
@@ -168,8 +180,45 @@ async function leiste(page, wer, istAdmin) {
     `${wer}: das Menü liegt im Schirm`,
     !!m && m.x >= 0 && m.x + m.width <= vp.width && m.y >= 0
   );
+  await page.waitForTimeout(500);
   await bild(page, `${wer}-mehr`);
-  await page.keyboard.press('Escape');
+  if (PROBE_APPS.length) {
+    const unter = await menue.locator('[data-testid^="leiste-app-"]').count();
+    pruefe(
+      `${wer}: die übrigen Apps liegen unter Mehr`,
+      apps + unter >= PROBE_APPS.length,
+      `${unter} unter Mehr`
+    );
+    let sichtbar = 0;
+    for (const id of PROBE_APPS) {
+      sichtbar += (await page.locator(`[data-testid="leiste-app-${id}-live"]`).count()) > 0 ? 1 : 0;
+    }
+    pruefe(
+      `${wer}: alle ${PROBE_APPS.length} Probe-Apps erreichbar`,
+      sichtbar === PROBE_APPS.length,
+      `${sichtbar} sichtbar`
+    );
+    await menue.locator('[data-testid^="leiste-app-"]').last().click();
+    const rahmen = page.locator('main iframe').first();
+    await rahmen.waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForTimeout(800);
+    const f = await rahmen.boundingBox();
+    const n = await page.getByTestId('aktivitaetsleiste').boundingBox();
+    pruefe(
+      `${wer}: die App füllt den Schirm über der Leiste`,
+      !!f &&
+        !!n &&
+        f.x === 0 &&
+        Math.abs(f.width - vp.width) <= 1 &&
+        Math.abs(f.y + f.height - n.y) <= 1,
+      f ? `Rahmen ${Math.round(f.width)}x${Math.round(f.height)}` : 'kein Rahmen'
+    );
+    await bild(page, `${wer}-app`);
+    await page.getByTestId('leiste-startseite').click();
+    await page.waitForTimeout(500);
+  } else {
+    await page.keyboard.press('Escape');
+  }
   await bild(page, `${wer}-start`);
 }
 
