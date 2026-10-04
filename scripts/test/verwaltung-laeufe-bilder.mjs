@@ -114,10 +114,11 @@ async function zeilen() {
   );
 }
 
-/** Warten, bis die Liste da ist (oder der Leerzustand). */
+/** Warten, bis die Liste da ist (oder der Leerzustand), nicht bis das Gerüst da ist. */
 async function listeDa() {
   await seite
-    .locator('[data-testid="laeufe-liste"], [role="status"]')
+    .locator('[data-testid="laeufe-liste"], [data-testid="laeufe-fehler"]')
+    .or(seite.getByText(/Kein Lauf mit dieser Auswahl|Noch kein Lauf/))
     .first()
     .waitFor({ timeout: 30000 });
   await seite.waitForTimeout(500);
@@ -257,7 +258,7 @@ try {
     `${optionen.length} Einträge`
   );
   await seite.keyboard.press('Escape');
-  await seite.goto(`${URL}/workspace/verwaltung/laeufe?person=${ID_A}&von=${heute}`);
+  await seite.goto(`${URL}/workspace/verwaltung/laeufe?app=${APP_A}&person=${ID_A}&von=${heute}`);
   await listeDa();
   const vonA = await zeilen();
   pruefe(
@@ -322,8 +323,12 @@ try {
     .locator('[data-testid^="lauf-aufklappen-"][aria-expanded="true"]')
     .count();
   pruefe('Zwei Läufe stehen zugleich aufgeklappt da', offen === 2, `${offen} offen`);
-  const grund = await seite.getByTestId('lauf-grund').first().innerText();
-  pruefe('Der Fehler nennt seinen Grund', /Route abgewiesen/.test(grund), grund.slice(0, 90));
+  const fehlerGrund = await seite.getByTestId('lauf-grund').first().innerText();
+  pruefe(
+    'Der Fehler nennt seinen Grund',
+    /Route abgewiesen/.test(fehlerGrund),
+    fehlerGrund.slice(0, 90)
+  );
   // Ein Schritt klappt bis zu Ein- und Ausgabe auf: erst zu, dann auf.
   const schritt = seite
     .getByTestId(`lauf-detail-${KAPUTT}`)

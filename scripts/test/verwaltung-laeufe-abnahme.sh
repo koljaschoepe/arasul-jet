@@ -143,9 +143,19 @@ anmelden() {
 }
 
 # SQL am Geraet, ueber stdin. Ausgabe: Spalten mit |.
+# Die Leitung zum Geraet verliert zeitweise Pakete: ein gescheiterter Aufruf wird
+# zweimal wiederholt, bevor seine leere Antwort zaehlt.
 db() {
-  ssh -o BatchMode=yes -o ConnectTimeout=15 "$GERAET" \
-    "docker exec -i postgres-db psql -U arasul -d arasul_db -At -F '|' -v ON_ERROR_STOP=1" <<<"$1" 2>/dev/null
+  local versuch aus
+  for versuch in 1 2 3; do
+    if aus=$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$GERAET" \
+      "docker exec -i postgres-db psql -U arasul -d arasul_db -At -F '|' -v ON_ERROR_STOP=1" <<<"$1" 2>/dev/null); then
+      printf '%s\n' "$aus"
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
 }
 # Die Uhr des Geraets als Zeitpunkt mit Zone (UTC), auf die Millisekunde.
 geraetezeit() { db "SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"');"; }
@@ -378,9 +388,9 @@ pruefe 'Laeufe nach der Marke: von Hand auf b, Ereignis mit Person auf a, Ereign
   "$L_HAND_B $L_EREIGNIS_A $L_EREIGNIS_B_OHNE"
 [ -z "$L_HAND_B" ] || [ -z "$L_EREIGNIS_A" ] || [ -z "$L_EREIGNIS_B_OHNE" ] && { rumpf; echo; exit 1; }
 for l in "$L_HAND_B" "$L_EREIGNIS_A" "$L_EREIGNIS_B_OHNE"; do warte_lauf "$l" 180; done
+ENDEN=$(db "SELECT string_agg(id || '=' || status, ' ' ORDER BY id) FROM flow_runs WHERE id IN ($L_HAND_A, $L_HAND_OHNE, $L_KAPUTT, $L_HAND_B, $L_EREIGNIS_A, $L_EREIGNIS_B_OHNE);")
 pruefe 'Von Hand und auf Ereignis enden die Laeufe als fertig, kaputt als Fehler' \
-  "$([ "$(db "SELECT string_agg(status, ',' ORDER BY id) FROM flow_runs WHERE id IN ($L_HAND_A, $L_HAND_OHNE, $L_HAND_B, $L_EREIGNIS_A, $L_EREIGNIS_B_OHNE);")" = "fertig,fertig,fertig,fertig,fertig" ] && [ "$(db "SELECT status FROM flow_runs WHERE id = $L_KAPUTT;")" = fehler ] && echo ja || echo nein)" \
-  "$(db "SELECT string_agg(id || '=' || status, ' ' ORDER BY id) FROM flow_runs WHERE id IN ($L_HAND_A, $L_HAND_OHNE, $L_KAPUTT, $L_HAND_B, $L_EREIGNIS_A, $L_EREIGNIS_B_OHNE);")"
+  "$([ "$ENDEN" = "$L_HAND_A=fertig $L_HAND_OHNE=fertig $L_KAPUTT=fehler $L_HAND_B=fertig $L_EREIGNIS_A=fertig $L_EREIGNIS_B_OHNE=fertig" ] && echo ja || echo nein)" "$ENDEN"
 
 # Zeitplan: nur a, ein Lauf `warten` ohne Person, der an der Freigabe haengt, und `takt`.
 ruf "$TOK" PUT "/api/apps/$APP_A/flows/warten/zeitplan" '{"pausiert":false}'
@@ -502,8 +512,8 @@ ruf "$TOK" GET "/api/laeufe/$L_EREIGNIS_B_OHNE"
 pruefe '… ein Ereignis ohne Person hat keine Person' \
   "$([ "$CODE" = 200 ] && [ -z "$(rumpf | feld data.person_id)" ] && [ "$(rumpf | feld data.ausloeser)" = ereignis ] && echo ja || echo nein)"
 ruf "$TOK" GET "/api/laeufe/$L_HAND_A"
-pruefe '… ein Lauf von Hand zeigt Schritte mit Ausgabe, Freigaben als Liste und das Ergebnis' \
-  "$([ "$(rumpf | feld data.steps | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d))')" -ge 1 ] && [ "$(rumpf | feld data.freigaben)" = "[]" ] && [ -n "$(rumpf | feld data.result)" ] && echo ja || echo nein)" \
+pruefe '… ein Lauf von Hand zeigt einen Schritt mit Eingabe und Ausgabe, Freigaben als Liste und das Ergebnis' \
+  "$([ "$(rumpf | feld data.steps | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d))')" -ge 1 ] && [ -n "$(rumpf | feld data.steps.0.input)" ] && [ -n "$(rumpf | feld data.steps.0.output)" ] && [ "$(rumpf | feld data.freigaben)" = "[]" ] && [ -n "$(rumpf | feld data.result)" ] && echo ja || echo nein)" \
   "$(rumpf | feld data.steps | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d), "Schritt(e)")')"
 ruf "$TOK" GET "/api/laeufe/$L_KAPUTT"
 pruefe '… der Fehler nennt seinen Grund und den Schritt, der ihn trug' \
