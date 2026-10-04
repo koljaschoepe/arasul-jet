@@ -286,7 +286,10 @@ export function ausloeserText(
   person: string | null
 ): string {
   if (l.ausloeser === 'zeitplan') return 'Zeitplan';
-  if (l.ausloeser === 'ereignis') return l.ereignis ? `Ereignis „${l.ereignis}“` : 'Ereignis';
+  if (l.ausloeser === 'ereignis') {
+    const ereignis = l.ereignis ? `Ereignis „${l.ereignis}“` : 'Ereignis';
+    return person ? `${ereignis}, ${person}` : ereignis;
+  }
   return person ? `Von Hand, ${person}` : 'Von Hand';
 }
 
