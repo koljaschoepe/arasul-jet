@@ -220,7 +220,9 @@ router.delete(
   validateParams(BenutzerIdParams),
   asyncHandler(async (req, res) => {
     if (istEigenesKonto(req)) {
-      throw new ValidationError('Ihr eigenes Konto löschen Sie unter Einstellungen → Datenschutz.');
+      throw new ValidationError(
+        'Das eigene Konto lässt sich hier nicht löschen; bitten Sie eine andere Person mit Verwaltungsrechten.'
+      );
     }
     const ziel = await benutzerService.holeBenutzer(req.params.id);
     const { summary, zugangBleibt } = await benutzerService.loescheBenutzer({

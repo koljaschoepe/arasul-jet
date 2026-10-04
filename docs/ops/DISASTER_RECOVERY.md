@@ -147,7 +147,7 @@ cp -a /tmp/konfig-zurueck/k/arasul/konfiguration/config/. config/
 #    Wo er liegt und warum: docs/ops/BACKUP_SYSTEM.md, Abschnitt 5a.
 
 # 5. Stack hochfahren und den Rest zurückspielen — VOM DATENTRÄGER, in der
-#    Oberfläche (M5): Verwaltung → System → Sicherung → Zurückholen →
+#    Oberfläche (M5): Verwaltung → Daten → Sicherung → Zurückholen →
 #    „Das ganze Gerät“, Woher: „Datenträger …“, den Stand nach Datum wählen,
 #    „Das ganze Gerät zurückholen …“, im Dialog das Wort „wiederherstellen“,
 #    das eigene Passwort und (unter „Wiederherstellungscode eingeben“) den Code.

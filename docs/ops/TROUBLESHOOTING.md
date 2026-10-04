@@ -319,7 +319,7 @@ Gruppen zu vier):
 # Am Geraet: mit dem Code zurueckholen, vom Datentraeger
 docker exec -e ARASUL_WIEDERHERSTELLUNGSCODE='ABCD-EFGH-…' backup-service \
   /usr/local/bin/wiederherstellen.sh --quelle extern
-# Oder in der Oberflaeche: Einstellungen → System → Sicherung → "Wiederherstellungscode".
+# Oder in der Oberflaeche: Verwaltung → Daten → Sicherung → "Wiederherstellungscode".
 # Fuer immer: ./install.sh --wiederherstellungscode 'ABCD-EFGH-…'
 # Den Code dieses Geraets zeigt: bash scripts/util/wiederherstellungscode.sh
 ```

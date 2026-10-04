@@ -32,7 +32,7 @@ const LIZENZ_BELEGUNG = 0.9;
 export function sicherungHinweis(s: SicherungStatus | undefined): Hinweis | null {
   if (!s) return null;
   const l = s.letzteSicherung;
-  const ziel = { bereich: 'system', abschnitt: 'sicherung' };
+  const ziel = { bereich: 'daten' };
   if (l.status === 'fehlt') {
     return { art: 'sicherung', text: 'Dieses Gerät hat noch nie gesichert.', ziel };
   }

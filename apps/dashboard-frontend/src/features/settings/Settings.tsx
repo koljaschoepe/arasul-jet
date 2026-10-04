@@ -13,7 +13,7 @@ import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import {
   SETTINGS_SECTIONS,
-  resolveTab,
+  bereichAusAdresse,
   resolveSystemSub,
   type SettingsSectionId,
 } from './sections';
@@ -24,7 +24,7 @@ import { FirmenordnerSettings } from './FirmenordnerSettings';
 import { SprachmodellSettings } from './SprachmodellSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
-import { PrivacySettings } from './PrivacySettings';
+import { DatenSettings } from './DatenSettings';
 import { SystemSettings } from '../system/SystemSettings';
 import { LizenzSettings } from './LizenzSettings';
 
@@ -53,7 +53,8 @@ function Settings({ modelle }: VerwaltungProps) {
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const schmal = useSchmalesFenster();
   const [isDirty, setIsDirty] = useState(false);
-  const bereich = resolveTab(ansicht.bereich ?? null);
+  // Alte Adressen (Datenschutz, System → Sicherung) landen im Bereich Daten.
+  const { bereich } = bereichAusAdresse(ansicht.bereich, ansicht.abschnitt);
   const waehle = (id: SettingsSectionId) => oeffne({ type: 'verwaltung', bereich: id });
   // „Ungespeicherte Änderungen" gehört zu dem Bereich, der sie hat.
   useEffect(() => setIsDirty(false), [bereich]);
@@ -97,10 +98,10 @@ function Settings({ modelle }: VerwaltungProps) {
             <SecuritySettings />
           </ComponentErrorBoundary>
         );
-      case 'privacy':
+      case 'daten':
         return (
-          <ComponentErrorBoundary componentName="Datenschutz">
-            <PrivacySettings />
+          <ComponentErrorBoundary componentName="Daten">
+            <DatenSettings />
           </ComponentErrorBoundary>
         );
       case 'system':

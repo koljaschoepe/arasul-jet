@@ -1,13 +1,13 @@
 import {
   AppWindow,
   Cpu,
+  Database,
   FolderTree,
   Info,
   KeyRound,
   Lock,
   Server,
   Globe,
-  ShieldAlert,
   Sparkles,
   Users,
 } from 'lucide-react';
@@ -27,8 +27,8 @@ export type SettingsSectionId =
   | 'modelle'
   | 'ki'
   | 'security'
-  | 'privacy'
   | 'system'
+  | 'daten'
   | 'lizenz'
   | 'remote-access';
 
@@ -79,15 +79,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   { id: 'security', label: 'Sicherheit', icon: <Lock /> },
   {
-    id: 'privacy',
-    label: 'Datenschutz',
-    icon: <ShieldAlert />,
-  },
-  {
     id: 'system',
     label: 'System',
     icon: <Server />,
   },
+  // Seit M5 an einer Stelle: Sicherung (vorher unter System), Auskunft und
+  // Export nach DSGVO (vorher Datenschutz), abgesetzt Person löschen und
+  // Werksreset (vorher unter System). Direkt nach dem System, weil es dieselbe
+  // Frage ist: was das Gerät hält und was daraus wird.
+  { id: 'daten', label: 'Daten', icon: <Database /> },
   // Neben dem System (J35): was das Geraet traegt, ist eine Frage an das
   // Geraet und nicht an einen Menschen -- und wer nach dem Grund sucht, warum
   // das vierte Konto nicht ging, sucht dort.
@@ -116,9 +116,11 @@ export function resolveTab(param: string | null): SettingsSectionId {
     'rag-llm': 'ki',
     services: 'system',
     updates: 'system',
-    sicherung: 'system',
     selfhealing: 'system',
-    werksreset: 'system',
+    // Seit M5 stehen Sicherung, Datenschutz und Werksreset im Bereich Daten.
+    sicherung: 'daten',
+    werksreset: 'daten',
+    privacy: 'daten',
     // Seit M5 stehen die Verbindungen auf der Seite jeder App (Auftrag
     // verwaltung-app-seite); ein altes Lesezeichen landet bei den Apps.
     verbindungen: 'apps',
@@ -132,15 +134,30 @@ export function resolveTab(param: string | null): SettingsSectionId {
 /** Initiale System-Unter-Sektion aus einem (evtl. alten) `?tab=`-Wert. */
 export function resolveSystemSub(
   param: string | null
-): 'services' | 'updates' | 'sicherung' | 'selfhealing' | 'werksreset' | undefined {
-  if (
-    param === 'updates' ||
-    param === 'sicherung' ||
-    param === 'selfhealing' ||
-    param === 'services' ||
-    param === 'werksreset'
-  ) {
+): 'services' | 'updates' | 'selfhealing' | undefined {
+  if (param === 'updates' || param === 'selfhealing' || param === 'services') {
     return param;
   }
   return undefined;
+}
+
+/**
+ * Bereich und Abschnitt einer Adresse, mit den alten Stellen auf die neue
+ * abgebildet: `/workspace/verwaltung/privacy` und
+ * `/workspace/verwaltung/system/sicherung` (oder `/werksreset`) landen im
+ * Bereich Daten. Ein Lesezeichen, das auf einen gestrichenen Bereich zeigt,
+ * führt dorthin, wo die Funktion jetzt steht, und nicht auf „Allgemein".
+ */
+export function bereichAusAdresse(
+  bereich: string | null | undefined,
+  abschnitt: string | null | undefined
+): { bereich: SettingsSectionId; abschnitt: string | undefined } {
+  if (bereich === 'system' && (abschnitt === 'sicherung' || abschnitt === 'werksreset')) {
+    return { bereich: 'daten', abschnitt: undefined };
+  }
+  const aufgeloest = resolveTab(bereich ?? null);
+  return {
+    bereich: aufgeloest,
+    abschnitt: aufgeloest === 'daten' ? undefined : (abschnitt ?? undefined),
+  };
 }

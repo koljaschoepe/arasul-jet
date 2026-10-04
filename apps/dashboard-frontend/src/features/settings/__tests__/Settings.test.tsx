@@ -65,7 +65,7 @@ function stub(testId: string, label: string) {
 
 vi.mock('../GeneralSettings', () => ({ GeneralSettings: stub('general-settings', 'General') }));
 vi.mock('../SecuritySettings', () => ({ SecuritySettings: stub('security-settings', 'Security') }));
-vi.mock('../PrivacySettings', () => ({ PrivacySettings: stub('privacy-settings', 'Privacy') }));
+vi.mock('../DatenSettings', () => ({ DatenSettings: stub('daten-settings', 'Daten') }));
 vi.mock('../RemoteAccessSettings', () => ({
   RemoteAccessSettings: stub('remote-access-settings', 'Remote Access'),
 }));
@@ -149,10 +149,34 @@ describe('Verwaltung', () => {
 
     test('unter 900 px wird die Leiste zur Auswahl über dem Bereich', () => {
       schmal = true;
-      zeige({ bereich: 'privacy' });
+      zeige({ bereich: 'daten' });
       expect(screen.queryByTestId('verwaltung-bereiche')).not.toBeInTheDocument();
-      expect(screen.getByTestId('verwaltung-bereich-wahl')).toHaveTextContent('Datenschutz');
-      expect(screen.getByTestId('privacy-settings')).toBeInTheDocument();
+      expect(screen.getByTestId('verwaltung-bereich-wahl')).toHaveTextContent('Daten');
+      expect(screen.getByTestId('daten-settings')).toBeInTheDocument();
+    });
+  });
+
+  describe('Bereich Daten', () => {
+    test('steht in der Leiste, Datenschutz gibt es dort nicht mehr', () => {
+      zeige({ bereich: 'daten' });
+      expect(screen.getByTestId('verwaltung-daten')).toBeInTheDocument();
+      expect(screen.queryByTestId('verwaltung-privacy')).not.toBeInTheDocument();
+      expect(screen.getByTestId('daten-settings')).toBeInTheDocument();
+    });
+
+    test.each([
+      [{ bereich: 'privacy' }],
+      [{ bereich: 'system', abschnitt: 'sicherung' }],
+      [{ bereich: 'system', abschnitt: 'werksreset' }],
+    ])('die alte Adresse %j landet im Bereich Daten', ansicht => {
+      zeige(ansicht);
+      expect(screen.getByTestId('daten-settings')).toBeInTheDocument();
+    });
+
+    test('System hat keinen Unterbereich Sicherung oder Werksreset mehr', () => {
+      zeige({ bereich: 'system' });
+      expect(screen.queryByRole('button', { name: 'Sicherung' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Werksreset' })).not.toBeInTheDocument();
     });
   });
 

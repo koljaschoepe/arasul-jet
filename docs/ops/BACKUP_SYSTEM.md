@@ -306,7 +306,7 @@ Ziel **außerhalb** — ein USB-Datenträger (SSD oder Stick) am Gerät.
    der Container, und ohne `rslave` blieben sie bei dem leeren Ordner.
 4. Wird er abgezogen, hängt `ExecStop` den Punkt aus und löscht `zustand.json`.
 
-Unter **Einstellungen → System → Sicherung** steht danach der **Name** des
+Unter **Verwaltung → Daten → Sicherung** steht danach der **Name** des
 Datenträgers und sein **freier Platz**; ohne Datenträger steht dort „Kein
 Datenträger angesteckt“. Der interne Pfad erscheint nirgends in der Oberfläche.
 
@@ -587,7 +587,7 @@ ein ganzer **Stand davor** (siehe unten).
 
 ### Zurückholen in der Oberfläche (M5, Auftrag sicherung-zurueckholen)
 
-Verwaltung → System → Sicherung → **Zurückholen**. Ein Weg für drei Dinge:
+Verwaltung → Daten → Sicherung → **Zurückholen**. Ein Weg für drei Dinge:
 
 | Was                           | Was zurückkommt                                                                                                             | Was bleibt                                                                                             |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |

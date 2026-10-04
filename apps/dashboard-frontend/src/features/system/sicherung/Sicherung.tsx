@@ -1,5 +1,7 @@
 /**
- * Sicherung: auslösen, nachsehen, den Weg zurück prüfen (Phase D5).
+ * Sicherung: auslösen, nachsehen, den Weg zurück prüfen (Phase D5). Seit M5
+ * der erste Teil des Bereichs Daten der Verwaltung (`DatenSettings.tsx`, der
+ * Kopf steht dort); davor ein Abschnitt unter System.
  *
  * Bis hierher war die Sicherung eine Sache für jemanden mit einer Konsole. Die
  * Wege gibt es seit C9 (`POST /api/backup/sicherung`, `GET /api/backup/status`,
@@ -27,14 +29,13 @@ import { useMemo, useState } from 'react';
 import {
   Archive,
   ChevronDown,
-  DatabaseBackup,
   KeyRound,
   Loader2,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react';
-import { Kennzahl, Kennzahlen, Kopf } from '@marken';
+import { Kennzahl, Kennzahlen } from '@marken';
 import {
   Alert,
   AlertDescription,
@@ -226,12 +227,6 @@ export function Sicherung() {
 
   return (
     <div className="animate-in fade-in" data-testid="sicherung-seite">
-      <Kopf
-        titel="Sicherung"
-        symbol={<DatabaseBackup />}
-        beschreibung="Was gesichert ist, wann zuletzt, und ob es sich zurückspielen lässt."
-      />
-
       {isLoading ? (
         <SkeletonText lines={4} />
       ) : (
@@ -265,7 +260,7 @@ export function Sicherung() {
             </p>
           )}
           <Feldgruppe
-            titel="Zustand"
+            titel="Sicherung"
             symbol={<ShieldCheck />}
             beschreibung={'Nicht „könnte sichern“, sondern „hat gesichert“.'}
             aktion={

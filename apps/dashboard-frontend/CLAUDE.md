@@ -82,17 +82,32 @@ src/
                    `?tab=`-Adressen bildet die Shell darauf ab.
                    `sections.tsx` ist die eine Liste der elf Bereiche, in
                    dieser Reihenfolge: Allgemein, Apps, Personen,
-                   Firmenordner, Modelle, KI, Sicherheit, Datenschutz,
-                   System, Lizenz, Fernzugriff. Allgemein
+                   Firmenordner, Modelle, KI, Sicherheit, System, Daten,
+                   Lizenz, Fernzugriff (`bereichAusAdresse` bildet die
+                   gestrichenen Adressen `privacy`, `system/sicherung` und
+                   `system/werksreset` auf Daten ab). Allgemein
                    (`GeneralSettings.tsx`), KI (`SprachmodellSettings.tsx`),
-                   Sicherheit, Datenschutz, Lizenz (`LizenzSettings.tsx`) und
+                   Sicherheit, Lizenz (`LizenzSettings.tsx`) und
                    Fernzugriff (`RemoteAccessSettings.tsx`) sind je eine
-                   Seite; die übrigen fünf:
+                   Seite; die übrigen sechs:
                    - **System**: Auslastung, Dienste, Aktualisierungen,
-                     Sicherung, Selbstheilung, Werksreset untereinander,
-                     jeder klappt auf (`Accordion`, nur Offenes ist
-                     gemountet; `/workspace/verwaltung/system/sicherung`
-                     kommt aufgeklappt an).
+                     Selbstheilung untereinander, jeder klappt auf
+                     (`Accordion`, nur Offenes ist gemountet;
+                     `/workspace/verwaltung/system/selfhealing` kommt
+                     aufgeklappt an).
+                   - **Daten** (`DatenSettings.tsx` + `daten/`, M5): alles,
+                     was mit den Daten des Geräts geschieht, an einer Stelle.
+                     Oben die Sicherung (`features/system/sicherung/`: SSD,
+                     letzte Sicherung, jetzt sichern, Stände, zurückholen),
+                     dann Auskunft und Export nach DSGVO je Person
+                     (`Auskunft.tsx`, `useDaten.ts`; „Meine Daten
+                     exportieren" gibt es in den Einstellungen NICHT, sie sind
+                     nur persönlich), abgesetzt in einem Rahmen „Löschen und
+                     Zurücksetzen" Person löschen (`PersonLoeschen.tsx`,
+                     Name eintippen) und Werksreset (`Werksreset.tsx`,
+                     Gerätename eintippen). Rot ist im Ruhezustand NUR dieser
+                     Rahmen (`DatenSettings.test.tsx` misst es). Löschen
+                     steht in keiner anderen Liste, auch nicht unter Personen.
                    - **Modelle**: `features/modelle/`, von der Shell als
                      Slot `modelle` hereingereicht.
                    - **Apps** (`AppsSettings.tsx` + `apps/`): Liste mit

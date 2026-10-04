@@ -9,7 +9,7 @@ import {
   type Ansicht,
 } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { resolveSystemSub, resolveTab } from '@/features/settings/sections';
+import { bereichAusAdresse, resolveSystemSub, resolveTab } from '@/features/settings/sections';
 import { StatusBar } from './StatusBar';
 import { AnsichtInhalt } from './AnsichtInhalt';
 import { cn, useSchmalesFenster } from '@marken';
@@ -27,14 +27,28 @@ export interface ShellHandgriffe {
  * `/settings?tab=remote-access` (über `InDenArbeitsbereich`) und
  * `/workspace/settings?tab=apps` aus der Zeit, als die Einstellungen die
  * Verwaltung waren. Beide landen auf dem Bereich, der Unterbereich des Systems
- * (`?tab=sicherung`) aufgeklappt.
+ * (`?tab=updates`) aufgeklappt; `?tab=sicherung`, `?tab=privacy` und `?tab=werksreset` landen im Bereich Daten.
  */
 function ausDerAdresse(pathname: string, search: string): Ansicht | null {
   const ansicht = pfadZuAnsicht(pathname.replace(/^\/workspace/, ''), search);
   const tab = new URLSearchParams(search).get('tab');
   const alterBereich =
     tab && (ansicht?.type === 'settings' || (ansicht?.type === 'verwaltung' && !ansicht.bereich));
-  if (!alterBereich) return ansicht;
+  if (!alterBereich) {
+    // Eine Adresse, die auf eine gestrichene Stelle zeigt (`verwaltung/privacy`,
+    // `verwaltung/system/sicherung`), landet im Bereich Daten.
+    if (ansicht?.type === 'verwaltung' && ansicht.bereich) {
+      const ziel = bereichAusAdresse(ansicht.bereich, ansicht.abschnitt);
+      if (ziel.bereich !== ansicht.bereich || ziel.abschnitt !== ansicht.abschnitt) {
+        return {
+          type: 'verwaltung',
+          bereich: ziel.bereich,
+          ...(ziel.abschnitt ? { abschnitt: ziel.abschnitt } : {}),
+        };
+      }
+    }
+    return ansicht;
+  }
   const bereich = resolveTab(tab);
   const abschnitt = bereich === 'system' ? resolveSystemSub(tab) : undefined;
   return { type: 'verwaltung', bereich, ...(abschnitt ? { abschnitt } : {}) };

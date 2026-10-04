@@ -431,7 +431,7 @@ describe('/api/benutzer', () => {
   test('DELETE des eigenen Kontos wird auf /gdpr/me verwiesen (400)', async () => {
     const res = await request(app()).delete('/api/benutzer/1');
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/Einstellungen → Datenschutz/);
+    expect(res.body.error.message).toMatch(/eigene Konto lässt sich hier nicht löschen/);
     expect(db.query).not.toHaveBeenCalled();
   });
 
