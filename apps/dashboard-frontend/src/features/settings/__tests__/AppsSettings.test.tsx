@@ -160,6 +160,32 @@ const LAUF_DETAIL = {
       modell: null,
     },
   ],
+  freigaben: [
+    {
+      id: 5,
+      titel: 'Erkennung unsicher: Feld datum',
+      stufe: null,
+      status: 'bestaetigt' as const,
+      angefragt_am: '2026-08-28T09:30:20.000Z',
+      entschieden_am: '2026-08-28T09:31:00.000Z',
+      entschieden_von: 'mia',
+      begruendung: null,
+      felder_schritt: 'lesen',
+      felder: [
+        { name: 'datum', vorschlag: '', unsicher: false, fehlend: true },
+        { name: 'betrag', vorschlag: '12,50', unsicher: false, fehlend: false },
+      ],
+      korrekturen: [
+        {
+          feld: 'datum',
+          vorschlag: '',
+          wert: '01.10.2026',
+          von: 'mia',
+          am: '2026-08-28T09:31:00.000Z',
+        },
+      ],
+    },
+  ],
 };
 
 const KATALOG = [
@@ -678,6 +704,11 @@ describe('AppsSettings', () => {
       'Ich hole zuerst die Freigabe ein.'
     );
     expect(screen.getByTestId('lauf-ergebnis')).toHaveTextContent('Der Bericht ist freigegeben.');
+    // Vorschlag der KI und Änderung des Menschen nebeneinander (M5).
+    expect(screen.getByTestId('lauf-feld-5-datum')).toHaveTextContent('nicht erkannt');
+    expect(screen.getByTestId('lauf-feld-5-datum-neu')).toHaveTextContent('01.10.2026');
+    expect(screen.getByTestId('lauf-feld-5-datum-neu')).toHaveTextContent('mia');
+    expect(screen.getByTestId('lauf-feld-5-betrag-neu')).toHaveTextContent('nein');
   });
 
   it('zeigt die Flow-Datei samt Auftrag an das Modell', async () => {

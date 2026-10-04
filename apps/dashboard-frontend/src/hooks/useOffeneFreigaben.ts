@@ -58,6 +58,45 @@ export interface OffeneFreigabe {
    */
   liegt_bei?: string | null;
   liegt_seit?: string | null;
+  /**
+   * Die erkannten Felder (M5, Migration 197): je Feld der Vorschlag der KI,
+   * ob es zu prüfen ist und ob es sich ändern lässt. `null` ohne Erkennung.
+   */
+  felder?: FreigabeFeldDaten[] | null;
+  /** Das Original (Bild oder PDF) als Adresse gleicher Herkunft, sonst `null`. */
+  original?: string | null;
+  /** Die früheren Freigaben desselben Laufs, älteste zuerst. */
+  frueher?: FruehereFreigabe[];
+}
+
+/** Ein erkanntes Feld, wie das Backend es an der Anfrage führt. */
+interface FreigabeFeldDaten {
+  name: string;
+  vorschlag: string;
+  unsicher: boolean;
+  fehlend: boolean;
+  aenderbar: boolean;
+}
+
+/** Eine Änderung an einem Feld beim Bestätigen: wer, wann, von was zu was. */
+interface FreigabeKorrekturDaten {
+  feld: string;
+  vorschlag: string;
+  wert: string;
+  von: string | null;
+  am: string | null;
+}
+
+/** Eine frühere Freigabe desselben Laufs. */
+interface FruehereFreigabe {
+  id: number;
+  titel: string;
+  stufe: string | null;
+  status: 'offen' | 'bestaetigt' | 'abgelehnt' | 'abgelaufen' | 'verfallen';
+  entschieden_von: string | null;
+  entschieden_am: string | null;
+  begruendung: string | null;
+  korrekturen: FreigabeKorrekturDaten[] | null;
 }
 
 /**
@@ -99,6 +138,8 @@ export interface FreigabeEntschieden {
   status: 'bestaetigt' | 'abgelehnt';
   fortgesetzt: boolean;
   benutzer: string;
+  /** Was beim Bestätigen geändert wurde; `null` = nichts. */
+  korrekturen?: FreigabeKorrekturDaten[] | null;
 }
 
 const FREIGABEN_KEY = ['freigabe-anfragen'] as const;
@@ -153,9 +194,13 @@ export function useEingereichteFreigaben() {
   });
 }
 
-/** Bestätigen oder ablehnen — eine Entscheidung, ein Aufruf. */
+/**
+ * Bestätigen oder ablehnen — eine Entscheidung, ein Aufruf. Beim Bestätigen
+ * gehen die Felder mit, die der Mensch geändert hat (M5).
+ */
 export type Entscheidung =
-  { id: number; status: 'bestaetigt' } | { id: number; status: 'abgelehnt'; begruendung: string };
+  | { id: number; status: 'bestaetigt'; felder?: Record<string, string> }
+  | { id: number; status: 'abgelehnt'; begruendung: string };
 
 /**
  * Die Entscheidung über eine Freigabe.
@@ -179,7 +224,12 @@ export function useFreigabeEntscheiden() {
         e.status === 'bestaetigt'
           ? `/freigabe-anfragen/${e.id}/bestaetigen`
           : `/freigabe-anfragen/${e.id}/ablehnen`;
-      const leib = e.status === 'abgelehnt' ? { begruendung: e.begruendung } : {};
+      const leib =
+        e.status === 'abgelehnt'
+          ? { begruendung: e.begruendung }
+          : e.felder
+            ? { felder: e.felder }
+            : {};
       const res = await api.post<{ data: FreigabeEntschieden }>(pfad, leib);
       return res.data;
     },

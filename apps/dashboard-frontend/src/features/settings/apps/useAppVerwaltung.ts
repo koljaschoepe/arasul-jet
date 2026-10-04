@@ -172,9 +172,31 @@ export interface LaufSchritt {
   modell: string | null;
 }
 
+/**
+ * Eine Freigabe des Laufs mit ihren Feldern (M5, Migration 197): was die KI
+ * vorschlug und was der Mensch beim Bestätigen änderte.
+ */
+export interface LaufFreigabe {
+  id: number;
+  titel: string;
+  stufe: string | null;
+  status: 'offen' | 'bestaetigt' | 'abgelehnt' | 'abgelaufen' | 'verfallen';
+  angefragt_am: string;
+  entschieden_am: string | null;
+  entschieden_von: string | null;
+  begruendung: string | null;
+  felder_schritt: string | null;
+  felder: { name: string; vorschlag: string; unsicher: boolean; fehlend: boolean }[] | null;
+  korrekturen:
+    | { feld: string; vorschlag: string; wert: string; von: string | null; am: string | null }[]
+    | null;
+}
+
 export interface AppLaufDetail extends AppLauf {
   result: string | null;
   steps: LaufSchritt[];
+  /** Die Freigaben des Laufs; fehlt bei einem Backend vor Migration 197. */
+  freigaben?: LaufFreigabe[];
 }
 
 /**

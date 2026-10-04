@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, CheckCircle2, Clock, ClipboardCheck, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  ClipboardCheck,
+  XCircle,
+} from 'lucide-react';
 
 import { cn } from '../cn';
 import { Badge } from '../primitive/badge';
 import { Button } from '../primitive/button';
+import { Input } from '../primitive/input';
 import { Textarea } from '../primitive/textarea';
+import { useSchmalerBehaelter } from '../useSchmalerBehaelter';
+import { Dokumentanzeige } from './Dokumentanzeige';
 import { Leerzustand } from './Leerzustand';
 import { istKnapp, restzeit, wartetSeit } from './freigabeFrist';
 
@@ -40,8 +51,59 @@ import { istKnapp, restzeit, wartetSeit } from './freigabeFrist';
  * ZWEI ANSICHTEN, EINE KOMPONENTE: die Liste (jede Freigabe als Karte mit
  * ihren Knöpfen) und die Einzelansicht (eine Freigabe ganz, mit Zurück). Wer
  * `gewaehlt` setzt, steuert sie von außen, etwa aus einer Adresse; ohne die
- * Eigenschaft führt die Komponente es selbst.
+ * Eigenschaft führt die Komponente es selbst. Nach einer Entscheidung in der
+ * Einzelansicht steht wieder die Liste da.
+ *
+ * ERKANNTE FELDER (5.4.0). Kommt eine Freigabe aus einer Erkennung, trägt sie
+ * `felder`: je Feld, was die KI vorschlug, und ob es zu prüfen ist (unsicher
+ * oder nicht erkannt). Die Einzelansicht zeigt das Original links, zoombar,
+ * und die Felder rechts; was zu prüfen ist, steht oben und trägt „prüfen",
+ * NIE eine Prozentzahl: eine Zahl wie 83 % sagt niemandem, ob er nachsehen
+ * soll, „prüfen" sagt es. Ändern lässt sich nur, was die App als `aenderbar`
+ * erklärt; `beiBestaetigen` bekommt dann die geänderten Werte als zweites
+ * Argument. In der Liste hat eine solche Freigabe statt „Bestätigen" den
+ * Knopf „Prüfen": wer bestätigt, soll die Felder gesehen haben.
+ *
+ * WAS BISHER GESCHAH. Oben steht ein Satz dazu, und die früheren Stufen
+ * desselben Vorgangs lassen sich aufklappen (`bisher`), mit wer, wann und was
+ * dort geändert wurde.
  */
+export interface FreigabeFeld {
+  /** Der Name, wie die App ihn führt (`datum`). */
+  name: string;
+  /** Was der Mensch liest; ohne Angabe der Name. */
+  bezeichnung?: string | null;
+  /** Was die KI vorschlug. Leer heißt: nicht erkannt. */
+  vorschlag: string;
+  /** Die KI war unsicher. */
+  unsicher?: boolean;
+  /** Die KI hat nichts erkannt. */
+  fehlend?: boolean;
+  /** Ein Mensch darf es in der Freigabe ändern (erklärt die App). */
+  aenderbar?: boolean;
+}
+
+/** Eine Änderung an einem Feld: was vorgeschlagen war, was jetzt gilt, wer, wann. */
+export interface FreigabeKorrektur {
+  feld: string;
+  vorschlag: string;
+  wert: string;
+  von?: string | null;
+  am?: string | null;
+}
+
+/** Eine frühere Stufe desselben Vorgangs. */
+export interface FreigabeStation {
+  titel: string;
+  /** Die Stufe in Worten („Prüfung"), sonst nichts. */
+  stufe?: string | null;
+  status: 'offen' | 'bestaetigt' | 'abgelehnt' | 'abgelaufen' | 'verfallen';
+  entschiedenVon?: string | null;
+  entschiedenAm?: string | null;
+  begruendung?: string | null;
+  korrekturen?: FreigabeKorrektur[] | null;
+}
+
 export interface FreigabeEintrag {
   id: string | number;
   titel: string;
@@ -65,12 +127,29 @@ export interface FreigabeEintrag {
   entschiedenAm?: string | null;
   /** Der Grund einer Ablehnung. */
   begruendung?: string | null;
+  /** Die erkannten Felder (5.4.0). Ohne sie ist es eine Freigabe ohne Felder. */
+  felder?: FreigabeFeld[] | null;
+  /** Das Original als Adresse gleicher Herkunft (Bild oder PDF), links neben den Feldern. */
+  original?: string | null;
+  /** Was beim Bestätigen geändert wurde (nach der Entscheidung). */
+  korrekturen?: FreigabeKorrektur[] | null;
+  /** Die früheren Stufen desselben Vorgangs, älteste zuerst. */
+  bisher?: FreigabeStation[] | null;
+  /** Was unter der Karte steht, etwa bei wem sie liegt. */
+  fuss?: ReactNode;
 }
 
 export interface FreigabeProps {
   eintraege: FreigabeEintrag[];
-  /** Bestätigen. Darf ein Versprechen geben; solange es läuft, sind die Knöpfe gesperrt. */
-  beiBestaetigen: (eintrag: FreigabeEintrag) => void | Promise<unknown>;
+  /**
+   * Bestätigen. Darf ein Versprechen geben; solange es läuft, sind die Knöpfe
+   * gesperrt. Trägt die Freigabe Felder und hat jemand eines geändert, kommen
+   * die geänderten Werte als zweites Argument (Name → neuer Wert).
+   */
+  beiBestaetigen: (
+    eintrag: FreigabeEintrag,
+    geaendert?: Record<string, string>
+  ) => void | Promise<unknown>;
   /** Ablehnen, mit dem Grund (nie leer). */
   beiAblehnen: (eintrag: FreigabeEintrag, grund: string) => void | Promise<unknown>;
   /** Die Einzelansicht von außen steuern; `null` ist die Liste. */
@@ -134,6 +213,200 @@ function Entscheidung({ e }: { e: FreigabeEintrag }) {
   );
 }
 
+const zuPruefen = (f: FreigabeFeld) => Boolean(f.unsicher || f.fehlend);
+
+/** Was zu prüfen ist zuerst, sonst in der Reihenfolge der App. */
+function geordnet(felder: FreigabeFeld[]): FreigabeFeld[] {
+  return felder
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => Number(zuPruefen(b.f)) - Number(zuPruefen(a.f)) || a.i - b.i)
+    .map(({ f }) => f);
+}
+
+const STATUS_WORT: Record<FreigabeStation['status'], string> = {
+  offen: 'offen',
+  bestaetigt: 'bestätigt',
+  abgelehnt: 'abgelehnt',
+  abgelaufen: 'Frist abgelaufen',
+  verfallen: 'verfallen',
+};
+
+/** Eine Station in einem Halbsatz: „Prüfung bestätigt von bernd, 1 Feld geändert". */
+function stationSatz(s: FreigabeStation): string {
+  const geaendert = s.korrekturen?.length ?? 0;
+  return (
+    `${s.stufe || s.titel} ${STATUS_WORT[s.status]}` +
+    (s.entschiedenVon ? ` von ${s.entschiedenVon}` : '') +
+    (geaendert === 1 ? ', 1 Feld geändert' : geaendert > 1 ? `, ${geaendert} Felder geändert` : '')
+  );
+}
+
+/**
+ * Der Satz oben: was bisher geschah. Aus den früheren Stufen und der Erkennung,
+ * nicht vom Aufrufer formuliert, damit jede App denselben Satz zeigt.
+ */
+function geschichte(e: FreigabeEintrag): string | null {
+  const teile: string[] = [];
+  const bisher = e.bisher ?? [];
+  if (bisher.length > 0) {
+    teile.push(`Bisher: ${bisher.map(stationSatz).join('; ')}.`);
+  }
+  const felder = e.felder ?? [];
+  if (felder.length > 0) {
+    const pruefen = felder.filter(zuPruefen).length;
+    teile.push(
+      `Die KI hat ${felder.length === 1 ? '1 Feld' : `${felder.length} Felder`} erkannt` +
+        (pruefen === 0
+          ? '.'
+          : `, ${pruefen === 1 ? '1 davon ist' : `${pruefen} davon sind`} zu prüfen.`)
+    );
+  }
+  return teile.length > 0 ? teile.join(' ') : null;
+}
+
+/** Die früheren Stufen, zugeklappt. */
+function Bisher({ e }: { e: FreigabeEintrag }) {
+  const [offen, setOffen] = useState(false);
+  const bisher = e.bisher ?? [];
+  if (bisher.length === 0) return null;
+  return (
+    <div className="mt-1" data-testid={`freigabe-${e.id}-bisher`}>
+      <button
+        type="button"
+        onClick={() => setOffen(o => !o)}
+        aria-expanded={offen}
+        className="flex items-center gap-1 text-ui-xs text-muted-foreground hover:text-foreground"
+        data-testid={`freigabe-${e.id}-bisher-schalter`}
+      >
+        {offen ? (
+          <ChevronDown className="size-3.5" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="size-3.5" aria-hidden="true" />
+        )}
+        {bisher.length === 1 ? 'Frühere Stufe' : `${bisher.length} frühere Stufen`}
+      </button>
+      {offen && (
+        <ol className="mt-1 flex flex-col gap-2 border-l border-border pl-3">
+          {bisher.map((s, i) => (
+            <li key={i} className="text-ui-xs">
+              <p className="font-medium text-foreground">{stationSatz(s)}</p>
+              {istZahl(s.entschiedenAm) && (
+                <p className="text-muted-foreground">{DATUM(s.entschiedenAm)}</p>
+              )}
+              {s.begruendung && (
+                <p className="whitespace-pre-wrap text-muted-foreground">Grund: {s.begruendung}</p>
+              )}
+              {s.korrekturen && s.korrekturen.length > 0 && <Korrekturen liste={s.korrekturen} />}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** Vorschlag und Änderung je Feld, nach der Entscheidung. */
+function Korrekturen({ liste }: { liste: FreigabeKorrektur[] }) {
+  return (
+    <ul className="mt-1 flex flex-col gap-0.5 text-ui-xs" data-testid="freigabe-korrekturen">
+      {liste.map(k => (
+        <li key={k.feld}>
+          <span className="font-medium text-foreground">{k.feld}</span>:{' '}
+          <span className="text-muted-foreground line-through">{k.vorschlag || 'leer'}</span> →{' '}
+          <span className="text-foreground">{k.wert || 'leer'}</span>
+          {k.von ? <span className="text-muted-foreground"> ({k.von})</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Die erkannten Felder. Offen und aenderbar: ein Eingabefeld mit dem Vorschlag
+ * darin; sonst der Wert als Text. Was zu prüfen ist, steht oben mit „prüfen".
+ */
+function Felder({
+  e,
+  werte,
+  setzeWert,
+  bearbeitbar,
+}: {
+  e: FreigabeEintrag;
+  werte: Record<string, string>;
+  setzeWert: (name: string, wert: string) => void;
+  bearbeitbar: boolean;
+}) {
+  const felder = geordnet(e.felder ?? []);
+  return (
+    <dl className="flex flex-col gap-ui-2" data-testid={`freigabe-${e.id}-felder`}>
+      {felder.map(f => {
+        const name = f.bezeichnung || f.name;
+        const wert = werte[f.name] ?? f.vorschlag;
+        const geaendert = wert !== f.vorschlag;
+        const kennung = `freigabe-${e.id}-feld-${f.name}`;
+        return (
+          <div key={f.name} data-testid={kennung} data-pruefen={zuPruefen(f) ? 'ja' : 'nein'}>
+            <dt className="flex items-center gap-2 text-ui-xs text-muted-foreground">
+              <label htmlFor={bearbeitbar && f.aenderbar ? `${kennung}-eingabe` : undefined}>
+                {name}
+              </label>
+              {zuPruefen(f) && (
+                <Badge variant="warning" data-testid={`${kennung}-pruefen`}>
+                  prüfen
+                </Badge>
+              )}
+            </dt>
+            <dd className="mt-0.5">
+              {bearbeitbar && f.aenderbar ? (
+                <Input
+                  id={`${kennung}-eingabe`}
+                  value={wert}
+                  maxLength={2000}
+                  onChange={ev => setzeWert(f.name, ev.target.value)}
+                  placeholder={f.fehlend ? 'nicht erkannt' : undefined}
+                  data-testid={`${kennung}-eingabe`}
+                />
+              ) : (
+                <p className="text-ui-sm text-foreground" data-testid={`${kennung}-wert`}>
+                  {f.vorschlag || <span className="text-muted-foreground">nicht erkannt</span>}
+                </p>
+              )}
+              {bearbeitbar && geaendert && (
+                <p className="mt-0.5 text-ui-xs text-muted-foreground">
+                  Vorschlag der KI: {f.vorschlag || 'leer'}
+                </p>
+              )}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}
+
+/**
+ * Original links, Felder rechts; im schmalen Behälter untereinander, das
+ * Original zuerst. Ohne Original stehen die Felder allein.
+ */
+function OriginalUndFelder({ e, children }: { e: FreigabeEintrag; children: ReactNode }) {
+  const [ref, schmal] = useSchmalerBehaelter<HTMLDivElement>(640);
+  if (!e.original) {
+    return <div className="mt-3">{children}</div>;
+  }
+  return (
+    <div
+      ref={ref}
+      className={cn('mt-3 grid gap-ui-3', schmal ? 'grid-cols-1' : 'grid-cols-[3fr_2fr]')}
+      data-testid={`freigabe-${e.id}-original-und-felder`}
+    >
+      <div data-testid={`freigabe-${e.id}-original`}>
+        <Dokumentanzeige quelle={e.original} name="Original" hoehe="28rem" />
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
 interface KarteProps {
   e: FreigabeEintrag;
   einzeln: boolean;
@@ -141,6 +414,8 @@ interface KarteProps {
   beiAblehnen: FreigabeProps['beiAblehnen'];
   beiOeffnen?: () => void;
   beiZurueck?: () => void;
+  /** Nach einer erfolgreichen Entscheidung (Einzelansicht: zurück zur Liste). */
+  beiEntschieden?: () => void;
   jetzt?: number;
 }
 
@@ -152,11 +427,23 @@ function FreigabeKarte({
   beiAblehnen,
   beiOeffnen,
   beiZurueck,
+  beiEntschieden,
   jetzt,
 }: KarteProps) {
   const [ablehnenOffen, setAblehnenOffen] = useState(false);
   const [grund, setGrund] = useState('');
   const [laeuft, setLaeuft] = useState(false);
+  // Was der Mensch an den Feldern geändert hat, Name → Wert. Nur die
+  // geänderten gehen beim Bestätigen mit.
+  const [werte, setWerte] = useState<Record<string, string>>({});
+  const hatFelder = (e.felder?.length ?? 0) > 0;
+  const geaendert = (): Record<string, string> | undefined => {
+    const liste = Object.entries(werte).filter(([name, wert]) => {
+      const f = e.felder?.find(x => x.name === name);
+      return f && f.aenderbar && wert !== f.vorschlag;
+    });
+    return liste.length > 0 ? Object.fromEntries(liste) : undefined;
+  };
   const feld = useRef<HTMLTextAreaElement>(null);
   // Der Zeiger springt in das Feld, sobald es aufklappt: wer „Ablehnen"
   // drückt, will schreiben. Als Effekt und nicht als `autoFocus`: das
@@ -250,13 +537,30 @@ function FreigabeKarte({
 
       <Herkunft e={e} jetzt={jetzt} />
 
+      {einzeln && geschichte(e) && (
+        <p className="mt-2 text-ui-sm text-foreground" data-testid={`freigabe-${e.id}-geschichte`}>
+          {geschichte(e)}
+        </p>
+      )}
+      {einzeln && <Bisher e={e} />}
+      {!einzeln && hatFelder && offen && (
+        <p
+          className="mt-1 text-ui-xs text-muted-foreground"
+          data-testid={`freigabe-${e.id}-hinweis`}
+        >
+          {geschichte(e)}
+        </p>
+      )}
+
       {e.regel && (
         <p className="mt-1 text-ui-xs text-muted-foreground" data-testid={`freigabe-${e.id}-regel`}>
           {e.regel}
         </p>
       )}
 
-      {e.zusammenhang && (
+      {/* Mit erkannten Feldern sagen die Felder, worum es geht; der Zusammenhang
+          ist dann die Rohform derselben Auskunft und bleibt der App. */}
+      {e.zusammenhang && !hatFelder && (
         <p
           className={cn(
             'mt-2 text-ui-sm whitespace-pre-wrap',
@@ -267,13 +571,33 @@ function FreigabeKarte({
         </p>
       )}
 
+      {einzeln && hatFelder && (
+        <OriginalUndFelder e={e}>
+          <Felder
+            e={e}
+            werte={werte}
+            setzeWert={(name, wert) => setWerte(w => ({ ...w, [name]: wert }))}
+            bearbeitbar={offen && !laeuft}
+          />
+        </OriginalUndFelder>
+      )}
+
       {offen && istZahl(e.frist) && einzeln && (
         <p className="mt-2 text-ui-xs text-muted-foreground">Frist: {DATUM(e.frist)}</p>
       )}
 
       {!offen && <Entscheidung e={e} />}
+      {!offen && e.korrekturen && e.korrekturen.length > 0 && <Korrekturen liste={e.korrekturen} />}
 
-      {offen && (
+      {offen && !einzeln && hatFelder && beiOeffnen && (
+        <div className="mt-3">
+          <Button variant="solid" onClick={beiOeffnen} data-testid={`freigabe-${e.id}-pruefen`}>
+            Prüfen
+          </Button>
+        </div>
+      )}
+
+      {offen && (einzeln || !hatFelder || !beiOeffnen) && (
         <div className="mt-3">
           {ablehnenOffen ? (
             <form
@@ -282,7 +606,13 @@ function FreigabeKarte({
                 ev.preventDefault();
                 const text = grund.trim();
                 if (!text) return;
-                void ausfuehren(() => beiAblehnen(e, text), zuruecksetzen);
+                void ausfuehren(
+                  () => beiAblehnen(e, text),
+                  () => {
+                    zuruecksetzen();
+                    beiEntschieden?.();
+                  }
+                );
               }}
             >
               {/* Pflichtfeld, und das ist eine Entscheidung über Umgangsformen:
@@ -317,7 +647,13 @@ function FreigabeKarte({
               <Button
                 variant="solid"
                 disabled={laeuft}
-                onClick={() => void ausfuehren(() => beiBestaetigen(e))}
+                onClick={() => {
+                  const neu = geaendert();
+                  void ausfuehren(
+                    () => (neu ? beiBestaetigen(e, neu) : beiBestaetigen(e)),
+                    beiEntschieden
+                  );
+                }}
                 data-testid={`freigabe-${e.id}-bestaetigen`}
               >
                 {laeuft ? 'Einen Moment …' : 'Bestätigen'}
@@ -370,7 +706,9 @@ export function Freigabe({
           beiBestaetigen={beiBestaetigen}
           beiAblehnen={beiAblehnen}
           beiZurueck={() => waehlen(null)}
+          beiEntschieden={() => waehlen(null)}
         />
+        {eins.fuss}
       </div>
     );
   }
@@ -401,6 +739,7 @@ export function Freigabe({
             beiAblehnen={beiAblehnen}
             beiOeffnen={() => waehlen(e.id)}
           />
+          {e.fuss}
         </li>
       ))}
     </ul>

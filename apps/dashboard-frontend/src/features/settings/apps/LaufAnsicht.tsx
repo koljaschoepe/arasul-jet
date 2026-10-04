@@ -19,7 +19,7 @@ import { ArrowLeft, ChevronDown, ChevronRight, Brain, PenLine, Users, Info } fro
 import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { formatDate } from '@/utils/formatting';
-import type { LaufSchritt } from './useAppVerwaltung';
+import type { LaufFreigabe, LaufSchritt } from './useAppVerwaltung';
 import { useAppLauf } from './useAppVerwaltung';
 
 /** Der Zustand eines Laufs in einem Wort, mit Farbe. */
@@ -126,6 +126,80 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
   );
 }
 
+/**
+ * Die erkannten Felder einer Freigabe (M5): je Feld der Vorschlag der KI und,
+ * wenn ein Mensch es beim Bestätigen änderte, der neue Wert mit wer und wann.
+ * Eine Tabelle und keine Fließtext-Zeile: wer nachliest, vergleicht Spalten.
+ */
+function FreigabeFelder({ f }: { f: LaufFreigabe }) {
+  const nachFeld = new Map((f.korrekturen ?? []).map(k => [k.feld, k]));
+  return (
+    <div className="rounded-md border border-border p-ui-3" data-testid={`lauf-freigabe-${f.id}`}>
+      <p className="text-sm font-medium text-foreground">{f.titel}</p>
+      <p className="mb-2 text-ui-xs text-muted-foreground">
+        {f.status === 'bestaetigt'
+          ? `Bestätigt von ${f.entschieden_von ?? 'einem Menschen'}`
+          : f.status === 'abgelehnt'
+            ? `Abgelehnt von ${f.entschieden_von ?? 'einem Menschen'}`
+            : f.status === 'offen'
+              ? 'Wartet auf Entscheidung'
+              : f.status === 'abgelaufen'
+                ? 'Frist abgelaufen'
+                : 'Verfallen'}
+        {f.entschieden_am ? `, ${formatDate(f.entschieden_am)}` : ''}
+        {f.felder_schritt ? ` · Schritt ${f.felder_schritt}` : ''}
+      </p>
+      <table className="w-full text-ui-sm">
+        <thead>
+          <tr className="text-left text-ui-xs text-muted-foreground">
+            <th className="py-1 pr-3 font-medium">Feld</th>
+            <th className="py-1 pr-3 font-medium">Vorschlag der KI</th>
+            <th className="py-1 font-medium">Geändert</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(f.felder ?? []).map(feld => {
+            const k = nachFeld.get(feld.name);
+            return (
+              <tr
+                key={feld.name}
+                className="border-t border-border align-top"
+                data-testid={`lauf-feld-${f.id}-${feld.name}`}
+              >
+                <td className="py-1 pr-3 font-mono text-ui-xs text-foreground">
+                  {feld.name}
+                  {(feld.unsicher || feld.fehlend) && (
+                    <span className="ml-1 font-sans text-muted-foreground">(prüfen)</span>
+                  )}
+                </td>
+                <td className="py-1 pr-3 text-foreground">
+                  {feld.vorschlag || <span className="text-muted-foreground">nicht erkannt</span>}
+                </td>
+                <td
+                  className="py-1 text-foreground"
+                  data-testid={`lauf-feld-${f.id}-${feld.name}-neu`}
+                >
+                  {k ? (
+                    <>
+                      {k.wert || <span className="text-muted-foreground">leer</span>}
+                      <span className="block text-ui-xs text-muted-foreground">
+                        {k.von ?? 'unbekannt'}
+                        {k.am ? `, ${formatDate(k.am)}` : ''}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">nein</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function LaufAnsicht({
   appId,
   runId,
@@ -220,6 +294,21 @@ export function LaufAnsicht({
               </ul>
             )}
           </div>
+
+          {(lauf.freigaben ?? []).some(f => f.felder && f.felder.length > 0) && (
+            <div data-testid="lauf-freigabe-felder">
+              <h4 className="mb-1 text-sm font-semibold text-foreground">
+                Erkannte Felder und Änderungen
+              </h4>
+              <div className="flex flex-col gap-2">
+                {(lauf.freigaben ?? [])
+                  .filter(f => f.felder && f.felder.length > 0)
+                  .map(f => (
+                    <FreigabeFelder key={f.id} f={f} />
+                  ))}
+              </div>
+            </div>
+          )}
 
           {lauf.result && (
             <div>
