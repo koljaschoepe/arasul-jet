@@ -106,7 +106,7 @@ export function terminInWorten(iso: string, zone: string, jetzt: Date = new Date
 function zeitplanSatz(z: FlowZeitplan): string {
   switch (z.laeuft_nicht) {
     case 'teststand':
-      return 'Im Teststand läuft kein Zeitplan.';
+      return 'Im Test läuft kein Zeitplan, nur live.';
     case 'pausiert':
       return 'Zeitplan pausiert, der Flow startet nicht von allein.';
     case 'ausgeschaltet':

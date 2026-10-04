@@ -279,7 +279,7 @@ Prompt; eine gelöschte Vorlage wird still übersprungen.
 
 ## Zeitplaner: Flows nach Uhrzeit (M5, 04.10.2026)
 
-Das Gerät hat einen eigenen Zeitplaner (`services/flows/zeitplaner.js`, Rechnung
+Das Gerät hat einen eigenen Zeitplaner (`apps/dashboard-backend/src/services/flows/zeitplaner.js`, Rechnung
 in `zeitplan.js`). Ein Flow, dessen Kopf einen Auslöser `zeitplan` nennt,
 
 ```yaml
