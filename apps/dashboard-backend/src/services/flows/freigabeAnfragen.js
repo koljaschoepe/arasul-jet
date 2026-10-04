@@ -1640,6 +1640,46 @@ async function schliesseOffeneDesLaufs({ runId, datenbank = db }) {
   return rows.length;
 }
 
+/**
+ * Eine App wird entfernt (Auftrag app-entfernen-raeumt-auf): ihre laufenden und
+ * wartenden Laeufe enden als `abgebrochen` mit dem Grund „App entfernt", ihre
+ * offenen Freigaben als `verfallen`. Ohne das zaehlen sie weiter, und wer sie
+ * ablehnen will, bekommt 403, weil `app_members` die App nicht mehr kennt.
+ *
+ * Zuerst die Datenbank, dann das Signal: so steht der Grund des Entfernens im
+ * Lauf, nicht der des Fadens („Lauf wurde abgebrochen, waehrend er wartete").
+ *
+ * @returns {Promise<{laeufe:number, freigaben:number}>}
+ */
+async function brecheLaeufeDerAppAb(appId, { datenbank = db } = {}) {
+  const grund = 'App entfernt';
+  const { rows } = await datenbank.query(
+    `SELECT id FROM flow_runs WHERE app_id = $1 AND status IN ('laeuft', 'wartend')`,
+    [appId]
+  );
+  const flowRunner = require('./flowRunner');
+  for (const { id } of rows) {
+    await beendeLauf({ runId: id, status: 'abgebrochen', grund }, { datenbank });
+    await schliesseOffeneSchritte({ runId: id, text: grund, datenbank });
+    flowRunner.signalAbbruch(id);
+  }
+  // Auch Anfragen, deren Lauf schon beendet ist, aber die Zeile noch offen
+  // liess: nach dem Entfernen gibt es niemanden mehr, der sie bestaetigen darf.
+  const { rows: offene } = await datenbank.query(
+    `UPDATE public.approvals
+        SET status = 'verfallen', entschieden_am = NOW(), begruendung = $2
+      WHERE app_id = $1 AND status = 'offen'
+      RETURNING id`,
+    [appId, grund]
+  );
+  for (const { id } of offene) {
+    const eintrag = wartende.get(String(id));
+    eintrag?.uhr?.abstellen();
+    wartende.delete(String(id));
+  }
+  return { laeufe: rows.length, freigaben: offene.length };
+}
+
 /** Nur fuer Tests: alle wartenden Laeufe vergessen. */
 function _reset() {
   for (const eintrag of wartende.values()) {
@@ -1664,6 +1704,7 @@ module.exports = {
   verwaisteSchliessen,
   wiederaufnehmen,
   schliesseOffeneDesLaufs,
+  brecheLaeufeDerAppAb,
   beendeLauf,
   erteiltText,
   felderDerErkennung,

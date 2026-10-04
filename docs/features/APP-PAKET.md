@@ -170,8 +170,11 @@ jemand hastig Knöpfe.
 **`DELETE` fragt zurück.** Die Rückfrage einer Schnittstelle ist kein Dialog,
 sondern ein Wort, das der Aufrufer abtippen muss: `?bestaetigung=<id>`. Es
 fallen beide Container **mitsamt ihren Volumes**, beide Stände, alle Freigaben
-und die Schlüssel der App. Mit `&dateien=true` auch die Ordner unter
-`/arasul/apps/<id>/`.
+und die Schlüssel der App. Die Ordner unter `/arasul/apps/<id>/` gehen mit;
+nur `&dateien=false` lässt sie liegen (bis 04.10.2026 war es umgekehrt, und nach
+`app.mjs --remove` blieb sechsmal ein Paketordner liegen). Laufende und
+wartende Läufe der App enden als `abgebrochen` mit dem Grund „App entfernt“,
+ihre offenen Freigaben als `verfallen`.
 
 ## Der Schlüssel
 

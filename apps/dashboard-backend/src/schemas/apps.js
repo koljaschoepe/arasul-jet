@@ -506,7 +506,7 @@ const EntfernenSitzungQuery = z
   .object({
     dateien: z
       .enum(['true', 'false'])
-      .default('false')
+      .default('true')
       .transform(v => v === 'true'),
   })
   .strict();
@@ -516,7 +516,7 @@ const EntfernenQuery = z
     bestaetigung: z.string().trim().min(1, 'Rueckfrage: die Kennung der App als `bestaetigung`'),
     dateien: z
       .enum(['true', 'false'])
-      .default('false')
+      .default('true')
       .transform(v => v === 'true'),
   })
   .strict();

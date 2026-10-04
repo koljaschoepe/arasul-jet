@@ -615,15 +615,21 @@ async function imageNamenVon(appId, staende) {
  * Eine App entfernen: beide Container mitsamt ihren Volumes, die am Geraet
  * gebauten Images, beide Staende, alle Freigaben, die Zeile.
  *
- * Die Ordner unter `/arasul/apps/<id>/` bleiben liegen, wenn niemand etwas
- * anderes sagt: wer eine App entfernt, will sie ueblicherweise gleich wieder
- * einspielen, und die Dateien wegzuwerfen hiesse, den naechsten Deploy zum
- * vollen Deploy zu machen. Aufraeumen tut sonst der Werksreset.
+ * Die Ordner unter `/arasul/apps/<id>/` gehen MIT, wenn niemand etwas anderes
+ * sagt (Auftrag app-entfernen-raeumt-auf, 04.10.2026). Vorher war die Vorgabe
+ * umgekehrt, und nur wer `?dateien=true` anhaengte, raeumte auf: die
+ * Abnahmen am Jet taten das, das Kit (`app.mjs --remove`) nicht -- sechsmal
+ * blieb ein Paketordner liegen. Eine Vorgabe, die der haeufigste Aufrufer
+ * vergisst, ist die falsche Vorgabe. Wer die Dateien behalten will, sagt
+ * `dateien: false` (`?dateien=false`).
  *
- * `dateien: true` nimmt sie mit. Der Deploy-Endpunkt aus C5 hat sie selbst
- * dorthin gelegt, und ein Kit, das aus der Ferne einspielen kann, muss auch
- * aus der Ferne aufraeumen koennen -- sonst waechst das Geraet mit jeder
- * verworfenen Version, ohne dass jemand ohne SSH etwas dagegen tun kann.
+ * Der Deploy-Endpunkt aus C5 hat sie selbst dorthin gelegt, und ein Kit, das
+ * aus der Ferne einspielen kann, muss auch aus der Ferne aufraeumen koennen --
+ * sonst waechst das Geraet mit jeder verworfenen Version, ohne dass jemand
+ * ohne SSH etwas dagegen tun kann.
+ *
+ * Laufende und wartende Laeufe der App enden als `abgebrochen` mit dem Grund
+ * „App entfernt", ihre offenen Freigaben als `verfallen`.
  *
  * DIE IMAGES GEHEN IMMER MIT, auch ohne `dateien` (Phase C6). Sie sind nicht
  * die Quelle, aus der sich ein zweiter Deploy bedient -- das ist der Ordner --
@@ -637,12 +643,16 @@ async function imageNamenVon(appId, staende) {
  * @param {string} appId
  * @param {{dateien?: boolean}} [wie]
  */
-async function entferneApp(appId, { dateien = false } = {}) {
+async function entferneApp(appId, { dateien = true } = {}) {
   const vorhanden = await db.query('SELECT id FROM public.apps WHERE id = $1', [appId]);
   if (vorhanden.rows.length === 0) {
     throw new NotFoundError(`App ${appId} gibt es am Gerät nicht`);
   }
   const images = await imageNamenVon(appId, await staendeVon(appId));
+
+  // Laeufe und Freigaben zuerst: solange der Container steht, kann ein Lauf
+  // noch ein Werkzeug der App rufen.
+  const abgebrochen = await require('../flows/freigabeAnfragen').brecheLaeufeDerAppAb(appId);
 
   for (const stand of ['test', 'live']) {
     await appContainer.entferne(appId, stand);
@@ -680,6 +690,8 @@ async function entferneApp(appId, { dateien = false } = {}) {
     dateien_entfernt: dateien ? versionen : null,
     images_entfernt: entfernteImages,
     datenbanken_entfernt: entfernteDatenbanken,
+    laeufe_abgebrochen: abgebrochen.laeufe,
+    freigaben_geschlossen: abgebrochen.freigaben,
   };
 }
 

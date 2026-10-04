@@ -314,6 +314,23 @@ async function abbrechen({ runId, userId }, deps = {}) {
 }
 
 /**
+ * Das Abort-Signal eines aktiven Laufs setzen, ohne Eigentuemerpruefung und
+ * ohne die DB anzufassen (die schreibt der Aufrufer). Fuer das Entfernen einer
+ * App: ihre Laeufe gehoeren niemandem mehr.
+ *
+ * @returns {boolean} ob ein Prozess den Lauf hielt
+ */
+function signalAbbruch(runId) {
+  const eintrag = aktive.get(Number(runId));
+  if (!eintrag) {
+    return false;
+  }
+  eintrag.controller.abort();
+  eintrag.bus.emit('evt', { type: 'ende', status: 'abgebrochen', runId });
+  return true;
+}
+
+/**
  * Markiert beim Hochfahren alle noch als „laeuft" stehenden Läufe als Fehler.
  * Nach einem Backend-Neustart gibt es keinen Prozess mehr, der sie fortsetzt —
  * sie würden sonst für immer als laufend gelten.
@@ -384,6 +401,7 @@ module.exports = {
   abonnieren,
   istAktiv,
   abbrechen,
+  signalAbbruch,
   verwaisteAufraeumen,
   _aktive: aktive,
   _reset,
