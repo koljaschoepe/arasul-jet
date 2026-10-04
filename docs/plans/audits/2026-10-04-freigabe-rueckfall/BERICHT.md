@@ -43,10 +43,10 @@ keine offene Freigabe, Wegwerf-Schlüssel widerrufen.
 - **Tieflink:** bei `probe-tieflink-1004` (`app_zeigt_freigaben=true`) lädt
   derselbe Klick die App im Rahmen mit `/apps/probe-tieflink-1004/?freigabe=157`;
   nichts geht in Arasul auf (`tieflink-app.png`).
-- **belege (Faktum), nur lesend:** `app_staende` führt für `belege` live und
+- **belege, nur lesend:** `app_staende` führt für `belege` live und
   test 0.3.0, keines der Manifeste nennt `zeigt_freigaben`. Der Rückfall greift
   also für ihre Buchungsfreigaben. Es wurde nichts entschieden oder geändert;
-  `belege`, `abschluss` und `probe-faktum-belege` blieben unberührt.
+  `belege`, `abschluss` und die Probe zu `belege` blieben unberührt.
 
 ## Folge fürs Kit
 

@@ -1271,6 +1271,14 @@ pruefe "Marken: gar keine Fassung im Manifest ist rot" 1 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 cp "$WURZEL/tests/beispielapp/app.json" "$MA/tests/beispielapp/app.json"
 
+# Punkt 11: der Kundenname, irgendwo im Repo, hier in einem Skript. Er wird
+# zusammengesetzt, damit diese Zeile ihn nicht selbst traegt.
+mkdir -p "$MA/scripts"
+printf '# fuer %s\n' "F""aktum" > "$MA/scripts/kunde.sh"
+pruefe "Marken: der Kundenname in einem Skript ist rot" 1 \
+  python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
+rm "$MA/scripts/kunde.sh"
+
 pruefe "Marken: nach jeder Reparatur wieder gruen" 0 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 

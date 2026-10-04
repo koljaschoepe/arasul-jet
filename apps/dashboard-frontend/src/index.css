@@ -2470,7 +2470,7 @@
    Am 29.08.2026 am Orin gemessen. Die Mitarbeiter-Tabelle rollt seit D4
    absichtlich in SICH (`min-w-[42rem]` in einem `overflow-x-auto`), und in
    ihren Knoepfen sitzt je ein `.sr-only` -- `position: absolute`, 1 px breit,
-   fuer den Vorleser. Bei 1024 px mit offener Notizspalte ist die Mitte 493 px
+   fuer den Vorleser. Bei 1024 px mit der damaligen Notizspalte war die Mitte 493 px
    und die Tabelle 798 px; die sieben `.sr-only` standen damit bei x=1042 und
    schoben die Seite auf 1042 statt 1024. Die Abnahme sah „rollt waagerecht",
    und zu sehen war nichts, denn was sie schob, ist einen Pixel breit.

@@ -17,7 +17,7 @@
 #                 Leiste.
 #
 # Vier Probe-Apps `probe-leiste-<STEMPEL>-1` bis `-4` aus `tests/probe-leiste`
-# (nur Frontend, nie `abschluss`, `belege`, `probe-faktum-belege`). Konten: zwei
+# (nur Frontend, nie `abschluss`, `belege` oder deren Probe). Konten: zwei
 # VORHANDENE Probekonten, nie `admin`, keine neuen. Passwörter nur zur
 # Laufzeit, nie in Dateien:
 #

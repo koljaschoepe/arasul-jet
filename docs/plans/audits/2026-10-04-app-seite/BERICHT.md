@@ -8,7 +8,7 @@ angewendet) und 37187180172, alle Dienste gesund, mit
 `probe-seite-1004` aus `tests/probe-stufen`, eingetragen `example.org` und
 `localtest.me`. Konten: `probe-admin`, `probe-j36-a` (Testperson),
 `probe-j36-b` (nur Live), keine neuen. `abschluss`, `belege` und
-`probe-faktum-belege` blieben unberührt.
+die Probe zu `belege` blieben unberührt.
 
 ## Ergebnis
 

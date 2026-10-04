@@ -4,4 +4,4 @@
  * liegt dort. Diese Datei reicht sie weiter, damit die Übersicht und ihre
  * Tests dieselben Funktionen lesen und es keine zweite Fassung gibt.
  */
-export { restzeit, istKnapp, wartetSeit, oderListe } from '@marken/muster/freigabeFrist';
+export { wartetSeit, oderListe } from '@marken/muster/freigabeFrist';

@@ -913,7 +913,7 @@ heraus.
 (J35, 26.09.2026). Docker startet die App-Container (`unless-stopped`) selbst,
 sobald der Dienst steht — Postgres dagegen legt erst `ordered-startup.sh` an,
 und zwar später. Am Orin kam `belege-live` 40 Sekunden vor `postgres-db` hoch,
-und die Faktum-App lief danach ohne Datenbank weiter. Deshalb startet das
+und die App `belege` lief danach ohne Datenbank weiter. Deshalb startet das
 Backend, nachdem es die App-Datenbanken geheilt hat (`heileAlle`), jeden
 laufenden App-Container neu, der **vor** `pg_postmaster_start_time()`
 gestartet ist (`appDatenbank.appsNachDerDatenbank`), und fragt danach jede

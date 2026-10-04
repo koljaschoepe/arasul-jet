@@ -7,7 +7,8 @@
  * einen Satz ergeben, den jemand vor dem Knopf lesen kann.
  */
 import { describe, it, expect } from 'vitest';
-import { restzeit, istKnapp, wartetSeit, oderListe } from '../frist';
+import { restzeit, istKnapp } from '@marken/muster/freigabeFrist';
+import { wartetSeit, oderListe } from '../frist';
 
 const JETZT = Date.parse('2026-08-28T12:00:00.000Z');
 const in_ = (ms: number) => new Date(JETZT + ms).toISOString();

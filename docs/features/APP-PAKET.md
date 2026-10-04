@@ -313,7 +313,7 @@ prüft, wiese `zeigt_freigaben` als unbekannt ab. **Folge fürs Kit:**
 auf ein solches Gerät einspielt, und der Vorlage das Feld beibringen: eine App
 mit eigener Freigabe-Ansicht trägt `zeigt_freigaben: true` ein, sonst
 entscheidet das Gerät an ihrer Stelle. Ein Paket von Kontrakt 11 rollt
-unverändert aus. **Wirkung auf bestehende Apps:** `belege` 0.3.0 (Faktum) liest
+unverändert aus. **Wirkung auf bestehende Apps:** `belege` 0.3.0 liest
 `?freigabe=` nicht und trägt das Feld nicht; ihre Freigaben gehen ab diesem
 Stand in Arasul auf.
 
@@ -420,10 +420,13 @@ Kit muss nichts nachziehen, kann aber `unsicher` in Erkennungs-Rollen erklären.
 **`ausloeser`** nennt, wodurch der Flow startet. `hand` ist der Start in der
 App (der Weg über `POST /flows/:name/run`, wie bisher). `zeitplan` trägt fünf
 Felder wie in cron (`Minute Stunde Tag Monat Wochentag`, nur Ziffern und `* / , -`)
-— geprüft wird die Form, ob `61` eine Minute sein kann, entscheidet der
-Zeitplaner. `ereignis` trägt den Namen eines Ereignisses der App (klein, mit
+— geprüft wird nur die Form. `ereignis` trägt den Namen eines Ereignisses der App (klein, mit
 Punkt, Unterstrich oder Bindestrich). Derselbe Auslöser darf nicht zweimal
-stehen. Der Zeitplaner läuft einmal im Gerät; der Admin pausiert je Flow.
+stehen. **Einen Zeitplaner gibt es im Gerät nicht:** `zeitplan` und
+`ereignis` werden angenommen und geprüft, starten aber keinen Lauf. Zeitgesteuert
+startet ein Flow von außen über den Trigger
+(`POST /api/v1/external/flows/:name/run`, `docs/features/FLOWS.md`); der Admin
+schaltet je Flow ab.
 
 **`stufen`** sind die benannten Freigaben („Prüfung“, „Leitung“): je Stufe
 `name` (Kennung, wie ein Schrittname), optional `bezeichnung` (was der Mensch

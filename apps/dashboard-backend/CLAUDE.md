@@ -93,18 +93,18 @@ get typed, trimmed, defaulted data.
 
 `middleware/rateLimit.js` exports ready-made limiters; use them, don't roll your own:
 
-| Limiter                          | Use for                                         | Window / max |
-| -------------------------------- | ----------------------------------------------- | ------------ |
-| `loginLimiter`                   | `/auth/login` (failures only)                   | 15 min / 30  |
-| `probeLimiter`                   | `/auth/session`, `/auth/needs-setup`            | 1 min / 120  |
-| `generalAuthLimiter`             | `/auth/logout`                                  | 1 min / 30   |
-| `apiLimiter`                     | default, per-IP                                 | 1 min / 100  |
-| `llmLimiter`                     | `/llm/*`, `/embeddings`, `/flows/*` (expensive) | 1 sec / 10   |
-| `metricsLimiter`                 | high-frequency polling endpoints                | 1 sec / 20   |
-| `webhookLimiter`                 | inbound webhooks (self-healing agent)           | 1 min / 100  |
-| `uploadLimiter`                  | multipart uploads                               | 1 min / 20   |
-| `tailscaleLimiter`               | tailscale orchestration                         | (per-domain) |
-| `createUserRateLimiter(max, ms)` | user-scoped (after auth)                        | factory      |
+| Limiter                          | Use for                               | Window / max |
+| -------------------------------- | ------------------------------------- | ------------ |
+| `loginLimiter`                   | `/auth/login` (failures only)         | 15 min / 30  |
+| `probeLimiter`                   | `/auth/session`, `/auth/needs-setup`  | 1 min / 120  |
+| `generalAuthLimiter`             | `/auth/logout`                        | 1 min / 30   |
+| `apiLimiter`                     | default, per-IP                       | 1 min / 100  |
+| `llmLimiter`                     | `/embeddings`, Flow-Läufe (expensive) | 1 sec / 10   |
+| `metricsLimiter`                 | high-frequency polling endpoints      | 1 sec / 20   |
+| `webhookLimiter`                 | inbound webhooks (self-healing agent) | 1 min / 100  |
+| `uploadLimiter`                  | multipart uploads                     | 1 min / 20   |
+| `tailscaleLimiter`               | tailscale orchestration               | (per-domain) |
+| `createUserRateLimiter(max, ms)` | user-scoped (after auth)              | factory      |
 
 `loginLimiter` carries `skipSuccessfulRequests`: a login that succeeds costs
 nothing. The sharp lock is per account — five failed attempts lock it for
@@ -118,7 +118,8 @@ Disable in tests via `RATE_LIMIT_ENABLED=false`.
 
 `requireAuth` (middleware/auth.js) populates `req.user`. State-changing
 methods (POST/PUT/PATCH/DELETE) require a CSRF token — `useApi` handles
-this automatically on the client. `apiKeyAuth.js` is for `/api/external/*`.
+this automatically on the client. `apiKeyAuth.js` (`requireApiKey`) is for
+`/api/v1/external/*` and the OpenAI-compatible `/v1/*`.
 
 ### 6. Mount new route groups in `routes/index.js`
 
@@ -130,8 +131,10 @@ is documented at the top of `routes/index.js`.
 
 For SSE use `utils/sseHelper.js`. For LLM streaming, the global error handler
 is a no-op once headers are sent — flush an error frame yourself before
-closing. WebSocket auth: token comes from the `?token=` query param (post
-Phase 5 hardening); the cookie is unreliable for WS upgrades.
+closing. WebSocket auth (`/api/metrics/live-stream`, `src/index.js`): the
+token comes from the `arasul_session` cookie or an `Authorization: Bearer`
+header, **never** from the query string — a `?token=` lands in Traefik's
+access log.
 
 ### 8. Logging
 

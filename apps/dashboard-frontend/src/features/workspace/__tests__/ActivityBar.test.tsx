@@ -128,6 +128,6 @@ describe('appKuerzel', () => {
   it('nimmt die Anfänge zweier Wörter, sonst zwei Buchstaben', () => {
     expect(appKuerzel('Rechnung prüfen')).toBe('RP');
     expect(appKuerzel('Urlaubsantrag')).toBe('Ur');
-    expect(appKuerzel('  faktum ')).toBe('Fa');
+    expect(appKuerzel('  rechnungen ')).toBe('Re');
   });
 });

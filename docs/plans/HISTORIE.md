@@ -1370,7 +1370,7 @@ Seit dem Auftrag **apps-starten-nach-der-datenbank** (26.09.2026, J35)
 **startet eine App nach einem Neustart erst mit ihrer Datenbank, und eine App
 ohne Datenbank ist krank**. Docker startet die App-Container
 (`unless-stopped`) selbst, Postgres legt erst `ordered-startup.sh` an — am Orin
-kam `belege-live` 40 s vor `postgres-db` hoch, und die Faktum-App lief ohne
+kam `belege-live` 40 s vor `postgres-db` hoch, und die App `belege` lief ohne
 Datenbank weiter und meldete gesund. Das Backend startet deshalb nach
 `heileAlle` jeden laufenden App-Container neu, der vor
 `pg_postmaster_start_time()` gestartet ist, und fragt jede Minute wieder
@@ -1660,7 +1660,7 @@ mit eigenem Etikett) und nach dem Deploy am laufenden Gerät mit
 App-Container: eigene Datenbank ja; fremde App-Datenbank und `arasul_db` mit
 „pg_hba.conf rejects" verweigert; Plattform-API und Traefik ja; `1.1.1.1:443`
 `ENETUNREACH`, Namensauflösung ins Internet läuft in die Zeitüberschreitung.
-Alle sechs App-Container (`belege`, `abschluss`, `probe-faktum-belege`, je Live
+Alle sechs App-Container (`belege`, `abschluss` und die Probe zu `belege`, je Live
 und Test) wurden ohne Zwischenfall umgezogen (je rund sieben Sekunden),
 liefern und sind gesund, ohne Fehlerzeile im Protokoll; die OIDs aller
 App-Datenbanken und Rollen sind vorher und nachher dieselben, `firmenordner`
@@ -1690,7 +1690,7 @@ Gemessen nach dem Deploy am Orin mit `scripts/test/ausgang-abnahme.sh` als
 (`ENETUNREACH`). Das Protokoll stand nach `docker restart egress-proxy
 dashboard-backend` unverändert da. **Leerlauf des Proxys: CPU Median 0,01 %,
 einzelne Spitzen bis 5,8 % (Stats-Ablesung), 16,8 MiB Speicher.** `belege`,
-`abschluss`, `probe-faktum-belege` (je Live und Test) nach dem Umzug einzeln
+`abschluss` und die Probe zu `belege` (je Live und Test) nach dem Umzug einzeln
 lieferbar und gesund.
 
 Der erste Deploy ist am Orin gescheitert, und der Rückfall hat gehalten: der

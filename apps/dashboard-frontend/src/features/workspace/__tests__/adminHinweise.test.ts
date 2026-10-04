@@ -23,7 +23,9 @@ const stand = (version: string, lieferbar = true) => ({
   dateien: { manifest: true, frontend: true },
 });
 const app = (live: ReturnType<typeof stand> | null, test: ReturnType<typeof stand> | null) =>
-  [{ id: 'faktum', name: 'Faktum', beschreibung: null, staende: { live, test } }] as AppZeile[];
+  [
+    { id: 'rechnungen', name: 'Rechnungen', beschreibung: null, staende: { live, test } },
+  ] as AppZeile[];
 
 describe('Hinweise für den Administrator', () => {
   it('Sicherung: gut ist still, fehlgeschlagen und älter als ein Tag melden sich', () => {
@@ -45,12 +47,12 @@ describe('Hinweise für den Administrator', () => {
     expect(appHinweise(app(stand('1.0.0'), stand('1.0.0')))).toEqual([]);
     expect(appHinweise(app(stand('1.0.0', false), null))[0]).toMatchObject({
       art: 'app-gestoert',
-      text: 'Faktum ist gestört.',
-      ziel: { bereich: 'apps', abschnitt: 'faktum' },
+      text: 'Rechnungen ist gestört.',
+      ziel: { bereich: 'apps', abschnitt: 'rechnungen' },
     });
     expect(appHinweise(app(stand('1.0.0'), stand('1.1.0')))[0]).toMatchObject({
       art: 'fassung-wartet',
-      text: 'Fassung 1.1.0 von Faktum wartet auf Live.',
+      text: 'Fassung 1.1.0 von Rechnungen wartet auf Live.',
     });
     expect(appHinweise(app(null, stand('0.1.0')))[0]?.text).toMatch(/noch nicht live/);
   });

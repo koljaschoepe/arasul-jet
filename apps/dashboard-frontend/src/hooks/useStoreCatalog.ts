@@ -1,9 +1,9 @@
 /**
  * Die gemeinsame Datenbasis für die Modelle: Katalog (seit C8 die Kurzliste),
- * geladenes Modell, Standardmodell. Gelesen von der Modell-Ansicht (D5), ihrer
- * Sidebar-Liste und dem Modell-Dialog der App-Verwaltung (D4); die
- * Statusleiste teilt dieselben Schlüssel. React Query dedupliziert darüber
- * hinweg — keine doppelte Abfragelast auf dem Jetson.
+ * geladenes Modell, Standardmodell. Der Hook selbst wird nur von
+ * `features/modelle/useModelle.ts` gelesen; der Modell-Dialog der
+ * App-Verwaltung nimmt nur den Schlüssel (`STORE_MODELS_KEY`) und die Typen,
+ * damit React Query dieselbe Liste nicht zweimal holt.
  *
  * Phase D5: die Container-Apps sind hier heraus. Der Hook holte
  * `GET /api/apps?…` in einer Form (`{ apps: [...] }`), die es seit dem

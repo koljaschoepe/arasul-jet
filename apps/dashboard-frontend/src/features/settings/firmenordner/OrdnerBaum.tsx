@@ -18,8 +18,8 @@
  * Grenze, ein Klick stellt sie ein. Bis dahin hatte jeder Bereich still 1 GB.
  *
  * DIE FORM RICHTET SICH NACH DEM KASTEN, nicht nach dem Fenster
- * (`useSchmalerBehaelter`): bei 1024 px mit offener Notizspalte bleiben der
- * Mitte rund 600 px, und die Tabelle rollte darin seitlich, obwohl das
+ * (`useSchmalerBehaelter`): bei 1024 px mit der damaligen Notizspalte blieben
+ * der Mitte rund 600 px, und die Tabelle rollte darin seitlich, obwohl das
  * Fenster „breit" war (Nachtrag aus J34, 28.09.2026). Unter
  * `TABELLE_AB_PX` steht deshalb die Liste da.
  */
@@ -43,7 +43,7 @@ import { alsBaum, type Ordner, type PapierkorbStand, type PlatzStand } from './u
 /**
  * Ab welcher Breite des Kastens die Tabelle steht. Sieben Spalten mit Platz
  * und Papierkorb brauchen mit acht Bereichen gemessen 802 px (28.09.2026,
- * lokaler Bau, 1440 px mit Notizspalte: der Kasten ist 728 px, die Tabelle
+ * lokaler Bau, 1440 px mit der damaligen Notizspalte: der Kasten war 728 px, die Tabelle
  * rollte dort bei einer Schwelle von 700 px).
  */
 const TABELLE_AB_PX = 820;
@@ -356,8 +356,8 @@ function Tabelle({
               <TableCell>
                 <ArtBadge o={o} />
               </TableCell>
-              {/* Der Satz darf umbrechen: mit der Spalte Papierkorb (J34) schob er bei
-                  1440 px mit offener Notizspalte die Handgriffe aus dem Kasten. */}
+              {/* Der Satz darf umbrechen: mit der Spalte Papierkorb (J34) schob er in
+                  einem schmalen Kasten die Handgriffe hinaus. */}
               <TableCell className="whitespace-normal text-muted-foreground">
                 {o.art === 'wurzel'
                   ? 'alle lesen, Administratoren schreiben'

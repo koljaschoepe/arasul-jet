@@ -13,8 +13,8 @@
 # Davor am Geraet: das Netz `arasul-apps` gibt es und ist `internal`, und jeder
 # App-Container haengt NUR dort. Danach, fuer jede App einzeln: laeuft der
 # Stand, ist er gesund und lieferbar (Oberflaeche, Backend, Datenbank). Das
-# ist die Probe, die nach dem Update ueber `belege-live`, `abschluss`,
-# `probe-faktum-belege` und jede weitere App sagt, ob eine im neuen Netz
+# ist die Probe, die nach dem Update ueber `belege-live`, `abschluss`, die
+# Probe zu `belege` und jede weitere App sagt, ob eine im neuen Netz
 # nicht hochkam.
 #
 # Die Proben-App ist `tests/probe-daten` unter einer eigenen Kennung; sie bringt

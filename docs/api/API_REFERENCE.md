@@ -1380,7 +1380,7 @@ Start als `einreicher` nannte (ohne App: der Mensch, dem der Lauf gehört);
       "begonnen_am": "2026-09-26T09:30:05.000Z",
       "beendet_am": "2026-09-26T09:30:17.400Z",
       "dauer_ms": 12400,
-      "app_id": "faktum",
+      "app_id": "belege",
       "stand": "live",
       "benutzer_id": 5,
       "benutzer_name": "anna",
@@ -3993,7 +3993,7 @@ passt. Antwort (gekürzt):
 ```json
 {
   "data": {
-    "kontrakt": 2,
+    "kontrakt": 12,
     "arasul": "Vorserie",
     "app_json": { "schema": { "type": "object", "…": "JSON-Schema" }, "regeln": ["…"] },
     "flow_frontmatter": { "schema": { "…": "JSON-Schema" }, "rumpf": "…", "regeln": ["…"] },

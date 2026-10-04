@@ -74,8 +74,8 @@ jest.mock('../../src/middleware/apiKeyAuth', () => ({
       req.apiKey = {
         id: 2,
         userId: 1,
-        name: 'app faktum/live',
-        appId: 'faktum',
+        name: 'app rechnungen/live',
+        appId: 'rechnungen',
         stand: 'live',
         allowed_endpoints: ['llm:chat', 'llm:status', 'document:extract']
       };
@@ -636,7 +636,7 @@ describe('External API Routes', () => {
       expect(response.body.content).toBe('Antwort');
       expect(kiProtokoll.aufrufZumAuftrag).toHaveBeenCalledWith({
         jobId: 'job-uuid',
-        apiKey: expect.objectContaining({ appId: 'faktum', stand: 'live' })
+        apiKey: expect.objectContaining({ appId: 'rechnungen', stand: 'live' })
       });
     });
 

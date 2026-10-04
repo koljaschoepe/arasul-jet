@@ -759,7 +759,7 @@ async function letzteZeilen(appId, stand, zeilen = 40) {
  * `unless-stopped` selbst, sobald der Dienst steht -- die App-Container also
  * Sekunden nach dem Hochfahren. `postgres-db` dagegen legt erst
  * `ordered-startup.sh` an (`ExecStop` hat es mit `docker compose down`
- * weggenommen), und zwar spaeter. Die Faktum-App fand beim Start keine
+ * weggenommen), und zwar spaeter. Die App `belege` fand beim Start keine
  * Datenbank, lief weiter und meldete sich gesund.
  *
  * Gefragt wird die Startzeit, nicht ein Zustand: ein Container, der vor seiner

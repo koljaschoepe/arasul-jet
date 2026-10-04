@@ -80,7 +80,14 @@ src/
                    Workspace-Stores und damit in der Adresse
                    (`/workspace/verwaltung/<bereich>[/<abschnitt>]`); alte
                    `?tab=`-Adressen bildet die Shell darauf ab.
-                   `sections.tsx` ist die eine Liste der Bereiche:
+                   `sections.tsx` ist die eine Liste der elf Bereiche, in
+                   dieser Reihenfolge: Allgemein, Apps, Personen,
+                   Firmenordner, Modelle, KI, Sicherheit, Datenschutz,
+                   System, Lizenz, Fernzugriff. Allgemein
+                   (`GeneralSettings.tsx`), KI (`SprachmodellSettings.tsx`),
+                   Sicherheit, Datenschutz, Lizenz (`LizenzSettings.tsx`) und
+                   Fernzugriff (`RemoteAccessSettings.tsx`) sind je eine
+                   Seite; die übrigen fünf:
                    - **System**: Auslastung, Dienste, Aktualisierungen,
                      Sicherung, Selbstheilung, Werksreset untereinander,
                      jeder klappt auf (`Accordion`, nur Offenes ist
@@ -155,12 +162,6 @@ src/
                    theme}`. Das Theme steht **weder im `key` noch in der
                    Adresse** — beides tauschte das iframe-Element aus, und
                    die App finge von vorn an.
-    firmenordner/  Mein Firmenordner, für jeden: ein Dialog (derzeit nirgends
-                   angeschlossen, seit das Kontomenü nur Name und Abmelden
-                   zeigt) — Adresse des
-                   Dienstes und eigene Ordner mit Stufe aus
-                   `GET /api/firmenordner`. Ein 503 heißt „hier gibt es
-                   keinen" und ist eine Auskunft, kein Fehler.
     freigaben/     „Für Sie" auf der Startseite, seit M5 (04.10.2026) für
                    JEDEN: nur die Freigaben, die bei mir liegen (bei mir
                    persönlich oder, ohne Standardperson der Stufe, bei allen
@@ -237,8 +238,10 @@ src/
                      gelesen von der Shell (Adresse) und der Ansicht (der
                      Satz statt der Seite). `requireRole` im Backend
                      antwortet ohnehin mit 403.
-                   • **Unter 900 px** bleibt es bei derselben Leiste, bis die
-                     Karte handy-und-notizen-weg sie zur Leiste unten macht.
+                   • **Unter 900 px** steht statt der Aktivitätsleiste die
+                     Leiste unten (`LeisteUnten.tsx`): Haus, vier Apps,
+                     unter „mehr“ die übrigen Apps, Verwaltung, Einstellungen
+                     und das Konto.
                    • **Flächenfarbe** — Leiste und Ansicht teilen
                      `--background`; Trennung nur über Borders. `--card`
                      bleibt erhabenen Elementen vorbehalten (DESIGN.md).

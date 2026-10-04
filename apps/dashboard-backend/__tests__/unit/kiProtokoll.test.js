@@ -22,9 +22,9 @@ const kiProtokoll = require('../../src/services/app/kiProtokoll');
 
 const APP_SCHLUESSEL = {
   id: 7,
-  name: 'app faktum/live',
+  name: 'app rechnungen/live',
   userId: 1,
-  appId: 'faktum',
+  appId: 'rechnungen',
   stand: 'live',
 };
 const MENSCHEN_SCHLUESSEL = { id: 8, name: 'Zapier', userId: 1, appId: null, stand: null };
@@ -123,9 +123,9 @@ describe('einreihen', () => {
 
     const [[, werte]] = aufrufe('INSERT INTO public.ki_aufrufe');
     expect(werte).toEqual([
-      'faktum',
+      'rechnungen',
       'live',
-      'app faktum/live',
+      'app rechnungen/live',
       5,
       'anna',
       'document/extract-structured',
@@ -274,14 +274,14 @@ describe('listeFuerApp', () => {
         { id: '4', benutzer_id: null, modell: 'qwen', endpunkt: 'flows/brief', lauf_id: '12' },
       ],
     });
-    const liste = await kiProtokoll.listeFuerApp({ appId: 'faktum', stand: 'live', limit: 10 });
+    const liste = await kiProtokoll.listeFuerApp({ appId: 'rechnungen', stand: 'live', limit: 10 });
     expect(liste).toEqual([
       { id: 3, benutzer_id: 5, modell: 'gemma4:e4b', endpunkt: 'llm/chat', lauf_id: null },
       { id: 4, benutzer_id: null, modell: 'qwen', endpunkt: 'flows/brief', lauf_id: 12 },
     ]);
     const [sql, werte] = db.query.mock.calls[0];
     expect(sql).toContain('ORDER BY begonnen_am DESC');
-    expect(werte).toEqual(['faktum', 'live', 10]);
+    expect(werte).toEqual(['rechnungen', 'live', 10]);
   });
 });
 
@@ -385,7 +385,7 @@ describe('aufrufZumAuftrag (J35, abholen)', () => {
     expect(zeile).toEqual({ modell: 'gemma4:e4b' });
     const [sql, werte] = db.query.mock.calls[0];
     expect(sql).toContain('app_id IS NOT DISTINCT FROM');
-    expect(werte).toEqual(['j', 'document/extract-structured', 'faktum', 'live']);
+    expect(werte).toEqual(['j', 'document/extract-structured', 'rechnungen', 'live']);
   });
 
   test('der Schluessel eines Menschen sucht unter den Zeilen ohne App; keine Zeile ist null', async () => {
@@ -404,6 +404,6 @@ describe('aufrufZumAuftrag (J35, abholen)', () => {
     await kiProtokoll.aufrufZumAuftrag({ jobId: 'j', apiKey: APP_SCHLUESSEL });
     const [sql, werte] = db.query.mock.calls[0];
     expect(sql).toContain('$2::text IS NULL OR endpunkt = $2');
-    expect(werte).toEqual(['j', null, 'faktum', 'live']);
+    expect(werte).toEqual(['j', null, 'rechnungen', 'live']);
   });
 });

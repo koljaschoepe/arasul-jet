@@ -3,7 +3,7 @@
 > **Long-form recipes** for working in `apps/dashboard-frontend/`.
 > For the short, non-negotiable rules (forbidden patterns, folder layout,
 > placement rules) read [`apps/dashboard-frontend/CLAUDE.md`](../../apps/dashboard-frontend/CLAUDE.md) first.
-> This handbook is the worked-example companion: hooks usage, modal patterns,
+> This handbook is the worked-example companion: hooks usage, dialog patterns,
 > theming details, common forms.
 
 ## Tech Stack
@@ -32,21 +32,24 @@ apps/dashboard-frontend/src/
     workspace/               # Shell: Aktivitätsleiste, eine Ansicht, StatusBar (M5)
     apps/                    # Die eigenen Apps: Übersicht, Rahmen (D1)
     freigaben/               # Die offenen Freigaben auf der Übersicht (D2)
-    settings/                # Sektionen, darunter Apps (D4) und Mitarbeiter (D3)
-    store/                   # Store (Modelle: Raster + Detailseite)
-    system/                  # UpdatePage, SelfHealingEvents, Login, CreateAdmin
+    einstellungen/           # Persönliche Einstellungen: Profil, Passwort, Rechner, Erscheinungsbild
+    settings/                # Die Verwaltung (nur Admin): Apps, Personen, Firmenordner, ...
+    modelle/                 # Die Kurzliste der Modelle (Bereich der Verwaltung)
+    firmenordner/            # Der Firmenordner aus Sicht des Mitarbeiters
+    entwickler/              # Die Schauseite /entwickler/bausteine
+    system/                  # Login, CreateAdmin, PasswortWechseln, Sicherung, Betrieb
 
   components/
-    ui/                      # Modal, Skeleton, StatTile, AuthCard, ErrorBoundary
+    ui/                      # Skeleton, AuthCard, ErrorBoundary, NichtGefunden
                              # (Leerzustand, Ladezustand, Feldgruppe, Chart: seit H4 in @marken)
                              # (die Primitive liegen seit H3 in packages/marken/src/primitive/)
     mascot/                  # Das Maskottchen
 
-  hooks/                     # Reusable hooks (useApi, useTheme, useFetchData, ...)
+  hooks/                     # Reusable hooks (useApi, useTheme, useConfirm, ...)
   contexts/                  # AuthContext, DownloadContext, ToastContext, ActivationContext
   config/                    # api.ts (API_BASE, getAuthHeaders), branding.ts
   lib/                       # queryClient (cn() steht seit H3 in @marken)
-  utils/                     # csrf.ts, token.ts
+  utils/                     # fehlertext.ts, lazyNachladen.ts, formatting.ts, csrf.ts, token.ts
   __tests__/                 # Vitest test suites + helpers/
 ```
 
@@ -149,91 +152,31 @@ Features:
 
 **NEVER use raw `fetch()` in components. Always use `useApi()`.**
 
-### `useFetchData()` -- Data Loading with AbortController
+### Fehler anzeigen: `fehlertext()`
+
+Was ein Mensch über einem Formular oder im Toast liest, geht durch
+`fehlertext()` aus `@/utils/fehlertext` — **nie** `err.message` roh. Die
+Funktion nimmt die geworfene Ausnahme samt `status` und lässt nur einen
+deutschen Satz ohne Technik durch; sonst kommt ein Satz zum Status oder der
+mitgegebene Ersatz.
 
 ```tsx
-import { useFetchData } from '@/hooks/useFetchData';
-import { useApi } from '@/hooks/useApi';
-
-function MyComponent() {
-  const api = useApi();
-
-  const { data, loading, error, refetch } = useFetchData(
-    async signal => {
-      const [items, stats] = await Promise.all([
-        api.get<Item[]>('/items', { signal, showError: false }),
-        api.get<Stats>('/stats', { signal, showError: false }),
-      ]);
-      return { items, stats };
-    },
-    { initialData: { items: [], stats: null } }
-  );
-
-  if (loading) return <SkeletonCard />;
-  if (error) return <div className="text-destructive">{error}</div>;
-
-  return <div>{data.items.map(/* ... */)}</div>;
-}
+onError: err => setFehler(fehlertext(err, undefined, 'Das Recht ließ sich nicht setzen.')),
 ```
 
-### `useModalForm()` -- Modal Form State
+### Daten laden: TanStack Query
+
+Abfrage und Mutationen einer Adresse stehen in **einem** Hook je Feature
+(`features/settings/personen/usePersonen.ts`, `features/modelle/useModelle.ts`):
+`useQuery` liest über `useApi`, jede Mutation entwertet danach die Liste —
+auch nach einem Fehler.
 
 ```tsx
-import { useModalForm } from '@/hooks/useModalForm';
-
-function MyModal({ isOpen, onClose, editItem }: Props) {
-  const api = useApi();
-  const toast = useToast();
-
-  const { values, setValue, error, saving, handleSubmit, reset } = useModalForm(isOpen, {
-    initialValues: { name: '', description: '' },
-    onOpen: () =>
-      editItem ? { name: editItem.name, description: editItem.description } : undefined,
-  });
-
-  return (
-    <form
-      onSubmit={handleSubmit(async () => {
-        await api.post('/items', values);
-        toast.success('Erstellt');
-        onClose();
-      })}
-    >
-      <Input value={values.name} onChange={e => setValue('name', e.target.value)} />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={saving}>
-        {saving ? 'Speichere...' : 'Speichern'}
-      </Button>
-    </form>
-  );
-}
-```
-
-### `useDebouncedSearch()` -- Search-as-you-type
-
-```tsx
-import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
-
-function SearchComponent() {
-  const api = useApi();
-  const [query, setQuery] = useState('');
-
-  const { results, searching } = useDebouncedSearch(
-    query,
-    async (q, signal) => api.get<Item[]>(`/search?q=${q}`, { signal, showError: false }),
-    { initialResults: [], delay: 300, minLength: 2 }
-  );
-
-  return (
-    <>
-      <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Suchen..." />
-      {searching && <Ladezustand />}
-      {results.map(item => (
-        <div key={item.id}>{item.name}</div>
-      ))}
-    </>
-  );
-}
+const api = useApi();
+const liste = useQuery({
+  queryKey: ['benutzer'],
+  queryFn: () => api.get<Benutzer[]>('/benutzer', { showError: false }),
+});
 ```
 
 ### `useTheme()` -- die Darstellung des Angemeldeten
@@ -353,13 +296,11 @@ Manages model download progress globally, persists across page navigation.
 ### Lazy Loading (Code Splitting)
 
 ```tsx
-// In App.tsx - secondary routes are lazy-loaded
-const Settings = lazy(() => import('./features/settings/Settings'));
-const Store = lazy(() => import('./features/store'));
+// In App.tsx: die Shell kommt nach der Anmeldung, mit zwei Wiederholungen
+const WorkspaceShell = lazyNachladen(() => import('./features/workspace'));
 
-// Wrapped in Suspense with fallback
-<Suspense fallback={<Ladezustand />}>
-  <Settings />
+<Suspense fallback={<Ladezustand meldung="Wird geladen …" ganzeSeite={true} />}>
+  <WorkspaceShell onLogout={handleLogout} />
 </Suspense>;
 ```
 
@@ -368,8 +309,8 @@ const Store = lazy(() => import('./features/store'));
 ```tsx
 import ErrorBoundary, { RouteErrorBoundary, ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 
-// Route-level (full page error UI)
-<RouteErrorBoundary>
+// Route-level (full page error UI); die Technik nur für den Admin
+<RouteErrorBoundary showDetails={istAdmin}>
   <MyPage />
 </RouteErrorBoundary>
 
@@ -444,22 +385,10 @@ trägt ihn in `primitive/index.ts` ein, gibt ihm ein Schaustück und hebt
 
 ```tsx
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
-import Modal, { ConfirmModal } from '@/components/ui/Modal';
-import ConfirmIconButton from '@/components/ui/ConfirmIconButton';
 
 // Seit H4 aus der Bibliothek und nicht mehr aus der Shell -- eine
 // Fachanwendung braucht dieselben Formen:
 import { Ladezustand, Leerzustand, Datenliste, Formularseite, Feldgruppe } from '@marken';
-```
-
-### Feature Barrel Exports
-
-Each feature module has an `index.ts` exporting its public components:
-
-```tsx
-// features/store/index.ts
-export { default } from './Store';
-export { default as StoreModels } from './StoreModels';
 ```
 
 ---
@@ -583,9 +512,9 @@ import { API_BASE } from '@/config/api';
 
 All user-facing text is **German**. Examples:
 
-- "Speichern", "Abbrechen", "Loschen", "Laden...", "Suchen..."
-- "Fehler beim Laden", "Erfolgreich gespeichert", "Sitzung abgelaufen"
-- Error messages from backend are also in German
+- „Speichern“, „Abbrechen“, „Löschen“, „Wird geladen …“, „Suchen …“
+- Sie-Form, echte Umlaute, `…` statt `...`, `„…“` als Anführungszeichen
+- Fehler gehen durch `fehlertext()`, siehe oben
 
 ---
 
