@@ -865,11 +865,30 @@ mehr (`404`): die Seite „KI" der Verwaltung ist gestrichen, der Administrator
 | GET    | `/api/update/fassung/neueste`    | Die neueste Fassung im Netz                        |
 | POST   | `/api/update/fassung/einspielen` | Das Gerät auf eine neue Fassung bringen (202)      |
 | POST   | `/api/update/fassung/zurueck`    | Zurück auf die vorige Fassung (202)                |
+| GET    | `/api/update/fassung/nachts`     | Schalter „nachts selbst einspielen“, Fenster, letzte Nacht, Hinweis |
+| PUT    | `/api/update/fassung/nachts`     | Schalter setzen, Body `{ "aktiv": true\|false }`    |
+| POST   | `/api/update/fassung/nachts/trockenlauf` | Den Ablauf der Nacht prüfen, nichts einspielen, nichts sichern |
+| POST   | `/api/update/fassung/nachts/gesehen`     | Den Hinweis vom Morgen als gelesen markieren       |
 
 **Die Plattform selbst aktualisieren (J39)** — die vier `fassung`-Zeilen sind
 der Weg des Dashboards, `/api/v1/external/update` (unten) der des Kits; beide
 rufen `services/betrieb/fassungsdienst.js`. Ablauf, Rückweg und Grenzen:
 [docs/ops/AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39).
+
+**Aktualisierung nachts (M5, update-nachts).** Alle vier `fassung/nachts`-Wege
+verlangen **Admin**. `GET` antwortet
+`{ data: { aktiv, fenster: { von: "02:00", bis: "04:00", zeitzone, beginn, ende, laeuftGerade }, letzter, hinweis } }`:
+`beginn` und `ende` (ISO) sind das nächste oder laufende Fenster, gerechnet in
+der Zeitzone des Geräts (`TZ`, Vorgabe `Europe/Berlin`). `letzter` ist die
+jüngste Zeile des Protokolls (`update_nacht_laeufe`), `hinweis` das jüngste
+Ergebnis einer echten Nacht, das noch nicht gelesen ist (`null`, wenn keins).
+`ergebnis` ist einer von `laeuft`, `eingespielt`, `zurueckgefallen`,
+`fehlgeschlagen`, `uebersprungen` (mit `grund`: kein Platz, keine Sicherung,
+Netz weg, …), `nichts_zu_tun` oder `trockenlauf`. Der Trockenlauf macht
+dieselbe Vorprüfung wie das Einspielen, fragt, ob die letzte Sicherung gelang
+und gerade keine läuft, schreibt eine Zeile mit `trocken: true` und verändert
+nichts. Der Schalter ist aus als Vorgabe. Die Regeln des Fensters:
+[ADMIN_HANDBUCH.md](../ops/ADMIN_HANDBUCH.md#6-system-updates).
 
 **GET /api/update/check** und **POST /api/update/download** verlangen
 **Admin**, nicht nur eine Anmeldung.

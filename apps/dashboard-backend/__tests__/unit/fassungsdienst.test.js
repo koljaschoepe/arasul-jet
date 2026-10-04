@@ -46,7 +46,7 @@ jest.mock('../../src/services/core/docker', () => ({ docker: mockDocker }));
 
 const mockSichern = jest.fn();
 jest.mock('../../src/services/betrieb/sicherungsdienst', () => ({
-  sichereJetzt: (...a) => mockSichern(...a),
+  sichereVorUpdate: (...a) => mockSichern(...a),
 }));
 
 const mockAxios = { get: jest.fn() };
@@ -245,7 +245,7 @@ describe('Einspielen', () => {
     const reihenfolge = [];
     mockSichern.mockImplementation(async () => {
       reihenfolge.push('sichern');
-      return { erfolg: true, bericht: { total_size: '1,2 GB' } };
+      return { erfolg: true, id: 'abcdef123456', zeitpunkt: '2026-10-04T02:00:00Z' };
     });
     mockDocker.createContainer.mockImplementation(async cfg => {
       reihenfolge.push('uebergabe');

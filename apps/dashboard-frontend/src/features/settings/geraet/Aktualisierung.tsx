@@ -13,8 +13,8 @@
  * `docker`-Programm im Container des Backends, und das ausgelieferte Gerät hat
  * keines (`updateService.wegPruefen`): er zeigte am Orin nur den Satz, dass er
  * nicht geht. Ein Gerät ohne Netz aktualisiert der Betreuer an der Konsole
- * (`./arasul update`). Der Schalter „nachts selbst einspielen" gehört zur
- * Karte update-nachts und steht hier noch nicht.
+ * (`./arasul update`). Der Schalter „nachts selbst einspielen" steht
+ * darunter (`NachtsEinspielen`, Karte update-nachts).
  *
  * WÄHREND DES UMSCHALTENS IST DAS GERÄT EINIGE MINUTEN NICHT ERREICHBAR. Die
  * Abfrage schlägt dann fehl, und das ist kein Fehler des Laufs: der Abschnitt
@@ -31,10 +31,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   Feldgruppe,
+  Switch,
   cn,
 } from '@marken';
 import { useApi } from '@/hooks/useApi';
 import { fassungLesbar } from '@/utils/formatting';
+import { NACHT_KEY, nachtSatz, type NachtLauf, type NachtStand } from './nachtUpdate';
 
 interface Lauf {
   art?: 'einspielen' | 'zurueck';
@@ -290,9 +292,154 @@ export function Aktualisierung() {
               {fehler}
             </p>
           )}
+
+          <NachtsEinspielen />
         </>
       )}
     </>
+  );
+}
+
+/**
+ * „Nachts selbst einspielen": der Schalter (aus als Vorgabe), das Fenster in
+ * Worten, das Ergebnis der letzten Nacht und „Ablauf prüfen" — ein Trockenlauf,
+ * der alles prüft und nichts einspielt. Rechnet nichts selbst: Fenster und
+ * nächster Beginn kommen vom Gerät, in dessen Zeitzone.
+ */
+function NachtsEinspielen() {
+  const api = useApi();
+  const qc = useQueryClient();
+  const [schaltet, setSchaltet] = useState(false);
+  const [prueft, setPrueft] = useState(false);
+  const [probe, setProbe] = useState<NachtLauf | null>(null);
+  const [fehler, setFehler] = useState('');
+
+  const { data: nachts } = useQuery({
+    queryKey: NACHT_KEY,
+    queryFn: () => api.get<{ data: NachtStand }>('/update/fassung/nachts', { showError: false }),
+    select: antwort => antwort.data,
+    retry: false,
+  });
+  if (!nachts) return null;
+
+  const beginn = new Date(nachts.fenster.beginn);
+  const wann = new Intl.DateTimeFormat('de-DE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: nachts.fenster.zeitzone,
+  }).format(beginn);
+
+  const schalte = async (aktiv: boolean) => {
+    setFehler('');
+    setSchaltet(true);
+    try {
+      await api.put('/update/fassung/nachts', { aktiv }, { showError: false });
+      await qc.invalidateQueries({ queryKey: NACHT_KEY });
+    } catch (err: unknown) {
+      setFehler((err as { message?: string }).message || 'Das ließ sich nicht umstellen.');
+    } finally {
+      setSchaltet(false);
+    }
+  };
+
+  const pruefe = async () => {
+    setFehler('');
+    setPrueft(true);
+    try {
+      const antwort = await api.post<{ data: NachtLauf }>(
+        '/update/fassung/nachts/trockenlauf',
+        {},
+        { showError: false }
+      );
+      setProbe(antwort.data);
+      await qc.invalidateQueries({ queryKey: NACHT_KEY });
+    } catch (err: unknown) {
+      setFehler((err as { message?: string }).message || 'Das ließ sich nicht prüfen.');
+    } finally {
+      setPrueft(false);
+    }
+  };
+
+  const gelesen = async () => {
+    await api.post('/update/fassung/nachts/gesehen', {}, { showError: false }).catch(() => {});
+    await qc.invalidateQueries({ queryKey: NACHT_KEY });
+  };
+
+  const letzter = nachts.letzter && !nachts.letzter.trocken ? nachts.letzter : null;
+
+  return (
+    <div className="space-y-3 border-t border-border pt-3" data-testid="nachts-einspielen">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">Nachts selbst einspielen</p>
+          <p className="text-sm text-muted-foreground">
+            Liegt eine neue Fassung bereit, spielt das Gerät sie zwischen {nachts.fenster.von} und{' '}
+            {nachts.fenster.bis} Uhr ein (Zeit des Geräts, {nachts.fenster.zeitzone}). Es sichert
+            vorher, und scheitert die Sicherung, ändert sich nichts. Wird die neue Fassung nicht
+            gesund, kehrt es von selbst zur vorigen zurück. In dieser Zeit ist das Gerät einige
+            Minuten nicht erreichbar.
+          </p>
+        </div>
+        <Switch
+          checked={nachts.aktiv}
+          disabled={schaltet}
+          aria-label="Nachts selbst einspielen"
+          data-testid="nachts-schalter"
+          onCheckedChange={wert => void schalte(wert)}
+        />
+      </div>
+
+      <p className="text-sm text-muted-foreground" data-testid="nachts-fenster">
+        {nachts.aktiv
+          ? nachts.fenster.laeuftGerade
+            ? 'Das Fenster ist gerade offen.'
+            : `Nächstes Fenster: ${wann}, ${nachts.fenster.von} bis ${nachts.fenster.bis} Uhr.`
+          : 'Aus. Das Gerät spielt nichts von selbst ein.'}
+      </p>
+
+      {letzter && letzter.ergebnis !== 'nichts_zu_tun' && (
+        <div className="flex flex-wrap items-center gap-3" data-testid="nachts-letzte">
+          <p className="text-sm text-foreground">{nachtSatz(letzter)}</p>
+          {nachts.hinweis && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void gelesen()}
+              data-testid="nachts-gelesen"
+            >
+              Gelesen
+            </Button>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={prueft}
+          onClick={() => void pruefe()}
+          data-testid="nachts-pruefen"
+        >
+          Ablauf prüfen
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Prüft, was eine Nacht vorher prüft. Es wird nichts eingespielt und nichts gesichert.
+        </p>
+      </div>
+      {probe && (
+        <p className="text-sm text-foreground" data-testid="nachts-probe">
+          {nachtSatz(probe)}
+        </p>
+      )}
+      {fehler && (
+        <p className="flex items-center gap-2 text-sm text-foreground" role="alert">
+          <AlertCircle className="size-4 shrink-0" />
+          {fehler}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -14,10 +14,18 @@ import { useApi } from '@/hooks/useApi';
 import { useSicherungStatus, type SicherungStatus } from '@/features/system/sicherung/useSicherung';
 import { useAlleApps, type AppZeile } from '@/features/settings/personen/useAppFreigaben';
 import { useLizenz, type LizenzInfo } from '@/features/settings/geraet/useLizenz';
+import { NACHT_KEY, nachtSatz, type NachtStand } from '@/features/settings/geraet/nachtUpdate';
 
 export interface Hinweis {
   /** Stabil, für `data-testid` und den Schlüssel. */
-  art: 'sicherung' | 'update' | 'app-gestoert' | 'fassung-wartet' | 'lizenz' | 'modell-fehlt';
+  art:
+    | 'sicherung'
+    | 'update'
+    | 'update-nachts'
+    | 'app-gestoert'
+    | 'fassung-wartet'
+    | 'lizenz'
+    | 'modell-fehlt';
   text: string;
   /** Wohin der Klick führt: ein Bereich der Verwaltung, mit Abschnitt. */
   ziel: { bereich: string; abschnitt?: string };
@@ -152,6 +160,15 @@ export function useAdminHinweise(): Hinweis[] {
     retry: false,
   });
 
+  // Das Ergebnis der Nacht, bis der Administrator es weggeklickt hat.
+  const nachts = useQuery({
+    queryKey: NACHT_KEY,
+    queryFn: () => api.get<{ data: NachtStand }>('/update/fassung/nachts', { showError: false }),
+    select: a => a.data,
+    staleTime: 60_000,
+    retry: false,
+  });
+
   const aktuell = fassung.data?.fassung.nummer;
   const update: Hinweis | null =
     neueste.data && aktuell && neuer(neueste.data.fassung, aktuell)
@@ -162,8 +179,17 @@ export function useAdminHinweise(): Hinweis[] {
         }
       : null;
 
+  const nachtHinweis: Hinweis | null = nachts.data?.hinweis
+    ? {
+        art: 'update-nachts',
+        text: nachtSatz(nachts.data.hinweis),
+        ziel: { bereich: 'geraet', abschnitt: 'aktualisierung' },
+      }
+    : null;
+
   return [
     sicherungHinweis(sicherung.data),
+    nachtHinweis,
     update,
     ...appHinweise(apps.data),
     ...modellHinweise(modelle.data),

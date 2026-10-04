@@ -2381,6 +2381,7 @@ fehler, uebergeben_am}`. Die Zeile entsteht **vor** dem ersten Aufruf
 | `company_logo`                    | bytea                    | ✅       |         |
 | `company_logo_typ`                | text                     | ✅       |         |
 | `company_logo_stand`              | timestamp with time zone | ✅       |         |
+| `update_nachts`                   | boolean                  | ⛔       | `false` |
 
 **Primary key:** `id`
 
@@ -2473,6 +2474,37 @@ fehler, uebergeben_am}`. Die Zeile entsteht **vor** dem ersten Aufruf
 
 - `idx_update_backups_event` — `CREATE INDEX idx_update_backups_event ON public.update_backups USING btree (update_event_id)`
 - `update_backups_pkey` — `CREATE UNIQUE INDEX update_backups_pkey ON public.update_backups USING btree (id)`
+
+---
+
+## `update_nacht_laeufe`
+
+> Was in jeder Nacht mit der Aktualisierung nachts geschah (M5, Migration 208); zugleich der Hinweis am Morgen. `system_settings.update_nachts` ist der Schalter (aus als Vorgabe).
+
+| Column       | Type                     | Nullable | Default                                            |
+| ------------ | ------------------------ | -------- | -------------------------------------------------- |
+| `id`         | bigint                   | ⛔       | `nextval('update_nacht_laeufe_id_seq'::regclass)` |
+| `fenster`    | date                     | ⛔       |                                                    |
+| `trocken`    | boolean                  | ⛔       | `false`                                            |
+| `ergebnis`   | text                     | ⛔       |                                                    |
+| `grund`      | text                     | ✅       |                                                    |
+| `von`        | text                     | ✅       |                                                    |
+| `nach`       | text                     | ✅       |                                                    |
+| `lauf`       | text                     | ✅       |                                                    |
+| `gestartet`  | timestamp with time zone | ⛔       | `now()`                                            |
+| `beendet`    | timestamp with time zone | ✅       |                                                    |
+| `gesehen_am` | timestamp with time zone | ✅       |                                                    |
+
+**Primary key:** `id`
+
+**Indexes:** `uq_update_nacht_laeufe_fenster` — eindeutig auf `fenster` für
+Zeilen mit `NOT trocken`: wer sie anlegt, führt die Nacht aus (genau einmal je
+Fenster, auch nach einem Neustart). `idx_update_nacht_laeufe_gestartet`.
+
+`ergebnis` (`CHECK`): `laeuft`, `eingespielt`, `zurueckgefallen`,
+`fehlgeschlagen`, `uebersprungen`, `nichts_zu_tun`, `trockenlauf`. `lauf` ist die
+Kennung des Laufs in `status.json` des Geräts; über sie liest das (neue) Backend
+das Ergebnis nach dem Neustart.
 
 ---
 

@@ -14,6 +14,7 @@ const logger = require('../../utils/logger');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const updateService = require('../../services/app/updateService');
 const fassungsdienst = require('../../services/betrieb/fassungsdienst');
+const nachtUpdate = require('../../services/betrieb/nachtUpdate');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const {
   ValidationError,
@@ -28,6 +29,7 @@ const {
   InstallFromUsbBody,
   DownloadUpdateBody,
   UpdateFassungBody,
+  UpdateNachtsBody,
 } = require('../../schemas/admin-update');
 
 // Configure multer for file uploads
@@ -531,6 +533,61 @@ router.post(
       requestId: req.headers['x-request-id'],
     });
     res.status(202).json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Aktualisierung nachts auf Wunsch (M5, update-nachts)
+// ---------------------------------------------------------------------------
+
+// GET /api/update/fassung/nachts - Schalter, Fenster, letzte Nacht, Hinweis
+router.get(
+  '/fassung/nachts',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await nachtUpdate.stand(), timestamp: new Date().toISOString() });
+  })
+);
+
+// PUT /api/update/fassung/nachts - Schalter setzen
+router.put(
+  '/fassung/nachts',
+  requireAuth,
+  requireRole('admin'),
+  validateBody(UpdateNachtsBody),
+  asyncHandler(async (req, res) => {
+    await nachtUpdate.setzeAn(req.body.aktiv);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: req.body.aktiv ? 'update_nachts_an' : 'update_nachts_aus',
+      details: {},
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data: await nachtUpdate.stand(), timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/update/fassung/nachts/trockenlauf - den Ablauf prüfen, nichts ändern
+router.post(
+  '/fassung/nachts/trockenlauf',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const lauf = await nachtUpdate.trockenlauf();
+    res.json({ data: lauf, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/update/fassung/nachts/gesehen - den Hinweis vom Morgen wegklicken
+router.post(
+  '/fassung/nachts/gesehen',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    await nachtUpdate.hinweisGesehen();
+    res.json({ data: { ok: true }, timestamp: new Date().toISOString() });
   })
 );
 

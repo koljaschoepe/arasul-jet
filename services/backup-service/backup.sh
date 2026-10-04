@@ -391,7 +391,8 @@ STAND_AUSSCHLUESSE=(
 # EIN STAND VOR DEM ZURUECKHOLEN (Auftrag sicherung-zurueckholen, M5). Das
 # Backend ruft diesen Lauf vor jedem Zurueckholen mit
 # ARASUL_STAND_ANLASS=vorher und ARASUL_STAND_FUER=app:<id>|bereich:<k>|geraet
-# auf, vor dem Live-Schalten einer App mit live:<id> (M5). Es ist ein ganz
+# auf, vor dem Live-Schalten einer App mit live:<id> (M5), vor dem Einspielen
+# einer neuen Fassung mit update (M5, update-nachts). Es ist ein ganz
 # normaler Stand, nur mit zwei Tags mehr: `vorher` haelt ihn aus der
 # Aufbewahrung 7/12/60 heraus (staende.sh, stand_aufbewahren), und `fuer:…`
 # sagt der Oberflaeche, wovor er entstand. Mit ihm laesst sich das
@@ -399,7 +400,7 @@ STAND_AUSSCHLUESSE=(
 STAND_EXTRA_TAGS=()
 if [ "${ARASUL_STAND_ANLASS:-}" = vorher ]; then
     STAND_EXTRA_TAGS+=(vorher)
-    if [[ "${ARASUL_STAND_FUER:-}" =~ ^((app|live):[a-z0-9][a-z0-9-]{0,63}|bereich:[a-z0-9][a-z0-9-]{0,63}|geraet)$ ]]; then
+    if [[ "${ARASUL_STAND_FUER:-}" =~ ^((app|live):[a-z0-9][a-z0-9-]{0,63}|bereich:[a-z0-9][a-z0-9-]{0,63}|geraet|update)$ ]]; then
         STAND_EXTRA_TAGS+=("fuer:${ARASUL_STAND_FUER}")
     fi
     echo "[$TIMESTAMP] Stand vor dem Zurueckholen (${ARASUL_STAND_FUER:-ohne Angabe})"
