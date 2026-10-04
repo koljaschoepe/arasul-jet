@@ -924,9 +924,9 @@ Eigentümer. Die nächtliche Sicherung nimmt jede App-Datenbank mit
 spielt sie ein — als Rolle der App, sonst gehörten die Tabellen danach
 `arasul` —, `POST /api/backup/wiederherstellung/app/:id` holt die Daten
 **einer** App zurück, auch nachdem sie entfernt wurde (J35),
-`DELETE /api/apps/:id` wirft sie weg — immer, auch ohne
-`?dateien=true`: die Pakete kann ein Partner neu einspielen, eine Datenbank
-ohne App könnte niemand mehr finden.
+`DELETE /api/apps/:id` wirft sie weg — immer: eine Datenbank ohne App könnte
+niemand mehr finden. Die Pakete gehen seit 04.10.2026 ebenfalls mit; nur
+`?dateien=false` lässt sie liegen.
 
 **Bei jedem Einspielen ein neuer.** In der Datenbank steht nur der
 bcrypt-Abdruck; den Klartext gibt es genau einmal, im Augenblick des Anlegens.
@@ -960,9 +960,11 @@ Administrator von Hand anlegt.
 5. `DELETE /api/apps/<id>` (Sitzung) oder
    `DELETE /api/v1/external/apps/<id>?bestaetigung=<id>` (Schlüssel) entfernt
    beide Container **mitsamt ihren Volumes**, beide Stände, alle Freigaben und
-   die Schlüssel der App. Die Dateien bleiben liegen — wer eine App aus dem
-   Kit heraus entfernt, will sie üblicherweise gleich wieder einspielen; mit
-   `?dateien=true` gehen sie mit. Ein Mensch nimmt den Weg in der Oberfläche
+   die Schlüssel der App. Die Dateien gehen mit (bis 04.10.2026 blieben sie
+   ohne `?dateien=true` liegen, und das Kit hängt den Parameter nicht an:
+   sechsmal ein Paketordner ohne App); `?dateien=false` lässt sie liegen.
+   Laufende und wartende Läufe der App enden als `abgebrochen` mit dem Grund
+   „App entfernt“, ihre offenen Freigaben als `verfallen`. Ein Mensch nimmt den Weg in der Oberfläche
    (Einstellungen → Apps → **App entfernen**, seit dem Auftrag app-leiche vom
    28.08.2026): die Rückfrage ist dieselbe wie die des Kits — die Kennung
    abtippen —, und die Dateien gehen mit, denn ein Kunde, der eine App

@@ -296,16 +296,44 @@ describe('DELETE /api/apps/:id: der Weg, die Leiche loszuwerden', () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'urlaubsantrag' }] }) // gibt es sie
       .mockResolvedValueOnce({ rows: [] }) // staendeVon
+      .mockResolvedValueOnce({ rows: [] }) // wartende Laeufe der App
+      .mockResolvedValueOnce({ rows: [] }) // offene Freigaben der App
       .mockResolvedValueOnce({ rowCount: 1 }); // DELETE apps
   }
 
-  test('ohne `dateien` bleiben die Ordner liegen', async () => {
+  test('mit `?dateien=false` bleiben die Ordner liegen', async () => {
+    dateienHinlegen();
+    appVorhanden();
+    const res = await request(verwaltung()).delete('/api/apps/urlaubsantrag?dateien=false');
+    expect(res.status).toBe(200);
+    expect(res.body.data.dateien_entfernt).toBeNull();
+    expect(fs.existsSync(VERSION)).toBe(true);
+  });
+
+  test('ohne Angabe gehen die Ordner mit (der Weg des Kits, Auftrag app-entfernen-raeumt-auf)', async () => {
     dateienHinlegen();
     appVorhanden();
     const res = await request(verwaltung()).delete('/api/apps/urlaubsantrag');
     expect(res.status).toBe(200);
-    expect(res.body.data.dateien_entfernt).toBeNull();
-    expect(fs.existsSync(VERSION)).toBe(true);
+    expect(res.body.data.dateien_entfernt).toEqual(['1.0.0']);
+    expect(fs.existsSync(path.join(APPS_DIR, 'urlaubsantrag'))).toBe(false);
+  });
+
+  test('wartende Laeufe und offene Freigaben enden mit dem Grund „App entfernt"', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'urlaubsantrag' }] }) // gibt es sie
+      .mockResolvedValueOnce({ rows: [] }) // staendeVon
+      .mockResolvedValueOnce({ rows: [{ id: 41 }] }) // wartende Laeufe
+      .mockResolvedValue({ rows: [{ id: 7 }], rowCount: 1 }); // alles weitere
+    const res = await request(verwaltung()).delete('/api/apps/urlaubsantrag');
+    expect(res.status).toBe(200);
+    expect(res.body.data.laeufe_abgebrochen).toBe(1);
+    expect(res.body.data.freigaben_geschlossen).toBe(1);
+    const sql = db.query.mock.calls.map(c => c[0]).join('\n');
+    expect(sql).toMatch(/UPDATE flow_runs[\s\S]*status = \$2/);
+    expect(sql).toMatch(/UPDATE public\.approvals[\s\S]*'verfallen'/);
+    const lauf = db.query.mock.calls.find(c => /UPDATE flow_runs/.test(c[0]));
+    expect(lauf[1]).toEqual([41, 'abgebrochen', 'App entfernt']);
   });
 
   test('mit `?dateien=true` gehen sie mit -- der Weg der Oberflaeche', async () => {

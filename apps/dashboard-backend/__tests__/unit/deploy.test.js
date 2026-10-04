@@ -229,21 +229,23 @@ describe('DELETE /apps/:id', () => {
     expect(appStore.entferneApp).not.toHaveBeenCalled();
   });
 
-  it('laesst die Dateien liegen, wenn niemand etwas anderes sagt', async () => {
-    appStore.entferneApp.mockResolvedValue({ id: 'urlaub', dateien_entfernt: null });
+  it('nimmt die Dateien mit, wenn niemand etwas anderes sagt (so ruft sie das Kit)', async () => {
+    // Sechsmal blieb nach `app.mjs --remove` der Paketordner liegen, weil die
+    // Vorgabe `false` war und nur Abnahmen `?dateien=true` anhaengten.
+    appStore.entferneApp.mockResolvedValue({ id: 'urlaub', dateien_entfernt: ['1.0.0'] });
     await request(app())
       .delete('/api/v1/external/apps/urlaub?bestaetigung=urlaub')
       .set('x-api-key', 'kit')
       .expect(200);
-    expect(appStore.entferneApp).toHaveBeenCalledWith('urlaub', { dateien: false });
+    expect(appStore.entferneApp).toHaveBeenCalledWith('urlaub', { dateien: true });
   });
 
-  it('nimmt sie mit, wenn `dateien=true` dabeisteht', async () => {
-    appStore.entferneApp.mockResolvedValue({ id: 'urlaub', dateien_entfernt: ['1.0.0'] });
+  it('laesst sie liegen, wenn `dateien=false` dabeisteht', async () => {
+    appStore.entferneApp.mockResolvedValue({ id: 'urlaub', dateien_entfernt: null });
     await request(app())
-      .delete('/api/v1/external/apps/urlaub?bestaetigung=urlaub&dateien=true')
+      .delete('/api/v1/external/apps/urlaub?bestaetigung=urlaub&dateien=false')
       .set('x-api-key', 'kit')
       .expect(200);
-    expect(appStore.entferneApp).toHaveBeenCalledWith('urlaub', { dateien: true });
+    expect(appStore.entferneApp).toHaveBeenCalledWith('urlaub', { dateien: false });
   });
 });

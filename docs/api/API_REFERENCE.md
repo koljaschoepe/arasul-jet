@@ -1083,7 +1083,7 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | GET    | `/api/apps/meine`                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                         |
 | GET    | `/api/apps/:id`                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                 |
 | POST   | `/api/apps/:id/einspielen`           | Eine Version in einen Stand bringen                                                        |
-| DELETE | `/api/apps/:id`                      | App entfernen: beide Container, beide Stände, Freigaben (`?dateien=true`: auch die Ordner) |
+| DELETE | `/api/apps/:id`                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen) |
 | GET    | `/api/apps/:id/logs`                 | Die letzten Zeilen des App-Backends                                                        |
 | GET    | `/api/apps/:id/zugang`               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                              |
 | GET    | `/api/apps/:id/flows`                | Die Flows beider Stände, mit dem Modell, das sie treibt                                    |
@@ -1130,12 +1130,15 @@ Livestand zählen zusammen — siehe [APPS.md](../features/APPS.md#grenzen)).
 
 **GET /api/apps/:id/logs:** Query `?stand=live|test&zeilen=1..2000`.
 
-**DELETE /api/apps/:id:** Query `?dateien=true|false` (Vorgabe `false`). Ohne
-`dateien` bleiben die Ordner unter `/arasul/apps/<id>/` liegen; mit gehen sie
-mit — das ist der Weg der Oberfläche (Einstellungen → Apps → App entfernen).
-Derselbe Dienst wie `DELETE /api/v1/external/apps/:id`, dort mit der Rückfrage
-`?bestaetigung=<id>`; hier fragt der Dialog. Antwort:
-`{ "data": { "id", "dateien_entfernt": ["1.0.0"] | null, "images_entfernt": [] } }`.
+**DELETE /api/apps/:id:** Query `?dateien=true|false` (Vorgabe `true`, seit
+04.10.2026). Ohne Angabe gehen die Ordner unter `/arasul/apps/<id>/` mit; mit
+`dateien=false` bleiben sie liegen. Das gilt auch für
+`DELETE /api/v1/external/apps/:id`, den Weg des Kits (`app.mjs --remove`): dort
+blieb vorher sechsmal der Paketordner liegen. Laufende und wartende Läufe der App
+enden als `abgebrochen` mit dem Grund „App entfernt", ihre offenen Freigaben als
+`verfallen`. Derselbe Dienst wie `DELETE /api/v1/external/apps/:id`, dort mit der
+Rückfrage `?bestaetigung=<id>`; hier fragt der Dialog. Antwort:
+`{ "data": { "id", "dateien_entfernt": ["1.0.0"] | null, "images_entfernt": [], "datenbanken_entfernt": [], "laeufe_abgebrochen": 0, "freigaben_geschlossen": 0 } }`.
 
 **GET /api/apps/:id Response (gekürzt):**
 
