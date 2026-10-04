@@ -1,12 +1,10 @@
 /**
  * Das Namensregister (Plan 022, ausgebaut in Plan 023 D1) — EINE Quelle der
- * Wahrheit für „welche Modelle darf man im Chat wählen?" und „wie heißt ein
- * Modell für den Nutzer?".
+ * Wahrheit für „wie heißt ein Modell für den Nutzer?".
  *
- * Vorher lag der Filter dupliziert im Composer und in der StatusBar (`model_type
- * !== 'embedding' && !== 'ocr'`) und driftete auseinander; der Anzeigename fiel
- * bei fehlendem Katalog-Namen auf die rohe Ollama-/hf.co-Id zurück. Beides
- * vereinheitlicht dieses Modul.
+ * Der Anzeigename fiel bei fehlendem Katalog-Namen auf die rohe
+ * Ollama-/hf.co-Id zurück; dieses Modul vereinheitlicht das. Der Chat-Filter,
+ * der hier auch stand, ist mit dem Chat gefallen.
  *
  * Am 20.08.2026 am Gerät gemessen, was davon noch offen war: Katalog,
  * Statusleiste und Auswahlliste sagten übereinstimmend „Gemma 4 Kompakt", der
@@ -23,45 +21,6 @@ export interface ModellAnzeige {
   capabilities?: unknown;
   install_status?: string;
   status?: string;
-}
-
-/**
- * Nicht-Chat-Typen: reine Embedding-/OCR-/Audio-Modelle. `text` zählt bewusst
- * NICHT dazu — es ist der Alt-Name für Sprachmodelle (siehe Migration 094:
- * `model_type IN ('llm','text')`), also ein echter Gesprächspartner.
- */
-const NICHT_CHAT_TYPEN = new Set(['embedding', 'ocr', 'audio']);
-
-/**
- * Defensiv: falsch getypte Embedding-Modelle (z. B. per Direkt-Pull als
- * `model_type='llm'` in den Katalog synchronisiert) am Namen/an der Id
- * erkennen. Bewusst eng gehalten, damit kein echtes Chat-Modell hängen bleibt.
- */
-// Muster gleichgehalten mit dem Backend (modelSyncHelpers.istEmbeddingModell)
-// und Migration 142, damit die drei Stellen nicht auseinanderdriften.
-const EMBED_MUSTER =
-  /(?:^|[-_/])(?:nomic-embed|bge-m3|bge-large|all-minilm|e5-|gte-)|embed(?:ding)?\b/i;
-
-/**
- * Darf dieses Modell im Chat/als Standardmodell gewählt werden? Chat-, Coding-
- * und multimodale (Vision-)Modelle ja; reine Embedding-/OCR-/Audio-Modelle nein.
- */
-export function istChatModell(m: ModellAnzeige): boolean {
-  const typ = (m.model_type || '').toLowerCase();
-  if (NICHT_CHAT_TYPEN.has(typ)) {
-    return false;
-  }
-  if (Array.isArray(m.capabilities)) {
-    const caps = m.capabilities.map(c => String(c).toLowerCase());
-    if (caps.includes('embedding') || caps.includes('embed')) {
-      return false;
-    }
-  }
-  const kennung = `${m.id || ''} ${m.name || ''}`;
-  if (EMBED_MUSTER.test(kennung)) {
-    return false;
-  }
-  return true;
 }
 
 /**

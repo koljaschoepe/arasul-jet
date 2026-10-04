@@ -58,6 +58,11 @@ Was geprueft wird
    Geviertstrich zwischen zwei Woertern. Gemeldet wird Datei:Zeile, denn der
    Spiegel nimmt die Dateien, wie sie sind: was hier steht, liest die
    Oeffentlichkeit.
+11. Der Kundenname steht nirgends im Repo, nicht in der Shell, nicht im
+   Backend, nicht in Skripten, Tests, Migrationen oder Doku. Das Repo ist
+   oeffentlich wie der Spiegel. Gefragt werden die Dateien, die git kennt;
+   ausserhalb eines Checkouts alle unter der Wurzel. Person und Ueberordner
+   bleiben bei Punkt 10: sie stehen zu Recht in `CLAUDE.md` und im Journal.
 
 Warum Punkt 5 (Phase H2, 29.08.2026)
 ------------------------------------
@@ -86,6 +91,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -448,7 +454,10 @@ INTERN_IM_KOMMENTAR = re.compile(
 )
 # Was nirgends stehen darf, auch nicht im Code: der Kunde, die Person, der
 # Ueberordner.
-INTERN_UEBERALL = re.compile(r"\bFaktum\b|\bKolja\b|Ueberordner|Überordner")
+INTERN_UEBERALL = re.compile(r"\bF[a]ktum\b|\bKolja\b|Ueberordner|Überordner")
+# Der Kundenname, ohne Ansehen von Gross und Klein (Punkt 11). Die Klammer
+# haelt diese Zeile selbst aus dem eigenen Fund.
+KUNDE = re.compile(r"f[a]ktum", re.IGNORECASE)
 # Ein Gedankenstrich als Trenner. Der Halbgeviertstrich zwischen zwei Ziffern
 # (`2024–2026`) ist ein Bereich und kein Trenner; ` -- ` mit Leerraum auf
 # beiden Seiten ist der Trenner in ASCII, `--primary` ist ein Token.
@@ -552,6 +561,35 @@ def spiegel_pruefen(ordner: Path) -> list[str]:
                     befunde.append(f"EINBAU.md:{nr} verweist auf `{treffer}` -- das geht ins offene Ara-Kit")
             if TRENNER_IN_PROSA.search(zeile):
                 befunde.append(f"EINBAU.md:{nr} trennt mit einem Gedankenstrich")
+    return befunde
+
+
+def kunde_pruefen(wurzel: Path) -> list[str]:
+    """Punkt 11: der Kundenname steht in keiner Datei des Repos."""
+    try:
+        aus = subprocess.run(
+            ["git", "-C", str(wurzel), "ls-files", "-z"],
+            capture_output=True,
+            check=True,
+        ).stdout.decode("utf-8")
+        dateien = [wurzel / n for n in aus.split("\0") if n]
+    except (OSError, subprocess.CalledProcessError):
+        dateien = [
+            d
+            for d in wurzel.rglob("*")
+            if d.is_file() and not {"node_modules", ".git", "dist"} & set(d.parts)
+        ]
+    befunde: list[str] = []
+    for datei in sorted(dateien):
+        try:
+            text = datei.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for nr, zeile in enumerate(text.splitlines(), 1):
+            if KUNDE.search(zeile):
+                befunde.append(
+                    f"{datei.relative_to(wurzel)}:{nr} nennt den Kunden -- das Repo ist oeffentlich"
+                )
     return befunde
 
 
@@ -676,6 +714,9 @@ def main() -> int:
     # 10. Was ins offene Ara-Kit geht, spricht nicht von innen.
     befunde.extend(spiegel_pruefen(ordner))
 
+    # 11. Der Kundenname steht nirgends im Repo.
+    befunde.extend(kunde_pruefen(wurzel))
+
     primitive = sorted((quelle / "primitive").glob("*.tsx"))
     muster = sorted((quelle / "muster").glob("*.tsx"))
     print("")
@@ -691,7 +732,7 @@ def main() -> int:
             print(f"  FAIL  {b}")
         print("\n  RESULT: FAILED")
         return 1
-    print("  PASS  Buendel, Fassung, Klassen, Grenzen, Rueckfaelle, Farben, Namen, Kontrast und Spiegel stimmen")
+    print("  PASS  Buendel, Fassung, Klassen, Grenzen, Rueckfaelle, Farben, Namen, Kontrast, Spiegel und Kundenname stimmen")
     print("\n  RESULT: PASSED")
     return 0
 

@@ -10,7 +10,7 @@
  *    öffnet die Freigabe HIER, mit dem Baustein `Freigabe` der Bibliothek —
  *    Original, Felder, Bestätigen, Ablehnen —, und danach steht wieder die
  *    Liste da. Ohne diesen Rückfall könnte niemand die Freigaben einer App
- *    entscheiden, die den Tieflink nicht liest (04.10.2026, Faktum).
+ *    entscheiden, die den Tieflink nicht liest (04.10.2026, `belege`).
  * Es ist derselbe Baustein und dieselbe Regel des Backends (Einreicher 403,
  * `liegt_bei` 409); der Rückfall ist keine zweite Entscheidung, nur eine
  * zweite Stelle, an der sie getroffen wird.
@@ -88,7 +88,7 @@ function stufeName(f: Pick<OffeneFreigabe, 'stufe' | 'stufe_bezeichnung'>): stri
 
 /**
  * Die Anfrage in der Form des Musters. Der NAME der App und nicht ihre Kennung
- * (26.09.2026): „faktum" ist ein Pfad, „Faktum" ist das, was der Mensch links
+ * (26.09.2026): „belege" ist ein Pfad, „Belege" ist das, was der Mensch links
  * in seiner Leiste sieht.
  */
 function alsEintrag(f: OffeneFreigabe, fuss?: ReactNode): FreigabeEintrag {

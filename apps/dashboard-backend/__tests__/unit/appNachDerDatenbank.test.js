@@ -70,11 +70,11 @@ describe('Nach dem Neustart des Geraets', () => {
 
   test('eine App, die nach der Datenbank startete, bleibt stehen', async () => {
     // Der Fall jedes Deploys: das Backend startet neu, Postgres nicht.
-    containerDa('faktum', { gestartet: '2026-09-25T22:45:38.089Z' });
-    docker.listContainers.mockResolvedValue([{ Id: 'faktum' }]);
+    containerDa('rechnungen', { gestartet: '2026-09-25T22:45:38.089Z' });
+    docker.listContainers.mockResolvedValue([{ Id: 'rechnungen' }]);
 
     expect(await appDatenbank.appsNachDerDatenbank()).toEqual([]);
-    expect(container.faktum.restart).not.toHaveBeenCalled();
+    expect(container.rechnungen.restart).not.toHaveBeenCalled();
   });
 
   test('ein angehaltener Container bleibt angehalten', async () => {

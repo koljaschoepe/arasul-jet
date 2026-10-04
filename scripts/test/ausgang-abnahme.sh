@@ -13,8 +13,9 @@
 #     Anzahl und zuletzt, abgewiesen,
 #   - das Protokoll steht nach einem Neustart von Proxy UND Backend noch da,
 #   - die Last des Proxys im Leerlauf (docker stats, 10 Messungen),
-#   - belege-live, abschluss und probe-faktum-belege laufen weiter (jede App
-#     einzeln: lieferbar und gesund; die zwei Namen werden genannt, wenn da).
+#   - jede andere App auf dem Geraet laeuft weiter (einzeln: lieferbar und
+#     gesund); die Apps aus ARASUL_WEITERE_APPS (Vorgabe `belege abschluss`)
+#     werden genannt, wenn da.
 #
 # WAS ES ANLEGT, RAEUMT ES WEG (die Probe-App samt Datenbank, den Schluessel).
 # Die Zaehler der Probe-App (Zeilen in `ausgang_zaehler`) bleiben nicht: das
@@ -323,7 +324,7 @@ while IFS='|' read -r id stand version lieferbar gesundheit mangel; do
   [ "$gesundheit" = "-" ] || [ "$gesundheit" = "healthy" ] || ok=nein
   pruefe "$id ($stand $version) lieferbar und gesund" "$ok" "lieferbar=$lieferbar gesundheit=$gesundheit${mangel:+ mangel=$mangel}"
 done <"$ARBEIT/apps.txt"
-for erwartet in belege abschluss probe-faktum-belege; do
+for erwartet in ${ARASUL_WEITERE_APPS:-belege abschluss}; do
   grep -q "^$erwartet|" "$ARBEIT/apps.txt" && printf 'gesehen  %s steht auf dem Geraet\n' "$erwartet" || printf 'hinweis  %s ist auf diesem Geraet nicht eingespielt\n' "$erwartet"
 done
 

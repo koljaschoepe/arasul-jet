@@ -3,7 +3,7 @@
 # Abnahme „eine App ohne ihre Datenbank ist krank" (J35, 26.09.2026)
 # =============================================================================
 # Der Befund aus dem Kundendurchlauf 2: nach einem Neustart lief die
-# Faktum-App ohne ihre Datenbank weiter und meldete sich gesund. Die zweite
+# App `belege` ohne ihre Datenbank weiter und meldete sich gesund. Die zweite
 # Haelfte der Reparatur ist, dass das GERAET es sagt, egal was der
 # Healthcheck der App meint (`appStore.standZustand`, `appDatenbank.fehlt`).
 #

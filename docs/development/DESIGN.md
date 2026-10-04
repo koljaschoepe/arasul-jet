@@ -203,7 +203,7 @@ Die sechs Bausteine ohne Bau:
 | `Karte`                       | die erhabene Fläche für ein Ding, das für sich steht (`--card`)                     |
 | `Formular` / `Feld` / `Knopf` | ein echtes `form` (Eingabetaste sendet ab), Felder mit `label`                      |
 | `Meldung`                     | Hinweis, Erfolg, Warnung, Fehler — die Art steht auch im Text, nie nur in der Farbe |
-| `Menue`                       | die Fläche über der Seite hinter dem Hamburger-Knopf (unter 900 px)                 |
+| `Menue`                       | für eine App: die Fläche über der Seite hinter einem Hamburger-Knopf (unter 900 px) |
 
 **Kein neues Erscheinungsbild.** Die Werte stehen als
 `var(--token-der-shell, <fester Wert>)`: in der Shell folgt die Bibliothek dem

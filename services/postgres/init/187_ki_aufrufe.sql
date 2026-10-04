@@ -4,8 +4,8 @@
 -- WARUM. Ein Flow hinterlaesst einen Lauf mit Schritten (C6, D4), und darin
 -- steht, welches Modell was gesagt hat. Ein Aufruf von
 -- `document/extract-structured` ist KEIN Flow: bis hierher standen Modell und
--- Zeit nur im Protokoll der App selbst (App-Probe probe-faktum-belege, Faktum-
--- Anforderung 10). Eine Kanzlei muss nachweisen, welches Modell welchen
+-- Zeit nur im Protokoll der App selbst (Probe zu `belege`, Anforderung 10
+-- des Kunden). Eine Kanzlei muss nachweisen, welches Modell welchen
 -- Vorschlag gemacht hat, und will das nicht jeder App ueberlassen.
 --
 -- WAS DRINSTEHT: wer (App, Stand, Mensch), wann, womit (Modell, Weg), wie lange,

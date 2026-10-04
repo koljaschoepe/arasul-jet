@@ -46,8 +46,8 @@ const EINE = {
 const EINGEREICHT = {
   id: 9,
   run_id: 43,
-  app_id: 'faktum',
-  app_name: 'Faktum',
+  app_id: 'rechnungen',
+  app_name: 'Rechnungen',
   stand: 'live' as const,
   flow_name: 'buchen',
   titel: 'Rechnung 4711 buchen',
@@ -183,7 +183,7 @@ describe('OffeneFreigaben', () => {
     listen([]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
     expect(await screen.findByTestId('eingereicht-9')).toHaveTextContent(
-      'Ihr Vorgang „Rechnung 4711 buchen“ (Faktum) wartet seit 5 Minuten auf admin oder bernd. ' +
+      'Ihr Vorgang „Rechnung 4711 buchen“ (Rechnungen) wartet seit 5 Minuten auf admin oder bernd. ' +
         'Vier-Augen-Prinzip: Sie entscheiden nicht mit.'
     );
   });

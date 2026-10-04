@@ -19,43 +19,42 @@ Single Page Application (SPA) for the Arasul Platform dashboard.
 
 ```
 src/
-├── App.tsx               # Main application
-├── index.css             # Tailwind + CSS variables + shadcn
+├── App.tsx               # Main application: Anmeldung, Fehlergrenze, Routen
+├── index.css             # Tailwind + Tokens aus @marken/theme.css + Shell-CSS
 ├── features/             # Feature modules
-│   ├── workspace/        # Shell: Aktivitätsleiste, eine Ansicht, StatusBar (M5)
-│   ├── settings/         # System configuration
-│   ├── modelle/          # Die Kurzliste des Geräts (D5)
+│   ├── workspace/        # Shell: Aktivitätsleiste, eine Ansicht, StatusBar
+│   ├── apps/             # Die eigenen Apps: Übersicht, Rahmen
+│   ├── freigaben/        # Offene Freigaben
+│   ├── einstellungen/    # Persönliche Einstellungen
+│   ├── settings/         # Die Verwaltung (nur Admin)
+│   ├── modelle/          # Die Kurzliste des Geräts
+│   ├── firmenordner/     # Der Firmenordner des Mitarbeiters
 │   └── system/           # Login, Auslastung, Aktualisierungen, Sicherung
 ├── components/
-│   ├── ui/               # Modal, Skeleton, LoadingSpinner, etc.
-│   │   └── shadcn/       # shadcn/ui components
+│   ├── ui/               # ErrorBoundary, Skeleton, AuthCard, NichtGefunden
 │   └── mascot/           # Das Maskottchen
-├── contexts/             # React contexts
-│   ├── AuthContext.tsx    # Authentication state
-│   ├── DownloadContext.tsx# Model download tracking
-│   ├── ActivationContext.tsx # Model activation
-│   └── ToastContext.tsx   # Toast notifications
-├── hooks/
-│   ├── useApi.ts          # REST API hook (fetch-based)
-│   ├── useWebSocketMetrics.ts # Real-time metrics
-│   ├── useConfirm.tsx     # Confirmation dialogs
-│   └── useTheme.ts        # Dark/light theme toggle
+├── contexts/             # Auth, Download, Activation, Toast
+├── hooks/                # useApi, useTheme, useConfirm, useWebSocketMetrics, ...
 ├── stores/               # zustand (workspaceStore: die eine offene Ansicht)
-├── config/
-│   └── api.ts             # API base URL, auth headers
-├── lib/
-│   └── utils.ts           # cn() helper (clsx + tailwind-merge)
-└── __tests__/             # Unit tests (Vitest)
+├── config/               # api.ts (API-Basis), branding.ts
+├── lib/                  # queryClient (TanStack Query)
+├── utils/                # fehlertext, lazyNachladen, formatting, ...
+└── __tests__/            # Unit tests (Vitest)
 ```
+
+Die Primitive (Button, Dialog, Select, …), Muster und Bausteine liegen nicht
+hier, sondern im Designsystem `packages/marken/` (Alias `@marken`, `cn()`
+eingeschlossen).
 
 ## Key Patterns
 
 - **API calls**: Always use `useApi()` hook — never raw `fetch()` or axios
-- **Toasts**: `useToast()` from ToastContext (powered by sonner)
-- **Styling**: Tailwind utilities + CSS variables (`var(--primary-color)`)
+- **Fehler anzeigen**: `fehlertext()` aus `utils/fehlertext.ts`, nie `err.message` roh
+- **Toasts**: `useToast()` from ToastContext
+- **Styling**: Tailwind utilities + Tokens aus `packages/marken/src/theme.css` (`var(--primary)`)
 - **Icons**: `lucide-react` only (no react-icons)
 - **Env vars**: `import.meta.env.VITE_*` (not process.env)
-- **Theme**: `useTheme()` hook, dark mode default, `.light-mode` override
+- **Theme**: `useTheme()`, Hell ist die Vorgabe, Dunkel über `data-theme="dark"`; die Wahl steht am Konto
 
 ## Development
 
@@ -72,7 +71,7 @@ npx vite build
 
 ## Build & Deployment
 
-Multi-stage Docker build: Node 20 (Vite build) -> nginx:1.27-alpine (serves `dist/`).
+Multi-stage Docker build: Node 22 (Vite build) -> nginx:1.27-alpine (serves `dist/`).
 
 ```bash
 # Rebuild after changes

@@ -1,7 +1,7 @@
 /**
  * Die Proben-App der Abnahme „KI-Aufrufe im Protokoll" (J35, 26.09.2026).
  *
- * Ein Messgeraet und keine Vorlage. Sie tut, was die Faktum-App tut: sie
+ * Ein Messgeraet und keine Vorlage. Sie tut, was die App `belege` tut: sie
  * liest einen Beleg ueber `document/extract-structured` aus -- OHNE Flow --
  * und reicht den Menschen aus `X-Arasul-User` unveraendert an das Geraet
  * weiter, wie der Kontrakt (`protokoll`) es sagt. Ob der Aufruf danach im

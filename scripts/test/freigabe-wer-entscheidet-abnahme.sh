@@ -25,7 +25,7 @@
 #
 # Die zwei Mitarbeiter sind entweder vorhandene Konten (ARASUL_M1,
 # ARASUL_M1_PASSWORT, ARASUL_M2, ARASUL_M2_PASSWORT -- am Orin die zwei
-# Probe-Konten, die auch die Faktum-App benutzen) oder zwei Wegwerf-Konten mit
+# Probe-Konten, die auch die App `belege` benutzen) oder zwei Wegwerf-Konten mit
 # Stempel, die das Skript anlegt und wieder loescht.
 #
 # WAS ES ANLEGT, RAEUMT ES WEG: die App `probe-freigabe` (samt Freigaben und
@@ -35,7 +35,7 @@
 # Aufruf:
 #   ARASUL_URL=https://192.168.0.197 ARASUL_PASSWORT=... \
 #   ARASUL_M1=... ARASUL_M1_PASSWORT=... ARASUL_M2=... ARASUL_M2_PASSWORT=... \
-#   ARASUL_RAHMEN_APP=probe-faktum-belege ARASUL_SPERR_APP=belege \
+#   ARASUL_RAHMEN_APP=<Probe-App> ARASUL_SPERR_APP=belege \
 #   bash scripts/test/freigabe-wer-entscheidet-abnahme.sh
 #
 # Rueckgabe 0, wenn jede Pruefung gruen war, sonst 1.

@@ -4,7 +4,7 @@ Auftrag `live-schalten-mit-sicherung`, PR #879 (gemergt als `9e5a826e`). Gemesse
 am Orin nach Deploy 37182489833 (Migration 199 angewendet, alle Dienste gesund),
 mit `scripts/test/live-schalten-abnahme.sh` und der Probe-App `tests/probe-live`
 (Stempel `probe-live-1004`, eigene Test- und Live-Datenbank). Die Apps
-`abschluss`, `belege`, `probe-faktum-belege` und die Wegwerf-Apps des Kits
+`abschluss`, `belege`, die Probe zu `belege` und die Wegwerf-Apps des Kits
 blieben unberührt. Konto: `probe-admin`, keine neuen.
 
 ## Ergebnis
@@ -43,8 +43,8 @@ aus Lauf 3).
 
 ## Nach dem Deploy am Gerät
 
-Dreizehn Plattform-Dienste gesund, die Apps `abschluss`, `belege`,
-`probe-faktum-belege` laufen unverändert weiter.
+Dreizehn Plattform-Dienste gesund, die Apps `abschluss`, `belege` und
+die Probe zu `belege` laufen unverändert weiter.
 
 ## Beobachtet, nicht Auftrag
 

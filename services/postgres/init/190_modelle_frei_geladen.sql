@@ -4,7 +4,7 @@
 -- WARUM. Migration 175 (Phase C8, 27.08.2026) hat den Katalog zur Kurzliste
 -- gemacht: vier Modelle, an diesem Geraet gemessen, und kein Weg daran vorbei.
 -- Das war richtig, solange der Katalog eine Zusage ueber gemessene Modelle
--- sein sollte. Kunden und Partner wollen aber waehlen: Faktum fragte am
+-- sein sollte. Kunden und Partner wollen aber waehlen: ein Kunde fragte am
 -- 25.09.2026 nach der KI, am 26.09.2026 ist zugesagt, dass weitere offene
 -- Modelle ladbar sind (Kolja: "das soll wirklich komplett offen sein"). Die
 -- Umkehr gilt fuer den KATALOG, nicht fuer die Vorgabe: der Standard bleibt
