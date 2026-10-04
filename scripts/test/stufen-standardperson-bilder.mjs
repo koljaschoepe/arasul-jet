@@ -117,7 +117,7 @@ if (PHASE === 'pruefung') {
   const textB = (await b.page.getByTestId('offene-freigaben').innerText()).replace(/\s+/g, ' ');
   pruefe('mit Stufe und „Liegt bei Ihnen"', /Stufe Prüfung/.test(textB) && /Liegt bei Ihnen/.test(textB));
   const zahlB = await hausZahl(b.page);
-  const fuerSieB = await b.page.getByTestId('fuer-sie').locator('> li').count();
+  const fuerSieB = await b.page.getByTestId('fuer-sie').locator('[data-testid="freigabe-liste"] > li').count();
   pruefe('Die Zahl am Haus zählt genau „Für Sie"', zahlB === String(fuerSieB), `haus=${zahlB} liste=${fuerSieB}`);
   await bild(b.page, `${B}-startseite`);
   await b.ctx.close();
@@ -140,7 +140,7 @@ if (PHASE === 'pruefung') {
       (await zeile.first().getByRole('button', { name: 'Übernehmen' }).count()) === 1
   );
   const zahlAd = await hausZahl(ad.page);
-  const fuerSieAd = await ad.page.getByTestId('fuer-sie').locator('> li').count();
+  const fuerSieAd = await ad.page.getByTestId('fuer-sie').locator('[data-testid="freigabe-liste"] > li').count();
   pruefe('Auch beim Administrator zählt das Haus nur „Für Sie"', zahlAd === String(fuerSieAd), `haus=${zahlAd} liste=${fuerSieAd}`);
   await bild(ad.page, `${ADMIN}-startseite`);
   await ad.ctx.close();
@@ -190,7 +190,7 @@ if (PHASE === 'pruefung') {
   await startseite(ad.page);
   const karteAd = karten(ad.page);
   pruefe(`${ADMIN} sieht die Freigabe der Stufe Leitung unter „Für Sie"`, await sichtbar(karteAd, 10000));
-  const li = ad.page.getByTestId('fuer-sie').locator('> li').filter({ hasText: LAUF_TITEL });
+  const li = ad.page.getByTestId('fuer-sie').locator('[data-testid="freigabe-liste"] > li').filter({ hasText: LAUF_TITEL });
   const zeileText = (await li.first().innerText()).replace(/\s+/g, ' ');
   pruefe(
     'mit „Liegt bei allen mit Zugang" und dem Hinweis auf die Verwaltung',
@@ -202,7 +202,7 @@ if (PHASE === 'pruefung') {
 
   const b = await sitzung(B, B_PASS);
   await startseite(b.page);
-  const liB = b.page.getByTestId('fuer-sie').locator('> li').filter({ hasText: LAUF_TITEL });
+  const liB = b.page.getByTestId('fuer-sie').locator('[data-testid="freigabe-liste"] > li').filter({ hasText: LAUF_TITEL });
   pruefe(`${B} sieht sie ebenso`, await sichtbar(liB, 10000));
   if (!B_IST_ADMIN) {
     pruefe(

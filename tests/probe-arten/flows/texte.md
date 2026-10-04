@@ -16,7 +16,7 @@ schritte:
   - name: schreiben
     typ: subagent
     rolle: schreiber
-    auftrag: Schreibe einen Satz zum Thema {{thema}}.
+    auftrag: 'Schreibe einen Satz zum Thema {{thema}}. <<<{"text": "Ein Satz zum Thema {{thema}}."}>>>'
 grenzen:
   zeitlimit_s: 600
 ---

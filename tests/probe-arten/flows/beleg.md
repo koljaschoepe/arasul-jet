@@ -20,7 +20,7 @@ schritte:
   - name: lesen
     typ: subagent
     rolle: leser
-    auftrag: 'Gib genau dieses JSON aus: {"betrag": "12,50", "datum": "{{datum}}", "unsicher": [{{unsicher}}]}'
+    auftrag: 'Gib genau dieses JSON aus: <<<{"betrag": "12,50", "datum": "{{datum}}", "unsicher": [{{unsicher}}]}>>>'
     faehigkeiten: { text: true, bild: true }
 grenzen:
   zeitlimit_s: 600

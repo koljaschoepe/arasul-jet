@@ -6,6 +6,16 @@
  *
  *   POST /starten?flow=<name>&datum=<text>&unsicher=<text>  startet, antwortet { lauf }
  *   GET  /lauf?lauf=<id>          { status, freigabe } aus dem Geraet
+ *   POST /v1/chat/completions     ein FESTES Modell (seit 04.10.2026)
+ *
+ * WARUM EIN FESTES MODELL. Die Abnahme liess bis zum 04.10.2026 das echte
+ * Modell ein JSON wiedergeben, und es gab es nicht jedes Mal gleich wieder
+ * (zweimal 42 von 43, mit verschiedenen roten Pruefungen). Gemessen werden die
+ * Arten, nicht das Modell: die Abnahme stellt `texte` und `beleg` ueber den
+ * Weg des Administrators auf ein externes Modell um, und das ist diese Route.
+ * Sie antwortet, was im Auftrag zwischen `<<<` und `>>>` steht; ohne Marke
+ * (die Synthese am Ende) die Ergebnisse der Schritte. Der Weg durch das Geraet
+ * (Rolle, Vertrag, Erkennung, Freigabe) bleibt der echte.
  *
  * Die Pfade sieht sie OHNE `/apps/<id>/api`; Traefik schneidet ab.
  */
@@ -66,6 +76,32 @@ function ruf(verb, pfad, leib) {
   });
 }
 
+function lies(anfrage) {
+  return new Promise(fertig => {
+    let text = '';
+    anfrage.setEncoding('utf8');
+    anfrage.on('data', stueck => {
+      text += stueck;
+    });
+    anfrage.on('end', () => fertig(text));
+    anfrage.on('error', () => fertig(''));
+  });
+}
+
+/** Die feste Antwort auf den letzten Auftrag (siehe Kopf). */
+function festeAntwort(nachrichten) {
+  const auftraege = (Array.isArray(nachrichten) ? nachrichten : [])
+    .filter(n => n && n.role === 'user')
+    .map(n => (typeof n.content === 'string' ? n.content : JSON.stringify(n.content)));
+  const letzter = auftraege[auftraege.length - 1] || '';
+  const treffer = /<<<([\s\S]*?)>>>/.exec(letzter);
+  if (treffer) {
+    return treffer[1].trim();
+  }
+  const schritte = letzter.split('--- Ergebnisse der Schritte (in Reihenfolge) ---')[1];
+  return schritte ? schritte.trim().replace(/\s*\n\s*/g, ' ') : 'Fertig.';
+}
+
 const ARGUMENTE = {
   texte: p => ({ thema: p.get('thema') || 'Wartung' }),
   beleg: p => ({ datum: p.get('datum') || '', unsicher: p.get('unsicher') || '' }),
@@ -84,6 +120,28 @@ const server = http.createServer(async (anfrage, antwort) => {
 
   if (pfad === '/gesund') {
     sende(antwort, 200, { ok: true, version: VERSION });
+    return;
+  }
+
+  if (pfad === '/v1/chat/completions' && anfrage.method === 'POST') {
+    let leib = {};
+    try {
+      leib = JSON.parse(await lies(anfrage));
+    } catch {
+      leib = {};
+    }
+    sende(antwort, 200, {
+      id: 'probe-fest',
+      object: 'chat.completion',
+      model: leib.model || 'fest',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: festeAntwort(leib.messages) },
+          finish_reason: 'stop',
+        },
+      ],
+    });
     return;
   }
 

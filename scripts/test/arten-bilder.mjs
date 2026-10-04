@@ -87,7 +87,7 @@ async function startseite(page) {
 async function karteFuerB(titel) {
   const b = await sitzung(B, B_PASS);
   await startseite(b.page);
-  const li = b.page.getByTestId('fuer-sie').locator('> li').filter({ hasText: titel });
+  const li = b.page.getByTestId('fuer-sie').locator('[data-testid="freigabe-liste"] > li').filter({ hasText: titel });
   pruefe(`${B} sieht „${titel}" unter „Für Sie"`, await sichtbar(li, 15000));
   const text = (
     await li
