@@ -7,10 +7,10 @@
 #   1. ANLEGEN GIBT RECHT. Acht Probe-Bereiche mit Stempel; nach jedem hat
 #      der anlegende Administrator in `GET /api/firmenordner/rechte` eine
 #      Zeile `schreiben` -- ohne dass jemand sie vergeben haette.
-#   2. DIE MATRIX HAELT ACHT ORDNER AUS (Browser, `bereich-recht-bilder.mjs`):
+#   2. DER BAUM HAELT ACHT ORDNER AUS (Browser, `bereich-recht-bilder.mjs`):
 #      bei 390 und 1440 px steht jeder Name ganz oder umgebrochen, und
-#      seitlich rollt nur die Matrix selbst. Dazu zeigt die Matrix die Zelle
-#      des Administrators auf jedem Probe-Bereich als `schreiben`.
+#      seitlich rollt nichts. (Die Rechtematrix gibt es seit M5 nicht mehr;
+#      das Recht des Anlegenden misst Schritt 1 an der API.)
 #   3. WEGWERFEN IN EINEM SCHRITT (Browser): die Rueckfrage nennt den, der ein
 #      Recht hat, die Kennung wird abgetippt, der Bereich ist weg -- und mit
 #      ihm seine Rechte. Ohne `rechte=entziehen` bleibt es ein 409.
@@ -42,7 +42,7 @@ if [ "${1:-}" = "--nur-aufraeumen" ]; then
   STEMPEL="${2:?Stempel fehlt}"
 fi
 PRAEFIX="j34r-$STEMPEL"
-# Acht Namen, zwei davon lang -- die Matrix soll an ihnen umbrechen, nicht
+# Acht Namen, zwei davon lang -- der Baum soll an ihnen umbrechen, nicht
 # abschneiden. Mit dem Praefix (16 Zeichen) bleibt jede Kennung unter den 40,
 # die das Schema erlaubt.
 NAMEN=(kunden company buchhaltung projekte personal-und-vertraege marketing
@@ -142,9 +142,9 @@ ARASUL_SITZUNG="$SITZUNG" arasul_sitzung_bauen "$TOKEN"
 if ARASUL_URL="$BASIS" ARASUL_SITZUNG="$SITZUNG" ARASUL_PRAEFIX="$PRAEFIX" \
   ARASUL_ICH="$ICH" ARASUL_WEGWERFEN="$PRAEFIX-kunden" ARASUL_BILDER="$BILDER" \
   node "$WURZEL/scripts/test/bereich-recht-bilder.mjs"; then
-  pruefe "Browser: Matrix und Wegwerfen" ja
+  pruefe "Browser: Baum und Wegwerfen" ja
 else
-  pruefe "Browser: Matrix und Wegwerfen" nein "siehe oben"
+  pruefe "Browser: Baum und Wegwerfen" nein "siehe oben"
 fi
 rm -f "$SITZUNG"
 ruf GET /api/firmenordner/ordner

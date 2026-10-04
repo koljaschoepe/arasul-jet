@@ -101,6 +101,7 @@ describe('leseSteckbrief', () => {
       // Werkzeuge; der Katalogwert bleibt (COALESCE, Migration 205).
       supportsTools: null,
       supportsVision: null,
+      capabilities: null,
     });
   });
 

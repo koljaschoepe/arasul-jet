@@ -18,13 +18,12 @@
 #      weniger zu geben als auf dem Bereich, wird abgewiesen.
 #   4. DER ORDNER AM GERAET IST KEINEM SICHTBAR. Er taucht in keiner Antwort
 #      auf, und der Dienst gibt ihn keinem Nutzer heraus.
-#   5. DIE WURZEL, DIE SICHT UND DER BROWSER (Auftrag
-#      firmenordner-rechte-im-frontend, 22.09.2026): die Wurzel liest jedes
-#      Konto und schreibt nur der Administrator (WebDAV PUT 403 gegen 201);
-#      `sicht.md` nennt einem Menschen seine Ordner, seine Apps und die Orte --
-#      und nichts Fremdes, auch keinen Namen; und die Rechte-Vergabe in der
-#      Verwaltung erzeugt dieselbe Zeile wie `POST /api/firmenordner/rechte`
-#      (`firmenordner-bilder.mjs`, Playwright).
+#   5. DIE WURZEL UND DIE SICHT (Auftrag firmenordner-rechte-im-frontend,
+#      22.09.2026): die Wurzel liest jedes Konto und schreibt nur der
+#      Administrator (WebDAV PUT 403 gegen 201); `sicht.md` nennt einem
+#      Menschen seine Ordner, seine Apps und die Orte -- und nichts Fremdes,
+#      auch keinen Namen. (Den Browser misst seit M5
+#      `verwaltung-firmenordner-abnahme.sh`.)
 #
 # DIE WICHTIGSTEN MESSUNGEN SIND DIE NEGATIVEN, wie immer: „sieht nicht",
 # „kommt nicht herein", „taucht nicht auf". Eine Schnittstelle, die etwas
@@ -77,8 +76,6 @@ PASSWORT="Firmenordner-$STEMPEL"
 WURZEL_ANGELEGT=false
 WURZEL_ID=""
 WURZEL_RAUM=""
-SITZUNG_A="${TMPDIR:-/tmp}/arasul-j33-admin.json"
-SITZUNG_M="${TMPDIR:-/tmp}/arasul-j33-mitarbeiter.json"
 
 NUR_AUFRAEUMEN=false
 [ "${1:-}" = "--nur-aufraeumen" ] && NUR_AUFRAEUMEN=true
@@ -239,7 +236,6 @@ for o in d:
     ruf_geduldig DELETE "/api/firmenordner/ordner/$WURZEL_ID?kennung=firma" "$TOK"
     echo "   Wurzel firma weg (HTTP $CODE)"
   fi
-  rm -f "$SITZUNG_A" "$SITZUNG_M"
 }
 
 if [ "$NUR_AUFRAEUMEN" = true ]; then
@@ -799,64 +795,6 @@ rm -f "$SICHT"
 CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 \
   -H "authorization: Bearer ausweis_$(printf '%064d' 0)" "$BASIS/api/firmenordner/sicht")
 pruefe 'ein erfundener Ausweis bekommt sie nicht' "$(ja_nein "$CODE" 401)" "HTTP $CODE"
-
-# ===========================================================================
-# 11. Im Browser: die Vergabe erzeugt dieselbe Zeile wie POST /rechte
-# ===========================================================================
-echo
-echo "--- Im Browser ---"
-
-if node -e 'require.resolve("playwright")' 2>/dev/null; then
-  # DER MITARBEITER TRAEGT NOCH SEIN STARTPASSWORT, und die Shell zeigt ihm
-  # dann den Wechsel statt des Arbeitsplatzes (D1). Ueber die Schnittstelle
-  # merkt man das nicht -- der erste Lauf am 22.09.2026 stand im Browser vor
-  # „Passwort wechseln" und meldete „kommt nicht in seine Shell". Also
-  # wechselt er hier, wie ein Mensch es taete; der Wechsel entwertet seine
-  # Sitzungen, deshalb danach neu anmelden.
-  PASSWORT_ENG="Eigenes-$STEMPEL-Ab1"
-  ruf POST "/api/auth/change-password" "$TOK_ENG" \
-    "{\"currentPassword\":\"$PASSWORT\",\"newPassword\":\"$PASSWORT_ENG\"}"
-  pruefe "$ENG wechselt sein Startpasswort" "$(ja_nein "$CODE" 200)" "HTTP $CODE"
-  TOK_ENG=$(anmelden "$ENG" "$PASSWORT_ENG")
-  pruefe 'und meldet sich mit dem eigenen neu an' "$([ -n "$TOK_ENG" ] && echo ja || echo nein)"
-  (
-    # shellcheck disable=SC2034  # von `arasul_sitzung_bauen` aus der Umgebung gelesen
-    ARASUL_SITZUNG="$SITZUNG_A"
-    arasul_sitzung_bauen "$TOK"
-  )
-  (
-    # shellcheck disable=SC2034
-    ARASUL_SITZUNG="$SITZUNG_M"
-    # shellcheck disable=SC2034  # kein Cookie-Jar fuer diesen Menschen
-    ARASUL_TOKEN_DATEI="${TMPDIR:-/tmp}/arasul-j33-eng"
-    arasul_sitzung_bauen "$TOK_ENG"
-  )
-  pruefe 'beide Sitzungen fuer den Browser stehen' \
-    "$([ -s "$SITZUNG_A" ] && [ -s "$SITZUNG_M" ] && echo ja || echo nein)"
-  if ARASUL_URL="$BASIS" ARASUL_SITZUNG_ADMIN="$SITZUNG_A" ARASUL_SITZUNG_MITARBEITER="$SITZUNG_M" \
-     ARASUL_BEREICH="$BEREICH" ARASUL_PROJEKT="$PROJEKT" ARASUL_GERAETORDNER="$GERAETORDNER" \
-     ARASUL_WEIT="$WEIT" ARASUL_ENG="$ENG" node "$WURZEL/scripts/test/firmenordner-bilder.mjs"; then
-    pruefe 'Firmenordner im Browser: Baum, Matrix, 409, Protokoll, Mitarbeiter-Sicht' ja
-  else
-    pruefe 'Firmenordner im Browser: Baum, Matrix, 409, Protokoll, Mitarbeiter-Sicht' nein \
-      'firmenordner-bilder.mjs war rot'
-  fi
-
-  # Was der Browser angerichtet hat: dieselbe Zeile, die POST /rechte macht.
-  ruf GET "/api/firmenordner/rechte?ordner_id=$ID_PROJEKT&benutzer_id=$ID_WEIT" "$TOK"
-  ZEILE=$(python3 -c 'import sys,json
-try: d = json.load(sys.stdin)["data"]
-except Exception: print(""); raise SystemExit
-print(",".join("%s:%s:%s" % (z.get("ordner_kennung"), z.get("username"), z.get("recht")) for z in d))' < "$RUMPF" 2>/dev/null)
-  pruefe 'die Vergabe im Browser steht als Zeile wie nach POST /rechte' \
-    "$(ja_nein "$ZEILE" "$PROJEKT:$WEIT:schreiben")" "${ZEILE:-keine Zeile}"
-  # Und die Regel hat gehalten: WEIT hat auf dem Projekt NICHT weniger als auf
-  # dem Bereich.
-  pruefe 'und der 409 hat nichts geschrieben' \
-    "$(ja_nein "$(enthaelt "$ZEILE" ':lesen')" nein)" "$ZEILE"
-else
-  echo "   (uebersprungen: Playwright fehlt -- npm ci, dann npm i --no-save playwright)"
-fi
 
 echo
 echo "$gruen gruen, $rot rot"

@@ -1725,8 +1725,15 @@ Bis zum 27.08.2026 gab es zwei Wege daran vorbei, und beide sind weg:
   `DELETE /api/models/katalog/*` holten ein beliebiges Modell von HuggingFace
   in den Katalog. Sie antworten jetzt mit `404`.
 - Der Abgleich mit Ollama trug jedes Modell nach, das nur dort lag
-  (`importUnknownModels`). Er tut es nicht mehr; ein Modell, das jemand am CLI
-  zieht, bleibt für die Plattform unsichtbar.
+  (`importUnknownModels`). Das nahm C8 weg; **seit M5 (05.10.2026) tut es der
+  Abgleich wieder**, aber anders: er legt eine Zeile mit Größe und Fähigkeiten
+  aus Ollama (`/api/tags`, `/api/show`: Bild, Werkzeuge, Denken, Kontext) an,
+  beim Start des Backends, beim periodischen Abgleich und nach
+  `POST /api/models/sync`. **Regel:** er legt nur neue Zeilen an. Eine
+  bestehende Zeile, kuratiert oder von Hand gepflegt, überschreibt er nie. Eine
+  nachgetragene Zeile ist `ungemessen` und `frei_geladen` (geht also mit dem
+  Entfernen des Modells wieder weg). `POST /api/models/sync` nennt sie unter
+  `nachgetragen`.
 
 ### Jedes offene Modell laden (J4, 30.09.2026)
 

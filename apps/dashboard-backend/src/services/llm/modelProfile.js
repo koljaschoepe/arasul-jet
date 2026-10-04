@@ -131,6 +131,8 @@ async function leseSteckbrief(ollamaName) {
       supportsVision: Array.isArray(daten.capabilities)
         ? daten.capabilities.includes('vision')
         : null,
+      // Die rohe Liste, fuer den Nachtrag unbekannter Modelle (Art, Denken).
+      capabilities: Array.isArray(daten.capabilities) ? daten.capabilities : null,
     };
   } catch (fehler) {
     logger.debug(`[STECKBRIEF] /api/show fehlgeschlagen für ${ollamaName}: ${fehler.message}`);

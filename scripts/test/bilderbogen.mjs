@@ -545,36 +545,6 @@ async function main() {
         oeffnen: () => laden(seite, `${URL}${pfad}`),
       })),
       {
-        name: 'Einstellungen · Allgemein',
-        dateiname: 'einstellungen-allgemein',
-        kennzeichen: '.ara-kopf__titel',
-        oeffnen: () => laden(seite, `${URL}/workspace/settings?tab=general`),
-      },
-      {
-        name: 'Einstellungen · KI',
-        dateiname: 'einstellungen-ki',
-        kennzeichen: '.ara-kopf__titel',
-        oeffnen: () => laden(seite, `${URL}/workspace/settings?tab=ki`),
-      },
-      {
-        name: 'Einstellungen · Datenschutz',
-        dateiname: 'einstellungen-datenschutz',
-        kennzeichen: '.ara-kopf__titel',
-        oeffnen: () => laden(seite, `${URL}/workspace/settings?tab=privacy`),
-      },
-      {
-        name: 'Einstellungen · Fernzugriff',
-        dateiname: 'einstellungen-fernzugriff',
-        kennzeichen: '.ara-kopf__titel',
-        oeffnen: () => laden(seite, `${URL}/workspace/settings?tab=remote-access`),
-      },
-      {
-        name: 'System · Selbstheilung',
-        dateiname: 'system-selbstheilung',
-        kennzeichen: '.ara-kopf__titel',
-        oeffnen: () => laden(seite, `${URL}/workspace/settings?tab=selfhealing`),
-      },
-      {
         name: 'Schauseite der Bibliothek',
         dateiname: 'schauseite',
         kennzeichen: '[data-schaustueck="Button"]',

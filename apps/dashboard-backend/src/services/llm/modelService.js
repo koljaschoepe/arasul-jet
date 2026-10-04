@@ -1177,7 +1177,8 @@ function createModelService(deps = {}) {
         const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
 
         const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 10000 });
-        const ollamaModels = (response.data.models || []).map(m => m.name);
+        const ollamaTags = response.data.models || [];
+        const ollamaModels = ollamaTags.map(m => m.name);
 
         // `llava-phi3` im Katalog ist `llava-phi3:latest` in `/api/tags`. Der
         // Abgleich kannte das seit 27.07.2026, diese Pruefung nicht: jedes
@@ -1207,11 +1208,16 @@ function createModelService(deps = {}) {
     async syncWithOllama() {
       try {
         const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 10000 });
-        const ollamaModels = (response.data.models || []).map(m => m.name);
+        const ollamaTags = response.data.models || [];
+        const ollamaModels = ollamaTags.map(m => m.name);
 
         logger.info(
           `[SYNC] Ollama has ${ollamaModels.length} models: ${ollamaModels.join(', ') || 'none'}`
         );
+
+        // 0. Was nur bei Ollama liegt, in den Katalog nachtragen (M5). Fasst
+        //    bestehende Zeilen nie an; Regel in modelSyncHelpers.js.
+        const nachgetragen = await syncHelpers.traegNachModelle(ollamaTags);
 
         // 1. For each Ollama model, find matching catalog entry and mark as available
         await syncHelpers.markAvailableModels(ollamaModels);
@@ -1241,7 +1247,7 @@ function createModelService(deps = {}) {
         const resumed = await this.resumePausedDownloads();
 
         this.invalidateAvailabilityCache();
-        return { success: true, ollamaModels, cleanedUp, resumed };
+        return { success: true, ollamaModels, nachgetragen, cleanedUp, resumed };
       } catch (err) {
         logger.error(`[SYNC] Error syncing with Ollama: ${err.message}`);
         return { success: false, error: err.message };
