@@ -17,6 +17,10 @@ const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
 
 // Load OpenAPI specification
+//
+// Ausnahme von „kein catch in Routen": das ist kein Handler, sondern Laden
+// beim Start des Moduls. Fehlt openapi.yaml, zeigt die Seite einen Platzhalter,
+// statt dass das Backend beim Start stehen bleibt.
 let swaggerDocument;
 try {
   const swaggerPath = path.join(__dirname, '../../openapi.yaml');

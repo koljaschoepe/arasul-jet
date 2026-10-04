@@ -48,7 +48,7 @@ const { validateBody, validateParams, validateQuery } = require('../../middlewar
 const { logSecurityEvent } = require('../../utils/auditLog');
 const logger = require('../../utils/logger');
 const sicherungsdienst = require('../../services/betrieb/sicherungsdienst');
-const { bestaetigePasswort } = require('../../services/auth/passwordService');
+const { bestaetigeMitProtokoll } = require('../../services/auth/passwortBestaetigung');
 const {
   WiederherstellungBody,
   AppWiederherstellungParams,
@@ -70,19 +70,14 @@ const zurueckholenDrossel = createUserRateLimiter(10, 15 * 60 * 1000);
  * Das Passwort pruefen und einen Fehlversuch ins Sicherheitsprotokoll
  * schreiben -- das Passwort selbst nie.
  */
-async function passwortBestaetigt(req, action) {
-  try {
-    await bestaetigePasswort(req.user.id, req.body.passwort);
-  } catch (fehler) {
-    logSecurityEvent({
-      userId: req.user.id,
-      action: `${action}_passwort_falsch`,
-      details: {},
-      ipAddress: req.ip,
-      requestId: req.headers['x-request-id'],
-    });
-    throw fehler;
-  }
+function passwortBestaetigt(req, action) {
+  return bestaetigeMitProtokoll({
+    userId: req.user.id,
+    passwort: req.body.passwort,
+    action,
+    ipAddress: req.ip,
+    requestId: req.headers['x-request-id'],
+  });
 }
 
 /**

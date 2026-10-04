@@ -33,6 +33,7 @@
 const crypto = require('crypto');
 const db = require('../../database');
 const logger = require('../../utils/logger');
+const { ConflictError } = require('../../utils/errors');
 
 /**
  * Der Vorsatz, an dem ein Ausweis zu erkennen ist.
@@ -79,12 +80,26 @@ function pruefsummeVon(klartext) {
  */
 async function stelleAus({ benutzerId, name }) {
   const klartext = `${VORSATZ}${crypto.randomBytes(32).toString('hex')}`;
-  const ergebnis = await db.query(
-    `INSERT INTO public.mitarbeiter_ausweise (user_id, name, praefix, pruefsumme)
-          VALUES ($1, $2, $3, $4)
-       RETURNING id, name, praefix, angelegt_am, zuletzt_benutzt_am`,
-    [benutzerId, name, klartext.slice(0, PRAEFIX_LAENGE), pruefsummeVon(klartext)]
-  );
+  let ergebnis;
+  try {
+    ergebnis = await db.query(
+      `INSERT INTO public.mitarbeiter_ausweise (user_id, name, praefix, pruefsumme)
+            VALUES ($1, $2, $3, $4)
+         RETURNING id, name, praefix, angelegt_am, zuletzt_benutzt_am`,
+      [benutzerId, name, klartext.slice(0, PRAEFIX_LAENGE), pruefsummeVon(klartext)]
+    );
+  } catch (err) {
+    // Zwei Ausweise mit demselben Namen waeren zwei Zeilen, die derselbe
+    // Rechner zu sein behaupten. Der Fehlerbehandler macht aus 23505 zwar
+    // ohnehin einen 409, aber ohne den Satz, der sagt, was zu tun ist.
+    if (err.code === '23505') {
+      throw new ConflictError(
+        `Es gibt schon einen Ausweis mit dem Namen „${name}". ` +
+          'Widerrufen Sie ihn oder nehmen Sie einen anderen Namen.'
+      );
+    }
+    throw err;
+  }
   logger.info(`Ausweis ausgestellt: ${ergebnis.rows[0].praefix}*** für Benutzer ${benutzerId}`);
   return { ...ergebnis.rows[0], ausweis: klartext };
 }

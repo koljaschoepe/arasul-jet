@@ -578,7 +578,7 @@ router.post(
 router.get(
   '/verify',
   asyncHandler(async (req, res) => {
-    const { verifyToken } = require('../utils/jwt');
+    const { tokenOderNull } = require('../services/auth/forwardAuth');
 
     // Get token from cookie first, then Authorization header
     let token = null;
@@ -598,14 +598,8 @@ router.get(
       return res.status(401).send('No authentication token');
     }
 
-    // Verify token
-    let decoded;
-    try {
-      decoded = await verifyToken(token);
-    } catch {
-      logger.debug('Forward auth: Token verification failed');
-      return res.status(401).send('Invalid token');
-    }
+    // Verify token -- ungueltig, abgelaufen oder widerrufen ist `null`
+    const decoded = await tokenOderNull(token);
 
     if (!decoded) {
       logger.debug('Forward auth: Token verification failed');

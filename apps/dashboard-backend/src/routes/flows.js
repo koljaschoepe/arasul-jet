@@ -247,6 +247,8 @@ router.get(
 
     const sende = evt => {
       if (verbindung.isConnected() && !res.writableEnded) {
+        // Ausnahme von der Regel: SSE, die Header sind gesendet -- ein Schreibfehler
+        // heisst „Verbindung weg", der Fehlerbehandler koennte nichts mehr antworten.
         try {
           res.write(`data: ${JSON.stringify(evt)}\n\n`);
         } catch (err) {
@@ -312,6 +314,8 @@ router.get(
           schliessen();
         }
       })
+      // Best-Effort nach gesendeten SSE-Headern: scheitert die Nachpruefung,
+      // bleibt der Strom offen, bis der Lauf selbst sein Ende meldet.
       .catch(err => {
         logger.debug(`Flow-Stream ${runId}: Nachprüfung fehlgeschlagen: ${err.message}`);
       });
