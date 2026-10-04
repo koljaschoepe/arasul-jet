@@ -13,15 +13,11 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const updateService = require('../../services/app/updateService');
+const { paketMussDaSein, usbSignaturMitkopieren } = require('../../services/app/updatePaket');
 const fassungsdienst = require('../../services/betrieb/fassungsdienst');
 const nachtUpdate = require('../../services/betrieb/nachtUpdate');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const {
-  ValidationError,
-  NotFoundError,
-  ConflictError,
-  ServiceUnavailableError,
-} = require('../../utils/errors');
+const { ValidationError, ConflictError, ServiceUnavailableError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { validateBody } = require('../../middleware/validate');
 const {
@@ -36,6 +32,8 @@ const {
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadDir = '/tmp/updates';
+    // Ausnahme von der Regel: multer ruft mit einem Rueckruf, nicht ueber
+    // asyncHandler. Der Fehler geht ueber `cb` an den Fehlerbehandler.
     try {
       await fs.mkdir(uploadDir, { recursive: true });
       cb(null, uploadDir);
@@ -184,11 +182,7 @@ router.post(
     }
 
     // Verify file exists
-    try {
-      await fs.access(file_path);
-    } catch {
-      throw new NotFoundError('Update file not found');
-    }
+    await paketMussDaSein(file_path, 'Update file not found');
 
     // Start update process asynchronously
     logger.info(`Starting update application for: ${file_path}`);
@@ -224,9 +218,12 @@ router.post(
                              ORDER BY started_at DESC LIMIT 1)`,
               [result.error]
             )
+            // Best-Effort: scheitert auch der Eintrag, bleibt der Fehler im Log.
             .catch(dbErr => logger.error(`Failed to record update failure: ${dbErr.message}`));
         }
       })
+      // Nach gesendeter Antwort (`started`): ein Fehler im Hintergrund landet im
+      // Log und in update_events, eine zweite Antwort gibt es nicht.
       .catch(async error => {
         logger.error(`Update process error: ${error.message}`);
         await db
@@ -236,6 +233,7 @@ router.post(
                          ORDER BY started_at DESC LIMIT 1)`,
             [error.message]
           )
+          // Best-Effort: scheitert auch der Eintrag, bleibt der Fehler im Log.
           .catch(dbErr => logger.error(`Failed to record update failure: ${dbErr.message}`));
       });
   })
@@ -333,11 +331,7 @@ router.post(
     }
 
     // Verify file exists
-    try {
-      await fs.access(file_path);
-    } catch {
-      throw new NotFoundError('Update file not found on USB device');
-    }
+    await paketMussDaSein(file_path, 'Update file not found on USB device');
 
     // Copy to updates directory for processing
     const fileName = `usb_update_${Date.now()}_${path.basename(file_path)}`;
@@ -345,18 +339,8 @@ router.post(
     await fs.mkdir('/arasul/updates', { recursive: true });
     await fs.copyFile(file_path, permanentPath);
 
-    // Check for accompanying signature file
-    const sigPath = `${file_path}.sig`;
-    try {
-      await fs.access(sigPath);
-      await fs.copyFile(sigPath, `${permanentPath}.sig`);
-    } catch {
-      // fire-and-forget: best-effort cleanup, file may not exist
-      await fs.unlink(permanentPath).catch(() => {});
-      throw new ValidationError(
-        'Signature file (.sig) not found alongside update package on USB device'
-      );
-    }
+    // Check for accompanying signature file (400, wenn sie fehlt)
+    await usbSignaturMitkopieren(file_path, permanentPath);
 
     // Validate update
     const validation = await updateService.validateUpdate(permanentPath);
@@ -464,6 +448,8 @@ router.post(
           logger.error(`OTA download failed: ${result.error}`);
         }
       })
+      // Nach gesendeter Antwort (`downloading`): ein Fehler im Hintergrund landet
+      // im Log, eine zweite Antwort gibt es nicht.
       .catch(err => {
         logger.error(`OTA download error: ${err.message}`);
       });

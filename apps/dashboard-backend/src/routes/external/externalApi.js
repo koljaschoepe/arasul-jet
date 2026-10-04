@@ -45,6 +45,7 @@ const freigabeAnfragen = require('../../services/flows/freigabeAnfragen');
 const ereignisse = require('../../services/flows/ereignisse');
 const { resolveArguments } = require('../../services/flows/runFlow');
 const kiProtokoll = require('../../services/app/kiProtokoll');
+const { schemaLesen, felderAus } = require('../../services/llm/strukturierteAntwort');
 
 // Multer for document upload endpoints (50MB limit)
 const upload = multer(
@@ -645,13 +646,8 @@ router.post(
     const filename = file.originalname;
     const { schema, instructions, model, timeout_seconds = '300' } = req.body;
 
-    // Validate schema is valid JSON
-    let parsedSchema;
-    try {
-      parsedSchema = typeof schema === 'string' ? JSON.parse(schema) : schema;
-    } catch {
-      throw new ValidationError('schema must be valid JSON');
-    }
+    // Validate schema is valid JSON (400 otherwise)
+    const parsedSchema = schemaLesen(schema);
 
     logger.info(`[External API] Structured extract: ${filename} by ${req.apiKey.name}`);
 
@@ -853,26 +849,6 @@ function gehoertDemSchluessel(job, apiKey) {
   return (
     apiKey.userId != null && job.user_id != null && String(job.user_id) === String(apiKey.userId)
   );
-}
-
-/**
- * Die Felder aus der Antwort eines Modells: ein Objekt oder null.
- *
- * Ein Zaun aus ```json darf drumstehen. Eine Liste oder eine Zahl ist keine
- * Antwort auf ein Schema mit Feldern (J35) und wird zu null; die Antwort steht
- * dann unveraendert in `raw_response`.
- */
-function felderAus(rawResponse) {
-  const cleaned = String(rawResponse || '')
-    .replace(/^```(?:json)?\s*\n?/m, '')
-    .replace(/\n?\s*```\s*$/m, '')
-    .trim();
-  try {
-    const geparst = JSON.parse(cleaned);
-    return geparst && typeof geparst === 'object' && !Array.isArray(geparst) ? geparst : null;
-  } catch {
-    return null;
-  }
 }
 
 /**

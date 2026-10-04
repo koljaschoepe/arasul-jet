@@ -12,10 +12,10 @@ const logger = require('../../utils/logger');
 const os = require('os');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
-const fs = require('fs').promises;
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth, requireRole } = require('../../middleware/auth');
-const { ServiceUnavailableError, NotFoundError } = require('../../utils/errors');
+const { ServiceUnavailableError } = require('../../utils/errors');
+const geraet = require('../../services/core/geraeteInfo');
 const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { validateBody } = require('../../middleware/validate');
@@ -148,34 +148,8 @@ router.get(
     // the name the device is reachable under. Same source as /system/network.
     const hostname = (process.env.MDNS_NAME || os.hostname()).replace(/\.local$/, '');
 
-    // Get JetPack version (if available)
-    let jetpackVersion = 'unknown';
-    try {
-      // SECURITY: Use execFile with array args to prevent shell injection
-      const { stdout } = await execFileAsync('dpkg-query', [
-        '-W',
-        '-f',
-        // eslint-disable-next-line no-template-curly-in-string
-        '${Version}',
-        'nvidia-jetpack',
-      ]);
-      if (stdout && stdout.trim()) {
-        jetpackVersion = stdout.trim();
-      }
-    } catch {
-      // dpkg-query queries a HOST package and always fails inside the container.
-      // Fall back to the L4T release file, which compose mounts read-only.
-      try {
-        const rel = await fs.readFile('/etc/nv_tegra_release', 'utf8');
-        // Example: "# R36 (release), REVISION: 4.7, GCID: 42132812, BOARD: ..."
-        const m = rel.match(/R(\d+).*?REVISION:\s*([\d.]+)/);
-        if (m) {
-          jetpackVersion = `L4T ${m[1]}.${m[2]}`;
-        }
-      } catch {
-        // Neither source available (non-Jetson host), stays "unknown"
-      }
-    }
+    // Get JetPack version (if available), sonst "unknown"
+    const jetpackVersion = await geraet.jetpackVersion();
 
     // Detect device and GPU
     const [device, gpu] = await Promise.all([detectDevice(), getGpuInfo()]);
@@ -213,14 +187,7 @@ router.get(
     });
 
     // Check internet connectivity
-    let internetReachable = false;
-    try {
-      // SECURITY: Use execFile with array args to prevent shell injection
-      await execFileAsync('ping', ['-c', '1', '-W', '2', '8.8.8.8']);
-      internetReachable = true;
-    } catch {
-      // Internet not reachable
-    }
+    const internetReachable = await geraet.internetErreichbar();
 
     // Real LAN name from MDNS_NAME (compose passes it through; defaults to
     // "arasul"). Avoids a hardcoded "arasul.local" that mismatches a custom
@@ -248,36 +215,9 @@ router.get(
     const totalMemoryGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
 
     // Try to detect Jetson device
-    try {
-      // SECURITY: Use fs.readFile instead of exec('cat ...') to prevent shell injection
-      // fire-and-forget: files may not exist on non-Jetson devices; empty string = not found
-      const tegrastats = await fs.readFile('/etc/nv_tegra_release', 'utf8').catch(() => '');
-      if (tegrastats.includes('TEGRA')) {
-        // It's a Jetson device
-        const modelInfo = await fs.readFile('/proc/device-tree/model', 'utf8').catch(() => '');
-
-        if (modelInfo.includes('AGX Orin')) {
-          deviceType = 'jetson_agx_orin';
-          deviceName = 'NVIDIA Jetson AGX Orin';
-        } else if (modelInfo.includes('Orin Nano')) {
-          deviceType = 'jetson_orin_nano';
-          deviceName = 'NVIDIA Jetson Orin Nano';
-        } else if (modelInfo.includes('Orin NX')) {
-          deviceType = 'jetson_orin_nx';
-          deviceName = 'NVIDIA Jetson Orin NX';
-        } else if (modelInfo.includes('Xavier')) {
-          deviceType = 'jetson_xavier';
-          deviceName = 'NVIDIA Jetson Xavier';
-        } else if (modelInfo.includes('Nano')) {
-          deviceType = 'jetson_nano';
-          deviceName = 'NVIDIA Jetson Nano';
-        } else {
-          deviceType = 'jetson_generic';
-          deviceName = 'NVIDIA Jetson Device';
-        }
-      }
-    } catch {
-      // Not a Jetson device or could not detect
+    const jetson = await geraet.jetsonModell();
+    if (jetson) {
+      ({ deviceType, deviceName } = jetson);
     }
 
     // Device-specific thresholds
@@ -493,7 +433,7 @@ router.get(
           },
         };
       })(),
-      // Docker containers
+      // Docker containers (Best-Effort: ohne Docker-Proxy steht {} da)
       dockerService.getAllServicesStatus().catch(() => ({})),
       // Database
       db
@@ -519,18 +459,8 @@ router.get(
         }),
     ]);
 
-    // Disk usage via df
-    let diskInfo = {};
-    try {
-      const { stdout } = await execFileAsync('df', ['-h', '/']);
-      const lines = stdout.trim().split('\n');
-      if (lines.length >= 2) {
-        const parts = lines[1].split(/\s+/);
-        diskInfo = { total: parts[1], used: parts[2], available: parts[3], percent: parts[4] };
-      }
-    } catch {
-      /* ignore */
-    }
+    // Disk usage via df (Best-Effort, sonst {})
+    const diskInfo = await geraet.plattenBelegung();
 
     res.json({
       system: systemInfo,
@@ -592,21 +522,8 @@ router.get(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    let pem;
-    try {
-      pem = await fs.readFile(CA_ZERTIFIKAT_PFAD, 'utf8');
-    } catch {
-      throw new NotFoundError(
-        // Der Befehl dazu (`./arasul zertifikat`) steht im Handbuch, nicht hier (J35).
-        'Dieses Gerät hat noch kein Zertifikat. Ihr Betreuer stellt es aus.'
-      );
-    }
-
-    if (!pem.includes('BEGIN CERTIFICATE')) {
-      throw new NotFoundError(
-        'Das Zertifikat dieses Geräts ist beschädigt. Ihr Betreuer stellt es neu aus.'
-      );
-    }
+    // 404 mit Satz, wenn es fehlt oder beschaedigt ist
+    const pem = await geraet.caZertifikatLesen(CA_ZERTIFIKAT_PFAD);
 
     const netzname = (process.env.MDNS_NAME || 'arasul').replace(/\.local$/, '');
     res.setHeader('Content-Type', 'application/x-x509-ca-cert');

@@ -9,16 +9,11 @@ const router = express.Router();
 const dockerService = require('../../services/core/docker');
 const logger = require('../../utils/logger');
 const axios = require('axios');
-const db = require('../../database');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const {
-  NotFoundError,
-  ForbiddenError,
-  RateLimitError,
-  ServiceUnavailableError,
-} = require('../../utils/errors');
+const { ForbiddenError, RateLimitError, ServiceUnavailableError } = require('../../utils/errors');
 const serviceConfig = require('../../config/services');
+const dienste = require('../../services/core/dienstAbfragen');
 const { validateBody } = require('../../middleware/validate');
 const { PullModelBody } = require('../../schemas/system-services');
 
@@ -50,17 +45,8 @@ router.get(
     // Real GPU utilization from the metrics-collector (same source as
     // /api/services/ai). Falls back to null when the collector is unreachable —
     // we report null rather than a misleading 0.0 placeholder.
-    let gpuUtilization = null;
-    try {
-      const gpuResponse = await axios.get(`${serviceConfig.metrics.url}/api/gpu`, {
-        timeout: 3000,
-      });
-      if (gpuResponse.data && gpuResponse.data.available) {
-        gpuUtilization = gpuResponse.data.gpu?.utilization ?? null;
-      }
-    } catch {
-      // GPU stats not available
-    }
+    const gpu = await dienste.gpuWerte();
+    const gpuUtilization = gpu?.utilization ?? null;
 
     res.json({
       llm: {
@@ -87,20 +73,8 @@ router.get(
   asyncHandler(async (req, res) => {
     const services = await dockerService.getAllServicesStatus();
 
-    // Get GPU stats from Metrics Collector
-    let gpuStats = null;
-    try {
-      const metricsCollectorUrl = serviceConfig.metrics.url;
-      const gpuResponse = await axios.get(`${metricsCollectorUrl}/api/gpu`, {
-        timeout: 3000,
-      });
-
-      if (gpuResponse.data && gpuResponse.data.available) {
-        gpuStats = gpuResponse.data.gpu;
-      }
-    } catch {
-      // GPU stats not available
-    }
+    // Get GPU stats from Metrics Collector (Best-Effort, null wenn nicht da)
+    const gpuStats = await dienste.gpuWerte();
 
     // Try to get more detailed info from LLM service
     const llmDetails = {
@@ -124,15 +98,7 @@ router.get(
         : null,
     };
 
-    try {
-      const llmResponse = await axios.get(
-        `http://${process.env.LLM_SERVICE_HOST}:${process.env.LLM_SERVICE_PORT}/api/tags`,
-        { timeout: 2000 }
-      );
-      llmDetails.model_loaded = llmResponse.data?.models?.length > 0;
-    } catch {
-      // LLM details not available
-    }
+    llmDetails.model_loaded = await dienste.llmHatModell();
 
     // Try to get embedding service details
     const embeddingDetails = {
@@ -141,15 +107,7 @@ router.get(
       model_loaded: false,
     };
 
-    try {
-      await axios.get(
-        `http://${process.env.EMBEDDING_SERVICE_HOST}:${process.env.EMBEDDING_SERVICE_PORT}/health`,
-        { timeout: 2000 }
-      );
-      embeddingDetails.model_loaded = true;
-    } catch {
-      // Embedding details not available
-    }
+    embeddingDetails.model_loaded = await dienste.embeddingAntwortet();
 
     res.json({
       llm: llmDetails,
@@ -166,21 +124,7 @@ router.get(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const llmServiceUrl = serviceConfig.llm.url;
-
-    let response;
-    try {
-      response = await axios.get(`${llmServiceUrl}/api/tags`, {
-        timeout: 5000,
-      });
-    } catch (error) {
-      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-        throw new ServiceUnavailableError('LLM service is not available');
-      }
-      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
-    }
-
-    const models = response.data?.models || [];
+    const models = await dienste.llmModelle();
 
     // Format model information
     const formattedModels = models.map(model => ({
@@ -207,30 +151,7 @@ router.get(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { name } = req.params;
-    const llmServiceUrl = serviceConfig.llm.url;
-
-    let response;
-    try {
-      response = await axios.post(
-        `${llmServiceUrl}/api/show`,
-        {
-          name: name,
-        },
-        {
-          timeout: 5000,
-        }
-      );
-    } catch (error) {
-      if (error.response && error.response.status === 404) {
-        throw new NotFoundError(`Model '${name}' not found`);
-      }
-      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-        throw new ServiceUnavailableError('LLM service is not available');
-      }
-      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
-    }
-
-    const modelInfo = response.data;
+    const modelInfo = await dienste.llmModellZeigen(name);
 
     res.json({
       name: name,
@@ -280,6 +201,8 @@ router.post(
       .then(() => {
         logger.info(`Model pull completed: ${model_name}`);
       })
+      // Nach gesendeter Antwort (`started`): ein Fehlschlag im Hintergrund
+      // landet im Log, eine zweite Antwort gibt es nicht.
       .catch(error => {
         logger.error(`Model pull failed: ${model_name} - ${error.message}`);
       });
@@ -293,29 +216,8 @@ router.delete(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { name } = req.params;
-    const llmServiceUrl = serviceConfig.llm.url;
-
     logger.info(`Deleting model: ${name}`);
-
-    try {
-      // HIGH-002 FIX: Use correct Ollama API format
-      // Ollama expects DELETE /api/delete with JSON body: { "name": "model-name" }
-      await axios.delete(`${llmServiceUrl}/api/delete`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: JSON.stringify({ name: name }),
-        timeout: 10000,
-      });
-    } catch (error) {
-      if (error.response && error.response.status === 404) {
-        throw new NotFoundError(`Model '${name}' not found`);
-      }
-      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-        throw new ServiceUnavailableError('LLM service is not available');
-      }
-      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
-    }
+    await dienste.llmModellLoeschen(name);
 
     logger.info(`Model deleted successfully: ${name}`);
 
@@ -333,22 +235,10 @@ router.get(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const embeddingServiceUrl = serviceConfig.embedding.url;
-
-    let response;
-    try {
-      response = await axios.get(`${embeddingServiceUrl}/info`, {
-        timeout: 3000,
-      });
-    } catch (error) {
-      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-        throw new ServiceUnavailableError('Embedding service is not available');
-      }
-      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
-    }
+    const info = await dienste.embeddingInfo();
 
     res.json({
-      ...response.data,
+      ...info,
       timestamp: new Date().toISOString(),
     });
   })
@@ -390,32 +280,6 @@ router.post(
     const userId = req.user?.id;
     const username = req.user?.username || 'unknown';
 
-    // Helper to log restart events to database
-    const logRestartEvent = async (success, errorMsg = null, duration = null) => {
-      try {
-        await db.query(
-          `INSERT INTO self_healing_events
-                 (event_type, service_name, action_taken, details, success, created_at)
-                 VALUES ($1, $2, $3, $4, $5, NOW())`,
-          [
-            'manual_restart',
-            serviceName,
-            'container_restart',
-            JSON.stringify({
-              initiated_by: username,
-              user_id: userId,
-              ...(duration && { duration_ms: duration }),
-              ...(errorMsg && { error: errorMsg }),
-              source: 'dashboard_api',
-            }),
-            success,
-          ]
-        );
-      } catch (dbError) {
-        logger.error(`Failed to log restart event to database: ${dbError.message}`);
-      }
-    };
-
     // Validate service name against whitelist
     if (!ALLOWED_SERVICES.includes(serviceName)) {
       logger.warn(`Restart attempt for unauthorized service: ${serviceName} by user ${username}`);
@@ -438,31 +302,13 @@ router.post(
     // Log the restart attempt
     logger.info(`Service restart initiated: ${serviceName} by user ${username} (ID: ${userId})`);
 
-    // Perform the restart with timeout
-    const startTime = Date.now();
-    let success;
-    try {
-      success = await Promise.race([
-        dockerService.restartContainer(serviceName),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Restart timeout')), 30000);
-        }),
-      ]);
-    } catch (error) {
-      const errorMsg =
-        error.message === 'Restart timeout'
-          ? 'Service restart timed out after 30 seconds'
-          : `Error restarting service: ${error.message}`;
-      await logRestartEvent(false, error.message);
-      throw new ServiceUnavailableError(errorMsg);
-    }
-
-    const duration = Date.now() - startTime;
+    // Perform the restart with timeout; the service writes self_healing_events
+    // and throws 503 on timeout or error.
+    const { success, duration } = await dienste.neuStarten({ serviceName, username, userId });
 
     if (success) {
       // Update rate limit tracker
       lastRestartTimes.set(serviceName, now);
-      await logRestartEvent(true, null, duration);
       logger.info(`Service restart successful: ${serviceName} (took ${duration}ms)`);
 
       res.json({
@@ -473,7 +319,6 @@ router.post(
         timestamp: new Date().toISOString(),
       });
     } else {
-      await logRestartEvent(false, 'Restart returned false');
       logger.error(`Service restart failed: ${serviceName}`);
       throw new ServiceUnavailableError(`Failed to restart service '${serviceName}'`);
     }
