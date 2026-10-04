@@ -2,14 +2,19 @@
 name: beleg
 beschreibung: Liest einen Beleg und meldet fehlende oder unsichere Felder (Abnahme M5, erkennend).
 argumente:
+  # standard: "" bei datum und unsicher: ein leeres optionales Argument ohne
+  # standard laesst seinen Platzhalter stehen (runFlow.resolveArguments), und
+  # `"{{datum}}"`/`[{{unsicher}}]` waeren kein JSON mehr.
   - name: datum
     typ: freitext
     pflicht: false
     beschreibung: Was als Datum erkannt wurde, leer = nicht erkannt
+    standard: ''
   - name: unsicher
     typ: freitext
     pflicht: false
     beschreibung: Feldnamen in Anführungszeichen, die unsicher sind, durch Komma getrennt
+    standard: ''
 arten: [autonom, ergebnis_bestaetigen]
 werkzeuge: [subagent]
 rollen:
