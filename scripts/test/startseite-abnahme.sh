@@ -137,9 +137,9 @@ m["name"] = name
 m["beschreibung"] = "Messgeraet fuer scripts/test/startseite-abnahme.sh (M5)."
 m["backend"]["image"] = "arasul-%s:%s" % (kennung, version)
 m["backend"]["umgebung"]["PROBE_VERSION"] = version
-# example.org geht hinaus, localtest.me zeigt auf 127.0.0.1 und wird trotz
+# example.org geht hinaus, haus.arasul.localhost zeigt auf 127.0.0.1 und wird trotz
 # Eintrag abgewiesen: die eine Stoerung, die rot sein darf.
-m["verbindungen"] = ["example.org", "localtest.me"]
+m["verbindungen"] = ["example.org", "haus.arasul.localhost"]
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$version.tgz" -C "$ordner" . || return 1

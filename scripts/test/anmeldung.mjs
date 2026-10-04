@@ -64,7 +64,7 @@ export async function angemeldeteSeite(kontextBauen, { url, benutzer, passwort }
 
   await seite.goto(`${url}/workspace`, { waitUntil: 'domcontentloaded' });
   await seite.waitForTimeout(2500);
-  if (await istAngemeldet(seite)) {
+  if (await istAngemeldet(seite, benutzer)) {
     return { kontext, seite, angemeldet: true };
   }
 
@@ -78,7 +78,7 @@ export async function angemeldeteSeite(kontextBauen, { url, benutzer, passwort }
   await seite.click('button[type="submit"]');
   await seite.waitForTimeout(4000);
 
-  if (!(await istAngemeldet(seite))) {
+  if (!(await istAngemeldet(seite, benutzer))) {
     return {
       kontext,
       seite,
@@ -108,15 +108,53 @@ export async function angemeldeteSeite(kontextBauen, { url, benutzer, passwort }
  * alte Pruefung haette in genau diesem Fall Nein gesagt und eine zweite
  * Anmeldung ausgeloest -- also das getan, was das Teilen verhindern soll.
  */
-async function istAngemeldet(seite) {
+async function istAngemeldet(seite, benutzer = '') {
+  const wer = await angemeldetAls(seite);
+  return Boolean(wer) && wer !== 'admin' && (!benutzer || wer === benutzer);
+}
+
+/**
+ * Als wer? Die gespeicherte Sitzung teilen sich alle Laeufe (05.10.2026): eine,
+ * die ein frueherer Lauf als anderer Benutzer abgelegt hat, zaehlt nicht als
+ * angemeldet -- erst recht nicht eine von `admin`.
+ */
+async function angemeldetAls(seite) {
   try {
     return await seite.evaluate(async () => {
       const antwort = await fetch('/api/auth/me', { credentials: 'include' });
-      return antwort.ok;
+      return antwort.ok ? ((await antwort.json()).user?.username ?? null) : null;
     });
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * Benutzer und Passwort aus der Umgebung, ohne Vorgabe (05.10.2026).
+ *
+ * Bis dahin trugen fuenf Abnahmen einen Benutzer und sein Passwort als
+ * Vorgabe, im oeffentlichen Repo. Fehlt eins, oder ist es das Konto `admin`
+ * (das echte Konto am Geraet, nie fuer Proben), endet der Lauf hier mit einem
+ * Satz und Rueckgabe 2.
+ */
+export function zugangAusUmgebung(
+  benutzerName = 'ARASUL_BENUTZER',
+  passwortName = 'ARASUL_PASSWORT'
+) {
+  const benutzer = process.env[benutzerName] || '';
+  const passwort = process.env[passwortName] || '';
+  if (!benutzer || !passwort) {
+    console.log(
+      `ROT    ${benutzerName} und ${passwortName} fehlen: ein Probekonto, das Passwort zur ` +
+        'Laufzeit (geheim get), nie in einer Datei.'
+    );
+    process.exit(2);
+  }
+  if (benutzer === 'admin') {
+    console.log('ROT    Nie das Konto admin fuer Abnahmen: ein Probekonto nehmen (probe-admin).');
+    process.exit(2);
+  }
+  return { benutzer, passwort };
 }
 
 /** Den Einrichtungs-Hinweis wegklicken, damit er nichts verdeckt. */
@@ -157,16 +195,22 @@ export async function sitzungMerken(kontext) {
  * genau das schreiben koennen.
  */
 export async function anmeldenFallsNoetig(seite, kontext, { url, benutzer, passwort }) {
-  const feld = seite.locator('input[type="password"]');
-  await feld.waitFor({ timeout: 8000 }).catch(() => {});
-  if ((await feld.count()) === 0) {
+  const wer = await angemeldetAls(seite);
+  if (wer && wer === benutzer && wer !== 'admin') {
     return { angemeldet: true, neu: false };
   }
+  if (wer) {
+    // Eine Sitzung, aber die eines anderen: weg damit, dann das Formular.
+    await kontext.clearCookies();
+    await seite.goto(url, { waitUntil: 'domcontentloaded' });
+  }
+  const feld = seite.locator('input[type="password"]');
+  await feld.waitFor({ timeout: 8000 }).catch(() => {});
   await seite.fill('input[name="username"], input[type="text"]', benutzer);
   await feld.fill(passwort);
   await seite.click('button[type="submit"]');
   await seite.waitForTimeout(4000);
-  const ok = await istAngemeldet(seite);
+  const ok = await istAngemeldet(seite, benutzer);
   if (!ok) {
     return {
       angemeldet: false,

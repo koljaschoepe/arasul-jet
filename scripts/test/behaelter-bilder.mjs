@@ -19,11 +19,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { zugangAusUmgebung } from './anmeldung.mjs';
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
-const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
-const PASSWORT = process.env.ARASUL_PASSWORT || '';
+const { benutzer: BENUTZER, passwort: PASSWORT } = zugangAusUmgebung();
 const APPS = (process.env.ARASUL_APPS || 'probe-behaelter-neu').split(/\s+/).filter(Boolean);
 const PFLICHT = new Set((process.env.ARASUL_PFLICHT || APPS.join(' ')).split(/\s+/).filter(Boolean));
 const BREITEN = [900, 1000, 1150];

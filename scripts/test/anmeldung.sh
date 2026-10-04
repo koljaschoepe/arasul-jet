@@ -51,8 +51,12 @@
 # =============================================================================
 
 ARASUL_URL="${ARASUL_URL:-https://localhost:8443}"
-ARASUL_BENUTZER="${ARASUL_BENUTZER:-admin}"
-ARASUL_PASSWORT="${ARASUL_PASSWORT:-2309}"
+# KEINE VORGABE FUER DAS KONTO (05.10.2026). Hier standen bis dahin ein
+# Benutzer und ein Passwort als Vorgabe, im oeffentlichen Repo. Wer sich
+# anmelden muss, bringt beides aus der Umgebung mit (Probekonto, Passwort zur
+# Laufzeit aus dem Tresor); `_arasul_anmelden` bricht sonst ab, statt zu raten.
+ARASUL_BENUTZER="${ARASUL_BENUTZER:-}"
+ARASUL_PASSWORT="${ARASUL_PASSWORT:-}"
 ARASUL_TOKEN_DATEI="${ARASUL_TOKEN_DATEI:-${TMPDIR:-/tmp}/arasul-abnahme-token}"
 ARASUL_SITZUNG="${ARASUL_SITZUNG:-${TMPDIR:-/tmp}/arasul-abnahme-sitzung.json}"
 # Dieselbe Datei, die `scripts/test/drossel.mjs` liest und schreibt: `os.tmpdir()`
@@ -277,12 +281,17 @@ print(d if isinstance(d, (str, int)) else "")' "$1" 2>/dev/null
 
 # Traegt der Token noch? Eine Anfrage, die keine Anmeldung ist und damit die
 # Drossel nicht anfasst.
+#
+# Und gehoert er dem Konto, das gemeint ist? Die Datei teilen sich alle Laeufe;
+# ein Token, den ein frueherer Lauf als anderer Benutzer abgelegt hat, darf
+# nicht still weitergenutzt werden -- erst recht nicht einer von `admin`.
 _arasul_token_gilt() {
   [ -n "$1" ] || return 1
-  local code
-  code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 15 \
-    -H "authorization: Bearer $1" "$ARASUL_URL/api/auth/me")
-  [ "$code" = "200" ]
+  local wer
+  wer=$(curl -sk --max-time 15 -H "authorization: Bearer $1" "$ARASUL_URL/api/auth/me" |
+    _arasul_json_feld user.username)
+  [ -n "$wer" ] && [ "$wer" != "admin" ] || return 1
+  [ -z "$ARASUL_BENUTZER" ] || [ "$wer" = "$ARASUL_BENUTZER" ]
 }
 
 # Ein Versuch. Haelt den Code und den Stand der Anmeldedrossel fest.
@@ -305,6 +314,16 @@ _arasul_anmelden_einmal() {
 # ein rotes Feld ueber den Messaufbau.
 _arasul_anmelden() {
   local token angelegt=0
+  if [ -z "$ARASUL_BENUTZER" ] || [ -z "$ARASUL_PASSWORT" ]; then
+    echo "ARASUL_BENUTZER und ARASUL_PASSWORT fehlen: ein Probekonto aus der Umgebung, das Passwort zur Laufzeit (geheim get), nie in einer Datei." >&2
+    echo "000" > "$_ARASUL_CODE_DATEI"
+    return 1
+  fi
+  if [ "$ARASUL_BENUTZER" = "admin" ]; then
+    echo "Nie das Konto admin fuer Abnahmen: ein Probekonto nehmen (probe-admin)." >&2
+    echo "000" > "$_ARASUL_CODE_DATEI"
+    return 1
+  fi
   arasul_drossel_abwarten anmeldung 1
   token=$(_arasul_anmelden_einmal)
   case "$(arasul_anmeldecode)" in

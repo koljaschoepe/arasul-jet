@@ -19,11 +19,15 @@
  */
 
 import { chromium } from 'playwright';
-import { anmeldenFallsNoetig, sitzungsZustand, hinweisWeg } from './anmeldung.mjs';
+import {
+  anmeldenFallsNoetig,
+  hinweisWeg,
+  sitzungsZustand,
+  zugangAusUmgebung,
+} from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
-const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
-const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
+const { benutzer: BENUTZER, passwort: PASSWORT } = zugangAusUmgebung();
 const APP = process.env.ARASUL_APP || 'Beispiel-App';
 
 const ergebnisse = [];

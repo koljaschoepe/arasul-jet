@@ -65,9 +65,15 @@ case "$PRUEF_HAFEN" in
 esac
 
 BASIS="${ARASUL_PRUEFSTAND_URL:-https://localhost:8443}"
-NUTZER="${ARASUL_BENUTZER:-admin}"
-PASS_ALT="${ARASUL_PASSWORT:-2309}"
-PASS_NEU="${ARASUL_PASSWORT_NEU:-Pruefstand-2026!}"
+# Keine Vorgabe fuer das Konto (05.10.2026): Benutzer und Passwort des
+# Pruefstands kommen aus der Umgebung, das neue Passwort traegt einen Stempel.
+NUTZER="${ARASUL_BENUTZER:-}"
+PASS_ALT="${ARASUL_PASSWORT:-}"
+PASS_NEU="${ARASUL_PASSWORT_NEU:-Pruefstand-$(date +%s)!}"
+if [ -z "$NUTZER" ] || [ -z "$PASS_ALT" ]; then
+  echo "ABBRUCH: ARASUL_BENUTZER und ARASUL_PASSWORT fehlen (Konto des Pruefstands)."
+  exit 2
+fi
 
 gruen=0
 rot=0

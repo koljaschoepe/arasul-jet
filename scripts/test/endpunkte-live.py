@@ -39,8 +39,10 @@ WURZEL = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WURZEL / 'scripts' / 'test'))
 
 URL = os.environ.get('ARASUL_URL', 'https://localhost:8443')
-BENUTZER = os.environ.get('ARASUL_BENUTZER', 'admin')
-PASSWORT = os.environ.get('ARASUL_PASSWORT', '2309')
+# Keine Vorgabe fuer das Konto (05.10.2026): beides aus der Umgebung, ein
+# Probekonto, nie `admin`. Geprueft wird erst, wenn eine Anmeldung noetig ist.
+BENUTZER = os.environ.get('ARASUL_BENUTZER', '')
+PASSWORT = os.environ.get('ARASUL_PASSWORT', '')
 
 # Ein Strom endet nicht von selbst. Ihn hier aufzurufen hiesse, auf das
 # Zeitlimit zu warten und es als Befund zu zaehlen.
@@ -189,6 +191,11 @@ def anmelden() -> str:
     vorhanden = os.environ.get('ARASUL_TOKEN', '').strip()
     if vorhanden:
         return vorhanden
+    if not BENUTZER or not PASSWORT:
+        sys.exit('ARASUL_BENUTZER und ARASUL_PASSWORT fehlen: ein Probekonto, '
+                 'das Passwort zur Laufzeit (geheim get), nie in einer Datei.')
+    if BENUTZER == 'admin':
+        sys.exit('Nie das Konto admin fuer Abnahmen: ein Probekonto nehmen (probe-admin).')
     ergebnis = subprocess.run(
         [
             'curl', '-sk', '-m', '20',

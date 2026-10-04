@@ -70,11 +70,11 @@ import {
   seitenladungAbwarten,
 } from './drossel.mjs';
 import { BREITEN, VERWALTUNG } from './ansichten.mjs';
+import { zugangAusUmgebung } from './anmeldung.mjs';
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
-const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
-const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
+const { benutzer: BENUTZER, passwort: PASSWORT } = zugangAusUmgebung();
 const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
 const TOKEN_DATEI =
   process.env.ARASUL_TOKEN_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-token');

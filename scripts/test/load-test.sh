@@ -35,11 +35,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Get auth token if not provided
-if [ -z "$AUTH_TOKEN" ]; then
-    echo -e "${YELLOW}No auth token provided. Attempting login...${NC}"
+# Keine Vorgabe fuer das Konto (05.10.2026): ARASUL_BENUTZER und ARASUL_PASSWORT
+# aus der Umgebung, sonst nur die oeffentlichen Endpunkte.
+if [ -z "$AUTH_TOKEN" ] && [ -n "${ARASUL_BENUTZER:-}" ] && [ -n "${ARASUL_PASSWORT:-}" ]; then
+    echo -e "${YELLOW}No auth token provided. Attempting login as ${ARASUL_BENUTZER}...${NC}"
     AUTH_RESPONSE=$(curl -sf "${BASE_URL}/api/auth/login" \
         -H "Content-Type: application/json" \
-        -d '{"username":"admin","password":"admin"}' 2>/dev/null || echo "")
+        -d "$(python3 -c 'import json,os; print(json.dumps({"username": os.environ.get("ARASUL_BENUTZER", ""), "password": os.environ.get("ARASUL_PASSWORT", "")}))')" 2>/dev/null || echo "")
 
     if [ -n "$AUTH_RESPONSE" ]; then
         AUTH_TOKEN=$(echo "$AUTH_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))" 2>/dev/null || echo "")

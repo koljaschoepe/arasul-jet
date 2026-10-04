@@ -17,11 +17,16 @@
 #               Schnittstelle UND im Browser). Ein inaktiver Flow startet nicht:
 #               das Backend weist ab (409 FLOW_INAKTIV), es entsteht kein Lauf,
 #               in Test und Live. Wieder an, startet er.
-#   VERBINDUNG  Die Probe-App trägt `example.org` und `localtest.me` ein. Aus
+#   VERBINDUNG  Die Probe-App trägt `example.org` und `haus.arasul.localhost` ein. Aus
 #               ihrem Container: example.org geht hinaus (genutzt), example.com
 #               (nicht eingetragen) wird abgewiesen (keine Störung, grau),
-#               localtest.me zeigt auf 127.0.0.1 und wird trotz Eintrag
+#               haus.arasul.localhost zeigt auf 127.0.0.1 und wird trotz Eintrag
 #               abgewiesen: `stoerung`, das einzige Rot.
+#               Bis zum 05.10.2026 stand hier `localtest.me`, ein öffentlicher
+#               DNS-Name, der zeitweise nicht auflöste (dann 502 statt 403).
+#               Namen unter `.localhost` beantwortet das Gerät selbst
+#               (RFC 6761, systemd-resolved: 127.0.0.1 über `lo`), ohne
+#               fremden Server; am Orin im Ausgangs-Proxy nachgesehen.
 #
 # Konten: drei VORHANDENE Probekonten, nie `admin`, keine neuen. Passwörter nur
 # zur Laufzeit, nie in Dateien:
@@ -140,9 +145,9 @@ m["name"] = name
 m["beschreibung"] = "Messgeraet fuer scripts/test/app-seite-abnahme.sh (M5)."
 m["backend"]["image"] = "arasul-%s:%s" % (kennung, version)
 m["backend"]["umgebung"]["PROBE_VERSION"] = version
-# example.org geht hinaus, localtest.me zeigt auf 127.0.0.1 und wird trotz
+# example.org geht hinaus, haus.arasul.localhost zeigt auf 127.0.0.1 und wird trotz
 # Eintrag abgewiesen: die eine Stoerung, die rot sein darf.
-m["verbindungen"] = ["example.org", "localtest.me"]
+m["verbindungen"] = ["example.org", "haus.arasul.localhost"]
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$version.tgz" -C "$ordner" . || return 1
@@ -373,7 +378,7 @@ const ueberProxy = host =>
 (async () => {
   const org = [await ueberProxy('example.org'), await ueberProxy('example.org')];
   const com = [await ueberProxy('example.com'), await ueberProxy('example.com'), await ueberProxy('example.com')];
-  const lokal = [await ueberProxy('localtest.me')];
+  const lokal = [await ueberProxy('haus.arasul.localhost')];
   console.log(JSON.stringify({ org, com, lokal }));
 })();
 JS
@@ -381,7 +386,7 @@ ERGEBNIS=$(am_geraet "docker exec -i -w /app $CONTAINER node -" <"$ARBEIT/messen
 [ -z "$ERGEBNIS" ] && cat "$ARBEIT/fehler"
 pruefe 'Aus der App: example.org (eingetragen) geht hinaus' "$(ja_wenn "$(printf '%s' "$ERGEBNIS" | feld org.0)" 200)" "$ERGEBNIS"
 pruefe 'Aus der App: example.com (nicht eingetragen) wird abgewiesen' "$(ja_wenn "$(printf '%s' "$ERGEBNIS" | feld com.0)" 403)"
-pruefe 'Aus der App: localtest.me (eingetragen, zeigt ins Haus) wird abgewiesen' "$(ja_wenn "$(printf '%s' "$ERGEBNIS" | feld lokal.0)" 403)"
+pruefe 'Aus der App: haus.arasul.localhost (eingetragen, zeigt ins Haus) wird abgewiesen' "$(ja_wenn "$(printf '%s' "$ERGEBNIS" | feld lokal.0)" 403)"
 
 ausgang() {
   curl -sk --max-time 30 -H "authorization: Bearer $TOK" "$BASIS/api/ausgang" |
@@ -394,7 +399,7 @@ def z(l, h, mit=False):
     e = next((x for x in l if x["host"] == h), None)
     if not e: return "-"
     return "%s%s" % (e["anzahl"], ("/stoerung" if e.get("stoerung") else "/still") if mit else "")
-print("|".join([z(a["genutzt"], "example.org"), z(a["abgewiesen"], "example.com", True), z(a["abgewiesen"], "localtest.me", True)]))' "$APP"
+print("|".join([z(a["genutzt"], "example.org"), z(a["abgewiesen"], "example.com", True), z(a["abgewiesen"], "haus.arasul.localhost", True)]))' "$APP"
 }
 SOLL='2|3/still|1/stoerung'
 ende=$((SECONDS + 30))
