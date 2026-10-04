@@ -11,6 +11,7 @@
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=__tests__/unit",
     "test:integration": "jest --testPathPattern=__tests__/integration",
+    "test:pg": "jest --config jest.pg.config.js --runInBand",
     "lint": "eslint src/ --ext .js",
     "lint:fix": "eslint src/ --ext .js --fix",
     "lint:report": "eslint src/ --ext .js --format json --output-file eslint-report.json"
@@ -58,6 +59,10 @@
     ],
     "testMatch": [
       "**/__tests__/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/__tests__/pg/"
     ],
     "moduleNameMapper": {
       "^pdfkit$": "<rootDir>/__mocks__/pdfkit.js",
