@@ -12,7 +12,7 @@ import { LaufAktionen } from './LaufAktionen';
 import { LaufInhalt } from './LaufInhalt';
 import { personText } from './personText';
 
-export function laufAdresse(id: number, filter: string): string {
+function laufAdresse(id: number, filter: string): string {
   return `/workspace/verwaltung/laeufe/${id}${filter ? `?${filter}` : ''}`;
 }
 

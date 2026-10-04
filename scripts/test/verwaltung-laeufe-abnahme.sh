@@ -50,7 +50,7 @@
 #
 # Am Ende: Zeitpläne pausiert, Läufe abgebrochen, der eingefügte Lauf gelöscht,
 # Freigaben zurückgenommen, beide Apps samt Ordnern entfernt, Wegwerf-Schlüssel
-# widerrufen. Nie angefasst: abschluss, belege, probe-faktum-belege.
+# widerrufen. Nie angefasst: die Apps, die nicht von dieser Abnahme stammen.
 #
 # Dauer: etwa fünf Minuten (es wird auf einen Zeitplan-Lauf gewartet).
 # Rückgabe 0, wenn jede Prüfung grün war, sonst 1.
