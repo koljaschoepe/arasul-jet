@@ -503,8 +503,13 @@ host:port` (https) und bei einer Anfrage mit absoluter URL (http). Der Proxy
   `(weitere)`.
 - **Die Plattform selbst** (Flows mit externem Modell: das Backend ruft den
   Anbieter direkt) wird im selben Protokoll gezählt, unter „Das Gerät selbst“.
-- **Zu sehen** ist alles unter Einstellungen > Verbindungen (nur Admin):
-  je App eingetragen, genutzt (Anzahl, zuletzt), abgewiesen in Rot.
+- **Zu sehen** ist alles auf der Seite der App in der Verwaltung, Block
+  „Verbindungen" (nur Admin, seit M5; der eigene Bereich „Verbindungen" ist
+  entfallen): je Name lesbar benannt mit Anzahl und zuletzt, die Adresse
+  aufgeklappt, nicht eingetragene abgewiesene Namen grau und zugeklappt. Rot
+  ist nur ein eingetragener Name, der abgewiesen wurde (`stoerung`): dann kann
+  die App nicht arbeiten. Die Seite der App misst `scripts/test/app-seite-abnahme.sh`
+  am Gerät (mit `app-seite-bilder.mjs`).
 - **Ausfall:** steht der Proxy, kommt keine App ins Internet, aber jede erreicht
   weiter ihre Datenbank und die Plattform. Im Leerlauf: siehe die Messung im
   Journal (HISTORIE, J38).

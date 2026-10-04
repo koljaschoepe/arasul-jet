@@ -27,7 +27,6 @@ import { RemoteAccessSettings } from './RemoteAccessSettings';
 import { PrivacySettings } from './PrivacySettings';
 import { SystemSettings } from '../system/SystemSettings';
 import { LizenzSettings } from './LizenzSettings';
-import { VerbindungenSettings } from './VerbindungenSettings';
 
 interface VerwaltungProps {
   /**
@@ -64,7 +63,12 @@ function Settings({ modelle }: VerwaltungProps) {
       case 'apps':
         return (
           <ComponentErrorBoundary componentName="Apps">
-            <AppsSettings />
+            <AppsSettings
+              appId={ansicht.abschnitt ?? null}
+              onOeffnen={id =>
+                oeffne({ type: 'verwaltung', bereich: 'apps', ...(id ? { abschnitt: id } : {}) })
+              }
+            />
           </ComponentErrorBoundary>
         );
       case 'benutzer':
@@ -114,12 +118,6 @@ function Settings({ modelle }: VerwaltungProps) {
         return (
           <ComponentErrorBoundary componentName="Lizenz">
             <LizenzSettings />
-          </ComponentErrorBoundary>
-        );
-      case 'verbindungen':
-        return (
-          <ComponentErrorBoundary componentName="Verbindungen">
-            <VerbindungenSettings />
           </ComponentErrorBoundary>
         );
       case 'remote-access':

@@ -68,7 +68,7 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   Kacheln, an einer Kachel hoechstens eine Zahl.
 - **Verwaltung:** links eine eigene Leiste der Bereiche (Allgemein, Apps,
   Personen, Firmenordner, Modelle, KI, Sicherheit, Datenschutz, System, Lizenz,
-  Verbindungen, Fernzugriff), daneben der gewaehlte Bereich. Im Bereich
+  Fernzugriff), daneben der gewaehlte Bereich. Im Bereich
   **System** stehen Auslastung, Dienste, Aktualisierungen, Sicherung,
   Selbstheilung und Werksreset untereinander und klappen auf. Jeder Bereich hat
   eine eigene Adresse, etwa `/workspace/verwaltung/system/sicherung`.
@@ -692,17 +692,29 @@ trotzdem an — das Geraet installiert nichts von allein nach.
 #### Dasselbe im Browser
 
 Seit August 2026 muessen Sie dafuer keine Befehlszeile mehr aufmachen.
-**Einstellungen → Apps** zeigt jede App am Geraet mit beiden Fassungen; ein
-Klick darauf oeffnet ihre Ansicht:
+**Verwaltung → Apps** zeigt jede App am Geraet mit einem Satz zu ihrem Zustand
+und hoechstens dem Hinweis „(Test)", wenn eine Testfassung da ist. Ein Klick
+oeffnet ihre **Seite**, mit eigener Adresse
+(`/workspace/verwaltung/apps/<kennung>`). Seit Oktober 2026 (M5) steht dort
+alles, was die App tut und darf, und nirgends sonst in der Oberflaeche:
 
-| Abschnitt      | Was dort steht                                                                                                                                                                                                                                        |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Staende**    | Version je Stand, ob der Container laeuft und ob er sich gesund meldet, und was der Entwickler zur Fassung schrieb („Neu"). Darunter **Live schalten** (nimmt die Version aus dem Teststand, siehe unten) und **Zurueck** (die, die vorher live war). |
-| **Tester**     | Wer diese App sieht, und wer davon zusaetzlich den Teststand bekommt.                                                                                                                                                                                 |
-| **Flows**      | Was die App kann, und mit welchem Modell. Ein Klick oeffnet die Flow-Datei samt Auftrag an das Modell.                                                                                                                                                |
-| **Laeufe**     | Was die App getan hat. Ein Klick oeffnet den Lauf mit seinen Schritten und dem Gedankengang dazwischen.                                                                                                                                               |
-| **KI-Aufrufe** | Jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, fuer wen, welches Modell, wie lange, wie es ausging. Ohne Inhalt der Datei.                                                                                        |
-| **Logs**       | Die letzten 200 Zeilen des Containers, auf Klick.                                                                                                                                                                                                     |
+| Block              | Was dort steht                                                                                                                                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Zustand**        | Ein Satz („Laeuft mit Fassung 1.0.0. Im Test wartet Fassung 1.1.0."), wie viele Personen Zugang haben und wie viele Flows aktiv sind. Rot nur, wenn die App deshalb nicht arbeiten kann: Fassung nicht lieferbar, Server-Teil steht, eingetragene Verbindung abgewiesen. |
+| **Fassungen**      | Test- und Livefassung nebeneinander, mit dem Zustand und dem, was der Entwickler zur Fassung schrieb („Neu"). Darunter **Live schalten** und **Zurueck**. Fassungsnummern, Weg und Bibliothek unter „Technische Angaben" (aufklappen).                                   |
+| **Personen**       | Jeder Mensch am Geraet mit einem Schalter fuer den Zugang; wer Zugang hat, kann **Testperson** werden. Eine Testperson sieht die App in ihrer Leiste zusaetzlich als „(Test) Name" und landet dort in der Testfassung.                                                   |
+| **Freigabestufen** | Wer je Stufe zuerst gefragt wird (Standardperson).                                                                                                                                                                                                                       |
+| **Flows**          | Je Flow ein Schalter **aktiv**, die **Art** und ein Satz, wann er startet und wie viele Schritte er hat. Schritte, Freigaben, Modell („Modell aendern") und die Datei mit dem Auftrag an das Modell klappen auf. Ein Flow auf „aus" startet nicht, das Geraet weist ab.  |
+| **Verbindungen**   | Wohin die App ins Internet darf, lesbar benannt („OpenAI"), mit „x× genutzt"; die Adresse klappt auf. Abgewiesene Adressen, die die App nicht eingetragen hat, stehen grau und zugeklappt darunter. Rot ist nur eine eingetragene Verbindung, die abgewiesen wird.       |
+| **Laeufe**         | Auf „Zeigen": was die App getan hat; ein Klick oeffnet den Lauf mit seinen Schritten und dem Gedankengang.                                                                                                                                                               |
+| **KI-Aufrufe**     | Auf „Zeigen": jeder Modellaufruf der App, auch ohne Flow (etwa das Auslesen eines Belegs): wann, fuer wen, welches Modell, wie lange. Ohne Inhalt der Datei.                                                                                                             |
+| **Protokoll**      | Auf „Zeigen": die letzten 200 Zeilen des Server-Teils.                                                                                                                                                                                                                   |
+
+**Einen Flow ausschalten.** Der Schalter **aktiv** in der Zeile des Flows. Aus
+heisst: der Flow startet nicht, weder von Hand in der App noch nach Zeitplan;
+die App bekommt beim Versuch die Antwort `409 FLOW_INAKTIV`. Ein Lauf, der
+schon laeuft oder auf eine Freigabe wartet, geht zu Ende. Die Wahl gilt fuer
+Test und Live zugleich und bleibt ueber ein Update der App erhalten.
 
 **Live schalten, und was passiert, wenn die neue Fassung nicht startet.** Ein
 Klick auf **Live schalten** oeffnet erst einen Dialog: welche Fassung welche
@@ -715,7 +727,7 @@ Minuten; der Knopf sagt „Sichert und schaltet…".
 Bringt die neue Fassung eine Aenderung an ihrer Datenbank mit, die scheitert,
 startet sie nicht. Dann schaltet Arasul **selbst zurueck**: auf die Fassung
 von vorher und auf die Daten von vorher, so wie sie vor dem Klick waren. In der
-Karte **Livestand** steht danach ein Satz, was geschah, und ein zweiter, was Sie
+Karte **Livefassung** steht danach ein Satz, was geschah, und ein zweiter, was Sie
 tun koennen — meist: die **Technischen Angaben** (aufklappen) an den
 Entwickler geben und die korrigierte Fassung abwarten. Der Teststand laeuft
 dabei weiter und bekommt nie Daten aus dem Livestand. Laesst sich vorher nichts

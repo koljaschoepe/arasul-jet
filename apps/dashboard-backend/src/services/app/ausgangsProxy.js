@@ -157,13 +157,14 @@ function nachHost(zeilen) {
 async function uebersicht() {
   const [apps, staende, zeilen] = await Promise.all([
     db.query(`SELECT id, name FROM public.apps ORDER BY id`),
-    db.query(`SELECT app_id, stand, manifest FROM public.app_staende`),
+    db.query(`SELECT app_id, stand, manifest, eingespielt_am FROM public.app_staende`),
     db.query(
       `SELECT quelle, app_id, stand, host, ergebnis, anzahl, zuletzt FROM public.ausgang_zaehler`
     ),
   ]);
 
   const eingetragen = new Map();
+  const seit = new Map(staende.rows.map(s => [`${s.app_id}:${s.stand}`, s.eingespielt_am]));
   for (const s of staende.rows) {
     const liste = s.manifest?.verbindungen || [];
     for (const host of liste) {
@@ -184,7 +185,25 @@ async function uebersicht() {
           staende: st.sort(),
         })),
         genutzt: nachHost(eigene.filter(z => z.ergebnis === 'erlaubt')),
-        abgewiesen: nachHost(eigene.filter(z => z.ergebnis === 'abgewiesen')),
+        // `stoerung` (M5, Seite der App): der Name steht in `verbindungen`
+        // desselben Standes und wurde trotzdem abgewiesen, SEIT dieser Stand
+        // eingespielt ist -- er zeigt etwa auf eine Adresse im Haus. Dann kann
+        // die App nicht arbeiten, wie sie soll, und nur dann ist es rot. Eine
+        // Abweisung von vor dem Einspielen (der Name stand damals noch nicht
+        // drin) zaehlt nicht: die Zaehler wachsen nur. Einen Namen, den niemand
+        // eingetragen hat, abzuweisen, ist dagegen die Aufgabe des Proxys.
+        abgewiesen: nachHost(eigene.filter(z => z.ergebnis === 'abgewiesen')).map(z => ({
+          ...z,
+          stoerung: eigene.some(
+            r =>
+              r.ergebnis === 'abgewiesen' &&
+              r.host === z.host &&
+              ((eingetragen.get(app.id) || new Map()).get(r.host) || []).includes(r.stand) &&
+              r.zuletzt &&
+              seit.get(`${app.id}:${r.stand}`) &&
+              new Date(r.zuletzt) >= new Date(seit.get(`${app.id}:${r.stand}`))
+          ),
+        })),
       };
     }),
     plattform: {

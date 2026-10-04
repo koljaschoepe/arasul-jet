@@ -80,6 +80,8 @@ describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
       { type: 'verwaltung' },
       { type: 'verwaltung', bereich: 'benutzer' },
       { type: 'verwaltung', bereich: 'system', abschnitt: 'sicherung' },
+      // Die Seite einer App in der Verwaltung, mit Ziffern in der Kennung (M5).
+      { type: 'verwaltung', bereich: 'apps', abschnitt: 'probe-seite-1004' },
       { type: 'app', appId: 'urlaub', stand: 'live' },
       { type: 'app', appId: 'urlaub', stand: 'test' },
     ];
@@ -129,6 +131,11 @@ describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
 
   it('Bereich und Abschnitt der Verwaltung sind Wörter, kein Pfad', () => {
     expect(pfadZuAnsicht('/verwaltung/..')).toEqual({ type: 'verwaltung' });
+    // Eine App-Kennung als Abschnitt nur im Bereich Apps (M5).
+    expect(pfadZuAnsicht('/verwaltung/system/probe-1004')).toEqual({
+      type: 'verwaltung',
+      bereich: 'system',
+    });
     expect(pfadZuAnsicht('/verwaltung/system/%2e%2e')).toEqual({
       type: 'verwaltung',
       bereich: 'system',

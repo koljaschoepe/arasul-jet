@@ -600,6 +600,13 @@ const FlowArtBody = z
   })
   .strict();
 
+// Der Schalter "aktiv" eines Flows (M5, Migration 200).
+const FlowAktivBody = z
+  .object({
+    aktiv: z.boolean({ error: '"aktiv" ist true oder false' }),
+  })
+  .strict();
+
 const FlowModellBody = z.union(
   [
     z.object({ modell: z.string().trim().max(100).nullable() }).strict(),
@@ -740,6 +747,7 @@ module.exports = {
   AppLaufParams,
   FlowModellBody,
   FlowArtBody,
+  FlowAktivBody,
   FlowQuery,
   KiAufrufeQuery,
   LaeufeQuery,

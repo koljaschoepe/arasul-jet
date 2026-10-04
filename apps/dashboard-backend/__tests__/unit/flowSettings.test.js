@@ -208,3 +208,45 @@ describe('setzeArt (M5)', () => {
     expect(db.query.mock.calls[1][0]).toMatch(/UPDATE public\.flow_settings[\s\S]*modell = NULL/);
   });
 });
+
+describe('setzeAktiv (M5, Migration 200)', () => {
+  it('aus schreibt `aktiv = false` in dieselbe Zeile und fasst Modell und Art nicht an', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 1 });
+    const r = await flowSettings.setzeAktiv({
+      appId: 'urlaub',
+      flowName: 'bericht',
+      aktiv: false,
+      durch: 7,
+    });
+    expect(r).toEqual({ aktiv: false });
+    const [sql, werte] = db.query.mock.calls[0];
+    expect(sql).toMatch(/ON CONFLICT \(app_id, flow_name\) DO UPDATE[\s\S]*SET aktiv = false/);
+    expect(sql).not.toMatch(/modell\s*=|art\s*=/);
+    expect(werte).toEqual(['urlaub', 'bericht', 7]);
+  });
+
+  it('ein speichert kein `true`: NULL, und eine sonst leere Zeile fällt weg', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await flowSettings.setzeAktiv({ appId: 'urlaub', flowName: 'bericht', aktiv: true });
+    expect(db.query.mock.calls[0][0]).toMatch(/SET aktiv = NULL/);
+    expect(db.query.mock.calls[1][0]).toMatch(
+      /DELETE FROM public\.flow_settings[\s\S]*art IS NULL AND aktiv IS NULL/
+    );
+  });
+
+  it('Modell oder Art zurücknehmen löscht keine Zeile, die einen ausgeschalteten Flow trägt', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await flowSettings.setzeArt({ appId: 'urlaub', flowName: 'bericht', art: null });
+    expect(db.query.mock.calls[1][0]).toMatch(/aktiv IS NULL/);
+    db.query.mockClear();
+    await flowSettings.setzeModell({ appId: 'urlaub', flowName: 'bericht', modell: null });
+    expect(db.query.mock.calls[0][0]).toMatch(/DELETE[\s\S]*aktiv IS NULL/);
+  });
+
+  it('istAktiv: ohne Zeile ja, mit `aktiv = false` nein', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    expect(await flowSettings.istAktiv({ appId: 'urlaub', flowName: 'bericht' })).toBe(true);
+    db.query.mockResolvedValueOnce({ rows: [{ aktiv: false }] });
+    expect(await flowSettings.istAktiv({ appId: 'urlaub', flowName: 'bericht' })).toBe(false);
+  });
+});

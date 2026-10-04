@@ -1077,26 +1077,27 @@ steht in ihrem Manifest `app.json` — die Felder erklärt
 Je App gibt es zwei Stände: `live` für alle Freigegebenen, `test` für die
 benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 
-| Method | Endpoint                             | Description                                                                                |
-| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/apps`                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                               |
-| GET    | `/api/apps/meine`                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                         |
-| GET    | `/api/apps/:id`                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                 |
-| POST   | `/api/apps/:id/einspielen`           | Eine Version in einen Stand bringen                                                        |
+| Method | Endpoint                             | Description                                                                                                   |
+| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/apps`                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                                                  |
+| GET    | `/api/apps/meine`                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                                            |
+| GET    | `/api/apps/:id`                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                                    |
+| POST   | `/api/apps/:id/einspielen`           | Eine Version in einen Stand bringen                                                                           |
 | DELETE | `/api/apps/:id`                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen) |
-| GET    | `/api/apps/:id/logs`                 | Die letzten Zeilen des App-Backends                                                        |
-| GET    | `/api/apps/:id/zugang`               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                              |
-| GET    | `/api/apps/:id/flows`                | Die Flows beider Stände, mit dem Modell, das sie treibt                                    |
-| GET    | `/api/apps/:id/flows/:name`          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                              |
-| PUT    | `/api/apps/:id/flows/:name/modell`   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                             |
-| PUT    | `/api/apps/:id/flows/:name/art`      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                   |
-| GET    | `/api/apps/:id/stufen`               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)         |
-| PUT    | `/api/apps/:id/stufen/:stufe`        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)          |
-| GET    | `/api/apps/:id/laeufe`               | Die Flow-Läufe dieser App (Phase D4)                                                       |
-| GET    | `/api/apps/:id/laeufe/:runId`        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                        |
-| POST   | `/api/apps/:id/laeufe/:runId/erneut` | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)   |
-| GET    | `/api/apps/:id/ki-aufrufe`           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                           |
-| POST   | `/api/apps/:id/schalten`             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                   |
+| GET    | `/api/apps/:id/logs`                 | Die letzten Zeilen des App-Backends                                                                           |
+| GET    | `/api/apps/:id/zugang`               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                                                 |
+| GET    | `/api/apps/:id/flows`                | Die Flows beider Stände, mit dem Modell, das sie treibt                                                       |
+| GET    | `/api/apps/:id/flows/:name`          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                                                 |
+| PUT    | `/api/apps/:id/flows/:name/modell`   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                                                |
+| PUT    | `/api/apps/:id/flows/:name/art`      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                      |
+| PUT    | `/api/apps/:id/flows/:name/aktiv`    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                 |
+| GET    | `/api/apps/:id/stufen`               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                            |
+| PUT    | `/api/apps/:id/stufen/:stufe`        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                             |
+| GET    | `/api/apps/:id/laeufe`               | Die Flow-Läufe dieser App (Phase D4)                                                                          |
+| GET    | `/api/apps/:id/laeufe/:runId`        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                                           |
+| POST   | `/api/apps/:id/laeufe/:runId/erneut` | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                      |
+| GET    | `/api/apps/:id/ki-aufrufe`           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                                              |
+| POST   | `/api/apps/:id/schalten`             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                                      |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 
@@ -1293,6 +1294,18 @@ weist das Backend mit `400` ab, ein unbekannter Flow ist `404`. Die Wahl gilt ab
 dem **nächsten** Lauf (ein laufender oder wartender behält seine) und steht im
 Sicherheitsprotokoll als `flow_art_gesetzt` (App, Flow, Art, vorher). Sie liegt
 in `flow_settings`, nicht in der Datei, und überlebt ein Update.
+
+**PUT /api/apps/:id/flows/:name/aktiv** (nur Admin, M5): `{ "aktiv": false }`
+schaltet den Flow aus, `{ "aktiv": true }` wieder ein. Ein ausgeschalteter Flow
+startet nicht: jeder Start (`POST /api/v1/external/flows/:name/run` mit dem
+Schlüssel der App) bekommt `409` mit dem Code `FLOW_INAKTIV`; ein Lauf, der
+schon läuft oder auf eine Freigabe wartet, geht zu Ende. Ein unbekannter Flow ist
+`404`. Die Wahl liegt ohne Stand in `flow_settings.aktiv` (Migration 200),
+überlebt ein Update und steht im Sicherheitsprotokoll als `flow_ausgeschaltet`
+bzw. `flow_eingeschaltet`. `GET /api/apps/:id` und `GET /api/apps/:id/flows`
+nennen je Flow dazu `aktiv`, `schritte` (`[{ name, typ, werkzeug?, rolle? }]`),
+`ausloeser` (aus dem Kopf, ohne Angabe `[{ "typ": "hand" }]`) und `stufen`
+(`[{ name, bezeichnung }]`).
 
 **PUT /api/apps/:id/flows/:name/modell:** eine Entscheidung, drei Antworten:
 
@@ -1925,7 +1938,8 @@ zwei Wege des Ausgangs-Proxys tragen statt der Sitzung den Kopf
             "host": "boese.example",
             "anzahl": 2,
             "zuletzt": "2026-10-02T11:00:00Z",
-            "staende": ["live"]
+            "staende": ["live"],
+            "stoerung": false
           }
         ]
       }
@@ -1944,6 +1958,12 @@ zwei Wege des Ausgangs-Proxys tragen statt der Sitzung den Kopf
   "timestamp": "2026-10-02T12:00:00.000Z"
 }
 ```
+
+`abgewiesen[].stoerung` (M5): `true`, wenn der Name in `verbindungen` desselben
+Standes steht und trotzdem abgewiesen wurde (etwa weil er auf eine Adresse im
+Haus zeigt). Dann kann die App nicht arbeiten, wie sie soll; die Seite der App
+zeigt nur das rot. Ein nicht eingetragener Name, der abgewiesen wurde, ist die
+Aufgabe des Proxys und kein Fehler.
 
 ---
 

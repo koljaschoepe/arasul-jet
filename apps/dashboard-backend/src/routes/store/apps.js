@@ -28,6 +28,7 @@ const {
   AppLaufParams,
   FlowModellBody,
   FlowArtBody,
+  FlowAktivBody,
   EinspielenBody,
   EntfernenSitzungQuery,
   FlowQuery,
@@ -427,6 +428,46 @@ router.put(
     });
     res.json({
       data: { app_id: appId, flow_name: name, ...gilt, gilt_ab: 'dem naechsten Lauf' },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/apps/:id/flows/:name/aktiv — einen Flow aus- und einschalten (M5).
+ *
+ * Aus heisst: er startet nicht, jeder Start bekommt 409 `FLOW_INAKTIV`
+ * (`flowRunner.starten`). Ein Lauf, der schon laeuft oder auf eine Freigabe
+ * wartet, geht zu Ende. Wie Modell und Art in `flow_settings`, ohne Stand,
+ * und im Sicherheitsprotokoll.
+ */
+router.put(
+  '/:id/flows/:name/aktiv',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppFlowParams),
+  validateBody(FlowAktivBody),
+  asyncHandler(async (req, res) => {
+    const { id: appId, name } = req.params;
+    const { aktiv } = req.body;
+    await appStore.holeApp(appId);
+    const staende = await Promise.all(
+      ['test', 'live'].map(stand => appFlows.liste({ appId, stand }))
+    );
+    if (!staende.flat().some(f => f.name === name)) {
+      throw new NotFoundError(`App ${appId} hat keinen Flow "${name}"`);
+    }
+    const vorher = await flowSettings.istAktiv({ appId, flowName: name });
+    await flowSettings.setzeAktiv({ appId, flowName: name, aktiv, durch: req.user.id });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: aktiv ? 'flow_eingeschaltet' : 'flow_ausgeschaltet',
+      details: { app_id: appId, flow: name, aktiv, vorher },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({
+      data: { app_id: appId, flow_name: name, aktiv },
       timestamp: new Date().toISOString(),
     });
   })

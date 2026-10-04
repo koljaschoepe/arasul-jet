@@ -45,9 +45,27 @@ export interface AppFlow {
   art: FlowArt;
   /** Hat der Administrator gewählt (`true`) oder gilt die Vorgabe des Pakets? */
   art_ueberschrieben: boolean;
+  /** Ausgeschaltet startet der Flow nicht, das Backend weist ab (M5, Migration 200). */
+  aktiv: boolean;
+  /** Die Schritte aus dem Kopf, ohne Auftrag; leer = das Modell führt (M5). */
+  schritte: FlowSchritt[];
+  /** Wann er startet; ohne Angabe im Kopf `[{ typ: 'hand' }]` (Kontrakt 8). */
+  ausloeser: FlowAusloeser[];
+  /** Die Freigabestufen, die der Flow nennt. */
+  stufen: { name: string; bezeichnung: string | null }[];
   version: string;
   registriert_am: string;
 }
+
+interface FlowSchritt {
+  name: string;
+  typ: 'subagent' | 'werkzeug';
+  werkzeug?: string;
+  rolle?: string;
+}
+
+export type FlowAusloeser =
+  { typ: 'hand' } | { typ: 'zeitplan'; zeitplan: string } | { typ: 'ereignis'; ereignis: string };
 
 export type FlowArt = 'autonom' | 'ergebnis_bestaetigen';
 
@@ -519,6 +537,23 @@ export function useFlowArt(appId: string) {
   return useMutation({
     mutationFn: ({ flow, art }: { flow: string; art: FlowArt | null }) =>
       api.put(`/apps/${appId}/flows/${flow}/art`, { art }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: appKey(appId) });
+      void qc.invalidateQueries({ queryKey: ['apps', 'flow', appId] });
+    },
+  });
+}
+
+/**
+ * Einen Flow aus- oder einschalten (M5, `PUT /api/apps/:id/flows/:name/aktiv`).
+ * Aus heißt: er startet nicht; ein Lauf, der schon läuft oder wartet, geht zu Ende.
+ */
+export function useFlowAktiv(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ flow, aktiv }: { flow: string; aktiv: boolean }) =>
+      api.put(`/apps/${appId}/flows/${flow}/aktiv`, { aktiv }),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: appKey(appId) });
       void qc.invalidateQueries({ queryKey: ['apps', 'flow', appId] });

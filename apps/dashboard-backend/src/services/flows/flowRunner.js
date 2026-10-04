@@ -37,6 +37,8 @@ const EventEmitter = require('events');
 const logger = require('../../utils/logger');
 const runStore = require('./runStore');
 const { runFlow } = require('./runFlow');
+const flowSettings = require('./flowSettings');
+const { FlowInaktivError } = require('../../utils/errors');
 
 // Aktive Läufe: runId → { bus, controller }. Der Bus verteilt die Ereignisse
 // an die SSE-Abonnenten; der controller bricht den Lauf ab.
@@ -72,7 +74,18 @@ async function starten(
   },
   deps = {}
 ) {
-  const { run = runFlow, store = runStore } = deps;
+  const { run = runFlow, store = runStore, flowAn = flowSettings.istAktiv } = deps;
+
+  // Ein ausgeschalteter Flow einer App startet nicht (M5, Migration 200). HIER
+  // und nicht an jeder Route: jeder Start eines Laufs geht durch diese
+  // Funktion, auch einer, den es heute noch nicht gibt (ein Zeitplan, ein
+  // Ereignis der App). Ein Lauf, der schon laeuft oder wartet, geht weiter --
+  // er wird fortgesetzt, nicht gestartet.
+  if (appId && !(await flowAn({ appId, flowName }))) {
+    throw new FlowInaktivError(
+      `Der Flow "${flowName}" ist ausgeschaltet. Ein Administrator schaltet ihn in der Verwaltung auf der Seite der App wieder ein.`
+    );
+  }
 
   // Den Lauf ZUERST anlegen, damit die zurückgegebene ID sofort streambar ist —
   // die SSE-Route kann sich verbinden, noch bevor der erste Schritt da ist.
