@@ -1653,18 +1653,8 @@ async function schliesseOffeneDesLaufs({ runId, datenbank = db }) {
  */
 async function brecheLaeufeDerAppAb(appId, { datenbank = db } = {}) {
   const grund = 'App entfernt';
-  const { rows } = await datenbank.query(
-    `SELECT id FROM flow_runs WHERE app_id = $1 AND status IN ('laeuft', 'wartend')`,
-    [appId]
-  );
-  const flowRunner = require('./flowRunner');
-  for (const { id } of rows) {
-    await beendeLauf({ runId: id, status: 'abgebrochen', grund }, { datenbank });
-    await schliesseOffeneSchritte({ runId: id, text: grund, datenbank });
-    flowRunner.signalAbbruch(id);
-  }
-  // Auch Anfragen, deren Lauf schon beendet ist, aber die Zeile noch offen
-  // liess: nach dem Entfernen gibt es niemanden mehr, der sie bestaetigen darf.
+  // ZUERST die Freigaben: ein wartender Lauf mit Faden schliesst seine Anfrage
+  // beim Abbruch selbst, und dann stuende hier eine Null, obwohl sie offen war.
   const { rows: offene } = await datenbank.query(
     `UPDATE public.approvals
         SET status = 'verfallen', entschieden_am = NOW(), begruendung = $2
@@ -1676,6 +1666,16 @@ async function brecheLaeufeDerAppAb(appId, { datenbank = db } = {}) {
     const eintrag = wartende.get(String(id));
     eintrag?.uhr?.abstellen();
     wartende.delete(String(id));
+  }
+  const { rows } = await datenbank.query(
+    `SELECT id FROM flow_runs WHERE app_id = $1 AND status IN ('laeuft', 'wartend')`,
+    [appId]
+  );
+  const flowRunner = require('./flowRunner');
+  for (const { id } of rows) {
+    await beendeLauf({ runId: id, status: 'abgebrochen', grund }, { datenbank });
+    await schliesseOffeneSchritte({ runId: id, text: grund, datenbank });
+    flowRunner.signalAbbruch(id);
   }
   return { laeufe: rows.length, freigaben: offene.length };
 }

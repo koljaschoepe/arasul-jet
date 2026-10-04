@@ -296,8 +296,8 @@ describe('DELETE /api/apps/:id: der Weg, die Leiche loszuwerden', () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'urlaubsantrag' }] }) // gibt es sie
       .mockResolvedValueOnce({ rows: [] }) // staendeVon
-      .mockResolvedValueOnce({ rows: [] }) // wartende Laeufe der App
       .mockResolvedValueOnce({ rows: [] }) // offene Freigaben der App
+      .mockResolvedValueOnce({ rows: [] }) // wartende Laeufe der App
       .mockResolvedValueOnce({ rowCount: 1 }); // DELETE apps
   }
 
@@ -323,6 +323,7 @@ describe('DELETE /api/apps/:id: der Weg, die Leiche loszuwerden', () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'urlaubsantrag' }] }) // gibt es sie
       .mockResolvedValueOnce({ rows: [] }) // staendeVon
+      .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // offene Freigaben
       .mockResolvedValueOnce({ rows: [{ id: 41 }] }) // wartende Laeufe
       .mockResolvedValue({ rows: [{ id: 7 }], rowCount: 1 }); // alles weitere
     const res = await request(verwaltung()).delete('/api/apps/urlaubsantrag');
