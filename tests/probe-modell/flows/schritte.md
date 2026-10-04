@@ -10,7 +10,8 @@ rollen:
     ergebnis: { felder: [betrag] }
     prompt: Du gibst den vorgegebenen Wert unveraendert als JSON aus.
   - name: rechner
-    prompt: Du antwortest mit einem Wort.
+    ergebnis: { felder: [text] }
+    prompt: Du antwortest als JSON mit dem Feld text.
 schritte:
   - name: freigeben
     typ: werkzeug
@@ -30,12 +31,12 @@ schritte:
     rolle: rechner
     modell: gemma4:e4b
     faehigkeiten: { text: true, werkzeuge: true, mindestkontext: 8192 }
-    auftrag: Antworte mit dem Wort Fertig.
+    auftrag: 'Gib genau dieses JSON aus: <<<{"text": "Fertig."}>>>'
   - name: frei
     typ: subagent
     rolle: rechner
     faehigkeiten: { text: true }
-    auftrag: Antworte mit dem Wort Fertig.
+    auftrag: 'Gib genau dieses JSON aus: <<<{"text": "Fertig."}>>>'
 grenzen:
   zeitlimit_s: 120
 ---
