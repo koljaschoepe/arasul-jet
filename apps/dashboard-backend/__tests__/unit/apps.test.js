@@ -624,6 +624,52 @@ describe('/api/apps/meine', () => {
     const nutzer = await request(verwaltung()).get('/api/apps/meine');
     expect(nutzer.body.data[0].test).toBeNull();
   });
+
+  test('das Symbol aus dem Manifest geht mit, ohne Symbol ist es null', async () => {
+    const zeile = {
+      id: 'urlaub',
+      name: 'Urlaub',
+      beschreibung: null,
+      freigegeben_bis: 'live',
+      live_version: '1.0.0',
+      test_version: null,
+    };
+    db.query.mockResolvedValueOnce({
+      rows: [
+        { ...zeile, live_manifest: { symbol: 'file-text' } },
+        { ...zeile, id: 'zwei' },
+      ],
+    });
+    const res = await request(verwaltung()).get('/api/apps/meine');
+    expect(res.body.data[0].symbol).toBe('file-text');
+    expect(res.body.data[1].symbol).toBeNull();
+  });
+});
+
+describe('/api/apps/reihenfolge', () => {
+  test('GET liefert die gespeicherte Liste, steht vor /:id', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ app_reihenfolge: ['b:live', 'a:live'] }] });
+    const res = await request(verwaltung()).get('/api/apps/reihenfolge');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(['b:live', 'a:live']);
+  });
+
+  test('PUT speichert die Liste je Person', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ app_reihenfolge: ['b:live', 'a:test'] }] });
+    const res = await request(verwaltung())
+      .put('/api/apps/reihenfolge')
+      .send({ reihenfolge: ['b:live', 'a:test'] });
+    expect(res.status).toBe(200);
+    expect(db.query.mock.calls.at(-1)[1][1]).toBe('["b:live","a:test"]');
+  });
+
+  test.each([[['x']], [['a:live', 'a:live']], [['../x:live']]])(
+    'PUT weist %j mit 400 ab',
+    async reihenfolge => {
+      const res = await request(verwaltung()).put('/api/apps/reihenfolge').send({ reihenfolge });
+      expect(res.status).toBe(400);
+    }
+  );
 });
 
 /**
