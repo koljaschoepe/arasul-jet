@@ -50,6 +50,9 @@ const MANIFEST_ACCEPT = [
 const MANIFEST_FRIST_MS = 15000;
 const GB = 1000 * 1000 * 1000;
 
+/** Eine Nachkommastelle mit deutschem Komma, fuer Saetze an den Menschen. */
+const zahl = n => n.toFixed(1).replace('.', ',');
+
 // Ein Modell braucht im Speicher mehr als seine Gewichte: Kontext (KV-Cache)
 // und Rechenpuffer. 15 % ist die Faustzahl, die auch die Kurzliste traegt
 // (Standardmodell: 15,7 GB Gewichte, 22 GB im Speicher steht dort vorsichtiger;
@@ -148,7 +151,7 @@ function budgetPruefen(kennung, bytes) {
 
   if (benoetigtGb > nutzbarGb) {
     throw new ValidationError(
-      `„${kennung}" ist zu groß für dieses Gerät: es braucht im Speicher rund ${benoetigtGb.toFixed(1)} GB, für KI sind ${nutzbarGb.toFixed(1)} GB nutzbar. Bitte ein kleineres Modell oder eine stärkere Quantisierung (zum Beispiel q4) wählen.`,
+      `„${kennung}" ist zu groß für dieses Gerät: es braucht im Speicher rund ${zahl(benoetigtGb)} GB, für KI sind ${zahl(nutzbarGb)} GB nutzbar. Bitte ein kleineres Modell oder eine stärkere Quantisierung (zum Beispiel q4) wählen.`,
       {
         grund: 'ZU_GROSS',
         kennung,
@@ -174,7 +177,7 @@ async function plattePruefen(kennung, bytes) {
   const benoetigt = Math.floor(bytes * PLATTE_AUFSCHLAG);
   if (free < benoetigt) {
     throw new ValidationError(
-      `„${kennung}" braucht beim Laden rund ${(benoetigt / GB).toFixed(1)} GB Platz, auf der Platte des Geräts sind ${(free / GB).toFixed(1)} GB frei. Bitte erst Platz schaffen, zum Beispiel ein nicht benutztes Modell entfernen.`,
+      `„${kennung}" braucht beim Laden rund ${zahl(benoetigt / GB)} GB Platz, auf der Platte des Geräts sind ${zahl(free / GB)} GB frei. Bitte erst Platz schaffen, zum Beispiel ein nicht benutztes Modell entfernen.`,
       {
         grund: 'PLATTE_VOLL',
         kennung,

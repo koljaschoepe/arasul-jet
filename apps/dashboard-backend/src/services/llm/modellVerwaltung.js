@@ -99,7 +99,7 @@ async function nutzung(modelle, standardId) {
 function sperrGrund({ name, istStandard, flows }) {
   if (flows.length > 0) {
     const nenner = flows.map(f => `„${f.flow}" (${f.app_name})`).join(', ');
-    return `„${name}" lässt sich nicht entfernen, solange ${flows.length === 1 ? 'ein Flow' : 'Flows'} es nutzen: ${nenner}. Bitte erst die Flows auf ein anderes Modell umstellen.`;
+    return `„${name}" lässt sich nicht entfernen, solange ${flows.length === 1 ? 'ein Flow es nutzt' : 'Flows es nutzen'}: ${nenner}. Bitte erst die Flows auf ein anderes Modell umstellen.`;
   }
   if (istStandard) {
     return `„${name}" ist das Standardmodell und lässt sich nicht entfernen. Bitte zuerst ein anderes Modell als Standard setzen.`;

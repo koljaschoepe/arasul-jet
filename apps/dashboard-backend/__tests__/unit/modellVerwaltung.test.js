@@ -159,7 +159,7 @@ describe('modellVerwaltung', () => {
       const klein = aus.modelle.find(m => m.id === 'klein');
       expect(klein).toMatchObject({ warm: true, ist_standard: false, groesse_bytes: 4e9 });
       expect(klein.flows).toEqual([{ app_id: 'a', app_name: 'A', flow: 'f' }]);
-      expect(klein.sperre).toContain('nutzen');
+      expect(klein.sperre).toContain('ein Flow es nutzt');
       expect(aus.modelle.find(m => m.id === 'frei')).toMatchObject({
         warm: false,
         ungemessen: true,
