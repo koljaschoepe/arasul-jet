@@ -85,6 +85,10 @@ uebergehen() {
   printf '  --   %s%s\n' "$1" "${2:+  ($2)}"
 }
 ja_wenn() { if [ "$1" = "$2" ]; then echo ja; else echo nein; fi; }
+# Mindestens: eine Kontraktfassung zaehlt hoch, ein fester Wert wird mit jeder
+# neuen Fassung rot, ohne dass etwas kaputt waere. Eine Zahl, die kleiner ist
+# oder fehlt, ist der Fehler.
+mind_wenn() { if [ "${1:-}" -ge "$2" ] 2>/dev/null; then echo ja; else echo nein; fi; }
 
 # Ein Aufruf, zwei Ergebnisse: `$CODE` und der Rumpf in `$RUMPF_DATEI`.
 # Bewusst ohne Rueckgabe ueber die Standardausgabe -- eine Kommandosubstitution
@@ -242,7 +246,7 @@ fi
 schluessel_ruf GET /api/v1/external/contract
 pruefe 'GET /contract antwortet' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
 KONTRAKT=$(rumpf | feld data.kontrakt)
-pruefe 'Die Kontraktversion ist mit C6 auf 2 gegangen' "$(ja_wenn "$KONTRAKT" 2)" "kontrakt=$KONTRAKT"
+pruefe 'Der Kontrakt hat mindestens Fassung 2 (C6)' "$(mind_wenn "$KONTRAKT" 2)" "kontrakt=$KONTRAKT"
 FLOW_REGELN=$(rumpf | feld data.flow_frontmatter.regeln)
 pruefe 'Er nennt die Regeln fuer einen Flow aus einem Paket' \
   "$([ -n "$FLOW_REGELN" ] && echo ja || echo nein)" \

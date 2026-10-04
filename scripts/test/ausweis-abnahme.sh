@@ -62,6 +62,10 @@ pruefe() {
   fi
 }
 ja_nein() { if [ "$1" = "$2" ]; then echo ja; else echo nein; fi; }
+# Mindestens: eine Kontraktfassung zaehlt hoch, ein fester Wert wird mit jeder
+# neuen Fassung rot, ohne dass etwas kaputt waere. Eine Zahl, die kleiner ist
+# oder fehlt, ist der Fehler.
+mind_wenn() { if [ "${1:-}" -ge "$2" ] 2>/dev/null; then echo ja; else echo nein; fi; }
 enthaelt() { case "$1" in *"$2"*) echo ja ;; *) echo nein ;; esac; }
 
 RUMPF_DATEI="$(mktemp)"
@@ -174,7 +178,7 @@ fi
 
 hole /api/v1/external/contract '' "x-api-key: $SCHLUESSEL"
 pruefe 'GET /contract antwortet' "$(ja_nein "$CODE" 200)" "HTTP $CODE"
-pruefe 'die Kontraktversion ist 7' "$(ja_nein "$(feld data.kontrakt)" 7)" \
+pruefe 'der Kontrakt hat mindestens Fassung 7' "$(mind_wenn "$(feld data.kontrakt)" 7)" \
   "kontrakt=$(feld data.kontrakt)"
 pruefe 'das Schema von app.json fuehrt `agent` als Liste' \
   "$(ja_nein "$(feld data.app_json.schema.properties.agent.type)" array)" \
