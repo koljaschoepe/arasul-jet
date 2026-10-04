@@ -30,7 +30,7 @@ const appAbschluss = require('./appAbschluss');
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
   const result = await db.query(
-    `SELECT stand, version, vorige_version, manifest, eingespielt_am, eingespielt_von
+    `SELECT stand, version, vorige_version, manifest, eingespielt_am, eingespielt_von, aenderungstext
        FROM public.app_staende WHERE app_id = $1`,
     [appId]
   );
@@ -172,6 +172,32 @@ async function pruefeVorhanden(appId) {
  * Versionen auf der Platte, ob die geforderten Modelle da sind und welche
  * Flows in welchem Stand registriert sind.
  */
+/**
+ * Der letzte Versuch, diese App live zu schalten, oder `null`. Ein Versuch,
+ * der seit einer halben Stunde `laeuft`, hat einen Neustart des Backends nicht
+ * ueberlebt und wird nicht gezeigt. Geschrieben von `liveSchalten.js` (M5).
+ */
+async function letzteSchaltung(appId) {
+  // Eine Auskunft neben der App, keine Bedingung fuer sie: fehlt sie, steht
+  // die App trotzdem da.
+  try {
+    const ergebnis = await db.query(
+      `SELECT id, von_version, nach_version, ergebnis, sicherung_id, satz, hilfe, technik,
+              begonnen_am, beendet_am
+         FROM public.app_schaltungen
+        WHERE app_id = $1
+          AND (ergebnis <> 'laeuft' OR begonnen_am > NOW() - INTERVAL '30 minutes')
+        ORDER BY begonnen_am DESC, id DESC
+        LIMIT 1`,
+      [appId]
+    );
+    return ergebnis?.rows?.[0] ?? null;
+  } catch (fehler) {
+    logger.warn(`Letzte Schaltung von ${appId} nicht lesbar: ${fehler.message}`);
+    return null;
+  }
+}
+
 async function holeApp(appId) {
   const zeile = await db.query('SELECT * FROM public.apps WHERE id = $1', [appId]);
   if (zeile.rows.length === 0) {
@@ -182,6 +208,7 @@ async function holeApp(appId) {
     ...zeile.rows[0],
     versionen: await appManifest.listeVersionen(appId),
     staende: { test: null, live: null },
+    letzte_schaltung: null,
   };
   for (const stand of ['test', 'live']) {
     if (!staende[stand]) {
@@ -193,6 +220,7 @@ async function holeApp(appId) {
       vorige_version: staende[stand].vorige_version,
       eingespielt_am: staende[stand].eingespielt_am,
       eingespielt_von: staende[stand].eingespielt_von,
+      aenderungstext: staende[stand].aenderungstext ?? null,
       manifest,
       pfad: manifest.frontend
         ? stand === 'test'
@@ -209,6 +237,7 @@ async function holeApp(appId) {
       flows: await appFlows.liste({ appId, stand }),
     };
   }
+  ergebnis.letzte_schaltung = await letzteSchaltung(appId);
   return ergebnis;
 }
 
@@ -265,7 +294,7 @@ async function stillEntfernen(tun) {
   }
 }
 
-async function spieleEin({ appId, version, stand, durch }) {
+async function spieleEin({ appId, version, stand, durch, aenderungstext }) {
   const manifest = await appManifest.leseManifest(appId, version);
   const neueApp = await istNeueApp(manifest.id);
   // Die Lizenzgrenze greift HIER, bei jedem Stand -- siehe `pruefeAppGrenze`.
@@ -358,8 +387,8 @@ async function spieleEin({ appId, version, stand, durch }) {
   // wirklich aendert: dieselbe Version noch einmal einzuspielen (der Schalter
   // nach live tut genau das) darf die Erinnerung nicht ueberschreiben.
   const gespeichert = await db.query(
-    `INSERT INTO public.app_staende (app_id, stand, version, manifest, eingespielt_von)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO public.app_staende (app_id, stand, version, manifest, eingespielt_von, aenderungstext)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (app_id, stand) DO UPDATE
         SET version = EXCLUDED.version,
             vorige_version = CASE
@@ -369,9 +398,23 @@ async function spieleEin({ appId, version, stand, durch }) {
             END,
             manifest = EXCLUDED.manifest,
             eingespielt_am = NOW(),
-            eingespielt_von = EXCLUDED.eingespielt_von
-     RETURNING app_id, stand, version, vorige_version, eingespielt_am`,
-    [manifest.id, stand, manifest.version, manifest, durch ?? null]
+            eingespielt_von = EXCLUDED.eingespielt_von,
+            aenderungstext = CASE WHEN $7::boolean THEN EXCLUDED.aenderungstext
+                                  ELSE public.app_staende.aenderungstext END
+     RETURNING app_id, stand, version, vorige_version, eingespielt_am, aenderungstext`,
+    // Der Aenderungstext (Migration 199) nur, wenn der Aufrufer einen nennt
+    // (auch `null`): der Deploy und das Schalten tun es, das Zurueckholen und
+    // das Neu-Verbinden nach einer Wiederherstellung nicht -- dort bleibt der
+    // Text, der zum Stand gehoert.
+    [
+      manifest.id,
+      stand,
+      manifest.version,
+      manifest,
+      durch ?? null,
+      aenderungstext ?? null,
+      aenderungstext !== undefined,
+    ]
   );
 
   // Die oben gelesenen Flows eintragen (C6). NACH dem Stand und nicht davor:
@@ -437,6 +480,8 @@ async function schalte({ appId, ziel, durch }) {
       version: staende.test.version,
       stand: 'live',
       durch,
+      // Der Text des Entwicklers wandert mit der Fassung nach live.
+      aenderungstext: staende.test.aenderungstext ?? null,
     });
     logger.info(`App ${appId} live geschaltet: ${staende.test.version}`);
     return eingespielt;
@@ -455,6 +500,9 @@ async function schalte({ appId, ziel, durch }) {
     version: staende.live.vorige_version,
     stand: 'live',
     durch,
+    // Der Text gehoerte zur Fassung, die jetzt geht; den der vorigen kennt
+    // der Stand nicht mehr.
+    aenderungstext: null,
   });
   logger.info(
     `App ${appId} zurueckgeschaltet: ${staende.live.version} -> ${staende.live.vorige_version}`
@@ -777,4 +825,5 @@ module.exports = {
   standZustand,
   staendeVon,
   pruefeAppGrenze,
+  letzteSchaltung,
 };

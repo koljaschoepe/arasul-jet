@@ -278,6 +278,22 @@ async function entferne(appId) {
   return weg;
 }
 
+/**
+ * Die Datenbank EINES Standes wegwerfen (M5, Live schalten mit Sicherung):
+ * nur fuer einen Livestand, den ein gescheitertes erstes Live-Schalten eben
+ * erst angelegt hat. Ein Stand mit Daten faellt hier nie -- das entscheidet
+ * der Aufrufer, der vorher gefragt hat, ob es die Datenbank schon gab.
+ */
+async function entferneStand(appId, stand) {
+  const name = namenFuer(appId, stand);
+  await wirfWeg(name);
+  await db.query('DELETE FROM public.app_datenbanken WHERE app_id = $1 AND stand = $2', [
+    appId,
+    stand,
+  ]);
+  return name;
+}
+
 /** Jede Datenbank mit dem Praefix -- der Werksreset kennt keine Kennungen. */
 async function entferneAlle() {
   const { rows } = await db.query(
@@ -391,7 +407,9 @@ module.exports = {
   sorgeFuer,
   umgebungFuer,
   entferne,
+  entferneStand,
   entferneAlle,
   heileAlle,
   adresse,
+  datenbankDa,
 };

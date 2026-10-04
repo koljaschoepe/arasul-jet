@@ -338,7 +338,11 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // 04.10.2026 (M5, Kontrakt 11, Abschluss ueber die App): `abschluss` im
     // Flow-Kopf, eine Regel dazu und `ARASUL_ABSCHLUSS_TOKEN` in der Umgebung.
     // Die Zahl geht mit, weil der Kopf `.strict()` ist.
-    expect(abdruck).toBe('34bea18107523a0cbd11c2f9d280486be1b7999b59035c26b43174072a67c680');
+    // 04.10.2026 (M5, Live schalten mit Sicherung): eine Regel unter `daten`
+    // (vorher sichern, Rueckfall, 409 LIVE_ZURUECKGESCHALTET), praezisere
+    // Beschreibung des Schalters und des Aenderungstexts. Kein Feld, die Zahl
+    // bleibt bei 11.
+    expect(abdruck).toBe('e315588b196ad6215ce1af1766f9e0d9a0c162b1aefe0110a82f84f80985ec1f');
   });
 
   /**

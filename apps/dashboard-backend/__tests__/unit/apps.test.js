@@ -1,13 +1,14 @@
 describe('Die Flows einer App (Phase C6)', () => {
   /**
    * `holeApp` fragt die Zeile in `apps`, dann `app_staende`, dann (fuer jeden
-   * vorhandenen Stand) weiter. Fuer diese Tests genuegt eine App ohne Staende:
+   * vorhandenen Stand) weiter, zuletzt `app_schaltungen`. Fuer diese Tests genuegt eine App ohne Staende:
    * gemessen wird die Flow-Liste, nicht der Container.
    */
   function appOhneStaende() {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'urlaub', name: 'Urlaub' }] }) // apps
-      .mockResolvedValueOnce({ rows: [] }); // app_staende
+      .mockResolvedValueOnce({ rows: [] }) // app_staende
+      .mockResolvedValueOnce({ rows: [] }); // app_schaltungen (M5)
   }
 
   test('GET /:id/flows nennt beide Staende', async () => {
@@ -211,7 +212,9 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
         ],
       })
       .mockResolvedValueOnce({
-        rows: [{ id: 4, felder_schritt: 'lesen', korrekturen: [{ feld: 'datum', wert: '01.10.2026' }] }],
+        rows: [
+          { id: 4, felder_schritt: 'lesen', korrekturen: [{ feld: 'datum', wert: '01.10.2026' }] },
+        ],
       });
 
     const res = await request(verwaltung()).get('/api/apps/urlaub/laeufe/9');
@@ -239,6 +242,9 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
     // Der Schalter geht durch `spieleEin` und nicht an ihm vorbei -- sonst
     // stuende im Livestand eine Version, deren Container noch die alte faehrt.
     // Deshalb liest er das Manifest von der Platte (`1.0.0` liegt dort).
+    // Zweimal `staendeVon`: `liveSchalten` fragt zuerst (ohne Server-Teil
+    // gibt es nichts zu sichern) und reicht dann an `appStore.schalte` weiter.
+    db.query.mockResolvedValueOnce({ rows: [{ stand: 'test', version: '1.0.0' }] }); // staendeVon
     db.query.mockResolvedValueOnce({ rows: [{ stand: 'test', version: '1.0.0' }] }); // staendeVon
     einspielenAntworten('live');
 
@@ -252,7 +258,8 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
   });
 
   test('live schalten ohne Teststand ist 409 und keine stille Nullnummer', async () => {
-    db.query.mockResolvedValueOnce({ rows: [] }); // staendeVon: nichts da
+    db.query.mockResolvedValueOnce({ rows: [] }); // staendeVon (liveSchalten): nichts da
+    db.query.mockResolvedValueOnce({ rows: [] }); // staendeVon (schalte): nichts da
     const res = await request(verwaltung())
       .post('/api/apps/urlaub/schalten')
       .send({ ziel: 'live' });
@@ -281,6 +288,7 @@ describe('Ein Flow rechnet extern (Phase D4)', () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'urlaub', name: 'Urlaub' }] }) // apps
       .mockResolvedValueOnce({ rows: [] }) // app_staende
+      .mockResolvedValueOnce({ rows: [] }) // app_schaltungen (M5)
       .mockResolvedValueOnce({ rows: [{ name: 'bericht', version: '1.0.0', definition: {} }] })
       .mockResolvedValueOnce({ rows: [] }) // flow_settings (test)
       .mockResolvedValueOnce({ rows: [] }) // app_flows live

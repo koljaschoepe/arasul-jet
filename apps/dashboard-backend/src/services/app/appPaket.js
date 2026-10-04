@@ -280,10 +280,10 @@ async function pruefePaketInhalt(manifest, ordner) {
  * koennte es nicht aufraeumen, ohne ein `try/catch` zu bauen, das es in diesem
  * Backend nicht geben soll (`apps/dashboard-backend/CLAUDE.md`).
  *
- * @param {{archivPfad: string, durch: number|string|null}} was
+ * @param {{archivPfad: string, durch: number|string|null, aenderungstext?: string|null}} was
  * @returns {Promise<object>} der eingespielte Stand
  */
-async function nimmAn({ archivPfad, durch }) {
+async function nimmAn({ archivPfad, durch, aenderungstext = null }) {
   const lauf = crypto.randomBytes(8).toString('hex');
   const ordner = path.join(eingangsOrdner(), lauf);
   await fs.mkdir(ordner, { recursive: true });
@@ -352,6 +352,9 @@ async function nimmAn({ archivPfad, durch }) {
       version: manifest.version,
       stand: 'test',
       durch,
+      // Was der Entwickler zu dieser Fassung schrieb (Kontrakt 8). Ohne Text
+      // ausdruecklich `null`: der Text der vorigen Fassung gilt nicht fuer diese.
+      aenderungstext: aenderungstext ?? null,
     });
   } finally {
     // Was noch im Eingang liegt, gehoert niemandem mehr: entweder ist es
