@@ -15,6 +15,12 @@ const DownloadBody = z
   })
   .strict();
 
+const PruefenBody = z
+  .object({
+    model_id: ModelIdField,
+  })
+  .strict();
+
 const DefaultModelBody = z
   .object({
     model_id: ModelIdField,
@@ -24,5 +30,6 @@ const DefaultModelBody = z
 module.exports = {
   ModelIdField,
   DownloadBody,
+  PruefenBody,
   DefaultModelBody,
 };

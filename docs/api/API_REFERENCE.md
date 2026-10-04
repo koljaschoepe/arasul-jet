@@ -1608,17 +1608,33 @@ App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
 | GET    | `/api/models/loaded`           | Get currently loaded model                                                     |
 | GET    | `/api/models/default`          | Standardmodell der Flows                                                       |
 | POST   | `/api/models/default`          | Standardmodell der Flows setzen (nur `task` text/coding, sonst 400)            |
-| POST   | `/api/models/download`         | Download model (SSE progress)                                                  |
-| DELETE | `/api/models/:id`              | Delete installed model                                                         |
-| POST   | `/api/models/:id/activate`     | Load model into RAM                                                            |
-| POST   | `/api/models/:id/deactivate`   | Unload model from RAM (identisch mit `/unload`)                                |
+| GET    | `/api/models/verwaltung`       | Zeilen der Verwaltung: Fähigkeiten, warm, nutzende Flows, Sperre; die geprüfte Liste (M5) |
+| POST   | `/api/models/pruefen`          | `{ model_id }`: passt das Modell auf das Gerät (Speicher, Platte)? `{ passt, grund }` (M5) |
+| POST   | `/api/models/download`         | Modell hinzufügen (SSE-Fortschritt); prüft vorher Speicher und Platte, 400 mit zwei Sätzen |
+| DELETE | `/api/models/:id`              | Modell entfernen; 409, solange ein Flow es nutzt oder es der Standard ist (M5) |
 | GET    | `/api/models/:id`              | Ein Modell im Einzelnen (Katalogeintrag plus Installationsstand)               |
 | GET    | `/api/models/:id/capabilities` | Was das Modell kann: Werkzeugaufrufe, Denkschritte, Kontextlänge               |
-| POST   | `/api/models/:id/load`         | Modell in den Speicher holen (gleichbedeutend mit `/activate`)                 |
-| POST   | `/api/models/:id/unload`       | Modell aus dem Speicher werfen                                                 |
 | GET    | `/api/models/recommended`      | Empfehlung für diese Hardware, aus RAM und Rechenwerk abgeleitet               |
 | GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen              |
 | POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat |
+
+**Laden und Entladen von Hand gibt es nicht (M5, 04.10.2026).** `/:id/load`,
+`/unload`, `/activate` und `/deactivate` sind entfernt (404): das Gerät hält
+ein Modell nach Nutzung (`modelLifecycleService`) und lädt es bei Bedarf selbst.
+
+**`GET /api/models/verwaltung`** liefert `{ standard, modelle[], liste[] }`.
+Je Modell am Gerät: `id`, `name`, `groesse_bytes`, `faehigkeiten`
+(`text`, `bild`, `werkzeuge`, `kontext`), `warm`, `ist_standard`, `ungemessen`,
+`flows[]` (`app_id`, `app_name`, `flow`) und `sperre` (Satz oder `null`). Ein
+Flow nutzt ein Modell, wenn er es im Kopf, in einer Rolle oder an einem Schritt
+nennt oder der Admin es je Schritt gewählt hat; nennt er im Kopf keines, nutzt
+er den Standard. `liste[]` sind die geprüften Modelle, die noch nicht am Gerät
+liegen, je mit `passt` und `grund`. **`POST /api/models/pruefen`** und
+`POST /api/models/download` prüfen vorher Speicher (`RAM_LIMIT_LLM` abzüglich
+Reserve) und Platte (das 1,5-fache der Größe) und weisen mit 400 und
+`details.grund` `ZU_GROSS` oder `PLATTE_VOLL` ab. `DELETE /api/models/:id`
+antwortet 409 (`details.grund` `IN_NUTZUNG`, `details.flows`), solange ein Flow
+das Modell nutzt oder es das Standardmodell ist.
 
 **Das Standardmodell ist das der FLOWS (Phase D6, 28.08.2026).** `GET`
 liefert es in dieser Reihenfolge: der gesetzte Standard (`is_default`), sonst

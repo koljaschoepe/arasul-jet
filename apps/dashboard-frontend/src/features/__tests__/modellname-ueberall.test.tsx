@@ -78,16 +78,6 @@ vi.mock('@/contexts/DownloadContext', () => ({
   }),
   DownloadProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
-vi.mock('@/contexts/ActivationContext', () => ({
-  useActivation: () => ({
-    activation: null,
-    startActivation: vi.fn(),
-    cancelActivation: vi.fn(),
-    isActivating: () => false,
-    getActivationPercent: () => 0,
-    onActivationComplete: () => () => {},
-  }),
-}));
 
 function huelle(kind: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -111,6 +101,22 @@ function apiRouten(geladen: { name: string; ramMb: number } | null) {
         });
       case '/models/catalog':
         return Promise.resolve({ models: katalog.models });
+      case '/models/verwaltung':
+        return Promise.resolve({
+          standard: null,
+          liste: [],
+          modelle: (katalog.models as { id: string; name: string }[]).map(m => ({
+            id: m.id,
+            name: m.name,
+            groesse_bytes: 1,
+            faehigkeiten: { text: true, bild: false, werkzeuge: true, kontext: 32768 },
+            warm: false,
+            ist_standard: false,
+            ungemessen: false,
+            flows: [],
+            sperre: null,
+          })),
+        });
       case '/models/status':
         return Promise.resolve({ loaded_model: null });
       case '/models/default':

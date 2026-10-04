@@ -156,18 +156,23 @@ der Lauf nicht mehr fortgesetzt wird, wurde das Gerät zwischendurch neu
 gestartet: die Entscheidung ist festgehalten, den Lauf muss jemand neu
 anstoßen.
 
-- **Modelle (nur Administrator):** in der Mitte die **Kurzliste** des Geräts,
-  vier Modelle und keine Suche daneben: eines für die Flows
-  (`qwen3.8:27b-q4_K_M`, der Standard, aus der Ollama-Bibliothek), ein kleines
-  schnelles (`gemma4:e4b`, das auch die Bilder liest, die eine App ohne
-  Modellangabe schickt), eines für Einbettungen (`nomic-embed-text`) und ein
-  kleines Bildmodell als Rückfall (`llava-phi3`). Je Zeile steht,
-  wofür das Modell da ist, wie groß es ist und ob es am Gerät liegt; die
-  Knöpfe sind **Laden**, **Standard**, **In den Speicher** bzw. **Aus dem
-  Speicher** und **Entfernen**. Darüber vier Kacheln: KI-RAM, das Modell im
-  Speicher, der Standard der Flows und wie viele der vier am Gerät liegen.
-  Geladen wird nur, was in der Kurzliste steht; einen Weg daran vorbei gibt es
-  nicht.
+- **Modelle (nur Administrator):** **Verwaltung → Modelle**. Ganz oben eine
+  Zeile **Speicher für KI** (belegt, Reserve, frei). Darunter eine Zeile je
+  Modell am Gerät: Name, Größe, **Fähigkeiten** (Text, Bild, Werkzeuge,
+  Kontext), **warm: ja** oder **nein** (liegt es gerade im Speicher) und die
+  **Flows, die es nutzen** (Name und App). Laden und Entladen von Hand gibt es
+  nicht: das Gerät hält ein Modell eine Weile nach der Nutzung und lädt es bei
+  Bedarf selbst. Die Fähigkeiten stimmen Katalog und Ollama ab; bei
+  Widerspruch gilt, was Ollama aus den Gewichten liest.
+  **Entfernen** ist gesperrt, solange ein Flow das Modell nutzt oder es das
+  Standardmodell ist; die Zeile nennt die Flows. Zum Entfernen erst die Flows
+  auf ein anderes Modell umstellen (App → Flow → Schritt) oder ein anderes
+  Modell zum Standard machen. **Modell hinzufügen** geht aus der geprüften
+  Liste (die Modelle der Kurzliste, die noch nicht am Gerät liegen) oder per
+  Name aus der Ollama-Bibliothek (`mistral:7b`) oder von Hugging Face
+  (`hf.co/nutzer/repo:quant`). Vorher prüft das Gerät, ob Speicher und Platte
+  reichen, und weist sonst mit zwei Sätzen ab. Was nicht in der Kurzliste
+  steht, trägt die Kennzeichnung **ungemessen**.
 - Die Shell ist die einzige Ansicht: `/` landet nach dem Login immer auf
   `/workspace`.
 

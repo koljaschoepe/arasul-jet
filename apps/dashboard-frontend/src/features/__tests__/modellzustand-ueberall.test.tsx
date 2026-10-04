@@ -7,7 +7,7 @@
  * mehr. Der Fall bleibt der, in dem sich die Stellen unterschieden: ein Modell
  * ist heruntergeladen, liegt aber nicht im Speicher.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -59,16 +59,6 @@ vi.mock('@/contexts/DownloadContext', () => ({
   }),
   DownloadProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
-vi.mock('@/contexts/ActivationContext', () => ({
-  useActivation: () => ({
-    activation: null,
-    startActivation: vi.fn(),
-    cancelActivation: vi.fn(),
-    isActivating: () => false,
-    getActivationPercent: () => 0,
-    onActivationComplete: () => () => {},
-  }),
-}));
 
 /** Ein Modell ist heruntergeladen, liegt aber nicht im Speicher. */
 const BUDGET = {
@@ -97,6 +87,8 @@ function routen() {
         return Promise.resolve(BUDGET);
       case '/models/catalog':
         return Promise.resolve({ models: katalog.models });
+      case '/models/verwaltung':
+        return Promise.resolve({ standard: null, liste: [], modelle: [] });
       case '/models/status':
         return Promise.resolve({ loaded_model: null });
       case '/models/default':
@@ -120,18 +112,6 @@ describe('ein Zustand, ueberall gleich', () => {
     get.mockReset();
     post.mockReset();
     routen();
-  });
-
-  it('die Ansicht nennt das bereite Modell mit seinem Anzeigenamen', async () => {
-    // waitFor statt findByTestId: das Element steht sofort da, sein Inhalt
-    // kommt erst mit der Antwort auf /models/memory-budget. Ein findByTestId
-    // waere hier gruen gewesen, ohne je den richtigen Satz gesehen zu haben.
-    const ansicht = huelle(<ModelleAnsicht />);
-    await waitFor(() =>
-      // Bis zum 21.08.2026 stand hier „kein Modell geladen".
-      expect(screen.getByTestId('modelle-zustand')).toHaveTextContent('Gemma 4 Kompakt, bereit')
-    );
-    ansicht.unmount();
   });
 
   it('die Ansicht sagt, warum das Modell aus dem Speicher ist', async () => {

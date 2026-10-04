@@ -124,6 +124,13 @@ async function leseSteckbrief(ollamaName) {
       supportsTools: Array.isArray(daten.capabilities)
         ? daten.capabilities.includes('tools')
         : null,
+      // Dasselbe fuer `vision`: Ollama sieht in die Gewichte, der Katalog
+      // wurde von Hand gefuellt und widersprach ihm (`qwen3.8:27b-q4_K_M`
+      // stand ohne Bild, Ollama meldet vision; 04.10.2026). Bei Widerspruch
+      // gewinnt Ollama; ohne Liste bleibt der Katalogwert.
+      supportsVision: Array.isArray(daten.capabilities)
+        ? daten.capabilities.includes('vision')
+        : null,
     };
   } catch (fehler) {
     logger.debug(`[STECKBRIEF] /api/show fehlgeschlagen für ${ollamaName}: ${fehler.message}`);
@@ -176,6 +183,7 @@ async function steckbriefeNachtragen(database, { hoechstalterTage = 30, hoechste
               license         = COALESCE($4, license),
               context_window  = COALESCE($5, context_window),
               supports_tools  = COALESCE($6, supports_tools),
+              supports_vision_input = COALESCE($7, supports_vision_input),
               profile_read_at = NOW(),
               updated_at      = NOW()
         WHERE id = $1`,
@@ -186,6 +194,7 @@ async function steckbriefeNachtragen(database, { hoechstalterTage = 30, hoechste
         steckbrief.license,
         steckbrief.contextLength,
         steckbrief.supportsTools,
+        steckbrief.supportsVision,
       ]
     );
     geschrieben += 1;

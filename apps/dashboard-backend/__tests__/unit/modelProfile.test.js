@@ -100,6 +100,7 @@ describe('leseSteckbrief', () => {
       // Ohne `capabilities` in der Antwort weiss der Steckbrief nichts ueber
       // Werkzeuge; der Katalogwert bleibt (COALESCE, Migration 205).
       supportsTools: null,
+      supportsVision: null,
     });
   });
 
@@ -109,7 +110,11 @@ describe('leseSteckbrief', () => {
     await expect(leseSteckbrief('a')).resolves.toMatchObject({ supportsTools: true });
     const ohne = { ...echteAntwort, capabilities: ['completion', 'vision'] };
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ohne });
-    await expect(leseSteckbrief('b')).resolves.toMatchObject({ supportsTools: false });
+    await expect(leseSteckbrief('b')).resolves.toMatchObject({
+      supportsTools: false,
+      // Ollama meldet Bild: der Katalog wird daran angeglichen (Modelle der Verwaltung).
+      supportsVision: true,
+    });
   });
 
   test('gibt null, wenn Ollama das Modell nicht kennt', async () => {
@@ -157,7 +162,7 @@ describe('steckbriefeNachtragen', () => {
     const schreibend = query.mock.calls.filter(([sql]) => sql.includes('UPDATE llm_model_catalog'));
     expect(schreibend).toHaveLength(2);
     expect(schreibend[0][0]).toContain('profile_read_at = NOW()');
-    expect(schreibend[0][1]).toEqual(['qwen3:7b-q8', '8.2B', 'Q4_K_M', null, 40960, null]);
+    expect(schreibend[0][1]).toEqual(['qwen3:7b-q8', '8.2B', 'Q4_K_M', null, 40960, null, null]);
   });
 
   test('ueberspringt ein Modell, das Ollama nicht ausliefert, statt Leeres zu schreiben', async () => {

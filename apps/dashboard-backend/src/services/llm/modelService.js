@@ -46,6 +46,9 @@ function createModelService(deps = {}) {
     database = require('../../database'),
     logger = require('../../utils/logger'),
     axios = require('axios'),
+    // Die Sperre beim Entfernen (Flows, Standard). Lazy, weil `modellVerwaltung`
+    // selbst `modelService` braucht; ein Test setzt sie ein.
+    entfernenPruefen = modelId => require('./modellVerwaltung').entfernenPruefen(modelId),
   } = deps;
 
   // In-memory state (per-instance for testability)
@@ -772,6 +775,10 @@ function createModelService(deps = {}) {
             'Das Standardmodell lässt sich nicht löschen. Bitte zuerst ein anderes als Standard setzen.'
           );
         }
+
+        // Ein Modell, das ein Flow nutzt, bleibt (409 mit den Flows). Auch die
+        // LRU-Raeumung laeuft hierueber und raeumt deshalb nichts Genutztes weg.
+        await entfernenPruefen(modelId);
 
         // Prevent deletion while model is being downloaded
         if (activeDownloadIds.has(modelId)) {

@@ -148,7 +148,7 @@ function budgetPruefen(kennung, bytes) {
 
   if (benoetigtGb > nutzbarGb) {
     throw new ValidationError(
-      `"${kennung}" ist zu groß für dieses Gerät: ${gewichteGb.toFixed(1)} GB Gewichte, im Speicher rund ${benoetigtGb.toFixed(1)} GB, verfügbar sind ${nutzbarGb.toFixed(1)} GB (Speicherbudget ${budgetGb} GB). Bitte ein kleineres Modell oder eine stärkere Quantisierung (zum Beispiel q4) wählen.`,
+      `„${kennung}" ist zu groß für dieses Gerät: es braucht im Speicher rund ${benoetigtGb.toFixed(1)} GB, für KI sind ${nutzbarGb.toFixed(1)} GB nutzbar. Bitte ein kleineres Modell oder eine stärkere Quantisierung (zum Beispiel q4) wählen.`,
       {
         grund: 'ZU_GROSS',
         kennung,
@@ -160,6 +160,29 @@ function budgetPruefen(kennung, bytes) {
     );
   }
   return { benoetigtGb, budgetGb };
+}
+
+// Dieselbe Reserve wie `modelDownloadHelpers.validateDiskSpace`: was die
+// Vorpruefung durchlaesst, darf der Download nicht danach ablehnen.
+const PLATTE_AUFSCHLAG = 1.5;
+
+/**
+ * Reicht die Platte? Wirft mit Grund, in zwei Saetzen.
+ */
+async function plattePruefen(kennung, bytes) {
+  const { free } = await require('./modelService').getDiskSpace();
+  const benoetigt = Math.floor(bytes * PLATTE_AUFSCHLAG);
+  if (free < benoetigt) {
+    throw new ValidationError(
+      `„${kennung}" braucht beim Laden rund ${(benoetigt / GB).toFixed(1)} GB Platz, auf der Platte des Geräts sind ${(free / GB).toFixed(1)} GB frei. Bitte erst Platz schaffen, zum Beispiel ein nicht benutztes Modell entfernen.`,
+      {
+        grund: 'PLATTE_VOLL',
+        kennung,
+        benoetigt_gb: Number((benoetigt / GB).toFixed(1)),
+        frei_gb: Number((free / GB).toFixed(1)),
+      }
+    );
+  }
 }
 
 /**
@@ -219,6 +242,41 @@ async function imKatalog(kennung) {
 }
 
 /**
+ * Passt das Modell auf dieses Geraet? Legt nichts an und laedt nichts; die
+ * Antwort ist ein Ergebnis, keine Ausnahme, damit die Oberflaeche es neben
+ * dem Modell zeigen kann. Eine Kennung, die es nicht gibt, oder eine Registry,
+ * die nicht antwortet, wirft wie bei `vorbereiten`.
+ *
+ * @returns {Promise<{passt: boolean, grund: string|null, groesse_bytes: number, details?: object}>}
+ */
+async function pruefe(kennung) {
+  const bekannt = await imKatalog(kennung);
+  let bytes;
+  if (bekannt) {
+    const { rows } = await database.query(
+      'SELECT size_bytes FROM llm_model_catalog WHERE id = $1',
+      [bekannt]
+    );
+    bytes = Number(rows[0]?.size_bytes) || 0;
+  } else {
+    ({ bytes } = await manifestLesen(kennung, kennungLesen(kennung)));
+  }
+  if (!bytes) {
+    return { passt: true, grund: null, groesse_bytes: 0 };
+  }
+  try {
+    budgetPruefen(kennung, bytes);
+    await plattePruefen(kennung, bytes);
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return { passt: false, grund: err.message, groesse_bytes: bytes, details: err.details };
+    }
+    throw err;
+  }
+  return { passt: true, grund: null, groesse_bytes: bytes };
+}
+
+/**
  * Macht eine Kennung ladbar: gibt die Katalog-Kennung zurueck, unter der
  * `modelService.downloadModel` sie laden kann. Fuer eine bekannte Kennung ist
  * das sie selbst, ohne Netz und ohne Pruefung -- die Kurzliste ist gemessen.
@@ -230,9 +288,20 @@ async function vorbereiten(kennung) {
   const bekannt = await imKatalog(kennung);
   if (bekannt) {
     const { rows } = await database.query(
-      'SELECT jetson_tested, frei_geladen FROM llm_model_catalog WHERE id = $1',
+      `SELECT c.jetson_tested, c.frei_geladen, c.size_bytes, c.ram_required_gb,
+              COALESCE(i.status, '') AS status
+         FROM llm_model_catalog c
+         LEFT JOIN llm_installed_models i ON i.id = c.id
+        WHERE c.id = $1`,
       [bekannt]
     );
+    // Ein Modell, das noch nicht am Geraet liegt, wird vor dem Laden gegen
+    // Speicher und Platte gehalten, auch eines der geprueften Liste: gemessen
+    // heisst nicht, dass es auf DIESES Geraet passt.
+    if (rows[0].status !== 'available' && Number(rows[0].size_bytes) > 0) {
+      budgetPruefen(bekannt, Number(rows[0].size_bytes));
+      await plattePruefen(bekannt, Number(rows[0].size_bytes));
+    }
     return {
       modelId: bekannt,
       neu: false,
@@ -245,6 +314,7 @@ async function vorbereiten(kennung) {
   const lesen = kennungLesen(kennung);
   const { bytes, digest } = await manifestLesen(kennung, lesen);
   const { benoetigtGb } = budgetPruefen(kennung, bytes);
+  await plattePruefen(kennung, bytes);
 
   const aufgabe = aufgabeAusName(kennung);
   const name = anzeigeName(kennung, lesen);
@@ -317,10 +387,12 @@ async function nachFehlschlag(modelId) {
 
 module.exports = {
   vorbereiten,
+  pruefe,
   nachEntfernen,
   nachFehlschlag,
   kennungLesen,
   budgetPruefen,
+  plattePruefen,
   aufgabeAusName,
   SPEICHER_AUFSCHLAG,
 };
