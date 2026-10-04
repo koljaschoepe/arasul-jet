@@ -60,7 +60,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 12;
+const KONTRAKT_VERSION = 13;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -278,6 +278,31 @@ const KONTRAKT_VERSION = 12;
  * kam dazu, jedes Paket rollt wie bisher; neu ist eine Regel unter `daten`
  * und eine Antwort mehr des Schalters. Ein Kit, das gegen 11 prueft, nimmt
  * beides an.
+ */
+
+/*
+ * Fassung 13 (M5, 04.10.2026, Auftrag ereignis-und-app-routen): Ereignisse der
+ * App und Routen von Apps als Werkzeug.
+ *
+ *   1. `ausloeser: ereignis` wirkt. Eine App meldet ein Ereignis mit ihrem
+ *      Schluessel (`POST /api/v1/external/ereignisse/:name`, Bereich
+ *      `flow:run`); das Geraet startet jeden Flow ihres Standes, der darauf
+ *      hoert, mit `daten` als Argumenten und dem Ausloeser `ereignis` am Lauf.
+ *   2. Ein neues Feld im Flow-Kopf, `routen`, und ein neues Werkzeug,
+ *      `route_aufrufen`: ein Flow ruft Routen der eigenen App und der Apps,
+ *      die er nennt, im Namen des Menschen des Laufs und nur mit dessen
+ *      Zugang zur Ziel-App. Eine nicht genannte Route weist das Geraet ab.
+ *
+ * FREIWILLIG, jedes Paket von Fassung 12 bleibt gueltig und laeuft wie bisher.
+ * Die Zahl geht mit, aus dem Grund von 3, 4, 7 bis 12: der Kopf ist
+ * `.strict()` und das Werkzeug steht in einer festen Liste; ein Kit, das gegen
+ * 12 prueft, wiese `routen` und `route_aufrufen` als unbekannt ab.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * muss 13 kennen, bevor ein Kit auf ein Geraet mit dieser Fassung einspielt.
+ * Eine App, die Ereignisse meldet, ruft den neuen Weg mit
+ * `ARASUL_API_SCHLUESSEL`; eine App, deren Route ein Flow ruft, liest
+ * `X-Arasul-User` wie bei jedem Aufruf ueber Traefik.
  */
 
 /**
@@ -634,6 +659,12 @@ const ENDPUNKTE = Object.freeze(
       was: 'Einen Flow anstoßen. Gesucht wird im Namensraum des Schlüssels. Optional `einreicher` und `freigabe` (siehe `freigaben`)',
     },
     {
+      verb: 'POST',
+      pfad: '/api/v1/external/ereignisse/:name',
+      bereich: 'flow:run',
+      was: 'Ein Ereignis der App melden (seit Kontrakt 13): startet jeden Flow dieser App in diesem Stand, der unter `ausloeser` auf den Namen hört, mit `daten` als Argumenten. Optional `einreicher`. 202 mit `laeufe`, ohne zu warten',
+    },
+    {
       verb: 'GET',
       pfad: '/api/v1/external/flows/runs/:id',
       bereich: 'flow:run',
@@ -696,12 +727,15 @@ function kontrakt() {
         'Entscheiden darf, wem die App freigegeben ist. Die Flow-Datei nennt dafür keine Person und keine Rolle; den Kreis enger ziehen kann die APP beim Start des Laufs (`freigaben`, seit 25.09.2026).',
         'Die Frist steht als `frist_minuten` in den `parameter` des Schritts; ohne Angabe gilt die Vorgabe des Geräts.',
         '`arten` nennt, welche Arten der Flow kann (seit Kontrakt 8, freiwillig): `autonom` und `ergebnis_bestaetigen`, mindestens eine, keine doppelt. Der Administrator wählt je Flow zwischen den genannten, sie gilt ab dem nächsten Lauf. `ergebnis_bestaetigen` hält den Lauf am Ende an und legt eine Freigabe mit dem Ergebnis an (in der letzten Stufe des Flows, sonst ohne Stufe); `autonom` legt keine an. Ohne Angabe gilt die erste genannte Art, ohne `arten` `autonom`. Ein Flow, der erzeugt (kein Schritt mit `faehigkeiten.bild`), läuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rückfall. Ein Flow, der erkennt (mindestens ein `subagent`-Schritt mit `faehigkeiten.bild: true`), legt bei fehlender oder unsicherer Erkennung auch in `autonom` eine Freigabe mit dem Grund `Erkennung unsicher: Feld X` an: ein deklariertes Feld der Rolle ohne Wert, oder eines, das die Rolle im JSON unter `unsicher` (Liste von Feldnamen) nennt; kam kein JSON, gelten alle Felder als unsicher.',
-        '`ausloeser` nennt, wodurch der Flow startet (seit Kontrakt 8, freiwillig): eine Liste von Objekten mit `typ` `hand`, `zeitplan` (dazu `zeitplan`, fünf Felder wie in cron, z. B. `"0 6 * * 1-5"`) oder `ereignis` (dazu `ereignis`, der Name eines Ereignisses der App). Höchstens 5, keiner doppelt. `zeitplan` wirkt seit dem 04.10.2026: das Gerät startet den Flow im LIVESTAND zur genannten Zeit (Zeitzone des Geräts, Europe/Berlin; Sommer- und Winterzeit richtig: eine Uhrzeit, die es beim Umstellen nicht gibt, läuft einmal danach, eine doppelte nur beim ersten Mal), genau einmal je Termin, ohne Argumente und ohne Einreicher (der Lauf trägt den Auslöser `zeitplan`). Ein Flow mit Pflichtargument ohne Vorgabe läuft nicht nach Zeitplan. Läuft oder wartet schon ein Lauf desselben Flows, entfällt der Termin. Verpasste Termine (Gerät aus): der jüngste wird höchstens einmal nachgeholt, wenn er höchstens eine Stunde zurückliegt, sonst übersprungen; der Administrator sieht es auf der Seite der App und pausiert den Zeitplan je Flow. Ein Ausdruck, den das Gerät nicht lesen kann (Minute 61), wird beim Einspielen abgewiesen. `ereignis` hat noch keine Wirkung.',
+        '`ausloeser` nennt, wodurch der Flow startet (seit Kontrakt 8, freiwillig): eine Liste von Objekten mit `typ` `hand`, `zeitplan` (dazu `zeitplan`, fünf Felder wie in cron, z. B. `"0 6 * * 1-5"`) oder `ereignis` (dazu `ereignis`, der Name eines Ereignisses der App). Höchstens 5, keiner doppelt. `zeitplan` wirkt seit dem 04.10.2026: das Gerät startet den Flow im LIVESTAND zur genannten Zeit (Zeitzone des Geräts, Europe/Berlin; Sommer- und Winterzeit richtig: eine Uhrzeit, die es beim Umstellen nicht gibt, läuft einmal danach, eine doppelte nur beim ersten Mal), genau einmal je Termin, ohne Argumente und ohne Einreicher (der Lauf trägt den Auslöser `zeitplan`). Ein Flow mit Pflichtargument ohne Vorgabe läuft nicht nach Zeitplan. Läuft oder wartet schon ein Lauf desselben Flows, entfällt der Termin. Verpasste Termine (Gerät aus): der jüngste wird höchstens einmal nachgeholt, wenn er höchstens eine Stunde zurückliegt, sonst übersprungen; der Administrator sieht es auf der Seite der App und pausiert den Zeitplan je Flow. Ein Ausdruck, den das Gerät nicht lesen kann (Minute 61), wird beim Einspielen abgewiesen. `ereignis` wirkt seit Kontrakt 13, siehe die nächste Regel.',
+        '`ereignis` (seit Kontrakt 13): die App meldet ein Ereignis mit ihrem Schlüssel, `POST ereignisse/<name>` relativ zur Basis (Bereich `flow:run`), Körper `{"daten": {…}, "einreicher": "<X-Arasul-User>"}`, beides freiwillig. Das Gerät startet JEDEN Flow derselben App im selben Stand, der unter `ausloeser` `{typ: ereignis, ereignis: <name>}` nennt; eine App löst kein Ereignis einer anderen aus. `daten` werden die Argumente des Flows mit demselben Namen (Werte als Zeichenkette, Zahl oder Wahrheitswert; was der Flow nicht deklariert, fällt weg). Fehlt ein Pflichtargument, passt eine Auswahl nicht oder ist der Flow ausgeschaltet, startet DIESER Flow nicht, die anderen schon. Der Lauf trägt den Auslöser `ereignis` und den Namen (`GET flows/runs/:id` nennt `ausloeser` und `ereignis`); Einreicher ist, wen die App nennt, sonst niemand. Die Antwort wartet nicht auf die Läufe: 202 mit `laeufe` (je `flow`, `run_id`) und `nicht_gestartet` (je `flow`, `grund`), 200 mit leeren Listen, wenn kein Flow hört.',
         '`stufen` nennt die benannten Freigabestufen (seit Kontrakt 8, freiwillig), z. B. `pruefung` und `leitung`: je Stufe `name`, optional `bezeichnung` und `frist_minuten`. Höchstens 5, keine doppelt. Nennt ein `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie deklarieren. Die Person je Stufe setzt der Administrator, nicht der Flow: eine neue Freigabe der Stufe liegt zuerst bei ihrer Standardperson (je App und Stufenname, zwei Flows mit derselben Stufe teilen sie), ohne sie bei allen mit Zugang (`freigaben`).',
         '`faehigkeiten` je Schritt nennt, was der Schritt vom Modell braucht (seit Kontrakt 8, freiwillig): `text`, `bild`, `werkzeuge` (je true oder false) und `mindestkontext` (Tokens, 512 bis 1048576). Nur bei `typ: subagent`; ein Werkzeug-Schritt ruft kein Modell und wird mit `faehigkeiten` abgewiesen.',
         '`ergebnis.aenderbar` an einer Rolle nennt, welche ihrer `felder` ein Mensch in einer Freigabe ändern darf (seit Kontrakt 10, freiwillig; nur Namen aus `felder`). Die Freigabe aus der Erkennung zeigt alle Felder mit dem Vorschlag der KI, unsichere und fehlende zuerst mit „pruefen", ohne Prozentzahl; änderbar sind nur diese. Wer bestätigt, schickt geänderte Werte unter `felder` mit (`POST /api/freigabe-anfragen/:id/bestaetigen`); ein Feld, das hier nicht steht, weist das Gerät mit 400 ab. Gespeichert wird je Feld der Vorschlag, der neue Wert, wer und wann (`korrekturen`), und der weitere Lauf arbeitet mit dem neuen Wert.',
         '`original` an einem erkennenden Schritt (`typ: subagent` mit `faehigkeiten.bild: true`, seit Kontrakt 10, freiwillig) nennt das Bild oder PDF, das er liest, als Pfad RELATIV zur Adresse der App, mit Platzhaltern wie der Auftrag (`api/belege/{{beleg}}`): ohne `/` am Anfang, ohne `..`, ohne Schema. Die Freigabe zeigt es links, zoombar, geladen unter `/apps/<id>/` (Teststand `/apps/<id>/test/`) mit der Sitzung dessen, der entscheidet. Ergibt das Einsetzen keinen solchen Pfad, entsteht die Freigabe ohne Original.',
         '`abschluss` nennt die Abschluss-Route der eigenen App (seit Kontrakt 11, freiwillig): `abschluss: { route: "/abschluss/beleg" }`, ein Pfad des Backends so, wie die App ihn sieht (ohne `/apps/<id>/api`), mit führendem `/`, ohne Host, Abfrage und `..`. Nach der letzten Stufe (bei der Art `ergebnis_bestaetigen` nach der Bestätigung) ruft das Gerät sie mit POST und JSON auf: `lauf` (Nummer, zugleich Kopf `Idempotency-Key: arasul-lauf-<nummer>` und `X-Arasul-Lauf`), `flow`, `app`, `stand`, `argumente`, `ergebnis` (Text), `felder` (je Feld der geltende Wert, mit den Korrekturen; null ohne Erkennung), `korrekturen` (je Feld `feld`, `vorschlag`, `wert`, `von`, `am`; null ohne) und `angenommen`. `Authorization: Bearer` trägt `ARASUL_ABSCHLUSS_TOKEN`; die App prüft es und legt ein Ergebnis zu einer Lauf-Nummer nur einmal an (derselbe Aufruf kommt bei „erneut" wieder). Antwortet sie mit 2xx, ist der Lauf `fertig`; mit allem anderen, nach 30 Sekunden ohne Antwort oder gar nicht, steht er auf `nicht_uebergeben` mit dem Grund, und der Administrator loest in der Verwaltung „erneut" aus, ohne dass die Schritte neu laufen. Das Gerät folgt keiner Weiterleitung. Das Manifest braucht ein `backend`.',
+        '`routen` nennt die Routen, die das Werkzeug `route_aufrufen` rufen darf (seit Kontrakt 13, freiwillig; nur mit dem Werkzeug und das Werkzeug nur mit `routen`): je Eintrag `methode` (GET, POST, PUT, PATCH, DELETE), `pfad` wie bei `abschluss.route` (so, wie die App ihn sieht, mit führendem `/`; ein Wegstück `{name}` steht für genau ein Wegstück aus Buchstaben, Ziffern und . _ ~ -), optional `app` (die Kennung einer anderen App; ohne `app` die eigene, dann braucht das Manifest ein `backend`) und `zweck` (ein Satz für das Modell). Höchstens 20, keine doppelt.',
+        '`route_aufrufen` nimmt `app` (leer = eigene), `methode` (Vorgabe GET), `pfad` (mit eingesetzten Werten) und `daten`: in einem Werkzeug-Schritt als JSON-Text oder als Liste `name=wert`, beim Modell als Objekt; bei GET und DELETE als Abfrage, sonst als JSON-Körper. Das Gerät prüft ZUERST, dass Methode und Pfad zu einem Eintrag unter `routen` für genau diese App passen, DANN, dass der Mensch des Laufs die Ziel-App im Stand des Laufs benutzen darf (dieselbe Freigabe wie im Browser): der Einreicher, sonst das Konto, dem der Lauf gehört (bei Zeitplan und Ereignis ohne Einreicher der Besitzer des Schlüssels der App). Gerufen wird derselbe Stand der Ziel-App, über ihren Container im Netz `arasul-apps`, mit `X-Arasul-User` und `X-Arasul-Role` dieses Menschen, `X-Arasul-Lauf` und `X-Arasul-App` (die rufende App); kein Geheimnis, kein `ARASUL_ABSCHLUSS_TOKEN`, kein freier Host, keine Weiterleitung, keine Shell. Eine Abweisung oder eine Antwort außer 2xx beendet einen Werkzeug-Schritt als Fehler mit dem Grund im Lauf (`Route abgewiesen: …`); die Antwort der App (höchstens 8000 Zeichen) ist die Ausgabe des Schritts.',
       ],
     },
     koepfe: {

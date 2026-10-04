@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const { ALLE_ENDPUNKTE } = require('../config/apiBereiche');
+const { EREIGNIS_RE } = require('./flows');
 
 /**
  * Ein Bild fuer ein Bildmodell (J35, 26.09.2026).
@@ -94,6 +95,38 @@ const ExternalFlowRunBody = z
     // (`freigabeAnfragen.pruefeRegel`), hier nur die Form.
     einreicher: z.string().trim().min(1).max(100).optional(),
     freigabe: FreigabeRegel.optional(),
+  })
+  .strict();
+
+/**
+ * `POST /ereignisse/:name` (M5, Kontrakt 13): eine App meldet ein Ereignis.
+ *
+ * Der Name hat die Form, die ein Flow-Kopf unter `ausloeser[].ereignis` nennt;
+ * ein Name, den kein Kopf tragen kann, ist ein Schreibfehler der App und kein
+ * Ereignis, auf das niemand hoert. `daten` sind die Argumente der Flows, mit
+ * denselben Werttypen wie beim Start von Hand (`args`).
+ */
+const EreignisParams = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .regex(
+        EREIGNIS_RE,
+        'Ereignisname: Kleinbuchstaben, Ziffern, Punkt, Unterstrich und Bindestrich; beginnt mit einem Buchstaben'
+      ),
+  })
+  .strict();
+
+const ExternalEreignisBody = z
+  .object({
+    daten: z
+      .record(z.string(), z.union([z.string().max(10000), z.number(), z.boolean()]))
+      .refine(d => Object.keys(d).length <= 50, 'höchstens 50 Werte unter "daten"')
+      .optional(),
+    // Wer das Ereignis ausgeloest hat (der Wert aus `X-Arasul-User`), wie beim
+    // Start eines Flows. Ohne ihn laufen die Flows ohne Einreicher.
+    einreicher: z.string().trim().min(1).max(100).optional(),
   })
   .strict();
 
@@ -260,6 +293,8 @@ module.exports = {
   ExtractStructuredAbgeholt,
   AuftragParams,
   ExternalFlowRunBody,
+  ExternalEreignisBody,
+  EreignisParams,
   FreigabeRegel,
   CreateApiKeyBody,
 };

@@ -138,7 +138,7 @@ db() {
 laeufe() { # flow [ausloeser]
   local bed=""
   [ -n "${2:-}" ] && bed="AND ausloeser = '$2'"
-  db "SELECT count(*) FROM flow_runs WHERE app_id = '$APP' AND flow_name = '$1' $bed;"
+  db "SELECT count(*) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = '$1' $bed;"
 }
 # Der juengste Termin-Eintrag eines Flows: ergebnis|grund.
 letzter_eintrag() { # flow
@@ -238,6 +238,7 @@ echo
 
 # --- 1. Zugaenge -----------------------------------------------------------------
 TOK=$(arasul_token)
+BEGINN=$(db "SELECT now();")
 pruefe "Anmeldung als $ARASUL_BENUTZER" "$([ -n "$TOK" ] && echo ja || echo nein)" "HTTP $(arasul_anmeldecode)"
 [ -z "$TOK" ] && exit 1
 pruefe 'ssh-Zugang zum Geraet und seine Datenbank' "$(ja_wenn "$(db 'SELECT 1;')" 1)"
@@ -264,7 +265,7 @@ aufraeumen() {
         -H 'content-type: application/json' -d '{"pausiert":true}' \
         "$BASIS/api/apps/$APP/flows/$f/zeitplan"
     done
-    for id in $(db "SELECT id FROM flow_runs WHERE app_id = '$APP' AND status IN ('laeuft','wartend');"); do
+    for id in $(db "SELECT id FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND status IN ('laeuft','wartend');"); do
       curl -sk -o /dev/null --max-time 30 -X POST -H "authorization: Bearer $TOK" \
         "$BASIS/api/flows/laeufe/$id/abbrechen"
     done
@@ -397,17 +398,17 @@ PY
 warte_bis 330 '[ "$(laeufe takt zeitplan)" -ge 3 ]'
 N=$(laeufe takt zeitplan)
 pruefe 'takt: drei Laeufe in drei Minuten' "$([ "${N:-0}" -ge 3 ] && echo ja || echo nein)" "$N Laeufe"
-DOPPELT=$(db "SELECT count(*) FROM (SELECT date_trunc('minute', created_at) FROM flow_runs WHERE app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' GROUP BY 1 HAVING count(*) > 1) x;")
+DOPPELT=$(db "SELECT count(*) FROM (SELECT date_trunc('minute', created_at) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' GROUP BY 1 HAVING count(*) > 1) x;")
 pruefe 'takt: nie zwei Laeufe in derselben Minute' "$(ja_wenn "$DOPPELT" 0)"
 pruefe 'takt: jeder Lauf hat den Ausloeser zeitplan, steht im Livestand und hat keinen Einreicher' \
-  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND (stand <> 'live' OR einreicher_id IS NOT NULL);")" 0)"
+  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND (stand <> 'live' OR einreicher_id IS NOT NULL);")" 0)"
 pruefe 'takt: je Lauf genau ein Termin in flow_zeitplan_termine' \
-  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs r WHERE r.app_id = '$APP' AND r.flow_name = 'takt' AND r.ausloeser = 'zeitplan' AND (SELECT count(*) FROM public.flow_zeitplan_termine t WHERE t.app_id = r.app_id AND t.flow_name = r.flow_name AND t.run_id = r.id) <> 1;")" 0)"
-SPAET=$(db "SELECT count(*) FROM flow_runs WHERE app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND extract(second FROM created_at) > 30;")
+  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs r WHERE r.created_at >= '$BEGINN' AND r.app_id = '$APP' AND r.flow_name = 'takt' AND r.ausloeser = 'zeitplan' AND (SELECT count(*) FROM public.flow_zeitplan_termine t WHERE t.app_id = r.app_id AND t.flow_name = r.flow_name AND t.run_id = r.id) <> 1;")" 0)"
+SPAET=$(db "SELECT count(*) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND extract(second FROM created_at) > 30;")
 pruefe 'takt: jeder Lauf entsteht in der ersten halben Minute des Termins' "$(ja_wenn "$SPAET" 0)" "$SPAET spaeter"
 sleep 20
 pruefe 'takt: die Laeufe enden fertig (feste Antwort, ohne Modell)' \
-  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND status NOT IN ('fertig','laeuft');")" 0)"
+  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND status NOT IN ('fertig','laeuft');")" 0)"
 pruefe 'Die Liste der Laeufe nennt den Ausloeser' \
   "$(ruf "$TOK" GET "/api/apps/$APP/laeufe?flow=takt" && rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]
@@ -417,7 +418,7 @@ print("ja" if d and all(l.get("ausloeser") == "zeitplan" for l in d) else "nein"
 pause_setzen warten false
 if warte_bis 150 '[ "$(laeufe warten)" -ge 1 ]'; then
   pruefe 'warten: der erste Termin startet einen Lauf' ja
-  LAUF_WARTEN=$(db "SELECT id FROM flow_runs WHERE app_id = '$APP' AND flow_name = 'warten' ORDER BY id LIMIT 1;")
+  LAUF_WARTEN=$(db "SELECT id FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'warten' ORDER BY id LIMIT 1;")
   warte_bis 60 '[ "$(status_von "$LAUF_WARTEN")" = wartend ]'
   pruefe 'warten: der Lauf haelt an der Freigabe' \
     "$(ja_wenn "$(status_von "$LAUF_WARTEN")" wartend)" "Lauf $LAUF_WARTEN"
@@ -491,10 +492,10 @@ else
   pruefe 'Nach dem Neustart laeuft der Zeitplan weiter' nein "$(laeufe takt zeitplan) Laeufe, vorher $VOR"
 fi
 warte_minute_plus 25
-DOPPELT=$(db "SELECT count(*) FROM (SELECT date_trunc('minute', created_at) FROM flow_runs WHERE app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' GROUP BY 1 HAVING count(*) > 1) x;")
+DOPPELT=$(db "SELECT count(*) FROM (SELECT date_trunc('minute', created_at) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' GROUP BY 1 HAVING count(*) > 1) x;")
 pruefe 'Auch ueber den Neustart: nie zwei Laeufe in derselben Minute' "$(ja_wenn "$DOPPELT" 0)"
 pruefe 'Auch ueber den Neustart: je Lauf genau ein Termin' \
-  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs r WHERE r.app_id = '$APP' AND r.flow_name = 'takt' AND r.ausloeser = 'zeitplan' AND (SELECT count(*) FROM public.flow_zeitplan_termine t WHERE t.app_id = r.app_id AND t.flow_name = r.flow_name AND t.run_id = r.id) <> 1;")" 0)"
+  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs r WHERE r.created_at >= '$BEGINN' AND r.app_id = '$APP' AND r.flow_name = 'takt' AND r.ausloeser = 'zeitplan' AND (SELECT count(*) FROM public.flow_zeitplan_termine t WHERE t.app_id = r.app_id AND t.flow_name = r.flow_name AND t.run_id = r.id) <> 1;")" 0)"
 pruefe 'Nach dem Neustart steht die Anmeldung noch (kein 500)' "$(ja_wenn "$(ruf "$TOK" GET /api/auth/me; echo "$CODE")" 200)"
 
 # --- 8. Das Geraet war aus: verpasste Termine ----------------------------------------
@@ -530,7 +531,7 @@ else
   NEU=$(( $(laeufe takt zeitplan) - VOR_TAKT ))
   pruefe 'takt: was schon lief, laeuft nicht noch einmal (Marke zurueck, hoechstens die neuen Minuten)' \
     "$([ "$NEU" -le 2 ] && echo ja || echo nein)" "$NEU neue Laeufe in dieser Zeit"
-  DOPPELT=$(db "SELECT count(*) FROM (SELECT date_trunc('minute', created_at) FROM flow_runs WHERE app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' GROUP BY 1 HAVING count(*) > 1) x;")
+  DOPPELT=$(db "SELECT count(*) FROM (SELECT date_trunc('minute', created_at) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' GROUP BY 1 HAVING count(*) > 1) x;")
   pruefe 'Auch nach dem Ausfall: nie zwei Laeufe in derselben Minute' "$(ja_wenn "$DOPPELT" 0)"
 fi
 
@@ -542,13 +543,13 @@ for f in $ZEITFLOWS; do
 done
 pruefe 'Alle Zeitplaene der Probe-App sind pausiert' "$(ja_wenn "$codes" "$(lauter_200 $ANZAHL_ZEITFLOWS)")" "HTTP$codes"
 sleep 3
-OFFEN=$(db "SELECT id FROM flow_runs WHERE app_id = '$APP' AND status IN ('laeuft','wartend');")
+OFFEN=$(db "SELECT id FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND status IN ('laeuft','wartend');")
 for id in $OFFEN; do
   ruf "$TOK" POST "/api/flows/laeufe/$id/abbrechen"
 done
 sleep 5
 pruefe 'Offene Laeufe sind abgebrochen' \
-  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE app_id = '$APP' AND status IN ('laeuft','wartend');")" 0)" "${OFFEN:+abgebrochen: $OFFEN}"
+  "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND status IN ('laeuft','wartend');")" 0)" "${OFFEN:+abgebrochen: $OFFEN}"
 ruf "$TOK" DELETE "/api/freigaben/$APP/$FREIGEGEBEN"
 FREIGEGEBEN=""
 pruefe 'Die Freigabe an das Probekonto ist zurueckgenommen' "$([[ "$CODE" =~ ^20[04]$ ]] && echo ja || echo nein)" "HTTP $CODE"

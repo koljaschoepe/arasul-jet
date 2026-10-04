@@ -22,6 +22,7 @@ const { SymbolSuchenTool } = require('./tools/symbolIndex');
 const SubagentTool = require('./subagent');
 const FrageNutzerTool = require('./tools/frage');
 const FreigabeAnfordernTool = require('./tools/freigabe');
+const RouteAufrufenTool = require('./tools/route');
 const BaseTool = require('../../tools/baseTool');
 
 /**
@@ -65,6 +66,9 @@ const FACTORIES = {
   // Lauf ohne Zuschauer nicht auf eine Antwort warten soll; eine Freigabe hat
   // dagegen einen Kreis von Adressaten und eine Frist.
   freigabe_anfordern: () => new FreigabeAnfordernTool(),
+  // Kontrakt 13 (M5): nur die Routen, die der Kopf unter `routen` nennt, und
+  // nur mit Zugang des Menschen zur Ziel-App (`tools/route.js`).
+  route_aufrufen: () => new RouteAufrufenTool(),
 };
 
 /**

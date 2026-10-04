@@ -3643,12 +3643,13 @@ nur eigene Aufträge, eine Stunde nach ihrem Ende sind sie weg.
 Trigger flows from your own automations with an API key. The endpoint
 scope is `flow:run` (included in the default endpoint set for new keys).
 
-| Method | Endpoint                           | Auth    | Description                                                  |
-| ------ | ---------------------------------- | ------- | ------------------------------------------------------------ |
-| GET    | `/api/v1/external/flows`           | API Key | List available flows                                         |
-| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default                  |
-| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (`schritte`, `freigabe`, …)       |
-| GET    | `/api/v1/external/freigaben`       | API Key | Die Freigaben dieser App nachlesen (`?lauf=<id>`); nur lesen |
+| Method | Endpoint                            | Auth              | Description                                                            |
+| ------ | ----------------------------------- | ----------------- | ---------------------------------------------------------------------- |
+| GET    | `/api/v1/external/flows`            | API Key           | List available flows                                                   |
+| POST   | `/api/v1/external/flows/:name/run`  | API Key           | Run a flow; waits for the result by default                            |
+| GET    | `/api/v1/external/flows/runs/:id`   | API Key           | Poll a run's status/result (`schritte`, `freigabe`, …)                 |
+| POST   | `/api/v1/external/ereignisse/:name` | API Key einer App | Ein Ereignis melden: startet die Flows, die darauf hören (Kontrakt 13) |
+| GET    | `/api/v1/external/freigaben`        | API Key           | Die Freigaben dieser App nachlesen (`?lauf=<id>`); nur lesen           |
 
 **POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "einreicher"?: "anna", "freigabe"?: {…} }`.
 
@@ -3682,6 +3683,35 @@ are owned by the API key's creator; an orphaned key (creator deleted) gets
 > Die Lauf-Nummer kommt sofort; den Rest fragt man über
 > `GET /flows/runs/:id` und `GET /freigaben?lauf=<id>` nach. This is the per-flow HTTP trigger; there is no scheduler on
 > the device, recurring starts come from outside through this endpoint.
+
+**POST /api/v1/external/ereignisse/:name** (M5, Kontrakt 13) — body
+`{ "daten"?: {…}, "einreicher"?: "anna" }`. Nur mit dem Schlüssel einer App
+(sonst `403`), Bereich `flow:run`. Das Gerät startet jeden Flow dieser App in
+diesem Stand, dessen Kopf `ausloeser: [{typ: ereignis, ereignis: <name>}]`
+nennt; `daten` werden seine Argumente gleichen Namens (Werte Zeichenkette, Zahl
+oder Wahrheitswert, höchstens 50; Undeklariertes fällt weg). `einreicher` wie
+oben (unbekannt: `400`). Gewartet wird nicht:
+
+```json
+{
+  "success": true,
+  "ereignis": "beleg.eingegangen",
+  "app": "belege",
+  "stand": "live",
+  "laeufe": [{ "flow": "bei-eingang", "run_id": 812 }],
+  "nicht_gestartet": [{ "flow": "pruefen", "grund": "Pflicht-Argument \"nummer\" fehlt" }]
+}
+```
+
+`202`, wenn wenigstens ein Lauf startete, sonst `200`. Ein Name, den kein
+Flow-Kopf tragen kann (Großbuchstaben, Leerzeichen), ist `400`. Der Lauf trägt
+`ausloeser: "ereignis"` und den Namen in `ereignis`; `GET
+/api/v1/external/flows/runs/:id` nennt beides (`ausloeser` auch bei `hand` und
+`zeitplan`). Regeln:
+[FLOWS.md](../features/FLOWS.md#ereignisse-flows-auf-zuruf-der-app-m5-04102026-kontrakt-13).
+Das Werkzeug `route_aufrufen`, mit dem ein Flow Routen von Apps ruft, hat keinen
+eigenen Endpunkt; es steht in
+[FLOWS.md](../features/FLOWS.md#routen-von-apps-als-werkzeug-m5-04102026-kontrakt-13).
 
 #### Zwei Namensräume, ein Schlüssel entscheidet (Phase C6)
 

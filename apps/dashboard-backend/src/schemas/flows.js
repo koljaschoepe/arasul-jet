@@ -32,6 +32,10 @@ const VALID_TOOLS = [
   // Phase C7: der Lauf haelt an, bis ein Mensch bestaetigt oder ablehnt. In
   // jeder Betriebsart erlaubt -- siehe `services/flows/toolRegistry.js`.
   'freigabe_anfordern',
+  // Kontrakt 13 (M5): eine Route der eigenen App oder einer anderen, die der
+  // Kopf unter `routen` nennt -- geprueft gegen deren Rechte. Kein freier
+  // Netzweg: siehe `services/flows/tools/route.js`.
+  'route_aufrufen',
 ];
 
 // Argumenttypen. Bis Phase B4 (26.08.2026) gab es dazu `datei` (ein Dokument
@@ -180,8 +184,9 @@ const SubagentRole = z
  *
  * Stufen und Arten wirken seit M5 (siehe oben), der Zeitplaner seit dem
  * 04.10.2026 (`services/flows/zeitplaner.js`): ein `zeitplan`-Auslöser startet
- * den Flow im Livestand zur genannten Zeit. `ereignis` nimmt das Geraet an und
- * prueft es, startet aber nichts.
+ * den Flow im Livestand zur genannten Zeit. `ereignis` wirkt seit Kontrakt 13
+ * (`services/flows/ereignisse.js`): die App meldet es, das Geraet startet den
+ * Flow in ihrem Stand.
  */
 const FLOW_ARTEN = ['autonom', 'ergebnis_bestaetigen'];
 const AUSLOESER_TYPEN = ['hand', 'zeitplan', 'ereignis'];
@@ -272,6 +277,54 @@ const FlowAbschluss = z
       ),
   })
   .strict();
+
+// Kontrakt 13 (M5): die Routen, die ein Flow mit `route_aufrufen` rufen darf.
+// Ohne `app` eine Route der EIGENEN App, mit `app` eine der genannten. Der Pfad
+// ist wie bei `abschluss.route` der, den die App selbst sieht (ohne
+// `/apps/<id>/api`); ein Stueck `{name}` steht fuer genau ein Wegstueck aus
+// Buchstaben, Ziffern und . _ ~ -. Was hier nicht steht, ruft der Flow nicht.
+const ROUTE_METHODEN = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+const APP_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const ROUTE_STUECK_RE = /^([A-Za-z0-9._~-]+|\{[a-z][a-z0-9_]{0,30}\})$/;
+const FlowRoute = z
+  .object({
+    app: z
+      .string()
+      .trim()
+      .regex(APP_ID_RE, 'routen[].app: die Kennung einer App, z. B. "kunden"')
+      .refine(v => v !== 'test', 'routen[].app: "test" ist keine App-Kennung')
+      .optional(),
+    methode: z.enum(ROUTE_METHODEN, {
+      error: `routen[].methode ist eine von: ${ROUTE_METHODEN.join(', ')}`,
+    }),
+    pfad: z
+      .string({ error: 'routen[].pfad fehlt, z. B. "/kunden/{nummer}"' })
+      .trim()
+      .min(2)
+      .max(200)
+      .refine(
+        v =>
+          v.startsWith('/') &&
+          v
+            .slice(1)
+            .split('/')
+            .every(t => ROUTE_STUECK_RE.test(t) && t !== '..' && t !== '.'),
+        'routen[].pfad: mit führendem "/", Wegstücke aus Buchstaben, Ziffern und . _ ~ - oder ein Platzhalter {name}; ohne "..", "//", Abfrage oder Host'
+      ),
+    // Ein Satz, wofuer die Route da ist: das Modell liest ihn, wenn es das
+    // Werkzeug selbst ruft.
+    zweck: z.string().trim().min(1).max(200).optional(),
+  })
+  .strict();
+
+const FlowRouten = z
+  .array(FlowRoute)
+  .min(1, '"routen" nennt mindestens eine Route oder fehlt ganz')
+  .max(20, 'höchstens 20 Routen je Flow')
+  .refine(
+    liste => new Set(liste.map(r => `${r.app ?? ''} ${r.methode} ${r.pfad}`)).size === liste.length,
+    'Eine Route steht zweimal da'
+  );
 
 // Eine benannte Freigabestufe, etwa „pruefung" und „leitung". Der Name ist die
 // Kennung (ARG_NAME_RE), `bezeichnung` das, was der Mensch liest. Die Frist
@@ -572,6 +625,8 @@ const FlowDefinition = z
     ausloeser: FlowAusloeserListe.optional(),
     stufen: FlowStufen.optional(),
     abschluss: FlowAbschluss.optional(),
+    // Kontrakt 13 (M5): Routen fuer `route_aufrufen`.
+    routen: FlowRouten.optional(),
     systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),
   })
   .strict()
@@ -670,6 +725,24 @@ const FlowDefinition = z
         code: z.ZodIssueCode.custom,
         path: ['ausgabe'],
         message: 'Der Flow erzeugt ein Dokument, hat aber keinen erlaubten Ordner als Ziel',
+      });
+    }
+
+    // Kontrakt 13: `route_aufrufen` ohne `routen` ruft nichts, und `routen`
+    // ohne das Werkzeug ist eine Liste, die nie jemand liest. Beides faellt
+    // beim Einspielen auf, nicht erst als Lauf, der nichts tut.
+    if (flow.werkzeuge.includes('route_aufrufen') && !flow.routen?.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['routen'],
+        message: 'Der Flow hat das Werkzeug "route_aufrufen", nennt aber keine "routen"',
+      });
+    }
+    if (flow.routen?.length && !flow.werkzeuge.includes('route_aufrufen')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['werkzeuge'],
+        message: 'Der Flow nennt "routen", hat aber das Werkzeug "route_aufrufen" nicht',
       });
     }
 
@@ -778,6 +851,7 @@ const SaveFlowBody = z
     ausloeser: FlowAusloeserListe.optional(),
     stufen: FlowStufen.optional(),
     abschluss: FlowAbschluss.optional(),
+    routen: FlowRouten.optional(),
     prompt: z.string().trim().min(1).max(50000),
   })
   .strict();
@@ -877,6 +951,7 @@ module.exports = {
   FlowArten,
   FlowAusloeser,
   FlowStufe,
+  FlowRoute,
   SchrittFaehigkeiten,
   SaveFlowBody,
   CreateFlowBody,
@@ -893,6 +968,8 @@ module.exports = {
   LAENGEN_STUFEN,
   TONALITAETEN,
   FLOW_NAME_RE,
+  EREIGNIS_RE,
+  ROUTE_METHODEN,
   FLOW_ARTEN,
   AUSLOESER_TYPEN,
 };

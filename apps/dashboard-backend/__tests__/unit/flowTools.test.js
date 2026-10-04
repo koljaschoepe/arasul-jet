@@ -134,7 +134,9 @@ describe('dateien_lesen', () => {
   it('liest gro\u00DFe Dateien chunked und nennt den n\u00E4chsten offset (Plan 019 \u00B7 Phase 4)', async () => {
     const gross = path.join(arbeit, 'chunk.txt');
     // 600 KB eindeutiger, ASCII-only Inhalt \u2192 mehrere Bl\u00F6cke \u00E0 256 KB.
-    const inhalt = Array.from({ length: 600 * 1024 }, (_, i) => String.fromCharCode(97 + (i % 26))).join('');
+    const inhalt = Array.from({ length: 600 * 1024 }, (_, i) =>
+      String.fromCharCode(97 + (i % 26))
+    ).join('');
     fs.writeFileSync(gross, inhalt);
     try {
       const teil1 = await tool.execute({ aktion: 'read', pfad: 'chunk.txt' }, ctx());
@@ -150,7 +152,10 @@ describe('dateien_lesen', () => {
       expect(teil2.startsWith(inhalt.slice(off, off + 100))).toBe(true);
 
       // Offset hinter dem Dateiende \u2192 klarer Hinweis, kein Absturz.
-      const zuWeit = await tool.execute({ aktion: 'read', pfad: 'chunk.txt', offset: 10 * 1024 * 1024 }, ctx());
+      const zuWeit = await tool.execute(
+        { aktion: 'read', pfad: 'chunk.txt', offset: 10 * 1024 * 1024 },
+        ctx()
+      );
       expect(zuWeit).toMatch(/hinter dem Dateiende/);
     } finally {
       fs.unlinkSync(gross);
@@ -261,7 +266,9 @@ describe('dateien_bearbeiten', () => {
       ctx()
     );
     expect(out).toMatch(/1 Stelle ersetzt/);
-    expect(fs.readFileSync(path.join(arbeit, 'seite.html'), 'utf8')).toContain('<title>Neu</title>');
+    expect(fs.readFileSync(path.join(arbeit, 'seite.html'), 'utf8')).toContain(
+      '<title>Neu</title>'
+    );
   });
 
   it('findet die Stelle auch mit abweichender Einrückung (Whitespace-tolerant)', async () => {
@@ -270,7 +277,9 @@ describe('dateien_bearbeiten', () => {
       ctx()
     );
     expect(out).toMatch(/1 Stelle ersetzt/);
-    expect(fs.readFileSync(path.join(arbeit, 'seite.html'), 'utf8')).toContain('<title>Neu</title>');
+    expect(fs.readFileSync(path.join(arbeit, 'seite.html'), 'utf8')).toContain(
+      '<title>Neu</title>'
+    );
   });
 
   it('verweigert mehrdeutige Treffer ohne alle=true', async () => {
@@ -489,6 +498,8 @@ describe('Werkzeug-Registry', () => {
         // Phase C7: der Lauf haelt an, bis ein Mensch entscheidet. Anders als
         // die Rueckfrage in JEDER Betriebsart -- eine Freigabe IST der Halt.
         'freigabe_anfordern',
+        // Kontrakt 13 (M5): eine Route, die der Kopf unter `routen` nennt.
+        'route_aufrufen',
       ].sort()
     );
   });

@@ -223,6 +223,9 @@ async function runFlow(
     // Die benannten Freigabestufen des Flows: `freigabe_anfordern` liest ihre
     // Frist (M5).
     stufen: flow.stufen || null,
+    // Die Routen, die `route_aufrufen` rufen darf (Kontrakt 13). In der BASIS,
+    // damit eine Rolle mit dem Werkzeug dieselbe Liste sieht und keine weitere.
+    routen: flow.routen || null,
   };
 
   // 5. Lauf anlegen — ODER einen bereits angelegten weiterverwenden. Der

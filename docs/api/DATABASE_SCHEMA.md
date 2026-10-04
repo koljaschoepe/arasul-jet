@@ -2117,7 +2117,7 @@ Ollama und keine Selbstheilung.
 | `fortsetzung`    | jsonb                    | ✅       |                                         |
 | `ausloeser`      | text                     | ⛔       | `'hand'::text`                          |
 | `abschluss`      | jsonb                    | ✅       |                                         |
-| `ausloeser`      | text                     | ⛔       | `'hand'::text`                          |
+| `ereignis`       | text                     | ✅       |                                         |
 | `created_at`     | timestamp with time zone | ⛔       | `now()`                                 |
 | `finished_at`    | timestamp with time zone | ✅       |                                         |
 
@@ -2139,6 +2139,9 @@ Ollama und keine Selbstheilung.
 > `ausloeser` (Migration 203, M5): wodurch der Lauf entstand, `hand` (ein
 > Mensch oder die App stieß ihn an, jeder Lauf bis dahin) oder `zeitplan` (der
 > Zeitplaner des Geräts; dann ohne `einreicher_id`). `CHECK` auf beide Werte.
+> Seit Migration 204 auch `ereignis`: die App meldete ein Ereignis
+> (`POST /api/v1/external/ereignisse/:name`), sein Name steht in `ereignis`
+> (sonst `NULL`), seine Daten als Argumente in `arguments`.
 
 > `abschluss` (Migration 198, M5, Kontrakt 11): die Übergabe des Ergebnisses an
 > die Abschluss-Route der App — `{route, versuche, letzter_versuch, status_code,
