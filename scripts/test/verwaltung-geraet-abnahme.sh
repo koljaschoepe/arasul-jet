@@ -219,7 +219,7 @@ pruefe 'Logo: ohne Anmeldung als Bild abrufbar (200)' "$(ja_wenn "$CODE" 200)" "
 pruefe 'Logo: Medientyp image/png' "$(ja_wenn "$(kopf content-type)" image/png)" "$(kopf content-type)"
 pruefe 'Logo: nosniff' "$(ja_wenn "$(kopf x-content-type-options)" nosniff)"
 pruefe 'Logo: mit Stand lange im Zwischenspeicher' \
-  "$(kopf cache-control | grep -q immutable && echo ja || echo nein)" "$(kopf cache-control)"
+  "$(grep -q immutable <<<"$(kopf cache-control)" && echo ja || echo nein)" "$(kopf cache-control)"
 pruefe 'Logo: dieselben Bytes wie hochgeladen' \
   "$(cmp -s "$ARBEIT/probe.png" "$ARBEIT/geholt.png" && echo ja || echo nein)"
 
