@@ -141,4 +141,10 @@
  * je Eintrag. Keine neue Hauptzahl: jede neue Eigenschaft ist freiwillig, eine
  * App auf 5.3.1 laeuft unveraendert weiter.
  */
-export const FASSUNG = '5.4.0';
+/*
+ * 5.4.1: zwei Texte der `Freigabe`. Ein Feld ohne `bezeichnung` heisst aus
+ * seinem Namen abgeleitet („Datum" statt `datum`), auch in der Liste der
+ * Aenderungen, und Datum und Uhrzeit stehen auf die Minute, ohne Sekunden.
+ * Kein Name, keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.4.1';

@@ -20,7 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
-const { ollamaAgent, OLLAMA_AGENT_TIMEOUT_MS } = require('../../src/services/llm/ollamaAgent');
+const { ollamaAgent } = require('../../src/services/llm/ollamaAgent');
 
 /** Dateien, die roh gegen den Modelldienst sprechen. */
 const QUELLEN = [
@@ -36,8 +36,7 @@ describe('Agent zum Modelldienst', () => {
   });
 
   test('unser Agent hat ein langes Zeitlimit', () => {
-    expect(ollamaAgent.options.timeout).toBe(OLLAMA_AGENT_TIMEOUT_MS);
-    expect(OLLAMA_AGENT_TIMEOUT_MS).toBeGreaterThanOrEqual(300000);
+    expect(ollamaAgent.options.timeout).toBeGreaterThanOrEqual(300000);
   });
 
   test.each(QUELLEN)('%s reicht einen Agenten mit', rel => {

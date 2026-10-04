@@ -21,7 +21,6 @@
  */
 
 const fs = require('fs/promises');
-const path = require('path');
 const registry = require('./flowRegistry');
 const appFlows = require('../app/appFlows');
 const runStore = require('./runStore');

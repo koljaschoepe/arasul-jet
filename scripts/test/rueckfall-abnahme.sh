@@ -372,10 +372,18 @@ LAUF="$LAUF_RUECKFALL"
 ANFRAGE="$P1"
 
 # --- 6. Im Browser: A öffnet, ändert, bestätigt -----------------------------------------
-bilder fuer-sie
-ANFRAGE="${P_TIEF:-}"
-bilder tieflink
-ANFRAGE="$P1"
+# Ohne ARASUL_BILDER entscheidet A über die API, mit derselben Änderung wie der
+# Browserteil. Bis zum 04.10.2026 entschied nur der Browser, und ohne ihn fielen
+# die sieben Prüfungen danach um, obwohl am Gerät nichts falsch war.
+if [ "${ARASUL_BILDER:-}" = "1" ]; then
+  bilder fuer-sie
+  ANFRAGE="${P_TIEF:-}"
+  bilder tieflink
+  ANFRAGE="$P1"
+else
+  ruf "$TOK_A" POST "/api/freigabe-anfragen/$P1/bestaetigen" '{"felder":{"datum":"03.10.2026"}}'
+  pruefe "$A bestätigt über die API und ändert datum (ohne Browser)" "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
+fi
 
 # --- 7. Der Lauf geht weiter -----------------------------------------------------------------
 warte_auf_anfrage "$TOK" "$TITEL_LEITUNG"

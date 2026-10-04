@@ -28,11 +28,6 @@ COPY package.json package-lock.json ./
 COPY apps/dashboard-backend/package.json apps/dashboard-backend/
 COPY apps/dashboard-frontend/package.json apps/dashboard-frontend/
 
-# Shared workspace: @arasul/shared-schemas (its built dist/ is committed and
-# lands in the image; the file: dep resolves via a workspace symlink into
-# /app/node_modules/@arasul/shared-schemas).
-COPY packages/shared-schemas packages/shared-schemas
-
 # The root `prepare` hook installs husky git hooks — a dev-only step that must
 # never run inside an image (no .git, husky is a devDependency). Drop it before
 # installing. This does not affect lockfile dependency integrity.

@@ -302,8 +302,8 @@ npm run marken          # baut packages/marken/browser/marken.js
 python3 scripts/test/marken.py --wurzel .   # hält Quelle und Bündel aneinander
 ```
 
-`browser/marken.js` bringt React und React-DOM mit und ist **eingecheckt** —
-wie `packages/shared-schemas/dist/`. Auf dem Gerät gibt es kein `npm install`;
+`browser/marken.js` bringt React und React-DOM mit und ist **eingecheckt**:
+auf dem Gerät gibt es kein `npm install`;
 `scripts/test/beispielapp.sh` legt die Datei beim Einspielen neben die App.
 
 **Kein JSX darin.** JSX braucht einen Übersetzer, und im Browser übersetzt einer

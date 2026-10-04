@@ -10,7 +10,6 @@ const db = require('../../database');
 const dockerService = require('../../services/core/docker');
 const logger = require('../../utils/logger');
 const os = require('os');
-const axios = require('axios');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs').promises;

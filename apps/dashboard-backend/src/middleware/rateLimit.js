@@ -4,7 +4,6 @@
  */
 
 const rateLimit = require('express-rate-limit');
-const db = require('../database');
 const logger = require('../utils/logger');
 
 /**

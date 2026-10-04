@@ -25,12 +25,7 @@ const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
 const extractionService = require('../../services/documents/extractionService');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const {
-  ValidationError,
-  NotFoundError,
-  ForbiddenError,
-  ServiceUnavailableError,
-} = require('../../utils/errors');
+const { ValidationError, NotFoundError, ForbiddenError } = require('../../utils/errors');
 const { validateBody, validateParams } = require('../../middleware/validate');
 const {
   ExternalLlmChatBody,

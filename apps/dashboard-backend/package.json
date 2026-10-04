@@ -16,7 +16,6 @@
     "lint:report": "eslint src/ --ext .js --format json --output-file eslint-report.json"
   },
   "dependencies": {
-    "@arasul/shared-schemas": "file:../../packages/shared-schemas",
     "axios": "^1.19.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",

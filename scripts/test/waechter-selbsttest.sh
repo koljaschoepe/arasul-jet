@@ -700,9 +700,10 @@ pruefe "Pfadfilter: ein Pfad ohne seinen Dienst im Deploy ist rot" 1 \
 mv "$PF/scripts/deploy/deploy-local.sh.sicherung" "$PF/scripts/deploy/deploy-local.sh"
 
 # Ein Pfad, der in ZWEI Images liegt, muss auch zwei Dienste nennen. Bis J31
-# stand `packages/` nur beim Backend, obwohl `shared-schemas` in beiden Apps
-# liegt -- derselbe Fehler, nur unauffaelliger.
-sed -i.sicherung 's|\["packages/shared-schemas/"\]="dashboard-backend dashboard-frontend"|["packages/shared-schemas/"]="dashboard-backend"|' \
+# stand `packages/` nur beim Backend, obwohl die damaligen geteilten Schemas in
+# beiden Apps lagen -- derselbe Fehler, nur unauffaelliger. Heute liegt die
+# `package.json` des Backends in beiden Images.
+sed -i.sicherung 's|\["apps/dashboard-backend/package.json"\]="dashboard-backend dashboard-frontend"|["apps/dashboard-backend/package.json"]="dashboard-backend"|' \
   "$PF/scripts/deploy/deploy-local.sh"
 pruefe "Pfadfilter: ein Pfad in zwei Images mit nur einem Dienst ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"

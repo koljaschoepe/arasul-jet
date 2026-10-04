@@ -18,7 +18,6 @@ const { warUnsereEntladung, vergissEntladung } = require('./unloadRegistry');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
-const METRICS_COLLECTOR_URL = services.metrics.url;
 
 // Configuration
 const OLLAMA_READY_TIMEOUT = parseInt(process.env.OLLAMA_READY_TIMEOUT || '300000'); // 5 min default
@@ -44,8 +43,7 @@ const activeRequests = new Map(); // requestId -> { modelId, startTime }
  * Ollama durch, die es selbst als Schwelle benutzt. Ollama entlaedt genau bei
  * Ablauf, `checkAndUnload` prueft alle 30 Sekunden und ueberspringt Modelle,
  * deren `expires_at` noch in der Zukunft liegt. Ollama gewinnt also immer,
- * ausser der Aufrufer hat eine laengere Frist mitgegeben (der Agentenpfad tut
- * das mit `AGENT_KEEP_ALIVE`).
+ * ausser der Aufrufer hat eine laengere Frist mitgegeben.
  *
  * Fuer die Anzeige heisst das: das Modell verschwindet aus der Statusleiste,
  * und niemand sagt warum. Genau das sollte D3 beenden. Der Vergleich mit dem

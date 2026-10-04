@@ -5,7 +5,6 @@
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
-    "@arasul/shared-schemas",
     "@testing-library/dom",
     "eslint-plugin-react",
     "@typescript-eslint/eslint-plugin",

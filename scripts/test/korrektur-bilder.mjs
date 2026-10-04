@@ -194,8 +194,8 @@ if (PHASE === 'vorher') {
   const korrektur = ad.page.getByTestId('freigabe-korrekturen');
   pruefe('Die frühere Stufe klappt auf mit Vorschlag und Änderung', await sichtbar(korrektur, 5000));
   pruefe(
-    'datum: leer → 01.10.2026',
-    /datum: leer → 01\.10\.2026/.test(await korrektur.innerText().catch(() => ''))
+    'Datum: leer → 01.10.2026',
+    /Datum: leer → 01\.10\.2026/.test(await korrektur.innerText().catch(() => ''))
   );
   await bild(ad.page, 'einzeln');
   await ad.ctx.close();

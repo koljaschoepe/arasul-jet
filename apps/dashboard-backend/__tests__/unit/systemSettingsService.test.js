@@ -4,8 +4,8 @@
  * Covers:
  *  - load() populates the cache from a single row
  *  - load() falls back gracefully when migration 094 has not run (column missing)
- *  - get / getNumber / getBool return cached values
- *  - get / getNumber / getBool fall back to the provided default for NULL / unknown keys
+ *  - get / getNumber return cached values
+ *  - get / getNumber fall back to the provided default for NULL / unknown keys
  *  - _setForTest seeds the cache without hitting the DB
  */
 
@@ -53,7 +53,6 @@ describe('systemSettingsService.load', () => {
 
     expect(systemSettings.get('rag_top_k')).toBe(12);
     expect(systemSettings.getNumber('rag_score_threshold', 99)).toBe(0.4);
-    expect(systemSettings.getBool('rag_rerank_enabled', false)).toBe(true);
     expect(systemSettings.getNumber('llm_keep_alive_seconds', -1)).toBe(1800);
   });
 
@@ -77,7 +76,6 @@ describe('systemSettingsService.load', () => {
     await systemSettings.load();
 
     expect(systemSettings.getNumber('llm_num_ctx_default', 8192)).toBe(8192);
-    expect(systemSettings.getBool('rag_rerank_enabled', false)).toBe(false);
     expect(systemSettings.getNumber('llm_keep_alive_seconds', 3600)).toBe(3600);
   });
 
@@ -116,10 +114,5 @@ describe('systemSettingsService getters', () => {
   test('getNumber falls back for non-numeric values', () => {
     systemSettings._setForTest({ rag_top_k: 'not-a-number' });
     expect(systemSettings.getNumber('rag_top_k', 10)).toBe(10);
-  });
-
-  test('getBool coerces string booleans', () => {
-    systemSettings._setForTest({ rag_rerank_enabled: 'false' });
-    expect(systemSettings.getBool('rag_rerank_enabled', true)).toBe(false);
   });
 });

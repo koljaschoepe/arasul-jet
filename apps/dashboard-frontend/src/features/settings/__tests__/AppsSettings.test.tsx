@@ -616,6 +616,9 @@ describe('AppsSettings', () => {
     expect(screen.queryByText('column exists')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('schaltung-technik-knopf'));
     expect(await screen.findByText('column exists')).toBeInTheDocument();
+    expect(screen.getByText('Exit-Code')).toBeInTheDocument();
+    // Ohne Daten-Rückfall in der Technik steht die Zeile gar nicht da, nicht als „—".
+    expect(screen.queryByText('Daten zurück')).not.toBeInTheDocument();
   });
 
   it('zeigt nach einem glatten Live-Schalten keinen Hinweis', async () => {

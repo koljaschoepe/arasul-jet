@@ -39,16 +39,6 @@ function offeneFrage(runId) {
   return { frage: e.frage, optionen: e.optionen, gestelltAm: e.gestelltAm };
 }
 
-/** Alle offenen Fragen (für die Anzeige „hier wartet etwas"). */
-function alleOffenen() {
-  return [...offen.entries()].map(([runId, e]) => ({
-    runId: Number(runId),
-    frage: e.frage,
-    optionen: e.optionen,
-    gestelltAm: e.gestelltAm,
-  }));
-}
-
 /**
  * Eine Frage stellen und auf die Antwort warten.
  *
@@ -129,24 +119,6 @@ function beantworte(runId, antwort) {
   return { beantwortet: true };
 }
 
-/**
- * Eine offene Frage verwerfen (Lauf abgebrochen, Backend fährt herunter).
- *
- * Der Lauf bekommt dann dieselbe Antwort wie beim Zeitablauf: die erste
- * Empfehlung. Ihn hängen zu lassen wäre schlechter.
- */
-function verwirf(runId) {
-  const kennung = String(runId);
-  const e = offen.get(kennung);
-  if (!e) {
-    return false;
-  }
-  clearTimeout(e.uhr);
-  offen.delete(kennung);
-  e.aufloesen({ antwort: e.optionen[0] || '', quelle: 'zeitablauf' });
-  return true;
-}
-
 /** Nur für Tests. */
 function _reset() {
   for (const e of offen.values()) {
@@ -159,8 +131,6 @@ module.exports = {
   stelleFrage,
   beantworte,
   offeneFrage,
-  alleOffenen,
-  verwirf,
   _reset,
   MAX_OPTIONEN,
   WARTE_MS,

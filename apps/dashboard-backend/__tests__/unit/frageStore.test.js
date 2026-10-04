@@ -122,26 +122,3 @@ describe('wenn niemand antwortet', () => {
   });
 });
 
-describe('verwirf', () => {
-  test('loest die Frage auf, statt den Lauf haengen zu lassen', async () => {
-    const wartet = frageStore.stelleFrage(30, { frage: 'X?', optionen: ['a'] });
-    expect(frageStore.verwirf(30)).toBe(true);
-    await expect(wartet).resolves.toEqual({ antwort: 'a', quelle: 'zeitablauf' });
-  });
-
-  test('ohne offene Frage passiert nichts', () => {
-    expect(frageStore.verwirf(31)).toBe(false);
-  });
-});
-
-describe('alleOffenen', () => {
-  test('nennt jede wartende Frage mit ihrem Lauf', async () => {
-    const a = frageStore.stelleFrage(40, { frage: 'A?' });
-    const b = frageStore.stelleFrage(41, { frage: 'B?', optionen: ['x'] });
-    expect(frageStore.alleOffenen().map(f => f.runId).sort()).toEqual([40, 41]);
-    frageStore.beantworte(40, '1');
-    frageStore.beantworte(41, '2');
-    await Promise.all([a, b]);
-    expect(frageStore.alleOffenen()).toEqual([]);
-  });
-});

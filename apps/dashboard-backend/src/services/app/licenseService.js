@@ -32,11 +32,7 @@
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
-const { execFile } = require('child_process');
-const { promisify } = require('util');
 const logger = require('../../utils/logger');
-
-const execFileAsync = promisify(execFile);
 
 // Die Lizenzdatei liegt in einem EIGENEN MOUNT (`data/lizenz`, J32 vom
 // 23.09.2026). Bis dahin stand sie unter `/arasul/config/license.key`, und

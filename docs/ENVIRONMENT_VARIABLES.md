@@ -464,20 +464,12 @@ Modell-Aufruf:
 
 ### Modell-Aufrufe (`services/llm/agentConfig.js`, `services/llm/extern/`)
 
-| Variable                   | Default           | Description                                                                                                                                                                                                                                                               |
-| -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AGENT_NUM_CTX              | 32768             | Kontextfenster (Token), das ein Subagent-Aufruf PRO Aufruf explizit setzt — nie den Ollama-Server-Default nutzen (stiller Front-Truncate frisst System-Prompt)                                                                                                            |
-| AGENT_NUM_PREDICT          | -1                | Max. Antwort-Token je Runde (-1 = unbegrenzt, Ollama-Konvention)                                                                                                                                                                                                          |
-| AGENT_VERLAUF_TOKEN_BUDGET | 1200              | Wie viele Token der VERLAUF im Vorlauf der ersten Runde hoechstens kosten darf (Plan 023 D7). Nicht zu verwechseln mit AGENT_NUM_CTX: das ist der Ueberlaufschutz, dies der Schutz der Zeit bis zum ersten Wort. Hoeher heisst laengeres Gedaechtnis und laengeres Warten |
-| EGRESS_PROXY_ADRESSE       | egress-proxy:3128 | Wo eine App den Ausgangs-Proxy erreicht (J38); steht in `HTTPS_PROXY` ihrer Umgebung. Backend                                                                                                                                                                             |
-| EXTERN_TIMEOUT_MS          | 60000             | Plan 023 D9: nach so vielen Millisekunden ohne Antwort gilt ein Cloud-Anbieter als still                                                                                                                                                                                  |
-| EXTERN_MODELLE_CACHE_MS    | 300000            | Plan 023 D9: wie lange die Modellliste eines Cloud-Anbieters zwischengespeichert wird, bevor erneut gefragt wird                                                                                                                                                          |
-| AGENT_KEEP_ALIVE           | 30m               | Wie lange Ollama das Modell zwischen Runden geladen hält (Kaltstart auf dem Jetson: 6–30 s)                                                                                                                                                                               |
-| AGENT_PLAN_TOKENS_GROSS    | 2048              | Token-Deckel der Plan-Runde für GROSSE Aufträge (Recherche/Subagenten/Mehr-Datei; Qualitätsmodell mit Thinking — Deckel zählt Thinking + Plan zusammen)                                                                                                                   |
-| AGENT_PLAN_TOKENS_KLEIN    | 512               | Token-Deckel der knappen Plan-Runde für kleine Erstell-Aufgaben (Arbeitsmodell, ohne Thinking)                                                                                                                                                                            |
-| AGENT_QUALITAETS_MODELL    | (leer)            | Optionales größeres Modell für schwere Einzelschritte (Plan-Runde, pruefer-Rolle), z. B. `qwen3:32b`. Leer = keine Eskalation                                                                                                                                             |
-| AGENT_THINKING             | an                | `aus` schaltet den live gestreamten Gedankengang (Reasoning-Trace) global ab; wirkt nur bei Modellen, die denken können (qwen3 u. a., nicht Coder/Gemma)                                                                                                                  |
-| AGENT_MAX_SUBAGENTEN       | 60                | Obergrenze der Subagent-Aufrufe je Lauf (Plan 019 · Phase 5, aggressive Delegation). Höher = mehr kleine, in sich geschlossene Blöcke; Verschachtelung bleibt über maxTiefe (2) hart begrenzt                                                                             |
+| Variable                | Default           | Description                                                                                                                                              |
+| ----------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EGRESS_PROXY_ADRESSE    | egress-proxy:3128 | Wo eine App den Ausgangs-Proxy erreicht (J38); steht in `HTTPS_PROXY` ihrer Umgebung. Backend                                                            |
+| EXTERN_TIMEOUT_MS       | 60000             | Plan 023 D9: nach so vielen Millisekunden ohne Antwort gilt ein Cloud-Anbieter als still                                                                 |
+| EXTERN_MODELLE_CACHE_MS | 300000            | Plan 023 D9: wie lange die Modellliste eines Cloud-Anbieters zwischengespeichert wird, bevor erneut gefragt wird                                         |
+| AGENT_THINKING          | an                | `aus` schaltet den live gestreamten Gedankengang (Reasoning-Trace) global ab; wirkt nur bei Modellen, die denken können (qwen3 u. a., nicht Coder/Gemma) |
 
 > **GPU-Sperre:** Alle lokalen Modell-Aufrufe — externer Auftrag wie Flow —
 > laufen durch EINE gemeinsame Sperre (`services/flows/gpuQueue.js`); nie
@@ -491,6 +483,12 @@ Modell-Aufruf:
 > `AGENT_MAX_TOKENS`, `AGENT_WEB_TIMEOUT_MS`, `AGENT_FLOW_CONCURRENCY`) sind mit
 > Plan 011 entfallen, ebenso die verschlüsselten Provider-Keys in der DB —
 > Arasul spricht wieder ausschließlich lokale Modelle an.
+>
+> Am 04.10.2026 entfallen, weil seit dem Chat niemand sie las:
+> `AGENT_NUM_CTX`, `AGENT_NUM_PREDICT`, `AGENT_KEEP_ALIVE`,
+> `AGENT_PLAN_TOKENS_GROSS`, `AGENT_PLAN_TOKENS_KLEIN`,
+> `AGENT_VERLAUF_TOKEN_BUDGET`, `AGENT_QUALITAETS_MODELL`,
+> `AGENT_MAX_SUBAGENTEN`. Ein Flow trägt seine Grenzen im Kopf (`grenzen`).
 
 ---
 

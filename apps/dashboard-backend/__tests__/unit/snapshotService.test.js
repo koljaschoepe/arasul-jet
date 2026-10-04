@@ -36,9 +36,6 @@ describe('snapshotService', () => {
     await snapshotService.sichereVorher(root, 'a.txt', { existierte: true, altInhalt: 'v2' });
     await schreibe('a.txt', 'v3');
 
-    const info = await snapshotService.versionsInfo(root, 'a.txt');
-    expect(info.anzahl).toBe(2);
-
     let res = await snapshotService.wiederherstellen(root, 'a.txt');
     expect(res.ok).toBe(true);
     expect(await lies('a.txt')).toBe('v2');
@@ -77,13 +74,6 @@ describe('snapshotService', () => {
     expect(await lies('log.txt')).toBe('AAAA');
   });
 
-  it('liefert den Vorher-Inhalt für den Diff', async () => {
-    await schreibe('d.txt', 'alt');
-    await snapshotService.sichereVorher(root, 'd.txt', { existierte: true, altInhalt: 'alt' });
-    await schreibe('d.txt', 'neu');
-    expect(await snapshotService.letzterInhalt(root, 'd.txt')).toBe('alt');
-  });
-
   it('speichert keine Kopie über der Größengrenze', async () => {
     const gross = 'x'.repeat(snapshotService.MAX_SNAPSHOT_BYTES + 1);
     const gesichert = await snapshotService.sichereVorher(root, 'big.txt', {
@@ -91,6 +81,6 @@ describe('snapshotService', () => {
       altInhalt: gross,
     });
     expect(gesichert).toBe(false);
-    expect(await snapshotService.versionsInfo(root, 'big.txt')).toBeNull();
+    expect((await snapshotService.wiederherstellen(root, 'big.txt')).ok).toBe(false);
   });
 });

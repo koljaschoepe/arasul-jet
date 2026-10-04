@@ -134,21 +134,8 @@ function escapeIdentifier(identifier) {
   return `"${identifier.replace(/"/g, '""')}"`;
 }
 
-/**
- * Escape a dynamic table name with the data_ prefix.
- * Returns e.g. "data_kunden" (double-quoted).
- * @throws {ValidationError} if slug is invalid
- */
-function escapeTableName(slug) {
-  if (!isValidSlug(slug)) {
-    throw new ValidationError(`Invalid table name: ${slug}`);
-  }
-  return `"data_${slug.replace(/"/g, '""')}"`;
-}
-
 module.exports = {
   SQL_RESERVED_KEYWORDS,
   isValidSlug,
   escapeIdentifier,
-  escapeTableName,
 };

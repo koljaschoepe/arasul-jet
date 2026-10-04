@@ -1,4 +1,4 @@
-const { isValidSlug, escapeIdentifier, escapeTableName, SQL_RESERVED_KEYWORDS } = require('../../src/utils/sqlIdentifier');
+const { isValidSlug, escapeIdentifier, SQL_RESERVED_KEYWORDS } = require('../../src/utils/sqlIdentifier');
 
 describe('sqlIdentifier', () => {
   describe('isValidSlug', () => {
@@ -77,20 +77,6 @@ describe('sqlIdentifier', () => {
       expect(() => escapeIdentifier('')).toThrow('Invalid identifier');
       expect(() => escapeIdentifier('123abc')).toThrow('Invalid identifier');
       expect(() => escapeIdentifier('select')).toThrow('Invalid identifier');
-    });
-  });
-
-  describe('escapeTableName', () => {
-    it('returns quoted table name with data_ prefix', () => {
-      expect(escapeTableName('kunden')).toBe('"data_kunden"');
-      expect(escapeTableName('my_table')).toBe('"data_my_table"');
-      expect(escapeTableName('test_123')).toBe('"data_test_123"');
-    });
-
-    it('throws ValidationError for invalid slugs', () => {
-      expect(() => escapeTableName('DROP TABLE')).toThrow('Invalid table name');
-      expect(() => escapeTableName('')).toThrow('Invalid table name');
-      expect(() => escapeTableName('select')).toThrow('Invalid table name');
     });
   });
 

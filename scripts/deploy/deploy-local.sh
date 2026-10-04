@@ -118,9 +118,8 @@ trap wartung_aus EXIT
 #
 # Deshalb steht jetzt jeder Pfad hier so, wie ihn ein Dockerfile wirklich
 # hereinkopiert, und `scripts/test/pfadfilter.py` haelt beides aneinander.
-# Ein Pfad, der in zwei Images landet, nennt zwei Services: `shared-schemas`
-# steht in beiden Apps, `libs/shared-python` in den fuenf Python-Diensten und
-# in KEINER der beiden Apps, und die `package.json` der einen App liegt im
+# Ein Pfad, der in zwei Images landet, nennt zwei Services: `libs/shared-python`
+# steht in den fuenf Python-Diensten und in KEINER der beiden Apps, und die `package.json` der einen App liegt im
 # Image der anderen, weil der Workspace-Install sie braucht -- die Quelle
 # daneben aber nicht.
 declare -A PATH2SVC=(
@@ -135,7 +134,6 @@ declare -A PATH2SVC=(
   ["services/self-healing-agent/"]="self-healing-agent"
   ["services/backup-service/"]="backup-service"
   ["services/egress-proxy/"]="egress-proxy"
-  ["packages/shared-schemas/"]="dashboard-backend dashboard-frontend"
   ["packages/marken/"]="dashboard-frontend"
   ["libs/shared-python/"]="llm-service embedding-service document-indexer metrics-collector self-healing-agent"
   # Die Wurzeldateien des Workspace. Beide Apps installieren daraus mit
