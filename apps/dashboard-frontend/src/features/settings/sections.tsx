@@ -5,7 +5,6 @@ import {
   Info,
   KeyRound,
   Lock,
-  Network,
   Server,
   Globe,
   ShieldAlert,
@@ -31,7 +30,6 @@ export type SettingsSectionId =
   | 'privacy'
   | 'system'
   | 'lizenz'
-  | 'verbindungen'
   | 'remote-access';
 
 export interface SettingsSection {
@@ -98,14 +96,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: 'Lizenz',
     icon: <KeyRound />,
   },
-  // Nach der Lizenz (J38): was die Apps nach draussen duerfen, ist wie sie eine
-  // Frage an das Geraet -- und der Ort, an dem ein Administrator nachliest,
-  // warum eine App nichts erreicht oder was sie versucht hat.
-  {
-    id: 'verbindungen',
-    label: 'Verbindungen',
-    icon: <Network />,
-  },
   {
     id: 'remote-access',
     label: 'Fernzugriff',
@@ -129,6 +119,9 @@ export function resolveTab(param: string | null): SettingsSectionId {
     sicherung: 'system',
     selfhealing: 'system',
     werksreset: 'system',
+    // Seit M5 stehen die Verbindungen auf der Seite jeder App (Auftrag
+    // verwaltung-app-seite); ein altes Lesezeichen landet bei den Apps.
+    verbindungen: 'apps',
   };
   const resolved = legacy[param] ?? param;
   return SETTINGS_SECTION_IDS.includes(resolved as SettingsSectionId)

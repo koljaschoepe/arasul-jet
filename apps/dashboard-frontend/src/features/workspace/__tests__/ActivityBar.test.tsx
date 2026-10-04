@@ -61,7 +61,7 @@ describe('ActivityBar', () => {
   it('zeigt dem Administrator Startseite, Apps, Verwaltung, Zahnrad und Konto', async () => {
     zeige();
     expect(await screen.findByLabelText('Urlaubsantrag')).toBeInTheDocument();
-    expect(screen.getByLabelText('Urlaubsantrag (Test)')).toBeInTheDocument();
+    expect(screen.getByLabelText('(Test) Urlaubsantrag')).toBeInTheDocument();
     expect(screen.getByLabelText('Rechnung prüfen')).toBeInTheDocument();
     for (const name of ['Startseite', 'Verwaltung', 'Einstellungen', 'Konto']) {
       expect(screen.getByLabelText(name)).toBeInTheDocument();
@@ -95,14 +95,14 @@ describe('ActivityBar', () => {
   it('ein Klick öffnet genau eine Ansicht, die Auswahl ist markiert', async () => {
     zeige();
     expect(screen.getByLabelText('Startseite')).toHaveAttribute('aria-current', 'page');
-    fireEvent.click(await screen.findByLabelText('Urlaubsantrag (Test)'));
+    fireEvent.click(await screen.findByLabelText('(Test) Urlaubsantrag'));
     expect(useWorkspaceStore.getState().ansicht).toEqual({
       type: 'app',
       appId: 'urlaub',
       stand: 'test',
       title: 'Urlaubsantrag',
     });
-    expect(screen.getByLabelText('Urlaubsantrag (Test)')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByLabelText('(Test) Urlaubsantrag')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Startseite')).not.toHaveAttribute('aria-current');
 
     fireEvent.click(screen.getByLabelText('Verwaltung'));

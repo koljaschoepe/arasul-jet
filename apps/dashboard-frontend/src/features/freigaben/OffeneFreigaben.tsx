@@ -102,7 +102,7 @@ function alsEintrag(f: OffeneFreigabe, fuss?: ReactNode): FreigabeEintrag {
     titel: f.titel,
     zusammenhang: f.zusammenhang,
     herkunft:
-      `${f.app_name || f.app_id}${f.stand === 'test' ? ' (Test)' : ''}` +
+      `${f.stand === 'test' ? '(Test) ' : ''}${f.app_name || f.app_id}` +
       (stufe ? ` · Stufe ${stufe}` : ''),
     einreicher: f.einreicher,
     frist: f.frist,

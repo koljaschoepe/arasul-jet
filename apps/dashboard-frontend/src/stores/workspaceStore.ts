@@ -117,7 +117,11 @@ export function pfadZuAnsicht(subPath: string): Ansicht | null {
       return { type: 'settings' };
     case 'verwaltung': {
       const bereich = parts[1] && WORT.test(parts[1]) ? parts[1] : undefined;
-      const abschnitt = bereich && parts[2] && WORT.test(parts[2]) ? parts[2] : undefined;
+      // Der Abschnitt darf auch eine App-Kennung sein (M5): jede App hat in
+      // der Verwaltung eine Seite und damit eine Adresse,
+      // `/workspace/verwaltung/apps/<kennung>`.
+      const abschnitt =
+        bereich && parts[2] && APP_KENNUNG.test(parts[2]) ? parts[2] : undefined;
       return {
         type: 'verwaltung',
         ...(bereich ? { bereich } : {}),

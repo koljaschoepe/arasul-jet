@@ -36,7 +36,7 @@ export interface Freigabe {
  * das Manifest kein Frontend nennt — dann gibt es auch keine Bibliothek, über
  * die zu warnen wäre.
  */
-export interface StandKurz {
+interface StandKurz {
   version: string;
   lieferbar?: boolean;
   mangel?: string | null;

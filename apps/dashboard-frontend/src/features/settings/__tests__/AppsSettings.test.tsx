@@ -232,6 +232,11 @@ async function oeffneApp() {
   return screen.findByTestId('app-ansicht-beispielapp');
 }
 
+/** Schritte, Modell und Datei eines Flows aufklappen (M5: Technik nur aufgeklappt). */
+async function flowAufklappen(name = 'freigabe') {
+  fireEvent.click(await screen.findByTestId(`flow-mehr-${name}-knopf`));
+}
+
 describe('AppsSettings', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
@@ -286,6 +291,7 @@ describe('AppsSettings', () => {
       },
     });
     await oeffneApp();
+    fireEvent.click(screen.getByTestId('ki-aufrufe-schalter'));
     const zeile = await screen.findByTestId('ki-aufruf-7');
     expect(zeile).toHaveTextContent('document/extract-structured');
     expect(zeile).toHaveTextContent('qwen3.8:27b-q4_K_M');
@@ -324,6 +330,7 @@ describe('AppsSettings', () => {
       },
     });
     await oeffneApp();
+    fireEvent.click(screen.getByTestId('ki-aufrufe-schalter'));
     const zeile = await screen.findByTestId('ki-aufruf-8');
     expect(zeile).toHaveTextContent('flows/bescheid');
     expect(zeile).toHaveTextContent('für anna');
@@ -334,6 +341,7 @@ describe('AppsSettings', () => {
   it('sagt, wenn eine App noch kein Modell gefragt hat', async () => {
     antworte();
     await oeffneApp();
+    fireEvent.click(screen.getByTestId('ki-aufrufe-schalter'));
     expect(await screen.findByTestId('ki-aufrufe-leer')).toBeInTheDocument();
   });
 
@@ -345,11 +353,11 @@ describe('AppsSettings', () => {
   it('nennt die Fassung des Designsystems, auf der ein Stand steht', async () => {
     antworte();
     await oeffneApp();
-    const beide = screen.getAllByTestId('marken-fassung');
-    expect(beide).toHaveLength(2);
-    beide.forEach(zelle => expect(zelle).toHaveTextContent(FASSUNG));
-    // Gleiche Fassung heisst: nur die Zahl, keine Meldung darueber.
-    beide.forEach(zelle => expect(zelle.textContent).not.toMatch(/älter|neuer|nicht genannt/));
+    // Gleiche Fassung heisst: keine Meldung, die Zahl ist Technik und steht
+    // aufgeklappt (M5).
+    expect(screen.queryAllByTestId('marken-fassung')).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('stand-live-technik-knopf'));
+    expect(await screen.findByTestId('stand-live-technik')).toHaveTextContent(FASSUNG);
   });
 
   it('meldet eine App, die auf einer aelteren Bibliothek steht', async () => {
@@ -371,9 +379,7 @@ describe('AppsSettings', () => {
     expect(live).toHaveTextContent(`älter als das Gerät (${FASSUNG})`);
     expect(live).toHaveAttribute('data-warnung', 'true');
     // Der Teststand daneben steht auf der Fassung des Geräts und sagt nichts.
-    expect(
-      within(screen.getByTestId('stand-test')).getByTestId('marken-fassung')
-    ).toHaveTextContent(FASSUNG);
+    expect(within(screen.getByTestId('stand-test')).queryByTestId('marken-fassung')).toBeNull();
   });
 
   /**
@@ -396,10 +402,8 @@ describe('AppsSettings', () => {
       },
     });
     await oeffneApp();
-    const live = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
-    expect(live).toHaveTextContent(`vom Gerät zur Laufzeit, ${FASSUNG}`);
-    expect(live).toHaveAttribute('data-befund', 'laufzeit');
-    expect(live).not.toHaveAttribute('data-warnung');
+    // Ohne Warnung steht die Bibliothek nur aufgeklappt.
+    expect(within(screen.getByTestId('stand-live')).queryByTestId('marken-fassung')).toBeNull();
     const test = within(screen.getByTestId('stand-test')).getByTestId('marken-fassung');
     expect(test).toHaveAttribute('data-befund', 'laufzeit-fremd');
     expect(test).toHaveAttribute('data-warnung', 'true');
@@ -427,24 +431,12 @@ describe('AppsSettings', () => {
   });
 
   /**
-   * Auftrag geraet-zeigt-bibliotheksstand (08.09.2026): die Fassung steht in
-   * der LISTE, nicht erst in der Karte nach dem Klick -- ohne Sicht darauf
-   * merkt niemand, dass eine App seit Monaten auf einer alten Bibliothek
-   * steht. Gewarnt wird bei aelter oder fehlend, und nur bei Apps mit
-   * Frontend; ein Verbot ist es nie.
+   * M5 (Auftrag verwaltung-app-seite): die Liste trägt höchstens ein Tag,
+   * „(Test)". Die Bibliothek steht auf der Seite der App, offen nur, wenn sie
+   * warnt (sie stand seit dem Auftrag geraet-zeigt-bibliotheksstand in der
+   * Liste; das Zielbild vom 02.10.2026 legt alles einer App auf ihre Seite).
    */
-  it('zeigt in der Liste die Spalte Bibliothek, einmal, wenn beide Staende dasselbe sagen', async () => {
-    antworte();
-    render(<AppsSettings />, { wrapper: huelle() });
-    const spalte = await screen.findByTestId('app-bibliothek-beispielapp');
-    expect(spalte).toHaveTextContent('Bibliothek');
-    expect(spalte).toHaveTextContent(FASSUNG);
-    // Beide Staende auf der Fassung des Geraets: ein Abzeichen, keine Warnung.
-    expect(within(spalte).getAllByTestId(/app-bibliothek-beispielapp-/)).toHaveLength(1);
-    expect(spalte.querySelector('[data-warnung]')).toBeNull();
-  });
-
-  it('warnt in der Liste bei einem Stand auf einer aelteren Bibliothek, je Stand', async () => {
+  it('trägt in der Liste höchstens ein Tag, „(Test)", und keine Bibliothek', async () => {
     antworte({
       '/apps': {
         data: [
@@ -459,40 +451,14 @@ describe('AppsSettings', () => {
       },
     });
     render(<AppsSettings />, { wrapper: huelle() });
-    const live = await screen.findByTestId('app-bibliothek-beispielapp-live');
-    expect(live).toHaveTextContent('1.0.0, älter als das Gerät');
-    expect(live).toHaveAttribute('data-warnung', 'true');
-    // Der Teststand daneben steht auf der Fassung des Geraets und warnt nicht.
-    const test = screen.getByTestId('app-bibliothek-beispielapp-test');
-    expect(test).toHaveTextContent(FASSUNG);
-    expect(test).not.toHaveAttribute('data-warnung');
-    // Kein Verbot: die Zeile laesst sich weiter oeffnen, nichts ist rot.
+    const zeile = await screen.findByTestId('app-oeffnen-beispielapp');
+    expect(within(zeile).getByTestId('app-tag-test-beispielapp')).toHaveTextContent('(Test)');
+    expect(zeile).not.toHaveTextContent('Bibliothek');
+    expect(zeile.querySelector('[data-warnung]')).toBeNull();
     expect(screen.queryByTestId('app-mangel-beispielapp')).toBeNull();
-    fireEvent.click(screen.getByTestId('app-oeffnen-beispielapp'));
-    await screen.findByTestId('app-ansicht-beispielapp');
   });
 
-  it('warnt in der Liste, wenn eine App mit Frontend keine Fassung nennt', async () => {
-    antworte({
-      '/apps': {
-        data: [
-          {
-            ...APP_ZEILE,
-            staende: {
-              test: null,
-              live: { ...APP_ZEILE.staende.live, marken: null },
-            },
-          },
-        ],
-      },
-    });
-    render(<AppsSettings />, { wrapper: huelle() });
-    const live = await screen.findByTestId('app-bibliothek-beispielapp-live');
-    expect(live).toHaveTextContent('nicht genannt');
-    expect(live).toHaveAttribute('data-warnung', 'true');
-  });
-
-  it('warnt nicht bei einem fremden Container ohne Frontend, in Liste und Karte', async () => {
+  it('warnt nicht bei einem fremden Container ohne Frontend', async () => {
     // Ein Backend ohne Oberflaeche hat kein Erscheinungsbild und braucht keine
     // Bibliothek. `dateien.frontend: null` heisst: das Manifest nennt keines.
     const ohneFrontend = { manifest: true, frontend: null };
@@ -523,16 +489,10 @@ describe('AppsSettings', () => {
         },
       },
     });
-    render(<AppsSettings />, { wrapper: huelle() });
-    const live = await screen.findByTestId('app-bibliothek-beispielapp-live');
-    expect(live).toHaveTextContent('ohne Oberfläche');
-    expect(live).not.toHaveAttribute('data-warnung');
-
-    fireEvent.click(screen.getByTestId('app-oeffnen-beispielapp'));
-    await screen.findByTestId('app-ansicht-beispielapp');
-    const karte = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
-    expect(karte).toHaveTextContent('ohne Oberfläche');
-    expect(karte).not.toHaveAttribute('data-warnung');
+    await oeffneApp();
+    expect(within(screen.getByTestId('stand-live')).queryByTestId('marken-fassung')).toBeNull();
+    fireEvent.click(screen.getByTestId('stand-live-technik-knopf'));
+    expect(await screen.findByTestId('stand-live-technik')).toHaveTextContent('ohne Oberfläche');
   });
 
   it('entfernt eine App erst, wenn ihre Kennung eingetippt ist, samt Dateien', async () => {
@@ -567,8 +527,8 @@ describe('AppsSettings', () => {
     render(<AppsSettings />, { wrapper: huelle() });
 
     const zeile = await screen.findByTestId('app-oeffnen-beispielapp');
-    expect(zeile).toHaveTextContent('live 1.0.0');
-    expect(zeile).toHaveTextContent('test 1.1.0');
+    expect(zeile).toHaveTextContent('Live 1.0.0, im Test 1.1.0');
+    expect(zeile).toHaveTextContent('(Test)');
   });
 
   it('nennt je Stand die Version und den Zustand des Backends', async () => {
@@ -694,6 +654,7 @@ describe('AppsSettings', () => {
     apiMock.put.mockResolvedValue({ data: {} });
     await oeffneApp();
 
+    await flowAufklappen();
     fireEvent.click(await screen.findByTestId('flow-modell-freigabe'));
     fireEvent.click(await screen.findByTestId('modell-quelle-lokal'));
     fireEvent.change(screen.getByTestId('modell-lokal'), { target: { value: 'gemma4:e4b' } });
@@ -727,6 +688,7 @@ describe('AppsSettings', () => {
     apiMock.put.mockResolvedValue({ data: {} });
     await oeffneApp();
 
+    await flowAufklappen();
     fireEvent.click(await screen.findByTestId('flow-modell-freigabe'));
     fireEvent.click(screen.getByTestId('modell-quelle-paket'));
     fireEvent.click(screen.getByTestId('modell-absenden'));
@@ -743,6 +705,7 @@ describe('AppsSettings', () => {
     apiMock.put.mockResolvedValue({ data: {} });
     await oeffneApp();
 
+    await flowAufklappen();
     fireEvent.click(await screen.findByTestId('flow-modell-freigabe'));
     fireEvent.click(screen.getByTestId('modell-quelle-extern'));
     fireEvent.change(screen.getByLabelText('Anbieter'), { target: { value: 'OpenAI' } });
@@ -771,6 +734,7 @@ describe('AppsSettings', () => {
     antworte();
     await oeffneApp();
 
+    await flowAufklappen();
     fireEvent.click(await screen.findByTestId('flow-modell-freigabe'));
     fireEvent.click(screen.getByTestId('modell-quelle-extern'));
     fireEvent.change(screen.getByLabelText('Anbieter'), { target: { value: 'OpenAI' } });
@@ -781,6 +745,7 @@ describe('AppsSettings', () => {
     antworte();
     await oeffneApp();
 
+    fireEvent.click(screen.getByTestId('laeufe-schalter'));
     fireEvent.click(await screen.findByTestId('lauf-oeffnen-42'));
 
     const schritte = await screen.findByTestId('lauf-schritte');
@@ -818,6 +783,7 @@ describe('AppsSettings', () => {
     apiMock.post.mockResolvedValue({ data: { ...offen, status: 'fertig' } });
     await oeffneApp();
 
+    fireEvent.click(screen.getByTestId('laeufe-schalter'));
     expect(await screen.findByText('nicht übergeben')).toBeInTheDocument();
     fireEvent.click(await screen.findByTestId('lauf-erneut-42'));
 
@@ -830,6 +796,7 @@ describe('AppsSettings', () => {
   it('bietet „erneut" bei einem uebergebenen Lauf nicht an', async () => {
     antworte();
     await oeffneApp();
+    fireEvent.click(screen.getByTestId('laeufe-schalter'));
     await screen.findByTestId('lauf-oeffnen-42');
     expect(screen.queryByTestId('lauf-erneut-42')).toBeNull();
   });
@@ -838,6 +805,7 @@ describe('AppsSettings', () => {
     antworte();
     await oeffneApp();
 
+    await flowAufklappen();
     fireEvent.click(await screen.findByTestId('flow-oeffnen-freigabe'));
 
     expect(await screen.findByTestId('flow-prompt')).toHaveTextContent('Tu dies.');
@@ -858,5 +826,238 @@ describe('AppsSettings', () => {
     apiMock.get.mockRejectedValue(new Error('weg'));
     render(<AppsSettings />, { wrapper: huelle() });
     expect(await screen.findByTestId('apps-fehler')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Die eine Seite je App (M5, Auftrag verwaltung-app-seite): Blöcke in fester
+ * Reihenfolge, „aktiv" je Flow, Personen mit Testpersonen, Verbindungen
+ * lesbar benannt und rot nur bei echter Störung.
+ */
+describe('Die Seite einer App (M5)', () => {
+  const ANNA = {
+    id: 5,
+    username: 'anna',
+    vorname: 'Anna',
+    nachname: 'Berg',
+    role: 'mitarbeiter',
+    is_active: true,
+  };
+  const BEN = { ...ANNA, id: 6, username: 'ben', vorname: 'Ben', nachname: 'Kurz' };
+  const FLOW_M5 = {
+    ...FLOW,
+    aktiv: true,
+    schritte: [
+      { name: 'lesen', typ: 'werkzeug', werkzeug: 'bild_lesen' },
+      { name: 'pruefen', typ: 'subagent', rolle: 'pruefer' },
+    ],
+    ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * * 1-5' }],
+    stufen: [{ name: 'pruefung', bezeichnung: 'Prüfung' }],
+  };
+  const DETAIL_M5 = {
+    ...APP_DETAIL,
+    staende: {
+      live: { ...APP_DETAIL.staende.live, flows: [FLOW_M5] },
+      test: { ...APP_DETAIL.staende.test, flows: [FLOW_M5] },
+    },
+  };
+  const AUSGANG = {
+    data: {
+      apps: [
+        {
+          id: 'beispielapp',
+          name: 'Beispielapp',
+          eingetragen: [
+            { host: 'api.example.org', staende: ['live', 'test'] },
+            { host: 'api.openai.com', staende: ['live'] },
+          ],
+          genutzt: [
+            {
+              host: 'api.example.org',
+              anzahl: 4,
+              zuletzt: '2026-10-04T08:00:00Z',
+              staende: ['live'],
+            },
+          ],
+          abgewiesen: [
+            {
+              host: 'api.openai.com',
+              anzahl: 2,
+              zuletzt: '2026-10-04T09:00:00Z',
+              staende: ['live'],
+              stoerung: true,
+            },
+            {
+              host: 'boese.example',
+              anzahl: 3,
+              zuletzt: '2026-10-04T09:30:00Z',
+              staende: ['live'],
+              stoerung: false,
+            },
+          ],
+        },
+      ],
+      plattform: { genutzt: [] },
+    },
+  };
+
+  function antworteM5(zusatz: Record<string, unknown> = {}) {
+    antworte({
+      '/apps/beispielapp': { data: DETAIL_M5 },
+      '/benutzer': { data: [ANNA, BEN] },
+      '/freigaben': {
+        data: [
+          { app_id: 'beispielapp', user_id: '5', stand: 'test' },
+          { app_id: 'beispielapp', user_id: '6', stand: 'live' },
+        ],
+      },
+      '/ausgang': AUSGANG,
+      ...zusatz,
+    });
+  }
+
+  beforeEach(() => {
+    apiMock.get.mockReset();
+    apiMock.post.mockReset();
+    apiMock.put.mockReset();
+    apiMock.del.mockReset();
+    toast.success.mockReset();
+  });
+
+  it('zeigt die Blöcke in der Reihenfolge des Auftrags', async () => {
+    antworteM5();
+    const seite = await oeffneApp();
+    const titel = within(seite)
+      .getAllByRole('heading', { level: 2 })
+      .map(h => h.textContent?.trim());
+    expect(titel).toEqual([
+      'Zustand',
+      'Fassungen',
+      'Personen',
+      'Freigabestufen',
+      'Flows',
+      'Verbindungen',
+      'Läufe',
+      'KI-Aufrufe',
+      'Protokoll',
+    ]);
+  });
+
+  it('sagt den Zustand in einem Satz, mit Personen und aktiven Flows', async () => {
+    antworteM5();
+    await oeffneApp();
+    expect(screen.getByTestId('app-zustand-satz')).toHaveTextContent(
+      'Läuft mit Fassung 1.0.0. Im Test wartet Fassung 1.1.0.'
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('app-zustand-zahlen')).toHaveTextContent(
+        '2 Personen mit Zugang, davon 1 Testperson · 1 von 1 Flow aktiv'
+      )
+    );
+    // Die abgewiesene, eingetragene Verbindung hindert die App: rot, ein Satz.
+    await waitFor(() =>
+      expect(screen.getByTestId('app-zustand-stoerung')).toHaveTextContent(
+        'Die Verbindung zu OpenAI wird abgewiesen.'
+      )
+    );
+  });
+
+  it('schaltet einen Flow mit „aktiv" aus', async () => {
+    antworteM5();
+    apiMock.put.mockResolvedValue({ data: { aktiv: false } });
+    await oeffneApp();
+    const schalter = await screen.findByTestId('flow-aktiv-freigabe');
+    expect(schalter).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(schalter);
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith('/apps/beispielapp/flows/freigabe/aktiv', {
+        aktiv: false,
+      })
+    );
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/startet nicht/))
+    );
+  });
+
+  it('zeigt einen ausgeschalteten Flow als aus', async () => {
+    antworteM5({
+      '/apps/beispielapp': {
+        data: {
+          ...DETAIL_M5,
+          staende: {
+            live: { ...DETAIL_M5.staende.live, flows: [{ ...FLOW_M5, aktiv: false }] },
+            test: null,
+          },
+        },
+      },
+    });
+    await oeffneApp();
+    expect(await screen.findByTestId('flow-freigabe')).toHaveAttribute('data-aktiv', 'false');
+    expect(screen.getByTestId('flow-aus-freigabe')).toHaveTextContent('aus, startet nicht');
+    expect(screen.getByTestId('flow-aktiv-freigabe')).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('nennt Auslöser und Schritte in einem Satz, die Schritte klappen auf', async () => {
+    antworteM5();
+    await oeffneApp();
+    expect(await screen.findByTestId('flow-ablauf-freigabe')).toHaveTextContent(
+      'Startet werktags um 06:00 · 2 Schritte'
+    );
+    expect(screen.queryByTestId('flow-schritte-freigabe')).toBeNull();
+    await flowAufklappen();
+    const schritte = await screen.findByTestId('flow-schritte-freigabe');
+    expect(schritte).toHaveTextContent('1. lesen (Werkzeug bild_lesen)');
+    expect(schritte).toHaveTextContent('2. pruefen (Rolle pruefer)');
+    expect(screen.getByTestId('flow-mehr-freigabe')).toHaveTextContent('Prüfung');
+  });
+
+  it('nennt Personen beim Namen und schaltet Zugang und Testperson', async () => {
+    antworteM5();
+    apiMock.post.mockResolvedValue({ data: {} });
+    await oeffneApp();
+    const anna = await screen.findByTestId('person-beispielapp-anna');
+    expect(anna).toHaveTextContent('Anna Berg');
+    expect(screen.getByTestId('person-test-beispielapp-anna')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    fireEvent.click(screen.getByTestId('person-test-beispielapp-ben'));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/freigaben', {
+        app_id: 'beispielapp',
+        benutzer_id: 6,
+        stand: 'test',
+      })
+    );
+  });
+
+  it('benennt Verbindungen lesbar, Adressen aufgeklappt, rot nur bei Störung', async () => {
+    antworteM5();
+    await oeffneApp();
+    const example = await screen.findByTestId('verbindung-api.example.org');
+    expect(example).toHaveTextContent('Example');
+    expect(example).toHaveTextContent('4× genutzt');
+    // Die Adresse ist Technik: erst aufgeklappt.
+    expect(example).not.toHaveTextContent('api.example.org');
+    expect(example).not.toHaveAttribute('data-stoerung');
+    fireEvent.click(screen.getByTestId('verbindung-mehr-api.example.org-knopf'));
+    expect(await screen.findByTestId('verbindung-mehr-api.example.org')).toHaveTextContent(
+      'api.example.org'
+    );
+
+    const openai = screen.getByTestId('verbindung-api.openai.com');
+    expect(openai).toHaveAttribute('data-stoerung', 'true');
+    expect(screen.getByTestId('verbindung-stoerung-api.openai.com')).toHaveClass(
+      'text-destructive'
+    );
+
+    // Ein nicht eingetragener, abgewiesener Name ist die Aufgabe des Proxys:
+    // grau und zugeklappt, nicht rot.
+    expect(screen.queryByTestId('abgewiesen-boese.example')).toBeNull();
+    const knopf = screen.getByTestId('verbindungen-abgewiesen-knopf');
+    expect(knopf).toHaveTextContent('Abgewiesen: 1 Adresse');
+    expect(knopf).not.toHaveClass('text-destructive');
+    fireEvent.click(knopf);
+    expect(await screen.findByTestId('abgewiesen-boese.example')).toHaveTextContent('3×');
   });
 });

@@ -1077,27 +1077,27 @@ steht in ihrem Manifest `app.json` — die Felder erklärt
 Je App gibt es zwei Stände: `live` für alle Freigegebenen, `test` für die
 benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 
-| Method | Endpoint                             | Description                                                                                |
-| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/apps`                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                               |
-| GET    | `/api/apps/meine`                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                         |
-| GET    | `/api/apps/:id`                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                 |
-| POST   | `/api/apps/:id/einspielen`           | Eine Version in einen Stand bringen                                                        |
+| Method | Endpoint                             | Description                                                                                                   |
+| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/apps`                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                                                  |
+| GET    | `/api/apps/meine`                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                                            |
+| GET    | `/api/apps/:id`                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                                    |
+| POST   | `/api/apps/:id/einspielen`           | Eine Version in einen Stand bringen                                                                           |
 | DELETE | `/api/apps/:id`                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen) |
-| GET    | `/api/apps/:id/logs`                 | Die letzten Zeilen des App-Backends                                                        |
-| GET    | `/api/apps/:id/zugang`               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                              |
-| GET    | `/api/apps/:id/flows`                | Die Flows beider Stände, mit dem Modell, das sie treibt                                    |
-| GET    | `/api/apps/:id/flows/:name`          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                              |
-| PUT    | `/api/apps/:id/flows/:name/modell`   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                             |
-| PUT    | `/api/apps/:id/flows/:name/art`      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                   |
-| PUT    | `/api/apps/:id/flows/:name/aktiv`    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)              |
-| GET    | `/api/apps/:id/stufen`               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)         |
-| PUT    | `/api/apps/:id/stufen/:stufe`        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)          |
-| GET    | `/api/apps/:id/laeufe`               | Die Flow-Läufe dieser App (Phase D4)                                                       |
-| GET    | `/api/apps/:id/laeufe/:runId`        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                        |
-| POST   | `/api/apps/:id/laeufe/:runId/erneut` | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)   |
-| GET    | `/api/apps/:id/ki-aufrufe`           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                           |
-| POST   | `/api/apps/:id/schalten`             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                   |
+| GET    | `/api/apps/:id/logs`                 | Die letzten Zeilen des App-Backends                                                                           |
+| GET    | `/api/apps/:id/zugang`               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                                                 |
+| GET    | `/api/apps/:id/flows`                | Die Flows beider Stände, mit dem Modell, das sie treibt                                                       |
+| GET    | `/api/apps/:id/flows/:name`          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                                                 |
+| PUT    | `/api/apps/:id/flows/:name/modell`   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                                                |
+| PUT    | `/api/apps/:id/flows/:name/art`      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                      |
+| PUT    | `/api/apps/:id/flows/:name/aktiv`    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                 |
+| GET    | `/api/apps/:id/stufen`               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                            |
+| PUT    | `/api/apps/:id/stufen/:stufe`        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                             |
+| GET    | `/api/apps/:id/laeufe`               | Die Flow-Läufe dieser App (Phase D4)                                                                          |
+| GET    | `/api/apps/:id/laeufe/:runId`        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                                           |
+| POST   | `/api/apps/:id/laeufe/:runId/erneut` | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                      |
+| GET    | `/api/apps/:id/ki-aufrufe`           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                                              |
+| POST   | `/api/apps/:id/schalten`             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                                      |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 

@@ -1,44 +1,49 @@
 /**
- * Eine App, wie ihr Verwalter sie sieht (Phase D4).
+ * Die Seite einer App in der Verwaltung (Phase D4, seit M5 die EINE Seite je
+ * App, Auftrag verwaltung-app-seite).
  *
- * Fünf Abschnitte, und jeder beantwortet eine Frage, die ein Administrator
- * wirklich stellt:
+ * Alles, was eine App tut und darf, steht hier untereinander, in dieser
+ * Reihenfolge und nirgends sonst in der Oberfläche:
  *
- *   Stände   welche Fassung läuft wo, ist sie gesund — und: live schalten
- *   Tester   wer sieht den Teststand
- *   Stufen   wer wird je Freigabestufe zuerst gefragt (M5)
- *   Flows    was kann diese App, und womit rechnet sie
- *   Läufe    was hat sie getan
- *   KI       welches Modell hat sie wann für wen gefragt, auch ohne Flow (J35)
- *   Logs     was sagt ihr Container
+ *   Zustand          ein Satz, rot nur, wenn sie deshalb nicht arbeiten kann
+ *   Fassungen        Test und Live mit dem Änderungstext, Live schalten, zurück
+ *   Personen         wer Zugang hat und wer davon Testperson ist
+ *   Freigabestufen   wer je Stufe zuerst gefragt wird
+ *   Flows            Schritte, Art, Auslöser, Schalter „aktiv"
+ *   Verbindungen     wohin sie ins Internet darf, lesbar benannt
  *
- * Flow und Lauf ÖFFNEN SICH AN DERSELBEN STELLE statt in einem Dialog: beide
- * sind zum Lesen da, beide können lang sein, und ein Dialog über einer Seite,
- * die man daneben braucht, ist die schlechtere Fläche. Der Weg zurück ist ein
- * Knopf, wie in der Modell-Detailseite (Plan 012).
+ * Darunter, erst auf „Zeigen": Läufe, Modellaufrufe und Protokoll. Flow und
+ * Lauf ÖFFNEN SICH AN DERSELBEN STELLE statt in einem Dialog: beide sind zum
+ * Lesen da und können lang sein. Der Weg zurück ist ein Knopf.
  */
 import { useState } from 'react';
 import {
+  Activity,
   AppWindow,
   Brain,
   ClipboardCheck,
   FileText,
+  Globe,
   ListOrdered,
   ScrollText,
   Trash2,
   Users,
 } from 'lucide-react';
-import { Button, cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@marken';
+import { Button, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import type { ApiError } from '@/hooks/useApi';
 import { formatDate } from '@/utils/formatting';
 import type { Stand } from '../personen/useAppFreigaben';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
+import { AppFlows } from './AppFlows';
+import { AppPersonen } from './AppPersonen';
 import { AppStaende } from './AppStaende';
 import { AppStufen } from './AppStufen';
-import { AppTester } from './AppTester';
-import { FlowAnsicht, ModellZeile } from './FlowAnsicht';
+import { AppVerbindungen } from './AppVerbindungen';
+import { AppZustand } from './AppZustand';
+import { KlappGruppe } from './Aufklappen';
+import { FlowAnsicht } from './FlowAnsicht';
 import { KiAufrufe } from './KiAufrufe';
 import { LiveSchaltenDialog } from './LiveSchaltenDialog';
 import { ErneutKnopf, LaufAnsicht, LaufZustand } from './LaufAnsicht';
@@ -50,9 +55,6 @@ import {
   useEntfernen,
   useKiAufrufe,
   useFlowModell,
-  useFlowArt,
-  FLOW_ART_NAME,
-  type FlowArt,
   useKurzliste,
   useSchalten,
   type AppFlow,
@@ -91,34 +93,106 @@ function StandWahl({
             stand === s ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground'
           )}
         >
-          {s === 'live' ? 'Livestand' : 'Teststand'}
+          {s === 'live' ? 'Live' : 'Test'}
         </button>
       ))}
     </div>
   );
 }
 
+/** Die Läufe der App, erst geholt, wenn der Block offen ist. */
+function Laeufe({ appId, onOeffnen }: { appId: string; onOeffnen: (id: number) => void }) {
+  const { data: laeufe, isLoading } = useAppLaeufe(appId);
+  if (isLoading) return <SkeletonText lines={3} />;
+  if (!laeufe || laeufe.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="laeufe-leer">
+        Noch kein Lauf. Die App startet ihre Flows selbst, über ihren Schlüssel.
+      </p>
+    );
+  }
+  return (
+    <ul className="flex flex-col rounded-md border border-border" data-testid="lauf-liste">
+      {laeufe.map(l => (
+        <li key={l.id} className="flex items-center border-b border-border last:border-b-0">
+          <button
+            type="button"
+            onClick={() => onOeffnen(l.id)}
+            data-testid={`lauf-oeffnen-${l.id}`}
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-ui-3 text-left transition-colors duration-120 hover:bg-accent/40 motion-reduce:transition-none"
+          >
+            <span className="font-mono text-ui-xs text-muted-foreground">#{l.id}</span>
+            <span className="text-sm font-medium text-foreground">{l.flow_name}</span>
+            <LaufZustand status={l.status} />
+            {l.stand === 'test' && (
+              <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs text-muted-foreground">
+                (Test)
+              </span>
+            )}
+            <span className="ml-auto text-ui-xs text-muted-foreground">
+              {formatDate(l.created_at)}
+            </span>
+          </button>
+          {l.status === 'nicht_uebergeben' && (
+            <span className="shrink-0 pr-ui-3">
+              <ErneutKnopf appId={appId} runId={l.id} />
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function KiAufrufeAbfrage({ appId }: { appId: string }) {
+  const { data } = useKiAufrufe(appId);
+  return <KiAufrufe aufrufe={data} />;
+}
+
+/** Die Logs, erst auf „Zeigen": ein Aufruf an den Docker-Proxy und ein paar Dutzend Kilobyte. */
+function Protokoll({
+  appId,
+  stand,
+  hatBackend,
+}: {
+  appId: string;
+  stand: Stand;
+  hatBackend: boolean;
+}) {
+  const { data: logs, isFetching } = useAppLogs(appId, stand, hatBackend);
+  if (!hatBackend) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Diese App hat keinen Server-Teil, der etwas aufschreiben könnte.
+      </p>
+    );
+  }
+  if (isFetching && !logs) return <SkeletonText lines={4} />;
+  return (
+    <pre
+      className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 font-mono text-ui-xs text-foreground"
+      data-testid="app-logs"
+    >
+      {logs || '(keine Ausgabe)'}
+    </pre>
+  );
+}
+
 export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () => void }) {
   const toast = useToast();
   const { data: app, isLoading, isError } = useApp(appId);
-  const { data: laeufe } = useAppLaeufe(appId);
-  const { data: kiAufrufe } = useKiAufrufe(appId);
   const schalten = useSchalten(appId);
   const entfernen = useEntfernen(appId);
   const modellSetzen = useFlowModell(appId);
-  const artSetzen = useFlowArt(appId);
   // Die Kurzliste des Geräts — dieselbe Abfrage wie die Ansicht „Modelle",
   // über denselben Schlüssel: React Query holt sie nicht zweimal.
   const { data: modelle } = useKurzliste();
 
   const [blick, setBlick] = useState<Blick>({ was: 'app' });
   const [stand, setStand] = useState<Stand>('live');
-  const [logsAn, setLogsAn] = useState(false);
   const [modellFuer, setModellFuer] = useState<AppFlow | FlowDefinition | null>(null);
   const [entfernenOffen, setEntfernenOffen] = useState(false);
   const [liveFrage, setLiveFrage] = useState(false);
-
-  const { data: logs, isFetching: logsLaden } = useAppLogs(appId, stand, logsAn);
 
   if (isLoading) return <SkeletonText lines={6} />;
   if (isError || !app) {
@@ -198,16 +272,6 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
     );
   };
 
-  const handleArt = (flow: AppFlow, art: FlowArt) => {
-    artSetzen.mutate(
-      { flow: flow.name, art },
-      {
-        onSuccess: () =>
-          toast.success(`„${flow.name}" läuft ab dem nächsten Lauf: ${FLOW_ART_NAME[art]}.`),
-      }
-    );
-  };
-
   if (blick.was === 'flow') {
     return (
       <>
@@ -268,10 +332,14 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
       </div>
 
       <Formularseite>
+        <Feldgruppe titel="Zustand" symbol={<Activity />}>
+          <AppZustand app={app} />
+        </Feldgruppe>
+
         <Feldgruppe
-          titel="Stände"
+          titel="Fassungen"
           symbol={<AppWindow />}
-          beschreibung="Eine neue Fassung kommt zuerst in Test; Live schaltet ein Administrator."
+          beschreibung="Eine neue Fassung kommt zuerst in Test. Live schalten Sie; vorher sichert Arasul die Daten der App."
         >
           <AppStaende
             staende={app.staende}
@@ -282,11 +350,13 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         </Feldgruppe>
 
         <Feldgruppe
-          titel="Tester"
+          titel="Personen"
           symbol={<Users />}
-          beschreibung="Wer diese App sieht, und wer davon zusätzlich Test bekommt."
+          beschreibung={
+            'Wer die App benutzt. Testpersonen sehen zusätzlich die Testfassung, als „(Test)“ in ihrer Leiste.'
+          }
         >
-          <AppTester appId={appId} hatTeststand={Boolean(app.staende.test)} />
+          <AppPersonen appId={appId} hatTeststand={Boolean(app.staende.test)} />
         </Feldgruppe>
 
         <Feldgruppe
@@ -300,170 +370,57 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         <Feldgruppe
           titel="Flows"
           symbol={<FileText />}
-          beschreibung="Was die App kann. Die Dateien kommen aus ihrem Paket; Modell und Art entscheiden Sie. Eine neue Art gilt ab dem nächsten Lauf."
+          beschreibung="Was die App selbst tut. Aus heißt: der Flow startet nicht. Eine neue Art gilt ab dem nächsten Lauf."
           aktion={
             <StandWahl stand={stand} setStand={setStand} hatTest={Boolean(app.staende.test)} />
           }
         >
-          {!detail || detail.flows.length === 0 ? (
-            <p className="text-sm text-muted-foreground" data-testid="flows-leer">
-              Dieser Stand bringt keine Flows mit.
-            </p>
-          ) : (
-            <ul className="flex flex-col rounded-md border border-border" data-testid="flow-liste">
-              {detail.flows.map(f => (
-                <li
-                  key={f.name}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-ui-3 last:border-b-0"
-                  data-testid={`flow-${f.name}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setBlick({ was: 'flow', name: f.name, stand: gezeigterStand })}
-                    className="min-w-0 flex-1 text-left"
-                    data-testid={`flow-oeffnen-${f.name}`}
-                  >
-                    <span className="block text-sm font-medium text-foreground">{f.name}</span>
-                    {f.beschreibung && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {f.beschreibung}
-                      </span>
-                    )}
-                    <ModellZeile
-                      modell={f.modell}
-                      ueberschrieben={f.modell_ueberschrieben}
-                      extern={f.extern}
-                    />
-                  </button>
-                  {f.arten.length > 1 ? (
-                    <Select
-                      value={f.art}
-                      disabled={artSetzen.isPending}
-                      onValueChange={wert => handleArt(f, wert as FlowArt)}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="w-48"
-                        aria-label={`Art des Flows ${f.name}`}
-                        data-testid={`flow-art-${f.name}`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {f.arten.map(a => (
-                          <SelectItem key={a} value={a} data-testid={`flow-art-${f.name}-${a}`}>
-                            {FLOW_ART_NAME[a]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span
-                      className="text-ui-xs text-muted-foreground"
-                      data-testid={`flow-art-fest-${f.name}`}
-                    >
-                      {FLOW_ART_NAME[f.art]}
-                    </span>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setModellFuer(f)}
-                    data-testid={`flow-modell-${f.name}`}
-                  >
-                    Modell
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <AppFlows
+            appId={appId}
+            flows={detail?.flows ?? []}
+            stand={gezeigterStand}
+            onModell={setModellFuer}
+            onOeffnen={(name, st) => setBlick({ was: 'flow', name, stand: st })}
+          />
         </Feldgruppe>
 
         <Feldgruppe
+          titel="Verbindungen"
+          symbol={<Globe />}
+          beschreibung="Wohin die App ins Internet darf. Was sie nicht eingetragen hat, lässt das Gerät nicht hinaus."
+        >
+          <AppVerbindungen
+            appId={appId}
+            flows={[...(app.staende.live?.flows ?? []), ...(app.staende.test?.flows ?? [])]}
+          />
+        </Feldgruppe>
+
+        <KlappGruppe
           titel="Läufe"
           symbol={<ListOrdered />}
           beschreibung="Was diese App hat laufen lassen, mit Schritten und Gedankengang."
+          kennzeichen="laeufe"
         >
-          {!laeufe || laeufe.length === 0 ? (
-            <p className="text-sm text-muted-foreground" data-testid="laeufe-leer">
-              Noch kein Lauf. Die App startet ihre Flows selbst, über ihren Schlüssel.
-            </p>
-          ) : (
-            <ul className="flex flex-col rounded-md border border-border" data-testid="lauf-liste">
-              {laeufe.map(l => (
-                <li key={l.id} className="flex items-center border-b border-border last:border-b-0">
-                  <button
-                    type="button"
-                    onClick={() => setBlick({ was: 'lauf', id: l.id })}
-                    data-testid={`lauf-oeffnen-${l.id}`}
-                    className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-ui-3 text-left hover:bg-accent/40"
-                  >
-                    <span className="font-mono text-ui-xs text-muted-foreground">#{l.id}</span>
-                    <span className="text-sm font-medium text-foreground">{l.flow_name}</span>
-                    <LaufZustand status={l.status} />
-                    {l.stand === 'test' && (
-                      <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 text-ui-xs text-muted-foreground">
-                        Test
-                      </span>
-                    )}
-                    <span className="ml-auto text-ui-xs text-muted-foreground">
-                      {formatDate(l.created_at)}
-                    </span>
-                  </button>
-                  {l.status === 'nicht_uebergeben' && (
-                    <span className="shrink-0 pr-ui-3">
-                      <ErneutKnopf appId={appId} runId={l.id} />
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Feldgruppe>
+          <Laeufe appId={appId} onOeffnen={id => setBlick({ was: 'lauf', id })} />
+        </KlappGruppe>
 
-        <Feldgruppe
+        <KlappGruppe
           titel="KI-Aufrufe"
           symbol={<Brain />}
           beschreibung="Jeder Modellaufruf dieser App, auch ohne Flow: wann, für wen, welches Modell, wie lange. Ohne Inhalt."
+          kennzeichen="ki-aufrufe"
         >
-          <KiAufrufe aufrufe={kiAufrufe} />
-        </Feldgruppe>
+          <KiAufrufeAbfrage appId={appId} />
+        </KlappGruppe>
 
-        <Feldgruppe
+        <KlappGruppe
           titel="Protokoll"
           symbol={<ScrollText />}
           beschreibung="Die letzten 200 Zeilen, die die App über sich aufgeschrieben hat."
-          aktion={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLogsAn(a => !a)}
-              data-testid="logs-schalter"
-            >
-              {logsAn ? 'Zuklappen' : 'Protokoll zeigen'}
-            </Button>
-          }
+          kennzeichen="logs"
         >
-          {!logsAn ? (
-            // Erst auf Klick, und das ist kein Geiz: die Logs sind ein Aufruf
-            // an den Docker-Proxy und ein paar Dutzend Kilobyte. Wer eine App
-            // anschaut, will sie meistens nicht sehen.
-            <p className="text-sm text-muted-foreground">
-              {detail?.backend
-                ? 'Ausgeblendet, bis Sie sie brauchen.'
-                : 'Diese App hat keinen Server-Teil, der etwas aufschreiben könnte.'}
-            </p>
-          ) : logsLaden ? (
-            <SkeletonText lines={4} />
-          ) : (
-            <pre
-              className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border p-ui-3 font-mono text-ui-xs text-foreground"
-              data-testid="app-logs"
-            >
-              {logs || '(keine Ausgabe)'}
-            </pre>
-          )}
-        </Feldgruppe>
+          <Protokoll appId={appId} stand={gezeigterStand} hatBackend={Boolean(detail?.backend)} />
+        </KlappGruppe>
       </Formularseite>
 
       <ModellDialog

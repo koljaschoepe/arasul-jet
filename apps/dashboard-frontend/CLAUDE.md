@@ -88,17 +88,28 @@ src/
                      kommt aufgeklappt an).
                    - **Modelle**: `features/modelle/`, von der Shell als
                      Slot `modelle` hereingereicht.
-                   - **Apps** (`AppsSettings.tsx` + `apps/`): Liste, Stände
-                     mit Schalter (`AppStaende.tsx`), Bibliotheksfassung je
-                     Stand mit Warnung bei älter/fehlend (`Bibliothek.tsx`),
-                     Tester (`AppTester.tsx`), Freigabestufen mit
-                     Standardperson je Stufe und Hinweis ohne sie
-                     (`AppStufen.tsx`, M5), Flows mit Modell
-                     (`FlowAnsicht.tsx`, `ModellDialog.tsx`), Läufe mit
-                     Schritten/Gedankengang (`LaufAnsicht.tsx`), Logs.
-                     Abfragen/Mutationen in `apps/useAppVerwaltung.ts`.
-                     Verwaltungs-Sicht auf eine App; `features/apps/` ist die
-                     Nutzer-Sicht — zwei Ordner, zwei Fragen, dasselbe Wort.
+                   - **Apps** (`AppsSettings.tsx` + `apps/`): Liste mit
+                     einem Satz je App und höchstens dem Tag „(Test)"; je
+                     App GENAU EINE Seite (`AppAnsicht.tsx`, M5, Adresse
+                     `/workspace/verwaltung/apps/<kennung>` über
+                     `abschnitt`) mit den Blöcken in fester Reihenfolge:
+                     Zustand (`AppZustand.tsx`), Fassungen mit Live
+                     schalten und zurück (`AppStaende.tsx`,
+                     `LiveSchaltenDialog.tsx`, Technik aufgeklappt),
+                     Personen mit Testpersonen (`AppPersonen.tsx`),
+                     Freigabestufen (`AppStufen.tsx`), Flows mit Schalter
+                     „aktiv", Art, Auslöser und Schritten
+                     (`AppFlows.tsx`, Datei in `FlowAnsicht.tsx`, Modell
+                     in `ModellDialog.tsx`), Verbindungen lesbar benannt
+                     (`AppVerbindungen.tsx`, `useVerbindungen.ts`, rot nur
+                     bei `stoerung`); darunter auf „Zeigen" Läufe
+                     (`LaufAnsicht.tsx`), KI-Aufrufe, Protokoll
+                     (`Aufklappen.tsx`). Abfragen/Mutationen in
+                     `apps/useAppVerwaltung.ts`. Apps, Flows und
+                     Verbindungen gibt es nirgends sonst in der Oberfläche
+                     (die Tabelle Apps unter Personen schaltet dieselben
+                     Freigaben). `features/apps/` ist die Nutzer-Sicht —
+                     zwei Ordner, zwei Fragen, dasselbe Wort.
                    - **Personen** (`PersonenSettings.tsx` +
                      `personen/`, M5; ersetzt den Reiter „Mitarbeiter",
                      Tieflink bleibt `?tab=benutzer`): Liste mit Bild und

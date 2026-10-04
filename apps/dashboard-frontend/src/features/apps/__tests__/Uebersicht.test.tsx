@@ -104,13 +104,14 @@ describe('Uebersicht', () => {
 
   /** Der Teststand-Hinweis fuer Tester (D2): das Wort „Test" allein sagt nicht,
    *  was daran anders ist. */
-  it('nennt am Teststand, was ein Teststand ist', async () => {
+  it('nennt die Testfassung „(Test) Name", wie die Leiste (M5)', async () => {
     antworten({
       apps: [{ ...URLAUB, test: { version: '1.3.0', pfad: '/apps/urlaub/' } }],
     });
     render(<Uebersicht />, { wrapper: huelle() });
     const kachel = await screen.findByTestId('uebersicht-app-urlaub-test');
-    expect(kachel.querySelector('[title*="noch nicht live"]')).toBeTruthy();
+    expect(kachel).toHaveTextContent(new RegExp(`^\\(Test\\) ${URLAUB.name}`));
+    expect(screen.getByTestId('uebersicht-app-urlaub-live')).not.toHaveTextContent('(Test)');
   });
 
   // J36: eine Zahl an der App, keine Liste und keine Fassung.

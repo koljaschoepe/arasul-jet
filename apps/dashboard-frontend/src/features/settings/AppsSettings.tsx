@@ -1,5 +1,5 @@
 /**
- * Apps: die Verwaltung des Geräts (Phase D4 des Umbaus vom 26.08.2026).
+ * Apps: die Verwaltung des Geräts (Phase D4, seit M5 eine Seite je App).
  *
  * Bis D4 gab es zwei Sichten auf eine App und beide waren unvollständig: die
  * linke Spalte der Shell zeigte einem Menschen, was ihm freigegeben ist (D1),
@@ -7,13 +7,10 @@
  * fehlte, ist die Sicht dessen, der das Gerät betreibt: welche Fassung läuft
  * wo, ist ihr Container gesund, was kann sie, was hat sie getan.
  *
- * WARUM DIE SEITE IN DEN EINSTELLUNGEN LIEGT und nicht als eigener Knopf in
- * der Aktivitätsleiste: dieselbe Begründung wie bei den Mitarbeitern (D3). Die
- * Leiste trägt die Ansichten, mit denen jemand ARBEITET — die Apps dort sind
- * die eigenen, in der Mitte im iframe. Das Zahnrad darunter trägt alles, womit
- * er das GERÄT einrichtet, und „welche Fassung ist live" gehört dorthin. Ein
- * zweiter Apps-Eintrag in der Leiste hieße außerdem: zwei Knöpfe mit
- * demselben Wort und zwei verschiedenen Bedeutungen.
+ * SEIT M5 (Auftrag verwaltung-app-seite) steht alles, was eine App tut und
+ * darf, auf GENAU EINER Seite (`apps/AppAnsicht.tsx`), auch ihre Verbindungen
+ * ins Internet, die bis dahin ein eigener Bereich waren. Die Seite hat eine
+ * Adresse: `/workspace/verwaltung/apps/<kennung>`.
  *
  * Die Rolle blendet aus, das Backend entscheidet: jeder Weg dieser Seite trägt
  * `requireRole('admin')` und antwortet einem Mitarbeiter mit 403, ob die Seite
@@ -21,67 +18,30 @@
  */
 import { useState } from 'react';
 import { AppWindow, ChevronRight } from 'lucide-react';
-import { Kopf } from '@marken';
+import { Kopf, Leerzustand } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { AppAnsicht } from './apps/AppAnsicht';
-import { Bibliothek, bibliothekBefund } from './apps/Bibliothek';
-import { useAlleApps, type AppZeile, type StandKurz } from './personen/useAppFreigaben';
-import { Leerzustand } from '@marken';
+import { useAlleApps, type AppZeile } from './personen/useAppFreigaben';
 
 /**
- * Die Spalte Bibliothek einer Zeile (Auftrag geraet-zeigt-bibliotheksstand,
- * 08.09.2026): auf welcher Fassung des Designsystems die App steht, und eine
- * Warnung, wenn sie älter ist als die des Geräts oder fehlt — bei Apps mit
- * Frontend. Ohne Sicht darauf merkt niemand, dass eine App seit Monaten auf
- * einer alten Bibliothek steht; in der Karte nach dem Klick stand es seit H6,
- * aber dort klickt nur, wer schon etwas sucht.
- *
- * Sagen beide Stände dasselbe, steht es einmal da. Sonst je Stand mit seinem
- * Namen davor — ein Teststand auf der neuen Bibliothek neben einem Livestand
- * auf der alten ist genau das Bild vor dem Live-Schalten.
+ * Eine App in der Liste: Name, ein Satz zum Zustand, höchstens ein Tag. Die
+ * Fassungen und die Bibliothek stehen auf der Seite der App; hier steht nur,
+ * was man vor dem Klick wissen muss (M5: „höchstens ein Tag: (Test)").
  */
-function BibliothekSpalte({ app }: { app: AppZeile }) {
-  const staende = (['live', 'test'] as const)
-    .map(stand => [stand, app.staende[stand]] as const)
-    .filter((paar): paar is readonly ['live' | 'test', StandKurz] => paar[1] !== null);
-  const erster = staende[0];
-  if (!erster) {
-    return null;
-  }
-  const hatFrontend = (stand: StandKurz) => stand.dateien.frontend !== null;
-  const befunde = staende.map(([, stand]) => bibliothekBefund(stand.marken, hatFrontend(stand)));
-  const einer = befunde.length === 1 || JSON.stringify(befunde[0]) === JSON.stringify(befunde[1]);
-  const zeigen = einer ? [erster] : staende;
-
-  return (
-    <span
-      className="flex shrink-0 flex-wrap items-center gap-1.5 text-ui-xs"
-      data-testid={`app-bibliothek-${app.id}`}
-    >
-      <span className="text-muted-foreground">Bibliothek</span>
-      {zeigen.map(([stand, detail]) => (
-        <span key={stand} className="inline-flex items-center gap-1">
-          {!einer && <span className="text-muted-foreground">{stand}</span>}
-          <Bibliothek
-            knapp
-            fassung={detail.marken}
-            hatFrontend={hatFrontend(detail)}
-            data-testid={`app-bibliothek-${app.id}-${stand}`}
-          />
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** Eine App in der Liste: Name, Kennung, die zwei Fassungen, die Bibliothek. */
 function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => void }) {
+  const { live, test } = app.staende;
+  const mangel = live?.lieferbar === false || test?.lieferbar === false;
+  const satz = !live
+    ? 'Noch nicht live'
+    : test
+      ? `Live ${live.version}, im Test ${test.version}`
+      : `Live ${live.version}`;
   return (
     <button
       type="button"
       onClick={onOeffnen}
       data-testid={`app-oeffnen-${app.id}`}
-      className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-border p-ui-3 text-left transition-colors last:border-b-0 hover:bg-accent/40"
+      className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-border p-ui-3 text-left transition-colors duration-120 last:border-b-0 hover:bg-accent/40 motion-reduce:transition-none"
     >
       <AppWindow className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="min-w-0 flex-[1_1_10rem]">
@@ -90,48 +50,50 @@ function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => voi
           {app.beschreibung || app.id}
         </span>
       </span>
-      {/* Beide Fassungen nebeneinander: die Frage vor dem Klick lautet fast
-          immer „steht im Test etwas Neues". Bei 390 px rutschen sie unter den
-          Namen, statt die Zeile breiter zu machen als die Spalte (Phase D5,
-          Fund der D4-Abnahme). */}
-      <span className="flex shrink-0 flex-wrap items-center gap-1.5 text-ui-xs">
-        {app.staende.live ? (
-          <span className="rounded bg-accent px-1.5 py-0.5 font-mono text-foreground">
-            live {app.staende.live.version}
+      <span className="flex shrink-0 flex-wrap items-center gap-2 text-ui-xs">
+        {/* Ein Stand, der nicht ausgeliefert werden kann, ist rot schon in der
+            Liste (Auftrag app-leiche): ein Mensch klickt auf die Kachel und
+            bekommt nichts. Sonst ein Satz in Grau. */}
+        {mangel ? (
+          <span className="font-medium text-destructive" data-testid={`app-mangel-${app.id}`}>
+            nicht lieferbar
           </span>
         ) : (
-          <span className="text-muted-foreground">nicht live</span>
-        )}
-        {app.staende.test && (
-          <span className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-mono font-medium text-muted-foreground">
-            test {app.staende.test.version}
+          <span className="text-muted-foreground" data-testid={`app-zustand-${app.id}`}>
+            {satz}
           </span>
         )}
-        {/* Ein Stand, der nicht ausgeliefert werden kann, steht schon in der
-            Liste rot da und nicht erst nach dem Klick (Auftrag app-leiche). */}
-        {(app.staende.live?.lieferbar === false || app.staende.test?.lieferbar === false) && (
+        {test && (
           <span
-            className="rounded bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive"
-            data-testid={`app-mangel-${app.id}`}
+            className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
+            data-testid={`app-tag-test-${app.id}`}
           >
-            nicht lieferbar
+            (Test)
           </span>
         )}
       </span>
-      <BibliothekSpalte app={app} />
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>
   );
 }
 
-export function AppsSettings() {
+export function AppsSettings({
+  appId,
+  onOeffnen,
+}: {
+  /** Die offene App aus der Adresse; ohne Angabe merkt sich die Liste sie selbst. */
+  appId?: string | null;
+  onOeffnen?: (id: string | null) => void;
+} = {}) {
   const { data: apps, isLoading, isError } = useAlleApps();
-  const [offen, setOffen] = useState<string | null>(null);
+  const [lokal, setLokal] = useState<string | null>(null);
+  const offen = appId !== undefined ? appId : lokal;
+  const oeffnen = onOeffnen ?? setLokal;
 
   if (offen) {
     return (
       <div className="animate-in fade-in" data-testid="apps-seite">
-        <AppAnsicht appId={offen} onZurueck={() => setOffen(null)} />
+        <AppAnsicht key={offen} appId={offen} onZurueck={() => oeffnen(null)} />
       </div>
     );
   }
@@ -141,7 +103,7 @@ export function AppsSettings() {
       <Kopf
         titel="Apps"
         symbol={<AppWindow />}
-        beschreibung="Was auf diesem Gerät läuft: Fassungen, Zustand, Flows und Läufe."
+        beschreibung="Was auf diesem Gerät läuft. Jede App hat eine Seite mit allem, was sie tut und darf."
       />
 
       {isLoading ? (
@@ -162,7 +124,7 @@ export function AppsSettings() {
         <ul className="rounded-md border border-border" data-testid="app-liste">
           {(apps ?? []).map(app => (
             <li key={app.id}>
-              <AppZeileKnopf app={app} onOeffnen={() => setOffen(app.id)} />
+              <AppZeileKnopf app={app} onOeffnen={() => oeffnen(app.id)} />
             </li>
           ))}
         </ul>

@@ -41,13 +41,13 @@ function AppKachel({
 }) {
   return (
     <Karte
-      titel={eintrag.name}
+      titel={eintrag.stand === 'test' ? `(Test) ${eintrag.name}` : eintrag.name}
       symbol={<AppWindow />}
       onKlick={onOeffnen}
       kennzeichen={`uebersicht-app-${eintrag.id}-${eintrag.stand}`}
-      /* Der Teststand-Hinweis fuer Tester (D2): das Wort allein sagt nicht,
-         was daran anders ist. Wer eine App in zwei Staenden vor sich hat,
-         muss beim Anklicken wissen, welche Fassung er gleich bedient. */
+      /* Der Teststand steht als „(Test) Name" im Titel, wie in der Leiste
+         (M5): wer eine App in zwei Fassungen vor sich hat, muss beim
+         Anklicken wissen, welche er gleich bedient. */
       hinweis={
         <span className="inline-flex items-center gap-2">
           {/* Höchstens eine Zahl (J36): wer wissen will, worum es geht, öffnet die App. */}
@@ -59,14 +59,6 @@ function AppKachel({
               aria-label={wartend === 1 ? '1 Freigabe wartet' : `${wartend} Freigaben warten`}
             >
               {wartend}
-            </span>
-          )}
-          {eintrag.stand === 'test' && (
-            <span
-              className="text-muted-foreground"
-              title="Test: diese Fassung ist noch nicht live. Was Sie hier tun, ist ein Test."
-            >
-              Test
             </span>
           )}
         </span>

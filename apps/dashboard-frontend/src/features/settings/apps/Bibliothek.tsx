@@ -37,7 +37,7 @@
  * denn diese Adresse liefert das Gerät nicht aus.
  */
 import { AlertTriangle } from 'lucide-react';
-import { Badge, FASSUNG } from '@marken';
+import { FASSUNG } from '@marken';
 
 /** Drei Zahlen als Zahlen: `3.10.0` steht hinter `3.9.0` und nicht davor. */
 function zahlen(fassung: string): number[] {
@@ -80,7 +80,7 @@ type BibliothekBefund =
   | { art: 'laufzeit-fremd'; fassung: string }
   | { art: 'fehlt' };
 
-export function bibliothekBefund(fassung: string | null, hatFrontend: boolean): BibliothekBefund {
+function bibliothekBefund(fassung: string | null, hatFrontend: boolean): BibliothekBefund {
   if (!hatFrontend) {
     return { art: 'ohne-frontend' };
   }
@@ -101,34 +101,34 @@ function warnt(befund: BibliothekBefund): boolean {
   return befund.art === 'aelter' || befund.art === 'fehlt' || befund.art === 'laufzeit-fremd';
 }
 
-/** Der Befund in Worten — dieselben in Liste und Karte. */
-function wortlaut(befund: BibliothekBefund, knapp: boolean): string {
+/** Warnt die Bibliothek dieses Standes? Die Karte zeigt sie dann offen, sonst nur aufgeklappt. */
+export function bibliothekWarnt(fassung: string | null, hatFrontend: boolean): boolean {
+  return warnt(bibliothekBefund(fassung, hatFrontend));
+}
+
+/** Der Befund in Worten. */
+function wortlaut(befund: BibliothekBefund): string {
   switch (befund.art) {
     case 'ohne-frontend':
-      return knapp ? 'ohne Oberfläche' : 'ohne Oberfläche, braucht keine Bibliothek';
+      return 'ohne Oberfläche, braucht keine Bibliothek';
     case 'gleich':
       return befund.fassung;
     case 'aelter':
-      return knapp
-        ? `${befund.fassung}, älter als das Gerät`
-        : `${befund.fassung}, älter als das Gerät (${FASSUNG})`;
+      return `${befund.fassung}, älter als das Gerät (${FASSUNG})`;
     case 'neuer':
-      return knapp
-        ? `${befund.fassung}, neuer als das Gerät`
-        : `${befund.fassung}, neuer als das Gerät (${FASSUNG})`;
+      return `${befund.fassung}, neuer als das Gerät (${FASSUNG})`;
     case 'fehlt':
-      return knapp ? 'nicht genannt' : 'nicht genannt: die App sagt nicht, worauf sie steht';
+      return 'nicht genannt: die App sagt nicht, worauf sie steht';
     case 'laufzeit':
-      return knapp ? `vom Gerät, ${FASSUNG}` : `vom Gerät zur Laufzeit, ${FASSUNG}`;
+      return `vom Gerät zur Laufzeit, ${FASSUNG}`;
     case 'laufzeit-fremd':
-      return knapp
-        ? `vom Gerät, ${befund.fassung} statt ${HAUPT}`
-        : `vom Gerät zur Laufzeit, aber Hauptzahl ${befund.fassung}: das Gerät liefert ${HAUPT} (${FASSUNG})`;
+      return `vom Gerät zur Laufzeit, aber Hauptzahl ${befund.fassung}: das Gerät liefert ${HAUPT} (${FASSUNG})`;
   }
 }
 
 /**
- * Die Fassung als Text (Karte) oder als Abzeichen (Liste, `knapp`).
+ * Die Fassung als Text, auf der Seite der App (seit M5 nicht mehr in der Liste:
+ * höchstens ein Tag je Zeile).
  *
  * `data-warnung` steht am Element, damit eine Abnahme fragen kann, OB gewarnt
  * wird, und nicht nur, was dasteht — die Frage des Auftrags ist genau die.
@@ -136,31 +136,15 @@ function wortlaut(befund: BibliothekBefund, knapp: boolean): string {
 export function Bibliothek({
   fassung,
   hatFrontend,
-  knapp = false,
   'data-testid': testId = 'marken-fassung',
 }: {
   fassung: string | null;
   hatFrontend: boolean;
-  knapp?: boolean;
   'data-testid'?: string;
 }) {
   const befund = bibliothekBefund(fassung, hatFrontend);
   const warnung = warnt(befund);
-  const text = wortlaut(befund, knapp);
-
-  if (knapp) {
-    return (
-      <Badge
-        variant={warnung ? 'warning' : 'outline'}
-        data-testid={testId}
-        data-befund={befund.art}
-        data-warnung={warnung ? 'true' : undefined}
-      >
-        {warnung && <AlertTriangle aria-hidden="true" />}
-        {text}
-      </Badge>
-    );
-  }
+  const text = wortlaut(befund);
 
   if (warnung) {
     return (

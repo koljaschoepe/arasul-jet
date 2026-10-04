@@ -17,7 +17,7 @@ import { Activity, ArrowLeftRight, Rocket, TriangleAlert } from 'lucide-react';
 import { Button, cn } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import { TechnischeAngaben } from '@/features/system/TechnischeAngaben';
-import { Bibliothek } from './Bibliothek';
+import { Bibliothek, bibliothekWarnt } from './Bibliothek';
 import type { AppSchaltung, AppStandDetail, Backendzustand } from './useAppVerwaltung';
 
 /**
@@ -154,18 +154,19 @@ function StandKarte({
   aktion?: React.ReactNode;
   hinweis?: React.ReactNode;
 }) {
+  const hatFrontend = detail?.dateien.frontend !== null;
   return (
     <div
       className="flex flex-col gap-2 rounded-md border border-border p-ui-3"
       data-testid={`stand-${stand}`}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-semibold text-foreground">
-          {stand === 'live' ? 'Livestand' : 'Teststand'}
+          {stand === 'live' ? 'Livefassung' : 'Testfassung'}
         </span>
         {detail && (
           <span
-            className="rounded bg-accent px-1.5 py-0.5 font-mono text-ui-xs text-foreground"
+            className="font-mono text-ui-xs text-muted-foreground"
             data-testid={`version-${stand}`}
           >
             {detail.version}
@@ -180,47 +181,53 @@ function StandKarte({
             : 'Nichts in Test. Eine neue Fassung bringt Ihr Partner auf das Gerät.'}
         </p>
       ) : (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">Zustand</dt>
-          <dd>
-            <Gesundheit backend={detail.backend} mangel={detail.lieferbar ? null : detail.mangel} />
-          </dd>
-          <dt className="text-muted-foreground">Eingespielt</dt>
-          <dd className="text-foreground">{formatDate(detail.eingespielt_am)}</dd>
-          {/* Was der Entwickler beim Ausrollen schrieb (Kontrakt 8, M5). */}
-          {detail.aenderungstext && (
-            <>
-              <dt className="text-muted-foreground">Neu</dt>
-              <dd
-                className="whitespace-pre-line text-foreground"
-                data-testid={`aenderungstext-${stand}`}
-              >
-                {detail.aenderungstext}
-              </dd>
-            </>
-          )}
-          {detail.vorige_version && (
-            <>
-              <dt className="text-muted-foreground">Davor</dt>
-              <dd className="font-mono text-foreground">{detail.vorige_version}</dd>
-            </>
-          )}
-          <dt className="text-muted-foreground">Flows</dt>
-          <dd className="text-foreground">{detail.flows.length}</dd>
-          {/* Die Fassung des Designsystems (H6). Warnt bei einer älteren oder
-              fehlenden — aber nur, wenn der Stand ein Frontend hat: ein
-              Container ohne Oberfläche braucht keine Bibliothek. */}
-          <dt className="text-muted-foreground">Bibliothek</dt>
-          <dd>
-            <Bibliothek fassung={detail.marken} hatFrontend={detail.dateien.frontend !== null} />
-          </dd>
-          {detail.pfad && (
-            <>
-              <dt className="text-muted-foreground">Weg</dt>
-              <dd className="truncate font-mono text-ui-xs text-muted-foreground">{detail.pfad}</dd>
-            </>
-          )}
-        </dl>
+        <>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+            <dt className="text-muted-foreground">Zustand</dt>
+            <dd>
+              <Gesundheit
+                backend={detail.backend}
+                mangel={detail.lieferbar ? null : detail.mangel}
+              />
+            </dd>
+            {/* Was der Entwickler beim Ausrollen schrieb (Kontrakt 8, M5). */}
+            {detail.aenderungstext && (
+              <>
+                <dt className="text-muted-foreground">Neu</dt>
+                <dd
+                  className="whitespace-pre-line text-foreground"
+                  data-testid={`aenderungstext-${stand}`}
+                >
+                  {detail.aenderungstext}
+                </dd>
+              </>
+            )}
+            {/* Die Bibliothek offen nur, wenn sie warnt (H6): sonst ist sie
+                Technik und steht aufgeklappt darunter. */}
+            {bibliothekWarnt(detail.marken, hatFrontend) && (
+              <>
+                <dt className="text-muted-foreground">Bibliothek</dt>
+                <dd>
+                  <Bibliothek fassung={detail.marken} hatFrontend={hatFrontend} />
+                </dd>
+              </>
+            )}
+          </dl>
+          <TechnischeAngaben
+            kennzeichen={`stand-${stand}-technik`}
+            angaben={[
+              { beschriftung: 'Fassung', wert: detail.version },
+              { beschriftung: 'Davor', wert: detail.vorige_version },
+              { beschriftung: 'Eingespielt', wert: formatDate(detail.eingespielt_am) },
+              { beschriftung: 'Weg', wert: detail.pfad },
+              {
+                beschriftung: 'Bibliothek',
+                wert: hatFrontend ? (detail.marken ?? 'nicht genannt') : 'ohne Oberfläche',
+              },
+              { beschriftung: 'Server-Teil', wert: detail.backend?.status ?? null },
+            ]}
+          />
+        </>
       )}
 
       {hinweis}

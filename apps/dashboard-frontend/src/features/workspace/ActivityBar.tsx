@@ -136,7 +136,7 @@ function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
  *
  * Die Apps kommen aus `GET /api/apps/meine` — auch beim Administrator nur
  * die, die ihm freigegeben sind. Eine App mit Live- und Teststand steht
- * zweimal da (`zuEintraegen`), der Teststand mit „(Test)" im Namen.
+ * zweimal da (`zuEintraegen`), der Teststand als „(Test) Name" (M5).
  */
 export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void }) {
   const { user } = useAuth();
@@ -179,7 +179,7 @@ export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void
       >
         {eintraege.map(e => {
           const id = ansichtId({ type: 'app', appId: e.id, stand: e.stand });
-          const name = e.stand === 'test' ? `${e.name} (Test)` : e.name;
+          const name = e.stand === 'test' ? `(Test) ${e.name}` : e.name;
           return (
             <LeistenKnopf
               key={id}
