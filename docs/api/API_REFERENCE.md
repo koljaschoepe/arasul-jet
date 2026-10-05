@@ -887,9 +887,10 @@ Ergebnis einer echten Nacht, das noch nicht gelesen ist (`null`, wenn keins).
 `ergebnis` ist einer von `laeuft`, `eingespielt`, `zurueckgefallen`,
 `fehlgeschlagen`, `uebersprungen` (mit `grund`: kein Platz, keine Sicherung,
 Netz weg, …), `nichts_zu_tun` oder `trockenlauf`. Der Trockenlauf macht
-dieselbe Vorprüfung wie das Einspielen, fragt, ob die letzte Sicherung gelang
-und gerade keine läuft, schreibt eine Zeile mit `trocken: true` und verändert
-nichts. Der Schalter ist aus als Vorgabe. Die Regeln des Fensters:
+dieselbe Vorprüfung wie das Einspielen, fragt, ob gerade eine Sicherung läuft
+(dann `uebersprungen`), nennt eine misslungene letzte Sicherung als Warnung im
+`grund` (die Nacht sichert frisch), schreibt eine Zeile mit `trocken: true` und
+verändert nichts. Gestartet wird im Fenster nur bis 03:30. Der Schalter ist aus als Vorgabe. Die Regeln des Fensters:
 [ADMIN_HANDBUCH.md](../ops/ADMIN_HANDBUCH.md#6-system-updates).
 
 **GET /api/update/check** und **POST /api/update/download** verlangen

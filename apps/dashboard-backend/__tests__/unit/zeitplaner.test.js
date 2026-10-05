@@ -202,6 +202,47 @@ describe('takt', () => {
     expect(aufrufe.some(s => /FROM public\.app_flows/.test(s))).toBe(false);
   });
 
+  // Befund 4 der zweiten Pruefung (05.10.2026): die Marke rueckte vor, auch
+  // wenn ein Flow geworfen hatte, bevor sein Termin eingetragen war. Der
+  // Termin war verloren, ohne Zeile, ohne Grund.
+  it('scheitert ein Flow vor dem Eintrag, rueckt geprueft_bis nicht vor', async () => {
+    const aufrufe = [];
+    let marke = new Date(T - MIN);
+    const db = {
+      query: jest.fn(async (sql, params) => {
+        aufrufe.push(sql);
+        if (/SELECT geprueft_bis/.test(sql)) {
+          return { rows: [{ geprueft_bis: marke }] };
+        }
+        if (/FROM public\.app_flows/.test(sql)) {
+          return {
+            rows: [
+              {
+                app_id: 'urlaub',
+                name: 'bericht',
+                ausloeser: [{ typ: 'zeitplan', zeitplan: '0 6 * * 1-5' }],
+                pausiert: false,
+                aktiv: true,
+              },
+            ],
+          };
+        }
+        if (/SELECT MAX\(termin\)/.test(sql)) {
+          throw new Error('Verbindung weg');
+        }
+        if (/UPDATE public\.flow_zeitplaner SET geprueft_bis/.test(sql)) {
+          marke = params[0];
+        }
+        return { rows: [], rowCount: 1 };
+      }),
+    };
+    expect(await zeitplaner.takt(T + 10 * 1000, { datenbank: db })).toEqual([]);
+    expect(aufrufe.some(s => /UPDATE public\.flow_zeitplaner SET geprueft_bis/.test(s))).toBe(
+      false
+    );
+    expect(marke.getTime()).toBe(T - MIN);
+  });
+
   it('zwei Takte in derselben Minute tun nichts', async () => {
     const db = { query: jest.fn(async () => ({ rows: [{ geprueft_bis: new Date(T) }] })) };
     expect(await zeitplaner.takt(T + 20 * 1000, { datenbank: db })).toEqual([]);

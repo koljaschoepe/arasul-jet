@@ -11,8 +11,11 @@
  * DIE REGELN, und jede steht auch im Admin-Handbuch:
  *
  *   FESTES FENSTER. Von 02:00 bis 04:00 Uhr in der Zeit des Geräts (`TZ`,
- *     Vorgabe Europe/Berlin). Es beginnt mit dem ersten Takt ab 02:00; wer um
- *     03:50 erst zurückkommt, startet nichts mehr.
+ *     Vorgabe Europe/Berlin). Es beginnt mit dem ersten Takt ab 02:00.
+ *     Gestartet wird nur bis 03:30 (`LETZTER_START`): Paket, Sicherung, Bau,
+ *     bis zu fünf Minuten Warten auf Gesundheit und ein möglicher Rückfall
+ *     sollen vor 04:00 durch sein. Wer erst um 03:30 oder später zurückkommt
+ *     (Neustart, Stromausfall), startet in dieser Nacht nichts mehr.
  *   GENAU EINMAL JE NACHT. Das Fenster ist eine Zeile in `update_nacht_laeufe`
  *     (Datum des Beginns); wer sie anlegt, führt die Nacht aus. Ein Neustart des
  *     Backends mitten in der Nacht, die Rückkehr der Uhr bei der Zeitumstellung
@@ -40,12 +43,20 @@ const TAKT_MS = 60 * 1000;
 /** Das Fenster: ab BEGINN_STUNDE (einschließlich) bis ENDE_STUNDE (ausschließlich). */
 const BEGINN_STUNDE = 2;
 const ENDE_STUNDE = 4;
+/** Ab dieser Uhrzeit (Minuten nach Mitternacht) startet im Fenster nichts mehr: 03:30. */
+const LETZTER_START = 3 * 60 + 30;
 /** Ein Lauf, der so lange nichts meldet, gilt als abgebrochen. */
 const KEIN_ERGEBNIS_MS = 3 * 60 * MIN;
 /** So lange steht ein Ergebnis als Hinweis auf der Startseite. */
 const HINWEIS_TAGE = 3;
 
 const zwei = n => String(n).padStart(2, '0');
+
+/** Ist es im Fenster zu spät, um noch zu starten (ab `LETZTER_START`)? */
+function zuSpaet(ms, zone = ZEITZONE) {
+  const w = zeitplan.wand(ms, zone);
+  return w.stunde * 60 + w.minute >= LETZTER_START;
+}
 
 /** Liegt der Zeitpunkt im Fenster? Dann das Fenster als Datum seines Beginns, sonst `null`. */
 function fensterVon(ms, zone = ZEITZONE) {
@@ -188,7 +199,13 @@ function ergebnisAusFehler(fehler) {
 
 /**
  * Der Trockenlauf des Ablaufs: dieselbe Vorprüfung wie das echte Einspielen,
- * dazu die Frage, ob eine Sicherung vorher möglich ist. Verändert nichts.
+ * dazu die Frage, ob die Sicherung vorher an die Reihe käme. Verändert nichts.
+ *
+ * Die letzte Sicherung zählt nur als Warnung, nicht als Grund: die Nacht legt
+ * ohnehin eine frische an (`fassungsdienst.spieleEin`), und erst wenn DIE
+ * scheitert, wird nichts eingespielt. Ein Trockenlauf, der wegen einer alten
+ * misslungenen Sicherung „übersprungen“ sagt, während die Nacht einspielen
+ * würde, sagte die Nacht falsch voraus.
  *
  * @returns {Promise<{ergebnis: string, grund: string, von?: string, nach?: string}>}
  */
@@ -208,18 +225,13 @@ async function pruefeAblauf() {
       nach: vor.ziel,
     };
   }
-  if (sicherung.letzteSicherung?.status !== 'completed') {
-    return {
-      ergebnis: 'uebersprungen',
-      grund:
-        'Die letzte Sicherung ist nicht gelungen. Solange das so ist, wäre die Sicherung vor dem Einspielen unsicher, und ohne sie wird nichts eingespielt.',
-      von: vor.aktuell,
-      nach: vor.ziel,
-    };
-  }
+  const warnung =
+    sicherung.letzteSicherung && sicherung.letzteSicherung.status !== 'completed'
+      ? ' Achtung: die letzte Sicherung ist nicht gelungen. Scheitert auch die vor dem Einspielen, wird in der Nacht nichts eingespielt.'
+      : '';
   return {
     ergebnis: 'trockenlauf',
-    grund: `Eingespielt würde ${vor.ziel} (jetzt ${vor.aktuell}); vorher würde gesichert. Es wurde nichts verändert.`,
+    grund: `Eingespielt würde ${vor.ziel} (jetzt ${vor.aktuell}); vorher würde gesichert. Es wurde nichts verändert.${warnung}`,
     von: vor.aktuell,
     nach: vor.ziel,
   };
@@ -351,7 +363,7 @@ async function schliesseOffeneAb({ jetzt = Date.now(), datenbank = db } = {}) {
 async function takt({ jetzt = Date.now(), datenbank = db } = {}) {
   await schliesseOffeneAb({ jetzt, datenbank });
   const fenster = fensterVon(jetzt);
-  if (!fenster || !(await istAn(datenbank))) {
+  if (!fenster || zuSpaet(jetzt) || !(await istAn(datenbank))) {
     return null;
   }
   const { rows } = await datenbank.query(

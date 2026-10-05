@@ -9,6 +9,8 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { validateQuery } = require('../../middleware/validate');
+const { GdprExportQuery } = require('../../schemas/gdpr');
 const { ValidationError, ForbiddenError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
@@ -25,15 +27,8 @@ const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
  * an der Route: der Export steht auch Mitarbeitern für das eigene Konto offen.
  */
 async function auskunftsPerson(req) {
-  const roh = req.query.benutzer;
-  if (roh === undefined || roh === '') {
-    return { id: req.user.id, username: req.user.username, fremd: false };
-  }
-  const id = Number(roh);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new ValidationError('`benutzer` muss die Nummer einer Person sein.');
-  }
-  if (id === Number(req.user.id)) {
+  const id = req.query.benutzer; // gelesen von `GdprExportQuery`
+  if (id === undefined || id === Number(req.user.id)) {
     return { id: req.user.id, username: req.user.username, fremd: false };
   }
   if (req.user.role !== 'admin') {
@@ -52,6 +47,7 @@ router.get(
   '/export',
   requireAuth,
   requireRole('admin', 'mitarbeiter'),
+  validateQuery(GdprExportQuery),
   asyncHandler(async (req, res) => {
     const person = await auskunftsPerson(req);
     const userId = person.id;

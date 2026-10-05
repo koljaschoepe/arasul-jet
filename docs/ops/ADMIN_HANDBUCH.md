@@ -496,8 +496,10 @@ Sicherungen wie auf Knopfdruck:
 
 - **Das Fenster** liegt fest zwischen **02:00 und 04:00 Uhr** in der Zeit des
   Geräts (Zeitzone `TZ`, Vorgabe `Europe/Berlin`; die Seite nennt sie und den
-  nächsten Beginn). Es beginnt mit dem ersten Takt ab 02:00. Läuft das Gerät
-  in dieser Zeit nicht, wird nicht nachgeholt, die nächste Nacht kommt.
+  nächsten Beginn). Es beginnt mit dem ersten Takt ab 02:00. Gestartet wird
+  nur bis 03:30, damit Einspielen, Prüfung und ein möglicher Rückweg vor 04:00
+  fertig sind. Läuft das Gerät in dieser Zeit nicht, wird nicht nachgeholt, die
+  nächste Nacht kommt.
   Zeigt die Uhr bei der Umstellung auf Winterzeit die Stunde zweimal, zählt
   es trotzdem nur einmal.
 - **Vorher wird gesichert**, als eigener Stand mit dem Vermerk „vor dem
@@ -513,9 +515,11 @@ Sicherungen wie auf Knopfdruck:
   Gerät → Aktualisierung, höchstens drei Tage. Eine Nacht, in der es nichts
   einzuspielen gab, meldet nichts.
 - **„Ablauf prüfen“** unter dem Schalter ist ein Trockenlauf: er prüft, was
-  eine Nacht vorher prüft (Weg frei, neuere Fassung da, Platz, letzte Sicherung
-  gelungen), und berichtet. Er spielt nichts ein, sichert nichts und belegt das
-  Fenster nicht.
+  eine Nacht vorher prüft (Weg frei, neuere Fassung da, Platz, keine Sicherung
+  läuft gerade), und berichtet. Ist die letzte Sicherung nicht gelungen, sagt
+  er es als Warnung dazu: die Nacht legt ohnehin eine frische an, und erst wenn
+  die scheitert, wird nichts eingespielt. Er spielt nichts ein, sichert nichts
+  und belegt das Fenster nicht.
 
 Das Gerät ist beim Umschalten einige Minuten nicht erreichbar; wer um diese
 Zeit arbeitet, merkt es. Wer das nicht will, lässt den Schalter aus und

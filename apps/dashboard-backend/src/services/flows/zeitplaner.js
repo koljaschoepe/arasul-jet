@@ -29,7 +29,8 @@
  *     Admin hat sie ausgesetzt.
  *   OHNE MENSCHEN. Der Lauf hat als Ausloeser `zeitplan` und keinen
  *     Einreicher. Besitzer ist, wem der Livestand-Schluessel der App gehoert;
- *     fehlt der (Konto geloescht), der aelteste aktive Admin -- sonst stuende
+ *     fehlt der (Konto geloescht oder stillgelegt), der aelteste aktive
+ *     Admin -- sonst stuende
  *     ein Zeitplan nach fuenf Jahren und einem Personalwechsel still.
  *   OHNE ARGUMENTE. Ein Flow mit einem Pflichtargument ohne Vorgabe kann nicht
  *     nach Zeitplan laufen; sein Termin wird mit diesem Grund uebersprungen.
@@ -123,12 +124,17 @@ async function beanspruche({ appId, flowName, termin, ergebnis, grund = null }, 
   return rowCount === 1;
 }
 
-/** Wem gehoert der Lauf: der Schluessel des Livestandes, sonst ein Admin. */
+/**
+ * Wem gehoert der Lauf: der Schluessel des Livestandes, sonst ein Admin. Nur
+ * ein AKTIVES Konto: ein stillgelegtes behielte sonst den Zeitplan, und jede
+ * Route des Laufs wiese ihn ab (`tools/route.personDesLaufs`).
+ */
 async function besitzer(appId, datenbank = db) {
   const schluessel = await datenbank.query(
-    `SELECT created_by FROM public.api_keys
-      WHERE app_id = $1 AND stand = 'live' AND created_by IS NOT NULL
-      ORDER BY id DESC LIMIT 1`,
+    `SELECT k.created_by FROM public.api_keys k
+       JOIN public.admin_users u ON u.id = k.created_by AND u.is_active = TRUE
+      WHERE k.app_id = $1 AND k.stand = 'live'
+      ORDER BY k.id DESC LIMIT 1`,
     [appId]
   );
   if (schluessel.rows[0]) {
@@ -295,6 +301,7 @@ async function takt(jetzt = Date.now(), deps = {}) {
   }
 
   const getan = [];
+  let gescheitert = false;
   for (const flow of await ladePlaene({ datenbank })) {
     try {
       const termine = zeitplan.faellige(flow.plaene, von, bis);
@@ -303,10 +310,18 @@ async function takt(jetzt = Date.now(), deps = {}) {
         getan.push({ app: flow.appId, flow: flow.flowName, ergebnis: was });
       }
     } catch (err) {
+      gescheitert = true;
       logger.error(`Zeitplaner: ${flow.appId}/${flow.flowName}: ${err.message}`);
     }
   }
 
+  // Ist ein Flow gescheitert, bevor sein Termin eingetragen war, rueckt die
+  // Marke nicht vor: der naechste Takt sieht denselben Zeitraum noch einmal.
+  // Fuer die anderen Flows ist das harmlos -- was schon eingetragen ist,
+  // filtert `bearbeite` aus, und der Primaerschluessel haelt den Rest.
+  if (gescheitert) {
+    return getan;
+  }
   await datenbank.query('UPDATE public.flow_zeitplaner SET geprueft_bis = $1 WHERE id = 1', [
     new Date(bis),
   ]);
